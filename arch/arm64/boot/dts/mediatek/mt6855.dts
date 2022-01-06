@@ -4746,15 +4746,15 @@
 		mminfra-debug@1e827000 {
 			compatible = "mediatek,mminfra-debug";
 			reg = <0 0x1e827000 0 0x80>;
-			//power-domains = <&scpsys MT6855_POWER_DOMAIN_MM_INFRA>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_MM_INFRA>;
 			interrupts = <GIC_SPI 288 IRQ_TYPE_LEVEL_HIGH 0>;
 			mminfra-bkrs = <1>;
 			init-clk-on;
-			//clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_D>,
-					//<&mminfra_config_clk CLK_MMINFRA_GCE_M>,
-					//<&mminfra_config_clk CLK_MMINFRA_SMI>,
-					//<&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
-			//clock-names = "clk0", "clk1", "clk2", "clk3";
+			clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_D>,
+					<&mminfra_config_clk CLK_MMINFRA_GCE_M>,
+					<&mminfra_config_clk CLK_MMINFRA_SMI>,
+					<&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
+			clock-names = "clk0", "clk1", "clk2", "clk3";
 		};
 
 		gce: gce@1e980000 {
@@ -4775,12 +4775,12 @@
 					 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_MML_LOCK>,
 					 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_VFMT_LOCK>,
 					 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_DISP_LOCK>;
-			// power-domains = <&scpsys MT6855_POWER_DOMAIN_MM_INFRA>;
-			// mediatek,smi = <&smi_mdp_common>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_MM_INFRA>;
+			mediatek,smi = <&smi_mdp_subcommon0>;
 			// prebuilt-enable;
 			mboxes = <&gce 13 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
-			// clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_D>,
-			//	 <&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
+			clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_D>,
+				 <&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
 			clock-names = "gce","gce-timer";
 			// dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			// iommus = <&disp_iommu M4U_LARB32_GCE_DM>;
@@ -4793,7 +4793,7 @@
 			reg = <0 0x1e980000 0 0x4000>;
 			#mbox-cells = <3>;
 			mboxes = <&gce 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
-			// clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_D>;
+			clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_D>;
 			clock-names = "gce";
 		};
 
@@ -4815,12 +4815,12 @@
 					 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_MML_LOCK>,
 					 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_VFMT_LOCK>,
 					 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_DISP_LOCK>;
-			// power-domains = <&scpsys MT6855_POWER_DOMAIN_MM_INFRA>;
-			// mediatek,smi = <&smi_mdp_common>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_MM_INFRA>;
+			mediatek,smi = <&smi_mdp_subcommon0>;
 			// prebuilt-enable;
 			mboxes = <&gce_m 13 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
-			// clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_M>,
-			//	 <&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
+			clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_M>,
+				 <&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
 			clock-names = "gce","gce-timer";
 			// dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			// iommus = <&disp_iommu M4U_LARB32_GCE_MM>;
@@ -4833,7 +4833,7 @@
 			reg = <0 0x1e990000 0 0x4000>;
 			#mbox-cells = <3>;
 			mboxes = <&gce_m 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
-			// clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_M>;
+			clocks = <&mminfra_config_clk CLK_MMINFRA_GCE_M>;
 			clock-names = "gce";
 		};
 
