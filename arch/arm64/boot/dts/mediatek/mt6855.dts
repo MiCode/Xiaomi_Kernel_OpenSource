@@ -5139,7 +5139,7 @@
 			reg = <0 0x1502f000 0 0x1000>;
 			mediatek,smi = <&smi_mdp_subcommon1>;
 			mediatek,common-id = <5>;
-			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_MAIN>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_DIP1>;
 			clocks = <&imgsys1_clk CLK_IMGSYS1_LARB9>,
 					<&imgsys1_clk CLK_IMGSYS1_LARB9>,
 					<&imgsys1_clk CLK_IMGSYS1_LARB9>,
@@ -5274,7 +5274,7 @@
 			reg = <0 0x1502e000 0 0x1000>;
 			mediatek,smi = <&smi_img_subcommon>;
 			mediatek,larb-id = <9>;
-			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_MAIN>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_DIP1>;
 			clocks = <&imgsys1_clk CLK_IMGSYS1_LARB9>,
 					<&imgsys1_clk CLK_IMGSYS1_LARB9>;
 			clock-names = "apb", "smi";
@@ -5286,7 +5286,7 @@
 			reg = <0 0x1582e000 0 0x1000>;
 			mediatek,smi = <&smi_img_subcommon>;
 			mediatek,larb-id = <11>;
-			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_DIP1>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_ISP_MAIN>;
 			clocks = <&imgsys2_clk CLK_IMGSYS2_LARB9>,
 					<&imgsys2_clk CLK_IMGSYS2_LARB9>;
 			clock-names = "apb", "smi";
