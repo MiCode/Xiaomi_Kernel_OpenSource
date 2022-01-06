@@ -23,5 +23,7 @@ extern char *core_ids[VCP_CORE_TOTAL];
 extern void vcp_reset_awake_counts(void);
 extern int vcp_clr_spm_reg(void *unused);
 extern int vcp_awake_counts[];
-
+#if IS_ENABLED(CONFIG_MTK_EMI)
+extern void mtk_emidbg_dump(void);
+#endif
 #endif
