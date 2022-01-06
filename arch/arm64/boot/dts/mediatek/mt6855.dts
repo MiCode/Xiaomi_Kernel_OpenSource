@@ -4630,7 +4630,7 @@
 
 		mtk_dmabufheap_debug1: dmaheap_test1 {
 			compatible = "mediatek, mtk_dmabufheap, iommu1";
-			iommus = <&disp_iommu M4U_LARB1_PORT7>;
+			iommus = <&disp_iommu M4U_LARB1_PORT1>;
 		};
 
 		odm: odm {
