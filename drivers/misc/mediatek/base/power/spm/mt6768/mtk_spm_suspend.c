@@ -147,7 +147,7 @@ struct spm_wakesrc_irq_list spm_wakesrc_irqs[] = {
 	/* SCP A IPC2HOST */
 	{ WAKE_SRC_R12_SCP_SPM_IRQ_B, "mediatek,scp", 0, 0},
 	/* CLDMA_AP */
-	{ WAKE_SRC_R12_CLDMA_EVENT_B, "mediatek,mdcldma", 0, 0},
+	{ WAKE_SRC_R12_CLDMA_EVENT_B, "mediatek,mddriver", 0, 0},
 };
 
 #define IRQ_NUMBER	\
@@ -156,7 +156,6 @@ static void get_spm_wakesrc_irq(void)
 {
 	int i;
 	struct device_node *node;
-
 	for (i = 0; i < IRQ_NUMBER; i++) {
 		if (spm_wakesrc_irqs[i].name == NULL)
 			continue;
