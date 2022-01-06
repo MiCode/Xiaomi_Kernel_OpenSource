@@ -22,8 +22,8 @@
 
 #ifdef CONFIG_DRM_MEDIATEK
 #include "mtk_drm_arr.h"
-//#else
-//#include "disp_arr.h"
+#elif defined(CONFIG_MTK_HIGH_FRAME_RATE)
+#include "disp_arr.h"
 #endif
 
 #define CREATE_TRACE_POINTS
