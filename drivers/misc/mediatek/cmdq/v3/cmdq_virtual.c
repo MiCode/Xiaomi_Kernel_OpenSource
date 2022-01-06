@@ -321,7 +321,11 @@ int cmdq_virtual_disp_thread(enum CMDQ_SCENARIO_ENUM scenario)
 	case CMDQ_SCENARIO_DISP_CONFIG_SUB_PQ:
 	case CMDQ_SCENARIO_DISP_CONFIG_SUB_PWM:
 	case CMDQ_SCENARIO_SUB_MEMOUT:
+#if IS_ENABLED(CONFIG_MACH_MT6768)
+		return 3;
+#else
 		return 1;
+#endif
 
 
 	case CMDQ_SCENARIO_HIGHP_TRIGGER_LOOP:
