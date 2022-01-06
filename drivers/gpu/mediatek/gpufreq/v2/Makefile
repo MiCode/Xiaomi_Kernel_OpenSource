@@ -35,6 +35,11 @@ mtk_gpufreq_wrapper-y := \
 	gpufreq_debug.o \
 	gpu_misc.o
 
+mtk_gpufreq_mt6833-y := \
+	gpuppm.o \
+	gpufreq_mt6833.o \
+	gpudfd_mt6833.o
+
 mtk_gpufreq_mt6855-y := \
 	gpuppm.o \
 	gpufreq_mt6855.o \
@@ -60,6 +65,11 @@ mtk_gpufreq_mt6983-y := \
 	gpudfd_mt6983.o
 
 obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_wrapper.o
+ifneq ($(wildcard $(srctree)/$(src)/gpufreq_mt6833.c),)
+ifneq ($(wildcard $(srctree)/$(src)/gpudfd_mt6833.c),)
+obj-$(CONFIG_MTK_GPU_MT6833_SUPPORT) += mtk_gpufreq_mt6833.o
+endif
+endif
 ifneq ($(wildcard $(srctree)/$(src)/gpufreq_mt6855.c),)
 ifneq ($(wildcard $(srctree)/$(src)/gpudfd_mt6855.c),)
 obj-$(CONFIG_MTK_GPU_MT6855_SUPPORT) += mtk_gpufreq_mt6855.o
