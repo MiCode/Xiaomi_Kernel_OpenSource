@@ -3086,6 +3086,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	unsigned int prop_lye_idx;
 	unsigned int pan_disp_frame_weight = 4;
 	bool hrt_valid = false;
+	static unsigned int invalid_commit_count;
 
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
@@ -3147,10 +3148,26 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	}
 	/*set_hrt_bw for pan display ,set 4 for two RGB layer*/
 	if (index == 0 && hrt_valid == false) {
-		DDPMSG("%s frame:%u correct invalid hrt to:%u, mode:%u->%u\n",
-			__func__, prop_lye_idx, pan_disp_frame_weight,
+		unsigned int fence_idx = crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX];
+
+		DDPMSG("%s pf:%u hrt:%u correct invalid hrt to:%u, mode:%u->%u\n",
+			__func__, fence_idx, prop_lye_idx, pan_disp_frame_weight,
 			old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
 			crtc_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+		/* check invalid atomic commit and dump process backtrace */
+		if (fence_idx == 0 && prop_lye_idx == 0 &&
+		    mtk_drm_has_valid_layer() == true) {
+			invalid_commit_count++;
+			DDPPR_ERR("%s,%d, invalid atomic commit from pid:%s-%d/%s-%d, count:%u\n",
+				__func__, __LINE__,
+				current->group_leader->comm,
+				task_tgid_nr(current),
+				current->comm, task_pid_nr(current),
+				invalid_commit_count);
+
+			WARN_ON(invalid_commit_count > 2);
+		}
 		/*
 		 * prop_lye_idx is 0 when suspend. Update display mode to avoid
 		 * the dsi params not sync with the mode of new crtc state.
@@ -3162,7 +3179,10 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 			cmdq_handle);
 		DRM_MMP_MARK(layering_blob, 0,
 			pan_disp_frame_weight | 0xffff0000);
+	} else {
+		invalid_commit_count = 0;
 	}
+
 	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
 }
 

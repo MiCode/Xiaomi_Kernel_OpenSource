@@ -2813,6 +2813,11 @@ static int get_crtc_num(
 	return crtc_num;
 }
 
+inline bool mtk_drm_has_valid_layer(void)
+{
+	return g_hrt_valid;
+}
+
 static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 			       int debug_mode, struct drm_device *dev)
 {
