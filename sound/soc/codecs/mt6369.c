@@ -2098,7 +2098,8 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 	unsigned int mic_type2 = priv->mux_select[MUX_MIC_TYPE_2];
 	unsigned int vow_ch = 0;
 	unsigned int vow_mtkif_tx_div = 0;
-	unsigned int vow_top_con3 = 0x0000;
+	unsigned int vow_top_con6 = 0x00;
+	unsigned int vow_top_con7 = 0x00;
 	unsigned int is_dmic = 0;
 
 	dev_info(priv->dev, "%s(), event = 0x%x, mic_type0 = %d, mic_type2 = %d, vow_dmic_lp = %d\n",
@@ -2112,72 +2113,88 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 			if (priv->vow_dmic_lp)
 				/* LP DMIC settings : 812.5k */
 				regmap_update_bits(priv->regmap,
-						   MT6369_AFE_VOW_TOP_CON0,
-						   0x7C00, 0x3800);
+						   MT6369_AFE_VOW_TOP_CON1,
+						   0x7c, 0x38);
 			else
 				/* DMIC settings : 1600k */
 				regmap_update_bits(priv->regmap,
-						   MT6369_AFE_VOW_TOP_CON0,
-						   0x7C00, 0x1000);
+						   MT6369_AFE_VOW_TOP_CON1,
+						   0x7c, 0x10);
 			is_dmic = 1;
 		} else {
 			/* AMIC settings */
 			regmap_update_bits(priv->regmap,
-					   MT6369_AFE_VOW_TOP_CON0,
-					   0x7C00, 0x0000);
+					   MT6369_AFE_VOW_TOP_CON1,
+					   0x7c, 0x0);
 			is_dmic = 0;
 		}
 
 		/* Enable vow cfg setting */
 		/* VOW CH1 Config */
 		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG0,
-			     priv->reg_afe_vow_vad_cfg0);
-		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG2,
-			     priv->reg_afe_vow_vad_cfg1);
+			     priv->reg_afe_vow_vad_cfg0 & 0xff);
+		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG1,
+			     priv->reg_afe_vow_vad_cfg0 >> 8);
+
 		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG4,
-			     priv->reg_afe_vow_vad_cfg2);
-		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG6,
-			     priv->reg_afe_vow_vad_cfg3);
-		regmap_update_bits(priv->regmap, MT6369_AFE_VOW_VAD_CFG12,
+			     priv->reg_afe_vow_vad_cfg1 & 0xff);
+		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG5,
+			     priv->reg_afe_vow_vad_cfg1 >> 8);
+
+		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG8,
+			     priv->reg_afe_vow_vad_cfg2 & 0xff);
+		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG9,
+			     priv->reg_afe_vow_vad_cfg2 >> 8);
+
+		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG12,
+			     priv->reg_afe_vow_vad_cfg3 & 0xff);
+		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG13,
+			     priv->reg_afe_vow_vad_cfg3 >> 8);
+
+		regmap_update_bits(priv->regmap, MT6369_AFE_VOW_VAD_CFG24,
 				   K_GAMMA_CH1_MASK_SFT,
 				   priv->reg_afe_vow_vad_cfg4
 				   << K_GAMMA_CH1_SFT);
-		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG8,
-			     priv->reg_afe_vow_vad_cfg5);
+
+		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG16,
+			     priv->reg_afe_vow_vad_cfg5 & 0xff);
+		regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG17,
+			     priv->reg_afe_vow_vad_cfg5 >> 8);
+
 		if (is_dmic) {
 			/* VOW CH1 */
 			/* VOW ADC clk gate power off */
 			regmap_update_bits(priv->regmap,
-					   MT6369_AFE_VOW_TOP_CON1,
+					   MT6369_AFE_VOW_TOP_CON2,
 					   VOW_ADC_CK_PDN_CH1_MASK_SFT,
 					   0x1 << VOW_ADC_CK_PDN_CH1_SFT);
 			/* VOW clk gate power on */
 			regmap_update_bits(priv->regmap,
-					   MT6369_AFE_VOW_TOP_CON1,
+					   MT6369_AFE_VOW_TOP_CON2,
 					   VOW_CK_PDN_CH1_MASK_SFT,
 					   0x0);
 			/* DMIC power on */
 			/* DMIC select: dmic */
 			regmap_update_bits(priv->regmap,
-					   MT6369_AFE_VOW_TOP_CON1,
+					   MT6369_AFE_VOW_TOP_CON3,
 					   0x3 << VOW_DIGMIC_ON_CH1_SFT,
 					   0x1 << VOW_DIGMIC_ON_CH1_SFT);
 		} else {
 			/* VOW CH1 */
 			/* VOW ADC clk gate power on */
 			regmap_update_bits(priv->regmap,
-					   MT6369_AFE_VOW_TOP_CON1,
+					   MT6369_AFE_VOW_TOP_CON2,
 					   VOW_ADC_CK_PDN_CH1_MASK_SFT,
 					   0x0);
 			/* VOW clk gate power on */
 			regmap_update_bits(priv->regmap,
-					   MT6369_AFE_VOW_TOP_CON1,
+					   MT6369_AFE_VOW_TOP_CON2,
 					   VOW_CK_PDN_CH1_MASK_SFT,
 					   0x0);
 			/* DMIC power off */
 			/* DMIC select: amic */
 			regmap_update_bits(priv->regmap,
-					   MT6369_AFE_VOW_TOP_CON1,
+					   MT6369_AFE_VOW_TOP_CON3,
 					   0x3 << VOW_DIGMIC_ON_CH1_SFT,
 					   0x2 << VOW_DIGMIC_ON_CH1_SFT);
 		}
@@ -2185,113 +2202,39 @@ static int mt_vow_digital_cfg_event(struct snd_soc_dapm_widget *w,
 		vow_ch = VOW_MTKIF_TX_SET_MONO;  /* mono */
 		vow_mtkif_tx_div = VOW_MCLK / (VOW_MTKIF_TX_MONO_CLK * 2);
 
-		/* VOW CH2 Config */
-		if (priv->vow_channel == 2) {
-			regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG1,
-				     priv->reg_afe_vow_vad_cfg0);
-			regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG3,
-				     priv->reg_afe_vow_vad_cfg1);
-			regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG5,
-				     priv->reg_afe_vow_vad_cfg2);
-			regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG7,
-				     priv->reg_afe_vow_vad_cfg3);
-			regmap_update_bits(priv->regmap,
-					   MT6369_AFE_VOW_VAD_CFG12,
-					   K_GAMMA_CH2_MASK_SFT,
-					   priv->reg_afe_vow_vad_cfg4
-					   << K_GAMMA_CH2_SFT);
-			regmap_write(priv->regmap, MT6369_AFE_VOW_VAD_CFG9,
-				     priv->reg_afe_vow_vad_cfg5);
-			if (is_dmic) {
-				/* VOW CH2 */
-				/* VOW ADC clk gate power off */
-				regmap_update_bits(priv->regmap,
-						   MT6369_AFE_VOW_TOP_CON2,
-						   VOW_ADC_CK_PDN_CH2_MASK_SFT,
-						   0x1 << VOW_ADC_CK_PDN_CH2_SFT);
-				/* VOW clk gate power on */
-				regmap_update_bits(priv->regmap,
-						   MT6369_AFE_VOW_TOP_CON2,
-						   VOW_CK_PDN_CH2_MASK_SFT,
-						   0x0);
-				/* DMIC power on */
-				/* DMIC select: dmic */
-				regmap_update_bits(priv->regmap,
-						   MT6369_AFE_VOW_TOP_CON2,
-						   0x3 << VOW_DIGMIC_ON_CH2_SFT,
-						   0x1 << VOW_DIGMIC_ON_CH2_SFT);
-			} else {
-				/* VOW CH2 */
-				/* VOW ADC clk gate power on */
-				regmap_update_bits(priv->regmap,
-						   MT6369_AFE_VOW_TOP_CON2,
-						   VOW_ADC_CK_PDN_CH2_MASK_SFT,
-						   0x0);
-				/* VOW clk gate power on */
-				regmap_update_bits(priv->regmap,
-						   MT6369_AFE_VOW_TOP_CON2,
-						   VOW_CK_PDN_CH2_MASK_SFT,
-						   0x0);
-				/* DMIC power off */
-				/* DMIC select: amic */
-				regmap_update_bits(priv->regmap,
-						   MT6369_AFE_VOW_TOP_CON2,
-						   0x3 << VOW_DIGMIC_ON_CH2_SFT,
-						   0x2 << VOW_DIGMIC_ON_CH2_SFT);
-			}
-			/* MTKIF TX Setting */
-			vow_ch = VOW_MTKIF_TX_SET_STEREO;  /* stereo */
-			/* MTKIF TX DIV */
-			vow_mtkif_tx_div = VOW_MCLK /
-					   (VOW_MTKIF_TX_STEREO_CLK * 2);
-		}
-		vow_top_con3 = 0x0000;
+		vow_top_con6 = 0x00;
+		vow_top_con7 = 0x00;
 		/* disable SNRDET Auto power down */
-		vow_top_con3 |= (1 << VOW_P2_SNRDET_AUTO_PDN_SFT);
-		vow_top_con3 |= (vow_ch << VOW_TXIF_MONO_SFT);
-		vow_top_con3 |= (vow_mtkif_tx_div << VOW_TXIF_SCK_DIV_SFT);
-		regmap_write(priv->regmap, MT6369_AFE_VOW_TOP_CON3,
-			     vow_top_con3);
+		vow_top_con6 |= (1 << VOW_P2_SNRDET_AUTO_PDN_SFT);
+		vow_top_con6 |= (vow_mtkif_tx_div << VOW_TXIF_SCK_DIV_SFT);
+		vow_top_con7 |= (vow_ch << VOW_TXIF_MONO_SFT);
+		regmap_write(priv->regmap, MT6369_AFE_VOW_TOP_CON6,
+			     vow_top_con6);
+		regmap_write(priv->regmap, MT6369_AFE_VOW_TOP_CON7,
+			     vow_top_con7);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* AMIC/DMIC VOW Config Setting */
 		/* AMIC settings */
-		regmap_update_bits(priv->regmap, MT6369_AFE_VOW_TOP_CON0,
-				   0x7C00, 0x0000);
+		regmap_update_bits(priv->regmap, MT6369_AFE_VOW_TOP_CON1,
+				   0x7c, 0x0);
 		/* VOW CH1 */
 		/* VOW ADC clk gate power off */
 		regmap_update_bits(priv->regmap,
-				   MT6369_AFE_VOW_TOP_CON1,
+				   MT6369_AFE_VOW_TOP_CON2,
 				   VOW_ADC_CK_PDN_CH1_MASK_SFT,
 				   0x1 << VOW_ADC_CK_PDN_CH1_SFT);
 		/* VOW clk gate power off */
 		regmap_update_bits(priv->regmap,
-				   MT6369_AFE_VOW_TOP_CON1,
+				   MT6369_AFE_VOW_TOP_CON2,
 				   VOW_CK_PDN_CH1_MASK_SFT,
 				   0x1 << VOW_CK_PDN_CH1_SFT);
 		/* DMIC power off */
 		/* DMIC select: amic */
 		regmap_update_bits(priv->regmap,
-				   MT6369_AFE_VOW_TOP_CON1,
+				   MT6369_AFE_VOW_TOP_CON3,
 				   0x3 << VOW_DIGMIC_ON_CH1_SFT,
 				   0x2 << VOW_DIGMIC_ON_CH1_SFT);
-		/* VOW CH2 */
-		/* VOW ADC clk gate power off */
-		regmap_update_bits(priv->regmap,
-				   MT6369_AFE_VOW_TOP_CON2,
-				   VOW_ADC_CK_PDN_CH2_MASK_SFT,
-				   0x1 << VOW_ADC_CK_PDN_CH2_SFT);
-		/* VOW clk gate power off */
-		regmap_update_bits(priv->regmap,
-				   MT6369_AFE_VOW_TOP_CON2,
-				   VOW_CK_PDN_CH2_MASK_SFT,
-				   0x1 << VOW_CK_PDN_CH2_SFT);
-		/* DMIC power off */
-		/* DMIC select: amic */
-		regmap_update_bits(priv->regmap,
-				   MT6369_AFE_VOW_TOP_CON2,
-				   0x3 << VOW_DIGMIC_ON_CH2_SFT,
-				   0x2 << VOW_DIGMIC_ON_CH2_SFT);
 		break;
 	default:
 		break;
