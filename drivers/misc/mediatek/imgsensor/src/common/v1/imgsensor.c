@@ -2154,8 +2154,8 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 				//pr_debug("%x %x %x %x",
 				//pData->COLOR_R, pData->COLOR_Gr,
 				//pData->COLOR_Gb, pData->COLOR_B);
-				memcpy((void *)(pFeaturePara_64 + 1), (void *)pData,
-					sizeof(struct SET_SENSOR_PATTERN_SOLID_COLOR));
+				if (pFeaturePara_64 != NULL)
+					*(pFeaturePara_64 + 1) = (uintptr_t)pData;
 			}
 			ret = imgsensor_sensor_feature_control(psensor,
 					pFeatureCtrl->FeatureId,
@@ -2725,8 +2725,10 @@ static long imgsensor_ioctl(
 	}
 
 CAMERA_HW_Ioctl_EXIT:
-	if (pBuff != NULL)
+	if (pBuff != NULL) {
 		kfree(pBuff);
+		pBuff = NULL;
+	}
 	return i4RetValue;
 }
 

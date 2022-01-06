@@ -2491,7 +2491,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
 		set_test_pattern_mode((UINT32)*feature_data,
-		(struct SET_SENSOR_PATTERN_SOLID_COLOR *)(feature_data+1));
+		(struct SET_SENSOR_PATTERN_SOLID_COLOR *)(uintptr_t)(*(feature_data + 1)));
 		pr_debug("SENSOR_FEATURE_SET_TEST_PATTERN Enum:%d\n", (UINT32)*feature_data);
 		break;
 

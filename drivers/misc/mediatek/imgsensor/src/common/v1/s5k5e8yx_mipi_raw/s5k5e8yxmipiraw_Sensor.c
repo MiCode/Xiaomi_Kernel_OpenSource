@@ -1971,7 +1971,7 @@ static kal_uint32 feature_control(
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
 		set_test_pattern_mode((UINT32)*feature_data,
-		(struct SET_SENSOR_PATTERN_SOLID_COLOR *)(feature_data+1));
+		(struct SET_SENSOR_PATTERN_SOLID_COLOR *)(uintptr_t)(*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
 		*feature_return_para_32 = imgsensor_info.checksum_value;
