@@ -1315,7 +1315,7 @@
 	};
 
 	mmc0: mmc@11230000 {
-		compatible = "mediatek,common-mmc";
+		compatible = "mediatek,mt6779-mmc";
 		reg = <0 0x11230000 0 0x10000>,
 		      <0 0x11f50000 0 0x1000>;
 		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>;
@@ -1328,7 +1328,7 @@
 	};
 
 	mmc1: mmc@11240000 {
-		compatible = "mediatek,common-mmc";
+		compatible = "mediatek,mt6779-mmc";
 		reg = <0 0x11240000 0 0x1000>,
 		      <0 0x11c70000 0 0x1000>;
 		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
