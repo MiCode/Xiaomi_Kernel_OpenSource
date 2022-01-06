@@ -1105,7 +1105,7 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 
 		/* dump tile output for debug */
 		if (mtk_mml_msg)
-			dump_tile_output(task, pipe);
+			dump_tile_output(task->config->tile_output[pipe]);
 	} else {
 		if (task->state == MML_TASK_DUPLICATE) {
 			/* task need duplcicate before reuse */

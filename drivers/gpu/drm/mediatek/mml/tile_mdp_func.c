@@ -664,8 +664,8 @@ enum isp_tile_message tile_wrot_for(struct tile_func_block *ptr_func,
 	}
 
 	if (!ptr_tile_reg_map->skip_y_cal && !ptr_func->tdr_v_disable_flag) {
-		ptr_func->out_pos_ys =  ptr_func->in_pos_ys;
-		ptr_func->out_pos_ye =  ptr_func->in_pos_ye;
+		ptr_func->out_pos_ys = ptr_func->in_pos_ys;
+		ptr_func->out_pos_ye = ptr_func->in_pos_ye;
 
 		if (ptr_func->backward_output_ys_pos >= ptr_func->out_pos_ys) {
 			ptr_func->bias_y = ptr_func->backward_output_ys_pos -
@@ -1111,6 +1111,8 @@ enum isp_tile_message tile_dlo_back(struct tile_func_block *ptr_func,
 			ptr_func->in_pos_xe = ptr_func->out_pos_xe;
 			ptr_func->min_out_pos_xs = ptr_func->out_pos_xs;
 			ptr_func->max_out_pos_xe = ptr_func->out_pos_xe;
+			if (ptr_func->in_pos_xs > 0)
+				ptr_func->tdr_edge &= ~TILE_EDGE_LEFT_MASK;
 		}
 		return ISP_MESSAGE_TILE_OK;
 	}

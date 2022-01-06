@@ -130,7 +130,8 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 		memset(ptr_func, 0x0, sizeof(*ptr_func));
 
 		ptr_func->func_num = node->id;
-		sprintf(ptr_func->func_name, "%d", node->id);
+		snprintf(ptr_func->func_name, sizeof(ptr_func->func_name),
+			 "%d %s", node->id, node->comp->name);
 		ptr_func->run_mode = TILE_RUN_MODE_MAIN;
 		ptr_func->enable_flag = true;
 
