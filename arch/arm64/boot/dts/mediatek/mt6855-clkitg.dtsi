@@ -49,7 +49,6 @@
 			<&infracfg_ao_clk CLK_IFRAO_CCIF4_MD>,
 			<&infracfg_ao_clk CLK_IFRAO_RG_MMW_DPMAIF26M_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_RG_MEM_SUB_CK>,
-			<&pericfg_ao_clk CLK_PERAO_INTBUS_CK_PERI>,
 			<&vlp_cksys_clk CLK_VLP_CK_SCP_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_PWRAP_ULPOSC_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_DXCC_VLP_SEL>,
