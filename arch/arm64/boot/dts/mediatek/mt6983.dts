@@ -13123,6 +13123,8 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				"cpu0,cpu1,cpu2,cpu3,cpu4,cpu5,cpu6,cpu7";
 			node_68 = "SSPM_SWPM_SOC__SMAP",
 				"i2max,imax";
+			node_69 = "SSPM_SWPM_CPU__PMU_TIMES",
+				"idx_cnt,lock,idx_rechk,lock_rechk,valid,off_hint,diff_us";
 		};
 	};
 
