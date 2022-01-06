@@ -1782,7 +1782,7 @@
 
 	qos:qos@0011bb00 {
 		compatible = "mediatek,mt6893-qos";
-		mediatek,qos_enable = <0>;
+		mediatek,qos_enable = <1>;
 		reg = <0 0x0011bb00 0 0x100>;
 	};
 
