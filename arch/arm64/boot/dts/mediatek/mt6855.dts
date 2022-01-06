@@ -824,7 +824,11 @@
 				monitor_name = "debug_ctrl_ao_INFRA_AO";
 				base = <0x10023000>;
 				num_ports = <61>;
-				idle_masks = <0x08 0x00000400>;
+				idle_masks = <0x08 0x1c000400>,
+							 <0x10 0x0000003f>,
+							 <0x14 0xfe100000>,
+							 <0x18 0x00000003>,
+							 <0x1c 0x03ffff00>;
 				bus_freq_mhz = <78>;
 			};
 			monitor2 {
@@ -850,7 +854,7 @@
 			monitor5 {
 				monitor_name = "debug_ctrl_ao_VLP_AO";
 				base = <0x1c01d000>;
-				num_ports = <14>;
+				num_ports = <12>;
 				bus_freq_mhz = <156>;
 			};
 		};
