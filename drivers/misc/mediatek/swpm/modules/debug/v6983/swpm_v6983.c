@@ -13,7 +13,6 @@
 #include <linux/workqueue.h>
 
 #if IS_ENABLED(CONFIG_MEDIATEK_CPUFREQ_DEBUG_LITE)
-/* TODO: wait for cpufreq_lite */
 /* extern int get_devinfo(int i); */
 #endif
 
@@ -95,7 +94,7 @@ struct me_swpm_rec_data *me_ptr;
 
 /* rt => /100000, uA => *1000, res => 100 */
 #define CORE_DEFAULT_DEG (30)
-#define CORE_STATIC_MA (165)
+#define CORE_STATIC_MA (107)
 #define CORE_STATIC_ID (7)
 #define CORE_STATIC_RT_RES (100)
 #define V_OF_CORE_STATIC (750)
@@ -105,7 +104,7 @@ static unsigned short core_static_rt[NR_CORE_STATIC_TYPE] = {
 	8256, 9725, 10563, 11125, 16295, 20843, 23192
 };
 static unsigned short core_volt_tbl[NR_CORE_VOLT] = {
-	575, 600, 650, 725, 750,
+	550, 600, 650, 725, 750,
 };
 static unsigned short ddr_opp_freq[NR_DDR_FREQ] = {
 	400, 933, 1066, 1333, 1600, 2133, 2750, 3200, 3750,
@@ -511,32 +510,32 @@ static struct dram_pwr_data dram_def_pwr_conf[] = {
 		[0] = {
 			.volt = 1800,	/* mV */
 			.i_dd0 = 6786,	/* uA */
-			.i_dd2p = 1193,
-			.i_dd2n = 216,
-			.i_dd4w = 6048,
-			.i_dd4r = 5058,
-			.i_dd5 = 1476,
+			.i_dd2p = 170,  /* 1193, */
+			.i_dd2n = 60,   /* 216, */
+			.i_dd4w = 2600, /* 6048, */
+			.i_dd4r = 2600, /* 5058, */
+			.i_dd5 = 810,   /* 1476, */
 			.i_dd6 = 495,
 		},
 		[1] = {
 			.volt = 1800,	/* mV */
 			.i_dd0 = 7488,	/* uA */
-			.i_dd2p = 1224,
-			.i_dd2n = 216,
-			.i_dd4w = 8712,
-			.i_dd4r = 7974,
-			.i_dd5 = 1440,
+			.i_dd2p = 170,  /* 1224, */
+			.i_dd2n = 80,   /* 216, */
+			.i_dd4w = 4170, /* 8712, */
+			.i_dd4r = 3320, /* 7974, */
+			.i_dd5 = 790,   /* 1440, */
 			.i_dd6 = 540,
 		},
 		[2] = {
 			.volt = 1800,	/* mV */
 			.i_dd0 = 7146,	/* uA */
-			.i_dd2p = 1098,
-			.i_dd2n = 342,
-			.i_dd4w = 18486,
-			.i_dd4r = 16020,
-			.i_dd5 = 1530,
-			.i_dd6 = 495,
+			.i_dd2p = 150,  /* 1098, */
+			.i_dd2n = 80,   /* 342, */
+			.i_dd4w = 8480, /* 18486, */
+			.i_dd4r = 6070, /* 16020, */
+			.i_dd5 = 820,   /* 1530, */
+			.i_dd6 = 138,   /* 495, */
 		},
 	},
 	},
@@ -544,33 +543,33 @@ static struct dram_pwr_data dram_def_pwr_conf[] = {
 	.idd_conf = {
 		[0] = {
 			.volt = 1050,	/* mV */
-			.i_dd0 = 38640,	/* uA */
-			.i_dd2p = 2415,
-			.i_dd2n = 7402,
-			.i_dd4w = 65520,
-			.i_dd4r = 67410,
-			.i_dd5 = 5922,
-			.i_dd6 = 761,
+			.i_dd0 = 22300,	/* uA */
+			.i_dd2p = 510,
+			.i_dd2n = 3650,
+			.i_dd4w = 38600,
+			.i_dd4r = 36600,
+			.i_dd5 = 4170,
+			.i_dd6 = 760,
 		},
 		[1] = {
 			.volt = 1050,	/* mV */
-			.i_dd0 = 35385,	/* uA */
-			.i_dd2p = 2383,
-			.i_dd2n = 7728,
-			.i_dd4w = 155620,
-			.i_dd4r = 165406,
-			.i_dd5 = 6132,
-			.i_dd6 = 761,
+			.i_dd0 = 19100,	/* uA */
+			.i_dd2p = 640,
+			.i_dd2n = 3930,
+			.i_dd4w = 105500,
+			.i_dd4r = 119400,
+			.i_dd5 = 4180,
+			.i_dd6 = 760,
 		},
 		[2] = {
 			.volt = 1050,	/* mV */
-			.i_dd0 = 42714,	/* uA */
-			.i_dd2p = 3234,
-			.i_dd2n = 21745,
-			.i_dd4w = 264285,
-			.i_dd4r = 294808,
-			.i_dd5 = 6426,
-			.i_dd6 = 761,
+			.i_dd0 = 34200,	/* uA */
+			.i_dd2p = 660,
+			.i_dd2n = 18950,
+			.i_dd4w = 228600,
+			.i_dd4r = 246200,
+			.i_dd5 = 5280,
+			.i_dd6 = 760,
 		},
 	},
 	},
@@ -578,12 +577,12 @@ static struct dram_pwr_data dram_def_pwr_conf[] = {
 	.idd_conf = {
 		[0] = {
 			.volt = 900,	/* mV */
-			.i_dd0 = 873,	/* uA */
-			.i_dd2p = 9,
-			.i_dd2n = 180,
-			.i_dd4w = 26370,
-			.i_dd4r = 27900,
-			.i_dd5 = 225,
+			.i_dd0 = 300,	/* uA */
+			.i_dd2p = 80,
+			.i_dd2n = 30,
+			.i_dd4w = 9600,
+			.i_dd4r = 12600,
+			.i_dd5 = 30,
 			.i_dd6 = 0,
 		},
 		[1] = {
@@ -613,32 +612,32 @@ static struct dram_pwr_data dram_def_pwr_conf[] = {
 		[0] = {
 			.volt = 300,	/* mV */
 			.i_dd0 = 0,	/* uA */
-			.i_dd2p = 30,
+			.i_dd2p = 10,
 			.i_dd2n = 0,
-			.i_dd4w = 33,
-			.i_dd4r = 1836,
-			.i_dd5 = 15,
-			.i_dd6 = 22,
+			.i_dd4w = 0,
+			.i_dd4r = 10600,
+			.i_dd5 = 0,
+			.i_dd6 = 23,
 		},
 		[1] = {
 			.volt = 300,	/* mV */
-			.i_dd0 = 12,	/* uA */
-			.i_dd2p = 12,
+			.i_dd0 = 0,	/* uA */
+			.i_dd2p = 10,
 			.i_dd2n = 0,
-			.i_dd4w = 3,
-			.i_dd4r = 3381,
+			.i_dd4w = 0,
+			.i_dd4r = 19680,
 			.i_dd5 = 0,
-			.i_dd6 = 22,
+			.i_dd6 = 23,
 		},
 		[2] = {
 			.volt = 500,	/* mV */
 			.i_dd0 = 0,	/* uA */
-			.i_dd2p = 40,
+			.i_dd2p = 0,
 			.i_dd2n = 0,
-			.i_dd4w = 45,
-			.i_dd4r = 28690,
-			.i_dd5 = 12,
-			.i_dd6 = 37,
+			.i_dd4w = 100,
+			.i_dd4r = 64900,
+			.i_dd5 = 0,
+			.i_dd6 = 38,
 		},
 	},
 	},
@@ -924,7 +923,17 @@ static void swpm_timer_init(void)
 
 #endif /* #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) : 684 */
 
-static void swpm_core_static_data_init(void)
+unsigned int swpm_core_static_data_get(void)
+{
+	return core_static;
+}
+
+void swpm_core_static_replaced_data_set(unsigned int data)
+{
+	core_static_replaced = data;
+}
+
+void swpm_core_static_data_init(void)
 {
 	unsigned int static_p = 0, scaled_p;
 	unsigned int i, j;
@@ -935,8 +944,6 @@ static void swpm_core_static_data_init(void)
 #if IS_ENABLED(CONFIG_MEDIATEK_CPUFREQ_DEBUG_LITE)
 	/* TODO: default mA from get_devinfo */
 	/* static_p = get_devinfo(CORE_STATIC_ID); */
-#else
-	static_p = 0;
 #endif
 
 	/* default CORE_STATIC mA */
@@ -1162,33 +1169,6 @@ static ssize_t idd_tbl_proc_write(struct file *file,
 	}
 
 end:
-	return count;
-}
-
-static int core_static_replace_proc_show(struct seq_file *m, void *v)
-{
-	seq_printf(m, "default: %d, replaced %d (valid:0~999)\n",
-		   core_static,
-		   core_static_replaced);
-	return 0;
-}
-static ssize_t core_static_replace_proc_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
-{
-	unsigned int val = 0;
-	char *buf = _copy_from_user_for_proc(buffer, count);
-
-	if (!buf)
-		return -EINVAL;
-
-	if (!kstrtouint(buf, 10, &val)) {
-		core_static_replaced = (val < 1000) ? val : core_static_replaced;
-
-		/* reset core static power data */
-		swpm_core_static_data_init();
-	} else
-		pr_notice("echo <val> > /proc/swpm/core_static_replace\n");
-
 	return count;
 }
 #endif

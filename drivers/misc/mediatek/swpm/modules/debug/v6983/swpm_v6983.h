@@ -453,6 +453,9 @@ extern struct share_wrap *wrap_d;
 extern char *swpm_power_rail_to_string(enum power_rail p);
 extern void swpm_set_update_cnt(unsigned int type, unsigned int cnt);
 extern void swpm_set_enable(unsigned int type, unsigned int enable);
+extern unsigned int swpm_core_static_data_get(void);
+extern void swpm_core_static_replaced_data_set(unsigned int data);
+extern void swpm_core_static_data_init(void);
 extern int swpm_v6983_init(void);
 extern void swpm_v6983_exit(void);
 
