@@ -4224,7 +4224,7 @@
 			compatible = "mediatek,mdpsys_config";
 			reg = <0 0x1f000000 0 0x1000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
-			clocks = <&mdpsys_config_clk CLK_MDP_FIMG_IMG_DL_ASYNC0>,
+			clocks = <&mdpsys_config_clk CLK_MDP_FMM_IMG_DL_ASYNC0>,
 				<&mdpsys_config_clk CLK_MDP_FMM_IMG_DL_ASYNC1>,
 				<&mdpsys_config_clk CLK_MDP_FIMG_IMG_DL_ASYNC0>,
 				<&mdpsys_config_clk CLK_MDP_FIMG_IMG_DL_ASYNC1>,
