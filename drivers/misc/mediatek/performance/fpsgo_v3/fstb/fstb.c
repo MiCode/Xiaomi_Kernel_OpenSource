@@ -73,13 +73,16 @@ DECLARE_WAIT_QUEUE_HEAD(queue);
 DECLARE_WAIT_QUEUE_HEAD(active_queue);
 
 static void fstb_fps_stats(struct work_struct *work);
+static void fstb_base_fps_stats(struct work_struct *work);
 static DECLARE_WORK(fps_stats_work,
 		(void *) fstb_fps_stats);
+static DECLARE_WORK(fps_base_stats_work,
+		(void *) fstb_base_fps_stats);
 static HLIST_HEAD(fstb_frame_infos);
 static HLIST_HEAD(fstb_render_target_fps);
 
-static struct hrtimer hrt;
-static struct workqueue_struct *wq;
+static struct hrtimer hrt1, hrt2;
+static struct workqueue_struct *wq1, *wq2;
 
 static struct fps_level fps_levels[MAX_NR_FPS_LEVELS];
 static int nr_fps_levels = MAX_NR_FPS_LEVELS;
@@ -107,18 +110,40 @@ static void enable_fstb_timer(void)
 
 	ktime = ktime_set(0,
 			ADJUST_INTERVAL_US * 1000);
-	hrtimer_start(&hrt, ktime, HRTIMER_MODE_REL);
+	hrtimer_start(&hrt1, ktime, HRTIMER_MODE_REL);
 }
 
 static void disable_fstb_timer(void)
 {
-	hrtimer_cancel(&hrt);
+	hrtimer_cancel(&hrt1);
+}
+
+static void enable_fstb_base_timer(void)
+{
+	ktime_t ktime;
+
+	ktime = ktime_set(0,
+			ADJUST_INTERVAL_US * 100);
+	hrtimer_start(&hrt2, ktime, HRTIMER_MODE_REL);
+}
+
+static void disable_fstb_base_timer(void)
+{
+	hrtimer_cancel(&hrt2);
+}
+
+static enum hrtimer_restart mt_fstb_base(struct hrtimer *timer)
+{
+	if (wq2)
+		queue_work(wq2, &fps_base_stats_work);
+
+	return HRTIMER_NORESTART;
 }
 
 static enum hrtimer_restart mt_fstb(struct hrtimer *timer)
 {
-	if (wq)
-		queue_work(wq, &fps_stats_work);
+	if (wq1)
+		queue_work(wq1, &fps_stats_work);
 
 	return HRTIMER_NORESTART;
 }
@@ -223,13 +248,22 @@ int fpsgo_ctrl2fstb_switch_fstb(int enable)
 		}
 	} else {
 
-		if (wq) {
+		if (wq1) {
 			struct work_struct *psWork =
 				kmalloc(sizeof(struct work_struct), GFP_ATOMIC);
 
 			if (psWork) {
 				INIT_WORK(psWork, fstb_fps_stats);
-				queue_work(wq, psWork);
+				queue_work(wq1, psWork);
+			}
+		}
+		if (wq2) {
+			struct work_struct *psWork =
+				kmalloc(sizeof(struct work_struct), GFP_ATOMIC);
+
+			if (psWork) {
+				INIT_WORK(psWork, fstb_base_fps_stats);
+				queue_work(wq2, psWork);
 			}
 		}
 	}
@@ -249,6 +283,7 @@ static void switch_fstb_active(void)
 	mtk_fstb_dprintk_always("%s %d %d\n",
 			__func__, fstb_active, fstb_active_dbncd);
 	enable_fstb_timer();
+	enable_fstb_base_timer();
 }
 
 int switch_sample_window(long long time_usec)
@@ -1135,7 +1170,7 @@ void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bu
 	if (!vpPush)
 		goto out;
 
-	if (!wq) {
+	if (!wq1) {
 		kfree(vpPush);
 		goto out;
 	}
@@ -1146,7 +1181,7 @@ void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bu
 	vpPush->cur_queue_end_ts = cur_queue_end_ts;
 
 	INIT_WORK(&vpPush->sWork, fstb_notifier_wq_cb);
-	queue_work(wq, &vpPush->sWork);
+	queue_work(wq1, &vpPush->sWork);
 
 out:
 	mutex_unlock(&fstb_lock);
@@ -1958,6 +1993,24 @@ void fstb_cal_powerhal_fps(void)
 
 }
 
+static void fstb_base_fps_stats(struct work_struct *work)
+{
+	if (work != &fps_base_stats_work)
+		kfree(work);
+
+	mutex_lock(&fstb_lock);
+
+	if (fstb_enable && fstb_active_dbncd)
+		enable_fstb_base_timer();
+	else
+		disable_fstb_base_timer();
+
+	mutex_unlock(&fstb_lock);
+
+	fpsgo_check_thread_status();
+
+}
+
 static void fstb_fps_stats(struct work_struct *work)
 {
 	struct FSTB_FRAME_INFO *iter;
@@ -2089,7 +2142,7 @@ static void fstb_fps_stats(struct work_struct *work)
 
 	fstb_check_cam_status();
 
-	fpsgo_check_thread_status();
+	//fpsgo_check_thread_status();
 	fpsgo_fstb2xgf_do_recycle(fstb_active2xgf);
 	fpsgo_create_render_dep();
 
@@ -2953,12 +3006,17 @@ int mtk_fstb_init(void)
 
 	reset_fps_level();
 
-	wq = alloc_ordered_workqueue("%s", WQ_MEM_RECLAIM | WQ_HIGHPRI, "mt_fstb");
-	if (!wq)
+	wq1 = alloc_ordered_workqueue("%s", WQ_MEM_RECLAIM | WQ_HIGHPRI, "mt_fstb");
+	if (!wq1)
+		goto err;
+	wq2 = alloc_ordered_workqueue("%s", WQ_MEM_RECLAIM | WQ_HIGHPRI, "mt_fstb_base");
+	if (!wq2)
 		goto err;
 
-	hrtimer_init(&hrt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	hrt.function = &mt_fstb;
+	hrtimer_init(&hrt1, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hrt1.function = &mt_fstb;
+	hrtimer_init(&hrt2, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hrt2.function = &mt_fstb_base;
 
 	mtk_fstb_dprintk_always("init done\n");
 
@@ -2973,6 +3031,7 @@ int __exit mtk_fstb_exit(void)
 	mtk_fstb_dprintk("exit\n");
 
 	disable_fstb_timer();
+	disable_fstb_base_timer();
 
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_fpsgo_status);
