@@ -1417,7 +1417,7 @@ int mtk_cam_sv_fbc_enable(
 	if (CAMSV_READ_BITS(dev->base + REG_CAMSV_TG_VF_CON,
 			CAMSV_TG_VF_CON, VFDATA_EN) == 1) {
 		ret = -1;
-		dev_dbg(dev->dev, "cannot enable fbc when streaming");
+		dev_info(dev->dev, "cannot enable fbc when streaming");
 		goto EXIT;
 	}
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_FBC_IMGO_CTL1,
@@ -2505,7 +2505,7 @@ static int mtk_camsv_pm_suspend(struct device *dev)
 		return 0;
 
 	/* Disable ISP's view finder and wait for TG idle */
-	dev_dbg(dev, "camsv suspend, disable VF\n");
+	dev_info(dev, "camsv suspend, disable VF\n");
 	val = readl(camsv_dev->base + REG_CAMSV_TG_VF_CON);
 	writel(val & (~CAMSV_TG_VF_CON_VFDATA_EN),
 		camsv_dev->base + REG_CAMSV_TG_VF_CON);
@@ -2514,7 +2514,7 @@ static int mtk_camsv_pm_suspend(struct device *dev)
 					(val & CAMSV_TG_CS_MASK) == CAMSV_TG_IDLE_ST,
 					USEC_PER_MSEC, MTK_CAMSV_STOP_HW_TIMEOUT);
 	if (ret)
-		dev_dbg(dev, "can't stop HW:%d:0x%x\n", ret, val);
+		dev_info(dev, "can't stop HW:%d:0x%x\n", ret, val);
 
 	/* Disable CMOS */
 	val = readl(camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
@@ -2543,7 +2543,7 @@ static int mtk_camsv_pm_resume(struct device *dev)
 		return ret;
 
 	/* Enable CMOS */
-	dev_dbg(dev, "camsv resume, enable CMOS/VF\n");
+	dev_info(dev, "camsv resume, enable CMOS/VF\n");
 	val = readl(camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
 	writel(val | CAMSV_TG_SEN_MODE_CMOS_EN,
 		camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
