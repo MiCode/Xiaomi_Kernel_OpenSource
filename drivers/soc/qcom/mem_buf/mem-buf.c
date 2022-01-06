@@ -148,6 +148,9 @@ struct mem_buf_xfer_mem {
  * @filp: Pointer to the file structure for the membuf
  * @entry: List head for maintaing a list of memory buffers that have been
  * provided by remote VMs.
+ * @obj_id: Unique identifier issued by PVM.
+ * @add_mem_complete: Boolean indicating whether mem_buf_remove_mem() needs to be
+ * called on object teardown.
  */
 struct mem_buf_desc {
 	size_t size;
@@ -162,6 +165,7 @@ struct mem_buf_desc {
 	struct file *filp;
 	struct list_head entry;
 	int obj_id;
+	bool add_mem_complete;
 };
 static DEFINE_IDR(mem_buf_obj_idr);
 
@@ -323,7 +327,15 @@ static void mem_buf_rmt_free_dmaheap_mem(struct mem_buf_xfer_mem *xfer_mem)
 	pr_debug("%s: Freeing DMAHEAP memory\n", __func__);
 	dma_buf_unmap_attachment(attachment, mem_sgt, DMA_BIDIRECTIONAL);
 	dma_buf_detach(dmabuf, attachment);
+
 	dma_buf_put(dmaheap_mem_data->dmabuf);
+	/*
+	 * No locks should be held at this point, as flush_delayed_fput may call the
+	 * release callbacks of arbitrary files. It should be safe for us since we
+	 * know this function is called only from our recv kthread, so we have control
+	 * over what locks are currently held.
+	 */
+	flush_delayed_fput();
 	pr_debug("%s: DMAHEAP memory freed\n", __func__);
 }
 
@@ -1233,9 +1245,11 @@ static int mem_buf_buffer_release(struct inode *inode, struct file *filp)
 	mutex_unlock(&mem_buf_list_lock);
 
 	pr_debug("%s: Destroying tui carveout\n", __func__);
-	ret = mem_buf_remove_mem(membuf);
-	if (ret < 0)
-		goto out_free_mem;
+	if (membuf->add_mem_complete) {
+		ret = mem_buf_remove_mem(membuf);
+		if (ret < 0)
+			goto out_free_mem;
+	}
 
 	ret = mem_buf_unmap_mem_s1(membuf->sgl_desc);
 	if (ret < 0)
@@ -1344,6 +1358,7 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	if (ret)
 		goto err_add_mem;
 
+	membuf->add_mem_complete = true;
 	pr_debug("%s: mem buf alloc success\n", __func__);
 	return membuf;
 
