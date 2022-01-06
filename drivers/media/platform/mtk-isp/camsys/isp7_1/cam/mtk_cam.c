@@ -5009,12 +5009,13 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				atomic_read(&ctx->enqueued_frame_seq_no));
 			/*sensor setting after request drained check*/
 			if (ctx->used_raw_num) {
-				if (ctx->pipe->feature_active == 0 &&
-				    ctx->dequeued_frame_seq_no > 3) {
+				if (ctx->pipe->feature_active == 0) {
 					drained_seq_no =
 						atomic_read(&sensor_ctrl->last_drained_seq_no);
+					/* check if deadline timer drained ever triggered */
+					/* should exclude sensor set in below <= second request */
 					if (atomic_read(&sensor_ctrl->sensor_enq_seq_no) ==
-						drained_seq_no)
+						drained_seq_no && drained_seq_no > 2)
 						mtk_cam_submit_kwork_in_sensorctrl(
 							sensor_ctrl->sensorsetting_wq,
 							sensor_ctrl);
