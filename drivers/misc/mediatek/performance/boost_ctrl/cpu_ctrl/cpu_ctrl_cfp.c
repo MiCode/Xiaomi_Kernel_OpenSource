@@ -452,7 +452,11 @@ int cpu_ctrl_cfp_init(struct proc_dir_entry *parent)
 
 		for (opp_idx = 0; opp_idx < MAX_NR_FREQ; opp_idx++)
 			freq_tbl[clu_idx][opp_idx] =
+#ifdef CONFIG_MTK_CPU_FREQ
 			mt_cpufreq_get_freq_by_idx(clu_idx, opp_idx);
+#else
+			0;
+#endif
 	}
 
 	__cfp_enable       = 1;
