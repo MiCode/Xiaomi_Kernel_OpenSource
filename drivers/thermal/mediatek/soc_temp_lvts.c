@@ -835,18 +835,19 @@ static void disable_hw_reboot_interrupt(struct lvts_data *lvts_data, int tc_id)
 
 	temp = temp & ~(STAGE3_INT_EN);
 
-//	temp = temp & ~(HIGH_OFFSET3_INT_EN |
-//					HIGH_OFFSET2_INT_EN |
-//					HIGH_OFFSET1_INT_EN |
-//					HIGH_OFFSET0_INT_EN);
+	if (lvts_data->enable_dump_log) {
+		temp = temp & ~(HIGH_OFFSET3_INT_EN |
+						HIGH_OFFSET2_INT_EN |
+						HIGH_OFFSET1_INT_EN |
+						HIGH_OFFSET0_INT_EN);
 
-//	temp = temp & ~(LOW_OFFSET3_INT_EN |
-//					LOW_OFFSET2_INT_EN |
-//					LOW_OFFSET1_INT_EN |
-//					LOW_OFFSET0_INT_EN);
+		temp = temp & ~(LOW_OFFSET3_INT_EN |
+						LOW_OFFSET2_INT_EN |
+						LOW_OFFSET1_INT_EN |
+						LOW_OFFSET0_INT_EN);
 
-//	pr_notice("[LVTS]%s,temp=0x%8x\n", __func__,temp);
-
+		pr_notice("[LVTS]%s,temp=0x%8x\n", __func__, temp);
+	}
 
 	writel(temp, LVTSMONINT_0 + base);
 }
@@ -861,23 +862,23 @@ static void enable_hw_reboot_interrupt(struct lvts_data *lvts_data, int tc_id)
 	/* Enable the interrupt of AP SW */
 	temp = readl(LVTSMONINT_0 + base);
 
-//	temp = temp | HIGH_OFFSET3_INT_EN |
-//			HIGH_OFFSET2_INT_EN |
-//			HIGH_OFFSET1_INT_EN |
-//			HIGH_OFFSET0_INT_EN;
+	if (lvts_data->enable_dump_log) {
+		temp = temp | HIGH_OFFSET3_INT_EN |
+				HIGH_OFFSET2_INT_EN |
+				HIGH_OFFSET1_INT_EN |
+				HIGH_OFFSET0_INT_EN;
 
-//	temp = temp | LOW_OFFSET3_INT_EN |
-//			LOW_OFFSET2_INT_EN |
-//			LOW_OFFSET1_INT_EN |
-//			LOW_OFFSET0_INT_EN;
+		temp = temp | LOW_OFFSET3_INT_EN |
+				LOW_OFFSET2_INT_EN |
+				LOW_OFFSET1_INT_EN |
+				LOW_OFFSET0_INT_EN;
 
-	temp = temp | STAGE3_INT_EN;
-
-//        pr_notice("[LVTS]%s,temp=0x%8x\n", __func__,temp);
+		pr_notice("[LVTS]%s,temp=0x%8x\n", __func__, temp);
+	} else {
+		temp = temp | STAGE3_INT_EN;
+	}
 
 	writel(temp, LVTSMONINT_0 + base);
-
-
 
 	/* Clear the offset */
 	temp = readl(LVTSPROTCTL_0 + base);
@@ -917,17 +918,19 @@ static void set_tc_hw_reboot_threshold(struct lvts_data *lvts_data,
 		msr_raw = ops->lvts_temp_to_raw(&(tc[tc_id].coeff), d_index, trip_point);
 	}
 
-	writel(msr_raw, LVTSPROTTC_0 + base);
+	if (lvts_data->enable_dump_log) {
+		/* high offset INT */
+		writel(msr_raw, LVTSOFFSETH_0 + base);
 
-	/* high offset INT */
-//	writel(msr_raw, LVTSOFFSETH_0 + base);
-
-	/*
-	 * lowoffset INT
-	 * set a big msr_raw = 0xffff(very low temperature)
-	 * to let lowoffset INT not be triggered
-	 */
-//	writel(0xffff, LVTSOFFSETL_0 + base);
+		/*
+		 * lowoffset INT
+		 * set a big msr_raw = 0xffff(very low temperature)
+		 * to let lowoffset INT not be triggered
+		 */
+		writel(0xffff, LVTSOFFSETL_0 + base);
+	} else {
+		writel(msr_raw, LVTSPROTTC_0 + base);
+	}
 
 	enable_hw_reboot_interrupt(lvts_data, tc_id);
 }
@@ -2276,6 +2279,7 @@ static struct lvts_data mt6873_lvts_data = {
 		.default_count_rc = 2750,
 	},
 	.init_done = false,
+	.enable_dump_log = 0,
 };
 
 static struct lvts_data mt6853_lvts_data = {
@@ -2304,6 +2308,7 @@ static struct lvts_data mt6853_lvts_data = {
 		.default_count_rc = 2750,
 	},
 	.init_done = false,
+	.enable_dump_log = 0,
 };
 
 /*==================================================
@@ -2701,6 +2706,7 @@ static struct lvts_data mt6893_lvts_data = {
 		.default_count_rc = 2750,
 	},
 	.init_done = false,
+	.enable_dump_log = 0,
 };
 
 /*==================================================
@@ -3230,6 +3236,7 @@ static struct lvts_data mt6983_lvts_data = {
 		.default_count_rc = 13799,
 	},
 	.init_done = false,
+	.enable_dump_log = 0,
 };
 
 /*==================================================
@@ -3665,6 +3672,7 @@ static struct lvts_data mt6895_lvts_data = {
 		.default_count_rc = 13000,
 	},
 	.init_done = false,
+	.enable_dump_log = 0,
 };
 
 /*==================================================
@@ -3889,6 +3897,7 @@ static struct lvts_data mt6879_lvts_data = {
 		.default_count_rc = 2750,
 	},
 	.init_done = false,
+	.enable_dump_log = 1,
 };
 
 
@@ -4105,6 +4114,7 @@ static struct lvts_data mt6855_lvts_data = {
 		.default_count_rc = 2750,
 	},
 	.init_done = false,
+	.enable_dump_log = 0,
 };
 /*==================================================
  * Support chips
