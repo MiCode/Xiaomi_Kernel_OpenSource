@@ -578,6 +578,7 @@
 				 <&camsys_main_clk CLK_CAM_M_CAMSV3>,
 				 <&camsys_main_clk CLK_CAM_M_LARB13>,
 				 <&camsys_main_clk CLK_CAM_M_LARB14>,
+				 <&camsys_main_clk CLK_CAM_M_CCU0>,
 				 <&camsys_main_clk CLK_CAM_M_SENINF>,
 				 <&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>,
 				 <&camsys_rawa_clk CLK_CAM_RA_LARBX>,
@@ -586,6 +587,7 @@
 				 <&camsys_rawb_clk CLK_CAM_RB_LARBX>,
 				 <&camsys_rawb_clk CLK_CAM_RB_CAM>,
 				 <&camsys_rawb_clk CLK_CAM_RB_CAMTG>,
+				 <&topckgen_clk CLK_TOP_CCU_SEL>,
 				 <&topckgen_clk CLK_TOP_CAMTM_SEL>;
 			clock-names = "CAMSYS_CAM_CGPDN",
 				      "CAMSYS_CAMTG_CGPDN",
@@ -594,6 +596,7 @@
 				      "CAMSYS_CAMSV3_CGPDN",
 				      "CAMSYS_LARB13_CGPDN",
 				      "CAMSYS_LARB14_CGPDN",
+				      "CAMSYS_CCU0_CGPDN",
 				      "CAMSYS_SENINF_CGPDN",
 				      "CAMSYS_MAIN_CAM2MM_GALS_CGPDN",
 				      "CAMSYS_RAWALARB16_CGPDN",
@@ -602,6 +605,7 @@
 				      "CAMSYS_RAWBLARB17_CGPDN",
 				      "CAMSYS_RAWBCAM_CGPDN",
 				      "CAMSYS_RAWBTG_CGPDN",
+				      "TOPCKGEN_TOP_MUX_CCU",
 				      "TOPCKGEN_TOP_MUX_CAMTM";
 		};
 
