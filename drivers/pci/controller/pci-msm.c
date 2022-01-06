@@ -6329,6 +6329,9 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 		mutex_unlock(&pcie_itr->drv_pc_lock);
 	}
 
+	if (!pcie_dev->drv_name)
+		return;
+
 	pcie_drv->notifier = qcom_register_ssr_notifier(pcie_dev->drv_name,
 							&pcie_drv->nb);
 	if (IS_ERR(pcie_drv->notifier)) {
