@@ -13,6 +13,7 @@
 #include <dt-bindings/mfd/mt6359-irq.h>
 #include <dt-bindings/pinctrl/mt6885-pinfunc.h>
 #include <dt-bindings/clock/mt6893-clk.h>
+#include <dt-bindings/soc/mediatek,boot-mode.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/phy/phy.h>
 #include <generated/autoconf.h>
@@ -1135,11 +1136,25 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10006500 0 0x1000>;
 	};
 
-	toprgu: toprgu@10007000 {
-		compatible = "mediatek,toprgu";
+	watchdog: watchdog@10007000 {
+		compatible = "mediatek,mt6893-wdt",
+			      "mediatek,mt6589-wdt",
+			      "mediatek,toprgu",
+			      "syscon", "simple-mfd";
 		reg = <0 0x10007000 0 0x1000>;
-		interrupts = <GIC_SPI 433 IRQ_TYPE_LEVEL_HIGH>;
-		apwdt_en = <0>;
+		reboot-mode {
+			compatible = "syscon-reboot-mode";
+			offset = <0x24>;
+			mask = <0xf>;
+			mode-charger = <BOOT_CHARGER>;
+			mode-recovery = <BOOT_RECOVERY>;
+			mode-bootloader = <BOOT_BOOTLOADER>;
+			mode-dm-verity-dev-corrupt = <BOOT_DM_VERITY>;
+			mode-kpoc = <BOOT_KPOC>;
+			mode-ddr-reserve = <BOOT_DDR_RSVD>;
+			mode-meta = <BOOT_META>;
+			mode-rpmbpk = <BOOT_RPMBPK>;
+		};
 	};
 
 	apxgpt@10008000 {
