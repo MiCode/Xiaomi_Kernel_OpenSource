@@ -5938,6 +5938,7 @@
 		compatible = "mediatek,extcon-usb";
 		charger = <&mt6360_chg>;
 		dev-conn = <&usb>;
+		mediatek,bypss-typec-sink = <1>;
 	};
 
 	rt-pd-manager {
@@ -6241,3 +6242,8 @@
 #ifdef CONFIG_REGULATOR_MT6315
 #include "mediatek/mt6315_s3.dtsi"
 #endif
+
+/*overlay "charger" property after include mediatek/mt6360_pd.dtsi*/
+&mt6360_typec {
+	charger = <&mt_charger>;
+};
