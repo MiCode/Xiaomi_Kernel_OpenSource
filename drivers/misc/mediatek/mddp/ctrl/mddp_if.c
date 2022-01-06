@@ -282,6 +282,29 @@ int32_t mddp_on_set_ct_value(
 //------------------------------------------------------------------------------
 // Kernel functions.
 //------------------------------------------------------------------------------
+static int mddp_init_steps;
+static void mddp_exit(void)
+{
+	synchronize_net();
+
+	switch (mddp_init_steps) {
+	case 4:
+		mddp_filter_uninit();
+		/* fallthrough */
+	case 3:
+		mddp_dev_uninit();
+		/* fallthrough */
+	case 2:
+		mddp_ipc_uninit();
+		/* fallthrough */
+	case 1:
+		mddp_sm_uninit();
+		/* fallthrough */
+	default:
+		break;
+	}
+}
+
 static int __init mddp_init(void)
 {
 	int32_t         ret = 0;
@@ -290,38 +313,27 @@ static int __init mddp_init(void)
 	if (ret < 0)
 		goto _init_fail;
 
+	mddp_init_steps++;
 	ret = mddp_ipc_init();
 	if (ret < 0)
-		goto _init_fail2;
+		goto _init_fail;
 
+	mddp_init_steps++;
 	ret = mddp_dev_init();
 	if (ret < 0)
-		goto _init_fail3;
+		goto _init_fail;
 
+	mddp_init_steps++;
 	ret = mddp_filter_init();
 	if (ret < 0)
-		goto _init_fail4;
+		goto _init_fail;
 
+	mddp_init_steps++;
 	return 0;
 
-_init_fail4:
-	mddp_dev_uninit();
-_init_fail3:
-	mddp_ipc_uninit();
-_init_fail2:
-	mddp_sm_uninit();
 _init_fail:
-	return ret;
-}
-
-static void __exit mddp_exit(void)
-{
-	synchronize_net();
-
-	mddp_filter_uninit();
-	mddp_dev_uninit();
-	mddp_ipc_uninit();
-	mddp_sm_uninit();
+	mddp_exit();
+	return 0;
 }
 module_init(mddp_init);
 module_exit(mddp_exit);

@@ -250,6 +250,8 @@ int32_t mddp_ipc_init(void)
 	mddp_ipc_md_smem_layout_config();
 
 	ret = mddp_ipc_open_port();
+	if (ret)
+		return ret;
 
 	rx_task = kthread_run(mddp_md_msg_hdlr, NULL, "mddp_rx");
 
@@ -272,9 +274,8 @@ void mddp_ipc_uninit(void)
 		send_sig(SIGTERM, rx_task, 1);
 		kthread_stop(rx_task);
 		rx_task = NULL;
+		mtk_ccci_release_port(mddp_ipc_tty_port_s);
 	}
-
-	mtk_ccci_release_port(mddp_ipc_tty_port_s);
 }
 
 bool mddp_ipc_rx_msg_validation(enum MDDP_MDFPM_MSG_ID_CODE msg_id,
