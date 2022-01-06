@@ -60,16 +60,16 @@ ifeq ($(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT),y)
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/tplay/Tltplay/public/
 
-include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
+include $(srctree)/drivers/tee/gud/Makefile.include
 endif
 
 ifeq ($(CONFIG_MTK_TEE_GP_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/tplay/Tltplay/public/
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
-  include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
+  include $(srctree)/drivers/tee/gud/Makefile.include
 endif
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
-  include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
+  include $(srctree)/drivers/tee/teei/Makefile.include
 endif
 endif
 
