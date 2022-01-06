@@ -68,6 +68,8 @@
 
 #include "slbc_ops.h"
 #include <linux/syscalls.h>
+#define CLKBUF_COMMON_H
+#include <mtk_clkbuf_ctl.h>
 
 #if IS_ENABLED(CONFIG_MTK_DEVINFO)
 #include <linux/nvmem-consumer.h>
@@ -790,11 +792,13 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 				}
 			//pmic_ldo_vio18_lp(SRCLKEN0, 0, 1, HW_LP);
 			//pmic_ldo_vio18_lp(SRCLKEN2, 0, 1, HW_LP);
+			clk_buf_voter_ctrl_by_id(12, SW_BBLPM);
 		} else if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]
 				&& !prepare) {
 			DDPMSG("exit AOD, enable PMIC LPMODE\n");
 			//pmic_ldo_vio18_lp(SRCLKEN0, 1, 1, HW_LP);
 			//pmic_ldo_vio18_lp(SRCLKEN2, 1, 1, HW_LP);
+			clk_buf_voter_ctrl_by_id(12, SW_OFF);
 		}
 	}
 	if (!mtk_state->doze_changed ||
