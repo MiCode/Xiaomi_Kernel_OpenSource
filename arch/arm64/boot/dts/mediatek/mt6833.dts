@@ -945,6 +945,7 @@
 			<0 0>;
 
 		vcc-supply = <&mt_pmic_vemc_ldo_reg>;
+		vccq2-supply = <&mt_pmic_vufs_ldo_reg>;
 
 		resets = <&infracfg_rst 0>, <&infracfg_rst 1>,
 				 <&infracfg_rst 2>;
@@ -953,9 +954,6 @@
 		/* Reference clock control mode */
 		/* SW mode: 0, Half-HW mode: 1, HW mode: 2 */
 		mediatek,refclk_ctrl = <2>;
-
-		/* regulator vufs lpm */
-		mediatek,vreg_vufs_lpm = <1>;
 
 		/* Performance Mode */
 		mediatek,perf-crypto-vcore = <2>;
