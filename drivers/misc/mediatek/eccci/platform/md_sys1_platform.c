@@ -1118,10 +1118,10 @@ static int md_cd_let_md_go(struct ccci_modem *md)
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
 		MD_KERNEL_BOOT_UP, 0, 0, 0, 0, 0, &res);
 	CCCI_BOOTUP_LOG(md->index, TAG,
-		"[POWER ON]set MD boot slave done: ret=%lu, boot_status_0=%lu, boot_status_1=%lu, boot_slave = %lu\n",
+		"[POWER ON]set MD boot slave done: ret=%lx, boot_status_0=%lx, boot_status_1=%lx, boot_slave = %lx\n",
 		res.a0, res.a1, res.a2, res.a3);
 	CCCI_NORMAL_LOG(md->index, TAG,
-		"[POWER ON]set MD boot slave done: ret=%lu, boot_status_0=%lu, boot_status_1=%lu, boot_slave = %lu\n",
+		"[POWER ON]set MD boot slave done: ret=%lx, boot_status_0=%lx, boot_status_1=%lx, boot_slave = %lx\n",
 		res.a0, res.a1, res.a2, res.a3);
 
 	return 0;
