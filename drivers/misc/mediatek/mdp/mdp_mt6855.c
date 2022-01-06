@@ -50,8 +50,6 @@ ACTION(CMDQ_ENG_MDP_WROT0,  MDP_WROT0)	\
 ACTION(CMDQ_ENG_MDP_WROT2,  MDP_WROT2)	\
 }
 
-#define MDP_BRINGUP_BYPASS
-
 /* mdp */
 static struct icc_path *path_mdp_rdma0[MDP_TOTAL_THREAD];
 static struct icc_path *path_mdp_wrot0[MDP_TOTAL_THREAD];
@@ -1556,6 +1554,7 @@ static void mdp_qos_init(struct platform_device *pdev, u32 thread_id)
 
 static void *mdp_qos_get_path(u32 thread_id, u32 port)
 {
+
 	if (!port)
 		return NULL;
 
@@ -1573,95 +1572,94 @@ static void *mdp_qos_get_path(u32 thread_id, u32 port)
 	 * but not update user space port def, thus ports value must add
 	 * domain bits to match new def.
 	 */
-	port = port | (2 << 16);
+	port = port | (CAM_MDP_VENC_DOM << 16);
 
-#ifndef MDP_BRINGUP_BYPASS
 	/* isp part */
 	switch (port) {
-	case M4U_PORT_L9_IMG_IMGI_D1:
+	case M4U_LARB9_PORT0:
 		return path_l9_img_imgi_d1[thread_id];
-	case M4U_PORT_L9_IMG_IMGBI_D1:
+	case M4U_LARB9_PORT1:
 		return path_l9_img_imgbi_d1[thread_id];
-	case M4U_PORT_L9_IMG_DMGI_D1:
+	case M4U_LARB9_PORT2:
 		return path_l9_img_dmgi_d1[thread_id];
-	case M4U_PORT_L9_IMG_DEPI_D1:
+	case M4U_LARB9_PORT3:
 		return path_l9_img_depi_d1[thread_id];
-	case M4U_PORT_L9_IMG_ICE_D1:
+	case M4U_LARB9_PORT4:
 		return path_l9_img_ice_d1[thread_id];
-	case M4U_PORT_L9_IMG_SMTI_D1:
+	case M4U_LARB9_PORT5:
 		return path_l9_img_smti_d1[thread_id];
-	case M4U_PORT_L9_IMG_SMTO_D2:
+	case M4U_LARB9_PORT6:
 		return path_l9_img_smto_d2[thread_id];
-	case M4U_PORT_L9_IMG_SMTO_D1:
+	case M4U_LARB9_PORT7:
 		return path_l9_img_smto_d1[thread_id];
-	case M4U_PORT_L9_IMG_CRZO_D1:
+	case M4U_LARB9_PORT8:
 		return path_l9_img_crzo_d1[thread_id];
-	case M4U_PORT_L9_IMG_IMG3O_D1:
+	case M4U_LARB9_PORT9:
 		return path_l9_img_img3o_d1[thread_id];
-	case M4U_PORT_L9_IMG_VIPI_D1:
+	case M4U_LARB9_PORT10:
 		return path_l9_img_vipi_d1[thread_id];
-	case M4U_PORT_L9_IMG_SMTI_D5:
+	case M4U_LARB9_PORT11:
 		return path_l9_img_smti_d5[thread_id];
-	case M4U_PORT_L9_IMG_TIMGO_D1:
+	case M4U_LARB9_PORT12:
 		return path_l9_img_timgo_d1[thread_id];
-	case M4U_PORT_L9_IMG_UFBC_W0:
+	case M4U_LARB9_PORT13:
 		return path_l9_img_ufbc_w0[thread_id];
-	case M4U_PORT_L9_IMG_UFBC_R0:
+	case M4U_LARB9_PORT14:
 		return path_l9_img_ufbc_r0[thread_id];
-	case M4U_PORT_L11_IMG_IMGI_D1:
+	case M4U_LARB11_PORT0:
 		return path_l11_img_imgi_d1[thread_id];
-	case M4U_PORT_L11_IMG_IMGBI_D1:
+	case M4U_LARB11_PORT1:
 		return path_l11_img_imgbi_d1[thread_id];
-	case M4U_PORT_L11_IMG_DMGI_D1:
+	case M4U_LARB11_PORT2:
 		return path_l11_img_dmgi_d1[thread_id];
-	case M4U_PORT_L11_IMG_DEPI_D1:
+	case M4U_LARB11_PORT3:
 		return path_l11_img_depi_d1[thread_id];
-	case M4U_PORT_L11_IMG_ICE_D1:
+	case M4U_LARB11_PORT4:
 		return path_l11_img_ice_d1[thread_id];
-	case M4U_PORT_L11_IMG_SMTI_D1:
+	case M4U_LARB11_PORT5:
 		return path_l11_img_smti_d1[thread_id];
-	case M4U_PORT_L11_IMG_SMTO_D2:
+	case M4U_LARB11_PORT6:
 		return path_l11_img_smto_d2[thread_id];
-	case M4U_PORT_L11_IMG_SMTO_D1:
+	case M4U_LARB11_PORT7:
 		return path_l11_img_smto_d1[thread_id];
-	case M4U_PORT_L11_IMG_CRZO_D1:
+	case M4U_LARB11_PORT8:
 		return path_l11_img_crzo_d1[thread_id];
-	case M4U_PORT_L11_IMG_IMG3O_D1:
+	case M4U_LARB11_PORT9:
 		return path_l11_img_img3o_d1[thread_id];
-	case M4U_PORT_L11_IMG_VIPI_D1:
+	case M4U_LARB11_PORT10:
 		return path_l11_img_vipi_d1[thread_id];
-	case M4U_PORT_L11_IMG_SMTI_D5:
+	case M4U_LARB11_PORT11:
 		return path_l11_img_smti_d5[thread_id];
-	case M4U_PORT_L11_IMG_TIMGO_D1:
+	case M4U_LARB11_PORT12:
 		return path_l11_img_timgo_d1[thread_id];
-	case M4U_PORT_L11_IMG_UFBC_W0:
+	case M4U_LARB11_PORT13:
 		return path_l11_img_ufbc_w0[thread_id];
-	case M4U_PORT_L11_IMG_UFBC_R0:
+	case M4U_LARB11_PORT14:
 		return path_l11_img_ufbc_r0[thread_id];
-	case M4U_PORT_L11_IMG_WPE_RDMA1:
+	case M4U_LARB11_PORT15:
 		return path_l11_img_wpe_rdma1[thread_id];
-	case M4U_PORT_L11_IMG_WPE_RDMA0:
+	case M4U_LARB11_PORT16:
 		return path_l11_img_wpe_rdma0[thread_id];
-	case M4U_PORT_L11_IMG_WPE_WDMA:
+	case M4U_LARB11_PORT17:
 		return path_l11_img_wpe_wdma[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA0:
+	case M4U_LARB11_PORT18:
 		return path_l11_img_mfb_rdma0[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA1:
+	case M4U_LARB11_PORT19:
 		return path_l11_img_mfb_rdma1[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA2:
+	case M4U_LARB11_PORT20:
 		return path_l11_img_mfb_rdma2[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA3:
+	case M4U_LARB11_PORT21:
 		return path_l11_img_mfb_rdma3[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA4:
+	case M4U_LARB11_PORT22:
 		return path_l11_img_mfb_rdma4[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA5:
+	case M4U_LARB11_PORT23:
 		return path_l11_img_mfb_rdma5[thread_id];
-	case M4U_PORT_L11_IMG_MFB_WDMA0:
+	case M4U_LARB11_PORT24:
 		return path_l11_img_mfb_wdma0[thread_id];
-	case M4U_PORT_L11_IMG_MFB_WDMA1:
+	case M4U_LARB11_PORT25:
 		return path_l11_img_mfb_wdma1[thread_id];
 	}
-#endif
+
 	CMDQ_ERR("%s pmqos invalid port %d\n", __func__, port);
 	return NULL;
 }
@@ -1861,7 +1859,7 @@ static u16 mdp_get_reg_msb_offset(u32 eng_base, u16 offset)
 
 static bool mdp_check_camin_support_virtual(void)
 {
-	return false;
+	return true;
 }
 
 void cmdq_mdp_platform_function_setting(void)

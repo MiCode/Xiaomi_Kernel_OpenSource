@@ -1861,21 +1861,33 @@ static void cmdq_mdp_init_pmqos(struct platform_device *pdev)
 	}
 
 	/* Create opp table from dts */
-	dev_pm_opp_of_add_table(&pdev->dev);
+	CMDQ_LOG("%s Create opp table : mdp-opp\n", __func__);
+	dev_pm_opp_of_add_table_indexed(&pdev->dev, 0);
 
-	/* Get regulator instance by name. */
-	mdp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "mdp-dvfsrc-vcore");
-	isp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "isp-dvfsrc-vcore");
+	if (cmdq_mdp_get_func()->mdpIsCaminSupport()) {
+		CMDQ_LOG("%s Create opp table : isp-opp\n", __func__);
+		dev_pm_opp_of_add_table_indexed(&pdev->dev, 1);
+	}
+
 	/* number of available opp */
 	mdp_pmqos_opp_num = dev_pm_opp_get_opp_count(&pdev->dev);
-
 	CMDQ_LOG("%s opp count:%d\n", __func__, mdp_pmqos_opp_num);
+
 	if (mdp_pmqos_opp_num > 0) {
 		mdp_parse_opp(pdev, "mdp-opp", mdp_pmqos_opp_num,
 			&mdp_pmqos_freq, &mdp_volts);
-		mdp_parse_opp(pdev, "isp-opp", mdp_pmqos_opp_num,
-			&isp_pmqos_freq, &isp_volts);
+
+		if (cmdq_mdp_get_func()->mdpIsCaminSupport())
+			mdp_parse_opp(pdev, "isp-opp", mdp_pmqos_opp_num,
+				&isp_pmqos_freq, &isp_volts);
 	}
+
+	/* Get regulator instance by name */
+	mdp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "mdp-dvfsrc-vcore");
+
+	if (cmdq_mdp_get_func()->mdpIsCaminSupport())
+		isp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "isp-dvfsrc-vcore");
+
 }
 
 static int cmdq_mdp_init_larb(struct platform_device *pdev)
