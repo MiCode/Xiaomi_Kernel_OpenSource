@@ -2942,7 +2942,8 @@
 			compatible = "mediatek,cpufreq-hybrid";
 			reg = <0 0x00114400 0 0xC00>,
 			<0 0x0011bc00 0 0x1400>,
-			<0 0x00112800 0 0x1800>;
+			<0 0x00112800 0 0x1800>,
+			<0 0x00114F40 0 0xc0>;
 			reg-names = "USRAM", "CSRAM", "ESRAM";
 			cslog-range = <0x03d0>, <0x0fa0>;
 			tbl-off = <4>, <76>, <148>;
@@ -2958,6 +2959,9 @@
 			proc1-supply = <&mt6319_6_vbuck4>; //L
 			proc2-supply = <&mt6319_6_vbuck1>; //B
 			proc3-supply = <&mt6319_6_vbuck4>; //DSU
+			/* leakage info */
+			nvmem-cells = <&lkginfo>;
+			nvmem-cell-names = "lkginfo";
 		};
 
 		dfd_mcu: dfd_mcu@0c530000 {
@@ -6030,6 +6034,10 @@
 
 			csi_efuse3: csi_data3 {
 				reg = <0x1c0 0x4>;
+			};
+
+			lkginfo: lkg {
+				reg = <0x218 0x18>;
 			};
 	};
 

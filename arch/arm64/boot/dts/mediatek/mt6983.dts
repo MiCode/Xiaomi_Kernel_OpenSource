@@ -1015,7 +1015,8 @@
 			compatible = "mediatek,cpufreq-hybrid";
 			reg = <0 0x00114400 0 0xC00>,
 				<0 0x0011bc00 0 0x1400>,
-				<0 0x00112400 0 0x1800>;
+				<0 0x00112400 0 0x1800>,
+				<0 0x00114F40 0 0xc0>;
 			reg-names = "USRAM", "CSRAM", "ESRAM";
 			cslog-range = <0x03d0>, <0x0fa0>;
 			tbl-off = <4>, <76>, <148>, <220>;
@@ -1034,6 +1035,8 @@
 			proc4-supply = <&mt6373_vbuck9>; //DSU
 			/* regulator step value */
 			proc3 = <6250>; //B
+			nvmem-cells = <&lkginfo>;
+			nvmem-cell-names = "lkginfo";
 		};
 
 		regulator_vibrator {
@@ -4233,6 +4236,10 @@
 
 			csi_efuse5: csi_data5 {
 				reg = <0x1cc 0x4>;
+			};
+
+			lkginfo: lkg {
+				reg = <0x218 0x18>;
 			};
 	};
 
