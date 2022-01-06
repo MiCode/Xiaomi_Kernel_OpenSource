@@ -286,16 +286,6 @@
 			<&camsys_rawb_clk CLK_CAM_RB_CAMTG>;
 	};
 
-	bring-up-pd-md {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_MD>;
-	};
-
-	bring-up-pd-conn {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_CONN>;
-	};
-
 	bring-up-pd-mfg0 {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6833_POWER_DOMAIN_MFG0>;
@@ -370,5 +360,4 @@
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6833_POWER_DOMAIN_APU>;
 	};
-
 };
