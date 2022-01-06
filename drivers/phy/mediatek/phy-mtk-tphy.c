@@ -1627,11 +1627,19 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 			tmp = readl(u2_banks->com + U3P_U2PHYDTM0);
 			tmp |= P2C_RG_DPPULLDOWN | P2C_RG_DMPULLDOWN;
 			writel(tmp, u2_banks->com + U3P_U2PHYDTM0);
+
+			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
+			tmp &= ~PA6_RG_U2_PHY_REV1;
+			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
 			break;
 		case PHY_MODE_DPDMPULLDOWN_CLR:
 			tmp = readl(u2_banks->com + U3P_U2PHYDTM0);
 			tmp &= ~(P2C_RG_DPPULLDOWN | P2C_RG_DMPULLDOWN);
 			writel(tmp, u2_banks->com + U3P_U2PHYDTM0);
+
+			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
+			tmp |= PA6_RG_U2_PHY_REV1;
+			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
 			break;
 		default:
 			return;
