@@ -109,6 +109,7 @@ struct mtk_camsys_sensor_ctrl {
 	u64 sof_time;
 	int timer_req_sensor;
 	int timer_req_event;
+	atomic_t reset_seq_no;
 	atomic_t sensor_enq_seq_no;
 	atomic_t sensor_request_seq_no;
 	atomic_t isp_request_seq_no;

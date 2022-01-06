@@ -1800,6 +1800,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	int stateidx;
 	int que_cnt = 0;
 	int write_cnt;
+	int write_cnt_offset;
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
 	int working_req_found = 0;
@@ -1845,7 +1846,9 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	/* HW imcomplete case */
 	if (state_inner) {
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_inner);
-		write_cnt = (atomic_read(&sensor_ctrl->isp_request_seq_no) / 256)
+		write_cnt_offset = atomic_read(&sensor_ctrl->reset_seq_no) - 1;
+		write_cnt = ((atomic_read(&sensor_ctrl->isp_request_seq_no)-
+					  write_cnt_offset) / 256)
 					* 256 + irq_info->write_cnt;
 		if (frame_idx_inner > atomic_read(&sensor_ctrl->isp_request_seq_no) ||
 			atomic_read(&req_stream_data->frame_done_work.is_queued) == 1) {
@@ -1853,20 +1856,21 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 				req_stream_data->frame_seq_no, irq_info->ts_ns / 1000);
 		} else if (mtk_cam_is_stagger(ctx)) {
 			dev_dbg(raw_dev->dev, "[SOF:%d] HDR SWD over SOF case\n", frame_idx_inner);
-		} else if (write_cnt >= req_stream_data->frame_seq_no) {
+		} else if (write_cnt >= req_stream_data->frame_seq_no - write_cnt_offset) {
 			dev_info_ratelimited(raw_dev->dev, "[SOF] frame done reading lost %d frames. req(%d),ts(%lu)\n",
-				write_cnt - req_stream_data->frame_seq_no + 1,
+				write_cnt - (req_stream_data->frame_seq_no - write_cnt_offset) + 1,
 				req_stream_data->frame_seq_no, irq_info->ts_ns / 1000);
 			mtk_cam_set_timestamp(req_stream_data,
 						      time_boot - 1000, time_mono - 1000);
-			mtk_camsys_frame_done(ctx, write_cnt, ctx->stream_id);
-		} else if ((write_cnt >= req_stream_data->frame_seq_no - 1)
+			mtk_camsys_frame_done(ctx, write_cnt + write_cnt_offset, ctx->stream_id);
+		} else if ((write_cnt >= req_stream_data->frame_seq_no - write_cnt_offset - 1)
 			&& irq_info->fbc_cnt == 0) {
 			dev_info_ratelimited(raw_dev->dev, "[SOF] frame done reading lost frames. req(%d),ts(%lu)\n",
 				req_stream_data->frame_seq_no, irq_info->ts_ns / 1000);
 			mtk_cam_set_timestamp(req_stream_data,
 						      time_boot - 1000, time_mono - 1000);
-			mtk_camsys_frame_done(ctx, write_cnt + 1, ctx->stream_id);
+			mtk_camsys_frame_done(ctx, write_cnt + write_cnt_offset + 1,
+					      ctx->stream_id);
 		} else {
 			state_transition(state_inner, E_STATE_INNER,
 				 E_STATE_INNER_HW_DELAY);
@@ -4528,12 +4532,14 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	}
 
 	camsys_sensor_ctrl->ctx = ctx;
+	atomic_set(&camsys_sensor_ctrl->reset_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->sensor_enq_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->sensor_request_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->isp_request_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->isp_enq_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->isp_update_timer_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->last_drained_seq_no, 0);
+	atomic_set(&camsys_sensor_ctrl->reset_seq_no, 0);
 	camsys_sensor_ctrl->initial_cq_done = 0;
 	camsys_sensor_ctrl->sof_time = 0;
 	if (ctx->used_raw_num) {
