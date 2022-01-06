@@ -5118,12 +5118,13 @@
 
 	fdvt@1b001000 {
 		compatible = "mediatek,fdvt";
+		mediatek,larb = <&smi_larb20>;
 		reg = <0 0x1b001000 0 0x1000>;
 		interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&ipesys CLK_IPE_FD>;
 		clock-names = "FD_CLK_IPE_FD";
 		mboxes = <&gce_mbox 14 0 CMDQ_THR_PRIO_1>,
-			 <&gce_mbox_sec 11 0 CMDQ_THR_PRIO_1>;
+			 <&gce_mbox 14 0 CMDQ_THR_PRIO_1>;
 		fdvt_frame_done = <CMDQ_EVENT_FDVT_DONE>;
 	};
 
