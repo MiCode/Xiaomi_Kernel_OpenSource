@@ -4367,6 +4367,23 @@
 			"MT_CG_VENC0";
 	};
 
+	jpgenc@17030000 {
+		compatible = "mediatek,mtk-jpgenc-32bit";
+		reg = <0 0x17030000 0 0x10000>;
+		interrupts = <GIC_SPI 311 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&venc_gcon_clk CLK_VEN1_CKE2_JPGENC>;
+		clock-names = "jpgenc";
+		power-domains = <&scpsys MT6833_POWER_DOMAIN_VENC>;
+		mediatek,larb = <&smi_larb7>;
+		//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		iommus = <&iommu0  M4U_PORT_L7_JPGENC_Y_RDMA>,
+			 <&iommu0  M4U_PORT_L7_JPGENC_C_RDMA>,
+			 <&iommu0  M4U_PORT_L7_JPGENC_Q_TABLE>,
+			 <&iommu0  M4U_PORT_L7_JPGENC_BSDMA>;
+		operating-points-v2 = <&opp_table_venc>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+	};
+
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
 		vbus-supply = <&otg_vbus>;
