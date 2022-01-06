@@ -4729,9 +4729,9 @@ static void mtk_drm_crtc_wk_lock(struct drm_crtc *crtc, bool get,
 		func, line);
 
 	if (get)
-		__pm_stay_awake(&mtk_crtc->wk_lock);
+		__pm_stay_awake(mtk_crtc->wk_lock);
 	else
-		__pm_relax(&mtk_crtc->wk_lock);
+		__pm_relax(mtk_crtc->wk_lock);
 }
 
 unsigned int mtk_drm_dump_wk_lock(
@@ -4753,7 +4753,7 @@ unsigned int mtk_drm_dump_wk_lock(
 
 		len += scnprintf(stringbuf + len, buf_len - len,
 			 "CRTC%d wk active:%d;  ", i,
-			 mtk_crtc->wk_lock.active);
+			 mtk_crtc->wk_lock->active);
 	}
 
 	len += scnprintf(stringbuf + len, buf_len - len, "\n\n");
@@ -7558,10 +7558,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			 "disp_crtc%u_wakelock",
 			 drm_crtc_index(&mtk_crtc->base));
 
-#ifdef CONFIG_PM_SLEEP
-		wakeup_source_prepare(&mtk_crtc->wk_lock, mtk_crtc->wk_lock_name);
-#endif
-		wakeup_source_add(&mtk_crtc->wk_lock);
+		mtk_crtc->wk_lock = wakeup_source_register(NULL, "mtk_crtc->wk_lock");
 	}
 
 #ifdef MTK_DRM_FB_LEAK
@@ -7575,22 +7572,6 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		priv->num_pipes - 1);
 
 	return 0;
-}
-
-/**
- * wakeup_source_prepare - Prepare a new wakeup source for initialization.
- * @ws: Wakeup source to prepare.
- * @name: Pointer to the name of the new wakeup source.
- *
- * Callers must ensure that the @name string won't be freed when @ws is still in
- * use.
- */
-void wakeup_source_prepare(struct wakeup_source *ws, const char *name)
-{
-	if (ws) {
-		memset(ws, 0, sizeof(*ws));
-		ws->name = name;
-	}
 }
 
 int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,

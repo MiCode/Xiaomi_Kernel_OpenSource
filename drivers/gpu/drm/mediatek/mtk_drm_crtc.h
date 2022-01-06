@@ -676,7 +676,7 @@ struct mtk_drm_crtc {
 	atomic_t vblank_enable_task_active;
 
 	char *wk_lock_name;
-	struct wakeup_source wk_lock;
+	struct wakeup_source *wk_lock;
 
 	struct mtk_drm_fake_vsync *fake_vsync;
 	struct mtk_drm_fake_layer fake_layer;
@@ -765,7 +765,6 @@ struct mtk_cmdq_cb_data {
 
 extern unsigned int te_cnt;
 
-void wakeup_source_prepare(struct wakeup_source *ws, const char *name);
 int mtk_drm_crtc_enable_vblank(struct drm_device *drm, unsigned int pipe);
 void mtk_drm_crtc_disable_vblank(struct drm_device *drm, unsigned int pipe);
 bool mtk_crtc_get_vblank_timestamp(struct drm_device *dev, unsigned int pipe,
