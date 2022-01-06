@@ -650,9 +650,10 @@ int adsp_system_bootup(void)
 
 		reinit_completion(&pdata->done);
 		adsp_core_start(cid);
-		ret = wait_for_completion_timeout(&pdata->done, HZ);
+		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
 
 		if (unlikely(ret == 0)) {
+			adsp_core_stop(cid);
 			pr_warn("%s, core %d boot_up timeout\n", __func__, cid);
 			ret = -ETIME;
 			goto ERROR;
