@@ -262,6 +262,8 @@ static bool pd_sta[MM_IOMMU_NUM];
 static spinlock_t tlb_locks[MM_IOMMU_NUM];
 static struct notifier_block mtk_pd_notifiers[MM_IOMMU_NUM];
 static bool hypmmu_type2_en;
+static struct mutex init_mutexs[PGTBALE_NUM];
+static atomic_t init_once_flag = ATOMIC_INIT(0);
 
 static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
 
@@ -1569,15 +1571,20 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct device *m4udev = data->dev;
-	int ret, domid;
+	int tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
+	int domid, ret = 0;
 
 	domid = mtk_iommu_get_domain_id(dev, data->plat_data);
 	if (domid < 0)
 		return domid;
 
+	mutex_lock(&init_mutexs[tab_id]);
+
 	if (!dom->data) {
-		if (mtk_iommu_domain_finalise(dom, data, domid))
-			return -ENODEV;
+		if (mtk_iommu_domain_finalise(dom, data, domid)) {
+			ret = -ENODEV;
+			goto out_unlock;
+		}
 		dom->data = data;
 		dom->tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
 		pr_info("%s, set mtk_iommu_domain, data:(%d,%d), tab_id:%d\n",
@@ -1592,7 +1599,7 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 				"%s, PM fail:%d, dom:%d, iommu_dev:(%d,%d), user_dev:%s\n",
 				__func__, ret, domid, data->plat_data->iommu_type,
 				data->plat_data->iommu_id, dev_name(dev));
-			return ret;
+			goto out_unlock;
 		}
 		/*
 		 * Because m4u_dom is used by mtk_iommu_isr, we must set it before
@@ -1604,7 +1611,7 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 		if (ret) {
 			dev_err(data->dev, "HW init fail %d in attach\n", ret);
 			pm_runtime_put(m4udev);
-			return ret;
+			goto out_unlock;
 		}
 		writel(dom->cfg.arm_v7s_cfg.ttbr & MMU_PT_ADDR_MASK,
 		       data->base + REG_MMU_PT_BASE_ADDR);
@@ -1623,7 +1630,9 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 
 	mtk_iommu_config(data, dev, true, domid);
 
-	return 0;
+out_unlock:
+	mutex_unlock(&init_mutexs[tab_id]);
+	return ret;
 }
 
 static void mtk_iommu_detach_device(struct iommu_domain *domain,
@@ -2417,6 +2426,10 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	data->dev = dev;
 	data->plat_data = of_device_get_match_data(dev);
+
+	if (!atomic_cmpxchg(&init_once_flag, 0, 1))
+		for (i = 0; i < PGTBALE_NUM; i++)
+			mutex_init(&init_mutexs[i]);
 
 	/* Protect memory. HW will access here while translation fault.*/
 	protect = devm_kzalloc(dev, MTK_PROTECT_PA_ALIGN * 2, GFP_KERNEL);
