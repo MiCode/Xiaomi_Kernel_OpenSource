@@ -411,7 +411,7 @@ void mtk_pdc_get_reset_idx(struct charger_manager *info)
 void mtk_pdc_reset(struct charger_manager *info)
 {
 	struct mtk_pdc *pd = &info->pdc;
-
+	info->is_pdc_run = false;
 	chr_err("%s: reset to default profile\n", __func__);
 	mtk_pdc_init_table(info);
 	mtk_pdc_get_reset_idx(info);

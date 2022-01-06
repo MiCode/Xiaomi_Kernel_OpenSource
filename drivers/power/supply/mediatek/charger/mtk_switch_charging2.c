@@ -743,7 +743,7 @@ static int mtk_switch_chr_pdc_run(struct charger_manager *info)
 
 	if (info->enable_hv_charging == false)
 		goto stop;
-
+	info->is_pdc_run = true;
 	ret = pdc_run();
 
 	if (ret == 2 &&
@@ -751,6 +751,7 @@ static int mtk_switch_chr_pdc_run(struct charger_manager *info)
 		info->chg1_data.thermal_input_current_limit == -1) {
 		chr_err("leave pdc\n");
 		info->leave_pdc = true;
+		info->is_pdc_run = false;
 		swchgalg->state = CHR_CC;
 	}
 
@@ -759,7 +760,7 @@ static int mtk_switch_chr_pdc_run(struct charger_manager *info)
 stop:
 	pdc_stop();
 	swchgalg->state = CHR_CC;
-
+	info->is_pdc_run = false;
 	return 0;
 }
 

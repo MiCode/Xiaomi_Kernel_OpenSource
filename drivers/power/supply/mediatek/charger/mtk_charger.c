@@ -2783,7 +2783,7 @@ static ssize_t show_Pump_Express(struct device *dev,
 			is_ta_detected = 1;
 	}
 
-	if (mtk_is_TA_support_pd_pps(pinfo) == true)
+	if (mtk_is_TA_support_pd_pps(pinfo) == true || pinfo->is_pdc_run == true)
 		is_ta_detected = 1;
 
 	pr_debug("%s: detected = %d, pe20_connect = %d, pe_connect = %d\n",
@@ -3960,7 +3960,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	info->sw_jeita.error_recovery_flag = true;
 
 	mtk_charger_init_timer(info);
-
+	info->is_pdc_run = false;
 	kthread_run(charger_routine_thread, info, "charger_thread");
 
 	if (info->chg1_dev != NULL && info->do_event != NULL) {

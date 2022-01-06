@@ -384,6 +384,7 @@ struct charger_manager {
 	bool leave_pdc;
 	struct mtk_pdc pdc;
 	bool disable_pd_dual;
+	bool is_pdc_run;
 
 	int pd_type;
 	bool pd_reset;

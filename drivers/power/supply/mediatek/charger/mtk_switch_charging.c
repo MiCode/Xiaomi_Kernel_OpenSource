@@ -226,7 +226,7 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 				TYPEC_RP_LEVEL));
 	} else if (mtk_pdc_check_charger(info)) {
 		int vbus = 0, cur = 0, idx = 0;
-
+		info->is_pdc_run = true;
 		ret = mtk_pdc_get_setting(info, &vbus, &cur, &idx);
 		if (ret != -1 && idx != -1) {
 			pdata->input_current_limit = cur * 1000;
