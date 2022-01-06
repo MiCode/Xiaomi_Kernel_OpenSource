@@ -22,3 +22,12 @@ config MTK_TINYSYS_SCP_VERSION
 	default ""
 	help
 	  MTK_TINYSYS_SCP_VERSION define which scp version will be used
+
+config MTK_TINYSYS_SCP_DEBUG_SUPPORT
+	bool "SCP Debug support"
+	help
+	  This is a debug interface for SCP
+	  Set Y to enable this feature.
+	  Set N to disable this feature.
+	  If unsure, Set N to disable it.
+

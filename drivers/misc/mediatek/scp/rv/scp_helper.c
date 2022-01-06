@@ -815,6 +815,7 @@ static struct notifier_block scp_pm_notifier_block = {
 };
 
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 static inline ssize_t scp_A_status_show(struct device *kobj
 			, struct device_attribute *attr, char *buf)
 {
@@ -922,7 +923,6 @@ static inline ssize_t scp_A_db_test_store(struct device *kobj
 
 DEVICE_ATTR_WO(scp_A_db_test);
 
-#ifdef SCP_DEBUG_NODE_ENABLE
 static ssize_t scp_ee_enable_show(struct device *kobj
 	, struct device_attribute *attr, char *buf)
 {
@@ -1015,8 +1015,8 @@ static inline ssize_t scp_ipi_test_store(struct device *kobj
 }
 
 DEVICE_ATTR_RW(scp_ipi_test);
-
 #endif
+
 
 #if SCP_RECOVERY_SUPPORT
 void scp_wdt_reset(int cpu_id)
@@ -1047,6 +1047,7 @@ void scp_wdt_reset(int cpu_id)
 }
 EXPORT_SYMBOL(scp_wdt_reset);
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 /*
  * trigger wdt manually (debug use)
  * Warning! watch dog may be refresh just after you set
@@ -1121,13 +1122,16 @@ static ssize_t recovery_flag_store(struct device *dev
 DEVICE_ATTR_RW(recovery_flag);
 
 #endif
+#endif
 
 /******************************************************************************
  *****************************************************************************/
 static struct miscdevice scp_device = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "scp",
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 	.fops = &scp_A_log_file_ops
+#endif
 };
 
 
@@ -1145,6 +1149,7 @@ static int create_files(void)
 		return ret;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 #if SCP_LOGGER_ENABLE
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_mobile_log);
@@ -1156,12 +1161,10 @@ static int create_files(void)
 	if (unlikely(ret != 0))
 		return ret;
 
-#ifdef SCP_DEBUG_NODE_ENABLE
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_A_mobile_log_UT);
 	if (unlikely(ret != 0))
 		return ret;
-#endif  // SCP_DEBUG_NODE_ENABLE
 
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_A_get_last_log);
@@ -1173,12 +1176,14 @@ static int create_files(void)
 					, &dev_attr_scp_A_status);
 	if (unlikely(ret != 0))
 		return ret;
+#endif
 
 	ret = device_create_bin_file(scp_device.this_device
 					, &bin_attr_scp_dump);
 	if (unlikely(ret != 0))
 		return ret;
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_A_reg_status);
 	if (unlikely(ret != 0))
@@ -1190,7 +1195,6 @@ static int create_files(void)
 	if (unlikely(ret != 0))
 		return ret;
 
-#ifdef SCP_DEBUG_NODE_ENABLE
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_ee_enable);
 	if (unlikely(ret != 0))
@@ -1211,7 +1215,6 @@ static int create_files(void)
 					, &dev_attr_scp_ipi_test);
 	if (unlikely(ret != 0))
 		return ret;
-#endif  // SCP_DEBUG_NODE_ENABLE
 
 #if SCP_RECOVERY_SUPPORT
 	ret = device_create_file(scp_device.this_device
@@ -1240,6 +1243,7 @@ static int create_files(void)
 
 	if (unlikely(ret != 0))
 		return ret;
+#endif
 
 	return 0;
 }
@@ -1419,7 +1423,7 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 			(uint64_t)scp_reserve_mblock[id].size);
 #endif  // DEBUG
 	}
-#ifdef SCP_DEBUG_NODE_ENABLE
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 	BUG_ON(accumlate_memory_size > scp_mem_size);
 #endif
 #ifdef DEBUG
