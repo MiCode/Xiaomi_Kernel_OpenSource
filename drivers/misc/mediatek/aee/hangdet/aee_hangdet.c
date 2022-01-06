@@ -345,6 +345,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	}
 
 	wk_tsk_kick_time[cpu] = sched_clock();
+#ifdef CONFIG_ARM64
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
 	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%d,%d,%lld,%x,%ld,%ld,%ld,%ld,[%lld,%ld] %d\n",
 	 cpu, original_kicker, local_bit, get_check_bit(),
@@ -352,6 +353,14 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	 lasthpg_act, lasthpg_t, atomic_read(&plug_mask), lastsuspend_t / 1000000,
 	 lastsuspend_syst / 1000000, lastresume_t / 1000000, lastresume_syst / 1000000,
 	 wk_tsk_kick_time[cpu], curInterval, r_counter);
+#else
+	snprintf(msg_buf, WK_MAX_MSG_SIZE,
+	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%d,%d,%lld,%x,[%lld,%ld] %d\n",
+	 cpu, original_kicker, local_bit, get_check_bit(),
+	 (local_bit ^ get_check_bit()) & get_check_bit(), lasthpg_cpu,
+	 lasthpg_act, lasthpg_t, atomic_read(&plug_mask),
+	 wk_tsk_kick_time[cpu], curInterval, r_counter);
+#endif
 
 	if ((local_bit & get_check_bit()) == get_check_bit()) {
 		msg_buf[5] = 'k';
@@ -413,7 +422,9 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		for_each_process_thread(g, t) {
 
 			if (!strcmp(t->comm, "watchdogd")) {
+#ifdef CONFIG_ARM64
 				pr_info("watchdogd on CPU %d\n", t->cpu);
+#endif
 				sched_show_task(t);
 
 				for (i = 0; i < CPU_NR; i++) {
