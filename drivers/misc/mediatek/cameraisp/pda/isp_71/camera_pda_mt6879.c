@@ -2055,10 +2055,12 @@ static int PDA_Release(struct inode *a_pstInode, struct file *a_pstFile)
 {
 	int i = 0;
 
-	// reset flow
-	for (i = 0; i < g_PDA_quantity; i++) {
-		pda_reset(i);
-		pda_nontransaction_reset(i);
+	if (g_u4EnableClockCount > 0) {
+		// reset flow
+		for (i = 0; i < g_PDA_quantity; i++) {
+			pda_reset(i);
+			pda_nontransaction_reset(i);
+		}
 	}
 
 #ifdef PDA_MMQOS
