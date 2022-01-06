@@ -302,22 +302,24 @@
 			<&dispsys_config_clk CLK_MM_SMI_COMMON>,
 			<&mdpsys_config_clk CLK_MDP_SMI0>,
 			<&mminfra_config_clk CLK_MMINFRA_SMI>,
-			<&imgsys1_clk CLK_IMGSYS1_LARB9>,
-			<&imgsys1_clk CLK_IMGSYS1_LARB10>,
-			<&imgsys1_clk CLK_IMGSYS1_GALS>,
 			<&imgsys2_clk CLK_IMGSYS2_LARB9>,
 			<&imgsys2_clk CLK_IMGSYS2_LARB10>,
 			<&imgsys2_clk CLK_IMGSYS2_GALS>,
+			<&imgsys1_clk CLK_IMGSYS1_LARB9>,
+			<&imgsys1_clk CLK_IMGSYS1_LARB10>,
+			<&imgsys1_clk CLK_IMGSYS1_GALS>,
 			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
 			<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
-			<&camsys_rawb_clk CLK_CAM_RB_LARBX>;
+			<&camsys_rawb_clk CLK_CAM_RB_LARBX>,
+			<&ipesys_clk CLK_IPE_SMI_SUBCOM>;
 		clock-names = "audio", "cam", "disp", "mdp",
 			"mm_infra", "mmup", "isp", "ipe", "vde", "ven",
 			"cam-0", "cam-1", "cam_lp-0", "cam_lp-1",
 			"disp-0", "mdp_lp-0", "mm_infra_lp-0",
 			"isp-0", "isp-1", "isp-2",
 			"dip1-0", "dip1-1", "dip1-2",
-			"vde-0", "cam_suba-0", "cam_subb-0";
+			"vde-0", "cam_suba-0", "cam_subb-0",
+			"ipe-0";
 		infracfg = <&infracfg_ao_clk>;
 		vlpcfg = <&vlpcfg_bus_clk>;
 	};
