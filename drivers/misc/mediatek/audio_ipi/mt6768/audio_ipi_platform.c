@@ -5,8 +5,9 @@
 
 #include <audio_ipi_platform.h>
 
-#include <scp_ipi.h>
-#include <scp_helper.h>
+#include <linux/notifier.h>
+
+#include <scp.h>
 #include <audio_task.h>
 
 

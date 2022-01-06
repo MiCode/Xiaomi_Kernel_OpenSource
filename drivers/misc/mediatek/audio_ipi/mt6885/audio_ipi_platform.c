@@ -8,10 +8,10 @@
 #include <linux/printk.h>
 #include <linux/bug.h>
 
+#include <linux/notifier.h>
 
 #ifdef CONFIG_MTK_AUDIO_CM4_SUPPORT
-#include <scp_ipi.h>
-#include <scp_helper.h>
+#include <scp.h>
 #endif
 
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
