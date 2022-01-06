@@ -14,14 +14,6 @@
 &chosen {
 	bootargs_ext = "console=tty0 root=/dev/ram \
 	androidboot.hardware=mt6879";
-	atag,videolfb-fb_base_l = <0x7e605000>;
-	atag,videolfb-fb_base_h = <0x0>;
-	atag,videolfb-islcmfound = <1>;
-	atag,videolfb-islcm_inited = <0>;
-	atag,videolfb-fps= <6000>;
-	atag,videolfb-vramSize= <0x1be0000>;
-	atag,videolfb-lcmname=
-		"nt36672e_fhdp_dsi_vdo_60hz_jdi_dphy_drv";
 };
 
 &mtk_leds {
@@ -252,7 +244,7 @@
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
-	switch_fps = <0>;
+	switch_fps = <144>;
 	panel1@0 {
 		compatible = "jdi,nt36672e,vdo,120hz,hfp";
 		reg = <0>;
