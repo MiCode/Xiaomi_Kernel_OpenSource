@@ -3540,7 +3540,7 @@ static unsigned int __mt_gpufreq_get_devinfo(enum efuse_node index)
 	value = *efuse_buf;
 	kfree(efuse_buf);
 
-	return 0;
+	return value;
 }
 #endif
 
