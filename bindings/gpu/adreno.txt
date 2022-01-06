@@ -10,6 +10,7 @@ Required properties:
 			Must include "qcom,adreno-gpu-gen7-0-0" for Waipio target.
 			Must include "qcom,adreno-gpu-gen7-0-1" for Waipio V2 target.
 			Must include "qcom,adreno-gpu-gen7-4-0" for Cape target.
+			Must include "qcom,adreno-gpu-gen7-3-0" for Parrot target.
 - reg:			Specifies the list of register regions for the device.
 - reg-names:		Resource names used for the register regions specified
 			in reg.
