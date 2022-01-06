@@ -2686,24 +2686,27 @@ static void __gpufreq_avs_adjustment(void)
 {
 #if GPUFREQ_AVS_ENABLE
 	u32 val = 0;
-	unsigned int temp_volt = 0, temp_freq = 0;
+	unsigned int temp_volt = 0, temp_freq = 0, volt_offset = 0;
 	int i = 0, oppidx = 0;
 	int adj_num = AVS_ADJ_NUM;
 
 	/*
-	 * Read AVS efuse
-	 *
 	 * Freq (MHz) | Signedoff Volt (V) | Efuse name | Efuse address
 	 * ============================================================
 	 * 950        | 0.8                | PTPOD16    | 0x11C105C0
-	 * 900        | 0.75               | PTPOD17    | 0x11C105C4
 	 * 660        | 0.65               | PTPOD18    | 0x11C105C8
-	 * 390        | 0.575              | PTPOD19    | 0x11C105CC
+	 * 390        | 0.625              | PTPOD19    | 0x11C105CC
 	 */
 
+	/* read AVS efuse and compute Freq and Volt */
 	for (i = 0; i < adj_num; i++) {
 		oppidx = g_avs_adj[i].oppidx;
-		val = readl(g_efuse_base + 0x5C0 + (i * 0x4));
+		if (i == 0)
+			val = readl(g_efuse_base + 0x5C0);
+		else if (i == 1)
+			val = readl(g_efuse_base + 0x5C8);
+		else if (i == 2)
+			val = readl(g_efuse_base + 0x5CC);
 
 		/* if efuse value is not set */
 		if (!val)
@@ -2726,6 +2729,7 @@ static void __gpufreq_avs_adjustment(void)
 				oppidx, i, temp_freq, g_gpu.signed_table[oppidx].freq);
 			return;
 		}
+		g_avs_adj[i].freq = temp_freq;
 
 		/* compute Volt from efuse */
 		temp_volt = 0;
@@ -2734,21 +2738,52 @@ static void __gpufreq_avs_adjustment(void)
 		temp_volt |= (val & 0x0000000C) << 4;  /* Get volt[7:6] from efuse[3:2]   */
 		/* Volt is stored in efuse with 6.25mV unit */
 		temp_volt *= 625;
-		/* clamp to signoff Volt */
-		if (temp_volt > g_gpu.signed_table[oppidx].volt) {
-			GPUFREQ_LOGW("OPP[%02d*]: AVS efuse[%d].volt(%d) > signed-off.volt(%d)",
-				oppidx, i, temp_volt, g_gpu.signed_table[oppidx].volt);
-			g_avs_adj[i].volt = g_gpu.signed_table[oppidx].volt;
-		} else
-			g_avs_adj[i].volt = temp_volt;
-		g_avs_adj[i].vsram = __gpufreq_get_vsram_by_vstack(g_avs_adj[i].volt);
+		g_avs_adj[i].volt = temp_volt;
 
 		/* AVS is enabled if any OPP is adjusted by AVS */
 		g_avs_enable = true;
-
-		GPUFREQ_LOGI("OPP[%02d*]: AVS efuse[%d] freq(%d), volt(%d)",
-			oppidx, i, temp_freq, temp_volt);
 	}
+
+	/* check AVS Volt and update Vsram */
+	for (i = adj_num - 1; i >= 0; i--) {
+		oppidx = g_avs_adj[i].oppidx;
+		/* mV * 100 */
+		if (i == 0)
+			volt_offset = 1250;
+		else if (i == 1)
+			volt_offset = 1250;
+
+		/* if AVS Volt is not set */
+		if (!g_avs_adj[i].volt)
+			continue;
+
+		/*
+		 * AVS Volt reverse check, start from adj_num -2
+		 * Volt of sign-off[i] should always be larger than sign-off[i+1]
+		 * if not, add Volt offset to sign-off[i]
+		 */
+		if (i != (adj_num - 1)) {
+			if (g_avs_adj[i].volt < g_avs_adj[i+1].volt) {
+				GPUFREQ_LOGW("AVS efuse[%d].volt(%d) < efuse[%d].volt(%d)",
+					i, g_avs_adj[i].volt, i+1, g_avs_adj[i+1].volt);
+				g_avs_adj[i].volt = g_avs_adj[i+1].volt + volt_offset;
+			}
+		}
+
+		/* clamp to signoff Volt */
+		if (g_avs_adj[i].volt > g_gpu.signed_table[oppidx].volt) {
+			GPUFREQ_LOGW("OPP[%02d*]: AVS efuse[%d].volt(%d) > signed-off.volt(%d)",
+				oppidx, i, g_avs_adj[i].volt, g_gpu.signed_table[oppidx].volt);
+			g_avs_adj[i].volt = g_gpu.signed_table[oppidx].volt;
+		}
+
+		/* update Vsram */
+		g_avs_adj[i].vsram = __gpufreq_get_vsram_by_vgpu(g_avs_adj[i].volt);
+	}
+
+	for (i = 0; i < adj_num; i++)
+		GPUFREQ_LOGI("OPP[%02d*]: AVS efuse[%d] freq(%d), volt(%d)",
+			g_avs_adj[i].oppidx, i, g_avs_adj[i].freq, g_avs_adj[i].volt);
 
 	/* apply AVS to signed table */
 	__gpufreq_apply_adjust(g_avs_adj, adj_num);
