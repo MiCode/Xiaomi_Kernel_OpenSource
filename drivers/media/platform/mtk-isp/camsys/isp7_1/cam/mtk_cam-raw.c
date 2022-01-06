@@ -1916,6 +1916,9 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			mtk_cam_set_topdebug_rdyreq(dev->dev, dev->base, dev->yuv_base,
 				TG_OVERRUN);
 			dev->overrun_debug_dump_cnt = 0;
+			enable_tg_db(dev, 0);
+			enable_tg_db(dev, 1);
+			toggle_db(dev);
 			if (feature & MTK_CAM_FEATURE_TIMESHARE_MASK ||
 				feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK) {
 				dev_info(dev->dev, "[%s] M2M view finder disable\n", __func__);
