@@ -2590,7 +2590,7 @@ static int __init scp_init(void)
 
 	if (platform_driver_register(&mtk_scp_device)) {
 		pr_notice("[SCP] scp probe fail\n");
-		goto err;
+		goto err_without_unregister;
 	}
 
 	if (platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe)) {
@@ -2699,6 +2699,8 @@ static int __init scp_init(void)
 
 	return ret;
 err:
+	platform_driver_unregister(&mtk_scp_device);
+err_without_unregister:
 #if SCP_DVFS_INIT_ENABLE
 	/* remember to release scp_dvfs resource */
 	if (scp_dvfs_feature_enable()) {
