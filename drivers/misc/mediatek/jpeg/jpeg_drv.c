@@ -375,11 +375,16 @@ static void jpeg_drv_hybrid_dec_unlock(unsigned int hwid)
 		JPEG_LOG(1, "jpeg dec HW core %d is unlocked", hwid);
 		jpeg_drv_hybrid_dec_power_off(hwid);
 		disable_irq(gJpegqDev.hybriddecIrqId[hwid]);
+		jpg_dmabuf_free_iova(bufInfo[hwid].i_dbuf,
+			bufInfo[hwid].i_attach,
+			bufInfo[hwid].i_sgt);
+		jpg_dmabuf_free_iova(bufInfo[hwid].o_dbuf,
+			bufInfo[hwid].o_attach,
+			bufInfo[hwid].o_sgt);
+		jpg_dmabuf_put(bufInfo[hwid].i_dbuf);
+		jpg_dmabuf_put(bufInfo[hwid].o_dbuf);
+		// we manually add 1 ref count, need to put it.
 	}
-	jpg_dmabuf_free_iova(bufInfo[hwid].i_dbuf, bufInfo[hwid].i_attach, bufInfo[hwid].i_sgt);
-	jpg_dmabuf_free_iova(bufInfo[hwid].o_dbuf, bufInfo[hwid].o_attach, bufInfo[hwid].o_sgt);
-	jpg_dmabuf_put(bufInfo[hwid].i_dbuf);
-	jpg_dmabuf_put(bufInfo[hwid].o_dbuf); // we manually add 1 ref count, need to put it.
 	mutex_unlock(&jpeg_hybrid_dec_lock);
 }
 
