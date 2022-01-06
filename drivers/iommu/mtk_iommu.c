@@ -3105,7 +3105,7 @@ static const struct mtk_iommu_plat_data mt6853_data = {
 static const struct mtk_iommu_plat_data mt6855_data_disp = {
 	.m4u_plat	= M4U_MT6855,
 	.flags          = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
-			  NOT_STD_AXI_MODE | TLB_SYNC_EN | SHARE_PGTABLE /*| IOMMU_SEC_BK_EN*/ |
+			  NOT_STD_AXI_MODE | TLB_SYNC_EN | SHARE_PGTABLE | IOMMU_SEC_BK_EN |
 			  SKIP_CFG_PORT | IOVA_34_EN /*| HAS_BCLK | HAS_SMI_SUB_COMM*/ |
 			  IOMMU_CLK_AO_EN | IOMMU_EN_PRE,
 	.inv_sel_reg    = REG_MMU_INV_SEL_GEN2,
@@ -3114,7 +3114,6 @@ static const struct mtk_iommu_plat_data mt6855_data_disp = {
 	.normal_dom	= 0,
 	.iova_region    = mt6855_multi_dom,
 	.iova_region_nr = ARRAY_SIZE(mt6855_multi_dom),
-	/* not use larbid_remap */
 };
 
 static const struct mtk_iommu_plat_data mt6873_data = {
