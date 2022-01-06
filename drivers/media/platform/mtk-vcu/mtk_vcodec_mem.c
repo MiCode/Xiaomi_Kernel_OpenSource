@@ -15,7 +15,7 @@
 #define pr_debug vcu_mem_dbg_log
 
 struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
-	struct device *cmdq_dev)
+	struct cmdq_client *cmdq_clt)
 {
 	struct mtk_vcu_queue *vcu_queue = NULL;
 
@@ -27,7 +27,7 @@ struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
 	INIT_LIST_HEAD(&vcu_queue->pa_pages.list);
 	vcu_queue->mem_ops = &vb2_dma_contig_memops;
 	vcu_queue->dev = dev;
-	vcu_queue->cmdq_dev = cmdq_dev;
+	vcu_queue->cmdq_clt = cmdq_clt;
 	vcu_queue->num_buffers = 0;
 	vcu_queue->map_buf_pa = 0;
 	mutex_init(&vcu_queue->mmap_lock);
@@ -63,7 +63,7 @@ void mtk_vcu_mem_release(struct mtk_vcu_queue *vcu_queue)
 	list_for_each_safe(p, q, &vcu_queue->pa_pages.list) {
 		tmp = list_entry(p, struct vcu_pa_pages, list);
 		cmdq_mbox_buf_free(
-			NULL,
+			vcu_queue->cmdq_clt,
 			(void *)(unsigned long)tmp->kva,
 			(dma_addr_t)tmp->pa);
 		pr_info("Free cmdq pa %llx ref_cnt = %d\n", tmp->pa,
@@ -213,7 +213,7 @@ void *mtk_vcu_get_page(struct mtk_vcu_queue *vcu_queue,
 	struct vcu_pa_pages *tmp;
 
 	mem_priv =
-		cmdq_mbox_buf_alloc(NULL, &temp_pa);
+		cmdq_mbox_buf_alloc(vcu_queue->cmdq_clt, &temp_pa);
 	tmp = kmalloc(sizeof(struct vcu_pa_pages), GFP_KERNEL);
 	if (!tmp)
 		return ERR_PTR(-ENOMEM);
@@ -300,7 +300,7 @@ int mtk_vcu_free_page(struct mtk_vcu_queue *vcu_queue,
 			atomic_read(&tmp->ref_cnt) == 1) {
 			ret = 0;
 			cmdq_mbox_buf_free(
-				NULL,
+				vcu_queue->cmdq_clt,
 				(void *)(unsigned long)
 				tmp->kva,
 				(dma_addr_t)mem_buff_data->pa);

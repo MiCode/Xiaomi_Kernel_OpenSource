@@ -445,6 +445,9 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 	bool no_op_rate_max_freq = false;
 
 	if (codec_type == MTK_INST_DECODER) {
+		if (dev->vdec_reg == 0)
+			return;
+
 		dev->vdec_dvfs_params.allow_oc = 0;
 
 		if (list_empty(&dev->vdec_dvfs_inst)) {
@@ -492,6 +495,9 @@ void update_freq(struct mtk_vcodec_dev *dev, int codec_type)
 		dev->vdec_dvfs_params.target_freq = (u32)freq_sum;
 		mtk_v4l2_debug(6, "[VDVFS] VDEC freq = %u", dev->vdec_dvfs_params.target_freq);
 	} else if (codec_type == MTK_INST_ENCODER) {
+		if (dev->venc_reg == 0)
+			return;
+
 		dev->venc_dvfs_params.allow_oc = 0;
 
 		if (list_empty(&dev->venc_dvfs_inst)) {

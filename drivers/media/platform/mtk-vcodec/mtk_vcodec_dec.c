@@ -3358,8 +3358,10 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 		mtk_v4l2_debug(4, "use VCP_IOMMU_VDEC_512MB1 domain");
 	}
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
-	if (!src_vq->dev)
+	if (!src_vq->dev) {
 		src_vq->dev = &ctx->dev->plat_dev->dev;
+		mtk_v4l2_debug(4, "vcp_get_io_device NULL use plat_dev domain");
+	}
 #endif
 #else
 	src_vq->dev		= &ctx->dev->plat_dev->dev;

@@ -272,8 +272,11 @@ void mtk_prepare_venc_dvfs(struct mtk_vcodec_dev *dev)
 	int i = 0;
 	bool tput_ret;
 
+	INIT_LIST_HEAD(&dev->venc_dvfs_inst);
+
 	ret = dev_pm_opp_of_add_table(&dev->plat_dev->dev);
 	if (ret < 0) {
+		dev->venc_reg = 0;
 		mtk_v4l2_debug(0, "[VENC] Failed to get opp table (%d)", ret);
 		return;
 	}
@@ -295,7 +298,6 @@ void mtk_prepare_venc_dvfs(struct mtk_vcodec_dev *dev)
 		dev_pm_opp_put(opp);
 	}
 
-	INIT_LIST_HEAD(&dev->venc_dvfs_inst);
 	tput_ret = mtk_enc_tput_init(dev);
 #endif
 }
@@ -404,6 +406,8 @@ void mtk_venc_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 	u64 target_bw = 0;
 
 	dev = ctx->dev;
+	if (dev->venc_reg == 0)
+		return;
 
 	for (i = 0; i < dev->venc_port_cnt; i++) {
 		target_bw = (u64)dev->venc_port_bw[i].port_base_bw *
@@ -432,6 +436,8 @@ void mtk_venc_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 	u64 target_bw = 0;
 
 	dev = ctx->dev;
+	if (dev->venc_reg == 0)
+		return;
 
 	for (i = 0; i < dev->venc_port_cnt; i++) {
 		target_bw = (u64)dev->venc_port_bw[i].port_base_bw *

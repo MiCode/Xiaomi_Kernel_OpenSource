@@ -73,7 +73,7 @@ struct mtk_vcu_queue {
 	void *vcu;
 	struct mutex mmap_lock;
 	struct device *dev;
-	struct device *cmdq_dev;
+	struct cmdq_client *cmdq_clt;
 	unsigned int num_buffers;
 	const struct vb2_mem_ops *mem_ops;
 	struct mtk_vcu_mem bufs[CODEC_MAX_BUFFER];
@@ -92,7 +92,7 @@ struct mtk_vcu_queue {
  * otherwise it is vcu queue to store the allocated buffer
  **/
 struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
-	struct device *cmdq_dev);
+	struct cmdq_client *cmdq_clt);
 
 /**
  * mtk_vcu_mem_release - just release the vcu_queue

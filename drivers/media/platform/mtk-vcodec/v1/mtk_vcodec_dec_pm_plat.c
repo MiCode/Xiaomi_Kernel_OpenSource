@@ -210,8 +210,11 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 	int i = 0;
 	bool tput_ret = false;
 
+	INIT_LIST_HEAD(&dev->vdec_dvfs_inst);
+
 	ret = dev_pm_opp_of_add_table(&dev->plat_dev->dev);
 	if (ret < 0) {
+		dev->vdec_reg = 0;
 		mtk_v4l2_debug(0, "[VDEC] Failed to get opp table (%d)", ret);
 		return;
 	}
@@ -233,7 +236,6 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 		dev_pm_opp_put(opp);
 	}
 
-	INIT_LIST_HEAD(&dev->vdec_dvfs_inst);
 	tput_ret = mtk_dec_tput_init(dev);
 #endif
 }
@@ -339,6 +341,8 @@ void mtk_vdec_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 
 	mtk_v4l2_debug(6, "[VDEC] ctx = %p",  ctx);
 	dev = ctx->dev;
+	if (dev->vdec_reg == 0)
+		return;
 
 	for (i = 0; i < dev->vdec_port_cnt; i++) {
 		target_bw = (u64)dev->vdec_port_bw[i].port_base_bw *
@@ -374,6 +378,8 @@ void mtk_vdec_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 
 	mtk_v4l2_debug(6, "[VDEC] ctx = %p",  ctx);
 	dev = ctx->dev;
+	if (dev->vdec_reg == 0)
+		return;
 
 	for (i = 0; i < dev->vdec_port_cnt; i++) {
 		target_bw = (u64)dev->vdec_port_bw[i].port_base_bw *
