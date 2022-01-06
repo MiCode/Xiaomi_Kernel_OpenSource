@@ -1044,11 +1044,22 @@ static void core_taskdone(struct work_struct *work)
 	mml_trace_end();
 }
 
+static void core_taskdone_check(struct mml_task *task)
+{
+	struct mml_frame_config *cfg = task->config;
+	u32 cnt;
+
+	/* cnt can be 1 or 2, if dual on and count 2 means pipes done */
+	cnt = atomic_inc_return(&task->pipe_done);
+	if (!cfg->dual || cnt > 1)
+		kthread_queue_work(cfg->ctx_kt_done, &task->kt_work_done);
+}
+
 static void core_taskdone_cb(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
 	struct mml_task *task = (struct mml_task *)pkt->user_data;
-	u32 pipe, cnt;
+	u32 pipe;
 
 	if (pkt == task->pkts[0])
 		pipe = 0;
@@ -1068,11 +1079,7 @@ static void core_taskdone_cb(struct cmdq_cb_data data)
 	else
 		mml_mmp(irq_done, MMPROFILE_FLAG_PULSE, task->job.jobid, pipe);
 
-	/* cnt can be 1 or 2, if dual on and count 2 means pipes done */
-	cnt = atomic_inc_return(&task->pipe_done);
-	if (!task->config->dual || cnt > 1)
-		kthread_queue_work(task->config->ctx_kt_done, &task->kt_work_done);
-
+	core_taskdone_check(task);
 	mml_trace_end();
 }
 
@@ -1356,7 +1363,7 @@ static void core_config_pipe(struct mml_task *task, u32 pipe)
 	if (err < 0) {
 		mml_err("config fail task %p pipe %u pkt %p",
 			task, pipe, task->pkts[pipe]);
-		kthread_queue_work(task->config->ctx_kt_done, &task->kt_work_done);
+		core_taskdone_check(task);
 		goto exit;
 	}
 
@@ -1370,14 +1377,14 @@ static void core_config_pipe(struct mml_task *task, u32 pipe)
 	if (err < 0) {
 		mml_err("command fail task %p pipe %u pkt %p",
 			task, pipe, task->pkts[pipe]);
-		kthread_queue_work(task->config->ctx_kt_done, &task->kt_work_done);
+		core_taskdone_check(task);
 		goto exit;
 	}
 	err = core_flush(task, pipe);
 	if (err < 0) {
 		mml_err("flush fail task %p pipe %u pkt %p",
 			task, pipe, task->pkts[pipe]);
-		kthread_queue_work(task->config->ctx_kt_done, &task->kt_work_done);
+		core_taskdone_check(task);
 	}
 
 	if (mml_pkt_dump == 1)
