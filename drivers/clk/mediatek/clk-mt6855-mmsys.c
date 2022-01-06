@@ -122,6 +122,8 @@ static const struct mtk_gate mm_clks[] = {
 			"disp0_ck"/* parent */, 26),
 	GATE_MM0(CLK_MM_DISP_DSC_WRAP0, "mm_disp_dsc_wrap0",
 			"disp0_ck"/* parent */, 27),
+	GATE_MM0(CLK_MM_DISP_DUMMY_MOD_B0, "mm_dummyb0",
+			"disp0_ck"/* parent */, 28),
 	GATE_MM0(CLK_MM_DISP_DSI0, "mm_CLK0",
 			"disp0_ck"/* parent */, 29),
 	GATE_MM0(CLK_MM_DISP_UFBC_WDMA0, "mm_disp_ufbc_wdma0",
