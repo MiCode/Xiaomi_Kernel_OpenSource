@@ -1888,6 +1888,10 @@ static const struct mtk_addon_module_data addon_mml_data[] = {
 	{DISP_INLINE_ROTATE, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
 };
 
+static const struct mtk_addon_module_data addon_mml_data_1[] = {
+	{DISP_INLINE_ROTATE_1, ADDON_BETWEEN, DDP_COMPONENT_OVL2_2L},
+};
+
 static const struct mtk_addon_module_data addon_mml_sram_only_data[] = {
 	{DISP_INLINE_ROTATE_SRAM_ONLY, ADDON_BETWEEN, DDP_COMPONENT_OVL0_2L},
 };
@@ -2054,8 +2058,8 @@ static const struct mtk_addon_scenario_data mt6983_addon_main_dual[ADDON_SCN_NR]
 				.hrt_type = HRT_TB_TYPE_GENERAL0,
 			},
 		[MML] = {
-				.module_num = ARRAY_SIZE(addon_mml_data),
-				.module_data = addon_mml_data,
+				.module_num = ARRAY_SIZE(addon_mml_data_1),
+				.module_data = addon_mml_data_1,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[MML_SRAM_ONLY] = {

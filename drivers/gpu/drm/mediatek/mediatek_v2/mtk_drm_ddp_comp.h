@@ -255,39 +255,41 @@ enum mtk_ddp_comp_type {
 /*125*/	EXPR(DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL)                           \
 	EXPR(DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL)                       \
 	EXPR(DDP_COMPONENT_Y2R0)                                            \
+	EXPR(DDP_COMPONENT_Y2R1)                                            \
 	EXPR(DDP_COMPONENT_Y2R0_VIRTUAL0)                                   \
+/*130*/	EXPR(DDP_COMPONENT_Y2R1_VIRTUAL0)                                   \
 	EXPR(DDP_COMPONENT_DLO_ASYNC)                                       \
-/*130*/	EXPR(DDP_COMPONENT_DLI_ASYNC)                                       \
+	EXPR(DDP_COMPONENT_DLI_ASYNC)                                       \
 	EXPR(DDP_COMPONENT_INLINE_ROTATE0)                                  \
 	EXPR(DDP_COMPONENT_INLINE_ROTATE1)                                  \
-	EXPR(DDP_COMPONENT_MMLSYS_BYPASS)                                   \
+/*135*/	EXPR(DDP_COMPONENT_MMLSYS_BYPASS)                                   \
 	EXPR(DDP_COMPONENT_MAIN_OVL_DISP_WDMA_VIRTUAL)                     \
-/*135*/	EXPR(DDP_COMPONENT_MAIN_OVL_DISP1_WDMA_VIRTUAL)                     \
+	EXPR(DDP_COMPONENT_MAIN_OVL_DISP1_WDMA_VIRTUAL)                     \
 	EXPR(DDP_COMPONENT_SUB_OVL_DISP0_PQ0_VIRTUAL)                  \
 	EXPR(DDP_COMPONENT_SUB_OVL_DISP1_PQ0_VIRTUAL)					\
-	EXPR(DDP_COMPONENT_MML_RSZ0)					\
+/*140*/	EXPR(DDP_COMPONENT_MML_RSZ0)					\
 	EXPR(DDP_COMPONENT_MML_RSZ1)					\
-/*140*/	EXPR(DDP_COMPONENT_MML_RSZ2)					\
+	EXPR(DDP_COMPONENT_MML_RSZ2)					\
 	EXPR(DDP_COMPONENT_MML_RSZ3)					\
 	EXPR(DDP_COMPONENT_MML_HDR0)					\
-	EXPR(DDP_COMPONENT_MML_HDR1)					\
+/*145*/	EXPR(DDP_COMPONENT_MML_HDR1)					\
 	EXPR(DDP_COMPONENT_MML_AAL0)					\
-/*145*/	EXPR(DDP_COMPONENT_MML_AAL1)					\
+	EXPR(DDP_COMPONENT_MML_AAL1)					\
 	EXPR(DDP_COMPONENT_MML_TDSHP0)					\
 	EXPR(DDP_COMPONENT_MML_TDSHP1)					\
-	EXPR(DDP_COMPONENT_MML_COLOR0)					\
+/*150*/	EXPR(DDP_COMPONENT_MML_COLOR0)					\
 	EXPR(DDP_COMPONENT_MML_COLOR1)					\
-/*150*/	EXPR(DDP_COMPONENT_MML_MML0)					\
+	EXPR(DDP_COMPONENT_MML_MML0)					\
 	EXPR(DDP_COMPONENT_MML_DLI0)					\
 	EXPR(DDP_COMPONENT_MML_DLI1)					\
-	EXPR(DDP_COMPONENT_MML_DLO0)					\
+/*155*/	EXPR(DDP_COMPONENT_MML_DLO0)					\
 	EXPR(DDP_COMPONENT_MML_DLO1)					\
-/*155*/	EXPR(DDP_COMPONENT_MML_MUTEX0)					\
+	EXPR(DDP_COMPONENT_MML_MUTEX0)					\
 	EXPR(DDP_COMPONENT_MML_WROT0)					\
 	EXPR(DDP_COMPONENT_MML_WROT1)					\
-	EXPR(DDP_COMPONENT_MML_WROT2)					\
+/*160*/	EXPR(DDP_COMPONENT_MML_WROT2)					\
 	EXPR(DDP_COMPONENT_MML_WROT3)					\
-/*160*/	EXPR(DDP_COMPONENT_ID_MAX)
+	EXPR(DDP_COMPONENT_ID_MAX)
 
 #define DECLARE_NUM(ENUM) ENUM,
 #define DECLARE_STR(STR) #STR,
@@ -318,6 +320,7 @@ enum mtk_ddp_comp_id {
 	DDP_COMPONENT_OVL1_2L,
 	DDP_COMPONENT_OVL0_2L_VIRTUAL0,
 	DDP_COMPONENT_OVL0_VIRTUAL0,
+	DDP_COMPONENT_OVL1_VIRTUAL0,
 	DDP_COMPONENT_PWM0,
 	DDP_COMPONENT_PWM1,
 	DDP_COMPONENT_PWM2,
@@ -331,7 +334,9 @@ enum mtk_ddp_comp_id {
 	DDP_COMPONENT_WDMA1,
 	DDP_COMPONENT_POSTMASK0,
 	DDP_COMPONENT_Y2R0,
+	DDP_COMPONENT_Y2R1,
 	DDP_COMPONENT_Y2R0_VIRTUAL0,
+	DDP_COMPONENT_Y2R1_VIRTUAL0,
 	DDP_COMPONENT_DLO_ASYNC,
 	DDP_COMPONENT_DLI_ASYNC,
 	DDP_COMPONENT_INLINE_ROTATE0,
@@ -496,6 +501,10 @@ struct mtk_ddp_comp_funcs {
 	void (*connect)(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			enum mtk_ddp_comp_id next);
 	int (*is_busy)(struct mtk_ddp_comp *comp);
+	void (*mml_calc_cfg)(struct mtk_ddp_comp *comp,
+			     union mtk_addon_config *addon_config,
+			     struct cmdq_pkt *handle);
+	void (*dump)(struct mtk_ddp_comp *comp);
 };
 
 #define MTK_IRQ_TS_MAX 20
@@ -707,6 +716,23 @@ mtk_ddp_comp_addon_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			!comp->blank_mode)
 		comp->funcs->addon_config(comp, prev, next, addon_config,
 				handle);
+}
+
+static inline void
+mtk_ddp_comp_mml_calc_cfg(struct mtk_ddp_comp *comp,
+			  union mtk_addon_config *addon_config,
+			  struct cmdq_pkt *handle)
+{
+	if (comp && comp->funcs && comp->funcs->addon_config &&
+		!comp->blank_mode)
+		comp->funcs->mml_calc_cfg(comp, addon_config, handle);
+}
+
+static inline void
+mtk_ddp_comp_dump(struct mtk_ddp_comp *comp)
+{
+	if (comp && comp->funcs && comp->funcs->dump && !comp->blank_mode)
+		comp->funcs->dump(comp);
 }
 
 static inline int mtk_ddp_comp_io_cmd(struct mtk_ddp_comp *comp,

@@ -401,6 +401,8 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	state->pending.mml_mode = state->mml_mode;
 	state->pending.mml_cfg = state->mml_cfg;
 
+	// MML setting display single pipe in here, we set dual pipe
+	// in mtk_drm_layer_dispatch_to_dual_pipe()
 	if (state->pending.mml_mode == MML_MODE_RACING && mtk_crtc->is_mml) {
 		struct mml_submit *cfg = state->pending.mml_cfg;
 		uint32_t width, height, pitch;

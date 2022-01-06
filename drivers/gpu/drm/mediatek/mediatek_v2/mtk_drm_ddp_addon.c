@@ -74,16 +74,30 @@ static const int mml_rsz_path_v2[] = {
 
 static const int disp_mml_path[] = {
 	DDP_COMPONENT_OVL0_2L_VIRTUAL0,
-	DDP_COMPONENT_DLO_ASYNC,
+	DDP_COMPONENT_DLO_ASYNC3,
 	DDP_COMPONENT_MML_MML0, DDP_COMPONENT_MML_MUTEX0,
 	DDP_COMPONENT_MML_DLI0,
 	DDP_COMPONENT_MML_HDR0, DDP_COMPONENT_MML_AAL0, DDP_COMPONENT_MML_RSZ0,
 	DDP_COMPONENT_MML_TDSHP0, DDP_COMPONENT_MML_COLOR0,
 	DDP_COMPONENT_MML_DLO0,
 	DDP_COMPONENT_INLINE_ROTATE0,
-	DDP_COMPONENT_DLI_ASYNC,
+	DDP_COMPONENT_DLI_ASYNC3,
 	DDP_COMPONENT_Y2R0,
 	DDP_COMPONENT_Y2R0_VIRTUAL0
+};
+
+static const int disp_mml_path_1[] = {
+	DDP_COMPONENT_OVL2_2L_VIRTUAL0,
+	DDP_COMPONENT_DLO_ASYNC7,
+	DDP_COMPONENT_MML_MML0, DDP_COMPONENT_MML_MUTEX0,
+	DDP_COMPONENT_MML_DLI1,
+	DDP_COMPONENT_MML_HDR1, DDP_COMPONENT_MML_AAL1, DDP_COMPONENT_MML_RSZ1,
+	DDP_COMPONENT_MML_TDSHP1, DDP_COMPONENT_MML_COLOR1,
+	DDP_COMPONENT_MML_DLO1,
+	DDP_COMPONENT_INLINE_ROTATE1,
+	DDP_COMPONENT_DLI_ASYNC7,
+	DDP_COMPONENT_Y2R1,
+	DDP_COMPONENT_Y2R1_VIRTUAL0
 };
 
 static const int disp_mml_sram_only_path[] = {
@@ -146,6 +160,10 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DISP_INLINE_ROTATE] = {
 				.path = disp_mml_path,
 				.path_len = ARRAY_SIZE(disp_mml_path),
+			},
+		[DISP_INLINE_ROTATE_1] = {
+				.path = disp_mml_path_1,
+				.path_len = ARRAY_SIZE(disp_mml_path_1),
 			},
 		[DISP_INLINE_ROTATE_SRAM_ONLY] = {
 				.path = disp_mml_sram_only_path,
@@ -229,6 +247,7 @@ static void mtk_addon_path_start(struct drm_crtc *crtc,
 
 static void mtk_addon_path_stop(struct drm_crtc *crtc,
 				const struct mtk_addon_path_data *path_data,
+				union mtk_addon_config *addon_config,
 				struct cmdq_pkt *cmdq_handle)
 {
 	int i;
@@ -242,6 +261,12 @@ static void mtk_addon_path_stop(struct drm_crtc *crtc,
 
 		add_comp = priv->ddp_comp[path_data->path[i]];
 		mtk_ddp_comp_stop(add_comp, cmdq_handle);
+
+		if (addon_config &&
+			(addon_config->config_type.module == DISP_INLINE_ROTATE ||
+			addon_config->config_type.module == DISP_INLINE_ROTATE_1) &&
+			addon_config->config_type.type == ADDON_DISCONNECT)
+			mtk_ddp_comp_addon_config(add_comp, -1, -1, addon_config, cmdq_handle);
 	}
 }
 
@@ -498,7 +523,7 @@ void mtk_addon_disconnect_between(
 	}
 
 	/* 1. stop addon module*/
-	mtk_addon_path_stop(crtc, path_data, cmdq_handle);
+	mtk_addon_path_stop(crtc, path_data, addon_config, cmdq_handle);
 
 	/* 2. remove subpath from main path */
 	mtk_ddp_remove_comp_from_path_with_cmdq(
@@ -645,7 +670,7 @@ void mtk_addon_disconnect_before(
 	}
 
 	/* 1. stop addon module*/
-	mtk_addon_path_stop(crtc, path_data, cmdq_handle);
+	mtk_addon_path_stop(crtc, path_data, addon_config, cmdq_handle);
 
 	/* 2. remove subpath from main path */
 	mtk_ddp_remove_comp_from_path_with_cmdq(
@@ -778,7 +803,7 @@ void mtk_addon_disconnect_after(
 	mtk_crtc_attach_addon_path_comp(crtc, module_data, true);
 
 	/* 1. stop addon module*/
-	mtk_addon_path_stop(crtc, path_data, cmdq_handle);
+	mtk_addon_path_stop(crtc, path_data, addon_config, cmdq_handle);
 
 	/* 2. remove subpath from main path */
 	mtk_ddp_remove_comp_from_path_with_cmdq(
@@ -850,7 +875,7 @@ void mtk_addon_disconnect_external(
 	mtk_crtc_attach_addon_path_comp(crtc, module_data, true);
 
 	/* 1. stop addon module*/
-	mtk_addon_path_stop(crtc, path_data, cmdq_handle);
+	mtk_addon_path_stop(crtc, path_data, addon_config, cmdq_handle);
 
 }
 

@@ -1690,7 +1690,9 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 	if (pending->mml_mode == MML_MODE_RACING &&
 		(comp->id == DDP_COMPONENT_OVL0_2L ||
-		 comp->id == DDP_COMPONENT_OVL1_2L) &&
+		 comp->id == DDP_COMPONENT_OVL1_2L ||
+		 comp->id == DDP_COMPONENT_OVL2_2L ||
+		 comp->id == DDP_COMPONENT_OVL3_2L) &&
 		 comp->mtk_crtc->is_force_mml_scen) {
 		con |= REG_FLD_VAL(L_CON_FLD_MTX_AUTO_DIS, 1);
 		con |= REG_FLD_VAL(L_CON_FLD_MTX_EN, 0);
@@ -2591,7 +2593,8 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 {
 	if (prev == DDP_COMPONENT_RSZ0 ||
 		prev == DDP_COMPONENT_RSZ1 ||
-		prev == DDP_COMPONENT_Y2R0) {
+		prev == DDP_COMPONENT_Y2R0 ||
+		prev == DDP_COMPONENT_Y2R1) {
 		int lc_x = rsz_dst_roi.x, lc_y = rsz_dst_roi.y;
 		int lc_w = rsz_dst_roi.width, lc_h = rsz_dst_roi.height;
 
@@ -2654,15 +2657,24 @@ static void mtk_ovl_addon_config(struct mtk_ddp_comp *comp,
 					 config->rsz_dst_roi, handle);
 	}
 
-	if (addon_config->config_type.module == DISP_INLINE_ROTATE &&
+	if ((addon_config->config_type.module == DISP_INLINE_ROTATE ||
+		addon_config->config_type.module == DISP_INLINE_ROTATE_1) &&
 		(addon_config->config_type.type == ADDON_CONNECT ||
 		addon_config->config_type.type == ADDON_DISCONNECT)) {
 		struct mtk_addon_mml_config *config =
 			&addon_config->addon_mml_config;
+		struct mtk_rect src, dst;
+
+		if (addon_config->config_type.module == DISP_INLINE_ROTATE_1) {
+			src = config->mml_src_roi[1];
+			dst = config->mml_dst_roi[1];
+		} else {
+			src = config->mml_src_roi[0];
+			dst = config->mml_dst_roi[0];
+		}
 
 		/* this rsz means enlarge/narrow, not component */
-		mtk_ovl_addon_rsz_config(comp, prev, next, config->mml_src_roi,
-			config->mml_dst_roi, handle);
+		mtk_ovl_addon_rsz_config(comp, prev, next, src, dst, handle);
 	}
 }
 
