@@ -35,12 +35,15 @@
 
 MODULE_LICENSE("GPL v2");
 
+#if CONFIG_MTK_GAUGE_VERSION == 30
+#include <mt-plat/v1/charger_class.h>
+static struct charger_device *primary_charger;
+#endif
 #include <mt-plat/mtk_boot_common.h>
 
 struct device_node		*usb_node;
 static int iddig_eint_num;
 static ktime_t ktime_start, ktime_end;
-static struct		regulator *reg_vbus;
 
 static struct musb_fifo_cfg fifo_cfg_host[] = {
 { .hw_ep_num =  1, .style = FIFO_TX,   .maxpacket = 512, .mode = BUF_SINGLE},
@@ -104,36 +107,56 @@ void set_usb_phy_mode(int mode)
 
 static void _set_vbus(int is_on)
 {
-	if (!reg_vbus) {
-		DBG(0, "vbus_init\n");
-		reg_vbus = regulator_get(mtk_musb->controller, "usb-otg-vbus");
-		if (IS_ERR_OR_NULL(reg_vbus)) {
-			DBG(0, "failed to get vbus\n");
+#if CONFIG_MTK_GAUGE_VERSION == 30
+	if (!primary_charger) {
+		DBG(0, "vbus_init<%d>\n", vbus_on);
+
+		primary_charger = get_charger_by_name("primary_chg");
+		if (!primary_charger) {
+			DBG(0, "get primary charger device failed\n");
 			return;
 		}
 	}
+#endif
 
 	DBG(0, "op<%d>, status<%d>\n", is_on, vbus_on);
 	if (is_on && !vbus_on) {
 		/* update flag 1st then enable VBUS to make host mode correct used by PMIC */
 		vbus_on = true;
 
-		if (regulator_set_voltage(reg_vbus, 5000000, 5000000))
-			DBG(0, "vbus regulator set voltage failed\n");
-
-		if (regulator_set_current_limit(reg_vbus, 1500000, 1800000))
-			DBG(0, "vbus regulator set current limit failed\n");
-
-		if (regulator_enable(reg_vbus))
-			DBG(0, "vbus regulator enable failed\n");
-
+#if CONFIG_MTK_GAUGE_VERSION == 30
+		charger_dev_enable_otg(primary_charger, true);
+		charger_dev_set_boost_current_limit(primary_charger, 1500000);
+#else
+		set_chr_enable_otg(0x1);
+		set_chr_boost_current_limit(1500);
+#endif
 	} else if (!is_on && vbus_on) {
-		/* disable VBUS 1st then update flag
-		 * to make host mode correct used by PMIC
-		 */
+#if CONFIG_MTK_GAUGE_VERSION == 30
+		charger_dev_enable_otg(primary_charger, false);
+#else
+		set_chr_enable_otg(0x0);
+#endif
+
+		/* disable VBUS 1st then update flag to make host mode correct used by PMIC */
 		vbus_on = false;
-		regulator_disable(reg_vbus);
 	}
+}
+
+void mt_set_vbus(int is_on)
+{
+#ifndef CONFIG_FPGA_EARLY_PORTING
+
+	DBG(0, "is_on<%d>, control<%d>\n", is_on, vbus_control);
+
+	if (!vbus_control)
+		return;
+
+	if (is_on)
+		_set_vbus(1);
+	else
+		_set_vbus(0);
+#endif
 }
 
 int mt_usb_get_vbus_status(struct musb *musb)
@@ -347,7 +370,7 @@ static void do_host_work(struct work_struct *data)
 	int usb_clk_state = NO_CHANGE;
 	struct mt_usb_work *work =
 		container_of(data, struct mt_usb_work, dwork.work);
-	struct mt_usb_glue *glue = mtk_musb->glue;
+	/*struct mt_usb_glue *glue = mtk_musb->glue;*/
 
 	/*
 	 * kernel_init_done should be set in
@@ -444,7 +467,7 @@ static void do_host_work(struct work_struct *data)
 		/* for some signal issue */
 		mdelay(5);
 
-		//mt_usb_set_vbus(mtk_musb, 1);
+		mt_set_vbus(1);
 
 		//if (check_vbus() < 0)
 		//	DBG(0, "check vbus fail\n");
@@ -463,10 +486,12 @@ static void do_host_work(struct work_struct *data)
 		}
 		spin_unlock_irqrestore(&mtk_musb->lock, flags);
 
-		DBG(1, "devctl is %x\n", musb_readb(mtk_musb->mregs, MUSB_DEVCTL));
+		DBG(1, "devctl 1 is %x\n", musb_readb(mtk_musb->mregs, MUSB_DEVCTL));
 		musb_writeb(mtk_musb->mregs, MUSB_DEVCTL, 0);
+		DBG(1, "devctl 1-2 is %x\n", musb_readb(mtk_musb->mregs, MUSB_DEVCTL));
 		if (mtk_musb->usb_lock->active)
 			__pm_relax(mtk_musb->usb_lock);
+		mt_set_vbus(0);
 
 		/* for no VBUS sensing IP */
 		phy_set_mode(glue->phy, PHY_MODE_INVALID);
@@ -503,8 +528,11 @@ out:
 		/* clock no change : clk_prepare_cnt -1 */
 		usb_prepare_clock(false);
 	}
+	/* free mt_usb_work */
+	kfree(work);
 }
 
+#include <linux/usb/role.h>
 static irqreturn_t mt_usb_ext_iddig_int(int irq, void *dev_id)
 {
 	iddig_cnt++;
@@ -512,9 +540,10 @@ static irqreturn_t mt_usb_ext_iddig_int(int irq, void *dev_id)
 	iddig_req_host = !iddig_req_host;
 	DBG(0, "id pin assert, %s\n", iddig_req_host ? "connect" : "disconnect");
 	if (iddig_req_host)
-		mt_usb_host_connect(0);
+		mt_usb_host_connect(sw_deboun_time);
 	else
-		mt_usb_host_disconnect(0);
+		mt_usb_host_disconnect(sw_deboun_time);
+
 	disable_irq_nosync(iddig_eint_num);
 	return IRQ_HANDLED;
 }
@@ -602,6 +631,7 @@ EXPORT_SYMBOL(mt_usb_otg_init);
 void mt_usb_otg_exit(struct musb *musb)
 {
 	DBG(0, "OTG disable vbus\n");
+	mt_set_vbus(0);
 }
 
 #ifdef CONFIG_MTK_MUSB_PHY
@@ -788,7 +818,7 @@ EXPORT_SYMBOL(mt_usb_otg_init);
 void mt_usb_otg_exit(struct musb *musb) {}
 EXPORT_SYMBOL(mt_usb_otg_exit);
 
-void mt_usb_set_vbus(struct musb *musb, int is_on) {}
+void mt_set_vbus(int is_on) {}
 int mt_usb_get_vbus_status(struct musb *musb) {return 1; }
 void switch_int_to_device(struct musb *musb) {}
 void switch_int_to_host(struct musb *musb) {}

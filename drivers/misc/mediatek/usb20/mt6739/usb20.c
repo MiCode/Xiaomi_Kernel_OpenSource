@@ -696,6 +696,8 @@ static void mt_usb_enable(struct musb *musb)
 
 	flags = musb_readl(musb->mregs, USB_L1INTM);
 
+	DBG(0, "phy_power_on\n");
+	phy_power_on(glue->phy);
 
 	/* update musb->power & mtk_usb_power in the same time */
 	musb->power = true;
@@ -718,6 +720,9 @@ static void mt_usb_disable(struct musb *musb)
 	    real_enable, real_disable);
 	if (musb->power == false)
 		return;
+
+	DBG(0, "phy_power_off\n");
+	phy_power_off(glue->phy);
 
 	usb_enable_clock(false);
 	/* clock will unprepare when leave here */
@@ -901,6 +906,9 @@ exit:
 		/* clock no change : clk_prepare_cnt -1 */
 		usb_prepare_clock(false);
 	}
+
+	/* free mt_usb_work */
+	kfree(work);
 }
 
 static void issue_connection_work(int ops)

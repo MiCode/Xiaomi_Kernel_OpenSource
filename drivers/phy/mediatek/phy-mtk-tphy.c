@@ -1471,6 +1471,10 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp &= ~(P2C_RG_XCVRSEL | P2C_RG_DATAIN);
 	tmp |= P2C_RG_XCVRSEL_VAL(1) | P2C_DTM0_PART_MASK2;
+#if defined(CONFIG_MACH_MT6739)
+	dev_info(tphy->dev, "%s, write DTM0 SUSPENDM\n", __func__);
+	tmp |= P2C_RG_SUSPENDM;
+#endif
 	writel(tmp, com + U3P_U2PHYDTM0);
 
 	/* OTG Disable */

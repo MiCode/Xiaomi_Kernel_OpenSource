@@ -35,12 +35,17 @@
 
 MODULE_LICENSE("GPL v2");
 
+#ifdef CONFIG_MTK_CHARGER
+#if CONFIG_MTK_GAUGE_VERSION == 30
+#include <mt-plat/v1/charger_class.h>
+static struct charger_device *primary_charger;
+#endif
+#endif
 #include <mt-plat/mtk_boot_common.h>
 
 struct device_node	*usb_node;
 static int		iddig_eint_num;
 static ktime_t		ktime_start, ktime_end;
-static struct		regulator *reg_vbus;
 
 static struct musb_fifo_cfg fifo_cfg_host[] = {
 { .hw_ep_num = 1, .style = FIFO_TX,
@@ -120,14 +125,19 @@ void set_usb_phy_mode(int mode)
 
 static void _set_vbus(int is_on)
 {
-	if (!reg_vbus) {
-		DBG(0, "vbus_init\n");
-		reg_vbus = regulator_get(mtk_musb->controller, "usb-otg-vbus");
-		if (IS_ERR_OR_NULL(reg_vbus)) {
-			DBG(0, "failed to get vbus\n");
+#ifdef CONFIG_MTK_CHARGER
+#if CONFIG_MTK_GAUGE_VERSION == 30
+	if (!primary_charger) {
+		DBG(0, "vbus_init<%d>\n", vbus_on);
+
+		primary_charger = get_charger_by_name("primary_chg");
+		if (!primary_charger) {
+			DBG(0, "get primary charger device failed\n");
 			return;
-		}
 	}
+	}
+#endif
+#endif
 
 	DBG(0, "op<%d>, status<%d>\n", is_on, vbus_on);
 	if (is_on && !vbus_on) {
@@ -135,21 +145,28 @@ static void _set_vbus(int is_on)
 		 * host mode correct used by PMIC
 		 */
 		vbus_on = true;
-		if (regulator_set_voltage(reg_vbus, 5000000, 5000000))
-			DBG(0, "vbus regulator set voltage failed\n");
-
-		if (regulator_set_current_limit(reg_vbus, 1500000, 1800000))
-			DBG(0, "vbus regulator set current limit failed\n");
-
-		if (regulator_enable(reg_vbus))
-			DBG(0, "vbus regulator enable failed\n");
+#ifdef CONFIG_MTK_CHARGER
+#if CONFIG_MTK_GAUGE_VERSION == 30
+		charger_dev_enable_otg(primary_charger, true);
+		charger_dev_set_boost_current_limit(primary_charger, 1500000);
+#else
+		set_chr_enable_otg(0x1);
+		set_chr_boost_current_limit(1500);
+#endif
+#endif
 	} else if (!is_on && vbus_on) {
 		/* disable VBUS 1st then update flag
 		 * to make host mode correct used by PMIC
 		 */
 		vbus_on = false;
 
-		regulator_disable(reg_vbus);
+#ifdef CONFIG_MTK_CHARGER
+#if CONFIG_MTK_GAUGE_VERSION == 30
+		charger_dev_enable_otg(primary_charger, false);
+#else
+		set_chr_enable_otg(0x0);
+#endif
+#endif
 	}
 }
 
