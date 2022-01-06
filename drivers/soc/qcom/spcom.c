@@ -69,30 +69,33 @@
 
 #define SPCOM_LOG_PAGE_CNT 10
 
+#define spcom_ipc_log_string(_x...)	\
+	ipc_log_string(spcom_ipc_log_context, _x)
+
 #define spcom_pr_err(_fmt, ...) do {					\
 	pr_err(_fmt, ##__VA_ARGS__);					\
-	ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
+	spcom_ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
 	} while (0)
 
 #define spcom_pr_warn(_fmt, ...) do {					\
 	pr_warn(_fmt, ##__VA_ARGS__);					\
-	ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
+	spcom_ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
 	} while (0)
 
 #define spcom_pr_info(_fmt, ...) do {					\
 	pr_info(_fmt, ##__VA_ARGS__);					\
-	ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
+	spcom_ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
 	} while (0)
 
 #if defined(DEBUG)
 #define spcom_pr_dbg(_fmt, ...) do {					\
 	pr_debug(_fmt, ##__VA_ARGS__);					\
-	ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
+	spcom_ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
 	} while (0)
 #else
 #define spcom_pr_dbg(_fmt, ...) do {					\
 	no_printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);	\
-	ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
+	spcom_ipc_log_string("%s" pr_fmt(_fmt), "", ##__VA_ARGS__);	\
 	} while (0)
 #endif
 
