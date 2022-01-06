@@ -244,7 +244,7 @@
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
-	switch_fps = <144>;
+	switch_fps = <0>;
 	panel1@0 {
 		compatible = "jdi,nt36672e,vdo,120hz,hfp";
 		reg = <0>;
