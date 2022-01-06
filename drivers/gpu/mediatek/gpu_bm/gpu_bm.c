@@ -18,6 +18,8 @@
 #include <mt-plat/mtk_gpu_utility.h>
 #include <mtk_gpufreq.h>
 
+#define GMPOLICY_ENABLE_ADDR  (0x00114090)
+
 struct v1_data {
 	unsigned int version;
 	unsigned int ctx;
@@ -27,6 +29,7 @@ struct v1_data {
 };
 struct v1_data *gpu_info_buf;
 static int gpu_bm_inited;
+static void __iomem *sport_mode_addr;
 
 static void _mgq_proc_show_v1(struct seq_file *m)
 {
@@ -142,18 +145,60 @@ static void _MTKGPUQoS_setupFW(phys_addr_t phyaddr, size_t size)
 	schedule_delayed_work(&g_setupfw_work, 1);
 }
 
-static void bw_v1_gpu_power_change_notify(int power_on)
+void MTKGPUQoS_mode(void)
 {
-	static int ctx;
-	unsigned int loading, idx, min_idx;
+	unsigned int loading, idx, min_idx, sport_mode, high_idx;
+
+	sport_mode_addr = ioremap(GMPOLICY_ENABLE_ADDR, 4);
+	sport_mode = readw(sport_mode_addr);
 
 	mtk_get_gpu_loading(&loading);
 #if defined(CONFIG_MTK_GPUFREQ_V2)
 	idx = gpufreq_get_cur_oppidx(TARGET_DEFAULT);
 	min_idx = gpufreq_get_opp_num(TARGET_DEFAULT) - 1;
+	high_idx = (gpufreq_get_opp_num(TARGET_DEFAULT) - 1) / 4 + 1;
 #else
 	idx = mt_gpufreq_get_cur_freq_index();
 	min_idx = mt_gpufreq_get_dvfs_table_num()-1;
+	high_idx = (mt_gpufreq_get_dvfs_table_num()-1) / 4 + 1;
+#endif
+
+		if (sport_mode != 1) {
+
+			/*
+			 * if gpu loading < 40% and gpu freq is lowest,
+			 * don't do GPU QoS prediction.
+			 */
+			if ((idx == min_idx) && (loading < 40))
+				gpu_info_buf->freq = 5566;
+			else
+				gpu_info_buf->freq = 0;
+		} else {
+			if (idx <= high_idx)
+				gpu_info_buf->freq = 300;
+			else
+				gpu_info_buf->freq = 0;
+		}
+}
+EXPORT_SYMBOL(MTKGPUQoS_mode);
+
+static void bw_v1_gpu_power_change_notify(int power_on)
+{
+	static int ctx;
+	unsigned int loading, idx, min_idx, sport_mode, high_idx;
+
+	sport_mode_addr = ioremap(GMPOLICY_ENABLE_ADDR, 4);
+	sport_mode = readw(sport_mode_addr);
+
+	mtk_get_gpu_loading(&loading);
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	idx = gpufreq_get_cur_oppidx(TARGET_DEFAULT);
+	min_idx = gpufreq_get_opp_num(TARGET_DEFAULT) - 1;
+	high_idx = (gpufreq_get_opp_num(TARGET_DEFAULT) - 1) / 4 + 1;
+#else
+	idx = mt_gpufreq_get_cur_freq_index();
+	min_idx = mt_gpufreq_get_dvfs_table_num()-1;
+	high_idx = (mt_gpufreq_get_dvfs_table_num()-1) / 4 + 1;
 #endif
 
 	if (!power_on) {
@@ -162,14 +207,22 @@ static void bw_v1_gpu_power_change_notify(int power_on)
 	} else {
 		gpu_info_buf->ctx = ctx;
 
-		/*
-		 * if gpu loading < 40% and gpu freq is lowest,
-		 * don't do GPU QoS prediction.
-		 */
-		if ((idx == min_idx) && (loading < 40))
-			gpu_info_buf->freq = 5566;
-		else
-			gpu_info_buf->freq = 0;
+		if (sport_mode != 1) {
+
+			/*
+			 * if gpu loading < 40% and gpu freq is lowest,
+			 * don't do GPU QoS prediction.
+			 */
+			if ((idx == min_idx) && (loading < 40))
+				gpu_info_buf->freq = 5566;
+			else
+				gpu_info_buf->freq = 0;
+		} else {
+			if (idx <= high_idx)
+				gpu_info_buf->freq = 300;
+			else
+				gpu_info_buf->freq = 0;
+		}
 	}
 }
 
