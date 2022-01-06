@@ -166,7 +166,6 @@ static int mt_charger_online(struct mt_charger *mtk_chg)
 	struct device_node *boot_node = NULL;
 	struct tag_bootmode *tag = NULL;
 	int boot_mode = 11;//UNKNOWN_BOOT
-// workaround for mt6768 
 	dev = mtk_chg->dev;
 	if (dev != NULL){
 		boot_node = of_parse_phandle(dev->of_node, "bootmode", 0);
@@ -216,6 +215,31 @@ static int mt_charger_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		val->intval = mtk_chg->chg_type;
 		break;
+	case POWER_SUPPLY_PROP_USB_TYPE:
+		switch (mtk_chg->chg_type) {
+		case STANDARD_HOST:
+			val->intval = POWER_SUPPLY_USB_TYPE_SDP;
+			pr_info("%s: Charger Type: STANDARD_HOST\n", __func__);
+			break;
+		case NONSTANDARD_CHARGER:
+			val->intval = POWER_SUPPLY_USB_TYPE_DCP;
+			pr_info("%s: Charger Type: NONSTANDARD_CHARGER\n", __func__);
+			break;
+		case CHARGING_HOST:
+			val->intval = POWER_SUPPLY_USB_TYPE_CDP;
+			pr_info("%s: Charger Type: CHARGING_HOST\n", __func__);
+			break;
+		case STANDARD_CHARGER:
+			val->intval = POWER_SUPPLY_USB_TYPE_DCP;
+			pr_info("%s: Charger Type: STANDARD_CHARGER\n", __func__);
+			break;
+		case CHARGER_UNKNOWN:
+			val->intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+			pr_info("%s: Charger Type: CHARGER_UNKNOWN\n", __func__);
+			break;
+		default:
+		break;
+	}
 	default:
 		return -EINVAL;
 	}
