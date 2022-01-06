@@ -7708,6 +7708,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		compatible = "mediatek,drm_wv";
 		status = "okay";
 	};
+
+	mtee_svp: mtee_svp {
+		compatible = "medaitek,svp";
+	};
 };
 
 /* AUDIO GPIO standardization start */
