@@ -647,7 +647,7 @@ SND_SOC_DAILINK_DEFS(vow,
 				      "mt6369-snd-codec-vow")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 #endif
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 SND_SOC_DAILINK_DEFS(ultra,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -1157,7 +1157,7 @@ static struct snd_soc_dai_link mt6855_mt6369_dai_links[] = {
 		SND_SOC_DAILINK_REG(vow),
 	},
 #endif
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 	{
 		.name = "SCP_ULTRA_Playback",
 		.stream_name = "SCP_ULTRA_Playback",

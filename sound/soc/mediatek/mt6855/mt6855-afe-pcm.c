@@ -30,7 +30,7 @@
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 #include "../audio_dsp/mtk-dsp-common.h"
 #endif
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 #include "../ultrasound/ultra_scp/mtk-scp-ultra-common.h"
 #endif
 /* FORCE_FPGA_ENABLE_IRQ use irq in fpga */
@@ -6586,7 +6586,7 @@ static int mt6855_afe_pcm_dev_probe(struct platform_device *pdev)
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	audio_set_dsp_afe(afe);
 #endif
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(SKIP_SB)
+#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 	ultra_set_dsp_afe(afe);
 #endif
 	return 0;
