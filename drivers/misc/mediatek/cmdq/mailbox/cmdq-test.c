@@ -1022,6 +1022,163 @@ static void cmdq_test_mbox_reuse_buf_va(struct cmdq_test *test)
 		cmdq_msg("val:%#x equals to ans:%#x", val, ans);
 }
 
+static void cmdq_test_mbox_prebuilt_instr_ext(struct cmdq_test *test,
+	const u16 mod, const u16 event)
+{
+	struct cmdq_pkt *pkt;
+	struct cmdq_pkt_buffer *buf;
+	struct cmdq_operand lop, rop;
+	u64 *inst[6];
+	s32 mark[6], i;
+	/* configure */
+	const u16 spr = CMDQ_THR_SPR_IDX3;
+	unsigned long pa0, pa1, pas;
+	unsigned long reg[] = {
+		0x118, 0x120, 0x128, 0x148, 0x150, 0x200,
+		0xf00, 0xf08, 0xf10, 0xf20, 0xf28, 0xf30, 0xf34,
+		0xf38, 0xf3c, 0xf40, 0xf44, 0xf48, 0xf4c, 0xf50};
+	unsigned long ext_reg[] = {
+		0x000, 0x020, 0x024, 0x028, 0x030, 0x038,
+		0x060, 0x068, 0x070, 0x078, 0x080, 0x090, 0x098,
+		0x240, 0x244, 0x248, 0x250, 0x254, 0x258, 0x260, 0x264,
+		0x268, 0x270, 0x274, 0x278, 0x280, 0x284, 0x288, 0x290, 0x2a0};
+
+	if (mod == CMDQ_PREBUILT_MDP) {
+		pa0 = 0x1f003000;
+		pa1 = 0x1f004000;
+		pas = 0x1f000000;
+	} else if (mod == CMDQ_PREBUILT_MML) {
+		pa0 = 0x1f803000;
+		pa1 = 0x1f804000;
+		pas = 0x1f800000;
+	} else if (mod == CMDQ_PREBUILT_VFMT) {
+		pa0 = 0x16005000;
+		pa1 = 0x16007000;
+		pas = 0;
+	} else {
+		pa0 = CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_TIMER);
+		pa1 = CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
+		pas = 0;
+		memset(reg, 0, sizeof(reg));
+	}
+	cmdq_msg("%s: mod:%hu event:%hu pa0:%#lx pa1:%#lx",
+		__func__, mod, event, pa0, pa1);
+
+	pkt = cmdq_pkt_create(test->clt);
+	cmdq_pkt_wfe(pkt, event);
+
+	/* conditional jumps */
+	mark[0] = pkt->cmd_buf_size;
+	inst[0] = cmdq_pkt_get_curr_buf_va(pkt);
+	cmdq_pkt_assign_command(pkt, spr, 0);
+
+	lop.reg = true;
+	lop.idx = CMDQ_CPR_PREBUILT_PIPE(mod);
+	rop.reg = false;
+	rop.value = 1;
+	cmdq_pkt_cond_jump(pkt, spr, &lop, &rop, CMDQ_EQUAL);
+
+	mark[1] = pkt->cmd_buf_size;
+	inst[1] = cmdq_pkt_get_curr_buf_va(pkt);
+	cmdq_pkt_assign_command(pkt, spr, 0);
+
+	rop.value = 2;
+	cmdq_pkt_cond_jump(pkt, spr, &lop, &rop, CMDQ_EQUAL);
+
+	mark[2] = pkt->cmd_buf_size;
+	inst[2] = cmdq_pkt_get_curr_buf_va(pkt);
+	cmdq_pkt_assign_command(pkt, spr, 0);
+
+	rop.value = 3;
+	cmdq_pkt_cond_jump(pkt, spr, &lop, &rop, CMDQ_EQUAL);
+
+	/* case 0: normal pipe 0 */
+	for (i = 0; i < ARRAY_SIZE(reg); i++)
+		cmdq_pkt_write_reg_addr(pkt, pa0 + reg[i],
+			CMDQ_CPR_PREBUILT(mod, 0, i), UINT_MAX);
+	for (i = 0; i < ARRAY_SIZE(ext_reg); i++)
+		cmdq_pkt_write_reg_addr(pkt, pa0 + ext_reg[i],
+			CMDQ_CPR_PREBUILT_EXT(mod, 0, i), UINT_MAX);
+	/* ufbdc_secure_mode and aid_sel */
+	cmdq_pkt_write_value_addr(pkt, pa0 + 0x038, 0, 1 << 18);
+	cmdq_pkt_write_value_addr(pkt, pas + 0xfa8, 0, 0x15);
+
+	mark[3] = pkt->cmd_buf_size;
+	inst[3] = cmdq_pkt_get_curr_buf_va(pkt);
+	cmdq_pkt_jump(pkt, 0);
+
+	/* case 1: normal pipe 1 */
+	*inst[0] |= CMDQ_REG_SHIFT_ADDR(
+		(s32)pkt->cmd_buf_size - mark[0] - CMDQ_INST_SIZE);
+	for (i = 0; i < ARRAY_SIZE(reg); i++)
+		cmdq_pkt_write_reg_addr(pkt, pa1 + reg[i],
+			CMDQ_CPR_PREBUILT(mod, 1, i), UINT_MAX);
+	for (i = 0; i < ARRAY_SIZE(ext_reg); i++)
+		cmdq_pkt_write_reg_addr(pkt, pa1 + ext_reg[i],
+			CMDQ_CPR_PREBUILT_EXT(mod, 1, i), UINT_MAX);
+	/* ufbdc_secure_mode and aid_sel */
+	cmdq_pkt_write_value_addr(pkt, pa1 + 0x038, 0, 1 << 18);
+	cmdq_pkt_write_value_addr(pkt, pas + 0xfa8, 0, 0x2a);
+
+	mark[4] = pkt->cmd_buf_size;
+	inst[4] = cmdq_pkt_get_curr_buf_va(pkt);
+	cmdq_pkt_jump(pkt, 0);
+
+	/* case 3: secure pipe 1 */
+	*inst[2] |= CMDQ_REG_SHIFT_ADDR(
+		(s32)pkt->cmd_buf_size - mark[2] - CMDQ_INST_SIZE);
+	for (i = 0; i < ARRAY_SIZE(reg); i++)
+		cmdq_pkt_write_reg_addr(pkt, pa1 + reg[i],
+			CMDQ_CPR_PREBUILT(mod, 1, i), UINT_MAX);
+	for (i = 0; i < ARRAY_SIZE(ext_reg); i++)
+		cmdq_pkt_write_reg_addr(pkt, pa1 + ext_reg[i],
+			CMDQ_CPR_PREBUILT_EXT(mod, 1, i), UINT_MAX);
+	/* ufbdc_secure_mode and aid_sel */
+	cmdq_pkt_write_value_addr(pkt, pa1 + 0x038, 1 << 18, 1 << 18);
+	cmdq_pkt_write_value_addr(pkt, pas + 0xfa8, 0x2a, 0x2a);
+
+	mark[5] = pkt->cmd_buf_size;
+	inst[5] = cmdq_pkt_get_curr_buf_va(pkt);
+	cmdq_pkt_jump(pkt, 0);
+
+	/* case 2: secure pipe 0 */
+	*inst[1] |= CMDQ_REG_SHIFT_ADDR(
+		(s32)pkt->cmd_buf_size - mark[1] - CMDQ_INST_SIZE);
+	for (i = 0; i < ARRAY_SIZE(reg); i++)
+		cmdq_pkt_write_reg_addr(pkt, pa0 + reg[i],
+			CMDQ_CPR_PREBUILT(mod, 0, i), UINT_MAX);
+	for (i = 0; i < ARRAY_SIZE(ext_reg); i++)
+		cmdq_pkt_write_reg_addr(pkt, pa0 + ext_reg[i],
+			CMDQ_CPR_PREBUILT_EXT(mod, 0, i), UINT_MAX);
+	/* ufbdc_secure_mode and aid_sel */
+	cmdq_pkt_write_value_addr(pkt, pa0 + 0x038, 1 << 18, 1 << 18);
+	cmdq_pkt_write_value_addr(pkt, pas + 0xfa8, 0x15, 0x15);
+
+	*inst[3] |= CMDQ_REG_SHIFT_ADDR((s32)pkt->cmd_buf_size - mark[3]);
+	*inst[4] |= CMDQ_REG_SHIFT_ADDR((s32)pkt->cmd_buf_size - mark[4]);
+	*inst[5] |= CMDQ_REG_SHIFT_ADDR((s32)pkt->cmd_buf_size - mark[5]);
+	cmdq_pkt_set_event(pkt, event + 1);
+	cmdq_pkt_finalize_loop(pkt);
+	cmdq_dump_pkt(pkt, 0, true);
+
+	buf = list_first_entry_or_null(&pkt->buf, typeof(*buf), list_entry);
+	if (!buf) {
+		cmdq_pkt_destroy(pkt);
+		return;
+	}
+
+	cmdq_msg("%s: pkt:%p pa:%#lx cmd_buf_size:%#lx pc:%#lx end:%#lx",
+		__func__, pkt, (unsigned long)buf->pa_base, pkt->cmd_buf_size,
+		CMDQ_REG_SHIFT_ADDR((unsigned long)buf->pa_base),
+		CMDQ_REG_SHIFT_ADDR((unsigned long)buf->pa_base +
+			pkt->cmd_buf_size));
+
+	for (i = 0; i < pkt->cmd_buf_size / CMDQ_INST_SIZE; i++)
+		cmdq_msg(",%d,%#llx,", i, *((u64 *)buf->va_base + i));
+
+	cmdq_pkt_destroy(pkt);
+}
+
 static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
 	const u16 mod, const u16 event)
 {
@@ -1032,7 +1189,7 @@ static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
 	s32 mark, mark2, i;
 	/* configure */
 	const u16 spr = CMDQ_THR_SPR_IDX3;
-	unsigned long pa0, pa1, reg[20] = {
+	unsigned long pa0, pa1, reg[] = {
 		0x118, 0x120, 0x128, 0x148, 0x150, 0x200,
 		0xf00, 0xf08, 0xf10, 0xf20, 0xf28, 0xf30, 0xf34,
 		0xf38, 0xf3c, 0xf40, 0xf44, 0xf48, 0xf4c, 0xf50};
@@ -1049,8 +1206,7 @@ static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
 	} else {
 		pa0 = CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_TIMER);
 		pa1 = CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
-		for (i = 0; i < 20; i++)
-			reg[i] = 0;
+		memset(reg, 0, sizeof(reg));
 	}
 	cmdq_msg("%s: mod:%hu event:%hu pa0:%#lx pa1:%#lx",
 		__func__, mod, event, pa0, pa1);
@@ -1070,7 +1226,7 @@ static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
 	cmdq_pkt_cond_jump(pkt, spr, &lop, &rop, CMDQ_EQUAL);
 
 	/* pipe 0 */
-	for (i = 0; i < 20; i++)
+	for (i = 0; i < ARRAY_SIZE(reg); i++)
 		cmdq_pkt_write_reg_addr(pkt, pa0 + reg[i],
 			CMDQ_CPR_PREBUILT(mod, 0, i), UINT_MAX);
 
@@ -1081,7 +1237,7 @@ static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
 	/* pipe 1 */
 	*inst |= CMDQ_REG_SHIFT_ADDR(
 		(s32)pkt->cmd_buf_size - mark - CMDQ_INST_SIZE);
-	for (i = 0; i < 20; i++)
+	for (i = 0; i < ARRAY_SIZE(reg); i++)
 		cmdq_pkt_write_reg_addr(pkt, pa1 + reg[i],
 			CMDQ_CPR_PREBUILT(mod, 1, i), UINT_MAX);
 
@@ -1382,10 +1538,12 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_reuse_buf_va(test);
 		break;
 	case 18:
-		cmdq_test_mbox_prebuilt_instr(test,
+		cmdq_test_mbox_prebuilt_instr_ext(test,
 			CMDQ_PREBUILT_MDP, CMDQ_TOKEN_PREBUILT_MDP_WAIT);
-		cmdq_test_mbox_prebuilt_instr(test,
+		cmdq_test_mbox_prebuilt_instr_ext(test,
 			CMDQ_PREBUILT_MML, CMDQ_TOKEN_PREBUILT_MML_WAIT);
+		cmdq_test_mbox_prebuilt_instr(test,
+			CMDQ_PREBUILT_VFMT, CMDQ_TOKEN_PREBUILT_VFMT_WAIT);
 		break;
 	case 19:
 		cmdq_test_mbox_prebuilt(test, CMDQ_PREBUILT_DISP, 0, false);
