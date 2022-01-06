@@ -729,7 +729,7 @@
 	};
 
 	auxadc: auxadc@11001000 {
-		compatible = "mediatek,mt6768-auxadc";
+		compatible = "mediatek,mt6765-auxadc";
 		reg = <0 0x11001000 0 0x1000>;
 		interrupts = <GIC_SPI 64 IRQ_TYPE_EDGE_RISING>;
 		clocks = <&infracfg_ao_clk CLK_IFRAO_AUXADC>;
