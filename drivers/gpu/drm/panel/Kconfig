@@ -219,6 +219,17 @@ config DRM_PANEL_SAMSUNG_ANA6705_CMD
 	  resolution and uses 24-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
 
+config DRM_PANEL_SAMSUNG_ANA6705_CMD_FHDP
+	tristate "ANA6705 amoled FHDP cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for ANA6705 DPHY
+	  cmd mode FHDP panel. The panel has a 1080x2412
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
 config DRM_PANEL_SAMSUNG_OP_CMD
 	tristate "ANA6705 OP WQHD cmd mode panel"
 	depends on OF
