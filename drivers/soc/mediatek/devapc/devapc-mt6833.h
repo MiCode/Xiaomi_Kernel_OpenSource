@@ -13,7 +13,7 @@
  ******************************************************************************/
 /* dbg status default setting */
 #define PLAT_DBG_UT_DEFAULT		false
-#define PLAT_DBG_KE_DEFAULT		false
+#define PLAT_DBG_KE_DEFAULT		true
 #define PLAT_DBG_AEE_DEFAULT		true
 #define PLAT_DBG_WARN_DEFAULT		true
 #define PLAT_DBG_DAPC_DEFAULT		false
