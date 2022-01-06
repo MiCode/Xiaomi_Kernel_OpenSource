@@ -53,6 +53,10 @@ struct gt9896s_ts_core *ts_core_for_tui;
 EXPORT_SYMBOL_GPL(ts_core_for_tui);
 #endif
 
+//disp_notify_reg_flag is used when gt9896s_ts_core_release
+//disp_notify_reg_flag is used only in gt9896s_later_init_thread
+static bool disp_notify_reg_flag;
+
 /**
  * __do_register_ext_module - register external module
  * to register into touch core modules structure
@@ -1642,14 +1646,12 @@ static int gt9896s_ts_pen_dev_config(struct gt9896s_ts_core *core_data)
 void gt9896s_ts_input_dev_remove(struct gt9896s_ts_core *core_data)
 {
 	input_unregister_device(core_data->input_dev);
-	input_free_device(core_data->input_dev);
 	core_data->input_dev = NULL;
 }
 
 void gt9896s_ts_pen_dev_remove(struct gt9896s_ts_core *core_data)
 {
 	input_unregister_device(core_data->pen_dev);
-	input_free_device(core_data->pen_dev);
 	core_data->pen_dev = NULL;
 }
 
@@ -2153,6 +2155,8 @@ int gt9896s_ts_stage2_init(struct gt9896s_ts_core *core_data)
 	core_data->disp_notifier.notifier_call = gt9896s_ts_disp_notifier_callback;
 	if (mtk_disp_notifier_register("Touch", &core_data->disp_notifier))
 		ts_err("Failed to register disp notifier client:%d", r);
+	else
+		disp_notify_reg_flag = true;
 #endif
 	/*create sysfs files*/
 	gt9896s_ts_sysfs_init(core_data);
@@ -2189,6 +2193,8 @@ static int gt9896s_ts_probe(struct platform_device *pdev)
 	void **ret = NULL;
 #endif
 	ts_info("%s IN", __func__);
+
+	disp_notify_reg_flag = false;
 
 	ts_device = pdev->dev.platform_data;
 	if (!ts_device || !ts_device->hw_ops) {
@@ -2365,6 +2371,13 @@ int gt9896s_ts_core_init(void)
 int gt9896s_ts_core_release(struct gt9896s_ts_core *core_data)
 {
 	ts_info("gt9896s core module removed");
+
+	if (disp_notify_reg_flag) {
+		if (mtk_disp_notifier_unregister(&core_data->disp_notifier))
+			ts_info("Error occurred when unregister disp_notifier");
+		else
+			disp_notify_reg_flag = false;
+	}
 
 	platform_driver_unregister(&gt9896s_ts_driver);
 	gt9896s_ts_dev_release();
