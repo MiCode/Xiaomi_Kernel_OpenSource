@@ -875,9 +875,10 @@ EXPORT_SYMBOL(cmdq_pkt_create);
 void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 {
 	struct cmdq_client *client = pkt->cl;
+	unsigned long flags = 0L;
 
-	if (client)
-		mutex_lock(&client->chan_mutex);
+	if (client && client->chan)
+		spin_lock_irqsave(&client->chan->lock, flags);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	if (cmdq_pkt_is_exec(pkt)) {
 		if (client && client->chan) {
@@ -889,6 +890,9 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 		dump_stack();
 	}
 #endif
+	if (client && client->chan)
+		spin_unlock_irqrestore(&client->chan->lock, flags);
+
 	pkt->task_alive = false;
 	cmdq_pkt_free_buf(pkt);
 	kfree(pkt->flush_item);
@@ -899,8 +903,6 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 #endif
 #endif
 	kfree(pkt);
-	if (client)
-		mutex_unlock(&client->chan_mutex);
 }
 EXPORT_SYMBOL(cmdq_pkt_destroy);
 
