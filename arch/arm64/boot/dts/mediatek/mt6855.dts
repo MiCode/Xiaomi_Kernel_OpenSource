@@ -325,6 +325,7 @@
 			<&topckgen_clk CLK_TOP_MMINFRA_SEL>,
 			<&topckgen_clk CLK_TOP_MMUP_SEL>,
 			<&topckgen_clk CLK_TOP_IMG1_SEL>,
+			<&topckgen_clk CLK_TOP_IMG1_SEL>,
 			<&topckgen_clk CLK_TOP_IPE_SEL>,
 			<&topckgen_clk CLK_TOP_VDEC_SEL>,
 			<&topckgen_clk CLK_TOP_VENC_SEL>,
@@ -346,7 +347,9 @@
 			<&camsys_rawb_clk CLK_CAM_RB_LARBX>,
 			<&ipesys_clk CLK_IPE_SMI_SUBCOM>;
 		clock-names = "audio", "cam", "disp", "mdp",
-			"mm_infra", "mmup", "isp", "ipe", "vde", "ven",
+			"mm_infra", "mmup",
+			"dip1", "isp", "ipe",
+			"vde", "ven",
 			"cam-0", "cam-1", "cam_lp-0", "cam_lp-1",
 			"disp-0", "mdp_lp-0", "mm_infra_lp-0",
 			"isp-0", "isp-1", "isp-2",
