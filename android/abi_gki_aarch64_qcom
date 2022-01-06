@@ -1104,6 +1104,7 @@
   idr_replace
   iio_channel_get_all
   iio_read_channel_processed
+  iio_write_channel_raw
   import_iovec
   in4_pton
   in6_pton
@@ -2251,6 +2252,7 @@
   smp_call_function
   smp_call_function_any
   smp_call_function_single
+  smp_call_function_single_async
   snd_card_free
   snd_card_new
   snd_card_register
@@ -2500,6 +2502,7 @@
   __traceiter_android_rvh_cpu_cgroup_online
   __traceiter_android_rvh_cpufreq_transition
   __traceiter_android_rvh_dequeue_task
+  __traceiter_android_rvh_do_sched_yield
   __traceiter_android_rvh_enqueue_task
   __traceiter_android_rvh_find_busiest_queue
   __traceiter_android_rvh_find_lowest_rq
@@ -2611,6 +2614,7 @@
   __tracepoint_android_rvh_cpu_cgroup_online
   __tracepoint_android_rvh_cpufreq_transition
   __tracepoint_android_rvh_dequeue_task
+  __tracepoint_android_rvh_do_sched_yield
   __tracepoint_android_rvh_enqueue_task
   __tracepoint_android_rvh_find_busiest_queue
   __tracepoint_android_rvh_find_lowest_rq
