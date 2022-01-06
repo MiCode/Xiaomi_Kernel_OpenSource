@@ -5795,7 +5795,8 @@
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <0>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-			clocks = <&dispsys_config_clk CLK_MM_DISP_OVL0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_OVL0>,
+				<&dispsys_config_clk CLK_MM_DISP_DUMMY_MOD_B0>;
 			iommus = <&disp_iommu M4U_LARB0_PORT1>,
 				<&disp_iommu M4U_LARB0_PORT2>;
 			interconnects =
@@ -5818,7 +5819,8 @@
 			mediatek,larb = <&smi_larb1>;
 			mediatek,smi-id = <1>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
-			clocks = <&dispsys_config_clk CLK_MM_DISP_OVL1_2L>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_OVL1_2L>,
+				<&dispsys_config_clk CLK_MM_DISP_DUMMY_MOD_B0>;
 			iommus = <&disp_iommu M4U_LARB1_PORT1>,
 				<&disp_iommu M4U_LARB1_PORT2>;
 			interconnects =
