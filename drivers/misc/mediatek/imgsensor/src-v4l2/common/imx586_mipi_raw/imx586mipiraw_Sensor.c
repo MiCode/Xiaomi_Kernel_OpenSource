@@ -577,7 +577,7 @@ static void set_max_framerate(struct subdrv_ctx *ctx,
 	/*kal_int16 dummy_line;*/
 	kal_uint32 frame_length = ctx->frame_length;
 
-	pr_debug(
+	DEBUG_LOG(ctx,
 		"framerate = %d, min framelength should enable %d\n", framerate,
 		min_framelength_en);
 
@@ -4430,10 +4430,11 @@ static kal_uint32 set_auto_flicker_mode(struct subdrv_ctx *ctx,
 {
 	if (enable) /*enable auto flicker*/ {
 		ctx->autoflicker_en = KAL_TRUE;
-		pr_debug("enable! fps = %d", framerate);
+		pr_debug("enable: %u fps = %d", (UINT32)enable, framerate);
 	} else {
 		 /*Cancel Auto flick*/
 		ctx->autoflicker_en = KAL_FALSE;
+		pr_debug("enable: %u fps = %d", (UINT32)enable, framerate);
 	}
 
 	return ERROR_NONE;
