@@ -2074,10 +2074,10 @@
 		cm_mgr,vp_up = <100 100 100 100 100 100 100>;
 
 		use_cpu_to_dram_map = "enable";
-		cm_mgr_cpu_opp_to_dram = <0 0 0 0 0 0 0 0
-					0 0 26 26 26 26 26 26
-					26 26 26 26 26 26 26 26
-					26 26 26 26 26 26 26 26>;
+		cm_mgr_cpu_opp_to_dram = <1 1 8 8 8 8 8 8
+					8 8 8 8 8 8 8 8
+					8 8 8 8 8 8 8 8
+					8 8 8 8 8 8 8 8>;
 
 		use_bcpu_weight = "enable";
 		cpu_power_bcpu_weight_max = <350>;
