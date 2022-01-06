@@ -228,6 +228,7 @@ static u32 get_margin(struct adaptor_ctx *ctx)
 	subdrv_call(ctx, feature_control,
 		    SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO,
 		    para.u8, &len);
+	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
 
 	if (!g_stagger_info(ctx, ctx->cur_mode->id, &info))
 		mode_exp_cnt = info.count;
@@ -549,7 +550,7 @@ void fsync_setup_hdr_exp_data(struct adaptor_ctx *ctx,
 
 		return;
 	}
-
+	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
 	/* for hdr-exp settings, e.g. STG sensor */
 	ret = g_stagger_info(ctx, ctx->cur_mode->id, &info);
 	if (!ret) {
