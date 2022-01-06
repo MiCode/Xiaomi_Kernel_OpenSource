@@ -137,7 +137,7 @@ struct clk *mtk_clk_register_fixed_factor_pdn(struct device *dev,
 	unsigned int pd_reg, void __iomem *base)
 {
 	struct mtk_clk_fixed_factor *fix;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct clk *clk;
 
 	fix = kmalloc(sizeof(*fix), GFP_KERNEL);

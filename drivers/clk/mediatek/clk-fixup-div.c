@@ -83,7 +83,7 @@ struct clk *mtk_clk_fixup_divider(const char *name, const char *parent,
 {
 	struct clk_fixup_div *fixup_div;
 	struct clk *clk;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 
 	fixup_div = kzalloc(sizeof(*fixup_div), GFP_KERNEL);
 	if (!fixup_div)

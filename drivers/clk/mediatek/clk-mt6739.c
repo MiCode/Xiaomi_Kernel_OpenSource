@@ -625,9 +625,9 @@ static const char * const aud_engen1_parents[] = {
 static const struct mtk_mux top_muxes[] = {
 #if 1
 	/* CLK_CFG_0 */
-	MUX_CLR_SET_UPD(CLK_TOP_AXI_SEL, "axi_sel", axi_parents,
+	MUX_GATE_CLR_SET_UPD(CLK_TOP_AXI_SEL, "axi_sel", axi_parents,
 	CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 0, 2,
-	INVALID_UPDATE_REG, INVALID_UPDATE_SHIFT),
+	INVALID_MUX_GATE, INVALID_UPDATE_REG, INVALID_UPDATE_SHIFT),
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_MM_SEL, "mm_sel", mm_parents,
 	CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 24, 3, 31, CLK_CFG_UPDATE, 3),
 	/* CLK_CFG_1 */
@@ -677,8 +677,8 @@ static const struct mtk_mux top_muxes[] = {
 	/* CLK_CFG_8 */
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_SPM_SEL, "spm_sel", ddrphycfg_parents,
 	CLK_CFG_8, CLK_CFG_8_SET, CLK_CFG_8_CLR, 0, 1, 7, CLK_CFG_UPDATE, 31),
-	MUX_CLR_SET_UPD(CLK_TOP_I2C_SEL, "i2c_sel", i2c_parents,
-	CLK_CFG_8, CLK_CFG_8_SET, CLK_CFG_8_CLR, 16, 2,
+	MUX_GATE_CLR_SET_UPD(CLK_TOP_I2C_SEL, "i2c_sel", i2c_parents,
+	CLK_CFG_8, CLK_CFG_8_SET, CLK_CFG_8_CLR, 16, 2, INVALID_MUX_GATE,
 	CLK_CFG_UPDATE1, 1),
 	/* CLK_CFG_9 */
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_SENIF_SEL, "senif_sel", senif_parents,
@@ -1237,7 +1237,7 @@ static int  mtk_apmixed_init(struct platform_device *pdev)
 	int r;
 	void __iomem *base;
 	struct device_node *node = pdev->dev.of_node;
-
+	pr_info("%s done\n", __func__);
 	base = of_iomap(node, 0);
 	if (!base) {
 		pr_info("%s(): ioremap failed\n", __func__);
@@ -1284,6 +1284,7 @@ static int  mtk_apmixed_init(struct platform_device *pdev)
 	clk_setl(APLL1_PWR_CON0, PLL_ISO_EN);
 	clk_clrl(APLL1_PWR_CON0, PLL_PWR_ON);
 #endif
+	pr_info("%s done\n", __func__);
 	return r;
 }
 
@@ -1357,6 +1358,7 @@ static int mtk_top_init(struct platform_device *pdev)
 	clk_writel(cksys_base + CLK_CFG_10_CLR, 0x00008000);
 	clk_writel(cksys_base + CLK_CFG_10_SET, 0x00008000);
 #endif
+	pr_info("%s done\n", __func__);
 	return r;
 }
 
@@ -1400,6 +1402,7 @@ static int mtk_infra_init(struct platform_device *pdev)
 	clk_writel(MODULE_SW_CG_2_SET, INFRA_CG2);
 	clk_writel(MODULE_SW_CG_3_SET, INFRA_CG3);
 #endif
+	pr_info("%s done\n", __func__);
 	return r;
 }
 
@@ -1438,6 +1441,7 @@ static int mtk_audio_init(struct platform_device *pdev)
 /*	clk_writel(AUDIO_TOP_CON1, clk_readl(AUDIO_TOP_CON1) | ~AUDIO_DISABLE_CG1);*/
 #endif
 
+	pr_info("%s done\n", __func__);
 	return r;
 }
 
@@ -1472,6 +1476,7 @@ static int mtk_mm_init(struct platform_device *pdev)
 #else
 	/*won't touch MMSYS*/
 #endif
+	pr_info("%s done\n", __func__);
 	return r;
 }
 
@@ -1506,6 +1511,7 @@ static int  mtk_img_init(struct platform_device *pdev)
 #else
 	clk_writel(IMG_CG_SET, IMG_DISABLE_CG);
 #endif
+	pr_info("%s done\n", __func__);
 	return r;
 }
 
@@ -1542,6 +1548,7 @@ static int  mtk_venc_init(struct platform_device *pdev)
 #else
 	clk_writel(VCODECSYS_CG_CLR, VEN_DISABLE_CG);
 #endif
+	pr_info("%s done\n", __func__);
 	return r;
 }
 
@@ -1731,9 +1738,14 @@ static const struct of_device_id of_match_clk_mt6739[] = {
 	}, {
 		.compatible = "mediatek,infracfg_ao",
 		.data = mtk_infra_init,
-	}, {
+	}
+};
+
+static const struct of_device_id of_match_clk_mt6739_subsys[] = {
+	{
 		.compatible = "mediatek,mt6739-audsys",
 		.data = mtk_audio_init,
+
 	},{
 		.compatible = "mediatek,mmsys_config",
 		.data = mtk_mm_init,
@@ -1744,9 +1756,8 @@ static const struct of_device_id of_match_clk_mt6739[] = {
 		.compatible = "mediatek,venc_global_con",
 		.data = mtk_venc_init,
 	}
+
 };
-
-
 
 static int clk_mt6739_probe(struct platform_device *pdev)
 {
@@ -1759,13 +1770,28 @@ static int clk_mt6739_probe(struct platform_device *pdev)
 
 	r = clk_probe(pdev);
 	if (r)
-		dev_err(&pdev->dev,
-			"could not register clock provider: %s: %d\n",
+		pr_debug("could not register clock provider: %s: %d\n",
 			pdev->name, r);
 
 	return r;
 }
 
+static int clk_mt6739_subsys_probe(struct platform_device *pdev)
+{
+	int (*clk_probe)(struct platform_device *d);
+	int r;
+
+	clk_probe = of_device_get_match_data(&pdev->dev);
+	if (!clk_probe)
+		return -EINVAL;
+
+	r = clk_probe(pdev);
+	if (r)
+		pr_debug("could not register clock provider: %s: %d\n",
+			pdev->name, r);
+
+	return r;
+}
 
 static struct platform_driver clk_mt6739_drv = {
 	.probe = clk_mt6739_probe,
@@ -1776,12 +1802,24 @@ static struct platform_driver clk_mt6739_drv = {
 	},
 };
 
+static struct platform_driver clk_mt6739_subsys_drv = {
+	.probe = clk_mt6739_subsys_probe,
+	.driver = {
+		.name = "clk-mt6739-subsys",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_clk_mt6739_subsys,
+	},
+};
 
 static int __init clk_mt6739_init(void)
 {
 	return platform_driver_register(&clk_mt6739_drv);
 }
 
+static int __init clk_mt6739_subsys_init(void)
+{
+	return platform_driver_register(&clk_mt6739_subsys_drv);
+}
 static void __exit clk_mt6739_exit(void)
 {
 	pr_debug("%s\n", __func__);
@@ -1789,6 +1827,7 @@ static void __exit clk_mt6739_exit(void)
 
 
 postcore_initcall_sync(clk_mt6739_init);
+arch_initcall(clk_mt6739_subsys_init);
 module_exit(clk_mt6739_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("MTK");

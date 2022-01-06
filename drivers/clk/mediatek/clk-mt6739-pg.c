@@ -1756,6 +1756,7 @@ static int  clk_mt6739_scpsys_probe(struct platform_device *pdev)
 	spm_mtcmos_ctrl_vcodec(STA_POWER_ON);
 #endif
 #endif				/* !MT_CCF_BRINGUP */
+	pr_notice("%s: done\n", __func__);
 	return r;
 }
 
