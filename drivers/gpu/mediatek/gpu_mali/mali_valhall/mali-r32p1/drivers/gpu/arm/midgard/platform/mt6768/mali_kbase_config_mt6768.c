@@ -138,7 +138,7 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 	aee_rr_rec_gpu_dvfs_status(0x7 | (aee_rr_curr_gpu_dvfs_status() & 0xF0));
 #endif
 
-#ifdef ENABLE_COMMON_DVFS
+#if IS_ENABLED(CONFIG_MALI_MIDGARD_DVFS) && IS_ENABLED(CONFIG_MTK_GPU_COMMON_DVFS)
 	ged_dvfs_gpu_clock_switch_notify(1);
 #endif /* ENABLE_COMMON_DVFS */
 
@@ -156,7 +156,7 @@ static void pm_callback_power_off_nolock(struct kbase_device *kbdev)
 	aee_rr_rec_gpu_dvfs_status(0x8 | (aee_rr_curr_gpu_dvfs_status() & 0xF0));
 #endif
 
-#ifdef ENABLE_COMMON_DVFS
+#if IS_ENABLED(CONFIG_MALI_MIDGARD_DVFS) && IS_ENABLED(CONFIG_MTK_GPU_COMMON_DVFS)
 	ged_dvfs_gpu_clock_switch_notify(0);
 #endif /* ENABLE_COMMON_DVFS */
 
