@@ -272,10 +272,11 @@ clear_violation:
 	}
 
 	if (nr_vio) {
-		printk_deferred("%s: %s", __func__, mpu->vio_msg);
+		pr_info("%s: %s", __func__, mpu->vio_msg);
 		mpu->in_msg_dump = 1;
 		schedule_work(&emimpu_work);
-	}
+	} else
+		pr_info("%s: No vio But trigger ISR", __func__);
 
 	return IRQ_HANDLED;
 }
