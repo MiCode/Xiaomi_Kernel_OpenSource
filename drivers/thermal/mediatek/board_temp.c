@@ -57,6 +57,7 @@ struct pmic_auxadc_data {
 				struct pmic_auxadc_data *adc_data);
 	unsigned long long (*adc2volt)(unsigned int adc_raw);
 	struct tia_data *tia_param;
+	bool is_print_tia_cg;
 };
 
 struct board_ntc_info {
@@ -107,6 +108,16 @@ static struct pmic_auxadc_data mt6685_pmic_auxadc_data = {
 	.pullup_r_calibration = NULL,
 	.adc2volt = mt6685_adc2volt,
 	.tia_param = &tia2_data,
+	.is_print_tia_cg = false,
+};
+
+static struct pmic_auxadc_data mt6685_pmic_auxadc_data_debug = {
+	.default_pullup_v = 184000,
+	.num_of_pullup_r_type = 3,
+	.pullup_r_calibration = NULL,
+	.adc2volt = mt6685_adc2volt,
+	.tia_param = &tia2_data,
+	.is_print_tia_cg = true,
 };
 
 static const struct of_device_id board_ntc_of_match[] = {
@@ -116,7 +127,7 @@ static const struct of_device_id board_ntc_of_match[] = {
 	},
 	{
 		.compatible = "mediatek,mt6879-board-ntc",
-		.data = (void *)&mt6685_pmic_auxadc_data,
+		.data = (void *)&mt6685_pmic_auxadc_data_debug,
 	},
 	{
 		.compatible = "mediatek,mt6895-board-ntc",
@@ -173,6 +184,37 @@ static unsigned int calculate_r_ntc(unsigned long long v_in,
 	return r_ntc;
 }
 
+
+static void print_tia_reg(struct device *dev)
+{
+	void __iomem *addr = NULL;
+	unsigned int clk_cg;
+	unsigned int pmif_cg;
+
+	/* clk cg */
+	addr = ioremap(0x1C00C004, 0x4);
+	if (!addr) {
+		dev_err(dev, "%s clk cg ioremap failed\n", __func__);
+		return;
+	}
+
+	clk_cg = readl(addr);
+	iounmap(addr);
+
+	/* PMIF cg */
+	addr = ioremap(0x0d0a0088, 0x4);
+	if (!addr) {
+		dev_err(dev, "%s pmif ioremap failed\n", __func__);
+		return;
+	}
+
+	pmif_cg = readl(addr);
+	iounmap(addr);
+	dev_notice(dev, "[board_temp debug]clk_cg:0x%x, pmif_cg:0x%x\n",
+		clk_cg, pmif_cg);
+
+}
+
 static int board_ntc_get_temp(void *data, int *temp)
 {
 	struct board_ntc_info *ntc_info = (struct board_ntc_info *)data;
@@ -180,6 +222,9 @@ static int board_ntc_get_temp(void *data, int *temp)
 	struct tia_data *tia_param = ntc_info->adc_data->tia_param;
 	unsigned int val, r_type, r_ntc, dbg_reg, en_reg;
 	unsigned long long v_in;
+
+	if (adc_data->is_print_tia_cg == true)
+		print_tia_reg(ntc_info->dev);
 
 	val = readl(ntc_info->data_reg);
 	r_type = get_tia_rc_sel(val, tia_param->rc_offset, tia_param->rc_mask);
