@@ -3803,7 +3803,7 @@
 			interrupt-names = "ipc";
 			interconnects = <&scmi_tinysys 0>;
 			sspm_res_ram_start = <0x0>;
-			sspm_res_ram_size = <0x510000>; /* 5M + 64K */
+			sspm_res_ram_size = <0x110000>; /* 1M + 64K */
 		};
 
 		teeperf {
