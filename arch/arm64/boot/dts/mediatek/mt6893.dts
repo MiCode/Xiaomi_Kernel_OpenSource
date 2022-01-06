@@ -5306,6 +5306,21 @@ page_owner=on loop.max_part=7";
 				"TOPCKGEN_TOP_MUX_CAMTM";
 	};
 
+	camsys_a: camsys_a@1a04f000 {
+		compatible = "mediatek,camsys_a";
+		reg = <0 0x1a04f000 0 0x1000>;
+	};
+
+	camsys_b: camsys_b@1a06f000 {
+		compatible = "mediatek,camsys_b";
+		reg = <0 0x1a06f000 0 0x1000>;
+	};
+
+	camsys_c: camsys_c@1a08f000 {
+		compatible = "mediatek,camsys_c";
+		reg = <0 0x1a08f000 0 0x1000>;
+	};
+
 	cam1_inner@1a038000 {
 		compatible = "mediatek,cam1_inner";
 		reg = <0 0x1a038000 0 0x8000>;
