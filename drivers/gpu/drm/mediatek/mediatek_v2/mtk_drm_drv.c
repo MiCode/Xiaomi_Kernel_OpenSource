@@ -134,6 +134,7 @@ bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc)
 {
 	int ret = 0;
 	bool val = false;
+	int ret_slbc = 0;
 	struct slbc_data *sram = NULL;
 
 	if (!mtk_crtc)
@@ -148,12 +149,15 @@ bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc)
 	sram->size = 0;
 	sram->uid = UID_DISP;
 	sram->flag = 0;
-	if (slbc_request(sram) >= 0) {
+	ret_slbc = slbc_request(sram);
+	if (ret_slbc >= 0) {
 		ret = slbc_power_on(sram);
-		DDPINFO("%s success - ret:%d\n", __func__, ret);
+		DDPINFO("%s success - ret:%d address:0x%lx size:0x%lx\n", __func__,
+			ret, (unsigned long)sram->paddr, sram->size);
+		DRM_MMP_MARK(sram_alloc, (unsigned long)sram->paddr, sram->size);
 		val = true;
 	} else {
-		DDPINFO("%s fail\n", __func__);
+		DDPMSG("%s fail ret:%d\n", __func__, ret_slbc);
 		kfree(mtk_crtc->mml_ir_sram);
 		mtk_crtc->mml_ir_sram = NULL;
 		val = false;

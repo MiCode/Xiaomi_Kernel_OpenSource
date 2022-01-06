@@ -1699,11 +1699,12 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	if (!pending->addr)
 		con |= BIT(28);
 
-	DDPINFO("%s+ id %d, idx:%d, enable:%d, fmt:0x%x, ",
-		__func__, comp->id, idx, pending->enable, pending->format);
-	DDPINFO("addr 0x%lx, compr %d, con 0x%x\n",
+	DDPINFO("%s+ id %d, idx:%d, ext_idx:%d, enable:%d, fmt:0x%x, ",
+		__func__, comp->id, idx, ext_lye_idx, pending->enable, pending->format);
+	DDPINFO("addr 0x%lx, compr %d, con 0x%x, mml_mode %d\n",
 		(unsigned long)pending->addr,
-		(unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con);
+		(unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con,
+		pending->mml_mode);
 
 	if (rotate) {
 		unsigned int bg_w = 0, bg_h = 0;
@@ -3433,6 +3434,13 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 
 		/* FBDC */
 		mtk_serial_dump_reg(baddr, 0x800, 3);
+
+		/*SYSRAM*/
+		mtk_serial_dump_reg(baddr, 0x880, 4);
+		mtk_serial_dump_reg(baddr, 0x890, 4);
+		mtk_serial_dump_reg(baddr, 0x8a0, 4);
+		mtk_serial_dump_reg(baddr, 0x8b0, 4);
+
 		for (i = 0; i < 4; i++)
 			mtk_serial_dump_reg(baddr, 0xF44 + i * 0x20, 2);
 		for (i = 0; i < 3; i++)

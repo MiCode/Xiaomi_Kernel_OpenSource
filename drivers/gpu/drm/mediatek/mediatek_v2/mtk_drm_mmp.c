@@ -104,6 +104,10 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "TOP_CLK");
 	g_DRM_MMP_Events.ddp =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "MUTEX");
+	g_DRM_MMP_Events.sram_alloc =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "S_ALLOC");
+	g_DRM_MMP_Events.sram_free =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "S_FREE");
 	for (i = 0; i < DISP_MUTEX_DDP_COUNT; i++) {
 		char name[32];
 

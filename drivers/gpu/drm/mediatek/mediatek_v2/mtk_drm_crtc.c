@@ -2273,7 +2273,10 @@ static void mtk_crtc_free_sram(struct mtk_drm_crtc *mtk_crtc)
 {
 	if (mtk_crtc->mml_ir_sram == NULL)
 		return;
-
+	DDPINFO("%s address:0x%lx size:0x%lx\n", __func__,
+		mtk_crtc->mml_ir_sram->paddr, mtk_crtc->mml_ir_sram->size);
+	DRM_MMP_MARK(sram_free, (unsigned long)mtk_crtc->mml_ir_sram->paddr,
+		mtk_crtc->mml_ir_sram->size);
 	slbc_power_off(mtk_crtc->mml_ir_sram);
 	slbc_release(mtk_crtc->mml_ir_sram);
 	mtk_crtc->mml_ir_sram = NULL;
