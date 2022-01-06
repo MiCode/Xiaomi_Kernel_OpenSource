@@ -4755,6 +4755,14 @@ static void calculate_lr_trim_code(struct mt6368_priv *priv)
 		goto EXIT;
 	}
 
+	/* prevent divid to 0 */
+	if ((trim_l[0] == trim_l[1]) ||
+		(trim_r[0] == trim_r[1])) {
+		hpl_trim_code = trim_l_code[1];
+		hpr_trim_code = trim_r_code[1];
+		goto EXIT;
+	}
+
 	/* start step2, calculate approximate solution*/
 	/* l-channel, find trim offset per trim code step */
 	trim_l_code[2] = (((abs(trim_l[0]) * 2) /
