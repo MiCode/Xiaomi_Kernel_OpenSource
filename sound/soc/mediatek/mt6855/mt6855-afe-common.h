@@ -163,6 +163,7 @@ struct mt6855_afe_private {
 	struct regmap *topckgen;
 	struct regmap *apmixed;
 	struct regmap *infracfg;
+	struct regmap *pericfg;
 	int irq_cnt[MT6855_MEMIF_NUM];
 	int stf_positive_gain_db;
 	int dram_resource_counter;
