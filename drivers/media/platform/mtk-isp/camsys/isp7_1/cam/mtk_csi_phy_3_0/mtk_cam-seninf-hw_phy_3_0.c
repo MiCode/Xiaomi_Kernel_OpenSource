@@ -3207,14 +3207,14 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 						dev_info(ctx->dev,
 							"cam mux%u size mismatch!, recSize = 0x%x, expSize = 0x%x",
 							i, recSize, expSize);
-						ret = -3;
+						//ret = -3;
 					}
 					if ((irq_status_h & (1 << i)) ||
 						(irq_status_v & (1 << i))) {
 						dev_info(ctx->dev,
 							"cam mux%u size mismatch!, irq_status_h = 0x%x irq_status_v = 0x%x",
 							i, irq_status_h, irq_status_v);
-						ret = -3;
+						//ret = -3;
 					}
 				}
 			}
