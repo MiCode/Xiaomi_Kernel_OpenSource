@@ -867,7 +867,7 @@ static int rt5512_component_aif_hw_params(struct snd_pcm_substream *substream,
 	int aud_bit = params_width(hw_params);
 	u16 reg_data = 0;
 	int ret = 0;
-	char tmp[32];
+	char *tmp = "SPK";
 
 	dev_dbg(dai->dev, "%s: ++\n", __func__);
 	dev_info(dai->dev, "format: 0x%08x, rate: 0x%08x, word_len: %d, aud_bit: %d\n",
@@ -908,7 +908,6 @@ static int rt5512_component_aif_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 	dev_dbg(dai->dev, "%s: --\n", __func__);
-	snprintf(tmp, 32, "%s SPK", dai->component->name_prefix);
 	return snd_soc_dapm_enable_pin(dapm, tmp);
 }
 
@@ -918,10 +917,9 @@ static int rt5512_component_aif_hw_free(struct snd_pcm_substream *substream,
 	struct snd_soc_dapm_context *dapm =
 				snd_soc_component_get_dapm(dai->component);
 	int ret = 0;
-	char tmp[32];
+	char *tmp = "SPK";
 
 	dev_info(dai->dev, "%s\n", __func__);
-	snprintf(tmp, 32, "%s SPK", dai->component->name_prefix);
 	ret = snd_soc_dapm_disable_pin(dapm, tmp);
 	if (ret < 0)
 		return ret;
