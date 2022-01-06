@@ -54,17 +54,11 @@
 #define PDA_WR32(addr, data) mt_reg_sync_writel(data, addr)
 #define PDA_RD32(addr) ioread32(addr)
 
-#ifdef FPGA_UT
 void __iomem *CAMSYS_CONFIG_BASE;
 #define CAMSYS_MAIN_BASE_ADDR CAMSYS_CONFIG_BASE
 #define REG_CAMSYS_CG_SET               (CAMSYS_MAIN_BASE_ADDR + 0x4)
 #define REG_CAMSYS_CG_CLR               (CAMSYS_MAIN_BASE_ADDR + 0x8)
-#endif
-
-// *********************************** 改為CAMSYS **************************************
-void __iomem *CAMSYS_BASE;
-#define CAMSYS_BASE_ADDR CAMSYS_BASE
-#define REG_CAMSYS_SW_RST               (CAMSYS_BASE_ADDR + 0xA0)
+#define REG_CAMSYS_SW_RST               (CAMSYS_MAIN_BASE_ADDR + 0xC)
 
 #define PDA_DONE 0x00000001
 #define PDA_ERROR 0x00000002
@@ -473,9 +467,9 @@ static void pda_nontransaction_reset(int PDA_Index)
 	//MRAW PDA reset
 	MRAW_reset_value = PDA_RD32(REG_CAMSYS_SW_RST);
 	if (PDA_Index == 0)
-		Reset_Bitmask = BIT(16) | BIT(17);
+		Reset_Bitmask = BIT(6) | BIT(7);
 	else if (PDA_Index == 1)
-		Reset_Bitmask = BIT(18) | BIT(19);
+		Reset_Bitmask = BIT(6) | BIT(7);
 
 	// LOG_INF("before, MRAW_reset_value: %x\n", MRAW_reset_value);
 	MRAW_reset_value |= Reset_Bitmask;
@@ -2173,12 +2167,7 @@ static int PDA_probe(struct platform_device *pdev)
 	struct device_node *node;
 	int i;
 	int larbs;
-
-	struct device_node *mraw_node;
-
-#ifdef FPGA_UT
 	struct device_node *camsys_node;
-#endif
 
 	LOG_INF("probe Start\n");
 
@@ -2250,33 +2239,18 @@ static int PDA_probe(struct platform_device *pdev)
 		g_PDA_quantity++;
 	LOG_INF("PDA quantity: %d\n", g_PDA_quantity);
 
-#ifdef FPGA_UT
-	//camsys node
-	camsys_node = of_find_compatible_node(NULL, NULL, "mediatek,isp_unit_test");
-	if (!camsys_node) {
-		LOG_INF("find camsys_config node failed\n");
-		return -1;
-	}
-	LOG_INF("find camsys_config node done\n");
-
-	CAMSYS_CONFIG_BASE = of_iomap(camsys_node, 2);
-	if (!CAMSYS_CONFIG_BASE)
-		LOG_INF("base CAMSYS_CONFIG_BASE failed\n");
-	LOG_INF("of_iomap CAMSYS_CONFIG_BASE done (0x%x)\n", CAMSYS_CONFIG_BASE);
-#endif
-
 	// camsys node
-	mraw_node = of_find_compatible_node(NULL, NULL, "mediatek,mt6855-camsys_main");
-	if (!mraw_node) {
+	camsys_node = of_find_compatible_node(NULL, NULL, "mediatek,mt6855-camsys_main");
+	if (!camsys_node) {
 		LOG_INF("find camsys_node failed\n");
 		return -1;
 	}
-	LOG_INF("find camsys_node done\n");
+	LOG_INF("find camsys_node node done\n");
 
-	CAMSYS_BASE = of_iomap(mraw_node, 0);
-	if (!CAMSYS_BASE)
-		LOG_INF("base CAMSYS_BASE failed\n");
-	LOG_INF("of_iomap CAMSYS_BASE done (0x%x)\n", CAMSYS_BASE);
+	CAMSYS_CONFIG_BASE = of_iomap(camsys_node, 0);
+	if (!CAMSYS_CONFIG_BASE)
+		LOG_INF("base CAMSYS_CONFIG_BASE failed\n");
+	LOG_INF("of_iomap CAMSYS_CONFIG_BASE done (0x%x)\n", CAMSYS_CONFIG_BASE);
 
 	if (PDA_devs[0].irq > 0) {
 		if (PDA_devs[0].irq > 0 && g_PDA_quantity > 0) {
