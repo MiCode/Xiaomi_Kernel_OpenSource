@@ -6374,6 +6374,7 @@
 				"mediatek,mt6855-disp-postmask";
 			reg = <0 0x1400f000 0 0x1000>;
 			interrupts = <GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH 0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <0>;
 			clocks = <&dispsys_config_clk CLK_MM_DISP_POSTMASK0>;
@@ -6454,6 +6455,7 @@
 					"mediatek,mt6855-disp-ufbc-wdma";
 			reg = <0 0x14019000 0 0x10000>;
 			interrupts = <GIC_SPI 327 IRQ_TYPE_LEVEL_HIGH 0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			clocks = <&dispsys_config_clk CLK_MM_DISP_UFBC_WDMA0>;
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <1>;
