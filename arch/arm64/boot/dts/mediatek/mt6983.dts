@@ -6983,6 +6983,7 @@
 			"TOP_UNIVPLL_D4", "TOP_MMPLL_D4";
 
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		_vcore-supply = <&mt6363_vbuck2>;
 
 		clocks = <&topckgen_clk CLK_TOPCKGEN_DISP0_SEL>,	/* 0 */
 			<&topckgen_clk CLK_TOPCKGEN_DISP1_SEL>,	/* 1 */
