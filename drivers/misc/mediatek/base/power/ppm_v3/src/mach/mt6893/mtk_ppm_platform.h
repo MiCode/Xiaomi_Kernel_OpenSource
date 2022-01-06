@@ -18,6 +18,7 @@ extern "C" {
 /*==============================================================*/
 /* TODO: remove these workaround for k49 migration */
 #define NO_MTK_TRACE		(1)
+#define NO_SCHEDULE_API         (1)
 
 #define DYNAMIC_TABLE2REAL_PERCENTAGE	(58)
 
