@@ -71,7 +71,7 @@ static void ufstw_lifetime_work_fn(struct work_struct *work)
 			       &tw->tw_lifetime_est))
 		goto out;
 
-#if defined(CONFIG_UFSTW_IGNORE_GUARANTEE_BIT)
+#if defined(CONFIG_SCSI_UFS_TW_IGNORE_GUARANTEE_BIT)
 	if (tw->tw_lifetime_est & MASK_UFSTW_LIFETIME_NOT_GUARANTEE) {
 		WARNING_MSG("warn: lun %d - dTurboWriteBufferLifeTimeEst[31] == 1", tw->lun);
 		WARNING_MSG("Device not guarantee the lifetime of Turbo Write Buffer");
@@ -768,7 +768,7 @@ static void ufstw_lu_init(struct ufsf_feature *ufsf, unsigned int lun)
 	/* Read Flag, Attribute */
 	ufstw_lu_update(tw);
 
-#if defined(CONFIG_UFSTW_IGNORE_GUARANTEE_BIT)
+#if defined(CONFIG_SCSI_UFS_TW_IGNORE_GUARANTEE_BIT)
 	if (tw->tw_lifetime_est & MASK_UFSTW_LIFETIME_NOT_GUARANTEE) {
 		WARNING_MSG("warn: lun %d - dTurboWriteBufferLifeTimeEst[31] == 1", lun);
 		WARNING_MSG("Device not guarantee the lifetime of Turbo Write Buffer");

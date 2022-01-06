@@ -163,6 +163,16 @@ config SCSI_UFS_TW
 	---help---
 	UFS TW Feature Enable
 
+config SCSI_UFS_TW_IGNORE_GUARANTEE_BIT
+	bool "UFSTW_IGNORE_GUARANTEE_BIT"
+	default n
+	depends on SCSI_UFSHCD && SCSI_UFS_FEATURE && SCSI_UFS_TW
+	help
+	  If device not guarantee the lifetime of Turbo Write Buffer
+	  we will Ignore the guarantee bit[31] of dTurboWriteBufferLifeTimeEst for PoC.
+	  If device not guarantee the lifetime of Turbo Write Buffer and not ignore the bit
+	  So tw_mode change to disable_mode.
+
 config SCSI_SKHPB
 	bool "Activate HPB Host-aware Performance Booster"
 	depends on SCSI_UFSHCD
