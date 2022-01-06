@@ -113,7 +113,7 @@ static int kvm_vcpu_finalize_sve(struct kvm_vcpu *vcpu)
 	if (!buf)
 		return -ENOMEM;
 
-	ret = kvm_share_hyp(buf, buf + reg_sz);
+	ret = create_hyp_mappings(buf, buf + reg_sz, PAGE_HYP);
 	if (ret) {
 		kfree(buf);
 		return ret;
