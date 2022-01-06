@@ -23,6 +23,7 @@ static int arch_get_cluster_id(unsigned int cpu)
 	return arch_cpu_cluster_id(cpu);
 }
 
+#ifdef CONFIG_ARM64
 static void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 {
 	unsigned int cpu;
@@ -35,6 +36,20 @@ static void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 			cpumask_set_cpu(cpu, cpus);
 	}
 }
+# else
+static void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
+{
+	unsigned int cpu;
+
+	cpumask_clear(cpus);
+	for_each_possible_cpu(cpu) {
+		struct cputopo_arm *cpu_topo = &cpu_topology[cpu];
+
+		if (cpu_topo->socket_id == cluster_id)
+			cpumask_set_cpu(cpu, cpus);
+	}
+}
+#endif
 
 static int is_multi_cluster(void)
 {
