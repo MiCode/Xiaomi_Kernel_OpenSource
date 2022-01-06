@@ -86,7 +86,7 @@ static bool sugov_should_update_freq(struct sugov_policy *sg_policy, u64 time)
 	 */
 
 	delta_ns = time - sg_policy->last_freq_update_time;
-	return delta_ns >= sg_policy->min_rate_limit_ns;
+	return delta_ns >= READ_ONCE(sg_policy->min_rate_limit_ns);
 }
 
 static bool sugov_up_down_rate_limit(struct sugov_policy *sg_policy, u64 time,
@@ -738,8 +738,8 @@ static DEFINE_MUTEX(min_rate_lock);
 static void update_min_rate_limit_ns(struct sugov_policy *sg_policy)
 {
 	mutex_lock(&min_rate_lock);
-	sg_policy->min_rate_limit_ns = min(sg_policy->up_rate_delay_ns,
-					   sg_policy->down_rate_delay_ns);
+	WRITE_ONCE(sg_policy->min_rate_limit_ns, min(sg_policy->up_rate_delay_ns,
+					   sg_policy->down_rate_delay_ns));
 	mutex_unlock(&min_rate_lock);
 }
 
