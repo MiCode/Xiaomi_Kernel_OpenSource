@@ -31,6 +31,11 @@ struct SENINF {
 #ifdef DFS_CTRL_BY_OPP
 	struct seninf_dfs_ctx dfs_ctx;
 #endif
+#ifdef SENINF_CLK_CONTROL
+	int pm_domain_cnt;
+	struct device **pm_domain_devs;
+#endif
+
 };
 extern MINT32 seninf_dump_reg(void);
 #ifdef SENINF_IRQ
