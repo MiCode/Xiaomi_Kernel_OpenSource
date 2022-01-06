@@ -4189,6 +4189,59 @@
 				<5 20>,
 				<6 4>;
 		};
+		vdec_fmt: vdec_fmt@16080000 {
+			compatible = "mediatek-vdec-fmt";
+			mediatek,fmtname = "vdec-fmt";
+			reg = <0 0x16080000 0 0x1000>, /* mini_mdp0_rdma */
+				<0 0x16081000 0 0x1000>, /* mini_mdp0_wdma */
+				<0 0x1602f000 0 0x10000>; /* VDEC_SOC_GCON */
+			clocks = <&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>,
+				<&vdec_gcon_base_clk CLK_VDE2_MINI_MDP_CKEN_CFG_RG>;
+			clock-names = "MT_CG_VDEC", "MT_CG_MINI_MDP";
+			mediatek,fmt_gce_th_num = <1>; /* FMT GCE HW THREAD NUM */
+			mboxes = <&gce_m 6 2000 CMDQ_THR_PRIO_1>,
+					<&gce_m 7 2000 CMDQ_THR_PRIO_1>;
+			/* rdma0_sw_rst_done_eng_event */
+			rdma0_sw_rst_done_eng =
+			/bits/ 16 <CMDQ_EVENT_VDEC_FMT_MDP0_RDMA_SW_RST_DONE_ENG_EVENT>;
+			/* rdma0_tile_done */
+			rdma0_tile_done =
+			/bits/ 16 <CMDQ_EVENT_VDEC_FMT_MDP0_RDMA_TILE_DONE>;
+			/* wdma0_sw_rst_done_eng_event */
+			wdma0_sw_rst_done_eng =
+			/bits/ 16 <CMDQ_EVENT_VDEC_FMT_MDP0_WDMA_SW_RST_DONE_ENG_EVENT>;
+			/* wdma0_tile_done */
+			wdma0_tile_done =
+			/bits/ 16 <CMDQ_EVENT_VDEC_FMT_MDP0_WDMA_TILE_DONE>;
+			/* rdma1_sw_rst_done_eng_event */
+			rdma1_sw_rst_done_eng =
+			/bits/ 16 <CMDQ_EVENT_VDEC_FMT_MDP1_RDMA_SW_RST_DONE_ENG_EVENT>;
+			/* rdma1_tile_done */
+			rdma1_tile_done =
+			/bits/ 16 <CMDQ_EVENT_VDEC_FMT_MDP1_RDMA_TILE_DONE>;
+			/* wdma1_sw_rst_done_eng_event */
+			wdma1_sw_rst_done_eng =
+			/bits/ 16 <CMDQ_EVENT_VDEC_FMT_MDP1_WDMA_SW_RST_DONE_ENG_EVENT>;
+			/* wdma1_tile_done */
+			wdma1_tile_done =
+			/bits/ 16 <CMDQ_EVENT_VDEC_FMT_MDP1_WDMA_TILE_DONE>;
+			gce-gpr = <GCE_GPR_R10>;
+			iommus = <&disp_iommu M4U_LARB4_PORT11>,
+					<&disp_iommu M4U_LARB4_PORT12>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_VDE0>;
+			mediatek,larbs = <&smi_larb4>;
+			operating-points-v2 = <&opp_table_vdec>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT11) &mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT12) &mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "path_mini_mdp_r0",
+						"path_mini_mdp_w0";
+			m4u-ports =
+				<M4U_LARB4_PORT11>,
+				<M4U_LARB4_PORT12>;
+		};
 
 		venc@17000000 {
 			compatible = "mediatek,mt6855-vcodec-enc";
