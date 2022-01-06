@@ -814,6 +814,10 @@ struct LCM_PARAMS {
 	unsigned int average_luminance;
 	unsigned int max_luminance;
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	enum LCM_Send_Cmd_Mode sendmode;
+#endif
+
 	unsigned int hbm_en_time;
 	unsigned int hbm_dis_time;
 };
@@ -987,7 +991,7 @@ struct LCM_UTIL_FUNCS {
 	void (*dsi_dynfps_send_cmd)(
 		void *cmdq, unsigned int cmd,
 		unsigned char count, unsigned char *para_list,
-		unsigned char force_update);
+		unsigned char force_update, enum LCM_Send_Cmd_Mode sendmode);
 
 };
 enum LCM_DRV_IOCTL_CMD {
@@ -1056,9 +1060,9 @@ struct LCM_DRIVER {
 
 	/* /////////////DynFPS///////////////////////////// */
 	void (*dfps_send_lcm_cmd)(void *cmdq_handle,
-		unsigned int from_level, unsigned int to_level);
+		unsigned int from_level, unsigned int to_level, struct LCM_PARAMS *params);
 	bool (*dfps_need_send_cmd)(
-	unsigned int from_level, unsigned int to_level);
+	unsigned int from_level, unsigned int to_level, struct LCM_PARAMS *params);
 };
 
 /* LCM Driver Functions */

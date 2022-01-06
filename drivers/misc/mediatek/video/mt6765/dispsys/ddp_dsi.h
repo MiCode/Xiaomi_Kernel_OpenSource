@@ -229,7 +229,7 @@ void ddp_dsi_dynfps_get_vfp_info(unsigned int disp_fps,
 	unsigned int *vfp, unsigned int *vfp_for_lp);
 void DSI_dynfps_send_cmd(void *cmdq, unsigned int cmd,
 	unsigned char count, unsigned char *para_list,
-	unsigned char force_update);
+	unsigned char force_update, enum LCM_Send_Cmd_Mode sendmode);
 /*-------------------------------DynFPS end------------------------------*/
 #endif
 

@@ -1830,7 +1830,7 @@ bool disp_lcm_need_send_cmd(
 	if (from_level < 0 ||
 		to_level < 0)
 		return false;
-	return	lcm_drv->dfps_need_send_cmd(from_level, to_level);
+	return	lcm_drv->dfps_need_send_cmd(from_level, to_level, lcm_param);
 }
 
 void disp_lcm_dynfps_send_cmd(
@@ -1868,7 +1868,7 @@ void disp_lcm_dynfps_send_cmd(
 			to_level = (dfps_params[j]).level;
 	}
 	lcm_drv->dfps_send_lcm_cmd(cmdq_handle,
-		from_level, to_level);
+		from_level, to_level, lcm_param);
 done:
 	DISPCHECK("%s,add done\n", __func__);
 }
