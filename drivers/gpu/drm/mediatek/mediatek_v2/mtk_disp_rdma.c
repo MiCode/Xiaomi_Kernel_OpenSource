@@ -356,7 +356,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		}
 		IF_DEBUG_IRQ_TS(find_work,
 			priv->ddp_comp.ts_works[work_id].irq_time, i)
-		mtk_drm_refresh_tag_end(&priv->ddp_comp);
+//		mtk_drm_refresh_tag_end(&priv->ddp_comp);
 		IF_DEBUG_IRQ_TS(find_work,
 			priv->ddp_comp.ts_works[work_id].irq_time, i)
 	}
@@ -365,7 +365,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		if (rdma->id == DDP_COMPONENT_RDMA0)
 			DRM_MMP_EVENT_START(rdma0, val, 0);
 		DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
-		mtk_drm_refresh_tag_start(&priv->ddp_comp);
+//		mtk_drm_refresh_tag_start(&priv->ddp_comp);
 		IF_DEBUG_IRQ_TS(find_work, priv->ddp_comp.ts_works[work_id].irq_time, i)
 		MMPathTraceDRM(rdma);
 		IF_DEBUG_IRQ_TS(find_work, priv->ddp_comp.ts_works[work_id].irq_time, i)
