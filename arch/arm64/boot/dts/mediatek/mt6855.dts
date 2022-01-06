@@ -763,6 +763,12 @@
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
+		ssheap_cma_mem: ssheap-reserved-cma_memory {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x10000000>;
+			alignment = <0 0x200000>;
+		};
 	};
 
 	memory_ssmr_features: memory-ssmr-features {
@@ -780,6 +786,11 @@
 	ssmr {
 		compatible = "mediatek,trusted_mem";
 		memory-region = <&ssmr_cma_mem>;
+	};
+
+	ssheap {
+		compatible = "mediatek,trusted_mem_ssheap";
+		memory-region = <&ssheap_cma_mem>;
 	};
 
 	gic: interrupt-controller {
