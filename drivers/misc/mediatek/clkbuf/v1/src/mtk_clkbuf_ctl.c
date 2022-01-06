@@ -670,7 +670,7 @@ static ssize_t clk_buf_ctrl_show(struct kobject *kobj,
 static ssize_t clk_buf_debug_store(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	char cmd[11] = {0};
+	char cmd[21] = {0};
 	u32 val = 0;
 
 	if (!clkbuf_ctl.init_done) {
@@ -678,7 +678,7 @@ static ssize_t clk_buf_debug_store(struct kobject *kobj,
 		return -ENODEV;
 	}
 
-	if (sscanf(buf, "%20s %x", cmd, &val) != 2)
+	if (sscanf(buf, "%20s %u", cmd, &val) != 2)
 		return -EPERM;
 
 	if (!strcmp(cmd, "DEBUG")) {
