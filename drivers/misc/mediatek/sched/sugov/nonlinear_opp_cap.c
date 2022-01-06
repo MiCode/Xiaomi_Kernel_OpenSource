@@ -153,8 +153,10 @@ static int alloc_capacity_table(void)
 		struct em_perf_domain *pd;
 
 		pd = em_cpu_get(i);
-		if (!pd)
+		if (!pd) {
+			pr_info("em_cpu_get return NULL for cpu#%d", i);
 			continue;
+		}
 		if (i != cpumask_first(to_cpumask(pd->cpus)))
 			continue;
 

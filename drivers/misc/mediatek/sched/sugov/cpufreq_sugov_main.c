@@ -490,6 +490,8 @@ void mtk_set_cpu_min_opp(int cpu, unsigned long min_util)
 	}
 
 	pd = em_cpu_get(cpu);
+	if (!pd)
+		return;
 	scale_cpu = arch_scale_cpu_capacity(cpu);
 	ps = &pd->table[pd->nr_perf_states - 1];
 	freq = map_util_freq(min_util, ps->frequency, scale_cpu);

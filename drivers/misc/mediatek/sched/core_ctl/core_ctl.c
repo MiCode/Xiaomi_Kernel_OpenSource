@@ -1731,7 +1731,8 @@ static int ppm_data_init(struct cluster_data *cluster)
 	}
 
 	pd = em_cpu_get(first_cpu);
-
+	if (!pd)
+		return -ENOMEM;
 	/* get power and capacity and calculate efficiency */
 
 	for (i = 0; i < opp_nr; i++) {
