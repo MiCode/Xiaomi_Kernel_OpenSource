@@ -407,6 +407,7 @@ static int ps5170_probe(struct i2c_client *client)
 #else
 		mtk_typec_switch_unregister(ps->sw);
 #endif
+		return ret;
 	}
 
 	INIT_WORK(&ps->set_usb_work, ps5170_switch_set_work);
