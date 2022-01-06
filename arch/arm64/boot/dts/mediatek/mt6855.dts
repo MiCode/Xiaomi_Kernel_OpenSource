@@ -4886,9 +4886,16 @@
 		disp_iommu: iommu@1e802000 {
 			compatible = "mediatek,mt6855-disp-iommu";
 			reg = <0 0x1e802000 0 0x1000>;
+			mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2>,
+				<&smi_larb4 &smi_larb7 &smi_larb9>,
+				<&smi_larb11 &smi_larb13 &smi_larb14>,
+				<&smi_larb16 &smi_larb17 &smi_larb20>;
 			mediatek,iommu_banks = <&disp_iommu_bank1 &disp_iommu_bank2
 						&disp_iommu_bank3 &disp_iommu_bank4>;
 			interrupts = <GIC_SPI 278 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_MM_INFRA>;
+			clocks = <&mminfra_config_clk CLK_MMINFRA_SMI>;
+			clock-names = "bclk";
 			#iommu-cells = <1>;
 		};
 
