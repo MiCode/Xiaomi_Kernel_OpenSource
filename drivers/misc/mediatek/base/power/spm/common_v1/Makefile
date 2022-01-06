@@ -16,7 +16,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/uart/include/
 # Include teei header teei_client_main.h
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT), y)
-include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
+include $(srctree)/drivers/tee/teei/Makefile.include
 endif
 # Include pwm header ddp_pwm.h
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/
