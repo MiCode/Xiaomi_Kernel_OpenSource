@@ -281,6 +281,12 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		clock-frequency = <26000000>;
 	};
 
+	apmixed: apmixed@1000c000 {
+		compatible = "mediatek,apmixed",
+			     "mediatek,apmixedsys", "syscon";
+		reg = <0 0x1000c000 0 0x1000>;
+		#clock-cells = <1>;
+	};
 	topckgen: topckgen@10000000 {
 		compatible = "mediatek,topckgen", "syscon";
 		reg = <0 0x10000000 0 0x1000>,
@@ -307,6 +313,33 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <32000>;
+	};
+
+	audclk: audclk@11220000 {
+		compatible = "mediatek,mt6739-audsys", "syscon";
+		reg = <0 0x11220000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	mmsys_config: mmsys_config@14000000 {
+		compatible = "mediatek,mmsys_config", "syscon";
+		reg = <0 0x14000000 0 0x1000>;
+		interrupts = <GIC_SPI 211 IRQ_TYPE_LEVEL_LOW>;
+		#clock-cells = <1>;
+		clocks = <&mmsys_config CLK_MM_ISP_DL>;
+		clock-names = "CAM_MDP";
+	};
+
+	imgsys_config: imgsys_config@15000000 {
+		compatible = "mediatek,imgsys", "syscon";
+		reg = <0 0x15000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	venc_global_con: venc_global_con@17000000 {
+		compatible = "mediatek,venc_global_con", "syscon";
+		reg = <0 0x17000000 0 0x10000>;
+		#clock-cells = <1>;
 	};
 
 	io_cfg_lt: io_cfg_lt@10002000 {
@@ -498,12 +531,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	apmixed: apmixed@1000c000 {
-		compatible = "mediatek,apmixed",
-			     "mediatek,apmixedsys", "syscon";
-		reg = <0 0x1000c000 0 0x1000>;
-		#clock-cells = <1>;
-	};
 
 	fhctl@1000ce00 {
 		compatible = "mediatek,fhctl";
@@ -1571,11 +1598,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		use_ul_260k = <0>; /* select 1: use, 0: not use */
 	};
 
-	audclk: audclk@11220000 {
-		compatible = "mediatek,mt6739-audsys", "syscon";
-		reg = <0 0x11220000 0 0x1000>;
-		#clock-cells = <1>;
-	};
 
 	audio: audio@11220000 {
 		compatible = "mediatek,audio", "syscon";
@@ -1860,14 +1882,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		gpufreq-supply = <&gpufreq>;
 	};
 
-	mmsys_config: mmsys_config@14000000 {
-		compatible = "mediatek,mmsys_config", "syscon";
-		reg = <0 0x14000000 0 0x1000>;
-		interrupts = <GIC_SPI 211 IRQ_TYPE_LEVEL_LOW>;
-		#clock-cells = <1>;
-		clocks = <&mmsys_config CLK_MM_ISP_DL>;
-		clock-names = "CAM_MDP";
-	};
 
 	touch: touch {
 		compatible = "mediatek,touch";
@@ -1890,6 +1904,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		reg = <0 0x14001000 0 0x1000>;
 		interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_LOW>;
 	};
+
 
 	smi_common@14002000 {
 		compatible = "mediatek,smi_common";
@@ -1920,6 +1935,32 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		mediatek,smi-id = <0>;
 	};
 
+	smi_larb1: smi_larb1@17010000 {
+		compatible = "mediatek,smi_larb1", "mediatek,smi_larb";
+		reg = <0 0x17010000 0 0x1000>;
+		interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&scpsys SCP_SYS_VEN>,
+			<&venc_global_con CLK_VENC_SET0_LARB>,
+			<&venc_global_con CLK_VENC_SET1_VENC>;
+		clock-names = "mtcmos-ven", "venc-larb", "venc-venc";
+		mediatek,smi-id = <1>;
+	};
+
+	smi_larb2: smi_larb2@15001000 {
+		compatible = "mediatek,smi_larb2", "mediatek,smi_larb";
+		reg = <0 0x15001000 0 0x1000>;
+		interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&scpsys SCP_SYS_ISP>,
+			<&imgsys_config CLK_IMG_LARB2_SMI>;
+		clock-names = "mtcmos-img", "img-larb2";
+		mediatek,smi-id = <2>;
+	};
+
+	smi_larb3@17010000 {
+		compatible = "mediatek,smi_larb3";
+		reg = <0 0x17010000 0 0x1000>;
+		interrupts = <GIC_SPI 231 IRQ_TYPE_LEVEL_LOW>;
+	};
 	mdp_rdma0: mdp_rdma0@14004000 {
 		compatible = "mediatek,mdp_rdma0";
 		reg = <0 0x14004000 0 0x1000>;
@@ -2087,11 +2128,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		reg = <0 0x14016000 0 0x0>;
 	};
 
-	imgsys_config: imgsys_config@15000000 {
-		compatible = "mediatek,imgsys", "syscon";
-		reg = <0 0x15000000 0 0x1000>;
-		#clock-cells = <1>;
-	};
 
 	ispsys@15000000 {
 		compatible = "mediatek,mt6739-ispsys";
@@ -2121,15 +2157,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				"CG_IMG_CAM_SV";
 	};
 
-	smi_larb2: smi_larb2@15001000 {
-		compatible = "mediatek,smi_larb2", "mediatek,smi_larb";
-		reg = <0 0x15001000 0 0x1000>;
-		interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_LOW>;
-		clocks = <&scpsys SCP_SYS_ISP>,
-			<&imgsys_config CLK_IMG_LARB2_SMI>;
-		clock-names = "mtcmos-img", "img-larb2";
-		mediatek,smi-id = <2>;
-	};
 
 	cam_a@15004000 {
 		compatible = "mediatek,cam_a";
@@ -2179,11 +2206,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		compatible = "mediatek,cam_d_inner";
 		reg = <0 0x1500f000 0 0x1000>;
 	};
-	venc_global_con: venc_global_con@17000000 {
-		compatible = "mediatek,venc_global_con", "syscon";
-		reg = <0 0x17000000 0 0x10000>;
-		#clock-cells = <1>;
-	};
 
 	vdec_gcon@17000000 {
 		compatible = "mediatek,vdec_gcon";
@@ -2217,11 +2239,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		interrupts = <GIC_SPI 215 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	smi_larb3@17010000 {
-		compatible = "mediatek,smi_larb3";
-		reg = <0 0x17010000 0 0x1000>;
-		interrupts = <GIC_SPI 231 IRQ_TYPE_LEVEL_LOW>;
-	};
 
 	venc: venc@17020000 {
 		compatible = "mediatek,venc";
@@ -2229,16 +2246,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	smi_larb1: smi_larb1@17010000 {
-		compatible = "mediatek,smi_larb1", "mediatek,smi_larb";
-		reg = <0 0x17010000 0 0x1000>;
-		interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_LOW>;
-		clocks = <&scpsys SCP_SYS_VEN>,
-			<&venc_global_con CLK_VENC_SET0_LARB>,
-			<&venc_global_con CLK_VENC_SET1_VENC>;
-		clock-names = "mtcmos-ven", "venc-larb", "venc-venc";
-		mediatek,smi-id = <1>;
-	};
 
 	mt6357_gauge {
 		compatible = "mediatek,mt6357_gauge";
