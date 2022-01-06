@@ -227,6 +227,17 @@ config MTK_SEC_VIDEO_PATH_SUPPORT
 	  MTK_DRM_L1_SUPPORT, MTK_PERSIST_PARTITION_SUPPORT,
 	  MTK_DRM_KEY_MNG_SUPPORT.
 
+config MTK_SVP_ON_MTEE_SUPPORT
+        bool "Enable MTK SVP on MTEE"
+        help
+          This enable MTK TEE function of Widevine Level1,
+          relative modules include: DRM, vdec, venc, cmdq, m4u, display,
+          tplay/DXCC,ssvp, secmem, TEE frameworks, keyinstall, DAPC, MPU,
+          ION, gralloc,RPMB, DXCC, mediacodec, WFD, MDP.etc
+          relative options including: MTK_TEE_SUPPORT, MTK_GP_SUPPORT,
+          MTK_DRM_L1_SUPPORT, MTK_PERSIST_PARTITION_SUPPORT,
+          MTK_DRM_KEY_MNG_SUPPORT
+
 config MTK_DRM_KEY_MNG_SUPPORT
 	bool "Enable MTK DRM Key Manager Support"
 	depends on MTK_IN_HOUSE_TEE_SUPPORT || TRUSTONIC_TEE_SUPPORT || \
