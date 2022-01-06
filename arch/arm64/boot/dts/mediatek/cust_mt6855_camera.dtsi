@@ -534,11 +534,11 @@
 	clock-frequency = <400000>;
 	#address-cells = <1>;
 	size-cells = <0>;
-//	mtk_camera_eeprom2:camera_eeprom2@50 {
-//		compatible = "mediatek,camera_eeprom";
-//		reg = <0x50>;
-//		status = "okay";
-//	};
+	mtk_camera_eeprom2:camera_eeprom2@50 {
+		compatible = "mediatek,camera_eeprom";
+		reg = <0x50>;
+		status = "okay";
+	};
 	camera_main_three_mtk:camera_main_three@10 {
 		compatible = "mediatek,camera_main_three";
 		#thermal-sensor-cells = <0>;
@@ -551,16 +551,16 @@
 	clock-frequency = <400000>;
 	#address-cells = <1>;
 	#size-cells = <0>;
-//	mtk_camera_eeprom1:camera_eeprom1@51 {
-//		compatible = "mediatek,camera_eeprom";
-//		reg = <0x51>;
-//		status = "okay";
-//	};
-//	mtk_camera_eeprom4:camera_eeprom4@50 {
-//		compatible = "mediatek,camera_eeprom";
-//		reg = <0x50>;
-//		status = "okay";
-//	};
+	mtk_camera_eeprom1:camera_eeprom1@51 {
+		compatible = "mediatek,camera_eeprom";
+		reg = <0x51>;
+		status = "okay";
+	};
+	mtk_camera_eeprom4:camera_eeprom4@50 {
+		compatible = "mediatek,camera_eeprom";
+		reg = <0x50>;
+		status = "okay";
+	};
 	camera_sub_mtk:camera_sub@1a {
 		compatible = "mediatek,camera_sub";
 		#thermal-sensor-cells = <0>;
@@ -586,11 +586,11 @@
 	clock-frequency = <400000>;
 	#address-cells = <1>;
 	#size-cells = <0>;
-//	mtk_camera_eeprom0:camera_eeprom0@50 {
-//		compatible = "mediatek,camera_eeprom";
-//		reg = <0x50>;
-//		status = "okay";
-//	};
+	mtk_camera_eeprom0:camera_eeprom0@50 {
+		compatible = "mediatek,camera_eeprom";
+		reg = <0x50>;
+		status = "okay";
+	};
 	camera_main_mtk:camera_main@1a {
 		compatible = "mediatek,camera_main";
 		#thermal-sensor-cells = <0>;
