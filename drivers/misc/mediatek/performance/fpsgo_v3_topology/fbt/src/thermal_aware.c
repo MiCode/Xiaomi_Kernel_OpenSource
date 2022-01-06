@@ -6,6 +6,7 @@
 #include <linux/hrtimer.h>
 #include <linux/cpumask.h>
 #include <linux/workqueue.h>
+#include <linux/topology.h>
 #include <linux/slab.h>
 #include "tscpu_settings.h"
 #include "mtk_thermal_monitor.h"
@@ -83,7 +84,7 @@ static void thrm_set_isolation(int input, int cpu)
 	if (cpu >= nr_cpus || cpu < 0)
 		return;
 
-	cl = arch_get_cluster_id(cpu);
+	cl = arch_cpu_cluster_id(cpu);
 	if (cl >= g_cluster_num || cl < 0)
 		return;
 
@@ -92,11 +93,11 @@ static void thrm_set_isolation(int input, int cpu)
 	else if (input == THRM_AWARE_CORE_DEISO)
 		cl_min = cl_max = g_core_num[cl];
 
-#ifdef CONFIG_MTK_CORE_CTL
-	update_cpu_core_limit(CPU_ISO_KIR_FPSGO, cl, cl_min, cl_max);
-#else
-	update_isolation_cpu(CPU_ISO_KIR_FPSGO, input ? 1 : -1, cpu);
-#endif
+//#ifdef CONFIG_MTK_CORE_CTL
+//	update_cpu_core_limit(CPU_ISO_KIR_FPSGO, cl, cl_min, cl_max);
+//#else
+//	update_isolation_cpu(CPU_ISO_KIR_FPSGO, input ? 1 : -1, cpu);
+//#endif
 }
 
 static void thrm_enable_timer(void)
@@ -483,12 +484,24 @@ static ssize_t thrm_iso_pcbtemp_th_store(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RW(thrm_iso_pcbtemp_th);
+static void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
+{
+	unsigned int cpu;
+
+	cpumask_clear(cpus);
+	for_each_possible_cpu(cpu) {
+		struct cpu_topology *cpu_topo = &cpu_topology[cpu];
+
+		if (cpu_topo->package_id == cluster_id)
+			cpumask_set_cpu(cpu, cpus);
+	}
+}
 
 static void update_cpu_info(void)
 {
 	int i;
 
-	g_cluster_num = arch_get_nr_clusters();
+	g_cluster_num = arch_nr_clusters();
 	g_core_num = kcalloc(g_cluster_num, sizeof(int), GFP_KERNEL);
 
 	for (i = 0; i < g_cluster_num; i++) {

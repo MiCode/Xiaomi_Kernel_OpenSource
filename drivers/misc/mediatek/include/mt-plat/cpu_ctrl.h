@@ -34,7 +34,15 @@ struct cpu_ctrl_data {
 	int max;
 };
 
-extern unsigned int mt_cpufreq_get_freq_by_idx(int id, int idx);
+#ifdef CONFIG_MTK_CPU_FREQ
+#include <mtk_cpufreq_common_api.h>
+unsigned int __attribute__ ((weak))  mt_cpufreq_get_freq_by_idx(
+	unsigned int cid, int idx) { return 0; }
+#else
+static inline unsigned int mt_cpufreq_get_freq_by_idx(
+	int cid, int idx) { return 0; }
+#endif
+
 extern int update_userlimit_cpu_freq(int kicker, int num_cluster
 				, struct cpu_ctrl_data *freq_limit);
 extern int update_userlimit_cpu_core(int kicker, int num_cluster
