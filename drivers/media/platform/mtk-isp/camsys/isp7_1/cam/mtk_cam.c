@@ -1928,6 +1928,51 @@ static void mtk_cam_req_set_vfmt(struct mtk_cam_device *cam,
 	}
 }
 
+static void mtk_cam_req_set_sv_vfmt(struct mtk_cam_device *cam,
+				 struct mtk_camsv_pipeline *sv_pipeline,
+				 struct mtk_cam_request_stream_data *s_data)
+{
+	struct mtk_cam_video_device *node;
+	struct mtk_cam_request *req;
+	struct v4l2_format *f;
+	int i;
+
+	req = mtk_cam_s_data_get_req(s_data);
+
+	/* force update format to every video device before re-streamon */
+	for (i = MTK_CAMSV_SOURCE_BEGIN; i < MTK_CAMSV_PIPELINE_PADS_NUM; i++) {
+		node = &sv_pipeline->vdev_nodes[i - MTK_CAMSV_SOURCE_BEGIN];
+		f = mtk_cam_s_data_get_vfmt(s_data, node->desc.id);
+		if (!f) {
+			dev_info(cam->dev,
+				 "%s:%s:pipe(%d):%s: can't find the vfmt field to save\n",
+				 __func__, req->req.debug_str,
+				 node->uid.pipe_id, node->desc.name);
+		} else {
+			if (s_data->vdev_fmt_update & (1 << node->desc.id)) {
+				mtk_cam_video_set_fmt(node, f, 0);
+				node->active_fmt = *f;
+				dev_dbg(cam->dev,
+					"%s:%s:pipe(%d):%s:apply pending v4l2 fmt: pixelfmt(0x%x), w(%d), h(%d)\n",
+					__func__, req->req.debug_str,
+					node->uid.pipe_id, node->desc.name,
+					f->fmt.pix_mp.pixelformat,
+					f->fmt.pix_mp.width,
+					f->fmt.pix_mp.height);
+			} else {
+				*f = node->active_fmt;
+				dev_dbg(cam->dev,
+					"%s:%s:pipe(%d):%s:save v4l2 fmt: pixelfmt(0x%x), w(%d), h(%d)\n",
+					__func__, req->req.debug_str,
+					node->uid.pipe_id, node->desc.name,
+					f->fmt.pix_mp.pixelformat,
+					f->fmt.pix_mp.width,
+					f->fmt.pix_mp.height);
+			}
+		}
+	}
+}
+
 static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 			       struct mtk_cam_request *req)
 {
@@ -1936,6 +1981,7 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 	struct mtk_cam_request_stream_data *stream_data;
 	struct v4l2_subdev *sd;
 	struct mtk_raw_pipeline *raw_pipeline;
+	struct mtk_camsv_pipeline *sv_pipeline;
 	int w, h;
 
 	dev_dbg(cam->dev, "%s:%s\n", __func__, req->req.debug_str);
@@ -2009,7 +2055,12 @@ static int mtk_cam_req_set_fmt(struct mtk_cam_device *cam,
 				}
 			} else if (is_camsv_subdev(pipe_id)) {
 				stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
-				sd = &cam->sv.pipelines[pipe_id - MTKCAM_SUBDEV_CAMSV_START].subdev;
+				sv_pipeline =
+					&cam->sv.pipelines[pipe_id - MTKCAM_SUBDEV_CAMSV_START];
+				mtk_cam_req_set_sv_vfmt(cam, sv_pipeline, stream_data);
+
+				sd = &sv_pipeline->subdev;
+
 				for (pad = MTK_CAMSV_SOURCE_BEGIN;
 					 pad < MTK_CAMSV_PIPELINE_PADS_NUM; pad++)
 					if (stream_data->pad_fmt_update & (1 << pad))
