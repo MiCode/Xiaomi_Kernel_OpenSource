@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2020-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/debugfs.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/mailbox_client.h>
+#include <linux/mailbox/qmp.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/types.h>
@@ -14,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
+#include <soc/qcom/subsystem_sleep_stats.h>
 
 #define MAX_QMP_MSG_SIZE	96
 #define MODE_AOSS		0xaa
@@ -31,6 +38,9 @@
 #define VX_FLAG_SHIFT_TS		16
 #define VX_FLAG_MASK_FLUSH_THRESH	0xFF
 #define VX_FLAG_SHIFT_FLUSH_THRESH	24
+
+#define MAX_MSG_LEN		255
+#define DEFAULT_DEBUG_TIME (10 * 1000)
 
 #define read_word(base, itr) ({					\
 		u32 v;						\
@@ -71,6 +81,14 @@ struct vx_platform_data {
 	struct dentry *vx_file;
 	size_t ndrv;
 	const char **drvs;
+	struct mutex lock;
+	struct mbox_chan *mbox_ch;
+	struct mbox_client mbox_cl;
+	ktime_t suspend_time;
+	ktime_t resume_time;
+	bool debug_enable;
+	u32 detect_time_ms;
+	bool monitor_enable;
 };
 
 static const char * const drv_names_lahaina[] = {
@@ -86,6 +104,101 @@ static const char * const drv_names_waipio[] = {
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
+
+static const char * const drv_names_diwali[] = {
+	"TZ", "L3", "HLOS", "HYP", "SECPROC", "AUDIO", "SENSOR", "AOP",
+	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW",
+	"WPSS", "MDM SW", "MDM HW", "WLAN RF", "DDR AUX", "ARC CPRF",
+	""
+};
+
+static ssize_t debug_time_ms_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct vx_platform_data *pd = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", pd->detect_time_ms);
+}
+
+static ssize_t debug_time_ms_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct vx_platform_data *pd = dev_get_drvdata(dev);
+	int val;
+
+	if (kstrtos32(buf, 0, &val))
+		return -EINVAL;
+
+	if (val <= 0) {
+		pr_err("debug time ms should be greater than zero\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&pd->lock);
+	pd->detect_time_ms = val;
+	mutex_unlock(&pd->lock);
+
+	return count;
+}
+static DEVICE_ATTR_RW(debug_time_ms);
+
+static ssize_t debug_enable_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct vx_platform_data *pd = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", pd->debug_enable);
+}
+
+static ssize_t debug_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct vx_platform_data *pd = dev_get_drvdata(dev);
+	int val;
+
+	if (kstrtos32(buf, 0, &val))
+		return -EINVAL;
+
+	if ((val < 0) || (val > 1)) {
+		pr_err("input error\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&pd->lock);
+	pd->debug_enable = val;
+	mutex_unlock(&pd->lock);
+
+	subsystem_sleep_debug_enable(pd->debug_enable);
+
+	return count;
+}
+static DEVICE_ATTR_RW(debug_enable);
+
+static void sys_pm_vx_send_msg(struct vx_platform_data *pd, bool enable)
+{
+	char buf[MAX_MSG_LEN] = {};
+	struct qmp_pkt pkt;
+	int ret = 0;
+
+	mutex_lock(&pd->lock);
+	if (enable)
+		ret = scnprintf(buf, MAX_MSG_LEN,
+				"{class: lpm_mon, type: cxpc, dur: 1000, flush: 5, ts_adj: 1}");
+	else
+		ret = scnprintf(buf, MAX_MSG_LEN,
+				"{class: lpm_mon, type: cxpc, dur: 1000, flush: 1, log_once: 1}");
+
+	pkt.size = (ret + 0x3) & ~0x3;
+	pkt.data = buf;
+
+	ret = mbox_send_message(pd->mbox_ch, &pkt);
+	if (ret < 0) {
+		pr_err("Error sending mbox message: %d\n", ret);
+		mutex_unlock(&pd->lock);
+		return;
+	}
+	mutex_unlock(&pd->lock);
+}
 
 static int read_vx_data(struct vx_platform_data *pd, struct vx_log *log)
 {
@@ -143,6 +256,31 @@ no_mem:
 	kfree(data);
 
 	return -ENOMEM;
+}
+
+static void vx_check_drv(struct vx_platform_data *pd)
+{
+	struct vx_log log;
+	int i, j, ret;
+
+	ret = read_vx_data(pd, &log);
+	if (ret) {
+		pr_info("fail to read vx data\n");
+		return;
+	}
+
+	for (i = 0; i < pd->ndrv; i++) {
+		for (j = 0; j < log.loglines; j++) {
+			if (log.data[j].drv_vx[i] == 0)
+				break;
+			if (j == log.loglines - 1)
+				pr_info("DRV: %s has blocked power collapse\n", pd->drvs[i]);
+		}
+	}
+
+	for (i = 0; i < log.loglines; i++)
+		kfree(log.data[i].drv_vx);
+	kfree(log.data);
 }
 
 static void show_vx_data(struct vx_platform_data *pd, struct vx_log *log,
@@ -230,6 +368,7 @@ static const struct file_operations sys_pm_vx_fops = {
 	.release = single_release,
 };
 
+#if defined(DEBUG_FS)
 static int vx_create_debug_nodes(struct vx_platform_data *pd)
 {
 	struct dentry *pf;
@@ -243,12 +382,15 @@ static int vx_create_debug_nodes(struct vx_platform_data *pd)
 
 	return 0;
 }
+#endif
 
 static const struct of_device_id drv_match_table[] = {
 	{ .compatible = "qcom,sys-pm-lahaina",
 	  .data = drv_names_lahaina },
 	{ .compatible = "qcom,sys-pm-waipio",
 	  .data = drv_names_waipio },
+	{ .compatible = "qcom,sys-pm-diwali",
+	  .data = drv_names_diwali },
 	{ }
 };
 
@@ -281,20 +423,118 @@ static int vx_probe(struct platform_device *pdev)
 	pd->ndrv = i;
 	pd->drvs = drvs;
 
+#if defined(DEBUG_FS)
 	ret = vx_create_debug_nodes(pd);
 	if (ret)
 		return ret;
+#endif
+
+	ret = device_create_file(&pdev->dev, &dev_attr_debug_time_ms);
+	if (ret) {
+		dev_err(&pdev->dev, "failed: create sys pm vx sysfs debug time entry\n");
+		goto fail_create_debug_time;
+	}
+
+	ret = device_create_file(&pdev->dev, &dev_attr_debug_enable);
+	if (ret) {
+		dev_err(&pdev->dev, "failed: create sys pm vx sysfs debug enable entry\n");
+		goto fail_create_debug_enable;
+	}
+
+	pd->mbox_cl.dev = &pdev->dev;
+	pd->mbox_cl.tx_block = true;
+	pd->mbox_cl.tx_tout = 1000;
+	pd->mbox_cl.knows_txdone = false;
+
+	pd->mbox_ch = mbox_request_channel(&pd->mbox_cl, 0);
+	if (IS_ERR(pd->mbox_ch)) {
+		dev_err(&pdev->dev, "failed to get mbox channel\n");
+		ret = PTR_ERR(pd->mbox_ch);
+		goto fail_create_mbox_channel;
+	}
+
+	mutex_init(&pd->lock);
+	pd->detect_time_ms = DEFAULT_DEBUG_TIME;
+	pd->debug_enable = false;
+	pd->monitor_enable = false;
 
 	platform_set_drvdata(pdev, pd);
 
 	return 0;
+
+fail_create_mbox_channel:
+	device_remove_file(&pdev->dev, &dev_attr_debug_enable);
+fail_create_debug_enable:
+	device_remove_file(&pdev->dev, &dev_attr_debug_time_ms);
+fail_create_debug_time:
+	debugfs_remove(pd->vx_file);
+	return ret;
 }
 
 static int vx_remove(struct platform_device *pdev)
 {
 	struct vx_platform_data *pd = platform_get_drvdata(pdev);
 
+#if defined(DEBUG_FS)
 	debugfs_remove(pd->vx_file);
+#endif
+	device_remove_file(&pdev->dev, &dev_attr_debug_time_ms);
+	device_remove_file(&pdev->dev, &dev_attr_debug_enable);
+	mbox_free_channel(pd->mbox_ch);
+	subsystem_sleep_debug_enable(false);
+
+	return 0;
+}
+
+static int vx_suspend(struct device *dev)
+{
+	struct vx_platform_data *pd = dev_get_drvdata(dev);
+
+	if (!pd->debug_enable)
+		return 0;
+
+	pd->suspend_time = ktime_get_boottime();
+	if (pd->monitor_enable)
+		sys_pm_vx_send_msg(pd, pd->monitor_enable);
+
+	return 0;
+}
+
+static int vx_resume(struct device *dev)
+{
+	struct vx_platform_data *pd = dev_get_drvdata(dev);
+	ktime_t time_delta_ms;
+	bool system_slept;
+	bool subsystem_slept;
+
+	if (!pd->debug_enable)
+		return 0;
+
+	pd->resume_time = ktime_get_boottime();
+	time_delta_ms = ktime_ms_delta(pd->resume_time, pd->suspend_time);
+	if (time_delta_ms <= pd->detect_time_ms)
+		return 0;
+
+	system_slept = has_system_slept();
+	if (system_slept)
+		goto exit;
+
+	subsystem_slept = has_subsystem_slept();
+	if (!subsystem_slept)
+		goto exit;
+
+	/* if monitor was set last time check DRVs blocking system sleep */
+	if (pd->monitor_enable)
+		vx_check_drv(pd);
+	else
+		pd->monitor_enable = true;
+
+	return 0;
+
+exit:
+	if (pd->monitor_enable)
+		sys_pm_vx_send_msg(pd, false);
+	pd->monitor_enable = false;
 
 	return 0;
 }
@@ -304,16 +544,23 @@ static const struct of_device_id vx_table[] = {
 	{ }
 };
 
+static const struct dev_pm_ops vx_pm_ops = {
+	.suspend = vx_suspend,
+	.resume = vx_resume,
+};
+
 static struct platform_driver vx_driver = {
 	.probe = vx_probe,
 	.remove = vx_remove,
 	.driver = {
 		.name = "sys-pm-violators",
+		.suppress_bind_attrs = true,
 		.of_match_table = vx_table,
+		.pm = &vx_pm_ops,
 	},
 };
 module_platform_driver(vx_driver);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("MSM System PM Violators Driver");
-MODULE_ALIAS("platform:msm_sys_pm_vx");
+MODULE_DESCRIPTION("Qualcomm Technologies, Inc. (QTI) System PM Violators driver");
+MODULE_ALIAS("platform:sys_pm_vx");

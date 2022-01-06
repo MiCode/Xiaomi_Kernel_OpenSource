@@ -25,6 +25,10 @@ enum thermal_pause_levels {
 
 #define THERMAL_PAUSE_RETRY_COUNT 5
 
+/* minimum 160mS of time to allow for retry mechanism */
+#define DELAYED_WORK_TICKS 2
+#define THERMAL_PAUSE_DELAYED_RETRY_COUNT 20
+
 struct thermal_pause_cdev {
 	struct list_head		node;
 	cpumask_t			cpu_mask;
@@ -34,7 +38,8 @@ struct thermal_pause_cdev {
 	struct device_node		*np;
 	char				cdev_name[THERMAL_NAME_LENGTH];
 	struct work_struct		reg_work;
-	struct work_struct		pause_update_work;
+	struct delayed_work		pause_delayed_work;
+	int				delayed_work_retries;
 };
 
 static DEFINE_MUTEX(cpus_pause_lock);
@@ -203,7 +208,7 @@ static void thermal_pause_update_work(struct work_struct *work)
 	int ret = 0;
 	int retcnt = THERMAL_PAUSE_RETRY_COUNT;
 	struct thermal_pause_cdev *thermal_pause_cdev =
-		container_of(work, struct thermal_pause_cdev, pause_update_work);
+		container_of(work, struct thermal_pause_cdev, pause_delayed_work.work);
 
 	mutex_lock(&cpus_pause_lock);
 
@@ -239,6 +244,30 @@ retry:
 		goto retry;
 	}
 
+	if (ret < 0) {
+		/* after local retries, still failed.  queue delayed work */
+		if (thermal_pause_cdev->delayed_work_retries > 0) {
+			/* continue a previous retry/delay cycle.  decrement to 0 and stop */
+			queue_delayed_work(system_highpri_wq,
+					   &thermal_pause_cdev->pause_delayed_work,
+					   DELAYED_WORK_TICKS);
+			thermal_pause_cdev->delayed_work_retries--;
+		} else if (thermal_pause_cdev->delayed_work_retries == -1) {
+			/* create a new retry cycle */
+			queue_delayed_work(system_highpri_wq,
+					   &thermal_pause_cdev->pause_delayed_work,
+					   DELAYED_WORK_TICKS);
+			thermal_pause_cdev->delayed_work_retries =
+				THERMAL_PAUSE_DELAYED_RETRY_COUNT;
+		} else {
+			/* Failure even with delayed work retries. Stop */
+			thermal_pause_cdev->delayed_work_retries = -1;
+		}
+	} else {
+		/* operation success, discontinue retry cycle */
+		thermal_pause_cdev->delayed_work_retries = -1;
+	}
+
 	mutex_unlock(&cpus_pause_lock);
 }
 
@@ -269,7 +298,7 @@ static int thermal_pause_set_cur_state(struct thermal_cooling_device *cdev,
 	else
 		thermal_pause_cdev->thermal_pause_req = THERMAL_NO_CPU_PAUSE;
 
-	queue_work(system_highpri_wq, &thermal_pause_cdev->pause_update_work);
+	queue_delayed_work(system_highpri_wq, &thermal_pause_cdev->pause_delayed_work, 0);
 
 	mutex_unlock(&cpus_pause_lock);
 
@@ -405,10 +434,12 @@ static int thermal_pause_probe(struct platform_device *pdev)
 		thermal_pause_cdev->thermal_pause_level = false;
 		thermal_pause_cdev->cdev = NULL;
 		thermal_pause_cdev->np = subsys_np;
+		thermal_pause_cdev->delayed_work_retries = -1;
 		cpumask_copy(&thermal_pause_cdev->cpu_mask, &cpu_mask);
 
 		INIT_WORK(&thermal_pause_cdev->reg_work, thermal_pause_register_cdev);
-		INIT_WORK(&thermal_pause_cdev->pause_update_work, thermal_pause_update_work);
+		INIT_DELAYED_WORK(&thermal_pause_cdev->pause_delayed_work,
+				  thermal_pause_update_work);
 		list_add(&thermal_pause_cdev->node, &thermal_pause_cdev_list);
 	}
 
@@ -438,7 +469,8 @@ static int thermal_pause_remove(struct platform_device *pdev)
 		/* for each asserted cooling device, resume the CPUs */
 		if (thermal_pause_cdev->thermal_pause_level) {
 			thermal_pause_cdev->thermal_pause_req = THERMAL_NO_CPU_PAUSE;
-			queue_work(system_highpri_wq, &thermal_pause_cdev->pause_update_work);
+			queue_delayed_work(system_highpri_wq,
+					   &thermal_pause_cdev->pause_delayed_work, 0);
 		}
 
 		if (thermal_pause_cdev->cdev)

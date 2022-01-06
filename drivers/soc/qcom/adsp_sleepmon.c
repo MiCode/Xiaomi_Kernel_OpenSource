@@ -1022,11 +1022,15 @@ static long adspsleepmon_device_ioctl(struct file *file,
 				memcpy(&g_adspsleepmon.backup_lpm_stats,
 						g_adspsleepmon.lpm_stats,
 						sizeof(struct sleep_stats));
+				g_adspsleepmon.backup_lpm_timestamp =
+						__arch_counter_get_cntvct();
 				delay = g_adspsleepmon.lpm_wait_time;
 			} else {
 				memcpy(&g_adspsleepmon.backup_lpi_stats,
 						g_adspsleepmon.lpi_stats,
 						sizeof(struct sleep_stats));
+				g_adspsleepmon.backup_lpi_timestamp =
+						__arch_counter_get_cntvct();
 				delay = g_adspsleepmon.lpi_wait_time;
 			}
 

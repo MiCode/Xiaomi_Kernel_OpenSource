@@ -1829,6 +1829,26 @@ struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[] = {
 					   hang_data_length),
 	},
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x20,
+		.offset         = offsetof(struct
+					   wlfw_cap_resp_msg_v01,
+					   bdf_dnld_method_valid),
+	},
+	{
+		.data_type      = QMI_SIGNED_4_BYTE_ENUM,
+		.elem_len       = 1,
+		.elem_size      = sizeof(enum wlfw_bdf_dnld_method_v01),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x20,
+		.offset         = offsetof(struct
+					   wlfw_cap_resp_msg_v01,
+					   bdf_dnld_method),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.array_type       = NO_ARRAY,
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
@@ -3536,6 +3556,26 @@ struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[] = {
 		.offset         = offsetof(struct
 					   wlfw_host_cap_req_msg_v01,
 					   wake_msi_addr),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x2B,
+		.offset         = offsetof(struct
+					   wlfw_host_cap_req_msg_v01,
+					   wlan_enable_delay_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x2B,
+		.offset         = offsetof(struct
+					   wlfw_host_cap_req_msg_v01,
+					   wlan_enable_delay),
 	},
 	{
 		.data_type      = QMI_EOTI,

@@ -690,6 +690,7 @@ static const struct of_device_id qmp_dt_match[] = {
 	{ .compatible = "qcom,sm8250-aoss-qmp", },
 	{ .compatible = "qcom,waipio-aoss-qmp", },
 	{ .compatible = "qcom,diwali-aoss-qmp", },
+	{ .compatible = "qcom,neo-aoss-qmp", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, qmp_dt_match);

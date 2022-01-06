@@ -3089,13 +3089,20 @@ static int mhi_dev_alloc_evt_buf_evt_req(struct mhi_dev *mhi,
 
 	/* Allocate event requests */
 	ch->ereqs = kcalloc(ch->evt_req_size, sizeof(*ch->ereqs), GFP_KERNEL);
-	if (!ch->ereqs)
-		return -ENOMEM;
+	if (!ch->ereqs) {
+		mhi_log(MHI_MSG_ERROR,
+			"Failed to alloc ereqs for Channel %d\n", ch->ch_id);
+		rc = -ENOMEM;
+		goto free_ereqs;
+	}
 
 	/* Allocate buffers to queue transfer completion events */
 	ch->tr_events = kcalloc(ch->evt_buf_size, sizeof(*ch->tr_events),
 			GFP_KERNEL);
 	if (!ch->tr_events) {
+		mhi_log(MHI_MSG_ERROR,
+			"Failed to alloc tr_events buffer for Channel %d\n",
+			ch->ch_id);
 		rc = -ENOMEM;
 		goto free_ereqs;
 	}

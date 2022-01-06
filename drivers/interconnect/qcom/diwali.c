@@ -156,7 +156,7 @@ static struct qcom_icc_qosbox qxm_crypto_qos = {
 	.offsets = { 0x14000 },
 	.config = &(struct qos_config) {
 		.prio = 2,
-		.urg_fwd = 1,
+		.urg_fwd = 0,
 	},
 };
 
@@ -171,13 +171,34 @@ static struct qcom_icc_node qxm_crypto = {
 	.links = { SLAVE_A2NOC_SNOC },
 };
 
+static struct qcom_icc_qosbox qnm_cnoc_datapath_qos = {
+	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
+	.num_ports = 1,
+	.offsets = { 0x13000 },
+	.config = &(struct qos_config) {
+		.prio = 2,
+		.urg_fwd = 0,
+	},
+};
+
+static struct qcom_icc_node qnm_cnoc_datapath = {
+	.name = "qnm_cnoc_datapath",
+	.id = MASTER_CNOC_DATAPATH,
+	.channels = 1,
+	.buswidth = 8,
+	.noc_ops = &qcom_qnoc4_ops,
+	.qosbox = &qnm_cnoc_datapath_qos,
+	.num_links = 1,
+	.links = { SLAVE_A2NOC_SNOC },
+};
+
 static struct qcom_icc_qosbox qxm_ipa_qos = {
 	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
 	.num_ports = 1,
 	.offsets = { 0xe000 },
 	.config = &(struct qos_config) {
 		.prio = 2,
-		.urg_fwd = 1,
+		.urg_fwd = 0,
 	},
 };
 
@@ -460,7 +481,7 @@ static struct qcom_icc_qosbox qnm_pcie_qos = {
 	.num_ports = 1,
 	.offsets = { 0xa4000 },
 	.config = &(struct qos_config) {
-		.prio = 2,
+		.prio = 0,
 		.urg_fwd = 1,
 	},
 };
@@ -578,7 +599,7 @@ static struct qcom_icc_qosbox qnm_camnoc_icp_qos = {
 	.num_ports = 1,
 	.offsets = { 0x1b000 },
 	.config = &(struct qos_config) {
-		.prio = 4,
+		.prio = 0,
 		.urg_fwd = 1,
 	},
 };
@@ -738,23 +759,12 @@ static struct qcom_icc_node qnm_pcie_anoc_cfg = {
 	.links = { SLAVE_SERVICE_PCIE_ANOC },
 };
 
-static struct qcom_icc_qosbox xm_pcie3_0_qos = {
-	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
-	.num_ports = 1,
-	.offsets = { 0x6000 },
-	.config = &(struct qos_config) {
-		.prio = 3,
-		.urg_fwd = 0,
-	},
-};
-
 static struct qcom_icc_node xm_pcie3_0 = {
 	.name = "xm_pcie3_0",
 	.id = MASTER_PCIE_0,
 	.channels = 1,
 	.buswidth = 8,
 	.noc_ops = &qcom_qnoc4_ops,
-	.qosbox = &xm_pcie3_0_qos,
 	.num_links = 1,
 	.links = { SLAVE_ANOC_PCIE_GEM_NOC },
 };
@@ -837,7 +847,7 @@ static struct qcom_icc_qosbox qxm_pimem_qos = {
 	.offsets = { 0x18000 },
 	.config = &(struct qos_config) {
 		.prio = 2,
-		.urg_fwd = 1,
+		.urg_fwd = 0,
 	},
 };
 
@@ -1900,6 +1910,7 @@ static struct qcom_icc_node *aggre2_noc_nodes[] = {
 	[MASTER_QDSS_ETR] = &xm_qdss_etr_0,
 	[MASTER_QDSS_ETR_1] = &xm_qdss_etr_1,
 	[MASTER_SDCC_2] = &xm_sdc2,
+	[MASTER_CNOC_DATAPATH] = &qnm_cnoc_datapath,
 	[SLAVE_A2NOC_SNOC] = &qns_a2noc_snoc,
 	[SLAVE_SERVICE_A2NOC] = &srvc_aggre2_noc,
 };
@@ -2241,31 +2252,14 @@ static struct qcom_icc_desc diwali_system_noc = {
 
 static int qnoc_probe(struct platform_device *pdev)
 {
-	const struct qcom_icc_desc *desc;
-	struct qcom_icc_node **qnodes;
-	size_t num_nodes, i;
 	int ret;
-
-	desc = of_device_get_match_data(&pdev->dev);
-	if (!desc)
-		return -EINVAL;
-
-	qnodes = desc->nodes;
-	num_nodes = desc->num_nodes;
-
-	for (i = 0; i < num_nodes; i++) {
-		if (!qnodes[i])
-			continue;
-
-		if (qnodes[i]->qosbox)
-			qnodes[i]->qosbox = NULL;
-	}
 
 	ret = qcom_icc_rpmh_probe(pdev);
 	if (ret)
 		dev_err(&pdev->dev, "failed to register ICC provider\n");
+	else
+		dev_info(&pdev->dev, "Registered DIWALI ICC\n");
 
-	dev_info(&pdev->dev, "Registered DIWALI ICC\n");
 	return ret;
 }
 

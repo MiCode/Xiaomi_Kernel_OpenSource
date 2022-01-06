@@ -108,6 +108,9 @@
 #define ADRENO_BCL BIT(12)
 /* L3 voting is supported with L3 constraints */
 #define ADRENO_L3_VOTE BIT(13)
+/* Late Stage Reprojection (LSR) enablment for GMU */
+#define ADRENO_LSR BIT(15)
+
 
 /*
  * Adreno GPU quirks - control bits for various workarounds
@@ -559,6 +562,8 @@ struct adreno_device {
 	bool sptp_pc_enabled;
 	/** @bcl_enabled: True if BCL is enabled */
 	bool bcl_enabled;
+	/** @lsr_enabled: True if LSR is enabled */
+	bool lsr_enabled;
 	struct kgsl_memdesc *profile_buffer;
 	unsigned int profile_index;
 	struct kgsl_memdesc *pwrup_reglist;

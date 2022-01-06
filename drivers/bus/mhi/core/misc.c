@@ -73,7 +73,7 @@ static void mhi_time_async_cb(struct mhi_device *mhi_dev, u32 sequence,
 	struct mhi_controller *mhi_cntrl = mhi_dev->mhi_cntrl;
 	struct device *dev = &mhi_dev->dev;
 
-	MHI_LOG("Time response: seq:%llx local: %llu remote: %llu (ticks)\n",
+	MHI_LOG("Time response: seq:%x local: %llu remote: %llu (ticks)\n",
 		sequence, local_time, remote_time);
 }
 
@@ -91,13 +91,13 @@ static ssize_t time_async_show(struct device *dev,
 
 	ret = mhi_get_remote_time(mhi_dev, seq, &mhi_time_async_cb);
 	if (ret) {
-		MHI_ERR("Failed to request time, seq:%llx, ret:%d\n", seq, ret);
+		MHI_ERR("Failed to request time, seq:%x, ret:%d\n", seq, ret);
 		return scnprintf(buf, PAGE_SIZE,
 				 "Request failed or feature unsupported\n");
 	}
 
 	return scnprintf(buf, PAGE_SIZE,
-			 "Requested time asynchronously with seq:%llx\n", seq);
+			 "Requested time asynchronously with seq:%x\n", seq);
 }
 static DEVICE_ATTR_RO(time_async);
 
@@ -474,7 +474,7 @@ int mhi_report_error(struct mhi_controller *mhi_cntrl)
 	/* copy subsystem failure reason string if supported */
 	if (sfr_info && sfr_info->buf_addr) {
 		memcpy(sfr_info->str, sfr_info->buf_addr, sfr_info->len);
-		MHI_ERR("mhi: %s sfr: %s\n", dev_name(dev), sfr_info->buf_addr);
+		MHI_ERR("mhi: %s sfr: %s\n", dev_name(dev), sfr_info->str);
 	}
 
 	/* Notify fatal error to all client drivers to halt processing */
@@ -1287,7 +1287,7 @@ int mhi_process_misc_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 	sequence = MHI_TRE_GET_EV_SEQ(dev_rp);
 	remote_time = MHI_TRE_GET_EV_TIME(dev_rp);
 
-	MHI_VERB("Received TSYNC event with seq: 0x%llx time: 0x%llx\n",
+	MHI_VERB("Received TSYNC event with seq: 0x%x time: 0x%llx\n",
 		 sequence, remote_time);
 
 	read_lock_bh(&mhi_cntrl->pm_lock);
@@ -1299,7 +1299,7 @@ int mhi_process_misc_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
 	mutex_lock(&mhi_tsync->mutex);
 
 	if (WARN_ON(mhi_tsync->int_sequence != sequence)) {
-		MHI_ERR("Unexpected response: 0x%llx Expected: 0x%llx\n",
+		MHI_ERR("Unexpected response: 0x%x Expected: 0x%x\n",
 			sequence, mhi_tsync->int_sequence);
 
 		mhi_cntrl->runtime_put(mhi_cntrl);
@@ -1805,7 +1805,7 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 
 	mhi_tsync->lpm_enable(mhi_cntrl);
 
-	MHI_VERB("time DB request with seq:0x%llx\n", mhi_tsync->int_sequence);
+	MHI_VERB("time DB request with seq:0x%x\n", mhi_tsync->int_sequence);
 
 	mhi_tsync->db_pending = true;
 	init_completion(&mhi_tsync->completion);

@@ -136,7 +136,7 @@ struct kgsl_mmu_pt_ops {
 	int (*svm_range)(struct kgsl_pagetable *pt, uint64_t *lo, uint64_t *hi,
 			uint64_t memflags);
 	bool (*addr_in_range)(struct kgsl_pagetable *pagetable,
-			uint64_t gpuaddr);
+			uint64_t gpuaddr, uint64_t size);
 };
 
 enum kgsl_mmu_feature {
@@ -214,7 +214,8 @@ int kgsl_mmu_unmap_range(struct kgsl_pagetable *pt,
 		struct kgsl_memdesc *memdesc, u64 offset, u64 length);
 unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
 		u64 ttbr0, uint64_t addr);
-bool kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, uint64_t gpuaddr);
+bool kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, uint64_t gpuaddr,
+		uint64_t size);
 
 int kgsl_mmu_get_region(struct kgsl_pagetable *pagetable,
 		uint64_t gpuaddr, uint64_t size);

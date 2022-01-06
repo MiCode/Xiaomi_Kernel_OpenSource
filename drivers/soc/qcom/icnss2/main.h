@@ -336,6 +336,12 @@ struct icnss_dms_data {
 	u8 mac[QMI_WLFW_MAC_ADDR_SIZE_V01];
 };
 
+struct icnss_ramdump_info {
+	int minor;
+	char name[32];
+	struct device *dev;
+};
+
 struct icnss_priv {
 	uint32_t magic;
 	struct platform_device *pdev;
@@ -404,12 +410,12 @@ struct icnss_priv {
 	uint32_t diag_reg_read_len;
 	uint8_t *diag_reg_read_buf;
 	atomic_t pm_count;
-	struct ramdump_device *msa0_dump_dev;
-	struct ramdump_device *m3_dump_dev_seg1;
-	struct ramdump_device *m3_dump_dev_seg2;
-	struct ramdump_device *m3_dump_dev_seg3;
-	struct ramdump_device *m3_dump_dev_seg4;
-	struct ramdump_device *m3_dump_dev_seg5;
+	struct icnss_ramdump_info *msa0_dump_dev;
+	struct icnss_ramdump_info *m3_dump_phyareg;
+	struct icnss_ramdump_info *m3_dump_phydbg;
+	struct icnss_ramdump_info *m3_dump_wmac0reg;
+	struct icnss_ramdump_info *m3_dump_wcssdbg;
+	struct icnss_ramdump_info *m3_dump_phyapdmem;
 	bool force_err_fatal;
 	bool allow_recursive_recovery;
 	bool early_crash_ind;
@@ -453,6 +459,9 @@ struct icnss_priv {
 	bool root_pd_shutdown;
 	struct mbox_client mbox_client_data;
 	struct mbox_chan *mbox_chan;
+	u32 wlan_en_delay_ms;
+	struct class *icnss_ramdump_class;
+	dev_t icnss_ramdump_dev;
 };
 
 struct icnss_reg_info {

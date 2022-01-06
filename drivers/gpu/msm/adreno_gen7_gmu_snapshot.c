@@ -87,6 +87,9 @@ static size_t gen7_snapshot_gmu_mem(struct kgsl_device *device,
 		(buf + sizeof(*mem_hdr));
 	struct gmu_mem_type_desc *desc = priv;
 
+	if (priv == NULL || desc->memdesc->hostptr == NULL)
+		return 0;
+
 	if (remain < desc->memdesc->size + sizeof(*mem_hdr)) {
 		dev_err(device->dev,
 			"snapshot: Not enough memory for the gmu section %d\n",

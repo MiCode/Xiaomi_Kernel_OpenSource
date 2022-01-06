@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
  */
+
 #ifndef __GH_HCALL_CORE_CTL_H
 #define __GH_HCALL_CORE_CTL_H
 
@@ -37,6 +40,14 @@ static inline int gh_hcall_vpm_group_get_state(u64 vpmg_capid,
 	*vpmg_state = _resp.resp1;
 
 	return ret;
+}
+
+static inline int gh_hcall_vcpu_yield(uint64_t control, uint64_t arg)
+{
+	struct gh_hcall_resp _resp = { 0 };
+
+	return _gh_hcall(0x603b, (struct gh_hcall_args){ control, arg }, &_resp);
+
 }
 
 #endif

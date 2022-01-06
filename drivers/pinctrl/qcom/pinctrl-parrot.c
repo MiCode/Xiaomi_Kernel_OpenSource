@@ -21,6 +21,8 @@ static const struct msm_pinctrl_soc_data parrot_pinctrl = {
 	.groups = parrot_groups,
 	.ngroups = ARRAY_SIZE(parrot_groups),
 	.ngpios = 141,
+	.wakeirq_map = parrot_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(parrot_pdc_map),
 };
 
 static void qcom_trace_gpio_read(void *unused, struct gpio_device *gdev,

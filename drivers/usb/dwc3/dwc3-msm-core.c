@@ -3425,13 +3425,29 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 
 	cancel_delayed_work_sync(&mdwc->perf_vote_work);
 	msm_dwc3_perf_vote_update(mdwc, false);
+	if (dwc) {
+		if (!mdwc->in_host_mode) {
+			evt = dwc->ev_buf;
+			if ((evt->flags & DWC3_EVENT_PENDING)) {
+				dev_dbg(mdwc->dev,
+					"%s: %d device events pending, abort suspend\n",
+					__func__, evt->count / 4);
+				mutex_unlock(&mdwc->suspend_resume_mutex);
+				return -EBUSY;
+			}
+		}
 
-	if (dwc && !mdwc->in_host_mode) {
-		evt = dwc->ev_buf;
-		if ((evt->flags & DWC3_EVENT_PENDING)) {
-			dev_dbg(mdwc->dev,
-				"%s: %d device events pending, abort suspend\n",
-				__func__, evt->count / 4);
+		/*
+		 * Check if device is not in CONFIGURED state
+		 * then check controller state of L2 and break
+		 * LPM sequence. Check this for device bus suspend case.
+		 */
+		if ((mdwc->dr_mode == USB_DR_MODE_OTG &&
+				mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) &&
+				(dwc->gadget->state != USB_STATE_CONFIGURED)) {
+			pr_err("%s(): Trying to go in LPM with state:%d\n",
+						__func__, dwc->gadget->state);
+			pr_err("%s(): LPM is not performed.\n", __func__);
 			mutex_unlock(&mdwc->suspend_resume_mutex);
 			return -EBUSY;
 		}
@@ -3455,20 +3471,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 		return -EBUSY;
 	}
 
-	/*
-	 * Check if device is not in CONFIGURED state
-	 * then check controller state of L2 and break
-	 * LPM sequence. Check this for device bus suspend case.
-	 */
-	if ((mdwc->dr_mode == USB_DR_MODE_OTG &&
-			mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) &&
-			(dwc->gadget->state != USB_STATE_CONFIGURED)) {
-		pr_err("%s(): Trying to go in LPM with state:%d\n",
-					__func__, dwc->gadget->state);
-		pr_err("%s(): LPM is not performed.\n", __func__);
-		mutex_unlock(&mdwc->suspend_resume_mutex);
-		return -EBUSY;
-	}
+
 
 	ret = dwc3_msm_prepare_suspend(mdwc, force_power_collapse);
 	if (ret) {
@@ -5679,6 +5682,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
 		redriver_notify_disconnect(mdwc->ss_redriver_node);
+		usb_phy_set_power(mdwc->hs_phy, 0);
 
 		dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
 		dwc3_override_vbus_status(mdwc, false);
@@ -5812,9 +5816,6 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			dwc3_otg_start_peripheral(mdwc, 1);
 			mdwc->drd_state = DRD_STATE_PERIPHERAL;
 			work = true;
-		} else {
-			usb_phy_set_power(mdwc->hs_phy, 0);
-			dev_dbg(mdwc->dev, "Cable disconnected\n");
 		}
 		break;
 
@@ -5959,6 +5960,10 @@ static int dwc3_msm_pm_resume(struct device *dev)
 
 	atomic_set(&mdwc->pm_suspended, 0);
 
+	/* Let DWC3 core complete determine if resume is needed */
+	if (!mdwc->in_host_mode)
+		return 0;
+
 	/* Resume dwc to avoid unclocked access by xhci_plat_resume */
 	dwc3_msm_resume(mdwc);
 	pm_runtime_disable(dev);
@@ -6014,7 +6019,9 @@ static int dwc3_host_prepare(struct device *dev)
 static int dwc3_core_prepare(struct device *dev)
 {
 	struct dwc3 *dwc = dev_get_drvdata(dev);
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
+	dbg_event(0xFF, "Core PM prepare", pm_runtime_suspended(dev));
 	/*
 	 * It is recommended to use the PM prepare callback to handle situations
 	 * where the device is already runtime suspended, in order to avoid
@@ -6038,21 +6045,17 @@ static int dwc3_core_prepare(struct device *dev)
 
 static void dwc3_core_complete(struct device *dev)
 {
-	int		ret;
+	struct dwc3	*dwc = dev_get_drvdata(dev);
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 
 	/*
 	 * In the PM devices documentation, while leaving system suspend when
 	 * the device is in the RPM suspended state, it is recommended to use
 	 * the direct_complete flag to determine if an explicit runtime resume
-	 * needs to be executed.
+	 * needs to be executed. However, in DWC3 MSM case, we can allow changes
+	 * to cable status, or XHCI status to wake up the DWC3 core.
 	 */
-	if (dev->power.direct_complete) {
-		ret = pm_request_resume(dev);
-		if (ret < 0) {
-			dev_err(dev, "failed to runtime resume, ret %d\n", ret);
-			return;
-		}
-	}
+	dbg_event(0xFF, "Core PM complete", dev->power.direct_complete);
 }
 #endif
 

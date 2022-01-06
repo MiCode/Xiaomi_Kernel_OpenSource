@@ -41,7 +41,7 @@
 
 #define QCA6390_PATH_PREFIX		"qca6390/"
 #define QCA6490_PATH_PREFIX		"qca6490/"
-#define WCN7850_PATH_PREFIX		"wcn7850/"
+#define KIWI_PATH_PREFIX		"kiwi/"
 #define DEFAULT_PHY_M3_FILE_NAME	"m3.bin"
 #define DEFAULT_PHY_UCODE_FILE_NAME	"phy_ucode.elf"
 #define DEFAULT_FW_FILE_NAME		"amss.bin"
@@ -1132,7 +1132,7 @@ int cnss_pci_recover_link_down(struct cnss_pci_data *pci_priv)
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		break;
 	default:
 		return -EOPNOTSUPP;
@@ -1284,6 +1284,27 @@ void cnss_pci_unlock_reg_window(struct device *dev, unsigned long *flags)
 }
 EXPORT_SYMBOL(cnss_pci_unlock_reg_window);
 
+int cnss_get_pci_slot(struct device *dev)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+	struct cnss_plat_data *plat_priv = NULL;
+
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return -EINVAL;
+	}
+
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	return plat_priv->rc_num;
+}
+EXPORT_SYMBOL(cnss_get_pci_slot);
+
 /**
  * cnss_pci_dump_bl_sram_mem - Dump WLAN device bootloader debug log
  * @pci_priv: driver PCI bus context pointer
@@ -1315,11 +1336,11 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 		pbl_log_max_size = QCA6490_DEBUG_PBL_LOG_SRAM_MAX_SIZE;
 		sbl_log_max_size = QCA6490_DEBUG_SBL_LOG_SRAM_MAX_SIZE;
 		break;
-	case WCN7850_DEVICE_ID:
-		pbl_bootstrap_status_reg = WCN7850_PBL_BOOTSTRAP_STATUS;
-		pbl_log_sram_start = WCN7850_DEBUG_PBL_LOG_SRAM_START;
-		pbl_log_max_size = WCN7850_DEBUG_PBL_LOG_SRAM_MAX_SIZE;
-		sbl_log_max_size = WCN7850_DEBUG_SBL_LOG_SRAM_MAX_SIZE;
+	case KIWI_DEVICE_ID:
+		pbl_bootstrap_status_reg = KIWI_PBL_BOOTSTRAP_STATUS;
+		pbl_log_sram_start = KIWI_DEBUG_PBL_LOG_SRAM_START;
+		pbl_log_max_size = KIWI_DEBUG_PBL_LOG_SRAM_MAX_SIZE;
+		sbl_log_max_size = KIWI_DEBUG_SBL_LOG_SRAM_MAX_SIZE;
 	default:
 		return;
 	}
@@ -2525,7 +2546,7 @@ int cnss_pci_dev_powerup(struct cnss_pci_data *pci_priv)
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		ret = cnss_qca6290_powerup(pci_priv);
 		break;
 	default:
@@ -2553,7 +2574,7 @@ int cnss_pci_dev_shutdown(struct cnss_pci_data *pci_priv)
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		ret = cnss_qca6290_shutdown(pci_priv);
 		break;
 	default:
@@ -2581,7 +2602,7 @@ int cnss_pci_dev_crash_shutdown(struct cnss_pci_data *pci_priv)
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		cnss_qca6290_crash_shutdown(pci_priv);
 		break;
 	default:
@@ -2609,7 +2630,7 @@ int cnss_pci_dev_ramdump(struct cnss_pci_data *pci_priv)
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		ret = cnss_qca6290_ramdump(pci_priv);
 		break;
 	default:
@@ -2638,18 +2659,32 @@ static void cnss_wlan_reg_driver_work(struct work_struct *work)
 	container_of(work, struct cnss_plat_data, wlan_reg_driver_work.work);
 	struct cnss_pci_data *pci_priv = plat_priv->bus_priv;
 	struct cnss_cal_info *cal_info;
+	unsigned int timeout;
 
 	if (test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state)) {
 		goto reg_driver;
 	} else {
-		cnss_pr_err("Timeout waiting for calibration to complete\n");
-		del_timer(&plat_priv->fw_boot_timer);
 		if (plat_priv->charger_mode) {
 			cnss_pr_err("Ignore calibration timeout in charger mode\n");
 			return;
 		}
-		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state))
+		if (!test_bit(CNSS_IN_COLD_BOOT_CAL,
+			      &plat_priv->driver_state)) {
+			timeout = cnss_get_timeout(plat_priv,
+						   CNSS_TIMEOUT_CALIBRATION);
+			cnss_pr_dbg("File system not ready to start calibration. Wait for %ds..\n",
+				    timeout / 1000);
+			schedule_delayed_work(&plat_priv->wlan_reg_driver_work,
+					      msecs_to_jiffies(timeout));
+			return;
+		}
+
+		del_timer(&plat_priv->fw_boot_timer);
+		if (test_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state) &&
+		    !test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state)) {
+			cnss_pr_err("Timeout waiting for calibration to complete\n");
 			CNSS_ASSERT(0);
+		}
 		cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);
 		if (!cal_info)
 			return;
@@ -2713,6 +2748,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 			    pci_priv->device_id);
 		return -ENODEV;
 	}
+	set_bit(CNSS_DRIVER_REGISTER, &plat_priv->driver_state);
 
 	if (!plat_priv->cbc_enabled ||
 	    test_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state))
@@ -3446,7 +3482,7 @@ int cnss_pci_force_wake_request_sync(struct device *dev, int timeout_us)
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		break;
 	default:
 		return 0;
@@ -3487,7 +3523,7 @@ int cnss_pci_force_wake_request(struct device *dev)
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		break;
 	default:
 		return 0;
@@ -3522,7 +3558,7 @@ int cnss_pci_is_device_awake(struct device *dev)
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		break;
 	default:
 		return 0;
@@ -3549,7 +3585,7 @@ int cnss_pci_force_wake_release(struct device *dev)
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		break;
 	default:
 		return 0;
@@ -4205,7 +4241,7 @@ static int cnss_pci_enable_bus(struct cnss_pci_data *pci_priv)
 		break;
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		pci_priv->dma_bit_mask = PCI_DMA_MASK_36_BIT;
 		break;
 	default:
@@ -4742,9 +4778,9 @@ void cnss_pci_add_fw_prefix_name(struct cnss_pci_data *pci_priv,
 		scnprintf(prefix_name, MAX_FIRMWARE_NAME_LEN,
 			  QCA6490_PATH_PREFIX "%s", name);
 		break;
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		scnprintf(prefix_name, MAX_FIRMWARE_NAME_LEN,
-			  WCN7850_PATH_PREFIX "%s", name);
+			  KIWI_PATH_PREFIX "%s", name);
 		break;
 	default:
 		scnprintf(prefix_name, MAX_FIRMWARE_NAME_LEN, "%s", name);
@@ -5355,7 +5391,7 @@ static int cnss_pci_probe(struct pci_dev *pci_dev,
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		cnss_pci_set_wlaon_pwr_ctrl(pci_priv, false, false, false);
 		timer_setup(&pci_priv->dev_rddm_timer,
 			    cnss_dev_rddm_timeout_hdlr, 0);
@@ -5420,7 +5456,7 @@ static void cnss_pci_remove(struct pci_dev *pci_dev)
 	case QCA6290_DEVICE_ID:
 	case QCA6390_DEVICE_ID:
 	case QCA6490_DEVICE_ID:
-	case WCN7850_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		cnss_pci_wake_gpio_deinit(pci_priv);
 		del_timer(&pci_priv->boot_debug_timer);
 		del_timer(&pci_priv->dev_rddm_timer);
@@ -5448,7 +5484,7 @@ static const struct pci_device_id cnss_pci_id_table[] = {
 	{ QCA6290_VENDOR_ID, QCA6290_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ QCA6390_VENDOR_ID, QCA6390_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ QCA6490_VENDOR_ID, QCA6490_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
-	{ WCN7850_VENDOR_ID, WCN7850_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
+	{ KIWI_VENDOR_ID, KIWI_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ 0 }
 };
 MODULE_DEVICE_TABLE(pci, cnss_pci_id_table);

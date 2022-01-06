@@ -915,7 +915,7 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	struct usb_gadget *gadget;
 	unsigned long flags;
 	int status;
-	struct qdss_req *qreq = NULL;
+	struct qdss_req *qreq;
 	LIST_HEAD(dequeued);
 
 	spin_lock_irqsave(&channel_lock, flags);
@@ -941,6 +941,16 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 		spin_lock_irqsave(&channel_lock, flags);
 		spin_lock(&qdss->lock);
 	}
+
+	/*
+	 * It's possible that requests may be completed synchronously during
+	 * usb_ep_dequeue() and would have already been moved back to
+	 * data_write_pool.  So make sure to check the last item on the
+	 * dequeued list (if any) rather than the last qreq that we just
+	 * called ep_dequeue() on in the loop above.
+	 */
+	qreq = list_empty(&dequeued) ? NULL :
+		list_last_entry(&dequeued, struct qdss_req, list);
 
 	spin_unlock(&qdss->lock);
 	spin_unlock_irqrestore(&channel_lock, flags);

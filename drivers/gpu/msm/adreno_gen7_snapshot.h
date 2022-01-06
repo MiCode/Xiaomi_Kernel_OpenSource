@@ -8,11 +8,6 @@
 #include "adreno.h"
 #include "adreno_gen7.h"
 
-#define PIPE_NONE 0
-#define PIPE_BR 1
-#define PIPE_BV 2
-#define PIPE_LPAC 3
-
 #define CLUSTER_NONE 0
 #define CLUSTER_FE 1
 #define CLUSTER_SP_VS 2

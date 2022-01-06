@@ -134,6 +134,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_PCI_PROBE_DONE:
 			seq_puts(s, "PCI PROBE DONE");
 			continue;
+		case CNSS_DRIVER_REGISTER:
+			seq_puts(s, "DRIVER_REGISTERED");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

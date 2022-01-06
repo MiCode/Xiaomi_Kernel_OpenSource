@@ -160,6 +160,21 @@ struct kgsl_memdesc *kgsl_allocate_global(struct kgsl_device *device,
  */
 struct kgsl_memdesc *kgsl_allocate_global_fixed(struct kgsl_device *device,
 		const char *resource, const char *name);
+/**
+ * kgsl_memdesc_init_fixed - Intializes a memory object from a fixed
+ * region defined in the device tree
+ * @device: A GPU device handle
+ * @pdev: Pointer to the platform device
+ * @resource: Name of the resource to get the size and address to allocate
+ * @memdesc: Memory descriptor for the object
+ *
+ * Intializes a memory object for a fixed I/O region defined in device tree.
+ *
+ * Return: 0 on success or negative on failure.
+ */
+int kgsl_memdesc_init_fixed(struct kgsl_device *device,
+	struct platform_device *pdev, const char *resource,
+	struct kgsl_memdesc *memdesc);
 
 /**
  * kgsl_free_globals - Free all global objects

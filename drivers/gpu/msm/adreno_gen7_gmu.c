@@ -898,6 +898,53 @@ struct kgsl_memdesc *gen7_reserve_gmu_kernel_block(struct gen7_gmu_device *gmu,
 	return md;
 }
 
+struct kgsl_memdesc *gen7_reserve_gmu_kernel_block_fixed(struct gen7_gmu_device *gmu,
+	u32 addr, u32 size, u32 vma_id, const char *resource, int attrs)
+{
+	int ret;
+	struct kgsl_memdesc *md;
+	struct gmu_vma_entry *vma = &gmu->vma[vma_id];
+	struct kgsl_device *device = KGSL_DEVICE(gen7_gmu_to_adreno(gmu));
+
+	if (gmu->global_entries == ARRAY_SIZE(gmu->gmu_globals))
+		return ERR_PTR(-ENOMEM);
+
+	md = &gmu->gmu_globals[gmu->global_entries];
+
+	ret = kgsl_memdesc_init_fixed(device, gmu->pdev, resource, md);
+	if (ret)
+		return ERR_PTR(ret);
+
+	if (!addr)
+		addr = vma->next_va;
+
+	if ((vma->next_va + md->size) > (vma->start + vma->size)) {
+		dev_err(&gmu->pdev->dev,
+			"GMU mapping too big. available: %d required: %d\n",
+			vma->next_va - vma->start, md->size);
+		md = ERR_PTR(-ENOMEM);
+		goto done;
+	}
+
+	ret = gmu_core_map_memdesc(gmu->domain, md, addr, attrs);
+	if (ret) {
+		dev_err(&gmu->pdev->dev,
+			"Unable to map GMU kernel block: addr:0x%08x size:0x%x :%d\n",
+			addr, md->size, ret);
+		md = ERR_PTR(-ENOMEM);
+		goto done;
+	}
+
+	md->gmuaddr = addr;
+	vma->next_va = md->gmuaddr + md->size;
+	gmu->global_entries++;
+done:
+	sg_free_table(md->sgt);
+	kfree(md->sgt);
+	md->sgt = NULL;
+	return md;
+}
+
 static int gen7_gmu_process_prealloc(struct gen7_gmu_device *gmu,
 	struct gmu_block_header *blk)
 {
@@ -1739,11 +1786,11 @@ static void gen7_free_gmu_globals(struct gen7_gmu_device *gmu)
 		if (!md->gmuaddr)
 			continue;
 
-		iommu_unmap(gmu->domain,
-			md->gmuaddr, md->size);
+		iommu_unmap(gmu->domain, md->gmuaddr, md->size);
 
-		dma_free_attrs(&gmu->pdev->dev, (size_t) md->size,
-				(void *)md->hostptr, md->physaddr, 0);
+		if (md->hostptr)
+			dma_free_attrs(&gmu->pdev->dev, (size_t) md->size,
+					(void *)md->hostptr, md->physaddr, 0);
 
 		memset(md, 0, sizeof(*md));
 	}
@@ -2248,7 +2295,8 @@ static int gen7_boot(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
-	WARN_ON(test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags));
+	if (WARN_ON(test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags)))
+		return 0;
 
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_ACTIVE);
 
@@ -2279,8 +2327,12 @@ static int gen7_first_boot(struct adreno_device *adreno_dev)
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	int ret;
 
-	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags))
-		return gen7_boot(adreno_dev);
+	if (test_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags)) {
+		if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+			return gen7_boot(adreno_dev);
+
+		return 0;
+	}
 
 	ret = gen7_ringbuffer_init(adreno_dev);
 	if (ret)

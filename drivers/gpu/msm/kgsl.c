@@ -684,6 +684,8 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 
 	context->id = id;
 
+	mutex_init(&context->fault_lock);
+	INIT_LIST_HEAD(&context->faults);
 	kref_init(&context->refcount);
 	/*
 	 * Get a refernce to the process private so its not destroyed, until
@@ -717,6 +719,20 @@ out:
 	}
 
 	return ret;
+}
+
+void kgsl_free_faults(struct kgsl_context *context)
+{
+	struct kgsl_fault_node *p, *tmp;
+
+	if (!(context->flags & KGSL_CONTEXT_FAULT_INFO))
+		return;
+
+	list_for_each_entry_safe(p, tmp, &context->faults, node) {
+		list_del(&p->node);
+		kfree(p->priv);
+		kfree(p);
+	}
 }
 
 /**
@@ -780,6 +796,7 @@ kgsl_context_destroy(struct kref *kref)
 	 */
 	BUG_ON(!kgsl_context_detached(context));
 
+	kgsl_free_faults(context);
 	kgsl_sync_timeline_put(context->ktimeline);
 
 	write_lock(&device->context_lock);
@@ -1287,9 +1304,9 @@ kgsl_sharedmem_find(struct kgsl_process_private *private, uint64_t gpuaddr)
 	if (!private)
 		return NULL;
 
-	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, gpuaddr) &&
+	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, gpuaddr, 0) &&
 		!kgsl_mmu_gpuaddr_in_range(
-			private->pagetable->mmu->securepagetable, gpuaddr))
+			private->pagetable->mmu->securepagetable, gpuaddr, 0))
 		return NULL;
 
 	spin_lock(&private->mem_lock);
@@ -3163,15 +3180,6 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		if (!check_and_warn_secured(device))
 			return -EOPNOTSUPP;
 
-		/*
-		 * On 64 bit kernel, secure memory region is expanded and
-		 * moved to 64 bit address, 32 bit apps can not access it from
-		 * this IOCTL.
-		 */
-		if (is_compat_task() &&
-				test_bit(KGSL_MMU_64BIT, &device->mmu.features))
-			return -EOPNOTSUPP;
-
 		/* Can't use CPU map with secure buffers */
 		if (param->flags & KGSL_MEMFLAGS_USE_CPU_MAP)
 			return -EINVAL;
@@ -3536,6 +3544,196 @@ out:
 	return ret;
 }
 
+static int kgsl_update_fault_details(struct kgsl_context *context,
+		void __user *ptr, u32 faultnents, u32 faultsize)
+{
+	u32 size = min_t(u32, sizeof(struct kgsl_fault), faultsize);
+	u32 cur_idx[KGSL_FAULT_TYPE_MAX] = {0};
+	struct kgsl_fault_node *fault_node;
+	struct kgsl_fault *faults;
+	int i, ret = 0;
+
+	faults = kcalloc(KGSL_FAULT_TYPE_MAX, sizeof(struct kgsl_fault),
+			GFP_KERNEL);
+	if (!faults)
+		return -ENOMEM;
+
+	for (i = 0; i < faultnents; i++) {
+		struct kgsl_fault fault = {0};
+
+		if (copy_from_user(&fault, ptr + i * faultsize, size)) {
+			ret = -EFAULT;
+			goto err;
+		}
+
+		if (fault.type >= KGSL_FAULT_TYPE_MAX) {
+			ret = -EINVAL;
+			goto err;
+		}
+
+		memcpy(&faults[fault.type], &fault, sizeof(fault));
+	}
+
+	list_for_each_entry(fault_node, &context->faults, node) {
+		u32 fault_type = fault_node->type;
+
+		if (cur_idx[fault_type] >= faults[fault_type].count)
+			continue;
+
+		switch (fault_type) {
+		case KGSL_FAULT_TYPE_PAGEFAULT:
+			size = sizeof(struct kgsl_pagefault_report);
+		}
+
+		size = min_t(u32, size, faults[fault_type].size);
+
+		if (copy_to_user(u64_to_user_ptr(faults[fault_type].fault +
+			cur_idx[fault_type] * faults[fault_type].size),
+			fault_node->priv, size)) {
+			ret = -EFAULT;
+			goto err;
+		}
+
+		cur_idx[fault_type] += 1;
+	}
+
+err:
+	kfree(faults);
+	return ret;
+}
+
+static int kgsl_update_fault_count(struct kgsl_context *context,
+		void __user *faults, u32 faultnents, u32 faultsize)
+{
+	u32 size = min_t(u32, sizeof(struct kgsl_fault), faultsize);
+	u32 faultcount[KGSL_FAULT_TYPE_MAX] = {0};
+	struct kgsl_fault_node *fault_node;
+	int i, j;
+
+	list_for_each_entry(fault_node, &context->faults, node)
+		faultcount[fault_node->type]++;
+
+	/* KGSL_FAULT_TYPE_NO_FAULT (i.e. 0) is not an actual fault type */
+	for (i = 0, j = 1; i < faultnents && j < KGSL_FAULT_TYPE_MAX; j++) {
+		struct kgsl_fault fault = {0};
+
+		if (!faultcount[j])
+			continue;
+
+		fault.type = j;
+		fault.count = faultcount[j];
+
+		if (copy_to_user(faults, &fault, size))
+			return -EFAULT;
+
+		faults += faultsize;
+		i++;
+	}
+
+	return 0;
+}
+
+long kgsl_ioctl_get_fault_report(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	struct kgsl_fault_report *param = data;
+	u32 size = min_t(u32, sizeof(struct kgsl_fault), param->faultsize);
+	void __user *ptr = u64_to_user_ptr(param->faultlist);
+	struct kgsl_context *context;
+	int i, ret = 0;
+
+	context = kgsl_context_get_owner(dev_priv, param->context_id);
+	if (!context)
+		return -EINVAL;
+
+	/* This IOCTL is valid for invalidated contexts only */
+	if (!(context->flags & KGSL_CONTEXT_FAULT_INFO) ||
+		!kgsl_context_invalid(context)) {
+		ret = -EINVAL;
+		goto err;
+	}
+
+	/* Return the number of fault types */
+	if (!param->faultlist) {
+		param->faultnents = KGSL_FAULT_TYPE_MAX;
+		kgsl_context_put(context);
+		return 0;
+	}
+
+	/* Check if it's a request to get fault counts or to fill the fault information */
+	for (i = 0; i < param->faultnents; i++) {
+		struct kgsl_fault fault = {0};
+
+		if (copy_from_user(&fault, ptr, size)) {
+			ret = -EFAULT;
+			goto err;
+		}
+
+		if (fault.fault)
+			break;
+
+		ptr += param->faultsize;
+	}
+
+	ptr = u64_to_user_ptr(param->faultlist);
+
+	if (i == param->faultnents)
+		ret = kgsl_update_fault_count(context, ptr, param->faultnents,
+			param->faultsize);
+	else
+		ret = kgsl_update_fault_details(context, ptr, param->faultnents,
+			param->faultsize);
+
+err:
+	kgsl_context_put(context);
+	return ret;
+}
+
+int kgsl_add_fault(struct kgsl_context *context, u32 type, void *priv)
+{
+	struct kgsl_fault_node *fault, *p, *tmp;
+	int length = 0;
+	ktime_t tout;
+
+	if (kgsl_context_is_bad(context))
+		return -EINVAL;
+
+	fault = kmalloc(sizeof(struct kgsl_fault_node), GFP_KERNEL);
+	if (!fault)
+		return -ENOMEM;
+
+	fault->type = type;
+	fault->priv = priv;
+	fault->time = ktime_get();
+
+	tout = ktime_sub_ms(ktime_get(), KGSL_MAX_FAULT_TIME_THRESHOLD);
+
+	mutex_lock(&context->fault_lock);
+
+	list_for_each_entry_safe(p, tmp, &context->faults, node) {
+		if (ktime_compare(p->time, tout) > 0) {
+			length++;
+			continue;
+		}
+
+		list_del(&p->node);
+		kfree(p->priv);
+		kfree(p);
+	}
+
+	if (length == KGSL_MAX_FAULT_ENTRIES) {
+		tmp = list_first_entry(&context->faults, struct kgsl_fault_node, node);
+		list_del(&tmp->node);
+		kfree(tmp->priv);
+		kfree(tmp);
+	}
+
+	list_add_tail(&fault->node, &context->faults);
+	mutex_unlock(&context->fault_lock);
+
+	return 0;
+}
+
 #ifdef CONFIG_ARM64
 static uint64_t kgsl_filter_cachemode(uint64_t flags)
 {
@@ -3767,19 +3965,9 @@ long kgsl_ioctl_gpuobj_alloc(struct kgsl_device_private *dev_priv,
 long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data)
 {
-	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_gpumem_alloc *param = data;
 	struct kgsl_mem_entry *entry;
 	uint64_t flags = param->flags;
-
-	/*
-	 * On 64 bit kernel, secure memory region is expanded and
-	 * moved to 64 bit address, 32 bit apps can not access it from
-	 * this IOCTL.
-	 */
-	if ((param->flags & KGSL_MEMFLAGS_SECURE) && is_compat_task()
-			&& test_bit(KGSL_MMU_64BIT, &device->mmu.features))
-		return -EOPNOTSUPP;
 
 	/* Legacy functions doesn't support these advanced features */
 	flags &= ~((uint64_t) KGSL_MEMFLAGS_USE_CPU_MAP);
@@ -3805,19 +3993,9 @@ long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 			unsigned int cmd, void *data)
 {
-	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_gpumem_alloc_id *param = data;
 	struct kgsl_mem_entry *entry;
 	uint64_t flags = param->flags;
-
-	/*
-	 * On 64 bit kernel, secure memory region is expanded and
-	 * moved to 64 bit address, 32 bit apps can not access it from
-	 * this IOCTL.
-	 */
-	if ((param->flags & KGSL_MEMFLAGS_SECURE) && is_compat_task()
-			&& test_bit(KGSL_MMU_64BIT, &device->mmu.features))
-		return -EOPNOTSUPP;
 
 	if (is_compat_task())
 		flags |= KGSL_MEMFLAGS_FORCE_32BIT;

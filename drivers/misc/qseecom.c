@@ -373,6 +373,7 @@ struct qseecom_client_handle {
 	bool from_smcinvoke;
 	struct qtee_shm shm; /* kernel client's shm for req/rsp buf */
 	bool unload_pending;
+	bool from_loadapp;
 };
 
 struct qseecom_listener_handle {
@@ -2300,8 +2301,9 @@ static int __qseecom_process_reentrancy_blocked_on_listener(
 
 	/* find app_id & img_name from list */
 	if (!ptr_app) {
-		if (data->client.from_smcinvoke) {
-			pr_debug("This request is from smcinvoke\n");
+		if (data->client.from_smcinvoke || data->client.from_loadapp) {
+			pr_debug("This request is from %s\n",
+				(data->client.from_smcinvoke ? "smcinvoke" : "load_app"));
 			ptr_app = &dummy_app_entry;
 			ptr_app->app_id = data->client.app_id;
 		} else {
@@ -2379,8 +2381,10 @@ static int __qseecom_process_reentrancy_blocked_on_listener(
 		ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1,
 					&ireq, sizeof(ireq),
 					&continue_resp, sizeof(continue_resp));
+
 		if (ret && qseecom.smcinvoke_support) {
 			/* retry with legacy cmd */
+			pr_warn("falling back to legacy method\n");
 			qseecom.smcinvoke_support = false;
 			ireq.app_or_session_id = data->client.app_id;
 			ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1,
@@ -2398,7 +2402,7 @@ static int __qseecom_process_reentrancy_blocked_on_listener(
 		resp->result = continue_resp.result;
 		resp->resp_type = continue_resp.resp_type;
 		resp->data = continue_resp.data;
-		pr_debug("unblock resp = %d\n", resp->result);
+		pr_err("unblock resp = %d\n", resp->result);
 	} while (resp->result == QSEOS_RESULT_BLOCKED_ON_LISTENER);
 
 	if (resp->result != QSEOS_RESULT_INCOMPLETE) {
@@ -2916,6 +2920,8 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 
 			if (resp.result == QSEOS_RESULT_BLOCKED_ON_LISTENER) {
 				pr_err("load app blocked on listener\n");
+				data->client.app_id = resp.result;
+				data->client.from_loadapp = true;
 				ret = __qseecom_process_reentrancy_blocked_on_listener(&resp,
 					NULL, data);
 				if (ret) {
@@ -2926,14 +2932,16 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 				}
 			}
 
-			if (resp.result != QSEOS_RESULT_SUCCESS) {
-				pr_err("scm_call failed resp.result unknown, %d\n",
-					resp.result);
-				ret = -EFAULT;
-				goto loadapp_err;
-			}
 		} while ((resp.result == QSEOS_RESULT_BLOCKED_ON_LISTENER) ||
 			(resp.result == QSEOS_RESULT_INCOMPLETE));
+
+		if (resp.result != QSEOS_RESULT_SUCCESS) {
+			pr_err("scm_call failed resp.result unknown, %d\n",
+				resp.result);
+			ret = -EFAULT;
+			goto loadapp_err;
+		}
+
 		app_id = resp.data;
 
 		entry = kmalloc(sizeof(*entry), GFP_KERNEL);

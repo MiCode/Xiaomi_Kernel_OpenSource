@@ -74,6 +74,7 @@
 #define KGSL_CONTEXT_TYPE_UNKNOWN	0x1E
 
 #define KGSL_CONTEXT_INVALIDATE_ON_FAULT 0x10000000
+#define KGSL_CONTEXT_FAULT_INFO	  0x40000000
 
 #define KGSL_CONTEXT_INVALID 0xffffffff
 
@@ -486,7 +487,11 @@ struct kgsl_gpu_model {
 #define KGSL_PERFCOUNTER_GROUP_BV_TP 0x30
 #define KGSL_PERFCOUNTER_GROUP_BV_SP 0x31
 #define KGSL_PERFCOUNTER_GROUP_BV_UFC 0x32
-#define KGSL_PERFCOUNTER_GROUP_MAX 0x33
+#define KGSL_PERFCOUNTER_GROUP_BV_TSE 0x33
+#define KGSL_PERFCOUNTER_GROUP_BV_RAS 0x34
+#define KGSL_PERFCOUNTER_GROUP_BV_LRZ 0x35
+#define KGSL_PERFCOUNTER_GROUP_BV_HLSQ 0x36
+#define KGSL_PERFCOUNTER_GROUP_MAX 0x37
 
 #define KGSL_PERFCOUNTER_NOT_USED 0xFFFFFFFF
 #define KGSL_PERFCOUNTER_BROKEN 0xFFFFFFFE
@@ -1997,5 +2002,89 @@ struct kgsl_gpu_aux_command_timeline {
 	__u32 count;
 	__u32 timelines_size;
 };
+
+/* Macros for fault type used in kgsl_fault structure */
+#define KGSL_FAULT_TYPE_NO_FAULT    0
+#define KGSL_FAULT_TYPE_PAGEFAULT   1
+#define KGSL_FAULT_TYPE_MAX         2
+
+/* Macros to be used in kgsl_pagefault_report structure */
+#define KGSL_PAGEFAULT_TYPE_NONE                  0
+#define KGSL_PAGEFAULT_TYPE_READ                  (1 << 0)
+#define KGSL_PAGEFAULT_TYPE_WRITE                 (1 << 1)
+#define KGSL_PAGEFAULT_TYPE_TRANSLATION           (1 << 2)
+#define KGSL_PAGEFAULT_TYPE_PERMISSION            (1 << 3)
+#define KGSL_PAGEFAULT_TYPE_EXTERNAL              (1 << 4)
+#define KGSL_PAGEFAULT_TYPE_TRANSACTION_STALLED   (1 << 5)
+
+/**
+ * struct kgsl_pagefault_report - Descriptor for each page fault
+ * @fault_addr: page fault address
+ * @fault_type: type of page fault
+ *
+ * Contains information about supported GPU page fault.
+ * Supported fault type: KGSL_PAGEFAULT_TYPE_*
+ */
+struct kgsl_pagefault_report {
+	__u64 fault_addr;
+	/* private: reserved for future use */
+	__u64 reserved[2];
+	__u32 fault_type;
+	/* private: padding for 64 bit compatibility */
+	__u32 __pad;
+};
+
+/**
+ * struct kgsl_fault - Descriptor for each GPU fault type
+ * @fault: User memory pointer to list of specific fault type
+ * @type: Type of gpu fault
+ * @count: Number of entries in @fault
+ * @size: Size of each entry in @fault in bytes
+ *
+ * Contains information about each GPU fault type. If user passes 0 for all the fields, KGSL
+ * will return the @count and @type of fault. Based on this, user can allocate a buffer for
+ * specific fault type, fill the @fault and specify the structure size of type specific fault
+ * in @size. User can walk through @fault list to parse the fault type specific information.
+ *
+ * Supported type: KGSL_FAULT_TYPE_*
+ */
+struct kgsl_fault {
+	__u64 fault;
+	__u32 type;
+	__u32 count;
+	__u32 size;
+	/* private: padding for 64 bit compatibility */
+	__u32 padding;
+};
+
+/**
+ * struct kgsl_fault_report - Container for list of GPU faults
+ * @faultlist: User memory pointer to list of fault descriptor &struct kgsl_fault
+ * @faultnents: Number of entries in @faultlist. Each entry corresponds to a fault type i.e.
+ * KGSL_FAULT_TYPE_*
+ * @faultsize: Size of each entry in @faultlist in bytes
+ * @context_id: ID of a KGSL context
+ *
+ * Returns a list of GPU faults for a context identified by @context_id. If the user specifies
+ * @context_id only, then KGSL will set the @faultnents to the number of fault types it has
+ * for that context.
+ *
+ * User is expected to allocate an array of @struct kgsl_fault with @faultnents number of entries
+ * and fill the @faultlist field. On calling @IOCTL_KGSL_GET_FAULT_REPORT, KGSL will return the
+ * type and count for each fault. Based on this, user needs to update the @kgsl_fault structure.
+ * Then, it should call the @IOCTL_KGSL_GET_FAULT_REPORT again for kernel to fill the fault
+ * information.
+ */
+struct kgsl_fault_report {
+	__u64 faultlist;
+	__u32 faultnents;
+	__u32 faultsize;
+	__u32 context_id;
+	/* private: padding for 64 bit compatibility */
+	__u32 padding;
+};
+
+#define IOCTL_KGSL_GET_FAULT_REPORT \
+	_IOWR(KGSL_IOC_TYPE, 0x5E, struct kgsl_fault_report)
 
 #endif /* _UAPI_MSM_KGSL_H */

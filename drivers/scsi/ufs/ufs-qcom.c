@@ -3650,6 +3650,49 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 }
 
 /*
+ * Read sdam register for ufs device identification using
+ * nvmem interface and accordingly set phy submode.
+ * sdam Value = 0 : UFS 3.x, phy_submode = 1.
+ * sdam Value = 1 : UFS 2.x, phy_submode = 0.
+ */
+void ufs_qcom_read_nvmem_cell(struct ufs_qcom_host *host)
+{
+	size_t len;
+	u8 *data;
+	bool ufs_dev;
+
+	host->nvmem_cell = nvmem_cell_get(host->hba->dev, "ufs_dev");
+	if (IS_ERR(host->nvmem_cell)) {
+		dev_info(host->hba->dev, "(%s) Failed to get nvmem cell\n", __func__);
+		return;
+	}
+
+	data = (u8 *)nvmem_cell_read(host->nvmem_cell, &len);
+	if (IS_ERR(data)) {
+		dev_info(host->hba->dev, "(%s) Failed to read from nvmem\n", __func__);
+		goto cell_put;
+	}
+
+	ufs_dev = *data;
+	/* Revert as below
+	 * Value = 0 : UFS 3.x
+	 * Value = 1 : UFS 2.x
+	 */
+	host->limit_phy_submode = !ufs_dev;
+	if (host->limit_phy_submode)
+		dev_info(host->hba->dev, "(%s) UFS device is 3.x, phy_submode = %d\n",
+						__func__, host->limit_phy_submode);
+	else
+		dev_info(host->hba->dev, "(%s) UFS device is 2.x, phy_submode = %d\n",
+						__func__, host->limit_phy_submode);
+
+	kfree(data);
+
+cell_put:
+	nvmem_cell_put(host->nvmem_cell);
+}
+
+/*
  * ufs_qcom_parse_limits - read limits from DTS
  */
 static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
@@ -3665,6 +3708,7 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	host->limit_rx_pwm_gear = UFS_QCOM_LIMIT_PWMGEAR_RX;
 	host->limit_rate = UFS_QCOM_LIMIT_HS_RATE;
 	host->limit_phy_submode = UFS_QCOM_LIMIT_PHY_SUBMODE;
+	host->ufs_dev_types = 0;
 
 	of_property_read_u32(np, "limit-tx-hs-gear", &host->limit_tx_hs_gear);
 	of_property_read_u32(np, "limit-rx-hs-gear", &host->limit_rx_hs_gear);
@@ -3672,6 +3716,10 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	of_property_read_u32(np, "limit-rx-pwm-gear", &host->limit_rx_pwm_gear);
 	of_property_read_u32(np, "limit-rate", &host->limit_rate);
 	of_property_read_u32(np, "limit-phy-submode", &host->limit_phy_submode);
+	of_property_read_u32(np, "ufs-dev-types", &host->ufs_dev_types);
+
+	if (host->ufs_dev_types >= 2)
+		ufs_qcom_read_nvmem_cell(host);
 }
 
 /*
@@ -3714,6 +3762,9 @@ static int ufs_qcom_device_reset(struct ufs_hba *hba)
 	/* reset gpio is optional */
 	if (!host->device_reset)
 		return -EOPNOTSUPP;
+
+	/* disable hba before device reset */
+	ufshcd_hba_stop(hba);
 
 	/*
 	 * The UFS device shall detect reset pulses of 1us, sleep for 10us to

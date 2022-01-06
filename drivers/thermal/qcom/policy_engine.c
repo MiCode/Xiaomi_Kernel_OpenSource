@@ -32,6 +32,30 @@ struct pe_sensor_data {
 	struct mutex			mutex;
 };
 
+static int pe_sensor_get_trend(void *data, int trip, enum thermal_trend *trend)
+{
+	struct pe_sensor_data *pe_sens = (struct pe_sensor_data *)data;
+	struct thermal_zone_device *tz = pe_sens->tz_dev;
+	int value, last_value;
+
+	if (!tz)
+		return -EINVAL;
+
+	value = READ_ONCE(tz->temperature);
+	last_value = READ_ONCE(tz->last_temperature);
+
+	if (!value)
+		*trend = THERMAL_TREND_DROPPING;
+	else if (value > last_value)
+		*trend = THERMAL_TREND_RAISING;
+	else if (value < last_value)
+		*trend = THERMAL_TREND_DROPPING;
+	else
+		*trend = THERMAL_TREND_STABLE;
+
+	return 0;
+}
+
 static int fetch_mitigation_table_idx(struct pe_sensor_data *pe_sens, int *temp)
 {
 	u32 data = 0;
@@ -71,6 +95,7 @@ unlock_exit:
 static struct thermal_zone_of_device_ops pe_sensor_ops = {
 	.get_temp = pe_sensor_read,
 	.set_trips = pe_sensor_set_trips,
+	.get_trend = pe_sensor_get_trend,
 };
 
 static irqreturn_t pe_handle_irq(int irq, void *data)

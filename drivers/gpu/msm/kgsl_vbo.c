@@ -111,6 +111,7 @@ static void kgsl_memdesc_remove_range(struct kgsl_mem_entry *target,
 			kgsl_mmu_map_zero_page_to_range(memdesc->pagetable,
 				memdesc, range->range.start, bind_range_len(range));
 
+			kgsl_mem_entry_put(range->entry);
 			kfree(range);
 		}
 	}

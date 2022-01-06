@@ -23,6 +23,8 @@ static const struct msm_pinctrl_soc_data neo_pinctrl = {
 	.ngpios = 156,
 	.qup_regs = neo_qup_regs,
 	.nqup_regs = ARRAY_SIZE(neo_qup_regs),
+	.wakeirq_map = neo_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(neo_pdc_map),
 };
 
 static void qcom_trace_gpio_read(void *unused,

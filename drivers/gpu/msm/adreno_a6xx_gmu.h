@@ -116,6 +116,22 @@ struct kgsl_memdesc *reserve_gmu_kernel_block(struct a6xx_gmu_device *gmu,
 	u32 addr, u32 size, u32 vma_id);
 
 /**
+ * reserve_gmu_kernel_block_fixed() - Maps phyical resource address to gmu
+ * @gmu: Pointer to the a6xx gmu device
+ * @addr: Desired gmu virtual address
+ * @size: Size of the buffer in bytes
+ * @vma_id: Target gmu vma where this buffer should be mapped
+ * @resource: Name of the resource to get the size and address to allocate
+ * @attrs: Attributes for the mapping
+ *
+ * This function maps the physcial resource address to desired gmu vma
+ *
+ * Return: Pointer to the memory descriptor or error pointer on failure
+ */
+struct kgsl_memdesc *reserve_gmu_kernel_block_fixed(struct a6xx_gmu_device *gmu,
+	u32 addr, u32 size, u32 vma_id, const char *resource, int attrs);
+
+/**
  * a6xx_build_rpmh_tables - Build the rpmh tables
  * @adreno_dev: Pointer to the adreno device
  *

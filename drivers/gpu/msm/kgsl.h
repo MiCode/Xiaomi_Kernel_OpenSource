@@ -474,6 +474,8 @@ long kgsl_ioctl_timeline_signal(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data);
 long kgsl_ioctl_timeline_destroy(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data);
+long kgsl_ioctl_get_fault_report(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data);
 
 void kgsl_mem_entry_destroy(struct kref *kref);
 

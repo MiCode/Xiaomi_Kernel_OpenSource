@@ -537,7 +537,7 @@ config QCOM_SOCINFO
 
 config QCOM_SOC_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
-	depends on ARCH_QCOM && DEBUG_FS || COMPILE_TEST
+	depends on ARCH_QCOM || COMPILE_TEST
 	help
 	  Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver to read
 	  the shared memory exported by the remote processor related to
@@ -1194,6 +1194,15 @@ config QCOM_BALANCE_ANON_FILE_RECLAIM
 	  equally.
 	  Swapping anonymous pages out to memory can be efficient enough to justify
 	  treating anonymous and file backed pages equally.
+
+config QTI_OEMVM_CORE_CTL
+	tristate "OEMVM CPU control scheme for Hypervisor"
+	depends on GUNYAH_DRIVERS
+	help
+	  This driver provides simple core control features for OEMVM. The vCPU
+	  mapping information is recorded when OEMVM bootup. The driver provides
+	  API for user to migrate vCPU to current pCPU then yield on current
+	  pCPU. User can also recover vCPU mapping after work is done.
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 source "drivers/soc/qcom/sync_fence/Kconfig"

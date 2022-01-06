@@ -71,8 +71,6 @@ enum {
 struct shared_memory {
 	struct resource r;
 	u32 gunyah_label, shm_memparcel;
-	/* Remove once API transition complete */
-	bool has_lookup_sgl;
 };
 
 struct virt_machine {
@@ -1273,14 +1271,12 @@ unshare_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, struct resource *r,
 	int dst_perms[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 	int ret;
 
-	if (!shmem->has_lookup_sgl) {
-		ret = gh_rm_mem_reclaim(shmem->shm_memparcel, 0);
-		if (ret) {
-			pr_err("%s: gh_rm_mem_reclaim failed for handle %x addr=%llx size=%lld err=%d\n",
-				VIRTIO_PRINT_MARKER, shmem->shm_memparcel, r->start,
-				resource_size(r), ret);
-			return ret;
-		}
+	ret = gh_rm_mem_reclaim(shmem->shm_memparcel, 0);
+	if (ret) {
+		pr_err("%s: gh_rm_mem_reclaim failed for handle %x addr=%llx size=%lld err=%d\n",
+			VIRTIO_PRINT_MARKER, shmem->shm_memparcel, r->start,
+			resource_size(r), ret);
+		return ret;
 	}
 
 	ret = hyp_assign_phys(r->start, resource_size(r), src_vmlist, 2,
@@ -1355,18 +1351,9 @@ static int share_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, int gunyah_label,
 	sgl->sgl_entries[0].ipa_base = r->start;
 	sgl->sgl_entries[0].size = resource_size(r);
 
-	/*
-	 * gh_rm_mem_qcom_lookup_sgl is no longer supported and is replaced with
-	 * gh_rm_mem_share. To ease this transition, fall back to the later on error.
-	 */
-	shmem->has_lookup_sgl = true;
-	ret = gh_rm_mem_qcom_lookup_sgl(GH_RM_MEM_TYPE_NORMAL,
-			gunyah_label, acl, sgl, NULL, shm_memparcel);
-	if (ret) {
-		shmem->has_lookup_sgl = false;
-		ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, 0, gunyah_label,
+
+	ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, 0, gunyah_label,
 				      acl, sgl, NULL, shm_memparcel);
-	}
 	if (ret) {
 		pr_err("%s: Sharing memory failed %d\n", VIRTIO_PRINT_MARKER, ret);
 		/* Attempt to assign resource back to HLOS */

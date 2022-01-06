@@ -34,13 +34,14 @@
 #define LPM_SELECT_STATE_RESIDENCY_UNMET	2
 #define LPM_SELECT_STATE_PRED			3
 #define LPM_SELECT_STATE_IPI_PENDING		4
+#define LPM_SELECT_STATE_SCHED_BIAS		5
 #define LPM_SELECT_STATE_MAX			7
 
 #define UPDATE_REASON(i, u)			(BIT(u) << (MAX_LPM_CPUS * i))
 
 bool prediction_disabled;
 bool sleep_disabled = true;
-static bool suspend_disabled;
+static bool suspend_in_progress;
 static bool traces_registered;
 static struct cluster_governor *cluster_gov_ops;
 
@@ -56,7 +57,7 @@ static bool lpm_disallowed(s64 sleep_ns, int cpu)
 	struct lpm_cpu *cpu_gov = per_cpu_ptr(&lpm_cpu_data, cpu);
 	uint64_t bias_time = 0;
 
-	if (suspend_disabled)
+	if (suspend_in_progress)
 		return true;
 
 	if (!check_cpu_isactive(cpu))
@@ -449,6 +450,9 @@ static void ipi_raise(void *ignore, const struct cpumask *mask, const char *unus
 {
 	int cpu;
 
+	if (suspend_in_progress)
+		return;
+
 	for_each_cpu(cpu, mask) {
 		per_cpu(lpm_cpu_data, cpu).ipi_pending = true;
 		update_ipi_history(cpu);
@@ -457,8 +461,12 @@ static void ipi_raise(void *ignore, const struct cpumask *mask, const char *unus
 
 static void ipi_entry(void *ignore, const char *unused)
 {
-	int cpu = raw_smp_processor_id();
+	int cpu;
 
+	if (suspend_in_progress)
+		return;
+
+	cpu = raw_smp_processor_id();
 	per_cpu(lpm_cpu_data, cpu).ipi_pending = false;
 }
 
@@ -599,8 +607,10 @@ static int lpm_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	}
 
 done:
-	if ((!cpu_gov->last_idx) && cpu_gov->bias)
+	if ((!cpu_gov->last_idx) && cpu_gov->bias) {
 		biastimer_start(cpu_gov->bias);
+		reason |= UPDATE_REASON(i, LPM_SELECT_STATE_SCHED_BIAS);
+	}
 
 	trace_lpm_gov_select(i, latency_req, duration_ns, reason);
 	trace_gov_pred_select(cpu_gov->predicted, cpu_gov->predicted, htime);
@@ -752,7 +762,7 @@ static void qcom_lpm_suspend_trace(void *unused, const char *action,
 	int cpu;
 
 	if (start && !strcmp("dpm_suspend_late", action)) {
-		suspend_disabled = true;
+		suspend_in_progress = true;
 
 		for_each_online_cpu(cpu)
 			wake_up_if_idle(cpu);
@@ -760,7 +770,7 @@ static void qcom_lpm_suspend_trace(void *unused, const char *action,
 	}
 
 	if (!start && !strcmp("dpm_resume_early", action)) {
-		suspend_disabled = false;
+		suspend_in_progress = false;
 
 		for_each_online_cpu(cpu)
 			wake_up_if_idle(cpu);

@@ -631,6 +631,7 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 
 	/* increment the hang count for good book keeping */
 	device->snapshot_faultcount++;
+	device->gmu_fault = gmu_fault;
 
 	if (device->snapshot != NULL) {
 

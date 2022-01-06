@@ -317,10 +317,14 @@ int gh_rm_vm_irq_reclaim(gh_virq_handle_t virq_handle);
 
 int gh_rm_set_virtio_mmio_cb(gh_virtio_mmio_cb_t fnptr);
 void gh_rm_unset_virtio_mmio_cb(void);
-int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_set_cb_t fnptr);
-int gh_rm_reset_vcpu_affinity_cb(gh_vcpu_affinity_reset_cb_t fnptr);
-int gh_rm_set_vpm_grp_cb(gh_vpm_grp_set_cb_t fnptr);
-int gh_rm_reset_vpm_grp_cb(gh_vpm_grp_reset_cb_t fnptr);
+int gh_rm_set_vcpu_affinity_cb(enum gh_vm_names vm_name_index,
+			       gh_vcpu_affinity_set_cb_t fnptr);
+int gh_rm_reset_vcpu_affinity_cb(enum gh_vm_names vm_name_index,
+				 gh_vcpu_affinity_reset_cb_t fnptr);
+int gh_rm_set_vpm_grp_cb(enum gh_vm_names vm_name_index,
+			 gh_vpm_grp_set_cb_t fnptr);
+int gh_rm_reset_vpm_grp_cb(enum gh_vm_names vm_name_index,
+			   gh_vpm_grp_reset_cb_t fnptr);
 
 /* Client APIs for VM management */
 int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid);

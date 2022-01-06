@@ -284,7 +284,6 @@ struct geni_i3c_dev {
 	unsigned long newaddrslots[(I3C_ADDR_MASK + 1) / BITS_PER_LONG];
 	const struct geni_i3c_clk_fld *clk_fld;
 	const struct geni_i3c_clk_fld *clk_od_fld;
-	bool ibi_support_disabled;
 	struct geni_ibi ibi;
 	struct workqueue_struct *hj_wq;
 	struct work_struct hj_wd;
@@ -554,12 +553,6 @@ static irqreturn_t geni_i3c_ibi_irq(int irq, void *dev)
 	unsigned long flags;
 	u32 m_stat = 0, m_stat_mask = 0;
 	bool cmd_done = false;
-
-	if (gi3c->ibi_support_disabled) {
-		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
-			"%s: IBI is not supported by choice\n", __func__);
-		return IRQ_HANDLED;
-	}
 
 	spin_lock_irqsave(&gi3c->ibi.lock, flags);
 
@@ -1906,14 +1899,6 @@ static int i3c_ibi_rsrcs_init(struct geni_i3c_dev *gi3c,
 	struct resource *res;
 	int ret;
 
-	gi3c->ibi_support_disabled  = of_property_read_bool(pdev->dev.of_node,
-					"qcom,ibi-support-disabled");
-	if (gi3c->ibi_support_disabled) {
-		GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
-				"IBI support disabled\n");
-		return 0;
-	}
-
 	if (of_property_read_u8(pdev->dev.of_node, "qcom,ibi-ctrl-id",
 		&gi3c->ibi.ctrl_id)) {
 		GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev,
@@ -2141,20 +2126,18 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	}
 
 	// hot-join
-	if (!gi3c->ibi_support_disabled) {
-		gi3c->hj_wl = wakeup_source_register(gi3c->se.dev,
+	gi3c->hj_wl = wakeup_source_register(gi3c->se.dev,
 					     dev_name(gi3c->se.dev));
-		if (!gi3c->hj_wl) {
-			GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
+	if (!gi3c->hj_wl) {
+		GENI_SE_ERR(gi3c->ipcl, false, gi3c->se.dev,
 					"wakeup source registration failed\n");
-			se_geni_resources_off(&gi3c->se.i3c_rsc);
-			return -ENOMEM;
-		}
-
-		INIT_WORK(&gi3c->hj_wd, geni_i3c_hotjoin);
-		gi3c->hj_wq = alloc_workqueue("%s", 0, 0, dev_name(gi3c->se.dev));
-		geni_i3c_enable_hotjoin_irq(gi3c, true);
+		se_geni_resources_off(&gi3c->se.i3c_rsc);
+		return -ENOMEM;
 	}
+
+	INIT_WORK(&gi3c->hj_wd, geni_i3c_hotjoin);
+	gi3c->hj_wq = alloc_workqueue("%s", 0, 0, dev_name(gi3c->se.dev));
+	geni_i3c_enable_hotjoin_irq(gi3c, true);
 
 	GENI_SE_ERR(gi3c->ipcl, true, gi3c->se.dev, "I3C probed:%d\n", ret);
 	return ret;
@@ -2173,19 +2156,16 @@ static int geni_i3c_remove(struct platform_device *pdev)
 	int ret = 0, i;
 
 	//Disable hot-join, until next probe happens
+	geni_i3c_enable_hotjoin_irq(gi3c, false);
+	destroy_workqueue(gi3c->hj_wq);
+	wakeup_source_unregister(gi3c->hj_wl);
 
-	if (!gi3c->ibi_support_disabled) {
-		geni_i3c_enable_hotjoin_irq(gi3c, false);
-		destroy_workqueue(gi3c->hj_wq);
-		wakeup_source_unregister(gi3c->hj_wl);
+	if (gi3c->ibi.is_init)
+		qcom_geni_i3c_ibi_unconf(gi3c);
+	geni_i3c_enable_ibi_ctrl(gi3c, false);
 
-		if (gi3c->ibi.is_init)
-			qcom_geni_i3c_ibi_unconf(gi3c);
-		geni_i3c_enable_ibi_ctrl(gi3c, false);
-
-		/* Potentially to be done before pinctrl change */
-		geni_i3c_enable_ibi_irq(gi3c, false);
-	}
+	/* Potentially to be done before pinctrl change */
+	geni_i3c_enable_ibi_irq(gi3c, false);
 
 	/*force suspend to avoid the auto suspend caused by driver removal*/
 	pm_runtime_force_suspend(gi3c->se.dev);

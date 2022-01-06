@@ -68,6 +68,8 @@
 #define HFI_FEATURE_DBQ		19
 #define HFI_FEATURE_MINBW	20
 #define HFI_FEATURE_CLX		21
+#define HFI_FEATURE_LSR		23
+
 
 /* A6xx uses a different value for KPROF */
 #define HFI_FEATURE_A6XX_KPROF	14
@@ -179,6 +181,11 @@ enum hfi_mem_kind {
 	HFI_MEMKIND_USER_PROFILE_IBS,
 	/** @MEMKIND_CMD_BUFFER: Used for composing ringbuffer content */
 	HFI_MEMKIND_CMD_BUFFER,
+	/**
+	 *@MEMKIND_MMIO_IPC_CORE: Used for IPC_core region mapping to GMU space
+	 * for EVA to GPU communication.
+	 */
+	HFI_MEMKIND_MMIO_IPC_CORE,
 	HFI_MEMKIND_MAX,
 };
 
@@ -200,6 +207,8 @@ static const char * const hfi_memkind_strings[] = {
 	[HFI_MEMKIND_PROFILE] = "GMU KERNEL PROFILING",
 	[HFI_MEMKIND_USER_PROFILE_IBS] = "GMU USER PROFILING",
 	[HFI_MEMKIND_CMD_BUFFER] = "GMU CMD BUFFER",
+	[HFI_MEMKIND_MMIO_IPC_CORE] = "GMU MMIO IPC",
+	[HFI_MEMKIND_MAX] = "GMU UNKNOWN",
 };
 
 /* CP/GFX pipeline can access */

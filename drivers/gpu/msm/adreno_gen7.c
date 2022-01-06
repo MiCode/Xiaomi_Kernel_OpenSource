@@ -130,7 +130,15 @@ void gen7_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds)
 	/* Register initialization list with spinlock */
 	cmds[i++] = lower_32_bits(adreno_dev->pwrup_reglist->gpuaddr);
 	cmds[i++] = upper_32_bits(adreno_dev->pwrup_reglist->gpuaddr);
-	cmds[i++] = 0;
+	/*
+	 * Gen7 targets with concurrent binning are expected to have a dynamic
+	 * power up list with triplets which contains the pipe id in it.
+	 * Bit 31 of POWER_UP_REGISTER_LIST_LENGTH is reused here to let CP
+	 * know if the power up contains the triplets. If
+	 * REGISTER_INIT_LIST_WITH_SPINLOCK is set and bit 31 below is set,
+	 * CP expects a dynamic list with triplets.
+	 */
+	cmds[i++] = BIT(31);
 }
 
 int gen7_fenced_write(struct adreno_device *adreno_dev, u32 offset,
@@ -281,10 +289,12 @@ static void gen7_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 	/* Static IFPC-only registers */
 	reglist[0].regs = gen7_ifpc_pwrup_reglist;
 	reglist[0].count = ARRAY_SIZE(gen7_ifpc_pwrup_reglist);
+	lock->ifpc_list_len = reglist[0].count;
 
 	/* Static IFPC + preemption registers */
 	reglist[1].regs = gen7_pwrup_reglist;
 	reglist[1].count = ARRAY_SIZE(gen7_pwrup_reglist);
+	lock->preemption_list_len = reglist[1].count;
 
 	/*
 	 * For each entry in each of the lists, write the offset and the current
@@ -297,14 +307,12 @@ static void gen7_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 			*dest++ = r[j];
 			kgsl_regread(KGSL_DEVICE(adreno_dev), r[j], dest++);
 		}
-
-		lock->list_length += reglist[i].count * 2;
 	}
 
-	/* This needs to be at the end of the list */
+	/* This needs to be at the end of the dynamic list */
+	*dest++ = FIELD_PREP(GENMASK(13, 12), PIPE_NONE);
 	*dest++ = GEN7_RBBM_PERFCTR_CNTL;
 	*dest++ = 1;
-	lock->list_length += 2;
 
 	/*
 	 * The overall register list is composed of
@@ -312,12 +320,16 @@ static void gen7_patch_pwrup_reglist(struct adreno_device *adreno_dev)
 	 * 2. Static IFPC + preemption registers
 	 * 3. Dynamic IFPC + preemption registers (ex: perfcounter selects)
 	 *
-	 * The CP views the second and third entries as one dynamic list
-	 * starting from list_offset. list_length should be the total dwords in
-	 * all the lists and list_offset should be specified as the size in
-	 * dwords of the first entry in the list.
+	 * The first two lists are static. Size of these lists are stored as
+	 * number of pairs in ifpc_list_len and preemption_list_len
+	 * respectively. With concurrent binning, Some of the perfcounter
+	 * registers being virtualized, CP needs to know the pipe id to program
+	 * the aperture inorder to restore the same. Thus, third list is a
+	 * dynamic list with triplets as
+	 * (<aperture, shifted 12 bits> <address> <data>), and the length is
+	 * stored as number for triplets in dynamic_list_len.
 	 */
-	lock->list_offset = reglist[0].count * 2;
+	lock->dynamic_list_len = 1;
 }
 
 /* _llc_configure_gpu_scid() - Program the sub-cache ID for all GPU blocks */
@@ -361,11 +373,12 @@ static void _set_secvid(struct kgsl_device *device)
 {
 	kgsl_regwrite(device, GEN7_RBBM_SECVID_TSB_CNTL, 0x0);
 	kgsl_regwrite(device, GEN7_RBBM_SECVID_TSB_TRUSTED_BASE_LO,
-		lower_32_bits(KGSL_IOMMU_SECURE_BASE(&device->mmu)));
+		lower_32_bits(KGSL_IOMMU_SECURE_BASE32));
 	kgsl_regwrite(device, GEN7_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
-		upper_32_bits(KGSL_IOMMU_SECURE_BASE(&device->mmu)));
+		upper_32_bits(KGSL_IOMMU_SECURE_BASE32));
 	kgsl_regwrite(device, GEN7_RBBM_SECVID_TSB_TRUSTED_SIZE,
-		KGSL_IOMMU_SECURE_SIZE(&device->mmu));
+		FIELD_PREP(GENMASK(31, 12),
+		(KGSL_IOMMU_SECURE_SIZE(&device->mmu) / SZ_4K)));
 }
 
 /*
@@ -1133,12 +1146,12 @@ static unsigned int gen7_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 };
 
 int gen7_perfcounter_update(struct adreno_device *adreno_dev,
-	struct adreno_perfcount_register *reg, bool update_reg)
+	struct adreno_perfcount_register *reg, bool update_reg, u32 pipe)
 {
 	void *ptr = adreno_dev->pwrup_reglist->hostptr;
 	struct cpu_gpu_lock *lock = ptr;
 	u32 *data = ptr + sizeof(*lock);
-	int i, offset = 0;
+	int i, offset = (lock->ifpc_list_len + lock->preemption_list_len) * 2;
 
 	if (kgsl_hwlock(lock)) {
 		kgsl_hwunlock(lock);
@@ -1147,19 +1160,19 @@ int gen7_perfcounter_update(struct adreno_device *adreno_dev,
 
 	/*
 	 * If the perfcounter select register is already present in reglist
-	 * update it, otherwise append the <select register, value> pair to
-	 * the end of the list.
+	 * update it, otherwise append the <aperture, select register, value>
+	 * triplet to the end of the list.
 	 */
-	for (i = 0; i < lock->list_length >> 1; i++) {
-		if (data[offset] == reg->select) {
-			data[offset + 1] = reg->countable;
+	for (i = 0; i < lock->dynamic_list_len; i++) {
+		if ((data[offset + 1] == reg->select) && (data[offset] == pipe)) {
+			data[offset + 2] = reg->countable;
 			goto update;
 		}
 
-		if (data[offset] == GEN7_RBBM_PERFCTR_CNTL)
+		if (data[offset + 1] == GEN7_RBBM_PERFCTR_CNTL)
 			break;
 
-		offset += 2;
+		offset += 3;
 	}
 
 	/*
@@ -1167,12 +1180,15 @@ int gen7_perfcounter_update(struct adreno_device *adreno_dev,
 	 * so overwrite the existing GEN7_RBBM_PERFCNTL_CTRL and add it back to
 	 * the end.
 	 */
-	data[offset] = reg->select;
-	data[offset + 1] = reg->countable;
-	data[offset + 2] = GEN7_RBBM_PERFCTR_CNTL;
-	data[offset + 3] = 1;
+	data[offset++] = pipe;
+	data[offset++] = reg->select;
+	data[offset++] = reg->countable;
 
-	lock->list_length += 2;
+	data[offset++] = FIELD_PREP(GENMASK(13, 12), PIPE_NONE);
+	data[offset++] = GEN7_RBBM_PERFCTR_CNTL;
+	data[offset++] = 1;
+
+	lock->dynamic_list_len++;
 
 update:
 	if (update_reg)

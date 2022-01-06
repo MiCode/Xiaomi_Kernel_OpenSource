@@ -96,6 +96,21 @@ static ssize_t get_splh_log_level(struct kobject *kobj,
 static ssize_t set_splh_log_level(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf,
 	size_t count);
+static ssize_t get_lplh_notif(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf);
+static ssize_t set_lplh_notif(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf,
+	size_t count);
+static ssize_t get_lplh_sample_ms(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf);
+static ssize_t set_lplh_sample_ms(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf,
+	size_t count);
+static ssize_t get_lplh_log_level(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf);
+static ssize_t set_lplh_log_level(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf,
+	size_t count);
 
 static struct kobj_attribute cpu_min_freq_attr =
 	__ATTR(cpu_min_freq, 0644, get_cpu_min_freq, set_cpu_min_freq);
@@ -114,6 +129,12 @@ static struct kobj_attribute splh_sample_ms_attr =
 	__ATTR(splh_sample_ms, 0644, get_splh_sample_ms, set_splh_sample_ms);
 static struct kobj_attribute splh_log_level_attr =
 	__ATTR(splh_log_level, 0644, get_splh_log_level, set_splh_log_level);
+static struct kobj_attribute lplh_notif_attr =
+	__ATTR(lplh_notif, 0644, get_lplh_notif, set_lplh_notif);
+static struct kobj_attribute lplh_sample_ms_attr =
+	__ATTR(lplh_sample_ms, 0644, get_lplh_sample_ms, set_lplh_sample_ms);
+static struct kobj_attribute lplh_log_level_attr =
+	__ATTR(lplh_log_level, 0644, get_lplh_log_level, set_lplh_log_level);
 
 static struct attribute *param_attrs[] = {
 	&cpu_min_freq_attr.attr,
@@ -124,6 +145,9 @@ static struct attribute *param_attrs[] = {
 	&splh_notif_attr.attr,
 	&splh_sample_ms_attr.attr,
 	&splh_log_level_attr.attr,
+	&lplh_notif_attr.attr,
+	&lplh_sample_ms_attr.attr,
+	&lplh_log_level_attr.attr,
 	NULL,
 };
 
@@ -983,7 +1007,7 @@ static ssize_t set_splh_sample_ms(struct kobject *kobj,
 	}
 
 	splh_sample_ms = clamp(splh_sample_ms, SPLH_MIN_SAMPLE_MS, SPLH_MAX_SAMPLE_MS);
-	ret = plh_ops->set_splh_sample_ms(plh_handle, splh_sample_ms);
+	ret = plh_ops->set_plh_sample_ms(plh_handle, splh_sample_ms, PERF_LOCK_SCROLL);
 	if (ret < 0) {
 		splh_sample_ms = ms_val_backup;
 		pr_err("msm_perf: setting new splh_sample_ms failed, ret=%d\n", ret);
@@ -1019,7 +1043,7 @@ static ssize_t set_splh_log_level(struct kobject *kobj,
 	}
 
 	splh_log_level = clamp(splh_log_level, SPLH_MIN_LOG_LEVEL, SPLH_MAX_LOG_LEVEL);
-	ret = plh_ops->set_splh_log_level(plh_handle, splh_log_level);
+	ret = plh_ops->set_plh_log_level(plh_handle, splh_log_level, PERF_LOCK_SCROLL);
 	if (ret < 0) {
 		splh_log_level = log_val_backup;
 		pr_err("msm_perf: setting new splh_log_level failed, ret=%d\n", ret);
@@ -1111,7 +1135,7 @@ static int init_splh_notif(const char *buf)
 		return -EINVAL;
 	}
 
-	ret = plh_ops->init_splh_ipc_freq_tbl(plh_handle, tmp, tmp_valid_len);
+	ret = plh_ops->init_plh_ipc_freq_tbl(plh_handle, tmp, tmp_valid_len, PERF_LOCK_SCROLL);
 	if (ret < 0)
 		return -EINVAL;
 
@@ -1132,9 +1156,10 @@ static void activate_splh_notif(void)
 	}
 
 	if (splh_notif)
-		ret = plh_ops->start_splh(plh_handle, splh_notif); /* splh_notif is fps */
+		ret = plh_ops->start_plh(plh_handle,
+			splh_notif, PERF_LOCK_SCROLL); /* splh_notif is fps */
 	else
-		ret = plh_ops->stop_splh(plh_handle);
+		ret = plh_ops->stop_plh(plh_handle, PERF_LOCK_SCROLL);
 
 	if (ret < 0) {
 		pr_err("msm_perf: splh start or stop failed, ret=%d\n", ret);
@@ -1173,6 +1198,242 @@ static ssize_t set_splh_notif(struct kobject *kobj,
 		return ret;
 
 	activate_splh_notif();
+
+	return count;
+}
+
+#define LPLH_MIN_SAMPLE_MS			1
+#define LPLH_MAX_SAMPLE_MS			30
+#define LPLH_MIN_LOG_LEVEL			0
+#define LPLH_MAX_LOG_LEVEL			0xF
+#define LPLH_CLUSTER_MAX_CNT		4
+#define LPLH_IPC_FREQ_VTBL_MAX_CNT		5 /* ipc freq pair */
+#define LPLH_INIT_IPC_FREQ_TBL_PARAMS	\
+			(1 + LPLH_CLUSTER_MAX_CNT * (2 + (2 * LPLH_IPC_FREQ_VTBL_MAX_CNT)))
+
+static int lplh_notif, lplh_init_done, lplh_sample_ms, lplh_log_level;
+
+static ssize_t get_lplh_sample_ms(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", lplh_sample_ms);
+}
+
+static ssize_t set_lplh_sample_ms(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf,
+	size_t count)
+{
+	int ret, ms_val_backup;
+
+	if (!plh_handle || !plh_ops) {
+		pr_err("msm_perf: plh scmi handle or vendor ops null\n");
+		return -EINVAL;
+	}
+
+	ms_val_backup = lplh_sample_ms;
+
+	ret = sscanf(buf, "%du", &lplh_sample_ms);
+
+	if (ret < 0) {
+		pr_err("msm_perf: getting new lplh_sample_ms failed, ret=%d\n", ret);
+		return ret;
+	}
+
+	lplh_sample_ms = clamp(lplh_sample_ms, LPLH_MIN_SAMPLE_MS, LPLH_MAX_SAMPLE_MS);
+	ret = plh_ops->set_plh_sample_ms(plh_handle, lplh_sample_ms, PERF_LOCK_LAUNCH);
+	if (ret < 0) {
+		lplh_sample_ms = ms_val_backup;
+		pr_err("msm_perf: setting new lplh_sample_ms failed, ret=%d\n", ret);
+		return ret;
+	}
+	return count;
+}
+
+static ssize_t get_lplh_log_level(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", lplh_log_level);
+}
+
+static ssize_t set_lplh_log_level(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf,
+	size_t count)
+{
+	int ret, log_val_backup;
+
+	if (!plh_handle || !plh_ops) {
+		pr_err("msm_perf: plh scmi handle or vendor ops null\n");
+		return -EINVAL;
+	}
+
+	log_val_backup = lplh_log_level;
+
+	ret = sscanf(buf, "%du", &lplh_log_level);
+
+	if (ret < 0) {
+		pr_err("msm_perf: getting new lplh_log_level failed, ret=%d\n", ret);
+		return ret;
+	}
+
+	lplh_log_level = clamp(lplh_log_level, LPLH_MIN_LOG_LEVEL, LPLH_MAX_LOG_LEVEL);
+	ret = plh_ops->set_plh_log_level(plh_handle, lplh_log_level, PERF_LOCK_LAUNCH);
+	if (ret < 0) {
+		lplh_log_level = log_val_backup;
+		pr_err("msm_perf: setting new lplh_log_level failed, ret=%d\n", ret);
+		return ret;
+	}
+	return count;
+}
+
+static int init_lplh_notif(const char *buf)
+{
+	u16 tmp[LPLH_INIT_IPC_FREQ_TBL_PARAMS];
+	char *token;
+	int i, j, ret;
+	u16 *ptmp = tmp, total_tokens = 0, nTokens = 0, nClusters = 0, clusterId, nValues, value;
+	const char *cp, *cp1;
+
+	/* buf contains the init info from user */
+	if (buf == NULL || !plh_handle || !plh_ops)
+		return -EINVAL;
+	cp = buf;
+	if (sscanf(cp, INIT ":%hu", &nClusters)) {
+		if (!nClusters)
+			return -EINVAL;
+
+		*ptmp++ = nClusters;
+		total_tokens++;
+		while ((cp = strpbrk(cp + 1, ":")))
+			nTokens++;
+
+		if (!nTokens || (nTokens - 1 != nClusters))
+			return -EINVAL;
+
+		cp = buf;
+		cp = strnchr(cp, strlen(cp), ':');	/* skip INIT */
+		cp++;
+		cp = strnchr(cp, strlen(cp), ':');	/* skip nClusters */
+		cp++;
+		if (!strlen(cp))
+			return -EINVAL;
+
+		for (i = 0; i < nClusters; i++) {
+			clusterId = 0;
+			if (!cp || strlen(cp) == 0)
+				return -EINVAL;
+
+			if (sscanf(cp, "%hu,", &clusterId)) {
+				*ptmp++ = clusterId;
+				total_tokens++;
+				cp = strnchr(cp, strlen(cp), ',');
+				if (!cp)
+					return -EINVAL;
+
+				token = strsep((char **)&cp, ":");
+				if (!token || strlen(token) == 0)
+					return -EINVAL;
+
+				nValues = 1;
+				cp1 = token;
+				while ((cp1 = strpbrk(cp1 + 1, ",")))
+					nValues++;
+
+				if (nValues % 2 != 0)
+					return -EINVAL;
+
+				*ptmp++ = nValues/2;
+				total_tokens++;
+				for (j = 0; j < nValues / 2; j++) {
+					value = 0;
+					if (sscanf(token, ",%hu", &value) != 1)
+						return -EINVAL;
+
+					*ptmp++ = value;
+					total_tokens++;
+					token++;
+					if (!token || strlen(token) == 0)
+						return -EINVAL;
+
+					token = strnchr(token, strlen(token), ',');
+					if (sscanf(token, ",%hu", &value) != 1)
+						return -EINVAL;
+
+					*ptmp++ = value;
+					total_tokens++;
+					token++;
+					token = strnchr(token, strlen(token), ',');
+				}
+			} else {
+				return -EINVAL;
+			}
+		}
+	} else {
+		return -EINVAL;
+	}
+	ret = plh_ops->init_plh_ipc_freq_tbl(plh_handle, tmp, total_tokens, PERF_LOCK_LAUNCH);
+	if (ret < 0)
+		return -EINVAL;
+
+	pr_info("msm_perf: lplh: nClusters=%hu last_freq_val=%hu len=%hu\n",
+			nClusters, *--ptmp, total_tokens);
+
+	lplh_init_done = 1;
+	return 0;
+}
+
+static void activate_lplh_notif(void)
+{
+	int ret;
+
+	/* received event notification here */
+	if (!plh_handle || !plh_ops) {
+		pr_err("msm_perf: lplh not supported\n");
+		return;
+	}
+
+	if (lplh_notif)
+		ret = plh_ops->start_plh(plh_handle,
+				lplh_notif, PERF_LOCK_LAUNCH); /* lplh_notif is duration */
+	else
+		ret = plh_ops->stop_plh(plh_handle, PERF_LOCK_LAUNCH);
+
+	if (ret < 0) {
+		pr_err("msm_perf: lplh start or stop failed, ret=%d\n", ret);
+		return;
+	}
+}
+
+static ssize_t get_lplh_notif(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", lplh_notif);
+}
+
+static ssize_t set_lplh_notif(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf,
+	size_t count)
+{
+	int ret;
+
+	if (strnstr(buf, INIT, sizeof(INIT)) != NULL) {
+		lplh_init_done = 0;
+		ret = init_lplh_notif(buf);
+		if (ret < 0)
+			pr_err("msm_perf: lplh ipc freq tbl init failed, ret=%d\n", ret);
+
+		return count;
+	}
+
+	if (!lplh_init_done) {
+		pr_err("msm_perf: lplh ipc freq tbl not initialized\n");
+		return -EINVAL;
+	}
+
+	ret = sscanf(buf, "%du", &lplh_notif);
+	if (ret < 0)
+		return ret;
+
+	activate_lplh_notif();
 
 	return count;
 }

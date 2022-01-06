@@ -505,11 +505,12 @@ static void a6xx_set_secvid(struct kgsl_device *device)
 
 	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_CNTL, 0x0);
 	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO,
-		lower_32_bits(KGSL_IOMMU_SECURE_BASE(&device->mmu)));
+		lower_32_bits(KGSL_IOMMU_SECURE_BASE32));
 	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
-		upper_32_bits(KGSL_IOMMU_SECURE_BASE(&device->mmu)));
+		upper_32_bits(KGSL_IOMMU_SECURE_BASE32));
 	kgsl_regwrite(device, A6XX_RBBM_SECVID_TSB_TRUSTED_SIZE,
-		KGSL_IOMMU_SECURE_SIZE(&device->mmu));
+		FIELD_PREP(GENMASK(31, 12),
+		(KGSL_IOMMU_SECURE_SIZE(&device->mmu) / SZ_4K)));
 
 	if (ADRENO_QUIRK(ADRENO_DEVICE(device), ADRENO_QUIRK_SECVID_SET_ONCE))
 		set = true;

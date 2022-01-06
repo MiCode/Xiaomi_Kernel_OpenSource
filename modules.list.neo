@@ -23,6 +23,7 @@ qcom_iommu_util.ko
 qcom_llcc_pmu.ko
 llcc-qcom.ko
 qmi_helpers.ko
+qcom_hwspinlock.ko
 cmd-db.ko
 pmic_glink.ko
 qcom_soc_wdt.ko
@@ -45,3 +46,7 @@ phy-qcom-emu.ko
 dwc3-msm.ko
 cqhci.ko
 sdhci-msm.ko
+core_hang_detect.ko
+kryo_arm64_edac.ko
+gcc-neo.ko
+gdsc-regulator.ko

@@ -144,6 +144,9 @@
 #define GCC_UFS_PHY_ICE_CORE_HW_CTL_CLK			134
 #define GCC_UFS_PHY_PHY_AUX_HW_CTL_CLK			135
 #define GCC_UFS_PHY_UNIPRO_CORE_HW_CTL_CLK		136
+#define GCC_GPLL1					137
+#define GCC_GPLL2					138
+#define GCC_GPLL6					139
 
 /* GCC power domains */
 #define GCC_PCIE_0_GDSC					0
