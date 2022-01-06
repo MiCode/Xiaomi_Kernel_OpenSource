@@ -1248,6 +1248,12 @@ static int get_layer_weight(int disp_idx,
 
 	weight = HRT_UINT_WEIGHT;
 
+	if (hrt_lp_switch_get() == 1 &&
+			((!layer_info) || (layer_info && layer_info->compress))) {
+		weight *= 66;
+		do_div(weight, 100);
+	}
+
 	return weight * bpp;
 }
 
@@ -1427,7 +1433,7 @@ static int calc_hrt_num(struct drm_device *dev,
 
 	emi_hrt_level = get_hrt_level(sum_overlap_w, false);
 
-	overlap_num = sum_overlap_w / 200;
+	overlap_num = sum_overlap_w;
 
 	/*
 	 * The larb bound always meets the limit for HRT_LEVEL2
@@ -1891,7 +1897,7 @@ static int dispatch_gles_range(struct drm_mtk_layering_info *disp_info,
 		/* ajust hrt_num */
 		disp_info->hrt_num =
 			get_hrt_level(max_ovl_cnt * HRT_UINT_BOUND_BPP, 0);
-		disp_info->hrt_weight = max_ovl_cnt * 2 / HRT_UINT_WEIGHT;
+		disp_info->hrt_weight = max_ovl_cnt * 4;
 	}
 
 	clear_layer(disp_info);
@@ -2966,7 +2972,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 				~MTK_DISP_RSZ_LAYER;
 		l_rule_info->addon_scn[HRT_PRIMARY] = NONE;
 		layering_info.hrt_num = HRT_LEVEL_LEVEL0;
-		layering_info.hrt_weight = 2;
+		layering_info.hrt_weight = 400;
 	}
 
 	lyeblob_ids = kzalloc(sizeof(struct mtk_drm_lyeblob_ids), GFP_KERNEL);

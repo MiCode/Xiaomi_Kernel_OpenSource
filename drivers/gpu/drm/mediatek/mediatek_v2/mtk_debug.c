@@ -97,6 +97,7 @@ int gCapturePriLayerDownX = 20;
 int gCapturePriLayerDownY = 20;
 int gCaptureAssignLayer;
 u64 vfp_backup;
+static int hrt_lp_switch;
 
 static struct completion cwb_cmp;
 
@@ -3379,6 +3380,11 @@ static int idlevfp_get(void *data, u64 *val)
 	return 0;
 }
 
+int hrt_lp_switch_get(void)
+{
+	return hrt_lp_switch;
+}
+
 DEFINE_SIMPLE_ATTRIBUTE(idlevfp_fops, idlevfp_get, idlevfp_set, "%llu\n");
 
 static int idlevfp_proc_open(struct inode *inode, struct file *file)
@@ -3430,6 +3436,54 @@ static const struct proc_ops idlevfp_proc_fops = {
 	.proc_read = idlevfp_proc_get,
 	.proc_write = idlevfp_proc_set,
 	.proc_open = idlevfp_proc_open,
+};
+
+static int hrt_lp_proc_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+
+	return 0;
+}
+
+static ssize_t hrt_lp_proc_set(struct file *file, const char __user *ubuf,
+			   size_t count, loff_t *ppos)
+{
+	int ret;
+	u64 val;
+
+	ret = kstrtou64_from_user(ubuf, count, 0, &val);
+	if (ret)
+		return ret;
+
+	hrt_lp_switch = !!val;
+
+	return count;
+}
+
+static ssize_t hrt_lp_proc_get(struct file *file, char __user *ubuf,
+			size_t count, loff_t *ppos)
+{
+	int n = 0;
+	u64 val;
+	char buffer[512];
+
+	if (*ppos != 0)
+		goto out;
+
+	val = hrt_lp_switch;
+
+	n = scnprintf(buffer, 512, "%llu", val);
+out:
+	if (n < 0)
+		return -EINVAL;
+
+	return simple_read_from_buffer(ubuf, count, ppos, buffer, n);
+}
+
+static const struct proc_ops hrt_lp_proc_fops = {
+	.proc_read = hrt_lp_proc_get,
+	.proc_write = hrt_lp_proc_set,
+	.proc_open = hrt_lp_proc_open,
 };
 
 void disp_dbg_probe(void)
@@ -3499,6 +3553,13 @@ void disp_dbg_probe(void)
 	if (!proc_create("idlevfp", S_IFREG | 0444,
 		disp_lowpower_proc, &idlevfp_proc_fops)) {
 		DDPPR_ERR("[%s %d]failed to create idlevfp in /proc/displowpower\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+	if (!proc_create("hrt_lp", S_IFREG | 0444,
+		disp_lowpower_proc, &hrt_lp_proc_fops)) {
+		DDPPR_ERR("[%s %d]failed to create hrt_lp in /proc/displowpower\n",
 			__func__, __LINE__);
 		goto out;
 	}

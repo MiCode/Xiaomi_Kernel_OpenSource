@@ -75,6 +75,7 @@ unsigned int mtk_dbg_get_lfr_update_value(void);
 unsigned int mtk_dbg_get_lfr_vse_dis_value(void);
 unsigned int mtk_dbg_get_lfr_skip_num_value(void);
 unsigned int mtk_dbg_get_lfr_dbg_value(void);
+int hrt_lp_switch_get(void);
 #endif
 
 #endif

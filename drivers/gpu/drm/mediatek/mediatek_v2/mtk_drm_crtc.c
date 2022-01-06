@@ -2701,7 +2701,7 @@ static unsigned int overlap_to_bw(struct drm_crtc *crtc,
 	unsigned int overlap_num)
 {
 	unsigned int bw_base = mtk_drm_primary_frame_bw(crtc);
-	unsigned int bw = bw_base * overlap_num / 2;
+	unsigned int bw = bw_base * overlap_num / 400;
 
 	return bw;
 }
@@ -11710,11 +11710,11 @@ unsigned int mtk_drm_primary_display_get_debug_state(
 			  (mtk_drm_lcm_is_connect() ? "Y" : "N"));
 
 	len += scnprintf(stringbuf + len, buf_len - len,
-			 "FPS = %d, display mode idx = %u, %s mode\n",
+			 "FPS = %d, display mode idx = %u, %s mode %d\n",
 			 drm_mode_vrefresh(&crtc->state->adjusted_mode),
 			 mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
 			 (mtk_crtc_is_frame_trigger_mode(crtc) ?
-			  "cmd" : "vdo"));
+			  "cmd" : "vdo"), hrt_lp_switch_get());
 
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
