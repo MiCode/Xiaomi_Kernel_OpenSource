@@ -2451,6 +2451,14 @@
 		/* reserved for overlay by odm */
 	};
 
+	regulator_vibrator: regulator_vibrator {
+		compatible = "regulator-vibrator";
+		label = "vibrator";
+		min-volt = <2800000>;
+		max-volt = <3500000>;
+		vib-supply = <&mt6359p_vibr_reg>;
+		};
+
 	mtk_leds: mtk_leds {
 		backlight {
 			label = "lcd-backlight";
