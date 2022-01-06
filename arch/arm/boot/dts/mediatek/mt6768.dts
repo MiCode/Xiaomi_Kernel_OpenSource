@@ -467,6 +467,19 @@ page_owner=on loop.max_part=7";
 			"clk_pll_4",
 			"clk_pll_5",
 			"clk_pll_6";
+
+		dvfsrc-opp-num = <3>;
+		dvfs-opp =
+			/*vcore		vsram	uv	rc  spm	freq	mux*/
+			< 650000	900000	0xff	0x0 0x0	165	1>,
+			< 650000	900000	0xff	0x0 0x0	250	2>,
+			< 700000	900000	0xff	0x2 0x8	330	4>,
+			< 800000	900000	0xff	0x3 0xc	416	6>;
+
+		gpio = <&gpio 1>;
+		gpio-feature = "gpio-mode";
+		gpio-feature-cfg = <1>;
+		gpio-mode-reg = <0x430 0x7 8 1>;
 	};
 
 	topckgen: topckgen@10000000 {
