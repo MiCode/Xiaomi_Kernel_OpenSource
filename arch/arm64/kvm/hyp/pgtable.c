@@ -383,21 +383,6 @@ enum kvm_pgtable_prot kvm_pgtable_hyp_pte_prot(kvm_pte_t pte)
 	return prot;
 }
 
-static bool hyp_pte_needs_update(kvm_pte_t old, kvm_pte_t new)
-{
-	/*
-	 * Tolerate KVM recreating the exact same mapping, or changing software
-	 * bits if the existing mapping was valid.
-	 */
-	if (old == new)
-		return false;
-
-	if (!kvm_pte_valid(old))
-		return true;
-
-	return !WARN_ON((old ^ new) & ~KVM_PTE_LEAF_ATTR_HI_SW);
-}
-
 static bool hyp_map_walker_try_leaf(u64 addr, u64 end, u32 level,
 				    kvm_pte_t *ptep, struct hyp_map_data *data)
 {
@@ -407,13 +392,16 @@ static bool hyp_map_walker_try_leaf(u64 addr, u64 end, u32 level,
 	if (!kvm_block_mapping_supported(addr, end, phys, level))
 		return false;
 
-	new = kvm_init_valid_leaf_pte(phys, data->attr, level);
-	if (hyp_pte_needs_update(old, new)) {
-		smp_store_release(ptep, new);
-		data->mm_ops->get_page(ptep);
-	}
-
 	data->phys += granule;
+	new = kvm_init_valid_leaf_pte(phys, data->attr, level);
+	if (old == new)
+		return true;
+	if (!kvm_pte_valid(old))
+		data->mm_ops->get_page(ptep);
+	else if (WARN_ON((old ^ new) & ~KVM_PTE_LEAF_ATTR_HI_SW))
+		return false;
+
+	smp_store_release(ptep, new);
 	return true;
 }
 

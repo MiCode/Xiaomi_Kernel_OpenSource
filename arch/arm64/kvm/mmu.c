@@ -353,7 +353,7 @@ static int unshare_pfn_hyp(u64 pfn)
 	mutex_lock(&hyp_shared_pfns_lock);
 	this = find_shared_pfn(pfn, &node, &parent);
 	if (WARN_ON(!this)) {
-		ret = -EINVAL;
+		ret = -ENOENT;
 		goto unlock;
 	}
 
@@ -384,7 +384,7 @@ int kvm_share_hyp(void *from, void *to)
 	 * VA space, so we can only share physically contiguous data-structures
 	 * for now.
 	 */
-	if (is_vmalloc_addr(from) || is_vmalloc_addr(to))
+	if (is_vmalloc_or_module_addr(from) || is_vmalloc_or_module_addr(to))
 		return -EINVAL;
 
 	if (kvm_host_owns_hyp_mappings())
