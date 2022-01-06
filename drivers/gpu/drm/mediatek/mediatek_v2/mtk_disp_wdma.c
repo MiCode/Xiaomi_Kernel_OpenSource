@@ -1712,7 +1712,7 @@ static const struct mtk_disp_wdma_data mt6855_wdma_driver_data = {
 	.sodi_config = mt6853_mtk_sodi_config,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
-	.is_support_34bits = false,
+	.is_support_34bits = true,
 };
 
 static const struct mtk_disp_wdma_data mt6983_wdma_driver_data = {
