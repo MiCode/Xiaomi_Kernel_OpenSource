@@ -5452,11 +5452,7 @@
 			 <&topckgen_clk CLK_TOP_DSP7>,
 			 <&topckgen_clk CLK_TOP_MAINPLL_D4_D2>,
 			 <&topckgen_clk CLK_TOP_UNIVPLL_D4_D2>,
-			 <&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,
-			 <&apu_pll_ctrl_clk CLK_APU_AO_APUPLL>,
-			 <&apu_pll_ctrl_clk CLK_APU_AO_NPUPLL>,
-			 <&apu_pll_ctrl_clk CLK_APU_AO_APUPLL1>,
-			 <&apu_pll_ctrl_clk CLK_APU_AO_APUPLL2>;
+			 <&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>;
 		clock-names = "mtcmos_scp_sys_vpu",
 			      "clk_top_dsp_sel",
 			      "clk_top_dsp1_sel",
@@ -5465,11 +5461,7 @@
 			      "clk_top_ipu_if_sel",
 			      "clk_top_mainpll_d4_d2",
 			      "clk_top_univpll_d4_d2",
-			      "clk_top_univpll_d6_d2",
-			      "clk_apupll_apupll",
-			      "clk_apupll_npupll",
-			      "clk_apupll_apupll1",
-			      "clk_apupll_apupll2";
+			      "clk_top_univpll_d6_d2";
 	};
 
 	apu_acc: syscon@190f4000 {
