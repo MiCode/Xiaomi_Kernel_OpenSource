@@ -5589,6 +5589,11 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x15020000 0 0x1000>;
 	};
 
+	imgsys2_config@15820000 {
+		compatible = "mediatek,imgsys2", "syscon";
+		reg = <0 0x15820000 0 0x1000>;
+	};
+
 	dip_b0@15821000 {
 		compatible = "mediatek,dip2";
 		reg = <0 0x15821000 0 0xc000>;
