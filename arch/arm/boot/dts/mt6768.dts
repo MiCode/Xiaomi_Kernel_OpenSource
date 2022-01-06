@@ -1501,6 +1501,11 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			<0 0x10003000 0 0x1000>;
 	};
 
+	scp_infra: scp_infra@10001000 {
+		compatible = "mediatek,scpinfra";
+		reg = <0 0x10001000 0 0x1000>;
+	};
+
 	dfd@10200b00 {
 		compatible = "mediatek,dfd";
 		reg = <0 0x10200b00 0 0x10000>;
