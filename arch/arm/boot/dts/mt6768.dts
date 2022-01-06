@@ -3815,7 +3815,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	};
 };
 
-#include "mt6358.dtsi"
+#include "mediatek/mt6358.dtsi"
 #include "cust_mt6768_msdc.dtsi"
 #include "mt6370.dtsi"
 #include "mt6370_pd.dtsi"
