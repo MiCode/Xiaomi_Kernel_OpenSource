@@ -8299,21 +8299,9 @@
 				cg-name = "MTCMOS_0",
 					"INFRA_0",
 					"INFRA_1",
-					"INFRA_2",
-					"INFRA_3",
-					"INFRA_4",
-					"INFRA_5",
 					"PERI_0",
 					"PERI_1",
-					"PERI_2",
-					"MMSYS_0",
-					"MMSYS_1",
-					"MMSYS_2",
-					"MMSYS_3",
-					"MMSYS_4",
-					"MMSYS_5",
-					"MMSYS_6",
-					"MMSYS_7";
+					"PERI_2";
 			};
 			spm_cond_pll: spm_cond_pll {
 				pll-name = "UNIVPLL",
