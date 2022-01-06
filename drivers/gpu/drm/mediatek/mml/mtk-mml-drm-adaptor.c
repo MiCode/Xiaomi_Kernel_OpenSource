@@ -94,6 +94,9 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 		u32 destw = dest->data.width;
 		u32 desth = dest->data.height;
 
+		if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270)
+			swap(destw, desth);
+
 		if (srcw < 9) {
 			mml_err("exceed HW limitation src width %u < 9", srcw);
 			goto not_support;
