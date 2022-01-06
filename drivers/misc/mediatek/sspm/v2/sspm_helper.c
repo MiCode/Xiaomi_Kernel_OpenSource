@@ -213,6 +213,25 @@ static int sspm_device_probe(struct platform_device *pdev)
 }
 EXPORT_SYMBOL_GPL(sspm_ipidev);
 
+#ifdef CONFIG_PM
+static int sspm_suspend(struct device *dev)
+{
+	sspm_timesync_suspend();
+	return 0;
+}
+
+static int sspm_resume(struct device *dev)
+{
+	sspm_timesync_resume();
+	return 0;
+}
+
+static const struct dev_pm_ops sspm_dev_pm_ops = {
+	.suspend = sspm_suspend,
+	.resume  = sspm_resume,
+};
+#endif
+
 static const struct of_device_id sspm_of_match[] = {
 	{ .compatible = "mediatek,sspm", },
 	{},
@@ -233,6 +252,9 @@ static struct platform_driver mtk_sspm_driver = {
 		.name = "sspm",
 		.owner = THIS_MODULE,
 		.of_match_table = sspm_of_match,
+#ifdef CONFIG_PM
+		.pm = &sspm_dev_pm_ops,
+#endif
 	},
 	.id_table = sspm_id_table,
 };
@@ -292,6 +314,13 @@ static int __init sspm_module_init(void)
 		return -1;
 	}
 	pr_info("SSPM platform service is ready\n");
+#endif
+
+#if SSPM_TIMESYNC_SUPPORT
+	if (sspm_timesync_init()) {
+		pr_err("[SSPM] Timesync Init Failed\n");
+		return -1;
+	}
 #endif
 
 	sspm_lock_emi_mpu();
