@@ -2253,7 +2253,7 @@
 
 			map1 {
 				domain = "gpu";
-				method = "fhctl-ap";
+				method = "fhctl-gpueb";
 				mfgpll0 {
 					fh-id = <0>;
 					pll-id = <CLK_MFG_AO_MFGPLL>;
