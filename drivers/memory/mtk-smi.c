@@ -2631,6 +2631,12 @@ static int __maybe_unused mtk_smi_common_suspend(struct device *dev)
 
 	mtk_smi_clk_disable(common);
 	atomic_dec(&common->ref_count);
+
+	if (atomic_read(&common->ref_count)) {
+		dev_notice(dev, "Error: comm(%d) ref count=%d on suspend\n",
+			common->commid, atomic_read(&common->ref_count));
+	}
+
 	return 0;
 }
 
