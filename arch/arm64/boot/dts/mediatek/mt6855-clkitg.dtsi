@@ -14,7 +14,6 @@
 			<&topckgen_clk CLK_TOP_AXI_U_SEL>,
 			<&topckgen_clk CLK_TOP_BUS_AXIMEM_SEL>,
 			<&topckgen_clk CLK_TOP_MDP0_SEL>,
-			<&topckgen_clk CLK_TOP_MMINFRA_SEL>,
 			<&topckgen_clk CLK_TOP_ATB_SEL>,
 			<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_DXCC_SEL>,
@@ -62,15 +61,6 @@
 			<&vlp_cksys_clk CLK_VLP_CK_SSPM_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_SSPM_F26M_SEL>,
 			<&vlp_cksys_clk CLK_VLP_CK_SRCK_SEL>,
-			<&vlp_cksys_clk CLK_VLP_CK_SRAMRC_SEL>,
-			<&mminfra_config_clk CLK_MMINFRA_GCE_D>,
-			<&mminfra_config_clk CLK_MMINFRA_GCE_M>,
-			<&mminfra_config_clk CLK_MMINFRA_SMI>,
-			<&mminfra_config_clk CLK_MMINFRA_GCE_26M>;
-	};
-
-	bring-up-pd-mm_infra {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_MM_INFRA>;
+			<&vlp_cksys_clk CLK_VLP_CK_SRAMRC_SEL>;
 	};
 };
