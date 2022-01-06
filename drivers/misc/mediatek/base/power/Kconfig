@@ -23,6 +23,15 @@ config MTK_PTPOD_GPU
 	  changed which will depended on chip.
 	  If unsure, say N.
 
+config MTK_CPU_MSSV
+        bool "MTK CPU MSSV SUPPORT"
+        help
+          This kernel config can be used to enable cpu MSSV support.
+          MSSV means Mediatek Software System Validation.
+          When enable this option, cpu V/F get/set function will be enabled.
+          This config should be enabled with corresponding MCUPM setting.
+          If unsure, say N.
+
 config MTK_STATIC_POWER
 	bool "MTK STATIC POWER"
 	help

@@ -12,7 +12,7 @@
 #include "mtk_cpufreq_platform.h"
 
 #ifdef CONFIG_MTK_CPU_MSSV
-extern unsigned int cpumssv_get_state(void);
+unsigned int __attribute__((weak)) cpumssv_get_state(void) { return 0; }
 #endif
 
 unsigned int func_lv_mask;

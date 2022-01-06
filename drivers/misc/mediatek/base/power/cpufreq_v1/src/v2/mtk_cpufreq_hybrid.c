@@ -74,7 +74,7 @@
 #endif
 
 #ifdef CONFIG_MTK_CPU_MSSV
-extern unsigned int cpumssv_get_state(void);
+unsigned int __attribute__((weak)) cpumssv_get_state(void) { return 0; }
 #endif
 
 #ifdef CONFIG_HYBRID_CPU_DVFS
