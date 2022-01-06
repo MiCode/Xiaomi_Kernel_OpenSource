@@ -6758,6 +6758,7 @@
 			topckgen = <&topckgen_clk>;
 			apmixedsys = <&apmixedsys_clk>;
 			infracfg = <&infracfg_ao_clk>;
+			pericfg = <&pericfg_ao_clk>;
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_AUDIO>;
 
 			clocks = <&afe_clk CLK_AFE_AFE>,
@@ -6809,7 +6810,9 @@
 				<&topckgen_clk CLK_TOP_APLL12_CK_DIVB>,
 				<&topckgen_clk CLK_TOP_APLL12_CK_DIV5>,
 				<&topckgen_clk CLK_TOP_AUDIO_H_SEL>,
-				<&topckgen_clk CLK_TOP_TCK_26M_MX9>;
+				<&topckgen_clk CLK_TOP_TCK_26M_MX9>,
+				<&pericfg_ao_clk CLK_PERAO_AUDIO_SLV_CK_PERI>,
+				<&pericfg_ao_clk CLK_PERAO_AUDIO_MST_CK_PERI>;
 
 			clock-names = "aud_afe_clk",
 				"aud_dac_clk",
@@ -6860,7 +6863,9 @@
 				"top_apll12_divb",
 				"top_apll12_div5",
 				"top_mux_audio_h",
-				"top_clk26m_clk";
+				"top_clk26m_clk",
+				"aud_slv_ck_peri",
+				"aud_mst_ck_peri";
 
 			pinctrl-names = "aud_clk_mosi_off",
 					"aud_clk_mosi_on",
