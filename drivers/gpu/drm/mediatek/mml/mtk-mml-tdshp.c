@@ -266,9 +266,11 @@ static s32 tdshp_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	/* TDSHP support crop capability, if no HFG. */
 	func->type = TILE_TYPE_CROP_EN;
 	func->init_func = tile_tdshp_init;
+	func->for_func = tile_crop_for;
 	func->data = data;
 
-	func->enable_flag = dest->pq_config.en_sharp;
+	func->enable_flag = dest->pq_config.en_sharp ||
+			    cfg->info.mode == MML_MODE_DDP_ADDON;
 
 	if (dest->rotate == MML_ROT_90 ||
 	    dest->rotate == MML_ROT_270) {
@@ -355,7 +357,13 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	if (!dest->pq_config.en_sharp && !dest->pq_config.en_dc) {
 		/* relay mode */
-		tdshp_relay(pkt, base_pa, 0x1);
+		if (cfg->info.mode == MML_MODE_DDP_ADDON) {
+			/* enable to crop */
+			tdshp_relay(pkt, base_pa, 0x0);
+			cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_00, 0, 1 << 31);
+		} else {
+			tdshp_relay(pkt, base_pa, 0x1);
+		}
 		return 0;
 	}
 	tdshp_relay(pkt, base_pa, 0x0);

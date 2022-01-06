@@ -1037,13 +1037,13 @@ static void dlo_config_left(struct mml_frame_config *cfg,
 			    struct dlo_tile_data *data)
 {
 	data->enable_x_crop = true;
-	data->crop_left = 0;
-	data->crop_width = cfg->dl_out[0].width;
-	if (data->crop_width == 0 || data->crop_width >= dest->data.width ||
-	    cfg->dl_out[0].height != dest->data.height)
-		mml_err("dlo[0] (%u, %u, %u, %u) cannot match dest (%u, %u)",
-			data->crop_left, 0, data->crop_width, cfg->dl_out[0].height,
-			dest->data.width, dest->data.height);
+	data->crop.left = 0;
+	data->crop.width = cfg->dl_out[0].width;
+	if (data->crop.width == 0 || data->crop.width >= dest->compose.width ||
+	    cfg->dl_out[0].height != dest->compose.height)
+		mml_err("dlo[0] (%u, %u, %u, %u) cannot match compose (%u, %u)",
+			data->crop.left, 0, data->crop.width, cfg->dl_out[0].height,
+			dest->compose.width, dest->compose.height);
 }
 
 static void dlo_config_right(struct mml_frame_config *cfg,
@@ -1051,14 +1051,14 @@ static void dlo_config_right(struct mml_frame_config *cfg,
 			     struct dlo_tile_data *data)
 {
 	data->enable_x_crop = true;
-	data->crop_left = cfg->dl_out[0].width;
-	data->crop_width = cfg->dl_out[1].width;
-	if (data->crop_left != cfg->dl_out[1].left - cfg->dl_out[0].left ||
-	    data->crop_width != dest->data.width - data->crop_left ||
-	    cfg->dl_out[1].height != dest->data.height)
-		mml_err("dlo[1] (%u, %u, %u, %u) cannot match dest (%u, %u) left %u",
-			data->crop_left, 0, data->crop_width, cfg->dl_out[1].height,
-			dest->data.width, dest->data.height,
+	data->crop.left = cfg->dl_out[0].width;
+	data->crop.width = cfg->dl_out[1].width;
+	if (data->crop.left != cfg->dl_out[1].left - cfg->dl_out[0].left ||
+	    data->crop.left + data->crop.width != dest->compose.width ||
+	    cfg->dl_out[1].height != dest->compose.height)
+		mml_err("dlo[1] (%u, %u, %u, %u) cannot match compose (%u, %u) left %u",
+			data->crop.left, 0, data->crop.width, cfg->dl_out[1].height,
+			dest->compose.width, dest->compose.height,
 			cfg->dl_out[1].left - cfg->dl_out[0].left);
 }
 
@@ -1075,11 +1075,10 @@ static s32 dlo_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			dlo_config_left(cfg, dest, &data->dlo);
 		else
 			dlo_config_right(cfg, dest, &data->dlo);
+	} else {
+		data->dlo.crop.width = dest->compose.width;
 	}
-	func->full_size_x_in = dest->data.width;
-	func->full_size_y_in = dest->data.height;
-	func->full_size_x_out = dest->data.width;
-	func->full_size_y_out = dest->data.height;
+	data->dlo.crop.height = dest->compose.height;
 
 	func->type = TILE_TYPE_WDMA;
 	func->back_func = tile_dlo_back;

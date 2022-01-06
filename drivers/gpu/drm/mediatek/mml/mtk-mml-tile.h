@@ -72,8 +72,7 @@ struct wrot_tile_data {
 
 struct dlo_tile_data {
 	bool enable_x_crop;
-	u32 crop_left;
-	u32 crop_width;
+	struct mml_rect crop;
 };
 
 union mml_tile_data {

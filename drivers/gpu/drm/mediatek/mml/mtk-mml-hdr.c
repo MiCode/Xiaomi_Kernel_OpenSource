@@ -252,7 +252,7 @@ static s32 hdr_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	data->hdr.relay_mode = dest->pq_config.en_hdr ? false : true;
 	data->hdr.min_width = hdr->data->min_tile_width;
 	func->init_func = tile_hdr_init;
-	func->for_func = tile_hdr_for;
+	func->for_func = tile_crop_for;
 	func->data = data;
 
 	func->enable_flag = dest->pq_config.en_hdr;

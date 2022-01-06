@@ -181,8 +181,8 @@ static s32 tile_message_to_errno(enum isp_tile_message result)
 	case ISP_MESSAGE_CHECK_OUT_CONFIG_ALIGN_XE_POS_ERROR:
 	case ISP_MESSAGE_CHECK_OUT_CONFIG_ALIGN_YS_POS_ERROR:
 	case ISP_MESSAGE_CHECK_OUT_CONFIG_ALIGN_YE_POS_ERROR:
+	case MDP_MESSAGE_BACKWARD_START_LESS_THAN_FORWARD:
 	case MDP_MESSAGE_RESIZER_SCALING_ERROR:
-	case MDP_MESSAGE_TDSHP_BACK_LT_FORWARD:
 		return -ERANGE;
 	default:
 		return -EINVAL;
@@ -224,14 +224,16 @@ static void dump_tile_working(struct tile_ctx *ctx)
 		tile_reg_map->curr_vertical_tile_no,
 		tile_reg_map->used_tile_no);
 	mml_log(
-		"func_num: full_in     , full_out    , in_pos  (xs, xe, ys, ye), out_pos (xs, xe, ys, ye), back_in (xs, xe, ys, ye), back_out(xs, xe, ys, ye), edge, disable");
+		"func_num: full_in     , full_out    , mima_out(xs, xe, ys, ye), in_pos  (xs, xe, ys, ye), out_pos (xs, xe, ys, ye), back_in (xs, xe, ys, ye), back_out(xs, xe, ys, ye), edge, disable");
 	for (i = 0; i < tile_func->used_func_no; i++) {
 		func = tile_func->func_list[i];
 		mml_log(
-			" [%5d]: (%4d, %4d), (%4d, %4d), (%4d, %4d, %4d, %4d), (%4d, %4d, %4d, %4d), (%4d, %4d, %4d, %4d), (%4d, %4d, %4d, %4d), 0x%02x,  (%1d, %1d)",
+			" [%5d]: (%4d, %4d), (%4d, %4d), (%4d, %4d, %4d, %4d), (%4d, %4d, %4d, %4d), (%4d, %4d, %4d, %4d), (%4d, %4d, %4d, %4d), (%4d, %4d, %4d, %4d), 0x%02x,  (%1d, %1d)",
 			func->func_num,
 			func->full_size_x_in, func->full_size_y_in,
 			func->full_size_x_out, func->full_size_y_out,
+			func->min_out_pos_xs, func->max_out_pos_xe,
+			func->min_out_pos_ys, func->max_out_pos_ye,
 			func->in_pos_xs, func->in_pos_xe,
 			func->in_pos_ys, func->in_pos_ye,
 			func->out_pos_xs, func->out_pos_xe,

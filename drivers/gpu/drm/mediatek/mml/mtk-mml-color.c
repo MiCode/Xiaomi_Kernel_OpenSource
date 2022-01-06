@@ -227,24 +227,10 @@ static s32 color_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			      struct tile_func_block *func,
 			      union mml_tile_data *data)
 {
-	struct mml_frame_config *cfg = task->config;
-	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
+	struct mml_frame_dest *dest =
+		&task->config->info.dest[ccfg->node->out_idx];
 
 	func->enable_flag = dest->pq_config.en_color;
-
-	if (dest->rotate == MML_ROT_90 ||
-	    dest->rotate == MML_ROT_270) {
-		func->full_size_x_in = dest->data.height;
-		func->full_size_y_in = dest->data.width;
-		func->full_size_x_out = dest->data.height;
-		func->full_size_y_out = dest->data.width;
-	} else {
-		func->full_size_x_in = dest->data.width;
-		func->full_size_y_in = dest->data.height;
-		func->full_size_x_out = dest->data.width;
-		func->full_size_y_out = dest->data.height;
-	}
-
 	return 0;
 }
 
