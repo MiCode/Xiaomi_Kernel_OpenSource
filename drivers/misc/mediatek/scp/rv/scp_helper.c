@@ -554,6 +554,20 @@ static void scp_A_notify_ws(struct work_struct *ws)
 #if SCP_DVFS_INIT_ENABLE
 		if (scp_dvfs_feature_enable()) {
 			sync_ulposc_cali_data_to_scp();
+
+			/*
+			 * Calling sync_ulposc_cali_data_to_scp() will resets the frequency request
+			 * so we need to request freq again in recovery flow.
+			 */
+			if (atomic_read(&scp_reset_status) != RESET_STATUS_STOP) {
+				scp_expected_freq = scp_get_freq();
+				scp_current_freq = readl(CURRENT_FREQ_REG);
+				if (scp_request_freq()) {
+					pr_notice("[SCP] %s: req_freq fail\n", __func__);
+					WARN_ON(1);
+				}
+			}
+
 			/* release pll clock after scp ulposc calibration */
 			scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 		}
@@ -1511,7 +1525,7 @@ static void scp_control_feature(enum feature_id id, bool enable)
 			if (scp_dvfs_feature_enable())
 				ret = scp_request_freq();
 #endif
-			if (ret == -1) {
+			if (ret < 0) {
 				pr_notice("[SCP] %s: req_freq fail\n", __func__);
 				WARN_ON(1);
 			}

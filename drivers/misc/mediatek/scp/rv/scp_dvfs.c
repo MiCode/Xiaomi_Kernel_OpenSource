@@ -716,7 +716,7 @@ int scp_request_freq_vlp(void)
 }
 
 /* scp_request_freq
- * return :-1 means the scp request freq. error
+ * return :<0 means the scp request freq. error
  * return :0  means the request freq. finished
  */
 int scp_request_freq(void)
@@ -1037,7 +1037,7 @@ static int mt_scp_dvfs_sleep_proc_show(struct seq_file *m, void *v)
 			__func__, ret);
 	} else {
 		if (*scp_ack_data >= SCP_SLEEP_OFF &&
-				*scp_ack_data <= SCP_SLEEP_NO_CONDITION)
+				*scp_ack_data <= SCP_SLEEP_ON)
 			seq_printf(m, "scp sleep flag: %d\n",
 				*scp_ack_data);
 		else
@@ -1085,7 +1085,7 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 	}
 	if (!strcmp(cmd, "sleep")) {
 		if (slp_cmd < SCP_SLEEP_OFF
-				|| slp_cmd > SCP_SLEEP_NO_CONDITION) {
+				|| slp_cmd > SCP_SLEEP_ON) {
 			pr_info("[%s]: invalid slp cmd: %d\n",
 				__func__, slp_cmd);
 			return -ESCP_DVFS_DBG_INVALID_CMD;
@@ -1392,6 +1392,12 @@ void sync_ulposc_cali_data_to_scp(void)
 		pr_notice("[%s]:ERROR scp is not switched to ULPOSC, CLK_SW_SEL=0x%x\n",
 			__func__, sel_clk);
 		WARN_ON(1);
+	} else {
+		/*
+		 * After syncing, scp will be changed to default freq, which is not set by kernel.
+		 * Reset last_scp_expected_freq to prevent not updating freq in scp reset flow.
+		 */
+		last_scp_expected_freq = 0;
 	}
 }
 
