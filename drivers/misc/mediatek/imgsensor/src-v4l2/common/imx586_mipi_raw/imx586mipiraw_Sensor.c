@@ -1017,6 +1017,9 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 		read_cmos_sensor_8(ctx, 0x0859));
 
 	if (enable) {
+		//test pattern reset
+		write_cmos_sensor_8(ctx, 0x0601, 0x00);
+		ctx->test_pattern = 0;
 		if (read_cmos_sensor_8(ctx, 0x0350) != 0x01) {
 			pr_debug("single cam scenario enable auto-extend");
 			write_cmos_sensor_8(ctx, 0x0350, 0x01);
@@ -3509,8 +3512,6 @@ static void custom3_setting(struct subdrv_ctx *ctx)
 
 	LOG_INF("%s full size 30 fps E!\n", __func__);
 	/*************MIPI output setting************/
-	imx586_table_write_cmos_sensor(ctx, imx586_custom3_setting,
-		sizeof(imx586_custom3_setting)/sizeof(kal_uint16));
 
 	if (!_is_seamless)
 		imx586_table_write_cmos_sensor(ctx, imx586_custom3_setting, _length);
@@ -4691,13 +4692,17 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	DEBUG_LOG(ctx, "mode: %d\n", mode);
-
+	pr_debug("test_pattern mode: %d\n", mode);
+	if (mode != 1) {
+		memset(_i2c_data, 0x0, sizeof(_i2c_data));
+		_size_to_write = 0;
+	}
 	if (mode)
-		write_cmos_sensor_8(ctx, 0x0601, mode); /*100% Color bar*/
+		set_cmos_sensor_8(ctx, 0x0601, mode); /*100% Color bar*/
 	else if (ctx->test_pattern)
-		write_cmos_sensor_8(ctx, 0x0601, 0x0000); /*No pattern*/
-
+		set_cmos_sensor_8(ctx, 0x0601, 0x00); /*No pattern*/
+	set_cmos_sensor_8(ctx, 0x0104, 0x00);
+	commit_write_sensor(ctx);
 	ctx->test_pattern = mode;
 	return ERROR_NONE;
 }
@@ -4705,10 +4710,10 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_pattern_data *data)
 {
 
-	pr_debug("test_patterndata R = %x, Gr = %x,Gb = %x,B = %x\n",
+	DEBUG_LOG(ctx, "test_patterndata R = %x, Gr = %x,Gb = %x,B = %x\n",
 		data->Channel_R >> 22, data->Channel_Gr >> 22,
 		data->Channel_Gb >> 22, data->Channel_B >> 22);
-
+	set_cmos_sensor_8(ctx, 0x0104, 0x01);
 	set_cmos_sensor_8(ctx, 0x0602, (data->Channel_R >> 30) & 0x3);
 	set_cmos_sensor_8(ctx, 0x0603, (data->Channel_R >> 22) & 0xff);
 	set_cmos_sensor_8(ctx, 0x0604, (data->Channel_Gr >> 30) & 0x3);
@@ -4717,7 +4722,7 @@ static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_
 	set_cmos_sensor_8(ctx, 0x0607, (data->Channel_B >> 22) & 0xff);
 	set_cmos_sensor_8(ctx, 0x0608, (data->Channel_Gb >> 30) & 0x3);
 	set_cmos_sensor_8(ctx, 0x0609, (data->Channel_Gb >> 22) & 0xff);
-	commit_write_sensor(ctx);
+	//commit_write_sensor(ctx);
 	return ERROR_NONE;
 }
 
