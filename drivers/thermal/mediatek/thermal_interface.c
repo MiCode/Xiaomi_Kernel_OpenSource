@@ -1039,7 +1039,7 @@ static int therm_intf_probe(struct platform_device *pdev)
 						 &args);
 
 		if (ret < 0)
-			return ret;
+			dev_err(tm_data.dev, "can't get cpu cluster by dts\n");
 
 		max_perf_domain = max(max_perf_domain, args.args[0]);
 	}
