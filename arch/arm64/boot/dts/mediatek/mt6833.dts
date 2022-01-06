@@ -3475,6 +3475,10 @@
 		interrupts = <GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH 0>;
 		memory-region = <&wifi_mem>;
 	};
+
+	gps: gps@18c00000 {
+		compatible = "mediatek,gps";
+	};
 };
 
 #include "mediatek/mt6833-clkitg.dtsi"
