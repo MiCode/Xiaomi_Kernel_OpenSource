@@ -3160,6 +3160,8 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 
 		ctx = &cam->ctxs[i];
 		req_stream_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+		if (!req_stream_data)
+			continue;
 		res_feature = mtk_cam_s_data_get_res_feature(req_stream_data);
 
 		if (mtk_cam_feature_is_time_shared(res_feature))
