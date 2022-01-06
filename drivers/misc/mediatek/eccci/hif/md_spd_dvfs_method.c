@@ -42,79 +42,80 @@ struct dvfs_ref {
 	int task_affinity;
 	int rps;
 	int bat_affinity;
+	int tx_done_affinity[4];
 };
 
 /* downlink */
 static const struct dvfs_ref s_dl_dvfs_tbl_v0[] = { /* default */
-	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat*/
-	{100000000000LL, {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3D, 0xFF}, /* 100G */
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{100000000000LL, {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3D, 0xFF, {-1, -1, -1, -1}},
 	/* normal */
-	{0LL,            {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3D, 0xFF},
+	{0LL,            {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3D, 0xFF, {-1, -1, -1, -1}},
 };
 
 static const struct dvfs_ref s_dl_dvfs_tbl_v1[] = { /* 6:2 */
-	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat*/
-	{4000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0xC0, 0xC0, 0xFF},
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{4000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0xC0, 0xC0, 0xFF, {-1, -1, -1, -1}},
 	/* normal */
-	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3F, 0xFF},
+	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3F, 0xFF, {-1, -1, -1, -1}},
 };
 
 static const struct dvfs_ref s_dl_dvfs_tbl_v2[] = { /* 4:4 */
-	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat*/
-	{4000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0xF0, 0xF0, 0xFF},
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{4000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0xF0, 0xF0, 0xFF, {-1, -1, -1, -1}},
 	/* normal */
-	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF},
+	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF, {-1, -1, -1, -1}},
 };
 
 static const struct dvfs_ref s_dl_dvfs_tbl_v3[] = { /* 4:3:1 */
-	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat*/
-	{1000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0x30, 0x40, 0xFF},
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{1000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0x30, 0x40, 0xFF, {-1, -1, -1, -1}},
 	/* normal */
-	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF},
+	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF, {-1, -1, -1, -1}},
 };
 
 static const struct dvfs_ref s_dl_dvfs_tbl_v4[] = { /* 4:3:1 */
-	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat*/
-	{2000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0x10, 0x20, 0x40},
-	{1000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0x04, 0x08, 0xFF},
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{2000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0x10, 0x20, 0x40, {0x0D, 0x0D, 0x0D, 0x0D}},
+	{1000000000LL, {-1, -1, -1, -1}, -1, 0x40, 0x10, 0x20, 0x70, {0x70, 0x70, 0x70, 0x70}},
 	/* normal */
-	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF},
+	{0LL,          {-1, -1, -1, -1}, -1, 0x02, 0xFF, 0x7F, 0xFF, {-1, -1, -1, -1}},
 };
 
 /* uplink */
 static const struct dvfs_ref s_ul_dvfs_tbl_v0[] = { /* default */
-	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat*/
-	{100000000000LL, {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3D, 0xFF}, /* 100G */
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{100000000000LL, {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3D, 0xFF, {-1, -1, -1, -1}},
 	/* normal */
-	{0LL,            {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3D, 0xFF},
+	{0LL,            {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3D, 0xFF, {-1, -1, -1, -1}},
 };
 
 static const struct dvfs_ref s_ul_dvfs_tbl_v1[] = { /* 6:2 */
-	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat*/
-	{450000000LL, {2000000, 2000000, -1, -1}, -1, 0x02, 0xC0, 0xC0, 0xFF},
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{450000000LL, {2000000, 2000000, -1, -1}, -1, 0x02, 0xC0, 0xC0, 0xFF, {-1, -1, -1, -1}},
 	/* normal */
-	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3F, 0xFF},
+	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x3F, 0xFF, {-1, -1, -1, -1}},
 };
 
 static const struct dvfs_ref s_ul_dvfs_tbl_v2[] = { /* 4:4 */
-	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat*/
-	{450000000LL, {2000000, 2000000, -1, -1}, -1, 0x02, 0xF0, 0xF0, 0xFF},
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{450000000LL, {2000000, 2000000, -1, -1}, -1, 0x02, 0xF0, 0xF0, 0xFF, {-1, -1, -1, -1}},
 	/* normal */
-	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF},
+	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF, {-1, -1, -1, -1}},
 };
 
 static const struct dvfs_ref s_ul_dvfs_tbl_v3[] = { /* 4:3:1 */
-	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat*/
-	{450000000LL, {2000000, 2000000, -1, -1}, 1, 0x02, 0x70, 0x70, 0xFF},
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{450000000LL, {2000000, 2000000, -1, -1}, 1, 0x02, 0x70, 0x70, 0xFF, {-1, -1, -1, -1}},
 	/* normal */
-	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF},
+	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF, {-1, -1, -1, -1}},
 };
 
 static const struct dvfs_ref s_ul_dvfs_tbl_v4[] = { /* 4:3:1 */
-	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat*/
-	{450000000LL, {2000000, 2000000, -1, -1}, 1, 0x02, 0x10, 0x20, 0xFF},
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{450000000LL, {2000000, 2000000, -1, -1}, 1, 0x02, 0x10, 0x20, 0xFF, {-1, -1, -1, -1}},
 	/* normal */
-	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF},
+	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF, {-1, -1, -1, -1}},
 };
 
 #define QOS_PREFER_CPU_BITMAP_V0_2_6	(0xC0)
@@ -152,8 +153,10 @@ static const struct dvfs_ref *s_ul_dvfs_tbl;
 static int s_ul_dvfs_items_num;
 static unsigned int s_prefer_cpu_bitmap;
 
+static int s_tx_done_affinity[4] = {-1};
 static struct task_struct *s_rx_push_task;
 static struct task_struct *s_alloc_bat_task;
+static unsigned int s_irq_id;
 
 static int s_curr_dl_idx, s_curr_ul_idx;
 
@@ -231,7 +234,7 @@ static inline int get_speed_hint(u64 speed, int curr_idx,
 
 static int s_final_cpu_freq[MAX_C_NUM];
 static int s_dram_lvl;
-unsigned int s_isr_affinity, s_task_affinity, s_rps;
+unsigned int s_task_affinity, s_rps;
 
 static inline void apply_qos_cpu_freq(void)
 {
@@ -301,6 +304,62 @@ static inline void apply_qos_rps(void)
 	set_ccmni_rps(s_rps);
 }
 
+static inline void apply_qos_isr(void)
+{
+	const struct dvfs_ref *dl_ref, *ul_ref;
+	int case_type = -1, i, ret, isr_affinity = -1;
+	struct cpumask tmask;
+
+	if (s_irq_id == 0)
+		return;
+
+	dl_ref = &s_dl_dvfs_tbl[s_curr_dl_idx];
+	ul_ref = &s_ul_dvfs_tbl[s_curr_ul_idx];
+
+	if (dl_ref->irq_affinity >= 0) {
+		isr_affinity = dl_ref->irq_affinity;
+		case_type = 0;
+	} else if (ul_ref->irq_affinity >= 0) {
+		isr_affinity = ul_ref->irq_affinity;
+		case_type = 1;
+	}
+
+	if (isr_affinity < 0)
+		return;
+
+	cpumask_clear(&tmask);
+	for (i = 0; i < 8; i++) {
+		if (((u8)isr_affinity) & (1 << i))
+			cpumask_set_cpu(i, &tmask);
+	}
+
+	ret = irq_set_affinity_hint(s_irq_id, &tmask);
+	pr_info("[%s] isr val:0x%X; type: %d; irq_set_affinity_hint(): %d\n",
+		__func__, (u8)isr_affinity, case_type, ret);
+}
+
+static inline void update_tx_done_affinity(void)
+{
+	const struct dvfs_ref *dl_ref, *ul_ref;
+	int i;
+
+	dl_ref = &s_dl_dvfs_tbl[s_curr_dl_idx];
+	ul_ref = &s_ul_dvfs_tbl[s_curr_ul_idx];
+
+	for (i = 0; i < 4; i++) {
+		if (dl_ref->tx_done_affinity[i] >= 0)
+			s_tx_done_affinity[i] = dl_ref->tx_done_affinity[i];
+		else if (ul_ref->tx_done_affinity[i] >= 0)
+			s_tx_done_affinity[i] = ul_ref->tx_done_affinity[i];
+		else
+			s_tx_done_affinity[i] = 0xFF;
+	}
+
+	pr_info("ccci: spd: s_tx_done_affinity[0x%x 0x%x 0x%x 0x%x]\n",
+			s_tx_done_affinity[0], s_tx_done_affinity[1],
+			s_tx_done_affinity[2], s_tx_done_affinity[3]);
+}
+
 static inline void apply_task_affinity(u32 push_cpus, int cpu_nr,
 		struct task_struct *task)
 {
@@ -364,23 +423,39 @@ static inline void spd_qos_method(u64 dl_speed[], u32 dl_num, u64 ul_speed[], u3
 		pr_info("ccci : spd: new idx[dl:%x--ul:%x]\n", s_curr_dl_idx, s_curr_ul_idx);
 		apply_qos_cpu_freq();
 		apply_qos_dram_freq();
+		apply_qos_isr();
 		apply_qos_rps();
+		update_tx_done_affinity();
 
 		if (dl_change)
 			apply_qos_task_affinity();
 	}
 }
 
+int mtk_ccci_get_tx_done_aff(int txq)
+{
+	if (txq < 0 || txq >= 4)
+		return -1;
+
+	return s_tx_done_affinity[txq];
+}
+
 void mtk_ccci_spd_qos_set_task(
 	struct task_struct *rx_push_task,
-	struct task_struct *alloc_bat_task)
+	struct task_struct *alloc_bat_task,
+	unsigned int irq_id)
 {
 	s_rx_push_task = rx_push_task;
 	s_alloc_bat_task = alloc_bat_task;
+	s_irq_id = irq_id;
 }
 
 void mtk_ccci_spd_qos_method_init(void)
 {
+	s_irq_id = 0;
+	s_rx_push_task = NULL;
+	s_alloc_bat_task = NULL;
+
 	spd_qos_tbl_init();
 	mtk_ccci_register_speed_callback(spd_qos_method, NULL);
 }

@@ -2729,7 +2729,8 @@ int dpmaif_late_init(unsigned char hif_id)
 	if (DPMAIF_RXQ_NUM > 0)
 		mtk_ccci_spd_qos_set_task(
 			dpmaif_ctrl->rxq[0].rx_thread,
-			dpmaif_ctrl->bat_alloc_thread);
+			dpmaif_ctrl->bat_alloc_thread,
+			dpmaif_ctrl->dpmaif_irq_id);
 
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_TAG_LOG(-1, TAG, "dpmaif:%s end\n", __func__);
