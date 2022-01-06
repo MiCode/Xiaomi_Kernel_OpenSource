@@ -1732,14 +1732,60 @@
 			"JOB",
 			"EVENT",
 			"PWR";
-		ged-supply = <&ged>;
 	};
 
-
-	ged: ged {
-		compatible = "mediatek,ged";
+	gpufreq: gpufreq {
+		compatible = "mediatek,gpufreq";
+			reg =
+				<0 0x13fbf000 0 0x1000>,  /* MFG_TOP_CONFIG (G3D_CONFIG) */
+				<0 0x13fa0000 0 0x10000>, /* MFG_PLL */
+				<0 0x13f90000 0 0x10000>, /* MFG_RPC */
+				<0 0x1c001000 0 0x1000>,  /* SLEEP */
+				<0 0x1021c000 0 0x1000>,  /* NTH_EMICFG_REG */
+				<0 0x10270000 0 0x1000>,  /* NTH_EMICFG_AO_MEM_REG */
+				<0 0x10001000 0 0x1000>,  /* INFRACFG_AO */
+				<0 0x10023000 0 0x1000>,  /* INFRA_AO_DEBUG_CTRL */
+				<0 0x1002b000 0 0x1000>,  /* INFRA_AO1_DEBUG_CTRL */
+				<0 0x11c10000 0 0x1000>,  /* EFUSE */
+				<0 0x13fb9c00 0 0x100>,   /* MFG_CPE_CONTROL */
+				<0 0x13fb6000 0 0x1000>;  /* MFG_CPE_SENSOR */
+			reg-names =
+				"mfg_top_config",
+				"mfg_pll",
+				"mfg_rpc",
+				"sleep",
+				"nth_emicfg_reg",
+				"nth_emicfg_ao_mem_reg",
+				"infracfg_ao",
+				"infra_ao_debug_ctrl",
+				"infra_ao1_debug_ctrl",
+				"efuse",
+				"mfg_cpe_control",
+				"mfg_cpe_sensor";
+			power-domains =
+				<&scpsys MT6833_POWER_DOMAIN_MFG0>,
+				<&scpsys MT6833_POWER_DOMAIN_MFG1>,
+				<&scpsys MT6833_POWER_DOMAIN_MFG2>,
+				<&scpsys MT6833_POWER_DOMAIN_MFG3>;
+			power-domain-names =
+				"pd_mfg0",
+				"pd_mfg1",
+				"pd_mfg2",
+				"pd_mfg3";
+			gpufreq_wrapper-supply = <&gpufreq_wrapper>;
 	};
 
+		gpufreq_wrapper: gpufreq_wrapper {
+			compatible = "mediatek,gpufreq_wrapper";
+			gpufreq-version = <2>;
+			dual-buck = <0>;
+			gpueb-support = <0>;
+		};
+
+		ged: ged {
+			compatible = "mediatek,ged";
+			gpufreq-supply = <&gpufreq>;
+		};
 
 	opp_table_disp: opp-table-disp {
 		compatible = "operating-points-v2";
