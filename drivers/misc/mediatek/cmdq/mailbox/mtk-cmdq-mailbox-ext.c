@@ -1157,18 +1157,10 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 			atomic_read(&cmdq->usage));
 
 	if (atomic_read(&cmdq->usage) <= 0) {
-		if (cmdq->suspended)
-			return IRQ_HANDLED;
+		cmdq_err("%s irq:%d cmdq:%pa suspend:%d usage:%d",
+			__func__, irq, &cmdq->base_pa, cmdq->suspended,
+			atomic_read(&cmdq->usage));
 
-		cmdq_clk_enable(cmdq);
-		cmdq_thread_dump_all(cmdq, false, false, false);
-
-		for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
-			if (cmdq->thread[i].chan) {
-				cmdq_dump_core(cmdq->thread[i].chan);
-				break;
-			}
-		cmdq_clk_disable(cmdq);
 		return IRQ_HANDLED;
 	}
 
