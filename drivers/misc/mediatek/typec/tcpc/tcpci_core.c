@@ -552,8 +552,14 @@ static void tcpc_event_init_work(struct work_struct *work)
 	tcpci_lock_typec(tcpc);
 	tcpci_event_init(tcpc);
 #ifdef CONFIG_USB_PD_WAIT_BC12
+#if defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+|| defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6739) \
+|| defined(CONFIG_MACH_MT6781)
+	tcpc->chg_psy = power_supply_get_by_name("charger");
+#else
 	tcpc->chg_psy = devm_power_supply_get_by_phandle(
 		tcpc->dev.parent, "charger");
+#endif
 	if (IS_ERR_OR_NULL(tcpc->chg_psy)) {
 		tcpci_unlock_typec(tcpc);
 		TCPC_ERR("%s get charger psy fail\n", __func__);

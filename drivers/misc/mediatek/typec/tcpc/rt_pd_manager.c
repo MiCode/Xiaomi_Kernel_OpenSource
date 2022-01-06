@@ -13,6 +13,7 @@
 #include "inc/tcpci_typec.h"
 #ifdef CONFIG_MTK_CHARGER
 #include <charger_class.h>
+#include <mtk_charger.h>
 #endif /* CONFIG_MTK_CHARGER */
 #ifdef CONFIG_WATER_DETECTION
 #include <mt-plat/mtk_boot.h>
@@ -24,6 +25,7 @@ struct rt_pd_manager_data {
 	struct device *dev;
 #ifdef CONFIG_MTK_CHARGER
 	struct charger_device *chg_dev;
+	struct charger_consumer *chg_consumer;
 #ifdef CONFIG_WATER_DETECTION
 	struct power_supply *chg_psy;
 #endif /* CONFIG_WATER_DETECTION */
@@ -79,11 +81,25 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			rpmd->sink_mv_old = rpmd->sink_mv_new;
 			rpmd->sink_ma_old = rpmd->sink_ma_new;
 			if (rpmd->sink_mv_new && rpmd->sink_ma_new) {
+#if defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+|| defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6739) \
+|| defined(CONFIG_MACH_MT6781)
+				charger_manager_enable_power_path(
+					rpmd->chg_consumer, MAIN_CHARGER, true);
+#else
 				charger_dev_enable_powerpath(rpmd->chg_dev,
-							     true);
+							true);
+				#endif
 			} else {
+#if defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) \
+|| defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6739) \
+|| defined(CONFIG_MACH_MT6781)
+				charger_manager_enable_power_path(
+					rpmd->chg_consumer, MAIN_CHARGER, true);
+#else
 				charger_dev_enable_powerpath(rpmd->chg_dev,
-							     false);
+							false);
+#endif
 			}
 		}
 #endif /* CONFIG_MTK_CHARGER */
@@ -580,7 +596,16 @@ static int rt_pd_manager_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err_get_chg_dev;
 	}
-
+#if defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6768) \
+	|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6781)
+		rpmd->chg_consumer = charger_manager_get_by_name(rpmd->dev,
+								 "charger_port1");
+	if (!rpmd->chg_consumer) {
+		dev_notice(rpmd->dev, "%s get chg consumer fail\n", __func__);
+		ret = -ENODEV;
+		goto err_get_chg_consumer;
+	}
+#endif
 #ifdef CONFIG_WATER_DETECTION
 	rpmd->chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (!rpmd->chg_psy) {
@@ -640,6 +665,10 @@ err_get_tcpc_dev:
 	power_supply_put(rpmd->chg_psy);
 err_get_chg_psy:
 #endif /* CONFIG_WATER_DETECTION */
+#if defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6768) \
+	|| defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6781)
+err_get_chg_consumer:
+#endif
 err_get_chg_dev:
 #endif /* CONFIG_MTK_CHARGER */
 	return ret;
