@@ -1540,17 +1540,13 @@ static int g_stat_pid;
 static int heap_stat_pid_proc_show(struct seq_file *s, void *v)
 {
 	int pid = g_stat_pid;
-	unsigned long long time1, time2;
 
 	if (!s)
 		return -EINVAL;
 
 	if (pid > 0) {
 		g_stat_pid = 0;
-		time1 = get_current_time_ms();
 		dmabuf_rbtree_dump_all(NULL, HEAP_DUMP_STATS, s, pid);
-		time2 = get_current_time_ms();
-		pr_info("%s pid: %d time: %u ms\n", __func__, pid, time2-time1);
 	}
 
 	return 0;
