@@ -532,7 +532,7 @@ endif
 ccflags-y += -DMET_USER_EVENT_SUPPORT -DMTK_GPU_DVFS
 ccflags-y += -DGED_DVFS_DEBUG_BUF
 ccflags-y += -DCONFIG_MTK_GPU_OPP_STATS_SUPPORT
-ccflags-y += -DGED_KPI_DEBUG
+# ccflags-y += -DGED_KPI_DEBUG
 
 VER := eng
 
