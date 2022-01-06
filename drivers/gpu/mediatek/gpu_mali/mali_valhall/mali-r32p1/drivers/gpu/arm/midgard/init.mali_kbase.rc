@@ -1,3 +1,0 @@
-on early-init
-    exec u:r:vendor_modprobe:s0 -- /vendor/bin/modprobe -a -d /vendor/lib/modules \
-    mali_kbase_${ro.board.platform}.ko \
