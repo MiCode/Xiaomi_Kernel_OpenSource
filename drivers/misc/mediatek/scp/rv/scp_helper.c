@@ -1563,6 +1563,11 @@ void scp_register_sensor(enum feature_id id, int sensor_id)
 		pr_debug("[SCP]register sensor id err");
 		return;
 	}
+
+	if (sensor_id >= NUM_SENSOR_TYPE) {
+		pr_info("[SCP] sensor id not in sensor freq table");
+		return;
+	}
 	/* because feature_table is a global variable
 	 * use mutex lock to protect it from
 	 * accessing in the same time
@@ -1591,6 +1596,11 @@ void scp_deregister_sensor(enum feature_id id, int sensor_id)
 
 	if (id != SENS_FEATURE_ID) {
 		pr_debug("[SCP]deregister sensor id err");
+		return;
+	}
+
+	if (sensor_id >= NUM_SENSOR_TYPE) {
+		pr_info("[SCP] sensor id not in sensor freq table");
 		return;
 	}
 	/* because feature_table is a global variable
