@@ -135,11 +135,6 @@
 		power-domains = <&scpsys MT6855_POWER_DOMAIN_MM_INFRA>;
 	};
 
-	bring-up-pd-mm_proc_dormant {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6855_POWER_DOMAIN_MM_PROC_DORMANT>;
-	};
-
 	bring-up-pd-csi_rx {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6855_POWER_DOMAIN_CSI_RX>;
