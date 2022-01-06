@@ -7,6 +7,7 @@
 
 /* control migration cost */
 extern unsigned int sysctl_sched_migration_cost;
+extern unsigned int sysctl_sched_sync_hint_enable;
 
 /* EAS */
 extern int uclamp_min_for_perf_idx(int group_idx, int min_value);
