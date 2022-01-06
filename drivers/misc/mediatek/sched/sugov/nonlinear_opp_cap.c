@@ -6,6 +6,7 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/cpumask.h>
+#include <linux/percpu.h>
 #include <sched/sched.h>
 #include "cpufreq.h"
 
@@ -112,6 +113,14 @@ static int init_capacity_table(void)
 		if (end_cap != cap)
 			goto err;
 		offset += CAPACITY_ENTRY_SIZE;
+
+		for_each_cpu(j, &pd_info->cpus) {
+			if (per_cpu(cpu_scale, j) != pd_info->caps[0]) {
+				pr_info("per_cpu(cpu_scale, %d)=%d, pd_info->caps[0]=%d\n",
+					j, per_cpu(cpu_scale, j), pd_info->caps[0]);
+				per_cpu(cpu_scale, j) = pd_info->caps[0];
+			}
+		}
 	}
 
 	if (entry_count != count)
