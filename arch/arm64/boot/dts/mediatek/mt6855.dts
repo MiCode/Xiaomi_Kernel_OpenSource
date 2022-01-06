@@ -522,7 +522,7 @@
 			    androidboot.hardware=mt6855 \
 			    initcall_debug=1 transparent_hugepage=never \
 			    vmalloc=400M swiotlb=noforce cma=64M \
-			    firmware_class.path=/vendor/firmware";
+			    firmware_class.path=/vendor/firmware pelt=8";
 		kaslr-seed = <0 0>;
 	};
 
