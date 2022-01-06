@@ -75,16 +75,6 @@
 			<&infracfg_ao_clk CLK_IFRAO_RG_FLASHIFP_26M_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_RG_FLASHIF_SFLASH_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_AP_DMA>,
-			<&apmixedsys_clk CLK_APMIXED_UNIVPLL>,
-			<&apmixedsys_clk CLK_APMIXED_MSDCPLL>,
-			<&apmixedsys_clk CLK_APMIXED_MMPLL>,
-			<&apmixedsys_clk CLK_APMIXED_ADSPPLL>,
-			<&apmixedsys_clk CLK_APMIXED_MFGPLL>,
-			<&apmixedsys_clk CLK_APMIXED_TVDPLL>,
-			<&apmixedsys_clk CLK_APMIXED_APLL1>,
-			<&apmixedsys_clk CLK_APMIXED_APLL2>,
-			<&apmixedsys_clk CLK_APMIXED_NPUPLL>,
-			<&apmixedsys_clk CLK_APMIXED_USBPLL>,
 			<&imp_iic_wrap_c_clk CLK_IMPC_I2C10_AP_CLOCK>,
 			<&imp_iic_wrap_c_clk CLK_IMPC_I2C11_AP_CLOCK>,
 			<&imp_iic_wrap_e_clk CLK_IMPE_I2C3_AP_CLOCK>,
@@ -97,10 +87,7 @@
 			<&imp_iic_wrap_w_clk CLK_IMPW_I2C5_AP_CLOCK>,
 			<&imp_iic_wrap_w_clk CLK_IMPW_I3C7_AP_CLOCK>,
 			<&imp_iic_wrap_n_clk CLK_IMPN_I2C6_AP_CLOCK>,
-			<&mfg_top_config_clk CLK_MFGCFG_BG3D>,
-			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_ACTIVE>;
+			<&mfg_top_config_clk CLK_MFGCFG_BG3D>;
 	};
 
 	bring-up-pd-disp {
