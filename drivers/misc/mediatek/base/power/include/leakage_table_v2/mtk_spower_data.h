@@ -60,6 +60,10 @@ struct spower_raw_t {
 #include "mtk_spower_data_mt6768.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6893)
+#include "mtk_spower_data_mt6893.h"
+#endif
+
 #if defined(CONFIG_MACH_MT6877)
 #include "mtk_spower_data_mt6877.h"
 #endif

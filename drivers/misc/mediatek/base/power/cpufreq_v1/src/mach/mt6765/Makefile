@@ -19,5 +19,6 @@ ccflags-y +=	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping/$(CONFIG_MTK_PLATFORM)
 
+ccflags-y += -DUSE_SSPM_VER_V1
 
 obj-y += mtk_cpufreq_platform.o

@@ -11,6 +11,10 @@
 #include "mtk_cpufreq_hybrid.h"
 #include "mtk_cpufreq_platform.h"
 
+#ifdef CONFIG_MTK_CPU_MSSV
+unsigned int __attribute__((weak)) cpumssv_get_state(void) { return 0; }
+#endif
+
 unsigned int func_lv_mask;
 unsigned int do_dvfs_stress_test;
 unsigned int dvfs_power_mode;
@@ -231,6 +235,40 @@ static ssize_t cpufreq_freq_proc_write(struct file *file,
 		tag_pr_info
 		("echo khz > /proc/cpufreq/%s/cpufreq_freq\n", p->name);
 	} else {
+#ifdef CONFIG_MTK_CPU_MSSV
+		if (!cpumssv_get_state()) {
+			for (i = 0; i < p->nr_opp_tbl; i++) {
+				if (freq == p->opp_tbl[i].cpufreq_khz) {
+					found = 1;
+					break;
+				}
+			}
+		} else if (freq > 0)
+			found = 1;
+
+		if (found == 1) {
+			p->dvfs_disable_by_procfs = true;
+  #ifdef CONFIG_HYBRID_CPU_DVFS
+			if (!cpu_dvfs_is(p, MT_CPU_DVFS_CCI))
+    #ifdef SINGLE_CLUSTER
+				cpuhvfs_set_freq(cpufreq_get_cluster_id(
+					p->cpu_id), freq);
+    #else
+				cpuhvfs_set_freq(arch_get_cluster_id(
+					p->cpu_id), freq);
+    #endif
+			else
+				cpuhvfs_set_freq(MT_CPU_DVFS_CCI, freq);
+  #else
+			_mt_cpufreq_dvfs_request_wrapper(p,
+					i, MT_CPU_DVFS_NORMAL, NULL);
+  #endif
+		} else {
+			p->dvfs_disable_by_procfs = false;
+			tag_pr_info(
+		"frequency %dKHz! is not found in CPU opp table\n", freq);
+			}
+#else
 		if (freq < p->opp_tbl[p->nr_opp_tbl - 1].cpufreq_khz) {
 			if (freq != 0)
 				tag_pr_info
@@ -274,6 +312,7 @@ static ssize_t cpufreq_freq_proc_write(struct file *file,
 				freq);
 			}
 		}
+#endif
 	}
 
 	return count;
@@ -532,11 +571,11 @@ static int cpufreq_cci_mode_proc_show(struct seq_file *m, void *v)
 #ifdef CONFIG_HYBRID_CPU_DVFS
 	mode = cpuhvfs_get_cci_mode();
 	if (mode == 0)
-		seq_puts(m, "cci_mode as Normal mode\n");
+		seq_puts(m, "cci_mode as Normal mode 0\n");
 	else if (mode == 1)
-		seq_puts(m, "cci_mode as Perf mode\n");
+		seq_puts(m, "cci_mode as Perf mode 1\n");
 	else
-		seq_puts(m, "cci_mode as Unknown mode\n");
+		seq_puts(m, "cci_mode as Unknown mode 2\n");
 #endif
 	return 0;
 }
@@ -567,6 +606,98 @@ static ssize_t cpufreq_cci_mode_proc_write(struct file *file,
 }
 #endif
 
+#ifdef IMAX_ENABLE
+static int cpufreq_imax_enable_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int state;
+
+#ifdef CONFIG_HYBRID_CPU_DVFS
+	state = cpuhvfs_get_imax_state();
+	seq_printf(m, "IMAX MODE = %d, (DISABLE = 0, ENABLE = 1, MPMM = 2)\n",
+			state);
+#endif
+	return 0;
+}
+
+static ssize_t cpufreq_imax_enable_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int state;
+	int rc;
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	rc = kstrtoint(buf, 10, &state);
+
+	if (rc < 0)
+		tag_pr_info(
+		"Usage: echo ON/OFF(0:Disable 1:Enable 2:Enable MPMM)\n");
+	else {
+#ifdef CONFIG_HYBRID_CPU_DVFS
+		/* BY_PROC_FS */
+		cpuhvfs_update_imax_state(state);
+#endif
+	}
+
+	return count;
+}
+
+static int cpufreq_imax_reg_dump_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int reg_val[REG_LEN] = {0};
+	unsigned int addr_arr[REG_LEN] = { 0xcd10, 0xce0c, 0xce10, 0xce14 };
+	unsigned int i;
+
+#ifdef CONFIG_HYBRID_CPU_DVFS
+	cpufreq_get_imax_reg(addr_arr, reg_val);
+	for (i = 0; i < REG_LEN; i++)
+		seq_printf(m, "IMAX addr 0x%x = 0x%x\n", addr_arr[i],
+				reg_val[i]);
+#endif
+	return 0;
+}
+
+static int cpufreq_imax_thermal_protect_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int state;
+
+#ifdef CONFIG_HYBRID_CPU_DVFS
+	state = cpuhvfs_get_imax_thermal_state();
+	seq_printf(m, "IMAX THERMAL protect = %d, (DISABLE = 0, ENABLE = 1)\n",
+			state);
+#endif
+	return 0;
+}
+
+static ssize_t cpufreq_imax_thermal_protect_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int state;
+	int rc;
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	rc = kstrtoint(buf, 10, &state);
+
+	if (rc < 0)
+		tag_pr_info(
+		"Usage: echo ON/OFF(0:Disable 1:Enable)\n");
+	else {
+#ifdef CONFIG_HYBRID_CPU_DVFS
+		/* BY_PROC_FS */
+		cpuhvfs_update_imax_thermal_state(state);
+#endif
+	}
+
+	return count;
+}
+
+#endif
+
 PROC_FOPS_RW(cpufreq_debug);
 PROC_FOPS_RW(cpufreq_stress_test);
 PROC_FOPS_RW(cpufreq_power_mode);
@@ -575,6 +706,11 @@ PROC_FOPS_RW(cpufreq_dvfs_time_profile);
 #ifdef CCI_MAP_TBL_SUPPORT
 PROC_FOPS_RW(cpufreq_cci_map_table);
 PROC_FOPS_RW(cpufreq_cci_mode);
+#endif
+#ifdef IMAX_ENABLE
+PROC_FOPS_RW(cpufreq_imax_enable);
+PROC_FOPS_RO(cpufreq_imax_reg_dump);
+PROC_FOPS_RW(cpufreq_imax_thermal_protect);
 #endif
 
 PROC_FOPS_RW(cpufreq_oppidx);
@@ -604,6 +740,12 @@ int cpufreq_procfs_init(void)
 		PROC_ENTRY(cpufreq_cci_map_table),
 		PROC_ENTRY(cpufreq_cci_mode),
 #endif
+#ifdef IMAX_ENABLE
+		PROC_ENTRY(cpufreq_imax_enable),
+		PROC_ENTRY(cpufreq_imax_reg_dump),
+		PROC_ENTRY(cpufreq_imax_thermal_protect),
+#endif
+
 	};
 
 	const struct pentry cpu_entries[] = {

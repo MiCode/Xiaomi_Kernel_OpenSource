@@ -1330,7 +1330,12 @@ static struct freq_attr *_mt_cpufreq_attr[] = {
 };
 
 static struct cpufreq_driver _mt_cpufreq_driver = {
+#if defined(CONFIG_MTK_PLAT_MT6885_EMULATION) || defined(CONFIG_MACH_MT6893) \
+	|| defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6781)
+	.flags = CPUFREQ_ASYNC_NOTIFICATION | CPUFREQ_HAVE_GOVERNOR_PER_POLICY,
+#else
 	.flags = CPUFREQ_ASYNC_NOTIFICATION,
+#endif
 	.verify = _mt_cpufreq_verify,
 	.target = _mt_cpufreq_target,
 	.init = _mt_cpufreq_init,
@@ -1586,6 +1591,7 @@ static enum cpuhp_state hp_online;
 static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 {
 	unsigned int lv = _mt_cpufreq_get_cpu_level();
+	unsigned int ret;
 	struct mt_cpu_dvfs *p;
 	int j;
 #ifndef CONFIG_HYBRID_CPU_DVFS
@@ -1599,15 +1605,19 @@ static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 	/* init proc */
 	cpufreq_procfs_init();
 	_mt_cpufreq_aee_init();
+	ret = mt_cpufreq_regulator_map(pdev);
+	if (ret)
+		tag_pr_notice("%s regulator map fail\n", __func__);
 
 #ifdef CONFIG_HYBRID_CPU_DVFS
+#ifdef INIT_MCUPM_VOLTAGE_SETTING
+	cpuhvfs_set_init_volt();
+#endif
 	/* For SSPM probe */
 	cpuhvfs_set_init_sta();
 	/* Default disable schedule assist DVFS */
 	cpuhvfs_set_sched_dvfs_disable(1);
 #endif
-
-	mt_cpufreq_regulator_map(pdev);
 
 	/* Prepare OPP table for PPM in probe to avoid nested lock */
 	for_each_cpu_dvfs(j, p) {
