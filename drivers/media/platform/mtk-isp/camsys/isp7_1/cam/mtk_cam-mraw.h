@@ -310,6 +310,12 @@ int mtk_mraw_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif
 void mtk_cam_mraw_update_param(struct mtkcam_ipi_frame_param *frame_param,
 	struct mtk_mraw_pipeline *mraw_pipline);
+void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
+	unsigned int *width, unsigned int *height);
+void mtk_cam_mraw_get_mbn_size(struct mtk_cam_device *cam, unsigned int pipe_id,
+	unsigned int *width, unsigned int *height);
+void mtk_cam_mraw_get_cpi_size(struct mtk_cam_device *cam, unsigned int pipe_id,
+	unsigned int *width, unsigned int *height);
 
 extern struct platform_driver mtk_cam_mraw_driver;
 

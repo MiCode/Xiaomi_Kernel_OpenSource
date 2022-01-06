@@ -476,6 +476,8 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 	unsigned int ipi_fmt;
 	int i, j, pixel_bits, plane_factor;
 	unsigned long vblank, fps, height, PBW_MB_s, ABW_MB_s;
+	unsigned int width_mbn = 0, height_mbn = 0;
+	unsigned int width_cpi = 0, height_cpi = 0;
 
 	raw_mmqos = raw_qos + engine_id;
 
@@ -933,19 +935,23 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 			case MTKCAM_IPI_MRAW_META_STATS_CFG:
 				/* common */
 				ipi_fmt = ctx->mraw_pipe[i]->res_config.img_fmt;
-				pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
+				pixel_bits = 16;
 				plane_factor = mtk_cam_get_fmt_size_factor(ipi_fmt);
 				mraw_mmqos = &mraw_qos[ctx->mraw_pipe[i]->id -
 					MTKCAM_SUBDEV_MRAW_START];
+				mtk_cam_mraw_get_mbn_size(
+					cam, ctx->mraw_pipe[i]->id, &width_mbn, &height_mbn);
+				mtk_cam_mraw_get_cpi_size(
+					cam, ctx->mraw_pipe[i]->id, &width_cpi, &height_cpi);
+
 				/* imgo */
 				qos_port_id = ((ctx->mraw_pipe[i]->id - MTKCAM_SUBDEV_MRAW_START)
 								* mraw_qos_port_num)
 								+ mraw_imgo;
-				PBW_MB_s = ctx->mraw_pipe[i]->res_config.width * fps *
-					(vblank + height) * pixel_bits * plane_factor / 8 / 100;
-				ABW_MB_s = ctx->mraw_pipe[i]->res_config.width * fps *
-					ctx->mraw_pipe[i]->res_config.height * pixel_bits *
-					plane_factor / 8 / 100;
+				PBW_MB_s = width_mbn * fps *
+					(vblank + height_mbn) * pixel_bits * plane_factor / 8 / 100;
+				ABW_MB_s = width_mbn * fps *
+					height_mbn * pixel_bits * plane_factor / 8 / 100;
 				dvfs_info->mraw_qos_bw_peak[qos_port_id] = PBW_MB_s;
 				dvfs_info->mraw_qos_bw_avg[qos_port_id] = ABW_MB_s;
 				if (unlikely(debug_mmqos))
@@ -956,11 +962,15 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 				qos_port_id = ((ctx->mraw_pipe[i]->id - MTKCAM_SUBDEV_MRAW_START)
 								* mraw_qos_port_num)
 								+ mraw_imgbo;
-				PBW_MB_s = ctx->mraw_pipe[i]->res_config.width * fps *
-					(vblank + height) * pixel_bits * plane_factor / 8 / 100;
-				ABW_MB_s = ctx->mraw_pipe[i]->res_config.width * fps *
-					ctx->mraw_pipe[i]->res_config.height * pixel_bits *
-					plane_factor / 8 / 100;
+				PBW_MB_s = width_mbn * fps *
+					(vblank + height_mbn) * pixel_bits * plane_factor / 8 / 100;
+				ABW_MB_s = width_mbn * fps *
+					height_mbn * pixel_bits * plane_factor / 8 / 100;
+				/* cpio */
+				PBW_MB_s += ((width_cpi + 7) / 8) * fps *
+					(vblank + height_cpi) * plane_factor / 8 / 100;
+				ABW_MB_s += ((width_cpi + 7) / 8) * fps *
+					height_cpi * plane_factor / 8 / 100;
 				dvfs_info->mraw_qos_bw_peak[qos_port_id] = PBW_MB_s;
 				dvfs_info->mraw_qos_bw_avg[qos_port_id] = ABW_MB_s;
 				if (unlikely(debug_mmqos))
