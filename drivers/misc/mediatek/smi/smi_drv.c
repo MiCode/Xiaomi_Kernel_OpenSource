@@ -28,7 +28,7 @@
 #if IS_ENABLED(CONFIG_MEDIATEK_EMI)
 #include <memory/mediatek/emi.h>
 #elif IS_ENABLED(CONFIG_MTK_EMI)
-#include <plat_debug_api.h>
+//#include <plat_debug_api.h>
 #elif IS_ENABLED(CONFIG_MTK_EMI_BWL)
 #include <emi_mbw.h>
 #endif

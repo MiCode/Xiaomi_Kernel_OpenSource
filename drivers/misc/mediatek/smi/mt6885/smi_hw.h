@@ -6,7 +6,7 @@
 #ifndef __SMI_HW_H__
 #define __SMI_HW_H__
 
-#include <clk-mt6885-pg.h>
+#include <clk-mt6893-pg.h>
 #include <smi_port.h>
 
 static const u32 smi_subsys_to_larbs[NR_SYSS] = {
