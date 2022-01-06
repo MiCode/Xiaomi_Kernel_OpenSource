@@ -75,7 +75,11 @@ static int cm_mgr_check_dram_type(void)
 	int ddr_type = mtk_dramc_get_ddr_type();
 	int ddr_hz = mtk_dramc_get_steps_freq(0);
 
-	if (ddr_type == TYPE_LPDDR4X || ddr_type == TYPE_LPDDR4)
+	if (ddr_type == 0)
+		cm_mgr_idx = CM_MGR_LP4; /* default LP4 if type unknown */
+	else if (ddr_type == TYPE_LPDDR4X ||
+		ddr_type == TYPE_LPDDR4  ||
+		ddr_type == TYPE_LPDDR4P)
 		cm_mgr_idx = CM_MGR_LP4;
 	else
 		cm_mgr_idx = CM_MGR_LP5;
