@@ -3527,7 +3527,7 @@
 
 		mmc0: mmc@11230000 {
 			compatible = "mediatek,common-mmc-v2";
-			reg = <0 0x11230000 0 0x1000>,
+			reg = <0 0x11230000 0 0x2000>,
 			      <0 0x11e70000 0 0x1000>;
 			interrupts = <GIC_SPI 387 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&topckgen_clk CLK_TOP_MSDC50_0_HCLK_SEL>,
