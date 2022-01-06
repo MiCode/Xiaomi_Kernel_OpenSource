@@ -64,7 +64,11 @@ int mtk_common_gpufreq_commit(int opp_idx)
 
 	mutex_lock(&mfg_pm_lock);
 	if (opp_idx >= 0 && mtk_common_pm_is_mfg_active()) {
+	#if defined(CONFIG_MACH_MT6768)
+		ret = mt_gpufreq_target(opp_idx, false);
+	#else
 		ret = mt_gpufreq_target(opp_idx, KIR_POLICY);
+	#endif
 	}
 	mutex_unlock(&mfg_pm_lock);
 

@@ -14,7 +14,7 @@
 #ifndef __MTK_MFG_COUNTER_H_
 #define __MTK_MFG_COUNTER_H_
 
-#include <mt-plat/mtk_gpu_utility.h>
+#include <mtk_gpu_utility.h>
 #define MALI_HWC_TYPES					4
 #define MALI_COUNTERS_PER_BLOCK			64
 

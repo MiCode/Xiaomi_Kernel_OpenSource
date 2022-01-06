@@ -2662,7 +2662,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	};
 
 	mali@13040000 {
-		compatible = "mediatek,mali", "arm,mali-midgard", "arm,mali-bifrost";
+		compatible = "mediatek,mali", "arm,mali-valhall";
 		reg = <0 0x13040000 0 0x4000>;
 		interrupts =
 			<GIC_SPI 274 IRQ_TYPE_LEVEL_LOW>,

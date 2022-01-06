@@ -2501,7 +2501,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	};
 
 	mali@13040000 {
-		compatible = "mediatek,mali", "arm,mali-midgard", "arm,mali-bifrost";
+		compatible = "mediatek,mali", "arm,mali-valhall";
 		reg = <0 0x13040000 0 0x4000>;
 		interrupts =
 			<GIC_SPI 274 IRQ_TYPE_LEVEL_LOW>,
@@ -2515,9 +2515,11 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			"JOB",
 			"EVENT",
 			"PWR";
+
+		ged-supply = <&ged>;
 	};
 
-	gpufreq {
+	gpufreq: gpufreq {
 		compatible = "mediatek,mt6768-gpufreq";
 		clocks =
 			<&topckgen CLK_TOP_MFG_SEL>,	   /* clk_mux */
@@ -2537,6 +2539,13 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			"mtcmos_mfg",
 			"mtcmos_mfg_core0",
 			"mtcmos_mfg_core1";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
+	};
+
+	ged: ged {
+		compatible = "mediatek,ged";
+		gpufreq-supply = <&gpufreq>;
 	};
 
 	mmsys_config: mmsys_config@14000000 {

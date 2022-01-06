@@ -91,7 +91,7 @@ CONFIG_MALI_PLATFORM_NAME ?= $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME)
 MALI_PLATFORM_DIR := $(shell echo $(CONFIG_MALI_PLATFORM_NAME))
 ifeq ($(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM), y)
     include $(srctree)/drivers/misc/mediatek/trusted_mem/Makefile.include
-    ccflags-y += -I$(srctree)/drivers/staging/android/ion
+    ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion
 endif
 
 ifeq ($(CONFIG_MALI_CSF_SUPPORT),y)
