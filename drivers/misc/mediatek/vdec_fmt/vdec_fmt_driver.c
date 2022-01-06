@@ -57,13 +57,14 @@ static int fmt_lock(u32 id, bool sec)
 		usleep_range(10000, 20000);
 	}
 
-	if (sec != false)
-		gce_status = GCE_SECURE;
-	else
-		gce_status = GCE_NORMAL;
+	//if (sec != false)
+	//	gce_status = GCE_SECURE;
+	//else
+	// FMT only support sec in TZMP flow, always use normal GCE
+	gce_status = GCE_NORMAL;
 
-	fmt_debug(1, "id %d gce_status %d cur gce_status %d",
-				id,
+	fmt_debug(1, "id %d sec %d gce_status %d cur gce_status %d",
+				id, sec,
 				gce_status,
 				fmt->gce_status[id]);
 
