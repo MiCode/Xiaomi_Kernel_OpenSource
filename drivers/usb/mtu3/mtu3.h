@@ -430,6 +430,7 @@ struct mtu3 {
 
 	unsigned is_gadget_ready:1;
 	int ep_slot_mode;
+	unsigned async_callbacks:1;
 };
 
 static inline struct mtu3 *gadget_to_mtu3(struct usb_gadget *g)
