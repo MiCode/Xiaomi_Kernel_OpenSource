@@ -3110,7 +3110,7 @@
 			dfd_disable_efuse = <(-1) (-1)>;
 			dfd_cache: dfd_cache {
 				enabled = <0>;
-				dfd_timeout = <0x1770>;
+				dfd_timeout = <0x4e20>;
 				buf_length = <0x2000000>;
 				tap_en = <0x43ff>;
 			};
