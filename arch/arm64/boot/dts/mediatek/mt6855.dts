@@ -90,6 +90,7 @@
 		dither0 = &disp_dither0;
 		postmask0 = &disp_postmask0;
 		dsc0 = &disp_dsc_wrap0;
+		mtksmmu0 = &disp_iommu;
 	};
 
 	/* ATF logger */
