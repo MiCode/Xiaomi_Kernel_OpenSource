@@ -166,6 +166,7 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
 	ctx->async_mode = 1;
 
+#ifdef CONFIG_MTK_SLBC
 	ctx->sram_data.uid = UID_MM_VENC;
 	ctx->sram_data.type = TP_BUFFER;
 	ctx->sram_data.size = 0;
@@ -176,6 +177,7 @@ void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 	else
 		ctx->use_slbc = 0;
 	pr_debug("slbc_request %d, %p\n", &ctx->sram_data, ctx->use_slbc);
+#endif
 }
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
@@ -237,10 +239,12 @@ void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *mtkdev)
 
 void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
+#ifdef CONFIG_MTK_SLBC
 	if (ctx->use_slbc == 1) {
 		pr_debug("slbc_release, %p\n", &ctx->sram_data);
 		slbc_release(&ctx->sram_data);
 	}
+#endif
 }
 
 void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
@@ -272,11 +276,13 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	}
 	time_check_end(MTK_FMT_ENC, core_id, 50);
 #endif
+#ifdef CONFIG_MTK_SLBC
 	if (ctx->use_slbc == 1) {
 		time_check_start(MTK_FMT_ENC, core_id);
 		ret = slbc_power_on(&ctx->sram_data);
 		time_check_end(MTK_FMT_ENC, core_id, 50);
 	}
+#endif
 
 #ifdef CONFIG_MTK_PSEUDO_M4U
 	time_check_start(MTK_FMT_ENC, core_id);
@@ -292,11 +298,13 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	for (i = 0; i < larb_port_num; i++) {
 		if (i == 5 || i == 6 || i == 13 ||
 			i == 14 || i == 21 || i == 22) {
-			ret = smi_sysram_enable(MTK_M4U_ID(larb_id, i),
-				true, "LARB_VENC");
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
+			ret = smi_sysram_enable(MTK_M4U_ID(larb_id, i), true, "LARB_VENC");
 			if (ret)
-				mtk_v4l2_err("%#x is not ready err: %#x\n",
-					i, ret);
+				mtk_v4l2_err("%#x is not ready err: %#x\n", i, ret);
+#else
+			smi_sysram_enable(MTK_M4U_ID(larb_id, i), true, "LARB_VENC");
+#endif
 		} else {
 			port.ePortID = MTK_M4U_ID(larb_id, i);
 			port.Direction = 0;
@@ -316,8 +324,10 @@ void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 {
 	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
 
+#ifdef CONFIG_MTK_SLBC
 	if (ctx->use_slbc == 1)
 		slbc_power_off(&ctx->sram_data);
+#endif
 
 #ifndef FPGA_PWRCLK_API_DISABLE
 	if (core_id == MTK_VENC_CORE_0 ||

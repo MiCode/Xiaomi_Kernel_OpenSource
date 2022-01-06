@@ -83,6 +83,6 @@ ccflags-y += -I$(srctree)/drivers/iommu/
 ccflags-y += -I$(srctree)/arch/arm
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/slbc
-ccflags-y += -I$(srctree)/drivers/staging/android/ion
-ccflags-y += -I$(srctree)/drivers/staging/android/ion/mtk
+ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion
+ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion/mtk
 
