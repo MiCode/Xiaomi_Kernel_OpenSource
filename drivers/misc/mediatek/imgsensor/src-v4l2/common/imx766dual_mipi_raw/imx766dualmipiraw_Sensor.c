@@ -755,18 +755,20 @@ static void get_vc_info_2(struct SENSOR_VC_INFO2_STRUCT *pvcinfo2, kal_uint32 sc
 	}
 }
 
-static kal_uint32 get_exp_cnt_by_scenario(kal_uint32 scenario)
+static int get_frame_desc(struct subdrv_ctx *ctx,
+		int scenario_id, struct mtk_mbus_frame_desc *fd);
+
+static kal_uint32 get_exp_cnt_by_scenario(struct subdrv_ctx *ctx, kal_uint32 scenario)
 {
 	kal_uint32 exp_cnt = 0, i = 0;
-	struct SENSOR_VC_INFO2_STRUCT vcinfo2;
+	struct mtk_mbus_frame_desc frame_desc;
 
-	get_vc_info_2(&vcinfo2, scenario);
+	get_frame_desc(ctx, scenario, &frame_desc);
 
-	for (i = 0; i < MAX_VC_INFO_CNT; ++i) {
-		if (vcinfo2.vc_info[i].VC_FEATURE > VC_STAGGER_MIN_NUM &&
-			vcinfo2.vc_info[i].VC_FEATURE < VC_STAGGER_MAX_NUM) {
+	for (i = 0; i < frame_desc.num_entries; ++i) {
+		if (frame_desc.entry[i].bus.csi2.user_data_desc > VC_STAGGER_MIN_NUM &&
+			frame_desc.entry[i].bus.csi2.user_data_desc < VC_STAGGER_MAX_NUM)
 			exp_cnt++;
-		}
 	}
 
 	LOG_DEBUG("%s exp_cnt %d\n", __func__, exp_cnt);
@@ -3326,7 +3328,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO:
 		if (*(feature_data + 2) & SENSOR_GET_LINELENGTH_FOR_READOUT)
-			ratio = get_exp_cnt_by_scenario((*feature_data));
+			ratio = get_exp_cnt_by_scenario(ctx, *feature_data);
 
 		switch (*feature_data) {
 		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
