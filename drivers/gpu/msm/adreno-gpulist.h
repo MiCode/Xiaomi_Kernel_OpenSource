@@ -1716,8 +1716,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a662 = {
 	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A662, 6, 6, 2, ANY_ID),
 		.features = ADRENO_APRIV | ADRENO_IOCOHERENT |
-			ADRENO_CONTENT_PROTECTION | ADRENO_PREEMPTION |
-			ADRENO_IFPC,
+			ADRENO_CONTENT_PROTECTION | ADRENO_PREEMPTION,
 		.gpudev = &adreno_a6xx_gmu_gpudev.base,
 		.perfcounters = &adreno_a6xx_perfcounters,
 		.gmem_base = 0,
