@@ -17,6 +17,7 @@
 		compatible = "qcom,pm8998-pon";
 		reg = <0x1300>, <0x800>;
 		reg-names = "pon_hlos", "pon_pbs";
+		qcom,log-kpd-event;
 
 		pwrkey {
 			compatible = "qcom,pmk8350-pwrkey";
