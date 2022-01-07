@@ -414,7 +414,7 @@ struct pkvm_mem_transition {
 
 struct pkvm_mem_share {
 	const struct pkvm_mem_transition	tx;
-	const enum kvm_pgtable_prot		prot;
+	const enum kvm_pgtable_prot		completer_prot;
 };
 
 struct check_walk_data {
@@ -604,7 +604,7 @@ static int check_share(struct pkvm_mem_share *share)
 
 	switch (tx->completer.id) {
 	case PKVM_ID_HYP:
-		ret = hyp_ack_share(completer_addr, tx, share->prot);
+		ret = hyp_ack_share(completer_addr, tx, share->completer_prot);
 		break;
 	default:
 		ret = -EINVAL;
@@ -632,7 +632,7 @@ static int __do_share(struct pkvm_mem_share *share)
 
 	switch (tx->completer.id) {
 	case PKVM_ID_HYP:
-		ret = hyp_complete_share(completer_addr, tx, share->prot);
+		ret = hyp_complete_share(completer_addr, tx, share->completer_prot);
 		break;
 	default:
 		ret = -EINVAL;
@@ -756,7 +756,7 @@ int __pkvm_host_share_hyp(u64 pfn)
 				.id	= PKVM_ID_HYP,
 			},
 		},
-		.prot	= PAGE_HYP,
+		.completer_prot	= PAGE_HYP,
 	};
 
 	host_lock_component();
@@ -789,7 +789,7 @@ int __pkvm_host_unshare_hyp(u64 pfn)
 				.id	= PKVM_ID_HYP,
 			},
 		},
-		.prot	= PAGE_HYP,
+		.completer_prot	= PAGE_HYP,
 	};
 
 	host_lock_component();
