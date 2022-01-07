@@ -1546,6 +1546,14 @@ struct rq_flags {
 #endif
 };
 
+#ifdef CONFIG_SMP
+extern struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
+				 struct task_struct *p, int dest_cpu);
+#else /* !CONFIG_SMP */
+static inline rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
+				 struct task_struct *p, int dest_cpu) { return rq; }
+#endif
+
 extern struct callback_head balance_push_callback;
 
 /*
