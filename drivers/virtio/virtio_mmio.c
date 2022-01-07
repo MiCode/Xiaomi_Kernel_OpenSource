@@ -1097,7 +1097,9 @@ static struct platform_driver virtio_mmio_driver = {
 		.name	= "virtio-mmio",
 		.of_match_table	= virtio_mmio_match,
 		.acpi_match_table = ACPI_PTR(virtio_mmio_acpi_match),
+#ifndef CONFIG_VIRTIO_MMIO_SWIOTLB
 		.pm = &virtio_mmio_pm_ops,
+#endif
 	},
 };
 
