@@ -13,6 +13,7 @@ clk-dummy.ko
 clk-qcom.ko
 cmd-db.ko
 cqhci.ko
+dcc_v2.ko
 debug-regulator.ko
 dispcc-kalama.ko
 tcsrcc-kalama.ko
@@ -29,6 +30,7 @@ iommu-logger.ko
 llcc-qcom.ko
 mem_buf_dev.ko
 mem_buf.ko
+memory_dump_v2.ko
 msm_dma_iommu_mapping.ko
 pinctrl-kalama.ko
 qnoc-kalama.ko
