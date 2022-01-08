@@ -32,6 +32,8 @@ static int qcom_smd_qrtr_callback(struct rpmsg_device *rpdev,
 
 	rc = qrtr_endpoint_post(&qdev->ep, data, len);
 	if (rc == -EINVAL) {
+		print_hex_dump(KERN_INFO, "qrtr: ", DUMP_PREFIX_OFFSET, 16, 1,
+			       data, len, 1);
 		dev_err(qdev->dev, "invalid ipcrouter packet\n");
 		/* return 0 to let smd drop the packet */
 		rc = 0;
