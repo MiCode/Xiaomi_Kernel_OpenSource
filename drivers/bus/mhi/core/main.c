@@ -378,6 +378,10 @@ void mhi_create_devices(struct mhi_controller *mhi_cntrl)
 			mhi_dev->ul_chan_id = mhi_chan->chan;
 			mhi_dev->ul_event_id = mhi_chan->er_index;
 			break;
+		case DMA_NONE:
+		case DMA_BIDIRECTIONAL:
+			mhi_dev->ul_chan_id = mhi_chan->chan;
+			mhi_dev->ul_event_id = mhi_chan->er_index;
 		case DMA_FROM_DEVICE:
 			/* We use dl_chan as offload channels */
 			mhi_dev->dl_chan = mhi_chan;
