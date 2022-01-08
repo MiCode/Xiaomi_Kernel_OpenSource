@@ -270,7 +270,9 @@ static void walt_find_best_target(struct sched_domain *sd,
 				asym_cap_siblings(prev_cpu, start_cpu)) &&
 				cpu_active(prev_cpu) && cpu_online(prev_cpu) &&
 				available_idle_cpu(prev_cpu) &&
-				cpumask_test_cpu(prev_cpu, p->cpus_ptr)) {
+				cpumask_test_cpu(prev_cpu, p->cpus_ptr) &&
+				!cpu_halted(prev_cpu)) {
+
 		fbt_env->fastpath = PREV_CPU_FASTPATH;
 		cpumask_set_cpu(prev_cpu, candidates);
 		goto out;
@@ -295,11 +297,14 @@ static void walt_find_best_target(struct sched_domain *sd,
 			unsigned int idle_exit_latency = UINT_MAX;
 			struct walt_rq *wrq = (struct walt_rq *) cpu_rq(i)->android_vendor_data1;
 
-			trace_sched_cpu_util(i);
+			trace_sched_cpu_util(i, NULL);
 			/* record the prss as we visit cpus in a cluster */
 			fbt_env->prs[i] = wrq->prev_runnable_sum + wrq->grp_time.prev_runnable_sum;
 
 			if (!cpu_active(i))
+				continue;
+
+			if (cpu_halted(i))
 				continue;
 
 			if (active_candidate == -1)
