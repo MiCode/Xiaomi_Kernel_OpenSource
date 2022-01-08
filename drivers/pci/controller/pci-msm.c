@@ -34,6 +34,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
+#include <linux/kfifo.h>
 
 #include "../pci.h"
 
@@ -621,6 +622,216 @@ struct msm_pcie_drv_info {
 	struct completion completion;
 };
 
+/* For AER logging */
+
+#define AER_ERROR_SOURCES_MAX (128)
+
+#define AER_MAX_TYPEOF_COR_ERRS 16 /* as per PCI_ERR_COR_STATUS */
+#define AER_MAX_TYPEOF_UNCOR_ERRS 27 /* as per PCI_ERR_UNCOR_STATUS*/
+#define	PCI_EXP_AER_FLAGS (PCI_EXP_DEVCTL_CERE | PCI_EXP_DEVCTL_NFERE | \
+			   PCI_EXP_DEVCTL_FERE | PCI_EXP_DEVCTL_URRE)
+
+
+#define AER_MAX_MULTI_ERR_DEVICES 5 /* Not likely to have more */
+
+struct msm_aer_err_info {
+	struct msm_pcie_dev_t *rdev;
+	struct pci_dev *dev[AER_MAX_MULTI_ERR_DEVICES];
+	int error_dev_num;
+
+	unsigned int id:16;
+
+	unsigned int severity:2;	/* 0:NONFATAL | 1:FATAL | 2:COR */
+	unsigned int __pad1:5;
+	unsigned int multi_error_valid:1;
+
+	unsigned int first_error:5;
+	unsigned int __pad2:2;
+	unsigned int tlp_header_valid:1;
+
+	unsigned int status;		/* COR/UNCOR Error Status */
+	unsigned int mask;		/* COR/UNCOR Error Mask */
+	struct aer_header_log_regs tlp;	/* TLP Header */
+};
+
+struct aer_err_source {
+	unsigned int status;
+	unsigned int id;
+};
+
+/* AER stats for the device */
+struct aer_stats {
+
+	/*
+	 * Fields for all AER capable devices. They indicate the errors
+	 * "as seen by this device". Note that this may mean that if an
+	 * end point is causing problems, the AER counters may increment
+	 * at its link partner (e.g. root port) because the errors will be
+	 * "seen" by the link partner and not he problematic end point
+	 * itself (which may report all counters as 0 as it never saw any
+	 * problems).
+	 */
+	/* Counters for different type of correctable errors */
+	u64 dev_cor_errs[AER_MAX_TYPEOF_COR_ERRS];
+	/* Counters for different type of fatal uncorrectable errors */
+	u64 dev_fatal_errs[AER_MAX_TYPEOF_UNCOR_ERRS];
+	/* Counters for different type of nonfatal uncorrectable errors */
+	u64 dev_nonfatal_errs[AER_MAX_TYPEOF_UNCOR_ERRS];
+	/* Total number of ERR_COR sent by this device */
+	u64 dev_total_cor_errs;
+	/* Total number of ERR_FATAL sent by this device */
+	u64 dev_total_fatal_errs;
+	/* Total number of ERR_NONFATAL sent by this device */
+	u64 dev_total_nonfatal_errs;
+
+	/*
+	 * Fields for Root ports & root complex event collectors only, these
+	 * indicate the total number of ERR_COR, ERR_FATAL, and ERR_NONFATAL
+	 * messages received by the root port / event collector, INCLUDING the
+	 * ones that are generated internally (by the rootport itself)
+	 */
+	u64 rootport_total_cor_errs;
+	u64 rootport_total_fatal_errs;
+	u64 rootport_total_nonfatal_errs;
+};
+
+#define AER_LOG_TLP_MASKS (PCI_ERR_UNC_POISON_TLP| \
+				PCI_ERR_UNC_ECRC| \
+				PCI_ERR_UNC_UNSUP| \
+				PCI_ERR_UNC_COMP_ABORT| \
+				PCI_ERR_UNC_UNX_COMP| \
+				PCI_ERR_UNC_MALF_TLP)
+
+#define ERR_COR_ID(d) (d & 0xffff)
+#define ERR_UNCOR_ID(d) (d >> 16)
+
+#define AER_AGENT_RECEIVER 0
+#define AER_AGENT_REQUESTER 1
+#define AER_AGENT_COMPLETER 2
+#define AER_AGENT_TRANSMITTER 3
+
+#define AER_AGENT_REQUESTER_MASK(t) ((t == AER_CORRECTABLE) ? \
+	0 : (PCI_ERR_UNC_COMP_TIME|PCI_ERR_UNC_UNSUP))
+#define AER_AGENT_COMPLETER_MASK(t) ((t == AER_CORRECTABLE) ? \
+	0 : PCI_ERR_UNC_COMP_ABORT)
+#define AER_AGENT_TRANSMITTER_MASK(t) ((t == AER_CORRECTABLE) ? \
+	(PCI_ERR_COR_REP_ROLL|PCI_ERR_COR_REP_TIMER) : 0)
+
+#define AER_GET_AGENT(t, e) \
+	((e & AER_AGENT_COMPLETER_MASK(t)) ? AER_AGENT_COMPLETER : \
+	(e & AER_AGENT_REQUESTER_MASK(t)) ? AER_AGENT_REQUESTER : \
+	(e & AER_AGENT_TRANSMITTER_MASK(t)) ? AER_AGENT_TRANSMITTER : \
+	AER_AGENT_RECEIVER)
+
+#define AER_PHYSICAL_LAYER_ERROR 0
+#define AER_DATA_LINK_LAYER_ERROR 1
+#define AER_TRANSACTION_LAYER_ERROR 2
+
+#define AER_PHYSICAL_LAYER_ERROR_MASK(t) ((t == AER_CORRECTABLE) ? \
+	PCI_ERR_COR_RCVR : 0)
+#define AER_DATA_LINK_LAYER_ERROR_MASK(t) ((t == AER_CORRECTABLE) ? \
+	(PCI_ERR_COR_BAD_TLP| \
+	PCI_ERR_COR_BAD_DLLP| \
+	PCI_ERR_COR_REP_ROLL| \
+	PCI_ERR_COR_REP_TIMER) : PCI_ERR_UNC_DLP)
+
+#define AER_GET_LAYER_ERROR(t, e)					\
+	((e & AER_PHYSICAL_LAYER_ERROR_MASK(t)) ? AER_PHYSICAL_LAYER_ERROR : \
+	(e & AER_DATA_LINK_LAYER_ERROR_MASK(t)) ? AER_DATA_LINK_LAYER_ERROR : \
+	AER_TRANSACTION_LAYER_ERROR)
+
+/*
+ * AER error strings
+ */
+static const char * const aer_error_severity_string[] = {
+	"Uncorrected (Non-Fatal)",
+	"Uncorrected (Fatal)",
+	"Corrected"
+};
+
+static const char * const aer_error_layer[] = {
+	"Physical Layer",
+	"Data Link Layer",
+	"Transaction Layer"
+};
+
+static const char * const aer_correctable_error_string[] = {
+	"RxErr",			/* Bit Position 0	*/
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	"BadTLP",			/* Bit Position 6	*/
+	"BadDLLP",			/* Bit Position 7	*/
+	"Rollover",			/* Bit Position 8	*/
+	NULL,
+	NULL,
+	NULL,
+	"Timeout",			/* Bit Position 12	*/
+	"NonFatalErr",			/* Bit Position 13	*/
+	"CorrIntErr",			/* Bit Position 14	*/
+	"HeaderOF",			/* Bit Position 15	*/
+	NULL,				/* Bit Position 16	*/
+	NULL,				/* Bit Position 17	*/
+	NULL,				/* Bit Position 18	*/
+	NULL,				/* Bit Position 19	*/
+	NULL,				/* Bit Position 20	*/
+	NULL,				/* Bit Position 21	*/
+	NULL,				/* Bit Position 22	*/
+	NULL,				/* Bit Position 23	*/
+	NULL,				/* Bit Position 24	*/
+	NULL,				/* Bit Position 25	*/
+	NULL,				/* Bit Position 26	*/
+	NULL,				/* Bit Position 27	*/
+	NULL,				/* Bit Position 28	*/
+	NULL,				/* Bit Position 29	*/
+	NULL,				/* Bit Position 30	*/
+	NULL,				/* Bit Position 31	*/
+};
+
+static const char * const aer_uncorrectable_error_string[] = {
+	"Undefined",			/* Bit Position 0	*/
+	NULL,
+	NULL,
+	NULL,
+	"DLP",				/* Bit Position 4	*/
+	"SDES",				/* Bit Position 5	*/
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	"TLP",				/* Bit Position 12	*/
+	"FCP",				/* Bit Position 13	*/
+	"CmpltTO",			/* Bit Position 14	*/
+	"CmpltAbrt",			/* Bit Position 15	*/
+	"UnxCmplt",			/* Bit Position 16	*/
+	"RxOF",				/* Bit Position 17	*/
+	"MalfTLP",			/* Bit Position 18	*/
+	"ECRC",				/* Bit Position 19	*/
+	"UnsupReq",			/* Bit Position 20	*/
+	"ACSViol",			/* Bit Position 21	*/
+	"UncorrIntErr",			/* Bit Position 22	*/
+	"BlockedTLP",			/* Bit Position 23	*/
+	"AtomicOpBlocked",		/* Bit Position 24	*/
+	"TLPBlockedErr",		/* Bit Position 25	*/
+	"PoisonTLPBlocked",		/* Bit Position 26	*/
+	NULL,				/* Bit Position 27	*/
+	NULL,				/* Bit Position 28	*/
+	NULL,				/* Bit Position 29	*/
+	NULL,				/* Bit Position 30	*/
+	NULL,				/* Bit Position 31	*/
+};
+
+static const char * const aer_agent_string[] = {
+	"Receiver ID",
+	"Requester ID",
+	"Completer ID",
+	"Transmitter ID"
+};
+
 /* msm pcie device structure */
 struct msm_pcie_dev_t {
 	struct platform_device *pdev;
@@ -783,6 +994,8 @@ struct msm_pcie_dev_t {
 
 	const char *drv_name;
 	bool drv_supported;
+
+	DECLARE_KFIFO(aer_fifo, struct aer_err_source, AER_ERROR_SOURCES_MAX);
 
 	bool aer_dump;
 	bool panic_on_aer;
@@ -1751,6 +1964,95 @@ static const struct attribute_group msm_pcie_debug_attr_group = {
 	.attrs	= msm_pcie_debug_attrs,
 };
 
+/* AER sysfs entries */
+#define aer_stats_dev_attr(name, stats_array, strings_array,		\
+			   total_string, total_field)			\
+	static ssize_t							\
+	name##_show(struct device *dev, struct device_attribute *attr,	\
+		     char *buf)						\
+{									\
+	unsigned int i;							\
+	struct pci_dev *pdev = to_pci_dev(dev);				\
+	u64 *stats = pdev->aer_stats->stats_array;			\
+	size_t len = 0;							\
+									\
+	for (i = 0; i < ARRAY_SIZE(strings_array); i++) {		\
+		if (strings_array[i])					\
+			len += sysfs_emit_at(buf, len, "%s %llu\n",	\
+					     strings_array[i],		\
+					     stats[i]);			\
+		else if (stats[i])					\
+			len += sysfs_emit_at(buf, len,			\
+					     #stats_array "_bit[%d] %llu\n",\
+					     i, stats[i]);		\
+	}								\
+	len += sysfs_emit_at(buf, len, "TOTAL_%s %llu\n", total_string,	\
+			     pdev->aer_stats->total_field);		\
+	return len;							\
+}									\
+static DEVICE_ATTR_RO(name)
+
+aer_stats_dev_attr(aer_dev_correctable, dev_cor_errs,
+		   aer_correctable_error_string, "ERR_COR",
+		   dev_total_cor_errs);
+aer_stats_dev_attr(aer_dev_fatal, dev_fatal_errs,
+		   aer_uncorrectable_error_string, "ERR_FATAL",
+		   dev_total_fatal_errs);
+aer_stats_dev_attr(aer_dev_nonfatal, dev_nonfatal_errs,
+		   aer_uncorrectable_error_string, "ERR_NONFATAL",
+		   dev_total_nonfatal_errs);
+
+#define aer_stats_rootport_attr(name, field)				\
+	static ssize_t							\
+	name##_show(struct device *dev, struct device_attribute *attr,	\
+		     char *buf)						\
+{									\
+	struct pci_dev *pdev = to_pci_dev(dev);				\
+	return sysfs_emit(buf, "%llu\n", pdev->aer_stats->field);	\
+}									\
+static DEVICE_ATTR_RO(name)
+
+aer_stats_rootport_attr(aer_rootport_total_err_cor,
+			 rootport_total_cor_errs);
+aer_stats_rootport_attr(aer_rootport_total_err_fatal,
+			 rootport_total_fatal_errs);
+aer_stats_rootport_attr(aer_rootport_total_err_nonfatal,
+			 rootport_total_nonfatal_errs);
+
+static struct attribute *msm_aer_stats_attrs[] __ro_after_init = {
+	&dev_attr_aer_dev_correctable.attr,
+	&dev_attr_aer_dev_fatal.attr,
+	&dev_attr_aer_dev_nonfatal.attr,
+	&dev_attr_aer_rootport_total_err_cor.attr,
+	&dev_attr_aer_rootport_total_err_fatal.attr,
+	&dev_attr_aer_rootport_total_err_nonfatal.attr,
+	NULL
+};
+
+static umode_t msm_aer_stats_attrs_are_visible(struct kobject *kobj,
+					   struct attribute *a, int n)
+{
+	struct device *dev = kobj_to_dev(kobj);
+	struct pci_dev *pdev = to_pci_dev(dev);
+
+	if (!pdev->aer_stats)
+		return 0;
+
+	if ((a == &dev_attr_aer_rootport_total_err_cor.attr ||
+	     a == &dev_attr_aer_rootport_total_err_fatal.attr ||
+	     a == &dev_attr_aer_rootport_total_err_nonfatal.attr) &&
+	    ((pci_pcie_type(pdev) != PCI_EXP_TYPE_ROOT_PORT) &&
+	     (pci_pcie_type(pdev) != PCI_EXP_TYPE_RC_EC)))
+		return 0;
+
+	return a->mode;
+}
+
+static const struct attribute_group msm_aer_stats_attr_group = {
+	.attrs  = msm_aer_stats_attrs,
+	.is_visible = msm_aer_stats_attrs_are_visible,
+};
+
 static void msm_pcie_sysfs_init(struct msm_pcie_dev_t *dev)
 {
 	int ret;
@@ -1761,13 +2063,23 @@ static void msm_pcie_sysfs_init(struct msm_pcie_dev_t *dev)
 		PCIE_DBG_FS(dev,
 			"RC%d: failed to create sysfs debug group\n",
 			dev->rc_idx);
+
+	ret = sysfs_create_group(&dev->pdev->dev.kobj,
+					&msm_aer_stats_attr_group);
+	if (ret)
+		PCIE_DBG_FS(dev,
+			"RC%d: failed to create sysfs debug group\n",
+			dev->rc_idx);
 }
 
 static void msm_pcie_sysfs_exit(struct msm_pcie_dev_t *dev)
 {
-	if (dev->pdev)
+	if (dev->pdev) {
 		sysfs_remove_group(&dev->pdev->dev.kobj,
 					&msm_pcie_debug_attr_group);
+		sysfs_remove_group(&dev->pdev->dev.kobj,
+					&msm_aer_stats_attr_group);
+	}
 }
 #else
 static void msm_pcie_sysfs_init(struct msm_pcie_dev_t *dev)
@@ -4399,148 +4711,449 @@ static void handle_link_recover(struct work_struct *work)
 	msm_pcie_notify_client(dev, MSM_PCIE_EVENT_LINK_RECOVER);
 }
 
-static irqreturn_t handle_aer_irq(int irq, void *data)
+/* AER error handling */
+static void msm_pci_dev_aer_stats_incr(struct pci_dev *pdev,
+				       struct msm_aer_err_info *info)
 {
-	struct msm_pcie_dev_t *dev = data;
-	struct pci_dev *pcidev;
-	u8 busnr, devfn;
-	u16 aer_cap, ep_src_bdf = 0, ep_dev_stts = 0;
-	int corr_val = 0, uncorr_val = 0, rc_err_status = 0;
-	u32 ep_corr_val = 0, ep_uncorr_val = 0;
-	int rc_dev_ctrlstts = 0;
+	unsigned long status = info->status & ~info->mask;
+	int i, max = -1;
+	u64 *counter = NULL;
+	struct aer_stats *aer_stats = pdev->aer_stats;
+
+	if (!aer_stats)
+		return;
+
+	switch (info->severity) {
+	case AER_CORRECTABLE:
+		aer_stats->dev_total_cor_errs++;
+		counter = &aer_stats->dev_cor_errs[0];
+		max = AER_MAX_TYPEOF_COR_ERRS;
+		break;
+	case AER_NONFATAL:
+		aer_stats->dev_total_nonfatal_errs++;
+		counter = &aer_stats->dev_nonfatal_errs[0];
+		max = AER_MAX_TYPEOF_UNCOR_ERRS;
+		break;
+	case AER_FATAL:
+		aer_stats->dev_total_fatal_errs++;
+		counter = &aer_stats->dev_fatal_errs[0];
+		max = AER_MAX_TYPEOF_UNCOR_ERRS;
+		break;
+	}
+
+	for_each_set_bit(i, &status, max)
+		counter[i]++;
+}
+
+static void msm_pci_rootport_aer_stats_incr(struct pci_dev *pdev,
+					    struct aer_err_source *e_src)
+{
+	struct aer_stats *aer_stats = pdev->aer_stats;
+
+	if (!aer_stats)
+		return;
+
+	if (e_src->status & PCI_ERR_ROOT_COR_RCV)
+		aer_stats->rootport_total_cor_errs++;
+
+	if (e_src->status & PCI_ERR_ROOT_UNCOR_RCV) {
+		if (e_src->status & PCI_ERR_ROOT_FATAL_RCV)
+			aer_stats->rootport_total_fatal_errs++;
+		else
+			aer_stats->rootport_total_nonfatal_errs++;
+	}
+}
+
+static void msm_print_tlp_header(struct pci_dev *dev,
+				 struct msm_aer_err_info *info)
+{
+	PCIE_DBG(info->rdev, "PCIe: RC%d: TLP Header: %08x %08x %08x %08x\n",
+		info->tlp.dw0, info->tlp.dw1, info->tlp.dw2, info->tlp.dw3);
+}
+
+static void msm_aer_print_error_stats(struct pci_dev *dev,
+				struct msm_aer_err_info *info)
+{
+	const char * const *strings;
+	unsigned long status = info->status & ~info->mask;
+	const char *errmsg;
 	int i;
 
-	PCIE_DBG2(dev,
-		"AER Interrupt handler fired for RC%d irq %d\nrc_corr_counter: %lu\nrc_non_fatal_counter: %lu\nrc_fatal_counter: %lu\nep_corr_counter: %lu\nep_non_fatal_counter: %lu\nep_fatal_counter: %lu\n",
-		dev->rc_idx, irq, dev->rc_corr_counter,
-		dev->rc_non_fatal_counter, dev->rc_fatal_counter,
-		dev->ep_corr_counter, dev->ep_non_fatal_counter,
-		dev->ep_fatal_counter);
+	if (info->severity == AER_CORRECTABLE)
+		strings = aer_correctable_error_string;
+	else
+		strings = aer_uncorrectable_error_string;
 
-	uncorr_val = readl_relaxed(dev->dm_core +
-				PCIE20_AER_UNCORR_ERR_STATUS_REG);
-	corr_val = readl_relaxed(dev->dm_core +
-				PCIE20_AER_CORR_ERR_STATUS_REG);
-	rc_err_status = readl_relaxed(dev->dm_core +
-				PCIE20_AER_ROOT_ERR_STATUS_REG);
-	rc_dev_ctrlstts = readl_relaxed(dev->dm_core +
-				PCIE20_CAP_DEVCTRLSTATUS);
+	for_each_set_bit(i, &status, 32) {
+		errmsg = strings[i];
+		if (!errmsg)
+			errmsg = "Unknown Error Bit";
 
-	if (uncorr_val) {
-		PCIE_DBG(dev, "RC's PCIE20_AER_UNCORR_ERR_STATUS_REG:0x%x\n",
-				uncorr_val);
-		if (!dev->aer_dump && !dev->suspending &&
-			dev->link_status == MSM_PCIE_LINK_ENABLED) {
-			/* Print the dumps only once */
-			dev->aer_dump = true;
-			pcie_parf_dump(dev);
-			pcie_dm_core_dump(dev);
-			pcie_phy_dump(dev);
-		}
+		PCIE_DBG(info->rdev, "PCIe: RC%d: [%2d] %-22s%s\n",
+			 info->rdev->rc_idx, i, errmsg,
+			 info->first_error == i ? " (First)" : "");
 	}
-	if (corr_val && (dev->rc_corr_counter < corr_counter_limit))
-		PCIE_DBG(dev, "RC's PCIE20_AER_CORR_ERR_STATUS_REG:0x%x\n",
-				corr_val);
+	msm_pci_dev_aer_stats_incr(dev, info);
+}
 
-	if ((rc_dev_ctrlstts >> 18) & 0x1)
-		dev->rc_fatal_counter++;
-	if ((rc_dev_ctrlstts >> 17) & 0x1)
-		dev->rc_non_fatal_counter++;
-	if ((rc_dev_ctrlstts >> 16) & 0x1)
-		dev->rc_corr_counter++;
+void msm_aer_print_error(struct pci_dev *dev, struct msm_aer_err_info *info)
+{
+	int layer, agent;
+	int id = ((dev->bus->number << 8) | dev->devfn);
 
-	msm_pcie_write_mask(dev->dm_core + PCIE20_CAP_DEVCTRLSTATUS, 0,
-				BIT(18)|BIT(17)|BIT(16));
-
-	if (dev->link_status != MSM_PCIE_LINK_ENABLED) {
-		PCIE_DBG2(dev, "RC%d link is down\n", dev->rc_idx);
+	if (!info->status) {
+		PCIE_DBG(info->rdev,
+		"PCIe: RC%d: PCIe Bus Error: severity=%s, type=Inaccessible, (Unregistered Agent ID)\n",
+		info->rdev->rc_idx, aer_error_severity_string[info->severity]);
 		goto out;
 	}
 
-	for (i = 0; i < 2; i++) {
-		if (i)
-			ep_src_bdf = (readl_relaxed(dev->dm_core +
-				PCIE20_AER_ERR_SRC_ID_REG) & ~0xffff) >> 16;
-		else
-			ep_src_bdf = readl_relaxed(dev->dm_core +
-				PCIE20_AER_ERR_SRC_ID_REG) & 0xffff;
+	layer = AER_GET_LAYER_ERROR(info->severity, info->status);
+	agent = AER_GET_AGENT(info->severity, info->status);
 
-		if (!ep_src_bdf)
-			continue;
+	PCIE_DBG(info->rdev, "PCIe: RC%d: PCIe Bus Error: severity=%s, type=%s, (%s)\n",
+		 info->rdev->rc_idx, aer_error_severity_string[info->severity],
+		 aer_error_layer[layer], aer_agent_string[agent]);
 
-		busnr = ep_src_bdf >> 8;
-		devfn = ep_src_bdf & 0xff;
-		pcidev = pci_get_domain_bus_and_slot(
-						pci_domain_nr(dev->dev->bus),
-						busnr, devfn);
-		if (!pcidev) {
-			PCIE_ERR(dev,
-				"PCIe: RC%d no endpoint found for reported error\n",
-				dev->rc_idx);
-			goto out;
+	PCIE_DBG(info->rdev, "PCIe: RC%d: device [%04x:%04x] error status/mask=%08x/%08x\n",
+		 info->rdev->rc_idx, dev->vendor, dev->device, info->status,
+		 info->mask);
+
+	msm_aer_print_error_stats(dev, info);
+
+	if (info->tlp_header_valid)
+		msm_print_tlp_header(dev, info);
+
+out:
+	if (info->id && info->error_dev_num > 1 && info->id == id)
+		PCIE_DBG(info->rdev, "PCIe: RC%d: Error of this Agent is reported first\n");
+}
+
+static void msm_aer_print_port_info(struct pci_dev *dev,
+				    struct msm_aer_err_info *info)
+{
+	u8 bus = info->id >> 8;
+	u8 devfn = info->id & 0xff;
+
+	PCIE_DBG(info->rdev, "PCIe: RC%d: %s%s error received: %04x:%02x:%02x.%d\n",
+		 info->rdev->rc_idx, info->multi_error_valid ? "Multiple " : "",
+		 aer_error_severity_string[info->severity],
+		 pci_domain_nr(dev->bus), bus, PCI_SLOT(devfn),
+		 PCI_FUNC(devfn));
+}
+
+/**
+ * msm_add_error_device - list device to be handled
+ * @e_info: pointer to error info
+ * @dev: pointer to pci_dev to be added
+ */
+static int msm_add_error_device(struct msm_aer_err_info *e_info,
+				struct pci_dev *dev)
+{
+	if (e_info->error_dev_num < AER_MAX_MULTI_ERR_DEVICES) {
+		e_info->dev[e_info->error_dev_num] = pci_dev_get(dev);
+		e_info->error_dev_num++;
+		return 0;
+	}
+	return -ENOSPC;
+}
+
+/**
+ * msm_is_error_source - check whether the device is source of reported error
+ * @dev: pointer to pci_dev to be checked
+ * @e_info: pointer to reported error info
+ */
+static bool msm_is_error_source(struct pci_dev *dev,
+				struct msm_aer_err_info *e_info)
+{
+	int aer = dev->aer_cap;
+	u32 status, mask;
+	u16 reg16;
+
+	/*
+	 * When bus id is equal to 0, it might be a bad id
+	 * reported by root port.
+	 */
+	if ((PCI_BUS_NUM(e_info->id) != 0) &&
+	    !(dev->bus->bus_flags & PCI_BUS_FLAGS_NO_AERSID)) {
+		/* Device ID match? */
+		if (e_info->id == ((dev->bus->number << 8) | dev->devfn))
+			return true;
+
+		/* Continue id comparing if there is no multiple error */
+		if (!e_info->multi_error_valid)
+			return false;
+	}
+
+	/*
+	 * When either
+	 *      1) bus id is equal to 0. Some ports might lose the bus
+	 *              id of error source id;
+	 *      2) bus flag PCI_BUS_FLAGS_NO_AERSID is set
+	 *      3) There are multiple errors and prior ID comparing fails;
+	 * We check AER status registers to find possible reporter.
+	 */
+	if (atomic_read(&dev->enable_cnt) == 0)
+		return false;
+
+	/* Check if AER is enabled */
+	pcie_capability_read_word(dev, PCI_EXP_DEVCTL, &reg16);
+	if (!(reg16 & PCI_EXP_AER_FLAGS))
+		return false;
+
+	if (!aer)
+		return false;
+
+	/* Check if error is recorded */
+	if (e_info->severity == AER_CORRECTABLE) {
+		pci_read_config_dword(dev, aer + PCI_ERR_COR_STATUS, &status);
+		pci_read_config_dword(dev, aer + PCI_ERR_COR_MASK, &mask);
+	} else {
+		pci_read_config_dword(dev, aer + PCI_ERR_UNCOR_STATUS, &status);
+		pci_read_config_dword(dev, aer + PCI_ERR_UNCOR_MASK, &mask);
+	}
+	if (status & ~mask)
+		return true;
+
+	return false;
+}
+
+static int msm_find_device_iter(struct pci_dev *dev, void *data)
+{
+	struct msm_aer_err_info *e_info = (struct msm_aer_err_info *)data;
+
+	if (msm_is_error_source(dev, e_info)) {
+		/* List this device */
+		if (msm_add_error_device(e_info, dev)) {
+			/* We cannot handle more... Stop iteration */
+			return 1;
 		}
 
-		PCIE_DBG2(dev,
-			  "PCIe: %s Error from Endpoint: %02x:%02x.%01x\n",
-			  i ? "Uncorrectable" : "Correctable",
-			  ep_src_bdf >> 24, ep_src_bdf >> 19 & 0x1f,
-			  ep_src_bdf >> 16 & 0x07);
+		/* If there is only a single error, stop iteration */
+		if (!e_info->multi_error_valid)
+			return 1;
+	}
+	return 0;
+}
 
-		aer_cap = pci_find_ext_capability(pcidev, PCI_EXT_CAP_ID_ERR);
-		if (!aer_cap) {
-			PCIE_ERR(dev, "PCIe: BDF 0x%04x does not support AER\n",
-				 PCI_DEVID(pcidev->bus->number, pcidev->devfn));
-			goto out;
-		}
+/**
+ * msm_find_source_device - search through device hierarchy for source device
+ * @parent: pointer to Root Port pci_dev data structure
+ * @e_info: including detailed error information such like id
+ *
+ * Return true if found.
+ *
+ * Invoked by DPC when error is detected at the Root Port.
+ * Caller of this function must set id, severity, and multi_error_valid of
+ * struct msm_aer_err_info pointed by @e_info properly.  This function must fill
+ * e_info->error_dev_num and e_info->dev[], based on the given information.
+ */
+static bool msm_find_source_device(struct pci_dev *parent,
+				   struct msm_aer_err_info *e_info)
+{
+	struct pci_dev *dev = parent;
+	int result;
 
-		pci_read_config_dword(pcidev, aer_cap + PCI_ERR_UNCOR_STATUS,
-				      &ep_uncorr_val);
-		pci_read_config_dword(pcidev, aer_cap + PCI_ERR_COR_STATUS,
-				      &ep_corr_val);
-		pcie_capability_read_word(pcidev, PCI_EXP_DEVSTA, &ep_dev_stts);
+	/* Must reset in this function */
+	e_info->error_dev_num = 0;
 
-		if (ep_uncorr_val)
-			PCIE_DBG(dev,
-				"EP's PCIE20_AER_UNCORR_ERR_STATUS_REG:0x%x\n",
-				ep_uncorr_val);
-		if (ep_corr_val && (dev->ep_corr_counter < corr_counter_limit))
-			PCIE_DBG(dev,
-				"EP's PCIE20_AER_CORR_ERR_STATUS_REG:0x%x\n",
-				ep_corr_val);
+	/* Is Root Port an agent that sends error message? */
+	result = msm_find_device_iter(dev, e_info);
+	if (result)
+		return true;
 
-		if (ep_dev_stts & PCI_EXP_DEVSTA_FED)
-			dev->ep_fatal_counter++;
-		if (ep_dev_stts & PCI_EXP_DEVSTA_NFED)
-			dev->ep_non_fatal_counter++;
-		if (ep_dev_stts & PCI_EXP_DEVSTA_CED)
-			dev->ep_corr_counter++;
+	pci_walk_bus(parent->subordinate, msm_find_device_iter, e_info);
 
-		pcie_capability_clear_and_set_word(pcidev, PCI_EXP_DEVSTA, 0,
+	if (!e_info->error_dev_num) {
+		PCIE_DBG(e_info->rdev, "PCIe: RC%d: can't find device of ID%04x\n",
+			 e_info->rdev->rc_idx, e_info->id);
+		return false;
+	}
+	return true;
+}
+
+/**
+ * msm_handle_error_source - handle logging error into an event log
+ * @dev: pointer to pci_dev data structure of error source device
+ * @info: comprehensive error information
+ *
+ * Invoked when an error being detected by Root Port.
+ */
+static void msm_handle_error_source(struct pci_dev *dev,
+				    struct msm_aer_err_info *info)
+{
+	int aer = dev->aer_cap;
+	struct msm_pcie_dev_t *rdev = info->rdev;
+
+	if (!rdev->aer_dump && !rdev->suspending &&
+		rdev->link_status == MSM_PCIE_LINK_ENABLED) {
+		/* Print the dumps only once */
+		rdev->aer_dump = true;
+		pcie_parf_dump(rdev);
+		pcie_dm_core_dump(rdev);
+		pcie_phy_dump(rdev);
+
+		if (rdev->panic_on_aer)
+			panic("AER error severity %d\n", info->severity);
+	}
+
+	if (info->severity == AER_CORRECTABLE) {
+		/*
+		 * Correctable error does not need software intervention.
+		 * No need to go through error recovery process.
+		 */
+		if (aer)
+			pci_write_config_dword(dev, aer + PCI_ERR_COR_STATUS,
+					info->status);
+		pcie_capability_clear_and_set_word(dev, PCI_EXP_DEVSTA, 0,
 						   PCI_EXP_DEVSTA_CED |
 						   PCI_EXP_DEVSTA_NFED |
 						   PCI_EXP_DEVSTA_FED);
-
-		pci_write_config_dword(pcidev, aer_cap + PCI_ERR_COR_STATUS,
-				       ep_corr_val);
-
-		/* Clear status bits for ERR_NONFATAL errors only */
-		pci_aer_clear_nonfatal_status(pcidev);
+	} else {
+		/* AER_NONFATAL || AER_FATAL */
+		panic("AER error severity %d\n", info->severity);
 	}
-out:
-	if (((dev->rc_corr_counter < corr_counter_limit) &&
-		(dev->ep_corr_counter < corr_counter_limit)) ||
-		uncorr_val || ep_uncorr_val)
-		PCIE_DBG(dev, "RC's PCIE20_AER_ROOT_ERR_STATUS_REG:0x%x\n",
-				rc_err_status);
-	msm_pcie_write_reg_field(dev->dm_core,
-			PCIE20_AER_UNCORR_ERR_STATUS_REG,
-			0x3fff031, 0x3fff031);
-	msm_pcie_write_reg_field(dev->dm_core,
-			PCIE20_AER_CORR_ERR_STATUS_REG,
-			0xf1c1, 0xf1c1);
-	msm_pcie_write_reg_field(dev->dm_core,
-			PCIE20_AER_ROOT_ERR_STATUS_REG,
-			0x7f, 0x7f);
+
+	pci_dev_put(dev);
+}
+
+/**
+ * msm_aer_get_device_error_info - read error status from dev and store it to
+ * info
+ * @dev: pointer to the device expected to have a error record
+ * @info: pointer to structure to store the error record
+ *
+ * Return 1 on success, 0 on error.
+ *
+ * Note that @info is reused among all error devices. Clear fields properly.
+ */
+static int msm_aer_get_device_error_info(struct pci_dev *dev,
+					 struct msm_aer_err_info *info)
+{
+	int type = pci_pcie_type(dev);
+	int aer = dev->aer_cap;
+	int temp;
+
+	/* Must reset in this function */
+	info->status = 0;
+	info->tlp_header_valid = 0;
+
+	/* The device might not support AER */
+	if (!aer)
+		return 0;
+
+	if (info->severity == AER_CORRECTABLE) {
+		pci_read_config_dword(dev, aer + PCI_ERR_COR_STATUS,
+			&info->status);
+		pci_read_config_dword(dev, aer + PCI_ERR_COR_MASK,
+			&info->mask);
+		if (!(info->status & ~info->mask))
+			return 0;
+	} else if (type == PCI_EXP_TYPE_ROOT_PORT ||
+		   type == PCI_EXP_TYPE_RC_EC ||
+		   type == PCI_EXP_TYPE_DOWNSTREAM ||
+		   info->severity == AER_NONFATAL) {
+
+		/* Link is still healthy for IO reads */
+		pci_read_config_dword(dev, aer + PCI_ERR_UNCOR_STATUS,
+			&info->status);
+		pci_read_config_dword(dev, aer + PCI_ERR_UNCOR_MASK,
+			&info->mask);
+		if (!(info->status & ~info->mask))
+			return 0;
+
+		/* Get First Error Pointer */
+		pci_read_config_dword(dev, aer + PCI_ERR_CAP, &temp);
+		info->first_error = PCI_ERR_CAP_FEP(temp);
+
+		if (info->status & AER_LOG_TLP_MASKS) {
+			info->tlp_header_valid = 1;
+			pci_read_config_dword(dev,
+				aer + PCI_ERR_HEADER_LOG, &info->tlp.dw0);
+			pci_read_config_dword(dev,
+				aer + PCI_ERR_HEADER_LOG + 4, &info->tlp.dw1);
+			pci_read_config_dword(dev,
+				aer + PCI_ERR_HEADER_LOG + 8, &info->tlp.dw2);
+			pci_read_config_dword(dev,
+				aer + PCI_ERR_HEADER_LOG + 12, &info->tlp.dw3);
+		}
+	}
+
+	return 1;
+}
+
+static inline void msm_aer_process_err_devices(struct msm_aer_err_info *e_info)
+{
+	int i;
+
+	/* Report all before handle them, not to lost records by reset etc. */
+	for (i = 0; i < e_info->error_dev_num && e_info->dev[i]; i++) {
+		if (msm_aer_get_device_error_info(e_info->dev[i], e_info))
+			msm_aer_print_error(e_info->dev[i], e_info);
+	}
+	for (i = 0; i < e_info->error_dev_num && e_info->dev[i]; i++) {
+		if (msm_aer_get_device_error_info(e_info->dev[i], e_info))
+			msm_handle_error_source(e_info->dev[i], e_info);
+	}
+}
+
+static void msm_aer_isr_one_error(struct msm_pcie_dev_t *dev,
+			      struct aer_err_source *e_src)
+{
+	struct msm_aer_err_info e_info;
+
+	e_info.rdev = dev;
+
+	msm_pci_rootport_aer_stats_incr(dev->dev, e_src);
+
+	/*
+	 * There is a possibility that both correctable error and
+	 * uncorrectable error being logged. Report correctable error first.
+	 */
+	if (e_src->status & PCI_ERR_ROOT_COR_RCV) {
+		e_info.id = ERR_COR_ID(e_src->id);
+		e_info.severity = AER_CORRECTABLE;
+
+		if (e_src->status & PCI_ERR_ROOT_MULTI_COR_RCV)
+			e_info.multi_error_valid = 1;
+		else
+			e_info.multi_error_valid = 0;
+		msm_aer_print_port_info(dev->dev, &e_info);
+
+		if (msm_find_source_device(dev->dev, &e_info))
+			msm_aer_process_err_devices(&e_info);
+	}
+
+	if (e_src->status & PCI_ERR_ROOT_UNCOR_RCV) {
+		e_info.id = ERR_UNCOR_ID(e_src->id);
+
+		if (e_src->status & PCI_ERR_ROOT_FATAL_RCV)
+			e_info.severity = AER_FATAL;
+		else
+			e_info.severity = AER_NONFATAL;
+
+		if (e_src->status & PCI_ERR_ROOT_MULTI_UNCOR_RCV)
+			e_info.multi_error_valid = 1;
+		else
+			e_info.multi_error_valid = 0;
+
+		msm_aer_print_port_info(dev->dev, &e_info);
+
+		if (msm_find_source_device(dev->dev, &e_info))
+			msm_aer_process_err_devices(&e_info);
+	}
+}
+
+static irqreturn_t handle_aer_irq(int irq, void *data)
+{
+	struct msm_pcie_dev_t *dev = data;
+	struct aer_err_source e_src;
+
+	if (kfifo_is_empty(&dev->aer_fifo))
+		return IRQ_NONE;
+
+	while (kfifo_get(&dev->aer_fifo, &e_src))
+		msm_aer_isr_one_error(dev, &e_src);
 
 	return IRQ_HANDLED;
 }
@@ -4641,9 +5254,12 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 {
 	int i;
 	struct msm_pcie_dev_t *dev = data;
+	struct pci_dev *rp = dev->dev;
+	int aer = rp->aer_cap;
 	unsigned long irqsave_flags;
 	u32 status = 0, status2 = 0;
 	irqreturn_t ret = IRQ_HANDLED;
+	struct aer_err_source e_src = {};
 
 	spin_lock_irqsave(&dev->irq_lock, irqsave_flags);
 
@@ -4681,16 +5297,27 @@ static irqreturn_t handle_global_irq(int irq, void *data)
 					MSM_PCIE_EVENT_L1SS_TIMEOUT);
 				break;
 			case MSM_PCIE_INT_EVT_AER_LEGACY:
-				PCIE_DBG(dev,
-					"PCIe: RC%d: AER legacy event.\n",
-					dev->rc_idx);
-				ret = IRQ_WAKE_THREAD;
-				break;
 			case MSM_PCIE_INT_EVT_AER_ERR:
 				PCIE_DBG(dev,
-					"PCIe: RC%d: AER event.\n",
-					dev->rc_idx);
-				ret = IRQ_WAKE_THREAD;
+					"PCIe: RC%d: AER event idx %d.\n",
+					dev->rc_idx, i);
+
+				pci_read_config_dword(rp,
+				aer + PCI_ERR_ROOT_STATUS, &e_src.status);
+				if (!(e_src.status &
+				   (PCI_ERR_ROOT_UNCOR_RCV|
+				   PCI_ERR_ROOT_COR_RCV))) {
+					ret = IRQ_NONE;
+					goto done;
+				}
+
+				pci_read_config_dword(rp,
+					aer + PCI_ERR_ROOT_ERR_SRC, &e_src.id);
+				pci_write_config_dword(rp,
+					aer + PCI_ERR_ROOT_STATUS, e_src.status);
+
+				if (kfifo_put(&dev->aer_fifo, e_src))
+					ret = IRQ_WAKE_THREAD;
 				break;
 			default:
 				PCIE_DUMP(dev,
@@ -5598,6 +6225,8 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				 "PCIe: RC%d: DRV: failed to setup DRV: ret: %d\n",
 				pcie_dev->rc_idx, ret);
 	}
+
+	INIT_KFIFO(pcie_dev->aer_fifo);
 
 	msm_pcie_sysfs_init(pcie_dev);
 
