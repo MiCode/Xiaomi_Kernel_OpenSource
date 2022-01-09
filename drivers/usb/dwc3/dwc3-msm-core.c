@@ -560,6 +560,7 @@ struct dwc3_msm {
 
 	struct dwc3_hw_ep	hw_eps[DWC3_ENDPOINTS_NUM];
 	phys_addr_t		ebc_desc_addr;
+	bool			dis_sending_cm_l1_quirk;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -3290,6 +3291,15 @@ static void dwc3_msm_block_reset(struct dwc3_msm *mdwc, bool core_reset)
 	}
 }
 
+static void mdwc3_dis_sending_cm_l1(struct dwc3_msm *mdwc)
+{
+	u32 val;
+
+	val = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
+				val | DWC3_GUSB2PHYCFG_SUSPHY);
+}
+
 static void dwc3_en_sleep_mode(struct dwc3_msm *mdwc)
 {
 	u32 reg;
@@ -3345,6 +3355,9 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 				DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_HOST));
 		if (!dwc->dis_enblslpm_quirk)
 			dwc3_en_sleep_mode(mdwc);
+
+		if (mdwc->dis_sending_cm_l1_quirk)
+			mdwc3_dis_sending_cm_l1(mdwc);
 	}
 }
 
@@ -5301,6 +5314,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
+	mdwc->dis_sending_cm_l1_quirk = of_property_read_bool(node,
+					"qcom,dis-sending-cm-l1-quirk");
+
 	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
 	if (!dwc3_node) {
@@ -5678,6 +5694,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		if (!dwc->dis_enblslpm_quirk)
 			dwc3_en_sleep_mode(mdwc);
+
+		if (mdwc->dis_sending_cm_l1_quirk)
+			mdwc3_dis_sending_cm_l1(mdwc);
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_HOST);
 		if (dwc->dr_mode == USB_DR_MODE_OTG)
