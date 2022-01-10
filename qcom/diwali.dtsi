@@ -2197,8 +2197,9 @@
 		};
 	};
 
-	wpss_pas: remoteproc-wpss@8A00000 {
+	wpss_pas: remoteproc-wpss@08a00000 {
 		compatible = "qcom,diwali-wpss-pas";
+		reg = <0x08a00000 0x10000>;
 		status = "ok";
 
 		memory-region = <&wpss_mem>;
