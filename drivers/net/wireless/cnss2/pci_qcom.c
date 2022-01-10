@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved. */
+/* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #include "pci_platform.h"
 #include "debug.h"
@@ -508,6 +508,12 @@ int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 
 	of_node_put(of_node);
 
+	return 0;
+}
+
+int _cnss_pci_get_reg_dump(struct cnss_pci_data *pci_priv,
+			   u8 *buf, u32 len)
+{
 	return 0;
 }
 
