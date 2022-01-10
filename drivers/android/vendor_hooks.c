@@ -195,6 +195,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_check_file_open);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_check_bpf_syscall);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_cpus_allowed_ptr_locked);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_rto_next_cpu);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_is_cpu_allowed);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_em_dev_register_pd);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_logbuf);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_logbuf_pr_cont);
