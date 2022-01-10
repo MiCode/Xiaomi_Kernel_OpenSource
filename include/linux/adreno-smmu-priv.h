@@ -7,6 +7,7 @@
 #define __ADRENO_SMMU_PRIV_H
 
 #include <linux/io-pgtable.h>
+#include <linux/qcom-io-pgtable.h>
 
 /**
  * struct adreno_smmu_priv - private interface between adreno-smmu and GPU
@@ -17,6 +18,7 @@
  * @set_ttbr0_cfg: Set the TTBR0 config for the GPUs context bank.  A
  *                 NULL config disables TTBR0 translation, otherwise
  *                 TTBR0 translation is enabled with the specified cfg
+ * @pgtbl_info:    io-pagetables info for the GPUs context-bank
  *
  * The GPU driver (drm/msm) and adreno-smmu work together for controlling
  * the GPU's SMMU instance.  This is by necessity, as the GPU is directly
@@ -28,9 +30,10 @@
  * it's domain.
  */
 struct adreno_smmu_priv {
-    const void *cookie;
-    const struct io_pgtable_cfg *(*get_ttbr1_cfg)(const void *cookie);
-    int (*set_ttbr0_cfg)(const void *cookie, const struct io_pgtable_cfg *cfg);
+	const void *cookie;
+	const struct io_pgtable_cfg *(*get_ttbr1_cfg)(const void *cookie);
+	int (*set_ttbr0_cfg)(const void *cookie, const struct io_pgtable_cfg *cfg);
+	struct qcom_io_pgtable_info pgtbl_info;
 };
 
 #endif /* __ADRENO_SMMU_PRIV_H */

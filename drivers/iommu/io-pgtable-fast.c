@@ -14,10 +14,10 @@
 #include <linux/io-pgtable.h>
 #include <linux/io-pgtable-fast.h>
 #include <linux/mm.h>
+#include <linux/qcom-io-pgtable.h>
 #include <asm/cacheflush.h>
 #include <linux/vmalloc.h>
 #include <linux/dma-mapping.h>
-#include "qcom-io-pgtable.h"
 
 #define AV8L_FAST_MAX_ADDR_BITS		48
 

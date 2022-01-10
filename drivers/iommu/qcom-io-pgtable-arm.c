@@ -17,9 +17,9 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/dma-mapping.h>
+#include <linux/qcom-io-pgtable.h>
 
 #include <asm/barrier.h>
-#include "qcom-io-pgtable.h"
 
 #include "io-pgtable-arm.h"
 
