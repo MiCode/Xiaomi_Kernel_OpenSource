@@ -103,6 +103,23 @@
 #define SAT_MSG_PROT	0x1
 #define to_ngd(d)	container_of(d, struct qcom_slim_ngd, dev)
 
+#define CREATE_TRACE_POINTS
+#include "trace.h"
+
+void __slimbus_dbg(const char *func, const char *fmt, ...)
+{
+	struct va_format vaf = {
+		.fmt = fmt,
+	};
+
+	va_list args;
+
+	va_start(args, fmt);
+	vaf.va = &args;
+	trace_slimbus_dbg(func, &vaf);
+	va_end(args);
+}
+
 struct ngd_reg_offset_data {
 	u32 offset, size;
 };
@@ -175,6 +192,7 @@ struct qcom_slim_ngd_ctrl {
 	struct qcom_slim_ngd_dma_desc rx_desc[QCOM_SLIM_NGD_DESC_NUM];
 	struct qcom_slim_ngd_dma_desc txdesc[QCOM_SLIM_NGD_DESC_NUM];
 	struct completion reconf;
+	struct completion ctrl_up;
 	struct work_struct m_work;
 	struct work_struct ngd_up_work;
 	struct workqueue_struct *mwq;
@@ -813,7 +831,14 @@ static irqreturn_t qcom_slim_ngd_interrupt(int irq, void *d)
 {
 	struct qcom_slim_ngd_ctrl *ctrl = d;
 	void __iomem *base = ctrl->ngd->base;
-	u32 stat = readl(base + NGD_INT_STAT);
+	u32 stat;
+
+	if (pm_runtime_suspended(ctrl->ctrl.dev)) {
+		SLIM_INFO(ctrl, "Slimbus is in suspend state\n");
+		return IRQ_HANDLED;
+	}
+
+	stat = readl(base + NGD_INT_STAT);
 
 	if ((stat & NGD_INT_MSG_BUF_CONTE) ||
 		(stat & NGD_INT_MSG_TX_INVAL) || (stat & NGD_INT_DEV_ERR) ||
@@ -824,6 +849,55 @@ static irqreturn_t qcom_slim_ngd_interrupt(int irq, void *d)
 	writel(stat, base + NGD_INT_CLR);
 
 	return IRQ_HANDLED;
+}
+
+static int check_hw_state(struct qcom_slim_ngd_ctrl *ctrl, struct slim_msg_txn *txn)
+{
+	bool report_sat = false;
+
+	if (txn->mc == SLIM_USR_MC_REPORT_SATELLITE &&
+		txn->mt == SLIM_MSG_MT_SRC_REFERRED_USER)
+		report_sat = true;
+
+	/* If txn is tried when controller is down, return or wait for ADSP to boot */
+	if (!report_sat) {
+		if (ctrl->state == QCOM_SLIM_NGD_CTRL_DOWN) {
+			u8 mc = (u8)txn->mc;
+			int timeout;
+
+			SLIM_INFO(ctrl, "ADSP slimbus not up yet MC:0x%x,mt:0x%x\n",
+				mc, txn->mt);
+			if ((txn->mt == SLIM_MSG_MT_DEST_REFERRED_USER) &&
+				((mc == SLIM_USR_MC_CHAN_CTRL ||
+				mc == SLIM_USR_MC_DISCONNECT_PORT ||
+				mc == SLIM_USR_MC_RECONFIG_NOW)))
+				return -EREMOTEIO;
+			if ((txn->mt == SLIM_MSG_MT_CORE) &&
+				((mc == SLIM_MSG_MC_DISCONNECT_PORT ||
+				mc == SLIM_MSG_MC_NEXT_REMOVE_CHANNEL ||
+				mc == SLIM_USR_MC_RECONFIG_NOW)))
+				return -EINVAL;
+			if ((txn->mt == SLIM_MSG_MT_CORE) &&
+				((mc >= SLIM_MSG_MC_CONNECT_SOURCE &&
+				mc <= SLIM_MSG_MC_CHANGE_CONTENT) ||
+				(mc >= SLIM_MSG_MC_BEGIN_RECONFIGURATION &&
+				mc <= SLIM_MSG_MC_RECONFIGURE_NOW)))
+				return -EREMOTEIO;
+			if ((txn->mt == SLIM_MSG_MT_DEST_REFERRED_USER) &&
+				((mc >= SLIM_USR_MC_DEFINE_CHAN &&
+				mc < SLIM_USR_MC_DISCONNECT_PORT)))
+				return -EREMOTEIO;
+
+			reinit_completion(&ctrl->ctrl_up);
+			timeout = wait_for_completion_timeout(&ctrl->ctrl_up, HZ);
+			if (!timeout) {
+				SLIM_WARN(ctrl, "ADSP slimbus not up timeout MC:0x%x,mt:0x%x\n",
+						mc, txn->mt);
+				return -EREMOTEIO;
+			}
+		}
+	}
+	return 0;
 }
 
 static int qcom_slim_ngd_xfer_msg(struct slim_controller *sctrl,
@@ -852,6 +926,13 @@ static int qcom_slim_ngd_xfer_msg(struct slim_controller *sctrl,
 			txn->rl > SLIM_MSGQ_BUF_LEN) {
 		SLIM_ERR(ctrl, "msg exceeds HW limit\n");
 		return -EINVAL;
+	}
+
+	ret = check_hw_state(ctrl, txn);
+	if (ret) {
+		SLIM_WARN(ctrl, "ADSP slimbus not up MC:0x%x,mt:0x%x ret:%d\n",
+						txn->mc, txn->mt, ret);
+		return ret;
 	}
 
 	pbuf = qcom_slim_ngd_tx_msg_get(ctrl, txn->rl, &tx_sent);
@@ -940,7 +1021,7 @@ static int qcom_slim_ngd_xfer_msg(struct slim_controller *sctrl,
 
 	timeout = wait_for_completion_timeout(&tx_sent, HZ);
 	if (!timeout) {
-		SLIM_ERR(ctrl, "TX timed out:MC:0x%x,mt:0x%x", txn->mc,
+		SLIM_WARN(ctrl, "TX timed out:MC:0x%x,mt:0x%x", txn->mc,
 					txn->mt);
 		mutex_unlock(&ctrl->tx_lock);
 		return -ETIMEDOUT;
@@ -949,7 +1030,7 @@ static int qcom_slim_ngd_xfer_msg(struct slim_controller *sctrl,
 	if (usr_msg) {
 		timeout = wait_for_completion_timeout(&done, HZ);
 		if (!timeout) {
-			SLIM_ERR(ctrl, "TX timed out:MC:0x%x,mt:0x%x",
+			SLIM_WARN(ctrl, "TX usr_msg timed out:MC:0x%x,mt:0x%x",
 				txn->mc, txn->mt);
 			mutex_unlock(&ctrl->tx_lock);
 			return -ETIMEDOUT;
@@ -969,16 +1050,22 @@ static int qcom_slim_ngd_xfer_msg_sync(struct slim_controller *ctrl,
 	int ret, timeout;
 
 	pm_runtime_get_sync(ctrl->dev);
+	SLIM_INFO(dev, "SLIM %s: PM get_sync count:%d TID:%d\n",
+		__func__, atomic_read(&ctrl->dev->power.usage_count), txn->tid);
 
 	txn->comp = &done;
 
 	ret = qcom_slim_ngd_xfer_msg(ctrl, txn);
-	if (ret)
+	if (ret) {
+		pm_runtime_put_sync(ctrl->dev);
+		SLIM_INFO(dev, "SLIM %s: PM put_sync count:%d TID:%d\n",
+		__func__, atomic_read(&ctrl->dev->power.usage_count), txn->tid);
 		return ret;
+	}
 
 	timeout = wait_for_completion_timeout(&done, HZ);
 	if (!timeout) {
-		SLIM_ERR(dev, "TX timed out:MC:0x%x,mt:0x%x", txn->mc,
+		SLIM_WARN(dev, "TX sync timed out:MC:0x%x,mt:0x%x", txn->mc,
 				txn->mt);
 		return -ETIMEDOUT;
 	}
@@ -1043,6 +1130,7 @@ static int qcom_slim_ngd_enable_stream(struct slim_stream_runtime *rt)
 	struct slim_msg_txn txn = {0,};
 	int i, ret;
 
+	SLIM_INFO(dev, "%s start %d\n", __func__, true);
 	txn.mt = SLIM_MSG_MT_DEST_REFERRED_USER;
 	txn.dt = SLIM_MSG_DEST_LOGICALADDR;
 	txn.la = SLIM_LA_MGR;
@@ -1100,7 +1188,7 @@ static int qcom_slim_ngd_enable_stream(struct slim_stream_runtime *rt)
 	ret = qcom_slim_ngd_xfer_msg_sync(ctrl, &txn);
 	if (ret) {
 		slim_free_txn_tid(ctrl, &txn);
-		SLIM_ERR(dev, "TX timed out:MC:0x%x,mt:0x%x", txn.mc,
+		SLIM_WARN(dev, "TX ACT_CHAN timed out:MC:0x%x,mt:0x%x", txn.mc,
 				txn.mt);
 		return ret;
 	}
@@ -1120,10 +1208,11 @@ static int qcom_slim_ngd_enable_stream(struct slim_stream_runtime *rt)
 	ret = qcom_slim_ngd_xfer_msg_sync(ctrl, &txn);
 	if (ret) {
 		slim_free_txn_tid(ctrl, &txn);
-		SLIM_ERR(dev, "TX timed out:MC:0x%x,mt:0x%x", txn.mc,
+		SLIM_INFO(dev, "TX RECONFIG timed out:MC:0x%x,mt:0x%x", txn.mc,
 				txn.mt);
 	}
 
+	SLIM_INFO(dev, "%s End ret : %d\n", __func__, ret);
 	return ret;
 }
 
@@ -1139,6 +1228,7 @@ static int qcom_slim_ngd_disable_stream(struct slim_stream_runtime *rt)
 	struct slim_msg_txn txn = {0,};
 	int i, ret;
 
+	SLIM_INFO(dev, "%s start %d\n", __func__, true);
 	txn.mt = SLIM_MSG_MT_DEST_REFERRED_USER;
 	txn.dt = SLIM_MSG_DEST_LOGICALADDR;
 	txn.la = SLIM_LA_MGR;
@@ -1172,7 +1262,7 @@ static int qcom_slim_ngd_disable_stream(struct slim_stream_runtime *rt)
 	ret = qcom_slim_ngd_xfer_msg_sync(ctrl, &txn);
 	if (ret) {
 		slim_free_txn_tid(ctrl, &txn);
-		SLIM_ERR(dev, "TX timed out:MC:0x%x,mt:0x%x ret:%d\n",
+		SLIM_WARN(dev, "TX CHAN_CTRL timed out:MC:0x%x,mt:0x%x ret:%d\n",
 				txn.mc,	txn.mt, ret);
 		return ret;
 	}
@@ -1192,10 +1282,11 @@ static int qcom_slim_ngd_disable_stream(struct slim_stream_runtime *rt)
 	ret = qcom_slim_ngd_xfer_msg_sync(ctrl, &txn);
 	if (ret) {
 		slim_free_txn_tid(ctrl, &txn);
-		SLIM_ERR(dev, "TX timed out:MC:0x%x,mt:0x%x ret:%d\n",
+		SLIM_WARN(dev, "TX RECONFIG timed out:MC:0x%x,mt:0x%x ret:%d\n",
 				txn.mc,	txn.mt, ret);
 	}
 
+	SLIM_INFO(dev, "%s End ret %d\n", __func__, ret);
 	return ret;
 }
 
@@ -1205,6 +1296,8 @@ static int qcom_slim_ngd_get_laddr(struct slim_controller *ctrl,
 	struct slim_val_inf msg =  {0};
 	u8 failed_ea[6] = {0, 0, 0, 0, 0, 0};
 	struct slim_msg_txn txn;
+	struct qcom_slim_ngd_ctrl *dev =
+		container_of(ctrl, struct qcom_slim_ngd_ctrl, ctrl);
 	u8 wbuf[10] = {0};
 	u8 rbuf[10] = {0};
 	int ret;
@@ -1239,6 +1332,7 @@ static int qcom_slim_ngd_get_laddr(struct slim_controller *ctrl,
 
 	*laddr = rbuf[6];
 
+	SLIM_INFO(dev, "%s end ret : %d\n", __func__, ret);
 	return ret;
 }
 
@@ -1358,6 +1452,12 @@ static int qcom_slim_ngd_power_up(struct qcom_slim_ngd_ctrl *ctrl)
 		return -ETIMEDOUT;
 	}
 
+	/* mutliple transactions waiting on slimbus to power up? */
+	if (ctrl->state == QCOM_SLIM_NGD_CTRL_DOWN) {
+		SLIM_INFO(ctrl, "ADSP slimbus power up now\n");
+		complete_all(&ctrl->ctrl_up);
+	}
+
 	return 0;
 }
 
@@ -1439,6 +1539,7 @@ static int qcom_slim_ngd_runtime_resume(struct device *dev)
 	struct qcom_slim_ngd_ctrl *ctrl = dev_get_drvdata(dev);
 	int ret = 0;
 
+	SLIM_INFO(ctrl, "Slim runtime resume\n");
 	if (!ctrl->qmi.handle)
 		return 0;
 
@@ -1478,6 +1579,8 @@ static int qcom_slim_ngd_enable(struct qcom_slim_ngd_ctrl *ctrl, bool enable)
 
 		pm_runtime_mark_last_busy(ctrl->ctrl.dev);
 		pm_runtime_put(ctrl->ctrl.dev);
+		SLIM_INFO(ctrl, "SLIM %s: PM put count:%d\n",
+			__func__, atomic_read(&ctrl->ctrl.dev->power.usage_count));
 		SLIM_INFO(ctrl, "SLIM NGD Enable\n");
 	} else {
 		qcom_slim_qmi_exit(ctrl);
@@ -1600,6 +1703,8 @@ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
 		mutex_lock(&ctrl->tx_lock);
 		if (ctrl->state != QCOM_SLIM_NGD_CTRL_DOWN) {
 			pm_runtime_get_noresume(ctrl->ctrl.dev);
+			SLIM_INFO(ctrl, "SLIM %s: PM get_no_resume count:%d\n",
+				__func__, atomic_read(&ctrl->ctrl.dev->power.usage_count));
 			ctrl->state = QCOM_SLIM_NGD_CTRL_DOWN;
 			qcom_slim_ngd_down(ctrl);
 			qcom_slim_ngd_exit_dma(ctrl);
@@ -1728,6 +1833,8 @@ static int qcom_slim_ngd_probe(struct platform_device *pdev)
 	pm_runtime_set_suspended(dev);
 	pm_runtime_enable(dev);
 	pm_runtime_get_noresume(dev);
+	SLIM_INFO(ctrl, "SLIM %s:PM get_noresume count:%d\n", __func__,
+		atomic_read(&ctrl->ctrl.dev->power.usage_count));
 	ret = qcom_slim_ngd_qmi_svc_event_init(ctrl);
 	if (ret) {
 		dev_err(&pdev->dev, "QMI service registration failed:%d", ret);
@@ -1874,6 +1981,7 @@ static int qcom_slim_ngd_ctrl_probe(struct platform_device *pdev)
 	mutex_init(&ctrl->ssr_lock);
 	spin_lock_init(&ctrl->tx_buf_lock);
 	init_completion(&ctrl->reconf);
+	init_completion(&ctrl->ctrl_up);
 	init_completion(&ctrl->qmi.qmi_comp);
 	init_completion(&ctrl->qmi_up);
 
@@ -1966,7 +2074,10 @@ static int __maybe_unused qcom_slim_ngd_runtime_suspend(struct device *dev)
 	struct qcom_slim_ngd_ctrl *ctrl = dev_get_drvdata(dev);
 	int ret = 0;
 
+	SLIM_INFO(ctrl, "Slim runtime suspend\n");
+
 	qcom_slim_ngd_exit_dma(ctrl);
+
 	if (!ctrl->qmi.handle)
 		return 0;
 
