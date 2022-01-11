@@ -3323,11 +3323,20 @@ static void enable_usb_pdc_interrupt(struct dwc3_msm *mdwc, bool enable)
 			&mdwc->wakeup_irq[DP_HS_PHY_IRQ],
 			IRQ_TYPE_EDGE_FALLING, enable);
 	} else {
+		/* When in host mode, with no device connected, set the HS
+		 * to level high triggered.  This is to ensure device connection
+		 * is seen, if device pulls up DP before the suspend routine
+		 * configures the PDC IRQs, leading it to miss the rising edge.
+		 */
 		configure_usb_wakeup_interrupt(mdwc,
 			&mdwc->wakeup_irq[DP_HS_PHY_IRQ],
+			mdwc->in_host_mode ?
+			(IRQF_TRIGGER_HIGH | IRQ_TYPE_LEVEL_HIGH) :
 			IRQ_TYPE_EDGE_RISING, true);
 		configure_usb_wakeup_interrupt(mdwc,
 			&mdwc->wakeup_irq[DM_HS_PHY_IRQ],
+			mdwc->in_host_mode ?
+			(IRQF_TRIGGER_HIGH | IRQ_TYPE_LEVEL_HIGH) :
 			IRQ_TYPE_EDGE_RISING, true);
 	}
 
