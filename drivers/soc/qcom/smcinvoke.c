@@ -371,11 +371,23 @@ static uint32_t next_mem_map_obj_id_locked(void)
 
 static inline void free_mem_obj_locked(struct smcinvoke_mem_obj *mem_obj)
 {
+	int ret = 0;
+	bool is_bridge_created = mem_obj->bridge_created_by_others;
+	struct dma_buf *dmabuf_to_free = mem_obj->dma_buf;
+	uint64_t shmbridge_handle = mem_obj->shmbridge_handle;
+
 	list_del(&mem_obj->list);
-	dma_buf_put(mem_obj->dma_buf);
-	if (!mem_obj->bridge_created_by_others)
-		qtee_shmbridge_deregister(mem_obj->shmbridge_handle);
 	kfree(mem_obj);
+	mem_obj = NULL;
+	mutex_unlock(&g_smcinvoke_lock);
+
+	if (is_bridge_created)
+		ret = qtee_shmbridge_deregister(shmbridge_handle);
+	if (ret)
+		pr_err("Error:%d delete bridge failed leaking memory 0x%x\n",
+				ret, dmabuf_to_free);
+	else
+		dma_buf_put(dmabuf_to_free);
 }
 
 static void del_mem_regn_obj_locked(struct kref *kref)
@@ -930,11 +942,36 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 			pr_err("invalid physical address, ret: %d\n", ret);
 			goto out;
 		}
+
+		/* Increase reference count as we are feeding the memobj to
+		 * smcinvoke and unlock the mutex. No need to hold the mutex in
+		 * case of shmbridge creation.
+		 */
+		kref_get(&mem_obj->mem_map_obj_ref_cnt);
+		mutex_unlock(&g_smcinvoke_lock);
+
 		ret = smcinvoke_create_bridge(mem_obj);
+
+		/* Take lock again and decrease the reference count which we
+		 * increased for shmbridge but before proceeding further we
+		 * have to check again if the memobj is still valid or not
+		 * after decreasing the reference.
+		 */
+		mutex_lock(&g_smcinvoke_lock);
+		kref_put(&mem_obj->mem_map_obj_ref_cnt, del_mem_map_obj_locked);
+
 		if (ret) {
 			ret = OBJECT_ERROR_INVALID;
 			goto out;
 		}
+
+		if (!find_mem_obj_locked(TZHANDLE_GET_OBJID(msg->args[1].handle),
+				SMCINVOKE_MEM_RGN_OBJ)) {
+			mutex_unlock(&g_smcinvoke_lock);
+			pr_err("Memory object not found\n");
+			return OBJECT_ERROR_BADOBJ;
+		}
+
 		mem_obj->mem_map_obj_id = next_mem_map_obj_id_locked();
 	} else {
 		kref_get(&mem_obj->mem_map_obj_ref_cnt);
