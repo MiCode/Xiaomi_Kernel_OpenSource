@@ -250,6 +250,10 @@ static inline bool _walt_can_migrate_task(struct task_struct *p, int dst_cpu,
 	if (wrq->push_task == p)
 		return false;
 
+	/* Don't detach task if dest cpu is halted */
+	if (cpu_halted(dst_cpu))
+		return false;
+
 	return true;
 }
 
@@ -691,6 +695,9 @@ static void walt_newidle_balance(void *unused, struct rq *this_rq,
 	this_rq->idle_stamp = rq_clock(this_rq);
 
 	if (!cpu_active(this_cpu))
+		return;
+
+	if (cpu_halted(this_cpu))
 		return;
 
 	rq_unpin_lock(this_rq, rf);
