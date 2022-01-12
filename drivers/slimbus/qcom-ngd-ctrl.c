@@ -574,7 +574,8 @@ static u32 *qcom_slim_ngd_tx_msg_get(struct qcom_slim_ngd_ctrl *ctrl, int len,
 
 	spin_lock_irqsave(&ctrl->tx_buf_lock, flags);
 
-	if ((ctrl->tx_tail + 1) % QCOM_SLIM_NGD_DESC_NUM == ctrl->tx_head) {
+	if (((ctrl->tx_tail + 1) % QCOM_SLIM_NGD_DESC_NUM == ctrl->tx_head)
+				|| !ctrl->tx_base) {
 		spin_unlock_irqrestore(&ctrl->tx_buf_lock, flags);
 		return NULL;
 	}
@@ -1049,7 +1050,14 @@ static int qcom_slim_ngd_xfer_msg_sync(struct slim_controller *ctrl,
 	DECLARE_COMPLETION_ONSTACK(done);
 	int ret, timeout;
 
-	pm_runtime_get_sync(ctrl->dev);
+	ret = pm_runtime_get_sync(ctrl->dev);
+	if (ret < 0) {
+		SLIM_ERR(dev, "SLIM %s: PM get_sync failed ret :%d count:%d TID:%d\n",
+		__func__, ret, atomic_read(&ctrl->dev->power.usage_count), txn->tid);
+		pm_runtime_put_sync(ctrl->dev);
+		return ret;
+	}
+
 	SLIM_INFO(dev, "SLIM %s: PM get_sync count:%d TID:%d\n",
 		__func__, atomic_read(&ctrl->dev->power.usage_count), txn->tid);
 
@@ -1065,6 +1073,7 @@ static int qcom_slim_ngd_xfer_msg_sync(struct slim_controller *ctrl,
 
 	timeout = wait_for_completion_timeout(&done, HZ);
 	if (!timeout) {
+		pm_runtime_put_sync(ctrl->dev);
 		SLIM_WARN(dev, "TX sync timed out:MC:0x%x,mt:0x%x", txn->mc,
 				txn->mt);
 		return -ETIMEDOUT;
