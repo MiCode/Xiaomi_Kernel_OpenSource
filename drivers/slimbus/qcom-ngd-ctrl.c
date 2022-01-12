@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-// Copyright (c) 2011-2017, 2020-2021, The Linux Foundation. All rights reserved.
+// Copyright (c) 2011-2017, 2020-2022, The Linux Foundation. All rights reserved.
 // Copyright (c) 2018, Linaro Limited
 
 #include <linux/irq.h>
@@ -422,6 +422,7 @@ static int qcom_slim_qmi_send_select_inst_req(struct qcom_slim_ngd_ctrl *ctrl,
 		return -EREMOTEIO;
 	}
 
+	SLIM_INFO(ctrl, "%s end\n", __func__);
 	return 0;
 }
 
@@ -472,6 +473,7 @@ static int qcom_slim_qmi_send_power_request(struct qcom_slim_ngd_ctrl *ctrl,
 		return -EREMOTEIO;
 	}
 
+	SLIM_INFO(ctrl, "%s end %d\n", __func__, req->pm_req);
 	return 0;
 }
 
@@ -839,6 +841,7 @@ static irqreturn_t qcom_slim_ngd_interrupt(int irq, void *d)
 		return IRQ_HANDLED;
 	}
 
+	SLIM_INFO(ctrl, "%s start\n", __func__);
 	stat = readl(base + NGD_INT_STAT);
 
 	if ((stat & NGD_INT_MSG_BUF_CONTE) ||
@@ -1415,6 +1418,7 @@ static int qcom_slim_ngd_power_up(struct qcom_slim_ngd_ctrl *ctrl)
 
 	if (ctrl->state == QCOM_SLIM_NGD_CTRL_ASLEEP ||
 		ctrl->state == QCOM_SLIM_NGD_CTRL_DOWN) {
+		SLIM_INFO(ctrl, "Sending QMI power on request\n");
 		ret = qcom_slim_qmi_power_request(ctrl, true);
 		if (ret) {
 			SLIM_ERR(ctrl, "SLIM QMI power request failed:%d\n",
@@ -2099,6 +2103,7 @@ static int __maybe_unused qcom_slim_ngd_runtime_suspend(struct device *dev)
 	if (!ctrl->qmi.handle)
 		return 0;
 
+	SLIM_INFO(ctrl, "Sending QMI power off request\n");
 	ret = qcom_slim_qmi_power_request(ctrl, false);
 	if (ret && ret != -EBUSY)
 		SLIM_INFO(ctrl, "slim resource not idle:%d\n", ret);
