@@ -4240,7 +4240,6 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	int err = 0;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
-	struct cpufreq_policy *policy;
 
 	/**
 	 * CPUFreq driver is needed for performance reasons.
