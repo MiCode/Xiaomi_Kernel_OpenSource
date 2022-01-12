@@ -31,6 +31,11 @@ void ep_pcie_phy_init(struct ep_pcie_dev_t *dev)
 			"PCIe V%d: PHY V%d: Initializing 7nm QMP phy - 100MHz\n",
 			dev->rev, dev->phy_rev);
 		break;
+	case 7:
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: PHY V%d: Initializing 5nm QMP phy - 100MHz\n",
+			dev->rev, dev->phy_rev);
+		break;
 	default:
 		EP_PCIE_ERR(dev,
 			"PCIe V%d: Unexpected phy version %d is caught\n",
