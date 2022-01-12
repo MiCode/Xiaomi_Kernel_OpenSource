@@ -9,6 +9,7 @@
 enum scmi_c1dcvs_protocol_cmd {
 	SET_PMU_MAP = 11,
 	SET_ENABLE_TRACE,
+	SET_ENABLE_CACHING,
 };
 
 struct pmu_map_msg {
@@ -69,9 +70,15 @@ static int scmi_set_enable_trace(const struct scmi_protocol_handle *ph, void *bu
 	return scmi_send_tunable_pmu(ph, buf, SET_ENABLE_TRACE);
 }
 
+static int scmi_set_caching_enable(const struct scmi_protocol_handle *ph, void *buf)
+{
+	return scmi_send_tunable_pmu(ph, buf, SET_ENABLE_CACHING);
+}
+
 static struct scmi_pmu_vendor_ops pmu_config_ops = {
 	.set_pmu_map		= scmi_pmu_map,
 	.set_enable_trace	= scmi_set_enable_trace,
+	.set_cache_enable	= scmi_set_caching_enable,
 };
 
 static int scmi_pmu_protocol_init(const struct scmi_protocol_handle *ph)
