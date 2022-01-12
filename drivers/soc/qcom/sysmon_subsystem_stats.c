@@ -7,6 +7,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/soc/qcom/smem.h>
+#include <linux/debugfs.h>
 #include <linux/soc/qcom/sysmon_subsystem_stats.h>
 
 #define SYSMON_SMEM_ID			634
@@ -14,7 +15,21 @@
 #define SLEEPSTATS_SMEM_ID_CDSP			607
 #define SLEEPSTATS_SMEM_ID_SLPI			608
 #define SLEEPSTATS_LPI_SMEM_ID			613
+#define DSPPMSTATS_SMEM_ID				624
 #define SYS_CLK_TICKS_PER_MS		19200
+#define DSPPMSTATS_NUMPD		5
+
+struct pd_clients {
+	int pid;
+	u32 num_active;
+};
+
+struct dsppm_stats {
+	u32 version;
+	u32 latency_us;
+	u32 timestamp;
+	struct pd_clients pd[DSPPMSTATS_NUMPD];
+};
 
 struct sysmon_smem_stats {
 	bool smem_init_adsp;
@@ -34,6 +49,11 @@ struct sysmon_smem_stats {
 	u32 *q6_avg_load_adsp;
 	u32 *q6_avg_load_cdsp;
 	u32 *q6_avg_load_slpi;
+	struct dsppm_stats *dsppm_stats_adsp;
+	struct dsppm_stats *dsppm_stats_cdsp;
+	struct dentry *debugfs_dir;
+	struct dentry *debugfs_master_adsp_stats;
+	struct dentry *debugfs_master_cdsp_stats;
 };
 
 enum feature_id {
@@ -153,6 +173,16 @@ static void sysmon_smem_init_adsp(void)
 
 	g_sysmon_stats.smem_init_adsp = true;
 
+	g_sysmon_stats.dsppm_stats_adsp = qcom_smem_get(ADSP,
+						DSPPMSTATS_SMEM_ID,
+						NULL);
+
+	if (IS_ERR_OR_NULL(g_sysmon_stats.dsppm_stats_adsp)) {
+		pr_err("%s:Failed to get fetch dsppm stats from SMEM for ADSP: %d\n",
+				__func__, PTR_ERR(g_sysmon_stats.dsppm_stats_adsp));
+		g_sysmon_stats.smem_init_adsp = false;
+	}
+
 	g_sysmon_stats.sleep_stats_adsp = qcom_smem_get(ADSP,
 						SLEEPSTATS_SMEM_ID_ADSP,
 						NULL);
@@ -215,6 +245,16 @@ static void sysmon_smem_init_cdsp(void)
 	void *smem_pointer_cdsp = NULL;
 
 	g_sysmon_stats.smem_init_cdsp = true;
+
+	g_sysmon_stats.dsppm_stats_cdsp = qcom_smem_get(CDSP,
+						DSPPMSTATS_SMEM_ID,
+						NULL);
+
+	if (IS_ERR_OR_NULL(g_sysmon_stats.dsppm_stats_cdsp)) {
+		pr_err("%s:Failed to get fetch dsppm stats from SMEM for CDSP: %d\n",
+				__func__, PTR_ERR(g_sysmon_stats.dsppm_stats_cdsp));
+		g_sysmon_stats.smem_init_cdsp = false;
+	}
 
 	g_sysmon_stats.sleep_stats_cdsp = qcom_smem_get(CDSP,
 						SLEEPSTATS_SMEM_ID_CDSP,
@@ -662,6 +702,176 @@ int sysmon_stats_query_sleep(enum dsp_id_t dsp_id,
 	return ret;
 }
 EXPORT_SYMBOL(sysmon_stats_query_sleep);
+
+
+static int master_adsp_stats_show(struct seq_file *s, void *d)
+{
+	int i = 0;
+	u64 accumulated;
+
+	if (!g_sysmon_stats.smem_init_adsp)
+		sysmon_smem_init_adsp();
+
+	if (g_sysmon_stats.sysmon_event_stats_adsp) {
+		seq_puts(s, "\nsysMon stats:\n\n");
+		seq_printf(s, "Core clock: %d\n",
+				g_sysmon_stats.sysmon_event_stats_adsp->QDSP6_clk);
+		seq_printf(s, "Ab vote: %llu\n",
+				(((u64)g_sysmon_stats.sysmon_event_stats_adsp->Ab_vote_msb << 32) |
+					   g_sysmon_stats.sysmon_event_stats_adsp->Ab_vote_lsb));
+		seq_printf(s, "Ib vote: %llu\n",
+				(((u64)g_sysmon_stats.sysmon_event_stats_adsp->Ib_vote_msb << 32) |
+					   g_sysmon_stats.sysmon_event_stats_adsp->Ib_vote_lsb));
+		seq_printf(s, "Sleep latency: %u\n",
+				g_sysmon_stats.sysmon_event_stats_adsp->Sleep_latency > 0 ?
+				g_sysmon_stats.sysmon_event_stats_adsp->Sleep_latency : U32_MAX);
+	}
+
+	if (g_sysmon_stats.dsppm_stats_adsp) {
+		seq_puts(s, "\nDSPPM stats:\n\n");
+		seq_printf(s, "Version: %u\n", g_sysmon_stats.dsppm_stats_adsp->version);
+		seq_printf(s, "Sleep latency: %u\n", g_sysmon_stats.dsppm_stats_adsp->latency_us);
+		seq_printf(s, "Timestamp: %llu\n", g_sysmon_stats.dsppm_stats_adsp->timestamp);
+
+		for (; i < DSPPMSTATS_NUMPD; i++) {
+			seq_printf(s, "Pid: %d, Num active clients: %d\n",
+						g_sysmon_stats.dsppm_stats_adsp->pd[i].pid,
+						g_sysmon_stats.dsppm_stats_adsp->pd[i].num_active);
+		}
+	}
+
+	if (g_sysmon_stats.sleep_stats_adsp) {
+		accumulated = g_sysmon_stats.sleep_stats_adsp->accumulated;
+
+		if (g_sysmon_stats.sleep_stats_adsp->last_entered_at >
+					g_sysmon_stats.sleep_stats_adsp->last_exited_at)
+			accumulated += arch_timer_read_counter() -
+						g_sysmon_stats.sleep_stats_adsp->last_entered_at;
+
+		seq_puts(s, "\nLPM stats:\n\n");
+		seq_printf(s, "Count = %u\n", g_sysmon_stats.sleep_stats_adsp->count);
+		seq_printf(s, "Last Entered At = %llu\n",
+			g_sysmon_stats.sleep_stats_adsp->last_entered_at);
+		seq_printf(s, "Last Exited At = %llu\n",
+			g_sysmon_stats.sleep_stats_adsp->last_exited_at);
+		seq_printf(s, "Accumulated Duration = %llu\n", accumulated);
+	}
+
+	if (g_sysmon_stats.sleep_lpi_adsp) {
+		accumulated = g_sysmon_stats.sleep_lpi_adsp->accumulated;
+
+		if (g_sysmon_stats.sleep_lpi_adsp->last_entered_at >
+					g_sysmon_stats.sleep_lpi_adsp->last_exited_at)
+			accumulated += arch_timer_read_counter() -
+					g_sysmon_stats.sleep_lpi_adsp->last_entered_at;
+
+		seq_puts(s, "\nLPI stats:\n\n");
+		seq_printf(s, "Count = %u\n", g_sysmon_stats.sleep_lpi_adsp->count);
+		seq_printf(s, "Last Entered At = %llu\n",
+			g_sysmon_stats.sleep_lpi_adsp->last_entered_at);
+		seq_printf(s, "Last Exited At = %llu\n",
+			g_sysmon_stats.sleep_lpi_adsp->last_exited_at);
+		seq_printf(s, "Accumulated Duration = %llu\n",
+			accumulated);
+	}
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(master_adsp_stats);
+
+static int master_cdsp_stats_show(struct seq_file *s, void *d)
+{
+	int i = 0;
+	u64 accumulated;
+
+	if (!g_sysmon_stats.smem_init_cdsp)
+		sysmon_smem_init_cdsp();
+
+	if (g_sysmon_stats.sysmon_event_stats_cdsp) {
+		seq_puts(s, "\nsysMon stats:\n\n");
+		seq_printf(s, "Core clock: %d\n",
+				g_sysmon_stats.sysmon_event_stats_cdsp->QDSP6_clk);
+		seq_printf(s, "Ab vote: %llu\n",
+				(((u64)g_sysmon_stats.sysmon_event_stats_cdsp->Ab_vote_msb << 32) |
+					   g_sysmon_stats.sysmon_event_stats_cdsp->Ab_vote_lsb));
+		seq_printf(s, "Ib vote: %llu\n",
+				(((u64)g_sysmon_stats.sysmon_event_stats_cdsp->Ib_vote_msb << 32) |
+					   g_sysmon_stats.sysmon_event_stats_cdsp->Ib_vote_lsb));
+		seq_printf(s, "Sleep latency: %u\n",
+				g_sysmon_stats.sysmon_event_stats_cdsp->Sleep_latency > 0 ?
+				g_sysmon_stats.sysmon_event_stats_cdsp->Sleep_latency : U32_MAX);
+	}
+
+	if (g_sysmon_stats.dsppm_stats_cdsp) {
+		seq_puts(s, "\nDSPPM stats:\n\n");
+		seq_printf(s, "Version: %u\n", g_sysmon_stats.dsppm_stats_cdsp->version);
+		seq_printf(s, "Sleep latency: %u\n", g_sysmon_stats.dsppm_stats_cdsp->latency_us);
+		seq_printf(s, "Timestamp: %llu\n", g_sysmon_stats.dsppm_stats_cdsp->timestamp);
+
+		for (; i < DSPPMSTATS_NUMPD; i++) {
+			seq_printf(s, "Pid: %d, Num active clients: %d\n",
+						g_sysmon_stats.dsppm_stats_cdsp->pd[i].pid,
+						g_sysmon_stats.dsppm_stats_cdsp->pd[i].num_active);
+		}
+	}
+
+	if (g_sysmon_stats.sleep_stats_cdsp) {
+		accumulated = g_sysmon_stats.sleep_stats_cdsp->accumulated;
+
+		if (g_sysmon_stats.sleep_stats_cdsp->last_entered_at >
+					g_sysmon_stats.sleep_stats_cdsp->last_exited_at)
+			accumulated += arch_timer_read_counter() -
+						g_sysmon_stats.sleep_stats_cdsp->last_entered_at;
+
+		seq_puts(s, "\nLPM stats:\n\n");
+		seq_printf(s, "Count = %u\n", g_sysmon_stats.sleep_stats_cdsp->count);
+		seq_printf(s, "Last Entered At = %llu\n",
+			g_sysmon_stats.sleep_stats_cdsp->last_entered_at);
+		seq_printf(s, "Last Exited At = %llu\n",
+			g_sysmon_stats.sleep_stats_cdsp->last_exited_at);
+		seq_printf(s, "Accumulated Duration = %llu\n", accumulated);
+	}
+
+	return 0;
+}
+
+DEFINE_SHOW_ATTRIBUTE(master_cdsp_stats);
+
+
+static int  __init sysmon_stats_init(void)
+{
+
+	g_sysmon_stats.debugfs_dir = debugfs_create_dir("sysmon_subsystem_stats", NULL);
+
+	if (!g_sysmon_stats.debugfs_dir) {
+		pr_err("Failed to create debugfs directory for sysmon_subsystem_stats\n");
+		goto debugfs_bail;
+	}
+	g_sysmon_stats.debugfs_master_adsp_stats =
+			debugfs_create_file("master_adsp_stats",
+			 0444, g_sysmon_stats.debugfs_dir, NULL, &master_adsp_stats_fops);
+
+	if (!g_sysmon_stats.debugfs_master_adsp_stats)
+		pr_err("Failed to create debugfs file for master stats\n");
+
+	g_sysmon_stats.debugfs_master_cdsp_stats =
+			debugfs_create_file("master_cdsp_stats",
+			 0444, g_sysmon_stats.debugfs_dir, NULL, &master_cdsp_stats_fops);
+
+	if (!g_sysmon_stats.debugfs_master_cdsp_stats)
+		pr_err("Failed to create debugfs file for master stats\n");
+
+debugfs_bail:
+		return 0;
+}
+
+static void __exit sysmon_stats_exit(void)
+{
+	debugfs_remove_recursive(g_sysmon_stats.debugfs_dir);
+}
+
+module_init(sysmon_stats_init);
+module_exit(sysmon_stats_exit);
+
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Sysmon subsystem Stats driver");
