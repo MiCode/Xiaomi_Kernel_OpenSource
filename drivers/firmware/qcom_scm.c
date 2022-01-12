@@ -1391,6 +1391,25 @@ int qcom_scm_kgsl_set_smmu_aperture(unsigned int num_context_bank)
 }
 EXPORT_SYMBOL(qcom_scm_kgsl_set_smmu_aperture);
 
+int qcom_scm_kgsl_set_smmu_lpac_aperture(unsigned int num_context_bank)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_MP,
+		.cmd = QCOM_SCM_MP_CP_SMMU_APERTURE_ID,
+		.owner = ARM_SMCCC_OWNER_SIP,
+		.args[0] = 0xffff0000
+			   | ((QCOM_SCM_CP_LPAC_APERTURE_REG & 0xff) << 8)
+			   | (num_context_bank & 0xff),
+		.args[1] = 0xffffffff,
+		.args[2] = 0xffffffff,
+		.args[3] = 0xffffffff,
+		.arginfo = QCOM_SCM_ARGS(4),
+	};
+
+	return qcom_scm_call(__scm->dev, &desc, NULL);
+}
+EXPORT_SYMBOL(qcom_scm_kgsl_set_smmu_lpac_aperture);
+
 int qcom_scm_enable_shm_bridge(void)
 {
 	int ret;
