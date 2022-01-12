@@ -43,6 +43,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&usb3phy_portselect_gpio>;
 		gpios = <&tlmm 122 0>;
+		lane-channel-swap;
 
 		eq = /bits/ 8 <
 				/* Parameters for USB */
