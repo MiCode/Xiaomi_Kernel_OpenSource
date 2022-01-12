@@ -415,6 +415,9 @@ static struct qcom_ssr_subsystem *qcom_ssr_get_subsys(const char *name)
 {
 	struct qcom_ssr_subsystem *info;
 
+	if (!name)
+		return ERR_PTR(-EINVAL);
+
 	mutex_lock(&qcom_ssr_subsys_lock);
 	/* Match in the global qcom_ssr_subsystem_list with name */
 	list_for_each_entry(info, &qcom_ssr_subsystem_list, list)
