@@ -28,6 +28,7 @@
 #define ATTR1_FIXED_SIZE_SHIFT        0x03
 #define ATTR1_PRIORITY_SHIFT          0x04
 #define ATTR1_MAX_CAP_SHIFT           0x10
+#define ATTR1_MAX_CAP_SHIFT_v31       0x0E
 #define ATTR0_RES_WAYS_MASK           GENMASK(15, 0)
 #define ATTR0_BONUS_WAYS_MASK         GENMASK(31, 16)
 #define ATTR0_BONUS_WAYS_SHIFT        0x10
@@ -44,6 +45,7 @@
 #define LLCC_TRP_STATUSn(n)           (4 + n * SZ_4K)
 #define LLCC_TRP_ATTR0_CFGn(n)        (0x21000 + SZ_8 * n)
 #define LLCC_TRP_ATTR1_CFGn(n)        (0x21004 + SZ_8 * n)
+#define LLCC_TRP_ATTR2_CFGn(n)        (0x21100 + SZ_4 * n)
 
 #define LLCC_TRP_C_AS_N               0x22890
 #define LLCC_TRP_NC_AS_C              0x22894
@@ -120,6 +122,11 @@ static u32 llcc_offsets_v21[] = {
 static u32 llcc_offsets_v21_diwali[] = {
 	0x0,
 	0x100000
+};
+
+static u32 llcc_offsets_v31[] = {
+	0x0,
+	0x100000,
 };
 
 enum {
@@ -514,10 +521,12 @@ EXPORT_SYMBOL_GPL(llcc_get_slice_size);
 static int qcom_llcc_cfg_program(struct platform_device *pdev)
 {
 	int i;
+	u32 attr2_cfg;
 	u32 attr1_cfg;
 	u32 attr0_cfg;
 	u32 attr1_val;
 	u32 attr0_val;
+	u32 attr2_val;
 	u32 max_cap_cacheline;
 	u32 sz;
 	u32 pcb = 0;
@@ -561,10 +570,21 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 		 */
 		max_cap_cacheline = max_cap_cacheline / drv_data->num_banks;
 		max_cap_cacheline >>= CACHE_LINE_SIZE_SHIFT;
-		attr1_val |= max_cap_cacheline << ATTR1_MAX_CAP_SHIFT;
-
-		attr0_val = llcc_table[i].res_ways & ATTR0_RES_WAYS_MASK;
-		attr0_val |= llcc_table[i].bonus_ways << ATTR0_BONUS_WAYS_SHIFT;
+		if (drv_data->llcc_ver >= 31) {
+			attr1_val |=
+				max_cap_cacheline << ATTR1_MAX_CAP_SHIFT_v31;
+			attr2_cfg =
+				LLCC_TRP_ATTR2_CFGn(llcc_table[i].slice_id);
+			attr0_val = llcc_table[i].res_ways;
+			attr2_val = llcc_table[i].bonus_ways;
+		} else {
+			attr1_val |= max_cap_cacheline << ATTR1_MAX_CAP_SHIFT;
+			attr0_val =
+				llcc_table[i].res_ways & ATTR0_RES_WAYS_MASK;
+			attr0_val |=
+				llcc_table[i].bonus_ways
+					<< ATTR0_BONUS_WAYS_SHIFT;
+		}
 
 		ret = regmap_write(drv_data->bcast_regmap, attr1_cfg,
 					attr1_val);
@@ -574,6 +594,13 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 					attr0_val);
 		if (ret)
 			return ret;
+
+		if (drv_data->llcc_ver >= 31) {
+			ret = regmap_write(drv_data->bcast_regmap, attr2_cfg,
+					attr2_val);
+			if (ret)
+				return ret;
+		}
 
 		if (drv_data->llcc_ver >= 20) {
 			wren |= llcc_table[i].write_scid_en <<
@@ -681,6 +708,12 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	}
 
 	if (of_property_match_string(dev->of_node,
+				    "compatible", "qcom,llcc-v31") >= 0) {
+		drv_data->llcc_ver = 31;
+		llcc_regs = llcc_regs_v21;
+		drv_data->offsets = llcc_offsets_v31;
+		drv_data->num_banks = ARRAY_SIZE(llcc_offsets_v31);
+	} else if (of_property_match_string(dev->of_node,
 				    "compatible", "qcom,llcc-v21") >= 0) {
 		drv_data->llcc_ver = 21;
 		llcc_regs = llcc_regs_v21;
