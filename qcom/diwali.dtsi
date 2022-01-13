@@ -745,6 +745,7 @@
 		reg = <0xc3f0000 0x400>;
 		ss-name = "modem", "adsp", "adsp_island",
 			  "cdsp", "apss", "wpss";
+		mboxes = <&qmp_aop 0>;
 	};
 
 	sys-pm-vx@c320000 {
