@@ -14,9 +14,10 @@ Properties:
 	Definition: must be "qcom,sdm845-llcc" or "qcom,lahaina-llcc"
 	            or "qcom,shima-llcc" or "qcom,waipio-llcc"
 		    or "qcom,sdxlemur-llcc" or "qcom,diwali-llcc"
-		    or "qcom,cape-llcc".
+		    or "qcom,cape-llcc" or "qcom,neo-llcc".
 		    "qcom,llcc-v2" must be appended for V2 hardware or
 		    "qcom,llcc-v21" for V2.1.
+		    "qcom,llcc-v31" for V3.1.
 
 - reg:
 	Usage: required
