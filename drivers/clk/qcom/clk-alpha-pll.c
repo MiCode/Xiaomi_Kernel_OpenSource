@@ -2742,6 +2742,7 @@ int clk_regera_pll_configure(struct clk_alpha_pll *pll, struct regmap *regmap,
 
 	return 0;
 }
+EXPORT_SYMBOL(clk_regera_pll_configure);
 
 static int clk_regera_pll_enable(struct clk_hw *hw)
 {
