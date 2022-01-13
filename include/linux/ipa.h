@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021, 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _IPA_H_
@@ -1806,6 +1806,12 @@ bool ipa_is_ready(void);
 void ipa_proxy_clk_vote(void);
 void ipa_proxy_clk_unvote(void);
 
+#ifdef CONFIG_DEEPSLEEP
+int ipa_fmwk_deepsleep_entry_ipa(void);
+
+int ipa_fmwk_deepsleep_exit_ipa(void);
+#endif
+
 enum ipa_hw_type ipa_get_hw_type(void);
 
 const struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(
@@ -2207,6 +2213,16 @@ static inline int ipa_get_ep_mapping(enum ipa_client_type client)
 static inline bool ipa_is_ready(void)
 {
 	return false;
+}
+
+static inline int ipa_fmwk_deepsleep_entry_ipa(void)
+{
+	return -EPERM;
+}
+
+static inline int ipa_fmwk_deepsleep_exit_ipa(void)
+{
+	return -EPERM;
 }
 
 static inline enum ipa_hw_type ipa_get_hw_type(void)
