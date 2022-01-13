@@ -1770,7 +1770,8 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	int irq;
-	int ret;
+	int ret, i;
+	bool pinned = false;
 
 	if (!smmu || domain->type == IOMMU_DOMAIN_IDENTITY)
 		return;
@@ -1803,7 +1804,15 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	arm_smmu_secure_pool_destroy(smmu_domain);
 	arm_smmu_unassign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
-	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
+
+	for (i = 0; i < smmu->num_mapping_groups; i++)
+		if ((cfg->cbndx == smmu->s2crs[i].cbndx) &&
+		    (smmu->s2crs[i].pinned)) {
+			pinned = true;
+		}
+
+	if (!pinned)
+		__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
 
 	arm_smmu_rpm_put(smmu);
 	arm_smmu_domain_reinit(smmu_domain);
