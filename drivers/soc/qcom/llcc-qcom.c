@@ -38,8 +38,6 @@
 #define LLCC_COMMON_STATUS0_V2        0x0003000c
 #define LLCC_COMMON_STATUS0_V21       0x0003400c
 #define LLCC_COMMON_STATUS0           llcc_regs[LLCC_COMMON_STATUS0_num]
-#define LLCC_LB_CNT_MASK              GENMASK(31, 28)
-#define LLCC_LB_CNT_SHIFT             28
 
 #define MAX_CAP_TO_BYTES(n)           (n * SZ_1K)
 #define LLCC_TRP_ACT_CTRLn(n)         (n * SZ_4K)
@@ -656,7 +654,6 @@ static struct regmap *qcom_llcc_init_mmio(struct platform_device *pdev,
 
 static int qcom_llcc_probe(struct platform_device *pdev)
 {
-	u32 num_banks;
 	struct device *dev = &pdev->dev;
 	int ret, i;
 	struct platform_device *llcc_edac;
@@ -688,22 +685,19 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		drv_data->llcc_ver = 21;
 		llcc_regs = llcc_regs_v21;
 		drv_data->offsets = llcc_offsets_v21;
-		if (of_property_match_string(dev->of_node, "compatible", "qcom,diwali-llcc") >= 0)
+		drv_data->num_banks = ARRAY_SIZE(llcc_offsets_v21);
+		if (of_property_match_string(dev->of_node,
+				"compatible", "qcom,diwali-llcc") >= 0) {
 			drv_data->offsets = llcc_offsets_v21_diwali;
+			drv_data->num_banks =
+				ARRAY_SIZE(llcc_offsets_v21_diwali);
+		}
 	} else {
 		drv_data->llcc_ver = 20;
 		llcc_regs = llcc_regs_v2;
 		drv_data->offsets = llcc_offsets_v2;
+		drv_data->num_banks = ARRAY_SIZE(llcc_offsets_v2);
 	}
-
-	ret = regmap_read(drv_data->regmap, LLCC_COMMON_STATUS0,
-						&num_banks);
-	if (ret)
-		goto err;
-
-	num_banks &= LLCC_LB_CNT_MASK;
-	num_banks >>= LLCC_LB_CNT_SHIFT;
-	drv_data->num_banks = num_banks;
 
 	cfg = of_device_get_match_data(&pdev->dev);
 	if (!cfg) {
