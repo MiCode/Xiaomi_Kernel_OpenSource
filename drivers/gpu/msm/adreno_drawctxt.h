@@ -86,6 +86,8 @@ struct adreno_context {
 	u32 hw_fence_ts;
 	/** @hw_fence_count: Number of hardware fences not yet sent to Tx Queue */
 	u32 hw_fence_count;
+	/** @syncobj_timestamp: Timestamp to check whether GMU has consumed a syncobj */
+	u32 syncobj_timestamp;
 };
 
 /* Flag definitions for flag field in adreno_context */
