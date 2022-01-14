@@ -808,4 +808,14 @@ config SM_NPUCC_8150
 	  Say Y if you want to enable use of the Network Processing Unit in
 	  order to speed up certain types of calculations.
 
+config SM_SCC_8150
+	tristate "SM8150 Sensor Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the sensor clock controller on Qualcomm Technologies, Inc.
+	  SM8150 devices.  The sensor controller contains several QUP clocks
+	  which can be managed using DFS.  This controller is typically owned by
+	  the sensor processor.  However, on some systems it is instead owned
+	  by the application processor.
+
 endif
