@@ -447,7 +447,8 @@ static int mem_buf_lend_internal(struct dma_buf *dmabuf,
 	struct sg_table *sgt;
 	int ret;
 
-	if (!arg->nr_acl_entries || !arg->vmids || !arg->perms)
+	if (!arg->nr_acl_entries || !arg->vmids || !arg->perms ||
+	    mem_buf_check_vmids(arg->vmids, arg->nr_acl_entries))
 		return -EINVAL;
 
 	vmperm = to_mem_buf_vmperm(dmabuf);
