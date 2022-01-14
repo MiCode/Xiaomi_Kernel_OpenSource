@@ -1080,6 +1080,13 @@ skip_buf_cache:
 			goto bail;
 		if (fl->sctx->smmu.cb)
 			buf->phys &= ~((uint64_t)fl->sctx->smmu.cb << 32);
+		VERIFY(err, VALID_FASTRPC_CID(fl->cid));
+		if (err) {
+			ADSPRPC_ERR(
+				"invalid channel 0x%zx set for session\n",
+				fl->cid);
+			goto bail;
+		}
 		vmid = fl->apps->channel[fl->cid].vmid;
 		if (vmid) {
 			int srcVM[2] = {VMID_HLOS, vmid};
@@ -1735,6 +1742,12 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_buf *buf = NULL;
 
+	VERIFY(err, VALID_FASTRPC_CID(fl->cid));
+	if (err) {
+		err = -ECHRNG;
+		goto bail;
+	}
+
 	VERIFY(err, size > 0 && size < me->max_size_limit);
 	if (err) {
 		err = -EFAULT;
@@ -2159,9 +2172,18 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	int nbufs = REMOTE_SCALARS_INBUFS(ctx->sc) +
 		    REMOTE_SCALARS_OUTBUFS(ctx->sc);
 	int cid = ctx->fl->cid;
-	struct fastrpc_channel_ctx *chan = &me->channel[cid];
+	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
+	int err = 0;
 
+	VERIFY(err, VALID_FASTRPC_CID(cid));
+	if (err) {
+		ADSPRPC_ERR(
+			"invalid channel 0x%zx set for session\n",
+								cid);
+		return;
+	}
+	chan = &me->channel[cid];
 	i = (uint32_t)GET_TABLE_IDX_FROM_CTXID(ctx->ctxid);
 
 	spin_lock_irqsave(&chan->ctxlock, irq_flags);
