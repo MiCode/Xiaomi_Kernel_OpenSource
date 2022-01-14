@@ -979,7 +979,7 @@ static inline void reset_unique_index(int index)
  */
 static int fastrpc_minidump_add_region(struct fastrpc_mmap *map)
 {
-	int err = -1, md_index = 0;
+	int err = 0, ret_val = 0, md_index = 0;
 	struct md_region md_entry;
 
 	md_index = get_unique_index();
@@ -988,19 +988,20 @@ static int fastrpc_minidump_add_region(struct fastrpc_mmap *map)
 		md_entry.virt_addr = map->va;
 		md_entry.phys_addr = map->phys;
 		md_entry.size = map->size;
-		err = msm_minidump_add_region(&md_entry);
-		if (err < 0) {
+		ret_val = msm_minidump_add_region(&md_entry);
+		if (ret_val < 0) {
 			ADSPRPC_ERR(
 			"Failed to add/update CMA to Minidump for phys: 0x%llx, size: %zu, md_index %d, md_entry.name %s\n",
 			map->phys,
 			map->size, md_index,
 			md_entry.name);
 			reset_unique_index(md_index);
+			err = ret_val;
 		} else {
 			map->frpc_md_index = md_index;
 		}
 	} else {
-		ADSPRPC_ERR("failed to generate valid unique id for mini dump : %d\n", md_index);
+		pr_warn("failed to generate valid unique id for mini dump : %d\n", md_index);
 	}
 	return err;
 }
@@ -3408,7 +3409,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		if (fl->profile && !interrupted)
 			fastrpc_update_invoke_count(invoke->handle,
 				perf_counter, &invoket);
-		if (fl->profile && ctx->handle > FASTRPC_STATIC_HANDLE_MAX) {
+		if (fl->profile && ctx->perf && ctx->handle > FASTRPC_STATIC_HANDLE_MAX) {
 			trace_fastrpc_perf_counters(ctx->handle, ctx->sc,
 			ctx->perf->count, ctx->perf->flush, ctx->perf->map,
 			ctx->perf->copy, ctx->perf->link, ctx->perf->getargs,
@@ -3500,7 +3501,7 @@ bail:
 	if (ierr)
 		async_res->result = ierr;
 	if (ctx) {
-		if (fl->profile && ctx->handle > FASTRPC_STATIC_HANDLE_MAX) {
+		if (fl->profile && ctx->perf && ctx->handle > FASTRPC_STATIC_HANDLE_MAX) {
 			trace_fastrpc_perf_counters(ctx->handle, ctx->sc,
 			ctx->perf->count, ctx->perf->flush, ctx->perf->map,
 			ctx->perf->copy, ctx->perf->link, ctx->perf->getargs,
@@ -4057,7 +4058,7 @@ bail:
 static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 				struct fastrpc_ioctl_init *init)
 {
-	int err = 0, rh_hyp_done = 0, mem_create = 0;
+	int err = 0, rh_hyp_done = 0;
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_ioctl_invoke_async ioctl;
 	struct smq_phy_page pages[1];
@@ -4114,7 +4115,6 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		mutex_unlock(&fl->map_mutex);
 		if (err)
 			goto bail;
-		mem_create = 1;
 		phys = mem->phys;
 		size = mem->size;
 		/*
@@ -4184,11 +4184,9 @@ bail:
 					"rh hyp unassign failed with %d for phys 0x%llx of size %zu\n",
 					hyp_err, phys, size);
 		}
-		if (mem_create && mem) {
-			mutex_lock(&fl->map_mutex);
-			fastrpc_mmap_free(mem, 0);
-			mutex_unlock(&fl->map_mutex);
-		}
+	mutex_lock(&fl->map_mutex);
+	fastrpc_mmap_free(mem, 0);
+	mutex_unlock(&fl->map_mutex);
 	}
 	return err;
 }
