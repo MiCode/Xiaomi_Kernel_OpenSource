@@ -891,7 +891,12 @@ static int haptics_get_status_data(struct haptics_chip *chip,
 	mod_sel_val[0] = sel & 0xff;
 	mod_sel_val[1] = (sel >> 8) & 0xff;
 	rc = haptics_write(chip, chip->cfg_addr_base,
-			HAP_CFG_MOD_STATUS_SEL_REG, mod_sel_val, 2);
+			HAP_CFG_MOD_STATUS_XT_V2_REG, &mod_sel_val[1], 1);
+	if (rc < 0)
+		return rc;
+
+	rc = haptics_write(chip, chip->cfg_addr_base,
+			HAP_CFG_MOD_STATUS_SEL_REG, mod_sel_val, 1);
 	if (rc < 0)
 		return rc;
 
