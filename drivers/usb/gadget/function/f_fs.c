@@ -2012,14 +2012,17 @@ static void ffs_data_clear(struct ffs_data *ffs)
 		ffs_epfiles_destroy(ffs->epfiles, ffs->eps_count);
 		ffs->epfiles = NULL;
 	}
-	mutex_unlock(&ffs->mutex);
 
 	if (ffs->ffs_eventfd)
 		eventfd_ctx_put(ffs->ffs_eventfd);
 
 	kfree(ffs->raw_descs_data);
+	ffs->raw_descs_data = NULL;
 	kfree(ffs->raw_strings);
+	ffs->raw_strings = NULL;
 	kfree(ffs->stringtabs);
+	ffs->stringtabs = NULL;
+	mutex_unlock(&ffs->mutex);
 }
 
 static void ffs_data_reset(struct ffs_data *ffs)
@@ -2031,10 +2034,7 @@ static void ffs_data_reset(struct ffs_data *ffs)
 
 	ffs_data_clear(ffs);
 
-	ffs->raw_descs_data = NULL;
 	ffs->raw_descs = NULL;
-	ffs->raw_strings = NULL;
-	ffs->stringtabs = NULL;
 
 	ffs->raw_descs_length = 0;
 	ffs->fs_descs_count = 0;

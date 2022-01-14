@@ -102,8 +102,6 @@ static int npu_exec_network(struct npu_client *client,
 	unsigned long arg);
 static int npu_exec_network_v2(struct npu_client *client,
 	unsigned long arg);
-static int npu_receive_event(struct npu_client *client,
-	unsigned long arg);
 static int npu_set_fw_state(struct npu_client *client, uint32_t enable);
 static int npu_set_property(struct npu_client *client,
 	unsigned long arg);
@@ -111,7 +109,6 @@ static int npu_get_property(struct npu_client *client,
 	unsigned long arg);
 static long npu_ioctl(struct file *file, unsigned int cmd,
 					unsigned long arg);
-static __poll_t npu_poll(struct file *filp, struct poll_table_struct *p);
 static int npu_parse_dt_clock(struct npu_device *npu_dev);
 static int npu_parse_dt_regulator(struct npu_device *npu_dev);
 static int npu_of_parse_pwrlevels(struct npu_device *npu_dev,
@@ -223,7 +220,6 @@ static const struct file_operations npu_fops = {
 #ifdef CONFIG_COMPAT
 	 .compat_ioctl = npu_ioctl,
 #endif
-	.poll = npu_poll,
 };
 
 static const struct thermal_cooling_device_ops npu_cooling_ops = {
@@ -1215,9 +1211,7 @@ static int npu_open(struct inode *inode, struct file *file)
 		return -ENOMEM;
 
 	client->npu_dev = npu_dev;
-	init_waitqueue_head(&client->wait);
 	mutex_init(&client->list_lock);
-	INIT_LIST_HEAD(&client->evt_list);
 	INIT_LIST_HEAD(&(client->mapped_buffer_list));
 	file->private_data = client;
 
@@ -1227,17 +1221,8 @@ static int npu_open(struct inode *inode, struct file *file)
 static int npu_close(struct inode *inode, struct file *file)
 {
 	struct npu_client *client = file->private_data;
-	struct npu_kevent *kevent;
 
 	npu_host_cleanup_networks(client);
-
-	while (!list_empty(&client->evt_list)) {
-		kevent = list_first_entry(&client->evt_list,
-			struct npu_kevent, list);
-		list_del(&kevent->list);
-		kfree(kevent);
-	}
-
 	mutex_destroy(&client->list_lock);
 	kfree(client);
 	return 0;
@@ -1559,57 +1544,6 @@ static int npu_exec_network_v2(struct npu_client *client,
 	return ret;
 }
 
-static int npu_process_kevent(struct npu_kevent *kevt)
-{
-	int ret = 0;
-
-	switch (kevt->evt.type) {
-	case MSM_NPU_EVENT_TYPE_EXEC_V2_DONE:
-		ret = copy_to_user(kevt->stats_buf_u,
-			kevt->stats_buf,
-			kevt->evt.u.exec_v2_done.stats_buf_size);
-		if (ret) {
-			pr_err("fail to copy to user\n");
-			kevt->evt.u.exec_v2_done.stats_buf_size = 0;
-			ret = -EFAULT;
-		}
-		break;
-	default:
-		break;
-	}
-
-	return ret;
-}
-
-static int npu_receive_event(struct npu_client *client,
-	unsigned long arg)
-{
-	void __user *argp = (void __user *)arg;
-	struct npu_kevent *kevt;
-	int ret = 0;
-
-	mutex_lock(&client->list_lock);
-	if (list_empty(&client->evt_list)) {
-		pr_err("event list is empty\n");
-		ret = -EINVAL;
-	} else {
-		kevt = list_first_entry(&client->evt_list,
-			struct npu_kevent, list);
-		list_del(&kevt->list);
-		npu_process_kevent(kevt);
-		ret = copy_to_user(argp, &kevt->evt,
-			sizeof(struct msm_npu_event));
-		if (ret) {
-			pr_err("fail to copy to user\n");
-			ret = -EFAULT;
-		}
-		kfree(kevt);
-	}
-	mutex_unlock(&client->list_lock);
-
-	return ret;
-}
-
 static int npu_set_fw_state(struct npu_client *client, uint32_t enable)
 {
 	struct npu_device *npu_dev = client->npu_dev;
@@ -1761,9 +1695,6 @@ static long npu_ioctl(struct file *file, unsigned int cmd,
 	case MSM_NPU_EXEC_NETWORK_V2:
 		ret = npu_exec_network_v2(client, arg);
 		break;
-	case MSM_NPU_RECEIVE_EVENT:
-		ret = npu_receive_event(client, arg);
-		break;
 	case MSM_NPU_SET_PROP:
 		ret = npu_set_property(client, arg);
 		break;
@@ -1775,23 +1706,6 @@ static long npu_ioctl(struct file *file, unsigned int cmd,
 	}
 
 	return ret;
-}
-
-static __poll_t npu_poll(struct file *filp, struct poll_table_struct *p)
-{
-	struct npu_client *client = filp->private_data;
-	__poll_t mask = 0;
-
-	poll_wait(filp, &client->wait, p);
-
-	mutex_lock(&client->list_lock);
-	if (!list_empty(&client->evt_list)) {
-		pr_debug("poll cmd done\n");
-		mask = EPOLLIN | EPOLLRDNORM;
-	}
-	mutex_unlock(&client->list_lock);
-
-	return mask;
 }
 
 /* -------------------------------------------------------------------------

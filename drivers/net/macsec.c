@@ -997,15 +997,26 @@ static enum rx_handler_result handle_not_macsec(struct sk_buff *skb)
 		 * the SecTAG, so we have to deduce which port to deliver to.
 		 */
 		if (macsec_is_offloaded(macsec) && netif_running(ndev)) {
-			if (ether_addr_equal_64bits(hdr->h_dest,
+			if (hdr->h_proto == htons(ETH_P_PAE))
+				continue;
+
+			if (ndev->flags & IFF_PROMISC) {
+				nskb = skb_clone(skb, GFP_ATOMIC);
+				if (!nskb)
+					break;
+
+				count_rx(ndev, nskb->len);
+				nskb->dev = ndev;
+				netif_rx(nskb);
+			} else if (ether_addr_equal_64bits(hdr->h_dest,
 						    ndev->dev_addr)) {
 				/* exact match, divert skb to this port */
 				skb->dev = ndev;
 				skb->pkt_type = PACKET_HOST;
+				count_rx(ndev, skb->len);
 				ret = RX_HANDLER_ANOTHER;
 				goto out;
-			} else if (is_multicast_ether_addr_64bits(
-					   hdr->h_dest)) {
+			} else if (is_multicast_ether_addr_64bits(hdr->h_dest)) {
 				/* multicast frame, deliver on this port too */
 				nskb = skb_clone(skb, GFP_ATOMIC);
 				if (!nskb)
@@ -1018,6 +1029,7 @@ static enum rx_handler_result handle_not_macsec(struct sk_buff *skb)
 				else
 					nskb->pkt_type = PACKET_MULTICAST;
 
+				count_rx(ndev, nskb->len);
 				netif_rx(nskb);
 			}
 			continue;
@@ -1456,6 +1468,11 @@ static struct net_device *get_dev_from_nl(struct net *net,
 		return ERR_PTR(-ENODEV);
 
 	return dev;
+}
+
+static enum macsec_offload nla_get_offload(const struct nlattr *nla)
+{
+	return (__force enum macsec_offload)nla_get_u8(nla);
 }
 
 static sci_t nla_get_sci(const struct nlattr *nla)
@@ -3353,6 +3370,14 @@ static netdev_tx_t macsec_start_xmit(struct sk_buff *skb,
 		return dev_queue_xmit(skb);
 	}
 
+	if (macsec_is_offloaded(netdev_priv(dev))) {
+		skb->dev = macsec->real_dev;
+		ret = dev_queue_xmit(skb);
+		len = skb->len;
+		count_tx(dev, ret, len);
+		return ret;
+	}
+
 	/* 10.5 */
 	if (!secy->protect_frames) {
 		secy_stats = this_cpu_ptr(macsec->stats);
@@ -3975,8 +4000,16 @@ static int macsec_newlink(struct net *net, struct net_device *dev,
 
 	macsec->real_dev = real_dev;
 
-	/* MACsec offloading is off by default */
-	macsec->offload = MACSEC_OFFLOAD_OFF;
+	if (data && data[IFLA_MACSEC_OFFLOAD])
+		macsec->offload = nla_get_offload(data[IFLA_MACSEC_OFFLOAD]);
+	else
+		/* MACsec offloading is off by default */
+		macsec->offload = MACSEC_OFFLOAD_OFF;
+
+	/* Check if the offloading mode is supported by the underlying layers */
+	if (macsec->offload != MACSEC_OFFLOAD_OFF &&
+	    !macsec_check_offload(macsec->offload, macsec))
+		return -EOPNOTSUPP;
 
 	if (data && data[IFLA_MACSEC_ICV_LEN])
 		icv_len = nla_get_u8(data[IFLA_MACSEC_ICV_LEN]);
@@ -4021,6 +4054,20 @@ static int macsec_newlink(struct net *net, struct net_device *dev,
 		err = macsec_changelink_common(dev, data);
 		if (err)
 			goto del_dev;
+	}
+
+	/* If h/w offloading is available, propagate to the device */
+	if (macsec_is_offloaded(macsec)) {
+		const struct macsec_ops *ops;
+		struct macsec_context ctx;
+
+		ops = macsec_get_ops(macsec, &ctx);
+		if (ops) {
+			ctx.secy = &macsec->secy;
+			err = macsec_offload(ops->mdo_add_secy, &ctx);
+			if (err)
+				goto del_dev;
+		}
 	}
 
 	err = register_macsec_dev(real_dev, dev);
