@@ -38,5 +38,6 @@ struct scmi_protocol_handle;
  */
 struct scmi_pmu_vendor_ops {
 	int (*set_pmu_map)(const struct scmi_protocol_handle *ph, void *buf);
+	int (*set_enable_trace)(const struct scmi_protocol_handle *ph, void *buf);
 };
 #endif
