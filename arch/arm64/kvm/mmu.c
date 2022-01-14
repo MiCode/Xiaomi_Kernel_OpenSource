@@ -190,6 +190,22 @@ static void unmap_stage2_range(struct kvm_s2_mmu *mmu, phys_addr_t start, u64 si
 	__unmap_stage2_range(mmu, start, size, true);
 }
 
+static void pkvm_stage2_flush(struct kvm *kvm)
+{
+	struct kvm_pinned_page *ppage;
+
+	/*
+	 * Contrary to stage2_apply_range(), we don't need to check
+	 * whether the VM is being torn down, as this is always called
+	 * from a vcpu thread, and the list is only ever freed on VM
+	 * destroy (which only occurs when all vcpu are gone).
+	 */
+	list_for_each_entry(ppage, &kvm->arch.pkvm.pinned_pages, link) {
+		__clean_dcache_guest_page(page_address(ppage->page), PAGE_SIZE);
+		cond_resched_lock(&kvm->mmu_lock);
+	}
+}
+
 static void stage2_flush_memslot(struct kvm *kvm,
 				 struct kvm_memory_slot *memslot)
 {
@@ -215,9 +231,13 @@ static void stage2_flush_vm(struct kvm *kvm)
 	idx = srcu_read_lock(&kvm->srcu);
 	spin_lock(&kvm->mmu_lock);
 
-	slots = kvm_memslots(kvm);
-	kvm_for_each_memslot(memslot, slots)
-		stage2_flush_memslot(kvm, memslot);
+	if (!is_protected_kvm_enabled()) {
+		slots = kvm_memslots(kvm);
+		kvm_for_each_memslot(memslot, slots)
+			stage2_flush_memslot(kvm, memslot);
+	} else if (!kvm_vm_is_protected(kvm)) {
+		pkvm_stage2_flush(kvm);
+	}
 
 	spin_unlock(&kvm->mmu_lock);
 	srcu_read_unlock(&kvm->srcu, idx);
@@ -1178,6 +1198,7 @@ static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa,
 		goto dec_account;
 	}
 
+	spin_lock(&kvm->mmu_lock);
 	pfn = page_to_pfn(page);
 	ret = pkvm_host_donate_guest(pfn, fault_ipa >> PAGE_SHIFT, vcpu);
 	if (ret) {
@@ -1188,13 +1209,13 @@ static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa,
 
 	ppage->page = page;
 	INIT_LIST_HEAD(&ppage->link);
-	spin_lock(&kvm->mmu_lock);
 	list_add(&ppage->link, &kvm->arch.pkvm.pinned_pages);
 	spin_unlock(&kvm->mmu_lock);
 
 	return 0;
 
 unpin:
+	spin_unlock(&kvm->mmu_lock);
 	unpin_user_pages(&page, 1);
 dec_account:
 	account_locked_vm(mm, 1, false);
