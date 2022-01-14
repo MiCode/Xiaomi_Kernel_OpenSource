@@ -799,4 +799,13 @@ config SM_CAMCC_8150
 	  Say Y if you want to support camera devices and functionality such as
 	  capturing pictures.
 
+config SM_NPUCC_8150
+	tristate "SM8150 NPU Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the NPU Clock Controller on Qualcomm Technologies, Inc.
+	  sm8150 devices.
+	  Say Y if you want to enable use of the Network Processing Unit in
+	  order to speed up certain types of calculations.
+
 endif
