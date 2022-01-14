@@ -735,7 +735,7 @@ int tmc_etr_usb_init(struct amba_device *adev,
 		if (domain) {
 			mapping_config = qcom_iommu_get_mappings_configuration(domain);
 			if (mapping_config < 0)
-				return ERR_PTR(-ENOMEM);
+				return -ENOMEM;
 			if (!(mapping_config & QCOM_IOMMU_MAPPING_CONF_S1_BYPASS))
 				pr_debug("%s: setting SPS_BAM_SMMU_EN flag with (%s)\n",
 							__func__, dev_name(dev));

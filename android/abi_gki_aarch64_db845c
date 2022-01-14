@@ -707,7 +707,7 @@
   unregister_reboot_notifier
   unregister_rpmsg_driver
   usb_disabled
-  usleep_range
+  usleep_range_state
   vabits_actual
   vfree
   vmalloc

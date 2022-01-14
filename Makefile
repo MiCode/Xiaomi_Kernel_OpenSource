@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 5
 PATCHLEVEL = 15
-SUBLEVEL = 7
+SUBLEVEL = 12
 EXTRAVERSION =
 NAME = Trick or Treat
 
@@ -433,6 +433,10 @@ export KCONFIG_CONFIG
 export KBUILD_DEFCONFIG := defconfig
 
 mixed-build-prefix = $(if $(KBUILD_MIXED_TREE),$(KBUILD_MIXED_TREE)/)
+# This is a hack for kleaf to set mixed-build-prefix within the execution of a make rule, e.g.
+# within __modinst_pre.
+# TODO(b/205893923): Revert this hack once it is properly handled.
+export mixed-build-prefix
 
 # SHELL used by kbuild
 CONFIG_SHELL := sh
@@ -805,6 +809,9 @@ stackp-flags-$(CONFIG_STACKPROTECTOR_STRONG)      := -fstack-protector-strong
 
 KBUILD_CFLAGS += $(stackp-flags-y)
 
+KBUILD_CFLAGS-$(CONFIG_WERROR) += -Werror
+KBUILD_CFLAGS += $(KBUILD_CFLAGS-y)
+
 ifdef CONFIG_CC_IS_CLANG
 KBUILD_CPPFLAGS += -Qunused-arguments
 # The kernel builds with '-std=gnu89' so use of GNU extensions is acceptable.
@@ -1176,7 +1183,9 @@ endif
 # Devicetree files
 ifeq ($(KBUILD_EXTMOD),)
 ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/boot/dts/),)
-dtstree := arch/$(SRCARCH)/boot/dts
+# ANDROID: allow this to be overridden by the build environment. This allows
+# one to compile a device tree that is located out-of-tree.
+dtstree ?= arch/$(SRCARCH)/boot/dts
 endif
 
 else # KBUILD_EXTMOD
@@ -1185,7 +1194,7 @@ else # KBUILD_EXTMOD
 # by KBUILD_EXTMOD_DTS
 KBUILD_EXTMOD_DTS = arch/$(SRCARCH)/boot/dts
 ifneq ($(wildcard $(KBUILD_EXTMOD)/$(KBUILD_EXTMOD_DTS)/ $(srctree)/$(KBUILD_EXTMOD)/$(KBUILD_EXTMOD_DTS)/),)
-dtstree := $(KBUILD_EXTMOD)/$(KBUILD_EXTMOD_DTS)
+dtstree ?= $(KBUILD_EXTMOD)/$(KBUILD_EXTMOD_DTS)
 endif
 endif
 

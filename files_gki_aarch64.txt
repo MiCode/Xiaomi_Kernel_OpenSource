@@ -93,6 +93,7 @@ arch/arm64/include/asm/kvm_hyp.h
 arch/arm64/include/asm/kvm_mmu.h
 arch/arm64/include/asm/kvm_mte.h
 arch/arm64/include/asm/kvm_pgtable.h
+arch/arm64/include/asm/kvm_pkvm.h
 arch/arm64/include/asm/kvm_ptrauth.h
 arch/arm64/include/asm/kvm_ras.h
 arch/arm64/include/asm/kvm_types.h
@@ -288,16 +289,20 @@ arch/arm64/kvm/fpsimd.c
 arch/arm64/kvm/guest.c
 arch/arm64/kvm/handle_exit.c
 arch/arm64/kvm/hyp/aarch32.c
+arch/arm64/kvm/hyp_constants.h
 arch/arm64/kvm/hyp/entry.S
 arch/arm64/kvm/hypercalls.c
 arch/arm64/kvm/hyp/exception.c
 arch/arm64/kvm/hyp/fpsimd.S
+arch/arm64/kvm/hyp/hyp-constants.c
 arch/arm64/kvm/hyp/hyp-entry.S
 arch/arm64/kvm/hyp/include/hyp/adjust_pc.h
 arch/arm64/kvm/hyp/include/hyp/debug-sr.h
+arch/arm64/kvm/hyp/include/hyp/fault.h
 arch/arm64/kvm/hyp/include/hyp/switch.h
 arch/arm64/kvm/hyp/include/hyp/sysreg-sr.h
 arch/arm64/kvm/hyp/include/nvhe/early_alloc.h
+arch/arm64/kvm/hyp/include/nvhe/fixed_config.h
 arch/arm64/kvm/hyp/include/nvhe/gfp.h
 arch/arm64/kvm/hyp/include/nvhe/memory.h
 arch/arm64/kvm/hyp/include/nvhe/mem_protect.h
@@ -317,15 +322,16 @@ arch/arm64/kvm/hyp/nvhe/hyp-smp.c
 arch/arm64/kvm/hyp/nvhe/mem_protect.c
 arch/arm64/kvm/hyp/nvhe/mm.c
 arch/arm64/kvm/hyp/nvhe/page_alloc.c
+arch/arm64/kvm/hyp/nvhe/pkvm.c
 arch/arm64/kvm/hyp/nvhe/psci-relay.c
 arch/arm64/kvm/hyp/nvhe/setup.c
 arch/arm64/kvm/hyp/nvhe/stub.c
 arch/arm64/kvm/hyp/nvhe/switch.c
+arch/arm64/kvm/hyp/nvhe/sys_regs.c
 arch/arm64/kvm/hyp/nvhe/sysreg-sr.c
 arch/arm64/kvm/hyp/nvhe/timer-sr.c
 arch/arm64/kvm/hyp/nvhe/tlb.c
 arch/arm64/kvm/hyp/pgtable.c
-arch/arm64/kvm/hyp/reserved_mem.c
 arch/arm64/kvm/hyp/vgic-v2-cpuif-proxy.c
 arch/arm64/kvm/hyp/vgic-v3-sr.c
 arch/arm64/kvm/hyp/vhe/debug-sr.c
@@ -338,6 +344,7 @@ arch/arm64/kvm/irq.h
 arch/arm64/kvm/mmio.c
 arch/arm64/kvm/mmu.c
 arch/arm64/kvm/perf.c
+arch/arm64/kvm/pkvm.c
 arch/arm64/kvm/pmu.c
 arch/arm64/kvm/pmu-emul.c
 arch/arm64/kvm/psci.c
@@ -569,6 +576,7 @@ crypto/xcbc.c
 crypto/xts.c
 crypto/zstd.c
 drivers/amba/bus.c
+drivers/android/android_debug_symbols.c
 drivers/android/binder_alloc.c
 drivers/android/binder_alloc.h
 drivers/android/binder.c
@@ -726,6 +734,7 @@ drivers/cpuidle/dt_idle_states.c
 drivers/cpuidle/dt_idle_states.h
 drivers/cpuidle/governor.c
 drivers/cpuidle/governors/menu.c
+drivers/cpuidle/governors/teo.c
 drivers/cpuidle/sysfs.c
 drivers/dax/bus.c
 drivers/dax/bus.h
@@ -746,6 +755,8 @@ drivers/dma-buf/dma-fence.c
 drivers/dma-buf/dma-fence-chain.c
 drivers/dma-buf/dma-heap.c
 drivers/dma-buf/dma-resv.c
+drivers/dma-buf/heaps/deferred-free-helper.c
+drivers/dma-buf/heaps/deferred-free-helper.h
 drivers/dma-buf/seqno-fence.c
 drivers/dma-buf/sync_file.c
 drivers/dma/dmaengine.c
@@ -2473,6 +2484,8 @@ include/linux/alarmtimer.h
 include/linux/align.h
 include/linux/amba/bus.h
 include/linux/amba/serial.h
+include/linux/android_debug_symbols.h
+include/linux/android_kabi.h
 include/linux/android_vendor.h
 include/linux/anon_inodes.h
 include/linux/arch_topology.h
@@ -2723,7 +2736,6 @@ include/linux/firmware-map.h
 include/linux/fixp-arith.h
 include/linux/flex_proportions.h
 include/linux/font.h
-include/linux/fortify-string.h
 include/linux/freelist.h
 include/linux/freezer.h
 include/linux/frontswap.h
@@ -4017,6 +4029,7 @@ include/trace/hooks/futex.h
 include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
 include/trace/hooks/iommu.h
+include/trace/hooks/logbuf.h
 include/trace/hooks/memory.h
 include/trace/hooks/mm.h
 include/trace/hooks/module.h
@@ -4025,7 +4038,6 @@ include/trace/hooks/net.h
 include/trace/hooks/pm_domain.h
 include/trace/hooks/preemptirq.h
 include/trace/hooks/printk.h
-include/trace/hooks/rwsem.h
 include/trace/hooks/sched.h
 include/trace/hooks/selinux.h
 include/trace/hooks/syscall_check.h
@@ -5181,6 +5193,13 @@ net/6lowpan/nhc_ipv6.c
 net/6lowpan/nhc_mobility.c
 net/6lowpan/nhc_routing.c
 net/6lowpan/nhc_udp.c
+net/8021q/vlan.c
+net/8021q/vlan_core.c
+net/8021q/vlan_dev.c
+net/8021q/vlan.h
+net/8021q/vlan_netlink.c
+net/8021q/vlanproc.c
+net/8021q/vlanproc.h
 net/802/p8022.c
 net/802/psnap.c
 net/802/stp.c
