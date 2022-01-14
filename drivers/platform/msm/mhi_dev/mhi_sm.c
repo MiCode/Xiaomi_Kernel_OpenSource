@@ -7,11 +7,12 @@
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/debugfs.h>
-#include <linux/ipa_mhi.h>
+#include <linux/mhi_dma.h>
 #include <linux/msm_ep_pcie.h>
 #include "mhi_hwio.h"
 #include "mhi_sm.h"
 #include <linux/interrupt.h>
+#include <linux/delay.h>
 
 #define MHI_SM_DBG(fmt, args...) \
 	mhi_log(MHI_MSG_DBG, fmt, ##args)
@@ -23,8 +24,8 @@
 #define MHI_SM_FUNC_EXIT() MHI_SM_DBG("EXIT\n")
 
 #define PCIE_EP_TIMER_US		500000000
-#define MHI_IPA_DISABLE_DELAY_MS	10
-#define MHI_IPA_DISABLE_COUNTER		20
+#define MHI_DMA_DISABLE_DELAY_MS	10
+#define MHI_DMA_DISABLE_COUNTER		20
 
 
 static inline const char *mhi_sm_dev_event_str(enum mhi_dev_event state)
@@ -480,7 +481,7 @@ static int mhi_sm_prepare_resume(void)
 			MHI_SM_ERR("Error retrieving pcie msi logic\n");
 			goto exit;
 		}
-		if (mhi_sm_ctx->mhi_dev->use_ipa) {
+		if (mhi_sm_ctx->mhi_dev->use_mhi_dma) {
 			/*  Retrieve MHI configuration*/
 			res = mhi_dev_config_outbound_iatu(mhi_sm_ctx->mhi_dev);
 			if (res) {
@@ -508,26 +509,25 @@ static int mhi_sm_prepare_resume(void)
 
 	mhi_sm_mmio_set_mhistatus(MHI_DEV_M0_STATE);
 
-	/* Enable IPA */
+	/* Enable MHI DMA */
 	if ((old_state == MHI_DEV_M3_STATE) ||
 		(old_state == MHI_DEV_M2_STATE)) {
-		if (mhi_sm_ctx->mhi_dev->use_ipa) {
-			res = ipa_dma_enable();
+		if (mhi_sm_ctx->mhi_dev->use_mhi_dma) {
+			res = mhi_dma_memcpy_enable(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
 			if (res) {
-				MHI_SM_ERR("IPA enable failed:%d\n", res);
-				return res;
+				MHI_SM_ERR("MHI DMA enable failed:%d\n", res);
+				goto exit;
 			}
-		}
-
-		res = ipa_mhi_resume();
-		if (res) {
-			MHI_SM_ERR("Failed resuming ipa_mhi:%d", res);
-			goto exit;
+			res = mhi_dma_resume(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
+			if (res) {
+				MHI_SM_ERR("Failed resuming mhi_dma:%d", res);
+				goto exit;
+			}
 		}
 	}
 
-
-	res = ipa_mhi_update_mstate(IPA_MHI_STATE_M0);
+	res = mhi_dma_update_mstate(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params,
+								MHI_DMA_STATE_M0);
 	if (res) {
 		MHI_SM_ERR("Failed updating MHI state to M0, %d", res);
 		goto exit;
@@ -647,16 +647,19 @@ static int mhi_sm_prepare_suspend(enum mhi_dev_state new_state)
 			goto exit;
 		}
 
-		/* Notify IPA MHI of state change */
+		/* Notify MHI DMA of state change */
 		if (new_state == MHI_DEV_M2_STATE)
-			res = ipa_mhi_update_mstate(IPA_MHI_STATE_M2);
+			res = mhi_dma_update_mstate(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params,
+					MHI_DMA_STATE_M2);
 		else
-			res = ipa_mhi_update_mstate(IPA_MHI_STATE_M3);
+			res = mhi_dma_update_mstate(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params,
+					MHI_DMA_STATE_M3);
 
-		/* Suspend IPA either in M2 or M3 state */
-		res = ipa_mhi_suspend(true);
+		/* Suspend MHI DMA either in M2 or M3 state */
+		res = mhi_dma_suspend(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params,
+				true);
 		if (res) {
-			MHI_SM_ERR("Failed to suspend ipa_mhi:%d\n", res);
+			MHI_SM_ERR("Failed to suspend mhi_dma:%d\n", res);
 			goto exit;
 		}
 
@@ -679,26 +682,27 @@ static int mhi_sm_prepare_suspend(enum mhi_dev_state new_state)
 	if ((old_state == MHI_DEV_M0_STATE) &&
 			((new_state == MHI_DEV_M2_STATE) ||
 			 (new_state == MHI_DEV_M3_STATE))) {
-		if (mhi_sm_ctx->mhi_dev->use_ipa) {
-			MHI_SM_DBG("Disable IPA with ipa_dma_disable()\n");
-			while (wait_timeout < MHI_IPA_DISABLE_COUNTER) {
+		if (mhi_sm_ctx->mhi_dev->use_mhi_dma) {
+			MHI_SM_DBG("Disable MHI DMA with mhi_dma_disable()\n");
+			while (wait_timeout < MHI_DMA_DISABLE_COUNTER) {
 				/* wait for the disable to finish */
-				res = ipa_dma_disable();
+				res = mhi_dma_memcpy_disable(
+					mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
 				if (!res)
 					break;
 				MHI_SM_ERR
-					("IPA disable fail cnt:%d\n",
+					("MHI DMA disable fail cnt:%d\n",
 						wait_timeout);
-				msleep(MHI_IPA_DISABLE_DELAY_MS);
+				msleep(MHI_DMA_DISABLE_DELAY_MS);
 				wait_timeout++;
 			}
 
-			if (wait_timeout >= MHI_IPA_DISABLE_COUNTER) {
+			if (wait_timeout >= MHI_DMA_DISABLE_COUNTER) {
 				MHI_SM_ERR
-					("Fail to disable IPA for M3\n");
+					("Fail to disable MHI DMA for M3\n");
 				goto exit;
 			}
-			MHI_SM_ERR("IPA DMA successfully disabled\n");
+			MHI_SM_ERR("MHI DMA successfully disabled\n");
 		}
 	}
 
@@ -710,7 +714,7 @@ static int mhi_sm_prepare_suspend(enum mhi_dev_state new_state)
 		}
 		/*
 		 * Gate CLKREQ# and enable CLKREQ# override.
-		 * Disable forward logic for IPA with M2 state.
+		 * Disable forward logic for MHI DMA with M2 state.
 		 */
 		MHI_SM_DBG("Prepare M2 state: %d\n", new_state);
 		res = ep_pcie_core_l1ss_sleep_config_enable();
@@ -1159,10 +1163,10 @@ int mhi_dev_sm_exit(struct mhi_dev *mhi_dev)
 	mhi_sm_debugfs_destroy();
 	flush_workqueue(mhi_sm_ctx->mhi_sm_wq);
 	destroy_workqueue(mhi_sm_ctx->mhi_sm_wq);
-	/* Initiate MHI IPA reset */
-	ipa_dma_disable();
-	ipa_mhi_destroy();
-	ipa_dma_destroy();
+	/* Initiate MHI DMA reset */
+	mhi_dma_memcpy_disable(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
+	mhi_dma_destroy(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
+	mhi_dma_memcpy_destroy(mhi_sm_ctx->mhi_dev->mhi_dma_fun_params);
 	mutex_destroy(&mhi_sm_ctx->mhi_state_lock);
 	mhi_sm_ctx = NULL;
 

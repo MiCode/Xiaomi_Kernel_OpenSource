@@ -372,7 +372,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 		host_addr.size = (ring->ring_size - old_offset) *
 			sizeof(union mhi_dev_ring_element_type);
 
-		if (mhi_ctx->use_ipa) {
+		if (mhi_ctx->use_mhi_dma) {
 			mhi_ctx->write_to_host(ring->mhi_dev, &host_addr,
 				NULL, MHI_DEV_DMA_SYNC);
 		} else {
@@ -504,11 +504,9 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 
 	ring->ring_ctx_shadow = ring->ring_ctx;
 
-	if (ring->type != RING_TYPE_ER || ring->type != RING_TYPE_CH) {
-		rc = mhi_dev_cache_ring(ring, wr_offset);
-		if (rc)
-			return rc;
-	}
+	rc = mhi_dev_cache_ring(ring, wr_offset);
+	if (rc)
+		return rc;
 
 	mhi_log(MHI_MSG_VERBOSE, "ctx ring_base:0x%lx, rp:0x%lx, wp:0x%lx\n",
 			(size_t)ring->ring_ctx->generic.rbase,

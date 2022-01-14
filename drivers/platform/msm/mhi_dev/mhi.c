@@ -21,7 +21,7 @@
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 #include <linux/msm_ep_pcie.h>
-#include <linux/ipa_mhi.h>
+#include <linux/mhi_dma.h>
 #include <linux/vmalloc.h>
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
@@ -74,7 +74,7 @@ enum mhi_msg_level mhi_ipc_msg_lvl = MHI_MSG_VERBOSE;
 void *mhi_ipc_log;
 
 static struct mhi_dev *mhi_ctx;
-static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
+static void mhi_hwc_cb(void *priv, enum mhi_dma_event_type event,
 	unsigned long data);
 static void mhi_ring_init_cb(void *user_data);
 static void mhi_update_state_info(enum mhi_ctrl_info info);
@@ -85,7 +85,7 @@ static int mhi_dev_pcie_notify_event;
 static void mhi_dev_transfer_completion_cb(void *mreq);
 static int mhi_dev_alloc_evt_buf_evt_req(struct mhi_dev *mhi,
 		struct mhi_dev_channel *ch, struct mhi_dev_ring *evt_ring);
-static int mhi_dev_schedule_msi_ipa(struct mhi_dev *mhi,
+static int mhi_dev_schedule_msi_mhi_dma(struct mhi_dev *mhi,
 		struct event_req *ereq);
 static void mhi_dev_event_msi_cb(void *req);
 static void mhi_dev_cmd_event_msi_cb(void *req);
@@ -102,7 +102,7 @@ static DECLARE_COMPLETION(transfer_device_to_host);
 
 /*
  * mhi_dev_ring_cache_completion_cb () - Call back function called
- * by IPA driver when ring element cache is done
+ * by MHI DMA driver when ring element cache is done
  *
  * @req : ring cache request
  */
@@ -122,12 +122,12 @@ static void mhi_dev_edma_sync_cb(void *done)
 }
 
 /**
- * mhi_dev_read_from_host_ipa - memcpy equivalent API to transfer data
+ * mhi_dev_read_from_host_mhi_dma - memcpy equivalent API to transfer data
  *		from host to device.
  * @mhi:	MHI dev structure.
  * @transfer:	Host and device address details.
  */
-void mhi_dev_read_from_host_ipa(struct mhi_dev *mhi, struct mhi_addr *transfer)
+void mhi_dev_read_from_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfer)
 {
 	int rc = 0;
 	uint64_t bit_40 = ((u64) 1) << 40, host_addr_pa = 0, offset = 0;
@@ -152,9 +152,13 @@ void mhi_dev_read_from_host_ipa(struct mhi_dev *mhi, struct mhi_addr *transfer)
 		"device 0x%llx <<-- host 0x%llx, size %d\n",
 		transfer->phy_addr, host_addr_pa,
 		(int) transfer->size);
-	rc = ipa_dma_async_memcpy((u64)transfer->phy_addr, host_addr_pa,
-			(int)transfer->size,
-			mhi_dev_ring_cache_completion_cb, &ring_req);
+
+	rc = mhi_dma_async_memcpy((u64)transfer->phy_addr,
+			host_addr_pa,
+			(int) transfer->size,
+			mhi->mhi_dma_fun_params,
+			mhi_dev_ring_cache_completion_cb,
+			&ring_req);
 	if (rc)
 		pr_err("error while reading from host:%d\n", rc);
 
@@ -162,14 +166,14 @@ void mhi_dev_read_from_host_ipa(struct mhi_dev *mhi, struct mhi_addr *transfer)
 }
 
 /**
- * mhi_dev_write_to_host_ipa - Transfer data from device to host.
+ * mhi_dev_write_to_host_mhi_dma - Transfer data from device to host.
  *		Based on support available, either DMA or memcpy is used.
  * @mhi:	MHI dev structure.
  * @transfer:	Host and device address details.
  * @ereq:	event_req structure.
  * @tr_type:	Transfer type.
  */
-void mhi_dev_write_to_host_ipa(struct mhi_dev *mhi, struct mhi_addr *transfer,
+void mhi_dev_write_to_host_mhi_dma(struct mhi_dev *mhi, struct mhi_addr *transfer,
 		struct event_req *ereq, enum mhi_dev_transfer_type tr_type)
 {
 	int rc = 0;
@@ -222,9 +226,13 @@ void mhi_dev_write_to_host_ipa(struct mhi_dev *mhi, struct mhi_addr *transfer,
 		} else {
 			cb_func = ereq->msi_cb;
 		}
-		rc = ipa_dma_async_memcpy(host_addr_pa, (uint64_t)dma,
-				(int)transfer->size,
-				cb_func, ereq);
+
+		rc = mhi_dma_async_memcpy(host_addr_pa,
+				(uint64_t)dma,
+				(int) transfer->size,
+				mhi->mhi_dma_fun_params,
+				cb_func,
+				ereq);
 		if (rc)
 			pr_err("error while writing to host:%d\n", rc);
 	} else if (tr_type == MHI_DEV_DMA_SYNC) {
@@ -233,16 +241,18 @@ void mhi_dev_write_to_host_ipa(struct mhi_dev *mhi, struct mhi_addr *transfer,
 		 */
 		memcpy(mhi->dma_cache, transfer->virt_addr,
 				transfer->size);
-		rc = ipa_dma_sync_memcpy(host_addr_pa,
+
+		rc = mhi_dma_sync_memcpy(host_addr_pa,
 				(u64) mhi->cache_dma_handle,
-				(int) transfer->size);
+				(int) transfer->size,
+				mhi->mhi_dma_fun_params);
 		if (rc)
 			pr_err("error while writing to host:%d\n", rc);
 	}
 }
 
 /*
- * mhi_dev_event_buf_completion_cb() - CB function called by IPA driver
+ * mhi_dev_event_buf_completion_cb() - CB function called by MHI DMA driver
  * when transfer completion event buffer copy to host is done.
  *
  * @req -  event_req structure
@@ -264,7 +274,7 @@ static void mhi_dev_event_buf_completion_cb(void *req)
 		"Event buf dma completed for flush req %d\n", ereq->flush_num);
 }
 
-static int mhi_dev_schedule_msi_ipa(struct mhi_dev *mhi, struct event_req *ereq)
+static int mhi_dev_schedule_msi_mhi_dma(struct mhi_dev *mhi, struct event_req *ereq)
 {
 	struct ep_pcie_msi_config cfg;
 	struct mhi_addr msi_addr;
@@ -312,7 +322,7 @@ static int mhi_dev_schedule_msi_ipa(struct mhi_dev *mhi, struct event_req *ereq)
 }
 
 /*
- * mhi_dev_event_rd_offset_completion_cb() - CB function called by IPA driver
+ * mhi_dev_event_rd_offset_completion_cb() - CB function called by MHI DMA driver
  * when event ring rd_offset transfer is done.
  *
  * @req -  event_req structure
@@ -555,7 +565,7 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 			pr_err("%s: error sending in msi\n", __func__);
 	} else {
 		/* Schedule DMA for MSI*/
-		rc = mhi_dev_schedule_msi_ipa(mhi, ereq);
+		rc = mhi_dev_schedule_msi_mhi_dma(mhi, ereq);
 		if (rc)
 			pr_err("%s: error sending in msi\n", __func__);
 	}
@@ -811,7 +821,7 @@ static int mhi_dev_queue_transfer_completion(struct mhi_req *mreq, bool *flush)
 }
 
 /**
- * mhi_transfer_host_to_device_ipa - memcpy equivalent API to transfer data
+ * mhi_transfer_host_to_device_mhi_dma - memcpy equivalent API to transfer data
  *					from host to the device.
  * @dev:	Physical destination virtual address.
  * @host_pa:	Source physical address.
@@ -819,7 +829,7 @@ static int mhi_dev_queue_transfer_completion(struct mhi_req *mreq, bool *flush)
  * @mhi:	MHI dev structure.
  * @mreq:	mhi_req structure
  */
-int mhi_transfer_host_to_device_ipa(void *dev, uint64_t host_pa, uint32_t len,
+int mhi_transfer_host_to_device_mhi_dma(void *dev, uint64_t host_pa, uint32_t len,
 		struct mhi_dev *mhi, struct mhi_req *mreq)
 {
 	int rc = 0;
@@ -842,8 +852,10 @@ int mhi_transfer_host_to_device_ipa(void *dev, uint64_t host_pa, uint32_t len,
 		(uint64_t) mhi->read_dma_handle, host_addr_pa, (int) len);
 
 	if (mreq->mode == DMA_SYNC) {
-		rc = ipa_dma_sync_memcpy((u64) mhi->read_dma_handle,
-				host_addr_pa, (int) len);
+		rc = mhi_dma_sync_memcpy((u64) mhi->read_dma_handle,
+				host_addr_pa,
+				len,
+				mhi->mhi_dma_fun_params);
 		if (rc) {
 			pr_err("error while reading chan using sync:%d\n", rc);
 			return rc;
@@ -871,8 +883,10 @@ int mhi_transfer_host_to_device_ipa(void *dev, uint64_t host_pa, uint32_t len,
 			return rc;
 		}
 
-		rc = ipa_dma_async_memcpy(mreq->dma, host_addr_pa,
-				(int) len, mhi_dev_transfer_completion_cb,
+		rc = mhi_dma_async_memcpy(mreq->dma, host_addr_pa,
+				(int) len,
+				mhi->mhi_dma_fun_params,
+				mhi_dev_transfer_completion_cb,
 				mreq);
 		if (rc) {
 			mhi_log(MHI_MSG_ERROR,
@@ -889,7 +903,7 @@ int mhi_transfer_host_to_device_ipa(void *dev, uint64_t host_pa, uint32_t len,
 }
 
 /**
- * mhi_transfer_device_to_host_ipa - memcpy equivalent API to transfer data
+ * mhi_dev_write_to_host_mhi_dma - memcpy equivalent API to transfer data
  *		from device to the host.
  * @host_addr:	Physical destination address.
  * @dev:	Source virtual address.
@@ -897,7 +911,7 @@ int mhi_transfer_host_to_device_ipa(void *dev, uint64_t host_pa, uint32_t len,
  * @mhi:	MHI dev structure.
  * @req:	mhi_req structure
  */
-int mhi_transfer_device_to_host_ipa(uint64_t host_addr, void *dev, uint32_t len,
+int mhi_transfer_device_to_host_mhi_dma(uint64_t host_addr, void *dev, uint32_t len,
 		struct mhi_dev *mhi, struct mhi_req *req)
 {
 	uint64_t bit_40 = ((u64) 1) << 40, host_addr_pa = 0, offset = 0;
@@ -923,8 +937,10 @@ int mhi_transfer_device_to_host_ipa(uint64_t host_addr, void *dev, uint32_t len,
 
 	if (req->mode == DMA_SYNC) {
 		memcpy(mhi->write_handle, dev, len);
-		return ipa_dma_sync_memcpy(host_addr_pa,
-				(u64) mhi->write_dma_handle, (int) len);
+		return mhi_dma_sync_memcpy(host_addr_pa,
+				(u64) mhi->write_dma_handle,
+				(int) len,
+				mhi->mhi_dma_fun_params);
 	} else if (req->mode == DMA_ASYNC) {
 		ch = req->client->channel;
 
@@ -944,9 +960,12 @@ int mhi_transfer_device_to_host_ipa(uint64_t host_addr, void *dev, uint32_t len,
 			return rc;
 		}
 
-		rc = ipa_dma_async_memcpy(host_addr_pa,
-				(uint64_t) req->dma, (int) len,
-				mhi_dev_transfer_completion_cb, req);
+		rc = mhi_dma_async_memcpy(host_addr_pa,
+				(uint64_t) req->dma,
+				(int) len,
+				mhi->mhi_dma_fun_params,
+				mhi_dev_transfer_completion_cb,
+				req);
 		if (rc) {
 			mhi_log(MHI_MSG_ERROR, "Error sending data to host\n");
 			/* Roll back the completion event that we wrote above */
@@ -1338,14 +1357,14 @@ int mhi_pcie_config_db_routing(struct mhi_dev *mhi)
 	/* Configure Doorbell routing */
 	chdb_cfg.base = HW_CHANNEL_BASE;
 	chdb_cfg.end = HW_CHANNEL_END;
-	chdb_cfg.tgt_addr = (uint32_t) mhi->ipa_uc_mbox_crdb;
+	chdb_cfg.tgt_addr = (uint32_t) mhi->mhi_dma_uc_mbox_crdb;
 
 	mhi_dev_get_erdb_db_cfg(mhi, &erdb_cfg);
 
 	mhi_log(MHI_MSG_VERBOSE,
 		"Event rings 0x%x => er_base 0x%x, er_end %d\n",
 		mhi->cfg.event_rings, erdb_cfg.base, erdb_cfg.end);
-	erdb_cfg.tgt_addr = (uint32_t) mhi->ipa_uc_mbox_erdb;
+	erdb_cfg.tgt_addr = (uint32_t) mhi->mhi_dma_uc_mbox_erdb;
 	ep_pcie_config_db_routing(mhi_ctx->phandle, chdb_cfg, erdb_cfg);
 
 	return 0;
@@ -1381,13 +1400,14 @@ static int mhi_hwc_init(struct mhi_dev *mhi)
 {
 	int rc = 0;
 	struct ep_pcie_msi_config cfg;
-	struct ipa_mhi_init_params ipa_init_params;
+	struct mhi_dma_init_params mhi_init_dma_params;
+	struct mhi_dma_init_out mhi_init_dma_out;
 	struct ep_pcie_db_config erdb_cfg;
 
 	if (mhi_ctx->use_edma) {
 		/*
-		 * Interrupts are enabled during the IPA callback
-		 * once the IPA HW is ready. Callback is not triggerred
+		 * Interrupts are enabled during the MHI DMA callback
+		 * once the MHI DMA HW is ready. Callback is not triggerred
 		 * in case of edma, hence enable interrupts.
 		 */
 		rc = mhi_enable_int();
@@ -1396,78 +1416,88 @@ static int mhi_hwc_init(struct mhi_dev *mhi)
 		return rc;
 	}
 
-	/* Call IPA HW_ACC Init with MSI Address and db routing info */
+	/* Call MHI DMA HW_ACC Init with MSI Address and db routing info */
 	rc = ep_pcie_get_msi_config(mhi_ctx->phandle, &cfg);
 	if (rc) {
 		pr_err("Error retrieving pcie msi logic\n");
 		return rc;
 	}
 
-	rc = mhi_pcie_config_db_routing(mhi);
+
+
+	memset(&mhi_init_dma_params, 0, sizeof(mhi_init_dma_params));
+	mhi_init_dma_params.msi.addr_hi = cfg.upper;
+	mhi_init_dma_params.msi.addr_low = cfg.lower;
+	mhi_init_dma_params.msi.data = cfg.data;
+	mhi_init_dma_params.msi.mask = ((1 << cfg.msg_num) - 1);
+	mhi_init_dma_params.first_er_idx = erdb_cfg.base;
+	mhi_init_dma_params.first_ch_idx = HW_CHANNEL_BASE;
+
+	if (mhi_ctx->config_iatu)
+		mhi_init_dma_params.mmio_addr =
+			((uint32_t) mhi_ctx->mmio_base_pa_addr) + MHI_REGLEN;
+	else
+		mhi_init_dma_params.mmio_addr =
+			((uint32_t) mhi_ctx->mmio_base_pa_addr);
+
+	if (!mhi_ctx->config_iatu)
+		mhi_init_dma_params.assert_bit40 = true;
+
+	mhi_log(MHI_MSG_VERBOSE,
+		"MMIO Addr 0x%x, MSI config: U:0x%x L: 0x%x D: 0x%x\n",
+		mhi_init_dma_params.mmio_addr, cfg.upper, cfg.lower, cfg.data);
+	mhi_init_dma_params.notify = mhi_hwc_cb;
+	mhi_init_dma_params.priv = mhi;
+
+	rc = mhi_dma_init(mhi->mhi_dma_fun_params, &mhi_init_dma_params, &mhi_init_dma_out);
 	if (rc) {
-		pr_err("Error configuring DB routing\n");
+		mhi_log(MHI_MSG_ERROR, "mhi_dma_init fail:%d", rc);
 		return rc;
 	}
+
+	mhi->mhi_dma_uc_mbox_crdb = mhi_init_dma_out.ch_db_fwd_base;
+	mhi->mhi_dma_uc_mbox_erdb = mhi_init_dma_out.ev_db_fwd_base;
 
 	mhi_dev_get_erdb_db_cfg(mhi, &erdb_cfg);
 	mhi_log(MHI_MSG_VERBOSE,
 		"Event rings 0x%x => er_base 0x%x, er_end %d\n",
 		mhi->cfg.event_rings, erdb_cfg.base, erdb_cfg.end);
 
-	erdb_cfg.tgt_addr = (uint32_t) mhi->ipa_uc_mbox_erdb;
-	memset(&ipa_init_params, 0, sizeof(ipa_init_params));
-	ipa_init_params.msi.addr_hi = cfg.upper;
-	ipa_init_params.msi.addr_low = cfg.lower;
-	ipa_init_params.msi.data = cfg.data;
-	ipa_init_params.msi.mask = ((1 << cfg.msg_num) - 1);
-	ipa_init_params.first_er_idx = erdb_cfg.base;
-	ipa_init_params.first_ch_idx = HW_CHANNEL_BASE;
+	erdb_cfg.tgt_addr = (uint32_t) mhi->mhi_dma_uc_mbox_erdb;
 
-	if (mhi_ctx->config_iatu)
-		ipa_init_params.mmio_addr =
-			((uint32_t) mhi_ctx->mmio_base_pa_addr) + MHI_REGLEN;
-	else
-		ipa_init_params.mmio_addr =
-			((uint32_t) mhi_ctx->mmio_base_pa_addr);
-
-	if (!mhi_ctx->config_iatu)
-		ipa_init_params.assert_bit40 = true;
-
-	mhi_log(MHI_MSG_VERBOSE,
-		"MMIO Addr 0x%x, MSI config: U:0x%x L: 0x%x D: 0x%x\n",
-		ipa_init_params.mmio_addr, cfg.upper, cfg.lower, cfg.data);
-	ipa_init_params.notify = mhi_hwc_cb;
-	ipa_init_params.priv = mhi;
-
-	return ipa_mhi_init(&ipa_init_params);
+	rc = mhi_pcie_config_db_routing(mhi);
+	if (rc) {
+		pr_err("Error configuring DB routing\n");
+		return rc;
+	}
+	return rc;
 }
 
 static int mhi_hwc_start(struct mhi_dev *mhi)
 {
-	struct ipa_mhi_start_params ipa_start_params;
+	struct mhi_dma_start_params mhi_dma_start_param;
 
-	memset(&ipa_start_params, 0, sizeof(ipa_start_params));
-
+	memset(&mhi_dma_start_param, 0, sizeof(mhi_dma_start_param));
 	if (mhi->config_iatu) {
-		ipa_start_params.host_ctrl_addr = mhi->ctrl_base.device_pa;
-		ipa_start_params.host_data_addr = mhi->data_base.device_pa;
+		mhi_dma_start_param.host_ctrl_addr = mhi->ctrl_base.device_pa;
+		mhi_dma_start_param.host_data_addr = mhi->data_base.device_pa;
 	} else {
-		ipa_start_params.channel_context_array_addr =
+		mhi_dma_start_param.channel_context_array_addr =
 				mhi->ch_ctx_shadow.host_pa;
-		ipa_start_params.event_context_array_addr =
+		mhi_dma_start_param.event_context_array_addr =
 				mhi->ev_ctx_shadow.host_pa;
 	}
 
-	return ipa_mhi_start(&ipa_start_params);
+	return mhi_dma_start(mhi->mhi_dma_fun_params, &mhi_dma_start_param);
 }
 
-static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
+static void mhi_hwc_cb(void *priv, enum mhi_dma_event_type event,
 	unsigned long data)
 {
 	int rc = 0;
 
 	switch (event) {
-	case IPA_MHI_EVENT_READY:
+	case MHI_DMA_EVENT_READY:
 		mhi_log(MHI_MSG_INFO,
 			"HW Channel uC is ready event=0x%X\n", event);
 		rc = mhi_hwc_start(mhi_ctx);
@@ -1484,7 +1514,7 @@ static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 
 		mhi_log(MHI_MSG_CRITICAL, "Device in M0 State\n");
 		break;
-	case IPA_MHI_EVENT_DATA_AVAILABLE:
+	case MHI_DMA_EVENT_DATA_AVAILABLE:
 		rc = mhi_dev_notify_sm_event(MHI_DEV_EVENT_HW_ACC_WAKEUP);
 		if (rc) {
 			pr_err("Event HW_ACC_WAKEUP failed with %d\n", rc);
@@ -1501,9 +1531,11 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 				enum mhi_dev_ring_element_type_id type)
 {
 	int rc = -EINVAL;
-	struct ipa_mhi_connect_params connect_params;
+	struct mhi_dma_connect_params connect_params;
+	struct mhi_dma_disconnect_params disconnect_params;
 
 	memset(&connect_params, 0, sizeof(connect_params));
+	memset(&disconnect_params, 0, sizeof(disconnect_params));
 
 	switch (type) {
 	case MHI_DEV_RING_EL_RESET:
@@ -1513,15 +1545,15 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 			return -EINVAL;
 		}
 
-		rc = ipa_mhi_disconnect_pipe(
-			mhi->ipa_clnt_hndl[chid-HW_CHANNEL_BASE]);
+		disconnect_params.clnt_hdl = mhi->dma_clnt_hndl[chid-HW_CHANNEL_BASE];
+
+		rc = mhi_dma_disconnect_endp(mhi->mhi_dma_fun_params,
+				&disconnect_params);
 		if (rc)
 			pr_err("Stopping HW Channel%d failed 0x%X\n",
 							chid, rc);
 		break;
 	case MHI_DEV_RING_EL_START:
-		connect_params.channel_id = chid;
-		connect_params.sys.skip_ep_cfg = true;
 
 		if (chid > HW_CHANNEL_END) {
 			pr_err("Channel DB for %d not enabled\n", chid);
@@ -1533,8 +1565,11 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 			return -EINVAL;
 		}
 
-		rc = ipa_mhi_connect_pipe(&connect_params,
-			&mhi->ipa_clnt_hndl[chid-HW_CHANNEL_BASE]);
+		connect_params.channel_id = chid;
+
+		rc = mhi_dma_connect_endp(mhi->mhi_dma_fun_params,
+				&connect_params,
+				&mhi->dma_clnt_hndl[chid-HW_CHANNEL_BASE]);
 		if (rc)
 			pr_err("HW Channel%d start failed : %d\n",
 							chid, rc);
@@ -1766,8 +1801,8 @@ static void mhi_dev_trigger_cb(enum mhi_client_channel ch_id)
 int mhi_dev_trigger_hw_acc_wakeup(struct mhi_dev *mhi)
 {
 	/*
-	 * Expected usage is when there is HW ACC traffic IPA uC notifes
-	 * Q6 -> IPA A7 -> MHI core -> MHI SM
+	 * Expected usage is when there is HW ACC traffic MHI DMA uC notifes
+	 * Q6 -> MHI DMA A7 -> MHI core -> MHI SM
 	 */
 	return mhi_dev_notify_sm_event(MHI_DEV_EVENT_HW_ACC_WAKEUP);
 }
@@ -1876,7 +1911,7 @@ static void mhi_dev_process_reset_cmd(struct mhi_dev *mhi, int ch_id)
 				MHI_DEV_CH_STATE_DISABLED;
 	mhi->ch[ch_id].state = MHI_DEV_CH_STOPPED;
 
-	if (mhi->use_ipa)
+	if (mhi->use_mhi_dma)
 		host_addr.host_pa =
 			mhi->ch_ctx_shadow.host_pa +
 			(sizeof(struct mhi_dev_ch_ctx) * ch_id);
@@ -1977,7 +2012,7 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 		mhi->ch[ch_id].ring = &mhi->ring[mhi->ch_ring_start + ch_id];
 		mhi->ch[ch_id].ch_type = mhi->ch_ctx_cache[ch_id].ch_type;
 
-		if (mhi->use_edma || mhi->use_ipa) {
+		if (MHI_USE_DMA(mhi)) {
 			uint32_t evnt_ring_idx = mhi->ev_ring_start +
 					mhi->ch_ctx_cache[ch_id].err_indx;
 			struct mhi_dev_ring *evt_ring =
@@ -2672,7 +2707,7 @@ static int mhi_dev_cache_host_cfg(struct mhi_dev *mhi)
 				mhi->data_base.host_pa - mhi->ctrl_base.host_pa;
 		}
 
-		if (!mhi->use_ipa || !mhi->use_edma) {
+		if (!MHI_USE_DMA(mhi)) {
 			mhi->ctrl_base.device_va =
 				(uintptr_t) devm_ioremap(&pdev->dev,
 				mhi->ctrl_base.device_pa,
@@ -3742,7 +3777,7 @@ static int mhi_dev_recover(struct mhi_dev *mhi)
 	}
 	/*
 	 * Now mask the interrupts so that the state machine moves
-	 * only after IPA is ready
+	 * only after MHI DMA is ready
 	 */
 	mhi_dev_mmio_mask_interrupts(mhi);
 	return 0;
@@ -3757,16 +3792,16 @@ static void mhi_dev_enable(struct work_struct *work)
 	enum mhi_dev_state state;
 	uint32_t max_cnt = 0;
 
-	if (mhi->use_ipa) {
-		rc = ipa_dma_init();
+	if (mhi->use_mhi_dma) {
+		rc = mhi_dma_memcpy_init(mhi->mhi_dma_fun_params);
 		if (rc) {
-			pr_err("ipa dma init failed\n");
+			pr_err("mhi dma init failed\n");
 			return;
 		}
 
-		rc = ipa_dma_enable();
+		rc = mhi_dma_memcpy_enable(mhi->mhi_dma_fun_params);
 		if (rc) {
-			pr_err("ipa enable failed\n");
+			pr_err("mhi enable failed\n");
 			return;
 		}
 	}
@@ -3831,7 +3866,7 @@ static void mhi_dev_enable(struct work_struct *work)
 
 	/*
 	 * ctrl_info might already be set to CONNECTED state in the
-	 * callback function mhi_hwc_cb triggered from IPA when mhi_hwc_init
+	 * callback function mhi_hwc_cb triggered from MHI DMA when mhi_hwc_init
 	 * is called above, so set to CONFIGURED state only when it
 	 * is not already set to CONNECTED
 	 */
@@ -3941,6 +3976,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 {
 	struct mhi_dev *mhi;
 	int rc = 0;
+	bool is_virt_mhi = false;
 	struct resource *res_mem = NULL;
 
 	mhi = devm_kzalloc(&pdev->dev,
@@ -3964,29 +4000,9 @@ static int get_device_tree_data(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	mhi->use_ipa = of_property_read_bool((&pdev->dev)->of_node,
-				"qcom,use-ipa-software-channel");
-	if (mhi->use_ipa) {
-		res_mem = platform_get_resource_byname(pdev,
-				IORESOURCE_MEM, "ipa_uc_mbox_crdb");
-		if (!res_mem) {
-			pr_err("Request IPA_UC_MBOX CRDB physical region failed\n");
-			rc = -EINVAL;
-			goto err;
-		}
+	mhi->use_mhi_dma = of_property_read_bool((&pdev->dev)->of_node,
+					"qcom,use-mhi-dma-software-channel");
 
-		mhi->ipa_uc_mbox_crdb = res_mem->start;
-
-		res_mem = platform_get_resource_byname(pdev,
-				IORESOURCE_MEM, "ipa_uc_mbox_erdb");
-		if (!res_mem) {
-			pr_err("Request IPA_UC_MBOX ERDB physical region failed\n");
-			rc = -EINVAL;
-			goto err;
-		}
-
-		mhi->ipa_uc_mbox_erdb = res_mem->start;
-	}
 
 	mhi_ctx = mhi;
 
@@ -3997,6 +4013,11 @@ static int get_device_tree_data(struct platform_device *pdev)
 		pr_err("qcom,mhi-ifc-id does not exist\n");
 		goto err;
 	}
+
+	/*Initialize VF ID to zero, To be modified for SR-IOV support*/
+	mhi_ctx->mhi_dma_fun_params.vf_id = (u8)0;
+
+	mhi_ctx->mhi_dma_fun_params.function_type = MHI_DMA_FUNCTION_TYPE_PHYSICAL;
 
 	rc = of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,mhi-ep-msi",
@@ -4149,13 +4170,13 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 		goto fail;
 	}
 
-	if (mhi_ctx->use_ipa) {
-		rc = ipa_register_ipa_ready_cb(mhi_ring_init_cb, mhi_ctx);
+	if (mhi_ctx->use_mhi_dma) {
+		rc =  mhi_dma_register_ready_cb(mhi_ring_init_cb, mhi_ctx);
 		if (rc < 0) {
 			if (rc == -EEXIST) {
 				mhi_ring_init_cb(mhi_ctx);
 			} else {
-				pr_err("Error calling IPA cb with %d\n", rc);
+				pr_err("Error calling MHI DMA cb with %d\n", rc);
 				goto fail;
 			}
 		}
@@ -4315,15 +4336,13 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		return rc;
 	}
 
-	if (mhi_ctx->use_ipa) {
-		pr_err("Registering with IPA\n");
-
-		rc = ipa_register_ipa_ready_cb(mhi_ring_init_cb, mhi_ctx);
+	if (mhi_ctx->use_mhi_dma) {
+		rc =  mhi_dma_register_ready_cb(mhi_ring_init_cb, mhi_ctx);
 		if (rc < 0) {
 			if (rc == -EEXIST) {
 				mhi_ring_init_cb(mhi_ctx);
 			} else {
-				pr_err("Error calling IPA cb with %d\n", rc);
+				pr_err("Error calling MHI DMA cb with %d\n", rc);
 				return rc;
 			}
 		}
@@ -4469,10 +4488,10 @@ static int mhi_dev_probe(struct platform_device *pdev)
 		mhi_ctx->host_to_device = mhi_transfer_host_to_device_edma;
 		mhi_ctx->device_to_host = mhi_transfer_device_to_host_edma;
 	} else {
-		mhi_ctx->read_from_host = mhi_dev_read_from_host_ipa;
-		mhi_ctx->write_to_host = mhi_dev_write_to_host_ipa;
-		mhi_ctx->host_to_device = mhi_transfer_host_to_device_ipa;
-		mhi_ctx->device_to_host = mhi_transfer_device_to_host_ipa;
+		mhi_ctx->read_from_host = mhi_dev_read_from_host_mhi_dma;
+		mhi_ctx->write_to_host = mhi_dev_write_to_host_mhi_dma;
+		mhi_ctx->host_to_device = mhi_transfer_host_to_device_mhi_dma;
+		mhi_ctx->device_to_host = mhi_transfer_device_to_host_mhi_dma;
 	}
 
 	INIT_WORK(&mhi_ctx->pcie_event, mhi_dev_pcie_handle_event);

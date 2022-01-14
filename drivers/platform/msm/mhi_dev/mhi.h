@@ -7,6 +7,8 @@
 #include <linux/msm_ep_pcie.h>
 #include <linux/ipc_logging.h>
 #include <linux/msm_mhi_dev.h>
+#include <linux/mhi_dma.h>
+
 
 /**
  * MHI control data structures alloted by the host, including
@@ -328,7 +330,6 @@ struct mhi_addr {
 	size_t		size;
 	dma_addr_t	phy_addr;
 	void		*virt_addr;
-	bool		use_ipa_dma;
 };
 
 struct mhi_interrupt_state {
@@ -518,11 +519,14 @@ struct mhi_dev_channel {
 struct mhi_dev {
 	struct platform_device		*pdev;
 	struct device			*dev;
+	/*MHI device details*/
+	struct mhi_dma_function_params mhi_dma_fun_params;
+
 	/* MHI MMIO related members */
 	phys_addr_t			mmio_base_pa_addr;
 	void				*mmio_base_addr;
-	phys_addr_t			ipa_uc_mbox_crdb;
-	phys_addr_t			ipa_uc_mbox_erdb;
+	phys_addr_t			mhi_dma_uc_mbox_crdb;
+	phys_addr_t			mhi_dma_uc_mbox_erdb;
 
 	uint32_t			*mmio_backup;
 	struct mhi_config		cfg;
@@ -574,8 +578,8 @@ struct mhi_dev {
 	size_t			ev_ring_start;
 	size_t			ch_ring_start;
 
-	/* IPA Handles */
-	u32				ipa_clnt_hndl[NUM_HW_CHANNELS];
+	/* MHI DMA Handles */
+	u32				dma_clnt_hndl[NUM_HW_CHANNELS];
 	struct workqueue_struct		*ring_init_wq;
 	struct work_struct		ring_init_cb_work;
 	struct work_struct		re_init;
@@ -611,11 +615,15 @@ struct mhi_dev {
 	 */
 	dma_addr_t			write_dma_handle;
 
-	/* Use IPA DMA for Software channel data transfer */
-	bool				use_ipa;
-
 	/* Use  PCI eDMA for data transfer */
 	bool				use_edma;
+
+	/* Use  MHI DMA for Software channel data transfer */
+	bool				use_mhi_dma;
+
+	/* Denotes if the MHI instance is physcial or virtual */
+	bool				is_mhi_virtual;
+
 
 	/* iATU is required to map control and data region */
 	bool				config_iatu;
@@ -688,7 +696,7 @@ extern void *mhi_ipc_log;
 /* Use ID 0 for legacy /dev/mhi_ctrl. Channel 0 used for internal only */
 #define MHI_DEV_UEVENT_CTRL	0
 
-#define MHI_USE_DMA(mhi) (mhi->use_ipa || mhi->use_edma)
+#define MHI_USE_DMA(mhi) (mhi->use_mhi_dma || mhi->use_edma)
 
 struct mhi_dev_uevent_info {
 	enum mhi_client_channel	channel;
@@ -1116,7 +1124,7 @@ int mhi_dev_trigger_hw_acc_wakeup(struct mhi_dev *mhi);
 
 /**
  * mhi_pcie_config_db_routing() - Configure Doorbell for Event and Channel
- *		context with IPA when performing a MHI resume.
+ *		context with MHI DMA when performing a MHI resume.
  * @dev:	MHI device structure.
  */
 int mhi_pcie_config_db_routing(struct mhi_dev *mhi);

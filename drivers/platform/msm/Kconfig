@@ -39,7 +39,7 @@ config EP_PCIE_HW
 
 config MSM_MHI_DEV
 	tristate "Modem Device Interface Driver"
-	depends on EP_PCIE && IPA3
+	depends on EP_PCIE
 	help
 	  This kernel module is used to interact with PCIe Root complex
 	  supporting MHI protocol. MHI is a data transmission protocol
