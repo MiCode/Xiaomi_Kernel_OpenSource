@@ -160,6 +160,20 @@ int mem_buf_fd_to_vmid(int fd)
 }
 EXPORT_SYMBOL(mem_buf_fd_to_vmid);
 
+int mem_buf_check_vmids(int *vmids, unsigned long nr)
+{
+	int i;
+
+	for (i = 0; i < nr; i++) {
+		if (!xa_load(&mem_buf_vms, vmids[i])) {
+			pr_err_ratelimited("Unknown vmid %d\n", vmids[i]);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+EXPORT_SYMBOL(mem_buf_check_vmids);
+
 static void mem_buf_vm_device_release(struct device *dev)
 {
 	struct mem_buf_vm *vm;
