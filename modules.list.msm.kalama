@@ -28,6 +28,7 @@ icc-bcm-voter.ko
 icc-debug.ko
 iommu-logger.ko
 llcc-qcom.ko
+mem-hooks.ko
 mem_buf_dev.ko
 mem_buf.ko
 memory_dump_v2.ko
