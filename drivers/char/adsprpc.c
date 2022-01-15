@@ -2539,7 +2539,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	size_t rlen = 0, copylen = 0, metalen = 0, lrpralen = 0, templen = 0;
 	size_t totallen = 0; //header and non ion copy buf len
 	int i, oix;
-	int err = 0;
+	int err = 0, j = 0;
 	int mflags = 0;
 	uint64_t *fdlist = NULL;
 	uint32_t *crclist = NULL;
@@ -2588,6 +2588,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 					FASTRPC_ATTR_NOVA, 0, 0, dmaflags,
 					&ctx->maps[i]);
 		if (err) {
+			for (j = bufs; j < i; j++)
+				fastrpc_mmap_free(ctx->maps[j], 0);
 			mutex_unlock(&ctx->fl->map_mutex);
 			goto bail;
 		}
@@ -4897,7 +4899,7 @@ static int fastrpc_internal_munmap(struct fastrpc_file *fl,
 			"user application %s trying to unmap without initialization\n",
 			current->comm);
 		err = -EHOSTDOWN;
-		goto bail;
+		return err;
 	}
 	mutex_lock(&fl->internal_map_mutex);
 
@@ -5424,6 +5426,20 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		return 0;
 	cid = fl->cid;
 
+	spin_lock(&me->hlock);
+	if (fl->device) {
+		fl->device->dev_close = true;
+		if (fl->device->refs == 0) {
+			is_driver_closed = true;
+			hlist_del_init(&fl->device->hn);
+		}
+	}
+	spin_unlock(&me->hlock);
+
+	spin_lock(&fl->hlock);
+	fl->file_close = 1;
+	spin_unlock(&fl->hlock);
+
 	(void)fastrpc_release_current_dsp_process(fl);
 
 	spin_lock(&fl->apps->hlock);
@@ -5446,19 +5462,6 @@ skip_dump_wait:
 		return 0;
 	}
 
-	spin_lock(&me->hlock);
-	if (fl->device) {
-		fl->device->dev_close = true;
-		if (fl->device->refs == 0) {
-			is_driver_closed = true;
-			hlist_del_init(&fl->device->hn);
-		}
-	}
-	spin_unlock(&me->hlock);
-
-	spin_lock(&fl->hlock);
-	fl->file_close = 1;
-	spin_unlock(&fl->hlock);
 	//Dummy wake up to exit Async worker thread
 	spin_lock_irqsave(&fl->aqlock, flags);
 	atomic_add(1, &fl->async_queue_job_count);
