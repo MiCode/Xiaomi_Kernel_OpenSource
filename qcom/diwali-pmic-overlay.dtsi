@@ -59,6 +59,13 @@
 	};
 };
 
+&pmk8350_sdam_23 {
+	adc_scaling: scaling@bf {
+		reg = <0xbf 0x1>;
+		bits = <0 2>;
+	};
+};
+
 &pm7325_gpios {
 	key_vol_up {
 		key_vol_up_default: key_vol_up_default {
