@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "waipio-lte-vm.dtsi"
+#include "waipio-lte-vm-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio LTE SVM QRD";
+	compatible = "qcom,waipio-qrd", "qcom,waipio", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+};
