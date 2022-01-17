@@ -17,6 +17,7 @@
 #include <soc/qcom/secure_buffer.h>
 #include <linux/gunyah.h>
 
+#include "gh_secure_vm_virtio_backend.h"
 #include "gh_secure_vm_loader.h"
 #include "gh_proxy_sched.h"
 #include "gh_private.h"
@@ -131,6 +132,9 @@ static void gh_vm_cleanup(struct gh_vm *vm)
 		ret = gh_rm_unpopulate_hyp_res(vmid, vm->fw_name);
 		if (ret)
 			pr_warn("Failed to unpopulate hyp resources: %d\n", ret);
+		ret = gh_virtio_mmio_exit(vmid, vm->fw_name);
+		if (ret)
+			pr_warn("Failed to free virtio resources : %d\n", ret);
 	case GH_RM_VM_STATUS_INIT:
 	case GH_RM_VM_STATUS_AUTH:
 		ret = gh_rm_vm_reset(vmid);
@@ -604,9 +608,19 @@ static long gh_vm_ioctl(struct file *filp,
 		ret = gh_vm_ioctl_get_vcpu_count(vm);
 		break;
 	default:
-		pr_err("Invalid gunyah VM ioctl 0x%lx\n", cmd);
+		ret = gh_virtio_backend_ioctl(vm->fw_name, cmd, arg);
 		break;
 	}
+	return ret;
+}
+
+static int gh_vm_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	struct gh_vm *vm = file->private_data;
+	int ret = -EINVAL;
+
+	ret = gh_virtio_backend_mmap(vm->fw_name, vma);
+
 	return ret;
 }
 
@@ -620,6 +634,7 @@ static int gh_vm_release(struct inode *inode, struct file *filp)
 
 static const struct file_operations gh_vm_fops = {
 	.unlocked_ioctl = gh_vm_ioctl,
+	.mmap = gh_vm_mmap,
 	.release = gh_vm_release,
 	.llseek = noop_llseek,
 };
@@ -750,6 +765,10 @@ static int __init gh_init(void)
 		goto err_gh_init;
 	}
 
+	ret = gh_virtio_backend_init();
+	if (ret)
+		pr_err("gunyah: virtio backend init failed %d\n", ret);
+
 	return ret;
 
 err_gh_init:
@@ -764,6 +783,7 @@ static void __exit gh_exit(void)
 	misc_deregister(&gh_dev);
 	gh_proxy_sched_exit();
 	gh_secure_vm_loader_exit();
+	gh_virtio_backend_exit();
 }
 module_exit(gh_exit);
 

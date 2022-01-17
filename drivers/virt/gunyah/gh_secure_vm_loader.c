@@ -20,6 +20,7 @@
 #include <linux/of.h>
 
 #include "gh_private.h"
+#include "gh_secure_vm_virtio_backend.h"
 
 #define PAGE_ROUND_UP(x) ((((u64)(x) + (PAGE_SIZE - 1)) / PAGE_SIZE)  * PAGE_SIZE)
 
@@ -414,6 +415,10 @@ static int gh_secure_vm_loader_probe(struct platform_device *pdev)
 		goto err_unmap_fw;
 	}
 
+	ret = gh_parse_virtio_properties(dev, sec_vm_dev->vm_name);
+	if (ret)
+		goto err_unmap_fw;
+
 	spin_lock(&gh_sec_vm_lock);
 	list_add(&sec_vm_dev->list, &gh_sec_vm_list);
 	spin_unlock(&gh_sec_vm_lock);
@@ -437,7 +442,7 @@ static int gh_secure_vm_loader_remove(struct platform_device *pdev)
 
 	memunmap(sec_vm_dev->fw_virt);
 
-	return 0;
+	return gh_virtio_backend_remove(sec_vm_dev->vm_name);
 }
 
 static const struct of_device_id gh_secure_vm_loader_match_table[] = {
