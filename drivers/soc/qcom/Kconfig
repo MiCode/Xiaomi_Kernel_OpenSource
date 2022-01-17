@@ -289,6 +289,16 @@ config QCOM_SMSM
 	  Say yes here to support the Qualcomm Shared Memory State Machine.
 	  The state machine is represented by bits in shared memory.
 
+config QCOM_MICRODUMP
+	tristate "Qualcomm Technologies, Inc. Microdump Support"
+	depends on QCOM_RAMDUMP
+	depends on QCOM_SMEM
+	help
+	  This enables microdump feature. It collects
+	  crash data from SMEM whenever modem subsytem
+	  crashes and stores it under /devcd to expose
+	  to user space.
+
 config QCOM_SMP2P_SLEEPSTATE
 	tristate "SMP2P Sleepstate notifier"
 	depends on QCOM_SMP2P
