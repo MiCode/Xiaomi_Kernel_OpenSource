@@ -1201,6 +1201,28 @@
 		qcom,smem-states = <&wpss_smp2p_out 0>;
 		qcom,smem-state-names = "stop";
 
+		glink-edge {
+			qcom,remote-pid = <13>;
+			transport = "smem";
+			mboxes = <&ipcc_mproc IPCC_CLIENT_WPSS
+				  IPCC_MPROC_SIGNAL_GLINK_QMP>;
+			mbox-names = "wpss_smem";
+			interrupt-parent = <&ipcc_mproc>;
+			interrupts = <IPCC_CLIENT_WPSS
+					  IPCC_MPROC_SIGNAL_GLINK_QMP
+					  IRQ_TYPE_EDGE_RISING>;
+
+			label = "wpss";
+			qcom,glink-label = "wpss";
+
+			qcom,wpss_qrtr {
+				qcom,glink-channels = "IPCRTR";
+				qcom,intents = <0x800  5
+						0x2000 3
+						0x4400 2>;
+			};
+
+		};
 	};
 
 	vendor_hooks: qcom,cpu-vendor-hooks {
