@@ -1,0 +1,28 @@
+################################################################################
+## Inheriting configs from ACK
+. ${ROOT_DIR}/msm-kernel/build.config.common
+. ${ROOT_DIR}/msm-kernel/build.config.aarch64
+
+################################################################################
+## Variant setup
+MSM_ARCH=khaje
+VARIANTS=(consolidate gki)
+[ -z "${VARIANT}" ] && VARIANT=consolidate
+
+ABL_SRC=bootable/bootloader/edk2
+BOOT_IMAGE_HEADER_VERSION=3
+BASE_ADDRESS=0x80000000
+PAGE_SIZE=4096
+BUILD_VENDOR_DLKM=1
+SUPER_IMAGE_SIZE=0x10000000
+TRIM_UNUSED_MODULES=1
+[ -z "${DT_OVERLAY_SUPPORT}" ] && DT_OVERLAY_SUPPORT=1
+
+if [ "${KERNEL_CMDLINE_CONSOLE_AUTO}" != "0" ]; then
+	KERNEL_VENDOR_CMDLINE+=' console=ttyMSM0,115200n8 earlycon=qcom_geni,0x4a90000 androidboot.hardware=qcom androidboot.console=ttyMSM0 androidboot.memcg=1 lpm_levels.sleep_disabled=1 video=vfb:640x400,bpp=32,memsize=3072000 msm_rtb.filter=0x237 service_locator.enable=1 swiotlb=2048 loop.max_part=7 '
+fi
+
+################################################################################
+## Inheriting MSM configs
+. ${KERNEL_DIR}/build.config.msm.common
+. ${KERNEL_DIR}/build.config.msm.gki
