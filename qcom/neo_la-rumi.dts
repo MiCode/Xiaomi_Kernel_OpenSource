@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "neo_la.dtsi"
+#include "neo_la-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. NEO-LA RUMI";
+	compatible = "qcom,neo-rumi", "qcom,neo", "qcom,rumi";
+	qcom,board-id = <0x1000f 0x0400>;
+};

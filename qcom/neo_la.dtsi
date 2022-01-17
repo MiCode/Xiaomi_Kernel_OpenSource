@@ -1,0 +1,6 @@
+#include "neo.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. NEO-LA";
+	qcom,msm-id = <554 0x10000>;
+};
