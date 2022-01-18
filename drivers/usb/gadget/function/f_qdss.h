@@ -6,8 +6,10 @@
 #ifndef _F_QDSS_H
 #define _F_QDSS_H
 
+#include <linux/completion.h>
 #include <linux/kernel.h>
 #include <linux/ipc_logging.h>
+#include <linux/list.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/composite.h>
@@ -17,6 +19,16 @@ enum qti_port_type {
 	QTI_PORT_RMNET,
 	QTI_PORT_DPL,
 	QTI_NUM_PORTS
+};
+
+struct usb_qdss_ch {
+	const char *name;
+	struct list_head list;
+	void (*notify)(void *priv, unsigned int event,
+		struct qdss_request *d_req, struct usb_qdss_ch *ch);
+	void *priv;
+	void *priv_usb;
+	int app_conn;
 };
 
 struct usb_qdss_bam_connect_info {
@@ -69,6 +81,13 @@ struct usb_qdss_opts {
 	struct usb_function_instance func_inst;
 	struct f_qdss *usb_qdss;
 	char *channel_name;
+};
+
+struct qdss_req {
+	struct usb_request *usb_req;
+	struct completion write_done;
+	struct qdss_request *qdss_req;
+	struct list_head list;
 };
 
 int uninit_data(struct usb_ep *ep);
