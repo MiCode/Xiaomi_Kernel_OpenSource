@@ -2063,6 +2063,29 @@ static void qcom_glink_work(struct work_struct *work)
 	}
 }
 
+void qcom_glink_early_ssr_notify(void *data)
+{
+	struct qcom_glink *glink = data;
+	struct glink_channel *channel;
+	unsigned long flags;
+	int cid;
+
+	if (!glink)
+		return;
+	atomic_inc(&glink->in_reset);
+
+	/* To wakeup any blocking writers */
+	wake_up_all(&glink->tx_avail_notify);
+
+	spin_lock_irqsave(&glink->idr_lock, flags);
+	idr_for_each_entry(&glink->lcids, channel, cid) {
+		wake_up(&channel->intent_req_ack);
+		wake_up(&channel->intent_req_comp);
+	}
+	spin_unlock_irqrestore(&glink->idr_lock, flags);
+}
+EXPORT_SYMBOL(qcom_glink_early_ssr_notify);
+
 static void qcom_glink_cancel_rx_work(struct qcom_glink *glink)
 {
 	struct glink_defer_cmd *dcmd;
@@ -2143,28 +2166,6 @@ static void qcom_glink_set_affinity(struct qcom_glink *glink, u32 *arr,
 		dev_err(glink->dev, "failed to set irq affinity\n");
 	if (set_cpus_allowed_ptr(glink->task, &glink->cpu_mask))
 		dev_err(glink->dev, "failed to set task affinity\n");
-}
-
-static void qcom_glink_notif_reset(void *data)
-{
-	struct qcom_glink *glink = data;
-	struct glink_channel *channel;
-	unsigned long flags;
-	int cid;
-
-	if (!glink)
-		return;
-	atomic_inc(&glink->in_reset);
-
-	/* To wakeup any blocking writers */
-	wake_up_all(&glink->tx_avail_notify);
-
-	spin_lock_irqsave(&glink->idr_lock, flags);
-	idr_for_each_entry(&glink->lcids, channel, cid) {
-		wake_up(&channel->intent_req_ack);
-		wake_up(&channel->intent_req_comp);
-	}
-	spin_unlock_irqrestore(&glink->idr_lock, flags);
 }
 
 struct qcom_glink *qcom_glink_native_probe(struct device *dev,
@@ -2302,7 +2303,7 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 	int cid;
 	int ret;
 
-	qcom_glink_notif_reset(glink);
+	qcom_glink_early_ssr_notify(glink);
 	disable_irq(glink->irq);
 	qcom_glink_cancel_rx_work(glink);
 
