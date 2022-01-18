@@ -120,6 +120,18 @@
 	};
 };
 
+&usb2_phy0 {
+	qcom,param-override-seq = <
+			/* override x0 */
+			0x6c 0xa3
+			/* override x1 */
+			0x70 0xcb
+			/* override x2 */
+			0x74 0x16
+			/* override x3 */
+			0x78 0x03>;
+};
+
 &qupv3_se9_i2c {
 	status = "ok";
 	qcom,clk-freq-out = <1000000>;
