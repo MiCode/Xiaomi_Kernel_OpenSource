@@ -596,7 +596,7 @@ static void bam_free_chan(struct dma_chan *chan)
 	unsigned long flags;
 	int ret;
 
-	DMA_BAM_DBG(bdev, "%s\n", __func__);
+	DMA_BAM_DBG(bdev, "%s start\n", __func__);
 	ret = bam_pm_runtime_get_sync(bdev->dev);
 	if (ret < 0)
 		return;
@@ -630,7 +630,7 @@ static void bam_free_chan(struct dma_chan *chan)
 
 	/* disable irq */
 	writel_relaxed(0, bam_addr(bdev, bchan->id, BAM_P_IRQ_EN));
-	DMA_BAM_DBG(bdev, "%s\n", __func__);
+	DMA_BAM_DBG(bdev, "%s end\n", __func__);
 
 err:
 	pm_runtime_mark_last_busy(bdev->dev);
@@ -759,7 +759,7 @@ static int bam_dma_terminate_all(struct dma_chan *chan)
 	unsigned long flag;
 	LIST_HEAD(head);
 
-	DMA_BAM_DBG(bchan->bdev, "%s\n", __func__);
+	DMA_BAM_DBG(bchan->bdev, "%s start\n", __func__);
 	/* remove all transactions, including active transaction */
 	spin_lock_irqsave(&bchan->vc.lock, flag);
 	/*
@@ -791,6 +791,7 @@ static int bam_dma_terminate_all(struct dma_chan *chan)
 	spin_unlock_irqrestore(&bchan->vc.lock, flag);
 
 	vchan_dma_desc_free_list(&bchan->vc, &head);
+	DMA_BAM_DBG(bchan->bdev, "%s end\n", __func__);
 
 	return 0;
 }
