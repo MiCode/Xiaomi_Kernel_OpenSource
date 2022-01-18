@@ -17,8 +17,6 @@
 #include <linux/clk.h>
 #include <linux/extcon.h>
 #include <linux/reset.h>
-#include <linux/pinctrl/devinfo.h>
-#include <linux/pinctrl/consumer.h>
 
 enum core_ldo_levels {
 	CORE_LEVEL_NONE = 0,
@@ -381,16 +379,10 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 
 	switch (phy->phy_type) {
 	case USB3_AND_DP:
-		if (phy->phy.dev->pins) {
-			writel_relaxed(0x01,
-				phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
-
-			pinctrl_select_state(phy->phy.dev->pins->p,
-					phy->phy.dev->pins->default_state);
-
-			writel_relaxed(0x00,
-				phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
-		}
+		writel_relaxed(0x01,
+			phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
+		writel_relaxed(0x00,
+			phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
 
 		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE))
 			/* override hardware control for reset of qmp phy */
@@ -405,6 +397,17 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 			writel_relaxed(val, phy->base +
 				phy->phy_reg[USB3_DP_COM_TYPEC_CTRL]);
 		}
+
+#ifdef CONFIG_PINCTRL
+		/*
+		 * if there is no default pinctrl state for orientation,
+		 * it need external module provide SW orientation info,
+		 * report an error if there is no such info.
+		 */
+		if (val < 0 && !phy->phy.dev->pins)
+			dev_err(phy->phy.dev,
+				"USB DP QMP PHY: NO SW PORTSELECT\n");
+#endif
 
 		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE)) {
 			msm_ssphy_qmp_setmode(phy, USB3_DP_COMBO_MODE);
