@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "waipio-lte.dtsi"
+#include "waipio-mtp.dtsi"
+#include "waipio-pm8008.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio LTE MTP with PM8008";
+	compatible = "qcom,waipio-mtp", "qcom,waipio", "qcom,mtp";
+	qcom,board-id = <8 0>;
+};

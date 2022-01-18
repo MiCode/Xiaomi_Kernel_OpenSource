@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "waipio-lte.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio LTE SoC";
+	compatible = "qcom,waipio";
+	qcom,board-id = <0 0>;
+};
