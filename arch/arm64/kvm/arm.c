@@ -195,31 +195,6 @@ vm_fault_t kvm_arch_vcpu_fault(struct kvm_vcpu *vcpu, struct vm_fault *vmf)
 	return VM_FAULT_SIGBUS;
 }
 
-void free_hyp_memcache(struct kvm_hyp_memcache *mc);
-static void kvm_shadow_destroy(struct kvm *kvm)
-{
-	struct kvm_pinned_page *ppage, *tmp;
-	struct mm_struct *mm = current->mm;
-	struct list_head *ppages;
-
-	if (kvm->arch.pkvm.shadow_handle)
-		WARN_ON(kvm_call_hyp_nvhe(__pkvm_teardown_shadow, kvm));
-
-	free_hyp_memcache(&kvm->arch.pkvm.teardown_mc);
-
-	ppages = &kvm->arch.pkvm.pinned_pages;
-	list_for_each_entry_safe(ppage, tmp, ppages, link) {
-		WARN_ON(kvm_call_hyp_nvhe(__pkvm_host_reclaim_page,
-					  page_to_pfn(ppage->page)));
-		cond_resched();
-
-		account_locked_vm(mm, 1, false);
-		unpin_user_pages_dirty_lock(&ppage->page, 1, true);
-		list_del(&ppage->link);
-		kfree(ppage);
-	}
-}
-
 /**
  * kvm_arch_destroy_vm - destroy the VM data structure
  * @kvm:	pointer to the KVM struct
