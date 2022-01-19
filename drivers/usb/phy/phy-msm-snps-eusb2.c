@@ -891,8 +891,8 @@ static int msm_eusb2_phy_probe(struct platform_device *pdev)
 	if (res) {
 		phy->eud_enable_reg = devm_ioremap_resource(dev, res);
 		if (IS_ERR(phy->eud_enable_reg)) {
-			dev_err(dev, "eud_enable_reg ioremap err:%d\n", phy->eud_enable_reg);
 			ret = PTR_ERR(phy->eud_enable_reg);
+			dev_err(dev, "eud_enable_reg ioremap err:%d\n", ret);
 			goto err_ret;
 		}
 		phy->eud_reg = res->start;
@@ -907,8 +907,8 @@ static int msm_eusb2_phy_probe(struct platform_device *pdev)
 
 	phy->eud_detect_reg = devm_ioremap_resource(dev, res);
 	if (IS_ERR(phy->eud_detect_reg)) {
-		dev_err(dev, "eud_detect_reg ioremap err:%d\n", phy->eud_detect_reg);
 		ret = PTR_ERR(phy->eud_detect_reg);
+		dev_err(dev, "eud_detect_reg ioremap err:%d\n", ret);
 		goto err_ret;
 	}
 
