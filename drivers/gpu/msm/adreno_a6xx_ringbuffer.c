@@ -61,11 +61,30 @@ static int a6xx_rb_context_switch(struct adreno_device *adreno_dev,
 		adreno_drawctxt_get_pagetable(drawctxt);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int count = 0;
-	u32 cmds[32];
+	u32 cmds[41];
 
-	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable)
+	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable) {
+
+		/* Clear performance counters during context switches */
+		if (!adreno_dev->perfcounter) {
+			cmds[count++] = cp_type4_packet(A6XX_RBBM_PERFCTR_SRAM_INIT_CMD, 1);
+			cmds[count++] = 0x1;
+		}
+
 		count += a6xx_rb_pagetable_switch(adreno_dev, rb, drawctxt,
-			pagetable, cmds);
+			pagetable, &cmds[count]);
+
+		/* Wait for performance counter clear to finish */
+		if (!adreno_dev->perfcounter) {
+			cmds[count++] = cp_type7_packet(CP_WAIT_REG_MEM, 6);
+			cmds[count++] = 0x3;
+			cmds[count++] = A6XX_RBBM_PERFCTR_SRAM_INIT_STATUS;
+			cmds[count++] = 0x0;
+			cmds[count++] = 0x1;
+			cmds[count++] = 0x1;
+			cmds[count++] = 0x0;
+		}
+	}
 
 	cmds[count++] = cp_type7_packet(CP_NOP, 1);
 	cmds[count++] = CONTEXT_TO_MEM_IDENTIFIER;
@@ -190,7 +209,7 @@ int a6xx_ringbuffer_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-#define A6XX_SUBMIT_MAX 75
+#define A6XX_SUBMIT_MAX 79
 
 int a6xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
@@ -229,7 +248,7 @@ int a6xx_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	cmds[index++] = cp_type7_packet(CP_NOP, 1);
 	cmds[index++] = drawctxt ? CMD_IDENTIFIER : CMD_INTERNAL_IDENTIFIER;
 
-	/* This is 21 dwords when drawctxt is not NULL */
+	/* This is 25 dwords when drawctxt is not NULL and perfcounter needs to be zapped */
 	index += a6xx_preemption_pre_ibsubmit(adreno_dev, rb, drawctxt,
 		&cmds[index]);
 
