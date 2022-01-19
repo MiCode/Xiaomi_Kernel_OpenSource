@@ -43,4 +43,8 @@ int mem_buf_vm_uses_gunyah(int *vmids, unsigned int nr_acl_entries);
 /* @Return: A negative number on failure, or vmid on success */
 int mem_buf_fd_to_vmid(int fd);
 
+/*
+ * Validates whether the provided set of vmids are supported.
+ */
+int mem_buf_check_vmids(int *vmids, unsigned long nr);
 #endif
