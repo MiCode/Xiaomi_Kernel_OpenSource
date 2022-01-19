@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "waipio-lte-vm.dtsi"
+#include "waipio-lte-vm-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Waipio LTE SVM MTP";
+	compatible = "qcom,waipio-mtp", "qcom,waipio", "qcom,mtp";
+	qcom,board-id = <0x10008 0>;
+};
