@@ -1163,7 +1163,7 @@ int rpmh_rsc_mode_solver_set(struct rsc_drv *drv, bool enable)
 int rpmh_rsc_is_tcs_completed(struct rsc_drv *drv, int ch)
 {
 	u32 sts;
-	int retry = 10;
+	int retry = 10, ret = 0;
 
 	do {
 		sts = readl_relaxed(drv->base + drv->regs[RSC_DRV_CHN_TCS_COMPLETE]);
@@ -1176,12 +1176,17 @@ int rpmh_rsc_is_tcs_completed(struct rsc_drv *drv, int ch)
 		retry--;
 	} while (!sts && retry);
 
-	if (!retry)
-		return -EBUSY;
+	if (!retry) {
+		ret = -EBUSY;
+		goto exit;
+	}
 
 	writel_relaxed(CH_CLEAR_STATUS,
 		       drv->base + drv->regs[RSC_DRV_CHN_TCS_COMPLETE]);
 
+exit:
+	trace_rpmh_switch_channel(drv, ch, ret);
+	ipc_log_string(drv->ipc_log_ctx, "channel switched to: %d ret: %d", ch, ret);
 	return 0;
 }
 
@@ -1215,11 +1220,13 @@ int rpmh_rsc_drv_enable(struct rsc_drv *drv, bool enable)
 	int ret = 0;
 	u32 chn_en, ch;
 
-	chn_en = readl_relaxed(drv->base + drv->regs[RSC_DRV_CHN_EN]);
-	if (chn_en == enable)
-		return -EINVAL;
-
 	spin_lock(&drv->lock);
+
+	chn_en = readl_relaxed(drv->base + drv->regs[RSC_DRV_CHN_EN]);
+	if (chn_en == enable) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	if (enable) {
 		/* Start with channel 0 */
@@ -1253,6 +1260,8 @@ int rpmh_rsc_drv_enable(struct rsc_drv *drv, bool enable)
 	}
 exit:
 	spin_unlock(&drv->lock);
+	trace_rpmh_drv_enable(drv, enable, ret);
+	ipc_log_string(drv->ipc_log_ctx, "drv enable: %d ret: %d", enable, ret);
 	return ret;
 }
 
