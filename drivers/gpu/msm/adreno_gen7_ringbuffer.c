@@ -64,7 +64,7 @@ static int gen7_rb_context_switch(struct adreno_device *adreno_dev,
 		adreno_drawctxt_get_pagetable(drawctxt);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int count = 0;
-	u32 cmds[46];
+	u32 cmds[55];
 
 	/* Sync both threads */
 	cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
@@ -82,10 +82,28 @@ static int gen7_rb_context_switch(struct adreno_device *adreno_dev,
 	cmds[count++] = cp_type7_packet(CP_THREAD_CONTROL, 1);
 	cmds[count++] = CP_SYNC_THREADS | CP_SET_THREAD_BR;
 
-	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable)
+	if (adreno_drawctxt_get_pagetable(rb->drawctxt_active) != pagetable) {
+
+		/* Clear performance counters during context switches */
+		if (!adreno_dev->perfcounter) {
+			cmds[count++] = cp_type4_packet(GEN7_RBBM_PERFCTR_SRAM_INIT_CMD, 1);
+			cmds[count++] = 0x1;
+		}
+
 		count += gen7_rb_pagetable_switch(adreno_dev, rb,
 			drawctxt, pagetable, &cmds[count]);
-	else {
+
+		/* Wait for performance counter clear to finish */
+		if (!adreno_dev->perfcounter) {
+			cmds[count++] = cp_type7_packet(CP_WAIT_REG_MEM, 6);
+			cmds[count++] = 0x3;
+			cmds[count++] = GEN7_RBBM_PERFCTR_SRAM_INIT_STATUS;
+			cmds[count++] = 0x0;
+			cmds[count++] = 0x1;
+			cmds[count++] = 0x1;
+			cmds[count++] = 0x0;
+		}
+	} else {
 		struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 
 		u32 offset = GEN7_SMMU_BASE + (iommu->cb0_offset >> 2) + 0x0d;
@@ -218,7 +236,7 @@ int gen7_ringbuffer_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-#define GEN7_SUBMIT_MAX 100
+#define GEN7_SUBMIT_MAX 104
 
 int gen7_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 		struct adreno_ringbuffer *rb, struct adreno_context *drawctxt,
@@ -253,7 +271,7 @@ int gen7_ringbuffer_addcmds(struct adreno_device *adreno_dev,
 	cmds[index++] = cp_type7_packet(CP_NOP, 1);
 	cmds[index++] = drawctxt ? CMD_IDENTIFIER : CMD_INTERNAL_IDENTIFIER;
 
-	/* This is 21 dwords when drawctxt is not NULL */
+	/* This is 25 dwords when drawctxt is not NULL and perfcounter needs to be zapped*/
 	index += gen7_preemption_pre_ibsubmit(adreno_dev, rb, drawctxt,
 		&cmds[index]);
 

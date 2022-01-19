@@ -47,6 +47,9 @@
 /* switches SMMU pagetable, used on a5xx only */
 #define CP_SMMU_TABLE_UPDATE 0x53
 
+/* Designate command streams to be executed before/after CP does state restore during preemption */
+#define CP_SET_AMBLE		0x55
+
 /*  Set internal CP registers, used to indicate context save data addresses */
 #define CP_SET_PSEUDO_REGISTER      0x56
 
@@ -178,6 +181,9 @@
 #define CP_CLEAR_BV_BR_COUNTER BIT(2)
 #define CP_CLEAR_RESOURCE_TABLE BIT(1)
 #define CP_CLEAR_ON_CHIP_TS BIT(0)
+
+/* Used to define amble type in SET_AMBLE packet to execute during preemption */
+#define CP_KMD_AMBLE_TYPE 3
 
 static inline uint pm4_calc_odd_parity_bit(uint val)
 {

@@ -406,6 +406,8 @@
 #define A6XX_RBBM_PERFCTR_RBBM_SEL_2             0x509
 #define A6XX_RBBM_PERFCTR_RBBM_SEL_3             0x50A
 #define A6XX_RBBM_PERFCTR_GPU_BUSY_MASKED        0x50B
+#define A6XX_RBBM_PERFCTR_SRAM_INIT_CMD          0x50e
+#define A6XX_RBBM_PERFCTR_SRAM_INIT_STATUS       0x50f
 
 #define A6XX_RBBM_ISDB_CNT                       0x533
 #define A6XX_RBBM_NC_MODE_CNTL                   0X534

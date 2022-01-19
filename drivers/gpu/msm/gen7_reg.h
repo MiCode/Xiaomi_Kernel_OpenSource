@@ -546,6 +546,8 @@
 #define GEN7_RBBM_PERFCTR_RBBM_SEL_2             0x509
 #define GEN7_RBBM_PERFCTR_RBBM_SEL_3             0x50a
 #define GEN7_RBBM_PERFCTR_GPU_BUSY_MASKED        0x50b
+#define GEN7_RBBM_PERFCTR_SRAM_INIT_CMD          0x50e
+#define GEN7_RBBM_PERFCTR_SRAM_INIT_STATUS       0x50f
 
 #define GEN7_RBBM_ISDB_CNT                       0x533
 #define GEN7_RBBM_NC_MODE_CNTL                   0x534
