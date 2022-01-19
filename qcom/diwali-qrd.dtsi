@@ -117,6 +117,11 @@
 		focaltech,trusted-touch-mode = "vm_mode";
 		focaltech,touch-environment = "pvm";
 		focaltech,trusted-touch-type = "primary";
+		focaltech,trusted-touch-spi-irq = <566>;
+		focaltech,trusted-touch-io-bases = <0x980000 0x910000>;
+		focaltech,trusted-touch-io-sizes = <0x1000 0x4000>;
+		focaltech,trusted-touch-vm-gpio-list = <&tlmm 0 0 &tlmm 1 0 &tlmm 2 0
+						&tlmm 3 0 &tlmm 17 0 &tlmm 51 0x2008>;
 	};
 };
 
