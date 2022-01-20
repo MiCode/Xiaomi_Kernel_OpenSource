@@ -984,6 +984,11 @@ bool cmdq_core_profile_pqreadback_enabled(void)
 	return cmdq_ctx.enableProfile & (1 << CMDQ_PROFILE_PQRB);
 }
 
+bool cmdq_core_ftrace2_enabled(void)
+{
+	return cmdq_ctx.enableProfile & (1 << CMDQ_PROFILE_FTRACE2);
+}
+
 void cmdq_long_string_init(bool force, char *buf, u32 *offset, s32 *max_size)
 {
 	buf[0] = '\0';
@@ -4493,6 +4498,20 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 	} while (1);
 
 	status = cmdq_pkt_wait_complete(handle->pkt);
+
+	if (status != -EINVAL) {
+		u64 submit_sec, wait_sec;
+		unsigned long submit_rem, wait_rem;
+
+		submit_sec = handle->pkt->rec_submit;
+		submit_rem = do_div(submit_sec, 1000000000);
+		wait_sec = handle->pkt->rec_wait;
+		wait_rem = do_div(wait_sec, 1000000000);
+		CMDQ_SYSTRACE2_BEGIN("%s %u %llu.%06lu %llu.%06lu\n", __func__,
+			handle->pkt->cmd_buf_size, submit_sec, submit_rem / 1000,
+			wait_sec, wait_rem / 1000);
+		CMDQ_SYSTRACE2_END();
+	}
 
 	if (handle->profile_exec) {
 		u32 *va = cmdq_pkt_get_perf_ret(handle->pkt);
