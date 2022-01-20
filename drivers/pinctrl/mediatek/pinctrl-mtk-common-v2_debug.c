@@ -77,8 +77,7 @@ int gpio_get_tristate_input(unsigned int pin)
 		return -EINVAL;
 	}
 
-	pin -= hw->chip.base;
-	if (pin >= hw->soc->npins) {
+	if (pin - hw->chip.base >= hw->soc->npins) {
 		pr_notice(FUN_3STATE ": invalid pin number: %u\n",
 			pin);
 		return -EINVAL;
