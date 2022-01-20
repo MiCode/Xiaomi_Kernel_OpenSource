@@ -3662,7 +3662,7 @@ static struct lvts_data mt6895_lvts_data = {
 		.check_cal_data = mt6983_check_cal_data,
 		.update_coef_data = mt6983_update_coef_data,
 	},
-	.feature_bitmap = FEATURE_DEVICE_AUTO_RCK,
+	.feature_bitmap = 0,
 	.num_efuse_addr = 28,
 	.num_efuse_block = 3,
 	.cal_data = {
