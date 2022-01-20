@@ -3040,8 +3040,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	unsigned long debug_ft = FT_30_FPS * SCAN_TIME ;//FIXME
 	unsigned long debug_vb = 3 * SCAN_TIME;//FIXME
 
-	if (ctx->dbg_timeout != 0 &&
-		ctx->dbg_timeout > (FT_30_FPS * 1000)) {
+	if (ctx->dbg_timeout != 0) {
 		debug_ft = ctx->dbg_timeout / 1000;
 	}
 	if (debug_ft > FT_30_FPS) {
