@@ -80,23 +80,18 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		    (rpmd->sink_ma_new != rpmd->sink_ma_old)) {
 			rpmd->sink_mv_old = rpmd->sink_mv_new;
 			rpmd->sink_ma_old = rpmd->sink_ma_new;
-			if (rpmd->sink_mv_new && rpmd->sink_ma_new) {
 #ifdef ADAPT_CHARGER_V1
-				charger_manager_enable_power_path(
-					rpmd->chg_consumer, MAIN_CHARGER, true);
+			charger_manager_enable_power_path(
+				rpmd->chg_consumer, MAIN_CHARGER, true);
 #else
+			if (rpmd->sink_mv_new && rpmd->sink_ma_new) {
 				charger_dev_enable_powerpath(rpmd->chg_dev,
 							true);
-#endif /* ADAPT_CHARGER_V1 */
 			} else {
-#ifdef ADAPT_CHARGER_V1
-				charger_manager_enable_power_path(
-					rpmd->chg_consumer, MAIN_CHARGER, true);
-#else
 				charger_dev_enable_powerpath(rpmd->chg_dev,
 							false);
-#endif /* ADAPT_CHARGER_V1 */
 			}
+#endif /* ADAPT_CHARGER_V1 */
 		}
 #endif /* CONFIG_MTK_CHARGER */
 		break;
