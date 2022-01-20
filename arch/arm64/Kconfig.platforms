@@ -810,6 +810,7 @@ config MACH_MT6893
 	select MTK_BUS_TRACER
 	select MTK_PMQOS
 	select MTK_TINYSYS_SCP_RV_SUPPORT
+	select MEDIATEK_MC if MEMORY
         help
 	  This enables support for MediaTek MT6893
 	  Support for aarch64 Architecture
