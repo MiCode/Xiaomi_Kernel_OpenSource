@@ -2626,9 +2626,9 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	if (mtk_cam_mraw_update_all_buffer_ts(ctx, irq_info->ts_ns) == 0)
 		dev_dbg(raw_dev->dev, "mraw update all buffer ts failed");
 
-	/*touch watchdog*/
+	/* touch watchdog */
 	if (watchdog_scenario(ctx))
-		mtk_ctx_watchdog_kick(ctx);
+		mtk_ctx_watchdog_kick(ctx, ctx->pipe->id);
 	/* inner register dequeue number */
 	if (!mtk_cam_is_stagger(ctx))
 		ctx->dequeued_frame_seq_no = dequeued_frame_seq_no;
@@ -4204,13 +4204,19 @@ static void mtk_camsys_camsv_frame_start(struct mtk_camsv_device *camsv_dev,
 	struct mtk_camsys_ctrl_state *current_state;
 	enum MTK_CAMSYS_STATE_RESULT state_handle_ret;
 	int sv_dev_index;
+	int pipe_id;
 
-	/* inner register dequeue number */
 	sv_dev_index = mtk_cam_find_sv_dev_index(ctx, camsv_dev->id);
 	if (sv_dev_index == -1) {
 		dev_dbg(camsv_dev->dev, "cannot find sv_dev_index(%d)", camsv_dev->id);
 		return;
 	}
+	pipe_id = ctx->sv_pipe[sv_dev_index]->id;
+
+	/* touch watchdog */
+	if (watchdog_scenario(ctx))
+		mtk_ctx_watchdog_kick(ctx, pipe_id);
+	/* inner register dequeue number */
 	ctx->sv_dequeued_frame_seq_no[sv_dev_index] = dequeued_frame_seq_no;
 	/* Send V4L2_EVENT_FRAME_SYNC event */
 	mtk_cam_sv_event_frame_sync(camsv_dev, dequeued_frame_seq_no);
@@ -4263,13 +4269,19 @@ static void mtk_camsys_mraw_frame_start(struct mtk_mraw_device *mraw_dev,
 	struct mtk_cam_ctx *ctx, unsigned int dequeued_frame_seq_no, u64 ts_ns)
 {
 	int mraw_dev_index;
+	int pipe_id;
 
-	/* inner register dequeue number */
 	mraw_dev_index = mtk_cam_find_mraw_dev_index(ctx, mraw_dev->id);
 	if (mraw_dev_index == -1) {
 		dev_dbg(mraw_dev->dev, "cannot find mraw_dev_index(%d)", mraw_dev->id);
 		return;
 	}
+	pipe_id = ctx->mraw_pipe[mraw_dev_index]->id;
+
+	/* touch watchdog */
+	if (watchdog_scenario(ctx))
+		mtk_ctx_watchdog_kick(ctx, pipe_id);
+	/* inner register dequeue number */
 	ctx->mraw_dequeued_frame_seq_no[mraw_dev_index] = dequeued_frame_seq_no;
 
 	mtk_cam_mraw_apply_next_buffer(ctx,
