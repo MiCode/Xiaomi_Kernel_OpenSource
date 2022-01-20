@@ -893,7 +893,7 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 		if (buf != last) {
 			instr = iwc_msg->command.pVABase + offset;
 			instr[-1] = CMDQ_CODE_JUMP << 24;
-			instr[-2] = CMDQ_REG_SHIFT_ADDR(CMDQ_INST_SIZE);
+			instr[-2] = ((CMDQ_INST_SIZE) >> gce_shift_bit);
 		}
 	}
 	instr = &iwc_msg->command.pVABase[iwc_msg->command.commandSize / 4 - 4];
