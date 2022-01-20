@@ -754,8 +754,13 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 		DDPPR_ERR("[IRQ] %s: frame underflow! cnt=%d\n",
 			  mtk_dump_comp_str(ovl), priv->underflow_cnt);
 		priv->underflow_cnt++;
-//		mtk_ovl_dump(ovl);
-//		mtk_ovl_analysis(ovl);
+		if (priv->underflow_cnt % 1000 == 0) {
+			if (ovl->id == DDP_COMPONENT_OVL0 ||
+			    ovl->id == DDP_COMPONENT_OVL1)
+				mtk_smi_dbg_hang_detect("ovl-underflow");
+			mtk_ovl_dump(ovl);
+			mtk_ovl_analysis(ovl);
+		}
 	}
 	if (val & (1 << 3))
 		DDPIRQ("[IRQ] %s: sw reset done!\n", mtk_dump_comp_str(ovl));
