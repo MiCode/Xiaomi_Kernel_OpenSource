@@ -221,6 +221,15 @@ static void vcp_disable_dapc(void)
 	struct arm_smccc_res res;
 	unsigned long onoff;
 
+	arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
+		MTK_TINYSYS_VCP_KERNEL_OP_RESET_SET,
+		1, 0, 0, 0, 0, 0, &res);
+	dsb(SY); /* may take lot of time */
+
+	mutex_lock(&vcp_A_notify_mutex);
+	vcp_extern_notify(VCP_EVENT_STOP);
+	mutex_unlock(&vcp_A_notify_mutex);
+
 	/* Turn off MMuP security */
 	onoff = 0;
 	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_MMUP_CONTROL,
@@ -666,11 +675,6 @@ int reset_vcp(int reset)
 {
 	struct arm_smccc_res res;
 
-	mutex_lock(&vcp_A_notify_mutex);
-	blocking_notifier_call_chain(&vcp_A_notifier_list, VCP_EVENT_STOP,
-		NULL);
-	mutex_unlock(&vcp_A_notify_mutex);
-
 	if (reset & 0x0f) { /* do reset */
 		/* make sure vcp is in idle state */
 		vcp_reset_wait_timeout();
@@ -787,6 +791,7 @@ void vcp_disable_pm_clk(enum feature_id id)
 	if (pwclkcnt == 0) {
 		waitCnt = vcp_wait_ready_sync(id);
 		vcp_disable_irqs();
+		vcp_ready[VCP_A_ID] = 0;
 
 		/* trigger halt isr, force vcp enter wfi */
 		writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
@@ -802,7 +807,6 @@ void vcp_disable_pm_clk(enum feature_id id)
 #endif
 		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x, waitCnt=%u\n", VCP_BUS_DEBUG_OUT,
 			readl(VCP_BUS_DEBUG_OUT), waitCnt);
-		vcp_ready[VCP_A_ID] = 0;
 #if VCP_BOOT_TIME_OUT_MONITOR
 		del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
@@ -832,11 +836,16 @@ static int vcp_pm_event(struct notifier_block *notifier
 
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
+		mutex_lock(&vcp_A_notify_mutex);
+		vcp_extern_notify(VCP_EVENT_SUSPEND);
+		mutex_unlock(&vcp_A_notify_mutex);
+
 		mutex_lock(&vcp_pw_clk_mutex);
 		pr_notice("[VCP] PM_SUSPEND_PREPARE entered %d %d\n", pwclkcnt, is_suspending);
 		if ((!is_suspending) && pwclkcnt) {
 			waitCnt = vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			vcp_disable_irqs();
+			vcp_ready[VCP_A_ID] = 0;
 
 			/* trigger halt isr, force vcp enter wfi */
 			writel(B_GIPC4_SETCLR_1, R_GIPC_IN_SET);
@@ -850,7 +859,6 @@ static int vcp_pm_event(struct notifier_block *notifier
 #if VCP_RECOVERY_SUPPORT
 			flush_workqueue(vcp_reset_workqueue);
 #endif
-			vcp_ready[VCP_A_ID] = 0;
 #if VCP_BOOT_TIME_OUT_MONITOR
 			del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
@@ -1809,7 +1817,10 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 
 	/*notify vcp functions stop*/
 	pr_debug("[VCP] %s(): vcp_extern_notify\n", __func__);
+
+	mutex_lock(&vcp_A_notify_mutex);
 	vcp_extern_notify(VCP_EVENT_STOP);
+	mutex_unlock(&vcp_A_notify_mutex);
 
 #ifdef VCP_PARAMS_TO_VCP_SUPPORT
 	/* The function, sending parameters to vcp must be anchored before

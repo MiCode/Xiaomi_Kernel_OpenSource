@@ -210,6 +210,7 @@ struct vdec_vcu_ipi_mem_op {
 	__s32 status;
 	__u64 ap_inst_addr;
 	struct vcodec_mem_obj mem;
+	__u32 reserved[2];
 };
 
 /**
