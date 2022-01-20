@@ -430,6 +430,10 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 	struct chg_type_info *cti = container_of(pnb,
 		struct chg_type_info, pd_nb);
 	int vbus = 0;
+	struct power_supply *ac_psy = power_supply_get_by_name("ac");
+	struct power_supply *usb_psy = power_supply_get_by_name("usb");
+	struct mt_charger *mtk_chg_ac = power_supply_get_drvdata(ac_psy);
+	struct mt_charger *mtk_chg_usb = power_supply_get_drvdata(usb_psy);
 
 	switch (event) {
 	case TCP_NOTIFY_SINK_VBUS:
@@ -454,6 +458,10 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 				vbus = battery_get_vbus();
 				pr_info("%s KPOC Plug out, vbus = %d\n",
 					__func__, vbus);
+				mtk_chg_ac->chg_type = CHARGER_UNKNOWN;
+				mtk_chg_usb->chg_type = CHARGER_UNKNOWN;
+				power_supply_changed(ac_psy);
+				power_supply_changed(usb_psy);
 				queue_work_on(cpumask_first(cpu_online_mask),
 					      cti->pwr_off_wq,
 					      &cti->pwr_off_work);
