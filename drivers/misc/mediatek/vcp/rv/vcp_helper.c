@@ -437,22 +437,23 @@ void vcp_A_unregister_notify(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(vcp_A_unregister_notify);
 
-
 void vcp_schedule_work(struct vcp_work_struct *vcp_ws)
 {
-	queue_work(vcp_workqueue, &vcp_ws->work);
+	if (mmup_enable_count() > 0)
+		queue_work(vcp_workqueue, &vcp_ws->work);
 }
 
 void vcp_schedule_reset_work(struct vcp_work_struct *vcp_ws)
 {
-	queue_work(vcp_reset_workqueue, &vcp_ws->work);
+	if (mmup_enable_count() > 0)
+		queue_work(vcp_reset_workqueue, &vcp_ws->work);
 }
-
 
 #if VCP_LOGGER_ENABLE
 void vcp_schedule_logger_work(struct vcp_work_struct *vcp_ws)
 {
-	queue_work(vcp_logger_workqueue, &vcp_ws->work);
+	if (mmup_enable_count() > 0)
+		queue_work(vcp_logger_workqueue, &vcp_ws->work);
 }
 #endif
 
@@ -479,7 +480,7 @@ static void vcp_A_notify_ws(struct work_struct *ws)
 #endif
 	vcp_ready[VCP_A_ID] = 1;
 
-	if (vcp_notify_flag && (pwclkcnt > 0)) {
+	if (vcp_notify_flag && mmup_enable_count() > 0) {
 		pr_debug("[VCP] notify blocking call\n");
 		blocking_notifier_call_chain(&vcp_A_notifier_list
 			, VCP_EVENT_READY, NULL);
@@ -1876,7 +1877,7 @@ void vcp_send_reset_wq(enum VCP_RESET_TYPE type)
 {
 	vcp_sys_reset_work.flags = (unsigned int) type;
 	vcp_sys_reset_work.id = VCP_A_ID;
-	if (vcp_reset_counts > 0) {
+	if (vcp_reset_counts > 0 && mmup_enable_count() > 0) {
 		vcp_reset_counts--;
 		vcp_schedule_reset_work(&vcp_sys_reset_work);
 	}
