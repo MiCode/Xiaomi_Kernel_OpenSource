@@ -162,7 +162,7 @@ bool apu_qos_boost_flag;
 static bool apusys_on_flag;
 static unsigned int apu_qos_boost_ddr_opp;
 static struct mtk_pm_qos_request apu_qos_ddr_req;
-static struct mtk_pm_qos_request apu_qos_cpu_dma_req;
+static struct pm_qos_request apu_qos_cpu_dma_req;
 struct mutex apu_qos_boost_mtx;
 #endif
 
@@ -1043,7 +1043,7 @@ void apu_qos_boost_start(void)
 		MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE) {
 		apu_qos_boost_ddr_opp = 0;
 		mtk_pm_qos_update_request(&apu_qos_ddr_req, 1);
-		mtk_pm_qos_update_request(&apu_qos_cpu_dma_req, 2);
+		pm_qos_update_request(&apu_qos_cpu_dma_req, 2);
 #ifdef APU_QOS_IPUIF_ADJUST
 		apu_bw_vcore_opp = 2;
 		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
@@ -1066,7 +1066,7 @@ void apu_qos_boost_end(void)
 			MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE;
 		mtk_pm_qos_update_request(&apu_qos_ddr_req,
 			MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
-		mtk_pm_qos_update_request(&apu_qos_cpu_dma_req,
+		pm_qos_update_request(&apu_qos_cpu_dma_req,
 			PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
 	}
 #endif
@@ -1111,7 +1111,7 @@ void apu_qos_counter_init(struct device *dev)
 	mutex_init(&apu_qos_boost_mtx);
 	mtk_pm_qos_add_request(&apu_qos_ddr_req, MTK_PM_QOS_DDR_OPP,
 		MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
-	mtk_pm_qos_add_request(&apu_qos_cpu_dma_req, PM_QOS_CPU_DMA_LATENCY,
+	pm_qos_add_request(&apu_qos_cpu_dma_req, PM_QOS_CPU_DMA_LATENCY,
 		PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
 	apu_qos_boost_ddr_opp = MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE;
 #endif
@@ -1172,9 +1172,9 @@ void apu_qos_counter_destroy(struct device *dev)
 	mtk_pm_qos_update_request(&apu_qos_ddr_req,
 		MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
 	mtk_pm_qos_remove_request(&apu_qos_ddr_req);
-	mtk_pm_qos_update_request(&apu_qos_cpu_dma_req,
+	pm_qos_update_request(&apu_qos_cpu_dma_req,
 		PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE);
-	mtk_pm_qos_remove_request(&apu_qos_cpu_dma_req);
+	pm_qos_remove_request(&apu_qos_cpu_dma_req);
 #endif
 
 	LOG_DEBUG("-\n");
