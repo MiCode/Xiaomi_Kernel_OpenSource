@@ -16,6 +16,7 @@
 #include <dt-bindings/gce/mt6768-gce.h>
 #include <dt-bindings/phy/phy.h>
 #include <generated/autoconf.h>
+#include <dt-bindings/soc/mediatek,boot-mode.h>
 
 / {
 	model = "MT6768";
@@ -27,6 +28,7 @@
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
+			earlycon=mtk8250,mmio32,0x11002000 \
 			vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
 			cgroup.memory=nosocket,nokmem \
 			firmware_class.path=/vendor/firmware \
@@ -220,10 +222,8 @@
 	};
 
 	cache_parity {
-		compatible = "mediatek,cache_parity";
-		version = <1>;
+		compatible = "mediatek,mt6785-cache-parity";
 		reg = <0 0x0c530000 0 0x10000>;
-		err_level = <1>;
 		irq_config = <0 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
 			<1 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
 			<2 0x8090 0x0000ff00 0x8090 68 0x8090 0x000000ff>,
@@ -315,7 +315,7 @@
 			alloc-ranges = <0 0x40000000 0 0x50000000>;
 		};
 
-		consys-reserve-memory {
+		consys_mem: consys-reserve-memory {
 			compatible = "mediatek,consys-reserve-memory";
 			no-map;
 			size = <0 0x400000>;
@@ -582,9 +582,27 @@
 	};
 
 	toprgu:toprgu@10007000 {
-		compatible = "mediatek,toprgu";
+		compatible = "mediatek,mt6768-wdt",
+				  "mediatek,mt6589-wdt",
+				  "mediatek,toprgu",
+				  "syscon", "simple-mfd";
 		reg = <0 0x10007000 0 0x1000>;
 		interrupts = <GIC_SPI 156 IRQ_TYPE_LEVEL_LOW>;
+		mediatek,rg_dfd_timeout = <0xa0>;
+		#reset-cells = <1>;
+		reboot-mode {
+			compatible = "syscon-reboot-mode";
+			offset = <0x24>;
+			mask = <0xf>;
+			mode-charger = <BOOT_CHARGER>;
+			mode-recovery = <BOOT_RECOVERY>;
+			mode-bootloader = <BOOT_BOOTLOADER>;
+			mode-dm-verity-dev-corrupt = <BOOT_DM_VERITY>;
+			mode-kpoc = <BOOT_KPOC>;
+			mode-ddr-reserve = <BOOT_DDR_RSVD>;
+			mode-meta = <BOOT_META>;
+			mode-rpmbpk = <BOOT_RPMBPK>;
+		};
 	};
 
 	clocks {
@@ -688,10 +706,7 @@
 		interrupts = <GIC_SPI 73 IRQ_TYPE_EDGE_FALLING>;
 		clocks = <&clk26m>;
 		clock-names = "kpd";
-	};
-
-	touch: touch {
-		compatible = "goodix,touch";
+		mediatek,boot_mode = <1>;
 	};
 
 	mrdump_ext_rst: mrdump_ext_rst {
@@ -859,6 +874,8 @@
 		compatible = "mediatek,m4u";
 		reg = <0 0x10205000 0 0x1000>;
 		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&imgsys CLK_IMG_DIP>;
+		clock-names = "ISP_CLK_IMG_DIP";
 	};
 #endif
 	devapc@10207000 {
@@ -912,6 +929,17 @@
 	infracfg@1020e000 {
 		compatible = "mediatek,infracfg";
 		reg = <0 0x1020e000 0 0x1000>;
+	};
+
+	efuse: efuse@11c10000 {
+		compatible = "mediatek,devinfo";
+		reg = <0 0x11c10000 0 0x10000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		efuse_segment: segment@78 {
+			reg = <0x78 0x4>;
+		};
 	};
 
 	trng@1020f000 {
@@ -1035,8 +1063,44 @@
 		reg = <0 0x1021c900 0 0x400>;
 	};
 
-	mdcldma:mdcldma@10014000 {
-		compatible = "mediatek,mdcldma";
+    ccifdriver:ccifdriver@10209000 {
+		compatible = "mediatek,ccci_ccif";
+		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
+			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
+		mediatek,sram_size = <512>;
+		/*CCIF_IRQ0 164, CCIF_IRQ1 165*/
+		interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 165 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&infracfg_ao CLK_IFR_CCIF_AP>,
+			<&infracfg_ao CLK_IFR_CCIF_MD>,
+			<&infracfg_ao CLK_IFR_CCIF1_AP>,
+			<&infracfg_ao CLK_IFR_CCIF1_MD>,
+			<&infracfg_ao CLK_IFR_CCIF2_AP>,
+			<&infracfg_ao CLK_IFR_CCIF2_MD>;
+		clock-names = "infra-ccif-ap",
+			"infra-ccif-md",
+			"infra-ccif1-ap",
+			"infra-ccif1-md",
+			"infra-ccif2-ap",
+			"infra-ccif2-md";
+	};
+
+	cldmadriver:cldmadriver@10014000 {
+		compatible = "mediatek,ccci_cldma";
+		reg = <0 0x10014000 0 0x1000>, /*AP_CLDMA_AO "mediatek,apcldmain_ao*/
+			  <0 0x1021b000 0 0x1000>; /*AP_CLDMA_PDN "mediatek,apcldmain*/
+		/*CLDAM IRQ 180, IRQ_CLDMA "mediatek,apcldmamisc"*/
+		interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,cldma_capability = <6>;
+		mediatek,md_generation = <6293>;
+		mediatek,platform = <6739>;
+		clocks = <&infracfg_ao CLK_IFR_CLDMA_BCLK>;
+		clock-names = "infra-cldma-bclk";
+		cldma-infracfg = <&infracfg_ao>;
+	};
+
+	mddriver:mddriver@10014000 {
+		compatible = "mediatek,mddriver", "mediatek,mddriver-mt6768";
 		/*
 		 * AP_CLDMA_AO "mediatek,apcldmain_ao"
 		 * AP_CLDMA_PDN "mediatek,apcldmain"
@@ -1057,7 +1121,11 @@
 			     <GIC_SPI 164 IRQ_TYPE_LEVEL_LOW>,
 			     <GIC_SPI 165 IRQ_TYPE_LEVEL_LOW>,
 			     <GIC_SPI 75 IRQ_TYPE_EDGE_FALLING>;
+		mediatek,mdhif_type = <3>; /* bit0~3: CLDMA|CCIF|DPMAIF */
 		mediatek,md_id = <0>;
+		mediatek,ap_plat_info = <6768>;
+		mediatek,md_generation = <6293>;
+		mediatek,offset_apon_md1 = <0x1C24>;
 		mediatek,cldma_capability = <6>;
 		clocks = <&scpsys SCP_SYS_MD1>,
 			<&infracfg_ao CLK_IFR_CLDMA_BCLK>,
@@ -1075,6 +1143,9 @@
 			"infra-ccif1-md",
 			"infra-ccif2-ap",
 			"infra-ccif2-md";
+		_vmodem-supply = <&mt_pmic_vmodem_buck_reg>;
+		_vcore-supply = <&mt_pmic_vcore_buck_reg>;
+		ccci-infracfg = <&infracfg_ao>;
 	};
 
 	md_auxadc:md_auxadc {
@@ -1425,6 +1496,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 	mt6358_gauge {
 		compatible = "mediatek,mt6358_gauge";
+		bootmode = <&chosen>;
 		gauge_name = "gauge";
 		alias_name = "MT6358";
 	};
@@ -1526,6 +1598,11 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		mediatek,enabled = <1>;
 		mediatek,chain_length = <0xa7f8>;
 		mediatek,rg_dfd_timeout = <0xa0>;
+
+		mediatek,check_dfd_support = <1>;
+		mediatek,dfd_infra_base = <0x390>;
+		mediatek,dfd_ap_addr_offset = <24>;
+		mediatek,dfd_latch_offset = <0x48>;
 	};
 
 	dfd_cache: dfd_cache {
@@ -1790,8 +1867,11 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		mediatek,cali-ge-bit = <10>;
 		/* 3. Auxadc cali oe bits shift */
 		mediatek,cali-oe-bit = <0>;
-		/* 4. Auxadc cali efuse index */
-		mediatek,cali-efuse-index = <106>;
+		/* 4. Auxadc cali efuse reg offset */
+		mediatek,cali-efuse-reg-offset = <0x1a8>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		#interconnect-cells = <1>;
 	};
 
 	apdma: dma-controller@11000980 {
@@ -1808,6 +1888,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		clock-names = "apdma";
 		#dma-cells = <1>;
 		dma-33bits = <1>;
+		dma-requests = <4>;
 	};
 
 	apuart0: serial@11002000 {
@@ -2181,6 +2262,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		clocks = <&scpsys SCP_SYS_CONN>;
 		clock-names = "conn";
 		wifi_ant_swap_gpio = <&pio 108 0x0>;
+		memory-region = <&consys_mem>;
 	};
 
 	disp_pwm@1100e000 {
@@ -2528,8 +2610,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	};
 
 	mali@13040000 {
-		compatible = "mediatek,mali", "arm,mali-midgard",
-				"arm,mali-bifrost";
+		compatible = "mediatek,mali", "arm,mali-valhall";
 		reg = <0 0x13040000 0 0x4000>;
 		interrupts =
 			<GIC_SPI 274 IRQ_TYPE_LEVEL_LOW>,
@@ -2543,9 +2624,11 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			"JOB",
 			"EVENT",
 			"PWR";
+
+		ged-supply = <&ged>;
 	};
 
-	gpufreq {
+	gpufreq: gpufreq {
 		compatible = "mediatek,mt6768-gpufreq";
 		clocks =
 			<&topckgen CLK_TOP_MFG_SEL>,	   /* clk_mux */
@@ -2565,6 +2648,13 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			"mtcmos_mfg",
 			"mtcmos_mfg_core0",
 			"mtcmos_mfg_core1";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
+	};
+
+	ged: ged {
+		compatible = "mediatek,ged";
+		gpufreq-supply = <&gpufreq>;
 	};
 
 	mmsys_config: mmsys_config@14000000 {
@@ -2835,11 +2925,15 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		reg = <0 0x14016000 0 0x1000>;
 	};
 
-	imgsys: imgsys@15020000 {
-		compatible = "mediatek,imgsys", "syscon";
+	imgsys: syscon@15020000 {
+		compatible = "mediatek,mt6768-imgsys","syscon";
 		reg = <0 0x15020000 0 0x1000>;
 		#clock-cells = <1>;
-		/* Camera CCF */
+	};
+
+	imgsys_config: imgsys_config@15020000 {
+		compatible = "mediatek,imgsys","syscon";
+		reg = <0 0x15020000 0 0x1000>;
 		clocks = <&scpsys SCP_SYS_DIS>,
 			<&scpsys SCP_SYS_ISP>,
 			<&scpsys SCP_SYS_CAM>,
@@ -2919,8 +3013,8 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 	};
 
-	vdec_gcon: vdec_gcon@16000000 {
-		compatible = "mediatek,vdec_gcon", "syscon";
+	vcodec_dec: vcodec_dec@16000000 {
+		compatible = "mediatek,mt6768-vcodec-dec";
 		reg = <0 0x16000000 0 0x1000>,		/* VDEC_SYS */
 			 <0 0x16020000 0 0x400>,		/* VDEC_VLD */
 			 <0 0x16025000 0 0x1000>;		/* VDEC_MISC */
@@ -2939,6 +3033,14 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			"MT_SCP_SYS_DIS",
 			"MT_SCP_SYS_VDE",
 			"MT_CG_VDEC";
+		#clock-cells = <1>;
+	};
+
+	vdec_gcon: vdec_gcon@16000000 {
+		compatible = "mediatek,vdec_gcon", "syscon";
+		reg = <0 0x16000000 0 0x1000>,		/* VDEC_SYS */
+			 <0 0x16020000 0 0x400>,		/* VDEC_VLD */
+			 <0 0x16025000 0 0x1000>;		/* VDEC_MISC */
 		#clock-cells = <1>;
 	};
 
@@ -2969,8 +3071,8 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		reg = <0 0x16001000 0 0x1000>;
 	};
 
-	venc_gcon: venc_gcon@17000000 {
-		compatible = "mediatek,venc_gcon", "syscon";
+	vcodec_enc: vcodec_enc@17000000 {
+		compatible = "mediatek,mt6768-vcodec-enc", "syscon";
 		reg = <0 0x17000000 0 0x1000>,
 			<0 0x17020000 0 0x1000>;
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -2988,6 +3090,13 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			"MT_SCP_SYS_DIS",
 			"MT_SCP_SYS_VEN",
 			"MT_CG_VENC";
+		#clock-cells = <1>;
+	};
+
+	venc_gcon: venc_gcon@17000000 {
+		compatible = "mediatek,venc_gcon", "syscon";
+		reg = <0 0x17000000 0 0x1000>,
+			<0 0x17020000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
@@ -3158,6 +3267,12 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	};
 
 	camsys: camsys@1a000000 {
+		compatible = "mediatek,mt6768-camsys", "syscon";
+		reg = <0 0x1a000000  0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys1: camsysisp@1a000000  {
 		compatible = "mediatek,camsys", "syscon";
 		reg = <0 0x1a000000  0 0x1000>;
 		#clock-cells = <1>;
@@ -3282,7 +3397,12 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		<&topckgen CLK_TOP_UNIVPLL2_D8>,
 		<&topckgen CLK_TOP_USB20_192M_D8>,
 		<&clk26m>,
+		<&camsys CLK_CAM>,
+		<&camsys CLK_CAMTG>,
 		<&camsys CLK_CAM_SENINF>,
+		<&camsys CLK_CAMSV0>,
+		<&camsys CLK_CAMSV1>,
+		<&camsys CLK_CAMSV2>,
 		<&apmixed CLK_APMIXED_MIPIC0_26M>,
 		<&apmixed CLK_APMIXED_MIPIC1_26M>,
 		<&mipi_rx_ana_csi0a CLK_MIPI0A_CSR_CSI_EN_0A>,
@@ -3414,6 +3534,10 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 	mt_charger: mt_charger {
 		compatible = "mediatek,mt-charger";
+		bootmode = <&chosen>;
+	};
+
+	msdc1_ins: msdc1_ins {
 	};
 
 	lk_charger: lk_charger {
@@ -3452,6 +3576,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		power_path_support;
 		enable_dynamic_mivr;
 		disable_pd_dual;
+		bootmode = <&chosen>;
 
 		/* common */
 		battery_cv = <4350000>;
@@ -3566,12 +3691,10 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		adapter_name = "pd_adapter";
 	};
 
+
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
 		charger = <&mt6370_chg>;
-		vbus-supply = <&otg_vbus>;
-		vbus-voltage = <5000000>;
-		vbus-current = <1800000>;
 		dev-conn = <&usb>;
 		mediatek,bypss-typec-sink = <1>;
 	};
@@ -3601,6 +3724,10 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		mediatek,clkbuf-quantity = <7>;
 		mediatek,clkbuf-config = <2 1 1 2 0 0 0>;
 		mediatek,clkbuf-driving-current = <1 1 1 1 1 1 1>;
+	};
+
+	touch: touch {
+		compatible = "goodix,touch";
 	};
 
 	nfc:nfc {
