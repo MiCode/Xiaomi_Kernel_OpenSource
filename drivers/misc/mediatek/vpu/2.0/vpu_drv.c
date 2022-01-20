@@ -47,7 +47,7 @@
 #define VPU_DEV_NAME            "vpu"
 
 static struct vpu_device *vpu_device;
-static struct wakeup_source vpu_wake_lock;
+static struct wakeup_source *vpu_wake_lock;
 static struct list_head device_debug_list;
 static struct mutex debug_list_mutex;
 static bool sdsp_locked;
@@ -1569,7 +1569,7 @@ static int vpu_probe(struct platform_device *pdev)
 			goto out;
 		}
 
-		wakeup_source_init(&vpu_wake_lock, "vpu_lock_wakelock");
+		vpu_wake_lock = wakeup_source_register(NULL, "vpu_lock_wakelock");
 
 out:
 		if (ret < 0)
