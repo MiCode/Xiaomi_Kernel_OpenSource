@@ -6185,7 +6185,6 @@
 };
 
 #include "mediatek/mt6359p.dtsi"
-#include "mediatek/cust_mt6833_msdc.dtsi"
 #include "mediatek/mt6833-clkitg.dtsi"
 #include "mediatek/v1/mt6360.dtsi"
 
