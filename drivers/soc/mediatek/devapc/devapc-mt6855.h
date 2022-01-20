@@ -25,7 +25,7 @@
 #define ENABLE_DEVAPC_VLP		1
 #define ENABLE_DEVAPC_ADSP		0
 #define ENABLE_DEVAPC_MMINFRA		1
-#define ENABLE_DEVAPC_MMUP		0
+#define ENABLE_DEVAPC_MMUP		1
 
 /******************************************************************************
  * STRUCTURE DEFINITION
