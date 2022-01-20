@@ -2500,8 +2500,8 @@ static int mtk_dsi_wait_cmd_frame_done(struct mtk_dsi *dsi,
 	return 0;
 }
 
-static void mtk_output_dsi_disable(struct mtk_dsi *dsi,
-	int force_lcm_update)
+static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_handle,
+				   int force_lcm_update)
 {
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
@@ -2521,10 +2521,15 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi,
 	}
 
 	/* 2. If VDO mode, stop it and set to CMD mode */
-	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
-		mtk_dsi_stop_vdo_mode(dsi, NULL);
-	else
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+		mtk_dsi_stop_vdo_mode(dsi, cmdq_handle);
+		if (cmdq_handle) {
+			cmdq_pkt_flush(cmdq_handle);
+			cmdq_pkt_destroy(cmdq_handle);
+		}
+	} else {
 		mtk_dsi_wait_cmd_frame_done(dsi, force_lcm_update);
+	}
 
 	if (dsi->slave_dsi)
 		mtk_dsi_dual_enable(dsi, false);
@@ -2620,7 +2625,7 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 		mtk_disp_notifier_call_chain(MTK_DISP_EARLY_EVENT_BLANK,
 					&data);
 
-	mtk_output_dsi_disable(dsi, false);
+	mtk_output_dsi_disable(dsi, NULL, false);
 
 	if (index == 0)
 		mtk_disp_notifier_call_chain(MTK_DISP_EVENT_BLANK,
@@ -6323,7 +6328,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case CONNECTOR_PANEL_DISABLE:
 	{
-		mtk_output_dsi_disable(dsi, true);
+		mtk_output_dsi_disable(dsi, handle, true);
 		dsi->doze_enabled = false;
 	}
 		break;
@@ -7484,7 +7489,7 @@ static int mtk_dsi_remove(struct platform_device *pdev)
 {
 	struct mtk_dsi *dsi = platform_get_drvdata(pdev);
 
-	mtk_output_dsi_disable(dsi, false);
+	mtk_output_dsi_disable(dsi, NULL, false);
 	component_del(&pdev->dev, &mtk_dsi_component_ops);
 
 	mtk_ddp_comp_pm_disable(&dsi->ddp_comp);
