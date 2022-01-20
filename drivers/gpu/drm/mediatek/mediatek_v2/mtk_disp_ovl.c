@@ -341,12 +341,12 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES (16)
 
 /* define for PVRIC_V4_1 */
-#define PVRIC_V4_1_TILE_W			(16)
-#define PVRIC_V4_1_RGB565_TILE_W		(32)
-#define PVRIC_V4_1_TILE_H			(4)
-#define PVRIC_V4_1_HEADER_ALIGN_BYTES		(256)
-#define PVRIC_V4_1_HEADER_SIZE_PER_TILE_BYTES	(1)
-#define PVRIC_V4_1_TILE_SIZE			(256)
+#define PVRIC_V4_1_TILE_W				(16)
+#define PVRIC_V4_1_RGB565_TILE_W			(32)
+#define PVRIC_V4_1_TILE_H				(4)
+#define PVRIC_V4_1_HEADER_ALIGN_BYTES			(256)
+#define PVRIC_V4_1_HEADER_SIZE_PER_TILE_BYTES(bpp)	((bpp) == 8 ? 2 : 1)
+#define PVRIC_V4_1_TILE_SIZE				(256)
 
 /* AID offset in mmsys config */
 #define MT6983_OVL0_AID_SEL	(0xB00UL)
@@ -1903,7 +1903,7 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 	src_buf_tile_num = ALIGN_TO(pitch / Bpp, tile_w) * ALIGN_TO(vpitch, tile_h);
 	src_buf_tile_num /= (tile_w * tile_h);
 	header_offset = ALIGN_TO(
-		src_buf_tile_num * PVRIC_V4_1_HEADER_SIZE_PER_TILE_BYTES,
+		src_buf_tile_num * PVRIC_V4_1_HEADER_SIZE_PER_TILE_BYTES(Bpp),
 		PVRIC_V4_1_HEADER_ALIGN_BYTES);
 	buf_addr = addr + header_offset;
 
@@ -1936,7 +1936,7 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 	lx_pitch_msb = ((pitch * tile_h) >> 16) & 0xF;
 
 	/* 4. cal OVL_LX_HDR_ADDR, OVL_LX_HDR_PITCH */
-	lx_hdr_addr = buf_addr - 1 - tile_offset * PVRIC_V4_1_HEADER_SIZE_PER_TILE_BYTES;
+	lx_hdr_addr = buf_addr - 1 - tile_offset * PVRIC_V4_1_HEADER_SIZE_PER_TILE_BYTES(Bpp);
 	lx_hdr_pitch = pitch / 16 / 4;
 
 	/* 5. calculate OVL_LX_SRC_SIZE */
@@ -1977,9 +1977,9 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 	}
 
 	DDPINFO(
-		"%s, idx(%u,%u,%u), fmt:0x%x,%u, p(%u,%u), src(%u,%u,%u,%u)->(%u,%u,%u,%u), dst(%u,%u,%u,%u), clip(%u,%u,%u,%u):0x%x\n",
+		"%s, idx(%u,%u,%u), fmt:0x%x,%u, p(%u,%u,%u), src(%u,%u,%u,%u)->(%u,%u,%u,%u), dst(%u,%u,%u,%u), clip(%u,%u,%u,%u):0x%x\n",
 		__func__, state->comp_state.comp_id, lye_idx, ext_lye_idx,
-		fmt, mtk_drm_format_plane_cpp(fmt, 0), pitch, vpitch,
+		fmt, mtk_drm_format_plane_cpp(fmt, 0), pending->pitch, pitch, vpitch,
 		src_x, src_y, src_w, src_h,
 		src_x_align, src_y_align, src_w_align, src_h_align,
 		pending->dst_x, pending->dst_y, pending->width, pending->height,
@@ -1987,9 +1987,9 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 		(src_y - src_y_align), (src_y_align + src_h_align - src_y - src_h),
 		lx_clip);
 	DDPINFO(
-		"t_num:0x%x, h_off:0x%x, buf_addr:0x%x, t_off:0x%x, p(0x%x,0x%x,0x%x), addr(0x%llx,0x%llx,0x%llx)\n",
-		src_buf_tile_num, header_offset, buf_addr, tile_offset,
-		lx_pitch, lx_pitch_msb, lx_hdr_pitch,
+		"t_num:0x%x, h_off:0x%x (%d), buf_addr:0x%x, t_off:0x%x, p(0x%x,0x%x,0x%x), addr(0x%llx,0x%llx,0x%llx)\n",
+		src_buf_tile_num, header_offset, PVRIC_V4_1_HEADER_SIZE_PER_TILE_BYTES(Bpp),
+		buf_addr, tile_offset, lx_pitch, lx_pitch_msb, lx_hdr_pitch,
 		(u64)addr, (u64)lx_hdr_addr, (u64)lx_addr);
 
 	if (ovl->data->mmsys_mapping)
