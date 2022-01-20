@@ -44,10 +44,7 @@
 #define mali_pr_debug(fmt, args...)		pr_debug(MALI_TAG"[DEBUG]"fmt, ##args)
 
 DEFINE_MUTEX(g_mfg_lock);
-
-//FIXME
 static int g_curFreqID;
-static int g_is_suspend;
 
 enum gpu_dvfs_status_step {
 	GPU_DVFS_STATUS_STEP_1 = 0x1,
@@ -103,11 +100,6 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 	mali_pr_debug("@%s: power on ...\n", __func__);
 
 	gpu_dvfs_status_footprint(GPU_DVFS_STATUS_STEP_1);
-
-	if (g_is_suspend == 1) {
-		mali_pr_info("@%s: discard powering on since GPU is suspended\n", __func__);
-		return 0;
-	}
 
 	/* on,off/ SWCG(BG3D)/ MTCMOS/ BUCK */
 	mt_gpufreq_power_control(POWER_ON, CG_ON, MTCMOS_ON, BUCK_ON);
@@ -206,28 +198,19 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 static void pm_callback_power_suspend(struct kbase_device *kbdev)
 {
 	mutex_lock(&g_mfg_lock);
-
+	mali_pr_debug("@%s: gpu_suspend\n", __func__);
 	if (mtk_common_pm_is_mfg_active()) {
-		pm_callback_power_off_nolock(kbdev);
-		mali_pr_info("@%s: force powering off GPU\n", __func__);
+		mali_pr_info("@%s: someone power on GPU during suspend\n", __func__);
 	}
-	g_is_suspend = 1;
-	mali_pr_info("@%s: gpu_suspend\n", __func__);
-
 	gpu_dvfs_status_footprint(GPU_DVFS_STATUS_STEP_E);
-
 	mutex_unlock(&g_mfg_lock);
 }
 
 static void pm_callback_power_resume(struct kbase_device *kbdev)
 {
 	mutex_lock(&g_mfg_lock);
-
-	g_is_suspend = 0;
-	mali_pr_info("@%s: gpu_resume\n", __func__);
-
+	mali_pr_debug("@%s: gpu_resume\n", __func__);
 	gpu_dvfs_status_footprint(GPU_DVFS_STATUS_STEP_F);
-
 	mutex_unlock(&g_mfg_lock);
 }
 
@@ -270,9 +253,6 @@ int mtk_platform_device_init(struct kbase_device *kbdev)
 	}
 
 	gpu_dvfs_status_reset_footprint();
-
-	//FIXME
-	g_is_suspend = -1;
 
 	mali_pr_info("@%s: initialize successfully\n", __func__);
 
