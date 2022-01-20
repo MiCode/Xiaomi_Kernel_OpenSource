@@ -2619,7 +2619,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	 * MFGPLL_CON1[26:24] = MFGPLL_POSDIV
 	 * MFGPLL_CON1[21:0]  = MFGPLL_SDM_PCW (dds)
 	 */
-	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | pcw;
+	//pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | pcw;
 
 #ifndef CONFIG_MTK_FREQ_HOPPING
 	/* force parking if FHCTL not ready */
@@ -2632,7 +2632,6 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 #endif
 
 	if (parking) {
-#if 0
 		/*
 		 * MFGPLL_CON0[0] = RG_MFGPLL_EN
 		 * MFGPLL_CON0[4] = RG_MFGPLL_GLITCH_FREE_EN
@@ -2666,17 +2665,6 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 				gpufreq_pr_info("@%s: hopping failing: %d\n",
 						__func__, hopping);
 		}
-#endif
-		/* mfgpll_ck to univpll_d3(416MHz) */
-		__mt_gpufreq_switch_to_clksrc(CLOCK_SUB);
-
-		DRV_WriteReg32(MFGPLL_CON1, pll);
-		/* 3. wait 20us for MFGPLL Stable */
-		udelay(20);
-
-		/* univpll_d3(416MHz) to mfgpll_ck */
-		__mt_gpufreq_switch_to_clksrc(CLOCK_MAIN);
-
 	} else {
 #ifdef CONFIG_MTK_FREQ_HOPPING
 		/* change PCW (by hopping) */
