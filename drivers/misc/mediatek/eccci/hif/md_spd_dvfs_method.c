@@ -82,6 +82,14 @@ static const struct dvfs_ref s_dl_dvfs_tbl_v4[] = { /* 4:3:1 */
 	{0LL,          {-1, -1, -1, -1}, -1, 0x02, 0xFF, 0x7F, 0xFF, {-1, -1, -1, -1}},
 };
 
+static const struct dvfs_ref s_dl_dvfs_tbl_v5[] = { /* 4:3:1 */
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{2000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0x10, 0x20, 0x40, {0x0D, 0x0D, 0x0D, 0x0D}},
+	{1000000000LL, {-1, -1, -1, -1}, -1, 0x40, 0x10, 0x20, 0x70, {0x70, 0x70, 0x70, 0x70}},
+	/* normal */
+	{0LL,          {-1, -1, -1, -1}, -1, 0x02, 0xFF, 0x7F, 0xFF, {-1, -1, -1, -1}},
+};
+
 /* uplink */
 static const struct dvfs_ref s_ul_dvfs_tbl_v0[] = { /* default */
 	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
@@ -118,6 +126,13 @@ static const struct dvfs_ref s_ul_dvfs_tbl_v4[] = { /* 4:3:1 */
 	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF, {-1, -1, -1, -1}},
 };
 
+static const struct dvfs_ref s_ul_dvfs_tbl_v5[] = { /* 4:3:1 */
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
+	{450000000LL, {900000, 900000, 900000, -1}, 1, 0x02, 0x10, 0x20, 0xFF, {-1, -1, -1, -1}},
+	/* normal */
+	{0LL,          {-1, -1, -1, -1}, -1, 0xFF, 0xFF, 0x0F, 0xFF, {-1, -1, -1, -1}},
+};
+
 #define QOS_PREFER_CPU_BITMAP_V0_2_6	(0xC0)
 #define QOS_PREFER_CPU_BITMAP_V1_4_4	(0xF0)
 #define QOS_PREFER_CPU_BITMAP_V2_1_3_4	(0x70)
@@ -145,6 +160,9 @@ static const struct dvfs_ref_tbl table_entry[] = {
 
 	{s_dl_dvfs_tbl_v4, s_ul_dvfs_tbl_v4, (unsigned int)ARRAY_SIZE(s_dl_dvfs_tbl_v4),
 		(unsigned int)ARRAY_SIZE(s_ul_dvfs_tbl_v4), QOS_PREFER_CPU_BITMAP_V2_1_3_4},
+
+	{s_dl_dvfs_tbl_v5, s_ul_dvfs_tbl_v5, (unsigned int)ARRAY_SIZE(s_dl_dvfs_tbl_v5),
+		(unsigned int)ARRAY_SIZE(s_ul_dvfs_tbl_v5), QOS_PREFER_CPU_BITMAP_V2_1_3_4},
 };
 
 static const struct dvfs_ref *s_dl_dvfs_tbl;
