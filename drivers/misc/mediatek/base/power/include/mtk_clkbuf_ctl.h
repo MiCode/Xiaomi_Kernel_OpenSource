@@ -27,10 +27,6 @@
 
 #include "../../../include/mt-plat/mt6580/include/mach/mtk_clkbuf_ctl.h"
 
-#elif defined(CONFIG_MACH_MT6771)
-
-#include "../mt6771/mtk_clkbuf_ctl.h"
-
 #elif defined(CONFIG_MACH_KIBOPLUS)
 
 #include "../kiboplus/mtk_clkbuf_ctl.h"
@@ -43,7 +39,7 @@
 	defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6781) || \
 	defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6877) || \
 	defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6885) || \
-	defined(CONFIG_MACH_MT6893)
+	defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6771)
 
 #include "clkbuf_v1/mtk_clkbuf_ctl.h"
 
