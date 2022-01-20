@@ -892,6 +892,11 @@ static int ProcessROIData(struct PDA_Data_t *pda_data,
 			return -1;
 		}
 
+		if (pda_data->PDA_FrameSetting.PDA_CFG_1.Bits.PDA_PR_XNUM == 0) {
+			LOG_INF("Fail: PDA_PR_XNUM is zero\n");
+			return -1;
+		}
+
 		for (j = (ROIIndex / xnum); j < ynum; j++) {
 			i = (nXDirLoopCount == 0 ? (ROIIndex % xnum) : 0);
 			for (; i < xnum; i++) {
@@ -937,7 +942,8 @@ static int ProcessROIData(struct PDA_Data_t *pda_data,
 
 				g_rgn_iw_buf[nLocalBufIndex] =
 					g_rgn_w_buf[nLocalBufIndex] *
-					pda_data->PDA_FrameSetting.PDA_CFG_1.Bits.PDA_PAT_WIDTH;
+					(pda_data->PDA_FrameSetting.PDA_CFG_1.Bits.PDA_PAT_WIDTH /
+					pda_data->PDA_FrameSetting.PDA_CFG_1.Bits.PDA_PR_XNUM);
 
 				// calculate done
 				if (nLocalBufIndex >= (RoiProcNum-1))
