@@ -18,6 +18,7 @@
 #include "mtk_dcm.h"
 
 #define enable_core_stall 0
+#define enable_vlp 0
 #define DEBUGLINE dcm_pr_info("%s %d\n", __func__, __LINE__)
 
 static short dcm_cpu_cluster_stat;
@@ -150,7 +151,9 @@ int dcm_mcusys_apb(int on)
 
 int dcm_vlp(int on)
 {
+#if enable_vlp
 	dcm_vlp_ao_bcrm_vlp_bus_dcm(on);
+#endif
 	return 0;
 }
 
