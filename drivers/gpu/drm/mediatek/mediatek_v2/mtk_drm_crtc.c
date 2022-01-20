@@ -5324,8 +5324,16 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 		}
 	}
 
-	if (mtk_drm_dal_enable() && drm_crtc_index(crtc) == 0)
+	if (mtk_drm_dal_enable() && drm_crtc_index(crtc) == 0) {
+		if (mtk_crtc->enabled == false) {
+			unsigned int weight = mtk_crtc->qos_ctx->last_hrt_req ?
+					mtk_crtc->qos_ctx->last_hrt_req :
+					overlap_to_bw(crtc, 2);
+
+			mtk_disp_set_hrt_bw(mtk_crtc, weight);
+		}
 		drm_set_dal(&mtk_crtc->base, cmdq_handle);
+	}
 
 	/* Update QOS BW*/
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
