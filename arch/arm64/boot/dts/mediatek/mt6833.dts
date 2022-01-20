@@ -54,55 +54,55 @@
 		};
 		opp3 {
 			opp-hz = /bits/ 64 <730000000>;
-			opp-microvolt = <668750>;
+			opp-microvolt = <675000>;
 		};
 		opp4 {
 			opp-hz = /bits/ 64 <840000000>;
-			opp-microvolt = <681250>;
+			opp-microvolt = <700000>;
 		};
 		opp5 {
 			opp-hz = /bits/ 64 <950000000>;
-			opp-microvolt = <700000>;
+			opp-microvolt = <725000>;
 		};
 		opp6 {
 			opp-hz = /bits/ 64 <1032000000>;
-			opp-microvolt = <712500>;
+			opp-microvolt = <743750>;
 		};
 		opp7 {
 			opp-hz = /bits/ 64 <1115000000>;
-			opp-microvolt = <725000>;
+			opp-microvolt = <762500>;
 		};
 		opp8 {
 			opp-hz = /bits/ 64 <1280000000>;
-			opp-microvolt = <743750>;
+			opp-microvolt = <800000>;
 		};
 		opp9 {
 			opp-hz = /bits/ 64 <1390000000>;
-			opp-microvolt = <762500>;
+			opp-microvolt = <825000>;
 		};
 		opp10 {
 			opp-hz = /bits/ 64 <1500000000>;
-			opp-microvolt = <775000>;
+			opp-microvolt = <850000>;
 		};
 		opp11 {
 			opp-hz = /bits/ 64 <1645000000>;
-			opp-microvolt = <818750>;
+			opp-microvolt = <893750>;
 		};
 		opp12 {
 			opp-hz = /bits/ 64 <1750000000>;
-			opp-microvolt = <850000>;
+			opp-microvolt = <925000>;
 		};
 		opp13 {
 			opp-hz = /bits/ 64 <1812000000>;
-			opp-microvolt = <868750>;
+			opp-microvolt = <943750>;
 		};
 		opp14 {
 			opp-hz = /bits/ 64 <1916000000>;
-			opp-microvolt = <900000>;
+			opp-microvolt = <975000>;
 		};
 		opp15 {
 			opp-hz = /bits/ 64 <2000000000>;
-			opp-microvolt = <925000>;
+			opp-microvolt = <1000000>;
 		};
 	};
 
@@ -147,31 +147,31 @@
 		};
 		opp9 {
 			opp-hz = /bits/ 64 <1650000000>;
-			opp-microvolt = <893750>;
+			opp-microvolt = <900000>;
 		};
 		opp10 {
 			opp-hz = /bits/ 64 <1719000000>;
-			opp-microvolt = <906250>;
+			opp-microvolt = <918750>;
 		};
 		opp11 {
 			opp-hz = /bits/ 64 <1788000000>;
-			opp-microvolt = <918750>;
+			opp-microvolt = <937500>;
 		};
 		opp12 {
 			opp-hz = /bits/ 64 <1903000000>;
-			opp-microvolt = <931250>;
+			opp-microvolt = <968750>;
 		};
 		opp13 {
 			opp-hz = /bits/ 64 <1995000000>;
-			opp-microvolt = <943750>;
+			opp-microvolt = <993750>;
 		};
 		opp14 {
 			opp-hz = /bits/ 64 <2087000000>;
-			opp-microvolt = <956250>;
+			opp-microvolt = <1018750>;
 		};
 		opp15 {
 			opp-hz = /bits/ 64 <2203000000>;
-			opp-microvolt = <975000>;
+			opp-microvolt = <1050000>;
 		};
 	};
 
@@ -188,7 +188,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <356>;
+			capacity-dmips-mhz = <367>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -201,7 +201,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <356>;
+			capacity-dmips-mhz = <367>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -214,7 +214,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <356>;
+			capacity-dmips-mhz = <367>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -227,7 +227,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <356>;
+			capacity-dmips-mhz = <367>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -240,7 +240,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <356>;
+			capacity-dmips-mhz = <367>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff  &s2idle>;
 		};
@@ -253,7 +253,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <356>;
+			capacity-dmips-mhz = <367>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff  &s2idle>;
 		};
