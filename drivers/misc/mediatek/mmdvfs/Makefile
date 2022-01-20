@@ -72,8 +72,8 @@ SKIP_SMI_CONFIG := false
 QOS_BOUND_DETECT := true
 FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
-else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885"))
-BUILD_MMDVFS := false
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885" "mt6893"))
+BUILD_MMDVFS := true
 HRT_MECHANISM := true
 BLOCKING_MECHANISM := true
 SUPPORT_MMP := true
@@ -218,7 +218,11 @@ ccflags-y += -DUSE_MTK_DRAMC
 endif
 ifeq ($(CONFIG_MTK_DRAMC),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/mt6855/
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885" "mt6893"))
+else
 ccflags-y += -DUSE_MTK_DRAMC
+endif
 endif
 
 ifeq ($(CONFIG_MEDIATEK_EMI),y)
