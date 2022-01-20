@@ -6294,13 +6294,13 @@
 
 	disp_pwm: disp_pwm0@1100e000 {
 		compatible = "mediatek,disp_pwm0",
-				"mediatek,mt6983-disp-pwm";
+				"mediatek,mt6983-disp-pwm0";
 		reg = <0 0x1100e000 0 0x1000>;
 		interrupts = <GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH 0>;
 		#pwm-cells = <2>;
-		//clocks = <&infracfg_ao_clk CLK_IFRAO_DISP_PWM>,
-			//<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
-			//<&topckgen_clk CLK_TOP_OSC_D4>;
+		clocks = <&pericfg_ao_clk CLK_PERI_AO_PERI_DISP_PWM0>,
+			<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
+			<&topckgen_clk CLK_TOP_OSC_D4>;
 		clock-names = "main", "mm", "pwm_src";
 	};
 
