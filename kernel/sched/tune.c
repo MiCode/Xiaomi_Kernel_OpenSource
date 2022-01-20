@@ -1004,6 +1004,18 @@ int uclamp_min_for_perf_idx(int idx, int min_value)
 
 }
 EXPORT_SYMBOL(uclamp_min_for_perf_idx);
+
+int uclamp_min_pct_for_perf_idx(int idx, int pct)
+{
+	unsigned int min_value;
+
+	if (pct < 0 || pct > 100)
+		return -ERANGE;
+
+	min_value = scale_from_percent(pct);
+	return uclamp_min_for_perf_idx(idx, min_value);
+}
+EXPORT_SYMBOL(uclamp_min_pct_for_perf_idx);
 #endif
 
 /*
