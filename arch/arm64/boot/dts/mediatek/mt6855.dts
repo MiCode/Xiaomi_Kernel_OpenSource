@@ -2653,17 +2653,20 @@
 					<0 0x1c01c000 0 0x1000>, /* vlp pdn */
 					<0 0x1e826000 0 0x1000>, /* fake adsp pdn */
 					<0 0x1e826000 0 0x1000>, /* mminfra pdn */
+					<0 0x1eca4000 0 0x1000>, /* mmup pdn */
 					<0 0x10030000 0 0x1000>, /* Infra ao */
 					<0 0x1c018000 0 0x1000>, /* vlp ao */
 					<0 0x1e820000 0 0x1000>, /* fake adsp ao */
 					<0 0x1e820000 0 0x1000>, /* mminfra ao*/
+					<0 0x1eca0000 0 0x1000>, /* mmup ao*/
 					<0 0x1020e000 0 0x1000>, /* Infra cfg pdn*/
 					<0 0x10033000 0 0x1000>, /* swp */
 					<0 0x0010c000 0 0x1000>; /* Sramrom */
 			interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH 0>, /* infra,peri */
 					<GIC_SPI 542 IRQ_TYPE_LEVEL_HIGH 0>, /* vlp */
 					<GIC_SPI 653 IRQ_TYPE_LEVEL_HIGH 0>, /* fake adsp */
-					<GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH 0>; /* mminfra */
+					<GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH 0>, /* mminfra */
+					<GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH 0>; /* mmup */
 		};
 
 		bus_dbg@10208000 {
@@ -3930,7 +3933,7 @@
 
 		vcp: vcp@1ec00000 {
 			compatible = "mediatek,vcp";
-			vcp-support = <0>;
+			vcp-support = <1>;
 			status = "okay";
 			reg = <0 0x1ea00000 0 0x40000>, /* tcm */
 			      <0 0x1ec24000 0 0x1000>, /* cfg */
@@ -3990,13 +3993,13 @@
 				    "mbox4_clr",
 				    "mbox4_init";
 
-			interrupts = <GIC_SPI 617 IRQ_TYPE_LEVEL_HIGH 0>,
-				     <GIC_SPI 618 IRQ_TYPE_LEVEL_HIGH 0>,
-				     <GIC_SPI 619 IRQ_TYPE_LEVEL_HIGH 0>,
-				     <GIC_SPI 620 IRQ_TYPE_LEVEL_HIGH 0>,
-				     <GIC_SPI 621 IRQ_TYPE_LEVEL_HIGH 0>,
-				     <GIC_SPI 622 IRQ_TYPE_LEVEL_HIGH 0>,
-				     <GIC_SPI 623 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH 0>,
+				     <GIC_SPI 206 IRQ_TYPE_LEVEL_HIGH 0>;
 
 			interrupt-names = "wdt",
 					  "reserved",
@@ -4063,21 +4066,21 @@
 		};
 
 		vcp_iommu_vdec {
-			vcp-support = <0>;
+			vcp-support = <2>;
 			compatible =  "mediatek,vcp-io-vdec";
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			iommus = <&disp_iommu M4U_LARB33_VIDEO_UP_512MB1>;
 		};
 
 		vcp_iommu_venc {
-			vcp-support = <0>;
+			vcp-support = <3>;
 			compatible =  "mediatek,vcp-io-venc";
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			iommus = <&disp_iommu M4U_LARB33_VIDEO_UP_512MB2>;
 		};
 
 		vcp_iommu_work {
-			vcp-support = <0>;
+			vcp-support = <4>;
 			compatible = "mediatek,vcp-io-work";
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			iommus = <&disp_iommu M4U_LARB33_VIDEO_UP_256MB2>;
