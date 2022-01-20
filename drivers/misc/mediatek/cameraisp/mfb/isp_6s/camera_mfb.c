@@ -266,7 +266,7 @@ static u64 *speeds;
 
 static spinlock_t SpinLockMfbPmqos;
 static unsigned int qos_scen[4];
-static unsigned int qos_total;
+static unsigned int qos_total, qos_report;
 
 #define MFB_PORT_NUM 8
 static struct icc_path *path_mfb[MFB_PORT_NUM];
@@ -798,8 +798,13 @@ void MFBQOS_Update(bool start, unsigned int scen, unsigned long bw)
 	if (ret)
 		LOG_ERR("PMQOS error ret = %d", ret);
 
+	if (qos_total > 2000000000)
+		qos_report = 2000000000;
+	else
+		qos_report = qos_total;
+
 	for (i = 0; i < MFB_PORT_NUM; i++)
-		mtk_icc_set_bw(path_mfb[i], Bps_to_icc(qos_total), 0);
+		mtk_icc_set_bw(path_mfb[i], Bps_to_icc(qos_report), 0);
 }
 #endif
 
@@ -3760,6 +3765,7 @@ static signed int MFB_open(struct inode *pInode, struct file *pFile)
 
 #ifdef MFB_PMQOS
 		qos_total = 0;
+		qos_report = 0;
 		for (i = 0; i < 4; i++)
 			qos_scen[i] = 0;
 #endif
