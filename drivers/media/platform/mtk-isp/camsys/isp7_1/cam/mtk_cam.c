@@ -5564,10 +5564,12 @@ void mtk_cam_apply_pending_dev_config(struct mtk_cam_request_stream_data *s_data
 {
 	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
 	struct mtk_cam_ctx *ctx;
+	struct mtk_camsys_sensor_ctrl *camsys_sensor_ctrl;
 	char *debug_str = mtk_cam_s_data_get_dbg_str(s_data);
 
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	ctx->pipe->feature_active = ctx->pipe->user_res.raw_res.feature;
+	camsys_sensor_ctrl = &ctx->sensor_ctrl;
 
 	s_raw_pipe_data = mtk_cam_s_data_get_raw_pipe_data(s_data);
 	if (!s_raw_pipe_data) {
@@ -5579,6 +5581,7 @@ void mtk_cam_apply_pending_dev_config(struct mtk_cam_request_stream_data *s_data
 	ctx->pipe->hw_mode = s_raw_pipe_data->stagger_select.hw_mode;
 	ctx->pipe->enabled_raw = s_raw_pipe_data->enabled_raw;
 	ctx->used_raw_dev = s_raw_pipe_data->enabled_raw;
+	atomic_set(&camsys_sensor_ctrl->reset_seq_no, s_data->frame_seq_no);
 
 	dev_info(ctx->cam->dev,
 		"%s:%s:pipe(%d):seq(%d):feature_active(0x%x), ctx->pipe->user_res.raw_res.feature(%d), hw_mode(0x%x), enabled_raw(0x%x)\n",
