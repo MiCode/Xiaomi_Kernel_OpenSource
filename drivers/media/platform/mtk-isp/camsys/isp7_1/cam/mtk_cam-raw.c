@@ -586,7 +586,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			 "%s:%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/pixelmode(%d)/strategy(%d)/hw_mode(%d)\n",
 			 __func__, dbg_str, pipeline->id, res_user->raw_res.raw_used,
 			 res_user->raw_res.bin, res_user->raw_res.pixel_mode,
-			 res_user->raw_res.strategy);
+			 res_user->raw_res.strategy, res_user->raw_res.hw_mode);
 	else
 		dev_dbg(dev,
 			"%s:%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/pixelmode(%d)/strategy(%d)/hw_mode(%d)\n",
