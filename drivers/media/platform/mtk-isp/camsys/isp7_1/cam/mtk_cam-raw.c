@@ -6370,6 +6370,12 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 		dequeued_frame_seq_no_inner = 1;
 
 	ctx = mtk_cam_find_ctx(raw_dev->cam, &raw_dev->pipeline->subdev.entity);
+
+	if (!ctx) {
+		dev_info(dev, "%s: cannot find any ctx, and skip TF dump\n", __func__);
+		return -1;
+	}
+
 	s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no_inner);
 
 	dev_info(dev, "=================== [CAMSYS M4U] Dump Begin ==================\n");
