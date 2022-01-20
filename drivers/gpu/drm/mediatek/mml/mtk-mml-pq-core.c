@@ -109,7 +109,7 @@ static s32 dequeue_msg(struct mml_pq_chan *chan,
 		return -EFAULT;
 	}
 
-	mml_pq_msg("%s temp[%p] temp->result[%p] sub_task->job_id[%d] chan[%p] chan_job_id[%d]",
+	mml_pq_msg("%s temp[%p] temp->result[%p] sub_task->job_id[%d] chan[%p] chan_job_id[%llx]",
 		__func__, temp, temp->result, temp->job_id, chan, chan->job_idx);
 	mml_pq_msg("%s chan_job_id[%d] temp->mbox_list[%p] chan->job_list[%p]",
 		__func__, chan->job_idx, &temp->mbox_list, &chan->job_list);
@@ -129,8 +129,8 @@ void mml_pq_comp_config_clear(struct mml_task *task)
 	struct mml_pq_sub_task *sub_task = NULL, *tmp = NULL;
 	u64 job_id = task->pq_task->comp_config.job_id;
 
-	mml_pq_log("%s task_job_id[%d] job_id[%llx]",
-		__func__, task->job.jobid, job_id);
+	mml_pq_log("%s task_job_id[%d] job_id[%llx] dual[%d]",
+		__func__, task->job.jobid, job_id, task->config->dual);
 	mutex_lock(&chan->msg_lock);
 	if (atomic_read(&chan->msg_cnt)) {
 		list_for_each_entry_safe(sub_task, tmp, &chan->msg_list, mbox_list) {
@@ -161,11 +161,11 @@ static s32 remove_sub_task(struct mml_pq_chan *chan, u64 job_id)
 	s32 ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
-	mml_pq_msg("%s chan[%p] job_id[%d]", __func__, chan, job_id);
+	mml_pq_msg("%s chan[%p] job_id[%llx]", __func__, chan, job_id);
 
 	mutex_lock(&chan->job_lock);
 	list_for_each_entry_safe(sub_task, tmp, &chan->job_list, mbox_list) {
-		mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%d]",
+		mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%llx]",
 			__func__, sub_task, chan->job_list, sub_task->job_id);
 		if (sub_task->job_id == job_id) {
 			mml_pq_msg("%s find sub_task:%p id:%llx",
@@ -187,11 +187,11 @@ static s32 find_sub_task(struct mml_pq_chan *chan, u64 job_id,
 	s32 ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
-	mml_pq_msg("%s chan[%p] job_id[%d]", __func__, chan, job_id);
+	mml_pq_msg("%s chan[%p] job_id[%llx]", __func__, chan, job_id);
 
 	mutex_lock(&chan->job_lock);
 	list_for_each_entry_safe(sub_task, tmp, &chan->job_list, mbox_list) {
-		mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%d]",
+		mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%llx]",
 			__func__, sub_task, chan->job_list, sub_task->job_id);
 		if (sub_task->job_id == job_id) {
 			*out_sub_task = sub_task;
@@ -469,10 +469,10 @@ static void mml_pq_check_dup_node(struct mml_pq_chan *chan, struct mml_pq_sub_ta
 	mutex_lock(&chan->msg_lock);
 	if (!list_empty(&chan->msg_list)) {
 		list_for_each_entry_safe(tmp_sub_task, tmp, &chan->msg_list, mbox_list) {
-			mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%d]",
+			mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%llx]",
 				__func__, tmp_sub_task, chan->msg_list, tmp_sub_task->job_id);
 			if (tmp_sub_task->job_id == job_id) {
-				mml_pq_msg("%s find sub_task:%p id:%llx",
+				mml_pq_log("%s find sub_task:%p id:%llx",
 					__func__, tmp_sub_task, job_id);
 				list_del(&tmp_sub_task->mbox_list);
 				atomic_dec_if_positive(&chan->msg_cnt);
@@ -485,10 +485,10 @@ static void mml_pq_check_dup_node(struct mml_pq_chan *chan, struct mml_pq_sub_ta
 	mutex_lock(&chan->job_lock);
 	if (!list_empty(&chan->job_list)) {
 		list_for_each_entry_safe(tmp_sub_task, tmp, &chan->job_list, mbox_list) {
-			mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%d]",
+			mml_pq_msg("%s sub_task[%p] chan->job_list[%p] sub_job_id[%llx]",
 				__func__, tmp_sub_task, chan->job_list, tmp_sub_task->job_id);
 			if (tmp_sub_task->job_id == job_id) {
-				mml_pq_msg("%s find sub_task:%p id:%llx",
+				mml_pq_log("%s find sub_task:%p id:%llx",
 					__func__, tmp_sub_task, job_id);
 				list_del(&tmp_sub_task->mbox_list);
 				break;
@@ -525,11 +525,8 @@ static int set_sub_task(struct mml_task *task,
 
 		return 0;
 	}
-	mutex_unlock(&sub_task->lock);
 
 	if (!atomic_fetch_add_unless(&sub_task->queued, 1, 1)) {
-		if (is_dup_check)
-			mml_pq_check_dup_node(chan, sub_task);
 		//WARN_ON(atomic_read(&sub_task->result_ref));
 		atomic_set(&sub_task->result_ref, 0);
 		kref_get(&pq_task->ref);
@@ -540,10 +537,16 @@ static int set_sub_task(struct mml_task *task,
 		memcpy(&sub_task->frame_data.frame_out, &task->config->frame_out,
 			MML_MAX_OUTPUTS * sizeof(struct mml_frame_size));
 		sub_task->readback_data.is_dual = task->config->dual;
+		mutex_unlock(&sub_task->lock);
+
+		if (is_dup_check)
+			mml_pq_check_dup_node(chan, sub_task);
 		queue_msg(chan, sub_task);
 		dump_pq_param(pq_param);
-	}
-	mml_pq_msg("%s end queued[%d] result_ref[%d] job_id[%d, %d] first_job[%d]",
+	} else
+		mutex_unlock(&sub_task->lock);
+
+	mml_pq_msg("%s end queued[%d] result_ref[%d] job_id[%llx, %d] first_job[%d]",
 		__func__, atomic_read(&sub_task->queued),
 		atomic_read(&sub_task->result_ref),
 		sub_task->job_id, task->job.jobid,
