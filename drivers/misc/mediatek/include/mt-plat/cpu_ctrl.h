@@ -47,6 +47,11 @@ extern int update_userlimit_cpu_freq(int kicker, int num_cluster
 				, struct cpu_ctrl_data *freq_limit);
 extern int update_userlimit_cpu_core(int kicker, int num_cluster
 				, struct cpu_ctrl_data *core_limit);
+extern int sched_isolate_cpu(int cpu);
+extern int sched_deisolate_cpu(int cpu);
+
+int update_cpu_core_limit(int kicker, int cid, int min, int max);
+void update_isolation_cpu(int kicker, int enable, int cpu);
 
 #endif /* _CPU_CTRL_H */
 

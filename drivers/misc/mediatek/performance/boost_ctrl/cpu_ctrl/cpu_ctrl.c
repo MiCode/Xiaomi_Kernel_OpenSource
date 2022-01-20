@@ -10,6 +10,7 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/cpufreq.h>
 
 #ifdef CONFIG_MTK_CORE_CTL
 #include <mt-plat/core_ctl.h>
@@ -31,7 +32,10 @@
 
 #include <linux/io.h>
 
+#define MAX_CLUSTER_COUNT 3
+
 static struct mutex boost_freq;
+static struct mutex isolate_lock;
 static struct ppm_limit_data *current_freq;
 static struct ppm_limit_data *freq_set[CPU_MAX_KIR];
 static int log_enable;
@@ -43,7 +47,6 @@ static int cfp_init_ret;
 
 int powerhal_tid;
 
-#ifdef MTK_K14_CPU_BOOST
 #include "eas_ctrl_plat.h"
 
 #define MAX_CLUSTER_COUNT 3
@@ -56,13 +59,12 @@ struct cluster_data {
 };
 static int *cpu_isolation[CPU_ISO_MAX_KIR];
 
-#ifdef CONFIG_MTK_CORE_CTL
 static struct cluster_data core_set[CPU_ISO_MAX_KIR][MAX_CLUSTER_COUNT];
 static struct cluster_data default_core_set[MAX_CLUSTER_COUNT];
 static int isolation_used[CPU_ISO_MAX_KIR];
-#endif
+static int all_cpu_deisolated;
+static int isBooting;
 
-#endif
 
 /*******************************************/
 int update_userlimit_cpu_freq(int kicker, int num_cluster
@@ -203,7 +205,6 @@ ret_update:
 }
 EXPORT_SYMBOL(update_userlimit_cpu_freq);
 
-#ifdef MTK_K14_CPU_BOOST
 #ifdef CONFIG_MTK_CORE_CTL
 int update_cpu_core_limit(int kicker, int cid, int min, int max)
 {
@@ -250,7 +251,6 @@ int update_cpu_core_limit(int kicker, int cid, int min, int max)
 	return 0;
 }
 EXPORT_SYMBOL(update_cpu_core_limit);
-#endif
 #endif
 
 /***************************************/
@@ -327,7 +327,7 @@ static int perfmgr_perfserv_freq_proc_show(struct seq_file *m, void *v)
 static ssize_t perfmgr_boot_freq_proc_write(struct file *filp,
 		const char __user *ubuf, size_t cnt, loff_t *pos)
 {
-	int i = 0, data;
+	int i = 0, data, cid;
 	struct cpu_ctrl_data *freq_limit;
 	unsigned int arg_num = perfmgr_clusters * 2; /* for min and max */
 	char *tok, *tmp;
@@ -371,6 +371,21 @@ static ssize_t perfmgr_boot_freq_proc_write(struct file *filp,
 			i++;
 		}
 	}
+
+	isBooting = 0;
+	for_each_perfmgr_clusters(cid)
+		if (freq_limit[cid].min != -1 || freq_limit[cid].max != -1) {
+			isBooting = 1;
+#ifdef CONFIG_MTK_CORE_CTL
+			core_ctl_set_boost(1);
+#endif
+			break;
+		}
+
+#ifdef CONFIG_MTK_CORE_CTL
+	if (!isBooting)
+		core_ctl_set_boost(all_cpu_deisolated);
+#endif
 
 	if (i < arg_num)
 		pr_debug("@%s: number of arguments < %d!\n",
@@ -441,7 +456,6 @@ static int perfmgr_perfmgr_log_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-#ifdef MTK_K14_CPU_BOOST
 void update_isolation_cpu(int kicker, int enable, int cpu)
 {
 	int i, final = -1;
@@ -542,15 +556,121 @@ static int perfmgr_perfserv_iso_cpu_proc_show(struct seq_file *m, void *v)
 		seq_printf(m, "0x%x\n", perfserv_isolation_cpu);
 	return 0;
 }
+
+static ssize_t perfmgr_perfserv_core_proc_write(struct file *filp
+		, const char __user *ubuf, size_t cnt, loff_t *pos)
+{
+	int i = 0, data, isDefault = 1;
+	unsigned int arg_num = perfmgr_clusters * 2; /* for min and max */
+	char *tok, *tmp;
+	char *buf = perfmgr_copy_from_user_for_proc(ubuf, cnt);
+
+	if (!buf) {
+		pr_debug("buf is null\n");
+		goto out1;
+	}
+
+	tmp = buf;
+	pr_debug("freq write_to_file\n");
+	while ((tok = strsep(&tmp, " ")) != NULL) {
+		if (i == arg_num) {
+			pr_debug(
+					"@%s: number of arguments > %d!\n",
+					__func__, arg_num);
+			goto out;
+		}
+
+		if (kstrtoint(tok, 10, &data)) {
+			pr_debug("@%s: Invalid input: %s\n",
+					__func__, tok);
+			goto out;
+		} else {
+			if (i % 2)
+				core_set[CPU_ISO_KIR_PERF_CORE][i/2].core_max = data;
+			else
+				core_set[CPU_ISO_KIR_PERF_CORE][i/2].core_min = data;
+			i++;
+		}
+	}
+
+	if (i < arg_num) {
+		pr_debug(
+				"@%s: number of arguments < %d!\n",
+				__func__, arg_num);
+	} else {
+		powerhal_tid = current->pid;
+		for_each_perfmgr_clusters(i) {
+			if (core_set[CPU_ISO_KIR_PERF_CORE][i].core_min != -1 ||
+				core_set[CPU_ISO_KIR_PERF_CORE][i].core_max != -1) {
+				isDefault = 0;
+				break;
+			}
+		}
+		isolation_used[CPU_ISO_KIR_PERF_CORE] = (isDefault) ? 0 : 1;
+#ifdef CONFIG_MTK_CORE_CTL
+		for_each_perfmgr_clusters(i)
+			update_cpu_core_limit(CPU_ISO_KIR_PERF_CORE, i,
+				core_set[CPU_ISO_KIR_PERF_CORE][i].core_min,
+				core_set[CPU_ISO_KIR_PERF_CORE][i].core_max);
 #endif
+	}
+
+
+out:
+	free_page((unsigned long)buf);
+out1:
+	return cnt;
+}
+
+static int perfmgr_perfserv_core_proc_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	for_each_perfmgr_clusters(i)
+		seq_printf(m, "cluster %d min:%d max:%d\n",
+				i, core_set[CPU_ISO_KIR_PERF_CORE][i].core_min,
+				core_set[CPU_ISO_KIR_PERF_CORE][i].core_max);
+	return 0;
+}
+
+/*******************************************/
+static ssize_t perfmgr_perfserv_all_cpu_deisolated_proc_write
+	(struct file *filp, const char __user *ubuf, size_t cnt, loff_t *pos)
+{
+	int data = 0;
+	int rv = check_proc_write(&data, ubuf, cnt);
+
+	if (rv != 0)
+		return rv;
+
+	all_cpu_deisolated = (data > 0) ? 1 : 0;
+
+#ifdef CONFIG_MTK_CORE_CTL
+	if (isBooting)
+		core_ctl_set_boost(1);
+	else
+		core_ctl_set_boost(all_cpu_deisolated);
+#endif
+
+	return cnt;
+}
+
+static int perfmgr_perfserv_all_cpu_deisolated_proc_show
+	(struct seq_file *m, void *v)
+{
+	if (m)
+		seq_printf(m, "%d\n", all_cpu_deisolated);
+	return 0;
+}
+
 
 PROC_FOPS_RW(perfserv_freq);
 PROC_FOPS_RW(boot_freq);
 PROC_FOPS_RO(current_freq);
 PROC_FOPS_RW(perfmgr_log);
-#ifdef MTK_K14_CPU_BOOST
 PROC_FOPS_RW(perfserv_iso_cpu);
-#endif
+PROC_FOPS_RW(perfserv_core);
+PROC_FOPS_RW(perfserv_all_cpu_deisolated);
 
 /************************************************/
 int cpu_ctrl_init(struct proc_dir_entry *parent)
@@ -569,11 +689,12 @@ int cpu_ctrl_init(struct proc_dir_entry *parent)
 		PROC_ENTRY(boot_freq),
 		PROC_ENTRY(current_freq),
 		PROC_ENTRY(perfmgr_log),
-#ifdef MTK_K14_CPU_BOOST
 		PROC_ENTRY(perfserv_iso_cpu),
-#endif
+		PROC_ENTRY(perfserv_core),
+		PROC_ENTRY(perfserv_all_cpu_deisolated),
 	};
 	mutex_init(&boost_freq);
+	mutex_init(&isolate_lock);
 
 	boost_dir = proc_mkdir("cpu_ctrl", parent);
 
@@ -623,6 +744,40 @@ int cpu_ctrl_init(struct proc_dir_entry *parent)
 			freq_set[i][j].max = -1;
 		}
 	}
+
+	num_cpu = num_possible_cpus();
+	for (i = 0; i < CPU_ISO_MAX_KIR; i++) {
+		cpu_isolation[i] = kcalloc(num_cpu, sizeof(int),
+					GFP_KERNEL);
+		for (j = 0; j < num_cpu; j++)
+			cpu_isolation[i][j] = -1;
+		isolation_used[i] = 0;
+
+		for_each_perfmgr_clusters(j) {
+			core_set[i][j].core_min = -1;
+			core_set[i][j].core_max = -1;
+		}
+	}
+
+	perfserv_isolation_cpu = 0;
+	all_cpu_deisolated = 0;
+
+	// sync with core_ctl
+	for_each_perfmgr_clusters(i) {
+		if (i == 0) {
+			default_core_set[i].core_min = 4;
+			default_core_set[i].core_max = 4;
+		} else if (i == 1) {
+			default_core_set[i].core_min = 2;
+			default_core_set[i].core_max = 3;
+		} else if (i == 2) {
+			default_core_set[i].core_min = 0;
+			default_core_set[i].core_max = 1;
+		}
+	}
+
+	isBooting = 1;
+
 out:
 	return ret;
 
@@ -636,6 +791,8 @@ void cpu_ctrl_exit(void)
 	kfree(policy_mask);
 	for (i = 0; i < CPU_MAX_KIR; i++)
 		kfree(freq_set[i]);
+	for (i = 0; i < CPU_ISO_MAX_KIR; i++)
+		kfree(cpu_isolation[i]);
 
 #ifdef CONFIG_MTK_CPU_CTRL_CFP
 	if (!cfp_init_ret)
