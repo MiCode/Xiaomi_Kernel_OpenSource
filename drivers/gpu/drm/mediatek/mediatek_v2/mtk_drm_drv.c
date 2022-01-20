@@ -3504,6 +3504,7 @@ void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm)
 		clk_disable_unprepare(priv->top_clk[i]);
 	}
 
+	DDPMSG("%s: mtcmos off\n", __func__);
 	pm_runtime_put_sync(priv->mmsys_dev);
 	if (priv->side_mmsys_dev)
 		pm_runtime_put_sync(priv->side_mmsys_dev);

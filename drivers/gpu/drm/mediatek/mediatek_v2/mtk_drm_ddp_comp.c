@@ -916,7 +916,7 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 
 	if (comp->clk)
 		clk_disable_unprepare(comp->clk);
-
+	DDPMSG("%s: comp %d unprepare done\n", __func__, comp->id);
 
 	if (comp->larb_dev)
 #ifdef MTK_SMI_CLK_CTRL
