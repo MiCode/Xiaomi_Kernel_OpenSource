@@ -648,7 +648,7 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 #endif
 
 	if (!smi_dev[0]) {
-		SMIERR("SMI %s: %d is not ready.\n", __func__);
+		SMIERR("SMI %s is not ready.\n", __func__);
 		return 0;
 	}
 
