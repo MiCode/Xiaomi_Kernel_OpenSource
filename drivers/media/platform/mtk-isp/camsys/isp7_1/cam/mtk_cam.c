@@ -5897,7 +5897,7 @@ int mtk_cam_s_data_sv_dev_config(struct mtk_cam_request_stream_data *s_data)
 			ret = mtk_cam_sv_dev_config
 				(ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
 				 (bDcif && (src_pad_idx == exp_no)) ?
-				 2 : src_pad_idx - PAD_SRC_RAW0);
+				 2 : src_pad_idx - PAD_SRC_RAW0, 0);
 			if (ret) {
 				dev_info(cam->dev, "%s failed(pipe:%d)", __func__, i);
 				return ret;
@@ -7445,7 +7445,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					ret = mtk_cam_sv_dev_config(
 						ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
 						(is_dc && (src_pad_idx == exp_no)) ?
-						2 : src_pad_idx - PAD_SRC_RAW0);
+						2 : src_pad_idx - PAD_SRC_RAW0, tgo_pxl_mode);
 					if (ret)
 						goto fail_img_buf_release;
 				}
@@ -7471,7 +7471,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 							i - MTKCAM_SUBDEV_CAMSV_START].cammux_id);
 					ret = mtk_cam_sv_dev_config(
 						ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
-						0);
+						0, tgo_pxl_mode);
 					if (ret)
 						goto fail_img_buf_release;
 					src_pad_idx++;
@@ -7498,7 +7498,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 							i - MTKCAM_SUBDEV_CAMSV_START].cammux_id);
 					ret = mtk_cam_sv_dev_config(ctx,
 							i - MTKCAM_SUBDEV_CAMSV_START,
-							hw_scen, 0);
+							hw_scen, 0, tgo_pxl_mode);
 					if (ret)
 						goto fail_img_buf_release;
 					break;
@@ -7533,7 +7533,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					dev_info(cam->dev, "seninf_set_camtg(src_pad:%d/i:%d/camtg:%d)",
 						src_pad_idx, i,
 						cam->sv.pipelines[sv_pipe_idx].cammux_id);
-					ret = mtk_cam_sv_dev_config(ctx, sv_pipe_idx, hw_scen, 0);
+					ret = mtk_cam_sv_dev_config(ctx, sv_pipe_idx, hw_scen,
+								0, tgo_pxl_mode);
 					if (ret)
 						goto fail_pipe_off;
 
@@ -7557,7 +7558,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 						cam->sv.pipelines[i - MTKCAM_SUBDEV_CAMSV_START]
 						.cammux_id);
 					ret = mtk_cam_sv_dev_config(
-						ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen, 0);
+						ctx, i - MTKCAM_SUBDEV_CAMSV_START,
+						hw_scen, 0, ctx->pipe->res_config.tgo_pxl_mode);
 					if (ret)
 						goto fail_pipe_off;
 					dev_info(cam->dev, "[EXTISP] scen:0x%x/enabled_raw:0x%x/i(%d)",
@@ -7637,7 +7639,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			mtk_cam_seninf_set_camtg(ctx->seninf,
 						 ctx->sv_pipe[i]->seninf_padidx,
 						 ctx->sv_pipe[i]->cammux_id);
-			ret = mtk_cam_sv_dev_config(ctx, i, 1, 0);
+			ret = mtk_cam_sv_dev_config(ctx, i, 1, 0, 3);
 			if (ret)
 				goto fail_img_buf_release;
 		}

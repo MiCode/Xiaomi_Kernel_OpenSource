@@ -504,7 +504,7 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 							 i - MTKCAM_SUBDEV_CAMSV_START].cammux_id);
 				ret = mtk_cam_sv_dev_config(ctx,
 							    i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
-							    0);
+							    0, tgo_pxl_mode);
 				if (ret)
 					goto fail_switch_stop;
 
@@ -531,8 +531,8 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 					 PAD_SRC_RAW_W0, i,
 					 cam->sv.pipelines[
 						i - MTKCAM_SUBDEV_CAMSV_START].cammux_id);
-				ret = mtk_cam_sv_dev_config
-					(ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen, 0);
+				ret = mtk_cam_sv_dev_config(ctx, i - MTKCAM_SUBDEV_CAMSV_START,
+							hw_scen, 0, tgo_pxl_mode);
 				if (ret)
 					goto fail_switch_stop;
 				break;

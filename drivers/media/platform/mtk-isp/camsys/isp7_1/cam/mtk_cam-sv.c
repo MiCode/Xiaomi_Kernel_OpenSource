@@ -1950,6 +1950,7 @@ int mtk_cam_sv_apply_switch_buffers(struct mtk_cam_ctx *ctx)
 			base_addr =
 				buf_entry->s_data->sv_frame_params.img_out.buf[0][0].iova;
 			camsv_dev->is_enqueued = 1;
+			mtk_cam_sv_setup_cfg_info(camsv_dev, buf_entry->s_data);
 			mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
 		}
 	}
@@ -1961,7 +1962,8 @@ int mtk_cam_sv_dev_config(
 	struct mtk_cam_ctx *ctx,
 	unsigned int idx,
 	unsigned int hw_scen,
-	unsigned int exp_order)
+	unsigned int exp_order,
+	unsigned int pixelmode)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev = cam->dev;
@@ -1972,7 +1974,8 @@ int mtk_cam_sv_dev_config(
 	struct v4l2_format *img_fmt;
 	struct v4l2_format *size_img_fmt;
 	unsigned int i;
-	int ret, pad_idx, pixel_mode = 0;
+	int ret, pad_idx;
+	int cfg_pixel_mode = pixelmode;
 	int stride;
 
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
@@ -2015,6 +2018,8 @@ int mtk_cam_sv_dev_config(
 			pad_idx = PAD_SRC_RAW0;
 			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
 		}
+		/* Use pixmode from raw pad */
+		mtk_cam_seninf_get_pixelmode(ctx->seninf, pad_idx, &cfg_pixel_mode);
 	} else {
 		img_fmt = &ctx->sv_pipe[idx]
 			->vdev_nodes[MTK_CAMSV_MAIN_STREAM_OUT-MTK_CAMSV_SINK_NUM].active_fmt;
@@ -2024,8 +2029,7 @@ int mtk_cam_sv_dev_config(
 	}
 
 	/* Update cfg_in_param */
-	mtk_cam_seninf_get_pixelmode(ctx->seninf, pad_idx, &pixel_mode);
-	cfg_in_param.pixel_mode = pixel_mode;
+	cfg_in_param.pixel_mode = cfg_pixel_mode;
 	cfg_in_param.data_pattern = 0x0;
 	cfg_in_param.in_crop.p.x = 0;
 	cfg_in_param.in_crop.p.y = 0;
@@ -2047,9 +2051,9 @@ int mtk_cam_sv_dev_config(
 	cfg_in_param.subsample = 0;
 	cfg_in_param.fmt = img_fmt->fmt.pix_mp.pixelformat;
 
-	if (cfg_in_param.in_crop.s.w % (1 << pixel_mode))
+	if (cfg_in_param.in_crop.s.w % (1 << cfg_pixel_mode))
 		dev_info(dev, "crop width(%d) is not the multiple of pixel mode(%d)\n",
-			cfg_in_param.in_crop.s.w, pixel_mode);
+			cfg_in_param.in_crop.s.w, cfg_pixel_mode);
 
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		pm_runtime_get_sync(cam->sv.devs[idx]);

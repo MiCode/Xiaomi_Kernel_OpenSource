@@ -292,7 +292,7 @@ struct device *mtk_cam_find_sv_dev(
 	struct mtk_cam_device *cam, unsigned int sv_mask);
 int mtk_cam_sv_dev_config(
 	struct mtk_cam_ctx *ctx, unsigned int idx, unsigned int hw_scen,
-	unsigned int exp_order);
+	unsigned int exp_order, unsigned int pixelmode);
 int mtk_cam_sv_dev_stream_on(
 	struct mtk_cam_ctx *ctx, unsigned int idx,
 	unsigned int streaming, unsigned int hw_scen);
