@@ -531,7 +531,7 @@ page_owner=on loop.max_part=7";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-		suspend-method = "s2idle";
+		suspend-method = "disable";
 
 		irq-remain = <&edge_keypad &edge_mdwdt>,
 			     <&level_vpu_core0 &level_vpu_core1>,
