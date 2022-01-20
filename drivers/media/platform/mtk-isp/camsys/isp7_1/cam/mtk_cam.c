@@ -4190,8 +4190,8 @@ static int get_available_sv_pipes(struct mtk_cam_device *cam,
 						cam->sv.pipelines[i].seninf_padidx =
 							PAD_SRC_GENERAL0;
 					}
-					extisp_cnt++;
 				}
+				extisp_cnt++;
 			}
 		}
 	}
