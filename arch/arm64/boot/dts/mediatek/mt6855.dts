@@ -1737,6 +1737,11 @@
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&mt6369_temp 3>;
 		};
+		consys {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&consys>;
+		};
 	};
 
 	low_battery_throttling {
