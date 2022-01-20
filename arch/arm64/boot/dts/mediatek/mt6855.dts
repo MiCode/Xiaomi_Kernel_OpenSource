@@ -3783,10 +3783,12 @@
 
 			gpueb_mem_table =
 				<0 0x1000>,   /* 4KB */
-				<1 0x180000>; /* 1.5MB */
+				<1 0x32000>,  /* 204KB */
+				<2 0x180000>; /* 1.5MB */
 
 			gpueb_mem_name_table =
 				"MEM_ID_GPUFREQ", /* GPUFREQ */
+				"MEM_ID_SECGPU",  /* SECGPU */
 				"MEM_ID_LOG";     /* LOGGER */
 		};
 
