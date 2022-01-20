@@ -449,7 +449,7 @@ static void init_smem_regions(struct ccci_smem_region *regions,
 		}
 
 		CCCI_BOOTUP_LOG(-1, TAG,
-			"%s: reg[%d](%s)<%d>(%lx %llx %lx)[%x]\n", __func__,
+			"%s: reg[%d](%s)<%d>(%lx %lx %lx)[%x]\n", __func__,
 			i, get_smem_user_name(regions[i].id), regions[i].id,
 			(unsigned long)regions[i].base_ap_view_phy,
 			(unsigned long)regions[i].base_ap_view_vir,

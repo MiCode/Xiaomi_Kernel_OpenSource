@@ -4231,7 +4231,7 @@ int dpmaif_stop_tx_sw(unsigned char hif_id)
 
 void dpmaif_hw_reset(unsigned char md_id)
 {
-	unsigned int reg_value;
+	unsigned int reg_value = 0;
 #ifndef MT6297
 	int count = 0;
 #endif
