@@ -1287,16 +1287,16 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			/* to keep the wide-gamut range */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x03);
+				0x03, 0x03);
 		} else {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x01);
+				0x03, 0x03);
 		}
 
 		/* also set no rounding on Y2R */
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x11, 0x11);
+			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x01, 0x01);
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
@@ -1719,16 +1719,16 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 			/* to keep the wide-gamut range */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x03);
+				0x03, 0x03);
 		} else {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x01);
+				0x03, 0x03);
 		}
 
 		/* also set no rounding on Y2R */
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x11, 0x11);
+			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x01, 0x01);
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
