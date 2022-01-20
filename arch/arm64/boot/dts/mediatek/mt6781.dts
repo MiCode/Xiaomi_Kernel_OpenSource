@@ -2547,7 +2547,7 @@
 
 		/* Reference clock control mode */
 		/* SW mode: 0, Half-HW mode: 1, HW mode: 2 */
-		mediatek,refclk_ctrl = <0>;
+		mediatek,refclk_ctrl = <1>;
 	};
 
 	mipi_rx_ana_csi0@11c10000 {
