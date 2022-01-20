@@ -455,7 +455,7 @@ static void fmt_gce_flush_callback(struct cmdq_cb_data data)
 	pkt_ptr = (struct cmdq_pkt *)data.data;
 
 	if (data.err < 0) {
-		fmt_err("pkt_ptr %p", pkt_ptr);
+		fmt_err("pkt_ptr %p aee_cb %p", pkt_ptr, pkt_ptr->aee_cb);
 		atomic_set(&fmt->fmt_error, 1);
 		fmt_dump_addr_reg();
 	}
@@ -470,8 +470,10 @@ static int fmt_gce_timeout_aee(struct cmdq_cb_data data)
 	if (pkt_ptr->err_data.wfe_timeout) {
 		fmt_err("wfe %d timeout", pkt_ptr->err_data.event);
 		return CMDQ_NO_AEE;
+	} else {
+		fmt_err("not wfe %d timeout", pkt_ptr->err_data.event);
+		return CMDQ_AEE_WARN;
 	}
-	return CMDQ_AEE_WARN;
 }
 
 static int fmt_gce_cmd_flush(unsigned long arg)
