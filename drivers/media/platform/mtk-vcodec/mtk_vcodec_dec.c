@@ -225,16 +225,14 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
 	struct mtk_video_dec_buf *dstbuf;
 	unsigned int i = 0;
 	unsigned int num_planes = 0;
+	unsigned long frame_size;
 	u64 max_ts;
 
 	mtk_v4l2_debug(4, "[%d]", ctx->id);
 
 	mutex_lock(&ctx->buf_lock);
-	if (vdec_if_get_param(ctx,
-						  GET_PARAM_DISP_FRAME_BUFFER,
-						  &disp_frame_buffer)) {
-		mtk_v4l2_err("[%d]Cannot get param : GET_PARAM_DISP_FRAME_BUFFER",
-					 ctx->id);
+	if (vdec_if_get_param(ctx, GET_PARAM_DISP_FRAME_BUFFER, &disp_frame_buffer)) {
+		mtk_v4l2_err("[%d]Cannot get param : GET_PARAM_DISP_FRAME_BUFFER", ctx->id);
 		mutex_unlock(&ctx->buf_lock);
 		return NULL;
 	}
@@ -251,13 +249,18 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
 		return NULL;
 	}
 
+	if (disp_frame_buffer->status & FB_ST_NO_GENERATED) {
+		frame_size = 0;
+		disp_frame_buffer->status &= ~FB_ST_NO_GENERATED;
+	} else
+		frame_size = ctx->picinfo.fb_sz[i];
+
 	dstbuf = container_of(disp_frame_buffer, struct mtk_video_dec_buf,
 						  frame_buffer);
 	num_planes = dstbuf->vb.vb2_buf.num_planes;
 	if (dstbuf->used) {
 		for (i = 0; i < num_planes; i++) {
-			vb2_set_plane_payload(&dstbuf->vb.vb2_buf, i,
-				ctx->picinfo.fb_sz[i]);
+			vb2_set_plane_payload(&dstbuf->vb.vb2_buf, i, frame_size);
 		}
 
 		dstbuf->ready_to_display = true;

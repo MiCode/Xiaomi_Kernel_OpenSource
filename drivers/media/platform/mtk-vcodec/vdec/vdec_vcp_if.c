@@ -1201,9 +1201,11 @@ static void vdec_get_fb(struct vdec_inst *inst,
 		return;
 	fb->timestamp = list->fb_list[list->read_idx].timestamp;
 
-	if (disp_list)
+	if (disp_list) {
 		fb->status |= FB_ST_DISPLAY;
-	else {
+		if (list->fb_list[list->read_idx].reserved)
+			fb->status |= FB_ST_NO_GENERATED;
+	} else {
 		fb->status |= FB_ST_FREE;
 		if (list->fb_list[list->read_idx].reserved)
 			fb->status |= FB_ST_EOS;

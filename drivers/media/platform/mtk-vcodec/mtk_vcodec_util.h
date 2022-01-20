@@ -51,7 +51,8 @@ enum vdec_fb_status {
 	FB_ST_INIT              = 0,
 	FB_ST_DISPLAY           = (1 << 0),
 	FB_ST_FREE              = (1 << 1),
-	FB_ST_EOS               = (1 << 2)
+	FB_ST_EOS               = (1 << 2),
+	FB_ST_NO_GENERATED      = (1 << 3)
 };
 
 /**
