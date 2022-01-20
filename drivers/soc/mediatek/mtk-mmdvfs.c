@@ -11,6 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
+#include "../../misc/mediatek/smi/mtk-smi-dbg.h"
 
 #define MMDVFS_DBG
 #define MAX_OPP_NUM (6)
@@ -59,6 +60,15 @@ struct mmdvfs_drv_data {
 
 static struct regulator *vcore_reg_id;
 
+#define MMDVFS_RECORD_NUM (10)
+struct mmdvfs_opp_record {
+	struct notifier_block nb;
+	u8 idx;
+	ktime_t time[MMDVFS_RECORD_NUM];
+	u8 opp_level[MMDVFS_RECORD_NUM];
+};
+
+static struct mmdvfs_opp_record *mmdvfs_dbg;
 
 static u32 log_level;
 enum mmdvfs_log_level {
@@ -141,6 +151,25 @@ static void set_all_hoppings(struct mmdvfs_drv_data *drv_data, u32 opp_level)
 	}
 }
 
+static int mmdvfs_dbg_log_cb(struct notifier_block *nb,
+		unsigned long value, void *v)
+{
+	int i;
+
+	pr_notice("[smi] mmdvfs dump opp level start\n");
+	for (i = mmdvfs_dbg->idx; i < MMDVFS_RECORD_NUM; i++) {
+		pr_notice("[smi] (time, opp_level) = (%18llu, %d))\n",
+				mmdvfs_dbg->time[i], mmdvfs_dbg->opp_level[i]);
+	}
+	for (i = 0; i < mmdvfs_dbg->idx; i++) {
+		pr_notice("[smi] (time, opp_level) = (%18llu, %d))\n",
+				mmdvfs_dbg->time[i], mmdvfs_dbg->opp_level[i]);
+	}
+	pr_notice("[smi] mmdvfs opp level end\n");
+
+	return 0;
+}
+
 static void set_all_clk(struct mmdvfs_drv_data *drv_data,
 			u32 voltage, bool vol_inc)
 {
@@ -174,6 +203,12 @@ static void set_all_clk(struct mmdvfs_drv_data *drv_data,
 	blocking_notifier_call_chain(&mmdvfs_notifier_list, opp_level, NULL);
 	if (log_level & 1 << log_freq)
 		pr_notice("set clk to opp level:%d\n", opp_level);
+
+	/* Record mmdvfs opp log*/
+	mmdvfs_dbg->time[mmdvfs_dbg->idx] = ktime_get();
+	mmdvfs_dbg->opp_level[mmdvfs_dbg->idx] = opp_level;
+	mmdvfs_dbg->idx = (mmdvfs_dbg->idx + 1) % MMDVFS_RECORD_NUM;
+
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(
 		mmdvfs_mmp_events.freq_change,
@@ -541,6 +576,13 @@ static int mmdvfs_probe(struct platform_device *pdev)
 		pr_info("regulator_get vcore_reg_id failed: %d\n",
 				PTR_ERR(vcore_reg_id));
 	}
+
+	mmdvfs_dbg = kzalloc(sizeof(*mmdvfs_dbg), GFP_KERNEL);
+	if (!mmdvfs_dbg)
+		return -ENOMEM;
+
+	mmdvfs_dbg->nb.notifier_call = mmdvfs_dbg_log_cb;
+	mtk_smi_dbg_register_notifier(&mmdvfs_dbg->nb);
 
 	return ret;
 }
