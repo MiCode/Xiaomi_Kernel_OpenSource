@@ -3836,6 +3836,9 @@ void scheduler_tick(void)
 	rq_unlock(rq, &rf);
 
 	perf_event_task_tick();
+#ifdef CONFIG_MTK_CORE_CTL
+	sched_max_util_task_tracking();
+#endif
 #ifdef CONFIG_MTK_PERF_COMMON
 	perf_common(ktime_get_ns());
 #endif

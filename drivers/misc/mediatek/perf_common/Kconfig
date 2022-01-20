@@ -15,3 +15,13 @@ config MTK_PERF_TRACKER
 	  be built-in or not. It supports system related performance index
 	  via trace. If you are not sure about whether to enable it or not,
 	  please set n.
+
+config MTK_CORE_CTL
+	bool "MTK Core Control with CPU Isolation"
+	depends on MTK_SCHED_EXTENSION
+	help
+	  This config is for the core control policy with CPU isolation.
+	  The core control online and offline CPU cores based on task
+	  utilizations from scheduler information automatically.
+	  If you are not sure about whether to enable it or not,
+	  please set n.

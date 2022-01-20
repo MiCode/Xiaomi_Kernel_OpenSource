@@ -3609,8 +3609,18 @@ static inline void update_load_avg(struct cfs_rq *cfs_rq, struct sched_entity *s
 	 * Track task load average for carrying it to new CPU after migrated, and
 	 * track group sched_entity load average for task_h_load calc in migration
 	 */
-	if (se->avg.last_update_time && !(flags & SKIP_AGE_LOAD))
+	if (se->avg.last_update_time && !(flags & SKIP_AGE_LOAD)) {
+#ifdef CONFIG_MTK_CORE_CTL
+		if (entity_is_task(se) && se->on_rq)
+			inc_nr_heavy_running(0, task_of(se), -1, false);
+#endif
 		__update_load_avg_se(now, cfs_rq, se);
+#ifdef CONFIG_MTK_CORE_CTL
+		if (entity_is_task(se) && se->on_rq)
+			inc_nr_heavy_running(1, task_of(se), 1, false);
+#endif
+
+	}
 
 	decayed  = update_cfs_rq_load_avg(now, cfs_rq);
 	decayed |= propagate_entity_load_avg(se);
@@ -5313,6 +5323,9 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	}
 
 	if (!se) {
+#ifdef CONFIG_MTK_CORE_CTL
+		inc_nr_heavy_running(2, p, 1, false);
+#endif
 		add_nr_running(rq, 1);
 		/*
 		 * Since new tasks are assigned an initial util_avg equal to
@@ -5414,8 +5427,12 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 		update_cfs_group(se);
 	}
 
-	if (!se)
+	if (!se) {
+#ifdef CONFIG_MTK_CORE_CTL
+		inc_nr_heavy_running(3, p, -1, false);
+#endif
 		sub_nr_running(rq, 1);
+	}
 
 	util_est_dequeue(&rq->cfs, p, task_sleep);
 	hrtick_update(rq);
@@ -5974,6 +5991,14 @@ schedtune_cpu_margin(unsigned long util, int cpu)
 }
 
 #endif /* CONFIG_SCHED_TUNE */
+
+void get_task_util(struct task_struct *p, unsigned long *util,
+	unsigned long *boost_util)
+{
+	// *boost_util = boosted_task_util(p);
+	*boost_util = 0;
+	*util = task_util(p);
+}
 
 static unsigned long cpu_util_without(int cpu, struct task_struct *p);
 

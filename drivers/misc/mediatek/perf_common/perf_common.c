@@ -9,6 +9,9 @@
 #include <perf_tracker.h>
 #include <linux/cpu.h>
 #include <linux/topology.h>
+#ifdef CONFIG_MTK_CORE_CTL
+#include <mt-plat/core_ctl.h>
+#endif
 
 static u64 checked_timestamp;
 static bool long_trace_check_flag;
@@ -54,6 +57,12 @@ void perf_common(u64 wallclock)
 
 	if (!perf_do_check(wallclock))
 		return;
+
+#ifdef CONFIG_MTK_CORE_CTL
+	/* period is 8ms */
+	if (hit_long_check())
+		core_ctl_tick(wallclock);
+#endif
 
 	if (unlikely(!perf_common_init))
 		return;

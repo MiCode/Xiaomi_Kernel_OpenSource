@@ -11,10 +11,14 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 
+#ifdef CONFIG_MTK_CORE_CTL
+#include <mt-plat/core_ctl.h>
+#endif
 #include <mt-plat/cpu_ctrl.h>
 #include <mt-plat/mtk_ppm_api.h>
 #include "boost_ctrl.h"
 #include "mtk_perfmgr_internal.h"
+#include "topo_ctrl.h"
 
 #ifdef CONFIG_MTK_CPU_CTRL_CFP
 #include "cpu_ctrl_cfp.h"
@@ -199,7 +203,55 @@ ret_update:
 }
 EXPORT_SYMBOL(update_userlimit_cpu_freq);
 
+#ifdef MTK_K14_CPU_BOOST
+#ifdef CONFIG_MTK_CORE_CTL
+int update_cpu_core_limit(int kicker, int cid, int min, int max)
+{
+	int i, final_min, final_max;
 
+	if (kicker < 0 || cid < 0) {
+		pr_debug("kicker: %d, cid: %d errro\n", kicker, cid);
+		return -1;
+	}
+
+	perfmgr_trace_count(kicker,
+		"update_cpu_core_limit_%d_%d_%d_%d", kicker, cid, min, max);
+	mutex_lock(&boost_freq);
+
+	core_set[kicker][cid].core_min = min;
+	core_set[kicker][cid].core_max = max;
+
+	final_min = -1;
+	final_max = default_core_set[cid].core_max;
+
+	for (i = 0; i <= CPU_ISO_KIR_FPSGO; i++) {
+		if (core_set[i][cid].core_max >= 0 &&
+			final_min <= core_set[i][cid].core_max &&
+			core_set[i][cid].core_max <= final_max)
+			final_max = core_set[i][cid].core_max;
+		if (final_min < core_set[i][cid].core_min) {
+			if (core_set[i][cid].core_min <= final_max)
+				final_min = core_set[i][cid].core_min;
+			else
+				final_min = (final_max < 0) ?
+					core_set[i][cid].core_min : final_max;
+		}
+	}
+
+	if (final_max < 0)
+		final_max = default_core_set[cid].core_max;
+	if (final_min < 0)
+		final_min = MIN(default_core_set[cid].core_min, final_max);
+	perfmgr_trace_count(kicker,
+		"core_ctl_set_limit_cpus_%d_%d_%d", cid, final_min, final_max);
+	core_ctl_set_limit_cpus(cid, final_min, final_max);
+	mutex_unlock(&boost_freq);
+
+	return 0;
+}
+EXPORT_SYMBOL(update_cpu_core_limit);
+#endif
+#endif
 
 /***************************************/
 static ssize_t perfmgr_perfserv_freq_proc_write(struct file *filp

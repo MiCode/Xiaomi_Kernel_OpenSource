@@ -12,7 +12,7 @@
 #
 
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-NUXINCLUDE += -include $(srctree)/kernel/sched/sched.h
+LINUXINCLUDE += -include $(srctree)/kernel/sched/sched.h
 ccflags-y += -I$(src)              # needed for trace events
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/vcorefs_v3/
@@ -26,7 +26,13 @@ endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-$(CONFIG_MTK_CORE_CTL) += -I$(srctree)/drivers/misc/mediatek/base/power/include/ppm_v3/
+ccflags-$(CONFIG_MTK_CORE_CTL) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 
 obj-y += perf_common.o
 # a tracker for performance index
 obj-$(CONFIG_MTK_PERF_TRACKER) += perf_tracker.o
+# RQ stats for TLP estimation
+obj-$(CONFIG_MTK_CORE_CTL) += rq_stats.o
+obj-$(CONFIG_MTK_CORE_CTL) += sched_avg.o
+obj-$(CONFIG_MTK_CORE_CTL) += core_ctl.o
