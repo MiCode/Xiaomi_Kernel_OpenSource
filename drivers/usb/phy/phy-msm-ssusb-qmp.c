@@ -120,6 +120,7 @@ struct msm_ssphy_qmp {
 	struct regulator	*core_ldo;
 	int			core_voltage_levels[3];
 	int			core_max_uA;
+	struct regulator	*usb3_dp_phy_gdsc;
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
 	struct clk		*aux_clk;
@@ -231,6 +232,24 @@ static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 	}
 }
 
+static int msm_ssusb_qmp_gdsc(struct msm_ssphy_qmp *phy, bool on)
+{
+	int ret;
+
+	if (IS_ERR_OR_NULL(phy->usb3_dp_phy_gdsc))
+		return 0;
+
+	if (on)
+		ret = regulator_enable(phy->usb3_dp_phy_gdsc);
+	else
+		ret = regulator_disable(phy->usb3_dp_phy_gdsc);
+
+	if (ret)
+		dev_err(phy->phy.dev, "err:%d fail to %s usb3_dp_phy_gdsc\n",
+				ret, on ? "enable" : "disable");
+	return ret;
+}
+
 static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 {
 	int min, rc = 0;
@@ -250,10 +269,14 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 	if (!on)
 		goto disable_regulators;
 
+	rc = msm_ssusb_qmp_gdsc(phy, true);
+	if (rc < 0)
+		return rc;
+
 	rc = regulator_set_load(phy->vdd, phy->vdd_max_uA);
 	if (rc < 0) {
 		dev_err(phy->phy.dev, "Unable to set HPM of %s\n", "vdd");
-		return rc;
+		goto put_gdsc;
 	}
 
 	rc = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
@@ -329,6 +352,8 @@ put_vdd_lpm:
 	if (rc < 0)
 		dev_err(phy->phy.dev, "Unable to set LPM of %s\n", "vdd");
 
+put_gdsc:
+	rc = msm_ssusb_qmp_gdsc(phy, false);
 	return rc < 0 ? rc : 0;
 }
 
@@ -1090,6 +1115,16 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		dev_err(dev, "unable to get core ldo supply\n");
 		ret = PTR_ERR(phy->core_ldo);
 		goto err;
+	}
+
+	phy->usb3_dp_phy_gdsc = devm_regulator_get(dev, "usb3_dp_phy_gdsc");
+	if (IS_ERR(phy->usb3_dp_phy_gdsc)) {
+		ret = PTR_ERR(phy->usb3_dp_phy_gdsc);
+		if (ret != -ENODEV) {
+			dev_err(dev, "fail to get usb3_dp_phy_gdsc(%d)\n", ret);
+			return ret;
+		}
+		dev_err(dev, "usb3_dp_phy_gdsc optional regulator missing\n");
 	}
 
 	platform_set_drvdata(pdev, phy);
