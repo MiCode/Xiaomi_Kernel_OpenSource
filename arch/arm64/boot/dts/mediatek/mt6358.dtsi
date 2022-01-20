@@ -346,6 +346,7 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-enable-ramp-delay = <2700>;
+			regulator-always-on;
 		};
 		mt_pmic_vusb_ldo_reg: ldo_vusb {
 			regulator-name = "vusb";
