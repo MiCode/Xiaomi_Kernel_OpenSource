@@ -353,9 +353,9 @@ static int disp_tdshp_wait_size(unsigned long timeout)
 		ret = wait_event_interruptible(g_tdshp_size_wq,
 			g_tdshp_get_size_available == true);
 
-		pr_notice("%s: size_available = 1, Wake up, ret = %d\n", __func__, ret);
+		DDPINFO("size_available = 1, Wake up, ret = %d\n", ret);
 	} else {
-		pr_notice("%s: size_available = 0\n", __func__);
+		DDPINFO("size_available = 0\n");
 	}
 
 	return ret;
@@ -408,7 +408,7 @@ static void mtk_disp_tdshp_config(struct mtk_ddp_comp *comp,
 	unsigned int width;
 	unsigned int val;
 
-	pr_notice("%s, line: %d\n", __func__, __LINE__);
+	DDPINFO("line: %d\n", __LINE__);
 
 	if (cfg->bpc == 8)
 		cmdq_pkt_write(handle, comp->cmdq_base,
@@ -517,7 +517,7 @@ static int mtk_disp_tdshp_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *h
 
 static void mtk_disp_tdshp_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	pr_notice("%s, line: %d\n", __func__, __LINE__);
+	DDPINFO("line: %d\n", __LINE__);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_TDSHP_CTRL, DISP_TDSHP_EN, 0x1);
 	mtk_disp_tdshp_write_reg(comp, handle, 0);
@@ -525,7 +525,7 @@ static void mtk_disp_tdshp_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *han
 
 static void mtk_disp_tdshp_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	pr_notice("%s, line: %d\n", __func__, __LINE__);
+	DDPINFO("line: %d\n", __LINE__);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_TDSHP_CTRL, 0x0, 0x1);
 }
@@ -534,7 +534,7 @@ static void mtk_disp_tdshp_prepare(struct mtk_ddp_comp *comp)
 {
 	struct mtk_disp_tdshp *tdshp = comp_to_disp_tdshp(comp);
 
-	pr_notice("%s\n", __func__);
+	DDPINFO("id(%d)\n", comp->id);
 	mtk_ddp_comp_clk_prepare(comp);
 	atomic_set(&g_tdshp_is_clock_on[index_of_tdshp(comp->id)], 1);
 
@@ -547,7 +547,7 @@ static void mtk_disp_tdshp_unprepare(struct mtk_ddp_comp *comp)
 {
 	unsigned long flags;
 
-	pr_notice("%s\n", __func__);
+	DDPINFO("id(%d)\n", comp->id);
 	spin_lock_irqsave(&g_tdshp_clock_lock, flags);
 	DDPINFO("%s @ %d......... spin_trylock_irqsave -- ",
 		__func__, __LINE__);

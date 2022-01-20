@@ -436,7 +436,6 @@ int mtk_drm_ioctl_c3d_get_irq(struct drm_device *dev, void *data,
 {
 	int ret = 0;
 
-	pr_notice("%s\n", __func__);
 	ret = disp_c3d_wait_irq();
 
 	return ret;
@@ -806,7 +805,7 @@ static void mtk_disp_c3d_config(struct mtk_ddp_comp *comp,
 {
 	unsigned int width;
 
-	pr_notice("%s, line: %d\n", __func__, __LINE__);
+	C3DFLOW_LOG("line: %d\n", __LINE__);
 
 	if (comp->mtk_crtc->is_dual_pipe) {
 		isDualPQ = true;
@@ -823,7 +822,7 @@ static void mtk_disp_c3d_config(struct mtk_ddp_comp *comp,
 
 static void mtk_disp_c3d_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	pr_notice("%s, line: %d\n", __func__, __LINE__);
+	C3DFLOW_LOG("line: %d\n", __LINE__);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + C3D_EN, 0x1, ~0);
 
 	if (atomic_read(&g_c3d_force_relay[index_of_c3d(comp->id)]) == 1) {
@@ -842,7 +841,7 @@ static void mtk_disp_c3d_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handl
 
 static void mtk_disp_c3d_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
-	pr_notice("%s, line: %d\n", __func__, __LINE__);
+	C3DFLOW_LOG("line: %d\n", __LINE__);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + C3D_EN, 0x0, ~0);
 }
 
@@ -882,7 +881,7 @@ static void mtk_disp_c3d_unprepare(struct mtk_ddp_comp *comp)
 	unsigned long flags;
 	gHasSet1DLut[index_of_c3d(comp->id)] = false;
 
-	pr_notice("%s, line: %d\n", __func__, __LINE__);
+	C3DFLOW_LOG("line: %d\n", __LINE__);
 
 	spin_lock_irqsave(&g_c3d_clock_lock, flags);
 	atomic_set(&g_c3d_is_clock_on[index_of_c3d(comp->id)], 0);
