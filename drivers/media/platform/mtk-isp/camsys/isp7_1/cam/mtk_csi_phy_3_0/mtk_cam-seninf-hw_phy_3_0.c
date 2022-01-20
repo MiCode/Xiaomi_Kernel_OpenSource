@@ -2438,8 +2438,13 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
 #else
-			SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_5, 0x157);
-			SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_5, 0x157);
+			if (data_rate < 2500000000) {
+				SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_5, 0x55);
+				SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_5, 0x55);
+			} else {
+				SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_5, 0x157);
+				SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_5, 0x157);
+			}
 			SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_SETTING_0, 0x322);
 			SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_SETTING_0, 0x322);
 #endif
@@ -2542,7 +2547,11 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
 #else
-			SENINF_WRITE_REG(base, CDPHY_RX_ANA_5, 0x157);
+			if (data_rate < 2500000000)
+				SENINF_WRITE_REG(base, CDPHY_RX_ANA_5, 0x55);
+			else
+				SENINF_WRITE_REG(base, CDPHY_RX_ANA_5, 0x157);
+
 			SENINF_WRITE_REG(base, CDPHY_RX_ANA_SETTING_0, 0x322);
 #endif
 
