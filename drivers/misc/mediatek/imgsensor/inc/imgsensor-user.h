@@ -208,6 +208,7 @@ struct mtk_hdr_ae {
 	struct mtk_hdr_gain gain;
 	__u32 actions;
 	__u32 subsample_tags;
+	int req_id;
 };
 
 struct mtk_seamless_switch_param {
