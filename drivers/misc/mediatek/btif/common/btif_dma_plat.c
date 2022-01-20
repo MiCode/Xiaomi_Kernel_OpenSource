@@ -174,6 +174,14 @@ static void hal_dma_set_default_setting(enum _ENUM_DMA_DIR_ dma_dir)
 		BTIF_INFO_FUNC("dma clock reg (0x%lx)\n", g_btif[0].dma_clk_addr);
 	}
 
+	if (!g_btif[0].dma_idle_en_addr) {
+		g_btif[0].dma_idle_en_addr = of_iomap(node, 4);
+		if (g_btif[0].dma_idle_en_addr != NULL) {
+			BTIF_SET_BIT(g_btif[0].dma_idle_en_addr, 0x1);
+			BTIF_INFO_FUNC("set idle en (0x%lx)\n", g_btif[0].dma_idle_en_addr);
+		}
+	}
+
 	if (dma_dir == DMA_DIR_RX) {
 		mtk_btif_rx_dma.p_irq->irq_id =
 				irq_of_parse_and_map(node, 2);
