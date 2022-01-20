@@ -263,6 +263,7 @@ static spinlock_t tlb_locks[MM_IOMMU_NUM];
 static struct notifier_block mtk_pd_notifiers[MM_IOMMU_NUM];
 static bool hypmmu_type2_en;
 static struct mutex init_mutexs[PGTBALE_NUM];
+static struct mutex group_mutexs[MTK_IOMMU_GROUP_MAX];
 static atomic_t init_once_flag = ATOMIC_INIT(0);
 
 static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
@@ -1828,6 +1829,7 @@ static struct iommu_group *mtk_iommu_device_group(struct device *dev)
 	if (domid < 0)
 		return ERR_PTR(domid);
 
+	mutex_lock(&group_mutexs[domid]);
 	group = data->m4u_group[domid];
 	if (!group) {
 		pr_info("%s create group, data:(%d,%d)-->(%d,%d), dev:%s, domid:%d\n", __func__,
@@ -1840,6 +1842,8 @@ static struct iommu_group *mtk_iommu_device_group(struct device *dev)
 	} else {
 		iommu_group_ref_get(group);
 	}
+	mutex_unlock(&group_mutexs[domid]);
+
 	return group;
 }
 
@@ -2461,9 +2465,13 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	data->dev = dev;
 	data->plat_data = of_device_get_match_data(dev);
 
-	if (!atomic_cmpxchg(&init_once_flag, 0, 1))
+	if (!atomic_cmpxchg(&init_once_flag, 0, 1)) {
 		for (i = 0; i < PGTBALE_NUM; i++)
 			mutex_init(&init_mutexs[i]);
+
+		for (i = 0; i < MTK_IOMMU_GROUP_MAX; i++)
+			mutex_init(&group_mutexs[i]);
+	}
 
 	/* Protect memory. HW will access here while translation fault.*/
 	protect = devm_kzalloc(dev, MTK_PROTECT_PA_ALIGN * 2, GFP_KERNEL);
