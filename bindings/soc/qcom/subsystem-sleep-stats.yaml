@@ -26,9 +26,20 @@ properties:
   reg:
     maxItems: 1
 
+  ddr-freq-update:
+    Usage: optional
+    Value type: <boolean>
+    Definition: Boolean property to support to get ddr freq distribution.
+
 example:
   - |
     subsystem-sleep-stats {
 		compatible = "qcom,subsystem-sleep-stats";
 		reg = <0xc3f0000 0 0x400>;
+	};
+  - |
+    subsystem-sleep-stats {
+		compatible = "qcom,subsystem-sleep-stats";
+		reg = <0xc3f0000 0 0x400>;
+		ddr-freq-update;
 	};
