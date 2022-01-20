@@ -306,10 +306,7 @@ static const char *const hp_dl_pga_gain[] = {
 	"8Db", "7Db", "6Db", "5Db", "4Db",
 	"3Db", "2Db", "1Db", "0Db", "-1Db",
 	"-2Db", "-3Db", "-4Db", "-5Db", "-6Db",
-	"-7Db", "-8Db", "-9Db", "-10Db", "-11Db",
-	"-12Db", "-13Db", "-14Db", "-15Db", "-16Db",
-	"-17Db", "-18Db", "-19Db", "-20Db", "-21Db",
-	"-22Db", "-40Db"
+	"-7Db", "-8Db", "-9Db", "-10Db", "-40Db"
 };
 
 static void zcd_disable(struct mt6369_priv *priv)
@@ -390,7 +387,7 @@ static int hp_gain_ctl_select(struct mt6369_priv *priv,
 
 static bool is_valid_hp_pga_idx(int reg_idx)
 {
-	return (reg_idx >= DL_GAIN_8DB && reg_idx <= DL_GAIN_N_22DB) ||
+	return (reg_idx >= DL_GAIN_8DB && reg_idx <= DL_GAIN_N_10DB) ||
 	       reg_idx == DL_GAIN_N_40DB;
 }
 
@@ -509,14 +506,14 @@ static int mt6369_put_volsw(struct snd_kcontrol *kcontrol,
 	return ret;
 }
 
-static const DECLARE_TLV_DB_SCALE(hp_playback_tlv, -2200, 100, 0);
+static const DECLARE_TLV_DB_SCALE(hp_playback_tlv, -1000, 100, 0);
 static const DECLARE_TLV_DB_SCALE(playback_tlv, -1000, 100, 0);
 static const DECLARE_TLV_DB_SCALE(capture_tlv, 0, 600, 0);
 
 static const struct snd_kcontrol_new mt6369_snd_controls[] = {
 	/* dl pga gain */
 	SOC_DOUBLE_R_EXT_TLV("Headset Volume",
-			   MT6369_ZCD_CON3, MT6369_ZCD_CON4, 0, 0x1E, 0,
+			   MT6369_ZCD_CON3, MT6369_ZCD_CON4, 0, 0x12, 0,
 			   snd_soc_get_volsw, mt6369_put_volsw,
 			   hp_playback_tlv),
 	SOC_DOUBLE_R_EXT_TLV("Lineout Volume",
@@ -1234,7 +1231,7 @@ static void mtk_hp_disable(struct mt6369_priv *priv)
 	/* decrease HPL/R gain to normal gain step by step */
 	headset_volume_ramp(priv,
 			    priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL],
-			    DL_GAIN_N_22DB);
+			    DL_GAIN_N_10DB);
 
 	/* set HP aux feedback loop gain to max */
 	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON17, 0xf2);
@@ -1589,9 +1586,6 @@ static int mtk_hp_impedance_enable(struct mt6369_priv *priv)
 			   RG_HPROUTPUTSTBENH_VAUDP15_MASK_SFT, 0x0);
 	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON4,
 			   RG_HPLOUTPUTSTBENH_VAUDP15_MASK_SFT, 0x0);
-
-	/* Disable Pull-down HPL/R to AVSS28_AUD */
-	hp_pull_down(priv, false);
 
 	/* Disable HP aux CMFB loop */
 	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON17, 0xc, 0x0);
@@ -3020,27 +3014,6 @@ static int mt_delay_100_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int mt_hp_pull_down_event(struct snd_soc_dapm_widget *w,
-				 struct snd_kcontrol *kcontrol,
-				 int event)
-{
-	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
-	struct mt6369_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		hp_pull_down(priv, true);
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		hp_pull_down(priv, false);
-		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
 static int mt_hp_mute_event(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol,
 			    int event)
@@ -3050,9 +3023,9 @@ static int mt_hp_mute_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* Set HPR/HPL gain to -22dB */
-		regmap_write(priv->regmap, MT6369_ZCD_CON3, DL_GAIN_N_22DB);
-		regmap_write(priv->regmap, MT6369_ZCD_CON4, DL_GAIN_N_22DB);
+		/* Set HPR/HPL gain to -10dB */
+		regmap_write(priv->regmap, MT6369_ZCD_CON3, DL_GAIN_N_10DB);
+		regmap_write(priv->regmap, MT6369_ZCD_CON4, DL_GAIN_N_10DB);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* Set HPL/HPR gain to mute */
@@ -3535,11 +3508,6 @@ static const struct snd_soc_dapm_widget mt6369_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("HP_Supply", SND_SOC_NOPM,
 			    0, 0, NULL, 0),
-	SND_SOC_DAPM_SUPPLY_S("HP_PULL_DOWN", SUPPLY_SEQ_HP_PULL_DOWN,
-			      SND_SOC_NOPM,
-			      0, 0,
-			      mt_hp_pull_down_event,
-			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SUPPLY_S("HP_MUTE", SUPPLY_SEQ_HP_MUTE,
 			      SND_SOC_NOPM,
 			      0, 0,
@@ -3963,7 +3931,6 @@ static const struct snd_soc_dapm_route mt6369_dapm_routes[] = {
 	{"LINEOUT L", NULL, "LOL Mux"},
 
 	/* Headphone Path */
-	{"HP_Supply", NULL, "HP_PULL_DOWN"},
 	{"HP_Supply", NULL, "HP_MUTE"},
 	{"HP_Supply", NULL, "HP_ANA_TRIM"},
 	{"HPL Mux", NULL, "HP_Supply"},
@@ -4293,9 +4260,9 @@ static void start_trim_hardware(struct mt6369_priv *priv)
 	/* Select HPR/HPL gain from ZCD gain */
 	hp_gain_ctl_select(priv, HP_GAIN_CTL_ZCD);
 
-	/* Set HPR/HPL gain to -22dB */
-	regmap_write(priv->regmap, MT6369_ZCD_CON3, DL_GAIN_N_22DB);
-	regmap_write(priv->regmap, MT6369_ZCD_CON4, DL_GAIN_N_22DB);
+	/* Set HPR/HPL gain to -10dB */
+	regmap_write(priv->regmap, MT6369_ZCD_CON3, DL_GAIN_N_10DB);
+	regmap_write(priv->regmap, MT6369_ZCD_CON4, DL_GAIN_N_10DB);
 	usleep_range(250, 270);
 
 	/* Turn on DA_600K_NCP_VA18 */
@@ -4395,7 +4362,7 @@ static void start_trim_hardware(struct mt6369_priv *priv)
 
 	/* apply volume setting */
 	headset_volume_ramp(priv,
-			    DL_GAIN_N_22DB,
+			    DL_GAIN_N_10DB,
 			    priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL]);
 
 	/* Disable HP aux output stage */

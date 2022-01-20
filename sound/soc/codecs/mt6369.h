@@ -5221,7 +5221,6 @@ enum {
 	DL_GAIN_0DB = 8,
 	DL_GAIN_N_1DB = 9,
 	DL_GAIN_N_10DB = 18,
-	DL_GAIN_N_22DB = 30,
 	DL_GAIN_N_40DB = 0x1f,
 };
 
