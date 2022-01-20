@@ -56,7 +56,7 @@
 #include <cmdq-util.h>
 #endif
 
-//!#define MFB_PMQOS
+#define MFB_PMQOS
 #ifdef MFB_PMQOS
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
@@ -294,7 +294,7 @@ static unsigned int g_SuspendCnt;
 #define IRQ_USER_NUM_MAX 31
 
 #ifdef MFB_PMQOS
-static struct pm_qos_request mfb_pmqos_request;
+static struct mtk_pm_qos_request mfb_pmqos_request;
 static u64 max_img_freq[4];
 #define MFB_PORT_NUM 8
 struct plist_head module_request_list;  /* all module list */
@@ -777,8 +777,8 @@ void MFBQOS_Init(void)
 	u32 step_size;
 	int i = 0;
 
-	/* Call pm_qos_add_request when initialize module or driver prob */
-	pm_qos_add_request(
+	/* Call mtk_pm_qos_add_request when initialize module or driver prob */
+	mtk_pm_qos_add_request(
 		&mfb_pmqos_request,
 		PM_QOS_IMG_FREQ,
 		PM_QOS_MM_FREQ_DEFAULT_VALUE);
@@ -818,7 +818,7 @@ void MFBQOS_Init(void)
 
 void MFBQOS_Uninit(void)
 {
-	pm_qos_remove_request(&mfb_pmqos_request);
+	mtk_pm_qos_remove_request(&mfb_pmqos_request);
 
 	/* Call mm_qos_remove_request */
 	/* when de-initialize module or driver remove */
@@ -838,19 +838,19 @@ void MFBQOS_Update(bool start, unsigned int scen, unsigned long bw)
 		qos_total = qos_total + bw;
 		if (qos_total > 600000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
+			mtk_pm_qos_update_request(&mfb_pmqos_request,
 						max_img_freq[0]);
 		} else if (qos_total > 300000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
+			mtk_pm_qos_update_request(&mfb_pmqos_request,
 						max_img_freq[1]);
 		} else if (qos_total > 100000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
+			mtk_pm_qos_update_request(&mfb_pmqos_request,
 						max_img_freq[2]);
 		} else {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request, 0);
+			mtk_pm_qos_update_request(&mfb_pmqos_request, 0);
 		}
 	} else { /* finish MFB, config MMDVFS to lowest CLK */
 		LOG_DBG("MFB total: %ld", qos_total);
@@ -859,19 +859,19 @@ void MFBQOS_Update(bool start, unsigned int scen, unsigned long bw)
 		qos_scen[scen] = 0;
 		if (qos_total > 600000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
+			mtk_pm_qos_update_request(&mfb_pmqos_request,
 						max_img_freq[0]);
 		} else if (qos_total > 300000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
+			mtk_pm_qos_update_request(&mfb_pmqos_request,
 						max_img_freq[1]);
 		} else if (qos_total > 100000000) {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request,
+			mtk_pm_qos_update_request(&mfb_pmqos_request,
 						max_img_freq[2]);
 		} else {
 			spin_unlock(&(SpinLockMfbPmqos));
-			pm_qos_update_request(&mfb_pmqos_request, 0);
+			mtk_pm_qos_update_request(&mfb_pmqos_request, 0);
 		}
 	}
 
