@@ -55,7 +55,6 @@
 #include <mtk_power_gs_api.h>
 #endif
 
-#include <trace/events/mtk_idle_event.h>
 
 #include <mt-plat/mtk_io.h>
 
@@ -472,11 +471,9 @@ unsigned int spm_go_to_dpidle(u32 spm_flags, u32 spm_data,
 
 	spm_dpidle_footprint(SPM_DEEPIDLE_ENTER_WFI);
 
-	trace_dpidle_rcuidle(cpu, 1);
 
 	spm_trigger_wfi_for_dpidle(pwrctrl);
 
-	trace_dpidle_rcuidle(cpu, 0);
 
 	dpidle_profile_time(DPIDLE_PROFILE_AFTER_WFI);
 
@@ -650,11 +647,9 @@ unsigned int spm_go_to_sleep_dpidle(u32 spm_flags, u32 spm_data)
 	spm_dpidle_footprint(SPM_DEEPIDLE_SLEEP_DPIDLE |
 			     SPM_DEEPIDLE_ENTER_WFI);
 
-	trace_dpidle_rcuidle(cpu, 1);
 
 	spm_trigger_wfi_for_dpidle(pwrctrl);
 
-	trace_dpidle_rcuidle(cpu, 0);
 
 	spm_dpidle_footprint(SPM_DEEPIDLE_SLEEP_DPIDLE |
 			     SPM_DEEPIDLE_LEAVE_WFI);

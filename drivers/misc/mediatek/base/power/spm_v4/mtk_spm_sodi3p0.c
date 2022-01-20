@@ -41,7 +41,6 @@
 #include <mtk_power_gs_api.h>
 #endif
 
-#include <trace/events/mtk_idle_event.h>
 
 #include <mtk_idle_internal.h>
 #include <mtk_idle_profile.h>
@@ -325,7 +324,6 @@ unsigned int spm_go_to_sodi3(u32 spm_flags, u32 spm_data, u32 sodi3_flags)
 		(1 << SPM_SODI3_B4) | (1 << SPM_SODI3_B5) |
 		(1 << SPM_SODI3_B6));
 
-	trace_sodi3_rcuidle(cpu, 1);
 
 	profile_so3_end(PIDX_ENTER_TOTAL);
 
@@ -333,7 +331,6 @@ unsigned int spm_go_to_sodi3(u32 spm_flags, u32 spm_data, u32 sodi3_flags)
 
 	profile_so3_start(PIDX_LEAVE_TOTAL);
 
-	trace_sodi3_rcuidle(cpu, 0);
 
 	spm_sodi3_footprint(SPM_SODI3_LEAVE_WFI);
 

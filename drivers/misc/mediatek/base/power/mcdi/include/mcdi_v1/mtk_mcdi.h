@@ -24,11 +24,14 @@ enum {
 	MCDI_SMC_EVENT_LAST_CORE_REQ,
 	MCDI_SMC_EVENT_LAST_CORE_CLR,
 	MCDI_SMC_EVENT_GIC_DPG_SET,
+	MCDI_SMC_EVENT_CPC_CONFIG,
+	MCDI_SMC_EVENT_MCUPM_FW_STA,
 
 	NF_MCDI_SMC_EVENT
 };
 
 extern void aee_rr_rec_mcdi_val(int id, unsigned int val);
+extern unsigned long long notrace sched_clock(void);
 
 /* mtk_menu */
 unsigned int get_menu_predict_us(void);
@@ -43,7 +46,7 @@ void _mcdi_cpu_iso_mask(unsigned int iso_mask);
 void mcdi_wakeup_all_cpu(void);
 bool __mcdi_pause(unsigned int id, bool paused);
 
-
+#ifndef CONFIG_MACH_MT6739
 static inline size_t mt_secure_call(size_t function_id, size_t arg0,
 				    size_t arg1, size_t arg2, size_t arg3)
 {
@@ -54,5 +57,28 @@ static inline size_t mt_secure_call(size_t function_id, size_t arg0,
 
 	return res.a0;
 }
+#else
+#ifndef mt_secure_call
+#define mt_secure_call(x1, x2, x3, x4, x5) ({\
+	struct arm_smccc_res res;\
+	mtk_idle_smc_impl(x1, x2, x3, x4, x5, res);\
+	res.a0; })
+#endif
+#endif
+
+#define mtk_idle_smc_impl(p1, p2, p3, p4, p5, res) \
+			arm_smccc_smc(p1, p2, p3, p4,\
+			p5, 0, 0, 0, &res)
+
+
+#ifndef SMC_CALL
+/* SMC call's marco */
+#define SMC_CALL(_name, _arg0, _arg1, _arg2) ({\
+	struct arm_smccc_res res;\
+	mtk_idle_smc_impl(MTK_SIP_KERNEL_SPM_##_name,\
+			_arg0, _arg1, _arg2, 0, res);\
+	res.a0; })
+
+#endif
 
 #endif /* __MTK_MCDI_H__ */

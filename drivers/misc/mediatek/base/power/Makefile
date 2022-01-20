@@ -109,6 +109,7 @@ obj-$(CONFIG_MACH_MT6781) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6877) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6833) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6893) += cpuhotplug/
+obj-$(CONFIG_MACH_MT6739) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6739) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6765) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6768) += power_gs_v1/

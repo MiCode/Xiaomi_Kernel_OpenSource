@@ -40,10 +40,6 @@
 #include <mtk_spm_resource_req.h>
 #include <mtk_spm_resource_req_internal.h>
 
-#include <trace/events/mtk_idle_event.h>
-
-//#include "ufs-mtk.h"
-
 #ifdef CONFIG_MTK_DCS
 #include <mt-plat/mtk_meminfo.h>
 #endif
@@ -717,14 +713,7 @@ static noinline void go_to_rgidle(int cpu)
 {
 	rgidle_before_wfi(cpu);
 
-#if !defined(SPM_K414_EARLY_PORTING)
-	trace_rgidle_rcuidle(cpu, 1);
-#endif
 	go_to_wfi();
-
-#if !defined(SPM_K414_EARLY_PORTING)
-	trace_rgidle_rcuidle(cpu, 0);
-#endif
 
 	rgidle_after_wfi(cpu);
 }

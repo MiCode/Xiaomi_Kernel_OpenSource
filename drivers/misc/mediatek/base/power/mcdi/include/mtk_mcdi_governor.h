@@ -59,7 +59,11 @@ bool is_mcdi_working(void);
 bool is_last_core_in_mcusys(int cpu);
 bool is_last_core_in_cluster(int cpu);
 unsigned int mcdi_get_gov_data_num_mcusys(void);
-
+#ifdef CONFIG_MACH_MT6739
+void mcdi_cluster_chk_res_each_core_set(bool en);
+void mcdi_cluster_tmr_en_set(bool en);
+unsigned int mcdi_get_mtk_idle_mode(void);
+#endif
 void idle_refcnt_inc(void);
 void idle_refcnt_dec(void);
 int all_cpu_idle_ratio_get(void);

@@ -25,7 +25,7 @@
 static ulong dbg_data[40];
 static int mtk_cpuidle_initialized;
 
-#if defined(CONFIG_MACH_MT6768)
+#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6739)
 static struct spm_wakeup_source spm_wakeup_src[MAX_SPM_WAKEUP_SRC];
 #endif
 
@@ -245,7 +245,7 @@ static inline void cpuidle_fp_reset(int cpu)
 #endif /* CONFIG_MTK_AEE_IPANIC */
 
 
-#if defined(CONFIG_MACH_MT6768)
+#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6739)
 /*
  * Look up the wake up source wired to the SPM. These wake up sources
  * were used to trigger the SPM to power on the MCUSYS/GIC.
@@ -358,7 +358,7 @@ int mtk_cpuidle_init(void)
 {
 	if (mtk_cpuidle_initialized == 1)
 		return 0;
-#if defined(CONFIG_MACH_MT6768)
+#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6739)
 	wakeup_source_lookup();
 #endif
 	/* cpuidle footprint init */

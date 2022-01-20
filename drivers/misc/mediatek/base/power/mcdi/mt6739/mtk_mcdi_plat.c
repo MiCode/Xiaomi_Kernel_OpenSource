@@ -126,4 +126,3 @@ void mcdi_of_init(void **base)
 
 	mcupm_sram_is_ready = true;
 }
-

@@ -17,6 +17,18 @@
  */
 #define PROF_TYPE_NUM (NF_CPU_TYPE * 2 + 1)
 
+#define DEFAULT_AUTO_OFF_THRES_US	(8 * 1000U)
+#define MAX_AUTO_OFF_THRES_US		(1290 * 1000U)
+
+enum cpc_cfg {
+	MCDI_CPC_CFG_PROF,
+	MCDI_CPC_CFG_AUTO_OFF,
+	MCDI_CPC_CFG_AUTO_OFF_THRES,
+	MCDI_CPC_CFG_CNT_CLR,
+
+	NF_MCDI_CPC_CFG
+};
+
 enum prof_distribute {
 	MCDI_PROF_U10_US,
 	MCDI_PROF_U20_US,
@@ -47,6 +59,7 @@ struct mcdi_cpc_status {
 	bool prof_pause;
 	bool prof_saving;
 	bool dbg_en;
+	bool auto_off;
 };
 
 struct mcdi_cpc_dev {
@@ -62,13 +75,18 @@ struct mcdi_cpc_dev {
 	struct mcdi_cpc_distribute dist_cnt[NF_CPU_TYPE];
 	unsigned int mp_off_cnt[NF_CLUSTER];
 	unsigned int mp_off_lat[NF_CPU];
+	unsigned int auto_off_thres_us;
 };
 
 #define cpc_tick_to_us(val) ((val) / 13)
+#define cpc_us_to_tick(val) ((val) * 13)
 
 void mcdi_cpc_init(void);
 void mcdi_cpc_reflect(int cpu, int last_core);
 void mcdi_cpc_prof_en(bool enable);
 void mcdi_procfs_cpc_init(struct proc_dir_entry *mcdi_dir);
-
+#ifdef CONFIG_MACH_MT6739
+void mcdi_cpc_auto_off_counter_suspend(void);
+void mcdi_cpc_auto_off_counter_resume(void);
+#endif
 #endif /* __MTK_MCDI_CPC_H__ */
