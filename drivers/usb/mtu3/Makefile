@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0
 
+ccflags-y := -I$(srctree)/drivers/usb/gadget/
+ccflags-y += -I$(srctree)/drivers/usb/gadget/function
+
 ccflags-$(CONFIG_USB_MTU3_DEBUG)	+= -DDEBUG
 
 # define_trace.h needs to know how to find our header
