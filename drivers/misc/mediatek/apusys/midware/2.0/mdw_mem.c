@@ -677,6 +677,7 @@ static int mdw_mem_ioctl_map(struct mdw_fpriv *mpriv,
 			m->size = size;
 			m->dbuf = dbuf;
 			m->type = MDW_MEM_TYPE_MAIN;
+			m->handle = handle;
 		}
 	} else {
 		mdw_mem_put(mpriv, m);
