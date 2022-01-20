@@ -979,15 +979,8 @@ static void ufs_mtk_get_controller_version(struct ufs_hba *hba)
 
 	ret = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_LOCALVERINFO), &ver);
 	if (!ret) {
-		if (ver >= UFS_UNIPRO_VER_1_8) {
+		if (ver >= UFS_UNIPRO_VER_1_8)
 			host->hw_ver.major = 3;
-			/*
-			 * Fix HCI version for some platforms with
-			 * incorrect version
-			 */
-			if (hba->ufs_version < ufshci_version(3, 0))
-				hba->ufs_version = ufshci_version(3, 0);
-		}
 	}
 }
 
