@@ -143,28 +143,20 @@ static void mminfra_cg_check(bool on)
 
 	if (on) {
 		/* SMI CG still off */
-		if ((con0_val & (SMI_CG_BIT))) {
-			pr_notice("%s SMI cg still off, CG_CON0:0x%x\n", __func__, con0_val);
+		if ((con0_val & (SMI_CG_BIT)) || (con0_val & GCEM_CG_BIT) ||
+			(con0_val & GCED_CG_BIT) || (con1_val & GCE26M_CG_BIT)) {
+			pr_notice("%s cg still off, CG_CON0:0x%x CG_CON1:0x%x\n",
+						__func__, con0_val, con1_val);
 			mtk_smi_dbg_cg_status();
-		}
-		/* GCE CG still off */
-		if ((con0_val & GCEM_CG_BIT) || (con0_val & GCED_CG_BIT)
-			|| (con1_val & GCE26M_CG_BIT)) {
-			pr_notice("%s GCE cg still off, CG_CON0:0x%x CG_CON1:0x%x\n",
-				__func__, con0_val, con1_val);
 			cmdq_dump_usage();
 		}
 	} else {
 		/* SMI CG still on */
-		if (!(con0_val & (SMI_CG_BIT))) {
-			pr_notice("%s SMI cg still on, CG_CON0:0x%x\n", __func__, con0_val);
+		if (!(con0_val & (SMI_CG_BIT)) || !(con0_val & GCEM_CG_BIT)
+			|| !(con0_val & GCED_CG_BIT) || !(con1_val & GCE26M_CG_BIT)) {
+			pr_notice("%s Scg still on, CG_CON0:0x%x CG_CON1:0x%x\n",
+						__func__, con0_val, con1_val);
 			mtk_smi_dbg_cg_status();
-		}
-		/* GCE CG still on */
-		if (!(con0_val & GCEM_CG_BIT) || !(con0_val & GCED_CG_BIT)
-			|| !(con1_val & GCE26M_CG_BIT)) {
-			pr_notice("%s GCE cg still on, CG_CON0:0x%x CG_CON1:0x%x\n",
-				__func__, con0_val, con1_val);
 			cmdq_dump_usage();
 		}
 	}
