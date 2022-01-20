@@ -101,6 +101,8 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6855_TOP_AXI_PROT_EN_MMSYS0_ISP_DIP1),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6855_TOP_AXI_PROT_EN_MMSYS1_ISP_DIP1),
 		},
 	},
 	[MT6855_POWER_DOMAIN_ISP_IPE] = {
@@ -114,6 +116,8 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
 				MT6855_TOP_AXI_PROT_EN_MMSYS2_ISP_IPE),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6855_TOP_AXI_PROT_EN_MMSYS1_ISP_IPE),
 		},
 	},
 	[MT6855_POWER_DOMAIN_VDE0] = {
@@ -157,6 +161,8 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6855_TOP_AXI_PROT_EN_MMSYS0_CAM_MAIN),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6855_TOP_AXI_PROT_EN_MMSYS1_CAM_MAIN),
 		},
 	},
 	[MT6855_POWER_DOMAIN_CAM_SUBA] = {
