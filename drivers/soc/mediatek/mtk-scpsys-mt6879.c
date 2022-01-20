@@ -122,6 +122,8 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
 				MT6879_TOP_AXI_PROT_EN_MMSYS2_ISP_MAIN),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C34, 0x0C38, 0x0C30, 0x0C3C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS2_ISP_MAIN_2ND),
 		},
 	},
 	[MT6879_POWER_DOMAIN_ISP_DIP1] = {
@@ -145,6 +147,10 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 		.name = "isp_vcore",
 		.sta_mask = BIT(12),
 		.ctl_offs = 0xE30,
+		.bp_table = {
+			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS0_ISP_VCORE),
+		},
 	},
 	[MT6879_POWER_DOMAIN_VDE0] = {
 		.name = "vde0",
@@ -228,6 +234,8 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 				MT6879_TOP_AXI_PROT_EN_MMSYS2_CAM_VCORE),
 			BUS_PROT_IGN(IFR_TYPE, 0x0CC4, 0x0CC8, 0x0CC0, 0x0CCC,
 				MT6879_TOP_AXI_PROT_EN_DRAMC0_CAM_VCORE),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS1_CAM_VCORE),
 			BUS_PROT_IGN(IFR_TYPE, 0x0C44, 0x0C48, 0x0C40, 0x0C4C,
 				MT6879_TOP_AXI_PROT_EN_INFRASYS0_CAM_VCORE),
 		},
@@ -271,6 +279,8 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 				MT6879_VLP_AXI_PROT_EN_MM_PROC),
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
 				MT6879_VLP_AXI_PROT_EN_MM_PROC_2ND),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS1_MM_PROC),
 		},
 		.sram_table = {
 			SRAM_NO_ACK(0xEA0, 9), SRAM_NO_ACK(0xEA4, 9),
