@@ -570,5 +570,5 @@
 
 #include "mediatek/cust_mt6893_touch.dtsi"
 #include "mediatek/cust_mt6885_camera.dtsi"
-#include <k6893v1_64_k419/cust.dtsi>
+#include <k6891v1_64_k419/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/
