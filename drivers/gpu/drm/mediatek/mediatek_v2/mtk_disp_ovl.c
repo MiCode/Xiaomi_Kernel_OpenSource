@@ -751,9 +751,15 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 		dump_ovl_layer_trace(mtk_crtc, ovl);
 	}
 	if (val & (1 << 2)) {
-		DDPPR_ERR("[IRQ] %s: frame underflow! cnt=%d\n",
-			  mtk_dump_comp_str(ovl), priv->underflow_cnt);
+		unsigned int smi_cnt = 0;
+
+		if (val & (1 << 13))
+			smi_cnt = readl(ovl->regs + DISP_REG_OVL_GREQ_LAYER_CNT);
+
+		DDPPR_ERR("[IRQ] %s: frame underflow! %u reqs are smi hang, cnt=%d\n",
+			  mtk_dump_comp_str(ovl), smi_cnt, priv->underflow_cnt);
 		priv->underflow_cnt++;
+
 		if (priv->underflow_cnt % 1000 == 0) {
 			if (ovl->id == DDP_COMPONENT_OVL0 ||
 			    ovl->id == DDP_COMPONENT_OVL1)
