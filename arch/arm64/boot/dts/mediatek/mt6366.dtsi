@@ -561,6 +561,7 @@
 	};	/* End of mt6358regulator */
 	mt6358_rtc: mt6358_rtc {
 		compatible = "mediatek,mt6358-rtc";
+		bootmode = <&chosen>;
 		interrupts = <INT_RTC IRQ_TYPE_NONE>;
 		interrupt-names = "rtc";
 		base = <0x580>;
