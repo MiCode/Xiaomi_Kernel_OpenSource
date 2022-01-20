@@ -1690,6 +1690,9 @@ void timekeeping_resume(void)
 	u64 cycle_now, nsec;
 	bool inject_sleeptime = false;
 
+	if (!timekeeping_suspended)
+		return;
+
 	read_persistent_clock64(&ts_new);
 
 	clockevents_resume();
