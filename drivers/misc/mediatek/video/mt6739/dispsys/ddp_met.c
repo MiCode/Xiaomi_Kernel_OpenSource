@@ -6,8 +6,8 @@
 #define LOG_TAG "MET"
 
 #include "ddp_log.h"
+#include "disp_drv_platform.h"
 
-#include <mt-plat/met_drv.h>
 #include "ddp_irq.h"
 #include "ddp_reg.h"
 #include "ddp_met.h"
@@ -27,39 +27,21 @@
 #define MAX_OVL_LAYERS		(4)
 #define OVL_LAYER_NUM_PER_OVL	(4)
 
+
 static unsigned int met_tag_on;
-#if 0
-static const char *const parse_color_format(DpColorFormat fmt)
-{
-	switch (fmt) {
-	case eBGR565:
-		return "eBGR565";
-	case eRGB565:
-		return "eRGB565";
-	case eRGB888:
-		return "eRGB888";
-	case eBGR888:
-		return "eBGR888";
-	case eRGBA8888:
-		return "eRGBA8888";
-	case eBGRA8888:
-		return "eBGRA8888";
-	case eARGB8888:
-		return "eARGB8888";
-	case eABGR8888:
-		return "eABGR8888";
-	case eVYUY:
-		return "eVYUY";
-	case eUYVY:
-		return "eUYVY";
-	case eYVYU:
-		return "eYVYU";
-	case eYUY2:
-		return "eYUY2";
-	default:
-		return "DEFAULT";
-	}
-}
+
+#if defined(CONFIG_MTK_MET)
+#include <linux/module.h>
+
+extern int met_tag_oneshot_real(unsigned int class_id,
+const char *name, unsigned int value);
+static struct ovl_info_s {
+	unsigned char ovl_idx;
+	unsigned char layer_num;
+} ovl_infos[OVL_NUM] = {
+	{DISP_MODULE_OVL0, 4}, {DISP_MODULE_OVL0_2L, 2},
+	{DISP_MODULE_OVL1_2L, 2},
+};
 #endif
 
 /**
@@ -76,8 +58,8 @@ int dpp_disp_is_decouple(void)
 	if (ddp_is_moudule_in_mutex(0, DISP_MODULE_OVL0) ||
 	    ddp_is_moudule_in_mutex(0, DISP_MODULE_OVL0_2L))
 		return 0;
-
-	return 1;
+	else
+		return 1;
 }
 
 /**
@@ -95,10 +77,15 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 	char tag_name[30] = {'\0'};
 	static struct OVL_BASIC_STRUCT old_ovlInfo[4+2+2];
 	static struct OVL_BASIC_STRUCT ovlInfo[4+2+2];
-	int ovl_index = 0;
+	int layer_idx = 0;
 	int layer_pos = 0;
 	int b_layer_changed = 0;
 	int i, j;
+	int (*met_tag_oneshot_symbol)(unsigned int class_id,
+		const char *name, unsigned int value) = NULL;
+
+	met_tag_oneshot_symbol =
+		(void *)symbol_get(met_tag_oneshot_real);
 
 	if (dpp_disp_is_decouple() == 1) {
 
@@ -106,43 +93,53 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 		if (rdmaInfo.addr == 0 || (rdmaInfo.addr != 0 &&
 				sBufAddr[index] != rdmaInfo.addr)) {
 			sBufAddr[index] = rdmaInfo.addr;
-			sprintf(tag_name,
-				index ? "ExtDispRefresh" : "PrimDispRefresh");
-			met_tag_oneshot(DDP_IRQ_FPS_ID, tag_name, 1);
+			sprintf(tag_name, index ?
+				"ExtDispRefresh" : "PrimDispRefresh");
+			if (met_tag_oneshot_symbol)
+				met_tag_oneshot_symbol(DDP_IRQ_FPS_ID,
+					tag_name, 1);
 		}
 		return;
 	}
 
+
 	/* essential for structure comparision */
 	memset(ovlInfo, 0, sizeof(ovlInfo));
 
-	/* traversal layers and get layer info */
+	/*Traversal layers and get layer info*/
 	for (i = 0; i < OVL_NUM; i++) {
-		layer_pos = i * OVL_LAYER_NUM_PER_OVL;
-		ovl_get_info(i, &(ovlInfo[layer_pos]));
+		if (i > 0)
+			layer_pos += ovl_infos[i-1].layer_num;
 
-		for (j = 0; j < OVL_LAYER_NUM_PER_OVL; j++) {
-			ovl_index = layer_pos + j;
+		ovl_get_info(ovl_infos[i].ovl_idx, &(ovlInfo[layer_pos]));
 
-			if (memcmp(&(ovlInfo[ovl_index]),
-				   &(old_ovlInfo[ovl_index]),
+		for (j = 0; j < ovl_infos[i].layer_num; j++) {
+			layer_idx++;
+
+			if (memcmp(&(ovlInfo[layer_idx]),
+				&(old_ovlInfo[layer_idx]),
 				   sizeof(struct OVL_BASIC_STRUCT)) == 0)
 				continue;
 
-			if (ovlInfo[ovl_index].layer_en)
+			if (ovlInfo[layer_idx].layer_en)
 				b_layer_changed = 1;
 		}
 
 		/*store old value*/
-		memcpy(&(old_ovlInfo[layer_pos]), &(ovlInfo[layer_pos]),
-		       OVL_LAYER_NUM_PER_OVL *
+		memcpy(&(old_ovlInfo[layer_pos]),
+			&(ovlInfo[layer_pos]),
+			ovl_infos[i].layer_num *
 			       sizeof(struct OVL_BASIC_STRUCT));
+
 	}
 
 	if (b_layer_changed) {
-		sprintf(tag_name, index ? "ExtDispRefresh" : "PrimDispRefresh");
-		met_tag_oneshot(DDP_IRQ_FPS_ID, tag_name, 1);
+		sprintf(tag_name,
+			index ? "ExtDispRefresh" : "PrimDispRefresh");
+		if (met_tag_oneshot_symbol)
+			met_tag_oneshot_symbol(DDP_IRQ_FPS_ID, tag_name, 1);
 	}
+
 #endif
 }
 
@@ -150,9 +147,15 @@ static void ddp_disp_refresh_tag_end(unsigned int index)
 {
 #if defined(CONFIG_MTK_MET)
 	char tag_name[30] = {'\0'};
+	int (*met_tag_oneshot_symbol)(unsigned int class_id,
+		const char *name, unsigned int value) = NULL;
 
-	sprintf(tag_name, index ? "ExtDispRefresh" : "PrimDispRefresh");
-	met_tag_oneshot(DDP_IRQ_FPS_ID, tag_name, 0);
+	sprintf(tag_name, index ?
+		"ExtDispRefresh" : "PrimDispRefresh");
+	met_tag_oneshot_symbol =
+		(void *)symbol_get(met_tag_oneshot_real);
+	if (met_tag_oneshot_symbol)
+		met_tag_oneshot_symbol(DDP_IRQ_FPS_ID, tag_name, 0);
 #endif
 }
 
@@ -167,22 +170,29 @@ static void ddp_inout_info_tag(unsigned int index)
 static void ddp_err_irq_met_tag(const char *name)
 {
 #if defined(CONFIG_MTK_MET)
-	met_tag_oneshot(DDP_IRQ_EER_ID, name, 1);
-	met_tag_oneshot(DDP_IRQ_EER_ID, name, 0);
+	int (*met_tag_oneshot_symbol)(unsigned int class_id,
+		const char *name, unsigned int value) = NULL;
+
+	met_tag_oneshot_symbol =
+		(void *)symbol_get(met_tag_oneshot_real);
+	if (met_tag_oneshot_symbol) {
+		met_tag_oneshot_symbol(DDP_IRQ_EER_ID, name, 1);
+		met_tag_oneshot_symbol(DDP_IRQ_EER_ID, name, 0);
+	}
 #endif
 }
 
-static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)
+static void met_irq_handler(enum DISP_MODULE_ENUM module,
+		unsigned int reg_val)
 {
 	int index = 0;
 	char tag_name[30] = {'\0'};
-	int mutexID;
 
 	switch (module) {
 	case DISP_MODULE_RDMA0:
 	case DISP_MODULE_RDMA1:
 		index = module - DISP_MODULE_RDMA0;
-		/* always process eof prior to sof */
+		/*Always process eof prior to sof*/
 		if (reg_val & (1 << 2))
 			ddp_disp_refresh_tag_end(index);
 
@@ -201,29 +211,11 @@ static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)
 
 	case DISP_MODULE_OVL0:
 		index = module - DISP_MODULE_OVL0;
-		if (reg_val & (1 << 1)) {/*EOF*/
+		if (reg_val & (1 << 1)) /*EOF*/
 			ddp_inout_info_tag(index);
-#if defined(CONFIG_MTK_MET)
-			if (!IS_ERR_OR_NULL(met_mmsys_event_disp_ovl_eof))
-				met_mmsys_event_disp_ovl_eof(index);
-#endif
-		}
 		break;
 
 	case DISP_MODULE_MUTEX:
-		for (mutexID = DISP_MUTEX_DDP_FIRST;
-			mutexID <= DISP_MUTEX_DDP_LAST;	mutexID++) {
-#if defined(CONFIG_MTK_MET)
-			if (reg_val & (0x1<<mutexID))
-				if (!IS_ERR_OR_NULL(met_mmsys_event_disp_sof))
-					met_mmsys_event_disp_sof(mutexID);
-
-			if (reg_val & (0x1<<(mutexID + DISP_MUTEX_TOTAL)))
-				if (!IS_ERR_OR_NULL(
-						met_mmsys_event_disp_mutex_eof))
-					met_mmsys_event_disp_mutex_eof(mutexID);
-#endif
-		}
 		break;
 
 	default:
@@ -233,11 +225,11 @@ static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)
 
 void ddp_init_met_tag(int state, int rdma0_mode, int rdma1_mode)
 {
-	if (!met_tag_on && state) {
+	if ((!met_tag_on) && state) {
 		met_tag_on = state;
 		disp_register_irq_callback(met_irq_handler);
 	}
-	if (met_tag_on && !state) {
+	if (met_tag_on && (!state)) {
 		met_tag_on = state;
 		disp_unregister_irq_callback(met_irq_handler);
 	}
