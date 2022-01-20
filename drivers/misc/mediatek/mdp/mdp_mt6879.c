@@ -1050,22 +1050,12 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA0)) {
 		mout_bits |= (1 << MOUT_BITS_MDP_BYP0);
-
-		status = cmdq_mdp_loop_reset(CMDQ_ENG_MDP_RDMA0,
-			MDP_RDMA0_BASE + 0x8, MDP_RDMA0_BASE + 0x408,
-			0x7FF00, 0x100, false);
-		if (status != 0)
-			engineToResetAgain |= (1LL << CMDQ_ENG_MDP_RDMA0);
+		engineToResetAgain |= (1LL << CMDQ_ENG_MDP_RDMA0);
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA1)) {
 		mout_bits |= (1 << MOUT_BITS_MDP_BYP1);
-
-		status = cmdq_mdp_loop_reset(CMDQ_ENG_MDP_RDMA1,
-			MDP_RDMA1_BASE + 0x8, MDP_RDMA1_BASE + 0x408,
-			0x7FF00, 0x100, false);
-		if (status != 0)
-			engineToResetAgain |= (1LL << CMDQ_ENG_MDP_RDMA1);
+		engineToResetAgain |= (1LL << CMDQ_ENG_MDP_RDMA1);
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP0)) {
@@ -1118,19 +1108,12 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 		/* smi_hanging_debug(5); */
 		/* } */
 
-		CMDQ_ERR(
+		CMDQ_MSG(
 			"Reset failed MDP engines(0x%llx), reset again with MMSYS_SW0_RST_B\n",
 			 engineToResetAgain);
 
 		cmdq_mdp_reset_with_mmsys(engineToResetAgain);
 		cmdqMdpDumpInfo(engineToResetAgain, 0);
-
-		/* finally, raise AEE warning to report normal reset fail. */
-		/* we hope that reset MMSYS. */
-		CMDQ_AEE("MDP", "Disable 0x%llx engine failed\n",
-			engineToResetAgain);
-
-		status = -EFAULT;
 	}
 	/* MOUT configuration reset */
 	CMDQ_REG_SET32(MMSYS_MOUT_RST_REG, (mout_bits_old & (~mout_bits)));
@@ -1214,13 +1197,11 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA0)) {
-		cmdq_mdp_loop_off(CMDQ_ENG_MDP_RDMA0, MDP_RDMA0_BASE + 0x008,
-			MDP_RDMA0_BASE + 0x408, 0x7FF00, 0x100, false);
+		cmdq_mdp_get_func()->enableMdpClock(false, CMDQ_ENG_MDP_RDMA0);
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA1)) {
-		cmdq_mdp_loop_off(CMDQ_ENG_MDP_RDMA1, MDP_RDMA1_BASE + 0x008,
-			MDP_RDMA1_BASE + 0x408, 0x7FF00, 0x100, false);
+		cmdq_mdp_get_func()->enableMdpClock(false, CMDQ_ENG_MDP_RDMA1);
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_COLOR0)) {
