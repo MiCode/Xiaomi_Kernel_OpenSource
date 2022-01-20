@@ -218,11 +218,7 @@ ccflags-y += -DUSE_MTK_DRAMC
 endif
 ifeq ($(CONFIG_MTK_DRAMC),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/mt6855/
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885" "mt6893"))
-else
 ccflags-y += -DUSE_MTK_DRAMC
-endif
 endif
 
 ifeq ($(CONFIG_MEDIATEK_EMI),y)
