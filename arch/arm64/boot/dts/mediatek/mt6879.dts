@@ -4741,7 +4741,7 @@
 			mediatek,mux_disp = "TOP_UNIVPLL_D6_D2",
 				"TOP_UNIVPLL_D4_D2", "TOP_MAINPLL_D5",
 				"TOP_TVDPLL";
-			mediatek,mux_mminfra = "TOP_MMPLL_D6_D2",
+			mediatek,mux_mminfra = "TOP_MAINPLL_D5_D2",
 				"TOP_MAINPLL_D4_D2", "TOP_MAINPLL_D5",
 				"TOP_UNIVPLL_D4";
 			mediatek,mux_venc = "TOP_UNIVPLL_D5_D2",
