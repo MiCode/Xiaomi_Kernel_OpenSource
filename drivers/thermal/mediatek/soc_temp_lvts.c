@@ -845,8 +845,6 @@ static void disable_hw_reboot_interrupt(struct lvts_data *lvts_data, int tc_id)
 						LOW_OFFSET2_INT_EN |
 						LOW_OFFSET1_INT_EN |
 						LOW_OFFSET0_INT_EN);
-
-		pr_notice("[LVTS]%s,temp=0x%8x\n", __func__, temp);
 	}
 
 	writel(temp, LVTSMONINT_0 + base);
@@ -872,8 +870,6 @@ static void enable_hw_reboot_interrupt(struct lvts_data *lvts_data, int tc_id)
 				LOW_OFFSET2_INT_EN |
 				LOW_OFFSET1_INT_EN |
 				LOW_OFFSET0_INT_EN;
-
-		pr_notice("[LVTS]%s,temp=0x%8x\n", __func__, temp);
 	} else {
 		temp = temp | STAGE3_INT_EN;
 	}
