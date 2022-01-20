@@ -5118,6 +5118,19 @@
 			clock-names = "clk0", "clk1", "clk2", "clk3";
 		};
 
+		mminfra-imax {
+			compatible = "mediatek,mminfra-imax";
+			reg = <0 0x14000000 0 0x1000>, /* dispsys */
+				<0 0x14021000 0 0x1000>, /* disp_larb_0 */
+				<0 0x14022000 0 0x1000>; /* disp_larb_1 */
+			disp_larb0_fake_port = <4>;
+			disp_larb1_fake_port = <4>;
+
+			reg-names = "dispsys",
+				"disp_larb_0",
+				"disp_larb_1";
+		};
+
 		gce: gce@1e980000 {
 			compatible = "mediatek,mt6855-gce";
 			reg = <0 0x1e980000 0 0x4000>;
