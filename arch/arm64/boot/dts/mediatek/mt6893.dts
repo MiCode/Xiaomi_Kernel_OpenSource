@@ -3693,7 +3693,7 @@ page_owner=on loop.max_part=7";
 		mmsys_config = <&mdpsys_config>;
 		mm_mutex   = <&mdp_mutex>;
 		mboxes =
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			<&gce_mbox_m_sec 10 0 CMDQ_THR_PRIO_1>,
 #endif
 			<&gce_mbox_m 12 0 CMDQ_THR_PRIO_1>,
