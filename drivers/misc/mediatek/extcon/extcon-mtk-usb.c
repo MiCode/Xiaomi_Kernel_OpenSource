@@ -526,8 +526,11 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 
 #if IS_ENABLED(CONFIG_TCPC_CLASS)
 	ret = of_property_read_string(dev->of_node, "tcpc", &tcpc_name);
-	if (ret == 0 && strcmp(tcpc_name, "type_c_port0") == 0)
+	if (of_property_read_bool(dev->of_node, "mediatek,u2") && ret == 0
+		&& strcmp(tcpc_name, "type_c_port0") == 0) {
+		dev_info(dev, "create %d dir\n", PROC_FILE_SMT);
 		mtk_usb_extcon_procfs_init(extcon);
+	}
 #endif
 
 	extcon->extcon_wq = create_singlethread_workqueue("extcon_usb");
