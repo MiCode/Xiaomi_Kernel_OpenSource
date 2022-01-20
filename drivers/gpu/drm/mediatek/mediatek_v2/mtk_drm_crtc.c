@@ -3177,6 +3177,26 @@ static void mtk_crtc_frame_buffer_release(struct drm_crtc *crtc,
 #endif
 }
 
+static bool mtk_crtc_check_valid_commit(struct drm_crtc *crtc,
+			struct mtk_crtc_state *crtc_state)
+{
+	if (IS_ERR_OR_NULL(crtc) ||
+	    IS_ERR_OR_NULL(crtc_state))
+		return false;
+
+	if (drm_crtc_index(crtc) != 0)
+		return true;
+
+	if (crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX] == 0 &&
+	    crtc_state->prop_val[CRTC_PROP_LYE_IDX] == 0 &&
+	    crtc_state->prop_val[CRTC_PROP_USER_SCEN] == 0 &&
+	    crtc->state->active == false &&
+	    mtk_drm_has_valid_layer() == true)
+		return false;
+
+	return true;
+}
+
 static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				      struct drm_crtc_state *old_crtc_state,
 				      struct mtk_crtc_state *crtc_state,
@@ -3256,35 +3276,38 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	if (index == 0 && hrt_valid == false) {
 		unsigned int fence_idx = crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX];
 
-		DDPMSG("%s pf:%u hrt:%u correct invalid hrt to:%u, mode:%u->%u\n",
-			__func__, fence_idx, prop_lye_idx, pan_disp_frame_weight,
-			old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
-			crtc_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
-
 		/* check invalid atomic commit and dump process backtrace */
-		if (fence_idx == 0 && prop_lye_idx == 0 &&
-		    mtk_drm_has_valid_layer() == true) {
+		if (mtk_crtc_check_valid_commit(crtc, crtc_state) == false) {
 			invalid_commit_count++;
-			DDPPR_ERR("%s,%d, invalid atomic commit from pid:%s-%d/%s-%d, count:%u\n",
+			DDPPR_ERR("%s,%d, invalid commit fr(%s-%d/%s-%d),cnt:%u\n",
 				__func__, __LINE__,
 				current->group_leader->comm,
 				task_tgid_nr(current),
 				current->comm, task_pid_nr(current),
 				invalid_commit_count);
 
-			WARN_ON(invalid_commit_count > 2);
-		}
+			CRTC_MMP_MARK(index, atomic_commit, 0xffffffff, __LINE__);
+			WARN_ON(invalid_commit_count);
+		} else
+			invalid_commit_count = 0;
 		/*
 		 * prop_lye_idx is 0 when suspend. Update display mode to avoid
 		 * the dsi params not sync with the mode of new crtc state.
 		 */
-		mtk_crtc_disp_mode_switch_begin(crtc,
-			old_crtc_state, crtc_state,
-			cmdq_handle);
-		mtk_crtc_update_hrt_state(crtc, pan_disp_frame_weight, NULL,
-			cmdq_handle);
-		DRM_MMP_MARK(layering_blob, 0,
-			pan_disp_frame_weight | 0xffff0000);
+		if (invalid_commit_count == 0) {
+			DDPMSG("%s pf:%u hrt:%u correct invalid hrt to:%u, mode:%u->%u\n",
+				__func__, fence_idx, prop_lye_idx, pan_disp_frame_weight,
+				old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
+				crtc_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+			mtk_crtc_disp_mode_switch_begin(crtc,
+				old_crtc_state, crtc_state,
+				cmdq_handle);
+			mtk_crtc_update_hrt_state(crtc, pan_disp_frame_weight, NULL,
+				cmdq_handle);
+			DRM_MMP_MARK(layering_blob, 0,
+				pan_disp_frame_weight | 0xffff0000);
+		}
 	} else {
 		invalid_commit_count = 0;
 	}
@@ -8507,18 +8530,41 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct mtk_panel_params *params =
 			mtk_drm_get_lcm_ext_params(crtc);
 	bool need_disable = false;
+	int flush_count = 0;
+	unsigned int retry_count = 0;
 
 	CRTC_MMP_EVENT_START(index, atomic_flush, (unsigned long)crtc_state,
 			(unsigned long)old_crtc_state);
 	if (mtk_crtc->ddp_mode == DDP_NO_USE) {
-		CRTC_MMP_MARK(index, atomic_flush, 0, 0);
+		CRTC_MMP_MARK(index, atomic_flush, 0, __LINE__);
 		goto end;
+	}
+
+	flush_count = atomic_inc_return(&mtk_crtc->flush_count);
+	if (flush_count > 1) {
+		if (mtk_crtc_check_valid_commit(crtc, state) == false) {
+			DDPMSG("%s, delay multiple atomic flush:%d\n",
+				__func__, flush_count);
+			CRTC_MMP_MARK(index, atomic_flush, flush_count, __LINE__);
+			while (atomic_read(&mtk_crtc->flush_count) != 0) {
+				udelay(500);
+				if (retry_count++ > 50) {
+					DDPPR_ERR("%s, cancel multiple atomic flush:%d, retry:%u\n",
+						__func__,
+						atomic_read(&mtk_crtc->flush_count),
+						retry_count);
+					CRTC_MMP_MARK(index, atomic_flush, retry_count, __LINE__);
+					goto end;
+				}
+			}
+			CRTC_MMP_MARK(index, atomic_flush, retry_count, __LINE__);
+		}
 	}
 
 	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
 	if (!cb_data) {
 		DDPPR_ERR("cb data creation failed\n");
-		CRTC_MMP_MARK(index, atomic_flush, 0, 1);
+		CRTC_MMP_MARK(index, atomic_flush, 0, __LINE__);
 		goto end;
 	}
 

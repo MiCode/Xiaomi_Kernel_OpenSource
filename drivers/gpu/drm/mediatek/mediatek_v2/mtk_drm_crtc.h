@@ -804,6 +804,9 @@ struct mtk_drm_crtc {
 
 	atomic_t signal_irq_for_pre_fence;
 	wait_queue_head_t signal_irq_for_pre_fence_wq;
+
+	/* check and make sure 1 flush config per frame*/
+	atomic_t flush_count;
 };
 
 struct mtk_crtc_state {

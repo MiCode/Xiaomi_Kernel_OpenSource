@@ -263,17 +263,17 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	bool find_work = false;
 	static int work_id;
 
-	If_FIND_WORK(priv->ddp_comp.irq_debug,
-		priv->ddp_comp.ts_works, work_id, find_work, j)
-	IF_DEBUG_IRQ_TS(find_work,
-		priv->ddp_comp.ts_works[work_id].irq_time, i)
-
 	if (IS_ERR_OR_NULL(priv))
 		return IRQ_NONE;
 
 	rdma = &priv->ddp_comp;
 	if (IS_ERR_OR_NULL(rdma))
 		return IRQ_NONE;
+
+	If_FIND_WORK(priv->ddp_comp.irq_debug,
+		priv->ddp_comp.ts_works, work_id, find_work, j)
+	IF_DEBUG_IRQ_TS(find_work,
+		priv->ddp_comp.ts_works[work_id].irq_time, i)
 
 	if (mtk_drm_top_clk_isr_get("rdma_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);

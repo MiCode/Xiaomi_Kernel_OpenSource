@@ -1582,9 +1582,14 @@ static void mtk_dsi_vm_start(struct mtk_dsi *dsi)
 
 static void mtk_dsi_stop(struct mtk_dsi *dsi)
 {
+	struct mtk_drm_crtc *mtk_crtc = mtk_crtc = dsi->ddp_comp.mtk_crtc;
+
 	writel(0, dsi->regs + DSI_START);
 	writel(0, dsi->regs + DSI_INTEN);
 	writel(0, dsi->regs + DSI_INTSTA);
+
+	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0 && mtk_crtc)
+		atomic_set(&mtk_crtc->flush_count, 0);
 }
 
 static void mtk_dsi_set_interrupt_enable(struct mtk_dsi *dsi)
@@ -1778,12 +1783,11 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	bool find_work = false;
 	static int work_id;
 
-	If_FIND_WORK(dsi->ddp_comp.irq_debug,
-		dsi->ddp_comp.ts_works, work_id, find_work, j)
-	IF_DEBUG_IRQ_TS(find_work,
-		dsi->ddp_comp.ts_works[work_id].irq_time, i)
 	if (IS_ERR_OR_NULL(dsi))
 		return IRQ_NONE;
+
+	If_FIND_WORK(dsi->ddp_comp.irq_debug,
+		dsi->ddp_comp.ts_works, work_id, find_work, j)
 	IF_DEBUG_IRQ_TS(find_work,
 		dsi->ddp_comp.ts_works[work_id].irq_time, i)
 
@@ -1874,6 +1878,7 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 
 			if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0 &&
 				mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && mtk_crtc) {
+				atomic_set(&mtk_crtc->flush_count, 0);
 				mtk_crtc->pf_time = ktime_get();
 				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 1);
 				wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));
@@ -1921,13 +1926,17 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 					dsi->ddp_comp.ts_works[work_id].irq_time, i)
 			}
 
-			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
-				mtk_crtc && mtk_crtc->vblank_en){
-				IF_DEBUG_IRQ_TS(find_work,
-					dsi->ddp_comp.ts_works[work_id].irq_time, i)
-				mtk_crtc_vblank_irq(&mtk_crtc->base);
-				IF_DEBUG_IRQ_TS(find_work,
-					dsi->ddp_comp.ts_works[work_id].irq_time, i)
+			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && mtk_crtc) {
+				if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0)
+					atomic_set(&mtk_crtc->flush_count, 0);
+
+				if (mtk_crtc->vblank_en) {
+					IF_DEBUG_IRQ_TS(find_work,
+						dsi->ddp_comp.ts_works[work_id].irq_time, i)
+					mtk_crtc_vblank_irq(&mtk_crtc->base);
+					IF_DEBUG_IRQ_TS(find_work,
+						dsi->ddp_comp.ts_works[work_id].irq_time, i)
+				}
 			}
 		}
 	}
@@ -2442,12 +2451,12 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 		}
 	}
 
-	DDPINFO("%s -\n", __func__);
-
 	dsi->output_en = true;
 	dsi->doze_enabled = new_doze_state;
 
+	DDPINFO("%s -\n", __func__);
 	return;
+
 err_dsi_power_off:
 	mtk_dsi_stop(dsi);
 	mtk_dsi_poweroff(dsi);
@@ -2547,6 +2556,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi,
 	}
 	dsi->output_en = false;
 	dsi->doze_enabled = new_doze_state;
+
 	DDPINFO("%s-\n", __func__);
 }
 
@@ -3559,7 +3569,11 @@ int mtk_dsi_porch_setting(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 /* TODO: refactor to remove duplicate code */
 static void mtk_dsi_enter_idle(struct mtk_dsi *dsi)
 {
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
+
 	mtk_dsi_mask(dsi, DSI_INTEN, ~0, 0);
+	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0 && mtk_crtc)
+		atomic_set(&mtk_crtc->flush_count, 0);
 
 	mtk_dsi_reset_engine(dsi);
 
@@ -6368,11 +6382,15 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case IRQ_LEVEL_IDLE:
 	{
 		unsigned int inten;
+		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 
 		if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && handle) {
 			inten = FRAME_DONE_INT_FLAG;
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DSI_INTEN, 0, inten);
+
+			if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0 && mtk_crtc)
+				atomic_set(&mtk_crtc->flush_count, 0);
 
 			if (dsi->slave_dsi) {
 				inten = FRAME_DONE_INT_FLAG;
