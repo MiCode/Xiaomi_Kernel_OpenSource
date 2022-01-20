@@ -334,8 +334,6 @@ page_owner=on loop.max_part=7";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <227>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
 		};
 
 		cpu1: cpu@001 {
@@ -347,8 +345,6 @@ page_owner=on loop.max_part=7";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <227>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
 		};
 
 		cpu2: cpu@002 {
@@ -360,8 +356,6 @@ page_owner=on loop.max_part=7";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <227>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
 		};
 
 		cpu3: cpu@003 {
@@ -373,8 +367,6 @@ page_owner=on loop.max_part=7";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <227>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
 		};
 
 		cpu4: cpu@100 {
@@ -386,8 +378,6 @@ page_owner=on loop.max_part=7";
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <876>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
 		};
 
 		cpu5: cpu@101 {
@@ -399,8 +389,6 @@ page_owner=on loop.max_part=7";
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <876>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
 		};
 
 		cpu6: cpu@102 {
@@ -412,8 +400,6 @@ page_owner=on loop.max_part=7";
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <876>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
 		};
 
 		cpu7: cpu@200 {
@@ -425,8 +411,6 @@ page_owner=on loop.max_part=7";
 			operating-points-v2 = <&cluster2_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
 		};
 
 		cpu-map {
