@@ -6203,7 +6203,7 @@
 	};
 };
 
-&mt6360_pmic {
+&subpmic_pmic_mtk {
 	buck2 {
 		/delete-property/ regulator-always-on;
 	};
@@ -6415,7 +6415,7 @@
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #include "mediatek/trusty.dtsi"
 #endif
-#include "mediatek/v1/mt6360_pd.dtsi"
+#include "mediatek/mt6360_pd.dtsi"
 #ifdef CONFIG_REGULATOR_MT6315
 #include "mediatek/mt6315_s3.dtsi"
 #endif
