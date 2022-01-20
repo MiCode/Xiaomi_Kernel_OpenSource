@@ -1,9 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Copyright (c) 2020 MediaTek Inc.
- */
-
-
 #ifndef __MTK_CAM_META_H__
 #define __MTK_CAM_META_H__
 
@@ -858,7 +852,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 2
-#define MTK_CAM_META_VERSION_MINOR 3
+#define MTK_CAM_META_VERSION_MINOR 4
 #define MTK_CAM_META_PLATFORM_NAME "isp71"
 #define MTK_CAM_META_CHIP_NAME "mt6895"
 
