@@ -670,7 +670,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	buf->flags = src_vb2_v4l2->flags;
 	buf->index = src_buf->index;
 
-	if (buf->dma_addr == 0 || buf->dmabuf == NULL) {
+	if (buf->dma_addr == 0 && buf->dmabuf == NULL) {
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
 		mtk_v4l2_err("[%d] id=%d src_addr is NULL!!",
 					 ctx->id, src_buf->index);
