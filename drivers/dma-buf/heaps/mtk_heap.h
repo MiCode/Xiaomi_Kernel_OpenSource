@@ -24,4 +24,12 @@ int is_mtk_sec_heap_dmabuf(const struct dma_buf *dmabuf);
 
 long mtk_dma_buf_set_name(struct dma_buf *dmabuf, const char *buf);
 
+/*
+ * dmabuf_to_sec_id() - Get iommu_sec_id corresponding to dma-buf
+ * @dmabuf: the dma-buf
+ * @sec_hdl: for get secure handle
+ * returns >0 means valid iomm_sec_id, -1 means error
+ */
+int dmabuf_to_sec_id(const struct dma_buf *dmabuf, u32 *sec_hdl);
+
 #endif /* _MTK_DMABUFHEAP_DEBUG_H */

@@ -29,6 +29,7 @@
 #include "mtk_heap_priv.h"
 #include "mtk_heap.h"
 #include "mtk_iommu.h"
+#include "iommu_pseudo.h"
 
 enum sec_heap_region_type {
 	/* MM heap */
@@ -686,6 +687,12 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 		return table;
 	}
 
+	if (is_iommu_sec_on_mtee()) {
+		pr_err("%s not support, dev:%s\n", __func__,
+		       dev_name(attachment->dev));
+		return ERR_PTR(-EINVAL);
+	}
+
 	buffer = dmabuf->priv;
 	sec_heap = sec_heap_region_get(buffer->heap);
 	if (!sec_heap) {
@@ -1138,7 +1145,7 @@ static struct dma_buf *tmem_region_allocate(struct dma_heap *heap,
 	struct secure_heap_region *sec_heap = sec_heap_region_get(heap);
 
 	if (!sec_heap) {
-		pr_err("%s, can not find secure heap!!\n",
+		pr_err("%s, can not find secure heap(%s)!!\n",
 			__func__, heap ? dma_heap_get_name(heap) : "null ptr");
 		return ERR_PTR(-EINVAL);
 	}
@@ -1307,6 +1314,45 @@ u32 dmabuf_to_secure_handle(const struct dma_buf *dmabuf)
 	return buffer->sec_handle;
 }
 EXPORT_SYMBOL_GPL(dmabuf_to_secure_handle);
+
+static int dmabuf_tmem_type2sec_id(enum TRUSTED_MEM_REQ_TYPE tmem)
+{
+	switch (tmem) {
+	case TRUSTED_MEM_REQ_PROT_REGION:
+		return SEC_ID_SEC_CAM;
+	case TRUSTED_MEM_REQ_SVP_REGION:
+		return SEC_ID_SVP;
+	case TRUSTED_MEM_REQ_WFD_REGION:
+		return SEC_ID_WFD;
+	default:
+		return -1;
+	}
+}
+
+int dmabuf_to_sec_id(const struct dma_buf *dmabuf, u32 *sec_hdl)
+{
+	struct mtk_sec_heap_buffer *buffer = NULL;
+	struct secure_heap_region *sec_heap = NULL;
+
+	if (!is_region_base_dmabuf(dmabuf)) {
+		pr_err("%s err, dmabuf is not region base\n", __func__);
+		return -1;
+	}
+
+	*sec_hdl = dmabuf_to_secure_handle(dmabuf);
+
+	buffer = dmabuf->priv;
+	sec_heap = sec_heap_region_get(buffer->heap);
+	if (!sec_heap) {
+		pr_err("%s, sec_heap_region_get(%s) failed!!\n", __func__,
+		       buffer->heap ? dma_heap_get_name(buffer->heap) :
+		       "null ptr");
+		return -1;
+	}
+
+	return dmabuf_tmem_type2sec_id(sec_heap->tmem_type);
+}
+EXPORT_SYMBOL_GPL(dmabuf_to_sec_id);
 
 /*
  * NOTE: the range of heap_id is (s, e), not [s, e] or [s, e)
