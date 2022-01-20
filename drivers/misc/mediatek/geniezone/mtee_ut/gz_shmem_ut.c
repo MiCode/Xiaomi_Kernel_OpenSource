@@ -303,8 +303,8 @@ TZ_RESULT shmem_test_discontinuous(void)
 		paAry[idx++] = pa2 + (uint64_t) (m) * (uint64_t) PAGE_SIZE;
 
 	/*for debug */
-	for (m = 0; m < idx; m++)
-		KREE_DEBUG("paAry[%d]=0x%llx\n", m, paAry[m]);
+	//for (m = 0; m < idx; m++)
+	//	KREE_DEBUG("paAry[%d]=0x%llx\n", m, paAry[m]);
 
 	shm_param.buffer = NULL;
 	shm_param.size = (num_PA1 + num_PA2) * (uint32_t) PAGE_SIZE;
