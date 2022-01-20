@@ -16,6 +16,8 @@ GCOV_PROFILE := y
 endif
 
 subdir-ccflags-y += -Idrivers/misc/mediatek/mtprof/
+subdir-ccflags-y += -Idrivers/misc/mediatek/
+subdir-ccflags-y += -Idrivers/misc/mediatek/dbgtop/
 
 ccflags-y += -DTEXT_OFFSET=$(TEXT_OFFSET)
 obj-$(CONFIG_MTK_AEE_IPANIC)	+= mrdump.o
