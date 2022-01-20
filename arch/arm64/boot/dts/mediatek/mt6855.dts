@@ -6392,7 +6392,7 @@
 			reg = <0 0x1a000000 0 0x10000>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_CAM_MAIN>;
-			mediatek,larbs = <&smi_larb13 &smi_larb14>;
+			mediatek,larb = <&smi_larb13>;
 			mediatek,platform = "mt6855";
 
 			#clock-cells = <1>;
