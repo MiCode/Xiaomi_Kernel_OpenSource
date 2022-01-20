@@ -4,6 +4,12 @@ ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
 GCOV_PROFILE := y
 endif
 
+ifneq ($(wildcard $(srctree)/$(src)/devapc-mt6833.c),)
+obj-$(CONFIG_DEVAPC_MT6833) += device-apc-mt6833.o
+device-apc-mt6833-$(CONFIG_DEVAPC_MT6833) += devapc-mt6833.o
+device-apc-mt6833-$(CONFIG_DEVAPC_ARCH_MULTI) += devapc-mtk-multi-ao.o
+endif
+
 ifneq ($(wildcard $(srctree)/$(src)/devapc-mt6853.c),)
 obj-$(CONFIG_DEVAPC_MT6853) += device-apc-mt6853.o
 device-apc-mt6853-$(CONFIG_DEVAPC_MT6853) += devapc-mt6853.o
