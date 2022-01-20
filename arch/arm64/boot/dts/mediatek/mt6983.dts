@@ -1396,7 +1396,8 @@
 			};
 
 			u3port0: usb3-phy0@11e43000 {
-				reg = <0 0x11e43400 0 0x500>;
+				reg = <0 0x11e43400 0 0x500>,
+					<0 0x11203e00 0 0x100>;
 				clocks = <&clk26m>;
 				clock-names = "ref";
 				#phy-cells = <1>;
