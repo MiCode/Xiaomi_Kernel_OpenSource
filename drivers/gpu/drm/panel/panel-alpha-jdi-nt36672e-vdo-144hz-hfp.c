@@ -900,7 +900,7 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = 1296,
-	.lfr_enable = 0,
+	.lfr_enable = 1,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
 		.switch_en = 1,
@@ -980,7 +980,7 @@ static struct mtk_panel_params ext_params_90hz = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = 1296,
-	.lfr_enable = 0,
+	.lfr_enable = 1,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
 		.switch_en = 1,
@@ -1060,7 +1060,7 @@ static struct mtk_panel_params ext_params_144hz = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = 1296,
-	.lfr_enable = 0,
+	.lfr_enable = 1,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
 		.switch_en = 1,
