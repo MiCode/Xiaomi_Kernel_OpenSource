@@ -2,6 +2,17 @@
 
 menu "Memory Management options"
 
+config MTK_KASAN_MEMBLOCK_SKIP
+	bool "mtk kasan memblock skip"
+	depends on KASAN
+	help
+	  This option allows memblock.o to skip kasan/khwasan
+	  sanitize checks. Kasan shadow memory initialization
+	  uses memblock to allocate page and checks every page.
+
+	  Users select this option to speed up kasan shadow
+	  initialization when system boots.
+
 config SELECT_MEMORY_MODEL
 	def_bool y
 	depends on ARCH_SELECT_MEMORY_MODEL
