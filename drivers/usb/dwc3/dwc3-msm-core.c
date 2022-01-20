@@ -483,7 +483,6 @@ struct dwc3_msm {
 	bool			in_device_mode;
 	enum usb_device_speed	max_rh_port_speed;
 	bool			perf_mode;
-	unsigned int		tx_fifo_size;
 	bool			check_eud_state;
 	bool			vbus_active;
 	bool			eud_active;
@@ -5126,11 +5125,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			goto err;
 		}
 	}
-
-	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-tx-fifo-size",
-				 &mdwc->tx_fifo_size))
-		dev_err(&pdev->dev,
-			"unable to read platform data tx fifo size\n");
 
 	ret = of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
 				&mdwc->num_gsi_event_buffers);
