@@ -430,6 +430,7 @@ enum mtk_ddp_io_cmd {
 	DSI_DISABLE_VFP_EALRY_STOP,
 	/*Msync 2.0 cmd end*/
 	DUAL_TE_INIT,
+	DSI_GET_CMD_MODE_LINE_TIME,
 };
 
 struct golden_setting_context {
