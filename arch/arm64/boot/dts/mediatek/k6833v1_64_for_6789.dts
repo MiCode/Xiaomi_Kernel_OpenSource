@@ -22,17 +22,6 @@ initcall_debug=1";
 		"nt35595_fhd_dsi_cmd_truly_nt50358_drv";
 };
 
-&reserved_memory {
-	reserve-memory-sspm_share {
-		compatible = "mediatek,reserve-memory-sspm_share";
-		no-map;
-		status = "okay";
-		size = <0 0x510000>; /* 5M + 64K */
-		alignment = <0 0x10000>;
-		alloc-ranges = <0 0x40000000 0 0x60000000>;
-	};
-};
-
 &odm {
 	led0:led@0 {
 		compatible = "mediatek,red";
