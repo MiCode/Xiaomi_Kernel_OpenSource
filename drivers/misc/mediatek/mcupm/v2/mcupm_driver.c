@@ -26,6 +26,8 @@
 #include "mcupm_ipi_id.h"
 #include "mcupm_ipi_table.h"
 #include "mcupm_driver.h"
+#include "mcupm_timesync.h"
+
 #ifdef CONFIG_OF_RESERVED_MEM
 #include <linux/of_reserved_mem.h>
 #define MCUPM_MEM_RESERVED_KEY "mediatek,reserve-memory-mcupm_share"
@@ -786,6 +788,24 @@ int mcupm_thread(void *data)
 	return 0;
 }
 #endif
+#ifdef CONFIG_PM
+static int mt6779_mcupm_suspend(struct device *dev)
+{
+	mcupm_timesync_suspend();
+	return 0;
+}
+
+static int mt6779_mcupm_resume(struct device *dev)
+{
+	mcupm_timesync_resume();
+	return 0;
+}
+
+static const struct dev_pm_ops mt6779_mcupm_dev_pm_ops = {
+	.suspend = mt6779_mcupm_suspend,
+	.resume  = mt6779_mcupm_resume,
+};
+#endif
 
 static const struct of_device_id mcupm_of_match[] = {
 	{ .compatible = "mediatek,mcupm", },
@@ -807,6 +827,10 @@ static struct platform_driver mtk_mcupm_driver = {
 		.name = "mcupm",
 		.owner = THIS_MODULE,
 		.of_match_table = mcupm_of_match,
+#ifdef CONFIG_PM
+		.pm = &mt6779_mcupm_dev_pm_ops,
+#endif
+
 	},
 	.id_table = mcupm_id_table,
 };
@@ -880,6 +904,11 @@ static int __init mcupm_module_init(void)
 #ifdef CONFIG_MEDIATEK_EMI
 	mcupm_lock_emi_mpu();
 #endif
+	if (mcupm_timesync_init()) {
+		pr_info("MCUPM timesync init fail\n");
+		return -1;
+	}
+
 	return 0;
 }
 

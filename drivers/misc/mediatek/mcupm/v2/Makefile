@@ -1,4 +1,5 @@
 obj-y += mcupm_driver.o
+obj-y += mcupm_timesync.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)
