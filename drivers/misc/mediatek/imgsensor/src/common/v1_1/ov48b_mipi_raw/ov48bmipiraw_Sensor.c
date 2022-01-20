@@ -1955,11 +1955,15 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		pScenarios = (MUINT32 *)((uintptr_t)(*(feature_data+1)));
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
-			*pScenarios = MSDK_SCENARIO_ID_CUSTOM1;
-			break;
+			/*
+			 **pScenarios = MSDK_SCENARIO_ID_CUSTOM1;
+			 *break;
+			 */
 		case MSDK_SCENARIO_ID_CUSTOM1:
-			*pScenarios = MSDK_SCENARIO_ID_CAMERA_PREVIEW;
-			break;
+			/*
+			 **pScenarios = MSDK_SCENARIO_ID_CAMERA_PREVIEW;
+			 *break;
+			 */
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
 		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
 		case MSDK_SCENARIO_ID_SLIM_VIDEO:
