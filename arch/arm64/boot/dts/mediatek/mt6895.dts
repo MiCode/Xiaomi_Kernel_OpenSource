@@ -1281,6 +1281,11 @@
 			clock-names = "infra-dpmaif-clk",
 				    "infra-dpmaif-blk-clk",
 				    "infra-dpmaif-rg-mmw-clk";
+			interconnects = <&dvfsrc MT6873_MASTER_NETSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+			interconnect-names = "icc-mdspd-bw";
+			required-opps = <&dvfsrc_freq_opp0>,
+					<&dvfsrc_freq_opp1>;
+			net_spd_ver = <5>;
 		};
 
 		ccifdriver:ccifdriver@10209000 {
