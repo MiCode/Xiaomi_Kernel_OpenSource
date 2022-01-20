@@ -1803,6 +1803,24 @@
 		#clock-cells = <1>;
 	};
 
+	flashlight_core: flashlight_core {
+		compatible = "mediatek,flashlight_core";
+	};
+
+	mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
+		compatible = "mediatek,mtk_composite_v4l2_1";
+		port@0 {
+			flashlight_0: endpoint {
+				remote-endpoint = <&fl_core_0>;
+			};
+		};
+		port@1 {
+			flashlight_1: endpoint {
+				remote-endpoint = <&fl_core_1>;
+			};
+		};
+	};
+
 	lvts: lvts@1100B000 {
 		compatible = "mediatek,mt6833-lvts";
 		#thermal-sensor-cells = <1>;
@@ -4927,6 +4945,12 @@
 					type = <0>;
 					ct = <0>;
 					part = <0>;
+					port@0 {
+						fl_core_0: endpoint {
+							remote-endpoint = <&flashlight_0>;
+						};
+					};
+
 				};
 				flash@1 {
 					reg = <1>;
@@ -4937,6 +4961,12 @@
 					type = <0>;
 					ct = <1>;
 					part = <0>;
+					port@1 {
+						fl_core_1: endpoint {
+							remote-endpoint = <&flashlight_1>;
+						};
+					};
+
 				};
 			};
 		};
