@@ -274,7 +274,9 @@ static int __init mtk_dbgtop_get_base_addr(void)
 void get_dfd_base(void __iomem *dfd_base, unsigned int latch_offset)
 {
 	LATCH_CTL2_OFFSET = latch_offset;
+#ifdef CONFIG_MTK_WATCHDOG_COMMON
 	DBGTOP_BASE = dfd_base;
+#endif
 	if (!DBGTOP_BASE)
 		pr_info("link RGU base failed.\n");
 	pr_info("Linked base: 0x%x\n", readl(IOMEM(DBGTOP_BASE)));
