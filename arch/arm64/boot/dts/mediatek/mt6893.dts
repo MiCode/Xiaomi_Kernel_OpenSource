@@ -256,67 +256,67 @@ page_owner=on loop.max_part=7";
 		compatible = "operating-points-v2";
 		opp-shared;
 		opp0 {
-			opp-hz = /bits/ 64 <659000>;
+			opp-hz = /bits/ 64 <659000000>;
 			opp-microvolt = <650000>;
 		};
 		opp1 {
-			opp-hz = /bits/ 64 <921000>;
+			opp-hz = /bits/ 64 <921000000>;
 			opp-microvolt = <6937500>;
 		};
 		opp2 {
-			opp-hz = /bits/ 64 <1108000>;
+			opp-hz = /bits/ 64 <1108000000>;
 			opp-microvolt = <725000>;
 		};
 		opp3 {
-			opp-hz = /bits/ 64 <1258000>;
+			opp-hz = /bits/ 64 <1258000000>;
 			opp-microvolt = <750000>;
 		};
 		opp4 {
-			opp-hz = /bits/ 64 <1370000>;
+			opp-hz = /bits/ 64 <1370000000>;
 			opp-microvolt = <768750>;
 		};
 		opp5 {
-			opp-hz = /bits/ 64 <1482000>;
+			opp-hz = /bits/ 64 <1482000000>;
 			opp-microvolt = <787500>;
 		};
 		opp6 {
-			opp-hz = /bits/ 64 <1632000>;
+			opp-hz = /bits/ 64 <1632000000>;
 			opp-microvolt = <812500>;
 		};
 		opp7 {
-			opp-hz = /bits/ 64 <1820000>;
+			opp-hz = /bits/ 64 <1820000000>;
 			opp-microvolt = <843750>;
 		};
 		opp8 {
-			opp-hz = /bits/ 64 <1998000>;
+			opp-hz = /bits/ 64 <1998000000>;
 			opp-microvolt = <875000>;
 		};
 		opp9 {
-			opp-hz = /bits/ 64 <2141000>;
+			opp-hz = /bits/ 64 <2141000000>;
 			opp-microvolt = <900000>;
 		};
 		opp10 {
-			opp-hz = /bits/ 64 <2284000>;
+			opp-hz = /bits/ 64 <2284000000>;
 			opp-microvolt = <925000>;
 		};
 		opp11 {
-			opp-hz = /bits/ 64 <2463000>;
+			opp-hz = /bits/ 64 <2463000000>;
 			opp-microvolt = <956250>;
 		};
 		opp12 {
-			opp-hz = /bits/ 64 <2600000>;
+			opp-hz = /bits/ 64 <2600000000>;
 			opp-microvolt = <981250>;
 		};
 		opp13 {
-			opp-hz = /bits/ 64 <2713000>;
+			opp-hz = /bits/ 64 <2713000000>;
 			opp-microvolt = <1000000>;
 		};
 		opp14 {
-			opp-hz = /bits/ 64 <2892000>;
+			opp-hz = /bits/ 64 <2892000000>;
 			opp-microvolt = <1031250>;
 		};
 		opp15 {
-			opp-hz = /bits/ 64 <3000000>;
+			opp-hz = /bits/ 64 <3000000000>;
 			opp-microvolt = <1050000>;
 		};
 	};
@@ -372,7 +372,7 @@ page_owner=on loop.max_part=7";
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <1024>;
+			capacity-dmips-mhz = <227>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
