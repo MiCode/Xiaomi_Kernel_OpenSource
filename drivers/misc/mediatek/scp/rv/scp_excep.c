@@ -767,7 +767,7 @@ static ssize_t scp_A_dump_show(struct file *filep,
 		memset(scp_dump.ramdump + offset, 0x0, size);
 		/* log for the first and latest cleanup */
 		if (offset == 0 || size == (scp_dump.ramdump_length - offset))
-			pr_notice("[SCP] %s ramdump cleaned of:0x%x sz:0x%x\n", __func__,
+			pr_notice("[SCP] %s ramdump cleaned of:0x%llx sz:0x%lx\n", __func__,
 				offset, size);
 
 		/* the last time read scp_dump buffer has done
