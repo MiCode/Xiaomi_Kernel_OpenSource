@@ -4,6 +4,7 @@
 */
 
 /dts-v1/;
+#include <dt-bindings/mmc/mt6768-msdc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/mmc/mt6768-msdc.h>
@@ -2227,6 +2228,32 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 			/*ap dma clock*/
 		clock-names = "btifc","apdmac";
+	};
+
+	mmc0: mmc@11230000 {
+		compatible = "mediatek,mt6768-mmc";
+		reg = <0 0x11230000 0 0x10000>,
+			<0 0x11cd0000 0 0x1000>;
+		interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&topckgen CLK_TOP_MSDC50_0>,
+			<&infracfg_ao CLK_IFR_MSDC0>,
+			<&infracfg_ao CLK_IFR_MSDC0_SRC>,
+			<&infracfg_ao CLK_IFR_FAES_FDE>;
+		clock-names = "source", "hclk", "source_cg",
+			"crypto_clk";
+		status = "disabled";
+	};
+
+	mmc1: mmc@11240000 {
+		compatible = "mediatek,mt6768-mmc";
+		reg = <0 0x11240000 0 0x10000>,
+			<0 0x11c90000 0 0x1000>;
+		interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_LOW>;
+		clocks = <&topckgen CLK_TOP_MSDC30_1>,
+			<&infracfg_ao CLK_IFR_MSDC1>,
+			<&infracfg_ao CLK_IFR_MSDC1_SRC>;
+		clock-names = "source", "hclk", "source_cg";
+		status = "disabled";
 	};
 
 	consys: consys@18002000 {

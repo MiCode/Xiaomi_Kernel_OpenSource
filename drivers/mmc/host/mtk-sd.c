@@ -817,8 +817,11 @@ static u64 msdc_timeout_cal(struct msdc_host *host, u64 ns, u64 clks)
 	if (host->mmc->actual_clock == 0) {
 		timeout = 0;
 	} else {
-		clk_ns  = 1000000000UL / host->mmc->actual_clock;
-		timeout = (ns + clk_ns - 1) / clk_ns + clks;
+		clk_ns  = 1000000000UL;
+		do_div(clk_ns, host->mmc->actual_clock);
+		timeout = (ns + clk_ns - 1);
+		do_div(timeout, clk_ns);
+		timeout += clks;
 		/* in 1048576 sclk cycle unit */
 		timeout = DIV_ROUND_UP(timeout, (0x1 << 20));
 		if (host->dev_comp->clk_div_bits == 8)
