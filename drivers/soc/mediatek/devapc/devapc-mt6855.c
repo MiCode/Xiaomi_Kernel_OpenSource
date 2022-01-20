@@ -196,6 +196,9 @@ static const char *mminfra_mi_trans(uint32_t bus_id)
 	const char *master = "UNKNOWN_MASTER_FROM_MMINFRA";
 	int i, j;
 
+	if ((bus_id & 0x7) == 0x0)
+		return infra_mi_trans(bus_id >> 3);
+
 	for (i = 0; i < master_count; i++) {
 		for (j = 0; j < MMINFRAAXI_MI_BIT_LENGTH; j++) {
 			if (mminfra_mi_id_to_master[i].bit[j] == 2)
@@ -307,7 +310,7 @@ static const char *mt6855_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 			if ((bus_id & 0x1) == 0x0)
 				return "MMUP";
 			else
-				return infra_mi_trans(bus_id >> 4);
+				return mminfra_mi_trans(bus_id >> 1);
 
 		/* DISP / MDP / DMDP slave*/
 		} else if (((vio_addr >= DISP_START_ADDR) && (vio_addr <= DISP_END_ADDR)) ||
@@ -315,13 +318,10 @@ static const char *mt6855_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 			if ((bus_id & 0x1) == 0x0)
 				return "GCED";
 			else
-				return infra_mi_trans(bus_id >> 4);
+				return mminfra_mi_trans(bus_id >> 1);
 		/* other mminfra slave*/
 		} else {
-			if ((bus_id & 0x7) == 0x0)
-				return infra_mi_trans(bus_id >> 3);
-			else
-				return mminfra_mi_trans(bus_id);
+			return mminfra_mi_trans(bus_id);
 		}
 #endif
 #if ENABLE_DEVAPC_MMUP
