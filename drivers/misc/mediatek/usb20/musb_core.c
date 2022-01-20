@@ -1489,6 +1489,10 @@ void musb_shutdown(struct platform_device *pdev)
 	#endif
 
 	DBG(0, "shut down\n");
+
+	DBG(0, "Disable musb irq.\n");
+	disable_irq_nosync(musb->nIrq);
+
 	pr_debug("%s, start to shut down\n", __func__);
 	pm_runtime_get_sync(musb->controller);
 
