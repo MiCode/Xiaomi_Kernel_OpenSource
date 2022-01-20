@@ -9,11 +9,11 @@
 /**************************************************
  * GPUFREQ Local Config
  **************************************************/
-#define GPUFREQ_BRINGUP                 (1)
+#define GPUFREQ_BRINGUP                 (0)
 /*
  * 0 -> power on once then never off and disable DDK power on/off callback
  */
-#define GPUFREQ_POWER_CTRL_ENABLE       (0)
+#define GPUFREQ_POWER_CTRL_ENABLE       (1)
 /*
  * (DVFS_ENABLE, CUST_INIT)
  * (1, 1) -> DVFS enable and init to CUST_INIT_OPPIDX
@@ -21,7 +21,7 @@
  * (0, 1) -> DVFS disable but init to CUST_INIT_OPPIDX (do DVFS only onces)
  * (0, 0) -> DVFS disable
  */
-#define GPUFREQ_DVFS_ENABLE             (0)
+#define GPUFREQ_DVFS_ENABLE             (1)
 #define GPUFREQ_CUST_INIT_ENABLE        (0)
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 /* misc setting control */
@@ -113,9 +113,9 @@ struct gpufreq_core_mask_info g_core_mask_table[] = {
 #define VSRAM_MIN_VOLT                  (50000)         /* mV x 100 */
 #define PMIC_STEP                       (625)           /* mV x 100 */
 /*
- * (0)mv <= (VSRAM - VGPU) <= (350)mV
+ * (0)mv <= (VSRAM - VGPU) <= (200)mV
  */
-#define MAX_BUCK_DIFF                   (35000)         /* mV x 100 */
+#define MAX_BUCK_DIFF                   (20000)         /* mV x 100 */
 #define MIN_BUCK_DIFF                   (0)        /* mV x 100 */
 /*
  * (Vgpu > THRESH): Vsram = Vgpu + DIFF

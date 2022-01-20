@@ -621,16 +621,10 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 
 	mutex_lock(&gpufreq_lock);
 
-	/* GPUFREQ_LOGD("switch power: %s (Power: %d, Buck: %d, MTCMOS: %d, CG: %d)",
-	 *	power ? "On" : "Off",
-	 *	g_gpu.power_count, g_gpu.buck_count,
-	 *	g_gpu.mtcmos_count, g_gpu.cg_count);
-	 */
-
-	GPUFREQ_LOGI("addfordebug: %s (Power: %d, Buck: %d, MTCMOS: %d, CG: %d)",
-		power ? "On" : "Off",
-		g_gpu.power_count, g_gpu.buck_count,
-		g_gpu.mtcmos_count, g_gpu.cg_count);
+	GPUFREQ_LOGD("switch power: %s (Power: %d, Buck: %d, MTCMOS: %d, CG: %d)",
+			power ? "On" : "Off",
+			g_gpu.power_count, g_gpu.buck_count,
+			g_gpu.mtcmos_count, g_gpu.cg_count);
 
 	if (power == POWER_ON) {
 		g_gpu.power_count++;
@@ -1322,7 +1316,6 @@ static int __gpufreq_switch_clksrc(enum gpufreq_clk_src clksrc)
 	int ret = GPUFREQ_SUCCESS;
 
 	GPUFREQ_TRACE_START("clksrc=%d", clksrc);
-	GPUFREQ_LOGI("addfordebug: clksrc=%d, CLOCK_SUB=%d", clksrc, CLOCK_SUB);
 
 	ret = clk_prepare_enable(g_clk->clk_mux);
 	if (unlikely(ret)) {
@@ -1339,9 +1332,6 @@ static int __gpufreq_switch_clksrc(enum gpufreq_clk_src clksrc)
 		goto done;
 		}
 	} else if (clksrc == CLOCK_SUB) {
-		GPUFREQ_LOGI("addfordebug:fail to get (%d)g_clk->clk_mux = %ld,(%d)CLOCK_SUB= %ld",
-			IS_ERR(g_clk->clk_mux), PTR_ERR(g_clk->clk_mux),
-			IS_ERR(g_clk->clk_sub_parent), PTR_ERR(g_clk->clk_sub_parent));
 		ret = clk_set_parent(g_clk->clk_mux, g_clk->clk_sub_parent);
 		if (unlikely(ret)) {
 			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -1495,9 +1485,8 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 			goto done;
 		}
 
-		//ret = mt_dfs_general_pll(MFGPLL_FH_PLL, pcw);
 		ret = mtk_fh_set_rate(MFG_PLL_NAME, pcw, target_posdiv);
-		if (unlikely(ret)) {
+		if (unlikely(!ret)) {
 			__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION,
 				"fail to hopping pcw: 0x%x (%d)", pcw, ret);
 			goto done;
@@ -1875,11 +1864,9 @@ static int __gpufreq_clock_control(enum gpufreq_power_state power)
 		__gpufreq_external_cg_control();
 
 		g_gpu.cg_count++;
-		GPUFREQ_LOGI("addfordebug: power_on:g_gpu.cg_count = %d ", g_gpu.cg_count);
 	} else {
 		clk_disable_unprepare(g_clk->subsys_bg3d);
 		g_gpu.cg_count--;
-		GPUFREQ_LOGI("addfordebug: power_off:g_gpu.cg_count = %d ", g_gpu.cg_count);
 	}
 
 done:
@@ -2120,7 +2107,6 @@ static int __gpufreq_init_opp_idx(void)
 
 	GPUFREQ_TRACE_START();
 
-	GPUFREQ_LOGE("addfordebug: enter %s", __func__);
 	/* get current GPU OPP idx by freq set in preloader */
 	cur_freq = __gpufreq_get_real_fgpu();
 	GPUFREQ_LOGI("preloader init freq: %d", cur_freq);
@@ -2808,7 +2794,7 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 	segment_id = g_gpu.segment_id;
 	/* for mt6789 swrgo */
 	if (segment_id == MT6833_SEGMENT)
-		g_gpu.segment_upbound = 12;
+		g_gpu.segment_upbound = 11;
 	else
 		g_gpu.segment_upbound = 8;
 	g_gpu.segment_lowbound = SIGNED_OPP_GPU_NUM - 1;
@@ -3389,6 +3375,7 @@ static int __gpufreq_pdrv_remove(struct platform_device *pdev)
 #endif /* GPUFREQ_MFG1_CONTROL_ENABLE */
 
 	kfree(g_gpu.working_table);
+	kfree(g_gpu.sb_table);
 	kfree(g_clk);
 	kfree(g_pmic);
 	kfree(g_mtcmos);
