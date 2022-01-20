@@ -106,9 +106,9 @@ uint32_t memorydump_size_probe(struct platform_device *pdev)
 }
 #endif
 
-void vcp_dump_last_regs(void)
+void vcp_dump_last_regs(int mmup_enable)
 {
-	if (mmup_enable_count() == 0) {
+	if (mmup_enable == 0) {
 		pr_notice("[VCP] power off, do not vcp_dump_last_regs\n");
 		return;
 	}
@@ -437,7 +437,7 @@ static void vcp_prepare_aed_dump(char *aed_str, enum vcp_core_id id)
 	size_t offset = 0;
 
 	pr_debug("[VCP] %s begins:%s\n", __func__, aed_str);
-	vcp_dump_last_regs();
+	vcp_dump_last_regs(mmup_enable_count());
 
 	vcp_A_log = vcp_pickup_log_for_aee();
 

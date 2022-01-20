@@ -182,7 +182,7 @@ extern unsigned int vcp_dbg_log;
 int vcp_excep_init(void);
 void vcp_ram_dump_init(void);
 void vcp_excep_cleanup(void);
-void vcp_reset_wait_timeout(void);
+void vcp_wait_core_stop_timeout(int mmup_enable);
 
 /* vcp irq */
 extern irqreturn_t vcp_A_irq_handler(int irq, void *dev_id);

@@ -38,6 +38,7 @@
 //#include <mt-plat/aee.h>
 #include <linux/delay.h>
 #include <aee.h>
+#include <soc/mediatek/smi.h>
 #include "vcp_feature_define.h"
 #include "vcp_err_info.h"
 #include "vcp_helper.h"
@@ -563,7 +564,7 @@ static void vcp_wait_ready_timeout(struct timer_list *t)
 #endif
 	vcp_timeout_times++;
 	pr_notice("[VCP] vcp_timeout_times=%x\n", vcp_timeout_times);
-	vcp_dump_last_regs();
+	vcp_dump_last_regs(mmup_enable_count());
 }
 #endif
 
@@ -677,7 +678,7 @@ int reset_vcp(int reset)
 
 	if (reset & 0x0f) { /* do reset */
 		/* make sure vcp is in idle state */
-		vcp_reset_wait_timeout();
+		vcp_wait_core_stop_timeout(mmup_enable_count());
 	}
 	if (vcp_enable[VCP_A_ID]) {
 		/* write vcp reserved memory address/size to GRP1/GRP2
@@ -716,12 +717,13 @@ uint32_t vcp_wait_ready_sync(enum feature_id id)
 		i += 5;
 		mdelay(5);
 		if (i > VCP_SYNC_TIMEOUT_MS) {
-			pr_info("[VCP] wait ready timeout id %d\n", id);
-			vcp_dump_last_regs();
+			vcp_dump_last_regs(1);
 			for (j = 0; j < NUM_FEATURE_ID; j++)
 				if (feature_table[j].enable)
 					pr_info("[VCP] Active feature id %d cnt\n",
 						j, feature_table[j].enable);
+			mtk_smi_dbg_hang_detect("VCP");
+			vcp_aee_print("wait ready timeout id %d\n", id);
 			break;
 		}
 	}
@@ -805,11 +807,13 @@ void vcp_disable_pm_clk(enum feature_id id)
 #if VCP_RECOVERY_SUPPORT
 		flush_workqueue(vcp_reset_workqueue);
 #endif
-		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x, waitCnt=%u\n", VCP_BUS_DEBUG_OUT,
-			readl(VCP_BUS_DEBUG_OUT), waitCnt);
 #if VCP_BOOT_TIME_OUT_MONITOR
 		del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
+		vcp_wait_core_stop_timeout(1);
+		pr_info("[VCP][Debug] bus_dbg_out[0x%x]: 0x%x, waitCnt=%u\n", VCP_BUS_DEBUG_OUT,
+			readl(VCP_BUS_DEBUG_OUT), waitCnt);
+
 		vcp_disable_dapc();
 		ret = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (ret)
@@ -862,6 +866,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 #if VCP_BOOT_TIME_OUT_MONITOR
 			del_timer(&vcp_ready_timer[VCP_A_ID].tl);
 #endif
+			vcp_wait_core_stop_timeout(1);
 			vcp_disable_dapc();
 			retval = pm_runtime_put_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 			if (retval)
@@ -975,7 +980,7 @@ static inline ssize_t vcp_A_reg_status_show(struct device *kobj
 {
 	int len = 0;
 
-	vcp_dump_last_regs();
+	vcp_dump_last_regs(mmup_enable_count());
 	len += scnprintf(buf + len, PAGE_SIZE - len,
 		"c0_status = %08x\n", c0_m->status);
 	len += scnprintf(buf + len, PAGE_SIZE - len,
@@ -1699,33 +1704,40 @@ void vcp_awake_init(void)
 	vcp_reset_awake_counts();
 }
 
-void vcp_reset_wait_timeout(void)
+void vcp_wait_core_stop_timeout(int mmup_enable)
 {
 	uint32_t core0_halt = 0;
 	uint32_t core1_halt = 0;
+	uint32_t val = 0;
 	/* make sure vcp is in idle state */
-	int timeout = 50; /* max wait 1s */
+	int timeout = 500; /* max wait 0.5s */
 
-	if (mmup_enable_count() == 0) {
+	if (mmup_enable == 0) {
 		pr_notice("[VCP] power off, do not wait reset done\n");
 		return;
 	}
 
 	while (timeout--) {
-		core0_halt = readl(R_CORE0_STATUS) & B_CORE_HALT;
+		val = readl(R_CORE0_STATUS);
+		core0_halt = (val == (B_CORE_GATED | B_HART0_HALT | B_HART1_HALT));
+		val = readl(R_CORE1_STATUS);
 		core1_halt = (vcpreg.core_nums == 2) ?
-			(readl(R_CORE1_STATUS) & B_CORE_HALT) : 1;
+			(val == (B_CORE_GATED | B_HART0_HALT | B_HART1_HALT)) : 1;
+
+		pr_debug("[VCP] debug CORE_STATUS vcp: 0x%x, 0x%x\n",
+			readl(R_CORE0_STATUS), readl(R_CORE1_STATUS));
 		if (core0_halt && core1_halt) {
 			/* VCP stops any activities
 			 * and parks at wfi
 			 */
 			break;
 		}
-		mdelay(20);
+		mdelay(1);
 	}
 
 	if (timeout == 0)
-		pr_notice("[VCP] reset timeout, still reset vcp\n");
+		pr_notice("[VCP] reset timeout, still reset vcp: 0x%x, 0x%x\n",
+			readl(R_CORE0_STATUS), readl(R_CORE1_STATUS));
 
 }
 
@@ -1805,7 +1817,7 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	} else {
 		/* reset type vcp WDT or CMD*/
 		/* make sure vcp is in idle state */
-		vcp_reset_wait_timeout();
+		vcp_wait_core_stop_timeout(mmup_enable_count());
 		arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
 			MTK_TINYSYS_VCP_KERNEL_OP_RESET_SET,
 			1, 0, 0, 0, 0, 0, &res);
