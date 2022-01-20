@@ -1752,29 +1752,40 @@ static void ut_init()
 
 static void destroy_ut_task(struct mml_task *task)
 {
-	mml_pq_msg("destroy mml_task for PQ UT [%lu.%lu]",
+	mml_pq_log("destroy mml_task for PQ UT [%lu.%lu]",
 		task->end_time.tv_sec, task->end_time.tv_nsec);
 	list_del(&task->entry);
 	ut_task_cnt--;
+	kfree(task->config);
 	kfree(task);
 }
 
 static int run_ut_task_threaded(void *data)
 {
 	struct mml_task *task = data;
+	struct mml_task *task_check = mml_core_create_task();
 	s32 ret;
 
-	pr_notice("start run mml_task for PQ UT [%lu.%lu]\n",
+	mml_pq_log("start run mml_task for PQ UT [%lu.%lu]\n",
 		task->end_time.tv_sec, task->end_time.tv_nsec);
 
+	if (memcmp(task, task_check, sizeof(struct mml_task)))
+		mml_pq_err("task check error");
+
+	task->config = kzalloc(sizeof(struct mml_frame_config), GFP_KERNEL);
+
+	if (!task->config)
+		goto exit;
+
 	ret = mml_pq_set_tile_init(task);
-	pr_notice("tile_init result: %d\n", ret);
+	mml_pq_log("tile_init result: %d\n", ret);
 
 	ret = mml_pq_get_tile_init_result(task, 100);
-	pr_notice("get result result: %d\n", ret);
+	mml_pq_log("get result: %d\n", ret);
 
 	mml_pq_put_tile_init_result(task);
 
+exit:
 	destroy_ut_task(task);
 	return 0;
 }
@@ -1784,17 +1795,17 @@ static void create_ut_task(const char *case_name)
 	struct mml_task *task = mml_core_create_task();
 	struct task_struct *thr;
 
-	pr_notice("start create task for %s\n", case_name);
+	mml_pq_log("start create task for %s\n", case_name);
 	INIT_LIST_HEAD(&task->entry);
 	ktime_get_ts64(&task->end_time);
 	list_add_tail(&task->entry, &ut_mml_tasks);
 	ut_task_cnt++;
 
-	pr_notice("created mml_task for PQ UT [%lu.%lu]\n",
+	mml_pq_log("[mml] created mml_task for PQ UT [%lu.%lu]\n",
 		task->end_time.tv_sec, task->end_time.tv_nsec);
 	thr = kthread_run(run_ut_task_threaded, task, case_name);
 	if (IS_ERR(thr)) {
-		pr_notice("create thread failed, thread:%s\n", case_name);
+		mml_pq_err("create thread failed, thread:%s\n", case_name);
 		destroy_ut_task(task);
 	}
 }
@@ -1806,21 +1817,21 @@ static s32 ut_set(const char *val, const struct kernel_param *kp)
 	ut_init();
 	result = sscanf(val, "%d", &ut_case);
 	if (result != 1) {
-		pr_notice("invalid input: %s, result(%d)\n", val, result);
+		mml_pq_err("invalid input: %s, result(%d)\n", val, result);
 		return -EINVAL;
 	}
-	pr_notice("%s: case_id=%d\n", __func__, ut_case);
+	mml_pq_log("[mml] %s: case_id=%d\n", __func__, ut_case);
 
 	switch (ut_case) {
 	case 0:
 		create_ut_task("basic_pq");
 		break;
 	default:
-		pr_notice("invalid case_id: %d\n", ut_case);
+		mml_pq_err("invalid case_id: %d\n", ut_case);
 		break;
 	}
 
-	pr_notice("%s END\n", __func__);
+	mml_pq_log("%s END\n", __func__);
 	return 0;
 }
 
