@@ -148,6 +148,10 @@ s32 mtk_mmqos_system_qos_update(unsigned short qos_status)
 {
 	struct mtk_mmqos *mmqos = gmmqos;
 
+	if (IS_ERR_OR_NULL(mmqos)) {
+		pr_notice("%s is not ready\n", __func__);
+		return 0;
+	}
 	mmqos->qos_bound = (qos_status > QOS_BOUND_BW_FREE);
 	mmqos_update_setting(mmqos);
 
