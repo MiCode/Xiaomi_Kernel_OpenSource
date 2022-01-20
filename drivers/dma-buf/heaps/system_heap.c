@@ -693,6 +693,12 @@ static struct dma_buf *system_heap_do_allocate(struct dma_heap *heap,
 	int i, ret = -ENOMEM;
 	struct task_struct *task = current->group_leader;
 
+	if (len / PAGE_SIZE > totalram_pages()) {
+		pr_info("%s error: len %ld is more than %ld\n",
+			__func__, len, totalram_pages() * PAGE_SIZE);
+		return ERR_PTR(-ENOMEM);
+	}
+
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer)
 		return ERR_PTR(-ENOMEM);
