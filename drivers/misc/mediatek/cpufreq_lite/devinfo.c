@@ -6,14 +6,15 @@
  * Tungchen Shih <tungchen.shih@mediatek.com>
  */
 
+#include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
-#include <linux/iopoll.h>
-#include <linux/nvmem-consumer.h>
+#include <linux/slab.h>
 static const uint16_t devinfo_table[] = {
 	3539,   492,    1038,   106,    231,    17,     46,     2179,
 	4,      481,    1014,   103,    225,    17,     45,     2129,
@@ -83,6 +84,7 @@ int mtk_devinfo_init(struct platform_device *pdev)
 		}
 	}
 	writel_relaxed(0x5a5a55aa, dev_base);
+	kfree(buf);
 	return 0;
 }
 MODULE_DESCRIPTION("MTK CPU DVFS Platform Driver v0.1.1");
