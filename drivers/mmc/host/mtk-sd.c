@@ -2635,11 +2635,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (!mmc)
 		return -ENOMEM;
 
-	if (mmc->index == 0)
-		device_rename(mmc->parent, "bootdevice");
-	else if (mmc->index == 1)
-		device_rename(mmc->parent, "externdevice");
-
 	host = mmc_priv(mmc);
 	ret = mmc_of_parse(mmc);
 	if (ret)
