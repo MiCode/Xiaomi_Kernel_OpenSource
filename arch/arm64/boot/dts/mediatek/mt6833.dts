@@ -4271,6 +4271,10 @@
 		compatible = "mediatek,mt6833-iommu-debug";
 	};
 
+	mtk-iommu-pseudo {
+		compatible = "mediatek,mt6833-iommu-pseudo";
+	};
+
 	mtkfb: mtkfb@0 {
 		compatible = "mediatek,mtkfb";
 	};
