@@ -16,6 +16,7 @@
 #ifdef FS_UT
 #include <stdio.h>
 #define LOG_INF(format, args...) printf(PFX "[%s] " format, __func__, ##args)
+#define LOG_PF_INF(format, args...) printf(PFX "[%s] " format, __func__, ##args)
 #define LOG_MUST(format, args...) printf(PFX "[%s] " format, __func__, ##args)
 #define LOG_PR_WARN(format, args...) printf(PFX "[%s] " format, __func__, ##args)
 #define LOG_PR_ERR(format, args...) printf(PFX "[%s] " format, __func__, ##args)
@@ -29,20 +30,16 @@
 extern unsigned int log_tracer;
 extern unsigned int pf_log_tracer;
 
-#define LOG_INF(format, args...)                                               \
-do {                                                                           \
-	if (log_tracer) {                                                      \
-		pr_info(PFX "[%s] " format, __func__, ##args);                 \
-	}                                                                      \
+
+#define DY_INFO(tracer, format, args...) \
+do { \
+	if (tracer) { \
+		pr_info(PFX "[%s] " format, __func__, ##args); \
+	} \
 } while (0)
 
-#define LOG_PF_INF(format, args...)                                            \
-do {                                                                           \
-	if (pf_log_tracer) {                                                   \
-		pr_info(PFX "[%s] " format, __func__, ##args);                 \
-	}                                                                      \
-} while (0)
-
+#define LOG_INF(format, args...) DY_INFO(log_tracer, format, args)
+#define LOG_PF_INF(format, args...) DY_INFO(pf_log_tracer, format, args)
 #define LOG_MUST(format, args...) pr_info(PFX "[%s] " format, __func__, ##args)
 
 

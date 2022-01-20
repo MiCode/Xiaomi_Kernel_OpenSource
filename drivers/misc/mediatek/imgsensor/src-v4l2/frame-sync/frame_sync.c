@@ -1409,6 +1409,8 @@ static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 				FS_READ_BITS(&fs_mgr.power_on_ccu_bits));
 #endif // REDUCE_FS_DRV_LOG
 
+			frm_reset_ccu_vsync_timestamp(idx, 0);
+
 			/* power off CCU */
 			frm_power_on_ccu(0);
 		}
@@ -1431,7 +1433,7 @@ static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 		/* power on CCU and get device handle */
 		frm_power_on_ccu(1);
 
-		frm_reset_ccu_vsync_timestamp(idx);
+		frm_reset_ccu_vsync_timestamp(idx, 1);
 	}
 #endif // USING_CCU && DELAY_CCU_OP
 
@@ -2069,7 +2071,13 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 	}
 
 
-	/* 0. convert cammux id to ccu tg id */
+#ifdef USING_CCU
+	/* 0. check ccu pwr ON, and disable INT(previous tg) */
+	if (FS_CHECK_BIT(idx, &fs_mgr.power_on_ccu_bits))
+		frm_reset_ccu_vsync_timestamp(idx, 0);
+#endif // USING_CCU
+
+	/* 0-1 convert cammux id to ccu tg id */
 	tg = frm_convert_cammux_tg_to_ccu_tg(tg);
 
 
@@ -2102,7 +2110,7 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 		//	info.sensor_id, info.sensor_idx,
 		//	tg);
 
-		frm_reset_ccu_vsync_timestamp(idx);
+		frm_reset_ccu_vsync_timestamp(idx, 1);
 	}
 #endif // USING_CCU
 }
