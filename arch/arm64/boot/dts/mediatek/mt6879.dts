@@ -1123,7 +1123,8 @@
 		reg = <0 0x1100c000 0 0x100>, /*btif base*/
 				<0 0x11300c00 0 0x80>,/*btif tx dma base*/
 				<0 0x11300c80 0 0x80>,/*btif rx dma base*/
-				<0 0x11036010 0 0x10>;/*btif dma clock addr*/
+				<0 0x11036010 0 0x4>,/*btif dma clock addr*/
+				<0 0x11036300 0 0x4>;/*btif dma idle en addr*/
 				/*btif irq, IRQS_Sync ID, btif_irq_b*/
 		interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH 0>,
 				/*btif tx dma irq*/
