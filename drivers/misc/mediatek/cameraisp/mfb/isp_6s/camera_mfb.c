@@ -1689,6 +1689,10 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(mfb_clk.CG_MFB_IMG_4);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_MFB_IMG_4 clock\n");
+
+	// cmdq enable
+	cmdq_mbox_enable(mss_clt->chan);
+	cmdq_mbox_enable(msf_clt->chan);
 }
 
 static inline void MFB_Disable_Unprepare_ccf_clock(void)
@@ -1696,6 +1700,11 @@ static inline void MFB_Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order:
 	 * MFB clk -> CG_SCP_SYS_ISP -> CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
+
+	// cmdq disable
+	cmdq_mbox_disable(msf_clt->chan);
+	cmdq_mbox_disable(mss_clt->chan);
+
 	if (mfb_clk.CG_MFB_IMG_4 != NULL)
 		clk_disable_unprepare(mfb_clk.CG_MFB_IMG_4);
 	if (mfb_clk.CG_MFB_IMG_3 != NULL)
