@@ -190,6 +190,7 @@ static const struct of_device_id emi_icc_of_match[] = {
 	{ .compatible = "mediatek,mt8183-dvfsrc", .data = &mt8183_icc },
 	{ .compatible = "mediatek,mt6873-dvfsrc", .data = &mt6873_icc },
 	{ .compatible = "mediatek,mt6853-dvfsrc", .data = &mt6873_icc },
+	{ .compatible = "mediatek,mt6789-dvfsrc", .data = &mt6873_icc },
 	{ .compatible = "mediatek,mt6885-dvfsrc", .data = &mt6873_icc },
 	{ .compatible = "mediatek,mt6893-dvfsrc", .data = &mt6873_icc },
 	{ .compatible = "mediatek,mt6833-dvfsrc", .data = &mt6873_icc },
