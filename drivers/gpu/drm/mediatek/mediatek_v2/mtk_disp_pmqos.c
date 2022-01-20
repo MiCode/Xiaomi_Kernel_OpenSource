@@ -21,7 +21,7 @@ static struct drm_crtc *dev_crtc;
 /* add for mm qos */
 static struct regulator *mm_freq_request;
 static u32 *g_freq_steps;
-static int g_freq_level[CRTC_NUM] = {-1};
+static int g_freq_level[CRTC_NUM] = {-1, -1, -1};
 static long g_freq;
 static int step_size = 1;
 

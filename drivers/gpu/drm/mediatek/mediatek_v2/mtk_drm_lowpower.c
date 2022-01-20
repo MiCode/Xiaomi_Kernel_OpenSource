@@ -488,6 +488,8 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	bool mode = mtk_crtc_is_dc_mode(crtc);
 	struct mtk_drm_private *priv =
 				mtk_crtc->base.dev->dev_private;
+	struct mtk_ddp_comp *output_comp = NULL;
+	int en = 0;
 
 	DDPINFO("%s, crtc%d+\n", __func__, crtc_id);
 
@@ -508,23 +510,29 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 			MTK_DRM_OPT_MMQOS_SUPPORT))
 		mtk_disp_set_hrt_bw(mtk_crtc, 0);
 
-	/* 4. disconnect path */
+	/* 4. Release MMCLOCK request */
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp)
+		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
+				&en);
+
+	/* 5. disconnect path */
 	mtk_crtc_disconnect_default_path(mtk_crtc);
 
-	/* 5. power off all modules in this CRTC */
+	/* 6. power off all modules in this CRTC */
 	mtk_crtc_ddp_unprepare(mtk_crtc);
 	mtk_drm_idlemgr_disable_connector(crtc);
 
 	drm_crtc_vblank_off(crtc);
 
 	mtk_crtc_vblank_irq(&mtk_crtc->base);
-	/* 6. power off MTCMOS */
+	/* 7. power off MTCMOS */
 	mtk_drm_top_clk_disable_unprepare(crtc->dev);
 
-	/* 7. disable fake vsync if need */
+	/* 8. disable fake vsync if need */
 	mtk_drm_fake_vsync_switch(crtc, false);
 
-	/* 8. CMDQ power off */
+	/* 9. CMDQ power off */
 	cmdq_mbox_disable(mtk_crtc->gce_obj.client[CLIENT_CFG]->chan);
 
 	DDPINFO("crtc%d do %s-\n", crtc_id, __func__);
@@ -540,6 +548,8 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	bool mode = mtk_crtc_is_dc_mode(crtc);
 	struct mtk_ddp_comp *comp;
 	unsigned int i, j;
+	struct mtk_ddp_comp *output_comp = NULL;
+	int en = 1;
 
 	DDPINFO("crtc%d do %s+\n", crtc_id, __func__);
 
@@ -598,10 +608,17 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 		mtk_disp_set_hrt_bw(mtk_crtc,
 			mtk_crtc->qos_ctx->last_hrt_req);
 
-	/* 10. set vblank */
+	/* 10. Request MMClock */
+	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (output_comp)
+		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
+				&en);
+
+	/* 11. set vblank */
 	drm_crtc_vblank_on(crtc);
 
-	/* 11. enable fake vsync if need */
+	/* 12. enable fake vsync if need */
 	mtk_drm_fake_vsync_switch(crtc, true);
 
 	DDPINFO("crtc%d do %s-\n", crtc_id, __func__);

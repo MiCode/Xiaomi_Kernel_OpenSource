@@ -974,6 +974,8 @@ bool mtk_crtc_with_sodi_loop(struct drm_crtc *crtc);
 void mtk_crtc_stop_sodi_loop(struct drm_crtc *crtc);
 void mtk_crtc_start_sodi_loop(struct drm_crtc *crtc);
 
+int mtk_crtc_attach_ddp_comp(struct drm_crtc *crtc, int ddp_mode,
+			     bool is_attach);
 void mtk_crtc_change_output_mode(struct drm_crtc *crtc, int aod_en);
 int mtk_crtc_user_cmd(struct drm_crtc *crtc, struct mtk_ddp_comp *comp,
 		unsigned int cmd, void *params);
