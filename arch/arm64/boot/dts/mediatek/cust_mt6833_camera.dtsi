@@ -481,3 +481,13 @@
 	};
 };
 /* CAMERA EEPROM end */
+
+/* CAMERA AF */
+&camera_af_hw_node {
+	camaf_m1_pmic-supply = <&mt6359p_vcamio_reg>;
+	camaf_m2_pmic-supply = <&mt6359p_vcamio_reg>;
+	camaf_m3_pmic-supply = <&mt6359p_vcamio_reg>;
+	status = "okay";
+};
+/* CAMERA AF end */
+

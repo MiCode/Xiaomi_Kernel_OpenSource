@@ -1915,6 +1915,10 @@
 		};
 	};
 
+	camera_af_hw_node: camera_af_hw_node {
+		compatible = "mediatek,camera_af_lens";
+	};
+
 	lvts: lvts@1100B000 {
 		compatible = "mediatek,mt6833-lvts";
 		#thermal-sensor-cells = <1>;
