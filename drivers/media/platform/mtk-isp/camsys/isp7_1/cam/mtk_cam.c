@@ -5299,6 +5299,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 					mtk_cam_is_m2m(ctx))) {
 				if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) {
 					mtk_cam_mstream_initial_sensor_setup(req, ctx);
+					ctx->next_sof_frame_seq_no = 1;
 				} else {
 					mtk_cam_initial_sensor_setup(req, ctx);
 				}
