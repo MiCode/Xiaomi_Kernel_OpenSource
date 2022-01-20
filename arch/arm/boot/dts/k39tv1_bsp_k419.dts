@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2019 MediaTek Inc.
- *
  */
-
 #include <generated/autoconf.h>
 /dts-v1/;
 
@@ -121,10 +119,10 @@
 		polling_mode_als = <1>;
 		power_id = <0xffff>;
 		power_vol = <0>;
-		als_level = <0 328 861 1377 3125 7721 7767 12621 23062 28430
-				33274 47116 57694 57694 65535>;
-		als_value = <0 133 304 502 1004 2005 3058 5005 8008 10010
-				12000 16000 20000 20000 20000 20000>;
+		als_level = <0 328 861 1377 3125 7721 7767 12621 23062
+				28430 33274 47116 57694 57694 65535>;
+		als_value = <0 133 304 502 1004 2005 3058 5005 8008
+				10010 12000 16000 20000 20000 20000 20000>;
 		ps_threshold_high = <26>;
 		ps_threshold_low = <21>;
 		is_batch_supported_ps = <0>;
@@ -237,6 +235,7 @@
 };
 /* DISPSYS GPIO standardization end */
 
+
 /* accdet start */
 &accdet {
 	/* accdet micbias voltage: 0x07,2.7v;0x05,2.5v;0x02,1.9v */
@@ -255,25 +254,6 @@
 	status = "okay";
 };
 /* accdet end */
-
-/* keypad start */
-&keypad {
-	pinctrl-names = "default";
-	pinctrl-0 = <&kpd_pins_default>;
-};
-
-&pio {
-	kpd_pins_default: kpdgpiodefault {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO120__FUNC_KP0COL>;
-			bias-pull-up = <MTK_PUPD_SET_R1R0_10>;
-			input-enable;
-			input-schmitt-enable;
-		};
-	};
-};
-/* keypad end */
-
 
 /* CONSYS GPIO standardization */
 &pio {
@@ -572,6 +552,6 @@
 };
 /* AUDIO end */
 
-#include <k39tv1_bsp_1g_k419/cust.dtsi>
+#include <k39tv1_bsp_k419/cust.dtsi>
 #include "cust_mt6739_camera.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/

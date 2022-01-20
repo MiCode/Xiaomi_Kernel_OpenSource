@@ -32,7 +32,7 @@
 &pio {
 	ctp_pins_default: eint0default {
 	};
-	ctp_pins_eint_as_int: eint@0 {
+	ctp_pins_eint_as_int: eint1touch@0 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
 			input-enable;

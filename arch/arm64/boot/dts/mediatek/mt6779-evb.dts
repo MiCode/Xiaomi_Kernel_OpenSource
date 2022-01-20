@@ -158,7 +158,7 @@
 	/* set touch eint and reset gpio status*/
 	ctp_pins_default: eint0default {
 	};
-	ctp_pins_eint_as_int: eint@0 {
+	ctp_pins_eint_as_int: eint1touch@0 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
 			input-enable;

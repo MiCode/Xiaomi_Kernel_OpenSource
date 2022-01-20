@@ -23,7 +23,7 @@
 			drive-strength=<4>;
 		};
 	};
-	ctp_pins_eint_as_int: eint@0 {
+	ctp_pins_eint_as_int: eint1touch@0 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
 			slew-rate = <0>;
