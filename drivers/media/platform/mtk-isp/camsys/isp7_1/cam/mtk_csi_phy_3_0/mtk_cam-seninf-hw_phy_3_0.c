@@ -719,9 +719,9 @@ static int mtk_cam_seninf_set_cammux_next_ctrl(struct seninf_ctx *ctx, int src, 
 
 
 static int mtk_cam_seninf_set_cammux_src(struct seninf_ctx *ctx, int src, int target,
-				  int exp_hsize, int exp_vsize)
+				  int exp_hsize, int exp_vsize, int dt)
 {
-
+	int exp_dt_hsize = exp_hsize;
 	void *pSeninf_cam_mux_pcsr = NULL;
 
 	if (target >= _seninf_ops->cam_mux_num) {
@@ -733,15 +733,19 @@ static int mtk_cam_seninf_set_cammux_src(struct seninf_ctx *ctx, int src, int ta
 	}
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[target];
 
-#if	DEBUG_CAM_MUX_SWITCH
+	/* two times width size when yuv422 */
+	if (dt == 0x1f)
+		exp_dt_hsize = exp_hsize << 1;
 
-	dev_info(ctx->dev, "%s cam_mux %d src %d exp_hsize %d, exp_hsize %d\n",
-		__func__, target, src, exp_hsize, exp_vsize);
+#if	DEBUG_CAM_MUX_SWITCH
+	dev_info(ctx->dev, "%s cam_mux %d src %d exp_hsize %d / %d, exp_vsize %d, dt 0x%x\n",
+		__func__, target, src, exp_hsize, exp_dt_hsize, exp_vsize, dt);
 #endif
+
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL,
 					RG_SENINF_CAM_MUX_PCSR_SRC_SEL, src);
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CHK_CTL,
-					RG_SENINF_CAM_MUX_PCSR_EXP_HSIZE, exp_hsize);
+					RG_SENINF_CAM_MUX_PCSR_EXP_HSIZE, exp_dt_hsize);
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CHK_CTL,
 					RG_SENINF_CAM_MUX_PCSR_EXP_VSIZE, exp_vsize);
 	return 0;
@@ -998,7 +1002,7 @@ static int mtk_cam_seninf_set_test_model(struct seninf_ctx *ctx,
 	mtk_cam_seninf_set_top_mux_ctrl(ctx, mux, intf);
 
 	mtk_cam_seninf_set_cammux_vc(ctx, cam_mux, 0, 0, 0, 0);
-	mtk_cam_seninf_set_cammux_src(ctx, mux, cam_mux, 0, 0);
+	mtk_cam_seninf_set_cammux_src(ctx, mux, cam_mux, 0, 0, 0);
 	mtk_cam_seninf_set_cammux_chk_pixel_mode(ctx, cam_mux, pixel_mode);
 	mtk_cam_seninf_cammux(ctx, cam_mux);
 
@@ -2970,7 +2974,10 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
 			vc = &ctx->vcinfo.vc[i];
 			pmux = ctx->reg_if_mux[vc->mux];
-			pcammux = ctx->reg_if_cam_mux_pcsr[vc->cam];
+			if (vc->cam < _seninf_ops->cam_mux_num)
+				pcammux = ctx->reg_if_cam_mux_pcsr[vc->cam];
+			else
+				pcammux = NULL;
 			SHOW(buf, len,
 			     "[%d] vc 0x%x dt 0x%x mux %d cam %d\n",
 				i, vc->vc, vc->dt, vc->mux, vc->cam);
@@ -2982,15 +2989,17 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 				SENINF_READ_REG(pmux, SENINF_MUX_IRQ_STATUS));
 			SHOW(buf, len, "\t\tfifo_overrun_cnt : <%d>\n",
 				ctx->fifo_overrun_cnt);
-			SHOW(buf, len,
-			     "\tcam[%d] en %d src %d exp 0x%x res 0x%x err 0x%x irq_stat 0x%x\n",
-				vc->cam,
-				_seninf_ops->_is_cammux_used(ctx, vc->cam),
-				_seninf_ops->_get_cammux_ctrl(ctx, vc->cam),
-				mtk_cam_seninf_get_cammux_exp(ctx, vc->cam),
-				mtk_cam_seninf_get_cammux_res(ctx, vc->cam),
-				mtk_cam_seninf_get_cammux_err(ctx, vc->cam),
-				SENINF_READ_REG(pcammux, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
+			if (pcammux) {
+				SHOW(buf, len,
+				     "\tcam[%d] en %d src %d exp 0x%x res 0x%x err 0x%x irq_stat 0x%x\n",
+				     vc->cam,
+				     _seninf_ops->_is_cammux_used(ctx, vc->cam),
+				     _seninf_ops->_get_cammux_ctrl(ctx, vc->cam),
+				     mtk_cam_seninf_get_cammux_exp(ctx, vc->cam),
+				     mtk_cam_seninf_get_cammux_res(ctx, vc->cam),
+				     mtk_cam_seninf_get_cammux_err(ctx, vc->cam),
+				     SENINF_READ_REG(pcammux, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
+			}
 			SHOW(buf, len, "\t\tsize_err_cnt : <%d>\n",
 				ctx->size_err_cnt);
 
