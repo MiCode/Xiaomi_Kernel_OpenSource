@@ -5008,6 +5008,7 @@
 			charger = <&mt6375_chg>;
 			tcpc = "type_c_port0";
 			mediatek,bypss-typec-sink = <1>;
+			mediatek,u2;
 			port {
 				usb_role: endpoint@0 {
 					remote-endpoint = <&musb_drd_switch>;
