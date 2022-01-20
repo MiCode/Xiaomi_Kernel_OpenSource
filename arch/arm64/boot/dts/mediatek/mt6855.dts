@@ -2335,7 +2335,7 @@
 			compatible = "mediatek,mt6895-spmi_pmif_mpu";
 			reg = <0 0x1c804900 0 0x000500>;
 			reg-names = "pmif_mpu";
-			mediatek,pmic_all_rgn_en = <0x60400>;
+			mediatek,pmic_all_rgn_en = <0x60401>;
 		};
 
 		sleep@1c001000 {
@@ -8139,6 +8139,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	regulator-always-on;
 };
 
+&mt6363_vbuck3 {
+	regulator-always-on;
+};
+
 &mt6363_vbuck4 {
 	regulator-always-on;
 };
@@ -8148,6 +8152,10 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 };
 
 &mt6363_vbuck6 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck7 {
 	regulator-always-on;
 };
 
