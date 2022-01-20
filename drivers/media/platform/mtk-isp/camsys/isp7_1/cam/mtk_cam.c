@@ -7485,7 +7485,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 	int timeout;
 	static u64 last_vsync_count;
 	bool is_abnormal_vsync = false;
-	unsigned int int_en;
+	unsigned int int_en, dequeued_frame_seq_no;
 
 	ctx = container_of(work, struct mtk_cam_ctx, watchdog_work);
 	seninf = ctx->seninf;
@@ -7502,6 +7502,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 	if (last_vsync_count == raw->vsync_count)
 		is_abnormal_vsync = true;
 	last_vsync_count = raw->vsync_count;
+	dequeued_frame_seq_no = readl_relaxed(raw->base_inner + REG_FRAME_SEQ_NUM);
 	/**
 	 * Current we just call seninf dump, but it is better to check
 	 * and restart the stream in the future.
@@ -7522,7 +7523,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 				dev_info(ctx->cam->dev, "%s:abnormal vsync\n");
 			atomic_set(&ctx->watchdog_dumped, 1); // fixme
 			atomic_set(&ctx->watchdog_cnt, 0);
-			mtk_cam_seninf_dump(seninf);
+			mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no);
 			atomic_set(&ctx->watchdog_cnt, 0);
 			atomic_inc(&ctx->watchdog_dump_cnt);
 			atomic_set(&ctx->watchdog_dumped, 0);

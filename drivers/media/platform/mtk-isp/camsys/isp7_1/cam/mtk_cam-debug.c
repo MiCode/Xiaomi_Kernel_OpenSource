@@ -932,10 +932,22 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 	struct mtk_cam_ctx *ctx = mtk_cam_s_data_get_ctx(s_data);
 	int ret;
 	bool streamoff;
+	u64 frame_time = mtk_cam_seninf_get_frame_time(ctx->seninf, s_data->frame_seq_no);
+	u64 timeout;
+
+	if (frame_time > 0)
+		timeout = msecs_to_jiffies((frame_time/1000000) * 8);
+	else
+		timeout = msecs_to_jiffies(1000 / 30 * 8);
+
+	dev_info(ctx->cam->dev,
+				"%s:ctx(%d):%s:req(%d) sensor frame_time(%ld) ns\n",
+				__func__, ctx->stream_id, req->req.debug_str,
+				s_data->frame_seq_no, frame_time);
 
 	ret = wait_event_freezable_timeout(ctx->cam->debug_exception_waitq,
 					   mtk_cam_exceptoin_is_job_done(s_data, &streamoff),
-					   msecs_to_jiffies(1000 / 30 * 8));
+					   timeout);
 	if (ret) {
 		if (!streamoff) {
 			dev_info(ctx->cam->dev,
@@ -964,10 +976,10 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 	}
 
 	if (ctx->seninf) {
-		ret = mtk_cam_seninf_dump(ctx->seninf);
+		ret = mtk_cam_seninf_dump(ctx->seninf, s_data->frame_seq_no);
 		dev_info(ctx->cam->dev,
-			"%s:ctx(%d):used_raw(0x%x):mtk_cam_seninf_dump() ret=%d\n",
-			__func__, ctx->stream_id, ctx->used_raw_dev, ret);
+			"%s:ctx(%d):used_raw(0x%x) frame_seq_no(%d):mtk_cam_seninf_dump() ret=%d\n",
+			__func__, ctx->stream_id, ctx->used_raw_dev, s_data->frame_seq_no, ret);
 	} else {
 		dev_info(ctx->cam->dev, "%s: cannot find ctx->seninf\n",
 			 __func__);
@@ -1145,7 +1157,7 @@ static void mtk_cam_req_seninf_dump_work(struct work_struct *work)
 	if (!seninf)
 		pr_info("%s: filaed, seninf can't be NULL\n", __func__);
 	else
-		mtk_cam_seninf_dump(seninf);
+		mtk_cam_seninf_dump(seninf, seninf_dump_work->frame_seq_no);
 
 	kfree(seninf_dump_work);
 }
@@ -1190,6 +1202,7 @@ mtk_cam_debug_seninf_dump(struct mtk_cam_request_stream_data *s_data)
 	}
 
 	dump_work->seninf = ctx->seninf;
+	dump_work->frame_seq_no = s_data->frame_seq_no;
 	INIT_WORK(&dump_work->work, mtk_cam_req_seninf_dump_work);
 	if (!queue_work(ctx->frame_done_wq, &dump_work->work))
 		dev_info(ctx->cam->dev,
