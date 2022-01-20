@@ -480,14 +480,15 @@ void mtk_irq_time_handle(struct work_struct *data)
 
 	mtk_irq_work->is_busy = true;
 
-	DDPINFO("%s > 500 us, [%d]:\n",
-		mtk_dump_comp_str_id(mtk_irq_work->comp_id), mtk_irq_work->number);
+	mtk_dprec_logger_pr(DPREC_LOGGER_STATUS, "%s > %d us, [%d]:\n",
+		mtk_dump_comp_str_id(mtk_irq_work->comp_id),
+		MTK_IRQ_TS_THRESHOLD/1000, mtk_irq_work->number);
 	for (i = 0; i < MTK_IRQ_TS_MAX && mtk_irq_work->irq_time[i].line != 0; i++)
-		DDPINFO("[%d]%llu ns\n",
+		mtk_dprec_logger_pr(DPREC_LOGGER_STATUS, "[%d]%llu ns\n",
 		mtk_irq_work->irq_time[i].line, mtk_irq_work->irq_time[i].ts);
 
 	if (i > 0)
-		DDPINFO("total : %llu ns\n",
+		mtk_dprec_logger_pr(DPREC_LOGGER_STATUS, "total : %llu ns\n",
 		mtk_irq_work->irq_time[i - 1].ts - mtk_irq_work->irq_time[0].ts);
 
 	for (i = 0; i < MTK_IRQ_TS_MAX; i++) {    //clean

@@ -510,6 +510,7 @@ struct mtk_ddp_comp_funcs {
 
 #define MTK_IRQ_TS_MAX 20
 #define MTK_IRQ_WORK_MAX 3
+#define MTK_IRQ_TS_THRESHOLD 500000ULL
 
 struct mtk_irq_ts {
 	unsigned long long ts;
@@ -541,7 +542,8 @@ struct mtk_irq_ts {
 	{ \
 		if (find_work == true && i > 0 && \
 			(ddp_comp.ts_works[work_id].irq_time[i - 1].ts \
-				- ddp_comp.ts_works[work_id].irq_time[0].ts >= 500000ULL)) { \
+				- ddp_comp.ts_works[work_id].irq_time[0].ts \
+				>= MTK_IRQ_TS_THRESHOLD)) { \
 			if (i < MTK_IRQ_TS_MAX) { \
 				ddp_comp.ts_works[work_id].irq_time[i].ts = 0;	\
 				ddp_comp.ts_works[work_id].irq_time[i].line = 0; \
