@@ -15,6 +15,8 @@ else
   obj-$(CONFIG_DEVAPC_ARCH_V2) += devapc-mtk-multi-ao.o
 
   # SoC
+  obj-$(CONFIG_DEVAPC_MT6768) += devapc-mt6768.o
+  obj-$(CONFIG_DEVAPC_MT6781) += devapc-mt6781.o
   obj-$(CONFIG_DEVAPC_MT6833) += devapc-mt6833.o
   obj-$(CONFIG_DEVAPC_MT6877) += devapc-mt6877.o
   obj-$(CONFIG_DEVAPC_MT6885) += devapc-mt6885.o
