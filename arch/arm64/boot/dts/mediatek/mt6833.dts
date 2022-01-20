@@ -4165,12 +4165,6 @@
 	};
 
 	pmic_clock_buffer_ctrl:pmic_clock_buffer_ctrl {
-		compatible = "mediatek,pmic_clock_buffer";
-		mediatek,clkbuf-quantity = <7>;
-		mediatek,clkbuf-config = <2 1 1 2 0 0 1>;
-		mediatek,clkbuf-output_impedance = <6 4 4 4 0 0 4>;
-		mediatek,clkbuf-controls-for-desense = <0 4 0 4 0 0 0>;
-		tcxo_support = "false";
 	};
 
 	mrdump_ext_rst: mrdump_ext_rst {
@@ -4200,9 +4194,6 @@
 		};
 	};
 
-	clock_buffer_ctrl: clock_buffer_ctrl {
-	};
-
 	pwrap: pwrap@10026000 {
 		compatible = "mediatek,mt6833-pwrap";
 		reg = <0 0x10026000 0 0x1000>;
@@ -4213,6 +4204,37 @@
 			 <&topckgen_clk CLK_TOP_PWRAP_ULPOSC_SEL>,
 			 <&topckgen_clk CLK_TOP_OSC_D10>;
 		clock-names = "spi", "wrap", "ulposc", "ulposc_osc";
+	};
+
+	srclken_rc: srclken-rc@1000f800 {
+		compatible = "mediatek,srclken-rc";
+		reg = <0 0x1000f800 0 0x100>,
+			<0 0x1000f900 0 0x1f0>;
+		mediatek,subsys-ctl = "suspend", "rf", "deep_idle",
+			"rsv", "gps", "bt",
+			"wifi", "conn_mcu", "co-ant",
+			"nfc", "ufs", "scp",
+			"rsv";
+		suspend-ctl = "XO_SOC";
+		rf-ctl = "XO_WCN";
+		deep_idle-ctl = "XO_SOC";
+		gps-ctl = "XO_CEL";
+		bt-ctl = "XO_WCN";
+		wifi-ctl = "XO_WCN";
+		conn_mcu-ctl = "XO_WCN";
+		nfc-ctl = "XO_NFC";
+
+		mediatek,enable;
+	};
+
+	clock_buffer_ctrl: clock_buffer_ctrl {
+		compatible = "mediatek,clock_buffer_ctrl";
+		mediatek,xo-buf-hwbblpm-mask = <1 0 0 0 0 0 0>;
+		mediatek,xo-buf-hwbblpm-bypass = <0 0 0 0 0 0 0>;
+
+		pmif = <&pwrap 0>;
+		srclken_rc = <&srclken_rc>;
+		mediatek,enable;
 	};
 
 	pwraph: pwraphal@10026000 {
