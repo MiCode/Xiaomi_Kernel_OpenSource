@@ -18,3 +18,12 @@ ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
 obj-$(CONFIG_MTK_IOMMU_MISC_DBG)    += iommu_debug.o
 obj-$(CONFIG_MTK_IOMMU_MISC_SECURE) += iommu_secure.o
 obj-$(CONFIG_MTK_IOMMU_MISC_TEST)   += iommu_test.o
+obj-$(CONFIG_MTK_IOMMU_MISC)        += iommu_gz.o
+
+ifneq ($(filter y m, $(CONFIG_MTK_ENABLE_GENIEZONE)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
+
+iommu_gz-objs := iommu_pseudo.o iommu_gz_sec.o
+else
+iommu_gz-objs := iommu_pseudo.o
+endif
