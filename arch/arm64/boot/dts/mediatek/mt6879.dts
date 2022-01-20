@@ -366,7 +366,7 @@
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram \
-			vmalloc=400M swiotlb=noforce \
+			vmalloc=400M swiotlb=noforce allow_file_spec_access\
 			cma=64M transparent_hugepage=never \
 			firmware_class.path=/vendor/firmware pelt=8 ";
 		kaslr-seed = <0 0>;
