@@ -2,6 +2,7 @@ qcom_ipc_logging.ko
 ns.ko
 qrtr.ko
 crc8.ko
+debug-regulator.ko
 lzo.ko
 lzo-rle.ko
 zsmalloc.ko
