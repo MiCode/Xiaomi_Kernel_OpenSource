@@ -176,13 +176,6 @@
 			<&apmixedsys_clk CLK_APMIXED_IMGPLL>;
 	};
 
-	disable-unused-clk-mfg_pll_ctrl {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&mfg_pll_ctrl_clk CLK_MFG_AO_MFGPLL>,
-			<&mfg_pll_ctrl_clk CLK_MFG_AO_MFGSCPLL>;
-	};
-
 	disable-unused-pd-ufs0_shutdown {
 		compatible = "mediatek,scpsys-disable-unused";
 		power-domains = <&scpsys MT6855_POWER_DOMAIN_UFS0_SHUTDOWN>;
