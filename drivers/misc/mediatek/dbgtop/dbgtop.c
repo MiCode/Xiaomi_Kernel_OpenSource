@@ -255,17 +255,25 @@ EXPORT_SYMBOL(mtk_dbgtop_pause_dvfsrc);
 static int __init mtk_dbgtop_get_base_addr(void)
 {
 	struct device_node *np_dbgtop;
+	int found_dbgtop_base = 0;
 
 	for_each_matching_node(np_dbgtop, mtk_dbgtop_of_ids) {
 		pr_info("%s: compatible node found: %s\n",
 			__func__, np_dbgtop->name);
+		found_dbgtop_base = 1;
 		break;
 	}
 
-	if (!DBGTOP_BASE) {
+	if (!DBGTOP_BASE && found_dbgtop_base) {
 		DBGTOP_BASE = of_iomap(np_dbgtop, 0);
 		if (!DBGTOP_BASE)
 			pr_info("%s: dbgtop iomap failed\n", __func__);
+	} else if (!DBGTOP_BASE) {
+		np_dbgtop = of_find_compatible_node(NULL, NULL, "mediatek,toprgu");
+		DBGTOP_BASE = of_iomap(np_dbgtop, 0);
+		if (!DBGTOP_BASE)
+			pr_info("%s: dbgtop iomap failed\n", __func__);
+		pr_info("use toprgu to setting\n");
 	}
 
 	return 0;
@@ -274,7 +282,7 @@ static int __init mtk_dbgtop_get_base_addr(void)
 void get_dfd_base(void __iomem *dfd_base, unsigned int latch_offset)
 {
 	LATCH_CTL2_OFFSET = latch_offset;
-	DBGTOP_BASE = dfd_base;
+
 	if (!DBGTOP_BASE)
 		pr_info("link RGU base failed.\n");
 	pr_info("Linked base: 0x%x\n", readl(IOMEM(DBGTOP_BASE)));
