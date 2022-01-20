@@ -945,7 +945,7 @@ void qmu_done_rx(struct musb *musb, u8 ep_num)
 	request = &req->request;
 	if (!request) {
 		QMU_ERR(
-			"[RXD]%s Cannot get next usb_request of %d",
+			"[RXD]%s Cannot get next usb_request of %d"
 			"but we should have next request and QMU has done.\n"
 			, __func__, ep_num);
 		return;
