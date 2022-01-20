@@ -112,7 +112,7 @@ struct emmc_rpmb_req {
 	__u8 *data_frame;
 };
 
-
+int mmc_rpmb_register(struct mmc_host *mmc);
 int mmc_rpmb_set_key(struct mmc_card *card, void *key);
 int mmc_rpmb_read(struct mmc_card *card, u8 *buf, u16 blk, u16 cnt, void *key);
 int mmc_rpmb_write(struct mmc_card *card, u8 *buf, u16 blk, u16 cnt, void *key);

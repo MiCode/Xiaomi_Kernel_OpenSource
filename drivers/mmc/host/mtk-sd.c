@@ -46,6 +46,7 @@
 #endif
 
 #include "cqhci.h"
+#include "rpmb-mtk.h"
 #include "../../misc/mediatek/include/mt-plat/mtk_boot_common.h"
 
 #define MAX_BD_NUM          1024
@@ -2824,6 +2825,10 @@ static int msdc_drv_probe(struct platform_device *pdev)
 
 	if (ret)
 		goto end;
+
+#if IS_ENABLED(CONFIG_RPMB)
+	ret = mmc_rpmb_register(mmc);
+#endif
 
 	return 0;
 end:

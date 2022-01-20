@@ -109,5 +109,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 ccflags-y += -I$(srctree)/drivers/devfreq
 obj-y		+= cmdq_hci.o
 endif
+ccflags-y += -I$(srctree)/drivers/char/rpmb/
+
 obj-$(CONFIG_MMC_SDHCI_XENON)	+= sdhci-xenon-driver.o
 sdhci-xenon-driver-y		+= sdhci-xenon.o sdhci-xenon-phy.o
