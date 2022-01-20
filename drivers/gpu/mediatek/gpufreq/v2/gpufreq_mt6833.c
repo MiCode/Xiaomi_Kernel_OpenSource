@@ -966,32 +966,32 @@ void __gpufreq_set_timestamp(void)
 	/* MFG_TIMESTAMP 0x13FBF130 [0] enable timestamp = 1'b1 */
 	/* MFG_TIMESTAMP 0x13FBF130 [1] timer from internal module = 1'b0 */
 	/* MFG_TIMESTAMP 0x13FBF130 [1] timer from soc = 1'b0 */
-	writel(0x00000003, g_mfg_top_base + 0x130);
+	writel(0x00000001, g_mfg_top_base + 0x130);
 }
 
 void __gpufreq_check_bus_idle(void)
 {
 	u32 val = 0;
 
-	/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
+	/* MFG_QCHANNEL_CON (0x13fb_f0b4) bit [1:0] = 0x1 */
 	val = readl(g_mfg_top_base + 0xB4);
 	val |= (1UL << 0);
 	writel(val, g_mfg_top_base + 0xB4);
 
-	/* MFG_DEBUG_SEL 0x13FBF170 [1:0] MFG_DEBUG_TOP_SEL = 2'b11 */
+	/* set register MFG_DEBUG_SEL (0x13fb_f170) bit [7:0] = 0x03 */
 	val = readl(g_mfg_top_base + 0x170);
 	val |= (1UL << 0);
 	val |= (1UL << 1);
 	writel(val, g_mfg_top_base + 0x170);
 
 	/*
-	 * polling MFG_DEBUG_TOP 0x13FBF178 [0] MFG_DEBUG_TOP
-	 * 0x0: bus idle
-	 * 0x1: bus busy
+	 * polling register MFG_DEBUG_TOP (0x13fb_f178) bit 2 = 0x1
+	 * 1 for bus idle
+	 * 0 for bus non-idle
 	 */
 	do {
 		val = readl(g_mfg_top_base + 0x178);
-	} while (val & 0x1);
+	} while ((val & 0x4) != 0x4);
 }
 
 void __gpufreq_dump_infra_status(void)
@@ -1458,24 +1458,37 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 #endif
 
 	if (parking) {
-		ret = __gpufreq_switch_clksrc(CLOCK_SUB);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch sub clock source (%d)", ret);
-			goto done;
-		}
-		/*
-		 * MFGPLL_CON1[31:31] = MFGPLL_SDM_PCW_CHG
-		 * MFGPLL_CON1[26:24] = MFGPLL_POSDIV
-		 * MFGPLL_CON1[21:0]  = MFGPLL_SDM_PCW (pcw)
-		 */
-		writel(pll, MFGPLL_CON1);
-		/* PLL spec */
-		udelay(20);
-
-		ret = __gpufreq_switch_clksrc(CLOCK_MAIN);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGE("fail to switch main clock source (%d)", ret);
-			goto done;
+		/* freq scale up */
+		if (freq_new > freq_old) {
+			/* 1. change PCW by hopping */
+			ret = mtk_fh_set_rate(MFG_PLL_NAME, pcw, target_posdiv);
+			if (unlikely(!ret)) {
+				__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION,
+					"fail to hopping PCW: 0x%x (%d)", pcw, ret);
+				ret = GPUFREQ_EINVAL;
+				goto done;
+			}
+			/* 2. compute CON1 with target POSDIV */
+			pll = (readl(MFGPLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
+			/* 3. change POSDIV by writing CON1 */
+			writel(pll, MFGPLL_CON1);
+			/* PLL spec */
+			udelay(20);
+		} else {
+			/* 1. change POSDIV (by MFGPLL_CON1) */
+			pll = (readl(MFGPLL_CON1) & 0xF8FFFFFF) | (target_posdiv << POSDIV_SHIFT);
+			/* 2. change POSDIV by writing CON1 */
+			writel(pll, MFGPLL_CON1);
+			/* 3. wait until PLL stable */
+			udelay(20);
+			/* 4. change PCW by hopping */
+			ret = mtk_fh_set_rate(MFG_PLL_NAME, pcw, target_posdiv);
+			if (unlikely(!ret)) {
+				__gpufreq_abort(GPUFREQ_FHCTL_EXCEPTION,
+					"fail to hopping PCW: 0x%x (%d)", pcw, ret);
+				ret = GPUFREQ_EINVAL;
+				goto done;
+			}
 		}
 	} else {
 #if (GPUFREQ_FHCTL_ENABLE && IS_ENABLED(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING))
@@ -1719,9 +1732,8 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 	}
 
 	/*
-	 * [SPM] pwr_status    : 0x1C001F3C
-	 * [SPM] pwr_status_2nd: 0x1C001F40
-	 * Power ON: 0111 1110 (0x7E)
+	 * [SPM] pwr_status: pwr_ack (@0x1000_616C)
+	 * [SPM] pwr_status_2nd: pwr_ack_2nd (@x1000_6170)
 	 * [2]: MFG0, [3]: MFG1, [4]: MFG2, [5]: MFG3
 	 */
 	GPUFREQ_LOGI("[GPU] MALI: 0x%08x, MFG_TOP_CONFIG: 0x%08x",
@@ -1812,17 +1824,6 @@ static void __gpufreq_external_cg_control(void)
 	val |= (1UL << 25);
 	writel(val, g_mfg_top_base + 0x20);
 
-	/* [H] MFG_ASYNC_CON_3 0x13FB_F02C [12] MEM0_1_MST_CG_ENABLE = 0x1 */
-	/* [L] MFG_ASYNC_CON_3 0x13FB_F02C [13] MEM0_1_SLV_CG_ENABLE = 0x1 */
-	/* [I] MFG_ASYNC_CON_3 0x13FB_F02C [14] MEM1_1_MST_CG_ENABLE = 0x1 */
-	/* [M] MFG_ASYNC_CON_3 0x13FB_F02C [15] MEM1_1_SLV_CG_ENABLE = 0x1 */
-	val = readl(g_mfg_top_base + 0x2C);
-	val |= (1UL << 12);
-	val |= (1UL << 13);
-	val |= (1UL << 14);
-	val |= (1UL << 15);
-	writel(val, g_mfg_top_base + 0x2C);
-
 	/* [D] MFG_GLOBAL_CON 0x13FB_F0B0 [10] GPU_CLK_FREE_RUN = 0x0 */
 	/* [D] MFG_GLOBAL_CON 0x13FB_F0B0 [9] MFG_SOC_OUT_AXI_FREE_RUN = 0x0 */
 	val = readl(g_mfg_top_base + 0xB0);
@@ -1846,6 +1847,11 @@ static void __gpufreq_external_cg_control(void)
 	val = readl(g_mfg_top_base + 0x24);
 	val |= (1UL << 0);
 	writel(val, g_mfg_top_base + 0x24);
+
+	/* [M] MFG_I2M_PROTECTOR_CFG_00 0x13FB_FF60 [0] GPM_ENABLE = 0x1 */
+	val = readl(g_mfg_top_base + 0xF60);
+	val |= (1UL << 0);
+	writel(val, g_mfg_top_base + 0xF60);
 }
 
 static int __gpufreq_clock_control(enum gpufreq_power_state power)

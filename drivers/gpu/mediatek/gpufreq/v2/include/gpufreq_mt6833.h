@@ -45,7 +45,10 @@
 #define ROUNDING_VALUE                  (5)
 #define MFGPLL_FIN                      (26)            /* MHz */
 #define MFGPLL_FH_PLL                   (6)
-#define MFGPLL_CON1                     (g_apmixed_base + 0x026C)
+#define MFGPLL_CON0                     (g_apmixed_base + 0x268)
+#define MFGPLL_CON1                     (g_apmixed_base + 0x26C)
+#define MFGPLL_CON2                     (g_apmixed_base + 0x270)
+#define MFGPLL_CON3                     (g_apmixed_base + 0x274)
 #define CLK_MUX_OFS                     (0x1034)
 #define CKMUX_SEL_REF_CORE              (4)
 #define CKMUX_SEL_REF_PARK              (5)
