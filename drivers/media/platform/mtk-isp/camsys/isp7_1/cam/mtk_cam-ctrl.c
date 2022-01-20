@@ -1847,6 +1847,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	struct mtk_camsys_ctrl_state *state_inner = NULL;
 	struct mtk_camsys_ctrl_state *state_rec[STATE_NUM_AT_SOF];
 	struct mtk_cam_request_stream_data *req_stream_data;
+	struct mtk_cam_request_stream_data *prev_stream_data = NULL;
 	int frame_idx_inner = irq_info->frame_idx_inner;
 	int stateidx;
 	int que_cnt = 0;
@@ -1862,6 +1863,11 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
 			    state_element) {
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_temp);
+
+		if (req_stream_data->frame_seq_no ==
+			atomic_read(&sensor_ctrl->sensor_request_seq_no) - 1)
+			prev_stream_data = req_stream_data;
+
 		stateidx = atomic_read(&sensor_ctrl->sensor_request_seq_no) -
 			   req_stream_data->frame_seq_no;
 		if (stateidx < STATE_NUM_AT_SOF && stateidx > -1) {
@@ -2026,6 +2032,16 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			/* CQ triggering judgment*/
 			if (state_rec[0]->estate == E_STATE_SENSOR) {
 				*current_state = state_rec[0];
+				if (prev_stream_data) {
+					if (prev_stream_data->state.estate < E_STATE_INNER) {
+						dev_info(raw_dev->dev,
+							"[SOF] previous req (state:%d) doesn't DB load\n",
+							prev_stream_data->state.estate);
+						return STATE_RESULT_PASS_CQ_SW_DELAY;
+					}
+					dev_dbg(raw_dev->dev, "[SOF] previous req (state:%d)\n",
+						prev_stream_data->state.estate);
+				}
 				return STATE_RESULT_TRIGGER_CQ;
 			}
 			/* last SCQ triggering delay judgment*/
