@@ -751,7 +751,10 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 		psHead->target_fps_margin = target_fps_margin;
 		psHead->eara_fps_margin = eara_fps_margin;
 		psHead->t_cpu_fpsgo = cpu_time;
-		psHead->t_cpu_target = GED_KPI_SEC_DIVIDER/target_fps;
+		if (target_fps > 0)
+			psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/target_fps);
+		else
+			psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/GED_KPI_FPS_LIMIT);
 		psHead->t_gpu_target = psHead->t_cpu_target;
 		psHead->frc_client = client;
 		ret = GED_TRUE;
