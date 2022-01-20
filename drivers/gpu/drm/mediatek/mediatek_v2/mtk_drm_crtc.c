@@ -8463,7 +8463,8 @@ static void mtk_atomic_hbm_bypass_pq(struct drm_crtc *crtc,
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		if (comp && (comp->id == DDP_COMPONENT_AAL0 ||
-			comp->id == DDP_COMPONENT_CCORR0)) {
+			comp->id == DDP_COMPONENT_CCORR0 ||
+			comp->id == DDP_COMPONENT_CCORR1)) {
 			if (comp->funcs && comp->funcs->bypass)
 				mtk_ddp_comp_bypass(comp, en, handle);
 		}
@@ -8472,7 +8473,9 @@ static void mtk_atomic_hbm_bypass_pq(struct drm_crtc *crtc,
 	if (mtk_crtc->is_dual_pipe) {
 		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
 			if (comp && (comp->id == DDP_COMPONENT_AAL1 ||
-				comp->id == DDP_COMPONENT_CCORR1)) {
+				comp->id == DDP_COMPONENT_CCORR1 ||
+				comp->id == DDP_COMPONENT_CCORR2 ||
+				comp->id == DDP_COMPONENT_CCORR3)) {
 				if (comp->funcs && comp->funcs->bypass)
 					mtk_ddp_comp_bypass(comp, en, handle);
 			}
