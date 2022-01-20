@@ -27,7 +27,7 @@
 #include <linux/suspend.h>
 
 #include "camera_mem.h"
-
+#include "mtk_heap.h"
 
 #define CAM_MEM_DEV_NAME "camera-mem"
 
@@ -377,20 +377,30 @@ static void dumpIonBufferList(struct ION_BUFFER_LIST *ion_buf_list,
 /*******************************************************************************
  *
  ******************************************************************************/
-static bool cam_mem_mmu_get_dma_buffer(struct ION_BUFFER *mmu, int va)
+static bool cam_mem_mmu_get_dma_buffer(
+	struct ION_BUFFER *mmu, struct CAM_MEM_DEV_ION_NODE_STRUCT *IonNode)
 {
 	struct dma_buf *buf;
 
-	if (unlikely(va == -1)) {
+	if (unlikely(IonNode->memID == -1)) {
 		LOG_NOTICE("invalid ion fd!\n");
 		return false;
 	}
 	/* va: buffer fd from user space, we get dmabuf from buffer fd. */
-	buf = dma_buf_get(va);
+	buf = dma_buf_get(IonNode->memID);
 	if (IS_ERR(buf))
 		return false;
 
 	mmu->dmaBuf = buf;
+
+	if (IonNode->need_sec_handle) {
+		IonNode->sec_handle = dmabuf_to_secure_handle(mmu->dmaBuf);
+		if (IonNode->sec_handle == 0) {
+			LOG_NOTICE("Get sec_handle failed!\n");
+			return false;
+		}
+	}
+
 	mmu->attach = dma_buf_attach(mmu->dmaBuf, cam_mem_dev.dev);
 	if (IS_ERR(mmu->attach))
 		goto err_attach;
@@ -499,7 +509,7 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 
 			/* Map iova. */
 			LOG_DBG("CAM_MEM_ION_MAP_PA: do map. memID(%d)\n", IonNode.memID);
-			if (unlikely(cam_mem_mmu_get_dma_buffer(&mmu, IonNode.memID) == false)) {
+			if (unlikely(cam_mem_mmu_get_dma_buffer(&mmu, &IonNode) == false)) {
 				LOG_NOTICE(
 					"CAM_MEM_ION_MAP_PA: map pa failed, memID(%d)\n",
 					IonNode.memID);

@@ -15,7 +15,9 @@
 struct CAM_MEM_DEV_ION_NODE_STRUCT {
 	int                memID;
 	unsigned long long dma_pa;
-	char username[64];
+	char               username[64];
+	bool               need_sec_handle;
+	unsigned int       sec_handle;
 };
 
 enum CAM_MEM_CMD_ENUM {
