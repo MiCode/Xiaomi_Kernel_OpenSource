@@ -865,17 +865,20 @@ static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 /* Notice!!: Before use it, must be ensure mtcmos is on */
 static void mtk_iommu_tlb_flush_all(struct mtk_iommu_data *data)
 {
+	unsigned long flags;
 	int iommu_ids = 0;
 	struct list_head *head = data->hw_list;
 
 	for_each_m4u(data, head) {
 		bool has_pm = !!data->dev->pm_domain;
 
+		spin_lock_irqsave(&data->tlb_lock, flags);
 		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
 			if ((data->plat_data->iommu_type == MM_IOMMU &&
 				pd_sta[data->plat_data->iommu_id] == POWER_OFF_STA) ||
 				(data->plat_data->iommu_type != MM_IOMMU &&
 				pm_runtime_get_if_in_use(data->dev) <= 0)) {
+				spin_unlock_irqrestore(&data->tlb_lock, flags);
 				continue;
 			}
 		}
@@ -915,6 +918,7 @@ skip_polling:
 		if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
 			data->plat_data->iommu_type != MM_IOMMU)
 			pm_runtime_put(data->dev);
+		spin_unlock_irqrestore(&data->tlb_lock, flags);
 	}
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
@@ -930,6 +934,8 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 	int iommu_ids = 0;
 	int ret;
 	u32 tmp;
+	bool need_sync_all = false;
+	struct mtk_iommu_data *orig_data = data;
 	struct list_head *head = data->hw_list;
 
 	for_each_m4u(data, head) {
@@ -968,7 +974,7 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 			if (MTK_IOMMU_HAS_FLAG(data->plat_data, TLB_SYNC_EN))
 				mtk_iommu_tlb_flush_check(data, true);
 			else
-				mtk_iommu_tlb_flush_all(data);
+				need_sync_all = true;
 		}
 		/* Clear the CPE status */
 		writel_relaxed(0, data->base + REG_MMU_CPE_DONE);
@@ -981,6 +987,8 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	mtk_iommu_tlb_sync_trace(iova, size, iommu_ids);
 #endif
+	if (need_sync_all)
+		mtk_iommu_tlb_flush_all(orig_data);
 }
 
 static void mtk_iommu_dump_tf_iova(struct mtk_iommu_data *data,
@@ -2880,8 +2888,11 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 	unsigned long flags;
 	int ret;
 
-	if (MTK_IOMMU_HAS_FLAG(data->plat_data, PM_OPS_SKIP))
+	if (MTK_IOMMU_HAS_FLAG(data->plat_data, PM_OPS_SKIP)) {
+		if (data->plat_data->iommu_type == APU_IOMMU)
+			mtk_iommu_tlb_flush_all(data);
 		return 0;
+	}
 
 	ret = clk_prepare_enable(data->bclk);
 	if (ret) {
