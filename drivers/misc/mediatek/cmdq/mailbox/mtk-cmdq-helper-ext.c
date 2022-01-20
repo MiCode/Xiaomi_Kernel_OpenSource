@@ -2463,9 +2463,10 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		mod = cmdq_util_helper->event_module_dispatch(gce_pa, inst->arg_a,
 			thread_id);
 		cmdq_util_aee_ex(aee, mod,
-			"DISPATCH:%s(%s) inst:%#018llx OP:WAIT EVENT:%hu thread:%d",
+			"DISPATCH:%s(%s) inst:%#018llx OP:WAIT EVENT:%hu thread:%d aee_cb:%p aee:%d",
 			mod, cmdq_util_helper->hw_name(client->chan),
-			*(u64 *)inst, inst->arg_a, thread_id);
+			*(u64 *)inst, inst->arg_a, thread_id,
+			pkt->aee_cb, aee);
 	} else if (inst) {
 		if (!mod)
 			mod = cmdq_util_helper->thread_module_dispatch(gce_pa,thread_id);
