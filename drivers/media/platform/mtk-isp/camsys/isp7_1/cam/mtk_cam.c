@@ -6363,7 +6363,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 			"%s:ctx(%d): session_created, wait for composer session destroy\n",
 			__func__, ctx->stream_id);
 		if (wait_for_completion_timeout(
-			&ctx->session_complete, msecs_to_jiffies(300)) == 0)
+			&ctx->session_complete, msecs_to_jiffies(1000)) == 0)
 			dev_info(cam->dev, "%s:ctx(%d): complete timeout\n",
 			__func__, ctx->stream_id);
 	}
