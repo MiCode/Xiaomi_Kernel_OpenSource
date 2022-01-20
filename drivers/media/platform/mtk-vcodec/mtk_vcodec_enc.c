@@ -2111,8 +2111,10 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 		ctx->state = MTK_STATE_INIT;
 	}
 
+	mutex_lock(&ctx->dev->enc_dvfs_mutex);
 	mtk_venc_dvfs_begin_inst(ctx);
 	mtk_venc_pmqos_begin_inst(ctx);
+	mutex_unlock(&ctx->dev->enc_dvfs_mutex);
 
 	return 0;
 
@@ -2190,8 +2192,10 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
 		}
 		ctx->enc_flush_buf->lastframe = NON_EOS;
+		mutex_lock(&ctx->dev->enc_dvfs_mutex);
 		mtk_venc_dvfs_end_inst(ctx);
 		mtk_venc_pmqos_end_inst(ctx);
+		mutex_unlock(&ctx->dev->enc_dvfs_mutex);
 	}
 
 	if ((q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
