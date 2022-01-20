@@ -5494,8 +5494,8 @@ struct mt6369_priv {
 #define HP_PGA_MINUS_40_DB_REG_VAL 0x3f
 
 /* dc trim */
-#define TRIM_TIMES 26
-#define TRIM_DISCARD_NUM 3
+#define TRIM_TIMES 7
+#define TRIM_DISCARD_NUM 1
 #define TRIM_USEFUL_NUM (TRIM_TIMES - (TRIM_DISCARD_NUM * 2))
 
 /* headphone impedance detection */

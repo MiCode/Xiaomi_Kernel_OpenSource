@@ -4275,6 +4275,7 @@ static void start_trim_hardware(struct mt6369_priv *priv)
 	regmap_write(priv->regmap, MT6369_AUDNCP_CLKDIV_CON4, 0x3);
 	/* Enable NCP */
 	regmap_write(priv->regmap, MT6369_AUDNCP_CLKDIV_CON3, 0x0);
+	usleep_range(250, 270);
 
 	/* Enable cap-less LDOs (1.5V) */
 	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON26,
@@ -4286,11 +4287,6 @@ static void start_trim_hardware(struct mt6369_priv *priv)
 			RG_NVREG_EN_VAUDP15_MASK_SFT,
 			0x1 << RG_NVREG_EN_VAUDP15_SFT);
 	usleep_range(100, 120);
-
-	/* HP TRIM enable */
-	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON7, 0x10);
-	/* HP TRIM code */
-	regmap_write(priv->regmap, MT6369_AUDDEC_ANA_CON6, 0x0);
 
 	/* Disable AUD_ZCD */
 	zcd_disable(priv);
@@ -4388,6 +4384,9 @@ static void start_trim_hardware(struct mt6369_priv *priv)
 
 	/* Disable Pull-down HPL/R to AVSS30_AUD */
 	hp_pull_down(priv, false);
+
+	/* Enable Trim buffer VA28 reference */
+	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON16, 0x2, 0x2);
 
 	dev_info(priv->dev, "%s(), --\n", __func__);
 }
@@ -4538,7 +4537,7 @@ static void get_hp_dctrim_offset(struct mt6369_priv *priv,
 	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_HPL);
 
 	/* get buffer on auxadc value  */
-	dev_info(priv->dev, "%s(), get on_valueL\n", __func__);
+	dev_dbg(priv->dev, "%s(), get on_valueL\n", __func__);
 	usleep_range(1 * 1000, 10 * 1000);
 	for (i = 0; i < TRIM_TIMES; i++)
 		on_valueL[i] = mt6369_get_hpofs_auxadc(priv);
@@ -4547,7 +4546,7 @@ static void get_hp_dctrim_offset(struct mt6369_priv *priv,
 	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_AU_REFN);
 
 	/* get buffer off auxadc value  */
-	dev_info(priv->dev, "%s(), get off_valueL\n", __func__);
+	dev_dbg(priv->dev, "%s(), get off_valueL\n", __func__);
 	usleep_range(1 * 1000, 10 * 1000);
 	for (i = 0; i < TRIM_TIMES; i++)
 		off_valueL[i] = mt6369_get_hpofs_auxadc(priv);
@@ -4557,7 +4556,7 @@ static void get_hp_dctrim_offset(struct mt6369_priv *priv,
 	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_HPR);
 
 	/* get buffer on auxadc value  */
-	dev_info(priv->dev, "%s(), get on_valueR\n", __func__);
+	dev_dbg(priv->dev, "%s(), get on_valueR\n", __func__);
 	usleep_range(1 * 1000, 10 * 1000);
 	for (i = 0; i < TRIM_TIMES; i++)
 		on_valueR[i] = mt6369_get_hpofs_auxadc(priv);
@@ -4566,7 +4565,7 @@ static void get_hp_dctrim_offset(struct mt6369_priv *priv,
 	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_AU_REFN);
 
 	/* get buffer off auxadc value  */
-	dev_info(priv->dev, "%s(), get off_valueR\n", __func__);
+	dev_dbg(priv->dev, "%s(), get off_valueR\n", __func__);
 	usleep_range(1 * 1000, 10 * 1000);
 	for (i = 0; i < TRIM_TIMES; i++)
 		off_valueR[i] = mt6369_get_hpofs_auxadc(priv);
@@ -4590,8 +4589,8 @@ static void get_hp_dctrim_offset(struct mt6369_priv *priv,
 					  TRIM_TIMES, TRIM_DISCARD_NUM,
 					  TRIM_USEFUL_NUM);
 
-	dev_info(priv->dev, "%s(), R_offset = %d, L_offset = %d\n",
-		 __func__, *hpr_trim, *hpl_trim);
+	dev_info(priv->dev, "%s(), L_offset = %d, R_offset = %d\n",
+		 __func__, *hpl_trim, *hpr_trim);
 }
 
 static void update_finetrim_offset(struct mt6369_priv *priv,
@@ -4603,7 +4602,7 @@ static void update_finetrim_offset(struct mt6369_priv *priv,
 {
 	int hpl_offset = 0, hpr_offset = 0;
 
-	dev_dbg(priv->dev, "%s(), step%d finetrim_code(L/R) = (0x%x/0x%x)\n",
+	dev_info(priv->dev, "%s(), step%d finetrim_code(L/R) = (0x%x/0x%x)\n",
 		__func__, step, finetrim_code_l, finetrim_code_r);
 
 	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON7,
@@ -4618,7 +4617,7 @@ static void update_finetrim_offset(struct mt6369_priv *priv,
 	*finetrim_offset_l = hpl_offset;
 	*finetrim_offset_r = hpr_offset;
 
-	dev_dbg(priv->dev, "%s(), step%d finetrim_offset(L/R) = (0x%x/0x%x)\n",
+	dev_info(priv->dev, "%s(), step%d finetrim_offset(L/R) = (%d/%d)\n",
 		__func__, step, *finetrim_offset_l, *finetrim_offset_r);
 }
 
@@ -4631,7 +4630,7 @@ static void update_trim_offset(struct mt6369_priv *priv,
 {
 	int hpl_offset = 0, hpr_offset = 0;
 
-	dev_dbg(priv->dev, "%s(), step%d trim_code(L/R) = (0x%x/0x%x)\n",
+	dev_info(priv->dev, "%s(), step%d trim_code(L/R) = (0x%x/0x%x)\n",
 		__func__, step, trim_code_l, trim_code_r);
 
 	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON6,
@@ -4647,30 +4646,8 @@ static void update_trim_offset(struct mt6369_priv *priv,
 	*trim_offset_l = hpl_offset;
 	*trim_offset_r = hpr_offset;
 
-	dev_dbg(priv->dev, "%s(), step%d trim_offset(L/R) = (0x%x/0x%x)\n",
+	dev_info(priv->dev, "%s(), step%d trim_offset(L/R) = (%d/%d)\n",
 		__func__, step, *trim_offset_l, *trim_offset_r);
-}
-
-static unsigned int update_finetrim_code(const unsigned int trim_offset0,
-		const unsigned int trim_offset1,
-		const unsigned int trim_offset2)
-{
-	unsigned int ret_finetrim_code = 0;
-
-	/* Base on finetrim[0/1/2], choose minimim finetrim_code */
-	if (trim_offset0 < trim_offset1) {
-		if (trim_offset0 < trim_offset2)
-			ret_finetrim_code = 0;
-		else /* (trim_offset0 >= trim_offset2) */
-			ret_finetrim_code = 2;
-	} else { /* (trim_offset0 >= trim_offset1) */
-		if (trim_offset1 < trim_offset2)
-			ret_finetrim_code = 1;
-		else /* (trim_offset1 >= trim_offset2) */
-			ret_finetrim_code = 2;
-	}
-
-	return ret_finetrim_code;
 }
 
 static unsigned int update_trim_code(const bool is_negative,
@@ -4679,18 +4656,21 @@ static unsigned int update_trim_code(const bool is_negative,
 {
 	unsigned int ret_trim_code;
 
-	if (is_negative) { /* value<0, code+1; value>=0, code-1; */
-		if (trim_code == 0x0 && trim_value >= 0)
-			ret_trim_code = 0x11;
+	if (trim_value == 0)
+		return trim_code;
+
+	if (is_negative) { /* value<0, code+1; value>0, code-1; */
+		if (trim_code == 0x8 && trim_value > 0)
+			ret_trim_code = 0x1;
 		else if (trim_code == 0xF && trim_value < 0)
-			ret_trim_code = 0x0F;
+			ret_trim_code = 0xF;
 		else
 			ret_trim_code = trim_code - (trim_value < 0 ? (-1) : 1);
-	} else { /* value<0, code-1; value>=0, code+1; */
-		if (trim_code == 0x10 && trim_value < 0)
-			ret_trim_code = 0x01;
-		else if (trim_code == 0x1F && trim_value >= 0)
-			ret_trim_code = 0x1F;
+	} else { /* value<0, code-1; value>0, code+1; */
+		if (trim_code == 0x0 && trim_value < 0)
+			ret_trim_code = 0x9;
+		else if (trim_code == 0x7 && trim_value > 0)
+			ret_trim_code = 0x7;
 		else
 			ret_trim_code = trim_code + (trim_value < 0 ? (-1) : 1);
 	}
@@ -4702,18 +4682,17 @@ static void calculate_lr_finetrim_code(struct mt6369_priv *priv)
 	struct hp_trim_data *hp_trim = &priv->hp_trim_3_pole;
 	unsigned int reg_value;
 
-	int finetrim_l[TRIM_STEP_NUM - 1] = {0, 0, 0};
-	int finetrim_r[TRIM_STEP_NUM - 1] = {0, 0, 0};
-	unsigned int finetrim_l_code[TRIM_STEP_NUM - 1] = {0, 0, 0};
-	unsigned int finetrim_r_code[TRIM_STEP_NUM - 1] = {0, 0, 0};
+	int finetrim_l[TRIM_STEP_NUM - 2] = {0, 0};
+	int finetrim_r[TRIM_STEP_NUM - 2] = {0, 0};
+	unsigned int finetrim_l_code[TRIM_STEP_NUM - 2] = {0, 0};
+	unsigned int finetrim_r_code[TRIM_STEP_NUM - 2] = {0, 0};
 	unsigned int hpl_finetrim_code = 0, hpr_finetrim_code = 0;
-	unsigned int step = 0;
 
 	regmap_read(priv->regmap, MT6369_AUDDEC_ANA_CON6, &reg_value);
-	dev_info(priv->dev, "%s(), initial LCH MT6369_AUDDEC_ANA_CON6 = 0x%x\n",
+	dev_dbg(priv->dev, "%s(), initial MT6369_AUDDEC_ANA_CON6 = 0x%x\n",
 		 __func__, reg_value);
 	regmap_read(priv->regmap, MT6369_AUDDEC_ANA_CON7, &reg_value);
-	dev_info(priv->dev, "%s(), initial RCH MT6369_AUDDEC_ANA_CON7 = 0x%x\n",
+	dev_dbg(priv->dev, "%s(), initial MT6369_AUDDEC_ANA_CON7 = 0x%x\n",
 		 __func__, reg_value);
 
 	/* step0 */
@@ -4723,60 +4702,36 @@ static void calculate_lr_finetrim_code(struct mt6369_priv *priv)
 	update_finetrim_offset(priv, 0,
 			       finetrim_l_code[0], finetrim_r_code[0],
 			       &finetrim_l[0], &finetrim_r[0]);
-	dev_info(priv->dev, "%s(), step0 finetrim(R/L) = (%d/%d)\n",
-		 __func__, finetrim_r[0], finetrim_l[0]);
+	dev_dbg(priv->dev, "%s(), step0 finetrim(L/R) = (%d/%d)\n",
+		 __func__, finetrim_l[0], finetrim_r[0]);
 
 	/* step1 */
 	if (finetrim_l[0] < 0)
 		finetrim_l_code[1] = 0x2;
 	else /* (finetrim_l[0] >= 0) */
-		finetrim_l_code[1] = 0x6;
+		finetrim_l_code[1] = 0x1;
 
 	if (finetrim_r[0] < 0)
 		finetrim_r_code[1] = 0x2;
 	else /* (finetrim_r[0] >= 0) */
-		finetrim_r_code[1] = 0x6;
+		finetrim_r_code[1] = 0x1;
 
 	update_finetrim_offset(priv, 1,
 			       finetrim_l_code[1], finetrim_r_code[1],
 			       &finetrim_l[1], &finetrim_r[1]);
-	dev_info(priv->dev, "%s(), step1 finetrim(R/L) = (%d/%d)\n",
-		 __func__, finetrim_r[1], finetrim_l[1]);
+	dev_dbg(priv->dev, "%s(), step1 finetrim(L/R) = (%d/%d)\n",
+		 __func__, finetrim_l[1], finetrim_r[1]);
 
-	/* step2 */
-	if (finetrim_l[0] < 0 && finetrim_l[1] < 0)
-		finetrim_l_code[2] = 0x3;
-	else if (finetrim_l[0] < 0 && finetrim_l[1] >= 0)
-		finetrim_l_code[2] = 0x1;
-	else if (finetrim_l[0] >= 0 && finetrim_l[1] < 0)
-		finetrim_l_code[2] = 0x7;
-	else /* (finetrim_l[0] >= 0 && finetrim_l[1] >= 0) */
-		finetrim_l_code[2] = 0x5;
+	/* choose result */
+	if (abs(finetrim_l[0]) <= abs(finetrim_l[1]))
+		hpl_finetrim_code = finetrim_l_code[0];
+	else
+		hpl_finetrim_code = finetrim_l_code[1];
 
-	if (finetrim_r[0] < 0 && finetrim_r[1] < 0)
-		finetrim_r_code[2] = 0x3;
-	else if (finetrim_r[0] < 0 && finetrim_r[1] >= 0)
-		finetrim_r_code[2] = 0x1;
-	else if (finetrim_r[0] >= 0 && finetrim_r[1] < 0)
-		finetrim_r_code[2] = 0x7;
-	else /* (finetrim_r[0] >= 0 && finetrim_r[1] >= 0) */
-		finetrim_r_code[2] = 0x5;
-
-	update_finetrim_offset(priv, 2,
-			       finetrim_l_code[2], finetrim_r_code[2],
-			       &finetrim_l[2], &finetrim_r[2]);
-	dev_info(priv->dev, "%s(), step2 finetrim(R/L) = (%d/%d)\n",
-		 __func__, finetrim_r[2], finetrim_l[2]);
-
-	step = update_finetrim_code(finetrim_l[0],
-				    finetrim_l[1],
-				    finetrim_l[2]);
-	hpl_finetrim_code = finetrim_l_code[step];
-
-	step = update_finetrim_code(finetrim_r[0],
-				    finetrim_r[1],
-				    finetrim_r[2]);
-	hpr_finetrim_code = finetrim_r_code[step];
+	if (abs(finetrim_r[0]) <= abs(finetrim_r[1]))
+		hpr_finetrim_code = finetrim_r_code[0];
+	else
+		hpr_finetrim_code = finetrim_r_code[1];
 
 	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON7,
 			   RG_AUDHPLFINETRIM_VAUDP15_MASK_SFT,
@@ -4788,8 +4743,8 @@ static void calculate_lr_finetrim_code(struct mt6369_priv *priv)
 	hp_trim->hp_fine_trim_l = hpl_finetrim_code;
 	hp_trim->hp_fine_trim_r = hpr_finetrim_code;
 
-	dev_info(priv->dev, "%s(), result finetrim_code(R/L) = (0x%x/0x%x)\n",
-		 __func__, hpr_finetrim_code, hpl_finetrim_code);
+	dev_info(priv->dev, "%s(), result finetrim_code(L/R) = (0x%x/0x%x)\n",
+		 __func__, hpl_finetrim_code, hpr_finetrim_code);
 }
 
 static void calculate_lr_trim_code(struct mt6369_priv *priv)
@@ -4807,13 +4762,6 @@ static void calculate_lr_trim_code(struct mt6369_priv *priv)
 	unsigned int reg_value;
 
 	dev_info(priv->dev, "%s(), Start DCtrim Calibrating\n", __func__);
-
-	regmap_read(priv->regmap, MT6369_AUDDEC_ANA_CON4, &reg_value);
-	dev_info(priv->dev, "%s(), initial MT6369_AUDDEC_ANA_CON4 = 0x%x\n",
-		 __func__, reg_value);
-	regmap_read(priv->regmap, MT6369_AUDDEC_ANA_CON5, &reg_value);
-	dev_info(priv->dev, "%s(), initial MT6369_AUDDEC_ANA_CON5 = 0x%x\n",
-		 __func__, reg_value);
 
 	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON7,
 			   RG_AUDHPLFINETRIM_VAUDP15_MASK_SFT,
@@ -4835,8 +4783,8 @@ static void calculate_lr_trim_code(struct mt6369_priv *priv)
 
 	update_trim_offset(priv, 0, trim_l_code[0], trim_r_code[0],
 			   &trim_l[0], &trim_r[0]);
-	dev_info(priv->dev, "%s(), step0 trim_value(R/L) = (%d/%d)\n",
-		 __func__, trim_r[0], trim_l[0]);
+	dev_dbg(priv->dev, "%s(), step0 trim_value(L/R) = (%d/%d)\n",
+		 __func__, trim_l[0], trim_r[0]);
 
 	if (trim_l[0] == 0 && trim_r[0] == 0) {
 		hpl_trim_code = trim_l_code[0];
@@ -4844,28 +4792,27 @@ static void calculate_lr_trim_code(struct mt6369_priv *priv)
 		goto EXIT;
 	}
 
-	/* start step1, set trim code to 0x2 or 0x12 */
-	if (trim_l[0] < 0) {
-		hpl_negative = true;
-		trim_l_code[1] = 0x2;
-	} else { /* (trim_l[0] >= 0) */
+	/* start step1, set trim code to 0x2 or 0xa */
+	if (trim_l[0] >= 0) {
 		hpl_negative = false;
-		trim_l_code[0] = 0x10;
-		trim_l_code[1] = 0x12;
+		trim_l_code[1] = 0x2;
+	} else { /* (trim_l[0] < 0) */
+		hpl_negative = true;
+		trim_l_code[1] = 0xa;
 	}
-	if (trim_r[0] < 0) {
-		hpr_negative = true;
-		trim_r_code[1] = 0x2;
-	} else { /* (trim_r[0] >= 0) */
+	if (trim_r[0] >= 0) {
 		hpr_negative = false;
-		trim_r_code[0] = 0x10;
-		trim_r_code[1] = 0x12;
+		trim_r_code[1] = 0x2;
+	} else { /* (trim_r[0] < 0) */
+		hpr_negative = true;
+		trim_r_code[1] = 0xa;
 	}
+
 
 	update_trim_offset(priv, 1, trim_l_code[1], trim_r_code[1],
 			   &trim_l[1], &trim_r[1]);
-	dev_info(priv->dev, "%s(), step1 trim_value(R/L) = (%d/%d)\n",
-		 __func__, trim_r[1], trim_l[1]);
+	dev_dbg(priv->dev, "%s(), step1 trim_value(L/R) = (%d/%d)\n",
+		 __func__, trim_l[1], trim_r[1]);
 
 	if (trim_l[1] == 0 && trim_r[1] == 0) {
 		hpl_trim_code = trim_l_code[1];
@@ -4875,26 +4822,20 @@ static void calculate_lr_trim_code(struct mt6369_priv *priv)
 
 	/* start step2, calculate approximate solution*/
 	/* l-channel, find trim offset per trim code step */
-	trim_l_code[2] = (((abs(trim_l[0]) * 2) /
+	trim_l_code[2] = (((abs(trim_l[0]) * 3) /
 			   abs(trim_l[0] - trim_l[1])) + 1) / 2;
-	trim_l_code[2] = trim_l_code[2] + (trim_l[0] > 0 ? 16 : 0);
-
-	if (trim_l_code[2] == 0x10)
-		trim_l_code[0] = 0x10;
+	trim_l_code[2] = (trim_l_code[2] > 7 ? 7 : trim_l_code[2]) + (trim_l[0] < 0 ? 8 : 0);
 
 	/* r-channel, find trim offset per trim code step */
-	trim_r_code[2] = (((abs(trim_r[0]) * 2) /
+	trim_r_code[2] = (((abs(trim_r[0]) * 3) /
 			   abs(trim_r[0] - trim_r[1])) + 1) / 2;
-	trim_r_code[2] = trim_r_code[2] + (trim_r[0] > 0 ? 16 : 0);
+	trim_r_code[2] = (trim_r_code[2] > 7 ? 7 : trim_r_code[2]) + (trim_r[0] < 0 ? 8 : 0);
 
-	if (trim_r_code[2] == 0x10)
-		trim_r_code[0] = 0x10;
 
-	update_trim_offset(priv, 2,
-			   trim_l_code[2], trim_r_code[2],
+	update_trim_offset(priv, 2, trim_l_code[2], trim_r_code[2],
 			   &trim_l[2], &trim_r[2]);
-	dev_info(priv->dev, "%s(), step2 trim_value(R/L) = (%d/%d)\n",
-		 __func__, trim_r[2], trim_l[2]);
+	dev_dbg(priv->dev, "%s(), step2 trim_value(L/R) = (%d/%d)\n",
+		 __func__, trim_l[2], trim_r[2]);
 
 	if (trim_l[2] == 0 && trim_r[2] == 0) {
 		hpl_trim_code = trim_l_code[2];
@@ -4908,34 +4849,34 @@ static void calculate_lr_trim_code(struct mt6369_priv *priv)
 	trim_r_code[3] = update_trim_code(hpr_negative,
 					  trim_r[2], trim_r_code[2]);
 
-	dev_info(priv->dev, "%s(), step3 hp_trim_code(R/L) = (0x%x/0x%x)\n",
-		 __func__, trim_r_code[3], trim_l_code[3]);
+	update_trim_offset(priv, 3, trim_l_code[3], trim_r_code[3],
+			   &trim_l[3], &trim_r[3]);
+	dev_dbg(priv->dev, "%s(), step3 trim_value(L/R) = (%d/%d)\n",
+		 __func__, trim_l[3], trim_r[3]);
 
-	if ((trim_l_code[2] != 0x00 && trim_l_code[2] != 0x02 &&
-	     trim_l_code[2] != 0x10 && trim_l_code[2] != 0x12) ||
-	    (trim_r_code[2] != 0x00 && trim_r_code[2] != 0x02 &&
-	     trim_r_code[2] != 0x10 && trim_r_code[2] != 0x12)) {
-		dev_info(priv->dev, "%s(), need to calculate step4 trim_code\n",
-			 __func__);
-
-		update_trim_offset(priv, 3,
-				   trim_l_code[3], trim_r_code[3],
-				   &trim_l[3], &trim_r[3]);
-		dev_info(priv->dev, "%s(), step3 trim_value(R/L) = (%d/%d)\n",
-			 __func__, trim_r[3], trim_l[3]);
-
-		hpl_trim_code = update_trim_code(hpl_negative,
-						 trim_l[3], trim_l_code[3]);
-
-		hpr_trim_code = update_trim_code(hpr_negative,
-						 trim_r[3], trim_r_code[3]);
-	} else {
+	/* choose result */
+	if (abs(trim_l[2]) <= abs(trim_l[3]))
+		hpl_trim_code = trim_l_code[2];
+	else
 		hpl_trim_code = trim_l_code[3];
+
+	if (abs(trim_r[2]) <= abs(trim_r[3]))
+		hpr_trim_code = trim_r_code[2];
+	else
 		hpr_trim_code = trim_r_code[3];
-	}
 
+	dev_dbg(priv->dev, "%s(), L_offset:[0]=%d, [1]=%d, [2]=%d, [3]=%d\n",
+		__func__, trim_l[0], trim_l[1], trim_l[2], trim_l[3]);
+
+	dev_dbg(priv->dev, "%s(), trim code L:[0]=0x%x, [1]=0x%x, [2]=0x%x, [3]=0x%x\n",
+		__func__, trim_l_code[0], trim_l_code[1], trim_l_code[2], trim_l_code[3]);
+
+	dev_dbg(priv->dev, "%s(), R_offset:[0]=%d, [1]=%d, [2]=%d, [3]=%d\n",
+		__func__, trim_r[0], trim_r[1], trim_r[2], trim_r[3]);
+
+	dev_dbg(priv->dev, "%s(), trim code R:[0]=0x%x, [1]=0x%x, [2]=0x%x, [3]=0x%x\n",
+		__func__, trim_r_code[0], trim_r_code[1], trim_r_code[2], trim_r_code[3]);
 EXIT:
-
 	regmap_update_bits(priv->regmap, MT6369_AUDDEC_ANA_CON6,
 			   RG_AUDHPLTRIM_VAUDP15_MASK_SFT,
 			   hpl_trim_code << RG_AUDHPLTRIM_VAUDP15_SFT);
@@ -4948,8 +4889,8 @@ EXIT:
 	hp_trim_4_pole->hp_trim_l = hpl_trim_code;
 	hp_trim_4_pole->hp_trim_r = hpr_trim_code;
 
-	dev_info(priv->dev, "%s(), result hp_trim_code(R/L) = (0x%x/0x%x)\n",
-		 __func__, hpr_trim_code, hpl_trim_code);
+	dev_info(priv->dev, "%s(), result hp_trim_code(L/R) = (0x%x/0x%x)\n",
+		 __func__, hpl_trim_code, hpr_trim_code);
 }
 #endif /* #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) */
 
@@ -4967,10 +4908,10 @@ static void get_hp_trim_offset(struct mt6369_priv *priv, bool force)
 	dc_trim->calibrated = true;
 
 	regmap_read(priv->regmap, MT6369_AUDDEC_ANA_CON6, &reg_value);
-	dev_info(priv->dev, "%s(), initial LCH MT6369_AUDDEC_ANA_CON6 = 0x%x\n",
+	dev_dbg(priv->dev, "%s(), initial MT6369_AUDDEC_ANA_CON6 = 0x%x\n",
 		 __func__, reg_value);
-	regmap_read(priv->regmap, MT6369_AUDDEC_ANA_CON3, &reg_value);
-	dev_info(priv->dev, "%s(), initial RCH MT6369_AUDDEC_ANA_CON7 = 0x%x\n",
+	regmap_read(priv->regmap, MT6369_AUDDEC_ANA_CON7, &reg_value);
+	dev_dbg(priv->dev, "%s(), initial MT6369_AUDDEC_ANA_CON7 = 0x%x\n",
 		 __func__, reg_value);
 
 	dev_info(priv->dev, "%s(), before trim_code R:(0x%x/0x%x), L:(0x%x/0x%x)",
