@@ -1282,6 +1282,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		mtk_cam_seninf_release_mux(ctx);
 		seninf_dfs_set(ctx, 0);
 		g_seninf_ops->_poweroff(ctx);
+		ctx->dbg_last_dump_req = 0;
 		pm_runtime_put_sync(ctx->dev);
 	}
 
@@ -1977,11 +1978,46 @@ int mtk_cam_seninf_check_timeout(struct v4l2_subdev *sd, u64 time_after_sof)
 	return ret;
 }
 
+u64 mtk_cam_seninf_get_frame_time(struct v4l2_subdev *sd, u32 seq_id)
+{
+	u64 tmp = 33000;
+	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+	int val = 0;
 
-int mtk_cam_seninf_dump(struct v4l2_subdev *sd)
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
+	if (ctrl) {
+		val = v4l2_ctrl_g_ctrl(ctrl);
+		if (val > 0)
+			tmp = val;
+	}
+	return tmp * 1000;
+}
+
+int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id)
 {
 	int ret = 0;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+	int val = 0;
+
+	if (ctx->dbg_last_dump_req != 0 &&
+		ctx->dbg_last_dump_req == seq_id) {
+		dev_info(ctx->dev, "%s skip duplicate dump for req %u\n", __func__, seq_id);
+		return 0;
+	}
+
+	ctx->dbg_last_dump_req = seq_id;
+	ctx->dbg_timeout = 0; //in us
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
+	if (ctrl) {
+		val = v4l2_ctrl_g_ctrl(ctrl);
+		if (val > 0)
+			ctx->dbg_timeout = val;
+	}
 
 	ret = pm_runtime_get_sync(ctx->dev);
 	if (ret < 0) {
