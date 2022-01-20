@@ -69,3 +69,11 @@ config MTK_GBE
 	  boost Game Engine while gaming for better gaming experience
 	  This function depends on MTK_FPSGO_V3.
 	  If you are not sure about this, please set n.
+
+config MTK_FRS
+	tristate "Mediatek Frame Rate Smoother"
+	help
+	  Support Frame Rate Smoother kernel intergface. It will adjustment
+	  target fps by thermal.
+	  If you are not sure about this, set n.
+

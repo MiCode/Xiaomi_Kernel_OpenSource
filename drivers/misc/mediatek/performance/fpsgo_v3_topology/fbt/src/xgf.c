@@ -1088,7 +1088,7 @@ static int xgf_hw_event_collect(int event_type, int tid,
 }
 
 static int xgf_get_render(pid_t rpid, unsigned long long bufID,
-	struct xgf_render **ret, int force)
+	struct xgf_render **ret, int force, int hwui_flag)
 {
 	struct xgf_render *iter;
 
@@ -1153,6 +1153,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID,
 		iter->u_runtime_idx = 0;
 		iter->spid = 0;
 		iter->dep_frames = xgf_prev_dep_frames;
+		iter->hwui_flag = hwui_flag;
 	}
 
 	INIT_HLIST_HEAD(&iter->sector_head);
@@ -2215,7 +2216,7 @@ static void xgf_calculate_u_avg2sd(struct xgf_render *render)
 
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long *run_time, unsigned long long *mid,
-	unsigned long long ts)
+	unsigned long long ts, int hwui_flag)
 {
 	int ret = XGF_NOTIFY_OK;
 	struct xgf_render *r, **rrender;
@@ -2241,7 +2242,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_QUEUE_START:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2251,7 +2252,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_QUEUE_END:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 1)) {
+		if (xgf_get_render(rpid, bufID, rrender, 1, hwui_flag)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2318,7 +2319,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_DEQUEUE_START:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}
@@ -2327,7 +2328,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 
 	case XGF_DEQUEUE_END:
 		rrender = &r;
-		if (xgf_get_render(rpid, bufID, rrender, 0)) {
+		if (xgf_get_render(rpid, bufID, rrender, 0, hwui_flag)) {
 			ret = XGF_THREAD_NOT_FOUND;
 			goto qudeq_notify_err;
 		}

@@ -47,6 +47,8 @@ else
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3/
 endif
 
+obj-$(CONFIG_MTK_FRS) += frs/
+
 ifneq (,$(filter $(CONFIG_MTK_LEGACY_THERMAL_PLATFORM), "mt6779"))
 		obj-$(CONFIG_MTK_EARA_THERMAL) += eara_thermal/
 endif

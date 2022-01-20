@@ -144,6 +144,8 @@ struct xgf_render {
 
 	int spid;
 	int dep_frames;
+
+	int hwui_flag;
 };
 
 struct xgf_dep {
@@ -271,7 +273,7 @@ int fpsgo_ctrl2xgf_nn_job_end(unsigned int tid, unsigned long long mid);
 
 int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	unsigned long long *run_time, unsigned long long *mid,
-	unsigned long long ts);
+	unsigned long long ts, int hwui_flag);
 void fpsgo_fstb2xgf_do_recycle(int fstb_active);
 void fpsgo_create_render_dep(void);
 int has_xgf_dep(pid_t tid);

@@ -780,14 +780,16 @@ static int get_gpu_frame_time(struct FSTB_FRAME_INFO *iter)
 
 }
 
-void eara2fstb_get_tfps(int max_cnt, int *pid, unsigned long long *buf_id,
-				int *tfps)
+int fstb_is_cam_active;
+void eara2fstb_get_tfps(int max_cnt, int *is_camera, int *pid, unsigned long long *buf_id,
+						int *tfps, int *rfps, int *hwui, char name[][16])
 {
 	int count = 0;
 	struct FSTB_FRAME_INFO *iter;
 	struct hlist_node *n;
 
 	mutex_lock(&fstb_lock);
+	*is_camera = fstb_is_cam_active;
 
 	hlist_for_each_entry_safe(iter, n, &fstb_frame_infos, hlist) {
 		if (count == max_cnt)
@@ -797,15 +799,24 @@ void eara2fstb_get_tfps(int max_cnt, int *pid, unsigned long long *buf_id,
 			continue;
 
 		pid[count] = iter->pid;
+		hwui[count] = iter->hwui_flag;
 		buf_id[count] = iter->bufid;
-		tfps[count] = iter->target_fps;
+		rfps[count] = iter->queue_fps;
+		if (!iter->target_fps_notifying
+			|| iter->target_fps_notifying == -1)
+			tfps[count] = iter->target_fps;
+		else
+			tfps[count] = iter->target_fps_notifying;
+		if (name)
+			strncpy(name[count], iter->proc_name, 16);
 		count++;
 	}
 
 	mutex_unlock(&fstb_lock);
 }
 
-void eara2fstb_tfps_mdiff(int pid, unsigned long long buf_id, int diff)
+void eara2fstb_tfps_mdiff(int pid, unsigned long long buf_id, int diff,
+				int tfps)
 {
 	struct FSTB_FRAME_INFO *iter;
 	struct hlist_node *n;
@@ -814,13 +825,53 @@ void eara2fstb_tfps_mdiff(int pid, unsigned long long buf_id, int diff)
 
 	hlist_for_each_entry_safe(iter, n, &fstb_frame_infos, hlist) {
 		if (pid == iter->pid && buf_id == iter->bufid) {
+			if (tfps != iter->target_fps_notifying &&
+				 tfps != iter->target_fps)
+				break;
+
 			iter->target_fps_diff = diff;
 			fpsgo_systrace_c_fstb_man(pid, buf_id, diff, "eara_diff");
+
+			if (iter->target_fps_notifying
+				&& tfps == iter->target_fps_notifying) {
+				iter->target_fps = iter->target_fps_notifying;
+				iter->target_fps_notifying = 0;
+				fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
+					iter->target_fps, "fstb_target_fps1");
+				fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+					0, "fstb_notifying");
+			}
 			break;
 		}
 	}
 
 	mutex_unlock(&fstb_lock);
+}
+
+int (*eara_pre_change_fp)(void);
+int (*eara_pre_change_single_fp)(int pid, unsigned long long bufID,
+			int target_fps);
+static void fstb_change_tfps(struct FSTB_FRAME_INFO *iter, int target_fps,
+		int notify_eara)
+{
+	int ret = -1;
+
+	if (notify_eara && eara_pre_change_single_fp)
+		ret = eara_pre_change_single_fp(iter->pid, iter->bufid, target_fps);
+
+	if ((notify_eara && (ret == -1))
+		|| iter->target_fps_notifying == target_fps) {
+		iter->target_fps = target_fps;
+		iter->target_fps_notifying = 0;
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+					0, "fstb_notifying");
+		fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
+					iter->target_fps, "fstb_target_fps1");
+	} else {
+		iter->target_fps_notifying = target_fps;
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+			iter->target_fps_notifying, "fstb_notifying");
+	}
 }
 
 void (*eara_thrm_frame_start_fp)(int pid, unsigned long long bufID,
@@ -1000,7 +1051,10 @@ out:
 	iter->cpu_time = cpu_time_ns;
 
 	eara_fps = iter->target_fps;
-	if (iter->target_fps && iter->target_fps != -1 && iter->target_fps_diff) {
+	if (iter->target_fps && iter->target_fps != -1
+		&& iter->target_fps_diff
+		&& !iter->target_fps_margin_gpu
+		&& !iter->target_fps_margin) {
 		eara_fps = iter->target_fps * 1000 + iter->target_fps_diff;
 		eara_fps /= 1000;
 		eara_fps = clamp(eara_fps, min_fps_limit, max_fps_limit);
@@ -1148,7 +1202,6 @@ static long long get_cpu_frame_time(struct FSTB_FRAME_INFO *iter)
  * if yes, apply g block c boost
  */
 long long fstb_cam_active_ts;
-int fstb_is_cam_active;
 void fpsgo_comp2fstb_camera_active(int pid)
 {
 	mutex_lock(&fstb_cam_active_time);
@@ -1229,7 +1282,7 @@ static int mode(int a[], int n)
 
 void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 	int frame_type, unsigned long long ts,
-	int api)
+	int api, int hwui_flag)
 {
 	struct FSTB_FRAME_INFO *iter;
 	ktime_t cur_time;
@@ -1279,6 +1332,7 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 		new_frame_info->target_fps_margin_gpu_dbnc_b = margin_mode_gpu_dbnc_b;
 		new_frame_info->target_fps_diff = 0;
 		new_frame_info->sbe_state = 0;
+		new_frame_info->target_fps_notifying = 0;
 		new_frame_info->queue_fps = max_fps_limit;
 		new_frame_info->bufid = bufID;
 		new_frame_info->queue_time_begin = 0;
@@ -1301,6 +1355,7 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 		new_frame_info->fps_raise_flag = 0;
 		new_frame_info->vote_i = 0;
 		new_frame_info->render_idle_cnt = 0;
+		new_frame_info->hwui_flag = hwui_flag;
 
 		rcu_read_lock();
 		tsk = find_task_by_vpid(pid);
@@ -1417,7 +1472,9 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 
 		if (tmp_vote_fps > iter->target_fps) {
 			iter->fps_raise_flag = 1;
-			iter->target_fps = tmp_vote_fps;
+
+			if (tmp_vote_fps != iter->target_fps)
+				fstb_change_tfps(iter, tmp_vote_fps, 1);
 		}
 	}
 
@@ -1755,10 +1812,15 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 		(*quantile_gpu_time) = iter->quantile_gpu_time;
 
 		if (iter->target_fps && iter->target_fps != -1
-			&& iter->target_fps_diff) {
+			&& iter->target_fps_diff
+			&& !iter->target_fps_margin
+			&& !iter->target_fps_margin_gpu) {
 			int eara_fps = iter->target_fps * 1000;
 			int max_mlimit = max_fps_limit * 1000;
 			int min_mlimit = min_fps_limit * 1000;
+
+			fpsgo_systrace_c_fstb_man(pid, iter->bufid,
+					iter->target_fps_diff, "eara_diff");
 
 			eara_fps += iter->target_fps_diff;
 			eara_fps = clamp(eara_fps, min_mlimit, max_mlimit);
@@ -1887,6 +1949,7 @@ static void fstb_fps_stats(struct work_struct *work)
 	int idle = 1;
 	int fstb_active2xgf;
 	int max_target_fps = -1;
+	int eara_ret = -1;
 
 	if (work != &fps_stats_work)
 		kfree(work);
@@ -1905,9 +1968,11 @@ static void fstb_fps_stats(struct work_struct *work)
 			idle = 0;
 
 			target_fps = cal_target_fps(iter);
+			target_fps = calculate_fps_limit(iter, target_fps);
 
-			iter->target_fps =
-				calculate_fps_limit(iter, target_fps);
+			if (target_fps != iter->target_fps)
+				fstb_change_tfps(iter, target_fps, 0);
+
 			iter->vote_i = 0;
 			fpsgo_systrace_c_fstb_man(iter->pid, 0,
 					dfps_ceiling, "dfrc");
@@ -1946,8 +2011,11 @@ static void fstb_fps_stats(struct work_struct *work)
 			iter->render_idle_cnt++;
 			if (iter->render_idle_cnt < FSTB_IDLE_DBNC) {
 
-				iter->target_fps =
-					calculate_fps_limit(iter, target_fps);
+				target_fps = calculate_fps_limit(iter, target_fps);
+
+				if (target_fps != iter->target_fps)
+					fstb_change_tfps(iter, target_fps, 0);
+
 				mtk_fstb_dprintk(
 						"%s pid:%d target_fps:%d\n",
 						__func__, iter->pid,
@@ -2000,8 +2068,26 @@ static void fstb_fps_stats(struct work_struct *work)
 	if (fstb_active == 0)
 		pob_fpsgo_qtsk_update(POB_FPSGO_QTSK_DELALL, NULL);
 
-
 	mutex_unlock(&fstb_lock);
+
+	if (eara_pre_change_fp)
+		eara_ret = eara_pre_change_fp();
+
+	if (eara_ret == -1) {
+		mutex_lock(&fstb_lock);
+		hlist_for_each_entry_safe(iter, n, &fstb_frame_infos, hlist) {
+			if (!iter->target_fps_notifying
+				|| iter->target_fps_notifying == -1)
+				continue;
+			iter->target_fps = iter->target_fps_notifying;
+			iter->target_fps_notifying = 0;
+			fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+					0, "fstb_notifying");
+			fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
+					iter->target_fps, "fstb_target_fps1");
+		}
+		mutex_unlock(&fstb_lock);
+	}
 
 	fstb_check_cam_status();
 
@@ -2009,8 +2095,6 @@ static void fstb_fps_stats(struct work_struct *work)
 	fpsgo_fstb2xgf_do_recycle(fstb_active2xgf);
 	fpsgo_create_render_dep();
 
-	if (eara_pre_active_fp)
-		eara_pre_active_fp(fstb_active2xgf);
 }
 
 static int set_soft_fps_level(int nr_level, struct fps_level *level)
