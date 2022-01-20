@@ -362,6 +362,12 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define MT6879_OVL0_2L_AID_SEL	(0xB04UL)
 #define MT6879_OVL0_2L_NWCG_AID_SEL (0xB0CUL)
 
+#define MT6855_OVL0_AID_SEL	(0xB00UL)
+#define MT6855_OVL0_2L_AID_SEL	(0xB04UL)
+#define MT6855_OVL1_2L_AID_SEL	(0xB08UL)
+#define MT6855_OVL0_2L_NWCG_AID_SEL (0xB0CUL)
+#define MT6855_OVL1_2L_NWCG_AID_SEL (0xB10UL)
+
 #define SMI_LARB_NON_SEC_CON        0x380
 
 #define MML_SRAM_SHIFT (512*1024)
@@ -526,6 +532,22 @@ resource_size_t mtk_ovl_mmsys_mapping_MT6879(struct mtk_ddp_comp *comp)
 	}
 }
 
+resource_size_t mtk_ovl_mmsys_mapping_MT6855(struct mtk_ddp_comp *comp)
+{
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0:
+	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL1_2L:
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+		return priv->config_regs_pa;
+	default:
+		DDPINFO("%s invalid ovl module=%d\n", __func__, comp->id);
+		return 0;
+	}
+}
+
 unsigned int mtk_ovl_aid_sel_MT6983(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
@@ -577,6 +599,25 @@ unsigned int mtk_ovl_aid_sel_MT6879(struct mtk_ddp_comp *comp)
 		return MT6879_OVL0_2L_NWCG_AID_SEL;
 	default:
 		DDPPR_ERR("%s invalid ovl module=%d\n", __func__, comp->id);
+		return 0;
+	}
+}
+
+unsigned int mtk_ovl_aid_sel_MT6855(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0:
+		return MT6855_OVL0_AID_SEL;
+	case DDP_COMPONENT_OVL0_2L:
+		return MT6855_OVL0_2L_AID_SEL;
+	case DDP_COMPONENT_OVL1_2L:
+		return MT6855_OVL1_2L_AID_SEL;
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+		return MT6855_OVL0_2L_NWCG_AID_SEL;
+	case DDP_COMPONENT_OVL1_2L_NWCG:
+		return MT6855_OVL1_2L_NWCG_AID_SEL;
+	default:
+		DDPINFO("%s invalid ovl module=%d\n", __func__, comp->id);
 		return 0;
 	}
 }
@@ -4280,6 +4321,8 @@ static const struct mtk_disp_ovl_data mt6855_ovl_driver_data = {
 	.issue_req_th_urg_dc = 31,
 	.greq_num_dl = 0xbbbb,
 	.is_support_34bits = true,
+	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6855,
+	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6855,
 };
 
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
