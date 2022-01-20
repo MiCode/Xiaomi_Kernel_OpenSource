@@ -6,6 +6,7 @@
  * MT6893 MSDC DTSI File
  ********************************************/
 #include <dt-bindings/gpio/gpio.h>
+
 &mmc0 {
 	host-index = <0>;
 	status = "okay";
@@ -15,6 +16,7 @@
 	bus-width = <8>;
 	max-frequency = <200000000>;
 	cap-mmc-highspeed;
+	mmc-ddr-1_8v;
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
 	//cap-mmc-hw-reset;
@@ -23,9 +25,7 @@
 	hs400-ds-delay = <0x12814>;
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
 	non-removable;
-	supports-cqe;
-//	dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-	req-vcore = <650000>;
+	mediatek,cqhci;
 };
 
 &mmc1 {

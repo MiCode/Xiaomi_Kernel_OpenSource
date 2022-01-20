@@ -2513,16 +2513,6 @@ page_owner=on loop.max_part=7";
 		status = "disabled";
 	};
 
-	mmc_fixed_3v3: fixedregulator@0 {
-		compatible = "regulator-fixed";
-		status = "disabled";
-	};
-
-	mmc_fixed_1v8_io: fixedregulator@1 {
-		compatible = "regulator-fixed";
-		status = "disabled";
-	};
-
 	ufshci:ufshci@11270000 {
 		compatible = "mediatek,mt8183-ufshci";
 		reg = <0 0x11270000 0 0x2300>;
