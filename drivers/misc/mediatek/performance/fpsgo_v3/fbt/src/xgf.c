@@ -3385,7 +3385,7 @@ Reget:
 	index = xgf_atomic_inc_return(xgf_event_index);
 
 	/* protection for if xgf_nr_cpus in error condition */
-	if (unlikely(index < 0)) {
+	if (unlikely(index <= 0)) {
 		xgf_atomic_set(xgf_event_index, 0);
 		return;
 	}
@@ -3447,7 +3447,7 @@ static void fstb_buffer_record_waking_switch_timer(int cpu, int event,
 Reget:
 	index = atomic_inc_return(&fstb_event_data_idx);
 
-	if (unlikely(index < 0)) {
+	if (unlikely(index <= 0)) {
 		atomic_set(&fstb_event_data_idx, 0);
 		return;
 	}
