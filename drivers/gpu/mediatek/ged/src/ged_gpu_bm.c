@@ -3,6 +3,9 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
+#include <linux/module.h>
+#include <linux/init.h>
+
 #include <ged_gpu_bm.h>
 
 #if defined(MTK_GPU_BM_2)

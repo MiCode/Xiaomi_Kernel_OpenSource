@@ -67,7 +67,7 @@ ccflags-y += \
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb
 ccflags-y += \
 		-I$(srctree)/drivers/misc/mediatek/sspm/ \
-		-I$(srctree)/drivers/misc/mediatek/sspm/v2 \
+		-I$(srctree)/drivers/misc/mediatek/sspm/v3 \
 		-I$(srctree)/drivers/misc/mediatek/qos/ \
 		-I$(srctree)/drivers/gpu/mediatek/gpu_bm/
 
