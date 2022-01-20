@@ -151,14 +151,14 @@ void slbc_sram_init(struct mtk_slbc *slbc)
 
 static void slbc_set_sram_data(struct slbc_data *d)
 {
-	pr_info("slbc: set pa:%lx va:%lx\n",
-			(unsigned long)d->paddr, (unsigned long)d->vaddr);
+	/* pr_info("slbc: set pa:%lx va:%lx\n", */
+			/* (unsigned long)d->paddr, (unsigned long)d->vaddr); */
 }
 
 static void slbc_clr_sram_data(struct slbc_data *d)
 {
-	pr_info("slbc: clr pa:%lx va:%lx\n",
-			(unsigned long)d->paddr, (unsigned long)d->vaddr);
+	/* pr_info("slbc: clr pa:%lx va:%lx\n", */
+			/* (unsigned long)d->paddr, (unsigned long)d->vaddr); */
 }
 
 static void slbc_debug_log(const char *fmt, ...)

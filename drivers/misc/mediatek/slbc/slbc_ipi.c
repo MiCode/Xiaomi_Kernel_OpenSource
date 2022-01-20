@@ -329,9 +329,9 @@ int slbc_scmi_set(void *buffer, int slot)
 		goto error;
 	}
 
-	pr_info("#@# %s(%d) id 0x%x cmd 0x%x arg 0x%x\n",
-			__func__, __LINE__,
-			scmi_slbc_id, slbc_ipi_d->cmd, slbc_ipi_d->arg);
+	/* pr_info("#@# %s(%d) id 0x%x cmd 0x%x arg 0x%x\n", */
+			/* __func__, __LINE__, */
+			/* scmi_slbc_id, slbc_ipi_d->cmd, slbc_ipi_d->arg); */
 
 	slbc_sram_write(SLBC_SCMI_AP, ++scmi_id);
 
@@ -373,9 +373,9 @@ int slbc_scmi_get(void *buffer, int slot, void *ptr)
 		goto error;
 	}
 
-	pr_info("#@# %s(%d) id 0x%x cmd 0x%x arg 0x%x\n",
-			__func__, __LINE__,
-			scmi_slbc_id, slbc_ipi_d->cmd, slbc_ipi_d->arg);
+	/* pr_info("#@# %s(%d) id 0x%x cmd 0x%x arg 0x%x\n", */
+			/* __func__, __LINE__, */
+			/* scmi_slbc_id, slbc_ipi_d->cmd, slbc_ipi_d->arg); */
 
 	slbc_sram_write(SLBC_SCMI_AP, ++scmi_id);
 
