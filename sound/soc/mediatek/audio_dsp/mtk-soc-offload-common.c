@@ -574,10 +574,8 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 		break;
 	case OFFLOAD_DECODE_ERROR:
 		afe_offload_service.decode_error = true;
-		if (afe_offload_block.state == OFFLOAD_STATE_DRAIN) {
-			offloadservice_setwriteblocked(false);
-			offloadservice_releasewriteblocked();
-		}
+		offloadservice_setwriteblocked(false);
+		offloadservice_releasewriteblocked();
 		pr_info("%s decode_error\n", __func__);
 		break;
 	case OFFLOAD_CODEC_INFO:
