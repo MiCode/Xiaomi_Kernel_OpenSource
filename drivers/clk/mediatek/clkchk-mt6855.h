@@ -30,8 +30,7 @@ enum chk_sys_id {
 	ipe = 19,
 	mminfra_config = 20,
 	mdp = 21,
-	mdp1 = 22,
-	chk_sys_num = 23,
+	chk_sys_num = 22,
 };
 
 #ifdef CONFIG_MTK_DVFSRC_HELPER

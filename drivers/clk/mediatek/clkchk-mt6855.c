@@ -43,21 +43,20 @@ static struct regbase rb[] = {
 	[afe] = REGBASE_V(0x11050000, afe, MT6855_POWER_DOMAIN_AUDIO, CLK_NULL),
 	[mfg_ao] = REGBASE_V(0x13fa0000, mfg_ao, PD_NULL, CLK_NULL),
 	[mm] = REGBASE_V(0x14000000, mm, MT6855_POWER_DOMAIN_DISP, CLK_NULL),
-	[imgsys1] = REGBASE_V(0x15020000, imgsys1, PD_NULL, CLK_NULL),
-	[imgsys2] = REGBASE_V(0x15820000, imgsys2, PD_NULL, CLK_NULL),
+	[imgsys1] = REGBASE_V(0x15020000, imgsys1, MT6855_POWER_DOMAIN_ISP_DIP1, CLK_NULL),
+	[imgsys2] = REGBASE_V(0x15820000, imgsys2, MT6855_POWER_DOMAIN_ISP_MAIN, CLK_NULL),
 	[vde2] = REGBASE_V(0x1602f000, vde2, MT6855_POWER_DOMAIN_VDE0, CLK_NULL),
 	[ven1] = REGBASE_V(0x17000000, ven1, MT6855_POWER_DOMAIN_VEN0, CLK_NULL),
 	[spm] = REGBASE_V(0x1C001000, spm, PD_NULL, CLK_NULL),
 	[vlpcfg] = REGBASE_V(0x1C00C000, vlpcfg, PD_NULL, CLK_NULL),
 	[vlp_ck] = REGBASE_V(0x1C013000, vlp_ck, PD_NULL, CLK_NULL),
-	[cam_m] = REGBASE_V(0x1a000000, cam_m, PD_NULL, CLK_NULL),
+	[cam_m] = REGBASE_V(0x1a000000, cam_m, MT6855_POWER_DOMAIN_CAM_MAIN, CLK_NULL),
 	[cam_ra] = REGBASE_V(0x1a04f000, cam_ra, MT6855_POWER_DOMAIN_CAM_SUBA, CLK_NULL),
 	[cam_rb] = REGBASE_V(0x1a06f000, cam_rb, MT6855_POWER_DOMAIN_CAM_SUBB, CLK_NULL),
 	[ipe] = REGBASE_V(0x1b000000, ipe, MT6855_POWER_DOMAIN_ISP_IPE, CLK_NULL),
 	[mminfra_config] = REGBASE_V(0x1e800000, mminfra_config,
 		MT6855_POWER_DOMAIN_MM_INFRA, CLK_NULL),
 	[mdp] = REGBASE_V(0x1f000000, mdp, MT6855_POWER_DOMAIN_DISP, CLK_NULL),
-	[mdp1] = REGBASE_V(0x1f800000, mdp1, PD_NULL, CLK_NULL),
 	{},
 };
 
@@ -163,19 +162,15 @@ static struct regname rn[] = {
 	REGNAME(apmixed, 0x394, MPLL_CON1),
 	REGNAME(apmixed, 0x398, MPLL_CON2),
 	REGNAME(apmixed, 0x39c, MPLL_CON3),
-	REGNAME(apmixed, 0x3b0, EMIPLL_CON0),
-	REGNAME(apmixed, 0x3b4, EMIPLL_CON1),
-	REGNAME(apmixed, 0x3b8, EMIPLL_CON2),
-	REGNAME(apmixed, 0x3bc, EMIPLL_CON3),
 	REGNAME(apmixed, 0x370, IMGPLL_CON0),
 	REGNAME(apmixed, 0x374, IMGPLL_CON1),
 	REGNAME(apmixed, 0x378, IMGPLL_CON2),
 	REGNAME(apmixed, 0x37c, IMGPLL_CON3),
 	/* IMP_IIC_WRAP register */
-	REGNAME(imp, 0x281E00, AP_CLOCK_CG_CEN),
-	REGNAME(imp, 0xED5E00, AP_CLOCK_CG_EST_NOR),
-	REGNAME(imp, 0xDB5E00, AP_CLOCK_CG_SOU),
-	REGNAME(imp, 0xB21E00, AP_CLOCK_CG_WST),
+	//REGNAME(imp, 0x281E00, AP_CLOCK_CG_CEN),
+	//REGNAME(imp, 0xED5E00, AP_CLOCK_CG_EST_NOR),
+	//REGNAME(imp, 0xDB5E00, AP_CLOCK_CG_SOU),
+	//REGNAME(imp, 0xB21E00, AP_CLOCK_CG_WST),
 	/* PERICFG_AO register */
 	REGNAME(perao, 0x10, PERI_CG_0),
 	REGNAME(perao, 0x14, PERI_CG_1),
@@ -198,9 +193,9 @@ static struct regname rn[] = {
 	REGNAME(mm, 0x110, MMSYS_CG_1),
 	REGNAME(mm, 0x1A0, MMSYS_CG_2),
 	/* IMGSYS1 register */
-	REGNAME(imgsys1, 0x0, IMG_CG),
+	REGNAME(imgsys1, 0x0, IMG_1_CG),
 	/* IMGSYS2 register */
-	REGNAME(imgsys2, 0x0, IMG_CG),
+	REGNAME(imgsys2, 0x0, IMG_2_CG),
 	/* VDEC_GCON_BASE register */
 	REGNAME(vde2, 0x8, LARB_CKEN_CON),
 	REGNAME(vde2, 0x190, MINI_MDP_CFG_0),
@@ -232,9 +227,6 @@ static struct regname rn[] = {
 	REGNAME(spm, 0xF40, XPU_PWR_STATUS_2ND),
 	REGNAME(spm, 0xEBC, MFG1_PWR_CON),
 	REGNAME(spm, 0xEC0, MFG2_PWR_CON),
-	REGNAME(spm, 0xEC4, MFG3_PWR_CON),
-	REGNAME(spm, 0xEC8, MFG4_PWR_CON),
-	REGNAME(spm, 0xECC, MFG5_PWR_CON),
 	/* VLPCFG_BUS register */
 	REGNAME(vlpcfg, 0x0210, VLP_TOPAXI_PROTECTEN),
 	REGNAME(vlpcfg, 0x0220, VLP_TOPAXI_PROTECTEN_STA1),
@@ -244,22 +236,19 @@ static struct regname rn[] = {
 	REGNAME(vlp_ck, 0x0020, VLP_CLK_CFG_2),
 	REGNAME(vlp_ck, 0x002C, VLP_CLK_CFG_3),
 	/* CAMSYS_MAIN register */
-	REGNAME(cam_m, 0x0, CAMSYS_CG),
+	REGNAME(cam_m, 0x0, CAMSYS_MAIN_CG),
 	/* CAMSYS_RAWA register */
-	REGNAME(cam_ra, 0x0, CAMSYS_CG),
+	REGNAME(cam_ra, 0x0, CAMSYS_RA_CG),
 	/* CAMSYS_RAWB register */
-	REGNAME(cam_rb, 0x0, CAMSYS_CG),
+	REGNAME(cam_rb, 0x0, CAMSYS_RB_CG),
 	/* IPESYS register */
-	REGNAME(ipe, 0x0, IMG_CG),
+	REGNAME(ipe, 0x0, IMG_IPE_CG),
 	/* MMINFRA_CONFIG register */
 	REGNAME(mminfra_config, 0x100, MMINFRA_CG_0),
 	REGNAME(mminfra_config, 0x110, MMINFRA_CG_1),
 	/* MDPSYS_CONFIG register */
 	REGNAME(mdp, 0x100, MDPSYS_CG_0),
 	REGNAME(mdp, 0x110, MDPSYS_CG_1),
-	/* MDPSYS1_CONFIG register */
-	REGNAME(mdp1, 0x100, MDPSYS_CG_0),
-	REGNAME(mdp1, 0x110, MDPSYS_CG_1),
 	{},
 };
 
@@ -319,13 +308,13 @@ static struct pvd_msk pvd_pwr_mask[] = {
 	{"vlp_cksys", PWR_STA, 0x00000000},
 	{"mfg_pll_ctrl", PWR_STA, 0x00000000},
 	{"afe", PWR_STA, 0x00000020},
-	{"camsys_main", PWR_STA, 0x00000000},
+	{"camsys_main", PWR_STA, 0x00020000},
 	{"camsys_rawa", PWR_STA, 0x00080000},
 	{"camsys_rawb", PWR_STA, 0x00100000},
 	{"dispsys", PWR_STA, 0x02000000},
-	{"imgsys1", PWR_STA, 0x00000000},
-	{"imgsys2", PWR_STA, 0x00000000},
-	{"imp_iic_wrap", PWR_STA, 0x00000000},
+	{"imgsys1", PWR_STA, 0x00000400},
+	{"imgsys2", PWR_STA, 0x00000200},
+	//{"imp_iic_wrap", PWR_STA, 0x00000000},
 	{"infracfg_ao", PWR_STA, 0x00000000},
 	{"ipesys", PWR_STA, 0x00000800},
 	{"mdpsys1_config", PWR_STA, 0x00000000},
@@ -428,18 +417,10 @@ static struct devapc_vio_callbacks devapc_vio_handle = {
 #endif
 
 static const char * const off_pll_names[] = {
-	"armpll_ll",
-	"armpll_bl",
-	"ccipll",
-	"mainpll",
 	"univpll",
 	"msdcpll",
 	"mmpll",
 	"tvdpll",
-	"apll1",
-	"apll2",
-	"mpll",
-	"emipll",
 	"imgpll",
 	"mfg_ao_mfgpll",
 	"mfg_ao_mfgscpll",
@@ -447,7 +428,8 @@ static const char * const off_pll_names[] = {
 };
 
 static const char * const notice_pll_names[] = {
-
+	"apll1",
+	"apll2",
 	NULL
 };
 
