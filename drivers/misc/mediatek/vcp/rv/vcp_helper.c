@@ -733,12 +733,13 @@ void vcp_enable_pm_clk(enum feature_id id)
 	if (!vcp_support)
 		return;
 
+	mutex_lock(&vcp_pw_clk_mutex);
 	if (is_suspending) {
-		pr_notice("[VCP] %s fail %d %d\n", __func__, pwclkcnt, is_suspending);
+		pr_notice("[VCP] %s return %d %d\n", __func__, pwclkcnt, is_suspending);
+		mutex_unlock(&vcp_pw_clk_mutex);
 		return;
 	}
 
-	mutex_lock(&vcp_pw_clk_mutex);
 	if (pwclkcnt == 0) {
 		ret = clk_prepare_enable(vcp26m);
 		if (ret)
@@ -773,12 +774,13 @@ void vcp_disable_pm_clk(enum feature_id id)
 	if (!vcp_support)
 		return;
 
+	mutex_lock(&vcp_pw_clk_mutex);
 	if (is_suspending) {
-		pr_notice("[VCP] %s fail %d %d\n", __func__, pwclkcnt, is_suspending);
+		pr_notice("[VCP] %s return %d %d\n", __func__, pwclkcnt, is_suspending);
+		mutex_unlock(&vcp_pw_clk_mutex);
 		return;
 	}
 
-	mutex_lock(&vcp_pw_clk_mutex);
 	pr_notice("[VCP] %s id %d entered %d ready %d\n", __func__, id,
 		pwclkcnt, is_vcp_ready(VCP_A_ID));
 	pwclkcnt--;
@@ -831,7 +833,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		mutex_lock(&vcp_pw_clk_mutex);
-		pr_debug("[VCP] PM_SUSPEND_PREPARE entered %d %d\n", pwclkcnt, is_suspending);
+		pr_notice("[VCP] PM_SUSPEND_PREPARE entered %d %d\n", pwclkcnt, is_suspending);
 		if ((!is_suspending) && pwclkcnt) {
 			waitCnt = vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			vcp_disable_irqs();
@@ -870,6 +872,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 		return NOTIFY_OK;
 	case PM_POST_SUSPEND:
 		mutex_lock(&vcp_pw_clk_mutex);
+		pr_notice("[VCP] PM_POST_SUSPEND entered %d %d\n", pwclkcnt, is_suspending);
 		if (is_suspending && pwclkcnt) {
 			retval = clk_prepare_enable(vcp26m);
 			if (retval)
