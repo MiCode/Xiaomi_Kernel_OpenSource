@@ -1,0 +1,17 @@
+config MTK_SLBC
+	bool "MTK SLBC"
+	help
+	  This kernel config can be used to enable SLBC. When enable
+	  this option, we will use system buffer to improve performance
+	  and power.
+	  If unsure, say N.
+
+config MTK_SLBC_MMSRAM
+	bool "MTK SLBC use MMSRAM"
+	select MTK_SLBC
+	help
+	  This kernel config can be used to enable SLBC MMSRAM. When enable
+	  this option, we will use system buffer to improve performance
+	  and power.
+	  If unsure, say N.
+
