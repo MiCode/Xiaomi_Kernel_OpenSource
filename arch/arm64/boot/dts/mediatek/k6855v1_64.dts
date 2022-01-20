@@ -102,6 +102,7 @@
 		pm-enable-gpios = <&pio 161 0>;
 		reset-gpios = <&pio 95 0>;
 		gate-ic = <4831>;
+		rc-enable = <1>;
 		pinctrl-names = "default";
 		port {
 			panel_in1: endpoint {
