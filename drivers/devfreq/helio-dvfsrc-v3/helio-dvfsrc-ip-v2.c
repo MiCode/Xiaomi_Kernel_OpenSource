@@ -474,7 +474,7 @@ int helio_dvfsrc_config(struct helio_dvfsrc *dvfsrc)
 	if (!vcore_reg_id)
 		pr_info("[DVFSRC] No Vcore regulator\n");
 
-#if defined(CONFIG_MTK_WATCHDOG_COMMON) || defined(CONFIG_MTK_DBGTOP)
+#ifdef CONFIG_MTK_WATCHDOG_COMMON
 	dvfsrc_latch_register(1);
 #endif
 	helio_dvfsrc_enable(1);
