@@ -224,6 +224,9 @@ static void handle_venc_mem_alloc(struct venc_vcu_ipi_mem_op *msg)
 		mtk_vcodec_err(vcu, "fail %d, va 0x%llx pa 0x%llx iova 0x%llx len %d type %d",
 			msg->status, msg->mem.va, msg->mem.pa,
 			msg->mem.iova, msg->mem.len,  msg->mem.type);
+		/* reset prevent VCP TF */
+		msg->mem.pa = 0;
+		msg->mem.iova = 0;
 	} else if (msg->mem.type != MEM_TYPE_FOR_SHM) {
 		tmp = kmalloc(sizeof(struct vcp_enc_mem_list), GFP_KERNEL);
 		if (tmp) {
