@@ -45,7 +45,6 @@
 			<&infracfg_ao_clk CLK_IFRAO_SSUSB>,
 			<&infracfg_ao_clk CLK_IFRAO_DISP_PWM>,
 			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
-			<&infracfg_ao_clk CLK_IFRAO_AUDIO_26M_BCLK>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI1>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI2>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI3>,
