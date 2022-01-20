@@ -95,6 +95,7 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 	char tag_name[30] = {'\0'};
 	static struct OVL_BASIC_STRUCT old_ovlInfo[4+2+2];
 	static struct OVL_BASIC_STRUCT ovlInfo[4+2+2];
+	int ovl_index = 0;
 	int layer_pos = 0;
 	int b_layer_changed = 0;
 	int i, j;
