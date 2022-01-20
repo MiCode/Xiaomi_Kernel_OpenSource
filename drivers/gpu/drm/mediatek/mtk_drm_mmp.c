@@ -331,6 +331,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 		return -1;
 	}
 
+	memset(&meta, 0, sizeof(struct mmp_metadata_t));
 	memset(&bitmap, 0, sizeof(struct mmp_metadata_bitmap_t));
 	bitmap.data1 = 0;
 	bitmap.width = pending->width;

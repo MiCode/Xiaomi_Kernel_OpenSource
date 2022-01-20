@@ -3355,7 +3355,7 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				pa, wParams->val, wParams->mask);
-			DDPINFO("dual pipe pa:0x%x(va:0x%lx) = 0x%x (0x%x) comp->regs_pa:(0x%x)\n",
+			DDPINFO("dual pipe pa:0x%x(va:0x%lx) = 0x%x(0x%x) comp->regs_pa:(0x%llx)\n",
 					pa, (long)va, wParams->val, wParams->mask, comp->regs_pa);
 		}
 	}
