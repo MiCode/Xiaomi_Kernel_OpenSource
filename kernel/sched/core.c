@@ -28,6 +28,9 @@
 #ifdef CONFIG_MTK_TASK_TURBO
 #include <mt-plat/turbo_common.h>
 #endif
+#ifdef CONFIG_MTK_QOS_FRAMEWORK
+#include <mt-plat/mtk_qos_prefetch_common.h>
+#endif /* CONFIG_MTK_QOS_FRAMEWORK */
 
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 
@@ -3845,6 +3848,9 @@ void scheduler_tick(void)
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(curr);
 #endif
+#ifdef CONFIG_MTK_QOS_FRAMEWORK
+	qos_prefetch_tick(cpu);
+#endif /* CONFIG_MTK_QOS_FRAMEWORK */
 }
 
 #ifdef CONFIG_NO_HZ_FULL
