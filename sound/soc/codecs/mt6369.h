@@ -5256,6 +5256,7 @@ enum {
 	HP_MUX_HP,
 	HP_MUX_TEST_MODE,
 	HP_MUX_HP_IMPEDANCE,
+	HP_MUX_HP_DUALSPK,
 	HP_MUX_MASK = 0x7,
 };
 
@@ -5412,6 +5413,7 @@ struct mt6369_priv {
 	int dev_counter[DEVICE_NUM];
 	int hp_gain_ctl;
 	int hp_hifi_mode;
+	bool apply_n12db_gain;
 	int hp_plugged;
 	int mtkaif_protocol;
 	int dmic_one_wire_mode;
