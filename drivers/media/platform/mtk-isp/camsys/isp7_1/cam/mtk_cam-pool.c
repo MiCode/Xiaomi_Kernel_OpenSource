@@ -217,15 +217,14 @@ mtk_cam_working_buf_get(struct mtk_cam_ctx *ctx)
 	return buf_entry;
 }
 
-int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num)
+int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num,
+									  int working_buf_size)
 {
 	int i;
 	struct mem_obj smem;
 	struct mtk_ccd *ccd;
-	struct mtk_cam_video_device *vdev;
 	void *mem_priv;
 	int dmabuf_fd;
-	int working_buf_size;
 	struct dma_buf *dbuf;
 
 	if (buf_num > CAM_IMG_BUF_NUM) {
@@ -236,8 +235,6 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num)
 		return 0;
 	}
 
-	vdev = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM];
-	working_buf_size = vdev->active_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
 	INIT_LIST_HEAD(&ctx->img_buf_pool.cam_freeimglist.list);
 	spin_lock_init(&ctx->img_buf_pool.cam_freeimglist.lock);
 	ctx->img_buf_pool.cam_freeimglist.cnt = 0;

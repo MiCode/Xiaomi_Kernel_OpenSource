@@ -163,6 +163,7 @@ struct mtkcam_ipi_input_param {
 	__u8	raw_pixel_id;
 	__u8	data_pattern;
 	__u8	pixel_mode;
+	__u8	pixel_mode_before_raw;
 	__u8	subsample;
 	/* u8 continuous; */ /* always 1 */
 	/* u16 tg_fps; */ /* not used yet */
