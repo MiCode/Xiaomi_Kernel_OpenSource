@@ -136,6 +136,22 @@ TRACE_EVENT(ccci_skb_rx,
 #endif
 #endif
 
+#define ENABLE_DPMAIF_ISR_LOG
+#ifdef ENABLE_DPMAIF_ISR_LOG
+
+struct dpmaif_isr_log {
+	u64 ts_start;
+	u64 ts_end;
+	u32 irq_cnt[64];
+};
+
+#define ISR_LOG_DATA_LEN 10
+
+static struct dpmaif_isr_log *g_isr_log;
+static unsigned long long g_pre_time;
+static unsigned int g_isr_log_idx;
+#endif
+
 static inline void dpmaif_set_cpu_mask(struct cpumask *cpu_mask,
 		u32 cpus, int cpu_nr)
 {
@@ -558,6 +574,56 @@ lro_end:
 	return 0;
 }
 
+#ifdef ENABLE_DPMAIF_ISR_LOG
+static void dpmaif_print_irq_log(void)
+{
+	int i, j;
+	char string[300];
+	int len = 0, pos = 0;
+	u64 tss1, tss2, tse1, tse2;
+
+	if (g_isr_log == NULL)
+		return;
+
+	CCCI_BUF_LOG_TAG(0, CCCI_DUMP_DPMAIF, TAG,
+		"dump dpmaif isr log: L2TISAR0(0~31) L2RISAR0(32~63)\n");
+
+	for (i = 0; i < ISR_LOG_DATA_LEN; i++) {
+		if (g_isr_log[i].ts_start == 0)
+			continue;
+
+		tss1 = g_isr_log[i].ts_start;
+		tss2 = do_div(tss1, 1000000000);
+
+		tse1 = g_isr_log[i].ts_end;
+		tse2 = do_div(tse1, 1000000000);
+
+		len = snprintf(string+pos, 300-pos, "%d|%lu.%06lu~%lu.%06lu->",
+						i, (unsigned long)tss1, (unsigned long)(tss2/1000),
+						(unsigned long)tse1, (unsigned long)(tse2/1000));
+		if ((len <= 0) || (len >= 300-pos))
+			break;
+
+		pos += len;
+
+		for (j = 0; j < 64; j++) {
+			if (g_isr_log[i].irq_cnt[j] == 0)
+				continue;
+
+			len = snprintf(string+pos, 300-pos, " %u-%u", j, g_isr_log[i].irq_cnt[j]);
+			if ((len <= 0) || (len >= 300-pos))
+				break;
+
+			pos += len;
+		}
+
+		pos = 0;
+
+		CCCI_BUF_LOG_TAG(0, CCCI_DUMP_DPMAIF, TAG, "%s\n", string);
+	}
+}
+#endif
+
 static void dpmaif_dump_rx_pit(struct hif_dpmaif_ctrl *hif_ctrl)
 {
 	int i;
@@ -641,6 +707,10 @@ static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 		0x184);
 
 	dpmaif_dump_rx_pit(hif_ctrl);
+
+#ifdef ENABLE_DPMAIF_ISR_LOG
+	dpmaif_print_irq_log();
+#endif
 }
 
 #if 0
@@ -2572,6 +2642,51 @@ static void dpmaif_irq_tx_done(unsigned int tx_done_isr)
 	}
 }
 
+#ifdef ENABLE_DPMAIF_ISR_LOG
+static inline void dpmaif_record_isr_cnt(unsigned long long ts,
+		unsigned int L2TISAR0, unsigned int L2RISAR0)
+{
+	int i;
+
+	if (g_isr_log == NULL)
+		return;
+
+	if ((ts - g_pre_time) >= 1000000000) {  // > 1s
+		g_isr_log_idx++;
+		if (g_isr_log_idx >= ISR_LOG_DATA_LEN)
+			g_isr_log_idx = 0;
+
+		memset(g_isr_log[g_isr_log_idx].irq_cnt, 0,
+				sizeof(g_isr_log[g_isr_log_idx].irq_cnt));
+
+		g_isr_log[g_isr_log_idx].ts_start = ts;
+		g_pre_time = ts;
+	}
+
+	g_isr_log[g_isr_log_idx].ts_end = ts;
+
+	for (i = 0; i < 32; i++) {
+		if (L2TISAR0 == 0)
+			break;
+
+		if (L2TISAR0 & (1<<i)) {
+			L2TISAR0 &= (~(1<<i));
+			g_isr_log[g_isr_log_idx].irq_cnt[i]++;
+		}
+	}
+
+	for (i = 0; i < 32; i++) {
+		if (L2RISAR0 == 0)
+			break;
+
+		if (L2RISAR0 & (1<<i)) {
+			L2RISAR0 &= (~(1<<i));
+			g_isr_log[g_isr_log_idx].irq_cnt[i+32]++;
+		}
+	}
+}
+#endif
+
 static void dpmaif_irq_cb(struct hif_dpmaif_ctrl *hif_ctrl)
 {
 	unsigned int L2RISAR0, L2TISAR0;
@@ -2643,6 +2758,12 @@ static void dpmaif_irq_cb(struct hif_dpmaif_ctrl *hif_ctrl)
 #endif
 		}
 	}
+
+#ifdef ENABLE_DPMAIF_ISR_LOG
+	dpmaif_record_isr_cnt(hif_ctrl->traffic_info.latest_isr_time, L2TISAR0, L2RISAR0);
+#endif
+
+
 #ifdef DPMAIF_DEBUG_LOG
 	hif_ctrl->traffic_info.isr_cnt++;
 
@@ -3970,6 +4091,16 @@ static int ccci_dpmaif_hif_init(struct device *dev)
 	mtk_ccci_md_spd_qos_init(dev);
 	mtk_ccci_spd_qos_method_init();
 
+#ifdef ENABLE_DPMAIF_ISR_LOG
+	g_isr_log = kzalloc(sizeof(struct dpmaif_isr_log) * ISR_LOG_DATA_LEN, GFP_KERNEL);
+	if (!g_isr_log)
+		CCCI_ERROR_LOG(-1, TAG, "[%s] error: alloc g_isr_log fail\n", __func__);
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	else
+		mrdump_mini_add_extra_file((unsigned long)g_isr_log, __pa_nodebug(g_isr_log),
+				(sizeof(struct dpmaif_isr_log) * ISR_LOG_DATA_LEN), "DPMAIF_ISR");
+#endif
+#endif
 	return 0;
 
 DPMAIF_INIT_FAIL:

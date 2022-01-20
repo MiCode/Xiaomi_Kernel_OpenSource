@@ -515,4 +515,9 @@ extern void mt_irq_dump_status(unsigned int irq);
 
 extern void ccmni_set_cur_speed(u64 cur_dl_speed);
 
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+extern int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
+	unsigned long size, const char *name);
+#endif
+
 #endif				/* __MODEM_DPMA_H__ */
