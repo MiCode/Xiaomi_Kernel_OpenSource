@@ -877,9 +877,7 @@ int __gpufreq_fix_target_oppidx_gpu(int oppidx)
 
 	if (oppidx == -1) {
 		__gpufreq_set_dvfs_state(false, DVFS_DEBUG_KEEP);
-
-		/* we don't care the result of this commit */
-		__gpufreq_generic_commit_gpu(g_gpu.min_oppidx, DVFS_DEBUG_KEEP);
+		ret = GPUFREQ_SUCCESS;
 	} else if (oppidx >= 0 && oppidx < opp_num) {
 		__gpufreq_set_dvfs_state(true, DVFS_DEBUG_KEEP);
 
@@ -922,9 +920,7 @@ int __gpufreq_fix_custom_freq_volt_gpu(unsigned int freq, unsigned int volt)
 		mutex_lock(&gpufreq_lock);
 		g_dvfs_state &= ~DVFS_DEBUG_KEEP;
 		mutex_unlock(&gpufreq_lock);
-
-		/* we don't care the result of this commit */
-		//__gpufreq_generic_commit_gpu(g_gpu.min_oppidx, DVFS_DEBUG_KEEP);
+		ret = GPUFREQ_SUCCESS;
 	} else if (freq > POSDIV_2_MAX_FREQ || freq < POSDIV_8_MIN_FREQ) {
 		GPUFREQ_LOGE("invalid fixed freq: %d\n", freq);
 		ret = GPUFREQ_EINVAL;
@@ -1514,6 +1510,9 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 			g_gpu.cur_freq, freq_new);
 
 	GPUFREQ_LOGD("Fgpu: %d, PCW: 0x%x, CON1: 0x%08x", g_gpu.cur_freq, pcw, pll);
+
+	/* because return value is different across the APIs */
+	ret = GPUFREQ_SUCCESS;
 
 	/* notify gpu freq change to DDK */
 	mtk_notify_gpu_freq_change(0, freq_new);
