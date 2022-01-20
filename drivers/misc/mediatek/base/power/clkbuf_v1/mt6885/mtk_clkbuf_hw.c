@@ -154,6 +154,8 @@ static unsigned int xo_mode_init[XO_NUMBER];
 /* #define CLK_BUF_HW_BBLPM_EN */
 static unsigned int bblpm_switch = 2;
 
+static unsigned int bblpm_cnt;
+
 /* todo: remove */
 static unsigned int pwrap_dcxo_en_init;
 static unsigned int pwrap_rc_spi_en_init;

@@ -69,7 +69,6 @@ extern struct mutex clk_buf_ctrl_lock;
 extern bool is_clkbuf_initiated;
 extern bool is_pmic_clkbuf;
 extern bool clkbuf_debug;
-extern unsigned int bblpm_cnt;
 extern unsigned int clkbuf_ctrl_stat;
 
 short is_clkbuf_bringup(void);

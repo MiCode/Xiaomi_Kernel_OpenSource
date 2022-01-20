@@ -81,6 +81,8 @@ struct regmap *clkbuf_regmap;
 /* TODO: enable BBLPM if its function is ready (set as 1) */
 static unsigned int bblpm_switch = 1;
 
+static unsigned int bblpm_cnt;
+
 static unsigned int pwrap_dcxo_en_flag = (DCXO_CONN_ENABLE | DCXO_NFC_ENABLE);
 
 static unsigned int CLK_BUF1_STATUS_PMIC = CLOCK_BUFFER_HW_CONTROL,
@@ -296,12 +298,11 @@ u32 clk_buf_bblpm_enter_cond(void)
 	if (pmic_clk_buf_swctrl[XO_NFC] == CLK_BUF_SW_ENABLE)
 		bblpm_cond |= BBLPM_COND_NFC;
 
+	if (!bblpm_cond)
+		bblpm_cnt++;
 #else /* !CLKBUF_USE_BBLPM */
 	bblpm_cond |= BBLPM_COND_SKIP;
 #endif
-
-	if (!bblpm_cond)
-		bblpm_cnt++;
 
 	return bblpm_cond;
 }

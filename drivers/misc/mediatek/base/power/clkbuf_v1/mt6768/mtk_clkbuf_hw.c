@@ -106,6 +106,8 @@ static unsigned int xo_mode_init[XO_NUMBER];
 /* #define CLK_BUF_HW_BBLPM_EN */
 static unsigned int bblpm_switch = 2;
 
+static unsigned int bblpm_cnt;
+
 static unsigned int pwrap_dcxo_en_init;
 
 static unsigned int clk_buf7_ctrl = true;
@@ -310,15 +312,12 @@ u32 clk_buf_bblpm_enter_cond(void)
 			bblpm_cond |= BBLPM_COND_EXT;
 #endif
 	}
+
 	if (!bblpm_cond)
 		bblpm_cnt++;
-
 #else /* !CLKBUF_USE_BBLPM */
 	bblpm_cond |= BBLPM_COND_SKIP;
 #endif
-
-	if (!bblpm_cond)
-		bblpm_cnt++;
 
 	return bblpm_cond;
 }

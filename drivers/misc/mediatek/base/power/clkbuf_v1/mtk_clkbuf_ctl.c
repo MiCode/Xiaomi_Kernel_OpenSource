@@ -28,7 +28,6 @@ bool is_pmic_clkbuf = true;
 
 bool clkbuf_debug;
 static bool g_is_flightmode_on;
-unsigned int bblpm_cnt;
 
 unsigned int clkbuf_ctrl_stat;
 
