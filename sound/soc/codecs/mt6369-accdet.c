@@ -89,9 +89,9 @@ struct mt6369_accdet_data {
 	/* when caps include ACCDET_AP_GPIO_EINT */
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_eint;
-	u32 gpiopin;
+	int gpiopin;
 	u32 gpio_hp_deb;
-	u32 gpioirq;
+	int gpioirq;
 	u32 accdet_eint_type;
 	/* when MICBIAS_DISABLE_TIMER timeout, queue work: dis_micbias_work */
 	struct work_struct delay_init_work;
@@ -1617,24 +1617,26 @@ static void dis_micbias_work_callback(struct work_struct *work)
 {
 	u32 cur_AB = 0, eintID = 0;
 
-	/* check EINT0 status, if plug out,
-	 * not need to disable accdet here
-	 */
-	eintID = accdet_read_bits(ACCDET_EINT0_MEM_IN_ADDR,
-		ACCDET_EINT0_MEM_IN_SFT,
-		ACCDET_EINT0_MEM_IN_MASK);
-	if (eintID == M_PLUG_OUT) {
-		pr_notice("%s Plug-out, no dis micbias\n", __func__);
-		return;
-	}
-	/* if modify_vref_volt called, not need to dis micbias again */
-	if (dis_micbias_done == true) {
-		pr_notice("%s modify_vref_volt called\n", __func__);
-		return;
+	if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_EINT_IRQ)) {
+		/* check EINT0 status, if plug out,
+		 * not need to disable accdet here
+		 */
+		eintID = accdet_read_bits(ACCDET_EINT0_MEM_IN_ADDR,
+			ACCDET_EINT0_MEM_IN_SFT,
+			ACCDET_EINT0_MEM_IN_MASK);
+		if (eintID == M_PLUG_OUT) {
+			pr_notice("%s Plug-out, no dis micbias\n", __func__);
+			return;
+		}
+		/* if modify_vref_volt called, not need to dis micbias again */
+		if (dis_micbias_done == true) {
+			pr_notice("%s modify_vref_volt called\n", __func__);
+			return;
+		}
 	}
 
 	cur_AB = accdet_read(ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
-		cur_AB = cur_AB & ACCDET_STATE_AB_MASK;
+	cur_AB = cur_AB & ACCDET_STATE_AB_MASK;
 
 	/* if 3pole disable accdet
 	 * if <20k + 4pole, disable accdet will disable accdet
@@ -2173,7 +2175,7 @@ static irqreturn_t mtk_accdet_irq_handler_thread(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t ex_eint_handler(int irq, void *data)
+static irqreturn_t ext_eint_handler(int irq, void *data)
 {
 	int ret = 0;
 
@@ -2185,7 +2187,8 @@ static irqreturn_t ex_eint_handler(int irq, void *data)
 			irq_set_irq_type(accdet->gpioirq, IRQ_TYPE_LEVEL_HIGH);
 		else
 			irq_set_irq_type(accdet->gpioirq, IRQ_TYPE_LEVEL_LOW);
-		gpio_set_debounce(accdet->gpiopin, accdet->gpio_hp_deb);
+		if (gpio_is_valid(accdet->gpiopin))
+			gpio_set_debounce(accdet->gpiopin, accdet->gpio_hp_deb);
 
 		accdet->cur_eint_state = EINT_PLUG_OUT;
 	} else {
@@ -2197,8 +2200,8 @@ static irqreturn_t ex_eint_handler(int irq, void *data)
 		else
 			irq_set_irq_type(accdet->gpioirq, IRQ_TYPE_LEVEL_HIGH);
 
-		gpio_set_debounce(accdet->gpiopin,
-				accdet_dts.plugout_deb * 1000);
+		if (gpio_is_valid(accdet->gpiopin))
+			gpio_set_debounce(accdet->gpiopin, accdet_dts.plugout_deb * 1000);
 
 		accdet->cur_eint_state = EINT_PLUG_IN;
 
@@ -2206,30 +2209,27 @@ static irqreturn_t ex_eint_handler(int irq, void *data)
 			mod_timer(&micbias_timer,
 				jiffies + MICBIAS_DISABLE_TIMER);
 		}
-
 	}
 
 	disable_irq_nosync(accdet->gpioirq);
 	ret = queue_work(accdet->eint_workqueue, &accdet->eint_work);
+
 	return IRQ_HANDLED;
 }
 
-static inline int ext_eint_setup(struct platform_device *platform_device)
+static inline int ext_eint_setup(struct platform_device *pdev)
 {
 	int ret = 0;
-	u32 ints[4] = { 0 };
-	struct device_node *node = NULL;
-	struct pinctrl_state *pins_default = NULL;
+	struct device_node *node = pdev->dev.of_node;
 
-	accdet->pinctrl = devm_pinctrl_get(&platform_device->dev);
+	if (!node)
+		return -ENODEV;
+
+	accdet->pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(accdet->pinctrl)) {
 		ret = PTR_ERR(accdet->pinctrl);
 		return ret;
 	}
-
-	pins_default = pinctrl_lookup_state(accdet->pinctrl, "default");
-	if (IS_ERR(pins_default))
-		ret = PTR_ERR(pins_default);
 
 	accdet->pins_eint = pinctrl_lookup_state(accdet->pinctrl,
 			"state_eint_as_int");
@@ -2239,27 +2239,29 @@ static inline int ext_eint_setup(struct platform_device *platform_device)
 	}
 	pinctrl_select_state(accdet->pinctrl, accdet->pins_eint);
 
-	node = of_find_matching_node(node, mt6369_accdet_of_match);
-	if (!node)
-		return -1;
-
 	accdet->gpiopin = of_get_named_gpio(node, "deb-gpios", 0);
-	ret = of_property_read_u32(node, "debounce",
-			&accdet->gpio_hp_deb);
-	if (ret < 0)
-		return ret;
+	if (!gpio_is_valid(accdet->gpiopin))
+		dev_info(&pdev->dev, "No deb-gpios found\n");
+	else {
+		ret = of_property_read_u32(node, "debounce", &accdet->gpio_hp_deb);
+		if (ret < 0)
+			return ret;
 
-	gpio_set_debounce(accdet->gpiopin, accdet->gpio_hp_deb);
+		gpio_set_debounce(accdet->gpiopin, accdet->gpio_hp_deb);
+	}
 
-	accdet->gpioirq = irq_of_parse_and_map(node, 0);
-	ret = of_property_read_u32_array(node, "interrupts", ints,
-			ARRAY_SIZE(ints));
-	if (ret)
-		return ret;
+	accdet->gpioirq = platform_get_irq_byname(pdev, "ap_eint");
+	if (accdet->gpioirq < 0) {
+		dev_notice(&pdev->dev, "Get ap_eint failed (%d)\n", accdet->gpioirq);
+		return accdet->gpioirq;
+	}
 
-	accdet->accdet_eint_type = ints[1];
-	ret = request_irq(accdet->gpioirq, ex_eint_handler, IRQF_TRIGGER_NONE,
-		"accdet-eint", NULL);
+	accdet->accdet_eint_type = irqd_get_trigger_type(irq_get_irq_data(accdet->gpioirq));
+
+	/* Enable interrupt when acccet init done */
+	irq_set_status_flags(accdet->gpioirq, IRQ_NOAUTOEN);
+	ret = devm_request_threaded_irq(&pdev->dev, accdet->gpioirq, NULL, ext_eint_handler,
+					IRQF_ONESHOT, "accdet-eint", NULL);
 	if (ret)
 		return ret;
 
@@ -2816,9 +2818,6 @@ static void accdet_init_once(void)
 		}
 		config_digital_init_by_mode();
 	} else if (HAS_CAP(accdet->data->caps, ACCDET_AP_GPIO_EINT)) {
-		/* set pull low pads and DCC mode */
-		accdet_write(RG_AUDACCDETMICBIAS0PULLLOW_ADDR,
-				0x8F);
 		/* disconnect configaccdet */
 		accdet_write(RG_EINT1CONFIGACCDET_ADDR,
 				0x0);
@@ -2886,6 +2885,8 @@ void mt6369_accdet_late_init(unsigned long data)
 		accdet_init();
 		accdet_init_debounce();
 		accdet_init_once();
+		if (HAS_CAP(accdet->data->caps, ACCDET_AP_GPIO_EINT))
+			enable_irq(accdet->gpioirq);
 	} else
 		pr_info("%s inited dts fail\n", __func__);
 }
@@ -2955,6 +2956,8 @@ static void delay_init_work_callback(struct work_struct *work)
 	accdet_init();
 	accdet_init_debounce();
 	accdet_init_once();
+	if (HAS_CAP(accdet->data->caps, ACCDET_AP_GPIO_EINT))
+		enable_irq(accdet->gpioirq);
 	pr_info("%s() done\n", __func__);
 }
 
@@ -3004,6 +3007,7 @@ static int mt6369_accdet_probe(struct platform_device *pdev)
 	struct resource *res;
 	const struct of_device_id *of_id =
 				of_match_device(mt6369_accdet_of_match, &pdev->dev);
+
 	if (!of_id) {
 		dev_dbg(&pdev->dev, "Error: No device match found\n");
 		return -ENODEV;
@@ -3063,7 +3067,7 @@ static int mt6369_accdet_probe(struct platform_device *pdev)
 	accdet_get_efuse();
 
 	/* register pmic interrupt */
-	accdet->accdet_irq = platform_get_irq(pdev, 0);
+	accdet->accdet_irq = platform_get_irq_byname(pdev, "ACCDET_IRQ");
 	if (accdet->accdet_irq < 0) {
 		dev_dbg(&pdev->dev,
 			"Error: Get accdet irq failed (%d)\n",
@@ -3082,7 +3086,7 @@ static int mt6369_accdet_probe(struct platform_device *pdev)
 	}
 
 	if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_EINT0)) {
-		accdet->accdet_eint0 = platform_get_irq(pdev, 1);
+		accdet->accdet_eint0 = platform_get_irq_byname(pdev, "ACCDET_EINT0");
 		if (accdet->accdet_eint0 < 0) {
 			dev_dbg(&pdev->dev,
 				"Error: Get eint0 irq failed (%d)\n",
@@ -3101,7 +3105,7 @@ static int mt6369_accdet_probe(struct platform_device *pdev)
 			return ret;
 		}
 	} else if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_EINT1)) {
-		accdet->accdet_eint1 = platform_get_irq(pdev, 2);
+		accdet->accdet_eint1 = platform_get_irq_byname(pdev, "ACCDET_EINT1");
 		if (accdet->accdet_eint1 < 0) {
 			dev_dbg(&pdev->dev,
 				"Error: Get eint1 irq failed (%d)\n",
@@ -3120,7 +3124,7 @@ static int mt6369_accdet_probe(struct platform_device *pdev)
 			return ret;
 		}
 	} else if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_BI_EINT)) {
-		accdet->accdet_eint0 = platform_get_irq(pdev, 1);
+		accdet->accdet_eint0 = platform_get_irq_byname(pdev, "ACCDET_EINT0");
 		if (accdet->accdet_eint0 < 0) {
 			dev_dbg(&pdev->dev,
 				"Error: Get eint0 irq failed (%d)\n",
@@ -3138,7 +3142,7 @@ static int mt6369_accdet_probe(struct platform_device *pdev)
 				ret);
 			return ret;
 		}
-		accdet->accdet_eint1 = platform_get_irq(pdev, 2);
+		accdet->accdet_eint1 = platform_get_irq_byname(pdev, "ACCDET_EINT1");
 		if (accdet->accdet_eint1 < 0) {
 			dev_dbg(&pdev->dev,
 				"Error: Get eint1 irq failed (%d)\n",
@@ -3211,23 +3215,27 @@ static int mt6369_accdet_probe(struct platform_device *pdev)
 		ret = -1;
 		goto err_create_workqueue;
 	}
+
 	if (HAS_CAP(accdet->data->caps, ACCDET_AP_GPIO_EINT)) {
-		accdet->accdet_eint_type = IRQ_TYPE_LEVEL_LOW;
 		ret = ext_eint_setup(pdev);
-		if (ret)
-			destroy_workqueue(accdet->eint_workqueue);
+		if (ret) {
+			dev_notice(&pdev->dev, "ext_eint_setup failed, ret = %d\n", ret);
+			goto err_create_attr;
+		}
 	}
 
 	ret = accdet_create_attr(&mt6369_accdet_driver.driver);
 	if (ret) {
 		pr_notice("%s create_attr fail, ret = %d\n", __func__, ret);
-		goto err_create_workqueue;
+		goto err_create_attr;
 	}
 	atomic_set(&accdet_first, 1);
 	mod_timer(&accdet_init_timer, (jiffies + ACCDET_INIT_WAIT_TIMER));
 
 	return 0;
 
+err_create_attr:
+	destroy_workqueue(accdet->eint_workqueue);
 err_create_workqueue:
 	destroy_workqueue(accdet->dis_micbias_workqueue);
 err:
