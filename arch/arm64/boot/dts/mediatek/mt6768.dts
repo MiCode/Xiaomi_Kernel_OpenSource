@@ -187,7 +187,7 @@ page_owner=on loop.max_part=7";
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
-			dynamic-power-coefficient = <125602>;
+			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
@@ -200,7 +200,7 @@ page_owner=on loop.max_part=7";
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
-			dynamic-power-coefficient = <125602>;
+			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
@@ -213,7 +213,7 @@ page_owner=on loop.max_part=7";
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
-			dynamic-power-coefficient = <125602>;
+			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
@@ -226,7 +226,7 @@ page_owner=on loop.max_part=7";
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
-			dynamic-power-coefficient = <125602>;
+			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
@@ -239,7 +239,7 @@ page_owner=on loop.max_part=7";
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
-			dynamic-power-coefficient = <125602>;
+			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
@@ -252,7 +252,7 @@ page_owner=on loop.max_part=7";
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
 			operating-points-v2 = <&cluster0_opp>;
-			dynamic-power-coefficient = <125602>;
+			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <495>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
@@ -265,7 +265,7 @@ page_owner=on loop.max_part=7";
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
-			dynamic-power-coefficient = <631057>;
+			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
@@ -278,7 +278,7 @@ page_owner=on loop.max_part=7";
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
 			operating-points-v2 = <&cluster1_opp>;
-			dynamic-power-coefficient = <631057>;
+			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&idledram &idlesyspll &idlebus26m &SUSPEND>;
