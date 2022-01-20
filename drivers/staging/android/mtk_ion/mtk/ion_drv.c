@@ -565,10 +565,10 @@ out:
 	return ret;
 
 err:
-	IONMSG("%s sync err:%d|k%d|hdl:%d-%p|addr:%lx|iova:0x%llx|sz:%d|%s\n",
+	IONMSG("%s sync err:%d|k%d|hdl:%d-%p|addr:0x%lx|iova:0x%llx|sz:%d|%s\n",
 	       __func__, sync_type, from_kernel,
 	       param->handle, param->kernel_handle,
-	       param->va, param->iova, param->size,
+	       (unsigned long)param->va, param->iova, param->size,
 	       (*client->dbg_name) ? client->dbg_name : client->name);
 	ion_drv_put_kernel_handle(kernel_handle);
 	return ret;
