@@ -248,10 +248,10 @@ struct cmdq_flush_completion {
 };
 
 struct cmdq_reuse {
-	enum cmdq_code op;
 	u64 *va;
 	u32 val;
-	u32 offset;
+	u16 offset;
+	u8 op;
 };
 
 struct cmdq_poll_reuse {

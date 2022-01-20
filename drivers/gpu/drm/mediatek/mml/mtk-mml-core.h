@@ -238,8 +238,8 @@ struct mml_topology_cache {
 };
 
 struct mml_comp_config {
-	u8 pipe;
 	const struct mml_path_node *node;
+	u8 pipe;
 	u8 tile_eng_idx;
 
 	/* The component private data. Components can store list of labels or
@@ -353,9 +353,24 @@ enum mml_task_state {
 	MML_TASK_IDLE
 };
 
+struct mml_reuse_offset {
+	u16 label_idx;
+	u16 offset;
+	u16 cnt;
+};
+
+struct mml_reuse_array {
+	struct mml_reuse_offset *offs;
+	u16 idx;
+	u16 offs_size;
+};
+
+/* same as CMDQ_NUM_CMD(CMDQ_CMD_BUFFER_SIZE) */
+#define MML_REUSE_OFFSET_MAX	480
+
 struct mml_task_reuse {
 	struct cmdq_reuse *labels;
-	u32 label_idx;
+	u16 label_idx;
 };
 
 /* pipe info for mml_task */
@@ -685,6 +700,9 @@ void mml_core_submit_task(struct mml_frame_config *cfg, struct mml_task *task);
  */
 void mml_core_stop_racing(struct mml_frame_config *cfg, bool force);
 
+
+void add_reuse_label(struct mml_task_reuse *reuse, u16 *label_idx, u32 value);
+
 /* mml_assign - assign to reg_idx with value. Cache the label of this
  * instruction to mml_pipe_cache and record its entry into label_array.
  *
@@ -730,6 +748,14 @@ s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
  * @value:	value to be update
  */
 void mml_update(struct mml_task_reuse *reuse, u16 label_idx, u32 value);
+
+s32 mml_write_array(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
+	struct mml_task_reuse *reuse, struct mml_pipe_cache *cache,
+	struct mml_reuse_array *reuses);
+
+void mml_update_array(struct mml_task_reuse *reuse,
+	struct mml_reuse_array *reuses, u32 reuse_idx, u32 off_idx, u32 value);
+
 
 int tracing_mark_write(char *fmt, ...);
 

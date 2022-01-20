@@ -145,6 +145,14 @@
 #define HDR_WAIT_TIMEOUT_MS (50)
 #define HDR_REG_NUM (70)
 #define HDR_HIST_CNT (57)
+/* count of reserved cross page anchor label count
+ * min count would be
+ *	((HDR_CURVE_NUM * 2 + HDR_REG_NUM * 3) / CMDQ_NUM_CMD(CMDQ_CMD_BUFFER_SIZE) + 3)
+ * but labels may be divid due to write w/ mask between write w/o mask
+ */
+#define HDR_LABEL_CNT_REG	6
+#define HDR_LABEL_CNT_CURVE	7
+#define HDR_LABEL_CNT		(HDR_LABEL_CNT_REG + HDR_LABEL_CNT_CURVE)
 
 struct hdr_data {
 	u32 min_tile_width;
@@ -181,14 +189,18 @@ static const struct hdr_data mt6895_hdr_data = {
 	.vcp_readback = true,
 };
 
-
-
-
 struct mml_comp_hdr {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
 	const struct hdr_data *data;
 	bool ddp_bound;
+};
+
+enum hdr_label_index {
+	HDR_REUSE_LABEL = 0,
+	HDR_POLLGPR_0 = HDR_LABEL_CNT,
+	HDR_POLLGPR_1,
+	HDR_LABEL_TOTAL
 };
 
 /* meta data for each different frame config */
@@ -198,7 +210,11 @@ struct hdr_frame_data {
 	u32 begin_offset;
 	u32 condi_offset;
 	struct cmdq_poll_reuse polling_reuse;
-	u16 labels[HDR_CURVE_NUM + HDR_REG_NUM + CMDQ_GPR_UPDATE];
+	u16 labels[HDR_LABEL_TOTAL];
+	struct mml_reuse_array reuse_reg;
+	struct mml_reuse_array reuse_curve;
+	struct mml_reuse_offset offs_reg[HDR_LABEL_CNT_REG];
+	struct mml_reuse_offset offs_curve[HDR_LABEL_CNT_CURVE];
 	bool is_hdr_need_readback;
 	bool config_success;
 };
@@ -220,6 +236,10 @@ static s32 hdr_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	hdr_frm = kzalloc(sizeof(*hdr_frm), GFP_KERNEL);
 	ccfg->data = hdr_frm;
+	hdr_frm->reuse_reg.offs = hdr_frm->offs_reg;
+	hdr_frm->reuse_reg.offs_size = ARRAY_SIZE(hdr_frm->offs_reg);
+	hdr_frm->reuse_curve.offs = hdr_frm->offs_curve;
+	hdr_frm->reuse_curve.offs_size = ARRAY_SIZE(hdr_frm->offs_curve);
 	return 0;
 }
 
@@ -300,7 +320,7 @@ static u32 hdr_get_label_count(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_hdr)
 		return 0;
 
-	return HDR_CURVE_NUM + HDR_REG_NUM + CMDQ_GPR_UPDATE;
+	return HDR_LABEL_TOTAL;
 }
 
 static void hdr_init(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
@@ -342,9 +362,12 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	const phys_addr_t base_pa = comp->base_pa;
 	struct mml_pq_comp_config_result *result;
+	struct mml_pq_reg *regs;
+	u32 *curve;
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
 	s32 ret;
+	u32 i;
 
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_hdr[%d]", __func__,
 		ccfg->pipe, comp->id, dest->pq_config.en_hdr);
@@ -364,53 +387,53 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 	hdr_relay(pkt, base_pa, 0x0);
 
 	ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
-	if (!ret) {
-		result = get_hdr_comp_config_result(task);
-		if (result) {
-			s32 i;
-			s32 curve_idx = 0;
-			struct mml_pq_reg *regs = result->hdr_regs;
-			u32 *curve = result->hdr_curve;
-
-			/* TODO: use different regs */
-			mml_pq_msg("%s:config hdr regs, count: %d", __func__, result->hdr_reg_cnt);
-			hdr_frm->config_success = true;
-			for (i = 0; i < result->hdr_reg_cnt; i++) {
-				mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
-					regs[i].mask, reuse, cache,
-					&hdr_frm->labels[i]);
-				mml_pq_msg("[hdr][config][%x] = %#x mask(%#x)",
-					regs[i].offset, regs[i].value, regs[i].mask);
-			}
-
-			while (i < HDR_CURVE_NUM + result->hdr_reg_cnt) {
-				mml_write(pkt, base_pa + HDR_GAIN_TABLE_1, curve[curve_idx],
-					U32_MAX, reuse, cache, &hdr_frm->labels[i]);
-				mml_write(pkt, base_pa + HDR_GAIN_TABLE_2, curve[curve_idx + 1],
-					U32_MAX, reuse, cache, &hdr_frm->labels[i + 1]);
-				i += 2;
-				curve_idx += 2;
-			}
-			cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_ADDR,
-					1 << 8, 1 << 8);
-			cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_2,
-					1 << 31, 1 << 31);
-			cmdq_pkt_write(pkt, NULL, base_pa + HDR_GAIN_TABLE_0,
-					1 << 11, 1 << 11);
-			mml_pq_msg("%s is_hdr_need_readback[%d]", __func__,
-				   result->is_hdr_need_readback);
-			hdr_frm->is_hdr_need_readback = result->is_hdr_need_readback;
-		} else {
-			mml_pq_err("%s: not get result from user lib", __func__);
-		}
-	} else {
+	if (ret) {
 		mml_pq_comp_config_clear(task);
-		hdr_frm->config_success = false;
 		mml_pq_err("get hdr param timeout: %d in %dms",
 			ret, HDR_WAIT_TIMEOUT_MS);
+		ret = -ETIMEDOUT;
+		goto err;
 	}
 
+	result = get_hdr_comp_config_result(task);
+	if (!result) {
+		mml_pq_err("%s: not get result from user lib", __func__);
+		ret = -EBUSY;
+		goto err;
+	}
+
+	regs = result->hdr_regs;
+	curve = result->hdr_curve;
+
+	/* TODO: use different regs */
+	mml_pq_msg("%s:config hdr regs, count: %d", __func__, result->hdr_reg_cnt);
+	for (i = 0; i < result->hdr_reg_cnt; i++) {
+		mml_write_array(pkt, base_pa + regs[i].offset, regs[i].value,
+			regs[i].mask, reuse, cache, &hdr_frm->reuse_reg);
+		mml_pq_msg("[hdr][config][%x] = %#x mask(%#x)",
+			regs[i].offset, regs[i].value, regs[i].mask);
+	}
+
+	for (i = 0; i < HDR_CURVE_NUM; i += 2) {
+		mml_write_array(pkt, base_pa + HDR_GAIN_TABLE_1, curve[i],
+			U32_MAX, reuse, cache, &hdr_frm->reuse_curve);
+		mml_write_array(pkt, base_pa + HDR_GAIN_TABLE_2, curve[i + 1],
+			U32_MAX, reuse, cache, &hdr_frm->reuse_curve);
+	}
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_ADDR, 1 << 8, 1 << 8);
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_HIST_CTRL_2, 1 << 31, 1 << 31);
+	cmdq_pkt_write(pkt, NULL, base_pa + HDR_GAIN_TABLE_0, 1 << 11, 1 << 11);
+	mml_pq_msg("%s is_hdr_need_readback[%d] reuses count %u %u",
+		__func__, result->is_hdr_need_readback,
+		hdr_frm->reuse_reg.idx,
+		hdr_frm->reuse_curve.idx);
+	hdr_frm->is_hdr_need_readback = result->is_hdr_need_readback;
+	hdr_frm->config_success = true;
+
 	return 0;
+
+err:
+	return ret;
 }
 
 static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
@@ -566,13 +589,11 @@ static void hdr_readback_vcp(struct mml_comp *comp, struct mml_task *task,
 
 	cmdq_pkt_readback(pkt, engine, task->pq_task->hdr_hist[pipe]->va_offset,
 		HDR_HIST_NUM, gpr,
-		&(reuse->labels[reuse->label_idx]),
-		&(hdr_frm->polling_reuse));
+		&reuse->labels[reuse->label_idx],
+		&hdr_frm->polling_reuse);
 
-	hdr_frm->labels[HDR_CURVE_NUM + HDR_REG_NUM] = reuse->label_idx;
-	reuse->labels[reuse->label_idx].val = task->pq_task->hdr_hist[pipe]->va_offset;
-	reuse->label_idx++;
-
+	add_reuse_label(reuse, &hdr_frm->labels[HDR_POLLGPR_0],
+		task->pq_task->hdr_hist[pipe]->va_offset);
 }
 
 static void hdr_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
@@ -609,9 +630,9 @@ static void hdr_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 
 	/* readback to this pa */
 	mml_assign(pkt, idx_out, (u32)pa,
-		reuse, cache, &hdr_frm->labels[HDR_CURVE_NUM + HDR_REG_NUM]);
+		reuse, cache, &hdr_frm->labels[HDR_POLLGPR_0]);
 	mml_assign(pkt, idx_out + 1, (u32)(pa >> 32),
-		reuse, cache, &hdr_frm->labels[HDR_CURVE_NUM + HDR_REG_NUM + 1]);
+		reuse, cache, &hdr_frm->labels[HDR_POLLGPR_1]);
 
 	/* counter init to 0 */
 	cmdq_pkt_assign_command(pkt, idx_counter, 0);
@@ -699,8 +720,11 @@ static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_config *cfg = task->config;
 	struct hdr_frame_data *hdr_frm = hdr_frm_data(ccfg);
 	const struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
-	struct mml_pq_comp_config_result *result;
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
+	struct mml_pq_comp_config_result *result;
+	struct mml_pq_reg *regs;
+	u32 *curve;
+	u32 i, j, val_idx;
 	s32 ret;
 
 	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_hdr[%d] config_success[%d]", __func__,
@@ -710,36 +734,43 @@ static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		return 0;
 
 	ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
-	if (!ret) {
-		result = get_hdr_comp_config_result(task);
-		if (result && hdr_frm->config_success) {
-			s32 i = 0;
-			s32 curve_idx = 0;
-			struct mml_pq_reg *regs = result->hdr_regs;
-			u32 *curve = result->hdr_curve;
-
-			for (i = 0; i < result->hdr_reg_cnt; i++)
-				mml_update(reuse, hdr_frm->labels[i], regs[i].value);
-
-			while (i < HDR_CURVE_NUM + result->hdr_reg_cnt) {
-				mml_update(reuse, hdr_frm->labels[i], curve[curve_idx]);
-				mml_update(reuse, hdr_frm->labels[i + 1],
-					   curve[curve_idx + 1]);
-				i += 2;
-				curve_idx += 2;
-			}
-			mml_pq_msg("%s is_hdr_need_readback[%d]", __func__,
-				result->is_hdr_need_readback);
-			hdr_frm->is_hdr_need_readback = result->is_hdr_need_readback;
-		} else {
-			mml_pq_err("%s: not get result from user lib", __func__);
-		}
-	} else {
+	if (ret) {
 		mml_pq_comp_config_clear(task);
 		mml_pq_err("get hdr param timeout: %d in %dms",
 			ret, HDR_WAIT_TIMEOUT_MS);
+		ret = -ETIMEDOUT;
+		goto err;
 	}
+
+	result = get_hdr_comp_config_result(task);
+	if (!result || !hdr_frm->config_success) {
+		mml_pq_err("%s: not get result from user lib", __func__);
+		ret = -EBUSY;
+		goto err;
+	}
+
+	regs = result->hdr_regs;
+	curve = result->hdr_curve;
+	val_idx = 0;
+	for (i = 0; i < hdr_frm->reuse_reg.idx; i++)
+		for (j = 0; j < hdr_frm->reuse_reg.offs[i].cnt; j++, val_idx++)
+			mml_update_array(reuse, &hdr_frm->reuse_reg, i, j,
+				regs[val_idx].value);
+
+	val_idx = 0;
+	for (i = 0; i < hdr_frm->reuse_curve.idx; i++)
+		for (j = 0; j < hdr_frm->reuse_curve.offs[i].cnt; j++, val_idx++)
+			mml_update_array(reuse, &hdr_frm->reuse_curve, i, j,
+				curve[val_idx]);
+
+	mml_pq_msg("%s is_hdr_need_readback[%d]",
+		__func__, result->is_hdr_need_readback);
+	hdr_frm->is_hdr_need_readback = result->is_hdr_need_readback;
+
 	return 0;
+
+err:
+	return ret;
 }
 
 static s32 hdr_config_repost(struct mml_comp *comp, struct mml_task *task,
@@ -775,12 +806,12 @@ static s32 hdr_config_repost(struct mml_comp *comp, struct mml_task *task,
 		cmdq_vcp_enable(true);
 		mml_pq_get_vcp_buf_offset(task, MML_PQ_HDR0 + pipe,
 			task->pq_task->hdr_hist[pipe]);
-
-		reuse->labels[hdr_frm->labels[HDR_CURVE_NUM + HDR_REG_NUM]].val =
+		mml_update(reuse, hdr_frm->labels[HDR_POLLGPR_0],
 			cmdq_pkt_vcp_reuse_val(engine,
 			task->pq_task->hdr_hist[pipe]->va_offset,
-			HDR_HIST_NUM);
-		cmdq_pkt_reuse_poll(pkt, &(hdr_frm->polling_reuse));
+			HDR_HIST_NUM));
+
+		cmdq_pkt_reuse_poll(pkt, &hdr_frm->polling_reuse);
 
 	} else {
 		mml_pq_get_readback_buffer(task, pipe, &(task->pq_task->hdr_hist[pipe]));
@@ -791,9 +822,9 @@ static s32 hdr_config_repost(struct mml_comp *comp, struct mml_task *task,
 			goto comp_config_put;
 		}
 
-		mml_update(reuse, hdr_frm->labels[HDR_CURVE_NUM+HDR_REG_NUM],
+		mml_update(reuse, hdr_frm->labels[HDR_POLLGPR_0],
 			(u32)task->pq_task->hdr_hist[pipe]->pa);
-		mml_update(reuse, hdr_frm->labels[HDR_CURVE_NUM+HDR_REG_NUM+1],
+		mml_update(reuse, hdr_frm->labels[HDR_POLLGPR_1],
 			(u32)(task->pq_task->hdr_hist[pipe]->pa >> 32));
 
 		begin_pa = cmdq_pkt_get_pa_by_offset(pkt, hdr_frm->begin_offset);

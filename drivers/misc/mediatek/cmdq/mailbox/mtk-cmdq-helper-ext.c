@@ -1281,6 +1281,9 @@ void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,
 
 	for (i = 0; i < count; i++) {
 		switch (reuse[i].op) {
+		case 0:
+			/* for case client update itself, skip it */
+			break;
 		case CMDQ_CODE_READ:
 		case CMDQ_CODE_MOVE:
 		case CMDQ_CODE_WRITE:

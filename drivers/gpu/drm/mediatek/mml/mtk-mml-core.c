@@ -1646,8 +1646,7 @@ static s32 check_label_idx(struct mml_task_reuse *reuse,
 	return 0;
 }
 
-static void add_reuse_label(struct mml_task_reuse *reuse,
-			      u16 *label_idx, u32 value)
+void add_reuse_label(struct mml_task_reuse *reuse, u16 *label_idx, u32 value)
 {
 	*label_idx = reuse->label_idx;
 	reuse->labels[reuse->label_idx].val = value;
@@ -1687,6 +1686,85 @@ s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
 void mml_update(struct mml_task_reuse *reuse, u16 label_idx, u32 value)
 {
 	reuse->labels[label_idx].val = value;
+}
+
+static s32 mml_reuse_add_offset(struct mml_task_reuse *reuse,
+	struct mml_reuse_array *reuses)
+{
+	struct cmdq_reuse *anchor, *last;
+	u64 offset = 0, off_begin = 0;
+	u32 reuses_idx;
+
+	if (reuse->label_idx < 2 || !reuses->idx)
+		goto add;
+
+	anchor = &reuse->labels[reuse->label_idx - 2];
+	last = anchor + 1;
+	if (last->va < anchor->va)
+		goto add;
+
+	offset = (u64)(last->va - anchor->va);
+	if (offset > MML_REUSE_OFFSET_MAX) {
+		offset = 0;
+		goto add;
+	}
+
+	/* if offset match or no last offset, use same mml_reuse_offset and
+	 * increase the count only instead of add new one into reuse array
+	 */
+	reuses_idx = reuses->idx - 1;
+	if (!reuses->offs[reuses_idx].offset && reuses->offs[reuses_idx].cnt) {
+		reuses->offs[reuses_idx].offset = offset;
+		/* reduce current label since it can offset by previous */
+		reuse->label_idx--;
+		goto inc;
+	}
+
+	off_begin = reuses->offs[reuses_idx].offset * reuses->offs[reuses_idx].cnt;
+	if (offset && offset == off_begin) {
+		if (!reuses->offs[reuses_idx].cnt)
+			mml_err("%s reuse idx %u no count offset %u", __func__, reuses_idx, offset);
+		/* reduce current label since it can offset by previous */
+		reuse->label_idx--;
+		goto inc;
+	}
+
+	/* use last(new) label and clear offset since this is new mml_reuse_offset */
+	offset = 0;
+
+add:
+	if (reuses->idx >= reuses->offs_size) {
+		mml_err("%s label idx %u but reuse array full %u",
+			__func__, reuse->label_idx - 1, reuses->idx);
+		return -ENOMEM;
+	}
+	reuse->labels[reuse->label_idx - 1].op = 0;
+	reuses->offs[reuses->idx].offset = (u16)offset;
+	reuses->offs[reuses->idx].label_idx = reuse->label_idx - 1;
+	/* increase reuse array index to next item */
+	reuses->idx++;
+
+inc:
+	reuses->offs[reuses->idx - 1].cnt++;
+	return 0;
+}
+
+s32 mml_write_array(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
+	struct mml_task_reuse *reuse, struct mml_pipe_cache *cache,
+	struct mml_reuse_array *reuses)
+{
+	mml_write(pkt, addr, value, mask, reuse, cache,
+		&reuses->offs[reuses->idx].label_idx);
+	return mml_reuse_add_offset(reuse, reuses);
+}
+
+void mml_update_array(struct mml_task_reuse *reuse,
+	struct mml_reuse_array *reuses, u32 reuse_idx, u32 off_idx, u32 value)
+{
+	struct cmdq_reuse *label = &reuse->labels[reuses->offs[reuse_idx].label_idx];
+	u64 *va = label->va + reuses->offs[reuse_idx].offset * off_idx;
+
+	*va = (*va & GENMASK(63, 32)) | value;
 }
 
 noinline int tracing_mark_write(char *fmt, ...)

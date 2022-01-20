@@ -149,6 +149,11 @@
 
 #define AAL_SRAM_STATUS_BIT	BIT(17)
 
+/* min of label count for aal curve
+ *	(AAL_CURVE_NUM * 7 / CMDQ_NUM_CMD(CMDQ_CMD_BUFFER_SIZE) + 1)
+ */
+#define AAL_LABEL_CNT		10
+
 struct aal_data {
 	u32 min_tile_width;
 	u32 tile_width;
@@ -213,6 +218,13 @@ struct mml_comp_aal {
 	u32 sram_hist_start;
 };
 
+enum aal_label_index {
+	AAL_REUSE_LABEL = 0,
+	AAL_POLLGPR_0 = AAL_LABEL_CNT,
+	AAL_POLLGPR_1,
+	AAL_LABEL_TOTAL
+};
+
 /* meta data for each different frame config */
 struct aal_frame_data {
 	u32 out_hist_xs;
@@ -222,7 +234,9 @@ struct aal_frame_data {
 	u32 condi_offset;
 	u32 cut_pos_x;
 	struct cmdq_poll_reuse polling_reuse;
-	u16 labels[AAL_CURVE_NUM + CMDQ_GPR_UPDATE];
+	u16 labels[AAL_LABEL_TOTAL];
+	struct mml_reuse_array reuse_curve;
+	struct mml_reuse_offset offs_curve[AAL_LABEL_CNT];
 	bool is_aal_need_readback;
 	bool config_success;
 };
@@ -244,6 +258,8 @@ static s32 aal_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	aal_frm = kzalloc(sizeof(*aal_frm), GFP_KERNEL);
 	ccfg->data = aal_frm;
+	aal_frm->reuse_curve.offs = aal_frm->offs_curve;
+	aal_frm->reuse_curve.offs_size = ARRAY_SIZE(aal_frm->offs_curve);
 	return 0;
 }
 
@@ -329,7 +345,7 @@ static u32 aal_get_label_count(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_dre)
 		return 0;
 
-	return AAL_CURVE_NUM + CMDQ_GPR_UPDATE;
+	return AAL_LABEL_TOTAL;
 }
 
 static void aal_init(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
@@ -371,6 +387,8 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const phys_addr_t base_pa = comp->base_pa;
 
 	struct mml_pq_comp_config_result *result;
+	struct mml_pq_reg *regs;
+	u32 *curve;
 	struct mml_pq_aal_config_param *tile_config_param;
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
@@ -378,6 +396,7 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 	u32 gpr = aal->data->gpr[ccfg->pipe];
 	u32 cpr = aal->data->cpr[ccfg->pipe];
 	s32 ret = 0;
+	u32 i;
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id, dest->pq_config.en_dre);
@@ -398,53 +417,55 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 			1 << 7, 0x00000080);
 
 	ret = mml_pq_get_comp_config_result(task, AAL_WAIT_TIMEOUT_MS);
-	if (!ret) {
-		result = get_aal_comp_config_result(task);
-		if (result) {
-			s32 i;
-			struct mml_pq_reg *regs = result->aal_regs;
-			u32 *curve = result->aal_curve;
-
-			/* TODO: use different regs */
-			mml_pq_msg("%s:config aal regs, count: %d", __func__, result->aal_reg_cnt);
-			aal_frm->config_success = true;
-			for (i = 0; i < result->aal_reg_cnt; i++) {
-				cmdq_pkt_write(pkt, NULL, base_pa + regs[i].offset,
-					regs[i].value, regs[i].mask);
-				mml_pq_msg("[aal][config][%x] = %#x mask(%#x)",
-					regs[i].offset, regs[i].value, regs[i].mask);
-			}
-			for (i = 0; i < AAL_CURVE_NUM; i++) {
-				cmdq_pkt_write(pkt, NULL, base_pa + AAL_SRAM_RW_IF_0, addr,
-					U32_MAX);
-				cmdq_pkt_poll(pkt, NULL, (0x1 << 16),
-					base_pa + AAL_SRAM_STATUS, (0x1 << 16),
-					gpr);
-				mml_write(pkt, base_pa + AAL_SRAM_RW_IF_1, curve[i],
-					U32_MAX, reuse, cache, &aal_frm->labels[i]);
-				addr += 4;
-			}
-
-			mml_pq_msg("%s is_aal_need_readback[%d] base_pa[%llx]", __func__,
-					result->is_aal_need_readback, base_pa);
-
-			aal_frm->is_aal_need_readback = result->is_aal_need_readback;
-
-			tile_config_param = &(result->aal_param[ccfg->node->out_idx]);
-			aal_frm->dre_blk_width = tile_config_param->dre_blk_width;
-			aal_frm->dre_blk_height = tile_config_param->dre_blk_height;
-			mml_pq_msg("%s: success dre_blk_width[%d], dre_blk_height[%d]",
-				__func__, tile_config_param->dre_blk_width,
-				tile_config_param->dre_blk_height);
-		} else {
-			mml_pq_err("%s: not get result from user lib", __func__);
-		}
-	} else {
+	if (ret) {
 		mml_pq_comp_config_clear(task);
 		aal_frm->config_success = false;
 		mml_pq_err("get aal param timeout: %d in %dms",
 			ret, AAL_WAIT_TIMEOUT_MS);
+		ret = -ETIMEDOUT;
+		goto exit;
 	}
+
+	result = get_aal_comp_config_result(task);
+	if (!result) {
+		mml_pq_err("%s: not get result from user lib", __func__);
+		ret = -EBUSY;
+		goto exit;
+	}
+
+	regs = result->aal_regs;
+	curve = result->aal_curve;
+
+	/* TODO: use different regs */
+	mml_pq_msg("%s:config aal regs, count: %d", __func__, result->aal_reg_cnt);
+	aal_frm->config_success = true;
+	for (i = 0; i < result->aal_reg_cnt; i++) {
+		cmdq_pkt_write(pkt, NULL, base_pa + regs[i].offset,
+			regs[i].value, regs[i].mask);
+		mml_pq_msg("[aal][config][%x] = %#x mask(%#x)",
+			regs[i].offset, regs[i].value, regs[i].mask);
+	}
+	for (i = 0; i < AAL_CURVE_NUM; i++, addr += 4) {
+		cmdq_pkt_write(pkt, NULL, base_pa + AAL_SRAM_RW_IF_0, addr, U32_MAX);
+		cmdq_pkt_poll(pkt, NULL, (0x1 << 16),
+			base_pa + AAL_SRAM_STATUS, (0x1 << 16), gpr);
+		mml_write_array(pkt, base_pa + AAL_SRAM_RW_IF_1, curve[i],
+			U32_MAX, reuse, cache, &aal_frm->reuse_curve);
+	}
+
+	mml_pq_msg("%s is_aal_need_readback[%d] base_pa[%llx] reuses[%u]",
+		__func__, result->is_aal_need_readback, base_pa,
+		aal_frm->reuse_curve.idx);
+
+	aal_frm->is_aal_need_readback = result->is_aal_need_readback;
+	aal_frm->config_success = true;
+
+	tile_config_param = &(result->aal_param[ccfg->node->out_idx]);
+	aal_frm->dre_blk_width = tile_config_param->dre_blk_width;
+	aal_frm->dre_blk_height = tile_config_param->dre_blk_height;
+	mml_pq_msg("%s: success dre_blk_width[%d], dre_blk_height[%d]",
+		__func__, tile_config_param->dre_blk_width,
+		tile_config_param->dre_blk_height);
 
 exit:
 	mml_pq_trace_ex_end();
@@ -704,9 +725,9 @@ static void aal_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 	cmdq_pkt_assign_command(pkt, idx_addr, dre30_hist_sram_start);
 
 	mml_assign(pkt, idx_out, (u32)pa,
-		reuse, cache, &aal_frm->labels[AAL_CURVE_NUM]);
+		reuse, cache, &aal_frm->labels[AAL_POLLGPR_0]);
 	mml_assign(pkt, idx_out + 1, (u32)(pa >> 32),
-		reuse, cache, &aal_frm->labels[AAL_CURVE_NUM + 1]);
+		reuse, cache, &aal_frm->labels[AAL_POLLGPR_1]);
 
 	/* loop again here */
 	aal_frm->begin_offset = pkt->cmd_buf_size;
@@ -821,12 +842,11 @@ static void aal_readback_vcp(struct mml_comp *comp, struct mml_task *task,
 
 	cmdq_pkt_readback(pkt, engine, task->pq_task->aal_hist[pipe]->va_offset,
 		 AAL_HIST_NUM+AAL_DUAL_INFO_NUM, gpr,
-		&(reuse->labels[reuse->label_idx]),
-		&(aal_frm->polling_reuse));
+		&reuse->labels[reuse->label_idx],
+		&aal_frm->polling_reuse);
 
-	aal_frm->labels[AAL_CURVE_NUM] = reuse->label_idx;
-	reuse->labels[reuse->label_idx].val = task->pq_task->aal_hist[pipe]->va_offset;
-	reuse->label_idx++;
+	add_reuse_label(reuse, &aal_frm->labels[AAL_POLLGPR_0],
+		task->pq_task->aal_hist[pipe]->va_offset);
 
 	mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%llx] pkt[%p] offset[%d]",
 			__func__, task->job.jobid, comp->id, task->pq_task->aal_hist[pipe]->va,
@@ -866,6 +886,7 @@ static s32 aal_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	struct mml_pq_comp_config_result *result;
+	u32 *curve, i, j, idx;
 	s32 ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
@@ -875,26 +896,31 @@ static s32 aal_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 		goto exit;
 
 	ret = mml_pq_get_comp_config_result(task, AAL_WAIT_TIMEOUT_MS);
-	if (!ret) {
-		result = get_aal_comp_config_result(task);
-		if (result && aal_frm->config_success) {
-			s32 i;
-			u32 *curve = result->aal_curve;
-
-			for (i = 0; i < AAL_CURVE_NUM; i++)
-				mml_update(reuse, aal_frm->labels[i], curve[i]);
-
-			mml_pq_msg("%s is_aal_need_readback[%d]", __func__,
-					result->is_aal_need_readback);
-			aal_frm->is_aal_need_readback = result->is_aal_need_readback;
-		} else {
-			mml_pq_err("%s: not get result from user lib", __func__);
-		}
-	} else {
+	if (ret) {
 		mml_pq_comp_config_clear(task);
 		mml_pq_err("get aal param timeout: %d in %dms",
 			ret, AAL_WAIT_TIMEOUT_MS);
+		ret = -ETIMEDOUT;
+		goto exit;
 	}
+
+	result = get_aal_comp_config_result(task);
+	if (!result || !aal_frm->config_success) {
+		mml_pq_err("%s: not get result from user lib", __func__);
+		ret = -EBUSY;
+		goto exit;
+	}
+
+
+	curve = result->aal_curve;
+	idx = 0;
+	for (i = 0; i < aal_frm->reuse_curve.idx; i++)
+		for (j = 0; j < aal_frm->reuse_curve.offs[i].cnt; j++, idx++)
+			mml_update_array(reuse, &aal_frm->reuse_curve, i, j, curve[idx]);
+
+	mml_pq_msg("%s is_aal_need_readback[%d]",
+		__func__, result->is_aal_need_readback);
+	aal_frm->is_aal_need_readback = result->is_aal_need_readback;
 
 exit:
 	mml_pq_trace_ex_end();
@@ -941,12 +967,12 @@ static s32 aal_config_repost(struct mml_comp *comp, struct mml_task *task,
 		mml_pq_get_vcp_buf_offset(task, MML_PQ_AAL0+pipe,
 			task->pq_task->aal_hist[pipe]);
 
-		reuse->labels[aal_frm->labels[AAL_CURVE_NUM]].val =
+		mml_update(reuse, aal_frm->labels[AAL_POLLGPR_0],
 			cmdq_pkt_vcp_reuse_val(engine,
 			task->pq_task->aal_hist[pipe]->va_offset,
-			AAL_HIST_NUM+AAL_DUAL_INFO_NUM);
+			AAL_HIST_NUM + AAL_DUAL_INFO_NUM));
 
-		cmdq_pkt_reuse_poll(pkt, &(aal_frm->polling_reuse));
+		cmdq_pkt_reuse_poll(pkt, &aal_frm->polling_reuse);
 
 		mml_pq_rb_msg("%s end job_id[%d] engine_id[%d] va[%p] pa[%llx] pkt[%p] offset[%d]",
 			__func__, task->job.jobid, comp->id, task->pq_task->aal_hist[pipe]->va,
@@ -962,9 +988,9 @@ static s32 aal_config_repost(struct mml_comp *comp, struct mml_task *task,
 			goto comp_config_put;
 		}
 
-		mml_update(reuse, aal_frm->labels[AAL_CURVE_NUM],
+		mml_update(reuse, aal_frm->labels[AAL_POLLGPR_0],
 			(u32)task->pq_task->aal_hist[pipe]->pa);
-		mml_update(reuse, aal_frm->labels[AAL_CURVE_NUM+1],
+		mml_update(reuse, aal_frm->labels[AAL_POLLGPR_1],
 			(u32)(task->pq_task->aal_hist[pipe]->pa >> 32));
 
 		begin_pa = cmdq_pkt_get_pa_by_offset(pkt, aal_frm->begin_offset);
