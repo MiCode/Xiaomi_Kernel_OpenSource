@@ -172,6 +172,9 @@
 #define RG_XTP0_T2RLB_PATTYPE			GENMASK(6, 3)
 #define RG_XTP0_T2RLB_PATTYPE_VAL(x)		((0xf & (x)) << 3)
 
+#define SSPXTP_DAIG_LN_TOP_80	((SSPXTP_SIFSLV_DIG_LN_TOP) + 0x080)
+#define RG_XTP0_RESERVED_0			GENMASK(31, 0)
+
 #define SSPXTP_DAIG_LN_TOP_A0	((SSPXTP_SIFSLV_DIG_LN_TOP) + 0x0a0)
 #define RG_XTP0_T2RLB_ERR_CNT			GENMASK(19, 4)
 #define RG_XTP0_T2RLB_ERR			BIT(3)
@@ -241,6 +244,7 @@
 #define VRT_SEL_STR "vrt_sel"
 #define PHY_REV6_STR "phy_rev6"
 #define DISCTH_STR "discth"
+#define SIB_STR	"sib"
 #define LOOPBACK_STR "loopback_test"
 
 #define XSP_MODE_UART_STR "usb2uart_mode=1"
@@ -276,6 +280,7 @@ static char *efuse_name[5] = {
 struct xsphy_instance {
 	struct phy *phy;
 	void __iomem *port_base;
+	void __iomem *ippc_base;
 	struct clk *ref_clk;	/* reference clock of anolog phy */
 	u32 index;
 	u32 type;
@@ -315,6 +320,73 @@ static void u2_phy_host_props_set(struct mtk_xsphy *xsphy,
 static void u3_phy_props_set(struct mtk_xsphy *xsphy,
 		struct xsphy_instance *inst);
 static struct proc_dir_entry *usb_root;
+
+static ssize_t proc_sib_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct xsphy_instance *inst = s->private;
+	struct device *dev = &inst->phy->dev;
+	char buf[20];
+	unsigned int val;
+
+	dev_info(dev, "%s\n", __func__);
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (IS_ERR_OR_NULL(inst->ippc_base))
+		return -ENODEV;
+
+	if (kstrtouint(buf, 10, &val))
+		return -EINVAL;
+
+	/* SSUSB_SIFSLV_IPPC_BASE SSUSB_IP_SW_RST = 0 */
+	writel(0x00031000, inst->ippc_base + 0x00);
+	/* SSUSB_IP_HOST_PDN = 0 */
+	writel(0x00000000, inst->ippc_base + 0x04);
+	/* SSUSB_IP_DEV_PDN = 0 */
+	writel(0x00000000, inst->ippc_base + 0x08);
+	/* SSUSB_IP_PCIE_PDN = 0 */
+	writel(0x00000000, inst->ippc_base + 0x0C);
+	/* SSUSB_U3_PORT_DIS/SSUSB_U3_PORT_PDN = 0*/
+	writel(0x0000000C, inst->ippc_base + 0x30);
+
+	/* SSPXTP_DAIG_LN_TOP_80[3:0]
+	 * 0: No U3 owner
+	 * 2: U3 owner is AP USB MAC
+	 * 4: U3 owner is AP META MAC
+	 * 8: U3 owner is MD STP
+	 */
+	if (val)
+		writel(0x00000008, inst->port_base + SSPXTP_DAIG_LN_TOP_80);
+	else
+		writel(0x00000002, inst->port_base + SSPXTP_DAIG_LN_TOP_80);
+
+	dev_info(dev, "%s, sib=%d reserved0=%x\n",
+		__func__, val, readl(inst->port_base + SSPXTP_DAIG_LN_TOP_80));
+
+	return count;
+}
+
+static int proc_sib_show(struct seq_file *s, void *unused)
+{
+	return 0;
+}
+
+static int proc_sib_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_sib_show, PDE_DATA(inode));
+}
+
+static const struct  proc_ops proc_sib_fops = {
+	.proc_open = proc_sib_open,
+	.proc_write = proc_sib_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
 
 static int proc_loopback_test_show(struct seq_file *s, void *unused)
 {
@@ -492,6 +564,14 @@ static int u3_phy_procfs_init(struct mtk_xsphy *xsphy,
 		dev_info(dev, "failed to creat dir proc %s\n", U3_PHY_STR);
 		ret = -ENOMEM;
 		goto err0;
+	}
+
+	file = proc_create_data(SIB_STR, 0644,
+			phy_root, &proc_sib_fops, inst);
+	if (!file) {
+		dev_info(dev, "failed to creat proc file: %s\n", SIB_STR);
+		ret = -ENOMEM;
+		goto err1;
 	}
 
 	file = proc_create_data(LOOPBACK_STR, 0444,
@@ -1850,6 +1930,21 @@ static int mtk_xsphy_probe(struct platform_device *pdev)
 			dev_err(dev, "failed to remap phy regs\n");
 			retval = PTR_ERR(inst->port_base);
 			goto put_child;
+		}
+
+		/* Get optional property ippc address */
+		retval = of_address_to_resource(child_np, 1, &res);
+		if (retval) {
+			dev_info(dev, "failed to get ippc resource(id-%d)\n",
+				port);
+		} else {
+			inst->ippc_base = devm_ioremap(dev, res.start,
+				resource_size(&res));
+			if (IS_ERR(inst->ippc_base))
+				dev_info(dev, "failed to remap ippc regs\n");
+			else
+				dev_info(dev, "ippc 0x%p\n", inst->ippc_base);
+
 		}
 
 		inst->phy = phy;
