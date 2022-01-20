@@ -211,16 +211,28 @@ struct seninf_vc *mtk_cam_seninf_get_vc_by_pad(struct seninf_ctx *ctx, int idx)
 	return NULL;
 }
 
-unsigned int mtk_cam_seninf_get_vc_feature(struct v4l2_subdev *sd, unsigned int pad)
+int mtk_cam_seninf_get_pad_data_info(struct v4l2_subdev *sd,
+				unsigned int pad,
+				struct mtk_seninf_pad_data_info *result)
 {
 	struct seninf_vc *pvc = NULL;
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 
-	pvc = mtk_cam_seninf_get_vc_by_pad(ctx, pad);
-	if (pvc)
-		return pvc->feature;
+	if (!result)
+		return -1;
 
-	return VC_NONE;
+	memset(result, 0, sizeof(*result));
+	pvc = mtk_cam_seninf_get_vc_by_pad(ctx, pad);
+	if (pvc) {
+		result->feature = pvc->feature;
+		result->mux = pvc->mux;
+		result->exp_hsize = pvc->exp_hsize;
+		result->exp_vsize = pvc->exp_vsize;
+
+		return 0;
+	}
+
+	return -1;
 }
 
 static int get_mbus_format_by_dt(int dt)

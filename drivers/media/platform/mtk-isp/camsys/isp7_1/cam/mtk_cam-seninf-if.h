@@ -85,8 +85,27 @@ struct mtk_seninf_sof_notify_param {
 void
 mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param);
 
-unsigned int
-mtk_cam_seninf_get_vc_feature(struct v4l2_subdev *sd, unsigned int pad);
+/**
+ * struct mtk_seninf_pad_data_info - data information outputed by pad
+ */
+struct mtk_seninf_pad_data_info {
+	u8 feature;
+	u8 mux; // allocated per group
+	u16 exp_hsize;
+	u16 exp_vsize;
+};
+
+/**
+ * Get data info by seninf pad
+ *
+ * @param sd v4l2_subdev
+ * @param pad The pad id
+ * @param result The result
+ * @return 0 if success, and negative number if error occur
+ */
+int mtk_cam_seninf_get_pad_data_info(struct v4l2_subdev *sd,
+				unsigned int pad,
+				struct mtk_seninf_pad_data_info *result);
 
 void
 mtk_cam_seninf_set_secure(struct v4l2_subdev *sd, int enable, unsigned int SecInfo_addr);
