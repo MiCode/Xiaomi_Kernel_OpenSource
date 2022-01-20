@@ -4846,8 +4846,7 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	struct mtk_csi_param *csi_param)
 {
 	csi_param->legacy_phy = 0;
-	csi_param->not_fixed_trail_settle = 1;
-	csi_param->cphy_settle = 0x21;
+	csi_param->not_fixed_trail_settle = 0;
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_CUSTOM2:
@@ -4857,12 +4856,12 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM11:
 	case SENSOR_SCENARIO_ID_CUSTOM12:
 	case SENSOR_SCENARIO_ID_CUSTOM13:
-		csi_param->cphy_settle = 0x12;
+		csi_param->cphy_settle = 65;//0x12;
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM3:
 	case SENSOR_SCENARIO_ID_CUSTOM5:
 	case SENSOR_SCENARIO_ID_CUSTOM6:
-		csi_param->cphy_settle = 0x13;
+		csi_param->cphy_settle = 69;//0x13;
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
@@ -4870,16 +4869,15 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
 	case SENSOR_SCENARIO_ID_CUSTOM4:
 	case SENSOR_SCENARIO_ID_CUSTOM7:
-		csi_param->cphy_settle = 0x14;
+		csi_param->cphy_settle = 73;//0x14;
 		break;
 	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
-		csi_param->cphy_settle = 0x15;
+		csi_param->cphy_settle = 76;//0x15;
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM1:
-		csi_param->cphy_settle = 0x17;
+		csi_param->cphy_settle = 84;//0x17;
 		break;
 	default:
-		csi_param->legacy_phy = 1;
 		break;
 	}
 	return 0;

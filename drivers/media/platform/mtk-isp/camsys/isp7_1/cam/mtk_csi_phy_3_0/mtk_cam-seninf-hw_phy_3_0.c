@@ -27,6 +27,7 @@
 #define FIX_DPHY_SETTLE 1
 #define DPHY_SETTLE 0x1C
 #define CPHY_SETTLE 0x16 //60~80ns
+#define DPHY_TRAIL_SPEC 224
 
 #define DEBUG_CAM_MUX_SWITCH 0
 //#define SCAN_SETTLE
@@ -1320,16 +1321,16 @@ static int set_settle(struct seninf_ctx *ctx, u16 settle, bool hs_trail_en)
 static int csirx_dphy_init(struct seninf_ctx *ctx)
 {
 	void *base = ctx->reg_ana_dphy_top[ctx->port];
-	int settle_delay_dt, settle_delay_ck, hs_trail, hs_trail_en;
+	u64 settle_delay_dt, settle_delay_ck, hs_trail, hs_trail_en;
 	int bit_per_pixel = 10;
 	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+	u64 data_rate = 0;
 
 	if (vc)
 		bit_per_pixel = vc->bit_depth;
 	else if (vc1)
 		bit_per_pixel = vc1->bit_depth;
-
 	if (ctx->is_cphy) {
 		if (ctx->csi_param.not_fixed_trail_settle) {
 			settle_delay_dt = ctx->csi_param.cphy_settle
@@ -1339,6 +1340,14 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 			settle_delay_dt = ctx->csi_param.cphy_settle;
 			if (settle_delay_dt == 0)
 				settle_delay_dt = CPHY_SETTLE;
+			else {
+				u64 temp = SENINF_CK * settle_delay_dt;
+
+				if (temp % 1000000000)
+					settle_delay_dt = 1 + (temp / 1000000000);
+				else
+					settle_delay_dt = (temp / 1000000000);
+			}
 		}
 		settle_delay_ck = settle_delay_dt;
 	} else {
@@ -1348,12 +1357,39 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 			// 0x1c = 100ns/(1/csi_ck)
 #else
 
-		settle_delay_dt = ctx->csi_param.dphy_data_settle
-			? ctx->csi_param.dphy_data_settle
-			: ctx->dphy_settle_delay_dt;
-		settle_delay_ck = ctx->csi_param.dphy_clk_settle
-				? ctx->csi_param.dphy_clk_settle
-				: ctx->settle_delay_ck;
+		if (ctx->csi_param.not_fixed_trail_settle) {
+			settle_delay_dt = ctx->csi_param.dphy_data_settle
+				? ctx->csi_param.dphy_data_settle
+				: ctx->dphy_settle_delay_dt;
+			settle_delay_ck = ctx->csi_param.dphy_clk_settle
+					? ctx->csi_param.dphy_clk_settle
+					: ctx->settle_delay_ck;
+
+		} else {
+			settle_delay_dt = ctx->csi_param.dphy_data_settle;
+			if (settle_delay_dt == 0)
+				settle_delay_dt = DPHY_SETTLE;
+			else {
+				u64 temp = SENINF_CK * settle_delay_dt;
+
+				if (temp % 1000000000)
+					settle_delay_dt = 1 + (temp / 1000000000);
+				else
+					settle_delay_dt = (temp / 1000000000);
+			}
+			settle_delay_ck = ctx->csi_param.dphy_clk_settle;
+			if (settle_delay_ck == 0)
+				settle_delay_ck = DPHY_SETTLE;
+			else {
+				u64 temp = SENINF_CK * settle_delay_ck;
+
+				if (temp % 1000000000)
+					settle_delay_ck = 1 + (temp / 1000000000);
+				else
+					settle_delay_ck = (temp / 1000000000);
+			}
+		}
+
 #endif
 	}
 
@@ -1403,8 +1439,29 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		hs_trail =	ctx->csi_param.dphy_trail
 				? ctx->csi_param.dphy_trail
 				: ctx->hs_trail_parameter;
-	} else
-		hs_trail =  ctx->csi_param.dphy_trail;
+	} else {
+		u64 temp = 0;
+		u64 ui_224 = 0;
+
+		hs_trail = 0;
+		data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
+		do_div(data_rate, ctx->num_data_lanes);
+		ui_224 = (DPHY_TRAIL_SPEC * 1000) / (data_rate / 1000000);
+
+		if (ctx->csi_param.dphy_trail == 0 ||
+			ctx->csi_param.dphy_trail > ui_224)
+			hs_trail = 0;
+		else {
+
+			temp = ui_224 - ctx->csi_param.dphy_trail;
+			temp *= SENINF_CK;
+
+			if (temp % 1000000000)
+				hs_trail = 1 + (temp / 1000000000);
+			else
+				hs_trail = (temp / 1000000000);
+		}
+	}
 
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 		    RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER, hs_trail);
@@ -1418,8 +1475,6 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	if (!ctx->is_cphy) {
 
 		if (ctx->csi_param.not_fixed_trail_settle) {
-			u64 data_rate = 0;
-
 			data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 			do_div(data_rate, ctx->num_data_lanes);
 			hs_trail_en = data_rate < SENINF_HS_TRAIL_EN_CONDITION;
@@ -1428,7 +1483,8 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 				dev_info(ctx->dev, "hs_trail = %d\n", hs_trail);
 			}
 		} else {
-			if (ctx->csi_param.dphy_trail != 0) {
+			if (ctx->csi_param.dphy_trail != 0 &&
+				hs_trail != 0) {
 				hs_trail_en = 1;
 				dev_info(ctx->dev, "hs_trail = %d\n", hs_trail);
 			} else
@@ -1442,6 +1498,15 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 			    RG_DPHY_RX_LD2_HS_TRAIL_EN, hs_trail_en);
 		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 			    RG_DPHY_RX_LD3_HS_TRAIL_EN, hs_trail_en);
+	} else {
+		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
+			    RG_DPHY_RX_LD0_HS_TRAIL_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
+			    RG_DPHY_RX_LD1_HS_TRAIL_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE2_HS_PARAMETER,
+			    RG_DPHY_RX_LD2_HS_TRAIL_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
+			    RG_DPHY_RX_LD3_HS_TRAIL_EN, 0);
 	}
 
 	return 0;

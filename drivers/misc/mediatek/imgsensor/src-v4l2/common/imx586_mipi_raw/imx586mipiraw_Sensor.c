@@ -5903,24 +5903,24 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	case SENSOR_SCENARIO_ID_CUSTOM3:
 	case SENSOR_SCENARIO_ID_CUSTOM4:
 	case SENSOR_SCENARIO_ID_CUSTOM6:
-		csi_param->cphy_settle = 0x13;
+		csi_param->cphy_settle = 69;//0x13;
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM1:
 	case SENSOR_SCENARIO_ID_CUSTOM2:
-		csi_param->cphy_settle = 0x14;
+		csi_param->cphy_settle = 73;// 0x14;
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
-		csi_param->cphy_settle = 0x15;
+		csi_param->cphy_settle = 76;//0x15;
 		break;
 	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
-		csi_param->cphy_settle = 0x17;
+		csi_param->cphy_settle = 84;//0x17;
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM5:
-		csi_param->cphy_settle = 0x18;
+		csi_param->cphy_settle = 87;//0x18;
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
-		csi_param->cphy_settle = 0x19;
+		csi_param->cphy_settle = 91;// 0x19;
 		break;
 	default:
 		csi_param->legacy_phy = 1;

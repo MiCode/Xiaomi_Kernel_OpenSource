@@ -3340,9 +3340,9 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	struct mtk_csi_param *csi_param)
 {
 	csi_param->legacy_phy = 0;
-	csi_param->not_fixed_trail_settle = 1;
-	csi_param->cphy_settle = 0x1b;
-
+	csi_param->not_fixed_trail_settle = 0;
+	//csi_param->cphy_settle = 0x1b;
+	csi_param->cphy_settle = 98;
 	return 0;
 }
 

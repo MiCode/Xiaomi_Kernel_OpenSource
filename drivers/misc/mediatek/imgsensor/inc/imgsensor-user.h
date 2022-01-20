@@ -366,10 +366,10 @@ struct mtk_mbus_frame_desc {
 };
 
 struct mtk_csi_param {
-	__u8 dphy_trail;
-	__u8 dphy_data_settle;
-	__u8 dphy_clk_settle;
-	__u8 cphy_settle;
+	__u32 dphy_trail;
+	__u32 dphy_data_settle;
+	__u32 dphy_clk_settle;
+	__u32 cphy_settle;
 	__u8 legacy_phy;
 	__u8 not_fixed_trail_settle;
 };
