@@ -5217,9 +5217,9 @@
 
 	audio_sram@11212000 {
 		compatible = "mediatek,audio_sram";
-		reg = <0 0x11212000 0 0x18000>;
+		reg = <0 0x11212000 0 0xd000>;
 		prefer_mode = <0>;
-		mode_size = <0x12000 0x18000>;
+		mode_size = <0x9c00 0xd000>;
 		block_size = <0x1000>;
 	};
 
