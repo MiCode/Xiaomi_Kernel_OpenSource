@@ -13,7 +13,6 @@
 			<&topckgen_clk CLK_TOP_AXIP_SEL>,
 			<&topckgen_clk CLK_TOP_AXI_U_SEL>,
 			<&topckgen_clk CLK_TOP_BUS_AXIMEM_SEL>,
-			<&topckgen_clk CLK_TOP_MDP0_SEL>,
 			<&topckgen_clk CLK_TOP_ATB_SEL>,
 			<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_DXCC_SEL>,
