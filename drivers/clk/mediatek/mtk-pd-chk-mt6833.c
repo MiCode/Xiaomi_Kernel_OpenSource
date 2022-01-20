@@ -161,6 +161,13 @@ struct pd_check_swcg mdpsys_config_swcgs[] = {
 	SWCG("mdp_img_dl_rel1_as1"),
 	SWCG(NULL),
 };
+/* vdec_gcon_base */
+struct pd_check_swcg vdec_gcon_base_swcgs[] = {
+	SWCG("vde2_larb1_cken"),
+	SWCG("vde2_vdec_cken"),
+	SWCG("vde2_vdec_active"),
+	SWCG(NULL),
+};
 /* venc_gcon */
 struct pd_check_swcg venc_gcon_swcgs[] = {
 	SWCG("ven1_cke0_larb"),
@@ -190,6 +197,7 @@ struct subsys_cgs_check mtk_subsys_check[] = {
 	{MT6833_POWER_DOMAIN_ISP2, imgsys2_swcgs, imgsys2},
 	{MT6833_POWER_DOMAIN_IPE, ipesys_swcgs, ipe},
 	{MT6833_POWER_DOMAIN_DISP, mdpsys_config_swcgs, mdp},
+	{MT6833_POWER_DOMAIN_VDEC, vdec_gcon_base_swcgs, vde2},
 	{MT6833_POWER_DOMAIN_VENC, venc_gcon_swcgs, ven1},
 };
 
