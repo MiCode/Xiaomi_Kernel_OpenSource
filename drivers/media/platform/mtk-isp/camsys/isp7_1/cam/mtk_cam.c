@@ -7548,7 +7548,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 						raw->vsync_count,
 						atomic_read(&raw->vf_en),
 						int_en);
-					if (int_en == 0)
+					if (int_en == 0 && ctx->composed_frame_seq_no)
 						aee_kernel_warning_api(
 							__FILE__, __LINE__, DB_OPT_DEFAULT,
 							"Camsys: 1st CQ done timeout",
