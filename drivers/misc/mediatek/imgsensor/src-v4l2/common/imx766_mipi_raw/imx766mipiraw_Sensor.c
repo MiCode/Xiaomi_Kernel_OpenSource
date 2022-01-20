@@ -3862,6 +3862,28 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			default:
 				break;
 			}
+		} else if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM11) {
+			switch (*(feature_data + 1)) {
+			case HDR_RAW_STAGGER_2EXP:
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM9;
+				break;
+			case HDR_RAW_STAGGER_3EXP:
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
+				break;
+			default:
+				break;
+			}
+		} else if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM12) {
+			switch (*(feature_data + 1)) {
+			case HDR_RAW_STAGGER_2EXP:
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM9;
+				break;
+			case HDR_RAW_STAGGER_3EXP:
+				*(feature_data + 2) = SENSOR_SCENARIO_ID_CUSTOM10;
+				break;
+			default:
+				break;
+			}
 		}
 		LOG_DEBUG("SENSOR_FEATURE_GET_STAGGER_TARGET_SCENARIO %d %d %d\n",
 				(UINT16) *feature_data,

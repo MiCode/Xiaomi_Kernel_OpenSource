@@ -393,7 +393,7 @@ static void set_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 			l_shift = MAX_CIT_LSHIFT;
 		}
 		shutter = shutter >> l_shift;
-		ctx->frame_length = shutter + imgsensor_info.margin;
+		//ctx->frame_length = shutter + imgsensor_info.margin;
 		set_cmos_sensor(ctx, 0x3100,
 			read_cmos_sensor(ctx, 0x3100) | (l_shift & 0x7));
 

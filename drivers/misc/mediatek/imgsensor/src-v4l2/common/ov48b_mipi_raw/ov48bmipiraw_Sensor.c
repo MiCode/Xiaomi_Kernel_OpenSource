@@ -2135,8 +2135,8 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 modes
 		_i2c_data[_size_to_write++] = 0x5002;
 		_i2c_data[_size_to_write++] = 0x92;//10010010
 		/* need check with vendor */
-		//_i2c_data[_size_to_write++] = 0x5081;
-		//_i2c_data[_size_to_write++] = 0x01;
+		_i2c_data[_size_to_write++] = 0x5081;
+		_i2c_data[_size_to_write++] = 0x01;
 	} else if (modes == 5) { //black
 		//@@ Solid color BLACK - on
 		//6c 3019 f0; d2
@@ -2155,8 +2155,8 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 modes
 		_i2c_data[_size_to_write++] = 0x5002;
 		_i2c_data[_size_to_write++] = 0x9E;//10011110
 		/* need check with vendor */
-		//_i2c_data[_size_to_write++] = 0x5081;
-		//_i2c_data[_size_to_write++] = 0x0;
+		_i2c_data[_size_to_write++] = 0x5081;
+		_i2c_data[_size_to_write++] = 0x0;
 	} else if ((modes != 5) && (ctx->test_pattern == 5)) {
 		//@@ Solid color BLACK - off
 		//6c 3019 d2

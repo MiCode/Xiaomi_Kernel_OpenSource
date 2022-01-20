@@ -649,7 +649,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter)
 		pr_debug("enter long exposure mode, time is %d",
 			longexposure_times);
 		long_exposure_status = 1;
-		ctx->frame_length = shutter + 32;
+		//ctx->frame_length = shutter + 32;
 		if (!_is_seamless)
 			set_cmos_sensor_8(ctx, 0x3100, longexposure_times & 0x07);
 		else {
@@ -1018,8 +1018,6 @@ static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 
 	if (enable) {
 		//test pattern reset
-		write_cmos_sensor_8(ctx, 0x0601, 0x00);
-		ctx->test_pattern = 0;
 		if (read_cmos_sensor_8(ctx, 0x0350) != 0x01) {
 			pr_debug("single cam scenario enable auto-extend");
 			write_cmos_sensor_8(ctx, 0x0350, 0x01);
@@ -4693,10 +4691,13 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
 	pr_debug("test_pattern mode: %d\n", mode);
+	/*Clear data if not solid color*/
 	if (mode != 1) {
 		memset(_i2c_data, 0x0, sizeof(_i2c_data));
 		_size_to_write = 0;
 	}
+	if (_size_to_write == 0)
+		set_cmos_sensor_8(ctx, 0x0104, 0x01);
 	if (mode)
 		set_cmos_sensor_8(ctx, 0x0601, mode); /*100% Color bar*/
 	else if (ctx->test_pattern)

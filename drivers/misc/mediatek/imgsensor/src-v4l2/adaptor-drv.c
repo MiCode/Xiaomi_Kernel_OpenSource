@@ -708,6 +708,7 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 //	int ret;
 	u64 data[4];
 	u32 len;
+	union feature_para para;
 
 	adaptor_sensor_init(ctx);
 
@@ -721,6 +722,11 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 #endif
 
 	data[0] = 0; // shutter
+	para.u8[0] = 0;
+	//Make sure close test pattern
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_SET_TEST_PATTERN,
+		para.u8, &len);
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_STREAMING_RESUME,
 		(u8 *)data, &len);
