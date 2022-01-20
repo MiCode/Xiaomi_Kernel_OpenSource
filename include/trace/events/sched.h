@@ -408,6 +408,28 @@ DECLARE_EVENT_CLASS(sched_stat_template,
 			(unsigned long long)__entry->delay)
 );
 
+/*
+ * Tracepoint for schedutil governor
+ */
+TRACE_EVENT(sched_util,
+	TP_PROTO(int cid, unsigned int next_freq, u64 time),
+	TP_ARGS(cid, next_freq, time),
+	TP_STRUCT__entry(
+		__field(int, cid)
+		__field(unsigned int, next_freq)
+		__field(u64, time)
+	),
+	TP_fast_assign(
+		__entry->cid		= cid;
+		__entry->next_freq	= next_freq;
+		__entry->time		= time;
+	),
+	TP_printk("cid=%d next=%u last_freq_update_time=%lld",
+		__entry->cid,
+		__entry->next_freq,
+		__entry->time
+	)
+);
 
 /*
  * Tracepoint for accounting wait time (time the task is runnable
@@ -1074,6 +1096,38 @@ TRACE_EVENT(sched_overutilized,
 );
 
 #endif /* CONFIG_SMP */
+
+#ifdef CONFIG_UCLAMP_TASK
+
+struct rq;
+
+TRACE_EVENT(schedutil_uclamp_util,
+
+	TP_PROTO(int cpu, unsigned long util),
+
+	TP_ARGS(cpu, util),
+
+	TP_STRUCT__entry(
+		__field(int,		cpu)
+		__field(unsigned long,	util)
+		__field(unsigned int,	util_min)
+		__field(unsigned int,	util_max)
+	),
+
+	TP_fast_assign(
+		__entry->cpu			= cpu;
+		__entry->util		= util;
+		__entry->util_min	= uclamp_value(cpu, UCLAMP_MIN);
+		__entry->util_max	= uclamp_value(cpu, UCLAMP_MAX);
+	),
+
+	TP_printk("cpu=%d util=%lu util_min=%u util_max=%u",
+		  __entry->cpu,
+		  __entry->util,
+		  __entry->util_min,
+		  __entry->util_max)
+);
+#endif /* CONFIG_UCLAMP_TASK */
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */

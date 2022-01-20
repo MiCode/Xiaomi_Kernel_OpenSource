@@ -2395,6 +2395,10 @@ static inline unsigned int uclamp_none(enum uclamp_id clamp_id)
 		return 0;
 	return SCHED_CAPACITY_SCALE;
 }
+static inline unsigned int uclamp_value(unsigned int cpu, int clamp_id)
+{
+	return cpu_rq(cpu)->uclamp[clamp_id].value;
+}
 #else /* CONFIG_UCLAMP_TASK */
 static inline
 unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,

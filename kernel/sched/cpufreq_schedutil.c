@@ -11,6 +11,8 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <trace/events/sched.h>
+
 #include "sched.h"
 
 #include <linux/sched/cpufreq.h>
@@ -564,6 +566,7 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	sugov_update_next_freq(sg_policy, time, next_f);
 	mt_cpufreq_set_by_wfi_load_cluster(cid, next_f);
 	policy->cur = next_f;
+	trace_sched_util(cid, next_f, time);
 #else
 
 	/*
@@ -602,6 +605,10 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 		j_util = sugov_get_util(j_sg_cpu);
 		j_max = j_sg_cpu->max;
 		j_util = sugov_iowait_apply(j_sg_cpu, time, j_util, j_max);
+
+#ifdef CONFIG_UCLAMP_TASK
+		trace_schedutil_uclamp_util(j, j_util);
+#endif
 
 		if (j_util * max > j_max * util) {
 			util = j_util;
@@ -643,6 +650,7 @@ sugov_update_shared(struct update_util_data *hook, u64 time, unsigned int flags)
 		sugov_update_next_freq(sg_policy, time, next_f);
 		next_f = mt_cpufreq_find_close_freq(cid, next_f);
 		mt_cpufreq_set_by_wfi_load_cluster(cid, next_f);
+		trace_sched_util(cid, next_f, time);
 #else
 		if (sg_policy->policy->fast_switch_enabled)
 			sugov_fast_switch(sg_policy, time, next_f);
@@ -782,6 +790,86 @@ static struct kobj_type sugov_tunables_ktype = {
 /********************** cpufreq governor interface *********************/
 
 struct cpufreq_governor schedutil_gov;
+
+int schedutil_set_down_rate_limit_us(int cpu, unsigned int rate_limit_us)
+{
+	struct cpufreq_policy *policy;
+	struct sugov_policy *sg_policy;
+	struct sugov_tunables *tunables;
+	struct gov_attr_set *attr_set;
+
+	policy = cpufreq_cpu_get(cpu);
+	if (!policy)
+		return -EINVAL;
+
+	if (policy->governor != &schedutil_gov)
+		return -ENOENT;
+
+	mutex_lock(&global_tunables_lock);
+	sg_policy = policy->governor_data;
+	if (!sg_policy) {
+		mutex_unlock(&global_tunables_lock);
+		cpufreq_cpu_put(policy);
+		return -EINVAL;
+	}
+
+	tunables = sg_policy->tunables;
+	tunables->down_rate_limit_us = rate_limit_us;
+	attr_set = &tunables->attr_set;
+
+	mutex_lock(&attr_set->update_lock);
+	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
+		sg_policy->down_rate_delay_ns = rate_limit_us * NSEC_PER_USEC;
+		update_min_rate_limit_ns(sg_policy);
+	}
+	mutex_unlock(&attr_set->update_lock);
+	mutex_unlock(&global_tunables_lock);
+
+	if (policy)
+		cpufreq_cpu_put(policy);
+	return 0;
+}
+EXPORT_SYMBOL(schedutil_set_down_rate_limit_us);
+
+int schedutil_set_up_rate_limit_us(int cpu, unsigned int rate_limit_us)
+{
+	struct cpufreq_policy *policy;
+	struct sugov_policy *sg_policy;
+	struct sugov_tunables *tunables;
+	struct gov_attr_set *attr_set;
+
+	policy = cpufreq_cpu_get(cpu);
+	if (!policy)
+		return -EINVAL;
+
+	if (policy->governor != &schedutil_gov)
+		return -ENOENT;
+
+	mutex_lock(&global_tunables_lock);
+	sg_policy = policy->governor_data;
+	if (!sg_policy) {
+		mutex_unlock(&global_tunables_lock);
+		cpufreq_cpu_put(policy);
+		return -EINVAL;
+	}
+
+	tunables = sg_policy->tunables;
+	tunables->up_rate_limit_us = rate_limit_us;
+	attr_set = &tunables->attr_set;
+
+	mutex_lock(&attr_set->update_lock);
+	list_for_each_entry(sg_policy, &attr_set->policy_list, tunables_hook) {
+		sg_policy->up_rate_delay_ns = rate_limit_us * NSEC_PER_USEC;
+		update_min_rate_limit_ns(sg_policy);
+	}
+	mutex_unlock(&attr_set->update_lock);
+	mutex_unlock(&global_tunables_lock);
+
+	if (policy)
+		cpufreq_cpu_put(policy);
+	return 0;
+}
+EXPORT_SYMBOL(schedutil_set_up_rate_limit_us);
 
 static struct sugov_policy *sugov_policy_alloc(struct cpufreq_policy *policy)
 {

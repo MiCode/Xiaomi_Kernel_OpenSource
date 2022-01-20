@@ -62,7 +62,7 @@ extern int update_schedplus_up_throttle_ns(int kicker, int nsec);
 extern int update_schedplus_sync_flag(int kicker, int enable);
 extern int update_prefer_idle_value(int kicker, int cgroup_idx, int value);
 
-#define SCHED__UTIL_API_READY 0
+#define SCHED__UTIL_API_READY 1
 #if SCHED__UTIL_API_READY
 extern int schedutil_set_down_rate_limit_us(int cpu,
 	unsigned int rate_limit_us);
