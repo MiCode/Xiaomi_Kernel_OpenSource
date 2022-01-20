@@ -9,8 +9,13 @@
 #include "cpu_ctrl.h"
 #include "usb_boost.h"
 #include <linux/plist.h>
-#if defined(CONFIG_MACH_MT6877)
-#include "helio-dvfsrc-opp-v6877.h"
+#if defined(CONFIG_ARCH_MT6739) || defined(CONFIG_MACH_MT6771) \
+	|| defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6781) \
+	|| defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6833) \
+	|| defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6873) \
+	|| defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6885) \
+	|| defined(CONFIG_MACH_MT6893)
+#include <helio-dvfsrc-opp.h>
 #else
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #endif
