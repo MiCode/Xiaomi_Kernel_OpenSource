@@ -767,6 +767,7 @@ PROC_FOPS_RO(sched_isolated);
 /*******************************************/
 int eas_ctrl_init(struct proc_dir_entry *parent)
 {
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 	int ret = 0;
 	size_t i;
 #ifdef MTK_K14_EAS_BOOST
@@ -808,7 +809,6 @@ int eas_ctrl_init(struct proc_dir_entry *parent)
 		PROC_ENTRY(boot_boost),
 #endif
 	};
-	mutex_init(&boost_eas);
 
 	/* create procfs */
 	for (i = 0; i < ARRAY_SIZE(entries); i++) {
@@ -847,7 +847,8 @@ int eas_ctrl_init(struct proc_dir_entry *parent)
 #endif
 	last_cpu_prefer_pid = (pid_t)0;
 	last_cpu_perfer_type = 0;
-
 out:
-	return ret;
+#endif
+	mutex_init(&boost_eas);
+	return 0;
 }

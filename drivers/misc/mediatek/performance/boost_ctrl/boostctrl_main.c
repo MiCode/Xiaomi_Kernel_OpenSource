@@ -26,10 +26,8 @@ int init_boostctrl(struct proc_dir_entry *parent)
 
 	/* EAS */
 	easctrl_root = proc_mkdir("eas_ctrl", bstctrl_root);
-#ifdef CONFIG_MTK_SCHED_EXTENSION
 	uclamp_ctrl_init(easctrl_root);
 	eas_ctrl_init(easctrl_root);
-#endif /* CONFIG_MTK_SCHED_EXTENSION */
 
 	return 0;
 }

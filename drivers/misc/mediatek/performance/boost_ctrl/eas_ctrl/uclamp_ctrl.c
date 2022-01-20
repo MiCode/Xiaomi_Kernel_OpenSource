@@ -1215,6 +1215,7 @@ PROC_FOPS_RW(perfmgr_log);
 /*******************************************/
 int uclamp_ctrl_init(struct proc_dir_entry *parent)
 {
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 	int i, ret = 0;
 	size_t idx;
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
@@ -1265,7 +1266,6 @@ int uclamp_ctrl_init(struct proc_dir_entry *parent)
 		/* log */
 		PROC_ENTRY(perfmgr_log),
 	};
-	mutex_init(&boost_eas);
 
 	/* create procfs */
 	for (idx = 0; idx < ARRAY_SIZE(entries); idx++) {
@@ -1327,6 +1327,8 @@ int uclamp_ctrl_init(struct proc_dir_entry *parent)
 #endif
 
 out:
-	return ret;
+#endif
+	mutex_init(&boost_eas);
+	return 0;
 }
 
