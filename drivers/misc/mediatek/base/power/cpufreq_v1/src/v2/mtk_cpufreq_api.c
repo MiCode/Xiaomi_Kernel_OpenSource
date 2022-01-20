@@ -41,7 +41,7 @@ int mt_cpufreq_set_by_wfi_load_cluster(unsigned int cluster_id,
 		freq = mt_cpufreq_get_freq_by_idx(id, 15);
 	if (freq > mt_cpufreq_get_freq_by_idx(id, 0))
 		freq = mt_cpufreq_get_freq_by_idx(id, 0);
-#ifdef CONFIG_MTK_CM_MGR
+#ifdef CONFIG_MTK_CM_MGR_LEGACY
 	if (g_pCpuFreqSampler_func_cpi)
 		g_pCpuFreqSampler_func_cpi(id, freq);
 #endif /* CONFIG_MTK_CM_MGR */

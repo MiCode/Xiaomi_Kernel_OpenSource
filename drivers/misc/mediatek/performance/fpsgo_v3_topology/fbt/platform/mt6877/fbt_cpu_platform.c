@@ -16,7 +16,7 @@ static int mask_done;
 
 void fbt_notify_CM_limit(int reach_limit)
 {
-#ifdef CONFIG_MTK_CM_MGR
+#ifdef CONFIG_MTK_CM_MGR_LEGACY
 	cm_mgr_perf_set_status(reach_limit);
 #endif
 	fpsgo_systrace_c_fbt_gm(-100, 0, reach_limit, "notify_cm");
