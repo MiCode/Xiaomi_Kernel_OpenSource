@@ -1522,6 +1522,7 @@ static int FDVT_open(struct inode *inode, struct file *file)
 		ret = -ENOMEM;
 	} else {
 		LOG_DBG(" ioctl allocate mem ok\n");
+		memset(pBuff, 0, buf_size);
 	}
 
 	pread_buf = kmalloc(buf_size, GFP_KERNEL);
@@ -1530,6 +1531,7 @@ static int FDVT_open(struct inode *inode, struct file *file)
 		ret = -ENOMEM;
 	} else {
 		LOG_DBG(" ioctl allocate mem ok\n");
+		memset(pread_buf, 0, buf_size);
 	}
 
 	if (ret < 0) {
