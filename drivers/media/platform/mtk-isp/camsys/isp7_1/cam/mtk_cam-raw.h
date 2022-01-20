@@ -219,6 +219,7 @@ struct mtk_cam_shutter_gain {
 struct mtk_cam_mstream_exposure {
 	struct mtk_cam_shutter_gain exposure[2];
 	unsigned int valid;
+	int req_id;
 };
 
 struct mtk_raw_pad_config {

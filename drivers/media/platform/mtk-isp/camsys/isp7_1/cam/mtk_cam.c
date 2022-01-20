@@ -2286,6 +2286,8 @@ static void mtk_cam_update_s_data_exp(struct mtk_cam_ctx *ctx,
 		req_stream_data_2nd->mtk_cam_exposure = exp->exposure[0];
 		req_stream_data_1st->mtk_cam_exposure = exp->exposure[1];
 	}
+	req_stream_data_1st->req_id = exp->req_id;
+	req_stream_data_2nd->req_id = exp->req_id;
 
 	exp->valid = 0;
 
@@ -3501,6 +3503,7 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 	req_stream_data->pipe_id = pipe_id;
 	req_stream_data->state.estate = E_STATE_READY;
 	req_stream_data->index = s_data_index;
+	req_stream_data->req_id = 0;
 	atomic_set(&req_stream_data->buf_state, -1);
 
 	/**
