@@ -22,11 +22,12 @@ struct ccu_device_s {
 	struct proc_dir_entry *proc_dir;
 	struct device *dev;
 	struct dentry *debug_root;
-	unsigned long ccu_base;
-	unsigned long camsys_base;
-	unsigned long bin_base;
-	unsigned long dmem_base;
-	unsigned long n3d_a_base;
+	void __iomem *ccu_base;
+	void __iomem *camsys_base;
+	void __iomem *bin_base;
+	void __iomem *dmem_base;
+	void __iomem *pmem_base;
+	void __iomem *ddrmem_base;
 	unsigned int irq_num;
 	struct mutex user_mutex;
 	struct mutex ion_client_mutex;
@@ -128,12 +129,6 @@ int ccu_uninit_hw(struct ccu_device_s *device);
 int ccu_mmap_hw(struct file *filp, struct vm_area_struct *vma);
 
 /**
- * ccu_send_command - send command, and it will block until done.
- * @cmd:        the pointer to command
- */
-int ccu_send_command(struct ccu_cmd_s *pCmd);
-
-/**
  * ccu_power - config ccu power.
  * @s:          the pointer to power relative settings.
  */
@@ -144,10 +139,18 @@ int ccu_power(struct ccu_power_s *power);
  */
 int ccu_force_powerdown(void);
 
+
+/**
+ * ccu_load_bin - load ccu dm/pm binary.
+ */
+int ccu_load_bin(struct ccu_device_s *device, struct ccu_bin_info_s *bin_info);
+
+int ccu_sw_hw_reset(void);
+
 /**
  * ccu_run - start running ccu .
  */
-int ccu_run(void);
+int ccu_run(struct ccu_run_s *info);
 
 /**
  * ccu_irq - interrupt wait.
@@ -170,6 +173,14 @@ int ccu_memclr(void *dest, int length);
 
 int ccu_read_info_reg(int regNo);
 
+int ccu_read_struct_size(uint32_t *structSizes, uint32_t structCnt);
+
+void ccu_print_reg(uint32_t *Reg);
+
+void ccu_print_sram_log(char *sram_log);
+
+int ccu_read_data(uint32_t *buf, uint32_t ccu_da, uint32_t size);
+
 int ccu_query_power_status(void);
 
 
@@ -187,40 +198,9 @@ int ccu_create_user(struct ccu_user_s **ruser);
  */
 int ccu_delete_user(struct ccu_user_s *user);
 
-int ccu_lock_user_mutex(void);
-
-int ccu_unlock_user_mutex(void);
-
 int ccu_lock_ion_client_mutex(void);
 
 int ccu_unlock_ion_client_mutex(void);
-
-/**
- * ccu_push_command_to_queue - add a command to user's queue
- * @user:       the pointer to user.
- * @cmd:        the command to be added to user's queue.
- */
-int ccu_push_command_to_queue(struct ccu_user_s *user,
-			      struct ccu_cmd_s *cmd);
-
-
-/**
- * ccu_pop_command_from_queue - remove a command from user's queue
- * @user:       the pointer to user.
- * @rcmd:      return the command to be removed.
- */
-int ccu_pop_command_from_queue(struct ccu_user_s *user,
-			       struct ccu_cmd_s **rcmd);
-
-
-/**
- * ccu_flush_commands_from_queue - flush all commands of user's queue
- * @user:       the pointer to user.
- *
- * It's a blocking call, and waits for the processing command done.
- * And push all remaining enque to the deque.
- */
-int ccu_flush_commands_from_queue(struct ccu_user_s *user);
 
 /**
  * ccu_clock_enable - Set CCU clock on
@@ -239,8 +219,10 @@ void ccu_clock_disable(void);
 		pr_debug(CCU_TAG "[%s] " format, __func__, ##args)
 #define LOG_INF_MUST(format, args...) \
 		pr_info(CCU_TAG "[%s] " format, __func__, ##args)
+
 #define LOG_DBG(format, args...)
 #define LOG_INF(format, args...)
+
 #define LOG_WARN(format, args...) \
 		pr##_##warn(CCU_TAG "[%s] " format, __func__, ##args)
 #define LOG_ERR(format, args...)  \

@@ -257,6 +257,20 @@ struct compat_ccu_power_s {
 };
 #endif
 /*---------------------------------------------------------------------------*/
+/*  CCU Run                                                                */
+/*---------------------------------------------------------------------------*/
+struct ccu_run_s {
+	uint32_t log_level;
+	uint32_t log_taglevel;
+	uint32_t CtrlBufMva;
+	uint32_t CpuRefBufMva;
+	uint32_t CpuRefBufSz;
+	uint32_t bkdata_ddr_buf_mva;
+	uint32_t AEShareBufMva;
+	uint32_t LTMShareBufMva;
+	uint32_t AFShareBufMva;
+};
+/*---------------------------------------------------------------------------*/
 /*  CCU command                                                              */
 /*---------------------------------------------------------------------------*/
 
@@ -271,7 +285,7 @@ enum ccu_eng_status_e {
 };
 
 /*---------------------------------------------------------------------------*/
-/*  CCU Command                                                                */
+/*  CCU Command                                                              */
 /*---------------------------------------------------------------------------*/
 struct ccu_cmd_s {
 	struct ccu_msg task;
@@ -285,11 +299,34 @@ struct import_mem_s {
 };
 
 /*---------------------------------------------------------------------------*/
+/*  CCU Read/Write Reg                                                       */
+/*---------------------------------------------------------------------------*/
+struct ccu_reg_s {
+	uint32_t reg_no;
+	uint32_t reg_val;
+};
+
+/*---------------------------------------------------------------------------*/
 /*  CAM FREQ                                                                 */
 /*---------------------------------------------------------------------------*/
 #define CCU_REQ_CAM_FREQ_HIGH 2
 #define CCU_REQ_CAM_FREQ_MID  1
 #define CCU_REQ_CAM_FREQ_NONE 0
+
+/*---------------------------------------------------------------------------*/
+/*  CCU LOAD BIN                                                             */
+/*---------------------------------------------------------------------------*/
+enum CCU_BIN_TYPE {
+	CCU_DP_BIN,
+	CCU_DDR_BIN,
+	CCU_DRIVER_BIN
+};
+
+#define CCU_BIN_NAME_MAX_LENGTH 50
+struct ccu_bin_info_s {
+	enum CCU_BIN_TYPE type;
+	char name[CCU_BIN_NAME_MAX_LENGTH];
+};
 
 /*---------------------------------------------------------------------------*/
 /*  IOCTL Command                                                            */
@@ -303,7 +340,7 @@ struct import_mem_s {
 #define CCU_IOCTL_WAIT_AF_IRQ               _IOW(CCU_MAGICNO,   8, int)
 #define CCU_IOCTL_WAIT_IRQ                  _IOW(CCU_MAGICNO,   9, int)
 #define CCU_IOCTL_SEND_CMD                  _IOWR(CCU_MAGICNO, 10, int)
-#define CCU_IOCTL_SET_RUN                   _IO(CCU_MAGICNO,   11)
+#define CCU_IOCTL_SET_RUN_INPUT             _IOW(CCU_MAGICNO,   11, int)
 
 #define CCU_CLEAR_IRQ                       _IOW(CCU_MAGICNO,  12, int)
 #define CCU_REGISTER_IRQ_USER_KEY           _IOR(CCU_MAGICNO,  13, int)
@@ -319,8 +356,19 @@ struct import_mem_s {
 #define CCU_IOCTL_GET_SENSOR_I2C_SLAVE_ADDR _IOR(CCU_MAGICNO,  24, int)
 #define CCU_IOCTL_GET_SENSOR_NAME           _IOR(CCU_MAGICNO,  25, int)
 #define CCU_IOCTL_GET_PLATFORM_INFO         _IOR(CCU_MAGICNO,  26, int)
-#define CCU_IOCTL_IMPORT_MEM		        _IOW(CCU_MAGICNO,  27, int)
+#define CCU_IOCTL_IMPORT_MEM                _IOW(CCU_MAGICNO,  27, int)
 #define CCU_IOCTL_UPDATE_QOS_REQUEST        _IOW(CCU_MAGICNO,  28, int)
-#define CCU_IOCTL_UPDATE_CAM_FREQ_REQUEST	_IOW(CCU_MAGICNO,  29, int)
+#define CCU_IOCTL_UPDATE_CAM_FREQ_REQUEST   _IOW(CCU_MAGICNO,  29, int)
+
+#define CCU_IOCTL_LOAD_CCU_BIN              _IOW(CCU_MAGICNO,  30, int)
+#define CCU_IOCTL_IPC_INIT                  _IOW(CCU_MAGICNO,  31, int)
+#define CCU_IOCTL_IPC_SEND_CMD              _IOW(CCU_MAGICNO,  32, int)
+#define CCU_IOCTL_ALLOC_MEM                 _IOW(CCU_MAGICNO,  33, int)
+#define CCU_IOCTL_DEALLOC_MEM               _IOW(CCU_MAGICNO,  34, int)
+#define CCU_IOCTL_GET_IOVA                  _IOWR(CCU_MAGICNO, 35, int)
+#define CCU_READ_STRUCT_SIZE                _IOWR(CCU_MAGICNO, 36, int)
+#define CCU_IOCTL_PRINT_REG                 _IOR(CCU_MAGICNO,  37, int)
+#define CCU_IOCTL_PRINT_SRAM_LOG            _IOR(CCU_MAGICNO,  38, int)
+#define CCU_READ_DATA                       _IOWR(CCU_MAGICNO, 39, int)
 
 #endif

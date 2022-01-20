@@ -14,4 +14,6 @@ void ccu_get_sensor_name(char **sensor_name);
 
 uint32_t ccu_get_sensor_i2c_id(uint32_t sensor_idx);
 
+void ccu_get_lens_name(char **lens_name);
+
 #endif

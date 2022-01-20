@@ -6,6 +6,7 @@
 #include <linux/types.h>
 #include "ccu_cmn.h"
 #include "ccu_imgsensor_if.h"
+#include "ccu_lens_if.h"
 #include "ccu_imgsensor.h"
 #include "kd_camera_feature.h"/*for IMGSENSOR_SENSOR_IDX*/
 
@@ -16,6 +17,8 @@ static int32_t g_ccu_sensor_current_fps[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {-1};
 static struct ccu_sensor_info
 	g_ccu_sensor_info[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {0};
 static char g_ccu_sensor_name
+	[IMGSENSOR_SENSOR_IDX_MAX_NUM][SENSOR_NAME_MAX_LEN];
+static char g_ccu_lens_name
 	[IMGSENSOR_SENSOR_IDX_MAX_NUM][SENSOR_NAME_MAX_LEN];
 
 /*<<<<< Information get from imgsensor driver*/
@@ -100,4 +103,35 @@ uint32_t ccu_get_sensor_i2c_id(uint32_t sensor_idx)
 		sensor_idx, i2c_id);
 
 	return i2c_id;
+}
+
+void ccu_set_lens_info(int32_t sensorType, char *lens_name)
+{
+	if (sensorType == IMGSENSOR_SENSOR_IDX_NONE) {
+		/*Non-sensor*/
+		LOG_ERR("No lens been detected.\n");
+	} else if ((sensorType >= IMGSENSOR_SENSOR_IDX_MIN_NUM) &&
+		(sensorType < IMGSENSOR_SENSOR_IDX_MAX_NUM)) {
+		if (lens_name != NULL) {
+			memcpy(g_ccu_lens_name[sensorType],
+			lens_name,
+			strlen(lens_name)+1);
+		}
+
+		LOG_DBG_MUST("ccu catch lens %d name : %s\n",
+		sensorType, lens_name);
+
+	} else {
+		LOG_DBG_MUST("ccu catch lens info fail!\n");
+	}
+}
+
+void ccu_get_lens_name(char **lens_name)
+{
+	int32_t i;
+
+	for (i = IMGSENSOR_SENSOR_IDX_MIN_NUM;
+		i < IMGSENSOR_SENSOR_IDX_MAX_NUM; ++i) {
+		lens_name[i] = g_ccu_lens_name[i];
+	}
 }

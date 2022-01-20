@@ -69,6 +69,56 @@ struct ccu_msg {
 	uint32_t sensor_idx;
 };
 
+struct ccu_control_info {
+	enum ccu_feature_type feature_type;
+	uint32_t sensor_idx; //new
+	uint32_t msg_id;
+	uint64_t inDataPtr;
+	uint32_t inDataSize;
+	uint64_t outDataPtr;
+	uint32_t outDataSize;
+};
+
+struct ap2ccu_ipc_t {
+	MUINT32 write_cnt;
+	MUINT32 read_cnt;
+	struct ccu_msg msg;
+	MBOOL ack;
+};
+
+struct exif_data_addrs_s {
+	MUINT32 ae_algo_data_addr;
+	MUINT32 ae_init_data_addr;
+	MUINT32 ae_vsync_info_addr;
+	MUINT32 aesync_algo_in_addr;
+	MUINT32 aesync_algo_out_addr;
+};
+
+#define CCU_INSTANCE_CAPACITY 2
+
+struct __aligned(8) shared_buf_map {
+	/*** from CCU->APMCU ***/
+	MUINT32 ipc_in_data_addr_ccu;
+	MUINT32 ipc_out_data_addr_ccu;
+	MUINT32 ipc_in_data_base_offset;
+	MUINT32 ipc_out_data_base_offset;
+	MUINT32 ipc_base_offset;
+
+	struct exif_data_addrs_s exif_data_addrs[CCU_INSTANCE_CAPACITY];
+	MUINT32 ae_shared_buf_mva;
+
+	//>>>>>>> LTM datas
+	MUINT32 ltm_shared_buf_mva;
+
+	//AF datas
+	MUINT32 af_shared_buf_mva;
+
+	/*** from APMCU->CCU ***/
+	MUINT32 bkdata_ddr_buf_mva;
+};
+
+
+
 /******************************************************************************
 * Status definition
 ******************************************************************************/
