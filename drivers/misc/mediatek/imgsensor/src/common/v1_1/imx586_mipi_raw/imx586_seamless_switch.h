@@ -11,12 +11,12 @@ unsigned short imx586_seamless_capture[] = {
 	/*Integration Setting*/
 	0x0202, 0x07, //1805, 16.443ms
 	0x0203, 0x0d,
-	/*Line Length PCK Setting*/
-	0x0342, 0x3d,
-	0x0343, 0x80,
 	/*Frame Length Lines Setting*/
 	0x0340, 0x0e,
 	0x0341, 0x4a,
+	/*Line Length PCK Setting*/
+	0x0342, 0x3d,
+	0x0343, 0x80,
 	/*ROI Setting*/
 	0x0344, 0x00,
 	0x0345, 0x00,
@@ -74,7 +74,7 @@ unsigned short imx586_seamless_capture[] = {
 	0x0104, 0x00
 };
 
-unsigned short imx586_seamless_custom2[] = {
+unsigned short imx586_seamless_custom4[] = {
 	/*start of group hold*/
 	0x0104, 0x01,
 	/*gain setting*/
@@ -83,12 +83,12 @@ unsigned short imx586_seamless_custom2[] = {
 	/*Integration Setting*/
 	0x0202, 0x0e, //3660 shutter 19.983ms
 	0x0203, 0x4c,
-	/*Line Length PCK Setting*/
-	0x0342, 0x24,
-	0x0343, 0xe0,
 	/*Frame Length Lines Setting*/
 	0x0340, 0x17,
 	0x0341, 0xfe,
+	/*Line Length PCK Setting*/
+	0x0342, 0x24,
+	0x0343, 0xe0,
 	/*Mode Setting*/
 	0x0220, 0x62,
 	0x0222, 0x01,
@@ -145,12 +145,12 @@ unsigned short imx586_seamless_custom1[] = {
 	/*Integration Setting*/
 	0x0202, 0x17,
 	0x0203, 0xce,
-	/*Line Length PCK Setting*/
-	0x0342, 0x24,
-	0x0343, 0xe0,
 	/*Frame Length Lines Setting*/
 	0x0340, 0x17,
 	0x0341, 0xfe,
+	/*Line Length PCK Setting*/
+	0x0342, 0x24,
+	0x0343, 0xe0,
 	/*Mode Setting*/
 	0x0220, 0x62,
 	0x0222, 0x01,

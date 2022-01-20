@@ -987,10 +987,10 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 	shutter = FINE_INTEG_CONVERT(shutter, fineIntegTime);
 	shutter = round_up(shutter, 4);
 
-	if (shutter > ctx->min_frame_length - imgsensor_info.margin)
-		ctx->frame_length = shutter + imgsensor_info.margin;
-	else
-		ctx->frame_length = ctx->min_frame_length;
+	// if (shutter > ctx->min_frame_length - imgsensor_info.margin)
+		// ctx->frame_length = shutter + imgsensor_info.margin;
+	// else
+	ctx->frame_length = ctx->min_frame_length;
 	if (ctx->frame_length > imgsensor_info.max_frame_length)
 		ctx->frame_length = imgsensor_info.max_frame_length;
 	if (shutter < imgsensor_info.min_shutter)
@@ -1034,7 +1034,7 @@ static void write_shutter(struct subdrv_ctx *ctx, kal_uint32 shutter, kal_bool g
 			l_shift = MAX_CIT_LSHIFT;
 		}
 		shutter = shutter >> l_shift;
-		ctx->frame_length = shutter + imgsensor_info.margin;
+		// ctx->frame_length = shutter + imgsensor_info.margin;
 		LOG_INF("enter long exposure mode, time is %d", l_shift);
 		set_cmos_sensor_8(ctx, 0x3128, l_shift);
 		/* Frame exposure mode customization for LE*/
@@ -1236,8 +1236,8 @@ static void set_shutter_frame_length(struct subdrv_ctx *ctx,
 	ctx->frame_length = ctx->frame_length + dummy_line;
 
 	/*  */
-	if (shutter > ctx->frame_length - imgsensor_info.margin)
-		ctx->frame_length = shutter + imgsensor_info.margin;
+	// if (shutter > ctx->frame_length - imgsensor_info.margin)
+		// ctx->frame_length = shutter + imgsensor_info.margin;
 
 	if (ctx->frame_length > imgsensor_info.max_frame_length)
 		ctx->frame_length = imgsensor_info.max_frame_length;

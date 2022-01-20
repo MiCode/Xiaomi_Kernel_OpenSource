@@ -808,8 +808,6 @@ static void set_dummy(void)
 
 	write_cmos_sensor(0x0340, imgsensor.frame_length >> 8);
 	write_cmos_sensor(0x0341, imgsensor.frame_length & 0xFF);
-	write_cmos_sensor(0x0342, imgsensor.line_length >> 8);
-	write_cmos_sensor(0x0343, imgsensor.line_length & 0xFF);
 
 	write_cmos_sensor(0x0104, 0x00);
 } /* set_dummy  */
