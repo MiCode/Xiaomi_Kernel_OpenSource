@@ -36,7 +36,7 @@
 #if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
 //#include "linux/bootprof.h"
 #else
-#include "bootprof.h
+#include "bootprof.h"
 #endif /* KERNEL_VERSION */
 #endif /* CONFIG_MTPROF */
 
@@ -1031,11 +1031,6 @@ static int teei_probe(struct platform_device *pdev)
 	ut_irq = platform_get_irq(pdev, 0);
 	IMSG_INFO("teei device ut_irq is %d\n", ut_irq);
 
-	if (init_sysfs(pdev) < 0) {
-		IMSG_ERROR("failed to init tz_driver sysfs\n");
-		return -1;
-	}
-
 	if (register_ut_irq_handler(ut_irq) < 0) {
 		IMSG_ERROR("teei_device can't register irq %d\n", ut_irq);
 		return -1;
@@ -1282,6 +1277,11 @@ static int teei_client_init(void)
 		goto uninit_teei_fp;
 	}
 
+	ret_code = init_sysfs(g_teei_pdev);
+	if (ret_code < 0) {
+		IMSG_ERROR("failed to init tz_driver sysfs %d!\n", ret_code);
+		goto uninit_teei_fp;
+	}
 	goto return_fn;
 
 uninit_teei_fp:

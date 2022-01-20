@@ -672,6 +672,11 @@ TEEC_Result TEEC_RegisterSharedMemory(struct TEEC_Context *ctx,
 	dma_buf = dma_buf_get(fd);
 	close(fd);
 
+	if (IS_ERR(dma_buf)) {
+		shm->id = -1;
+		return TEEC_ERROR_GENERIC;
+	}
+
 	if (!dma_buf) {
 		shm->id = -1;
 		return TEEC_ERROR_OUT_OF_MEMORY;
@@ -739,6 +744,11 @@ TEEC_Result TEEC_AllocateSharedMemory(struct TEEC_Context *ctx,
 		return TEEC_ERROR_OUT_OF_MEMORY;
 	dma_buf = dma_buf_get(fd);
 	close(fd);
+
+	if (IS_ERR(dma_buf)) {
+		shm->id = -1;
+		return TEEC_ERROR_GENERIC;
+	}
 
 	if (!dma_buf) {
 		shm->id = -1;
