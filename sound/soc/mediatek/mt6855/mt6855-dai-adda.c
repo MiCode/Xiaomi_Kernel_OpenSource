@@ -1049,10 +1049,20 @@ static int mtk_dai_adda_hw_params(struct snd_pcm_substream *substream,
 			regmap_write(afe->regmap, AFE_ADDA_PREDIS_CON0, 0);
 			regmap_write(afe->regmap, AFE_ADDA_PREDIS_CON1, 0);
 
-			regmap_write(afe->regmap,
-				     AFE_ADDA_DL_SRC2_CON0, dl_src2_con0);
-			regmap_write(afe->regmap,
-				     AFE_ADDA_DL_SRC2_CON1, dl_src2_con1);
+			regmap_update_bits(afe->regmap,
+					   AFE_ADDA_DL_SRC2_CON0,
+					   DL_2_INPUT_MODE_CTL_MASK_SFT |
+					   DL_2_OUTPUT_SEL_CTL_MASK_SFT |
+					   DL_2_MUTE_CH2_OFF_CTL_PRE_MASK_SFT |
+					   DL_2_MUTE_CH1_OFF_CTL_PRE_MASK_SFT |
+					   DL_2_VOICE_MODE_CTL_PRE_MASK_SFT |
+					   DL_2_GAIN_ON_CTL_PRE_MASK_SFT,
+					   dl_src2_con0);
+
+			regmap_update_bits(afe->regmap,
+					   AFE_ADDA_DL_SRC2_CON1,
+					   DL_2_GAIN_CTL_PRE_MASK_SFT,
+					   dl_src2_con1);
 
 			/* set sdm gain */
 			regmap_update_bits(afe->regmap,
