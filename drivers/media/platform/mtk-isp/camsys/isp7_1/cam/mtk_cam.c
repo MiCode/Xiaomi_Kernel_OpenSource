@@ -6590,7 +6590,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 				watchdog_cnt);
 
 			if (is_abnormal_vsync)
-				dev_info(ctx->cam->dev, "%s:abnormal vsync\n");
+				dev_info(ctx->cam->dev, "abnormal vsync\n");
 			atomic_set(&raw_pipe->watchdog_dumped, 1); // fixme
 			atomic_set(&raw_pipe->watchdog_cnt, 0);
 			mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no);
