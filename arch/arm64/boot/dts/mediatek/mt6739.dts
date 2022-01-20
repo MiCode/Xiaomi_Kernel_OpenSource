@@ -73,39 +73,39 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 		opp7 {
 			opp-hz = /bits/ 64 <910000000>;
-			opp-microvolt = <1131250>;
+			opp-microvolt = <1137500>;
 		};
 		opp8 {
 			opp-hz = /bits/ 64 <962000000>;
-			opp-microvolt = <1150000>;
+			opp-microvolt = <1156250>;
 		};
 		opp9 {
 			opp-hz = /bits/ 64 <1001000000>;
-			opp-microvolt = <1156250>;
+			opp-microvolt = <1175000>;
 		};
 		opp10 {
 			opp-hz = /bits/ 64 <1053000000>;
-			opp-microvolt = <1168750>;
+			opp-microvolt = <1200000>;
 		};
 		opp11 {
 			opp-hz = /bits/ 64 <1105000000>;
-			opp-microvolt = <1181250>;
+			opp-microvolt = <1225000>;
 		};
 		opp12 {
 			opp-hz = /bits/ 64 <1170000000>;
-			opp-microvolt = <1200000>;
+			opp-microvolt = <1250000>;
 		};
 		opp13 {
 			opp-hz = /bits/ 64 <1274000000>;
-			opp-microvolt = <1225000>;
+			opp-microvolt = <1268750>;
 		};
 		opp14 {
 			opp-hz = /bits/ 64 <1378000000>;
-			opp-microvolt = <1256250>;
+			opp-microvolt = <1287500>;
 		};
 		opp15 {
 			opp-hz = /bits/ 64 <1495000000>;
-			opp-microvolt = <1281250>;
+			opp-microvolt = <1306250>;
 		};
 	};
 
