@@ -30,20 +30,20 @@ void __init set_policy(u32 policy)
 
 	/* default enable all policy */
 	/* MKP default policies (0 ~ 15) */
-	policy_ctrl[MKP_POLICY_MKP] = policy & (1 << MKP_POLICY_MKP);			/* Policy ID for MKP itself */
-	policy_ctrl[MKP_POLICY_DRV] = policy & (1 << MKP_POLICY_DRV);			/* Policy ID for kernel drivers */
-	policy_ctrl[MKP_POLICY_SELINUX_STATE] = policy & (1 << MKP_POLICY_SELINUX_STATE);	/* Policy ID for selinux_state */
-	policy_ctrl[MKP_POLICY_SELINUX_AVC] = policy & (1 << MKP_POLICY_SELINUX_AVC);	/* Policy ID for selinux avc */
-	policy_ctrl[MKP_POLICY_TASK_CRED] = policy & (1 << MKP_POLICY_TASK_CRED);		/* Policy ID for task credential */
-	policy_ctrl[MKP_POLICY_KERNEL_CODE] = policy & (1 << MKP_POLICY_KERNEL_CODE);	/* Policy ID for kernel text */
-	policy_ctrl[MKP_POLICY_KERNEL_RODATA] = policy & (1 << MKP_POLICY_KERNEL_RODATA);	/* Policy ID for kernel rodata */
-	policy_ctrl[MKP_POLICY_KERNEL_PAGES] = policy & (1 << MKP_POLICY_KERNEL_PAGES);	/* Policy ID for other mapped kernel pages */
-	policy_ctrl[MKP_POLICY_PGTABLE] = policy & (1 << MKP_POLICY_PGTABLE);		/* Policy ID for page table */
-	policy_ctrl[MKP_POLICY_S1_MMU_CTRL] = policy & (1 << MKP_POLICY_S1_MMU_CTRL);	/* Policy ID for stage-1 MMU control */
-	policy_ctrl[MKP_POLICY_FILTER_SMC_HVC] = policy & (1 << MKP_POLICY_FILTER_SMC_HVC);	/* Policy ID for HVC/SMC call filtering */
+	policy_ctrl[MKP_POLICY_MKP] = policy & BIT(MKP_POLICY_MKP);			/* Policy ID for MKP itself */
+	policy_ctrl[MKP_POLICY_DRV] = policy & BIT(MKP_POLICY_DRV);			/* Policy ID for kernel drivers */
+	policy_ctrl[MKP_POLICY_SELINUX_STATE] = policy & BIT(MKP_POLICY_SELINUX_STATE);	/* Policy ID for selinux_state */
+	policy_ctrl[MKP_POLICY_SELINUX_AVC] = policy & BIT(MKP_POLICY_SELINUX_AVC);	/* Policy ID for selinux avc */
+	policy_ctrl[MKP_POLICY_TASK_CRED] = policy & BIT(MKP_POLICY_TASK_CRED);		/* Policy ID for task credential */
+	policy_ctrl[MKP_POLICY_KERNEL_CODE] = policy & BIT(MKP_POLICY_KERNEL_CODE);	/* Policy ID for kernel text */
+	policy_ctrl[MKP_POLICY_KERNEL_RODATA] = policy & BIT(MKP_POLICY_KERNEL_RODATA);	/* Policy ID for kernel rodata */
+	policy_ctrl[MKP_POLICY_KERNEL_PAGES] = policy & BIT(MKP_POLICY_KERNEL_PAGES);	/* Policy ID for other mapped kernel pages */
+	policy_ctrl[MKP_POLICY_PGTABLE] = policy & BIT(MKP_POLICY_PGTABLE);		/* Policy ID for page table */
+	policy_ctrl[MKP_POLICY_S1_MMU_CTRL] = policy & BIT(MKP_POLICY_S1_MMU_CTRL);	/* Policy ID for stage-1 MMU control */
+	policy_ctrl[MKP_POLICY_FILTER_SMC_HVC] = policy & BIT(MKP_POLICY_FILTER_SMC_HVC);	/* Policy ID for HVC/SMC call filtering */
 
 	/* Policies for vendors start from here (16 ~ 31) */
-	policy_ctrl[MKP_POLICY_VENDOR_START] = policy & (1 << MKP_POLICY_VENDOR_START);
+	policy_ctrl[MKP_POLICY_VENDOR_START] = policy & BIT(MKP_POLICY_VENDOR_START);
 	MKP_INFO("MKP: set policy Done\n");
 	return;
 }
