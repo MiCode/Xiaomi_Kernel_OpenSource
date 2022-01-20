@@ -224,6 +224,7 @@ struct aal_frame_data {
 	struct cmdq_poll_reuse polling_reuse;
 	u16 labels[AAL_CURVE_NUM + CMDQ_GPR_UPDATE];
 	bool is_aal_need_readback;
+	bool config_success;
 };
 
 static inline struct aal_frame_data *aal_frm_data(struct mml_comp_config *ccfg)
@@ -406,6 +407,7 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 			/* TODO: use different regs */
 			mml_pq_msg("%s:config aal regs, count: %d", __func__, result->aal_reg_cnt);
+			aal_frm->config_success = true;
 			for (i = 0; i < result->aal_reg_cnt; i++) {
 				cmdq_pkt_write(pkt, NULL, base_pa + regs[i].offset,
 					regs[i].value, regs[i].mask);
@@ -439,6 +441,7 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 		}
 	} else {
 		mml_pq_comp_config_clear(task);
+		aal_frm->config_success = false;
 		mml_pq_err("get aal param timeout: %d in %dms",
 			ret, AAL_WAIT_TIMEOUT_MS);
 	}
@@ -866,15 +869,15 @@ static s32 aal_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	s32 ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
-	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id,
-			dest->pq_config.en_dre);
+	mml_pq_msg("%s engine_id[%d] en_dre[%d] config_success[%d]", __func__, comp->id,
+			dest->pq_config.en_dre, aal_frm->config_success);
 	if (!dest->pq_config.en_dre)
 		goto exit;
 
 	ret = mml_pq_get_comp_config_result(task, AAL_WAIT_TIMEOUT_MS);
 	if (!ret) {
 		result = get_aal_comp_config_result(task);
-		if (result) {
+		if (result && aal_frm->config_success) {
 			s32 i;
 			u32 *curve = result->aal_curve;
 

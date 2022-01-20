@@ -217,6 +217,7 @@ struct mml_comp_tdshp {
 /* meta data for each different frame config */
 struct tdshp_frame_data {
 	u16 labels[DS_REG_NUM];
+	bool config_success;
 };
 
 #define tdshp_frm_data(i)	((struct tdshp_frame_data *)(i->data))
@@ -377,6 +378,7 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 			/* TODO: use different regs */
 			mml_pq_msg("%s:config ds regs, count: %d", __func__, result->ds_reg_cnt);
+			tdshp_frm->config_success = true;
 			for (i = 0; i < result->ds_reg_cnt; i++) {
 				mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
 					regs[i].mask, reuse, cache,
@@ -389,6 +391,7 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 		}
 	} else {
 		mml_pq_comp_config_clear(task);
+		tdshp_frm->config_success = false;
 		mml_pq_err("get ds param timeout: %d in %dms",
 			ret, TDSHP_WAIT_TIMEOUT_MS);
 	}
@@ -471,7 +474,7 @@ static s32 tdshp_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	ret = mml_pq_get_comp_config_result(task, TDSHP_WAIT_TIMEOUT_MS);
 	if (!ret) {
 		result = get_tdshp_comp_config_result(task);
-		if (result) {
+		if (result && tdshp_frm->config_success) {
 			s32 i;
 			struct mml_pq_reg *regs = result->ds_regs;
 			//TODO: use different regs

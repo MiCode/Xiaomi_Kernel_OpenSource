@@ -191,6 +191,7 @@ struct mml_comp_color {
 /* meta data for each different frame config */
 struct color_frame_data {
 	u16 labels[COLOR_REG_NUM];
+	bool config_success;
 };
 
 #define color_frm_data(i)	((struct color_frame_data *)(i->data))
@@ -306,6 +307,7 @@ static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 			/* TODO: use different regs */
 			mml_pq_msg("%s:config color regs, count: %d", __func__,
 				result->color_reg_cnt);
+			color_frm->config_success = true;
 			for (i = 0; i < result->color_reg_cnt; i++) {
 				mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
 					regs[i].mask, reuse, cache,
@@ -318,6 +320,7 @@ static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 		}
 	} else {
 		mml_pq_comp_config_clear(task);
+		color_frm->config_success = false;
 		mml_pq_err("get color param timeout: %d in %dms",
 			ret, COLOR_WAIT_TIMEOUT_MS);
 	}
@@ -368,7 +371,7 @@ static s32 color_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	ret = mml_pq_get_comp_config_result(task, COLOR_WAIT_TIMEOUT_MS);
 	if (!ret) {
 		result = get_color_comp_config_result(task);
-		if (result) {
+		if (result && color_frm->config_success) {
 			s32 i;
 			struct mml_pq_reg *regs = result->color_regs;
 

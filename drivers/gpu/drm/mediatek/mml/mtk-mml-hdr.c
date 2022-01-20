@@ -200,6 +200,7 @@ struct hdr_frame_data {
 	struct cmdq_poll_reuse polling_reuse;
 	u16 labels[HDR_CURVE_NUM + HDR_REG_NUM + CMDQ_GPR_UPDATE];
 	bool is_hdr_need_readback;
+	bool config_success;
 };
 
 static inline struct hdr_frame_data *hdr_frm_data(struct mml_comp_config *ccfg)
@@ -373,6 +374,7 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 			/* TODO: use different regs */
 			mml_pq_msg("%s:config hdr regs, count: %d", __func__, result->hdr_reg_cnt);
+			hdr_frm->config_success = true;
 			for (i = 0; i < result->hdr_reg_cnt; i++) {
 				mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
 					regs[i].mask, reuse, cache,
@@ -403,6 +405,7 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 		}
 	} else {
 		mml_pq_comp_config_clear(task);
+		hdr_frm->config_success = false;
 		mml_pq_err("get hdr param timeout: %d in %dms",
 			ret, HDR_WAIT_TIMEOUT_MS);
 	}
@@ -700,15 +703,16 @@ static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	s32 ret;
 
-	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_hdr[%d]", __func__,
-		ccfg->pipe, comp->id, dest->pq_config.en_hdr);
+	mml_pq_msg("%s pipe_id[%d] engine_id[%d] en_hdr[%d] config_success[%d]", __func__,
+		ccfg->pipe, comp->id, dest->pq_config.en_hdr,
+		hdr_frm->config_success);
 	if (!dest->pq_config.en_hdr)
 		return 0;
 
 	ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
 	if (!ret) {
 		result = get_hdr_comp_config_result(task);
-		if (result) {
+		if (result && hdr_frm->config_success) {
 			s32 i = 0;
 			s32 curve_idx = 0;
 			struct mml_pq_reg *regs = result->hdr_regs;
