@@ -1127,17 +1127,12 @@ void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 
 	u32 cmd = 0;
 
-	if (mtk_cam_is_stagger_m2m(ctx)) {
-		cmd = TRIGGER_RAWI_R6;
-	} else if (mtk_cam_is_mstream_m2m(ctx)) {
-		if (hw_scene == MTKCAM_IPI_HW_PATH_OFFLINE_M2M)
-			cmd = TRIGGER_RAWI_R2;
-		else if (hw_scene == MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER)
-			cmd = TRIGGER_RAWI_R6;
-		pr_info("mstream %s, cmd:%d\n", __func__, cmd);
-	} else {
+	if (hw_scene == MTKCAM_IPI_HW_PATH_OFFLINE_M2M)
 		cmd = TRIGGER_RAWI_R2;
-	}
+	else if (hw_scene == MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER)
+		cmd = TRIGGER_RAWI_R6;
+
+	dev_dbg(dev->dev, "m2m %s, cmd:%d\n", __func__, cmd);
 
 	writel_relaxed(cmd, dev->base + REG_CTL_RAWI_TRIG);
 	wmb(); /* TBC */

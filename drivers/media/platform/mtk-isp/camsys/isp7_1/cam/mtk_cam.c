@@ -3090,6 +3090,7 @@ mtk_cam_config_raw_img_in_rawi2(struct mtk_cam_request_stream_data *s_data,
 		return -EINVAL;
 	}
 
+	dev_dbg(cam->dev, "update odt raw_feature:0x%x\n", feature);
 	if (feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK &&
 		feature & MTK_CAM_FEATURE_HDR_MASK) {
 		if (mtk_cam_feature_is_stagger_m2m(feature)) {
