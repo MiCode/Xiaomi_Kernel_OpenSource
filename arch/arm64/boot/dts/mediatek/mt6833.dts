@@ -4439,7 +4439,7 @@
 		reg = <0 0x11200000 0 0x10000>,
 			<0 0x11e40000 0 0x10000>;
 		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH  0>;
-		clocks = <&topckgen_clk CLK_TOP_USB_TOP_SEL>,
+		clocks = <&infracfg_ao_clk CLK_IFRAO_SSUSB>,
 			<&topckgen_clk CLK_TOP_UNIVPLL_D5_D4>,
 			<&apmixedsys_clk CLK_APMIXED_USBPLL>;
 		clock-names = "sys_clk",
