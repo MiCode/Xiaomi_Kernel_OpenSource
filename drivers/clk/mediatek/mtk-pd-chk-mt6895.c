@@ -15,6 +15,9 @@
 #define TAG				"[pdchk] "
 #define BUG_ON_CHK_ENABLE		0
 
+static int pwr_on_cnt[MT6895_POWER_DOMAIN_NR];
+static int pwr_off_cnt[MT6895_POWER_DOMAIN_NR];
+
 /*
  * The clk names in Mediatek CCF.
  */
@@ -589,6 +592,11 @@ static void debug_dump(unsigned int id, unsigned int pwr_sta)
 		}
 	}
 
+	for (i = 0; i < MT6895_POWER_DOMAIN_NR; i++) {
+		pr_notice("pwr_on_cnt[%d] = %d\n", i, pwr_on_cnt[i]);
+		pr_notice("pwr_off_cnt[%d] = %d\n", i, pwr_off_cnt[i]);
+	}
+
 	BUG_ON(1);
 }
 
@@ -602,6 +610,17 @@ static void log_dump(unsigned int id, unsigned int pwr_sta)
 		print_subsys_reg_mt6895(spm);
 		print_subsys_reg_mt6895(vlpcfg);
 	}
+
+	if (pwr_sta == PD_PWR_ON)
+		pwr_on_cnt[id]++;
+	else if (pwr_sta == PD_PWR_OFF)
+		pwr_off_cnt[id]++;
+
+	if (pwr_on_cnt[id] > 1000)
+		pwr_on_cnt[id] = 0;
+
+	if (pwr_off_cnt[id] > 1000)
+		pwr_off_cnt[id] = 0;
 }
 
 static struct pd_sta pd_pwr_msk[] = {
