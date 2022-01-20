@@ -5125,8 +5125,6 @@ enum {
 enum {
 	/* common */
 	SUPPLY_SEQ_CLK_BUF,
-	SUPPLY_SEQ_LDO_VANT18,
-	SUPPLY_SEQ_LDO_VAUD28,
 	SUPPLY_SEQ_AUD_GLB,
 	SUPPLY_SEQ_DL_GPIO,
 	SUPPLY_SEQ_UL_GPIO,
@@ -5447,6 +5445,9 @@ struct mt6369_priv {
 	int vow_dmic_lp;
 	int vow_single_mic_select;
 	int hwcid0;
+
+	/* regulator */
+	struct regulator *reg_vant18;
 };
 
 #define MT_SOC_ENUM_EXT_ID(xname, xenum, xhandler_get, xhandler_put, id) \
