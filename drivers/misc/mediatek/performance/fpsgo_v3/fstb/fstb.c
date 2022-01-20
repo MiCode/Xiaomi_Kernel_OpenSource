@@ -1195,6 +1195,8 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 		fpsgo_main_trace("[fstb][%d][0x%llx] | back to v1 (%d)(%d)(%d)",
 			iter->pid, iter->bufid, iter->target_fps, target_fps, iter->hwui_flag);
 	} else {
+		if (target_fps > dfps_ceiling)
+			target_fps = dfps_ceiling;
 		target_fps_old = iter->target_fps_v2;
 		target_fps_new = target_fps;
 		hlist_for_each_entry(rtfiter, &fstb_render_target_fps, hlist) {

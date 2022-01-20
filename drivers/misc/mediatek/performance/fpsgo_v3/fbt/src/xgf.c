@@ -79,7 +79,7 @@ int fstb_fps_num = TARGET_FPS_LEVEL;
 EXPORT_SYMBOL(fstb_fps_num);
 int fstb_fps_choice[TARGET_FPS_LEVEL] = {20, 25, 30, 40, 45, 60, 90, 120, 144, 240};
 EXPORT_SYMBOL(fstb_fps_choice);
-int fstb_consider_deq = 1;
+int fstb_consider_deq;
 EXPORT_SYMBOL(fstb_consider_deq);
 
 module_param(xgf_sp_name, charp, 0644);
