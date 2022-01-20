@@ -97,6 +97,7 @@
 			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
 			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>,
 			<&vdec_gcon_base_clk CLK_VDE2_VDEC_ACTIVE>;
+			power-domains = <&scpsys MT6833_POWER_DOMAIN_VDEC>;
 	};
 
 	disable-unused-clk-imgsys2 {
