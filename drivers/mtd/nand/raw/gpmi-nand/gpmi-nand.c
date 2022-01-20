@@ -1931,7 +1931,7 @@ static int gpmi_nand_init(struct gpmi_nand_data *this)
 	this->bch_geometry.auxiliary_size = 128;
 	ret = gpmi_alloc_dma_buffer(this);
 	if (ret)
-		goto err_out;
+		return ret;
 
 	chip->dummy_controller.ops = &gpmi_nand_controller_ops;
 	ret = nand_scan(chip, GPMI_IS_MX6(this) ? 2 : 1);

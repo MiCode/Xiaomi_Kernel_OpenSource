@@ -987,8 +987,6 @@ static int set_serial_info(struct acm *acm,
 		if ((new_serial.close_delay != old_close_delay) ||
 	            (new_serial.closing_wait != old_closing_wait))
 			retval = -EPERM;
-		else
-			retval = -EOPNOTSUPP;
 	} else {
 		acm->port.close_delay  = close_delay;
 		acm->port.closing_wait = closing_wait;
@@ -1682,11 +1680,12 @@ static int acm_resume(struct usb_interface *intf)
 	struct urb *urb;
 	int rv = 0;
 
-	acm_unpoison_urbs(acm);
 	spin_lock_irq(&acm->write_lock);
 
 	if (--acm->susp_count)
 		goto out;
+
+	acm_unpoison_urbs(acm);
 
 	if (tty_port_initialized(&acm->port)) {
 		rv = usb_submit_urb(acm->ctrlurb, GFP_ATOMIC);

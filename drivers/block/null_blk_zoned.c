@@ -56,6 +56,7 @@ int null_zone_init(struct nullb_device *dev)
 void null_zone_exit(struct nullb_device *dev)
 {
 	kvfree(dev->zones);
+	dev->zones = NULL;
 }
 
 static void null_zone_fill_bio(struct nullb_device *dev, struct bio *bio,

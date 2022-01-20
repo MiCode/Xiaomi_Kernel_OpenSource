@@ -71,6 +71,9 @@ enum {
 #define EROFS_I_VERSION_BIT             0
 __EROFS_BIT(EROFS_I_, DATA_MAPPING, VERSION);
 
+#define EROFS_I_ALL	\
+	((1 << (EROFS_I_DATA_MAPPING_BIT + EROFS_I_DATA_MAPPING_BITS)) - 1)
+
 struct erofs_inode_v1 {
 /*  0 */__le16 i_advise;
 

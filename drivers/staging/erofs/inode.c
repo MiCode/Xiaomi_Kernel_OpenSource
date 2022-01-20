@@ -14,26 +14,84 @@
 
 #include <trace/events/erofs.h>
 
-/* no locking */
-static int read_inode(struct inode *inode, void *data)
+/*
+ * if inode is successfully read, return its inode page (or sometimes
+ * the inode payload page if it's an extended inode) in order to fill
+ * inline data if possible.
+ */
+static struct page *read_inode(struct inode *inode, unsigned int *ofs)
 {
+	struct super_block *sb = inode->i_sb;
+	struct erofs_sb_info *sbi = EROFS_SB(sb);
 	struct erofs_vnode *vi = EROFS_V(inode);
-	struct erofs_inode_v1 *v1 = data;
-	const unsigned advise = le16_to_cpu(v1->i_advise);
+	const erofs_off_t inode_loc = iloc(sbi, vi->nid);
+	erofs_blk_t blkaddr;
+	struct page *page;
+	struct erofs_inode_v1 *v1;
+	struct erofs_inode_v2 *v2, *copied = NULL;
+	unsigned int ifmt;
+	int err;
 
-	vi->data_mapping_mode = __inode_data_mapping(advise);
+	blkaddr = erofs_blknr(inode_loc);
+	*ofs = erofs_blkoff(inode_loc);
 
+	debugln("%s, reading inode nid %llu at %u of blkaddr %u",
+		__func__, vi->nid, *ofs, blkaddr);
+
+	page = erofs_get_meta_page(sb, blkaddr, false);
+	if (IS_ERR(page)) {
+		errln("failed to get inode (nid: %llu) page, err %ld",
+		      vi->nid, PTR_ERR(page));
+		return page;
+	}
+
+	v1 = page_address(page) + *ofs;
+	ifmt = le16_to_cpu(v1->i_advise);
+
+	if (ifmt & ~EROFS_I_ALL) {
+		errln("unsupported i_format %u of nid %llu", ifmt, vi->nid);
+		err = -EOPNOTSUPP;
+		goto err_out;
+	}
+
+	vi->data_mapping_mode = __inode_data_mapping(ifmt);
 	if (unlikely(vi->data_mapping_mode >= EROFS_INODE_LAYOUT_MAX)) {
 		errln("unknown data mapping mode %u of nid %llu",
 			vi->data_mapping_mode, vi->nid);
-		DBG_BUGON(1);
-		return -EIO;
+		err = -EOPNOTSUPP;
+		goto err_out;
 	}
 
-	if (__inode_version(advise) == EROFS_INODE_LAYOUT_V2) {
-		struct erofs_inode_v2 *v2 = data;
-
+	switch (__inode_version(ifmt)) {
+	case EROFS_INODE_LAYOUT_V2:
 		vi->inode_isize = sizeof(struct erofs_inode_v2);
+		/* check if the inode acrosses page boundary */
+		if (*ofs + vi->inode_isize <= PAGE_SIZE) {
+			*ofs += vi->inode_isize;
+			v2 = (struct erofs_inode_v2 *)v1;
+		} else {
+			const unsigned int gotten = PAGE_SIZE - *ofs;
+
+			copied = kmalloc(vi->inode_isize, GFP_NOFS);
+			if (!copied) {
+				err = -ENOMEM;
+				goto err_out;
+			}
+			memcpy(copied, v1, gotten);
+			unlock_page(page);
+			put_page(page);
+
+			page = erofs_get_meta_page(sb, blkaddr + 1, false);
+			if (IS_ERR(page)) {
+				errln("failed to get inode payload page (nid: %llu), err %ld",
+				      vi->nid, PTR_ERR(page));
+				kfree(copied);
+				return page;
+			}
+			*ofs = vi->inode_isize - gotten;
+			memcpy((u8 *)copied + gotten, page_address(page), *ofs);
+			v2 = copied;
+		}
 		vi->xattr_isize = ondisk_xattr_ibody_size(v2->i_xattr_icount);
 
 		inode->i_mode = le16_to_cpu(v2->i_mode);
@@ -46,7 +104,7 @@ static int read_inode(struct inode *inode, void *data)
 		} else if (S_ISFIFO(inode->i_mode) || S_ISSOCK(inode->i_mode)) {
 			inode->i_rdev = 0;
 		} else {
-			return -EIO;
+			goto bogusimode;
 		}
 
 		i_uid_write(inode, le32_to_cpu(v2->i_uid));
@@ -58,10 +116,11 @@ static int read_inode(struct inode *inode, void *data)
 		inode->i_ctime.tv_nsec = le32_to_cpu(v2->i_ctime_nsec);
 
 		inode->i_size = le64_to_cpu(v2->i_size);
-	} else if (__inode_version(advise) == EROFS_INODE_LAYOUT_V1) {
-		struct erofs_sb_info *sbi = EROFS_SB(inode->i_sb);
-
+		kfree(copied);
+		break;
+	case EROFS_INODE_LAYOUT_V1:
 		vi->inode_isize = sizeof(struct erofs_inode_v1);
+		*ofs += vi->inode_isize;
 		vi->xattr_isize = ondisk_xattr_ibody_size(v1->i_xattr_icount);
 
 		inode->i_mode = le16_to_cpu(v1->i_mode);
@@ -74,7 +133,7 @@ static int read_inode(struct inode *inode, void *data)
 		} else if (S_ISFIFO(inode->i_mode) || S_ISSOCK(inode->i_mode)) {
 			inode->i_rdev = 0;
 		} else {
-			return -EIO;
+			goto bogusimode;
 		}
 
 		i_uid_write(inode, le16_to_cpu(v1->i_uid));
@@ -86,11 +145,12 @@ static int read_inode(struct inode *inode, void *data)
 		inode->i_ctime.tv_nsec = sbi->build_time_nsec;
 
 		inode->i_size = le32_to_cpu(v1->i_size);
-	} else {
+		break;
+	default:
 		errln("unsupported on-disk inode version %u of nid %llu",
-			__inode_version(advise), vi->nid);
-		DBG_BUGON(1);
-		return -EIO;
+		      __inode_version(ifmt), vi->nid);
+		err = -EOPNOTSUPP;
+		goto err_out;
 	}
 
 	inode->i_mtime.tv_sec = inode->i_ctime.tv_sec;
@@ -100,7 +160,16 @@ static int read_inode(struct inode *inode, void *data)
 
 	/* measure inode.i_blocks as the generic filesystem */
 	inode->i_blocks = ((inode->i_size - 1) >> 9) + 1;
-	return 0;
+	return page;
+bogusimode:
+	errln("bogus i_mode (%o) @ nid %llu", inode->i_mode, vi->nid);
+	err = -EIO;
+err_out:
+	DBG_BUGON(1);
+	kfree(copied);
+	unlock_page(page);
+	put_page(page);
+	return ERR_PTR(err);
 }
 
 /*
@@ -132,7 +201,7 @@ static int fill_inline_data(struct inode *inode, void *data, unsigned m_pofs)
 		if (unlikely(lnk == NULL))
 			return -ENOMEM;
 
-		m_pofs += vi->inode_isize + vi->xattr_isize;
+		m_pofs += vi->xattr_isize;
 
 		/* inline symlink data shouldn't across page boundary as well */
 		if (unlikely(m_pofs + inode->i_size > PAGE_SIZE)) {
@@ -153,35 +222,17 @@ static int fill_inline_data(struct inode *inode, void *data, unsigned m_pofs)
 
 static int fill_inode(struct inode *inode, int isdir)
 {
-	struct erofs_sb_info *sbi = EROFS_SB(inode->i_sb);
-	struct erofs_vnode *vi = EROFS_V(inode);
 	struct page *page;
-	void *data;
-	int err;
-	erofs_blk_t blkaddr;
-	unsigned ofs;
+	unsigned int ofs;
+	int err = 0;
 
 	trace_erofs_fill_inode(inode, isdir);
 
-	blkaddr = erofs_blknr(iloc(sbi, vi->nid));
-	ofs = erofs_blkoff(iloc(sbi, vi->nid));
-
-	debugln("%s, reading inode nid %llu at %u of blkaddr %u",
-		__func__, vi->nid, ofs, blkaddr);
-
-	page = erofs_get_meta_page(inode->i_sb, blkaddr, isdir);
-
+	/* read inode base data from disk */
+	page = read_inode(inode, &ofs);
 	if (IS_ERR(page)) {
-		errln("failed to get inode (nid: %llu) page, err %ld",
-			vi->nid, PTR_ERR(page));
 		return PTR_ERR(page);
-	}
-
-	DBG_BUGON(!PageUptodate(page));
-	data = page_address(page);
-
-	err = read_inode(inode, data + ofs);
-	if (!err) {
+	} else {
 		/* setup the new inode */
 		if (S_ISREG(inode->i_mode)) {
 #ifdef CONFIG_EROFS_FS_XATTR
@@ -229,7 +280,7 @@ static int fill_inode(struct inode *inode, int isdir)
 		inode->i_mapping->a_ops = &erofs_raw_access_aops;
 
 		/* fill last page if inline data is available */
-		fill_inline_data(inode, data, ofs);
+		fill_inline_data(inode, page_address(page), ofs);
 	}
 
 out_unlock:
