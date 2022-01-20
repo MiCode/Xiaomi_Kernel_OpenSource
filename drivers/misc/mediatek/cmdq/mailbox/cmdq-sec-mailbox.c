@@ -1480,7 +1480,7 @@ task_err_callback:
 			del_timer(&task->thread->timeout);
 		}
 
-		cmdq_msg(
+		cmdq_util_aee("CMDQ",
 			"gce:%#lx err:%d task:%p pkt:%p thread:%u task_cnt:%u wait_cookie:%u next_cookie:%u",
 			(unsigned long)cmdq->base_pa, err, task, task->pkt,
 			task->thread->idx, task->thread->task_cnt,
@@ -1773,17 +1773,7 @@ static struct platform_driver cmdq_sec_drv = {
 	},
 };
 
-static int __init cmdq_sec_init(void)
-{
-	s32 err;
-
-	err = platform_driver_register(&cmdq_sec_drv);
-	if (err)
-		cmdq_err("platform_driver_register failed:%d", err);
-	return err;
-}
-
-#ifdef CMDQ_GP_SUPPORT
+#if defined(CMDQ_GP_SUPPORT) || defined(CMDQ_SECURE_MTEE_SUPPORT)
 static s32 cmdq_sec_late_init_wsm(void *data)
 {
 	struct cmdq_sec *cmdq;
@@ -1834,8 +1824,23 @@ static int __init cmdq_sec_late_init(void)
 		cmdq_err("kthread_run failed:%ld", PTR_ERR(kthr));
 	return PTR_ERR(kthr);
 }
-late_initcall(cmdq_sec_late_init);
+
 #endif
+
+static int __init cmdq_sec_init(void)
+{
+	s32 err;
+
+	err = platform_driver_register(&cmdq_sec_drv);
+	if (err)
+		cmdq_err("platform_driver_register failed:%d", err);
+
+#if defined(CMDQ_GP_SUPPORT) || defined(CMDQ_SECURE_MTEE_SUPPORT)
+	cmdq_sec_late_init();
+#endif
+
+	return err;
+}
 
 arch_initcall(cmdq_sec_init);
 MODULE_LICENSE("GPL v2");
