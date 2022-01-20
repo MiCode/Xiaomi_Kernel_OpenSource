@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
+/* TOUCH start */
+&spi4 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default", "gt9896s_int_active",
+		"gt9896s_reset_active", "gt9896s_int_suspend",
+		"gt9896s_reset_suspend", "gt9896s_spi_mode";
+	pinctrl-0 = <&ctp_gt9896s_pins_default>;
+	pinctrl-1 = <&ctp_gt9896s_int_active>;
+	pinctrl-2 = <&ctp_gt9896s_reset_active>;
+	pinctrl-3 = <&ctp_gt9896s_int_suspend>;
+	pinctrl-4 = <&ctp_gt9896s_reset_suspend>;
+	pinctrl-5 = <&ctp_gt9896s_spi_mode>;
+
+	spi-touch@0 {
+		compatible = "novatek,NVT-ts-spi";
+		reg = <0>; //Same as CS ID
+		spi-max-frequency = <1000000>;
+		novatek,reset-gpio = <&pio 15 0x00>;
+		novatek,irq-gpio = <&pio 14 0x00>;
+		// 525
+		//novatek,swrst-n8-addr = <0x01F01A>;
+		// 672A, 525B, 675, 526
+		novatek,swrst-n8-addr = <0x03F0FE>;
+		novatek,spi-rd-fast-addr = <0x03F310>;
+
+		goodix,avdd-name = "vtouch";
+		vtouch-supply = <&mt_pmic_vtp_ldo_reg>;
+		goodix,reset-gpio = <&pio 15 0x0>;
+		goodix,irq-gpio = <&pio 14 0x0>;
+		goodix,irq-flags = <2>; /* 1:rising, 2:falling;*/
+		goodix,panel-max-id = <10>;
+		goodix,panel-max-x = <1080>;
+		goodix,panel-max-y = <2400>;
+		goodix,panel-max-w = <256>;
+		goodix,panel-max-p = <256>;
+		goodix,input-max-x = <1080>;
+		goodix,input-max-y = <2400>;
+		goodix,panel-key-map = <158 172 217>; /*BACK,HOMEPAGE,SEARCH*/
+		goodix,power-on-delay-us = <10000>; /*10ms*/
+		goodix,power-off-delay-us = <5000>;
+		goodix,firmware-version = "6893v04";
+		goodix,config-version = "6893v04";
+		/*goodix,swap-axis;*/
+		/*goodix,x2x;*/
+		/*goodix,y2y;*/
+		goodix,pen-enable;
+		tpd-filter-enable = <0>;
+		tpd-filter-pixel-density = <161>;
+		tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+		tpd-filter-custom-speed = <0 0 0>;
+	};
+
+};
+
+&pio {
+	ctp_gt9896s_pins_default: pins_default {
+	};
+	ctp_gt9896s_int_active: int1_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			input-enable;
+		};
+	};
+	ctp_gt9896s_reset_active: reset1_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+			output-high;
+		};
+	};
+	ctp_gt9896s_int_suspend: int1_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			output-low;
+		};
+	};
+	ctp_gt9896s_reset_suspend: reset1_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+			output-low;
+		};
+	};
+	ctp_gt9896s_spi_mode: spimode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_SPI4_MI>,
+				<PINMUX_GPIO13__FUNC_SPI4_MO>,
+				<PINMUX_GPIO97__FUNC_SPI4_CLK>,
+				<PINMUX_GPIO98__FUNC_SPI4_CSB>;
+			drive-strength = <2>;
+		};
+	};
+};
+/* TOUCH end */
