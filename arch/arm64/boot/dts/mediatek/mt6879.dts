@@ -5518,7 +5518,7 @@
 		regulator_vibrator {
 			compatible = "regulator-vibrator";
 			label = "vibrator";
-			min-volt = <1200000>;
+			min-volt = <2800000>;
 			max-volt = <3500000>;
 			vib-supply = <&mt6368_vibr>;
 		};
