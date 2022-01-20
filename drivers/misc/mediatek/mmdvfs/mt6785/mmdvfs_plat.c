@@ -1,63 +1,28 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2017 MediaTek Inc.
+ * Copyright (C) 2016 MediaTek Inc.
  */
 
 
 #include <linux/string.h>
 
 #include "mmdvfs_plat.h"
-
-#ifdef QOS_BOUND_DETECT
 #include "mtk_qos_sram.h"
-#endif
-
 #include "smi_pmqos.h"
 
 #undef pr_fmt
 #define pr_fmt(fmt) "[mmdvfs][plat]" fmt
 
-#define THERMAL_MASK 0x1	// 0b'001
-#define THERMAL_OFFSET 0
-#define CAM_MASK 0x6		// 0b'110
-#define CAM_OFFSET 1
-#define LIMIT_LEVEL1 0x7	// 0b'111
-#define LIMIT_LEVEL2 0x5	// 0b'101
-#define LIMIT_LEVEL3 0x3	// 0b'011
 
-void mmdvfs_update_limit_config(enum mmdvfs_limit_source source,
-	u32 source_value, u32 *limit_value, u32 *limit_level)
-{
-	if (source == MMDVFS_LIMIT_THERMAL)
-		*limit_value = (*limit_value & ~THERMAL_MASK) |
-			((source_value << THERMAL_OFFSET) & THERMAL_MASK);
-	else if (source == MMDVFS_LIMIT_CAM)
-		*limit_value = (*limit_value & ~CAM_MASK) |
-			((source_value << CAM_OFFSET) & CAM_MASK);
-
-	if ((*limit_value & LIMIT_LEVEL1) == LIMIT_LEVEL1)
-		*limit_level = 1;
-	else if ((*limit_value & LIMIT_LEVEL2) == LIMIT_LEVEL2)
-		*limit_level = 2;
-	else if ((*limit_value & LIMIT_LEVEL3) == LIMIT_LEVEL3)
-		*limit_level = 3;
-	else
-		*limit_level = 0;
-}
 #define MDP_START 5
 #define LARB_MDP_ID 1
 #define LARB_VENC_ID 3
-#define LARB_IMG1_ID 5
-#define LARB_IMG2_ID 8
-#define LARB_CAM1_ID 9
-#define LARB_CAM2_ID 10
-#define LARB_CAM3_ID 11
+#define LARB_IMG_ID 5
+#define LARB_CAM_ID 6
 #define COMM_MDP_PORT 1
 #define COMM_VENC_PORT 3
-#define COMM_IMG1_PORT 4
-#define COMM_IMG2_PORT 5
-#define COMM_CAM1_PORT 6
-#define COMM_CAM2_PORT 7
+#define COMM_IMG_PORT 4
+#define COMM_CAM_PORT 7
 
 #ifdef QOS_BOUND_DETECT
 void mmdvfs_update_qos_sram(struct mm_larb_request larb_req[], u32 larb_update)
@@ -84,16 +49,13 @@ void mmdvfs_update_qos_sram(struct mm_larb_request larb_req[], u32 larb_update)
 		qos_sram_write(MM_SMI_VENC, bw);
 	}
 
-	if (larb_update & (1 << COMM_IMG1_PORT | 1 << COMM_IMG2_PORT)) {
-		bw = larb_req[LARB_IMG1_ID].total_bw_data +
-			larb_req[LARB_IMG2_ID].total_bw_data;
+	if (larb_update & (1 << COMM_IMG_PORT)) {
+		bw = larb_req[LARB_IMG_ID].total_bw_data;
 		qos_sram_write(MM_SMI_IMG, bw);
 	}
 
-	if (larb_update & (1 << COMM_CAM1_PORT | 1 << COMM_CAM2_PORT)) {
-		bw = larb_req[LARB_CAM1_ID].total_bw_data +
-			larb_req[LARB_CAM2_ID].total_bw_data +
-			larb_req[LARB_CAM3_ID].total_bw_data;
+	if (larb_update & (1 << COMM_CAM_PORT)) {
+		bw = larb_req[LARB_CAM_ID].total_bw_data;
 		qos_sram_write(MM_SMI_CAM, bw);
 	}
 }
@@ -122,9 +84,10 @@ s32 get_ccu_hrt_bw(struct mm_larb_request larb_req[])
 				VIRTUAL_CCU_COMMON))].total_hrt_data;
 
 	list_for_each_entry(enum_req,
-		&larb_req[LARB_CAM1_ID].larb_list, larb_node) {
-		if (enum_req->master_id == SMI_PORT_CCUI
-			|| enum_req->master_id == SMI_PORT_CCUO)
+		&larb_req[LARB_CAM_ID].larb_list, larb_node) {
+		if (enum_req->master_id == SMI_CCUI
+			|| enum_req->master_id == SMI_CCUO
+			|| enum_req->master_id == SMI_CCUG)
 			bw += enum_req->hrt_value;
 	}
 	return bw;
@@ -139,7 +102,6 @@ s32 dram_write_weight(s32 val)
 {
 	return (val * 6 / 5);
 }
-
 
 s32 emi_occ_ratio(void)
 {
@@ -160,3 +122,4 @@ s32 disp_occ_ratio(void)
 {
 	return 1000;
 }
+
