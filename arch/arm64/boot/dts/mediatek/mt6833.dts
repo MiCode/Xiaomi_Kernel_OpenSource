@@ -2271,9 +2271,9 @@
 		mediatek,gce = <&gce_mbox>;
 		mmsys_config = <&mmsys_config>;
 		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
-		mboxes = <&gce_mbox 23 0 CMDQ_THR_PRIO_1>,
+		mboxes = <&gce_mbox 23 0 CMDQ_THR_PRIO_1>;
 			/* <&gce_mbox 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>, */
-			<&gce_mbox_sec 11 0 CMDQ_THR_PRIO_1>;
+			/* <&gce_mbox_sec 11 0 CMDQ_THR_PRIO_1>; */
 		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 	};
@@ -5294,8 +5294,12 @@
 		interrupts = <GIC_SPI 359 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&ipesys CLK_IPE_FD>;
 		clock-names = "FD_CLK_IPE_FD";
+#if defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		mboxes = <&gce_mbox 14 0 CMDQ_THR_PRIO_1>,
-			 <&gce_mbox 14 0 CMDQ_THR_PRIO_1>;
+			 <&gce_mbox_sec 11 0 CMDQ_THR_PRIO_1>;
+#else
+		mboxes = <&gce_mbox 14 0 CMDQ_THR_PRIO_1>;
+#endif
 		fdvt_frame_done = <CMDQ_EVENT_FDVT_DONE>;
 	};
 
