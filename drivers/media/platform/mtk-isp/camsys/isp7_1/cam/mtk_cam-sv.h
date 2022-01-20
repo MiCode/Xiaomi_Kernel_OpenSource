@@ -29,10 +29,19 @@
 
 enum mtkcam_sv_hw_path_control {
 	MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW = MTKCAM_IPI_HW_PATH_OFFLINE_M2M + 2,
+	MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP = MTKCAM_IPI_HW_PATH_OFFLINE_M2M + 3,
 };
+
+#define CAMSV_EXT_META_0_WIDTH 1024
+#define CAMSV_EXT_META_0_HEIGHT 1024
+#define CAMSV_EXT_META_1_WIDTH 1024
+#define CAMSV_EXT_META_1_HEIGHT 1024
+#define CAMSV_EXT_META_2_WIDTH 1024
+#define CAMSV_EXT_META_2_HEIGHT 1024
 
 #define MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO	(\
 			(1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW) |\
+			(1 << MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP) |\
 			(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER) |\
 			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER) |\
 			(1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER) |\
@@ -185,7 +194,6 @@ struct mtk_camsv_pipeline {
 	unsigned int master_pipe_id;
 	unsigned int exp_order;
 	unsigned int is_occupied;
-
 	/* watch dog */
 	atomic_t watchdog_timeout_cnt;
 	atomic_t watchdog_cnt;
@@ -193,6 +201,7 @@ struct mtk_camsv_pipeline {
 	atomic_t watchdog_dump_cnt;
 	struct timer_list watchdog_timer;
 	struct work_struct watchdog_work;
+	unsigned int raw_vdevidx;
 };
 
 struct mtk_camsv_device {
@@ -217,6 +226,7 @@ struct mtk_camsv_device {
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;
 	unsigned int is_enqueued;
+	u64 sof_timestamp;
 };
 
 struct mtk_camsv {
@@ -239,7 +249,30 @@ struct mtk_camsv_frame_params {
 	u8 is_reconfig;
 	struct mtk_camsv_reconfig_info cfg_info;
 	struct mtkcam_ipi_img_output img_out;
+	struct mtkcam_ipi_img_output sensor_svmeta_out; // buf[0][i] for extmetai
+	struct mtkcam_ipi_img_output sensor_svimg_out; // buf[0][i] for svimgoi
+	u64 sensor_img_tstamp[2];
+	u64 sensor_meta_tstamp[3];
 };
+
+static inline bool mtk_camsv_is_yuv_format(unsigned int fmt)
+{
+	bool ret = false;
+
+	switch (fmt) {
+	case V4L2_PIX_FMT_YUYV:
+	case V4L2_PIX_FMT_YVYU:
+	case V4L2_PIX_FMT_UYVY:
+	case V4L2_PIX_FMT_VYUY:
+		ret = true;
+		break;
+	default:
+		ret = false;
+		break;
+	}
+
+	return ret;
+}
 
 struct mtk_larb;
 int mtk_camsv_setup_dependencies(struct mtk_camsv *sv, struct mtk_larb *larb);
@@ -314,6 +347,7 @@ int mtk_cam_sv_fbc(struct mtk_camsv_device *dev);
 #ifdef CAMSYS_TF_DUMP_71_1
 int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif
+int mtk_cam_get_sv_pixel_mode(struct mtk_cam_ctx *ctx, unsigned int idx);
 
 extern struct platform_driver mtk_cam_sv_driver;
 

@@ -10,6 +10,23 @@
  * which is using the raw_feature which is not changed
  * during streaming.
  */
+
+bool mtk_cam_is_ext_isp(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx->used_raw_num)
+		return false;
+
+	return mtk_cam_feature_is_ext_isp(ctx->pipe->feature_active);
+}
+
+bool mtk_cam_is_ext_isp_yuv(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx->used_raw_num)
+		return false;
+
+	return mtk_cam_feature_is_ext_isp_yuv(ctx->pipe->feature_active);
+}
+
 bool mtk_cam_is_time_shared(struct mtk_cam_ctx *ctx)
 {
 	if (!ctx->used_raw_num)

@@ -35,6 +35,7 @@
 #define SV_STATS_0_SIZE \
 	sizeof(struct mtk_cam_uapi_meta_camsv_stats_0)
 
+#define SV_EXT_STATS_SIZE (1024 * 1024 * 3)
 /* FIXME for ISP6 meta format */
 static const struct mtk_cam_format_desc meta_fmts[] = {
 	{
@@ -59,6 +60,12 @@ static const struct mtk_cam_format_desc meta_fmts[] = {
 		.vfmt.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_LCS,
 			.buffersize = RAW_STATS_2_SIZE,
+		},
+	},
+	{
+		.vfmt.fmt.meta = {
+			.dataformat = V4L2_META_FMT_MTISP_3A,
+			.buffersize = SV_EXT_STATS_SIZE,
 		},
 	},
 };

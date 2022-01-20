@@ -67,6 +67,10 @@ enum raw_module_id {
 #define MTK_CAM_FEATURE_PURE_OFFLINE_M2M_MASK	0x00000200
 #define MTK_CAM_FEATURE_TIMESHARE_MASK		0x00001000
 #define MTK_CAM_FEATURE_HDR_MEMORY_SAVING_MASK		0x00002000
+#define MTK_CAM_FEATURE_EXT_ISP_MASK	0x0000C000
+/* flags common to features */
+#define MTK_CAM_FEATURE_SEAMLESS_SWITCH_MASK	BIT(31)
+
 
 enum raw_function_id {
 	/* hdr */
@@ -86,6 +90,9 @@ enum raw_function_id {
 	PURE_OFFLINE_M2M		= (1 << 9),
 	TIMESHARE_1_GROUP		= (1 << 12),
 	HDR_MEMORY_SAVING		= (1 << 13),
+	EXT_ISP_CUS_1			= (1 << 14),
+	EXT_ISP_CUS_2			= (2 << 14),
+	EXT_ISP_CUS_3			= (3 << 14),
 	WITH_W_CHANNEL			= (1 << 16),
 	RAW_FUNCTION_END		= 0xF0000000,
 };
