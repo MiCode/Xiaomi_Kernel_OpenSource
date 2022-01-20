@@ -281,9 +281,11 @@ static int scp_update_pmic_vow_lp_mode(bool on)
 	}
 
 	if (on)
+		/* enable VOW low power mode */
 		pmic_buck_vgpu11_lp(SRCLKEN11, 0, 1, HW_LP);
 	else
-		pmic_buck_vgpu11_lp(SRCLKEN11, 0, 1, HW_LP);
+		/* disable VOW low power mode */
+		pmic_buck_vgpu11_lp(SRCLKEN11, 0, 1, HW_OFF);
 
 	return ret;
 }
@@ -1039,8 +1041,8 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 			return -ESCP_DVFS_IPI_FAILED;
 		}
 	} else if (!strcmp(cmd, "dbg_core")) {
-		dbg_core = slp_cmd;
-		if (dbg_core < SCP_MAX_CORE_NUM)
+		dbg_core = (int)slp_cmd;
+		if (dbg_core >= 0 && dbg_core < (int)SCP_MAX_CORE_NUM)
 			dvfs.cur_dbg_core = dbg_core;
 	} else {
 		pr_notice("[%s]: invalid command: %s\n", __func__, cmd);
