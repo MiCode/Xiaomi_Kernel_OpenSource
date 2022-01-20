@@ -365,6 +365,7 @@
 
 	/* chosen */
 	chosen: chosen {
+		mkp,policy = <0x0001fff5>;
 		bootargs = "console=tty0 root=/dev/ram \
 			vmalloc=400M swiotlb=noforce allow_file_spec_access\
 			cma=64M transparent_hugepage=never \
