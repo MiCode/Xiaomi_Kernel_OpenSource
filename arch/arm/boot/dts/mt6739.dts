@@ -39,6 +39,75 @@
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
 	};
 
+	cluster0_opp: opp_table0 {
+		compatible = "operating-points-v2";
+		opp-shared;
+		opp0 {
+			opp-hz = /bits/ 64 <299000000>;
+			opp-microvolt = <950000>;
+		};
+		opp1 {
+			opp-hz = /bits/ 64 <338000000>;
+			opp-microvolt = <975000>;
+		};
+		opp2 {
+			opp-hz = /bits/ 64 <416000000>;
+			opp-microvolt = <1000000>;
+		};
+		opp3 {
+			opp-hz = /bits/ 64 <546000000>;
+			opp-microvolt = <1025000>;
+		};
+		opp4 {
+			opp-hz = /bits/ 64 <624000000>;
+			opp-microvolt = <1050000>;
+		};
+		opp5 {
+			opp-hz = /bits/ 64 <702000000>;
+			opp-microvolt = <1075000>;
+		};
+		opp6 {
+			opp-hz = /bits/ 64 <845000000>;
+			opp-microvolt = <1118750>;
+		};
+		opp7 {
+			opp-hz = /bits/ 64 <910000000>;
+			opp-microvolt = <1137500>;
+		};
+		opp8 {
+			opp-hz = /bits/ 64 <962000000>;
+			opp-microvolt = <1156250>;
+		};
+		opp9 {
+			opp-hz = /bits/ 64 <1001000000>;
+			opp-microvolt = <1162500>;
+		};
+		opp10 {
+			opp-hz = /bits/ 64 <1053000000>;
+			opp-microvolt = <1175000>;
+		};
+		opp11 {
+			opp-hz = /bits/ 64 <1105000000>;
+			opp-microvolt = <1187500>;
+		};
+		opp12 {
+			opp-hz = /bits/ 64 <1170000000>;
+			opp-microvolt = <1206250>;
+		};
+		opp13 {
+			opp-hz = /bits/ 64 <1274000000>;
+			opp-microvolt = <1231250>;
+		};
+		opp14 {
+			opp-hz = /bits/ 64 <1378000000>;
+			opp-microvolt = <1262500>;
+		};
+		opp15 {
+			opp-hz = /bits/ 64 <1495000000>;
+			opp-microvolt = <1287500>;
+		};
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -49,6 +118,9 @@
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x40000200>;
 			clock-frequency = <2000000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
@@ -60,6 +132,9 @@
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x40000200>;
 			clock-frequency = <1638000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
@@ -71,6 +146,9 @@
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x40000200>;
 			clock-frequency = <1638000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
@@ -82,6 +160,9 @@
 			enable-method = "psci";
 			cpu-release-addr = <0x0 0x40000200>;
 			clock-frequency = <1638000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
