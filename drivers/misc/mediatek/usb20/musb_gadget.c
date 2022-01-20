@@ -34,6 +34,8 @@
 #include "musb_qmu.h"
 #endif
 
+#include "musb_trace.h"
+
 #define FIFO_START_ADDR 512
 
 /* #define RX_DMA_MODE1 1 */
@@ -200,6 +202,9 @@ void musb_g_giveback(struct musb_ep *ep,
 	list_del(&req->list);
 	if (req->request.status == -EINPROGRESS)
 		req->request.status = status;
+
+	trace_musb_g_giveback(req);
+
 	musb = req->musb;
 
 	ep->busy = 1;
@@ -1479,6 +1484,8 @@ static int musb_gadget_enable
 
 	schedule_work(&musb->irq_work);
 
+	trace_musb_gadget_enable(musb_ep);
+
 fail:
 	spin_unlock_irqrestore(&musb->lock, flags);
 	return status;
@@ -1498,6 +1505,9 @@ static int musb_gadget_disable(struct usb_ep *ep)
 	u16 csr;
 
 	musb_ep = to_musb_ep(ep);
+
+	trace_musb_gadget_disable(musb_ep);
+
 	musb = musb_ep->musb;
 	epnum = musb_ep->current_epnum;
 	epio = musb->endpoints[epnum].regs;

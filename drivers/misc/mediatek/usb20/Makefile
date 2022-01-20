@@ -32,10 +32,13 @@ ifeq ($(CONFIG_TCPC_CLASS),$(filter $(CONFIG_TCPC_CLASS),m y))
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 endif
 
+# define_trace.h needs to know how to find our header
+CFLAGS_musb_trace.o	:= -I$(src)
+
 # Driver module ko musb_hdrc
 
 obj-$(CONFIG_USB_MTK_HDRC)	+= musb_hdrc.o
-musb_hdrc-y := musb_core.o musb_virthub.o musb_host.o musb_gadget_ep0.o musb_gadget.o
+musb_hdrc-y := musb_core.o musb_virthub.o musb_host.o musb_gadget_ep0.o musb_gadget.o musb_trace.o
 
 ifneq ($(CONFIG_MTK_MUSB_DUAL_ROLE),)
 	musb_hdrc-y	+= musb_dr.o
