@@ -107,7 +107,7 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	if (inst->vcu_inst.abort || inst->vcu_inst.daemon_pid != get_vcp_generation())
 		return -EIO;
 
-	if (!is_ack) {
+	if (!is_ack && *(u32 *)msg != AP_IPIMSG_ENC_BACKUP) {
 		while (inst->ctx->dev->is_codec_suspending == 1) {
 			suspend_block_cnt++;
 			if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
@@ -369,10 +369,9 @@ int vcp_enc_ipi_handler(void *arg)
 
 	do {
 		ret = wait_event_interruptible(dev->mq.wq, atomic_read(&dev->mq.cnt) > 0);
-		if (ret) {
-			while (dev->is_codec_suspending == 1) {
-				mtk_v4l2_debug(0, "suspending %d\n", atomic_read(&dev->mq.cnt));
-			}
+		if (ret < 0) {
+			mtk_v4l2_debug(0, "wait event return %d (suspending %d)\n",
+				ret, atomic_read(&dev->mq.cnt));
 			continue;
 		}
 
@@ -452,6 +451,7 @@ int vcp_enc_ipi_handler(void *arg)
 		case VCU_IPIMSG_ENC_SET_PARAM_DONE:
 		case VCU_IPIMSG_ENC_ENCODE_DONE:
 		case VCU_IPIMSG_ENC_DEINIT_DONE:
+		case VCU_IPIMSG_ENC_BACKUP_DONE:
 			vcu->signaled = true;
 			wake_up(&vcu->wq_hd);
 			break;
@@ -572,6 +572,23 @@ static int venc_vcp_ipi_isr(unsigned int id, void *prdata, void *data,
 	return 0;
 }
 
+static int venc_vcp_backup(struct venc_inst *inst)
+{
+	struct venc_vcu_ipi_msg_common msg;
+	int err = 0;
+
+	mtk_vcodec_debug_enter(inst);
+
+	memset(&msg, 0, sizeof(msg));
+	msg.msg_id = AP_IPIMSG_ENC_BACKUP;
+	msg.venc_inst = inst->vcu_inst.inst_addr;
+
+	err = venc_vcp_ipi_send(inst, &msg, sizeof(msg), 0);
+	mtk_vcodec_debug(inst, "- ret=%d", err);
+
+	return err;
+}
+
 static int vcp_venc_notify_callback(struct notifier_block *this,
 	unsigned long event, void *ptr)
 {
@@ -579,6 +596,7 @@ static int vcp_venc_notify_callback(struct notifier_block *this,
 	struct list_head *p, *q;
 	struct mtk_vcodec_ctx *ctx;
 	int timeout = 0;
+	bool backup = false;
 
 	if (!(mtk_vcodec_vcp & (1 << MTK_INST_ENCODER)))
 		return 0;
@@ -618,8 +636,22 @@ static int vcp_venc_notify_callback(struct notifier_block *this,
 				break;
 			}
 		}
+		// check no more ipi in progress
 		mutex_lock(&dev->ipi_mutex);
 		mutex_unlock(&dev->ipi_mutex);
+		// send backup ipi to vcp by one of any instances
+		mutex_lock(&dev->ctx_mutex);
+		list_for_each_safe(p, q, &dev->ctx_list) {
+			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
+			if (ctx != NULL && ctx->state != MTK_STATE_ABORT) {
+				mutex_unlock(&dev->ctx_mutex);
+				backup = true;
+				venc_vcp_backup((struct venc_inst *)ctx->drv_handle);
+				break;
+			}
+		}
+		if (!backup)
+			mutex_unlock(&dev->ctx_mutex);
 	break;
 	}
 	return NOTIFY_DONE;
