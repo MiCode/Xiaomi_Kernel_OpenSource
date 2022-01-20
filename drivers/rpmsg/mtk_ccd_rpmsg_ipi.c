@@ -238,8 +238,8 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 		 mept, mept->mchinfo.chinfo.src, mept->mchinfo.id);
 
 	if (atomic_read(&mept->ccd_mep_state) == CCD_MENDPOINT_DESTROY) {
-		dev_info(ccd->dev, "mept: %p src: %d is destroyed\n",
-			 mept, mept->mchinfo.chinfo.src);
+		dev_info_ratelimited(ccd->dev, "mept: %p src: %d is destroyed\n",
+				     mept, mept->mchinfo.chinfo.src);
 		goto err_ret;
 	}
 
