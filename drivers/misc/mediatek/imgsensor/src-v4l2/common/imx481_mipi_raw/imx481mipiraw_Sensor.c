@@ -1847,9 +1847,9 @@ static kal_uint32 set_auto_flicker_mode(struct subdrv_ctx *ctx,
 static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 	 enum MSDK_SCENARIO_ID_ENUM scenario_id, MUINT32 framerate)
 {
-	kal_uint32 frame_length;
+	kal_uint32 frame_length = 0;
 
-	pr_debug("scenario_id = %d, framerate = %d\n", scenario_id, framerate);
+	//DEBUG_LOG("scenario_id = %d, framerate = %d\n", scenario_id, framerate);
 
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
@@ -1870,11 +1870,6 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		ctx->min_frame_length = ctx->frame_length;
 		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-		else {
-			/*No need to set*/
-			pr_debug("frame_length %d < shutter %d",
-				ctx->frame_length, ctx->shutter);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 		if (framerate == 0)
@@ -1898,20 +1893,10 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		ctx->min_frame_length = ctx->frame_length;
 		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-		else {
-			/*No need to set*/
-			pr_debug("frame_length %d < shutter %d",
-				ctx->frame_length, ctx->shutter);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 		if (ctx->current_fps
 			!= imgsensor_info.cap.max_framerate)
-			pr_debug(
-				"Warning: current_fps %d fps is not support, so use cap's setting: %d fps!\n",
-				framerate,
-				imgsensor_info.cap.max_framerate / 10);
-
 		frame_length
 			= imgsensor_info.cap.pclk
 			/ framerate * 10
@@ -1929,11 +1914,6 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		ctx->min_frame_length = ctx->frame_length;
 		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-		else {
-			/*No need to set*/
-			pr_debug("frame_length %d < shutter %d",
-				ctx->frame_length, ctx->shutter);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 		frame_length
@@ -1953,11 +1933,6 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		ctx->min_frame_length = ctx->frame_length;
 		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-		else {
-			/*No need to set*/
-			pr_debug("frame_length %d < shutter %d",
-				ctx->frame_length, ctx->shutter);
-		}
 		break;
 	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
 		frame_length
@@ -1977,11 +1952,6 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		ctx->min_frame_length = ctx->frame_length;
 		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-		else {
-			/*No need to set*/
-			pr_debug("frame_length %d < shutter %d",
-				ctx->frame_length, ctx->shutter);
-		}
 		break;
 
 	/* coding with  preview scenario by default */
@@ -2002,11 +1972,6 @@ static kal_uint32 set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		ctx->min_frame_length = ctx->frame_length;
 		if (ctx->frame_length > ctx->shutter)
 			set_dummy(ctx);
-		else {
-			/*No need to set*/
-			pr_debug("frame_length %d < shutter %d",
-				ctx->frame_length, ctx->shutter);
-		}
 		pr_debug("error scenario_id = %d, we use preview scenario\n",
 			scenario_id);
 
