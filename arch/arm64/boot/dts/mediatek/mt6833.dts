@@ -5178,6 +5178,16 @@
 	gps: gps@18c00000 {
 		compatible = "mediatek,gps";
 	};
+
+	mtk_lpm: mtk_lpm {
+		compatible = "mediatek,mtk-lpm";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		lpm-kernel-suspend = <1>;
+		suspend-method = "disable";
+	};
+
 };
 
 #include "mediatek/mt6833-clkitg.dtsi"
