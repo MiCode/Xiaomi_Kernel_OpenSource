@@ -41,6 +41,7 @@ s32 smi_sysram_enable(struct device *larbdev, const u32 master_id,
 s32 mtk_smi_dbg_cg_status(void);
 void mtk_smi_check_comm_ref_cnt(struct device *dev);
 void mtk_smi_check_larb_ref_cnt(struct device *dev);
+int mtk_smi_larb_ultra_dis(struct device *larbdev, bool is_dis);
 #else
 
 
@@ -87,6 +88,12 @@ static inline void mtk_smi_dump_last_pd(const char *user) { }
 static inline
 s32 smi_sysram_enable(struct device *larbdev, const u32 master_id,
 			const bool enable, const char *user)
+{
+	return 0;
+}
+
+static inline
+int mtk_smi_larb_ultra_dis(struct device *larbdev, bool is_dis)
 {
 	return 0;
 }

@@ -419,6 +419,26 @@ static void mtk_smi_clk_disable(const struct mtk_smi *smi)
 	clk_disable_unprepare(smi->clk_apb);
 }
 
+int mtk_smi_larb_ultra_dis(struct device *larbdev, bool is_dis)
+{
+	struct mtk_smi_larb *larb;
+	u32 val;
+
+	if (unlikely(!larbdev))
+		return -EINVAL;
+	larb = dev_get_drvdata(larbdev);
+
+	if (unlikely(!larb))
+		return -ENODEV;
+
+	val = is_dis ? 0xffffffff : 0x0;
+	writel(val, larb->base + SMI_LARB_DISABLE_ULTRA);
+	pr_info("[SMI]larb:%d set dis_ultra:%d\n", larb->larbid, is_dis);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_smi_larb_ultra_dis);
+
 int mtk_smi_larb_get(struct device *larbdev)
 {
 	struct mtk_smi_larb *larb;
