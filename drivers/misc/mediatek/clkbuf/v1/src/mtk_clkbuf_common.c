@@ -8,17 +8,20 @@
 #include "mtk_clkbuf_common.h"
 
 static const char *chip_name[CLKBUF_CHIP_ID_MAX] __initconst = {
-	[MT6983] = "mediatek,mt6983",
+	[MT6789] = "mediatek,mt6789",
+	[MT6833] = "mediatek,mt6833",
+	[MT6855] = "mediatek,mt6855",
+	[MT6873] = "mediatek,mt6873",
 	[MT6879] = "mediatek,mt6879",
 	[MT6893] = "mediatek,mt6893",
 	[MT6895] = "mediatek,mt6895",
-	[MT6873] = "mediatek,mt6873",
-	[MT6855] = "mediatek,mt6855",
+	[MT6983] = "mediatek,mt6983",
 };
 
 static const char *pmic_name[CLKBUF_PMIC_ID_MAX] __initconst = {
-	[MT6685] = "mediatek,mt6685",
 	[MT6359P] = "mediatek,mt6359p",
+	[MT6366] = "mediatek,mt6366",
+	[MT6685] = "mediatek,mt6685",
 };
 
 int clk_buf_read_with_ofs(struct base_hw *hw, struct reg_t *reg,

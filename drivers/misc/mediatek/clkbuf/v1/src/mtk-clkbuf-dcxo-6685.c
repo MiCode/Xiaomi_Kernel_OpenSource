@@ -15,6 +15,15 @@
 
 #define XO_NUM				13
 
+static const char * const valid_cmd_type[] = {
+	"ON",
+	"OFF",
+	"EN_BB",
+	"SIG",
+	"INIT",
+	NULL,
+};
+
 struct mt6685_ldo_regs {
 	struct reg_t _vrfck1_en;
 	struct reg_t _vrfck1_op_en14;
@@ -58,7 +67,6 @@ static struct mt6685_debug_regs debug_reg = {
 static int mt6685_dcxo_dump_reg_log(char *buf);
 static int mt6685_dcxo_dump_misc_log(char *buf);
 static int mt6685_dcxo_misc_store(const char *obj, const char *arg);
-static int mt6685_dcxo_pmic_store(const u8 xo_id, const char *cmd);
 
 static struct xo_buf_t xo_bufs[XO_NUM] = {
 	[0] = {
@@ -206,8 +214,8 @@ struct dcxo_hw mt6685_dcxo = {
 		.dcxo_dump_reg_log = mt6685_dcxo_dump_reg_log,
 		.dcxo_dump_misc_log = mt6685_dcxo_dump_misc_log,
 		.dcxo_misc_store = mt6685_dcxo_misc_store,
-		.dcxo_pmic_store = mt6685_dcxo_pmic_store,
 	},
+	.valid_dcxo_cmd = valid_cmd_type,
 };
 
 static int mt6685_dcxo_dump_reg_log(char *buf)
@@ -358,40 +366,6 @@ static int mt6685_dcxo_misc_store(const char *obj, const char *arg)
 
 	if (!no_lock)
 		mutex_unlock(&mt6685_dcxo.lock);
-
-	return ret;
-}
-
-static int mt6685_dcxo_pmic_store(const u8 xo_id, const char *cmd)
-{
-	struct xo_buf_ctl_cmd_t xo_cmd;
-	int ret = 0;
-
-	xo_cmd.hw_id = CLKBUF_DCXO;
-
-	if (!strcmp(cmd, "ON")) {
-		xo_cmd.cmd = CLKBUF_CMD_ON;
-	} else if (!strcmp(cmd, "OFF")) {
-		xo_cmd.cmd = CLKBUF_CMD_OFF;
-	} else if (!strcmp(cmd, "EN_BB")) {
-		xo_cmd.cmd = CLKBUF_CMD_HW;
-		xo_cmd.mode = DCXO_HW1_MODE;
-	} else if (!strcmp(cmd, "SIG")) {
-		xo_cmd.cmd = CLKBUF_CMD_HW;
-		xo_cmd.mode = DCXO_HW2_MODE;
-	} else if (!strcmp(cmd, "INIT")) {
-		xo_cmd.cmd = CLKBUF_CMD_INIT;
-	} else {
-		pr_notice("unknown command: %s for xo id: %u\n",
-			cmd, xo_id);
-		return -EPERM;
-	}
-
-	ret = clkbuf_dcxo_notify(xo_id, &xo_cmd);
-	if (ret) {
-		pr_notice("clkbuf dcxo cmd failed\n");
-		return ret;
-	}
 
 	return ret;
 }

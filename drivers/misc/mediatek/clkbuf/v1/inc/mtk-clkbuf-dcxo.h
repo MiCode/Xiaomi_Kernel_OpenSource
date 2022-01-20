@@ -78,6 +78,7 @@ struct dcxo_hw {
 	struct reg_t _dcxo_pmrc_en;
 	struct pmic_pmrc_en *pmrc_en;
 	struct dcxo_op ops;
+	const char * const *valid_dcxo_cmd;
 };
 
 int clkbuf_dcxo_init(struct platform_device *pdev);
@@ -108,5 +109,10 @@ int clkbuf_dcxo_dump_misc_log(char *buf);
 int clkbuf_dcxo_dump_dws(char *buf);
 int clkbuf_dcxo_dump_pmrc_en(char *buf);
 bool clkbuf_dcxo_is_bblpm_support(void);
+
+/* Get platform dcxo structures */
+extern struct dcxo_hw mt6359p_dcxo;
+extern struct dcxo_hw mt6685_dcxo;
+extern struct dcxo_hw mt6366_dcxo;
 
 #endif /* CLKBUF_DCXO_H */

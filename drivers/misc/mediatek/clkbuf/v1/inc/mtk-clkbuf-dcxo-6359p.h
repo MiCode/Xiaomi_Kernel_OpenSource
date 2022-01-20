@@ -8,8 +8,6 @@
 
 #include "mtk-clkbuf-dcxo.h"
 
-extern struct dcxo_hw mt6359p_dcxo;
-
 #define MT6359P_PMRC_CON0			(0x1A6)
 #define MT6359P_TOP_SPI_CON1			(0x458)
 #define MT6359P_XO_BUF_CTL0			(0x54c)

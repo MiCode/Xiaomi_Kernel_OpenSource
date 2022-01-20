@@ -608,58 +608,7 @@ int __srclken_rc_subsys_ctrl(struct srclken_rc_subsys *subsys,
 	return ret;
 }
 
-static int rc_xo_ctl_on(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
-		struct xo_buf_ctl_t *xo_buf_ctl)
-{
-	struct srclken_rc_subsys *subsys = NULL;
-	int ret = 0;
-
-	if (ctl_cmd->hw_id != CLKBUF_RC_SUBSYS
-			&& ctl_cmd->hw_id != CLKBUF_HW_ALL)
-		return 0;
-
-	subsys = container_of(xo_buf_ctl, struct srclken_rc_subsys, xo_buf_ctl);
-
-	ret = __srclken_rc_subsys_ctrl(subsys, ctl_cmd->cmd, ctl_cmd->rc_req);
-
-	return ret;
-}
-
-static int rc_xo_ctl_off(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
-		struct xo_buf_ctl_t *xo_buf_ctl)
-{
-	struct srclken_rc_subsys *subsys = NULL;
-	int ret = 0;
-
-	if (ctl_cmd->hw_id != CLKBUF_RC_SUBSYS
-			&& ctl_cmd->hw_id != CLKBUF_HW_ALL)
-		return 0;
-
-	subsys = container_of(xo_buf_ctl, struct srclken_rc_subsys, xo_buf_ctl);
-
-	ret = __srclken_rc_subsys_ctrl(subsys, ctl_cmd->cmd, ctl_cmd->rc_req);
-
-	return ret;
-}
-
-static int rc_xo_ctl_hw(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
-		struct xo_buf_ctl_t *xo_buf_ctl)
-{
-	struct srclken_rc_subsys *subsys = NULL;
-	int ret = 0;
-
-	if (ctl_cmd->hw_id != CLKBUF_RC_SUBSYS
-			&& ctl_cmd->hw_id != CLKBUF_HW_ALL)
-		return 0;
-
-	subsys = container_of(xo_buf_ctl, struct srclken_rc_subsys, xo_buf_ctl);
-
-	ret = __srclken_rc_subsys_ctrl(subsys, ctl_cmd->cmd, ctl_cmd->rc_req);
-
-	return ret;
-}
-
-static int rc_xo_ctl_init(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
+static int rc_xo_ctl(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
 		struct xo_buf_ctl_t *xo_buf_ctl)
 {
 	struct srclken_rc_subsys *subsys = NULL;
@@ -709,11 +658,11 @@ static int rc_xo_ctl_show(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
 
 void __srclken_rc_xo_buf_callback_init(struct xo_buf_ctl_t *xo_buf_ctl)
 {
-	xo_buf_ctl->clk_buf_on_ctrl = rc_xo_ctl_on;
-	xo_buf_ctl->clk_buf_off_ctrl = rc_xo_ctl_off;
-	xo_buf_ctl->clk_buf_sw_ctrl = rc_xo_ctl_on;
-	xo_buf_ctl->clk_buf_hw_ctrl = rc_xo_ctl_hw;
-	xo_buf_ctl->clk_buf_init_ctrl = rc_xo_ctl_init;
+	xo_buf_ctl->clk_buf_on_ctrl = rc_xo_ctl;
+	xo_buf_ctl->clk_buf_off_ctrl = rc_xo_ctl;
+	xo_buf_ctl->clk_buf_sw_ctrl = rc_xo_ctl;
+	xo_buf_ctl->clk_buf_hw_ctrl = rc_xo_ctl;
+	xo_buf_ctl->clk_buf_init_ctrl = rc_xo_ctl;
 	xo_buf_ctl->clk_buf_show_ctrl = rc_xo_ctl_show;
 }
 

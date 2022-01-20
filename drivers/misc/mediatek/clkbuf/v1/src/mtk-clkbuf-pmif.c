@@ -20,15 +20,23 @@
 #define MAX_PMIF_NUM			2
 
 const u32 pmif_chip_to_hw_ver[CLKBUF_CHIP_ID_MAX][MAX_PMIF_NUM] = {
-	[MT6983] = {
+	[MT6789] = {
+		CLKBUF_PMIF_VERSION_1,
+		CLKBUF_PMIF_VERSION_1,
+	},
+	[MT6833] = {
+		CLKBUF_PMIF_VERSION_1,
+		CLKBUF_PMIF_VERSION_1,
+	},
+	[MT6855] = {
 		CLKBUF_PMIF_VERSION_2,
 		CLKBUF_PMIF_VERSION_2,
+	},
+	[MT6873] = {
+		CLKBUF_PMIF_VERSION_1,
+		CLKBUF_PMIF_VERSION_1,
 	},
 	[MT6879] = {
-		CLKBUF_PMIF_VERSION_2,
-		CLKBUF_PMIF_VERSION_2,
-	},
-	[MT6895] = {
 		CLKBUF_PMIF_VERSION_2,
 		CLKBUF_PMIF_VERSION_2,
 	},
@@ -36,11 +44,11 @@ const u32 pmif_chip_to_hw_ver[CLKBUF_CHIP_ID_MAX][MAX_PMIF_NUM] = {
 		CLKBUF_PMIF_VERSION_1,
 		CLKBUF_PMIF_VERSION_1,
 	},
-	[MT6873] = {
-		CLKBUF_PMIF_VERSION_1,
-		CLKBUF_PMIF_VERSION_1,
+	[MT6895] = {
+		CLKBUF_PMIF_VERSION_2,
+		CLKBUF_PMIF_VERSION_2,
 	},
-	[MT6855] = {
+	[MT6983] = {
 		CLKBUF_PMIF_VERSION_2,
 		CLKBUF_PMIF_VERSION_2,
 	},
@@ -118,11 +126,8 @@ int clkbuf_pmif_get_inf_en(enum PMIF_INF inf, u32 *en)
 		return clk_buf_read(&clkbuf_pmif.pmif[0]->hw,
 			&clkbuf_pmif.pmif[0]->_nfc_inf_en, en);
 	} else if (inf == PMIF_RC_INF) {
-		if (clkbuf_pmif.rc_enable)
-			return clk_buf_read(&clkbuf_pmif.pmif[0]->hw,
-				&clkbuf_pmif.pmif[0]->_rc_inf_en, en);
-		else
-			return -EHW_NOT_SUPPORT;
+		return clk_buf_read(&clkbuf_pmif.pmif[0]->hw,
+			&clkbuf_pmif.pmif[0]->_rc_inf_en, en);
 	}
 
 	return -EINVAL;

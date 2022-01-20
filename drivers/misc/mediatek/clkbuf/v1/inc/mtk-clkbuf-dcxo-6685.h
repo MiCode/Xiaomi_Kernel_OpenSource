@@ -8,8 +8,6 @@
 
 #include "mtk-clkbuf-dcxo.h"
 
-extern struct dcxo_hw mt6685_dcxo;
-
 #define MT6685_PMRC_CON0			(0x190)
 #define MT6685_PMRC_CON1			(0x191)
 #define MT6685_PMRC_CON0_SET			(0x198)

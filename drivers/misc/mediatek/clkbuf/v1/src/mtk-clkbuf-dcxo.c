@@ -15,8 +15,6 @@
 #include <linux/slab.h>
 
 #include "mtk-clkbuf-dcxo.h"
-#include "mtk-clkbuf-dcxo-6359p.h"
-#include "mtk-clkbuf-dcxo-6685.h"
 
 #define CLKBUF_PMIC_CENTRAL_BASE	"mediatek,clkbuf-pmic-central-base"
 #define CLKBUF_XO_MODE_NUM		"mediatek,xo-mode-num"
@@ -47,8 +45,9 @@
 static struct dcxo_hw *dcxo;
 
 static struct dcxo_hw *dcxos[CLKBUF_PMIC_ID_MAX] = {
-	[MT6685] = &mt6685_dcxo,
 	[MT6359P] = &mt6359p_dcxo,
+	[MT6366] = &mt6366_dcxo,
+	[MT6685] = &mt6685_dcxo,
 };
 
 int clkbuf_xo_sanity_check(u8 xo_idx)
@@ -186,10 +185,8 @@ static int set_xo_en(u8 xo_idx, bool onoff)
 	if (!no_lock)
 		mutex_unlock(&dcxo->lock);
 
-	if (ret) {
+	if (ret)
 		pr_notice("set xo en failed\n");
-		return ret;
-	}
 
 	return ret;
 }
@@ -225,10 +222,8 @@ static int set_xo_mode(u8 xo_idx, u8 xo_mode)
 	if (!no_lock)
 		mutex_unlock(&dcxo->lock);
 
-	if (ret) {
+	if (ret)
 		pr_notice("set xo mode failed\n");
-		return ret;
-	}
 
 	return ret;
 }
@@ -255,11 +250,9 @@ static int set_xo_impedance(u8 xo_idx, u32 impedance)
 	if (!no_lock)
 		mutex_unlock(&dcxo->lock);
 
-	if (ret) {
+	if (ret)
 		pr_notice("set xo_buf%d impedance failed: %d\n",
 			xo_idx, ret);
-		return ret;
-	}
 
 	return ret;
 }
@@ -286,11 +279,9 @@ static int set_xo_desense(u8 xo_idx, u32 desense)
 	if (!no_lock)
 		mutex_unlock(&dcxo->lock);
 
-	if (ret) {
+	if (ret)
 		pr_notice("set xo_bufs%d desense failed: %d\n",
 			xo_idx, ret);
-		return ret;
-	}
 
 	return ret;
 }
@@ -317,11 +308,9 @@ static int set_xo_drvcurr(u8 xo_idx, u32 drvcurr)
 	if (!no_lock)
 		mutex_unlock(&dcxo->lock);
 
-	if (ret) {
+	if (ret)
 		pr_notice("set xo_bufs%u drv_curr failed: %d\n",
 			xo_idx, ret);
-		return ret;
-	}
 
 	return ret;
 }
@@ -414,10 +403,9 @@ int clkbuf_dcxo_get_xo_en(u8 idx, u32 *en)
 
 	ret = clkbuf_dcxo_get_auxout(dcxo->xo_bufs[idx].xo_en_auxout_sel,
 			&dcxo->xo_bufs[idx]._xo_en_auxout, en);
-	if (ret) {
+	if (ret)
 		pr_notice("get xo_buf%u en failed with err: %d\n", idx, ret);
-		return ret;
-	}
+
 	return ret;
 }
 
@@ -601,7 +589,11 @@ int clkbuf_dcxo_dump_misc_log(char *buf)
 	int ret = 0;
 	u8 i;
 
-	len += dcxo->ops.dcxo_dump_misc_log(buf + len);
+	if (dcxo->ops.dcxo_dump_misc_log == NULL)
+		len += snprintf(buf + len, PAGE_SIZE - len,
+				"DCXO dump misc function not implemented!!\n");
+	else
+		len += dcxo->ops.dcxo_dump_misc_log(buf + len);
 
 	/* dump current impedance setting */
 	if (!dcxo->impedance_support)
@@ -648,7 +640,10 @@ DUMP_MISC_FAILED:
 
 int clkbuf_dcxo_dump_reg_log(char *buf)
 {
-	return dcxo->ops.dcxo_dump_reg_log(buf);
+	if (dcxo->ops.dcxo_dump_reg_log != NULL)
+		return dcxo->ops.dcxo_dump_reg_log(buf);
+	else
+		return snprintf(buf, PAGE_SIZE, "DCXO dump reg function not implemented!!\n");
 }
 
 int clkbuf_dcxo_dump_dws(char *buf)
@@ -808,14 +803,68 @@ static int clkbuf_dcxo_voter_store(u8 xo_idx, const char *arg1)
 	return 0;
 }
 
+int dcxo_pmic_store(const u8 xo_id, const char *cmd)
+{
+	struct xo_buf_ctl_cmd_t xo_cmd;
+	int ret = 0;
+	const char * const *match_cmd = dcxo->valid_dcxo_cmd;
+
+	xo_cmd.hw_id = CLKBUF_DCXO;
+
+	while (*match_cmd) {
+		if (!strcmp(*match_cmd, cmd))
+			break;
+		match_cmd += 1;
+	}
+	if (*match_cmd == NULL) {
+		pr_notice("unknown DCXO command %s for xo id: %u!\n",
+			cmd, xo_id);
+		return -EPERM;
+	}
+
+	if (xo_id >= dcxo->xo_num) {
+		pr_notice("xo_id out of range: %u in %u\n",
+			 xo_id, dcxo->xo_num);
+		return -EPERM;
+	}
+
+	if (!strcmp(cmd, "ON")) {
+		xo_cmd.cmd = CLKBUF_CMD_ON;
+	} else if (!strcmp(cmd, "OFF")) {
+		xo_cmd.cmd = CLKBUF_CMD_OFF;
+	} else if (!strcmp(cmd, "EN_BB")) {
+		xo_cmd.cmd = CLKBUF_CMD_HW;
+		xo_cmd.mode = DCXO_HW1_MODE;
+	} else if (!strcmp(cmd, "SIG")) {
+		xo_cmd.cmd = CLKBUF_CMD_HW;
+		xo_cmd.mode = DCXO_HW2_MODE;
+	} else if (!strcmp(cmd, "CO_BUF")) {
+		xo_cmd.cmd = CLKBUF_CMD_HW;
+		xo_cmd.mode = DCXO_CO_BUF_MODE;
+	} else if (!strcmp(cmd, "INIT")) {
+		xo_cmd.cmd = CLKBUF_CMD_INIT;
+	}
+
+	ret = clkbuf_dcxo_notify(xo_id, &xo_cmd);
+	if (ret)
+		pr_notice("clkbuf dcxo cmd failed\n");
+
+	return ret;
+}
+
 int clkbuf_dcxo_pmic_store(const char *cmd, const char *arg1, const char *arg2)
 {
 	u32 val = 0;
 	int ret = 0;
 	int xo_id;
 
-	if (!strcmp(cmd, "misc"))
-		ret = dcxo->ops.dcxo_misc_store(arg1, arg2);
+	if (!strcmp(cmd, "misc")) {
+		if (dcxo->ops.dcxo_misc_store != NULL)
+			ret = dcxo->ops.dcxo_misc_store(arg1, arg2);
+		else
+			pr_info("DCXO misc store function not implemented!!\n");
+		return ret;
+	}
 
 	if (ret)
 		return ret;
@@ -851,7 +900,7 @@ int clkbuf_dcxo_pmic_store(const char *cmd, const char *arg1, const char *arg2)
 			return -EPERM;
 		return set_xo_drvcurr(xo_id, val);
 	} else if (!strcmp(cmd, "DCXO")) {
-		return dcxo->ops.dcxo_pmic_store(xo_id, arg2);
+		return dcxo_pmic_store(xo_id, arg2);
 	} else if (!strcmp(cmd, "XO_VOTER")) {
 		return clkbuf_dcxo_voter_store(xo_id, arg2);
 	}

@@ -94,18 +94,21 @@ static struct kobj_attribute _name##_attr = {			\
 #endif /* CONFIG_PM */
 
 enum CLKBUF_CHIP_ID {
-	MT6983,
+	MT6789,
+	MT6833,
+	MT6855,
+	MT6873,
 	MT6879,
 	MT6893,
 	MT6895,
-	MT6873,
-	MT6855,
+	MT6983,
 	CLKBUF_CHIP_ID_MAX,
 };
 
 enum CLKBUF_PMIC_ID {
-	MT6685,
 	MT6359P,
+	MT6366,
+	MT6685,
 	CLKBUF_PMIC_ID_MAX,
 };
 

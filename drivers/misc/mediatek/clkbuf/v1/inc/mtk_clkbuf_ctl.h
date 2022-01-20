@@ -38,7 +38,6 @@ struct clkbuf_misc {
 
 extern int clk_buf_ctrl(const char *xo_name, bool onoff);
 extern int clk_buf_hw_ctrl(const char *xo_name, bool onoff);
-extern int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req);
 extern int clk_buf_set_by_flightmode(bool on);
 extern int clk_buf_control_bblpm(bool on);
 extern int clk_buf_dump_log(void);
@@ -49,18 +48,22 @@ extern int clk_buf_bblpm_enter_cond(void);
 extern int srclken_dump_sta_log(void);
 extern int srclken_dump_cfg_log(void);
 extern int srclken_dump_last_sta_log(void);
+extern int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req);
 #else /* !defined(SRCLKEN_RC_SUPPORT) */
 static inline int srclken_dump_sta_log(void)
 {
 	return -ENODEV;
 }
-
 static inline int srclken_dump_cfg_log(void)
 {
 	return -ENODEV;
 }
 
 static inline int srclken_dump_last_sta_log(void)
+{
+	return -ENODEV;
+}
+static inline int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req)
 {
 	return -ENODEV;
 }
