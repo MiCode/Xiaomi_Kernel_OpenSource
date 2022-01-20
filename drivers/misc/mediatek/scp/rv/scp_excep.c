@@ -227,7 +227,7 @@ void scp_show_bus_tracker_status(void)
 	pr_notice("BUS DBG CON: %x\n", bus_tracker->dbg_con);
 	for (i = 3; i >= 0; --i) {
 		offset = i << 3;
-		if (!bus_tracker->dbg_r[offset + 7] && !bus_tracker->dbg_r[offset + 7])
+		if (!bus_tracker->dbg_r[offset + 7])
 			continue;
 		pr_notice("R[%u-%u] %08x %08x %08x %08x %08x %08x %08x %08x\n",
 				offset, offset + 7,
