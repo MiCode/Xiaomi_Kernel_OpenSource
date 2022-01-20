@@ -80,7 +80,7 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 		SENSOR_DRVNAME_S5K3M5SX_MIPI_RAW,
 		{
 			{RST, Vol_Low, 1},
-			{DVDD, Vol_1100, 0},
+			{DVDD, Vol_1100, 1},
 			{AVDD, Vol_2800, 0},
 			{AFVDD, Vol_2800, 0},
 			{DOVDD, Vol_1800, 1},
