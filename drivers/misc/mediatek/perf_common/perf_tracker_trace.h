@@ -22,10 +22,11 @@ TRACE_EVENT(perf_index_s,
 		int bw_c,
 		int bw_g,
 		int bw_mm,
-		int bw_total
+		int bw_total,
+		int vcore_uv
 	),
 
-	TP_ARGS(sf0, sf1, sf2, dram_freq, bw_c, bw_g, bw_mm, bw_total),
+	TP_ARGS(sf0, sf1, sf2, dram_freq, bw_c, bw_g, bw_mm, bw_total, vcore_uv),
 
 	TP_STRUCT__entry(
 		__field(unsigned int, sf0)
@@ -36,6 +37,7 @@ TRACE_EVENT(perf_index_s,
 		__field(int, bw_g)
 		__field(int, bw_mm)
 		__field(int, bw_total)
+		__field(int, vcore_uv)
 	),
 
 	TP_fast_assign(
@@ -47,9 +49,10 @@ TRACE_EVENT(perf_index_s,
 		__entry->bw_g      = bw_g;
 		__entry->bw_mm     = bw_mm;
 		__entry->bw_total  = bw_total;
+		__entry->vcore_uv  = vcore_uv;
 	),
 
-	TP_printk("sched_freq=%d|%d|%d dram_freq=%d bw=%d|%d|%d|%d",
+	TP_printk("sched_freq=%d|%d|%d dram_freq=%d bw=%d|%d|%d|%d vcore=%d",
 		__entry->sf0,
 		__entry->sf1,
 		__entry->sf2,
@@ -57,7 +60,9 @@ TRACE_EVENT(perf_index_s,
 		__entry->bw_c,
 		__entry->bw_g,
 		__entry->bw_mm,
-		__entry->bw_total)
+		__entry->bw_total,
+		__entry->vcore_uv
+		)
 );
 
 TRACE_EVENT(perf_index_l,
@@ -135,6 +140,21 @@ TRACE_EVENT(perf_index_l,
 		)
 );
 
+TRACE_EVENT(perf_index_sbin,
+	TP_PROTO(u32 *raw_data, u32 lens),
+	TP_ARGS(raw_data, lens),
+	TP_STRUCT__entry(
+		__dynamic_array(u32, raw_data, lens)
+		__field(u32, lens)
+	),
+	TP_fast_assign(
+		memcpy(__get_dynamic_array(raw_data), raw_data,
+			lens * sizeof(u32));
+		__entry->lens = lens;
+	),
+	TP_printk("data=%s", __print_array(__get_dynamic_array(raw_data),
+		__entry->lens, sizeof(u32)))
+);
 #endif /*_PERF_TRACKER_TRACE_H */
 
 #undef TRACE_INCLUDE_PATH

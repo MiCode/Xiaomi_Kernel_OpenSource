@@ -11,6 +11,6 @@ ccflags-y += -I$(srctree)/drivers/devfreq/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/swpm_v1/
 
 ifeq ($(CONFIG_MTK_PERF_TRACKER),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/perf/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/perf_common/
 endif
 

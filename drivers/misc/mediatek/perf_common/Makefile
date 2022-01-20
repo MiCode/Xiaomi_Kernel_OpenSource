@@ -15,7 +15,15 @@ MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 NUXINCLUDE += -include $(srctree)/kernel/sched/sched.h
 ccflags-y += -I$(src)              # needed for trace events
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/vcorefs_v3/
+ccflags-y += -I$(srctree)/drivers/devfreq/
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768" "mt6781" "mt6833" "mt6853" "mt6877" "mt6885" "mt6893"))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos/
+endif
+
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 

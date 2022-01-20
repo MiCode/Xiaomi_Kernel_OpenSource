@@ -3,6 +3,7 @@
  * Copyright (C) 2019 MediaTek Inc.
  */
 
+
 #include <trace/events/sched.h>
 
 #ifdef CONFIG_MTK_DRAMC
@@ -11,6 +12,7 @@
 
 #include <linux/mm.h>
 #include <linux/swap.h>
+#include <helio-dvfsrc.h>
 
 #define CREATE_TRACE_POINTS
 #include <perf_tracker_trace.h>
@@ -51,10 +53,35 @@ u32 __attribute__((weak)) qos_sram_read(u32 offset)
 	return 0;
 }
 
+int __attribute__((weak)) get_cur_vcore_uv()
+{
+	return 0;
+}
+
+int __attribute__((weak)) get_cur_ddr_khz()
+{
+	return 0;
+}
+
+unsigned int __attribute__((weak)) qos_rec_get_hist_bw(unsigned int idx, unsigned int type)
+{
+	return 0;
+}
+
+unsigned int __attribute__((weak)) qos_rec_get_hist_data_bw(unsigned int idx, unsigned int type)
+{
+	return 0;
+}
+
+unsigned int __attribute__((weak)) qos_rec_get_hist_idx(void)
+{
+	return 0xFFFF;
+}
+
 static inline u32 cpu_stall_ratio(int cpu)
 {
-#ifdef CONFIG_MTK_QOS_FRAMEWORK
-	return qos_sram_read(CM_STALL_RATIO_ID_0 + cpu);
+#ifdef CM_STALL_RATIO_OFFSET
+	return qos_sram_read(CM_STALL_RATIO_OFFSET + cpu * 4);
 #else
 	return 0;
 #endif
@@ -62,6 +89,8 @@ static inline u32 cpu_stall_ratio(int cpu)
 
 #define K(x) ((x) << (PAGE_SHIFT - 10))
 #define max_cpus 8
+#define bw_hist_nums 8
+#define bw_record_nums 32
 
 void perf_tracker(u64 wallclock,
 		    long mm_available,
@@ -69,7 +98,9 @@ void perf_tracker(u64 wallclock,
 {
 	int dram_rate = 0;
 	struct mtk_btag_mictx_iostat_struct *iostat_ptr = &iostat;
-	int bw_c = 0, bw_g = 0, bw_mm = 0, bw_total = 0;
+	int bw_c = 0, bw_g = 0, bw_mm = 0, bw_total = 0, bw_idx = 0;
+	u32 bw_record = 0, bw_data[bw_record_nums] = {0};
+	int vcore_uv = 0;
 	int i;
 	int stall[max_cpus] = {0};
 	unsigned int sched_freq[3] = {0};
@@ -79,7 +110,14 @@ void perf_tracker(u64 wallclock,
 		return;
 
 	/* dram freq */
-	dram_rate = get_dram_data_rate();
+	dram_rate = get_cur_ddr_khz();
+	dram_rate = dram_rate / 1000;
+
+	if (dram_rate <= 0)
+		dram_rate = get_dram_data_rate();
+
+	/* vcore  */
+	vcore_uv = get_cur_vcore_uv();
 
 #ifdef CONFIG_MTK_QOS_FRAMEWORK
 	/* emi */
@@ -88,6 +126,28 @@ void perf_tracker(u64 wallclock,
 	bw_mm = qos_sram_read(QOS_DEBUG_3);
 	bw_total = qos_sram_read(QOS_DEBUG_0);
 #endif
+	/* emi history */
+	bw_idx = qos_rec_get_hist_idx();
+	if (bw_idx != 0xFFFF) {
+		for (bw_record = 0; bw_record < bw_record_nums; bw_record += 8) {
+			/* occupied bw history */
+			bw_data[bw_record]   = qos_rec_get_hist_bw(bw_idx, 0);
+			bw_data[bw_record+1] = qos_rec_get_hist_bw(bw_idx, 1);
+			bw_data[bw_record+2] = qos_rec_get_hist_bw(bw_idx, 2);
+			bw_data[bw_record+3] = qos_rec_get_hist_bw(bw_idx, 3);
+			/* data bw history */
+			bw_data[bw_record+4] = qos_rec_get_hist_data_bw(bw_idx, 0);
+			bw_data[bw_record+5] = qos_rec_get_hist_data_bw(bw_idx, 1);
+			bw_data[bw_record+6] = qos_rec_get_hist_data_bw(bw_idx, 2);
+			bw_data[bw_record+7] = qos_rec_get_hist_data_bw(bw_idx, 3);
+
+			bw_idx -= 1;
+			if (bw_idx < 0)
+				bw_idx = bw_idx + bw_hist_nums;
+		}
+		/* trace for short bin */
+		trace_perf_index_sbin(bw_data, bw_record);
+	}
 	/* sched: cpu freq */
 	for (cid = 0; cid < cluster_nr; cid++)
 		sched_freq[cid] = mt_cpufreq_get_cur_freq(cid);
@@ -95,8 +155,8 @@ void perf_tracker(u64 wallclock,
 	/* trace for short msg */
 	trace_perf_index_s(
 			sched_freq[0], sched_freq[1], sched_freq[2],
-			dram_rate, bw_c, bw_g, bw_mm, bw_total
-			);
+			dram_rate, bw_c, bw_g, bw_mm, bw_total,
+			vcore_uv);
 
 	if (!hit_long_check())
 		return;
