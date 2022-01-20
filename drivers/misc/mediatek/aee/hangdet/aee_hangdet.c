@@ -65,7 +65,7 @@ extern void mt_irq_dump_status(unsigned int irq);
 #define SYSTIMER_CNTCV_H	(0xC)
 
 /* Delay to change RGU timeout in ms */
-#define CHG_TMO_DLY		2000
+#define CHG_TMO_DLY_SEC		5L
 #define CHG_TMO_EN		0
 
 static int start_kicker(void);
@@ -102,6 +102,11 @@ static unsigned int cpus_kick_bit;
 static atomic_t plug_mask = ATOMIC_INIT(0x0);
 
 static struct pt_regs saved_regs;
+struct timer_list aee_dump_timer;
+static unsigned long long aee_dump_timer_t;
+static unsigned long long all_k_timer_t;
+static unsigned int aee_dump_timer_c;
+static unsigned int cpus_skip_bit;
 
 __weak void mt_irq_dump_status(unsigned int irq)
 {
@@ -312,6 +317,82 @@ static void kwdt_time_sync(void)
 		(unsigned int)(tv_android.tv_nsec / 1000));
 }
 
+static void kwdt_dump_func(void)
+{
+	struct task_struct *g, *t;
+	int i = 0;
+
+	for_each_process_thread(g, t) {
+		if (!strcmp(t->comm, "watchdogd")) {
+#ifdef CONFIG_ARM64
+			pr_info("watchdogd on CPU %d\n", t->cpu);
+#endif
+			sched_show_task(t);
+			break;
+		}
+	}
+
+	for (i = 0; i < CPU_NR; i++) {
+		struct rq *rq;
+
+		pr_info("task on CPU%d\n", i);
+		rq = cpu_rq(i);
+		if (cpu_rq(i))
+			sched_show_task(rq->curr);
+	}
+
+	dump_wdk_bind_info();
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR)
+	if (p_mt_aee_dump_irq_info)
+		p_mt_aee_dump_irq_info();
+#endif
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+	sysrq_sched_debug_show_at_AEE();
+#endif
+	if (toprgu_base)
+		iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
+	/* trigger HWT */
+	crash_setup_regs(&saved_regs, NULL);
+	mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT, AEE_REBOOT_MODE_WDT, "HWT", &saved_regs);
+}
+
+static void aee_dump_timer_func(struct timer_list *t)
+{
+	spin_lock(&lock);
+
+	if ((sched_clock() > all_k_timer_t) &&
+	    (sched_clock() - all_k_timer_t) < (CHG_TMO_DLY_SEC + 1) * 1000000000ULL) {
+		g_change_tmo = 0;
+		aee_dump_timer_t = 0;
+		spin_unlock(&lock);
+		return;
+	} else if ((all_k_timer_t > sched_clock()) &&
+	    (ULLONG_MAX - all_k_timer_t + sched_clock()) < (CHG_TMO_DLY_SEC + 1) * 1000000000ULL) {
+		g_change_tmo = 0;
+		aee_dump_timer_t = 0;
+		spin_unlock(&lock);
+		return;
+	}
+
+	if (!g_hang_detected ||
+	    (get_kick_bit() & get_check_bit()) == get_check_bit()) {
+		g_change_tmo = 0;
+		aee_dump_timer_t = 0;
+		spin_unlock(&lock);
+		if (toprgu_base) {
+			unsigned int tmo_len = 0;
+
+			tmo_len = ioread32(toprgu_base + WDT_LENGTH);
+			iowrite32(tmo_len | WDT_LENGTH_KEY, toprgu_base + WDT_LENGTH);
+			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
+		}
+	} else {
+		spin_unlock(&lock);
+		kwdt_dump_func();
+	}
+}
+
 static void kwdt_process_kick(int local_bit, int cpu,
 				unsigned long curInterval, char msg_buf[],
 				unsigned int original_kicker)
@@ -321,6 +402,27 @@ static void kwdt_process_kick(int local_bit, int cpu,
 
 	if (toprgu_base && (ioread32(toprgu_base + WDT_MODE) & WDT_MODE_EN))
 		r_counter = ioread32(toprgu_base + WDT_COUNTER) / (32 * 1024);
+
+	if (aee_dump_timer_t && ((sched_clock() - aee_dump_timer_t) >
+	    CHG_TMO_DLY_SEC * 1000000000ULL)) {
+		if (!aee_dump_timer_c) {
+			aee_dump_timer_c = 1;
+			snprintf(msg_buf, WK_MAX_MSG_SIZE, "wdtk-et %s %d cpu=%d o_k=%d\n",
+				  __func__, __LINE__, cpu, original_kicker);
+			spin_unlock(&lock);
+			pr_info("%s", msg_buf);
+			kwdt_dump_func();
+			return;
+		}
+
+		snprintf(msg_buf, WK_MAX_MSG_SIZE,
+			"all wdtk was already stopped cpu=%d o_k=%d\n",
+			cpu, original_kicker);
+
+		spin_unlock(&lock);
+		pr_info("%s", msg_buf);
+		return;
+	}
 
 	local_bit = kick_bit;
 	if (cpu != original_kicker) {
@@ -333,7 +435,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	} else if ((g_hang_detected == 0) &&
 		    ((local_bit & get_check_bit()) != get_check_bit()) &&
 		    (sched_clock() - wk_lasthpg_t[cpu] >
-		     curInterval * 1000)) {
+		     curInterval * 1000ULL)) {
 		g_hang_detected = 1;
 		dump_timeout = 1;
 	}
@@ -363,6 +465,10 @@ static void kwdt_process_kick(int local_bit, int cpu,
 #endif
 
 	if ((local_bit & get_check_bit()) == get_check_bit()) {
+		all_k_timer_t = sched_clock();
+		del_timer_sync(&aee_dump_timer);
+		aee_dump_timer_t = 0;
+		cpus_skip_bit = 0;
 		msg_buf[5] = 'k';
 		g_hang_detected = 0;
 		dump_timeout = 0;
@@ -380,8 +486,16 @@ static void kwdt_process_kick(int local_bit, int cpu,
 #endif
 
 	for (i = 0; i < CPU_NR; i++) {
-		if ((atomic_read(&plug_mask) & (1 << i)) || (i == cpu))
+		if ((atomic_read(&plug_mask) & (1 << i)) || (i == cpu)) {
 			cpus_kick_bit |= (1 << i);
+			if (cpus_skip_bit & (1 << i))
+				cpus_kick_bit &= ~(1 << i);
+		}
+	}
+
+	if (cpu != original_kicker) {
+		cpus_kick_bit &= ~(1 << cpu);
+		cpus_skip_bit |= (1 << cpu);
 	}
 
 	spin_unlock(&lock);
@@ -389,13 +503,6 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	pr_info("%s", msg_buf);
 
 	if (dump_timeout) {
-		int dump = 0;
-		struct task_struct *g, *t;
-		unsigned int tmo_len = 0;
-
-		if (toprgu_base)
-			tmo_len = ioread32(toprgu_base + WDT_LENGTH);
-
 #if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
 		tick_broadcast_mtk_aee_dump();
 		if (systimer_irq)
@@ -416,27 +523,6 @@ static void kwdt_process_kick(int local_bit, int cpu,
 				ioread32(systimer_base + SYST0_CON),
 				ioread32(systimer_base + SYST0_VAL));
 #endif
-
-		pr_info("WDT_COUNTER %d\n", r_counter);
-
-		for_each_process_thread(g, t) {
-
-			if (!strcmp(t->comm, "watchdogd")) {
-#ifdef CONFIG_ARM64
-				pr_info("watchdogd on CPU %d\n", t->cpu);
-#endif
-				sched_show_task(t);
-
-				for (i = 0; i < CPU_NR; i++) {
-					struct rq *rq;
-
-					pr_info("task on CPU%d\n", i);
-					rq = cpu_rq(i);
-					if (cpu_rq(i))
-						sched_show_task(rq->curr);
-				}
-			}
-		}
 #if CHG_TMO_EN
 		if (toprgu_base) {
 			spin_lock(&lock);
@@ -447,51 +533,14 @@ static void kwdt_process_kick(int local_bit, int cpu,
 			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
 		}
 #endif
-		preempt_disable();
-		for (i = 0; i < CHG_TMO_DLY; i++) {
-			mdelay(1);
+		if (dump_timeout == 2)
+			kwdt_dump_func();
+		else {
 			spin_lock(&lock);
-			if (!g_hang_detected) {
-				spin_unlock(&lock);
-				dump = 0;
-				break;
-			} else if ((get_kick_bit() & get_check_bit()) ==
-					get_check_bit()) {
-				g_hang_detected = 0;
-				spin_unlock(&lock);
-				dump = 0;
-				break;
-			}
-
-			dump = 1;
+			aee_dump_timer_t = sched_clock();
 			spin_unlock(&lock);
-
-			if (dump_timeout == 2)
-				break;
-		}
-
-		if (dump) {
-			dump_wdk_bind_info();
-
-#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR)
-			if (p_mt_aee_dump_irq_info)
-				p_mt_aee_dump_irq_info();
-#endif
-#ifdef CONFIG_MTK_SCHED_EXTENSION
-			sysrq_sched_debug_show_at_AEE();
-#endif
-			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
-			/* trigger HWT */
-			crash_setup_regs(&saved_regs, NULL);
-			mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT, AEE_REBOOT_MODE_WDT,
-					  "HWT", &saved_regs);
-		} else {
-			spin_lock(&lock);
-			g_change_tmo = 0;
-			spin_unlock(&lock);
-			iowrite32(tmo_len | WDT_LENGTH_KEY, toprgu_base + WDT_LENGTH);
-			iowrite32(WDT_RST_RELOAD, toprgu_base + WDT_RST);
-			preempt_enable();
+			aee_dump_timer.expires = jiffies + CHG_TMO_DLY_SEC * HZ;
+			add_timer(&aee_dump_timer);
 		}
 	}
 }
@@ -667,6 +716,12 @@ static int wdt_pm_notify(struct notifier_block *notify_block,
 	case PM_RESTORE_PREPARE:
 		lastsuspend_t = sched_clock();
 		lastsuspend_syst = cnt;
+
+		spin_lock(&lock);
+		del_timer_sync(&aee_dump_timer);
+		aee_dump_timer_t = 0;
+		g_hang_detected = 0;
+		spin_unlock(&lock);
 		break;
 
 	case PM_POST_SUSPEND:
@@ -781,6 +836,8 @@ static int __init hangdet_init(void)
 #endif
 		pr_info("%s set wdk_ktime %lld\n", __func__, cnt);
 	}
+
+	timer_setup(&aee_dump_timer, aee_dump_timer_func, 0);
 
 	return 0;
 }
