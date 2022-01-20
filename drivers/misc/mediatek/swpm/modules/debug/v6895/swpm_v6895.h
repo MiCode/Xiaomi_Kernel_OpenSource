@@ -86,6 +86,11 @@ enum ddr_freq {
 };
 
 enum core_ts_sample {
+	CORE_TS_DRAM_CH2,
+	CORE_TS_DRAM_CH0,
+	CORE_TS_SOC_TOP,
+	CORE_TS_DRAM_CH3,
+	CORE_TS_DRAM_CH1,
 	CORE_TS_SOC_MM,
 
 	NR_CORE_TS,
@@ -216,13 +221,16 @@ enum infra_power_state {
 };
 
 enum core_static_type {
-	CORE_STATIC_VDEC,
-	CORE_STATIC_TOP,
-	CORE_STATIC_VENC,
-	CORE_STATIC_DRAMC,
+	CORE_STATIC_AUD,
 	CORE_STATIC_CONNSYS,
+	CORE_STATIC_DRAMC,
 	CORE_STATIC_INFRA,
-	CORE_STATIC_MMSYS,
+	CORE_STATIC_MDP,
+	CORE_STATIC_DISP,
+	CORE_STATIC_MMINFRA,
+	CORE_STATIC_VDEC,
+	CORE_STATIC_VENC,
+
 	NR_CORE_STATIC_TYPE
 };
 
@@ -438,6 +446,10 @@ struct swpm_rec_data {
 //extern int ca_force_stop_set_in_kernel(int val);
 #endif
 
+#if IS_ENABLED(CONFIG_MEDIATEK_CPUFREQ_DEBUG_LITE)
+extern int get_devinfo(int i);
+#endif
+
 extern struct power_rail_data swpm_power_rail[NR_POWER_RAIL];
 extern spinlock_t swpm_snap_spinlock;
 extern struct mem_swpm_index mem_idx_snap;
@@ -450,6 +462,9 @@ extern struct share_wrap *wrap_d;
 extern char *swpm_power_rail_to_string(enum power_rail p);
 extern void swpm_set_update_cnt(unsigned int type, unsigned int cnt);
 extern void swpm_set_enable(unsigned int type, unsigned int enable);
+extern unsigned int swpm_core_static_data_get(void);
+extern void swpm_core_static_replaced_data_set(unsigned int data);
+extern void swpm_core_static_data_init(void);
 extern int swpm_v6895_init(void);
 extern void swpm_v6895_exit(void);
 
