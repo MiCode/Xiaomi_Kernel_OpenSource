@@ -2161,6 +2161,12 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 		return 0;
 	}
 
+	/* turn on scp_sel mux before access any scp reg/sram */
+	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+
+	/* request 26M resource  */
+	scp_resource_req(SCP_REQ_26M);
+
 	/* do ulposc calibration */
 	mt_scp_dvfs_do_ulposc_cali_process();
 	kfree(dvfs.ulposc_hw.cali_configs);

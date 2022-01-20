@@ -2589,14 +2589,6 @@ static int __init scp_init(void)
 	scp_dvfs_init();
 	wait_scp_dvfs_init_done();
 
-	if (scp_dvfs_feature_enable()) {
-		/* pll maybe gate, request pll before access any scp reg/sram */
-		scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-
-		/* keep Univpll */
-		scp_resource_req(SCP_REQ_26M);
-	}
-
 	if (platform_driver_register(&mtk_scp_device))
 		pr_notice("[SCP] scp probe fail\n");
 
