@@ -826,13 +826,6 @@ static void mtk_ovl_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			comp->regs_pa + DISP_REG_OVL_FBDC_CFG1, val, val);
 	}
 
-	/* In 6855 we need to set FBDC_FILTER_EN */
-	if (compr_info && strncmp(compr_info->name, "PVRIC_V4_1", 10) == 0) {
-		val = FBDC_FILTER_EN;
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_REG_OVL_FBDC_CFG1, val, val);
-	}
-
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_SRC_CON,
 		       DISP_OVL_FORCE_RELAY_MODE, DISP_OVL_FORCE_RELAY_MODE);
@@ -2102,6 +2095,10 @@ static bool compr_l_config_PVRIC_V4_1(struct mtk_ddp_comp *comp,
 				       DISP_REG_OVL_LX_FBDC_CNST_CLR1(lye_idx),
 			       0x1000000, ~0);
 	}
+	/* In 6855 we need to set FBDC_FILTER_EN */
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_OVL_FBDC_CFG1,
+		       FBDC_FILTER_EN, FBDC_FILTER_EN);
 
 	return 0;
 }
