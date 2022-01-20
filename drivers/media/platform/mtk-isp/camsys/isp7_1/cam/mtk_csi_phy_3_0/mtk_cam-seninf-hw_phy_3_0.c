@@ -2953,15 +2953,15 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_SETTING_1),
 			SENINF_READ_REG(rx, DPHY_RX_SPARE0));
 
-		SHOW(buf, len, "data_not_enough_cnt : <%d>",
+		SHOW(buf, len, "data_not_enough_cnt : <%d>\n",
 			ctx->data_not_enough_cnt);
-		SHOW(buf, len, "\terr_lane_resync_cnt : <%d>",
+		SHOW(buf, len, "err_lane_resync_cnt : <%d>\n",
 			ctx->err_lane_resync_cnt);
-		SHOW(buf, len, "\tcrc_err_cnt : <%d>",
+		SHOW(buf, len, "crc_err_cnt : <%d>\n",
 			ctx->crc_err_flag);
-		SHOW(buf, len, "\tecc_err_double_cnt : <%d>",
+		SHOW(buf, len, "ecc_err_double_cnt : <%d>\n",
 			ctx->ecc_err_double_cnt);
-		SHOW(buf, len, "\tecc_err_corrected_cnt : <%d>\n",
+		SHOW(buf, len, "ecc_err_corrected_cnt : <%d>\n",
 			ctx->ecc_err_corrected_cnt);
 
 		if (SENINF_READ_REG(csi2, SENINF_CSI2_IRQ_STATUS) & ~(0x324)) {

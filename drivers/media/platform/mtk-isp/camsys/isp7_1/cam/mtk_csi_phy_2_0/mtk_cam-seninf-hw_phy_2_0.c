@@ -2279,13 +2279,13 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 		     SENINF_READ_BITS(rx, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 				      RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER));
 
-		SHOW(buf, len, "data_not_enough_cnt : <%d>",
+		SHOW(buf, len, "data_not_enough_cnt : <%d>\n",
 			ctx->data_not_enough_cnt);
-		SHOW(buf, len, "err_lane_resync_cnt : <%d>",
+		SHOW(buf, len, "err_lane_resync_cnt : <%d>\n",
 			ctx->err_lane_resync_cnt);
-		SHOW(buf, len, "crc_err_cnt : <%d>",
+		SHOW(buf, len, "crc_err_cnt : <%d>\n",
 			ctx->crc_err_flag);
-		SHOW(buf, len, "ecc_err_double_cnt : <%d>",
+		SHOW(buf, len, "ecc_err_double_cnt : <%d>\n",
 			ctx->ecc_err_double_cnt);
 		SHOW(buf, len, "ecc_err_corrected_cnt : <%d>\n",
 			ctx->ecc_err_corrected_cnt);
@@ -2346,40 +2346,49 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 	return len;
 }
 
+#ifdef SCAN_SETTLE
+#define SCAN_TIME 3
+#define SENINF_DRV_DEBUG_MAX_DELAY 1200
+#else
+#define SCAN_TIME 1
 #define SENINF_DRV_DEBUG_MAX_DELAY 400
+#endif
+
+#define FT_30_FPS 33
+#define PKT_CNT_CHK_MARGIN 110
 
 #define CLEAR_MATCHED_CAM_MUX_IRQ(_cam_mux, used_cammux, enabled) do { \
 	if ((used_cammux == _cam_mux) && (enabled & (1<<_cam_mux))) { \
-		dev_info(ctx->dev, \
-			"before clear cam mux%u recSize = 0x%x, irq = 0x%x", \
-			_cam_mux, \
-			SENINF_READ_REG(ctx->reg_if_cam_mux, \
-					SENINF_CAM_MUX##_cam_mux##_CHK_RES), \
-			SENINF_READ_REG(ctx->reg_if_cam_mux, \
-					SENINF_CAM_MUX_IRQ_STATUS)); \
+		unsigned int irq_st = SENINF_READ_REG(ctx->reg_if_cam_mux, \
+						SENINF_CAM_MUX_IRQ_STATUS); \
 		SENINF_WRITE_REG(ctx->reg_if_cam_mux, \
 				 SENINF_CAM_MUX_IRQ_STATUS, \
 				 3 << (SENINF_CAM_MUX##_cam_mux * 2)); \
+		dev_info(ctx->dev, \
+			"before clear cam mux%u recSize = 0x%x, irq = 0x%x|0x%x", \
+			_cam_mux, \
+			SENINF_READ_REG(ctx->reg_if_cam_mux, \
+					SENINF_CAM_MUX##_cam_mux##_CHK_RES), \
+			irq_st, \
+			SENINF_READ_REG(ctx->reg_if_cam_mux, \
+					SENINF_CAM_MUX_IRQ_STATUS)); \
 	} \
 } while (0)
 
 #define CHECK_MATCHED_CAM_MUX(_cam_mux, used_cammux, enabled, irq_status) do { \
 	if ((used_cammux == _cam_mux) && (enabled & (1<<_cam_mux))) { \
-		int recSize = SENINF_READ_REG(ctx->reg_if_cam_mux, \
-					SENINF_CAM_MUX##_cam_mux##_CHK_RES); \
-		int expSize = SENINF_READ_REG(ctx->reg_if_cam_mux, \
-					SENINF_CAM_MUX##_cam_mux##_CHK_CTL_1); \
-		if (recSize != expSize) { \
-			dev_info(ctx->dev, \
-				"cam mux%u size mismatch!, recSize = 0x%x, expSize = 0x%x", \
-				_cam_mux, recSize, expSize); \
-		} \
-		if ((irq_status & \
-		     (3 << (SENINF_CAM_MUX##_cam_mux * 2))) != 0) { \
-			dev_info(ctx->dev, \
-				"cam mux%u size mismatch!, irq = 0x%x", \
-				_cam_mux, irq_status); \
-		} \
+		dev_info(ctx->dev, \
+			"SENINF_CAM_MUX%u RES(0x%x) EXP(0x%x) ERR(0x%x) OPT(0x%x) IRQ(0x%x)", \
+			_cam_mux, \
+			SENINF_READ_REG(ctx->reg_if_cam_mux, \
+					SENINF_CAM_MUX##_cam_mux##_CHK_RES), \
+			SENINF_READ_REG(ctx->reg_if_cam_mux, \
+					SENINF_CAM_MUX##_cam_mux##_CHK_CTL_1), \
+			SENINF_READ_REG(ctx->reg_if_cam_mux, \
+					SENINF_CAM_MUX##_cam_mux##_CHK_ERR_RES), \
+			SENINF_READ_REG(ctx->reg_if_cam_mux, \
+					SENINF_CAM_MUX##_cam_mux##_OPT), \
+			irq_status); \
 	} \
 } while (0)
 
@@ -2395,18 +2404,32 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	int enabled = 0;
 	int ret = 0;
 	int j;
-	unsigned long debug_ft = 33;//FIXME
-	unsigned long debug_vb = 1;//FIXME
+	unsigned long debug_ft = FT_30_FPS * SCAN_TIME;//FIXME
+	unsigned long debug_vb = 3 * SCAN_TIME;//FIXME
+
+	if (ctx->dbg_timeout != 0)
+		debug_ft = ctx->dbg_timeout / 1000;
+
+	if (debug_ft > FT_30_FPS)
+		debug_vb = debug_ft / 10;
 
 	for (j = CSI_PORT_0A; j <= CSI_PORT_3B; j++) {
+		if (j != ctx->portA &&
+			j != ctx->portB)
+			continue;
+
 		base_ana = ctx->reg_ana_csi_rx[j];
 		dev_info(ctx->dev,
-			"MipiRx_ANA%d: CDPHY_RX_ANA_0(0x%x) ANA_2(0x%x) ANA_4(0x%x) ANA_5(0x%x) ANA_8(0x%x)\n",
+			"MipiRx_ANA%d: CDPHY_RX_ANA_0(0x%x) ANA_1(0x%x) ANA_2(0x%x) ANA_3(0x%x) ANA_4(0x%x) ANA_5(0x%x) ANA_6(0x%x) ANA_7(0x%x) ANA_8(0x%x)\n",
 			j - CSI_PORT_0A,
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_0),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_1),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_2),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_3),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_4),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_5),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_6),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_7),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_8));
 		dev_info(ctx->dev,
 			"MipiRx_ANA%d: CDPHY_RX_ANA_AD_0(0x%x) AD_HS_0(0x%x) AD_HS_1(0x%x)\n",
@@ -2417,6 +2440,9 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	}
 
 	for (j = CSI_PORT_0; j <= CSI_PORT_3; j++) {
+		if (j != ctx->port)
+			continue;
+
 		base_cphy = ctx->reg_ana_cphy_top[j];
 		base_dphy = ctx->reg_ana_dphy_top[j];
 
@@ -2442,9 +2468,12 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	}
 
 	dev_info(ctx->dev,
-		"SENINF_TOP_MUX_CTRL_0(0x%x) SENINF_TOP_MUX_CTRL_1(0x%x)\n",
+		"SENINF_TOP_MUX_CTRL_0(0x%x) SENINF_TOP_MUX_CTRL_1(0x%x) TOP_MUX_CTRL_2(0x%x) TOP_MUX_CTRL_3(0x%x) debug_vb %d debug_ft %d\n",
 		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_0),
-		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_1));
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_1),
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_2),
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_3),
+		debug_vb, debug_ft);
 
 	dev_info(ctx->dev,
 		"SENINF_CAM_MUX_CTRL_0(0x%x) SENINF_CAM_MUX_CTRL_1(0x%x) SENINF_CAM_MUX_CTRL_2(0x%x)\n",
@@ -2482,6 +2511,12 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 						  enabled);
 			CLEAR_MATCHED_CAM_MUX_IRQ(12, ctx->vcinfo.vc[j].cam,
 						  enabled);
+			CLEAR_MATCHED_CAM_MUX_IRQ(13, ctx->vcinfo.vc[j].cam,
+						  enabled);
+			CLEAR_MATCHED_CAM_MUX_IRQ(14, ctx->vcinfo.vc[j].cam,
+						  enabled);
+			CLEAR_MATCHED_CAM_MUX_IRQ(15, ctx->vcinfo.vc[j].cam,
+						  enabled);
 		}
 	}
 
@@ -2513,7 +2548,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 			"total_delay %d SENINF%d_PkCnt(0x%x)\n",
 			total_delay, ctx->seninfIdx, mipi_packet_cnt);
 
-		while (total_delay <= debug_ft) {
+		while (total_delay <= ((debug_ft * PKT_CNT_CHK_MARGIN) / 100)) {
 			tmp_mipi_packet_cnt = mipi_packet_cnt & 0xFFFF;
 			mdelay(debug_vb);
 			total_delay += debug_vb;
@@ -2536,15 +2571,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		mdelay(debug_ft - total_delay);
 		total_delay = debug_ft;
 	}
-	temp = SENINF_READ_REG(base_csi, SENINF_CSI2_IRQ_STATUS);
-	dev_info(ctx->dev,
-		"SENINF%d_CSI2_IRQ_STATUS(0x%x)\n", ctx->seninfIdx, temp);
-	if (total_delay < SENINF_DRV_DEBUG_MAX_DELAY) {
-		if (total_delay + debug_ft < SENINF_DRV_DEBUG_MAX_DELAY)
-			mdelay(debug_ft);
-		else
-			mdelay(SENINF_DRV_DEBUG_MAX_DELAY - total_delay);
-	}
+
 	temp = SENINF_READ_REG(base_csi, SENINF_CSI2_IRQ_STATUS);
 	dev_info(ctx->dev,
 		"SENINF%d_CSI2_IRQ_STATUS(0x%x)\n", ctx->seninfIdx, temp);
@@ -2554,138 +2581,76 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	/* SENINF_MUX */
 	for (j = SENINF_MUX1; j < _seninf_ops->mux_num; j++) {
 		base_mux = ctx->reg_if_mux[j];
-		dev_info(ctx->dev,
-			"SENINF%d_MUX_CTRL0(0x%x) SENINF%d_MUX_CTRL1(0x%x) SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x) SENINF_MUX_ERR_SIZE(0x%x) SENINF_MUX_EXP_SIZE(0x%x)\n",
-			j,
-			SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0),
-			j,
-			SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_1),
-			SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS),
-			j,
-			SENINF_READ_REG(base_mux, SENINF_MUX_SIZE),
-			SENINF_READ_REG(base_mux, SENINF_MUX_ERR_SIZE),
-			SENINF_READ_REG(base_mux, SENINF_MUX_IMG_SIZE));
-
-		if (SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS) & 0x1) {
-			SENINF_WRITE_REG(base_mux, SENINF_MUX_IRQ_STATUS,
-					 0xffffffff);
-			mdelay(debug_ft);
+		if (SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0) & 0x1) {
 			dev_info(ctx->dev,
-				"after reset overrun, SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x)\n",
-				SENINF_READ_REG(base_mux,
-						SENINF_MUX_IRQ_STATUS),
+				"SENINF%d_MUX_CTRL0(0x%x) SENINF%d_MUX_CTRL1(0x%x) SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x) SENINF_MUX_ERR_SIZE(0x%x) SENINF_MUX_EXP_SIZE(0x%x)\n",
 				j,
-				SENINF_READ_REG(base_mux, SENINF_MUX_SIZE));
+				SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0),
+				j,
+				SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_1),
+				SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS),
+				j,
+				SENINF_READ_REG(base_mux, SENINF_MUX_SIZE),
+				SENINF_READ_REG(base_mux, SENINF_MUX_ERR_SIZE),
+				SENINF_READ_REG(base_mux, SENINF_MUX_IMG_SIZE));
+
+			if (SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS) & 0x1) {
+				SENINF_WRITE_REG(base_mux, SENINF_MUX_IRQ_STATUS,
+						 0xffffffff);
+				if (debug_ft > FT_30_FPS)
+					mdelay(FT_30_FPS);
+				else
+					mdelay(debug_ft);
+				dev_info(ctx->dev,
+					"after reset overrun, SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x)\n",
+					SENINF_READ_REG(base_mux,
+							SENINF_MUX_IRQ_STATUS),
+					j,
+					SENINF_READ_REG(base_mux, SENINF_MUX_SIZE));
+			}
 		}
 	}
 
 	irq_status = SENINF_READ_REG(ctx->reg_if_cam_mux,
 				     SENINF_CAM_MUX_IRQ_STATUS);
 
-	dev_info(ctx->dev,
-		"SENINF_CAM_MUX_EN 0x%x SENINF_CAM_MUX_IRQ_EN 0x%x SENINF_CAM_MUX_IRQ_STATUS 0x%x",
-		enabled,
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX_IRQ_EN),
-		irq_status);
-
 	/* check SENINF_CAM_MUX size */
 	for (j = 0; j < ctx->vcinfo.cnt; j++) {
 		if (ctx->vcinfo.vc[j].enable) {
 			CHECK_MATCHED_CAM_MUX(0, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(1, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(2, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(3, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(4, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(5, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(6, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(7, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(8, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(9, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(10, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(11, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
 			CHECK_MATCHED_CAM_MUX(12, ctx->vcinfo.vc[j].cam,
-					      enabled, irq_status);
+						enabled, irq_status);
+			CHECK_MATCHED_CAM_MUX(13, ctx->vcinfo.vc[j].cam,
+						enabled, irq_status);
+			CHECK_MATCHED_CAM_MUX(14, ctx->vcinfo.vc[j].cam,
+						enabled, irq_status);
+			CHECK_MATCHED_CAM_MUX(15, ctx->vcinfo.vc[j].cam,
+						enabled, irq_status);
 		}
 	}
-
-	dev_info(ctx->dev,
-		"SENINF_CAM_MUX size: MUX0(0x%x) MUX1(0x%x) MUX2(0x%x) MUX3(0x%x) MUX4(0x%x) MUX5(0x%x)\n",
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX0_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX1_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX2_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX3_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX4_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX5_CHK_RES));
-	dev_info(ctx->dev,
-		"SENINF_CAM_MUX size: MUX6(0x%x) MUX7(0x%x) MUX8(0x%x) MUX9(0x%x) MUX10(0x%x) MUX1(0x%x) MUX12(0x%x)\n",
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX6_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX7_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX8_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX9_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX10_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX11_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX12_CHK_RES));
-	dev_info(ctx->dev,
-		"SENINF_CAM_MUX err size: MUX0(0x%x) MUX1(0x%x) MUX2(0x%x) MUX3(0x%x) MUX4(0x%x) MUX5(0x%x)\n",
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX0_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX1_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX2_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX3_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX4_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX5_CHK_ERR_RES));
-	dev_info(ctx->dev,
-		"SENINF_CAM_MUX err size: MUX6(0x%x) MUX7(0x%x) MUX8(0x%x) MUX9(0x%x) MUX10(0x%x) MUX11(0x%x) MUX12(0x%x)\n",
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX6_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX7_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX8_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX9_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX10_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX11_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux,
-				SENINF_CAM_MUX12_CHK_ERR_RES));
-
-	//check VC/DT split
-	dev_info(ctx->dev,
-		"VC/DT split:SENINF_CAM_MUX0_OPT(0x%x) MUX1(0x%x) MUX2(0x%x) MUX3(0x%x) MUX4(0x%x) MUX5(0x%x)\n",
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX0_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX1_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX2_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX3_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX4_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX5_OPT));
-	dev_info(ctx->dev,
-		"VC/DT split:SENINF_CAM_MUX6_OPT(0x%x) MUX7(0x%x) MUX8(0x%x) MUX9(0x%x) MUX10(0x%x) MUX11(0x%x) MUX12(0x%x)\n",
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX6_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX7_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX8_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX9_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX10_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX11_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux, SENINF_CAM_MUX12_OPT));
 
 	dev_info(ctx->dev, "ret = %d", ret);
 
