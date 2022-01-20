@@ -597,6 +597,8 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	dev_dbg(mtu->dev, "%s (%s) for %sactive device\n", __func__,
 		is_on ? "on" : "off", mtu->is_active ? "" : "in");
 
+	disable_irq(mtu->irq);
+
 	/* we'd rather not pullup unless the device is active. */
 	spin_lock_irqsave(&mtu->lock, flags);
 
@@ -606,13 +608,16 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 		mtu->softconnect = is_on;
 	} else if (is_on != mtu->softconnect) {
 		mtu->softconnect = is_on;
-		mtu3_dev_on_off(mtu, is_on);
 
 		if (!is_on)
 			mtu3_nuke_all_ep(mtu);
+
+		mtu3_dev_on_off(mtu, is_on);
 	}
 
 	spin_unlock_irqrestore(&mtu->lock, flags);
+
+	enable_irq(mtu->irq);
 
 	if (!mtu->is_gadget_ready && is_on)
 		mtu3_gadget_set_ready(gadget);
