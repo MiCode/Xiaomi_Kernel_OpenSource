@@ -7,10 +7,10 @@
 #include "mkp_api.h"
 #include "mkp_hvc.h"
 
-void __init mkp_set_policy(void)
+void __init mkp_set_policy(u32 policy)
 {
 	// set policy control
-	set_policy();
+	set_policy(policy);
 }
 
 int __init mkp_set_ext_policy(uint32_t policy)

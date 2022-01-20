@@ -21,6 +21,8 @@
 #include <linux/reboot.h>
 #include <linux/workqueue.h>
 #include <linux/tracepoint.h>
+#include <linux/of.h>
+#include <linux/libfdt.h> // fdt32_ld
 
 #include "selinux/mkp_security.h"
 #include "selinux/mkp_policycap.h"
@@ -725,6 +727,17 @@ int __init mkp_demo_init(void)
 {
 	int ret = 0, ret_erri_line;
 	unsigned long size = 0x100000;
+	struct device_node *node;
+	u32 mkp_policy = 0x0001ffff;
+
+	node = of_find_node_by_path("/chosen");
+	if (node) {
+		if (of_property_read_u32(node, "mkp,policy", &mkp_policy) == 0)
+			MKP_DEBUG("mkp_policy: %x\n", mkp_policy);
+		else
+			MKP_WARN("mkp,policy cannot be found, use default\n");
+	} else
+		MKP_WARN("chosen node cannot be found, use default\n");
 
 	MKP_DEBUG("%s: start\n", __func__);
 	if (sizeof(phys_addr_t) != sizeof(unsigned long)) {
@@ -733,7 +746,7 @@ int __init mkp_demo_init(void)
 	}
 
 	/* Set policy control */
-	mkp_set_policy();
+	mkp_set_policy(mkp_policy);
 
 	/* Hook up interesting tracepoints and update corresponding policy_ctrl */
 	mkp_hookup_tracepoints();
