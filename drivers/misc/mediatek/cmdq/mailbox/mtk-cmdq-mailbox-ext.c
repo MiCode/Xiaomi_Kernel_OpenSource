@@ -1207,7 +1207,7 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	wake_up_interruptible(&cmdq->err_irq_wq);
 
 	end[end_cnt] = sched_clock();
-	if (end[end_cnt] - start >= 1000000 && !time) { /* 1ms */
+	if (end[end_cnt] - start >= 5000000 && !time) { /* 5ms */
 		cmdq_util_err(
 			"IRQ_LONG:%llu atomic:%llu readl:%llu bit:%llu wakeup:%llu",
 			end[end_cnt] - start, end[0] - start,
