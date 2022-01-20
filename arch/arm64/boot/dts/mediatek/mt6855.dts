@@ -4929,7 +4929,7 @@
 
 		mtk_sec_dmaheap {
 			compatible = "mediatek,dmaheap-region-base";
-			iommus = <&disp_iommu M4U_LARB0_PORT0>;
+			iommus = <&disp_iommu M4U_LARB9_PORT0>;
 		};
 
 		mtk_iommu_test0 {
