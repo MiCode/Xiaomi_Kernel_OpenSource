@@ -628,6 +628,13 @@ static const struct dvfsrc_debug_data mt6853_data = {
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6873_desc),
 };
 
+static const struct dvfsrc_debug_data mt6789_data = {
+	.version = 0x6789,
+	.config = &mt6873_dvfsrc_config,
+	.opps_desc = dvfsrc_opp_mt6873_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6873_desc),
+};
+
 static struct dvfsrc_opp dvfsrc_opp_mt6885_lp4[] = {
 	{0, 0, 0, 0},
 	{1, 0, 0, 0},

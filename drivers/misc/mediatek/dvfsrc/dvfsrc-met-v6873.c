@@ -274,6 +274,8 @@ static u32 dvfsrc_ddr_qos(struct mtk_dvfsrc_met *dvfs)
 		return dvfsrc_mt6873_ddr_qos(qos_total_bw);
 	case 0x6853:
 		return dvfsrc_mt6873_ddr_qos(qos_total_bw);
+	case 0x6789:
+		return dvfsrc_mt6873_ddr_qos(qos_total_bw);
 	case 0x6885:
 		return dvfsrc_mt6885_ddr_qos(qos_total_bw);
 	case 0x6893:
@@ -302,6 +304,7 @@ static int dvfsrc_emi_mon_gear(struct mtk_dvfsrc_met *dvfs)
 	break;
 	case 0x6873:
 	case 0x6853:
+	case 0x6789:
 	case 0x6885:
 	default:
 		max_idx = 5;
@@ -442,6 +445,7 @@ static int dvfsrc_get_ddr_ratio(struct mtk_dvfsrc_met *dvfs)
 		break;
 	case 0x6873:
 	case 0x6853:
+	case 0x6789:
 	case 0x6885:
 	case 0x6833:
 	default:
