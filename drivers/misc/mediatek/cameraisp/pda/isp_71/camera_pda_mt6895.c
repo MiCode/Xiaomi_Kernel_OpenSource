@@ -235,7 +235,7 @@ static void pda_mmqos_bw_set(void)
 		Operation_Margin *
 		(Search_Range+1)) /
 		Search_Range + 1;
-	int WDMA_Data = 1408*ROI_Number;
+	int WDMA_Data = OUT_BYTE_PER_ROI*ROI_Number;
 	int temp = Inter_Input_Total_pixel_Itar+Inter_Input_Total_pixel_Iref;
 	int RDMA_Data = temp*20/8;
 
@@ -1876,9 +1876,9 @@ static long PDA_Ioctl(struct file *a_pstFile,
 				// output address is equal to
 				// total ROI number multiple by 1408
 				nOutputAddr = g_OutputBufferAddr;
-				nOutputAddr += nCurrentProcRoiIndex * 1408;
+				nOutputAddr += nCurrentProcRoiIndex * OUT_BYTE_PER_ROI;
 
-				if ((g_CurrentProcRoiNum[i]+nCurrentProcRoiIndex)*1408 >
+				if ((g_CurrentProcRoiNum[i]+nCurrentProcRoiIndex)*OUT_BYTE_PER_ROI >
 					g_pda_Pdadata.OutputSize) {
 					LOG_INF("fail, output buffer out of range\n");
 					LOG_INF("Current output buffer addr: 0x%lx\n",

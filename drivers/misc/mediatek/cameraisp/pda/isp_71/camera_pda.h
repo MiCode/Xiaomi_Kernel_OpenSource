@@ -26,7 +26,12 @@
 
 #define PDA_MAGIC               'P'
 
+#define KERNEL_VERSION 1000
+
 #define PDAROIARRAYMAX 128
+#define FIXROIARRAYMAX 10
+
+#define OUT_BYTE_PER_ROI 1408
 
 #define PDA_MAXROI_PER_ROUND 45
 
@@ -388,6 +393,10 @@ struct _pda_a_reg_t_ {
 	union _REG_PDA_CFG_13_           PDA_CFG_13;
 };
 
+struct PDA_Init_Data {
+	unsigned int Kversion;
+};
+
 //Datastructure for 1024 ROI
 struct PDA_Data_t {
 	unsigned int rgn_x[PDAROIARRAYMAX];
@@ -426,6 +435,53 @@ struct PDA_Data_t {
 	unsigned int nNumerousROI;
 };
 
+struct PDA_Data_t_v2 {
+	// flexible roi
+	unsigned int rgn_x[PDAROIARRAYMAX];
+	unsigned int rgn_y[PDAROIARRAYMAX];
+	unsigned int rgn_h[PDAROIARRAYMAX];
+	unsigned int rgn_w[PDAROIARRAYMAX];
+	unsigned int rgn_iw[PDAROIARRAYMAX];
+
+	unsigned int ROInumber;
+
+	// fix roi
+	unsigned int fix_rgn_x[FIXROIARRAYMAX];
+	unsigned int fix_rgn_y[FIXROIARRAYMAX];
+	unsigned int fix_rgn_h[FIXROIARRAYMAX];
+	unsigned int fix_rgn_w[FIXROIARRAYMAX];
+	unsigned int fix_rgn_iw[FIXROIARRAYMAX];
+
+	unsigned int xnum[FIXROIARRAYMAX];
+	unsigned int ynum[FIXROIARRAYMAX];
+	unsigned int woverlap[FIXROIARRAYMAX];
+	unsigned int hoverlap[FIXROIARRAYMAX];
+
+	unsigned int nNumerousROI;
+
+	// common data
+	unsigned int ImageSize;
+	unsigned int TableSize;
+	unsigned int OutputSize;
+
+	int FD_L_Image;
+	int FD_R_Image;
+	int FD_L_Table;
+	int FD_R_Table;
+	int FD_Output;
+
+	struct _pda_a_reg_t_ PDA_FrameSetting;
+
+	unsigned int PDA_PDAI_P1_BASE_ADDR;
+	unsigned int PDA_PDATI_P1_BASE_ADDR;
+	unsigned int PDA_PDAI_P2_BASE_ADDR;
+	unsigned int PDA_PDATI_P2_BASE_ADDR;
+	unsigned int PDA_PDAO_P1_BASE_ADDR;
+
+	int Status;
+	unsigned int Timeout;
+};
+
 struct pda_mmu {
 	struct dma_buf			*dma_buf;
 	struct dma_buf_attachment	*attach;
@@ -447,11 +503,16 @@ struct PDA_device {
 enum PDA_CMD_ENUM {
 	PDA_CMD_RESET,		/* Reset */
 	PDA_CMD_ENQUE_WAITIRQ,	/* PDA Enque And Wait Irq */
+	PDA_CMD_GET_VERSION,	/* PDA Enque And Wait Irq */
 	PDA_CMD_TOTAL,
 };
 
 #define PDA_RESET	_IO(PDA_MAGIC, PDA_CMD_RESET)
 #define PDA_ENQUE_WAITIRQ    \
 	_IOWR(PDA_MAGIC, PDA_CMD_ENQUE_WAITIRQ, struct PDA_Data_t)
+#define PDA_ENQUE_WAITIRQ_V2    \
+	_IOWR(PDA_MAGIC, PDA_CMD_ENQUE_WAITIRQ, struct PDA_Data_t_v2)
+#define PDA_GET_VERSION    \
+	_IOWR(PDA_MAGIC, PDA_CMD_GET_VERSION, struct PDA_Init_Data)
 
 #endif/*__MTK_PDA_HW_H__*/
