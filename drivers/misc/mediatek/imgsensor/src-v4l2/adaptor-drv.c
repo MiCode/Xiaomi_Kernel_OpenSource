@@ -1283,6 +1283,11 @@ static int imgsensor_probe(struct i2c_client *client)
 	if (ret)
 		dev_info(dev, "failed to create sysfs debug_i2c_ops\n");
 
+	ctx->sensor_ws = wakeup_source_register(dev, ctx->sd.name);
+
+	if (!ctx->sensor_ws)
+		dev_info(dev, "failed to wakeup_source_register\n");
+
 	return 0;
 
 free_entity:
@@ -1305,6 +1310,10 @@ static int imgsensor_remove(struct i2c_client *client)
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
 
 	notify_fsync_mgr(ctx, 0);
+
+	if (!ctx->sensor_ws)
+		wakeup_source_unregister(ctx->sensor_ws);
+	ctx->sensor_ws = NULL;
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 	pm_runtime_disable(&client->dev);

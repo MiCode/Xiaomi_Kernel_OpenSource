@@ -136,6 +136,7 @@ struct adaptor_ctx {
 
 	unsigned int *sensor_debug_flag;
 	u32 shutter_for_timeout;
+	struct wakeup_source *sensor_ws;
 };
 
 #endif
