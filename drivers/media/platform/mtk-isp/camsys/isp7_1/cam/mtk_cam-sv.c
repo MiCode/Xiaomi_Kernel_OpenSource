@@ -1587,7 +1587,7 @@ int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
 
 	fmt.Raw = mtk_cam_sv_format_sel(img_fmt->fmt.pix_mp.pixelformat);
 
-	cfg_in_param.fmt = fmt.Raw;
+	cfg_in_param.fmt = img_fmt->fmt.pix_mp.pixelformat;
 	cfg_in_param.in_crop.p.x = 0;
 	cfg_in_param.in_crop.p.y = 0;
 	cfg_in_param.in_crop.s.w = img_fmt->fmt.pix_mp.width;
