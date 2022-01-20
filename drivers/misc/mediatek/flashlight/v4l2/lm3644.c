@@ -336,6 +336,7 @@ static int lm3644_flash_tout_ctrl(struct lm3644_flash *flash,
 	int rval;
 	u8 tout_bits;
 
+	pr_info("%s tout:%u", __func__, tout);
 	if (tout == 200)
 		tout_bits = 0x04;
 	else
