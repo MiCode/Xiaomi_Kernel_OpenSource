@@ -678,6 +678,7 @@ void ddp_mmp_ovl_layer(struct OVL_CONFIG_STRUCT *pLayer,
 #endif
 		}
 	} else {
+		memset(&meta, 0, sizeof(struct mmp_metadata_t));
 		meta.data_type = MMPROFILE_META_RAW;
 		meta.size = pLayer->src_pitch * pLayer->src_h;
 		if (disp_mva_map_kernel(module, pLayer->addr,
@@ -792,6 +793,7 @@ void ddp_mmp_wdma_layer(struct WDMA_CONFIG_STRUCT *wdma_layer,
 				wdma_layer->outputFormat);
 		}
 	} else {
+		memset(&meta, 0, sizeof(struct mmp_metadata_t));
 		meta.data_type = MMPROFILE_META_RAW;
 		meta.size = wdma_layer->dstPitch * wdma_layer->srcHeight;
 		if (disp_mva_map_kernel(DISP_MODULE_WDMA0,
@@ -896,6 +898,7 @@ void ddp_mmp_rdma_layer(struct RDMA_CONFIG_STRUCT *rdma_layer,
 			       rdma_layer->inputFormat);
 		}
 	} else {
+		memset(&meta, 0, sizeof(struct mmp_metadata_t));
 		meta.data_type = MMPROFILE_META_RAW;
 		meta.size = rdma_layer->pitch * rdma_layer->height;
 		if (disp_mva_map_kernel(module, rdma_layer->address,

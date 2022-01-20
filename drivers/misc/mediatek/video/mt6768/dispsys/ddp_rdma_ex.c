@@ -811,7 +811,7 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 
 	if (output_valid_fifo_threshold > fifo_valid_size)
 		DDPERR(
-		"RDMA golden setting is invalid!! output_valid_fifo_threshold=%d, fifo_valid_size=%d\n",
+		"%s: RDMA golden setting is invalid!! output_valid_fifo_threshold=%d, fifo_valid_size=%d\n",
 		__func__, output_valid_fifo_threshold, fifo_valid_size);
 
 	DISP_REG_SET(handle, idx * DISP_RDMA_INDEX_OFFSET +
