@@ -16,9 +16,8 @@ const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
 	if (gce_pa == GCE_D_PA) {
 		switch (thread) {
 		case 0 ... 9:
-			return "DISP";
 		case 28 ... 29:
-			return "MML";
+			return "DISP";
 		default:
 			return "CMDQ";
 		}
@@ -31,7 +30,7 @@ const char *cmdq_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
 		case 29:
 			return "VFMT";
 		case 12:
-		case 22 ... 23:
+		case 22:
 			return "VENC";
 		case 10:
 		case 16 ... 19:
@@ -76,28 +75,30 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 
 	if (gce_pa == GCE_M_PA) // GCE-M
 		switch (event) {
-		case CMDQ_EVENT_VENC_EVENV_0 ... CMDQ_EVENT_VENC_EVENV_12:
+		case CMDQ_EVENT_VENC_FRAME_DONE
+			... CMDQ_EVENT_VENC_VPS_DONE:
 			return "VENC";
-		case CMDQ_EVENT_VDEC_EVENT_0 ... CMDQ_EVENT_VDEC_EVENT_15:
-			return "VDEC";
-		case CMDQ_EVENT_GCE_SMI_ALL_EVENT_0
-			... CMDQ_EVENT_GCE_SMI_ALL_EVENT_2:
-			return "SMI";
 		case CMDQ_EVENT_IMG2_DIP_FRAME_DONE_P2_0
 			... CMDQ_EVENT_IMG1_MSS_DONE_LINK_MISC:
 			return "IMG";
 		case CMDQ_EVENT_CAM_EVENT_0
 			... CMDQ_EVENT_CAM_SENINF_CAM14_FIFO_FULL:
 			return "CAM";
-		case CMDQ_EVENT_MDPSYS_STREAM_DONE_ENG_EVENT_0
+		case CMDQ_EVENT_MDPSYS_MDP_RDMA0_SOF
 			... CMDQ_EVENT_MDPSYS_BUF_UNDERRUN_ENG_EVENT_3:
 			return "MDP";
+		case CMDQ_EVENT_VDEC_EVENT_0
+			... CMDQ_EVENT_VDEC_EVENT_15:
+			return "VDEC";
 		case CMDQ_EVENT_VDEC_FMT_MDP0_RDMA_SW_RST_DONE_ENG_EVENT
 			... CMDQ_EVENT_VDEC_FMT_MDP1_WDMA_TILE_DONE:
 			return "VFMT";
 		case CMDQ_EVENT_IPE_SOF
 			... CMDQ_EVENT_IPE_ENG_EVENT:
 			return "IPE";
+		case CMDQ_EVENT_GCE_SMI_ALL_EVENT_0
+			... CMDQ_EVENT_GCE_SMI_ALL_EVENT_2:
+			return "SMI";
 		default:
 			return "CMDQ";
 		}
