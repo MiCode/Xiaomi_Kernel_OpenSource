@@ -537,6 +537,10 @@ SND_SOC_DAILINK_DEFS(hostless_src1,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_SRC_1_DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+SND_SOC_DAILINK_DEFS(hostless_src2,
+	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_SRC_2_DAI")),
+	DAILINK_COMP_ARRAY(COMP_DUMMY()),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(hostless_src3,
 	DAILINK_COMP_ARRAY(COMP_CPU("Hostless_SRC_3_DAI")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -929,6 +933,17 @@ static struct snd_soc_dai_link mt6855_mt6369_dai_links[] = {
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
 		SND_SOC_DAILINK_REG(hostless_src1),
+	},
+	{
+		.name = "Hostless_SRC_2",
+		.stream_name = "Hostless_SRC_2",
+		.trigger = {SND_SOC_DPCM_TRIGGER_PRE,
+			    SND_SOC_DPCM_TRIGGER_PRE},
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.ignore_suspend = 1,
+		SND_SOC_DAILINK_REG(hostless_src2),
 	},
 	{
 		.name = "Hostless_SRC_3",
