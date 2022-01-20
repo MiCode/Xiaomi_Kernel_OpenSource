@@ -346,7 +346,7 @@ void vcu_io_buffer_cache_sync(struct device *dev,
 	buf_att = dma_buf_attach(dbuf, dev);
 	sgt = dma_buf_map_attachment(buf_att, op);
 	if (IS_ERR_OR_NULL(sgt)) {
-		pr_info("%s dma_buf_map_attachment fail %d.\n", __func__, sgt);
+		pr_info("%s dma_buf_map_attachment fail %p.\n", __func__, sgt);
 		dma_buf_detach(dbuf, buf_att);
 		return;
 	}
