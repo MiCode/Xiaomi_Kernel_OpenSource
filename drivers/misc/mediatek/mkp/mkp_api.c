@@ -160,22 +160,26 @@ uint32_t mkp_create_ro_sharebuf(uint32_t policy, unsigned long size, struct page
 	phys_addr_t ipa;
 	int ret = -1;
 	struct page *l_pages = NULL;
+	unsigned int order = get_order(size);
 
 	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
 		return 0;
 
-	l_pages = alloc_pages(GFP_KERNEL | __GFP_ZERO, get_order(size));
+	l_pages = alloc_pages(GFP_KERNEL | __GFP_ZERO, order);
 	if (l_pages == NULL)
 		return 0;
 	ipa = page_to_phys(l_pages);
 	*pages = l_pages;
 	handle = mkp_create_handle(policy, ipa, size);
-	if (handle == 0)
+	if (handle == 0) {
+		__free_pages(l_pages, order);
 		return 0;
+	}
 
 	ret = mkp_set_mapping_ro_hvc_call(policy, handle);
 	if (ret == -1) {
 		ret = mkp_destroy_handle(policy, handle);
+		__free_pages(l_pages, order);
 		return 0;
 	}
 	*pages = l_pages;
@@ -188,22 +192,26 @@ uint32_t mkp_create_wo_sharebuf(uint32_t policy, unsigned long size, struct page
 	phys_addr_t ipa;
 	int ret = -1;
 	struct page *l_pages = NULL;
+	unsigned int order = get_order(size);
 
 	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
 		return 0;
 
-	l_pages = alloc_pages(GFP_KERNEL | __GFP_ZERO, get_order(size));
+	l_pages = alloc_pages(GFP_KERNEL | __GFP_ZERO, order);
 	if (l_pages == NULL)
 		return 0;
 	ipa = page_to_phys(l_pages);
 	*pages = l_pages;
 	handle = mkp_create_handle(policy, ipa, size);
-	if (handle == 0)
+	if (handle == 0) {
+		__free_pages(l_pages, order);
 		return 0;
+	}
 
 	ret = mkp_set_mapping_rw_hvc_call(policy, handle);
 	if (ret == -1) {
 		ret = mkp_destroy_handle(policy, handle);
+		__free_pages(l_pages, order);
 		return 0;
 	}
 	*pages = l_pages;
