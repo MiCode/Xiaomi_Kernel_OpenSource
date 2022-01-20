@@ -43,7 +43,6 @@
 
 /* hal read */
 #define MAX_SCP_MSG_NUM_IN_QUEUE (64)
-#define MAX_DSP_DMA_WRITE_SIZE   (0x10000)
 
 
 /*
