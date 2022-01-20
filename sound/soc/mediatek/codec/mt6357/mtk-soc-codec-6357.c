@@ -6108,6 +6108,7 @@ static int mtk_codec_dev_probe(struct platform_device *pdev)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", MT_SOC_CODEC_NAME);
+		pdev->name = pdev->dev.kobj.name;
 		/* check if use hp depop flow */
 		of_property_read_u32(pdev->dev.of_node,
 				     "use_hp_depop_flow",
