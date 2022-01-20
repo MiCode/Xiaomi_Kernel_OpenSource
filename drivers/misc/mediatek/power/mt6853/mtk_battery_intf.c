@@ -24,32 +24,17 @@ struct tag_bootmode {
 signed int battery_get_uisoc(void)
 {
 	struct mtk_battery *gm = get_mtk_battery();
-	struct device_node *boot_node = NULL;
-	struct tag_bootmode *tag = NULL;
+	int boot_mode = gm->boot_mode;
 
-	if (gm != NULL){
-		boot_node = gm->pdev_node;
-		if (boot_node != NULL){
-			tag = (struct tag_bootmode *)of_get_property(boot_node,
-							"atag,boot", NULL);
-			if (tag != NULL){
-				/*
-				NORMAL_BOOT = 0,META_BOOT = 1,
-				FACTORY_BOOT = 4,ADVMETA_BOOT = 5,ATE_FACTORY_BOOT = 6,
-				*/
-				if ((tag->bootmode == 1) ||
-					(tag->bootmode == 5) ||
-					(tag->bootmode == 4) ||
-					(tag->bootmode == 6))
-					return 75;
-				else if (tag->bootmode == 0)
-					return gm->ui_soc;
-			}
-		}
-		return 50;
-	}
-	else
-		return 50;
+	if ((boot_mode == META_BOOT) ||
+		(boot_mode == ADVMETA_BOOT) ||
+		(boot_mode == FACTORY_BOOT) ||
+		(boot_mode == ATE_FACTORY_BOOT))
+		return 75;
+	else if (boot_mode == 0)
+		return gm->ui_soc;
+
+	return 50;
 }
 
 int __attribute__((weak)) charger_get_vbus(void)
