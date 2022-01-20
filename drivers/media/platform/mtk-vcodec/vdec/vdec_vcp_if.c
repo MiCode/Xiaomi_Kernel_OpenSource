@@ -22,9 +22,9 @@
 #include "mtk_vcodec_intr.h"
 
 #ifdef CONFIG_MTK_ENG_BUILD
-#define IPI_TIMEOUT_MS          (2000U)
+#define IPI_TIMEOUT_MS          (10000U)
 #else
-#define IPI_TIMEOUT_MS          (1000U + ((mtk_vcodec_dbg | mtk_v4l2_dbg_level) ? 1000U : 0U))
+#define IPI_TIMEOUT_MS          (5000U + ((mtk_vcodec_dbg | mtk_v4l2_dbg_level) ? 5000U : 0U))
 #endif
 
 struct vcp_dec_mem_list {
