@@ -95,13 +95,7 @@ enum efuse_node {
         EFUSE_NODE_NUM
 };
 
-static const char *g_efuse_field[EFUSE_NODE_NUM] = {
-        "efuse_segment_cell",
-        "efuse_ptpod22_cell",
-        "efuse_fab_info4_cell",
-};
-
-struct nvmem_cell *g_efuse_cell[EFUSE_NODE_NUM];
+unsigned int g_devinfo[EFUSE_NODE_NUM];
 #endif
 
 // Qoo
@@ -178,10 +172,6 @@ static void mt_gpufreq_cal_sb_opp_index(void);
 
 static unsigned int __calculate_vgpu_settletime(bool mode, int deltaV);
 static unsigned int __calculate_vsram_settletime(bool mode, int deltaV);
-
-#ifdef CONFIG_MTK_DEVINFO
-static unsigned int __mt_gpufreq_get_devinfo(enum efuse_node e_node);
-#endif
 
 /**
  * ===============================================
@@ -1223,7 +1213,7 @@ void mt_gpufreq_update_ptpod_by_efuse(void)
 
 	/* [PTPOD22 (0x11C105D8) 72] [23:21]*/
 #ifdef CONFIG_MTK_DEVINFO
-	efuse_id = ((__mt_gpufreq_get_devinfo(EFUSE_NODE_PTPOD22) >> 21) & 0x7);
+	efuse_id = ((g_devinfo[EFUSE_NODE_PTPOD22] >> 21) & 0x7);
 #endif
 
 	switch (efuse_id) {
@@ -1807,7 +1797,7 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 
 #ifdef CONFIG_MTK_DEVINFO
 	/* spare[7:0] */
-	efuse_id = (__mt_gpufreq_get_devinfo(EFUSE_NODE_SEGMENT) & 0xFF);
+	efuse_id = (g_devinfo[EFUSE_NODE_SEGMENT] & 0xFF);
 #endif
 
 	switch (efuse_id) {
@@ -1834,7 +1824,7 @@ static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
 
 #ifdef CONFIG_MTK_DEVINFO
 	/* [FAB_INFO4 (0x11C107B0) 134] [2:0]*/
-	efuse_id = ((__mt_gpufreq_get_devinfo(EFUSE_NODE_FAB_INFO4) >> 0) & 0x3);
+	efuse_id = ((g_devinfo[EFUSE_NODE_FAB_INFO4] >> 0) & 0x3);
 #endif
 
 	switch (efuse_id) {
@@ -3510,40 +3500,36 @@ static void __mt_gpufreq_init_power(void)
 static int __mt_gpufreq_init_efuse(struct platform_device *pdev)
 {
 	int i;
+	struct nvmem_cell *efuse_cell[EFUSE_NODE_NUM];
+	const char *efuse_field[EFUSE_NODE_NUM] = {
+		"efuse_segment_cell",
+		"efuse_ptpod22_cell",
+		"efuse_fab_info4_cell",
+	};
+	unsigned int *efuse_buf;
+	size_t efuse_len;
 
 	for (i = 0; i < EFUSE_NODE_NUM; i++) {
-		g_efuse_cell[i] = nvmem_cell_get(&pdev->dev, g_efuse_field[i]);
+		efuse_cell[i] = nvmem_cell_get(&pdev->dev, efuse_field[i]);
 
-		if (IS_ERR(g_efuse_cell[i])) {
+		if (IS_ERR(efuse_cell[i])) {
 			gpufreq_pr_info("@%s: cannot get efuse_cell %s\n",
-				__func__, g_efuse_field[i]);
-			return PTR_ERR(g_efuse_cell[i]);
+				__func__, efuse_field[i]);
+			return PTR_ERR(efuse_cell[i]);
 		}
+
+		efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell[i], &efuse_len);
+		nvmem_cell_put(efuse_cell[i]);
+		if (IS_ERR(efuse_buf))
+			continue;
+
+		g_devinfo[i] = *efuse_buf;
+		kfree(efuse_buf);
 	}
 
 	return 0;
 }
-
-static unsigned int __mt_gpufreq_get_devinfo(enum efuse_node index)
-{
-	unsigned int value = 0;
-	unsigned int *efuse_buf;
-	size_t efuse_len;
-
-	efuse_buf = (unsigned int *)nvmem_cell_read(g_efuse_cell[index], &efuse_len);
-	nvmem_cell_put(g_efuse_cell[index]);
-	if (IS_ERR(efuse_buf)) {
-		gpufreq_pr_info("@%s: cannot get efuse_buf %s\n", __func__, g_efuse_field[index]);
-		return 0;
-	}
-
-	value = *efuse_buf;
-	kfree(efuse_buf);
-
-	return value;
-}
 #endif
-
 
 #if MT_GPUFREQ_DFD_DEBUG
 /*
