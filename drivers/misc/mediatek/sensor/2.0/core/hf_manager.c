@@ -60,7 +60,7 @@ static void init_hf_core(struct hf_core *core)
 	for (i = 0; i < SENSOR_TYPE_SENSOR_MAX; ++i) {
 		core->state[i].delay = S64_MAX;
 		core->state[i].latency = S64_MAX;
-		atomic64_set(&core->state[i].start_time, S64_MAX);
+		core->state[i].start_time = S64_MAX;
 	}
 
 	spin_lock_init(&core->client_lock);
@@ -412,71 +412,90 @@ void hf_device_unregister_manager_destroy(struct hf_device *device)
 }
 EXPORT_SYMBOL_GPL(hf_device_unregister_manager_destroy);
 
+static void down_sample_update(struct hf_core *core, uint8_t sensor_type)
+{
+	unsigned long flags;
+	struct hf_client *client = NULL;
+	struct sensor_state *request = NULL;
+	int64_t min_delay = core->state[sensor_type].delay;
+
+	spin_lock_irqsave(&core->client_lock, flags);
+	list_for_each_entry(client, &core->client_list, list) {
+		request = &client->request[sensor_type];
+		if (request->enable && request->down_sample) {
+			request->down_sample_cnt = 0;
+			if (min_delay)
+				request->down_sample_div =
+					div64_s64(request->delay, min_delay);
+			else
+				request->down_sample_div = 0;
+		}
+	}
+	spin_unlock_irqrestore(&core->client_lock, flags);
+}
+
+static inline bool down_sample_estimate(struct sensor_state *request)
+{
+	if (!request->down_sample)
+		return false;
+
+	if (!request->down_sample_div) {
+		request->down_sample_cnt = 0;
+		return false;
+	}
+	if (++request->down_sample_cnt >= request->down_sample_div) {
+		request->down_sample_cnt = 0;
+		return false;
+	}
+	return true;
+}
+
 static int hf_manager_distinguish_event(struct hf_client *client,
 		struct hf_manager_event *event)
 {
 	int err = 0;
-	unsigned long flags;
 	struct sensor_state *request = &client->request[event->sensor_type];
 
 	switch (event->action) {
 	case DATA_ACTION:
 		/* must relay on enable status client requested */
-		if (READ_ONCE(request->enable) &&
-				(event->timestamp >
-					atomic64_read(&request->start_time)))
+		if (request->enable && !down_sample_estimate(request) &&
+				(event->timestamp > request->start_time))
 			err = hf_manager_report_event(client, event);
 		break;
 	case FLUSH_ACTION:
-		/*
-		 * flush relay on flush count client requested,
-		 * must not relay on enable status.
-		 * flush may report both by looper thread and disable thread.
-		 * spinlock prevent flush count report more than request.
-		 * sequence:
-		 * flush = 1
-		 * looper thread flush > 0
-		 *    looper thread hf_manager_report_event
-		 *        disable thread flush > 0
-		 *            disable thread hf_manager_report_event
-		 * flush complete report 2 times but request is 1.
-		 */
-		spin_lock_irqsave(&client->request_lock, flags);
-		if (atomic_read(&request->flush) > 0) {
+		/* must relay on flush count client requested */
+		if (request->flush > 0) {
 			err = hf_manager_report_event(client, event);
 			/* return < 0, don't decrease flush count */
-			if (err < 0) {
-				spin_unlock_irqrestore(&client->request_lock,
-					flags);
+			if (err < 0)
 				return err;
-			}
-			atomic_dec_if_positive(&request->flush);
+			request->flush--;
 		}
-		spin_unlock_irqrestore(&client->request_lock, flags);
 		break;
 	case BIAS_ACTION:
 		/* relay on status client requested, don't check return */
-		if (READ_ONCE(request->bias))
+		if (request->bias)
 			hf_manager_report_event(client, event);
 		break;
 	case CALI_ACTION:
 		/* cali on status client requested, don't check return */
-		if (READ_ONCE(request->cali))
+		if (request->cali)
 			hf_manager_report_event(client, event);
 		break;
 	case TEMP_ACTION:
 		/* temp on status  client requested, don't check return */
-		if (READ_ONCE(request->temp))
+		if (request->temp)
 			hf_manager_report_event(client, event);
 		break;
 	case TEST_ACTION:
 		/* test on status client requested, don't check return */
-		if (READ_ONCE(request->test))
+		if (request->test)
 			hf_manager_report_event(client, event);
 		break;
 	case RAW_ACTION:
 		/* raw on status client requested, don't check return */
-		if (READ_ONCE(request->raw))
+		if (request->raw)
 			hf_manager_report_event(client, event);
 		break;
 	default:
@@ -526,56 +545,154 @@ static struct hf_manager *hf_manager_find_manager(struct hf_core *core,
 	return NULL;
 }
 
-static void hf_manager_update_client_param(struct hf_client *client,
+static inline void hf_manager_save_update_enable(struct hf_client *client,
 		struct hf_manager_cmd *cmd, struct sensor_state *old)
 {
+	unsigned long flags;
 	struct hf_manager_batch *batch = (struct hf_manager_batch *)cmd->data;
 	struct sensor_state *request = &client->request[cmd->sensor_type];
 
+	spin_lock_irqsave(&client->core->client_lock, flags);
 	/* only enable disable update action delay and latency */
 	if (cmd->action == HF_MANAGER_SENSOR_ENABLE) {
-		/* save enable delay latency and start_time to old */
+		/*
+		 * NOTE: save significant parameter to old
+		 * remember mustn't save flush bias raw etc
+		 * down_sample_cnt and down_sample_div mustn't save due to
+		 * own_sample_update called in hf_manager_device_enable
+		 * when enable disable and batch device success
+		 */
 		old->enable = request->enable;
+		old->down_sample = request->down_sample;
 		old->delay = request->delay;
 		old->latency = request->latency;
-		atomic64_set(&old->start_time,
-			atomic64_read(&request->start_time));
+		old->start_time = request->start_time;
 		/* update new */
 		if (!request->enable)
-			atomic64_set(&request->start_time,
-				ktime_get_boot_ns());
+			request->start_time = ktime_get_boot_ns();
 		request->enable = true;
+		request->down_sample = cmd->down_sample;
 		request->delay = batch->delay;
 		request->latency = batch->latency;
 	} else if (cmd->action == HF_MANAGER_SENSOR_DISABLE) {
-		atomic64_set(&request->start_time, S64_MAX);
 		request->enable = false;
+		request->down_sample = false;
 		request->delay = S64_MAX;
 		request->latency = S64_MAX;
+		request->start_time = S64_MAX;
 	}
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
 }
 
-static void hf_manager_clear_client_param(struct hf_client *client,
+static inline void hf_manager_restore_enable(struct hf_client *client,
 		struct hf_manager_cmd *cmd, struct sensor_state *old)
 {
+	unsigned long flags;
 	struct sensor_state *request = &client->request[cmd->sensor_type];
 
+	spin_lock_irqsave(&client->core->client_lock, flags);
 	if (cmd->action == HF_MANAGER_SENSOR_ENABLE) {
 		/*
-		 * restore enable delay latency and start_time
-		 * remember must not restore bias raw etc
+		 * NOTE: restore significant parameter from old
+		 * remember mustn't restore flush bias raw etc
+		 * down_sample_cnt and down_sample_div mustn't restore due to
+		 * down_sample_update called in hf_manager_device_enable
+		 * when enable disable and batch device success
 		 */
-		atomic64_set(&request->start_time,
-			atomic64_read(&old->start_time));
 		request->enable = old->enable;
+		request->down_sample = old->down_sample;
 		request->delay = old->delay;
 		request->latency = old->latency;
+		request->start_time = old->start_time;
 	} else if (cmd->action == HF_MANAGER_SENSOR_DISABLE) {
-		atomic64_set(&request->start_time, S64_MAX);
 		request->enable = false;
+		request->down_sample = false;
 		request->delay = S64_MAX;
 		request->latency = S64_MAX;
+		request->start_time = S64_MAX;
 	}
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_inc_flush(struct hf_client *client,
+		uint8_t sensor_type)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	client->request[sensor_type].flush++;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_dec_flush(struct hf_client *client,
+		uint8_t sensor_type)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	if (client->request[sensor_type].flush > 0)
+		client->request[sensor_type].flush--;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_update_bias(struct hf_client *client,
+		uint8_t sensor_type, bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	client->request[sensor_type].bias = enable;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_update_cali(struct hf_client *client,
+		uint8_t sensor_type, bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	client->request[sensor_type].cali = enable;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_update_temp(struct hf_client *client,
+		uint8_t sensor_type, bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	client->request[sensor_type].temp = enable;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_update_test(struct hf_client *client,
+		uint8_t sensor_type, bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	client->request[sensor_type].test = enable;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_update_raw(struct hf_client *client,
+		uint8_t sensor_type, bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	client->request[sensor_type].raw = enable;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_clear_raw(struct hf_client *client,
+		uint8_t sensor_type)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	client->request[sensor_type].raw = false;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
 }
 
 static void hf_manager_find_best_param(struct hf_core *core,
@@ -651,7 +768,7 @@ static inline bool device_redisable(struct hf_core *core, uint8_t sensor_type,
 	return false;
 }
 
-static inline void device_request_update(struct hf_core *core,
+static inline void device_state_save(struct hf_core *core,
 		uint8_t sensor_type, struct sensor_state *old)
 {
 	/* save enable delay and latency to old */
@@ -660,7 +777,7 @@ static inline void device_request_update(struct hf_core *core,
 	old->latency = core->state[sensor_type].latency;
 }
 
-static inline void device_request_clear(struct hf_core *core,
+static inline void device_state_restore(struct hf_core *core,
 		uint8_t sensor_type, struct sensor_state *old)
 {
 	/*
@@ -725,15 +842,15 @@ static int hf_manager_device_enable(struct hf_device *device,
 		&best_delay, &best_latency);
 
 	if (best_enable) {
-		device_request_update(core, sensor_type, &old);
+		device_state_save(core, sensor_type, &old);
 		if (device_rebatch(core, sensor_type,
 				best_delay, best_latency)) {
 			err = device->batch(device, sensor_type,
 				best_delay, best_latency);
 			/* handle error to return when batch fail */
 			if (err < 0) {
-				device_request_clear(core, sensor_type, &old);
-				return err;
+				device_state_restore(core, sensor_type, &old);
+				goto out;
 			}
 		}
 		if (device_reenable(core, sensor_type, best_enable)) {
@@ -747,8 +864,8 @@ static int hf_manager_device_enable(struct hf_device *device,
 				 * rebatch success and enable fail.
 				 * update prev request from old.
 				 */
-				device_request_clear(core, sensor_type, &old);
-				return err;
+				device_state_restore(core, sensor_type, &old);
+				goto out;
 			}
 		}
 		if (device->device_poll == HF_DEVICE_IO_POLLING)
@@ -770,6 +887,12 @@ static int hf_manager_device_enable(struct hf_device *device,
 			tasklet_kill(&manager->io_work_tasklet);
 	}
 
+out:
+	/*
+	 * enable, batch or disable success we update down sample.
+	 */
+	if (!err)
+		down_sample_update(core, sensor_type);
 	return err;
 }
 
@@ -816,6 +939,9 @@ static int hf_manager_device_rawdata(struct hf_device *device,
 	struct sensor_state *request = NULL;
 	bool best_enable = false;
 
+	if (!device->rawdata)
+		return 0;
+
 	spin_lock_irqsave(&core->client_lock, flags);
 	list_for_each_entry(client, &core->client_list, list) {
 		request = &client->request[sensor_type];
@@ -824,8 +950,6 @@ static int hf_manager_device_rawdata(struct hf_device *device,
 	}
 	spin_unlock_irqrestore(&core->client_lock, flags);
 
-	if (!device->rawdata)
-		return 0;
 	if (core->state[sensor_type].raw == best_enable)
 		return 0;
 	core->state[sensor_type].raw = best_enable;
@@ -930,25 +1054,23 @@ static int hf_manager_drive_device(struct hf_client *client,
 	}
 
 #ifdef HF_MANAGER_DEBUG
-	pr_notice("Drive device:%s command %u %u %u\n",
-		device->dev_name, cmd->sensor_type, cmd->action,
-		cmd->padding);
+	pr_notice("Drive device:%s command %u %u\n",
+		device->dev_name, cmd->sensor_type, cmd->action);
 #endif
 
 	switch (cmd->action) {
 	case HF_MANAGER_SENSOR_ENABLE:
 	case HF_MANAGER_SENSOR_DISABLE:
-		hf_manager_update_client_param(client, cmd, &old);
+		hf_manager_save_update_enable(client, cmd, &old);
 		err = hf_manager_device_enable(device, sensor_type);
 		if (err < 0)
-			hf_manager_clear_client_param(client, cmd, &old);
+			hf_manager_restore_enable(client, cmd, &old);
 		break;
 	case HF_MANAGER_SENSOR_FLUSH:
-		atomic_inc(&client->request[sensor_type].flush);
+		hf_manager_inc_flush(client, sensor_type);
 		err = hf_manager_device_flush(device, sensor_type);
 		if (err < 0)
-			atomic_dec_if_positive(
-				&client->request[sensor_type].flush);
+			hf_manager_dec_flush(client, sensor_type);
 		break;
 	case HF_MANAGER_SENSOR_ENABLE_CALI:
 		err = hf_manager_device_calibration(device, sensor_type);
@@ -961,11 +1083,10 @@ static int hf_manager_drive_device(struct hf_client *client,
 		err = hf_manager_device_selftest(device, sensor_type);
 		break;
 	case HF_MANAGER_SENSOR_RAWDATA:
-		client->request[sensor_type].raw =
-			cmd->data[0] ? true : false;
+		hf_manager_update_raw(client, sensor_type, cmd->data[0]);
 		err = hf_manager_device_rawdata(device, sensor_type);
 		if (err < 0)
-			client->request[sensor_type].raw = false;
+			hf_manager_clear_raw(client, sensor_type);
 		break;
 	default:
 		pr_err("Unknown action %u\n", cmd->action);
@@ -1077,16 +1198,16 @@ int hf_client_request_sensor_cali(struct hf_client *client,
 		return -EINVAL;
 	switch (cmd) {
 	case HF_MANAGER_REQUEST_BIAS_DATA:
-		client->request[sensor_type].bias = status;
+		hf_manager_update_bias(client, sensor_type, status);
 		break;
 	case HF_MANAGER_REQUEST_CALI_DATA:
-		client->request[sensor_type].cali = status;
+		hf_manager_update_cali(client, sensor_type, status);
 		break;
 	case HF_MANAGER_REQUEST_TEMP_DATA:
-		client->request[sensor_type].temp = status;
+		hf_manager_update_temp(client, sensor_type, status);
 		break;
 	case HF_MANAGER_REQUEST_TEST_DATA:
-		client->request[sensor_type].test = status;
+		hf_manager_update_test(client, sensor_type, status);
 		break;
 	default:
 		pr_err("Unknown command %u\n", cmd);
@@ -1131,7 +1252,7 @@ int hf_client_poll_sensor_timeout(struct hf_client *client,
 
 	/* ret must be long to fill timeout(MAX_SCHEDULE_TIMEOUT) */
 	ret = wait_event_interruptible_timeout(hf_fifo->wait,
-		hf_fifo->head != hf_fifo->tail, timeout);
+		READ_ONCE(hf_fifo->head) != READ_ONCE(hf_fifo->tail), timeout);
 
 	if (!ret)
 		return -ETIMEDOUT;
@@ -1139,7 +1260,7 @@ int hf_client_poll_sensor_timeout(struct hf_client *client,
 		return ret;
 
 	for (;;) {
-		if (hf_fifo->head == hf_fifo->tail)
+		if (READ_ONCE(hf_fifo->head) == READ_ONCE(hf_fifo->tail))
 			return 0;
 		if (count == 0)
 			break;
@@ -1198,7 +1319,7 @@ static ssize_t hf_manager_read(struct file *filp,
 		return -EINVAL;
 
 	for (;;) {
-		if (hf_fifo->head == hf_fifo->tail)
+		if (READ_ONCE(hf_fifo->head) == READ_ONCE(hf_fifo->tail))
 			return 0;
 		if (count == 0)
 			break;
@@ -1242,7 +1363,7 @@ static unsigned int hf_manager_poll(struct file *filp,
 
 	poll_wait(filp, &hf_fifo->wait, wait);
 
-	if (hf_fifo->head != hf_fifo->tail)
+	if (READ_ONCE(hf_fifo->head) != READ_ONCE(hf_fifo->tail))
 		mask |= POLLIN | POLLRDNORM;
 
 	return mask;
@@ -1277,16 +1398,16 @@ static long hf_manager_ioctl(struct file *filp,
 			return -EFAULT;
 		break;
 	case HF_MANAGER_REQUEST_BIAS_DATA:
-		client->request[sensor_type].bias = packet.status;
+		hf_manager_update_bias(client, sensor_type, packet.status);
 		break;
 	case HF_MANAGER_REQUEST_CALI_DATA:
-		client->request[sensor_type].cali = packet.status;
+		hf_manager_update_cali(client, sensor_type, packet.status);
 		break;
 	case HF_MANAGER_REQUEST_TEMP_DATA:
-		client->request[sensor_type].temp = packet.status;
+		hf_manager_update_temp(client, sensor_type, packet.status);
 		break;
 	case HF_MANAGER_REQUEST_TEST_DATA:
-		client->request[sensor_type].test = packet.status;
+		hf_manager_update_test(client, sensor_type, packet.status);
 		break;
 	case HF_MANAGER_REQUEST_SENSOR_INFO:
 		if (!test_bit(sensor_type, sensor_list_bitmap))
@@ -1400,13 +1521,16 @@ static int hf_manager_proc_show(struct seq_file *m, void *v)
 		for (i = 0; i < SENSOR_TYPE_SENSOR_MAX; ++i) {
 			if (!client->request[i].enable)
 				continue;
-			seq_printf(m, " (%d) type:%d param:[%lld,%lld,%lld]\n",
+			seq_printf(m, " (%d) type:%d param:[%lld,%lld,%lld]",
 				k++,
 				i,
 				client->request[i].delay,
 				client->request[i].latency,
-				(int64_t)atomic64_read(
-					&client->request[i].start_time));
+				client->request[i].start_time);
+			seq_printf(m, " ds:[%u,%u,%u]\n",
+				client->request[i].down_sample,
+				client->request[i].down_sample_cnt,
+				client->request[i].down_sample_div);
 		}
 	}
 	spin_unlock_irqrestore(&core->client_lock, flags);
