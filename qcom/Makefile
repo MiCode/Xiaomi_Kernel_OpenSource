@@ -384,6 +384,14 @@ dtb-$(CONFIG_ARCH_QTI_VM) += waipio-vm-mtp.dtb \
 endif
 endif
 
+ifeq ($(CONFIG_ARCH_CAPE), y)
+ifeq ($(CONFIG_ARCH_QTI_VM), y)
+dtb-$(CONFIG_ARCH_QTI_VM) += cape-vm-mtp.dtb \
+	cape-vm-cdp.dtb \
+	cape-vm-qrd.dtb
+endif
+endif
+
 ifeq ($(CONFIG_ARCH_DIWALI), y)
 ifeq ($(CONFIG_ARCH_QTI_VM), y)
 dtb-$(CONFIG_ARCH_QTI_VM) +=  \
