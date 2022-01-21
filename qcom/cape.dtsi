@@ -2626,6 +2626,12 @@
 		memory-region = <&cpusys_vm_mem>;
 	};
 
+	tlmm-vm-mem-access {
+		compatible = "qcom,tlmm-vm-mem-access";
+		qcom,master;
+		tlmm-vm-gpio-list = <365 366 367 368 301 305 387 388 317 318 319 320 321 322>;
+	};
+
 	cache-controller@19200000 {
 		compatible = "qcom,cape-llcc", "qcom,llcc-v21";
 		reg = <0x19200000 0x580000> , <0x19a00000 0x80000>;
