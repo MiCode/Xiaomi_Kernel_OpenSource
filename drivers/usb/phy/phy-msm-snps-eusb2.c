@@ -615,6 +615,9 @@ static int msm_eusb2_repeater_reset_and_init(struct msm_eusb2_phy *phy)
 	int ret;
 	u32 value;
 
+	if (phy->ur)
+		phy->ur->flags = phy->phy.flags;
+
 	ret = usb_repeater_powerup(phy->ur);
 	if (ret)
 		dev_err(phy->phy.dev, "repeater powerup failed.\n");
