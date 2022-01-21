@@ -1,0 +1,11 @@
+#include "waipio-vm.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape SVM";
+	compatible = "qcom,cape";
+	qcom,msm-id = <530 0x10000>;
+};
+
+&tlmm {
+	compatible = "qcom,cape-vm-pinctrl";
+};

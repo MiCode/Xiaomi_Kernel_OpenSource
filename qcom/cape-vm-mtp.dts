@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "cape-vm.dtsi"
+#include "cape-vm-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape SVM MTP";
+	compatible = "qcom,cape-mtp", "qcom,cape", "qcom,mtp";
+	qcom,board-id = <0x10008 0>;
+};

@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "cape-vm.dtsi"
+#include "cape-vm-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape SVM QRD";
+	compatible = "qcom,cape-qrd", "qcom,cape", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+};
