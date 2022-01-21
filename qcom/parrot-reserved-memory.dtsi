@@ -129,11 +129,6 @@
 		reg = <0x0 0xa6f00000 0x0 0x100000>;
 	};
 
-	uefi_mem: uefi_region@a7000000 {
-		no-map;
-		reg = <0x0 0xa7000000 0x0 0x1000000>;
-	};
-
 	qheebsp_reserved_mem: qheebsp_reserved_region@e0000000 {
 		no-map;
 		reg = <0x0 0xe0000000 0x0 0x600000>;
