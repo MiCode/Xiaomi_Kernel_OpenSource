@@ -562,6 +562,7 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		wakeup-parent = <&pdc>;
+		qcom,gpios-reserved = <28 29 30 31 36 37 38 39>;
 	};
 
 	arch_timer: timer {
