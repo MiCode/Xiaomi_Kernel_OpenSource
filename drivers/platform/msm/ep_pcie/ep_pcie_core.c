@@ -651,11 +651,6 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 			ep_pcie_write_reg(dev->parf,
 				PCIE20_PARF_SLV_ADDR_SPACE_SIZE, 0x40000000);
 
-		/* Configure link speed */
-		ep_pcie_write_mask(dev->dm_core +
-				PCIE20_LINK_CONTROL2_LINK_STATUS2,
-				0xf, dev->link_speed);
-
 		EP_PCIE_DBG2(dev, "PCIe V%d: Clear disconn_req after D3_COLD\n",
 			     dev->rev);
 		ep_pcie_write_reg_field(dev->tcsr_perst_en,
@@ -816,6 +811,11 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		/* Disable CS for RO(CS) register writes */
 		ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0),
 			0);
+
+		/* Configure link speed */
+		ep_pcie_write_mask(dev->dm_core +
+				PCIE20_LINK_CONTROL2_LINK_STATUS2,
+				0xf, dev->link_speed);
 
 		/* Set FTS value to match the PHY setting */
 		ep_pcie_write_reg_field(dev->dm_core,
