@@ -100,6 +100,15 @@ enum {
 	UFS_UFS_DBG_RD_EDTL_RAM			= 0x1900,
 };
 
+/* QCOM UFS host controller vendor specific H8 count registers */
+enum {
+	REG_UFS_HW_H8_ENTER_CNT				= 0x2700,
+	REG_UFS_SW_H8_ENTER_CNT				= 0x2704,
+	REG_UFS_SW_AFTER_HW_H8_ENTER_CNT	= 0x2708,
+	REG_UFS_HW_H8_EXIT_CNT				= 0x270C,
+	REG_UFS_SW_H8_EXIT_CNT				= 0x2710,
+};
+
 #define UFS_CNTLR_2_x_x_VEN_REGS_OFFSET(x)	(0x000 + x)
 #define UFS_CNTLR_3_x_x_VEN_REGS_OFFSET(x)	(0x400 + x)
 
