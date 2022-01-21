@@ -2609,6 +2609,23 @@
 		};
 	};
 
+	qcom,gh_vm_loader_sec@e0b00000 {
+		compatible = "qcom,gh-vm-loader-sec";
+		qcom,pas-id = <28>;
+		qcom,vmid = <45>;
+		qcom,firmware-name = "trustedvm";
+		memory-region = <&trust_ui_vm_mem>;
+	};
+
+	qcom,gh_vm_loader_sec@e0600000 {
+		compatible = "qcom,gh-vm-loader-sec";
+		qcom,pas-id = <35>;
+		qcom,vmid = <50>;
+		qcom,firmware-name = "cpusys_vm";
+		qcom,no-shutdown;
+		memory-region = <&cpusys_vm_mem>;
+	};
+
 	cache-controller@19200000 {
 		compatible = "qcom,cape-llcc", "qcom,llcc-v21";
 		reg = <0x19200000 0x580000> , <0x19a00000 0x80000>;
