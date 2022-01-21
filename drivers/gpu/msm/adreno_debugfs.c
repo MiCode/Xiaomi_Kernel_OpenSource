@@ -476,6 +476,20 @@ static int _bcl_sid2_get(void *data, u64 *val)
 }
 DEFINE_DEBUGFS_ATTRIBUTE(_sid2_fops, _bcl_sid2_get, _bcl_sid2_set, "%llu\n");
 
+static int _bcl_throttle_time_us_get(void *data, u64 *val)
+{
+	struct kgsl_device *device = data;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_BCL))
+		*val = 0;
+	else
+		*val = (u64) adreno_dev->bcl_throttle_time_us;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(_bcl_throttle_fops, _bcl_throttle_time_us_get, NULL, "%llu\n");
+
 void adreno_debugfs_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -515,5 +529,7 @@ void adreno_debugfs_init(struct adreno_device *adreno_dev)
 		debugfs_create_file("sid0", 0644, adreno_dev->bcl_debugfs_dir, device, &_sid0_fops);
 		debugfs_create_file("sid1", 0644, adreno_dev->bcl_debugfs_dir, device, &_sid1_fops);
 		debugfs_create_file("sid2", 0644, adreno_dev->bcl_debugfs_dir, device, &_sid2_fops);
+		debugfs_create_file("bcl_throttle_time_us", 0444, adreno_dev->bcl_debugfs_dir,
+						device, &_bcl_throttle_fops);
 	}
 }

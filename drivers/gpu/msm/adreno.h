@@ -320,6 +320,7 @@ struct adreno_busy_data {
 	unsigned int bif_starved_ram_ch1;
 	unsigned int num_ifpc;
 	unsigned int throttle_cycles[ADRENO_GPMU_THROTTLE_COUNTERS];
+	u32 bcl_throttle;
 };
 
 /**
@@ -678,6 +679,8 @@ struct adreno_device {
 	 * @bcl_debugfs_dir: Debugfs directory node for bcl related nodes
 	 */
 	struct dentry *bcl_debugfs_dir;
+	/** @bcl_throttle_time_us: Total time in us spent in BCL throttling */
+	u32 bcl_throttle_time_us;
 };
 
 /**
