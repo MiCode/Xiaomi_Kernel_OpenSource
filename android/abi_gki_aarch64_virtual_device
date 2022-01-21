@@ -37,6 +37,7 @@
   clk_enable
   clk_get_rate
   clk_prepare
+  clk_set_rate
   clk_unprepare
   complete
   __const_udelay
@@ -69,6 +70,8 @@
   device_unregister
   _dev_info
   __dev_kfree_skb_any
+  devm_clk_get
+  devm_clk_hw_register
   devm_ioremap
   devm_ioremap_resource
   devm_kfree
@@ -90,6 +93,25 @@
   dma_sync_sg_for_device
   dma_unmap_sg_attrs
   do_trace_netlink_extack
+  drm_atomic_helper_check
+  drm_atomic_helper_commit
+  drm_compat_ioctl
+  __drm_dbg
+  drm_debugfs_create_files
+  drm_dev_alloc
+  drm_dev_put
+  drm_dev_register
+  drm_gem_mmap
+  drm_gem_prime_fd_to_handle
+  drm_gem_prime_handle_to_fd
+  drm_gem_prime_mmap
+  drm_ioctl
+  drmm_mode_config_init
+  drm_mode_config_reset
+  drm_open
+  drm_poll
+  drm_read
+  drm_release
   ether_setup
   ethtool_op_get_link
   eth_validate_addr
@@ -200,8 +222,10 @@
   nf_conntrack_destroy
   no_llseek
   nonseekable_open
+  noop_llseek
   nr_cpu_ids
   __num_online_cpus
+  of_device_is_compatible
   of_property_read_variable_u32_array
   param_ops_bool
   param_ops_int
@@ -273,6 +297,7 @@
   regmap_exit
   __regmap_init
   regmap_read
+  regmap_update_bits_base
   regmap_write
   release_firmware
   remap_pfn_range
@@ -424,8 +449,6 @@
 
 # required by armmmci.ko
   clk_round_rate
-  clk_set_rate
-  devm_clk_get
   devm_of_iomap
   devm_pinctrl_get
   __devm_reset_control_get
@@ -503,7 +526,6 @@
 
 # required by clk-vexpress-osc.ko
   clk_hw_set_rate_range
-  devm_clk_hw_register
   devm_of_clk_add_hw_provider
   of_clk_hw_simple_get
   of_property_read_string
@@ -668,6 +690,38 @@
   devm_memunmap
   vm_iomap_memory
 
+# required by pl111_drm.ko
+  __clk_get_name
+  clk_hw_get_parent
+  clk_hw_round_rate
+  drm_crtc_arm_vblank_event
+  drm_crtc_handle_vblank
+  drm_crtc_send_vblank_event
+  drm_crtc_vblank_get
+  drm_crtc_vblank_off
+  drm_crtc_vblank_on
+  drm_dev_unregister
+  drm_fb_cma_get_gem_addr
+  drm_gem_cma_dumb_create
+  drm_gem_cma_prime_import_sg_table
+  drm_gem_fb_create
+  drm_kms_helper_poll_init
+  drm_of_find_panel_or_bridge
+  drm_panel_bridge_add_typed
+  drm_panel_bridge_connector
+  drm_panel_bridge_remove
+  drm_simple_display_pipe_attach_bridge
+  drm_simple_display_pipe_init
+  drm_vblank_init
+  of_find_device_by_node
+  of_find_matching_node_and_match
+  of_find_node_opts_by_path
+  of_get_next_available_child
+  of_graph_get_next_endpoint
+  of_reserved_mem_device_init_by_idx
+  of_reserved_mem_device_release
+  syscon_node_to_regmap
+
 # required by psmouse.ko
   bus_register_notifier
   bus_unregister_notifier
@@ -800,7 +854,6 @@
   prepare_to_wait
   regcache_cache_only
   regcache_sync
-  regmap_update_bits_base
   snd_dma_alloc_pages
   snd_dma_free_pages
   snd_pcm_format_width
@@ -864,7 +917,6 @@
   devres_add
   __devres_alloc_node
   devres_free
-  of_device_is_compatible
   of_find_compatible_node
   of_find_property
   of_get_next_parent
@@ -919,9 +971,7 @@
   drm_add_modes_noedid
   drm_aperture_remove_conflicting_pci_framebuffers
   drm_atomic_get_crtc_state
-  drm_atomic_helper_check
   drm_atomic_helper_check_plane_state
-  drm_atomic_helper_commit
   drm_atomic_helper_connector_destroy_state
   drm_atomic_helper_connector_duplicate_state
   drm_atomic_helper_connector_reset
@@ -938,7 +988,6 @@
   drm_atomic_helper_set_config
   drm_atomic_helper_shutdown
   drm_atomic_helper_update_plane
-  drm_compat_ioctl
   drm_connector_attach_edid_property
   drm_connector_attach_encoder
   drm_connector_cleanup
@@ -949,15 +998,10 @@
   drm_crtc_cleanup
   drm_crtc_init_with_planes
   drm_cvt_mode
-  __drm_dbg
-  drm_debugfs_create_files
-  drm_dev_alloc
   drm_dev_enter
   drm_dev_exit
   drm_dev_get
   drm_dev_printk
-  drm_dev_put
-  drm_dev_register
   drm_dev_set_unique
   drm_dev_unplug
   drm_do_get_edid
@@ -976,14 +1020,10 @@
   drm_gem_map_attach
   drm_gem_map_detach
   drm_gem_map_dma_buf
-  drm_gem_mmap
   drm_gem_object_free
   drm_gem_object_lookup
   drm_gem_object_release
-  drm_gem_prime_fd_to_handle
-  drm_gem_prime_handle_to_fd
   drm_gem_prime_import
-  drm_gem_prime_mmap
   drm_gem_private_object_init
   drm_gem_shmem_create
   drm_gem_shmem_free_object
@@ -1001,23 +1041,16 @@
   drm_helper_hpd_irq_event
   drm_helper_mode_fill_fb_struct
   drm_helper_probe_single_connector_modes
-  drm_ioctl
   drm_kms_helper_hotplug_event
   drm_mm_init
   drm_mm_insert_node_in_range
-  drmm_mode_config_init
   drm_mm_print
   drm_mm_remove_node
   drm_mm_takedown
-  drm_mode_config_reset
   drm_mode_probed_add
-  drm_open
   drm_plane_cleanup
-  drm_poll
   __drm_printfn_seq_file
   __drm_puts_seq_file
-  drm_read
-  drm_release
   drm_set_preferred_mode
   drm_simple_encoder_init
   drm_universal_plane_init
@@ -1026,7 +1059,6 @@
   is_vmalloc_addr
   kmalloc_order_trace
   memdup_user
-  noop_llseek
   seq_puts
   sync_file_get_fence
   __traceiter_dma_fence_emit
