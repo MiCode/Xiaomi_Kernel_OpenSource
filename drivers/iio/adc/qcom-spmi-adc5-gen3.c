@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/bitops.h>
@@ -614,8 +615,10 @@ static irqreturn_t adc5_gen3_isr(int irq, void *dev_id)
 			goto handler_end;
 	}
 
-handler_end:
 	return IRQ_HANDLED;
+
+handler_end:
+	return IRQ_NONE;
 }
 
 static void __tm_handler_work(struct adc5_chip *adc, unsigned int sdam_index)
