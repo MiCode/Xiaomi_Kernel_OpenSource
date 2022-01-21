@@ -663,6 +663,11 @@
   vlan_vids_add_by_dev
   vlan_vids_del_by_dev
 
+# required by open-dice.ko
+  devm_memremap
+  devm_memunmap
+  vm_iomap_memory
+
 # required by psmouse.ko
   bus_register_notifier
   bus_unregister_notifier
