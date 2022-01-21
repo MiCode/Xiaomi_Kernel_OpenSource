@@ -9,6 +9,7 @@ qcom_ipc_logging.ko
 qcom-pdc.ko
 rpmh-regulator.ko
 qcom-cpufreq-hw.ko
+sched-walt.ko
 clk-dummy.ko
 clk-qcom.ko
 cmd-db.ko
