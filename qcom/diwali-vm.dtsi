@@ -3,7 +3,7 @@
 / {
 	#address-cells = <0x2>;
 	#size-cells = <0x2>;
-	qcom,msm-id = <506 0x10000>;
+	qcom,msm-id = <506 0x10000>, <547 0x10000>, <564 0x10000>;
 	interrupt-parent = <&vgic>;
 
 	qcom,mem-buf {
