@@ -7,7 +7,7 @@
 	interrupt-controller;
 	#interrupt-cells = <4>;
 
-	qcom,pmr735a@4 {
+	pmr735a_spmi: qcom,pmr735a@4 {
 		compatible = "qcom,spmi-pmic";
 		reg = <4 SPMI_USID>;
 		#address-cells = <1>;

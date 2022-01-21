@@ -3,6 +3,19 @@
 
 #include "diwali-pmic-overlay.dtsi"
 #include "diwali-thermal-overlay.dtsi"
+
+&pmr735a_debug {
+	status = "disabled";
+};
+
+&pmr735a_spmi {
+	status = "disabled";
+};
+
+&pmr735a_temp_alarm {
+	status = "disabled";
+};
+
 &soc {
 	qcom,userspace-cdev {
 		display-fps {
