@@ -54,6 +54,9 @@ void gh_init_vm_prop_table(void)
 int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 			struct gh_vm_property *vm_prop)
 {
+	if (!vm_prop)
+		return -EINVAL;
+
 	if (vm_prop->vmid < 0)
 		return -EINVAL;
 
