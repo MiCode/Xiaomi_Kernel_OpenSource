@@ -653,7 +653,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 
 		EP_PCIE_DBG2(dev, "PCIe V%d: Clear disconn_req after D3_COLD\n",
 			     dev->rev);
-		ep_pcie_write_reg_field(dev->tcsr_perst_en,
+
+		if (!dev->tcsr_not_supported)
+			ep_pcie_write_reg_field(dev->tcsr_perst_en,
 					TCSR_PCIE_RST_SEPARATION, BIT(5), 0);
 	}
 
@@ -2054,8 +2056,10 @@ int ep_pcie_core_disable_endpoint(void)
 
 	EP_PCIE_DBG2(dev, "PCIe V%d: Set pcie_disconnect_req during D3_COLD\n",
 		     dev->rev);
-	ep_pcie_write_reg_field(dev->tcsr_perst_en,
-				TCSR_PCIE_RST_SEPARATION, BIT(5), 1);
+
+	if (!dev->tcsr_not_supported)
+		ep_pcie_write_reg_field(dev->tcsr_perst_en,
+					TCSR_PCIE_RST_SEPARATION, BIT(5), 1);
 
 	ep_pcie_pipe_clk_deinit(dev);
 	ep_pcie_clk_deinit(dev);
