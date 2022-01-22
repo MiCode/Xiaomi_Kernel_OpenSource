@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
 
@@ -27,6 +27,7 @@
 #define NAME_LEN	32
 
 #define SPEC_FENCE_FLAG_FENCE_ARRAY 0x10 /* user flags for debug */
+#define SPEC_FENCE_FLAG_ARRAY_BIND 0x11
 #define FENCE_MIN	1
 #define FENCE_MAX	32
 
@@ -321,6 +322,7 @@ static int spec_sync_bind_array(struct fence_bind_data *sync_bind_info)
 			 i, user_fds[i], fence_array->fences[i]->error);
 	}
 
+	set_bit(SPEC_FENCE_FLAG_ARRAY_BIND, &fence->flags);
 	clear_bit(DMA_FENCE_FLAG_ENABLE_SIGNAL_BIT, &fence->flags);
 	spin_unlock(fence->lock);
 
