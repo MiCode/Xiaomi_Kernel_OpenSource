@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -295,17 +296,12 @@ static void a6xx_rgmu_prepare_stop(struct kgsl_device *device)
 }
 
 #define GX_GDSC_POWER_OFF	BIT(6)
-/*
- * a6xx_rgmu_gx_is_on() - Check if GX is on using pwr status register
- * @adreno_dev - Pointer to adreno_device
- * This check should only be performed if the keepalive bit is set or it
- * can be guaranteed that the power state of the GPU will remain unchanged
- */
-static bool a6xx_rgmu_gx_is_on(struct kgsl_device *device)
+bool a6xx_rgmu_gx_is_on(struct adreno_device *adreno_dev)
 {
 	unsigned int val;
 
-	gmu_core_regread(device, A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
+	gmu_core_regread(KGSL_DEVICE(adreno_dev),
+			A6XX_GMU_SPTPRAC_PWR_CLK_STATUS, &val);
 	return !(val & GX_GDSC_POWER_OFF);
 }
 
@@ -482,12 +478,11 @@ static void a6xx_rgmu_notify_slumber(struct adreno_device *adreno_dev)
 
 static void a6xx_rgmu_disable_clks(struct adreno_device *adreno_dev)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct a6xx_rgmu_device *rgmu = to_a6xx_rgmu(adreno_dev);
 	int  ret;
 
 	/* Check GX GDSC is status */
-	if (a6xx_rgmu_gx_is_on(device)) {
+	if (a6xx_rgmu_gx_is_on(adreno_dev)) {
 
 		if (IS_ERR_OR_NULL(rgmu->gx_gdsc))
 			return;
@@ -507,7 +502,7 @@ static void a6xx_rgmu_disable_clks(struct adreno_device *adreno_dev)
 			dev_err(&rgmu->pdev->dev,
 					"Fail to disable gx gdsc:%d\n", ret);
 
-		if (a6xx_rgmu_gx_is_on(device))
+		if (a6xx_rgmu_gx_is_on(adreno_dev))
 			dev_err(&rgmu->pdev->dev, "gx is stuck on\n");
 	}
 
@@ -838,7 +833,7 @@ static int a6xx_rgmu_boot(struct adreno_device *adreno_dev)
 
 	device->gmu_fault = false;
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_AWARE);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
 
 	return 0;
 
@@ -862,6 +857,18 @@ static void rgmu_idle_check(struct work_struct *work)
 		goto done;
 
 	if (!atomic_read(&device->active_cnt)) {
+		spin_lock(&device->submit_lock);
+
+		if (device->submit_now) {
+			spin_unlock(&device->submit_lock);
+			kgsl_pwrscale_update(device);
+			kgsl_start_idle_timer(device);
+			goto done;
+		}
+
+		device->slumber = true;
+		spin_unlock(&device->submit_lock);
+
 		a6xx_power_off(adreno_dev);
 	} else {
 		kgsl_pwrscale_update(device);
@@ -906,9 +913,8 @@ static int a6xx_boot(struct adreno_device *adreno_dev)
 	set_bit(RGMU_PRIV_GPU_STARTED, &rgmu->flags);
 
 	device->pwrctrl.last_stat_updated = ktime_get();
-	device->state = KGSL_STATE_ACTIVE;
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_ACTIVE);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 
 	return 0;
 }
@@ -945,9 +951,8 @@ static void a6xx_rgmu_touch_wakeup(struct adreno_device *adreno_dev)
 	set_bit(RGMU_PRIV_GPU_STARTED, &rgmu->flags);
 
 	device->pwrctrl.last_stat_updated = ktime_get();
-	device->state = KGSL_STATE_ACTIVE;
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_ACTIVE);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 
 done:
 	/*
@@ -1018,9 +1023,8 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 	device->pwrscale.devfreq_enabled = true;
 
 	device->pwrctrl.last_stat_updated = ktime_get();
-	device->state = KGSL_STATE_ACTIVE;
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_ACTIVE);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 
 	return 0;
 }
@@ -1112,7 +1116,7 @@ no_gx_power:
 
 	kgsl_pwrscale_sleep(device);
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_SLUMBER);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
 
 	return ret;
 }
@@ -1190,7 +1194,7 @@ static int a6xx_rgmu_pm_suspend(struct adreno_device *adreno_dev)
 
 	adreno_get_gpu_halt(adreno_dev);
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_SUSPEND);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_SUSPEND);
 
 	return 0;
 err:
@@ -1217,7 +1221,6 @@ static void a6xx_rgmu_pm_resume(struct adreno_device *adreno_dev)
 static const struct gmu_dev_ops a6xx_rgmudev = {
 	.oob_set = a6xx_rgmu_oob_set,
 	.oob_clear = a6xx_rgmu_oob_clear,
-	.gx_is_on = a6xx_rgmu_gx_is_on,
 	.ifpc_store = a6xx_rgmu_ifpc_store,
 	.ifpc_show = a6xx_rgmu_ifpc_show,
 };

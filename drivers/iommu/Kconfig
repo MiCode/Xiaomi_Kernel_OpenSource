@@ -393,12 +393,22 @@ config ARM_SMMU_SELFTEST
 
 config ARM_SMMU_TESTBUS_DEBUGFS
 	bool "Expose testbus control debugfs nodes"
-	depends on ARM_SMMU && IOMMU_DEBUGFS
+	depends on ARM_SMMU && QCOM_IOMMU_DEBUG
 	help
 	  Support for exposing debugfs nodes to set testbus select values
 	  for selecting a testbus to inspect for a particular TCU/TBU
 	  on an SMMU. This also exposes debugfs nodes to read testbus output
 	  after the output has been selected.
+
+config ARM_SMMU_CAPTUREBUS_DEBUGFS
+	bool "Expose capturebus control debugfs nodes"
+	depends on ARM_SMMU && QCOM_IOMMU_DEBUG
+	help
+	  Support for exposing debugfs nodes to configure capturebus for each
+	  tbu of an SMMU. This also exposes debugfs nodes to get the snapshot
+	  of capturebus.
+
+	  If unsure, say N here.
 
 config ARM_SMMU_V3
 	tristate "ARM Ltd. System MMU Version 3 (SMMUv3) Support"

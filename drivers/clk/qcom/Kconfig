@@ -837,4 +837,40 @@ config SXR_VIDEOCC_NEO
 	  Say Y if you want to support video devices and functionality such as
 	  video encode/decode.
 
+config SXR_CAMCC_NEO
+	tristate "NEO Camera Clock Controller"
+	select SXR_GCC_NEO
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc.
+	  NEO devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config SM_VIDEOCC_PARROT
+	tristate "PARROT Video Clock Controller"
+	select SM_GCC_PARROT
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  PARROT devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config SM_GPUCC_PARROT
+	tristate "PARROT Graphics Clock Controller"
+	select SM_GCC_PARROT
+	help
+	  Support for the graphics clock controller on Qualcomm Technologies, Inc.
+	  PARROT devices.
+	  Say Y if you want to support graphics controller devices and
+	  functionality such as 3D graphics.
+
+config SXR_DISPCC_NEO
+	tristate "NEO Display Clock Controller"
+	select SXR_GCC_NEO
+	help
+	  Support for the display clock controller on Qualcomm Technologies, Inc
+	  NEO devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 endif

@@ -759,12 +759,23 @@ static struct qcom_icc_node qnm_pcie_anoc_cfg = {
 	.links = { SLAVE_SERVICE_PCIE_ANOC },
 };
 
+static struct qcom_icc_qosbox xm_pcie3_0_qos = {
+	.regs = icc_qnoc_qos_regs[ICC_QNOC_QOSGEN_TYPE_RPMH],
+	.num_ports = 1,
+	.offsets = { 0x6000 },
+	.config = &(struct qos_config) {
+		.prio = 3,
+		.urg_fwd = 0,
+	},
+};
+
 static struct qcom_icc_node xm_pcie3_0 = {
 	.name = "xm_pcie3_0",
 	.id = MASTER_PCIE_0,
 	.channels = 1,
 	.buswidth = 8,
 	.noc_ops = &qcom_qnoc4_ops,
+	.qosbox = &xm_pcie3_0_qos,
 	.num_links = 1,
 	.links = { SLAVE_ANOC_PCIE_GEM_NOC },
 };

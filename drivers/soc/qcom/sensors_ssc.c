@@ -359,7 +359,26 @@ const struct file_operations sensors_ssc_fops = {
 
 static int sensors_ssc_probe(struct platform_device *pdev)
 {
-	int ret = slpi_loader_init_sysfs(pdev);
+	phandle rproc_phandle;
+	struct property *prop;
+	int size;
+	struct rproc *slpi;
+	int ret;
+
+	prop = of_find_property(pdev->dev.of_node, "qcom,rproc-handle",
+				&size);
+	if (!prop) {
+		dev_err(&pdev->dev, "Missing remotproc handle\n");
+		return -ENOPARAM;
+	}
+	rproc_phandle = be32_to_cpup(prop->value);
+	slpi = rproc_get_by_phandle(rproc_phandle);
+	if (!slpi) {
+		dev_err(&pdev->dev, "fail to get rproc\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
+	ret = slpi_loader_init_sysfs(pdev);
 
 	if (ret != 0) {
 		dev_err(&pdev->dev, "%s: Error in initing sysfs\n", __func__);

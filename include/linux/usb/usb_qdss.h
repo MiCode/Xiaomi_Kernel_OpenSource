@@ -22,7 +22,6 @@ struct qdss_request {
 	void *context;
 	struct scatterlist *sg;
 	unsigned int num_sgs;
-	unsigned int num_mapped_sgs;
 };
 
 struct usb_qdss_ch {

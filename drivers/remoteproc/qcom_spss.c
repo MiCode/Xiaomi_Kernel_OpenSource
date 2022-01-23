@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2022, The Linux Foundation. All rights reserved.
  * Qualcomm Technologies, Inc. SPSS Peripheral Image Loader
  *
  */
@@ -565,7 +565,8 @@ static int qcom_spss_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_rproc;
 
-	if (!(__raw_readl(spss->rmb_gpm) & BIT(0)))
+	if (!(__raw_readl(spss->rmb_gpm) & BIT(0)) &&
+			!(__raw_readl(spss->err_status_spare-4) & BIT(0)))
 		rproc->state = RPROC_DETACHED;
 	else
 		rproc->state = RPROC_OFFLINE;

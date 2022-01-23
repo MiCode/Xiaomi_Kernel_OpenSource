@@ -96,6 +96,7 @@ static inline void qcom_scm_populate_mem_map_info(
 
 #if IS_ENABLED(CONFIG_QCOM_SCM)
 extern bool qcom_scm_is_available(void);
+extern void *qcom_get_scm_device(void);
 
 extern int qcom_scm_set_cold_boot_addr(void *entry, const cpumask_t *cpus);
 extern int qcom_scm_set_warm_boot_addr(void *entry, const cpumask_t *cpus);
@@ -258,7 +259,7 @@ extern int qcom_scm_invoke_callback_response(phys_addr_t out_buf,
 #include <linux/errno.h>
 
 static inline bool qcom_scm_is_available(void) { return false; }
-
+static void *qcom_get_scm_device(void) { return ERR_PTR(-ENODEV); }
 static inline int qcom_scm_set_cold_boot_addr(void *entry,
 		const cpumask_t *cpus) { return -ENODEV; }
 static inline int qcom_scm_set_warm_boot_addr(void *entry,

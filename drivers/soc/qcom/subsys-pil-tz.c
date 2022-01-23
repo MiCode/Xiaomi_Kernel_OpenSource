@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, 2022, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -1334,7 +1334,7 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 {
 	struct pil_tz_data *d;
 	struct resource *res;
-	u32 proxy_timeout, rmb_gp_reg_val;
+	u32 proxy_timeout, rmb_gp_reg_val, err_status_spare_val;
 	int len, rc;
 	char md_node[20];
 
@@ -1442,13 +1442,25 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 		}
 
 		rmb_gp_reg_val = __raw_readl(d->rmb_gp_reg);
+
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"rmb_err_spare2");
+		d->err_status_spare = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(d->err_status_spare)) {
+			dev_err(&pdev->dev, "Invalid resource for rmb_err_spare2\n");
+			rc = PTR_ERR(d->err_status_spare);
+			goto err_ramdump;
+		}
+
+		err_status_spare_val = __raw_readl(d->err_status_spare-4);
+
 		/*
 		 * If subsystem is already bought out reset during the
 		 * bootloader stage, need to check subsystem status instead
 		 * of doing regular power. So override power up function
 		 * to check subsystem crash status.
 		 */
-		if (!(rmb_gp_reg_val & BIT(0))) {
+		if (!(rmb_gp_reg_val & BIT(0)) && !(err_status_spare_val & BIT(0))) {
 			d->boot_enabled = true;
 			pr_info("spss is brought out of reset by UEFI\n");
 			d->subsys_desc.powerup = subsys_powerup_boot_enabled;
@@ -1487,15 +1499,6 @@ static int pil_tz_generic_probe(struct platform_device *pdev)
 		if (IS_ERR(d->err_status)) {
 			dev_err(&pdev->dev, "Invalid resource for rmb_err\n");
 			rc = PTR_ERR(d->err_status);
-			goto err_ramdump;
-		}
-
-		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						"rmb_err_spare2");
-		d->err_status_spare = devm_ioremap_resource(&pdev->dev, res);
-		if (IS_ERR(d->err_status_spare)) {
-			dev_err(&pdev->dev, "Invalid resource for rmb_err_spare2\n");
-			rc = PTR_ERR(d->err_status_spare);
 			goto err_ramdump;
 		}
 

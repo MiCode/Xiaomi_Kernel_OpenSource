@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -842,7 +842,7 @@ static int cnss_setup_bus_bandwidth(struct cnss_plat_data *plat_priv,
 		}
 	}
 	if (ret == 0 && save)
-		plat_priv->icc.current_bw_vote = bw;
+		plat_priv->current_bw_vote = bw;
 	return ret;
 }
 
@@ -1244,6 +1244,27 @@ int cnss_pci_link_down(struct device *dev)
 	return ret;
 }
 EXPORT_SYMBOL(cnss_pci_link_down);
+
+int cnss_pci_get_reg_dump(struct device *dev, uint8_t *buffer, uint32_t len)
+{
+	struct pci_dev *pci_dev = to_pci_dev(dev);
+	struct cnss_pci_data *pci_priv = cnss_get_pci_priv(pci_dev);
+
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	if (pci_priv->pci_link_state == PCI_LINK_DOWN) {
+		cnss_pr_dbg("No PCIe reg dump since PCIe is suspended(D3)\n");
+		return -EACCES;
+	}
+
+	cnss_pr_dbg("Start to get PCIe reg dump\n");
+
+	return _cnss_pci_get_reg_dump(pci_priv, buffer, len);
+}
+EXPORT_SYMBOL(cnss_pci_get_reg_dump);
 
 int cnss_pcie_is_device_down(struct cnss_pci_data *pci_priv)
 {
@@ -3463,7 +3484,7 @@ int cnss_auto_resume(struct device *dev)
 	cnss_pci_set_auto_suspended(pci_priv, 0);
 	mutex_unlock(&pci_priv->bus_lock);
 
-	cnss_request_bus_bandwidth(dev, plat_priv->icc.current_bw_vote);
+	cnss_request_bus_bandwidth(dev, plat_priv->current_bw_vote);
 
 	return 0;
 }
@@ -4521,6 +4542,7 @@ static void cnss_pci_send_hang_event(struct cnss_pci_data *pci_priv)
 	struct cnss_hang_event hang_event;
 	void *hang_data_va = NULL;
 	u64 offset = 0;
+	u16 length = 0;
 	int i = 0;
 
 	if (!fw_mem || !plat_priv->fw_mem_seg_len)
@@ -4530,9 +4552,20 @@ static void cnss_pci_send_hang_event(struct cnss_pci_data *pci_priv)
 	switch (pci_priv->device_id) {
 	case QCA6390_DEVICE_ID:
 		offset = HST_HANG_DATA_OFFSET;
+		length = HANG_DATA_LENGTH;
 		break;
 	case QCA6490_DEVICE_ID:
-		offset = HSP_HANG_DATA_OFFSET;
+		/* Fallback to hard-coded values if hang event params not
+		 * present in QMI. Once all the firmware branches have the
+		 * fix to send params over QMI, this can be removed.
+		 */
+		if (plat_priv->hang_event_data_len) {
+			offset = plat_priv->hang_data_addr_offset;
+			length = plat_priv->hang_event_data_len;
+		} else {
+			offset = HSP_HANG_DATA_OFFSET;
+			length = HANG_DATA_LENGTH;
+		}
 		break;
 	default:
 		cnss_pr_err("Skip Hang Event Data as unsupported Device ID received: %d\n",
@@ -4543,15 +4576,19 @@ static void cnss_pci_send_hang_event(struct cnss_pci_data *pci_priv)
 	for (i = 0; i < plat_priv->fw_mem_seg_len; i++) {
 		if (fw_mem[i].type == QMI_WLFW_MEM_TYPE_DDR_V01 &&
 		    fw_mem[i].va) {
+			/* The offset must be < (fw_mem size- hangdata length) */
+			if (!(offset <= fw_mem[i].size - length))
+				goto exit;
+
 			hang_data_va = fw_mem[i].va + offset;
 			hang_event.hang_event_data = kmemdup(hang_data_va,
-							     HANG_DATA_LENGTH,
+							     length,
 							     GFP_ATOMIC);
 			if (!hang_event.hang_event_data) {
 				cnss_pr_dbg("Hang data memory alloc failed\n");
 				return;
 			}
-			hang_event.hang_event_data_len = HANG_DATA_LENGTH;
+			hang_event.hang_event_data_len = length;
 			break;
 		}
 	}
@@ -4560,6 +4597,11 @@ static void cnss_pci_send_hang_event(struct cnss_pci_data *pci_priv)
 
 	kfree(hang_event.hang_event_data);
 	hang_event.hang_event_data = NULL;
+	return;
+exit:
+	cnss_pr_dbg("Invalid hang event params, offset:0x%x, length:0x%x\n",
+		    plat_priv->hang_data_addr_offset,
+		    plat_priv->hang_event_data_len);
 }
 
 void cnss_pci_collect_dump_info(struct cnss_pci_data *pci_priv, bool in_panic)
@@ -4823,6 +4865,7 @@ static int cnss_pci_update_fw_name(struct cnss_pci_data *pci_priv)
 			 FW_V2_FILE_NAME);
 		break;
 	case QCA6490_DEVICE_ID:
+	case KIWI_DEVICE_ID:
 		switch (plat_priv->device_version.major_version) {
 		case FW_V2_NUMBER:
 			cnss_pci_add_fw_prefix_name(pci_priv,

@@ -2602,6 +2602,13 @@ void adreno_isense_regread(struct adreno_device *adreno_dev,
 	rmb();
 }
 
+bool adreno_gx_is_on(struct adreno_device *adreno_dev)
+{
+	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+
+	return gpudev->gx_is_on(adreno_dev);
+}
+
 void adreno_cx_misc_regwrite(struct adreno_device *adreno_dev,
 	unsigned int offsetwords, unsigned int value)
 {

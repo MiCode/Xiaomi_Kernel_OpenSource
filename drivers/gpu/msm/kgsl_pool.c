@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <asm/cacheflush.h>
@@ -10,6 +11,7 @@
 #include <linux/of.h>
 #include <linux/scatterlist.h>
 
+#include "kgsl_debugfs.h"
 #include "kgsl_device.h"
 #include "kgsl_pool.h"
 #include "kgsl_sharedmem.h"
@@ -33,6 +35,7 @@ static struct kmem_cache *addr_page_cache;
  * @list_lock: Spinlock for page list in the pool
  * @pool_rbtree: RB tree with all pages held/reserved in this pool
  * @mempool: Mempool to pre-allocate tracking structs for pages in this pool
+ * @debug_root: Pointer to the debugfs root for this pool
  */
 struct kgsl_page_pool {
 	unsigned int pool_order;
@@ -41,6 +44,7 @@ struct kgsl_page_pool {
 	spinlock_t list_lock;
 	struct rb_root pool_rbtree;
 	mempool_t *mempool;
+	struct dentry *debug_root;
 };
 
 static void *_pool_entry_alloc(gfp_t gfp_mask, void *arg)
@@ -138,6 +142,7 @@ static void kgsl_destroy_page_pool(struct kgsl_page_pool *pool)
  * @reserved_pages: Number of pages reserved at init for the pool
  * @list_lock: Spinlock for page list in the pool
  * @page_list: List of pages held/reserved in this pool
+ * @debug_root: Pointer to the debugfs root for this pool
  */
 struct kgsl_page_pool {
 	unsigned int pool_order;
@@ -145,6 +150,7 @@ struct kgsl_page_pool {
 	unsigned int reserved_pages;
 	spinlock_t list_lock;
 	struct list_head page_list;
+	struct dentry *debug_root;
 };
 
 static int
@@ -260,8 +266,7 @@ _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 	return p;
 }
 
-/* Returns the number of pages in all kgsl page pools */
-static int kgsl_pool_size_total(void)
+int kgsl_pool_size_total(void)
 {
 	int i;
 	int total = 0;
@@ -589,6 +594,22 @@ static struct shrinker kgsl_pool_shrinker = {
 	.batch = 0,
 };
 
+int kgsl_pool_reserved_get(void *data, u64 *val)
+{
+	struct kgsl_page_pool *pool = data;
+
+	*val = (u64) pool->reserved_pages;
+	return 0;
+}
+
+int kgsl_pool_page_count_get(void *data, u64 *val)
+{
+	struct kgsl_page_pool *pool = data;
+
+	*val = (u64) pool->page_count;
+	return 0;
+}
+
 static void kgsl_pool_reserve_pages(struct kgsl_page_pool *pool,
 		struct device_node *node)
 {
@@ -623,6 +644,7 @@ static int kgsl_of_parse_mempool(struct kgsl_page_pool *pool,
 {
 	u32 size;
 	int order;
+	unsigned char name[8];
 
 	if (of_property_read_u32(node, "qcom,mempool-page-size", &size))
 		return -EINVAL;
@@ -640,6 +662,9 @@ static int kgsl_of_parse_mempool(struct kgsl_page_pool *pool,
 	kgsl_pool_list_init(pool);
 
 	kgsl_pool_reserve_pages(pool, node);
+
+	snprintf(name, sizeof(name), "%d_order", (pool->pool_order));
+	kgsl_pool_init_debugfs(pool->debug_root, name, (void *) pool);
 
 	return 0;
 }

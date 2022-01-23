@@ -1137,7 +1137,7 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 		kgsl_regwrite(device, GEN7_RBBM_CLOCK_CNTL3_TP0, cgc2);
 	}
 
-	if (!gmu_core_dev_gx_is_on(device))
+	if (!adreno_gx_is_on(adreno_dev))
 		return;
 
 	kgsl_regread(device, GEN7_CP_IB1_BASE, &lo);

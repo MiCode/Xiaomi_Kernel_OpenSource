@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CNSS_MAIN_H
@@ -53,6 +53,7 @@
 #define FW_V2_NUMBER                    2
 #define POWER_ON_RETRY_MAX_TIMES        3
 #define POWER_ON_RETRY_DELAY_MS         500
+#define WLFW_MAX_HANG_EVENT_DATA_SIZE   384
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -193,14 +194,12 @@ struct cnss_bus_bw_info {
  * struct cnss_interconnect_cfg - CNSS platform interconnect config
  * @list_head: List of interconnect path bandwidth configs
  * @path_count: Count of interconnect path configured in device tree
- * @current_bw_vote: WLAN driver provided bandwidth vote
  * @bus_bw_cfg_count: Number of bandwidth configs for voting. It is the array
  *                    size of struct cnss_bus_bw_info.cfg_table
  */
 struct cnss_interconnect_cfg {
 	struct list_head list_head;
 	u32 path_count;
-	int current_bw_vote;
 	u32 bus_bw_cfg_count;
 };
 
@@ -524,6 +523,10 @@ struct cnss_plat_data {
 	bool adsp_pc_enabled;
 	u64 feature_list;
 	u8 charger_mode;
+	/* WLAN driver provided bandwidth vote */
+	int current_bw_vote;
+	u16 hang_event_data_len;
+	u32 hang_data_addr_offset;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)

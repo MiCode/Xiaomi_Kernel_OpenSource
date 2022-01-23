@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2017,2019,2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __KGSL_POOL_H
 #define __KGSL_POOL_H
@@ -53,8 +54,17 @@ int kgsl_pool_alloc_page(int *page_size, struct page **pages,
  */
 void kgsl_pool_free_pages(struct page **pages, unsigned int page_count);
 
+/* Debugfs node functions */
+int kgsl_pool_reserved_get(void *data, u64 *val);
+int kgsl_pool_page_count_get(void *data, u64 *val);
+
 /**
- * kgsl_probe_page_pools - Initialize the memory pools pools
+ * kgsl_pool_size_total - Return the number of pages in all kgsl page pools
+ */
+int kgsl_pool_size_total(void);
+
+/**
+ * kgsl_probe_page_pools - Initialize the memory pools
  */
 void kgsl_probe_page_pools(void);
 

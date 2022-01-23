@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <uapi/linux/sched/types.h>
@@ -890,11 +891,18 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	struct kgsl_process_private *private = container_of(kref,
 			struct kgsl_process_private, refcount);
 
+	/*
+	 * While removing sysfs entries, kernfs_mutex is held by sysfs apis. Since
+	 * it is a global fs mutex, sometimes it takes longer for kgsl to get hold
+	 * of the lock. Meanwhile, kgsl open thread may exhaust all its re-tries
+	 * and open can fail. To avoid this, remove sysfs entries inside process
+	 * mutex to avoid wasting re-tries when kgsl is waiting for kernfs mutex.
+	 */
+	mutex_lock(&kgsl_driver.process_mutex);
+
 	debugfs_remove_recursive(private->debug_root);
 	kobject_put(&private->kobj_memtype);
 	kobject_put(&private->kobj);
-
-	mutex_lock(&kgsl_driver.process_mutex);
 
 	/* When using global pagetables, do not detach global pagetable */
 	if (private->pagetable->name != KGSL_MMU_GLOBAL_PT)
@@ -956,7 +964,7 @@ static struct kgsl_process_private *kgsl_process_private_new(
 	/* Search in the process list */
 	list_for_each_entry(private, &kgsl_driver.process_list, list) {
 		if (private->pid == cur_pid) {
-			if (!kgsl_process_private_get(private))
+			if (!kgsl_process_private_get(private)) {
 				/*
 				 * This will happen only if refcount is zero
 				 * i.e. destroy is triggered but didn't complete
@@ -965,6 +973,12 @@ static struct kgsl_process_private *kgsl_process_private_new(
 				 * appropriate action.
 				 */
 				private = ERR_PTR(-EEXIST);
+			} else {
+				mutex_lock(&private->private_mutex);
+				private->fd_count++;
+				mutex_unlock(&private->private_mutex);
+			}
+
 			/*
 			 * We need to hold only one reference to the PID for
 			 * each process struct to avoid overflowing the
@@ -984,12 +998,14 @@ static struct kgsl_process_private *kgsl_process_private_new(
 
 	kref_init(&private->refcount);
 
+	private->fd_count = 1;
 	private->pid = cur_pid;
 	get_task_comm(private->comm, current->group_leader);
 
 	spin_lock_init(&private->mem_lock);
 	spin_lock_init(&private->syncsource_lock);
 	spin_lock_init(&private->ctxt_count_lock);
+	mutex_init(&private->private_mutex);
 
 	idr_init(&private->mem_idr);
 	idr_init(&private->syncsource_idr);
@@ -1051,10 +1067,10 @@ static void process_release_memory(struct kgsl_process_private *private)
 static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 		struct kgsl_process_private *private)
 {
-	mutex_lock(&kgsl_driver.process_mutex);
+	mutex_lock(&private->private_mutex);
 
 	if (--private->fd_count > 0) {
-		mutex_unlock(&kgsl_driver.process_mutex);
+		mutex_unlock(&private->private_mutex);
 		kgsl_process_private_put(private);
 		return;
 	}
@@ -1068,7 +1084,7 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	/* Release all syncsource objects from process private */
 	kgsl_syncsource_process_release_syncsources(private);
 
-	mutex_unlock(&kgsl_driver.process_mutex);
+	mutex_unlock(&private->private_mutex);
 
 	kgsl_process_private_put(private);
 }
@@ -1080,14 +1096,8 @@ static struct kgsl_process_private *_process_private_open(
 
 	mutex_lock(&kgsl_driver.process_mutex);
 	private = kgsl_process_private_new(device);
-
-	if (IS_ERR(private))
-		goto done;
-
-	private->fd_count++;
-
-done:
 	mutex_unlock(&kgsl_driver.process_mutex);
+
 	return private;
 }
 
@@ -2552,6 +2562,15 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, unsigned long useraddr)
 
 	ret = sg_alloc_table_from_pages(memdesc->sgt, pages, npages,
 					0, memdesc->size, GFP_KERNEL);
+
+	if (ret)
+		goto out;
+
+	ret = kgsl_cache_range_op(memdesc, 0, memdesc->size,
+			KGSL_CACHE_OP_FLUSH);
+
+	if (ret)
+		sg_free_table(memdesc->sgt);
 out:
 	if (ret) {
 		for (i = 0; i < npages; i++)

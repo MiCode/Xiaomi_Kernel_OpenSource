@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2022, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitmap.h>
@@ -263,6 +263,7 @@ struct msm_geni_serial_port {
 	spinlock_t rx_lock;
 	atomic_t is_clock_off;
 	enum uart_error_code uart_error;
+	unsigned long ser_clk_cfg;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -312,6 +313,26 @@ static void msm_geni_update_uart_error_code(struct msm_geni_serial_port *port,
 	}
 }
 
+/*
+ * The below API is used to enable and disable serial clock divider.
+ */
+static void msm_geni_enable_disable_se_clk(struct uart_port *uport, bool enable)
+{
+	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+
+	IPC_LOG_MSG(msm_port->ipc_log_misc, "%s: enable:%d ser_clk_cfg:0x%x\n",
+			__func__, enable, msm_port->ser_clk_cfg);
+
+	if (enable) {
+		geni_write_reg_nolog(msm_port->ser_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg_nolog(msm_port->ser_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+	} else {
+		geni_write_reg_nolog(0x1, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg_nolog(0x1, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
+	}
+}
 
 /*
  * The below API is required to check if uport->lock (spinlock)
@@ -2820,7 +2841,12 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 			__func__, clk_freq_diff, baud, clk_rate, clk_div);
 
 	uport->uartclk = clk_rate;
-	clk_set_rate(port->serial_rsc.se_clk, clk_rate);
+	ret = clk_set_rate(port->serial_rsc.se_clk, clk_rate);
+	if (ret) {
+		dev_err(uport->dev, "Error setting clock rate\n");
+		IPC_LOG_MSG(port->ipc_log_misc, "%s: SE clock set_rate error:%d\n", __func__, ret);
+		WARN_ON(1);
+	}
 	ser_clk_cfg |= SER_CLK_EN;
 	ser_clk_cfg |= (clk_div << CLK_DIV_SHFT);
 
@@ -2829,10 +2855,12 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 
 	geni_write_reg_nolog(ser_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
 	geni_write_reg_nolog(ser_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
+	port->ser_clk_cfg = ser_clk_cfg;
 	geni_read_reg_nolog(uport->membase, GENI_SER_M_CLK_CFG);
 
 	msm_geni_serial_termios_cfg(uport, termios);
-	UART_LOG_DBG(port->ipc_log_misc, uport->dev, "%s: baud %d\n", __func__, baud);
+	UART_LOG_DBG(port->ipc_log_misc, uport->dev, "%s: baud %d ser_clk_cfg:0x%x\n",
+			__func__, baud, port->ser_clk_cfg);
 exit_set_termios:
 	msm_geni_serial_start_rx(uport);
 	if (!uart_console(uport))
@@ -3095,10 +3123,12 @@ static void msm_geni_serial_cons_pm(struct uart_port *uport,
 
 	if (new_state == UART_PM_STATE_ON && old_state == UART_PM_STATE_OFF) {
 		se_geni_resources_on(&msm_port->serial_rsc);
+		msm_geni_enable_disable_se_clk(uport, true);
 		atomic_set(&msm_port->is_clock_off, 0);
 	} else if (new_state == UART_PM_STATE_OFF &&
 			old_state == UART_PM_STATE_ON) {
 		atomic_set(&msm_port->is_clock_off, 1);
+		msm_geni_enable_disable_se_clk(uport, false);
 		se_geni_resources_off(&msm_port->serial_rsc);
 	}
 }
@@ -3158,8 +3188,10 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 	char fwver[20], hwver[20];
 
 	/* clks_on/off only for HSUART, as console remains actve */
-	if (!msm_port->is_console)
+	if (!msm_port->is_console) {
 		se_geni_clks_on(&msm_port->serial_rsc);
+		msm_geni_enable_disable_se_clk(uport, true);
+	}
 	/* Basic HW and FW info */
 	if (unlikely(get_se_proto(uport->membase) != UART)) {
 		dev_err(uport->dev, "%s: Invalid FW %d loaded.\n",
@@ -3193,8 +3225,10 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 
 	msm_geni_serial_enable_interrupts(uport);
 exit_ver_info:
-	if (!msm_port->is_console)
+	if (!msm_port->is_console) {
+		msm_geni_enable_disable_se_clk(uport, false);
 		se_geni_clks_off(&msm_port->serial_rsc);
+	}
 	return ret;
 }
 
@@ -3633,6 +3667,7 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 	if (port->wakeup_byte && port->wakeup_irq)
 		msm_geni_serial_allow_rx(port);
 
+	msm_geni_enable_disable_se_clk(&port->uport, false);
 	ret = se_geni_resources_off(&port->serial_rsc);
 	if (ret) {
 		dev_err(dev, "%s: Error ret %d\n", __func__, ret);
@@ -3687,6 +3722,7 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 		__pm_relax(port->geni_wake);
 		goto exit_runtime_resume;
 	}
+	msm_geni_enable_disable_se_clk(&port->uport, true);
 	start_rx_sequencer(&port->uport);
 	/* Ensure that the Rx is running before enabling interrupts */
 	mb();

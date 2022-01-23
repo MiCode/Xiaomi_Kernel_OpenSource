@@ -87,6 +87,7 @@
 #define CGCTL_REG		(QSCRATCH_REG_OFFSET + 0x28)
 #define PWR_EVNT_IRQ_STAT_REG    (QSCRATCH_REG_OFFSET + 0x58)
 #define PWR_EVNT_IRQ_MASK_REG    (QSCRATCH_REG_OFFSET + 0x5C)
+#define EXTRA_INP_REG		(QSCRATCH_REG_OFFSET + 0x1e4)
 
 #define PWR_EVNT_POWERDOWN_IN_P3_MASK		BIT(2)
 #define PWR_EVNT_POWERDOWN_OUT_P3_MASK		BIT(3)
@@ -94,6 +95,8 @@
 #define PWR_EVNT_LPM_OUT_L2_MASK		BIT(5)
 #define PWR_EVNT_LPM_OUT_RX_ELECIDLE_IRQ_MASK	BIT(12)
 #define PWR_EVNT_LPM_OUT_L1_MASK		BIT(13)
+
+#define EXTRA_INP_SS_DISABLE	BIT(5)
 
 /* QSCRATCH_GENERAL_CFG register bit offset */
 #define PIPE_UTMI_CLK_SEL	BIT(0)
@@ -489,6 +492,7 @@ struct dwc3_msm {
 	enum dwc3_id_state	id_state;
 	bool			use_pwr_event_for_wakeup;
 	bool			host_poweroff_in_pm_suspend;
+	bool			disable_host_ssphy_powerdown;
 	unsigned long		lpm_flags;
 	unsigned int		vbus_draw;
 #define MDWC3_SS_PHY_SUSPEND		BIT(0)
@@ -2884,6 +2888,32 @@ static void dwc3_gsi_event_buf_alloc(struct dwc3 *dwc)
 	}
 }
 
+static void dwc3_msm_switch_utmi(struct dwc3_msm *mdwc, int enable)
+{
+	u32 reg;
+
+	dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
+		dwc3_msm_read_reg(mdwc->base,
+		QSCRATCH_GENERAL_CFG)
+		| PIPE_UTMI_CLK_DIS);
+
+	udelay(5);
+
+	reg = dwc3_msm_read_reg(mdwc->base, QSCRATCH_GENERAL_CFG);
+	if (enable)
+		reg |= (PIPE_UTMI_CLK_SEL | PIPE3_PHYSTATUS_SW);
+	else
+		reg &= ~(PIPE_UTMI_CLK_SEL | PIPE3_PHYSTATUS_SW);
+	dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG, reg);
+
+	udelay(5);
+
+	dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
+		dwc3_msm_read_reg(mdwc->base,
+		QSCRATCH_GENERAL_CFG)
+		& ~PIPE_UTMI_CLK_DIS);
+}
+
 static void dwc3_msm_set_clk_sel(struct dwc3_msm *mdwc)
 {
 	/*
@@ -2891,27 +2921,8 @@ static void dwc3_msm_set_clk_sel(struct dwc3_msm *mdwc)
 	 * having ssphy and only USB high/full speed is supported.
 	 */
 	if (dwc3_msm_get_max_speed(mdwc) == USB_SPEED_HIGH ||
-				dwc3_msm_get_max_speed(mdwc) == USB_SPEED_FULL) {
-		dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
-			dwc3_msm_read_reg(mdwc->base,
-			QSCRATCH_GENERAL_CFG)
-			| PIPE_UTMI_CLK_DIS);
-
-		usleep_range(2, 5);
-
-		dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
-			dwc3_msm_read_reg(mdwc->base,
-			QSCRATCH_GENERAL_CFG)
-			| PIPE_UTMI_CLK_SEL
-			| PIPE3_PHYSTATUS_SW);
-
-		usleep_range(2, 5);
-
-		dwc3_msm_write_reg(mdwc->base, QSCRATCH_GENERAL_CFG,
-			dwc3_msm_read_reg(mdwc->base,
-			QSCRATCH_GENERAL_CFG)
-			& ~PIPE_UTMI_CLK_DIS);
-	}
+				dwc3_msm_get_max_speed(mdwc) == USB_SPEED_FULL)
+		dwc3_msm_switch_utmi(mdwc, 1);
 }
 
 void dwc3_msm_notify_event(struct dwc3 *dwc,
@@ -3312,11 +3323,20 @@ static void enable_usb_pdc_interrupt(struct dwc3_msm *mdwc, bool enable)
 			&mdwc->wakeup_irq[DP_HS_PHY_IRQ],
 			IRQ_TYPE_EDGE_FALLING, enable);
 	} else {
+		/* When in host mode, with no device connected, set the HS
+		 * to level high triggered.  This is to ensure device connection
+		 * is seen, if device pulls up DP before the suspend routine
+		 * configures the PDC IRQs, leading it to miss the rising edge.
+		 */
 		configure_usb_wakeup_interrupt(mdwc,
 			&mdwc->wakeup_irq[DP_HS_PHY_IRQ],
+			mdwc->in_host_mode ?
+			(IRQF_TRIGGER_HIGH | IRQ_TYPE_LEVEL_HIGH) :
 			IRQ_TYPE_EDGE_RISING, true);
 		configure_usb_wakeup_interrupt(mdwc,
 			&mdwc->wakeup_irq[DM_HS_PHY_IRQ],
+			mdwc->in_host_mode ?
+			(IRQF_TRIGGER_HIGH | IRQ_TYPE_LEVEL_HIGH) :
 			IRQ_TYPE_EDGE_RISING, true);
 	}
 
@@ -3687,7 +3707,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER &&
 			mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) {
 		dwc3_set_ssphy_orientation_flag(mdwc);
-		usb_phy_set_suspend(mdwc->ss_phy, 0);
+		if (!mdwc->in_host_mode || mdwc->disable_host_ssphy_powerdown ||
+			(mdwc->in_host_mode && mdwc->max_rh_port_speed != USB_SPEED_HIGH))
+			usb_phy_set_suspend(mdwc->ss_phy, 0);
+
 		mdwc->ss_phy->flags &= ~DEVICE_IN_SS_MODE;
 		mdwc->lpm_flags &= ~MDWC3_SS_PHY_SUSPEND;
 
@@ -4291,10 +4314,23 @@ static inline const char *usb_role_string(enum usb_role role)
 	return "Invalid";
 }
 
-
-static enum usb_role dwc3_msm_usb_get_role(struct usb_role_switch *sw)
+static bool dwc3_msm_role_allowed(struct dwc3_msm *mdwc, enum usb_role role)
 {
-	struct dwc3_msm *mdwc = usb_role_switch_get_drvdata(sw);
+	dev_dbg(mdwc->dev, "%s: dr_mode=%s role_requested=%s\n",
+			__func__, usb_dr_modes[mdwc->dr_mode],
+			usb_role_string(role));
+
+	if (role == USB_ROLE_HOST && mdwc->dr_mode == USB_DR_MODE_PERIPHERAL)
+		return false;
+
+	if (role == USB_ROLE_DEVICE && mdwc->dr_mode == USB_DR_MODE_HOST)
+		return false;
+
+	return true;
+}
+
+static enum usb_role dwc3_msm_get_role(struct dwc3_msm *mdwc)
+{
 	enum usb_role role;
 
 	if (mdwc->vbus_active)
@@ -4304,17 +4340,43 @@ static enum usb_role dwc3_msm_usb_get_role(struct usb_role_switch *sw)
 	else
 		role = USB_ROLE_NONE;
 
-	dbg_log_string("get_role:%s\n", usb_role_string(role));
 	return role;
 }
 
-static int dwc3_msm_usb_set_role(struct usb_role_switch *sw, enum usb_role role)
+static enum usb_role dwc3_msm_usb_role_switch_get_role(struct usb_role_switch *sw)
 {
 	struct dwc3_msm *mdwc = usb_role_switch_get_drvdata(sw);
-	enum usb_role cur_role = USB_ROLE_NONE;
+	enum usb_role role;
+
+	role = dwc3_msm_get_role(mdwc);
+	dbg_log_string("get_role:%s\n", usb_role_string(role));
+
+	return role;
+}
+
+static int dwc3_msm_set_role(struct dwc3_msm *mdwc, enum usb_role role)
+{
+	enum usb_role cur_role;
+
+	if (!dwc3_msm_role_allowed(mdwc, role))
+		return -EINVAL;
 
 	mutex_lock(&mdwc->role_switch_mutex);
-	cur_role = dwc3_msm_usb_get_role(sw);
+	cur_role = dwc3_msm_get_role(mdwc);
+
+	dbg_log_string("cur_role:%s new_role:%s\n", usb_role_string(cur_role),
+						usb_role_string(role));
+
+	/*
+	 * For boot up without USB cable connected case, don't check
+	 * previous role value to allow resetting USB controller and
+	 * PHYs.
+	 */
+	if (mdwc->drd_state != DRD_STATE_UNDEFINED && cur_role == role) {
+		dbg_log_string("no USB role change");
+		mutex_unlock(&mdwc->role_switch_mutex);
+		return 0;
+	}
 
 	switch (role) {
 	case USB_ROLE_HOST:
@@ -4334,21 +4396,15 @@ static int dwc3_msm_usb_set_role(struct usb_role_switch *sw, enum usb_role role)
 	}
 	mutex_unlock(&mdwc->role_switch_mutex);
 
-	dbg_log_string("cur_role:%s new_role:%s\n", usb_role_string(cur_role),
-						usb_role_string(role));
-
-	/*
-	 * For boot up without USB cable connected case, don't check
-	 * previous role value to allow resetting USB controller and
-	 * PHYs.
-	 */
-	if (mdwc->drd_state != DRD_STATE_UNDEFINED && cur_role == role) {
-		dbg_log_string("no USB role change");
-		return 0;
-	}
-
 	dwc3_ext_event_notify(mdwc);
 	return 0;
+}
+
+static int dwc3_msm_usb_role_switch_set_role(struct usb_role_switch *sw, enum usb_role role)
+{
+	struct dwc3_msm *mdwc = usb_role_switch_get_drvdata(sw);
+
+	return dwc3_msm_set_role(mdwc, role);
 }
 
 static ssize_t orientation_show(struct device *dev,
@@ -4385,10 +4441,12 @@ static ssize_t mode_show(struct device *dev, struct device_attribute *attr,
 		char *buf)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	enum usb_role cur_role;
 
-	if (mdwc->vbus_active)
+	cur_role = dwc3_msm_get_role(mdwc);
+	if (cur_role == USB_ROLE_DEVICE)
 		return scnprintf(buf, PAGE_SIZE, "peripheral\n");
-	if (mdwc->id_state == DWC3_ID_GROUND)
+	if (cur_role == USB_ROLE_HOST)
 		return scnprintf(buf, PAGE_SIZE, "host\n");
 
 	return scnprintf(buf, PAGE_SIZE, "none\n");
@@ -4398,19 +4456,18 @@ static ssize_t mode_store(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	enum usb_role role = USB_ROLE_NONE;
+	int ret;
 
-	if (sysfs_streq(buf, "peripheral")) {
-		mdwc->vbus_active = true;
-		mdwc->id_state = DWC3_ID_FLOAT;
-	} else if (sysfs_streq(buf, "host")) {
-		mdwc->vbus_active = false;
-		mdwc->id_state = DWC3_ID_GROUND;
-	} else {
-		mdwc->vbus_active = false;
-		mdwc->id_state = DWC3_ID_FLOAT;
-	}
+	if (sysfs_streq(buf, "peripheral"))
+		role = USB_ROLE_DEVICE;
+	else if (sysfs_streq(buf, "host"))
+		role = USB_ROLE_HOST;
 
-	dwc3_ext_event_notify(mdwc);
+	dbg_log_string("mode_request:%s\n", usb_role_string(role));
+	ret = dwc3_msm_set_role(mdwc, role);
+	if (ret < 0)
+		return ret;
 
 	return count;
 }
@@ -5104,6 +5161,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->use_pdc_interrupts = of_property_read_bool(node,
 				"qcom,use-pdc-interrupts");
 
+	mdwc->disable_host_ssphy_powerdown = of_property_read_bool(node,
+				"qcom,disable-host-ssphy-powerdown");
+
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
 		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
 		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
@@ -5188,8 +5248,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(node, "usb-role-switch")) {
 		struct usb_role_switch_desc role_desc = {
-			.set = dwc3_msm_usb_set_role,
-			.get = dwc3_msm_usb_get_role,
+			.set = dwc3_msm_usb_role_switch_set_role,
+			.get = dwc3_msm_usb_role_switch_get_role,
 			.driver_data = mdwc,
 			.allow_userspace_control = true,
 		};
@@ -5365,6 +5425,46 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int dwc3_msm_host_ss_powerdown(struct dwc3_msm *mdwc)
+{
+	u32 reg;
+
+	if (mdwc->disable_host_ssphy_powerdown ||
+		dwc3_msm_get_max_speed(mdwc) < USB_SPEED_SUPER)
+		return 0;
+
+	reg = dwc3_msm_read_reg(mdwc->base, EXTRA_INP_REG);
+	reg |= EXTRA_INP_SS_DISABLE;
+	dwc3_msm_write_reg(mdwc->base, EXTRA_INP_REG, reg);
+	dwc3_msm_switch_utmi(mdwc, 1);
+
+	usb_phy_notify_disconnect(mdwc->ss_phy,
+					USB_SPEED_SUPER);
+	usb_phy_set_suspend(mdwc->ss_phy, 1);
+
+	return 0;
+}
+
+static int dwc3_msm_host_ss_powerup(struct dwc3_msm *mdwc)
+{
+	u32 reg;
+
+	if (mdwc->disable_host_ssphy_powerdown ||
+		dwc3_msm_get_max_speed(mdwc) < USB_SPEED_SUPER)
+		return 0;
+
+	usb_phy_set_suspend(mdwc->ss_phy, 0);
+	usb_phy_notify_connect(mdwc->ss_phy,
+					USB_SPEED_SUPER);
+
+	dwc3_msm_switch_utmi(mdwc, 0);
+	reg = dwc3_msm_read_reg(mdwc->base, EXTRA_INP_REG);
+	reg &= ~EXTRA_INP_SS_DISABLE;
+	dwc3_msm_write_reg(mdwc->base, EXTRA_INP_REG, reg);
+
+	return 0;
+}
+
 static int dwc3_msm_host_notifier(struct notifier_block *nb,
 	unsigned long event, void *ptr)
 {
@@ -5395,7 +5495,10 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 					mdwc->core_clk_rate_hs);
 				mdwc->max_rh_port_speed = USB_SPEED_HIGH;
 				dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SVS);
+				dwc3_msm_host_ss_powerdown(mdwc);
 			} else {
+				if (mdwc->max_rh_port_speed < USB_SPEED_SUPER)
+					dwc3_msm_host_ss_powerup(mdwc);
 				mdwc->max_rh_port_speed = USB_SPEED_SUPER;
 			}
 			dev_pm_syscore_device(&udev->dev, true);
@@ -5406,6 +5509,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 				mdwc->core_clk_rate);
 			mdwc->max_rh_port_speed = USB_SPEED_UNKNOWN;
 			dwc3_msm_update_bus_bw(mdwc, mdwc->default_bus_vote);
+			dwc3_msm_host_ss_powerup(mdwc);
 		}
 	} else if (!udev->parent) {
 		/* USB root hub device */
@@ -5552,8 +5656,10 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		 * reset before dwc3_gadget_init() is called.  Otherwise, USB
 		 * gadget will be set to HS only.
 		 */
-		if (!mdwc->ss_release_called)
+		if (!mdwc->ss_release_called) {
+			dwc3_msm_host_ss_powerup(mdwc);
 			dwc3_msm_clear_dp_only_params(mdwc);
+		}
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_DEVICE);
 		if (dwc->dr_mode == USB_DR_MODE_OTG)
