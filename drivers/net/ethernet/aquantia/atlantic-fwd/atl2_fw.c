@@ -973,6 +973,15 @@ int atl2_fw_init(struct atl_hw *hw)
 
 	atl2_get_fw_version(hw);
 
+	/* Warn if FW is lower than 1.3.1 */
+	if (((mcp->fw_rev >> 24) < 1) ||
+	   (((mcp->fw_rev >> 16) & 0xFFU) < 3) ||
+	   ((mcp->fw_rev & 0xFFFFU) < 1))
+		atl_dev_warn("FW_version: %u.%u.%u, is not stable version",
+			    (mcp->fw_rev >> 24),
+			    ((mcp->fw_rev >> 16) & 0xFFU),
+			    (mcp->fw_rev & 0xFFFFU));
+
 	mcp->ops = &atl2_fw_ops;
 	atl_dev_dbg("Detect ATL2FW %x\n", mcp->fw_rev);
 

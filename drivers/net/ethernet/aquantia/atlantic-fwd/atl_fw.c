@@ -1172,6 +1172,39 @@ int atl_update_thermal_flag(struct atl_hw *hw, int bit, bool val)
 static unsigned int atl_wdog_period = 1100;
 module_param_named(wdog_period, atl_wdog_period, uint, 0644);
 
+static int atl_fw_rev_check_and_warn(int fw_rev)
+{
+	int major = (fw_rev >> 24) & 0xFFU;
+	bool ret = true;
+
+	switch (major) {
+	case 2:
+		if ((((fw_rev >> 16) & 0xFFU) < 12) &&
+			    ((fw_rev & 0xFFFFU) < 12))
+			ret = false;
+		break;
+
+	case 3:
+		if ((((fw_rev >> 16) & 0xFFU) < 1) &&
+			    ((fw_rev & 0xFFFFU) < 102))
+			ret = false;
+
+		break;
+
+	case 4:
+		if ((((fw_rev >> 16) & 0xFFU) < 2) &&
+			    ((fw_rev & 0xFFFFU) < 37))
+			ret = false;
+
+		break;
+
+	default:
+		ret = false;
+	}
+
+	return ret;
+}
+
 int atl_fw_init(struct atl_hw *hw)
 {
 	uint32_t tries, reg, major;
@@ -1186,6 +1219,13 @@ int atl_fw_init(struct atl_hw *hw)
 	atl_dev_dbg("FW startup took %d ms\n", tries);
 
 	major = (reg >> 24) & 0xff;
+
+	/* Warn if FW is lower than 2.12.12, 3.1.102 and 4.2.37 */
+	if (!atl_fw_rev_check_and_warn(reg))
+		atl_dev_warn("FW_version: %u.%u.%u, is not stable version",
+			    (reg >> 24), ((reg >> 16) & 0xFFU),
+			    (reg & 0xFFFFU));
+
 	if (!major || major > 3) {
 		atl_dev_err("Unsupported FW major version: %u\n", major);
 		return -EINVAL;

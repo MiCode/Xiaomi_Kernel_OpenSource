@@ -241,6 +241,8 @@ void hw_atl_extract_hwts(struct atl_hw *hw, struct atl_rx_desc_hwts_wb *hwts_wb,
 	sec += tmp;
 	tmp = (u64)((hwts_wb->sec_hw >> 22) & 0x3ff) << 38;
 	sec += tmp;
+	if (sec == 0xffffffffffff && hwts_wb->ns == 0xffffffff)
+		return;
 	ns = sec * NSEC_PER_SEC + hwts_wb->ns;
 	if (timestamp)
 		*timestamp = ns + hw->ptp_clk_offset;
