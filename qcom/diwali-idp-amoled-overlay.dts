@@ -6,7 +6,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. Diwali IDP AMOLED";
 	compatible = "qcom,diwali-idp", "qcom,diwali", "qcom,idp";
-	qcom,msm-id = <506 0x10000>;
+	qcom,msm-id = <506 0x10000>, <547 0x10000>;
 	qcom,board-id = <34 3>;
 	qcom,pmic-id-size = <9>;
 	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x2E>;

@@ -1,0 +1,11 @@
+#include "diwali.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. DiwaliP";
+	compatible = "qcom,diwalip";
+	qcom,msm-id = <547 0x10000>;
+};
+
+&ipa_hw {
+	status = "disabled";
+};

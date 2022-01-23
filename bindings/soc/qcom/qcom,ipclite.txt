@@ -1,0 +1,79 @@
+Qualcomm Technologies, Inc. IPCLite Framework
+
+This binding describes IPCLite protocol within the system.
+IPCLite is a light weight mechanism for communication between
+subsystem-pairs. This protocol will be primarily used to
+support low-latency signalling for Global Synx framework.
+
+- compatible :
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,ipclite"
+
+- label:
+	Usage: optional
+	Value type: <string>
+	Definition: should specify the subsystem name this edge corresponds to.
+
+- interrupts:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: should specify the IRQ used by the remote processor to
+		    signal this processor about communication related events
+
+- qcom,remote-pid:
+	Usage: required for ipcmem
+	Value type: <u32>
+	Definition: specifies the identifier of the remote endpoint of this edge
+
+- mboxes:
+	Usage: required
+	Value type: <prop-encoded-array>
+	Definition: reference to the "rpm_hlos" mailbox in APCS, as described
+		    in mailbox/mailbox.txt
+
+= EXAMPLE
+The following example represents the IPCLite node along with cdsp sub-node.
+
+ipclite {
+	compatible = "qcom,ipclite";
+	memory-region = <&global_sync_mem>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
+
+	ipclite_cdsp: cdsp {
+		qcom,remote-pid = <5>;
+		label = "cdsp";
+
+		ipclite_signal_0 {
+			index = <0>;
+			mboxes = <&ipcc_compute_l0 IPCC_CLIENT_CDSP
+				IPCC_COMPUTE_L0_SIGNAL_IPCLITE_MSG>;
+			interrupt-parent = <&ipcc_compute_l0>;
+			interrupts = <IPCC_CLIENT_CDSP
+				IPCC_COMPUTE_L0_SIGNAL_IPCLITE_MSG
+				IRQ_TYPE_EDGE_RISING>;
+		};
+
+		ipclite_signal_1 {
+			index = <1>;
+			mboxes = <&ipcc_compute_l0 IPCC_CLIENT_CDSP
+				IPCC_COMPUTE_L0_SIGNAL_IPCLITE_MEM_INIT>;
+			interrupt-parent = <&ipcc_compute_l0>;
+			interrupts = <IPCC_CLIENT_CDSP
+				IPCC_COMPUTE_L0_SIGNAL_IPCLITE_MEM_INIT
+				IRQ_TYPE_EDGE_RISING>;
+		};
+
+		ipclite_signal_2 {
+			index = <2>;
+			mboxes = <&ipcc_compute_l0 IPCC_CLIENT_CDSP
+				IPCC_COMPUTE_L0_SIGNAL_IPCLITE_VERSION>;
+			interrupt-parent = <&ipcc_compute_l0>;
+			interrupts = <IPCC_CLIENT_CDSP
+				IPCC_COMPUTE_L0_SIGNAL_IPCLITE_VERSION
+				IRQ_TYPE_EDGE_RISING>;
+		};
+	};
+};

@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "diwalip.dtsi"
+#include "diwalip-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. DiwaliP ATP";
+	compatible = "qcom,diwalip-atp", "qcom,diwalip", "qcom,atp";
+	qcom,board-id = <33 0>;
+	qcom,pmic-id-size = <9>;
+	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x2E>;
+};

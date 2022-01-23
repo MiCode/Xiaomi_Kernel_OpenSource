@@ -512,3 +512,7 @@
 		nvmem-cell-names = "restart_reason";
 	};
 };
+
+&pmk8350_pon {
+	qcom,log-kpd-event;
+};

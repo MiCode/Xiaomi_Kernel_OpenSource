@@ -1,0 +1,16 @@
+* Helioscom Interface Driver
+
+helioscom_interface driver creates a helios_com_dev device
+node for user space communication. Single user space
+client can open device node for communication from hardware.
+Hardware will provide access to read/write registers or AHB
+memory in the device.
+
+Required properties:
+- compatible:	      Must be "qcom,helios-daemon"
+
+Example:
+	qcom,helios-daemon {
+		compatible = "qcom,helios-daemon";
+		};
+

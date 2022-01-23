@@ -76,6 +76,29 @@
 		regulator-max-microvolt = <RPMH_REGULATOR_LEVEL_MAX>;
 	};
 
+	VDD_MXC_MMCX_VOTER_LEVEL: VDD_MXC_MM_VOTER_LEVEL:
+	VDD_MM_MXC_VOTER_LEVEL:
+	regulator-pm8150-s8-mmcx-voter-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_s8_mmcx_voter_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt =
+			<RPMH_REGULATOR_LEVEL_MIN_SVS>;
+		regulator-max-microvolt =
+			<RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
+	VDD_MXC_GFX_VOTER_LEVEL: VDD_GFX_MXC_VOTER_LEVEL:
+	regulator-pm8150-s8-gfx-voter-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8150_s8_gfx_voter_level";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt =
+			<RPMH_REGULATOR_LEVEL_MIN_SVS>;
+		regulator-max-microvolt =
+			<RPMH_REGULATOR_LEVEL_MAX>;
+	};
+
 	VDD_EBI_LEVEL:
 	S10A_LEVEL:
 	pm8150_s10_level: regulator-pm8150-s10-level {

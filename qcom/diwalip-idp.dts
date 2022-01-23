@@ -1,13 +1,12 @@
 /dts-v1/;
-/plugin/;
 
+#include "diwalip.dtsi"
 #include "diwali-idp.dtsi"
 #include "diwali-idp-pm7250b.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. Diwali IDP";
-	compatible = "qcom,diwali-idp", "qcom,diwali", "qcom,idp";
-	qcom,msm-id = <506 0x10000>, <547 0x10000>;
+	model = "Qualcomm Technologies, Inc. DiwaliP IDP";
+	compatible = "qcom,diwalip-idp", "qcom,diwalip", "qcom,idp";
 	qcom,board-id = <34 0>;
 	qcom,pmic-id-size = <9>;
 	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x2E>;

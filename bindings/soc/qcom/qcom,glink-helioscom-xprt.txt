@@ -1,0 +1,24 @@
+Qualcomm Technologies, Inc GLINK HELIOSCOM transport (glink_helioscom_xprt) binding
+
+This binding describes the Qualcomm Technologies, Inc glink helioscom transport
+driver, a helioscom-spi based communication channel for sending data between the
+various subsystems in Qualcomm Technologies, Inc platforms.
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,glink-helioscom-xprt"
+
+- label:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "helios"
+
+= EXAMPLE
+
+The following example reprsents a glink_helioscom node.
+
+	qcom,glink-helioscom-xprt-helios {
+		compatible = "qcom,glink-helioscom-xprt";
+		label = "helios";
+	};

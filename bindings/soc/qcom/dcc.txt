@@ -48,6 +48,8 @@ link-list subnode properties:
 		  <DCC_operation addr val apb_bus>
 		  val is to be interpreted based on what operation is to be performed.
 
+- qcom,ap-qad-override: boolean, To support use AP QAD instead DEBUG QAD.
+
 Example:
 
 	dcc: dcc@4b3000 {

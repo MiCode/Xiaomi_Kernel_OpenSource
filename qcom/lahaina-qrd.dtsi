@@ -36,7 +36,7 @@
 
 		pinctrl-names = "enable_gpio";
 		pinctrl-0 = <&usb3phy_portselect_gpio>;
-		orientation_gpio = <&tlmm 81 0>;
+		gpios = <&tlmm 81 0>;
 
 		eq = /bits/ 8 <
 				/* Parameters for USB */

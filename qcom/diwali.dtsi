@@ -26,7 +26,7 @@
 	chosen: chosen {
 		stdout-path = "/soc/qcom,qup_uart@994000:115200n8";
 
-		bootargs = "console=ttyMSM0,115200n8 loglevel=6 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 pcie_ports=compat msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none kpti=0 swiotlb=noforce cgroup.memory=nokmem,nosocket mem_offline.bypass_send_msg=1 cpufreq.default_governor=performance page_poison=on kswapd_per_node=2";
+		bootargs = "console=ttyMSM0,115200n8 loglevel=6 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 pcie_ports=compat msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none kpti=0 swiotlb=noforce cgroup.memory=nokmem,nosocket cpufreq.default_governor=performance page_poison=on kswapd_per_node=2";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
@@ -745,6 +745,7 @@
 		reg = <0xc3f0000 0x400>;
 		ss-name = "modem", "adsp", "adsp_island",
 			  "cdsp", "apss", "wpss";
+		mboxes = <&qmp_aop 0>;
 	};
 
 	sys-pm-vx@c320000 {
@@ -838,6 +839,11 @@
 
 		scmi_plh: protocol@81 {
 			reg = <0x81>;
+			#clock-cells = <1>;
+		};
+
+		scmi_c1dcvs: protocol@87 {
+			reg = <0x87>;
 			#clock-cells = <1>;
 		};
 	};
@@ -2192,8 +2198,9 @@
 		};
 	};
 
-	wpss_pas: remoteproc-wpss@8A00000 {
+	wpss_pas: remoteproc-wpss@08a00000 {
 		compatible = "qcom,diwali-wpss-pas";
+		reg = <0x08a00000 0x10000>;
 		status = "ok";
 
 		memory-region = <&wpss_mem>;
@@ -2210,7 +2217,7 @@
 		qcom,qmp = <&aoss_qmp>;
 
 		/* Inputs from wpss */
-		interrupts-extended = <&intc GIC_SPI 587 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts-extended = <&intc GIC_SPI 587 IRQ_TYPE_EDGE_RISING>,
 				      <&wpss_smp2p_in 0 0>,
 				      <&wpss_smp2p_in 2 0>,
 				      <&wpss_smp2p_in 1 0>,
@@ -2313,6 +2320,8 @@
 		qcom,smem-state-names = "wlan-smp2p-out",
 					"wlan-soc-wake-smp2p-out",
 					"wlan-ep-powersave-smp2p-out";
+		mboxes = <&qmp_aop 0>;
+		qcom,vreg_ol_cpr ="s7b";
 
 		icnss_cdev_apss: qcom,icnss_cdev1 {
 			#cooling-cells = <2>;
@@ -2383,6 +2392,8 @@
 		reg = <0x16C0000 0xE280>;
 		compatible = "qcom,diwali-pcie_anoc";
 		#interconnect-cells = <1>;
+		clocks = <&gcc GCC_AGGRE_NOC_PCIE_0_AXI_CLK>,
+			<&gcc GCC_CFG_NOC_PCIE_ANOC_AHB_CLK>;
 		qcom,bcm-voter-names = "hlos";
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};

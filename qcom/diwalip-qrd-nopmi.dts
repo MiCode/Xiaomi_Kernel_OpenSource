@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "diwalip.dtsi"
+#include "diwalip-qrd.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. DiwaliP QRD NOPMI";
+	compatible = "qcom,diwalip-qrd", "qcom,diwalip", "qcom,qrd";
+	qcom,board-id = <0x1000B 0>;
+	qcom,pmic-id-size = <9>;
+	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+};
