@@ -152,6 +152,9 @@ static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENAB
 
 #define DEFAULT_BUS_WIDTH   (4)
 
+#define MIN_SUPPORTED_BAUD_RATE 300
+#define MAX_SUPPORTED_BAUD_RATE 8000000
+
 /* Required for polling for 100 msecs */
 #define POLL_WAIT_TIMEOUT_MSEC	100
 
@@ -2868,7 +2871,8 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	}
 	msm_geni_serial_stop_rx(uport);
 	/* baud rate */
-	baud = uart_get_baud_rate(uport, termios, old, 300, 4000000);
+	baud = uart_get_baud_rate(uport, termios, old,
+			MIN_SUPPORTED_BAUD_RATE, MAX_SUPPORTED_BAUD_RATE);
 	port->cur_baud = baud;
 
 	/* sampling is halved for QUP versions >= 2.5 */
