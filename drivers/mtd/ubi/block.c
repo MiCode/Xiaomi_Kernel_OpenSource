@@ -121,7 +121,7 @@ static int __init ubiblock_set_param(const char *val,
 		return -EINVAL;
 	}
 
-	strcpy(buf, val);
+	strlcpy(buf, val, sizeof(buf));
 
 	/* Get rid of the final newline */
 	if (buf[len - 1] == '\n')
@@ -141,12 +141,12 @@ static int __init ubiblock_set_param(const char *val,
 		ret = kstrtoint(tokens[1], 10, &param->vol_id);
 		if (ret < 0) {
 			param->vol_id = -1;
-			strcpy(param->name, tokens[1]);
+			strlcpy(param->name, tokens[1], UBIBLOCK_PARAM_LEN+1);
 		}
 
 	} else {
 		/* One parameter: must be device path */
-		strcpy(param->name, tokens[0]);
+		strlcpy(param->name, tokens[0], UBIBLOCK_PARAM_LEN+1);
 		param->ubi_num = -1;
 		param->vol_id = -1;
 	}
@@ -412,7 +412,8 @@ int ubiblock_create(struct ubi_volume_info *vi)
 		goto out_put_disk;
 	}
 	gd->private_data = dev;
-	sprintf(gd->disk_name, "ubiblock%d_%d", dev->ubi_num, dev->vol_id);
+	scnprintf(gd->disk_name, DISK_NAME_LEN, "ubiblock%d_%d",
+					dev->ubi_num, dev->vol_id);
 	set_capacity(gd, disk_capacity);
 	dev->gd = gd;
 
