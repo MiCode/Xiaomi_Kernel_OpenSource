@@ -1181,8 +1181,15 @@ static int atl_set_priv_flags(struct net_device *ndev, uint32_t flags)
 	return 0;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int atl_get_coalesce(struct net_device *ndev,
+			    struct ethtool_coalesce *ec,
+			    struct kernel_ethtool_coalesce *kec,
+			    struct netlink_ext_ack *extack)
+#else
 static int atl_get_coalesce(struct net_device *ndev,
 			    struct ethtool_coalesce *ec)
+#endif
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 
@@ -1193,8 +1200,15 @@ static int atl_get_coalesce(struct net_device *ndev,
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+static int atl_set_coalesce(struct net_device *ndev,
+			    struct ethtool_coalesce *ec,
+			    struct kernel_ethtool_coalesce *kec,
+			    struct netlink_ext_ack *extack)
+#else
 static int atl_set_coalesce(struct net_device *ndev,
 			    struct ethtool_coalesce *ec)
+#endif
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 

@@ -1,3 +1,10 @@
+Version 1.1.23
+Date 02/11/2021
+==============
+- Add License headers to atl_dump parser files
+- Fixed cpus_read lock/unlock apis for latest kernel
+- Fixed the coalescing APIs for the latest kernel
+
 Version 1.1.22
 Date 11/10/2021
 ==============

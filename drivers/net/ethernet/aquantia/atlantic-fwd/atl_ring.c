@@ -1397,7 +1397,11 @@ static void atl_calc_affinities(struct atl_nic *nic)
 	int i;
 	unsigned int cpu;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+	cpus_read_lock();
+#else
 	get_online_cpus();
+#endif
 	cpu = cpumask_first(cpu_online_mask);
 
 	for (i = 0; i < nic->nvecs; i++) {
@@ -1414,7 +1418,11 @@ static void atl_calc_affinities(struct atl_nic *nic)
 		cpumask_set_cpu(cpu, cpumask);
 		cpu = cpumask_next(cpu, cpu_online_mask);
 	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+	cpus_read_unlock();
+#else
 	put_online_cpus();
+#endif
 }
 
 void atl_init_qvec(struct atl_nic *nic, struct atl_queue_vec *qvec, int idx)
