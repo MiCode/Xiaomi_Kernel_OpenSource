@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
- * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/bitmap.h>
@@ -326,9 +326,53 @@ static struct msm_geni_serial_port msm_geni_serial_ports[GENI_UART_NR_PORTS];
 static void msm_geni_serial_handle_isr(struct uart_port *uport,
 				unsigned long *flags, bool is_irq_masked);
 
-void geni_se_dump_dbg_regs(struct msm_geni_serial_rsc *rsc,
-	void __iomem *base, void *ipc)
+void geni_se_dump_dbg_regs(struct geni_se *se, void __iomem *base,
+			void *ipc)
 {
+	u32 m_cmd0 = 0, m_irq_status = 0, s_cmd0 = 0;
+	u32 s_irq_status = 0, geni_status = 0, geni_ios = 0;
+	u32 dma_rx_irq = 0, dma_tx_irq = 0, rx_fifo_status = 0;
+	u32 tx_fifo_status = 0, se_dma_dbg = 0, m_cmd_ctrl = 0;
+	u32 se_dma_rx_len = 0, se_dma_rx_len_in = 0, se_dma_tx_len = 0;
+	u32 se_dma_tx_len_in = 0, geni_m_irq_en = 0, geni_s_irq_en = 0;
+	u32 geni_dma_tx_irq_en = 0, geni_dma_rx_irq_en = 0;
+
+	m_cmd0 = geni_read_reg(base, SE_GENI_M_CMD0);
+	m_irq_status = geni_read_reg(base, SE_GENI_M_IRQ_STATUS);
+	s_cmd0 = geni_read_reg(base, SE_GENI_S_CMD0);
+	s_irq_status = geni_read_reg(base, SE_GENI_S_IRQ_STATUS);
+	geni_status = geni_read_reg(base, SE_GENI_STATUS);
+	geni_ios = geni_read_reg(base, SE_GENI_IOS);
+	dma_tx_irq = geni_read_reg(base, SE_DMA_TX_IRQ_STAT);
+	dma_rx_irq = geni_read_reg(base, SE_DMA_RX_IRQ_STAT);
+	rx_fifo_status = geni_read_reg(base, SE_GENI_RX_FIFO_STATUS);
+	tx_fifo_status = geni_read_reg(base, SE_GENI_TX_FIFO_STATUS);
+	se_dma_dbg = geni_read_reg(base, SE_DMA_DEBUG_REG0);
+	m_cmd_ctrl = geni_read_reg(base, SE_GENI_M_CMD_CTRL_REG);
+	se_dma_rx_len = geni_read_reg(base, SE_DMA_RX_LEN);
+	se_dma_rx_len_in = geni_read_reg(base, SE_DMA_RX_LEN_IN);
+	se_dma_tx_len = geni_read_reg(base, SE_DMA_TX_LEN);
+	se_dma_tx_len_in = geni_read_reg(base, SE_DMA_TX_LEN_IN);
+	geni_m_irq_en = geni_read_reg(base, SE_GENI_M_IRQ_EN);
+	geni_s_irq_en = geni_read_reg(base, SE_GENI_S_IRQ_EN);
+	geni_dma_tx_irq_en = geni_read_reg(base, SE_DMA_TX_IRQ_EN);
+	geni_dma_rx_irq_en = geni_read_reg(base, SE_DMA_RX_IRQ_EN);
+
+	UART_LOG_DBG(ipc, se->dev,
+	"%s: m_cmd0:0x%x, m_irq_status:0x%x, geni_status:0x%x, geni_ios:0x%x\n",
+	__func__, m_cmd0, m_irq_status, geni_status, geni_ios);
+	UART_LOG_DBG(ipc, se->dev,
+	"dma_rx_irq:0x%x, dma_tx_irq:0x%x, rx_fifo_sts:0x%x, tx_fifo_sts:0x%x\n",
+	dma_rx_irq, dma_tx_irq, rx_fifo_status, tx_fifo_status);
+	UART_LOG_DBG(ipc, se->dev,
+	"se_dma_dbg:0x%x, m_cmd_ctrl:0x%x, dma_rxlen:0x%x, dma_rxlen_in:0x%x\n",
+	se_dma_dbg, m_cmd_ctrl, se_dma_rx_len, se_dma_rx_len_in);
+	UART_LOG_DBG(ipc, se->dev,
+	"dma_txlen:0x%x, dma_txlen_in:0x%x s_irq_status:0x%x\n",
+	se_dma_tx_len, se_dma_tx_len_in, s_irq_status);
+	UART_LOG_DBG(ipc, se->dev,
+	"dma_txirq_en:0x%x, dma_rxirq_en:0x%x geni_m_irq_en:0x%x geni_s_irq_en:0x%x\n",
+	geni_dma_tx_irq_en, geni_dma_rx_irq_en, geni_m_irq_en, geni_s_irq_en);
 }
 
 int msm_geni_serial_resources_on(struct msm_geni_serial_port *port)
@@ -684,7 +728,7 @@ static int wait_for_transfers_inflight(struct uart_port *uport)
 				"%s: Bailout rx_len_in is set %d\n", __func__, rx_len_in);
 			return -EBUSY;
 		}
-		geni_se_dump_dbg_regs(&port->serial_rsc,
+		geni_se_dump_dbg_regs(&port->se,
 				uport->membase, port->ipc_log_misc);
 	}
 	return 0;
@@ -1709,7 +1753,7 @@ static int stop_rx_sequencer(struct uart_port *uport)
 							SE_GENI_S_IRQ_STATUS);
 			geni_write_reg(s_irq_status, uport->membase,
 							SE_GENI_S_IRQ_CLEAR);
-			geni_se_dump_dbg_regs(&port->serial_rsc,
+			geni_se_dump_dbg_regs(&port->se,
 				uport->membase, port->ipc_log_misc);
 			UART_LOG_DBG(port->ipc_log_misc, uport->dev, "%s: Interrupt delay\n",
 					__func__);
@@ -1764,7 +1808,7 @@ static int stop_rx_sequencer(struct uart_port *uport)
 		msm_geni_update_uart_error_code(port,
 			UART_ERROR_RX_CANCEL_FAIL);
 
-		geni_se_dump_dbg_regs(&port->serial_rsc,
+		geni_se_dump_dbg_regs(&port->se,
 				uport->membase, port->ipc_log_misc);
 		/*
 		 * Possible that stop_rx is called from system resume context
@@ -1799,7 +1843,7 @@ static int stop_rx_sequencer(struct uart_port *uport)
 			msm_geni_update_uart_error_code(port,
 				UART_ERROR_RX_ABORT_FAIL);
 
-			geni_se_dump_dbg_regs(&port->serial_rsc,
+			geni_se_dump_dbg_regs(&port->se,
 				uport->membase, port->ipc_log_misc);
 		}
 		msm_geni_serial_allow_rx(port);
@@ -1819,7 +1863,7 @@ static int stop_rx_sequencer(struct uart_port *uport)
 				"%s: rx fsm reset failed\n", __func__);
 				msm_geni_update_uart_error_code(port, UART_ERROR_RX_FSM_RESET_FAIL);
 
-				geni_se_dump_dbg_regs(&port->serial_rsc,
+				geni_se_dump_dbg_regs(&port->se,
 					uport->membase, port->ipc_log_misc);
 
 			}
@@ -2034,7 +2078,7 @@ static void check_rx_buf(char *buf, struct uart_port *uport, int size)
 		if (fault) {
 			UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev,
 				"%s RX Invalid packet\n", __func__);
-			geni_se_dump_dbg_regs(&msm_port->serial_rsc,
+			geni_se_dump_dbg_regs(&msm_port->se,
 				uport->membase, msm_port->ipc_log_misc);
 			/*
 			 * Add 2 msecs delay in order for dma rx transfer
