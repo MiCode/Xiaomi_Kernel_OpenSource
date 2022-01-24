@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, 2021, The Linux Foundation.
+ * Copyright (c) 2015-2021, 2022, The Linux Foundation.
  * All rights reserved.
  */
 
@@ -96,6 +96,9 @@ uint64_t dynamic_feature_mask = ICNSS_DEFAULT_FEATURE_MASK;
 						 ICNSS_EVENT_SYNC)
 #define ICNSS_DMS_QMI_CONNECTION_WAIT_MS 50
 #define ICNSS_DMS_QMI_CONNECTION_WAIT_RETRY 200
+
+#define SMP2P_GET_MAX_RETRY		4
+#define SMP2P_GET_RETRY_DELAY_MS	500
 
 #define RAMDUMP_NUM_DEVICES		256
 #define ICNSS_RAMDUMP_NAME		"icnss_ramdump"
@@ -705,6 +708,34 @@ qmi_send:
 	return ret;
 }
 
+static void icnss_get_smp2p_info(struct icnss_priv *priv,
+				 enum smp2p_out_entry smp2p_entry)
+{
+	int retry = 0;
+	int error;
+
+	if (priv->smp2p_info[smp2p_entry].smem_state)
+		return;
+retry:
+	priv->smp2p_info[smp2p_entry].smem_state =
+		qcom_smem_state_get(&priv->pdev->dev,
+				    icnss_smp2p_str[smp2p_entry],
+				    &priv->smp2p_info[smp2p_entry].smem_bit);
+	if (IS_ERR(priv->smp2p_info[smp2p_entry].smem_state)) {
+		if (retry++ < SMP2P_GET_MAX_RETRY) {
+			error = PTR_ERR(priv->smp2p_info[smp2p_entry].smem_state);
+			icnss_pr_err("Failed to get smem state, ret: %d Entry: %s",
+				     error, icnss_smp2p_str[smp2p_entry]);
+			msleep(SMP2P_GET_RETRY_DELAY_MS);
+			goto retry;
+		}
+		ICNSS_ASSERT(0);
+		return;
+	}
+
+	icnss_pr_dbg("smem state, Entry: %s", icnss_smp2p_str[smp2p_entry]);
+}
+
 static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 						 void *data)
 {
@@ -814,6 +845,10 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 
 		if (!priv->fw_soc_wake_ack_irq)
 			register_soc_wake_notif(&priv->pdev->dev);
+
+		icnss_get_smp2p_info(priv, ICNSS_SMP2P_OUT_POWER_SAVE);
+		icnss_get_smp2p_info(priv, ICNSS_SMP2P_OUT_SOC_WAKE);
+		icnss_get_smp2p_info(priv, ICNSS_SMP2P_OUT_EP_POWER_SAVE);
 	}
 
 	if (priv->device_id == ADRASTEA_DEVICE_ID) {
@@ -3991,21 +4026,6 @@ static void icnss_init_control_params(struct icnss_priv *priv)
 	}
 }
 
-static void icnss_get_smp2p_info(struct icnss_priv *priv,
-				 enum smp2p_out_entry smp2p_entry)
-{
-	priv->smp2p_info[smp2p_entry].smem_state =
-		qcom_smem_state_get(&priv->pdev->dev,
-				    icnss_smp2p_str[smp2p_entry],
-				    &priv->smp2p_info[smp2p_entry].smem_bit);
-	if (IS_ERR(priv->smp2p_info[smp2p_entry].smem_state)) {
-		icnss_pr_err("Failed to get smem state, ret: %d Entry: %s",
-			PTR_ERR(priv->smp2p_info[smp2p_entry].smem_state),
-			icnss_smp2p_str[smp2p_entry]);
-	}
-	icnss_pr_dbg("smem state, Entry: %s", icnss_smp2p_str[smp2p_entry]);
-}
-
 static inline void icnss_runtime_pm_init(struct icnss_priv *priv)
 {
 	pm_runtime_get_sync(&priv->pdev->dev);
@@ -4160,9 +4180,6 @@ static int icnss_probe(struct platform_device *pdev)
 		init_completion(&priv->smp2p_soc_wake_wait);
 		icnss_runtime_pm_init(priv);
 		icnss_aop_mbox_init(priv);
-		icnss_get_smp2p_info(priv, ICNSS_SMP2P_OUT_POWER_SAVE);
-		icnss_get_smp2p_info(priv, ICNSS_SMP2P_OUT_SOC_WAKE);
-		icnss_get_smp2p_info(priv, ICNSS_SMP2P_OUT_EP_POWER_SAVE);
 		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
 		priv->use_nv_mac = icnss_use_nv_mac(priv);
 		icnss_pr_dbg("NV MAC feature is %s\n",
