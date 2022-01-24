@@ -1105,27 +1105,27 @@
 		qcom,no-clock-support;
 		interconnect-names = "data_path";
 		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
-		iommus = <&apps_smmu 0x0484 0x0011>;
+		iommus = <&apps_smmu 0x0584 0x0011>;
 		qcom,iommu-dma = "atomic";
 		dma-coherent;
 
 		qcom_cedev_ns_cb {
 			compatible = "qcom,qcedev,context-bank";
 			label = "ns_context";
-			iommus = <&apps_smmu 0x488 0x0>,
-				<&apps_smmu 0x49A 0x0>,
-				<&apps_smmu 0x49F 0x0>,
-				<&apps_smmu 0x498 0x5>;
+			iommus = <&apps_smmu 0x588 0x0>,
+				<&apps_smmu 0x59A 0x0>,
+				<&apps_smmu 0x59F 0x0>,
+				<&apps_smmu 0x598 0x5>;
 			dma-coherent;
 		};
 
 		qcom_cedev_s_cb {
 			compatible = "qcom,qcedev,context-bank";
 			label = "secure_context";
-			iommus = <&apps_smmu 0x492 0x0>,
-				 <&apps_smmu 0x497 0x0>,
-				 <&apps_smmu 0x49B 0x0>,
-				 <&apps_smmu 0x49E 0x0>;
+			iommus = <&apps_smmu 0x592 0x0>,
+				 <&apps_smmu 0x597 0x0>,
+				 <&apps_smmu 0x59B 0x0>,
+				 <&apps_smmu 0x59E 0x0>;
 			qcom,iommu-vmid = <0x9>;
 			qcom,secure-context-bank;
 		};
