@@ -1110,3 +1110,12 @@ config MMC_CRYPTO_QTI
          Enable Vendor Crypto Engine Support in CQHCI
          Enabling this allows kernel to use CQHCI crypto operations defined
          and implemented by QTI.
+
+config SDHCI_MSM_DBG
+	bool "SDHCI_MSM_DBG"
+	depends on MMC_SDHCI_MSM
+	help
+	  This enables the IPC tracing events for sdhci_msm driver to
+	  trace significant events used for debugging purpose.
+
+	  If unsure, say N here.
