@@ -56,7 +56,7 @@ static int ufs_qcom_phy_qmp_v4_phy_calibrate(struct phy *generic_phy)
 		return -EOPNOTSUPP;
 	}
 
-	if (is_rate_B)
+	if (is_rate_B && submode == UFS_QCOM_PHY_SUBMODE_G4)
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_B,
 				       ARRAY_SIZE(phy_cal_table_rate_B));
 
