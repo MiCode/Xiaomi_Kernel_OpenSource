@@ -77,6 +77,12 @@ static inline void vm_events_fold_cpu(int cpu)
 
 #endif /* CONFIG_VM_EVENT_COUNTERS */
 
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT_STATS
+#define count_vm_spf_event(x) count_vm_event(x)
+#else
+#define count_vm_spf_event(x) do {} while (0)
+#endif
+
 #ifdef CONFIG_NUMA_BALANCING
 #define count_vm_numa_event(x)     count_vm_event(x)
 #define count_vm_numa_events(x, y) count_vm_events(x, y)

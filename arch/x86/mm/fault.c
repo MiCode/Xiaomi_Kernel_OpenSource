@@ -1337,21 +1337,31 @@ void do_user_addr_fault(struct pt_regs *regs,
 
 	count_vm_event(SPF_ATTEMPT);
 	seq = mmap_seq_read_start(mm);
-	if (seq & 1)
+	if (seq & 1) {
+		count_vm_spf_event(SPF_ABORT_ODD);
 		goto spf_abort;
+	}
 	rcu_read_lock();
 	vma = __find_vma(mm, address);
-	if (!vma || vma->vm_start > address || !vma_is_anonymous(vma)) {
+	if (!vma || vma->vm_start > address) {
 		rcu_read_unlock();
+		count_vm_spf_event(SPF_ABORT_UNMAPPED);
+		goto spf_abort;
+	}
+	if (!vma_is_anonymous(vma)) {
+		rcu_read_unlock();
+		count_vm_spf_event(SPF_ABORT_NO_SPECULATE);
 		goto spf_abort;
 	}
 	pvma = *vma;
 	rcu_read_unlock();
-	if (!mmap_seq_read_check(mm, seq))
+	if (!mmap_seq_read_check(mm, seq, SPF_ABORT_VMA_COPY))
 		goto spf_abort;
 	vma = &pvma;
-	if (unlikely(access_error(error_code, vma)))
+	if (unlikely(access_error(error_code, vma))) {
+		count_vm_spf_event(SPF_ABORT_ACCESS_ERROR);
 		goto spf_abort;
+	}
 	fault = do_handle_mm_fault(vma, address,
 				   flags | FAULT_FLAG_SPECULATIVE, seq, regs);
 

@@ -7,6 +7,7 @@
 #include <linux/rwsem.h>
 #include <linux/tracepoint-defs.h>
 #include <linux/types.h>
+#include <linux/vm_event.h>
 
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
 #define MMAP_LOCK_SEQ_INITIALIZER(name) \
@@ -104,12 +105,26 @@ static inline unsigned long mmap_seq_read_start(struct mm_struct *mm)
 	return seq;
 }
 
-static inline bool mmap_seq_read_check(struct mm_struct *mm, unsigned long seq)
+static inline bool __mmap_seq_read_check(struct mm_struct *mm,
+					 unsigned long seq)
 {
 	smp_rmb();
 	return seq == READ_ONCE(mm->mmap_seq);
 }
-#endif
+
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT_STATS
+static inline bool mmap_seq_read_check(struct mm_struct *mm, unsigned long seq,
+	enum vm_event_item fail_event)
+{
+	if (__mmap_seq_read_check(mm, seq))
+		return true;
+	count_vm_event(fail_event);
+	return false;
+}
+#else
+#define mmap_seq_read_check(mm, seq, fail) __mmap_seq_read_check(mm, seq)
+#endif /* CONFIG_SPECULATIVE_PAGE_FAULT_STATS */
+#endif /* CONFIG_SPECULATIVE_PAGE_FAULT */
 
 static inline void mmap_write_lock(struct mm_struct *mm)
 {
