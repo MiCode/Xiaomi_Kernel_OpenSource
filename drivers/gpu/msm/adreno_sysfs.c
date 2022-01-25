@@ -210,6 +210,19 @@ static int _bcl_store(struct adreno_device *adreno_dev, bool val)
 					val);
 }
 
+static bool _perfcounter_show(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->perfcounter;
+}
+
+static int _perfcounter_store(struct adreno_device *adreno_dev, bool val)
+{
+	if (adreno_dev->perfcounter == val)
+		return 0;
+
+	return adreno_power_cycle_bool(adreno_dev, &adreno_dev->perfcounter, val);
+}
+
 ssize_t adreno_sysfs_store_u32(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -288,6 +301,7 @@ static ADRENO_SYSFS_RO_U32(ifpc_count);
 static ADRENO_SYSFS_BOOL(acd);
 static ADRENO_SYSFS_BOOL(bcl);
 static ADRENO_SYSFS_BOOL(l3_vote);
+static ADRENO_SYSFS_BOOL(perfcounter);
 
 static DEVICE_ATTR_RO(gpu_model);
 
@@ -309,6 +323,7 @@ static const struct attribute *_attr_list[] = {
 	&adreno_attr_bcl.attr.attr,
 	&dev_attr_gpu_model.attr,
 	&adreno_attr_l3_vote.attr.attr,
+	&adreno_attr_perfcounter.attr.attr,
 	NULL,
 };
 
@@ -328,9 +343,13 @@ int adreno_sysfs_init(struct adreno_device *adreno_dev)
 
 	ret = sysfs_create_files(&device->dev->kobj, _attr_list);
 
-	if (!ret)
+	if (!ret) {
+		/* Notify userspace */
+		kobject_uevent(&device->dev->kobj, KOBJ_ADD);
+
 		ret = sysfs_create_file(&device->gpu_sysfs_kobj,
 			&gpu_sysfs_attr_gpu_model.attr);
+	}
 
 	return ret;
 }
