@@ -772,4 +772,29 @@ static inline void mmu_notifier_synchronize(void)
 
 #endif /* CONFIG_MMU_NOTIFIER */
 
+#if defined(CONFIG_MMU_NOTIFIER) && defined(CONFIG_SPECULATIVE_PAGE_FAULT)
+
+static inline bool mmu_notifier_trylock(struct mm_struct *mm)
+{
+	return percpu_down_read_trylock(mm->mmu_notifier_lock);
+}
+
+static inline void mmu_notifier_unlock(struct mm_struct *mm)
+{
+	percpu_up_read(mm->mmu_notifier_lock);
+}
+
+#else
+
+static inline bool mmu_notifier_trylock(struct mm_struct *mm)
+{
+	return true;
+}
+
+static inline void mmu_notifier_unlock(struct mm_struct *mm)
+{
+}
+
+#endif
+
 #endif /* _LINUX_MMU_NOTIFIER_H */
