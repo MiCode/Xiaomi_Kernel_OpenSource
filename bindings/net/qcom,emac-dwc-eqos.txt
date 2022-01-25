@@ -1,0 +1,90 @@
+Qualcomm Technologies Inc. EMAC Gigabit Ethernet controller
+
+This network controller consists of the MAC and
+RGMII IO Macro for interfacing with PHY.
+
+Required properties:
+
+emac_hw node:
+- compatible: Should be "qcom,emac-dwc-eqos"
+- reg: Offset and length of the register regions for the mac and io-macro
+- interrupts: Interrupt number used by this controller
+- io-macro-info: Internal io-macro-info
+- emac_emb_smmu: Internal emac smmu node
+- qcom,phy-reset-delay-msecs  is for delays
+	The 1st cell is reset pulse in milli seconds.
+	The 2nd cell is reset post-delay in milli seconds.
+
+Optional:
+- qcom,msm-bus,name: String representing the client-name
+- qcom,msm-bus,num-cases: Total number of usecases
+- qcom,msm-bus,num-paths: Total number of master-slave pairs
+- qcom,msm-bus,vectors-KBps: Arrays of unsigned integers representing:
+                             master-id, slave-id, arbitrated bandwidth
+                             in KBps, instantaneous bandwidth in KBps
+qcom,bus-vector-names: specifies string IDs for the corresponding bus vectors
+                       in the same order as qcom,msm-bus,vectors-KBps property.
+- qcom,arm-smmu: Boolean, if present enables EMAC SMMU support in sdxpoorwills.
+
+Internal io-macro-info:
+- io-macro-bypass-mode: <0 or 1> internal or external delay configuration
+- io-interface: <rgmii/mii/rmii> PHY interface used
+
+Internal emac_emb_smmu:
+- compatible: Should be "qcom,emac-smmu-embedded".
+- qcom,smmu-s1-bypass: Boolean, if present S1 bypass is enabled.
+- iommus: Includes the <&smmu_phandle stream_id size> pair for each context
+			bank.
+- qcom,iova-mapping: <starting_address size> of the smmu context bank.
+
+Example:
+
+soc {
+	emac_hw: qcom,emac@00020000 {
+			compatible = "qcom,emac-dwc-eqos";
+			qcom,arm-smmu;
+			reg = <0x20000 0x10000>,
+				  <0x36000 0x100>;
+				  <0x3D00000 0x300000>;
+			reg-names = "emac-base", "rgmii-base";
+			interrupts = <0 62 4>, <0 60 4>,
+					<0 49 4>, <0 50 4>,
+					<0 51 4>, <0 52 4>,
+					<0 53 4>, <0 54 4>,
+					<0 55 4>, <0 56 4>,
+					<0 57 4>;
+			interrupt-names = "sbd-intr", "lpi-intr",
+				 "phy-intr", "tx-ch0-intr",
+				 "tx-ch1-intr", "tx-ch2-intr",
+				 "tx-ch3-intr", "tx-ch4-intr",
+				 "rx-ch0-intr", "rx-ch1-intr",
+				 "rx-ch2-intr", "rx-ch3-intr";
+			qcom,msm-bus,name = "emac";
+			qcom,msm-bus,num-cases = <4>;
+			qcom,msm-bus,num-paths = <2>;
+			qcom,msm-bus,vectors-KBps =
+				<98 512 0 0>, <1 781 0 0>, /* No vote */
+				<98 512 1250 0>, <1 781 0 40000>,  /* 10Mbps vote */
+				<98 512 12500 0>, <1 781 0 40000>,  /* 100Mbps vote */
+				<98 512 125000 0>, <1 781 0 40000>; /* 1000Mbps vote */
+			qcom,bus-vector-names = "10", "100", "1000";
+			clock-names = "emac_axi_clk", "emac_ptp_clk",
+				"emac_rgmii_clk", "emac_slv_ahb_clk";
+			qcom,phy-reset = <&tlmm 79 GPIO_ACTIVE_HIGH>;
+			qcom,phy-intr-redirect = <&tlmm 124 GPIO_ACTIVE_LOW>;
+			qcom,phy-reset-delay-msecs = <10 50>;
+			gdsc_emac-supply = <&emac_gdsc>;
+
+			io-macro-info {
+				io-macro-bypass-mode = <0>;
+				io-interface = "rgmii";
+			};
+
+			emac_emb_smmu: emac_emb_smmu {
+				compatible = "qcom,emac-smmu-embedded";
+				qcom,smmu-s1-bypass;
+				iommus = <&apps_smmu 0x3C0 0x0>;
+				qcom,iova-mapping = <0x80000000 0x40000000>;
+			};
+		};
+}
