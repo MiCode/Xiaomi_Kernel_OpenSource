@@ -4367,6 +4367,8 @@ static vm_fault_t do_fault(struct vm_fault *vmf)
 	struct mm_struct *vm_mm = vma->vm_mm;
 	vm_fault_t ret;
 
+	VM_BUG_ON(vmf->flags & FAULT_FLAG_SPECULATIVE);
+
 	/*
 	 * The VMA was not fully populated on mmap() or missing VM_DONTEXPAND
 	 */
@@ -4609,6 +4611,11 @@ static vm_fault_t handle_pte_fault(struct vm_fault *vmf)
 			return do_anonymous_page(vmf);
 		else
 			return do_fault(vmf);
+	}
+
+	if (vmf->flags & FAULT_FLAG_SPECULATIVE) {
+		pte_unmap(vmf->pte);
+		return VM_FAULT_RETRY;
 	}
 
 	if (!pte_present(vmf->orig_pte))
@@ -4939,8 +4946,7 @@ vm_fault_t do_handle_mm_fault(struct vm_area_struct *vma,
 {
 	vm_fault_t ret;
 
-	if (flags & FAULT_FLAG_SPECULATIVE)
-		return VM_FAULT_RETRY;
+	VM_BUG_ON((flags & FAULT_FLAG_SPECULATIVE) && !vma_is_anonymous(vma));
 
 	__set_current_state(TASK_RUNNING);
 
@@ -4962,10 +4968,12 @@ vm_fault_t do_handle_mm_fault(struct vm_area_struct *vma,
 	if (flags & FAULT_FLAG_USER)
 		mem_cgroup_enter_user_fault();
 
-	if (unlikely(is_vm_hugetlb_page(vma)))
+	if (unlikely(is_vm_hugetlb_page(vma))) {
+		VM_BUG_ON(flags & FAULT_FLAG_SPECULATIVE);
 		ret = hugetlb_fault(vma->vm_mm, vma, address, flags);
-	else
+	} else {
 		ret = __handle_mm_fault(vma, address, flags, seq);
+	}
 
 	if (flags & FAULT_FLAG_USER) {
 		mem_cgroup_exit_user_fault();
