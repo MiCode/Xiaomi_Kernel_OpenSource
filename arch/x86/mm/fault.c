@@ -1328,6 +1328,13 @@ void do_user_addr_fault(struct pt_regs *regs,
 #endif
 
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	/*
+	 * No need to try speculative faults for kernel or
+	 * single threaded user space.
+	 */
+	if (!(flags & FAULT_FLAG_USER) || atomic_read(&mm->mm_users) == 1)
+		goto no_spf;
+
 	count_vm_event(SPF_ATTEMPT);
 	seq = mmap_seq_read_start(mm);
 	if (seq & 1)
@@ -1362,7 +1369,9 @@ void do_user_addr_fault(struct pt_regs *regs,
 
 spf_abort:
 	count_vm_event(SPF_ABORT);
-#endif
+no_spf:
+
+#endif	/* CONFIG_SPECULATIVE_PAGE_FAULT */
 
 	/*
 	 * Kernel-mode access to the user address space should only occur
