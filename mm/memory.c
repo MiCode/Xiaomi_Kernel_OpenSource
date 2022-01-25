@@ -3080,20 +3080,27 @@ static vm_fault_t wp_page_copy(struct vm_fault *vmf)
 	pte_t entry;
 	int page_copied = 0;
 	struct mmu_notifier_range range;
+	vm_fault_t ret = VM_FAULT_OOM;
 
-	if (unlikely(anon_vma_prepare(vma)))
-		goto oom;
+	if (unlikely(!vma->anon_vma)) {
+		if (vmf->flags & FAULT_FLAG_SPECULATIVE) {
+			ret = VM_FAULT_RETRY;
+			goto out;
+		}
+		if (__anon_vma_prepare(vma))
+			goto out;
+	}
 
 	if (is_zero_pfn(pte_pfn(vmf->orig_pte))) {
 		new_page = alloc_zeroed_user_highpage_movable(vma,
 							      vmf->address);
 		if (!new_page)
-			goto oom;
+			goto out;
 	} else {
 		new_page = alloc_page_vma(GFP_HIGHUSER_MOVABLE, vma,
 				vmf->address);
 		if (!new_page)
-			goto oom;
+			goto out;
 
 		if (!cow_user_page(new_page, old_page, vmf)) {
 			/*
@@ -3110,11 +3117,16 @@ static vm_fault_t wp_page_copy(struct vm_fault *vmf)
 	}
 
 	if (mem_cgroup_charge(new_page, mm, GFP_KERNEL))
-		goto oom_free_new;
+		goto out_free_new;
 	cgroup_throttle_swaprate(new_page, GFP_KERNEL);
 
 	__SetPageUptodate(new_page);
 
+	if ((vmf->flags & FAULT_FLAG_SPECULATIVE) &&
+	    !mmu_notifier_trylock(mm)) {
+		ret = VM_FAULT_RETRY;
+		goto out_free_new;
+	}
 	mmu_notifier_range_init(&range, MMU_NOTIFY_CLEAR, 0, vma, mm,
 				vmf->address & PAGE_MASK,
 				(vmf->address & PAGE_MASK) + PAGE_SIZE);
@@ -3123,7 +3135,11 @@ static vm_fault_t wp_page_copy(struct vm_fault *vmf)
 	/*
 	 * Re-check the pte - we dropped the lock
 	 */
-	vmf->pte = pte_offset_map_lock(mm, vmf->pmd, vmf->address, &vmf->ptl);
+	if (!pte_map_lock(vmf)) {
+		ret = VM_FAULT_RETRY;
+		/* put_page() will uncharge the page */
+		goto out_notify;
+	}
 	if (likely(pte_same(*vmf->pte, vmf->orig_pte))) {
 		if (old_page) {
 			if (!PageAnon(old_page)) {
@@ -3198,6 +3214,8 @@ static vm_fault_t wp_page_copy(struct vm_fault *vmf)
 	 * the above ptep_clear_flush_notify() did already call it.
 	 */
 	mmu_notifier_invalidate_range_only_end(&range);
+	if (vmf->flags & FAULT_FLAG_SPECULATIVE)
+		mmu_notifier_unlock(mm);
 	if (old_page) {
 		/*
 		 * Don't let another task, with possibly unlocked vma,
@@ -3214,12 +3232,16 @@ static vm_fault_t wp_page_copy(struct vm_fault *vmf)
 		put_page(old_page);
 	}
 	return page_copied ? VM_FAULT_WRITE : 0;
-oom_free_new:
+out_notify:
+	mmu_notifier_invalidate_range_only_end(&range);
+	if (vmf->flags & FAULT_FLAG_SPECULATIVE)
+		mmu_notifier_unlock(mm);
+out_free_new:
 	put_page(new_page);
-oom:
+out:
 	if (old_page)
 		put_page(old_page);
-	return VM_FAULT_OOM;
+	return ret;
 }
 
 /**
@@ -3362,6 +3384,7 @@ static vm_fault_t do_wp_page(struct vm_fault *vmf)
 			return wp_pfn_shared(vmf);
 
 		pte_unmap_unlock(vmf->pte, vmf->ptl);
+		vmf->pte = NULL;
 		return wp_page_copy(vmf);
 	}
 
@@ -3400,6 +3423,7 @@ copy:
 	get_page(vmf->page);
 
 	pte_unmap_unlock(vmf->pte, vmf->ptl);
+	vmf->pte = NULL;
 	return wp_page_copy(vmf);
 }
 
