@@ -394,10 +394,12 @@ void vm_area_free(struct vm_area_struct *vma)
 {
 	free_vma_anon_name(vma);
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
-	call_rcu(&vma->vm_rcu, __vm_area_free);
-#else
-	kmem_cache_free(vm_area_cachep, vma);
+	if (atomic_read(&vma->vm_mm->mm_users) > 1) {
+		call_rcu(&vma->vm_rcu, __vm_area_free);
+		return;
+	}
 #endif
+	kmem_cache_free(vm_area_cachep, vma);
 }
 
 static void account_kernel_stack(struct task_struct *tsk, int account)
