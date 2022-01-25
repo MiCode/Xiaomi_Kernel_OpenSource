@@ -2718,6 +2718,28 @@ int apply_to_existing_page_range(struct mm_struct *mm, unsigned long addr,
 }
 EXPORT_SYMBOL_GPL(apply_to_existing_page_range);
 
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+
+/*
+ * speculative_page_walk_begin() ... speculative_page_walk_end() protects
+ * against races with page table reclamation.
+ *
+ * This is similar to what fast GUP does, but fast GUP also needs to
+ * protect against races with THP page splitting, so it always needs
+ * to disable interrupts.
+ * Speculative page faults only need to protect against page table reclamation,
+ * so rcu_read_lock() is sufficient in the MMU_GATHER_RCU_TABLE_FREE case.
+ */
+#ifdef CONFIG_MMU_GATHER_RCU_TABLE_FREE
+#define speculative_page_walk_begin() rcu_read_lock()
+#define speculative_page_walk_end()   rcu_read_unlock()
+#else
+#define speculative_page_walk_begin() local_irq_disable()
+#define speculative_page_walk_end()   local_irq_enable()
+#endif
+
+#endif	/* CONFIG_SPECULATIVE_PAGE_FAULT */
+
 /*
  * handle_pte_fault chooses page fault handler according to an entry which was
  * read non-atomically.  Before making any commitment, on those architectures
