@@ -159,6 +159,14 @@ static long adreno_ioctl_perfcounter_read_compat(
 	struct kgsl_perfcounter_read_compat *read32 = data;
 	struct kgsl_perfcounter_read read;
 
+	/*
+	 * When performance counter zapping is enabled, the counters are cleared
+	 * across context switches. Reading the counters when they are zapped is
+	 * not permitted.
+	 */
+	if (!adreno_dev->perfcounter)
+		return -EPERM;
+
 	read.reads = (struct kgsl_perfcounter_read_group __user *)
 		(uintptr_t)read32->reads;
 	read.count = read32->count;
