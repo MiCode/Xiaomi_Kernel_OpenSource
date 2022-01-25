@@ -4583,7 +4583,7 @@ unlock:
  * return value.  See filemap_fault() and __lock_page_or_retry().
  */
 static vm_fault_t __handle_mm_fault(struct vm_area_struct *vma,
-		unsigned long address, unsigned int flags)
+		unsigned long address, unsigned int flags, unsigned long seq)
 {
 	struct vm_fault vmf = {
 		.vma = vma,
@@ -4597,6 +4597,79 @@ static vm_fault_t __handle_mm_fault(struct vm_area_struct *vma,
 	pgd_t *pgd;
 	p4d_t *p4d;
 	vm_fault_t ret;
+
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	if (flags & FAULT_FLAG_SPECULATIVE) {
+		pgd_t pgdval;
+		p4d_t p4dval;
+		pud_t pudval;
+
+		vmf.seq = seq;
+
+		speculative_page_walk_begin();
+		pgd = pgd_offset(mm, address);
+		pgdval = READ_ONCE(*pgd);
+		if (pgd_none(pgdval) || unlikely(pgd_bad(pgdval)))
+			goto spf_fail;
+
+		p4d = p4d_offset(pgd, address);
+		p4dval = READ_ONCE(*p4d);
+		if (p4d_none(p4dval) || unlikely(p4d_bad(p4dval)))
+			goto spf_fail;
+
+		vmf.pud = pud_offset(p4d, address);
+		pudval = READ_ONCE(*vmf.pud);
+		if (pud_none(pudval) || unlikely(pud_bad(pudval)) ||
+		    unlikely(pud_trans_huge(pudval)) ||
+		    unlikely(pud_devmap(pudval)))
+			goto spf_fail;
+
+		vmf.pmd = pmd_offset(vmf.pud, address);
+		vmf.orig_pmd = READ_ONCE(*vmf.pmd);
+
+		/*
+		 * pmd_none could mean that a hugepage collapse is in
+		 * progress in our back as collapse_huge_page() mark
+		 * it before invalidating the pte (which is done once
+		 * the IPI is catched by all CPU and we have interrupt
+		 * disabled).  For this reason we cannot handle THP in
+		 * a speculative way since we can't safely identify an
+		 * in progress collapse operation done in our back on
+		 * that PMD.
+		 */
+		if (unlikely(pmd_none(vmf.orig_pmd) ||
+			     is_swap_pmd(vmf.orig_pmd) ||
+			     pmd_trans_huge(vmf.orig_pmd) ||
+			     pmd_devmap(vmf.orig_pmd)))
+			goto spf_fail;
+
+		/*
+		 * The above does not allocate/instantiate page-tables because
+		 * doing so would lead to the possibility of instantiating
+		 * page-tables after free_pgtables() -- and consequently
+		 * leaking them.
+		 *
+		 * The result is that we take at least one non-speculative
+		 * fault per PMD in order to instantiate it.
+		 */
+
+		vmf.pte = pte_offset_map(vmf.pmd, address);
+		vmf.orig_pte = READ_ONCE(*vmf.pte);
+		barrier();
+		if (pte_none(vmf.orig_pte)) {
+			pte_unmap(vmf.pte);
+			vmf.pte = NULL;
+		}
+
+		speculative_page_walk_end();
+
+		return handle_pte_fault(&vmf);
+
+	spf_fail:
+		speculative_page_walk_end();
+		return VM_FAULT_RETRY;
+	}
+#endif	/* CONFIG_SPECULATIVE_PAGE_FAULT */
 
 	pgd = pgd_offset(mm, address);
 	p4d = p4d_alloc(mm, pgd, address);
@@ -4817,7 +4890,7 @@ vm_fault_t do_handle_mm_fault(struct vm_area_struct *vma,
 	if (unlikely(is_vm_hugetlb_page(vma)))
 		ret = hugetlb_fault(vma->vm_mm, vma, address, flags);
 	else
-		ret = __handle_mm_fault(vma, address, flags);
+		ret = __handle_mm_fault(vma, address, flags, seq);
 
 	if (flags & FAULT_FLAG_USER) {
 		mem_cgroup_exit_user_fault();

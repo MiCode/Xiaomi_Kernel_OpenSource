@@ -540,6 +540,10 @@ struct vm_fault {
 	};
 	enum fault_flag flags;		/* FAULT_FLAG_xxx flags
 					 * XXX: should really be 'const' */
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	unsigned long seq;
+	pmd_t orig_pmd;
+#endif
 	pmd_t *pmd;			/* Pointer to pmd entry matching
 					 * the 'address' */
 	pud_t *pud;			/* Pointer to pud entry matching
@@ -547,9 +551,11 @@ struct vm_fault {
 					 */
 	union {
 		pte_t orig_pte;		/* Value of PTE at the time of fault */
+#ifndef CONFIG_SPECULATIVE_PAGE_FAULT
 		pmd_t orig_pmd;		/* Value of PMD at the time of fault,
 					 * used by PMD fault only.
 					 */
+#endif
 	};
 
 	struct page *cow_page;		/* Page handler may use for COW fault */
