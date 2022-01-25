@@ -1552,6 +1552,8 @@ int adreno_device_probe(struct platform_device *pdev,
 	adreno_debugfs_init(adreno_dev);
 	adreno_profile_init(adreno_dev);
 
+	adreno_dev->perfcounter = false;
+
 	adreno_sysfs_init(adreno_dev);
 
 	kgsl_pwrscale_init(device, pdev, CONFIG_QCOM_ADRENO_DEFAULT_GOVERNOR);
