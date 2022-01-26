@@ -111,9 +111,9 @@
   __sysfs_match_string
   __tasklet_hi_schedule
   __tasklet_schedule
+  __tracepoint_android_rvh_iommu_setup_dma_ops
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
-  __tracepoint_android_vh_iommu_setup_dma_ops
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_printk_hotplug
