@@ -995,6 +995,13 @@
 		qcom,target-dev = <&qcom_ddr_dcvs_hw>;
 	};
 
+	qrtr-gunyah {
+		compatible = "qcom,qrtr-gunyah";
+		qcom,master;
+		gunyah-label = <3>;
+		peer-name = <2>;
+		shared-buffer = <&trust_ui_vm_qrtr>;
+	};
 
 	memtimer: timer@17420000 {
 		#address-cells = <1>;
