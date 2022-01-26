@@ -152,6 +152,9 @@ static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_MSM_GENI_CONSOLE_DEFAULT_ENAB
 
 #define DEFAULT_BUS_WIDTH   (4)
 
+#define MIN_SUPPORTED_BAUD_RATE 300
+#define MAX_SUPPORTED_BAUD_RATE 8000000
+
 /* Required for polling for 100 msecs */
 #define POLL_WAIT_TIMEOUT_MSEC	100
 
@@ -2868,7 +2871,8 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 	}
 	msm_geni_serial_stop_rx(uport);
 	/* baud rate */
-	baud = uart_get_baud_rate(uport, termios, old, 300, 4000000);
+	baud = uart_get_baud_rate(uport, termios, old,
+			MIN_SUPPORTED_BAUD_RATE, MAX_SUPPORTED_BAUD_RATE);
 	port->cur_baud = baud;
 
 	/* sampling is halved for QUP versions >= 2.5 */
@@ -3235,10 +3239,11 @@ static const struct of_device_id msm_geni_device_tbl[] = {
 
 static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 {
-	int hw_ver, ret = 0;
+	u32 hw_ver = 0x0;
+	int ret = 0;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	int len = (sizeof(struct msm_geni_serial_ver_info) * 2);
-	char fwver[20], hwver[20];
+	char fwver[20];
 
 	/* clks_on/off only for HSUART, as console remains actve */
 	if (!msm_port->is_console) {
@@ -3270,7 +3275,12 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 
 	hw_ver = geni_se_get_qup_hw_version(&msm_port->se);
 	UART_LOG_DBG(msm_port->ipc_log_misc,
-			uport->dev, "%s: HW Ver: %s\n", __func__, hwver);
+			uport->dev, "%s: HW Ver: 0x%x\n", __func__, hw_ver);
+
+	geni_se_common_get_major_minor_num(hw_ver,
+		&msm_port->ver_info.hw_major_ver,
+		&msm_port->ver_info.hw_minor_ver,
+		&msm_port->ver_info.hw_step_ver);
 
 	msm_geni_serial_enable_interrupts(uport);
 exit_ver_info:

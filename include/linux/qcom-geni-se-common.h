@@ -58,6 +58,11 @@
 #define GSI_RX_PACK_EN          (BIT(1))
 #define GSI_PRESERVE_PACK       (BIT(2))
 
+#define HW_VER_MAJOR_MASK GENMASK(31, 28)
+#define HW_VER_MAJOR_SHFT 28
+#define HW_VER_MINOR_MASK GENMASK(27, 16)
+#define HW_VER_MINOR_SHFT 16
+#define HW_VER_STEP_MASK GENMASK(15, 0)
 
 static inline int geni_se_common_resources_init(struct geni_se *se, u32 geni_to_core,
 			 u32 cpu_to_geni, u32 geni_to_ddr)
@@ -306,5 +311,23 @@ static inline void geni_se_common_rx_dma_start(void __iomem *base, int rx_len, d
 	/* Ensure that above register writes went through */
 	 mb();
 	geni_write_reg(rx_len, base, SE_DMA_RX_LEN);
+}
+
+/**
+ * geni_se_common_get_major_minor_num() - Split qup hw_version into
+				major, minor and step.
+ * @hw_version:	HW version of the qup
+ * @major:      Buffer for Major Version field.
+ * @minor:      Buffer for Minor Version field.
+ * @step:       Buffer for Step Version field.
+ *
+ * Return:  None
+ */
+static inline void geni_se_common_get_major_minor_num(u32 hw_version,
+			unsigned int *major, unsigned int *minor, unsigned int *step)
+{
+	*major = (hw_version & HW_VER_MAJOR_MASK) >> HW_VER_MAJOR_SHFT;
+	*minor = (hw_version & HW_VER_MINOR_MASK) >> HW_VER_MINOR_SHFT;
+	*step = hw_version & HW_VER_STEP_MASK;
 }
 #endif
