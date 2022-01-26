@@ -61,8 +61,16 @@
 
 #define LLCC_TRP_WRSC_EN              0x21F20
 #define LLCC_TRP_WRSC_CACHEABLE_EN    0x21F2C
-#define LLCC_TRP_PCB_ACT              0x21F04
 #define LLCC_TRP_SCID_DIS_CAP_ALLOC   0x21F00
+#define LLCC_TRP_PCB_ACT              0x21F04
+#define LLCC_TRP_ALGO_CFG1            0x21F0C // SCT_STALE_EN
+#define LLCC_TRP_ALGO_CFG2            0x21F10 // STALE_ONLY_ON_OC
+#define LLCC_TRP_ALGO_CFG3            0x21F14 // MRU_RO_ON_TWAYS_IF_UC
+#define LLCC_TRP_ALGO_CFG4            0x21F18 // MRU_ROLLOVER_ONLY_ON_TWAYS
+#define LLCC_TRP_ALGO_CFG5            0x21F1C // ALWAYS_ALLOC_ONE_WAY_ON_OC
+#define LLCC_TRP_ALGO_CFG6            0x21F24 // ALLOC_OTHER_OC_ON_OC
+#define LLCC_TRP_ALGO_CFG7            0x21F28 // ALLOC_OTHER_LP_OC_ON_OC
+#define LLCC_TRP_ALGO_CFG8            0x21F30 // ALLOC_VICTIM_PL_ON_UC
 
 /**
  * llcc_slice_config - Data associated with the llcc slice
@@ -90,6 +98,17 @@
  * @write_scid_en: Enables write cache support for a given scid.
  * @write_scid_cacheable_en: Enables write cache cacheable support for a
  *                          given scid.(Not supported on V2 or older hardware)
+ * @stale_en: Enable global staling for the Clients.
+ * @stale_cap_en: Enable global staling on over capacity for the Clients
+ * @mru_uncap_en: Enable roll over on reserved ways if the current SCID is under capacity.
+ * @mru_rollover: Roll over on reserved ways for the client.
+ * @alloc_oneway_en: Always allocate one way on over capacity even if there
+ *			is no same scid lines for replacement.
+ * @ovcap_en: Once current scid is over capacity, allocate other over capacity scid.
+ * @ovcap_prio: Once current scid is over capacity, allocate other lower priority
+ *			over capacity scid. This setting is ignored if ovcap_en is not set.
+ * @vict_prio: When current SCID is under capacity, allocate over other lower than
+ *		VICTIM_PL_THRESHOLD priority SCID.
  */
 struct llcc_slice_config {
 	u32 usecase_id;
@@ -106,6 +125,14 @@ struct llcc_slice_config {
 	bool activate_on_init;
 	bool write_scid_en;
 	bool write_scid_cacheable_en;
+	bool stale_en;
+	bool stale_cap_en;
+	bool mru_uncap_en;
+	bool mru_rollover;
+	bool alloc_oneway_en;
+	bool ovcap_en;
+	bool ovcap_prio;
+	bool vict_prio;
 };
 
 static u32 llcc_offsets_v2[] = {
@@ -689,6 +716,56 @@ static int qcom_llcc_cfg_program(struct platform_device *pdev)
 				if (ret)
 					return ret;
 			}
+		}
+
+		if (drv_data->llcc_ver >= 41) {
+			ret = regmap_write(drv_data->bcast_regmap,
+					LLCC_TRP_ALGO_CFG1,
+					(llcc_table[i].stale_en << llcc_table[i].slice_id));
+			if (ret)
+				return ret;
+
+			ret = regmap_write(drv_data->bcast_regmap,
+					LLCC_TRP_ALGO_CFG2,
+					(llcc_table[i].stale_cap_en << llcc_table[i].slice_id));
+			if (ret)
+				return ret;
+
+			ret = regmap_write(drv_data->bcast_regmap,
+					LLCC_TRP_ALGO_CFG3,
+					(llcc_table[i].mru_uncap_en << llcc_table[i].slice_id));
+			if (ret)
+				return ret;
+
+			ret = regmap_write(drv_data->bcast_regmap,
+					LLCC_TRP_ALGO_CFG4,
+					(llcc_table[i].mru_rollover << llcc_table[i].slice_id));
+			if (ret)
+				return ret;
+
+			ret = regmap_write(drv_data->bcast_regmap,
+					LLCC_TRP_ALGO_CFG5,
+					(llcc_table[i].alloc_oneway_en << llcc_table[i].slice_id));
+			if (ret)
+				return ret;
+
+			ret = regmap_write(drv_data->bcast_regmap,
+					LLCC_TRP_ALGO_CFG6,
+					(llcc_table[i].ovcap_en << llcc_table[i].slice_id));
+			if (ret)
+				return ret;
+
+			ret = regmap_write(drv_data->bcast_regmap,
+					LLCC_TRP_ALGO_CFG7,
+					(llcc_table[i].ovcap_prio << llcc_table[i].slice_id));
+			if (ret)
+				return ret;
+
+			ret = regmap_write(drv_data->bcast_regmap,
+					LLCC_TRP_ALGO_CFG8,
+					(llcc_table[i].vict_prio << llcc_table[i].slice_id));
+			if (ret)
+				return ret;
 		}
 
 		if (llcc_table[i].activate_on_init) {
