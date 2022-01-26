@@ -50,6 +50,8 @@
 #define LLCC_CAMEXP2     50
 #define LLCC_CAMEXP3     51
 #define LLCC_CAMEXP4     52
+#define LLCC_DISP_WB     53
+#define LLCC_DISP_1      54
 
 /**
  * llcc_slice_desc - Cache slice descriptor
