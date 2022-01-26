@@ -655,7 +655,15 @@ static int ufs_qcom_enable_hw_clk_gating(struct ufs_hba *hba)
 	if (err)
 		goto out;
 
-	err = ufshcd_dme_rmw(hba, PA_VS_CLK_CFG_REG_MASK,
+	/*
+	 * As per HPG, ATTR_HW_CGC_EN bit should be enabled when operating at
+	 * more than 300mhz and hence should be disable in UFS init sequence
+	 */
+	if (host->ml_scale_up)
+		err = ufshcd_dme_rmw(hba, PA_VS_CLK_CFG_REG_MASK,
+				PA_VS_CLK_CFG_REG_MASK1, PA_VS_CLK_CFG_REG);
+	else
+		err = ufshcd_dme_rmw(hba, PA_VS_CLK_CFG_REG_MASK,
 				PA_VS_CLK_CFG_REG_MASK, PA_VS_CLK_CFG_REG);
 	if (err)
 		goto out;
@@ -1962,6 +1970,25 @@ static void ufshcd_parse_pm_levels(struct ufs_hba *hba)
 	host->is_dt_pm_level_read = true;
 }
 
+/*
+ * ufs_qcom_parse_multilevel_support - read from DTS where multi level
+ * clock scaling support is enabled
+ */
+static void ufs_qcom_parse_multilevel_clkscale_support(struct ufs_qcom_host *host)
+{
+	struct device_node *np = host->hba->dev->of_node;
+
+	if (!np)
+		return;
+
+	host->ml_scale_up = of_property_read_bool(np,
+			"multi-level-clk-scaling-support");
+
+	if (host->ml_scale_up)
+		dev_info(host->hba->dev, "(%s) Mullti level clock scale enabled\n",
+				 __func__);
+}
+
 static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 {
 	unsigned long flags;
@@ -3082,6 +3109,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_parse_limits(host);
 	ufs_qcom_parse_g4_workaround_flag(host);
 	ufs_qcom_parse_lpm(host);
+	ufs_qcom_parse_multilevel_clkscale_support(host);
 	if (host->disable_lpm)
 		pm_runtime_forbid(host->hba->dev);
 

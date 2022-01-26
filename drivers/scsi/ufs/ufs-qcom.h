@@ -185,6 +185,8 @@ enum ufs_qcom_phy_init_type {
 
 #define PA_VS_CLK_CFG_REG	0x9004
 #define PA_VS_CLK_CFG_REG_MASK	0x1FF
+#define PA_VS_CLK_CFG_REG_MASK1 0xFF
+
 #define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK_V4	0xFFF
 #define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_OFFSET_V4	0x10
 
@@ -421,6 +423,8 @@ struct ufs_qcom_host {
 	void *ufs_ipc_log_ctx;
 	bool dbg_en;
 	struct nvmem_cell *nvmem_cell;
+	/*multi level clock scaling support*/
+	bool ml_scale_up;
 };
 
 static inline u32
