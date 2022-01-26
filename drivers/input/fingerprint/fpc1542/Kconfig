@@ -1,0 +1,11 @@
+#
+#Fingerprint
+#
+
+config INPUT_FINGERPRINT_FPC1542
+	bool "Mediatek Fingerprint"
+	help
+	  Fingerprint mtk driver enable/disable
+	  in the kernel.Say Y here if you want to
+	  use mediatek fingerprint driver,fingerprint
+	  driver will support fingerprint function

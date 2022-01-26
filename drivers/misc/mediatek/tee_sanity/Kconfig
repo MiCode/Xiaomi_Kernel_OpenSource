@@ -1,0 +1,8 @@
+config MTK_TEE_SANITY
+	tristate "Mediatek TEE sanity"
+	help
+	  This option enables tee_sanity driver which is used to
+	  TEEs functional test. For example,
+	  register interrupts as G1S/G1NS and switch back and forth
+	  is necessary.
+

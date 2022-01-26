@@ -1,0 +1,7 @@
+
+config MIGT
+	bool "smart sched"
+	depends on MIHW
+	help
+	  Boost cpufreq when current frame drawing time too long
+

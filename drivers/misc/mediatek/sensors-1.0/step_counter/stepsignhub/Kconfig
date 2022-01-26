@@ -1,0 +1,10 @@
+
+config MTK_STEPSIGNHUB
+	bool "STEPSIGNHUB for MediaTek package"
+	default n
+	help
+	  A significant motions is a device,
+	  usually portable
+	  and electronic or electromechanical,
+	  that detect each step a person takes
+	  by detecting the motion of the person's hands or hips.

@@ -1,0 +1,16 @@
+config MTK_GATE_IC
+	tristate "MediaTek Gate IC Support"
+	---help---
+	  This selects the MediaTek(R) Gate IC connected to MediaTek chips.
+	  If you want to use MediaTek(R) Gate IC  support, say Y or M here.
+	  If unsure, say N.
+	  Mediatek GATE IC module includes display gate ic, backlight gate ic.
+
+config RT4831A_I2C
+	bool "Support rt4831 gate ic board"
+	---help---
+	  I2C gate driver for RT4831 support.
+	  Set y to support.
+	  Set n to disable.
+	  RT4831 I2C driver for display and backlight.
+

@@ -1,0 +1,6 @@
+config PRESS_KEY_TRIGGER_PANIC
+	bool "Enable press hot key trigger the crash"
+	default y
+	---help---
+	  Press the power button, volume up button
+	  and volume down button to trigger the crash.

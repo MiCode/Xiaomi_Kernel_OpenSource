@@ -1,0 +1,8 @@
+config MTK_CHIP
+	bool "Enable MTK Chip Version Driver"
+	help
+	  MTK chip version driver will provide below information
+	  (1) chip ID: for driver to handle different mechanism under different
+	      HW
+	  (2) chip version: for driver to identify different capability for IC
+	      with the same chip ID

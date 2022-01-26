@@ -1,0 +1,10 @@
+config MTK_CAMERA_ISP_DPE_SUPPORT
+	bool "[DPE] Depth Engine"
+	default n
+	depends on MTK_CAMERA_ISP
+	help
+	  Depth Engine.
+	  Enable to calculate the depth information
+	  between two images on Dual Camera Application.
+	  Disable if it is not supported or not wanted.
+

@@ -1,0 +1,7 @@
+config MTK_CAMERA_ISP_PDA_SUPPORT
+	bool "[PDA] Phase Distortion point Accelerator"
+	default n
+	help
+	  Phase Distortion point Accelerator.
+	  Enable to calculate the PD correlation for PD-AF.
+	  Disable if it is not supported or not wanted.

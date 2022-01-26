@@ -1,0 +1,46 @@
+MediaTek Power Management Interface (PMIF) Driver
+
+This document describes the binding for the MediaTek PMIF.
+
+The PMIF is designed on MediaTek's SoC.  It implements arbitration logic
+to allow for multiple HW/SW channel to control PMIC by a single SPMI master.
+
+See spmi.txt for the generic SPMI controller binding requirements for child
+nodes.
+
+See Documentation/devicetree/bindings/interrupt-controller/interrupts.txt for
+generic interrupt controller binding documentation.
+
+Required properties:
+- compatible:
+	"mediatek,mt6789-pmif" for MT6789 SoCs
+- reg : address + size pairs describing the pmif/pmifmpu/spmimst register
+  sets. Must contain an entry for each entry in reg-names.
+- reg-names: must contain:
+     "pmif" - power management interface registers
+     "pmifmpu" - pmif memory protection unit registers
+     "spmimst" - spmi master registers
+- interrupts: IRQ for pmif in SOC
+- interrupt-names: IRQ name for pmif in SOC
+- swinf_ch_start: indicate the physical channel for pmif driver accessing
+- ap_swinf_no: indicate the logical channel for ap sw interface number,
+  0: for MD interface
+  2: for AP interface
+- interrupt-controller: indicator that the pmif is an interrupt controller
+
+Optional properities:
+
+Example:
+	spmi_bus: spmi@10027000 {
+  		compatible = "mediatek,mt6789-pmif";
+		reg = <0 0x10027000 0 0x000E00>,
+  		      <0 0x10027F00 0 0x00008C>,
+      		      <0 0x10029000 0 0x000100>;
+		reg-names = "pmif", "pmifmpu", "spmimst";
+		interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "pmif_irq";
+		swinf_ch_start = <4>;
+		ap_swinf_no = <2>;
+		interrupt-controller;
+ 	};
+

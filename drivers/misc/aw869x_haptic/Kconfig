@@ -1,0 +1,5 @@
+config AW869X_HAPTIC
+    tristate "Haptic driver for awinic AW869X series"
+    depends on I2C
+    help
+      This option enables support for AW869X series Haptic Driver.

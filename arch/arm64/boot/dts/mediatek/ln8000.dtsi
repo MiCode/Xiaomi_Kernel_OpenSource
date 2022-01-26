@@ -1,0 +1,42 @@
+&i2c0{
+	status = "okay";
+	ln8000_charger@51 {
+		compatible = "lionsemi,ln8000";
+		reg = <0x51>;
+		/* bank <bit-idx> <flags: active-low> */
+
+		//irq-gpios = <&tlmm 55 0x2002>;
+		//ln8000_charger,irq_index = <296>;  /* please update index value */
+		//interrupt-parent = <&tlmm>;
+		//interrupts = <55 0x2002>;
+		//pinctrl-names = "default";
+		//pinctrl-0 = <&bq2597x_int_default &bq2597x_int_suspend>;
+
+		/* device configuration */
+		ln8000_charger,bat-ovp-threshold = <4550>;
+		ln8000_charger,bat-ovp-alarm-threshold = <4525>;
+		ln8000_charger,bus-ovp-threshold = <11000>;
+		ln8000_charger,bus-ovp-alarm-threshold = <11000>;
+		ln8000_charger,bus-ocp-threshold = <3750>;
+		ln8000_charger,bus-ocp-alarm-threshold = <3500>;
+		ln8000_charger,ntc-alarm-cfg  = <226>;
+		/* protection enable/disable flags
+		 *   vbat-ovp-disable
+		 *   vbat-reg-disable
+		 *   iin-ocp-disable
+		 *   iin-reg-disable
+		 *   tbus-mon-disable
+		 *   tbat-mon-disable
+		 *   tdie-prot-disable
+		 *   tdie-reg-disable
+		 *   revcurr-prot-disable
+		 */
+		ln8000_charger,tdie-prot-disable;
+		ln8000_charger,tbus-mon-disable;
+		ln8000_charger,tbat-mon-disable;
+		ln8000_charger,iin-ocp-disable;
+		ln8000_charger,iin-reg-disable;
+		ln8000_charger,tdie-reg-disable;
+		ln8000_charger,vbat-reg-disable;
+	};
+};

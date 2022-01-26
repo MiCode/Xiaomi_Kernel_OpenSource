@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&i2c0 {
+	status = "okay";
+	sc8551-charger@66{
+		compatible = "sc,sc8551-standalone";
+		reg = <0x66>;
+		sc,sc8551,interrupt_gpios = <&pio 11 0>;
+		/*sc,sc8551,bat-ovp-disable = <0>;
+		sc,sc8551,bat-ocp_disable = <0>;
+		sc,sc8551,bat-ovp-alarm-disable = <0>;
+		sc,sc8551,bus-ocp-disable = <0>;
+		sc,sc8551,bus-ovp-alarm-disable = <0>;
+		sc,sc8551,bus-ocp-alarm-disable = <0>;
+		sc,sc8551,bat-ucp-alarm-disable = <0>;*/
+		sc,sc8551,bat-therm-disable = <0>;
+		sc,sc8551,bus-therm-disable = <0>;
+
+		sc,sc8551,bat-ovp-threshold = <4500>;
+		sc,sc8551,bat-ovp-alarm-threshold = <4450>;
+		sc,sc8551,bat-ocp-threshold = <10000>;
+		sc,sc8551,bat-ocp-alarm-threshold = <9800>;
+
+		sc,sc8551,bus-ovp-threshold = <12000>;
+		sc,sc8551,bus-ovp-alarm-threshold = <11000>;
+		sc,sc8551,bus-ocp-threshold = <3750>;
+		sc,sc8551,bus-ocp-alarm-threshold = <3500>;
+
+		sc,sc8551,bat-ucp-alarm-threshold = <2000>;
+
+		sc,sc8551,bat-therm-threshold = <0x15>;
+		sc,sc8551,bus-therm-threshold = <0x15>;
+		sc,sc8551,die-therm-threshold = <125>;
+
+		sc,sc8551,ac-ovp-threshold = <14>;
+		sc,sc8551,sense-resistor-mohm = <5>;
+	};
+};
+
+

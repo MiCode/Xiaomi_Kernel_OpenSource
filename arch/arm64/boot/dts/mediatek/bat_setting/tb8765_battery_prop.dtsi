@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+&bat_gm30 {
+	compatible = "mediatek,bat_gm30";
+	DIFFERENCE_FULLOCV_ITH = <(150)>;
+	/* Charging termination current */
+	SHUTDOWN_1_TIME = <(60)>;
+	/* If ui_soc shows 1% more than X minites, system will shutdown */
+	KEEP_100_PERCENT = <(3)>;
+	/* ui_soc will keep 100% until SOC drop X percents after unplugged */
+	R_FG_VALUE = <(10)>;
+	/* R_sense resistance */
+	EMBEDDED_SEL = <(0)>;
+	/* Configures whether using embedded battery or not */
+	PMIC_SHUTDOWN_CURRENT = <(20)>;	/* System shutdown current */
+	FG_METER_RESISTANCE = <(200)>;	/* The resistance of PCB*/
+	CAR_TUNE_VALUE = <(103)>;	/* Tune value for current measurement */
+	TEMPERATURE_T0 = <(50)>;	/* Battery temperature T0 */
+	TEMPERATURE_T1 = <(25)>;	/* Battery temperature T1 */
+	TEMPERATURE_T2 = <(10)>;	/* Battery temperature T2 */
+	TEMPERATURE_T3 = <(0)>;		/* Battery temperature T3 */
+	TEMPERATURE_T4 = <(-10)>;	/* Battery temperature T4 */
+	g_FG_PSEUDO100_T0 = <(98)>;	/* Pseudo 100% percentage at T0 */
+	g_FG_PSEUDO100_T1 = <(98)>;	/* Pseudo 100% percentage at T1 */
+	g_FG_PSEUDO100_T2 = <(95)>;	/* Pseudo 100% percentage at T2 */
+	g_FG_PSEUDO100_T3 = <(90)>;	/* Pseudo 100% percentage at T3 */
+	g_FG_PSEUDO100_T4 = <(80)>;	/* Pseudo 100% percentage at T4 */
+	Q_MAX_SYS_VOLTAGE_BAT0 = <(3400)>;	/* System shut down voltage */
+	Q_MAX_SYS_VOLTAGE_BAT1 = <(3400)>;	/* System shut down voltage */
+	Q_MAX_SYS_VOLTAGE_BAT2 = <(3400)>;	/* System shut down voltage */
+	Q_MAX_SYS_VOLTAGE_BAT3 = <(3400)>;	/* System shut down voltage */
+
+	#include "tb8765_battery_table.dtsi"
+};

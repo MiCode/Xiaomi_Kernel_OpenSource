@@ -1,0 +1,9 @@
+config MTK_OTP
+	bool "MTK One-Time-Programmable Support"
+	default n
+	help
+	  MTK One-Time-Programmable (i.e. OTP or EFUSE Run-Time Blowing)
+	  APIs provide the mechanism for blowing, reading or to re-init
+	  specific EFUSE customer fields in kernel or MD side. It helps
+	  to set the PMIC to the correct settings for OTP and maintains
+	  a mutex for solving currency issue.

@@ -1,0 +1,64 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&odm {
+	mtk_pe50 {
+		polling_interval = <10000>;
+		ta_cv_ss_repeat_tmin = <25>;
+		vbat_cv = <4350>;
+		start_soc_min = <0>;
+		start_soc_max = <80>;
+		start_vbat_max = <4300>;
+		idvchg_term = <500>;
+		idvchg_step = <50>;
+		ita_level = <3000 2500 2000 1500>;
+		rcable_level = <250 300 375 500>;
+		ita_level_dual = <4000 3700 3400 3000>;
+		rcable_level_dual = <187 202 220 250>;
+		idvchg_ss_init = <1000>;
+		idvchg_ss_step = <250>;
+		idvchg_ss_step1 = <100>;
+		idvchg_ss_step2 = <50>;
+		idvchg_ss_step1_vbat = <4000>;
+		idvchg_ss_step2_vbat = <4200>;
+		ta_blanking = <400>;
+		swchg_aicr = <0>;
+		swchg_ichg = <1200>;
+		swchg_aicr_ss_init = <400>;
+		swchg_aicr_ss_step = <200>;
+		swchg_off_vbat = <4250>;
+		force_ta_cv_vbat = <4250>;
+		chg_time_max = <5400>;
+		tta_level_def = <0 0 0 0 25 40 50 60 70>;
+		tta_curlmt = <0 0 0 0 0 300 600 900 (-1)>;
+		tta_recovery_area = <3>;
+		tbat_level_def = <0 0 0 5 25 40 45 50 55>;
+		tbat_curlmt = <(-1) (-1) (-1) 300 0 600 900 1200 (-1)>;
+		tbat_recovery_area = <3>;
+		tdvchg_level_def = <0 0 0 5 25 55 60 65 70>;
+		tdvchg_curlmt = <(-1) (-1) (-1) 300 0 300 600 900 (-1)>;
+		tdvchg_recovery_area = <3>;
+		tswchg_level_def = <0 0 0 5 25 65 70 75 80>;
+		tswchg_curlmt = <(-1) (-1) (-1) 200 0 200 300 400 (-1)>;
+		tswchg_recovery_area = <3>;
+		ifod_threshold = <200>;
+		rsw_min = <20>;
+		ircmp_rbat = <40>;
+		ircmp_vclamp = <0>;
+		vta_cap_min = <6800>;
+		vta_cap_max = <11000>;
+		ita_cap_min = <1000>;
+		support_ta = "pca_ta_pps";
+		allow_not_check_ta_status;
+	};
+};
