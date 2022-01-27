@@ -527,6 +527,8 @@ struct cnss_plat_data {
 	int current_bw_vote;
 	u16 hang_event_data_len;
 	u32 hang_data_addr_offset;
+	/* bitmap to detect FEM combination */
+	u8 hwid_bitmap;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)
