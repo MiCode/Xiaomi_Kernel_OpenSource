@@ -64,6 +64,18 @@
 			qcom,drive-strength = <2>;
 		};
 	};
+
+	eusb2_reset_ctrl {
+		eusb2_reset_ctrl_default: eusb2_reset_ctrl_default {
+			pins = "gpio7";
+			function = "normal";
+			input-enable;
+			output-enable;
+			bias-disable;
+			power-source = <1>;	/* 1.8V */
+			qcom,drive-strength = <2>;
+		};
+	};
 };
 
 &pmk8350_sdam_2 {
