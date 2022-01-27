@@ -1290,7 +1290,8 @@ static void *mem_buf_alloc(struct mem_buf_allocation_data *alloc_data)
 	if (!alloc_data || !alloc_data->size || alloc_data->nr_acl_entries != 1 ||
 	    !alloc_data->vmids || !alloc_data->perms ||
 	    !is_valid_mem_type(alloc_data->src_mem_type) ||
-	    !is_valid_mem_type(alloc_data->dst_mem_type))
+	    !is_valid_mem_type(alloc_data->dst_mem_type) ||
+	    mem_buf_check_vmids(alloc_data->vmids, alloc_data->nr_acl_entries))
 		return ERR_PTR(-EINVAL);
 
 	membuf = kzalloc(sizeof(*membuf), GFP_KERNEL);
