@@ -120,6 +120,7 @@ struct walt_task_struct {
 	u64				total_exec;
 	int				mvp_prio;
 	int				cidx;
+	u8                              hung_detect_status;
 };
 
 #define wts_to_ts(wts) ({ \
