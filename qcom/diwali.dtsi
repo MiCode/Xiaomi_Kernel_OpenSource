@@ -2653,6 +2653,9 @@
 		qcom,iommu-dma = "fastmap";
 		dma-coherent;
 
+		/* Multilevel clock scaling support for higher ufs clock freq */
+		multi-level-clk-scaling-support;
+
 		status = "disabled";
 		qos0 {
 			mask = <0xf0>;
