@@ -2256,6 +2256,14 @@
 		#mbox-cells = <1>;
 	};
 
+	qcom,tmecom-qmp-client {
+		compatible = "qcom,tmecom-qmp-client";
+		mboxes = <&qmp_tme 0>;
+		mbox-names = "tmecom";
+		label = "tmecom";
+		depends-on-supply = <&qmp_tme>;
+	};
+
 	slpi_pas: remoteproc-slpi@02400000 {
 		compatible = "qcom,waipio-slpi-pas";
 		reg = <0x02400000 0x10000>;
