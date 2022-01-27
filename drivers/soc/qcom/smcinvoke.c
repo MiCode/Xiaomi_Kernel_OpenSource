@@ -371,11 +371,23 @@ static uint32_t next_mem_map_obj_id_locked(void)
 
 static inline void free_mem_obj_locked(struct smcinvoke_mem_obj *mem_obj)
 {
+	int ret = 0;
+	bool is_bridge_created = mem_obj->bridge_created_by_others;
+	struct dma_buf *dmabuf_to_free = mem_obj->dma_buf;
+	uint64_t shmbridge_handle = mem_obj->shmbridge_handle;
+
 	list_del(&mem_obj->list);
-	dma_buf_put(mem_obj->dma_buf);
-	if (!mem_obj->bridge_created_by_others)
-		qtee_shmbridge_deregister(mem_obj->shmbridge_handle);
 	kfree(mem_obj);
+	mem_obj = NULL;
+	mutex_unlock(&g_smcinvoke_lock);
+
+	if (is_bridge_created)
+		ret = qtee_shmbridge_deregister(shmbridge_handle);
+	if (ret)
+		pr_err("Error:%d delete bridge failed leaking memory 0x%x\n",
+				ret, dmabuf_to_free);
+	else
+		dma_buf_put(dmabuf_to_free);
 }
 
 static void del_mem_regn_obj_locked(struct kref *kref)
@@ -930,11 +942,36 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 			pr_err("invalid physical address, ret: %d\n", ret);
 			goto out;
 		}
+
+		/* Increase reference count as we are feeding the memobj to
+		 * smcinvoke and unlock the mutex. No need to hold the mutex in
+		 * case of shmbridge creation.
+		 */
+		kref_get(&mem_obj->mem_map_obj_ref_cnt);
+		mutex_unlock(&g_smcinvoke_lock);
+
 		ret = smcinvoke_create_bridge(mem_obj);
+
+		/* Take lock again and decrease the reference count which we
+		 * increased for shmbridge but before proceeding further we
+		 * have to check again if the memobj is still valid or not
+		 * after decreasing the reference.
+		 */
+		mutex_lock(&g_smcinvoke_lock);
+		kref_put(&mem_obj->mem_map_obj_ref_cnt, del_mem_map_obj_locked);
+
 		if (ret) {
 			ret = OBJECT_ERROR_INVALID;
 			goto out;
 		}
+
+		if (!find_mem_obj_locked(TZHANDLE_GET_OBJID(msg->args[1].handle),
+				SMCINVOKE_MEM_RGN_OBJ)) {
+			mutex_unlock(&g_smcinvoke_lock);
+			pr_err("Memory object not found\n");
+			return OBJECT_ERROR_BADOBJ;
+		}
+
 		mem_obj->mem_map_obj_id = next_mem_map_obj_id_locked();
 	} else {
 		kref_get(&mem_obj->mem_map_obj_ref_cnt);
@@ -2102,12 +2139,13 @@ char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, stru
 {
 
 	int rc = 0;
-	const struct firmware *fw_entry = NULL, *fw_entry00 = NULL, *fw_entry07 = NULL;
+	const struct firmware *fw_entry = NULL, *fw_entry00 = NULL, *fw_entrylast = NULL;
 	char fw_name[MAX_APP_NAME_SIZE] = "\0";
 	int num_images = 0, phi = 0;
 	unsigned char app_arch = 0;
 	u8 *img_data_ptr = NULL;
-	size_t offset[8], bufferOffset = 0, phdr_table_offset = 0;
+	size_t bufferOffset = 0, phdr_table_offset = 0;
+	size_t *offset = NULL;
 	Elf32_Phdr phdr32;
 	Elf64_Phdr phdr64;
 	struct elf32_hdr *ehdr = NULL;
@@ -2125,15 +2163,13 @@ char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, stru
 	app_arch = *(unsigned char *)(fw_entry00->data + EI_CLASS);
 
 	/*Get the offsets for split images header*/
-	offset[0] = 0;
 	if (app_arch == ELFCLASS32) {
 
 		ehdr = (struct elf32_hdr *)fw_entry00->data;
 		num_images = ehdr->e_phnum;
-		if (num_images != 8) {
-			pr_err("Number of images :%d is not valid\n", num_images);
+		offset = kcalloc(num_images, sizeof(size_t), GFP_KERNEL);
+		if (offset == NULL)
 			goto release_fw_entry00;
-		}
 		phdr_table_offset = (size_t) ehdr->e_phoff;
 		for (phi = 1; phi < num_images; ++phi) {
 			bufferOffset = phdr_table_offset + phi * sizeof(Elf32_Phdr);
@@ -2145,10 +2181,9 @@ char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, stru
 
 		ehdr64 = (struct elf64_hdr *)fw_entry00->data;
 		num_images = ehdr64->e_phnum;
-		if (num_images != 8) {
-			pr_err("Number of images :%d is not valid\n", num_images);
+		offset = kcalloc(num_images, sizeof(size_t), GFP_KERNEL);
+		if (offset == NULL)
 			goto release_fw_entry00;
-		}
 		phdr_table_offset = (size_t) ehdr64->e_phoff;
 		for (phi = 1; phi < num_images; ++phi) {
 			bufferOffset = phdr_table_offset + phi * sizeof(Elf64_Phdr);
@@ -2164,23 +2199,22 @@ char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, stru
 
 	/*Find the size of last split bin image*/
 	snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d", appname, num_images-1);
-	rc = firmware_request_nowarn(&fw_entry07, fw_name, class_dev);
+	rc = firmware_request_nowarn(&fw_entrylast, fw_name, class_dev);
 	if (rc) {
 		pr_err("Failed to locate blob %s\n", fw_name);
 		goto release_fw_entry00;
 	}
 
 	/*Total size of image will be the offset of last image + the size of last split image*/
-	*fw_size = fw_entry07->size + offset[num_images-1];
+	*fw_size = fw_entrylast->size + offset[num_images-1];
 
 	/*Allocate memory for the buffer that will hold the split image*/
 	rc = qtee_shmbridge_allocate_shm((*fw_size), shm);
 	if (rc) {
 		pr_err("smbridge alloc failed for size: %zu\n", *fw_size);
-		goto release_fw_entry07;
+		goto release_fw_entrylast;
 	}
 	img_data_ptr = shm->vaddr;
-
 	/*
 	 * Copy contents of split bins to the buffer
 	 */
@@ -2192,18 +2226,19 @@ char *firmware_request_from_smcinvoke(const char *appname, size_t *fw_size, stru
 			pr_err("Failed to locate blob %s\n", fw_name);
 			qtee_shmbridge_free_shm(shm);
 			img_data_ptr = NULL;
-			goto release_fw_entry07;
+			goto release_fw_entrylast;
 		}
 		memcpy(img_data_ptr + offset[phi], fw_entry->data, fw_entry->size);
 		release_firmware(fw_entry);
 		fw_entry = NULL;
 	}
-	memcpy(img_data_ptr + offset[phi], fw_entry07->data, fw_entry07->size);
+	memcpy(img_data_ptr + offset[phi], fw_entrylast->data, fw_entrylast->size);
 
-release_fw_entry07:
-	release_firmware(fw_entry07);
+release_fw_entrylast:
+	release_firmware(fw_entrylast);
 release_fw_entry00:
 	release_firmware(fw_entry00);
+	kfree(offset);
 	return img_data_ptr;
 }
 EXPORT_SYMBOL(firmware_request_from_smcinvoke);
