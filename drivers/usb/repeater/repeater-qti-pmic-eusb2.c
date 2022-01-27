@@ -9,6 +9,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
@@ -461,7 +462,8 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		goto err_probe;
 	}
 
-	er->reset_gpio_irq = gpiod_to_irq(er->reset_gpiod);
+	er->reset_gpio_irq = of_irq_get_byname(dev->of_node,
+				"eusb2_rptr_reset_gpio_irq");
 	if (er->reset_gpio_irq < 0) {
 		dev_err(dev, "failed to get reset gpio IRQ\n");
 		goto err_probe;
