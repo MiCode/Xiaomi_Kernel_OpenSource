@@ -480,6 +480,7 @@ struct icnss_priv {
 	dev_t icnss_ramdump_dev;
 	struct completion smp2p_soc_wake_wait;
 	uint32_t fw_soc_wake_ack_irq;
+	char foundry_name;
 };
 
 struct icnss_reg_info {
