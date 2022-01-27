@@ -1048,7 +1048,7 @@ static const struct kgsl_regmap_list a620_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_HYST_GMU_GX, 0x00000555},
 };
 
-/* a620 and a650 */
+/* a620, a621 and a650 */
 static const struct kgsl_regmap_list a650_gbif_regs[] = {
 	{A6XX_GBIF_QSB_SIDE0, 0x00071620},
 	{A6XX_GBIF_QSB_SIDE1, 0x00071620},
@@ -1057,7 +1057,7 @@ static const struct kgsl_regmap_list a650_gbif_regs[] = {
 	{A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x3},
 };
 
-/* These are for a620 and a650 */
+/* These are for a620, a621 and a650 */
 static const struct adreno_protected_regs a620_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 0, 0x00000, 0x004ff, 0 },
 	{ A6XX_CP_PROTECT_REG + 1, 0x00501, 0x00506, 0 },
@@ -1130,6 +1130,37 @@ static const struct adreno_a6xx_core adreno_gpu_core_a620 = {
 	.protected_regs = a620_protected_regs,
 	.disable_tseskip = true,
 	.highest_bank_bit = 14,
+};
+
+static const struct adreno_a6xx_core adreno_gpu_core_a621 = {
+	.base = {
+		DEFINE_ADRENO_REV(ADRENO_REV_A621, 6, 2, 1, ANY_ID),
+		.compatible = "qcom,adreno-gpu-a621",
+		.features = ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
+			ADRENO_APRIV,
+		.gpudev = &adreno_a630_gpudev.base,
+		.perfcounters = &adreno_a6xx_perfcounters,
+		.gmem_base = 0,
+		.gmem_size = SZ_512K,
+		.bus_width = 32,
+		.snapshot_size = 2 * SZ_1M,
+	},
+	.prim_fifo_threshold = 0x0010000,
+	.gmu_major = 2,
+	.gmu_minor = 0,
+	.sqefw_name = "a650_sqe.fw",
+	.gmufw_name = "a621_gmu.bin",
+	.zap_name = "a620_zap",
+	.hwcg = a620_hwcg_regs,
+	.hwcg_count = ARRAY_SIZE(a620_hwcg_regs),
+	.vbif = a650_gbif_regs,
+	.vbif_count = ARRAY_SIZE(a650_gbif_regs),
+	.veto_fal10 = true,
+	.pdc_in_aop = true,
+	.hang_detect_cycles = 0x3ffff,
+	.protected_regs = a620_protected_regs,
+	.disable_tseskip = true,
+	.highest_bank_bit = 13,
 };
 
 static const struct kgsl_regmap_list a640_hwcg_regs[] = {
@@ -1972,6 +2003,7 @@ static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a619.base,
 	&adreno_gpu_core_a619_variant.base,
 	&adreno_gpu_core_a620.base,
+	&adreno_gpu_core_a621.base,
 	&adreno_gpu_core_a635.base,
 	&adreno_gpu_core_a640.base,
 	&adreno_gpu_core_a650.base,
