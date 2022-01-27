@@ -24,6 +24,7 @@
 #include <soc/qcom/icnss2.h>
 #include <soc/qcom/service-locator.h>
 #include <soc/qcom/service-notifier.h>
+#include <soc/qcom/of_common.h>
 #include "wlan_firmware_service_v01.h"
 #include "main.h"
 #include "qmi.h"
@@ -3088,6 +3089,7 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	struct wlfw_host_cap_req_msg_v01 *req;
 	struct wlfw_host_cap_resp_msg_v01 *resp;
 	struct qmi_txn txn;
+	int ddr_type;
 	int ret = 0;
 	u64 iova_start = 0, iova_size = 0,
 	    iova_ipa_start = 0, iova_ipa_size = 0;
@@ -3143,6 +3145,14 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 			     priv->wlan_en_delay_ms);
 		req->wlan_enable_delay_valid = 1;
 		req->wlan_enable_delay = priv->wlan_en_delay_ms;
+	}
+
+	/* ddr_type = 7(LPDDR4) and 8(LPDDR5) */
+	ddr_type = of_fdt_get_ddrtype();
+	if (ddr_type > 0) {
+		icnss_pr_dbg("DDR Type: %d\n", ddr_type);
+		req->ddr_type_valid = 1;
+		req->ddr_type = ddr_type;
 	}
 
 	ret = qmi_txn_init(&priv->qmi, &txn,
