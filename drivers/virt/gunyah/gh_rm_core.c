@@ -798,7 +798,7 @@ static int gh_rm_get_irq(struct gh_vm_get_hyp_res_resp_entry *res_entry)
 	/* For resources, such as DBL source, there's no IRQ. The virq_handle
 	 * wouldn't be defined for such cases. Hence ignore such cases
 	 */
-	if (!res_entry->virq_handle && !virq)
+	if ((!res_entry->virq_handle && !virq) || virq == U32_MAX)
 		return 0;
 
 	/* Allocate and bind a new IRQ if RM-VM hasn't already done already */
@@ -977,7 +977,7 @@ int gh_rm_populate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 				if (gh_vcpu_affinity_set_fn[vm_name_index])
 					ret = gh_vcpu_affinity_set_fn
 						[vm_name_index](vmid, label,
-								cap_id);
+								cap_id, linux_irq);
 				break;
 			case GH_RM_RES_TYPE_DB_TX:
 				ret = gh_dbl_populate_cap_info(label, cap_id,
@@ -1049,6 +1049,7 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 	u32 n_res, i;
 	int ret = 0, irq = -1;
 	enum gh_vm_names vm_name_index;
+	gh_capid_t cap_id;
 
 	res_entries = gh_rm_vm_get_hyp_res(vmid, &n_res);
 	if (IS_ERR_OR_NULL(res_entries))
@@ -1057,6 +1058,8 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 	for (i = 0; i < n_res; i++) {
 
 		label = res_entries[i].resource_label;
+		cap_id = (u64) res_entries[i].cap_id_high << 32 |
+				res_entries[i].cap_id_low;
 
 		switch (res_entries[i].res_type) {
 		case GH_RM_RES_TYPE_MQ_TX:
@@ -1084,7 +1087,7 @@ int gh_rm_unpopulate_hyp_res(gh_vmid_t vmid, const char *vm_name)
 			}
 			if (gh_vcpu_affinity_reset_fn[vm_name_index])
 				ret = gh_vcpu_affinity_reset_fn[vm_name_index](
-					vmid, label);
+					vmid, label, cap_id, &irq);
 			break;
 		case GH_RM_RES_TYPE_VIRTIO_MMIO:
 			/* Virtio cleanup is handled in gh_virtio_mmio_exit() */

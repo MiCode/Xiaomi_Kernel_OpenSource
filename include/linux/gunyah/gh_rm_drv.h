@@ -287,8 +287,10 @@ struct notifier_block;
 
 typedef int (*gh_virtio_mmio_cb_t)(gh_vmid_t peer, const char *vm_name,
 	gh_label_t label, gh_capid_t cap_id, int linux_irq, u64 base, u64 size);
-typedef int (*gh_vcpu_affinity_set_cb_t)(gh_vmid_t vmid, gh_label_t label, gh_capid_t cap_id);
-typedef int (*gh_vcpu_affinity_reset_cb_t)(gh_vmid_t vmid, gh_label_t label);
+typedef int (*gh_vcpu_affinity_set_cb_t)(gh_vmid_t vmid, gh_label_t label,
+						gh_capid_t cap_id, int linux_irq);
+typedef int (*gh_vcpu_affinity_reset_cb_t)(gh_vmid_t vmid, gh_label_t label,
+						gh_capid_t cap_id, int *linux_irq);
 typedef int (*gh_vpm_grp_set_cb_t)(gh_vmid_t vmid, gh_capid_t cap_id, int linux_irq);
 typedef int (*gh_vpm_grp_reset_cb_t)(gh_vmid_t vmid, int *linux_irq);
 
@@ -608,22 +610,26 @@ static inline void gh_rm_unset_virtio_mmio_cb(void)
 
 }
 
-static inline int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_set_cb_t fnptr)
+static inline int gh_rm_set_vcpu_affinity_cb(enum gh_vm_names vm_name_index,
+						gh_vcpu_affinity_set_cb_t fnptr)
 {
 	return -EINVAL;
 }
 
-static inline int gh_rm_reset_vcpu_affinity_cb(gh_vcpu_affinity_reset_cb_t fnptr)
+static inline int gh_rm_reset_vcpu_affinity_cb(enum gh_vm_names vm_name_index,
+						gh_vcpu_affinity_reset_cb_t fnptr)
 {
 	return -EINVAL;
 }
 
-static inline int gh_rm_set_vpm_grp_cb(gh_vpm_grp_set_cb_t fnptr)
+static inline int gh_rm_set_vpm_grp_cb(enum gh_vm_names vm_name_index,
+						gh_vpm_grp_set_cb_t fnptr)
 {
 	return -EINVAL;
 }
 
-static inline int gh_rm_reset_vpm_grp_cb(gh_vpm_grp_reset_cb_t fnptr)
+static inline int gh_rm_reset_vpm_grp_cb(enum gh_vm_names vm_name_index,
+						gh_vpm_grp_reset_cb_t fnptr)
 {
 	return -EINVAL;
 }
