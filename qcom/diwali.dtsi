@@ -3183,6 +3183,7 @@
 				/* modem tables in IMEM */
 				<0x146A8000 0x146A8000 0x2000>;
 			qcom,iommu-dma = "atomic";
+			dma-coherent;
 			qcom,ipa-q6-smem-size = <36864>;
 		};
 
