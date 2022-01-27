@@ -95,7 +95,6 @@ static inline bool kasan_hw_tags_enabled(void)
 }
 
 void kasan_alloc_pages(struct page *page, unsigned int order, gfp_t flags);
-void kasan_free_pages(struct page *page, unsigned int order);
 
 #else /* CONFIG_KASAN_HW_TAGS */
 
@@ -111,13 +110,6 @@ static inline bool kasan_hw_tags_enabled(void)
 
 static __always_inline void kasan_alloc_pages(struct page *page,
 					      unsigned int order, gfp_t flags)
-{
-	/* Only available for integrated init. */
-	BUILD_BUG();
-}
-
-static __always_inline void kasan_free_pages(struct page *page,
-					     unsigned int order)
 {
 	/* Only available for integrated init. */
 	BUILD_BUG();
