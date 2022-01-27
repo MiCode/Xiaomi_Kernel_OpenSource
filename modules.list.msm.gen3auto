@@ -1,3 +1,7 @@
+mem_buf.ko
+mem_buf_dev.ko
 pinctrl-msm.ko
 pinctrl-sm8150.ko
 qcom-scm.ko
+qcom_dma_heaps.ko
+secure_buffer.ko
