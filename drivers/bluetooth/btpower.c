@@ -1177,7 +1177,9 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int chipset_version = 0;
 	int itr, num_vregs;
 	struct bt_power_vreg_data *vreg_info = NULL;
-
+#ifdef CONFIG_MSM_BT_OOBS
+	enum btpower_obs_param clk_cntrl;
+#endif
 	if (!bt_power_pdata || !probe_finished) {
 		pr_err("%s: BTPower Probing Pending.Try Again\n", __func__);
 		return -EAGAIN;
@@ -1188,22 +1190,42 @@ static long bt_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case BT_CMD_OBS_SIGNAL_TASK:
 		bt_power_pdata->reffilp_obs = file;
 		bt_power_pdata->reftask_obs = get_current();
-		pr_info("%s: BT_CMD_OBS_SIGNAL_TASK tid %d filp %pK\n",
+		pr_info("%s: BT_CMD_OBS_SIGNAL_TASK tid %d file %pK\n",
 			__func__, bt_power_pdata->reftask_obs->pid, file);
 		break;
 	case BT_CMD_OBS_VOTE_CLOCK:
 		if (!gpio_is_valid(bt_power_pdata->bt_gpio_dev_wake)) {
-			pr_warn("%s: BT_CMD_OBS_VOTE_CLOCK bt_dev_wake_n(%d) not configured\n",
+			pr_debug("%s: BT_CMD_OBS_VOTE_CLOCK bt_dev_wake_n(%d) not configured\n",
 				__func__, bt_power_pdata->bt_gpio_dev_wake);
 			return -EIO;
 		}
-		pwr_cntrl = (int)arg;
-		btpower_uart_transport_locked(bt_power_pdata, (pwr_cntrl == 1 ? true :
-						false));
-		gpio_set_value(bt_power_pdata->bt_gpio_dev_wake, pwr_cntrl);
-		pr_debug("%s: BT_CMD_OBS_VOTE_CLOCK cntrl(%d) %s\n", __func__,
-			 pwr_cntrl, gpio_get_value(bt_power_pdata->bt_gpio_dev_wake) ?
-			 "Assert" : "Deassert");
+		clk_cntrl = (enum btpower_obs_param)arg;
+		switch (clk_cntrl) {
+		case BTPOWER_OBS_CLK_OFF:
+			btpower_uart_transport_locked(bt_power_pdata, false);
+			ret = 0;
+			break;
+		case BTPOWER_OBS_CLK_ON:
+			btpower_uart_transport_locked(bt_power_pdata, true);
+			ret = 0;
+			break;
+		case BTPOWER_OBS_DEV_OFF:
+			gpio_set_value(bt_power_pdata->bt_gpio_dev_wake, 0);
+			ret = 0;
+			break;
+		case BTPOWER_OBS_DEV_ON:
+			gpio_set_value(bt_power_pdata->bt_gpio_dev_wake, 1);
+			ret = 0;
+			break;
+		default:
+			pr_debug("%s: BT_CMD_OBS_VOTE_CLOCK clk_cntrl(%d)\n",
+				__func__, clk_cntrl);
+			return -EINVAL;
+		}
+		pr_debug("%s: BT_CMD_OBS_VOTE_CLOCK clk_cntrl(%d) %s\n",
+			__func__, clk_cntrl,
+			gpio_get_value(bt_power_pdata->bt_gpio_dev_wake) ?
+				"Assert" : "Deassert");
 		break;
 #endif
 	case BT_CMD_SLIM_TEST:
