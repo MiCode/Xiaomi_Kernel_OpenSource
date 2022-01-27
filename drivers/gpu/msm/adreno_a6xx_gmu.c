@@ -2465,9 +2465,8 @@ static void a6xx_free_gmu_globals(struct a6xx_gmu_device *gmu)
 
 		iommu_unmap(gmu->domain, md->gmuaddr, md->size);
 
-		if (md->hostptr)
-			dma_free_attrs(&gmu->pdev->dev, (size_t) md->size,
-					(void *)md->hostptr, md->physaddr, 0);
+		if (md->priv & KGSL_MEMDESC_SYSMEM)
+			kgsl_sharedmem_free(md);
 
 		memset(md, 0, sizeof(*md));
 	}
