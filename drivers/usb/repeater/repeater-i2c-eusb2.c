@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/types.h>
@@ -364,13 +365,13 @@ static int eusb2_repeater_i2c_probe(struct i2c_client *client)
 		goto err_probe;
 	}
 
-	er->reset_gpiod = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
+	er->reset_gpiod = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(er->reset_gpiod)) {
 		ret = PTR_ERR(er->reset_gpiod);
 		goto err_probe;
 	}
 
-	er->reset_gpio_irq = gpiod_to_irq(er->reset_gpiod);
+	er->reset_gpio_irq = of_irq_get_byname(dev->of_node, "eusb2_rptr_reset_gpio_irq");
 	if (er->reset_gpio_irq < 0) {
 		dev_err(dev, "failed to get reset gpio IRQ\n");
 		ret = er->reset_gpio_irq;
