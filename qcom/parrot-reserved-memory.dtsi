@@ -146,7 +146,7 @@
 
 	trust_ui_vm_mem: trust_ui_vm_region@e0b00000 {
 		no-map;
-		reg = <0x0 0xe0b00000 0x0 0x7d00000>;
+		reg = <0x0 0xe0b00000 0x0 0x4af3000>;
 	};
 
 	tz_stat_mem: tz_stat_region@e8800000 {
