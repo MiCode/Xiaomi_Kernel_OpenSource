@@ -1003,6 +1003,18 @@
 		shared-buffer = <&trust_ui_vm_qrtr>;
 	};
 
+	trust_ui_vm: qcom,trust_ui_vm@e55fc000 {
+		reg = <0xe55fc000 0x104000>;
+		vm_name = "trustedvm";
+		shared-buffers = <&trust_ui_vm_vblk0_ring &trust_ui_vm_swiotlb>;
+	};
+
+	qcom,virtio_backend@0 {
+		compatible = "qcom,virtio_backend";
+		qcom,vm = <&trust_ui_vm>;
+		qcom,label = <0x11>;
+	};
+
 	memtimer: timer@17420000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
