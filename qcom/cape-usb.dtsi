@@ -86,7 +86,7 @@
 		reg = <0x88e3000 0x154>,
 			<0x088e2000 0x4>,
 			<0x0C276000 0x4>;
-		reg-names = "hsusb_phy_base",
+		reg-names = "eusb2_phy_base",
 			"eud_enable_reg",
 			"eud_detect_reg";
 
