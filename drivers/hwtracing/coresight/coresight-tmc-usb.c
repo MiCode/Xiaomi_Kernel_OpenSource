@@ -175,7 +175,7 @@ static int usb_transfer_small_packet(struct byte_cntr *drvdata, size_t *small_si
 					"Write data failed:%d\n", ret);
 				goto out;
 			}
-			drvdata->total_size += usb_req->length;
+			drvdata->total_size += actual;
 			atomic_dec(&drvdata->usb_free_buf);
 		} else {
 			dev_dbg(&tmcdrvdata->csdev->dev,
@@ -291,7 +291,7 @@ static void usb_read_work_fn(struct work_struct *work)
 						continue;
 					return;
 				}
-				drvdata->total_size += usb_req->length;
+				drvdata->total_size += actual_total;
 				atomic_dec(&drvdata->usb_free_buf);
 
 			} else {
