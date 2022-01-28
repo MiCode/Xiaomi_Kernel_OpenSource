@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -16,6 +17,8 @@
 #define QOS_SLV_URG_MSG_EN_SHFT		3
 # define QOS_DFLT_PRIO_MASK		0x7
 # define QOS_DFLT_PRIO_SHFT		4
+#define QOS_DISABLE_SHIFT		24
+
 
 const u8 icc_qnoc_qos_regs[][QOSGEN_OFF_MAX_REGS] = {
 	[ICC_QNOC_QOSGEN_TYPE_RPMH] = {
@@ -45,6 +48,10 @@ static void qcom_icc_set_qos(struct qcom_icc_node *node)
 		return;
 
 	for (port = 0; port < qos->num_ports; port++) {
+		regmap_update_bits(node->regmap, QOSGEN_MAINCTL_LO(qos, port),
+				   BIT(QOS_DISABLE_SHIFT),
+				   qos->config->prio_fwd_disable << QOS_DISABLE_SHIFT);
+
 		regmap_update_bits(node->regmap, QOSGEN_MAINCTL_LO(qos, port),
 				   QOS_DFLT_PRIO_MASK << QOS_DFLT_PRIO_SHFT,
 				   qos->config->prio << QOS_DFLT_PRIO_SHFT);
