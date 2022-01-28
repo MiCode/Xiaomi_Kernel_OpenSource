@@ -17,7 +17,7 @@
 		pri_aux_pcm_clk_active: pri_aux_pcm_clk_active {
 			mux {
 				pins = "gpio126";
-				function = "i2s0_sck";
+				function = "mi2s0_sck";
 			};
 
 			config {
@@ -47,7 +47,7 @@
 		pri_aux_pcm_sync_active: pri_aux_pcm_sync_active {
 			mux {
 				pins = "gpio129";
-				function = "i2s0_ws";
+				function = "mi2s0_ws";
 			};
 
 			config {
@@ -77,7 +77,7 @@
 		pri_aux_pcm_din_active: pri_aux_pcm_din_active {
 			mux {
 				pins = "gpio127";
-				function = "i2s0_data0";
+				function = "mi2s0_data0";
 			};
 
 			config {
@@ -106,7 +106,7 @@
 		pri_aux_pcm_dout_active: pri_aux_pcm_dout_active {
 			mux {
 				pins = "gpio128";
-				function = "i2s0_data1";
+				function = "mi2s0_data1";
 			};
 
 			config {
@@ -135,7 +135,7 @@
 		tert_aux_pcm_clk_active: tert_aux_pcm_clk_active {
 			mux {
 				pins = "gpio121";
-				function = "i2s2_sck";
+				function = "mi2s2_sck";
 			};
 
 			config {
@@ -163,7 +163,7 @@
 		tert_aux_pcm_ws_active: tert_aux_pcm_ws_active {
 			mux {
 				pins = "gpio123";
-				function = "i2s2_ws";
+				function = "mi2s2_ws";
 			};
 
 			config {
@@ -193,7 +193,7 @@
 		tert_aux_pcm_din_active: tert_aux_pcm_din_active {
 			mux {
 				pins = "gpio122";
-				function = "i2s2_data0";
+				function = "mi2s2_data0";
 			};
 
 			config {
@@ -222,7 +222,7 @@
 		tert_aux_pcm_dout_active: tert_aux_pcm_dout_active {
 			mux {
 				pins = "gpio124";
-				function = "i2s2_data1";
+				function = "mi2s2_data1";
 			};
 
 			config {
@@ -264,7 +264,7 @@
 		pri_tdm_clk_active: pri_tdm_clk_active {
 			mux {
 				pins = "gpio126";
-				function = "i2s0_sck";
+				function = "mi2s0_sck";
 			};
 
 			config {
@@ -294,7 +294,7 @@
 		pri_tdm_sync_active: pri_tdm_sync_active {
 			mux {
 				pins = "gpio129";
-				function = "i2s0_ws";
+				function = "mi2s0_ws";
 			};
 
 			config {
@@ -324,7 +324,7 @@
 		pri_tdm_din_active: pri_tdm_din_active {
 			mux {
 				pins = "gpio127";
-				function = "i2s0_data0";
+				function = "mi2s0_data0";
 			};
 
 			config {
@@ -353,7 +353,7 @@
 		pri_tdm_dout_active: pri_tdm_dout_active {
 			mux {
 				pins = "gpio128";
-				function = "i2s0_data1";
+				function = "mi2s0_data1";
 			};
 
 			config {
@@ -382,7 +382,7 @@
 		tert_tdm_clk_active: tert_tdm_clk_active {
 			mux {
 				pins = "gpio121";
-				function = "i2s2_sck";
+				function = "mi2s2_sck";
 			};
 
 			config {
@@ -410,7 +410,7 @@
 		tert_tdm_ws_active: tert_tdm_ws_active {
 			mux {
 				pins = "gpio123";
-				function = "i2s2_ws";
+				function = "mi2s2_ws";
 			};
 
 			config {
@@ -440,7 +440,7 @@
 		tert_tdm_din_active: tert_tdm_din_active {
 			mux {
 				pins = "gpio122";
-				function = "i2s2_data0";
+				function = "mi2s2_data0";
 			};
 
 			config {
@@ -469,7 +469,7 @@
 		tert_tdm_dout_active: tert_tdm_dout_active {
 			mux {
 				pins = "gpio124";
-				function = "i2s2_data1";
+				function = "mi2s2_data1";
 			};
 
 			config {
@@ -498,7 +498,7 @@
 		pri_mi2s_mclk_active: pri_mi2s_mclk_active {
 			mux {
 				pins = "gpio125";
-				function = "pri_i2s";
+				function = "pri_mi2s";
 			};
 
 			config {
@@ -528,7 +528,7 @@
 		pri_mi2s_sck_active: pri_mi2s_sck_active {
 			mux {
 				pins = "gpio126";
-				function = "i2s0_sck";
+				function = "mi2s0_sck";
 			};
 
 			config {
@@ -558,7 +558,7 @@
 		pri_mi2s_ws_active: pri_mi2s_ws_active {
 			mux {
 				pins = "gpio129";
-				function = "i2s0_ws";
+				function = "mi2s0_ws";
 			};
 
 			config {
@@ -588,7 +588,7 @@
 		pri_mi2s_sd0_active: pri_mi2s_sd0_active {
 			mux {
 				pins = "gpio127";
-				function = "i2s0_data0";
+				function = "mi2s0_data0";
 			};
 
 			config {
@@ -618,7 +618,7 @@
 		pri_mi2s_sd1_active: pri_mi2s_sd1_active {
 			mux {
 				pins = "gpio128";
-				function = "i2s0_data1";
+				function = "mi2s0_data1";
 			};
 
 			config {
@@ -648,7 +648,7 @@
 		sec_mi2s_mclk_active: sec_mi2s_mclk_active {
 			mux {
 				pins = "gpio124";
-				function = "sec_i2s";
+				function = "sec_mi2s";
 			};
 
 			config {
@@ -678,7 +678,7 @@
 		tert_mi2s_sck_active: tert_mi2s_sck_active {
 			mux {
 				pins = "gpio121";
-				function = "i2s2_sck";
+				function = "mi2s2_sck";
 			};
 
 			config {
@@ -707,7 +707,7 @@
 		tert_mi2s_ws_active: tert_mi2s_ws_active {
 			mux {
 				pins = "gpio123";
-				function = "i2s2_ws";
+				function = "mi2s2_ws";
 			};
 
 			config {
@@ -736,7 +736,7 @@
 		tert_mi2s_sd0_active: tert_mi2s_sd0_active {
 			mux {
 				pins = "gpio122";
-				function = "i2s2_data0";
+				function = "mi2s2_data0";
 			};
 
 			config {
@@ -765,7 +765,7 @@
 		tert_mi2s_sd1_active: tert_mi2s_sd1_active {
 			mux {
 				pins = "gpio124";
-				function = "i2s2_data1";
+				function = "mi2s2_data1";
 			};
 
 			config {
