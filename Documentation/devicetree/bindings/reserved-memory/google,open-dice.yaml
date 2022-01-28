@@ -28,6 +28,7 @@ properties:
 required:
   - compatible
   - reg
+  - no-map
 
 unevaluatedProperties: false
 
