@@ -360,6 +360,9 @@ int ufs_qcom_phy_init_vregulators(struct ufs_qcom_phy *phy_common)
 	ufs_qcom_phy_init_vreg(phy_common->dev, &phy_common->vddp_ref_clk,
 				     "vddp-ref-clk");
 
+	ufs_qcom_phy_init_vreg(phy_common->dev, &phy_common->vdd_phy_gdsc,
+			       "vdd-phy-gdsc");
+
 out:
 	return err;
 }
@@ -700,6 +703,15 @@ int ufs_qcom_phy_power_on(struct phy *generic_phy)
 	struct ufs_qcom_phy *phy_common = get_ufs_qcom_phy(generic_phy);
 	struct device *dev = phy_common->dev;
 	int err;
+
+	if (phy_common->vdd_phy_gdsc.reg) {
+		err = ufs_qcom_phy_enable_vreg(dev, &phy_common->vdd_phy_gdsc);
+		if (err) {
+			dev_err(dev, "%s enable phy_gdsc failed, err=%d\n",
+				__func__, err);
+			goto out;
+		}
+	}
 
 	err = ufs_qcom_phy_enable_vreg(dev, &phy_common->vdda_phy);
 	if (err) {
