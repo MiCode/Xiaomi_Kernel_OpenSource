@@ -19,6 +19,7 @@
 #include <linux/list.h>
 #include <linux/log2.h>
 #include <linux/memblock.h>
+#include <linux/mem_encrypt.h>
 #include <linux/mm.h>
 #include <linux/msi.h>
 #include <linux/of.h>
