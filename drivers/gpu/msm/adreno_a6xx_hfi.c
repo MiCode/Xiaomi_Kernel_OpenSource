@@ -345,8 +345,6 @@ static int a6xx_hfi_send_cmd_wait_inline(struct adreno_device *adreno_dev,
 	return rc;
 }
 
-#define HFI_ACK_ERROR 0xffffffff
-
 int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev, void *cmd)
 {
 	struct pending_cmd ret_cmd;
@@ -355,18 +353,22 @@ int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev, void *cmd)
 	memset(&ret_cmd, 0, sizeof(ret_cmd));
 
 	rc = a6xx_hfi_send_cmd_wait_inline(adreno_dev, cmd, &ret_cmd);
+	if (rc)
+		return rc;
 
-	if (!rc && ret_cmd.results[2] == HFI_ACK_ERROR) {
+	if (ret_cmd.results[2]) {
 		struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
 		gmu_core_fault_snapshot(device);
-		dev_err(&gmu->pdev->dev, "HFI ACK failure: Req 0x%8.8X\n",
-						ret_cmd.results[1]);
+		dev_err(&gmu->pdev->dev,
+				"HFI ACK failure: Req=0x%8.8X, Result=0x%8.8X\n",
+				ret_cmd.results[1],
+				ret_cmd.results[2]);
 		return -EINVAL;
 	}
 
-	return rc;
+	return 0;
 }
 
 static int a6xx_hfi_send_gmu_init(struct adreno_device *adreno_dev)
