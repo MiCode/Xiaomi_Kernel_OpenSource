@@ -579,7 +579,9 @@ nommu:
 	kvm_arch_vcpu_load_debug_state_flags(vcpu);
 
 	if (is_protected_kvm_enabled()) {
-		kvm_call_hyp_nvhe(__pkvm_vcpu_load, vcpu);
+		kvm_call_hyp_nvhe(__pkvm_vcpu_load,
+				  vcpu->kvm->arch.pkvm.shadow_handle,
+				  vcpu->vcpu_idx, vcpu->arch.hcr_el2);
 		kvm_call_hyp(__vgic_v3_restore_vmcr_aprs,
 			     &vcpu->arch.vgic_cpu.vgic_v3);
 	}
