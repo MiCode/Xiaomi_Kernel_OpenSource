@@ -121,6 +121,8 @@ hh_rm_vm_get_hyp_res(hh_vmid_t vmid, u32 *n_entries)
 
 	/* The response payload should contain all the resource entries */
 	if (resp_payload_size < sizeof(*n_entries) ||
+		(sizeof(*resp_entries) &&
+		(resp_payload->n_resource_entries > U32_MAX / sizeof(*resp_entries))) ||
 		(sizeof(*n_entries) > (U32_MAX -
 		(resp_payload->n_resource_entries * sizeof(*resp_entries)))) ||
 		resp_payload_size != sizeof(*n_entries) +
