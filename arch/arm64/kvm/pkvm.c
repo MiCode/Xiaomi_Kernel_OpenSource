@@ -203,7 +203,8 @@ void kvm_shadow_destroy(struct kvm *kvm)
 	struct list_head *ppages;
 
 	if (kvm->arch.pkvm.shadow_handle)
-		WARN_ON(kvm_call_hyp_nvhe(__pkvm_teardown_shadow, kvm));
+		WARN_ON(kvm_call_hyp_nvhe(__pkvm_teardown_shadow,
+					  kvm->arch.pkvm.shadow_handle));
 
 	free_hyp_memcache(&kvm->arch.pkvm.teardown_mc);
 

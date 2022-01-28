@@ -966,9 +966,9 @@ static void handle___pkvm_init_shadow(struct kvm_cpu_context *host_ctxt)
 
 static void handle___pkvm_teardown_shadow(struct kvm_cpu_context *host_ctxt)
 {
-	DECLARE_REG(struct kvm *, host_kvm, host_ctxt, 1);
+	DECLARE_REG(int, shadow_handle, host_ctxt, 1);
 
-	cpu_reg(host_ctxt, 1) = __pkvm_teardown_shadow(host_kvm);
+	cpu_reg(host_ctxt, 1) = __pkvm_teardown_shadow(shadow_handle);
 }
 
 typedef void (*hcall_t)(struct kvm_cpu_context *);

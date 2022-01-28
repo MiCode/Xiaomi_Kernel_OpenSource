@@ -66,7 +66,7 @@ extern phys_addr_t pvmfw_base;
 extern phys_addr_t pvmfw_size;
 
 int __pkvm_init_shadow(struct kvm *kvm, void *shadow_va, size_t size, void *pgd);
-int __pkvm_teardown_shadow(struct kvm *kvm);
+int __pkvm_teardown_shadow(int shadow_handle);
 struct kvm_vcpu *get_shadow_vcpu(int shadow_handle, int vcpu_idx);
 void put_shadow_vcpu(struct kvm_vcpu *vcpu);
 
