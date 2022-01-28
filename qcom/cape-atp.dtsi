@@ -109,7 +109,12 @@
 		reg = <0x3e>;
 		vdd18-supply = <&S10B>;
 		vdd3-supply = <&L2B>;
-		reset-gpio = <&pm8350c_gpios 7 GPIO_ACTIVE_LOW>;
+		reset-gpio = <&pm8350c_gpios 7 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&eusb2_reset_ctrl_default>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x2 0x8e 0x0 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "eusb2_rptr_reset_gpio_irq";
 	};
 };
 
