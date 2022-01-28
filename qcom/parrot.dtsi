@@ -46,6 +46,8 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x0>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 			enable-method = "psci";
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD0>;
@@ -67,6 +69,8 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x100>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 			enable-method = "psci";
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD1>;
@@ -83,6 +87,8 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x200>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 			enable-method = "psci";
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD2>;
@@ -99,6 +105,8 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x300>;
+			capacity-dmips-mhz = <1024>;
+			dynamic-power-coefficient = <100>;
 			enable-method = "psci";
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD3>;
@@ -115,6 +123,8 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x400>;
+			capacity-dmips-mhz = <1945>;
+			dynamic-power-coefficient = <483>;
 			enable-method = "psci";
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD4>;
@@ -130,6 +140,8 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x500>;
+			capacity-dmips-mhz = <1945>;
+			dynamic-power-coefficient = <483>;
 			enable-method = "psci";
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD5>;
@@ -146,6 +158,8 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x600>;
+			capacity-dmips-mhz = <1945>;
+			dynamic-power-coefficient = <483>;
 			enable-method = "psci";
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD6>;
@@ -162,6 +176,8 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x700>;
+			capacity-dmips-mhz = <1945>;
+			dynamic-power-coefficient = <483>;
 			enable-method = "psci";
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD7>;
