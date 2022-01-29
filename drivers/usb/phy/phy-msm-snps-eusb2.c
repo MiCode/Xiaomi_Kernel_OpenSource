@@ -870,7 +870,7 @@ static int msm_eusb2_phy_probe(struct platform_device *pdev)
 	}
 
 	ur = devm_usb_get_repeater_by_phandle(dev, "usb-repeater", 0);
-	if (PTR_ERR(ur)) {
+	if (IS_ERR(ur)) {
 		ret = PTR_ERR(ur);
 		goto err_ret;
 	}
