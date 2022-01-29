@@ -65,6 +65,7 @@ struct gh_vm_property {
 #define GH_RM_RPC_MSG_ID_CALL_MEM_RELEASE		0x51000014
 #define GH_RM_RPC_MSG_ID_CALL_MEM_RECLAIM		0x51000015
 #define GH_RM_RPC_MSG_ID_CALL_MEM_NOTIFY		0x51000017
+#define GH_RM_RPC_MSG_ID_CALL_MEM_APPEND		0x51000018
 
 /* Message IDs: extensions for hyp-assign */
 #define GH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL	0x5100001A
@@ -373,6 +374,19 @@ struct gh_mem_share_req_payload_hdr {
 
 struct gh_mem_share_resp_payload {
 	gh_memparcel_handle_t memparcel_handle;
+} __packed;
+
+/*
+ * Call: MEM_APPEND
+ *
+ * Split up the whole payload into a header and several trailing structs
+ * to simplify allocation and treatment of packets with multiple flexible
+ * array members.
+ */
+struct gh_mem_append_req_payload_hdr {
+	gh_memparcel_handle_t memparcel_handle;
+	u32 flags:8;
+	u32 reserved:24;
 } __packed;
 
 /* Call: MEM_NOTIFY */
