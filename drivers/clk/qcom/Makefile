@@ -63,6 +63,7 @@ obj-$(CONFIG_QCOM_CLK_SMD_RPM) += clk-smd-rpm.o
 obj-$(CONFIG_QCS_GCC_404) += gcc-qcs404.o
 obj-$(CONFIG_QCS_Q6SSTOP_404) += q6sstop-qcs404.o
 obj-$(CONFIG_QCS_TURING_404) += turingcc-qcs404.o
+obj-$(CONFIG_QDRU_ECPRICC_CINDER) += ecpricc-cinder.o
 obj-$(CONFIG_QDRU_GCC_CINDER) += gcc-cinder.o
 obj-$(CONFIG_SC_CAMCC_7180) += camcc-sc7180.o
 obj-$(CONFIG_SC_DISPCC_7180) += dispcc-sc7180.o

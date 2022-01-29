@@ -827,4 +827,13 @@ config SM_DEBUGCC_8150
 	  Say Y if you want to support the debug clocks such as
 	  clock measurement functionality.
 
+config QDRU_ECPRICC_CINDER
+	tristate "Cinder ECPRI Clock Controller"
+	select QDRU_GCC_CINDER
+	help
+	  Support for the ecpri clock controller on Qualcomm Technologies, Inc
+	  Cinder devices.
+	  Say Y if you want to support the ecpri clock controller and functionality
+	  such as Ethernet.
+
 endif
