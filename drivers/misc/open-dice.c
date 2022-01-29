@@ -29,7 +29,7 @@
 #define DRIVER_NAME "open-dice"
 
 struct open_dice_drvdata {
-	spinlock_t lock;
+	struct mutex lock;
 	char name[16];
 	struct reserved_mem *rmem;
 	struct miscdevice misc;
@@ -44,17 +44,17 @@ static int open_dice_wipe(struct open_dice_drvdata *drvdata)
 {
 	void *kaddr;
 
-	spin_lock(&drvdata->lock);
+	mutex_lock(&drvdata->lock);
 	kaddr = devm_memremap(drvdata->misc.this_device, drvdata->rmem->base,
 			      drvdata->rmem->size, MEMREMAP_WC);
 	if (IS_ERR(kaddr)) {
-		spin_unlock(&drvdata->lock);
+		mutex_unlock(&drvdata->lock);
 		return PTR_ERR(kaddr);
 	}
 
 	memset(kaddr, 0, drvdata->rmem->size);
 	devm_memunmap(drvdata->misc.this_device, kaddr);
-	spin_unlock(&drvdata->lock);
+	mutex_unlock(&drvdata->lock);
 	return 0;
 }
 
@@ -93,6 +93,12 @@ static int open_dice_mmap(struct file *filp, struct vm_area_struct *vma)
 	/* Do not allow userspace to modify the underlying data. */
 	if ((vma->vm_flags & VM_WRITE) && (vma->vm_flags & VM_SHARED))
 		return -EPERM;
+
+	/* Ensure userspace cannot acquire VM_WRITE + VM_SHARED later. */
+	if (vma->vm_flags & VM_WRITE)
+		vma->vm_flags &= ~VM_MAYSHARE;
+	else if (vma->vm_flags & VM_SHARED)
+		vma->vm_flags &= ~VM_MAYWRITE;
 
 	/* Create write-combine mapping so all clients observe a wipe. */
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
@@ -136,7 +142,7 @@ static int __init open_dice_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	*drvdata = (struct open_dice_drvdata){
-		.lock = __SPIN_LOCK_UNLOCKED(drvdata->lock),
+		.lock = __MUTEX_INITIALIZER(drvdata->lock),
 		.rmem = rmem,
 		.misc = (struct miscdevice){
 			.parent	= dev,
@@ -182,7 +188,21 @@ static struct platform_driver open_dice_driver = {
 	},
 };
 
-module_platform_driver_probe(open_dice_driver, open_dice_probe);
+static int __init open_dice_init(void)
+{
+	int ret = platform_driver_probe(&open_dice_driver, open_dice_probe);
+
+	/* DICE regions are optional. Succeed even with zero instances. */
+	return (ret == -ENODEV) ? 0 : ret;
+}
+
+static void __exit open_dice_exit(void)
+{
+	platform_driver_unregister(&open_dice_driver);
+}
+
+module_init(open_dice_init);
+module_exit(open_dice_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("David Brazdil <dbrazdil@google.com>");
