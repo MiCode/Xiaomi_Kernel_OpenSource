@@ -420,7 +420,7 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 {
 	struct eusb2_repeater *er;
 	struct device *dev = &pdev->dev;
-	int ret = 0;
+	int ret = 0, num_elem;
 
 	er = devm_kzalloc(dev, sizeof(*er), GFP_KERNEL);
 	if (!er) {
@@ -475,16 +475,17 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		goto err_probe;
 	}
 
-	er->param_override_seq_cnt = of_property_count_elems_of_size(
-				dev->of_node, "qcom,param-override-seq",
+	num_elem = of_property_count_elems_of_size(dev->of_node,
+				"qcom,param-override-seq",
 				sizeof(*er->param_override_seq));
-	if (er->param_override_seq_cnt % 2) {
-		dev_err(dev, "invalid param_override_seq_len\n");
-		ret = -EINVAL;
-		goto err_probe;
-	}
+	if (num_elem > 0) {
+		if (num_elem % 2) {
+			dev_err(dev, "invalid param_override_seq_len\n");
+			ret = -EINVAL;
+			goto err_probe;
+		}
 
-	if (er->param_override_seq_cnt > 0) {
+		er->param_override_seq_cnt = num_elem;
 		er->param_override_seq = devm_kcalloc(dev,
 				er->param_override_seq_cnt,
 				sizeof(*er->param_override_seq), GFP_KERNEL);
