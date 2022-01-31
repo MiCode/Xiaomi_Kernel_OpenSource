@@ -206,7 +206,7 @@ config USB_QCOM_EMU_PHY
 
 config USB_MSM_SSPHY_QMP
 	tristate "MSM SSUSB QMP PHY Driver"
-	depends on ARCH_QCOM
+	depends on ARCH_QCOM || COMPILE_TEST
 	select USB_PHY
 	help
 	  Enable this to support the SuperSpeed USB transceiver on MSM chips.
@@ -216,7 +216,7 @@ config USB_MSM_SSPHY_QMP
 
 config MSM_HSUSB_PHY
 	tristate "MSM HSUSB PHY Driver"
-	depends on ARCH_QCOM
+	depends on ARCH_QCOM || COMPILE_TEST
 	select USB_PHY
 	help
 	  Enable this to support the HSUSB PHY on MSM chips. This driver supports
@@ -226,7 +226,7 @@ config MSM_HSUSB_PHY
 
 config USB_MSM_EUSB2_PHY
 	tristate "MSM EUSB2 PHY Driver"
-	depends on ARCH_QCOM
+	depends on ARCH_QCOM || COMPILE_TEST
 	select USB_PHY
 	help
 	  Enable this to support the USB EUSB2 PHY on MSM chips. This driver

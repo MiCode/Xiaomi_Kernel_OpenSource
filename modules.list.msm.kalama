@@ -9,6 +9,7 @@ qcom_ipc_logging.ko
 qcom-pdc.ko
 rpmh-regulator.ko
 qcom-cpufreq-hw.ko
+sched-walt.ko
 clk-dummy.ko
 clk-qcom.ko
 cmd-db.ko
@@ -28,12 +29,14 @@ icc-bcm-voter.ko
 icc-debug.ko
 iommu-logger.ko
 llcc-qcom.ko
+mem-hooks.ko
 mem_buf_dev.ko
 mem_buf.ko
 memory_dump_v2.ko
 msm_dma_iommu_mapping.ko
 pinctrl-kalama.ko
 qnoc-kalama.ko
+msm_rtb.ko
 ns.ko
 nvmem_qcom-spmi-sdam.ko
 phy-qcom-ufs.ko
@@ -54,6 +57,7 @@ qnoc-qos.ko
 qrtr.ko
 qti-regmap-debugfs.ko
 regmap-spmi.ko
+rtc-pm8xxx.ko
 secure_buffer.ko
 smem.ko
 socinfo.ko

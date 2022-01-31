@@ -289,6 +289,16 @@ config QCOM_SMSM
 	  Say yes here to support the Qualcomm Shared Memory State Machine.
 	  The state machine is represented by bits in shared memory.
 
+config QCOM_MICRODUMP
+	tristate "Qualcomm Technologies, Inc. Microdump Support"
+	depends on QCOM_RAMDUMP
+	depends on QCOM_SMEM
+	help
+	  This enables microdump feature. It collects
+	  crash data from SMEM whenever modem subsytem
+	  crashes and stores it under /devcd to expose
+	  to user space.
+
 config QCOM_SMP2P_SLEEPSTATE
 	tristate "SMP2P Sleepstate notifier"
 	depends on QCOM_SMP2P
@@ -401,6 +411,15 @@ config QCOM_MEM_HOOKS
 	 If unsure, say 'M' here to ensure that the hooks are compiled
 	 in.
 
+config QCOM_BALANCE_ANON_FILE_RECLAIM
+	bool "During reclaim treat anon and file backed pages equally"
+	depends on SWAP
+	help
+	  When performing memory reclaim treat anonymous and file backed pages
+	  equally.
+	  Swapping anonymous pages out to memory can be efficient enough to justify
+	  treating anonymous and file backed pages equally.
+
 config MSM_CDSP_LOADER
 	tristate "CDSP loader support"
 	help
@@ -444,7 +463,7 @@ config QTI_HW_MEMLAT_LOG
 
 config QCOM_SOC_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
-	depends on ARCH_QCOM && DEBUG_FS || COMPILE_TEST
+	depends on ARCH_QCOM || COMPILE_TEST
 	help
 	  Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver to read
 	  the shared memory exported by the remote processor related to
@@ -756,6 +775,15 @@ config QCOM_GUESTVM
            any guest Virtual Machine (VM). It also communicates with the
            Resource Manager driver to start the boot of VMs once it has
            successfully loaded the VM images in the designated memory.
+
+config QCOM_GH_VCPU_SCHED
+	tristate "VCPU Scheduling for Secondary VMs"
+	depends on QCOM_GUESTVM
+	help
+	  This driver provides mechanism to schedule/run VCPUs of Secondary VMs
+	  by creating kernel threads for each VCPU that the driver gets when
+	  secondary VMs are booted via Resource Manager driver. It communicates
+	  with Gunyah hypervisor to run the VCPUs as needed.
 
 config QCOM_HYP_CORE_CTL
         tristate "CPU reservation scheme for Hypervisor"

@@ -35,6 +35,12 @@ enum {
 	OFFSET_SERDES_START     = 0x0,
 };
 
+enum ufs_qcom_phy_submode {
+	UFS_QCOM_PHY_SUBMODE_NON_G4,
+	UFS_QCOM_PHY_SUBMODE_G4,
+	UFS_QCOM_PHY_SUBMODE_G5,
+};
+
 struct ufs_qcom_phy_stored_attributes {
 	u32 att;
 	u32 value;

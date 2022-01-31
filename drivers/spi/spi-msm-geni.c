@@ -2296,7 +2296,7 @@ static int spi_geni_suspend(struct device *dev)
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
 	if (!pm_runtime_status_suspended(dev)) {
-		SPI_LOG_ERR(geni_mas->ipc, true, dev,
+		SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
 			":%s: runtime PM is active\n", __func__);
 		ret = -EBUSY;
 		return ret;
@@ -2304,11 +2304,11 @@ static int spi_geni_suspend(struct device *dev)
 
 	if (!pm_runtime_status_suspended(dev)) {
 		if (list_empty(&spi->queue) && !spi->cur_msg) {
-			SPI_LOG_ERR(geni_mas->ipc, true, dev,
+			SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
 					"%s: Force suspend", __func__);
 			ret = spi_geni_runtime_suspend(dev);
 			if (ret) {
-				SPI_LOG_ERR(geni_mas->ipc, true, dev,
+				SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
 					"Force suspend Failed:%d", ret);
 			} else {
 				pm_runtime_disable(dev);

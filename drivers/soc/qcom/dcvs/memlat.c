@@ -790,14 +790,15 @@ static void update_memlat_fp_vote(int cpu, u32 *fp_freqs)
 	struct dcvs_freq voted_freqs[MAX_MEMLAT_GRPS];
 	u32 max_freqs[MAX_MEMLAT_GRPS] = { 0 };
 	int grp, i, ret;
-	unsigned long flags_agg, flags_com;
+	unsigned long flags;
 	struct memlat_group *memlat_grp;
 	u32 commit_mask = 0;
 
 	if (!memlat_data->fp_enabled || cpu > NUM_FP_VOTERS)
 		return;
 
-	spin_lock_irqsave(&memlat_data->fp_agg_lock, flags_agg);
+	local_irq_save(flags);
+	spin_lock(&memlat_data->fp_agg_lock);
 	for (grp = 0; grp < MAX_MEMLAT_GRPS; grp++) {
 		memlat_grp = memlat_data->groups[grp];
 		if (!memlat_grp || !memlat_grp->fp_voting_enabled)
@@ -813,18 +814,19 @@ static void update_memlat_fp_vote(int cpu, u32 *fp_freqs)
 	}
 
 	if (!commit_mask) {
-		spin_unlock_irqrestore(&memlat_data->fp_agg_lock, flags_agg);
+		spin_unlock(&memlat_data->fp_agg_lock);
+		local_irq_restore(flags);
 		return;
 	}
 
-	spin_lock_irqsave(&memlat_data->fp_commit_lock, flags_com);
+	spin_lock_nested(&memlat_data->fp_commit_lock, SINGLE_DEPTH_NESTING);
 	for (grp = 0; grp < MAX_MEMLAT_GRPS; grp++) {
 		if (!(commit_mask & BIT(grp)))
 			continue;
 		memlat_grp = memlat_data->groups[grp];
 		memlat_grp->fp_freq = max_freqs[grp];
 	}
-	spin_unlock_irqrestore(&memlat_data->fp_agg_lock, flags_agg);
+	spin_unlock(&memlat_data->fp_agg_lock);
 
 	for (grp = 0; grp < MAX_MEMLAT_GRPS; grp++) {
 		if (!(commit_mask & BIT(grp)))
@@ -836,7 +838,8 @@ static void update_memlat_fp_vote(int cpu, u32 *fp_freqs)
 							DCVS_FAST_PATH);
 	if (ret < 0)
 		pr_err("error updating qcom dcvs fp: %d\n", ret);
-	spin_unlock_irqrestore(&memlat_data->fp_commit_lock, flags_com);
+	spin_unlock(&memlat_data->fp_commit_lock);
+	local_irq_restore(flags);
 }
 
 /* sampling path update work */

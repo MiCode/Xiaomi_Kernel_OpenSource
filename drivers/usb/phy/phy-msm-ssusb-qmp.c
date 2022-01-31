@@ -17,8 +17,6 @@
 #include <linux/clk.h>
 #include <linux/extcon.h>
 #include <linux/reset.h>
-#include <linux/pinctrl/devinfo.h>
-#include <linux/pinctrl/consumer.h>
 
 enum core_ldo_levels {
 	CORE_LEVEL_NONE = 0,
@@ -122,6 +120,7 @@ struct msm_ssphy_qmp {
 	struct regulator	*core_ldo;
 	int			core_voltage_levels[3];
 	int			core_max_uA;
+	struct regulator	*usb3_dp_phy_gdsc;
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
 	struct clk		*aux_clk;
@@ -233,6 +232,24 @@ static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 	}
 }
 
+static int msm_ssusb_qmp_gdsc(struct msm_ssphy_qmp *phy, bool on)
+{
+	int ret;
+
+	if (IS_ERR_OR_NULL(phy->usb3_dp_phy_gdsc))
+		return 0;
+
+	if (on)
+		ret = regulator_enable(phy->usb3_dp_phy_gdsc);
+	else
+		ret = regulator_disable(phy->usb3_dp_phy_gdsc);
+
+	if (ret)
+		dev_err(phy->phy.dev, "err:%d fail to %s usb3_dp_phy_gdsc\n",
+				ret, on ? "enable" : "disable");
+	return ret;
+}
+
 static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 {
 	int min, rc = 0;
@@ -252,10 +269,14 @@ static int msm_ssusb_qmp_ldo_enable(struct msm_ssphy_qmp *phy, int on)
 	if (!on)
 		goto disable_regulators;
 
+	rc = msm_ssusb_qmp_gdsc(phy, true);
+	if (rc < 0)
+		return rc;
+
 	rc = regulator_set_load(phy->vdd, phy->vdd_max_uA);
 	if (rc < 0) {
 		dev_err(phy->phy.dev, "Unable to set HPM of %s\n", "vdd");
-		return rc;
+		goto put_gdsc;
 	}
 
 	rc = regulator_set_voltage(phy->vdd, phy->vdd_levels[min],
@@ -331,6 +352,8 @@ put_vdd_lpm:
 	if (rc < 0)
 		dev_err(phy->phy.dev, "Unable to set LPM of %s\n", "vdd");
 
+put_gdsc:
+	rc = msm_ssusb_qmp_gdsc(phy, false);
 	return rc < 0 ? rc : 0;
 }
 
@@ -381,16 +404,10 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 
 	switch (phy->phy_type) {
 	case USB3_AND_DP:
-		if (phy->phy.dev->pins) {
-			writel_relaxed(0x01,
-				phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
-
-			pinctrl_select_state(phy->phy.dev->pins->p,
-					phy->phy.dev->pins->default_state);
-
-			writel_relaxed(0x00,
-				phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
-		}
+		writel_relaxed(0x01,
+			phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
+		writel_relaxed(0x00,
+			phy->base + phy->phy_reg[USB3_DP_COM_SW_RESET]);
 
 		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE))
 			/* override hardware control for reset of qmp phy */
@@ -405,6 +422,17 @@ static void usb_qmp_update_portselect_phymode(struct msm_ssphy_qmp *phy)
 			writel_relaxed(val, phy->base +
 				phy->phy_reg[USB3_DP_COM_TYPEC_CTRL]);
 		}
+
+#ifdef CONFIG_PINCTRL
+		/*
+		 * if there is no default pinctrl state for orientation,
+		 * it need external module provide SW orientation info,
+		 * report an error if there is no such info.
+		 */
+		if (val < 0 && !phy->phy.dev->pins)
+			dev_err(phy->phy.dev,
+				"USB DP QMP PHY: NO SW PORTSELECT\n");
+#endif
 
 		if (!(phy->phy.flags & PHY_USB_DP_CONCURRENT_MODE)) {
 			msm_ssphy_qmp_setmode(phy, USB3_DP_COMBO_MODE);
@@ -1086,6 +1114,16 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		dev_err(dev, "unable to get core ldo supply\n");
 		ret = PTR_ERR(phy->core_ldo);
 		goto err;
+	}
+
+	phy->usb3_dp_phy_gdsc = devm_regulator_get(dev, "usb3_dp_phy_gdsc");
+	if (IS_ERR(phy->usb3_dp_phy_gdsc)) {
+		ret = PTR_ERR(phy->usb3_dp_phy_gdsc);
+		if (ret != -ENODEV) {
+			dev_err(dev, "fail to get usb3_dp_phy_gdsc(%d)\n", ret);
+			return ret;
+		}
+		dev_err(dev, "usb3_dp_phy_gdsc optional regulator missing\n");
 	}
 
 	platform_set_drvdata(pdev, phy);

@@ -211,7 +211,6 @@ int __scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 				    ARM_SMCCC_SMC_32 : ARM_SMCCC_SMC_64;
 	struct arm_smccc_res smc_res;
 	struct arm_smccc_args smc = {0};
-	struct qcom_scm_res wait_res;
 
 	smc.args[0] = ARM_SMCCC_CALL_VAL(
 		smccc_call_type,

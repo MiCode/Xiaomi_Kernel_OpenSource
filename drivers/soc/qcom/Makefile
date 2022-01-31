@@ -48,6 +48,7 @@ obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QCOM_LLCC) += llcc-qcom.o
 obj-$(CONFIG_QCOM_MEMORY_DUMP_V2) += memory_dump_v2.o
 obj-$(CONFIG_QCOM_DCC_V2) += dcc_v2.o
+obj-$(CONFIG_QCOM_MICRODUMP) += microdump_collector.o
 obj-$(CONFIG_QCOM_LLCC_PERFMON) += llcc_perfmon.o
 obj-$(CONFIG_QCOM_RPMHPD) += rpmhpd.o
 obj-$(CONFIG_MSM_CDSP_LOADER) += qdsp6v2/
@@ -64,6 +65,7 @@ obj-$(CONFIG_QTI_HW_MEMLAT_LOG)	+= rimps_log.o
 obj-$(CONFIG_QCOM_RAMDUMP) += qcom_ramdump.o
 obj-$(CONFIG_QCOM_PANEL_EVENT_NOTIFIER) += panel_event_notifier.o
 obj-$(CONFIG_QCOM_GUESTVM) += guestvm_loader.o
+obj-$(CONFIG_QCOM_GH_VCPU_SCHED) += gh_vcpu_sched.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif

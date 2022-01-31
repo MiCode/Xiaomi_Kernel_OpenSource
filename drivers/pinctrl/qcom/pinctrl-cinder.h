@@ -554,8 +554,10 @@ enum cinder_functions {
 	msm_mux_atest_char,
 	msm_mux_phase_flag29,
 	msm_mux_phase_flag30,
+	msm_mux_pcie0,
 	msm_mux_pll_clk,
 	msm_mux_pcie0_clkreqn,
+	msm_mux_pcie0_wake,
 	msm_mux_char_exec,
 	msm_mux_phase_flag31,
 	msm_mux_CMO_PRI,
@@ -1021,6 +1023,9 @@ static const char * const phase_flag29_groups[] = {
 static const char * const phase_flag30_groups[] = {
 	"gpio97",
 };
+static const char * const pcie0_groups[] = {
+	"gpio98",
+};
 static const char * const pll_clk_groups[] = {
 	"gpio98",
 };
@@ -1029,6 +1034,9 @@ static const char * const pcie0_clkreqn_groups[] = {
 };
 static const char * const char_exec_groups[] = {
 	"gpio99", "gpio100",
+};
+static const char * const pcie0_wake_groups[] = {
+	"gpio100",
 };
 static const char * const phase_flag31_groups[] = {
 	"gpio102",
@@ -1255,9 +1263,11 @@ static const struct msm_function cinder_functions[] = {
 	FUNCTION(atest_char),
 	FUNCTION(phase_flag29),
 	FUNCTION(phase_flag30),
+	FUNCTION(pcie0),
 	FUNCTION(pll_clk),
 	FUNCTION(pcie0_clkreqn),
 	FUNCTION(char_exec),
+	FUNCTION(pcie0_wake),
 	FUNCTION(phase_flag31),
 	FUNCTION(CMO_PRI),
 	FUNCTION(qspi_data),
@@ -1429,10 +1439,11 @@ static const struct msm_pingroup cinder_groups[] = {
 			NA),
 	[97] = PINGROUP(97, phase_flag30, NA, qdss_gpio14, NA, NA, NA, NA, NA,
 			NA),
-	[98] = PINGROUP(98, pll_clk, NA, NA, NA, NA, NA, NA, NA, NA),
+	[98] = PINGROUP(98, pcie0, pll_clk, NA, NA, NA, NA, NA, NA, NA),
 	[99] = PINGROUP(99, pcie0_clkreqn, char_exec, NA, NA, NA, NA, NA, NA,
 			NA),
-	[100] = PINGROUP(100, char_exec, NA, NA, NA, NA, NA, NA, NA, NA),
+	[100] = PINGROUP(100, pcie0_wake, char_exec, NA, NA, NA, NA, NA, NA,
+			NA),
 	[101] = PINGROUP(101, smb_alert, NA, NA, NA, NA, NA, NA, NA, NA),
 	[102] = PINGROUP(102, phase_flag31, NA, qdss_gpio15, NA, NA, NA, NA,
 			 NA, NA),

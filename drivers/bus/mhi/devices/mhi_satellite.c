@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.*/
 
-#include <linux/async.h>
 #include <linux/device.h>
 #include <linux/dma-direction.h>
 #include <linux/dma-mapping.h>
@@ -261,7 +260,7 @@ struct mhi_sat_cntrl {
 
 	struct work_struct connect_work; /* subsystem connection worker */
 	struct work_struct process_work; /* incoming packets processor */
-	async_cookie_t error_cookie; /* synchronize device error handling */
+	struct work_struct error_work; /* error handling processor */
 
 	/* mhi core/controller configurations */
 	u32 dev_id; /* unique device ID with BDF as per connection topology */
@@ -612,9 +611,10 @@ static void mhi_sat_send_sys_err(struct mhi_sat_cntrl *sat_cntrl)
 	mutex_unlock(&sat_cntrl->cmd_wait_mutex);
 }
 
-static void mhi_sat_error_worker(void *data, async_cookie_t cookie)
+static void mhi_sat_error_worker(struct work_struct *work)
 {
-	struct mhi_sat_cntrl *sat_cntrl = data;
+	struct mhi_sat_cntrl *sat_cntrl = container_of(work,
+					struct mhi_sat_cntrl, error_work);
 	struct mhi_sat_subsys *subsys = sat_cntrl->subsys;
 	struct sat_tre *pkt;
 	void *msg;
@@ -837,7 +837,7 @@ static void mhi_sat_rpmsg_remove(struct rpmsg_device *rpdev)
 	/* unprepare each controller/device from transfer */
 	mutex_lock(&subsys->cntrl_mutex);
 	list_for_each_entry(sat_cntrl, &subsys->cntrl_list, node) {
-		async_synchronize_cookie(sat_cntrl->error_cookie + 1);
+		flush_work(&sat_cntrl->error_work);
 
 		spin_lock_irq(&sat_cntrl->state_lock);
 		/*
@@ -946,8 +946,7 @@ static void mhi_sat_dev_status_cb(struct mhi_device *mhi_dev,
 	MSG_LOG("Device fatal error detected\n");
 	spin_lock_irqsave(&sat_cntrl->state_lock, flags);
 	if (MHI_SAT_ACTIVE(sat_cntrl)) {
-		sat_cntrl->error_cookie = async_schedule(mhi_sat_error_worker,
-							 sat_cntrl);
+		schedule_work(&sat_cntrl->error_work);
 		sat_cntrl->state = SAT_FATAL_DETECT;
 	} else {
 		/* rpmsg link down or HELLO not sent or an error occurred */
@@ -974,7 +973,7 @@ static void mhi_sat_dev_remove(struct mhi_device *mhi_dev)
 
 	mutex_lock(&subsys->cntrl_mutex);
 
-	async_synchronize_cookie(sat_cntrl->error_cookie + 1);
+	cancel_work_sync(&sat_cntrl->error_work);
 
 	/* send sys_err if first device is removed */
 	spin_lock_irq(&sat_cntrl->state_lock);
@@ -1064,6 +1063,7 @@ static int mhi_sat_dev_probe(struct mhi_device *mhi_dev,
 		spin_lock_init(&sat_cntrl->state_lock);
 		INIT_WORK(&sat_cntrl->connect_work, mhi_sat_connect_worker);
 		INIT_WORK(&sat_cntrl->process_work, mhi_sat_process_worker);
+		INIT_WORK(&sat_cntrl->error_work, mhi_sat_error_worker);
 		INIT_LIST_HEAD(&sat_cntrl->dev_list);
 		INIT_LIST_HEAD(&sat_cntrl->addr_map_list);
 		INIT_LIST_HEAD(&sat_cntrl->packet_list);

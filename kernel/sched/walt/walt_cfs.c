@@ -73,9 +73,8 @@ bias_to_this_cpu(struct task_struct *p, int cpu, int start_cpu)
 static inline bool task_demand_fits(struct task_struct *p, int cpu)
 {
 	unsigned long capacity = capacity_orig_of(cpu);
-	unsigned long max_capacity = max_possible_capacity;
 
-	if (capacity == max_capacity)
+	if (is_max_cluster_cpu(cpu))
 		return true;
 
 	return task_fits_capacity(p, capacity, cpu);
@@ -268,7 +267,7 @@ static void walt_find_best_target(struct sched_domain *sd,
 	/* fast path for prev_cpu */
 	if (((capacity_orig_of(prev_cpu) == capacity_orig_of(start_cpu)) ||
 				asym_cap_siblings(prev_cpu, start_cpu)) &&
-				cpu_active(prev_cpu) && cpu_online(prev_cpu) &&
+				cpu_active(prev_cpu) &&
 				available_idle_cpu(prev_cpu) &&
 				cpumask_test_cpu(prev_cpu, p->cpus_ptr) &&
 				!cpu_halted(prev_cpu)) {
@@ -873,9 +872,6 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 					NULL);
 		}
 
-		trace_sched_compute_energy(p, cpu, cur_energy,
-			prev_energy, best_energy, best_energy_cpu, &output);
-
 		if (cur_energy < best_energy) {
 			best_energy = cur_energy;
 			best_energy_cpu = cpu;
@@ -886,6 +882,9 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 				best_energy_cpu = cpu;
 			}
 		}
+
+		trace_sched_compute_energy(p, cpu, cur_energy,
+			prev_energy, best_energy, best_energy_cpu, &output);
 	}
 
 	/*
@@ -1149,7 +1148,7 @@ void walt_cfs_dequeue_task(struct rq *rq, struct task_struct *p)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	if (!list_empty(&wts->mvp_list))
+	if (!list_empty(&wts->mvp_list) && wts->mvp_list.next)
 		walt_cfs_deactivate_mvp_task(p);
 
 	/*
@@ -1172,7 +1171,7 @@ void walt_cfs_tick(struct rq *rq)
 
 	raw_spin_lock(&rq->__lock);
 
-	if (list_empty(&wts->mvp_list))
+	if (list_empty(&wts->mvp_list) || (wts->mvp_list.next == NULL))
 		goto out;
 
 	walt_cfs_account_mvp_runtime(rq, rq->curr);
@@ -1206,8 +1205,8 @@ static void walt_cfs_check_preempt_wakeup(void *unused, struct rq *rq, struct ta
 	if (unlikely(walt_disabled))
 		return;
 
-	p_is_mvp = !list_empty(&wts_p->mvp_list);
-	curr_is_mvp = !list_empty(&wts_c->mvp_list);
+	p_is_mvp = !list_empty(&wts_p->mvp_list) && wts_p->mvp_list.next;
+	curr_is_mvp = !list_empty(&wts_c->mvp_list) && wts_c->mvp_list.next;
 
 	/*
 	 * current is not MVP, so preemption decision

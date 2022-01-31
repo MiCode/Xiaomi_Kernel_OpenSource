@@ -6,7 +6,10 @@
 #include "common.h"
 #include <linux/scmi_pmu.h>
 
-#define SET_PMU_MAP		11
+enum scmi_c1dcvs_protocol_cmd {
+	SET_PMU_MAP = 11,
+	SET_ENABLE_TRACE,
+};
 
 struct pmu_map_msg {
 	uint8_t hw_cntrs[MAX_NUM_CPUS][MAX_CPUCP_EVT];
@@ -36,13 +39,39 @@ static int scmi_send_pmu_map(const struct scmi_protocol_handle *ph,
 	return ret;
 }
 
+static int scmi_send_tunable_pmu(const struct scmi_protocol_handle *ph,
+				    void *buf, u32 msg_id)
+{
+	int ret;
+	struct scmi_xfer *t;
+	unsigned int *msg;
+	unsigned int *src = buf;
+
+	ret = ph->xops->xfer_get_init(ph, msg_id, sizeof(*msg), sizeof(*msg),
+				      &t);
+	if (ret)
+		return ret;
+
+	msg = t->tx.buf;
+	*msg = cpu_to_le32(*src);
+	ret = ph->xops->do_xfer(ph, t);
+	ph->xops->xfer_put(ph, t);
+	return ret;
+}
+
 static int scmi_pmu_map(const struct scmi_protocol_handle *ph, void *buf)
 {
 	return scmi_send_pmu_map(ph, buf, SET_PMU_MAP);
 }
 
+static int scmi_set_enable_trace(const struct scmi_protocol_handle *ph, void *buf)
+{
+	return scmi_send_tunable_pmu(ph, buf, SET_ENABLE_TRACE);
+}
+
 static struct scmi_pmu_vendor_ops pmu_config_ops = {
-	.set_pmu_map = scmi_pmu_map,
+	.set_pmu_map		= scmi_pmu_map,
+	.set_enable_trace	= scmi_set_enable_trace,
 };
 
 static int scmi_pmu_protocol_init(const struct scmi_protocol_handle *ph)

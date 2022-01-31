@@ -36,17 +36,9 @@ static const struct msm_pinctrl_soc_data waipio_vm_pinctrl = {
 	.ngpios = 211,
 };
 
-static void qcom_trace_gpio_read(void *unused,
-				 struct gpio_device *gdev,
-				 bool *block_gpio_read)
-{
-	*block_gpio_read = true;
-}
-
 static int qcom_msm_pinctrl_probe(struct platform_device *pdev)
 {
 	const struct msm_pinctrl_soc_data *pinctrl_data;
-	struct device *dev = &pdev->dev;
 
 	pinctrl_data = of_device_get_match_data(&pdev->dev);
 	if (!pinctrl_data)

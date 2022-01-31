@@ -174,3 +174,13 @@ config QTI_SDPM_CLOCK_MONITOR
 	    rate into the SDPM CSR register. This driver will receive the clock
 	    list and the CSR details from devicetree.
 
+config QTI_THERMALZONE_CONFIG_DEBUG
+	tristate "QTI Thermal Zone config debug driver"
+	depends on THERMAL && THERMAL_OF
+	help
+	   This enables debugfs based interface support for thermal zones
+	   to read the entire configuration of a given thermal zone. It
+	   includes passive/polling delay, cooling device upper or lower
+	   level configuration etc. The userspace client can use this
+	   debugfs interface to understand full snapshot of a thermal zone.
+

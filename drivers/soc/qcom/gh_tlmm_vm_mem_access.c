@@ -86,15 +86,13 @@ static int gh_tlmm_vm_mem_share(struct gh_tlmm_vm_info *gh_tlmm_vm_info_data)
 	acl_desc = gh_tlmm_vm_get_acl(GH_TRUSTED_VM);
 	if (IS_ERR(acl_desc)) {
 		dev_err(gh_tlmm_dev, "Failed to get acl of IO memories for TLMM\n");
-		PTR_ERR(acl_desc);
-		return -EINVAL;
+		return PTR_ERR(acl_desc);
 	}
 
 	sgl_desc = gh_tlmm_vm_get_sgl(gh_tlmm_vm_info_data);
 	if (IS_ERR(sgl_desc)) {
 		dev_err(gh_tlmm_dev, "Failed to get sgl of IO memories for TLMM\n");
-		PTR_ERR(sgl_desc);
-		rc = -EINVAL;
+		rc = PTR_ERR(sgl_desc);
 		goto sgl_error;
 	}
 
@@ -385,10 +383,7 @@ static struct platform_driver gh_tlmm_vm_mem_access_driver = {
 
 static int __init gh_tlmm_vm_mem_access_init(void)
 {
-	int ret;
-
-	ret = platform_driver_register(&gh_tlmm_vm_mem_access_driver);
-	return ret;
+	return platform_driver_register(&gh_tlmm_vm_mem_access_driver);
 }
 module_init(gh_tlmm_vm_mem_access_init);
 
