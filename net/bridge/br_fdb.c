@@ -147,6 +147,10 @@ struct net_bridge_fdb_entry *br_fdb_find_rcu(struct net_bridge *br,
 	return fdb_find_rcu(&br->fdb_hash_tbl, addr, vid);
 }
 
+#ifdef CONFIG_HYFI_BRIDGE_HOOKS
+EXPORT_SYMBOL(br_fdb_find_rcu);
+#endif
+
 /* When a static FDB entry is added, the mac address from the entry is
  * added to the bridge private HW address list and all required ports
  * are then updated with the new information.
@@ -709,6 +713,9 @@ static void fdb_notify(struct net_bridge *br,
 		kfree_skb(skb);
 		goto errout;
 	}
+#ifdef CONFIG_HYFI_BRIDGE_HOOKS
+	__br_notify(RTNLGRP_NEIGH, type, fdb);
+#endif
 	rtnl_notify(skb, net, 0, RTNLGRP_NEIGH, NULL, GFP_ATOMIC);
 	return;
 errout:
