@@ -180,6 +180,14 @@
 		reg = <0x0 0xe9b00000 0x0 0x500000>;
 	};
 
+	sp_mem: sp_region {  /* SPSS-HLOS ION shared mem */
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x1000000>;
+	};
+
 	trusted_apps_mem: trusted_apps_region@ea000000 {
 		no-map;
 		reg = <0x0 0xea000000 0x0 0x3900000>;
