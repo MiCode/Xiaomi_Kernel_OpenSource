@@ -116,6 +116,9 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 	stats->private_data = &b;
 
 	result = devfreq_update_stats(df);
+	/* Return if devfreq is not enabled */
+	if (result)
+		return result;
 
 	*freq = stats->current_frequency;
 
