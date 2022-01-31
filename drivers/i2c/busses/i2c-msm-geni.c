@@ -63,11 +63,15 @@
 #define GENI_ABORT_DONE		8
 #define GENI_TIMEOUT		9
 
+#define GENI_HW_PARAM			0x50
+
 #define I2C_NACK		GP_IRQ1
 #define I2C_BUS_PROTO		GP_IRQ3
 #define I2C_ARB_LOST		GP_IRQ4
 #define DM_I2C_CB_ERR		((BIT(GP_IRQ1) | BIT(GP_IRQ3) | BIT(GP_IRQ4)) \
 									<< 5)
+
+#define I2C_MASTER_HUB		(BIT(0))
 
 #define KHz(freq)		(1000 * freq)
 #define I2C_AUTO_SUSPEND_DELAY	250
@@ -164,6 +168,7 @@ struct geni_i2c_dev {
 	bool req_chan;
 	bool first_resume;
 	bool gpi_reset;
+	bool is_i2c_hub;
 };
 
 static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
@@ -369,7 +374,12 @@ static int geni_i2c_prepare(struct geni_i2c_dev *gi2c)
 			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 					"i2c in GSI ONLY mode\n");
 		} else {
-			int gi2c_tx_depth = geni_se_get_tx_fifo_depth(&gi2c->i2c_rsc);
+			int gi2c_tx_depth;
+
+			if (!gi2c->is_i2c_hub)
+				gi2c_tx_depth = geni_se_get_tx_fifo_depth(&gi2c->i2c_rsc);
+			else
+				gi2c_tx_depth = 16; /* i2c hub depth is fixed to 16 */
 
 			gi2c->se_mode = FIFO_SE_DMA;
 
@@ -1136,7 +1146,11 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 
 		gi2c->cur = &msgs[i];
 		qcom_geni_i2c_calc_timeout(gi2c);
-		mode = msgs[i].len > 32 ? GENI_SE_DMA : GENI_SE_FIFO;
+
+		if (!gi2c->is_i2c_hub)
+			mode = msgs[i].len > 32 ? GENI_SE_DMA : GENI_SE_FIFO;
+		else
+			mode = GENI_SE_FIFO; /* i2c hub has only FIFO mode */
 
 		geni_se_select_mode(&gi2c->i2c_rsc, mode);
 
@@ -1273,6 +1287,27 @@ static const struct i2c_algorithm geni_i2c_algo = {
 	.functionality	= geni_i2c_func,
 };
 
+static int get_geni_se_i2c_hub(struct geni_i2c_dev *gi2c)
+{
+	int ret = 0;
+	int geni_hw_param;
+
+	ret =  geni_se_common_clks_on(gi2c->i2c_rsc.clk, gi2c->m_ahb_clk, gi2c->s_ahb_clk);
+	if (ret) {
+		dev_err(gi2c->dev, "%s: Err in geni_se_clks_on %d\n", __func__, ret);
+		return ret;
+	}
+
+	geni_hw_param = geni_read_reg(gi2c->base, GENI_HW_PARAM);
+	if (geni_hw_param & I2C_MASTER_HUB)
+		gi2c->is_i2c_hub = true;
+	else
+		gi2c->is_i2c_hub = false;
+
+	geni_se_common_clks_off(gi2c->i2c_rsc.clk, gi2c->m_ahb_clk, gi2c->s_ahb_clk);
+	return ret;
+}
+
 static int geni_i2c_probe(struct platform_device *pdev)
 {
 	struct geni_i2c_dev *gi2c;
@@ -1351,11 +1386,33 @@ static int geni_i2c_probe(struct platform_device *pdev)
 			return ret;
 		}
 
-		ret = geni_se_common_resources_init(&gi2c->i2c_rsc, GENI_DEFAULT_BW,
-						GENI_DEFAULT_BW, Bps_to_icc(gi2c->clk_freq_out));
+		ret = get_geni_se_i2c_hub(gi2c);
 		if (ret) {
-			dev_err(&pdev->dev, "Error geni_se_common_resources_init\n");
+			dev_err(&pdev->dev, "failing at get_geni_se_i2c_hub %d\n", ret);
 			return ret;
+		}
+
+		/*
+		 * For I2C_HUB, qup-ddr voting not required.
+		 */
+		if (gi2c->is_i2c_hub) {
+			ret = geni_icc_get(&gi2c->i2c_rsc, NULL);
+			if (ret) {
+				dev_err(&pdev->dev, "%s: Error - geni_icc_get ret:%d\n",
+							__func__, ret);
+				return ret;
+			}
+			gi2c->i2c_rsc.icc_paths[GENI_TO_CORE].avg_bw = GENI_DEFAULT_BW;
+			gi2c->i2c_rsc.icc_paths[CPU_TO_GENI].avg_bw = GENI_DEFAULT_BW;
+		} else {
+			ret = geni_se_common_resources_init(&gi2c->i2c_rsc,
+					GENI_DEFAULT_BW, GENI_DEFAULT_BW,
+					Bps_to_icc(gi2c->clk_freq_out));
+			if (ret) {
+				dev_err(&pdev->dev, "%s: Error - resources_init ret:%d\n",
+							__func__, ret);
+				return ret;
+			}
 		}
 
 		gi2c->irq = platform_get_irq(pdev, 0);
