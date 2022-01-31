@@ -3992,6 +3992,7 @@ static void gcc_cape_fixup(struct regmap *regmap)
 	gcc_gpll0.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	gcc_gpll0.clkr.hw.init = &gcc_gpll0_cape_init;
 	gcc_gpll0.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	gcc_gpll0.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	gcc_gpll0.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	gcc_gpll0.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	gcc_gpll0.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
@@ -4004,6 +4005,7 @@ static void gcc_cape_fixup(struct regmap *regmap)
 	gcc_gpll4.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	gcc_gpll4.clkr.hw.init = &gcc_gpll4_cape_init;
 	gcc_gpll4.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	gcc_gpll4.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	gcc_gpll4.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	gcc_gpll4.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	gcc_gpll4.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
@@ -4013,6 +4015,7 @@ static void gcc_cape_fixup(struct regmap *regmap)
 	gcc_gpll9.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	gcc_gpll9.clkr.hw.init = &gcc_gpll9_cape_init;
 	gcc_gpll9.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	gcc_gpll9.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	gcc_gpll9.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	gcc_gpll9.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	gcc_gpll9.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
