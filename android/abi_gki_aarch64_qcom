@@ -87,6 +87,7 @@
   __pm_stay_awake
   __pskb_pull_tail
   __put_page
+  __put_task_struct
   __rcu_read_lock
   __rcu_read_unlock
   __register_blkdev
@@ -1498,4 +1499,3 @@
   xa_find_after
   xa_load
   xa_store
-  __put_task_struct
