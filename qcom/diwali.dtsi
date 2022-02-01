@@ -2693,6 +2693,14 @@
 		memory-region = <&trust_ui_vm_mem>;
 	};
 
+	qcom,guestvm_loader@e0600000 {
+		compatible = "qcom,guestvm-loader";
+		qcom,pas-id = <35>;
+		qcom,vmid = <50>;
+		qcom,firmware-name = "cpusys_vm";
+		memory-region = <&cpusys_vm_mem>;
+	};
+
 	trust_ui_vm: qcom,trust_ui_vm@e55fc000 {
 		reg = <0xe55fc000 0x104000>;
 		vm_name = "trustedvm";
