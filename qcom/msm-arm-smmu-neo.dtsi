@@ -14,7 +14,6 @@
 		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
-		status = "disabled";
 		ranges;
 		dma-coherent;
 
