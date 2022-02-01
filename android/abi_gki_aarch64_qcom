@@ -696,6 +696,7 @@
   iommu_put_dma_cookie
   iommu_unmap
   iounmap
+  iov_iter_init
   iov_iter_revert
   ipi_desc_get
   iput
@@ -1496,6 +1497,20 @@
   uuid_parse
   vabits_actual
   vfree
+  vhost_add_used_and_signal
+  vhost_dev_check_owner
+  vhost_dev_cleanup
+  vhost_dev_init
+  vhost_dev_ioctl
+  vhost_dev_stop
+  vhost_disable_notify
+  vhost_enable_notify
+  vhost_get_vq_desc
+  vhost_log_access_ok
+  vhost_poll_flush
+  vhost_vq_access_ok
+  vhost_vq_init_access
+  vhost_vring_ioctl
   vm_iomap_memory
   vm_map_pages
   vm_mmap
