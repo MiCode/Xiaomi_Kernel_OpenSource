@@ -118,6 +118,9 @@ struct drm_i915_gem_object {
 
 	I915_SELFTEST_DECLARE(struct list_head st_link);
 
+	unsigned long flags;
+#define I915_BO_WAS_BOUND_BIT    0
+
 	/*
 	 * Is the object to be mapped as read-only to the GPU
 	 * Only honoured if hardware has relevant pte bit
