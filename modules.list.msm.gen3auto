@@ -43,6 +43,11 @@ gdsc-regulator.ko
 gcc-sm8150.ko
 camcc-sm8150.ko
 dispcc-sm8250.ko
+icc-bcm-voter.ko
+icc-rpmh.ko
+qnoc-qos.ko
+qnoc-sm8150.ko
+icc-debug.ko
 qcom-cpufreq-hw.ko
 socinfo.ko
 qcom_ipc_logging.ko
