@@ -46,14 +46,14 @@
 #define PHY_CFG_PLL_CPBIAS_CNTRL	(0xfe)
 
 #define USB_PHY_CFG_CTRL_2		(0x5c)
-#define PHY_CFG_PLL_FB_DIV_7_0		(0x7f)
+#define PHY_CFG_PLL_FB_DIV_7_0		(0xff)
 #define DIV_7_0_19_2_MHZ_VAL		(0x90)
 #define DIV_7_0_38_4_MHZ_VAL		(0xc8)
 
 #define USB_PHY_CFG_CTRL_3		(0x60)
 #define PHY_CFG_PLL_FB_DIV_11_8		(0xf)
-#define DIV_11_8_19_2_MHZ_VAL		(0x0)
-#define DIV_11_8_38_4_MHZ_VAL		(0x1)
+#define DIV_11_8_19_2_MHZ_VAL		(0x1)
+#define DIV_11_8_38_4_MHZ_VAL		(0x0)
 
 #define PHY_CFG_PLL_REF_DIV		(0xf << 4)
 #define PLL_REF_DIV_VAL			(0x0)
@@ -713,19 +713,19 @@ static int msm_eusb2_phy_init(struct usb_phy *uphy)
 			PHY_CFG_PLL_CPBIAS_CNTRL, 0x1);
 
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_4,
-			PHY_CFG_PLL_GMP_CNTRL, 0x20);
+			PHY_CFG_PLL_INT_CNTRL, 0x20);
 
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_4,
-			PHY_CFG_PLL_INT_CNTRL, 0x1);
+			PHY_CFG_PLL_GMP_CNTRL, 0x1);
 
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_5,
 			PHY_CFG_PLL_PROP_CNTRL, 0x10);
 
-	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_5,
-			PHY_CFG_PLL_VREF_TUNE, 0x1);
-
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_6,
 			PHY_CFG_PLL_VCO_CNTRL, 0x0);
+
+	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_5,
+			PHY_CFG_PLL_VREF_TUNE, 0x1);
 
 	msm_eusb2_write_readback(phy->base, USB_PHY_HS_PHY_CTRL2,
 			VBUS_DET_EXT_SEL, VBUS_DET_EXT_SEL);
