@@ -1,0 +1,12 @@
+/dts-v1/;
+/plugin/;
+
+#include "cape-mtp-120fps-pm8008.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape MTP + 120fps with PM8008";
+	compatible = "qcom,cape-mtp", "qcom,cape", "qcom,mtp";
+	qcom,msm-id = <530 0x10000>, <531 0x10000>, <540 0x10000>;
+	qcom,board-id = <0x10008 3>;
+};
+

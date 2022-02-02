@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "cape.dtsi"
+#include "cape-cdp-qhd-pm8010.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape CDP + QHD with PM8010";
+	compatible = "qcom,cape-cdp", "qcom,cape", "qcom,cdp";
+	qcom,board-id = <0x10001 2>;
+};
