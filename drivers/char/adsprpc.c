@@ -2356,8 +2356,9 @@ static void fastrpc_notify_users(struct fastrpc_file *me)
 {
 	struct smq_invoke_ctx *ictx;
 	struct hlist_node *n;
+	unsigned long irq_flags = 0;
 
-	spin_lock(&me->hlock);
+	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(ictx, n, &me->clst.pending, hn) {
 		ictx->is_work_done = true;
 		ictx->retval = -ECONNRESET;
@@ -2377,15 +2378,16 @@ static void fastrpc_notify_users(struct fastrpc_file *me)
 			ictx->handle, ictx->sc);
 		complete(&ictx->work);
 	}
-	spin_unlock(&me->hlock);
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
 }
 
 static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
 {
 	struct smq_invoke_ctx *ictx;
 	struct hlist_node *n;
+	unsigned long irq_flags = 0;
 
-	spin_lock(&me->hlock);
+	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(ictx, n, &me->clst.pending, hn) {
 		if (ictx->msg.pid) {
 			ictx->is_work_done = true;
@@ -2409,7 +2411,7 @@ static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
 			complete(&ictx->work);
 		}
 	}
-	spin_unlock(&me->hlock);
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
 }
 
 static void fastrpc_ramdump_collection(int cid)
@@ -5529,7 +5531,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		return 0;
 	cid = fl->cid;
 
-	spin_lock(&me->hlock);
+	spin_lock_irqsave(&me->hlock, irq_flags);
 	if (fl->device) {
 		fl->device->dev_close = true;
 		if (fl->device->refs == 0) {
@@ -5538,7 +5540,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		}
 	}
 	fl->file_close = FASTRPC_PROCESS_EXIT_START;
-	spin_unlock(&me->hlock);
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
 
 	(void)fastrpc_release_current_dsp_process(fl);
 
