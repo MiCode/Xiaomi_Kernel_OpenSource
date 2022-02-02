@@ -107,10 +107,6 @@
 		};
 	};
 
-	usb_nop_phy: usb_nop_phy {
-		compatible = "usb-nop-xceiv";
-	};
-
 	/* USB port related High Speed PHY */
 	usb2_phy0: hsphy@88e3000 {
 		compatible = "qcom,usb-hsphy-snps-femto";
