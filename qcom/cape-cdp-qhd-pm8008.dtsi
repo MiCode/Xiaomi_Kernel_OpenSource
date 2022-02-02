@@ -1,0 +1,2 @@
+#include "cape-cdp.dtsi"
+#include "waipio-pm8008.dtsi"
