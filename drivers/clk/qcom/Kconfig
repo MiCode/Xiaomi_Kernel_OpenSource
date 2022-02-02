@@ -818,4 +818,13 @@ config SM_SCC_8150
 	  the sensor processor.  However, on some systems it is instead owned
 	  by the application processor.
 
+config SM_DEBUGCC_8150
+	tristate "SM8150 Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  SM8150 devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
 endif
