@@ -790,4 +790,13 @@ config QDRU_GCC_CINDER
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, ECPRI, TSC, ETU, SD/eMMC, PCIe, etc.
 
+config SM_CAMCC_8150
+	tristate "SM8150 Camera Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SM8150 devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
 endif
