@@ -342,8 +342,7 @@
 			<&clock_gcc GCC_PCIE_1_PIPE_CLK_SRC>,
 			<&clock_gcc PCIE_1_PIPE_CLK>,
 			<&clock_gcc GCC_PCIE_1_PHY_AUX_CLK>,
-			<&clock_gcc GCC_PCIE_1_PHY_AUX_CLK_SRC>,
-			<&clock_gcc PCIE_1_PHY_AUX_CLK>;
+			<&clock_gcc GCC_PCIE_1_PHY_AUX_CLK_SRC>;
 		clock-names = "pcie_1_pipe_clk", "pcie_1_ref_clk_src",
 				"pcie_1_aux_clk", "pcie_1_cfg_ahb_clk",
 				"pcie_1_mstr_axi_clk", "pcie_1_slv_axi_clk",
@@ -352,7 +351,7 @@
 				"pcie_ddrss_sf_tbu_clk",
 				"pcie_aggre_noc_1_axi_clk", "pcie_pipe_clk_mux",
 				"pcie_pipe_clk_ext_src", "pcie_phy_aux_clk",
-				"pcie_phy_aux_clk_mux", "pcie_phy_aux_clk_ext_src";
+				"pcie_phy_aux_clk_mux";
 		max-clock-frequency-hz = <0>, <0>, <19200000>, <0>, <0>, <0>,
 					<0>, <0>, <0>, <0>, <100000000>, <0>,
 					<0>, <0>, <0>, <0>, <0>, <0>;
