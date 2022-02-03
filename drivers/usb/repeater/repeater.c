@@ -15,12 +15,10 @@ static DEFINE_SPINLOCK(repeater_lock);
 
 void usb_put_repeater(struct usb_repeater *r)
 {
-	struct module *owner;
-
 	if (r) {
-		owner = r->dev->driver->owner;
 		put_device(r->dev);
-		module_put(owner);
+		if (r->dev->driver && r->dev->driver->owner)
+			module_put(r->dev->driver->owner);
 	}
 }
 EXPORT_SYMBOL(usb_put_repeater);
