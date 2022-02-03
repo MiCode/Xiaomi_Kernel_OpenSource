@@ -3107,6 +3107,7 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	struct wlfw_host_cap_resp_msg_v01 *resp;
 	struct qmi_txn txn;
 	int ddr_type;
+	u32 gpio;
 	int ret = 0;
 	u64 iova_start = 0, iova_size = 0,
 	    iova_ipa_start = 0, iova_ipa_size = 0;
@@ -3171,6 +3172,48 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 		req->ddr_type_valid = 1;
 		req->ddr_type = ddr_type;
 	}
+
+	ret = of_property_read_u32(priv->pdev->dev.of_node, "wlan-en-gpio",
+				   &gpio);
+	if (!ret) {
+		icnss_pr_dbg("WLAN_EN_GPIO modified through DT: %d\n", gpio);
+		req->gpio_info_valid = 1;
+		req->gpio_info[WLAN_EN_GPIO_V01] = gpio;
+	} else {
+		req->gpio_info[WLAN_EN_GPIO_V01] = 0xFFFF;
+	}
+
+	ret = of_property_read_u32(priv->pdev->dev.of_node, "bt-en-gpio",
+				   &gpio);
+	if (!ret) {
+		icnss_pr_dbg("BT_EN_GPIO modified through DT: %d\n", gpio);
+		req->gpio_info_valid = 1;
+		req->gpio_info[BT_EN_GPIO_V01] = gpio;
+	} else {
+		req->gpio_info[BT_EN_GPIO_V01] = 0xFFFF;
+	}
+
+	ret = of_property_read_u32(priv->pdev->dev.of_node, "host-sol-gpio",
+				   &gpio);
+	if (!ret) {
+		icnss_pr_dbg("HOST_SOL_GPIO modified through DT: %d\n", gpio);
+		req->gpio_info_valid = 1;
+		req->gpio_info[HOST_SOL_GPIO_V01] = gpio;
+	} else {
+		req->gpio_info[HOST_SOL_GPIO_V01] = 0xFFFF;
+	}
+
+	ret = of_property_read_u32(priv->pdev->dev.of_node, "target-sol-gpio",
+				   &gpio);
+	if (!ret) {
+		icnss_pr_dbg("TARGET_SOL_GPIO modified through DT: %d\n", gpio);
+		req->gpio_info_valid = 1;
+		req->gpio_info[TARGET_SOL_GPIO_V01] = gpio;
+	} else {
+		req->gpio_info[TARGET_SOL_GPIO_V01] = 0xFFFF;
+	}
+
+	req->gpio_info_len = GPIO_TYPE_MAX_V01;
 
 	ret = qmi_txn_init(&priv->qmi, &txn,
 			   wlfw_host_cap_resp_msg_v01_ei, resp);
