@@ -18,20 +18,11 @@
 #define MAX_PRINT_SIZE		1024
 #define MAX_BUF_NUM		4
 #define MAX_RESIDUAL_SIZE	MAX_PRINT_SIZE
-#define LOG_ID_MARKER		0x474F4C
-#define LOG_ID_MARKER_SHIFT	24
-#define LOG_ID_MARKER_MASK	0xFFFFFF
-#define LOG_ID_MASK		0xFF
 #define SIZE_ADJUST		4
 #define SRC_OFFSET		4
 
 #define CREATE_TRACE_POINTS
 #include "trace_cpucp.h"
-
-enum sync_mode {
-	ping_pong,
-	log_id
-};
 
 struct remote_mem {
 	void __iomem *start;
@@ -52,9 +43,9 @@ struct rimps_log_info {
 	struct delayed_work work;
 	struct device *dev;
 	void __iomem *base;
-	enum sync_mode sync_mode;
 	unsigned int rmem_idx;
 	unsigned int num_bufs;
+	unsigned int total_buf_size;
 	char *rem_buf;
 	char *glb_buf;
 	int  rem_len;
@@ -179,29 +170,27 @@ static void rimps_log_rx(struct mbox_client *client, void *msg)
 		return;
 	}
 
-	if (info->sync_mode == log_id) {
-		marker = *(u32 *)(info->rmem)->start;
-		if ((marker & LOG_ID_MARKER_MASK) != LOG_ID_MARKER) {
-			pr_err("%s: Log signature incorrect\n", __func__);
-			return;
-		}
-		info->rmem_idx = ((marker >> LOG_ID_MARKER_SHIFT)
-					& LOG_ID_MASK);
-		if (info->rmem_idx >= info->num_bufs) {
-			dev_err(dev, "wrong index id dropping\n");
-			return;
-		}
-		if (info->rmem_idx == 0) {
-			size_adj = SIZE_ADJUST;
-			src_offset = SRC_OFFSET;
-		}
+	marker = *(u32 *)(info->rmem)->start;
+	if (marker <= info->rmem->size) {
+		info->rmem_idx = 0;
+		rmem_size = marker;
+	} else if (marker <= info->total_buf_size) {
+		info->rmem_idx = 1;
+		rmem_size = marker - info->rmem->size;
+	} else {
+		pr_err("%s: Log marker incorrect: %u\n", __func__, marker);
+		return;
+	}
+
+	if (info->rmem_idx == 0) {
+		size_adj = SIZE_ADJUST;
+		src_offset = SRC_OFFSET;
 	}
 
 	rmem = info->rmem + info->rmem_idx;
-	rmem_size = rmem->size - size_adj;
+	rmem_size -= size_adj;
 	src = rmem->start + src_offset;
-	memcpy_fromio(&buf_node->buf[buf_node->cpy_idx],
-				src, rmem_size);
+	memcpy_fromio(&buf_node->buf[buf_node->cpy_idx], src, rmem_size);
 	buf_node->size = rmem_size;
 	spin_lock_irqsave(&info->full_list_lock, flags);
 	list_add_tail(&buf_node->node, &full_buffers_list);
@@ -209,12 +198,6 @@ static void rimps_log_rx(struct mbox_client *client, void *msg)
 
 	if (!delayed_work_pending(&info->work))
 		queue_delayed_work(rimps_wq, &info->work, 0);
-
-	if (info->sync_mode == ping_pong) {
-		info->rmem_idx++;
-		if (info->rmem_idx == info->num_bufs)
-			info->rmem_idx = 0;
-	}
 }
 
 static int populate_free_buffers(struct rimps_log_info *info,
@@ -289,6 +272,7 @@ static int rimps_log_probe(struct platform_device *pdev)
 			prev_size = rmem->size;
 		}
 
+		info->total_buf_size += rmem->size;
 		info->num_bufs++;
 	}
 	info->glb_buf = devm_kzalloc(dev, MAX_BUF_NUM *
@@ -308,8 +292,6 @@ static int rimps_log_probe(struct platform_device *pdev)
 	ret = populate_free_buffers(info, rmem->size);
 	if (ret < 0)
 		goto exit;
-
-	info->sync_mode = log_id;
 
 	cl = &info->cl;
 	cl->dev = dev;
