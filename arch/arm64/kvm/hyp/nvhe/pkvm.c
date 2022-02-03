@@ -547,6 +547,16 @@ static int check_shadow_size(int nr_vcpus, size_t shadow_size)
  *
  * Unmaps the donated memory from the host at stage 2.
  *
+ * kvm: A pointer to the host's struct kvm (host va).
+ * shadow_va: The host va of the area being donated for the shadow state.
+ * 	      Must be page aligned.
+ * shadow_size: The size of the area being donated for the shadow state.
+ * 		Must be a multiple of the page size.
+ * pgd: The host va of the area being donated for the stage-2 PGD for the VM.
+ * 	Must be page aligned. Its size is implied by the VM's VTCR.
+ * Note: An array to the host KVM VCPUs (host VA) is passed via the pgd, as to
+ * 	 not to be dependent on how the VCPU's are layed out in struct kvm.
+ *
  * Return a unique handle to the protected VM on success,
  * negative error code on failure.
  */
@@ -562,6 +572,12 @@ int __pkvm_init_shadow(struct kvm *kvm,
 	u64 pgd_size;
 	int nr_vcpus = 0;
 	int ret = 0;
+
+	/* Check that the donated memory is aligned to page boundaries. */
+	if (!PAGE_ALIGNED(shadow_va) ||
+	    !PAGE_ALIGNED(shadow_size) ||
+	    !PAGE_ALIGNED(pgd))
+		return -EINVAL;
 
 	kvm = kern_hyp_va(kvm);
 	pgd = kern_hyp_va(pgd);
