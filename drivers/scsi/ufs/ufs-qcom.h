@@ -64,7 +64,7 @@ enum {
 	REG_UFS_TX_SYMBOL_CLK_NS_US         = 0xC4,
 	REG_UFS_LOCAL_PORT_ID_REG           = 0xC8,
 	REG_UFS_PA_ERR_CODE                 = 0xCC,
-	REG_UFS_RETRY_TIMER_REG             = 0xD0,
+	REG_UFS_PARAM0                      = 0xD0,
 	REG_UFS_PA_LINK_STARTUP_TIMER       = 0xD8,
 
 	REG_UFS_CFG0                        = 0xD8,
@@ -158,6 +158,13 @@ enum {
 				 CC_UFS_ICE_CORE_CLK_REQ_EN |\
 				 CC_UFS_UNIPRO_CORE_CLK_REQ_EN |\
 				 CC_UFS_AUXCLK_REQ_EN)
+
+/* UFS_MEM_PARAM0 register */
+#define UFS_MAX_HS_GEAR_SHIFT	(4)
+#define UFS_MAX_HS_GEAR_MASK	(0x7 << UFS_MAX_HS_GEAR_SHIFT)
+#define UFS_QCOM_MAX_HS_GEAR(x) (((x) & UFS_MAX_HS_GEAR_MASK) >>\
+				 UFS_MAX_HS_GEAR_SHIFT)
+
 /* bit offset */
 enum {
 	OFFSET_UFS_PHY_SOFT_RESET           = 1,
@@ -479,6 +486,7 @@ struct ufs_qcom_host {
 
 	struct gpio_desc *device_reset;
 
+	int max_hs_gear;
 	int limit_tx_hs_gear;
 	int limit_rx_hs_gear;
 	int limit_tx_pwm_gear;
