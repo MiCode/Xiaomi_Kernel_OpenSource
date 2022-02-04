@@ -26,17 +26,17 @@
 		mboxes = <&qmp_aop 0>;
 
 		vdd-wlan-io-supply = <&S10B>;
-		qcom,vdd-wlan-io-config = <1800000 1800000 0 0 0>;
+		qcom,vdd-wlan-io-config = <1800000 1800000 0 0 1>;
 		vdd-wlan-supply = <&S3E>;
 		qcom,vdd-wlan-config = <1000000 1000000 0 0 0>;
 		vdd-wlan-aon-supply = <&S2E>;
-		qcom,vdd-wlan-aon-config = <980000 980000 0 0 0>;
+		qcom,vdd-wlan-aon-config = <980000 980000 0 0 1>;
 		vdd-wlan-dig-supply = <&S11B>;
-		qcom,vdd-wlan-dig-config = <950000 950000 0 0 0>;
+		qcom,vdd-wlan-dig-config = <950000 950000 0 0 1>;
 		vdd-wlan-rfa1-supply = <&S1C>;
-		qcom,vdd-wlan-rfa1-config = <1900000 1900000 0 0 0>;
+		qcom,vdd-wlan-rfa1-config = <1900000 1900000 0 0 1>;
 		vdd-wlan-rfa2-supply = <&S12B>;
-		qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 0>;
+		qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 1>;
 
 		interconnects =
 		<&pcie_noc MASTER_PCIE_1 &pcie_noc SLAVE_ANOC_PCIE_GEM_NOC>,
