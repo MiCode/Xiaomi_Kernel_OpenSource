@@ -2,5 +2,6 @@
 
 obj-$(CONFIG_MSM_GLOBAL_SYNX) += qcom_ipc_lite.o
 obj-$(CONFIG_MSM_GLOBAL_SYNX) += synx-driver.o
+obj-$(CONFIG_MSM_GLOBAL_IPCLITE) += ipclite.o
 
 synx-driver-y := synx.o synx_util.o synx_debugfs.o
