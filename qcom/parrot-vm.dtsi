@@ -1,0 +1,63 @@
+#include "waipio-vm.dtsi"
+
+/ {
+	qcom,msm-id = <537 0x10000>;
+	interrupt-parent = <&vgic>;
+
+	idle-states {
+		CPU_PWR_DWN: c4 {
+			status = "disabled";
+		};
+
+		CLUSTER_PWR_DWN: d4 {
+			status = "disabled";
+		};
+	};
+
+	gunyah-vsock {
+		status = "disabled";
+	};
+
+	qcom,vm-config {
+		vdevices {
+			gvsock-message-queue-pair {
+				status = "disabled";
+			};
+		};
+	};
+};
+
+&soc {
+
+	/delete-node/ interrupt-controller@17100000;
+
+	qcom,spmi@c42d000 {
+		status = "disabled";
+	};
+
+	vgic: interrupt-controller@17200000 {
+		compatible = "arm,gic-v3";
+		interrupt-controller;
+		#interrupt-cells = <0x3>;
+		#redistributor-regions = <1>;
+		redistributor-stride = <0x0 0x20000>;
+		reg = <0x17200000 0x10000>,     /* GICD */
+		<0x17260000 0x100000>;    /* GICR * 8 */
+	};
+
+	pinctrl@f000000 {
+		compatible = "qcom,parrot-vm-pinctrl";
+		gpios = /bits/ 16 <>;
+	};
+
+	tlmm-vm-mem-access {
+		tlmm-vm-gpio-list = <>;
+	};
+
+	/delete-node/ qup_common_iommu_group;
+	/delete-node/ qcom,qupv3_0_geni_se@9c0000;
+	/delete-node/ qcom,gpi-dma@900000;
+	/delete-node/ i2c@990000;
+	/delete-node/ spi@990000;
+
+};

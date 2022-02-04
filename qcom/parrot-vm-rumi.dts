@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "parrot-vm.dtsi"
+#include "parrot-vm-rumi.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Parrot SVM RUMI";
+	compatible = "qcom,parrot-rumi", "qcom,parrot", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};
