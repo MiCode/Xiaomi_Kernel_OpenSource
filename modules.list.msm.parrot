@@ -50,3 +50,6 @@ phy-qcom-ufs.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 ufs_qcom.ko
 debug-regulator.ko
+gh_arm_drv.ko
+gh_ctrl.ko
+gh_dbl.ko
