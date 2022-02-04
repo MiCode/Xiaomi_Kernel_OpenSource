@@ -78,7 +78,7 @@
 		qcom,use-3-lvl-tables;
 		qcom,num-context-banks-override = <0x4e>;
 		qcom,num-smr-override = <0x78>;
-		qcom,handoff-smrs = <2>;
+		qcom,handoff-smrs = <0x2800 0x402>;
 		#global-interrupts = <1>;
 		#size-cells = <1>;
 		#address-cells = <1>;
