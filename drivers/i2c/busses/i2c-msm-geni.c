@@ -311,7 +311,9 @@ static inline void qcom_geni_i2c_conf(struct geni_i2c_dev *gi2c, int dfs)
 {
 	struct geni_i2c_clk_fld *itr = geni_i2c_clk_map + gi2c->clk_fld_idx;
 
-	geni_write_reg(dfs, gi2c->base, SE_GENI_CLK_SEL);
+	/* do not configure the dfs index for i2c hub master */
+	if (!gi2c->is_i2c_hub)
+		geni_write_reg(dfs, gi2c->base, SE_GENI_CLK_SEL);
 
 	geni_write_reg((itr->clk_div << 4) | 1, gi2c->base, GENI_SER_M_CLK_CFG);
 	geni_write_reg(((itr->t_high << 20) | (itr->t_low << 10) |
