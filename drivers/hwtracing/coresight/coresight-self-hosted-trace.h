@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-
 /*
  * Arm v8 Self-Hosted trace support.
  *
@@ -29,4 +28,4 @@ static inline void cpu_prohibit_trace(void)
 	/* Prohibit tracing at EL0 & the kernel EL */
 	write_trfcr(trfcr & ~(TRFCR_ELx_ExTRE | TRFCR_ELx_E0TRE));
 }
-#endif			/*  __CORESIGHT_SELF_HOSTED_TRACE_H */
+#endif /*  __CORESIGHT_SELF_HOSTED_TRACE_H */
