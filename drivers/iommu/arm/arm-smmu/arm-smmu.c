@@ -51,8 +51,8 @@
 #include "arm-smmu.h"
 #include "../../iommu-logger.h"
 #include "../../qcom-dma-iommu-generic.h"
-#include "../../qcom-io-pgtable.h"
 #include <linux/qcom-iommu-util.h>
+#include <linux/qcom-io-pgtable.h>
 
 #define CREATE_TRACE_POINTS
 #include "arm-smmu-trace.h"
