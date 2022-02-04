@@ -49,23 +49,6 @@ int adreno_wake_nice = -7;
 /* Number of milliseconds to stay active active after a wake on touch */
 unsigned int adreno_wake_timeout = 100;
 
-bool adreno_regulator_disable_poll(struct kgsl_device *device,
-		struct regulator *reg, u32 offset, u32 timeout)
-{
-	u32 val;
-	int ret;
-
-	if (IS_ERR_OR_NULL(reg))
-		return true;
-
-	regulator_disable(reg);
-
-	ret = kgsl_regmap_read_poll_timeout(&device->regmap, offset,
-		val, !(val & BIT(31)), 100, timeout * 1000);
-
-	return ret ? false : true;
-}
-
 static u32 get_ucode_version(const u32 *data)
 {
 	u32 version;

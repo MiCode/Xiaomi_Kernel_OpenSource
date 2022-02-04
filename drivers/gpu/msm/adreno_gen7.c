@@ -4,7 +4,6 @@
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
-#include <linux/clk/qcom.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
@@ -244,16 +243,6 @@ static void gen7_protect_init(struct adreno_device *adreno_dev)
 				FIELD_PREP(GENMASK(17, 0), regs[i].start) |
 				FIELD_PREP(GENMASK(30, 18), count) |
 				FIELD_PREP(BIT(31), regs[i].noaccess));
-	}
-}
-
-void gen7_cx_regulator_disable_wait(struct regulator *reg,
-		struct kgsl_device *device, u32 timeout)
-{
-	if (!adreno_regulator_disable_poll(device, reg, GEN7_GPU_CC_CX_GDSCR, timeout)) {
-		dev_err(device->dev, "GPU CX wait timeout. Dumping CX votes:\n");
-		/* Dump the cx regulator consumer list */
-		qcom_clk_dump(NULL, reg, false);
 	}
 }
 
