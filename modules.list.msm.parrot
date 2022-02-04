@@ -33,7 +33,6 @@ qcom_dma_heaps.ko
 qcom_hwspinlock.ko
 qcom_iommu_util.ko
 qcom_ipcc.ko
-qcom_llcc_pmu.ko
 qcom_rpmh.ko
 qcom-scm.ko
 qnoc-qos.ko
