@@ -710,12 +710,8 @@ int mhi_dev_net_interface_init(void)
 
 	mhi_net_ipc_log = ipc_log_context_create(MHI_NET_IPC_PAGES,
 						"mhi-net", 0);
-	if (!mhi_net_ipc_log) {
-		mhi_dev_net_log(MHI_DBG,
-				"Failed to create IPC logging for mhi_dev_net\n");
-		kfree(mhi_net_client);
-		return -ENOMEM;
-	}
+	if (!mhi_net_ipc_log)
+		pr_err("Failed to create IPC logging for mhi_dev_net\n");
 	mhi_net_ctxt.client_handle = mhi_net_client;
 
 	if (mhi_net_ctxt.pdev)
