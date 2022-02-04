@@ -101,6 +101,9 @@ SoCs:
 - PARROT
   compatible = "qcom,parrot"
 
+- ANORAK
+  compatible = "qcom,anorak"
+
 Generic board variants:
 
 - CDP device:
@@ -283,3 +286,5 @@ compatible = "qcom,diwalip-qrd"
 compatible = "qcom,diwalip-atp"
 compatible = "qcom,neo-rumi"
 compatible = "qcom,parrot-rumi"
+compatible = "qcom,anorak-rumi"
+compatible = "qcom,anorak-idp"
