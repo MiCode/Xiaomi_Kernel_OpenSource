@@ -3886,6 +3886,10 @@ static void mhi_ring_init_cb(void *data)
 	if (WARN_ON(!mhi))
 		return;
 
+	if (!mhi_ctx->init_done) {
+		mhi_log(MHI_MSG_INFO, "mhi init is not done, returning\n");
+		return;
+	}
 	queue_work(mhi->ring_init_wq, &mhi->ring_init_cb_work);
 }
 
@@ -4455,6 +4459,14 @@ static int mhi_dev_probe(struct platform_device *pdev)
 		if (mhi_ipc_log == NULL) {
 			dev_err(&pdev->dev,
 				"Failed to create IPC logging context\n");
+		}
+
+		if (mhi_ctx->use_mhi_dma) {
+			rc =  mhi_dma_register_ready_cb(mhi_ring_init_cb, mhi_ctx);
+			if (rc != -EEXIST && rc != 0) {
+				pr_err("Error while registering with MHI DMA, defering\n");
+				return -EPROBE_DEFER;
+			}
 		}
 		/*
 		 * The below list and mutex should be initialized
