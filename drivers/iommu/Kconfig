@@ -337,7 +337,7 @@ config ARM_SMMU
 
 config ARM_SMMU_CONTEXT_FAULT_RETRY
 	bool "Context fault retry sequence"
-	depends on ARM_SMMU && ARCH_WAIPIO
+	depends on ARM_SMMU && (ARCH_WAIPIO || ARCH_PARROT)
 	help
 	  In some cases, issuing a tlb invalidate operation after a
 	  context fault may cause a subsequent retry of the failing
