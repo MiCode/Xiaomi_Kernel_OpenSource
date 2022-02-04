@@ -645,6 +645,15 @@ static void adreno_hwsched_issuecmds(struct adreno_device *adreno_dev)
 	if (!hwsched_in_fault(hwsched))
 		hwsched_issuecmds(adreno_dev);
 
+	if (hwsched->inflight > 0) {
+		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+		mutex_lock(&device->mutex);
+		kgsl_pwrscale_update(device);
+		kgsl_start_idle_timer(device);
+		mutex_unlock(&device->mutex);
+	}
+
 	mutex_unlock(&hwsched->mutex);
 }
 
