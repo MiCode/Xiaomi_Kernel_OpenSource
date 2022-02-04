@@ -33,6 +33,11 @@
 			compatible = "snps,dwc3";
 			reg = <0xa600000 0xd800>;
 
+			iommus = <&apps_smmu 0x80 0x0>;
+			qcom,iommu-dma = "atomic";
+			qcom,iommu-dma-addr-pool = <0x90000000 0x60000000>;
+			dma-coherent;
+
 			interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
