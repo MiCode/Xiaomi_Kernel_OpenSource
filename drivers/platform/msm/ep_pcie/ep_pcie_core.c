@@ -103,6 +103,7 @@ static const struct ep_pcie_res_info_t ep_pcie_res_info[EP_PCIE_MAX_RES] = {
 	{"edma",	NULL, NULL},
 	{"tcsr_pcie_perst_en",	NULL, NULL},
 	{"aoss_cc_reset", NULL, NULL},
+	{"rumi", NULL, NULL},
 };
 
 static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
@@ -468,6 +469,9 @@ static int ep_pcie_pipe_clk_init(struct ep_pcie_dev_t *dev)
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
+	if (dev->rumi)
+		return 0;
+
 	for (i = 0; i < EP_PCIE_MAX_PIPE_CLK; i++) {
 		info = &dev->pipeclk[i];
 
@@ -530,25 +534,29 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 {
 	struct resource *res = dev->res[EP_PCIE_RES_MMIO].resource;
 	u32 mask = resource_size(res);
-	u32 properties = 0x4;
+	u32 properties = 0x4; /* 64 bit Non-prefetchable memory */
 
 	EP_PCIE_DBG(dev, "PCIe V%d: BAR mask to program is 0x%x\n",
 			dev->rev, mask);
 
 	/* Configure BAR mask via CS2 */
 	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, 0, BIT(0));
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, mask);
+
+	/* Set the BAR number 0 and enable 4 KB */
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, mask - 1);
+
+	/* disable rest of the BARs */
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x4, 0);
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, mask);
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, 0);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0xc, 0);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x10, 0);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x14, 0);
+
 	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, BIT(0), 0);
 
-	/* Configure BAR properties via CS */
+	/* Configure BAR0 type via CS */
 	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, 0, BIT(0));
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, properties);
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, properties);
 	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0), 0);
 }
 
@@ -1349,6 +1357,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	dev->iatu = dev->res[EP_PCIE_RES_IATU].base;
 	dev->tcsr_perst_en = dev->res[EP_PCIE_RES_TCSR_PERST].base;
 	dev->aoss_rst_perst = dev->res[EP_PCIE_RES_AOSS_CC_RESET].base;
+	dev->rumi = dev->res[EP_PCIE_RES_RUMI].base;
 
 out:
 	kfree(clkfreq);
@@ -1804,6 +1813,12 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		ret = ep_pcie_reset_init(dev);
 		if (ret)
 			goto link_fail;
+	}
+
+	if (dev->rumi) {
+		EP_PCIE_DBG(dev, "PCIe V%d: RUMI: drive clk from RC\n",
+				dev->rev);
+		ep_pcie_write_reg(dev->rumi, 0, 0x7701);
 	}
 
 	if (!(opt & EP_PCIE_OPT_ENUM))
