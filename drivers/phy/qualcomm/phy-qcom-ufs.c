@@ -318,7 +318,9 @@ static int ufs_qcom_phy_init_vreg(struct device *dev,
 					__func__, prop_name);
 			goto out;
 		} else if (err == -EINVAL || !vreg->max_uA) {
-			if (regulator_count_voltages(vreg->reg) > 0) {
+			if (!vreg->max_uA) {
+				err = 0;
+			} else if (regulator_count_voltages(vreg->reg) > 0) {
 				dev_err(dev, "%s: %s is mandatory\n",
 						__func__, prop_name);
 				goto out;
