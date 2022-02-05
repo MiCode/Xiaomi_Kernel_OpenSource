@@ -2372,6 +2372,22 @@ enable_pdr:
 	return 0;
 }
 
+static int icnss_dev_id_match(struct icnss_priv *priv,
+			      struct device_info *dev_info)
+{
+	if (!dev_info) {
+		icnss_pr_info("WLAN driver devinfo is null, Continue driver loading");
+		return 1;
+	}
+
+	while (dev_info->device_id) {
+		if (priv->device_id == dev_info->device_id)
+			return 1;
+		dev_info++;
+	}
+	return 0;
+}
+
 static int icnss_tcdev_get_max_state(struct thermal_cooling_device *tcdev,
 					unsigned long *thermal_state)
 {
@@ -2564,6 +2580,12 @@ int __icnss_register_driver(struct icnss_driver_ops *ops,
 		icnss_pr_err("Driver already registered\n");
 		ret = -EEXIST;
 		goto out;
+	}
+
+	if (!icnss_dev_id_match(priv, ops->dev_info)) {
+		icnss_pr_err("WLAN driver dev name is %s, not supported by platform driver\n",
+			     ops->dev_info->name);
+		return -ENODEV;
 	}
 
 	if (!ops->probe || !ops->remove) {

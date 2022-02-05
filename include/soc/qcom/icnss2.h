@@ -16,6 +16,7 @@
 #define ICNSS_API_WITH_DEV
 #endif
 
+#define DEVICE_NAME_MAX		10
 enum icnss_uevent {
 	ICNSS_UEVENT_FW_CRASHED,
 	ICNSS_UEVENT_FW_DOWN,
@@ -37,8 +38,15 @@ struct icnss_uevent_data {
 	void *data;
 };
 
+/* Device information like supported device ids, etc*/
+struct device_info {
+	char name[DEVICE_NAME_MAX];
+	uint16_t device_id;
+};
+
 struct icnss_driver_ops {
 	char *name;
+	struct device_info *dev_info;
 	unsigned long drv_state;
 	struct device_driver driver;
 	int (*probe)(struct device *dev);
