@@ -509,7 +509,7 @@ static ssize_t perfmon_start_store(struct device *dev,
 	struct llcc_perfmon_private *llcc_priv = dev_get_drvdata(dev);
 	uint32_t val = 0, mask_val, offset;
 	unsigned long start;
-	int ret;
+	int ret = 0;
 
 	if (kstrtoul(buf, 0, &start))
 		return -EINVAL;
@@ -522,10 +522,13 @@ static ssize_t perfmon_start_store(struct device *dev,
 			return -EINVAL;
 		}
 
-		ret = clk_prepare_enable(llcc_priv->clock);
-		if (ret) {
-			mutex_unlock(&llcc_priv->mutex);
-			return -EINVAL;
+		if (llcc_priv->clock) {
+			ret = clk_prepare_enable(llcc_priv->clock);
+			if (ret) {
+				mutex_unlock(&llcc_priv->mutex);
+				pr_err("clock not enabled\n");
+				return -EINVAL;
+			}
 		}
 
 		val = MANUAL_MODE | MONITOR_EN;
@@ -552,7 +555,7 @@ static ssize_t perfmon_start_store(struct device *dev,
 	offset = PERFMON_MODE(llcc_priv->drv_ver);
 	llcc_bcast_modify(llcc_priv, offset, val, mask_val);
 
-	if (!start)
+	if (!start && llcc_priv->clock)
 		clk_disable_unprepare(llcc_priv->clock);
 
 	mutex_unlock(&llcc_priv->mutex);
@@ -593,6 +596,15 @@ static ssize_t perfmon_scid_status_show(struct device *dev,
 	unsigned int i, j, offset;
 	ssize_t cnt = 0;
 	unsigned long total;
+	unsigned int cap_mask, cap_shift;
+
+	cap_mask = TRP_SCID_STATUS_CURRENT_CAP_MASK;
+	cap_shift = TRP_SCID_STATUS_CURRENT_CAP_SHIFT;
+
+	if (llcc_priv->drv_ver == 31) {
+		cap_mask = TRP_SCID_STATUS_CURRENT_CAP_MASK_v31;
+		cap_shift = TRP_SCID_STATUS_CURRENT_CAP_SHIFT_v31;
+	}
 
 	for (i = 0; i < SCID_MAX; i++) {
 		total = 0;
@@ -600,8 +612,7 @@ static ssize_t perfmon_scid_status_show(struct device *dev,
 		for (j = 0; j < llcc_priv->num_banks; j++) {
 			regmap_read(llcc_priv->llcc_map,
 					llcc_priv->bank_off[j] + offset, &val);
-			val = (val & TRP_SCID_STATUS_CURRENT_CAP_MASK) >>
-				TRP_SCID_STATUS_CURRENT_CAP_SHIFT;
+			val = (val & cap_mask) >> cap_shift;
 			total += val;
 		}
 
@@ -759,6 +770,8 @@ static void feac_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 		} else {
 			if (enable)
 				val = (1 << match);
+			else
+				val = SCID_MULTI_MATCH_MASK;
 
 			mask_val = SCID_MULTI_MATCH_MASK;
 		}
@@ -1133,6 +1146,8 @@ static void trp_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 		if (llcc_priv->version == REV_2) {
 			if (enable)
 				val = (1 << match);
+			else
+				val = SCID_MULTI_MATCH_MASK;
 
 			mask_val = SCID_MULTI_MATCH_MASK;
 		} else {
@@ -1290,19 +1305,24 @@ static int llcc_perfmon_probe(struct platform_device *pdev)
 	llcc_priv->drv_ver = llcc_driv_data->llcc_ver;
 	offset = LLCC_COMMON_STATUS0(llcc_priv->drv_ver);
 	llcc_bcast_read(llcc_priv, offset, &val);
-	llcc_priv->num_mc = (val & NUM_MC_MASK) >> NUM_MC_SHIFT;
+
+	if (llcc_priv->drv_ver == 31)
+		llcc_priv->num_mc = (val & NUM_MC_MASK_v31) >> NUM_MC_SHIFT_v31;
+	else
+		llcc_priv->num_mc = (val & NUM_MC_MASK) >> NUM_MC_SHIFT;
+
 	/* Setting to 1, as some platforms it read as 0 */
 	if (llcc_priv->num_mc == 0)
 		llcc_priv->num_mc = 1;
 
-	llcc_priv->num_banks = (val & LB_CNT_MASK) >> LB_CNT_SHIFT;
+	llcc_priv->num_banks = llcc_driv_data->num_banks;
 	for (val = 0; val < llcc_priv->num_banks; val++)
 		llcc_priv->bank_off[val] = llcc_driv_data->offsets[val];
 
 	llcc_priv->clock = devm_clk_get(&pdev->dev, "qdss_clk");
 	if (IS_ERR_OR_NULL(llcc_priv->clock)) {
-		pr_err("failed to get clock node\n");
-		return PTR_ERR(llcc_priv->clock);
+		pr_warn("failed to get qdss clock node\n");
+		llcc_priv->clock =  NULL;
 	}
 
 	result = sysfs_create_group(&pdev->dev.kobj, &llcc_perfmon_group);

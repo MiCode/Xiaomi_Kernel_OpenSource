@@ -560,8 +560,10 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 
 static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 {
-	u32 mhi_status;
+	u32 mhi_status, mhi_miscoff;
 	void __iomem *mhi_status_addr;
+	struct resource *res = dev->res[EP_PCIE_RES_MMIO].resource;
+	u32 mhi_reg_size = resource_size(res);
 
 	EP_PCIE_DBG(dev,
 		"Initial version of MMIO is:0x%x\n",
@@ -590,6 +592,15 @@ static void ep_pcie_config_mmio(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_reg(dev->mmio, PCIE20_MHIVER, 0x1000000);
 	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_VERSION_LOWER, 0x2);
 	ep_pcie_write_reg(dev->mmio, PCIE20_BHI_VERSION_UPPER, 0x1);
+
+	/*
+	 * If this register holds an invalid value that implies bootloaders
+	 * didn't update the capabilities. And we don't support any of the
+	 * MHI capabilities so set this register to zero.
+	 */
+	mhi_miscoff = readl_relaxed(dev->mmio + PCIE20_MISCOFF);
+	if (mhi_miscoff > mhi_reg_size)
+		ep_pcie_write_reg(dev->mmio, PCIE20_MISCOFF, 0);
 
 	dev->config_mmio_init = true;
 }

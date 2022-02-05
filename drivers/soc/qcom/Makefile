@@ -115,4 +115,6 @@ obj-$(CONFIG_QCOM_SPEC_SYNC)  += sync_fence/
 obj-$(CONFIG_MSM_TMECOM_QMP) += tmecom/
 obj-$(CONFIG_QCOM_HUNG_TASK_ENH) += hung_task_enh.o
 obj-$(CONFIG_QCOM_QFPROM_SYS) += qfprom-sys.o
+obj-$(CONFIG_MSM_HELIOSCOM) += helioscom_spi.o
+obj-$(CONFIG_MSM_HELIOSCOM_INTERFACE) += helioscom_interface.o
 obj-$(CONFIG_QTI_OEMVM_CORE_CTL) += oemvm_core_ctl.o

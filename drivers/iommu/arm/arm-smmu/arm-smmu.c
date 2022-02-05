@@ -146,7 +146,7 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data);
 static void arm_smmu_free_pgtable(void *cookie, void *virt, int order, bool deferred_free);
-static void __arm_smmu_qcom_tlb_sync(struct iommu_domain *domain);
+static void __arm_smmu_flush_iotlb_all(struct iommu_domain *domain);
 
 static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
 {
@@ -1459,7 +1459,7 @@ static void arm_smmu_qcom_tlb_sync(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 
-	__arm_smmu_qcom_tlb_sync(&smmu_domain->domain);
+	__arm_smmu_flush_iotlb_all(&smmu_domain->domain);
 }
 
 static const struct qcom_iommu_pgtable_ops arm_smmu_pgtable_ops = {
@@ -1737,6 +1737,14 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	 */
 	if (test_bit(DOMAIN_ATTR_ATOMIC, smmu_domain->attributes)) {
 		smmu_domain->rpm_always_on = true;
+		/* During device shutdown, if non atomic client is doing the register
+		 * space access, it experiencing the unclocked access error becaue of
+		 * force suspend from the device remove path, to avoid such case
+		 * adding smmu atomic refcount, to know is there any atomic client or
+		 * not, if there is no atomic client it will skip the force suspend and
+		 * power off.
+		 */
+		smmu->atomic_pwr_refcount++;
 		arm_smmu_rpm_get(smmu);
 	}
 
@@ -1783,8 +1791,10 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	 * Matches with call to arm_smmu_rpm_get in
 	 * arm_smmu_init_domain_contxt.
 	 */
-	if (smmu_domain->rpm_always_on)
+	if (smmu_domain->rpm_always_on) {
+		smmu->atomic_pwr_refcount--;
 		arm_smmu_rpm_put(smmu);
+	}
 
 	/*
 	 * Disable the context bank and free the page tables before freeing
@@ -2500,7 +2510,10 @@ static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
 
 	if (smmu_domain->flush_ops) {
 		arm_smmu_rpm_get(smmu);
-		smmu_domain->flush_ops->tlb_flush_all(smmu_domain);
+		/* Secure pages may be freed to the secure pool after TLB maintenance. */
+		arm_smmu_secure_domain_lock(smmu_domain);
+		__arm_smmu_flush_iotlb_all(domain);
+		arm_smmu_secure_domain_unlock(smmu_domain);
 		arm_smmu_rpm_put(smmu);
 	}
 }
@@ -2509,10 +2522,9 @@ static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
  * Caller must call arm_smmu_rpm_get(). Secure context banks must also hold
  * arm_smmu_secure_domain_lock.
  */
-static void __arm_smmu_qcom_tlb_sync(struct iommu_domain *domain)
+static void __arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	LIST_HEAD(list);
 	struct page *page, *tmp;
 	unsigned long flags;
@@ -2523,11 +2535,7 @@ static void __arm_smmu_qcom_tlb_sync(struct iommu_domain *domain)
 		return;
 	}
 
-	if (smmu->version == ARM_SMMU_V2 ||
-	    smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
-		arm_smmu_tlb_inv_context_s1(smmu_domain);
-	else
-		arm_smmu_tlb_sync_global(smmu);
+	smmu_domain->flush_ops->tlb_flush_all(smmu_domain);
 
 	list_splice_init(&smmu_domain->iotlb_gather_freelist, &list);
 	smmu_domain->deferred_sync = false;
@@ -2549,12 +2557,7 @@ static void arm_smmu_iotlb_sync(struct iommu_domain *domain,
 	if (!smmu)
 		return;
 
-	arm_smmu_rpm_get(smmu);
-	/* Secure pages may be freed to the secure pool after TLB maintenance. */
-	arm_smmu_secure_domain_lock(smmu_domain);
-	__arm_smmu_qcom_tlb_sync(domain);
-	arm_smmu_secure_domain_unlock(smmu_domain);
-	arm_smmu_rpm_put(smmu);
+	arm_smmu_flush_iotlb_all(domain);
 }
 
 static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
@@ -4078,10 +4081,12 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_sCR0, ARM_SMMU_sCR0_CLIENTPD);
 	arm_smmu_rpm_put(smmu);
 
-	if (pm_runtime_enabled(smmu->dev))
-		pm_runtime_force_suspend(smmu->dev);
-	else
-		arm_smmu_power_off(smmu, smmu->pwr);
+	if (smmu->atomic_pwr_refcount > 0) {
+		if (pm_runtime_enabled(smmu->dev))
+			pm_runtime_force_suspend(smmu->dev);
+		else
+			arm_smmu_power_off(smmu, smmu->pwr);
+	}
 
 	return 0;
 }

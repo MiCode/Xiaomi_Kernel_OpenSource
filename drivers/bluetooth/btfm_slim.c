@@ -179,9 +179,14 @@ int btfm_slim_enable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 
 	if (ret == 0)
 		btfm_num_ports_open++;
-error:
+
 	BTFMSLIM_INFO("btfm_num_ports_open: %d", btfm_num_ports_open);
+	return ret;
+error:
+	BTFMSLIM_INFO("error %d while opening port, btfm_num_ports_open: %d",
+			ret, btfm_num_ports_open);
 	kfree(chan->dai.sconfig.chs);
+	chan->dai.sconfig.chs = NULL;
 	return ret;
 }
 
@@ -241,10 +246,13 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 		}
 	}
 	ch->dai.sconfig.port_mask = 0;
-	kfree(ch->dai.sconfig.chs);
+	if (ch->dai.sconfig.chs != NULL)
+		kfree(ch->dai.sconfig.chs);
 
 	if (btfm_num_ports_open > 0)
 		btfm_num_ports_open--;
+
+	ch->dai.sruntime = NULL;
 
 	BTFMSLIM_INFO("btfm_num_ports_open: %d", btfm_num_ports_open);
 

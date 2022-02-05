@@ -1229,6 +1229,7 @@ static const struct adsp_data diwali_wpss_resource = {
 	.firmware_name = "wpss.mdt",
 	.pas_id = 6,
 	.minidump_id = 4,
+	.uses_elf64 = true,
 	.ssr_name = "wpss",
 	.sysmon_name = "wpss",
 	.qmp_name = "wpss",

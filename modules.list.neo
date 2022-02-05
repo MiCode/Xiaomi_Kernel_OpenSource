@@ -2,6 +2,7 @@ qcom_ipc_logging.ko
 ns.ko
 qrtr.ko
 crc8.ko
+debug-regulator.ko
 lzo.ko
 lzo-rle.ko
 zsmalloc.ko
@@ -29,9 +30,15 @@ pmic_glink.ko
 qcom_soc_wdt.ko
 smem.ko
 qcom_sync_file.ko
+gh_msgq.ko
+gh_rm_drv.ko
 socinfo.ko
 llcc_perfmon.ko
+deferred-free-helper.ko
+mem-offline.ko
+mem-hooks.ko
 memory_dump_v2.ko
+msm_dma_iommu_mapping.ko
 pdr_interface.ko
 qcom_wdt_core.ko
 qcom_rpmh.ko
@@ -39,10 +46,13 @@ clk-qcom.ko
 clk-dummy.ko
 zram.ko
 msm_geni_serial.ko
+mem_buf.ko
+mem_buf_dev.ko
 pinctrl-neo.ko
 pinctrl-msm.ko
 phy-generic.ko
 phy-qcom-emu.ko
+qcom_dma_heaps.ko
 dwc3-msm.ko
 cqhci.ko
 sdhci-msm.ko
@@ -50,3 +60,5 @@ core_hang_detect.ko
 kryo_arm64_edac.ko
 gcc-neo.ko
 gdsc-regulator.ko
+dispcc-neo.ko
+secure_buffer.ko

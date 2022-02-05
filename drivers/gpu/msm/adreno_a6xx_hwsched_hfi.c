@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iommu.h>
@@ -1365,6 +1366,16 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 	struct hfi_submit_cmd *cmd;
 	struct adreno_submit_time time = {0};
+	static void *cmdbuf;
+
+	if (cmdbuf == NULL) {
+		struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+		cmdbuf = devm_kzalloc(&device->pdev->dev, HFI_MAX_MSG_SIZE,
+			GFP_KERNEL);
+		if (!cmdbuf)
+			return -ENOMEM;
+	}
 
 	ret = hfi_context_register(adreno_dev, drawobj->context);
 	if (ret)
@@ -1381,9 +1392,7 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	if (WARN_ON(cmd_sizebytes > HFI_MAX_MSG_SIZE))
 		return -EMSGSIZE;
 
-	cmd = kmalloc(cmd_sizebytes, GFP_KERNEL);
-	if (cmd == NULL)
-		return -ENOMEM;
+	cmd = cmdbuf;
 
 	cmd->ctxt_id = drawobj->context->id;
 	cmd->flags = HFI_CTXT_FLAG_NOTIFY;
@@ -1420,7 +1429,7 @@ skipib:
 		HFI_DSP_ID_0 + drawobj->context->gmu_dispatch_queue,
 		(u32 *)cmd);
 	if (ret)
-		goto free;
+		return ret;
 
 	add_profile_events(adreno_dev, drawobj, &time);
 
@@ -1432,9 +1441,6 @@ skipib:
 
 	/* Put the profiling information in the user profiling buffer */
 	adreno_profile_submit_time(&time);
-
-free:
-	kfree(cmd);
 
 	return ret;
 }
@@ -1552,7 +1558,6 @@ u32 a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
 	struct hfi_get_value_cmd cmd;
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
-	u32 seqnum = atomic_inc_return(&gmu->hfi.seqnum);
 	struct pending_cmd pending_ack;
 	int rc;
 
@@ -1563,7 +1568,8 @@ u32 a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
 	if (rc)
 		return 0;
 
-	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr, seqnum);
+	cmd.hdr = MSG_HDR_SET_SEQNUM(cmd.hdr,
+			atomic_inc_return(&gmu->hfi.seqnum));
 	cmd.type = HFI_VALUE_PREEMPT_COUNT;
 	cmd.subtype = 0;
 

@@ -483,7 +483,6 @@ struct dwc3_msm {
 	bool			in_device_mode;
 	enum usb_device_speed	max_rh_port_speed;
 	bool			perf_mode;
-	unsigned int		tx_fifo_size;
 	bool			check_eud_state;
 	bool			vbus_active;
 	bool			eud_active;
@@ -545,6 +544,7 @@ struct dwc3_msm {
 	void            *dwc_dma_ipc_log_ctxt;
 
 	struct dwc3_hw_ep	hw_eps[DWC3_ENDPOINTS_NUM];
+	bool			dis_sending_cm_l1_quirk;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -3112,6 +3112,15 @@ static void dwc3_msm_block_reset(struct dwc3_msm *mdwc, bool core_reset)
 	}
 }
 
+static void mdwc3_dis_sending_cm_l1(struct dwc3_msm *mdwc)
+{
+	u32 val;
+
+	val = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
+				val | DWC3_GUSB2PHYCFG_SUSPHY);
+}
+
 static void dwc3_en_sleep_mode(struct dwc3_msm *mdwc)
 {
 	u32 reg;
@@ -3167,6 +3176,9 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 				DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_HOST));
 		if (!dwc->dis_enblslpm_quirk)
 			dwc3_en_sleep_mode(mdwc);
+
+		if (mdwc->dis_sending_cm_l1_quirk)
+			mdwc3_dis_sending_cm_l1(mdwc);
 	}
 }
 
@@ -5127,11 +5139,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-tx-fifo-size",
-				 &mdwc->tx_fifo_size))
-		dev_err(&pdev->dev,
-			"unable to read platform data tx fifo size\n");
-
 	ret = of_property_read_u32(node, "qcom,num-gsi-evt-buffs",
 				&mdwc->num_gsi_event_buffers);
 
@@ -5172,6 +5179,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			goto err;
 		}
 	}
+
+	mdwc->dis_sending_cm_l1_quirk = of_property_read_bool(node,
+					"qcom,dis-sending-cm-l1-quirk");
 
 	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
@@ -5599,6 +5609,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		/* Increase Inter-packet delay by 1 UTMI clock cycle (EL_23) */
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUCTL1,
 				DWC3_GUCTL1_IP_GAP_ADD_ON_MASK, 1);
+
+		if (mdwc->dis_sending_cm_l1_quirk)
+			mdwc3_dis_sending_cm_l1(mdwc);
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_HOST);
 		if (dwc->dr_mode == USB_DR_MODE_OTG)

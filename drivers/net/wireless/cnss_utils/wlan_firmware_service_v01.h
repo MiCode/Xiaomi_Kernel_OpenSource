@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef WLAN_FIRMWARE_SERVICE_V01_H
@@ -551,9 +551,11 @@ struct wlfw_cap_resp_msg_v01 {
 	u16 hang_data_length;
 	u8 bdf_dnld_method_valid;
 	enum wlfw_bdf_dnld_method_v01 bdf_dnld_method;
+	u8 hwid_bitmap_valid;
+	u8 hwid_bitmap;
 };
 
-#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 358
+#define WLFW_CAP_RESP_MSG_V01_MAX_MSG_LEN 362
 extern struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[];
 
 struct wlfw_bdf_download_req_msg_v01 {
@@ -827,9 +829,11 @@ struct wlfw_host_cap_req_msg_v01 {
 	u32 wake_msi_addr;
 	u8 wlan_enable_delay_valid;
 	u32 wlan_enable_delay;
+	u8 ddr_type_valid;
+	u32 ddr_type;
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 396
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 403
 extern struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {

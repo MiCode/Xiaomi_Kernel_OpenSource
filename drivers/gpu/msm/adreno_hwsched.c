@@ -1185,8 +1185,16 @@ static unsigned int _preempt_count_show(struct adreno_device *adreno_dev)
 {
 	const struct adreno_hwsched_ops *hwsched_ops =
 		adreno_dev->hwsched.hwsched_ops;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 count;
 
-	return hwsched_ops->preempt_count(adreno_dev);
+	mutex_lock(&device->mutex);
+
+	count = hwsched_ops->preempt_count(adreno_dev);
+
+	mutex_unlock(&device->mutex);
+
+	return count;
 }
 
 static int _ft_long_ib_detect_store(struct adreno_device *adreno_dev, bool val)

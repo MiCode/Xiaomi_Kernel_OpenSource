@@ -2706,6 +2706,7 @@ const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
 		.setproperty = a6xx_setproperty,
 		.hw_isidle = a6xx_hw_isidle,
 		.add_to_va_minidump = a6xx_hwsched_add_to_minidump,
+		.gx_is_on = a6xx_gmu_gx_is_on,
 	},
 	.hfi_probe = a6xx_hwsched_hfi_probe,
 	.hfi_remove = a6xx_hwsched_hfi_remove,

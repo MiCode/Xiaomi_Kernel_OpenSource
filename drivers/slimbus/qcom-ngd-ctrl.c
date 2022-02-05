@@ -216,6 +216,7 @@ struct qcom_slim_ngd_ctrl {
 	int default_ipc_log_mask;
 	int ipc_log_mask;
 	bool sysfs_created;
+	bool wait_for_adsp_up;
 	void *ipc_slimbus_log;
 	void *ipc_slimbus_log_err;
 };
@@ -892,6 +893,12 @@ static int check_hw_state(struct qcom_slim_ngd_ctrl *ctrl, struct slim_msg_txn *
 				((mc >= SLIM_USR_MC_DEFINE_CHAN &&
 				mc < SLIM_USR_MC_DISCONNECT_PORT)))
 				return -EREMOTEIO;
+
+			if (!ctrl->wait_for_adsp_up) {
+				SLIM_INFO(ctrl, "Not waiting for ADSP up MC:0x%x,mt:0x%x\n",
+					mc, txn->mt);
+				return -EREMOTEIO;
+			}
 
 			reinit_completion(&ctrl->ctrl_up);
 			timeout = wait_for_completion_timeout(&ctrl->ctrl_up, HZ);
@@ -1939,6 +1946,9 @@ static int qcom_slim_ngd_ctrl_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "request IRQ failed\n");
 		return ret;
 	}
+
+	ctrl->wait_for_adsp_up = of_property_read_bool(pdev->dev.of_node,
+					"qcom,wait_for_adsp_up");
 
 	/* Create IPC log context */
 	ctrl->ipc_slimbus_log = ipc_log_context_create(IPC_SLIMBUS_LOG_PAGES,

@@ -48,7 +48,7 @@ struct guestvm_loader_private {
 	struct completion vm_start;
 	struct kobject vm_loader_kobj;
 	struct device *dev;
-	ktime_t vm_isol_start;
+	ktime_t request_vm_start_time;
 	char vm_name[MAX_LEN];
 	bool vm_loaded;
 	bool iso_needed;
@@ -178,7 +178,13 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 		complete_all(&priv->vm_start);
 		break;
 	case GH_RM_VM_STATUS_RUNNING:
-		dev_info(priv->dev, "vm(%d) started running\n", vm_status_payload->vmid);
+		if (priv->vm_status != GH_RM_VM_STATUS_RUNNING) {
+			priv->vm_status = GH_RM_VM_STATUS_RUNNING;
+			now = ktime_get();
+			delta = ktime_to_us(ktime_sub(now, priv->request_vm_start_time));
+			dev_info(priv->dev, "VM(%d) started running in %lu us\n",
+					vm_status_payload->vmid);
+		}
 		break;
 	default:
 		dev_err(priv->dev, "Unknown notification receieved for vmid = %d vm_status = %d\n",
@@ -189,8 +195,8 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 		if (os_status == GH_RM_OS_STATUS_BOOT) {
 			priv->os_status = os_status;
 			now = ktime_get();
-			delta = ktime_to_ns(ktime_sub(now, priv->vm_isol_start));
-			dev_info(priv->dev, "VM(%d) booted in %lu ns\n",
+			delta = ktime_to_us(ktime_sub(now, priv->request_vm_start_time));
+			dev_info(priv->dev, "VM(%d) booted in %lu us\n",
 					    priv->vmid, delta);
 		}
 	}
@@ -199,8 +205,8 @@ static int guestvm_loader_nb_handler(struct notifier_block *this,
 		if (app_status == GH_RM_APP_STATUS_TUI_SERVICE_BOOT) {
 			priv->app_status = app_status;
 			now = ktime_get();
-			delta = ktime_to_ns(ktime_sub(now, priv->vm_isol_start));
-			dev_info(priv->dev, "Unisolating VM(%d) cpus after %lu ns: VM app status = %d\n",
+			delta = ktime_to_us(ktime_sub(now, priv->request_vm_start_time));
+			dev_info(priv->dev, "Unisolating VM(%d) cpus after %lu us: VM app status = %d\n",
 					    priv->vmid, delta, app_status);
 			complete(&priv->isolation_done);
 		}
@@ -282,6 +288,8 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 	struct guestvm_loader_private *priv;
 	int ret = 0;
 	bool boot = false;
+	ktime_t now;
+	u64 delta;
 
 	ret = kstrtobool(buf, &boot);
 	if (ret)
@@ -295,6 +303,8 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 	}
 
 	if (boot) {
+		priv->request_vm_start_time = ktime_get();
+
 		priv->vm_status = GH_RM_VM_STATUS_INIT;
 		ret = gh_rm_vm_alloc_vmid(get_gh_vm_name(priv->vm_name),
 							&priv->vmid);
@@ -310,15 +320,15 @@ static ssize_t guestvm_loader_start(struct kobject *kobj,
 			return ret;
 		}
 		priv->vm_loaded = true;
+		now = ktime_get();
+		delta = ktime_to_us(ktime_sub(now, priv->request_vm_start_time));
+		dev_info(priv->dev, "VM(%d) loaded in %lu us\n", priv->vmid, delta);
 
 		if (wait_for_completion_interruptible(&priv->vm_start)) {
 			dev_err(priv->dev, "VM start completion interrupted\n");
 			return count;
 		}
 
-		priv->vm_status = GH_RM_VM_STATUS_RUNNING;
-
-		priv->vm_isol_start = ktime_get();
 		if (priv->iso_needed) {
 			INIT_WORK(&priv->unisolation_work, guestvm_unisolate_work);
 			schedule_work(&priv->unisolation_work);

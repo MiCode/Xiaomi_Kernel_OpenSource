@@ -1194,6 +1194,21 @@ config QCOM_BALANCE_ANON_FILE_RECLAIM
 	  equally.
 	  Swapping anonymous pages out to memory can be efficient enough to justify
 	  treating anonymous and file backed pages equally.
+config MSM_HELIOSCOM
+        tristate "Provide APIs to communicate with Helios chipset"
+        help
+                HELIOSCOM is a thin layer above SPI. It is used whithin a SoC for
+                communication between G-Link/helios_com_dev and Helios processor over SPI.
+                This handle the interrupts raised by BG and notify the G-link with
+                interrupt event and event data.
+config MSM_HELIOSCOM_INTERFACE
+        tristate "Driver support for Slate Communication"
+        depends on MSM_HELIOSCOM
+        help
+                Create a helios_com_dev device node for user space communication.
+                Single user space client can open device node for communication
+                from hardware. Hardware will provide access to read
+                registers and read/write AHB memory in the device.
 
 config QTI_OEMVM_CORE_CTL
 	tristate "OEMVM CPU control scheme for Hypervisor"

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "wlan_firmware_service_v01.h"
@@ -1849,6 +1849,26 @@ struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[] = {
 					   bdf_dnld_method),
 	},
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x21,
+		.offset         = offsetof(struct
+					   wlfw_cap_resp_msg_v01,
+					   hwid_bitmap_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x21,
+		.offset         = offsetof(struct
+					   wlfw_cap_resp_msg_v01,
+					   hwid_bitmap),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.array_type       = NO_ARRAY,
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
@@ -3576,6 +3596,26 @@ struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[] = {
 		.offset         = offsetof(struct
 					   wlfw_host_cap_req_msg_v01,
 					   wlan_enable_delay),
+	},
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x2C,
+		.offset         = offsetof(struct
+					   wlfw_host_cap_req_msg_v01,
+					   ddr_type_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_4_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u32),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x2C,
+		.offset         = offsetof(struct
+					   wlfw_host_cap_req_msg_v01,
+					   ddr_type),
 	},
 	{
 		.data_type      = QMI_EOTI,

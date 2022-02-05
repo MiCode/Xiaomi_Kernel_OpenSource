@@ -926,6 +926,7 @@ static int mem_buf_request_mem(struct mem_buf_desc *membuf)
 		goto out;
 
 out:
+	mem_buf_destroy_txn(&txn);
 	return ret;
 }
 

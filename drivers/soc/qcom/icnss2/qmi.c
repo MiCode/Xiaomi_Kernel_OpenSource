@@ -24,6 +24,7 @@
 #include <soc/qcom/icnss2.h>
 #include <soc/qcom/service-locator.h>
 #include <soc/qcom/service-notifier.h>
+#include <soc/qcom/of_common.h>
 #include "wlan_firmware_service_v01.h"
 #include "main.h"
 #include "qmi.h"
@@ -39,16 +40,19 @@
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
-#define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
+#define BIN_BDF_FILE_NAME_PREFIX	"bdwlan."
 #define REGDB_FILE_NAME			"regdb.bin"
 #define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
 
 #define QDSS_TRACE_CONFIG_FILE "qdss_trace_config.cfg"
 
+#define WLAN_BOARD_ID_INDEX		0x100
 #define DEVICE_BAR_SIZE			0x200000
 #define M3_SEGMENT_ADDR_MASK		0xFFFFFFFF
 #define DMS_QMI_MAX_MSG_LEN		SZ_256
 #define DMS_MAC_NOT_PROVISIONED		16
+#define BDWLAN_SIZE			6
+#define UMC_CHIP_ID                    0x4320
 
 #ifdef CONFIG_ICNSS2_DEBUG
 bool ignore_fw_timeout;
@@ -710,6 +714,11 @@ int wlfw_cap_send_sync_msg(struct icnss_priv *priv)
 	    resp->rd_card_chain_cap == WLFW_RD_CARD_CHAIN_CAP_1x1_V01)
 		priv->is_chain1_supported = false;
 
+	if (resp->foundry_name_valid)
+		priv->foundry_name = resp->foundry_name[0];
+	else if (resp->chip_info_valid && priv->chip_info.chip_id == UMC_CHIP_ID)
+		priv->foundry_name = 'u';
+
 	icnss_pr_dbg("Capability, chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x",
 		     priv->chip_info.chip_id, priv->chip_info.chip_family,
 		     priv->board_id, priv->soc_id);
@@ -930,6 +939,7 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 				   u32 filename_len)
 {
 	char filename_tmp[ICNSS_MAX_FILE_NAME];
+	char foundry_specific_filename[ICNSS_MAX_FILE_NAME];
 	int ret = 0;
 
 	switch (bdf_type) {
@@ -949,15 +959,23 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 	case ICNSS_BDF_BIN:
 		if (priv->board_id == 0xFF)
 			snprintf(filename_tmp, filename_len, BIN_BDF_FILE_NAME);
-		else if (priv->board_id < 0xFF)
+		else if (priv->board_id >= WLAN_BOARD_ID_INDEX)
 			snprintf(filename_tmp, filename_len,
-				 BIN_BDF_FILE_NAME_PREFIX "%02x",
+				 BIN_BDF_FILE_NAME_PREFIX "%03x",
 				 priv->board_id);
 		else
 			snprintf(filename_tmp, filename_len,
-				 BDF_FILE_NAME_PREFIX "%02x.b%02x",
-				 priv->board_id >> 8 & 0xFF,
-				 priv->board_id & 0xFF);
+				 BIN_BDF_FILE_NAME_PREFIX "b%02x",
+				 priv->board_id);
+		if (priv->foundry_name) {
+			strlcpy(foundry_specific_filename, filename_tmp, ICNSS_MAX_FILE_NAME);
+			memmove(foundry_specific_filename + BDWLAN_SIZE + 1,
+				foundry_specific_filename + BDWLAN_SIZE,
+				BDWLAN_SIZE - 1);
+			foundry_specific_filename[BDWLAN_SIZE] = priv->foundry_name;
+			foundry_specific_filename[ICNSS_MAX_FILE_NAME - 1] = '\0';
+			strlcpy(filename_tmp, foundry_specific_filename, ICNSS_MAX_FILE_NAME);
+		}
 		break;
 	case ICNSS_BDF_REGDB:
 		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME);
@@ -3088,6 +3106,7 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	struct wlfw_host_cap_req_msg_v01 *req;
 	struct wlfw_host_cap_resp_msg_v01 *resp;
 	struct qmi_txn txn;
+	int ddr_type;
 	int ret = 0;
 	u64 iova_start = 0, iova_size = 0,
 	    iova_ipa_start = 0, iova_ipa_size = 0;
@@ -3143,6 +3162,14 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 			     priv->wlan_en_delay_ms);
 		req->wlan_enable_delay_valid = 1;
 		req->wlan_enable_delay = priv->wlan_en_delay_ms;
+	}
+
+	/* ddr_type = 7(LPDDR4) and 8(LPDDR5) */
+	ddr_type = of_fdt_get_ddrtype();
+	if (ddr_type > 0) {
+		icnss_pr_dbg("DDR Type: %d\n", ddr_type);
+		req->ddr_type_valid = 1;
+		req->ddr_type = ddr_type;
 	}
 
 	ret = qmi_txn_init(&priv->qmi, &txn,

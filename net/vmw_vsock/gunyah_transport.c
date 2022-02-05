@@ -622,7 +622,7 @@ static int ghvst_dgram_enqueue(struct vsock_sock *vsk,
 	rc = memcpy_from_msg((void *)buf + sizeof(*hdr), msg, len);
 	if (rc) {
 		pr_err("%s failed: memcpy_from_msg rc: %d\n", __func__, rc);
-		return rc;
+		goto send_err;
 	}
 
 	pr_debug("TX DATA: Len:0x%x src[0x%x] dst[0x%x]\n",
@@ -630,10 +630,15 @@ static int ghvst_dgram_enqueue(struct vsock_sock *vsk,
 	rc = ghvst_sendmsg(gdev, buf, len + sizeof(*hdr));
 	if (rc < 0) {
 		pr_err("%s: failed to send msg rc: %d\n", __func__, rc);
-		return rc;
+		goto send_err;
 	}
+	kfree(buf);
 
 	return 0;
+
+send_err:
+	kfree(buf);
+	return rc;
 }
 
 static bool ghvst_allow_rsvd_cid(u32 cid)

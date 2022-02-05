@@ -425,6 +425,9 @@ struct arm_smmu_device {
 	phys_addr_t                     phys_addr;
 
 	unsigned long			sync_timed_out;
+
+	/* power ref count for the atomic clients. */
+	unsigned int			atomic_pwr_refcount;
 };
 
 struct qsmmuv500_tbu_device {
