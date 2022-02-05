@@ -476,9 +476,25 @@ static int ufs_qcom_check_hibern8(struct ufs_hba *hba)
 
 static void ufs_qcom_select_unipro_mode(struct ufs_qcom_host *host)
 {
+	int submode = host->limit_phy_submode;
+
 	ufshcd_rmwl(host->hba, QUNIPRO_SEL,
 		   ufs_qcom_cap_qunipro(host) ? QUNIPRO_SEL : 0,
 		   REG_UFS_CFG1);
+
+	if (host->hw_ver.major < 0x05)
+		goto out;
+
+	/* HS-G5 requires 38.4MHz ref_clock */
+	if (submode == UFS_QCOM_PHY_SUBMODE_G5 &&
+		host->hba->dev_ref_clk_freq == REF_CLK_FREQ_38_4_MHZ)
+		ufshcd_rmwl(host->hba, QUNIPRO_G4_SEL, 0, REG_UFS_CFG0);
+	else if (submode == UFS_QCOM_PHY_SUBMODE_G4)
+		ufshcd_rmwl(host->hba, QUNIPRO_G4_SEL,
+				QUNIPRO_G4_SEL, REG_UFS_CFG0);
+	else
+		dev_warn(host->hba->dev, "%s:Unknown ufs submode\n", __func__);
+out:
 	/* make sure above configuration is applied before we return */
 	mb();
 }
@@ -630,6 +646,11 @@ static int ufs_qcom_enable_hw_clk_gating(struct ufs_hba *hba)
 	ufshcd_writel(hba,
 		ufshcd_readl(hba, REG_UFS_CFG2) | REG_UFS_CFG2_CGC_EN_ALL,
 		REG_UFS_CFG2);
+
+	if (host->hw_ver.major == 0x05)
+		/* Ensure unused Unipro block's clock is gated */
+		ufshcd_rmwl(host->hba, UNUSED_UNIPRO_CLK_GATED,
+			UNUSED_UNIPRO_CLK_GATED, UFS_AH8_CFG);
 
 	/* Ensure that HW clock gating is enabled before next operations */
 	mb();
@@ -1793,7 +1814,7 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 			ufs_qcom_dev_ref_clk_ctrl(host, true);
 
 		if (host->hw_ver.major >= 0x4) {
-			if (dev_req_params->gear_tx == UFS_HS_G4) {
+			if (dev_req_params->gear_tx >= UFS_HS_G4) {
 				/* INITIAL ADAPT */
 				ufshcd_dme_set(hba,
 					       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
