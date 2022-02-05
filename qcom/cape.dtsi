@@ -3025,6 +3025,7 @@
 #include "cape-usb.dtsi"
 #include "cape-pcie.dtsi"
 #include "msm-rdbg.dtsi"
+#include "waipio-eva.dtsi"
 
 &qupv3_se7_2uart {
 	status = "ok";
