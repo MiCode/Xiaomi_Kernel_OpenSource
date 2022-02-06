@@ -5,16 +5,11 @@
 
 #include <linux/debugfs.h>
 #include <linux/err.h>
-#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/of_irq.h>
 #include <linux/platform_device.h>
-#include <linux/power_supply.h>
 #include <linux/regmap.h>
-#include <linux/types.h>
-#include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/repeater.h>
@@ -99,9 +94,6 @@ struct eusb2_repeater {
 	struct regulator	*vdd18;
 	struct regulator	*vdd3;
 	bool			power_enabled;
-
-	struct gpio_desc	*reset_gpiod;
-	int			reset_gpio_irq;
 
 	struct dentry		*root;
 	u8			usb2_crossover;
@@ -387,9 +379,10 @@ static int eusb2_repeater_reset(struct usb_repeater *ur,
 	struct eusb2_repeater *er =
 			container_of(ur, struct eusb2_repeater, ur);
 
-	dev_dbg(ur->dev, "reset gpio: pulling %s\n",
-			bring_out_of_reset ? "high" : "low");
-	gpiod_set_value_cansleep(er->reset_gpiod, bring_out_of_reset);
+	dev_dbg(ur->dev, "eUSB2 repeater %s\n",
+		bring_out_of_reset ? "out of reset" : "hold into reset");
+	eusb2_repeater_masked_write(er, EUSB2_EN_CTL1, EUSB2_RPTR_EN,
+		bring_out_of_reset ? EUSB2_RPTR_EN : 0x0);
 	return 0;
 }
 
@@ -407,14 +400,6 @@ static int eusb2_repeater_powerdown(struct usb_repeater *ur)
 			container_of(ur, struct eusb2_repeater, ur);
 
 	return eusb2_repeater_power(er, false);
-}
-
-static irqreturn_t eusb2_reset_gpio_irq_handler(int irq, void *dev_id)
-{
-	struct eusb2_repeater *er = dev_id;
-
-	dev_dbg(er->ur.dev, "reset gpio interrupt handled\n");
-	return IRQ_HANDLED;
 }
 
 static int eusb2_repeater_probe(struct platform_device *pdev)
@@ -454,27 +439,6 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 	if (IS_ERR(er->vdd18)) {
 		dev_err(dev, "unable to get vdd18 supply\n");
 		ret = PTR_ERR(er->vdd18);
-		goto err_probe;
-	}
-
-	er->reset_gpiod = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(er->reset_gpiod)) {
-		ret = PTR_ERR(er->reset_gpiod);
-		goto err_probe;
-	}
-
-	er->reset_gpio_irq = of_irq_get_byname(dev->of_node,
-				"eusb2_rptr_reset_gpio_irq");
-	if (er->reset_gpio_irq < 0) {
-		dev_err(dev, "failed to get reset gpio IRQ\n");
-		goto err_probe;
-	}
-
-	ret = devm_request_irq(dev, er->reset_gpio_irq,
-			eusb2_reset_gpio_irq_handler, IRQF_TRIGGER_RISING,
-			pdev->name, er);
-	if (ret < 0) {
-		dev_err(dev, "failed to request reset gpio irq\n");
 		goto err_probe;
 	}
 
