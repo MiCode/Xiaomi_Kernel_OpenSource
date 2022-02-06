@@ -421,7 +421,7 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 {
 	struct eusb2_repeater *er;
 	struct device *dev = &pdev->dev;
-	int ret = 0, num_elem;
+	int ret = 0, num_elem, base;
 
 	er = devm_kzalloc(dev, sizeof(*er), GFP_KERNEL);
 	if (!er) {
@@ -436,12 +436,13 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		goto err_probe;
 	}
 
-	ret = of_property_read_u16(pdev->dev.of_node, "reg", &er->reg_base);
+	ret = of_property_read_u32(pdev->dev.of_node, "reg", &base);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to get reg base address:%d\n", ret);
 		goto err_probe;
 	}
 
+	er->reg_base = base;
 	er->vdd3 = devm_regulator_get(dev, "vdd3");
 	if (IS_ERR(er->vdd3)) {
 		dev_err(dev, "unable to get vdd3 supply\n");
