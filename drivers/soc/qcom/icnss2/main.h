@@ -481,6 +481,7 @@ struct icnss_priv {
 	struct completion smp2p_soc_wake_wait;
 	uint32_t fw_soc_wake_ack_irq;
 	char foundry_name;
+	bool bdf_download_support;
 };
 
 struct icnss_reg_info {
