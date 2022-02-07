@@ -605,19 +605,26 @@
 		interrupt-map = <0 &intc 0 306 0>;
 		interrupt-names = "int_global";
 
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&pcie_ep_clkreq_default &pcie_ep_perst_default
+				&pcie_ep_wake_default>;
+		pinctrl-1 = <&pcie_ep_clkreq_sleep &pcie_ep_perst_default
+				&pcie_ep_wake_default>;
+
 		clkreq-gpio = <&tlmm 98 GPIO_ACTIVE_HIGH>;
 		perst-gpio = <&tlmm 97 GPIO_ACTIVE_HIGH>;
 		wake-gpio = <&tlmm 99 GPIO_ACTIVE_HIGH>;
-		qcom,pcie-perst-enum;
 
 		gdsc-vdd-supply = <&gcc_pcie_1_gdsc>;
 		vreg-1p8-supply = <&pm8350_l6>;
 		vreg-0p9-supply = <&pm8450_l2>;
 		vreg-mx-supply = <&VDD_MXA_LEVEL>;
+		vreg-cx-supply = <&VDD_CX_LEVEL>;
 
-		qcom,vreg-1p2-voltage-level = <1200000 1200000 30000>;
+		qcom,vreg-1p8-voltage-level = <1200000 1200000 30000>;
 		qcom,vreg-0p9-voltage-level = <912000 912000 193000>;
 		qcom,vreg-mx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX RPMH_REGULATOR_LEVEL_NOM 0>;
+		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX RPMH_REGULATOR_LEVEL_LOW_SVS 0>;
 
 		clocks = <&clock_gcc GCC_PCIE_1_PIPE_CLK>,
 			<&clock_gcc GCC_PCIE_1_CFG_AHB_CLK>,
@@ -654,13 +661,15 @@
 		interconnects = <&pcie_noc MASTER_PCIE_1 &mc_virt SLAVE_EBI1>;
 
 		qcom,pcie-vendor-id = /bits/ 16 <0x17cb>;
-		qcom,pcie-device-id = /bits/ 16 <0x0110>;
+		qcom,pcie-device-id = /bits/ 16 <0x0111>;
 		qcom,tcsr-not-supported;
 		qcom,pcie-aggregated-irq;
 		qcom,pcie-mhi-a7-irq;
 		qcom,pcie-link-speed = <3>;
 		qcom,pcie-phy-ver = <6>;
+		qcom,pcie-active-config;
 		qcom,phy-status-reg2 = <0x1214>;
+		qcom,aux-clk = <0x11>;
 
 		qcom,phy-init = <0x1240 0x01 0x0
 			0x100c 0x02 0x0
@@ -693,7 +702,7 @@
 			0x1168 0x0a 0x0
 			0x116c 0x04 0x0
 			0x119c 0x88 0x0
-			0x1174 0x20 0x0
+			0x1174 0x60 0x0
 			0x11a0 0x14 0x0
 			0x11a8 0x0f 0x0
 			0x0220 0x16 0x0
@@ -797,12 +806,31 @@
 			0x1584 0x28 0x0
 			0x1370 0x2e 0x0
 			0x155c 0x2e 0x0
+			0x1484 0x08 0x0
+			0x1388 0x99 0x0
 			0x1200 0x00 0x0
 			0x1244 0x03 0x0>;
 
 		edma-parent = <&pcie1_edma>;
 		iommus = <&apps_smmu 0x1c80 0x0>;
+		qcom,iommu-dma = "bypass";
 		qcom,pcie-edma;
+		status = "disabled";
+	};
+
+	mhi_device: mhi_dev@01c0b000 {
+		compatible = "qcom,msm-mhi-dev";
+		reg = <0x1c0b000 0x1000>;
+		reg-names = "mhi_mmio_base";
+		qcom,mhi-ep-msi = <0>;
+		qcom,mhi-version = <0x1000000>;
+		qcom,use-pcie-edma;
+		dmas = <&pcie1_edma 0 0>, <&pcie1_edma 1 0>;
+		dma-names = "tx", "rx";
+		interrupts = <0 440 0>;
+		interrupt-names = "mhi-device-inta";
+		qcom,mhi-ifc-id = <0x011117cb>;
+		qcom,mhi-interrupt;
 		status = "disabled";
 	};
 

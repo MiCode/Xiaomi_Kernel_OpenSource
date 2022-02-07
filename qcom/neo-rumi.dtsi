@@ -112,3 +112,8 @@
 &qupv3_se11_2uart {
 	qcom,rumi_platform;
 };
+
+&dispcc {
+	clocks = <&bi_tcxo>, <&bi_tcxo_ao>,
+		<&sleep_clk>, <&gcc GCC_DISP_AHB_CLK>;
+};

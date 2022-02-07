@@ -2875,6 +2875,12 @@
 		/* ddr: 547.2 MHz */
 		<7500 2188800>;
 	};
+
+	hyp_core_ctl: qcom,hyp-core-ctl {
+		compatible = "qcom,hyp-core-ctl";
+		status = "ok";
+	};
+
 };
 
 &clock_gcc {

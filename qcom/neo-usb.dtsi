@@ -29,11 +29,14 @@
 		qcom,core-clk-rate = <133333333>;
 		qcom,core-clk-rate-hs = <66666667>;
 
-		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
-
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
 			reg = <0xa600000 0xe000>;
+
+			iommus = <&apps_smmu 0x020 0x0>;
+			qcom,iommu-dma = "bypass";
+			qcom,iommu-dma-addr-pool = <0x90000000 0x60000000>;
+			dma-coherent;
 
 			interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>;
 			linux,sysdev_is_parent;

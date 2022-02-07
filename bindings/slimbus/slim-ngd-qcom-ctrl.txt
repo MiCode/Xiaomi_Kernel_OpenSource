@@ -45,6 +45,15 @@ Please refer to slimbus/bus.txt for details of the common SLIMBus bindings.
 	Value type: <u32>
 	Definition: Should be 0
 
+ - qcom,wait_for_adsp_up:
+	Usage: optional
+	Value type: <boolean>
+	Definition: This boolean indicates that when the ADSP is down,
+		for some particular slimbus message code and message type
+		transactions, xfer_msg will wait for a max timeout of 1 sec
+		for the ADSP to be up. This flag is only needed if we want
+		to wait for ADSP to be up.
+
 = NGD Devices
 Each subnode represents an instance of NGD, must contain the following
 properties:

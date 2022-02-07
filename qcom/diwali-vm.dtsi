@@ -248,7 +248,7 @@
 	};
 
 	tlmm: pinctrl@f000000 {
-		compatible = "qcom,waipio-vm-pinctrl";
+		compatible = "qcom,diwali-vm-pinctrl";
 		reg = <0x0f000000 0x1000000>;
 		interrupts-extended = <&vm_tlmm_irq 1 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;

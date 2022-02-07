@@ -871,6 +871,11 @@
 			#clock-cells = <1>;
 		};
 
+		scmi_gplaf: protocol@85 {
+			reg = <0x85>;
+			#clock-cells = <1>;
+		};
+
 		scmi_pmu: protocol@86 {
 			reg = <0x86>;
 			#clock-cells = <1>;
@@ -2430,6 +2435,7 @@
 	subsystem-sleep-stats {
 		compatible = "qcom,subsystem-sleep-stats";
 		reg = <0xc3f0000 0x400>;
+		ddr-freq-update;
 	};
 
 	qcom,msm-cdsp-loader {

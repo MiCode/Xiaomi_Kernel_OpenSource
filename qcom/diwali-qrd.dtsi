@@ -3,6 +3,19 @@
 
 #include "diwali-pmic-overlay.dtsi"
 #include "diwali-thermal-overlay.dtsi"
+
+&pmr735a_debug {
+	status = "disabled";
+};
+
+&pmr735a_spmi {
+	status = "disabled";
+};
+
+&pmr735a_temp_alarm {
+	status = "disabled";
+};
+
 &soc {
 	qcom,userspace-cdev {
 		display-fps {
@@ -117,7 +130,24 @@
 		focaltech,trusted-touch-mode = "vm_mode";
 		focaltech,touch-environment = "pvm";
 		focaltech,trusted-touch-type = "primary";
+		focaltech,trusted-touch-spi-irq = <566>;
+		focaltech,trusted-touch-io-bases = <0x980000 0x910000>;
+		focaltech,trusted-touch-io-sizes = <0x1000 0x4000>;
+		focaltech,trusted-touch-vm-gpio-list = <&tlmm 0 0 &tlmm 1 0 &tlmm 2 0
+						&tlmm 3 0 &tlmm 17 0 &tlmm 51 0x2008>;
 	};
+};
+
+&usb2_phy0 {
+	qcom,param-override-seq = <
+			/* override x0 */
+			0xa3 0x6c
+			/* override x1 */
+			0xcb 0x70
+			/* override x2 */
+			0x16 0x74
+			/* override x3 */
+			0x03 0x78>;
 };
 
 &qupv3_se9_i2c {

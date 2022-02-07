@@ -51,8 +51,6 @@ Optional properties :
   regulator node to the USB controller.
 - dpdm-supply: phandle to dpdm supply which will be used to drive dp/dm lines
   in high-z state.
-- qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
-		TX fifo allocation in bytes
 - qcom,lpm-to-suspend-delay-ms: Indicates timeout (in milliseconds) to release wakeup source
   after USB is kept into LPM.
 - qcom,disable-dev-mode-pm: If present, it disables PM runtime functionality for device mode.
@@ -117,7 +115,6 @@ Example MSM USB3.0 controller device node :
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>
 		qcom,dwc_usb3-adc_tm = <&pm8941_adc_tm>;
-		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 		qcom,usb-dbm = <&dbm_1p4>;
 		qcom,lpm-to-suspend-delay-ms = <2>;
 		qcom,num-gsi-evt-buffs = <0x2>;

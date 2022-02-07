@@ -88,6 +88,12 @@
 		vendor = "Qualcomm";
 		image-name = "qcom,trustedvm";
 		qcom,pasid = <0x0 0x1c>;
+		qcom,qtee-config-info = "p=7C,8F,97,159,7F1;";
+		qcom,secdomain-ids = <45>;
+		qcom,primary-vm-index = <0>;
+		vm-uri = "qualcomm.com/vmuid/trusted-ui";
+		vm-guid = "c8793ea7-afc2-5199-99d0-2e60f547a5d2";
+		qcom,sensitive;
 
 		iomemory-ranges = <0x0 0x92c000 0x0 0x92c000 0x0 0x4000 0x0
 				0x0 0xc400000 0x0 0xc400000 0x0 0x3000 0x1
