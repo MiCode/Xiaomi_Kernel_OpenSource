@@ -81,6 +81,7 @@
 #define AT803X_DEBUG_DATA			0x1E
 
 #define AT803X_MODE_CFG_MASK			0x0F
+#define AT803X_MODE_CFG_RGMII			0x00
 #define AT803X_MODE_CFG_SGMII			0x01
 
 #define AT803X_PSSR				0x11	/*PHY-Specific Status Register*/
@@ -815,6 +816,14 @@ static int at803x_config_init(struct phy_device *phydev)
 		return ret;
 
 	if (phydev->drv->phy_id == ATH8031_PHY_ID) {
+		/* Set bits 0 to 3 of Chip Config Register
+		 * to 0 for RGMII mode.
+		 */
+		if (phy_interface_is_rgmii(phydev))
+			__phy_modify(phydev, AT803X_REG_CHIP_CONFIG,
+				     AT803X_MODE_CFG_MASK,
+				     AT803X_MODE_CFG_RGMII);
+
 		ret = at8031_pll_config(phydev);
 		if (ret < 0)
 			return ret;
