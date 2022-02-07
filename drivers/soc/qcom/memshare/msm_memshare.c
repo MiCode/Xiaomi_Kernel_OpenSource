@@ -13,8 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/notifier.h>
 #include <linux/soc/qcom/qmi.h>
-#include <soc/qcom/subsystem_restart.h>
-#include <soc/qcom/subsystem_notif.h>
+#include <linux/remoteproc/qcom_rproc.h>
 #include "msm_memshare.h"
 #include "heap_mem_ext_v01.h"
 
@@ -308,32 +307,32 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 
 	switch (code) {
 
-	case SUBSYS_BEFORE_SHUTDOWN:
+	case QCOM_SSR_BEFORE_SHUTDOWN:
 		bootup_request++;
 		dev_info(memsh_drv->dev,
-		"memshare: SUBSYS_BEFORE_SHUTDOWN: bootup_request:%d\n",
+		"memshare: QCOM_SSR_BEFORE_SHUTDOWN: bootup_request:%d\n",
 		bootup_request);
 		for (i = 0; i < MAX_CLIENTS; i++)
 			memblock[i].alloc_request = 0;
 		break;
 
-	case SUBSYS_AFTER_SHUTDOWN:
+	case QCOM_SSR_AFTER_SHUTDOWN:
 		ramdump_event = true;
 		dev_info(memsh_drv->dev,
-		"memshare: SUBSYS_AFTER_SHUTDOWN: ramdump_event:%d\n",
+		"memshare: QCOM_SSR_AFTER_SHUTDOWN: ramdump_event:%d\n",
 		ramdump_event);
 		break;
 
-	case SUBSYS_BEFORE_POWERUP:
+	case QCOM_SSR_BEFORE_POWERUP:
 		if (_cmd) {
 			notifdata = (struct notif_data *) _cmd;
 			dev_info(memsh_drv->dev,
-			"memshare: SUBSYS_BEFORE_POWERUP: enable_ramdump: %d, ramdump_event: %d\n",
+			"memshare: QCOM_SSR_BEFORE_POWERUP: enable_ramdump: %d, ramdump_event: %d\n",
 			notifdata->enable_ramdump, ramdump_event);
 		} else {
 			ramdump_event = false;
 			dev_info(memsh_drv->dev,
-			"memshare: SUBSYS_BEFORE_POWERUP: ramdump_event: %d\n",
+			"memshare: QCOM_SSR_BEFORE_POWERUP: ramdump_event: %d\n",
 			ramdump_event);
 			break;
 		}
@@ -346,8 +345,8 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 		}
 		break;
 
-	case SUBSYS_AFTER_POWERUP:
-		dev_info(memsh_drv->dev, "memshare: SUBSYS_AFTER_POWERUP: Modem has booted up\n");
+	case QCOM_SSR_AFTER_POWERUP:
+		dev_info(memsh_drv->dev, "memshare: QCOM_SSR_AFTER_POWERUP: Modem has booted up\n");
 		for (i = 0; i < MAX_CLIENTS; i++) {
 			client_node = memsh_child[i];
 			size = memblock[i].size;
@@ -976,7 +975,7 @@ static int memshare_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	subsys_notif_register_notifier("modem", &nb);
+	qcom_register_ssr_notifier("modem", &nb);
 	dev_dbg(memsh_drv->dev, "memshare: Memshare inited\n");
 
 	return 0;
