@@ -1017,13 +1017,6 @@ static bool pkvm_handle_psci(struct kvm_vcpu *vcpu)
 	case PSCI_1_0_FN_PSCI_FEATURES:
 		return pvm_psci_features(vcpu);
 	case PSCI_0_2_FN_SYSTEM_RESET:
-		/*
-		 * NOTE: Until we add proper support for reset for protected
-		 * VMs, repaint reset requests as system off because some VMMs
-		 * use reset when tearing down a VM.
-		 */
-		vcpu_set_reg(vcpu, 0, PSCI_0_2_FN_SYSTEM_OFF);
-		fallthrough;
 	case PSCI_0_2_FN_CPU_SUSPEND:
 	case PSCI_0_2_FN64_CPU_SUSPEND:
 	case PSCI_0_2_FN_SYSTEM_OFF:
