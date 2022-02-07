@@ -4,7 +4,7 @@
 
 #include <uapi/asm/setup.h>
 
-#define COMMAND_LINE_SIZE 2048
+#define COMMAND_LINE_SIZE 4096
 
 #include <linux/linkage.h>
 #include <asm/page_types.h>
