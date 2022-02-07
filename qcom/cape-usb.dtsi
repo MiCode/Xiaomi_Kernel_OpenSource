@@ -137,7 +137,7 @@
 			 USB3_DP_COM_RESET_OVRD_CTRL
 			 USB3_DP_COM_PHY_MODE_CTRL
 			 USB3_DP_COM_TYPEC_CTRL
-			 USB3_DP_PCS_CLAMP_ENABLE>;
+			 USB3_DP_PCS_AON_CLAMP_ENABLE>;
 
 		qcom,qmp-phy-init-seq =
 			/* <reg_offset, value, delay> */
