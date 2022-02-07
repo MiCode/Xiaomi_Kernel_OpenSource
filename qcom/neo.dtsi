@@ -916,6 +916,10 @@
 		compatible = "qcom,secure-buffer";
 		qcom,vmid-cp-camera-preview-ro;
 	};
+
+	qcom,mem-buf-msgq {
+		compatible = "qcom,mem-buf-msgq";
+	};
 };
 
 #include "neo-pinctrl.dtsi"
