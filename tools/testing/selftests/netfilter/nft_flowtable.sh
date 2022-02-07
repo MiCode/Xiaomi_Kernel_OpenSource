@@ -174,7 +174,6 @@ fi
 ip netns exec ns1 ping -c 1 -q 10.0.2.99 > /dev/null
 if [ $? -ne 0 ];then
   echo "ERROR: ns1 cannot reach ns2" 1>&2
-  bash
   exit 1
 fi
 
