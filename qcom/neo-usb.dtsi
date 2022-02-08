@@ -29,6 +29,8 @@
 		qcom,core-clk-rate = <133333333>;
 		qcom,core-clk-rate-hs = <66666667>;
 
+		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
+
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
 			reg = <0xa600000 0xe000>;
