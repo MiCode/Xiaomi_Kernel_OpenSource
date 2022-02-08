@@ -20,6 +20,7 @@
   alloc_workqueue
   amba_driver_register
   amba_driver_unregister
+  android_rvh_probe_register
   anon_inode_getfd
   __arch_clear_user
   __arch_copy_from_user
@@ -34,6 +35,8 @@
   atomic_notifier_chain_register
   atomic_notifier_chain_unregister
   autoremove_wake_function
+  available_idle_cpu
+  balance_push_callback
   bcmp
   bin2hex
   __bitmap_clear
@@ -54,6 +57,7 @@
   blocking_notifier_chain_unregister
   bpf_trace_run10
   bpf_trace_run11
+  bpf_trace_run12
   bpf_trace_run1
   bpf_trace_run2
   bpf_trace_run3
@@ -166,21 +170,31 @@
   contig_page_data
   _copy_from_iter
   _copy_to_iter
+  __cpu_active_mask
   cpu_all_bits
   cpu_bit_bitmap
+  cpufreq_add_update_util_hook
   cpufreq_cpu_get
   cpufreq_cpu_get_raw
   cpufreq_cpu_put
+  cpufreq_disable_fast_switch
+  cpufreq_driver_fast_switch
   cpufreq_driver_resolve_freq
+  __cpufreq_driver_target
   cpufreq_driver_target
+  cpufreq_enable_fast_switch
   cpufreq_freq_transition_begin
   cpufreq_freq_transition_end
   cpufreq_frequency_table_verify
   cpufreq_generic_attr
   cpufreq_get
+  cpufreq_policy_transition_delay_us
   cpufreq_quick_get
   cpufreq_register_driver
+  cpufreq_register_governor
   cpufreq_register_notifier
+  cpufreq_remove_update_util_hook
+  cpufreq_this_cpu_can_update
   __cpuhp_remove_state
   __cpuhp_setup_state
   __cpuhp_setup_state_cpuslocked
@@ -195,10 +209,12 @@
   cpumask_any_but
   cpumask_next
   cpumask_next_and
+  cpumask_next_wrap
   cpu_number
   __cpu_online_mask
   cpu_pm_register_notifier
   __cpu_possible_mask
+  cpupri_find_fitness
   cpu_scale
   cpus_read_lock
   cpus_read_unlock
@@ -667,6 +683,7 @@
   _find_first_zero_bit
   find_get_pid
   _find_next_bit
+  find_task_by_vpid
   find_vma
   finish_wait
   flush_work
@@ -709,6 +726,7 @@
   get_cpu_iowait_time_us
   get_device
   __get_free_pages
+  get_governor_parent_kobj
   get_pid_task
   get_random_bytes
   get_random_u32
@@ -720,6 +738,10 @@
   get_vaddr_frames
   gic_nonsecure_priorities
   glob_match
+  gov_attr_set_get
+  gov_attr_set_init
+  gov_attr_set_put
+  governor_sysfs_ops
   gpiochip_generic_config
   gpiochip_generic_free
   gpiochip_generic_request
@@ -751,6 +773,7 @@
   handle_nested_irq
   handle_simple_irq
   handle_sysrq
+  have_governor_per_policy
   hex2bin
   hex_dump_to_buffer
   hex_to_bin
@@ -892,6 +915,8 @@
   irq_set_chip_data
   irq_set_irq_type
   irq_set_irq_wake
+  irq_work_queue
+  irq_work_sync
   is_vmalloc_addr
   jiffies64_to_msecs
   jiffies
@@ -954,6 +979,7 @@
   kthread_bind
   kthread_bind_mask
   kthread_cancel_delayed_work_sync
+  kthread_cancel_work_sync
   kthread_create_on_node
   kthread_create_worker
   kthread_delayed_work_timer_fn
@@ -1285,10 +1311,13 @@
   prepare_to_wait_event
   print_hex_dump
   _printk
+  _printk_deferred
   proc_create
   proc_create_data
+  proc_create_single_data
   proc_dointvec
   proc_dostring
+  proc_douintvec_minmax
   proc_mkdir
   proc_mkdir_data
   proc_remove
@@ -1316,6 +1345,8 @@
   _raw_spin_lock_bh
   _raw_spin_lock_irq
   _raw_spin_lock_irqsave
+  raw_spin_rq_lock_nested
+  raw_spin_rq_unlock
   _raw_spin_trylock
   _raw_spin_unlock
   _raw_spin_unlock_bh
@@ -1360,6 +1391,7 @@
   register_restart_handler
   register_shrinker
   register_syscore_ops
+  register_sysctl
   register_sysctl_table
   register_virtio_device
   register_virtio_driver
@@ -1414,6 +1446,7 @@
   rfkill_init_sw_state
   rfkill_register
   rfkill_unregister
+  root_task_group
   rps_needed
   rtc_class_close
   rtc_class_open
@@ -1429,11 +1462,22 @@
   rtnl_is_locked
   rtnl_lock
   rtnl_unlock
+  runqueues
   sched_clock
+  sched_feat_keys
   sched_setattr_nocheck
   sched_setscheduler
   sched_setscheduler_nocheck
   sched_show_task
+  sched_trace_cfs_rq_avg
+  sched_trace_cfs_rq_cpu
+  sched_trace_cfs_rq_path
+  sched_trace_rd_span
+  sched_trace_rq_avg_dl
+  sched_trace_rq_avg_irq
+  sched_trace_rq_avg_rt
+  sched_trace_rq_cpu
+  sched_uclamp_used
   schedule
   schedule_timeout
   schedule_timeout_interruptible
@@ -1595,6 +1639,7 @@
   srcu_notifier_chain_unregister
   sscanf
   __stack_chk_fail
+  static_key_disable
   static_key_slow_dec
   static_key_slow_inc
   stop_machine
@@ -1632,6 +1677,8 @@
   synchronize_net
   synchronize_rcu
   syscon_regmap_lookup_by_phandle
+  sysctl_sched_features
+  sysctl_sched_latency
   sysfs_add_file_to_group
   sysfs_create_file_ns
   sysfs_create_files
@@ -1657,7 +1704,9 @@
   tasklet_init
   tasklet_kill
   __tasklet_schedule
+  task_may_not_preempt
   __task_pid_nr_ns
+  task_rq_lock
   tcpci_get_tcpm_port
   tcpci_irq
   tcpci_register_port
@@ -1682,6 +1731,7 @@
   thermal_zone_of_sensor_register
   thermal_zone_of_sensor_unregister
   thread_group_cputime_adjusted
+  tick_nohz_get_idle_calls_cpu
   time64_to_tm
   topology_set_thermal_pressure
   _totalram_pages
@@ -1693,9 +1743,26 @@
   trace_event_raw_init
   trace_event_reg
   trace_handle_return
+  __traceiter_android_rvh_check_preempt_wakeup
+  __traceiter_android_rvh_cpu_cgroup_online
+  __traceiter_android_rvh_cpu_overutilized
+  __traceiter_android_rvh_dequeue_task
+  __traceiter_android_rvh_find_energy_efficient_cpu
+  __traceiter_android_rvh_irqs_disable
+  __traceiter_android_rvh_irqs_enable
+  __traceiter_android_rvh_post_init_entity_util_avg
+  __traceiter_android_rvh_preempt_disable
+  __traceiter_android_rvh_preempt_enable
+  __traceiter_android_rvh_sched_fork
+  __traceiter_android_rvh_select_task_rq_rt
+  __traceiter_android_rvh_set_iowait
+  __traceiter_android_rvh_uclamp_eff_get
+  __traceiter_android_rvh_util_est_update
+  __traceiter_android_vh_arch_set_freq_scale
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
   __traceiter_android_vh_ipi_stop
+  __traceiter_android_vh_setscheduler_uclamp
   __traceiter_android_vh_ufs_check_int_errors
   __traceiter_android_vh_ufs_compl_command
   __traceiter_android_vh_ufs_fill_prdt
@@ -1705,14 +1772,42 @@
   __traceiter_android_vh_ufs_send_uic_command
   __traceiter_android_vh_ufs_update_sysfs
   __traceiter_clock_set_rate
+  __traceiter_cpu_frequency
   __traceiter_device_pm_callback_end
   __traceiter_device_pm_callback_start
   __traceiter_gpu_mem_total
+  __traceiter_pelt_cfs_tp
+  __traceiter_pelt_dl_tp
+  __traceiter_pelt_irq_tp
+  __traceiter_pelt_rt_tp
+  __traceiter_pelt_se_tp
+  __traceiter_sched_cpu_capacity_tp
+  __traceiter_sched_overutilized_tp
+  __traceiter_sched_switch
+  __traceiter_sched_util_est_cfs_tp
+  __traceiter_sched_util_est_se_tp
   __traceiter_suspend_resume
   trace_output_call
+  __tracepoint_android_rvh_check_preempt_wakeup
+  __tracepoint_android_rvh_cpu_cgroup_online
+  __tracepoint_android_rvh_cpu_overutilized
+  __tracepoint_android_rvh_dequeue_task
+  __tracepoint_android_rvh_find_energy_efficient_cpu
+  __tracepoint_android_rvh_irqs_disable
+  __tracepoint_android_rvh_irqs_enable
+  __tracepoint_android_rvh_post_init_entity_util_avg
+  __tracepoint_android_rvh_preempt_disable
+  __tracepoint_android_rvh_preempt_enable
+  __tracepoint_android_rvh_sched_fork
+  __tracepoint_android_rvh_select_task_rq_rt
+  __tracepoint_android_rvh_set_iowait
+  __tracepoint_android_rvh_uclamp_eff_get
+  __tracepoint_android_rvh_util_est_update
+  __tracepoint_android_vh_arch_set_freq_scale
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_ipi_stop
+  __tracepoint_android_vh_setscheduler_uclamp
   __tracepoint_android_vh_ufs_check_int_errors
   __tracepoint_android_vh_ufs_compl_command
   __tracepoint_android_vh_ufs_fill_prdt
@@ -1722,10 +1817,22 @@
   __tracepoint_android_vh_ufs_send_uic_command
   __tracepoint_android_vh_ufs_update_sysfs
   __tracepoint_clock_set_rate
+  __tracepoint_cpu_frequency
   __tracepoint_device_pm_callback_end
   __tracepoint_device_pm_callback_start
   __tracepoint_gpu_mem_total
+  __tracepoint_pelt_cfs_tp
+  __tracepoint_pelt_dl_tp
+  __tracepoint_pelt_irq_tp
+  __tracepoint_pelt_rt_tp
+  __tracepoint_pelt_se_tp
   tracepoint_probe_register
+  tracepoint_probe_unregister
+  __tracepoint_sched_cpu_capacity_tp
+  __tracepoint_sched_overutilized_tp
+  __tracepoint_sched_switch
+  __tracepoint_sched_util_est_cfs_tp
+  __tracepoint_sched_util_est_se_tp
   __tracepoint_suspend_resume
   trace_print_array_seq
   trace_print_bitmask_seq
@@ -1757,6 +1864,7 @@
   uart_update_timeout
   uart_write_wakeup
   __ubsan_handle_cfi_check_fail_abort
+  uclamp_eff_value
   __udelay
   udp4_hwcsum
   ufshcd_bkops_ctrl
@@ -1791,6 +1899,8 @@
   unregister_virtio_driver
   up
   update_devfreq
+  __update_load_avg_blocked_se
+  update_rq_clock
   up_read
   up_write
   usb_add_function
