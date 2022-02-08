@@ -141,7 +141,7 @@
 &usb2_phy0 {
 	qcom,param-override-seq = <
 			/* override x0 */
-			0xa3 0x6c
+			0xa6 0x6c
 			/* override x1 */
 			0xcb 0x70
 			/* override x2 */
