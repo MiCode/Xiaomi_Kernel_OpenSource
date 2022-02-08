@@ -3949,9 +3949,8 @@ static unsigned int ufs_qcom_gec(struct ufs_hba *hba, u32 id,
 			continue;
 		dev_err(hba->dev, "%s[%d] = 0x%x at %lld us\n", err_name, p,
 			e->val[p], ktime_to_us(e->tstamp[p]));
-
-		++cnt_err;
 	}
+	cnt_err = e->cnt;
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	return cnt_err;
