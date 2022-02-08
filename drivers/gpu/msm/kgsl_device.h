@@ -159,6 +159,12 @@ struct kgsl_functable {
 	/** @gpu_bus_set: Target specific function to set gpu bandwidth */
 	int (*gpu_bus_set)(struct kgsl_device *device, int bus_level, u32 ab);
 	void (*deassert_gbif_halt)(struct kgsl_device *device);
+	/** @queue_recurring_cmd: Queue recurring commands to GMU */
+	int (*queue_recurring_cmd)(struct kgsl_device_private *dev_priv,
+		struct kgsl_context *context, struct kgsl_drawobj *drawobj);
+	/** @dequeue_recurring_cmd: Dequeue recurring commands from GMU */
+	int (*dequeue_recurring_cmd)(struct kgsl_device *device,
+		struct kgsl_context *context);
 };
 
 struct kgsl_ioctl {
@@ -783,6 +789,22 @@ static inline bool kgsl_context_is_bad(struct kgsl_context *context)
 {
 	return (kgsl_context_detached(context) ||
 		kgsl_context_invalid(context));
+}
+
+/** kgsl_check_context_state - Check if a context is bad or invalid
+ *  @context: Pointer to a KGSL context handle
+ *
+ * Return: True if the context has been marked bad or invalid
+ */
+static inline int kgsl_check_context_state(struct kgsl_context *context)
+{
+	if (kgsl_context_invalid(context))
+		return -EDEADLK;
+
+	if (kgsl_context_detached(context))
+		return -ENOENT;
+
+	return 0;
 }
 
 /**

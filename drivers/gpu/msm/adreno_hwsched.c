@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "adreno.h"
@@ -343,13 +344,6 @@ void adreno_hwsched_flush(struct adreno_device *adreno_dev)
 	kthread_flush_worker(hwsched->worker);
 }
 
-static bool hwsched_in_fault(struct adreno_hwsched *hwsched)
-{
-	/* make sure we're reading the latest value */
-	smp_rmb();
-	return atomic_read(&hwsched->fault) != 0;
-}
-
 /**
  * sendcmd() - Send a drawobj to the GPU hardware
  * @dispatcher: Pointer to the adreno dispatcher struct
@@ -689,71 +683,6 @@ static int get_timestamp(struct adreno_context *drawctxt,
 	return 0;
 }
 
-static inline int _check_context_state(struct kgsl_context *context)
-{
-	if (kgsl_context_invalid(context))
-		return -EDEADLK;
-
-	if (kgsl_context_detached(context))
-		return -ENOENT;
-
-	return 0;
-}
-
-static inline bool _verify_ib(struct kgsl_device_private *dev_priv,
-		struct kgsl_context *context, struct kgsl_memobj_node *ib)
-{
-	struct kgsl_device *device = dev_priv->device;
-	struct kgsl_process_private *private = dev_priv->process_priv;
-
-	/* The maximum allowable size for an IB in the CP is 0xFFFFF dwords */
-	if (ib->size == 0 || ((ib->size >> 2) > 0xFFFFF)) {
-		pr_context(device, context, "ctxt %d invalid ib size %lld\n",
-			context->id, ib->size);
-		return false;
-	}
-
-	/* Make sure that the address is mapped */
-	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, ib->gpuaddr,
-		ib->size)) {
-		pr_context(device, context, "ctxt %d invalid ib gpuaddr %llX\n",
-			context->id, ib->gpuaddr);
-		return false;
-	}
-
-	return true;
-}
-
-static inline int _verify_cmdobj(struct kgsl_device_private *dev_priv,
-		struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
-		uint32_t count)
-{
-	struct kgsl_device *device = dev_priv->device;
-	struct kgsl_memobj_node *ib;
-	unsigned int i;
-
-	for (i = 0; i < count; i++) {
-		/* Verify the IBs before they get queued */
-		if (drawobj[i]->type == CMDOBJ_TYPE) {
-			struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj[i]);
-
-			list_for_each_entry(ib, &cmdobj->cmdlist, node)
-				if (!_verify_ib(dev_priv,
-					&ADRENO_CONTEXT(context)->base, ib))
-					return -EINVAL;
-
-			/*
-			 * Clear the wake on touch bit to indicate an IB has
-			 * been submitted since the last time we set it.
-			 * But only clear it when we have rendering commands.
-			 */
-			ADRENO_DEVICE(device)->wake_on_touch = false;
-		}
-	}
-
-	return 0;
-}
-
 static inline int _wait_for_room_in_context_queue(
 	struct adreno_context *drawctxt, u32 count)
 {
@@ -781,7 +710,7 @@ static inline int _wait_for_room_in_context_queue(
 		 * while we were sleeping
 		 */
 		if (ret > 0)
-			ret = _check_context_state(&drawctxt->base);
+			ret = kgsl_check_context_state(&drawctxt->base);
 		else if (ret == 0)
 			ret = -ETIMEDOUT;
 	}
@@ -792,7 +721,7 @@ static inline int _wait_for_room_in_context_queue(
 static unsigned int _check_context_state_to_queue_cmds(
 	struct adreno_context *drawctxt, u32 count)
 {
-	int ret = _check_context_state(&drawctxt->base);
+	int ret = kgsl_check_context_state(&drawctxt->base);
 
 	if (ret)
 		return ret;
@@ -947,11 +876,11 @@ static int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 			return -EINVAL;
 	}
 
-	ret = _check_context_state(&drawctxt->base);
+	ret = kgsl_check_context_state(&drawctxt->base);
 	if (ret)
 		return ret;
 
-	ret = _verify_cmdobj(dev_priv, context, drawobj, count);
+	ret = adreno_verify_cmdobj(dev_priv, context, drawobj, count);
 	if (ret)
 		return ret;
 
@@ -1038,7 +967,7 @@ static int adreno_hwsched_queue_cmds(struct kgsl_device_private *dev_priv,
 	return 0;
 }
 
-static void retire_cmdobj(struct adreno_hwsched *hwsched,
+void adreno_hwsched_retire_cmdobj(struct adreno_hwsched *hwsched,
 	struct kgsl_drawobj_cmd *cmdobj)
 {
 	struct kgsl_drawobj *drawobj;
@@ -1086,7 +1015,7 @@ static int retire_cmd_list(struct adreno_device *adreno_dev)
 			drawobj->timestamp))
 			continue;
 
-		retire_cmdobj(hwsched, cmdobj);
+		adreno_hwsched_retire_cmdobj(hwsched, cmdobj);
 
 		list_del_init(&obj->node);
 
@@ -1268,6 +1197,7 @@ static void adreno_hwsched_replay(struct adreno_device *adreno_dev)
 {
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	struct cmd_list_obj *obj, *tmp;
 	u32 retired = 0;
 
@@ -1283,7 +1213,7 @@ static void adreno_hwsched_replay(struct adreno_device *adreno_dev)
 		if ((kgsl_check_timestamp(device, context, drawobj->timestamp))
 			|| kgsl_context_is_bad(context)) {
 
-			retire_cmdobj(hwsched, cmdobj);
+			adreno_hwsched_retire_cmdobj(hwsched, cmdobj);
 			retired++;
 			list_del_init(&obj->node);
 			kmem_cache_free(obj_cache, obj);
@@ -1293,6 +1223,18 @@ static void adreno_hwsched_replay(struct adreno_device *adreno_dev)
 		}
 
 		hwsched->hwsched_ops->submit_cmdobj(adreno_dev, cmdobj);
+	}
+
+	if (hwsched->recurring_cmdobj) {
+		if (kgsl_context_invalid(
+			hwsched->recurring_cmdobj->base.context)) {
+			clear_bit(CMDOBJ_RECURRING_START,
+					&hwsched->recurring_cmdobj->priv);
+			set_bit(CMDOBJ_RECURRING_STOP,
+					&hwsched->recurring_cmdobj->priv);
+		}
+		gpudev->send_recurring_cmdobj(adreno_dev,
+			hwsched->recurring_cmdobj);
 	}
 
 	/* Signal fences */
@@ -1431,7 +1373,8 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev, int fault)
 	struct kgsl_context *context = NULL;
 	struct cmd_list_obj *obj;
 	const struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct hfi_context_bad_cmd *cmd = adreno_dev->hwsched.ctxt_bad;
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	struct hfi_context_bad_cmd *cmd = hwsched->ctxt_bad;
 
 	if (device->state != KGSL_STATE_ACTIVE)
 		return;
@@ -1447,12 +1390,19 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev, int fault)
 	if (!obj && (fault & ADRENO_IOMMU_PAGE_FAULT))
 		obj = get_active_cmdobj(adreno_dev);
 
-	if (!obj) {
+	if (obj)
+		drawobj = DRAWOBJ(obj->cmdobj);
+	else if (hwsched->recurring_cmdobj &&
+		hwsched->recurring_cmdobj->base.context->id == cmd->ctxt_id) {
+		drawobj = DRAWOBJ(hwsched->recurring_cmdobj);
+		if (!kref_get_unless_zero(&drawobj->refcount))
+			drawobj = NULL;
+	}
+
+	if (!drawobj) {
 		kgsl_device_snapshot(device, NULL, fault & ADRENO_GMU_FAULT);
 		goto done;
 	}
-
-	drawobj = DRAWOBJ(obj->cmdobj);
 
 	context = drawobj->context;
 
@@ -1475,7 +1425,7 @@ static void reset_and_snapshot(struct adreno_device *adreno_dev, int fault)
 	 */
 	kgsl_drawobj_put(drawobj);
 done:
-	memset(adreno_dev->hwsched.ctxt_bad, 0x0, HFI_MAX_MSG_SIZE);
+	memset(hwsched->ctxt_bad, 0x0, HFI_MAX_MSG_SIZE);
 	gpudev->reset(adreno_dev);
 }
 

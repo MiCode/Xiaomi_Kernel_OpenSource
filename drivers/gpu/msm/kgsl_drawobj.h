@@ -216,6 +216,8 @@ struct kgsl_drawobj_sync_event {
  * @CMDOBJ_PROFILE - store the start / retire ticks for
  * @CMDOBJ_FAULT - Mark the command object as faulted
  * the command obj in the profiling buffer
+ * @CMDOBJ_RECURRING_START: To track recurring command object at GMU
+ * @CMDOBJ_RECURRING_STOP: To untrack recurring command object from GMU
  */
 enum kgsl_drawobj_cmd_priv {
 	CMDOBJ_SKIP = 0,
@@ -223,6 +225,8 @@ enum kgsl_drawobj_cmd_priv {
 	CMDOBJ_WFI,
 	CMDOBJ_PROFILE,
 	CMDOBJ_FAULT,
+	CMDOBJ_RECURRING_START,
+	CMDOBJ_RECURRING_STOP,
 };
 
 struct kgsl_ibdesc;

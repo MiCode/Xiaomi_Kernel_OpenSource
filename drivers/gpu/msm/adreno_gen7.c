@@ -1358,6 +1358,7 @@ const struct gen7_gpudev adreno_gen7_hwsched_gpudev = {
 		.hw_isidle = gen7_hw_isidle,
 		.add_to_va_minidump = gen7_hwsched_add_to_minidump,
 		.gx_is_on = gen7_gmu_gx_is_on,
+		.send_recurring_cmdobj = gen7_hwsched_send_recurring_cmdobj,
 	},
 	.hfi_probe = gen7_hwsched_hfi_probe,
 	.hfi_remove = gen7_hwsched_hfi_remove,

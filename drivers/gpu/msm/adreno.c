@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <linux/component.h>
 #include <linux/delay.h>
@@ -2955,6 +2956,154 @@ static int adreno_queue_cmds(struct kgsl_device_private *dev_priv,
 		count, timestamp);
 }
 
+static inline bool _verify_ib(struct kgsl_device_private *dev_priv,
+		struct kgsl_context *context, struct kgsl_memobj_node *ib)
+{
+	struct kgsl_device *device = dev_priv->device;
+	struct kgsl_process_private *private = dev_priv->process_priv;
+
+	/* The maximum allowable size for an IB in the CP is 0xFFFFF dwords */
+	if (ib->size == 0 || ((ib->size >> 2) > 0xFFFFF)) {
+		pr_context(device, context, "ctxt %d invalid ib size %lld\n",
+			context->id, ib->size);
+		return false;
+	}
+
+	/* Make sure that the address is in range and dword aligned */
+	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, ib->gpuaddr,
+		ib->size) || !IS_ALIGNED(ib->gpuaddr, 4)) {
+		pr_context(device, context, "ctxt %d invalid ib gpuaddr %llX\n",
+			context->id, ib->gpuaddr);
+		return false;
+	}
+
+	return true;
+}
+
+int adreno_verify_cmdobj(struct kgsl_device_private *dev_priv,
+		struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
+		uint32_t count)
+{
+	struct kgsl_device *device = dev_priv->device;
+	struct kgsl_memobj_node *ib;
+	unsigned int i;
+
+	for (i = 0; i < count; i++) {
+		/* Verify the IBs before they get queued */
+		if (drawobj[i]->type == CMDOBJ_TYPE) {
+			struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj[i]);
+
+			list_for_each_entry(ib, &cmdobj->cmdlist, node)
+				if (!_verify_ib(dev_priv,
+					&ADRENO_CONTEXT(context)->base, ib))
+					return -EINVAL;
+
+			/*
+			 * Clear the wake on touch bit to indicate an IB has
+			 * been submitted since the last time we set it.
+			 * But only clear it when we have rendering commands.
+			 */
+			ADRENO_DEVICE(device)->wake_on_touch = false;
+		}
+
+		/* A3XX does not have support for drawobj profiling */
+		if (adreno_is_a3xx(ADRENO_DEVICE(device)) &&
+			(drawobj[i]->flags & KGSL_DRAWOBJ_PROFILING))
+			return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+static int adreno_queue_recurring_cmd(struct kgsl_device_private *dev_priv,
+	struct kgsl_context *context, struct kgsl_drawobj *drawobj)
+{
+	struct kgsl_device *device = dev_priv->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj);
+	int ret;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LSR))
+		return -EOPNOTSUPP;
+
+	if (!gpudev->send_recurring_cmdobj)
+		return -ENODEV;
+
+	ret = adreno_verify_cmdobj(dev_priv, context, &drawobj, 1);
+	if (ret)
+		return ret;
+
+	mutex_lock(&device->mutex);
+
+	/* Only one recurring command allowed */
+	if (hwsched->recurring_cmdobj) {
+		mutex_unlock(&device->mutex);
+		return -EINVAL;
+	}
+
+	ret = kgsl_check_context_state(context);
+	if (ret) {
+		mutex_unlock(&device->mutex);
+		return ret;
+	}
+
+	set_bit(CMDOBJ_RECURRING_START, &cmdobj->priv);
+
+	ret = gpudev->send_recurring_cmdobj(adreno_dev, cmdobj);
+	mutex_unlock(&device->mutex);
+
+	return ret;
+}
+
+static int adreno_dequeue_recurring_cmd(struct kgsl_device *device,
+	struct kgsl_context *context)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	const struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	struct kgsl_drawobj *recurring_drawobj;
+	int ret;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LSR))
+		return -EOPNOTSUPP;
+
+	if (!gpudev->send_recurring_cmdobj)
+		return -ENODEV;
+
+	mutex_lock(&device->mutex);
+
+	/* We can safely return here as recurring wokload is already untracked */
+	if (hwsched->recurring_cmdobj == NULL) {
+		mutex_unlock(&device->mutex);
+		return -EINVAL;
+	}
+
+	recurring_drawobj = DRAWOBJ(hwsched->recurring_cmdobj);
+
+	/* Check if the recurring command is for same context or not*/
+	if (recurring_drawobj->context != context) {
+		mutex_unlock(&device->mutex);
+		return -EINVAL;
+	}
+
+	ret = kgsl_check_context_state(context);
+	if (ret) {
+		mutex_unlock(&device->mutex);
+		return ret;
+	}
+
+	clear_bit(CMDOBJ_RECURRING_START, &hwsched->recurring_cmdobj->priv);
+	set_bit(CMDOBJ_RECURRING_STOP, &hwsched->recurring_cmdobj->priv);
+
+	ret = gpudev->send_recurring_cmdobj(adreno_dev, hwsched->recurring_cmdobj);
+
+	mutex_unlock(&device->mutex);
+
+	return ret;
+}
+
 static void adreno_drawctxt_sched(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
@@ -3119,6 +3268,8 @@ static const struct kgsl_functable adreno_functable = {
 	.gpu_clock_set = adreno_gpu_clock_set,
 	.gpu_bus_set = adreno_gpu_bus_set,
 	.deassert_gbif_halt = adreno_deassert_gbif_halt,
+	.queue_recurring_cmd = adreno_queue_recurring_cmd,
+	.dequeue_recurring_cmd = adreno_dequeue_recurring_cmd,
 };
 
 static const struct component_master_ops adreno_ops = {
