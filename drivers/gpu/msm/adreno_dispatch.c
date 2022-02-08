@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -922,6 +923,28 @@ static void _adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 		dispatcher_handle_jobs(adreno_dev, i);
 }
 
+/* Update the dispatcher timers */
+static void _dispatcher_update_timers(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
+
+	/* Kick the idle timer */
+	mutex_lock(&device->mutex);
+	kgsl_pwrscale_update(device);
+	kgsl_start_idle_timer(device);
+	mutex_unlock(&device->mutex);
+
+	/* Check to see if we need to update the command timer */
+	if (adreno_in_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE)) {
+		struct adreno_dispatcher_drawqueue *drawqueue =
+			DRAWQUEUE(adreno_dev->cur_rb);
+
+		if (!adreno_drawqueue_is_empty(drawqueue))
+			mod_timer(&dispatcher->timer, drawqueue->expires);
+	}
+}
+
 static inline void _decrement_submit_now(struct kgsl_device *device)
 {
 	spin_lock(&device->submit_lock);
@@ -956,6 +979,10 @@ static void adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 	}
 
 	_adreno_dispatcher_issuecmds(adreno_dev);
+
+	if (dispatcher->inflight)
+		_dispatcher_update_timers(adreno_dev);
+
 	mutex_unlock(&dispatcher->mutex);
 	_decrement_submit_now(device);
 	return;
@@ -2385,28 +2412,6 @@ static int adreno_dispatch_process_drawqueue(struct adreno_device *adreno_dev,
 	 */
 	_adreno_dispatch_check_timeout(adreno_dev, drawqueue);
 	return 0;
-}
-
-/* Update the dispatcher timers */
-static void _dispatcher_update_timers(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
-
-	/* Kick the idle timer */
-	mutex_lock(&device->mutex);
-	kgsl_pwrscale_update(device);
-	kgsl_start_idle_timer(device);
-	mutex_unlock(&device->mutex);
-
-	/* Check to see if we need to update the command timer */
-	if (adreno_in_preempt_state(adreno_dev, ADRENO_PREEMPT_NONE)) {
-		struct adreno_dispatcher_drawqueue *drawqueue =
-			DRAWQUEUE(adreno_dev->cur_rb);
-
-		if (!adreno_drawqueue_is_empty(drawqueue))
-			mod_timer(&dispatcher->timer, drawqueue->expires);
-	}
 }
 
 /* Take down the dispatcher and release any power states */
