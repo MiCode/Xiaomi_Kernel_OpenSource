@@ -417,6 +417,11 @@
 				  <FAST_PATH_TCS 1>;
 		power-domains = <&CLUSTER_PD>;
 
+		rpmhcc: qcom,rpmhclk {
+			compatible = "qcom,parrot-rpmh-clk";
+			#clock-cells = <1>;
+		};
+
 		apps_bcm_voter: bcm_voter {
 			compatible = "qcom,bcm-voter";
 		};
@@ -732,7 +737,7 @@
 	clocks {
 		xo_board: xo-board {
 			compatible = "fixed-clock";
-			clock-frequency = <38400000>;
+			clock-frequency = <76800000>;
 			clock-output-names = "xo_board";
 			#clock-cells = <0>;
 		};
@@ -780,29 +785,6 @@
 		};
 	};
 
-	bi_tcxo: bi_tcxo {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <2>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
-	bi_tcxo_ao: bi_tcxo_ao {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <2>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
-	rpmhcc: qcom,rpmhcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmhcc_clocks";
-		#clock-cells = <1>;
-		#reset-cells = <1>;
-	};
-
 	gcc: clock-controller@100000 {
 		compatible = "qcom,parrot-gcc", "syscon";
 		reg = <0x100000 0x1f4200>;
@@ -835,8 +817,15 @@
 	};
 
 	dispcc: clock-controller@af00000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+		compatible = "qcom,parrot-dispcc", "syscon";
+		reg = <0xaf00000 0x20000>;
+		reg-name = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		clocks = <&rpmhcc RPMH_CXO_CLK>,
+			<&rpmhcc RPMH_CXO_CLK_A>,
+			<&sleep_clk>,
+			<&gcc GCC_DISP_AHB_CLK>;
+		clock-names = "bi_tcxo", "bi_tcxo_ao", "sleep_clk", "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -869,6 +858,30 @@
 		clock-names = "bi_tcxo", "sleep_clk", "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	apsscc: syscon@17aa0000 {
+		compatible = "syscon";
+		reg = <0x17aa0000 0x1c>;
+	};
+
+	mccc: syscon@190ba000 {
+		compatible = "syscon";
+		reg = <0x190ba000 0x54>;
+	};
+
+	debugcc: debug-clock-controller@0 {
+		compatible = "qcom,parrot-debugcc";
+		qcom,gcc = <&gcc>;
+		qcom,videocc = <&videocc>;
+		qcom,dispcc = <&dispcc>;
+		qcom,camcc = <&camcc>;
+		qcom,gpucc = <&gpucc>;
+		qcom,apsscc = <&apsscc>;
+		qcom,mccc = <&mccc>;
+		clock-names = "xo_clk_src";
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		#clock-cells = <1>;
 	};
 
 	sdhc1_opp_table: sdhc1-opp-table {
@@ -1749,7 +1762,6 @@
 #include "ipcc-test-parrot.dtsi"
 
 &gcc_pcie_0_gdsc {
-	/delete-property/ qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
@@ -1797,14 +1809,12 @@
 };
 
 &disp_cc_mdss_core_gdsc {
-	compatible = "regulator-fixed";
-	/delete-property/ qcom,support-hw-trigger;
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &disp_cc_mdss_core_int2_gdsc {
-	compatible = "regulator-fixed";
-	/delete-property/ qcom,support-hw-trigger;
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
