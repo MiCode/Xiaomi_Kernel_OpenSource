@@ -91,6 +91,7 @@ obj-$(CONFIG_SM_DEBUGCC_SHIMA) += debugcc-shima.o
 obj-$(CONFIG_SXR_DEBUGCC_NEO) += debugcc-neo.o
 obj-$(CONFIG_SM_DISPCC_DIWALI) += dispcc-diwali.o
 obj-$(CONFIG_SM_DISPCC_HOLI) += dispcc-holi.o
+obj-$(CONFIG_SM_DISPCC_PARROT) += dispcc-parrot.o
 obj-$(CONFIG_SM_DISPCC_SHIMA) += dispcc-shima.o
 obj-$(CONFIG_SXR_DISPCC_NEO) += dispcc-neo.o
 obj-$(CONFIG_SM_GCC_8150) += gcc-sm8150.o
