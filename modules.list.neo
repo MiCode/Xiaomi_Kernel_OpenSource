@@ -62,3 +62,6 @@ gcc-neo.ko
 gdsc-regulator.ko
 dispcc-neo.ko
 secure_buffer.ko
+msm_qmp.ko
+tmecom-intf.ko
+qcom_aoss.ko
