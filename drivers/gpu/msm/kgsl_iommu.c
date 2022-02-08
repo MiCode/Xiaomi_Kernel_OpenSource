@@ -299,7 +299,10 @@ static int _iopgtbl_unmap(struct kgsl_iommu_pt *pt, u64 gpuaddr, size_t size)
 
 flush:
 	iommu_flush_iotlb_all(to_iommu_domain(&iommu->user_context));
-	iommu_flush_iotlb_all(to_iommu_domain(&iommu->lpac_context));
+
+	/* As LPAC is optional, check LPAC domain is present before flush */
+	if (iommu->lpac_context.domain)
+		iommu_flush_iotlb_all(to_iommu_domain(&iommu->lpac_context));
 
 	return 0;
 }
@@ -1311,12 +1314,14 @@ static int kgsl_iopgtbl_alloc(struct kgsl_iommu_context *ctx, struct kgsl_iommu_
 static void kgsl_iommu_enable_ttbr0(struct kgsl_iommu_context *context,
 		struct kgsl_iommu_pt *pt)
 {
-	struct adreno_smmu_priv *adreno_smmu = dev_get_drvdata(&context->pdev->dev);
+	struct adreno_smmu_priv *adreno_smmu;
 	struct kgsl_mmu *mmu = pt->base.mmu;
 
 	/* Quietly return if the context doesn't have a domain */
 	if (!context->domain)
 		return;
+
+	adreno_smmu = dev_get_drvdata(&context->pdev->dev);
 
 	/* Enable CX and clocks before we call into SMMU to setup registers */
 	kgsl_iommu_enable_clk(mmu);
@@ -1543,6 +1548,10 @@ static void _iommu_context_set_prr(struct kgsl_mmu *mmu,
 	u32 val;
 
 	if (ctx->cb_num < 0)
+		return;
+
+	/* Quietly return if the context doesn't have a domain */
+	if (!ctx->domain)
 		return;
 
 	if (!page)
