@@ -1,0 +1,34 @@
+#include "cape-cdp.dtsi"
+#include "waipio-pm8010-spmi.dtsi"
+
+&qupv3_se4_spi {
+	status = "disabled";
+};
+
+&qupv3_se4_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	status = "ok";
+	qcom,i2c-touch-active = "atmel,maxtouch";
+
+	atmel_mxt_ts@4a {
+		compatible = "atmel,maxtouch";
+		reg = <0x4a>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <21 0x2008>;
+		avdd-supply = <&L3C>;
+		vdd-supply = <&L12C>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+		pinctrl-0 = <&ts_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+
+		atmel,xy_switch;
+		atmel,inverty;
+		atmel,invertx;
+		reset-gpios = <&tlmm 20 0x00>;
+		irq-gpios = <&tlmm 21 0x2008>;
+		atmel,panel-coords = <0 0 479 799>;
+		atmel,display-coords = <0 0 339 729>;
+	};
+};
