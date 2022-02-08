@@ -568,8 +568,9 @@ int __pkvm_init_shadow(struct kvm *kvm,
 	struct kvm_shadow_vm *vm = kern_hyp_va(shadow_va);
 	phys_addr_t shadow_pa = hyp_virt_to_phys(vm);
 	u64 pfn = hyp_phys_to_pfn(shadow_pa);
-	u64 nr_pages = shadow_size >> PAGE_SHIFT;
-	u64 pgd_size;
+	u64 nr_shadow_pages = shadow_size >> PAGE_SHIFT;
+	u64 nr_pgd_pages;
+	size_t pgd_size;
 	int nr_vcpus = 0;
 	int ret = 0;
 
@@ -592,15 +593,16 @@ int __pkvm_init_shadow(struct kvm *kvm,
 	if (ret)
 		goto err;
 
-	ret = __pkvm_host_donate_hyp(pfn, nr_pages);
+	ret = __pkvm_host_donate_hyp(pfn, nr_shadow_pages);
 	if (ret)
 		goto err;
 
 	/* Ensure we're working with a clean slate. */
 	memset(vm, 0, shadow_size);
 	vm->arch.vtcr = host_kvm.arch.vtcr;
-	pgd_size = kvm_pgtable_stage2_pgd_size(vm->arch.vtcr) >> PAGE_SHIFT;
-	ret =  __pkvm_host_donate_hyp(hyp_virt_to_pfn(pgd), pgd_size);
+	pgd_size = kvm_pgtable_stage2_pgd_size(host_kvm.arch.vtcr);
+	nr_pgd_pages = pgd_size >> PAGE_SHIFT;
+	ret = __pkvm_host_donate_hyp(hyp_virt_to_pfn(pgd), nr_pgd_pages);
 	if (ret)
 		goto err_remove_mappings;
 
@@ -623,7 +625,7 @@ err_remove_shadow_table:
 	remove_shadow_table(vm->shadow_handle);
 
 err_remove_pgd:
-	WARN_ON(__pkvm_hyp_donate_host(hyp_virt_to_pfn(pgd), pgd_size));
+	WARN_ON(__pkvm_hyp_donate_host(hyp_virt_to_pfn(pgd), nr_pgd_pages));
 
 err_remove_mappings:
 	unpin_host_vcpus(vm);
