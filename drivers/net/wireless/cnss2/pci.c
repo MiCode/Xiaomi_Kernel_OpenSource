@@ -2736,7 +2736,7 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 	unsigned int timeout;
 
 	if (!plat_priv) {
-		cnss_pr_info("plat_priv is not ready for register driver\n");
+		cnss_pr_buf("plat_priv is not ready for register driver\n");
 		return -EAGAIN;
 	}
 
