@@ -372,7 +372,7 @@ static uint32_t next_mem_map_obj_id_locked(void)
 static inline void free_mem_obj_locked(struct smcinvoke_mem_obj *mem_obj)
 {
 	int ret = 0;
-	bool is_bridge_created = mem_obj->bridge_created_by_others;
+	bool is_bridge_created_by_others = mem_obj->bridge_created_by_others;
 	struct dma_buf *dmabuf_to_free = mem_obj->dma_buf;
 	uint64_t shmbridge_handle = mem_obj->shmbridge_handle;
 
@@ -381,7 +381,7 @@ static inline void free_mem_obj_locked(struct smcinvoke_mem_obj *mem_obj)
 	mem_obj = NULL;
 	mutex_unlock(&g_smcinvoke_lock);
 
-	if (is_bridge_created)
+	if (!is_bridge_created_by_others)
 		ret = qtee_shmbridge_deregister(shmbridge_handle);
 	if (ret)
 		pr_err("Error:%d delete bridge failed leaking memory 0x%x\n",
