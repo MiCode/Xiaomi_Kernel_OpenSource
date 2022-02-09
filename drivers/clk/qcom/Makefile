@@ -109,6 +109,7 @@ obj-$(CONFIG_SM_DISPCC_KALAMA) += dispcc-kalama.o
 obj-$(CONFIG_SM_DISPCC_KHAJE) += dispcc-khaje.o
 obj-$(CONFIG_SM_DEBUGCC_KALAMA) += debugcc-kalama.o
 obj-$(CONFIG_SM_GPUCC_KALAMA) += gpucc-kalama.o
+obj-$(CONFIG_SM_GPUCC_KHAJE) += gpucc-khaje.o
 obj-$(CONFIG_SM_TCSRCC_KALAMA) += tcsrcc-kalama.o
 obj-$(CONFIG_SM_GPUCC_8150) += gpucc-sm8150.o
 obj-$(CONFIG_SM_GPUCC_8250) += gpucc-sm8250.o
