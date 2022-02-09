@@ -640,6 +640,18 @@
 		qcom,config-arr = <0x17800060 0x17810060 0x17820060 0x17830060>;
 	};
 
+	adsp_pas: remoteproc-adsp@03000000 {
+		compatible = "qcom,neo-adsp-pas";
+		reg = <0x03000000 0x10000>;
+		status = "disabled";
+	};
+
+	cdsp_pas: remoteproc-cdsp@32300000 {
+		compatible = "qcom,neo-cdsp-pas";
+		reg = <0x32300000 0x10000>;
+		status = "disabled";
+	};
+
 	clk_virt: interconnect@0 {
 		compatible = "qcom,neo-clk_virt";
 		qcom,bcm-voter-names = "hlos";
