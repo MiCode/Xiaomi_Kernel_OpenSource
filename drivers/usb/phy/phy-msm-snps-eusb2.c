@@ -207,6 +207,15 @@ static void msm_eusb2_phy_clocks(struct msm_eusb2_phy *phy, bool on)
 	phy->clocks_enabled = on;
 }
 
+static void msm_eusb2_phy_update_eud_detect(struct msm_eusb2_phy *phy, bool set)
+{
+	if (set)
+		writel_relaxed(EUD_DETECT, phy->eud_detect_reg);
+	else
+		writel_relaxed(readl_relaxed(phy->eud_detect_reg) & ~EUD_DETECT,
+					phy->eud_detect_reg);
+}
+
 static int msm_eusb2_phy_power(struct msm_eusb2_phy *phy, bool on)
 {
 	int ret = 0;
@@ -218,7 +227,7 @@ static int msm_eusb2_phy_power(struct msm_eusb2_phy *phy, bool on)
 		return 0;
 
 	if (!on)
-		goto disable_vdda12;
+		goto clear_eud_det;
 
 	ret = regulator_set_load(phy->vdd, USB_HSPHY_VDD_HPM_LOAD);
 	if (ret < 0) {
@@ -259,11 +268,22 @@ static int msm_eusb2_phy_power(struct msm_eusb2_phy *phy, bool on)
 		goto unset_vdda12;
 	}
 
+	/* Make sure all the writes are processed before setting EUD_DETECT */
+	mb();
+	/* Set eud_detect_reg after powering on eUSB PHY rails to bring EUD out of reset */
+	msm_eusb2_phy_update_eud_detect(phy, true);
+
 	phy->power_enabled = true;
 	pr_debug("eUSB2_PHY's regulators are turned ON.\n");
 	return ret;
 
-disable_vdda12:
+clear_eud_det:
+	/* Clear eud_detect_reg to put EUD in reset */
+	msm_eusb2_phy_update_eud_detect(phy, false);
+
+	/* Make sure clearing EUD_DETECT is completed before turning off the regulators */
+	mb();
+
 	ret = regulator_disable(phy->vdda12);
 	if (ret)
 		dev_err(phy->phy.dev, "Unable to disable vdda12:%d\n", ret);
@@ -613,7 +633,6 @@ static void msm_eusb2_ref_clk_init(struct usb_phy *uphy)
 static int msm_eusb2_repeater_reset_and_init(struct msm_eusb2_phy *phy)
 {
 	int ret;
-	u32 value;
 
 	if (phy->ur)
 		phy->ur->flags = phy->phy.flags;
@@ -622,19 +641,9 @@ static int msm_eusb2_repeater_reset_and_init(struct msm_eusb2_phy *phy)
 	if (ret)
 		dev_err(phy->phy.dev, "repeater powerup failed.\n");
 
-	/* Clear eud detect before performing repeater reset */
-	writel_relaxed(readl_relaxed(phy->eud_detect_reg) & ~EUD_DETECT,
-						phy->eud_detect_reg);
-
 	ret = usb_repeater_reset(phy->ur, true);
 	if (ret)
 		dev_err(phy->phy.dev, "repeater reset failed.\n");
-
-	/* Need to wait for eUSB2 repeater reset based VIOCTL propagation */
-	ret = readl_relaxed_poll_timeout(phy->eud_detect_reg, value,
-			value & EUD_DETECT, 100, 5000);
-	if (ret < 0)
-		dev_err(phy->phy.dev, "EUD detect is not set %x\n", value);
 
 	ret = usb_repeater_init(phy->ur);
 	if (ret)
@@ -655,6 +664,7 @@ static int msm_eusb2_phy_init(struct usb_phy *uphy)
 			qcom_scm_io_writel(phy->eud_reg, 0x0);
 			phy->re_enable_eud = true;
 		} else {
+			msm_eusb2_phy_power(phy, true);
 			return msm_eusb2_repeater_reset_and_init(phy);
 		}
 	}
@@ -764,15 +774,9 @@ static int msm_eusb2_phy_set_suspend(struct usb_phy *uphy, int suspend)
 			goto suspend_exit;
 
 		msm_eusb2_phy_clocks(phy, false);
-		/* if EUD debug mode active, then keep ldos on */
-		if (!is_eud_debug_mode_active(phy))
-			msm_eusb2_phy_power(phy, false);
+		msm_eusb2_phy_power(phy, false);
 
-		/*
-		 * EUD resets USB2PHY on VBUS going down causing PHY is not
-		 * able to send ESE1 and hs termination to repeater. Hence
-		 * hold repeater into reset after powering down PHY.
-		 */
+		/* Hold repeater into reset after powering down PHY */
 		usb_repeater_reset(phy->ur, false);
 		usb_repeater_powerdown(phy->ur);
 	} else {
