@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _ADRENO_HWSCHED_H_
@@ -51,6 +52,8 @@ struct adreno_hwsched {
 	struct completion idle_gate;
 	/** @big_cmdobj = Points to the big IB that is inflight */
 	struct kgsl_drawobj_cmd *big_cmdobj;
+	/** @recurring_cmdobj: Recurring commmand object sent to GMU */
+	struct kgsl_drawobj_cmd *recurring_cmdobj;
 };
 
 /*
@@ -126,4 +129,15 @@ void adreno_hwsched_unregister_contexts(struct adreno_device *adreno_dev);
  * Return: 0 on success or negative error on failure
  */
 int adreno_hwsched_idle(struct adreno_device *adreno_dev);
+
+static inline bool hwsched_in_fault(struct adreno_hwsched *hwsched)
+{
+	/* make sure we're reading the latest value */
+	smp_rmb();
+	return atomic_read(&hwsched->fault) != 0;
+}
+
+void adreno_hwsched_retire_cmdobj(struct adreno_hwsched *hwsched,
+	struct kgsl_drawobj_cmd *cmdobj);
+
 #endif
