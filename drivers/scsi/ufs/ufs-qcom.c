@@ -477,25 +477,13 @@ static int ufs_qcom_check_hibern8(struct ufs_hba *hba)
 
 static void ufs_qcom_select_unipro_mode(struct ufs_qcom_host *host)
 {
-	int submode = host->limit_phy_submode;
-
 	ufshcd_rmwl(host->hba, QUNIPRO_SEL,
 		   ufs_qcom_cap_qunipro(host) ? QUNIPRO_SEL : 0,
 		   REG_UFS_CFG1);
 
-	if (host->hw_ver.major < 0x05)
-		goto out;
-
-	/* HS-G5 requires 38.4MHz ref_clock */
-	if (submode == UFS_QCOM_PHY_SUBMODE_G5 &&
-		host->hba->dev_ref_clk_freq == REF_CLK_FREQ_38_4_MHZ)
+	if (host->hw_ver.major == 0x05)
 		ufshcd_rmwl(host->hba, QUNIPRO_G4_SEL, 0, REG_UFS_CFG0);
-	else if (submode == UFS_QCOM_PHY_SUBMODE_G4)
-		ufshcd_rmwl(host->hba, QUNIPRO_G4_SEL,
-				QUNIPRO_G4_SEL, REG_UFS_CFG0);
-	else
-		dev_warn(host->hba->dev, "%s:Unknown ufs submode\n", __func__);
-out:
+
 	/* make sure above configuration is applied before we return */
 	mb();
 }
