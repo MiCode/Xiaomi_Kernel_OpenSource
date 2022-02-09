@@ -52,3 +52,6 @@ icc-debug.ko
 qcom-cpufreq-hw.ko
 socinfo.ko
 qcom_ipc_logging.ko
+phy-qcom-ufs.ko
+phy-qcom-ufs-qmp-v4.ko
+ufs_qcom.ko
