@@ -107,25 +107,6 @@ int ccu_allocate_mva(uint32_t *mva, void *va,
 		return ret;
 	}
 
-	// *handle = _ccu_ion_alloc(_ccu_ion_client,
-	// ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-	// (unsigned long)va, buffer_size, false, false);
-
-	/*i2c dma buffer is PAGE_SIZE(4096B)*/
-
-	if (!(*handle)) {
-		LOG_ERR("Fatal Error, ion_alloc for size %d failed\n", 4096);
-		return -1;
-	}
-
-	ret = _ccu_ion_get_mva(_ccu_ion_client, *handle, mva, 0);
-
-	if (ret) {
-		LOG_ERR("ccu ion_get_mva failed\n");
-		ccu_deallocate_mva(handle);
-		return -1;
-	}
-
 	return ret;
 }
 
