@@ -342,6 +342,8 @@ config MACH_MT6771
 	select MFD_SYSCON
 	select MTK_DRAMC
 	select CPU_IDLE
+	select MTK_BASE_POWER
+	select MTK_GIC_V3_EXT
 	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	select MTK_SYSIRQ
 	select MTK_EMI
