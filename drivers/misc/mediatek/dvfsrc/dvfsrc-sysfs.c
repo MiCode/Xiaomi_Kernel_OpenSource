@@ -205,6 +205,29 @@ static ssize_t dvfsrc_opp_table_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(dvfsrc_opp_table);
 
+static ssize_t dvfsrc_ddr_opp_table_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int i;
+	int level = 0;
+	char *p = buf;
+	char *buff_end = p + PAGE_SIZE;
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	for (i = 0; i < dvfsrc->opp_desc->num_opp; i++) {
+		if (dvfsrc->opp_desc->opps[i].dram_opp == level) {
+			p += snprintf(p, buff_end - p,
+			"%lu ",
+			(unsigned long)(dvfsrc->opp_desc->opps[i].dram_khz)*1000);
+			level = level + 1;
+		}
+	}
+	p += snprintf(p, buff_end - p, "\n");
+
+	return p - buf;
+}
+static DEVICE_ATTR_RO(dvfsrc_ddr_opp_table);
+
 static ssize_t dvfsrc_num_opps_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -274,6 +297,7 @@ static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_dump.attr,
 	&dev_attr_dvfsrc_force_vcore_dvfs_opp.attr,
 	&dev_attr_dvfsrc_opp_table.attr,
+	&dev_attr_dvfsrc_ddr_opp_table.attr,
 	&dev_attr_dvfsrc_num_opps.attr,
 	&dev_attr_dvfsrc_get_dvfs_time.attr,
 	&dev_attr_spm_cmd_dump.attr,
