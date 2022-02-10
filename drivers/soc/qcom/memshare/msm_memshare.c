@@ -18,7 +18,6 @@
 #include "heap_mem_ext_v01.h"
 
 #include <soc/qcom/secure_buffer.h>
-#include <soc/qcom/ramdump.h>
 
 /* Macros */
 #define MEMSHARE_DEV_NAME "memshare"
@@ -27,8 +26,7 @@ static unsigned long(attrs);
 static struct qmi_handle *mem_share_svc_handle;
 static struct workqueue_struct *mem_share_svc_workqueue;
 static uint64_t bootup_request;
-static bool ramdump_event;
-static void *memshare_ramdump_dev[MAX_CLIENTS];
+
 static struct device *memshare_dev[MAX_CLIENTS];
 
 /* Memshare Driver Structure */
@@ -49,58 +47,9 @@ static struct memshare_child *memsh_child[MAX_CLIENTS];
 static struct mem_blocks memblock[MAX_CLIENTS];
 static uint32_t num_clients;
 
-/*
- *  This API creates ramdump dev handlers
- *  for each of the memshare clients.
- *  These dev handlers will be used for
- *  extracting the ramdump for loaned memory
- *  segments.
- */
-
-static int mem_share_configure_ramdump(int client)
-{
-	char client_name[18];
-	const char *clnt = NULL;
-
-	switch (client) {
-	case 0:
-		clnt = "GPS";
-		break;
-	case 1:
-		clnt = "FTM";
-		break;
-	case 2:
-		clnt = "DIAG";
-		break;
-	default:
-		dev_err(memsh_drv->dev, "memshare: no memshare clients registered\n");
-		return -EINVAL;
-	}
-
-	snprintf(client_name, sizeof(client_name),
-		"memshare_%s", clnt);
-	if (memshare_dev[client]) {
-		memshare_ramdump_dev[client] =
-			create_ramdump_device(client_name,
-				memshare_dev[client]);
-	} else {
-		dev_err(memsh_drv->dev,
-			"memshare: invalid memshare device for creating ramdump device\n");
-		return -ENODEV;
-	}
-	if (IS_ERR_OR_NULL(memshare_ramdump_dev[client])) {
-		dev_err(memsh_drv->dev,
-			"memshare: unable to create memshare ramdump device\n");
-		memshare_ramdump_dev[client] = NULL;
-		return -ENOMEM;
-	}
-
-	return 0;
-}
-
 static int check_client(int client_id, int proc, int request)
 {
-	int i = 0, rc;
+	int i = 0;
 	int found = DHMS_MEM_CLIENT_INVALID;
 
 	for (i = 0; i < MAX_CLIENTS; i++) {
@@ -122,17 +71,6 @@ static int check_client(int client_id, int proc, int request)
 				memblock[i].guarantee = 0;
 				memblock[i].peripheral = proc;
 				found = i;
-
-				if (!memblock[i].file_created) {
-					rc = mem_share_configure_ramdump(i);
-					if (rc)
-						dev_err(memsh_drv->dev,
-							"memshare_check_client: cannot create ramdump for client with id: %d\n",
-							client_id);
-					else
-						memblock[i].file_created = 1;
-				}
-
 				break;
 			}
 		}
@@ -187,110 +125,7 @@ static void initialize_client(void)
 		memblock[i].memory_type = MEMORY_CMA;
 		memblock[i].free_memory = 0;
 		memblock[i].hyp_mapping = 0;
-		memblock[i].file_created = 0;
 	}
-}
-
-/*
- *  mem_share_do_ramdump() function initializes the
- *  ramdump segments with the physical address and
- *  size of the memshared clients. Extraction of ramdump
- *  is skipped if memshare client is not allotted
- *  This calls the ramdump api in extracting the
- *  ramdump in elf format.
- */
-
-static int mem_share_do_ramdump(void)
-{
-	int i = 0, ret;
-	char *client_name = NULL;
-	u32 source_vmlist[1] = {VMID_MSS_MSA};
-	int dest_vmids[1] = {VMID_HLOS};
-	int dest_perms[1] = {PERM_READ|PERM_WRITE|PERM_EXEC};
-
-	for (i = 0; i < num_clients; i++) {
-
-		struct ramdump_segment *ramdump_segments_tmp = NULL;
-
-		switch (i) {
-		case 0:
-			client_name = "GPS";
-			break;
-		case 1:
-			client_name = "FTM";
-			break;
-		case 2:
-			client_name = "DIAG";
-			break;
-		default:
-			dev_err(memsh_drv->dev,
-				"memshare: no memshare clients registered for client index: %d\n",
-				i);
-			return -EINVAL;
-		}
-
-		if (!memblock[i].allotted) {
-			dev_err(memsh_drv->dev, "memshare: %s: memblock is not allotted\n",
-			client_name);
-			continue;
-		}
-
-		if (memblock[i].hyp_mapping &&
-			memblock[i].peripheral ==
-			DHMS_MEM_PROC_MPSS_V01) {
-			dev_dbg(memsh_drv->dev,
-				"memshare: %s: hypervisor unmapping for client before elf dump\n",
-				client_name);
-			if (memblock[i].alloc_request)
-				continue;
-			ret = hyp_assign_phys(
-					memblock[i].phy_addr,
-					memblock[i].size,
-					source_vmlist,
-					1, dest_vmids,
-					dest_perms, 1);
-			if (ret) {
-				/*
-				 * This is an error case as hyp
-				 * mapping was successful
-				 * earlier but during unmap
-				 * it lead to failure.
-				 */
-				dev_err(memsh_drv->dev,
-					"memshare: %s: failed to map the memory region to APPS\n",
-					client_name);
-				continue;
-			} else {
-				memblock[i].hyp_mapping = 0;
-			}
-		}
-
-		if (!memblock[i].hyp_mapping) {
-			ramdump_segments_tmp = kcalloc(1,
-				sizeof(struct ramdump_segment),
-				GFP_KERNEL);
-			if (!ramdump_segments_tmp)
-				return -ENOMEM;
-
-			ramdump_segments_tmp[0].size = memblock[i].size;
-			ramdump_segments_tmp[0].v_address =
-				memblock[i].virtual_addr;
-
-			dev_dbg(memsh_drv->dev, "memshare: %s: Begin elf dump for size = %d\n",
-				client_name, memblock[i].size);
-
-			ret = do_elf_ramdump(memshare_ramdump_dev[i],
-						ramdump_segments_tmp, 1);
-			kfree(ramdump_segments_tmp);
-			if (ret < 0) {
-				dev_err(memsh_drv->dev,
-					"memshare: %s: Unable to elf dump with failure: %d\n",
-					client_name, ret);
-				return ret;
-			}
-		}
-	}
-	return 0;
 }
 
 static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
@@ -300,7 +135,6 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 	u32 source_vmlist[1] = {VMID_MSS_MSA};
 	int dest_vmids[1] = {VMID_HLOS};
 	int dest_perms[1] = {PERM_READ|PERM_WRITE|PERM_EXEC};
-	struct notif_data *notifdata = NULL;
 	struct memshare_child *client_node = NULL;
 
 	mutex_lock(&memsh_drv->mem_share);
@@ -317,32 +151,9 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 		break;
 
 	case QCOM_SSR_AFTER_SHUTDOWN:
-		ramdump_event = true;
-		dev_info(memsh_drv->dev,
-		"memshare: QCOM_SSR_AFTER_SHUTDOWN: ramdump_event:%d\n",
-		ramdump_event);
 		break;
 
 	case QCOM_SSR_BEFORE_POWERUP:
-		if (_cmd) {
-			notifdata = (struct notif_data *) _cmd;
-			dev_info(memsh_drv->dev,
-			"memshare: QCOM_SSR_BEFORE_POWERUP: enable_ramdump: %d, ramdump_event: %d\n",
-			notifdata->enable_ramdump, ramdump_event);
-		} else {
-			ramdump_event = false;
-			dev_info(memsh_drv->dev,
-			"memshare: QCOM_SSR_BEFORE_POWERUP: ramdump_event: %d\n",
-			ramdump_event);
-			break;
-		}
-
-		if (notifdata->enable_ramdump && ramdump_event) {
-			ret = mem_share_do_ramdump();
-			if (ret)
-				dev_err(memsh_drv->dev, "memshare: Ramdump collection failed\n");
-			ramdump_event = false;
-		}
 		break;
 
 	case QCOM_SSR_AFTER_POWERUP:
@@ -914,22 +725,7 @@ static int memshare_child_probe(struct platform_device *pdev)
 		shared_hyp_mapping(num_clients);
 	}
 
-	/*
-	 *  call for creating ramdump dev handlers for
-	 *  memshare clients
-	 */
-
 	memshare_dev[num_clients] = &pdev->dev;
-
-	if (!memblock[num_clients].file_created) {
-		rc = mem_share_configure_ramdump(num_clients);
-		if (rc)
-			dev_err(memsh_drv->dev,
-			"memshare_child: cannot create ramdump for client with id: %d\n",
-			memblock[num_clients].client_id);
-		else
-			memblock[num_clients].file_created = 1;
-	}
 
 	memsh_child[num_clients] = drv;
 	num_clients++;
