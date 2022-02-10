@@ -8,7 +8,7 @@
 
 #include <lpm_trace_event/lpm_trace_event.h>
 #include <mtk_spm_sysfs.h>
-#include <mt6855_spm_reg.h>
+#include <spm_reg.h>
 
 
 #define plat_mmio_read(offset)	__raw_readl(spm_base + offset)
@@ -131,7 +131,7 @@ static const struct mtk_lp_sysfs_op spm_resource_req_timer_enable_fops = {
 	.fs_write = set_spm_resource_req_timer_enable,
 };
 
-int __init mt6855_lpm_trace_init(void)
+int __init lpm_trace_init(void)
 {
 	struct device_node *node = NULL;
 
@@ -149,7 +149,7 @@ int __init mt6855_lpm_trace_init(void)
 	return 0;
 }
 
-void __exit mt6855_lpm_trace_deinit(void)
+void __exit lpm_trace_deinit(void)
 {
 }
 

@@ -15,7 +15,7 @@
 #include <mtk_suspend_sysfs.h>
 #include <mtk_spm_sysfs.h>
 
-#include <mt6855_pwr_ctrl.h>
+#include <pwr_ctrl.h>
 #include <lpm_dbg_fs_common.h>
 #include <lpm_spm_comm.h>
 
@@ -50,7 +50,7 @@
 	} while (0)
 
 
-static char *mt6855_pwr_ctrl_str[PW_MAX_COUNT] = {
+static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_PCM_FLAGS] = "pcm_flags",
 	[PW_PCM_FLAGS_CUST] = "pcm_flags_cust",
 	[PW_PCM_FLAGS_CUST_SET] = "pcm_flags_cust_set",
@@ -272,7 +272,7 @@ static char *mt6855_pwr_ctrl_str[PW_MAX_COUNT] = {
  * xxx_ctrl_show Function
  **************************************/
 /* code gen by spm_pwr_ctrl_atf.pl, need struct pwr_ctrl */
-static ssize_t mt6855_show_pwr_ctrl(int id, char *buf, size_t buf_sz)
+static ssize_t show_pwr_ctrl(int id, char *buf, size_t buf_sz)
 {
 	char *p = buf;
 	size_t mSize = 0;
@@ -281,7 +281,7 @@ static ssize_t mt6855_show_pwr_ctrl(int id, char *buf, size_t buf_sz)
 	for (i = 0; i < PW_MAX_COUNT; i++) {
 		mSize += scnprintf(p + mSize, buf_sz - mSize,
 			"%s = 0x%zx\n",
-			mt6855_pwr_ctrl_str[i],
+			pwr_ctrl_str[i],
 				lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_GET, i, 0));
 	}
 
@@ -294,7 +294,7 @@ static ssize_t mt6855_show_pwr_ctrl(int id, char *buf, size_t buf_sz)
  * xxx_ctrl_store Function
  **************************************/
 /* code gen by spm_pwr_ctrl_atf.pl, need struct pwr_ctrl */
-static ssize_t mt6855_store_pwr_ctrl(int id,	const char *buf, size_t count)
+static ssize_t store_pwr_ctrl(int id,	const char *buf, size_t count)
 {
 	u32 val;
 	char cmd[64];
@@ -306,7 +306,7 @@ static ssize_t mt6855_store_pwr_ctrl(int id,	const char *buf, size_t count)
 	pr_info("[SPM] pwr_ctrl: cmd = %s, val = 0x%x\n", cmd, val);
 
 	for (i = 0 ; i < PW_MAX_COUNT; i++) {
-		if (!strcmp(cmd, mt6855_pwr_ctrl_str[i])) {
+		if (!strcmp(cmd, pwr_ctrl_str[i])) {
 			lpm_smc_spm_dbg(id, MT_LPM_SMC_ACT_SET, i, val);
 			break;
 		}
@@ -316,18 +316,18 @@ static ssize_t mt6855_store_pwr_ctrl(int id,	const char *buf, size_t count)
 }
 
 static ssize_t
-mt6855_generic_spm_read(char *ToUserBuf, size_t sz, void *priv);
+generic_spm_read(char *ToUserBuf, size_t sz, void *priv);
 
 static ssize_t
-mt6855_generic_spm_write(char *FromUserBuf, size_t sz, void *priv);
+generic_spm_write(char *FromUserBuf, size_t sz, void *priv);
 
-struct mt6855_SPM_ENTERY {
+struct SPM_ENTERY {
 	const char *name;
 	int mode;
 	struct mtk_lp_sysfs_handle handle;
 };
 
-struct mt6855_SPM_NODE {
+struct SPM_NODE {
 	const char *name;
 	int mode;
 	struct mtk_lp_sysfs_handle handle;
@@ -335,55 +335,55 @@ struct mt6855_SPM_NODE {
 };
 
 
-struct mt6855_SPM_ENTERY mt6855_spm_root = {
+struct SPM_ENTERY spm_root = {
 	.name = "power",
 	.mode = 0644,
 };
 
-struct mt6855_SPM_NODE mt6855_spm_idle = {
+struct SPM_NODE spm_idle = {
 	.name = "idle_ctrl",
 	.mode = 0644,
 	.op = {
-		.fs_read = mt6855_generic_spm_read,
-		.fs_write = mt6855_generic_spm_write,
-		.priv = (void *)&mt6855_spm_idle,
+		.fs_read = generic_spm_read,
+		.fs_write = generic_spm_write,
+		.priv = (void *)&spm_idle,
 	},
 };
 
-struct mt6855_SPM_NODE mt6855_spm_suspend = {
+struct SPM_NODE spm_suspend = {
 	.name = "suspend_ctrl",
 	.mode = 0644,
 	.op = {
-		.fs_read = mt6855_generic_spm_read,
-		.fs_write = mt6855_generic_spm_write,
-		.priv = (void *)&mt6855_spm_suspend,
+		.fs_read = generic_spm_read,
+		.fs_write = generic_spm_write,
+		.priv = (void *)&spm_suspend,
 	},
 };
 
 static ssize_t
-mt6855_generic_spm_read(char *ToUserBuf, size_t sz, void *priv)
+generic_spm_read(char *ToUserBuf, size_t sz, void *priv)
 {
 	int id = MT_SPM_DBG_SMC_UID_SUSPEND_PWR_CTRL;
 
-	if (priv == &mt6855_spm_idle)
+	if (priv == &spm_idle)
 		id = MT_SPM_DBG_SMC_UID_IDLE_PWR_CTRL;
-	return mt6855_show_pwr_ctrl(id, ToUserBuf, sz);
+	return show_pwr_ctrl(id, ToUserBuf, sz);
 }
 
 #include <mtk_lpm_sysfs.h>
 
 static ssize_t
-mt6855_generic_spm_write(char *FromUserBuf, size_t sz, void *priv)
+generic_spm_write(char *FromUserBuf, size_t sz, void *priv)
 {
 	int id = MT_SPM_DBG_SMC_UID_SUSPEND_PWR_CTRL;
 
-	if (priv == &mt6855_spm_idle)
+	if (priv == &spm_idle)
 		id = MT_SPM_DBG_SMC_UID_IDLE_PWR_CTRL;
 
-	return mt6855_store_pwr_ctrl(id, FromUserBuf, sz);
+	return store_pwr_ctrl(id, FromUserBuf, sz);
 }
 
-static char *mt6855_spm_resource_str[MT_SPM_RES_MAX] = {
+static char *spm_resource_str[MT_SPM_RES_MAX] = {
 	[MT_SPM_RES_XO_FPM] = "XO_FPM",
 	[MT_SPM_RES_CK_26M] = "CK_26M",
 	[MT_SPM_RES_INFRA] = "INFRA",
@@ -392,7 +392,7 @@ static char *mt6855_spm_resource_str[MT_SPM_RES_MAX] = {
 	[MT_SPM_RES_DRAM_S1] = "DRAM_S1",
 };
 
-static ssize_t mt6855_spm_res_rq_read(char *ToUserBuf, size_t sz, void *priv)
+static ssize_t spm_res_rq_read(char *ToUserBuf, size_t sz, void *priv)
 {
 	char *p = ToUserBuf;
 	int i, s, u;
@@ -434,7 +434,7 @@ static ssize_t mt6855_spm_res_rq_read(char *ToUserBuf, size_t sz, void *priv)
 	mtk_dbg_spm_log("resource [bit][user_usage][blocking]:\n");
 	for (i = 0; i < rnum; i++) {
 		mtk_dbg_spm_log("%8s [%3d][0x%08x][%3s]\n",
-			mt6855_spm_resource_str[i], i,
+			spm_resource_str[i], i,
 			(per_usage =
 			lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_USAGE,
 					    MT_LPM_SMC_ACT_GET, i, 0)),
@@ -451,7 +451,7 @@ static ssize_t mt6855_spm_res_rq_read(char *ToUserBuf, size_t sz, void *priv)
 	return p - ToUserBuf;
 }
 
-static ssize_t mt6855_spm_res_rq_write(char *FromUserBuf, size_t sz, void *priv)
+static ssize_t spm_res_rq_write(char *FromUserBuf, size_t sz, void *priv)
 {
 	char cmd[128];
 	int parm;
@@ -483,9 +483,9 @@ static ssize_t mt6855_spm_res_rq_write(char *FromUserBuf, size_t sz, void *priv)
 	return -EINVAL;
 }
 
-static const struct mtk_lp_sysfs_op mt6855_spm_res_rq_fops = {
-	.fs_read = mt6855_spm_res_rq_read,
-	.fs_write = mt6855_spm_res_rq_write,
+static const struct mtk_lp_sysfs_op spm_res_rq_fops = {
+	.fs_read = spm_res_rq_read,
+	.fs_write = spm_res_rq_write,
 };
 
 int lpm_spm_fs_init(void)
@@ -494,23 +494,23 @@ int lpm_spm_fs_init(void)
 
 	mtk_spm_sysfs_root_entry_create();
 	mtk_spm_sysfs_entry_node_add("spm_resource_req", 0444
-			, &mt6855_spm_res_rq_fops, NULL);
+			, &spm_res_rq_fops, NULL);
 
-	r = mtk_lp_sysfs_entry_func_create(mt6855_spm_root.name,
-					   mt6855_spm_root.mode, NULL,
-					   &mt6855_spm_root.handle);
+	r = mtk_lp_sysfs_entry_func_create(spm_root.name,
+					   spm_root.mode, NULL,
+					   &spm_root.handle);
 	if (!r) {
-		mtk_lp_sysfs_entry_func_node_add(mt6855_spm_suspend.name,
-						mt6855_spm_suspend.mode,
-						&mt6855_spm_suspend.op,
-						&mt6855_spm_root.handle,
-						&mt6855_spm_suspend.handle);
+		mtk_lp_sysfs_entry_func_node_add(spm_suspend.name,
+						spm_suspend.mode,
+						&spm_suspend.op,
+						&spm_root.handle,
+						&spm_suspend.handle);
 
-		mtk_lp_sysfs_entry_func_node_add(mt6855_spm_idle.name,
-						 mt6855_spm_idle.mode,
-						 &mt6855_spm_idle.op,
-						 &mt6855_spm_root.handle,
-						 &mt6855_spm_idle.handle);
+		mtk_lp_sysfs_entry_func_node_add(spm_idle.name,
+						 spm_idle.mode,
+						 &spm_idle.op,
+						 &spm_root.handle,
+						 &spm_idle.handle);
 	}
 
 	return r;

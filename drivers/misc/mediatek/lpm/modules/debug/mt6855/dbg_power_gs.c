@@ -5,14 +5,14 @@
 
 #include <linux/fs.h>
 #include <lpm_dbg_fs_common.h>
-#include <mt6855_dbg_power_gs.h>
+#include <dbg_power_gs.h>
 
 #include "mtk_power_gs_array.h"
 #include <lpm_call.h>
 #include <lpm_call_type.h>
 #include <gs/lpm_pwr_gs.h>
 #include <gs/v1/lpm_power_gs.h>
-int mt6855_pwr_gs_set(unsigned int type, const struct lpm_data *val)
+int pwr_gs_set(unsigned int type, const struct lpm_data *val)
 {
 	int ret = 0;
 
@@ -32,27 +32,27 @@ int mt6855_pwr_gs_set(unsigned int type, const struct lpm_data *val)
 
 	return ret;
 }
-struct lpm_callee mt6855_pwr_gs_callee = {
+struct lpm_callee pwr_gs_callee = {
 	.uid = LPM_CALLEE_PWR_GS,
 	.i.simple = {
-		.set = mt6855_pwr_gs_set,
+		.set = pwr_gs_set,
 	},
 };
 
-struct lpm_gs_clk mt6855_clk_cg = {
+struct lpm_gs_clk clk_cg = {
 	.type = GS_CG,
 	.name = "CG",
 };
-struct lpm_gs_clk mt6855_clk_dcm = {
+struct lpm_gs_clk clk_dcm = {
 	.type = GS_DCM,
 	.name = "DCM",
 };
-struct lpm_gs_clk *mt6855_clks[] = {
-	&mt6855_clk_dcm,
-	&mt6855_clk_cg,
+struct lpm_gs_clk *clks[] = {
+	&clk_dcm,
+	&clk_cg,
 	NULL,
 };
-int mt6855_power_gs_clk_user_attach(struct lpm_gs_clk *p)
+int power_gs_clk_user_attach(struct lpm_gs_clk *p)
 {
 	/* Set compare golden setting for scenario */
 	if (!strcmp(p->name, "CG")) {
@@ -90,30 +90,30 @@ int mt6855_power_gs_clk_user_attach(struct lpm_gs_clk *p)
 	}
 	return 0;
 }
-struct lpm_gs_clk_info mt6855_clk_infos = {
-	.attach = mt6855_power_gs_clk_user_attach,
-	.dcm = mt6855_clks,
+struct lpm_gs_clk_info clk_infos = {
+	.attach = power_gs_clk_user_attach,
+	.dcm = clks,
 };
 
 /* PMIC */
-struct lpm_gs_pmic mt6855_pmic6363 = {
+struct lpm_gs_pmic pmic6363 = {
 	.type = GS_PMIC,
 	.regulator = "mediatek,mt6363-regulator",
 	.pwr_domain = "6363",
 };
-struct lpm_gs_pmic mt6855_pmic6369 = {
+struct lpm_gs_pmic pmic6369 = {
 	.type = GS_PMIC,
 	.regulator = "mediatek,mt6369-regulator",
 	.pwr_domain = "6369",
 };
 
 
-struct lpm_gs_pmic *mt6855_pmic[] = {
-	&mt6855_pmic6363,
-	&mt6855_pmic6369,
+struct lpm_gs_pmic *pmic[] = {
+	&pmic6363,
+	&pmic6369,
 	NULL,
 };
-int mt6855_power_gs_pmic_user_attach(struct lpm_gs_pmic *p)
+int power_gs_pmic_user_attach(struct lpm_gs_pmic *p)
 {
 	if (!p || !p->regulator)
 		return -EINVAL;
@@ -157,26 +157,26 @@ int mt6855_power_gs_pmic_user_attach(struct lpm_gs_pmic *p)
 	return 0;
 }
 
-struct lpm_gs_pmic_info mt6855_pmic_infos = {
-	.pmic = mt6855_pmic,
-	.attach = mt6855_power_gs_pmic_user_attach,
+struct lpm_gs_pmic_info pmic_infos = {
+	.pmic = pmic,
+	.attach = power_gs_pmic_user_attach,
 };
 
-int mt6855_power_gs_init(void)
+int power_gs_init(void)
 {
-	lpm_callee_registry(&mt6855_pwr_gs_callee);
+	lpm_callee_registry(&pwr_gs_callee);
 	/* initial gs compare method */
 	lpm_pwr_gs_common_init();
 	/* initial gs pmic information */
-	lpm_pwr_gs_compare_init(LPM_GS_CMP_PMIC, &mt6855_pmic_infos);
+	lpm_pwr_gs_compare_init(LPM_GS_CMP_PMIC, &pmic_infos);
 #ifdef MTK_LPM_GS_PLAT_CLK_DUMP_SUPPORT
 	/* initial gs dcm information */
-	lpm_pwr_gs_compare_init(LPM_GS_CMP_CLK, &mt6855_clk_infos);
+	lpm_pwr_gs_compare_init(LPM_GS_CMP_CLK, &clk_infos);
 #endif
 	return 0;
 }
 
-void mt6855_power_gs_deinit(void)
+void power_gs_deinit(void)
 {
 	lpm_pwr_gs_common_deinit();
 }

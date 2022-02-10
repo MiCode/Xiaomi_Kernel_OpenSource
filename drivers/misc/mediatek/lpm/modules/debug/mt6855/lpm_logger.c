@@ -17,21 +17,21 @@
 #include <lpm.h>
 #include <lpm_module.h>
 #include <lpm_spm_comm.h>
-#include <mt6855_spm_reg.h>
-#include <mt6855_pwr_ctrl.h>
+#include <spm_reg.h>
+#include <pwr_ctrl.h>
 #include <mt-plat/mtk_ccci_common.h>
 #include <lpm_timer.h>
 #include <mtk_lpm_sysfs.h>
-#include <mt6855_cond.h>
+#include <cond.h>
 
-#define MT6855_LOG_DEFAULT_MS		5000
+#define LOG_DEFAULT_MS		5000
 
 #define PCM_32K_TICKS_PER_SEC		(32768)
 #define PCM_TICK_TO_SEC(TICK)	(TICK / PCM_32K_TICKS_PER_SEC)
 
 #define aee_sram_printk pr_info
 
-static char *mt6855_spm_cond_cg_str[PLAT_SPM_COND_MAX] = {
+static char *spm_cond_cg_str[PLAT_SPM_COND_MAX] = {
 	[PLAT_SPM_COND_MTCMOS_0]	= "MTCMOS_0",
 	[PLAT_SPM_COND_CG_INFRA_0]	= "INFRA_0",
 	[PLAT_SPM_COND_CG_INFRA_1]	= "INFRA_1",
@@ -52,7 +52,7 @@ static char *mt6855_spm_cond_cg_str[PLAT_SPM_COND_MAX] = {
 };
 
 /*FIXME*/
-const char *mt6855_wakesrc_str[32] = {
+const char *wakesrc_str[32] = {
 	[0] = " R12_PCM_TIMER",
 	[1] = " R12_TWAM_PMSR_DVFSRC_IRQ",
 	[2] = " R12_KP_IRQ_B",
@@ -87,7 +87,7 @@ const char *mt6855_wakesrc_str[32] = {
 	[31] = " R12_MSDC",
 };
 /*FIXME*/
-struct spm_wakesrc_irq_list mt6855_spm_wakesrc_irqs[] = {
+struct spm_wakesrc_irq_list spm_wakesrc_irqs[] = {
 	/* mtk-kpd */
 	{ WAKE_SRC_STA1_KP_IRQ_B, "mediatek,kp", 0, 0},
 	/* mt_wdt */
@@ -151,61 +151,61 @@ u64 spm_26M_off_count;
 u64 spm_26M_off_duration;
 u32 before_ap_slp_duration;
 
-struct mt6855_logger_timer {
+struct logger_timer {
 	struct lpm_timer tm;
 	unsigned int fired;
 };
 #define	STATE_NUM	10
 #define	STATE_NAME_SIZE	15
-struct mt6855_logger_fired_info {
+struct logger_fired_info {
 	unsigned int fired;
 	unsigned int state_index;
 	char state_name[STATE_NUM][STATE_NAME_SIZE];
 	int fired_index;
 };
 
-static struct lpm_spm_wake_status mt6855_wakesrc;
+static struct lpm_spm_wake_status wakesrc;
 
-static struct lpm_log_helper mt6855_log_help = {
-	.wakesrc = &mt6855_wakesrc,
+static struct lpm_log_helper log_help = {
+	.wakesrc = &wakesrc,
 	.cur = 0,
 	.prev = 0,
 };
 
 
 #define IRQ_NUMBER	\
-	(sizeof(mt6855_spm_wakesrc_irqs)/sizeof(struct spm_wakesrc_irq_list))
+	(sizeof(spm_wakesrc_irqs)/sizeof(struct spm_wakesrc_irq_list))
 static void lpm_get_spm_wakesrc_irq(void)
 {
 	int i;
 	struct device_node *node = NULL;
 
 	for (i = 0; i < IRQ_NUMBER; i++) {
-		if (mt6855_spm_wakesrc_irqs[i].name == NULL)
+		if (spm_wakesrc_irqs[i].name == NULL)
 			continue;
 
 		node = of_find_compatible_node(NULL, NULL,
-			mt6855_spm_wakesrc_irqs[i].name);
+			spm_wakesrc_irqs[i].name);
 		if (!node) {
 			pr_info("[name:spm&][SPM] find '%s' node failed\n",
-				mt6855_spm_wakesrc_irqs[i].name);
+				spm_wakesrc_irqs[i].name);
 			continue;
 		}
 
-		mt6855_spm_wakesrc_irqs[i].irq_no =
+		spm_wakesrc_irqs[i].irq_no =
 			irq_of_parse_and_map(node,
-				mt6855_spm_wakesrc_irqs[i].order);
+				spm_wakesrc_irqs[i].order);
 
-		if (!mt6855_spm_wakesrc_irqs[i].irq_no) {
+		if (!spm_wakesrc_irqs[i].irq_no) {
 			pr_info("[name:spm&][SPM] get '%s' failed\n",
-				mt6855_spm_wakesrc_irqs[i].name);
+				spm_wakesrc_irqs[i].name);
 		}
 	}
 }
 
 static int lpm_get_wakeup_status(void)
 {
-	struct lpm_log_helper *help = &mt6855_log_help;
+	struct lpm_log_helper *help = &log_help;
 
 	if (!help->wakesrc || !lpm_spm_base)
 		return -EINVAL;
@@ -313,7 +313,7 @@ static void lpm_save_sleep_info(void)
 			+ spm_26M_off_count;
 }
 
-static void mt6855_suspend_show_detailed_wakeup_reason
+static void suspend_show_detailed_wakeup_reason
 	(struct lpm_spm_wake_status *wakesta)
 {
 }
@@ -329,11 +329,34 @@ static void dump_lp_cond(void)
 		blkcg = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_BLOCK_DETAIL, MT_LPM_SMC_ACT_GET, 0, i);
 		if (blkcg != 0)
 			pr_info("suspend warning: CG: %6s = 0x%08lx\n"
-				, mt6855_spm_cond_cg_str[i], blkcg);
+				, spm_cond_cg_str[i], blkcg);
 
 	}
 }
-static void mt6855_suspend_spm_rsc_req_check
+
+static void dump_lp_sw_request(void)
+{
+	unsigned int rnum, rusage, per_usage;
+	int i;
+
+	rnum = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_NUM,
+	MT_LPM_SMC_ACT_GET, 0, 0);
+
+	rusage = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_USAGE,
+	MT_LPM_SMC_ACT_GET,
+	MT_LP_RQ_ID_ALL_USAGE, 0);
+
+	for (i = 0; i < rnum; i++) {
+		if ((1<<i) & rusage) {
+			per_usage = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_USAGE,
+			MT_LPM_SMC_ACT_GET, i, 0);
+			pr_info("suspend warning: SWREQ resource bit %d, user = 0x%x\n",
+			i, per_usage);
+		}
+	}
+}
+
+static void suspend_spm_rsc_req_check
 	(struct lpm_spm_wake_status *wakesta)
 {
 #define LOG_BUF_SIZE		        256
@@ -417,6 +440,7 @@ static u32 is_blocked_cnt;
 	src_req = plat_mmio_read(SPM_SRC_REQ);
 	if (src_req & 0x63E) {
 		dump_lp_cond();
+		dump_lp_sw_request();
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_SIZE - log_size, "spm ");
 	}
@@ -425,7 +449,7 @@ static u32 is_blocked_cnt;
 
 static int lpm_show_message(int type, const char *prefix, void *data)
 {
-	struct lpm_spm_wake_status *wakesrc = mt6855_log_help.wakesrc;
+	struct lpm_spm_wake_status *wakesrc = log_help.wakesrc;
 
 #undef LOG_BUF_SIZE
 	#define LOG_BUF_SIZE		256
@@ -604,9 +628,9 @@ static int lpm_show_message(int type, const char *prefix, void *data)
 		}
 		for (i = 1; i < 32; i++) {
 			if (wakesrc->r12 & (1U << i)) {
-				if (IS_LOGBUF(buf, mt6855_wakesrc_str[i]))
-					strncat(buf, mt6855_wakesrc_str[i],
-						strlen(mt6855_wakesrc_str[i]));
+				if (IS_LOGBUF(buf, wakesrc_str[i]))
+					strncat(buf, wakesrc_str[i],
+						strlen(wakesrc_str[i]));
 
 				wr = WR_WAKE_SRC;
 			}
@@ -672,8 +696,8 @@ static int lpm_show_message(int type, const char *prefix, void *data)
 
 	if (type == LPM_ISSUER_SUSPEND) {
 		pr_info("[name:spm&][SPM] %s", log_buf);
-		mt6855_suspend_show_detailed_wakeup_reason(wakesrc);
-		mt6855_suspend_spm_rsc_req_check(wakesrc);
+		suspend_show_detailed_wakeup_reason(wakesrc);
+		suspend_spm_rsc_req_check(wakesrc);
 		pr_info("[name:spm&][SPM] Suspended for %d.%03d seconds",
 			PCM_TICK_TO_SEC(wakesrc->timer_out),
 			PCM_TICK_TO_SEC((wakesrc->timer_out %
@@ -690,18 +714,18 @@ end:
 }
 
 
-static struct lpm_dbg_plat_ops mt6855_dbg_ops = {
+static struct lpm_dbg_plat_ops dbg_ops = {
 	.lpm_show_message = lpm_show_message,
 	.lpm_save_sleep_info = lpm_save_sleep_info,
 	.lpm_get_spm_wakesrc_irq = lpm_get_spm_wakesrc_irq,
 	.lpm_get_wakeup_status = lpm_get_wakeup_status,
 };
 
-int mt6855_dbg_ops_register(void)
+int dbg_ops_register(void)
 {
 	int ret;
 
-	ret = lpm_dbg_plat_ops_register(&mt6855_dbg_ops);
+	ret = lpm_dbg_plat_ops_register(&dbg_ops);
 
 	return ret;
 }

@@ -3,8 +3,8 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
-#ifndef __MT6855_COND_H__
-#define __MT6855_COND_H__
+#ifndef __COND_H__
+#define __COND_H__
 
 /* Definition about SPM_COND_CHECK_BLOCKED
  * bit [00 ~ 15]: cg blocking index

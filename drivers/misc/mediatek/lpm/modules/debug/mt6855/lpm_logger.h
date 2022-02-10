@@ -6,6 +6,6 @@
 #ifndef _LPM_LOGGER_H_
 #define _LPM_LOGGER_H_
 
-int mt6855_dbg_ops_register(void);
+int dbg_ops_register(void);
 
 #endif

@@ -19,15 +19,15 @@ ccflags-y += -I$(LPM_MODULES_FOLDER)/include/mt6855/
 BUILD_LPM_DBG_MODUDLE_NAME=mtk-lpm-dbg-mt6855
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += ${BUILD_LPM_DBG_MODUDLE_NAME}.o
 
-#${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mt6855_dbg_init_test.o
-${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mt6855_dbg_init.o
-${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mt6855_dbg_fs.o
-${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mt6855_dbg_spm_fs.o
-${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mt6855_lpm_logger.o
-${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mt6855_lpm_trace_event.o
+#${BUILD_LPM_DBG_MODUDLE_NAME}-objs += dbg_init_test.o
+${BUILD_LPM_DBG_MODUDLE_NAME}-objs += dbg_init.o
+${BUILD_LPM_DBG_MODUDLE_NAME}-objs += dbg_fs.o
+${BUILD_LPM_DBG_MODUDLE_NAME}-objs += dbg_spm_fs.o
+${BUILD_LPM_DBG_MODUDLE_NAME}-objs += lpm_logger.o
+${BUILD_LPM_DBG_MODUDLE_NAME}-objs += lpm_trace_event.o
 
 ifeq (${CONFIG_MTK_LPM_GS_DUMP_SUPPORT},y)
-${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mt6855_dbg_power_gs.o
+${BUILD_LPM_DBG_MODUDLE_NAME}-objs += dbg_power_gs.o
 ${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mtk_power_gs_6363_array.o
 ${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mtk_power_gs_6369_array.o
 ${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mtk_dcm_array.o

@@ -11,7 +11,7 @@
 #include <gs/lpm_pwr_gs.h>
 #include <gs/v1/lpm_power_gs.h>
 
-void __exit mt6855_dbg_fs_exit(void)
+void __exit dbg_fs_exit(void)
 {
 	lpm_cpuidle_fs_deinit();
 	lpm_spm_fs_deinit();
@@ -19,7 +19,7 @@ void __exit mt6855_dbg_fs_exit(void)
 	lpm_dbg_deinit();
 }
 
-int __init mt6855_dbg_fs_init(void)
+int __init dbg_fs_init(void)
 {
 	lpm_dbg_init();
 	lpm_rc_fs_init();
