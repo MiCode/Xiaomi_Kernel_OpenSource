@@ -31,7 +31,11 @@ static inline u16 musb_readw(const void __iomem *addr, unsigned int offset)
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		usb_enable_clock(true);
+		if (!usb_enable_clock(true)) {
+			spin_unlock_irqrestore(&usb_io_lock, flags);
+			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
+			return -EINVAL;
+		}
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
 			__func__, offset);
 		rc = readw(addr + offset);
@@ -57,7 +61,11 @@ static inline u32
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		usb_enable_clock(true);
+		if (!usb_enable_clock(true)) {
+			spin_unlock_irqrestore(&usb_io_lock, flags);
+			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
+			return -EINVAL;
+		}
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
 			__func__, offset);
 		rc = readl(addr + offset);
@@ -83,7 +91,11 @@ static inline void
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		usb_enable_clock(true);
+		if (!usb_enable_clock(true)) {
+			spin_unlock_irqrestore(&usb_io_lock, flags);
+			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
+			return;
+		}
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
 			__func__, offset);
 		writew(data, addr + offset);
@@ -107,7 +119,11 @@ static inline void
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		usb_enable_clock(true);
+		if (!usb_enable_clock(true)) {
+			spin_unlock_irqrestore(&usb_io_lock, flags);
+			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
+			return;
+		}
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
 			__func__, offset);
 		writel(data, addr + offset);
@@ -131,7 +147,11 @@ static inline u8 musb_readb(const void __iomem *addr, unsigned int offset)
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		usb_enable_clock(true);
+		if (!usb_enable_clock(true)) {
+			spin_unlock_irqrestore(&usb_io_lock, flags);
+			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
+			return -EINVAL;
+		}
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
 			__func__, offset);
 		rc = readb(addr + offset);
@@ -156,7 +176,11 @@ static inline void musb_writeb
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		usb_enable_clock(true);
+		if (!usb_enable_clock(true)) {
+			spin_unlock_irqrestore(&usb_io_lock, flags);
+			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
+			return;
+		}
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
 			__func__, offset);
 		writeb(data, addr + offset);

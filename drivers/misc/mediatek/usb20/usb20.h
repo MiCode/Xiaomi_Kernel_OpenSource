@@ -112,7 +112,7 @@ extern void mt_usb_host_connect(int delay);
 extern void mt_usb_host_disconnect(int delay);
 #endif
 extern void musb_platform_reset(struct musb *musb);
-extern bool usb_enable_clock(bool enable);
+extern int usb_enable_clock(bool enable);
 extern bool usb_prepare_clock(bool enable);
 extern void usb_prepare_enable_clock(bool enable);
 extern void mt_usb_dev_disconnect(void);
