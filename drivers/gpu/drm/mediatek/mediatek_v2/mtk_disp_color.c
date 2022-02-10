@@ -24,6 +24,7 @@
 #include "mtk_disp_color.h"
 #include "mtk_dump.h"
 #include "platform/mtk_drm_6789.h"
+#include "mtk_disp_ccorr.h"
 
 #define UNUSED(expr) (void)(expr)
 #define index_of_color(module) ((module == DDP_COMPONENT_COLOR0) ? 0 : 1)
@@ -64,6 +65,7 @@ bool g_legacy_color_cust;
 #define C1_OFFSET (0)
 #define color_get_offset(module) (0)
 #define is_color1_module(module) (0)
+struct drm_mtk_ccorr_caps g_ccorr_caps;
 
 enum COLOR_IOCTL_CMD {
 	SET_PQPARAM = 0,
@@ -2695,15 +2697,20 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 		private->ddp_comp[DDP_COMPONENT_GAMMA0];
 	struct mtk_ddp_comp *aal_comp =
 		private->ddp_comp[DDP_COMPONENT_AAL0];
-#if defined(CCORR_SUPPORT)
-	struct mtk_ddp_comp *ccorr_comp =
-		private->ddp_comp[DDP_COMPONENT_CCORR0];
-#endif
 	struct mtk_ddp_comp *disp_tdshp_comp =
 		private->ddp_comp[DDP_COMPONENT_TDSHP0];
 	unsigned int ret = 0;
 	unsigned int reg_id = rParams->reg;
 	struct resource res;
+#if defined(CCORR_SUPPORT)
+	struct mtk_ddp_comp *ccorr_comp;
+
+	mtk_get_ccorr_caps(&g_ccorr_caps);
+	if (g_ccorr_caps.ccorr_number != 2)
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR0];
+	else
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR1];
+#endif
 
 	if (reg_id >= SWREG_PQDS_DS_EN && reg_id <= SWREG_PQDS_GAIN_0) {
 		ret = (unsigned int)g_PQ_DS_Param.param
@@ -2962,8 +2969,13 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_COLOR0];
 	unsigned long flags;
-	struct mtk_ddp_comp *ccorr_comp =
-		private->ddp_comp[DDP_COMPONENT_CCORR0];
+	struct mtk_ddp_comp *ccorr_comp;
+
+	mtk_get_ccorr_caps(&g_ccorr_caps);
+	if (g_ccorr_caps.ccorr_number != 2)
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR0];
+	else
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR1];
 
 	pa = (unsigned int)rParams->reg;
 
@@ -3010,9 +3022,16 @@ int mtk_drm_ioctl_write_reg(struct drm_device *dev, void *data,
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_COLOR0];
 	struct drm_crtc *crtc = private->crtc[0];
 	struct DISP_WRITE_REG *wParams = data;
-	struct mtk_ddp_comp *ccorr_comp =
-		private->ddp_comp[DDP_COMPONENT_CCORR0];
-	unsigned int pa = (unsigned int)wParams->reg;
+	struct mtk_ddp_comp *ccorr_comp;
+	unsigned int pa;
+
+	mtk_get_ccorr_caps(&g_ccorr_caps);
+	if (g_ccorr_caps.ccorr_number != 2)
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR0];
+	else
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR1];
+
+	pa = (unsigned int)wParams->reg;
 
 	if (color_is_reg_addr_valid(comp, pa) < 0) {
 		DDPPR_ERR("reg write, addr invalid, pa:0x%x\n", pa);
