@@ -6188,6 +6188,11 @@
 #include "mediatek/mt6833-clkitg.dtsi"
 #include "mediatek/v1/mt6360.dtsi"
 
+&mt_pmic_vemc_ldo_reg {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+};
+
 &spmi_bus {
 	grpid = <11>;
 	mt6315_3: mt6315@3 {
