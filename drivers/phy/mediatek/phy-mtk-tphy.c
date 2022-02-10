@@ -47,6 +47,10 @@
 #define U3P_USBPHYACR0		0x000
 #define PA0_RG_U2PLL_FORCE_ON		BIT(15)
 #define PA0_RG_USB20_INTR_EN		BIT(5)
+#define PA0_RG_USB20_BGR_DIV		GENMASK(3, 2)
+#define PA0_RG_USB20_BGR_DIV_VAL(x)	((0x3 & (x)) << 2)
+#define PA0_RG_USB20_BGR_DIV_MASK	(0x3)
+#define PA0_RG_USB20_BGR_DIV_OFET	(2)
 
 #define U3P_USBPHYACR1		0x004
 #define PA1_RG_INTR_CAL		GENMASK(23, 19)
@@ -62,6 +66,10 @@
 
 #define U3P_USBPHYACR2		0x008
 #define PA2_RG_SIF_U2PLL_FORCE_EN	BIT(18)
+#define PA2_RG_USB20_PLL_BW		GENMASK(21, 19)
+#define PA2_RG_USB20_PLL_BW_VAL(x)	((0x7 & (x)) << 19)
+#define PA2_RG_USB20_PLL_BW_MASK	(0x7)
+#define PA2_RG_USB20_PLL_BW_OFET	(19)
 
 #define U3P_USBPHYACR5		0x014
 #define PA5_RG_U2_HSTX_SRCAL_EN	BIT(15)
@@ -397,6 +405,8 @@ struct mtk_phy_instance {
 	int rx_sqth;
 	int rev4;
 	int rev6;
+	int pll_bw;
+	int bgr_div;
 	bool bc12_en;
 	struct proc_dir_entry *phy_root;
 };
@@ -1953,12 +1963,17 @@ static void phy_parse_property(struct mtk_tphy *tphy,
 				 &instance->rev4);
 	device_property_read_u32(dev, "mediatek,rev6",
 				 &instance->rev6);
+	device_property_read_u32(dev, "mediatek,pll-bw",
+				&instance->pll_bw);
+	device_property_read_u32(dev, "mediatek,bgr-div",
+				&instance->bgr_div);
 	dev_dbg(dev, "bc12:%d, src:%d, vrt:%d, term:%d, intr:%d\n",
 		instance->bc12_en, instance->eye_src,
 		instance->eye_vrt, instance->eye_term, instance->intr);
 	dev_dbg(dev, "disc:%d rx_sqth:%d\n",
 		instance->discth, instance->rx_sqth);
 	dev_dbg(dev, "rev4:%d, rev6:%d\n", instance->rev4, instance->rev6);
+	dev_dbg(dev, "pll-bw:%d, bgr-div:%d\n", instance->pll_bw, instance->bgr_div);
 }
 
 static void u2_phy_props_set(struct mtk_tphy *tphy,
@@ -1975,6 +1990,7 @@ static void u2_phy_props_set(struct mtk_tphy *tphy,
 	dev_info(dev, "disc:%d rx_sqth:%d\n",
 		instance->discth, instance->rx_sqth);
 	dev_info(dev, "rev4:%d, rev6:%d\n", instance->rev4, instance->rev6);
+	dev_dbg(dev, "pll-bw:%d, bgr-div:%d\n", instance->pll_bw, instance->bgr_div);
 
 	if (instance->bc12_en) {
 		tmp = readl(com + U3P_U2PHYBC12C);
@@ -2037,6 +2053,21 @@ static void u2_phy_props_set(struct mtk_tphy *tphy,
 		tmp |= PA6_RG_U2_PHY_REV6_VAL(instance->rev6);
 		writel(tmp, com + U3P_USBPHYACR6);
 	}
+
+	if (instance->pll_bw) {
+		tmp = readl(com + U3P_USBPHYACR2);
+		tmp &= ~PA2_RG_USB20_PLL_BW;
+		tmp |= PA2_RG_USB20_PLL_BW_VAL(instance->pll_bw);
+		writel(tmp, com + U3P_USBPHYACR2);
+	}
+
+	if (instance->bgr_div) {
+		tmp = readl(com + U3P_USBPHYACR0);
+		tmp &= ~PA0_RG_USB20_BGR_DIV;
+		tmp |= PA0_RG_USB20_BGR_DIV_VAL(instance->bgr_div);
+		writel(tmp, com + U3P_USBPHYACR0);
+	}
+
 }
 
 static int mtk_phy_init(struct phy *phy)
