@@ -10316,7 +10316,9 @@
 		compatible = "mediatek,btif";
 		reg = <0 0x1100c000 0 0x100>, /*btif base*/
 			<0 0x11301400 0 0x80>,/*btif tx dma base*/
-			<0 0x11301480 0 0x80>;/*btif rx dma base*/
+			<0 0x11301480 0 0x80>,/*btif rx dma base*/
+			<0 0x11036014 0 0x4>,/*btif dma clk addr*/
+			<0 0x11036300 0 0x4>;/*btif dma idle en addr*/
 			/*btif irq, IRQS_Sync ID, btif_irq_b*/
 		interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH 0>,
 			/*btif tx dma irq*/
