@@ -520,7 +520,7 @@ struct arm_smmu_domain {
 	 */
 	spinlock_t			iotlb_gather_lock;
 	struct list_head		iotlb_gather_freelist;
-	bool				deferred_sync;
+	bool				deferred_flush;
 
 	struct iommu_debug_attachment	*logger;
 	struct iommu_domain		domain;
