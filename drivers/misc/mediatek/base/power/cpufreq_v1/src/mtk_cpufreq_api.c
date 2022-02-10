@@ -302,6 +302,24 @@ unsigned int mt_cpufreq_get_freq_by_idx(enum mt_cpu_dvfs_id id, int idx)
 }
 EXPORT_SYMBOL(mt_cpufreq_get_freq_by_idx);
 
+unsigned int mt_cpufreq_get_cpu_freq(int cpu, int idx)
+{
+#ifndef CONFIG_NONLINEAR_FREQ_CTL
+	return 0;
+#else
+	int cluster_id;
+	struct mt_cpu_dvfs *p;
+
+	cluster_id = cpufreq_get_cluster_id(cpu);
+	p = id_to_cpu_dvfs(cluster_id);
+	idx = (p->nr_opp_tbl - 1) - idx;
+	if (idx >=  p->nr_opp_tbl || idx < 0)
+		return 0;
+	return mt_cpufreq_get_freq_by_idx(cluster_id, idx);
+#endif
+}
+EXPORT_SYMBOL(mt_cpufreq_get_cpu_freq);
+
 unsigned int mt_cpufreq_get_volt_by_idx(enum mt_cpu_dvfs_id id, int idx)
 {
 #ifdef CPU_DVFS_NOT_READY

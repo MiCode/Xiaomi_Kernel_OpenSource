@@ -38,6 +38,7 @@ extern int mt_cpufreq_get_sched_enable(void);
 /* PTP-OD */
 extern unsigned int mt_cpufreq_get_freq_by_idx(unsigned int cluster_id,
 	int idx);
+extern unsigned int mt_cpufreq_get_cpu_freq(int cpu, int idx);
 extern unsigned int mt_cpufreq_get_volt_by_idx(unsigned int cluster_id,
 	int idx);
 extern unsigned int mt_cpufreq_get_cur_volt(unsigned int cluster_id);
