@@ -18,6 +18,8 @@
 /* #define CPU_DVFS_NOT_READY	1 */
 #endif
 
+#define NR_FREQ                16
+
 /* buck ctrl configs */
 #define PMIC_STEP	625
 #define NORMAL_DIFF_VRSAM_VPROC		10000
