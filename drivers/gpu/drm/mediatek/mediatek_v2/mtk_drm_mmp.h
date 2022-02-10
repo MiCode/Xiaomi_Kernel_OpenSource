@@ -123,6 +123,9 @@ struct CRTC_MMP_Events {
 	mmp_event aal_sof_thread;
 	mmp_event aal_dre30_rw;
 	mmp_event aal_dre20_rh;
+	/*Gamma mmp mark*/
+	mmp_event gamma_ioctl;
+	mmp_event gamma_sof;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);
