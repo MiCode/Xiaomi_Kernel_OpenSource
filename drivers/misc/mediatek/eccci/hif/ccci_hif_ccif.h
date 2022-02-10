@@ -323,5 +323,6 @@ extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity);
 /* used for throttling feature - start */
 extern unsigned long ccci_modem_boot_count[];
 extern int md_fsm_exp_info(int md_id, unsigned int channel_id);
+extern void mt_irq_dump_status(int irq);
 /* used for throttling feature - end */
 #endif				/* __MODEM_CCIF_H__ */
