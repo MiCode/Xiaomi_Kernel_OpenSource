@@ -33,6 +33,7 @@ iommu-logger.ko
 llcc-qcom.ko
 mem-hooks.ko
 mem_buf_dev.ko
+mem_buf_msgq.ko
 mem_buf.ko
 memory_dump_v2.ko
 msm_dma_iommu_mapping.ko
