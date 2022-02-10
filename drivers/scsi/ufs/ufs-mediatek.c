@@ -2246,6 +2246,10 @@ static void ufs_mtk_hibern8_notify(struct ufs_hba *hba, enum uic_cmd_dme cmd,
 
 	if (status == PRE_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER)
 		ufs_mtk_auto_hibern8_disable(hba);
+
+	if (status == POST_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER &&
+		hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
+		usleep_range(5000, 5100);
 }
 
 void ufs_mtk_setup_task_mgmt(struct ufs_hba *hba, int tag, u8 tm_function)
