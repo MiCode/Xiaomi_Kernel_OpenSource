@@ -1349,7 +1349,8 @@ static void slim_video_setting(struct subdrv_ctx *ctx)
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	DEBUG_LOG(ctx, "mode: %d\n", mode);
+	if (mode != ctx->test_pattern)
+		pr_debug("mode: %d\n", mode);
 
 	if (mode)
 		write_cmos_sensor(ctx, 0x0601, mode);
@@ -1362,7 +1363,8 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 
 static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_pattern_data *data)
 {
-	pr_debug("test_patterndata mode = %d  R = %x, Gr = %x,Gb = %x,B = %x\n", ctx->test_pattern,
+	DEBUG_LOG(ctx, "test_patterndata mode = %d  R = %x, Gr = %x,Gb = %x,B = %x\n",
+		ctx->test_pattern,
 		data->Channel_R >> 22, data->Channel_Gr >> 22,
 		data->Channel_Gb >> 22, data->Channel_B >> 22);
 
@@ -1502,7 +1504,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->dummy_pixel = 0;
 	ctx->dummy_line = 0;
 	ctx->hdr_mode = 0;
-	ctx->test_pattern = KAL_FALSE;
+	ctx->test_pattern = 0;
 	ctx->current_fps = imgsensor_info.pre.max_framerate;
 
 	KD_SENSOR_PROFILE(ctx, "open_2");

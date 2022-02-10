@@ -2694,7 +2694,8 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	DEBUG_LOG(ctx, "mode: %d\n", mode);
+	if (mode != ctx->test_pattern)
+		pr_debug("mode: %d\n", mode);
 
 	if (mode)
 		write_cmos_sensor(ctx, 0x0600, mode); /*100% Color bar*/
@@ -2708,7 +2709,8 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_pattern_data *data)
 {
 
-	pr_debug("test_patterndata mode = %d  R = %x, Gr = %x,Gb = %x,B = %x\n", ctx->test_pattern,
+	DEBUG_LOG(ctx, "test_patterndata mode = %d  R = %x, Gr = %x,Gb = %x,B = %x\n",
+		ctx->test_pattern,
 		data->Channel_R >> 22, data->Channel_Gr >> 22,
 		data->Channel_Gb >> 22, data->Channel_B >> 22);
 

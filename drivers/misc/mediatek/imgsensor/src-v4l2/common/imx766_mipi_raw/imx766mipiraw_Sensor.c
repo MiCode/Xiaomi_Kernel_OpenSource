@@ -3116,7 +3116,8 @@ static kal_uint32 get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	DEBUG_LOG(ctx, "mode: %d\n", mode);
+	if (mode != ctx->test_pattern)
+		pr_debug("mode %d -> %d\n", ctx->test_pattern, mode);
 	//1:Solid Color 2:Color bar 5:Black
 	if (mode == 5)
 		write_cmos_sensor_8(ctx, 0x020E, 0x00);//Dgain = 0
