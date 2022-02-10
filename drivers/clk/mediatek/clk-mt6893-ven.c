@@ -20,42 +20,48 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
-static const struct mtk_gate_regs ven2_cg_regs = {
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status venc_c1_pwr_stat = GATE_PWR_STAT(0x16C,
+		0x170, INV_OFS, BIT(18), BIT(18));
+
+static const struct mtk_gate_regs venc_c1_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
 	.sta_ofs = 0x0,
 };
 
-#define GATE_VEN2(_id, _name, _parent, _shift) {	\
+#define GATE_VENC_C1(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
 		.parent_name = _parent,			\
-		.regs = &ven2_cg_regs,			\
+		.regs = &venc_c1_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr_inv,	\
+		.pwr_stat = &venc_c1_pwr_stat,			\
 	}
 
 #define GATE_INV_DUMMY2(_id, _name, _parent, _shift) {\
 		.id = _id,					\
 		.name = _name,					\
 		.parent_name = _parent,				\
-		.regs = &ven2_cg_regs,					\
+		.regs = &venc_c1_cg_regs,					\
 		.shift = _shift,				\
 		.ops = &mtk_clk_gate_ops_setclr_inv_dummy,	\
+		.pwr_stat = &venc_c1_pwr_stat,			\
 	}
 
 static const struct mtk_gate ven2_clks[] = {
-	GATE_VEN2(CLK_VEN2_CKE0_LARB, "ven2_cke0_larb",
+	GATE_VENC_C1(CLK_VEN2_CKE0_LARB, "ven2_cke0_larb",
 			"venc_ck"/* parent */, 0),
 	GATE_INV_DUMMY2(CLK_VEN2_CKE1_VENC, "ven2_cke1_venc",
 			"venc_ck"/* parent */, 4),
-	GATE_VEN2(CLK_VEN2_CKE2_JPGENC, "ven2_cke2_jpgenc",
+	GATE_VENC_C1(CLK_VEN2_CKE2_JPGENC, "ven2_cke2_jpgenc",
 			"venc_ck"/* parent */, 8),
-	GATE_VEN2(CLK_VEN2_CKE3_JPGDEC, "ven2_cke3_jpgdec",
+	GATE_VENC_C1(CLK_VEN2_CKE3_JPGDEC, "ven2_cke3_jpgdec",
 			"venc_ck"/* parent */, 12),
-	GATE_VEN2(CLK_VEN2_CKE4_JPGDEC_C1, "ven2_cke4_jpgdec_c1",
+	GATE_VENC_C1(CLK_VEN2_CKE4_JPGDEC_C1, "ven2_cke4_jpgdec_c1",
 			"venc_ck"/* parent */, 16),
-	GATE_VEN2(CLK_VEN2_CKE5_GALS, "ven2_cke5_gals",
+	GATE_VENC_C1(CLK_VEN2_CKE5_GALS, "ven2_cke5_gals",
 			"venc_ck"/* parent */, 28),
 };
 
@@ -63,6 +69,10 @@ static const struct mtk_clk_desc ven2_mcd = {
 	.clks = ven2_clks,
 	.num_clks = CLK_VEN2_NR_CLK,
 };
+
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status venc_pwr_stat = GATE_PWR_STAT(0x16C,
+		0x170, INV_OFS, BIT(17), BIT(17));
 
 static const struct mtk_gate_regs ven1_cg_regs = {
 	.set_ofs = 0x4,
@@ -77,15 +87,17 @@ static const struct mtk_gate_regs ven1_cg_regs = {
 		.regs = &ven1_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr_inv,	\
+		.pwr_stat = &venc_pwr_stat,			\
 	}
 
 #define GATE_INV_DUMMY1(_id, _name, _parent, _shift) {\
 		.id = _id,					\
 		.name = _name,					\
 		.parent_name = _parent,				\
-		.regs = &ven2_cg_regs,					\
+		.regs = &ven1_cg_regs,					\
 		.shift = _shift,				\
 		.ops = &mtk_clk_gate_ops_setclr_inv_dummy,	\
+		.pwr_stat = &venc_pwr_stat,			\
 	}
 
 static const struct mtk_gate ven1_clks[] = {

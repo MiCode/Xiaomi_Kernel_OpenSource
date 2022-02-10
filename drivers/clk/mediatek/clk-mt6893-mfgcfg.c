@@ -19,6 +19,10 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status mfgcfg_pwr_stat = GATE_PWR_STAT(0x16C,
+		0x170, INV_OFS, 0x1fc, 0x1fc);
+
 static const struct mtk_gate_regs mfgcfg_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -32,6 +36,7 @@ static const struct mtk_gate_regs mfgcfg_cg_regs = {
 		.regs = &mfgcfg_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &mfgcfg_pwr_stat,			\
 	}
 
 static const struct mtk_gate mfgcfg_clks[] = {

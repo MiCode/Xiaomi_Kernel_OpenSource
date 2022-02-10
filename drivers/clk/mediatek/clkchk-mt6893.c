@@ -722,7 +722,7 @@ static int get_vcore_opp(void)
 	int opp;
 
 	opp = get_sw_req_vcore_opp();
-#if defined(CONFIG_MTK_DVFSRC_MT6877_PRETEST) || defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MTK_DVFSRC_MT6893_PRETEST) || defined(CONFIG_MACH_MT6893)
 	if (opp >= 1)
 		opp = opp - 1;
 #endif
@@ -1348,7 +1348,7 @@ static void __init init_regbase(void)
 	}
 }
 
-static const char * const compatible[] = {"mediatek,mt6877", NULL};
+static const char * const compatible[] = {"mediatek,mt6893", "mediatek,mt6885", NULL};
 
 static struct clkchk_cfg_t cfg = {
 	.aee_excp_on_fail = false,

@@ -2181,6 +2181,51 @@ static const struct mtk_gate_regs ifrao4_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+#define GATE_IFRAO0_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &ifrao0_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummy,	\
+	}
+
+#define GATE_IFRAO1_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &ifrao1_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummy,	\
+	}
+
+#define GATE_IFRAO2_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &ifrao2_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummy,	\
+	}
+
+#define GATE_IFRAO3_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &ifrao3_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummy,	\
+	}
+
+#define GATE_IFRAO4_DUMMY(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &ifrao4_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr_dummy,	\
+	}
+
 static const struct mtk_gate ifrao_clks[] = {
 	/* IFRAO0 */
 	GATE_IFRAO0(CLK_IFRAO_PMIC_TMR, "ifrao_pmic_tmr",
@@ -2263,7 +2308,7 @@ static const struct mtk_gate ifrao_clks[] = {
 			"apdma_pseudo"/* parent */, 31),
 	/* IFRAO3 */
 	GATE_IFRAO3(CLK_IFRAO_SSUSB, "ifrao_ssusb",
-			"axi_ck"/* parent */, 1),
+			"fusb_ck"/* parent */, 1),
 	GATE_IFRAO3(CLK_IFRAO_DISP_PWM, "ifrao_disp_pwm",
 			"fdisp_pwm_ck"/* parent */, 2),
 	GATE_IFRAO3(CLK_IFRAO_DPMAIF, "ifrao_dpmaif_ck",
@@ -2280,12 +2325,8 @@ static const struct mtk_gate ifrao_clks[] = {
 			"spi_ck"/* parent */, 10),
 	GATE_IFRAO3(CLK_IFRAO_UNIPRO_SYSCLK, "ifrao_unipro_sysclk",
 			"ufs_ck"/* parent */, 11),
-	GATE_IFRAO3(CLK_IFRAO_UNIPRO_TICK, "ifrao_unipro_tick",
-			"f26m_ck"/* parent */, 12),
 	GATE_IFRAO3(CLK_IFRAO_UFS_MP_SAP_BCLK, "ifrao_ufs_bclk",
 			"f26m_ck"/* parent */, 13),
-	GATE_IFRAO3(CLK_IFRAO_UNIPRO_MBIST, "ifrao_unipro_mbist",
-			"axi_ck"/* parent */, 16),
 	GATE_IFRAO3(CLK_IFRAO_I2C5, "ifrao_i2c5",
 			"i2c_ck"/* parent */, 18),
 	GATE_IFRAO3(CLK_IFRAO_I2C5_ARBITER, "ifrao_i2c5a",
@@ -2310,8 +2351,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"ufs_ck"/* parent */, 28),
 	GATE_IFRAO3(CLK_IFRAO_AES, "ifrao_aes",
 			"aes_ufsfde_ck"/* parent */, 29),
-	GATE_IFRAO3(CLK_IFRAO_UFS_TICK, "ifrao_ufs_tick",
-			"f_ufs_tick1us_ck"/* parent */, 30),
 	GATE_IFRAO3(CLK_IFRAO_SSUSB_XHCI, "ifrao_ssusb_xhci",
 			"fssusb_xhci_ck"/* parent */, 31),
 	/* IFRAO4 */
@@ -2321,8 +2360,6 @@ static const struct mtk_gate ifrao_clks[] = {
 			"msdc50_0_ck"/* parent */, 1),
 	GATE_IFRAO4(CLK_IFRAO_MSDC2_SELF, "ifrao_msdc2sf",
 			"msdc50_0_ck"/* parent */, 2),
-	GATE_IFRAO4(CLK_IFRAO_UFS_AXI, "ifrao_ufs_axi",
-			"axi_ck"/* parent */, 5),
 	GATE_IFRAO4(CLK_IFRAO_I2C6, "ifrao_i2c6",
 			"i2c_ck"/* parent */, 6),
 	GATE_IFRAO4(CLK_IFRAO_AP_MSDC0, "ifrao_ap_msdc0",
@@ -2343,7 +2380,7 @@ static const struct mtk_gate ifrao_clks[] = {
 			"i2c_ck"/* parent */, 23),
 	GATE_IFRAO4(CLK_IFRAO_FBIST2FPC, "ifrao_fbist2fpc",
 			"msdc50_0_ck"/* parent */, 24),
-	GATE_IFRAO4(CLK_IFRAO_DEVICE_APC_SYNC, "ifrao_dapc_sync",
+	GATE_IFRAO4_DUMMY(CLK_IFRAO_DEVICE_APC_SYNC, "ifrao_dapc_sync",
 			"axi_ck"/* parent */, 25),
 	GATE_IFRAO4(CLK_IFRAO_DPMAIF_MAIN, "ifrao_dpmaif_main",
 			"dpmaif_main_ck"/* parent */, 26),

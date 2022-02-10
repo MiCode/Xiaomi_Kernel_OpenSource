@@ -189,11 +189,6 @@ void mtk_clk_register_composites(const struct mtk_composite *mcs,
 		int num, void __iomem *base, spinlock_t *lock,
 		struct clk_onecell_data *clk_data);
 
-/*
- * define pwr status information.
- * including offsets/mask.
- */
-
 struct mtk_gate_regs {
 	u32 sta_ofs;
 	u32 clr_ofs;

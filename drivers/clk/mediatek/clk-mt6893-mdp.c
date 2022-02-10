@@ -19,6 +19,10 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status mdp_pwr_stat = GATE_PWR_STAT(0x16C,
+		0x170, INV_OFS, BIT(19), BIT(19));
+
 static const struct mtk_gate_regs mdp0_cg_regs = {
 	.set_ofs = 0x104,
 	.clr_ofs = 0x108,
@@ -44,6 +48,7 @@ static const struct mtk_gate_regs mdp2_cg_regs = {
 		.regs = &mdp0_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &mdp_pwr_stat,			\
 	}
 
 #define GATE_MDP1(_id, _name, _parent, _shift) {	\
@@ -53,6 +58,7 @@ static const struct mtk_gate_regs mdp2_cg_regs = {
 		.regs = &mdp1_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &mdp_pwr_stat,			\
 	}
 
 #define GATE_MDP2(_id, _name, _parent, _shift) {	\
@@ -62,6 +68,7 @@ static const struct mtk_gate_regs mdp2_cg_regs = {
 		.regs = &mdp2_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &mdp_pwr_stat,			\
 	}
 
 #define GATE_DUMMY1(_id, _name, _parent, _shift) {\
@@ -71,6 +78,7 @@ static const struct mtk_gate_regs mdp2_cg_regs = {
 		.regs = &mdp1_cg_regs,					\
 		.shift = _shift,				\
 		.ops = &mtk_clk_gate_ops_setclr_dummy,		\
+		.pwr_stat = &mdp_pwr_stat,			\
 	}
 
 static const struct mtk_gate mdp_clks[] = {

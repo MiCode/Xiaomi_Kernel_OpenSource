@@ -20,6 +20,10 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status cam_m_pwr_stat = GATE_PWR_STAT(0x16C,
+		0x170, INV_OFS, BIT(23), BIT(23));
+
 static const struct mtk_gate_regs cam_m_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -33,6 +37,7 @@ static const struct mtk_gate_regs cam_m_cg_regs = {
 		.regs = &cam_m_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &cam_m_pwr_stat,			\
 	}
 
 #define GATE_DUMMY(_id, _name, _parent, _shift) {\
@@ -42,6 +47,7 @@ static const struct mtk_gate_regs cam_m_cg_regs = {
 		.regs = &cam_m_cg_regs,					\
 		.shift = _shift,				\
 		.ops = &mtk_clk_gate_ops_setclr_dummy,		\
+		.pwr_stat = &cam_m_pwr_stat,			\
 	}
 
 static const struct mtk_gate cam_m_clks[] = {
@@ -84,6 +90,10 @@ static const struct mtk_clk_desc cam_m_mcd = {
 	.num_clks = CLK_CAM_M_NR_CLK,
 };
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status cam_ra_pwr_stat = GATE_PWR_STAT(0x16C,
+		0x170, INV_OFS, BIT(24), BIT(24));
+
 static const struct mtk_gate_regs cam_ra_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -97,6 +107,7 @@ static const struct mtk_gate_regs cam_ra_cg_regs = {
 		.regs = &cam_ra_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &cam_ra_pwr_stat,			\
 	}
 
 #define GATE_DUMMY_A(_id, _name, _parent, _shift) {\
@@ -106,6 +117,7 @@ static const struct mtk_gate_regs cam_ra_cg_regs = {
 		.regs = &cam_ra_cg_regs,					\
 		.shift = _shift,				\
 		.ops = &mtk_clk_gate_ops_setclr_dummy,		\
+		.pwr_stat = &cam_ra_pwr_stat,			\
 	}
 
 static const struct mtk_gate cam_ra_clks[] = {
@@ -122,6 +134,10 @@ static const struct mtk_clk_desc cam_ra_mcd = {
 	.num_clks = CLK_CAM_RA_NR_CLK,
 };
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status cam_rb_pwr_stat = GATE_PWR_STAT(0x16C,
+		0x170, INV_OFS, BIT(25), BIT(25));
+
 static const struct mtk_gate_regs cam_rb_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -135,6 +151,7 @@ static const struct mtk_gate_regs cam_rb_cg_regs = {
 		.regs = &cam_rb_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &cam_rb_pwr_stat,			\
 	}
 
 #define GATE_DUMMY_B(_id, _name, _parent, _shift) {\
@@ -144,6 +161,7 @@ static const struct mtk_gate_regs cam_rb_cg_regs = {
 		.regs = &cam_rb_cg_regs,					\
 		.shift = _shift,				\
 		.ops = &mtk_clk_gate_ops_setclr_dummy,		\
+		.pwr_stat = &cam_rb_pwr_stat,			\
 	}
 
 static const struct mtk_gate cam_rb_clks[] = {
@@ -160,6 +178,10 @@ static const struct mtk_clk_desc cam_rb_mcd = {
 	.num_clks = CLK_CAM_RB_NR_CLK,
 };
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status cam_rc_pwr_stat = GATE_PWR_STAT(0x16C,
+		0x170, INV_OFS, BIT(26), BIT(26));
+
 static const struct mtk_gate_regs cam_rc_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -173,6 +195,7 @@ static const struct mtk_gate_regs cam_rc_cg_regs = {
 		.regs = &cam_rc_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &cam_rc_pwr_stat,			\
 	}
 
 #define GATE_DUMMY_C(_id, _name, _parent, _shift) {\
@@ -182,6 +205,7 @@ static const struct mtk_gate_regs cam_rc_cg_regs = {
 		.regs = &cam_rc_cg_regs,					\
 		.shift = _shift,				\
 		.ops = &mtk_clk_gate_ops_setclr_dummy,		\
+		.pwr_stat = &cam_rc_pwr_stat,			\
 	}
 
 static const struct mtk_gate cam_rc_clks[] = {

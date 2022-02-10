@@ -19,6 +19,10 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status ipe_pwr_stat = GATE_PWR_STAT(0x16C,
+		0x170, INV_OFS, BIT(14), BIT(14));
+
 static const struct mtk_gate_regs ipe_cg_regs = {
 	.set_ofs = 0x4,
 	.clr_ofs = 0x8,
@@ -32,6 +36,7 @@ static const struct mtk_gate_regs ipe_cg_regs = {
 		.regs = &ipe_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &ipe_pwr_stat,			\
 	}
 
 #define GATE_DUMMY(_id, _name, _parent, _shift) {\
@@ -41,6 +46,7 @@ static const struct mtk_gate_regs ipe_cg_regs = {
 		.regs = &ipe_cg_regs,					\
 		.shift = _shift,				\
 		.ops = &mtk_clk_gate_ops_setclr_dummy,		\
+		.pwr_stat = &ipe_pwr_stat,			\
 	}
 
 static const struct mtk_gate ipe_clks[] = {

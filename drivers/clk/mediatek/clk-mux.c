@@ -39,6 +39,15 @@ static void mtk_clk_mux_disable(struct clk_hw *hw)
 	regmap_update_bits(mux->regmap, mux->data->mux_ofs, mask, mask);
 }
 
+static void mtk_clk_mux_disable_unused(struct clk_hw *hw)
+{
+	const char *c_n = clk_hw_get_name(hw);
+
+	pr_notice("disable_unused - %s\n", c_n);
+
+	mtk_clk_mux_disable(hw);
+}
+
 static int mtk_clk_mux_enable_setclr(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
@@ -53,6 +62,15 @@ static void mtk_clk_mux_disable_setclr(struct clk_hw *hw)
 
 	regmap_write(mux->regmap, mux->data->set_ofs,
 			BIT(mux->data->gate_shift));
+}
+
+static void mtk_clk_mux_disable_setclr_unused(struct clk_hw *hw)
+{
+	const char *c_n = clk_hw_get_name(hw);
+
+	pr_notice("disable_unused - %s\n", c_n);
+
+	mtk_clk_mux_disable_setclr(hw);
 }
 
 static int mtk_clk_mux_is_enabled(struct clk_hw *hw)
@@ -165,6 +183,7 @@ const struct clk_ops mtk_mux_gate_ops = {
 	.is_enabled = mtk_clk_mux_is_enabled,
 	.get_parent = mtk_clk_mux_get_parent,
 	.set_parent = mtk_clk_mux_set_parent_lock,
+	.disable_unused = mtk_clk_mux_disable_unused,
 };
 EXPORT_SYMBOL(mtk_mux_gate_ops);
 
@@ -174,6 +193,7 @@ const struct clk_ops mtk_mux_gate_clr_set_upd_ops = {
 	.is_enabled = mtk_clk_mux_is_enabled,
 	.get_parent = mtk_clk_mux_get_parent,
 	.set_parent = mtk_clk_mux_set_parent_setclr_lock,
+	.disable_unused = mtk_clk_mux_disable_setclr_unused,
 };
 EXPORT_SYMBOL(mtk_mux_gate_clr_set_upd_ops);
 

@@ -14,8 +14,12 @@
 
 #include <dt-bindings/clock/mt6765-clk.h>
 
+/* Regular Number Definition */
+#define INV_OFS			-1
+#define INV_BIT			-1
+
 /* get spm power status struct to register inside clk_data */
-static struct pwr_status pwr_stat = GATE_PWR_STAT(0x180, 0x184, BIT(25));
+static struct pwr_status pwr_stat = GATE_PWR_STAT(0x180, 0x184, INV_OFS, BIT(25), BIT(25));
 
 static const struct mtk_gate_regs cam_cg_regs = {
 	.set_ofs = 0x4,

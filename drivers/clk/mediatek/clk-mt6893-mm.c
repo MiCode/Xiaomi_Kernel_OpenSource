@@ -19,6 +19,10 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status mm_pwr_stat = GATE_PWR_STAT(0x16C,
+		0x170, INV_OFS, BIT(20), BIT(20));
+
 static const struct mtk_gate_regs mm0_cg_regs = {
 	.set_ofs = 0x104,
 	.clr_ofs = 0x108,
@@ -44,6 +48,7 @@ static const struct mtk_gate_regs mm2_cg_regs = {
 		.regs = &mm0_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &mm_pwr_stat,			\
 	}
 
 #define GATE_MM1(_id, _name, _parent, _shift) {	\
@@ -53,6 +58,7 @@ static const struct mtk_gate_regs mm2_cg_regs = {
 		.regs = &mm1_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &mm_pwr_stat,			\
 	}
 
 #define GATE_MM2(_id, _name, _parent, _shift) {	\
@@ -62,6 +68,18 @@ static const struct mtk_gate_regs mm2_cg_regs = {
 		.regs = &mm2_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.pwr_stat = &mm_pwr_stat,			\
+	}
+
+#define GATE_MM0_IGNORED(_id, _name, _parent, _shift) {\
+		.id = _id,					\
+		.name = _name,					\
+		.parent_name = _parent,				\
+		.regs = &mm0_cg_regs,					\
+		.shift = _shift,				\
+		.ops = &mtk_clk_gate_ops_setclr,		\
+		.pwr_stat = &mm_pwr_stat,			\
+		.flags = CLK_IGNORE_UNUSED,			\
 	}
 
 #define GATE_DUMMY1(_id, _name, _parent, _shift) {\
@@ -71,6 +89,7 @@ static const struct mtk_gate_regs mm2_cg_regs = {
 		.regs = &mm1_cg_regs,					\
 		.shift = _shift,				\
 		.ops = &mtk_clk_gate_ops_setclr_dummy,		\
+		.pwr_stat = &mm_pwr_stat,			\
 	}
 
 static const struct mtk_gate mm_clks[] = {
@@ -87,9 +106,9 @@ static const struct mtk_gate mm_clks[] = {
 			"disp_ck"/* parent */, 4),
 	GATE_MM0(CLK_MM_MDP_TDSHP5, "mm_mdp_tdshp5",
 			"disp_ck"/* parent */, 5),
-	GATE_MM0(CLK_MM_MDP_AAL4, "mm_mdp_aal4",
+	GATE_MM0_IGNORED(CLK_MM_MDP_AAL4, "mm_mdp_aal4",
 			"disp_ck"/* parent */, 6),
-	GATE_MM0(CLK_MM_MDP_AAL5, "mm_mdp_aal5",
+	GATE_MM0_IGNORED(CLK_MM_MDP_AAL5, "mm_mdp_aal5",
 			"disp_ck"/* parent */, 7),
 	GATE_MM0(CLK_MM_MDP_HDR4, "mm_mdp_hdr4",
 			"disp_ck"/* parent */, 8),

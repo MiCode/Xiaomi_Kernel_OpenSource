@@ -5162,8 +5162,8 @@ static int clk_mt6893_scpsys_probe(struct platform_device *pdev)
 
 	pr_notice("%s: start\n", __func__);
 
-	infracfg_base = get_reg(node, 0);
-	spm_base = get_reg(node, 1);
+	spm_base = get_reg(node, 0);
+	infracfg_base = get_reg(node, 1);
 	ckgen_base = get_reg(node, 2);
 
 	if (!infracfg_base || !spm_base || !ckgen_base) {
@@ -5190,8 +5190,6 @@ static int clk_mt6893_scpsys_probe(struct platform_device *pdev)
 	ret = iomap_mm();
 
 	spin_lock_init(&pgcb_lock);
-
-	pr_notice("%s done(%d)\n", __func__, ret);
 
 	return ret;
 }

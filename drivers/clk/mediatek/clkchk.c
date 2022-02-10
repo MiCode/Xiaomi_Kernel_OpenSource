@@ -434,15 +434,11 @@ int clkchk_init(struct clkchk_cfg_t *cfg)
 		register_syscore_ops(&clkchk_syscore_ops);
 	else
 		pr_notice("clk register_syscore_ops fail\n");
-#if (defined(CONFIG_MACH_MT6877) \
-			|| defined(CONFIG_MACH_MT6768) \
-			|| defined(CONFIG_MACH_MT6781) \
-			|| defined(CONFIG_MACH_MT6739))
 
 #if IS_ENABLED(CONFIG_MTK_DEVAPC) && !IS_ENABLED(CONFIG_DEVAPC_LEGACY)
 	register_devapc_vio_callback(&devapc_vio_handle);
 #endif
-#endif
+
 	mtk_clk_check_muxes();
 
 	return 0;

@@ -19,6 +19,10 @@
 #define INV_OFS			-1
 #define INV_BIT			-1
 
+/* get spm power status struct to register inside clk_data */
+static struct pwr_status audsys_pwr_stat = GATE_PWR_STAT(0x16C,
+		0x170, INV_OFS, BIT(21), BIT(21));
+
 static const struct mtk_gate_regs audsys0_cg_regs = {
 	.set_ofs = 0x0,
 	.clr_ofs = 0x0,
@@ -44,6 +48,7 @@ static const struct mtk_gate_regs audsys2_cg_regs = {
 		.regs = &audsys0_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.pwr_stat = &audsys_pwr_stat,			\
 	}
 
 #define GATE_AUDSYS1(_id, _name, _parent, _shift) {	\
@@ -53,6 +58,7 @@ static const struct mtk_gate_regs audsys2_cg_regs = {
 		.regs = &audsys1_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.pwr_stat = &audsys_pwr_stat,			\
 	}
 
 #define GATE_AUDSYS2(_id, _name, _parent, _shift) {	\
@@ -62,6 +68,7 @@ static const struct mtk_gate_regs audsys2_cg_regs = {
 		.regs = &audsys2_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.pwr_stat = &audsys_pwr_stat,			\
 	}
 
 static const struct mtk_gate audsys_clks[] = {
