@@ -417,41 +417,47 @@ void cmdq_mdp_dump_mmsys_config(const struct cmdqRecStruct *handle)
 int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 {
 	long MMSYS_SW0_RST_B_REG = MMSYS_CONFIG_BASE + (0x700);
+	long MMSYS_SW1_RST_B_REG = MMSYS_CONFIG_BASE + (0x704);
 	int i = 0;
 	uint64_t reset_bits0 = 0ULL;
-	int engineResetBit[32] = {
+	uint64_t reset_bits1 = 0ULL;
+	int engineResetBit[36] = {
 		-1,			/* bit  0 : mdp_mutex0 */
 		-1,			/* bit  1 : apb_bus */
 		-1,			/* bit  2 : smi0 */
 		CMDQ_ENG_MDP_RDMA0,	/* bit	3 : mdp_rdma0 */
-		-1,	/* bit  4 : mdp_fg0 */
+		-1,			/* bit  4 : mdp_fg0 */
 		CMDQ_ENG_MDP_HDR0,	/* bit  5 : mdp_hdr0  */
 		CMDQ_ENG_MDP_AAL0,	/* bit  6 : mdp_aal0  */
 		CMDQ_ENG_MDP_RSZ0,	/* bit  7 : mdp_rsz0 */
 		CMDQ_ENG_MDP_TDSHP0,	/* bit  8 : mdp_tdshp0 */
-		-1,	/* bit  9 : mdp_color0 */
+		-1,			/* bit  9 : mdp_color0 */
 		CMDQ_ENG_MDP_WROT0,	/* bit 10 : mdp_wrot0 */
 		-1,			/* bit 11 : mdp_fake_eng0 */
-		CMDQ_ENG_MDP_CAMIN,		/* bit 12 : mdp_dli_async0 */
-		CMDQ_ENG_MDP_CAMIN2,	/* bit 13 : mdp_dli_async1 */
+		-1,			/* bit 12 : mdp_dli_async0 */
+		-1,			/* bit 13 : mdp_dli_async1 */
 		-1,			/* bit 14 : empty */
-		-1,	/* bit 15 : mdp_rdma1 */
-		-1,	/* bit 16 : mdp_fg1 */
-		-1,	/* bit 17 : mdp_hdr1  */
-		-1,	/* bit 18 : mdp_aal1  */
-		-1,	/* bit 19 : mdp_rsz1 */
-		-1,	/* bit 20 : mdp_tdshp1 */
-		-1,	/* bit 21 : mdp_color1 */
-		-1,	/* bit 22 : mdp_wrot1 */
+		-1,			/* bit 15 : mdp_rdma1 */
+		-1,			/* bit 16 : mdp_fg1 */
+		-1,			/* bit 17 : mdp_hdr1  */
+		-1,			/* bit 18 : mdp_aal1  */
+		-1,			/* bit 19 : mdp_rsz1 */
+		-1,			/* bit 20 : mdp_tdshp1 */
+		-1,			/* bit 21 : mdp_color1 */
+		-1,			/* bit 22 : mdp_wrot1 */
 		-1,			/* bit 23 : empty */
-		CMDQ_ENG_MDP_RSZ2,			/* bit 24 : mdp_rsz2 */
-		CMDQ_ENG_MDP_WROT2,			/* bit 25 : mdp_wrot2 */
+		CMDQ_ENG_MDP_RSZ2,	/* bit 24 : mdp_rsz2 */
+		CMDQ_ENG_MDP_WROT2,	/* bit 25 : mdp_wrot2 */
 		-1,			/* bit 26 : mdp_dlo_async0 */
 		-1,			/* bit 27 : empty_27 */
 		-1,			/* bit 28 : mdp_rsz3 */
 		-1,			/* bit 29 : mdp_wrot3 */
 		-1,			/* bit 30 : mdp_dlo_async1 */
 		-1,			/* bit 31 : hre_top_mdpsys */
+		CMDQ_ENG_MDP_CAMIN,	/* bit 32 : img_dl_async0 */
+		CMDQ_ENG_MDP_CAMIN2,	/* bit 33 : img_dl_async1 */
+		-1,			/* bit 34 : fimg_dl_async0 */
+		-1,			/* bit 35 : fimg_dl_async1 */
 	};
 
 	for (i = 0; i < 32; ++i) {
@@ -460,6 +466,13 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 
 		if (engineToResetAgain & (1LL << engineResetBit[i]))
 			reset_bits0 |= (1 << i);
+	}
+	for (i = 32; i < 36; ++i) {
+		if (engineResetBit[i] < 0)
+			continue;
+
+		if (engineToResetAgain & (1LL << engineResetBit[i]))
+			reset_bits1 |= (1ULL << i);
 	}
 
 	if (reset_bits0 != 0) {
@@ -470,6 +483,16 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 
 		CMDQ_REG_SET32(MMSYS_SW0_RST_B_REG, reset_bits0);
 		CMDQ_REG_SET32(MMSYS_SW0_RST_B_REG, ~0);
+		/* This takes effect immediately, no need to poll state */
+	}
+	if (reset_bits1 != 0) {
+		/* 0: reset */
+		/* 1: not reset */
+		/* so we need to reverse the bits */
+		reset_bits1 = ~reset_bits1;
+
+		CMDQ_REG_SET32(MMSYS_SW1_RST_B_REG, reset_bits1);
+		CMDQ_REG_SET32(MMSYS_SW1_RST_B_REG, ~0);
 		/* This takes effect immediately, no need to poll state */
 	}
 
