@@ -2617,6 +2617,7 @@ static void vb2ops_vdec_buf_cleanup(struct vb2_buffer *vb)
 				mtk_v4l2_debug(4, "[Ref cnt] id=%d Ref put dma %p",
 					buf->frame_buffer.index, buf->frame_buffer.fb_base[i].dmabuf);
 			}
+			buf->used = false;
 		}
 		mutex_unlock(&ctx->buf_lock);
 	}
