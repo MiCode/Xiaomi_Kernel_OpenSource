@@ -104,6 +104,7 @@ obj-$(CONFIG_MACH_MT6765) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6761) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6779) += cpuidle_v3/
 #obj-$(CONFIG_MACH_MT6739) += cpuhotplug/
+obj-$(CONFIG_MACH_MT6771) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6779) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6768) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6781) += cpuhotplug/
