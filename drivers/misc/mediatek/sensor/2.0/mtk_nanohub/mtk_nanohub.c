@@ -1884,7 +1884,7 @@ static int mtk_nanohub_ready_event(struct notifier_block *this,
 {
 	unsigned long flags = 0;
 
-	pr_info("notify event:%d\n", event);
+	pr_info("notify event:%lu\n", event);
 	if (event == SCP_EVENT_STOP) {
 		spin_lock_irqsave(&scp_state_lock, flags);
 		WRITE_ONCE(scp_system_ready, false);
