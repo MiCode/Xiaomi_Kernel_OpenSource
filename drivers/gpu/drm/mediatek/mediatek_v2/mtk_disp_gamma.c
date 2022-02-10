@@ -145,7 +145,7 @@ static void mtk_gamma_init(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_GAMMA_EN, GAMMA_EN, ~0);
 
-	atomic_set(&g_gamma_sof_filp, 0);
+//	atomic_set(&g_gamma_sof_filp, 0);
 	atomic_set(&g_gamma_sof_irq_available, 0);
 }
 
@@ -427,6 +427,8 @@ int mtk_drm_ioctl_set_12bit_gammalut(struct drm_device *dev, void *data,
 	memcpy(&ioctl_data, (struct DISP_GAMMA_12BIT_LUT_T *)data,
 			sizeof(struct DISP_GAMMA_12BIT_LUT_T));
 	atomic_set(&g_gamma_sof_filp, 1);
+	if (g_gamma_flip_comp[0]->mtk_crtc != NULL)
+		mtk_crtc_check_trigger(g_gamma_flip_comp[0]->mtk_crtc, false, false);
 	DDPINFO("%s:update IOCTL g_gamma_sof_filp to 1\n", __func__);
 	CRTC_MMP_EVENT_END(0, gamma_ioctl, 0, 1);
 	mutex_unlock(&g_gamma_sram_lock);
