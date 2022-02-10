@@ -108,6 +108,13 @@ static bool ufs_mtk_is_delay_after_vcc_off(struct ufs_hba *hba)
 	return !!(host->caps & UFS_MTK_CAP_DEALY_AFTER_VCC_OFF);
 }
 
+static bool ufs_mtk_is_force_vsx_lpm(struct ufs_hba *hba)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	return !!(host->caps & UFS_MTK_CAP_FORCE_VSx_LPM);
+}
+
 static void ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
 {
 	u32 tmp;
@@ -1558,6 +1565,10 @@ static void ufs_mtk_ctrl_dev_pwr(struct ufs_hba *hba, bool vcc_on, bool is_init)
 	struct arm_smccc_res res;
 	u64 ufs_version;
 
+	/* prevent entering lpm when device is still active */
+	if (!vcc_on && ufshcd_is_ufs_dev_active(hba))
+		return;
+
 	/* Transfer the ufs version to tf-a */
 	ufs_version = (u64)hba->dev_info.wspecversion;
 
@@ -1567,9 +1578,10 @@ static void ufs_mtk_ctrl_dev_pwr(struct ufs_hba *hba, bool vcc_on, bool is_init)
 	 *
 	 * We don't need to control VS buck (the upper layer of VCCQ/VCCQ2)
 	 * to enter LPM, because UFS device may be active when VCC
-	 * is always-on.
+	 * is always-on. We also introduce UFS_MTK_CAP_FORCE_VSx_LPM to
+	 * allow overriding such protection to save power.
 	 */
-	if (!ufs_mtk_is_broken_vcc(hba) || is_init)
+	if (ufs_mtk_is_force_vsx_lpm(hba) || !ufs_mtk_is_broken_vcc(hba) || is_init)
 		ufs_mtk_device_pwr_ctrl(vcc_on, ufs_version, res);
 }
 
@@ -1948,6 +1960,10 @@ static void ufs_mtk_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
 	if (!hba->vreg_info.vccq2 || !hba->vreg_info.vcc)
 		return;
 
+	/* prevent entering lpm when device is still active */
+	if (lpm && ufshcd_is_ufs_dev_active(hba))
+		return;
+
 	if (lpm && !hba->vreg_info.vcc->enabled)
 		regulator_set_mode(hba->vreg_info.vccq2->reg,
 				   REGULATOR_MODE_IDLE);
@@ -2164,7 +2180,7 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
 
 	if (STR_PRFX_EQUAL("H9HQ15AFAMBDAR", dev_info->model))
-		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
+		host->caps |= UFS_MTK_CAP_BROKEN_VCC | UFS_MTK_CAP_FORCE_VSx_LPM;
 
 	if (ufs_mtk_is_delay_after_vcc_off(hba) && hba->vreg_info.vcc) {
 		/*
