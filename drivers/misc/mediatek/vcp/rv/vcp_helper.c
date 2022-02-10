@@ -100,7 +100,6 @@ struct vcp_region_info_st *vcp_region_info;
 struct vcp_region_info_st vcp_region_info_copy;
 
 struct vcp_work_struct vcp_sys_reset_work;
-struct wakeup_source *vcp_reset_lock;
 
 DEFINE_SPINLOCK(vcp_reset_spinlock);
 
@@ -484,8 +483,6 @@ static void vcp_A_notify_ws(struct work_struct *ws)
 
 	/*clear reset status and unlock wake lock*/
 	pr_debug("[VCP] clear vcp reset flag and unlock\n");
-
-	__pm_relax(vcp_reset_lock);
 }
 
 
@@ -1797,9 +1794,6 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	 */
 	vcp_ready[VCP_A_ID] = 0;
 
-	/* wake lock AP*/
-	__pm_stay_awake(vcp_reset_lock);
-
 	/*workqueue for vcp ee, vcp reset by cmd will not trigger vcp ee*/
 	if (vcp_reset_by_cmd == 0 && vcp_ee_enable) {
 		vcp_aee_print("[VCP] %s(): vcp_reset_type %d remain %x times, encnt %d\n",
@@ -1931,10 +1925,7 @@ void vcp_recovery_init(void)
 		(uint64_t)(phys_addr_t)vcp_loader_virt,
 		(uint64_t)(phys_addr_t)vcp_loader_virt +
 		(phys_addr_t)vcp_region_info_copy.ap_loader_size);
-	/*init wake,
-	 *this is for prevent vcp pll cpu clock disabled during reset flow
-	 */
-	vcp_reset_lock = wakeup_source_register(NULL, "vcp reset wakelock");
+
 	/* init reset by cmd flag */
 	vcp_reset_by_cmd = 0;
 
