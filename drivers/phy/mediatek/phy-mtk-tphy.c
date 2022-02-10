@@ -1443,25 +1443,25 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp |= P2C_FORCE_SUSPENDM;
-	tmp = readl(com + U3P_U2PHYDTM0);
+	writel(tmp, com + U3P_U2PHYDTM0);
 
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp &= ~P2C_RG_SUSPENDM;
-	tmp = readl(com + U3P_U2PHYDTM0);
+	writel(tmp, com + U3P_U2PHYDTM0);
 
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp |= P2C_RG_SUSPENDM;
-	tmp = readl(com + U3P_U2PHYDTM0);
+	writel(tmp, com + U3P_U2PHYDTM0);
 
 	udelay(30);
 
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp &= ~P2C_FORCE_SUSPENDM;
-	tmp = readl(com + U3P_U2PHYDTM0);
+	writel(tmp, com + U3P_U2PHYDTM0);
 
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp &= ~P2C_RG_SUSPENDM;
-	tmp = readl(com + U3P_U2PHYDTM0);
+	writel(tmp, com + U3P_U2PHYDTM0);
 
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp &= ~(P2C_FORCE_UART_EN);
@@ -1552,14 +1552,14 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp |= P2C_RG_SUSPENDM | P2C_FORCE_SUSPENDM;
-	tmp = readl(com + U3P_U2PHYDTM0);
+	writel(tmp, com + U3P_U2PHYDTM0);
 
 	mdelay(2);
 
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp &= ~P2C_RG_DATAIN;
 	tmp |= (P2C_RG_XCVRSEL_VAL(1) | P2C_DTM0_PART_MASK);
-	tmp = readl(com + U3P_U2PHYDTM0);
+	writel(tmp, com + U3P_U2PHYDTM0);
 
 	tmp = readl(com + U3P_USBPHYACR6);
 	tmp |= PA6_RG_U2_PHY_REV6_VAL(1);
@@ -1569,7 +1569,7 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 
 	tmp = readl(com + U3P_U2PHYDTM0);
 	tmp &= ~P2C_RG_SUSPENDM;
-	tmp = readl(com + U3P_U2PHYDTM0);
+	writel(tmp, com + U3P_U2PHYDTM0);
 
 	udelay(1);
 
@@ -1654,8 +1654,9 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 			tmp &= ~PA6_RG_U2_PHY_REV1;
 			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
 
-			u2_phy_instance_set_mode(tphy, instance, 0, PHY_MODE_BC11_SW_CLR);
-
+			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
+			tmp &= ~PA6_RG_U2_BC11_SW_EN;
+			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
 			break;
 		case PHY_MODE_DPDMPULLDOWN_CLR:
 			tmp = readl(u2_banks->com + U3P_U2PHYDTM0);
@@ -1666,8 +1667,9 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 			tmp |= PA6_RG_U2_PHY_REV1;
 			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
 
-			u2_phy_instance_set_mode(tphy, instance, 0, PHY_MODE_BC11_SW_SET);
-
+			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
+			tmp |= PA6_RG_U2_BC11_SW_EN;
+			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
 			break;
 		default:
 			return;

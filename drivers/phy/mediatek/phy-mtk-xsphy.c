@@ -1093,25 +1093,25 @@ static void u2_phy_instance_power_on(struct mtk_xsphy *xsphy,
 
 	tmp = readl(pbase + XSP_U2PHYDTM0);
 	tmp |= P2D_FORCE_SUSPENDM;
-	tmp = readl(pbase + XSP_U2PHYDTM0);
+	writel(tmp, pbase + XSP_U2PHYDTM0);
 
 	tmp = readl(pbase + XSP_U2PHYDTM0);
 	tmp &= ~P2D_RG_SUSPENDM;
-	tmp = readl(pbase + XSP_U2PHYDTM0);
+	writel(tmp, pbase + XSP_U2PHYDTM0);
 
 	tmp = readl(pbase + XSP_U2PHYDTM0);
 	tmp |= P2D_RG_SUSPENDM;
-	tmp = readl(pbase + XSP_U2PHYDTM0);
+	writel(tmp, pbase + XSP_U2PHYDTM0);
 
 	udelay(30);
 
 	tmp = readl(pbase + XSP_U2PHYDTM0);
 	tmp &= ~P2D_FORCE_SUSPENDM;
-	tmp = readl(pbase + XSP_U2PHYDTM0);
+	writel(tmp, pbase + XSP_U2PHYDTM0);
 
 	tmp = readl(pbase + XSP_U2PHYDTM0);
 	tmp &= ~P2D_RG_SUSPENDM;
-	tmp = readl(pbase + XSP_U2PHYDTM0);
+	writel(tmp, pbase + XSP_U2PHYDTM0);
 
 	tmp = readl(pbase + XSP_U2PHYDTM0);
 	tmp &= ~(P2D_FORCE_UART_EN);
@@ -1190,14 +1190,14 @@ static void u2_phy_instance_power_off(struct mtk_xsphy *xsphy,
 
 	tmp = readl(pbase + XSP_U2PHYDTM0);
 	tmp |= P2D_RG_SUSPENDM | P2D_FORCE_SUSPENDM;
-	tmp = readl(pbase + XSP_U2PHYDTM0);
+	writel(tmp, pbase + XSP_U2PHYDTM0);
 
 	mdelay(2);
 
 	tmp = readl(pbase + XSP_U2PHYDTM0);
 	tmp &= ~P2D_RG_DATAIN;
 	tmp |= (P2D_RG_XCVRSEL_VAL(1) | P2D_DTM0_PART_MASK);
-	tmp = readl(pbase + XSP_U2PHYDTM0);
+	writel(tmp, pbase + XSP_U2PHYDTM0);
 
 	tmp = readl(pbase + XSP_USBPHYACR6);
 	tmp |= P2A6_RG_U2_PHY_REV6_VAL(1);
@@ -1207,7 +1207,7 @@ static void u2_phy_instance_power_off(struct mtk_xsphy *xsphy,
 
 	tmp = readl(pbase + XSP_U2PHYDTM0);
 	tmp &= ~P2D_RG_SUSPENDM;
-	tmp = readl(pbase + XSP_U2PHYDTM0);
+	writel(tmp, pbase + XSP_U2PHYDTM0);
 
 	udelay(1);
 
@@ -1263,6 +1263,10 @@ static void u2_phy_instance_set_mode(struct mtk_xsphy *xsphy,
 			tmp = readl(inst->port_base + XSP_USBPHYACR6);
 			tmp &= ~P2A6_RG_U2_PHY_REV1;
 			writel(tmp, inst->port_base + XSP_USBPHYACR6);
+
+			tmp = readl(inst->port_base + XSP_USBPHYACR6);
+			tmp |= P2A6_RG_BC11_SW_EN;
+			writel(tmp, inst->port_base + XSP_USBPHYACR6);
 			break;
 		case PHY_MODE_DPDMPULLDOWN_CLR:
 			tmp = readl(inst->port_base + XSP_U2PHYDTM0);
@@ -1271,6 +1275,10 @@ static void u2_phy_instance_set_mode(struct mtk_xsphy *xsphy,
 
 			tmp = readl(inst->port_base + XSP_USBPHYACR6);
 			tmp |= P2A6_RG_U2_PHY_REV1;
+			writel(tmp, inst->port_base + XSP_USBPHYACR6);
+
+			tmp = readl(inst->port_base + XSP_USBPHYACR6);
+			tmp &= ~P2A6_RG_BC11_SW_EN;
 			writel(tmp, inst->port_base + XSP_USBPHYACR6);
 			break;
 		case PHY_MODE_DPPULLUP_SET:
