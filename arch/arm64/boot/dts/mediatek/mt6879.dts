@@ -450,7 +450,7 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <311>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
 						&system_mem &system_pll &system_bus
 						&s2idle>;
 		};
@@ -464,7 +464,7 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <311>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
 						&system_mem &system_pll &system_bus
 						&s2idle>;
 		};
