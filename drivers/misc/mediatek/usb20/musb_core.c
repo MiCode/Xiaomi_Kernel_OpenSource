@@ -3748,6 +3748,9 @@ exit:
 		usb_prepare_clock(false);
 	}
 
+	/* Set USB phy mode here. */
+	set_usb_phy_mode(PHY_MODE_USB_DEVICE);
+
 	/* free mt_usb_work */
 	kfree(work);
 }

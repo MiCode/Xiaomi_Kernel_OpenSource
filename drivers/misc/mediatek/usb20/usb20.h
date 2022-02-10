@@ -125,3 +125,4 @@ extern void mt_usb_dev_disconnect(void);
 
 /* MUSB phy set */
 void set_usb_phy_mode(int mode);
+void set_usb_phy_clear(void);

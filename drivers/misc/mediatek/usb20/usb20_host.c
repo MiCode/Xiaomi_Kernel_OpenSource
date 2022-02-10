@@ -110,6 +110,13 @@ void set_usb_phy_mode(int mode)
 	DBG(0, "force PHY to mode %d, 0x6c=%x\n", mode, USBPHY_READ32(0x6c));
 }
 
+void set_usb_phy_clear(void)
+{
+	/* Clear USB phy U2PHYDTM1 */
+	USBPHY_CLR32(0x6c, (0xFFFF));
+	DBG(0, "Clear PHY setting, 0x6c=%x\n", USBPHY_READ32(0x6c));
+}
+
 static void _set_vbus(int is_on)
 {
 	if (!reg_vbus) {

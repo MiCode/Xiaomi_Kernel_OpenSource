@@ -296,7 +296,8 @@ static int mt_usb_role_sx_set(struct usb_role_switch *sw, enum usb_role role)
 		if (vbus_event) {
 			dev_info(dev, "%s: if vbus_event true\n", __func__);
 			/* phy_set_mode(glue->phy, PHY_MODE_USB_DEVICE); */
-			set_usb_phy_mode(PHY_MODE_USB_DEVICE);
+			/* PHY mode will be set in do_connection_work */
+			set_usb_phy_clear();
 			phy_power_on(glue->phy);
 			mt_usb_set_mailbox(otg_sx, MUSB_VBUS_VALID);
 		} else {
