@@ -48,7 +48,11 @@ const char * const meminfo_text[] = {
 	"kernel_stack",
 	"page_table",
 	"gpu",		/* HW memory */
+#if IS_ENABLED(CONFIG_MTK_ION)
 	"ion",
+#else
+	"kernel_misc_reclaimable",
+#endif
 	"zram",		/* misc */
 };
 
@@ -144,7 +148,6 @@ static void mmstat_trace_meminfo(void)
 	unsigned long meminfo[NR_MEMINFO_ITEMS] = {0};
 	size_t num_entries = 0;
 	unsigned int gpuuse = 0;
-	unsigned long ionuse = 0;
 
 	/* available memory */
 	meminfo[num_entries++] = P2K(global_zone_page_state(NR_FREE_PAGES));
@@ -179,9 +182,10 @@ static void mmstat_trace_meminfo(void)
 #endif
 	meminfo[num_entries++] = gpuuse;
 #if IS_ENABLED(CONFIG_MTK_ION)
-	ionuse = B2K((unsigned long)ion_mm_heap_total_memory());
+	meminfo[num_entries++] = B2K((unsigned long)ion_mm_heap_total_memory());
+#else
+	meminfo[num_entries++] = P2K(global_node_page_state(NR_KERNEL_MISC_RECLAIMABLE));
 #endif
-	meminfo[num_entries++] = ionuse;
 
 	/* misc */
 #if IS_ENABLED(CONFIG_ZSMALLOC)
