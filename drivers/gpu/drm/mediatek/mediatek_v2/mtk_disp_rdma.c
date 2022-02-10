@@ -326,8 +326,10 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 	if (val & (1 << 2)) {
 		//set_swpm_disp_work(); /* counting fps for swpm */
-		if (rdma->id == DDP_COMPONENT_RDMA0)
-			DRM_MMP_EVENT_END(rdma0, val, 0);
+		if (mtk_crtc && mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+			if (rdma->id == DDP_COMPONENT_RDMA0)
+				DRM_MMP_EVENT_END(rdma0, val, 0);
+		}
 		IF_DEBUG_IRQ_TS(find_work,
 			priv->ddp_comp.ts_works[work_id].irq_time, i)
 		DDPIRQ("[IRQ] %s: frame done!\n", mtk_dump_comp_str(rdma));
@@ -362,16 +364,16 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	}
 
 	if (val & (1 << 1)) {
-		if (rdma->id == DDP_COMPONENT_RDMA0)
-			DRM_MMP_EVENT_START(rdma0, val, 0);
-		DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
-//		mtk_drm_refresh_tag_start(&priv->ddp_comp);
-		IF_DEBUG_IRQ_TS(find_work, priv->ddp_comp.ts_works[work_id].irq_time, i)
-		MMPathTraceDRM(rdma);
-		IF_DEBUG_IRQ_TS(find_work, priv->ddp_comp.ts_works[work_id].irq_time, i)
-
 		if (mtk_crtc &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+			if (rdma->id == DDP_COMPONENT_RDMA0)
+				DRM_MMP_EVENT_START(rdma0, val, 0);
+			DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
+//			mtk_drm_refresh_tag_start(&priv->ddp_comp);
+			IF_DEBUG_IRQ_TS(find_work, priv->ddp_comp.ts_works[work_id].irq_time, i)
+			MMPathTraceDRM(rdma);
+			IF_DEBUG_IRQ_TS(find_work, priv->ddp_comp.ts_works[work_id].irq_time, i)
+
 			if (rdma->id == DDP_COMPONENT_RDMA0) {
 				atomic_set(&mtk_crtc->pf_event, 1);
 				wake_up_interruptible(&mtk_crtc->present_fence_wq);
@@ -980,6 +982,7 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	int ret = 0;
 	struct mtk_drm_private *priv =
 		comp->mtk_crtc->base.dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 
 	switch (io_cmd) {
 	case MTK_IO_CMD_RDMA_GOLDEN_SETTING: {
@@ -992,9 +995,15 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case IRQ_LEVEL_ALL: {
 		unsigned int inten;
 
-		inten = RDMA_FRAME_START_INT | RDMA_FRAME_END_INT |
-			RDMA_EOF_ABNORMAL_INT | RDMA_FIFO_UNDERFLOW_INT |
-			RDMA_TARGET_LINE_INT;
+		if (mtk_crtc && mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+			inten = RDMA_FRAME_START_INT | RDMA_FRAME_END_INT |
+				RDMA_EOF_ABNORMAL_INT | RDMA_FIFO_UNDERFLOW_INT |
+				RDMA_TARGET_LINE_INT;
+		} else {
+			inten = RDMA_FRAME_END_INT |
+				RDMA_EOF_ABNORMAL_INT | RDMA_FIFO_UNDERFLOW_INT |
+				RDMA_TARGET_LINE_INT;
+		}
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_RDMA_INT_STATUS, 0,
 			       ~0);
@@ -1006,8 +1015,13 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case IRQ_LEVEL_NORMAL: {
 		unsigned int inten;
 
-		inten = RDMA_FRAME_START_INT | RDMA_FRAME_END_INT |
-			RDMA_FIFO_UNDERFLOW_INT | RDMA_TARGET_LINE_INT;
+		if (mtk_crtc && mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+			inten = RDMA_FRAME_START_INT | RDMA_FRAME_END_INT |
+				RDMA_FIFO_UNDERFLOW_INT | RDMA_TARGET_LINE_INT;
+		} else {
+			inten = RDMA_FRAME_END_INT |
+				RDMA_FIFO_UNDERFLOW_INT | RDMA_TARGET_LINE_INT;
+		}
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_RDMA_INT_STATUS, 0,
 			       ~0);
@@ -1019,8 +1033,13 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case IRQ_LEVEL_IDLE: {
 		unsigned int inten;
 
-		inten = RDMA_REG_UPDATE_INT | RDMA_FRAME_START_INT |
-			RDMA_FRAME_END_INT | RDMA_TARGET_LINE_INT;
+		if (mtk_crtc && mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+			inten = RDMA_REG_UPDATE_INT | RDMA_FRAME_START_INT |
+				RDMA_FRAME_END_INT | RDMA_TARGET_LINE_INT;
+		} else {
+			inten = RDMA_REG_UPDATE_INT |
+				RDMA_FRAME_END_INT | RDMA_TARGET_LINE_INT;
+		}
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_RDMA_INT_STATUS, 0,
 			       ~0);
