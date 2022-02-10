@@ -3223,7 +3223,7 @@ static const struct mau_config_info mau_config_default[] = {
 };
 
 /**********iommu trace**********/
-#define IOMMU_MAX_EVENT_COUNT 3000
+#define IOMMU_MAX_EVENT_COUNT 8000
 
 #define iommu_dump(file, fmt, args...) \
 	do {\
@@ -3946,6 +3946,8 @@ static int mtk_iommu_help_fops_proc_show(struct seq_file *s, void *unused)
 static int mtk_iommu_dump_fops_proc_show(struct seq_file *s, void *unused)
 {
 	mtk_iommu_trace_dump(s);
+	mtk_iommu_iova_alloc_dump(s, NULL);
+	mtk_iommu_iova_alloc_dump_top(s, NULL);
 	return 0;
 }
 
