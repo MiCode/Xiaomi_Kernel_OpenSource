@@ -947,7 +947,7 @@ static int enable_preemption(struct adreno_device *adreno_dev)
 	 * Bits[3:0] contain the preemption timeout enable bit per ringbuffer
 	 * Bits[31:4] contain the timeout in ms
 	 */
-	return a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_VALUE_BIN_TIME, 1,
+	return a6xx_hfi_send_set_value(adreno_dev, HFI_VALUE_BIN_TIME, 1,
 			FIELD_PREP(GENMASK(31, 4), 3000) |
 			FIELD_PREP(GENMASK(3, 0), 0xf));
 }
