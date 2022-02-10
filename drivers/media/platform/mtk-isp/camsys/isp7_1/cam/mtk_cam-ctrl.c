@@ -1189,6 +1189,9 @@ void mtk_cam_subspl_req_prepare(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
 		sensor_seq_no_next - 1);
 	if (req_stream_data) {
+		/*initial request handling*/
+		if (sensor_seq_no_next == 2)
+			req_stream_data->state.estate = E_STATE_SUBSPL_SENSOR;
 		if (req_stream_data->state.estate < E_STATE_SUBSPL_SENSOR) {
 			dev_info(cam->dev, "[%s:pass] sensor_no:%d state:0x%x\n", __func__,
 					sensor_seq_no_next - 1, req_stream_data->state.estate);
