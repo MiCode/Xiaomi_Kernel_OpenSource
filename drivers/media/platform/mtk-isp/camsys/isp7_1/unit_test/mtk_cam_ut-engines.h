@@ -118,6 +118,10 @@ struct mtk_ut_camsv_device {
 	void __iomem *base_inner;
 	unsigned int num_clks;
 	struct clk **clks;
+	unsigned int exp_order;
+	unsigned int exp_num;
+	unsigned int hw_cap;
+	unsigned int cammux_id;
 
 	struct ut_event_source event_src;
 	struct engine_ops ops;
