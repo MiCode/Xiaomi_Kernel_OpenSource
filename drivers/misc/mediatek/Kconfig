@@ -49,6 +49,17 @@ config MTK_BASE_POWER
 	  Select if you want to enable MediaTek power
 	  management feature.
 
+config NONLINEAR_FREQ_CTL
+	bool "Non-linear frequency control"
+	depends on MTK_CPU_FREQ
+	depends on MTK_UNIFY_POWER
+	help
+	  Choose this option to enable non-linear frequency control.
+	  This will change per-opp capacity from linear scaled by
+	  freuqency to evaluated by performance. This makes capacity
+	  more accurate and will let scheduler/schedutil use more
+	  suitable frequency.
+
 config MTK_CLK_BUFFER
 	tristate "MediaTek Clock Buffer Support"
 	select REGMAP
