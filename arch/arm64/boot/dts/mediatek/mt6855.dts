@@ -5460,6 +5460,15 @@
 			power-reset = <0x1a06f00c 4>;
 		};
 
+		smi_pd_disp: smi_pd_disp {
+			compatible = "mediatek,smi-pd";
+			mediatek,suspend-check-dev = <&smi_disp_common &smi_mdp_subcommon0>;
+			mediatek,suspend-check-port = <0x3 0x2>;
+			power-domains = <&scpsys MT6855_POWER_DOMAIN_DISP>;
+			init-power-on;
+			suspend-check;
+		};
+
 		smi_larb0: smi_larb0@14021000 {
 			compatible = "mediatek,smi_larb0",
 				"mediatek,mt6855-smi-larb", "mediatek,smi-larb";
