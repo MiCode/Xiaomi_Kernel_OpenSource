@@ -800,10 +800,16 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 			goto err_unlock_exit;
 		}
 		task->config = cfg;
-		cfg->layer_w = submit->layer_width;
-		cfg->layer_h = submit->layer_height;
-		cfg->disp_hrt = frame_calc_layer_hrt(ctx, &submit->info,
-			cfg->layer_w, cfg->layer_h);
+		if (submit->info.mode == MML_MODE_RACING) {
+			cfg->layer_w = submit->layer_width;
+			if (unlikely(!cfg->layer_w))
+				cfg->layer_w = submit->info.dest[0].compose.width;
+			cfg->layer_h = submit->layer_height;
+			if (unlikely(!cfg->layer_h))
+				cfg->layer_h = submit->info.dest[0].compose.height;
+			cfg->disp_hrt = frame_calc_layer_hrt(ctx, &submit->info,
+				cfg->layer_w, cfg->layer_h);
+		}
 	}
 
 	/* maintain racing ref count for easy query mode */
