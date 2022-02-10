@@ -50,12 +50,12 @@
 	};
 }; /* IRTX GPIO Settings -End */
 
-&subpmic_mtk {
+&mt6360_pmu {
 	mt6360,intr_gpio_num = <4>; /* direct defined GPIO num */
 	mt6360,intr_gpio = <&pio 4 0x0>;
 };
 
-&subpmic_pmic_mtk {
+&mt6360_pmic {
 	pwr_off_seq = [04 00 00 02];
 };
 
