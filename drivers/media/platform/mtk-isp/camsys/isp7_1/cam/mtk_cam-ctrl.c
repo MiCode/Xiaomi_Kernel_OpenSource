@@ -1880,6 +1880,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	u64 time_mono = ktime_get_ns();
 	int working_req_found = 0;
 	int switch_type;
+	unsigned int sensor_request_seq_no = atomic_read(&sensor_ctrl->sensor_request_seq_no);
 
 	/* List state-queue status*/
 	spin_lock(&sensor_ctrl->camsys_state_lock);
@@ -1887,23 +1888,24 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			    state_element) {
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_temp);
 
-		if (req_stream_data->frame_seq_no ==
-			atomic_read(&sensor_ctrl->sensor_request_seq_no) - 1)
+		if (req_stream_data->frame_seq_no == sensor_request_seq_no - 1)
 			prev_stream_data = req_stream_data;
 
-		stateidx = atomic_read(&sensor_ctrl->sensor_request_seq_no) -
-			   req_stream_data->frame_seq_no;
+		stateidx = sensor_request_seq_no - req_stream_data->frame_seq_no;
 		if (stateidx < STATE_NUM_AT_SOF && stateidx > -1) {
 			state_rec[stateidx] = state_temp;
 			if (stateidx == 0)
 				working_req_found = 1;
 			/* Find outer state element */
-			if (state_temp->estate == E_STATE_OUTER ||
-				state_temp->estate == E_STATE_CAMMUX_OUTER ||
+			if (state_temp->estate == E_STATE_CQ ||
+			    state_temp->estate == E_STATE_OUTER ||
+			    state_temp->estate == E_STATE_CAMMUX_OUTER ||
 			    state_temp->estate == E_STATE_OUTER_HW_DELAY) {
-				state_outer = state_temp;
-				mtk_cam_set_timestamp(req_stream_data,
-						      time_boot, time_mono);
+				if (state_outer == NULL) {
+					state_outer = state_temp;
+					mtk_cam_set_timestamp(req_stream_data,
+						time_boot, time_mono);
+				}
 			}
 			/* Find inner state element request*/
 			if (state_temp->estate == E_STATE_INNER ||
@@ -2043,11 +2045,11 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 		}
 		if (working_req_found && state_rec[0]) {
 			if (state_rec[0]->estate == E_STATE_READY) {
-				dev_info(raw_dev->dev, "[SOF] sensor delay ts:%lu\n",
-					irq_info->ts_ns / 1000);
 				req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_rec[0]);
 				req_stream_data->flags |=
 					MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED;
+				dev_info(raw_dev->dev, "[SOF] sensor delay(seq_no %d) ts:%lu\n",
+					req_stream_data->frame_seq_no, irq_info->ts_ns / 1000);
 			}
 
 			if (state_rec[0]->estate == E_STATE_SENINF)
