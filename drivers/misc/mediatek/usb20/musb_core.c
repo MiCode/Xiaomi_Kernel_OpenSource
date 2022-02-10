@@ -3741,6 +3741,8 @@ void do_connection_work(struct work_struct *data)
 			DBG(0, "lock not active\n");
 		}
 		usb_clk_state = ON_TO_OFF;
+		/* Set USB phy mode to INVALID */
+		set_usb_phy_mode(PHY_MODE_INVALID);
 	} else
 		DBG(0, "do nothing, usb_on:%d, power:%d\n",
 				usb_on, mtk_musb->power);
