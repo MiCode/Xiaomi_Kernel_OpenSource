@@ -1365,20 +1365,13 @@ int fpsgo_fbt2fstb_get_cam_active(void)
 
 static void fstb_set_cam_active(int active)
 {
+	mutex_lock(&fstb_cam_active_time);
 	if (fstb_is_cam_active == active)
-		return;
+		goto out;
 
 	fstb_is_cam_active = active;
 	fpsgo_fstb2xgf_set_camera_flag(fstb_is_cam_active);
-}
-
-static void fstb_check_cam_status(void)
-{
-	mutex_lock(&fstb_cam_active_time);
-	if (ktime_to_us(ktime_get()) - fstb_cam_active_ts < 1000000LL)
-		fstb_set_cam_active(1);
-	else
-		fstb_set_cam_active(0);
+out:
 	mutex_unlock(&fstb_cam_active_time);
 }
 
@@ -2209,9 +2202,9 @@ static void fstb_fps_stats(struct work_struct *work)
 		mutex_unlock(&fstb_lock);
 	}
 
-	fstb_check_cam_status();
 
 	//fpsgo_check_thread_status();
+	xgf_trace("fstb_is_cam_active:%d", fstb_is_cam_active);
 	fpsgo_fstb2xgf_do_recycle(fstb_active2xgf);
 	fpsgo_create_render_dep();
 
@@ -2250,6 +2243,35 @@ static void reset_fps_level(void)
 
 	set_soft_fps_level(1, level);
 }
+
+static ssize_t set_cam_active_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", fstb_is_cam_active);
+}
+
+static ssize_t set_cam_active_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) != 0)
+				goto out;
+			mtk_fstb_dprintk_always("%s %d\n", __func__, arg);
+			fstb_set_cam_active(!!arg);
+		}
+	}
+
+out:
+	return count;
+}
+
+static KOBJ_ATTR_RW(set_cam_active);
 
 static ssize_t set_ui_ctrl_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -3132,6 +3154,8 @@ int mtk_fstb_init(void)
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_fstb_fps_bypass_min);
 		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_set_cam_active);
+		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_tfps_to_powerhal_enable);
 	}
 
@@ -3206,6 +3230,8 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_fstb_fps_bypass_max);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_fstb_fps_bypass_min);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_set_cam_active);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_tfps_to_powerhal_enable);
 
