@@ -341,6 +341,12 @@ int spmtwam_monitor(bool enable, struct spmtwam_cfg *cfg,
 			return -EAGAIN;
 		}
 
+		if (REG(SPM_IRQ_MASK) == NULL || REG(SPM_TWAM_IDLE_SEL) == NULL ||
+			REG(SPM_TWAM_CON) == NULL || REG(SPM_TWAM_WINDOW_LEN) == NULL) {
+			pr_info("spmtwam: register is not initialized\n");
+			return -EINVAL;
+		}
+
 		/* Set default value for high/normal speed mode */
 		if (cfg->spmtwam_window_len == 0)
 			cfg->spmtwam_window_len = cfg->spmtwam_speed_mode ?
@@ -401,6 +407,12 @@ int spmtwam_monitor(bool enable, struct spmtwam_cfg *cfg,
 		spmtwam_handler_ptr = NULL;
 		for (i = 0; i < 4; i++)
 			spmtwam_channel_valid[i] = false;
+
+		if (REG(SPM_IRQ_MASK) == NULL || REG(SPM_IRQ_STA) == NULL ||
+			REG(SPM_TWAM_CON) == NULL) {
+			pr_info("spmtwam: register is not initialized\n");
+			return -EINVAL;
+		}
 
 		write32(REG(SPM_TWAM_CON),
 			read32(REG(SPM_TWAM_CON)) & ~REG_TWAM_ENABLE_LSB);
