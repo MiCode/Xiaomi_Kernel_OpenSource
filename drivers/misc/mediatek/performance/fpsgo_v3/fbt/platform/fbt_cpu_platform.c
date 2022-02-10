@@ -144,6 +144,7 @@ void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
 	unsigned int max_blc_1024;
 	struct task_struct *p;
 	struct sched_attr attr = {};
+	unsigned long cur_min = 0, cur_max = 0;
 
 	if (!pid)
 		return;
@@ -180,8 +181,12 @@ void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
 	rcu_read_unlock();
 
 	if (likely(p)) {
-		attr.sched_policy = p->policy;
-		ret = sched_setattr_nocheck(p, &attr);
+		cur_min = uclamp_eff_value(p, UCLAMP_MIN);
+		cur_max = uclamp_eff_value(p, UCLAMP_MAX);
+		if (cur_min != attr.sched_util_min || cur_max != attr.sched_util_max) {
+			attr.sched_policy = p->policy;
+			ret = sched_setattr_nocheck(p, &attr);
+		}
 		put_task_struct(p);
 	}
 
