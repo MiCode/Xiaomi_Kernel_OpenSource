@@ -5704,8 +5704,9 @@
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&disp_iommu M4U_LARB0_PORT1>;
 			clocks = <&dispsys_config_clk CLK_MM_DISP_APB_BUS>,
+				   <&dispsys_config_clk CLK_MM_26M>,
 				   <&dispsys_config_clk CLK_MM_DISP_MUTEX0>;
-			clock-num = <2>;
+			clock-num = <3>;
 			fake-engine = <&smi_larb0 M4U_LARB0_PORT4>,
 				<&smi_larb1 M4U_LARB1_PORT4>;
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_DISP>;
