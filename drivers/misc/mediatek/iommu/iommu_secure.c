@@ -384,6 +384,47 @@ int mtk_iommu_sec_bk_pgtable_dump(uint32_t type, uint32_t id, uint32_t bank,
 EXPORT_SYMBOL_GPL(mtk_iommu_sec_bk_pgtable_dump);
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_ENABLE_GENIEZONE)
+#define SVP_FEATURE_DT_NAME	"SecureVideoPath"
+#define IOMMU_PSEUDO_DT_NAME	"mtk_iommu_pseudo"
+
+int iommu_on_mtee = -1;
+bool is_iommu_sec_on_mtee(void)
+{
+	struct device_node *svp_node, *iommu_pseudo_node;
+
+	if (iommu_on_mtee != -1)
+		return (iommu_on_mtee == 1);
+
+	svp_node = of_find_node_by_name(NULL, SVP_FEATURE_DT_NAME);
+	if (!svp_node) {
+		pr_info("%s, svp node not found\n", __func__);
+		iommu_on_mtee = 0;
+		return false;
+	}
+	of_node_put(svp_node);
+
+	iommu_pseudo_node = of_find_node_by_name(NULL, IOMMU_PSEUDO_DT_NAME);
+	if (!iommu_pseudo_node) {
+		pr_info("%s, iommu_pseudo node not found\n", __func__);
+		iommu_on_mtee = 0;
+		return false;
+	}
+	of_node_put(iommu_pseudo_node);
+
+	iommu_on_mtee = 1;
+
+	return true;
+}
+EXPORT_SYMBOL_GPL(is_iommu_sec_on_mtee);
+#else
+bool is_iommu_sec_on_mtee(void)
+{
+	return false;
+}
+EXPORT_SYMBOL_GPL(is_iommu_sec_on_mtee);
+#endif
+
 static int mtk_iommu_sec_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;

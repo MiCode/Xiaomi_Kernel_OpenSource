@@ -27,6 +27,7 @@ int mtk_iommu_dump_bk0_val(uint32_t type, uint32_t id);
 int mtk_iommu_sec_bk_pgtable_dump(uint32_t type, uint32_t id, uint32_t bank,
 		u64 iova);
 #endif
+bool is_iommu_sec_on_mtee(void);
 #else
 int mtk_iommu_sec_bk_init_by_atf(uint32_t type, uint32_t id)
 {
@@ -114,6 +115,13 @@ int mtk_iommu_sec_bk_pgtable_dump(uint32_t type, uint32_t id, uint32_t bank,
 	return 0;
 }
 #endif
+
+bool is_iommu_sec_on_mtee(void)
+{
+	pr_warn("mtk_iommu: secure warning, %s is not support\n", __func__);
+
+	return false;
+}
 #endif
 
 #endif
