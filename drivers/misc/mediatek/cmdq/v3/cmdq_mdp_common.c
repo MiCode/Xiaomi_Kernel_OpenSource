@@ -1969,9 +1969,9 @@ static void cmdq_mdp_init_pmqos(void)
 	for (i = 0; i < MDP_TOTAL_THREAD; i++) {
 #ifndef PMQOS_VERSION2
 		mtk_pm_qos_add_request(&mdp_bw_qos_request[i],
-			PM_QOS_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
+			MTK_PM_QOS_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
 		mtk_pm_qos_add_request(&isp_bw_qos_request[i],
-			PM_QOS_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
+			MTK_PM_QOS_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
 
 		result = snprintf(mdp_bw_qos_request[i].owner,
 		  sizeof(mdp_bw_qos_request[i].owner) - 1, "mdp_bw_%d", i);
