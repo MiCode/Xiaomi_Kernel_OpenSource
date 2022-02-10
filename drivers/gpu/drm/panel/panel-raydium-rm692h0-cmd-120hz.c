@@ -886,6 +886,16 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->vci);
 	}
 
+	// 6360 ldo need open in kernel
+	ret = lcm_vddi_enable(ctx);
+	mdelay(5);
+	ret |= lcm_vci_enable(ctx);
+	mdelay(5);
+	if (ret < 0) {
+		dev_info(dev, "lcm power enable fail\n");
+		return ret;
+	}
+
 	ctx->prepared = true;
 	ctx->enabled = true;
 
