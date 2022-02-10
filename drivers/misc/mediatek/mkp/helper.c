@@ -47,23 +47,32 @@ int mkp_set_mapping_xxx_helper(unsigned long addr, int nr_pages, uint32_t policy
 		unsigned long pfn_cur = 0, pfn_next = 0;
 		unsigned long start_pfn = 0, count = 1;
 		phys_addr_t phys_addr = 0;
+		unsigned long flags;
 
 		for (i = 0; i < nr_pages; i++) {
 			pfn_cur = vmalloc_to_pfn((void *)(addr+i*PAGE_SIZE));
 			if (start_pfn == 0)
 				start_pfn = pfn_cur;
 			phys_addr = start_pfn << PAGE_SHIFT;
+			read_lock_irqsave(&mkp_rbtree_rwlock, flags);
 			found = mkp_rbtree_search(&mkp_rbtree, phys_addr);
 			if (found != NULL) {
 				if (found->addr == 0 && found->size == 0) {
 					start_pfn = 0; count = 1;
+					read_unlock_irqrestore(&mkp_rbtree_rwlock, flags);
 					continue;
 				}
-				handle = found->handle;
-				ret = set_memory(policy, handle);
 				i = i + ((found->size) >> PAGE_SHIFT)-1;
 				start_pfn = 0; count = 1;
+				handle = found->handle;
+				ret = set_memory(policy, handle);
+				if (ret == -1) {
+					MKP_WARN("%s:%d: policy: %u, Set memory fail\n",
+						__func__, __LINE__, policy);
+				}
+				read_unlock_irqrestore(&mkp_rbtree_rwlock, flags);
 			} else {
+				read_unlock_irqrestore(&mkp_rbtree_rwlock, flags);
 				if (i != nr_pages-1) { // not last two pages
 					// check pfn_next is contiguous with pfn_cur
 					pfn_next = vmalloc_to_pfn((void *)(addr+(i+1)*PAGE_SIZE));
@@ -98,7 +107,9 @@ int mkp_set_mapping_xxx_helper(unsigned long addr, int nr_pages, uint32_t policy
 				data->addr = phys_addr;
 				data->size = count*PAGE_SIZE;
 				data->handle = handle;
+				write_lock_irqsave(&mkp_rbtree_rwlock, flags);
 				ret = mkp_rbtree_insert(&mkp_rbtree, data);
+				write_unlock_irqrestore(&mkp_rbtree_rwlock, flags);
 				start_pfn = 0; count = 1;
 			}
 		}

@@ -79,6 +79,7 @@ static void mkp_trace_event_func(struct timer_list *unused) // do not use sleep
 #endif
 
 struct rb_root mkp_rbtree = RB_ROOT;
+DEFINE_RWLOCK(mkp_rbtree_rwlock);
 
 #if !defined(CONFIG_KASAN_GENERIC) && !defined(CONFIG_KASAN_SW_TAGS)
 static void *p_stext;
@@ -152,6 +153,7 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 	struct mkp_rb_node *found = NULL;
 	phys_addr_t phys_addr;
 	uint32_t policy;
+	unsigned long flags;
 
 	if (((unsigned long)THIS_MODULE->init_layout.base) == addr) {
 		return;
@@ -174,11 +176,13 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 	for (i = 0; i < nr_pages; i++) {
 		pfn = vmalloc_to_pfn((void *)(addr+i*PAGE_SIZE));
 		phys_addr = pfn << PAGE_SHIFT;
+		write_lock_irqsave(&mkp_rbtree_rwlock, flags);
 		found = mkp_rbtree_search(&mkp_rbtree, phys_addr);
 		if (found != NULL && found->addr != 0 && found->size != 0) {
 			ret = mkp_destroy_handle(policy, found->handle);
 			ret = mkp_rbtree_erase(&mkp_rbtree, phys_addr);
 		}
+		write_unlock_irqrestore(&mkp_rbtree_rwlock, flags);
 	}
 }
 

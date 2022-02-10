@@ -33,5 +33,6 @@ struct cred_sbuf_content {
 };
 
 extern struct rb_root mkp_rbtree;
+extern rwlock_t mkp_rbtree_rwlock;
 int __init mkp_demo_init(void);
 #endif
