@@ -4141,13 +4141,11 @@ const char *cmdq_mdp_parse_handle_error_module_by_hwflag(
 
 phys_addr_t cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 {
-	static u32 count;
-	static phys_addr_t *mdp_base;
+	u32 count;
+	phys_addr_t *mdp_base;
 
-	if (!count && !mdp_base) {
-		count = mdp_engine_base_count();
-		mdp_base = mdp_engine_base_get();
-	}
+	count = mdp_engine_base_count();
+	mdp_base = mdp_engine_base_get();
 
 	if (!count || !mdp_base) {
 		CMDQ_ERR("%s count:%u base:%lx\n", __func__, count, mdp_base);
@@ -4171,14 +4169,12 @@ phys_addr_t cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 
 phys_addr_t cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset)
 {
-	static u32 count;
-	static phys_addr_t *mdp_base;
+	u32 count;
+	phys_addr_t *mdp_base;
 	u16 reg_msb_offset;
 
-	if (!count && !mdp_base) {
-		count = mdp_engine_base_count();
-		mdp_base = mdp_engine_base_get();
-	}
+	count = mdp_engine_base_count();
+	mdp_base = mdp_engine_base_get();
 
 	if (!count || !mdp_base) {
 		CMDQ_ERR("%s count:%u base:%lx\n", __func__, count, mdp_base);
