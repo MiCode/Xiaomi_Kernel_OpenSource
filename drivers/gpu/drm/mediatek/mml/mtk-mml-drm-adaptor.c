@@ -1204,6 +1204,7 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 {
 	struct mml_frame_info *info = &submit->info;
 	struct mml_frame_info *info_pq = &submit_pq->info;
+	struct mml_frame_dest *dest = &info->dest[0];
 	u32 i;
 
 	submit_pq->info = submit->info;
@@ -1214,40 +1215,56 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 		if (submit_pq->pq_param[i] && submit->pq_param[i])
 			*submit_pq->pq_param[i] = *submit->pq_param[i];
 
-	if (info->dest[0].rotate == MML_ROT_0 ||
-	    info->dest[0].rotate == MML_ROT_180) {
-		info->dest[0].compose.left = 0;
-		info->dest[0].compose.top = 0;
-		info->dest[0].compose.width = info->dest[0].crop.r.width;
-		info->dest[0].compose.height = info->dest[0].crop.r.height;
+	if (dest->rotate == MML_ROT_0 ||
+	    dest->rotate == MML_ROT_180) {
+		dest->compose.left = 0;
+		dest->compose.top = 0;
+		dest->compose.width = dest->crop.r.width;
+		dest->compose.height = dest->crop.r.height;
+
+		if (MML_FMT_H_SUBSAMPLE(dest->data.format))
+			dest->crop.r.width = (dest->crop.r.width + 1) & ~1;
+		if (MML_FMT_V_SUBSAMPLE(dest->data.format))
+			dest->crop.r.height = (dest->crop.r.height + 1) & ~1;
+
+		dest->data.width = dest->crop.r.width;
+		dest->data.height = dest->crop.r.height;
 	} else {
-		info->dest[0].compose.left = 0;
-		info->dest[0].compose.top = 0;
-		info->dest[0].compose.width = info->dest[0].crop.r.height;
-		info->dest[0].compose.height = info->dest[0].crop.r.width;
+		dest->compose.left = 0;
+		dest->compose.top = 0;
+		dest->compose.width = dest->crop.r.height;
+		dest->compose.height = dest->crop.r.width;
+
+		if (MML_FMT_H_SUBSAMPLE(dest->data.format)) {
+			dest->crop.r.width = (dest->crop.r.width + 1) & ~1;
+			dest->crop.r.height = (dest->crop.r.height + 1) & ~1;
+		} else if (MML_FMT_V_SUBSAMPLE(dest->data.format)) {
+			dest->crop.r.width = (dest->crop.r.width + 1) & ~1;
+		}
+
+		dest->data.width = dest->crop.r.height;
+		dest->data.height = dest->crop.r.width;
 	}
 
-	info->dest[0].data.width = info->dest[0].compose.width;
-	info->dest[0].data.height = info->dest[0].compose.height;
-	info->dest[0].data.y_stride = mml_color_get_min_y_stride(
-		info->dest[0].data.format, info->dest[0].compose.width);
-	info->dest[0].data.uv_stride = mml_color_get_min_uv_stride(
-		info->dest[0].data.format, info->dest[0].compose.width);
-	memset(&info->dest[0].pq_config, 0, sizeof(info->dest[0].pq_config));
+	dest->data.y_stride = mml_color_get_min_y_stride(
+		dest->data.format, dest->data.width);
+	dest->data.uv_stride = mml_color_get_min_uv_stride(
+		dest->data.format, dest->data.width);
+	memset(&dest->pq_config, 0, sizeof(dest->pq_config));
 
-	info_pq->src = info->dest[0].data;
+	info_pq->src = dest->data;
 	info_pq->dest[0].crop.r.left = 0;
 	info_pq->dest[0].crop.r.top = 0;
-	info_pq->dest[0].crop.r.width = info_pq->src.width;
-	info_pq->dest[0].crop.r.height = info_pq->src.height;
+	info_pq->dest[0].crop.r.width = dest->compose.width;
+	info_pq->dest[0].crop.r.height = dest->compose.height;
 	info_pq->dest[0].rotate = 0;
 	info_pq->dest[0].flip = 0;
 	info_pq->mode = MML_MODE_DDP_ADDON;
 	submit_pq->buffer.src = submit->buffer.dest[0];
 
-	if (MML_FMT_PLANE(info->dest[0].data.format) > 1)
+	if (MML_FMT_PLANE(dest->data.format) > 1)
 		mml_err("%s dest plane should be 1 but format %#010x",
-			__func__, info->dest[0].data.format);
+			__func__, dest->data.format);
 }
 EXPORT_SYMBOL_GPL(mml_drm_split_info);
 
