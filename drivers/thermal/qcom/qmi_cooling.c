@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -96,6 +96,24 @@ static char  device_clients[][QMI_CLIENT_NAME_LENGTH] = {
 	{"mmw2_dsc"},
 	{"mmw3_dsc"},
 	{"mmw_ific_dsc"},
+	{"modem_lte_sub1_dsc"},
+	{"modem_nr_sub1_dsc"},
+	{"modem_nr_scg_sub1_dsc"},
+	{"sdr0_lte_sub1_dsc"},
+	{"sdr1_lte_sub1_dsc"},
+	{"sdr0_nr_sub1_dsc"},
+	{"sdr1_nr_sub1_dsc"},
+	{"pa_lte_sdr0_sub1_dsc"},
+	{"pa_lte_sdr1_sub1_dsc"},
+	{"pa_nr_sdr0_sub1_dsc"},
+	{"pa_nr_sdr1_sub1_dsc"},
+	{"pa_nr_sdr0_scg_sub1_dsc"},
+	{"pa_nr_sdr1_scg_sub1_dsc"},
+	{"mmw0_sub1_dsc"},
+	{"mmw1_sub1_dsc"},
+	{"mmw2_sub1_dsc"},
+	{"mmw3_sub1_dsc"},
+	{"mmw_ific_sub1_dsc"},
 };
 
 static int qmi_get_max_state(struct thermal_cooling_device *cdev,
