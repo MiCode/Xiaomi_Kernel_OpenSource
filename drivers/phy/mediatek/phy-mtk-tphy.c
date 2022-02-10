@@ -1745,6 +1745,10 @@ static void phy_v1_banks_init(struct mtk_tphy *tphy,
 	}
 }
 
+#ifdef CONFIG_MACH_MT6771
+static struct mtk_phy_instance *bc11_instance;
+#endif
+
 static void phy_v2_banks_init(struct mtk_tphy *tphy,
 			      struct mtk_phy_instance *instance)
 {
@@ -1848,6 +1852,11 @@ static void u2_phy_props_set(struct mtk_tphy *tphy,
 		tmp |= PA6_RG_U2_DISCTH_VAL(instance->eye_disc);
 		writel(tmp, com + U3P_USBPHYACR6);
 	}
+
+#ifdef CONFIG_MACH_MT6771
+	if ((tphy->phys[0] == instance) && (instance->type == PHY_TYPE_USB2))
+		bc11_instance = instance;
+#endif
 }
 
 static int mtk_phy_init(struct phy *phy)
@@ -2196,6 +2205,42 @@ static struct platform_driver mtk_tphy_driver = {
 };
 
 module_platform_driver(mtk_tphy_driver);
+
+#ifdef CONFIG_MACH_MT6771
+void Charger_Detect_Init(void)
+{
+	struct u2phy_banks *u2_banks;
+	void __iomem *com;
+	u32 tmp;
+
+	if (!bc11_instance)
+		return;
+
+	u2_banks = &bc11_instance->u2_banks;
+	com = u2_banks->com;
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp |= PA6_RG_U2_BC11_SW_EN;   /* DP/DM BC1.1 path Disable */
+	writel(tmp, com + U3P_USBPHYACR6);
+}
+EXPORT_SYMBOL_GPL(Charger_Detect_Init);
+
+void Charger_Detect_Release(void)
+{
+	struct u2phy_banks *u2_banks;
+	void __iomem *com;
+	u32 tmp;
+
+	if (!bc11_instance)
+		return;
+
+	u2_banks = &bc11_instance->u2_banks;
+	com = u2_banks->com;
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_BC11_SW_EN;   /* DP/DM BC1.1 path Disable */
+	writel(tmp, com + U3P_USBPHYACR6);
+}
+EXPORT_SYMBOL_GPL(Charger_Detect_Release);
+#endif
 
 MODULE_AUTHOR("Chunfeng Yun <chunfeng.yun@mediatek.com>");
 MODULE_DESCRIPTION("MediaTek T-PHY driver");
