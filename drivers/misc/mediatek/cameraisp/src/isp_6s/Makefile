@@ -18,6 +18,7 @@ ccflags-y += -I$(srctree)/include/dt-bindings/memory/
 ccflags-y += -I$(srctree)/drivers/iommu/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 
 obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT) += camera_isp.o
 obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT) += cam_qos.o

@@ -35,6 +35,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/suspend.h>
 
+#include <soc/mediatek/smi.h>
+
 /* MET: define to enable MET */
 /* GKI: not support MET yet */
 // #define ISP_MET_READY
@@ -2837,13 +2839,10 @@ static inline void ISP_Reset(int module)
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_CON),
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_SET),
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_CLR));
+
 				//dump smi for debugging
-#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
-				if (smi_debug_bus_hang_detect(
-					false, "camera_isp") != 0)
-					LOG_INF(
-					"ERR:smi_debug_bus_hang_detect");
-#endif
+				mtk_smi_dbg_hang_detect("camera_isp:Reset");
+
 				bDumped = MTRUE;
 				break;
 			}
@@ -4085,11 +4084,10 @@ RESET:
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_SET),
 				(unsigned int)ISP_RD32(CAMSYS_REG_CG_CLR));
 			}
+
 			//dump smi for debugging
-#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
-			if (smi_debug_bus_hang_detect(false, "camera_isp") != 0)
-				LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
-#endif
+			mtk_smi_dbg_hang_detect("camera_isp:StopHW");
+
 			break;
 		}
 		//add "regTGSt == 0" for workaround
@@ -11950,10 +11948,9 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 
 				LOG_NOTICE("ERR:SMI_DUMP by module:%d\n",
 					   irq_module);
-#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
-		if (smi_debug_bus_hang_detect(false, "camera_isp") != 0)
-			LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
-#endif
+
+				mtk_smi_dbg_hang_detect("camera_isp");
+
 			}
 			g_ISPIntStatus_SMI[irq_module].ispIntErr =
 				g_ISPIntStatus_SMI[irq_module].ispInt5Err = 0;
@@ -11982,14 +11979,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 EXIT_CQ_RECOVER:
 				LOG_NOTICE("-CQ recover");
 #endif
-			/*
-			 * LOG_NOTICE("ERR:SMI_DUMP by module:%d\n",
-			 * irq_module);
-			 * if (smi_debug_bus_hang_detect(
-			 *              SMI_PARAM_BUS_OPTIMIZATION,
-			 *              true, false, true) != 0)
-			 *      LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
-			 */
+
 			g_ISPIntStatus_SMI[irq_module].ispIntErr =
 				g_ISPIntStatus_SMI[irq_module].ispInt5Err = 0;
 		}
@@ -12009,10 +11999,7 @@ EXIT_CQ_RECOVER:
 				LOG_NOTICE("ERR:SMI_DUMP by module:%d\n",
 					   irq_module);
 
-#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
-		if (smi_debug_bus_hang_detect(false, "camera_isp_camsv") != 0)
-			LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
-#endif
+				mtk_smi_dbg_hang_detect("camera_isp_camsv");
 
 			}
 			g_ISPIntStatus_SMI[irq_module].ispIntErr = 0;
