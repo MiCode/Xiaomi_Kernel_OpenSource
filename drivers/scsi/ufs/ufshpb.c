@@ -1782,7 +1782,7 @@ static int ufshpb_execute_map_req_wait(struct ufshpb_lu *hpb,
 	if (ret)
 		return ret;
 
-	req = blk_get_request(q, REQ_OP_SCSI_IN, GFP_KERNEL);
+	req = blk_get_request(q, REQ_OP_SCSI_IN, 0);
 	if (IS_ERR(req)) {
 		WARNING_MSG("cannot get request");
 		ret = -EIO;
