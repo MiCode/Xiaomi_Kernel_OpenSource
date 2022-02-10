@@ -3835,7 +3835,8 @@
 				<0 0x10023000 0 0x1000>,  /* INFRA_AO_DEBUG_CTRL */
 				<0 0x1002b000 0 0x1000>,  /* INFRA_AO1_DEBUG_CTRL */
 				<0 0x11c10000 0 0x1000>,  /* EFUSE */
-				<0 0x13fcf000 0 0x1000>;  /* MFG_CPE_SENSOR */
+				<0 0x13fcf000 0 0x1000>,  /* MFG_CPE_SENSOR */
+				<0 0x1000D000 0 0x1000>;  /* DRM_DEBUG */
 			reg-names =
 				"mfg_top_config",
 				"mfg_pll",
@@ -3849,7 +3850,8 @@
 				"infra_ao_debug_ctrl",
 				"infra_ao1_debug_ctrl",
 				"efuse",
-				"mfg_cpe_sensor";
+				"mfg_cpe_sensor",
+				"drm_debug";
 			_vgpu-supply = <&mt6363_vbuck5>;
 			_vsram-supply = <&mt6369_vsram_core>;
 			// fhctl-supply = <&fhctl>; /* TBD */
