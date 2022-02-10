@@ -86,6 +86,28 @@
 
 #define reg_read(addr)         __raw_readl(IOMEM(addr))
 
+void __attribute__ ((weak)) mtk8250_backup_dev(void)
+{
+	//pr_debug("NO %s !!!\n", __func__);
+}
+
+void __attribute__ ((weak)) mtk8250_restore_dev(void)
+{
+	//pr_debug("NO %s !!!\n", __func__);
+}
+
+int __attribute__ ((weak)) mtk8250_request_to_wakeup(void)
+{
+	//pr_debug("NO %s !!!\n", __func__);
+	return 0;
+}
+
+int __attribute__ ((weak)) mtk8250_request_to_sleep(void)
+{
+	//pr_debug("NO %s !!!\n", __func__);
+	return 0;
+}
+
 enum spm_deepidle_step {
 	SPM_DEEPIDLE_ENTER = 0x00000001,
 	SPM_DEEPIDLE_ENTER_UART_SLEEP = 0x00000003,

@@ -37,6 +37,12 @@
 
 #define __ATTR_OF(_name)	(&_name##_attr.attr)
 
+static struct pwr_ctrl  vcorefs_ctrl;
+
+struct spm_lp_scen __attribute__((weak)) __spm_vcorefs = {
+	.pwrctrl = &vcorefs_ctrl,
+};
+
 #if defined(CONFIG_MACH_MT6763)
 /* code gen by spm_pwr_ctrl_atf.pl, need struct pwr_ctrl */
 static char *pwr_ctrl_str[PW_MAX_COUNT] = {

@@ -10,7 +10,7 @@
 
 #include "spm_v2/mtk_spm_misc.h"
 
-#elif defined(CONFIG_MACH_MT6763) || defined(CONFIG_MACH_MT6739)
+#elif defined(CONFIG_MACH_MT6763) || defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6771)
 
 #include "spm_v4/mtk_spm_misc.h"
 

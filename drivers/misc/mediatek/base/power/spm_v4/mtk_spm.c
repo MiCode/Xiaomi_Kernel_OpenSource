@@ -595,6 +595,11 @@ int __init spm_module_init(void)
 	struct mtk_lp_sysfs_handle *pParent = NULL;
 	struct mtk_lp_sysfs_handle entry_spm;
 
+#if defined(CONFIG_MACH_MT6771)
+	struct device_node *sleep_node;
+	const char *pMethod = NULL;
+#endif
+
 #if defined(CONFIG_MACH_MT6739)
 #if defined(CONFIG_MTK_PMIC) || defined(CONFIG_MTK_PMIC_NEW_ARCH)
 	spm_crit2("pmic_ver %d\n", PMIC_LP_CHIP_VER());
@@ -610,6 +615,23 @@ int __init spm_module_init(void)
 		pr_debug("fail to request spm_wakelock\n");
 		return ret;
 	}
+#if defined(CONFIG_MACH_MT6771)
+	else {
+		sleep_node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
+
+		pr_info("success to request spm_wakelock\n");
+
+		if (sleep_node) {
+			of_property_read_string(sleep_node, "suspend-method", &pMethod);
+
+			if (pMethod) {
+				if (!strcmp(pMethod, "disable"))
+					__pm_stay_awake(spm_wakelock);
+			}
+		} else
+			__pm_stay_awake(spm_wakelock);
+	}
+#endif
 	spm_register_init();
 	if (spm_irq_register() != 0)
 		r = -EPERM;
@@ -1447,7 +1469,7 @@ void sspm_ipi_lock_spm_scenario(int start,
 		atomic_dec(&ipi_lock_cnt);
 
 	/* FTRACE tag */
-	trace_sspm_ipi(start, id, opt);
+	//trace_sspm_ipi(start, id, opt);
 }
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 

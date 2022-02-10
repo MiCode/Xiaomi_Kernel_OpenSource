@@ -1,7 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
-*/
+ * Copyright (c) 2020 MediaTek Inc.
+ */
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -83,28 +83,56 @@ static unsigned int spm_sleep_count;
 
 int __attribute__ ((weak)) mtk_enter_idle_state(int idx)
 {
-	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
+	spm_crit("[name:spm&]NO %s !!!\n", __func__);
 	return -1;
 }
 
 void __attribute__((weak)) mt_cirq_clone_gic(void)
 {
-	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
+	spm_crit("[name:spm&]NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak)) mt_cirq_enable(void)
 {
-	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
+	spm_crit("[name:spm&]NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak)) mt_cirq_flush(void)
 {
-	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
+	spm_crit("[name:spm&]NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak)) mt_cirq_disable(void)
 {
-	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
+	spm_crit("[name:spm&]NO %s !!!\n", __func__);
+}
+
+int  __attribute__ ((weak)) vcorefs_get_curr_vcore(void)
+{
+	spm_crit("[name:spm&]NO %s !!!\n", __func__);
+	return -1;
+}
+
+void __attribute__ ((weak)) mtk8250_backup_dev(void)
+{
+	//pr_debug("NO %s !!!\n", __func__);
+}
+
+void __attribute__ ((weak)) mtk8250_restore_dev(void)
+{
+	//pr_debug("NO %s !!!\n", __func__);
+}
+
+int __attribute__ ((weak)) mtk8250_request_to_wakeup(void)
+{
+	//pr_debug("NO %s !!!\n", __func__);
+	return 0;
+}
+
+int __attribute__ ((weak)) mtk8250_request_to_sleep(void)
+{
+	//pr_debug("NO %s !!!\n", __func__);
+	return 0;
 }
 
 static inline void spm_suspend_footprint(enum spm_suspend_step step)
