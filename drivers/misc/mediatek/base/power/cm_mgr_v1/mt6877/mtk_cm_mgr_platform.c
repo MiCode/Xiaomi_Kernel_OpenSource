@@ -682,7 +682,6 @@ static void cm_mgr_timeout_process(struct work_struct *work)
 	mt_cpufreq_update_cci_mode(0, 2);
 	mtk_pm_qos_update_request(&ddr_opp_req,
 			MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
-	add_timer(&cm_mgr_ratio_timer);
 }
 
 static void cm_mgr_perf_timeout_timer_fn(struct timer_list *unused)
