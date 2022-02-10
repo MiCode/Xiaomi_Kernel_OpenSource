@@ -7,6 +7,8 @@
 #ifndef __PASR_API_H__
 #define __PASR_API_H__
 
+#include <linux/types.h>
+
 #define MAX_RANKS	MAX_RK
 
 struct basic_dram_setting {

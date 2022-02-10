@@ -7,6 +7,8 @@
 #ifndef __MPU_H__
 #define __MPU_H__
 
+#include <linux/types.h>
+
 #define CCCI_API_READY		0
 #define EMI_MPU_TEST		0
 
