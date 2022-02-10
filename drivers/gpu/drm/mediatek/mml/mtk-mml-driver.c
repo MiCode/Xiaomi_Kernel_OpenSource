@@ -661,7 +661,7 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_config *ccfg, u32 throughput, u32 tput_up)
 {
 	struct mml_pipe_cache *cache = &task->config->cache[ccfg->pipe];
-	u32 bandwidth, datasize;
+	u32 bandwidth, datasize, bw_icc;
 	bool hrt;
 
 	datasize = comp->hw_ops->qos_datasize_get(task, ccfg);
@@ -678,7 +678,8 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	/* store for debug log */
 	task->pipe[ccfg->pipe].bandwidth = max(bandwidth,
 		task->pipe[ccfg->pipe].bandwidth);
-	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth), 0);
+	bw_icc = MBps_to_icc(bandwidth);
+	mtk_icc_set_bw(comp->icc_path, bw_icc, hrt ? bw_icc : 0);
 
 	mml_msg_qos("%s comp %u %s qos bw %u by throughput %u pixel %u size %u%s",
 		__func__, comp->id, comp->name, bandwidth,
