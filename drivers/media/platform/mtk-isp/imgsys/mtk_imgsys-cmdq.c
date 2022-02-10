@@ -47,6 +47,9 @@ module_param(imgsys_qos_blank_int, int, 0644);
 int imgsys_qos_factor;
 module_param(imgsys_qos_factor, int, 0644);
 
+int imgsys_quick_onoff_en;
+module_param(imgsys_quick_onoff_en, int, 0644);
+
 struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off;
 #if IMGSYS_SECURE_ENABLE
@@ -136,7 +139,9 @@ void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 {
 	u32 idx = 0;
 
-	dev_info(imgsys_dev->dev, "%s: cmdq stream on (%d)\n", __func__, is_stream_off);
+	dev_info(imgsys_dev->dev,
+		"%s: cmdq stream on (%d) quick_pwr(%d)\n",
+		__func__, is_stream_off, imgsys_quick_onoff_enable());
 	is_stream_off = 0;
 
 	cmdq_mbox_enable(imgsys_clt[0]->chan);
@@ -157,7 +162,8 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 	u32 idx = 0;
 
 	dev_info(imgsys_dev->dev,
-		"%s: cmdq stream off (%d) idx(%d)\n", __func__, is_stream_off, idx);
+		"%s: cmdq stream off (%d) idx(%d) quick_pwr(%d)\n",
+		__func__, is_stream_off, idx, imgsys_quick_onoff_enable());
 	is_stream_off = 1;
 
 	#if CMDQ_STOP_FUNC
@@ -1818,9 +1824,10 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 	if (isPowerOn) {
 		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
 		if (user_cnt == 1) {
-			dev_info(dvfs_info->dev,
-				"[%s] isPowerOn(%d) user(%d)\n",
-				__func__, isPowerOn, user_cnt);
+			if (!imgsys_quick_onoff_enable())
+				dev_info(dvfs_info->dev,
+					"[%s] isPowerOn(%d) user(%d)\n",
+					__func__, isPowerOn, user_cnt);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
@@ -1836,9 +1843,10 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 	} else {
 		user_cnt = atomic_dec_return(&imgsys_dev->imgsys_user_cnt);
 		if (user_cnt == 0) {
-			dev_info(dvfs_info->dev,
-				"[%s] isPowerOn(%d) user(%d)\n",
-				__func__, isPowerOn, user_cnt);
+			if (!imgsys_quick_onoff_enable())
+				dev_info(dvfs_info->dev,
+					"[%s] isPowerOn(%d) user(%d)\n",
+					__func__, isPowerOn, user_cnt);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
@@ -1881,5 +1889,10 @@ bool imgsys_cmdq_ts_dbg_enable(void)
 bool imgsys_dvfs_dbg_enable(void)
 {
 	return imgsys_dvfs_dbg_en;
+}
+
+bool imgsys_quick_onoff_enable(void)
+{
+	return imgsys_quick_onoff_en;
 }
 

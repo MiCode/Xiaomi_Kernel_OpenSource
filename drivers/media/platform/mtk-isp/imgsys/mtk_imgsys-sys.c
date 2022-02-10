@@ -28,10 +28,6 @@
 #include <linux/remoteproc/mtk_scp.h>
 #endif
 
-int imgsys_quick_onoff_en;
-module_param(imgsys_quick_onoff_en, int, 0644);
-
-
 static struct gce_timeout_work imgsys_timeout_winfo[VIDEO_MAX_FRAME];
 static int imgsys_timeout_idx;
 static struct info_list_t frm_info_list = {
@@ -1990,12 +1986,16 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	kref_init(&imgsys_dev->init_kref);
 
 	pm_runtime_put_sync(imgsys_dev->dev);
-	if (!imgsys_quick_onoff_en)
+	if (!imgsys_quick_onoff_enable())
 		#if DVFS_QOS_READY
 		mtk_imgsys_power_ctrl(imgsys_dev, true);
 		#else
 		pm_runtime_get_sync(imgsys_dev->dev);
 		#endif
+	else
+		dev_info(imgsys_dev->dev,
+			"%s: imgsys_quick_onoff_enable(%d)\n",
+			__func__, imgsys_quick_onoff_enable());
 
 #if MTK_CM4_SUPPORT
 	struct img_ipi_param ipi_param;
@@ -2137,12 +2137,16 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 
 	gce_work_pool_uninit(imgsys_dev);
 
-	if (!imgsys_quick_onoff_en)
+	if (!imgsys_quick_onoff_enable())
 		#if DVFS_QOS_READY
 		mtk_imgsys_power_ctrl(imgsys_dev, false);
 		#else
 		pm_runtime_put_sync(imgsys_dev->dev);
 		#endif
+	else
+		dev_info(imgsys_dev->dev,
+			"%s: imgsys_quick_onoff_enable(%d)\n",
+			__func__, imgsys_quick_onoff_enable());
 	mtk_imgsys_mod_put(imgsys_dev);
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);

@@ -190,5 +190,6 @@ bool imgsys_cmdq_ts_enable(void);
 u32 imgsys_wpe_bwlog_enable(void);
 bool imgsys_cmdq_ts_dbg_enable(void);
 bool imgsys_dvfs_dbg_enable(void);
+bool imgsys_quick_onoff_enable(void);
 
 #endif /* _MTK_IMGSYS_CMDQ_H_ */
