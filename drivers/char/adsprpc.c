@@ -4068,7 +4068,7 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	 */
 	ioctl.inv.sc = REMOTE_SCALARS_MAKE(6, 4, 0);
 	if (uproc->attrs)
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(7, 6, 0);
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(7, 4, 0);
 	ioctl.inv.pra = ra;
 	ioctl.fds = fds;
 	ioctl.attrs = NULL;
