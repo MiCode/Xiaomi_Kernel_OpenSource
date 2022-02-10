@@ -6,29 +6,58 @@
 #define pr_fmt(fmt)    "mtk_iommu: pseudo " fmt
 
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <dt-bindings/memory/mtk-memory-port.h>
 
 #if IS_ENABLED(CONFIG_MTK_ENABLE_GENIEZONE)
+#include <linux/list.h>
+#include <soc/mediatek/smi.h>
 #include "iommu_gz_sec.h"
 #include "iommu_pseudo.h"
 
 #define M4U_L2_ENABLE	1
 #define SVP_FEATURE_DT_NAME	"SecureVideoPath"
 
+struct iommu_pseudo_data {
+	struct device	*dev;
+	struct device	*larb_devs[MTK_LARB_NR_MAX];
+	int		larb_ids[MTK_LARB_NR_MAX];
+	int		larb_nr;
+};
+
+enum iommu_mtee_state {
+	STATE_ENABLED,
+	STATE_DISABLED,
+	STATE_UNINITIALIZED,
+	STATE_ERROR,
+};
+
 static DEFINE_MUTEX(gM4u_gz_sec_init);
 static bool m4u_gz_en[SEC_ID_COUNT];
-static int iommu_on_mtee = -1;
+static int iommu_on_mtee = STATE_UNINITIALIZED;
+static struct iommu_pseudo_data *iommu_data;
 
 static int __m4u_gz_sec_init(int mtk_iommu_sec_id)
 {
-	int ret;
+	int ret, i, count = 0;
 	struct m4u_gz_sec_context *ctx;
 
 	ctx = m4u_gz_sec_ctx_get();
 	if (!ctx)
 		return -EFAULT;
 
-	// TODO: Power on all larbs
+	/* Power on all larbs */
+	for (i = 0; i < iommu_data->larb_nr; i++) {
+		ret = mtk_smi_larb_get(iommu_data->larb_devs[i]);
+		if (ret < 0) {
+			pr_err("[MTEE]%s: enable larb%d fail, ret:%d\n",
+			       __func__, iommu_data->larb_ids[i], ret);
+			count = i;
+			goto out;
+		}
+	}
+	count = iommu_data->larb_nr;
 
 	ctx->gz_m4u_msg->cmd = CMD_M4UTY_INIT;
 	ctx->gz_m4u_msg->iommu_sec_id = mtk_iommu_sec_id;
@@ -44,7 +73,9 @@ static int __m4u_gz_sec_init(int mtk_iommu_sec_id)
 	}
 
 out:
-	// TODO: Power off all larbs
+	/* Power off all larbs */
+	for (i = 0; i < count; i++)
+		mtk_smi_larb_put(iommu_data->larb_devs[i]);
 
 	m4u_gz_sec_ctx_put(ctx);
 	return ret;
@@ -88,7 +119,7 @@ int mtk_iommu_sec_init(int mtk_iommu_sec_id)
 {
 	int ret = 0;
 
-	if (iommu_on_mtee != 1) {
+	if (iommu_on_mtee != STATE_ENABLED) {
 		pr_warn("%s is not support, iommu_on_mtee:%d\n", __func__,
 			iommu_on_mtee);
 		return -1;
@@ -104,7 +135,7 @@ EXPORT_SYMBOL_GPL(mtk_iommu_sec_init);
 
 bool is_iommu_sec_on_mtee(void)
 {
-	return (iommu_on_mtee == 1);
+	return (iommu_on_mtee == STATE_ENABLED);
 }
 EXPORT_SYMBOL_GPL(is_iommu_sec_on_mtee);
 
@@ -112,18 +143,74 @@ static int mtk_iommu_pseudo_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *svp_node;
+	struct device_node *larbnode;
+	struct platform_device	*plarbdev;
+	struct iommu_pseudo_data *data;
+	int ret, i, count = 0, larb_nr = 0;
 
 	svp_node = of_find_node_by_name(NULL, SVP_FEATURE_DT_NAME);
 	if (!svp_node) {
-		iommu_on_mtee = 0;
 		pr_info("SVP on MTEE not support, skip init iommu_pseudo\n");
+		iommu_on_mtee = STATE_DISABLED;
 		return 0;
 	}
-
-	iommu_on_mtee = 1;
 	of_node_put(svp_node);
 
-	pr_info("%s done, dev:%s\n", __func__, dev_name(dev));
+	data = devm_kzalloc(dev, sizeof(struct iommu_pseudo_data),
+			    GFP_KERNEL);
+	if (!data) {
+		iommu_on_mtee = STATE_ERROR;
+		return -ENOMEM;
+	}
+
+	data->dev = dev;
+	count = of_count_phandle_with_args(dev->of_node,
+					     "mediatek,larbs", NULL);
+	if (count < 0) {
+		dev_err(dev, "%s, can't find mediatek,larbs!\n", __func__);
+		iommu_on_mtee = STATE_ERROR;
+		return count;
+	}
+
+	for (i = 0; i < count; i++) {
+		u32 id;
+
+		larbnode = of_parse_phandle(dev->of_node, "mediatek,larbs", i);
+		if (!larbnode) {
+			dev_err(dev, "%s, can't find larbnode:%d !\n",
+				__func__, i);
+			iommu_on_mtee = STATE_ERROR;
+			return -EINVAL;
+		}
+
+		if (!of_device_is_available(larbnode)) {
+			of_node_put(larbnode);
+			continue;
+		}
+
+		ret = of_property_read_u32(larbnode, "mediatek,larb-id", &id);
+		if (ret)/* The id is consecutive if there is no this property */
+			id = i;
+
+		plarbdev = of_find_device_by_node(larbnode);
+		if (!plarbdev) {
+			dev_err(dev, "%s, can't find larb dev:%d!\n",
+				__func__, i);
+			iommu_on_mtee = STATE_ERROR;
+			of_node_put(larbnode);
+			return -EPROBE_DEFER;
+		}
+
+		data->larb_devs[larb_nr] = &plarbdev->dev;
+		data->larb_ids[larb_nr] = id;
+		larb_nr++;
+	}
+	data->larb_nr = larb_nr;
+
+	iommu_data = data;
+	iommu_on_mtee = STATE_ENABLED;
+	pr_info("%s done, dev:%s, larb_nr:%d\n", __func__, dev_name(dev),
+		larb_nr);
 
 	return 0;
 }
