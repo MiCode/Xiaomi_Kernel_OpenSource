@@ -86,6 +86,7 @@
 #define SMI_CLAMP_EN_SET		(0x3C4)
 #define SMI_CLAMP_EN_CLR		(0x3C8)
 #define SMI_DEBUG_MISC			(0x440)
+#define SMI_DEBUG_S(s)		(0x400 + ((s) << 2))
 /* All are MMU0 defaultly. Only specialize mmu1 here. */
 #define F_MMU1_LARB(larbid)		(0x1 << SMI_BUS_LARB_SHIFT(larbid))
 #define SMI_L1LEN			0x100
@@ -174,6 +175,8 @@ struct mtk_smi_larb { /* larb: local arbiter */
 #define MAX_COMMON_FOR_CLAMP		(3)
 #define MAX_LARB_FOR_CLAMP		(6)
 #define RESET_CELL_NUM			(2)
+#define MAX_PD_CHECK_DEV_NUM	(2)
+#define SMI_OSTD_CNT_MASK	(0x1FFE000)
 
 struct mtk_smi_pd_log {
 	u8 power_status;
@@ -186,12 +189,17 @@ struct mtk_smi_pd {
 	struct device			*dev;
 	struct device			*smi_common_dev[MAX_COMMON_FOR_CLAMP];
 	u32				set_comm_port_range[MAX_COMMON_FOR_CLAMP];
+	struct device			*suspend_check_dev[MAX_PD_CHECK_DEV_NUM];
+	u32				suspend_check_port[MAX_PD_CHECK_DEV_NUM];
 	u32				power_reset_pa[MAX_LARB_FOR_CLAMP];
 	void __iomem			*power_reset_reg[MAX_LARB_FOR_CLAMP];
 	u32				power_reset_value[MAX_LARB_FOR_CLAMP];
 	struct notifier_block nb;
 	bool	is_main;
+	bool	suspend_check;
+	u32	pre_off_check_result;
 	struct mtk_smi_pd_log	last_pd_log;
+	struct mtk_smi			smi;
 };
 
 static u32 log_level;
@@ -219,60 +227,6 @@ static void power_reset_imp(struct mtk_smi_pd *smi_pd)
 		smi_pd->last_pd_log.reset_status[i] = readl(smi_pd->power_reset_reg[i]);
 	}
 }
-
-static int mtk_smi_pd_callback(struct notifier_block *nb,
-			unsigned long flags, void *data)
-{
-	struct mtk_smi_pd *smi_pd =
-		container_of(nb, struct mtk_smi_pd, nb);
-	struct mtk_smi *common;
-	int i, j;
-
-	if (flags == GENPD_NOTIFY_ON) {
-		/* enable related SMI common port */
-		if (log_level & 1 << log_pd_callback)
-			dev_notice(smi_pd->dev, "[smi] pd enter callback on:\n");
-		for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
-			if (!smi_pd->smi_common_dev[i])
-				break;
-			common = dev_get_drvdata(smi_pd->smi_common_dev[i]);
-			for (j = 0; j < SMI_COMMON_LARB_NR_MAX; j++) {
-				if ((smi_pd->set_comm_port_range[i] >> j) & 1) {
-					if (!smi_pd->is_main) {
-						power_reset_imp(smi_pd);
-						writel(1 << j, common->base + SMI_CLAMP_EN_CLR);
-					} else //disable SMI common port for main-power	on
-						writel(1 << j, common->base + SMI_CLAMP_EN_SET);
-				}
-			}
-			smi_pd->last_pd_log.clamp_status[i] = readl(common->base + SMI_CLAMP_EN);
-		}
-		smi_pd->last_pd_log.power_status = GENPD_NOTIFY_ON;
-		smi_pd->last_pd_log.time = ktime_get();
-
-	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
-		if (smi_pd->is_main)
-			return NOTIFY_OK;
-		/* disable related SMI common port */
-		if (log_level & 1 << log_pd_callback)
-			dev_notice(smi_pd->dev, "[smi] pd enter callback pre-off:\n");
-		for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
-			if (!smi_pd->smi_common_dev[i])
-				break;
-			common = dev_get_drvdata(smi_pd->smi_common_dev[i]);
-			for (j = 0; j < SMI_COMMON_LARB_NR_MAX; j++) {
-				if ((smi_pd->set_comm_port_range[i] >> j) & 1)
-					writel(1 << j, common->base + SMI_CLAMP_EN_SET);
-			}
-			smi_pd->last_pd_log.clamp_status[i] = readl(common->base + SMI_CLAMP_EN);
-		}
-		smi_pd->last_pd_log.power_status = GENPD_NOTIFY_PRE_OFF;
-		smi_pd->last_pd_log.time = ktime_get();
-	}
-
-	return NOTIFY_OK;
-}
-
 
 void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 {
@@ -1917,6 +1871,122 @@ int mtk_smi_driver_unregister_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(mtk_smi_driver_unregister_notifier);
 
+static u32 mtk_smi_common_ostd_check(struct mtk_smi *common,
+	u32 check_port, unsigned long flags)
+{
+	u32 i, val, ret;
+
+	for (i = 0; i < SMI_COMMON_LARB_NR_MAX; i++) {
+		if ((check_port >> i) & 1) {
+			val = readl_relaxed(common->base + SMI_DEBUG_S(i));
+			pr_notice("[SMI] common%d: %#x=%#x, power status = %d\n",
+				common->commid, SMI_DEBUG_S(i), val, flags);
+			if (val & SMI_OSTD_CNT_MASK) {
+				pr_notice("[SMI] common%d suspend check fail, power status = %d\n",
+					common->commid, flags);
+				raw_notifier_call_chain(&smi_driver_notifier_list,
+					common->commid, NULL);
+				ret = ret | (1 >> i);
+			}
+		}
+	}
+	return ret;
+}
+
+static int mtk_smi_power_suspend_check(struct mtk_smi_pd *smi_pd, unsigned long flags)
+{
+	u32 i, ret;
+	struct mtk_smi *common;
+
+	if (flags == GENPD_NOTIFY_PRE_OFF)
+		smi_pd->pre_off_check_result = 0;
+
+	for (i = 0; i < MAX_PD_CHECK_DEV_NUM; i++) {
+		if (!smi_pd->suspend_check_dev[i])
+			break;
+		common = dev_get_drvdata(smi_pd->suspend_check_dev[i]);
+
+		ret = mtk_smi_clk_enable(common);
+		if (ret) {
+			dev_notice(common->dev, "Failed to enable clock(%d)\n", ret);
+			return ret;
+		}
+
+		ret = mtk_smi_common_ostd_check(common, smi_pd->suspend_check_port[i], flags);
+		mtk_smi_clk_disable(common);
+
+		if (!ret)
+			continue;
+
+		if (flags == GENPD_NOTIFY_PRE_OFF)
+			smi_pd->pre_off_check_result = ret;
+		else if (flags == GENPD_NOTIFY_OFF)
+			dev_notice(smi_pd->dev, "[SMI] pre-off check result:%d\n",
+				smi_pd->pre_off_check_result);
+	}
+
+	return 0;
+}
+
+static int mtk_smi_pd_callback(struct notifier_block *nb,
+			unsigned long flags, void *data)
+{
+	struct mtk_smi_pd *smi_pd =
+		container_of(nb, struct mtk_smi_pd, nb);
+	struct mtk_smi *common;
+	int i, j;
+
+	if (smi_pd->suspend_check) {
+		if (flags == GENPD_NOTIFY_PRE_OFF || flags == GENPD_NOTIFY_OFF)
+			mtk_smi_power_suspend_check(smi_pd, flags);
+		return NOTIFY_OK;
+	}
+
+	if (flags == GENPD_NOTIFY_ON) {
+		/* enable related SMI common port */
+		if (log_level & 1 << log_pd_callback)
+			dev_notice(smi_pd->dev, "[smi] pd enter callback on:\n");
+		for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
+			if (!smi_pd->smi_common_dev[i])
+				break;
+			common = dev_get_drvdata(smi_pd->smi_common_dev[i]);
+			for (j = 0; j < SMI_COMMON_LARB_NR_MAX; j++) {
+				if ((smi_pd->set_comm_port_range[i] >> j) & 1) {
+					if (!smi_pd->is_main) {
+						power_reset_imp(smi_pd);
+						writel(1 << j, common->base + SMI_CLAMP_EN_CLR);
+					} else //disable SMI common port for main-power	on
+						writel(1 << j, common->base + SMI_CLAMP_EN_SET);
+				}
+			}
+			smi_pd->last_pd_log.clamp_status[i] = readl(common->base + SMI_CLAMP_EN);
+		}
+		smi_pd->last_pd_log.power_status = GENPD_NOTIFY_ON;
+		smi_pd->last_pd_log.time = ktime_get();
+
+	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
+		if (smi_pd->is_main)
+			return NOTIFY_OK;
+		/* disable related SMI common port */
+		if (log_level & 1 << log_pd_callback)
+			dev_notice(smi_pd->dev, "[smi] pd enter callback pre-off:\n");
+		for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
+			if (!smi_pd->smi_common_dev[i])
+				break;
+			common = dev_get_drvdata(smi_pd->smi_common_dev[i]);
+			for (j = 0; j < SMI_COMMON_LARB_NR_MAX; j++) {
+				if ((smi_pd->set_comm_port_range[i] >> j) & 1)
+					writel(1 << j, common->base + SMI_CLAMP_EN_SET);
+			}
+			smi_pd->last_pd_log.clamp_status[i] = readl(common->base + SMI_CLAMP_EN);
+		}
+		smi_pd->last_pd_log.power_status = GENPD_NOTIFY_PRE_OFF;
+		smi_pd->last_pd_log.time = ktime_get();
+	}
+
+	return NOTIFY_OK;
+}
+
 static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
@@ -2695,10 +2765,13 @@ static int mtk_smi_pd_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	smi_pd->dev = dev;
+	smi_pd->smi.dev = dev;
+
 	if (of_property_read_bool(dev->of_node, "main-power"))
 		smi_pd->is_main = true;
-	else
-		smi_pd->is_main = false;
+
+	if (of_property_read_bool(dev->of_node, "suspend-check"))
+		smi_pd->suspend_check = true;
 
 	for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
 		smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", i);
@@ -2718,6 +2791,26 @@ static int mtk_smi_pd_probe(struct platform_device *pdev)
 
 		of_property_read_u32_index(dev->of_node, "mediatek,comm-port-range",
 						i, &smi_pd->set_comm_port_range[i]);
+	}
+
+	for (i = 0; i < MAX_PD_CHECK_DEV_NUM; i++) {
+		smi_node = of_parse_phandle(dev->of_node, "mediatek,suspend-check-dev", i);
+		if (!smi_node)
+			break;
+
+		smi_pdev = of_find_device_by_node(smi_node);
+		of_node_put(smi_node);
+		if (smi_pdev) {
+			if (!platform_get_drvdata(smi_pdev))
+				return -EPROBE_DEFER;
+			smi_pd->suspend_check_dev[i] = &smi_pdev->dev;
+		} else {
+			dev_notice(dev, "Failed to get smi_comm dev for suspend check:%d\n", i);
+			return -EINVAL;
+		}
+
+		of_property_read_u32_index(dev->of_node, "mediatek,suspend-check-port",
+						i, &smi_pd->suspend_check_port[i]);
 	}
 
 	if (of_get_property(dev->of_node, "power-reset", &reset_tmp)) {
@@ -2741,7 +2834,17 @@ static int mtk_smi_pd_probe(struct platform_device *pdev)
 	ret = dev_pm_genpd_add_notifier(dev, &smi_pd->nb);
 	pm_runtime_enable(dev);
 
-	smi_pd_ctrl[smi_pd_ctrl_num++] = smi_pd;
+	if (of_property_read_bool(dev->of_node, "init-power-on")) {
+		ret = pm_runtime_get_sync(dev);
+		init_power_on_dev[init_power_on_num++] = &smi_pd->smi;
+		if (ret < 0) {
+			dev_notice(dev, "Unable to enable disp power\n");
+			pm_runtime_put_sync(dev);
+		}
+	}
+
+	if (!smi_pd->suspend_check)
+		smi_pd_ctrl[smi_pd_ctrl_num++] = smi_pd;
 
 	return 0;
 }
