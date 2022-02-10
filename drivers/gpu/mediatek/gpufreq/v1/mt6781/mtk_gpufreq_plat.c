@@ -145,6 +145,7 @@ static void __mt_gpufreq_set_fixed_freq(int fixed_freq);
 static void __mt_gpufreq_vgpu_set_mode(unsigned int mode);
 static unsigned int __mt_gpufreq_get_cur_vgpu(void);
 static unsigned int __mt_gpufreq_get_cur_freq(void);
+static unsigned int __mt_gpufreq_dump_cur_freq(void);
 static unsigned int __mt_gpufreq_get_cur_vsram_gpu(void);
 static unsigned int __mt_gpufreq_get_segment_id(void);
 static struct opp_table_info *__mt_gpufreq_get_segment_table(void);
@@ -2391,6 +2392,8 @@ static void __mt_gpufreq_set(
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
 
+		if (g_cur_opp_freq != freq_new)
+			__mt_gpufreq_dump_cur_freq();
 		gpu_assert(g_cur_opp_freq == freq_new,
 			GPU_FREQ_EXCEPTION,
 			"@%s: Clock switch failed, %d -> %d (target: %d)\n",
@@ -2401,6 +2404,8 @@ static void __mt_gpufreq_set(
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
 
+		if (g_cur_opp_freq != freq_new)
+			__mt_gpufreq_dump_cur_freq();
 		gpu_assert(g_cur_opp_freq == freq_new,
 			GPU_FREQ_EXCEPTION,
 			"@%s: Clock switch failed, %d -> %d (target: %d)\n",
@@ -2836,6 +2841,35 @@ static unsigned int __mt_gpufreq_get_cur_freq(void)
 	freq_khz = (((pcw * TO_MHZ_TAIL + ROUNDING_VALUE) * MFGPLL_FIN) >>
 			DDS_SHIFT) / (1 << posdiv_power) * TO_MHZ_HEAD;
 	gpufreq_pr_debug(
+			"@%s: mfgpll = 0x%lx, freq = %d KHz, posdiv_power = %d\n",
+			__func__,
+			mfgpll,
+			freq_khz,
+			posdiv_power);
+
+	return freq_khz;
+}
+
+/*
+ * dump current frequency (KHZ)
+ * Freq = ((PLL_CON1[21:0] * 26M) / 2^14) / 2^PLL_CON1[26:24]
+ */
+static unsigned int __mt_gpufreq_dump_cur_freq(void)
+{
+	unsigned long mfgpll = 0;
+	unsigned int posdiv_power = 0;
+	unsigned int freq_khz = 0;
+	unsigned long pcw;
+
+	mfgpll = DRV_Reg32(MFGPLL_CON1);
+
+	pcw = mfgpll & (0x3FFFFF);
+
+	posdiv_power = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
+
+	freq_khz = (((pcw * TO_MHZ_TAIL + ROUNDING_VALUE) * MFGPLL_FIN) >>
+			DDS_SHIFT) / (1 << posdiv_power) * TO_MHZ_HEAD;
+	gpufreq_pr_info(
 			"@%s: mfgpll = 0x%lx, freq = %d KHz, posdiv_power = %d\n",
 			__func__,
 			mfgpll,
