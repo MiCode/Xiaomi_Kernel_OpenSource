@@ -669,19 +669,46 @@ config ARM64_ERRATUM_1508412
 
 	  If unsure, say Y.
 
-config ARM64_ERRATUM_1974925
-	bool "Kryo 7XX: 1974925: Incorrect read value for Performance Monitors Common Event Identification Register"
-	default y
-	depends on HW_PERF_EVENTS
+config ARM64_ERRATUM_2051678
+	bool "Cortex-A510: 2051678: disable Hardware Update of the page table's dirty bit"
 	help
-	  This option adds a workaround for QCOM Kryo erratum 1974925.
+	  This options adds the workaround for ARM Cortex-A510 erratum ARM64_ERRATUM_2051678.
+	  Affected Coretex-A510 might not respect the ordering rules for
+	  hardware update of the page table's dirty bit. The workaround
+	  is to not enable the feature on affected CPUs.
 
-	  Affected cores return an incorrect value of the AArch64 System
-	  Register Performance Monitors Common Event Identification Register 0
-	  (PMCEID0_EL0) in which bits corresponding to those events that are
-	  fully implemented are not set, which is incorrect.
+	  If unsure, say Y.
 
-	  Work around this issue by manually setting those bits to true.
+config ARM64_WORKAROUND_TSB_FLUSH_FAILURE
+	bool
+
+config ARM64_ERRATUM_2054223
+	bool "Cortex-A710: 2054223: workaround TSB instruction failing to flush trace"
+	default y
+	select ARM64_WORKAROUND_TSB_FLUSH_FAILURE
+	help
+	  Enable workaround for ARM Cortex-A710 erratum 2054223
+
+	  Affected cores may fail to flush the trace data on a TSB instruction, when
+	  the PE is in trace prohibited state. This will cause losing a few bytes
+	  of the trace cached.
+
+	  Workaround is to issue two TSB consecutively on affected cores.
+
+	  If unsure, say Y.
+
+config ARM64_ERRATUM_2067961
+	bool "Neoverse-N2: 2067961: workaround TSB instruction failing to flush trace"
+	default y
+	select ARM64_WORKAROUND_TSB_FLUSH_FAILURE
+	help
+	  Enable workaround for ARM Neoverse-N2 erratum 2067961
+
+	  Affected cores may fail to flush the trace data on a TSB instruction, when
+	  the PE is in trace prohibited state. This will cause losing a few bytes
+	  of the trace cached.
+
+	  Workaround is to issue two TSB consecutively on affected cores.
 
 	  If unsure, say Y.
 

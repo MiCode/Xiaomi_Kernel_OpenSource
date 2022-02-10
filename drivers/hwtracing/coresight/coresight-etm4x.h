@@ -919,8 +919,10 @@ struct etmv4_save_state {
  * @nooverflow:	Indicate if overflow prevention is supported.
  * @atbtrig:	If the implementation can support ATB triggers
  * @lpoverride:	If the implementation can support low-power state over.
- * @trfcr:	If the CPU supportfs FEAT_TRF, value of the TRFCR_ELx with
- *		trace allowed at user and kernel ELs. Otherwise, 0.
+ * @trfcr:	If the CPU supports FEAT_TRF, value of the TRFCR_ELx that
+ *		allows tracing at all ELs. We don't want to compute this
+ *		at runtime, due to the additional setting of TRFCR_CX when
+ *		in EL2. Otherwise, 0.
  * @config:	structure holding configuration parameters.
  * @save_trfcr:	Saved TRFCR_EL1 register during a CPU PM event.
  * @save_state:	State to be preserved across power loss

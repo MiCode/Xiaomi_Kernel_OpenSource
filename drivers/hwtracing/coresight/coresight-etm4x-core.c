@@ -245,8 +245,10 @@ struct etm4_enable_arg {
  */
 static void etm4x_prohibit_trace(struct etmv4_drvdata *drvdata)
 {
-	if (drvdata->trfcr)
-		cpu_prohibit_trace();
+	/* If the CPU doesn't support FEAT_TRF, nothing to do */
+	if (!drvdata->trfcr)
+		return;
+	cpu_prohibit_trace();
 }
 
 /*
