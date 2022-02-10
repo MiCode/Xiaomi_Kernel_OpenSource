@@ -1518,10 +1518,6 @@ static void cmdq_test_mbox_vcp(struct cmdq_test *test, const bool reuse)
 static void
 cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 {
-	struct cmdq_thread	*thread =
-		(struct cmdq_thread *)test->loop->chan->con_priv;
-	s32 backup = cmdq_thread_timeout_backup(thread, CMDQ_NO_TIMEOUT);
-
 #ifndef CMDQ_SECURE_SUPPORT
 	if (sec) {
 		cmdq_err("CMDQ_SECURE not support");
@@ -1529,7 +1525,8 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 	}
 #endif
 	cmdq_mbox_enable(test->clt->chan);
-	cmdq_mbox_enable(test->loop->chan);
+	if (test->loop)
+		cmdq_mbox_enable(test->loop->chan);
 #ifdef CMDQ_SECURE_SUPPORT
 	cmdq_sec_mbox_enable(test->sec->chan);
 #endif
@@ -1638,9 +1635,15 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 #ifdef CMDQ_SECURE_SUPPORT
 	cmdq_sec_mbox_disable(test->sec->chan);
 #endif
-	cmdq_mbox_disable(test->loop->chan);
 	cmdq_mbox_disable(test->clt->chan);
-	cmdq_thread_timeout_restore(thread, backup);
+	if (test->loop) {
+		struct cmdq_thread	*thread =
+			(struct cmdq_thread *)test->loop->chan->con_priv;
+		s32 backup = cmdq_thread_timeout_backup(thread, CMDQ_NO_TIMEOUT);
+
+		cmdq_mbox_disable(test->loop->chan);
+		cmdq_thread_timeout_restore(thread, backup);
+	}
 }
 
 #define MAX_SCAN 30
@@ -1739,10 +1742,12 @@ static int cmdq_test_probe(struct platform_device *pdev)
 	}
 
 	test->loop = cmdq_mbox_create(&pdev->dev, 1);
+	/*
 	if (IS_ERR(test->loop) || !test->loop) {
 		if (!test->loop)
 			return -ENXIO;
 	}
+	*/
 
 #ifdef CMDQ_SECURE_SUPPORT
 	test->sec = cmdq_mbox_create(&pdev->dev, 2);
