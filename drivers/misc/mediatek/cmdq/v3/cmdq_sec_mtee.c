@@ -64,11 +64,12 @@ s32 cmdq_sec_mtee_allocate_wsm(struct cmdq_sec_mtee_context *tee,
 	if (!wsm_buffer || !wsm_buf_ex || !wsm_buf_ex2)
 		return -EINVAL;
 
+#ifndef CMDQ_LATE_INIT_SUPPORT
 	/* region_id = 0, mapAry = NULL for continuous */
-	*wsm_buffer = vmalloc(size);
+	*wsm_buffer = kzalloc(size);
 	if (!*wsm_buffer)
 		return -ENOMEM;
-
+#endif
 	tee->wsm_param.size = size;
 	tee->wsm_param.buffer = (void *)(u64)virt_to_phys(*wsm_buffer);
 	status = KREE_RegisterSharedmem(tee->wsm_pHandle,
@@ -83,9 +84,11 @@ s32 cmdq_sec_mtee_allocate_wsm(struct cmdq_sec_mtee_context *tee,
 		__func__, tee->wsm_pHandle, tee->wsm_handle,
 		tee->wsm_param.size, *wsm_buffer, *wsm_buffer);
 
-	*wsm_buf_ex = vmalloc(size_ex);
+#ifndef CMDQ_LATE_INIT_SUPPORT
+	*wsm_buf_ex = kzalloc(size_ex);
 	if (!*wsm_buf_ex)
 		return -ENOMEM;
+#endif
 
 	tee->wsm_ex_param.size = size_ex;
 	tee->wsm_ex_param.buffer = (void *)(u64)virt_to_phys(*wsm_buf_ex);
@@ -100,9 +103,11 @@ s32 cmdq_sec_mtee_allocate_wsm(struct cmdq_sec_mtee_context *tee,
 			__func__, tee->wsm_pHandle, tee->wsm_ex_handle,
 			tee->wsm_ex_param.size, *wsm_buf_ex, *wsm_buf_ex);
 
-	*wsm_buf_ex2 = vmalloc(size_ex2);
+#ifndef CMDQ_LATE_INIT_SUPPORT
+	*wsm_buf_ex2 = kzalloc(size_ex2);
 	if (!*wsm_buf_ex2)
 		return -ENOMEM;
+#endif
 
 	tee->wsm_ex2_param.size = size_ex2;
 	tee->wsm_ex2_param.buffer = (void *)(u64)virt_to_phys(*wsm_buf_ex2);
