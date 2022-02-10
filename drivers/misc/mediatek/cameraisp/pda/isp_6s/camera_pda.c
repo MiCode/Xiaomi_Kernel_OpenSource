@@ -73,9 +73,6 @@ void __iomem *CAMSYS_CONFIG_BASE;
 
 struct device *g_dev1, *g_dev2;
 
-struct device *larb1;
-struct device *larb2;
-
 static spinlock_t g_PDA_SpinLock;
 
 wait_queue_head_t g_wait_queue_head;
@@ -94,32 +91,6 @@ static struct PDA_Data_t g_pda_Pdadata;
 
 // pda device information
 static struct PDA_device PDA_devs[PDA_MAX_QUANTITY];
-
-// clock relate
-static const char * const clk_names[] = {
-	"camsys_mraw_pda0",
-	"mraw_larbx",
-	"cam_main_cam2mm0_gals_cg_con",
-	"cam_main_cam_cg_con",
-};
-#define PDA_CLK_NUM ARRAY_SIZE(clk_names)
-struct PDA_CLK_STRUCT pda_clk[PDA_CLK_NUM];
-
-#ifdef PDA_MMQOS
-// mmqos relate
-static const char * const mmqos_names_rdma[] = {
-	"l13_pdai_a0",
-	"l13_pdai_a1"
-};
-#define PDA_MMQOS_RDMA_NUM ARRAY_SIZE(mmqos_names_rdma)
-struct icc_path *icc_path_pda_rdma[PDA_MMQOS_RDMA_NUM];
-
-static const char * const mmqos_names_wdma[] = {
-	"l13_pdao_a"
-};
-#define PDA_MMQOS_WDMA_NUM ARRAY_SIZE(mmqos_names_wdma)
-struct icc_path *icc_path_pda_wdma[PDA_MMQOS_WDMA_NUM];
-#endif
 
 //Enable clock count
 static unsigned int g_u4EnableClockCount;
@@ -155,164 +126,8 @@ static unsigned long g_OutputBufferOffset;
 // current Process ROI number
 unsigned int g_CurrentProcRoiNum[PDA_MAX_QUANTITY];
 
-#ifdef PDA_MMQOS
-static void pda_mmqos_init(void)
-{
-	int i = 0;
-
-	// get interconnect path for MMQOS
-	for (i = 0; i < PDA_MMQOS_RDMA_NUM; ++i) {
-		LOG_INF("rdma index: %d, mmqos name: %s\n", i, mmqos_names_rdma[i]);
-		icc_path_pda_rdma[i] = of_mtk_icc_get(g_dev1, mmqos_names_rdma[i]);
-	}
-
-	// get interconnect path for MMQOS
-	for (i = 0; i < PDA_MMQOS_WDMA_NUM; ++i) {
-		LOG_INF("wdma index: %d, mmqos name: %s\n", i, mmqos_names_wdma[i]);
-		icc_path_pda_wdma[i] = of_mtk_icc_get(g_dev1, mmqos_names_wdma[i]);
-	}
-}
-
-static void pda_mmqos_bw_set(void)
-{
-	int i = 0;
-	// int Inter_ROI_Max_Width = 1024;
-	// int Inter_ROI_Max_Height = 96;
-	int Inter_Frame_Size_Width = 2048;
-	int Inter_Frame_Size_Height = 192;
-
-	int Mach_ROI_Max_Width = 2048;
-	int Mach_ROI_Max_Height = 96;
-	int Mach_Frame_Size_Width = 4096;
-	int Mach_Frame_Size_Height = 192;
-
-	double Freqency = 360.0;
-	int FOV = 100;
-	int ROI_Number = 45;
-	int Frame_Rate = 30;
-	// int Expected_HW_Compute_time = 15;
-	int Search_Range = 40;
-
-	// Intermediate data
-	double Operation_Margin = 1.2;
-	int Inter_Frame_Size = Inter_Frame_Size_Width * Inter_Frame_Size_Height;
-	int Mach_Frame_Size = Mach_Frame_Size_Width * Mach_Frame_Size_Height;
-	// int Inter_Factor = 8;
-	int Inter_Frame_Size_FOV = Inter_Frame_Size * FOV / 100;
-	int Mach_Frame_Size_FOV = Mach_Frame_Size * FOV / 100;
-	int Inter_Input_Total_pixel_Itar = Inter_Frame_Size_FOV;
-	int Inter_Input_Total_pixel_Iref = Inter_Frame_Size_FOV;
-	int Mach_Input_Total_pixel_Itar =
-		(ROI_Number*Search_Range*Mach_ROI_Max_Height) +
-		Mach_Frame_Size_FOV +
-		(1*Mach_ROI_Max_Width);
-	// int Mach_Input_Total_pixel_Iref = Mach_Frame_Size_FOV;
-	int Required_Operation_Cycle =
-		(int)(Mach_Input_Total_pixel_Itar *
-		Operation_Margin *
-		(Search_Range+1)) /
-		Search_Range + 1;
-	int WDMA_Data = OUT_BYTE_PER_ROI*ROI_Number;
-	int temp = Inter_Input_Total_pixel_Itar+Inter_Input_Total_pixel_Iref;
-	int RDMA_Data = temp*20/8;
-
-	double OperationTime = (double)Required_Operation_Cycle / Freqency / 1000.0;
-
-	// WDMA BW estimate
-	double WDMA_PEAK_BW = (double)WDMA_Data / (double)OperationTime / 1000.0;
-	double WDMA_AVG_BW = (double)WDMA_Data * Frame_Rate * (1.33) / 1000000.0;
-
-	// RDMA BW estimate
-	double RDMA_PEAK_BW = (double)RDMA_Data / (double)OperationTime / 1000.0;
-	double RDMA_AVG_BW = (double)RDMA_Data / (1000000.0/(double)Frame_Rate);
-
-	// Left/Right RDMA BW
-	double IMAGE_TABLE_RDMA_PEAK_BW = RDMA_PEAK_BW / 2;
-	double IMAGE_TABLE_RDMA_AVG_BW = RDMA_AVG_BW * (1.33) / 2;
-
-	// pda is not HRT engine, no need to set HRT bw
-	IMAGE_TABLE_RDMA_PEAK_BW = 0;
-	WDMA_PEAK_BW = 0;
-
-	LOG_INF("RDMA_BW AVG/PEAK: %d/%d, WDMA_BW AVG/PEAK: %d/%d\n",
-		(int)MBps_to_icc(IMAGE_TABLE_RDMA_AVG_BW),
-		(int)MBps_to_icc(IMAGE_TABLE_RDMA_PEAK_BW),
-		(int)MBps_to_icc(WDMA_AVG_BW),
-		(int)MBps_to_icc(WDMA_PEAK_BW));
-
-	// MMQOS set bw
-	for (i = 0; i < PDA_MMQOS_RDMA_NUM; ++i) {
-		if (icc_path_pda_rdma[i]) {
-			mtk_icc_set_bw(icc_path_pda_rdma[i],
-				(int)MBps_to_icc(IMAGE_TABLE_RDMA_AVG_BW),
-				(int)MBps_to_icc(IMAGE_TABLE_RDMA_PEAK_BW));
-		}
-	}
-
-	for (i = 0; i < PDA_MMQOS_WDMA_NUM; ++i) {
-		if (icc_path_pda_wdma[i]) {
-			mtk_icc_set_bw(icc_path_pda_wdma[i],
-				(int)MBps_to_icc(WDMA_AVG_BW),
-				(int)MBps_to_icc(WDMA_PEAK_BW));
-		}
-	}
-}
-
-static void pda_mmqos_bw_reset(void)
-{
-	int i = 0;
-
-#ifdef FOR_DEBUG
-	LOG_INF("mmqos reset\n");
-#endif
-
-	// MMQOS set bw
-	for (i = 0; i < PDA_MMQOS_RDMA_NUM; ++i) {
-		if (icc_path_pda_rdma[i])
-			mtk_icc_set_bw(icc_path_pda_rdma[i], 0, 0);
-	}
-	for (i = 0; i < PDA_MMQOS_WDMA_NUM; ++i) {
-		if (icc_path_pda_wdma[i])
-			mtk_icc_set_bw(icc_path_pda_wdma[i], 0, 0);
-	}
-}
-#endif
-
-struct device *pda_init_larb(struct platform_device *pdev, int idx)
-{
-	struct device_node *node;
-	struct platform_device *larb_pdev;
-	struct device_link *link;
-
-	/* get larb node from dts */
-	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", idx);
-	if (!node) {
-		LOG_INF("fail to parse mediatek,larb\n");
-		return NULL;
-	}
-
-	larb_pdev = of_find_device_by_node(node);
-	if (WARN_ON(!larb_pdev)) {
-		of_node_put(node);
-		LOG_INF("no larb for idx %d\n", idx);
-		return NULL;
-	}
-	of_node_put(node);
-
-	link = device_link_add(&pdev->dev, &larb_pdev->dev,
-					DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
-	if (!link)
-		LOG_INF("unable to link smi larb%d\n", idx);
-
-	LOG_INF("pdev %p idx %d\n", pdev, idx);
-
-	return &larb_pdev->dev;
-}
-
 static inline void PDA_Prepare_Enable_ccf_clock(void)
 {
-	int ret, i;
-
 #if IS_ENABLED(CONFIG_OF)
 	/* consumer device starting work*/
 	if (g_PDA_quantity > 0)
@@ -324,29 +139,12 @@ static inline void PDA_Prepare_Enable_ccf_clock(void)
 #endif
 #endif
 
-	for (i = 0; i < PDA_CLK_NUM; i++) {
-		ret = clk_prepare_enable(pda_clk[i].CG_PDA_TOP_MUX);
-		if (ret)
-			LOG_INF("cannot enable clock (%s)\n", clk_names[i]);
-#ifdef FOR_DEBUG
-		LOG_INF("clk_prepare_enable (%s) done", clk_names[i]);
-#endif
-	}
-#ifdef FOR_DEBUG
-	LOG_INF("clk_prepare_enable done");
-#endif
+	pda_clk_prepare_enable();
 }
 
 static inline void PDA_Disable_Unprepare_ccf_clock(void)
 {
-	int i;
-
-	for (i = 0; i < PDA_CLK_NUM; i++) {
-		clk_disable_unprepare(pda_clk[i].CG_PDA_TOP_MUX);
-#ifdef FOR_DEBUG
-		LOG_INF("clk_disable_unprepare (%s) done\n", clk_names[i]);
-#endif
-	}
+	pda_clk_disable_unprepare();
 
 #if IS_ENABLED(CONFIG_OF)
 	if (g_PDA_quantity > 1)
@@ -371,7 +169,9 @@ static void EnableClock(bool En)
 			g_u4EnableClockCount++;
 
 #ifndef FPGA_UT
+#ifdef FOR_DEBUG
 		LOG_INF("It's real ic load, Enable Clock");
+#endif
 		PDA_Prepare_Enable_ccf_clock();
 #else
 		// Enable clock by hardcode:
@@ -392,7 +192,9 @@ static void EnableClock(bool En)
 		case 0:
 
 #ifndef FPGA_UT
+#ifdef FOR_DEBUG
 		LOG_INF("It's real ic load, Disable Clock");
+#endif
 		PDA_Disable_Unprepare_ccf_clock();
 #else
 		// Disable clock by hardcode:
@@ -466,10 +268,8 @@ static void pda_nontransaction_reset(int PDA_Index)
 
 	//MRAW PDA reset
 	MRAW_reset_value = PDA_RD32(REG_CAMSYS_SW_RST);
-	if (PDA_Index == 0)
-		Reset_Bitmask = BIT(6) | BIT(7);
-	else if (PDA_Index == 1)
-		Reset_Bitmask = BIT(6) | BIT(7);
+
+	Reset_Bitmask = GetResetBitMask(PDA_Index);
 
 	// LOG_INF("before, MRAW_reset_value: %x\n", MRAW_reset_value);
 	MRAW_reset_value |= Reset_Bitmask;
@@ -2171,9 +1971,6 @@ static int PDA_probe(struct platform_device *pdev)
 	int nRet = 0;
 	unsigned int irq_info[3];	/* Record interrupts info from device tree */
 	struct device_node *node;
-	int i;
-	int larbs;
-	struct device_node *camsys_node;
 
 	LOG_INF("probe Start\n");
 
@@ -2204,11 +2001,7 @@ static int PDA_probe(struct platform_device *pdev)
 	LOG_INF("find camera-pda node done\n");
 
 	// must porting in dts
-	larbs = of_count_phandle_with_args(
-				pdev->dev.of_node, "mediatek,larbs", NULL);
-	LOG_INF("larb_num:%d\n", larbs);
-	for (i = 0; i < larbs; i++)
-		larb1 = pda_init_larb(pdev, i);
+	pda_init_larb(pdev);
 
 #if IS_ENABLED(CONFIG_OF)
 	g_dev1 = &pdev->dev;
@@ -2222,15 +2015,8 @@ static int PDA_probe(struct platform_device *pdev)
 	LOG_INF("pm_runtime_enable pda1 done\n");
 #endif
 
-	for (i = 0; i < PDA_CLK_NUM; ++i) {
-		// CCF: Grab clock pointer (struct clk*)
-		LOG_INF("index: %d, clock name: %s\n", i, clk_names[i]);
-		pda_clk[i].CG_PDA_TOP_MUX = devm_clk_get(&pdev->dev, clk_names[i]);
-		if (IS_ERR(pda_clk[i].CG_PDA_TOP_MUX)) {
-			LOG_INF("cannot get %s clock\n", clk_names[i]);
-			return PTR_ERR(pda_clk[i].CG_PDA_TOP_MUX);
-		}
-	}
+	if (pda_devm_clk_get(pdev))
+		return -1;
 
 	// get PDA address, and PDA quantity
 	PDA_devs[0].m_pda_base = of_iomap(node, 0);
@@ -2245,15 +2031,7 @@ static int PDA_probe(struct platform_device *pdev)
 		g_PDA_quantity++;
 	LOG_INF("PDA quantity: %d\n", g_PDA_quantity);
 
-	// camsys node
-	camsys_node = of_find_compatible_node(NULL, NULL, "mediatek,mt6855-camsys_main");
-	if (!camsys_node) {
-		LOG_INF("find camsys_node failed\n");
-		return -1;
-	}
-	LOG_INF("find camsys_node node done\n");
-
-	CAMSYS_CONFIG_BASE = of_iomap(camsys_node, 0);
+	CAMSYS_CONFIG_BASE = pda_get_camsys_address();
 	if (!CAMSYS_CONFIG_BASE)
 		LOG_INF("base CAMSYS_CONFIG_BASE failed\n");
 	LOG_INF("of_iomap CAMSYS_CONFIG_BASE done (0x%x)\n", CAMSYS_CONFIG_BASE);
@@ -2285,7 +2063,7 @@ static int PDA_probe(struct platform_device *pdev)
 	}
 
 #ifdef PDA_MMQOS
-	pda_mmqos_init();
+	pda_mmqos_init(g_dev1);
 #endif
 
 	LOG_INF("Attached!!\n");
@@ -2316,7 +2094,6 @@ static int PDA2_probe(struct platform_device *pdev)
 	int nRet = 0;
 	struct device_node *node;
 	unsigned int irq_info[3];
-	int i, larbs;
 
 	LOG_INF("PDA2 probe Start\n");
 
@@ -2329,11 +2106,7 @@ static int PDA2_probe(struct platform_device *pdev)
 	LOG_INF("find camera-pda node done\n");
 
 	// must porting in dts
-	larbs = of_count_phandle_with_args(
-				pdev->dev.of_node, "mediatek,larbs", NULL);
-	LOG_INF("larb_num:%d\n", larbs);
-	for (i = 0; i < larbs; i++)
-		larb2 = pda_init_larb(pdev, i);
+	pda_init_larb(pdev);
 
 #if IS_ENABLED(CONFIG_OF)
 	g_dev2 = &pdev->dev;
