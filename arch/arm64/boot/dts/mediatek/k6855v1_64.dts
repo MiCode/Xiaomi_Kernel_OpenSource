@@ -8,17 +8,6 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/mt6855-pinfunc.h>
 
-&chosen {
-	atag,videolfb-fb_base_l = <0x48700000>;
-	atag,videolfb-fb_base_h = <0x0>;
-	atag,videolfb-islcmfound = <1>;
-	atag,videolfb-islcm_inited = <0>;
-	atag,videolfb-fps= <6000>;
-	atag,videolfb-vramSize= <0x1be0000>;
-	atag,videolfb-lcmname=
-		"nt35595_fhd_dsi_cmd_truly_nt50358_drv";
-};
-
 &mtk_leds {
 	compatible = "mediatek,i2c-leds";
 
