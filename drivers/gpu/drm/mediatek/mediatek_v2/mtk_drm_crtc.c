@@ -9751,6 +9751,7 @@ static int mtk_drm_pf_release_thread(void *data)
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
 	struct drm_crtc *crtc;
 	unsigned int crtc_idx;
+	unsigned long flags = 0;
 #ifndef DRM_CMDQ_DISABLE
 	ktime_t pf_time;
 	unsigned int fence_idx = 0;
@@ -9768,22 +9769,20 @@ static int mtk_drm_pf_release_thread(void *data)
 
 #ifndef DRM_CMDQ_DISABLE
 		pf_time = mtk_check_preset_fence_timestamp(crtc);
-		mutex_lock(&private->commit.lock);
-		if (private->power_state == false) {
+		spin_lock_irqsave(&top_clk_lock, flags);
+		if (private->power_state == true) {
+			fence_idx = *(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
+					DISP_SLOT_PRESENT_FENCE(crtc_idx)));
+			spin_unlock_irqrestore(&top_clk_lock, flags);
 			mtk_release_present_fence(private->session_id[crtc_idx],
-				atomic_read(&private->crtc_present[crtc_idx]), pf_time);
-			mutex_unlock(&private->commit.lock);
-			continue;
+					fence_idx, pf_time);
+			if (crtc_idx == 0)
+				ktime_get_real_ts64(&rdma_sof_tval);
+		} else {
+			spin_unlock_irqrestore(&top_clk_lock, flags);
+			mtk_release_present_fence(private->session_id[crtc_idx],
+					atomic_read(&private->crtc_present[crtc_idx]), pf_time);
 		}
-
-		fence_idx = *(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
-				DISP_SLOT_PRESENT_FENCE(crtc_idx)));
-
-		mtk_release_present_fence(private->session_id[crtc_idx],
-					  fence_idx, pf_time);
-		mutex_unlock(&private->commit.lock);
-		if (crtc_idx == 0)
-			ktime_get_real_ts64(&rdma_sof_tval);
 #endif
 	}
 

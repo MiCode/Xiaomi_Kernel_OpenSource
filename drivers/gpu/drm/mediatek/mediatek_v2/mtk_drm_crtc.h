@@ -848,6 +848,8 @@ struct mtk_cmdq_cb_data {
 };
 
 extern unsigned int disp_spr_bypass;
+extern spinlock_t top_clk_lock;
+
 
 int mtk_drm_crtc_enable_vblank(struct drm_crtc *crtc);
 void mtk_drm_crtc_disable_vblank(struct drm_crtc *crtc);

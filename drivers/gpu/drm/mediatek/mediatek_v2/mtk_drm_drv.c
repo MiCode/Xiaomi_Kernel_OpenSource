@@ -88,7 +88,7 @@ void disp_dbg_init(struct drm_device *dev);
 
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
-static spinlock_t top_clk_lock; /* power status protection*/
+spinlock_t top_clk_lock; /* power status protection*/
 
 unsigned long long mutex_time_start;
 unsigned long long mutex_time_end;
