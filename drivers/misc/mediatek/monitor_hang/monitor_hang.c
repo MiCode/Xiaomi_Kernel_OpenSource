@@ -18,6 +18,7 @@
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
 #include <linux/sched/debug.h>
+#include <linux/sched/mm.h>
 #include <linux/sched/rt.h>
 #include <linux/sched/task.h>
 #include <uapi/linux/sched/types.h>
@@ -880,7 +881,7 @@ static int DumpThreadNativeMaps_log(pid_t pid, struct task_struct *current_task)
 		return -1;
 	}
 
-	if (!current_task->mm) {
+	if (!get_task_mm(current_task)) {
 		pr_info(" %s,%d:%s: current_task->mm == NULL",
 			__func__, pid, current_task->comm);
 		return -1;
@@ -939,6 +940,7 @@ static int DumpThreadNativeMaps_log(pid_t pid, struct task_struct *current_task)
 		mapcount++;
 	}
 	up_read(&current_task->mm->mmap_sem);
+	mmput(current_task->mm);
 
 	return 0;
 }
