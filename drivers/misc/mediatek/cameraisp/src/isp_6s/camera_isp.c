@@ -7277,7 +7277,7 @@ static int ISP_pm_event_suspend(void)
 		if (!G_u4EnableClockCount[i]) {
 			spin_unlock(&(IspInfo.SpinLockClock));
 
-			LOG_INF("dev(%d) - X. UserCount=%d,Cnt:%d\n",
+			LOG_DBG("dev(%d) - X. UserCount=%d,Cnt:%d\n",
 				i, IspInfo.UserCount,
 				G_u4EnableClockCount[i]);
 
