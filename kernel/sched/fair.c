@@ -5229,8 +5229,63 @@ static inline void hrtick_update(struct rq *rq)
 static inline unsigned long cpu_util(int cpu);
 static unsigned long capacity_of(int cpu);
 
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+#define fits_capacity(cap, max) ((cap) * 1280 < (max) * 1024)
+
+static struct perf_domain *find_pd(struct perf_domain *pd, int cpu)
+{
+	while (pd) {
+		if (cpumask_test_cpu(cpu, perf_domain_span(pd)))
+			return pd;
+
+		pd = pd->next;
+	}
+
+	return NULL;
+}
+
+void mtk_cpu_overutilized(int cpu, int *overutilized)
+{
+	struct perf_domain *pd = NULL;
+	struct rq *rq = cpu_rq(cpu);
+	unsigned long sum_util = 0, sum_cap = 0;
+	int i = 0;
+
+	rcu_read_lock();
+	pd = rcu_dereference(rq->rd->pd);
+	pd = find_pd(pd, cpu);
+	if (!pd) {
+		rcu_read_unlock();
+		return;
+	}
+
+	if (cpumask_weight(perf_domain_span(pd)) == 1 &&
+		capacity_orig_of(cpu) == SCHED_CAPACITY_SCALE) {
+		*overutilized = 0;
+		rcu_read_unlock();
+		return;
+	}
+
+	for_each_cpu(i, perf_domain_span(pd)) {
+		sum_util += cpu_util(i);
+		sum_cap += capacity_of(i);
+	}
+
+	*overutilized = !fits_capacity(sum_util, sum_cap);
+	rcu_read_unlock();
+}
+#endif
+
+
 static inline bool cpu_overutilized(int cpu)
 {
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+	int overutilized = -1;
+
+	mtk_cpu_overutilized(cpu, &overutilized);
+	if (overutilized != -1)
+		return overutilized;
+#endif
 	return (capacity_of(cpu) * 1024) < (cpu_util(cpu) * capacity_margin);
 }
 
