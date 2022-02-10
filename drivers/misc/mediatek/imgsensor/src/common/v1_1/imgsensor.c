@@ -931,7 +931,7 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 {
 	struct ACDK_SENSOR_FEATURECONTROL_STRUCT *pFeatureCtrl;
 	struct IMGSENSOR_SENSOR *psensor;
-	unsigned int FeatureParaLen = 0;
+	unsigned int FeatureParaLen, Patternmode = 0;
 	void *pFeaturePara = NULL;
 	struct ACDK_KD_SENSOR_SYNC_STRUCT *pSensorSyncInfo = NULL;
 	signed int ret = 0;
@@ -1912,14 +1912,22 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 					(unsigned int *)&FeatureParaLen);
 		set_sensor_streaming_state((int)psensor->inst.sensor_idx, 0);
 		break;
+#endif
 	case SENSOR_FEATURE_SET_STREAMING_RESUME:
+		/*Close testPattern before streaming*/
+		imgsensor_sensor_feature_control(psensor,
+			SENSOR_FEATURE_SET_TEST_PATTERN,
+			(unsigned char *)&Patternmode,
+			(unsigned int *)&FeatureParaLen);
 		ret = imgsensor_sensor_feature_control(psensor,
 					pFeatureCtrl->FeatureId,
 					(unsigned char *)pFeaturePara,
 					(unsigned int *)&FeatureParaLen);
+#ifdef SENINF_N3D_SUPPORT
 		set_sensor_streaming_state((int)psensor->inst.sensor_idx, 1);
-		break;
 #endif
+		break;
+
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
 		{
 			pr_debug("SENSOR_FEATURE_SET_TEST_PATTERN");
