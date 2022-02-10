@@ -1438,7 +1438,6 @@ static void get_volt_table_in_thread(struct eem_det *det)
 		(transfer_ptp_to_upower_bank(det_to_id(ndet)),
 		ndet->temp/1000);
 #endif
-#if defined(FIXME)
 	if (ndet->temp <= LOW_TEMP_VAL) {
 		ndet->isTempInv = EEM_LOW_T;
 		low_temp_offset = ndet->low_temp_off;
@@ -1453,14 +1452,12 @@ static void get_volt_table_in_thread(struct eem_det *det)
 			ndet->high_temp_off :
 			ndet->high_temp85_off;
 	} else
-#endif
 		ndet->isTempInv = 0;
-#if defined(FIXME)
 #ifdef CONFIG_THERMAL
 	if (!tscpu_is_temp_valid())
 		ndet->isTempInv = EEM_LOW_T;
 #endif
-#endif
+
 #if EN_PI_VOLT_LOG
 	//if ((ndet->ctrl_id == EEM_CTRL_BL) ||
 		//(ndet->ctrl_id == EEM_CTRL_B)) {

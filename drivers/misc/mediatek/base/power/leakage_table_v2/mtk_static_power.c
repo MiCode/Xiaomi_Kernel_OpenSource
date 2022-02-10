@@ -259,6 +259,12 @@ int mtk_spower_make_table(struct sptab_s *spt, int voltage, int degree,
 		SPOWER_DEBUG("sptab interpolate: %d/%d, i:%d\n", wat, c[i], i);
 	}
 
+	if (wat == 0) {
+		/* force mc50 */
+		tab1 = tab2 = tab[1];
+		tspt = tab1;
+		SPOWER_INFO("@@~ force mc50\n");
+	}
 
 	/** sptab needs to interpolate 2 tables. **/
 	if (tab1 != tab2)
@@ -489,16 +495,31 @@ int mt_spower_init(void)
 
 	node = of_find_node_by_name(NULL, "eem_fsm");
 	if (node == NULL) {
-		pr_notice("%s fail to get device node\n", __func__);
+		pr_notice("%s fail to get device node (eem_fsm)\n", __func__);
 		err_flag = 1;
 		goto efuse_end;
 	}
 	pdev = of_platform_device_create(node, NULL, NULL);
 	if (pdev == NULL) {
-		pr_notice("%s fail to create pdev\n", __func__);
-		err_flag = 2;
-		goto efuse_end;
+		pr_notice("%s fail to create pdev 1 (eem_fsm)\n", __func__);
+		node = of_find_node_by_name(NULL, "lkg");
+		if (node == NULL) {
+			pr_notice("%s fail to get device node (lkg)\n", __func__);
+			err_flag = 1;
+			goto efuse_end;
+		}
+		pdev = of_platform_device_create(node, NULL, NULL);
+		if (pdev == NULL) {
+			pr_notice("%s fail to create pdev 1 (lkg)\n", __func__);
+			pdev = of_find_device_by_node(node);
+			if (pdev == NULL) {
+				pr_notice("%s fail to create pdev 2 (lkg)\n", __func__);
+				err_flag = 2;
+				goto efuse_end;
+			}
+		}
 	}
+
 	nvmem_dev = nvmem_device_get(&pdev->dev, "mtk_efuse");
 	if (IS_ERR(nvmem_dev)) {
 		pr_notice("%s failed to get mtk_efuse device\n",
