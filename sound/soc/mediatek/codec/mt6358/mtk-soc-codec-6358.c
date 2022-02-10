@@ -7636,7 +7636,7 @@ static int read_efuse_hp_impedance_current_calibration(void)
 	return value;
 }
 
-static void mt6358_codec_init_reg(struct snd_soc_codec *codec)
+static void mt6358_codec_init_reg(struct snd_soc_component *codec)
 {
 	pr_debug("%s\n", __func__);
 
@@ -7798,7 +7798,7 @@ static const struct snd_soc_component_driver mt6358_component_driver = {
 	.write = mt6358_component_write,
 };
 
-static int mtk_codec_dev_probe(struct platform_device *pdev)
+static int mtk_mt6358_codec_dev_probe(struct platform_device *pdev)
 {
 	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", MT_SOC_CODEC_NAME);
@@ -7813,18 +7813,18 @@ static int mtk_codec_dev_probe(struct platform_device *pdev)
 			 __func__, mUseHpDepopFlow);
 
 	} else {
-		pr_warn("%s(), pdev->dev.of_node = NULL!!!\n", __func__);                                            
+		pr_info("%s(), pdev->dev.of_node = NULL!!!\n", __func__);
 	}
 
-	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
-	return snd_soc_register_codec(&pdev->dev,
-				      &soc_mtk_codec, mtk_6358_dai_codecs,
+	pr_info("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
+	return snd_soc_register_component(&pdev->dev,
+				      &mt6358_component_driver, mtk_6358_dai_codecs,
 				      ARRAY_SIZE(mtk_6358_dai_codecs));
 }
 
 static int mtk_mt6358_codec_dev_remove(struct platform_device *pdev)
 {
-	snd_soc_unregister_codec(&pdev->dev);
+	snd_soc_unregister_component(&pdev->dev);
 	return 0;
 
 }
@@ -7854,7 +7854,7 @@ static struct platform_device *soc_mtk_codec6358_dev;
 
 static int __init mtk_mt6358_codec_init(void)
 {
-	pr_debug("%s:\n", __func__);
+	pr_info("%s:\n", __func__);
 #ifndef CONFIG_OF
 	int ret = 0;
 
