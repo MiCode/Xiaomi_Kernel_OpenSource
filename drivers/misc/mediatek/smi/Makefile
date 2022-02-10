@@ -52,6 +52,7 @@ ccflags-y += -I$(srctree)/drivers/gpu/mediatek/mt-plat
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739"))
 ccflags-y += -DSMI_ZIO
 ccflags-y += -DMMDVFS_HOOK
+ccflags-y += -DVCORE_READY
 ccflags-y += -I$(srctree)/drivers/clk/mediatek
 obj-y += mmdvfs_mgr_v3.o
 obj-y += mmdvfs_profile_adaptor.o
