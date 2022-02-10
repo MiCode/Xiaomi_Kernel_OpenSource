@@ -831,15 +831,15 @@ static const struct drm_display_mode performance_mode = {
 };
 #endif
 static const struct drm_display_mode performance_mode1 = {
-	.clock = 443290,
+	.clock = 437299,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 76,//HFP
 	.hsync_end = 1080 + 76 + 12,//HSA
-	.htotal = 1080 + 76 + 12 + 80,//HBP
+	.htotal = 1080 + 76 + 12 + 80,//HBP 1248
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 540,//VFP
-	.vsync_end = 2400 + 540 + 10,//VSA
-	.vtotal = 2400 + 540 + 10 + 10,//VBP 2474
+	.vsync_start = 2400 + 500,//VFP
+	.vsync_end = 2400 + 500 + 10,//VSA
+	.vtotal = 2400 + 500 + 10 + 10,//VBP 2920
 };
 
 
