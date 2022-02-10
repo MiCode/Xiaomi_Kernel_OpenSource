@@ -750,6 +750,19 @@ static int __maybe_unused mt6370_is_dcd_tout_enable(
 }
 #endif
 
+#ifdef CONFIG_MACH_MT6771
+void __attribute__ ((weak)) Charger_Detect_Init(void)
+{
+	pr_info("%s not ready\n", __func__);
+}
+
+void __attribute__ ((weak)) Charger_Detect_Release(void)
+{
+	pr_info("%s not ready\n", __func__);
+}
+
+#endif
+
 static inline bool mt6370_is_meta_mode(
 			struct mt6370_pmu_charger_data *chg_data);
 static void mt6370_power_supply_changed(
@@ -4169,9 +4182,11 @@ static int mt6370_pmu_chg_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6370_pmu_chg_get_online(chg_data, val);
 		break;
+#ifndef CONFIG_MACH_MT6771
 	case POWER_SUPPLY_PROP_AUTHENTIC:
 		val->intval = chg_data->ignore_usb;
 		break;
+#endif
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = chg_data->psy_desc.type;
 		break;

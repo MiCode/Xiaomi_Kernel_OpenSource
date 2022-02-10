@@ -93,6 +93,10 @@ struct chg_type_info {
 	bool ignore_usb;
 	bool plugin;
 	bool bypass_chgdet;
+#ifdef CONFIG_MACH_MT6771
+	struct power_supply *chr_psy;
+	struct notifier_block psy_nb;
+#endif
 };
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
@@ -327,6 +331,9 @@ static int mt_charger_set_property(struct power_supply *psy,
 			&info->wq_detcable, info->debounce_jiffies);
 	#endif
 
+#ifdef CONFIG_MACH_MT6771
+	power_supply_changed(mtk_chg->chg_psy);
+#endif
 	power_supply_changed(mtk_chg->ac_psy);
 	power_supply_changed(mtk_chg->usb_psy);
 
@@ -603,6 +610,91 @@ static void init_extcon_work(struct work_struct *work)
 }
 #endif
 
+#ifdef CONFIG_MACH_MT6771
+static int mtk_6370_psy_notifier(struct notifier_block *nb,
+				unsigned long event, void *data)
+{
+	struct power_supply *psy = data;
+	struct power_supply *type_psy = NULL;
+
+	struct chg_type_info *cti = container_of(nb,
+					struct chg_type_info, psy_nb);
+
+	union power_supply_propval pval;
+	int ret;
+
+	cti->chr_psy = power_supply_get_by_name("mt6370_pmu_charger");
+	if (IS_ERR_OR_NULL(cti->chr_psy)) {
+		pr_info("fail to get chr_psy\n");
+		cti->chr_psy = NULL;
+		return NOTIFY_DONE;
+	}
+
+	/*psy is mt6370, type_psy is charger_type psy*/
+	if (event != PSY_EVENT_PROP_CHANGED || psy != cti->chr_psy) {
+		pr_info("event or power supply not equal\n");
+		return NOTIFY_DONE;
+
+	}
+
+	type_psy = power_supply_get_by_name("charger");
+	if (!type_psy) {
+		pr_info("%s: get power supply failed\n",
+			__func__);
+		return NOTIFY_DONE;
+	}
+
+	if (event != PSY_EVENT_PROP_CHANGED) {
+		pr_info("%s: get event power supply failed\n",
+			__func__);
+		return NOTIFY_DONE;
+	}
+
+	ret = power_supply_get_property(psy,
+				POWER_SUPPLY_PROP_ONLINE, &pval);
+	if (ret < 0) {
+		pr_info("psy failed to get online prop\n");
+		return NOTIFY_DONE;
+	}
+
+	ret = power_supply_set_property(type_psy, POWER_SUPPLY_PROP_ONLINE,
+		&pval);
+	if (ret < 0)
+		pr_info("%s: type_psy online failed, ret = %d\n",
+			__func__, ret);
+
+	ret = power_supply_get_property(psy,
+				POWER_SUPPLY_PROP_USB_TYPE, &pval);
+	if (ret < 0) {
+		pr_info("failed to get usb type prop\n");
+		return NOTIFY_DONE;
+	}
+
+	switch (pval.intval) {
+	case POWER_SUPPLY_USB_TYPE_SDP:
+		pval.intval = STANDARD_HOST;
+		break;
+	case POWER_SUPPLY_USB_TYPE_DCP:
+		pval.intval = STANDARD_CHARGER;
+		break;
+	case POWER_SUPPLY_USB_TYPE_CDP:
+		pval.intval = CHARGING_HOST;
+		break;
+	default:
+		pval.intval = CHARGER_UNKNOWN;
+		break;
+	}
+
+	ret = power_supply_set_property(type_psy, POWER_SUPPLY_PROP_CHARGE_TYPE,
+		&pval);
+	if (ret < 0)
+		pr_info("%s: type_psy type failed, ret = %d\n",
+			__func__, ret);
+
+	return NOTIFY_DONE;
+}
+#endif
+
 static int mt_charger_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -732,6 +824,13 @@ static int mt_charger_probe(struct platform_device *pdev)
 	mt_chg->cti = cti;
 	platform_set_drvdata(pdev, mt_chg);
 	device_init_wakeup(&pdev->dev, true);
+
+#ifdef CONFIG_MACH_MT6771
+	cti->psy_nb.notifier_call = mtk_6370_psy_notifier;
+	ret = power_supply_reg_notifier(&cti->psy_nb);
+	if (ret)
+		pr_info("fail to register notifer\n");
+#endif
 
 	#ifdef CONFIG_EXTCON_USB_CHG
 	info = devm_kzalloc(mt_chg->dev, sizeof(*info), GFP_KERNEL);
