@@ -33,7 +33,6 @@ unsigned int init_dcm_type =
 
 #if defined(__KERNEL__) && defined(CONFIG_OF)
 unsigned long dcm_infracfg_ao_base;
-unsigned long dcm_infracfg_ao_mem_base;
 unsigned long dcm_infra_ao_bcrm_base;
 unsigned long dcm_mcusys_par_wrap_base;
 unsigned long dcm_mp_cpusys_top_base;
@@ -314,7 +313,6 @@ struct DCM_OPS dcm_ops = {
 
 struct DCM_BASE dcm_base_array[] = {
 	DCM_BASE_INFO(dcm_infracfg_ao_base),
-	DCM_BASE_INFO(dcm_infracfg_ao_mem_base),
 	DCM_BASE_INFO(dcm_infra_ao_bcrm_base),
 	DCM_BASE_INFO(dcm_mcusys_par_wrap_base),
 	DCM_BASE_INFO(dcm_mp_cpusys_top_base),
