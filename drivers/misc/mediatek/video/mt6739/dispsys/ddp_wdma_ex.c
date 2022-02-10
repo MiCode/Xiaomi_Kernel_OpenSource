@@ -418,7 +418,7 @@ static int wdma_golden_setting(enum DISP_MODULE_ENUM module,
 
 	DISP_REG_SET(cmdq, offset + DISP_REG_WDMA_BUF_CON4, regval);
 
-	consume_rate = (unsigned long long)(res * frame_rate);
+	consume_rate = ((unsigned long long)res) * ((unsigned long long)frame_rate);
 	do_div(consume_rate, 1000);
 	consume_rate *= 1250;
 	do_div(consume_rate, 16 * 1000);
