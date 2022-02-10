@@ -375,8 +375,25 @@ u32 calc_freq(struct vcodec_inst *inst, struct mtk_vcodec_dev *dev)
 				inst->width, inst->height, inst->op_rate, perf->cy_per_mb_1);
 		} else
 			freq = 100000000;
+		/* AV1 boost for 720P180 test */
+		if (((inst->priority > 0 && inst->op_rate <= 0) || inst->op_rate >= 135) &&
+		perf != 0 && inst->codec_fmt == 808539713 &&
+		(inst->width * inst->height <= 1280 * 736)) {
 
-		if (perf != 0 && inst->op_rate <= 0) {
+			if (inst->priority > 0)
+				inst->op_rate = 3000;
+			else
+				inst->op_rate = 2500;
+			mtk_v4l2_debug(0, "[VDVFS] VDEC w:%u x h:%u priority %d, new oprate %u",
+				inst->width, inst->height, inst->priority, inst->op_rate);
+
+			freq = inst->width * inst->height / 256 * inst->op_rate *
+				perf->cy_per_mb_1;
+
+			mtk_v4l2_debug(0, "[VDVFS] VDEC priority:%d oprate:%d, set freq = %u",
+					inst->priority, inst->op_rate, freq);
+
+		} else if (perf != 0 && inst->op_rate <= 0) {
 			/* Undefined priority + op_rate combination & max op rate behavior */
 			dflt_op_rate = find_dflt_op_rate(inst, dev);
 
