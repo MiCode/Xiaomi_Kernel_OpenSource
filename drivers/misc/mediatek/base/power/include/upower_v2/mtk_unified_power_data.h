@@ -28,6 +28,10 @@
 #include "mtk_unified_power_data_mt6761.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6771)
+#include "mtk_unified_power_data_mt6771.h"
+#endif
+
 #if defined(CONFIG_MACH_MT3967)
 #include "mtk_unified_power_data_mt3967.h"
 #endif

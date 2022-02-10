@@ -43,6 +43,7 @@
 #include <sspm_define.h>
 #elif defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_SSPM_VER_V1)
 #include "v1/sspm_ipi.h"
+#include "v1/sspm_ipi_pin.h"
 #else
 #endif
 
@@ -53,6 +54,7 @@
 #include <sspm_define.h>
 #elif defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_SSPM_VER_V1)
 #include "v1/sspm_ipi.h"
+#include "v1/sspm_ipi_pin.h"
 #else
 #include <linux/soc/mediatek/mtk-mbox.h>
 #include <linux/soc/mediatek/mtk_tinysys_ipi.h>

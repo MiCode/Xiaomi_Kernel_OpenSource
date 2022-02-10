@@ -9,7 +9,6 @@ obj-$(CONFIG_MACH_MT6833) += ptp3_v1/
 obj-$(CONFIG_MACH_MT6761) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
 endif
-
 obj-$(CONFIG_MACH_MT8173) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6779) += drcc_v1/
 #obj-$(CONFIG_MACH_MT6768) += drcc_v1/
@@ -35,6 +34,7 @@ endif
 obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
 obj-$(CONFIG_MACH_MT6761) += ppm_v3/
 obj-$(CONFIG_MACH_MT6765) += ppm_v3/
+obj-$(CONFIG_MACH_MT6771) += ppm_v3/
 obj-$(CONFIG_MACH_MT6779) += ppm_v3/
 obj-$(CONFIG_MACH_MT6768) += ppm_v3/
 obj-$(CONFIG_MACH_MT6739) += ppm_v3/
