@@ -5573,16 +5573,37 @@
 
 	memory_ssmr_features: memory-ssmr-features {
 		compatible = "mediatek,memory-ssmr-features";
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	defined(CONFIG_MICROTRUST_TEE_SUPPORT)
 		svp-region-based-size = <0 0x18000000>;
-		iris-recognition-size = <0 0x10000000>;
+#endif
+#ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
 		2d_fr-size = <0 0>;
+#endif
+#if defined(CONFIG_TRUSTONIC_TRUSTED_UI) || \
+	defined(CONFIG_BLOWFISH_TUI_SUPPORT)
 		tui-size = <0 0x4000000>;
+#endif
+#ifdef CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
 		wfd-size = <0 0x4000000>;
+#endif
+#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
 		prot-region-based-size = <0 0x8000000>;
+		iris-recognition-size = <0 0x10000000>;
+#endif
+#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
 		ta-elf-size = <0 0x1000000>;
+#endif
+#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
 		ta-stack-heap-size = <0 0x6000000>;
+#endif
+#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
 		sdsp-tee-sharedmem-size = <0 0x1000000>;
+#endif
+#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
 		sdsp-firmware-size = <0 0x1000000>;
+#endif
 	};
 
 	spi0: spi0@1100a000 {
