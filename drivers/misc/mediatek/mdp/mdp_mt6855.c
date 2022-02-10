@@ -1326,9 +1326,9 @@ void cmdqMdpInitialSetting(struct platform_device *pdev)
 	/* Register ION Translation Fault function */
 	mtk_iommu_register_fault_callback(M4U_LARB2_PORT0,
 		cmdq_TranslationFault_callback, (void *)pdev, false);
-	mtk_iommu_register_fault_callback(M4U_LARB2_PORT2,
+	mtk_iommu_register_fault_callback(M4U_LARB2_PORT1,
 		cmdq_TranslationFault_callback, (void *)pdev, false);
-	mtk_iommu_register_fault_callback(M4U_LARB2_PORT3,
+	mtk_iommu_register_fault_callback(M4U_LARB2_PORT2,
 		cmdq_TranslationFault_callback, (void *)pdev, false);
 #endif
 
@@ -1491,9 +1491,9 @@ static u32 cmdq_mdp_qos_translate_port(u32 engine_id)
 	case CMDQ_ENG_MDP_RDMA0:
 		return M4U_LARB2_PORT0;
 	case CMDQ_ENG_MDP_WROT0:
-		return M4U_LARB2_PORT2;
+		return M4U_LARB2_PORT1;
 	case CMDQ_ENG_MDP_WROT2:
-		return M4U_LARB2_PORT3;
+		return M4U_LARB2_PORT2;
 	}
 
 	if (engine_id != CMDQ_ENG_MDP_CAMIN &&
@@ -1572,9 +1572,9 @@ static void *mdp_qos_get_path(u32 thread_id, u32 port)
 	/* mdp part */
 	case M4U_LARB2_PORT0:
 		return path_mdp_rdma0[thread_id];
-	case M4U_LARB2_PORT2:
+	case M4U_LARB2_PORT1:
 		return path_mdp_wrot0[thread_id];
-	case M4U_LARB2_PORT3:
+	case M4U_LARB2_PORT2:
 		return path_mdp_wrot2[thread_id];
 	}
 
