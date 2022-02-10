@@ -561,9 +561,11 @@ static int vpu_shared_get(struct platform_device *pdev,
 
 	kref_init(&vpu_drv->iova_ref);
 
-	if (!vpu_drv->mva_algo) {
+	if (!vpu_drv->mva_algo && vd->id == 0) {
 		if (vpu_iova_dts(pdev, "algo", &vpu_drv->iova_algo))
 			goto error;
+		if (!vpu_drv->iova_algo.size)
+			return 0;
 		iova = vpu_iova_alloc(pdev, &vpu_drv->iova_algo);
 		if (!iova)
 			goto error;
