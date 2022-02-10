@@ -940,7 +940,7 @@ static void mss_pkt_tcmds(struct cmdq_pkt *handle,
 					pMssConfig->MSSDMT_TDRI_BASE[t]);
 	}
 	LOG_DBG("%s: tpipe_used is %d", __func__, pMssConfig->tpipe_used);
-	LOG_INF("mss cmdq write done %d", pMssConfig->tpipe_used);
+	LOG_DBG("mss cmdq write done %d", pMssConfig->tpipe_used);
 #endif
 }
 
