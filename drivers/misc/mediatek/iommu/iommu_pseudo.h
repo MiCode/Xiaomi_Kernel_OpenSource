@@ -5,6 +5,8 @@
 #ifndef IOMMU_PSEUDO_H
 #define IOMMU_PSEUDO_H
 
+#include <public/trusted_mem_api.h>
+
 enum mtk_iommu_sec_id {
 	SEC_ID_SEC_CAM = 0,
 	SEC_ID_SVP,
@@ -14,6 +16,7 @@ enum mtk_iommu_sec_id {
 };
 
 int mtk_iommu_sec_init(int mtk_iommu_sec_id);
-bool is_iommu_sec_on_mtee(void);
+bool is_disable_map_sec(void);
+int tmem_type2sec_id(enum TRUSTED_MEM_REQ_TYPE tmem);
 
 #endif

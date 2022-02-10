@@ -133,11 +133,11 @@ int mtk_iommu_sec_init(int mtk_iommu_sec_id)
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_sec_init);
 
-bool is_iommu_sec_on_mtee(void)
+bool is_disable_map_sec(void)
 {
 	return (iommu_on_mtee == STATE_ENABLED);
 }
-EXPORT_SYMBOL_GPL(is_iommu_sec_on_mtee);
+EXPORT_SYMBOL_GPL(is_disable_map_sec);
 
 static int mtk_iommu_pseudo_probe(struct platform_device *pdev)
 {
@@ -224,11 +224,11 @@ int mtk_iommu_sec_init(int mtk_iommu_sec_id)
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_sec_init);
 
-bool is_iommu_sec_on_mtee(void)
+bool is_disable_map_sec(void)
 {
 	return false;
 }
-EXPORT_SYMBOL_GPL(is_iommu_sec_on_mtee);
+EXPORT_SYMBOL_GPL(is_disable_map_sec);
 
 static int mtk_iommu_pseudo_probe(struct platform_device *pdev)
 {
@@ -237,6 +237,21 @@ static int mtk_iommu_pseudo_probe(struct platform_device *pdev)
 	return 0;
 }
 #endif
+
+int tmem_type2sec_id(enum TRUSTED_MEM_REQ_TYPE tmem)
+{
+	switch (tmem) {
+	case TRUSTED_MEM_REQ_PROT_REGION:
+		return SEC_ID_SEC_CAM;
+	case TRUSTED_MEM_REQ_SVP_REGION:
+		return SEC_ID_SVP;
+	case TRUSTED_MEM_REQ_WFD_REGION:
+		return SEC_ID_WFD;
+	default:
+		return -1;
+	}
+}
+EXPORT_SYMBOL_GPL(tmem_type2sec_id);
 
 static const struct of_device_id mtk_iommu_pseudo_of_ids[] = {
 	{ .compatible = "mediatek,mt6833-iommu-pseudo" },
