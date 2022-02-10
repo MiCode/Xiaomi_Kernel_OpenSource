@@ -708,6 +708,7 @@
 		bc12 = <&mt6360_chg>;
 		bc12_sel = <0>;
 	};
+
 	cam_qos_legacy {
 			/* non-v4l2 legacy camera */
 			compatible = "mediatek,cam_qos_legacy";
@@ -5364,6 +5365,14 @@
 		suspend-method = "disable";
 	};
 
+	drm_wv: drm_wv {
+		compatible = "mediatek,drm_wv";
+		status = "okay";
+	};
+
+	mtee_svp: mtee_svp {
+		compatible = "medaitek,svp";
+	};
 };
 
 #include "mediatek/mt6833-clkitg.dtsi"
