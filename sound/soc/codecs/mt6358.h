@@ -2298,13 +2298,334 @@
 
 #define MT6358_MAX_REGISTER MT6358_ZCD_CON5
 
+#define REG_STRIDE 2
+#define ANALOG_HPTRIM
+
+/* dl pga gain */
+enum {
+	DL_GAIN_8DB = 0,
+	DL_GAIN_0DB = 8,
+	DL_GAIN_N_1DB = 9,
+	DL_GAIN_N_10DB = 18,
+	DL_GAIN_N_40DB = 0x1f,
+};
+
 enum {
 	MT6358_MTKAIF_PROTOCOL_1 = 0,
 	MT6358_MTKAIF_PROTOCOL_2,
 	MT6358_MTKAIF_PROTOCOL_2_CLK_P2,
 };
 
+enum {
+	AUDIO_ANALOG_VOLUME_HSOUTL,
+	AUDIO_ANALOG_VOLUME_HSOUTR,
+	AUDIO_ANALOG_VOLUME_HPOUTL,
+	AUDIO_ANALOG_VOLUME_HPOUTR,
+	AUDIO_ANALOG_VOLUME_LINEOUTL,
+	AUDIO_ANALOG_VOLUME_LINEOUTR,
+	AUDIO_ANALOG_VOLUME_MICAMP1,
+	AUDIO_ANALOG_VOLUME_MICAMP2,
+	AUDIO_ANALOG_VOLUME_TYPE_MAX
+};
+
+enum {
+	MUX_ADC_L,
+	MUX_ADC_R,
+	MUX_PGA_L,
+	MUX_PGA_R,
+	MUX_MIC_TYPE,
+	MUX_HP_L,
+	MUX_HP_R,
+	MUX_NUM,
+};
+
+enum {
+	DEVICE_HP,
+	DEVICE_LO,
+	DEVICE_RCV,
+	DEVICE_MIC1,
+	DEVICE_MIC2,
+	DEVICE_NUM
+};
+
+/* Supply widget subseq */
+enum {
+	/* common */
+	SUPPLY_SEQ_CLK_BUF,
+	SUPPLY_SEQ_AUD_GLB,
+	SUPPLY_SEQ_CLKSQ,
+	SUPPLY_SEQ_AUD_VOW,
+	SUPPLY_SEQ_VOW_CLK,
+	SUPPLY_SEQ_VOW_LDO,
+	SUPPLY_SEQ_TOP_CK,
+	SUPPLY_SEQ_TOP_CK_LAST,
+	SUPPLY_SEQ_AUD_TOP,
+	SUPPLY_SEQ_AUD_TOP_LAST,
+	SUPPLY_SEQ_AFE,
+	SUPPLY_SEQ_MIC_BIAS,
+	/* capture */
+	SUPPLY_SEQ_ADC_SUPPLY,
+};
+
+enum {
+	CH_L = 0,
+	CH_R,
+	NUM_CH,
+};
+
+/* Auxadc average resolution */
+enum {
+	AUXADC_AVG_1 = 0,
+	AUXADC_AVG_4,
+	AUXADC_AVG_8,
+	AUXADC_AVG_16,
+	AUXADC_AVG_32,
+	AUXADC_AVG_64,
+	AUXADC_AVG_128,
+	AUXADC_AVG_256,
+};
+
+enum {
+	DBG_DCTRIM_BYPASS_4POLE = 0x1 << 0,
+	DBG_DCTRIM_4POLE_LOG = 0x1 << 1,
+};
+
+/* LOL MUX */
+enum {
+	LOL_MUX_OPEN = 0,
+	LOL_MUX_MUTE,
+	LOL_MUX_PLAYBACK,
+	LOL_MUX_TEST_MODE,
+	LOL_MUX_MASK = 0x3,
+};
+
+/*HP MUX */
+enum {
+	HP_MUX_OPEN = 0,
+	HP_MUX_HPSPK,
+	HP_MUX_HP,
+	HP_MUX_TEST_MODE,
+	HP_MUX_HP_IMPEDANCE,
+	HP_MUX_HP_DUALSPK,
+	HP_MUX_MASK = 0x7,
+};
+
+/* RCV MUX */
+enum {
+	RCV_MUX_OPEN = 0,
+	RCV_MUX_MUTE,
+	RCV_MUX_VOICE_PLAYBACK,
+	RCV_MUX_TEST_MODE,
+	RCV_MUX_MASK = 0x3,
+};
+
+/* Mic Type MUX */
+enum {
+	MIC_TYPE_MUX_IDLE = 0,
+	MIC_TYPE_MUX_ACC,
+	MIC_TYPE_MUX_DMIC,
+	MIC_TYPE_MUX_DCC,
+	MIC_TYPE_MUX_DCC_ECM_DIFF,
+	MIC_TYPE_MUX_DCC_ECM_SINGLE,
+	MIC_TYPE_MUX_MASK = 0x7,
+};
+
+/* ADC L MUX */
+enum {
+	ADC_MUX_IDLE = 0,
+	ADC_MUX_AIN0,
+	ADC_MUX_PREAMPLIFIER,
+	ADC_MUX_IDLE1,
+	ADC_MUX_MASK = 0x3,
+};
+
+/* PGA L MUX */
+enum {
+	PGA_MUX_NONE = 0,
+	PGA_MUX_AIN0,
+	PGA_MUX_AIN1,
+	PGA_MUX_AIN2,
+	PGA_MUX_MASK = 0x3,
+};
+
+enum {
+	HP_INPUT_MUX_OPEN = 0,
+	HP_INPUT_MUX_LOL,
+	HP_INPUT_MUX_IDACR,
+	HP_INPUT_MUX_HS,
+};
+
+/* trim buffer */
+enum {
+	TRIM_BUF_MUX_OPEN = 0,
+	TRIM_BUF_MUX_HPL,
+	TRIM_BUF_MUX_HPR,
+	TRIM_BUF_MUX_HSP,
+	TRIM_BUF_MUX_HSN,
+	TRIM_BUF_MUX_LOLP,
+	TRIM_BUF_MUX_LOLN,
+	TRIM_MUX_AU_REFN,
+	TRIM_MUX_AVSS28,
+	TRIM_MUX_AVSS28_2,
+	TRIM_MUX_UNUSED,
+	TRIM_BUF_MUX_GROUND,
+};
+
+enum {
+	TRIM_BUF_GAIN_0DB = 0,
+	TRIM_BUF_GAIN_6DB,
+	TRIM_BUF_GAIN_12DB,
+	TRIM_BUF_GAIN_18DB,
+};
+
+enum {
+	MIC_BIAS_1P7 = 0,
+	MIC_BIAS_1P8,
+	MIC_BIAS_1P9,
+	MIC_BIAS_2P0,
+	MIC_BIAS_2P1,
+	MIC_BIAS_2P5,
+	MIC_BIAS_2P6,
+	MIC_BIAS_2P7,
+};
+
+enum {
+	RCV_MIC_OFF = 0,
+	RCV_MIC_ACC,
+	RCV_MIC_DCC,
+};
+
+#ifdef ANALOG_HPTRIM
+struct ana_offset {
+	int enable;
+	int hp_trim_code[NUM_CH];
+	int hp_fine_trim[NUM_CH];
+};
+#endif
+
+struct dc_trim_data {
+	bool calibrated;
+	int hp_offset[NUM_CH];
+	int hp_trim_offset[NUM_CH];
+	int spk_l_offset;
+	int pre_comp_value[NUM_CH];
+	int mic_vinp_mv;
+#ifdef ANALOG_HPTRIM
+	int dc_compensation_disabled;
+	unsigned int hp_3_pole_trim_setting;
+	unsigned int hp_4_pole_trim_setting;
+	unsigned int spk_hp_3_pole_trim_setting;
+	unsigned int spk_hp_4_pole_trim_setting;
+	struct ana_offset hp_3_pole_ana_offset;
+	struct ana_offset hp_4_pole_ana_offset;
+	struct ana_offset spk_3_pole_ana_offset;
+	struct ana_offset spk_4_pole_ana_offset;
+#endif
+};
+
+struct mt6358_codec_ops {
+	int (*enable_dc_compensation)(bool enable);
+	int (*set_lch_dc_compensation)(int value);
+	int (*set_rch_dc_compensation)(int value);
+	int (*adda_dl_gain_control)(bool mute);
+};
+
+struct mt6358_priv {
+	struct device *dev;
+	struct regmap *regmap;
+
+	unsigned int dl_rate;
+	unsigned int ul_rate;
+
+	int ana_gain[AUDIO_ANALOG_VOLUME_TYPE_MAX];
+	unsigned int mux_select[MUX_NUM];
+	int dmic_one_wire_mode;
+
+	int dev_counter[DEVICE_NUM];
+
+	struct mt6358_codec_ops ops;
+	bool apply_n12db_gain;
+	int hp_plugged;
+
+	/* dc trim */
+	struct dc_trim_data dc_trim;
+	struct iio_channel *hpofs_cal_auxadc;
+
+	/* hp impedance */
+	int hp_impedance;
+	int hp_current_calibrate_val;
+
+	int mtkaif_protocol;
+
+	struct dentry *debugfs;
+	unsigned int debug_flag;
+	struct regulator *avdd_reg;
+
+	/* vow control */
+	int vow_enable;
+	int reg_afe_vow_cfg0;
+	int reg_afe_vow_cfg1;
+	int reg_afe_vow_cfg2;
+	int reg_afe_vow_cfg3;
+	int reg_afe_vow_cfg4;
+	int reg_afe_vow_cfg5;
+	int reg_afe_vow_periodic;
+	/* vow dmic low power mode, 1: enable, 0: disable */
+	int vow_dmic_lp;
+};
+
+/* dl pga gain */
+#define DL_GAIN_N_10DB_REG (DL_GAIN_N_10DB << 7 | DL_GAIN_N_10DB)
+#define DL_GAIN_N_40DB_REG (DL_GAIN_N_40DB << 7 | DL_GAIN_N_40DB)
+#define DL_GAIN_REG_MASK 0x0f9f
+
+/* reg idx for -40dB*/
+#define PGA_MINUS_40_DB_REG_VAL 0x1f
+#define HP_PGA_MINUS_40_DB_REG_VAL 0x3f
+
+/* mic type */
+#define IS_DCC_BASE(x) (x == MIC_TYPE_MUX_DCC || \
+			x == MIC_TYPE_MUX_DCC_ECM_DIFF || \
+			x == MIC_TYPE_MUX_DCC_ECM_SINGLE)
+
+#define IS_AMIC_BASE(x) (x == MIC_TYPE_MUX_ACC || IS_DCC_BASE(x))
+
+#define MIC_VINP_4POLE_THRES_MV 283
+#define VINP_NORMALIZED_TO_MV 1700
+
+/* hp trim */
+#ifdef ANALOG_HPTRIM
+#define HPTRIM_L_SHIFT 0
+#define HPTRIM_R_SHIFT 4
+#define HPFINETRIM_L_SHIFT 8
+#define HPFINETRIM_R_SHIFT 10
+#define HPTRIM_EN_SHIFT 12
+#define HPTRIM_L_MASK (0xf << HPTRIM_L_SHIFT)
+#define HPTRIM_R_MASK (0xf << HPTRIM_R_SHIFT)
+#define HPFINETRIM_L_MASK (0x3 << HPFINETRIM_L_SHIFT)
+#define HPFINETRIM_R_MASK (0x3 << HPFINETRIM_R_SHIFT)
+#define HPTRIM_EN_MASK (0x1 << HPTRIM_EN_SHIFT)
+#endif
+
+/* dc trim */
+#ifdef ANALOG_HPTRIM
+#define TRIM_TIMES 7
+#else
+#define TRIM_TIMES 26
+#endif
+#define TRIM_DISCARD_NUM 1
+#define TRIM_USEFUL_NUM (TRIM_TIMES - (TRIM_DISCARD_NUM * 2))
+
+/* headphone impedance detection */
+#define PARALLEL_OHM 0
+
+/* codec name */
+#define CODEC_MT6358_NAME "mtk-codec-mt6358"
+#define DEVICE_MT6358_NAME "mt6358-sound"
+
 /* set only during init */
+int mt6358_set_codec_ops(struct snd_soc_component *cmpnt,
+			 struct mt6358_codec_ops *ops);
 int mt6358_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
 			       int mtkaif_protocol);
 int mt6358_mtkaif_calibration_enable(struct snd_soc_component *cmpnt);
