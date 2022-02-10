@@ -17,6 +17,7 @@ struct dbg_internal {
 	u16 size;
 	u16 data_buffer_size;
 	void *data_buffer;
+	bool access_lock;
 };
 
 struct dbg_info {
