@@ -22,6 +22,7 @@
 #define TEE_SHM_MAPPED		BIT(0)	/* Memory mapped by the kernel */
 #define TEE_SHM_DMA_BUF		BIT(1)	/* Memory with dma-buf handle */
 #define TEE_SHM_EXT_DMA_BUF	BIT(2)	/* Memory with dma-buf handle */
+#define TEE_SHM_DMA_KERN_BUF	BIT(3)
 
 struct tee_device;
 struct tee_shm;
@@ -189,6 +190,9 @@ void isee_shm_pool_free(struct tee_shm_pool *pool);
  * @returns the driver_data pointer supplied to isee_register().
  */
 void *isee_get_drvdata(struct tee_device *teedev);
+
+struct tee_shm *isee_shm_kalloc(struct tee_context *ctx, size_t size, u32 flags);
+void isee_shm_kfree(struct tee_shm *shm);
 
 /**
  * isee_shm_alloc() - Allocate shared memory

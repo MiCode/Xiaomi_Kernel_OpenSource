@@ -44,7 +44,7 @@ static void tee_shm_release(struct tee_shm *shm)
 	} else {
 		struct tee_shm_pool_mgr *poolm;
 
-		if (shm->flags & TEE_SHM_DMA_BUF)
+		if ((shm->flags & TEE_SHM_DMA_BUF) || (shm->flags & TEE_SHM_DMA_KERN_BUF))
 			poolm = &teedev->pool->dma_buf_mgr;
 		else
 			poolm = &teedev->pool->private_mgr;
@@ -101,6 +101,84 @@ static struct dma_buf_ops tee_shm_dma_buf_ops = {
 	.map = tee_shm_op_kmap,
 	.mmap = tee_shm_op_mmap,
 };
+
+struct tee_shm *isee_shm_kalloc(struct tee_context *ctx, size_t size, u32 flags)
+{
+	struct tee_device *teedev = ctx->teedev;
+	struct tee_shm_pool_mgr *poolm = NULL;
+	struct tee_shm *shm;
+	void *ret;
+	int rc;
+
+	if (!(flags & TEE_SHM_MAPPED)) {
+		IMSG_ERROR(
+			"only mapped allocations supported\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	if ((flags & ~(TEE_SHM_MAPPED | TEE_SHM_DMA_KERN_BUF))) {
+		IMSG_ERROR("invalid shm flags 0x%x", flags);
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (!isee_device_get(teedev))
+		return ERR_PTR(-EINVAL);
+
+	if (!teedev->pool) {
+		/* teedev has been detached from driver */
+		ret = ERR_PTR(-EINVAL);
+		goto err_dev_put;
+	}
+
+	shm = kzalloc(sizeof(*shm), GFP_KERNEL);
+	if (!shm) {
+		ret = ERR_PTR(-ENOMEM);
+		goto err_dev_put;
+	}
+
+	shm->flags = flags;
+	shm->teedev = teedev;
+	shm->ctx = ctx;
+	if (flags & TEE_SHM_DMA_KERN_BUF)
+		poolm = &teedev->pool->dma_buf_mgr;
+	else
+		poolm = &teedev->pool->private_mgr;
+
+	rc = poolm->ops->alloc(poolm, shm, size);
+	if (rc) {
+		ret = ERR_PTR(rc);
+		goto err_kfree;
+	}
+
+	mutex_lock(&teedev->mutex);
+	shm->id = idr_alloc(&teedev->idr, shm, 1, 0, GFP_KERNEL);
+	mutex_unlock(&teedev->mutex);
+	if (shm->id < 0) {
+		ret = ERR_PTR(shm->id);
+		goto err_pool_free;
+	}
+
+	mutex_lock(&teedev->mutex);
+	list_add_tail(&shm->link, &ctx->list_shm);
+	mutex_unlock(&teedev->mutex);
+
+	return shm;
+
+err_pool_free:
+	poolm->ops->free(poolm, shm);
+err_kfree:
+	kfree(shm);
+err_dev_put:
+	isee_device_put(teedev);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(isee_shm_kalloc);
+
+void isee_shm_kfree(struct tee_shm *shm)
+{
+	tee_shm_release(shm);
+}
+EXPORT_SYMBOL_GPL(isee_shm_kfree);
 
 /**
  * isee_shm_alloc() - Allocate shared memory
