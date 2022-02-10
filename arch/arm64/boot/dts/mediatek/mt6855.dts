@@ -6851,6 +6851,7 @@
 			ccorr_bit = <13>;
 			ccorr_num_per_pipe = <1>;
 			ccorr_linear_per_pipe = <0x01>;
+			ccorr_prim_force_linear = <0x0>;
 		};
 
 		disp_aal0: disp_aal0@1400d000 {
