@@ -230,7 +230,7 @@ static bool spm_sodi_is_not_gpt_event(
 	static int by_md2ap_count;
 	bool logout = false;
 
-	if ((wakesta->r12 & R12_APXGPT1_EVENT_B) == 0) {
+	if ((wakesta->r12 & R12_SYS_TIMER_EVENT_B) == 0) {
 		if (wakesta->r12 & R12_MD2AP_PEER_EVENT_B) {
 			/* wake up by R12_MD2AP_PEER_EVENT_B */
 			if ((by_md2ap_count >= 5) ||
