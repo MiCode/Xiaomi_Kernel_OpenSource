@@ -6733,7 +6733,8 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	/* mml need to power on InlineRotate and sync with mml */
-	if (need_sync_mml)
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY) &&
+		need_sync_mml)
 		mml_cmdq_pkt_init(crtc, cmdq_handle);
 
 	if (old_crtc_state != NULL)
