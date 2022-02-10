@@ -687,7 +687,8 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		gs[GS_RDMA_FIFO_UNDERFLOW_EN] = 0;
 	} else {
 		gs[GS_RDMA_FIFO_SIZE] = fifo_size;
-		gs[GS_RDMA_FIFO_UNDERFLOW_EN] = 1;
+		if (!rdma->data->disable_underflow)
+			gs[GS_RDMA_FIFO_UNDERFLOW_EN] = 1;
 	}
 
 	/* DISP_RDMA_MEM_GMC_SETTING_2 */
@@ -1774,6 +1775,7 @@ static const struct mtk_disp_rdma_data mt6855_rdma_driver_data = {
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
 	.dsi_buffer = false,
+	.disable_underflow = true,
 };
 
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {

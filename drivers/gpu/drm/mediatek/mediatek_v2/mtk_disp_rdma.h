@@ -25,6 +25,7 @@ struct mtk_disp_rdma_data {
 	bool is_support_34bits;
 	bool dsi_buffer;
 	bool rdma_irq_ts_debug;
+	bool disable_underflow;
 };
 
 #endif
