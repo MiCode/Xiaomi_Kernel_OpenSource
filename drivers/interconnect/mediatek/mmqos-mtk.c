@@ -193,10 +193,12 @@ static void set_comm_icc_bw(struct common_node *comm_node)
 	list_for_each_entry(comm_port_node, &comm_node->comm_port_list, list) {
 		mutex_lock(&comm_port_node->bw_lock);
 		avg_bw += comm_port_node->latest_avg_bw;
-		normalize_peak_bw = MULTIPLY_RATIO(comm_port_node->latest_peak_bw)
+		if (comm_port_node->hrt_type < HRT_TYPE_NUM) {
+			normalize_peak_bw = MULTIPLY_RATIO(comm_port_node->latest_peak_bw)
 						/ mtk_mmqos_get_hrt_ratio(
 						comm_port_node->hrt_type);
-		peak_bw += normalize_peak_bw;
+			peak_bw += normalize_peak_bw;
+		}
 		mutex_unlock(&comm_port_node->bw_lock);
 	}
 
@@ -371,12 +373,15 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 			}
 		}
 
-		if (larb_port_node->base->mix_bw)
+		if (larb_port_node->base->mix_bw) {
 			value = SHIFT_ROUND(
 				icc_to_MBps(larb_port_node->base->mix_bw),
 				larb_port_node->bw_ratio);
-		else
+			if (src->peak_bw)
+				value = SHIFT_ROUND(value * 3, 1);
+		} else {
 			larb_port_node->is_max_ostd = false;
+		}
 		if (value > mmqos->max_ratio || larb_port_node->is_max_ostd)
 			value = mmqos->max_ratio;
 		if (mmqos_state & OSTD_ENABLE)
@@ -425,7 +430,7 @@ static int mtk_mmqos_aggregate(struct icc_node *node,
 				larb_port_node->is_max_ostd = true;
 				mix_bw = max_t(u32, avg_bw, 1000);
 			} else {
-				mix_bw = SHIFT_ROUND(peak_bw * 3, 1);
+				mix_bw = peak_bw;
 			}
 		}
 		break;
