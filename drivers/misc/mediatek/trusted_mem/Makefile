@@ -71,10 +71,12 @@ endif
 # MTEE Multiple Chunk Devices & Geniezone Peer Driver
 #==========================================================================
 ifneq ($(filter y m,$(CONFIG_MTK_PROT_MEM_SUPPORT) \
-		  $(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)),)
+		$(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT) \
+		$(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)),)
 trusted_mem-y += mtee_devices.o
 ccflags-y += -DMTEE_DEVICES_SUPPORT
 endif
+
 ifneq ($(filter y m,$(CONFIG_MTK_GZ_KREE)),)
 trusted_mem-y += mtee_impl/mtee_ops.o
 trusted_mem-y += mtee_impl/mtee_invoke.o
