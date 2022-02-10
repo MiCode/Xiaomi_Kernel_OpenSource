@@ -192,9 +192,12 @@ int mhi_dev_process_ring_element(struct mhi_dev_ring *ring, size_t offset)
 	/* get the element and invoke the respective callback */
 	el = &ring->ring_cache[offset];
 
-	mhi_log(MHI_MSG_VERBOSE, "evnt ptr : 0x%llx\n", el->tre.data_buf_ptr);
-	mhi_log(MHI_MSG_VERBOSE, "evnt len : 0x%x, offset:%lu\n",
+	if (ring->type == RING_TYPE_CH) {
+		mhi_log(MHI_MSG_VERBOSE, "TRE data buff ptr : 0x%llx\n",
+						el->tre.data_buf_ptr);
+		mhi_log(MHI_MSG_VERBOSE, "TRE len : 0x%x, rd_offset:%lu\n",
 						el->tre.len, offset);
+	}
 
 	if (ring->ring_cb)
 		return ring->ring_cb(ring->mhi_dev, el, (void *)ring);
@@ -209,13 +212,12 @@ EXPORT_SYMBOL(mhi_dev_process_ring_element);
 int mhi_dev_process_ring(struct mhi_dev_ring *ring)
 {
 	int rc = 0;
-	union mhi_dev_ring_element_type *el;
 
 	if (WARN_ON(!ring))
 		return -EINVAL;
 
 	mhi_log(MHI_MSG_VERBOSE,
-			"Before wr update ring_id (%d) element (%lu) with wr:%lu\n",
+			"Before wr update ring_id (%d) rp:%lu wp:%lu\n",
 			ring->id, ring->rd_offset, ring->wr_offset);
 
 	rc = mhi_dev_update_wr_offset(ring);
@@ -226,36 +228,35 @@ int mhi_dev_process_ring(struct mhi_dev_ring *ring)
 		return rc;
 	}
 
-	/* get the element and invoke the respective callback */
-	el = &ring->ring_cache[ring->wr_offset];
+	mhi_log(MHI_MSG_VERBOSE,
+			"After wp update ring_id (%d) rp:%lu with wr:%lu\n",
+			ring->id, ring->rd_offset, ring->wr_offset);
 
-	mhi_log(MHI_MSG_VERBOSE, "evnt ptr : 0x%llx\n", el->tre.data_buf_ptr);
-	mhi_log(MHI_MSG_VERBOSE, "evnt len : 0x%x, wr_offset:%lu\n",
-						el->tre.len, ring->wr_offset);
-
+	/*
+	 * Notify the clients that there are elements in the ring.
+	 * For channels, simply notify client for the first element (no need to
+	 * notify for all the elements) and return (no need to update rd
+	 * pointer). When client consumes the elements, rp will be updated.
+	 */
 	if (ring->type == RING_TYPE_CH) {
-		/* notify the clients that there are elements in the ring */
 		rc = mhi_dev_process_ring_element(ring, ring->rd_offset);
 		if (rc)
 			pr_err("Error fetching elements\n");
 		return rc;
 	}
-	mhi_log(MHI_MSG_VERBOSE,
-			"After ring update ring_id (%d) element (%lu) with wr:%lu\n",
-			ring->id, ring->rd_offset, ring->wr_offset);
 
 	while (ring->rd_offset != ring->wr_offset) {
-		rc = mhi_dev_process_ring_element(ring, ring->rd_offset);
-		if (rc) {
-			mhi_log(MHI_MSG_ERROR,
-				"Error processing ring (%d) element (%lu)\n",
-				ring->id, ring->rd_offset);
-			return rc;
-		}
-
 		mhi_log(MHI_MSG_VERBOSE,
 			"Processing ring (%d) rd_offset:%lu, wr_offset:%lu\n",
 			ring->id, ring->rd_offset, ring->wr_offset);
+
+		rc = mhi_dev_process_ring_element(ring, ring->rd_offset);
+		if (rc) {
+			mhi_log(MHI_MSG_ERROR,
+				"Error processing ring (%d) element(rp) (%lu)\n",
+				ring->id, ring->rd_offset);
+			return rc;
+		}
 
 		mhi_dev_ring_inc_index(ring, ring->rd_offset);
 	}
