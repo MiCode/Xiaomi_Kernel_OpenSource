@@ -134,6 +134,8 @@ typedef bool (*MdpVcpPQReadbackSupport) (void);
 typedef void (*MdpVcpPQReadback) (struct cmdqRecStruct *handle,
 	u16 engine, u32 vcp_offset, u32 count);
 
+typedef bool (*MdpSvpSupportMetaData) (void);
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
 	CmdqGetRequest getRequest;
@@ -197,6 +199,7 @@ struct cmdqMDPFuncStruct {
 	MdpCheckIsCaminSupport mdpIsCaminSupport;
 	MdpVcpPQReadbackSupport mdpVcpPQReadbackSupport;
 	MdpVcpPQReadback mdpVcpPQReadback;
+	MdpSvpSupportMetaData mdpSvpSupportMetaData;
 
 };
 

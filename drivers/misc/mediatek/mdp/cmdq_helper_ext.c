@@ -3236,9 +3236,10 @@ static void cmdq_core_clk_enable(struct cmdqRecStruct *handle)
 				handle->pkt->cl)->chan);
 	}
 #ifdef CMDQ_SECURE_PATH_SUPPORT
-		else {
-			cmdq_sec_mbox_enable(((struct cmdq_client *)
-				handle->pkt->cl)->chan);
+	else {
+		cmdq_sec_mbox_enable(((struct cmdq_client *)
+			handle->pkt->cl)->chan);
+	}
 #endif
 	cmdq_mdp_reset_resource();
 
@@ -4603,7 +4604,7 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 		}
 
 		cmdq_clients[chan_id] = clt;
-		CMDQ_LOG("chan %d 0x%p dev:0x%p\n",
+		CMDQ_LOG("chan_id %d 0x%p dev:0x%p\n",
 			chan_id, cmdq_clients[chan_id]->chan, dev);
 
 		if (!cmdq_entry && chan_id >= CMDQ_DYNAMIC_THREAD_ID_START)
@@ -4684,8 +4685,7 @@ void cmdq_core_initialize(void)
 		if (!cmdq_clients[index])
 			cmdq_ctx.thread[index].used = true;
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_PATH_SUPPORT
 	/* for secure path reserve irq notify thread */
 	cmdq_ctx.thread[CMDQ_SEC_IRQ_THREAD].used = true;
 #endif

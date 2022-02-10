@@ -41,22 +41,12 @@ endif
 # dump mdp command
 #ccflags-y += -DMDP_COMMAND_SIMULATE
 
-# secure path
-ifeq ($(or $(strip $(CONFIG_TRUSTONIC_TEE_SUPPORT)), $(strip $(CONFIG_MICROTRUST_TEE_SUPPORT))),y)
-ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
+# Secure path for SVP/HDCP/SecCam
+ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),m)
+ifeq ($(CONFIG_MTK_MDP_MTEE_SUPPORT),m)
 ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
-endif	# end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT or CONFIG_MTK_CAM_SECURITY_SUPPORT
-endif	# end of CONFIG_TRUSTONIC_TEE_SUPPORT or CONFIG_MICROTRUST_TEE_SUPPORT
-
-# secure path
-# use CONFIG_MTK_CMDQ_MBOX_EXT support
-# secure path
-ifeq ($(or $(strip $(CONFIG_TRUSTONIC_TEE_SUPPORT)), $(strip $(CONFIG_MICROTRUST_TEE_SUPPORT)), \
-	$(strip $(CONFIG_MTK_ENABLE_GENIEZONE))),y)
-ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
-ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
-endif	# end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT or CONFIG_MTK_CAM_SECURITY_SUPPORT
-endif	# end of CONFIG_TRUSTONIC_TEE_SUPPORT or CONFIG_MICROTRUST_TEE_SUPPORT
+endif
+endif
 
 # platform dependent definition
 ifneq ($(strip $(CONFIG_MTK_GMO_RAM_OPTIMIZE)),y)

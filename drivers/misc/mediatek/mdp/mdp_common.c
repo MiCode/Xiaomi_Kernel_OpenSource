@@ -1210,15 +1210,21 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	void *addr_meta = NULL;
 	u32 addr_meta_size;
 	struct cmdq_client *cl = NULL;
+	bool is_sec_meta_data_support;
 
 	/* set secure data */
 	handle->secStatus = NULL;
 	if (!secData || !secData->is_secure)
 		return 0;
 
-	CMDQ_MSG("%s start:%d, %d\n", __func__,
-		secData->is_secure, secData->addrMetadataCount);
-	if (!secData->addrMetadataCount) {
+	is_sec_meta_data_support =
+		cmdq_mdp_get_func()->mdpSvpSupportMetaData();
+
+	CMDQ_MSG("%s start:%d, %d, %d\n",
+		__func__, secData->is_secure,
+		secData->addrMetadataCount, is_sec_meta_data_support);
+
+	if (is_sec_meta_data_support && !secData->addrMetadataCount) {
 		CMDQ_ERR(
 			"[secData]mismatch is_secure %d and addrMetadataCount %d\n",
 			secData->is_secure,
@@ -1261,28 +1267,33 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	cmdq_sec_pkt_set_data(handle->pkt, dapc, port,
 		CMDQ_SEC_USER_MDP, meta_type);
 
-	addr_meta_size = secData->addrMetadataCount *
-		sizeof(struct cmdqSecAddrMetadataStruct);
-	addr_meta = kmalloc(addr_meta_size, GFP_KERNEL);
-	if (!addr_meta) {
-		CMDQ_ERR("%s: allocate size fail:%u\n",
-			__func__, addr_meta_size);
-		return -ENOMEM;
-	}
+	if (is_sec_meta_data_support) {
+		addr_meta_size = secData->addrMetadataCount *
+			sizeof(struct cmdqSecAddrMetadataStruct);
+		addr_meta = kmalloc(addr_meta_size, GFP_KERNEL);
+		if (!addr_meta) {
+			CMDQ_ERR("%s: allocate size fail:%u\n",
+				__func__, addr_meta_size);
+			return -ENOMEM;
+		}
 
-	if (copy_from_user(addr_meta, user_addr_meta, addr_meta_size)) {
-		CMDQ_ERR("%s: fail to copy user addr meta\n", __func__);
-		kfree(addr_meta);
-		return -EFAULT;
+		if (copy_from_user(addr_meta, user_addr_meta, addr_meta_size)) {
+			CMDQ_ERR("%s: fail to copy user addr meta\n", __func__);
+			kfree(addr_meta);
+			return -EFAULT;
+		}
+		cmdq_sec_pkt_assign_metadata(handle->pkt,
+			secData->addrMetadataCount,
+			addr_meta);
 	}
-	cmdq_sec_pkt_assign_metadata(handle->pkt,
-		secData->addrMetadataCount,
-		addr_meta);
 
 	cmdq_sec_pkt_set_mtee(handle->pkt,
 		cmdq_mdp_get_func()->mdpIsMtee(handle));
-	CMDQ_LOG("handle:%p mtee:%d\n", handle,
-		((struct cmdq_sec_data *)handle->pkt->sec_data)->mtee);
+
+	CMDQ_LOG("%s done, handle:%p mtee:%d dapc:%#llx port:%#llx engine:%#llx\n",
+		__func__, handle,
+		((struct cmdq_sec_data *)handle->pkt->sec_data)->mtee,
+		dapc, port, handle->engineFlag);
 
 	kfree(addr_meta);
 	return 0;
@@ -3020,7 +3031,7 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 		rb->count += 16;
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	if (handle->secData.is_secure)
-		rb->engine = engine - CMDQ_ENG_MDP_AAL0 + CMDQ_SEC_MDP_AAL0;
+		rb->engine = pipe + CMDQ_SEC_MDP_AAL0;
 	else
 #endif
 		rb->engine = engine;
@@ -3169,7 +3180,7 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	rb->count = 58;
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	if (handle->secData.is_secure)
-		rb->engine = engine - CMDQ_ENG_MDP_HDR0 + CMDQ_SEC_MDP_HDR0;
+		rb->engine = pipe + CMDQ_SEC_MDP_HDR0;
 	else
 #endif
 		rb->engine = engine;
@@ -3271,6 +3282,11 @@ void mdp_vcp_pq_readback_virtual(struct cmdqRecStruct *handle,
 	CMDQ_ERR("%s no support\n", __func__);
 }
 
+static bool mdp_svp_support_meta_data_virtual(void)
+{
+	return true;
+}
+
 void cmdq_mdp_virtual_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc;
@@ -3346,6 +3362,7 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
 	pFunc->mdpVcpPQReadbackSupport = mdp_vcp_pq_readback_support_virtual;
 	pFunc->mdpVcpPQReadback = mdp_vcp_pq_readback_virtual;
+	pFunc->mdpSvpSupportMetaData = mdp_svp_support_meta_data_virtual;
 
 }
 
