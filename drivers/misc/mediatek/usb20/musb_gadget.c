@@ -1770,7 +1770,7 @@ static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *request)
 	if (!ep || !request || to_musb_request(request)->ep != musb_ep)
 		return -EINVAL;
 
-	disable_irq(musb->nIrq);
+	disable_irq_nosync(musb->nIrq);
 
 	spin_lock_irqsave(&musb->lock, flags);
 
