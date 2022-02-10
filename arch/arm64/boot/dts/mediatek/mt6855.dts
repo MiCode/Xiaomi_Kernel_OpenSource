@@ -835,7 +835,7 @@
 		compatible = "mediatek,lastbus";
 		enabled = <1>;
 		sw_version = <1>;
-		timeout_ms = <10>;
+		timeout_ms = <200>;
 		timeout_type = <0>;
 		monitors {
 			monitor1 {
