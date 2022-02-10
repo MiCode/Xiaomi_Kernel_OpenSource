@@ -2498,6 +2498,10 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 		max_throughput = pmqos_curr_record->mdp_throughput;
 	}
 
+	if (likely(mdp_pmqos_freq))
+		max_throughput = min_t(u32, max_throughput,
+			mdp_pmqos_freq[mdp_pmqos_opp_num - 1]);
+
 	if (!target_pmqos) {
 		CMDQ_ERR("%s no target_pmqos\n", __func__);
 		goto done;
@@ -2780,6 +2784,10 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				max_throughput);
 		}
 	}
+
+	if (likely(mdp_pmqos_freq))
+		max_throughput = min_t(u32, max_throughput,
+			mdp_pmqos_freq[mdp_pmqos_opp_num - 1]);
 
 	DP_BANDWIDTH(
 		mdp_data_size,
