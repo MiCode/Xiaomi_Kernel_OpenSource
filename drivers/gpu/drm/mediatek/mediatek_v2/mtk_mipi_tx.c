@@ -14,7 +14,6 @@
 #include "mtk_log.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_drv.h"
-#include "mtk_panel_ext.h"
 #include "mtk_dump.h"
 #include "mtk_mipi_tx.h"
 #include "platform/mtk_drm_6789.h"
@@ -804,7 +803,6 @@ int mtk_mipi_tx_ssc_en(struct phy *phy, struct mtk_panel_ext *mtk_panel)
 
 	DDPINFO("%s+\n", __func__);
 	if (mtk_panel->params->ssc_enable) {
-
 		data_rate = mtk_panel->params->data_rate;
 
 		if (data_rate >= 6000) {
@@ -834,6 +832,52 @@ int mtk_mipi_tx_ssc_en(struct phy *phy, struct mtk_panel_ext *mtk_panel)
 		}
 
 		pdelta1 = data_rate / 2 * txdiv * div3 * 5 / 26 * 262144 / 1000 / 433;
+
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_DELTA1_MT6983, pdelta1);
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_DELTA_MT6983, pdelta1 << 16);
+
+		ssc_prd = 0x1b1;//fix
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON2_MT6983,
+						FLD_RG_DSI_PLL_SDM_SSC_PRD_MT6983, ssc_prd << 16);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_CON2_MT6983,
+						mipi_tx->driver_data->dsi_ssc_en);
+
+		DDPINFO("set ssc enabled\n");
+	}
+	return 0;
+}
+
+int mtk_mipi_tx_ssc_en_N6(struct phy *phy, struct mtk_panel_ext *mtk_panel)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+	unsigned int data_rate;
+	u16 pdelta1, ssc_prd;
+	u8 txdiv;
+	unsigned int delta1 = 5; /* Delta1 is SSC range, default is 0%~-5% */
+
+	DDPINFO("%s+\n", __func__);
+	if (mtk_panel->params->ssc_enable) {
+		data_rate = mtk_panel->params->data_rate;
+
+		if (data_rate >= 2000)
+			txdiv = 1;
+		else if (data_rate >= 1000)
+			txdiv = 2;
+		else if (data_rate >= 500)
+			txdiv = 4;
+		else if (data_rate > 250)
+			txdiv = 8;
+		else if (data_rate >= 125)
+			txdiv = 16;
+		else
+			return -EINVAL;
+
+		delta1 = (mtk_panel->params->ssc_range == 0) ?
+			delta1 : mtk_panel->params->ssc_range;
+
+		pdelta1 = data_rate * txdiv * delta1 / 26 * 262144 / 1000 / 433;
 
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3_MT6983,
 						FLD_RG_DSI_PLL_SDM_SSC_DELTA1_MT6983, pdelta1);
@@ -3334,6 +3378,7 @@ static const struct mtk_mipitx_data mt2701_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw,
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
 };
 
 static const struct mtk_mipitx_data mt6779_mipitx_data = {
@@ -3360,6 +3405,7 @@ static const struct mtk_mipitx_data mt6779_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw,
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
 };
 
 static const struct mtk_mipitx_data mt6885_mipitx_data = {
@@ -3386,6 +3432,7 @@ static const struct mtk_mipitx_data mt6885_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw,
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
 };
 
 static const struct mtk_mipitx_data mt6885_mipitx_cphy_data = {
@@ -3439,6 +3486,7 @@ static const struct mtk_mipitx_data mt6983_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw_mt6983,
 	.backup_mipitx_impedance = backup_mipitx_impedance_mt6983,
 	.refill_mipitx_impedance = refill_mipitx_impedance_mt6983,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
 };
 
 static const struct mtk_mipitx_data mt6895_mipitx_data = {
@@ -3467,6 +3515,7 @@ static const struct mtk_mipitx_data mt6895_mipitx_data = {
 	.backup_mipitx_impedance = backup_mipitx_impedance_mt6983,
 	.refill_mipitx_impedance = refill_mipitx_impedance_mt6983,
 	.pll_rate_switch_gce = mtk_mipi_tx_pll_rate_switch_gce_mt6895,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
 };
 
 static const struct mtk_mipitx_data mt6983_mipitx_cphy_data = {
@@ -3547,6 +3596,7 @@ static const struct mtk_mipitx_data mt6873_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw,
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
 };
 
 static const struct mtk_mipitx_data mt6873_mipitx_cphy_data = {
@@ -3599,6 +3649,7 @@ static const struct mtk_mipitx_data mt6853_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw,
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
 };
 
 static const struct mtk_mipitx_data mt6833_mipitx_data = {
@@ -3625,6 +3676,7 @@ static const struct mtk_mipitx_data mt6833_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw,
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
 };
 
 static const struct mtk_mipitx_data mt6833_mipitx_cphy_data = {
@@ -3677,6 +3729,7 @@ static const struct mtk_mipitx_data mt6879_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw,
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
 };
 
 static const struct mtk_mipitx_data mt6879_mipitx_cphy_data = {
@@ -3730,6 +3783,7 @@ static const struct mtk_mipitx_data mt6855_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw,
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en_N6,
 };
 
 static const struct mtk_mipitx_data mt6855_mipitx_cphy_data = {
@@ -3785,6 +3839,7 @@ static const struct mtk_mipitx_data mt8173_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw,
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
 };
 
 static const struct of_device_id mtk_mipi_tx_match[] = {

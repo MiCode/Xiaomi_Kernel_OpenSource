@@ -8,6 +8,7 @@
 
 #include <linux/phy/phy.h>
 #include <linux/clk-provider.h>
+#include "mtk_panel_ext.h"
 
 #define MIPITX_LANE_CON (0x000CUL)
 #define MIPITX_VOLTAGE_SEL (0x0010UL)
@@ -141,6 +142,7 @@ struct mtk_mipitx_data {
 	void (*backup_mipitx_impedance)(struct mtk_mipi_tx *mipi_tx);
 	void (*refill_mipitx_impedance)(struct mtk_mipi_tx *mipi_tx);
 	void (*pll_rate_switch_gce)(struct phy *phy, void *handle, unsigned long rate);
+	int (*mipi_tx_ssc_en)(struct phy *phy, struct mtk_panel_ext *mtk_panel);
 };
 
 struct mtk_panel_ext;

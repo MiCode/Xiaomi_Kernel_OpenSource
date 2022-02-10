@@ -1010,6 +1010,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 	struct mtk_drm_private *priv = dsi->ddp_comp.mtk_crtc->base.dev->dev_private;
 	struct device *dev = dsi->dev;
 	int ret;
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(dsi->phy);
 
 	DDPDBG("%s+\n", __func__);
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
@@ -1046,8 +1047,8 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		}
 
 		if (dsi->ext) {
-			if (dsi->ext->params->ssc_enable)
-				mtk_mipi_tx_ssc_en(dsi->phy, dsi->ext);
+			if (dsi->ext->params->ssc_enable && mipi_tx->driver_data->mipi_tx_ssc_en)
+				mipi_tx->driver_data->mipi_tx_ssc_en(dsi->phy, dsi->ext);
 		}
 
 		pm_runtime_get_sync(dsi->host.dev);
