@@ -11,4 +11,28 @@
 	stdout-path = "/soc/qcom,qup_uart@994000:115200n8";
 };
 
+&firmware {
+	qcom_scm {
+		compatible = "qcom,scm";
+	};
 
+	android {
+		compatible = "android,firmware";
+		vbmeta {
+			compatible = "android,vbmeta";
+			parts = "vbmeta,boot,system,vendor,dtbo,recovery";
+		};
+
+		fstab {
+			compatible = "android,fstab";
+			vendor {
+				compatible = "android,vendor";
+				dev = "/dev/block/platform/soc/7c4000.sdhci/by-name/vendor";
+				type = "ext4";
+				mnt_flags = "ro,barrier=1,discard";
+				fsmgr_flags = "wait,slotselect";
+				status = "ok";
+			};
+		};
+	};
+};
