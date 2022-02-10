@@ -2421,7 +2421,7 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x11201000 0 0x2e00>,
 			<0 0x11203e00 0 0x0100>;
 		reg-names = "mac", "ippc";
-		/* vusb33-supply = <&mt_pmic_vusb_ldo_reg>; */
+		vusb33-supply = <&mt_pmic_vusb_ldo_reg>;
 		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
 		phy-cells = <1>;
 		phys = <&u2port0 PHY_TYPE_USB2>,
@@ -2433,10 +2433,12 @@ page_owner=on loop.max_part=7";
 		#size-cells = <2>;
 		ranges;
 		dr_mode = "otg";
-		mediatek,force-vbus = <1>;
-		mediatek,clk-mgr = <1>;
-		mediatek,spm-mgr = <1>;
 		maximum-speed = "high-speed";
+		mediatek,force-vbus;
+		mediatek,clk-mgr;
+		mediatek,spm-mgr;
+		mediatek,usb3-drd;
+		mediatek,noise-still-tr;
 		usb-role-switch;
 		status = "okay";
 

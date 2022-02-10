@@ -6004,10 +6004,12 @@
 		#size-cells = <2>;
 		ranges;
 		dr_mode = "otg";
-		mediatek,force-vbus = <1>;
-		mediatek,clk-mgr = <1>;
-		mediatek,spm-mgr = <1>;
 		maximum-speed = "high-speed";
+		mediatek,force-vbus;
+		mediatek,clk-mgr;
+		mediatek,spm-mgr;
+		mediatek,usb3-drd;
+		mediatek,noise-still-tr;
 		usb-role-switch;
 		status = "okay";
 
