@@ -38,12 +38,12 @@ DEBUG_SET_LEVEL(DEBUG_LEVEL_ERR);
 
 struct work_struct *avc_work;
 
-static uint32_t g_ro_avc_handle;
-static uint32_t g_ro_cred_handle;
-static struct page *avc_pages;
-static struct page *cred_pages;
-int avc_array_sz;
-int cred_array_sz;
+static uint32_t g_ro_avc_handle __ro_after_init;
+static uint32_t g_ro_cred_handle __ro_after_init;
+static struct page *avc_pages __ro_after_init;
+static struct page *cred_pages __ro_after_init;
+int avc_array_sz __ro_after_init;
+int cred_array_sz __ro_after_init;
 int rem;
 static bool g_initialized;
 static struct selinux_avc *g_avc;
