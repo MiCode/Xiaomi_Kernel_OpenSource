@@ -1232,7 +1232,7 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 
 int32_t cmdqMdpClockOff(uint64_t engineFlag)
 {
-	CMDQ_LOG("%s, engineFlag: 0x%llx\n", __func__, engineFlag);
+	CMDQ_MSG("%s, engineFlag: 0x%llx\n", __func__, engineFlag);
 
 #ifdef CMDQ_PWR_AWARE
 
