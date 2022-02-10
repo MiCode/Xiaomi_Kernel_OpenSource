@@ -79,32 +79,11 @@
 			<&imp_iic_wrap_w_clk CLK_IMPW_I2C0_AP_CLOCK>,
 			<&imp_iic_wrap_w_clk CLK_IMPW_I2C5_AP_CLOCK>,
 			<&imp_iic_wrap_w_clk CLK_IMPW_I3C7_AP_CLOCK>,
-			<&imp_iic_wrap_n_clk CLK_IMPN_I2C6_AP_CLOCK>,
-			<&mfg_top_config_clk CLK_MFGCFG_BG3D>;
+			<&imp_iic_wrap_n_clk CLK_IMPN_I2C6_AP_CLOCK>;
 	};
 
 	bring-up-pd-disp {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
-	};
-
-	bring-up-pd-mfg0 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_MFG0>;
-	};
-
-	bring-up-pd-mfg1 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_MFG1>;
-	};
-
-	bring-up-pd-mfg2 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_MFG2>;
-	};
-
-	bring-up-pd-mfg3 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_MFG3>;
 	};
 };
