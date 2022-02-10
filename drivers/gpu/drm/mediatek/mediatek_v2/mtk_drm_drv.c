@@ -1319,8 +1319,8 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 			mtk_plane_state->mml_mode = MML_MODE_RACING;
 
 			// release previous mml_cfg
-			if (mtk_plane_state->pending.mml_cfg)
-				mtk_free_mml_submit(mtk_plane_state->pending.mml_cfg);
+			if (mtk_plane_state->mml_cfg)
+				mtk_free_mml_submit(mtk_plane_state->mml_cfg);
 			mtk_plane_state->mml_cfg = submit_pq;
 
 			// release previous mml_cfg

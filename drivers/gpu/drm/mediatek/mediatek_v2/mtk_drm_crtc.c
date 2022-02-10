@@ -5760,7 +5760,9 @@ skip:
 			PMQOS_UPDATE_BW, NULL);
 
 	/* 3.1 stop the last mml pkt */
-	if (mtk_crtc->is_mml)
+	if (mtk_crtc->is_mml &&
+		!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+		mtk_crtc_is_connector_enable(mtk_crtc))
 		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle);
 
 	cmdq_pkt_flush(cmdq_handle);
