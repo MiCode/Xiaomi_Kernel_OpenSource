@@ -2021,7 +2021,7 @@ module_platform_driver(mt_usb_driver);
 
 static int __init usb20_init(void)
 {
-	int ret;
+	int ret = 0;
 
 	DBG(0, "usb20 init\n");
 
