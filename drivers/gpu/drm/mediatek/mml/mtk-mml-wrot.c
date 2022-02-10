@@ -2079,7 +2079,7 @@ static void wrot_debug_dump(struct mml_comp *comp)
 		(debug[2] >> 1) & 0x1, (debug[2] >> 2) & 0x1,
 		(debug[2] >> 3) & 0x1);
 	state = debug[2] & 0x1;
-	smi_req = (debug[18] >> 30) & 0x1;
+	smi_req = (debug[24] >> 30) & 0x1;
 	mml_err("WROT state: %#x (%s)", state, wrot_state(state));
 	mml_err("WROT x_cnt %u y_cnt %u",
 		debug[9] & 0xffff, (debug[9] >> 16) & 0xffff);
