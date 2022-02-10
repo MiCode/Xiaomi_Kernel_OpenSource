@@ -1235,7 +1235,7 @@ static void arm_smmu_tlb_add_walk_page(void *cookie, void *virt)
 	unsigned long flags;
 
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
-	smmu_domain->deferred_sync = true;
+	smmu_domain->deferred_flush = true;
 	page->freelist = smmu_domain->freelist;
 	smmu_domain->freelist = page;
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
@@ -1247,7 +1247,7 @@ static void arm_smmu_qcom_tlb_add_inv(void *cookie)
 	unsigned long flags;
 
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
-	smmu_domain->deferred_sync = true;
+	smmu_domain->deferred_flush = true;
 	spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
 }
 
@@ -2201,19 +2201,19 @@ static void __arm_smmu_flush_iotlb_all(struct iommu_domain *domain, bool force)
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
 	/*
 	 * iommu_flush_iotlb_all currently has 2 users which do not set
-	 * deferred_sync through qcom_iommu_pgtable_ops->tlb_add_inv
+	 * deferred_flush through qcom_iommu_pgtable_ops->tlb_add_inv
 	 * 1) GPU - old implementation uses upstream io-pgtable-arm.c
 	 * 2) fastmap
 	 * once these users have gone away, force parameter can be removed.
 	 */
-	if (!force && !smmu_domain->deferred_sync) {
+	if (!force && !smmu_domain->deferred_flush) {
 		spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
 		return;
 	}
 
 	smmu_domain->flush_ops->tlb_flush_all(smmu_domain);
 
-	smmu_domain->deferred_sync = false;
+	smmu_domain->deferred_flush = false;
 
 	freelist = smmu_domain->freelist;
 	smmu_domain->freelist = NULL;
