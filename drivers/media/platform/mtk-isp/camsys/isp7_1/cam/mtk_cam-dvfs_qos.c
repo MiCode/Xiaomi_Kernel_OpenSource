@@ -479,6 +479,7 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 	unsigned long vblank, fps, height, PBW_MB_s, ABW_MB_s;
 	unsigned int width_mbn = 0, height_mbn = 0;
 	unsigned int width_cpi = 0, height_cpi = 0;
+	bool is_raw_srt = mtk_cam_is_srt(pipe->hw_mode);
 
 	raw_mmqos = raw_qos + engine_id;
 
@@ -1020,14 +1021,14 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 			dev_info(cam->dev, "[%s] port idx/name:%2d/%16s BW(kB/s)(avg:%lu,peak:%lu)\n",
 			  __func__, qos_port_id, raw_mmqos->port[qos_port_id % raw_qos_port_num],
 			  BW_B2KB_WITH_RATIO(dvfs_info->qos_bw_avg[qos_port_id]),
-			  BW_B2KB(dvfs_info->qos_bw_peak[qos_port_id]));
+			  (is_raw_srt ? 0 : BW_B2KB(dvfs_info->qos_bw_peak[qos_port_id])));
 
 		if (dvfs_info->qos_req[qos_port_id])
 			mtk_icc_set_bw(dvfs_info->qos_req[qos_port_id],
 				kBps_to_icc(BW_B2KB_WITH_RATIO(
 					dvfs_info->qos_bw_avg[qos_port_id])),
-				kBps_to_icc(BW_B2KB(
-					dvfs_info->qos_bw_peak[qos_port_id])));
+				(is_raw_srt ? 0 : kBps_to_icc(BW_B2KB(
+					dvfs_info->qos_bw_peak[qos_port_id]))));
 	}
 	for (i = 0; i < MTK_CAM_SV_PORT_NUM; i++) {
 		if (dvfs_info->sv_qos_bw_avg[i] != 0) {

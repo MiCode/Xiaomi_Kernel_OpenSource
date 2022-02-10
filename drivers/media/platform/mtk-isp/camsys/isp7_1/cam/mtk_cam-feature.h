@@ -198,4 +198,7 @@ bool mtk_cam_hw_is_otf(struct mtk_cam_ctx *ctx);
 bool mtk_cam_hw_is_dc(struct mtk_cam_ctx *ctx);
 bool mtk_cam_hw_is_offline(struct mtk_cam_ctx *ctx);
 bool mtk_cam_hw_is_m2m(struct mtk_cam_ctx *ctx);
+
+bool mtk_cam_is_srt(int hw_mode);
+
 #endif /*__MTK_CAM_FEATURE_H */

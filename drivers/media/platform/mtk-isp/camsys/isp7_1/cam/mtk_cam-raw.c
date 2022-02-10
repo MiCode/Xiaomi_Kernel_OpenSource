@@ -1534,7 +1534,7 @@ static void init_dma_threshold(struct mtk_raw_device *dev)
 {
 	struct mtk_cam_device *cam_dev;
 	struct mtk_yuv_device *yuv_dev = get_yuv_dev(dev);
-	bool is_srt = (dev->pipeline->hw_mode == HW_MODE_DIRECT_COUPLED);
+	bool is_srt = mtk_cam_is_srt(dev->pipeline->hw_mode);
 	unsigned int raw_urgent, yuv_urgent;
 
 	cam_dev = dev->cam;

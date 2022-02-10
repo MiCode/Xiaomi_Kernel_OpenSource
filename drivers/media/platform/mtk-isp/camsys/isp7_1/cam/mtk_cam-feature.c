@@ -235,3 +235,8 @@ bool mtk_cam_hw_is_m2m(struct mtk_cam_ctx *ctx)
 	return mtk_cam_hw_mode_is_m2m(ctx->pipe->hw_mode_pending);
 }
 
+bool mtk_cam_is_srt(int hw_mode)
+{
+	return hw_mode == HW_MODE_DIRECT_COUPLED;
+}
+
