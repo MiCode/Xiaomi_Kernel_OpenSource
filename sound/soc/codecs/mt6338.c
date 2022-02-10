@@ -7152,7 +7152,7 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 
 	{"AIN0", NULL, "MIC_BIAS_0"},
 	{"AIN1", NULL, "MIC_BIAS_1"},
-	{"AIN2", NULL, "MIC_BIAS_0"},
+	{"AIN2", NULL, "MIC_BIAS_2"},
 	{"AIN3", NULL, "MIC_BIAS_3"},
 	{"AIN4", NULL, "MIC_BIAS_3"},
 	{"AIN5", NULL, "MIC_BIAS_0"},
