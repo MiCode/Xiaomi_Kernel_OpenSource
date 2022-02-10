@@ -4325,6 +4325,10 @@ static void mtk_iova_dbg_alloc(struct device *dev, struct iova_domain *iovad,
 	if (!iova) {
 		pr_info("%s fail! dev:%s, size:0x%zx\n",
 			__func__, dev_name(dev), size);
+
+		if (fwspec && MTK_M4U_TO_TAB(fwspec->ids[0]) == APU_TABLE)
+			mtk_iommu_iova_alloc_dump(NULL, dev);
+
 		return mtk_iommu_iova_alloc_dump_top(NULL, dev);
 	}
 
