@@ -2587,13 +2587,13 @@ static int mt_adc_3_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 
-	dev_dbg(priv->dev, "%s(), event = 0x%x\n", __func__, event);
+	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		usleep_range(100, 120);
-		/* Audio R preamplifier DCC precharge off */
-		regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON2,
+		/* Audio the 3rd preamplifier DCC precharge off */
+		regmap_update_bits(priv->regmap, MT6368_AUDENC_ANA_CON4,
 				   RG_AUDPREAMP3DCPRECHARGE_MASK_SFT,
 				   0x0);
 		break;
