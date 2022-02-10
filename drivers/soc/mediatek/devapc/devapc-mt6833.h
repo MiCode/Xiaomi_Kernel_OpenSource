@@ -769,7 +769,7 @@ static struct mtk_device_info mt6833_devices_peri[] = {
 	{-1, -1, 124, "OOB_way_en", true},
 	{-1, -1, 125, "OOB_way_en", true},
 	{-1, -1, 126, "OOB_way_en", true},
-	{-1, -1, 127, "OOB_way_en", true},
+	{-1, -1, 127, "OOB_way_en", false},
 	{-1, -1, 128, "OOB_way_en", true},
 	{-1, -1, 129, "OOB_way_en", true},
 	{-1, -1, 130, "OOB_way_en", true},
