@@ -15,6 +15,9 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/performance/perf_ioctl/ \
 		    -I$(srctree)/drivers/misc/mediatek/base/power/include/ \
 		    -I$(srctree)/drivers/misc/mediatek/include/
 
+ifeq ($(CONFIG_MACH_MT6739),y)
+subdir-ccflags-y += -DMTK_MT6739_MTK_CPU_FREQ
+endif
 
 obj-y += perfmgr_main.o
 obj-y += base/

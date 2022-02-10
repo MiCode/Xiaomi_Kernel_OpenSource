@@ -39,8 +39,12 @@ struct cpu_ctrl_data {
 unsigned int __attribute__ ((weak))  mt_cpufreq_get_freq_by_idx(
 	unsigned int cid, int idx) { return 0; }
 #else
+#ifdef MTK_MT6739_MTK_CPU_FREQ
+extern unsigned int mt_cpufreq_get_freq_by_idx(int id, int idx);
+#else
 static inline unsigned int mt_cpufreq_get_freq_by_idx(
 	int cid, int idx) { return 0; }
+#endif
 #endif
 
 extern int update_userlimit_cpu_freq(int kicker, int num_cluster

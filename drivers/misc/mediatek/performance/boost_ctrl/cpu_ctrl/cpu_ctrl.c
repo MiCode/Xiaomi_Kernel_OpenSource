@@ -350,24 +350,18 @@ static ssize_t perfmgr_boot_freq_proc_write(struct file *filp,
 			pr_debug("@%s: Invalid input: %s\n", __func__, tok);
 			goto out;
 		} else {
-			if (i % 2) /* max */
-#ifdef CONFIG_MTK_CPU_FREQ
+			if (i % 2) { /* max */
 				freq_limit[i/2].max =
 				(data < 0 || data > MAX_NR_FREQ - 1)
 				? -1 :
 				mt_cpufreq_get_freq_by_idx(i / 2, data);
-#else
-				freq_limit[i/2].max = -1;
-#endif
-			else /* min */
-#ifdef CONFIG_MTK_CPU_FREQ
+	}
+			else { /* min */
 				freq_limit[i/2].min =
 				(data < 0 || data > MAX_NR_FREQ - 1)
 				? -1 :
 				mt_cpufreq_get_freq_by_idx(i / 2, data);
-#else
-				freq_limit[i/2].min = -1;
-#endif
+	}
 			i++;
 		}
 	}
