@@ -443,7 +443,6 @@ config MSM_CDSP_LOADER
 config QTI_SYS_PM_VX
 	tristate "Qualcomm Technologies, Inc. (QTI) System PM Violators driver"
 	depends on QCOM_AOSS_QMP
-	depends on DEBUG_FS
 	help
 	  This option enables debug subystems that prevent system low power
 	  modes. The user sends a QMP message to AOP to record subsystems
