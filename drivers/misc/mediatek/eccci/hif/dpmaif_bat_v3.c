@@ -194,26 +194,28 @@ static inline void alloc_skb_to_tbl(int skb_cnt, int blocking)
 		if (skb_alloc(&skb_info->skb, &skb_info->base_addr,
 						pkt_buf_sz, blocking))
 			break;
+		/*
+		 * The wmb() flushes writes to dram before read g_skb_tbl data.
+		 */
+		wmb();
 
 		g_skb_tbl_wdx = get_ringbuf_next_idx(MAX_SKB_TBL_CNT,
 						g_skb_tbl_wdx, 1);
 	}
 }
 
-static inline struct temp_skb_info *get_skb_from_tbl(void)
+static inline int get_skb_from_tbl(struct temp_skb_info *skb_info)
 {
-	struct temp_skb_info *skb_info = NULL;
-
 	if (!get_ringbuf_used_cnt(MAX_SKB_TBL_CNT,
 				g_skb_tbl_rdx, g_skb_tbl_wdx))
-		return NULL;
+		return -1;
 
-	skb_info = &g_skb_tbl[g_skb_tbl_rdx];
+	(*skb_info) = g_skb_tbl[g_skb_tbl_rdx];
 
 	g_skb_tbl_rdx = get_ringbuf_next_idx(MAX_SKB_TBL_CNT,
 					g_skb_tbl_rdx, 1);
 
-	return skb_info;
+	return 0;
 }
 
 static inline int page_alloc(
@@ -265,21 +267,18 @@ fast_retry:
 	return 0;
 }
 
-static inline struct temp_page_info *get_page_from_tbl(void)
+static inline int get_page_from_tbl(struct temp_page_info *page_info)
 {
-	struct temp_page_info *page_info = NULL;
-
 	if (!get_ringbuf_used_cnt(MAX_FRG_TBL_CNT,
 				g_page_tbl_rdx, g_page_tbl_wdx))
-		return NULL;
+		return -1;
 
-
-	page_info = &g_page_tbl[g_page_tbl_rdx];
+	(*page_info) = g_page_tbl[g_page_tbl_rdx];
 
 	g_page_tbl_rdx = get_ringbuf_next_idx(MAX_FRG_TBL_CNT,
 					g_page_tbl_rdx, 1);
 
-	return page_info;
+	return 0;
 }
 
 static inline void alloc_page_to_tbl(int page_cnt, int blocking)
@@ -306,6 +305,10 @@ static inline void alloc_page_to_tbl(int page_cnt, int blocking)
 		if (page_alloc(&page_info->page, &page_info->base_addr,
 						pkt_buf_sz, blocking))
 			break;
+		/*
+		 * The wmb() flushes writes to dram before read g_skb_tbl data.
+		 */
+		wmb();
 
 		g_page_tbl_wdx = get_ringbuf_next_idx(MAX_FRG_TBL_CNT,
 						g_page_tbl_wdx, 1);
@@ -376,12 +379,11 @@ static inline int alloc_bat_skb(
 {
 	int ret = 0;
 	unsigned long long data_base_addr;
-	struct temp_skb_info *skb_info;
+	struct temp_skb_info skb_info;
 
-	skb_info = get_skb_from_tbl();
-	if (skb_info) {
-		bat_skb->skb = skb_info->skb;
-		data_base_addr = skb_info->base_addr;
+	if (!get_skb_from_tbl(&skb_info)) {
+		bat_skb->skb = skb_info.skb;
+		data_base_addr = skb_info.base_addr;
 
 	} else {
 		ret = skb_alloc(&bat_skb->skb, &data_base_addr,
@@ -512,12 +514,11 @@ static inline int alloc_bat_page(
 {
 	unsigned long long data_base_addr;
 	int ret;
-	struct temp_page_info *page_info;
+	struct temp_page_info page_info;
 
-	page_info = get_page_from_tbl();
-	if (page_info) {
-		bat_page->page = page_info->page;
-		data_base_addr = page_info->base_addr;
+	if (!get_page_from_tbl(&page_info)) {
+		bat_page->page = page_info.page;
+		data_base_addr = page_info.base_addr;
 
 	} else {
 		ret = page_alloc(&bat_page->page, &data_base_addr,
