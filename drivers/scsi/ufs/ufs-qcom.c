@@ -3852,6 +3852,13 @@ static int ufs_qcom_device_reset(struct ufs_hba *hba)
 		return -EOPNOTSUPP;
 
 	/*
+	 * If Host Tx keeps bursting during and after H/W reset,
+	 * some UFS devices may fail the next following link startup,
+	 * hence disable hba before reset the device.
+	 */
+	ufshcd_hba_stop(hba);
+
+	/*
 	 * The UFS device shall detect reset pulses of 1us, sleep for 10us to
 	 * be on the safe side.
 	 */
