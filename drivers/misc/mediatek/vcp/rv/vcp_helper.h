@@ -120,6 +120,7 @@ struct vcp_regs {
 	unsigned int vcp_tcmsize;
 	unsigned int core_nums;
 	unsigned int twohart;
+	unsigned int femter_ck;
 };
 
 /* vcp work struct definition*/

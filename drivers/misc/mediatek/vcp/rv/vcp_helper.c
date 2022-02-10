@@ -65,6 +65,7 @@
 #define SEMAPHORE_TIMEOUT 5000
 #define SEMAPHORE_3WAY_TIMEOUT 5000
 /* vcp ready timeout definition */
+#define VCP_30MHZ 30000
 #define VCP_READY_TIMEOUT (3 * HZ) /* 3 seconds*/
 #define VCP_A_TIMER 0
 
@@ -679,7 +680,10 @@ uint32_t vcp_wait_ready_sync(enum feature_id id)
 					pr_info("[VCP] Active feature id %d cnt\n",
 						j, feature_table[j].enable);
 			mtk_smi_dbg_hang_detect("VCP");
-			vcp_aee_print("wait ready timeout id %d\n", id);
+			if (vcp_ee_enable)
+				vcp_aee_print("wait ready timeout id %d\n", id);
+			else
+				pr_info("wait ready timeout id %d\n", id);
 			break;
 		}
 	}
@@ -706,9 +710,12 @@ void vcp_enable_pm_clk(enum feature_id id)
 		ret = clk_prepare_enable(vcp26m);
 		if (ret)
 			pr_debug("[VCP] %s: clk_prepare_enable vcp26m\n", __func__);
+		ret = clk_prepare_enable(vcpclk);
+		if (ret)
+			pr_debug("[VCP] %s: clk_prepare_enable vcpclk\n", __func__);
 		ret = clk_prepare_enable(vcpsel);
 		if (ret)
-			pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
+			pr_debug("[VCP] %s: clk_prepare_enable vcpsel\n", __func__);
 		ret = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 		if (ret)
 			pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
@@ -780,6 +787,7 @@ void vcp_disable_pm_clk(enum feature_id id)
 		if (ret)
 			pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
 		clk_disable_unprepare(vcpsel);
+		clk_disable_unprepare(vcpclk);
 		clk_disable_unprepare(vcp26m);
 	}
 	if (pwclkcnt < 0) {
@@ -834,6 +842,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 			if (retval)
 				pr_debug("[VCP] %s: pm_runtime_put_sync\n", __func__);
 			clk_disable_unprepare(vcpsel);
+			clk_disable_unprepare(vcpclk);
 			clk_disable_unprepare(vcp26m);
 		}
 		is_suspending = true;
@@ -852,9 +861,12 @@ static int vcp_pm_event(struct notifier_block *notifier
 			retval = clk_prepare_enable(vcp26m);
 			if (retval)
 				pr_debug("[VCP] %s: clk_prepare_enable vcp26m\n", __func__);
+			retval = clk_prepare_enable(vcpclk);
+			if (retval)
+				pr_debug("[VCP] %s: clk_prepare_enable vcpclk\n", __func__);
 			retval = clk_prepare_enable(vcpsel);
 			if (retval)
-				pr_debug("[VCP] %s: clk_prepare_enable\n", __func__);
+				pr_debug("[VCP] %s: clk_prepare_enable vcpsel\n", __func__);
 			retval = pm_runtime_get_sync(vcp_io_devs[VCP_IOMMU_256MB1]);
 			if (retval)
 				pr_debug("[VCP] %s: pm_runtime_get_sync\n", __func__);
@@ -894,6 +906,35 @@ static struct notifier_block vcp_pm_notifier_block = {
 	.priority = 0,
 };
 
+void vcp_set_clk(void)
+{
+	int ret, i;
+	int clk_retry = 10;
+
+	for (i = 0; i < clk_retry; i++) {
+		ret = clk_set_parent(vcpsel, vcp26m);	/* guarantee status sync */
+		if (ret)
+			pr_notice("[VCP] %s: Failed to set parent %s of %s ret %d\n", __func__,
+				__clk_get_name(vcp26m), __clk_get_name(vcpsel), ret);
+
+		ret = clk_set_parent(vcpsel, vcpclk);
+		if (ret)
+			pr_notice("[VCP] %s: Failed to set parent %s of %s ret %d\n", __func__,
+				__clk_get_name(vcpclk), __clk_get_name(vcpsel), ret);
+
+		ret = mt_get_fmeter_freq(vcpreg.femter_ck, CKGEN);
+		if (ret > VCP_30MHZ) {	/* fmeter 5% deviation */
+			/* or fail dump something */
+			break;
+		}
+	}
+
+	if (ret < VCP_30MHZ)
+		pr_notice("[VCP] %s: fail clk %d(%d) clk_retry %d\n", __func__,
+		ret, mt_get_fmeter_freq(vcpreg.femter_ck, CKGEN), i);
+}
+
+
 /*
  * reset vcp and create a timer waiting for vcp notify
  * apps to stop their tasks if needed
@@ -921,11 +962,9 @@ int reset_vcp(int reset)
 		/* write vcp reserved memory address/size to GRP1/GRP2
 		 * to let vcp setup MPU
 		 */
-		clk_set_parent(vcpsel, vcp26m);	/* guarantee status sync */
 		writel((unsigned int)VCP_PACK_IOVA(vcp_mem_base_phys), DRAM_RESV_ADDR_REG);
 		writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
-		dsb(SY);
-		clk_set_parent(vcpsel, vcpclk);
+		vcp_set_clk();
 
 		if (reset == VCP_ALL_SUSPEND) {
 			arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
@@ -939,7 +978,8 @@ int reset_vcp(int reset)
 
 		pr_notice("[VCP] %s: CORE0_RSTN_CLR %x %x %x ret %lu clk %d\n", __func__,
 			readl(DRAM_RESV_ADDR_REG), readl(DRAM_RESV_SIZE_REG),
-			readl(R_CORE0_SW_RSTN_CLR), res.a0, mt_get_fmeter_freq(10, CKGEN));
+			readl(R_CORE0_SW_RSTN_CLR), res.a0,
+			mt_get_fmeter_freq(vcpreg.femter_ck, CKGEN));
 
 		dsb(SY); /* may take lot of time */
 #if VCP_BOOT_TIME_OUT_MONITOR
@@ -1863,12 +1903,10 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	vcp_reset_awake_counts();
 	spin_unlock_irqrestore(&vcp_awake_spinlock, spin_flags);
 
-	clk_set_parent(vcpsel, vcp26m);	/* guarantee status sync */
 	/* Setup dram reserved address and size for vcp*/
 	writel((unsigned int)VCP_PACK_IOVA(vcp_mem_base_phys), DRAM_RESV_ADDR_REG);
 	writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
-	dsb(SY);
-	clk_set_parent(vcpsel, vcpclk);
+	vcp_set_clk();
 
 	/* start vcp */
 	arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
@@ -1877,7 +1915,8 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 
 	pr_notice("[VCP] %s: CORE0_RSTN_CLR %x %x %x ret %lu clk %d\n", __func__,
 		readl(DRAM_RESV_ADDR_REG), readl(DRAM_RESV_SIZE_REG),
-		readl(R_CORE0_SW_RSTN_CLR), res.a0, mt_get_fmeter_freq(10, CKGEN));
+		readl(R_CORE0_SW_RSTN_CLR), res.a0,
+		mt_get_fmeter_freq(vcpreg.femter_ck, CKGEN));
 
 	dsb(SY); /* may take lot of time */
 #if VCP_BOOT_TIME_OUT_MONITOR
@@ -2301,9 +2340,12 @@ static int vcp_device_probe(struct platform_device *pdev)
 	}
 	pr_notice("[VCP] vcpreg.core_nums = %d\n", vcpreg.core_nums);
 
+	of_property_read_u32(pdev->dev.of_node, "femter_ck"
+						, &vcpreg.femter_ck);
 	of_property_read_u32(pdev->dev.of_node, "twohart"
 						, &vcpreg.twohart);
-	pr_notice("[VCP] vcpreg.twohart = %d\n", vcpreg.twohart);
+	pr_notice("[VCP] vcpreg.twohart = %d,  vcpreg.femter_ck = %d\n",
+		vcpreg.twohart, vcpreg.femter_ck);
 
 	vcpreg.irq0 = platform_get_irq_byname(pdev, "wdt");
 	if (vcpreg.irq0 < 0)
