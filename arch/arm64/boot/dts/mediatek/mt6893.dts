@@ -2221,6 +2221,14 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,mt6893-upower";
 	};
 
+	lkg: lkg {
+		compatible = "mediatek,lkg";
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
+	};
+
 	dvfsp@10227000 {
 		compatible = "mediatek,dvfsp";
 		reg = <0 0x10227000 0 0x1000>;
@@ -3456,6 +3464,10 @@ page_owner=on loop.max_part=7";
 		eem-offset-big = <0xff>;
 		eem-offset-cci = <0xff>;
 		eem-offset-gpu = <0xff>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
 	};
 
 	eemgpu_fsm: eemgpu_fsm@1100b000 {
@@ -3466,6 +3478,10 @@ page_owner=on loop.max_part=7";
 		eemg-initmon-gpu = <0xf>;
 		eemg-clamp-gpu = <0>;
 		eemg-offset-gpu = <0xff>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
 	};
 
 	therm_ctrl@1100b000 {
