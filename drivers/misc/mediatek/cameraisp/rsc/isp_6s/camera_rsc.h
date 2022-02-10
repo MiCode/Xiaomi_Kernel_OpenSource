@@ -13,7 +13,7 @@
 #include <linux/fs.h>
 #include <linux/compat.h>
 #endif
-
+extern void mt_irq_dump_status(unsigned int irq);
 /*
  *   enforce kernel log enable
  */

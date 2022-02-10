@@ -126,6 +126,7 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 /* CCF */
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #include <linux/clk.h>
+
 struct RSC_CLK_STRUCT {
 /* TODO */
 #define SMI_CLK
@@ -1494,6 +1495,7 @@ static signed int RSC_DumpReg(void)
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(RSC_DCM_STAUS_HW),
 		(unsigned int)RSC_RD32(RSC_DCM_STAUS_REG));
 
+	mt_irq_dump_status(RSCInfo.IrqNum);
 
 	LOG_INF("- X.");
 	return Ret;
@@ -3116,6 +3118,7 @@ static signed int RSC_probe(struct platform_device *pDev)
 
 	/* get IRQ ID and request IRQ */
 	RSC_dev->irq = irq_of_parse_and_map(pDev->dev.of_node, 0);
+	RSCInfo.IrqNum = RSC_dev->irq;
 
 	if (RSC_dev->irq > 0) {
 		LOG_INF("- E. RSC setup irq.\n");
