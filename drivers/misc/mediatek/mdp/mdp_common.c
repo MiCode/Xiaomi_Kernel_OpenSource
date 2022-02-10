@@ -52,6 +52,7 @@
 
 
 #include <cmdq-util.h>
+#include <soc/mediatek/smi.h>
 
 /* mmdvfs with regulator */
 struct regulator *mdp_mmdvfs_reg;
@@ -4106,6 +4107,10 @@ void cmdq_mdp_check_TF_address(unsigned int mva, char *module)
 			mdp_tasks[tfTaskIndex].callerName);
 		CMDQ_ERR("%s\n", mdp_tasks[tfTaskIndex].userDebugStr);
 		strncat(module, "_", 1);
+
+		/* Call smi dump */
+		CMDQ_ERR("[MDP] Dump SMI Info\n");
+		mtk_smi_dbg_hang_detect("MDP");
 
 		/* catch caller name only before - or _ */
 		callerNameStart = mdp_tasks[tfTaskIndex].callerName;
