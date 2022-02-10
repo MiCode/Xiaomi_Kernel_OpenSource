@@ -2489,12 +2489,22 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	struct mtk_camsv_device *camsv_dev = (struct mtk_camsv_device *)data;
 	struct device *dev = camsv_dev->dev;
 	struct mtk_camsys_irq_info irq_info;
+	struct mtk_cam_ctx *ctx;
 	unsigned int dequeued_imgo_seq_no, dequeued_imgo_seq_no_inner;
 	unsigned int irq_status, err_status;
 	unsigned int drop_status, imgo_err_status, imgo_overr_status;
 	unsigned int fbc_imgo_status, imgo_addr, imgo_addr_msb;
 	unsigned int tg_sen_mode, dcif_set, tg_vf_con, tg_path_cfg;
 	bool wake_thread = 0;
+
+	ctx = mtk_cam_find_ctx(camsv_dev->cam, &camsv_dev->pipeline->subdev.entity);
+	if (!ctx) {
+		dev_dbg(camsv_dev->dev, "cannot find ctx\n");
+		return IRQ_HANDLED;
+	} else if (!ctx->streaming) {
+		dev_dbg(camsv_dev->dev, "stream is off, ignore any irq\n");
+		return IRQ_HANDLED;
+	}
 
 	irq_status	= readl_relaxed(camsv_dev->base + REG_CAMSV_INT_STATUS);
 	dequeued_imgo_seq_no =
