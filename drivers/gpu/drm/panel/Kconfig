@@ -50,6 +50,17 @@ config DRM_PANEL_JDI_LT070ME05000
 	  The panel has a 1200(RGB)×1920 (WUXGA) resolution and uses
 	  24 bit per pixel.
 
+config DRM_PANEL_RAYDIUM_RM692H0
+	tristate "RAYDIUM RM690H2 WQXGA DSI panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for RAYDIUM DSI command mode
+	  panel as found in tb8797p2 wifi-only devices.
+	  The panel has a 2560(RGB)×1536 (WQXGA) resolution and uses
+	  24 bit per pixel.
+
 config DRM_PANEL_SAMSUNG_LD9040
 	tristate "Samsung LD9040 RGB/SPI panel"
 	depends on OF && SPI
