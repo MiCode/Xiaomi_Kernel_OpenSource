@@ -4617,7 +4617,8 @@
 			compatible = "mediatek,mdp";
 			reg = <0 0x1f000000 0 0x1000>;
 			thread_count = <24>;
-			mboxes = <&gce_m 16 0 CMDQ_THR_PRIO_1>,
+			mboxes = <&gce_m_sec 10 0 CMDQ_THR_PRIO_1>,
+				<&gce_m 16 0 CMDQ_THR_PRIO_1>,
 				<&gce_m 17 0 CMDQ_THR_PRIO_1>,
 				<&gce_m 18 0 CMDQ_THR_PRIO_1>,
 				<&gce_m 19 0 CMDQ_THR_PRIO_1>;
