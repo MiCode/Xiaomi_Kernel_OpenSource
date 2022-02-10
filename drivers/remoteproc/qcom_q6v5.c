@@ -53,6 +53,12 @@ int qcom_q6v5_unprepare(struct qcom_q6v5 *q6v5)
 }
 EXPORT_SYMBOL_GPL(qcom_q6v5_unprepare);
 
+void qcom_q6v5_register_ssr_subdev(struct qcom_q6v5 *q6v5, struct rproc_subdev *ssr_subdev)
+{
+	q6v5->ssr_subdev = ssr_subdev;
+}
+EXPORT_SYMBOL(qcom_q6v5_register_ssr_subdev);
+
 static void qcom_q6v5_crash_handler_work(struct work_struct *work)
 {
 	struct qcom_q6v5 *q6v5 = container_of(work, struct qcom_q6v5, crash_handler);
@@ -94,10 +100,15 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 	else
 		dev_err(q6v5->dev, "watchdog without message\n");
 
-	if (q6v5->rproc->recovery_disabled)
+	q6v5->running = false;
+	if (q6v5->rproc->recovery_disabled) {
 		schedule_work(&q6v5->crash_handler);
+	} else {
+		if (q6v5->ssr_subdev)
+			qcom_notify_early_ssr_clients(q6v5->ssr_subdev);
 
-	rproc_report_crash(q6v5->rproc, RPROC_WATCHDOG);
+		rproc_report_crash(q6v5->rproc, RPROC_WATCHDOG);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -115,10 +126,14 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 		dev_err(q6v5->dev, "fatal error without message\n");
 
 	q6v5->running = false;
-	if (q6v5->rproc->recovery_disabled)
+	if (q6v5->rproc->recovery_disabled) {
 		schedule_work(&q6v5->crash_handler);
+	} else {
+		if (q6v5->ssr_subdev)
+			qcom_notify_early_ssr_clients(q6v5->ssr_subdev);
 
-	rproc_report_crash(q6v5->rproc, RPROC_FATAL_ERROR);
+		rproc_report_crash(q6v5->rproc, RPROC_FATAL_ERROR);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -242,6 +257,7 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
 	q6v5->dev = &pdev->dev;
 	q6v5->crash_reason = crash_reason;
 	q6v5->handover = handover;
+	q6v5->ssr_subdev = NULL;
 
 	init_completion(&q6v5->start_done);
 	init_completion(&q6v5->stop_done);
