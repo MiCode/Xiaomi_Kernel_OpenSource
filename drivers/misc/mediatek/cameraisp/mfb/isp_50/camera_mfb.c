@@ -228,7 +228,7 @@ static struct Tasklet_table MFB_tasklet[MFB_IRQ_TYPE_AMOUNT] = {
 	{ISP_TaskletFunc_MFB, &Mfbtkt[MFB_IRQ_TYPE_INT_MFB_ST]},
 };
 
-struct wakeup_source MFB_wake_lock;
+struct wakeup_source *MFB_wake_lock;
 
 
 static DEFINE_MUTEX(gMfbMutex);
@@ -3372,7 +3372,7 @@ static signed int MFB_probe(struct platform_device *pDev)
 		init_waitqueue_head(&MFBInfo.WaitQueueHead);
 		INIT_WORK(&MFBInfo.ScheduleMfbWork, MFB_ScheduleWork);
 
-		wakeup_source_init(&MFB_wake_lock, "mfb_lock_wakelock");
+		MFB_wake_lock = wakeup_source_register(&pDev->dev, "mfb_lock_wakelock");
 
 		for (i = 0; i < MFB_IRQ_TYPE_AMOUNT; i++)
 			tasklet_init(MFB_tasklet[i].pMFB_tkt,

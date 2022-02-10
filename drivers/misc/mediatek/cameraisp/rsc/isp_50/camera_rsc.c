@@ -220,7 +220,7 @@ static struct Tasklet_table RSC_tasklet[RSC_IRQ_TYPE_AMOUNT] = {
 static struct work_struct logWork;
 static void logPrint(struct work_struct *data);
 
-struct wakeup_source RSC_wake_lock;
+struct wakeup_source *RSC_wake_lock;
 
 static DEFINE_MUTEX(gRscMutex);
 static DEFINE_MUTEX(gRscDequeMutex);
@@ -2811,7 +2811,7 @@ static signed int RSC_probe(struct platform_device *pDev)
 		if (!RSCInfo.wkqueue)
 			LOG_ERR("NULL RSC-CMDQ-WQ\n");
 
-		wakeup_source_init(&RSC_wake_lock, "rsc_lock_wakelock");
+		RSC_wake_lock = wakeup_source_register(&pDev->dev, "rsc_lock_wakelock");
 
 		INIT_WORK(&logWork, logPrint);
 		for (i = 0; i < RSC_IRQ_TYPE_AMOUNT; i++)

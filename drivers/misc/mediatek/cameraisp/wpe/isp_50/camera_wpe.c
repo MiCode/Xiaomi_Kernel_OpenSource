@@ -252,8 +252,8 @@ static struct Tasklet_table WPE_tasklet[WPE_IRQ_TYPE_AMOUNT] = {
 };
 
 #ifdef CONFIG_PM_SLEEP
-struct wakeup_source WPE_wake_lock;
-struct wakeup_source WPE_MDP_wake_lock;
+struct wakeup_source *WPE_wake_lock;
+struct wakeup_source *WPE_MDP_wake_lock;
 #endif
 
 static DEFINE_MUTEX(gWpeMutex);
@@ -4870,12 +4870,12 @@ static signed int WPE_open(struct inode *pInode, struct file *pFile)
 
 	/* Enable clock */
 #ifdef CONFIG_PM_SLEEP
-	__pm_stay_awake(&WPE_wake_lock);
+	__pm_stay_awake(WPE_wake_lock);
 #endif
 	WPE_EnableClock(MTRUE);
 	g_u4WpeCnt = 0;
 #ifdef CONFIG_PM_SLEEP
-	__pm_relax(&WPE_wake_lock);
+	__pm_relax(WPE_wake_lock);
 #endif
 	LOG_INF("WPE open g_u4EnableClockCount: %d", g_u4EnableClockCount);
 	/*  */
@@ -4950,11 +4950,11 @@ static signed int WPE_release(struct inode *pInode, struct file *pFile)
 
 	/* Disable clock. */
 #ifdef CONFIG_PM_SLEEP
-	__pm_stay_awake(&WPE_wake_lock);
+	__pm_stay_awake(WPE_wake_lock);
 #endif
 	WPE_EnableClock(MFALSE);
 #ifdef CONFIG_PM_SLEEP
-	__pm_relax(&WPE_wake_lock);
+	__pm_relax(WPE_wake_lock);
 #endif
 	LOG_INF("WPE release g_u4EnableClockCount: %d", g_u4EnableClockCount);
 
@@ -5251,8 +5251,8 @@ static signed int WPE_probe(struct platform_device *pDev)
 		INIT_WORK(&WPEInfo.ScheduleWpeWork, WPE_ScheduleWork);
 
 #ifdef CONFIG_PM_SLEEP
-		wakeup_source_init(&WPE_wake_lock, "WPE_lock_wakelock");
-		wakeup_source_init(&WPE_MDP_wake_lock, "WPE_MDP_wake_lock");
+		WPE_wake_lock = wakeup_source_register(&pDev->dev, "WPE_lock_wakelock");
+		WPE_MDP_wake_lock = wakeup_source_register(&pDev->dev, "WPE_MDP_wake_lock");
 #endif
 
 		for (i = 0; i < WPE_IRQ_TYPE_AMOUNT; i++)
@@ -5726,7 +5726,7 @@ int32_t WPE_ClockOnCallback(uint64_t engineFlag)
 	/* LOG_DBG("+CmdqEn:%d", g_u4EnableClockCount); */
 	/* WPE_EnableClock(MTRUE); */
 #ifdef CONFIG_PM_SLEEP
-	__pm_stay_awake(&WPE_MDP_wake_lock);
+	__pm_stay_awake(WPE_MDP_wake_lock);
 #endif
 	WPE_EnableClock(1);
 	return 0;
@@ -5756,7 +5756,7 @@ int32_t WPE_ClockOffCallback(uint64_t engineFlag)
 	/* LOG_DBG("-CmdqEn:%d", g_u4EnableClockCount); */
 	WPE_EnableClock(0);
 #ifdef CONFIG_PM_SLEEP
-	__pm_relax(&WPE_MDP_wake_lock);
+	__pm_relax(WPE_MDP_wake_lock);
 #endif
 	return 0;
 }

@@ -23,6 +23,10 @@ ifeq ($(CONFIG_MACH_MT6775),y)
   obj-y += $(subst ",,isp_50)/
 endif
 
+ifeq ($(CONFIG_MACH_MT6771),y)
+  obj-y += $(subst ",,isp_50)/
+endif
+
 ifeq ($(CONFIG_MACH_MT6885),y)
   obj-y += $(subst ",,isp_6s)/
   MTK_DIP_COUNT := 2

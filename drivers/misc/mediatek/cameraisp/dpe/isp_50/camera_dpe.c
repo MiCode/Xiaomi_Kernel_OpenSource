@@ -72,7 +72,7 @@
 
 
 #ifdef CONFIG_PM_SLEEP
-struct wakeup_source dpe_wake_lock;
+struct wakeup_source *dpe_wake_lock;
 #endif
 
 
@@ -3238,12 +3238,12 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	gDveCnt = 0;
 	/* Enable clock */
 #ifdef CONFIG_PM_SLEEP
-	__pm_stay_awake(&dpe_wake_lock);
+	__pm_stay_awake(dpe_wake_lock);
 #endif
 	DPE_EnableClock(MTRUE);
 	g_u4DpeCnt = 0;
 #ifdef CONFIG_PM_SLEEP
-	__pm_relax(&dpe_wake_lock);
+	__pm_relax(dpe_wake_lock);
 #endif
 
 	LOG_INF("DPE open g_u4EnableClockCount: %d", g_u4EnableClockCount);
@@ -3320,11 +3320,11 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 
 	/* Disable clock. */
 #ifdef CONFIG_PM_SLEEP
-	__pm_stay_awake(&dpe_wake_lock);
+	__pm_stay_awake(dpe_wake_lock);
 #endif
 	DPE_EnableClock(MFALSE);
 #ifdef CONFIG_PM_SLEEP
-	__pm_relax(&dpe_wake_lock);
+	__pm_relax(dpe_wake_lock);
 #endif
 	LOG_INF("DPE release g_u4EnableClockCount: %d", g_u4EnableClockCount);
 
@@ -3576,7 +3576,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 			spin_lock_init(&(DPEInfo.SpinLockIrq[n]));
 
 #ifdef CONFIG_PM_SLEEP
-		wakeup_source_init(&dpe_wake_lock, "dpe_lock_wakelock");
+		dpe_wake_lock = wakeup_source_register(&pDev->dev, "dpe_lock_wakelock");
 #endif
 		/*  */
 		init_waitqueue_head(&DPEInfo.WaitQueueHead);
