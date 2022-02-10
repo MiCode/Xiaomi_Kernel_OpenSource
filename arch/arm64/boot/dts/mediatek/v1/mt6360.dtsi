@@ -4,9 +4,7 @@
 */
 
 &i2c5 {
-	subpmic_mtk:subpmic@34 {
-		compatible = "mediatek,subpmic";
-		reg = <0x34>;
+	mt6360_pmu: mt6360_pmu_dts {
 		status = "ok";
 #if defined (CONFIG_MACH_MT6877)
 		mt6360,intr_gpio_num = <4>; /* direct defined GPIO num */
@@ -136,11 +134,9 @@
 		};
 	};
 
-	subpmic_pmic_mtk:subpmic_pmic@1a {
-		compatible = "mediatek,subpmic_pmic";
-		reg = <0x1a>;
+	mt6360_pmic: mt6360_pmic_dts {
 		status = "ok";
-		interrupt-parent = <&subpmic_mtk>;
+		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <96 0>, <100 0>, <101 0>, <102 0>,
 			     <104 0>, <108 0>, <109 0>, <110 0>,
 			     <118 0>, <119 0>, <126 0>, <127 0>;
@@ -181,11 +177,9 @@
 		};
 	};
 
-	subpmic_ldo_mtk:subpmic_ldo@64 {
-		compatible = "mediatek,subpmic_ldo";
-		reg = <0x64>;
+	mt6360_ldo: mt6360_ldo_dts {
 		status = "ok";
-		interrupt-parent = <&subpmic_mtk>;
+		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <113 0>, <114 0>, <115 0>, <117 0>,
 			     <121 0>, <122 0>, <123 0>, <125 0>;
 		interrupt-names = "ldo1_oc_evt", "ldo2_oc_evt",
