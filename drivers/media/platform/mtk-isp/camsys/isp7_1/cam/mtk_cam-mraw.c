@@ -2199,22 +2199,12 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	struct mtk_mraw_device *mraw_dev = (struct mtk_mraw_device *)data;
 	struct device *dev = mraw_dev->dev;
 	struct mtk_camsys_irq_info irq_info;
-	struct mtk_cam_ctx *ctx;
 	unsigned int dequeued_imgo_seq_no, dequeued_imgo_seq_no_inner;
 	unsigned int irq_status, irq_status2, irq_status3, irq_status4;
 	unsigned int irq_status5, irq_status6;
 	unsigned int err_status, dma_err_status;
 	unsigned int imgo_overr_status, imgbo_overr_status, cpio_overr_status;
 	bool wake_thread = 0;
-
-	ctx = mtk_cam_find_ctx(mraw_dev->cam, &mraw_dev->pipeline->subdev.entity);
-	if (!ctx) {
-		dev_dbg(mraw_dev->dev, "cannot find ctx\n");
-		return IRQ_HANDLED;
-	} else if (!ctx->streaming) {
-		dev_dbg(mraw_dev->dev, "stream is off, ignore any irq\n");
-		return IRQ_HANDLED;
-	}
 
 	irq_status	= readl_relaxed(mraw_dev->base + REG_MRAW_CTL_INT_STATUS);
 	/*
