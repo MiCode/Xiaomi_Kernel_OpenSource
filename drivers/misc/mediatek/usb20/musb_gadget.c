@@ -2442,7 +2442,8 @@ int musb_gadget_setup(struct musb *musb)
 
 	/* this "gadget" abstracts/virtualizes the controller */
 	musb->g.name = musb_driver_name;
-	musb->g.is_otg = 1;
+	/* Disable OTG, no need support now. */
+	musb->g.is_otg = 0;
 
 	musb_g_init_endpoints(musb);
 
