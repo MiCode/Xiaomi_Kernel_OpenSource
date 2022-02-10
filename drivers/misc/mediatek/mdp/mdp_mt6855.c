@@ -1746,34 +1746,38 @@ static void mdp_readback_aal_by_engine(struct cmdqRecStruct *handle,
 	u16 engine, dma_addr_t pa, u32 param)
 {
 	phys_addr_t base;
+	u32 pipe;
 
 	switch (engine) {
 	case CMDQ_ENG_MDP_AAL0:
 		base = mdp_module_pa.aal0;
+		pipe = 0;
 		break;
 	default:
 		CMDQ_ERR("%s not support\n", __func__);
 		return;
 	}
 
-	cmdq_mdp_get_func()->mdpReadbackAal(handle, engine, base, pa, param, 0);
+	cmdq_mdp_get_func()->mdpReadbackAal(handle, engine, base, pa, param, pipe);
 }
 
 static void mdp_readback_hdr_by_engine(struct cmdqRecStruct *handle,
 	u16 engine, dma_addr_t pa, u32 param)
 {
 	phys_addr_t base;
+	u32 pipe;
 
 	switch (engine) {
 	case CMDQ_ENG_MDP_HDR0:
 		base = mdp_module_pa.hdr0;
+		pipe = 0;
 		break;
 	default:
 		CMDQ_ERR("%s not support\n", __func__);
 		return;
 	}
 
-	cmdq_mdp_get_func()->mdpReadbackHdr(handle, engine, base, pa, param, 0);
+	cmdq_mdp_get_func()->mdpReadbackHdr(handle, engine, base, pa, param, pipe);
 }
 
 void cmdq_mdp_compose_readback(struct cmdqRecStruct *handle,
@@ -1849,6 +1853,11 @@ static bool mdp_check_camin_support_virtual(void)
 	return true;
 }
 
+static bool mdp_svp_support_meta_data(void)
+{
+	return false;
+}
+
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
@@ -1902,6 +1911,7 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->getRDMAIndex = mdp_get_rdma_idx;
 	pFunc->getRegMSBOffset = mdp_get_reg_msb_offset;
 	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
+	pFunc->mdpSvpSupportMetaData = mdp_svp_support_meta_data;
 }
 MODULE_LICENSE("GPL");
 
