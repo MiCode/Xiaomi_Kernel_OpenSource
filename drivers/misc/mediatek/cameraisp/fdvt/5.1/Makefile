@@ -15,18 +15,6 @@
 # Makefile for misc devices that really don't fit anywhere else.
 #
 
-#ifdef CONFIG_MTK_M4U
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
-#else
-ccflags-y += -I$(srctree)/drivers/iommu/
-#endif
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
-ccflags-y += -I$(srctree)/drivers/staging/android/ion \
-						 -I$(srctree)/drivers/staging/android/ion/mtk
-
-ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
+ifeq ($(strip $(CONFIG_MTK_CAM_SECURE_FD_SUPPORT)),y)
 ccflags-y += -DCMDQ_MTEE
 endif
-
