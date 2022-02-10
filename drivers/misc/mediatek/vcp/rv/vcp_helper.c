@@ -65,7 +65,7 @@
 #define SEMAPHORE_TIMEOUT 5000
 #define SEMAPHORE_3WAY_TIMEOUT 5000
 /* vcp ready timeout definition */
-#define VCP_READY_TIMEOUT (3 * HZ) /* 30 seconds*/
+#define VCP_READY_TIMEOUT (3 * HZ) /* 3 seconds*/
 #define VCP_A_TIMER 0
 
 /* vcp ipi message buffer */
@@ -432,22 +432,23 @@ void vcp_A_unregister_notify(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(vcp_A_unregister_notify);
 
-
 void vcp_schedule_work(struct vcp_work_struct *vcp_ws)
 {
+	/* for pm disable wait ready, no power check*/
 	queue_work(vcp_workqueue, &vcp_ws->work);
 }
 
 void vcp_schedule_reset_work(struct vcp_work_struct *vcp_ws)
 {
-	queue_work(vcp_reset_workqueue, &vcp_ws->work);
+	if (mmup_enable_count() > 0)
+		queue_work(vcp_reset_workqueue, &vcp_ws->work);
 }
-
 
 #if VCP_LOGGER_ENABLE
 void vcp_schedule_logger_work(struct vcp_work_struct *vcp_ws)
 {
-	queue_work(vcp_logger_workqueue, &vcp_ws->work);
+	if (mmup_enable_count() > 0)
+		queue_work(vcp_logger_workqueue, &vcp_ws->work);
 }
 #endif
 
@@ -474,7 +475,7 @@ static void vcp_A_notify_ws(struct work_struct *ws)
 #endif
 	vcp_ready[VCP_A_ID] = 1;
 
-	if (vcp_notify_flag && (pwclkcnt > 0)) {
+	if (vcp_notify_flag && mmup_enable_count() > 0) {
 		pr_debug("[VCP] notify blocking call\n");
 		blocking_notifier_call_chain(&vcp_A_notifier_list
 			, VCP_EVENT_READY, NULL);
@@ -655,62 +656,18 @@ unsigned int get_vcp_generation(void)
 }
 EXPORT_SYMBOL_GPL(get_vcp_generation);
 
-/*
- * reset vcp and create a timer waiting for vcp notify
- * apps to stop their tasks if needed
- * generate error if reset fail
- * NOTE: this function may be blocked
- *       and should not be called in interrupt context
- * @param reset:    bit[0-3]=0 for vcp enable, =1 for reboot
- *                  bit[4-7]=0 for All, =1 for vcp_A, =2 for vcp_B
- * @return:         0 if success
- */
-int reset_vcp(int reset)
-{
-	struct arm_smccc_res res;
-
-	if (reset & 0x0f) { /* do reset */
-		/* make sure vcp is in idle state */
-		vcp_wait_core_stop_timeout(mmup_enable_count());
-	}
-	if (vcp_enable[VCP_A_ID]) {
-		/* write vcp reserved memory address/size to GRP1/GRP2
-		 * to let vcp setup MPU
-		 */
-		writel((unsigned int)VCP_PACK_IOVA(vcp_mem_base_phys), DRAM_RESV_ADDR_REG);
-		writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
-		clk_set_parent(vcpsel, vcp26m);	/* guarantee status sync */
-		clk_set_parent(vcpsel, vcpclk);
-
-		if (reset == VCP_ALL_SUSPEND) {
-			arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
-				MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
-				0, 0, 0, 0, 0, 0, &res);
-		} else {
-			arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
-				MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
-				1, 0, 0, 0, 0, 0, &res);
-		}
-
-		pr_notice("[VCP] %s: R_CORE0_SW_RSTN_CLR %x %x %x ret %lu\n", __func__,
-			readl(DRAM_RESV_ADDR_REG), readl(DRAM_RESV_SIZE_REG),
-			readl(R_CORE0_SW_RSTN_CLR), res.a0);
-
-		dsb(SY); /* may take lot of time */
-#if VCP_BOOT_TIME_OUT_MONITOR
-		vcp_ready_timer[VCP_A_ID].tl.expires = jiffies + VCP_READY_TIMEOUT;
-		add_timer(&vcp_ready_timer[VCP_A_ID].tl);
-#endif
-	}
-	pr_debug("[VCP] %s: done\n", __func__);
-
-	return 0;
-}
-
 uint32_t vcp_wait_ready_sync(enum feature_id id)
 {
 	int i = 0;
 	int j = 0;
+	unsigned long c0, c1;
+
+	c0 = readl(VCP_GPR_CORE0_REBOOT);
+	c1 = vcpreg.core_nums == 2 ? readl(VCP_GPR_CORE1_REBOOT) :
+		CORE_RDY_TO_REBOOT;
+
+	if ((c0 == CORE_RDY_TO_REBOOT) && (c1 == CORE_RDY_TO_REBOOT))
+		return 0;
 
 	while (!is_vcp_ready(VCP_A_ID)) {
 		i += 5;
@@ -790,6 +747,10 @@ void vcp_disable_pm_clk(enum feature_id id)
 		pwclkcnt, is_vcp_ready(VCP_A_ID));
 	pwclkcnt--;
 	if (pwclkcnt == 0) {
+#if VCP_RECOVERY_SUPPORT
+		/* make sure all reset done */
+		flush_workqueue(vcp_reset_workqueue);
+#endif
 		waitCnt = vcp_wait_ready_sync(id);
 		vcp_disable_irqs();
 		vcp_ready[VCP_A_ID] = 0;
@@ -802,9 +763,6 @@ void vcp_disable_pm_clk(enum feature_id id)
 #if VCP_LOGGER_ENABLE
 		vcp_logger_uninit();
 		flush_workqueue(vcp_logger_workqueue);
-#endif
-#if VCP_RECOVERY_SUPPORT
-		flush_workqueue(vcp_reset_workqueue);
 #endif
 #if VCP_BOOT_TIME_OUT_MONITOR
 		del_timer(&vcp_ready_timer[VCP_A_ID].tl);
@@ -850,6 +808,10 @@ static int vcp_pm_event(struct notifier_block *notifier
 		mutex_lock(&vcp_pw_clk_mutex);
 		pr_notice("[VCP] PM_SUSPEND_PREPARE entered %d %d\n", pwclkcnt, is_suspending);
 		if ((!is_suspending) && pwclkcnt) {
+#if VCP_RECOVERY_SUPPORT
+			/* make sure all reset done */
+			flush_workqueue(vcp_reset_workqueue);
+#endif
 			waitCnt = vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			vcp_disable_irqs();
 			vcp_ready[VCP_A_ID] = 0;
@@ -862,9 +824,6 @@ static int vcp_pm_event(struct notifier_block *notifier
 #if VCP_LOGGER_ENABLE
 			vcp_logger_uninit();
 			flush_workqueue(vcp_logger_workqueue);
-#endif
-#if VCP_RECOVERY_SUPPORT
-			flush_workqueue(vcp_reset_workqueue);
 #endif
 #if VCP_BOOT_TIME_OUT_MONITOR
 			del_timer(&vcp_ready_timer[VCP_A_ID].tl);
@@ -934,6 +893,64 @@ static struct notifier_block vcp_pm_notifier_block = {
 	.notifier_call = vcp_pm_event,
 	.priority = 0,
 };
+
+/*
+ * reset vcp and create a timer waiting for vcp notify
+ * apps to stop their tasks if needed
+ * generate error if reset fail
+ * NOTE: this function may be blocked
+ *       and should not be called in interrupt context
+ * @param reset:    bit[0-3]=0 for vcp enable, =1 for reboot
+ *                  bit[4-7]=0 for All, =1 for vcp_A, =2 for vcp_B
+ * @return:         0 if success
+ */
+int reset_vcp(int reset)
+{
+	struct arm_smccc_res res;
+
+	mutex_lock(&vcp_A_notify_mutex);
+	blocking_notifier_call_chain(&vcp_A_notifier_list, VCP_EVENT_STOP,
+		NULL);
+	mutex_unlock(&vcp_A_notify_mutex);
+
+	if (reset & 0x0f) { /* do reset */
+		/* make sure vcp is in idle state */
+		vcp_wait_core_stop_timeout(mmup_enable_count());
+	}
+	if (vcp_enable[VCP_A_ID]) {
+		/* write vcp reserved memory address/size to GRP1/GRP2
+		 * to let vcp setup MPU
+		 */
+		clk_set_parent(vcpsel, vcp26m);	/* guarantee status sync */
+		writel((unsigned int)VCP_PACK_IOVA(vcp_mem_base_phys), DRAM_RESV_ADDR_REG);
+		writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
+		dsb(SY);
+		clk_set_parent(vcpsel, vcpclk);
+
+		if (reset == VCP_ALL_SUSPEND) {
+			arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
+				MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
+				0, 0, 0, 0, 0, 0, &res);
+		} else {
+			arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
+				MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
+				1, 0, 0, 0, 0, 0, &res);
+		}
+
+		pr_notice("[VCP] %s: CORE0_RSTN_CLR %x %x %x ret %lu clk %d\n", __func__,
+			readl(DRAM_RESV_ADDR_REG), readl(DRAM_RESV_SIZE_REG),
+			readl(R_CORE0_SW_RSTN_CLR), res.a0, mt_get_fmeter_freq(10, CKGEN));
+
+		dsb(SY); /* may take lot of time */
+#if VCP_BOOT_TIME_OUT_MONITOR
+		vcp_ready_timer[VCP_A_ID].tl.expires = jiffies + VCP_READY_TIMEOUT;
+		add_timer(&vcp_ready_timer[VCP_A_ID].tl);
+#endif
+	}
+	pr_debug("[VCP] %s: done\n", __func__);
+
+	return 0;
+}
 
 static inline ssize_t vcp_register_on_store(struct device *kobj
 		, struct device_attribute *attr, const char *buf, size_t count)
@@ -1846,19 +1863,22 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 	vcp_reset_awake_counts();
 	spin_unlock_irqrestore(&vcp_awake_spinlock, spin_flags);
 
+	clk_set_parent(vcpsel, vcp26m);	/* guarantee status sync */
 	/* Setup dram reserved address and size for vcp*/
 	writel((unsigned int)VCP_PACK_IOVA(vcp_mem_base_phys), DRAM_RESV_ADDR_REG);
 	writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
-	clk_set_parent(vcpsel, vcp26m);	/* guarantee status sync */
+	dsb(SY);
 	clk_set_parent(vcpsel, vcpclk);
 
 	/* start vcp */
 	arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
 			MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
 			1, 0, 0, 0, 0, 0, &res);
-	pr_notice("[VCP] %s: R_CORE0_SW_RSTN_CLR %x %x %x ret %lu\n", __func__,
+
+	pr_notice("[VCP] %s: CORE0_RSTN_CLR %x %x %x ret %lu clk %d\n", __func__,
 		readl(DRAM_RESV_ADDR_REG), readl(DRAM_RESV_SIZE_REG),
-		readl(R_CORE0_SW_RSTN_CLR), res.a0);
+		readl(R_CORE0_SW_RSTN_CLR), res.a0, mt_get_fmeter_freq(10, CKGEN));
+
 	dsb(SY); /* may take lot of time */
 #if VCP_BOOT_TIME_OUT_MONITOR
 	mod_timer(&vcp_ready_timer[VCP_A_ID].tl, jiffies + VCP_READY_TIMEOUT);
