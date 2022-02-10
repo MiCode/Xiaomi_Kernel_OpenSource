@@ -75,3 +75,14 @@ config MTK_LPM_MT6877
 	  for power management.
 	  Set Y to select this feature for specific platform-mt6877.
 	  If unsure, set N to disable.
+
+config MTK_LPM_MT6885
+	tristate "Specify Mediatek LPM Platform is MT6885"
+	depends on MTK_LOW_POWER_MODULE
+	select MTK_LPM_DBG_COMMON
+	select MTK_LPM_GS_DUMP_SUPPORT
+	help
+	  Select MediaTek Low Power Module Platform is MT6885
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6885.
+	  If unsure, set N to disable.
