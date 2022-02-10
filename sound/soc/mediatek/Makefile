@@ -3,6 +3,9 @@ obj-$(CONFIG_SND_SOC_MEDIATEK) += common/
 ifneq ($(wildcard $(srctree)/sound/soc/mediatek/mt2701),)
 obj-$(CONFIG_SND_SOC_MT2701) += mt2701/
 endif
+ifneq ($(wildcard $(srctree)/sound/soc/mediatek/mt6789),)
+obj-$(CONFIG_SND_SOC_MT6789) += mt6789/
+endif
 ifneq ($(wildcard $(srctree)/sound/soc/mediatek/mt6797),)
 obj-$(CONFIG_SND_SOC_MT6797) += mt6797/
 endif
