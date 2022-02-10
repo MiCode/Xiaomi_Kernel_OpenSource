@@ -13068,7 +13068,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				"thermal,top_lkg,stack_lkg";
 
 			node_38 = "SSPM_SWPM_GPU__COUNTER",
-				"GPU_ACTIVE,EXEC_INSTR_FMA,EXEC_INSTR_CVT,EXEC_INSTR_SFU,",
+				"GPU_ACTIVE,EXEC_CORE_ACTIVE,EXEC_INSTR_FMA,EXEC_INSTR_CVT,EXEC_INSTR_SFU,",
 				"TEX,VARY_SLOT,L20,L21,L22,L23";
 
 			node_39 = "SSPM_SWPM_GPU__POWER",
