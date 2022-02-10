@@ -40,6 +40,14 @@
 #include "../mediatek/mtk_corner_pattern/mtk_data_hw_roundedpattern.h"
 #endif
 
+#define HW_EVT
+
+#ifdef HW_EVT
+#define PANEL_VCI 3300000
+#else
+#define PANEL_VCI 2800000
+#endif
+
 struct lcm {
 	struct device *dev;
 	struct drm_panel panel;
@@ -181,17 +189,18 @@ static int lcm_vci_enable(struct lcm *ctx)
 		return -1;
 	}
 
-	ret = regulator_set_voltage(ctx->vci, 2800000, 2800000);
+	ret = regulator_set_voltage(ctx->vci, PANEL_VCI, PANEL_VCI);
+
 	if (ret) {
 		dev_info(ctx->dev, "vci set voltage fail\n");
 		return ret;
 	}
 
 	vol = regulator_get_voltage(ctx->vci);
-	if (vol == 2800000)
-		dev_info(ctx->dev, "check vol=2800000 pass!\n");
+	if (vol == PANEL_VCI)
+		dev_info(ctx->dev, "check vol=%d pass!\n", PANEL_VCI);
 	else
-		dev_info(ctx->dev, "check vol=2800000 fail!\n");
+		dev_info(ctx->dev, "check vol=%d fail!\n", PANEL_VCI);
 
 	ret = regulator_enable(ctx->vci);
 	if (ret)
@@ -445,6 +454,7 @@ static int lcm_prepare(struct drm_panel *panel)
 		dev_info(ctx->dev, "vci enable fail\n");
 		return 0;
 	}
+
 	mdelay(5);
 
 	ctx->reset_gpio =
