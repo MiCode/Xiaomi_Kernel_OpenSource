@@ -430,5 +430,9 @@
 			compatible = "mediatek,mt6358-lbat_service";
 			status = "disabled";
 		};
+
+		mt6358codec: mt6358codec {
+			compatible = "mediatek,mt6366-sound";
+		};
 	};
 };
