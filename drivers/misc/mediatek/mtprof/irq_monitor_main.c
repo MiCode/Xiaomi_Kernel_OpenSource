@@ -175,11 +175,14 @@ static unsigned int check_threshold(unsigned long long duration,
 	if (!tracer->tracing)
 		return 0;
 
-	if (duration >= (unsigned long long)tracer->th1_ms * 1000000ULL)
+	if (tracer->th1_ms &&
+	    duration >= (unsigned long long)tracer->th1_ms * 1000000ULL)
 		out |= TO_FTRACE;
-	if (duration >= (unsigned long long)tracer->th2_ms * 1000000ULL)
+	if (tracer->th2_ms &&
+	    duration >= (unsigned long long)tracer->th2_ms * 1000000ULL)
 		out |= TO_KERNEL_LOG;
-	if (duration >= (unsigned long long)tracer->th3_ms * 1000000ULL)
+	if (tracer->th3_ms &&
+	    duration >= (unsigned long long)tracer->th3_ms * 1000000ULL)
 		out |= TO_AEE;
 
 	return out;
@@ -987,9 +990,35 @@ static void irq_mon_tracer_tracing_set(struct irq_mon_tracer *tracer, bool val)
 		irq_mon_tracer_unprobe(tracer);
 	}
 }
+
 /* proc functions */
 
 static DEFINE_MUTEX(proc_lock);
+bool irq_mon_door;
+
+static ssize_t irq_mon_door_write(struct file *filp, const char *ubuf,
+				  size_t count, loff_t *data)
+{
+	char buf[16];
+
+	count = min(count, sizeof(buf) - 1);
+	if (copy_from_user(&buf, ubuf, count))
+		return -EFAULT;
+
+	buf[count - 1UL] = 0;
+
+	if (!strcmp("open", buf))
+		irq_mon_door = 1;
+	if (!strcmp("close", buf))
+		irq_mon_door = 0;
+
+	return count;
+}
+
+const struct proc_ops irq_mon_door_pops = {
+	.proc_open = simple_open,
+	.proc_write = irq_mon_door_write,
+};
 
 static int irq_mon_bool_show(struct seq_file *s, void *p)
 {
@@ -1101,6 +1130,9 @@ static ssize_t irq_mon_uint_write(struct file *filp,
 	unsigned int val;
 	unsigned int *ptr = (unsigned int *)PDE_DATA(file_inode(filp));
 
+	if (!irq_mon_door)
+		return -EPERM;
+
 	ret = kstrtouint_from_user(ubuf, count, 10, &val);
 	if (ret)
 		return ret;
@@ -1152,6 +1184,7 @@ static void irq_mon_proc_init(void)
 	dir = proc_mkdir("mtmon", NULL);
 	if (!dir)
 		return;
+	proc_create("irq_mon_door", 0220, dir, &irq_mon_door_pops);
 	// irq_mon_tracers
 	irq_mon_tracer_proc_init(&irq_handler_tracer, dir);
 	irq_mon_tracer_proc_init(&softirq_tracer, dir);
