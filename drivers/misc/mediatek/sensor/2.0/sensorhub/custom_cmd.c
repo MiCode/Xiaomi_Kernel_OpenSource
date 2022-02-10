@@ -75,7 +75,7 @@ static int custom_cmd_slow_seq(int sensor_type, struct share_mem_cmd *shm_cmd)
 	notify.sensor_type = sensor_type;
 	notify.notify_cmd = SENS_COMM_NOTIFY_CUSTOM_CMD;
 	ret = share_mem_flush(&cust_cmd_shm_tx, &notify);
-	if (ret < 0)
+	if (ret < 0 || !shm_cmd->rx_len)
 		return ret;
 
 	timeout = wait_for_completion_timeout(&cust_cmd_done,
@@ -176,7 +176,7 @@ static int custom_cmd_fast_seq(int sensor_type, struct custom_cmd *cust_cmd)
 	notify.length = offsetof(typeof(*cust_cmd), data) + cust_cmd->tx_len;
 	memcpy(notify.value, cust_cmd, notify.length);
 	ret = sensor_comm_notify(&notify);
-	if (ret < 0)
+	if (ret < 0 || !cust_cmd->rx_len)
 		return ret;
 
 	timeout = wait_for_completion_timeout(&cust_cmd_fast_done,
