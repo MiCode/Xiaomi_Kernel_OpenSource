@@ -146,7 +146,7 @@ static int __arm_smmu_domain_set_attr(struct iommu_domain *domain,
 static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data);
 static void arm_smmu_free_pgtable(void *cookie, void *virt, int order, bool deferred_free);
-static void __arm_smmu_flush_iotlb_all(struct iommu_domain *domain);
+static void __arm_smmu_flush_iotlb_all(struct iommu_domain *domain, bool force);
 
 static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
 {
@@ -1459,7 +1459,7 @@ static void arm_smmu_qcom_tlb_sync(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 
-	__arm_smmu_flush_iotlb_all(&smmu_domain->domain);
+	__arm_smmu_flush_iotlb_all(&smmu_domain->domain, false);
 }
 
 static const struct qcom_iommu_pgtable_ops arm_smmu_pgtable_ops = {
@@ -2521,7 +2521,7 @@ static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
 		arm_smmu_rpm_get(smmu);
 		/* Secure pages may be freed to the secure pool after TLB maintenance. */
 		arm_smmu_secure_domain_lock(smmu_domain);
-		__arm_smmu_flush_iotlb_all(domain);
+		__arm_smmu_flush_iotlb_all(domain, true);
 		arm_smmu_secure_domain_unlock(smmu_domain);
 		arm_smmu_rpm_put(smmu);
 	}
@@ -2531,7 +2531,7 @@ static void arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
  * Caller must call arm_smmu_rpm_get(). Secure context banks must also hold
  * arm_smmu_secure_domain_lock.
  */
-static void __arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
+static void __arm_smmu_flush_iotlb_all(struct iommu_domain *domain, bool force)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	LIST_HEAD(list);
@@ -2539,7 +2539,14 @@ static void __arm_smmu_flush_iotlb_all(struct iommu_domain *domain)
 	unsigned long flags;
 
 	spin_lock_irqsave(&smmu_domain->iotlb_gather_lock, flags);
-	if (!smmu_domain->deferred_sync) {
+	/*
+	 * iommu_flush_iotlb_all currently has 2 users which do not set
+	 * deferred_sync through qcom_iommu_pgtable_ops->tlb_add_inv
+	 * 1) GPU - old implementation uses upstream io-pgtable-arm.c
+	 * 2) fastmap
+	 * once these users have gone away, force parameter can be removed.
+	 */
+	if (!force && !smmu_domain->deferred_sync) {
 		spin_unlock_irqrestore(&smmu_domain->iotlb_gather_lock, flags);
 		return;
 	}
