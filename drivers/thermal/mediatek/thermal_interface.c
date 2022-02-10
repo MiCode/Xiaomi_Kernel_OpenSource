@@ -1034,10 +1034,17 @@ static int therm_intf_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apu_mbox");
 	if (!res) {
-		addr = ioremap(res->start, res->end - res->start + 1);
-		if (!IS_ERR_OR_NULL(addr))
-			thermal_apu_mbox_base = addr;
+		dev_info(&pdev->dev, "Failed to get apu_mbox resource\n");
+		return -ENODEV;
 	}
+
+	addr = ioremap(res->start, res->end - res->start + 1);
+	if (IS_ERR_OR_NULL(addr)) {
+		dev_info(&pdev->dev, "Failed to remap apu_mbox addr\n");
+		return -EIO;
+	}
+
+	thermal_apu_mbox_base = addr;
 
 	/* get CPU cluster num */
 	for_each_possible_cpu(cpu) {
