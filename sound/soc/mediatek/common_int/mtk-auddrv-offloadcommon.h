@@ -105,6 +105,7 @@ struct afe_offload_service_t {
 struct afe_offload_codec_t {
 	unsigned int codec_samplerate;
 	unsigned int codec_bitrate;
+	unsigned int target_samplerate;
 };
 
 enum ipi_received_offload {
