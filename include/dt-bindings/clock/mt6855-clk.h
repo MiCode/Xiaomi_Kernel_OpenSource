@@ -392,7 +392,8 @@
 #define CLK_MM_DSI					45
 #define CLK_MM_DPI					46
 #define CLK_MM_DISP_DUMMY_MOD_B0					47
-#define CLK_MM_NR_CLK					48
+#define CLK_MM_26M					48
+#define CLK_MM_NR_CLK					49
 
 /* IMGSYS1 */
 #define CLK_IMGSYS1_LARB9				0
