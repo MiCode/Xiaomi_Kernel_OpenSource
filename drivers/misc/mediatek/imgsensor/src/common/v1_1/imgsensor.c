@@ -1835,7 +1835,7 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 				PK_PR_ERR(" ioctl allocate mem failed\n");
 				return -ENOMEM;
 			}
-			memset(pPdaf_data, 0xff, sizeof(char) * PDAF_DATA_SIZE);
+			memset(pPdaf_data, 0x00, sizeof(char) * PDAF_DATA_SIZE);
 
 			if (pFeaturePara_64 != NULL)
 				*(pFeaturePara_64 + 1) = (uintptr_t) pPdaf_data;

@@ -55,6 +55,9 @@
 #define PFX "S5K3P9SP_camera_sensor"
 #define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
 
+#define S5K3P9SP_EEPROM_READ_ID  0xA0
+#define S5K3P9SP_EEPROM_WRITE_ID 0xA1
+
 static DEFINE_SPINLOCK(imgsensor_drv_lock);
 
 static struct imgsensor_info_struct imgsensor_info = {
@@ -304,7 +307,14 @@ static kal_uint16 table_write_cmos_sensor(kal_uint16 *para, kal_uint32 len)
 	return 0;
 }
 
+static kal_uint16 read_cmos_eeprom_8(kal_uint16 addr)
+{
+	kal_uint16 get_byte = 0;
+	char pusendcmd[2] = {(char)(addr >> 8), (char)(addr & 0xFF) };
 
+	iReadRegI2C(pusendcmd, 2, (u8 *)&get_byte, 1, S5K3P9SP_EEPROM_READ_ID);
+	return get_byte;
+}
 
 static void set_dummy(void)
 {
@@ -4053,6 +4063,29 @@ static void slim_video_setting(void)
 	LOG_INF("E\n");
 }
 
+#define FOUR_CELL_SIZE 3072
+#define FOUR_CELL_ADDR 0x150F
+static u32 is_read_four_cell;
+static char four_cell_data[FOUR_CELL_SIZE + 2];
+static void read_four_cell_from_eeprom(char *data)
+{
+	int i;
+
+	if (is_read_four_cell != 1) {
+		LOG_INF("need to read from EEPROM\n");
+		four_cell_data[0] = (FOUR_CELL_SIZE & 0xFF);/*Low*/
+		four_cell_data[1] = ((FOUR_CELL_SIZE >> 8) & 0xFF);/*High*/
+		/*Multi-Read*/
+		for (i = 0; i < FOUR_CELL_SIZE; i++)
+			four_cell_data[i+2] = read_cmos_eeprom_8(FOUR_CELL_ADDR + i);
+		is_read_four_cell = 1;
+	}
+	if (data != NULL) {
+		LOG_INF("return data\n");
+		memcpy(data, four_cell_data, FOUR_CELL_SIZE);
+	}
+}
+
 /*************************************************************************
  * FUNCTION
  *	get_imgsensor_id
@@ -4089,6 +4122,7 @@ static kal_uint32 get_imgsensor_id(UINT32 *sensor_id)
 				pr_info("[%s] i2c write id: 0x%x, sensor id: 0x%x\n",
 					__func__, imgsensor.i2c_write_id, *sensor_id);
 				*sensor_id = S5K3P9SP_SENSOR_ID;
+				read_four_cell_from_eeprom(NULL);
 				return ERROR_NONE;
 			}
 			LOG_INF("Read sensor id fail, id: 0x%x\n",
@@ -4774,6 +4808,8 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	UINT32 *feature_return_para_32 = (UINT32 *) feature_para;
 	UINT32 *feature_data_32 = (UINT32 *) feature_para;
 	unsigned long long *feature_data = (unsigned long long *) feature_para;
+	char *data = (char *)(uintptr_t)(*(feature_data + 1));
+	UINT16 type = (UINT16)(*feature_data);
 
 	struct SET_PD_BLOCK_INFO_T *PDAFinfo;
 	struct SENSOR_WINSIZE_INFO_STRUCT *wininfo;
@@ -5014,6 +5050,17 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:
 		set_shutter_frame_length((UINT16) *feature_data,
 			(UINT16) *(feature_data + 1));
+		break;
+	case SENSOR_FEATURE_GET_4CELL_DATA:
+		/*get 4 cell data from eeprom*/
+		if (type == FOUR_CELL_CAL_TYPE_XTALK_CAL) {
+			LOG_INF("Read Cross Talk Start");
+			read_four_cell_from_eeprom(data);
+			LOG_INF("Read Cross Talk = %02x %02x %02x %02x %02x %02x\n",
+				(UINT16)data[0], (UINT16)data[1],
+				(UINT16)data[2], (UINT16)data[3],
+				(UINT16)data[4], (UINT16)data[5]);
+		}
 		break;
 	case SENSOR_FEATURE_SET_STREAMING_SUSPEND:
 		LOG_INF("SENSOR_FEATURE_SET_STREAMING_SUSPEND\n");
