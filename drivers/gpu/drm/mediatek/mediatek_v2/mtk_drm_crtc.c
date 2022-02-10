@@ -9831,6 +9831,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	int ret;
 	int i, j, p_mode;
 	enum mtk_ddp_comp_id comp_id;
+	static cpumask_t cpumask;
 
 	DDPMSG("%s+\n", __func__);
 
@@ -10106,8 +10107,12 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	init_waitqueue_head(&mtk_crtc->present_fence_wq);
 	atomic_set(&mtk_crtc->pf_event, 0);
 	mtk_crtc->pf_release_thread =
-		kthread_run(mtk_drm_pf_release_thread,
+		kthread_create(mtk_drm_pf_release_thread,
 						mtk_crtc, "pf_release_thread");
+	/* Do not use CPU0 to avoid serious delays */
+	cpumask_xor(&cpumask, cpu_all_mask, cpumask_of(0));
+	kthread_bind_mask(mtk_crtc->pf_release_thread, &cpumask);
+	wake_up_process(mtk_crtc->pf_release_thread);
 
 	init_waitqueue_head(&mtk_crtc->sf_present_fence_wq);
 	atomic_set(&mtk_crtc->sf_pf_event, 0);
