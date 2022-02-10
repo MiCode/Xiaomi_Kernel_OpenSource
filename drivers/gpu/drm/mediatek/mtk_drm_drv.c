@@ -1070,7 +1070,7 @@ static int mtk_atomic_check(struct drm_device *dev,
 	if (ret)
 		return ret;
 
-	for_each_old_crtc_in_state(state, crtc, crtc_state, i) {
+	for_each_new_crtc_in_state(state, crtc, crtc_state, i) {
 		old_state = to_mtk_crtc_state(crtc->state);
 		new_state = to_mtk_crtc_state(crtc_state);
 
