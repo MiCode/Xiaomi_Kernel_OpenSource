@@ -151,6 +151,7 @@ u32 mt_irq_get_pol_hw(u32 hwirq)
 			pr_notice("MUST have 2nd INT_POL_CTRL\n");
 			/* is a bug */
 			WARN_ON(1);
+			return 0;
 		}
 		reg -= reg_len_pol0;
 		base = INT_POL_CTL1;
@@ -548,6 +549,7 @@ void _mt_irq_set_polarity(unsigned int hwirq, unsigned int polarity)
 			pr_notice("MUST have 2nd INT_POL_CTRL\n");
 			/* is a bug */
 			WARN_ON(1);
+			return;
 		}
 		reg -= reg_len_pol0;
 		base = INT_POL_CTL1;
