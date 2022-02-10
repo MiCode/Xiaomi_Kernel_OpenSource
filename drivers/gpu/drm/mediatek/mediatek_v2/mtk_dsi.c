@@ -1189,15 +1189,68 @@ static int mtk_dsi_get_virtual_width(struct mtk_dsi *dsi,
 
 extern unsigned int disp_spr_bypass;
 
+static unsigned int mtk_get_dsi_buf_bpp(struct mtk_dsi *dsi)
+{
+	u32 dsi_buf_bpp = 3;
+	struct mtk_panel_ext *ext = NULL;
+	struct mtk_panel_dsc_params *dsc_params = NULL;
+	struct mtk_panel_spr_params *spr_params = NULL;
+
+	if (IS_ERR_OR_NULL(dsi))
+		return dsi_buf_bpp;
+
+	ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
+	if (IS_ERR_OR_NULL(ext))
+		return dsi_buf_bpp;
+
+	dsc_params = &ext->params->dsc_params;
+	spr_params = &ext->params->spr_params;
+
+	if (dsc_params && dsc_params->enable == 0) {
+		/* RGB101010 is not supported in kernel5.10 drm standard,
+		 * PACKED_RGB666 bpp is a float data:18/3,
+		 *    low power issue of ddren in vfp may happened.
+		 */
+		if (dsi->format == MIPI_DSI_FMT_RGB565)
+			dsi_buf_bpp = 2;
+		else
+			dsi_buf_bpp = 3;
+
+		if (spr_params && spr_params->enable == 1 &&
+			spr_params->relay == 0 && disp_spr_bypass == 0) {
+			switch (ext->params->spr_output_mode) {
+			case MTK_PANEL_PACKED_SPR_8_BITS:
+				dsi_buf_bpp = 2;
+				break;
+			case MTK_PANEL_lOOSELY_SPR_8_BITS:
+				dsi_buf_bpp = 3;
+				break;
+			case MTK_PANEL_lOOSELY_SPR_10_BITS:
+				dsi_buf_bpp = 3;
+				break;
+			case MTK_PANEL_PACKED_SPR_12_BITS:
+				dsi_buf_bpp = 2;
+				break;
+			default:
+				break;
+			}
+		}
+	} else if (dsc_params && dsc_params->enable != 0) {
+		dsi_buf_bpp = 3;
+	}
+
+	return dsi_buf_bpp;
+}
+
 static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 {
-	u32 ps_wc, size;
-	u32 dsi_buf_bpp, val;
+	u32 ps_wc, size, val;
 	u32 value = 0, mask = 0;
 	u32 width, height;
 	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
 	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
 	struct mtk_panel_spr_params *spr_params = &ext->params->spr_params;
+	u32 dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
 
 	if (!dsi->is_slave) {
 		width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
@@ -1209,11 +1262,6 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 				dsi->master_dsi->encoder.crtc);
 	}
 
-	if (dsi->format == MIPI_DSI_FMT_RGB565)
-		dsi_buf_bpp = 2;
-	else
-		dsi_buf_bpp = 3;
-
 	if (dsi->is_slave || dsi->slave_dsi)
 		width /= 2;
 
@@ -1222,19 +1270,15 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 			&& disp_spr_bypass == 0) {
 			switch (ext->params->spr_output_mode) {
 			case MTK_PANEL_PACKED_SPR_8_BITS:
-				dsi_buf_bpp = 2;
 				SET_VAL_MASK(value, mask, 8, DSI_PS_SEL);
 				break;
 			case MTK_PANEL_lOOSELY_SPR_8_BITS:
-				dsi_buf_bpp = 3;
 				SET_VAL_MASK(value, mask, 9, DSI_PS_SEL);
 				break;
 			case MTK_PANEL_lOOSELY_SPR_10_BITS:
-				dsi_buf_bpp = 3;
 				SET_VAL_MASK(value, mask, 11, DSI_PS_SEL);
 				break;
 			case MTK_PANEL_PACKED_SPR_12_BITS:
-				dsi_buf_bpp = 2;
 				SET_VAL_MASK(value, mask, 12, DSI_PS_SEL);
 				break;
 			default:
@@ -1273,7 +1317,7 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 		SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
 		SET_VAL_MASK(value, mask, 5, DSI_PS_SEL);
 
-		size = (height << 16) + (ps_wc / 3);
+		size = (height << 16) + (ps_wc / dsi_buf_bpp);
 	}
 
 	writel(height, dsi->regs + DSI_VACT_NL);
@@ -1323,12 +1367,14 @@ static void mtk_dsi_cmd_type1_hs(struct mtk_dsi *dsi)
 
 static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 {
-	u32 mmsys_clk = 208;
+	u32 mmsys_clk = 208, ps_wc = 0;
 	u32 width, height, tmp, rw_times;
 	u32 preultra_hi, preultra_lo, ultra_hi, ultra_lo, urgent_hi, urgent_lo;
 	u32 fill_rate, sodi_hi, sodi_lo;
 	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
 	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
+	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	u32 dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
 
 	if (!dsi->is_slave) {
 		width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
@@ -1340,34 +1386,41 @@ static void mtk_dsi_tx_buf_rw(struct mtk_dsi *dsi)
 				dsi->master_dsi->encoder.crtc);
 	}
 
-	if (dsc_params->enable == 1)
-		width = (width + 2) / 3;
+	if (dsc_params->enable != 0) {
+		ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
+		if (dsc_params->slice_mode == 1)
+			ps_wc *= 2;
+		width = ps_wc / dsi_buf_bpp;
+	}
 
-	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
-		if ((width * height * 3 % 9) == 0)
-			rw_times = width * height * 3 / 9;
+	if (!ext->params->lp_perline_en &&
+		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		if ((width * dsi_buf_bpp % 9) == 0)
+			rw_times = (width * dsi_buf_bpp / 9) * height;
 		else
-			rw_times = width * height * 3 / 9 + 1;
-		tmp = 0;
-	} else {
-		if ((width * 3 % 9) == 0)
-			rw_times = (width * 3 / 9) * height;
-		else
-			rw_times = (width * 3 / 9 + 1) * height;
+			rw_times = (width * dsi_buf_bpp / 9 + 1) * height;
 
 		if (dsi->ext->params->is_cphy) {
 			tmp = 25 * dsi->data_rate * 2 * dsi->lanes / 7 / 18;
 		} else {
 			tmp = 25 * dsi->data_rate * dsi->lanes / 8 / 18;
 		}
+	} else {
+		if ((width * height * dsi_buf_bpp % 9) == 0)
+			rw_times = width * height * dsi_buf_bpp / 9;
+		else
+			rw_times = width * height * dsi_buf_bpp / 9 + 1;
+		tmp = 0;
 	}
 
 	DDPINFO(
-		"%s, mode=0x%x, tmp=0x%x, width=%d, height=%d, rw_times=%d\n",
-		__func__, dsi->mode_flags, tmp, width, height, rw_times);
+		"%s,mode=0x%x,tmp=0x%x,width=%d,height=%d,bpp:%u,rw_times=%d\n",
+		__func__, dsi->mode_flags, tmp,
+		width, height, dsi_buf_bpp, rw_times);
 
-	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
-			DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
+	/*mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
+	 *		DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
+	 */
 	mtk_dsi_mask(dsi, DSI_BUF_CON1, 0x7fff, tmp);
 	mtk_dsi_mask(dsi, DSI_DEBUG_SEL, MM_RST_SEL, MM_RST_SEL);
 
@@ -1582,7 +1635,7 @@ static void mtk_dsi_vm_start(struct mtk_dsi *dsi)
 
 static void mtk_dsi_stop(struct mtk_dsi *dsi)
 {
-	struct mtk_drm_crtc *mtk_crtc = mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
 
 	writel(0, dsi->regs + DSI_START);
 	writel(0, dsi->regs + DSI_INTEN);
@@ -5584,9 +5637,8 @@ unsigned int mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 			u32 hs_zero = 0, hs_trail = 0, da_hs_exit = 0;
 			u32 ui = 0, cycle_time = 0;
 			struct mtk_dsi_phy_timcon *phy_timcon = NULL;
-			u32 dsi_buf_bpp = 0;
+			u32 dsi_buf_bpp = mtk_get_dsi_buf_bpp(dsi);
 			struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
-			struct mtk_panel_spr_params *spr_params = &ext->params->spr_params;
 
 			//CMD mode
 			pixclk = data_rate * dsi->lanes * compress_rate;
@@ -5597,37 +5649,11 @@ unsigned int mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 				pixclk /= 2;
 			pixclk = pixclk * bubble_rate / 100;
 
-			if (dsi->format == MIPI_DSI_FMT_RGB565)
-				dsi_buf_bpp = 2;
-			else
-				dsi_buf_bpp = 3;
-
 			if (dsi->is_slave || dsi->slave_dsi)
 				hact /= 2;
 
 			if (dsc_params->enable == 0) {
-				if (spr_params->enable == 1 && spr_params->relay == 0
-					&& disp_spr_bypass == 0) {
-					switch (ext->params->spr_output_mode) {
-					case MTK_PANEL_PACKED_SPR_8_BITS:
-						dsi_buf_bpp = 2;
-						break;
-					case MTK_PANEL_lOOSELY_SPR_8_BITS:
-						dsi_buf_bpp = 3;
-						break;
-					case MTK_PANEL_lOOSELY_SPR_10_BITS:
-						dsi_buf_bpp = 3;
-						break;
-					case MTK_PANEL_PACKED_SPR_12_BITS:
-						dsi_buf_bpp = 2;
-						break;
-					default:
-						break;
-					}
-					ps_wc = hact * dsi_buf_bpp;
-				} else {
-					ps_wc = hact * dsi_buf_bpp;
-				}
+				ps_wc = hact * dsi_buf_bpp;
 			} else {
 				ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
 				if (dsc_params->slice_mode == 1)
