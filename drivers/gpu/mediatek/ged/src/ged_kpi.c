@@ -262,12 +262,15 @@ static unsigned int is_GED_KPI_enabled = 1;
 static unsigned int g_force_gpu_dvfs_fallback;
 static int g_fb_dvfs_threshold = 80;
 static int idle_fw_set_flag;
+static unsigned int is_idle_fw_enable;
 
 module_param(g_fb_dvfs_threshold, int, 0644);
 
 // module_param(gx_dfps, uint, 0644);
 module_param(enable_gpu_boost, uint, 0644);
 module_param(is_GED_KPI_enabled, uint, 0644);
+module_param(is_idle_fw_enable, uint, 0644);
+
 
 /* for calculating remained time budgets of CPU and GPU:
  *		time budget: the buffering time that prevents fram drop
@@ -1008,9 +1011,13 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				goto work_cb_end;
 			}
 			/* set fw idle time if display Hz change */
-			if (idle_fw_set_flag == 1) {
-				if (g_target_fps_default <= 60)
-					mtk_set_gpu_idle(0);
+			if (idle_fw_set_flag == 1 && is_idle_fw_enable != 0) {
+				if (g_target_fps_default <= 60) {
+					if (is_idle_fw_enable == 1)
+						mtk_set_gpu_idle(3);
+					else if (is_idle_fw_enable == 2)
+						mtk_set_gpu_idle(0);
+				}
 				else
 					mtk_set_gpu_idle(5);
 				idle_fw_set_flag = 0;
