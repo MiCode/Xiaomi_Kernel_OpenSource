@@ -164,7 +164,7 @@
 #define DIFF_IAVG_TH 3000
 
 /* ZCV INTR */
-#define ZCV_SUSPEND_TIME 3
+#define ZCV_SUSPEND_TIME 29
 #define SLEEP_CURRENT_AVG 200 /*0.1mA*/
 #define ZCV_COM_VOL_LIMIT 50 /* 50mv */
 #define ZCV_CAR_GAP_PERCENTAGE 5
