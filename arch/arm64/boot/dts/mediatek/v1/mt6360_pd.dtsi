@@ -27,6 +27,7 @@
 		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <64 0>;
 		interrupt-names = "usbid_evt";
+		bootmode = <&chosen>;
 		pd-data {
 			pd,vid = <0x29cf>;
 			pd,pid = <0x6360>;
