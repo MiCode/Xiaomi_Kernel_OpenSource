@@ -603,18 +603,6 @@ static void mml_core_qos_set(struct mml_task *task, u32 pipe, u32 throughput, u3
 	}
 }
 
-static void mml_core_qos_clear(struct mml_task *task, u32 pipe)
-{
-	const struct mml_topology_path *path = task->config->path[pipe];
-	struct mml_comp *comp;
-	u32 i;
-
-	for (i = 0; i < path->node_cnt; i++) {
-		comp = path->nodes[i].comp;
-		call_hw_op(comp, qos_clear);
-	}
-}
-
 static u64 time_dur_us(const struct timespec64 *lhs, const struct timespec64 *rhs)
 {
 	struct timespec64 delta = timespec64_sub(*lhs, *rhs);
@@ -796,10 +784,6 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 		 */
 		list_del_init(&task_pipe_cur->entry_clt);
 
-		/* clear port qos, skip for racing mode since ports are same */
-		if (!racing_mode)
-			mml_core_qos_clear(task_pipe_cur->task, pipe);
-
 		if (task == task_pipe_cur->task) {
 			/* found ending one, stops delete */
 			break;
@@ -852,12 +836,6 @@ done:
 		task_pipe_cur->bandwidth = 0;
 		mml_core_qos_set(task_pipe_cur->task, pipe, throughput, tput_up);
 		bandwidth = task_pipe_cur->bandwidth;
-	} else  if (racing_mode) {
-		/* racing mode skip clear qos when remove from list,
-		 * so here do final clear if no task anymore.
-		 */
-		mml_core_qos_clear(task, pipe);
-		bandwidth = 0;
 	}
 keep:
 	mml_msg_qos("task dvfs end %s %s task %p throughput %u bandwidth %u pixel %u",
