@@ -1082,6 +1082,19 @@ static void hidg_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_free_all_descriptors(f);
 }
 
+static struct hidg_func_descriptor hid_data = {
+	.subclass = 0,      /* No subclass */
+	.protocol = 0,      /* Mouse Protocol */
+	.report_length = 4,
+	.report_desc_length = 7,
+	.report_desc = {
+		0x05, 0x01, /* USAGE_PAGE (Generic Desktop)     */
+		0x09, 0x00, /* USAGE (None)             */
+		0xa1, 0x01, /* COLLECTION (Application)     */
+		0xc0        /* END_COLLECTION           */
+	}
+};
+
 static struct usb_function *hidg_alloc(struct usb_function_instance *fi)
 {
 	struct f_hidg *hidg;
@@ -1112,6 +1125,21 @@ static struct usb_function *hidg_alloc(struct usb_function_instance *fi)
 			return ERR_PTR(-ENOMEM);
 		}
 	}
+
+	/* HACK, replace content, duplicate code from above */
+	hidg->bInterfaceSubClass = hid_data.subclass;
+	hidg->bInterfaceProtocol = hid_data.protocol;
+	hidg->report_length = hid_data.report_length;
+	hidg->report_desc_length = hid_data.report_desc_length;
+	hidg->report_desc = kmemdup(hid_data.report_desc,
+			hid_data.report_desc_length,
+			GFP_KERNEL);
+	if (!hidg->report_desc) {
+		kfree(hidg);
+		mutex_unlock(&opts->lock);
+		return ERR_PTR(-ENOMEM);
+	}
+
 
 	mutex_unlock(&opts->lock);
 
