@@ -85,8 +85,9 @@
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
+	switch_fps = <120>;
 	panel1@0 {
-		compatible = "jdi,nt36672e,vdo,120hz";
+		compatible = "jdi,nt36672e,vdo,60hz";
 		reg = <0>;
 		pm-enable-gpios = <&pio 161 0>;
 		reset-gpios = <&pio 95 0>;
@@ -100,14 +101,28 @@
 		};
 	};
 	panel2@0 {
-		compatible = "truly,td4330,cmd";
+		compatible = "jdi,nt36672e,vdo,120hz";
 		reg = <1>;
+		pm-enable-gpios = <&pio 161 0>;
+		reset-gpios = <&pio 95 0>;
+		gate-ic = <4831>;
+		rc-enable = <1>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel3@0 {
+		compatible = "truly,td4330,cmd";
+		reg = <2>;
 		pm-enable-gpios = <&pio 161 0>;
 		reset-gpios = <&pio 95 0>;
 		gate-ic = <4831>;
 		pinctrl-names = "default";
 		port {
-			panel_in2: endpoint {
+			panel_in3: endpoint {
 				remote-endpoint = <&dsi_out>;
 			};
 		};
