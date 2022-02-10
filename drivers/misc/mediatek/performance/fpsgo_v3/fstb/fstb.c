@@ -93,6 +93,8 @@ static int fstb_self_ctrl_fps_enable = 1;
 static int fstb_is_cam_active;
 static int tfps_to_powerhal_enable;
 static long long last_update_ts;
+static int fps_bypass_max = 150;
+static int fps_bypass_min = 50;
 
 static void reset_fps_level(void);
 static int set_soft_fps_level(int nr_level,
@@ -1930,17 +1932,19 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 					*target_fps = -1;
 					tolerence_fps = 0;
 					break;
-				case 0:
-					*target_fps = iter->target_fps;
-					tolerence_fps = iter->target_fps_margin;
-					break;
 				case 1:
 					*target_fps = max_fps_limit;
 					tolerence_fps = 0;
 					break;
+				case 0:
 				default:
 					*target_fps = iter->target_fps;
 					tolerence_fps = iter->target_fps_margin;
+					if (iter->queue_fps >
+						max_fps_limit * fps_bypass_max / 100 ||
+						iter->queue_fps <
+						min_fps_limit * fps_bypass_min / 100)
+						*target_fps = -1;
 					break;
 				}
 				eara_fps = *target_fps * 1000;
@@ -2961,6 +2965,64 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 }
 static KOBJ_ATTR_ROO(fpsgo_status);
 
+static ssize_t fstb_fps_bypass_min_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", fps_bypass_min);
+}
+
+static ssize_t fstb_fps_bypass_min_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0) {
+				mutex_lock(&fstb_lock);
+				fps_bypass_min = arg;
+				mutex_unlock(&fstb_lock);
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(fstb_fps_bypass_min);
+
+static ssize_t fstb_fps_bypass_max_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", fps_bypass_max);
+}
+
+static ssize_t fstb_fps_bypass_max_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0) {
+				mutex_lock(&fstb_lock);
+				fps_bypass_max = arg;
+				mutex_unlock(&fstb_lock);
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(fstb_fps_bypass_max);
+
 static ssize_t fstb_self_ctrl_fps_enable_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -3066,6 +3128,10 @@ int mtk_fstb_init(void)
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_set_ui_ctrl);
 		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_fstb_fps_bypass_max);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_fstb_fps_bypass_min);
+		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_tfps_to_powerhal_enable);
 	}
 
@@ -3136,6 +3202,10 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_fstb_self_ctrl_fps_enable);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_set_ui_ctrl);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_fstb_fps_bypass_max);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_fstb_fps_bypass_min);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_tfps_to_powerhal_enable);
 
