@@ -2,17 +2,102 @@
 /*
  * Copyright (c) 2020 MediaTek Inc.
  */
-
-#ifdef JPEG_DEC_DRIVER
-
 #include <linux/kernel.h>
 /* #include <linux/xlog.h> */
-
-
 
 #include "jpeg_drv_common.h"
 #include "jpeg_drv_reg.h"
 
+#ifdef JPEG_HYBRID_DEC_DRIVER
+
+unsigned int _jpeg_hybrid_dec_int_status[HW_CORE_NUMBER];
+
+int jpeg_isr_hybrid_dec_lisr(int id)
+{
+	unsigned int tmp = 0;
+
+	tmp = IMG_REG_READ(REG_JPGDEC_HYBRID_274(id));
+	if (tmp) {
+		_jpeg_hybrid_dec_int_status[id] = tmp;
+		IMG_REG_WRITE(tmp, REG_JPGDEC_HYBRID_274(id));
+		JPEG_WRN("%s return 0", __func__);
+		return 0;
+	}
+	JPEG_WRN("%s return -1", __func__);
+	return -1;
+}
+
+int jpeg_drv_hybrid_dec_start(unsigned int data[],
+										unsigned int id,
+										int *index_buf_fd)
+{
+	u64 buf_index_iova = 0;
+	struct ion_handle *index_buf_hdl;
+	int ret;
+	void *ptr;
+
+	ret = 0;
+	index_buf_hdl = jpg_ion_alloc_handle(data[20], 128, 0);
+	if (!index_buf_hdl) {
+		JPEG_WRN("%s jpg ion handle failed!", __func__);
+		*index_buf_fd = -1;
+		return -1;
+	}
+	*index_buf_fd = jpg_ion_share_handle(index_buf_hdl);
+	ret = jpg_ion_get_iova(index_buf_hdl, &buf_index_iova, 235);
+	ptr = jpg_ion_map_handle(index_buf_hdl);
+	if (ptr != NULL)
+		memset(ptr, 0, data[20]);
+	jpg_ion_unmap_handle(index_buf_hdl);
+	jpg_ion_free_handle(index_buf_hdl);
+
+	IMG_REG_WRITE(data[0], REG_JPGDEC_HYBRID_090(id));
+	IMG_REG_WRITE(data[1], REG_JPGDEC_HYBRID_090(id));
+	IMG_REG_WRITE(data[2], REG_JPGDEC_HYBRID_0FC(id));
+	IMG_REG_WRITE(data[3], REG_JPGDEC_HYBRID_14C(id));
+	IMG_REG_WRITE(data[4], REG_JPGDEC_HYBRID_150(id));
+	IMG_REG_WRITE(data[5], REG_JPGDEC_HYBRID_154(id));
+	IMG_REG_WRITE(data[6], REG_JPGDEC_HYBRID_17C(id));
+	IMG_REG_WRITE((unsigned long)(unsigned char *)jpg_translate_fd(data[7], 0, 236),
+		REG_JPGDEC_HYBRID_200(id));
+	IMG_REG_WRITE(data[8], REG_JPGDEC_HYBRID_20C(id));
+	IMG_REG_WRITE(data[9], REG_JPGDEC_HYBRID_210(id));
+	IMG_REG_WRITE(data[10], REG_JPGDEC_HYBRID_224(id));
+	IMG_REG_WRITE(data[11], REG_JPGDEC_HYBRID_23C(id));
+	IMG_REG_WRITE(data[12], REG_JPGDEC_HYBRID_24C(id));
+	IMG_REG_WRITE(data[13], REG_JPGDEC_HYBRID_270(id));
+	IMG_REG_WRITE(data[14], REG_JPGDEC_HYBRID_31C(id));
+	IMG_REG_WRITE(data[15], REG_JPGDEC_HYBRID_330(id));
+	IMG_REG_WRITE(data[16], REG_JPGDEC_HYBRID_334(id));
+	IMG_REG_WRITE((unsigned long)(unsigned char *)buf_index_iova,
+		REG_JPGDEC_HYBRID_338(id));
+	IMG_REG_WRITE((unsigned long)(unsigned char *)buf_index_iova,
+		REG_JPGDEC_HYBRID_36C(id));
+	IMG_REG_WRITE((unsigned long)(unsigned char *)buf_index_iova + data[20],
+		REG_JPGDEC_HYBRID_370(id));
+	IMG_REG_WRITE((unsigned long)(unsigned char *)buf_index_iova + data[20]*2,
+		REG_JPGDEC_HYBRID_374(id));
+	IMG_REG_WRITE(data[17], REG_JPGDEC_HYBRID_33C(id));
+	IMG_REG_WRITE(data[18], REG_JPGDEC_HYBRID_344(id));
+	IMG_REG_WRITE(data[19], REG_JPGDEC_HYBRID_240(id));
+
+	return ret;
+}
+
+void jpeg_drv_hybrid_dec_get_p_n_s(
+				unsigned int id,
+				int *progress_n_status)
+{
+	int progress, status;
+
+	progress = IMG_REG_READ(REG_JPGDEC_HYBRID_340(id)) - 1;
+	status = IMG_REG_READ(REG_JPGDEC_HYBRID_348(id));
+	*progress_n_status = progress << 4 | status;
+}
+
+#endif
+
+#ifdef JPEG_DEC_DRIVER
 /* #define DUMP_REG_CMD */
 
 #define ALIGN_MASK(BIT)		(((unsigned int)(BIT) >> 3) - 1)
