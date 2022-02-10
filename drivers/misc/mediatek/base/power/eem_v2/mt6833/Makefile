@@ -64,6 +64,11 @@ subdir-ccflags-y += -DMT6833
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6883pv1_64_6382_mcl)
+subdir-ccflags-y += -DMT6833
+subdir-ccflags-y += -DMC50_LOAD
+endif
+
 obj-y += mtk_eem.o
 obj-y += mtk_eem_platform.o
 obj-y += mtk_eem_internal.o
