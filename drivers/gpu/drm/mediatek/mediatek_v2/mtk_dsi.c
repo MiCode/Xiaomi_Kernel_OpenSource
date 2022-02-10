@@ -1828,7 +1828,7 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	struct mtk_panel_ext *panel_ext = NULL;
 	u32 status;
 	unsigned int ret = 0;
-	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 5);
+	static DEFINE_RATELIMIT_STATE(isr_ratelimit, 1 * HZ, 3);
 	bool doze_enabled = 0;
 	unsigned int doze_wait = 0;
 	static unsigned int cnt;
@@ -1904,7 +1904,7 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			mtk_dprec_logger_pr(DPREC_LOGGER_ERROR,
 				"[IRQ] %s: buffer underrun\n",
 				mtk_dump_comp_str(&dsi->ddp_comp));
-			if (__ratelimit(&ioctl_ratelimit))
+			if (__ratelimit(&isr_ratelimit))
 				DDPPR_ERR(pr_fmt("[IRQ] %s: buffer underrun\n"),
 					mtk_dump_comp_str(&dsi->ddp_comp));
 		}

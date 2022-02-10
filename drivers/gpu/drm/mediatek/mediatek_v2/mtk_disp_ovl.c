@@ -9,6 +9,7 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/ratelimit.h>
 #ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #else
@@ -742,6 +743,7 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	unsigned int val = 0;
 	unsigned int ret = 0;
+	static DEFINE_RATELIMIT_STATE(isr_ratelimit, 1 * HZ, 4);
 
 	if (IS_ERR_OR_NULL(priv))
 		return IRQ_NONE;
@@ -792,19 +794,23 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 		dump_ovl_layer_trace(mtk_crtc, ovl);
 	}
 	if (val & (1 << 2)) {
-		unsigned int smi_cnt = 0;
+		if (__ratelimit(&isr_ratelimit)) {
+			unsigned int smi_cnt = 0;
 
-		if (val & (1 << 13))
-			smi_cnt = readl(ovl->regs + DISP_REG_OVL_GREQ_LAYER_CNT);
+			if (val & (1 << 13))
+				smi_cnt = readl(ovl->regs + DISP_REG_OVL_GREQ_LAYER_CNT);
+			DDPPR_ERR("[IRQ] %s: frame underflow! %u reqs are smi hang, cnt=%d\n",
+				  mtk_dump_comp_str(ovl), smi_cnt, priv->underflow_cnt);
+		}
 
-		DDPPR_ERR("[IRQ] %s: frame underflow! %u reqs are smi hang, cnt=%d\n",
-			  mtk_dump_comp_str(ovl), smi_cnt, priv->underflow_cnt);
 		priv->underflow_cnt++;
-
 		if (priv->underflow_cnt % 1000 == 0) {
 			if (ovl->id == DDP_COMPONENT_OVL0 ||
-			    ovl->id == DDP_COMPONENT_OVL1)
+			    ovl->id == DDP_COMPONENT_OVL1) {
+				DDPAEE("[IRQ] %s:buffer underflow\n",
+					mtk_dump_comp_str(ovl));
 				mtk_smi_dbg_hang_detect("ovl-underflow");
+			}
 			mtk_ovl_dump(ovl);
 			mtk_ovl_analysis(ovl);
 		}
