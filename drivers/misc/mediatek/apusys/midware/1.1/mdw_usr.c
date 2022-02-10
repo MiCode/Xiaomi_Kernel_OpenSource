@@ -764,6 +764,12 @@ int mdw_usr_ucmd(struct apusys_ioctl_ucmd *uc)
 	struct mdw_dev_info *d = NULL;
 	int ret = 0;
 
+	/* check offset to avoid oob */
+	if (uc->offset) {
+		mdw_drv_err("don't support offset(%u)\n", uc->offset);
+		return -EINVAL;
+	}
+
 	memset(&km, 0, sizeof(km));
 
 	km.fd = uc->mem_fd;

@@ -24,7 +24,6 @@
 
 /* define */
 #define APUSYS_DEV_NAME "apusys"
-//#define MDW_LOAD_FW_SUPPORT
 
 /* global variable */
 struct device *mdw_device;
@@ -185,9 +184,6 @@ static long mdw_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct apusys_ioctl_power upwr;
 	struct apusys_ioctl_ucmd uc;
 	struct apusys_ioctl_sec us;
-#ifdef MDW_LOAD_FW_SUPPORT
-	struct apusys_ioctl_fw f;
-#endif
 
 	u = (struct mdw_usr *)filp->private_data;
 
@@ -327,35 +323,13 @@ static long mdw_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case APUSYS_IOCTL_FW_LOAD:
-#ifdef MDW_LOAD_FW_SUPPORT
-		ret = copy_from_user(&f, (void *)arg,
-			sizeof(struct apusys_ioctl_fw));
-		if (ret) {
-			mdw_drv_err("copy fw struct fail\n");
-			goto out;
-		}
-
-		ret = mdw_usr_fw(&f, APUSYS_FIRMWARE_LOAD);
-#else
 		ret = -EINVAL;
 		mdw_drv_warn("not support fw load\n");
-#endif
 		break;
 
 	case APUSYS_IOCTL_FW_UNLOAD:
-#ifdef MDW_LOAD_FW_SUPPORT
-		ret = copy_from_user(&f, (void *)arg,
-			sizeof(struct apusys_ioctl_fw));
-		if (ret) {
-			mdw_drv_err("copy fw struct fail\n");
-			goto out;
-		}
-
-		ret = mdw_usr_fw(&f, APUSYS_FIRMWARE_UNLOAD);
-#else
 		ret = -EINVAL;
 		mdw_drv_warn("not suppot fw unload\n");
-#endif
 		break;
 
 	case APUSYS_IOCTL_USER_CMD:
