@@ -1,1 +1,7 @@
 #include "cape.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape LTE";
+	compatible = "qcom,cape";
+	qcom,msm-id = <540 0x10000>;
+};

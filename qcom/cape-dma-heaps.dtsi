@@ -23,6 +23,26 @@
 			memory-region = <&user_contig_mem>;
 		};
 
+		qcom,sp_hlos {
+			qcom,dma-heap-name = "qcom,sp-hlos";
+			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
+			memory-region = <&sp_mem>;
+		};
+
+		qcom,secure_sp_modem {
+			qcom,dma-heap-name = "qcom,secure-sp-modem";
+			qcom,dma-heap-type = <HEAP_TYPE_SECURE_CARVEOUT>;
+			memory-region = <&spu_modem_shared_mem>;
+			qcom,token = <0x10800000>;
+		};
+
+		qcom,secure_sp_tz {
+			qcom,dma-heap-name = "qcom,secure-sp-tz";
+			qcom,dma-heap-type = <HEAP_TYPE_SECURE_CARVEOUT>;
+			memory-region = <&spu_tz_shared_mem>;
+			qcom,token = <0x01000000>;
+		};
+
 		qcom,qseecom {
 			qcom,dma-heap-name = "qcom,qseecom";
 			qcom,dma-heap-type = <HEAP_TYPE_CMA>;
