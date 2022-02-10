@@ -24,7 +24,6 @@
 #include <linux/uaccess.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include <linux/pm_qos.h>
 
 #ifdef JPEG_HYBRID_DEC_DRIVER
 #ifdef CONFIG_MTK_PSEUDO_M4U
@@ -2310,8 +2309,8 @@ static int jpeg_probe(struct platform_device *pdev)
 #ifdef JPEG_ENC_DRIVER
 	/* Support QoS */
 	mtk_pm_qos_add_request(&jpgenc_qos_request,
-		PM_QOS_MEMORY_BANDWIDTH,
-		PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE);
+		MTK_PM_QOS_MEMORY_BANDWIDTH,
+		MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE);
 #endif
 
 #else
