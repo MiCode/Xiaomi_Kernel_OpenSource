@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/sysfs.h>
@@ -11,7 +12,9 @@
 #include <linux/interconnect.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
+#include "dvfsrc-common.h"
 #include "dvfsrc-helper.h"
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/sysfs.h>
 
 static DEFINE_MUTEX(bw_lock);
@@ -233,6 +236,35 @@ static ssize_t dvfsrc_get_dvfs_time_show(struct device *dev,
 }
 DEVICE_ATTR_RO(dvfsrc_get_dvfs_time);
 
+static inline ssize_t dvfsrc_qos_mode_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", dvfsrc->qos_mode);
+}
+
+static inline ssize_t dvfsrc_qos_mode_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int mode = 0;
+	struct arm_smccc_res ares;
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	if (kstrtouint(buf, 0, &mode) != 0)
+		return -EINVAL;
+
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_VCOREFS_QOS_MODE,
+		mode, 0, 0, 0, 0, 0,
+		&ares);
+
+	if (!ares.a0)
+		dvfsrc->qos_mode = mode;
+
+	return count;
+}
+DEVICE_ATTR_RW(dvfsrc_qos_mode);
+
 
 static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_req_bw.attr,
@@ -246,6 +278,7 @@ static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_get_dvfs_time.attr,
 	&dev_attr_spm_cmd_dump.attr,
 	&dev_attr_spm_timer_latch_dump.attr,
+	&dev_attr_dvfsrc_qos_mode.attr,
 	NULL,
 };
 

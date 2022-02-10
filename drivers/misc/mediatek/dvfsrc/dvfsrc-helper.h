@@ -91,6 +91,7 @@ struct mtk_dvfsrc {
 	u32 vcore_vsel_shift;
 	u32 vcore_range_step;
 	u32 vcore_range_min_uV;
+	u32 qos_mode;
 	bool vchk_enable;
 };
 

@@ -440,9 +440,13 @@ static void dvfsrc_debug_notifier_register(struct mtk_dvfsrc *dvfsrc)
 	register_dvfsrc_debug_notifier(&dvfsrc->debug_notifier);
 }
 
+static DEFINE_RATELIMIT_STATE(dvfsrc_ratelimit_force, 1 * HZ, 1);
 static void dvfsrc_force_opp(struct mtk_dvfsrc *dvfsrc, u32 opp)
 {
 	if (dvfsrc->force_opp_idx != opp) {
+		if (__ratelimit(&dvfsrc_ratelimit_force))
+			pr_info("dvfsrc_force_opp\n");
+
 		mtk_dvfsrc_send_request(dvfsrc->dev->parent,
 			MTK_DVFSRC_CMD_FORCEOPP_REQUEST,
 			opp);
