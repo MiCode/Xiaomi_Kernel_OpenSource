@@ -18,7 +18,7 @@
 #include <linux/sched/clock.h>
 
 #ifdef PLL_HOPPING_READY
-#include <mt_freqhopping_drv.h>
+#include <mtk_freqhopping_drv.h>
 #endif
 
 #if defined(USE_MEDIATEK_EMI)

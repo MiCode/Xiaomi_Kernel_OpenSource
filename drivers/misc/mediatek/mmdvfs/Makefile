@@ -231,6 +231,18 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule/
 endif
 
-
+ifneq ($(CONFIG_MACH_MT6877),y)
+ifeq ($(CONFIG_MTK_FREQ_HOPPING),y)
+ifeq (true, $(MTK_FREQ_HOPPING))
+ccflags-y += -DPLL_HOPPING_READY
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
+ifeq ($(CONFIG_MACH_MT6833),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/mt6833/
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/$(MTK_PLATFORM)/
+endif
+endif
+endif
+endif
 
 obj-$(CONFIG_MTK_MMDVFS) += mmdvfs_wrapper.o
