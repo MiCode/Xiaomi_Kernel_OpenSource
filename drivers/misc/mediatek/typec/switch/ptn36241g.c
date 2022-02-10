@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
@@ -11,14 +11,23 @@
 #include <linux/usb/typec.h>
 #include <linux/usb/typec_mux.h>
 
-#include "typec_switch.h"
+#include "mux_switch.h"
 
-int ptn36241g_set_conf(struct ptn36241g *ptn, int orientation)
+struct ptn36241g {
+	struct device *dev;
+	struct typec_switch *sw;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *c1_active;
+	struct pinctrl_state *c1_sleep;
+	struct pinctrl_state *c2_active;
+	struct pinctrl_state *c2_sleep;
+	struct mutex lock;
+};
+
+static int ptn36241g_switch_set(struct typec_switch *sw,
+			      enum typec_orientation orientation)
 {
-	if (!ptn->pinctrl) {
-		dev_err(ptn->dev, "ptn pinctrl not ready\n");
-		return 0;
-	}
+	struct ptn36241g *ptn = typec_switch_get_drvdata(sw);
 
 	dev_info(ptn->dev, "%s %d\n", __func__, orientation);
 
@@ -45,7 +54,7 @@ int ptn36241g_set_conf(struct ptn36241g *ptn, int orientation)
 	return 0;
 }
 
-int ptn36241g_init(struct ptn36241g *ptn)
+static int ptn36241g_pinctrl_init(struct ptn36241g *ptn)
 {
 	struct device *dev = ptn->dev;
 	int ret = 0;
@@ -53,7 +62,7 @@ int ptn36241g_init(struct ptn36241g *ptn)
 	ptn->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(ptn->pinctrl)) {
 		ret = PTR_ERR(ptn->pinctrl);
-		dev_err(dev, "failed to get pinctrl, ret=%d\n", ret);
+		dev_info(dev, "failed to get pinctrl, ret=%d\n", ret);
 		return ret;
 	}
 
@@ -93,7 +102,69 @@ int ptn36241g_init(struct ptn36241g *ptn)
 	} else
 		dev_info(dev, "Find c2_sleep\n");
 
-	ptn36241g_set_conf(ptn, TYPEC_ORIENTATION_NONE);
+	ptn36241g_switch_set(ptn->sw, TYPEC_ORIENTATION_NONE);
 
+	return ret;
+}
+
+static int ptn36241g_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct ptn36241g *ptn;
+	struct typec_switch_desc sw_desc;
+	int ret = 0;
+
+	ptn = devm_kzalloc(&pdev->dev, sizeof(*ptn), GFP_KERNEL);
+	if (!ptn)
+		return -ENOMEM;
+
+	ptn->dev = dev;
+
+	sw_desc.drvdata = ptn;
+	sw_desc.fwnode = dev->fwnode;
+	sw_desc.set = ptn36241g_switch_set;
+
+	ptn->sw = mtk_typec_switch_register(dev, &sw_desc);
+	if (IS_ERR(ptn->sw)) {
+		dev_info(dev, "error registering typec switch: %ld\n",
+			PTR_ERR(ptn->sw));
+		return PTR_ERR(ptn->sw);
+	}
+
+	platform_set_drvdata(pdev, ptn);
+
+	ret = ptn36241g_pinctrl_init(ptn);
+	if (ret < 0)
+		mtk_typec_switch_unregister(ptn->sw);
+
+	dev_info(dev, "%s done\n", __func__);
+	return ret;
+}
+
+static int ptn36241g_remove(struct platform_device *pdev)
+{
+	struct ptn36241g *ptn = platform_get_drvdata(pdev);
+
+	mtk_typec_switch_unregister(ptn->sw);
 	return 0;
 }
+
+static const struct of_device_id ptn36241g_ids[] = {
+	{.compatible = "mediatek,ptn36241g",},
+	{},
+};
+
+static struct platform_driver ptn36241g_driver = {
+	.driver = {
+		.name = "ptn36241g",
+		.of_match_table = ptn36241g_ids,
+	},
+	.probe = ptn36241g_probe,
+	.remove = ptn36241g_remove,
+};
+
+module_platform_driver(ptn36241g_driver);
+
+MODULE_DESCRIPTION("PTN36241G USB redriver driver");
+MODULE_LICENSE("GPL v2");
+

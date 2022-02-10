@@ -11,14 +11,23 @@
 #include <linux/usb/typec.h>
 #include <linux/usb/typec_mux.h>
 
-#include "typec_switch.h"
+#include "mux_switch.h"
 
-int fusb304_set_conf(struct fusb304 *fusb, int orientation)
+struct fusb304 {
+	struct device *dev;
+	struct typec_switch *sw;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *sel_up;
+	struct pinctrl_state *sel_down;
+	struct pinctrl_state *enable;
+	struct pinctrl_state *disable;
+	struct mutex lock;
+};
+
+static int fusb304_switch_set(struct typec_switch *sw,
+			      enum typec_orientation orientation)
 {
-	if (!fusb->pinctrl) {
-		dev_err(fusb->dev, "ptn pinctrl not ready\n");
-		return 0;
-	}
+	struct fusb304 *fusb = typec_switch_get_drvdata(sw);
 
 	dev_info(fusb->dev, "%s %d\n", __func__, orientation);
 
@@ -49,15 +58,15 @@ int fusb304_set_conf(struct fusb304 *fusb, int orientation)
 	return 0;
 }
 
-int fusb304_init(struct fusb304 *fusb)
+static int fusb304_pinctrl_init(struct fusb304 *fusb)
 {
 	struct device *dev = fusb->dev;
-	int ret;
+	int ret = 0;
 
 	fusb->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(fusb->pinctrl)) {
 		ret = PTR_ERR(fusb->pinctrl);
-		dev_err(dev, "failed to get pinctrl, ret=%d\n", ret);
+		dev_info(dev, "failed to get pinctrl, ret=%d\n", ret);
 		return ret;
 	}
 
@@ -97,7 +106,70 @@ int fusb304_init(struct fusb304 *fusb)
 	} else
 		dev_info(dev, "Find disable\n");
 
-	fusb304_set_conf(fusb, TYPEC_ORIENTATION_NONE);
+	fusb304_switch_set(fusb->sw, TYPEC_ORIENTATION_NONE);
 
+	return ret;
+}
+
+static int fusb304_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct fusb304 *fusb;
+	struct typec_switch_desc sw_desc;
+	int ret = 0;
+
+	fusb = devm_kzalloc(&pdev->dev, sizeof(*fusb), GFP_KERNEL);
+	if (!fusb)
+		return -ENOMEM;
+
+	fusb->dev = dev;
+
+	sw_desc.drvdata = fusb;
+	sw_desc.fwnode = dev->fwnode;
+	sw_desc.set = fusb304_switch_set;
+
+	fusb->sw = mtk_typec_switch_register(dev, &sw_desc);
+	if (IS_ERR(fusb->sw)) {
+		dev_info(dev, "error registering typec switch: %ld\n",
+			PTR_ERR(fusb->sw));
+		return PTR_ERR(fusb->sw);
+	}
+
+	platform_set_drvdata(pdev, fusb);
+
+	ret = fusb304_pinctrl_init(fusb);
+	if (ret < 0)
+		mtk_typec_switch_unregister(fusb->sw);
+
+	dev_info(dev, "%s done\n", __func__);
+	return ret;
+}
+
+static int fusb304_remove(struct platform_device *pdev)
+{
+	struct fusb304 *fusb = platform_get_drvdata(pdev);
+
+	mtk_typec_switch_unregister(fusb->sw);
 	return 0;
 }
+
+static const struct of_device_id fusb304_ids[] = {
+	{.compatible = "mediatek,fusb304",},
+	{.compatible = "mediatek,fusb340",},
+	{},
+};
+
+static struct platform_driver fusb304_driver = {
+	.driver = {
+		.name = "fusb304",
+		.of_match_table = fusb304_ids,
+	},
+	.probe = fusb304_probe,
+	.remove = fusb304_remove,
+};
+
+module_platform_driver(fusb304_driver);
+
+MODULE_DESCRIPTION("FUSB304 Type-C switch driver");
+MODULE_LICENSE("GPL v2");
+
