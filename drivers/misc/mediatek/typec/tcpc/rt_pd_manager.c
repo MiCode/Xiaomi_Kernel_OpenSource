@@ -26,7 +26,9 @@ struct rt_pd_manager_data {
 #ifdef CONFIG_MTK_CHARGER
 	struct charger_device *chg_dev;
 	struct charger_consumer *chg_consumer;
+#ifdef CONFIG_WATER_DETECTION
 	struct power_supply *chg_psy;
+#endif /* CONFIG_WATER_DETECTION */
 #endif /* CONFIG_MTK_CHARGER */
 	struct tcpc_device *tcpc;
 	struct notifier_block pd_nb;
@@ -606,12 +608,14 @@ static int rt_pd_manager_probe(struct platform_device *pdev)
 		goto err_get_chg_consumer;
 	}
 #else
+#ifdef CONFIG_WATER_DETECTION
 	rpmd->chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (!rpmd->chg_psy) {
 		dev_notice(rpmd->dev, "%s get chg psy fail\n", __func__);
 		ret = -ENODEV;
 		goto err_get_chg_psy;
 	}
+#endif /* CONFIG_WATER_DETECTION */
 #endif /* ADAPT_CHARGER_V1 */
 #endif /* CONFIG_MTK_CHARGER */
 
@@ -663,8 +667,10 @@ err_get_tcpc_dev:
 #ifdef ADAPT_CHARGER_V1
 err_get_chg_consumer:
 #else
+#ifdef CONFIG_WATER_DETECTIO
 	power_supply_put(rpmd->chg_psy);
 err_get_chg_psy:
+#endif /* CONFIG_WATER_DETECTION */
 #endif /* ADAPT_CHARGER_V1 */
 err_get_chg_dev:
 #endif /* CONFIG_MTK_CHARGER */
@@ -688,8 +694,10 @@ static int rt_pd_manager_remove(struct platform_device *pdev)
 	typec_unregister_port(rpmd->typec_port);
 #ifdef CONFIG_MTK_CHARGER
 #ifndef ADAPT_CHARGER_V1
+#ifdef CONFIG_WATER_DETECTION
 	power_supply_put(rpmd->chg_psy);
-#endif
+#endif /* CONFIG_WATER_DETECTION */
+#endif /* ADAPT_CHARGER_V */
 #endif /* CONFIG_MTK_CHARGER */
 
 	return ret;
