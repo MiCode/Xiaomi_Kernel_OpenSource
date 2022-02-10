@@ -70,6 +70,8 @@ static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
 		UFS_DEVICE_QUIRK_DELAY_AFTER_LPM),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ21AFAMZDAR",
 		UFS_DEVICE_QUIRK_SUPPORT_EXTENDED_FEATURES),
+	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ15AFAMBDAR",
+		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM | UFS_DEVICE_QUIRK_DELAY_AFTER_LPM),
 	END_FIX
 };
 
@@ -1554,7 +1556,6 @@ out:
 static void ufs_mtk_ctrl_dev_pwr(struct ufs_hba *hba, bool vcc_on, bool is_init)
 {
 	struct arm_smccc_res res;
-	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	u64 ufs_version;
 
 	/* Transfer the ufs version to tf-a */
@@ -1568,7 +1569,7 @@ static void ufs_mtk_ctrl_dev_pwr(struct ufs_hba *hba, bool vcc_on, bool is_init)
 	 * to enter LPM, because UFS device may be active when VCC
 	 * is always-on.
 	 */
-	if (!(host->caps & UFS_MTK_CAP_BROKEN_VCC) || is_init)
+	if (!ufs_mtk_is_broken_vcc(hba) || is_init)
 		ufs_mtk_device_pwr_ctrl(vcc_on, ufs_version, res);
 }
 
@@ -2162,6 +2163,8 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 	if (dev_info->wmanufacturerid == UFS_VENDOR_MICRON)
 		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
 
+	if (STR_PRFX_EQUAL("H9HQ15AFAMBDAR", dev_info->model))
+		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
 
 	if (ufs_mtk_is_delay_after_vcc_off(hba) && hba->vreg_info.vcc) {
 		/*
