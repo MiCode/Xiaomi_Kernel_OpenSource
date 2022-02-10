@@ -7232,6 +7232,16 @@
 				clocks = <&clk26m>;
 				clock-names = "ref";
 				#phy-cells = <1>;
+				mediatek,eye-vrt = <5>;
+				mediatek,eye-term = <5>;
+				mediatek,rev4 = <1>;
+				mediatek,rx_sqth = <5>;
+				mediatek,discth = <9>;
+				mediatek,pll-bw = <3>;
+				mediatek,bgr-div = <1>;
+				nvmem-cells = <&u2_phy_data>;
+				nvmem-cell-names = "intr_cal";
+				nvmem-cell-masks = <0x1f>;
 				status = "okay";
 			};
 		};
