@@ -1199,4 +1199,20 @@ static struct platform_driver cmdq_test_drv = {
 		.of_match_table = cmdq_test_of_ids,
 	},
 };
-module_platform_driver(cmdq_test_drv);
+
+static int __init cmdq_test_init(void)
+{
+	return platform_driver_register(&cmdq_test_drv);
+}
+
+static void __exit cmdq_test_exit(void)
+{
+	return platform_driver_unregister(&cmdq_test_drv);
+}
+
+device_initcall_sync(cmdq_test_init);
+module_exit(cmdq_test_exit);
+
+MODULE_DESCRIPTION("MEDIATEK Module Cmdq-test driver");
+MODULE_AUTHOR("Mediatek");
+MODULE_LICENSE("GPL");
