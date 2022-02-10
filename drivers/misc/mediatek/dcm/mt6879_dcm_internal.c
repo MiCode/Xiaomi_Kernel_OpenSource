@@ -18,7 +18,7 @@
 #include "mtk_dcm.h"
 
 #define enable_core_stall 0
-#define enable_vlp 0
+#define enable_vlp 1
 #define DEBUGLINE dcm_pr_info("%s %d\n", __func__, __LINE__)
 
 static short dcm_cpu_cluster_stat;
