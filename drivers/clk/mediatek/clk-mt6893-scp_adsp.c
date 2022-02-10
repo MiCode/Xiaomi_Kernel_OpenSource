@@ -32,6 +32,7 @@ static const struct mtk_gate_regs scp_adsp_cg_regs = {
 		.regs = &scp_adsp_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.flags = CLK_IGNORE_UNUSED,		\
 	}
 
 static const struct mtk_gate scp_adsp_clks[] = {
