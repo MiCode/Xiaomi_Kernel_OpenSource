@@ -404,14 +404,14 @@
 	sel_up: sel_up {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO6__FUNC_GPIO6>;
-			output-low;
+			output-high;
 		};
 	};
 
 	sel_down: sel_down {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO6__FUNC_GPIO6>;
-			output-high;
+			output-low;
 		};
 	};
 };
