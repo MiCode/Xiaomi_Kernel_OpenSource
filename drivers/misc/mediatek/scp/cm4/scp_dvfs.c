@@ -1737,6 +1737,7 @@ fail:
 
 void __exit scp_dvfs_exit(void)
 {
+	unregister_syscore_ops(&mt_scp_dvfs_syscore_ops);
 	platform_driver_unregister(&mt_scp_dvfs_pdrv);
 	platform_device_unregister(&mt_scp_dvfs_pdev);
 }

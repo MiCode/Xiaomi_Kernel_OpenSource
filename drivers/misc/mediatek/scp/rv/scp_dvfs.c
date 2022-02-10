@@ -2261,6 +2261,7 @@ fail:
 
 void __exit scp_dvfs_exit(void)
 {
+	unregister_pm_notifier(&scp_pm_notifier_func);
 	platform_driver_unregister(&mt_scp_dvfs_pdrv);
 }
 
