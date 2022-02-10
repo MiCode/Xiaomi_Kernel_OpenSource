@@ -478,12 +478,12 @@ static int mtu3_probe(struct platform_device *pdev)
 	if (ret)
 		goto comm_init_err;
 
-	ssusb_ip_sw_reset(ssusb);
-
 	if (IS_ENABLED(CONFIG_USB_MTU3_HOST))
 		ssusb->dr_mode = USB_DR_MODE_HOST;
 	else if (IS_ENABLED(CONFIG_USB_MTU3_GADGET))
 		ssusb->dr_mode = USB_DR_MODE_PERIPHERAL;
+
+	ssusb_ip_sw_reset(ssusb);
 
 	/* default as host */
 	ssusb->is_host = !(ssusb->dr_mode == USB_DR_MODE_PERIPHERAL);

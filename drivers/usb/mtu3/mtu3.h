@@ -70,6 +70,7 @@ struct mtu3_request;
 #define MTU3_EP_BUSY		BIT(3)
 
 #define MTU3_U3_IP_SLOT_DEFAULT 2
+#define MTU3_U3_IP_SLOT_MAX 4
 #define MTU3_U2_IP_SLOT_DEFAULT 1
 
 #define MTU3_SW_ID_GROUND	BIT(0)
@@ -166,6 +167,12 @@ enum MTK_USB_SMC_CALL {
 	MTK_USB_SMC_INFRA_REQUEST = 0,
 	MTK_USB_SMC_INFRA_RELEASE,
 	MTK_USB_SMC_NUM
+};
+
+enum mtu3_ep_slot_mode {
+	MTU3_EP_SLOT_DEFAULT = 0,
+	MTU3_EP_SLOT_MIN,
+	MTU3_EP_SLOT_MAX,
 };
 
 /**
@@ -416,6 +423,7 @@ struct mtu3 {
 	u32 hw_version;
 
 	unsigned is_gadget_ready:1;
+	int ep_slot_mode;
 };
 
 static inline struct mtu3 *gadget_to_mtu3(struct usb_gadget *g)
@@ -500,6 +508,9 @@ void mtu3_gadget_reset(struct mtu3 *mtu);
 void mtu3_gadget_suspend(struct mtu3 *mtu);
 void mtu3_gadget_resume(struct mtu3 *mtu);
 void mtu3_gadget_disconnect(struct mtu3 *mtu);
+
+int mtu3_device_enable(struct mtu3 *mtu);
+void mtu3_device_disable(struct mtu3 *mtu);
 
 int ssusb_set_power_resource(struct ssusb_mtk *ssusb, int mode);
 irqreturn_t mtu3_ep0_isr(struct mtu3 *mtu);

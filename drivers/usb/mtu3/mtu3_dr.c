@@ -9,6 +9,7 @@
 
 #include <linux/usb/role.h>
 #include <linux/of_platform.h>
+#include <linux/iopoll.h>
 
 #include "mtu3.h"
 #include "mtu3_dr.h"
@@ -359,20 +360,40 @@ void ssusb_set_force_mode(struct ssusb_mtk *ssusb,
 
 static void ssusb_ip_sleep(struct ssusb_mtk *ssusb)
 {
+
 	void __iomem *ibase = ssusb->ippc_base;
+	int num_u3p = ssusb->u3_ports;
+	int num_u2p = ssusb->u2_ports;
+	u32 value;
+	int ret;
+	int i;
 
-	dev_info(ssusb->dev, "%s\n", __func__);
+	/* power down and disable all u3 ports */
+	for (i = 0; i < num_u3p; i++) {
+		value = mtu3_readl(ibase, SSUSB_U3_CTRL(i));
+		value |= SSUSB_U3_PORT_PDN | SSUSB_U3_PORT_DIS;
+		mtu3_writel(ibase, SSUSB_U3_CTRL(i), value);
+		mtu3_clrbits(ibase, SSUSB_U3_CTRL(i), SSUSB_U3_PORT_DUAL_MODE);
+	}
 
-	/* Set below sequence to avoid power leakage */
-	mtu3_setbits(ibase, SSUSB_U3_CTRL(0),
-		(SSUSB_U3_PORT_DIS | SSUSB_U3_PORT_PDN));
-	mtu3_setbits(ibase, SSUSB_U2_CTRL(0),
-		SSUSB_U2_PORT_DIS | SSUSB_U2_PORT_PDN);
-	mtu3_clrbits(ibase, SSUSB_U2_CTRL(0), SSUSB_U2_PORT_OTG_SEL);
-	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL1, SSUSB_IP_HOST_PDN);
+	/* power down and disable all u2 ports */
+	for (i = 0; i < num_u2p; i++) {
+		value = mtu3_readl(ibase, SSUSB_U2_CTRL(i));
+		value |= SSUSB_U2_PORT_PDN | SSUSB_U2_PORT_DIS;
+		mtu3_writel(ibase, SSUSB_U2_CTRL(i), value);
+		mtu3_clrbits(ibase, SSUSB_U2_CTRL(i), SSUSB_U2_PORT_OTG_SEL);
+	}
+
+	/* power down device ip */
 	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
-	udelay(50);
-	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
+	/* power down host ip */
+	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL1, SSUSB_IP_HOST_PDN);
+
+	/* wait for ip to sleep */
+	ret = readl_poll_timeout(ibase + U3D_SSUSB_IP_PW_STS1, value,
+			  (value & SSUSB_IP_SLEEP_STS), 100, 100000);
+	if (ret)
+		dev_info(ssusb->dev, "ip sleep failed!!!\n");
 }
 
 static void ssusb_phy_set_mode(struct ssusb_mtk *ssusb, enum phy_mode mode)
@@ -407,6 +428,7 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 {
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
 	struct otg_switch_mtk *otg_sx = &ssusb->otg_switch;
+	struct mtu3 *mtu = ssusb->u3d;
 	bool id_event, vbus_event;
 	static bool first_init = true;
 
@@ -432,17 +454,13 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				ssusb_phy_set_mode(ssusb, PHY_MODE_USB_DEVICE);
 				ssusb_phy_power_on(ssusb);
 				ssusb_ip_sw_reset(ssusb);
-				/* Need to set, otherwise SSUSB_SYSPLL_STABLE
-				 * will be unstable
-				 */
-				mtu3_clrbits(ssusb->ippc_base,
-					U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
-				switch_port_to_device(ssusb);
+				 mtu3_device_enable(mtu);
 			}
 			ssusb_set_mailbox(otg_sx, MTU3_VBUS_VALID);
 		} else {
 			ssusb_set_mailbox(otg_sx, MTU3_VBUS_OFF);
 			if (ssusb->clk_mgr) {
+				mtu3_device_disable(mtu);
 				ssusb_ip_sleep(ssusb);
 				ssusb_phy_power_off(ssusb);
 				ssusb_clks_disable(ssusb);
@@ -537,8 +555,7 @@ static int ssusb_role_sw_register(struct otg_switch_mtk *otg_sx)
 	return 0;
 }
 
-
-static ssize_t cmode_store(struct device *dev,
+static ssize_t mode_store(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf, size_t count)
 {
@@ -583,7 +600,7 @@ static ssize_t cmode_store(struct device *dev,
 	return count;
 }
 
-static ssize_t cmode_show(struct device *dev,
+static ssize_t mode_show(struct device *dev,
 				struct device_attribute *attr,
 				char *buf)
 {
@@ -592,10 +609,82 @@ static ssize_t cmode_show(struct device *dev,
 
 	return sprintf(buf, "%d\n", otg_sx->op_mode);
 }
-static DEVICE_ATTR_RW(cmode);
+static DEVICE_ATTR_RW(mode);
+
+static ssize_t max_speed_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct mtu3 *mtu = ssusb->u3d;
+	int speed;
+
+	if (!strncmp(buf, "super-speed-plus", 16))
+		speed = USB_SPEED_SUPER_PLUS;
+	else if (!strncmp(buf, "super-speed", 11))
+		speed = USB_SPEED_SUPER;
+	else if (!strncmp(buf, "high-speed", 10))
+		speed = USB_SPEED_HIGH;
+	else if (!strncmp(buf, "full-speed", 10))
+		speed = USB_SPEED_FULL;
+	else
+		return -EFAULT;
+
+	dev_info(dev, "store speed %s\n", buf);
+
+	mtu->max_speed = speed;
+	mtu->g.max_speed = speed;
+
+	return count;
+}
+
+static ssize_t max_speed_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct mtu3 *mtu = ssusb->u3d;
+
+	return sprintf(buf, "%s\n", usb_speed_string(mtu->max_speed));
+}
+static DEVICE_ATTR_RW(max_speed);
+
+static ssize_t saving_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct mtu3 *mtu = ssusb->u3d;
+	int mode;
+
+	if (kstrtoint(buf, 10, &mode))
+		return -EINVAL;
+
+	if (mode < MTU3_EP_SLOT_DEFAULT || mode > MTU3_EP_SLOT_MAX)
+		return -EINVAL;
+
+	mtu->ep_slot_mode = mode;
+
+	dev_info(dev, "slot mode %d\n", mtu->ep_slot_mode);
+
+	return count;
+}
+
+static ssize_t saving_show(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
+	struct mtu3 *mtu = ssusb->u3d;
+
+	return sprintf(buf, "%d\n", mtu->ep_slot_mode);
+}
+static DEVICE_ATTR_RW(saving);
 
 static struct attribute *ssusb_dr_attrs[] = {
-	&dev_attr_cmode.attr,
+	&dev_attr_mode.attr,
+	&dev_attr_max_speed.attr,
+	&dev_attr_saving.attr,
 	NULL
 };
 
