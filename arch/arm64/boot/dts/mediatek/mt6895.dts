@@ -8489,6 +8489,7 @@
 		vcp_dramSize = <0x00800000>;
 		core_nums = <1>;	/* core number */
 		twohart = <1>;		/* two hart arch */
+		femter_ck = <10>;	/* clk table fmeter f_fmmup_ck */
 		mbox_count = <5>;
 		/* id, mbox, send_size*/
 		send_table =
