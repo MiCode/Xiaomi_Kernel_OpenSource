@@ -41,7 +41,7 @@
 #define REG_DEFINE(reg, ofs, msk, bit)					\
 	REG_DEFINE_WITH_INIT(reg, ofs, msk, bit, 0, 0)
 
-enum scp_core_enum {
+enum {
 	SCP_CORE_0,
 	SCP_CORE_1,
 	SCP_MAX_CORE_NUM,
@@ -94,7 +94,7 @@ enum scp_power_status {
 	POW_ON = 1 << 1, /* 1: cpu-on, 0: cpu-off */
 };
 
-enum scp_ipi_cmd {
+enum {
 	SCP_SLEEP_OFF,
 	SCP_SLEEP_ON,
 	SCP_SLEEP_NO_WAKEUP,
