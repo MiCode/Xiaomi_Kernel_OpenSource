@@ -4367,6 +4367,34 @@
 		#size-cells = <0>;
 	};
 
+	disp_iommu_bank1: iommu@14017000 {
+		compatible = "mediatek,common-disp-iommu-bank1";
+		mediatek,bank-id = <1>;
+		reg = <0 0x14017000 0 0x1000>;
+		interrupts = <GIC_SPI 272 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
+	disp_iommu_bank2: iommu@14018000 {
+		compatible = "mediatek,common-disp-iommu-bank2";
+		mediatek,bank-id = <2>;
+		reg = <0 0x14018000 0 0x1000>;
+		interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
+	disp_iommu_bank3: iommu@14019000 {
+		compatible = "mediatek,common-disp-iommu-bank3";
+		mediatek,bank-id = <3>;
+		reg = <0 0x14019000 0 0x1000>;
+		interrupts = <GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
+	disp_iommu_bank4: iommu@1401a000 {
+		compatible = "mediatek,common-disp-iommu-bank4";
+		mediatek,bank-id = <4>;
+		reg = <0 0x1401a000 0 0x1000>;
+		interrupts = <GIC_SPI 275 IRQ_TYPE_LEVEL_HIGH 0>;
+	};
+
 	iommu0: iommu@14016000 {
 		compatible = "mediatek,mt6833-m4u";
 		reg = <0 0x14016000 0 0x1000>;
@@ -4376,6 +4404,8 @@
 				  &smi_larb9 &smi_larb11 &smi_larb13
 				  &smi_larb14 &smi_larb16 &smi_larb17
 				  &smi_larb19 &smi_larb20>;
+		mediatek,iommu_banks = <&disp_iommu_bank1 &disp_iommu_bank2
+					&disp_iommu_bank3 &disp_iommu_bank4>;
 		power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
 		clocks = <&dispsys_config_clk CLK_MM_SMI_IOMMU>;
 		clock-names = "bclk";
