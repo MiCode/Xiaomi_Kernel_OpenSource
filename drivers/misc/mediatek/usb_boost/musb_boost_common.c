@@ -795,6 +795,18 @@ static void musb_g_giveback_boost(void *unused, struct musb_request *musb_req)
 	}
 }
 
+static void musb_host_urb_giveback_boost(void *unused, struct urb *urb)
+{
+	switch (usb_endpoint_type(&urb->ep->desc)) {
+	case USB_ENDPOINT_XFER_BULK:
+		if (urb->actual_length >= 8192)
+			usb_boost();
+		break;
+	default:
+		break;
+	}
+}
+
 static int musb_trace_init(void)
 {
 	WARN_ON(register_trace_musb_gadget_enable(
@@ -803,6 +815,13 @@ static int musb_trace_init(void)
 		boost_ep_disable, NULL));
 	WARN_ON(register_trace_musb_g_giveback(
 		musb_g_giveback_boost, NULL));
+	return 0;
+}
+
+static int musb_host_trace_init(void)
+{
+	WARN_ON(register_trace_musb_host_urb_giveback(
+		musb_host_urb_giveback_boost, NULL));
 	return 0;
 }
 #endif
@@ -841,6 +860,7 @@ int usb_boost_init(void)
 
 #if IS_ENABLED(CONFIG_USB_MTK_HDRC)
 	musb_trace_init();
+	musb_host_trace_init();
 #endif
 
 	return 0;
