@@ -4544,6 +4544,7 @@ static int mt_usb_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id apusb_of_ids[] = {
+	{.compatible = "mediatek,mt6789-usb20",},
 	{.compatible = "mediatek,mt6855-usb20",},
 	{.compatible = "mediatek,mt6833-usb20",},
 	{},
