@@ -535,6 +535,86 @@
 };
 /* CAMERA specify sensor end */
 
+/* usb typec mux */
+&pio {
+	c1_active: c1_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO113__FUNC_GPIO113>;
+			output-high;
+		};
+	};
+
+	c2_active: c2_highz {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO112__FUNC_GPIO112>;
+			input-enable;
+			bias-disable;
+		};
+	};
+
+	c1_sleep: c1_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO113__FUNC_GPIO113>;
+			output-low;
+		};
+	};
+
+	c2_sleep: c2_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO112__FUNC_GPIO112>;
+			output-low;
+		};
+	};
+
+	sel_up: sel_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO111__FUNC_GPIO111>;
+			output-high;
+		};
+	};
+
+	sel_down: sel_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO111__FUNC_GPIO111>;
+			output-low;
+		};
+	};
+
+	sw_enable: sw_enable {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
+			output-low;
+		};
+	};
+
+	sw_disable: sw_disable {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
+			output-low;
+		};
+	};
+};
+
+&ptn36241g {
+	pinctrl-names = "c1_active", "c1_sleep",
+		"c2_active", "c2_sleep";
+	pinctrl-0 = <&c1_active>;
+	pinctrl-1 = <&c1_sleep>;
+	pinctrl-2 = <&c2_active>;
+	pinctrl-3 = <&c2_sleep>;
+	status = "okay";
+};
+
+&fusb304 {
+	pinctrl-names = "sel_up", "sel_down",
+		"enable", "disable";
+	pinctrl-0 = <&sel_up>;
+	pinctrl-1 = <&sel_down>;
+	pinctrl-2 = <&sw_enable>;
+	pinctrl-3 = <&sw_disable>;
+	status = "okay";
+};
+
 #include "mediatek/cust_mt6893_touch.dtsi"
 #include "mediatek/cust_mt6885_camera.dtsi"
 #include <k6893v1_64_k419/cust.dtsi>

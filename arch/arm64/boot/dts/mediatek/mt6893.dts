@@ -8313,6 +8313,21 @@ page_owner=on loop.max_part=7";
 #endif
 	};
 #endif
+
+	typec_mux_switch: typec_mux_switch {
+		compatible = "mediatek,typec_mux_switch";
+		status = "okay";
+	};
+
+	fusb304: fusb304 {
+		compatible = "mediatek,fusb304";
+		status = "okay";
+	};
+
+	ptn36241g: ptn36241g {
+		compatible = "mediatek,ptn36241g";
+		status = "okay";
+	};
 };
 
 &spmi_bus {
