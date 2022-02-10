@@ -315,6 +315,21 @@
 		clock-frequency = <13000000>;
 	};
 
+	soc {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "simple-bus";
+		ranges;
+
+
+		drm:drm@1000d000 {
+			compatible = "mediatek,dbgtop-drm";
+			reg = <0 0x1000d000 0 0x1000>;
+			rgu_timeout = <0xea60>; // for ddr-reserved mode
+			ver = <1>;
+		};
+	};
+
 	mcupm: mcupm@0c540000 {
 		compatible = "mediatek,mcupm";
 		reg = <0 0x0c540000 0 0x22000>,
