@@ -1192,6 +1192,12 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	if (iter == NULL)
 		goto out;
 
+	if (!fstb_self_ctrl_fps_enable) {
+		target_fps = iter->target_fps;
+		fpsgo_main_trace("[fstb][%d][0x%llx] | fstb_self_ctrl_fps_enable:%d",
+			iter->pid, iter->bufid, fstb_self_ctrl_fps_enable);
+	}
+
 	if (target_fps <= 0) {
 		fstb_change_tfps(iter, iter->target_fps, 1);
 		fpsgo_main_trace("[fstb][%d][0x%llx] | back to v1 (%d)(%d)(%d)",
@@ -1267,7 +1273,7 @@ void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bu
 	}
 
 	if (iter == NULL || fstb_is_cam_active ||
-		iter->hwui_flag == RENDER_INFO_HWUI_TYPE || !fstb_self_ctrl_fps_enable)
+		iter->hwui_flag == RENDER_INFO_HWUI_TYPE)
 		goto out;
 
 	vpPush =
