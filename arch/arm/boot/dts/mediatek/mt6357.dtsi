@@ -442,6 +442,7 @@
 	};
 	mt6357_rtc: mt6357_rtc {
 		compatible = "mediatek,mt6357-rtc";
+		bootmode = <&chosen>;
 		interrupts = <INT_RTC IRQ_TYPE_NONE>;
 		interrupt-names = "rtc";
 		base = <0x580>;
