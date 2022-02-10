@@ -18,6 +18,7 @@
 #include "musb_core.h"
 #include "musb_host.h"
 #include "musb_qmu.h"
+#include "musb_trace.h"
 
 /* MUSB HOST status 22-mar-2006
  *
@@ -592,6 +593,7 @@ __releases(musb->lock) __acquires(musb->lock)
 
 	usb_hcd_unlink_urb_from_ep(musb_to_hcd(musb), urb);
 	spin_unlock(&musb->lock);
+	trace_musb_host_urb_giveback(urb);
 	usb_hcd_giveback_urb(musb_to_hcd(musb), urb, status);
 	spin_lock(&musb->lock);
 }
@@ -2851,7 +2853,6 @@ static int
 	if (urb->dev->devnum)
 		musb_host_active_dev_add((unsigned int)urb->dev->devnum);
 #endif
-
 
 	DBG(4, "kzalloc a qh %p\n", qh);
 	qh->hep = hep;

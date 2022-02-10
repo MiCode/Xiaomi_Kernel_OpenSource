@@ -330,6 +330,57 @@ DEFINE_EVENT(musb_log_ep, musb_gadget_disable,
 	TP_ARGS(musb_ep)
 );
 
+DECLARE_EVENT_CLASS(musb_host_log_ep,
+	TP_PROTO(struct urb *urb),
+	TP_ARGS(urb),
+	TP_STRUCT__entry(
+		__field(void *, urb)
+		__field(unsigned int, pipe)
+		__field(unsigned int, stream)
+		__field(int, status)
+		__field(unsigned int, flags)
+		__field(int, num_mapped_sgs)
+		__field(int, num_sgs)
+		__field(int, length)
+		__field(int, actual)
+		__field(int, epnum)
+		__field(int, dir_in)
+		__field(int, type)
+		__field(int, slot_id)
+	),
+	TP_fast_assign(
+		__entry->urb = urb;
+		__entry->pipe = urb->pipe;
+		__entry->stream = urb->stream_id;
+		__entry->status = urb->status;
+		__entry->flags = urb->transfer_flags;
+		__entry->num_mapped_sgs = urb->num_mapped_sgs;
+		__entry->num_sgs = urb->num_sgs;
+		__entry->length = urb->transfer_buffer_length;
+		__entry->actual = urb->actual_length;
+		__entry->epnum = usb_endpoint_num(&urb->ep->desc);
+		__entry->dir_in = usb_endpoint_dir_in(&urb->ep->desc);
+		__entry->type = usb_endpoint_type(&urb->ep->desc);
+		__entry->slot_id = urb->dev->slot_id;
+	),
+	TP_printk("ep%d%s-%s: urb %p pipe %u slot %d length %d/%d sgs %d/%d stream %d flags %08x",
+			__entry->epnum, __entry->dir_in ? "in" : "out",
+			__print_symbolic(__entry->type,
+				   { USB_ENDPOINT_XFER_INT,	"intr" },
+				   { USB_ENDPOINT_XFER_CONTROL,	"control" },
+				   { USB_ENDPOINT_XFER_BULK,	"bulk" },
+				   { USB_ENDPOINT_XFER_ISOC,	"isoc" }),
+			__entry->urb, __entry->pipe, __entry->slot_id,
+			__entry->actual, __entry->length, __entry->num_mapped_sgs,
+			__entry->num_sgs, __entry->stream, __entry->flags
+		)
+);
+
+DEFINE_EVENT(musb_host_log_ep, musb_host_urb_giveback,
+	TP_PROTO(struct urb *urb),
+	TP_ARGS(urb)
+);
+
 #endif /* __MUSB_TRACE_H */
 
 /* this part has to be here */
