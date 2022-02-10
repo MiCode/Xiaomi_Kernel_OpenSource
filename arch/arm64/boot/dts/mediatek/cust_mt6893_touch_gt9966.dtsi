@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ */
+/* TOUCH start */
+
+&spi5 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	gt9966@0 {
+		compatible = "goodix,gt9966";
+		reg = <0>; //Same as CS ID
+		spi-max-frequency = <1000000>;
+
+		//goodix,avdd-name = "vtouch";
+		//vtouch-supply = <&mt_pmic_vtp_ldo_reg>;
+		goodix,avdd-gpio = <&pio 184 0>;
+		goodix,reset-gpio = <&pio 20 0x0>;
+		goodix,irq-gpio = <&pio 21 0x0>;
+		goodix,irq-flags = <2>; /* 1:rising, 2:falling;*/
+		goodix,panel-max-id = <10>;
+		goodix,panel-max-x = <2560>;
+		goodix,panel-max-y = <1536>;
+		goodix,panel-max-w = <256>;
+		goodix,panel-max-p = <256>;
+		goodix,input-max-x = <2560>;
+		goodix,input-max-y = <1536>;
+		goodix,panel-key-map = <158 172 217>; /*BACK,HOMEPAGE,SEARCH*/
+		goodix,power-on-delay-us = <10000>; /*10ms*/
+		goodix,power-off-delay-us = <5000>;
+		goodix,firmware-name = "goodix_firmware.bin";
+		goodix,config-name = "goodix_cfg_group.bin";
+		/*goodix,swap-axis;*/
+		/*goodix,x2x;*/
+		/*goodix,y2y;*/
+		goodix,pen-enable;
+		//tpd-filter-enable = <0>;
+		//tpd-filter-pixel-density = <161>;
+		//tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+		//tpd-filter-custom-speed = <0 0 0>;
+	};
+
+};
+
+/* TOUCH end */
