@@ -39,7 +39,6 @@
 /* MET: define to enable MET*/
 /*#define ISP_MET_READY*/
 
-#define CONFIG_MTK_QOS_SUPPORT
 #define EP_NO_K_LOG_ADJUST
 #ifdef EP_STAGE
 /* disable SMI related for EP */
@@ -47,7 +46,7 @@
 /* For early if load dont need to use camera*/
 #define DUMMY_INT
 /* If PMQoS is not ready on EP stage */
-//#define EP_NO_PMQOS
+#define EP_NO_PMQOS
 /* Clkmgr is not ready in early porting, en/disable clock  by hardcode */
 #define EP_NO_CLKMGR
 /* EP no need to adjust upper bound of kernel log count */
@@ -83,7 +82,7 @@
 #include "inc/camera_isp.h"
 
 #ifndef EP_NO_PMQOS /* EP_NO_PMQOS is equivalent to EP_MARK_MMDVFS */
-//#include <mmdvfs_mgr.h>
+#include <mmdvfs_mgr.h>
 #ifdef CONFIG_MTK_QOS_SUPPORT
 #include <mmdvfs_pmqos.h>
 #endif
@@ -248,7 +247,7 @@ const struct ISR_TABLE IRQ_CB_TBL[ISP_IRQ_TYPE_AMOUNT] = {
  *  "ISP_DEV_NODE_ENUM" in camera_isp.h
  */
 static const struct of_device_id isp_of_ids[] = {
-	{ .compatible = "mediatek,camsys", },
+	{ .compatible = "mediatek,camsys1", },
 	{ .compatible = "mediatek,cam1", },
 	{ .compatible = "mediatek,cam2", },
 	{ .compatible = "mediatek,cam3", },
