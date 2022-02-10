@@ -26,6 +26,10 @@
 #include "tcpm.h"
 #endif
 
+#ifdef CONFIG_MTK_USB_TYPEC_U3_MUX
+#include "mux_switch.h"
+#endif
+
 static struct mtk_extcon_info *g_extcon;
 
 static const unsigned int usb_extcon_cable[] = {
@@ -355,6 +359,20 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 		dev_info(dev, "old_state=%d, new_state=%d\n",
 				noti->typec_state.old_state,
 				noti->typec_state.new_state);
+
+#ifdef CONFIG_MTK_USB_TYPEC_U3_MUX
+		if ((noti->typec_state.new_state == TYPEC_ATTACHED_SRC ||
+			noti->typec_state.new_state == TYPEC_ATTACHED_SNK ||
+			noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC ||
+			noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC)) {
+			if (noti->typec_state.polarity == 0)
+				usb3_switch_set(TYPEC_ORIENTATION_REVERSE);
+			else
+				usb3_switch_set(TYPEC_ORIENTATION_NORMAL);
+		} else if (noti->typec_state.new_state == TYPEC_UNATTACHED) {
+			usb3_switch_set(TYPEC_ORIENTATION_NONE);
+		}
+#endif
 		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
 			dev_info(dev, "Type-C SRC plug in\n");
