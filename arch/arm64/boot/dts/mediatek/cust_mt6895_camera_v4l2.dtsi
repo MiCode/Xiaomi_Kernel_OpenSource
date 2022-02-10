@@ -668,6 +668,7 @@
 		dvdd-supply = <&rt5133_gpio3>;
 		dovdd-supply = <&rt5133_ldo1>;
 		afvdd-supply = <&rt5133_ldo2>;
+		avdd1-supply = <&rt5133_ldo5>;
 #endif
 		clocks = <&topckgen_clk CLK_TOP_UNIVPLL_192M_D32>,
 			<&topckgen_clk CLK_TOP_UNIVPLL_192M_D16>,
