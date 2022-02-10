@@ -432,8 +432,29 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 	int vbus = 0;
 	struct power_supply *ac_psy = power_supply_get_by_name("ac");
 	struct power_supply *usb_psy = power_supply_get_by_name("usb");
-	struct mt_charger *mtk_chg_ac = power_supply_get_drvdata(ac_psy);
-	struct mt_charger *mtk_chg_usb = power_supply_get_drvdata(usb_psy);
+	struct mt_charger *mtk_chg_ac;
+	struct mt_charger *mtk_chg_usb;
+
+	if (IS_ERR_OR_NULL(usb_psy)) {
+		chr_err("%s, fail to get usb_psy\n", __func__);
+		return NOTIFY_BAD;
+	}
+	if (IS_ERR_OR_NULL(ac_psy)) {
+		chr_err("%s, fail to get ac_psy\n", __func__);
+		return NOTIFY_BAD;
+	}
+
+	mtk_chg_ac = power_supply_get_drvdata(ac_psy);
+	if (IS_ERR_OR_NULL(mtk_chg_ac)) {
+		chr_err("%s, fail to get mtk_chg_ac\n", __func__);
+		return NOTIFY_BAD;
+	}
+
+	mtk_chg_usb = power_supply_get_drvdata(usb_psy);
+	if (IS_ERR_OR_NULL(mtk_chg_usb)) {
+		chr_err("%s, fail to get mtk_chg_usb\n", __func__);
+		return NOTIFY_BAD;
+	}
 
 	switch (event) {
 	case TCP_NOTIFY_SINK_VBUS:
