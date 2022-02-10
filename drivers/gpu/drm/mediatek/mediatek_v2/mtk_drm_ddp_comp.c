@@ -119,6 +119,8 @@
 #define MT6879_FLD_OVL0_RDMA_ULTRA_SEL            REG_FLD_MSB_LSB(5, 2)
 #define MT6879_FLD_OVL0_2L_RDMA_ULTRA_SEL         REG_FLD_MSB_LSB(9, 6)
 #define MT6879_FLD_OVL0_2L_NWCG_RDMA_ULTRA_SEL    REG_FLD_MSB_LSB(17, 14)
+#define MT6855_FLD_OVL0_RDMA_ULTRA_SEL            REG_FLD_MSB_LSB(5, 2)
+#define MT6855_FLD_OVL1_2L_RDMA_ULTRA_SEL         REG_FLD_MSB_LSB(13, 10)
 
 #define SMI_LARB_NON_SEC_CON 0x0380
 
@@ -1287,6 +1289,7 @@ void mt6855_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	struct mtk_drm_private *priv = drm->dev_private;
 	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
 	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	unsigned int ultra_ovl_val = 0, ultra_ovl_mask = 0;
 	bool en = *((bool *)data);
 
 	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
@@ -1339,11 +1342,31 @@ void mt6855_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			& (~emi_req_mask));
 		v += (emi_req_val & emi_req_mask);
 		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
+
+		/* enable ultra signal from rdma to ovl0 and ovl1_2l */
+		v = readl(priv->config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask, 0,
+			MT6855_FLD_OVL0_RDMA_ULTRA_SEL);
+		v = (v & ~ultra_ovl_mask) | (ultra_ovl_val & ultra_ovl_mask);
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask, 0,
+			MT6855_FLD_OVL1_2L_RDMA_ULTRA_SEL);
+		v = (v & ~ultra_ovl_mask) | (ultra_ovl_val & ultra_ovl_mask);
+		writel_relaxed(v, priv->config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
 	} else {
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+
+		/* enable ultra signal from rdma to ovl0 and ovl1_2l*/
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask, 0,
+			MT6855_FLD_OVL0_RDMA_ULTRA_SEL);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa + DISP_REG_CONFIG_MMSYS_MISC,
+			       ultra_ovl_val, ultra_ovl_mask);
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask, 0,
+			MT6855_FLD_OVL1_2L_RDMA_ULTRA_SEL);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa + DISP_REG_CONFIG_MMSYS_MISC,
+			       ultra_ovl_val, ultra_ovl_mask);
 	}
 }
 
