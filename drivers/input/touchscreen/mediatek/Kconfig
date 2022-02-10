@@ -192,4 +192,14 @@ config TOUCHSCREEN_HIMAX_CHIPSET
 	If unsure, say N.
 source "drivers/input/touchscreen/mediatek/hxchipset_hx83102p/Kconfig"
 
+config TOUCHSCREEN_GOODIX_BRL
+	bool "Goodix berlin touchscreen"
+	help
+	  Say Y here if you have a Goodix berlin series touch controller
+	  to your system.
+
+	  If build module, say M.
+	  If unsure, say N.
+source "drivers/input/touchscreen/mediatek/goodix_berlin_driver/Kconfig"
+
 endif
