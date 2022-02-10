@@ -48,6 +48,7 @@ struct mml_drm_ctx {
 	struct kthread_worker kt_done;
 	struct task_struct *kt_done_task;
 	struct sync_timeline *timeline;
+	u32 panel_pixel;
 	bool kt_priority;
 	bool disp_dual;
 	bool disp_vdo;
@@ -386,6 +387,23 @@ static struct mml_frame_config *frame_config_create(
 	kref_init(&cfg->ref);
 
 	return cfg;
+}
+
+static u32 frame_calc_layer_hrt(struct mml_drm_ctx *ctx, struct mml_frame_info *info,
+	u32 layer_w, u32 layer_h)
+{
+	/* MML HRT bandwidth calculate by
+	 *	width * height * Bpp * fps * v-blanking
+	 *
+	 * And for resize case total source pixel must read during layer
+	 * region (which is compose width and height). So ratio should be:
+	 *	panel * src / layer
+	 *
+	 * This API returns bandwidth in KBps
+	 */
+	return ctx->panel_pixel / layer_w * info->src.width / layer_h * info->src.height *
+		MML_FMT_BITS_PER_PIXEL(info->src.format) / 8 * 122 / 100 *
+		MML_HRT_FPS / 1000;
 }
 
 static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
@@ -782,6 +800,10 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 			goto err_unlock_exit;
 		}
 		task->config = cfg;
+		cfg->layer_w = submit->layer_width;
+		cfg->layer_h = submit->layer_height;
+		cfg->disp_hrt = frame_calc_layer_hrt(ctx, &submit->info,
+			cfg->layer_w, cfg->layer_h);
 	}
 
 	/* maintain racing ref count for easy query mode */
@@ -1057,6 +1079,7 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 	ctx->disp_dual = disp->dual;
 	ctx->disp_vdo = disp->vdo_mode;
 	ctx->submit_cb = disp->submit_cb;
+	ctx->panel_pixel = MML_DEFAULT_PANEL_PX;
 	ctx->wq_config[0] = alloc_ordered_workqueue("mml_work0", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 	ctx->wq_config[1] = alloc_ordered_workqueue("mml_work1", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 
@@ -1147,6 +1170,21 @@ void mml_drm_put_context(struct mml_drm_ctx *ctx)
 }
 EXPORT_SYMBOL_GPL(mml_drm_put_context);
 
+void mml_drm_set_panel_pixel(struct mml_drm_ctx *ctx, u32 pixel)
+{
+	struct mml_frame_config *cfg;
+
+	ctx->panel_pixel = pixel;
+	mutex_lock(&ctx->config_mutex);
+	list_for_each_entry(cfg, &ctx->configs, entry) {
+		/* calculate hrt base on new pixel count */
+		cfg->disp_hrt = frame_calc_layer_hrt(ctx, &cfg->info,
+			cfg->layer_w, cfg->layer_h);
+	}
+	mutex_unlock(&ctx->config_mutex);
+}
+EXPORT_SYMBOL_GPL(mml_drm_set_panel_pixel);
+
 s32 mml_drm_racing_config_sync(struct mml_drm_ctx *ctx, struct cmdq_pkt *pkt)
 {
 	struct cmdq_operand lhs, rhs;
@@ -1206,6 +1244,10 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 	struct mml_frame_info *info_pq = &submit_pq->info;
 	struct mml_frame_dest *dest = &info->dest[0];
 	u32 i;
+
+	/* display layer pixel */
+	submit->layer_width = dest->compose.width;
+	submit->layer_height = dest->compose.height;
 
 	submit_pq->info = submit->info;
 	submit_pq->buffer = submit->buffer;

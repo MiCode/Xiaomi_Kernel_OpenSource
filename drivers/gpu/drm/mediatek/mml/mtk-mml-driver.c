@@ -660,29 +660,31 @@ static u32 mml_calc_bw_racing(u32 datasize)
 void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_config *ccfg, u32 throughput, u32 tput_up)
 {
-	struct mml_pipe_cache *cache = &task->config->cache[ccfg->pipe];
-	u32 bandwidth, datasize, bw_icc;
+	struct mml_frame_config *cfg = task->config;
+	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
+	u32 bandwidth, datasize, hrt_bw;
 	bool hrt;
 
 	datasize = comp->hw_ops->qos_datasize_get(task, ccfg);
-	if (task->config->info.mode == MML_MODE_RACING) {
+	if (cfg->info.mode == MML_MODE_RACING) {
 		hrt = true;
 		bandwidth = mml_calc_bw_racing(datasize);
 		if (unlikely(mml_racing_urgent))
 			bandwidth = U32_MAX;
+		hrt_bw = cfg->disp_hrt;
 	} else {
 		hrt = false;
 		bandwidth = mml_calc_bw(datasize, cache->max_pixel, throughput);
+		hrt_bw = 0;
 	}
 
 	/* store for debug log */
 	task->pipe[ccfg->pipe].bandwidth = max(bandwidth,
 		task->pipe[ccfg->pipe].bandwidth);
-	bw_icc = MBps_to_icc(bandwidth);
-	mtk_icc_set_bw(comp->icc_path, bw_icc, hrt ? bw_icc : 0);
+	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth), hrt_bw);
 
-	mml_msg_qos("%s comp %u %s qos bw %u by throughput %u pixel %u size %u%s",
-		__func__, comp->id, comp->name, bandwidth,
+	mml_msg_qos("%s comp %u %s qos bw %u(%u) by throughput %u pixel %u size %u%s",
+		__func__, comp->id, comp->name, bandwidth, hrt_bw / 1000,
 		throughput, cache->max_pixel, datasize,
 		hrt ? " hrt" : "");
 }

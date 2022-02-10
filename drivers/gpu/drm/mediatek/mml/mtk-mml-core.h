@@ -277,6 +277,11 @@ struct mml_frame_config {
 	struct mutex pipe_mutex;
 	struct kref ref;
 
+	/* see more detail in frame_calc_layer_hrt */
+	u16 layer_w;
+	u16 layer_h;
+	u32 disp_hrt;
+
 	/* display parameter */
 	bool disp_dual;
 	bool disp_vdo;

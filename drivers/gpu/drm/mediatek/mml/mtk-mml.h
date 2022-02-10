@@ -212,6 +212,8 @@ struct mml_submit {
 	struct mml_job *job;
 	struct mml_frame_info info;
 	struct mml_frame_buffer buffer;
+	u16 layer_width;
+	u16 layer_height;
 	struct timeval_t {
 		uint64_t sec;
 		uint64_t nsec;
