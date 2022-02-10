@@ -26,6 +26,8 @@
 
 #define mem_slot_range 100*1024ULL //100KB
 
+#define CODEC_ALLOCATE_MAX_BUFFER_SIZE 0x10000000UL /*256MB, sync with mtk_vcodec_mem.h*/
+
 #define LOG_PARAM_INFO_SIZE 64
 #define LOG_PROPERTY_SIZE 1024
 #define ROUND_N(X, N)   (((X) + ((N)-1)) & (~((N)-1)))    //only for N is exponential of 2

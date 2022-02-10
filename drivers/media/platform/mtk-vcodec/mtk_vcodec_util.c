@@ -453,8 +453,13 @@ int mtk_vcodec_alloc_mem(struct vcodec_mem_obj *mem, struct device *dev,
 	struct dma_heap *dma_heap;
 	struct dma_buf *dbuf;
 
+	mem->iova = 0;
 	if (dev == NULL) {
 		mtk_v4l2_err("dev null when type %u\n", mem->type);
+		return -EPERM;
+	}
+	if (mem->len > CODEC_ALLOCATE_MAX_BUFFER_SIZE || mem->len == 0U) {
+		mtk_v4l2_err("buffer len = %u invalid", mem->len);
 		return -EPERM;
 	}
 
