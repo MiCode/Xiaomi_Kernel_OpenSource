@@ -1438,12 +1438,6 @@ int pda_tfault_callback(int port,
 			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_REG));
 	}
 
-	LOG_INF("xnum/ynum/woverlap/hoverlap: %d/%d/%d/%d\n",
-		g_pda_Pdadata.xnum,
-		g_pda_Pdadata.ynum,
-		g_pda_Pdadata.woverlap,
-		g_pda_Pdadata.hoverlap);
-
 	LOG_INF("ImageSize/TableSize/OutputSize/ROInumber: %d/%d/%d/%d\n",
 		g_pda_Pdadata.ImageSize,
 		g_pda_Pdadata.TableSize,
