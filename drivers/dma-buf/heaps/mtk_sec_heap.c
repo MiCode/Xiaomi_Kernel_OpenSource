@@ -687,7 +687,7 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 		return table;
 	}
 
-	if (is_iommu_sec_on_mtee()) {
+	if (is_disable_map_sec()) {
 		pr_err("%s not support, dev:%s\n", __func__,
 		       dev_name(attachment->dev));
 		return ERR_PTR(-EINVAL);
@@ -1315,20 +1315,6 @@ u32 dmabuf_to_secure_handle(const struct dma_buf *dmabuf)
 }
 EXPORT_SYMBOL_GPL(dmabuf_to_secure_handle);
 
-static int dmabuf_tmem_type2sec_id(enum TRUSTED_MEM_REQ_TYPE tmem)
-{
-	switch (tmem) {
-	case TRUSTED_MEM_REQ_PROT_REGION:
-		return SEC_ID_SEC_CAM;
-	case TRUSTED_MEM_REQ_SVP_REGION:
-		return SEC_ID_SVP;
-	case TRUSTED_MEM_REQ_WFD_REGION:
-		return SEC_ID_WFD;
-	default:
-		return -1;
-	}
-}
-
 int dmabuf_to_sec_id(const struct dma_buf *dmabuf, u32 *sec_hdl)
 {
 	struct mtk_sec_heap_buffer *buffer = NULL;
@@ -1350,7 +1336,7 @@ int dmabuf_to_sec_id(const struct dma_buf *dmabuf, u32 *sec_hdl)
 		return -1;
 	}
 
-	return dmabuf_tmem_type2sec_id(sec_heap->tmem_type);
+	return tmem_type2sec_id(sec_heap->tmem_type);
 }
 EXPORT_SYMBOL_GPL(dmabuf_to_sec_id);
 
