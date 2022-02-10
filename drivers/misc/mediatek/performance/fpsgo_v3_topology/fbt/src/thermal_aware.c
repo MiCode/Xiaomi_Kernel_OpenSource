@@ -93,11 +93,11 @@ static void thrm_set_isolation(int input, int cpu)
 	else if (input == THRM_AWARE_CORE_DEISO)
 		cl_min = cl_max = g_core_num[cl];
 
-//#ifdef CONFIG_MTK_CORE_CTL
-//	update_cpu_core_limit(CPU_ISO_KIR_FPSGO, cl, cl_min, cl_max);
-//#else
-//	update_isolation_cpu(CPU_ISO_KIR_FPSGO, input ? 1 : -1, cpu);
-//#endif
+#ifdef CONFIG_MTK_CORE_CTL
+	update_cpu_core_limit(CPU_ISO_KIR_FPSGO, cl, cl_min, cl_max);
+#else
+	update_isolation_cpu(CPU_ISO_KIR_FPSGO, input ? 1 : -1, cpu);
+#endif
 }
 
 static void thrm_enable_timer(void)
