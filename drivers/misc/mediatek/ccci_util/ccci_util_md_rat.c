@@ -407,6 +407,14 @@ int set_soc_md_rt_rat_str(int md_id, char str[])
 	}
 
 	rat_bitmap = ccci_rat_str_to_bitmap(str);
+	/* LTE only mode default use lwg mode */
+	if (rat_bitmap == (MD_CAP_TDD_LTE|MD_CAP_FDD_LTE)) {
+		set_soc_md_rt_rat(md_id,
+			(MD_CAP_TDD_LTE|MD_CAP_FDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM), id);
+		pr_info("CCCI:%s:LTE only mode set lwg rat[%s](r:0x%x|c:0x%x)\n",
+						__func__, str, rat_bitmap, cap);
+		return 0;
+	}
 	prefer = find_prefer_val(rat_bitmap, &id);
 
 	if ((prefer == 0) || ((prefer & cap) != prefer)) {
