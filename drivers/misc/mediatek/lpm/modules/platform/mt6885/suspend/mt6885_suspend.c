@@ -218,8 +218,8 @@ static void __mt6885_suspend_reflect(int type, int cpu,
 int mt6885_suspend_system_prompt(int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
-	int is_resume_enter = 0;
 #ifdef CONFIG_MTK_CCCI_DEVICES
+	int is_resume_enter = 0;
 	printk_deferred("[name:spm&][%s:%d] - notify MD that AP suspend\n",
 		__func__, __LINE__);
 	is_resume_enter = 1 << 0;
@@ -234,8 +234,8 @@ int mt6885_suspend_system_prompt(int cpu,
 void mt6885_suspend_system_reflect(int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
-	int is_resume_enter = 0;
 #ifdef CONFIG_MTK_CCCI_DEVICES
+	int is_resume_enter = 0;
 	printk_deferred("[name:spm&][%s:%d] - notify MD that AP resume\n",
 		__func__, __LINE__);
 	is_resume_enter = 1 << 1;
@@ -331,8 +331,8 @@ struct mtk_lpm_model mt6885_model_suspend = {
 
 static int mtk_lpm_suspend_prepare_late(void)
 {
-	int is_resume_enter = 0;
 #ifdef CONFIG_MTK_CCCI_DEVICES
+	int is_resume_enter = 0;
 	printk_deferred("[name:spm&][%s:%d] - notify MD that AP suspend\n",
 		__func__, __LINE__);
 	is_resume_enter = 1 << 0;
@@ -345,8 +345,8 @@ static int mtk_lpm_suspend_prepare_late(void)
 
 static void mtk_lpm_suspend_restore(void)
 {
-	int is_resume_enter = 0;
 #ifdef CONFIG_MTK_CCCI_DEVICES
+	int is_resume_enter = 0;
 	printk_deferred("[name:spm&][%s:%d] - notify MD that AP resume\n",
 		__func__, __LINE__);
 	is_resume_enter = 1 << 1;
