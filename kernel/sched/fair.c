@@ -7461,7 +7461,7 @@ select_task_rq_fair(struct task_struct *p, int prev_cpu, int sd_flag,
 
 #ifdef CONFIG_MTK_SCHED_EXTENSION
 	trace_sched_select_task_rq(p, result, prev_cpu, cpu,
-		task_util(p), uclamp_task_util(p),
+		task_util_est(p), uclamp_task_util(p),
 		(schedtune_prefer_idle(p) > 0), wake_flags);
 #endif
 	return cpu;
@@ -11107,7 +11107,7 @@ static void rq_offline_fair(struct rq *rq)
 #ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
 void task_check_for_rotation(struct rq *src_rq)
 {
-	u64 wait, max_wait = 0, run, max_run = 0;
+	u64 wc, wait, max_wait = 0, run, max_run = 0;
 	int deserved_cpu = nr_cpu_ids, dst_cpu = nr_cpu_ids;
 	int i, src_cpu = cpu_of(src_rq);
 	struct rq *dst_rq;
@@ -11133,6 +11133,7 @@ void task_check_for_rotation(struct rq *src_rq)
 	if (heavy_task < HEAVY_TASK_NUM)
 		return;
 
+	wc = ktime_get_ns();
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
 
@@ -11146,8 +11147,7 @@ void task_check_for_rotation(struct rq *src_rq)
 						&fair_sched_class)
 			continue;
 
-		wait = (rq->curr->se.sum_exec_runtime) -
-			(rq->curr->se.prev_sum_exec_runtime);
+		wait = wc - rq->curr->last_enqueued_ts;
 
 		if (wait > max_wait) {
 			max_wait = wait;
@@ -11173,8 +11173,7 @@ void task_check_for_rotation(struct rq *src_rq)
 		if (rq->nr_running > 1)
 			continue;
 
-		run = (rq->curr->se.sum_exec_runtime) -
-			(rq->curr->se.prev_sum_exec_runtime);
+		run = wc - rq->curr->last_enqueued_ts;
 
 		if (run < TASK_ROTATION_THRESHOLD_NS)
 			continue;
@@ -11263,19 +11262,9 @@ void check_for_migration(struct task_struct *p)
 		new_cpu = select_task_rq_fair(p, cpu, SD_BALANCE_WAKE, 0, 1);
 		rcu_read_unlock();
 
-		if (capacity_orig_of(new_cpu) > capacity_orig_of(cpu)) {
+		if (capacity_orig_of(new_cpu) > capacity_orig_of(cpu)
+			&& !rq->rd->overutilized) {
 			if (!big_task_migration_enable) {
-				raw_spin_unlock(&migration_lock);
-				return;
-			}
-
-			/*
-			 * If p make new CPU overutil,
-			 * we should not migrate p to new CPU.
-			 */
-			if ((capacity_of(new_cpu) * 1024) <
-				max(cpu_util(new_cpu) + task_util_est(p),
-					(unsigned long)uclamp_task(p)) * capacity_margin) {
 				raw_spin_unlock(&migration_lock);
 				return;
 			}

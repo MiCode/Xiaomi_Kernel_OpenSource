@@ -714,6 +714,7 @@ struct task_struct {
 	int				boost;
 	u64				boost_period;
 	u64				boost_expires;
+	u64				last_enqueued_ts;
 
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group		*sched_task_group;
