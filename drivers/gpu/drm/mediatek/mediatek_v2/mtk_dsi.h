@@ -45,6 +45,7 @@ struct mtk_dsi_driver_data {
 	bool need_wait_fifo;
 	bool dsi_buffer;
 	bool dsi_irq_ts_debug;
+	bool dsi_new_trail;
 	u32 max_vfp;
 	unsigned int (*mmclk_by_datarate)(struct mtk_dsi *dsi,
 		struct mtk_drm_crtc *mtk_crtc, unsigned int en);
