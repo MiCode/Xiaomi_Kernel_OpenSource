@@ -1064,7 +1064,7 @@ out:
 }
 
 static int mtk_panel_msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
-		void *handle, unsigned int fps_level)
+		void *handle, struct drm_panel *panel, unsigned int fps_level)
 {
 	struct mtk_lcm_mode_dsi *mode_node = NULL;
 	int ret = 0;

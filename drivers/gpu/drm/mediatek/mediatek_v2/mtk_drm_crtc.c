@@ -7033,12 +7033,12 @@ unsigned int msync_cmd_level_tb_dirty;
 int (*mtk_drm_get_target_fps_fp)(unsigned int vrefresh, unsigned int atomic_fps);
 EXPORT_SYMBOL(mtk_drm_get_target_fps_fp);
 
-int (*mtk_sync_multi_te_level_decision_fp)(void *level_tb, unsigned int te_type,
+int (*mtk_sync_te_level_decision_fp)(void *level_tb, unsigned int te_type,
 	unsigned int target_fps, unsigned int *fps_level,
 	unsigned int *min_fps, unsigned long x_time);
 int (*mtk_sync_slow_descent_fp)(unsigned int fps_level, unsigned int fps_level_old,
 	unsigned int delay_frame_num);
-EXPORT_SYMBOL(mtk_sync_multi_te_level_decision_fp);
+EXPORT_SYMBOL(mtk_sync_te_level_decision_fp);
 EXPORT_SYMBOL(mtk_sync_slow_descent_fp);
 
 void mtk_drm_sort_msync_level_table(void)
@@ -7191,6 +7191,10 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 	static unsigned long sec;
 	static unsigned long usec;
 	unsigned long x_time = 0;
+	static unsigned int count;
+	static unsigned int count1;
+	static unsigned int msync_is_close;
+
 
 	DDPMSG("[Msync2.0] Cmd mode send cmds before config\n");
 
@@ -7212,11 +7216,132 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 
 	/* If need request TE, to do it here */
 	if (params->msync_cmd_table.te_type == REQUEST_TE) {
-		/* TODO: Add Request Te */
+		struct msync_request_te_table *rte_tb =
+			&params->msync_cmd_table.request_te_tb;
+		int level_min_fps = 0;
 
+		DDPMSG("%s:%d RTE\n", __func__, __LINE__);
+		if (target_fps == 0xFFFF) {
+			DDPMSG("[Msync2.0] Msync Need close R-TE\n");
+			fps_level = 0xFFFF;
+			min_fps = drm_mode_vrefresh(&crtc->state->mode);
+		} else if (mtk_sync_te_level_decision_fp) {
+			mtk_sync_te_level_decision_fp((void *)rte_tb->rte_te_level,
+				REQUEST_TE, target_fps, &fps_level, &min_fps, x_time);
+			level_min_fps = rte_tb->rte_te_level[0].min_fps;
+
+			if (msync_cmd_level_tb_dirty) {
+				mtk_sync_te_level_decision_fp((void *)msync_level_tb,
+					REQUEST_TE, target_fps, &fps_level, &min_fps, x_time);
+				level_min_fps = msync_level_tb[0].min_fps;
+			}
+		} else {
+			DDPMSG("[Msync2.0] Not have level decision function\n");
+			return;
+		}
+
+		DDPMSG("[Msync2.0] R-TE target_fps:%u fps_level:%u dirty:%u min_fps:%u\n",
+			target_fps, fps_level, msync_cmd_level_tb_dirty, min_fps);
+		DDPMSG("[Msync2.0] R-TE fps_level_old:%u min_fps_old:%u\n",
+			fps_level_old, min_fps_old);
+
+
+		if (target_fps == 0xFFFF)
+			goto rte_target;
+
+		if (target_fps < level_min_fps)
+			count++;
+
+		if (target_fps >= level_min_fps)
+			count = 0;
+
+		if (count == 5) {
+			count = 0;
+			if (msync_is_close == 0)
+				mtk_crtc_msync2_send_cmds_bef_cfg(crtc, 0xFFFF);
+			msync_is_close = 1;
+			DDPMSG("[Msync2.0] low min fps close msync\n");
+			return;
+		}
+
+		if (target_fps > level_min_fps)
+			count1++;
+
+		if (target_fps <= level_min_fps)
+			count1 = 0;
+
+		DDPMSG("[Msync2.0] count1:%u msync_is_close:%d\n",
+				count1, msync_is_close);
+		if ((count1 != 5) && (msync_is_close == 1)) {
+			DDPMSG("[Msync2.0] continue close msync\n");
+			return;
+		}
+
+		count1 = 0;
+		msync_is_close = 0;
+		DDPMSG("[Msync2.0] come back enable msync\n");
+
+rte_target:
+		if (mtk_sync_slow_descent_fp) {
+			int ret = mtk_sync_slow_descent_fp(fps_level, fps_level_old,
+				params->msync_cmd_table.delay_frame_num);
+			DDPMSG("[Msync2.0] mtk_sync_slow_descent ret:%d\n", ret);
+			if (ret == 1) {
+				/* Send Request TE cmd to ddic */
+				fps_level = 0xEEEE;
+				mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
+						DSI_MSYNC_SWITCH_TE_LEVEL_GRP, &fps_level);
+				return;
+			}
+		}
+
+		/*Msync 2.0: add Msync trace info*/
+		mtk_drm_trace_begin("msync_level_fps:%u[%u] to %u[%u]",
+			fps_level_old, min_fps_old,
+			fps_level, min_fps);
+		CRTC_MMP_MARK(index, atomic_begin, fps_level, min_fps);
+
+		if ((fps_level != fps_level_old) ||
+			(msync_cmd_level_tb_dirty && (min_fps != min_fps_old))) {
+			/*
+			 * 1,clear CABC_EOF to avoid backlight
+			 *   which using DSI_CFG and async
+			 *	if BL change to use CFG thread, remove this part
+			 * 2,clear dirty before sending cmd to
+			 *  avoid trigger loop be started during sending cmd
+			 */
+			cmdq_pkt_wfe(state->cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+			cmdq_pkt_clear_event(state->cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+			need_send_cmd = 1;
+		}
+
+		/* Switch msync TE level */
+		if (fps_level != fps_level_old) {
+			mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
+				DSI_MSYNC_SWITCH_TE_LEVEL_GRP, &fps_level);
+			fps_level_old = fps_level;
+		}
+
+		/* Send Request TE cmd to ddic */
+		fps_level = 0xEEEE;
+		mtk_ddp_comp_io_cmd(comp, state->cmdq_handle,
+				DSI_MSYNC_SWITCH_TE_LEVEL_GRP, &fps_level);
+
+		if (need_send_cmd) {
+			/*release CABC_EOF lock to allow backlight keep going*/
+			cmdq_pkt_set_event(state->cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		}
+
+		mtk_drm_trace_end();
+
+	/* If need Multi TE, to do it here */
 	} else if (params->msync_cmd_table.te_type == MULTI_TE) {
 		struct msync_multi_te_table *mte_tb =
 			&params->msync_cmd_table.multi_te_tb;
+		int level_min_fps = 0;
 
 		DDPMSG("[Msync2.0] M-TE\n");
 
@@ -7224,13 +7349,16 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 			DDPMSG("[Msync2.0] Msync Need close M-TE\n");
 			fps_level = 0xFFFF;
 			min_fps = drm_mode_vrefresh(&crtc->state->mode);
-		} else if (mtk_sync_multi_te_level_decision_fp) {
-			mtk_sync_multi_te_level_decision_fp((void *)mte_tb->multi_te_level,
+		} else if (mtk_sync_te_level_decision_fp) {
+			mtk_sync_te_level_decision_fp((void *)mte_tb->multi_te_level,
 				MULTI_TE, target_fps, &fps_level, &min_fps, x_time);
+			level_min_fps = mte_tb->multi_te_level[0].min_fps;
 
-			if (msync_cmd_level_tb_dirty)
-				mtk_sync_multi_te_level_decision_fp((void *)msync_level_tb,
+			if (msync_cmd_level_tb_dirty) {
+				mtk_sync_te_level_decision_fp((void *)msync_level_tb,
 					MULTI_TE, target_fps, &fps_level, &min_fps, x_time);
+				level_min_fps = msync_level_tb[0].min_fps;
+			}
 		} else {
 			DDPMSG("[Msync2.0] Not have level decision function\n");
 			return;
@@ -7241,9 +7369,46 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 		DDPMSG("[Msync2.0] M-TE fps_level_old:%u min_fps_old:%u\n",
 			fps_level_old, min_fps_old);
 
+		if (target_fps == 0xFFFF)
+			goto mte_target;
+
+		if (target_fps < level_min_fps)
+			count++;
+
+		if (target_fps >= level_min_fps)
+			count = 0;
+
+		if (count == 5) {
+			count = 0;
+			if (msync_is_close == 0)
+				mtk_crtc_msync2_send_cmds_bef_cfg(crtc, 0xFFFF);
+			msync_is_close = 1;
+			DDPMSG("[Msync2.0] low min fps close msync\n");
+			return;
+		}
+
+		if (target_fps > level_min_fps)
+			count1++;
+
+		if (target_fps <= level_min_fps)
+			count1 = 0;
+
+		DDPMSG("[Msync2.0] count1:%u msync_is_close:%d\n",
+				count1, msync_is_close);
+		if ((count1 != 5) && (msync_is_close == 1)) {
+			DDPMSG("[Msync2.0] continue close msync\n");
+			return;
+		}
+
+		count1 = 0;
+		msync_is_close = 0;
+		DDPMSG("[Msync2.0] come back enable msync\n");
+
+mte_target:
 		if (mtk_sync_slow_descent_fp) {
 			int ret = mtk_sync_slow_descent_fp(fps_level, fps_level_old,
 				params->msync_cmd_table.delay_frame_num);
+			DDPMSG("[Msync2.0] mtk_sync_slow_descent ret:%d\n", ret);
 			if (ret == 1)
 				return;
 		}

@@ -1725,7 +1725,7 @@ static int msync_te_level_switch(void *dsi, dcs_write_gce cb,
 }
 
 static int msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
-		void *handle, unsigned int fps_level)
+		void *handle, struct drm_panel *panel, unsigned int fps_level)
 {
 	int ret = 0;
 
