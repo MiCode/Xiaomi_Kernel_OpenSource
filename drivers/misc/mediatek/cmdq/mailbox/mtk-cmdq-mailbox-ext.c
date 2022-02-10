@@ -2231,7 +2231,7 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	gce_shift_bit = plat_data->shift;
 	gce_mminfra = plat_data->mminfra;
-	if (!of_property_read_bool(dev->of_node, "skip-poll-sleep"))
+	if (of_property_read_bool(dev->of_node, "skip-poll-sleep"))
 		skip_poll_sleep = true;
 
 	if (of_property_read_bool(dev->of_node, "gce_in_vcp"))
