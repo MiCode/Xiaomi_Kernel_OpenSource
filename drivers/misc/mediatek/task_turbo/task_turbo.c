@@ -295,7 +295,7 @@ static void probe_android_vh_binder_set_priority(void *ignore, struct binder_tra
 {
 	if (binder_start_turbo_inherit(t->from ?
 			t->from->task : NULL, task)) {
-		t->android_vendor_data1 = (s64)task;
+		t->android_vendor_data1 = (u64)task;
 	}
 }
 
@@ -618,9 +618,11 @@ int idle_cpu(int cpu)
 static void rwsem_stop_turbo_inherit(struct rw_semaphore *sem)
 {
 	unsigned long flags;
+	struct task_struct *inherit_task;
 
 	raw_spin_lock_irqsave(&sem->wait_lock, flags);
-	if ((struct task_struct *)&(sem)->android_vendor_data1 == current) {
+	inherit_task = get_inherit_task(sem);
+	if (inherit_task == current) {
 		stop_turbo_inherit(current, RWSEM_INHERIT);
 		sem->android_vendor_data1 = 0;
 		trace_turbo_inherit_end(current);
@@ -669,7 +671,7 @@ static void rwsem_start_turbo_inherit(struct rw_semaphore *sem)
 	if (should_inherit) {
 		inherited_owner = get_inherit_task(sem);
 		turbo_data = get_task_turbo_t(current);
-		if (!is_rwsem_reader_owned(sem) &&
+		if (owner && !is_rwsem_reader_owned(sem) &&
 		    !is_turbo_task(owner) &&
 		    !inherited_owner) {
 			start_turbo_inherit(owner,

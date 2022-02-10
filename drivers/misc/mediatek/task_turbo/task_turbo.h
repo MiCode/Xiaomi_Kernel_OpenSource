@@ -11,7 +11,7 @@
 #define get_task_turbo_t(p)	\
 	((struct task_turbo_t *)&(p)->android_vendor_data1)
 #define get_inherit_task(parent)	\
-	((struct task_struct *)&(parent)->android_vendor_data1)
+	((struct task_struct *)((u64)(parent)->android_vendor_data1))
 
 struct list_head;
 
