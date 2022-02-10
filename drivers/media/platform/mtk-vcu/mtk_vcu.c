@@ -2191,23 +2191,6 @@ static int mtk_vcu_suspend_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
-static const char stat_nam[] = "OOXX";
-static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
-		struct task_struct *task, int _group, int result)
-{
-	unsigned long flags;
-
-	if (strstr(task->comm, "vpud") && sig == SIGKILL) {
-		pr_info("[VPUD_PROBE_DEATH][signal][%d:%s]send death sig %d to[%d:%s]\n",
-				current->pid, current->comm,
-				sig, task->pid, task->comm);
-
-		spin_lock_irqsave(&vcu_ptr->vpud_sig_lock, flags);
-		vcu_ptr->vpud_is_going_down = 1;
-		spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
-	}
-}
-
 static int mtk_vcu_probe(struct platform_device *pdev)
 {
 	struct mtk_vcu *vcu;
@@ -2503,7 +2486,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		goto err_device;
 	}
 
-	register_trace_signal_generate(probe_death_signal, NULL);
+	//register_trace_signal_generate(probe_death_signal, NULL);
 	spin_lock_init(&vcu_ptr->vpud_sig_lock);
 	vcu_ptr->vpud_is_going_down = 0;
 
