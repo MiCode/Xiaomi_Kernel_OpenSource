@@ -164,6 +164,8 @@ static const struct mtk_gate mm_clks[] = {
 			"disp0_ck"/* parent */, 0),
 	GATE_MM2(CLK_MM_DPI, "mm_dpi_ck",
 			"disp0_ck"/* parent */, 1),
+	GATE_MM2(CLK_MM_26M, "mm_26m_ck",
+			"disp0_ck"/* parent */, 11),
 };
 
 static const struct mtk_clk_desc mm_mcd = {
