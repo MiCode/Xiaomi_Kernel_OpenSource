@@ -2194,6 +2194,10 @@
 		eem-offset-big = <0xff>;
 		eem-offset-cci = <0xff>;
 		eem-offset-gpu = <0xff>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
 		proc1-supply = <&mt_pmic_vgpu11_buck_reg>;
 		proc2-supply = <&mt_pmic_vproc2_buck_reg>;
 	};
@@ -2206,10 +2210,22 @@
 		eemg-initmon-gpu = <0xf>;
 		eemg-clamp-gpu = <0>;
 		eemg-offset-gpu = <0xff>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
 	};
 
 	upower: upower {
 		compatible = "mediatek,mt6833-upower";
+	};
+
+	lkg: lkg {
+		compatible = "mediatek,lkg";
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
 	};
 
 	cpumssv: cpumssv {
