@@ -4808,8 +4808,6 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	UINT32 *feature_return_para_32 = (UINT32 *) feature_para;
 	UINT32 *feature_data_32 = (UINT32 *) feature_para;
 	unsigned long long *feature_data = (unsigned long long *) feature_para;
-	char *data = (char *)(uintptr_t)(*(feature_data + 1));
-	UINT16 type = (UINT16)(*feature_data);
 
 	struct SET_PD_BLOCK_INFO_T *PDAFinfo;
 	struct SENSOR_WINSIZE_INFO_STRUCT *wininfo;
@@ -5051,7 +5049,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		set_shutter_frame_length((UINT16) *feature_data,
 			(UINT16) *(feature_data + 1));
 		break;
-	case SENSOR_FEATURE_GET_4CELL_DATA:
+	case SENSOR_FEATURE_GET_4CELL_DATA: {
+		char *data = (char *)(uintptr_t)(*(feature_data + 1));
+		UINT16 type = (UINT16)(*feature_data);
+
 		/*get 4 cell data from eeprom*/
 		if (type == FOUR_CELL_CAL_TYPE_XTALK_CAL) {
 			LOG_INF("Read Cross Talk Start");
@@ -5062,6 +5063,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				(UINT16)data[4], (UINT16)data[5]);
 		}
 		break;
+	}
 	case SENSOR_FEATURE_SET_STREAMING_SUSPEND:
 		LOG_INF("SENSOR_FEATURE_SET_STREAMING_SUSPEND\n");
 		streaming_control(KAL_FALSE);
