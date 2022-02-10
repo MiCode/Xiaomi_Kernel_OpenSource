@@ -3857,7 +3857,10 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 
 static void dpmaif_total_spd_cb(u64 total_ul_speed, u64 total_dl_speed)
 {
-	ccmni_set_cur_speed(total_dl_speed);
+	if (dpmaif_ctrl->gro_config == 1)
+		ccmni_set_cur_speed(0xFFFFFFFFLL);
+	else
+		ccmni_set_cur_speed(total_dl_speed);
 
 	if ((total_ul_speed < UL_SPEED_THRESHOLD) &&
 		(total_dl_speed < DL_SPEED_THRESHOLD))
@@ -3930,6 +3933,15 @@ static int dpmaif_init_cap(struct device *dev)
 		dpmaif_ctrl->dl_pit_entry_size * DPMAIF_DL_PIT_BYTE_SIZE;
 	dpmaif_ctrl->dl_bat_size =
 		dpmaif_ctrl->dl_bat_entry_size * DPMAIF_DL_BAT_BYTE_SIZE;
+
+	/* get gro config from dts:gro_config */
+	ret = of_property_read_u32(dev->of_node, "gro_config",
+		&dpmaif_ctrl->gro_config);
+	if (ret < 0)
+		dpmaif_ctrl->gro_config = 0;
+	CCCI_INIT_LOG(-1, TAG,
+		"[%s] gro_config: %u\n",
+		__func__, dpmaif_ctrl->gro_config);
 
 	return 0;
 }

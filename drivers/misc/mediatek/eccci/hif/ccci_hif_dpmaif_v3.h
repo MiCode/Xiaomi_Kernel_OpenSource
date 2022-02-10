@@ -400,6 +400,8 @@ struct hif_dpmaif_ctrl {
 	unsigned int dl_pit_entry_size;
 	unsigned int dl_bat_size;
 	unsigned int dl_pit_size;
+	/* gro_config:0 disable;1 enable */
+	unsigned int gro_config;
 };
 
 #ifndef CCCI_KMODULE_ENABLE
