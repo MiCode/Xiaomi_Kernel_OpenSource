@@ -1770,6 +1770,8 @@ static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *request)
 	if (!ep || !request || to_musb_request(request)->ep != musb_ep)
 		return -EINVAL;
 
+	disable_irq(musb->nIrq);
+
 	spin_lock_irqsave(&musb->lock, flags);
 
 	list_for_each_entry(r, &musb_ep->req_list, list) {
@@ -1792,10 +1794,10 @@ static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *request)
 			 ep->address);
 		musb_flush_qmu(musb_ep->hw_ep->epnum,
 				(musb_ep->is_in ? TXQ : RXQ));
-		musb_g_giveback(musb_ep, request, -ECONNRESET);
-		musb_restart_qmu(musb,
+		mtk_qmu_enable(musb,
 				musb_ep->hw_ep->epnum,
 				(musb_ep->is_in ? TXQ : RXQ));
+		musb_g_giveback(musb_ep, request, -ECONNRESET);
 	}
 #else
 	/* ... else abort the dma transfer ... */
@@ -1819,6 +1821,8 @@ static int musb_gadget_dequeue(struct usb_ep *ep, struct usb_request *request)
 
 done:
 	spin_unlock_irqrestore(&musb->lock, flags);
+
+	enable_irq(musb->nIrq);
 	return status;
 }
 
