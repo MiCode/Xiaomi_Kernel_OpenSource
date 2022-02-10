@@ -6047,11 +6047,8 @@ schedtune_cpu_margin(unsigned long util, int cpu)
 
 #endif /* CONFIG_SCHED_TUNE */
 
-void get_task_util(struct task_struct *p, unsigned long *util,
-	unsigned long *boost_util)
+void get_task_util(struct task_struct *p, unsigned long *util)
 {
-	// *boost_util = boosted_task_util(p);
-	*boost_util = 0;
 	*util = task_util(p);
 }
 

@@ -3,8 +3,7 @@
  * Copyright (c) 2022 MediaTek Inc.
  */
 
-extern void get_task_util(struct task_struct *p, unsigned long *util,
-		unsigned long *boost_util);
+extern void get_task_util(struct task_struct *p, unsigned long *util);
 
 /* For heavy task detection */
 extern void sched_update_nr_heavy_prod(int invoker,

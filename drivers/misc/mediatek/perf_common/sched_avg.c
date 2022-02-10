@@ -46,7 +46,6 @@ struct overutil_stats_t {
 	u64 l_last_update_time;
 	u64 h_last_update_time;
 	int max_task_util;
-	int max_boost_util;
 	int max_task_pid;
 };
 
@@ -77,7 +76,6 @@ enum overutil_type_t is_task_overutil(struct task_struct *p)
 	struct overutil_stats_t *cpu_overutil;
 	unsigned long task_util;
 	int cpu, cid;
-	unsigned long boosted_task_util;
 	int cluster_nr = arch_get_nr_clusters();
 
 	if (!p)
@@ -92,14 +90,13 @@ enum overutil_type_t is_task_overutil(struct task_struct *p)
 		return NO_OVERUTIL;
 	}
 
-	get_task_util(p, &task_util, &boosted_task_util);
+	get_task_util(p, &task_util);
 
 	cpu_overutil = &per_cpu(cpu_overutil_state, cpu);
 
 	/* track task with max utilization */
 	if (task_util > cpu_overutil->max_task_util) {
 		cpu_overutil->max_task_util = task_util;
-		cpu_overutil->max_boost_util = boosted_task_util;
 		cpu_overutil->max_task_pid = p->pid;
 	}
 
@@ -121,7 +118,6 @@ static unsigned int fpsgo_update_max_util_windows;
 static int gb_task_util;
 static int gb_task_pid;
 static int gb_task_cpu;
-static int gb_boosted_util;
 
 static DEFINE_SPINLOCK(gb_max_util_lock);
 void (*fpsgo_sched_nominate_fp)(pid_t *id, int *utl);
@@ -131,7 +127,6 @@ void sched_max_util_task_tracking(void)
 	int cpu;
 	struct overutil_stats_t *cpu_overutil;
 	int max_util = 0;
-	int boost_util = 0;
 	int max_cpu = 0;
 	int max_task_pid = 0;
 	ktime_t now = ktime_get();
@@ -172,7 +167,6 @@ void sched_max_util_task_tracking(void)
 		if (cpu_online(cpu) &&
 			(cpu_overutil->max_task_util > max_util)) {
 			max_util = cpu_overutil->max_task_util;
-			boost_util = cpu_overutil->max_boost_util;
 			max_cpu = cpu;
 			max_task_pid = cpu_overutil->max_task_pid;
 		}
@@ -183,12 +177,10 @@ void sched_max_util_task_tracking(void)
 		}
 
 		cpu_overutil->max_task_util = 0;
-		cpu_overutil->max_boost_util = 0;
 		cpu_overutil->max_task_pid = 0;
 	}
 
 	gb_task_util = max_util;
-	gb_boosted_util = boost_util;
 	gb_task_pid = max_task_pid;
 	gb_task_cpu = max_cpu;
 
@@ -209,8 +201,6 @@ void sched_max_util_task(int *cpu, int *pid, int *util, int *boost)
 		*pid = gb_task_pid;
 	if (util)
 		*util = gb_task_util;
-	if (boost)
-		*boost = gb_boosted_util;
 }
 EXPORT_SYMBOL(sched_max_util_task);
 
