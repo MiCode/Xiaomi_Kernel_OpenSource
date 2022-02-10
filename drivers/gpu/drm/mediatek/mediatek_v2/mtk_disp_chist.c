@@ -616,6 +616,10 @@ static int mtk_chist_user_cmd(struct mtk_ddp_comp *comp,
 
 				if (channel_config.roi_start_x >= g_pipe_width) {
 					// roi is in the right half, just config right
+					channel_config1.roi_start_x = channel_config1.roi_start_x
+						- g_pipe_width;
+					channel_config1.roi_end_x = channel_config1.roi_end_x
+						- g_pipe_width;
 					mtk_chist_channel_config(channel_id,
 						&channel_config1, dual_comp, handle);
 				} else if (channel_config.roi_end_x > 0 &&
