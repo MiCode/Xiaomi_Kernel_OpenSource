@@ -30,10 +30,14 @@
 /* err status */
 #define TG_OVRUN_ST						(1L << 6)
 #define TG_GBERR_ST						(1L << 7)
+#define SOF_DROP_ST						(1L << 10)
 #define CQ_DB_LOAD_ERR_ST				(1L << 12)
 #define CQ_MAIN_CODE_ERR_ST				(1L << 14)
 #define CQ_MAIN_VS_ERR_ST				(1L << 15)
 #define CQ_MAIN_TRIG_DLY_ST				(1L << 16)
+#define CQ_SUB_CODE_ERR_ST				(1L << 17)
+#define CQ_SUB_VS_ERR_ST				(1L << 18)
+#define CQ_SUB_TRIG_DLY_ST				(1L << 18)
 #define LSCI_ERR_ST						(1L << 24)
 #define DMA_ERR_ST						(1L << 26)
 
@@ -62,10 +66,25 @@
 /* IRQ Error Mask */
 #define INT_ST_MASK_CAM_ERR (TG_OVRUN_ST	 |\
 							TG_GBERR_ST	 |\
+							SOF_DROP_ST |\
 							CQ_DB_LOAD_ERR_ST	 |\
 							CQ_MAIN_CODE_ERR_ST |\
 							CQ_MAIN_VS_ERR_ST	 |\
+							CQ_MAIN_TRIG_DLY_ST |\
+							CQ_SUB_CODE_ERR_ST |\
+							CQ_SUB_VS_ERR_ST	 |\
+							CQ_SUB_TRIG_DLY_ST |\
 							DMA_ERR_ST)
+
+/* IRQ Debug Mask */
+#define INT_ST_MASK_CAM_DBG (SOF_DROP_ST |\
+							CQ_DB_LOAD_ERR_ST	 |\
+							CQ_MAIN_CODE_ERR_ST |\
+							CQ_MAIN_VS_ERR_ST	 |\
+							CQ_MAIN_TRIG_DLY_ST |\
+							CQ_SUB_CODE_ERR_ST |\
+							CQ_SUB_VS_ERR_ST	 |\
+							CQ_SUB_TRIG_DLY_ST)
 
 /* camsys */
 #define REG_CAMSYS_CG_CON				0x0000
@@ -197,6 +216,7 @@
 #define SCQ_STAGGER_MODE					BIT(12)
 #define SCQ_SUBSAMPLE_EN					BIT(21)
 #define CQ_DB_EN							BIT(4)
+#define CQ_DROP_FRAME_EN					BIT(1)
 #define CQ_THR0_MODE_IMMEDIATE				BIT(4)
 #define CQ_THR0_MODE_CONTINUOUS				BIT(5)
 #define CQ_THR0_EN							BIT(0)

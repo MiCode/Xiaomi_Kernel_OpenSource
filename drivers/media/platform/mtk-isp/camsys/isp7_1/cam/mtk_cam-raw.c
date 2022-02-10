@@ -1164,8 +1164,10 @@ void apply_cq(struct mtk_raw_device *dev,
 
 	if (initial)
 		dev_info(dev->dev,
-			"apply 1st raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d\n",
-			dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset);
+			"apply 1st raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d,cq_en(0x%x),period(%d)\n",
+			dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset,
+			readl_relaxed(dev->base + REG_CQ_EN),
+			readl_relaxed(dev->base + REG_SCQ_START_PERIOD));
 	else
 		dev_dbg(dev->dev,
 			"apply raw%d cq - addr:0x%llx ,size:%d/%d,offset:%d\n",
@@ -1748,7 +1750,7 @@ void initialize(struct mtk_raw_device *dev, int is_slave)
 	u32 val;
 
 	val = readl_relaxed(dev->base + REG_CQ_EN);
-	writel_relaxed(val | SCQ_EN, dev->base + REG_CQ_EN);
+	writel_relaxed(val | SCQ_EN | CQ_DROP_FRAME_EN, dev->base + REG_CQ_EN);
 
 	//writel_relaxed(0x100010, dev->base + REG_CQ_EN);
 	writel_relaxed(0xffffffff, dev->base + REG_SCQ_START_PERIOD);
@@ -2314,6 +2316,12 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 		}
 		raw_irq_handle_tg_overrun_err(raw_dev, frame_idx_inner);
 	}
+
+	if (err_status & INT_ST_MASK_CAM_DBG) {
+		dev_info(raw_dev->dev, "%s: err_status:0x%x\n",
+			__func__, err_status);
+	}
+
 }
 
 static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
@@ -5618,6 +5626,7 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = false,
 		.smem_alloc = false,
+		.need_cache_sync_on_finish = true,
 		.dma_port = MTKCAM_IPI_RAW_META_STATS_0,
 		.default_fmt_idx = 1,
 		.max_buf_count = 16,

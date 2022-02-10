@@ -5004,35 +5004,27 @@ static void isp_tx_frame_worker(struct work_struct *work)
 			req_stream_data->frame_params.raw_param.previous_exposure_num,
 			imgo_out_fmt->buf[0][0].iova);
 
-	/* record mmqos (skip mstream 1exp) */
-	if (!(mtk_cam_is_mstream(ctx) &&
-		req_stream_data->frame_params.raw_param.exposure_num == 1)) {
-		frame_param = &req_stream_data->frame_params;
-		for (i = 0; i < CAM_MAX_IMAGE_INPUT; i++) {
-			if (frame_param->img_ins[i].buf[0].iova != 0 &&
-				frame_param->img_ins[i].uid.id != 0)
-				req_stream_data->raw_dmas |=
-					(1ULL << frame_param->img_ins[i].uid.id);
-		}
-		for (i = 0; i < CAM_MAX_IMAGE_OUTPUT; i++) {
-			if (frame_param->img_outs[i].buf[0][0].iova != 0 &&
-				frame_param->img_outs[i].uid.id != 0)
-				req_stream_data->raw_dmas |=
-					(1ULL << frame_param->img_outs[i].uid.id);
-		}
-		for (i = 0; i < CAM_MAX_META_OUTPUT; i++) {
-			if (frame_param->meta_outputs[i].buf.iova != 0 &&
-				frame_param->meta_outputs[i].uid.id != 0)
-				req_stream_data->raw_dmas |=
-					(1ULL << frame_param->meta_outputs[i].uid.id);
-		}
-		for (i = 0; i < CAM_MAX_PIPE_USED; i++) {
-			if (frame_param->meta_inputs[i].buf.iova != 0 &&
-				frame_param->meta_outputs[i].uid.id != 0)
-				req_stream_data->raw_dmas |=
-					(1ULL << frame_param->meta_inputs[i].uid.id);
-		}
+	/* record mmqos  */
+	frame_param = &req_stream_data->frame_params;
+	for (i = 0; i < CAM_MAX_IMAGE_INPUT; i++) {
+		if (frame_param->img_ins[i].buf[0].iova != 0 &&
+			frame_param->img_ins[i].uid.id != 0)
+			req_stream_data->raw_dmas |=
+				(1ULL << frame_param->img_ins[i].uid.id);
 	}
+	for (i = 0; i < CAM_MAX_IMAGE_OUTPUT; i++) {
+		if (frame_param->img_outs[i].buf[0][0].iova != 0 &&
+			frame_param->img_outs[i].uid.id != 0)
+			req_stream_data->raw_dmas |=
+				(1ULL << frame_param->img_outs[i].uid.id);
+	}
+	for (i = 0; i < CAM_MAX_META_OUTPUT; i++) {
+		if (frame_param->meta_outputs[i].buf.iova != 0 &&
+			frame_param->meta_outputs[i].uid.id != 0)
+			req_stream_data->raw_dmas |=
+				(1ULL << frame_param->meta_outputs[i].uid.id);
+	}
+	req_stream_data->raw_dmas |= (1ULL << MTKCAM_IPI_RAW_META_STATS_CFG);
 
 	memcpy(frame_data, &req_stream_data->frame_params,
 	       sizeof(req_stream_data->frame_params));
