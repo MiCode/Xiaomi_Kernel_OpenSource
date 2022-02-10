@@ -37,7 +37,7 @@
 #define MFG_DFD_CON_19               (g_mfg_top_base + 0xA4C)
 
 #define MFG_DEBUGMON_CON_00_ENABLE   (0xFFFFFFFF)
-#define MFG_DFD_CON_0_ENABLE         (0x0F101100)
+#define MFG_DFD_CON_0_ENABLE         (0x0F001100)
 #define MFG_DFD_CON_1_ENABLE         (0x0000D611)
 #define MFG_DFD_CON_2_ENABLE         (0x0001ffec)
 #define MFG_DFD_CON_3_ENABLE         (0x00200828)
