@@ -4616,8 +4616,8 @@
 					"MDP_IMG_DL_RELAY1_ASYNC1",
 					"MDP_APB_BUS";
 			iommus = <&disp_iommu M4U_LARB2_PORT0>,
-				<&disp_iommu M4U_LARB2_PORT2>,
-				<&disp_iommu M4U_LARB2_PORT3>;
+				<&disp_iommu M4U_LARB2_PORT1>,
+				<&disp_iommu M4U_LARB2_PORT2>;
 			dma_mask_bit = <35>;
 		};
 
@@ -4721,9 +4721,9 @@
 			interconnects =
 				<&mmqos MASTER_LARB_PORT(M4U_LARB2_PORT0)
 					&mmqos SLAVE_COMMON(0)>,
-				<&mmqos MASTER_LARB_PORT(M4U_LARB2_PORT2)
+				<&mmqos MASTER_LARB_PORT(M4U_LARB2_PORT1)
 					&mmqos SLAVE_COMMON(0)>,
-				<&mmqos MASTER_LARB_PORT(M4U_LARB2_PORT3)
+				<&mmqos MASTER_LARB_PORT(M4U_LARB2_PORT2)
 					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_LARB9_PORT0)
 					&mmqos SLAVE_COMMON(0)>,
