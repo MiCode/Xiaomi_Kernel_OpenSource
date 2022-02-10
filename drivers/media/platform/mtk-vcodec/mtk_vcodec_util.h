@@ -28,6 +28,7 @@
 
 #define LOG_PARAM_INFO_SIZE 64
 #define LOG_PROPERTY_SIZE 1024
+#define ROUND_N(X, N)   (((X) + ((N)-1)) & (~((N)-1)))    //only for N is exponential of 2
 
 struct mtk_vcodec_mem {
 	size_t length;
