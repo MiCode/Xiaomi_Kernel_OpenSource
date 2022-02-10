@@ -223,13 +223,13 @@ static long ged_dispatch(struct file *pFile,
 		/* Make sure that the UM will never break the KM.
 		 * Check IO size are both matched the size of IO sturct.
 		 */
-#define VALIDATE_ARG(struct_name) do { \
+#define VALIDATE_ARG(cmd, struct_name) do { \
 	if (sizeof(struct GED_BRIDGE_IN_##struct_name)\
 		> psBridgePackageKM->i32InBufferSize ||\
 		sizeof(struct GED_BRIDGE_OUT_##struct_name)\
 		> psBridgePackageKM->i32OutBufferSize) {\
-		GED_LOGE("GED_BRIDGE_COMMAND_##cmd failed io_size:",\
-		"%d/%d, expected: %zu/%zu",\
+		GED_LOGE("ioctl failed! cmd: %d, io_size: %d/%d, expected: %zu/%zu",\
+		GED_BRIDGE_COMMAND_##cmd,\
 		psBridgePackageKM->i32InBufferSize,\
 		psBridgePackageKM->i32OutBufferSize,\
 		sizeof(struct GED_BRIDGE_IN_##struct_name),\
@@ -242,92 +242,92 @@ static long ged_dispatch(struct file *pFile,
 		 */
 		switch (GED_GET_BRIDGE_ID(psBridgePackageKM->ui32FunctionID)) {
 		case GED_BRIDGE_COMMAND_LOG_BUF_GET:
-			VALIDATE_ARG(LOGBUFGET);
+			VALIDATE_ARG(LOG_BUF_GET, LOGBUFGET);
 			ret = ged_bridge_log_buf_get(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_LOG_BUF_WRITE:
-			VALIDATE_ARG(LOGBUFWRITE);
+			VALIDATE_ARG(LOG_BUF_WRITE, LOGBUFWRITE);
 			ret = ged_bridge_log_buf_write(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_LOG_BUF_RESET:
-			VALIDATE_ARG(LOGBUFRESET);
+			VALIDATE_ARG(LOG_BUF_RESET, LOGBUFRESET);
 			ret = ged_bridge_log_buf_reset(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_BOOST_GPU_FREQ:
-			VALIDATE_ARG(BOOSTGPUFREQ);
+			VALIDATE_ARG(BOOST_GPU_FREQ, BOOSTGPUFREQ);
 			ret = ged_bridge_boost_gpu_freq(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_MONITOR_3D_FENCE:
-			VALIDATE_ARG(MONITOR3DFENCE);
+			VALIDATE_ARG(MONITOR_3D_FENCE, MONITOR3DFENCE);
 			ret = ged_bridge_monitor_3D_fence(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_QUERY_INFO:
-			VALIDATE_ARG(QUERY_INFO);
+			 VALIDATE_ARG(QUERY_INFO, QUERY_INFO);
 			ret = ged_bridge_query_info(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_NOTIFY_VSYNC:
-			VALIDATE_ARG(NOTIFY_VSYNC);
+			VALIDATE_ARG(NOTIFY_VSYNC, NOTIFY_VSYNC);
 			ret = ged_bridge_notify_vsync(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_DVFS_PROBE:
-			VALIDATE_ARG(DVFS_PROBE);
+			VALIDATE_ARG(DVFS_PROBE, DVFS_PROBE);
 			ret = ged_bridge_dvfs_probe(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_DVFS_UM_RETURN:
-			VALIDATE_ARG(DVFS_UM_RETURN);
+			VALIDATE_ARG(DVFS_UM_RETURN, DVFS_UM_RETURN);
 			ret = ged_bridge_dvfs_um_retrun(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_EVENT_NOTIFY:
-			VALIDATE_ARG(EVENT_NOTIFY);
+			VALIDATE_ARG(EVENT_NOTIFY, EVENT_NOTIFY);
 			ret = ged_bridge_event_notify(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GPU_HINT_TO_CPU:
-			VALIDATE_ARG(GPU_HINT_TO_CPU);
+			VALIDATE_ARG(GPU_HINT_TO_CPU, GPU_HINT_TO_CPU);
 			ret = ged_bridge_gpu_hint_to_cpu(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_HINT_FORCE_MDP:
-			VALIDATE_ARG(HINT_FORCE_MDP);
+			VALIDATE_ARG(HINT_FORCE_MDP, HINT_FORCE_MDP);
 			ret = ged_bridge_hint_force_mdp(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_QUERY_DVFS_FREQ_PRED:
-			VALIDATE_ARG(QUERY_DVFS_FREQ_PRED);
+			VALIDATE_ARG(QUERY_DVFS_FREQ_PRED, QUERY_DVFS_FREQ_PRED);
 			ret = ged_bridge_query_dvfs_freq_pred(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_QUERY_GPU_DVFS_INFO:
-			VALIDATE_ARG(QUERY_GPU_DVFS_INFO);
+			VALIDATE_ARG(QUERY_GPU_DVFS_INFO, QUERY_GPU_DVFS_INFO);
 			ret = ged_bridge_query_gpu_dvfs_info(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GE_ALLOC:
-			VALIDATE_ARG(GE_ALLOC);
+			VALIDATE_ARG(GE_ALLOC, GE_ALLOC);
 			ret = ged_bridge_ge_alloc(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GE_GET:
-			VALIDATE_ARG(GE_GET);
+			VALIDATE_ARG(GE_GET, GE_GET);
 			ret = ged_bridge_ge_get(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GE_SET:
-			VALIDATE_ARG(GE_SET);
+			VALIDATE_ARG(GE_SET, GE_SET);
 			ret = ged_bridge_ge_set(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GE_INFO:
-			VALIDATE_ARG(GE_INFO);
+			VALIDATE_ARG(GE_INFO, GE_INFO);
 			ret = ged_bridge_ge_info(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GPU_TIMESTAMP:
-			VALIDATE_ARG(GPU_TIMESTAMP);
+			VALIDATE_ARG(GPU_TIMESTAMP, GPU_TIMESTAMP);
 			ret = ged_bridge_gpu_timestamp(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GPU_TUNER_STATUS:
-			VALIDATE_ARG(GPU_TUNER_STATUS);
+			VALIDATE_ARG(GPU_TUNER_STATUS, GPU_TUNER_STATUS);
 			ret = ged_bridge_gpu_tuner_status(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_DMABUF_SET_NAME:
-			VALIDATE_ARG(DMABUF_SET_NAME);
+			VALIDATE_ARG(DMABUF_SET_NAME, DMABUF_SET_NAME);
 			ret = ged_bridge_dmabuf_set_name(pvIn, pvOut);
 			break;
 #ifdef CONFIG_SYNC_FILE
 		case GED_BRIDGE_COMMAND_CREATE_TIMELINE:
-			VALIDATE_ARG(CREATE_TIMELINE);
+			VALIDATE_ARG(CREATE_TIMELINE, CREATE_TIMELINE);
 			ret = ged_bridge_create_timeline(pvIn, pvOut);
 			break;
 #endif
