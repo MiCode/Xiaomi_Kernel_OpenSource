@@ -498,7 +498,7 @@ int core_ctl_set_boost(bool boost)
 			apply_demand(cluster);
 	}
 
-	core_ctl_debug("%s: boost=%d ret=%d ", boost, ret);
+	core_ctl_debug("%s: boost=%d ret=%d ", TAG, boost, ret);
 	return ret;
 }
 EXPORT_SYMBOL(core_ctl_set_boost);
@@ -801,7 +801,8 @@ static ssize_t store_core_ctl_boost(struct cluster_data *state,
 	else
 		ret = -EINVAL;
 
-	return ret;
+	core_ctl_debug("%s: ret=%d, val=%d, count=%d", "store_core_ctl_boost", ret, val, count);
+	return count;
 }
 
 static ssize_t show_core_ctl_boost(const struct cluster_data *state, char *buf)
