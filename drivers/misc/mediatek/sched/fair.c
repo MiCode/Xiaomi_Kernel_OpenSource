@@ -443,7 +443,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 		for(i = 0; i < cnt; i++) {
 			cpu = cpu_order[i];
 #else
-		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_online_mask) {
+		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_active_mask) {
 #endif
 
 			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
@@ -778,7 +778,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	raw_spin_unlock(&this_rq->lock);
 
 	this_cpu = this_rq->cpu;
-	for_each_cpu(cpu, cpu_online_mask) {
+	for_each_cpu(cpu, cpu_active_mask) {
 		if (cpu == this_cpu)
 			continue;
 

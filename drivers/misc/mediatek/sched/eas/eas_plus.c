@@ -170,7 +170,7 @@ int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
 	}
 
 	spin_lock(&thermal_headroom_lock);
-	for_each_cpu_and(cpu, cpus, cpu_online_mask) {
+	for_each_cpu_and(cpu, cpus, cpu_active_mask) {
 		int headroom;
 
 		headroom = thermal_headroom[cpu];
