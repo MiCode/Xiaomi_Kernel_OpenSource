@@ -38,8 +38,6 @@
 #include "mtk_cam-dvfs_qos.h"
 #include "mtk_cam-pool.h"
 #include "mtk_cam-regs.h"
-#include "mtk_cam-sv-regs.h"
-#include "mtk_cam-mraw-regs.h"
 #include "mtk_cam-smem.h"
 #include "mtk_cam-tg-flash.h"
 #include "mtk_camera-v4l2-controls.h"
@@ -6671,600 +6669,6 @@ int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 	return ret;
 }
 
-static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
-{
-	struct mtk_cam_ctx *ctx;
-	struct v4l2_subdev *seninf;
-	struct mtk_raw_device *raw;
-	struct mtk_cam_device *cam;
-	struct mtk_raw_pipeline *raw_pipe;
-	u64 watchdog_cnt;
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-	u64 watchdog_dump_cnt, watchdog_timeout_cnt;
-#endif
-	int timeout;
-	static u64 last_vsync_count;
-	bool is_abnormal_vsync = false;
-	unsigned int int_en, dequeued_frame_seq_no;
-
-	raw_pipe = container_of(work, struct mtk_raw_pipeline, watchdog_work);
-	cam = dev_get_drvdata(raw_pipe->raw->cam_dev);
-	ctx = mtk_cam_find_ctx(cam, &raw_pipe->subdev.entity);
-	seninf = ctx->seninf;
-	if (!seninf) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):stop watchdog task for no seninf ctx:%d\n",
-			 __func__, ctx->stream_id);
-		return;
-	}
-	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
-	watchdog_cnt = atomic_read(&raw_pipe->watchdog_cnt);
-	timeout = mtk_cam_seninf_check_timeout(seninf,
-		watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL * 1000000);
-	if (last_vsync_count == raw->vsync_count)
-		is_abnormal_vsync = true;
-	last_vsync_count = raw->vsync_count;
-	dequeued_frame_seq_no = readl_relaxed(raw->base_inner + REG_FRAME_SEQ_NUM);
-	/**
-	 * Current we just call seninf dump, but it is better to check
-	 * and restart the stream in the future.
-	 */
-	if (atomic_read(&raw_pipe->watchdog_dumped)) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):skip redundant seninf dump for no sof ctx:%d\n",
-			 __func__, ctx->stream_id);
-	} else {
-		if (timeout) {
-			dev_info(ctx->cam->dev,
-				"%s:ctx(%d): timeout, VF(%d) vsync count(%d) sof count(%d) overrun_debug_dump_cnt(%d) start dump (%dx100ms)\n",
-				__func__, ctx->stream_id, atomic_read(&raw->vf_en),
-				raw->vsync_count, raw->sof_count, raw->overrun_debug_dump_cnt,
-				watchdog_cnt);
-
-			if (is_abnormal_vsync)
-				dev_info(ctx->cam->dev, "abnormal vsync\n");
-			atomic_set(&raw_pipe->watchdog_dumped, 1); // fixme
-			atomic_set(&raw_pipe->watchdog_cnt, 0);
-			mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no);
-			atomic_set(&raw_pipe->watchdog_cnt, 0);
-			atomic_inc(&raw_pipe->watchdog_dump_cnt);
-			atomic_set(&raw_pipe->watchdog_dumped, 0);
-	#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-			watchdog_dump_cnt = atomic_read(&raw_pipe->watchdog_dump_cnt);
-			watchdog_timeout_cnt = atomic_read(&raw_pipe->watchdog_timeout_cnt);
-			if (watchdog_dump_cnt == watchdog_timeout_cnt) {
-				int_en = readl_relaxed(raw->base + REG_CTL_RAW_INT_EN);
-				if (raw->vsync_count == 0) {
-					dev_info(ctx->cam->dev,
-						"vsync count(%d), VF(%d), INT_EN(0x%x)\n",
-						raw->vsync_count,
-						atomic_read(&raw->vf_en),
-						int_en);
-					if (int_en == 0)
-						aee_kernel_warning_api(
-							__FILE__, __LINE__, DB_OPT_DEFAULT,
-							"Camsys: 1st CQ done timeout",
-							"watchdog timeout");
-					else
-						aee_kernel_warning_api(
-							__FILE__, __LINE__, DB_OPT_DEFAULT,
-							"Camsys: Vsync timeout",
-							"watchdog timeout");
-
-				} else if (atomic_read(&raw->vf_en) == 0) {
-					dev_info(ctx->cam->dev,
-						"vsync count(%d), frame inner index(%d) INT_EN(0x%x)\n",
-						raw->vsync_count,
-						readl_relaxed(raw->base_inner + REG_FRAME_SEQ_NUM),
-						readl_relaxed(raw->base + REG_CTL_RAW_INT_EN));
-
-					aee_kernel_warning_api(
-						__FILE__, __LINE__, DB_OPT_DEFAULT,
-						"Camsys: VF timeout", "watchdog timeout");
-
-				} else if (atomic_read(&raw->vf_en) == 1 &&
-					raw->overrun_debug_dump_cnt == 0) {
-					dev_info(ctx->cam->dev,
-						"[Outer] TG PATHCFG/SENMODE/DCIF_CTL:0x%x/0x%x/0x%x\n",
-						readl_relaxed(raw->base + REG_TG_PATH_CFG),
-						readl_relaxed(raw->base + REG_TG_SEN_MODE),
-						readl_relaxed(raw->base + REG_TG_DCIF_CTL));
-
-					dev_info(ctx->cam->dev,
-						"REQ RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
-						readl_relaxed(raw->base +
-							REG_CTL_RAW_MOD_REQ_STAT),
-						readl_relaxed(raw->base +
-							REG_CTL_RAW_MOD2_REQ_STAT),
-						readl_relaxed(raw->base +
-							REG_CTL_RAW_MOD3_REQ_STAT),
-						readl_relaxed(raw->base +
-							REG_CTL_RAW_MOD5_REQ_STAT),
-						readl_relaxed(raw->base +
-							REG_CTL_RAW_MOD6_REQ_STAT));
-					dev_info(ctx->cam->dev,
-						"RDY RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
-						readl_relaxed(raw->base +
-							REG_CTL_RAW_MOD_RDY_STAT),
-						readl_relaxed(raw->base +
-							REG_CTL_RAW_MOD2_RDY_STAT),
-						readl_relaxed(raw->base +
-							REG_CTL_RAW_MOD3_RDY_STAT),
-						readl_relaxed(raw->base +
-							REG_CTL_RAW_MOD5_RDY_STAT),
-						readl_relaxed(raw->base +
-							REG_CTL_RAW_MOD6_RDY_STAT));
-
-					aee_kernel_warning_api(
-						__FILE__, __LINE__, DB_OPT_DEFAULT,
-						"Camsys: SOF timeout", "watchdog timeout");
-				}
-			}
-	#endif
-		} else {
-			dev_info(ctx->cam->dev, "%s:ctx(%d): not timeout, for long exp (%dx100ms)\n",
-				__func__, ctx->stream_id, watchdog_cnt);
-		}
-	}
-}
-
-static void mtk_cam_ctx_watchdog_worker_sv(struct work_struct *work)
-{
-	struct mtk_cam_ctx *ctx;
-	struct v4l2_subdev *seninf;
-	u64 watchdog_cnt;
-	int timeout;
-	struct mtk_camsv_pipeline *sv_pipe;
-	struct mtk_cam_device *cam;
-	struct mtk_camsv_device *camsv_dev;
-	unsigned int dequeued_frame_seq_no;
-
-	sv_pipe = container_of(work, struct mtk_camsv_pipeline, watchdog_work);
-	cam = dev_get_drvdata(sv_pipe->sv->cam_dev);
-	ctx = mtk_cam_find_ctx(cam, &sv_pipe->subdev.entity);
-	camsv_dev = get_camsv_dev(ctx->cam, sv_pipe);
-
-	seninf = ctx->seninf;
-	if (!seninf) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):stop watchdog task for no seninf ctx:%d\n",
-			 __func__, ctx->stream_id);
-		return;
-	}
-	watchdog_cnt = atomic_read(&sv_pipe->watchdog_cnt);
-	timeout = mtk_cam_seninf_check_timeout(seninf,
-		watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL * 1000000);
-	dequeued_frame_seq_no =
-		readl_relaxed(camsv_dev->base_inner + REG_CAMSV_FRAME_SEQ_NO);
-	/**
-	 * Current we just call seninf dump, but it is better to check
-	 * and restart the stream in the future.
-	 */
-	if (atomic_read(&sv_pipe->watchdog_dumped)) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):skip redundant seninf dump for no sof ctx:%d\n",
-			 __func__, ctx->stream_id);
-	} else {
-		if (timeout) {
-			dev_info(ctx->cam->dev,
-				"%s:ctx(%d): timeout, sof count(%d) start dump (%dx100ms)\n",
-				__func__, ctx->stream_id, camsv_dev->sof_count, watchdog_cnt);
-
-			atomic_set(&sv_pipe->watchdog_dumped, 1); // fixme
-			atomic_set(&sv_pipe->watchdog_cnt, 0);
-			mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no);
-			atomic_set(&sv_pipe->watchdog_cnt, 0);
-			atomic_inc(&sv_pipe->watchdog_dump_cnt);
-			atomic_set(&sv_pipe->watchdog_dumped, 0);
-		} else {
-			dev_info(ctx->cam->dev, "%s:ctx(%d): not timeout, for long exp (%dx100ms)\n",
-				__func__, ctx->stream_id, watchdog_cnt);
-		}
-	}
-}
-
-static void mtk_cam_ctx_watchdog_worker_mraw(struct work_struct *work)
-{
-	struct mtk_cam_ctx *ctx;
-	struct v4l2_subdev *seninf;
-	u64 watchdog_cnt;
-	int timeout;
-	struct mtk_mraw_pipeline *mraw_pipe;
-	struct mtk_cam_device *cam;
-	struct mtk_mraw_device *mraw_dev;
-	unsigned int dequeued_frame_seq_no;
-
-	mraw_pipe = container_of(work, struct mtk_mraw_pipeline, watchdog_work);
-	cam = dev_get_drvdata(mraw_pipe->mraw->cam_dev);
-	ctx = mtk_cam_find_ctx(cam, &mraw_pipe->subdev.entity);
-	mraw_dev = get_mraw_dev(ctx->cam, mraw_pipe);
-
-	seninf = ctx->seninf;
-	if (!seninf) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):stop watchdog task for no seninf ctx:%d\n",
-			 __func__, ctx->stream_id);
-		return;
-	}
-	watchdog_cnt = atomic_read(&mraw_pipe->watchdog_cnt);
-	timeout = mtk_cam_seninf_check_timeout(seninf,
-		watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL * 1000000);
-	dequeued_frame_seq_no =
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FRAME_SEQ_NUM);
-	/**
-	 * Current we just call seninf dump, but it is better to check
-	 * and restart the stream in the future.
-	 */
-	if (atomic_read(&mraw_pipe->watchdog_dumped)) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):skip redundant seninf dump for no sof ctx:%d\n",
-			 __func__, ctx->stream_id);
-	} else {
-		if (timeout) {
-			dev_info(ctx->cam->dev,
-				"%s:ctx(%d): timeout, sof count(%d) start dump (%dx100ms)\n",
-				__func__, ctx->stream_id, mraw_dev->sof_count, watchdog_cnt);
-
-			atomic_set(&mraw_pipe->watchdog_dumped, 1); // fixme
-			atomic_set(&mraw_pipe->watchdog_cnt, 0);
-			mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no);
-			atomic_set(&mraw_pipe->watchdog_cnt, 0);
-			atomic_inc(&mraw_pipe->watchdog_dump_cnt);
-			atomic_set(&mraw_pipe->watchdog_dumped, 0);
-		} else {
-			dev_info(ctx->cam->dev, "%s:ctx(%d): not timeout, for long exp (%dx100ms)\n",
-				__func__, ctx->stream_id, watchdog_cnt);
-		}
-	}
-}
-
-static void mtk_ctx_watchdog(struct timer_list *t)
-{
-	struct mtk_raw_pipeline *raw_pipe = from_timer(raw_pipe, t, watchdog_timer);
-	struct mtk_cam_device *cam = dev_get_drvdata(raw_pipe->raw->cam_dev);
-	struct mtk_cam_ctx *ctx = mtk_cam_find_ctx(cam, &raw_pipe->subdev.entity);
-	struct mtk_raw_device *raw;
-	int watchdog_cnt;
-	int watchdog_dump_cnt;
-	u64 current_time_ns = ktime_get_boottime_ns();
-
-	if (!ctx->streaming)
-		return;
-
-	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
-	if (!raw) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):stop watchdog task for no raw ctx\n",
-			 __func__, ctx->stream_id);
-		return;
-	}
-	if (atomic_read(&raw->vf_en) == 0 &&
-		!mtk_cam_is_ext_isp(ctx)) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):vf_en = 0\n",
-			 __func__, ctx->stream_id);
-		return;
-	}
-	watchdog_cnt = atomic_inc_return(&ctx->pipe->watchdog_cnt);
-	watchdog_dump_cnt = atomic_read(&ctx->pipe->watchdog_dump_cnt);
-	ctx->pipe->watchdog_time_diff_ns = current_time_ns - raw->last_sof_time_ns;
-
-	/** FIXME:
-	 * redundant check watchdog_dump in worker
-	 * the timeout of same period doesn't need to be dump again
-	 */
-	if (atomic_read(&ctx->pipe->watchdog_dumped)) {
-		dev_dbg(ctx->cam->dev,
-			 "%s:ctx(%d):skip watchdog worker ctx:%d (worker is ongoing)\n",
-			 __func__, ctx->stream_id);
-	} else if (watchdog_cnt >= atomic_read(&ctx->pipe->watchdog_timeout_cnt)) {
-		/**
-		 * No raw's sof interrupts were generated by hw for the
-		 * Nth time of running the watchdog timer.
-		 */
-		if (watchdog_dump_cnt < 4) {
-			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): timeout! VF(%d) vsync count(%d) sof count(%d) watcgdog_cnt(%d)(+%llddms)\n",
-				__func__, ctx->stream_id, atomic_read(&raw->vf_en),
-				raw->vsync_count, raw->sof_count, watchdog_cnt,
-				ctx->pipe->watchdog_time_diff_ns/1000000);
-
-			schedule_work(&ctx->pipe->watchdog_work);
-		} else {
-			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): dump > 3! watchdog_dump_cnt(%d)(+%lldms)\n",
-				__func__, ctx->stream_id, watchdog_dump_cnt,
-				ctx->pipe->watchdog_time_diff_ns/1000000);
-		}
-	}
-
-	ctx->pipe->watchdog_timer.expires = jiffies +
-				msecs_to_jiffies(MTK_CAM_CTX_WATCHDOG_INTERVAL);
-	dev_dbg(ctx->cam->dev, "%s:check ctx(%d): dog_cnt(%d), dog_time:%dms\n",
-				__func__, ctx->stream_id, watchdog_cnt,
-				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
-	add_timer(&ctx->pipe->watchdog_timer);
-}
-
-static void mtk_ctx_watchdog_sv(struct timer_list *t)
-{
-	struct mtk_camsv_pipeline *sv_pipe = from_timer(sv_pipe, t, watchdog_timer);
-	struct mtk_cam_device *cam = dev_get_drvdata(sv_pipe->sv->cam_dev);
-	struct mtk_cam_ctx *ctx = mtk_cam_find_ctx(cam, &sv_pipe->subdev.entity);
-	struct mtk_camsv_device *camsv_dev;
-	int watchdog_cnt;
-	int watchdog_dump_cnt;
-
-	if (!ctx->streaming)
-		return;
-
-	camsv_dev = get_camsv_dev(ctx->cam, sv_pipe);
-	if (!camsv_dev) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):stop watchdog task for no sv ctx\n",
-			 __func__, ctx->stream_id);
-		return;
-	}
-
-	watchdog_cnt = atomic_inc_return(&sv_pipe->watchdog_cnt);
-	watchdog_dump_cnt = atomic_read(&sv_pipe->watchdog_dump_cnt);
-
-	if (atomic_read(&sv_pipe->watchdog_dumped)) {
-		dev_dbg(ctx->cam->dev,
-			 "%s:ctx(%d):skip watchdog worker ctx:%d (worker is ongoing)\n",
-			 __func__, ctx->stream_id);
-	} else if (watchdog_cnt >= atomic_read(&sv_pipe->watchdog_timeout_cnt)) {
-		/**
-		 * No camsv's sof interrupts were generated by hw for the
-		 * Nth time of running the watchdog timer.
-		 */
-		if (watchdog_dump_cnt < 4) {
-			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): timeout! sof count(%d) watcgdog_cnt(%d)(+%dms)\n",
-				__func__, ctx->stream_id,
-				camsv_dev->sof_count, watchdog_cnt,
-				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
-
-			schedule_work(&sv_pipe->watchdog_work);
-		} else {
-			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): dump > 3! watchdog_dump_cnt(%d)(+%dms)\n",
-				__func__, ctx->stream_id, watchdog_dump_cnt,
-				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
-		}
-	}
-
-	sv_pipe->watchdog_timer.expires = jiffies +
-				msecs_to_jiffies(MTK_CAM_CTX_WATCHDOG_INTERVAL);
-	dev_dbg(ctx->cam->dev, "%s:check ctx(%d): dog_cnt(%d), dog_time:%dms\n",
-				__func__, ctx->stream_id, watchdog_cnt,
-				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
-	add_timer(&sv_pipe->watchdog_timer);
-}
-
-static void mtk_ctx_watchdog_mraw(struct timer_list *t)
-{
-	struct mtk_mraw_pipeline *mraw_pipe = from_timer(mraw_pipe, t, watchdog_timer);
-	struct mtk_cam_device *cam = dev_get_drvdata(mraw_pipe->mraw->cam_dev);
-	struct mtk_cam_ctx *ctx = mtk_cam_find_ctx(cam, &mraw_pipe->subdev.entity);
-	struct mtk_mraw_device *mraw_dev;
-	int watchdog_cnt;
-	int watchdog_dump_cnt;
-
-	if (!ctx->streaming)
-		return;
-
-	mraw_dev = get_mraw_dev(cam, mraw_pipe);
-	if (!mraw_dev) {
-		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d):stop watchdog task for no mraw ctx\n",
-			 __func__, ctx->stream_id);
-		return;
-	}
-
-	watchdog_cnt = atomic_inc_return(&mraw_pipe->watchdog_cnt);
-	watchdog_dump_cnt = atomic_read(&mraw_pipe->watchdog_dump_cnt);
-
-	if (atomic_read(&mraw_pipe->watchdog_dumped)) {
-		dev_dbg(ctx->cam->dev,
-			 "%s:ctx(%d):skip watchdog worker ctx:%d (worker is ongoing)\n",
-			 __func__, ctx->stream_id);
-	} else if (watchdog_cnt >= atomic_read(&mraw_pipe->watchdog_timeout_cnt)) {
-		/**
-		 * No mraw's sof interrupts were generated by hw for the
-		 * Nth time of running the watchdog timer.
-		 */
-		if (watchdog_dump_cnt < 4) {
-			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): timeout! sof count(%d) watcgdog_cnt(%d)(+%dms)\n",
-				__func__, ctx->stream_id,
-				mraw_dev->sof_count, watchdog_cnt,
-				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
-
-			schedule_work(&mraw_pipe->watchdog_work);
-		} else {
-			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): dump > 3! watchdog_dump_cnt(%d)(+%dms)\n",
-				__func__, ctx->stream_id, watchdog_dump_cnt,
-				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
-		}
-	}
-
-	mraw_pipe->watchdog_timer.expires = jiffies +
-				msecs_to_jiffies(MTK_CAM_CTX_WATCHDOG_INTERVAL);
-	dev_dbg(ctx->cam->dev, "%s:check ctx(%d): dog_cnt(%d), dog_time:%dms\n",
-				__func__, ctx->stream_id, watchdog_cnt,
-				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
-	add_timer(&mraw_pipe->watchdog_timer);
-}
-
-void mtk_ctx_watchdog_kick(struct mtk_cam_ctx *ctx, int pipe_id)
-{
-	struct mtk_raw_pipeline *raw_pipeline;
-	struct mtk_camsv_pipeline *sv_pipeline;
-	struct mtk_mraw_pipeline *mraw_pipeline;
-
-	if (is_raw_subdev(pipe_id)) {
-		raw_pipeline = &ctx->cam->raw.pipelines[pipe_id];
-		dev_dbg(ctx->cam->dev, "%s:ctx(%d): watchdog_cnt(%d)\n",
-			__func__, ctx->stream_id, atomic_read(&raw_pipeline->watchdog_cnt));
-		atomic_set(&raw_pipeline->watchdog_cnt, 0);
-		atomic_set(&raw_pipeline->watchdog_dump_cnt, 0);
-	} else if (is_camsv_subdev(pipe_id)) {
-		sv_pipeline =
-			&ctx->cam->sv.pipelines[pipe_id - MTKCAM_SUBDEV_CAMSV_START];
-		dev_dbg(ctx->cam->dev, "%s:ctx(%d): watchdog_cnt(%d)\n",
-			__func__, ctx->stream_id, atomic_read(&sv_pipeline->watchdog_cnt));
-		atomic_set(&sv_pipeline->watchdog_cnt, 0);
-		atomic_set(&sv_pipeline->watchdog_dump_cnt, 0);
-	} else if (is_mraw_subdev(pipe_id)) {
-		mraw_pipeline =
-			&ctx->cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
-		dev_dbg(ctx->cam->dev, "%s:ctx(%d): watchdog_cnt(%d)\n",
-			__func__, ctx->stream_id, atomic_read(&mraw_pipeline->watchdog_cnt));
-		atomic_set(&mraw_pipeline->watchdog_cnt, 0);
-		atomic_set(&mraw_pipeline->watchdog_dump_cnt, 0);
-	} else {
-		dev_info(ctx->cam->dev, "%s:invalid pipe_id(%d)\n", __func__, pipe_id);
-	}
-}
-
-static void mtk_ctx_watchdog_init(struct mtk_cam_ctx *ctx)
-{
-	int i;
-
-	INIT_WORK(&ctx->pipe->watchdog_work, mtk_cam_ctx_watchdog_worker);
-	timer_setup(&ctx->pipe->watchdog_timer, mtk_ctx_watchdog, 0);
-	for (i = 0 ; i < ctx->used_sv_num ; i++) {
-		INIT_WORK(&ctx->sv_pipe[i]->watchdog_work,
-			mtk_cam_ctx_watchdog_worker_sv);
-		timer_setup(&ctx->sv_pipe[i]->watchdog_timer,
-			mtk_ctx_watchdog_sv, 0);
-	}
-	for (i = 0 ; i < ctx->used_mraw_num ; i++) {
-		INIT_WORK(&ctx->mraw_pipe[i]->watchdog_work,
-			mtk_cam_ctx_watchdog_worker_mraw);
-		timer_setup(&ctx->mraw_pipe[i]->watchdog_timer,
-			mtk_ctx_watchdog_mraw, 0);
-	}
-}
-
-void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt)
-{
-	int i;
-
-	dev_info(ctx->cam->dev, "%s:ctx(%d):start the watchdog, timeout setting(%d)\n",
-		__func__, ctx->stream_id, MTK_CAM_CTX_WATCHDOG_INTERVAL * timeout_cnt);
-
-	atomic_set(&ctx->pipe->watchdog_timeout_cnt, timeout_cnt);
-	atomic_set(&ctx->pipe->watchdog_cnt, 0);
-	atomic_set(&ctx->pipe->watchdog_dumped, 0);
-	atomic_set(&ctx->pipe->watchdog_dump_cnt, 0);
-	ctx->pipe->watchdog_timer.expires = jiffies +
-				msecs_to_jiffies(MTK_CAM_CTX_WATCHDOG_INTERVAL);
-	add_timer(&ctx->pipe->watchdog_timer);
-
-	for (i = 0 ; i < ctx->used_sv_num ; i++) {
-		atomic_set(&ctx->sv_pipe[i]->watchdog_timeout_cnt, timeout_cnt);
-		atomic_set(&ctx->sv_pipe[i]->watchdog_cnt, 0);
-		atomic_set(&ctx->sv_pipe[i]->watchdog_dumped, 0);
-		atomic_set(&ctx->sv_pipe[i]->watchdog_dump_cnt, 0);
-		ctx->sv_pipe[i]->watchdog_timer.expires = jiffies +
-					msecs_to_jiffies(MTK_CAM_CTX_WATCHDOG_INTERVAL);
-		add_timer(&ctx->sv_pipe[i]->watchdog_timer);
-	}
-
-	for (i = 0 ; i < ctx->used_mraw_num ; i++) {
-		atomic_set(&ctx->mraw_pipe[i]->watchdog_timeout_cnt, timeout_cnt);
-		atomic_set(&ctx->mraw_pipe[i]->watchdog_cnt, 0);
-		atomic_set(&ctx->mraw_pipe[i]->watchdog_dumped, 0);
-		atomic_set(&ctx->mraw_pipe[i]->watchdog_dump_cnt, 0);
-		ctx->mraw_pipe[i]->watchdog_timer.expires = jiffies +
-					msecs_to_jiffies(MTK_CAM_CTX_WATCHDOG_INTERVAL);
-		add_timer(&ctx->mraw_pipe[i]->watchdog_timer);
-	}
-}
-
-void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx)
-{
-	int i;
-
-	dev_info(ctx->cam->dev, "%s:ctx(%d):stop the watchdog\n",
-		__func__, ctx->stream_id);
-
-	del_timer_sync(&ctx->pipe->watchdog_timer);
-	for (i = 0 ; i < ctx->used_sv_num ; i++)
-		del_timer_sync(&ctx->sv_pipe[i]->watchdog_timer);
-	for (i = 0 ; i < ctx->used_mraw_num ; i++)
-		del_timer_sync(&ctx->mraw_pipe[i]->watchdog_timer);
-}
-
-static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
-			     struct mtk_cam_device *cam,
-			     unsigned int stream_id)
-{
-	unsigned int i;
-
-	ctx->cam = cam;
-	ctx->stream_id = stream_id;
-	ctx->sensor = NULL;
-	ctx->prev_sensor = NULL;
-	ctx->prev_seninf = NULL;
-
-	ctx->streaming_pipe = 0;
-	ctx->streaming_node_cnt = 0;
-
-	ctx->used_raw_num = 0;
-	ctx->used_raw_dev = 0;
-	ctx->processing_buffer_list.cnt = 0;
-	ctx->composed_buffer_list.cnt = 0;
-	ctx->is_first_cq_done = 0;
-	ctx->cq_done_status = 0;
-	ctx->session_created = 0;
-
-	ctx->used_sv_num = 0;
-	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
-		ctx->sv_pipe[i] = NULL;
-		ctx->used_sv_dev[i] = 0;
-		ctx->sv_dequeued_frame_seq_no[i] = 0;
-		ctx->sv_using_buffer_list[i].cnt = 0;
-		ctx->sv_processing_buffer_list[i].cnt = 0;
-	}
-
-	ctx->used_mraw_num = 0;
-	for (i = 0 ; i < MAX_MRAW_PIPES_PER_STREAM ; i++) {
-		ctx->mraw_pipe[i] = NULL;
-		ctx->used_mraw_dev[i] = 0;
-		ctx->mraw_dequeued_frame_seq_no[i] = 0;
-		ctx->mraw_using_buffer_list[i].cnt = 0;
-		ctx->mraw_processing_buffer_list[i].cnt = 0;
-		ctx->mraw_composed_buffer_list[i].cnt = 0;
-	}
-
-	INIT_LIST_HEAD(&ctx->using_buffer_list.list);
-	INIT_LIST_HEAD(&ctx->composed_buffer_list.list);
-	INIT_LIST_HEAD(&ctx->processing_buffer_list.list);
-	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
-		INIT_LIST_HEAD(&ctx->sv_using_buffer_list[i].list);
-		INIT_LIST_HEAD(&ctx->sv_processing_buffer_list[i].list);
-	}
-	for (i = 0; i < MAX_MRAW_PIPES_PER_STREAM; i++) {
-		INIT_LIST_HEAD(&ctx->mraw_using_buffer_list[i].list);
-		INIT_LIST_HEAD(&ctx->mraw_composed_buffer_list[i].list);
-		INIT_LIST_HEAD(&ctx->mraw_processing_buffer_list[i].list);
-	}
-	INIT_LIST_HEAD(&ctx->processing_img_buffer_list.list);
-	spin_lock_init(&ctx->using_buffer_list.lock);
-	spin_lock_init(&ctx->composed_buffer_list.lock);
-	spin_lock_init(&ctx->processing_buffer_list.lock);
-	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
-		spin_lock_init(&ctx->sv_using_buffer_list[i].lock);
-		spin_lock_init(&ctx->sv_processing_buffer_list[i].lock);
-	}
-	for (i = 0; i < MAX_MRAW_PIPES_PER_STREAM; i++) {
-		spin_lock_init(&ctx->mraw_using_buffer_list[i].lock);
-		spin_lock_init(&ctx->mraw_composed_buffer_list[i].lock);
-		spin_lock_init(&ctx->mraw_processing_buffer_list[i].lock);
-	}
-	spin_lock_init(&ctx->streaming_lock);
-	spin_lock_init(&ctx->first_cq_lock);
-	spin_lock_init(&ctx->processing_img_buffer_list.lock);
-}
-
 int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_device *cam = ctx->cam;
@@ -7297,9 +6701,6 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 			goto fail_pipe_off;
 		}
 	}
-
-	if (watchdog_scenario(ctx))
-		mtk_ctx_watchdog_init(ctx);
 
 	if (ctx->pipe) {
 		feature_active = ctx->pipe->feature_active;
@@ -8280,6 +7681,315 @@ static const struct component_master_ops mtk_cam_master_ops = {
 	.bind = mtk_cam_master_bind,
 	.unbind = mtk_cam_master_unbind,
 };
+
+static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
+{
+	struct mtk_cam_ctx *ctx;
+	struct v4l2_subdev *seninf;
+	struct mtk_raw_device *raw;
+	u64 watchdog_cnt;
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+	u64 watchdog_dump_cnt, watchdog_timeout_cnt;
+#endif
+	int timeout;
+	static u64 last_vsync_count;
+	bool is_abnormal_vsync = false;
+	unsigned int int_en, dequeued_frame_seq_no;
+
+	ctx = container_of(work, struct mtk_cam_ctx, watchdog_work);
+	seninf = ctx->seninf;
+	if (!seninf) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d):stop watchdog task for no seninf ctx:%d\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
+	watchdog_cnt = atomic_read(&ctx->watchdog_cnt);
+	timeout = mtk_cam_seninf_check_timeout(seninf,
+					       ctx->watchdog_time_diff_ns);
+	if (last_vsync_count == raw->vsync_count)
+		is_abnormal_vsync = true;
+	last_vsync_count = raw->vsync_count;
+	dequeued_frame_seq_no = readl_relaxed(raw->base_inner + REG_FRAME_SEQ_NUM);
+	/**
+	 * Current we just call seninf dump, but it is better to check
+	 * and restart the stream in the future.
+	 */
+	if (atomic_read(&ctx->watchdog_dumped)) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d):skip redundant seninf dump for no sof ctx:%d\n",
+			 __func__, ctx->stream_id);
+	} else {
+		if (timeout) {
+			dev_info(ctx->cam->dev,
+				"%s:ctx(%d): timeout, VF(%d) vsync count(%d) sof count(%d) overrun_debug_dump_cnt(%d) watchdog count(%d) start dump (+%lldms)\n",
+				__func__, ctx->stream_id, atomic_read(&raw->vf_en),
+				raw->vsync_count, raw->sof_count, raw->overrun_debug_dump_cnt,
+				watchdog_cnt, ctx->watchdog_time_diff_ns/1000000);
+
+			if (is_abnormal_vsync)
+				dev_info(ctx->cam->dev, "abnormal vsync\n");
+			atomic_set(&ctx->watchdog_dumped, 1); // fixme
+			atomic_set(&ctx->watchdog_cnt, 0);
+			mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no);
+			/* both reset are required */
+			atomic_set(&ctx->watchdog_cnt, 0);
+			atomic_inc(&ctx->watchdog_dump_cnt);
+			atomic_set(&ctx->watchdog_dumped, 0);
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+			watchdog_dump_cnt = atomic_read(&ctx->watchdog_dump_cnt);
+			watchdog_timeout_cnt = atomic_read(&ctx->watchdog_timeout_cnt);
+			if (watchdog_dump_cnt == watchdog_timeout_cnt) {
+				int_en = readl_relaxed(raw->base + REG_CTL_RAW_INT_EN);
+				if (raw->vsync_count == 0) {
+					dev_info(ctx->cam->dev,
+						"vsync count(%d), VF(%d), INT_EN(0x%x)\n",
+						raw->vsync_count,
+						atomic_read(&raw->vf_en),
+						int_en);
+					if (int_en == 0 && ctx->composed_frame_seq_no)
+						aee_kernel_warning_api(
+							__FILE__, __LINE__, DB_OPT_DEFAULT,
+							"Camsys: 1st CQ done timeout",
+							"watchdog timeout");
+					else
+						aee_kernel_warning_api(
+							__FILE__, __LINE__, DB_OPT_DEFAULT,
+							"Camsys: Vsync timeout",
+							"watchdog timeout");
+
+				} else if (atomic_read(&raw->vf_en) == 0) {
+					dev_info(ctx->cam->dev,
+						"vsync count(%d), frame inner index(%d) INT_EN(0x%x)\n",
+						raw->vsync_count,
+						readl_relaxed(raw->base_inner + REG_FRAME_SEQ_NUM),
+						readl_relaxed(raw->base + REG_CTL_RAW_INT_EN));
+
+					aee_kernel_warning_api(
+						__FILE__, __LINE__, DB_OPT_DEFAULT,
+						"Camsys: VF timeout", "watchdog timeout");
+
+				} else if (atomic_read(&raw->vf_en) == 1 &&
+					raw->overrun_debug_dump_cnt == 0) {
+					dev_info(ctx->cam->dev,
+						"[Outer] TG PATHCFG/SENMODE/DCIF_CTL:0x%x/0x%x/0x%x\n",
+						readl_relaxed(raw->base + REG_TG_PATH_CFG),
+						readl_relaxed(raw->base + REG_TG_SEN_MODE),
+						readl_relaxed(raw->base + REG_TG_DCIF_CTL));
+
+					dev_info(ctx->cam->dev,
+						"REQ RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD_REQ_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD2_REQ_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD3_REQ_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD5_REQ_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD6_REQ_STAT));
+					dev_info(ctx->cam->dev,
+						"RDY RAW/2/3 DMA/2:%08x/%08x/%08x/%08x/%08x\n",
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD_RDY_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD2_RDY_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD3_RDY_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD5_RDY_STAT),
+						readl_relaxed(raw->base +
+							REG_CTL_RAW_MOD6_RDY_STAT));
+
+					aee_kernel_warning_api(
+						__FILE__, __LINE__, DB_OPT_DEFAULT,
+						"Camsys: SOF timeout", "watchdog timeout");
+				}
+			}
+#endif
+		} else {
+			dev_info(ctx->cam->dev,
+				"%s:ctx(%d): not timeout, for long exp watchdog count(%d) (+%lldms)\n",
+				__func__, ctx->stream_id, watchdog_cnt,
+				ctx->watchdog_time_diff_ns/1000000);
+		}
+	}
+}
+
+static void mtk_ctx_watchdog(struct timer_list *t)
+{
+	struct mtk_cam_ctx *ctx = from_timer(ctx, t, watchdog_timer);
+	struct mtk_raw_device *raw;
+	int watchdog_cnt;
+	int watchdog_dump_cnt;
+	u64 current_time_ns = ktime_get_boottime_ns();
+
+	if (!ctx->streaming)
+		return;
+
+	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
+	if (!raw) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d):stop watchdog task for no raw ctx\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+	if (atomic_read(&raw->vf_en) == 0 &&
+		!mtk_cam_is_ext_isp(ctx)) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d):vf_en = 0\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+	watchdog_cnt = atomic_inc_return(&ctx->watchdog_cnt);
+	watchdog_dump_cnt = atomic_read(&ctx->watchdog_dump_cnt);
+	ctx->watchdog_time_diff_ns = current_time_ns - raw->last_sof_time_ns;
+
+	/** FIXME:
+	 * redundant check watchdog_dump in worker
+	 * the timeout of same period doesn't need to be dump again
+	 */
+	if (atomic_read(&ctx->watchdog_dumped)) {
+		dev_dbg(ctx->cam->dev,
+			 "%s:ctx(%d):skip watchdog worker ctx:%d (worker is ongoing)\n",
+			 __func__, ctx->stream_id);
+	} else if (watchdog_cnt >= atomic_read(&ctx->watchdog_timeout_cnt)) {
+		/**
+		 * No raw's sof interrupts were generated by hw for the
+		 * Nth time of running the watchdog timer.
+		 */
+		if (watchdog_dump_cnt < 4) {
+			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): timeout! VF(%d) vsync count(%d) sof count(%d) watcgdog_cnt(%d)(+%llddms)\n",
+				__func__, ctx->stream_id, atomic_read(&raw->vf_en),
+				raw->vsync_count, raw->sof_count, watchdog_cnt,
+				ctx->watchdog_time_diff_ns/1000000);
+
+			schedule_work(&ctx->watchdog_work);
+		} else {
+			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): dump > 3! watchdog_dump_cnt(%d)(+%lldms)\n",
+				__func__, ctx->stream_id, watchdog_dump_cnt,
+				ctx->watchdog_time_diff_ns/1000000);
+		}
+	}
+
+	ctx->watchdog_timer.expires = jiffies +
+				msecs_to_jiffies(MTK_CAM_CTX_WATCHDOG_INTERVAL);
+	dev_dbg(ctx->cam->dev, "%s:check ctx(%d): dog_cnt(%d), dog_time:%dms\n",
+				__func__, ctx->stream_id, watchdog_cnt,
+				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
+	add_timer(&ctx->watchdog_timer);
+}
+
+void mtk_ctx_watchdog_kick(struct mtk_cam_ctx *ctx)
+{
+	dev_dbg(ctx->cam->dev, "%s:ctx(%d): watchdog_cnt(%d)\n",
+		__func__, ctx->stream_id, atomic_read(&ctx->watchdog_cnt));
+	atomic_set(&ctx->watchdog_cnt, 0);
+	atomic_set(&ctx->watchdog_dump_cnt, 0);
+}
+
+static void mtk_ctx_watchdog_init(struct mtk_cam_ctx *ctx)
+{
+	INIT_WORK(&ctx->watchdog_work, mtk_cam_ctx_watchdog_worker);
+	timer_setup(&ctx->watchdog_timer, mtk_ctx_watchdog, 0);
+}
+
+void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt)
+{
+	dev_info(ctx->cam->dev, "%s:ctx(%d):start the watchdog, timeout setting(%d)\n",
+		__func__, ctx->stream_id, MTK_CAM_CTX_WATCHDOG_INTERVAL * timeout_cnt);
+
+	atomic_set(&ctx->watchdog_timeout_cnt, timeout_cnt);
+	atomic_set(&ctx->watchdog_cnt, 0);
+	atomic_set(&ctx->watchdog_dumped, 0);
+	atomic_set(&ctx->watchdog_dump_cnt, 0);
+	ctx->watchdog_timer.expires = jiffies +
+				msecs_to_jiffies(MTK_CAM_CTX_WATCHDOG_INTERVAL);
+	add_timer(&ctx->watchdog_timer);
+}
+
+void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx)
+{
+	dev_info(ctx->cam->dev, "%s:ctx(%d):stop the watchdog\n",
+		__func__, ctx->stream_id);
+	del_timer_sync(&ctx->watchdog_timer);
+}
+
+static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
+			     struct mtk_cam_device *cam,
+			     unsigned int stream_id)
+{
+	unsigned int i;
+
+	ctx->cam = cam;
+	ctx->stream_id = stream_id;
+	ctx->sensor = NULL;
+	ctx->prev_sensor = NULL;
+	ctx->prev_seninf = NULL;
+
+	ctx->streaming_pipe = 0;
+	ctx->streaming_node_cnt = 0;
+
+	ctx->used_raw_num = 0;
+	ctx->used_raw_dev = 0;
+	ctx->processing_buffer_list.cnt = 0;
+	ctx->composed_buffer_list.cnt = 0;
+	ctx->is_first_cq_done = 0;
+	ctx->cq_done_status = 0;
+	ctx->session_created = 0;
+
+	ctx->used_sv_num = 0;
+	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
+		ctx->sv_pipe[i] = NULL;
+		ctx->used_sv_dev[i] = 0;
+		ctx->sv_dequeued_frame_seq_no[i] = 0;
+		ctx->sv_using_buffer_list[i].cnt = 0;
+		ctx->sv_processing_buffer_list[i].cnt = 0;
+	}
+
+	ctx->used_mraw_num = 0;
+	for (i = 0 ; i < MAX_MRAW_PIPES_PER_STREAM ; i++) {
+		ctx->mraw_pipe[i] = NULL;
+		ctx->used_mraw_dev[i] = 0;
+		ctx->mraw_dequeued_frame_seq_no[i] = 0;
+		ctx->mraw_using_buffer_list[i].cnt = 0;
+		ctx->mraw_processing_buffer_list[i].cnt = 0;
+		ctx->mraw_composed_buffer_list[i].cnt = 0;
+	}
+
+	INIT_LIST_HEAD(&ctx->using_buffer_list.list);
+	INIT_LIST_HEAD(&ctx->composed_buffer_list.list);
+	INIT_LIST_HEAD(&ctx->processing_buffer_list.list);
+	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
+		INIT_LIST_HEAD(&ctx->sv_using_buffer_list[i].list);
+		INIT_LIST_HEAD(&ctx->sv_processing_buffer_list[i].list);
+	}
+	for (i = 0; i < MAX_MRAW_PIPES_PER_STREAM; i++) {
+		INIT_LIST_HEAD(&ctx->mraw_using_buffer_list[i].list);
+		INIT_LIST_HEAD(&ctx->mraw_composed_buffer_list[i].list);
+		INIT_LIST_HEAD(&ctx->mraw_processing_buffer_list[i].list);
+	}
+	INIT_LIST_HEAD(&ctx->processing_img_buffer_list.list);
+	spin_lock_init(&ctx->using_buffer_list.lock);
+	spin_lock_init(&ctx->composed_buffer_list.lock);
+	spin_lock_init(&ctx->processing_buffer_list.lock);
+	for (i = 0; i < MAX_SV_PIPES_PER_STREAM; i++) {
+		spin_lock_init(&ctx->sv_using_buffer_list[i].lock);
+		spin_lock_init(&ctx->sv_processing_buffer_list[i].lock);
+	}
+	for (i = 0; i < MAX_MRAW_PIPES_PER_STREAM; i++) {
+		spin_lock_init(&ctx->mraw_using_buffer_list[i].lock);
+		spin_lock_init(&ctx->mraw_composed_buffer_list[i].lock);
+		spin_lock_init(&ctx->mraw_processing_buffer_list[i].lock);
+	}
+	spin_lock_init(&ctx->streaming_lock);
+	spin_lock_init(&ctx->first_cq_lock);
+	spin_lock_init(&ctx->processing_img_buffer_list.lock);
+
+	mtk_ctx_watchdog_init(ctx);
+}
 
 static int mtk_cam_v4l2_subdev_link_validate(struct v4l2_subdev *sd,
 				      struct media_link *link,

@@ -194,13 +194,6 @@ struct mtk_camsv_pipeline {
 	unsigned int master_pipe_id;
 	unsigned int exp_order;
 	unsigned int is_occupied;
-	/* watch dog */
-	atomic_t watchdog_timeout_cnt;
-	atomic_t watchdog_cnt;
-	atomic_t watchdog_dumped;
-	atomic_t watchdog_dump_cnt;
-	struct timer_list watchdog_timer;
-	struct work_struct watchdog_work;
 	unsigned int raw_vdevidx;
 };
 

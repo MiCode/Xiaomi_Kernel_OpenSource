@@ -276,14 +276,6 @@ struct mtk_raw_pipeline {
 	struct mtk_raw_pde_config pde_config;
 	s64 hw_mode;
 	s64 hw_mode_pending;
-	/* watchdog */
-	atomic_t watchdog_timeout_cnt;
-	atomic_t watchdog_cnt;
-	atomic_t watchdog_dumped;
-	atomic_t watchdog_dump_cnt;
-	u64 watchdog_time_diff_ns;
-	struct timer_list watchdog_timer;
-	struct work_struct watchdog_work;
 };
 
 struct mtk_raw_device {

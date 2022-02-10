@@ -225,14 +225,6 @@ struct mtk_mraw_pipeline {
 	u32 seninf_padidx;
 
 	unsigned int cammux_id;
-
-	/* watch dog */
-	atomic_t watchdog_timeout_cnt;
-	atomic_t watchdog_cnt;
-	atomic_t watchdog_dumped;
-	atomic_t watchdog_dump_cnt;
-	struct timer_list watchdog_timer;
-	struct work_struct watchdog_work;
 };
 
 struct mtk_mraw_device {
