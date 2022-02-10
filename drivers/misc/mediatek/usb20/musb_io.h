@@ -26,12 +26,12 @@ static inline u16 musb_readw(const void __iomem *addr, unsigned int offset)
 		rc = readw(addr + offset);
 	} else {
 		unsigned long flags = 0;
-
 		#if IS_ENABLED(CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE)
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		if (!usb_enable_clock(true)) {
+		if (usb_enable_clock(true) < 0) {
+			WARN_ON_ONCE(1);
 			spin_unlock_irqrestore(&usb_io_lock, flags);
 			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
 			return -EINVAL;
@@ -61,7 +61,8 @@ static inline u32
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		if (!usb_enable_clock(true)) {
+		if (usb_enable_clock(true) < 0) {
+			WARN_ON_ONCE(1);
 			spin_unlock_irqrestore(&usb_io_lock, flags);
 			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
 			return -EINVAL;
@@ -86,12 +87,12 @@ static inline void
 		writew(data, addr + offset);
 	} else {
 		unsigned long flags = 0;
-
 		#if IS_ENABLED(CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE)
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		if (!usb_enable_clock(true)) {
+		if (usb_enable_clock(true) < 0) {
+			WARN_ON_ONCE(1);
 			spin_unlock_irqrestore(&usb_io_lock, flags);
 			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
 			return;
@@ -114,12 +115,12 @@ static inline void
 		writel(data, addr + offset);
 	} else {
 		unsigned long flags = 0;
-
 		#if IS_ENABLED(CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE)
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		if (!usb_enable_clock(true)) {
+		if (usb_enable_clock(true) < 0) {
+			WARN_ON_ONCE(1);
 			spin_unlock_irqrestore(&usb_io_lock, flags);
 			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
 			return;
@@ -147,7 +148,8 @@ static inline u8 musb_readb(const void __iomem *addr, unsigned int offset)
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		if (!usb_enable_clock(true)) {
+		if (usb_enable_clock(true) < 0) {
+			WARN_ON_ONCE(1);
 			spin_unlock_irqrestore(&usb_io_lock, flags);
 			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
 			return -EINVAL;
@@ -171,12 +173,12 @@ static inline void musb_writeb
 		writeb(data, addr + offset);
 	} else {
 		unsigned long flags = 0;
-
 		#if IS_ENABLED(CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE)
 		mt_usb_clock_prepare();
 		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
-		if (!usb_enable_clock(true)) {
+		if (usb_enable_clock(true) < 0) {
+			WARN_ON_ONCE(1);
 			spin_unlock_irqrestore(&usb_io_lock, flags);
 			DBG(0, "[MUSB]: clk enable fail, reject access register\n");
 			return;
