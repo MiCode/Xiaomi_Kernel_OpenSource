@@ -531,14 +531,25 @@ static void issue_connection_work(unsigned int dr)
 void mt_usb_connect_v1(void)
 {
 	pr_info("%s in mtk extcon\n", __func__);
+
+#ifdef CONFIG_TCPC_CLASS
+	/* check current role to avoid power role swap issue */
+	if (g_extcon && g_extcon->c_role == DUAL_PROP_DR_NONE)
+		issue_connection_work(DUAL_PROP_DR_DEVICE);
+#else
 	issue_connection_work(DUAL_PROP_DR_DEVICE);
+#endif
 }
 EXPORT_SYMBOL_GPL(mt_usb_connect_v1);
 
 void mt_usb_disconnect_v1(void)
 {
 	pr_info("%s  in mtk extcon\n", __func__);
+#ifdef CONFIG_TCPC_CLASS
+	/* disconnect by tcpc notifier */
+#else
 	issue_connection_work(DUAL_PROP_DR_NONE);
+#endif
 }
 EXPORT_SYMBOL_GPL(mt_usb_disconnect_v1);
 #endif //ADAPT_PSY_V1
