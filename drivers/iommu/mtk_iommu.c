@@ -3164,7 +3164,8 @@ static const struct mtk_iommu_plat_data mt6779_data = {
 static const struct mtk_iommu_plat_data mt6833_data = {
 	.m4u_plat = M4U_MT6833,
 	.flags         = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN |
-			 HAS_BCLK | NOT_STD_AXI_MODE | IOVA_34_EN | SHARE_PGTABLE,
+			 HAS_BCLK | NOT_STD_AXI_MODE | IOVA_34_EN |
+			 SHARE_PGTABLE | HAS_SMI_SUB_COMM,
 	.inv_sel_reg   = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
