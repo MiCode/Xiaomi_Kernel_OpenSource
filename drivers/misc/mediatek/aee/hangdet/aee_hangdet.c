@@ -65,7 +65,7 @@ extern void mt_irq_dump_status(unsigned int irq);
 #define SYSTIMER_CNTCV_H	(0xC)
 
 /* Delay to change RGU timeout in ms */
-#define CHG_TMO_DLY_SEC		5L
+#define CHG_TMO_DLY_SEC		8L
 #define CHG_TMO_EN		0
 
 static int start_kicker(void);
@@ -404,7 +404,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		r_counter = ioread32(toprgu_base + WDT_COUNTER) / (32 * 1024);
 
 	if (aee_dump_timer_t && ((sched_clock() - aee_dump_timer_t) >
-	    CHG_TMO_DLY_SEC * 1000000000ULL)) {
+	    (CHG_TMO_DLY_SEC + 5) * 1000000000ULL)) {
 		if (!aee_dump_timer_c) {
 			aee_dump_timer_c = 1;
 			snprintf(msg_buf, WK_MAX_MSG_SIZE, "wdtk-et %s %d cpu=%d o_k=%d\n",
@@ -466,7 +466,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 
 	if ((local_bit & get_check_bit()) == get_check_bit()) {
 		all_k_timer_t = sched_clock();
-		del_timer_sync(&aee_dump_timer);
+		del_timer(&aee_dump_timer);
 		aee_dump_timer_t = 0;
 		cpus_skip_bit = 0;
 		msg_buf[5] = 'k';
@@ -537,10 +537,15 @@ static void kwdt_process_kick(int local_bit, int cpu,
 			kwdt_dump_func();
 		else {
 			spin_lock(&lock);
-			aee_dump_timer_t = sched_clock();
+			if (g_hang_detected && !aee_dump_timer_t) {
+				aee_dump_timer_t = sched_clock();
+				g_change_tmo = 1;
+				spin_unlock(&lock);
+				aee_dump_timer.expires = jiffies + CHG_TMO_DLY_SEC * HZ;
+				add_timer(&aee_dump_timer);
+				return;
+			}
 			spin_unlock(&lock);
-			aee_dump_timer.expires = jiffies + CHG_TMO_DLY_SEC * HZ;
-			add_timer(&aee_dump_timer);
 		}
 	}
 }
