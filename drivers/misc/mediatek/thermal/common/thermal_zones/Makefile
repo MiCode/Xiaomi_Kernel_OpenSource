@@ -239,7 +239,7 @@ obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
 
 obj-$(CONFIG_THERMAL) += mtk_ts_bts.o
 obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
-#obj-$(CONFIG_THERMAL) += mtk_ts_btsnrpa.o
+obj-$(CONFIG_THERMAL) += mtk_ts_btsnrpa.o
 
 obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBankv2.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
