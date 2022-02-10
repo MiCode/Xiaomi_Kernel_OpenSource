@@ -286,6 +286,7 @@ static int mtk_ut_raw_component_bind(struct device *dev,
 		return -1;
 	}
 	ut->raw[raw->id] = dev;
+	raw->ut = ut;
 
 	evt.mask = EVENT_SOF | EVENT_CQ_DONE | EVENT_SW_P1_DONE | EVENT_CQ_MAIN_TRIG_DLY;
 	add_listener(&raw->event_src, &ut->listener, evt);
@@ -496,12 +497,9 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 			cmd->dump_tg_err = 1;
 	}
 
-	/* modify for master raw B or C */
-	if (raw->hardware_scenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB) {
-		if (raw->id != 1)
-			event->mask = 0;
-		/* do not mask master rawb */
-	} else if (raw->id != 0)
+	dev_info(raw->dev, "raw irq: raw->id %d ut->master_raw %d\n",
+		 raw->id, raw->ut->master_raw);
+	if (raw->id != raw->ut->master_raw)
 		event->mask = 0;
 
 	if (event->mask || cmd->any_debug) {

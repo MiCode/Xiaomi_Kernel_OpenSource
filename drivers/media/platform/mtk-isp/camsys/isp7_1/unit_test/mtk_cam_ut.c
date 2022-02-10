@@ -40,6 +40,19 @@ static int debug_testmdl_pixmode = -1;
 module_param(debug_testmdl_pixmode, int, 0644);
 MODULE_PARM_DESC(debug_testmdl_pixmode, "fixed pixel mode for testmdl");
 
+static u32 choose_master(u32 devices)
+{
+	int i = 0;
+
+	while (devices) {
+		if (devices & 1)
+			break;
+		devices >>= 1;
+		i++;
+	}
+	return i;
+}
+
 static int apply_next_req(struct mtk_cam_ut *ut)
 {
 	struct mtk_cam_ut_buf_entry *buf_entry;
@@ -76,21 +89,12 @@ static int apply_next_req(struct mtk_cam_ut *ut)
 	ut->enque_list.cnt--;
 	spin_unlock_irqrestore(&ut->enque_list.lock, flags);
 
-	if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB) {
-		CALL_RAW_OPS(ut->raw[1], apply_cq,
-			     buf_entry->cq_buf.iova,
-			     buf_entry->cq_buf.size,
-			     buf_entry->cq_offset,
-			     buf_entry->sub_cq_size,
-			     buf_entry->sub_cq_offset);
-	} else {
-		CALL_RAW_OPS(ut->raw[0], apply_cq,
-			     buf_entry->cq_buf.iova,
-			     buf_entry->cq_buf.size,
-			     buf_entry->cq_offset,
-			     buf_entry->sub_cq_size,
-			     buf_entry->sub_cq_offset);
-	}
+	CALL_RAW_OPS(ut->raw[ut->master_raw], apply_cq,
+		     buf_entry->cq_buf.iova,
+		     buf_entry->cq_buf.size,
+		     buf_entry->cq_offset,
+		     buf_entry->sub_cq_size,
+		     buf_entry->sub_cq_offset);
 
 	spin_lock_irqsave(&ut->processing_list.lock, flags);
 	list_add_tail(&buf_entry->list_entry, &ut->processing_list.list);
@@ -198,10 +202,12 @@ static int streamon_on_cqdone_once(struct mtk_cam_ut *ut)
 {
 	int i;
 
-	if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB)
-		CALL_RAW_OPS(ut->raw[1], s_stream, 1)
-	else if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)
-		CALL_RAW_OPS(ut->raw[0], s_stream, 1)
+	dev_dbg(ut->dev,
+		"cqdone: hardware_scenario %d, master_raw %d\n",
+		ut->hardware_scenario, ut->master_raw);
+
+	if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)
+		CALL_RAW_OPS(ut->raw[ut->master_raw], s_stream, 1)
 
 	for (i = ut->is_dcif_camsv - 1; i >= 0; i--)
 		CALL_CAMSV_OPS(ut->camsv[i], s_stream, 1);
@@ -434,6 +440,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ISP_UT_IOCTL_SET_TESTMDL: {
 		struct cam_ioctl_set_testmdl testmdl;
 		int pixel_mode;
+		int cam_tg_idx = 0;
 
 		ut->is_dcif_camsv = 0;
 		ut->with_testmdl = 0;
@@ -453,9 +460,14 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		// update hardware scenario
 		ut->hardware_scenario = testmdl.hwScenario;
+		ut->master_raw = choose_master((u32)testmdl.dev_mask);
 
-		dev_info(dev, "testmdl.mode=%d testmdl.hwScenario=%d\n",
-			testmdl.mode, testmdl.hwScenario);
+		cam_tg_idx = raw_tg_0 + ut->master_raw;
+
+		dev_info(dev, "testmdl: mode %d hwScenario %d dev_mask 0x%x\n",
+			testmdl.mode, testmdl.hwScenario, testmdl.dev_mask);
+		dev_info(dev, "ut->master_raw %d cam_tg_idx %d\n",
+			ut->master_raw, cam_tg_idx);
 		if (testmdl.mode == (u8)-1)
 			dev_info(dev, "without testmdl\n");
 		else {
@@ -513,19 +525,12 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 					   pixel_mode, testmdl.pattern,
 					   seninf_0, camsv_tg_0);
 			}
-		} else if (testmdl.hwScenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB) {
-			if (ut->with_testmdl == 1) {
-				CALL_SENINF_OPS(ut->seninf, set_size,
-					   testmdl.width, testmdl.height,
-					   pixel_mode, testmdl.pattern,
-					   seninf_0, raw_tg_1);
-			}
 		} else {
 			if (ut->with_testmdl == 1) {
 				CALL_SENINF_OPS(ut->seninf, set_size,
 					   testmdl.width, testmdl.height,
 					   pixel_mode, testmdl.pattern,
-					   seninf_0, raw_tg_0);
+					   seninf_0, cam_tg_idx);
 			}
 		}
 
@@ -769,6 +774,15 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 					/* |MTK_CAM_IPI_CONFIG_TYPE_SMVR_PREVIEW */
 
 		ut->subsample = config.config_param.input.subsample;
+
+		dev_info(dev, "config.config_param.n_maps=%d\n", config.config_param.n_maps);
+		for (i = 0; i < config.config_param.n_maps; i++) {
+			dev_info(dev, "maps[%d], dev_mask 0x%x pipe_id %d exp_order %d\n",
+				i,
+				config.config_param.maps[i].dev_mask,
+				config.config_param.maps[i].pipe_id,
+				config.config_param.maps[i].exp_order);
+		}
 
 		event.cmd_id = CAM_CMD_CONFIG;
 		event.cookie = config.cookie;
