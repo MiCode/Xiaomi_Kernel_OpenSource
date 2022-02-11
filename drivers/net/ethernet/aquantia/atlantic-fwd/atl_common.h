@@ -20,7 +20,7 @@
 #include <linux/netdevice.h>
 #include <linux/moduleparam.h>
 
-#define ATL_VERSION "1.1.18"
+#define ATL_VERSION "1.1.23"
 
 struct atl_nic;
 
@@ -31,8 +31,6 @@ struct atl_nic;
 #include "atl_stats.h"
 
 #define ATL_MAX_QUEUES 8
-
-#include "atl_fwd.h"
 
 struct atl_ptp;
 
@@ -414,6 +412,7 @@ void atl_update_global_stats(struct atl_nic *nic);
 void atl_set_loopback(struct atl_nic *nic, int idx, bool on);
 void atl_set_intr_mod(struct atl_nic *nic);
 void atl_update_ntuple_flt(struct atl_nic *nic, int idx);
+int atl_vlan_promisc_status(struct net_device *ndev);
 void atl_set_vlan_promisc(struct atl_hw *hw, int promisc);
 int atl_hwsem_get(struct atl_hw *hw, int idx);
 void atl_hwsem_put(struct atl_hw *hw, int idx);
@@ -424,18 +423,6 @@ int atl_msm_write(struct atl_hw *hw, uint32_t addr, uint32_t val);
 int atl_update_eth_stats(struct atl_nic *nic);
 void atl_adjust_eth_stats(struct atl_ether_stats *stats,
 	struct atl_ether_stats *base, bool add);
-void atl_fwd_release_rings(struct atl_nic *nic);
-#if IS_ENABLED(CONFIG_ATLFWD_FWD)
-enum atl_fwd_notify;
-int atl_fwd_suspend_rings(struct atl_nic *nic);
-int atl_fwd_resume_rings(struct atl_nic *nic);
-void atl_fwd_notify(struct atl_nic *nic, enum atl_fwd_notify notif, void *data);
-#else
-static inline int atl_fwd_suspend_rings(struct atl_nic *nic) { return 0; }
-static inline int atl_fwd_resume_rings(struct atl_nic *nic) { return 0; }
-static inline void atl_fwd_notify(struct atl_nic *nic,
-				  enum atl_fwd_notify notif, void *data) {}
-#endif
 int atl_get_lpi_timer(struct atl_nic *nic, uint32_t *lpi_delay);
 void atl_refresh_rxfs(struct atl_nic *nic);
 void atl_schedule_work(struct atl_nic *nic);

@@ -20,6 +20,7 @@
 #include "atl_fwdnl.h"
 #include "atl_macsec.h"
 #include "atl_ptp.h"
+#include "atl_fwd.h"
 
 static uint32_t atl_ethtool_get_link(struct net_device *ndev)
 {
@@ -633,8 +634,8 @@ static const struct atl_stat_desc eth_stat_descs[] = {
 	ATL_ETH_STAT(tx_pause, tx_pause),
 	ATL_ETH_STAT(tx_ether_pkts, tx_ether_pkts),
 	ATL_ETH_STAT(tx_ether_octets, tx_ether_octets),
+	ATL_ETH_STAT(tx_errors, tx_errors),
 	ATL_ETH_STAT(rx_pause, rx_pause),
-	ATL_ETH_STAT(rx_ether_drops, rx_ether_drops),
 	ATL_ETH_STAT(rx_ether_octets, rx_ether_octets),
 	ATL_ETH_STAT(rx_ether_pkts, rx_ether_pkts),
 	ATL_ETH_STAT(rx_ether_broacasts, rx_ether_broacasts),
@@ -642,6 +643,13 @@ static const struct atl_stat_desc eth_stat_descs[] = {
 	ATL_ETH_STAT(rx_ether_crc_align_errs, rx_ether_crc_align_errs),
 	ATL_ETH_STAT(rx_filter_host, rx_filter_host),
 	ATL_ETH_STAT(rx_filter_lost, rx_filter_lost),
+	ATL_ETH_STAT(rx_errors, rx_errors),
+	ATL_ETH_STAT(rx_drops, rx_drops),
+	ATL_ETH_STAT(rx_dma_packets, rx_dma_packets),
+	ATL_ETH_STAT(rx_dma_octets, rx_dma_octets),
+	ATL_ETH_STAT(rx_dma_drops, rx_dma_drops),
+	ATL_ETH_STAT(tx_dma_packets, tx_dma_packets),
+	ATL_ETH_STAT(tx_dma_octets, tx_dma_octets),
 };
 
 #define ATL_PRIV_FLAG(_name, _bit)		\
@@ -1173,8 +1181,15 @@ static int atl_set_priv_flags(struct net_device *ndev, uint32_t flags)
 	return 0;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
+static int atl_get_coalesce(struct net_device *ndev,
+			    struct ethtool_coalesce *ec,
+			    struct kernel_ethtool_coalesce *kec,
+			    struct netlink_ext_ack *extack)
+#else
 static int atl_get_coalesce(struct net_device *ndev,
 			    struct ethtool_coalesce *ec)
+#endif
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 
@@ -1185,8 +1200,15 @@ static int atl_get_coalesce(struct net_device *ndev,
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+static int atl_set_coalesce(struct net_device *ndev,
+			    struct ethtool_coalesce *ec,
+			    struct kernel_ethtool_coalesce *kec,
+			    struct netlink_ext_ack *extack)
+#else
 static int atl_set_coalesce(struct net_device *ndev,
 			    struct ethtool_coalesce *ec)
+#endif
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 
@@ -2711,9 +2733,7 @@ static void atl_refresh_rxf_desc(struct atl_nic *nic,
 	atl_for_each_rxf_idx(desc, idx)
 		desc->update_rxf(nic, idx);
 
-	atl_set_vlan_promisc(&nic->hw, (nic->ndev->flags & IFF_PROMISC) ||
-				       nic->rxf_vlan.promisc_count ||
-				       !nic->rxf_vlan.vlans_active);
+	atl_set_vlan_promisc(&nic->hw, atl_vlan_promisc_status(nic->ndev));
 }
 
 void atl_refresh_rxfs(struct atl_nic *nic)
@@ -2723,9 +2743,7 @@ void atl_refresh_rxfs(struct atl_nic *nic)
 	atl_for_each_rxf_desc(desc)
 		atl_refresh_rxf_desc(nic, desc);
 
-	atl_set_vlan_promisc(&nic->hw, (nic->ndev->flags & IFF_PROMISC) ||
-				       nic->rxf_vlan.promisc_count ||
-				       !nic->rxf_vlan.vlans_active);
+	atl_set_vlan_promisc(&nic->hw, atl_vlan_promisc_status(nic->ndev));
 }
 
 static bool atl_vlan_pull_from_promisc(struct atl_nic *nic, uint32_t idx)
@@ -2765,9 +2783,8 @@ static bool atl_vlan_pull_from_promisc(struct atl_nic *nic, uint32_t idx)
 	} while (idx & ATL_VIDX_FREE);
 
 	kfree(map);
-	atl_set_vlan_promisc(&nic->hw, (nic->ndev->flags & IFF_PROMISC) ||
-				       vlan->promisc_count ||
-				       !vlan->vlans_active);
+	atl_set_vlan_promisc(&nic->hw, atl_vlan_promisc_status(nic->ndev));
+
 	return true;
 }
 
@@ -2955,9 +2972,7 @@ int atl_vlan_rx_add_vid(struct net_device *ndev, __be16 proto, u16 vid)
 		vlan->promisc_count++;
 		if (pm_runtime_active(&nic->hw.pdev->dev))
 			atl_set_vlan_promisc(&nic->hw,
-					     (ndev->flags & IFF_PROMISC) ||
-					     vlan->promisc_count ||
-					     !vlan->vlans_active);
+					atl_vlan_promisc_status(nic->ndev));
 		return 0;
 	}
 
@@ -2984,9 +2999,8 @@ update_vlan:
 	atl_rxf_update_vlan(nic, idx);
 	if (pm_runtime_active(&nic->hw.pdev->dev))
 		atl_set_vlan_promisc(&nic->hw,
-				     (nic->ndev->flags & IFF_PROMISC) ||
-				     vlan->promisc_count ||
-				     !vlan->vlans_active);
+				atl_vlan_promisc_status(nic->ndev));
+
 	return 0;
 }
 
@@ -3027,9 +3041,9 @@ int atl_vlan_rx_kill_vid(struct net_device *ndev, __be16 proto, u16 vid)
 
 update_vlan_promisc:
 	if (pm_runtime_active(&nic->hw.pdev->dev))
-		atl_set_vlan_promisc(&nic->hw, (ndev->flags & IFF_PROMISC) ||
-				     vlan->promisc_count ||
-				     !vlan->vlans_active);
+		atl_set_vlan_promisc(&nic->hw,
+				atl_vlan_promisc_status(nic->ndev));
+
 	return 0;
 }
 
@@ -3086,6 +3100,18 @@ static void atl_ethtool_complete(struct net_device *ndev)
 	pm_runtime_put(&nic->hw.pdev->dev);
 }
 
+static int atl_ethool_get_regs_len(struct net_device *ndev)
+{
+	return atl_get_crash_dump(ndev, NULL);
+}
+
+static void atl_ethool_get_regs(struct net_device *ndev, struct ethtool_regs *regs, void *buf)
+{
+	regs->version = 0;
+	memset(buf, 0, regs->len);
+	atl_get_crash_dump(ndev, buf);
+}
+
 const struct ethtool_ops atl_ethtool_ops = {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
 	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
@@ -3128,4 +3154,6 @@ const struct ethtool_ops atl_ethtool_ops = {
 	.set_wol = atl_set_wol,
 	.begin = atl_ethtool_begin,
 	.complete = atl_ethtool_complete,
+	.get_regs_len = atl_ethool_get_regs_len,
+	.get_regs = atl_ethool_get_regs,
 };

@@ -21,6 +21,7 @@
 #include "atl_fwdnl.h"
 
 #include "atl_common.h"
+#include "atl_fwd.h"
 #include "atl_fwdnl_params.h"
 #include "atl_ring.h"
 #include "atl_trace.h"
@@ -1742,7 +1743,9 @@ static const struct nla_policy atlfwd_nl_policy[NUM_ATL_FWD_ATTR] = {
 	[ATL_FWD_ATTR_QUEUE_INDEX] = { .type = NLA_S32 },
 };
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 2, 0)
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 2, 0) && \
+	RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(8, 0)
 #define ATLFWD_NL_OP_POLICY(op_policy) .policy = op_policy
 #else
 #define ATLFWD_NL_OP_POLICY(op_policy)

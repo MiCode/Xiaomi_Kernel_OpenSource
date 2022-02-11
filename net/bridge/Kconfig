@@ -61,3 +61,15 @@ config BRIDGE_VLAN_FILTERING
 	  Say N to exclude this support and reduce the binary size.
 
 	  If unsure, say Y.
+
+config HYFI_BRIDGE_HOOKS
+	bool "Port Hy-Fi Bridging Hooks"
+	depends on BRIDGE
+	depends on QGKI
+	default y
+	help
+	  If you say Y here, then the Port Hy-Fi Bridging Hooks will be enabled.
+
+	  Say N to exclude this support.
+
+	  If unsure, say Y.

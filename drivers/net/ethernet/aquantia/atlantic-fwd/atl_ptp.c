@@ -893,8 +893,13 @@ void atl_ptp_tx_hwtstamp(struct atl_nic *nic, u64 timestamp)
 		return;
 	}
 
-	timestamp += atomic_read(&ptp->offset_egress);
-	atl_ptp_convert_to_hwtstamp(&hwtstamp, timestamp);
+	if (!timestamp) {
+		atl_nic_err("ptp timestamp all-F from FW\n");
+		memset(&hwtstamp, 0, sizeof(hwtstamp));
+	} else {
+		timestamp += atomic_read(&ptp->offset_egress);
+		atl_ptp_convert_to_hwtstamp(&hwtstamp, timestamp);
+	}
 	do {
 		skb_tstamp_tx(skb, &hwtstamp);
 		dev_kfree_skb_any(skb);

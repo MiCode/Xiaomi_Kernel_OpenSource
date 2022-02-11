@@ -244,6 +244,14 @@ static uint32_t atl_insert_context(struct atl_txbuf *txbuf,
 	return tx_cmd;
 }
 
+static bool atl_ptp_udp(struct sk_buff *skb)
+{
+	return (ip_hdr(skb)->version == 4) &&
+		(ip_hdr(skb)->protocol == IPPROTO_UDP) &&
+		((udp_hdr(skb)->dest == htons(319)) ||
+		 (udp_hdr(skb)->dest == htons(320)));
+}
+
 netdev_tx_t atl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
@@ -257,12 +265,9 @@ netdev_tx_t atl_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		 * and hardware PTP design of the chip. Otherwise ptp stream
 		 * will fail to sync
 		 */
-		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) ||
-		    unlikely((ip_hdr(skb)->version == 4) &&
-			     (ip_hdr(skb)->protocol == IPPROTO_UDP) &&
-			     ((udp_hdr(skb)->dest == htons(319)) ||
-			      (udp_hdr(skb)->dest == htons(320)))) ||
-		    unlikely(eth_hdr(skb)->h_proto == htons(ETH_P_1588)))
+		if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) ||
+			     atl_ptp_udp(skb) ||
+			     (eth_hdr(skb)->h_proto == htons(ETH_P_1588))))
 			return atl_ptp_start_xmit(nic, skb);
 	}
 
@@ -448,7 +453,7 @@ static bool atl_checksum_workaround(struct sk_buff *skb,
 
 	if (((desc->pkt_type & atl_rx_pkt_type_vlan_msk) ==
 	    atl_rx_pkt_type_vlan) &&
-	    !(desc->rx_estat & atl_rx_estat_vlan_stripped)) 
+	    !(desc->rx_estat & atl_rx_estat_vlan_stripped))
 		ip_header_offset += sizeof(struct vlan_hdr);
 
 	if ((desc->pkt_type & atl_rx_pkt_type_vlan_msk) ==
@@ -772,6 +777,9 @@ static int atl_fill_hwts_rx(struct atl_desc_ring *ring, uint32_t count, bool ato
 		bump_tail(ring, 1);
 		count--;
 	}
+
+	wmb();
+	atl_write(ring_hw(ring), ATL_RX_RING_TAIL(ring), ring->tail);
 
 	return 0;
 }
@@ -1208,7 +1216,7 @@ int atl_clean_hwts_rx(struct atl_desc_ring *ring, int budget)
 		uint32_t space = ring_space(ring);
 		struct atl_rx_desc_hwts_wb *wb;
 		struct atl_rxbuf *rxbuf;
-		u64 ns;
+		u64 ns = 0;
 		DECLARE_SCRATCH_DESC(scratch);
 
 		if (space >= refill_batch)
@@ -1389,7 +1397,11 @@ static void atl_calc_affinities(struct atl_nic *nic)
 	int i;
 	unsigned int cpu;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+	cpus_read_lock();
+#else
 	get_online_cpus();
+#endif
 	cpu = cpumask_first(cpu_online_mask);
 
 	for (i = 0; i < nic->nvecs; i++) {
@@ -1406,7 +1418,11 @@ static void atl_calc_affinities(struct atl_nic *nic)
 		cpumask_set_cpu(cpu, cpumask);
 		cpu = cpumask_next(cpu, cpu_online_mask);
 	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 13, 0)
+	cpus_read_unlock();
+#else
 	put_online_cpus();
+#endif
 }
 
 void atl_init_qvec(struct atl_nic *nic, struct atl_queue_vec *qvec, int idx)
@@ -2104,8 +2120,14 @@ void atl_stop_rings(struct atl_nic *nic)
 int atl_set_features(struct net_device *ndev, netdev_features_t features)
 {
 	netdev_features_t changed = ndev->features ^ features;
+	struct atl_nic *nic = netdev_priv(ndev);
 
 	ndev->features = features;
+
+	if (changed & NETIF_F_HW_VLAN_CTAG_FILTER) {
+		atl_set_vlan_promisc(&nic->hw,
+				atl_vlan_promisc_status(ndev));
+	}
 
 	if (changed & NETIF_F_LRO)
 		atl_set_lro(netdev_priv(ndev));

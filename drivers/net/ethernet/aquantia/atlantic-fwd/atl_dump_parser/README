@@ -1,0 +1,21 @@
+The tool atl_dump_parser is used to parse the register/device dump collected
+using "ethtool -d" command. Parser accepts dump in the binary format, hence the
+dump must be collected using 'raw' option i.e., 'ethtool -d <device> raw on'
+
+Use gcc to build the binary from sources,
+  gcc -o atl_dump_parser atl_dump_parser.c
+
+Example:
+--------
+1. Collect ethtool dump from SUT machine
+   #ethtool -d enp1s0 raw on  > ethd_dump
+
+2. Parse the dump
+     #ls
+     atl_dump_parser  ethd_dump
+     #./atl_dump_parser ethd_dump
+     Parsing is completed successfully
+     #ls ethd_dump_parsed
+     action_resolver.txt  atl_dump_parser  ethd_dump  fw_interface.txt  registers.txt  rings.txt
+     #
+   Parsed data will be copied to the text files under <input_file>_parsed folder.

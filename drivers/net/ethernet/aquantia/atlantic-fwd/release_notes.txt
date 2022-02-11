@@ -1,3 +1,45 @@
+Version 1.1.23
+Date 02/11/2021
+==============
+- Add License headers to atl_dump parser files
+- Fixed cpus_read lock/unlock apis for latest kernel
+- Fixed the coalescing APIs for the latest kernel
+
+Version 1.1.22
+Date 11/10/2021
+==============
+- Fixed header file and warning complains
+
+Version 1.1.21
+Date 29/09/2021
+==============
+- Atl-fwd: Fix name string for mac_phy stats in ethtool-dump
+- Atl-fwd: Minor additions to ethtool dump implementation
+- Atl-fwd: Add ethtool-dump parser
+- ATLDRV-1776: Fix for link flip during IPA ring reconfig
+- Atl-fwd: Update crash-dump structure to fixed size structure
+
+Version 1.1.20
+Date 23/08/2021
+==============
+- Atl-fwd: Correct driver README file and export couple of APIs
+- Atl-fwd: Populate Action resolve table and Ring data in the ethtool-dump
+- ATLDRV-1766: Fix to update HWTS ring tail value to HW
+- Fix error in populating the extended stats
+- AQC113 register dump support
+- stats+crashdump implementation draft
+- Statistics and crash dump API proposal
+- factor out fwd stuff to drop headers dependencies
+
+Version 1.1.19
+Date 12/07/2021
+==============
+[ATLDRV-1744] - Add FW version check in Atl-fwd driver
+- Move check for PTP UDP packets to separate function, Enable TX pad insert and Handle all FFs in ptp tx TS
+[ATLDRV-1582] - Link not Up after FLR reset
+[ATLDRV-1653] - Packet with vlan id 1 doesn't get received when rx vlan filter is disabled
+[ATLDRV-1659] - Failed to compile with CONFIG_ATLFWD_FWD=y flag on RHEL 8.3 kernel
+
 Version 1.1.18
 Date 21/02/2021
 ==============

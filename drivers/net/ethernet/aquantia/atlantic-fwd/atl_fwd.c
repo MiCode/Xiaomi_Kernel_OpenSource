@@ -12,6 +12,46 @@
 #include <linux/etherdevice.h>
 #include "atl_common.h"
 #include "atl_desc.h"
+#include "atl_fwd.h"
+#include "atl_ring.h"
+
+static u32 atl_skip_reglist[] = {
+	/* PCIE */
+	0x1030, 0x1200, 0x1514, 0x1F00, 0x1F04, 0x1F20, 0x1F24,
+
+	/* INTR Registers */
+	0x21A0, 0x21A4, 0x21A8,
+
+	/* COM Registers */
+	0x30A0, 0x30A8, 0x3900, 0x3920,
+
+	/* MAC PHY Registers */
+	0x4058, 0x4060, 0x4064, 0x40B0, 0x40B4, 0x40B8, 0x40BC,
+	0x4120, 0x4140, 0x4144, 0x4190, 0x419C, 0x41A0, 0x41A4,
+	0x41A8, 0x4270, 0x4288, 0x428C, 0x4290, 0x4294, 0x42E8,
+	0x42EC, 0x434C, 0x4378, 0x4380, 0x4384, 0x4440, 0x4444,
+	0x4970, 0x4B40, 0x4B44, 0x4B48, 0x4B4C,
+
+	/* RX Registers */
+	0x5108, 0x54CC, 0x55B0, 0x55B4, 0x55C0, 0x55E0, 0x55E4,
+	0x5640, 0x5718, 0x5728, 0x5738, 0x5748, 0x5758, 0x5768,
+	0x5778, 0x5788, 0x5808, 0x580C, 0x5A10, 0x5B14, 0x5B34,
+	0x5B54, 0x5B74, 0x5B94, 0x5BB4, 0x5BD4, 0x5BF4, 0x5C14,
+	0x5C34, 0x5C54, 0x5C74, 0x5C94, 0x5CB4, 0x5CD4, 0x5CF4,
+	0x5D14, 0x5D34, 0x5D54, 0x5D74, 0x5D94, 0x5DB4, 0x5DD4,
+	0x5DF4, 0x5E14, 0x5E34, 0x5E54, 0x5E74, 0x5E94, 0x5EB4,
+	0x5ED4, 0x5EF4, 0x6900, 0x6F00, 0x6F20,
+
+	/* TX Registers */
+	0x7808, 0x7848, 0x784C, 0x78B0, 0x78B4, 0x7918, 0x7928,
+	0x7938, 0x7948, 0x7958, 0x7968, 0x7978, 0x7988, 0x7A34,
+	0x7B10, 0x7B14, 0x7B18, 0x7C14, 0x7C54, 0x7C94, 0x7CD4,
+	0x7D14, 0x7D54, 0x7D94, 0x7DD4, 0x7E14, 0x7E54, 0x7E94,
+	0x7ED4, 0x7F14, 0x7F54, 0x7F94, 0x7FD4, 0x8014, 0x8054,
+	0x8094, 0x80D4, 0x8114, 0x8154, 0x8194, 0x81D4, 0x8214,
+	0x8254, 0x8294, 0x82D4, 0x8314, 0x8354, 0x8394, 0x83D4,
+	0x8900, 0x8904, 0x8F00, 0x8F20,
+};
 
 static const char *atl_fwd_dir_str(struct atl_fwd_ring *ring)
 {
@@ -903,3 +943,178 @@ int atl_fwd_resume_rings(struct atl_nic *nic)
 err:
 	return ret;
 }
+
+int atl_get_ext_stats(struct net_device *ndev, struct atl_ext_stats *stats)
+{
+	struct atl_nic *nic = netdev_priv(ndev);
+
+	if (!stats)
+		return -EINVAL;
+
+	atl_update_eth_stats(nic);
+	atl_update_global_stats(nic);
+
+	memcpy(&stats->rx, &nic->stats.rx, sizeof(stats->rx));
+	memcpy(&stats->tx, &nic->stats.tx, sizeof(stats->tx));
+	memcpy(&stats->rx_fwd, &nic->stats.rx_fwd, sizeof(stats->rx_fwd));
+	memcpy(&stats->eth, &nic->stats.eth, sizeof(stats->eth));
+
+	return 0;
+}
+EXPORT_SYMBOL(atl_get_ext_stats);
+
+static bool atl_skip_register(u32 reg)
+{
+	int i, count;
+
+	count = sizeof(atl_skip_reglist) / sizeof(u32);
+	for (i = 0; i < count; i++)
+		if (atl_skip_reglist[i] == reg)
+			return true;
+
+	return false;
+}
+
+static int atl_get_crash_dump_regs(struct atl_hw *hw, struct atl_crash_dump_regs *section)
+{
+	int addr, index;
+
+	section->type = atl_crash_dump_type_regs;
+	section->length = sizeof(struct atl_crash_dump_regs);
+
+	/* prefill with 'skip' value */
+	for (addr = 0; addr < sizeof(section->regs_data); addr++)
+		section->regs_data[addr] = 0xFFFFFFFF;
+
+	for (addr = 0x1000, index = 0x1000 / 4; addr < 0x9000; addr += 4, index++) {
+		if (atl_skip_register(addr))
+			continue;
+		section->regs_data[index] = atl_read(hw, addr);
+	}
+
+	return section->length;
+}
+
+static int atl_get_crash_dump_fwiface(struct atl_hw *hw, struct atl_crash_dump_fwiface *section)
+{
+	int i;
+
+	section->type = atl_crash_dump_type_fwiface;
+	section->length = sizeof(struct atl_crash_dump_fwiface);
+
+	for (i = 0; i < ARRAY_SIZE(section->fw_interface_in); i++)
+		section->fw_interface_in[i] = atl_read(hw, ATL2_MIF_SHARED_BUFFER_IN(i));
+
+	for (i = 0; i < ARRAY_SIZE(section->fw_interface_out); i++)
+		section->fw_interface_out[i] = atl_read(hw, ATL2_MIF_SHARED_BUFFER_OUT(i));
+
+	return section->length;
+}
+
+static int atl_get_crash_dump_act_res(struct atl_hw *hw, struct atl_crash_dump_act_res *section)
+{
+	int i, idx, err;
+
+	section->type = atl_crash_dump_type_act_res;
+	section->length = sizeof(struct atl_crash_dump_act_res);
+
+	err = atl_hwsem_get(hw, ATL2_MCP_SEM_ACT_RSLVR);
+	if (err) {
+		printk("Failed to aquire act_res semaphore\n");
+		goto ret;
+	}
+
+	for (i = 0, idx = 0; i < ATL_ACT_RES_TABLE_SIZE / 3; i++) {
+		section->act_res_data[idx++] = atl_read(hw, ATL2_RPF_ACT_RSLVR_REQ_TAG(i));
+		section->act_res_data[idx++] = atl_read(hw, ATL2_RPF_ACT_RSLVR_TAG_MASK(i));
+		section->act_res_data[idx++] = atl_read(hw, ATL2_RPF_ACT_RSLVR_ACTN(i));
+	}
+
+	atl_hwsem_put(hw, ATL2_MCP_SEM_ACT_RSLVR);
+
+ret:
+	return section->length;
+}
+
+static int atl_get_crash_dump_ring(struct atl_nic *nic, int idx,
+				   struct atl_crash_dump_ring *section)
+{
+	int size = sizeof(struct atl_crash_dump_ring), offset;
+	struct atl_queue_vec *qvec = &nic->qvecs[idx];
+	struct atl_hw_ring *hwring;
+
+	if (!test_bit(ATL_ST_UP, &nic->hw.state)) {
+		memset(section, 0, size);
+		goto ret;
+	}
+
+	section->type = atl_crash_dump_type_ring;
+	section->index = qvec->idx;
+	section->length = size;
+	section->rx_head = qvec->rx.head;
+	section->rx_tail = qvec->rx.tail;
+	section->tx_head = qvec->tx.head;
+	section->tx_tail = qvec->tx.tail;
+	hwring = &qvec->rx.hw;
+	section->rx_ring_size = hwring->size;
+	memcpy(section->ring_data, hwring->descs, hwring->size * sizeof(*hwring->descs));
+	offset = hwring->size * sizeof(*hwring->descs);
+	hwring = &qvec->tx.hw;
+	section->tx_ring_size = hwring->size;
+	memcpy(section->ring_data + offset, hwring->descs, hwring->size * sizeof(*hwring->descs));
+
+ret:
+	return size;
+}
+
+
+int atl_get_crash_dump(struct net_device *ndev, struct atl_crash_dump *crash_dump)
+{
+	struct atl_nic *nic = netdev_priv(ndev);
+	u32 fw_rev = nic->hw.mcp.fw_rev;
+	int recorded_sz = 0, i, nvecs;
+	u8 *section;
+
+	if (!crash_dump)
+		return sizeof(struct atl_crash_dump);
+
+	crash_dump->length = sizeof(*crash_dump);
+	crash_dump->sections_count = 0;
+
+	strlcpy(crash_dump->drv_version, ATL_VERSION, sizeof(crash_dump->drv_version));
+	snprintf(crash_dump->fw_version, sizeof(crash_dump->fw_version),
+		"%d.%d.%d", fw_rev >> 24, fw_rev >> 16 & 0xff, fw_rev & 0xffff);
+
+	if (nic->hw.chip_id == ATL_ANTIGUA)
+		section = (void *)&crash_dump->antigua.regs;
+	else
+		section = (void *)&crash_dump->atlantic.regs;
+
+	recorded_sz = atl_get_crash_dump_regs(&nic->hw, (void *)section);
+	crash_dump->sections_count++;
+	crash_dump->length += recorded_sz;
+	section += recorded_sz;
+
+	if (nic->hw.chip_id == ATL_ANTIGUA) {
+		recorded_sz = atl_get_crash_dump_fwiface(&nic->hw, (void *)section);
+		crash_dump->sections_count++;
+		crash_dump->length += recorded_sz;
+		section += recorded_sz;
+
+		recorded_sz = atl_get_crash_dump_act_res(&nic->hw, (void *)section);
+		crash_dump->sections_count++;
+		crash_dump->length += recorded_sz;
+		section += recorded_sz;
+	}
+
+	nvecs = min_t(int, nic->nvecs, ATL_MAX_QUEUES);
+	for (i = 0; i < nvecs; i++) {
+		recorded_sz = atl_get_crash_dump_ring(nic, i, (void *)section);
+		crash_dump->sections_count++;
+		crash_dump->length += recorded_sz;
+		section += recorded_sz;
+	}
+
+	return crash_dump->length;
+}
+EXPORT_SYMBOL(atl_get_crash_dump);

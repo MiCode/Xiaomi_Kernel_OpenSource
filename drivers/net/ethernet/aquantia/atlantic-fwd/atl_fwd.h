@@ -13,9 +13,10 @@
 #define _ATL_FWD_H_
 
 #include "atl_common.h"
+#include "atl_dump.h"
 
 /* Each incompatible API change bumps the API version */
-#define ATL_FWD_API_VERSION 3
+#define ATL_FWD_API_VERSION 4
 
 struct atl_fwd_event;
 
@@ -404,5 +405,41 @@ enum atl_fwd_ring_state {
 	ATL_FWR_ST_ENABLED = BIT(0),
 	ATL_FWR_ST_EVT_ENABLED = BIT(1),
 };
+
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
+enum atl_fwd_notify;
+void atl_fwd_release_rings(struct atl_nic *nic);
+int atl_fwd_suspend_rings(struct atl_nic *nic);
+int atl_fwd_resume_rings(struct atl_nic *nic);
+void atl_fwd_notify(struct atl_nic *nic, enum atl_fwd_notify notif, void *data);
+#else
+static inline void atl_fwd_release_rings(struct atl_nic *nic) {}
+static inline int atl_fwd_suspend_rings(struct atl_nic *nic) { return 0; }
+static inline int atl_fwd_resume_rings(struct atl_nic *nic) { return 0; }
+static inline void atl_fwd_notify(struct atl_nic *nic,
+				  enum atl_fwd_notify notif, void *data) {}
+#endif
+
+struct atl_ext_stats {
+	struct atl_rx_ring_stats rx;
+	struct atl_tx_ring_stats tx;
+	struct atl_rx_fwd_ring_stats rx_fwd;
+
+	struct atl_ether_stats eth;
+};
+
+/**
+ * Direct statistics fetch call for the device
+ */
+int atl_get_ext_stats(struct net_device *ndev, struct atl_ext_stats *stats);
+
+/**
+ * Get the register and other crash related information from the device
+ * If @crash_dump is NULL, function will return the requested length of the buffer to
+ * store dump, in bytes
+ * if @crash_dump is not null, function will fill the buffer with crashdump
+ * sections filled, up to crash_dump->length
+ */
+int atl_get_crash_dump(struct net_device *ndev, struct atl_crash_dump *crash_dump);
 
 #endif
