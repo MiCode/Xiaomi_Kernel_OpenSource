@@ -6,12 +6,11 @@
 
 #define DRV_NAME "qcom-ethqos"
 #define ETHQOSDBG(fmt, args...) \
-	pr_debug(DRV_NAME " %s:%d " fmt, __func__, ## args)
+	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define ETHQOSERR(fmt, args...) \
-	pr_err(DRV_NAME " %s:%d " fmt, __func__, ## args)
+	pr_err(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define ETHQOSINFO(fmt, args...) \
-	pr_info(DRV_NAME " %s:%d " fmt, __func__, ## args)
-
+	pr_info(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define RGMII_IO_MACRO_CONFIG		0x0
 #define SDCC_HC_REG_DLL_CONFIG		0x4
 #define SDCC_HC_REG_DDR_CONFIG		0xC
@@ -38,6 +37,11 @@ struct qcom_ethqos {
 	struct clk *rgmii_clk;
 	unsigned int speed;
 
+	int gpio_phy_intr_redirect;
+	u32 phy_intr;
+	/* Work struct for handling phy interrupt */
+	struct work_struct emac_phy_work;
+
 	const struct ethqos_emac_por *por;
 	unsigned int num_por;
 	unsigned int emac_ver;
@@ -50,4 +54,6 @@ struct qcom_ethqos {
 
 int ethqos_init_reqgulators(struct qcom_ethqos *ethqos);
 void ethqos_disable_regulators(struct qcom_ethqos *ethqos);
+int ethqos_init_gpio(struct qcom_ethqos *ethqos);
+void ethqos_free_gpios(struct qcom_ethqos *ethqos);
 #endif
