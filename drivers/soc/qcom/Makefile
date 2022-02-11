@@ -84,3 +84,4 @@ obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
 obj-$(CONFIG_QCOM_MINIDUMP) += minidump.o
 minidump-y   += msm_minidump.o minidump_log.o
 minidump-$(CONFIG_QCOM_MINIDUMP_PANIC_DUMP) += minidump_memory.o
+obj-$(CONFIG_QCOM_LOGBUF_VENDOR_HOOKS) += qcom_logbuf_vh.o
