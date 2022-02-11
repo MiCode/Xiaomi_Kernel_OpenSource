@@ -97,6 +97,8 @@
   fd_install
   finish_wait
   flush_work
+  flush_workqueue
+  fput
   free_irq
   free_netdev
   __free_pages
@@ -221,6 +223,7 @@
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
   platform_device_add
+  platform_device_add_data
   platform_device_alloc
   platform_device_del
   platform_device_put
@@ -326,6 +329,7 @@
   sprintf
   sscanf
   __stack_chk_fail
+  strchr
   strcmp
   strcpy
   strlcpy
@@ -357,13 +361,28 @@
   unregister_shrinker
   unregister_virtio_device
   unregister_virtio_driver
+  usb_add_hcd
   usb_alloc_urb
   usb_anchor_urb
   usb_control_msg
+  usb_create_hcd
+  usb_create_shared_hcd
   usb_deregister
+  usb_disabled
   usb_free_urb
+  usb_get_dev
+  usb_hcd_check_unlink_urb
+  usb_hcd_giveback_urb
+  usb_hcd_is_primary_hcd
+  usb_hcd_link_urb_to_ep
+  usb_hcd_poll_rh_status
+  usb_hcd_resume_root_hub
+  usb_hcd_unlink_urb_from_ep
   usb_kill_anchored_urbs
+  usb_put_dev
+  usb_put_hcd
   usb_register_driver
+  usb_remove_hcd
   usb_submit_urb
   usb_unanchor_urb
   usleep_range_state
@@ -494,28 +513,12 @@
   cpufreq_unregister_driver
 
 # required by dummy_hcd.ko
-  platform_device_add_data
   strstr
   usb_add_gadget_udc
-  usb_add_hcd
-  usb_create_hcd
-  usb_create_shared_hcd
   usb_del_gadget_udc
-  usb_disabled
   usb_ep_set_maxpacket_limit
   usb_gadget_giveback_request
   usb_gadget_udc_reset
-  usb_get_dev
-  usb_hcd_check_unlink_urb
-  usb_hcd_giveback_urb
-  usb_hcd_is_primary_hcd
-  usb_hcd_link_urb_to_ep
-  usb_hcd_poll_rh_status
-  usb_hcd_resume_root_hub
-  usb_hcd_unlink_urb_from_ep
-  usb_put_dev
-  usb_put_hcd
-  usb_remove_hcd
 
 # required by failover.ko
   netdev_master_upper_dev_link
@@ -538,7 +541,6 @@
 # required by goldfish_sync.ko
   dma_fence_default_wait
   dma_fence_free
-  fput
 
 # required by gs_usb.ko
   alloc_candev_mqs
@@ -666,7 +668,6 @@
   del_timer_sync
   device_add_groups
   device_remove_groups
-  flush_workqueue
   i2c_adapter_type
   i2c_bus_type
   i2c_client_type
@@ -731,7 +732,6 @@
 # required by snd-hda-codec-generic.ko
   _ctype
   snd_ctl_boolean_stereo_info
-  strchr
   strlcat
   __sw_hweight32
 
@@ -828,6 +828,10 @@
   snd_card_disconnect
 
 # required by system_heap.ko
+  dmabuf_page_pool_alloc
+  dmabuf_page_pool_create
+  dmabuf_page_pool_destroy
+  dmabuf_page_pool_free
   dma_heap_add
   dma_heap_get_dev
   dma_heap_get_name
@@ -840,6 +844,8 @@
 
 # required by usbip-core.ko
   iov_iter_kvec
+  param_ops_ulong
+  print_hex_dump
   sock_recvmsg
 
 # required by vcan.ko
@@ -864,11 +870,17 @@
   devm_mfd_add_devices
 
 # required by vhci-hcd.ko
+  kernel_sendmsg
   kernel_sock_shutdown
   kstrtoll
+  kthread_create_on_node
+  kthread_should_stop
+  kthread_stop
   platform_bus
   sockfd_lookup
+  sysfs_remove_link
   usb_speed_string
+  wake_up_process
 
 # required by virt_wifi.ko
   cfg80211_connect_done
