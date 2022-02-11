@@ -19,6 +19,13 @@
 #define SDCC_USR_CTL			0x18
 #define RGMII_IO_MACRO_CONFIG2		0x1C
 
+#define EMAC_HW_NONE 0
+#define EMAC_HW_v2_1_1 0x20010001
+#define EMAC_HW_v2_1_2 0x20010002
+#define EMAC_HW_v2_3_0 0x20030000
+#define EMAC_HW_v2_3_1 0x20030001
+#define EMAC_HW_vMAX 9
+
 struct ethqos_emac_por {
 	unsigned int offset;
 	unsigned int value;
