@@ -13,6 +13,7 @@
 #include <linux/of_device.h>
 #include <linux/of_fdt.h>
 #include <linux/module.h>
+#include <linux/msm_kgsl.h>
 #include <linux/regulator/consumer.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/soc/qcom/llcc-qcom.h>
@@ -1345,6 +1346,7 @@ static int adreno_bind(struct device *dev)
 		struct kgsl_device *device = dev_get_drvdata(dev);
 
 		device->pdev_loaded = true;
+		srcu_init_notifier_head(&device->nh);
 	}
 
 	return ret;
@@ -1361,6 +1363,7 @@ static void adreno_unbind(struct device *dev)
 		return;
 
 	device->pdev_loaded = false;
+	srcu_cleanup_notifier_head(&device->nh);
 
 	adreno_dev = ADRENO_DEVICE(device);
 	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -3054,6 +3057,9 @@ static int adreno_queue_recurring_cmd(struct kgsl_device_private *dev_priv,
 	ret = gpudev->send_recurring_cmdobj(adreno_dev, cmdobj);
 	mutex_unlock(&device->mutex);
 
+	if (!ret)
+		srcu_notifier_call_chain(&device->nh, GPU_GMU_READY, NULL);
+
 	return ret;
 }
 
@@ -3100,6 +3106,9 @@ static int adreno_dequeue_recurring_cmd(struct kgsl_device *device,
 	ret = gpudev->send_recurring_cmdobj(adreno_dev, hwsched->recurring_cmdobj);
 
 	mutex_unlock(&device->mutex);
+
+	if (!ret)
+		srcu_notifier_call_chain(&device->nh, GPU_GMU_STOP, NULL);
 
 	return ret;
 }
