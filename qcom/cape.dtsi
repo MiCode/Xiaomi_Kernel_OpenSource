@@ -1428,6 +1428,11 @@
 		mbox-names = "tx";
 		shmem = <&cpu_scp_lpri>;
 
+		scmi_plh: protocol@81 {
+			reg = <0x81>;
+			#clock-cells = <1>;
+		};
+
 		scmi_c1dcvs: protocol@87 {
 			reg = <0x87>;
 			#clock-cells = <1>;
