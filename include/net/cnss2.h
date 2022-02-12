@@ -12,6 +12,7 @@
 #define CNSS_MAX_FILE_NAME		20
 #define CNSS_MAX_TIMESTAMP_LEN		32
 #define CNSS_MAX_DEV_MEM_NUM		4
+#define CNSS_CHIP_VER_ANY		0
 
 /*
  * Temporary change for compilation, will be removed
@@ -132,6 +133,7 @@ struct cnss_wlan_driver {
 			     struct cnss_uevent_data *uevent);
 	struct cnss_wlan_runtime_ops *runtime_ops;
 	const struct pci_device_id *id_table;
+	u32 chip_version;
 };
 
 struct cnss_ce_tgt_pipe_cfg {
