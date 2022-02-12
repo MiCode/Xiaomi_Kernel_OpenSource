@@ -430,6 +430,13 @@
 			size = <0x0 0x400000>;
 	};
 
+	ramoops_mem: ramoops_region {
+		compatible = "ramoops";
+		alloc-ranges = <0x0 0x00000000 0xffffffff 0xffffffff>;
+		size = <0x0 0x200000>;
+		pmsg-size = <0x200000>;
+		mem-type = <2>;
+	};
 };
 
 #include "waipio-clock.dtsi"
@@ -2160,14 +2167,6 @@
 			0x17840058 0x17850058 0x17860058 0x17870058>;
 		qcom,config-arr = <0x17800060 0x17810060 0x17820060 0x17830060
 			0x17840060 0x17850060 0x17860060 0x17870060>;
-	};
-
-	ramoops_mem: ramoops_region {
-		compatible = "ramoops";
-		alloc-ranges = <0x0 0x00000000 0xffffffff 0xffffffff>;
-		size = <0x0 0x200000>;
-		pmsg-size = <0x200000>;
-		mem-type = <2>;
 	};
 
 	dload_mode {
