@@ -3125,6 +3125,8 @@
 		qcom,testbus-collection-on-crash;
 		qcom,non-tn-collection-on-crash;
 		qcom,tx-wrapper-cache-max-size = <400>;
+		qcom,ipa-gen-rx-cmn-page-pool-sz-factor = <3>;
+		qcom,ipa-gen-rx-cmn-temp-pool-sz-factor = <1>;
 		qcom,ipa-gpi-event-rp-ddr;
 		qcom,ulso-supported;
 		qcom,ulso-ip-id-min-linux-val = <0>;
