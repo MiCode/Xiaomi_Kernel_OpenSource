@@ -3667,13 +3667,15 @@ static void mxt_panel_notifier_callback(enum panel_event_notifier_tag tag,
 
 	switch (notification->notif_type) {
 	case DRM_PANEL_EVENT_UNBLANK:
-		if (input_dev)
-			mutex_lock(&input_dev->mutex);
+		if (!notification->notif_data.early_trigger) {
+			if (input_dev)
+				mutex_lock(&input_dev->mutex);
 
-		mxt_start(mxt);
+			mxt_start(mxt);
 
-		if (input_dev)
-			mutex_unlock(&input_dev->mutex);
+			if (input_dev)
+				mutex_unlock(&input_dev->mutex);
+		}
 		break;
 	case DRM_PANEL_EVENT_BLANK:
 		if (input_dev)
