@@ -5,6 +5,7 @@
  */
 
 #include <linux/cdev.h>
+#include <linux/delay.h>
 #include <linux/fs.h>
 #include <linux/io.h>
 #include <linux/ioctl.h>
@@ -14,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/soc/qcom/smem.h>
 #include <linux/uaccess.h>
+#include <soc/qcom/soc_sleep_stats.h>
 #include <soc/qcom/subsystem_sleep_stats.h>
 
 #define STATS_BASEMINOR				0
@@ -149,6 +151,7 @@ static struct sleep_stats *a_subsystem_stats;
 /* System sleep stats before and after suspend */
 static struct sleep_stats *b_system_stats;
 static struct sleep_stats *a_system_stats;
+bool ddr_freq_update;
 static DEFINE_MUTEX(sleep_stats_mutex);
 
 static int stats_data_open(struct inode *inode, struct file *file)
@@ -341,9 +344,29 @@ static long stats_data_ioctl(struct file *file, unsigned int cmd,
 
 		ret = copy_to_user((void __user *)arg, temp, sizeof(struct sleep_stats));
 	} else {
+		int modes = DDR_STATS_MAX_NUM_MODES;
+
+		if (ddr_freq_update) {
+			ret = ddr_stats_freq_sync_send_msg();
+			if (ret < 0)
+				goto out_free;
+			udelay(500);
+		}
+
 		ddr_stats_sleep_stat(drvdata, temp);
+		if (ddr_freq_update) {
+			int i;
+			/* Before transmitting ddr sleep_stats, check ddr freq's count. */
+			for (i = DDR_STATS_NUM_MODES_ADDR; i < drvdata->ddr_entry_count; i++) {
+				if ((temp + i)->count == 0) {
+					pr_err("ddr_stats: Freq update failed\n");
+					modes = DDR_STATS_NUM_MODES_ADDR;
+				}
+			}
+		}
+
 		ret = copy_to_user((void __user *)arg, temp,
-					DDR_STATS_MAX_NUM_MODES * sizeof(struct sleep_stats));
+					modes * sizeof(struct sleep_stats));
 	}
 
 	kfree(temp);
@@ -478,6 +501,9 @@ static int subsystem_stats_probe(struct platform_device *pdev)
 						sizeof(struct sleep_stats), GFP_KERNEL);
 	a_system_stats = devm_kcalloc(&pdev->dev, ARRAY_SIZE(system_stats),
 						sizeof(struct sleep_stats), GFP_KERNEL);
+
+	ddr_freq_update = of_property_read_bool(pdev->dev.of_node,
+							"ddr-freq-update");
 
 	platform_set_drvdata(pdev, stats_data);
 
