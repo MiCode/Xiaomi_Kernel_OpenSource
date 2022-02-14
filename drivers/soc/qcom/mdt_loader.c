@@ -364,14 +364,15 @@ deinit:
 		if (ret)
 			qcom_scm_pas_shutdown(pas_id);
 
-
-		if (!dma_phys_below_32b) {
-			scm_dev = qcom_get_scm_device();
-			if (!scm_dev)
-				goto out;
-			dma_free_coherent(scm_dev, metadata_len, metadata, metadata_phys);
-		} else {
-			dma_free_coherent(dev, metadata_len, metadata, metadata_phys);
+		if (mdata) {
+			if (!dma_phys_below_32b) {
+				scm_dev = qcom_get_scm_device();
+				if (!scm_dev)
+					goto out;
+				dma_free_coherent(scm_dev, metadata_len, metadata, metadata_phys);
+			} else {
+				dma_free_coherent(dev, metadata_len, metadata, metadata_phys);
+			}
 		}
 	}
 out:
