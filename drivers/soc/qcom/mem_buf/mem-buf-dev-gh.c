@@ -225,7 +225,7 @@ err_relinquish:
 					__memparcel_hdl);
 	else
 		ret2 = mem_buf_unmap_mem_s2(memparcel_hdl);
-	kfree(sgl_desc);
+	kvfree(sgl_desc);
 	if (ret2) {
 		pr_err("%s failed to recover\n", __func__);
 		return ERR_PTR(-EADDRNOTAVAIL);

@@ -10,6 +10,7 @@
 #include <linux/dma-buf.h>
 #include <linux/mem-buf.h>
 #include <linux/slab.h>
+#include <linux/mm.h>
 
 #define MEM_BUF_MEMPARCEL_INVALID (U32_MAX)
 

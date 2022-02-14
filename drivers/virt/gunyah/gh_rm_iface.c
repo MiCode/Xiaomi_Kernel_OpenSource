@@ -11,6 +11,7 @@
 #include <linux/gunyah/gh_vm.h>
 #include <linux/gunyah/gh_msgq.h>
 #include <linux/gunyah/gh_common.h>
+#include <linux/mm.h>
 
 #include "gh_rm_drv_private.h"
 
@@ -1622,7 +1623,6 @@ struct gh_sgl_desc *gh_rm_mem_accept(gh_memparcel_handle_t handle, u8 mem_type,
 				     struct gh_mem_attr_desc *mem_attr_desc,
 				     u16 map_vmid)
 {
-
 	struct gh_mem_accept_req_payload_hdr *req_payload_hdr;
 	struct gh_sgl_desc *ret_sgl;
 	struct gh_mem_accept_resp_payload *resp_payload;
@@ -1687,12 +1687,14 @@ struct gh_sgl_desc *gh_rm_mem_accept(gh_memparcel_handle_t handle, u8 mem_type,
 	if (sgl_desc) {
 		ret_sgl = sgl_desc;
 	} else {
-		ret_sgl = kmemdup(resp_payload, offsetof(struct gh_sgl_desc,
-				sgl_entries[resp_payload->n_sgl_entries]),
-				  GFP_KERNEL);
+		size_t size;
+
+		size = offsetof(struct gh_sgl_desc, sgl_entries[resp_payload->n_sgl_entries]);
+		ret_sgl = kvmalloc(size, GFP_KERNEL);
 		if (!ret_sgl)
 			ret_sgl = ERR_PTR(-ENOMEM);
 
+		memcpy(ret_sgl, resp_payload, size);
 		kfree(resp_payload);
 	}
 
