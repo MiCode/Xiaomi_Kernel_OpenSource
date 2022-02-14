@@ -1780,25 +1780,6 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		ufs_qcom_cap.desired_working_mode =
 					UFS_QCOM_LIMIT_DESIRED_MODE;
 
-		if (host->hw_ver.major == 0x1) {
-			/*
-			 * HS-G3 operations may not reliably work on legacy QCOM
-			 * UFS host controller hardware even though capability
-			 * exchange during link startup phase may end up
-			 * negotiating maximum supported gear as G3.
-			 * Hence downgrade the maximum supported gear to HS-G2.
-			 */
-			if (ufs_qcom_cap.hs_tx_gear > UFS_HS_G2)
-				ufs_qcom_cap.hs_tx_gear = UFS_HS_G2;
-			if (ufs_qcom_cap.hs_rx_gear > UFS_HS_G2)
-				ufs_qcom_cap.hs_rx_gear = UFS_HS_G2;
-		} else if (host->hw_ver.major < 0x4) {
-			if (ufs_qcom_cap.hs_tx_gear > UFS_HS_G3)
-				ufs_qcom_cap.hs_tx_gear = UFS_HS_G3;
-			if (ufs_qcom_cap.hs_rx_gear > UFS_HS_G3)
-				ufs_qcom_cap.hs_rx_gear = UFS_HS_G3;
-		}
-
 		ret = ufs_qcom_get_pwr_dev_param(&ufs_qcom_cap,
 						 dev_max_params,
 						 dev_req_params);
@@ -3050,6 +3031,27 @@ static int ufs_qcom_shared_ice_init(struct ufs_hba *hba)
 	return ufs_qcom_parse_shared_ice_config(hba);
 }
 
+static void ufs_qcom_setup_max_hs_gear(struct ufs_qcom_host *host)
+{
+	u32 param0;
+
+	if (host->hw_ver.major == 0x1) {
+		/*
+		 * HS-G3 operations may not reliably work on legacy QCOM UFS
+		 * host controller hardware even though capability exchange
+		 * during link startup phase may end up negotiating maximum
+		 * supported gear as G3. Hence, downgrade the maximum supported
+		 * gear to HS-G2.
+		 */
+		host->max_hs_gear = UFS_HS_G2;
+	} else if (host->hw_ver.major < 0x4) {
+		host->max_hs_gear = UFS_HS_G3;
+	} else {
+		param0 = ufshcd_readl(host->hba, REG_UFS_PARAM0);
+		host->max_hs_gear = UFS_QCOM_MAX_HS_GEAR(param0);
+	}
+}
+
 /**
  * ufs_qcom_init - bind phy with controller
  * @hba: host controller instance
@@ -3171,6 +3173,8 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 			host->dev_ref_clk_en_mask = BIT(5);
 		}
 	}
+
+	ufs_qcom_setup_max_hs_gear(host);
 
 	/* update phy revision information before calling phy_init() */
 	/*
@@ -3795,8 +3799,8 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	if (!np)
 		return;
 
-	host->limit_tx_hs_gear = UFS_QCOM_LIMIT_HSGEAR_TX;
-	host->limit_rx_hs_gear = UFS_QCOM_LIMIT_HSGEAR_RX;
+	host->limit_tx_hs_gear = host->max_hs_gear;
+	host->limit_rx_hs_gear = host->max_hs_gear;
 	host->limit_tx_pwm_gear = UFS_QCOM_LIMIT_PWMGEAR_TX;
 	host->limit_rx_pwm_gear = UFS_QCOM_LIMIT_PWMGEAR_RX;
 	host->limit_rate = UFS_QCOM_LIMIT_HS_RATE;
