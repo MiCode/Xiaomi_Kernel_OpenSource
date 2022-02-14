@@ -690,15 +690,10 @@ static void handle___pkvm_vcpu_put(struct kvm_cpu_context *host_ctxt)
 
 static void handle___pkvm_vcpu_sync_state(struct kvm_cpu_context *host_ctxt)
 {
-	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 1);
-
 	if (unlikely(is_protected_kvm_enabled())) {
 		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
 
-		vcpu = kern_hyp_va(vcpu);
-
-		if (!state->vcpu || state->is_protected ||
-		    state->vcpu->arch.pkvm.host_vcpu != vcpu)
+		if (!state->vcpu || state->is_protected)
 			return;
 
 		__sync_vcpu_state(state->vcpu);
