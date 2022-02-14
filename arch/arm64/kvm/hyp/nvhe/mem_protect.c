@@ -368,9 +368,16 @@ int __pkvm_prot_finalize(void)
 
 int host_stage2_unmap_dev_locked(phys_addr_t start, u64 size)
 {
+	int ret;
+
 	hyp_assert_lock_held(&host_kvm.lock);
 
-	return kvm_pgtable_stage2_unmap(&host_kvm.pgt, start, size);
+	ret = kvm_pgtable_stage2_unmap(&host_kvm.pgt, start, size);
+	if (ret)
+		return ret;
+
+	pkvm_iommu_host_stage2_idmap(start, start + size, 0);
+	return 0;
 }
 
 static int host_stage2_unmap_dev_all(void)
@@ -460,8 +467,15 @@ static bool range_is_memory(u64 start, u64 end)
 static inline int __host_stage2_idmap(u64 start, u64 end,
 				      enum kvm_pgtable_prot prot)
 {
-	return kvm_pgtable_stage2_map(&host_kvm.pgt, start, end - start, start,
-				      prot, &host_s2_pool);
+	int ret;
+
+	ret = kvm_pgtable_stage2_map(&host_kvm.pgt, start, end - start, start,
+				     prot, &host_s2_pool);
+	if (ret)
+		return ret;
+
+	pkvm_iommu_host_stage2_idmap(start, end, prot);
+	return 0;
 }
 
 /*
@@ -537,15 +551,17 @@ int host_stage2_set_owner_locked(phys_addr_t addr, u64 size,
 				 pkvm_id owner_id)
 {
 	kvm_pte_t annotation = kvm_init_invalid_leaf_owner(owner_id);
+	enum kvm_pgtable_prot prot;
 	int ret;
 
 	ret = host_stage2_try(kvm_pgtable_stage2_annotate, &host_kvm.pgt,
 			      addr, size, &host_s2_pool, annotation);
+	if (ret)
+		return ret;
 
-	if (!ret && kvm_iommu_ops.host_stage2_set_owner)
-		kvm_iommu_ops.host_stage2_set_owner(addr, size, owner_id);
-
-	return ret;
+	prot = owner_id == pkvm_host_id ? PKVM_HOST_MEM_PROT : 0;
+	pkvm_iommu_host_stage2_idmap(addr, addr + size, prot);
+	return 0;
 }
 
 static bool host_stage2_force_pte_cb(u64 addr, u64 end, enum kvm_pgtable_prot prot)
