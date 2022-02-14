@@ -92,7 +92,7 @@
 		qcom,secdomain-ids = <45>;
 		qcom,primary-vm-index = <0>;
 		vm-uri = "qualcomm.com/vmuid/trusted-ui";
-		vm-guid = "c8793ea7-afc2-5199-99d0-2e60f547a5d2";
+		vm-guid = "3f4d154a-92d3-54d0-9241-08e34c8bc670";
 		qcom,sensitive;
 
 		iomemory-ranges = <0x0 0x92c000 0x0 0x92c000 0x0 0x4000 0x0
