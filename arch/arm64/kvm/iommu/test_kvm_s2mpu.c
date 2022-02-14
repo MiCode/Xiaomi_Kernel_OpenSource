@@ -14,10 +14,6 @@
 
 KSTM_MODULE_GLOBALS();
 
-/*
- * Kernel module for testing the foobinator
- */
-
 #define ASSERT(cond)							\
 	do {								\
 		if (!(cond)) {						\
@@ -77,11 +73,9 @@ static bool __init check_smpt(size_t start_byte, size_t end_byte,
 /* Start with 1G granule, overwrite the whole 1G. */
 static int __init test_set_fmpt__fmpt_to_fmpt_whole(void)
 {
-	enum mpt_update_flags flags;
-
 	init_fmpt(MPT_PROT_NONE, /*gran_1g*/ true);
-	flags = __set_fmpt_range(&g_fmpt, 0, SZ_1G, MPT_PROT_R);
-	ASSERT(flags == MPT_UPDATE_L1);
+	__set_fmpt_range(&g_fmpt, 0, SZ_1G, MPT_PROT_R);
+	ASSERT(g_fmpt.flags == MPT_UPDATE_L1);
 	ASSERT(g_fmpt.gran_1g);
 	ASSERT(g_fmpt.prot == MPT_PROT_R);
 	return 0;
@@ -90,11 +84,9 @@ static int __init test_set_fmpt__fmpt_to_fmpt_whole(void)
 /* Start with 1G granule, overwrite the whole 1G with the same prot. */
 static int __init test_set_fmpt__fmpt_no_change_whole(void)
 {
-	enum mpt_update_flags flags;
-
 	init_fmpt(MPT_PROT_R, /*gran_1g*/ true);
-	flags = __set_fmpt_range(&g_fmpt, 0, SZ_1G, MPT_PROT_R);
-	ASSERT(flags == 0);
+	__set_fmpt_range(&g_fmpt, 0, SZ_1G, MPT_PROT_R);
+	ASSERT(g_fmpt.flags == 0);
 	ASSERT(g_fmpt.gran_1g);
 	ASSERT(g_fmpt.prot == MPT_PROT_R);
 	return 0;
@@ -103,11 +95,9 @@ static int __init test_set_fmpt__fmpt_no_change_whole(void)
 /* Start with 1G granule, partially overwrite with the same prot. */
 static int __init test_set_fmpt__fmpt_no_change_partial(void)
 {
-	enum mpt_update_flags flags;
-
 	init_fmpt(MPT_PROT_R, /*gran_1g*/ true);
-	flags = __set_fmpt_range(&g_fmpt, 0, PAGE_SIZE, MPT_PROT_R);
-	ASSERT(flags == 0);
+	__set_fmpt_range(&g_fmpt, 0, PAGE_SIZE, MPT_PROT_R);
+	ASSERT(g_fmpt.flags == 0);
 	ASSERT(g_fmpt.gran_1g);
 	ASSERT(g_fmpt.prot == MPT_PROT_R);
 	return 0;
@@ -118,11 +108,10 @@ static int __init test_set_fmpt__fmpt_to_smpt(void)
 {
 	size_t start = 5 * SMPT_WORD_BYTE_RANGE / 2;
 	size_t end = 20 * SMPT_WORD_BYTE_RANGE;
-	enum mpt_update_flags flags;
 
 	init_fmpt(MPT_PROT_R, /*gran_1g*/ true);
-	flags = __set_fmpt_range(&g_fmpt, start, end, MPT_PROT_RW);
-	ASSERT(flags == (MPT_UPDATE_L1 | MPT_UPDATE_L2));
+	__set_fmpt_range(&g_fmpt, start, end, MPT_PROT_RW);
+	ASSERT(g_fmpt.flags == (MPT_UPDATE_L1 | MPT_UPDATE_L2));
 	ASSERT(!g_fmpt.gran_1g);
 	return check_smpt(start, end, MPT_PROT_R, MPT_PROT_RW) ? 0 : 1;
 }
@@ -130,11 +119,9 @@ static int __init test_set_fmpt__fmpt_to_smpt(void)
 /* Convert from PAGE_SIZE to 1G granule by overwriting the whole 1G. */
 static int __init test_set_fmpt__smpt_to_fmpt_whole(void)
 {
-	enum mpt_update_flags flags;
-
 	init_fmpt(MPT_PROT_NONE, /*gran_1g*/ false);
-	flags = __set_fmpt_range(&g_fmpt, 0, SZ_1G, MPT_PROT_R);
-	ASSERT(flags == MPT_UPDATE_L1);
+	__set_fmpt_range(&g_fmpt, 0, SZ_1G, MPT_PROT_R);
+	ASSERT(g_fmpt.flags == MPT_UPDATE_L1);
 	ASSERT(g_fmpt.gran_1g);
 	ASSERT(g_fmpt.prot == MPT_PROT_R);
 	return 0;
@@ -145,15 +132,14 @@ static int __init test_set_fmpt__smpt_to_fmpt_partial(void)
 {
 	size_t start = 5 * SMPT_WORD_BYTE_RANGE / 2;
 	size_t end = 20 * SMPT_WORD_BYTE_RANGE;
-	enum mpt_update_flags flags;
 
 	/* Create SMPT with all PROT_W except a small subrange. */
 	init_fmpt(MPT_PROT_W, /*gran_1g*/ false);
 	__set_smpt_range(g_smpt, start, end, MPT_PROT_RW);
 
 	/* Fill the subrange with PROT_W to make the SMPT uniform. */
-	flags = __set_fmpt_range(&g_fmpt, start, end, MPT_PROT_W);
-	ASSERT(flags == MPT_UPDATE_L1);
+	__set_fmpt_range(&g_fmpt, start, end, MPT_PROT_W);
+	ASSERT(g_fmpt.flags == MPT_UPDATE_L1);
 	ASSERT(g_fmpt.gran_1g);
 	ASSERT(g_fmpt.prot == MPT_PROT_W);
 	return 0;
@@ -164,14 +150,13 @@ static int __init test_set_fmpt__smpt_to_smpt(void)
 {
 	size_t start = SZ_1G - SMPT_GRAN;
 	size_t end = SZ_1G;
-	enum mpt_update_flags flags;
 
 	init_fmpt(MPT_PROT_NONE, /*gran_1g*/ false);
 	ASSERT(__is_smpt_uniform(g_smpt, MPT_PROT_NONE));
 
 	/* Fill the subrange with PROT_W to make the SMPT uniform. */
-	flags = __set_fmpt_range(&g_fmpt, start, end, MPT_PROT_RW);
-	ASSERT(flags == MPT_UPDATE_L2);
+	__set_fmpt_range(&g_fmpt, start, end, MPT_PROT_RW);
+	ASSERT(g_fmpt.flags == MPT_UPDATE_L2);
 	ASSERT(!g_fmpt.gran_1g);
 	ASSERT(!__is_smpt_uniform(g_smpt, MPT_PROT_NONE));
 	return 0;
