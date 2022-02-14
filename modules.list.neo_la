@@ -61,3 +61,5 @@ gcc-neo.ko
 gdsc-regulator.ko
 dispcc-neo.ko
 secure_buffer.ko
+clk-rpmh.ko
+qcom-cpufreq-hw.ko
