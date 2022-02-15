@@ -1,0 +1,7 @@
+#include "diwali.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali LTE";
+	compatible = "qcom,diwali-lte";
+	qcom,msm-id = <564 0x10000>;
+};

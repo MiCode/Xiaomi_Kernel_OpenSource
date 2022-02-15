@@ -184,14 +184,14 @@ dtbo-$(CONFIG_ARCH_DIWALI) += diwali-rumi-overlay.dtbo \
 	diwali-qrd-nopmi-overlay.dtbo
 
 diwali-rumi-overlay.dtbo-base := diwali.dtb
-diwali-idp-overlay.dtbo-base := diwali.dtb diwalip.dtb
-diwali-atp-overlay.dtbo-base := diwali.dtb diwalip.dtb
-diwali-qrd-overlay.dtbo-base := diwali.dtb diwalip.dtb
-diwali-idp-amoled-overlay.dtbo-base := diwali.dtb diwalip.dtb
-diwali-idp-usbc-overlay.dtbo-base := diwali.dtb diwalip.dtb
-diwali-idp-hsp-overlay.dtbo-base := diwali-hsp.dtb diwalip.dtb
-diwali-idp-nopmi-overlay.dtbo-base := diwali.dtb diwalip.dtb
-diwali-qrd-nopmi-overlay.dtbo-base := diwali.dtb diwalip.dtb
+diwali-idp-overlay.dtbo-base := diwali.dtb diwalip.dtb diwali-lte.dtb
+diwali-atp-overlay.dtbo-base := diwali.dtb diwalip.dtb diwali-lte.dtb
+diwali-qrd-overlay.dtbo-base := diwali.dtb diwalip.dtb diwali-lte.dtb
+diwali-idp-amoled-overlay.dtbo-base := diwali.dtb diwalip.dtb diwali-lte.dtb
+diwali-idp-usbc-overlay.dtbo-base := diwali.dtb diwalip.dtb diwali-lte.dtb
+diwali-idp-hsp-overlay.dtbo-base := diwali-hsp.dtb diwalip.dtb diwali-lte.dtb
+diwali-idp-nopmi-overlay.dtbo-base := diwali.dtb diwalip.dtb diwali-lte.dtb
+diwali-qrd-nopmi-overlay.dtbo-base := diwali.dtb diwalip.dtb diwali-lte.dtb
 else
 dtb-$(CONFIG_ARCH_DIWALI) += diwali-rumi.dtb \
 	diwali-idp.dtb \
@@ -209,7 +209,15 @@ dtb-$(CONFIG_ARCH_DIWALI) += diwali-rumi.dtb \
 	diwalip-idp-usbc.dtb \
 	diwalip-idp-hsp.dtb \
 	diwalip-idp-nopmi.dtb \
-	diwalip-qrd-nopmi.dtb
+	diwalip-qrd-nopmi.dtb \
+	diwali-lte-idp.dtb \
+	diwali-lte-atp.dtb \
+	diwali-lte-qrd.dtb \
+	diwali-lte-idp-amoled.dtb \
+	diwali-lte-idp-usbc.dtb \
+	diwali-lte-idp-hsp.dtb \
+	diwali-lte-idp-nopmi.dtb \
+	diwali-lte-qrd-nopmi.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)

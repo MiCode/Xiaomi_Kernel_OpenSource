@@ -90,7 +90,7 @@ SoCs:
   compatible = "qcom,waipio", "qcom,waipiop"
 
 - DIWALI
-  compatible = "qcom,diwali", "qcom,diwalip"
+  compatible = "qcom,diwali", "qcom,diwalip", "qcom,diwali-lte"
 
 - CAPE
   compatible = "qcom,cape", "qcom,cape-v2", "qcom,capep"
@@ -284,6 +284,9 @@ compatible = "qcom,diwali-atp"
 compatible = "qcom,diwalip-idp"
 compatible = "qcom,diwalip-qrd"
 compatible = "qcom,diwalip-atp"
+compatible = "qcom,diwali-lte-idp"
+compatible = "qcom,diwali-lte-qrd"
+compatible = "qcom,diwali-lte-atp"
 compatible = "qcom,neo-rumi"
 compatible = "qcom,parrot-rumi"
 compatible = "qcom,anorak-rumi"
