@@ -388,6 +388,9 @@ int gh_rm_mem_notify(gh_memparcel_handle_t handle, u8 flags,
 		     gh_label_t mem_info_tag,
 		     struct gh_notify_vmid_desc *vmid_desc);
 
+/* API to set time base */
+int gh_rm_vm_set_time_base(gh_vmid_t vmid);
+
 #else
 /* RM client register notifications APIs */
 static inline int gh_rm_register_notifier(struct notifier_block *nb)
@@ -635,6 +638,12 @@ static inline int gh_rm_set_vpm_grp_cb(enum gh_vm_names vm_name_index,
 
 static inline int gh_rm_reset_vpm_grp_cb(enum gh_vm_names vm_name_index,
 						gh_vpm_grp_reset_cb_t fnptr)
+{
+	return -EINVAL;
+}
+
+/* API to set time base */
+static inline int gh_rm_vm_set_time_base(gh_vmid_t vmid)
 {
 	return -EINVAL;
 }
