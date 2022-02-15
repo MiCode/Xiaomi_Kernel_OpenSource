@@ -316,7 +316,6 @@
 	};
 };
 
-#include "parrot-stub-regulator.dtsi"
 #include "parrot-usb.dtsi"
 #include "parrot-reserved-memory.dtsi"
 
@@ -1771,6 +1770,7 @@
 	status = "ok";
 };
 
+#include "parrot-regulators.dtsi"
 #include "parrot-qupv3.dtsi"
 #include "parrot-pinctrl.dtsi"
 #include "parrot-dma-heaps.dtsi"
