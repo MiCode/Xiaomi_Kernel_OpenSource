@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2009-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2022, The Linux Foundation. All rights reserved.
  * Copyright (c) 2017-2019, Linaro Ltd.
  */
 
@@ -34,6 +34,7 @@
 #define SMEM_IMAGE_VERSION_TABLE	469
 
 static uint32_t socinfo_format;
+static const char *sku;
 
 enum {
 	HW_PLATFORM_UNKNOWN = 0,
@@ -113,6 +114,51 @@ static const char * const hw_platform_subtype[] = {
 	[PLATFORM_SUBTYPE_STRANGE] = "strange",
 	[PLATFORM_SUBTYPE_STRANGE_2A] = "strange_2a",
 	[PLATFORM_SUBTYPE_INVALID] = "Invalid",
+};
+
+enum {
+	/* External SKU */
+	SKU_UNKNOWN = 0x0,
+	SKU_AA = 0x1,
+	SKU_AB = 0x2,
+	SKU_AC = 0x3,
+	SKU_AD = 0x4,
+	SKU_AE = 0x5,
+	SKU_AF = 0x6,
+	SKU_EXT_RESERVE,
+
+	/* Internal SKU */
+	SKU_Y0 = 0xf1,
+	SKU_Y1 = 0xf2,
+	SKU_Y2 = 0xf3,
+	SKU_Y3 = 0xf4,
+	SKU_Y4 = 0xf5,
+	SKU_Y5 = 0xf6,
+	SKU_Y6 = 0xf7,
+	SKU_Y7 = 0xf8,
+	SKU_INT_RESERVE,
+};
+
+static const char * const hw_platform_esku[] = {
+	[SKU_UNKNOWN] = "Unknown",
+	[SKU_AA] = "AA",
+	[SKU_AB] = "AB",
+	[SKU_AC] = "AC",
+	[SKU_AD] = "AD",
+	[SKU_AE] = "AE",
+	[SKU_AF] = "AF",
+};
+
+#define SKU_INT_MASK 0x0f
+static const char * const hw_platform_isku[] = {
+	[SKU_Y0 & SKU_INT_MASK] = "Y0",
+	[SKU_Y1 & SKU_INT_MASK] = "Y1",
+	[SKU_Y2 & SKU_INT_MASK] = "Y2",
+	[SKU_Y3 & SKU_INT_MASK] = "Y3",
+	[SKU_Y4 & SKU_INT_MASK] = "Y4",
+	[SKU_Y5 & SKU_INT_MASK] = "Y5",
+	[SKU_Y6 & SKU_INT_MASK] = "Y6",
+	[SKU_Y7 & SKU_INT_MASK] = "Y7",
 };
 
 /* Socinfo SMEM item structure */
@@ -355,6 +401,35 @@ static uint32_t socinfo_get_nmodem_supported(void)
 	return socinfo ?
 		(socinfo_format >= SOCINFO_VERSION(0, 15) ?
 			le32_to_cpu(socinfo->nmodem_supported) : 0)
+		: 0;
+}
+
+/* Version 16 */
+static uint32_t socinfo_get_eskuid(void)
+{
+	return socinfo ?
+		(socinfo_format >= SOCINFO_VERSION(0, 16) ?
+			le32_to_cpu(socinfo->esku) : 0)
+		: 0;
+}
+
+static const char *socinfo_get_esku_mapping(void)
+{
+	uint32_t id = socinfo_get_eskuid();
+
+	if (id > SKU_UNKNOWN && id < SKU_EXT_RESERVE)
+		return hw_platform_esku[id];
+	else if (id >= SKU_Y0 && id < SKU_INT_RESERVE)
+		return hw_platform_isku[id & SKU_INT_MASK];
+
+	return NULL;
+}
+
+static uint32_t socinfo_get_nproduct_code(void)
+{
+	return socinfo ?
+		(socinfo_format >= SOCINFO_VERSION(0, 16) ?
+			le32_to_cpu(socinfo->nproduct_code) : 0)
 		: 0;
 }
 
@@ -604,6 +679,27 @@ msm_get_nmodem_supported(struct device *dev,
 		socinfo_get_nmodem_supported());
 }
 ATTR_DEFINE(nmodem_supported);
+
+/* Version 16 */
+static ssize_t
+msm_get_sku(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	return sysfs_emit(buf, "%s\n", sku ? sku : "Unknown");
+}
+ATTR_DEFINE(sku);
+
+static ssize_t
+msm_get_esku(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	const char *esku = socinfo_get_esku_mapping();
+
+	return sysfs_emit(buf, "%s\n", esku ? esku : "Unknown");
+}
+ATTR_DEFINE(esku);
 
 struct qcom_socinfo {
 	struct soc_device *soc_dev;
@@ -950,6 +1046,8 @@ static void socinfo_populate_sysfs(struct qcom_socinfo *qcom_socinfo)
 
 	switch (socinfo_format) {
 	case SOCINFO_VERSION(0, 16):
+		msm_custom_socinfo_attrs[i++] = &dev_attr_sku.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_esku.attr;
 	case SOCINFO_VERSION(0, 15):
 		msm_custom_socinfo_attrs[i++] = &dev_attr_nmodem_supported.attr;
 	case SOCINFO_VERSION(0, 14):
@@ -1192,7 +1290,7 @@ static void socinfo_print(void)
 		break;
 
 	case SOCINFO_VERSION(0, 16):
-		pr_info("v%u.%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u foundry_id=%u serial_number=%u num_pmics=%u chip_family=0x%x raw_device_family=0x%x raw_device_number=0x%x nproduct_id=0x%x num_clusters=0x%x ncluster_array_offset=0x%x num_defective_parts=0x%x ndefective_parts_array_offset=0x%x nmodem_supported=0x%x\n",
+		pr_info("v%u.%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u foundry_id=%u serial_number=%u num_pmics=%u chip_family=0x%x raw_device_family=0x%x raw_device_number=0x%x nproduct_id=0x%x num_clusters=0x%x ncluster_array_offset=0x%x num_defective_parts=0x%x ndefective_parts_array_offset=0x%x nmodem_supported=0x%x sku=%s\n",
 			f_maj, f_min, socinfo->id, v_maj, v_min,
 			socinfo->raw_id, socinfo->raw_ver,
 			socinfo->hw_plat,
@@ -1212,7 +1310,8 @@ static void socinfo_print(void)
 			socinfo->ncluster_array_offset,
 			socinfo->num_defective_parts,
 			socinfo->ndefective_parts_array_offset,
-			socinfo->nmodem_supported);
+			socinfo->nmodem_supported,
+			sku ? sku : "Unknown");
 
 	default:
 		pr_err("Unknown format found: v%u.%u\n", f_maj, f_min);
@@ -1251,6 +1350,7 @@ static int qcom_socinfo_probe(struct platform_device *pdev)
 	struct qcom_socinfo *qs;
 	struct socinfo *info;
 	size_t item_size;
+	const char *machine, *esku;
 
 	info = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_HW_SW_BUILD_ID,
 			      &item_size);
@@ -1274,6 +1374,14 @@ static int qcom_socinfo_probe(struct platform_device *pdev)
 					   SOCINFO_MAJOR(le32_to_cpu(info->ver)),
 					   SOCINFO_MINOR(le32_to_cpu(info->ver)));
 	qs->attr.soc_id = kasprintf(GFP_KERNEL, "%d", socinfo_get_id());
+
+	if (socinfo_format >= SOCINFO_VERSION(0, 16)) {
+		machine = socinfo_machine(le32_to_cpu(info->id));
+		esku = socinfo_get_esku_mapping();
+		if (machine && esku)
+			sku = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%s-%u-%s",
+				machine, socinfo_get_nproduct_code(), esku);
+	}
 
 	qsocinfo = qs;
 	init_rwsem(&qs->current_image_rwsem);
