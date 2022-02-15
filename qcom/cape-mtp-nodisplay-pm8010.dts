@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "cape.dtsi"
+#include "cape-mtp-nodisplay-pm8010.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Cape MTP + nodisplay with PM8010";
+	compatible = "qcom,cape-mtp", "qcom,cape", "qcom,mtp";
+	qcom,board-id = <0x10008 2>;
+};
