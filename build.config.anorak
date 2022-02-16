@@ -1,0 +1,41 @@
+################################################################################
+## Inheriting configs from ACK
+. ${ROOT_DIR}/common/build.config.common
+. ${ROOT_DIR}/common/build.config.aarch64
+
+################################################################################
+## Variant setup
+MSM_ARCH=anorak
+VARIANTS=(defconfig debug_defconfig)
+[ -z "${VARIANT}" ] && VARIANT=debug_defconfig
+
+CONFIG_TARGET=${MSM_ARCH}
+
+BOOT_IMAGE_HEADER_VERSION=3
+BASE_ADDRESS=0x80000000
+PAGE_SIZE=4096
+
+BUILD_VENDOR_DLKM=1
+TRIM_UNUSED_MODULES=1
+MODULES_LIST_ORDER="1"
+
+if [ "${KERNEL_CMDLINE_CONSOLE_AUTO}" != "0" ]; then
+	KERNEL_VENDOR_CMDLINE+=' console=ttyMSM0,115200n8 earlycon msm_geni_serial.con_enabled=1'
+fi
+
+## Inheriting MSM configs
+. ${KERNEL_DIR}/build.config.msm.common
+
+## Variant branch setup
+BRANCH=$MSM_ARCH
+if [ ! -z $VARIANT ]; then
+  BRANCH+=-${VARIANT}
+fi
+
+# boot image macros
+BUILD_BOOT_IMG=1
+BUILD_INITRAMFS=1
+DTB_IMG_CREATE=1
+
+## Inheriting sxr common configs
+. ${KERNEL_DIR}/build.config.sxr.common
