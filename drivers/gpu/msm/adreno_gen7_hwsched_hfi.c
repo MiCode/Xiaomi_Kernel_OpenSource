@@ -1443,6 +1443,8 @@ int gen7_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 	if (WARN_ON(cmd_sizebytes > HFI_MAX_MSG_SIZE))
 		return -EMSGSIZE;
 
+	memset(cmdbuf, 0x0, cmd_sizebytes);
+
 	cmd = cmdbuf;
 
 	cmd->ctxt_id = drawobj->context->id;
