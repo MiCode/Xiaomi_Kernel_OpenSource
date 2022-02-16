@@ -717,9 +717,6 @@ static int cnss_show_quirks_state(struct seq_file *s,
 		case FBC_BYPASS:
 			seq_puts(s, "FBC_BYPASS");
 			continue;
-		case ENABLE_DAEMON_SUPPORT:
-			seq_puts(s, "DAEMON_SUPPORT");
-			continue;
 		case DISABLE_DRV:
 			seq_puts(s, "DISABLE_DRV");
 			continue;
