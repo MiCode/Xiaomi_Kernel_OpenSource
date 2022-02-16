@@ -33,7 +33,7 @@ static int scmi_send_pmu_map(const struct scmi_protocol_handle *ph,
 
 	for (i = 0; i < MAX_NUM_CPUS; i++)
 		for (j = 0; j < MAX_CPUCP_EVT; j++)
-			msg->hw_cntrs[i][j] = *((src + i * MAX_NUM_CPUS) + j);
+			msg->hw_cntrs[i][j] = *((src + i * MAX_CPUCP_EVT) + j);
 
 	ret = ph->xops->do_xfer(ph, t);
 	ph->xops->xfer_put(ph, t);
