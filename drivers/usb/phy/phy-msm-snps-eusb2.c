@@ -162,6 +162,7 @@ struct msm_eusb2_phy {
 	bool			re_enable_eud;
 
 	struct clk		*ref_clk_src;
+	struct clk		*ref_clk;
 	struct reset_control	*phy_reset;
 
 	struct regulator	*vdd;
@@ -208,10 +209,17 @@ static void msm_eusb2_phy_clocks(struct msm_eusb2_phy *phy, bool on)
 	if (phy->clocks_enabled == on)
 		return;
 
-	if (on)
+	if (on) {
 		clk_prepare_enable(phy->ref_clk_src);
-	else
+
+		if (phy->ref_clk)
+			clk_prepare_enable(phy->ref_clk);
+	} else {
+		if (phy->ref_clk)
+			clk_disable_unprepare(phy->ref_clk);
+
 		clk_disable_unprepare(phy->ref_clk_src);
+	}
 
 	phy->clocks_enabled = on;
 }
@@ -952,6 +960,13 @@ static int msm_eusb2_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(phy->ref_clk_src)) {
 		dev_dbg(dev, "clk get failed for ref_clk_src\n");
 		ret = PTR_ERR(phy->ref_clk_src);
+		goto err_ret;
+	}
+
+	phy->ref_clk = devm_clk_get_optional(dev, "ref_clk");
+	if (IS_ERR(phy->ref_clk)) {
+		dev_dbg(dev, "clk get failed for ref_clk\n");
+		ret = PTR_ERR(phy->ref_clk);
 		goto err_ret;
 	}
 
