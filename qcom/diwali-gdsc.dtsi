@@ -146,6 +146,17 @@
 		status = "disabled";
 	};
 
+	gcc_pcie_2_gdsc: qcom,gdsc@19d004 {
+		compatible = "qcom,gdsc";
+		reg = <0x19d004 0x4>;
+		regulator-name = "gcc_pcie_2_gdsc";
+		qcom,retain-regs;
+		qcom,support-hw-trigger;
+		qcom,no-status-check-on-disable;
+		qcom,collapse-vote = <&gcc_apcs_gdsc_vote_ctrl 2>;
+		status = "disabled";
+	};
+
 	gcc_usb3_phy_gdsc: qcom,gdsc@160018 {
 		compatible = "qcom,gdsc";
 		reg = <0x160018 0x4>;
@@ -182,6 +193,22 @@
 		compatible = "qcom,gdsc";
 		reg = <0x18d07c 0x4>;
 		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf3_gdsc";
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	hlos1_vote_mmnoc_mmu_tbu_hf4_gdsc: qcom,gdsc@18d088 {
+		compatible = "qcom,gdsc";
+		reg = <0x18d088 0x4>;
+		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf4_gdsc";
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	hlos1_vote_mmnoc_mmu_tbu_hf5_gdsc: qcom,gdsc@18d08c {
+		compatible = "qcom,gdsc";
+		reg = <0x18d08c 0x4>;
+		regulator-name = "hlos1_vote_mmnoc_mmu_tbu_hf5_gdsc";
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
