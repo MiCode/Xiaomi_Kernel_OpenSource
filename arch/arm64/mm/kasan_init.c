@@ -36,7 +36,7 @@ static phys_addr_t __init kasan_alloc_zeroed_page(int node)
 {
 	void *p = memblock_alloc_try_nid(PAGE_SIZE, PAGE_SIZE,
 					      __pa(MAX_DMA_ADDRESS),
-					      MEMBLOCK_ALLOC_KASAN, node);
+					      MEMBLOCK_ALLOC_NOLEAKTRACE, node);
 	if (!p)
 		panic("%s: Failed to allocate %lu bytes align=0x%lx nid=%d from=%llx\n",
 		      __func__, PAGE_SIZE, PAGE_SIZE, node,
@@ -49,7 +49,8 @@ static phys_addr_t __init kasan_alloc_raw_page(int node)
 {
 	void *p = memblock_alloc_try_nid_raw(PAGE_SIZE, PAGE_SIZE,
 						__pa(MAX_DMA_ADDRESS),
-						MEMBLOCK_ALLOC_KASAN, node);
+						MEMBLOCK_ALLOC_NOLEAKTRACE,
+						node);
 	if (!p)
 		panic("%s: Failed to allocate %lu bytes align=0x%lx nid=%d from=%llx\n",
 		      __func__, PAGE_SIZE, PAGE_SIZE, node,
@@ -293,7 +294,7 @@ void __init kasan_init(void)
 	kasan_init_depth();
 #if defined(CONFIG_KASAN_GENERIC)
 	/* CONFIG_KASAN_SW_TAGS also requires kasan_init_sw_tags(). */
-	pr_info("KernelAddressSanitizer initialized\n");
+	pr_info("KernelAddressSanitizer initialized (generic)\n");
 #endif
 }
 
