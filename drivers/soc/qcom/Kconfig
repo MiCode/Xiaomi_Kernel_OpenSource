@@ -460,16 +460,16 @@ config QCOM_SOCINFO
 
 source "drivers/soc/qcom/dcvs/Kconfig"
 
-config QTI_HW_MEMLAT_LOG
-	tristate "Qualcomm Technologies Inc. HW MEMLAT Logging"
+config QTI_RIMPS_LOG
+	tristate "Qualcomm Technologies Inc. HW RIMPS Logging"
 	depends on IPC_LOGGING && QCOM_RIMPS
 	default n
 	help
-	  Memlat hw logging driver, this driver has the infra to collect logs
-	  generated in MEMLAT HW and log the buffers.
+	  Rimps logging driver, this driver has the infra to collect logs
+	  generated in RIMPS HW and log the buffers.
 
 	  This driver register with IPC_Logging framework, to have dedicated
-	  buffer for memlat hw device.
+	  buffer for rimps hw device.
 
 
 config QCOM_SOC_SLEEP_STATS
