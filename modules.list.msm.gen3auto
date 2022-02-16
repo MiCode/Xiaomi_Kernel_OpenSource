@@ -24,5 +24,17 @@ qcom_iommu_util.ko
 qrtr.ko
 secure_buffer.ko
 smem.ko
+proxy-consumer.ko
+debug-regulator.ko
+qti-regmap-debugfs.ko
+rpmh-regulator.ko
+qti-fixed-regulator.ko
+regmap-spmi.ko
+spmi-pmic-arb.ko
+qcom-spmi-pmic.ko
+reboot-mode.ko
+qcom-pon.ko
+rtc-pm8xxx.ko
+nvmem_qcom-spmi-sdam.ko
 socinfo.ko
 qcom_ipc_logging.ko
