@@ -819,7 +819,7 @@
 	};
 
 	cpuss-sleep-stats@17800054 {
-		compatible = "qcom,cpuss-sleep-stats";
+		compatible = "qcom,cpuss-sleep-stats-v2";
 		reg = <0x17800054 0x4>, <0x17810054 0x4>, <0x17820054 0x4>,
 		    <0x17830054 0x4>, <0x17880098 0x4>, <0x178C0000 0x10000>;
 		reg-names = "seq_lpm_cntr_cfg_cpu0", "seq_lpm_cntr_cfg_cpu1",
