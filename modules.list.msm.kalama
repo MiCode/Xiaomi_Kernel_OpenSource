@@ -15,6 +15,8 @@ clk-dummy.ko
 clk-qcom.ko
 cmd-db.ko
 cqhci.ko
+crypto-qti-common.ko
+crypto-qti-hwkm.ko
 dcc_v2.ko
 dcvs_fp.ko
 debug-regulator.ko
@@ -27,6 +29,7 @@ gh_ctrl.ko
 gh_dbl.ko
 gh_msgq.ko
 gh_rm_drv.ko
+hwkm.ko
 icc-bcm-voter.ko
 icc-debug.ko
 iommu-logger.ko
@@ -71,6 +74,7 @@ smem.ko
 socinfo.ko
 stub-regulator.ko
 ufs_qcom.ko
+ufshcd-crypto-qti.ko
 arm_smmu.ko
 mem-offline.ko
 sdhci-msm.ko
