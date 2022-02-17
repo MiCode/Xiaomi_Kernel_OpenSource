@@ -3320,6 +3320,15 @@ static int msm_pcie_get_clk(struct msm_pcie_dev_t *pcie_dev)
 		pcie_dev->pipe_clk_ext_src = NULL;
 	}
 
+	pcie_dev->phy_aux_clk_mux = clk_get(&pdev->dev, "pcie_phy_aux_clk_mux");
+	if (IS_ERR(pcie_dev->phy_aux_clk_mux))
+		pcie_dev->phy_aux_clk_mux = NULL;
+
+	pcie_dev->phy_aux_clk_ext_src = clk_get(&pdev->dev,
+					"pcie_phy_aux_clk_ext_src");
+	if (IS_ERR(pcie_dev->phy_aux_clk_ext_src))
+		pcie_dev->phy_aux_clk_ext_src = NULL;
+
 	pcie_dev->ref_clk_src = clk_get(&pdev->dev, "pcie_ref_clk_src");
 	if (IS_ERR(pcie_dev->ref_clk_src)) {
 		PCIE_DBG(pcie_dev,
