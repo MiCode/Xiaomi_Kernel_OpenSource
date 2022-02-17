@@ -928,5 +928,6 @@ config QCOM_LOGBUF_VENDOR_HOOKS
 	  of failure during initial bootup.
 
 source "drivers/soc/qcom/mem_buf/Kconfig"
+source "drivers/soc/qcom/tmecom/Kconfig"
 
 endmenu
