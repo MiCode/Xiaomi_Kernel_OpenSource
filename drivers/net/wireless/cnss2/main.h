@@ -602,4 +602,5 @@ int cnss_set_feature_list(struct cnss_plat_data *plat_priv,
 int cnss_get_feature_list(struct cnss_plat_data *plat_priv,
 			  u64 *feature_list);
 int cnss_get_input_gpio_value(struct cnss_plat_data *plat_priv, int gpio_num);
+bool cnss_check_driver_loading_allowed(void);
 #endif /* _CNSS_MAIN_H */

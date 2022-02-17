@@ -64,6 +64,8 @@ enum cnss_cal_db_op {
 
 static struct cnss_plat_data *plat_env;
 
+static bool cnss_allow_driver_loading;
+
 static DECLARE_RWSEM(cnss_pm_sem);
 
 static struct cnss_fw_files FW_FILES_QCA6174_FW_3_0 = {
@@ -89,6 +91,11 @@ static void cnss_set_plat_priv(struct platform_device *plat_dev,
 			       struct cnss_plat_data *plat_priv)
 {
 	plat_env = plat_priv;
+}
+
+bool cnss_check_driver_loading_allowed(void)
+{
+	return cnss_allow_driver_loading;
 }
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev)
@@ -3495,6 +3502,20 @@ static struct platform_driver cnss_platform_driver = {
 	},
 };
 
+static bool cnss_check_compatible_node(void)
+{
+	struct device_node *dn = NULL;
+
+	for_each_matching_node(dn, cnss_of_match_table) {
+		if (of_device_is_available(dn)) {
+			cnss_allow_driver_loading = true;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /**
  * cnss_is_valid_dt_node_found - Check if valid device tree node present
  *
@@ -3524,6 +3545,9 @@ static int __init cnss_initialize(void)
 
 	if (!cnss_is_valid_dt_node_found())
 		return -ENODEV;
+
+	if (!cnss_check_compatible_node())
+		return ret;
 
 	cnss_debug_init();
 	ret = platform_driver_register(&cnss_platform_driver);
