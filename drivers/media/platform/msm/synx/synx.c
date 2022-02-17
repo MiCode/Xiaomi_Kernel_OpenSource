@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2021, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt) "synx: " fmt
 
@@ -869,6 +870,7 @@ int synx_bind(struct synx_session session_id,
 	struct synx_coredata *synx_obj;
 	struct synx_external_data *data = NULL;
 	struct bind_operations *bind_ops = NULL;
+	struct hash_key_data *entry = NULL;
 
 	pr_debug("[sess: %u] Enter bind from pid %d\n",
 		session_id.client_id, current->pid);
@@ -948,14 +950,31 @@ int synx_bind(struct synx_session session_id,
 	synx_obj->num_bound_synxs++;
 	mutex_unlock(&synx_obj->obj_lock);
 
-	synx_util_save_data(external_sync.id[0],
-		external_sync.type, (void *)synx_obj);
-
-	rc = bind_ops->register_callback(synx_external_callback,
+	rc = synx_util_save_data(external_sync.id[0],
+			external_sync.type, (void *)synx_obj);
+	if (!rc) {
+		rc = bind_ops->register_callback(synx_external_callback,
 			data, external_sync.id[0]);
+		if (rc) {
+			pr_err("[sess: %u] callback registration failed for %d\n",
+				client->id, external_sync.id[0]);
+			entry = synx_util_retrieve_data(external_sync.id[0],
+						external_sync.type);
+			if (entry) {
+				pr_info("[sess: %u] retrieved %u, synx obj %pK\n",
+					client->id, entry->key, entry->data);
+				spin_lock_bh(&camera_tbl_lock);
+				hash_del(&entry->node);
+				spin_unlock_bh(&camera_tbl_lock);
+				kfree(entry);
+			} else {
+				pr_warn("[sess: %u] entry already cleared for %d\n",
+					client->id, external_sync.id[0]);
+			}
+		}
+	}
+
 	if (rc) {
-		pr_err("[sess: %u] callback registration failed for %d\n",
-			client->id, external_sync.id[0]);
 		mutex_lock(&synx_obj->obj_lock);
 		memset(&synx_obj->bound_synxs[bound_idx], 0,
 			sizeof(struct synx_external_desc));
