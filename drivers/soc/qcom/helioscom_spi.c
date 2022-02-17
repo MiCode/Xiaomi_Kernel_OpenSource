@@ -156,6 +156,7 @@ static atomic_t  helios_is_spi_active;
 static atomic_t  ok_to_sleep;
 static atomic_t  state;
 static int helios_irq;
+static int helios_irq_gpio;
 
 static uint8_t *fxd_mem_buffer;
 static struct mutex cma_buffer_lock;
@@ -1347,7 +1348,7 @@ static int helios_spi_probe(struct spi_device *spi)
 		pr_err("gpio %d request failed\n", irq_gpio);
 		goto err_ret;
 	}
-
+	helios_irq_gpio = irq_gpio;
 	ret = gpio_direction_input(irq_gpio);
 	if (ret) {
 		pr_err("gpio_direction_input not set: %d\n", ret);
@@ -1383,6 +1384,16 @@ err_ret:
 	helios_com_drv = NULL;
 	mutex_destroy(&helios_spi->xfer_mutex);
 	spi_set_drvdata(spi, NULL);
+	if (helios_irq) {
+		pr_info("%s freeing  irq = %d\n", __func__, helios_irq);
+		free_irq(helios_irq, helios_spi);
+		helios_irq = 0;
+	}
+	if (helios_irq_gpio) {
+		pr_info("%s freeing  gpio = %d\n", __func__, helios_irq_gpio);
+		gpio_free(helios_irq_gpio);
+		helios_irq_gpio = 0;
+	}
 	return -ENODEV;
 }
 
@@ -1398,6 +1409,16 @@ static int helios_spi_remove(struct spi_device *spi)
 		kfree(fxd_mem_buffer);
 	mutex_destroy(&cma_buffer_lock);
 	mutex_destroy(&helios_task_mutex);
+	if (helios_irq) {
+		pr_info("%s freeing  irq = %d\n", __func__, helios_irq);
+		free_irq(helios_irq, helios_spi);
+		helios_irq = 0;
+	}
+	if (helios_irq_gpio) {
+		pr_info("%s freeing  gpio = %d\n", __func__, helios_irq_gpio);
+		gpio_free(helios_irq_gpio);
+		helios_irq_gpio = 0;
+	}
 	return 0;
 }
 
