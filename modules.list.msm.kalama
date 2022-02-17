@@ -70,6 +70,9 @@ secure_buffer.ko
 smem.ko
 socinfo.ko
 stub-regulator.ko
+qcom_aoss.ko
+msm_qmp.ko
+tmecom-intf.ko
 ufs_qcom.ko
 arm_smmu.ko
 mem-offline.ko
