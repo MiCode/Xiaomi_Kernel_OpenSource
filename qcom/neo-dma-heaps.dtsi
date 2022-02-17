@@ -4,12 +4,5 @@
 	qcom,dma-heaps {
 		compatible = "qcom,dma-heaps";
 
-		qcom,secure_cdsp {
-			qcom,dma-heap-name = "qcom,secure-cdsp";
-			qcom,dma-heap-type = <HEAP_TYPE_SECURE_CARVEOUT>;
-			memory-region = <&cdsp_mem>;
-			qcom,token = <0x20000000>;
-		};
-
 	};
 };
