@@ -563,6 +563,7 @@ struct dwc3_msm {
 	struct dwc3_hw_ep	hw_eps[DWC3_ENDPOINTS_NUM];
 	phys_addr_t		ebc_desc_addr;
 	bool			dis_sending_cm_l1_quirk;
+	bool			use_eusb2_phy;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -3508,13 +3509,37 @@ static void enable_usb_pdc_interrupt(struct dwc3_msm *mdwc, bool enable)
 		goto disable_usb_irq;
 
 	if (mdwc->hs_phy->flags & PHY_LS_MODE) {
-		configure_usb_wakeup_interrupt(mdwc,
-			&mdwc->wakeup_irq[DM_HS_PHY_IRQ],
-			IRQ_TYPE_EDGE_FALLING, enable);
+		/*
+		 * According to eUSB2 spec, eDP line will be pulled high for remote
+		 * wakeup scenario for LS connected device in host mode. On disconnect
+		 * during bus-suspend case, irrespective of the speed of the connected
+		 * device, both eDM and eDP line will be pulled high (XeSE1).
+		 */
+		if (mdwc->use_eusb2_phy)
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DP_HS_PHY_IRQ],
+				IRQ_TYPE_EDGE_RISING, enable);
+		else
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DM_HS_PHY_IRQ],
+				IRQ_TYPE_EDGE_FALLING, enable);
+
 	} else if (mdwc->hs_phy->flags & PHY_HSFS_MODE) {
-		configure_usb_wakeup_interrupt(mdwc,
-			&mdwc->wakeup_irq[DP_HS_PHY_IRQ],
-			IRQ_TYPE_EDGE_FALLING, enable);
+		/*
+		 * According to eUSB2 spec, eDM line will be pulled high for remote
+		 * wakeup scenario for HS/FS connected device in host mode. On disconnect
+		 * during bus-suspend case, irrespective of the speed of the connected
+		 * device, both eDM and eDP line will be pulled high (XeSE1).
+		 */
+		if (mdwc->use_eusb2_phy)
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DM_HS_PHY_IRQ],
+				IRQ_TYPE_EDGE_RISING, enable);
+		else
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DP_HS_PHY_IRQ],
+				IRQ_TYPE_EDGE_FALLING, enable);
+
 	} else {
 		configure_usb_wakeup_interrupt(mdwc,
 			&mdwc->wakeup_irq[DP_HS_PHY_IRQ],
@@ -5301,6 +5326,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->use_pdc_interrupts = of_property_read_bool(node,
 				"qcom,use-pdc-interrupts");
+
+	mdwc->use_eusb2_phy = of_property_read_bool(node, "qcom,use-eusb2-phy");
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
 		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
