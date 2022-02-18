@@ -842,6 +842,11 @@
 			#clock-cells = <1>;
 		};
 
+		scmi_gplaf: protocol@85 {
+			reg = <0x85>;
+			#clock-cells = <1>;
+		};
+
 		scmi_c1dcvs: protocol@87 {
 			reg = <0x87>;
 			#clock-cells = <1>;
