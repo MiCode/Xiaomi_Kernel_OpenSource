@@ -5,7 +5,7 @@
 
 ################################################################################
 ## Variant setup
-MSM_ARCH=neo
+MSM_ARCH=neo_le
 VARIANTS=(defconfig debug_defconfig)
 [ -z "${VARIANT}" ] && VARIANT=defconfig
 
@@ -29,7 +29,10 @@ DUMMY_IMG_SIZE=4096
 . ${KERNEL_DIR}/build.config.msm.common
 
 ## Variant branch setup
-BRANCH=neo
+BRANCH=$MSM_ARCH
+if [ ! -z $VARIANT ]; then
+  BRANCH+=-${VARIANT}
+fi
 
 ## Inheriting sxr common configs
 . ${KERNEL_DIR}/build.config.sxr.common
