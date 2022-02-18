@@ -3,6 +3,7 @@
 
 #include "diwali-pm7250b.dtsi"
 #include "diwali-pmic-overlay.dtsi"
+#include "diwali-thermal-overlay.dtsi"
 
 &soc {
 	gpio_keys {

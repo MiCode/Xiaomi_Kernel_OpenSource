@@ -173,3 +173,54 @@
 		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
 	};
 };
+
+&thermal_zones {
+	quiet-therm {
+		polling-delay-passive = <100>;
+
+		trips {
+			apc_trip:apc-trip {
+				temperature = <45000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			gpu_trip:gpu-trip {
+				temperature = <47000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+
+			cx_trip:cx-trip {
+				temperature = <55000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			apc_cdev {
+				trip = <&apc_trip>;
+				cooling-device = <&apc1_cluster 0 5>;
+			};
+
+			gpu_cdev1 {
+				trip = <&gpu_trip>;
+				/* Limit freq to 540000000 Hz*/
+				cooling-device = <&msm_gpu 0 3>;
+			};
+
+			gpu_cdev2 {
+				trip = <&cx_trip>;
+				/* Limit freq to 285000000 Hz*/
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			cdsp_cdev {
+				trip = <&cx_trip>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+		};
+	};
+};
+
