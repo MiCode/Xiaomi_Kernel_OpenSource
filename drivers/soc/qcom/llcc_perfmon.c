@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -358,6 +358,12 @@ static enum filter_type find_filter_type(char *filter)
 		ret = OPCODE;
 	else if (!strcmp(filter, "CACHEALLOC"))
 		ret = CACHEALLOC;
+	else if (!strcmp(filter, "MEMTAGOPS"))
+		ret = MEMTAGOPS;
+	else if (!strcmp(filter, "MULTISCID"))
+		ret = MULTISCID;
+	else if (!strcmp(filter, "DIRTYINFO"))
+		ret = DIRTYINFO;
 
 	return ret;
 }
@@ -762,11 +768,29 @@ static void feac_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 		} else {
 			if (enable)
 				val = (1 << match);
+			else
+				val = SCID_MULTI_MATCH_MASK;
 
 			mask_val = SCID_MULTI_MATCH_MASK;
 		}
 
 		offset = FEAC_PROF_FILTER_0_CFG6(llcc_priv->drv_ver);
+		llcc_bcast_modify(llcc_priv, offset, val, mask_val);
+	} else if (filter == MULTISCID) {
+		val = 0;
+		mask_val = 0;
+		offset = FEAC_PROF_FILTER_0_CFG6(llcc_priv->drv_ver);
+		if (llcc_priv->version != REV_0) {
+			/* Clear register for multi scid filter settings */
+			if (enable) {
+				val = match;
+				mask_val = SCID_MULTI_MATCH_MASK;
+			} else {
+				val = SCID_MULTI_MATCH_MASK;
+				mask_val = SCID_MULTI_MATCH_MASK;
+			}
+		}
+
 		llcc_bcast_modify(llcc_priv, offset, val, mask_val);
 	} else if (filter == MID) {
 		if (enable)
@@ -792,6 +816,23 @@ static void feac_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 		mask_val = CACHEALLOC_MATCH_MASK | CACHEALLOC_MASK_MASK;
 		offset = FEAC_PROF_FILTER_0_CFG3(llcc_priv->drv_ver);
 		llcc_bcast_modify(llcc_priv, offset, val, mask_val);
+	} else if (filter == MEMTAGOPS) {
+		if (enable)
+			val = (match << MEMTAGOPS_MATCH_SHIFT) |
+				(mask << MEMTAGOPS_MASK_SHIFT);
+
+		mask_val = MEMTAGOPS_MATCH_MASK | MEMTAGOPS_MASK_MASK;
+		offset = FEAC_PROF_FILTER_0_CFG7(llcc_priv->drv_ver);
+		llcc_bcast_modify(llcc_priv, offset, val, mask_val);
+	} else if (filter == DIRTYINFO) {
+		if (enable)
+			val = (match << DIRTYINFO_MATCH_SHIFT) |
+				(mask << DIRTYINFO_MASK_SHIFT);
+
+		mask_val = DIRTYINFO_MATCH_MASK | DIRTYINFO_MASK_MASK;
+		offset = FEAC_PROF_FILTER_0_CFG7(llcc_priv->drv_ver);
+		llcc_bcast_modify(llcc_priv, offset, val, mask_val);
+
 	} else {
 		pr_err("unknown filter/not supported\n");
 	}
@@ -1136,6 +1177,8 @@ static void trp_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 		if (llcc_priv->version == REV_2) {
 			if (enable)
 				val = (1 << match);
+			else
+				val = SCID_MULTI_MATCH_MASK;
 
 			mask_val = SCID_MULTI_MATCH_MASK;
 		} else {
@@ -1145,6 +1188,18 @@ static void trp_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 
 			mask_val = TRP_SCID_MATCH_MASK | TRP_SCID_MASK_MASK;
 		}
+	} else if (filter == MULTISCID) {
+		if (llcc_priv->version == REV_2) {
+			/* Clear register for multi scid filter settings */
+			if (enable) {
+				val = match;
+				mask_val = SCID_MULTI_MATCH_MASK;
+			} else {
+				val = SCID_MULTI_MATCH_MASK;
+				mask_val = SCID_MULTI_MATCH_MASK;
+			}
+		}
+
 	} else if (filter == WAY_ID) {
 		if (enable)
 			val = (match << TRP_WAY_ID_MATCH_SHIFT) |
@@ -1162,7 +1217,7 @@ static void trp_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 		return;
 	}
 
-	if ((llcc_priv->version == REV_2) && (filter == SCID))
+	if ((llcc_priv->version == REV_2) && ((filter == SCID) || (filter == MULTISCID)))
 		llcc_bcast_modify(llcc_priv, TRP_PROF_FILTER_0_CFG2, val,
 				mask_val);
 	else
