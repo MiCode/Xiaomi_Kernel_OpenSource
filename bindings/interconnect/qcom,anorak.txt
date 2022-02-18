@@ -13,6 +13,8 @@ Required properties :
 			"qcom,anorak-clk_virt",
 			"qcom,anorak-config_noc",
 			"qcom,anorak-gem_noc",
+			"qcom,anorak-aggre1_noc",
+			"qcom,anorak-aggre2_noc",
 			"qcom,anorak-lpass_ag_noc",
 			"qcom,anorak-mc_virt",
 			"qcom,anorak-mmss_noc",
