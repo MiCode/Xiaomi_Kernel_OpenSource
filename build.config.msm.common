@@ -203,7 +203,7 @@ function make_dtb_img() {
   mkdir -p ${DIST_DIR}/
   mkdtboimg.py create ${DIST_DIR}/${MSM_ARCH}-dtb.img --page_size=${PAGE_SIZE} ${DIST_DIR}/*.dtb
 }
-if [ ! -z $DTB_IMG_CREATE ] && [ ! $DTB_IMG_CREATE -eq "0" ]; then
+if [ ! -z "$DTB_IMG_CREATE" ] && [ ! "$DTB_IMG_CREATE" -eq "0" ]; then
   append_cmd DIST_CMDS 'make_dtb_img'
 fi
 
@@ -215,7 +215,7 @@ function make_vm_dtb_img() {
     mkdtboimg.py create ${DIST_DIR}/${i}-dtb.img --page_size=${PAGE_SIZE} ${DIST_DIR}/${MKDTIMGDTBS[$i]}*.dtb
   done
 }
-if [ -n $VM_DTB_IMG_CREATE ] && [ ! $VM_DTB_IMG_CREATE -eq "0" ]; then
+if [ -n "$VM_DTB_IMG_CREATE" ] && [ ! "$VM_DTB_IMG_CREATE" -eq "0" ]; then
   append_cmd DIST_CMDS 'make_vm_dtb_img'
 fi
 
