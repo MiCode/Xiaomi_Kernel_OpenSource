@@ -351,6 +351,14 @@
 		size = <0x0 0x400000>;
 	};
 
+	cdsp_secure_heap: secure_cdsp_region { /* Secure DSP */
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x4800000>;
+	};
+
 };
 
 &soc {
