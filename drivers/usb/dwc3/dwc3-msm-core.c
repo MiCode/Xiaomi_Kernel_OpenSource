@@ -55,6 +55,8 @@
 /* time out to wait for USB cable status notification (in ms)*/
 #define SM_INIT_TIMEOUT 30000
 
+#define DWC3_GUCTL1_IP_GAP_ADD_ON(n)	((n) << 21)
+#define DWC3_GUCTL1_IP_GAP_ADD_ON_MASK	DWC3_GUCTL1_IP_GAP_ADD_ON(7)
 #define DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST	BIT(8)
 #define DWC3_GUSB3PIPECTL_DISRXDETU3	BIT(22)
 #define DWC31_LINK_GDBGLTSSM	0xd050
@@ -5688,6 +5690,11 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		if (mdwc->dis_sending_cm_l1_quirk)
 			mdwc3_dis_sending_cm_l1(mdwc);
+
+		/* Increase Inter-packet delay by 1 UTMI clock cycle (EL_23) */
+		if (DWC3_VER_IS_WITHIN(DWC31, 170A, ANY))
+			dwc3_msm_write_reg_field(mdwc->base, DWC3_GUCTL1,
+				DWC3_GUCTL1_IP_GAP_ADD_ON_MASK, 1);
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_HOST);
 		if (dwc->dr_mode == USB_DR_MODE_OTG)
