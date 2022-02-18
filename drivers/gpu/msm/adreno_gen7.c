@@ -44,6 +44,8 @@ static const u32 gen7_pwrup_reglist[] = {
 /* IFPC only static powerup restore list */
 static const u32 gen7_ifpc_pwrup_reglist[] = {
 	GEN7_CP_CHICKEN_DBG,
+	GEN7_CP_BV_CHICKEN_DBG,
+	GEN7_CP_LPAC_CHICKEN_DBG,
 	GEN7_CP_DBG_ECO_CNTL,
 	GEN7_CP_PROTECT_CNTL,
 	GEN7_CP_PROTECT_REG,
@@ -481,6 +483,17 @@ int gen7_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, GEN7_CP_APRIV_CNTL, GEN7_BR_APRIV_DEFAULT);
 	kgsl_regwrite(device, GEN7_CP_BV_APRIV_CNTL, GEN7_APRIV_DEFAULT);
 	kgsl_regwrite(device, GEN7_CP_LPAC_APRIV_CNTL, GEN7_APRIV_DEFAULT);
+
+	/*
+	 * CP Icache prefetch brings no benefit on few gen7 variants because of
+	 * the prefetch granularity size.
+	 */
+	if (adreno_is_gen7_0_0(adreno_dev) || adreno_is_gen7_0_1(adreno_dev) ||
+		adreno_is_gen7_4_0(adreno_dev)) {
+		kgsl_regwrite(device, GEN7_CP_CHICKEN_DBG, 0x1);
+		kgsl_regwrite(device, GEN7_CP_BV_CHICKEN_DBG, 0x1);
+		kgsl_regwrite(device, GEN7_CP_LPAC_CHICKEN_DBG, 0x1);
+	}
 
 	_set_secvid(device);
 
