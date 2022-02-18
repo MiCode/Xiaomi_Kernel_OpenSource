@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "diwali-lte.dtsi"
+#include "diwali-lte-idp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali LTE IDP NOPMI";
+	compatible = "qcom,diwali-lte-idp", "qcom,diwali-lte", "qcom,idp";
+	qcom,board-id = <34 0>;
+	qcom,pmic-id-size = <9>;
+	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+};

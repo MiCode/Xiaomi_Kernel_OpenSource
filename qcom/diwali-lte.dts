@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "diwali-lte.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali LTE";
+	compatible = "qcom,diwali-lte";
+	qcom,board-id = <0 0>;
+};
