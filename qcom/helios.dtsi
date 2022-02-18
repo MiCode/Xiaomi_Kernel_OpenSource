@@ -16,4 +16,15 @@
 		compatible = "qcom,helios-daemon";
 	};
 
+	qcom,glink-helioscom-xprt-helios {
+		compatible = "qcom,glink-helioscom-xprt";
+		label = "helios";
+
+		qcom,helios_qrtr {
+			qcom,glink-channels = "IPCRTR";
+			qcom,intents = <0x800  5
+					0x2000 3
+					0x4400 2>;
+			};
+	};
 };
