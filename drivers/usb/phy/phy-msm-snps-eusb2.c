@@ -212,7 +212,7 @@ static void msm_eusb2_phy_clocks(struct msm_eusb2_phy *phy, bool on)
 		clk_prepare_enable(phy->ref_clk_src);
 		clk_prepare_enable(phy->ref_clk);
 	} else {
-		clk_prepare_enable(phy->ref_clk);
+		clk_disable_unprepare(phy->ref_clk);
 		clk_disable_unprepare(phy->ref_clk_src);
 	}
 
