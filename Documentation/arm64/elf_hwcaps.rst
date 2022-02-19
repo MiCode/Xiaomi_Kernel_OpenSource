@@ -247,6 +247,11 @@ HWCAP2_MTE
     Functionality implied by ID_AA64PFR1_EL1.MTE == 0b0010, as described
     by Documentation/arm64/memory-tagging-extension.rst.
 
+HWCAP2_MTE3
+
+    Functionality implied by ID_AA64PFR1_EL1.MTE == 0b0011, as described
+    by Documentation/arm64/memory-tagging-extension.rst.
+
 4. Unused AT_HWCAP bits
 -----------------------
 

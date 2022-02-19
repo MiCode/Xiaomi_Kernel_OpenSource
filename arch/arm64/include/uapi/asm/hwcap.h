@@ -75,5 +75,6 @@
 #define HWCAP2_RNG		(1 << 16)
 #define HWCAP2_BTI		(1 << 17)
 #define HWCAP2_MTE		(1 << 18)
+#define HWCAP2_MTE3		(1 << 22)
 
 #endif /* _UAPI__ASM_HWCAP_H */
