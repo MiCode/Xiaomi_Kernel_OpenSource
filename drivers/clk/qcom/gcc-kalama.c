@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2022, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -1711,21 +1711,6 @@ static struct clk_branch gcc_aggre_usb3_prim_axi_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_ahb2phy_0_clk = {
-	.halt_reg = 0x6a004,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x6a004,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x6a004,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gcc_ahb2phy_0_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -3557,7 +3542,6 @@ static struct clk_regmap *gcc_kalama_clocks[] = {
 	[GCC_AGGRE_UFS_PHY_AXI_CLK] = &gcc_aggre_ufs_phy_axi_clk.clkr,
 	[GCC_AGGRE_UFS_PHY_AXI_HW_CTL_CLK] = &gcc_aggre_ufs_phy_axi_hw_ctl_clk.clkr,
 	[GCC_AGGRE_USB3_PRIM_AXI_CLK] = &gcc_aggre_usb3_prim_axi_clk.clkr,
-	[GCC_AHB2PHY_0_CLK] = &gcc_ahb2phy_0_clk.clkr,
 	[GCC_BOOT_ROM_AHB_CLK] = &gcc_boot_rom_ahb_clk.clkr,
 	[GCC_CAMERA_AHB_CLK] = &gcc_camera_ahb_clk.clkr,
 	[GCC_CAMERA_HF_AXI_CLK] = &gcc_camera_hf_axi_clk.clkr,
