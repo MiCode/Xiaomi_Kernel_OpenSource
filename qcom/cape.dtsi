@@ -1958,8 +1958,8 @@
 		qcom,iommu-dma = "fastmap";
 		dma-coherent;
 
-		/* Multilevel clock scaling support for higher ufs clock freq */
-		multi-level-clk-scaling-support;
+		/* CGC bit needs to disable fot target supporting higher ufs clock freq */
+		disable-cgc;
 
 		status = "disabled";
 		qos0 {
