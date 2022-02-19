@@ -5,6 +5,8 @@
 #include <dt-bindings/clock/qcom,gpucc-anorak.h>
 #include <dt-bindings/clock/qcom,videocc-anorak.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interconnect/qcom,icc.h>
+#include <dt-bindings/interconnect/qcom,anorak.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. Anorak";
@@ -373,6 +375,61 @@
 		clock-output-names = "videocc_clocks";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	clk_virt: interconnect@0 {
+		compatible = "qcom,anorak-clk_virt";
+		#interconnect-cells = <1>;
+	};
+
+	mc_virt: interconnect@1 {
+		compatible = "qcom,anorak-mc_virt";
+		#interconnect-cells = <1>;
+	};
+
+	config_noc: interconnect@1500000 {
+		compatible = "qcom,anorak-config_noc";
+		#interconnect-cells = <1>;
+	};
+
+	system_noc: interconnect@1680000 {
+		compatible = "qcom,anorak-system_noc";
+		#interconnect-cells = <1>;
+	};
+
+	pcie_noc: interconnect@16c0000 {
+		compatible = "qcom,anorak-pcie_anoc";
+		#interconnect-cells = <1>;
+	};
+
+	aggre1_noc: interconnect@16e0000 {
+		compatible = "qcom,anorak-aggre1_noc";
+		#interconnect-cells = <1>;
+	};
+
+	aggre2_noc: interconnect@1700000 {
+		compatible = "qcom,anorak-aggre2_noc";
+		#interconnect-cells = <1>;
+	};
+
+	mmss_noc: interconnect@1740000 {
+		compatible = "qcom,anorak-mmss_noc";
+		#interconnect-cells = <1>;
+	};
+
+	gem_noc: interconnect@19100000 {
+		compatible = "qcom,anorak-gem_noc";
+		#interconnect-cells = <1>;
+	};
+
+	nsp_noc: interconnect@320C0000 {
+		compatible = "qcom,anorak-nsp_noc";
+		#interconnect-cells = <1>;
+	};
+
+	lpass_ag_noc: interconnect@3c40000 {
+		compatible = "qcom,anorak-lpass_ag_noc";
+		#interconnect-cells = <1>;
 	};
 };
 
