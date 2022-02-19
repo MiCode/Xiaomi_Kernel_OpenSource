@@ -455,6 +455,12 @@ void *qcom_register_early_ssr_notifier(const char *name, struct notifier_block *
 }
 EXPORT_SYMBOL(qcom_register_early_ssr_notifier);
 
+int qcom_unregister_early_ssr_notifier(void *notify, struct notifier_block *nb)
+{
+	return srcu_notifier_chain_unregister(notify, nb);
+}
+EXPORT_SYMBOL(qcom_unregister_early_ssr_notifier);
+
 void qcom_notify_early_ssr_clients(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_ssr *ssr = to_ssr_subdev(subdev);
