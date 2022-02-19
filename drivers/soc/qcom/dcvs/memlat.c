@@ -35,6 +35,11 @@
 
 #define MAX_MEMLAT_GRPS	NUM_DCVS_HW_TYPES
 #define FP_NAME		"memlat_fp"
+#define MAX_SPM_WINDOW_SIZE 20U
+#define MAX_SPM_FREQ_MAP 2
+#define MISS_DELTA_PCT_THRES 30U
+#define SPM_FREQ_THRES 2000U
+#define L2MISS_RATIO_THRES 150U
 
 enum common_ev_idx {
 	INST_IDX,
@@ -91,6 +96,8 @@ struct cpu_stats {
 	u32				be_stall_pct;
 	u32				ipm[MAX_MEMLAT_GRPS];
 	u32				wb_pct[MAX_MEMLAT_GRPS];
+	u32				spm[MAX_MEMLAT_GRPS];
+	u32				l2miss_ratio[MAX_MEMLAT_GRPS];
 };
 
 struct cpufreq_memfreq_map {
@@ -122,6 +129,17 @@ struct memlat_mon {
 	struct kobject			kobj;
 	bool				is_compute;
 	u32				index;
+	u32			enable_spm_voting;
+	u64			prev_max_miss;
+	u32			spm_thres;
+	u32			spm_drop_pct;
+	u32			spm_window_size;
+	u32			sampled_max_spm[MAX_SPM_WINDOW_SIZE];
+	u32			sampled_max_cpu_freq[MAX_SPM_WINDOW_SIZE];
+	u32			sampled_spm_idx;
+	u32			spm_vote_inc_steps;
+	u32			disable_spm_value;
+	struct	cpufreq_memfreq_map	spm_freq_map[MAX_SPM_FREQ_MAP];
 };
 
 struct memlat_group {
@@ -334,6 +352,22 @@ static ssize_t show_freq_map(struct kobject *kobj,
 	return cnt;
 }
 
+static ssize_t show_spm_freq_map(struct kobject *kobj,
+			struct attribute *attr, char *buf)
+{
+	struct memlat_mon *mon = to_memlat_mon(kobj);
+	unsigned int cnt = 0, i;
+
+	cnt += scnprintf(buf, PAGE_SIZE, "CPU freq (MHz)\tMem freq (kHz)\n");
+	for (i = 0; i < MAX_SPM_FREQ_MAP && mon->spm_freq_map[i].cpufreq_mhz; i++)
+		cnt += scnprintf(buf + cnt, PAGE_SIZE - cnt, "%14u\t%14u\n",
+				mon->spm_freq_map[i].cpufreq_mhz, mon->spm_freq_map[i].memfreq_khz);
+	if (cnt < PAGE_SIZE)
+		cnt += scnprintf(buf + cnt, PAGE_SIZE - cnt, "\n");
+
+	return cnt;
+}
+
 #define MIN_SAMPLE_MS	4U
 #define MAX_SAMPLE_MS	1000U
 static ssize_t store_sample_ms(struct kobject *kobj,
@@ -436,6 +470,106 @@ static ssize_t store_cpucp_log_level(struct kobject *kobj,
 	return count;
 }
 
+#define MIN_SPM_WINDOW_SIZE 1U
+static ssize_t store_spm_window_size(struct kobject *kobj,
+			struct attribute *attr, const char *buf,
+			size_t count)
+{
+	int ret;
+	u32 spm_window_size;
+	struct memlat_mon *mon = to_memlat_mon(kobj);
+
+	ret = kstrtouint(buf, 10, &spm_window_size);
+	if (ret < 0)
+		return ret;
+	spm_window_size = max(spm_window_size, MIN_SPM_WINDOW_SIZE);
+	spm_window_size = min(spm_window_size, MAX_SPM_WINDOW_SIZE);
+	mon->spm_window_size = spm_window_size;
+	return count;
+}
+
+#define MIN_SPM_DROP_PCT 1U
+#define MAX_SPM_DROP_PCT 100U
+static ssize_t store_spm_drop_pct(struct kobject *kobj,
+			struct attribute *attr, const char *buf,
+			size_t count)
+{
+	int ret;
+	u32 spm_drop_pct;
+	struct memlat_mon *mon = to_memlat_mon(kobj);
+
+	ret = kstrtouint(buf, 10, &spm_drop_pct);
+	if (ret < 0)
+		return ret;
+	spm_drop_pct = max(spm_drop_pct, MIN_SPM_DROP_PCT);
+	spm_drop_pct = min(spm_drop_pct, MAX_SPM_DROP_PCT);
+	mon->spm_drop_pct = spm_drop_pct;
+	mon->disable_spm_value = mon->spm_thres -
+				mult_frac(mon->spm_thres, mon->spm_drop_pct, 100);
+
+	return count;
+}
+
+#define MIN_SPM_THRES 1U
+#define MAX_SPM_THRES 1000U
+static ssize_t store_spm_thres(struct kobject *kobj,
+			struct attribute *attr, const char *buf,
+			size_t count)
+{
+	int ret;
+	u32 spm_thres;
+	struct memlat_mon *mon = to_memlat_mon(kobj);
+
+	ret = kstrtouint(buf, 10, &spm_thres);
+	if (ret < 0)
+		return ret;
+	spm_thres = max(spm_thres, MIN_SPM_THRES);
+	spm_thres = min(spm_thres, MAX_SPM_THRES);
+	mon->spm_thres = spm_thres;
+	if (mon->spm_thres < MAX_SPM_THRES)
+		mon->enable_spm_voting = 1;
+	mon->disable_spm_value = mon->spm_thres -
+				mult_frac(mon->spm_thres, mon->spm_drop_pct, 100);
+	return count;
+}
+
+static ssize_t store_spm_freq_map(struct kobject *kobj,
+			struct attribute *attr, const char *buf,
+			size_t count)
+{
+	struct memlat_mon *mon  = to_memlat_mon(kobj);
+	int ret;
+	char  *sptr, *token, *str;
+	u32 val, i;
+
+	str = kstrdup(buf, GFP_KERNEL);
+	if (!str)
+		return -ENOMEM;
+	sptr = str;
+	for (i = 0; i < MAX_SPM_FREQ_MAP; i++) {
+		token = strsep(&sptr, ":");
+		if (!token)
+			return -EINVAL;
+		ret = kstrtouint(token, 10, &val);
+		if (ret < 0)
+			return -EINVAL;
+		val = max(val, 0U);
+		val = min(val, U32_MAX);
+		mon->spm_freq_map[i].cpufreq_mhz = val;
+		token = strsep(&sptr, " ");
+		if (!token)
+			return -EINVAL;
+		ret = kstrtouint(token, 10, &val);
+		if (ret < 0)
+			return -EINVAL;
+		val = max(val, mon->min_freq);
+		val = min(val, mon->mon_max_freq);
+		mon->spm_freq_map[i].memfreq_khz = val;
+	}
+	ret = count;
+	return ret;
+}
+
 static ssize_t show_cpucp_log_level(struct kobject *kobj,
 				    struct attribute *attr, char *buf)
 {
@@ -466,6 +600,9 @@ show_attr(wb_filter_ipm);
 store_attr(wb_filter_ipm, 0U, 50000U);
 store_attr(freq_scale_limit_mhz, 0U, 5000U);
 show_attr(freq_scale_limit_mhz);
+show_attr(spm_drop_pct);
+show_attr(spm_thres);
+show_attr(spm_window_size);
 
 MEMLAT_ATTR_RW(sample_ms);
 MEMLAT_ATTR_RW(cpucp_sample_ms);
@@ -487,6 +624,10 @@ MEMLAT_ATTR_RW(freq_scale_pct);
 MEMLAT_ATTR_RW(wb_pct_thres);
 MEMLAT_ATTR_RW(wb_filter_ipm);
 MEMLAT_ATTR_RW(freq_scale_limit_mhz);
+MEMLAT_ATTR_RW(spm_thres);
+MEMLAT_ATTR_RW(spm_drop_pct);
+MEMLAT_ATTR_RW(spm_window_size);
+MEMLAT_ATTR_RW(spm_freq_map);
 
 static struct attribute *memlat_settings_attr[] = {
 	&sample_ms.attr,
@@ -515,6 +656,10 @@ static struct attribute *memlat_mon_attr[] = {
 	&wb_pct_thres.attr,
 	&wb_filter_ipm.attr,
 	&freq_scale_limit_mhz.attr,
+	&spm_thres.attr,
+	&spm_drop_pct.attr,
+	&spm_window_size.attr,
+	&spm_freq_map.attr,
 	NULL,
 };
 
@@ -677,6 +822,18 @@ static void calculate_sampling_stats(void)
 				stats->ipm[grp] /=
 					delta->grp_ctrs[grp][MISS_IDX];
 
+			if (delta->grp_ctrs[grp][MISS_IDX] > 0)
+				stats->l2miss_ratio[grp] = mult_frac(100,
+					delta->grp_ctrs[DCVS_L3][MISS_IDX],
+					delta->grp_ctrs[grp][MISS_IDX]);
+			else
+				stats->l2miss_ratio[grp] =
+				(delta->grp_ctrs[DCVS_L3][MISS_IDX] * 100);
+
+			stats->spm[grp] = delta->common_ctrs[BE_STALL_IDX];
+			if (delta->grp_ctrs[grp][MISS_IDX])
+				stats->spm[grp] /=
+					delta->grp_ctrs[grp][MISS_IDX];
 			if (!memlat_grp->grp_ev_ids[WB_IDX]
 					|| !memlat_grp->grp_ev_ids[ACC_IDX])
 				stats->wb_pct[grp] = 0;
@@ -736,15 +893,24 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 {
 	struct cpu_stats *stats;
 	int cpu, max_cpu = 0;
-	u32 max_memfreq, max_cpufreq = 0;
-	u32 max_cpufreq_scaled = 0, ipm_diff;
+	u32 max_memfreq, max_cpufreq = 0, max_max_spm_cpufreq = 0, max_spm_cpufreq = 0;
+	u32 max_cpufreq_scaled = 0, ipm_diff, base_vote = 0;
 	u32 hw = mon->memlat_grp->hw_type;
+	u32 max_spm = 0, avg_spm = 0, max_l2miss_ratio = 0;
+	u64  max_miss = 0;
+	u32 miss_delta, miss_delta_pct;
+	u32 i, j, vote_idx, spm_max_vote_khz;
+	struct cpufreq_memfreq_map *map;
 
 	if (hw >= NUM_DCVS_HW_TYPES)
 		return;
 
 	for_each_cpu(cpu, &mon->cpus) {
 		stats = per_cpu(sampling_stats, cpu);
+		/* these are max of any CPU (for SPM algo) */
+		max_l2miss_ratio = max(stats->l2miss_ratio[hw], max_l2miss_ratio);
+		max_miss = max(stats->delta.grp_ctrs[hw][MISS_IDX], max_miss);
+		max_spm_cpufreq = max(max_spm_cpufreq, stats->freq_mhz);
 		if (mon->is_compute || (stats->wb_pct[hw] >= mon->wb_pct_thres
 		    && stats->ipm[hw] <= mon->wb_filter_ipm))
 			set_higher_freq(&max_cpu, cpu, &max_cpufreq,
@@ -752,6 +918,10 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 		else if (stats->ipm[hw] <= mon->ipm_ceil) {
 			ipm_diff = mon->ipm_ceil - stats->ipm[hw];
 			max_cpufreq_scaled = stats->freq_mhz;
+
+			if (mon->enable_spm_voting)
+				max_spm = max(stats->spm[hw], max_spm);
+
 			if (mon->freq_scale_pct && stats->freq_mhz &&
 			    (stats->freq_mhz < mon->freq_scale_limit_mhz) &&
 			    (stats->fe_stall_pct >= mon->fe_stall_floor ||
@@ -765,8 +935,62 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 					max_cpufreq_scaled);
 		}
 	}
-
 	max_memfreq = cpufreq_to_memfreq(mon, max_cpufreq);
+
+	base_vote = max_memfreq;
+	if (mon->enable_spm_voting) {
+		mon->sampled_max_spm[mon->sampled_spm_idx] = max_spm;
+		mon->sampled_max_cpu_freq[mon->sampled_spm_idx] = max_spm_cpufreq;
+		mon->sampled_spm_idx = (mon->sampled_spm_idx + 1) % mon->spm_window_size;
+		for (i = 0; i < mon->spm_window_size; i++) {
+			avg_spm += mon->sampled_max_spm[i];
+			max_max_spm_cpufreq = max(max_max_spm_cpufreq,
+				mon->sampled_max_cpu_freq[i]);
+		}
+		avg_spm = avg_spm / mon->spm_window_size;
+		if (avg_spm >= mon->spm_thres && ((max_l2miss_ratio && max_l2miss_ratio
+			< L2MISS_RATIO_THRES) || max_spm_cpufreq >= SPM_FREQ_THRES))
+			mon->spm_vote_inc_steps++;
+		if (avg_spm < mon->disable_spm_value && mon->spm_vote_inc_steps > 1)
+			mon->spm_vote_inc_steps--;
+
+		if (mon->spm_vote_inc_steps && max_miss < mon->prev_max_miss) {
+			miss_delta = mon->prev_max_miss - max_miss;
+			miss_delta_pct = mult_frac(100, miss_delta, mon->prev_max_miss);
+			if (miss_delta_pct >= MISS_DELTA_PCT_THRES)
+				mon->spm_vote_inc_steps = 0;
+		}
+		mon->prev_max_miss = max_miss;
+		if (max_max_spm_cpufreq < mon->spm_freq_map[0].cpufreq_mhz)
+			spm_max_vote_khz = mon->spm_freq_map[0].memfreq_khz;
+		else if (max_max_spm_cpufreq < mon->spm_freq_map[1].cpufreq_mhz)
+			spm_max_vote_khz = mon->spm_freq_map[1].memfreq_khz;
+		else
+			spm_max_vote_khz = mon->max_freq;
+	} else
+		mon->spm_vote_inc_steps = 0;
+
+	map = mon->freq_map;
+	if (mon->spm_vote_inc_steps && max_memfreq < spm_max_vote_khz) {
+		for (i = 0; i < mon->freq_map_len && map[i].cpufreq_mhz; i++) {
+			if (map[i].memfreq_khz >= max_memfreq)
+				break;
+		}
+		for (j = i; j < mon->freq_map_len && map[j].cpufreq_mhz; j++) {
+			if (map[j].memfreq_khz >= spm_max_vote_khz)
+				break;
+		}
+		if (i != mon->freq_map_len && j != mon->freq_map_len) {
+			vote_idx = i + mon->spm_vote_inc_steps;
+			vote_idx = min(vote_idx, j);
+			if (i + mon->spm_vote_inc_steps > j)
+				mon->spm_vote_inc_steps = j - i;
+			if (vote_idx < mon->freq_map_len && mon->freq_map[vote_idx].memfreq_khz)
+				max_memfreq = min(mon->freq_map[vote_idx].memfreq_khz,
+								spm_max_vote_khz);
+		}
+	}
+
 	max_memfreq = max(max_memfreq, mon->min_freq);
 	max_memfreq = min(max_memfreq, mon->max_freq);
 
@@ -776,6 +1000,12 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 				stats->delta.common_ctrs[INST_IDX],
 				stats->delta.grp_ctrs[hw][MISS_IDX],
 				max_cpufreq, max_memfreq);
+
+		if (mon->enable_spm_voting)
+			trace_memlat_spm_update(dev_name(mon->dev),
+				max_spm_cpufreq, max_max_spm_cpufreq, base_vote,
+				max_memfreq, mon->spm_vote_inc_steps,
+				spm_max_vote_khz, avg_spm, max_l2miss_ratio);
 	}
 
 	mon->cur_freq = max_memfreq;
@@ -1651,6 +1881,13 @@ static int memlat_mon_probe(struct platform_device *pdev)
 	mon->wb_pct_thres = 100;
 	mon->wb_filter_ipm = 25000;
 	mon->freq_scale_limit_mhz = 5000;
+	mon->spm_thres = MAX_SPM_THRES;
+	mon->spm_drop_pct = 20;
+	mon->spm_window_size = 10;
+	mon->spm_freq_map[0].cpufreq_mhz = 1200;
+	mon->spm_freq_map[1].cpufreq_mhz = 2100;
+	mon->spm_freq_map[0].memfreq_khz = 1708000;
+	mon->spm_freq_map[1].memfreq_khz = 2092000;
 
 	if (of_parse_phandle(of_node, COREDEV_TBL_PROP, 0))
 		of_node = of_parse_phandle(of_node, COREDEV_TBL_PROP, 0);
