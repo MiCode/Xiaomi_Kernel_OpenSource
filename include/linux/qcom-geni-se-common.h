@@ -18,6 +18,26 @@
 #define GENI_SE_DMA_PTR_H(ptr) 0
 #endif
 
+#define GENI_SE_ERR(log_ctx, print, dev, x...) do { \
+ipc_log_string(log_ctx, x); \
+if (print) { \
+	if (dev) \
+		dev_err((dev), x); \
+	else \
+		pr_err(x); \
+} \
+} while (0)
+
+#define GENI_SE_DBG(log_ctx, print, dev, x...) do { \
+ipc_log_string(log_ctx, x); \
+if (print) { \
+	if (dev) \
+		dev_dbg((dev), x); \
+	else \
+		pr_debug(x); \
+} \
+} while (0)
+
 #define SE_DMA_DEBUG_REG0		(0xE40)
 #define SE_DMA_RX_LEN			(0xD3C)
 #define SE_DMA_RX_LEN_IN		(0xD54)

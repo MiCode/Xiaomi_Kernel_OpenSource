@@ -84,11 +84,13 @@
 #define MAX_SE	20
 
 #define I2C_LOG_DBG(log_ctx, print, dev, x...) do { \
+GENI_SE_DBG(log_ctx, print, dev, x); \
 if (dev) \
 	i2c_trace_log(dev, x); \
 } while (0)
 
 #define I2C_LOG_ERR(log_ctx, print, dev, x...) do { \
+GENI_SE_ERR(log_ctx, print, dev, x); \
 if (dev) \
 	i2c_trace_log(dev, x); \
 } while (0)
@@ -1511,7 +1513,7 @@ static int geni_i2c_resume_early(struct device *device)
 #if IS_ENABLED(CONFIG_PM)
 static int geni_i2c_runtime_suspend(struct device *dev)
 {
-	int ret;
+	int ret = 0;
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
 
 	if (gi2c->se_mode == FIFO_SE_DMA)
@@ -1546,7 +1548,7 @@ static int geni_i2c_runtime_suspend(struct device *dev)
 
 static int geni_i2c_runtime_resume(struct device *dev)
 {
-	int ret;
+	int ret = 0;
 	struct geni_i2c_dev *gi2c = dev_get_drvdata(dev);
 
 	if (!gi2c->ipcl) {
