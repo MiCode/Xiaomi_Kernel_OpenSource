@@ -1016,7 +1016,7 @@ static int fastrpc_minidump_add_region(struct fastrpc_mmap *map)
  */
 static int fastrpc_minidump_remove_region(struct fastrpc_mmap *map)
 {
-	int err = -1;
+	int err = -EINVAL;
 	struct md_region md_entry;
 
 	if (map->frpc_md_index > -1 && map->frpc_md_index < MAX_UNIQUE_ID) {
@@ -1592,6 +1592,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 			ADSPRPC_ERR(
 				"session is invalid for fd %d, secure flag %d\n",
 				fd, map->secure);
+			err = -EBADR;
 			goto bail;
 		}
 
@@ -2644,8 +2645,10 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	if (lrpralen) {
 		lrpra = kzalloc(lrpralen, GFP_KERNEL);
 		VERIFY(err, !IS_ERR_OR_NULL(lrpra));
-		if (err)
+		if (err) {
+			err = -ENOMEM;
 			goto bail;
+		}
 	}
 	ctx->lrpra = lrpra;
 
@@ -2785,8 +2788,10 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		}
 		mlen = ctx->overps[oix]->mend - ctx->overps[oix]->mstart;
 		VERIFY(err, rlen >= mlen);
-		if (err)
+		if (err) {
+			err = -EFAULT;
 			goto bail;
+		}
 		rpra[i].buf.pv =
 			 (args - ctx->overps[oix]->offset);
 		pages[list[i].pgidx].addr = ctx->copybuf->phys -
@@ -3733,8 +3738,10 @@ static int fastrpc_internal_invoke2(struct fastrpc_file *fl,
 	if (inv2->req == FASTRPC_INVOKE2_ASYNC ||
 		inv2->req == FASTRPC_INVOKE2_ASYNC_RESPONSE) {
 		VERIFY(err, domain == CDSP_DOMAIN_ID && fl->sctx != NULL);
-		if (err)
+		if (err) {
+			err = -EBADR;
 			goto bail;
+		}
 		dsp_cap_ptr = &gcinfo[domain].dsp_cap_kernel;
 		VERIFY(err,
 			dsp_cap_ptr->dsp_attributes[ASYNC_FASTRPC_CAP] == 1);
@@ -4258,8 +4265,6 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 
 	VERIFY(err, init->filelen < INIT_FILELEN_MAX
 			&& init->memlen < INIT_MEMLEN_MAX);
-	if (err)
-		goto bail;
 	if (err) {
 		ADSPRPC_ERR(
 			"file size 0x%x or init memory 0x%x is more than max allowed file size 0x%x or init len 0x%x\n",
@@ -6109,8 +6114,10 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 	struct fastrpc_apps *me = &gfa;
 
 	VERIFY(err, fl != NULL);
-	if (err)
+	if (err) {
+		err = -EBADF;
 		goto bail;
+	}
 
 	fastrpc_get_process_gids(&fl->gidlist);
 	err = fastrpc_set_process_info(fl, cid);
@@ -6170,8 +6177,10 @@ static int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 			goto bail;
 	}
 	VERIFY(err, fl->sctx != NULL);
-	if (err)
+	if (err) {
+		err = -EBADR;
 		goto bail;
+	}
 	*info = (fl->sctx->smmu.enabled ? 1 : 0);
 bail:
 	return err;
@@ -6238,8 +6247,10 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 		}
 
 		VERIFY(err, me->silvercores.coreno && fl->dev_pm_qos_req);
-		if (err)
+		if (err) {
+			err = -EINVAL;
 			goto bail;
+		}
 
 		for (ii = 0; ii < silver_core_count; ii++) {
 			cpu = me->silvercores.coreno[ii];
@@ -7050,8 +7061,10 @@ static int fastrpc_cb_probe(struct device *dev)
 
 	VERIFY(err, NULL != (name = of_get_property(dev->of_node,
 					 "label", NULL)));
-	if (err)
+	if (err) {
+		err = -EINVAL;
 		goto bail;
+	}
 
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		if (!gcinfo[i].name)
@@ -7067,9 +7080,10 @@ static int fastrpc_cb_probe(struct device *dev)
 	cid = i;
 	chan = &gcinfo[i];
 	VERIFY(err, chan->sesscount < NUM_SESSIONS);
-	if (err)
+	if (err) {
+		err = -EINVAL;
 		goto bail;
-
+	}
 	err = of_parse_phandle_with_args(dev->of_node, "iommus",
 						"#iommu-cells", 0, &iommuspec);
 	if (err) {
