@@ -463,6 +463,7 @@ struct ufs_qcom_host {
 	/* Indicates curr and next clk mode */
 	u32 clk_next_mode;
 	u32 clk_curr_mode;
+	bool is_clk_scale_enabled;
 };
 
 static inline u32
