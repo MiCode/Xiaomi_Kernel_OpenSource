@@ -1295,6 +1295,22 @@ static struct clk_rcg2 gcc_qupv3_wrap2_s5_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_gcc_qupv3_wrap2_s6_clk_src[] = {
+	F(7372800, P_GCC_GPLL0_OUT_EVEN, 1, 384, 15625),
+	F(14745600, P_GCC_GPLL0_OUT_EVEN, 1, 768, 15625),
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(29491200, P_GCC_GPLL0_OUT_EVEN, 1, 1536, 15625),
+	F(32000000, P_GCC_GPLL0_OUT_EVEN, 1, 8, 75),
+	F(48000000, P_GCC_GPLL0_OUT_EVEN, 1, 4, 25),
+	F(64000000, P_GCC_GPLL0_OUT_EVEN, 1, 16, 75),
+	F(75000000, P_GCC_GPLL0_OUT_EVEN, 4, 0, 0),
+	F(80000000, P_GCC_GPLL0_OUT_EVEN, 1, 4, 15),
+	F(96000000, P_GCC_GPLL0_OUT_EVEN, 1, 8, 25),
+	F(100000000, P_GCC_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(125000000, P_GCC_GPLL0_OUT_MAIN, 1, 5, 24),
+	{ }
+};
+
 static struct clk_init_data gcc_qupv3_wrap2_s6_clk_src_init = {
 	.name = "gcc_qupv3_wrap2_s6_clk_src",
 	.parent_data = gcc_parent_data_8,
@@ -1308,7 +1324,7 @@ static struct clk_rcg2 gcc_qupv3_wrap2_s6_clk_src = {
 	.mnd_width = 16,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_8,
-	.freq_tbl = ftbl_gcc_qupv3_wrap1_s2_clk_src,
+	.freq_tbl = ftbl_gcc_qupv3_wrap2_s6_clk_src,
 	.enable_safe_config = true,
 	.flags = HW_CLK_CTRL_MODE,
 	.clkr.hw.init = &gcc_qupv3_wrap2_s6_clk_src_init,
@@ -1318,7 +1334,7 @@ static struct clk_rcg2 gcc_qupv3_wrap2_s6_clk_src = {
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
 			[VDD_LOWER] = 75000000,
-			[VDD_LOW] = 100000000},
+			[VDD_LOW] = 125000000},
 	},
 };
 
