@@ -4,3 +4,8 @@ stub-regulator.ko
 msm_geni_serial.ko
 qcom-scm.ko
 msm-geni-se.ko
+gdsc-regulator.ko
+pinctrl-anorak.ko
+pinctrl-msm.ko
+msm_geni_serial.ko
+msm-geni-se.ko
