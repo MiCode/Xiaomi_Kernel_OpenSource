@@ -451,6 +451,11 @@
 		compatible = "qcom,anorak-lpass_ag_noc";
 		#interconnect-cells = <1>;
 	};
+
+	qcom,secure-buffer {
+		compatible = "qcom,secure-buffer";
+		qcom,vmid-cp-camera-preview-ro;
+	};
 };
 
 #include "diwali-gdsc.dtsi"
