@@ -1000,6 +1000,9 @@
 		qcom,mem-buf-capabilities = "supplier";
 		qcom,vmid = <3>;
 	};
+
+	thermal_zones: thermal-zones {
+	};
 };
 
 #include "neo-pinctrl.dtsi"
@@ -1172,3 +1175,4 @@
 };
 
 #include "neo-usb.dtsi"
+#include "neo-thermal.dtsi"
