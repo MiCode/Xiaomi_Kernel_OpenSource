@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -1126,7 +1127,9 @@ struct kgsl_drawobj_cmd *kgsl_drawobj_cmd_create(struct kgsl_device *device,
 		| KGSL_DRAWOBJ_PWR_CONSTRAINT
 		| KGSL_DRAWOBJ_MEMLIST
 		| KGSL_DRAWOBJ_PROFILING
-		| KGSL_DRAWOBJ_PROFILING_KTIME);
+		| KGSL_DRAWOBJ_PROFILING_KTIME
+		| KGSL_DRAWOBJ_START_RECURRING
+		| KGSL_DRAWOBJ_STOP_RECURRING);
 
 	INIT_LIST_HEAD(&cmdobj->cmdlist);
 	INIT_LIST_HEAD(&cmdobj->memlist);

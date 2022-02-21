@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __ADRENO_H
 #define __ADRENO_H
@@ -831,6 +832,11 @@ struct adreno_gpudev {
 	 * @gx_is_on - Return true if both gfx clock and gxgdsc are enabled.
 	 */
 	bool (*gx_is_on)(struct adreno_device *adreno_dev);
+	/**
+	 * @send_recurring_cmdobj - Target specific function to send recurring IBs to GMU
+	 */
+	int (*send_recurring_cmdobj)(struct adreno_device *adreno_dev,
+		struct kgsl_drawobj_cmd *cmdobj);
 };
 
 /**
@@ -1802,4 +1808,8 @@ void adreno_drawobj_set_constraint(struct kgsl_device *device,
  * Return: GPU model name string
  */
 const char *adreno_get_gpu_model(struct kgsl_device *device);
+
+int adreno_verify_cmdobj(struct kgsl_device_private *dev_priv,
+		struct kgsl_context *context, struct kgsl_drawobj *drawobj[],
+		uint32_t count);
 #endif /*__ADRENO_H */

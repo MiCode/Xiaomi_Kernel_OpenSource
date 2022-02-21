@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "kgsl_device.h"
@@ -102,6 +103,8 @@ static const struct kgsl_ioctl kgsl_ioctl_funcs[] = {
 			kgsl_ioctl_timeline_destroy),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GET_FAULT_REPORT,
 			kgsl_ioctl_get_fault_report),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_RECURRING_COMMAND,
+			kgsl_ioctl_recurring_command),
 };
 
 long kgsl_ioctl_copy_in(unsigned int kernel_cmd, unsigned int user_cmd,

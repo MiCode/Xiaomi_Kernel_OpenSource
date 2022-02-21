@@ -1207,6 +1207,7 @@ static void handle_uaudio_stream_req(struct qmi_handle *handle,
 		}
 	}
 
+	pm_runtime_barrier(&chip->intf[0]->dev);
 	ret = snd_usb_enable_audio_stream(subs, datainterval, req_msg->enable);
 
 	if (!ret && req_msg->enable)

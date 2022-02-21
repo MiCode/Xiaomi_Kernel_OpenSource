@@ -2893,10 +2893,9 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 	struct ufs_hba *hba = dev_get_drvdata(tcd->devdata);
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct scsi_device *sdev;
-	int ret = 0;
 
 	if (data == host->uqt.curr_state)
-		return ret;
+		return 0;
 
 	switch (data) {
 	case UFS_QCOM_LVL_NO_THERM:
@@ -2922,12 +2921,12 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 		break;
 	default:
 		dev_err(tcd->devdata, "Invalid UFS thermal state (%d)\n", data);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	host->uqt.curr_state = data;
 
-	return ret;
+	return 0;
 }
 
 struct thermal_cooling_device_ops ufs_thermal_ops = {
@@ -3950,9 +3949,8 @@ static unsigned int ufs_qcom_gec(struct ufs_hba *hba, u32 id,
 			continue;
 		dev_err(hba->dev, "%s[%d] = 0x%x at %lld us\n", err_name, p,
 			e->val[p], ktime_to_us(e->tstamp[p]));
-
-		++cnt_err;
 	}
+	cnt_err = e->cnt;
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	return cnt_err;

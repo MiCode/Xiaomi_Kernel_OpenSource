@@ -111,6 +111,7 @@
 #define QMI_WLFW_MAX_NUM_SVC_V01 24
 #define QMI_WLFW_MAX_NUM_MEMORY_REGIONS_V01 2
 #define QMI_WLFW_MAC_ADDR_SIZE_V01 6
+#define QMI_WLFW_MAX_NUM_GPIO_INFO_V01 20
 #define QMI_WLFW_MAX_NUM_MEM_CFG_V01 2
 #define QMI_WLFW_MAX_NUM_MEM_SEG_V01 52
 #define QMI_WLFW_MAX_WFC_CALL_STATUS_DATA_SIZE_V01 256
@@ -263,6 +264,16 @@ enum wlfw_bdf_dnld_method_v01 {
 	WLFW_DIRECT_BDF_COPY_V01 = 0,
 	WLFW_SEND_BDF_OVER_QMI_V01 = 1,
 	WLFW_BDF_DNLD_METHOD_MAX_VAL_V01 = INT_MAX,
+};
+
+enum wlfw_gpio_info_type_v01 {
+	WLFW_GPIO_INFO_TYPE_MIN_VAL_V01 = INT_MIN,
+	WLAN_EN_GPIO_V01 = 0,
+	BT_EN_GPIO_V01 = 1,
+	HOST_SOL_GPIO_V01 = 2,
+	TARGET_SOL_GPIO_V01 = 3,
+	GPIO_TYPE_MAX_V01 = 4,
+	WLFW_GPIO_INFO_TYPE_MAX_VAL_V01 = INT_MAX,
 };
 
 #define QMI_WLFW_CE_ATTR_FLAGS_V01 ((u32)0x00)
@@ -831,9 +842,12 @@ struct wlfw_host_cap_req_msg_v01 {
 	u32 wlan_enable_delay;
 	u8 ddr_type_valid;
 	u32 ddr_type;
+	u8 gpio_info_valid;
+	u32 gpio_info_len;
+	u32 gpio_info[QMI_WLFW_MAX_NUM_GPIO_INFO_V01];
 };
 
-#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 403
+#define WLFW_HOST_CAP_REQ_MSG_V01_MAX_MSG_LEN 487
 extern struct qmi_elem_info wlfw_host_cap_req_msg_v01_ei[];
 
 struct wlfw_host_cap_resp_msg_v01 {

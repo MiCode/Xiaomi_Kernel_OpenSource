@@ -906,7 +906,7 @@ static void ipa_work_handler(struct work_struct *w)
 	case STATE_INITIALIZED:
 		if (event == EVT_SET_ALT) {
 			if (!atomic_read(&gsi->connected)) {
-				log_event_err("USB cable not connected\n");
+				log_event_err("%s: gsi not connected\n", __func__);
 				break;
 			}
 
@@ -1438,7 +1438,7 @@ static ssize_t gsi_ctrl_dev_write(struct file *fp, const char __user *buf,
 	}
 
 	if (!atomic_read(&gsi->connected)) {
-		log_event_err("USB cable not connected\n");
+		log_event_err("%s: gsi not connected\n", __func__);
 		return -ECONNRESET;
 	}
 
@@ -1505,7 +1505,7 @@ static long gsi_ctrl_dev_ioctl(struct file *fp, unsigned int cmd,
 	c_port = &gsi->c_port;
 
 	if (!atomic_read(&gsi->connected)) {
-		log_event_err("USB cable not connected\n");
+		log_event_err("%s: gsi not connected\n", __func__);
 		return -ECONNRESET;
 	}
 
@@ -1889,7 +1889,7 @@ static int gsi_ctrl_send_notification(struct f_gsi *gsi)
 	bool del_free_cpkt = false;
 
 	if (!atomic_read(&gsi->connected)) {
-		log_event_dbg("%s: cable disconnect", __func__);
+		log_event_dbg("%s: gsi not connected\n", __func__);
 		return -ENODEV;
 	}
 
@@ -2173,7 +2173,7 @@ gsi_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 	bool line_state;
 
 	if (!atomic_read(&gsi->connected)) {
-		log_event_dbg("usb cable is not connected");
+		log_event_dbg("%s: gsi not connected\n", __func__);
 		return -ENOTCONN;
 	}
 

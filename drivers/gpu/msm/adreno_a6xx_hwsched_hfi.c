@@ -577,6 +577,15 @@ int a6xx_hwsched_hfi_init(struct adreno_device *adreno_dev)
 			return PTR_ERR(hw_hfi->big_ib);
 	}
 
+	if (adreno_dev->lsr_enabled && IS_ERR_OR_NULL(hw_hfi->big_ib_recurring)) {
+		hw_hfi->big_ib_recurring = reserve_gmu_kernel_block(
+				to_a6xx_gmu(adreno_dev), 0,
+				HWSCHED_MAX_IBS * sizeof(struct hfi_issue_ib),
+				GMU_NONCACHED_KERNEL);
+		if (IS_ERR(hw_hfi->big_ib_recurring))
+			return PTR_ERR(hw_hfi->big_ib_recurring);
+	}
+
 	if (IS_ERR_OR_NULL(hfi->hfi_mem)) {
 		hfi->hfi_mem = reserve_gmu_kernel_block(to_a6xx_gmu(adreno_dev),
 				0, HFIMEM_SIZE, GMU_NONCACHED_KERNEL);
@@ -1333,13 +1342,18 @@ static void populate_ibs(struct adreno_device *adreno_dev,
 
 	if (cmdobj->numibs > HWSCHED_MAX_DISPATCH_NUMIBS) {
 		struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
+		struct kgsl_memdesc *big_ib;
 
+		if (test_bit(CMDOBJ_RECURRING_START, &cmdobj->priv))
+			big_ib = hfi->big_ib_recurring;
+		else
+			big_ib = hfi->big_ib;
 		/*
 		 * The dispatcher ensures that there is only one big IB inflight
 		 */
-		cmd->big_ib_gmu_va = hfi->big_ib->gmuaddr;
+		cmd->big_ib_gmu_va = big_ib->gmuaddr;
 		cmd->flags |= CMDBATCH_INDIRECT;
-		issue_ib = hfi->big_ib->hostptr;
+		issue_ib = big_ib->hostptr;
 	} else {
 		issue_ib = (struct hfi_issue_ib *)&cmd[1];
 	}
@@ -1442,6 +1456,96 @@ skipib:
 	/* Put the profiling information in the user profiling buffer */
 	adreno_profile_submit_time(&time);
 
+	return ret;
+}
+
+int a6xx_hwsched_send_recurring_cmdobj(struct adreno_device *adreno_dev,
+	struct kgsl_drawobj_cmd *cmdobj)
+{
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
+	struct a6xx_hfi *hfi = to_a6xx_hfi(adreno_dev);
+	struct hfi_submit_cmd *cmd;
+	struct kgsl_memobj_node *ib;
+	u32 cmd_sizebytes;
+	int ret;
+	static bool active;
+
+	if (adreno_gpu_halt(adreno_dev) || hwsched_in_fault(hwsched))
+		return -EBUSY;
+
+	if (test_bit(CMDOBJ_RECURRING_STOP, &cmdobj->priv)) {
+		cmdobj->numibs = 0;
+	} else {
+		list_for_each_entry(ib, &cmdobj->cmdlist, node)
+			cmdobj->numibs++;
+	}
+
+	if (cmdobj->numibs > HWSCHED_MAX_IBS)
+		return -EINVAL;
+
+	if (cmdobj->numibs > HWSCHED_MAX_DISPATCH_NUMIBS)
+		cmd_sizebytes = sizeof(*cmd);
+	else
+		cmd_sizebytes = sizeof(*cmd) +
+			(sizeof(struct hfi_issue_ib) * cmdobj->numibs);
+
+	if (WARN_ON(cmd_sizebytes > HFI_MAX_MSG_SIZE))
+		return -EMSGSIZE;
+
+	cmd = kzalloc(cmd_sizebytes, GFP_KERNEL);
+	if (cmd == NULL)
+		return -ENOMEM;
+
+	if (test_bit(CMDOBJ_RECURRING_START, &cmdobj->priv)) {
+		if (!active) {
+			ret = adreno_active_count_get(adreno_dev);
+			if (ret) {
+				kfree(cmd);
+				return ret;
+			}
+			active = true;
+		}
+		cmd->flags |= CMDBATCH_RECURRING_START;
+		populate_ibs(adreno_dev, cmd, cmdobj);
+	} else
+		cmd->flags |= CMDBATCH_RECURRING_STOP;
+
+	cmd->ctxt_id = drawobj->context->id;
+
+	ret = hfi_context_register(adreno_dev, drawobj->context);
+	if (ret) {
+		adreno_active_count_put(adreno_dev);
+		active = false;
+		kfree(cmd);
+		return ret;
+	}
+
+	cmd->hdr = CREATE_MSG_HDR(H2F_MSG_ISSUE_RECURRING_CMD,
+				cmd_sizebytes, HFI_MSG_CMD);
+	cmd->hdr = MSG_HDR_SET_SEQNUM(cmd->hdr,
+			atomic_inc_return(&hfi->seqnum));
+
+	ret = a6xx_hfi_send_cmd_async(adreno_dev, cmd);
+
+	kfree(cmd);
+
+	if (ret) {
+		adreno_active_count_put(adreno_dev);
+		active = false;
+		return ret;
+	}
+
+	if (test_bit(CMDOBJ_RECURRING_STOP, &cmdobj->priv)) {
+		adreno_hwsched_retire_cmdobj(hwsched, hwsched->recurring_cmdobj);
+		hwsched->recurring_cmdobj = NULL;
+		if (active)
+			adreno_active_count_put(adreno_dev);
+		active = false;
+		return ret;
+	}
+
+	hwsched->recurring_cmdobj = cmdobj;
 	return ret;
 }
 

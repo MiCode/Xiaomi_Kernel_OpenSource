@@ -21,6 +21,8 @@ struct a6xx_hwsched_hfi {
 	wait_queue_head_t f2h_wq;
 	/** @big_ib: GMU buffer to hold big IBs */
 	struct kgsl_memdesc *big_ib;
+	/** @big_ib_recurring: GMU buffer to hold big recurring IBs */
+	struct kgsl_memdesc *big_ib_recurring;
 };
 
 struct kgsl_drawobj_cmd;

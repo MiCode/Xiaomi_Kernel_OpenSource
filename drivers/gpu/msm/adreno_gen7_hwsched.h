@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _ADRENO_GEN7_HWSCHED_H_
@@ -81,4 +82,17 @@ void gen7_hwsched_active_count_put(struct adreno_device *adreno_dev);
  */
 int gen7_hwsched_add_to_minidump(struct adreno_device *adreno_dev);
 
+/**
+ * gen7_hwsched_send_recurring_cmdobj - Dispatch IBs to GMU
+ * @adreno_dev: Pointer to adreno device structure
+ * @cmdobj: The command object which needs to be submitted
+ *
+ * This function is used to register the context if needed and submit
+ * recurring IBs to the GMU. Upon receiving ipc interrupt GMU will submit
+ * recurring IBs to GPU.
+
+ * Return: 0 on success and negative error on failure
+ */
+int gen7_hwsched_send_recurring_cmdobj(struct adreno_device *adreno_dev,
+		struct kgsl_drawobj_cmd *cmdobj);
 #endif

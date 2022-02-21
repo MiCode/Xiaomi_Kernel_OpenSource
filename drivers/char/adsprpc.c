@@ -2363,8 +2363,9 @@ static void fastrpc_notify_users(struct fastrpc_file *me)
 {
 	struct smq_invoke_ctx *ictx;
 	struct hlist_node *n;
+	unsigned long irq_flags = 0;
 
-	spin_lock(&me->hlock);
+	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(ictx, n, &me->clst.pending, hn) {
 		ictx->is_work_done = true;
 		ictx->retval = -ECONNRESET;
@@ -2384,15 +2385,16 @@ static void fastrpc_notify_users(struct fastrpc_file *me)
 			ictx->handle, ictx->sc);
 		complete(&ictx->work);
 	}
-	spin_unlock(&me->hlock);
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
 }
 
 static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
 {
 	struct smq_invoke_ctx *ictx;
 	struct hlist_node *n;
+	unsigned long irq_flags = 0;
 
-	spin_lock(&me->hlock);
+	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(ictx, n, &me->clst.pending, hn) {
 		if (ictx->msg.pid) {
 			ictx->is_work_done = true;
@@ -2416,7 +2418,7 @@ static void fastrpc_notify_users_staticpd_pdr(struct fastrpc_file *me)
 			complete(&ictx->work);
 		}
 	}
-	spin_unlock(&me->hlock);
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
 }
 
 static void fastrpc_ramdump_collection(int cid)
@@ -4870,7 +4872,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 	struct hlist_node *n = NULL;
 	int err = 0, ret = 0;
 	struct fastrpc_apps *me = &gfa;
-	struct qcom_dump_segment *ramdump_segments_rh = NULL;
+	struct qcom_dump_segment ramdump_segments_rh;
 	struct list_head head;
 	unsigned long irq_flags = 0;
 
@@ -4895,27 +4897,18 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 						match->size, match->flags, locked);
 			if (err)
 				goto bail;
-			if (me->ramdump_handle && me->enable_ramdump) {
-				ramdump_segments_rh = kcalloc(1,
-				sizeof(struct qcom_dump_segment), GFP_KERNEL);
-				if (ramdump_segments_rh) {
-					ramdump_segments_rh->da =
-					match->phys;
-					ramdump_segments_rh->va =
-					(void *)match->va;
-					ramdump_segments_rh->size = match->size;
-					list_add(&ramdump_segments_rh->node, &head);
-					ret = qcom_elf_dump(&head, me->ramdump_handle, ELF_CLASS);
-					if (ret < 0)
-						pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
+			memset(&ramdump_segments_rh, 0, sizeof(ramdump_segments_rh));
+			ramdump_segments_rh.da = match->phys;
+			ramdump_segments_rh.va = (void *)match->va;
+			ramdump_segments_rh.size = match->size;
+			if (me->dev && dump_enabled())
+				ret = fastrpc_ramdump(me->dev, &ramdump_segments_rh, true);
+			if (ret < 0)
+				pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
 							__func__, ret);
-					kfree(ramdump_segments_rh);
-				}
-			}
 			fastrpc_mmap_free(match, 0);
 		}
 	} while (match);
-	me->enable_ramdump = false;
 bail:
 	if (err && match)
 		fastrpc_mmap_add(match);
@@ -5534,7 +5527,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		return 0;
 	cid = fl->cid;
 
-	spin_lock(&me->hlock);
+	spin_lock_irqsave(&me->hlock, irq_flags);
 	if (fl->device) {
 		fl->device->dev_close = true;
 		if (fl->device->refs == 0) {
@@ -5543,7 +5536,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 		}
 	}
 	fl->file_close = FASTRPC_PROCESS_EXIT_START;
-	spin_unlock(&me->hlock);
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
 
 	(void)fastrpc_release_current_dsp_process(fl);
 

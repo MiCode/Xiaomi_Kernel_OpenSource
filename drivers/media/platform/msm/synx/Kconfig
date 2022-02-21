@@ -9,3 +9,20 @@ menuconfig MSM_GLOBAL_SYNX
 	  Enabling this adds support for global synchronization across
 	  heterogeneous cores.
 
+menuconfig MSM_GLOBAL_IPCLITE
+	tristate "Qualcomm Technologies, Inc. IPCLite Framework"
+	depends on ARCH_QCOM
+	help
+	  Say M here to enable ipclite protocol module for
+	  Qualcomm Technologies, Inc. chipsets.
+	  Enabling this adds support for communication across
+	  cores via ipclite protocol.
+
+menuconfig MSM_GLOBAL_SYNX_V2
+	tristate "Qualcomm Technologies, Inc. Global Synchronization Framework"
+	depends on ARCH_QCOM
+	help
+	  Say M here to enable global synchronization V2 module for
+	  Qualcomm Technologies, Inc. chipsets.
+	  Enabling this adds support for global synchronization across
+	  heterogeneous cores.

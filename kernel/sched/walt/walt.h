@@ -120,6 +120,7 @@ struct walt_rq {
 	bool			high_irqload;
 	u64			last_cc_update;
 	u64			cycles;
+	int			num_mvp_tasks;
 	struct list_head	mvp_tasks;
 };
 
@@ -369,6 +370,14 @@ int waltgov_register(void);
 
 extern void walt_lb_init(void);
 extern unsigned int walt_rotation_enabled;
+
+static inline bool is_mvp_task(struct rq *rq, struct task_struct *p)
+{
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+
+	lockdep_assert_held(&rq->lock);
+	return !list_empty(&wts->mvp_list) && wts->mvp_list.next;
+}
 
 /*
  * Returns the current capacity of cpu after applying both

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __ADRENO_HFI_H
 #define __ADRENO_HFI_H
@@ -370,6 +371,7 @@ struct hfi_queue_table {
 #define F2H_MSG_TS_RETIRE		133
 #define H2F_MSG_CONTEXT_POINTERS	134
 #define H2F_MSG_CONTEXT_RULE		140 /* AKA constraint */
+#define H2F_MSG_ISSUE_RECURRING_CMD	141
 #define F2H_MSG_CONTEXT_BAD		150
 
 /* H2F */
@@ -634,6 +636,9 @@ struct hfi_ts_notify_cmd {
 #define CMDBATCH_SKIP		3
 
 #define CMDBATCH_PROFILING  BIT(4)
+#define CMDBATCH_RECURRING_START   BIT(18)
+#define CMDBATCH_RECURRING_STOP   BIT(19)
+
 
 /* F2H */
 struct hfi_ts_retire_cmd {

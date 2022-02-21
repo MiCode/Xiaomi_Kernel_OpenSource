@@ -754,6 +754,9 @@ void kgsl_context_detach(struct kgsl_context *context)
 	if (context == NULL)
 		return;
 
+	device = context->device;
+	device->ftbl->dequeue_recurring_cmd(device, context);
+
 	/*
 	 * Mark the context as detached to keep others from using
 	 * the context before it gets fully removed, and to make sure
@@ -761,8 +764,6 @@ void kgsl_context_detach(struct kgsl_context *context)
 	 */
 	if (test_and_set_bit(KGSL_CONTEXT_PRIV_DETACHED, &context->priv))
 		return;
-
-	device = context->device;
 
 	trace_kgsl_context_detach(device, context);
 
@@ -1139,6 +1140,22 @@ int kgsl_gpu_frame_count(pid_t pid, u64 *frame_count)
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_gpu_frame_count);
+
+int kgsl_add_rcu_notifier(struct notifier_block *nb)
+{
+	struct kgsl_device *device = kgsl_get_device(0);
+
+	return srcu_notifier_chain_register(&device->nh, nb);
+}
+EXPORT_SYMBOL(kgsl_add_rcu_notifier);
+
+int kgsl_del_rcu_notifier(struct notifier_block *nb)
+{
+	struct kgsl_device *device = kgsl_get_device(0);
+
+	return srcu_notifier_chain_unregister(&device->nh, nb);
+}
+EXPORT_SYMBOL(kgsl_del_rcu_notifier);
 
 static int kgsl_close_device(struct kgsl_device *device)
 {
@@ -2187,6 +2204,95 @@ err:
 
 	kvfree(drawobjs);
 	return ret;
+}
+
+/* Returns 0 on failure.  Returns command type(s) on success */
+static unsigned int _process_recurring_input(struct kgsl_device *device,
+		unsigned int flags, unsigned int numcmds,
+		unsigned int numobjs)
+{
+	if (numcmds > KGSL_MAX_NUMIBS ||
+			numobjs > KGSL_MAX_NUMIBS)
+		return 0;
+
+	/* SYNC and MARKER object is not allowed through recurring command */
+	if ((flags & KGSL_DRAWOBJ_MARKER) || (flags & KGSL_DRAWOBJ_SYNC))
+		return 0;
+
+	if (numcmds)
+		return CMDOBJ_TYPE;
+
+	return 0;
+}
+
+long kgsl_ioctl_recurring_command(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	struct kgsl_recurring_command *param = data;
+	struct kgsl_device *device = dev_priv->device;
+	struct kgsl_context *context = NULL;
+	struct kgsl_drawobj *drawobj = NULL;
+	struct kgsl_drawobj_cmd *cmdobj = NULL;
+	unsigned int type;
+	long result;
+
+	if (!(param->flags & (unsigned long)(KGSL_DRAWOBJ_START_RECURRING |
+			KGSL_DRAWOBJ_STOP_RECURRING)))
+		return  -EINVAL;
+
+	context = kgsl_context_get_owner(dev_priv, param->context_id);
+	if (context == NULL)
+		return -EINVAL;
+
+	type = _process_recurring_input(device, param->flags, param->numcmds,
+			param->numobjs);
+	if (!type) {
+		kgsl_context_put(context);
+		return -EINVAL;
+	}
+
+	cmdobj = kgsl_drawobj_cmd_create(device, context, param->flags, type);
+	if (IS_ERR(cmdobj)) {
+		result = PTR_ERR(cmdobj);
+		goto done;
+	}
+
+	drawobj = DRAWOBJ(cmdobj);
+
+	result = kgsl_drawobj_cmd_add_cmdlist(device, cmdobj,
+		u64_to_user_ptr(param->cmdlist),
+		param->cmdsize, param->numcmds);
+	if (result)
+		goto done;
+
+	result = kgsl_drawobj_cmd_add_memlist(device, cmdobj,
+		u64_to_user_ptr(param->objlist),
+		param->objsize, param->numobjs);
+	if (result)
+		goto done;
+
+	/* Clear the profiling flag for recurring command */
+	drawobj->flags &= ~(unsigned long)KGSL_DRAWOBJ_PROFILING;
+
+	if (drawobj->flags & KGSL_DRAWOBJ_STOP_RECURRING) {
+		result = device->ftbl->dequeue_recurring_cmd(device, context);
+		if (!result)
+			kgsl_drawobj_destroy(drawobj);
+	} else {
+		result = device->ftbl->queue_recurring_cmd(dev_priv, context, drawobj);
+	}
+
+done:
+	/*
+	 * -EPROTO is a "success" error - it just tells the user that the
+	 * context had previously faulted
+	 */
+	if (result && result != -EPROTO)
+		kgsl_drawobj_destroy(drawobj);
+
+	kgsl_context_put(context);
+
+	return result;
 }
 
 long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private

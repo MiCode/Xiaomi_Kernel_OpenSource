@@ -100,6 +100,9 @@
 #define KGSL_CMDBATCH_SYNC		KGSL_CONTEXT_SYNC           /* 0x400 */
 #define KGSL_CMDBATCH_PWR_CONSTRAINT	KGSL_CONTEXT_PWR_CONSTRAINT /* 0x800 */
 #define KGSL_CMDBATCH_SPARSE	    0x1000 /* 0x1000 */
+/* RECURRING bits must be set for LSR workload with IOCTL_KGSL_RECURRING_COMMAND. */
+#define KGSL_CMDBATCH_START_RECURRING	0x00100000
+#define KGSL_CMDBATCH_STOP_RECURRING	0x00200000
 
 /*
  * Reserve bits [16:19] and bits [28:31] for possible bits shared between
@@ -2086,5 +2089,32 @@ struct kgsl_fault_report {
 
 #define IOCTL_KGSL_GET_FAULT_REPORT \
 	_IOWR(KGSL_IOC_TYPE, 0x5E, struct kgsl_fault_report)
+
+/**
+ * struct kgsl_recurring_object - Argument for IOCTL_KGSL_RECURRING_COMMAND
+ * @flags: Current flags for the object
+ * @cmdlist: List of kgsl_command_objects for submission
+ * @cmd_size: Size of kgsl_command_objects structure
+ * @numcmds: Number of kgsl_command_objects in command list
+ * @objlist: List of kgsl_command_objects for tracking
+ * @obj_size: Size of kgsl_command_objects structure
+ * @numobjs: Number of kgsl_command_objects in object list
+ * @context_id: Context ID submitting the kgsl_recurring_command
+ */
+struct kgsl_recurring_command {
+	__u64 flags;
+	__u64 __user cmdlist;
+	__u32 cmdsize;
+	__u32 numcmds;
+	__u64 __user objlist;
+	__u32 objsize;
+	__u32 numobjs;
+	__u32 context_id;
+	/* private: Padding for 64 bit compatibility */
+	__u32 padding;
+};
+
+#define IOCTL_KGSL_RECURRING_COMMAND \
+	_IOWR(KGSL_IOC_TYPE, 0x5E, struct kgsl_recurring_command)
 
 #endif /* _UAPI_MSM_KGSL_H */

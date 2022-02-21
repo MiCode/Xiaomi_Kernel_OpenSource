@@ -33,7 +33,6 @@ qcom_dma_heaps.ko
 qcom_hwspinlock.ko
 qcom_iommu_util.ko
 qcom_ipcc.ko
-qcom_llcc_pmu.ko
 qcom_rpmh.ko
 qcom-scm.ko
 qnoc-qos.ko
@@ -51,3 +50,6 @@ phy-qcom-ufs.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 ufs_qcom.ko
 debug-regulator.ko
+gh_arm_drv.ko
+gh_ctrl.ko
+gh_dbl.ko

@@ -542,6 +542,7 @@ static void video_cc_cape_fixup(struct regmap *regmap)
 	video_cc_pll0.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	video_cc_pll0.clkr.hw.init = &video_cc_pll0_cape_init;
 	video_cc_pll0.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	video_cc_pll0.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	video_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	video_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	video_cc_pll0.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
@@ -565,6 +566,7 @@ static void video_cc_cape_fixup(struct regmap *regmap)
 	video_cc_pll1.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	video_cc_pll1.clkr.hw.init = &video_cc_pll1_cape_init;
 	video_cc_pll1.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	video_cc_pll1.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	video_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	video_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	video_cc_pll1.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;

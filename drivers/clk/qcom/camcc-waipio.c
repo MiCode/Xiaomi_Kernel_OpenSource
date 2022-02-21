@@ -3439,6 +3439,7 @@ static void cam_cc_cape_fixup(struct regmap *regmap)
 	cam_cc_pll0.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	cam_cc_pll0.clkr.hw.init = &cam_cc_pll0_cape_init;
 	cam_cc_pll0.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll0.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	cam_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	cam_cc_pll0.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	cam_cc_pll0.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
@@ -3467,6 +3468,7 @@ static void cam_cc_cape_fixup(struct regmap *regmap)
 	cam_cc_pll1.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	cam_cc_pll1.clkr.hw.init = &cam_cc_pll1_cape_init;
 	cam_cc_pll1.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll1.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	cam_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	cam_cc_pll1.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	cam_cc_pll1.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
@@ -3508,6 +3510,7 @@ static void cam_cc_cape_fixup(struct regmap *regmap)
 	cam_cc_pll3.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	cam_cc_pll3.clkr.hw.init = &cam_cc_pll3_cape_init;
 	cam_cc_pll3.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll3.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	cam_cc_pll3.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	cam_cc_pll3.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	cam_cc_pll3.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
@@ -3534,6 +3537,7 @@ static void cam_cc_cape_fixup(struct regmap *regmap)
 	cam_cc_pll4.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	cam_cc_pll4.clkr.hw.init = &cam_cc_pll4_cape_init;
 	cam_cc_pll4.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll4.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	cam_cc_pll4.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	cam_cc_pll4.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	cam_cc_pll4.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
@@ -3560,6 +3564,7 @@ static void cam_cc_cape_fixup(struct regmap *regmap)
 	cam_cc_pll5.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	cam_cc_pll5.clkr.hw.init = &cam_cc_pll5_cape_init;
 	cam_cc_pll5.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll5.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	cam_cc_pll5.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	cam_cc_pll5.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	cam_cc_pll5.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
@@ -3587,6 +3592,7 @@ static void cam_cc_cape_fixup(struct regmap *regmap)
 	cam_cc_pll6.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	cam_cc_pll6.clkr.hw.init = &cam_cc_pll6_cape_init;
 	cam_cc_pll6.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll6.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	cam_cc_pll6.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	cam_cc_pll6.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	cam_cc_pll6.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
@@ -3613,6 +3619,7 @@ static void cam_cc_cape_fixup(struct regmap *regmap)
 	cam_cc_pll7.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	cam_cc_pll7.clkr.hw.init = &cam_cc_pll7_cape_init;
 	cam_cc_pll7.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll7.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	cam_cc_pll7.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	cam_cc_pll7.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	cam_cc_pll7.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;
@@ -3639,6 +3646,7 @@ static void cam_cc_cape_fixup(struct regmap *regmap)
 	cam_cc_pll8.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_OLE];
 	cam_cc_pll8.clkr.hw.init = &cam_cc_pll8_cape_init;
 	cam_cc_pll8.clkr.vdd_data.rate_max[VDD_LOWER_D1] = 615000000;
+	cam_cc_pll8.clkr.vdd_data.rate_max[VDD_LOWER] = 0;
 	cam_cc_pll8.clkr.vdd_data.rate_max[VDD_LOW] = 1100000000;
 	cam_cc_pll8.clkr.vdd_data.rate_max[VDD_LOW_L1] = 1600000000;
 	cam_cc_pll8.clkr.vdd_data.rate_max[VDD_NOMINAL] = 2000000000;

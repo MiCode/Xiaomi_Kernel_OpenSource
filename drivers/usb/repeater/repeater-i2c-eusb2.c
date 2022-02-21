@@ -16,6 +16,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/regmap.h>
+#include <linux/qti-regmap-debugfs.h>
 #include <linux/regulator/consumer.h>
 #include <linux/types.h>
 #include <linux/usb/repeater.h>
@@ -90,6 +91,7 @@ struct eusb2_repeater {
 static const struct regmap_config eusb2_i2c_regmap = {
 	.reg_bits = 8,
 	.val_bits = 8,
+	.max_register = 0xff,
 };
 
 static int eusb2_i2c_read_reg(struct eusb2_repeater *er, u8 reg, u8 *val)
@@ -343,6 +345,7 @@ static int eusb2_repeater_i2c_probe(struct i2c_client *client)
 		goto err_probe;
 	}
 
+	devm_regmap_qti_debugfs_register(er->dev, er->regmap);
 	i2c_set_clientdata(client, er);
 
 	ret = of_property_read_u16(dev->of_node, "reg", &er->reg_base);

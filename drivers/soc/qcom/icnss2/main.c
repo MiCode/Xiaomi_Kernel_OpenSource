@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2021, 2022, The Linux Foundation.
+ * Copyright (c) 2015-2020, 2021, The Linux Foundation.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  * All rights reserved.
  */
 
@@ -837,12 +838,18 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 		icnss_pr_dbg("MHI state info Address pa: %pa, va: 0x%pK\n",
 			     &priv->mhi_state_info_pa,
 			     priv->mhi_state_info_va);
+	}
 
+	if (priv->bdf_download_support) {
 		icnss_wlfw_bdf_dnld_send_sync(priv, ICNSS_BDF_REGDB);
 
 		ret = icnss_wlfw_bdf_dnld_send_sync(priv,
 						    priv->ctrl_params.bdf_type);
+		if (ret < 0)
+			goto device_info_failure;
+	}
 
+	if (priv->device_id == WCN6750_DEVICE_ID) {
 		if (!priv->fw_soc_wake_ack_irq)
 			register_soc_wake_notif(&priv->pdev->dev);
 
@@ -852,6 +859,12 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 	}
 
 	if (priv->device_id == ADRASTEA_DEVICE_ID) {
+		if (priv->bdf_download_support) {
+			ret = wlfw_cal_report_req(priv);
+			if (ret < 0)
+				goto device_info_failure;
+		}
+
 		wlfw_dynamic_feature_mask_send_sync_msg(priv,
 							dynamic_feature_mask);
 	}
@@ -2372,6 +2385,22 @@ enable_pdr:
 	return 0;
 }
 
+static int icnss_dev_id_match(struct icnss_priv *priv,
+			      struct device_info *dev_info)
+{
+	if (!dev_info) {
+		icnss_pr_info("WLAN driver devinfo is null, Continue driver loading");
+		return 1;
+	}
+
+	while (dev_info->device_id) {
+		if (priv->device_id == dev_info->device_id)
+			return 1;
+		dev_info++;
+	}
+	return 0;
+}
+
 static int icnss_tcdev_get_max_state(struct thermal_cooling_device *tcdev,
 					unsigned long *thermal_state)
 {
@@ -2564,6 +2593,12 @@ int __icnss_register_driver(struct icnss_driver_ops *ops,
 		icnss_pr_err("Driver already registered\n");
 		ret = -EEXIST;
 		goto out;
+	}
+
+	if (!icnss_dev_id_match(priv, ops->dev_info)) {
+		icnss_pr_err("WLAN driver dev name is %s, not supported by platform driver\n",
+			     ops->dev_info->name);
+		return -ENODEV;
 	}
 
 	if (!ops->probe || !ops->remove) {
@@ -4021,9 +4056,11 @@ static void icnss_init_control_params(struct icnss_priv *priv)
 	priv->ctrl_params.bdf_type = ICNSS_BDF_TYPE_DEFAULT;
 
 	if (of_property_read_bool(priv->pdev->dev.of_node,
-				  "cnss-daemon-support")) {
-		priv->ctrl_params.quirks |= BIT(ENABLE_DAEMON_SUPPORT);
-	}
+				  "bdf-download-support"))
+		priv->bdf_download_support = true;
+
+	if (priv->bdf_download_support && priv->device_id == ADRASTEA_DEVICE_ID)
+		priv->ctrl_params.bdf_type = ICNSS_BDF_BIN;
 }
 
 static inline void icnss_runtime_pm_init(struct icnss_priv *priv)
@@ -4181,6 +4218,7 @@ static int icnss_probe(struct platform_device *pdev)
 		icnss_runtime_pm_init(priv);
 		icnss_aop_mbox_init(priv);
 		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
+		priv->bdf_download_support = true;
 		priv->use_nv_mac = icnss_use_nv_mac(priv);
 		icnss_pr_dbg("NV MAC feature is %s\n",
 			     priv->use_nv_mac ? "Mandatory":"Not Mandatory");

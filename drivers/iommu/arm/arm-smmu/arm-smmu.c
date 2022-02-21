@@ -51,8 +51,8 @@
 #include "arm-smmu.h"
 #include "../../iommu-logger.h"
 #include "../../qcom-dma-iommu-generic.h"
-#include "../../qcom-io-pgtable.h"
 #include <linux/qcom-iommu-util.h>
+#include <linux/qcom-io-pgtable.h>
 
 #define CREATE_TRACE_POINTS
 #include "arm-smmu-trace.h"
@@ -1778,7 +1778,8 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	int irq;
-	int ret;
+	int ret, i;
+	bool pinned = false;
 
 	if (!smmu || domain->type == IOMMU_DOMAIN_IDENTITY)
 		return;
@@ -1813,7 +1814,15 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	arm_smmu_secure_pool_destroy(smmu_domain);
 	arm_smmu_unassign_table(smmu_domain);
 	arm_smmu_secure_domain_unlock(smmu_domain);
-	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
+
+	for (i = 0; i < smmu->num_mapping_groups; i++)
+		if ((cfg->cbndx == smmu->s2crs[i].cbndx) &&
+		    (smmu->s2crs[i].pinned)) {
+			pinned = true;
+		}
+
+	if (!pinned)
+		__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
 
 	arm_smmu_rpm_put(smmu);
 	arm_smmu_domain_reinit(smmu_domain);
@@ -3373,47 +3382,96 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 {
 	u32 i, smr, s2cr;
 	u32 index;
+	struct arm_smmu_smr	smrs;
+	struct arm_smmu_smr	*handoff_smrs;
+	int num_handoff_smrs;
+	const __be32 *cell;
 
-	for (index = 0;; index++) {
-		if (of_property_read_u32_index(smmu->dev->of_node,
-				"qcom,handoff-smrs", index, &i) < 0)
-			break;
+	cell = of_get_property(smmu->dev->of_node, "qcom,handoff-smrs", NULL);
+	if (!cell)
+		return 0;
 
-		if (i >= smmu->num_mapping_groups) {
-			dev_err(smmu->dev, "Invalid qcom,handoff-smrs property, only %d smrs\n",
-				smmu->num_mapping_groups);
-			break;
-		}
+	num_handoff_smrs = of_property_count_elems_of_size(smmu->dev->of_node,
+					"qcom,handoff-smrs", sizeof(u32) * 2);
+	if (num_handoff_smrs < 0)
+		return 0;
+
+	handoff_smrs = kcalloc(num_handoff_smrs, sizeof(*handoff_smrs),
+			       GFP_KERNEL);
+	if (!handoff_smrs)
+		return -ENOMEM;
+
+	for (i = 0; i < num_handoff_smrs; i++) {
+		handoff_smrs[i].id = of_read_number(cell++, 1);
+		handoff_smrs[i].mask = of_read_number(cell++, 1);
+		handoff_smrs[i].valid = true;
+	}
+
+
+	for (i = 0; i < smmu->num_mapping_groups; ++i) {
 
 		smr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_SMR(i));
-		s2cr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_S2CR(i));
 
-		smmu->smrs[i].id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
 		if (smmu->features & ARM_SMMU_FEAT_EXIDS) {
-			smmu->smrs[i].valid = FIELD_GET(ARM_SMMU_S2CR_EXIDVALID, s2cr);
-			smmu->smrs[i].mask = FIELD_GET(ARM_SMMU_SMR_MASK, smr);
+			s2cr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_S2CR(i));
+			smrs.valid = FIELD_GET(ARM_SMMU_S2CR_EXIDVALID, s2cr);
+			if (!smrs.valid)
+				continue;
+
+			smrs.id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
+			smrs.mask = FIELD_GET(ARM_SMMU_SMR_MASK, smr);
+
 		} else {
-			smmu->smrs[i].valid = FIELD_GET(ARM_SMMU_SMR_VALID, smr);
+			smrs.valid = FIELD_GET(ARM_SMMU_SMR_VALID, smr);
+			if (!smrs.valid)
+				continue;
+
+			smrs.id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
 			/*
 			 * The SMR mask covers bits 30:16 when extended stream
 			 * matching is not enabled.
 			 */
-			smmu->smrs[i].mask = FIELD_GET(ARM_SMMU_SMR_MASK,
-						       smr & ~ARM_SMMU_SMR_VALID);
+			smrs.mask = FIELD_GET(ARM_SMMU_SMR_MASK,
+					      smr & ~ARM_SMMU_SMR_VALID);
 		}
 
-		smmu->s2crs[i].group = NULL;
-		smmu->s2crs[i].count = 0;
-		smmu->s2crs[i].type = FIELD_GET(ARM_SMMU_S2CR_TYPE, s2cr);
-		smmu->s2crs[i].privcfg = FIELD_GET(ARM_SMMU_S2CR_PRIVCFG, s2cr);
-		smmu->s2crs[i].cbndx = FIELD_GET(ARM_SMMU_S2CR_CBNDX, s2cr);
+		for (index = 0; index < num_handoff_smrs; index++) {
 
-		if (!smmu->smrs[i].valid)
-			continue;
+			if (!handoff_smrs[index].valid)
+				continue;
 
-		smmu->s2crs[i].pinned = true;
-		bitmap_set(smmu->context_map, smmu->s2crs[i].cbndx, 1);
+			if ((handoff_smrs[index].mask & smrs.mask) == handoff_smrs[index].mask &&
+			    !((handoff_smrs[index].id ^ smrs.id) & ~smrs.mask)) {
+
+				dev_dbg(smmu->dev,
+					"handoff-smrs match idx %d, id, 0x%x, mask 0x%x\n",
+					i, smrs.id, smrs.mask);
+
+				s2cr = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_S2CR(i));
+
+				smmu->smrs[i] = smrs;
+
+				smmu->s2crs[i].group = NULL;
+				smmu->s2crs[i].count = 0;
+				smmu->s2crs[i].type = FIELD_GET(ARM_SMMU_S2CR_TYPE, s2cr);
+				smmu->s2crs[i].privcfg = FIELD_GET(ARM_SMMU_S2CR_PRIVCFG, s2cr);
+				smmu->s2crs[i].cbndx = FIELD_GET(ARM_SMMU_S2CR_CBNDX, s2cr);
+
+				smmu->s2crs[i].pinned = true;
+				bitmap_set(smmu->context_map, smmu->s2crs[i].cbndx, 1);
+				handoff_smrs[i].valid = false;
+
+				break;
+
+			} else {
+				dev_dbg(smmu->dev,
+					"handoff-smrs no match idx %d, id, 0x%x, mask 0x%x\n",
+					i, smrs.id, smrs.mask);
+			}
+		}
 	}
+
+	kfree(handoff_smrs);
 
 	return 0;
 }

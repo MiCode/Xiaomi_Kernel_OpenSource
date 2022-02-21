@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "icnss2_qmi: " fmt
@@ -615,6 +616,74 @@ out:
 qmi_registered:
 	kfree(resp);
 	kfree(req);
+	return ret;
+}
+
+int wlfw_cal_report_req(struct icnss_priv *priv)
+{
+	int ret;
+	struct wlfw_cal_report_req_msg_v01 *req;
+	struct wlfw_cal_report_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!priv)
+		return -ENODEV;
+
+	if (test_bit(ICNSS_FW_DOWN, &priv->state))
+		return -EINVAL;
+
+	icnss_pr_info("Sending cal report request, state: 0x%lx\n",
+		      priv->state);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+	req->meta_data_len = 0;
+
+	ret = qmi_txn_init(&priv->qmi, &txn,
+			   wlfw_cal_report_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		icnss_qmi_fatal_err("Fail to init txn for cal report req %d\n",
+				    ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&priv->qmi, NULL, &txn,
+			       QMI_WLFW_CAL_REPORT_REQ_V01,
+			       WLFW_CAL_REPORT_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_cal_report_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_qmi_fatal_err("Fail to send cal report req %d\n", ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn,
+			   priv->ctrl_params.qmi_timeout);
+
+	if (ret < 0) {
+		icnss_qmi_fatal_err("Cal report wait failed with ret %d\n",
+				    ret);
+		goto out;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_qmi_fatal_err("QMI cal report request rejected, result:%d error:%d\n",
+				    resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	kfree(resp);
+	kfree(req);
+
+	return 0;
+
+out:
 	return ret;
 }
 
@@ -3107,6 +3176,7 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	struct wlfw_host_cap_resp_msg_v01 *resp;
 	struct qmi_txn txn;
 	int ddr_type;
+	u32 gpio;
 	int ret = 0;
 	u64 iova_start = 0, iova_size = 0,
 	    iova_ipa_start = 0, iova_ipa_size = 0;
@@ -3125,12 +3195,7 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	}
 
 	req->num_clients_valid = 1;
-	if (test_bit(ENABLE_DAEMON_SUPPORT,
-		     &priv->ctrl_params.quirks))
-		req->num_clients = 2;
-	else
-		req->num_clients = 1;
-	icnss_pr_dbg("Number of clients is %d\n", req->num_clients);
+	req->num_clients = 1;
 
 	req->bdf_support_valid = 1;
 	req->bdf_support = 1;
@@ -3171,6 +3236,48 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 		req->ddr_type_valid = 1;
 		req->ddr_type = ddr_type;
 	}
+
+	ret = of_property_read_u32(priv->pdev->dev.of_node, "wlan-en-gpio",
+				   &gpio);
+	if (!ret) {
+		icnss_pr_dbg("WLAN_EN_GPIO modified through DT: %d\n", gpio);
+		req->gpio_info_valid = 1;
+		req->gpio_info[WLAN_EN_GPIO_V01] = gpio;
+	} else {
+		req->gpio_info[WLAN_EN_GPIO_V01] = 0xFFFF;
+	}
+
+	ret = of_property_read_u32(priv->pdev->dev.of_node, "bt-en-gpio",
+				   &gpio);
+	if (!ret) {
+		icnss_pr_dbg("BT_EN_GPIO modified through DT: %d\n", gpio);
+		req->gpio_info_valid = 1;
+		req->gpio_info[BT_EN_GPIO_V01] = gpio;
+	} else {
+		req->gpio_info[BT_EN_GPIO_V01] = 0xFFFF;
+	}
+
+	ret = of_property_read_u32(priv->pdev->dev.of_node, "host-sol-gpio",
+				   &gpio);
+	if (!ret) {
+		icnss_pr_dbg("HOST_SOL_GPIO modified through DT: %d\n", gpio);
+		req->gpio_info_valid = 1;
+		req->gpio_info[HOST_SOL_GPIO_V01] = gpio;
+	} else {
+		req->gpio_info[HOST_SOL_GPIO_V01] = 0xFFFF;
+	}
+
+	ret = of_property_read_u32(priv->pdev->dev.of_node, "target-sol-gpio",
+				   &gpio);
+	if (!ret) {
+		icnss_pr_dbg("TARGET_SOL_GPIO modified through DT: %d\n", gpio);
+		req->gpio_info_valid = 1;
+		req->gpio_info[TARGET_SOL_GPIO_V01] = gpio;
+	} else {
+		req->gpio_info[TARGET_SOL_GPIO_V01] = 0xFFFF;
+	}
+
+	req->gpio_info_len = GPIO_TYPE_MAX_V01;
 
 	ret = qmi_txn_init(&priv->qmi, &txn,
 			   wlfw_host_cap_resp_msg_v01_ei, resp);
