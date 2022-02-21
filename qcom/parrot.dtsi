@@ -1197,6 +1197,34 @@
 		compatible = "qcom,mem-buf-msgq";
 	};
 
+	qcom,guestvm_loader@e0b00000 {
+		compatible = "qcom,guestvm-loader";
+		qcom,pas-id = <28>;
+		qcom,vmid = <45>;
+		qcom,firmware-name = "trustedvm";
+		memory-region = <&trust_ui_vm_mem>;
+	};
+
+	trust_ui_vm: qcom,trust_ui_vm@e55fc000 {
+		reg = <0xe55fc000 0x104000>;
+		vm_name = "trustedvm";
+		shared-buffers = <&trust_ui_vm_vblk0_ring &trust_ui_vm_swiotlb>;
+	};
+
+	qcom,virtio_backend@0 {
+		compatible = "qcom,virtio_backend";
+		qcom,vm = <&trust_ui_vm>;
+		qcom,label = <0x11>;
+	};
+
+	qrtr-gunyah {
+		compatible = "qcom,qrtr-gunyah";
+		qcom,master;
+		gunyah-label = <3>;
+		peer-name = <2>;
+		shared-buffer = <&trust_ui_vm_qrtr>;
+	};
+
 	 qcom,chd {
 		compatible = "qcom,core-hang-detect";
 		label = "core";

@@ -1,4 +1,4 @@
-#include <dt-bindings/clock/qcom,gcc-parrot.h>
+#include <dt-bindings/clock/qcom,gcc-anorak.h>
 
 &soc {
 	usb0: ssusb@a600000 {
@@ -11,34 +11,31 @@
 		ranges;
 
 		USB3_GDSC-supply = <&gcc_usb30_prim_gdsc>;
+
 		clocks = <&gcc GCC_USB30_PRIM_MASTER_CLK>,
 			<&gcc GCC_CFG_NOC_USB3_PRIM_AXI_CLK>,
 			<&gcc GCC_AGGRE_USB3_PRIM_AXI_CLK>,
 			<&gcc GCC_USB30_PRIM_MOCK_UTMI_CLK>,
-			<&gcc GCC_USB30_PRIM_SLEEP_CLK>,
-			<&gcc GCC_USB3_0_CLKREF_EN>;
+			<&gcc GCC_USB30_PRIM_SLEEP_CLK>;
 		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
-					"utmi_clk", "sleep_clk", "xo";
+					"utmi_clk", "sleep_clk";
 
 		resets = <&gcc GCC_USB30_PRIM_BCR>;
 		reset-names = "core_reset";
-
 		interrupts = <GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "pwr_event_irq";
 
-		qcom,core-clk-rate = <133333333>;
+		qcom,core-clk-rate = <200000000>;
 		qcom,core-clk-rate-hs = <66666667>;
+
+		qcom,dwc-usb3-msm-tx-fifo-size = <27696>;
 
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
-			reg = <0xa600000 0xd800>;
-
-			iommus = <&apps_smmu 0x80 0x0>;
-			qcom,iommu-dma = "atomic";
-			qcom,iommu-dma-addr-pool = <0x90000000 0x60000000>;
-			dma-coherent;
+			reg = <0xa600000 0xd93c>;
 
 			interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
+			linux,sysdev_is_parent;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x0>;
@@ -46,8 +43,9 @@
 			snps,dis-u1-entry-quirk;
 			snps,dis-u2-entry-quirk;
 			snps,dis_u2_susphy_quirk;
+			snps,ssp-u3-u0-quirk;
 			tx-fifo-resize;
-			maximum-speed = "super-speed";
+			maximum-speed = "super-speed-plus";
 		};
 	};
 };

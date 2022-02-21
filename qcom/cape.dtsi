@@ -29,8 +29,22 @@
 		serial0 = &qupv3_se7_2uart;
 		hsuart0 = &qupv3_se20_4uart;
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
-		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+		mmc1 = &sdhc_2; /* SDC2 SD card slot */
 	};
+
+	sram: sram@17D09400 {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "mmio-sram";
+		reg = <0x0 0x17D09400 0x0 0x400>;
+		ranges = <0x0 0x0 0x0 0x17D09400 0x0 0x400>;
+
+		cpu_scp_lpri: scp-shmem@0 {
+			compatible = "arm,scp-shmem";
+			reg = <0x0 0x0 0x0 0x400>;
+		};
+	};
+
 
 	firmware: firmware { };
 
@@ -416,6 +430,13 @@
 			size = <0x0 0x400000>;
 	};
 
+	ramoops_mem: ramoops_region {
+		compatible = "ramoops";
+		alloc-ranges = <0x0 0x00000000 0xffffffff 0xffffffff>;
+		size = <0x0 0x200000>;
+		pmsg-size = <0x200000>;
+		mem-type = <2>;
+	};
 };
 
 #include "waipio-clock.dtsi"
@@ -667,7 +688,7 @@
 			< 0x0008 0xFF 0x02 0xFF >,
 			< 0x0011 0xFF 0x01 0xFF >,
 			< 0x0017 0xFF 0xFF 0xFF >,
-			< 0x002A 0xFF 0xFF 0xFF >,
+			< 0x0037 0xFF 0xFF 0xFF >,
 			< 0x1000 0xFF 0xFF 0xFF >;
 	};
 
@@ -786,9 +807,9 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU0 &CPU1 &CPU2 &CPU3>;
 				qcom,cpufreq-memfreq-tbl =
-					< 1190400  547000 >,
+					< 1132800  547000 >,
 					< 1440000  768000 >,
-					< 1785600 1555000 >;
+					< 1670400 1555000 >;
 				qcom,sampling-enabled;
 			};
 
@@ -842,7 +863,7 @@
 			compatible = "qcom,memlat-grp";
 			qcom,target-dev = <&qcom_llcc_dcvs_hw>;
 			qcom,sampling-path = <&llcc_dcvs_fp>;
-			qcom,miss-ev = <0x2A>;
+			qcom,miss-ev = <0x37>;
 
 			silver {
 				compatible = "qcom,memlat-mon";
@@ -850,8 +871,8 @@
 				qcom,cpufreq-memfreq-tbl =
 					<  556800  300000 >,
 					< 1440000  466500 >,
-					< 1785600  600000 >,
-					< 2016000  806000 >;
+					< 1670400  600000 >,
+					< 1804800  806000 >;
 				qcom,sampling-enabled;
 			};
 
@@ -896,12 +917,11 @@
 					<  806400  806400 >,
 					<  940800  902400 >,
 					< 1056000  998400 >,
-					< 1190400 1075200 >,
+					< 1132800 1075200 >,
 					< 1324800 1267200 >,
 					< 1440000 1478400 >,
 					< 1555200 1593600 >,
-					< 1785600 1689600 >,
-					< 2016000 1804800 >;
+					< 1670400 1708800 >;
 				qcom,sampling-enabled;
 			};
 
@@ -916,8 +936,7 @@
 					< 1651200 1267200 >,
 					< 1996800 1478400 >,
 					< 2457600 1593600 >,
-					< 2572800 1689600 >,
-					< 2995200 1804800 >;
+					< 2572800 1708800 >;
 				qcom,sampling-enabled;
 			};
 
@@ -932,8 +951,7 @@
 					< 1651200 1267200 >,
 					< 1996800 1478400 >,
 					< 2476800 1593600 >,
-					< 2822400 1689600 >,
-					< 2995200 1804800 >;
+					< 2822400 1708800 >;
 				qcom,sampling-enabled;
 			};
 
@@ -942,7 +960,7 @@
 				qcom,cpulist = <&CPU7>;
 				qcom,cpufreq-memfreq-tbl =
 					< 1996800  307200 >,
-					< 2995200 1689600 >;
+					< 2995200 1708800 >;
 				qcom,sampling-enabled;
 				qcom,compute-mon;
 			};
@@ -1390,6 +1408,41 @@
 	subsystem-sleep-stats@c3f0000 {
 		compatible = "qcom,subsystem-sleep-stats";
 		reg = <0xc3f0000 0x400>;
+	};
+
+	rimps: qcom,rimps@17400000 {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "qcom,rimps";
+		reg =   <0x17400000 0x10>,
+			<0x17d90000 0x2000>;
+		#mbox-cells = <1>;
+		interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	scmi: qcom,scmi {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "arm,scmi";
+		mboxes = <&rimps 0>;
+		mbox-names = "tx";
+		shmem = <&cpu_scp_lpri>;
+
+		scmi_plh: protocol@81 {
+			reg = <0x81>;
+			#clock-cells = <1>;
+		};
+
+		scmi_c1dcvs: protocol@87 {
+			reg = <0x87>;
+			#clock-cells = <1>;
+		};
+	};
+
+	rimps_log: qcom,rimps_log@17d09c00 {
+		compatible = "qcom,rimps-log";
+		reg = <0x17d09c00 0x200>, <0x17d09e00 0x200>;
+		mboxes = <&rimps 1>;
 	};
 
 	ipcc_mproc: qcom,ipcc@ed18000 {
@@ -2119,14 +2172,6 @@
 			0x17840058 0x17850058 0x17860058 0x17870058>;
 		qcom,config-arr = <0x17800060 0x17810060 0x17820060 0x17830060
 			0x17840060 0x17850060 0x17860060 0x17870060>;
-	};
-
-	ramoops_mem: ramoops_region {
-		compatible = "ramoops";
-		alloc-ranges = <0x0 0x00000000 0xffffffff 0xffffffff>;
-		size = <0x0 0x200000>;
-		pmsg-size = <0x200000>;
-		mem-type = <2>;
 	};
 
 	dload_mode {
@@ -3026,6 +3071,7 @@
 #include "cape-pcie.dtsi"
 #include "msm-rdbg.dtsi"
 #include "waipio-eva.dtsi"
+#include "ipcc-test.dtsi"
 
 &qupv3_se7_2uart {
 	status = "ok";

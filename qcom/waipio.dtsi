@@ -41,7 +41,7 @@
 	aliases: aliases {
 		serial0 = &qupv3_se7_2uart;
 		hsuart0 = &qupv3_se20_4uart;
-		sdhc2 = &sdhc_2;
+		mmc1 = &sdhc_2; /* SDC2 SD card slot */
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 		pci-domain1 = &pcie1; /* PCIe1 domain */

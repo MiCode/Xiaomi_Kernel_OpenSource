@@ -46,7 +46,7 @@
 		serial0 = &qupv3_se5_2uart;
 		hsuart0 = &qupv3_se7_4uart;
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
-		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+		mmc1 = &sdhc_2; /* SDC2 SD card slot */
 	 };
 
 	sram: sram@17D09400 {
@@ -410,7 +410,7 @@
 		compatible = "shared-dma-pool";
 		reusable;
 		alloc-ranges = <0x1 0x00000000 0xfffffffe 0xffffffff>;
-		size = <0x0 0x2800000>;
+		size = <0x0 0x1400000>;
 		alignment = <0x0 0x400000>;
 	};
 
@@ -3125,6 +3125,8 @@
 		qcom,testbus-collection-on-crash;
 		qcom,non-tn-collection-on-crash;
 		qcom,tx-wrapper-cache-max-size = <400>;
+		qcom,ipa-gen-rx-cmn-page-pool-sz-factor = <3>;
+		qcom,ipa-gen-rx-cmn-temp-pool-sz-factor = <1>;
 		qcom,ipa-gpi-event-rp-ddr;
 		qcom,ulso-supported;
 		qcom,ulso-ip-id-min-linux-val = <0>;

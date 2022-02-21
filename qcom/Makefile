@@ -356,6 +356,13 @@ dtb-$(CONFIG_ARCH_SM8150)       += sm8150-cdp.dtb \
 endif
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dtbo-$(CONFIG_ARCH_ANORAK) += anorak-rumi-overlay.dtbo
+anorak-rumi-overlay.dtbo-base := anorak.dtb
+else
+dtb-$(CONFIG_ARCH_ANORAK) += anorak-rumi.dtb
+endif
+
 ifeq ($(CONFIG_ARCH_LAHAINA), y)
 ifeq ($(CONFIG_ARCH_QTI_VM), y)
 dtb-$(CONFIG_ARCH_QTI_VM) += lahaina-vm-mtp.dtb \
@@ -404,6 +411,13 @@ dtb-$(CONFIG_ARCH_QTI_VM) +=  \
 	diwali-vm-atp.dtb \
 	diwali-vm-idp.dtb \
 	diwali-vm-qrd.dtb
+endif
+endif
+
+ifeq ($(CONFIG_ARCH_PARROT), y)
+ifeq ($(CONFIG_ARCH_QTI_VM), y)
+dtb-$(CONFIG_ARCH_QTI_VM) +=  \
+	parrot-vm-rumi.dtb
 endif
 endif
 

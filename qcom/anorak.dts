@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "anorak.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Anorak SoC";
+	compatible = "qcom,anorak";
+	qcom,board-id = <0 0>;
+};
