@@ -54,6 +54,20 @@
 		tlmm-vm-gpio-list = <>;
 	};
 
+	apps-smmu@15000000 {
+		qcom,actlr =
+			/* Display and camera clients, +0 PF */
+			<0x800 0x3ff 0x1>,
+			<0xc00 0x3ff 0x1>,
+			<0x2000 0xE0 0x1>,
+			<0x2100 0x60 0x1>,
+			/* For video clients, +3 PF */
+			<0x2180 0x27 0x103>,
+			/* NSP clients, +15PF */
+			<0x1000 0x3ff 0x303>,
+			<0x1400 0x3ff 0x303>;
+	};
+
 	/delete-node/ qup_common_iommu_group;
 	/delete-node/ qcom,qupv3_0_geni_se@9c0000;
 	/delete-node/ qcom,gpi-dma@900000;
