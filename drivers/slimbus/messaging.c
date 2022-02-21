@@ -6,6 +6,7 @@
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include "slimbus.h"
+#include <linux/io.h>
 
 /**
  * slim_msg_response() - Deliver Message response received from a device to the
@@ -42,7 +43,7 @@ void slim_msg_response(struct slim_controller *ctrl, u8 *reply, u8 tid, u8 len)
 	}
 
 	slim_free_txn_tid(ctrl, txn);
-	memcpy(msg->rbuf, reply, len);
+	memcpy_fromio(msg->rbuf, reply, len);
 	if (txn->comp)
 		complete(txn->comp);
 
