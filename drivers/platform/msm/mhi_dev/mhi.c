@@ -1868,15 +1868,15 @@ static void mhi_dev_process_reset_cmd(struct mhi_dev *mhi, int ch_id)
 	mhi_log(MHI_MSG_VERBOSE, "Processing reset cmd for ch%d\n", ch_id);
 	/*
 	 * Ensure that the completions that are present in the flush list are
-	 * removed from the list and discarded before stopping the channel.
-	 * Otherwise, those stale events may get flushed along with a valid
-	 * event in the next flush operation.
+	 * removed from the list and added to event req list before channel
+	 * reset. Otherwise, those stale events may get flushed along with a
+	 * valid event in the next flush operation.
 	 */
 	spin_lock_irqsave(&mhi_ctx->lock, flags);
 	if (!list_empty(&ch->flush_event_req_buffers)) {
 		list_for_each_entry_safe(itr, tmp, &ch->flush_event_req_buffers, list) {
 			list_del(&itr->list);
-			kfree(itr);
+			list_add_tail(&itr->list, &ch->event_req_buffers);
 		}
 	}
 	spin_unlock_irqrestore(&mhi_ctx->lock, flags);
