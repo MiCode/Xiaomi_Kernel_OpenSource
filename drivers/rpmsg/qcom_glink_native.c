@@ -2063,7 +2063,7 @@ static void qcom_glink_set_affinity(struct qcom_glink *glink, u32 *arr,
 		dev_err(glink->dev, "failed to set task affinity\n");
 }
 
-static void qcom_glink_notif_reset(void *data)
+void qcom_glink_early_ssr_notify(void *data)
 {
 	struct qcom_glink *glink = data;
 	struct glink_channel *channel;
@@ -2084,6 +2084,7 @@ static void qcom_glink_notif_reset(void *data)
 	}
 	spin_unlock_irqrestore(&glink->idr_lock, flags);
 }
+EXPORT_SYMBOL(qcom_glink_early_ssr_notify);
 
 static void qcom_glink_cancel_rx_work(struct qcom_glink *glink)
 {
@@ -2284,7 +2285,7 @@ void qcom_glink_native_remove(struct qcom_glink *glink)
 	int cid;
 	int ret;
 
-	qcom_glink_notif_reset(glink);
+	qcom_glink_early_ssr_notify(glink);
 	disable_irq(glink->irq);
 	qcom_glink_cancel_rx_work(glink);
 
