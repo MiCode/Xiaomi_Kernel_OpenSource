@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -95,6 +96,8 @@ if (dev) \
 #define CREATE_TRACE_POINTS
 #include "i2c-qup-trace.h"
 
+#define I2C_HUB_DEF	0
+
 /* FTRACE Logging */
 void i2c_trace_log(struct device *dev, const char *fmt, ...)
 {
@@ -134,6 +137,7 @@ struct geni_i2c_dev {
 	struct geni_se i2c_rsc;
 	struct clk *m_ahb_clk;
 	struct clk *s_ahb_clk;
+	struct clk *core_clk;
 	int cur_wr;
 	int cur_rd;
 	struct device *wrapper_dev;
@@ -364,6 +368,8 @@ static int geni_i2c_prepare(struct geni_i2c_dev *gi2c)
 			if (!gi2c->is_le_vm) {
 				geni_se_resources_off(&gi2c->i2c_rsc);
 				geni_icc_disable(&gi2c->i2c_rsc);
+				if (gi2c->is_i2c_hub)
+					clk_disable_unprepare(gi2c->core_clk);
 			}
 			return -ENXIO;
 		}
@@ -1289,6 +1295,7 @@ static const struct i2c_algorithm geni_i2c_algo = {
 	.functionality	= geni_i2c_func,
 };
 
+#if I2C_HUB_DEF
 static int get_geni_se_i2c_hub(struct geni_i2c_dev *gi2c)
 {
 	int ret = 0;
@@ -1309,6 +1316,7 @@ static int get_geni_se_i2c_hub(struct geni_i2c_dev *gi2c)
 	geni_se_common_clks_off(gi2c->i2c_rsc.clk, gi2c->m_ahb_clk, gi2c->s_ahb_clk);
 	return ret;
 }
+#endif
 
 static int geni_i2c_probe(struct platform_device *pdev)
 {
@@ -1388,16 +1396,19 @@ static int geni_i2c_probe(struct platform_device *pdev)
 			return ret;
 		}
 
-		ret = get_geni_se_i2c_hub(gi2c);
-		if (ret) {
-			dev_err(&pdev->dev, "failing at get_geni_se_i2c_hub %d\n", ret);
-			return ret;
-		}
-
+		gi2c->is_i2c_hub = of_property_read_bool(pdev->dev.of_node,
+					"qcom,i2c-hub");
 		/*
-		 * For I2C_HUB, qup-ddr voting not required.
+		 * For I2C_HUB, qup-ddr voting not required and
+		 * core clk should be voted explicitly.
 		 */
 		if (gi2c->is_i2c_hub) {
+			gi2c->core_clk = devm_clk_get(dev->parent, "core-clk");
+			if (IS_ERR(gi2c->core_clk)) {
+				ret = PTR_ERR(gi2c->core_clk);
+				dev_err(&pdev->dev, "Err getting core-clk %d\n", ret);
+				return ret;
+			}
 			ret = geni_icc_get(&gi2c->i2c_rsc, NULL);
 			if (ret) {
 				dev_err(&pdev->dev, "%s: Error - geni_icc_get ret:%d\n",
@@ -1525,6 +1536,10 @@ static int geni_i2c_runtime_suspend(struct device *dev)
 			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 			"%s failing at geni_icc_disable ret=%d\n", __func__, ret);
 	}
+
+	if (gi2c->is_i2c_hub)
+		clk_disable_unprepare(gi2c->core_clk);
+
 	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev, "%s ret=%d\n", __func__, ret);
 	return 0;
 }
@@ -1548,9 +1563,18 @@ static int geni_i2c_runtime_resume(struct device *dev)
 			"%s failing at geni icc enable ret=%d\n", __func__, ret);
 			return ret;
 		}
+
+		if (gi2c->is_i2c_hub) {
+			ret = clk_prepare_enable(gi2c->core_clk);
+			if (ret) {
+				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+				"%s failing at core clk prepare enable ret=%d\n", __func__, ret);
+				return ret;
+			}
+		}
+
 		/* Do not control clk/gpio/icb for LE-VM */
 		ret = geni_se_resources_on(&gi2c->i2c_rsc);
-
 		if (ret)
 			return ret;
 
