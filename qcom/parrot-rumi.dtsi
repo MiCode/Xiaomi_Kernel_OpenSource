@@ -151,3 +151,7 @@
 		<&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>,
 		<&gcc GCC_GPU_SNOC_DVM_GFX_CLK>;
 };
+
+&tsens0 {
+	status = "disabled";
+};
