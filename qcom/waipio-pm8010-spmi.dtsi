@@ -225,12 +225,6 @@
 		thermal-sensors = <&pm8010i_tz>;
 
 		trips {
-			thermal-engine-config {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-
 			trip0 {
 				temperature = <95000>;
 				hysteresis = <0>;
@@ -258,12 +252,6 @@
 		thermal-sensors = <&pm8010j_tz>;
 
 		trips {
-			thermal-engine-config {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-
 			trip0 {
 				temperature = <95000>;
 				hysteresis = <0>;
