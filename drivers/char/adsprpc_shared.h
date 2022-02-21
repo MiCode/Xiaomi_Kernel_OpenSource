@@ -574,6 +574,12 @@ enum fastrpc_response_flags {
 	POLL_MODE = 5,
 };
 
+enum fastrpc_process_create_state {
+	PROCESS_CREATE_DEFAULT = 0,			/* Process is not created */
+	PROCESS_CREATE_IS_INPROGRESS = 1,	/* Process creation is in progress */
+	PROCESS_CREATE_SUCCESS = 2,			/* Process creation is successful */
+};
+
 struct smq_invoke_rspv2 {
 	uint64_t ctx;		  /* invoke caller context */
 	int retval;		  /* invoke return value */
@@ -1055,7 +1061,7 @@ struct fastrpc_file {
 	/* Threads poll for specified timeout and fall back to glink wait */
 	uint32_t poll_timeout;
 	/* Flag to indicate dynamic process creation status*/
-	bool in_process_create;
+	enum fastrpc_process_create_state dsp_process_state;
 	bool is_unsigned_pd;
 	/* Flag to indicate 32 bit driver*/
 	bool is_compat;
