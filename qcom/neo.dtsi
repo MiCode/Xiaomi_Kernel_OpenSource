@@ -230,6 +230,14 @@
 		linux,cma-default;
 	};
 
+	adsp_mem_heap: adsp_heap_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x800000>;
+	};
+
 };
 
 &soc {
@@ -699,6 +707,12 @@
 						0x2000 3
 						0x4400 2>;
 			};
+
+			qcom,msm_fastrpc_rpmsg {
+					compatible = "qcom,msm-fastrpc-rpmsg";
+					qcom,glink-channels = "fastrpcglink-apps-dsp";
+					qcom,intents = <0x64 64>;
+			};
 		};
 	};
 
@@ -760,6 +774,11 @@
 				qcom,intents = <0x800  5
 						0x2000 3
 						0x4400 2>;
+			};
+			qcom,msm_fastrpc_rpmsg {
+					compatible = "qcom,msm-fastrpc-rpmsg";
+					qcom,glink-channels = "fastrpcglink-apps-dsp";
+					qcom,intents = <0x64 64>;
 			};
 		};
 	};
@@ -1057,6 +1076,188 @@
 	qcom,secure-buffer {
 		compatible = "qcom,secure-buffer";
 		qcom,vmid-cp-camera-preview-ro;
+	};
+
+	qcom,msm-cdsp-loader {
+		compatible = "qcom,cdsp-loader";
+		qcom,proc-img-to-load = "cdsp";
+		qcom,rproc-handle = <&cdsp_pas>;
+	};
+
+	qcom,msm-adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem_heap>;
+		restrict-access;
+	};
+
+	msm_fastrpc: qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-compute";
+		qcom,adsp-remoteheap-vmid = <22 37>;
+		qcom,fastrpc-adsp-audio-pdr;
+		qcom,fastrpc-adsp-sensors-pdr;
+		qcom,rpc-latency-us = <235>;
+		qcom,fastrpc-gids = <2908>;
+		qcom,qos-cores = <0 1 2 3>;
+
+		qcom,msm_fastrpc_compute_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1001 0x0420>,
+					 <&apps_smmu 0x1021 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb2 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1002 0x0420>,
+					 <&apps_smmu 0x1022 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb3 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1003 0x0420>,
+					 <&apps_smmu 0x1023 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb4 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1004 0x0420>,
+					 <&apps_smmu 0x1024 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb5 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1005 0x0420>,
+					 <&apps_smmu 0x1025 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb6 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1006 0x0420>,
+					 <&apps_smmu 0x1026 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb7 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1007 0x0420>,
+					 <&apps_smmu 0x1027 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb8 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x1008 0x0420>,
+					 <&apps_smmu 0x1028 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb9 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			qcom,secure-context-bank;
+			iommus = <&apps_smmu 0x1009 0x0420>,
+					 <&apps_smmu 0x1029 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x60000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			qcom,iommu-vmid = <0xA>;	/* VMID_CP_PIXEL */
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb10 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1803 0x0>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb11 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1804 0x0>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb12 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&apps_smmu 0x1805 0x0>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+			shared-cb = <5>;
+		};
+
+		qcom,msm_fastrpc_compute_cb16 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x102B 0x0420>,
+					 <&apps_smmu 0x100B 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb17 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x102C 0x0420>,
+					 <&apps_smmu 0x100C 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb18 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x102D 0x0420>,
+					 <&apps_smmu 0x100D 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
+
+		qcom,msm_fastrpc_compute_cb19 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "cdsprpc-smd";
+			iommus = <&apps_smmu 0x102E 0x0420>,
+					 <&apps_smmu 0x100E 0x0420>;
+			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
+			qcom,iommu-faults = "stall-disable", "HUPCF";
+			dma-coherent;
+		};
 	};
 
 	qcom,mem-buf-msgq {
