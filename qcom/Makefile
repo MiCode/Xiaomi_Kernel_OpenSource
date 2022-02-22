@@ -165,11 +165,14 @@ dtb-$(CONFIG_ARCH_WAIPIO) += waipio-lte-mtp-pm8008.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
-dtbo-$(CONFIG_ARCH_NEO) += neo-rumi-overlay.dtbo
+dtbo-$(CONFIG_ARCH_NEO) += neo-rumi-overlay.dtbo \
+		neo_la-rumi-overlay.dtbo
 
 neo-rumi-overlay.dtbo-base := neo.dtb
+neo_la-rumi-overlay.dtbo-base := neo_la.dtb
 else
 dtb-$(CONFIG_ARCH_NEO) += neo-rumi.dtb
+dtb-$(CONFIG_ARCH_NEO) += neo_la-rumi.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
