@@ -117,3 +117,7 @@
 	clocks = <&bi_tcxo>, <&bi_tcxo_ao>,
 		<&sleep_clk>, <&gcc GCC_DISP_AHB_CLK>;
 };
+
+&tsens0 {
+	status = "disabled";
+};
