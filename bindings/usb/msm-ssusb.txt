@@ -60,8 +60,9 @@ Optional properties :
 - qcom,core-clk-rate: If present, indicates clock frequency to be set for USB master clock.
 - qcom,core-clk-rate-hs: If present, indicates min core clock frequency required to support
   hs speed.
-- qcom,use-pdc-interrupts: It present, it configures provided PDC IRQ with required
+- qcom,use-pdc-interrupts: If present, it configures provided PDC IRQ with required
   configuration for wakeup functionality.
+- qcom,use-eusb2-phy: If present, it configures provided PDC IRQ according to eUSB2 spec.
 - extcon: phandles to external connector devices. First phandle should point to
 	  external connector, which provide type-C based "USB" cable events, the
 	  second should point to external connector device, which provide type-C

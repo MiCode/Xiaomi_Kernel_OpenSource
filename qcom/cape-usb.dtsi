@@ -31,6 +31,7 @@
 		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
 				"ss_phy_irq", "dm_hs_phy_irq";
 		qcom,use-pdc-interrupts;
+		qcom,use-eusb2-phy;
 
 		qcom,core-clk-rate = <200000000>;
 		qcom,core-clk-rate-disconnected = <133333333>;
