@@ -88,6 +88,7 @@ obj-$(CONFIG_SXR_CAMCC_NEO) += camcc-neo.o
 obj-$(CONFIG_SM_DEBUGCC_DIWALI) += debugcc-diwali.o
 obj-$(CONFIG_SM_DEBUGCC_HOLI) += debugcc-holi.o
 obj-$(CONFIG_SM_DEBUGCC_SHIMA) += debugcc-shima.o
+obj-$(CONFIG_SXR_DEBUGCC_NEO) += debugcc-neo.o
 obj-$(CONFIG_SM_DISPCC_DIWALI) += dispcc-diwali.o
 obj-$(CONFIG_SM_DISPCC_HOLI) += dispcc-holi.o
 obj-$(CONFIG_SM_DISPCC_SHIMA) += dispcc-shima.o
