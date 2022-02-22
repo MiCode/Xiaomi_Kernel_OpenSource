@@ -1677,6 +1677,9 @@
 			dma-coherent;
 		};
 	};
+
+	thermal_zones: thermal-zones {
+	};
 };
 
 #include "diwali-gdsc.dtsi"
@@ -1779,3 +1782,5 @@
 &qupv3_se3_2uart {
 	status = "ok";
 };
+
+#include "parrot-thermal.dtsi"
