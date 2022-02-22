@@ -25,6 +25,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_readahead_gfp_mask,
 DECLARE_HOOK(android_vh_oom_check_panic,
 	TP_PROTO(struct oom_control *oc, int *ret),
 	TP_ARGS(oc, ret));
+DECLARE_HOOK(android_vh_drain_all_pages_bypass,
+	TP_PROTO(gfp_t gfp_mask, unsigned int order, unsigned long alloc_flags,
+		int migratetype, unsigned long did_some_progress,
+		bool *bypass),
+	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, did_some_progress, bypass));
 
 #endif /* _TRACE_HOOK_MM_H */
 
