@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -595,6 +596,18 @@ static const struct clk_rpmh_desc clk_rpmh_diwali = {
 	.num_clks = ARRAY_SIZE(diwali_rpmh_clocks),
 };
 
+DEFINE_CLK_RPMH_ARC(neo, bi_tcxo, bi_tcxo_ao, "xo.lvl", 0x3, 1);
+
+static struct clk_hw *neo_rpmh_clocks[] = {
+	[RPMH_CXO_CLK]          = &neo_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]        = &neo_bi_tcxo_ao.hw,
+};
+
+static const struct clk_rpmh_desc clk_rpmh_neo = {
+	.clks = neo_rpmh_clocks,
+	.num_clks = ARRAY_SIZE(neo_rpmh_clocks),
+};
+
 DEFINE_CLK_RPMH_ARC(sdxlemur, bi_tcxo, bi_tcxo_ao, "xo.lvl", 0x3, 4);
 DEFINE_CLK_RPMH_VRM(sdxlemur, ln_bb_clk1, ln_bb_clk1_ao, "lnbclka1", 4);
 DEFINE_CLK_RPMH_BCM(sdxlemur, qpic_clk, "QP0");
@@ -723,6 +736,7 @@ static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,waipio-rpmh-clk", .data = &clk_rpmh_waipio},
 	{ .compatible = "qcom,sdxlemur-rpmh-clk", .data = &clk_rpmh_sdxlemur},
 	{ .compatible = "qcom,diwali-rpmh-clk", .data = &clk_rpmh_diwali},
+	{ .compatible = "qcom,neo-rpmh-clk", .data = &clk_rpmh_neo},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);
