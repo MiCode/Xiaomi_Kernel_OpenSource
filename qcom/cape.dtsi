@@ -1618,8 +1618,9 @@
 
 		qcom,qmp = <&aoss_qmp>;
 
-		interconnects = <&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
-		interconnect-names = "crypto_ddr";
+		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>,
+				<&aggre2_noc MASTER_CRYPTO &mc_virt SLAVE_EBI1>;
+		interconnect-names = "rproc_ddr","crypto_ddr";
 
 		memory-region = <&mpss_mem>;
 
