@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -108,11 +109,13 @@
 #define PINCTRL_SLEEP   "sleep"
 
 #define SPI_LOG_DBG(log_ctx, print, dev, x...) do { \
+GENI_SE_DBG(log_ctx, print, dev, x); \
 if (dev) \
 	spi_trace_log(dev, x); \
 } while (0)
 
 #define SPI_LOG_ERR(log_ctx, print, dev, x...) do { \
+GENI_SE_ERR(log_ctx, print, dev, x); \
 if (dev) \
 	spi_trace_log(dev, x); \
 } while (0)
