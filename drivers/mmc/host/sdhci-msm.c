@@ -174,6 +174,10 @@
  */
 #define LEVEL_SHIFTER_HIGH_SPEED_FREQ	37000000
 
+#define VS_CAPABILITIES_SDR_50_SUPPORT BIT(0)
+#define VS_CAPABILITIES_SDR_104_SUPPORT BIT(1)
+#define VS_CAPABILITIES_DDR_50_SUPPORT BIT(2)
+
 #define msm_host_readl(msm_host, host, offset) \
 	msm_host->var_ops->msm_readl_relaxed(host, offset)
 
@@ -209,6 +213,7 @@ struct sdhci_msm_offset {
 	u32 core_vendor_spec_adma_err_addr1;
 	u32 core_vendor_spec_func2;
 	u32 core_vendor_spec_capabilities0;
+	u32 core_vendor_spec_capabilities1;
 	u32 core_ddr_200_cfg;
 	u32 core_vendor_spec3;
 	u32 core_dll_config_2;
@@ -240,6 +245,7 @@ static const struct sdhci_msm_offset sdhci_msm_v5_offset = {
 	.core_vendor_spec_adma_err_addr1 = 0x218,
 	.core_vendor_spec_func2 = 0x210,
 	.core_vendor_spec_capabilities0 = 0x21c,
+	.core_vendor_spec_capabilities1 = 0x220,
 	.core_ddr_200_cfg = 0x224,
 	.core_vendor_spec3 = 0x250,
 	.core_dll_config_2 = 0x254,
@@ -4517,6 +4523,23 @@ static void sdhci_msm_set_caps(struct sdhci_msm_host *msm_host)
 	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM | MMC_CAP_SYNC_RUNTIME_PM;
 	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
 }
+/* RUMI W/A for SD card */
+static void sdhci_msm_set_rumi_bus_mode(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+	const struct sdhci_msm_offset *msm_offset = msm_host->offset;
+	u32 config = readl_relaxed(host->ioaddr +
+			msm_offset->core_vendor_spec_capabilities1);
+
+	if (!(host->mmc->caps & MMC_CAP_NONREMOVABLE)) {
+		config &= ~(VS_CAPABILITIES_SDR_104_SUPPORT |
+				VS_CAPABILITIES_DDR_50_SUPPORT |
+				VS_CAPABILITIES_SDR_50_SUPPORT);
+		writel_relaxed(config, host->ioaddr +
+				msm_offset->core_vendor_spec_capabilities1);
+	}
+}
 
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
@@ -4729,6 +4752,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		msm_host_writel(msm_host, config, host,
 				msm_offset->core_hc_mode);
 	}
+
+	if (of_property_read_bool(node, "is_rumi"))
+		sdhci_msm_set_rumi_bus_mode(host);
 
 	host_version = readw_relaxed((host->ioaddr + SDHCI_HOST_VERSION));
 	dev_dbg(&pdev->dev, "Host Version: 0x%x Vendor Version 0x%x\n",
