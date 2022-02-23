@@ -2249,7 +2249,7 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 	if (error)
 		goto err;
 
-	mi->mi_backing_dir_path = backing_dir_path;
+	path_put(&backing_dir_path);
 	sb->s_flags |= SB_ACTIVE;
 
 	pr_debug("incfs: mount\n");
@@ -2286,9 +2286,8 @@ void incfs_kill_sb(struct super_block *sb)
 	struct mount_info *mi = sb->s_fs_info;
 
 	pr_debug("incfs: unmount\n");
-	vfs_rmdir(d_inode(mi->mi_backing_dir_path.dentry), mi->mi_index_dir);
-	kill_anon_super(sb);
 	incfs_free_mount_info(mi);
+	generic_shutdown_super(sb);
 	sb->s_fs_info = NULL;
 }
 
