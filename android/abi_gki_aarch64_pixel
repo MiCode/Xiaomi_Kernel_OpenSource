@@ -1966,6 +1966,7 @@
   vb2_common_vm_ops
   vb2_create_framevec
   vb2_destroy_framevec
+  vb2_dma_sg_memops
   vb2_dqbuf
   vb2_fop_mmap
   vb2_fop_poll
