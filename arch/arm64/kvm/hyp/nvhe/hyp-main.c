@@ -979,6 +979,15 @@ static void handle___pkvm_teardown_shadow(struct kvm_cpu_context *host_ctxt)
 	cpu_reg(host_ctxt, 1) = __pkvm_teardown_shadow(shadow_handle);
 }
 
+static void handle___pkvm_iommu_driver_init(struct kvm_cpu_context *host_ctxt)
+{
+	DECLARE_REG(enum pkvm_iommu_driver_id, id, host_ctxt, 1);
+	DECLARE_REG(void *, data, host_ctxt, 2);
+	DECLARE_REG(size_t, size, host_ctxt, 3);
+
+	cpu_reg(host_ctxt, 1) = __pkvm_iommu_driver_init(id, data, size);
+}
+
 typedef void (*hcall_t)(struct kvm_cpu_context *);
 
 #define HANDLE_FUNC(x)	[__KVM_HOST_SMCCC_FUNC_##x] = (hcall_t)handle_##x
@@ -1012,6 +1021,7 @@ static const hcall_t host_hcall[] = {
 	HANDLE_FUNC(__pkvm_vcpu_load),
 	HANDLE_FUNC(__pkvm_vcpu_put),
 	HANDLE_FUNC(__pkvm_vcpu_sync_state),
+	HANDLE_FUNC(__pkvm_iommu_driver_init),
 };
 
 static void handle_host_hcall(struct kvm_cpu_context *host_ctxt)
