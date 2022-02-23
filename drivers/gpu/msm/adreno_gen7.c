@@ -179,11 +179,19 @@ int gen7_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 	if (i < GMU_CORE_SHORT_WAKEUP_RETRY_LIMIT)
 		return 0;
 
-	ts2 = gen7_read_alwayson(adreno_dev);
-	dev_err(adreno_dev->dev.dev,
-		"Timed out waiting %d usecs to write fenced register 0x%x, timestamps: %llx %llx\n",
-		i * GMU_CORE_WAKEUP_DELAY_US, offset, ts1, ts2);
-	return -ETIMEDOUT;
+	if (i == GMU_CORE_LONG_WAKEUP_RETRY_LIMIT) {
+		ts2 = gen7_read_alwayson(adreno_dev);
+		dev_err(device->dev,
+				"Timed out waiting %d usecs to write fenced register 0x%x, timestamps: %llx %llx\n",
+				i * GMU_CORE_WAKEUP_DELAY_US, offset, ts1, ts2);
+		return -ETIMEDOUT;
+	}
+
+	dev_info(device->dev,
+		"Waited %d usecs to write fenced register 0x%x\n",
+		i * GMU_CORE_WAKEUP_DELAY_US, offset);
+
+	return 0;
 }
 
 int gen7_init(struct adreno_device *adreno_dev)
