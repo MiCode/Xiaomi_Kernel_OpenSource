@@ -1314,6 +1314,8 @@ static void msm_pcie_check_l1ss_support_all(struct msm_pcie_dev_t *dev);
 
 static void msm_pcie_config_aspm(struct msm_pcie_dev_t *dev);
 
+static struct pci_dev *find_pci_dev_from_bdf(u16 bdf, int domain);
+
 static u32 msm_pcie_reg_copy(struct msm_pcie_dev_t *pcie_dev,
 		u8 *buf, u32 size, void __iomem *base,
 		struct msm_pcie_reg_dump_t *reg_list,
@@ -2185,11 +2187,95 @@ static ssize_t l23_rdy_poll_timeout_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(l23_rdy_poll_timeout);
 
+static ssize_t config_dword_read_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE,
+			 "usage: echo bdf(hex) offset(hex) > config_dword_read\n");
+}
+
+static ssize_t config_dword_read_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int input[2] = {0}, val, argc;
+	struct pci_dev *pci_ep_dev;
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);
+
+	/* input [0]: bdf input[1]: offset to ep config space */
+	argc = sscanf(buf, "%x %x", &input[0], &input[1]);
+	if (argc != 2 || !input[0] || input[0] >= U16_MAX ||
+	    input[1] > SZ_4K) {
+		pr_err("for usage: cat config_dword_read\n");
+		return -EINVAL;
+	}
+
+	pci_ep_dev = find_pci_dev_from_bdf(input[0],
+					   pci_domain_nr(pcie_dev->dev->bus));
+	if (!pci_ep_dev) {
+		pr_err("PCIe: RC%d: pci dev for bdf 0x%04x not found\n",
+		       pcie_dev->rc_idx, input[0]);
+		return -ENODEV;
+	}
+
+	pci_read_config_dword(pci_ep_dev, input[1], &val);
+
+	pr_info("PCIe: RC%d: bdf 0x%04x: offset: 0x%04x val: 0x%08x\n",
+		pcie_dev->rc_idx, input[0], input[1], val);
+
+	return count;
+}
+static DEVICE_ATTR_RW(config_dword_read);
+
+static ssize_t config_dword_write_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE,
+			 "usage: echo bdf(hex) offset(hex) val(hex) > config_dword_write\n");
+}
+
+static ssize_t config_dword_write_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int input[3] = {0}, argc;
+	struct pci_dev *pci_ep_dev;
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);
+
+	/* input[0]: bdf input[1]: offset to ep config space input[2]: val */
+	argc = sscanf(buf, "%x %x %x", &input[0], &input[1], &input[2]);
+	if (argc != 3 || !input[0] || input[0] >= U16_MAX ||
+	    input[1] > SZ_4K) {
+		pr_err("for usage: cat config_dword_write\n");
+		return -EINVAL;
+	}
+
+	pci_ep_dev = find_pci_dev_from_bdf(input[0],
+					   pci_domain_nr(pcie_dev->dev->bus));
+	if (!pci_ep_dev) {
+		pr_err("PCIe: RC%d: pci dev for bdf 0x%04x not found\n",
+		       pcie_dev->rc_idx, input[0]);
+		return -ENODEV;
+	}
+
+	pr_info("PCIe: RC%d: bdf 0x%04x: offset: 0x%04x val: 0x%08x\n",
+		pcie_dev->rc_idx, input[0], input[1], input[2]);
+
+	pci_write_config_dword(pci_ep_dev, input[1], input[2]);
+
+	return count;
+}
+static DEVICE_ATTR_RW(config_dword_write);
+
 static struct attribute *msm_pcie_debug_attrs[] = {
 	&dev_attr_link_check_max_count.attr,
 	&dev_attr_enumerate.attr,
 	&dev_attr_aspm_stat.attr,
 	&dev_attr_l23_rdy_poll_timeout.attr,
+	&dev_attr_config_dword_read.attr,
+	&dev_attr_config_dword_write.attr,
 	NULL,
 };
 
