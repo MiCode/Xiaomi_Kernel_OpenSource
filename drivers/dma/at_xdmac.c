@@ -1726,11 +1726,13 @@ static irqreturn_t at_xdmac_interrupt(int irq, void *dev_id)
 static void at_xdmac_issue_pending(struct dma_chan *chan)
 {
 	struct at_xdmac_chan *atchan = to_at_xdmac_chan(chan);
+	unsigned long flags;
 
 	dev_dbg(chan2dev(&atchan->chan), "%s\n", __func__);
 
-	if (!at_xdmac_chan_is_cyclic(atchan))
-		at_xdmac_advance_work(atchan);
+	spin_lock_irqsave(&atchan->lock, flags);
+	at_xdmac_advance_work(atchan);
+	spin_unlock_irqrestore(&atchan->lock, flags);
 
 	return;
 }
