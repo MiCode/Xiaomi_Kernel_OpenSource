@@ -56,6 +56,8 @@ SECTIONS
 {
 	. = KERNEL_BINARY_TEXT_START;
 
+	_stext = .;	/* start of kernel text, includes init code & data */
+
 	__init_begin = .;
 	HEAD_TEXT_SECTION
 	MLONGCALL_DISCARD(INIT_TEXT_SECTION(8))
@@ -79,7 +81,6 @@ SECTIONS
 	/* freed after init ends here */
 
 	_text = .;		/* Text and read-only data */
-	_stext = .;
 	MLONGCALL_KEEP(INIT_TEXT_SECTION(8))
 	.text ALIGN(PAGE_SIZE) : {
 		TEXT_TEXT

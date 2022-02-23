@@ -175,6 +175,7 @@ void optee_fill_pages_list(u64 *dst, struct page **pages, int num_pages,
 			   size_t page_offset);
 
 int optee_enumerate_devices(void);
+void optee_unregister_devices(void);
 
 /*
  * Small helpers

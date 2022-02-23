@@ -65,6 +65,13 @@ static int get_devices(struct tee_context *ctx, u32 session,
 	return 0;
 }
 
+static void optee_release_device(struct device *dev)
+{
+	struct tee_client_device *optee_device = to_tee_client_device(dev);
+
+	kfree(optee_device);
+}
+
 static int optee_register_device(const uuid_t *device_uuid, u32 device_id)
 {
 	struct tee_client_device *optee_device = NULL;
@@ -75,6 +82,7 @@ static int optee_register_device(const uuid_t *device_uuid, u32 device_id)
 		return -ENOMEM;
 
 	optee_device->dev.bus = &tee_bus_type;
+	optee_device->dev.release = optee_release_device;
 	dev_set_name(&optee_device->dev, "optee-clnt%u", device_id);
 	uuid_copy(&optee_device->id.uuid, device_uuid);
 
@@ -157,4 +165,18 @@ out_ctx:
 	tee_client_close_context(ctx);
 
 	return rc;
+}
+
+static int __optee_unregister_device(struct device *dev, void *data)
+{
+	if (!strncmp(dev_name(dev), "optee-clnt", strlen("optee-clnt")))
+		device_unregister(dev);
+
+	return 0;
+}
+
+void optee_unregister_devices(void)
+{
+	bus_for_each_dev(&tee_bus_type, NULL, NULL,
+			 __optee_unregister_device);
 }

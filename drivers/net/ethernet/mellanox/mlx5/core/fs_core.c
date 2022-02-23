@@ -1606,9 +1606,9 @@ static int build_match_list(struct match_list_head *match_head,
 
 		curr_match = kmalloc(sizeof(*curr_match), GFP_ATOMIC);
 		if (!curr_match) {
+			rcu_read_unlock();
 			free_match_list(match_head, ft_locked);
-			err = -ENOMEM;
-			goto out;
+			return -ENOMEM;
 		}
 		if (!tree_get_node(&g->node)) {
 			kfree(curr_match);
@@ -1617,7 +1617,6 @@ static int build_match_list(struct match_list_head *match_head,
 		curr_match->g = g;
 		list_add_tail(&curr_match->list, &match_head->list);
 	}
-out:
 	rcu_read_unlock();
 	return err;
 }

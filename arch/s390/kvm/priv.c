@@ -398,6 +398,8 @@ static int handle_sske(struct kvm_vcpu *vcpu)
 		up_read(&current->mm->mmap_sem);
 		if (rc == -EFAULT)
 			return kvm_s390_inject_program_int(vcpu, PGM_ADDRESSING);
+		if (rc == -EAGAIN)
+			continue;
 		if (rc < 0)
 			return rc;
 		start += PAGE_SIZE;

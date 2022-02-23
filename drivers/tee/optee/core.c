@@ -582,6 +582,9 @@ static struct optee *optee_probe(struct device_node *np)
 	if (sec_caps & OPTEE_SMC_SEC_CAP_DYNAMIC_SHM)
 		pool = optee_config_dyn_shm();
 
+	/* Unregister OP-TEE specific client devices on TEE bus */
+	optee_unregister_devices();
+
 	/*
 	 * If dynamic shared memory is not available or failed - try static one
 	 */
