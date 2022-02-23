@@ -257,14 +257,14 @@ static struct kvm_shadow_vm *find_shadow_by_handle(int shadow_handle)
 	return shadow_table[shadow_index];
 }
 
-struct kvm_vcpu *get_shadow_vcpu(int shadow_handle, int vcpu_idx)
+struct kvm_vcpu *get_shadow_vcpu(int shadow_handle, unsigned int vcpu_idx)
 {
 	struct kvm_vcpu *vcpu = NULL;
 	struct kvm_shadow_vm *vm;
 
 	hyp_spin_lock(&shadow_lock);
 	vm = find_shadow_by_handle(shadow_handle);
-	if (!vm || vcpu_idx < 0 || vm->created_vcpus <= vcpu_idx)
+	if (!vm || vm->created_vcpus <= vcpu_idx)
 		goto unlock;
 	vcpu = &vm->shadow_vcpus[vcpu_idx].vcpu;
 
