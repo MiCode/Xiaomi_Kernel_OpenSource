@@ -47,8 +47,6 @@ static DEFINE_PER_CPU(struct pkvm_loaded_state, loaded_state);
 
 DEFINE_PER_CPU(struct kvm_nvhe_init_params, kvm_init_params);
 
-struct kvm_iommu_ops kvm_iommu_ops;
-
 void __kvm_hyp_host_forward_smc(struct kvm_cpu_context *host_ctxt);
 
 typedef void (*shadow_entry_exit_handler_fn)(struct kvm_vcpu *, struct kvm_vcpu *);
@@ -908,7 +906,6 @@ static void handle___pkvm_init(struct kvm_cpu_context *host_ctxt)
 	DECLARE_REG(unsigned long, nr_cpus, host_ctxt, 3);
 	DECLARE_REG(unsigned long *, per_cpu_base, host_ctxt, 4);
 	DECLARE_REG(u32, hyp_va_bits, host_ctxt, 5);
-	DECLARE_REG(enum kvm_iommu_driver, iommu_driver, host_ctxt, 6);
 
 	/*
 	 * __pkvm_init() will return only if an error occurred, otherwise it
@@ -916,7 +913,7 @@ static void handle___pkvm_init(struct kvm_cpu_context *host_ctxt)
 	 * with the host context directly.
 	 */
 	cpu_reg(host_ctxt, 1) = __pkvm_init(phys, size, nr_cpus, per_cpu_base,
-					    hyp_va_bits, iommu_driver);
+					    hyp_va_bits);
 }
 
 static void handle___pkvm_cpu_set_vector(struct kvm_cpu_context *host_ctxt)
@@ -1092,8 +1089,6 @@ static void handle_host_smc(struct kvm_cpu_context *host_ctxt)
 	bool handled;
 
 	handled = kvm_host_psci_handler(host_ctxt);
-	if (!handled && kvm_iommu_ops.host_smc_handler)
-		handled = kvm_iommu_ops.host_smc_handler(host_ctxt);
 	if (!handled)
 		handled = kvm_host_ffa_handler(host_ctxt);
 	if (!handled)
