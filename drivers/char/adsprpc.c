@@ -4899,19 +4899,29 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 				goto bail;
 			memset(&ramdump_segments_rh, 0, sizeof(ramdump_segments_rh));
 			ramdump_segments_rh.da = match->phys;
-			ramdump_segments_rh.va = (void *)match->va;
+			ramdump_segments_rh.va = (void *)page_address((struct page *)match->va);
 			ramdump_segments_rh.size = match->size;
-			if (me->dev && dump_enabled())
+			if (me->dev && dump_enabled()) {
 				ret = fastrpc_ramdump(me->dev, &ramdump_segments_rh, true);
-			if (ret < 0)
-				pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
-							__func__, ret);
+				if (ret < 0)
+					pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
+								__func__, ret);
+			}
+			if (!locked)
+				mutex_lock(&fl->map_mutex);
 			fastrpc_mmap_free(match, 0);
+			if (!locked)
+				mutex_unlock(&fl->map_mutex);
 		}
 	} while (match);
 bail:
-	if (err && match)
+	if (err && match) {
+		if (!locked)
+			mutex_lock(&fl->map_mutex);
 		fastrpc_mmap_add(match);
+		if (!locked)
+			mutex_unlock(&fl->map_mutex);
+	}
 	return err;
 }
 
