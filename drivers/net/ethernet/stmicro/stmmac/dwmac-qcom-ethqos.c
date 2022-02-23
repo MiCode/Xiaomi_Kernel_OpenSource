@@ -112,6 +112,7 @@
 #define MICREL_LINK_UP_INTR_STATUS BIT(0)
 
 struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
+struct plat_stmmacenet_data *plat_dat;
 
 inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
 {
@@ -663,7 +664,8 @@ static void emac_emb_smmu_exit(void)
 	emac_emb_smmu_ctx.iommu_domain = NULL;
 }
 
-static int emac_emb_smmu_cb_probe(struct platform_device *pdev)
+static int emac_emb_smmu_cb_probe(struct platform_device *pdev,
+				  struct plat_stmmacenet_data *plat_dat)
 {
 	int result = 0;
 	u32 iova_ap_mapping[2];
@@ -694,6 +696,7 @@ static int emac_emb_smmu_cb_probe(struct platform_device *pdev)
 		iommu_get_domain_for_dev(&emac_emb_smmu_ctx.smmu_pdev->dev);
 
 	ETHQOSINFO("Successfully attached to IOMMU\n");
+	plat_dat->stmmac_emb_smmu_ctx = emac_emb_smmu_ctx;
 	if (emac_emb_smmu_ctx.pdev_master)
 		goto smmu_probe_done;
 
@@ -705,7 +708,6 @@ smmu_probe_done:
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	struct plat_stmmacenet_data *plat_dat = NULL;
 	struct stmmac_resources stmmac_res;
 	struct qcom_ethqos *ethqos = NULL;
 
@@ -713,12 +715,11 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	if (of_device_is_compatible(pdev->dev.of_node,
 				    "qcom,emac-smmu-embedded"))
-		return emac_emb_smmu_cb_probe(pdev);
+		return emac_emb_smmu_cb_probe(pdev, plat_dat);
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
 		return ret;
 
-	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
 	ethqos = devm_kzalloc(&pdev->dev, sizeof(*ethqos), GFP_KERNEL);
 	if (!ethqos) {
 		ret = -ENOMEM;
@@ -730,11 +731,13 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	ethqos_init_gpio(ethqos);
 
+	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
 	if (IS_ERR(plat_dat)) {
 		dev_err(&pdev->dev, "dt configuration failed\n");
 		return PTR_ERR(plat_dat);
 	}
 
+	ethqos->rgmii_base = devm_platform_ioremap_resource_byname(pdev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_base)) {
 		ret = PTR_ERR(ethqos->rgmii_base);
 		goto err_mem;
@@ -759,6 +762,13 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->bsp_priv = ethqos;
 	plat_dat->fix_mac_speed = ethqos_fix_mac_speed;
 	plat_dat->has_gmac4 = 1;
+	/* Set mdio phy addr probe capability to c22 .
+	 * If c22_c45 is set then multiple phy is getting detected.
+	 */
+	if (of_property_read_bool(np, "eth-c22-mdio-probe"))
+		plat_dat->has_c22_mdio_probe_capability = 1;
+	else
+		plat_dat->has_c22_mdio_probe_capability = 0;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
 
@@ -793,7 +803,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	}
 	ETHQOSDBG(": emac_core_version = %d\n", ethqos->emac_ver);
 
-	plat_dat->stmmac_emb_smmu_ctx = emac_emb_smmu_ctx;
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
 		goto err_clk;
@@ -844,7 +853,7 @@ static struct platform_driver qcom_ethqos_driver = {
 	.remove = qcom_ethqos_remove,
 	.driver = {
 		.name           = DRV_NAME,
-		.pm		= &stmmac_pltfr_pm_ops,
+		//.pm		= &stmmac_pltfr_pm_ops,
 		.of_match_table = of_match_ptr(qcom_ethqos_match),
 	},
 };
