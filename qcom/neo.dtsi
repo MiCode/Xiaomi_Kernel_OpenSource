@@ -1279,6 +1279,7 @@
 };
 
 #include "neo-pinctrl.dtsi"
+#include "neo-coresight.dtsi"
 #include "neo-dma-heaps.dtsi"
 #include "diwali-gdsc.dtsi"
 #include "msm-arm-smmu-neo.dtsi"
