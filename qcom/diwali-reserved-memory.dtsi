@@ -116,7 +116,7 @@
 
 	cvp_mem: cvp_region@9ee00000 {
 		no-map;
-		reg = <0x0 0x9ee00000 0x0 0x700000>;
+		reg = <0x0 0x9ee00000 0x0 0x500000>;
 	};
 
 	xbl_sc_mem: xbl_sc_region@a6e00000 {
