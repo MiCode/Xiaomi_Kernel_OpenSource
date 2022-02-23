@@ -55,7 +55,7 @@ static LIST_HEAD(adc_tm_device_list);
 #define ADC5_GEN3_CONV_ERR_CLR_REQ		BIT(0)
 
 #define ADC5_GEN3_SID				0x4f
-#define ADC5_GEN3_SID_MASK			0xf
+#define ADC5_GEN3_SID_MASK			GENMASK(3, 0)
 
 #define ADC5_GEN3_PERPH_CH			0x50
 #define ADC5_GEN3_CHAN_CONV_REQ			BIT(7)
@@ -357,8 +357,7 @@ static int adc5_gen3_configure(struct adc5_chip *adc,
 		return ret;
 
 	/* Write SID */
-	buf[0] &= (u8) ~ADC5_GEN3_SID_MASK;
-	buf[0] &= prop->sid;
+	buf[0] = prop->sid & ADC5_GEN3_SID_MASK;
 
 	/*
 	 * Use channel 0 by default for immediate conversion and
@@ -821,8 +820,7 @@ static int adc_tm5_gen3_configure(struct adc5_channel_prop *prop)
 		return ret;
 
 	/* Write SID */
-	buf[0] &= (u8) ~ADC5_GEN3_SID_MASK;
-	buf[0] &= prop->sid;
+	buf[0] = prop->sid & ADC5_GEN3_SID_MASK;
 
 	/*
 	 * Select TM channel and indicate there is an actual
@@ -1302,13 +1300,13 @@ static int adc_tm_register_tzd(struct adc5_chip *adc)
 		default:
 			pr_err("Invalid ADC_TM type:%d for dt_ch:%d\n",
 					adc->chan_props[i].adc_tm, adc->chan_props[i].channel);
-			continue;
+			return -EINVAL;
 		}
 
 		if (IS_ERR(tzd)) {
 			pr_err("Error registering TZ zone:%ld for dt_ch:%d\n",
 				PTR_ERR(tzd), adc->chan_props[i].channel);
-			continue;
+			return PTR_ERR(tzd);
 		}
 		adc->chan_props[i].tzd = tzd;
 	}
@@ -1702,14 +1700,16 @@ static int adc5_gen3_probe(struct platform_device *pdev)
 		goto fail;
 	}
 
-	adc_tm_register_tzd(adc);
-
 	for (i = 0; i < adc->num_sdams; i++) {
 		ret = devm_request_irq(dev, adc->base[i].irq, adc5_gen3_isr,
 					0, adc->base[i].irq_name, adc);
 		if (ret < 0)
 			goto fail;
 	}
+
+	ret = adc_tm_register_tzd(adc);
+	if (ret < 0)
+		goto fail;
 
 	if (adc->n_tm_channels)
 		INIT_WORK(&adc->tm_handler_work, tm_handler_work);
