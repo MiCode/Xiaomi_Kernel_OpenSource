@@ -4872,7 +4872,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 	struct hlist_node *n = NULL;
 	int err = 0, ret = 0;
 	struct fastrpc_apps *me = &gfa;
-	struct qcom_dump_segment ramdump_segments_rh;
+	struct qcom_dump_segment *ramdump_segments_rh = NULL;
 	struct list_head head;
 	unsigned long irq_flags = 0;
 
@@ -4897,18 +4897,27 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 						match->size, match->flags, locked);
 			if (err)
 				goto bail;
-			memset(&ramdump_segments_rh, 0, sizeof(ramdump_segments_rh));
-			ramdump_segments_rh.da = match->phys;
-			ramdump_segments_rh.va = (void *)match->va;
-			ramdump_segments_rh.size = match->size;
-			if (me->dev && dump_enabled())
-				ret = fastrpc_ramdump(me->dev, &ramdump_segments_rh, true);
-			if (ret < 0)
-				pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
+			if (me->ramdump_handle && me->enable_ramdump) {
+				ramdump_segments_rh = kcalloc(1,
+				sizeof(struct qcom_dump_segment), GFP_KERNEL);
+				if (ramdump_segments_rh) {
+					ramdump_segments_rh->da =
+					match->phys;
+					ramdump_segments_rh->va =
+					(void *)match->va;
+					ramdump_segments_rh->size = match->size;
+					list_add(&ramdump_segments_rh->node, &head);
+					ret = qcom_elf_dump(&head, me->ramdump_handle, ELF_CLASS);
+					if (ret < 0)
+						pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
 							__func__, ret);
+					kfree(ramdump_segments_rh);
+				}
+			}
 			fastrpc_mmap_free(match, 0);
 		}
 	} while (match);
+	me->enable_ramdump = false;
 bail:
 	if (err && match)
 		fastrpc_mmap_add(match);
