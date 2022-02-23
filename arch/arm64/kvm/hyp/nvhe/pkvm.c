@@ -954,7 +954,7 @@ static bool pvm_psci_vcpu_off(struct kvm_vcpu *vcpu)
 static bool pvm_psci_version(struct kvm_vcpu *vcpu)
 {
 	/* Nothing to be handled by the host. Go back to the guest. */
-	smccc_set_retval(vcpu, KVM_ARM_PSCI_1_0, 0, 0, 0);
+	smccc_set_retval(vcpu, KVM_ARM_PSCI_1_1, 0, 0, 0);
 	return true;
 }
 
@@ -982,6 +982,8 @@ static bool pvm_psci_features(struct kvm_vcpu *vcpu)
 	case PSCI_0_2_FN_SYSTEM_OFF:
 	case PSCI_0_2_FN_SYSTEM_RESET:
 	case PSCI_1_0_FN_PSCI_FEATURES:
+	case PSCI_1_1_FN_SYSTEM_RESET2:
+	case PSCI_1_1_FN64_SYSTEM_RESET2:
 	case ARM_SMCCC_VERSION_FUNC_ID:
 		val = PSCI_RET_SUCCESS;
 		break;
@@ -1017,16 +1019,11 @@ static bool pkvm_handle_psci(struct kvm_vcpu *vcpu)
 	case PSCI_1_0_FN_PSCI_FEATURES:
 		return pvm_psci_features(vcpu);
 	case PSCI_0_2_FN_SYSTEM_RESET:
-		/*
-		 * NOTE: Until we add proper support for reset for protected
-		 * VMs, repaint reset requests as system off because some VMMs
-		 * use reset when tearing down a VM.
-		 */
-		vcpu_set_reg(vcpu, 0, PSCI_0_2_FN_SYSTEM_OFF);
-		fallthrough;
 	case PSCI_0_2_FN_CPU_SUSPEND:
 	case PSCI_0_2_FN64_CPU_SUSPEND:
 	case PSCI_0_2_FN_SYSTEM_OFF:
+	case PSCI_1_1_FN_SYSTEM_RESET2:
+	case PSCI_1_1_FN64_SYSTEM_RESET2:
 		return false; /* Handled by the host. */
 	default:
 		break;
