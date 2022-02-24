@@ -20,6 +20,16 @@ enum infra_subsys_id {
 	DEVAPC_SUBSYS_RESERVED,
 };
 
+enum devapc_type {
+	DEVAPC_TYPE_INFRA = 0,
+	DEVAPC_TYPE_INFRA1,
+	DEVAPC_TYPE_PERI_PAR,
+	DEVAPC_TYPE_VLP,
+	DEVAPC_TYPE_ADSP,
+	DEVAPC_TYPE_MMINFRA,
+	DEVAPC_TYPE_MMUP,
+};
+
 enum devapc_cb_status {
 	DEVAPC_OK = 0,
 	DEVAPC_NOT_KE,
@@ -32,19 +42,17 @@ struct devapc_vio_callbacks {
 	enum devapc_cb_status (*debug_dump_adv)(uint32_t vio_addr);
 };
 
+struct devapc_power_callbacks {
+	struct list_head list;
+	enum devapc_type type;
+	bool (*query_power)(void);
+};
+
 uint32_t devapc_vio_check(void);
 void dump_dbg_info(void);
 void register_devapc_vio_callback(struct devapc_vio_callbacks *viocb);
+void register_devapc_power_callback(struct devapc_power_callbacks *powercb);
 void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size);
-void clkchk_devapc_dump(void);
-void cmdq_util_devapc_dump(void);
-int mmup_enable_count(void);
-
-bool is_adsp_feature_in_active(void);
-
-void __attribute__((weak)) register_devapc_vio_callback(struct devapc_vio_callbacks *viocb)
-{
-}
 
 #endif  /* __DEVAPC_PUBLIC_H__ */
 

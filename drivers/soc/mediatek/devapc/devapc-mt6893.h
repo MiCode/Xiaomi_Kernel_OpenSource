@@ -1527,14 +1527,4 @@ enum DEVAPC_VIO_SLAVE_NUM {
 	VIO_SLAVE_NUM_PERI2 = ARRAY_SIZE(mt6893_devices_peri2),
 };
 
-int __attribute__((weak)) mmup_enable_count(void)
-{
-	return 0;
-}
-
-bool __attribute__((weak)) is_adsp_feature_in_active(void)
-{
-	return 0;
-}
-
 #endif /* __DEVAPC_MT6893_H__ */

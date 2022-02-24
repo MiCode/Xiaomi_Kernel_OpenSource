@@ -15,9 +15,6 @@
 #include <linux/uaccess.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/soc/mediatek/devapc_public.h>
-#ifdef CONFIG_MTK_SABORT_HOOK
-#include <trace/hooks/fault.h>
-#endif
 #ifdef CONFIG_MTK_SERROR_HOOK
 #include <trace/hooks/traps.h>
 #endif
@@ -28,6 +25,7 @@ static struct mtk_devapc_context {
 	struct clk *devapc_infra_clk;
 	uint32_t devapc_irq[IRQ_TYPE_NUM_MAX];
 	int current_irq_type;
+	bool serror;
 
 	/* HW reg mapped addr */
 	void __iomem *devapc_pd_base[SLAVE_TYPE_NUM_MAX];
@@ -39,10 +37,11 @@ static struct mtk_devapc_context {
 	struct mutex viocb_list_lock;
 	struct mtk_devapc_pd_reg pd_reg[SLAVE_TYPE_NUM_MAX];
 
-	unsigned long mmup_enabled;
+	unsigned long subsys_enabled[SLAVE_TYPE_NUM_MAX];
 } mtk_devapc_ctx[1];
 
 static LIST_HEAD(viocb_list);
+static LIST_HEAD(powercb_list);
 static DEFINE_SPINLOCK(devapc_lock);
 
 static void devapc_test_cb(void)
@@ -74,6 +73,64 @@ static bool is_matched_devapc_type(int slave_type)
 		ret = true;
 
 	return ret;
+}
+
+static void query_devapc_subsys_status(int slave_type)
+{
+	struct arm_smccc_res res;
+
+	if (slave_type != DEVAPC_TYPE_MMUP &&
+		slave_type != DEVAPC_TYPE_ADSP) {
+		mtk_devapc_ctx->subsys_enabled[slave_type] = 1;
+	}
+
+	if (slave_type == DEVAPC_TYPE_MMUP) {
+		arm_smccc_smc(MTK_SIP_KERNEL_DAPC_MMUP_GET,
+			0, 0, 0, 0, 0, 0, 0, &res);
+		mtk_devapc_ctx->subsys_enabled[slave_type] = res.a0;
+	}
+
+	if (slave_type == DEVAPC_TYPE_ADSP) {
+		/* bypass adsp check since adsp power on after lk.
+		 * todo: add image status check from smc
+		 */
+		mtk_devapc_ctx->subsys_enabled[slave_type] = 1;
+	}
+}
+
+static bool is_devapc_subsys_enabled(int slave_type)
+{
+	return mtk_devapc_ctx->subsys_enabled[slave_type];
+}
+
+static bool is_devapc_subsys_power_on(int slave_type)
+{
+	struct devapc_power_callbacks *powercb;
+
+	if (slave_type != DEVAPC_TYPE_MMUP &&
+		slave_type != DEVAPC_TYPE_ADSP) {
+		return true;
+	}
+
+	list_for_each_entry(powercb, &powercb_list, list) {
+		if (slave_type == DEVAPC_TYPE_MMUP) {
+			if (powercb->type == DEVAPC_TYPE_MMUP && powercb->query_power)
+				return powercb->query_power() &
+					mtk_devapc_ctx->subsys_enabled[slave_type];
+			else
+				return false;
+		}
+
+		if (slave_type == DEVAPC_TYPE_ADSP) {
+			if (powercb->type == DEVAPC_TYPE_ADSP && powercb->query_power)
+				return powercb->query_power() &
+					mtk_devapc_ctx->subsys_enabled[slave_type];
+			else
+				return false;
+		}
+	}
+
+	return false;
 }
 
 /*
@@ -291,12 +348,7 @@ static void print_vio_mask_sta(bool force)
 		if (!is_matched_devapc_type(slave_type) && !force)
 			continue;
 
-		if (slave_type == DEVAPC_TYPE_MMUP &&
-			(!mtk_devapc_ctx->mmup_enabled || !mmup_enable_count()))
-			continue;
-
-		if (slave_type == DEVAPC_TYPE_ADSP &&
-			!is_adsp_feature_in_active())
+		if (!is_devapc_subsys_power_on(slave_type))
 			continue;
 
 		pd_vio_shift_sta_reg = mtk_devapc_pd_get(slave_type,
@@ -420,7 +472,7 @@ static bool check_type2_vio_status(int slave_type, int *vio_idx, int *index)
 		}
 	}
 
-	if (!mtk_devapc_ctx->soc->slave_error)
+	if (!mtk_devapc_ctx->serror)
 		pr_info(PFX "%s: no violation for %s:0x%x\n", __func__,
 				"slave_type", slave_type);
 	return false;
@@ -704,16 +756,10 @@ static bool mtk_devapc_dump_vio_dbg(int slave_type, int *vio_idx, int *index)
 		return true;
 	}
 
-	if (!mtk_devapc_ctx->soc->slave_error)
+	if (!mtk_devapc_ctx->serror)
 		pr_info(PFX "check_devapc_vio_status: no violation for %s:0x%x\n",
 				"slave_type", slave_type);
 	return false;
-}
-
-static void register_devapc_violation_callback(struct devapc_vio_callbacks *viocb)
-{
-	INIT_LIST_HEAD(&viocb->list);
-	list_add_tail(&viocb->list, &viocb_list);
 }
 
 /*
@@ -735,13 +781,8 @@ static void start_devapc(void)
 	device_info = mtk_devapc_ctx->soc->device_info;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		if (slave_type == DEVAPC_TYPE_MMUP &&
-			!mtk_devapc_ctx->mmup_enabled)
+		if (!is_devapc_subsys_enabled(slave_type))
 			continue;
-
-		/* bypass adsp check since adsp power on after lk.
-		 * todo: add image status check from smc
-		 */
 
 		pd_apc_con_reg = mtk_devapc_pd_get(slave_type, APC_CON, 0);
 		pd_vio_shift_sta_reg = mtk_devapc_pd_get(
@@ -778,7 +819,7 @@ static void start_devapc(void)
 			if ((check_vio_status(slave_type, vio_idx) ==
 					VIOLATION_TRIGGERED) &&
 					clear_vio_status(slave_type, vio_idx)) {
-				pr_warn(PFX "%s, %s:0x%x, %s:0x%x %s:%d\n",
+				pr_warn(PFX "%s, %s:0x%x, %s:0x%x, %s:%d\n",
 					"clear vio status failed",
 					"slave_type", slave_type,
 					"vio_index", vio_idx,
@@ -801,14 +842,14 @@ static void start_devapc(void)
 	print_vio_mask_sta(false);
 
 	/* register subsys test cb */
-	register_devapc_violation_callback(&devapc_test_handle);
+	register_devapc_vio_callback(&devapc_test_handle);
 
 	pr_info(PFX "%s done\n", __func__);
 }
 
 /*
  * devapc_extra_handler -
- * 1. trigger kernel exception/kernel warning to increase devapc
+ * 1. trigger kernel exception/aee exception/kernel warning to increase devapc
  * violation severity level
  * 2. call subsys handler to get more debug information
  */
@@ -891,13 +932,6 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 			viocb->debug_dump();
 	}
 
-	/* dump clock state */
-	clkchk_devapc_dump();
-
-	/* dump cmdq state */
-	if (id == INFRA_SUBSYS_GCE)
-		cmdq_util_devapc_dump();
-
 	/* Severity level */
 	if (dbg_stat->enable_KE && (ret_cb != DEVAPC_NOT_KE)) {
 		pr_info(PFX "Device APC Violation Issue/%s", dispatch_key);
@@ -905,11 +939,12 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 
 	} else if (dbg_stat->enable_AEE) {
 		/* call mtk aee_kernel_exception */
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_exception("[DEVAPC]",
 			"%s%s\n",
 			"CRDISPATCH_KEY:Device APC Violation Issue/",
 			dispatch_key);
-
+#endif
 	} else if (dbg_stat->enable_WARN) {
 		WARN(1, "Device APC Violation Issue/%s", dispatch_key);
 	}
@@ -919,7 +954,7 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
  * devapc_dump_info - the devapc will dump violation information
  *			  including which master violates access slave.
  */
-#if defined(CONFIG_MTK_SERROR_HOOK) || defined(CONFIG_MTK_SABORT_HOOK)
+#ifdef CONFIG_MTK_SERROR_HOOK
 static void devapc_dump_info(void)
 {
 	uint32_t slave_type_num = mtk_devapc_ctx->soc->slave_type_num;
@@ -935,12 +970,7 @@ static void devapc_dump_info(void)
 
 	/* There are multiple DEVAPC_PD */
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		if (slave_type == DEVAPC_TYPE_MMUP &&
-			(!mtk_devapc_ctx->mmup_enabled || !mmup_enable_count()))
-			continue;
-
-		if (slave_type == DEVAPC_TYPE_ADSP &&
-			!is_adsp_feature_in_active())
+		if (!is_devapc_subsys_power_on(slave_type))
 			continue;
 
 		if (!check_type2_vio_status(slave_type, &vio_idx, &index))
@@ -1032,7 +1062,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	}
 
 #ifdef CONFIG_MTK_SERROR_HOOK
-	if (mtk_devapc_ctx->soc->slave_error) {
+	if (mtk_devapc_ctx->serror) {
 		spin_unlock_irqrestore(&devapc_lock, flags);
 		return IRQ_HANDLED;
 	}
@@ -1051,12 +1081,7 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 		if (!is_matched_devapc_type(slave_type))
 			continue;
 
-		if (slave_type == DEVAPC_TYPE_MMUP &&
-			(!mtk_devapc_ctx->mmup_enabled || !mmup_enable_count()))
-			continue;
-
-		if (slave_type == DEVAPC_TYPE_ADSP &&
-			!is_adsp_feature_in_active())
+		if (!is_devapc_subsys_power_on(slave_type))
 			continue;
 
 		if (!check_type2_vio_status(slave_type, &vio_idx, &index))
@@ -1128,6 +1153,20 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+void register_devapc_vio_callback(struct devapc_vio_callbacks *viocb)
+{
+	INIT_LIST_HEAD(&viocb->list);
+	list_add_tail(&viocb->list, &viocb_list);
+}
+EXPORT_SYMBOL(register_devapc_vio_callback);
+
+void register_devapc_power_callback(struct devapc_power_callbacks *powercb)
+{
+	INIT_LIST_HEAD(&powercb->list);
+	list_add_tail(&powercb->list, &powercb_list);
+}
+EXPORT_SYMBOL(register_devapc_power_callback);
+
 /*
  * devapc_ut - There are two UT commands to support
  * 1. test permission denied violation
@@ -1186,7 +1225,7 @@ static void devapc_ut(uint32_t cmd)
  * mtk_devapc_dbg_read - dump status of struct mtk_devapc_dbg_status.
  * Currently, we have 5 debug status:
  * 1. enable_ut: enable/disable devapc ut commands
- * 2~4. enable_KE/enable_WARN
+ * 2~4. enable_KE/enable_AEE/enable_WARN
  * 5. enable_dapc: enable/disable dump access permission control
  *
  */
@@ -1207,6 +1246,7 @@ ssize_t mtk_devapc_dbg_read(struct file *file, char __user *buffer,
 	devapc_log(p, msg_buf, "DEVAPC debug status:\n");
 	devapc_log(p, msg_buf, "\tenable_ut = %d\n", dbg_stat->enable_ut);
 	devapc_log(p, msg_buf, "\tenable_KE = %d\n", dbg_stat->enable_KE);
+	devapc_log(p, msg_buf, "\tenable_AEE = %d\n", dbg_stat->enable_AEE);
 	devapc_log(p, msg_buf, "\tenable_WARN = %d\n", dbg_stat->enable_WARN);
 	devapc_log(p, msg_buf, "\tenable_dapc = %d\n", dbg_stat->enable_dapc);
 	devapc_log(p, msg_buf, "\tviolation count = %d\n",
@@ -1222,7 +1262,7 @@ ssize_t mtk_devapc_dbg_read(struct file *file, char __user *buffer,
  * mtk_devapc_dbg_write - control status of struct mtk_devapc_dbg_status.
  * There are 7 nodes we can control:
  * 1. enable_ut
- * 2~4. enable_KE/enable_WARN
+ * 2~4. enable_KE/enable_AEE/enable_WARN
  * 5. enable_dapc
  * 6. devapc_ut
  * 7. dump_apc
@@ -1288,6 +1328,17 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 			dbg_stat->enable_KE = (param != 0);
 			pr_info(PFX "debapc_dbg_stat->enable_KE = %s\n",
 					dbg_stat->enable_KE ?
+					"enable" : "disable");
+		} else
+			pr_info(PFX "devapc_ut is not enabled\n");
+
+		return count;
+
+	} else if (!strncmp(cmd_str, "enable_AEE", sizeof("enable_AEE"))) {
+		if (dbg_stat->enable_ut) {
+			dbg_stat->enable_AEE = (param != 0);
+			pr_info(PFX "debapc_dbg_stat->enable_AEE = %s\n",
+					dbg_stat->enable_AEE ?
 					"enable" : "disable");
 		} else
 			pr_info(PFX "devapc_ut is not enabled\n");
@@ -1495,21 +1546,7 @@ static DRIVER_ATTR_RW(set_swp_addr);
 static void devapc_arm64_serror_panic_hook(void *data,
 		struct pt_regs *regs, unsigned int esr)
 {
-	mtk_devapc_ctx->soc->slave_error = true;
-	mtk_devapc_ctx->soc->dbg_stat->enable_KE = false;
-	devapc_dump_info();
-}
-#endif
-
-#ifdef CONFIG_MTK_SABORT_HOOK
-static void devapc_do_sea_hook(void *data,
-		struct pt_regs *regs, unsigned int esr,
-		unsigned long addr, const char *msg)
-{
-	if (mtk_devapc_ctx->soc->abort_error)
-		return;
-
-	mtk_devapc_ctx->soc->abort_error = true;
+	mtk_devapc_ctx->serror = true;
 	mtk_devapc_ctx->soc->dbg_stat->enable_KE = false;
 	devapc_dump_info();
 }
@@ -1626,6 +1663,7 @@ int devapc_suspend_noirq(struct device *dev)
 	devapc_hre_backup(DEVAPC_TYPE_VLP);
 	return 0;
 }
+EXPORT_SYMBOL(devapc_suspend_noirq);
 
 int devapc_resume_noirq(struct device *dev)
 {
@@ -1635,12 +1673,12 @@ int devapc_resume_noirq(struct device *dev)
 	devapc_hre_restore(DEVAPC_TYPE_VLP);
 	return 0;
 }
+EXPORT_SYMBOL(devapc_resume_noirq);
 
 int mtk_devapc_probe(struct platform_device *pdev,
 		struct mtk_devapc_soc *soc)
 {
 	struct device_node *node = pdev->dev.of_node;
-	struct arm_smccc_res res;
 	uint32_t slave_type_num;
 	uint32_t irq_type_num = IRQ_TYPE_NUM_DEFAULT;
 	uint32_t dt_index;
@@ -1657,18 +1695,6 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		pr_info(PFX "register android_rvh_arm64_serror_panic failed!\n");
 #endif
 
-#ifdef CONFIG_MTK_SABORT_HOOK
-	ret = register_trace_android_rvh_do_sea(
-			devapc_do_sea_hook, NULL);
-	if (ret)
-		pr_info(PFX "register android_rvh_do_sea failed!\n");
-#endif
-
-	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_MMUP_GET,
-			0, 0, 0, 0, 0, 0, 0, &res);
-	mtk_devapc_ctx->mmup_enabled = res.a0;
-	pr_info(PFX "mmup enabled: %lu\n", mtk_devapc_ctx->mmup_enabled);
-
 	if (IS_ERR(node)) {
 		pr_err(PFX "cannot find device node\n");
 		return -ENODEV;
@@ -1680,8 +1706,13 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		irq_type_num = mtk_devapc_ctx->soc->irq_type_num;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		if (slave_type == DEVAPC_TYPE_MMUP &&
-			!mtk_devapc_ctx->mmup_enabled)
+		query_devapc_subsys_status(slave_type);
+		pr_info(PFX "subsys_enabled[%d]:%d\n", slave_type,
+			mtk_devapc_ctx->subsys_enabled[slave_type]);
+	}
+
+	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
+		if (!is_devapc_subsys_enabled(slave_type))
 			continue;
 		mtk_devapc_ctx->devapc_pd_base[slave_type] = of_iomap(node,
 				slave_type);
@@ -1712,40 +1743,6 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	for (irq_type = 0; irq_type < irq_type_num; irq_type++) {
-		mtk_devapc_ctx->devapc_irq[irq_type] = irq_of_parse_and_map(node,
-			irq_type);
-		if (!mtk_devapc_ctx->devapc_irq[irq_type]) {
-			pr_err(PFX "parse and map the interrupt[%d] failed\n",
-				irq_type);
-			return -EINVAL;
-		}
-	}
-
-	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		if (slave_type == DEVAPC_TYPE_MMUP &&
-			!mtk_devapc_ctx->mmup_enabled)
-			continue;
-		pr_debug(PFX "%s:0x%x %s:%pa\n",
-				"slave_type", slave_type,
-				"devapc_pd_base",
-				mtk_devapc_ctx->devapc_pd_base[slave_type]);
-	}
-
-	for (irq_type = 0; irq_type < irq_type_num; irq_type++)
-		pr_info(PFX " IRQ[%d]:%d\n", irq_type,
-			mtk_devapc_ctx->devapc_irq[irq_type]);
-
-	/* CCF (Common Clock Framework) */
-	mtk_devapc_ctx->devapc_infra_clk = devm_clk_get(&pdev->dev,
-			"devapc-infra-clock");
-
-	if (IS_ERR(mtk_devapc_ctx->devapc_infra_clk))
-		pr_info(PFX "(Infra) Cannot get devapc clock from CCF (%d)\n",
-				PTR_ERR(mtk_devapc_ctx->devapc_infra_clk));
-
-	proc_create("devapc_dbg", 0664, NULL, &devapc_dbg_fops);
-
 #ifdef CONFIG_DEVAPC_SWP_SUPPORT
 	devapc_swp_ctx->devapc_swp_base = of_iomap(node, dt_index + 1);
 	ret = driver_create_file(pdev->dev.driver,
@@ -1758,11 +1755,16 @@ int mtk_devapc_probe(struct platform_device *pdev,
 	if (unlikely(mtk_devapc_ctx->sramrom_base == NULL))
 		pr_info(PFX "parse sramrom_base failed\n");
 
-	if (!IS_ERR(mtk_devapc_ctx->devapc_infra_clk)) {
-		if (clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk)) {
-			pr_err(PFX " Cannot enable devapc clock\n");
+	for (irq_type = 0; irq_type < irq_type_num; irq_type++) {
+		mtk_devapc_ctx->devapc_irq[irq_type] = irq_of_parse_and_map(node,
+			irq_type);
+		if (!mtk_devapc_ctx->devapc_irq[irq_type]) {
+			pr_err(PFX "parse and map the interrupt[%d] failed\n",
+				irq_type);
 			return -EINVAL;
 		}
+		pr_info(PFX "IRQ[%d]:%d\n", irq_type,
+			mtk_devapc_ctx->devapc_irq[irq_type]);
 	}
 
 	for (irq_type = 0; irq_type < irq_type_num; irq_type++) {
@@ -1777,6 +1779,22 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		}
 	}
 
+	/* CCF (Common Clock Framework) */
+	mtk_devapc_ctx->devapc_infra_clk = devm_clk_get(&pdev->dev,
+			"devapc-infra-clock");
+	if (IS_ERR(mtk_devapc_ctx->devapc_infra_clk))
+		pr_info(PFX "(Infra) Cannot get devapc clock from CCF (%d)\n",
+				PTR_ERR(mtk_devapc_ctx->devapc_infra_clk));
+
+	proc_create("devapc_dbg", 0664, NULL, &devapc_dbg_fops);
+
+	if (!IS_ERR(mtk_devapc_ctx->devapc_infra_clk)) {
+		if (clk_prepare_enable(mtk_devapc_ctx->devapc_infra_clk)) {
+			pr_err(PFX " Cannot enable devapc clock\n");
+			return -EINVAL;
+		}
+	}
+
 	ret = devapc_hre_init();
 	if (ret) {
 		pr_info(PFX "hre init failed, ret %d\n", ret);
@@ -1787,6 +1805,7 @@ int mtk_devapc_probe(struct platform_device *pdev,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_devapc_probe);
 
 int mtk_devapc_remove(struct platform_device *dev)
 {
@@ -1796,7 +1815,8 @@ int mtk_devapc_remove(struct platform_device *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_devapc_remove);
 
 MODULE_DESCRIPTION("Mediatek Device APC Driver");
-MODULE_AUTHOR("Neal Liu <neal.liu@mediatek.com>");
+MODULE_AUTHOR("Jackson Chang <jackson-kt.chang@mediatek.com>");
 MODULE_LICENSE("GPL");
