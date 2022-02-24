@@ -185,7 +185,7 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 			aee_kernel_warning("mminfra",
 				"HRE restore failed 0x1e800280=%x\n", val);
 #endif
-
+			BUG_ON(1);
 		}
 		iounmap(test_base);
 		pr_notice("%s: enable clk ref_cnt=%d\n", __func__, count);
