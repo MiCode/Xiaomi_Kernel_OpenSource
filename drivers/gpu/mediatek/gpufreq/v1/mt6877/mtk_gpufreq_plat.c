@@ -2116,6 +2116,9 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 	case 0x02:
 		segment_id = MT6877T_SEGMENT;    /* 5G-5+ */
 		break;
+	case 0x03:
+		segment_id = MT6877T_SEGMENT;    /* 5G-5++ */
+		break;
 	default:
 		segment_id = MT6877_SEGMENT;
 		gpufreq_pr_info("@%s: invalid efuse_id(0x%x)\n",
