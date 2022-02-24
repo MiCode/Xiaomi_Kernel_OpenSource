@@ -283,7 +283,9 @@ int tcpci_set_cc(struct tcpc_device *tcpc, int pull)
 		tcpc->typec_remote_cc[0] =
 		tcpc->typec_remote_cc[1] =
 			TYPEC_CC_DRP_TOGGLING;
-	}
+	} else if (pull == TYPEC_CC_OPEN
+			&& (tcpc->tcpc_flags & TCPC_FLAGS_TYPEC_OTP))
+		tcpci_set_otp_fwen(tcpc, false);
 
 	tcpc->typec_local_cc = pull;
 	return tcpc->ops->set_cc(tcpc, pull);

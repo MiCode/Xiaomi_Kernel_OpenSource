@@ -2219,8 +2219,17 @@ static int mt6375_set_auto_dischg_discnt(struct tcpc_device *tcpc, bool en)
 	u8 val = en ? TCPC_V10_REG_AUTO_DISCHG_DISCNT
 		    : TCPC_V10_REG_VBUS_MONITOR;
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
+	int ret = 0;
 
 	MT6375_INFO("%s en=%d\n", __func__, en);
+	if (en) {
+		ret |= mt6375_update_bits(ddata, TCPC_V10_REG_POWER_CTRL,
+					  TCPC_V10_REG_VBUS_MONITOR, 0);
+		ret |= mt6375_update_bits(ddata, TCPC_V10_REG_POWER_CTRL,
+					  TCPC_V10_REG_AUTO_DISCHG_DISCNT,
+					  TCPC_V10_REG_AUTO_DISCHG_DISCNT);
+		return ret;
+	}
 	return mt6375_update_bits(ddata, TCPC_V10_REG_POWER_CTRL, mask, val);
 }
 
