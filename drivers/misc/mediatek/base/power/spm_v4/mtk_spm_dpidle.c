@@ -622,7 +622,7 @@ unsigned int spm_go_to_sleep_dpidle(u32 spm_flags, u32 spm_data)
 		spm_crit2("FAILED TO GET WD API\n");
 #endif
 
-
+	lockdep_off();
 	spin_lock_irqsave(&__spm_lock, flags);
 
 	spm_dpidle_notify_sspm_before_wfi(true,
@@ -710,7 +710,7 @@ RESTORE_IRQ:
 #endif
 
 	spin_unlock_irqrestore(&__spm_lock, flags);
-
+	lockdep_on();
 
 #if defined(CONFIG_MTK_WATCHDOG) && defined(CONFIG_MTK_WD_KICKER)
 	if (!wd_ret) {

@@ -167,8 +167,8 @@ static void spm_sodi_notify_sspm_before_wfi(struct pwr_ctrl *pwrctrl,
 	wk_auxadc_bgd_ctrl(0);
 	rtc_clock_enable(0);
 
-/* 	if (operation_cond & DEEPIDLE_OPT_CLKBUF_BBLPM)
-		clk_buf_control_bblpm_temp(1); */
+	if (operation_cond & DEEPIDLE_OPT_CLKBUF_BBLPM)
+		clk_buf_control_bblpm(1);
 #endif
 #endif
 }
@@ -181,8 +181,8 @@ static void spm_sodi_notify_sspm_after_wfi(u32 operation_cond)
 {
 #if defined(CONFIG_MACH_MT6739)
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
-/* 	if (operation_cond & DEEPIDLE_OPT_CLKBUF_BBLPM)
-		clk_buf_control_bblpm_temp(0); */
+	if (operation_cond & DEEPIDLE_OPT_CLKBUF_BBLPM)
+		clk_buf_control_bblpm(0);
 
 	rtc_clock_enable(1);
 	wk_auxadc_bgd_ctrl(1);
