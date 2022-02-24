@@ -531,7 +531,8 @@ int mtk_pe40_pd_request(struct chg_alg_device *alg,
 	if (pe40->cap.pdp > 0 &&
 		adapter_mv * adapter_ma > pe40->cap.pdp * 1000000) {
 		*adapter_ibus = pe40->cap.pdp * 1000000 / adapter_mv;
-		pe4_hal_set_input_current(alg, CHG1, *adapter_ibus * 1000);
+		if (oldmA > *adapter_ibus)
+			pe4_hal_set_input_current(alg, CHG1, *adapter_ibus * 1000);
 	}
 
 	ret = pe4_hal_set_adapter_cap(alg, adapter_mv, *adapter_ibus);
@@ -558,7 +559,10 @@ int mtk_pe40_pd_request(struct chg_alg_device *alg,
 	} else if (pinfo->data.parallel_vbus == false && (oldmA < ma))
 		charger_dev_set_input_current(pinfo->chg1_dev, ma * 1000);
 #else
-	if (oldmA < ma)
+	if (pe40->cap.pdp > 0 &&
+		adapter_mv * adapter_ma > pe40->cap.pdp * 1000000)
+		pe4_hal_set_input_current(alg, CHG1, *adapter_ibus * 1000);
+	else if (oldmA < ma)
 		pe4_hal_set_input_current(alg, CHG1, ma * 1000);
 #endif
 
