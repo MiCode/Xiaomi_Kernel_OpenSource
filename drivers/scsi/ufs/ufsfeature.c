@@ -159,7 +159,7 @@ static int ufsf_read_desc(struct ufs_hba *hba, u8 desc_id, u8 desc_index,
 	int err = 0;
 	bool pm_resumed = false;
 
-	if (hba->ufshcd_state != UFSHCD_STATE_RESET) {
+	if (!hba->pm_op_in_progress) {
 		pm_runtime_get_sync(hba->dev);
 		pm_resumed = true;
 	}
