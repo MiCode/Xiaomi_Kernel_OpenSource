@@ -226,6 +226,7 @@
 #define IOMMU_MAU_EN			BIT(21)
 #define PM_OPS_SKIP			BIT(22)
 #define SHARE_PGTABLE			BIT(23)
+#define IOMMU_NO_SMCCC			BIT(24)
 
 #define POWER_ON_STA		1
 #define POWER_OFF_STA		0
@@ -335,6 +336,13 @@ static struct mtk_iommu_iova_region mt8192_multi_dom[] __maybe_unused = {
 	{ .iova_base = 0x240000000ULL,	.size = 0x4000000},	/* CCU0 */
 	{ .iova_base = 0x244000000ULL,	.size = 0x4000000},	/* CCU1 */
 	#endif
+};
+
+static struct mtk_iommu_iova_region mt6789_multi_dom[] __maybe_unused = {
+	{ .iova_base = 0x0, .size = SZ_4G},	      /* disp : 0 ~ 4G */
+	{ .iova_base = SZ_4G, .size = SZ_4G},     /* vdec : 4G ~ 8G */
+	{ .iova_base = SZ_4G * 2, .size = SZ_4G}, /* CAM/MDP: 8G ~ 12G */
+
 };
 
 /* use the same data as mt6853 */
@@ -1516,7 +1524,8 @@ static int mtk_iommu_domain_finalise(struct mtk_iommu_domain *dom,
 	else
 		dom->cfg.oas = 35;
 
-	if (mtee_hypmmu_type2_enabled()) {
+	if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_NO_SMCCC) &&
+	    mtee_hypmmu_type2_enabled()) {
 		pr_info("hyp-mmu type2 enabled. turn on coherent_walk\n");
 		dom->cfg.coherent_walk = true;
 		register_share_region(data->plat_data);
@@ -3175,6 +3184,19 @@ static const struct mtk_iommu_plat_data mt6833_data = {
 			 {0, 14, 16}, {0, 13, 18, 17}},
 };
 
+//HAS_BCLK | WR_THROT_EN | SKIP_CFG_PORT | IOMMU_SEC_BK_EN | TLB_SYNC_EN
+static const struct mtk_iommu_plat_data mt6789_data = {
+	.m4u_plat = M4U_MT6789,
+	.flags         = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
+			 NOT_STD_AXI_MODE | IOVA_34_EN | SHARE_PGTABLE |
+			 IOMMU_CLK_AO_EN | IOMMU_EN_PRE | IOMMU_NO_SMCCC,
+	.inv_sel_reg   = REG_MMU_INV_SEL_GEN2,
+	.iommu_id	= DISP_IOMMU,
+	.iommu_type     = MM_IOMMU,
+	.iova_region    = mt6789_multi_dom,
+	.iova_region_nr = ARRAY_SIZE(mt6789_multi_dom),
+};
+
 /* copy the mtk_iommu_plat_data form the mt6873 because
  * the mt6853 almost uset the same data as mt6873.
  * but only add the IOVA_34_EN flag.
@@ -3524,6 +3546,7 @@ static const struct mtk_iommu_plat_data mt8192_data = {
 static const struct of_device_id mtk_iommu_of_ids[] = {
 	{ .compatible = "mediatek,mt2712-m4u", .data = &mt2712_data},
 	{ .compatible = "mediatek,mt6779-m4u", .data = &mt6779_data},
+	{ .compatible = "mediatek,mt6789-disp-iommu", .data = &mt6789_data},
 	{ .compatible = "mediatek,mt6833-m4u", .data = &mt6833_data},
 	{ .compatible = "mediatek,mt6853-m4u", .data = &mt6853_data},
 	{ .compatible = "mediatek,mt6855-disp-iommu", .data = &mt6855_data_disp},
