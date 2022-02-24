@@ -610,3 +610,4 @@
 #include "anorak-usb.dtsi"
 #include "anorak-pinctrl.dtsi"
 #include "anorak-stub-regulator.dtsi"
+#include "anorak-dma-heaps.dtsi"
