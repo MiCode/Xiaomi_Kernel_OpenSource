@@ -70,6 +70,14 @@ static void mtk_cam_event_eos(struct mtk_raw_pipeline *pipeline)
 	v4l2_event_queue(pipeline->subdev.devnode, &event);
 }
 
+static void mtk_cam_sv_event_eos(struct mtk_camsv_pipeline *pipeline)
+{
+	struct v4l2_event event = {
+		.type = V4L2_EVENT_EOS,
+	};
+	v4l2_event_queue(pipeline->subdev.devnode, &event);
+}
+
 static void mtk_cam_event_frame_sync(struct mtk_raw_pipeline *pipeline,
 				     unsigned int frame_seq_no)
 {
@@ -4291,11 +4299,14 @@ static void mtk_camsys_camsv_check_frame_done(struct mtk_cam_ctx *ctx,
 		list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
 						state_element) {
 			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_temp);
-			if (req_stream_data->frame_seq_no < dequeued_frame_seq_no) {
+			if (req_stream_data->frame_seq_no < dequeued_frame_seq_no)
 				seqList[cnt++] = req_stream_data->frame_seq_no;
-				if (cnt == CHECK_STATE_DEPTH)
-					break;
-			}
+			else if (mtk_cam_sv_is_zero_fbc_cnt(ctx, pipe_id) &&
+				(req_stream_data->frame_seq_no == dequeued_frame_seq_no))
+				seqList[cnt++] = req_stream_data->frame_seq_no;
+
+			if (cnt == CHECK_STATE_DEPTH)
+				break;
 		}
 		spin_unlock_irqrestore(&sensor_ctrl->camsys_state_lock, flags);
 		for (i = 0; i < cnt; i++)
@@ -5018,6 +5029,9 @@ void mtk_camsys_ctrl_stop(struct mtk_cam_ctx *ctx)
 	kthread_flush_work(&camsys_sensor_ctrl->work);
 	if (ctx->used_raw_num)
 		mtk_cam_event_eos(ctx->pipe);
+	else
+		mtk_cam_sv_event_eos(
+			&ctx->cam->sv.pipelines[ctx->stream_id - MTKCAM_SUBDEV_CAMSV_START]);
 	dev_info(ctx->cam->dev, "[%s] ctx:%d/raw_dev:0x%x\n",
 		__func__, ctx->stream_id, ctx->used_raw_dev);
 }

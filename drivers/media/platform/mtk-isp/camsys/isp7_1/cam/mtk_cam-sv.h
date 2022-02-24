@@ -331,6 +331,7 @@ int mtk_cam_sv_rgbw_apply_next_buffer(
 int mtk_cam_sv_apply_switch_buffers(struct mtk_cam_ctx *ctx);
 int mtk_cam_sv_write_rcnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id);
 int mtk_cam_sv_write_rcnt_sv_dev(struct mtk_camsv_device *camsv_dev);
+bool mtk_cam_sv_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id);
 int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
 	const struct v4l2_format *img_fmt, struct mtk_camsv_frame_params *params);
 int mtk_cam_sv_setup_cfg_info(struct mtk_camsv_device *dev,

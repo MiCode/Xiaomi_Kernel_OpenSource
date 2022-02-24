@@ -176,6 +176,8 @@ static int mtk_camsv_sd_subscribe_event(struct v4l2_subdev *subdev,
 		return v4l2_event_subscribe(fh, sub, 0, NULL);
 	case V4L2_EVENT_REQUEST_DRAINED:
 		return v4l2_event_subscribe(fh, sub, 0, NULL);
+	case V4L2_EVENT_EOS:
+		return v4l2_event_subscribe(fh, sub, 0, NULL);
 	default:
 		return -EINVAL;
 	}
@@ -1621,6 +1623,21 @@ int mtk_cam_sv_write_rcnt_sv_dev(struct mtk_camsv_device *camsv_dev)
 	CAMSV_WRITE_REG(camsv_dev->base + REG_CAMSV_TOP_FBC_CNT_SET, reg.Raw);
 
 	return ret;
+}
+
+bool mtk_cam_sv_is_zero_fbc_cnt(struct mtk_cam_ctx *ctx,
+	unsigned int pipe_id)
+{
+	bool result = false;
+	struct mtk_camsv_device *camsv_dev;
+
+	camsv_dev =
+		dev_get_drvdata(ctx->cam->sv.devs[pipe_id - MTKCAM_SUBDEV_CAMSV_START]);
+	if (CAMSV_READ_BITS(camsv_dev->base + REG_CAMSV_FBC_IMGO_CTL2,
+			CAMSV_FBC_IMGO_CTL2, IMGO_FBC_CNT) == 0)
+		result = true;
+
+	return result;
 }
 
 int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
