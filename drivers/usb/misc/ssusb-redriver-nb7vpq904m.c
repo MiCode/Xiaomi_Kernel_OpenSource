@@ -429,20 +429,26 @@ static int ssusb_redriver_read_orientation(struct ssusb_redriver *redriver)
 	return 0;
 }
 
-int redriver_orientation_get(struct device_node *node)
+static inline void *check_devnode(struct device_node *node)
 {
-	struct ssusb_redriver *redriver;
 	struct i2c_client *client;
 
 	if (!node)
-		return -ENODEV;
+		return ERR_PTR(-ENODEV);
 
 	client = of_find_i2c_device_by_node(node);
 	if (!client)
-		return -ENODEV;
+		return ERR_PTR(-ENODEV);
 
-	redriver = i2c_get_clientdata(client);
-	if (!redriver)
+	return i2c_get_clientdata(client);
+}
+
+int redriver_orientation_get(struct device_node *node)
+{
+	struct ssusb_redriver *redriver;
+
+	redriver = check_devnode(node);
+	if (IS_ERR_OR_NULL(redriver))
 		return -EINVAL;
 
 	if (!gpio_is_valid(redriver->orientation_gpio))
@@ -516,17 +522,9 @@ static int ssusb_redriver_ucsi_notifier(struct notifier_block *nb,
 int redriver_notify_connect(struct device_node *node)
 {
 	struct ssusb_redriver *redriver;
-	struct i2c_client *client;
 
-	if (!node)
-		return -ENODEV;
-
-	client = of_find_i2c_device_by_node(node);
-	if (!client)
-		return -ENODEV;
-
-	redriver = i2c_get_clientdata(client);
-	if (!redriver)
+	redriver = check_devnode(node);
+	if (IS_ERR_OR_NULL(redriver))
 		return -EINVAL;
 
 	if ((redriver->op_mode == OP_MODE_DEFAULT) ||
@@ -558,17 +556,9 @@ EXPORT_SYMBOL(redriver_notify_connect);
 int redriver_notify_disconnect(struct device_node *node)
 {
 	struct ssusb_redriver *redriver;
-	struct i2c_client *client;
 
-	if (!node)
-		return -ENODEV;
-
-	client = of_find_i2c_device_by_node(node);
-	if (!client)
-		return -ENODEV;
-
-	redriver = i2c_get_clientdata(client);
-	if (!redriver)
+	redriver = check_devnode(node);
+	if (IS_ERR_OR_NULL(redriver))
 		return -EINVAL;
 
 	/* 1. no operation in recovery mode.
@@ -595,17 +585,9 @@ EXPORT_SYMBOL(redriver_notify_disconnect);
 int redriver_release_usb_lanes(struct device_node *node)
 {
 	struct ssusb_redriver *redriver;
-	struct i2c_client *client;
 
-	if (!node)
-		return -ENODEV;
-
-	client = of_find_i2c_device_by_node(node);
-	if (!client)
-		return -ENODEV;
-
-	redriver = i2c_get_clientdata(client);
-	if (!redriver)
+	redriver = check_devnode(node);
+	if (IS_ERR_OR_NULL(redriver))
 		return -EINVAL;
 
 	if (redriver->op_mode == OP_MODE_DP)
@@ -625,17 +607,11 @@ EXPORT_SYMBOL(redriver_release_usb_lanes);
 int redriver_gadget_pullup(struct device_node *node, int is_on)
 {
 	struct ssusb_redriver *redriver;
-	struct i2c_client *client;
 	u8 val = 0;
 
-	if (!node)
+	redriver = check_devnode(node);
+	if (IS_ERR_OR_NULL(redriver))
 		return -EINVAL;
-
-	client = of_find_i2c_device_by_node(node);
-	if (!client)
-		return -EINVAL;
-
-	redriver = i2c_get_clientdata(client);
 
 	/*
 	 * when redriver connect to a USB hub, and do adb root operation,
