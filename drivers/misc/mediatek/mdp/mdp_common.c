@@ -4075,6 +4075,11 @@ void cmdq_mdp_check_TF_address(unsigned int mva, char *module)
 	unsigned int bufAddrStart = 0;
 	unsigned int bufAddrEnd = 0;
 
+	/* Call smi dump */
+	CMDQ_ERR("[MDP] Dump SMI Info Begin\n");
+	mtk_smi_dbg_hang_detect("MDP");
+	CMDQ_ERR("[MDP] Dump SMI Info End\n");
+
 	/* search track task */
 	for (taskIndex = 0; taskIndex < MDP_MAX_TASK_NUM; taskIndex++) {
 		searchStr = strpbrk(mdp_tasks[taskIndex].userDebugStr,
@@ -4129,10 +4134,6 @@ void cmdq_mdp_check_TF_address(unsigned int mva, char *module)
 			mdp_tasks[tfTaskIndex].callerName);
 		CMDQ_ERR("%s\n", mdp_tasks[tfTaskIndex].userDebugStr);
 		strncat(module, "_", 1);
-
-		/* Call smi dump */
-		CMDQ_ERR("[MDP] Dump SMI Info\n");
-		mtk_smi_dbg_hang_detect("MDP");
 
 		/* catch caller name only before - or _ */
 		callerNameStart = mdp_tasks[tfTaskIndex].callerName;
