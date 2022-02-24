@@ -24,9 +24,9 @@ static int __init mt6853_dbg_fs_init(void)
 	mt6853_dbg_lpm_init();
 	mt6853_dbg_lpm_fs_init();
 	mt6853_dbg_spm_fs_init();
+	mtk_dbg_common_fs_init();
 	pr_info("%s %d: finish", __func__, __LINE__);
 	return 0;
-	mtk_dbg_common_fs_init();
 }
 
 module_init(mt6853_dbg_fs_init);
