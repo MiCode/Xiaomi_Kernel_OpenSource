@@ -330,6 +330,29 @@ static void dump_lp_cond(void)
 
 	}
 }
+
+static void dump_lp_sw_request(void)
+{
+	unsigned int rnum, rusage, per_usage;
+	int i;
+
+	rnum = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_NUM,
+		MT_LPM_SMC_ACT_GET, 0, 0);
+
+	rusage = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_USAGE,
+		MT_LPM_SMC_ACT_GET,
+		MT_LP_RQ_ID_ALL_USAGE, 0);
+
+	for (i = 0; i < rnum; i++) {
+		if ((1<<i) & rusage) {
+			per_usage = lpm_smc_spm_dbg(MT_SPM_DBG_SMC_UID_RES_USAGE,
+				MT_LPM_SMC_ACT_GET, i, 0);
+			pr_info("suspend warning: SWREQ resource bit %d, user = 0x%x\n",
+				i, per_usage);
+		}
+	}
+}
+
 static void mt6983_suspend_spm_rsc_req_check
 	(struct lpm_spm_wake_status *wakesta)
 {
@@ -414,6 +437,7 @@ static u32 is_blocked_cnt;
 	src_req = plat_mmio_read(SPM_SRC_REQ);
 	if (src_req & 0x63E) {
 		dump_lp_cond();
+		dump_lp_sw_request();
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_SIZE - log_size, "spm ");
 	}
