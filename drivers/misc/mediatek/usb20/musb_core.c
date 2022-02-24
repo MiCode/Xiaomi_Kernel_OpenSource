@@ -3756,6 +3756,8 @@ void do_connection_work(struct work_struct *data)
 		set_usb_phy_mode(PHY_MODE_USB_DEVICE);
 
 	} else if (mtk_musb->power && (usb_on == false)) {
+		/* Set USB phy mode to INVALID */
+		set_usb_phy_mode(PHY_MODE_INVALID);
 		/* disable usb */
 		musb_stop(mtk_musb);
 		if (mtk_musb->usb_lock->active) {
@@ -3765,13 +3767,14 @@ void do_connection_work(struct work_struct *data)
 			DBG(0, "lock not active\n");
 		}
 		usb_clk_state = ON_TO_OFF;
-		/* Set USB phy mode to INVALID */
-		set_usb_phy_mode(PHY_MODE_INVALID);
 	} else
 		DBG(0, "do nothing, usb_on:%d, power:%d\n",
 				usb_on, mtk_musb->power);
 exit:
 	spin_unlock_irqrestore(&mtk_musb->lock, flags);
+
+	/* Wait for irq All done */
+	synchronize_irq(mtk_musb->nIrq);
 
 	if (usb_clk_state == ON_TO_OFF) {
 		/* clock on -> of: clk_prepare_cnt -2 */

@@ -501,6 +501,9 @@ static void do_host_work(struct work_struct *data)
 	DBG(0, "work end, is_host=%d\n", mtk_musb->is_host);
 	up(&mtk_musb->musb_lock);
 
+	/* Wait for irq All done */
+	synchronize_irq(mtk_musb->nIrq);
+
 	if (usb_clk_state == ON_TO_OFF) {
 		/* clock on -> of: clk_prepare_cnt -2 */
 		usb_prepare_clock(false);
