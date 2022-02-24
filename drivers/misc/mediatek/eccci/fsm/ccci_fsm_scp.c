@@ -164,7 +164,9 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 				if (atomic_read(&scp_state) ==
 					SCP_CCCI_STATE_BOOTING
 					|| atomic_read(&scp_state)
-					== SCP_CCCI_STATE_RBREADY)
+					== SCP_CCCI_STATE_RBREADY
+					|| atomic_read(&scp_state)
+					== SCP_CCCI_STATE_STOP)
 					break;
 				count++;
 				msleep(EVENT_POLL_INTEVAL);
@@ -259,7 +261,7 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 				ccci_scp_ipi_send(ipi_msg_ptr->md_id,
 					CCCI_OP_MD_STATE, &data);
 				break;
-			case SCP_CCCI_STATE_INVALID:
+			case SCP_CCCI_STATE_STOP:
 				CCCI_NORMAL_LOG(ipi_msg_ptr->md_id, FSM,
 						"MD INVALID,scp send ack to ap\n");
 				ret = scp_set_clk_cg(0);
