@@ -856,14 +856,13 @@ int gh_rm_get_vm_id_info(gh_vmid_t vmid)
 		info = kzalloc(entry->id_size % 4 ? entry->id_size + 1 :
 							entry->id_size,
 			GFP_KERNEL);
-		memcpy(info, entry->id_info, entry->id_size);
 
 		if (!info) {
-			pr_err("%s: Couldn't copy id type: %u\n",
-					__func__, entry->id_type);
-			ret = PTR_ERR(info);
-			continue;
+			ret = -ENOMEM;
+			break;
 		}
+
+		memcpy(info, entry->id_info, entry->id_size);
 
 		pr_debug("%s: idx:%d id_info %s\n", __func__, i, info);
 		switch (entry->id_type) {
@@ -891,7 +890,10 @@ int gh_rm_get_vm_id_info(gh_vmid_t vmid)
 
 	if (!ret) {
 		vm_prop.vmid = vmid;
-		vm_name = gh_get_vm_name(vm_prop.name);
+		if (vm_prop.name)
+			vm_name = gh_get_vm_name(vm_prop.name);
+		else
+			vm_name = GH_VM_MAX;
 		if (vm_name == GH_VM_MAX) {
 			pr_err("Invalid vm name %s of VMID %d\n", vm_prop.name,
 			       vmid);
@@ -1354,6 +1356,11 @@ static void gh_vm_check_peer(struct device *dev, struct device_node *rm_root)
 
 	peers_cnt = of_property_count_strings(rm_root, "qcom,peers");
 	peers_array = kcalloc(peers_cnt, sizeof(char *), GFP_KERNEL);
+	if (!peers_array) {
+		dev_err(dev, "Failed to allocate memory\n");
+		ret = -ENOMEM;
+		return;
+	}
 
 	ret = of_property_read_string_array(rm_root, "qcom,peers", peers_array,
 					    peers_cnt);
