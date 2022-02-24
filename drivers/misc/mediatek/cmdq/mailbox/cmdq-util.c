@@ -387,7 +387,7 @@ static int cmdq_util_log_feature_get(void *data, u64 *val)
 	return util.fs.bit_feature;
 }
 
-static int cmdq_util_log_feature_set(void *data, u64 val)
+int cmdq_util_log_feature_set(void *data, u64 val)
 {
 	if (val == CMDQ_LOG_FEAT_NUM) {
 		util.fs.bit_feature = 0;
@@ -407,6 +407,7 @@ static int cmdq_util_log_feature_set(void *data, u64 val)
 		data, val, util.fs.bit_feature);
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_util_log_feature_set);
 
 DEFINE_SIMPLE_ATTRIBUTE(cmdq_util_log_feature_fops,
 	cmdq_util_log_feature_get, cmdq_util_log_feature_set, "%llu");

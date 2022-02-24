@@ -2270,6 +2270,9 @@ static int cmdq_probe(struct platform_device *pdev)
 	if (of_property_read_bool(dev->of_node, "gce_in_vcp"))
 		gce_in_vcp = true;
 
+	if (!of_property_read_bool(dev->of_node, "cmdq-log-perf-off"))
+		cmdq_util_log_feature_set(NULL, CMDQ_LOG_FEAT_PERF);
+
 	dev_notice(dev,
 		"cmdq thread:%u shift:%u mminfra:%#x base:0x%lx pa:0x%lx\n",
 		plat_data->thread_nr, plat_data->shift, plat_data->mminfra,

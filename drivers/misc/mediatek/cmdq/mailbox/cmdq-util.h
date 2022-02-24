@@ -194,4 +194,5 @@ void cmdq_util_devapc_dump(void);
 int cmdq_util_init(void);
 
 extern void mt_irq_dump_status(unsigned int irq);
+int cmdq_util_log_feature_set(void *data, u64 val);
 #endif
