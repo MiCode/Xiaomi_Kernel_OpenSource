@@ -1956,7 +1956,10 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	}
 
 	if (que_cnt > 1 && (prev_stream_data == NULL || state_outer == NULL)) {
-		for (i = 0; i < que_cnt; i++) {
+		if (que_cnt > STATE_NUM_AT_SOF)
+			dev_info(raw_dev->dev,
+			"[SOF] STATE_CHECK_DBG que_cnt:%d\n", que_cnt);
+		for (i = 0; i < STATE_NUM_AT_SOF; i++) {
 			if (state_rec[i]) {
 				req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_rec[i]);
 				dev_info(raw_dev->dev,
