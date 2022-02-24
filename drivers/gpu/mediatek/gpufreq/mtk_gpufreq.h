@@ -10,6 +10,8 @@
 #include <v1/include/mtk_gpufreq_v1.h>
 #elif defined(CONFIG_MACH_MT6768)
 #include <mt6768/mtk_gpufreq.h>
+#elif defined(CONFIG_MACH_MT6785)
+#include <mt6785/mtk_gpufreq.h>
 #else
 #include <include/mtk_gpufreq.h>
 #endif

@@ -3360,9 +3360,32 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 	return 0;
 }
 
-static void __mt_gpufreq_init_efuse(void)
+static void __mt_gpufreq_init_efuse(struct platform_device *pdev)
 {
-	g_efuse_id = (get_devinfo_with_index(30) & 0xFF);
+#ifdef CONFIG_MTK_DEVINFO
+    struct nvmem_cell *efuse_cell;
+    unsigned int *efuse_buf;
+    size_t efuse_len;
+#endif
+
+#ifdef CONFIG_MTK_DEVINFO
+    efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
+    if (IS_ERR(efuse_cell)) {
+      PTR_ERR(efuse_cell);
+    }
+
+    efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+    nvmem_cell_put(efuse_cell);
+    if (IS_ERR(efuse_buf)) {
+      PTR_ERR(efuse_buf);
+    }
+
+    g_efuse_id = (*efuse_buf & 0xFF);
+    kfree(efuse_buf);
+
+#else
+    g_efuse_id = 0x0;
+#endif /* CONFIG_MTK_DEVINFO */
 
 	if (g_efuse_id == 0x80 ||
 		g_efuse_id == 0x01 ||
@@ -3471,7 +3494,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		return ret;
 
 	/* check efuse_id and set the corresponding segment_id */
-	__mt_gpufreq_init_efuse();
+    __mt_gpufreq_init_efuse(pdev);
 
 	/* init opp table */
 	__mt_gpufreq_setup_opp_table(
