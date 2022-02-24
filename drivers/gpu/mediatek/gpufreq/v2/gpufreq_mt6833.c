@@ -967,18 +967,13 @@ void __gpufreq_set_timestamp(void)
 
 void __gpufreq_check_bus_idle(void)
 {
-	u32 val = 0;
+	u32 val;
 
 	/* MFG_QCHANNEL_CON (0x13fb_f0b4) bit [1:0] = 0x1 */
-	val = readl(g_mfg_top_base + 0xB4);
-	val |= (1UL << 0);
-	writel(val, g_mfg_top_base + 0xB4);
+	writel(0x00000001, g_mfg_top_base + 0xB4);
 
 	/* set register MFG_DEBUG_SEL (0x13fb_f170) bit [7:0] = 0x03 */
-	val = readl(g_mfg_top_base + 0x170);
-	val |= (1UL << 0);
-	val |= (1UL << 1);
-	writel(val, g_mfg_top_base + 0x170);
+	writel(0x00000003, g_mfg_top_base + 0x170);
 
 	/*
 	 * polling register MFG_DEBUG_TOP (0x13fb_f178) bit 2 = 0x1
@@ -995,31 +990,9 @@ void __gpufreq_dump_infra_status(void)
 	u32 val = 0;
 
 	GPUFREQ_LOGI("== [GPUFREQ INFRA STATUS] ==");
-	GPUFREQ_LOGI("GPU[%d] Freq: %d, Vgpu: %d, Vsram: %d",
-		g_gpu.cur_oppidx, g_gpu.cur_freq,
+	GPUFREQ_LOGI("mfgpll=%d, GPU[%d] Freq: %d, Vgpu: %d, Vsram: %d",
+		mt_get_abist_freq(FM_MGPLL_CK), g_gpu.cur_oppidx, g_gpu.cur_freq,
 		g_gpu.cur_volt, g_gpu.cur_vsram);
-
-	/* 0x13FBF000, 0x13F90000 */
-	if (g_mfg_top_base && g_mfg_rpc_base) {
-		/* MFG_QCHANNEL_CON 0x13FBF0B4 [0] MFG_ACTIVE_SEL = 1'b1 */
-		val = readl(g_mfg_top_base + 0xB4);
-		val |= (1UL << 0);
-		writel(val, g_mfg_top_base + 0xB4);
-		/* MFG_DEBUG_SEL 0x13FBF170 [1:0] MFG_DEBUG_TOP_SEL = 2'b11 */
-		val = readl(g_mfg_top_base + 0x170);
-		val |= (1UL << 0);
-		val |= (1UL << 1);
-		writel(val, g_mfg_top_base + 0x170);
-
-		/* MFG_DEBUG_SEL */
-		/* MFG_DEBUG_TOP */
-		/* MFG_GPU_EB_SPM_RPC_SLP_PROT_EN_STA */
-		GPUFREQ_LOGI("%-7s (0x%x): 0x%08x, (0x%x): 0x%08x, (0x%x): 0x%08x",
-			"[MFG]",
-			(0x13FBF000 + 0x170), readl(g_mfg_top_base + 0x170),
-			(0x13FBF000 + 0x178), readl(g_mfg_top_base + 0x178),
-			(0x13F90000 + 0x1048), readl(g_mfg_rpc_base + 0x1048));
-	}
 
 	/*0x1020E000 */
 	if (g_infracfg_base) {
