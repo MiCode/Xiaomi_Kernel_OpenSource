@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2021 MediaTek Inc.
+ */
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/mt6855-pinfunc.h>
+
+&chosen {
+
+};
+
+&timer {
+	clock-frequency = <150000000>;
+};
+
+/*End of this file, DO NOT ADD ANYTHING HERE*/
