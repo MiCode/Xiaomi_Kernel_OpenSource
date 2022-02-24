@@ -991,6 +991,11 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	dma_addr_t curr_pa, task_end_pa;
 	s32 err = 0;
 	unsigned long flags;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 start = sched_clock(), end[4];
+	u32 end_cnt = 0;
+	static u8 time;
+#endif
 
 	if (atomic_read(&cmdq->usage) <= 0) {
 		cmdq_log("irq handling during gce off gce:%lx thread:%u",
@@ -1050,7 +1055,9 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 
 	cmdq_log("task status %pa~%pa err:%d",
 		&curr_pa, &task_end_pa, err);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end[end_cnt++] = sched_clock();
+#endif
 	task = list_first_entry_or_null(&thread->task_busy_list,
 		struct cmdq_task, list_entry);
 	if (task && task->pkt->loop) {
@@ -1084,7 +1091,9 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	mmprofile_log_ex(cmdq_mmp.cmdq_irq, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), task ? (unsigned long)task->pkt : 0);
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end[end_cnt++] = sched_clock();
+#endif
 	list_for_each_entry_safe(task, tmp, &thread->task_busy_list,
 				 list_entry) {
 		thread->irq_task += 1;
@@ -1124,7 +1133,9 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		if (curr_task)
 			break;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end[end_cnt++] = sched_clock();
+#endif
 	task = list_first_entry_or_null(&thread->task_busy_list,
 		struct cmdq_task, list_entry);
 	if (!task) {
@@ -1139,6 +1150,16 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		cmdq_log("mod_timer pkt:0x%p timeout:%u thread:%u",
 			task->pkt, thread->timeout_ms, thread->idx);
 	}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end[end_cnt] = sched_clock();
+	if (end[end_cnt] - start >= 1000000 && !time) /* 1ms */
+		cmdq_util_err(
+			"IRQ_LONG:%llu reg:%llu loop:%llu list:%llu dis:%llu",
+			end[end_cnt] - start, end[0] - start,
+			end[1] - end[0], end[2] - end[1], end[3] - end[2]);
+	if (end[end_cnt] - start >= 1000000)
+		time += 1;
+#endif
 }
 
 static irqreturn_t cmdq_irq_handler(int irq, void *dev)
@@ -1147,9 +1168,12 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	unsigned long irq_status, flags = 0L;
 	int bit, i;
 	bool secure_irq = false;
+	u32 thd_cnt = 0;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	u64 start = sched_clock(), end[4];
-	u32 end_cnt = 0, thd_cnt = 0;
+	u32 end_cnt = 0;
 	static u8 time;
+#endif
 
 	if (atomic_read(&cmdq->usage) == -1)
 		cmdq_util_aee("CMDQ", "%s irq:%d cmdq:%pa suspend:%d usage:%d",
@@ -1163,9 +1187,9 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 
 		return IRQ_HANDLED;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end[end_cnt++] = sched_clock();
-
+#endif
 	irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) & CMDQ_IRQ_MASK;
 	cmdq_log("gce:%lx irq: %#x, %#x",
 		(unsigned long)cmdq->base_pa, (u32)irq_status,
@@ -1175,9 +1199,9 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 			(u32)irq_status);
 		return IRQ_NONE;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end[end_cnt++] = sched_clock();
-
+#endif
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		cmdq->thread[i].irq_time = 0;
 		cmdq->thread[i].irq_task = 0;
@@ -1195,17 +1219,18 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 
 		irq_time = sched_clock();
 		spin_lock_irqsave(&thread->chan->lock, flags);
+		thread->lock_time = sched_clock() - irq_time;
 		cmdq_thread_irq_handler(cmdq, thread, &cmdq->irq_removes);
 		spin_unlock_irqrestore(&thread->chan->lock, flags);
 		thread->irq_time = sched_clock() - irq_time;
 		thd_cnt += 1;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end[end_cnt++] = sched_clock();
-
+#endif
 	set_bit(CMDQ_THR_MAX_COUNT, &cmdq->err_irq_idx);
 	wake_up_interruptible(&cmdq->err_irq_wq);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end[end_cnt] = sched_clock();
 	if (end[end_cnt] - start >= 5000000 && !time) { /* 5ms */
 		cmdq_util_err(
@@ -1216,22 +1241,29 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 			struct cmdq_thread *thread = &cmdq->thread[i];
 
 			cmdq_util_err(
-				" hwid:%hu thread:%u:%d %llu:%u %llu:%u %llu:%u %llu:%u %llu:%u %llu:%u %llu:%u %llu:%u",
-				cmdq->hwid, thd_cnt, i,
+				" hwid:%hu thread:%u:%d %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u",
+				cmdq->hwid, thd_cnt, i, thread->lock_time,
 				thread->irq_time, thread->irq_task,
+				(thread + 1)->lock_time,
 				(thread + 1)->irq_time, (thread + 1)->irq_task,
+				(thread + 2)->lock_time,
 				(thread + 2)->irq_time, (thread + 2)->irq_task,
+				(thread + 3)->lock_time,
 				(thread + 3)->irq_time, (thread + 3)->irq_task,
+				(thread + 4)->lock_time,
 				(thread + 4)->irq_time, (thread + 4)->irq_task,
+				(thread + 5)->lock_time,
 				(thread + 5)->irq_time, (thread + 5)->irq_task,
+				(thread + 6)->lock_time,
 				(thread + 6)->irq_time, (thread + 6)->irq_task,
+				(thread + 7)->lock_time,
 				(thread + 7)->irq_time, (thread + 7)->irq_task);
 		}
 	}
 
 	if (end[end_cnt] - start >= 1000000)
 		time += 1;
-
+#endif
 	return secure_irq ? IRQ_NONE : IRQ_HANDLED;
 }
 
