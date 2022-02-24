@@ -1075,7 +1075,7 @@ static int fg_read_dts_val(const struct device_node *np,
 		bm_debug("Get %s: %d\n",
 			 node_srting, *param);
 	} else {
-		bm_err("Get %s failed\n", node_srting);
+		bm_debug("Get %s failed\n", node_srting);
 		return -1;
 	}
 	return 0;
@@ -1092,7 +1092,7 @@ static int fg_read_dts_val_by_idx(const struct device_node *np,
 		bm_debug("Get %s %d: %d\n",
 			 node_srting, idx, *param);
 	} else {
-		bm_err("Get %s failed, idx %d\n", node_srting, idx);
+		bm_debug("Get %s failed, idx %d\n", node_srting, idx);
 		return -1;
 	}
 	return 0;
