@@ -644,13 +644,14 @@ page_owner=on loop.max_part=7";
 	mmsys_config_clk: syscon@14116000 {
 		compatible = "mediatek,mt6885-mmsys", "mediatek,mt6893-mmsys", "syscon";
 		reg = <0 0x14116000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
-	scpsys: scpsys@10001000 {
-		compatible = "mediatek,scpsys","mediatek,mt6893-scpsys","mediatek,mt6885-scpsys";
-		reg = <0 0x10001000 0 0x1000>,		/* infracfg_ao */
-			<0 0x10006000 0 0x1000>,	/* spm */
+	scpsys: scpsys@10006000 {
+	compatible = "mediatek,scpsys","mediatek,mt6893-scpsys","mediatek,mt6885-scpsys","syscon";
+		reg = <0 0x10006000 0 0x1000>,		/* infracfg_ao */
+			<0 0x10001000 0 0x1000>,	/* spm */
 			<0 0x10000000 0 0x1000>;	/* topckgen */
 		#clock-cells = <1>;
 	};
@@ -684,36 +685,42 @@ page_owner=on loop.max_part=7";
 	mdpsys: syscon@1f000000 {
 		compatible = "mediatek,mt6885-mdpsys", "mediatek,mt6893-mdpsys", "syscon";
 		reg = <0 0x1f000000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
 	vdec_gcon_clk: syscon@1602f000 {
 		compatible ="mediatek,vdec_gcon", "mediatek,mt6893-vdecsys", "syscon";
 		reg = <0 0x1602f000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
 	camsys_main_clk: syscon@1a000000 {
 		compatible = "mediatek,camsys_main", "mediatek,mt6893-camsys_main", "syscon";
 		reg = <0 0x1a000000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
 	camsys_rawa_clk: syscon@1a04f000 {
 		compatible = "mediatek,camsys_rawa","mediatek,mt6893-camsys_rawa", "syscon";
 		reg = <0 0x1a04f000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
 	camsys_rawb_clk: syscon@1a06f000 {
 		compatible = "mediatek,camsys_rawb","mediatek,mt6893-camsys_rawb", "syscon";
 		reg = <0 0x1a06f000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
 	camsys_rawc_clk: syscon@1a08f000 {
 		compatible ="mediatek,camsys_rawc", "mediatek,mt6893-camsys_rawc", "syscon";
 		reg = <0 0x1a08f000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
@@ -796,18 +803,21 @@ page_owner=on loop.max_part=7";
 	ipesys_clk: syscon@1b000000 {
 		compatible = "mediatek,ipesys_config","mediatek,mt6893-ipesys", "syscon";
 		reg = <0 0x1b000000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
 	imgsys1_clk: syscon@15020000 {
 		compatible = "mediatek,mt6893-imgsys1", "syscon";
 		reg = <0 0x15020000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
 	imgsys2_clk: syscon@15820000 {
 		compatible = "mediatek,imgsys2","mediatek,mt6893-imgsys2", "syscon";
 		reg = <0 0x15820000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 
 	};
@@ -815,6 +825,7 @@ page_owner=on loop.max_part=7";
 	venc_gcon_clk: syscon@17000000 {
 		compatible = "mediatek,venc_gcon", "mediatek,mt6893-vencsys", "syscon";
 		reg = <0 0x17000000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
@@ -1352,7 +1363,6 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10017000 0 0x1000>;
 		interrupts = <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk13m>;
-		status = "disabled";
 	};
 
 	modem_temp_share@10018000 {
@@ -3570,6 +3580,7 @@ page_owner=on loop.max_part=7";
 	mfgcfg_clk: syscon@13fbf000 {
 		compatible = "mediatek,g3d_config", "mediatek,mt6893-mfgcfg", "syscon";
 		reg = <0 0x13fbf000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
@@ -5353,6 +5364,12 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x15020000 0 0x1000>;
 	};
 
+	imgsys2_config: imgsys2_config@15820000 {
+		compatible = "mediatek,imgsys2", "syscon";
+		reg = <0 0x15820000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	dip_b0@15821000 {
 		compatible = "mediatek,dip2";
 		reg = <0 0x15821000 0 0xc000>;
@@ -5427,6 +5444,7 @@ page_owner=on loop.max_part=7";
 	venc_c1_gcon_clk: syscon@17800000 {
 		compatible = "mediatek,venc_c1_gcon","mediatek,mt6893-vencsys_c1", "syscon";
 		reg = <0 0x17800000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
@@ -5550,6 +5568,7 @@ page_owner=on loop.max_part=7";
 	vdec_soc_gcon_clk: syscon@1600f000 {
 		compatible = "mediatek,vdec_soc_gcon","mediatek,mt6893-vdecsys_soc", "syscon";
 		reg = <0 0x1600f000 0 0x1000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
@@ -7416,6 +7435,7 @@ page_owner=on loop.max_part=7";
 	audio_clk: syscon@11210000 {
 		compatible = "mediatek,audio","mediatek,mt6893-audiosys", "syscon";
 		reg = <0 0x11210000 0 0x2000>;
+		pwr-regmap = <&scpsys>;
 		#clock-cells = <1>;
 	};
 
@@ -8332,6 +8352,12 @@ page_owner=on loop.max_part=7";
 #include "mediatek/mt6359p.dtsi"
 #include "mediatek/cust_mt6893_msdc.dtsi"
 #include "mediatek/v1/mt6360_pd.dtsi"
+
+&mt_pmic_vemc_ldo_reg {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+};
+
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #include "mediatek/trusty.dtsi"
 #endif
