@@ -918,8 +918,17 @@ static int mtk_dsi_set_LFR(struct mtk_dsi *dsi, struct mtk_ddp_comp *comp,
 		drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
 
 	atomic_set(&mtk_crtc->msync2.LFR_final_state, en);
-	if (mtk_dsi_is_LFR_Enable(dsi))
+	if (mtk_dsi_is_LFR_Enable(dsi)) {
+		lfr_enable = 0;
+		SET_VAL_MASK(val, mask, lfr_enable, LFR_CON_FLD_REG_LFR_EN);
+
+		if (handle == NULL)
+			mtk_dsi_mask(dsi, DSI_LFR_CON, mask, val);
+		else
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DSI_LFR_CON, val, mask);
 		return -1;
+	}
 
 	//Settings lfr settings to LFR_CON_REG
 	if (dsi->ext && dsi->ext->params &&
