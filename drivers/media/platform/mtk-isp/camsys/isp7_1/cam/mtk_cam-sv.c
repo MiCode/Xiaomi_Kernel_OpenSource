@@ -26,6 +26,7 @@
 #include "mtk_cam-pool.h"
 #include "mtk_cam-sv-regs.h"
 #include "mtk_cam-sv.h"
+#include "mtk_cam-regs.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 
@@ -3006,8 +3007,24 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 
 	disable_irq(camsv_dev->irq);
 
+	dev_info(camsv_dev->dev, "%s:tg_sen_mode:0x%x",
+		__func__,
+		readl_relaxed(camsv_dev->base_inner + REG_CAMSV_TG_SEN_MODE));
+	if (CAMSV_READ_BITS(camsv_dev->base_inner + REG_CAMSV_TG_SEN_MODE,
+		CAMSV_TG_SEN_MODE, CMOS_EN) == 1) {
+		mtk_smi_dbg_hang_detect("camsys-camsv");
+	}
+
+	dev_info(camsv_dev->dev, "%s:Before_sv_clkoff, main_clk:0x%x",
+		__func__,
+		readl_relaxed(camsv_dev->cam->base + REG_CAMSYS_CG_CON));
+
 	for (i = 0; i < camsv_dev->num_clks; i++)
 		clk_disable_unprepare(camsv_dev->clks[i]);
+
+	dev_info(camsv_dev->dev, "%s:After_sv_clkoff, main_clk:0x%x",
+		__func__,
+		readl_relaxed(camsv_dev->cam->base + REG_CAMSYS_CG_CON));
 
 	return 0;
 }
