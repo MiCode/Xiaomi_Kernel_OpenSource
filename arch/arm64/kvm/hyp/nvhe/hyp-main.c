@@ -485,7 +485,7 @@ static void sync_timer_state(struct pkvm_loaded_state *state)
 	__vcpu_sys_reg(shadow_vcpu, CNTV_CTL_EL0) = read_sysreg_el0(SYS_CNTV_CTL);
 }
 
-static void __sync_vcpu_state(struct kvm_vcpu *from_vcpu,
+static void __copy_vcpu_state(const struct kvm_vcpu *from_vcpu,
 			      struct kvm_vcpu *to_vcpu)
 {
 	int i;
@@ -507,6 +507,20 @@ static void __sync_vcpu_state(struct kvm_vcpu *from_vcpu,
 	}
 }
 
+static void __sync_vcpu_state(struct kvm_vcpu *shadow_vcpu)
+{
+	struct kvm_vcpu *host_vcpu = shadow_vcpu->arch.pkvm.host_vcpu;
+
+	__copy_vcpu_state(shadow_vcpu, host_vcpu);
+}
+
+static void __flush_vcpu_state(struct kvm_vcpu *shadow_vcpu)
+{
+	struct kvm_vcpu *host_vcpu = shadow_vcpu->arch.pkvm.host_vcpu;
+
+	__copy_vcpu_state(host_vcpu, shadow_vcpu);
+}
+
 static void flush_shadow_state(struct pkvm_loaded_state *state)
 {
 	struct kvm_vcpu *shadow_vcpu = state->vcpu;
@@ -524,7 +538,7 @@ static void flush_shadow_state(struct pkvm_loaded_state *state)
 	 */
 	if (!state->is_protected) {
 		if (READ_ONCE(host_vcpu->arch.flags) & KVM_ARM64_PKVM_STATE_DIRTY)
-			__sync_vcpu_state(host_vcpu, shadow_vcpu);
+			__flush_vcpu_state(shadow_vcpu);
 
 		state->vcpu->arch.hcr_el2 = HCR_GUEST_FLAGS & ~(HCR_RW | HCR_TWI | HCR_TWE);
 		state->vcpu->arch.hcr_el2 |= host_vcpu->arch.hcr_el2;
@@ -664,7 +678,7 @@ static void handle___pkvm_vcpu_put(struct kvm_cpu_context *host_ctxt)
 
 			if (!state->is_protected &&
 			    !(READ_ONCE(vcpu->arch.flags) & KVM_ARM64_PKVM_STATE_DIRTY))
-				__sync_vcpu_state(state->vcpu, vcpu);
+				__sync_vcpu_state(state->vcpu);
 
 			put_shadow_vcpu(state->vcpu);
 
@@ -687,7 +701,7 @@ static void handle___pkvm_vcpu_sync_state(struct kvm_cpu_context *host_ctxt)
 		    state->vcpu->arch.pkvm.host_vcpu != vcpu)
 			return;
 
-		__sync_vcpu_state(state->vcpu, vcpu);
+		__sync_vcpu_state(state->vcpu);
 	}
 }
 
