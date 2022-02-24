@@ -4,11 +4,13 @@
  */
 
 /dts-v1/;
+#include <dt-bindings/clock/mt6789-clk.h>
 #include <dt-bindings/gce/mt6789-gce.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/mt6789-pinfunc.h>
+#include <dt-bindings/power/mt6789-power.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
@@ -280,6 +282,149 @@
 			"mcusys_par_wrap",
 			"mp_cpusys_top",
 			"cpccfg_reg";
+	};
+
+	clkitg: clkitg {
+		compatible = "simple-bus";
+	};
+
+	clocks {
+		clk32k: clk32k {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <32000>;
+		};
+		clk26m: clk26m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <26000000>;
+		};
+		ulposc: ulposc {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <260000000>;
+		};
+	};
+
+	topckgen_clk: syscon@10000000 {
+		compatible = "mediatek,mt6789-topckgen", "syscon";
+		reg = <0 0x10000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	infracfg_ao_clk: syscon@10001000 {
+		compatible = "mediatek,mt6789-infracfg_ao", "syscon";
+		reg = <0 0x10001000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	scpsys: power-controller@10006000 {
+		compatible = "mediatek,mt6789-scpsys", "syscon";
+		reg = <0 0x10006000 0 0x1000>;
+		#power-domain-cells = <1>;
+		infracfg = <&infracfg_ao_clk>;
+	};
+
+	apmixedsys_clk: syscon@1000C000 {
+		compatible = "mediatek,mt6789-apmixedsys", "syscon";
+		reg = <0 0x1000C000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imp_iic_wrap_c_clk: syscon@1101B000 {
+		compatible = "mediatek,mt6789-imp_iic_wrap_c", "syscon";
+		reg = <0 0x1101B000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	afe_clk: syscon@11210000 {
+		compatible = "mediatek,mt6789-afe", "syscon";
+		reg = <0 0x11210000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imp_iic_wrap_w_clk: syscon@11E02000 {
+		compatible = "mediatek,mt6789-imp_iic_wrap_w", "syscon";
+		reg = <0 0x11E02000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imp_iic_wrap_en_clk: syscon@11EB4000 {
+		compatible = "mediatek,mt6789-imp_iic_wrap_en", "syscon";
+		reg = <0 0x11EB4000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imp_iic_wrap_n_clk: syscon@11F01000 {
+		compatible = "mediatek,mt6789-imp_iic_wrap_n", "syscon";
+		reg = <0 0x11F01000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	mfg_top_config_clk: syscon@13fbf000 {
+		compatible = "mediatek,mt6789-mfg", "syscon";
+		reg = <0 0x13fbf000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	dispsys_config_clk: syscon@14000000 {
+		compatible = "mediatek,mt6789-mmsys", "syscon";
+		reg = <0 0x14000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	disp_dsc_clk: syscon@14012000 {
+		compatible = "mediatek,mt6789-disp_dsc", "syscon";
+		reg = <0 0x14012000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	imgsys1_clk: syscon@15020000 {
+		compatible = "mediatek,mt6789-imgsys1", "syscon";
+		reg = <0 0x15020000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	vdec_gcon_base_clk: syscon@1602f000 {
+		compatible = "mediatek,mt6789-vdecsys", "syscon";
+		reg = <0 0x1602f000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	venc_gcon_clk: syscon@17000000 {
+		compatible = "mediatek,mt6789-vencsys", "syscon";
+		reg = <0 0x17000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_main_clk: syscon@1a000000 {
+		compatible = "mediatek,mt6789-camsys_main", "syscon";
+		reg = <0 0x1a000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_rawa_clk: syscon@1a04f000 {
+		compatible = "mediatek,mt6789-camsys_rawa", "syscon";
+		reg = <0 0x1a04f000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	camsys_rawb_clk: syscon@1a06f000 {
+		compatible = "mediatek,mt6789-camsys_rawb", "syscon";
+		reg = <0 0x1a06f000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	ipesys_clk: syscon@1b000000 {
+		compatible = "mediatek,mt6789-ipesys", "syscon";
+		reg = <0 0x1b000000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
+	mdpsys_config_clk: syscon@1f000000 {
+		compatible = "mediatek,mt6789-mdpsys", "syscon";
+		reg = <0 0x1f000000 0 0x1000>;
+		#clock-cells = <1>;
 	};
 
 	soc {
@@ -1562,6 +1707,7 @@
 
 #include "mediatek/cust_mt6789_msdc.dtsi"
 #include "mediatek/mt6366.dtsi"
+#include "mediatek/mt6789-clkitg.dtsi"
 
 &pmic {
 	interrupt-parent = <&pio>;
