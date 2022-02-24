@@ -2521,8 +2521,10 @@ page_owner=on loop.max_part=7";
 		clocks = <&topckgen_clk CLK_TOP_MSDC50_0_HCLK>,
 			 <&topckgen_clk CLK_TOP_MSDC50_0>,
 			 <&infracfg_ao_clk CLK_IFRAO_MSDC0>,
-			 <&infracfg_ao_clk CLK_IFRAO_MSDC0_SRC>;
-		clock-names = "bus_clk", "source", "hclk", "source_cg";
+			 <&infracfg_ao_clk CLK_IFRAO_MSDC0_SRC>,
+			 <&infracfg_ao_clk CLK_IFRAO_AES>;
+		clock-names = "bus_clk", "source", "hclk", "source_cg",
+			"crypto_clk";
 		status = "disabled";
 	};
 
