@@ -10402,7 +10402,8 @@ LB_CAM_SOF_IGNORE:
 	wake_up_interruptible(&IspInfo.WaitQueueHead[module]);
 
 	/* dump log, use workq */
-	if (IrqStatus & (SOF_INT_ST | SW_PASS1_DON_ST | VS_INT_ST)) {
+	if ((IrqStatus & (SOF_INT_ST | SW_PASS1_DON_ST | VS_INT_ST)) ||
+		ErrStatus) {
 		#if (ISP_BOTTOMHALF_WORKQ == 1)
 		schedule_work(&isp_workque[module].isp_bh_work);
 		#endif
