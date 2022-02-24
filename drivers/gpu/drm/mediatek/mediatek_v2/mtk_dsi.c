@@ -165,7 +165,9 @@
 #define CMDQ_SIZE_SEL BIT(15)
 
 #define DSI_CMD_TYPE1_HS 0x6c
+#define CMD_HS_HFP_BLANKING_NULL_LEN REG_FLD_MSB_LSB(15, 0)
 #define CMD_HS_HFP_BLANKING_HS_EN BIT(16)
+#define CMD_HS_HFP_BLANKING_NULL_EN BIT(17)
 #define CMD_CPHY_6BYTE_EN BIT(18)
 
 #define DSI_HSTX_CKL_WC 0x64
@@ -3521,6 +3523,15 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 			cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + DSI_CMD_TYPE1_HS,
 					CMD_HS_HFP_BLANKING_HS_EN, CMD_HS_HFP_BLANKING_HS_EN);
+			if (ext->params->cmd_hs_null_len) {
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DSI_CMD_TYPE1_HS,
+					CMD_HS_HFP_BLANKING_NULL_EN, CMD_HS_HFP_BLANKING_NULL_EN);
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DSI_CMD_TYPE1_HS,
+					ext->params->cmd_hs_null_len,
+					REG_FLD_MASK(CMD_HS_HFP_BLANKING_NULL_LEN));
+			}
 		}
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->mtk_crtc->config_regs_pa + 0xF0, 0x1, 0x1);

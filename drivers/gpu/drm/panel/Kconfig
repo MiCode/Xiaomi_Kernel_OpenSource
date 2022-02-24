@@ -776,6 +776,17 @@ config DRM_PANEL_HX_NT37701_DPHY_CMD_120HZ
 	  resolution and uses 24-bits RGB per pixel. It provides a
 	  MIPI DSI interface to host.
 
+config DRM_PANEL_TIANMA_NT37701A_DPHY_CMD_144HZ
+	tristate "NT37701 amoled dphy cmd mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for NT37701 DPHY
+	  cmd mode Full HD panel. The panel has a 1080x2400
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
 config DRM_PANEL_SAMSUNG_S68FC01_VDO_AOD
 	tristate "samsung s68fc01 fhdp vdo aod panel"
 	depends on OF
