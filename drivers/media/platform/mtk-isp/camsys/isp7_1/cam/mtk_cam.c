@@ -5389,6 +5389,8 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				} else {
 					mtk_cam_initial_sensor_setup(req, ctx);
 				}
+			} else if (!ctx->sensor && mtk_cam_is_pure_m2m(ctx)) {
+				mtk_cam_initial_sensor_setup(req, ctx);
 			}
 			if (ctx->used_raw_num != 0) {
 				if (ctx->sensor && MTK_CAM_INITIAL_REQ_SYNC == 0 &&
