@@ -2699,13 +2699,14 @@ static int mtk_aal_sof_irq_trigger(void *data)
 static irqreturn_t mtk_disp_aal_irq_handler(int irq, void *dev_id)
 {
 	unsigned long flags;
-	unsigned int val;
+	unsigned int val = 0;
 	irqreturn_t ret = IRQ_NONE;
 	struct mtk_disp_aal *priv = dev_id;
 	struct mtk_ddp_comp *comp = &priv->ddp_comp;
 	struct mtk_disp_aal *aal_data = comp_to_aal(comp);
 
-	val = readl(comp->regs + DISP_AAL_INTSTA);
+	if (atomic_read(&aal_data->is_clock_on) == 1)
+		val = readl(comp->regs + DISP_AAL_INTSTA);
 
 	DRM_MMP_MARK(IRQ, irq, val);
 	if (comp->id == DDP_COMPONENT_AAL0)
