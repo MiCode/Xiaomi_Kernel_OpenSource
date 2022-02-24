@@ -1055,7 +1055,7 @@ err_attach:
 
 	return false;
 }
-#endif
+
 static void mmu_release(struct tee_mmu *mmu)
 {
 	if (mmu->dma_buf) {
@@ -1083,12 +1083,14 @@ void rsc_cmdq_cb_destroy(struct cmdq_cb_data data)
 	pm_qos_update_request(&rsc_pm_qos_request, 0);
 #endif
 }
+
 unsigned long FD_OFFSET_ADDR[NUM_BASEADDR];
+#endif
 signed int CmdqRSCHW(struct frame *frame)
 {
-	struct tee_mmu *records = NULL;
 	struct RSC_Config *pRscConfig = NULL;
 #if CHECK_SERVICE_IF_0
+	struct tee_mmu *records = NULL;
 	struct tee_mmu mmu;
 	unsigned int hw_array[NUM_BASEADDR];
 	unsigned int fd_array[NUM_BASEADDR];
@@ -1275,8 +1277,9 @@ signed int CmdqRSCHW(struct frame *frame)
 	/* flush and destroy in cmdq */
 	//pkt_addr = (unsigned long *)&records[NUM_BASEADDR];
 	//*pkt_addr = (unsigned long)pkt;
-	cmdq_pkt_flush_threaded(pkt, rsc_cmdq_cb_destroy, (void *)records);
-
+	//cmdq_pkt_flush_threaded(pkt, rsc_cmdq_cb_destroy, (void *)records);
+	cmdq_pkt_flush(pkt);
+	cmdq_pkt_destroy(pkt);
 #else  // old cmdq function
 	cmdqRecCreate(CMDQ_SCENARIO_KERNEL_CONFIG_GENERAL, &handle);
 
