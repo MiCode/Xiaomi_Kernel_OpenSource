@@ -43,7 +43,7 @@ static u32 pmic_addr;
 #define LOG_BLOCK_SIZE (512)
 #define EXPDB_LOG_SIZE (2*1024*1024)
 
-static bool get_pmic_interface(void)
+bool get_pmic_interface(void)
 {
 	struct device_node *np;
 	struct platform_device *pmic_pdev = NULL;
@@ -75,6 +75,7 @@ static bool get_pmic_interface(void)
 	return true;
 
 }
+EXPORT_SYMBOL_GPL(get_pmic_interface);
 
 u32 set_pmic_boot_phase(u32 boot_phase)
 {
@@ -95,7 +96,7 @@ u32 set_pmic_boot_phase(u32 boot_phase)
 
 	return ret;
 }
-
+EXPORT_SYMBOL_GPL(set_pmic_boot_phase);
 
 u32 get_pmic_boot_phase(void)
 {
@@ -116,7 +117,7 @@ u32 get_pmic_boot_phase(void)
 
 	return -1;
 }
-
+EXPORT_SYMBOL_GPL(get_pmic_boot_phase);
 
 /* set the flag whether store log to emmc in next boot phase in pl */
 void store_log_to_emmc_enable(bool value)
@@ -140,6 +141,7 @@ void store_log_to_emmc_enable(bool value)
 		sram_dram_buff->flag, sram_header->reboot_count,
 		sram_header->save_to_emmc);
 }
+EXPORT_SYMBOL_GPL(store_log_to_emmc_enable);
 
 void set_boot_phase(u32 step)
 {
@@ -153,11 +155,13 @@ void set_boot_phase(u32 step)
 	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] &= ~BOOT_PHASE_MASK;
 	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] |= step;
 }
+EXPORT_SYMBOL_GPL(set_boot_phase);
 
 u32 get_last_boot_phase(void)
 {
 	return last_boot_phase;
 }
+EXPORT_SYMBOL_GPL(get_last_boot_phase);
 
 void log_store_bootup(void)
 {
@@ -165,6 +169,7 @@ void log_store_bootup(void)
 	store_log_to_emmc_enable(false);
 	set_boot_phase(BOOT_PHASE_ANDROID);
 }
+EXPORT_SYMBOL_GPL(log_store_bootup);
 
 static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 {
@@ -386,7 +391,7 @@ static int __init log_store_late_init(void)
 
 
 /* need mapping virtual address to phy address */
-static void store_printk_buff(void)
+void store_printk_buff(void)
 {
 	phys_addr_t log_buf;
 	char *buff;
@@ -416,7 +421,7 @@ static void store_printk_buff(void)
 		sram_dram_buff->klog_size,
 		sram_dram_buff->flag);
 }
-
+EXPORT_SYMBOL_GPL(store_printk_buff);
 
 void disable_early_log(void)
 {
@@ -429,13 +434,9 @@ void disable_early_log(void)
 
 	sram_dram_buff->flag &= ~BUFF_EARLY_PRINTK;
 }
+EXPORT_SYMBOL_GPL(disable_early_log);
 
-
-struct mem_desc_ls {
-	unsigned int addr;
-	unsigned int size;
-};
-static int __init dt_get_log_store(struct mem_desc_ls *data)
+int dt_get_log_store(struct mem_desc_ls *data)
 {
 	struct mem_desc_ls *sram_ls;
 	struct device_node *np_chosen, *np_logstore;
@@ -462,6 +463,16 @@ static int __init dt_get_log_store(struct mem_desc_ls *data)
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(dt_get_log_store);
+
+void *get_sram_header(void)
+{
+	if ((sram_header != NULL) && (sram_header->sig == SRAM_HEADER_SIG))
+		return sram_header;
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(get_sram_header);
+
 /* store log_store information to */
 static int __init log_store_early_init(void)
 {

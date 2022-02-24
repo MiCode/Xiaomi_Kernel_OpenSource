@@ -127,6 +127,11 @@ struct emmc_log {
 	u32 end;
 };
 
+struct mem_desc_ls {
+	unsigned int addr;
+	unsigned int size;
+};
+
 #define LOG_PLLK 0x01
 #define LOG_PL 0x02
 #define LOG_KERNEL 0x03
@@ -143,6 +148,10 @@ struct emmc_log {
 #define BOOT_PHASE_PRE_SUSPEND 0x08
 #define BOOT_PHASE_EXIT_RESUME 0X09
 
+bool get_pmic_interface(void);
+u32 set_pmic_boot_phase(u32 boot_phase);
+u32 get_pmic_boot_phase(void);
+void store_log_to_emmc_enable(bool value);
 #if IS_ENABLED(CONFIG_MTK_DRAM_LOG_STORE)
 void log_store_bootup(void);
 void store_log_to_emmc_enable(bool value);
@@ -164,6 +173,11 @@ int set_emmc_config(int type, int value);
 int read_emmc_config(struct log_emmc_header *log_header);
 u32 get_last_boot_phase(void);
 void set_boot_phase(u32 step);
+void log_store_bootup(void);
+void store_printk_buff(void);
+int dt_get_log_store(struct mem_desc_ls *data);
+void disable_early_log(void);
+void *get_sram_header(void);
 #else
 
 static inline void  log_store_bootup(void)
@@ -198,6 +212,23 @@ static inline u32 get_last_boot_phase(void)
 }
 static inline void set_boot_phase(u32 step)
 {
+}
+static inline void log_store_bootup(void)
+{
+}
+static inline void store_printk_buff(void)
+{
+}
+static inline int dt_get_log_store(struct mem_desc_ls *data)
+{
+	return 0;
+}
+static inline void disable_early_log(void)
+{
+}
+static inline void *get_sram_header(void)
+{
+	return NULL;
 }
 #endif
 #endif
