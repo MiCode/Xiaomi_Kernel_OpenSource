@@ -3207,61 +3207,6 @@ static int alpha_pll_lucid_5lpe_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
-static int alpha_pll_lucid_5lpe_sdx_cpu_set_rate(struct clk_hw *hw,
-						 unsigned long rate,
-						 unsigned long prate)
-{
-	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
-	unsigned long rrate;
-	u32 regval, l;
-	u64 a;
-	int ret;
-
-	rrate = alpha_pll_round_rate(rate, prate, &l, &a, ALPHA_REG_16BIT_WIDTH);
-
-	/*
-	 * Due to a limited number of bits for fractional rate programming, the
-	 * rounded up rate could be marginally higher than the requested rate.
-	 */
-	if (rrate > (rate + PLL_OUT_RATE_MARGIN) || rrate < rate) {
-		pr_err("Call set rate on the PLL with rounded rates!\n");
-		return -EINVAL;
-	}
-
-	regmap_write(pll->clkr.regmap, PLL_L_VAL(pll), l);
-	regmap_write(pll->clkr.regmap, PLL_ALPHA_VAL(pll), a);
-
-	/* Latch the PLL input */
-	ret = regmap_write_bits(pll->clkr.regmap, PLL_MODE(pll),
-				LUCID_5LPE_SDX_CPU_LATCH_INPUT,
-				LUCID_5LPE_SDX_CPU_LATCH_INPUT);
-	if (ret)
-		return ret;
-
-	/* Wait for 2 reference cycles before checking the ACK bit. */
-	udelay(1);
-	regmap_read(pll->clkr.regmap, PLL_MODE(pll), &regval);
-	if (!(regval & LUCID_5LPE_ALPHA_PLL_ACK_LATCH)) {
-		WARN_CLK(&pll->clkr.hw, 1,
-			 "PLL latch failed. Output may be unstable!\n");
-		return -EINVAL;
-	}
-
-	/* Return the latch input to 0 */
-	ret = regmap_write_bits(pll->clkr.regmap, PLL_MODE(pll),
-				LUCID_5LPE_SDX_CPU_LATCH_INPUT, 0);
-	if (ret)
-		return ret;
-
-	if (clk_hw_is_enabled(hw)) {
-		ret = wait_for_pll_enable_lock(pll);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
 static int clk_lucid_5lpe_pll_postdiv_set_rate(struct clk_hw *hw,
 				unsigned long rate, unsigned long parent_rate)
 {
@@ -3402,25 +3347,6 @@ const struct clk_ops clk_alpha_pll_lucid_5lpe_ops = {
 #endif
 };
 EXPORT_SYMBOL(clk_alpha_pll_lucid_5lpe_ops);
-
-const struct clk_ops clk_alpha_pll_lucid_5lpe_sdx_cpu_ops = {
-	.prepare = alpha_pll_lucid_5lpe_prepare,
-	.unprepare = clk_unprepare_regmap,
-	.pre_rate_change = clk_pre_change_regmap,
-	.post_rate_change = clk_post_change_regmap,
-	.enable = alpha_pll_lucid_5lpe_enable,
-	.disable = alpha_pll_lucid_5lpe_disable,
-	.is_enabled = alpha_pll_lucid_is_enabled,
-	.recalc_rate = alpha_pll_lucid_recalc_rate,
-	.round_rate = clk_alpha_pll_round_rate,
-	.set_rate = alpha_pll_lucid_5lpe_sdx_cpu_set_rate,
-	.debug_init = clk_common_debug_init,
-	.init = clk_lucid_pll_init,
-#ifdef CONFIG_COMMON_CLK_QCOM_DEBUG
-	.list_rate_vdd_level = clk_list_rate_vdd_level,
-#endif
-};
-EXPORT_SYMBOL(clk_alpha_pll_lucid_5lpe_sdx_cpu_ops);
 
 const struct clk_ops clk_alpha_pll_fixed_lucid_ops = {
 	.prepare = clk_prepare_regmap,
