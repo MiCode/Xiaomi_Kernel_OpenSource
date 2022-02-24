@@ -183,7 +183,8 @@ int ultra_open_dump_file(void)
 			__func__, path_dataout_pcm);
 
 	fp_pcm_in = filp_open(path_datain_pcm,
-			O_CREAT | O_WRONLY | O_LARGEFILE, 0);
+			O_CREAT | O_WRONLY | O_LARGEFILE | O_NOFOLLOW,
+			0);
 	if (IS_ERR(fp_pcm_in)) {
 		pr_info("%s(), %s file open error: %ld\n",
 				__func__,
@@ -193,7 +194,7 @@ int ultra_open_dump_file(void)
 	}
 	fp_pcm_out = filp_open(
 			path_dataout_pcm,
-			O_CREAT | O_WRONLY | O_LARGEFILE,
+			O_CREAT | O_WRONLY | O_LARGEFILE | O_NOFOLLOW,
 			0);
 	if (IS_ERR(fp_pcm_out)) {
 		pr_info("%s(), %s file open error: %ld\n",
