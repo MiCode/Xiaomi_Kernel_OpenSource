@@ -781,9 +781,16 @@
 		};
 
 		devapc@10207000 {
-			compatible = "mediatek,devapc";
-			reg = <0 0x10207000 0 0x1000>;
-			interrupts = <GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH 0>;
+			compatible = "mediatek,mt6789-devapc";
+			reg = <0 0x10207000 0 0x1000>, /* infra pd */
+				<0 0x10274000 0 0x1000>, /* peri pd */
+				<0 0x10275000 0 0x1000>, /* peri2 pd */
+				<0 0x11020000 0 0x1000>, /* peri_par pd */
+				<0 0x10030000 0 0x1000>, /* infra ao */
+				<0 0x1020e000 0 0x1000>, /* infracfg */
+				<0 0x10033000 0 0x1000>, /* swp */
+				<0 0x0010c000 0 0x1000>; /* sramrom */
+			interrupts = <GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH 0>; /* infra irq */
 		};
 
 		bus_dbg@10208000 {
