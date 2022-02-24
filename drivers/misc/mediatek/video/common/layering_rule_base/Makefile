@@ -19,7 +19,7 @@ ifeq ($(CONFIG_MTK_DISP_PLATFORM), "mt6779")
 endif
 
 # for legacy chip, use v1
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6758)))
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6758) $(CONFIG_MACH_MT6739)))
 	obj-y += v1/
 else
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6779) $(CONFIG_MACH_MT6785)))

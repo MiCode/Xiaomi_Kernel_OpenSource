@@ -38,6 +38,7 @@ struct DDP_MMP_Events {
 	mmp_event primary_suspend;
 	mmp_event primary_resume;
 	mmp_event primary_config;
+	mmp_event primary_query_valid;
 	mmp_event primary_rdma_config;
 	mmp_event primary_wdma_config;
 	mmp_event primary_set_dirty;
