@@ -211,6 +211,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	qcom,spi-touch-active = "focaltech,fts_ts";
+	qcom,la-vm;
 
 	focaltech@0 {
 		compatible = "focaltech,fts_ts";
