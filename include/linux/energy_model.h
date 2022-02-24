@@ -109,8 +109,11 @@ static inline unsigned long em_pd_energy(struct em_perf_domain *pd,
 	cpu = cpumask_first(to_cpumask(pd->cpus));
 	scale_cpu = arch_scale_cpu_capacity(NULL, cpu);
 	cs = &pd->table[pd->nr_cap_states - 1];
+#ifdef CONFIG_NONLINEAR_FREQ_CTL
+	freq = mtk_map_util_freq(cpu, max_util);
+#else
 	freq = map_util_freq(max_util, cs->frequency, scale_cpu);
-
+#endif
 	/*
 	 * Find the lowest capacity state of the Energy Model above the
 	 * requested frequency.

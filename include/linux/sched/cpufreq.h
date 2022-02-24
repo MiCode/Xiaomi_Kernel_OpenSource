@@ -3,7 +3,7 @@
 #define _LINUX_SCHED_CPUFREQ_H
 
 #include <linux/types.h>
-
+#include "../../../drivers/misc/mediatek/base/power/include/mtk_upower.h"
 /*
  * Interface between cpufreq drivers and the scheduler:
  */
@@ -29,6 +29,35 @@ static inline unsigned long map_util_freq(unsigned long util,
 {
 	return (freq + (freq >> 2)) * util / cap;
 }
+
+#ifdef CONFIG_NONLINEAR_FREQ_CTL
+extern unsigned int capacity_margin;
+extern unsigned int mt_cpufreq_get_cpu_freq(int cpu, int idx);
+__attribute__((unused)) static unsigned long mtk_map_util_freq(int cpu, unsigned long util)
+{
+	struct upower_tbl *tbl;
+	int idx, cap, target_idx = 0;
+
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+	util = util * capacity_margin / SCHED_CAPACITY_SCALE;
+#endif
+
+	tbl = upower_get_core_tbl(cpu);
+	for (idx = 0; idx < tbl->row_num ; idx++) {
+		cap = tbl->row[idx].cap;
+		if (!cap)
+			break;
+
+		target_idx = idx;
+
+		if (cap >= util)
+			break;
+	}
+
+	return mt_cpufreq_get_cpu_freq(cpu, target_idx);
+}
+#endif /* CONFIG_NONLINEAR_FREQ_CTL */
+
 #endif /* CONFIG_CPU_FREQ */
 
 #endif /* _LINUX_SCHED_CPUFREQ_H */
