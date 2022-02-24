@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2013-2022, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef UFS_QCOM_H_
@@ -463,6 +464,7 @@ struct ufs_qcom_host {
 	/* Indicates curr and next clk mode */
 	u32 clk_next_mode;
 	u32 clk_curr_mode;
+	bool is_clk_scale_enabled;
 };
 
 static inline u32
