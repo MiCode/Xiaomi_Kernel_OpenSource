@@ -14,6 +14,7 @@
 #include <linux/mfd/mt6323/core.h>
 #include <linux/mfd/mt6358/core.h>
 #include <linux/mfd/mt6359p/core.h>
+#include <linux/mfd/mt6366/core.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/mfd/mt6323/registers.h>
 #include <linux/mfd/mt6358/registers.h>
@@ -77,9 +78,19 @@ static const struct resource mt6359p_battery_oc_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_CUR_L, "fg_cur_l"),
 };
 
+static const struct resource mt6366_battery_oc_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6366_IRQ_FG_CUR_H, "fg_cur_h"),
+	DEFINE_RES_IRQ_NAMED(MT6366_IRQ_FG_CUR_L, "fg_cur_l"),
+};
+
 static const struct resource mt6359p_lbat_service_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_BAT_H, "bat_h"),
 	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_BAT_L, "bat_l"),
+};
+
+static const struct resource mt6366_lbat_service_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6366_IRQ_BAT_H, "bat_h"),
+	DEFINE_RES_IRQ_NAMED(MT6366_IRQ_BAT_L, "bat_l"),
 };
 
 static const struct resource mt6323_pwrc_resources[] = {
@@ -204,6 +215,38 @@ static const struct mfd_cell mt6359p_devs[] = {
 	}
 };
 
+static const struct mfd_cell mt6366_devs[] = {
+	{
+		.name = "mt-pmic",
+		.of_compatible = "mediatek,mt63xx-debug",
+	}, {
+		.name = "mt635x-auxadc",
+		.of_compatible = "mediatek,mt6358-auxadc",
+	}, {
+		.name = "mt6358-efuse",
+		.of_compatible = "mediatek,mt6358-efuse",
+	}, {
+		.name = "mt6358-regulator",
+		.of_compatible = "mediatek,mt6358-regulator",
+	}, {
+		.name = "mtk-battery-oc-throttling",
+		.of_compatible = "mediatek,mt6358-battery_oc_throttling",
+		.num_resources = ARRAY_SIZE(mt6366_battery_oc_resources),
+		.resources = mt6366_battery_oc_resources,
+	}, {
+		.name = "mtk-dynamic-loading-throttling",
+		.of_compatible = "mediatek,mt6358-dynamic_loading_throttling",
+	}, {
+		.name = "mtk-lbat_service",
+		.of_compatible = "mediatek,mt6358-lbat_service",
+		.num_resources = ARRAY_SIZE(mt6366_lbat_service_resources),
+		.resources = mt6366_lbat_service_resources,
+	}, {
+		.name = "mt63xx-oc-debug",
+		.of_compatible = "mediatek,mt63xx-oc-debug",
+	},
+};
+
 static const struct mfd_cell mt6397_devs[] = {
 	{
 		.name = "mt6397-rtc",
@@ -259,6 +302,14 @@ static const struct chip_data mt6359p_core = {
 	.cid_shift = 8,
 	.cells = mt6359p_devs,
 	.cell_size = ARRAY_SIZE(mt6359p_devs),
+	.irq_init = mt6358_irq_init,
+};
+
+static const struct chip_data mt6366_core = {
+	.cid_addr = MT6358_SWCID,
+	.cid_shift = 8,
+	.cells = mt6366_devs,
+	.cell_size = ARRAY_SIZE(mt6366_devs),
 	.irq_init = mt6358_irq_init,
 };
 
@@ -334,6 +385,9 @@ static const struct of_device_id mt6397_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6359p",
 		.data = &mt6359p_core,
+	}, {
+		.compatible = "mediatek,mt6366",
+		.data = &mt6366_core,
 	}, {
 		.compatible = "mediatek,mt6397",
 		.data = &mt6397_core,
