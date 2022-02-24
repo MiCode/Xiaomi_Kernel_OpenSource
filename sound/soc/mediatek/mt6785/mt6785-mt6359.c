@@ -262,7 +262,7 @@ static int mt6785_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_component *component =
 		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
-	struct mt6833_afe_private *afe_priv = afe->platform_priv;
+	struct mt6785_afe_private *afe_priv = afe->platform_priv;
 	struct snd_soc_component *codec_component =
 		snd_soc_rtdcom_lookup(rtd, CODEC_MT6359_NAME);
 	int phase;

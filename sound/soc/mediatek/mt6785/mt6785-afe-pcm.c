@@ -30,7 +30,7 @@
 #include "mt6785-interconnection.h"
 
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-#include "../audio_dsp/mtk-dsp-common.h"
+#include "../audio_dsp/v2/mtk-dsp-common.h"
 #endif
 #if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 #include "../scp_spk/mtk-scp-spk-common.h"
@@ -3377,14 +3377,15 @@ static const struct mtk_audio_sram_ops mt6785_sram_ops = {
 	.set_sram_mode = mt6785_set_sram_mode,
 };
 
-static int mt6785_afe_pcm_platform_probe(struct snd_soc_platform *platform)
+static int mt6785_afe_pcm_platform_probe(struct snd_soc_component *platform)
 {
 	mtk_afe_add_sub_dai_control(platform);
 	mt6785_add_misc_control(platform);
 	return 0;
 }
 
-const struct snd_soc_platform_driver mt6785_afe_pcm_platform = {
+const struct snd_soc_component_driver mt6785_afe_component = {
+	.name     = AFE_PCM_NAME,
 	.ops = &mtk_afe_pcm_ops,
 	.pcm_new = mtk_afe_pcm_new,
 	.pcm_free = mtk_afe_pcm_free,
@@ -5444,6 +5445,8 @@ static int mt6785_afe_pcm_dev_probe(struct platform_device *pdev)
 		}
 	}
 
+	dev_info(dev, "%s(), mtk_afe_combine_sub_dai\n", __func__);
+
 	/* init dai_driver and component_driver */
 	ret = mtk_afe_combine_sub_dai(afe);
 	if (ret) {
@@ -5472,13 +5475,16 @@ static int mt6785_afe_pcm_dev_probe(struct platform_device *pdev)
 					   S_IFREG | 0444, NULL,
 					   afe, &mt6785_debugfs_ops);
 #endif
+	dev_info(dev, "%s(), devm_snd_soc_register_platform\n", __func__);
 	/* register platform */
-	ret = devm_snd_soc_register_platform(&pdev->dev,
-					     &mt6785_afe_pcm_platform);
+	ret = devm_snd_soc_register_component(&pdev->dev,
+					     &mt6785_afe_component, NULL, 0);
 	if (ret) {
 		dev_warn(dev, "err_platform\n");
 		goto err_platform;
 	}
+
+	dev_info(dev, "%s(), devm_snd_soc_register_component\n", __func__);
 
 	ret = devm_snd_soc_register_component(&pdev->dev,
 					      &mt6785_afe_pcm_component,
@@ -5488,6 +5494,8 @@ static int mt6785_afe_pcm_dev_probe(struct platform_device *pdev)
 		dev_warn(dev, "err_dai_component\n");
 		goto err_dai_component;
 	}
+
+	dev_info(dev, "%s(), --\n", __func__);
 
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
 	defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
@@ -5503,7 +5511,7 @@ err_dai_component:
 	snd_soc_unregister_component(&pdev->dev);
 
 err_platform:
-	snd_soc_unregister_platform(&pdev->dev);
+	snd_soc_unregister_component(&pdev->dev);
 
 err_pm_disable:
 	pm_runtime_disable(&pdev->dev);
