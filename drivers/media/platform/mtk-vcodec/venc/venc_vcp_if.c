@@ -125,7 +125,8 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 		if (timeout > VCP_SYNC_TIMEOUT_MS) {
 			mtk_vcodec_err(inst, "VCP_A_ID not ready");
 			mtk_smi_dbg_hang_detect("VENC VCP");
-			break;
+			inst->vcu_inst.abort = 1;
+			return -EIO;
 		}
 	}
 
