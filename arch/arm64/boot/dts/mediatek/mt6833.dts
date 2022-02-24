@@ -188,7 +188,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <367>;
+			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -201,7 +201,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <367>;
+			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -214,7 +214,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <367>;
+			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -227,7 +227,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <367>;
+			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff &s2idle>;
 		};
@@ -240,7 +240,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <367>;
+			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff  &s2idle>;
 		};
@@ -253,7 +253,7 @@
 			clock-frequency = <2000000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <85>;
-			capacity-dmips-mhz = <367>;
+			capacity-dmips-mhz = <405>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l
 						&mcusysoff  &s2idle>;
 		};
