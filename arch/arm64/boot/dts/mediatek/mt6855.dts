@@ -5296,7 +5296,11 @@
 				/*btif tx dma base*/
 				<0 0x11300c00 0 0x80>,
 				/*btif rx dma base*/
-				<0 0x11300c80 0 0x80>;
+				<0 0x11300c80 0 0x80>,
+				/*apdma clk addr*/
+				<0 0x11036010 0 0x4>,
+				/*apdma idle en addr*/
+				<0 0x11036a84 0 0x4>;
 				/*btif irq, IRQS_Sync ID, btif_irq_b*/
 			interrupts = <GIC_SPI 458 IRQ_TYPE_LEVEL_HIGH 0>,
 				/*btif tx dma irq*/
