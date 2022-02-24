@@ -385,9 +385,18 @@ static arm_lpae_iopte arm_lpae_install_table(arm_lpae_iopte *table,
 					     struct arm_lpae_io_pgtable *data)
 {
 	arm_lpae_iopte old, new;
+	unsigned long flags = 0;
 
+	/*
+	 * Drop the lock for TLB SYNC operation in order to
+	 * enable clock & regulator through rpm hooks and
+	 * resoter after it.
+	 */
+
+	spin_unlock_irqrestore(&data->lock, flags);
 	/* Due to tlb maintenance in unmap being deferred */
 	qcom_io_pgtable_tlb_sync(data->iommu_pgtbl_ops, data->iop.cookie);
+	spin_lock_irqsave(&data->lock, flags);
 
 	new = __pa(table) | ARM_LPAE_PTE_TYPE_TABLE;
 	if (cfg->quirks & IO_PGTABLE_QUIRK_ARM_NS)
