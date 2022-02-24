@@ -6683,7 +6683,7 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x11D01000 0 0x1000>,
 			<0 0x11000180 0 0x180>;
 		interrupts = <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&imp_iic_wrap_s_clk CLK_IMPC_AP_I2C12_RO>,
+		clocks = <&imp_iic_wrap_s_clk CLK_IMPS_AP_I2C2_RO>,
 			<&infracfg_ao_clk CLK_IFRAO_AP_DMA_PS>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
