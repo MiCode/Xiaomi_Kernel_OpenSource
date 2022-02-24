@@ -53,3 +53,11 @@ config MTK_MDP_MTEE_SUPPORT
 	  In secure camera. secure video playback scenario, mdp need
 	  use send cmdq control request to config mdp secure register
 	  in secure world.
+
+config MTK_MDP_MT6789
+	tristate "enable MDP MT6789 driver extension"
+	help
+	  This extension enable debug feature, such as mdp-status,
+	  cmdq-record, pre-dump, timeout error dump, first error buffer
+	  and aee db. Enable performance tools which add instruction
+	  inside packet and profiling.
