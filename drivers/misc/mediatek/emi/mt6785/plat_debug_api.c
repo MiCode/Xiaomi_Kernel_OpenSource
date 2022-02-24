@@ -10,7 +10,7 @@
 #include <mt-plat/mtk_io.h>
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
-#include <mt-plat/mtk_ram_console.h>
+//#include <mt-plat/mtk_ram_console.h>
 #endif
 #include "mt_emi_api.h"
 #include <../emi_ctrl_v1.h>

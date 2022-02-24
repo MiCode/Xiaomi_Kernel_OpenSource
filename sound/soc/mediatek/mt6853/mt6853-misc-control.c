@@ -40,7 +40,7 @@ static const char * const mt6853_sgen_mode_str[] = {
 	"O4",
 };
 
-static const int const mt6853_sgen_mode_idx[] = {
+static const int mt6853_sgen_mode_idx[] = {
 	0, 1, 2, 3,
 	4, 5, 6, 7,
 	8, 9, 10, 11,
@@ -66,7 +66,7 @@ static const char * const mt6853_sgen_rate_str[] = {
 	"192k"
 };
 
-static const int const mt6853_sgen_rate_idx[] = {
+static const int mt6853_sgen_rate_idx[] = {
 	0, 1, 2, 4,
 	5, 6, 8, 9,
 	10, 11, 12, 13,
@@ -2162,27 +2162,27 @@ static const struct snd_kcontrol_new mt6853_afe_bargein_controls[] = {
 		       mt6853_afe_vow_bargein_set),
 };
 
-int mt6853_add_misc_control(struct snd_soc_platform *platform)
+int mt6853_add_misc_control(struct snd_soc_component *component)
 {
-	dev_info(platform->dev, "%s()\n", __func__);
+	dev_info(component->dev, "%s()\n", __func__);
 
-	snd_soc_add_platform_controls(platform,
+	snd_soc_add_component_controls(component,
 				      mt6853_afe_sgen_controls,
 				      ARRAY_SIZE(mt6853_afe_sgen_controls));
 
-	snd_soc_add_platform_controls(platform,
+	snd_soc_add_component_controls(component,
 				      mt6853_afe_debug_controls,
 				      ARRAY_SIZE(mt6853_afe_debug_controls));
 
-	snd_soc_add_platform_controls(platform,
+	snd_soc_add_component_controls(component,
 				      mt6853_afe_usb_controls,
 				      ARRAY_SIZE(mt6853_afe_usb_controls));
 
-	snd_soc_add_platform_controls(platform,
+	snd_soc_add_component_controls(component,
 				      mt6853_afe_speech_controls,
 				      ARRAY_SIZE(mt6853_afe_speech_controls));
 
-	snd_soc_add_platform_controls(platform,
+	snd_soc_add_component_controls(component,
 				      mt6853_afe_bargein_controls,
 				      ARRAY_SIZE(mt6853_afe_bargein_controls));
 

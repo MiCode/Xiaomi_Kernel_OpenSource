@@ -693,6 +693,8 @@ static int mtk_ts_pmic_probe(struct platform_device *pdev)
 	 */
 #if (defined(CONFIG_MACH_MT6739)  \
 	|| defined(CONFIG_MACH_MT6877) \
+	|| defined(CONFIG_MACH_MT6853)    \
+	|| defined(CONFIG_MACH_MT6873)    \
 	|| defined(CONFIG_MACH_MT6893))
 	mtktspmic_cali_prepare();
 #else

@@ -1,8 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2016 MediaTek Inc.
- */
-
+ * Copyright (c) 2019 MediaTek Inc.
+*/
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/module.h>
@@ -210,6 +209,10 @@ static unsigned int read_dram_mode_reg(
 		*mr_value = Reg_Readl(DRAMC_NAO_MRR_STATUS) & 0xFFFF;
 		time_cnt--;
 	} while ((*mr_value == 0) && (time_cnt > 0));
+#if 0
+	if (time_cnt == 0)
+		pr_warn("[DRAMC] read mode reg time out 2\n");
+#endif
 
 	/* set MRR fire bit MRREN to 0 for next MRR */
 	temp = Reg_Readl(DRAMC_AO_SPCMD);
@@ -362,6 +365,24 @@ void __iomem *dramc_ao_chx_base, void __iomem *dramc_nao_chx_base)
 		goto ret_auto_dram_dqs_osc;
 
 	res = TX_DONE;
+
+#if 0 /* print message for debugging */
+	/* byte 0 */
+	dqs_cnt = (mr18_cur & 0xFF) | ((mr19_cur & 0xFF) << 8);
+	if (dqs_cnt != 0)
+		dqs_osc[0] = mr23_value*16000000/(dqs_cnt * frequency);
+	else
+		dqs_osc[0] = 0;
+	/* byte 1 */
+	dqs_cnt = (mr18_cur >> 8) | (mr19_cur & 0xFF00);
+	if (dqs_cnt != 0)
+		dqs_osc[1] = mr23_value*16000000/(dqs_cnt * frequency);
+	else
+		dqs_osc[1] = 0;
+
+	pr_info("[DRAMC] Rank %d, (LSB)MR18= 0x%x, (MSB)MR19= 0x%x, tDQSOscB0 = %d ps tDQSOscB1 = %d ps\n",
+		rank, mr18_cur, mr19_cur, dqs_osc[0], dqs_osc[1]);
+#endif
 
 ret_auto_dram_dqs_osc:
 	Reg_Sync_Writel(DRAMC_AO_MRS, backup_mrs);
@@ -526,6 +547,13 @@ static unsigned int dramc_tx_tracking(int channel)
 					dqm_new[shu_index][rank][byte] =
 						(dqm_orig[shu_index][rank][byte]
 						- pi_adj)	& 0x3F;
+#if 0 /* print message for debugging */
+pr_info("[DRAMC], CH%d RK%d B%d, shu=%d base=%X cur=%X delta=%d INC=%d PI=0x%x Adj=%d newPI=0x%x\n",
+channel, rank, byte, shu_index, mr1819_base[rank][byte], mr1819_cur[byte],
+mr1819_delta, dqsosc_inc[rank], pi_orig[shu_index][rank][byte],
+(pi_adjust * tx_freq_ratio[shu_index] / tx_freq_ratio[shu_level]),
+pi_new[shu_index][rank][byte]);
+#endif
 				}
 			} else {
 				mr1819_delta =
@@ -547,6 +575,14 @@ static unsigned int dramc_tx_tracking(int channel)
 					dqm_new[shu_index][rank][byte] =
 					(dqm_orig[shu_index][rank][byte]
 					+ pi_adj)	&	0x3F;
+
+#if 0 /* print message for debugging */
+pr_info("[DRAMC], CH%d RK%d B%d, shu=%d base=%X cur=%X delta=%d DEC=%d PI=0x%x Adj=%d newPI=0x%x\n",
+channel, rank, byte, shu_index, mr1819_base[rank][byte], mr1819_cur[byte],
+mr1819_delta, dqsosc_dec[rank], pi_orig[shu_index][rank][byte],
+(pi_adjust * tx_freq_ratio[shu_index] / tx_freq_ratio[shu_level]),
+pi_new[shu_index][rank][byte]);
+#endif
 				}
 			}
 		}

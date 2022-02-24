@@ -6,7 +6,7 @@
 #ifndef _MTK_BATTERY_TABLE_H
 #define _MTK_BATTERY_TABLE_H
 
-#if defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6885)
 #include "v1/mtk_battery.h"
 #else
 #include "mtk_battery.h"

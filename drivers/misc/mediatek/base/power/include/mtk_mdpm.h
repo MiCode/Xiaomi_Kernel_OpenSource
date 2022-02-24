@@ -8,7 +8,7 @@
 
 #if defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6768)
 #include "mdpm_v1/mtk_mdpm.h"
-#elif defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6779)
+#elif defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
 #include "mdpm_v2/mtk_mdpm.h"
 #else
 #error NO corresponding project of mtk_mdpm.h header file can be found!!!

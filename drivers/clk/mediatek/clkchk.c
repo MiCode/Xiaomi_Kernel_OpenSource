@@ -152,6 +152,10 @@ static int mtk_clk_rate_change(struct notifier_block *nb,
 	struct clk_hw *hw = __clk_get_hw(ndata->clk);
 	const char *clk_name = __clk_get_name(hw->clk);
 	int vcore_opp = get_vcore_opp();
+	if (!hw) {
+		pr_notice("%s: hw is NULL", __func__);
+		return NOTIFY_BAD;
+	}
 
 	if (flags == PRE_RATE_CHANGE && clk_name) {
 		warn_vcore(vcore_opp, clk_name,

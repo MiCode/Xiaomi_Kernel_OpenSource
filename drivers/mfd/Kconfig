@@ -824,6 +824,18 @@ config MFD_MT6358
 	  accessing the device; additional drivers must be enabled in order
 	  to use the functionality of the device.
 
+config MFD_MT6362
+	tristate "MT6362 SPMI PMIC"
+	depends on OF
+	depends on SPMI
+	select REGMAP_SPMI
+	select REGMAP_IRQ
+	help
+	  This enables support for the Mediatek SPMI PMICs.
+	  These PMICs are currently used with the Mediatek series of
+	  SoCs.  Note, that this will only be useful paired with descriptions
+	  of the independent functions as children nodes in the device tree.
+
 config MFD_MT6360
 	tristate "Mediatek MT6360 SubPMIC"
 	select MFD_CORE

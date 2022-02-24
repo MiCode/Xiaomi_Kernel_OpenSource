@@ -195,4 +195,9 @@
 #define MTK_SIP_SDA_CONTROL \
         (0x82000525 | MTK_SIP_SMC_AARCH_BIT)
 
+ /* Clock Buffer */
+  #define MTK_SIP_CLKBUF_CONTROL \
+	(0x82000520 | MTK_SIP_SMC_AARCH_BIT)
+
+
 #endif

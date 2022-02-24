@@ -15,7 +15,7 @@
 
 #include "spm_v4/mtk_idle.h"
 
-#elif defined(CONFIG_MACH_MT6768)
+#elif defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785)
 #include "spm_v1/mtk_idle.h"
 
 #else

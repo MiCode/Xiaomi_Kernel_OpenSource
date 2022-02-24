@@ -19,6 +19,9 @@ else
 ifeq ($(CONFIG_MACH_MT6893),y)
 MTK_PLATFORM := mt6893
 else
+ifeq ($(CONFIG_MACH_MT6885),y)
+MTK_PLATFORM := mt6885
+else
 ifeq ($(CONFIG_MACH_MT6833),y)
 MTK_PLATFORM := mt6833
 else
@@ -32,6 +35,7 @@ ifeq ($(CONFIG_MACH_MT6771),y)
 MTK_PLATFORM := mt6771
 else
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
 endif
 endif
 endif
@@ -62,11 +66,18 @@ else ifeq ($(CONFIG_MACH_MT6877),y)
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/mt6853/
 else ifeq ($(CONFIG_MACH_MT6833),y)
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+else ifeq ($(CONFIG_MACH_MT6853),y)
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+else ifeq ($(CONFIG_MACH_MT6873),y)
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+else ifeq ($(CONFIG_MACH_MT6885),y)
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 else ifeq ($(CONFIG_MACH_MT6768),y)
 	ccflags-y += -DUSE_SSPM_VER_V1
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
 else ifeq ($(CONFIG_MACH_MT6771),y)
 	ccflags-y += -DUSE_SSPM_VER_V1
+else ifeq ($(CONFIG_MACH_MT6785),y)
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
 else
 	ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
@@ -80,7 +91,7 @@ endif
 
 # main
 # for mt6781,mt6877,mt6833,mt6768
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785" "mt6768" "mt6853"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785" "mt6768" "mt6853" "mt6873"))
 obj-y := v2/mtk_cpufreq_main.o
 obj-y += v2/mtk_cpufreq_interface.o
 obj-y += v2/mtk_cpufreq_api.o

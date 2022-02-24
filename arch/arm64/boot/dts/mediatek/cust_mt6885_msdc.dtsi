@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
 */
+#include <dt-bindings/clock/mt6893-clk.h>
 
 &msdc0 {
 	index = /bits/ 8 <0>;
@@ -26,9 +27,9 @@
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
 	vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
-	clocks = <&infracfg_ao INFRACFG_AO_MSDC0_SRC_CLK_CG>,
-		<&infracfg_ao INFRACFG_AO_MSDC0_CG>,
-		<&infracfg_ao INFRACFG_AO_AES_UFSFDE_CG>;
+	clocks = <&infracfg_ao_clk CLK_IFRAO_MSDC0_SRC>,
+		<&infracfg_ao_clk CLK_IFRAO_MSDC0>,
+		<&infracfg_ao_clk CLK_IFRAO_AES>;
 	clock-names = "msdc0-clock", "msdc0-hclock", "msdc0-aes-clock";
 #endif
 };
@@ -65,8 +66,8 @@
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
 
-	clocks = <&infracfg_ao INFRACFG_AO_MSDC1_SRC_CLK_CG>,
-			<&infracfg_ao INFRACFG_AO_MSDC1_CG>;
+	clocks = <&infracfg_ao_clk CLK_IFRAO_MSDC1_SRC>,
+			<&infracfg_ao_clk CLK_IFRAO_MSDC1>;
 	clock-names = "msdc1-clock", "msdc1-hclock";
 #endif
 };

@@ -124,7 +124,7 @@ static __s32 tsbuck3_raw_to_temp(__u32 ret)
 	return t_current;
 }
 
-static void mtktspmic_read_efuse(void)
+static void mtktspmic_read_efuse(struct regmap *pmic_map)
 {
 	mtktspmic_info("[pmic_debug]  start\n");
 	/* MT6359 */
@@ -161,9 +161,9 @@ static void mtktspmic_read_efuse(void)
 	mtktspmic_info("[pmic_debug]  end\n");
 }
 
-void mtktspmic_cali_prepare(void)
+void mtktspmic_cali_prepare(struct regmap *pmic_map)
 {
-	mtktspmic_read_efuse();
+	mtktspmic_read_efuse(pmic_map);
 
 	if (g_id == 0)
 		g_o_slope = 0;
@@ -312,7 +312,7 @@ void mtktspmic_cali_prepare2(void)
 }
 
 #if defined(THERMAL_USE_IIO_CHANNEL)
-void mtktspmic_get_from_dts(void)
+void mtktspmic_get_from_dts(struct platform_device *pdev)
 {
 	int ret;
 

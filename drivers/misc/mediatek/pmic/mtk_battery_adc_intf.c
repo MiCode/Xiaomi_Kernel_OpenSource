@@ -12,7 +12,7 @@
 #include <mach/mtk_pmic.h>
 
 #include <mtk_battery_internal.h>
-#if defined (CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6771)
+#if defined (CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6785)
 #include <mt-plat/v1/mtk_charger.h>
 #else
 #include <mtk_charger.h>

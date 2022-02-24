@@ -41,6 +41,17 @@ config TCPC_MT6360
 	  Also Support Power Delivery
 	  Say N to disable
 
+config TCPC_MT6362
+	tristate "MT6362 SPMI TCPC driver"
+	depends on TCPC_CLASS
+	depends on MFD_MT6362
+	help
+	  Say yes here to have support for the MT6362 TCPC
+	  Support TypeC port Controller and Power Delivery
+
+	  The driver can also be build as a module.
+	  If so, the module will be called tcpci_mt6362
+
 config TCPC_MT6370
 	bool "MediaTek MT6370 TypeC port Controller Driver"
 	depends on TCPC_CLASS

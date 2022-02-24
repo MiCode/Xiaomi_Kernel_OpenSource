@@ -352,7 +352,7 @@ bool disp_color_reg_get(enum DISP_MODULE_ENUM module, unsigned long addr,
 			unsigned int *value);
 extern int disp_color_ioctl(enum DISP_MODULE_ENUM module, unsigned int msg,
 			unsigned long arg, void *cmdq);
-#if defined(CONFIG_MACH_MT6779)
+#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
 void mtk_color_setbypass(enum DISP_MODULE_ENUM module, bool bypass, void *cmdq);
 #endif
 

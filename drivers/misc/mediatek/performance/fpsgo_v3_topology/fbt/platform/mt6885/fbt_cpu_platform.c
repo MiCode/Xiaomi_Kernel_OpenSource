@@ -8,8 +8,9 @@
 #include <fpsgo_common.h>
 #include <linux/pm_qos.h>
 #include <linux/cpumask.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 
-static struct pm_qos_request dram_req;
+static struct mtk_pm_qos_request dram_req;
 static struct cpumask mask[FPSGO_PREFER_TOTAL];
 static int mask_done;
 
@@ -24,30 +25,30 @@ void fbt_notify_CM_limit(int reach_limit)
 void fbt_reg_dram_request(int reg)
 {
 	if (reg) {
-		if (!pm_qos_request_active(&dram_req))
-			pm_qos_add_request(&dram_req, PM_QOS_DDR_OPP,
-					PM_QOS_DDR_OPP_DEFAULT_VALUE);
+		if (!mtk_pm_qos_request_active(&dram_req))
+			mtk_pm_qos_add_request(&dram_req, MTK_PM_QOS_DDR_OPP,
+					MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
 	} else {
-		if (pm_qos_request_active(&dram_req))
-			pm_qos_remove_request(&dram_req);
+		if (mtk_pm_qos_request_active(&dram_req))
+			mtk_pm_qos_remove_request(&dram_req);
 	}
 }
 
 void fbt_boost_dram(int boost)
 {
-	if (!pm_qos_request_active(&dram_req)) {
+	if (!mtk_pm_qos_request_active(&dram_req)) {
 		fbt_reg_dram_request(1);
-		if (!pm_qos_request_active(&dram_req)) {
+		if (!mtk_pm_qos_request_active(&dram_req)) {
 			fpsgo_systrace_c_fbt_gm(-100, 0, -1, "dram_boost");
 			return;
 		}
 	}
 
 	if (boost)
-		pm_qos_update_request(&dram_req, 0);
+		mtk_pm_qos_update_request(&dram_req, 0);
 	else
-		pm_qos_update_request(&dram_req,
-				PM_QOS_DDR_OPP_DEFAULT_VALUE);
+		mtk_pm_qos_update_request(&dram_req,
+				MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
 
 	fpsgo_systrace_c_fbt_gm(-100, 0, boost, "dram_boost");
 }
@@ -71,12 +72,16 @@ void fbt_clear_boost_value(void)
 void fbt_set_per_task_min_cap(int pid, unsigned int base_blc)
 {
 	int ret = -1;
+	unsigned int base_blc_1024;
 
 	if (!pid)
 		return;
 
+	base_blc_1024 = (base_blc << 10) / 100U;
+	base_blc_1024 = clamp(base_blc_1024, 1U, 1024U);
+
 #ifdef CONFIG_UCLAMP_TASK
-	ret = set_task_util_min_pct(pid, base_blc);
+	ret = set_task_util_min(pid, base_blc_1024);
 #endif
 	if (ret != 0) {
 		fpsgo_systrace_c_fbt(pid, 0, ret, "uclamp fail");

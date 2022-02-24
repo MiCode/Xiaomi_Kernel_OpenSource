@@ -34,7 +34,7 @@ ccflags-y += \
 				-I$(srctree)/drivers/misc/mediatek/sync/      \
 				-I$(srctree)/drivers/misc/mediatek/lcm/inc/
 
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6799)))
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6785)))
 ccflags-y += \
                                 -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 

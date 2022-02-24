@@ -842,4 +842,24 @@ source "drivers/power/supply/mediatek/battery/Kconfig"
 source "drivers/power/supply/mediatek/charger/Kconfig"
 endif
 
+if MACH_MT6885
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+endif
+
+if MACH_MT6853
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+endif
+
+if MACH_MT6873
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+endif
+
+if MACH_MT6785
+source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/charger/Kconfig"
+endif
+
 endif # POWER_SUPPLY

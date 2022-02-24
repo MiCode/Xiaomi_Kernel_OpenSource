@@ -311,7 +311,7 @@ void mtktspmic_cali_prepare2(void)
 }
 
 #if defined(THERMAL_USE_IIO_CHANNEL)
-void mtktspmic_get_from_dts(void)
+void mtktspmic_get_from_dts(struct platform_device *pdev)
 {
 	int ret;
 

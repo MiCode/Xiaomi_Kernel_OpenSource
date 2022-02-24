@@ -14,6 +14,8 @@
 ccflags-y += -I$(srctree)
 ifeq ($(CONFIG_MACH_MT6833),y)
 	PDIR = mt6833
+else ifeq ($(CONFIG_MACH_MT6885),y)
+	PDIR = mt6885
 else ifeq ($(CONFIG_MACH_MT6893),y)
 	PDIR = mt6893
 else ifeq ($(CONFIG_MACH_MT6877),y)
@@ -24,6 +26,12 @@ else ifeq ($(CONFIG_MACH_MT6739),y)
 	PDIR = mt6739
 else ifeq ($(CONFIG_MACH_MT6768),y)
 	PDIR = mt6768
+else ifeq ($(CONFIG_MACH_MT6853),y)
+	PDIR = mt6853
+else ifeq ($(CONFIG_MACH_MT6873),y)
+	PDIR = mt6873
+else ifeq ($(CONFIG_MACH_MT6785),y)
+	PDIR = mt6785
 else
 	PDIR = $(MTK_PLATFORM)
 endif
@@ -53,6 +61,8 @@ endif
 
 ifeq ($(CONFIG_MACH_MT6781),y)
 obj-y += mt6781/
+else ifeq ($(CONFIG_MACH_MT6885),y)
+obj-y += mt6885/
 else ifeq ($(CONFIG_MACH_MT6833),y)
 obj-y += mt6833/
 else ifeq ($(CONFIG_MACH_MT6893),y)
@@ -63,6 +73,12 @@ else ifeq ($(CONFIG_MACH_MT6877),y)
 obj-y += mt6877/
 else ifeq ($(CONFIG_MACH_MT6768),y)
 obj-y += mt6768/
+else ifeq ($(CONFIG_MACH_MT6873),y)
+obj-y += mt6873/
+else ifeq ($(CONFIG_MACH_MT6853),y)
+obj-y += mt6853/
+else ifeq ($(CONFIG_MACH_MT6785),y)
+obj-y += mt6785/
 else
 obj-y += $(subst ",,$(CONFIG_MTK_LEGACY_THERMAL_PLATFORM))/
 

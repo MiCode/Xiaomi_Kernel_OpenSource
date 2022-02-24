@@ -1,10 +1,22 @@
 ifeq ($(CONFIG_MACH_MT6877),y)
 obj-y += v1/
 
+else ifeq ($(CONFIG_MACH_MT6885),y)
+obj-y += v1/
+
 else ifeq ($(CONFIG_MACH_MT6893),y)
 obj-y += v1/
 
 else ifeq ($(CONFIG_MACH_MT6833),y)
+obj-y += v1/
+
+else ifeq ($(CONFIG_MACH_MT6853),y)
+obj-y += v1/
+
+else ifeq ($(CONFIG_MACH_MT6873),y)
+obj-y += v1/
+
+else ifeq ($(CONFIG_MACH_MT6785),y)
 obj-y += v1/
 
 else

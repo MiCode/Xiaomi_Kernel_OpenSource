@@ -29,6 +29,8 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
 	-I$(EEM_ROOT_DIR)/$(CONFIG_MTK_PLATFORM)/inc	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/	\
+	-I$(srctree)/drivers/gpu/mediatek/gpufreq/ \
+	-I$(srctree)/drivers/gpu/mediatek/gpufreq/v1/include
 
 ifeq ($(findstring _aging,$(PROJECT_DTB_NAMES)),_aging)
 subdir-ccflags-y += -DAGING_LOAD

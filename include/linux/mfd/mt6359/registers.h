@@ -1968,6 +1968,43 @@
 #define MT6359_ACCDET_CON39                  0x26d6
 #define MT6359_ACCDET_CON40                  0x26d8
 
+#define PMIC_HWCID_ADDR                                     \
+	MT6359_HWCID
+#define PMIC_INT_STATUS_BUCK_TOP_SHIFT                      0
+#define PMIC_INT_STATUS_LDO_TOP_SHIFT                       1
+#define PMIC_INT_STATUS_PSC_TOP_SHIFT                       2
+#define PMIC_INT_STATUS_SCK_TOP_SHIFT                       3
+#define PMIC_INT_STATUS_BM_TOP_SHIFT                        4
+#define PMIC_INT_STATUS_HK_TOP_SHIFT                        5
+#define PMIC_INT_STATUS_AUD_TOP_SHIFT                       7
+#define PMIC_INT_STATUS_MISC_TOP_SHIFT                      8
+#define PMIC_INT_STATUS_TOP_RSV_ADDR                        \
+	MT6359_TOP_INT_STATUS0
+#define PMIC_TMA_KEY_ADDR                                   \
+	MT6359_TOP_TMA_KEY
+#define PMIC_TMA_KEY_MASK                                   0xFFFF
+#define PMIC_TMA_KEY_SHIFT                                  0
+#define PMIC_RG_RTC_EOSC32_CK_PDN_MASK                      0x1
+#define PMIC_RG_RTC_EOSC32_CK_PDN_SHIFT                     2
+#define PMIC_SCK_TOP_CKPDN_CON0_CLR_ADDR                    \
+	MT6359_SCK_TOP_CKPDN_CON0_CLR
+#define PMIC_EOSC_CALI_TD_ADDR                              \
+	MT6359_EOSC_CALI_CON0
+#define PMIC_EOSC_CALI_TD_MASK                              0x7
+#define PMIC_EOSC_CALI_TD_SHIFT                             5
+#define PMIC_XO_EN32K_MAN_ADDR                              \
+	MT6359_DCXO_CW02
+#define PMIC_XO_EN32K_MAN_MASK                              0x1
+#define PMIC_XO_EN32K_MAN_SHIFT                             0
+#define PMIC_RG_PWRHOLD_ADDR                                \
+	MT6359_PPCCTL0
+#define PMIC_RG_PWRHOLD_MASK                                0x1
+#define PMIC_RG_PWRHOLD_SHIFT                               0
+#define PMIC_RG_SDN_DLY_ENB_ADDR                            \
+	MT6359_PSEQ_ELR1
+#define PMIC_RG_SDN_DLY_ENB_MASK                            0x1
+#define PMIC_RG_SDN_DLY_ENB_SHIFT                           8
+
 #define MT6359_BUCK_TOP_ANA_ID_ADDR                           \
 	MT6359_BUCK_TOP_DSN_ID
 #define MT6359_BUCK_TOP_ANA_ID_MASK                           0xFF

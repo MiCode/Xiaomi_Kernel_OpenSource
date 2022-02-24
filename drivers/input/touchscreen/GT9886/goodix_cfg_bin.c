@@ -562,7 +562,7 @@ int goodix_read_cfg_bin(struct device *dev, struct goodix_cfg_bin *cfg_bin)
 			ts_err("Cfg_bin image [%s] not available,error:%d,"
 				CFG_TAG"try_times:%d", cfg_bin_name, r, i + 1);
 
-			msleep(1000);
+			msleep(3000);
 		} else {
 			ts_info("Cfg_bin image [%s] is ready, try_times:%d",
 					cfg_bin_name, i + 1);

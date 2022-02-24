@@ -5,7 +5,7 @@ ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/m
 
 obj-$(CONFIG_MTK_INFRACFG) += mtk-infracfg.o mtk-scpsys-ext.o
 obj-$(CONFIG_MTK_DVFSRC) += mtk-dvfsrc.o
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768" "mt6739" "mt6785" "mt6853" "mt6771" "mt6885"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768" "mt6739" "mt6785" "mt6853" "mt6771" "mt6873" "mt6885"))
 obj-$(CONFIG_MTK_PMIC_WRAP) += mtk-pmic-wrap_v1.o
 else
 obj-$(CONFIG_MTK_PMIC_WRAP) += mtk-pmic-wrap.o

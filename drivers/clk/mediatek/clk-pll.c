@@ -1,16 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2014 MediaTek Inc.
- * Author: James Liao <jamesjj.liao@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+ * Copyright (c) 2019 MediaTek Inc.
+*/
 
 #include <linux/clkdev.h>
 #include <linux/delay.h>
@@ -77,7 +68,10 @@ static inline struct mtk_clk_pll *to_mtk_clk_pll(struct clk_hw *hw)
 #if (defined(CONFIG_MACH_MT6877) \
 	|| defined(CONFIG_MACH_MT6768) \
 	|| defined(CONFIG_MACH_MT6781) \
-	|| defined(CONFIG_MACH_MT6739))
+	|| defined(CONFIG_MACH_MT6739) \
+	|| defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6833) \
+	|| defined(CONFIG_MACH_MT6873))
 static int is_subsys_pwr_on(struct mtk_clk_pll *pll)
 {
 	struct pwr_status *pwr = pll->pwr_stat;
@@ -109,7 +103,10 @@ static int mtk_pll_is_prepared(struct clk_hw *hw)
 #if (defined(CONFIG_MACH_MT6877) \
 	|| defined(CONFIG_MACH_MT6768) \
 	|| defined(CONFIG_MACH_MT6781) \
-	|| defined(CONFIG_MACH_MT6739))
+	|| defined(CONFIG_MACH_MT6739) \
+	|| defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6833) \
+	|| defined(CONFIG_MACH_MT6873))
     if (is_subsys_pwr_on(pll))
 		return (readl(pll->en_addr) & pll->data->en_mask) != 0;
 	return false;
@@ -147,7 +144,10 @@ static unsigned long __mtk_pll_recalc_rate(struct mtk_clk_pll *pll, u32 fin,
 #if (defined(CONFIG_MACH_MT6877) \
 	|| defined(CONFIG_MACH_MT6768) \
 	|| defined(CONFIG_MACH_MT6781) \
-	|| defined(CONFIG_MACH_MT6739))
+	|| defined(CONFIG_MACH_MT6739) \
+	|| defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6833) \
+	|| defined(CONFIG_MACH_MT6873))
 
 static void mtk_pll_set_rate_regs(struct mtk_clk_pll *pll, u32 pcw,
 		int postdiv)
@@ -335,7 +335,10 @@ static int mtk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 #if (defined(CONFIG_MACH_MT6877) \
 	|| defined(CONFIG_MACH_MT6768) \
 	|| defined(CONFIG_MACH_MT6781) \
-	|| defined(CONFIG_MACH_MT6739))
+	|| defined(CONFIG_MACH_MT6739) \
+	|| defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6833) \
+	|| defined(CONFIG_MACH_MT6873))
 
 	mtk_pll_set_rate_regs(pll, pcw, postdiv);
 #else
@@ -377,7 +380,10 @@ static long mtk_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 #if (defined(CONFIG_MACH_MT6877) \
 	|| defined(CONFIG_MACH_MT6768) \
 	|| defined(CONFIG_MACH_MT6781) \
-	|| defined(CONFIG_MACH_MT6739))
+	|| defined(CONFIG_MACH_MT6739) \
+	|| defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6833) \
+	|| defined(CONFIG_MACH_MT6873))
 
 static int mtk_pll_prepare(struct clk_hw *hw)
 {
@@ -455,7 +461,10 @@ static int mtk_pll_prepare(struct clk_hw *hw)
 #if (defined(CONFIG_MACH_MT6877) \
 	|| defined(CONFIG_MACH_MT6768) \
 	|| defined(CONFIG_MACH_MT6781) \
-	|| defined(CONFIG_MACH_MT6739))
+	|| defined(CONFIG_MACH_MT6739) \
+	|| defined(CONFIG_MACH_MT6853) \
+	|| defined(CONFIG_MACH_MT6833) \
+	|| defined(CONFIG_MACH_MT6873))
 
 static void mtk_pll_unprepare(struct clk_hw *hw)
 {
@@ -553,8 +562,9 @@ static void mtk_pll_unprepare_unused(struct clk_hw *hw)
 #if (defined(CONFIG_MACH_MT6779) \
     || defined(CONFIG_MACH_MT6739) \
     || defined(CONFIG_MACH_MT6768) \
-    || defined(CONFIG_MACH_MT6761))
- 
+    || defined(CONFIG_MACH_MT6761) \
+    || defined(CONFIG_MACH_MT6785))
+
 static const struct clk_ops mtk_pll_ops = {
 	.is_enabled	= mtk_pll_is_prepared,
 	.enable		= mtk_pll_prepare,

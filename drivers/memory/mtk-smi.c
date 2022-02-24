@@ -823,17 +823,18 @@ err_unreg_smi:
 	platform_driver_unregister(&mtk_smi_common_driver);
 	return ret;
 }
+
 #if !IS_ENABLED(CONFIG_MTK_SMI_EXT)
-module_init(mtk_smi_init);
-#ifdef CONFIG_MACH_MT8167
-late_initcall(mtk_smi_init_late);
-#endif
+	module_init(mtk_smi_init);
+	#ifdef CONFIG_MACH_MT8167
+		late_initcall(mtk_smi_init_late);
+	#endif
 #else
-#if (defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6893))
-arch_initcall_sync(mtk_smi_init);
-#else
-arch_initcall(mtk_smi_init);
-#endif
+	#if (defined(CONFIG_MACH_MT6833) || defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6885))
+		arch_initcall_sync(mtk_smi_init);
+	#else
+		arch_initcall(mtk_smi_init);
+	#endif
 #endif
 MODULE_DESCRIPTION("MediaTek SMI driver");
 MODULE_LICENSE("GPL v2");

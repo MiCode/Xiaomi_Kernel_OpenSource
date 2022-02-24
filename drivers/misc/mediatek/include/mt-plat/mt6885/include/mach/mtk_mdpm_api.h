@@ -6,8 +6,8 @@
 #ifndef _MTK_MDPM_API_H_
 #define _MTK_MDPM_API_H_
 
-#include <mtk_pmic.h>
-#include <mtk_pbm.h>
+#include <mach/mtk_pmic.h>
+#include <mach/mtk_pbm.h>
 
 enum mdpm_power_type {
 	MAX_POWER = 0,

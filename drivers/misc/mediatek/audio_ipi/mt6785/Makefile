@@ -14,6 +14,10 @@
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common_v2/framework/
 
+ifeq ($(CONFIG_MTK_AUDIO_CM4_SUPPORT),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/cm4
+endif
+
 ifeq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include
 endif

@@ -230,6 +230,7 @@ extern void scp_enable_sram(void);
 extern int scp_sys_full_reset(void);
 extern void scp_reset_awake_counts(void);
 extern void scp_awake_init(void);
+extern unsigned int mt_get_abist_freq(unsigned int ID);
 
 #if SCP_RECOVERY_SUPPORT
 extern unsigned int scp_reset_by_cmd;

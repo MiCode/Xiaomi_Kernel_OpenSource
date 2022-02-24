@@ -23,6 +23,8 @@ else ifeq ($(CONFIG_MACH_MT6877),y)
 	PDIR = mt6877
 else ifeq ($(CONFIG_MACH_MT6739),y)
 	PDIR = mt6739
+else ifeq ($(CONFIG_MACH_MT6785),y)
+	PDIR = mt6785
 else
 	PDIR = $(CONFIG_MTK_PLATFORM)
 endif
@@ -233,6 +235,7 @@ ifneq ($(CONFIG_MTK_BIF_SUPPORT),)
 #obj-$(CONFIG_THERMAL) += mtk_ts_bif.o
 endif
 endif
+
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6853"))
 
 obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
@@ -273,6 +276,28 @@ obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
 obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
 
+
+ifneq ($(CONFIG_MTK_COMBO_WIFI),)
+    obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o
+endif
+
+obj-$(CONFIG_THERMAL) += mtk_tsAll.o
+obj-$(CONFIG_THERMAL) += mtk_ts_imgsensor.o
+endif
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873"))
+
+obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
+
+obj-$(CONFIG_THERMAL) += mtk_ts_bts.o
+obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
+obj-$(CONFIG_THERMAL) += mtk_ts_btsnrpa.o
+
+obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBankv2.o
+obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
+obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
+obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
+obj-$(CONFIG_THERMAL) += mtk_ts_charger_v1.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
 
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)
     obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o

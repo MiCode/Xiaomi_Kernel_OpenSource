@@ -12,8 +12,8 @@
 #
 
 #ion
-ccflags-y += -I$(srctree)/drivers/staging/android/ion \
-             -I$(srctree)/drivers/staging/android/ion/mtk \
+ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion \
+             -I$(srctree)/drivers/staging/android/mtk_ion/mtk \
              -I$(srctree)/drivers/iommu/
 #for sensorType in ccu_set_sensor_info
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc

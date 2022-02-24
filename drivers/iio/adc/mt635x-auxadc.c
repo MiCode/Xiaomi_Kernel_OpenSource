@@ -12,6 +12,9 @@
 #include <linux/mfd/mt6357/registers.h>
 #include <linux/mfd/mt6358/registers.h>
 #include <linux/mfd/mt6359/registers.h>
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359)
+#include <linux/mfd/mt6358/core.h>
+#endif
 #include <linux/mfd/mt6397/core.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -396,6 +399,13 @@ int auxadc_priv_read_channel(struct device *dev, int channel)
 	return val;
 }
 #endif
+
+unsigned char *auxadc_get_r_ratio(int channel)
+{
+	const struct auxadc_channels *auxadc_chan = &auxadc_chans[channel];
+
+	return (unsigned char *)auxadc_chan->r_ratio;
+}
 
 static inline int auxadc_conv_imp_vbat(struct mt635x_auxadc_device *adc_dev)
 {

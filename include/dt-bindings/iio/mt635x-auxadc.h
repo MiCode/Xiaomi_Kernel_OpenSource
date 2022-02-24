@@ -33,6 +33,10 @@
 #define AUXADC_CHAN_MAX                         AUXADC_VBIF
 #elif defined(CONFIG_MACH_MT6833)
 #define AUXADC_CHAN_MAX                         AUXADC_VBIF
+#elif defined(CONFIG_MACH_MT6853)
+#define AUXADC_CHAN_MAX                         AUXADC_VBIF
+#elif defined(CONFIG_MACH_MT6873)
+#define AUXADC_CHAN_MAX                         AUXADC_VBIF
 #else
 #define AUXADC_IMP				0x0f
 #define AUXADC_IMIX_R				0x10

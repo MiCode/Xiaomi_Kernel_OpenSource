@@ -10,6 +10,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/ratelimit.h>
 #include<linux/ktime.h>
+#include <linux/irq.h>
 
 #include "../inc/mt6360_pmu.h"
 

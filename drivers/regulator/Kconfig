@@ -618,7 +618,7 @@ config REGULATOR_MT6358
 
 config REGULATOR_MT6359
 	tristate "MediaTek MT6359 PMIC"
-	depends on MFD_MT6397
+	depends on MFD_MT6397 || MFD_MT6358
 	help
 	  Say y here to select this option to enable the power regulator of
 	  MediaTek MT6359 PMIC.
@@ -643,6 +643,16 @@ config REGULATOR_MT6360
 	  This is support MT6360 PMIC/LDO part include
 	  2-channel buck with Thermal Shutdown and Overlord Protection
 	  6-channel High PSRR and Low Dropout LDO.
+
+config REGULATOR_MT6362
+	tristate "MT6362 SPMI Regulator driver"
+	depends on MFD_MT6362
+	help
+	  Say yes here to have support for the MT6362 Regulator
+	  Include six BUCKs and seven LDOs.
+
+	  The driver can also be build as a module.
+	  If so, the module will be called mt6362_regulator
 
 config REGULATOR_MT6380
 	tristate "MediaTek MT6380 PMIC"

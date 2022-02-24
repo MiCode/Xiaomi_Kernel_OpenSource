@@ -28,7 +28,7 @@
 #include <linux/tracepoint.h>
 #include "mnoc_hw.h"
 TRACE_EVENT(mnoc_pmu_polling,
-	TP_PROTO(u32 c[NR_MNOC_PMU_CNTR]),
+	TP_PROTO(u32 *c),
 	TP_ARGS(c),
 	TP_STRUCT__entry(
 		__array(u32, c, NR_MNOC_PMU_CNTR)

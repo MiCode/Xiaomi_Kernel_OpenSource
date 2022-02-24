@@ -12,6 +12,9 @@
 #elif defined (CONFIG_MACH_MT6833)
 		mt6360,intr_gpio_num = <10>; /* direct defined GPIO num */
 		mt6360,intr_gpio = <&pio 10 0x0>; /* GPIO */
+#elif defined (CONFIG_MACH_MT6873)
+		mt6360,intr_gpio_num = <24>; /* direct defined GPIO num */
+		mt6360,intr_gpio = <&pio 24 0x0>;
 #else
 		mt6360,intr_gpio_num = <3>; /* direct defined GPIO num */
 		mt6360,intr_gpio = <&pio 3 0x0>; /* GPIO */

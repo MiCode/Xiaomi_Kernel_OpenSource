@@ -58,6 +58,7 @@ s32 mtk_smi_conf_set(const struct mtk_smi_dev *smi, const u32 scen_id);
 
 s32 smi_register(void);
 s32 smi_get_dev_num(void);
+s32 smi_larb_port_check(void);
 #endif
 
 #endif

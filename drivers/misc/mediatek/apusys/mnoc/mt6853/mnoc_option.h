@@ -17,7 +17,7 @@
 #define APU_QOS_IPUIF_ADJUST
 
 #define MNOC_MET_PMU_FTRACE
-#define MNOC_TAG_TP
+//#define MNOC_TAG_TP
 
 #define APU_QOS_DVFSRC
 

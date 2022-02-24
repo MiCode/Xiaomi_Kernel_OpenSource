@@ -49,7 +49,9 @@
 
 /*reserved mva region for vpu exclusive use*/
 #if defined(CONFIG_MACH_MT6775) || \
-	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6779)
+	defined(CONFIG_MACH_MT6771) || \
+	defined(CONFIG_MACH_MT6779) || \
+	defined(CONFIG_MACH_MT6785)
 #define VPU_RESET_VECTOR_FIX_MVA_START   0x7DA00000
 #define VPU_RESET_VECTOR_FIX_MVA_END     (0x82600000 - 1)
 #else
@@ -62,7 +64,9 @@
 	MVA_GRAPH_BLOCK_NR_ALIGNED(VPU_RESET_VECTOR_FIX_SIZE)
 
 #if defined(CONFIG_MACH_MT6775) || \
-	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6779)
+	defined(CONFIG_MACH_MT6771) || \
+	defined(CONFIG_MACH_MT6779) || \
+	defined(CONFIG_MACH_MT6785)
 #define VPU_FIX_MVA_START                0x7DA00000
 #define VPU_FIX_MVA_END                  (0x82600000 - 1)
 #else
@@ -482,6 +486,13 @@ static int __check_ccu_mva_region(
 		(pMvaInfo->port == M4U_PORT_CCU1) ||
 			(pMvaInfo->port == M4U_PORT_CAM_CCUI) ||
 			(pMvaInfo->port == M4U_PORT_CAM_CCUO);
+#elif defined(CONFIG_MACH_MT6785)
+	is_ccu_port =
+	(pMvaInfo->port == M4U_PORT_CCU0) ||
+	(pMvaInfo->port == M4U_PORT_CCU1) ||
+	(pMvaInfo->port == M4U_PORT_CCUI) ||
+	(pMvaInfo->port == M4U_PORT_CCUO) ||
+	(pMvaInfo->port == M4U_PORT_CCUG);
 #else
 	return 0;
 #endif

@@ -32,7 +32,7 @@ extern const char *gt9886_config_buf;
 
 #define TS_NORMAL_CFG 0x01
 #define TS_HIGH_SENSE_CFG 0x03
-#define TS_RQST_FW_RETRY_TIMES 2
+#define TS_RQST_FW_RETRY_TIMES 5
 
 #pragma pack(1)
 struct goodix_cfg_pkg_reg {

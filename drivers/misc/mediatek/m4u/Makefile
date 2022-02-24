@@ -22,7 +22,7 @@ obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761" "mt6765" "mt6739" "mt6768"))
     $(info M4U version:2.0)
     obj-y += 2.0/
-else ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6779"))
+else ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6779" "mt6785"))
     $(info M4U version:3.2)
     obj-y += 3.2/
 else ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6771"))

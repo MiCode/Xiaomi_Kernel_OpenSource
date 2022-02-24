@@ -5,7 +5,7 @@
 
 #subdir-ccflags-y += -DMTK_VPU_EMULATOR
 
-ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6779"))
+ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6779" "mt6785"))
 obj-y += $(CONFIG_MTK_PLATFORM)/
 obj-y += 3.0/
 MTK_VPU_CORE := 2

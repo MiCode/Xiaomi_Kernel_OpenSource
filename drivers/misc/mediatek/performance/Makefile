@@ -36,6 +36,8 @@ obj-y += perf_ioctl/
 
 ifeq ($(CONFIG_MACH_MT6893),y)
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
+else ifeq ($(CONFIG_MACH_MT6885),y)
+obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
 else ifeq ($(CONFIG_MACH_MT6877),y)
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
 else ifeq ($(CONFIG_MACH_MT6781),y)
@@ -45,6 +47,10 @@ obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
 else ifeq ($(CONFIG_MACH_MT6833),y)
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
 else ifeq ($(CONFIG_MACH_MT6768),y)
+obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
+else ifeq ($(CONFIG_MACH_MT6873),y)
+obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
+else ifeq ($(CONFIG_MACH_MT6853),y)
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3_topology/
 else
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3/

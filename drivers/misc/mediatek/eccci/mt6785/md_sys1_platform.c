@@ -721,13 +721,13 @@ static int md_cd_power_on(struct ccci_modem *md)
 
 #ifndef CCCI_PLATFORM_MT6781
 	/* step 2: MD srcclkena setting */
-	reg_value = ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA);
+	reg_value = ccci_read32(md_cd_plat_val_ptr.infra_ao_base, INFRA_AO_MD_SRCCLKENA);
 	reg_value &= ~(0xFF);
 	reg_value |= 0x21;
-	ccci_write32(infra_ao_base, INFRA_AO_MD_SRCCLKENA, reg_value);
+	ccci_write32(md_cd_plat_val_ptr.infra_ao_base, INFRA_AO_MD_SRCCLKENA, reg_value);
 	CCCI_BOOTUP_LOG(md->index, CORE,
 		"%s: set md1_srcclkena bit(0x1000_0F0C)=0x%x\n",
-		__func__, ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA));
+		__func__, ccci_read32(md_cd_plat_val_ptr.infra_ao_base, INFRA_AO_MD_SRCCLKENA));
 #endif
 
 	/* steip 3: power on MD_INFRA and MODEM_TOP */

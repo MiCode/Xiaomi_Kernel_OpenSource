@@ -7,7 +7,7 @@
 #define __CLK_FMETER_H
 
 #if defined(CONFIG_COMMON_CLK_MT6885)
-#include "clk-mt6885-fmeter.h"
+#include "clk-mt6893-fmeter.h"
 #elif defined(CONFIG_COMMON_CLK_MT6873)
 #include "clk-mt6873-fmeter.h"
 #elif defined(CONFIG_COMMON_CLK_MT6853)

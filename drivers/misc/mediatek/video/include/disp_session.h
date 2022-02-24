@@ -619,6 +619,12 @@ struct multi_configs {
 	DISP_IOW(226, unsigned int)
 #define DISP_IOCTL_WAIT_DISP_SELF_REFRESH	\
 	DISP_IOW(227, unsigned int)
+#define DISP_IOCTL_WAIT_FPS_CHANGE \
+	DISP_IOW(228, unsigned int)
+#define DISP_IOCTL_TOUCH_HINT		\
+	DISP_IOW(229, unsigned int)
+#define DISP_IOCTL_GET_SUPPORTED_FPS \
+	DISP_IOW(230, unsigned int)
 #define DISP_IOCTL_GET_MULTI_CONFIGS \
 	DISP_IOR(231, struct multi_configs)
 #ifdef __KERNEL__

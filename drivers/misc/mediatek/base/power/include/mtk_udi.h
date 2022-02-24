@@ -46,6 +46,10 @@
 
 #include "../mt6799/mtk_udi.h"
 
+#elif defined(CONFIG_MACH_MT6785)
+
+#include "udi_v2/mtk_udi_mt6785.h"
+
 #elif defined(CONFIG_MACH_MT6768)
 
 #include "udi_v2/mtk_udi_mt6768.h"

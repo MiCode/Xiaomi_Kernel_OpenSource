@@ -1,5 +1,5 @@
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM),  "mt6785" "mt6853" "mt6768" "mt6885" "mt6893"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM),  "mt6785" "mt6853" "mt6768" "mt6885" "mt6893" "mt6873"))
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 

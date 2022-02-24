@@ -1,16 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2014 MediaTek Inc.
- * Author: James Liao <jamesjj.liao@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+ * Copyright (c) 2019 MediaTek Inc.
+*/
 
 #include <linux/clkdev.h>
 #include <linux/delay.h>
@@ -195,8 +186,23 @@ static void mtk_cg_set_bit(struct clk_hw *hw)
 static void mtk_cg_clr_bit(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
+#ifdef CONFIG_MACH_MT6853
+	int val = 0;
+	int i = 0;
+#endif
 
 	regmap_write(cg->regmap, cg->clr_ofs, BIT(cg->bit));
+#ifdef CONFIG_MACH_MT6853
+	regmap_read(cg->regmap, cg->sta_ofs, &val);
+	while ((val & BIT(cg->bit)) != 0) {
+		regmap_write(cg->regmap, cg->clr_ofs, BIT(cg->bit));
+		regmap_read(cg->regmap, cg->sta_ofs, &val);
+
+		if (i > 5)
+			break;
+		i++;
+	}
+#endif
 }
 
 
@@ -277,10 +283,17 @@ const struct clk_ops mtk_clk_gate_ops_setclr = {
 };
 EXPORT_SYMBOL(mtk_clk_gate_ops_setclr);
 
+static void mtk_cg_disable_dummy(struct clk_hw *hw)
+{
+	/* do nothing */
+}
+
 const struct clk_ops mtk_clk_gate_ops_setclr_dummy = {
 	.is_enabled = mtk_cg_is_enabled,
 	.enable = mtk_cg_enable,
+	.disable = mtk_cg_disable_dummy,
 };
+
 EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_dummy);
 
 const struct clk_ops mtk_clk_gate_ops_setclr_inv = {
@@ -297,6 +310,7 @@ EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_inv);
 const struct clk_ops mtk_clk_gate_ops_setclr_inv_dummy = {
 	.is_enabled	= mtk_en_is_enabled,
 	.enable		= mtk_cg_enable_inv,
+	.disable = mtk_cg_disable_dummy,
 };
 EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_inv_dummy);
 

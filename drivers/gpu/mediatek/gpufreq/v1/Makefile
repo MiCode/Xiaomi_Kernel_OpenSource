@@ -22,12 +22,18 @@ obj-y += mtk_gpufreq_common.o
 # SW ReadyGo, CONFIG_MTK_PLATFORM is family ID
 ifeq ($(CONFIG_MACH_MT6893),y)
 obj-y += mt6893/
+else ifeq ($(CONFIG_MACH_MT6885),y)
+obj-y += mt6885/
 else ifeq ($(CONFIG_MACH_MT6833),y)
 obj-y += mt6833/
 else ifeq ($(CONFIG_MACH_MT6877),y)
 obj-y += mt6877/
 else ifeq ($(CONFIG_MACH_MT6781),y)
 obj-y += mt6781/
+else ifeq ($(CONFIG_MACH_MT6853),y)
+obj-y += mt6853/
+else ifeq ($(CONFIG_MACH_MT6873),y)
+obj-y += mt6873/
 else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif

@@ -7,8 +7,8 @@
 #define _MT_PBM_
 
 /* #include <cust_pmic.h> */
-#include <mtk_pmic.h>
-#include <mtk_mdpm_api.h>
+#include <mach/mtk_pmic.h>
+#include <mach/mtk_mdpm_api.h>
 
 #ifdef DISABLE_DLPT_FEATURE
 #define DISABLE_PBM_FEATURE

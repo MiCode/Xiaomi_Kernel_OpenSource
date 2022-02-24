@@ -42,7 +42,7 @@
 #include <clk-mt6893-pg.h>
 #endif
 #ifdef CONFIG_MACH_MT6885
-#include <clk-mt6885-pg.h>
+#include <clk-mt6893-pg.h>
 #endif
 
 
@@ -50,9 +50,9 @@
 //#define ISP_MET_READY
 
 /* #define EP_STAGE */
-//#define EP_STAGE
+#define EP_STAGE
 #ifdef EP_STAGE
-#define EP_MARK_SMI /* disable SMI related for EP */
+//#define EP_MARK_SMI /* disable SMI related for EP */
 //#define DUMMY_INT   /* For early if load dont need to use camera */
 
 /* Clkmgr is not ready in early porting, en/disable clock  by hardcode */
@@ -1032,6 +1032,7 @@ struct _isp_bk_reg_t {
 
 static struct _isp_bk_reg_t g_BkReg[ISP_IRQ_TYPE_AMOUNT];
 
+#ifndef EP_NO_CLKMGR
 static void cam_subsys_after_on(enum subsys_id sys_id)
 {
 /*
@@ -1095,7 +1096,7 @@ static void cam_subsys_debug_dump(enum subsys_id sys_id)
 			sys_id);
 	}
 }
-#ifndef EP_NO_CLKMGR
+
 static struct pg_callbacks cam_clk_subsys_handle = {
 	.after_on = cam_subsys_after_on,
 	.before_off = cam_subsys_before_off,

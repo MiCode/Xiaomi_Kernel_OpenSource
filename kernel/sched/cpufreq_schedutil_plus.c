@@ -16,8 +16,9 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	unsigned int freq = arch_scale_freq_invariant() ?
 				policy->cpuinfo.max_freq : policy->cur;
 
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 	util = util * capacity_margin / SCHED_CAPACITY_SCALE;
-
+#endif
 	tbl = upower_get_core_tbl(cpu);
 	for (idx = 0; idx < tbl->row_num ; idx++) {
 		cap = tbl->row[idx].cap;

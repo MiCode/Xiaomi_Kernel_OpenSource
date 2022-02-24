@@ -100,9 +100,6 @@ int md_cd_pccif_send(struct ccci_modem *md, int channel_id);
 void md_cd_dump_pccif_reg(struct ccci_modem *md);
 
 /* ADD_SYS_CORE */
-
-
-
 extern void clk_buf_set_by_flightmode(bool is_flightmode_on);
 
 extern unsigned int devapc_check_flag;

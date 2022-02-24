@@ -7,7 +7,8 @@
 #define _MTK_PBM_REL_H_
 
 #if defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761) \
-	|| defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6779)
+	|| defined(CONFIG_MACH_MT3967) || defined(CONFIG_MACH_MT6779) \
+	|| defined(CONFIG_MACH_MT6785)
 #include "pbm_v4/mtk_pbm_rel.h"
 #else
 #error NO corresponding project of mtk_pbm_rel.h header file can be found!!!

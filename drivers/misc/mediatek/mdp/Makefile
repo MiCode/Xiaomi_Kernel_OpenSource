@@ -42,13 +42,11 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
 	     -I$(srctree)/drivers/misc/mediatek/mmp/ \
 	     -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
 	     -I$(srctree)/drivers/iommu/ \
-	     -I$(srctree)/drivers/staging/android/ion \
-	     -I$(srctree)/drivers/staging/android/ion/mtk \
 	     -I$(srctree)/drivers/misc/mediatek/trusted_mem/public
 
 ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761" "mt6765" "mt6771" "mt6779" "mt6781" "mt6785" "mt6877" "mt6893" "mt6833" "mt6739" "mt6768" "mt6853" "mt6885"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761" "mt6765" "mt6771" "mt6779" "mt6781" "mt6785" "mt6877" "mt6893" "mt6833" "mt6739" "mt6768" "mt6853" "mt6885" "mt6873"))
 	ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion \
 		-I$(srctree)/drivers/staging/android/mtk_ion/mtk
 else

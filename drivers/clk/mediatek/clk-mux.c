@@ -25,18 +25,45 @@ static inline struct mtk_clk_mux *to_mtk_clk_mux(struct clk_hw *hw)
 static int mtk_clk_mux_enable(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
-	u32 mask = BIT(mux->data->gate_shift);
+	u32 mask = 0;
+	unsigned long flags = 0;
+	int ret = 0;
+	if (mux->data->gate_shift < 0)
+		return 0;
+	mask = BIT(mux->data->gate_shift);
 
-	return regmap_update_bits(mux->regmap, mux->data->mux_ofs,
+	if (mux->lock)
+		spin_lock_irqsave(mux->lock, flags);
+	else
+		__acquire(mux->lock);
+	ret = regmap_update_bits(mux->regmap, mux->data->mux_ofs,
 			mask, ~mask);
+	if (mux->lock)
+		spin_unlock_irqrestore(mux->lock, flags);
+	else
+		__release(mux->lock);
+	return ret;
 }
 
 static void mtk_clk_mux_disable(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
-	u32 mask = BIT(mux->data->gate_shift);
+	u32 mask = 0;
+	unsigned long flags = 0;
 
+	if (mux->data->gate_shift < 0)
+		return;
+	mask = BIT(mux->data->gate_shift);
+
+	if (mux->lock)
+		spin_lock_irqsave(mux->lock, flags);
+	else
+		__acquire(mux->lock);
 	regmap_update_bits(mux->regmap, mux->data->mux_ofs, mask, mask);
+	if (mux->lock)
+		spin_unlock_irqrestore(mux->lock, flags);
+	else
+		__release(mux->lock);
 }
 
 static void mtk_clk_mux_disable_unused(struct clk_hw *hw)
@@ -51,17 +78,43 @@ static void mtk_clk_mux_disable_unused(struct clk_hw *hw)
 static int mtk_clk_mux_enable_setclr(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
+	u32 val = 0;
+	unsigned long flags = 0;
 
-	return regmap_write(mux->regmap, mux->data->clr_ofs,
+	if (mux->data->gate_shift < 0)
+		return 0;
+
+	if (mux->lock)
+		spin_lock_irqsave(mux->lock, flags);
+	else
+		__acquire(mux->lock);
+	val = regmap_write(mux->regmap, mux->data->clr_ofs,
 			BIT(mux->data->gate_shift));
+	if (mux->lock)
+		spin_unlock_irqrestore(mux->lock, flags);
+	else
+		__release(mux->lock);
+	return val;
 }
 
 static void mtk_clk_mux_disable_setclr(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
+	unsigned long flags = 0;
 
+	if (mux->data->gate_shift < 0)
+		return;
+
+	if (mux->lock)
+		spin_lock_irqsave(mux->lock, flags);
+	else
+		__acquire(mux->lock);
 	regmap_write(mux->regmap, mux->data->set_ofs,
 			BIT(mux->data->gate_shift));
+	if (mux->lock)
+		spin_unlock_irqrestore(mux->lock, flags);
+	else
+		__release(mux->lock);
 }
 
 static void mtk_clk_mux_disable_setclr_unused(struct clk_hw *hw)
@@ -78,6 +131,8 @@ static int mtk_clk_mux_is_enabled(struct clk_hw *hw)
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	u32 val = 0;
 
+	if (mux->data->gate_shift < 0)
+		return true;
 	regmap_read(mux->regmap, mux->data->mux_ofs, &val);
 
 	return (val & BIT(mux->data->gate_shift)) == 0;
@@ -86,12 +141,15 @@ static int mtk_clk_mux_is_enabled(struct clk_hw *hw)
 static u8 mtk_clk_mux_get_parent(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
+	int num_parents = clk_hw_get_num_parents(hw);
 	u32 mask = GENMASK(mux->data->mux_width - 1, 0);
 	u32 val = 0;
 
 	regmap_read(mux->regmap, mux->data->mux_ofs, &val);
 	val = (val >> mux->data->mux_shift) & mask;
 
+	if (val >= num_parents)
+		return -EINVAL;
 	return val;
 }
 

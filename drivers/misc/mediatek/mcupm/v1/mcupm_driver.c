@@ -660,6 +660,10 @@ static int mcupm_device_probe(struct platform_device *pdev)
 
 	pr_debug("[MCUPM] mbox probe\n");
 
+	if (IS_ERR_OR_NULL(mcupm_pdev)) {
+		pr_debug("[MCUPM] pdev is NULL\n");
+		return -EPROBE_DEFER;
+	}
 	for (i = 0; i < MCUPM_MBOX_TOTAL; i++) {
 		pr_info("[MCUPM]  mbox-%d, probe\n", i);
 		mcupm_mbox_table[i].mbdev = &mcupm_mboxdev;

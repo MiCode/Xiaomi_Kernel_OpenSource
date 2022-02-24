@@ -596,6 +596,18 @@ static const struct mtk_mmc_compatible mt6781_compat = {
 	.support_64g = true,
 };
 
+static const struct mtk_mmc_compatible mt6785_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+};
+
 static const struct mtk_mmc_compatible mt6877_compat = {
 	.clk_div_bits = 12,
 	.hs400_tune = false,
@@ -632,6 +644,30 @@ static const struct mtk_mmc_compatible mt6833_compat = {
 	.support_64g = true,
 };
 
+static const struct mtk_mmc_compatible mt6853_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+};
+
+static const struct mtk_mmc_compatible mt6873_compat = {
+	.clk_div_bits = 12,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+};
+
 static const struct of_device_id msdc_of_ids[] = {
 	{ .compatible = "mediatek,mt8135-mmc", .data = &mt8135_compat},
 	{ .compatible = "mediatek,mt8173-mmc", .data = &mt8173_compat},
@@ -642,9 +678,12 @@ static const struct of_device_id msdc_of_ids[] = {
 	{ .compatible = "mediatek,mt6779-mmc", .data = &mt6779_compat},
 	{ .compatible = "mediatek,mt6768-mmc", .data = &mt6768_compat},
 	{ .compatible = "mediatek,mt6781-mmc", .data = &mt6781_compat},
+	{ .compatible = "mediatek,mt6785-mmc", .data = &mt6785_compat},
 	{ .compatible = "mediatek,mt6877-mmc", .data = &mt6877_compat},
 	{ .compatible = "mediatek,mt8666-mmc", .data = &mt8666_compat},
 	{ .compatible = "mediatek,mt6833-mmc", .data = &mt6833_compat},
+	{ .compatible = "mediatek,mt6853-mmc", .data = &mt6853_compat},
+	{ .compatible = "mediatek,mt6873-mmc", .data = &mt6873_compat},
 	{}
 };
 MODULE_DEVICE_TABLE(of, msdc_of_ids);

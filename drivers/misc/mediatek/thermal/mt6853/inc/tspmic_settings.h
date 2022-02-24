@@ -36,7 +36,7 @@
 extern int mtktspmic_debug_log;
 extern void mtktspmic_cali_prepare(void);
 extern void mtktspmic_cali_prepare2(void);
-extern void mtktspmic_get_from_dts(void);
+extern void mtktspmic_get_from_dts(struct platform_device *pdev);
 extern int mtktspmic_get_hw_temp(void);
 extern int mt6359vcore_get_hw_temp(void);
 extern int mt6359vproc_get_hw_temp(void);

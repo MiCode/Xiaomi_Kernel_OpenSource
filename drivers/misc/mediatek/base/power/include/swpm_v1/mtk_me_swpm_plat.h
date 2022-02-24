@@ -8,6 +8,8 @@
 
 #if defined(CONFIG_MACH_MT6893)
 #include "subsys/mtk_me_swpm_mt6893.h"
+#elif defined(CONFIG_MACH_MT6885)
+#include "subsys/mtk_me_swpm_mt6885.h"
 #elif defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833)
 #include "subsys/mtk_me_swpm_mt6853.h"
 #elif defined(CONFIG_MACH_MT6877)

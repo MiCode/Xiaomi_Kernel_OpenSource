@@ -152,6 +152,7 @@ struct DISP_AAL_PARAM {
 
 void disp_aal_on_end_of_frame(void);
 void disp_aal_on_end_of_frame_by_module(enum disp_aal_id_t id);
+void disp_aal_on_start_of_frame(enum disp_aal_id_t id);
 
 extern int aal_dbg_en;
 void aal_test(const char *cmd, char *debug_output);

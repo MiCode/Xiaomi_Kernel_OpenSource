@@ -32,7 +32,6 @@
 #define CPU_DVFS_NOT_READY	1
 #endif
 #endif
-#define DFD_WORKAROUND  1
 #define INIT_MCUPM_VOLTAGE_SETTING  1
 #define NR_FREQ		16
 #define NR_CCI_TBL		2

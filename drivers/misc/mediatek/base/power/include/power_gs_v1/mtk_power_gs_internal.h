@@ -18,10 +18,11 @@ extern void mt_power_gs_f_dump_sodi3(unsigned int dump_flag);
 
 enum gs_flag {
 	GS_PMIC = (0x1 << 0),
-	GS_CG   = (0x1 << 1),
-	GS_DCM  = (0x1 << 2),
+	GS_PMIC_6315 = (0x1 << 1),
+	GS_CG   = (0x1 << 2),
+	GS_DCM  = (0x1 << 3),
 	/* GS_ALL will need to be modified, if the gs_dump_flag is changed */
-	GS_ALL  = (GS_PMIC | GS_CG | GS_DCM),
+	GS_ALL  = (GS_PMIC | GS_PMIC_6315 | GS_CG | GS_DCM),
 };
 
 #define GS_COUNT_PARMS2(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _, ...) _

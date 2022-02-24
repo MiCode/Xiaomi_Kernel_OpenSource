@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2016 MediaTek Inc.
- */
+ * Copyright (c) 2019 MediaTek Inc.
+*/
 
 #ifndef __DRAMC_H__
 #define __DRAMC_H__

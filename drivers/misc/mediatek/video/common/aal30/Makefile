@@ -42,7 +42,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/leds/$(MTK_PLATFORM)
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6759) $(CONFIG_MACH_MT6758) \
 					 $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6739) $(CONFIG_MACH_MT6765) \
 					 $(CONFIG_MACH_MT6761) $(CONFIG_MACH_MT3967) $(CONFIG_MACH_MT6779) \
-					 $(CONFIG_MACH_MT6768) $(CONFIG_MACH_MT6771)))
+					 $(CONFIG_MACH_MT6768) $(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT6785)))
 ccflags-y += \
 				-I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 
@@ -55,7 +55,7 @@ ccflags-y += \
 endif
 
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6758) $(CONFIG_MACH_MT6739) \
-					 $(CONFIG_MACH_MT6765) $(CONFIG_MACH_MT6761) $(CONFIG_MACH_MT3967) $(CONFIG_MACH_MT6779) $(CONFIG_MACH_MT6768) $(CONFIG_MACH_MT6771)))
+					 $(CONFIG_MACH_MT6765) $(CONFIG_MACH_MT6761) $(CONFIG_MACH_MT3967) $(CONFIG_MACH_MT6779) $(CONFIG_MACH_MT6768) $(CONFIG_MACH_MT6771) $(CONFIG_MACH_MT6785)))
     ccflags-y += -DNOT_SUPPORT_CABC_HW
 endif
 
@@ -67,11 +67,11 @@ ifeq (y, $(filter y, $(CONFIG_MACH_MT6765) $(CONFIG_MACH_MT6761)))
     ccflags-y += -DAMS_AAL_SUPPORT_KERNEL_API
 endif
 
-ifeq ($(CONFIG_MACH_MT6779), y)
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6779) $(CONFIG_MACH_MT6785)))
     ccflags-y += -DAAL_HAS_YHIST
 endif
 
-ifeq ($(CONFIG_MACH_MT6779), y)
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6779) $(CONFIG_MACH_MT6785)))
     ccflags-y += -DAAL_HAS_DRE3
 endif
 

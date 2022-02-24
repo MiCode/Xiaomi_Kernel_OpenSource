@@ -12,7 +12,7 @@
 #include <sspm_define.h>
 #include <sspm_reservedmem.h>
 
-#ifndef CONFIG_MACH_MT6893 /* temp , wait dramc */
+#if !(defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6885))/* temp , wait dramc */
 #ifdef CONFIG_MTK_DRAMC
 #include <mtk_dramc.h>
 #else
@@ -100,7 +100,7 @@ int get_qos_bound_bw_threshold(int state)
 {
 	int val = 0;
 
-#ifndef CONFIG_MACH_MT6893 /* temp , wait dramc */
+#if !(defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6885)) /* temp , wait dramc */
 	val = dram_steps_freq(0) * QOS_BOUND_EMI_CH * 2;
 #else
     /* temp , wait dramc */

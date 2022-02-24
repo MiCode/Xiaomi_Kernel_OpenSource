@@ -15,6 +15,8 @@ else ifeq ($(CONFIG_MACH_MT6877),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/v1
 else ifeq ($(CONFIG_MACH_MT6833),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/v1
+else ifeq ($(CONFIG_MACH_MT6885),y)
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/v1
 else ifeq ($(CONFIG_MACH_MT6893),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/v1
 else

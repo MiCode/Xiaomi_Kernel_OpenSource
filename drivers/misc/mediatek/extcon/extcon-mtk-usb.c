@@ -250,7 +250,7 @@ static struct charger_device *primary_charger;
 static int mtk_usb_extcon_set_vbus_v1(bool is_on) {
 	if (!primary_charger) {
 		primary_charger = get_charger_by_name("primary_chg");
-		if (primary_charger) {
+		if (!primary_charger) {
 			pr_info("%s: get primary charger device failed\n", __func__);
 			return -ENODEV;
 		}

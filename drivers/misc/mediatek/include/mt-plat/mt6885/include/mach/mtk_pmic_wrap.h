@@ -9,7 +9,13 @@
 /* #include <linux/smp.h> */
 #include <linux/types.h>
 #include <linux/device.h>
+#ifdef CONFIG_MACH_MT6893
 #include "upmu_hw.h"
+#endif
+#ifdef CONFIG_MACH_MT6885
+#include <mach/upmu_hw.h>
+#endif
+
 struct mt_pmic_wrap_driver {
 
 	struct device_driver driver;

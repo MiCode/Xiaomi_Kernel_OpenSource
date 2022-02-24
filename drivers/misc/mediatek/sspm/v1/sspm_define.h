@@ -22,7 +22,7 @@
 #define SSPM_COREDUMP_SUPPORT       (0)
 #define SSPM_EMI_PROTECTION_SUPPORT (1)
 
-#if defined(CONFIG_MACH_MT6768)
+#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785)
 #define SSPM_TIMESYNC_SUPPORT       (0)
 #else
 #define SSPM_TIMESYNC_SUPPORT       (1)

@@ -87,6 +87,8 @@ ccflags-y += -DPMQOS_USE_IOMMU_PORT
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 else ifneq (,$(filter $(SMI_PLATFORM), "mt6768" "mt6785"))
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
+else ifeq ($(CONFIG_MACH_MT6785),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
 else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 endif

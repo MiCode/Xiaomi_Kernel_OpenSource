@@ -4293,7 +4293,11 @@ struct regmap *pwrap_node_to_regmap(struct device_node *np)
 
 	wrp = platform_get_drvdata(pdev);
 
-	return wrp->regmap;
+	if (IS_ERR_OR_NULL(wrp))
+		return NULL;
+	else
+		return wrp->regmap;
+
 }
 EXPORT_SYMBOL_GPL(pwrap_node_to_regmap);
 

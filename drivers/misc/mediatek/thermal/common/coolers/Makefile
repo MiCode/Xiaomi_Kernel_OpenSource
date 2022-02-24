@@ -23,6 +23,10 @@ else ifeq ($(CONFIG_MACH_MT6739),y)
 	PDIR = mt6739
 else ifeq ($(CONFIG_MACH_MT6768),y)
 	PDIR = mt6768
+else ifeq ($(CONFIG_MACH_MT6873),y)
+	PDIR = mt6873
+else ifeq ($(CONFIG_MACH_MT6853),y)
+	PDIR = mt6853
 else
 	PDIR = $(CONFIG_MTK_PLATFORM)
 endif
@@ -163,7 +167,7 @@ obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6853"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6853" "mt6873" "mt6785"))
 ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
     obj-$(CONFIG_THERMAL) += mtk_cooler_mutt_gen97.o
 endif

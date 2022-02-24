@@ -13,6 +13,17 @@ config COMMON_CLK_MT6768
 	  instead of old clkmgr architecture.
 	  MT6768 default will use CCF.
 
+config COMMON_CLK_MT6785
+	bool "Clock driver for Mediatek MT6785"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT6785
+	---help---
+	  This driver supports Mediatek MT6785 clocks.
+	  Use the config to support CCF on MT6785,
+	  instead of old clkmgr architecture.
+	  MT6785 default will use CCF.
+
 menu "Clock driver for MediaTek SoC"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
 
@@ -502,6 +513,243 @@ config COMMON_CLK_MT8173
 	select COMMON_CLK_MEDIATEK
 	---help---
 	  This driver supports MediaTek MT8173 clocks.
+config COMMON_CLK_MT6853
+	bool "Clock driver for MediaTek MT6853"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 basic clocks,
+	  which is used to control basic clock output.
+	  If you wish to use clock resources from the MT6853 SOC,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_APU0
+	bool "Clock driver for MediaTek MT6853 apu0"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 apu0 clocks,
+	  which is used to control apu0 clock output.
+	  If you wish to use clock resources from the apu0 device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_APU1
+	bool "Clock driver for MediaTek MT6853 apu1"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 apu1 clocks,
+	  which is used to control apu1 clock output.
+	  If you wish to use clock resources from the apu1 device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_APU_VCORE
+	bool "Clock driver for MediaTek MT6853 apu_vcore"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 apu_vcore clocks,
+	  which is used to control apu_vcore clock output.
+	  If you wish to use clock resources from the apu_vcore device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_APU_CONN
+	bool "Clock driver for MediaTek MT6853 apu_conn"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 apu_conn clocks,
+	  which is used to control apu_conn clock output.
+	  If you wish to use clock resources from the apu_conn device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_AUDIO
+	bool "Clock driver for MediaTek MT6853 audio"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 audio clocks,
+	  which is used to control audio clock output.
+	  If you wish to use clock resources from the audio device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_CAMSYS_MAIN
+	bool "Clock driver for MediaTek MT6853 camsys_main"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 camsys_main clocks,
+	  which is used to control camsys_main clock output.
+	  If you wish to use clock resources from the camsys_main device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_CAMSYS_RAWA
+	bool "Clock driver for MediaTek MT6853 camsys_rawa"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 camsys_rawa clocks,
+	  which is used to control camsys_rawa clock output.
+	  If you wish to use clock resources from the camsys_rawa device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_CAMSYS_RAWB
+	bool "Clock driver for MediaTek MT6853 camsys_rawb"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 camsys_rawb clocks,
+	  which is used to control camsys_rawb clock output.
+	  If you wish to use clock resources from the camsys_rawb device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_IMGSYS1
+	bool "Clock driver for MediaTek MT6853 imgsys1"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 imgsys1 clocks,
+	  which is used to control imgsys1 clock output.
+	  If you wish to use clock resources from the imgsys1 device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_IMGSYS2
+	bool "Clock driver for MediaTek MT6853 imgsys2"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 imgsys2 clocks,
+	  which is used to control imgsys2 clock output.
+	  If you wish to use clock resources from the imgsys2 device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_IMP_IIC_WRAP_C
+	bool "Clock driver for MediaTek MT6853 imp_iic_wrap_c"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 imp_iic_wrap_c clocks,
+	  which is used to control imp_iic_wrap_c clock output.
+	  If you wish to use clock resources from the imp_iic_wrap_c device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_IMP_IIC_WRAP_E
+	bool "Clock driver for MediaTek MT6853 imp_iic_wrap_e"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 imp_iic_wrap_e clocks,
+	  which is used to control imp_iic_wrap_e clock output.
+	  If you wish to use clock resources from the imp_iic_wrap_e device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_IMP_IIC_WRAP_N
+	bool "Clock driver for MediaTek MT6853 imp_iic_wrap_n"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 imp_iic_wrap_n clocks,
+	  which is used to control imp_iic_wrap_n clock output.
+	  If you wish to use clock resources from the imp_iic_wrap_n device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_IMP_IIC_WRAP_S
+	bool "Clock driver for MediaTek MT6853 imp_iic_wrap_s"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 imp_iic_wrap_s clocks,
+	  which is used to control imp_iic_wrap_s clock output.
+	  If you wish to use clock resources from the imp_iic_wrap_s device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_IMP_IIC_WRAP_W
+	bool "Clock driver for MediaTek MT6853 imp_iic_wrap_w"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 imp_iic_wrap_w clocks,
+	  which is used to control imp_iic_wrap_w clock output.
+	  If you wish to use clock resources from the imp_iic_wrap_w device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_IMP_IIC_WRAP_WS
+	bool "Clock driver for MediaTek MT6853 imp_iic_wrap_ws"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 imp_iic_wrap_ws clocks,
+	  which is used to control imp_iic_wrap_ws clock output.
+	  If you wish to use clock resources from the imp_iic_wrap_ws device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_IPESYS
+	bool "Clock driver for MediaTek MT6853 ipesys"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 ipesys clocks,
+	  which is used to control ipesys clock output.
+	  If you wish to use clock resources from the ipesys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_MDPSYS_CONFIG
+	bool "Clock driver for MediaTek MT6853 mdpsys_config"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 mdpsys_config clocks,
+	  which is used to control mdpsys_config clock output.
+	  If you wish to use clock resources from the mdpsys_config device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_MFGSYS
+	bool "Clock driver for MediaTek MT6853 mfgsys"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 mfgsys clocks,
+	  which is used to control mfgsys clock output.
+	  If you wish to use clock resources from the mfgsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_MMSYS_CONFIG
+	bool "Clock driver for MediaTek MT6853 mmsys_config"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 mmsys_config clocks,
+	  which is used to control mmsys_config clock output.
+	  If you wish to use clock resources from the mmsys_config device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_MSDC0SYS
+	bool "Clock driver for MediaTek MT6853 msdc0sys"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 msdc0sys clocks,
+	  which is used to control msdc0sys clock output.
+	  If you wish to use clock resources from the msdc0sys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_SCP
+	bool "Clock driver for MediaTek MT6853 scp"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 scp clocks,
+	  which is used to control scp clock output.
+	  If you wish to use clock resources from the scp device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_VDEC_GCON
+	bool "Clock driver for MediaTek MT6853 vdec_gcon"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 vdec_gcon clocks,
+	  which is used to control vdec_gcon clock output.
+	  If you wish to use clock resources from the vdec_gcon device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6853_VENC_GCON
+	bool "Clock driver for MediaTek MT6853 venc_gcon"
+	depends on COMMON_CLK_MT6853
+	---help---
+	  This driver supports MediaTek MT6853 venc_gcon clocks,
+	  which is used to control venc_gcon clock output.
+	  If you wish to use clock resources from the venc_gcon device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6873
+	bool "Clock driver for Mediatek MT6873"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT6873
+	---help---
+	  This driver supports Mediatek MT6873 clocks.
+	  Use the config to support CCF on MT6873,
+	  instead of old clkmgr architecture.
+	  MT6873 default will use CCF.
 
 config COMMON_CLK_MT6877
 	bool "Clock driver for MediaTek MT6877"
@@ -627,6 +875,124 @@ config COMMON_CLK_MT6877_VEN
 	depends on COMMON_CLK_MT6877
 	---help---
 	  This driver supports MediaTek MT6877 ven clocks,
+	  which is used to control ven clock output.
+	  If you wish to use clock resources from the ven device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885
+	bool "Clock driver for Mediatek MT6885"
+	depends on COMMON_CLK
+	select COMMON_CLK_MEDIATEK
+	---help---
+	  This driver supports Mediatek MT6885 clocks.
+	  Use the config to support CCF on MT6885,
+	  instead of old clkmgr architecture.
+	  MT6885 default will use CCF.
+
+config COMMON_CLK_MT6885_APU
+	tristate "Clock driver for MediaTek MT6885 apu"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 apu clocks,
+	  which is used to control apu clock output.
+	  If you wish to use clock resources from the apu device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885_AUDIOSYS
+	tristate "Clock driver for MediaTek MT6885 audiosys"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 audiosys clocks,
+	  which is used to control audiosys clock output.
+	  If you wish to use clock resources from the audiosys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885_CAM
+	tristate "Clock driver for MediaTek MT6885 cam"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 cam clocks,
+	  which is used to control cam clock output.
+	  If you wish to use clock resources from the cam device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885_IMG
+	tristate "Clock driver for MediaTek MT6885 img"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 img clocks,
+	  which is used to control img clock output.
+	  If you wish to use clock resources from the img device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885_I2C
+	tristate "Clock driver for MediaTek MT6885 i2c"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 i2c clocks,
+	  which is used to control i2c clock output.
+	  If you wish to use clock resources from the i2c device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885_IPESYS
+	tristate "Clock driver for MediaTek MT6885 ipesys"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 ipesys clocks,
+	  which is used to control ipesys clock output.
+	  If you wish to use clock resources from the ipesys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885_MDPSYS
+	tristate "Clock driver for MediaTek MT6885 mdpsys"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 mdpsys clocks,
+	  which is used to control mdpsys clock output.
+	  If you wish to use clock resources from the mdpsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885_MFGCFG
+	tristate "Clock driver for MediaTek MT6885 mfgcfg"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 mfgcfg clocks,
+	  which is used to control mfgcfg clock output.
+	  If you wish to use clock resources from the mfgcfg device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885_MMSYS
+	tristate "Clock driver for MediaTek MT6885 mmsys"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 mmsys clocks,
+	  which is used to control mmsys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885_SCP_ADSP
+	tristate "Clock driver for MediaTek MT6885 scp_adsp"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 scp_adsp clocks,
+	  which is used to control scp_adsp clock output.
+	  If you wish to use clock resources from the scp_adsp device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885_VDE
+	tristate "Clock driver for MediaTek MT6885 vde"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 vde clocks,
+	  which is used to control vde clock output.
+	  If you wish to use clock resources from the vde device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6885_VEN
+	tristate "Clock driver for MediaTek MT6885 ven"
+	depends on COMMON_CLK_MT6885
+	help
+	  This driver supports MediaTek MT6885 ven clocks,
 	  which is used to control ven clock output.
 	  If you wish to use clock resources from the ven device,
 	  say Y. Otherwise, say N.

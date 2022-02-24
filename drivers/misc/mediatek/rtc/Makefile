@@ -26,6 +26,10 @@ ifneq (,$(filter y,$(CONFIG_MTK_PMIC_CHIP_MT6358)))
   MDI_IP_FOLDER:=mt6358
 endif
 
+ifneq (,$(filter y,$(CONFIG_MTK_PMIC_CHIP_MT6359)))
+  MDI_IP_FOLDER:=mt6359
+endif
+
 ifneq (,$(filter y,$(CONFIG_MTK_PMIC_CHIP_MT6390)))
   MDI_IP_FOLDER:=mt6357
 endif

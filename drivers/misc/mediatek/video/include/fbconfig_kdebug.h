@@ -14,9 +14,11 @@ void PanelMaster_Init(void);
 void PanelMaster_Deinit(void);
 int fb_config_execute_cmd(void);
 int fbconfig_get_esd_check_exec(void);
+#ifndef CONFIG_MACH_MT6785
 extern int m4u_query_mva_info(unsigned int mva, unsigned int size,
 				  unsigned int *real_mva,
 				  unsigned int *real_size);
+#endif
 #ifndef TOTAL_OVL_LAYER_NUM
 #define TOTAL_OVL_LAYER_NUM OVL_LAYER_NUM
 #endif

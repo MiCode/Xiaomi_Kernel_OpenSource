@@ -439,7 +439,7 @@ static int mt6360_psy_chg_type_changed(struct mt6360_pmu_chg_info *mpci)
 }
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT */
 
-#if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6885)
 static int DPDM_Switch_TO_CHG_upstream(struct mt6360_pmu_chg_info *mpci,
 						bool switch_to_chg)
 {
@@ -469,7 +469,7 @@ static int mt6360_set_usbsw_state(struct mt6360_pmu_chg_info *mpci, int state)
 	dev_info(mpci->dev, "%s: state = %d\n", __func__, state);
 
 	/* Switch D+D- to AP/MT6360 */
-#if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6885)
 	if (state == MT6360_USBSW_CHG)
 		DPDM_Switch_TO_CHG_upstream(mpci, true);
 	else
@@ -508,7 +508,7 @@ static int __maybe_unused mt6360_is_dcd_tout_enable(
 }
 #endif
 
-#if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6885)
 bool is_usb_rdy(struct device *dev)
 {
 	struct device_node *node;
@@ -547,7 +547,7 @@ static int __mt6360_enable_usbchgen(struct mt6360_pmu_chg_info *mpci, bool en)
 #endif /* CONFIG_MT6360_DCDTOUT_SUPPORT */
 		/* Workaround for CDP port */
 		for (i = 0; i < max_wait_cnt; i++) {
-#if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6885)
 			if (is_usb_rdy(mpci->dev))
 				break;
 #else

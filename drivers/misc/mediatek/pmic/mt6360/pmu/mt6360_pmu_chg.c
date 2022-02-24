@@ -486,7 +486,7 @@ static int __maybe_unused mt6360_is_dcd_tout_enable(
 }
 #endif
 
-static bool is_usb_rdy(struct device *dev)
+bool is_usb_rdy(struct device *dev)
 {
 	struct device_node *node;
 	bool ready = false;

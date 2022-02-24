@@ -18,7 +18,9 @@
 #include <mt-plat/mtk_devinfo.h>
 #include <linux/regulator/consumer.h>
 #include "mmdvfs_pmqos.h"
+#ifdef CONFIG_MTK_WATCHDOG
 #include <ext_wd_drv.h>
+#endif
 
 #define DVFSRC_1600_FLOOR
 #define AUTOK_ENABLE
@@ -191,7 +193,11 @@ static u32 dvfsrc_calc_hrt_opp(int data)
 
 int dvfsrc_latch_register(int enable)
 {
+#ifdef CONFIG_MTK_WATCHDOG
 	return mtk_rgu_cfg_dvfsrc(enable);
+#else
+	return 0;
+#endif
 }
 
 void dvfsrc_set_isp_hrt_bw(int data)

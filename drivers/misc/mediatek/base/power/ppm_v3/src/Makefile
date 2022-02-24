@@ -20,6 +20,10 @@ else ifeq ($(CONFIG_MACH_MT6739),y)
 	USE_PPM_CPI = "true"
 else ifeq ($(CONFIG_MACH_MT6768),y)
 	USE_PPM_CPI = "true"
+else ifeq ($(CONFIG_MACH_MT6873),y)
+	USE_PPM_CPI = "true"
+else ifeq ($(CONFIG_MACH_MT6853),y)
+	USE_PPM_CPI = "true"
 else
 	USE_PPM_CPI = "false"
 endif

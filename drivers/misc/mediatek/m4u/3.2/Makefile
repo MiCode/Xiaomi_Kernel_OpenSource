@@ -19,6 +19,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/arch/arm
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi
+# MTEE part
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
+# MTEE end
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
 include $(srctree)/drivers/tee/gud/Makefile.include
 endif
@@ -33,4 +36,7 @@ endif
 obj-$(CONFIG_MTK_M4U) += m4u.o m4u_mva.o m4u_pgtable.o m4u_debug.o
 ifeq ($(or $(strip $(CONFIG_TRUSTONIC_TEE_SUPPORT)), $(strip $(CONFIG_MICROTRUST_TEE_SUPPORT))),y)
 obj-$(CONFIG_MTK_M4U) += m4u_sec_gp.o
+endif
+ifeq ($(CONFIG_MTK_ENABLE_GENIEZONE),y)
+obj-$(CONFIG_MACH_MT6785) += m4u_sec_gz.o
 endif

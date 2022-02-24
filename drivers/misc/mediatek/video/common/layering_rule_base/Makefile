@@ -22,7 +22,7 @@ endif
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6758)))
 	obj-y += v1/
 else
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6779)))
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6779) $(CONFIG_MACH_MT6785)))
 	obj-y += v1.2/
 else
 	obj-y += v1.1/

@@ -7,10 +7,11 @@
 #ifdef CONFIG_MEDIATEK_DRAMC
 #include <dramc.h>
 #endif
+/*
 #ifdef CONFIG_MTK_EMI
 #include <mt_emi_api.h>
 #endif
-
+*/
 #include <mt-plat/upmu_common.h>
 #include "helio-dvfsrc-ip-v2.h"
 #include <helio-dvfsrc-opp.h>
@@ -555,7 +556,7 @@ static void vcorefs_get_src_vcore_req(void)
 
 static void vcorefs_get_src_misc_info(void)
 {
-#ifdef CONFIG_MTK_EMI
+#if 0 //def CONFIG_MTK_EMI
 	unsigned int total_bw_last = (get_emi_bwvl(0) & 0x7F) * 813;
 #endif
 	u32 qos_bw0, qos_bw1, qos_bw2, qos_bw3, qos_bw4;
@@ -590,7 +591,8 @@ static void vcorefs_get_src_misc_info(void)
 	met_vcorefs_src[SRC_PMQOS_BW4_IDX] =
 		qos_bw4;
 
-#ifdef CONFIG_MTK_EMI
+#if 0
+def CONFIG_MTK_EMI
 	met_vcorefs_src[SRC_TOTAL_EMI_BW_IDX] =
 		total_bw_last;
 #endif
