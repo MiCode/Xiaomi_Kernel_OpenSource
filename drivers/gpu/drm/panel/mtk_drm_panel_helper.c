@@ -10,6 +10,7 @@
 
 unsigned long long mtk_lcm_total_size;
 
+/* read u32 array and parsing into u32 buffer */
 int mtk_lcm_dts_read_u32_array(struct device_node *np, char *prop,
 		u32 *out, int min_len, int max_len)
 {
@@ -55,7 +56,8 @@ void mtk_lcm_dts_read_u8(struct device_node *np, char *prop,
 		*out = (u8)data;
 }
 
-int mtk_lcm_dts_read_u8_array(struct device_node *np, char *prop,
+/* read u32 array and parsing into u8 buffer */
+int mtk_lcm_dts_read_u8_array_from_u32(struct device_node *np, char *prop,
 		u8 *out, int min_len, int max_len)
 {
 	int len = 0, i = 0;
@@ -94,6 +96,42 @@ int mtk_lcm_dts_read_u8_array(struct device_node *np, char *prop,
 	}
 
 	LCM_KFREE(data, sizeof(u32) * max_len);
+	return len;
+}
+
+/* read u8 array and parsing into u8 buffer */
+int mtk_lcm_dts_read_u8_array(struct device_node *np, char *prop,
+		u8 *out, int min_len, int max_len)
+{
+	int len = 0;
+
+	if (IS_ERR_OR_NULL(prop) ||
+	    IS_ERR_OR_NULL(np) ||
+	    IS_ERR_OR_NULL(out) ||
+	    max_len == 0)
+		return 0;
+
+	len = of_property_read_variable_u8_array(np,
+			prop, out, min_len, max_len);
+#if MTK_LCM_DEBUG_DUMP
+	if (len == 1) {
+		DDPMSG("%s: %s = 0x%x\n", __func__, prop, *out);
+	} else if (len > 0) {
+		int i = 0;
+
+		DDPMSG("%s: %s array of %d data\n", __func__, prop, len);
+		for (i = 0; i < len - 8; i += 8)
+			DDPMSG("data%u: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+			i, out[i], out[i+1], out[i+2], out[i+3],
+			out[i+4], out[i+5], out[i+6], out[i+7]);
+	} else if (len == 0) {
+		DDPMSG("%s: %s is empty\n", __func__, prop);
+	} else {
+		DDPMSG("%s: %s is not existed or overflow, %d\n",
+			__func__, prop, len);
+	}
+#endif
+
 	return len;
 }
 
