@@ -673,7 +673,7 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 	    type == MTK_DISP_WDMA || type == MTK_DISP_POSTMASK) {
 		dev_warn(dev, "%s: %s need larb device\n", __func__,
 				mtk_dump_comp_str(comp));
-		DDPPR_ERR("%s: smi-id:%d\n", mtk_dump_comp_str(comp),
+		DDPMSG("%s: smi-id:%d\n", mtk_dump_comp_str(comp),
 				comp->larb_id);
 	}
 }

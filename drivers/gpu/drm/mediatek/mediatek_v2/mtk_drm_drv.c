@@ -3723,9 +3723,11 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 		caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_VIRUTAL_DISPLAY;
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_USE_M4U))
 		caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_IOMMU;
+#endif
 
 	ddp_comp = private->ddp_comp[DDP_COMPONENT_CHIST0];
 	if (ddp_comp) {
@@ -5820,6 +5822,8 @@ static const struct of_device_id mtk_drm_of_ids[] = {
 	 .data = &mt2712_mmsys_driver_data},
 	{.compatible = "mediatek,mt6779-mmsys",
 	 .data = &mt6779_mmsys_driver_data},
+	{.compatible = "mediatek,mt6789-disp",
+	 .data = &mt6789_mmsys_driver_data},
 	{.compatible = "mediatek,mt8173-mmsys",
 	 .data = &mt8173_mmsys_driver_data},
 	{.compatible = "mediatek,mt6885-mmsys",

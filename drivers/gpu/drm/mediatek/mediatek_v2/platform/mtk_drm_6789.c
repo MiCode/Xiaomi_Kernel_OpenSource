@@ -159,6 +159,7 @@ const struct mtk_dsi_driver_data mt6789_dsi_driver_data = {
 	.need_bypass_shadow = true,
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
+	.dsi_new_trail = false,
 	.max_vfp = 0,
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
