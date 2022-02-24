@@ -339,11 +339,14 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	struct mtk_base_afe_memif *memif = &afe->memif[cpu_dai->id];
+	int ret = 0;
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_HWFREE,
+	ret = afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_HWFREE,
 			   substream, NULL, dai, afe);
 #endif
+	if (ret)
+		dev_info(afe->dev, "%s() %s ret:%d\n", __func__, memif->data->name, ret);
 
 	if (memif->using_sram == 0 && afe->release_dram_resource)
 		afe->release_dram_resource(afe->dev);

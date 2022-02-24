@@ -359,8 +359,11 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		return -1;
 
 	if (get_task_attr(task_id, ADSP_TASK_ATTR_RUNTIME) <= 0 ||
-	    get_task_attr(task_id, ADSP_TASK_ATTR_DEFAULT) <= 0)
+	    get_task_attr(task_id, ADSP_TASK_ATTR_DEFAULT) <= 0) {
+		pr_info("%s(), task runtime enable: %d\n", __func__,
+				get_task_attr(task_id, ADSP_TASK_ATTR_RUNTIME));
 		return -1;
+	}
 
 	task_name = get_str_by_dsp_dai_id(task_id);
 
