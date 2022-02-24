@@ -6941,7 +6941,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					ret = mtk_cam_sv_dev_config(ctx, sv_pipe_idx, hw_scen,
 								0, tgo_pxl_mode);
 					if (ret)
-						goto fail_pipe_off;
+						goto fail_img_buf_release;
 
 					break;
 				}

@@ -627,8 +627,6 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 
 	ret = mtk_cam_raw_res_store(pipeline, res_user, "s_ctrl", true);
 	pipeline->user_res = *res_user;
-	pipeline->hw_mode = res_user->raw_res.hw_mode;
-	pipeline->hw_mode_pending = res_user->raw_res.hw_mode;
 	if (pipeline->subdev.entity.stream_count) {
 		/* If the pipeline is streaming, pending the change */
 		dev_dbg(dev, "%s:pipe(%d): pending res calc\n",
