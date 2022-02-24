@@ -3555,12 +3555,40 @@ int btif_rx_data_path_unlock(struct _mtk_btif_ *p_btif)
 
 int btif_rx_dma_has_pending_data(struct _mtk_btif_ *p_btif)
 {
-	return hal_dma_rx_has_pending(p_btif->p_rx_dma->p_dma_info);
+	unsigned int ori_state;
+	int ret;
+
+	if (p_btif == NULL || _btif_state_hold(p_btif))
+		return 0;
+
+	ori_state = _btif_state_get(p_btif);
+	if (ori_state != B_S_ON) {
+		BTIF_STATE_RELEASE(p_btif);
+		return 0;
+	}
+
+	ret = hal_dma_rx_has_pending(p_btif->p_rx_dma->p_dma_info);
+	BTIF_STATE_RELEASE(p_btif);
+	return ret;
 }
 
 int btif_tx_dma_has_pending_data(struct _mtk_btif_ *p_btif)
 {
-	return hal_dma_tx_has_pending(p_btif->p_tx_dma->p_dma_info);
+	unsigned int ori_state;
+	int ret;
+
+	if (p_btif == NULL || _btif_state_hold(p_btif))
+		return 0;
+
+	ori_state = _btif_state_get(p_btif);
+	if (ori_state != B_S_ON) {
+		BTIF_STATE_RELEASE(p_btif);
+		return 0;
+	}
+
+	ret = hal_dma_tx_has_pending(p_btif->p_tx_dma->p_dma_info);
+	BTIF_STATE_RELEASE(p_btif);
+	return ret;
 }
 
 int btif_rx_buf_has_pending_data(struct _mtk_btif_ *p_btif)
