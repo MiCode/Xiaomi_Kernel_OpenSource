@@ -367,7 +367,10 @@
 /* ORIDMA */
 /* CAMSYS_RAW 0x1a03 */
 #define REG_IMGO_R1_BASE       0x4880
+#define REG_IMGO_R1_BASE_MSB   0x4884
 #define REG_FHO_R1_BASE        0x4930
+#define REG_FHO_R1_SPARE_5	   0x4994
+#define REG_FHO_R1_SPARE_6	   0x4998
 #define REG_AAHO_R1_BASE       0x49e0
 #define REG_PDO_R1_BASE        0x4a90
 #define REG_AAO_R1_BASE        0x4a40
@@ -462,5 +465,4 @@
 #define REG_RAWI_R5_BASE_MSB   0x4334
 #define REG_RAWI_R6_BASE       0x4800
 #define REG_RAWI_R6_BASE_MSB   0x4804
-
 #endif	/* _CAM_REGS_H */

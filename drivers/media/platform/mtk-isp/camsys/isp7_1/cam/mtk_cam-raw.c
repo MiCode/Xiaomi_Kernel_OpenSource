@@ -6542,7 +6542,7 @@ static int mtk_yuv_runtime_resume(struct device *dev)
 int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 {
 #define REG_YSIZE_OFFSET	0x14
-#define REG_STRDIE_OFFSET	0x18
+#define REG_STRIDE_OFFSET	0x18
 
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
 	struct device *dev = raw_dev->dev;
@@ -6577,8 +6577,16 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	dev_info(dev, "feature_active 0x%x feature_pending 0x%x\n",
 		ctx->pipe->feature_active, ctx->pipe->feature_pending);
 
-	dev_info(dev, "--Outer FBC\n");
-	mtk_cam_raw_dump_fbc(raw_dev->dev, raw_dev->base, raw_dev->yuv_base);
+	dev_info(dev, "--FHO Information\n");
+	dev_info(raw_dev->dev,
+		 "[FHO inner] frame_no %d, frame_index %d\n",
+		 readl_relaxed(raw_dev->base_inner + REG_FHO_R1_SPARE_5),
+		 readl_relaxed(raw_dev->base_inner + REG_FHO_R1_SPARE_6));
+	dev_info(dev, "--Subsample control Information\n");
+	dev_info(raw_dev->dev,
+		 "[Subsample camctl inner] CAMCTL_SW_PASS1_DONE 0x%x, CAMCTL_SW_SUB_CTL 0x%x\n",
+		 readl_relaxed(raw_dev->base_inner + REG_CTL_SW_PASS1_DONE),
+		 readl_relaxed(raw_dev->base_inner + REG_CTL_SW_SUB_CTL));
 	dev_info(dev, "--Inner FBC\n");
 	mtk_cam_raw_dump_fbc(raw_dev->dev, raw_dev->base_inner, raw_dev->yuv_base_inner);
 
@@ -6628,6 +6636,26 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 		 readl_relaxed(raw_dev->yuv_base + REG_CTL_RAW_MOD5_RDY_STAT));
 
 	switch (port) {
+	case M4U_PORT_L16_CAM2_IMGP_R1:
+	case M4U_PORT_L27_CAM2_IMGP_R1:
+	case M4U_PORT_L28_CAM2_IMGP_R1:
+		inner_addr =
+				readl_relaxed(raw_dev->base_inner + REG_IMGO_R1_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->base_inner + REG_IMGO_R1_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->base_inner +
+					REG_IMGO_R1_BASE + REG_STRIDE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->base_inner +
+					REG_IMGO_R1_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "imgo_r1: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			inner_addr_msb, inner_addr, stride, ysize);
+
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
+				"IMGO_R1", dbg_IMGO_R1, ARRAY_SIZE(dbg_IMGO_R1));
+		break;
 	case M4U_PORT_L16_CAM2_CQI_R1:
 	case M4U_PORT_L27_CAM2_CQI_R1:
 	case M4U_PORT_L28_CAM2_CQI_R1:
@@ -6663,7 +6691,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->base_inner + REG_RAWI_R2_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->base_inner +
-					REG_RAWI_R2_BASE + REG_STRDIE_OFFSET);
+					REG_RAWI_R2_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->base_inner +
 					REG_RAWI_R2_BASE + REG_YSIZE_OFFSET);
@@ -6684,7 +6712,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->base_inner + REG_RAWI_R3_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->base_inner +
-					REG_RAWI_R3_BASE + REG_STRDIE_OFFSET);
+					REG_RAWI_R3_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->base_inner +
 					REG_RAWI_R3_BASE + REG_YSIZE_OFFSET);
@@ -6705,7 +6733,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->base_inner + REG_RAWI_R5_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->base_inner +
-					REG_RAWI_R5_BASE + REG_STRDIE_OFFSET);
+					REG_RAWI_R5_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->base_inner +
 					REG_RAWI_R5_BASE + REG_YSIZE_OFFSET);
@@ -6726,7 +6754,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->base_inner + REG_RAWI_R6_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->base_inner +
-					REG_RAWI_R6_BASE + REG_STRDIE_OFFSET);
+					REG_RAWI_R6_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->base_inner +
 					REG_RAWI_R6_BASE + REG_YSIZE_OFFSET);
@@ -6746,7 +6774,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R1_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVO_R1_BASE + REG_STRDIE_OFFSET);
+					REG_YUVO_R1_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVO_R1_BASE + REG_YSIZE_OFFSET);
@@ -6760,7 +6788,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R1_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVBO_R1_BASE + REG_STRDIE_OFFSET);
+					REG_YUVBO_R1_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVBO_R1_BASE + REG_YSIZE_OFFSET);
@@ -6781,7 +6809,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R3_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVO_R3_BASE + REG_STRDIE_OFFSET);
+					REG_YUVO_R3_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVO_R3_BASE + REG_YSIZE_OFFSET);
@@ -6795,7 +6823,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R3_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVBO_R3_BASE + REG_STRDIE_OFFSET);
+					REG_YUVBO_R3_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVBO_R3_BASE + REG_YSIZE_OFFSET);
@@ -6816,7 +6844,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVCO_R1_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVCO_R1_BASE + REG_STRDIE_OFFSET);
+					REG_YUVCO_R1_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVCO_R1_BASE + REG_YSIZE_OFFSET);
@@ -6830,7 +6858,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVDO_R1_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVDO_R1_BASE + REG_STRDIE_OFFSET);
+					REG_YUVDO_R1_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVDO_R1_BASE + REG_YSIZE_OFFSET);
@@ -6844,7 +6872,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVCO_R3_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVCO_R3_BASE + REG_STRDIE_OFFSET);
+					REG_YUVCO_R3_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVCO_R3_BASE + REG_YSIZE_OFFSET);
@@ -6858,7 +6886,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVDO_R3_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVDO_R3_BASE + REG_STRDIE_OFFSET);
+					REG_YUVDO_R3_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVDO_R3_BASE + REG_YSIZE_OFFSET);
@@ -6882,7 +6910,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R2_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVO_R2_BASE + REG_STRDIE_OFFSET);
+					REG_YUVO_R2_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVO_R2_BASE + REG_YSIZE_OFFSET);
@@ -6896,7 +6924,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R2_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVBO_R2_BASE + REG_STRDIE_OFFSET);
+					REG_YUVBO_R2_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVBO_R2_BASE + REG_YSIZE_OFFSET);
@@ -6910,7 +6938,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R4_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVO_R4_BASE + REG_STRDIE_OFFSET);
+					REG_YUVO_R4_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVO_R4_BASE + REG_YSIZE_OFFSET);
@@ -6924,7 +6952,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R4_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVBO_R4_BASE + REG_STRDIE_OFFSET);
+					REG_YUVBO_R4_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVBO_R4_BASE + REG_YSIZE_OFFSET);
@@ -6938,7 +6966,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R5_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVO_R5_BASE + REG_STRDIE_OFFSET);
+					REG_YUVO_R5_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVO_R5_BASE + REG_YSIZE_OFFSET);
@@ -6952,7 +6980,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R5_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_YUVBO_R5_BASE + REG_STRDIE_OFFSET);
+					REG_YUVBO_R5_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_YUVBO_R5_BASE + REG_YSIZE_OFFSET);
@@ -6978,7 +7006,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TO_R1_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_RZH1N2TO_R1_BASE + REG_STRDIE_OFFSET);
+					REG_RZH1N2TO_R1_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_RZH1N2TO_R1_BASE + REG_YSIZE_OFFSET);
@@ -6992,7 +7020,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TBO_R1_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_RZH1N2TBO_R1_BASE + REG_STRDIE_OFFSET);
+					REG_RZH1N2TBO_R1_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_RZH1N2TBO_R1_BASE + REG_YSIZE_OFFSET);
@@ -7006,7 +7034,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TO_R2_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_RZH1N2TO_R2_BASE + REG_STRDIE_OFFSET);
+					REG_RZH1N2TO_R2_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_RZH1N2TO_R2_BASE + REG_YSIZE_OFFSET);
@@ -7020,7 +7048,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TO_R3_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_RZH1N2TO_R3_BASE + REG_STRDIE_OFFSET);
+					REG_RZH1N2TO_R3_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_RZH1N2TO_R3_BASE + REG_YSIZE_OFFSET);
@@ -7034,7 +7062,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TBO_R3_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_RZH1N2TBO_R3_BASE + REG_STRDIE_OFFSET);
+					REG_RZH1N2TBO_R3_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_RZH1N2TBO_R3_BASE + REG_YSIZE_OFFSET);
@@ -7060,7 +7088,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R1_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_DRZS4NO_R1_BASE + REG_STRDIE_OFFSET);
+					REG_DRZS4NO_R1_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_DRZS4NO_R1_BASE + REG_YSIZE_OFFSET);
@@ -7074,7 +7102,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R2_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_DRZS4NO_R2_BASE + REG_STRDIE_OFFSET);
+					REG_DRZS4NO_R2_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_DRZS4NO_R2_BASE + REG_YSIZE_OFFSET);
@@ -7088,7 +7116,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R3_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_DRZS4NO_R3_BASE + REG_STRDIE_OFFSET);
+					REG_DRZS4NO_R3_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_DRZS4NO_R3_BASE + REG_YSIZE_OFFSET);
@@ -7102,7 +7130,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_ACTSO_R1_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_ACTSO_R1_BASE + REG_STRDIE_OFFSET);
+					REG_ACTSO_R1_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_ACTSO_R1_BASE + REG_YSIZE_OFFSET);
@@ -7129,7 +7157,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->yuv_base_inner + REG_TNCSYO_R1_BASE_MSB);
 		stride =
 				readl_relaxed(raw_dev->yuv_base_inner +
-					REG_TNCSYO_R1_BASE + REG_STRDIE_OFFSET);
+					REG_TNCSYO_R1_BASE + REG_STRIDE_OFFSET);
 		ysize =
 				readl_relaxed(raw_dev->yuv_base_inner +
 					REG_TNCSYO_R1_BASE + REG_YSIZE_OFFSET);
