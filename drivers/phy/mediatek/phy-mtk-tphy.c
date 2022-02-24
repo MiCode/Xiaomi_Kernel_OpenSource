@@ -1062,7 +1062,7 @@ static void hs_slew_rate_calibrate(struct mtk_tphy *tphy,
 	writel(tmp, fmreg + U3P_U2FREQ_FMCR0);
 
 	/* ignore return value */
-	readl_poll_timeout(fmreg + U3P_U2FREQ_FMMONR1, tmp,
+	readl_poll_timeout_atomic(fmreg + U3P_U2FREQ_FMMONR1, tmp,
 			   (tmp & P2F_USB_FM_VALID), 10, 200);
 
 	fm_out = readl(fmreg + U3P_U2FREQ_VALUE);
