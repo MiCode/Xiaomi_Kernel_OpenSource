@@ -523,7 +523,18 @@ static ssize_t dbg_ctrl_write(struct file *file, const char __user *data,
 	dev_dbg(ctrl->debug_fs->cam->dev, "%s:pipe(%d):received cmd(%s)\n",
 		__func__, ctrl->pipe_id, tmp);
 	cmd_str = strsep(&parse_str, ":");
+	if (!cmd_str) {
+		dev_info(ctrl->debug_fs->cam->dev,
+			 "%s: parse cmd_str failed\n", __func__);
+		goto FAIL;
+	}
+
 	param_str_0 = strsep(&parse_str, ":");
+	if (!param_str_0) {
+		dev_info(ctrl->debug_fs->cam->dev,
+			 "%s: parse param_str_0 failed\n", __func__);
+		goto FAIL;
+	}
 
 	if (cmd_str[0] == 'r') {
 		param_str_1 = strsep(&parse_str, ":");
