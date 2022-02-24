@@ -1225,12 +1225,16 @@ static void smi_subsys_before_off(enum subsys_id sys)
 	smi_subsys_sspm_ipi(false, subsys);
 	for (i = 0; i < SMI_DEV_NUM; i++)
 		if (subsys & (1 << i)) {
-			if (sys != SYS_DIS || !(smi_mm_first & subsys))
-				mtk_smi_clk_disable(smi_dev[i]);
 			smi_clk_record(i, false, NULL);
+			if ((smi_mm_first & subsys) && sys == SYS_DIS)
+				continue;
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
+			if ((smi_mm_first & subsys) && sys == SYS_MDP)
+				continue;
+#endif
+			mtk_smi_clk_disable(smi_dev[i]);
 		}
-	if (sys == SYS_DIS && (smi_mm_first & subsys))
-		smi_mm_first &= ~subsys;
+	smi_mm_first &= ~subsys;
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	//mmprofile_log(smi_mmp_event[sys], MMPROFILE_FLAG_END);
 #endif
@@ -1330,6 +1334,9 @@ s32 smi_register(void)
 	/* init */
 	spin_lock(&(smi_drv.lock));
 	smi_subsys_on = smi_subsys_to_larbs[SYS_DIS];
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
+	smi_subsys_on |= smi_subsys_to_larbs[SYS_MDP];
+#endif
 	spin_unlock(&(smi_drv.lock));
 	for (i = SMI_DEV_NUM - 1; i >= 0; i--) {
 		smi_conf_get(i);
