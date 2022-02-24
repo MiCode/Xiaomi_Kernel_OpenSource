@@ -9,7 +9,12 @@
 #ifndef _XHCI_MTK_H_
 #define _XHCI_MTK_H_
 
+#include <linux/hashtable.h>
+
 #include "xhci.h"
+
+/* support at most 64 ep, use 32 size hash table */
+#define SCH_EP_HASH_BITS	5
 
 /**
  * To simplify scheduler algorithm, set a upper limit for ESIT,
@@ -32,14 +37,12 @@ struct mu3h_sch_tt {
  * struct mu3h_sch_bw_info: schedule information for bandwidth domain
  *
  * @bus_bw: array to keep track of bandwidth already used at each uframes
- * @bw_ep_list: eps in the bandwidth domain
  *
  * treat a HS root port as a bandwidth domain, but treat a SS root port as
  * two bandwidth domains, one for IN eps and another for OUT eps.
  */
 struct mu3h_sch_bw_info {
 	u32 bus_bw[XHCI_MTK_MAX_ESIT];
-	struct list_head bw_ep_list;
 };
 
 /**
@@ -50,8 +53,10 @@ struct mu3h_sch_bw_info {
  * @num_budget_microframes: number of continuous uframes
  *		(@repeat==1) scheduled within the interval
  * @bw_cost_per_microframe: bandwidth cost per microframe
+ * @hentry: hash table entry
  * @endpoint: linked into bandwidth domain which it belongs to
  * @tt_endpoint: linked into mu3h_sch_tt's list which it belongs to
+ * @bw_info: bandwidth domain which this endpoint belongs
  * @sch_tt: mu3h_sch_tt linked into
  * @ep_type: endpoint type
  * @maxpkt: max packet size of endpoint
@@ -80,7 +85,9 @@ struct mu3h_sch_ep_info {
 	u32 num_budget_microframes;
 	u32 bw_cost_per_microframe;
 	struct list_head endpoint;
+	struct hlist_node hentry;
 	struct list_head tt_endpoint;
+	struct mu3h_sch_bw_info *bw_info;
 	struct mu3h_sch_tt *sch_tt;
 	u32 ep_type;
 	u32 maxpkt;
@@ -133,6 +140,7 @@ struct xhci_hcd_mtk {
 	struct usb_hcd *hcd;
 	struct mu3h_sch_bw_info *sch_array;
 	struct list_head bw_ep_chk_list;
+	DECLARE_HASHTABLE(sch_ep_hash, SCH_EP_HASH_BITS);
 	struct mu3c_ippc_regs __iomem *ippc_regs;
 	bool has_ippc;
 	int num_u2_ports;
