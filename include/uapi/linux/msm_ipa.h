@@ -347,7 +347,7 @@ enum ipa_client_type {
 	IPA_CLIENT_WLAN3_PROD			= 14,
 	IPA_CLIENT_WLAN3_CONS			= 15,
 
-	/* RESERVED PROD			= 16, */
+	IPA_CLIENT_WLAN2_PROD1			= 16,
 	IPA_CLIENT_WLAN4_CONS			= 17,
 
 	IPA_CLIENT_USB_PROD			= 18,
@@ -384,7 +384,7 @@ enum ipa_client_type {
 	IPA_CLIENT_ODU_PROD			= 38,
 	IPA_CLIENT_ODU_EMB_CONS			= 39,
 
-	/* RESERVED PROD			= 40, */
+	IPA_CLIENT_WLAN3_PROD1			= 40,
 	IPA_CLIENT_ODU_TETH_CONS		= 41,
 
 	IPA_CLIENT_MHI_PROD			= 42,
@@ -507,7 +507,7 @@ enum ipa_client_type {
 	IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD	= 120,
 	IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_CONS	= 121,
 
-	IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD		= 122,
+	IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD       = 122,
 	/* RESERVED CONS			= 123, */
 
 	/* RESERVED PROD                        = 124, */
@@ -542,6 +542,8 @@ enum ipa_client_type {
 #define IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_PROD
 #define IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_CONS IPA_CLIENT_APPS_WAN_LOW_LAT_DATA_CONS
 #define IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD IPA_CLIENT_Q6_DL_NLO_LL_DATA_PROD
+#define IPA_CLIENT_WLAN2_PROD1 IPA_CLIENT_WLAN2_PROD1
+#define IPA_CLIENT_WLAN3_PROD1 IPA_CLIENT_WLAN3_PROD1
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
@@ -1348,16 +1350,24 @@ struct ipa_flt_rule_v2 {
  * IPA_HDR_L2_ETHERNET_II: L2 header of type Ethernet II
  * IPA_HDR_L2_802_3: L2 header of type 802_3
  * IPA_HDR_L2_802_1Q: L2 header of type 802_1Q
+ * IPA_HDR_L2_ETHERNET_II_AST: L2 header of type ETHERNET with AST update
+ * IPA_HDR_L2_802_1Q_AST: L2 header of type 802_1Q with AST update
  */
 enum ipa_hdr_l2_type {
 	IPA_HDR_L2_NONE,
 	IPA_HDR_L2_ETHERNET_II,
 	IPA_HDR_L2_802_3,
 	IPA_HDR_L2_802_1Q,
+	IPA_HDR_L2_ETHERNET_II_AST,
+	IPA_HDR_L2_802_1Q_AST,
 };
-#define IPA_HDR_L2_MAX (IPA_HDR_L2_802_1Q + 1)
+#define IPA_HDR_L2_MAX (IPA_HDR_L2_802_1Q_AST + 1)
 
 #define IPA_HDR_L2_802_1Q IPA_HDR_L2_802_1Q
+
+#define IPA_HDR_L2_ETHERNET_II_AST IPA_HDR_L2_ETHERNET_II_AST
+
+#define IPA_HDR_L2_802_1Q_AST IPA_HDR_L2_802_1Q_AST
 
 /**
  * enum ipa_hdr_l2_type - Processing context type
@@ -2749,6 +2759,7 @@ struct ipa_msg_meta {
  * @name: name of the wlan interface
  * @mac_addr: mac address of wlan client
  * @if_index: netdev interface index
+ * @ast_update: Boolean to indicate whether AST update is required or not
  *
  * wlan drivers need to pass name of wlan iface and mac address of
  * wlan client along with ipa_wlan_event, whenever a wlan client is
@@ -2758,6 +2769,8 @@ struct ipa_wlan_msg {
 	char name[IPA_RESOURCE_NAME_MAX];
 	uint8_t mac_addr[IPA_MAC_ADDR_SIZE];
 	int16_t if_index;
+#define IPA_WDI_AST_UPDATE
+	uint8_t ast_update;
 };
 
 /**
@@ -2766,11 +2779,14 @@ struct ipa_wlan_msg {
  *
  * WLAN_HDR_ATTRIB_MAC_ADDR: attrib type mac address
  * WLAN_HDR_ATTRIB_STA_ID: attrib type station id
+ * WLAN_HDR_ATTRIB_TA_PEER_ID: ta peer id associated with mac
  */
 enum ipa_wlan_hdr_attrib_type {
 	WLAN_HDR_ATTRIB_MAC_ADDR,
-	WLAN_HDR_ATTRIB_STA_ID
+	WLAN_HDR_ATTRIB_STA_ID,
+	WLAN_HDR_ATTRIB_TA_PEER_ID
 };
+#define WLAN_HDR_ATTRIB_TA_PEER_ID WLAN_HDR_ATTRIB_TA_PEER_ID
 
 /**
  * struct ipa_wlan_hdr_attrib_val - header attribute value
@@ -2778,6 +2794,7 @@ enum ipa_wlan_hdr_attrib_type {
  * @offset: offset of attribute within header
  * @u.mac_addr: mac address
  * @u.sta_id: station id
+ * @u.ta_peer_id: ta peer id
  */
 struct ipa_wlan_hdr_attrib_val {
 	enum ipa_wlan_hdr_attrib_type attrib_type;
@@ -2785,6 +2802,7 @@ struct ipa_wlan_hdr_attrib_val {
 	union {
 		uint8_t mac_addr[IPA_MAC_ADDR_SIZE];
 		uint8_t sta_id;
+		uint16_t ta_peer_id;
 	} u;
 };
 
