@@ -6,6 +6,8 @@
 
 #include <linux/device.h>
 #include <linux/interrupt.h>
+#include <linux/mfd/mt6357/registers.h>
+#include <linux/mfd/mt6358/registers.h>
 #include <linux/mfd/mt6359p/registers.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/math64.h>
@@ -61,6 +63,22 @@ struct battery_oc_data_t {
 	struct reg_t fg_cur_lth;
 	bool cust_rfg;
 	struct reg_t reg_default_rfg;
+};
+
+struct battery_oc_data_t mt6357_battery_oc_data = {
+	.regmap_source = "parent_drvdata",
+	.gauge_node_name = "mtk_gauge",
+	.fg_cur_hth = {MT6357_FGADC_CUR_CON2, 0xFFFF, 1},
+	.fg_cur_lth = {MT6357_FGADC_CUR_CON1, 0xFFFF, 1},
+	.cust_rfg = false,
+};
+
+struct battery_oc_data_t mt6358_battery_oc_data = {
+	.regmap_source = "parent_drvdata",
+	.gauge_node_name = "mtk_gauge",
+	.fg_cur_hth = {MT6358_FGADC_CUR_CON2, 0xFFFF, 1},
+	.fg_cur_lth = {MT6358_FGADC_CUR_CON1, 0xFFFF, 1},
+	.cust_rfg = false,
 };
 
 struct battery_oc_data_t mt6359p_battery_oc_data = {
@@ -399,7 +417,7 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 	priv->r_fg_value *= UNIT_TRANS_10;
 
 	ret = of_property_read_u32(np, "UNIT_MULTIPLE", &priv->unit_multiple);
-	if (ret) {
+	if (priv->ocdata->cust_rfg && ret) {
 		dev_notice(&pdev->dev, "get UNIT_MULTIPLE fail\n");
 		return -EINVAL;
 	}
@@ -439,6 +457,17 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 	} else {
 		pmic = dev_get_drvdata(pdev->dev.parent);
 		switch (pmic->chip_id) {
+		case MT6357_CHIP_ID:
+			priv->default_rfg = MT6357_DEFAULT_RFG;
+			priv->unit_fg_cur = MT6357_UNIT_FGCURRENT;
+			break;
+
+		case MT6358_CHIP_ID:
+		case MT6366_CHIP_ID:
+			priv->default_rfg = MT6358_DEFAULT_RFG;
+			priv->unit_fg_cur = MT6358_UNIT_FGCURRENT;
+			break;
+
 		case MT6359P_CHIP_ID:
 			priv->default_rfg = MT6359P_DEFAULT_RFG;
 			priv->unit_fg_cur = MT6359P_UNIT_FGCURRENT;
@@ -495,7 +524,7 @@ static int battery_oc_throttling_probe(struct platform_device *pdev)
 	struct battery_oc_priv *priv;
 	struct mt6397_chip *chip;
 
-	pr_info("%s Jeff\n", __func__);
+	pr_info("%s\n", __func__);
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -586,6 +615,12 @@ static SIMPLE_DEV_PM_OPS(battery_oc_throttling_pm_ops,
 
 static const struct of_device_id battery_oc_throttling_of_match[] = {
 	{
+		.compatible = "mediatek,mt6357-battery_oc_throttling",
+		.data = &mt6357_battery_oc_data,
+	}, {
+		.compatible = "mediatek,mt6358-battery_oc_throttling",
+		.data = &mt6358_battery_oc_data,
+	}, {
 		.compatible = "mediatek,mt6359p-battery_oc_throttling",
 		.data = &mt6359p_battery_oc_data,
 	}, {
