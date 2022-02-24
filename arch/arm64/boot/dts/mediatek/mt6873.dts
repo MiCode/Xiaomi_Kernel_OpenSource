@@ -945,10 +945,10 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x11f60000 0 0x10000>,
 		      <0 0x11f50000 0 0x1000>;
 		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&topckgen MSDC_PCLK_CK_MSDC0_CKEN>,
-			 <&infracfg_ao MSDC_HCLK_MST_CK_0P_CKEN>,
-			 <&infracfg_ao MSDC_SRC_CK_0P_CKEN>,
-			 <&infracfg_ao MSDC_AES_CK_0P_CKEN>;
+		clocks = <&topckgen TOP_MUX_MSDC50_0_HCLK>,
+			 <&infracfg_ao INFRACFG_AO_MSDC0_CG>,
+			 <&infracfg_ao INFRACFG_AO_MSDC0_SRC_CLK_CG>,
+			 <&infracfg_ao TOP_MUX_AES_MSDCFDE>;
 		clock-names = "source", "hclk", "source_cg",
 			"crypto_clk";
 		status = "disabled";
@@ -959,9 +959,9 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x11f70000 0 0x1000>,
 		      <0 0x11c70000 0 0x1000>;
 		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&topckgen MSDC_PCLK_CK_MSDC1_CKEN>,
-			 <&infracfg_ao MSDC_HCLK_MST_CK_1P_CKEN>,
-			 <&infracfg_ao MSDC_SRC_CK_1P_CKEN>;
+		clocks = <&topckgen TOP_MUX_MSDC30_1>,
+			 <&infracfg_ao INFRACFG_AO_MSDC1_CG>,
+			 <&infracfg_ao INFRACFG_AO_MSDC1_SRC_CLK_CG>;
 		clock-names = "source", "hclk", "source_cg";
 		status = "disabled";
 	};
