@@ -10,6 +10,21 @@
 #include <linux/types.h>
 
 #ifdef CONFIG_ENERGY_MODEL
+
+#ifdef CONFIG_NONLINEAR_FREQ_CTL
+#include "../../drivers/misc/mediatek/base/power/include/mtk_upower.h"
+
+static int get_opp_cap(int cpu, int opp)
+{
+	struct upower_tbl *tbl;
+
+	tbl = upower_get_core_tbl(cpu);
+	if (opp < 0 || opp >= tbl->row_num)
+		return -1;
+	return tbl->row[opp].cap;
+}
+#endif
+
 /**
  * em_cap_state - Capacity state of a performance domain
  * @frequency:	The CPU frequency in KHz, for consistency with CPUFreq
@@ -82,6 +97,9 @@ static inline unsigned long em_pd_energy(struct em_perf_domain *pd,
 	unsigned long freq, scale_cpu;
 	struct em_cap_state *cs;
 	int i, cpu;
+#ifdef CONFIG_NONLINEAR_FREQ_CTL
+	int opp, opp_cap;
+#endif
 
 	/*
 	 * In order to predict the capacity state, map the utilization of the
@@ -102,6 +120,13 @@ static inline unsigned long em_pd_energy(struct em_perf_domain *pd,
 		if (cs->frequency >= freq)
 			break;
 	}
+
+#ifdef CONFIG_NONLINEAR_FREQ_CTL
+	opp = min(i, pd->nr_cap_states - 1);
+	opp_cap = get_opp_cap(cpu, opp);
+	if (opp_cap > 0)
+		return cs->power * sum_util / opp_cap;
+#endif
 
 	/*
 	 * The capacity of a CPU in the domain at that capacity state (cs)
