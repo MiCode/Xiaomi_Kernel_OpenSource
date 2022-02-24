@@ -1949,11 +1949,13 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 
 	if (que_cnt > 1 && (prev_stream_data == NULL || state_outer == NULL)) {
 		for (i = 0; i < que_cnt; i++) {
-			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_rec[i]);
-			dev_info(raw_dev->dev,
-			"[SOF] STATE_CHECK_DBG [N-%d] Req:%d / State:%d\n",
-			i, req_stream_data->frame_seq_no,
-			state_rec[i]->estate);
+			if (state_rec[i]) {
+				req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_rec[i]);
+				dev_info(raw_dev->dev,
+				"[SOF] STATE_CHECK_DBG [N-%d] Req:%d / State:%d\n",
+				i, req_stream_data->frame_seq_no,
+				state_rec[i]->estate);
+			}
 		}
 	}
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
