@@ -1458,6 +1458,9 @@ void musb_stop(struct musb *musb)
 	/* stop IRQs, timers, ... */
 	musb_generic_disable(musb);
 
+	/* Make sure irq all done  */
+	synchronize_irq(musb->nIrq);
+
 	gadget_stop(musb);
 
 	musb_flush_dma_transcation(musb);
