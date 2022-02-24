@@ -26,21 +26,6 @@ static inline ssize_t dev_dump_show(struct device *dev,
 
 	n +=  scnprintf(buf + n, PAGE_SIZE - n, "name:%s id = %d\n",
 			pdata->name, pdata->id);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "cfg = %p, size = %zu\n",
-			adspsys->cfg, adspsys->cfg_size);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "cfg2 = %p, size = %zu\n",
-			adspsys->cfg2, adspsys->cfg2_size);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "cfg_secure = %p, size = %zu\n",
-			adspsys->cfg_secure, adspsys->cfg_secure_size);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "itcm = %p, size = %zu\n",
-			pdata->itcm, pdata->itcm_size);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "dtcm = %p, size = %zu\n",
-			pdata->dtcm, pdata->dtcm_size);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "sysram = %p, size = %zu\n",
-			pdata->sysram, pdata->sysram_size);
-	n +=  scnprintf(buf + n, PAGE_SIZE - n, "irq = %d, %d, %d\n",
-			pdata->irq[0].seq, pdata->irq[1].seq,
-			pdata->irq[2].seq);
 	n +=  scnprintf(buf + n, PAGE_SIZE - n,
 			"status = %d, feature_set = %X\n",
 			pdata->state, pdata->feature_set);
@@ -182,35 +167,11 @@ static inline ssize_t log_enable_store(struct device *dev,
 }
 DEVICE_ATTR_RW(log_enable);
 
-static inline ssize_t wakelock_store(struct device *dev,
-		struct device_attribute *attr,
-		const char *buf, size_t count)
-{
-	unsigned int input = 0;
-	int ret = 0;
-	struct adsp_priv *pdata = container_of(dev_get_drvdata(dev),
-					struct adsp_priv, mdev);
-
-	if (kstrtouint(buf, 0, &input) != 0)
-		return -EINVAL;
-
-	if (input == 1)
-		ret = adsp_awake_lock(pdata->id);
-	else if (input == 0)
-		ret = adsp_awake_unlock(pdata->id);
-
-	pr_info("%s, input %u, ret = %d", __func__, input, ret);
-
-	return count;
-}
-DEVICE_ATTR_WO(wakelock);
-
 static struct attribute *adsp_default_attrs[] = {
 	&dev_attr_dev_dump.attr,
 	&dev_attr_ipi_test.attr,
 	&dev_attr_suspend_cmd.attr,
 	&dev_attr_log_enable.attr,
-	&dev_attr_wakelock.attr,
 	NULL,
 };
 

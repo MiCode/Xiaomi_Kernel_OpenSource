@@ -386,6 +386,7 @@ int adsp_core_common_init(struct adsp_priv *pdata)
 	/* slb init ipi */
 	adsp_ipi_registration(ADSP_IPI_SLB_INIT, adsp_slb_init_handler, "slb_init");
 
+#if IS_ENABLED(CONFIG_MTK_AUDIODSP_DEBUG_SUPPORT)
 	/* register misc device */
 	pdata->mdev.minor = MISC_DYNAMIC_MINOR;
 	pdata->mdev.name = pdata->name;
@@ -395,7 +396,7 @@ int adsp_core_common_init(struct adsp_priv *pdata)
 	ret = misc_register(&pdata->mdev);
 	if (unlikely(ret != 0))
 		pr_info("%s(), misc_register fail, %d\n", __func__, ret);
-
+#endif
 	return ret;
 }
 
