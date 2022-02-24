@@ -26,6 +26,107 @@
 		"nt35595_fhd_dsi_cmd_truly_nt50358_drv";
 };
 
+&cluster2_opp {
+	compatible = "operating-points-v2";
+	opp-shared;
+	opp0 {
+		opp-hz = /bits/ 64 <659000000>;
+		opp-microvolt = <650000>;
+	};
+	opp1 {
+		opp-hz = /bits/ 64 <921000000>;
+		opp-microvolt = <6937500>;
+	};
+	opp2 {
+		opp-hz = /bits/ 64 <1108000000>;
+		opp-microvolt = <725000>;
+	};
+	opp3 {
+		opp-hz = /bits/ 64 <1258000000>;
+		opp-microvolt = <750000>;
+	};
+	opp4 {
+		opp-hz = /bits/ 64 <1370000000>;
+		opp-microvolt = <775000>;
+	};
+	opp5 {
+		opp-hz = /bits/ 64 <1482000000>;
+		opp-microvolt = <800000>;
+	};
+	opp6 {
+		opp-hz = /bits/ 64 <1632000000>;
+		opp-microvolt = <831250>;
+	};
+	opp7 {
+		opp-hz = /bits/ 64 <1745000000>;
+		opp-microvolt = <856250>;
+	};
+	opp8 {
+		opp-hz = /bits/ 64 <1820000000>;
+		opp-microvolt = <875000>;
+	};
+	opp9 {
+		opp-hz = /bits/ 64 <1938000000>;
+		opp-microvolt = <900000>;
+	};
+	opp10 {
+		opp-hz = /bits/ 64 <2032000000>;
+		opp-microvolt = <925000>;
+	};
+	opp11 {
+		opp-hz = /bits/ 64 <2127000000>;
+		opp-microvolt = <943750>;
+	};
+	opp12 {
+		opp-hz = /bits/ 64 <2292000000>;
+		opp-microvolt = <981250>;
+	};
+	opp13 {
+		opp-hz = /bits/ 64 <2410000000>;
+		opp-microvolt = <1006250>;
+	};
+	opp14 {
+		opp-hz = /bits/ 64 <2529000000>;
+		opp-microvolt = <1031250>;
+	};
+	opp15 {
+		opp-hz = /bits/ 64 <2600000000>;
+		opp-microvolt = <1050000>;
+	};
+};
+
+&cpu0 {
+	capacity-dmips-mhz = <241>;
+};
+
+&cpu1 {
+	capacity-dmips-mhz = <241>;
+};
+
+&cpu2 {
+	capacity-dmips-mhz = <241>;
+};
+
+&cpu3 {
+	capacity-dmips-mhz = <241>;
+};
+
+&cpu4 {
+	capacity-dmips-mhz = <917>;
+};
+
+&cpu5 {
+	capacity-dmips-mhz = <917>;
+};
+
+&cpu6 {
+	capacity-dmips-mhz = <917>;
+};
+
+&cpu7 {
+	clock-frequency = <2600000000>;
+};
+
 &odm {
 	led0:led@0 {
 		compatible = "mediatek,red";
