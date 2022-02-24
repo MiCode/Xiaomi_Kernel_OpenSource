@@ -37,6 +37,39 @@
 	};
 };
 
+/* charger start */
+
+&lk_charger {
+	enable_pe_plus;
+};
+
+&charger {
+	enable_pe_plus;
+	enable_pe_2;
+	enable_pe_4;
+	pd_vbus_upper_bound = <12000000>;
+};
+
+
+&mt6360_pmu {
+	mt6360,intr_gpio_num = <16>; /* direct defined GPIO num */
+	mt6360,intr_gpio = <&pio 16 0x0>;
+};
+
+&mt6360_pmic {
+	pwr_off_seq = [04 00 00 02];
+};
+
+&mt6360_typec {
+	mt6360pd,intr_gpio_num = <7>; /* direct defined GPIO num */
+	mt6360pd,intr_gpio = <&pio 7 0x0>;
+	mt6360pd,pcb_gpio = <&pio 5 0x0>;
+	mt6360pd,pcb_gpio_num = <5>;
+	mt6360pd,pcb_gpio_polarity = <1>;
+};
+
+/* charger end */
+
 /* accdet start */
 &accdet {
 	/* accdet micbias voltage: 0x09:2.85v 0x08:2.8v 0x07,

@@ -686,24 +686,6 @@
 
 		};
 
-		mt6359_snd: mt6359_snd {
-			compatible = "mediatek,mt6359-sound";
-			mediatek,pwrap-regmap = <&pwrap>;
-			nvmem = <&pmic_efuse>;
-			nvmem-names = "pmic-hp-efuse";
-			io-channels =
-				<&pmic_auxadc AUXADC_HPOFS_CAL>,
-				<&pmic_auxadc AUXADC_ACCDET>;
-			io-channel-names =
-				"pmic_hpofs_cal",
-				"pmic_accdet";
-		};
-	mt6359_misc: mt6359_misc {
-		compatible = "mediatek,mt6359-misc";
-		base = <0x580>;
-		apply-lpsd-solution;
-		dcxo-switch;
-	};
 	mt6359_misc: mt6359_misc {
 		compatible = "mediatek,mt6359-misc";
 		base = <0x580>;

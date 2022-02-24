@@ -2766,6 +2766,7 @@ page_owner=on loop.max_part=7";
 		maximum-speed = "high-speed";
 		usb-role-switch;
 		status = "okay";
+		cdp-block;
 
 		usb_host: xhci0@11200000 {
 			compatible = "mediatek,mtk-xhci";
@@ -2988,12 +2989,18 @@ page_owner=on loop.max_part=7";
 		pinctrl-27 = <&aud_dat_miso_ch34_on>;
 	};
 
-	/*
 	mt6359_snd: mt6359_snd {
 		compatible = "mediatek,mt6359-sound";
 		mediatek,pwrap-regmap = <&pwrap>;
+		nvmem = <&pmic_efuse>;
+		nvmem-names = "pmic-hp-efuse";
+		io-channels =
+			<&pmic_auxadc AUXADC_HPOFS_CAL>,
+			<&pmic_auxadc AUXADC_ACCDET>;
+		io-channel-names =
+			"pmic_hpofs_cal",
+			"pmic_accdet";
 	};
-	*/
 
 	sound: sound {
 		compatible = "mediatek,mt6785-mt6359-sound";
@@ -3059,22 +3066,24 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,mt_soc_offload_common";
 	};
 
+/*
 	msdc0: msdc@11230000 {
 		compatible = "mediatek,msdc";
 		reg = <0 0x11230000 0 0x10000>;
 		interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_LOW>;
 	};
-
+*/
 	wifi_pwrseq: wifi-pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		status = "disabled";
 	};
-
+/*
 	msdc1: msdc@11240000{
 		compatible = "mediatek,msdc";
 		reg = <0 0x11240000 0 0x1000>;
 		interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_LOW>;
 	};
+*/
 
 	msdc1_top@11e10000 {
 		compatible = "mediatek,msdc1_top";
@@ -3110,29 +3119,30 @@ page_owner=on loop.max_part=7";
 		status = "disabled";
 	};
 
-	ufshci@11270000 {
+	ufshci:ufshci@11270000 {
 		compatible = "mediatek,mt8183-ufshci";
 		reg = <0 0x11270000 0 0x2300>;
 		interrupts = <GIC_SPI 104 IRQ_TYPE_LEVEL_LOW>;
 		phys = <&ufsphy>;
 
-		clocks = <&infracfg_ao INFRACFG_AO_UFS_CG>,
-			 <&infracfg_ao INFRACFG_AO_UFS_TICK_CG>,
-			 <&infracfg_ao INFRACFG_AO_UFS_AXI_CG>,
-			 <&infracfg_ao INFRACFG_AO_UNIPRO_TICK_CG>,
-			 <&infracfg_ao INFRACFG_AO_UNIPRO_MBIST_CG>,
-			 <&topckgen TOP_MUX_FAES_UFSFDE>,
-			 <&infracfg_ao INFRACFG_AO_AES_UFSFDE_CG>,
-			 <&infracfg_ao INFRACFG_AO_AES_BCLK_CG>;
-		clock-names = "ufs", "ufs_tick", "ufs_axi",
-			      "unipro_tick", "unipro_mbist",
-			      "aes_top", "aes_infra", "aes_bclk";
-		freq-table-hz = <0 0>, <0 0>, <0 0>,
-				<0 0>, <0 0>, <0 0>,
-				<0 0>, <0 0>;
+		clocks =
+			<&infracfg_ao INFRACFG_AO_UFS_CG>,
+			<&infracfg_ao INFRACFG_AO_UNIPRO_SCK_CG>,
+			<&infracfg_ao INFRACFG_AO_UFS_MP_SAP_BCLK_CG>,
+			<&infracfg_ao INFRACFG_AO_AES_UFSFDE_CG>;
+
+		clock-names =
+			"ufs0-clock",
+			"ufs0-unipro-clk",
+			"ufs0-mp-clk",
+			"ufs0-aes-clk";
+		freq-table-hz =
+			<0 0>,
+			<0 0>,
+			<0 0>,
+			<0 0>;
 
 		vcc-supply = <&mt_pmic_vemc_ldo_reg>;
-		vccq2-supply = <&mt_pmic_vufs_ldo_reg>;
 
 		resets = <&infracfg_rst 0>, <&infracfg_rst 1>,
 			 <&infracfg_rst 2>;
