@@ -98,6 +98,10 @@
 #define PA6_RG_U2_SQTH_MASK	(0xf)
 #define PA6_RG_U2_SQTH_OFET	(0)
 
+#define U3P_USBPHYACR3		0x01c
+#define PA3_RG_USB20_PUPD_BIST_EN	BIT(12)
+#define PA3_RG_USB20_EN_PU_DP		BIT(9)
+
 #define U3P_U2PHYACR4		0x020
 #define P2C_RG_USB20_GPIO_CTL		BIT(9)
 #define P2C_USB20_GPIO_MODE		BIT(8)
@@ -329,6 +333,8 @@
 #define PHY_MODE_BC11_SW_CLR 2
 #define PHY_MODE_DPDMPULLDOWN_SET 3
 #define PHY_MODE_DPDMPULLDOWN_CLR 4
+#define PHY_MODE_DPPULLUP_SET 5
+#define PHY_MODE_DPPULLUP_CLR 6
 
 #define TERM_SEL_STR "term_sel"
 #define VRT_SEL_STR "vrt_sel"
@@ -1680,6 +1686,18 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 			tmp = readl(u2_banks->com + U3P_USBPHYACR6);
 			tmp |= PA6_RG_U2_BC11_SW_EN;
 			writel(tmp, u2_banks->com + U3P_USBPHYACR6);
+			break;
+		case PHY_MODE_DPPULLUP_SET:
+			tmp = readl(u2_banks->com + U3P_USBPHYACR3);
+			tmp |= PA3_RG_USB20_PUPD_BIST_EN |
+				PA3_RG_USB20_EN_PU_DP;
+			writel(tmp, u2_banks->com + U3P_USBPHYACR3);
+			break;
+		case PHY_MODE_DPPULLUP_CLR:
+			tmp = readl(u2_banks->com + U3P_USBPHYACR3);
+			tmp &= ~(PA3_RG_USB20_PUPD_BIST_EN |
+				PA3_RG_USB20_EN_PU_DP);
+			writel(tmp, u2_banks->com + U3P_USBPHYACR3);
 			break;
 		default:
 			return;
