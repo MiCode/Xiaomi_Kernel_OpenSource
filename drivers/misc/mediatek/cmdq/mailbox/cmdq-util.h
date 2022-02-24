@@ -192,4 +192,6 @@ bool cmdq_thread_ddr_module(const s32 thread);
 void cmdq_util_enable_dbg(u32 id);
 void cmdq_util_devapc_dump(void);
 int cmdq_util_init(void);
+
+extern void mt_irq_dump_status(unsigned int irq);
 #endif
