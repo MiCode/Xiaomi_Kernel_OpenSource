@@ -20,6 +20,9 @@
 #include "musb_qmu.h"
 #include "musb_trace.h"
 
+int musb_urb_dequeue_udelay = 300;
+module_param(musb_urb_dequeue_udelay, int, 0644);
+
 /* MUSB HOST status 22-mar-2006
  *
  * - There's still lots of partial code duplication for fault paths, so
@@ -3084,7 +3087,7 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 	int ret, pos;
 	char info[256];
 
-
+	udelay(musb_urb_dequeue_udelay);
 	spin_lock_irqsave(&musb->lock, flags);
 	ret = usb_hcd_check_unlink_urb(hcd, urb, status);
 	if (ret) {
