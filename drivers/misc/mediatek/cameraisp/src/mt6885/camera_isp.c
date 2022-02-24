@@ -50,7 +50,7 @@
 //#define ISP_MET_READY
 
 /* #define EP_STAGE */
-#define EP_STAGE
+//#define EP_STAGE
 #ifdef EP_STAGE
 //#define EP_MARK_SMI /* disable SMI related for EP */
 //#define DUMMY_INT   /* For early if load dont need to use camera */
@@ -254,7 +254,6 @@ const struct ISR_TABLE IRQ_CB_TBL[ISP_IRQ_TYPE_AMOUNT] = {
  *  "ISP_DEV_NODE_ENUM" in camera_isp.h
  */
 
-#ifdef CONFIG_MACH_MT6893
 static const struct of_device_id isp_of_ids[] = {
 	{
 		.compatible = "mediatek,camsys",
@@ -311,65 +310,6 @@ static const struct of_device_id isp_of_ids[] = {
 		.compatible = "mediatek,camsv8",
 	},
 	{} };
-#endif
-#ifdef CONFIG_MACH_MT6885
-static const struct of_device_id isp_of_ids[] = {
-	{
-		.compatible = "mediatek,camsys",
-	},
-	{
-		.compatible = "mediatek,camsys_rawa",
-	},
-	{
-		.compatible = "mediatek,camsys_rawb",
-	},
-	{
-		.compatible = "mediatek,camsys_rawc",
-	},
-	{
-		.compatible = "mediatek,cam1_inner",
-	},
-	{
-		.compatible = "mediatek,cam2_inner",
-	},
-	{
-		.compatible = "mediatek,cam3_inner",
-	},
-	{
-		.compatible = "mediatek,cam1",
-	},
-	{
-		.compatible = "mediatek,cam2",
-	},
-	{
-		.compatible = "mediatek,cam3",
-	},
-	{
-		.compatible = "mediatek,camsv1",
-	},
-	{
-		.compatible = "mediatek,camsv2",
-	},
-	{
-		.compatible = "mediatek,camsv3",
-	},
-	{
-		.compatible = "mediatek,camsv4",
-	},
-	{
-		.compatible = "mediatek,camsv5",
-	},
-	{
-		.compatible = "mediatek,camsv6",
-	},
-	{
-		.compatible = "mediatek,camsv7",
-	},
-	{
-		.compatible = "mediatek,camsv8",
-	},
-	{} };
-#endif
 
 #endif
 /* ////////////////////////////////////////////////////////////////////////// */

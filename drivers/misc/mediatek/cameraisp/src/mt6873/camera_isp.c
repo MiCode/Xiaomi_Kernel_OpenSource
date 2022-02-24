@@ -54,9 +54,11 @@
 #endif
 
 /* EP no need to adjust upper bound of kernel log count */
-//#define EP_NO_K_LOG_ADJUST
+#define EP_NO_K_LOG_ADJUST
 #endif
 #define ENABLE_TIMESYNC_HANDLE /* able/disable TimeSync related for EP */
+
+#define EP_NO_K_LOG_ADJUST
 
 #ifdef CONFIG_COMPAT
 /* 64 bit */
