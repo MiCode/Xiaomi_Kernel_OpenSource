@@ -29,10 +29,41 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 						 -I$(srctree)/drivers/staging/android/ion/mtk
 
 ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873" "mt6853" "6877" "6833"))
-ccflags-y += -DCMDQ_MTEE
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
+ifeq ($(CONFIG_MACH_MT6833),y)
+  ccflags-y += -DCMDQ_MTEE
+  ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
 endif
+
+ifeq ($(CONFIG_MACH_MT6877),y)
+  ccflags-y += -DCMDQ_MTEE
+  ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
+endif
+
+ifeq ($(CONFIG_MACH_MT6853),y)
+  ccflags-y += -DCMDQ_MTEE
+  ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
+endif
+
+ifeq ($(CONFIG_MACH_MT6873),y)
+  ccflags-y += -DCMDQ_MTEE
+  ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
+endif
+
+ifeq ($(CONFIG_MACH_MT6885),y)
+  ccflags-y += -DCMDQ_MTEE
+  ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
+endif
+
+ifeq ($(CONFIG_MACH_MT6893),y)
+  ccflags-y += -DCMDQ_MTEE
+  ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
+endif
+
+ifeq ($(CONFIG_MACH_MT6781),y)
+  ccflags-y += -DCMDQ_MTEE
+  ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
+endif
+
 endif
 
 obj-$(CONFIG_MTK_CAMERA_ISP_FD_SUPPORT) += camera_fdvt.o

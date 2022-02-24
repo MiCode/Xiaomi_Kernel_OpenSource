@@ -1655,7 +1655,7 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config)
 #if !BYPASS_REG
 {
 #if IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-
+#ifdef CMDQ_MTEE
 #ifdef FDVT_USE_GCE
 	struct cmdq_pkt *pkt;
 #endif /* FDVT_USE_GCE */
@@ -1883,6 +1883,7 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config)
 #endif /* __FDVT_KERNEL_PERFORMANCE_MEASURE__ */
 
 #endif
+#endif /* CMDQ_MTEE */
 #endif /* IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT) */
 	return 0;
 }
