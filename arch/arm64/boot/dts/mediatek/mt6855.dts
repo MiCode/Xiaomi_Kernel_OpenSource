@@ -929,13 +929,6 @@
 			alignment = <0 0x1000000>;
 		};
 
-		reserve-memory-dummyfb_share {
-			compatible = "mediatek,reserve-memory-dummyfb_share";
-			no-map;
-			status = "okay";
-			alignment = <0 0x1000>;
-			reg = <0 0x48700000 0 0x17e8000>;
-		};
 		ssheap_cma_mem: ssheap-reserved-cma_memory {
 			compatible = "shared-dma-pool";
 			reusable;
