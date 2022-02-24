@@ -552,6 +552,15 @@
 			reg = <0 0x1000d000 0 0x1000>;
 		};
 
+		clock_buffer_ctrl: clock_buffer_ctrl {
+			compatible = "mediatek,clock_buffer_ctrl";
+			mediatek,xo-buf-hwbblpm-mask = <1 0 0 0 0 0 0>;
+			mediatek,xo-buf-hwbblpm-bypass = <0 0 0 0 0 0 0>;
+
+			pmif = <&pwrap 0>;
+			mediatek,enable;
+		};
+
 		kp@10010000 {
 			compatible = "mediatek,kp";
 			reg = <0 0x10010000 0 0x1000>;
