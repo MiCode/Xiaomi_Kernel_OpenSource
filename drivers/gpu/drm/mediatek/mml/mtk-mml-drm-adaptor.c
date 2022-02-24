@@ -87,8 +87,9 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 	}
 
 	/* for alpha rotate */
-	if (MML_FMT_IS_ARGB(info->src.format) &&
-		MML_FMT_IS_ARGB(info->dest[0].data.format)) {
+	if (info->alpha &&
+	    MML_FMT_IS_ARGB(info->src.format) &&
+	    MML_FMT_IS_ARGB(info->dest[0].data.format)) {
 		const struct mml_frame_dest *dest = &info->dest[0];
 		u32 srccw = dest->crop.r.width;
 		u32 srcch = dest->crop.r.height;

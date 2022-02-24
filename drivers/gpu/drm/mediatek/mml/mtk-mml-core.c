@@ -424,9 +424,10 @@ static void dump_inout(struct mml_task *task)
 	s32 ret;
 
 	get_frame_str(frame, sizeof(frame), &cfg->info.src);
-	mml_log("in:%s plane:%hhu%s%s job:%u mode:%hhu",
+	mml_log("in:%s plane:%hhu%s%s%s job:%u mode:%hhu",
 		frame,
 		task->buf.src.cnt,
+		cfg->info.alpha ? " alpha" : "",
 		task->buf.src.fence ? " fence" : "",
 		task->buf.src.flush ? " flush" : "",
 		task->job.jobid,
