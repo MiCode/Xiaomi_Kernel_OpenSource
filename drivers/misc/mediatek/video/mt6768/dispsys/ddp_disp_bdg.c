@@ -1570,8 +1570,27 @@ int bdg_tx_vdo_timing_set(enum DISP_BDG_ENUM module,
 					tx_params->vertical_sync_active);
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_VBP_NL,
 					(tx_params->vertical_backporch));
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		if (!pgc->vfp_chg_sync_bdg) {
+			int j;
+
+			/* keep 6382's vfp in 90hz level as default */
+			for (j = 0; j < DFPS_LEVELS; j++) {
+				if (tx_params->dfps_params[j].fps == 9000) {
+					DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_VFP_NL,
+						(tx_params->dfps_params[j].vertical_frontporch));
+					break;
+				}
+			}
+		} else {
+			DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_VFP_NL,
+						(tx_params->vertical_frontporch));
+		}
+#else
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_VFP_NL,
 					(tx_params->vertical_frontporch));
+#endif
 
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_HSA_WC, hsa_byte);
 		DSI_OUTREG32(cmdq, TX_REG[i]->DSI_TX_HBP_WC, hbp_byte);
