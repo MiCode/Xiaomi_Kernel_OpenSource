@@ -111,15 +111,6 @@ static struct pmic_auxadc_data mt6685_pmic_auxadc_data = {
 	.is_print_tia_cg = false,
 };
 
-static struct pmic_auxadc_data mt6685_pmic_auxadc_data_debug = {
-	.default_pullup_v = 184000,
-	.num_of_pullup_r_type = 3,
-	.pullup_r_calibration = NULL,
-	.adc2volt = mt6685_adc2volt,
-	.tia_param = &tia2_data,
-	.is_print_tia_cg = true,
-};
-
 static const struct of_device_id board_ntc_of_match[] = {
 	{
 		.compatible = "mediatek,mt6983-board-ntc",
@@ -127,7 +118,7 @@ static const struct of_device_id board_ntc_of_match[] = {
 	},
 	{
 		.compatible = "mediatek,mt6879-board-ntc",
-		.data = (void *)&mt6685_pmic_auxadc_data_debug,
+		.data = (void *)&mt6685_pmic_auxadc_data,
 	},
 	{
 		.compatible = "mediatek,mt6895-board-ntc",

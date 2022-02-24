@@ -3893,7 +3893,7 @@ static struct lvts_data mt6879_lvts_data = {
 		.default_count_rc = 2750,
 	},
 	.init_done = false,
-	.enable_dump_log = 1,
+	.enable_dump_log = 0,
 };
 
 
