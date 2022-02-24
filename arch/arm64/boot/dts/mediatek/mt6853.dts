@@ -5168,7 +5168,9 @@ page_owner=on loop.max_part=7";
 			    "apusys_vcore";
 
 		vvpu-supply = <&mt_pmic_vproc2_buck_reg>;
+#ifdef CONFIG_REGULATOR_MT6315
 		vvpu_6315-supply = <&mt6315_3_vbuck3>;
+#endif
 		vsram_apu-supply = <&mt_pmic_vsram_others_ldo_reg>;
 		vcore-supply = <&mt_pmic_vcore_buck_reg>;
 
