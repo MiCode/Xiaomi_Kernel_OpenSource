@@ -20,9 +20,6 @@
 #include "mtk_ion.h"
 /* #include "mtk_idle.h" */
 /* #include "mt_spm_reg.h" */ /* FIXME: tmp comment */
-#ifdef CONFIG_MTK_BOOT
-#include "mtk_boot_common.h"
-#endif
 /* #include "pcm_def.h" */ /* FIXME: tmp comment */
 /* #include "mtk_spm_idle.h" */
 #include "mt-plat/mtk_smi.h"
@@ -1050,12 +1047,10 @@ int primary_display_lowpower_init(void)
 
 	set_fps(primary_display_get_fps_nolock() / 100);
 	backup_vfp_for_lp_cust(params->dsi.vertical_frontporch_for_low_power);
-/* init idlemgr */
-#ifdef CONFIG_MTK_BOOT
-	if (disp_helper_get_option(DISP_OPT_IDLE_MGR) &&
-	    get_boot_mode() == NORMAL_BOOT)
+
+	if (disp_helper_get_option(DISP_OPT_IDLE_MGR))
 		primary_display_idlemgr_init();
-#endif
+
 	if (disp_helper_get_option(DISP_OPT_SODI_SUPPORT))
 		primary_display_sodi_rule_init();
 
