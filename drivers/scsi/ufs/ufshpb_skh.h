@@ -352,7 +352,7 @@ struct skhpb_lu {
 	/* for debug constant variables */
 	unsigned long long lu_num_blocks;
 
-	u8 lun;
+	int lun;
 
 	struct ufs_hba *hba;
 
