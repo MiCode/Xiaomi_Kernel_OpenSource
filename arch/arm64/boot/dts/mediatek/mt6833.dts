@@ -3056,6 +3056,14 @@
 			clocks = <&clk26m>;
 			clock-names = "ref";
 			#phy-cells = <1>;
+			mediatek,eye-vrt = <5>; /* 0~7 */
+			mediatek,eye-term = <5>; /* 0~7 */
+			mediatek,eye-rev6 = <1>; /* 0~3 */
+			mediatek,eye-disc = <0>; /* 0~8 */
+			mediatek,host-eye-vrt = <5>; /* 0~7 */
+			mediatek,host-eye-term = <5>; /* 0~7 */
+			mediatek,host-eye-rev6 = <1>; /* 0~3 */
+			mediatek,host-eye-disc = <0>; /* 0~8 */
 			status = "okay";
 		};
 	};
