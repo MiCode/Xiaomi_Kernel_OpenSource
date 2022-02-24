@@ -353,10 +353,9 @@ static const struct drm_display_mode switch_mode_48hz = {
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params_48hz = {
 	.dyn_fps = {
-		.data_rate = 350,
+		.data_rate = 330,
 	},
-	.data_rate = 350,
-	.cmd_hs_null_len = 200,
+	.data_rate = 330,
 
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
@@ -408,10 +407,9 @@ static struct mtk_panel_params ext_params_48hz = {
 
 static struct mtk_panel_params ext_params_60hz = {
 	.dyn_fps = {
-		.data_rate = 440,
+		.data_rate = 380,
 	},
-	.data_rate = 440,
-	.cmd_hs_null_len = 200,
+	.data_rate = 380,
 
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
@@ -462,10 +460,9 @@ static struct mtk_panel_params ext_params_60hz = {
 };
 static struct mtk_panel_params ext_params_90hz = {
 	.dyn_fps = {
-		.data_rate = 690,
+		.data_rate = 570,
 	},
-	.data_rate = 690,
-	.cmd_hs_null_len = 200,
+	.data_rate = 570,
 
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
@@ -516,10 +513,9 @@ static struct mtk_panel_params ext_params_90hz = {
 };
 static struct mtk_panel_params ext_params_120hz = {
 	.dyn_fps = {
-		.data_rate = 960,
+		.data_rate = 760,
 	},
-	.data_rate = 960,
-	.cmd_hs_null_len = 200,
+	.data_rate = 760,
 
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
@@ -572,10 +568,9 @@ static struct mtk_panel_params ext_params_120hz = {
 
 static struct mtk_panel_params ext_params_144hz = {
 	.dyn_fps = {
-		.data_rate = 1180,
+		.data_rate = 920,
 	},
-	.data_rate = 1180,
-	.cmd_hs_null_len = 200,
+	.data_rate = 920,
 
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,

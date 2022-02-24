@@ -3534,15 +3534,6 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 			cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + DSI_CMD_TYPE1_HS,
 					CMD_HS_HFP_BLANKING_HS_EN, CMD_HS_HFP_BLANKING_HS_EN);
-			if (ext->params->cmd_hs_null_len) {
-				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + DSI_CMD_TYPE1_HS,
-					CMD_HS_HFP_BLANKING_NULL_EN, CMD_HS_HFP_BLANKING_NULL_EN);
-				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + DSI_CMD_TYPE1_HS,
-					ext->params->cmd_hs_null_len,
-					REG_FLD_MASK(CMD_HS_HFP_BLANKING_NULL_LEN));
-			}
 		}
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->mtk_crtc->config_regs_pa + 0xF0, 0x1, 0x1);

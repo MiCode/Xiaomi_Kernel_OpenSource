@@ -4315,7 +4315,7 @@ static const struct mtk_disp_ovl_data mt6879_ovl_driver_data = {
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6879,
 	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6879,
-	.source_bpc = 8,
+	.source_bpc = 10,
 };
 
 static const struct compress_info compr_info_mt6855  = {
