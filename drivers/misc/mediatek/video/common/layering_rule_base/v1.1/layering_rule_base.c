@@ -118,6 +118,14 @@ bool is_yuv(enum DISP_FORMAT format)
 	}
 }
 
+bool is_layer_id_valid(struct disp_layer_info *disp_info,
+	int disp_idx, int i)
+{
+	if (i < 0 || i >= disp_info->layer_num[disp_idx])
+		return false;
+	else
+		return true;
+}
 
 bool is_gles_layer(struct disp_layer_info *disp_info,
 		   int disp_idx, int layer_idx)
@@ -513,6 +521,26 @@ static void print_disp_info_to_log_buffer(struct disp_layer_info *disp_info)
 	n += scnprintf(status_buf + n, LOGGER_BUFFER_SIZE - n,
 		"Last hrt query data[end]\n");
 
+}
+
+void rollback_layer_to_GPU(struct disp_layer_info *disp_info, int disp_idx,
+	int i)
+{
+	if (disp_idx < 0) {
+		DISPMSG("%s: error disp_idx:%d\n",
+			__func__, disp_idx);
+		return;
+	}
+	if (is_layer_id_valid(disp_info, disp_idx, i) == false)
+		return;
+
+	if (disp_info->gles_head[disp_idx] == -1 ||
+	    disp_info->gles_head[disp_idx] > i)
+		disp_info->gles_head[disp_idx] = i;
+	if (disp_info->gles_tail[disp_idx] == -1 ||
+		disp_info->gles_tail[disp_idx] < i)
+		disp_info->gles_tail[disp_idx] = i;
+	disp_info->input_config[disp_idx][i].ext_sel_layer = -1;
 }
 
 int rollback_resize_layer_to_GPU_range(struct disp_layer_info *disp_info,
