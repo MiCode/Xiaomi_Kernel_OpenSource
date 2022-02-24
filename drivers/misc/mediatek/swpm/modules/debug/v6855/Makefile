@@ -1,6 +1,10 @@
 
 SWPM_MODULES_FOLDER=$(srctree)/drivers/misc/mediatek/swpm/modules/
 
+ifeq ($(CONFIG_MEDIATEK_CPUFREQ_DEBUG_LITE), m)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cpufreq_lite
+endif
+
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_V2),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
 endif

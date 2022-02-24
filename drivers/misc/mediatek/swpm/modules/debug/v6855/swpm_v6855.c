@@ -9,8 +9,14 @@
 #include <linux/notifier.h>
 #include <linux/perf_event.h>
 #include <linux/spinlock.h>
+#include <linux/thermal.h>
 #include <linux/timer.h>
 #include <linux/workqueue.h>
+
+#if IS_ENABLED(CONFIG_MEDIATEK_CPUFREQ_DEBUG_LITE)
+/* TODO: wait for cpufreq_lite */
+/* extern int get_devinfo(int i); */
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_SWPM_PERF_ARMV8_PMU)
 #include <swpm_perf_arm_pmu.h>
@@ -30,8 +36,8 @@
 
 #define CREATE_TRACE_POINTS
 #include <swpm_tracker_trace.h>
-//EXPORT_TRACEPOINT_SYMBOL(swpm_power);
-//EXPORT_TRACEPOINT_SYMBOL(swpm_power_idx);
+/* EXPORT_TRACEPOINT_SYMBOL(swpm_power); */
+/* EXPORT_TRACEPOINT_SYMBOL(swpm_power_idx); */
 
 #include <mtk_swpm_common_sysfs.h>
 #include <mtk_swpm_sysfs.h>
@@ -87,22 +93,27 @@ struct mem_swpm_rec_data *mem_ptr;
 struct me_swpm_rec_data *me_ptr;
 
 /* rt => /100000, uA => *1000, res => 100 */
-#if SWPM_DEPRECATED
 #define CORE_DEFAULT_DEG (30)
-#define CORE_DEFAULT_LKG (115)
-#define CORE_LKG_RT_RES (100)
-static unsigned int core_lkg;
-static unsigned int core_lkg_replaced;
-static unsigned short core_lkg_rt[NR_CORE_LKG_TYPE] = {
-	7547, 4198, 5670, 11214, 16155, 19466,
-	5042, 9301, 12999, 2085, 6321
+#define CORE_STATIC_MA (34)
+#define CORE_STATIC_ID (7)
+#define CORE_STATIC_RT_RES (100)
+#define V_OF_CORE_STATIC (750)
+static char core_ts_name[NR_CORE_TS][MAX_POWER_NAME_LENGTH] = {
+	"soc1", "soc2", "soc3", "soc4",
 };
-#endif
+static unsigned int core_static;
+static unsigned int core_static_replaced;
+static unsigned short core_static_rt[NR_CORE_STATIC_TYPE] = {
+	6893, 7823, 8187, 14263, 15893, 18254, 28687,
+};
 static unsigned short core_volt_tbl[NR_CORE_VOLT] = {
 	550, 600, 650, 750,
 };
 static unsigned short ddr_opp_freq[NR_DDR_FREQ] = {
 	400, 600, 800, 933, 1066, 1600, 2133, 2750,
+};
+static unsigned short dram_pwr_sample[NR_DRAM_PWR_SAMPLE] = {
+	800, 1333, 2750,
 };
 static struct aphy_core_bw_data aphy_ref_core_bw_tbl[] = {
 	[DDR_400] = {
@@ -184,10 +195,10 @@ static struct aphy_core_pwr_data aphy_def_core_pwr_tbl[] = {
 	5422, 5452, 5452, 5480, 5480, 5480},
 		},
 		[DDR_2750] = {
-			.read_coef = {482, 1047, 2716, 4192, 5267, 5619,
-	5787, 5892, 5908, 5923, 5923, 5923},
-			.write_coef = {498, 1033, 2972, 5216, 7257, 7875,
-	8433, 8480, 8480, 8524, 8524, 8524},
+			.read_coef = {514, 1115, 2893, 4466, 5612, 5987,
+	6166, 6277, 6295, 6311, 6311, 6311},
+			.write_coef = {531, 1100, 3166, 5557, 7732, 8390,
+	8985, 9036, 9036, 9082, 9082, 9082},
 		},
 	},
 	.coef_idle = {590, 694, 799, 963, 1137, 1138, 2641, 3810},
@@ -343,7 +354,7 @@ static struct aphy_others_pwr_data aphy_def_others_pwr_tbl[] = {
 	.coef_ssr = {24, 24, 24, 24, 23, 23, 24, 24},
 	.volt = {750, 750, 750, 750, 750, 750, 750, 750},
 	},
-	[APHY_VIO] = {
+	[APHY_VIO12] = {
 	.pwr = {
 		[DDR_400] = {
 			.read_coef = {61, 93, 219, 412, 835,
@@ -401,49 +412,144 @@ static struct aphy_others_pwr_data aphy_def_others_pwr_tbl[] = {
 	},
 };
 
-static struct dram_pwr_conf dram_def_pwr_conf[] = {
-	[DRAM_VDD1_1P8V] = {
-		/* SW co-relation */
-		.i_dd0 = 3000,
-		.i_dd2p = 350,
-		.i_dd2n = 430,
-		.i_dd4r = 5280,
-		.i_dd4w = 5580,
-		.i_dd5 = 800,
-		.i_dd6 = 218,
+static struct dram_pwr_data dram_def_pwr_conf[] = {
+	[DRAM_VDD1] = {
+	.idd_conf = {
+		[0] = {
+			.volt = 1800,	/* mV */
+			.i_dd0 = 3770,	/* uA */
+			.i_dd2p = 660,
+			.i_dd2n = 129,
+			.i_dd4w = 3370,
+			.i_dd4r = 3070,
+			.i_dd5 = 820,
+			.i_dd6 = 316,
+		},
+		[1] = {
+			.volt = 1800,	/* mV */
+			.i_dd0 = 4160,	/* uA */
+			.i_dd2p = 700,
+			.i_dd2n = 100,
+			.i_dd4w = 4850,
+			.i_dd4r = 4430,
+			.i_dd5 = 800,
+			.i_dd6 = 300,
+		},
+		[2] = {
+			.volt = 1800,	/* mV */
+			.i_dd0 = 3970,	/* uA */
+			.i_dd2p = 610,
+			.i_dd2n = 190,
+			.i_dd4w = 10270,
+			.i_dd4r = 8920,
+			.i_dd5 = 850,
+			.i_dd6 = 275,
+		},
 	},
-	[DRAM_VDD2H_1P05V] = {
-		/* SW co-relation */
-		.i_dd0 = 27714,
-		.i_dd2p = 1380,
-		.i_dd2n = 4012,
-		.i_dd4r = 120000,
-		.i_dd4w = 115619,
-		.i_dd5 = 10600,
-		.i_dd6 = 266,
 	},
-	[DRAM_VDD2L_0P9V] = {
-		/* SW co-relation */
-		.i_dd0 = 27714,
-		.i_dd2p = 1380,
-		.i_dd2n = 4012,
-		.i_dd4r = 120000,
-		.i_dd4w = 115619,
-		.i_dd5 = 10600,
-		.i_dd6 = 266,
+	[DRAM_VDD2H] = {
+	.idd_conf = {
+		[0] = {
+			.volt = 1050,	/* mV */
+			.i_dd0 = 36800,	/* uA */
+			.i_dd2p = 2300,
+			.i_dd2n = 7050,
+			.i_dd4w = 62400,
+			.i_dd4r = 64300,
+			.i_dd5 = 5640,
+			.i_dd6 = 833,
+		},
+		[1] = {
+			.volt = 1050,	/* mV */
+			.i_dd0 = 33700,	/* uA */
+			.i_dd2p = 2270,
+			.i_dd2n = 7360,
+			.i_dd4w = 148200,
+			.i_dd4r = 157500,
+			.i_dd5 = 5840,
+			.i_dd6 = 725,
+		},
+		[2] = {
+			.volt = 1050,	/* mV */
+			.i_dd0 = 40600,	/* uA */
+			.i_dd2p = 3100,
+			.i_dd2n = 20700,
+			.i_dd4w = 251700,
+			.i_dd4r = 280700,
+			.i_dd5 = 6120,
+			.i_dd6 = 725,
+		},
 	},
-	[DRAM_VDDQ_0P3V] = {
-		.i_dd0 = 980,
-		.i_dd2p = 75,
-		.i_dd2n = 75,
-		.i_dd4r = 58138,
-		.i_dd4w = 511,
-		.i_dd5 = 600,
-		.i_dd6 = 36,
+	},
+	[DRAM_VDD2L] = {
+	.idd_conf = {
+		[0] = {
+			.volt = 900,	/* mV */
+			.i_dd0 = 970,	/* uA */
+			.i_dd2p = 20,
+			.i_dd2n = 190,
+			.i_dd4w = 29320,
+			.i_dd4r = 31100,
+			.i_dd5 = 250,
+			.i_dd6 = 0,
+		},
+		[1] = {
+			.volt = 900,	/* mV */
+			.i_dd0 = 0,	/* uA */
+			.i_dd2p = 0,
+			.i_dd2n = 0,
+			.i_dd4w = 0,
+			.i_dd4r = 0,
+			.i_dd5 = 0,
+			.i_dd6 = 0,
+		},
+		[2] = {
+			.volt = 900,	/* mV */
+			.i_dd0 = 0,	/* uA */
+			.i_dd2p = 0,
+			.i_dd2n = 0,
+			.i_dd4w = 0,
+			.i_dd4r = 0,
+			.i_dd5 = 0,
+			.i_dd6 = 0,
+		},
+	},
+	},
+	[DRAM_VDDQ] = {
+	.idd_conf = {
+		[0] = {
+			.volt = 300,	/* mV */
+			.i_dd0 = 0,	/* uA */
+			.i_dd2p = 0,
+			.i_dd2n = 0,
+			.i_dd4w = 110,
+			.i_dd4r = 6120,
+			.i_dd5 = 50,
+			.i_dd6 = 75,
+		},
+		[1] = {
+			.volt = 300,	/* mV */
+			.i_dd0 = 40,	/* uA */
+			.i_dd2p = 40,
+			.i_dd2n = 0,
+			.i_dd4w = 2,
+			.i_dd4r = 11200,
+			.i_dd5 = 0,
+			.i_dd6 = 75,
+		},
+		[2] = {
+			.volt = 500,	/* mV */
+			.i_dd0 = 0,	/* uA */
+			.i_dd2p = 80,
+			.i_dd2n = 0,
+			.i_dd4w = 100,
+			.i_dd4r = 57400,
+			.i_dd5 = 20,
+			.i_dd6 = 75,
+		},
+	},
 	},
 };
-
-
 
 /* subsys share mem reference table */
 static struct swpm_mem_ref_tbl mem_ref_tbl[NR_POWER_METER] = {
@@ -591,16 +697,30 @@ static inline void swpm_pass_to_sspm(void)
 
 static void swpm_update_temp(void)
 {
-	unsigned int temp = 30, i;
+	unsigned int i;
+	int tz_temp = 0, tz_core = 0;
+	struct thermal_zone_device *tz;
 
-	for (i = 0; i < NR_CPU_CORE; i++) {
+	if (cpu_ptr) {
+		for (i = 0; i < NR_CPU_CORE; i++) {
 #if IS_ENABLED(CONFIG_MTK_THERMAL)
-		temp = get_cpu_temp(i) / 1000;
-		if (temp > 100)
-			temp = 100;
+			tz_temp = get_cpu_temp(i);
+			tz_temp = (tz_temp > 0) ? tz_temp : 0;
 #endif
-		if (cpu_ptr)
-			cpu_ptr->cpu_temp[i] = (unsigned short)temp;
+			cpu_ptr->cpu_temp[i] = (unsigned int)tz_temp;
+		}
+	}
+
+	if (core_ptr) {
+		for (i = 0; i < NR_CORE_TS; i++) {
+			tz = thermal_zone_get_zone_by_name(core_ts_name[i]);
+			if (!IS_ERR(tz)) {
+				thermal_zone_get_temp(tz, &tz_temp);
+				tz_core += tz_temp;
+			}
+		}
+		tz_core = (tz_core > 0) ? tz_core / NR_CORE_TS : 0;
+		core_ptr->thermal = (unsigned int)tz_core;
 	}
 }
 
@@ -625,11 +745,11 @@ static void swpm_init_retry(struct work_struct *work)
 #endif
 }
 
+static char pwr_buf[POWER_CHAR_SIZE] = { 0 };
 static char idx_buf[POWER_INDEX_CHAR_SIZE] = { 0 };
 static void swpm_log_loop(struct timer_list *t)
 {
-	char buf[256] = {0};
-	char *ptr = buf;
+	char *ptr = pwr_buf;
 	char *idx_ptr = idx_buf;
 	int i;
 #ifdef LOG_LOOP_TIME_PROFILE
@@ -688,7 +808,7 @@ static void swpm_log_loop(struct timer_list *t)
 		trace_swpm_power_idx(idx_buf);
 	}
 	/* put power data to ftrace */
-	trace_swpm_power(buf);
+	trace_swpm_power(pwr_buf);
 
 #ifdef LOG_LOOP_TIME_PROFILE
 	t2 = ktime_get();
@@ -722,35 +842,40 @@ static void swpm_timer_init(void)
 
 #endif /* #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) : 684 */
 
-#if SWPM_DEPRECATED
 static void swpm_core_static_data_init(void)
 {
-	unsigned int lkg, lkg_scaled;
+	unsigned int static_p = 0, scaled_p;
 	unsigned int i, j;
 
 	if (!core_ptr)
 		return;
 
-	lkg = 0;
+#if IS_ENABLED(CONFIG_MEDIATEK_CPUFREQ_DEBUG_LITE)
+	/* TODO: default mA from get_devinfo */
+	/* static_p = get_devinfo(CORE_STATIC_ID); */
+#else
+	static_p = 0;
+#endif
 
-	/* default CORE_DEFAULT_LKG mA, efuse default mW to mA */
-	lkg = (!lkg) ? CORE_DEFAULT_LKG
-			: (lkg * 1000 / V_OF_FUSE_VCORE);
-	/* recording default lkg data, and check replacement data */
-	core_lkg = lkg;
-	lkg = (!core_lkg_replaced) ? lkg : core_lkg_replaced;
+	/* default CORE_STATIC mA */
+	if (!static_p)
+		static_p = CORE_STATIC_MA;
 
-	/* efuse static power unit mW with voltage scaling */
+	/* recording default static data, and check replacement data */
+	core_static = static_p;
+	static_p = (!core_static_replaced) ?
+		static_p : core_static_replaced;
+
+	/* static power unit mA with voltage scaling */
 	for (i = 0; i < NR_CORE_VOLT; i++) {
-		lkg_scaled = lkg * core_volt_tbl[i] / V_OF_FUSE_VCORE;
-		for (j = 0; j < NR_CORE_LKG_TYPE; j++) {
-			/* unit (uA) */
-			core_ptr->core_lkg_pwr[i][j] =
-				lkg_scaled * core_lkg_rt[j] / CORE_LKG_RT_RES;
+		scaled_p = static_p * core_volt_tbl[i] / V_OF_CORE_STATIC;
+		for (j = 0; j < NR_CORE_STATIC_TYPE; j++) {
+			/* calc static ratio and transfer unit to uA */
+			core_ptr->core_static_pwr[i][j] =
+				scaled_p * core_static_rt[j] / CORE_STATIC_RT_RES;
 		}
 	}
 }
-#endif
 
 static void swpm_core_pwr_data_init(void)
 {
@@ -783,6 +908,8 @@ static void swpm_mem_pwr_data_init(void)
 	memcpy(mem_ptr->aphy_others_pwr_tbl, aphy_def_others_pwr_tbl,
 	       sizeof(aphy_def_others_pwr_tbl));
 	/* copy dram pwr data */
+	memcpy(mem_ptr->dram_pwr_sample, dram_pwr_sample,
+	       sizeof(dram_pwr_sample));
 	memcpy(mem_ptr->dram_conf, dram_def_pwr_conf,
 	       sizeof(dram_def_pwr_conf));
 	memcpy(mem_ptr->ddr_opp_freq, ddr_opp_freq,
@@ -828,10 +955,8 @@ static void swpm_init_pwr_data(void)
 	if (!ret)
 		me_ptr = (struct me_swpm_rec_data *)ptr;
 
-	/* TBD lkg data flow */
-#if SWPM_DEPRECATED
+	/* TBD static data flow */
 	swpm_core_static_data_init();
-#endif
 	swpm_core_pwr_data_init();
 	swpm_mem_pwr_data_init();
 	swpm_me_pwr_data_init();
@@ -961,8 +1086,8 @@ end:
 static int core_static_replace_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "default: %d, replaced %d (valid:0~999)\n",
-		   core_lkg,
-		   core_lkg_replaced);
+		   core_static,
+		   core_static_replaced);
 	return 0;
 }
 static ssize_t core_static_replace_proc_write(struct file *file,
@@ -975,7 +1100,7 @@ static ssize_t core_static_replace_proc_write(struct file *file,
 		return -EINVAL;
 
 	if (!kstrtouint(buf, 10, &val)) {
-		core_lkg_replaced = (val < 1000) ? val : core_lkg_replaced;
+		core_static_replaced = (val < 1000) ? val : core_static_replaced;
 
 		/* reset core static power data */
 		swpm_core_static_data_init();

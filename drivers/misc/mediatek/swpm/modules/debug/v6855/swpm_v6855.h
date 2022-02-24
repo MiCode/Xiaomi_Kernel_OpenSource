@@ -13,20 +13,22 @@
 #define SWPM_TEST (0)
 #define SWPM_DEPRECATED (0)
 
-#define GET_UW_LKG                              (1)
 #define MAX_RECORD_CNT				(64)
 #define MAX_APHY_CORE_PWR			(12)
-#define MAX_APHY_OTHERS_PWR			(16)
+#define MAX_APHY_OTHERS_PWR			(11)
 
 #define DEFAULT_AVG_WINDOW		(50)
 
 /* VPROC2 + VPROC1 + VDRAM + VGPU + VCORE */
 #define DEFAULT_LOG_MASK			(0x3F)
 
+#define POWER_CHAR_SIZE				(256)
 #define POWER_INDEX_CHAR_SIZE			(4096)
 
+#define NR_DRAM_PWR_SAMPLE			(3)
 #define NR_CORE_VOLT				(4)
-#define NR_CPU_OPP				(16)
+#define NR_CPU_OPP				(36)
+#define NR_CPU_LKG				(9)
 #define NR_CPU_CORE				(8)
 #define NR_CPU_L_CORE				(6)
 
@@ -84,6 +86,15 @@ enum ddr_freq {
 	NR_DDR_FREQ
 };
 
+enum core_ts_sample {
+	CORE_TS_SOC1,
+	CORE_TS_SOC2,
+	CORE_TS_SOC3,
+	CORE_TS_SOC4,
+
+	NR_CORE_TS,
+};
+
 enum aphy_core_pwr_type {
 	APHY_VCORE,
 	NR_APHY_CORE_PWR_TYPE
@@ -93,17 +104,17 @@ enum aphy_other_pwr_type {
 	/* APHY_VCORE, independent */
 	APHY_VDDQ,
 	APHY_VM,
-	APHY_VIO,
+	APHY_VIO12,
 	/* APHY_VIO_1P8V, */
 
 	NR_APHY_OTHERS_PWR_TYPE
 };
 
 enum dram_pwr_type {
-	DRAM_VDD1_1P8V,
-	DRAM_VDD2H_1P05V,
-	DRAM_VDD2L_0P9V,
-	DRAM_VDDQ_0P3V,
+	DRAM_VDD1,
+	DRAM_VDD2H,
+	DRAM_VDD2L,
+	DRAM_VDDQ,
 
 	NR_DRAM_PWR_TYPE
 };
@@ -199,7 +210,7 @@ struct cpu_swpm_index {
 	unsigned int l3_bw;
 	unsigned int cpu_emi_bw;
 	struct cpu_swpm_vf_index vf;
-	unsigned int cpu_lkg[NR_CPU_LKG_TYPE];
+	unsigned int cpu_lkg[NR_CPU_LKG];
 	unsigned int cpu_pwr[NR_CPU_PWR_TYPE];
 };
 
@@ -213,37 +224,33 @@ enum infra_power_state {
 	NR_INFRA_POWER_STATE
 };
 
-enum core_lkg_type {
-	CORE_LKG_INFRA,
-	CORE_LKG_ADSP,
-	CORE_LKG_DRAMC,
-	CORE_LKG_IMGSYS,
-	CORE_LKG_MMSYS,
-	CORE_LKG_CAMSYS,
-	CORE_LKG_VDEC,
-	CORE_LKG_VENC,
-	CORE_LKG_CONNSYS,
-	CORE_LKG_IPESYS,
-	CORE_LKG_TOP,
-	NR_CORE_LKG_TYPE
+enum core_static_type {
+	CORE_STATIC_VDEC,
+	CORE_STATIC_TOP,
+	CORE_STATIC_VENC,
+	CORE_STATIC_DRAMC,
+	CORE_STATIC_MMSYS,
+	CORE_STATIC_INFRA,
+	CORE_STATIC_CONNSYS,
+	NR_CORE_STATIC_TYPE
 };
 
-enum core_lkg_rec_type {
-	CORE_LKG_REC_INFRA,
-	CORE_LKG_REC_DRAMC,
-	NR_CORE_LKG_REC_TYPE
+enum core_static_rec_type {
+	CORE_STATIC_REC_INFRA,
+	CORE_STATIC_REC_DRAMC,
+	NR_CORE_STATIC_REC_TYPE
 };
 
-/* sync with mt6885 emi in sspm */
-#define MAX_EMI_NUM (2)
+/* sync with sspm */
+#define MAX_EMI_NUM (1)
 /* core voltage/freq index */
 struct core_swpm_vf_index {
 	unsigned int vcore_mv;
 	unsigned int ddr_freq_mhz;
 };
-/* core lkg index */
-struct core_swpm_lkg_index {
-	unsigned int core_lkg_pwr[NR_CORE_LKG_REC_TYPE];
+/* core static index */
+struct core_swpm_static_index {
+	unsigned int core_static_pwr[NR_CORE_STATIC_REC_TYPE];
 	unsigned int thermal;
 };
 /* core power index structure */
@@ -253,7 +260,7 @@ struct core_swpm_index {
 	unsigned int read_bw[MAX_EMI_NUM];
 	unsigned int write_bw[MAX_EMI_NUM];
 	struct core_swpm_vf_index vf;
-	struct core_swpm_lkg_index lkg;
+	struct core_swpm_static_index static_idx;
 };
 
 /* dram voltage/freq index */
@@ -266,7 +273,7 @@ struct mem_swpm_index {
 	unsigned int read_bw[MAX_EMI_NUM];
 	unsigned int write_bw[MAX_EMI_NUM];
 	unsigned int srr_pct;			/* (s1) self refresh rate */
-	unsigned int ssr_pct;			/* (s0) self sleep rate */
+	unsigned int ssr_pct;			/* (s0) sleep rate */
 	unsigned int pdir_pct[MAX_EMI_NUM];	/* power-down idle rate */
 	unsigned int phr_pct[MAX_EMI_NUM];	/* page-hit rate */
 	unsigned int acc_util[MAX_EMI_NUM];	/* accumulate EMI utilization */
@@ -316,7 +323,7 @@ struct aphy_others_pwr {
 	unsigned short write_coef[MAX_APHY_OTHERS_PWR];
 };
 
-/* unit: uW / V^2 */
+/* mW * 100 */
 struct aphy_core_pwr_data {
 	struct aphy_core_pwr pwr[NR_DDR_FREQ];
 	unsigned short coef_idle[NR_DDR_FREQ];
@@ -335,7 +342,7 @@ struct aphy_others_pwr_data {
 
 /* unit: uA */
 struct dram_pwr_conf {
-	/*unsigned int volt;*/
+	unsigned int volt;
 	unsigned int i_dd0;
 	unsigned int i_dd2p;
 	unsigned int i_dd2n;
@@ -344,18 +351,23 @@ struct dram_pwr_conf {
 	unsigned int i_dd5;
 	unsigned int i_dd6;
 };
+
+struct dram_pwr_data {
+	struct dram_pwr_conf idd_conf[NR_DRAM_PWR_SAMPLE];
+};
+
 /* numbers of unsigned int for cpu reserved memory */
-#define CPU_SWPM_RESERVED_SIZE (4)
+#define CPU_SWPM_RESERVED_SIZE (8)
 
 struct cpu_swpm_rec_data {
-	/* 2(short) * 8(cores) = 16 bytes */
-	unsigned short cpu_temp[NR_CPU_CORE];
+	/* 4(int) * 8(cores) = 32 bytes */
+	unsigned int cpu_temp[NR_CPU_CORE];
 };
 
 /* numbers of unsigned int for mem reserved memory */
-#define MEM_SWPM_RESERVED_SIZE (550)
+#define MEM_SWPM_RESERVED_SIZE (675)
 
-/* mem share memory data structure - 2200/2200 bytes */
+/* mem share memory data structure - 2640/2700 bytes */
 struct mem_swpm_rec_data {
 	/* 2(short) * 9(ddr_opp) = 18 bytes */
 	unsigned short ddr_opp_freq[NR_DDR_FREQ];
@@ -364,17 +376,21 @@ struct mem_swpm_rec_data {
 	struct aphy_others_bw_data aphy_others_bw_tbl[NR_DDR_FREQ];
 
 	/* 2(short) * 3(pwr_type) */
-	/* * ((16+16)(r/w_coef) * 9(opp) + 9(idle)) = 1782 bytes */
+	/* * ((16+16)(r/w_coef) * 9(opp) + 9(idle) + 9(srst) + 9(ssr) + 9(volt)) = 1944 bytes */
 	struct aphy_others_pwr_data
 		aphy_others_pwr_tbl[NR_APHY_OTHERS_PWR_TYPE];
-	/* 4(int) * 4(pwr_type) * 7 = 112 bytes */
-	struct dram_pwr_conf dram_conf[NR_DRAM_PWR_TYPE];
+
+	/* 2(short) * 3(dram_pwr_sample) = 6 bytes */
+	unsigned short dram_pwr_sample[NR_DRAM_PWR_SAMPLE];
+
+	/* 4(int) * 12(pwr_type * pwr_sample) * 8 = 384 bytes */
+	struct dram_pwr_data dram_conf[NR_DRAM_PWR_TYPE];
 };
 
 /* numbers of unsigned int for core reserved memory */
-#define CORE_SWPM_RESERVED_SIZE (225)
+#define CORE_SWPM_RESERVED_SIZE (250)
 
-/* core share memory data structure - 900/900 bytes */
+/* core share memory data structure - 874/1000 bytes */
 struct core_swpm_rec_data {
 	/* 2(short) * 5(core_volt) = 10 bytes */
 	unsigned short core_volt_tbl[NR_CORE_VOLT];
@@ -383,12 +399,12 @@ struct core_swpm_rec_data {
 	struct aphy_core_bw_data aphy_core_bw_tbl[NR_DDR_FREQ];
 
 	/* 2(short) * 1(pwr_type) */
-	/* * ((12+12)(r/w_coef) * 9(opp) + 9(idle)) = 450 bytes */
+	/* * ((12+12)(r/w_coef) * 9(opp) + 9(idle) + 9(srst) + 9(ssr) + 9(volt)) = 504 bytes */
 	struct aphy_core_pwr_data
 		aphy_core_pwr_tbl[NR_APHY_CORE_PWR_TYPE];
 
-	/* 4 (int) * 5(core_volt) * 11(core_lkg_type) = 220 bytes */
-	unsigned int core_lkg_pwr[NR_CORE_VOLT][NR_CORE_LKG_TYPE];
+	/* 4 (int) * 5(volt) * 7(core_static_type) = 140 bytes */
+	unsigned int core_static_pwr[NR_CORE_VOLT][NR_CORE_STATIC_TYPE];
 
 	/* 4 (int) * 1 = 4 bytes */
 	unsigned int thermal;
@@ -407,13 +423,13 @@ struct swpm_rec_data {
 	/* 4(int) * 64(rec_cnt) * 7 = 1792 bytes */
 	unsigned int pwr[NR_POWER_RAIL][MAX_RECORD_CNT];
 
-	/* 16/16 bytes */
+	/* 32/32 bytes */
 	unsigned int cpu_reserved[CPU_SWPM_RESERVED_SIZE];
 
-	/* 2200/2200 bytes */
+	/* 2640/2700 bytes */
 	unsigned int mem_reserved[MEM_SWPM_RESERVED_SIZE];
 
-	/* 900/900 bytes */
+	/* 874/1000 bytes */
 	unsigned int core_reserved[CORE_SWPM_RESERVED_SIZE];
 
 	/* 4(int) * 15 = 60 bytes */
@@ -424,7 +440,7 @@ struct swpm_rec_data {
 
 	/* 4(int) * 11 = 44 bytes */
 	unsigned int me_reserved[ME_SWPM_RESERVED_SIZE];
-	/* used/remaining/total size = 6340/1852/8192 bytes */
+	/* used/remaining/total size = 6780/1412/8192 bytes */
 } __aligned(8);
 
 #if IS_ENABLED(CONFIG_MTK_CACHE_CONTROL)
