@@ -255,6 +255,107 @@ config COMMON_CLK_MT6779_AUDSYS
 	help
 	  This driver supports Mediatek MT6779 audsys clocks.
 
+config COMMON_CLK_MT6789
+	tristate "Clock driver for MediaTek MT6789"
+	depends on ARM64 || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	default MACH_MT6789
+	help
+	  This driver supports MediaTek MT6789 basic clocks,
+	  which is used to control basic clock output.
+	  If you wish to use clock resources from the MT6789 SOC,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6789_AUDIOSYS
+	tristate "Clock driver for MediaTek MT6789 audiosys"
+	depends on COMMON_CLK_MT6789
+	help
+	  This driver supports MediaTek MT6789 audiosys clocks,
+	  which is used to control audiosys clock output.
+	  If you wish to use clock resources from the audiosys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6789_CAM
+	tristate "Clock driver for MediaTek MT6789 cam"
+	depends on COMMON_CLK_MT6789
+	help
+	  This driver supports MediaTek MT6789 cam clocks,
+	  which is used to control cam clock output.
+	  If you wish to use clock resources from the cam device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6789_MMSYS
+	tristate "Clock driver for MediaTek MT6789 mmsys"
+	depends on COMMON_CLK_MT6789
+	help
+	  This driver supports MediaTek MT6789 mmsys clocks,
+	  which is used to control mmsys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6789_DISP_DSC
+	tristate "Clock driver for MediaTek MT6789 disp_dsc"
+	depends on COMMON_CLK_MT6789
+	help
+	  This driver supports MediaTek MT6789 disp_dsc clocks,
+	  which is used to control disp_dsc clock output.
+	  If you wish to use clock resources from the disp_dsc device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6789_IMG
+	tristate "Clock driver for MediaTek MT6789 img"
+	depends on COMMON_CLK_MT6789
+	help
+	  This driver supports MediaTek MT6789 img clocks,
+	  which is used to control img clock output.
+	  If you wish to use clock resources from the img device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6789_I2C
+	tristate "Clock driver for MediaTek MT6789 i2c"
+	depends on COMMON_CLK_MT6789
+	help
+	  This driver supports MediaTek MT6789 i2c clocks,
+	  which is used to control i2c clock output.
+	  If you wish to use clock resources from the i2c device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6789_IMP_IIC_WRAP_EN
+	tristate "Clock driver for MediaTek MT6789 imp_iic_wrap_en"
+	depends on COMMON_CLK_MT6789
+	help
+	  This driver supports MediaTek MT6789 imp_iic_wrap_en clocks,
+	  which is used to control imp_iic_wrap_en clock output.
+	  If you wish to use clock resources from the imp_iic_wrap_en device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6789_BUS
+	tristate "Clock driver for MediaTek MT6789 bus"
+	depends on COMMON_CLK_MT6789
+	help
+	  This driver supports MediaTek MT6789 bus clocks,
+	  which is used to control bus clock output.
+	  If you wish to use clock resources from the bus device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6789_MFG
+	tristate "Clock driver for MediaTek MT6789 mfg"
+	depends on COMMON_CLK_MT6789
+	help
+	  This driver supports MediaTek MT6789 mfg clocks,
+	  which is used to control mfg clock output.
+	  If you wish to use clock resources from the mfg device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6789_VCODEC
+	tristate "Clock driver for MediaTek MT6789 vcodec"
+	depends on COMMON_CLK_MT6789
+	help
+	  This driver supports MediaTek MT6789 vcodec clocks,
+	  which is used to control vcodec clock output.
+	  If you wish to use clock resources from the vcodec device,
+	  say Y. Otherwise, say N.
+
 config COMMON_CLK_MT6797
        bool "Clock driver for MediaTek MT6797"
        depends on ARM64 || COMPILE_TEST
