@@ -21,7 +21,7 @@
 
 #ifdef CONFIG_MFD_MT6360_PMU
 #include "mediatek/v1/mt6360.dtsi"
-#include "mediatek/mt6360_pd.dtsi"
+#include "mediatek/v1/mt6360_pd.dtsi"
 #else
 #include <dt-bindings/mfd/mt6362.h>
 #endif

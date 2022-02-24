@@ -6950,7 +6950,7 @@ page_owner=on loop.max_part=7";
 #endif
 #include "mediatek/mt6359p.dtsi"
 #include "mediatek/cust_mt6873_msdc.dtsi"
-#include "mediatek/mt6360_pd.dtsi"
+#include "mediatek/v1/mt6360_pd.dtsi"
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #include "mediatek/trusty.dtsi"
 #endif
