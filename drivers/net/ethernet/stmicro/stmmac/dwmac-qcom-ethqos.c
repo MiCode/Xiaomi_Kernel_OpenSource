@@ -16,6 +16,9 @@
 #include <linux/ipc_logging.h>
 #include <linux/poll.h>
 #include <linux/debugfs.h>
+#include <linux/dma-iommu.h>
+#include <linux/iommu.h>
+#include <linux/micrel_phy.h>
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
@@ -98,7 +101,18 @@
 #define LINK_DOWN_STATE 0x800
 #define LINK_UP_STATE 0x400
 
+#define MICREL_PHY_ID PHY_ID_KSZ9031
+#define DWC_ETH_QOS_MICREL_PHY_INTCS 0x1b
+#define DWC_ETH_QOS_MICREL_PHY_CTL 0x1f
+#define DWC_ETH_QOS_MICREL_INTR_LEVEL 0x4000
+#define DWC_ETH_QOS_BASIC_STATUS     0x0001
+#define LINK_STATE_MASK 0x4
+#define AUTONEG_STATE_MASK 0x20
+#define MICREL_LINK_UP_INTR_STATUS BIT(0)
+
 bool phy_intr_en;
+
+struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
 
 static int rgmii_readl(struct qcom_ethqos *ethqos, unsigned int offset)
 {
@@ -501,14 +515,43 @@ static void ethqos_handle_phy_interrupt(struct qcom_ethqos *ethqos)
 
 	struct net_device *dev = platform_get_drvdata(pdev);
 	struct stmmac_priv *priv = netdev_priv(dev);
+	int micrel_intr_status = 0;
 
-	phy_intr_status = ethqos_mdio_read(priv, priv->plat->phy_addr,
-					   DWC_ETH_QOS_PHY_INTR_STATUS);
+	if (priv->phydev && (priv->phydev->phy_id &
+	    priv->phydev->drv->phy_id_mask)
+	    == MICREL_PHY_ID) {
+		phy_intr_status = ethqos_mdio_read(priv,
+						   priv->plat->phy_addr,
+						   DWC_ETH_QOS_BASIC_STATUS);
+		ETHQOSDBG("Basic Status Reg (%#x) = %#x\n",
+			  DWC_ETH_QOS_BASIC_STATUS, phy_intr_status);
+		micrel_intr_status = ethqos_mdio_read(priv,
+						      priv->plat->phy_addr,
+						      DWC_ETH_QOS_MICREL_PHY_INTCS);
+		ETHQOSDBG("MICREL PHY Intr EN Reg (%#x) = %#x\n",
+			  DWC_ETH_QOS_MICREL_PHY_INTCS, micrel_intr_status);
 
-	if (phy_intr_status & LINK_UP_STATE)
-		phylink_mac_change(priv->phylink, LINK_UP);
-	else if (phy_intr_status & LINK_DOWN_STATE)
-		phylink_mac_change(priv->phylink, LINK_DOWN);
+		/* Interrupt received for link state change */
+		if (phy_intr_status & LINK_STATE_MASK) {
+			if (micrel_intr_status & MICREL_LINK_UP_INTR_STATUS)
+				ETHQOSDBG("Intr for link UP state\n");
+			phy_mac_interrupt(priv->phydev);
+		} else if (!(phy_intr_status & LINK_STATE_MASK)) {
+			ETHQOSDBG("Intr for link DOWN state\n");
+			phy_mac_interrupt(priv->phydev);
+		} else if (!(phy_intr_status & AUTONEG_STATE_MASK)) {
+			ETHQOSDBG("Intr for link down with auto-neg err\n");
+		}
+	} else {
+		phy_intr_status =
+		 ethqos_mdio_read(priv, priv->plat->phy_addr,
+				  DWC_ETH_QOS_PHY_INTR_STATUS);
+
+		if (phy_intr_status & LINK_UP_STATE)
+			phylink_mac_change(priv->phylink, LINK_UP);
+		else if (phy_intr_status & LINK_DOWN_STATE)
+			phylink_mac_change(priv->phylink, LINK_DOWN);
+	}
 }
 
 static void ethqos_defer_phy_isr_work(struct work_struct *work)
@@ -524,12 +567,12 @@ static irqreturn_t ETHQOS_PHY_ISR(int irq, void *dev_data)
 	struct qcom_ethqos *ethqos = (struct qcom_ethqos *)dev_data;
 
 	queue_work(system_wq, &ethqos->emac_phy_work);
+	return IRQ_HANDLED;
 }
 
 static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 {
 	int ret = 0;
-	struct net_device *dev = platform_get_drvdata(ethqos->pdev);
 
 	INIT_WORK(&ethqos->emac_phy_work, ethqos_defer_phy_isr_work);
 	ret = request_irq(ethqos->phy_intr, ETHQOS_PHY_ISR,
@@ -543,15 +586,71 @@ static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 	return ret;
 }
 
+static const struct of_device_id qcom_ethqos_match[] = {
+	{ .compatible = "qcom,stmmac-ethqos", },
+	{ .compatible = "qcom,emac-smmu-embedded", },
+	{ }
+};
+
+static void emac_emb_smmu_exit(void)
+{
+	emac_emb_smmu_ctx.valid = false;
+	emac_emb_smmu_ctx.pdev_master = NULL;
+	emac_emb_smmu_ctx.smmu_pdev = NULL;
+	emac_emb_smmu_ctx.iommu_domain = NULL;
+}
+
+static int emac_emb_smmu_cb_probe(struct platform_device *pdev)
+{
+	int result = 0;
+	u32 iova_ap_mapping[2];
+	struct device *dev = &pdev->dev;
+
+	ETHQOSDBG("EMAC EMB SMMU CB probe: smmu pdev=%p\n", pdev);
+
+	result = of_property_read_u32_array(dev->of_node,
+					    "qcom,iommu-dma-addr-pool",
+					    iova_ap_mapping,
+					    ARRAY_SIZE(iova_ap_mapping));
+	if (result) {
+		ETHQOSERR("Failed to read EMB start/size iova addresses\n");
+		return result;
+	}
+
+	emac_emb_smmu_ctx.smmu_pdev = pdev;
+
+	if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
+	    dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
+		ETHQOSERR("DMA set 32bit mask failed\n");
+		return -EOPNOTSUPP;
+	}
+
+	emac_emb_smmu_ctx.valid = true;
+
+	emac_emb_smmu_ctx.iommu_domain =
+		iommu_get_domain_for_dev(&emac_emb_smmu_ctx.smmu_pdev->dev);
+
+	ETHQOSINFO("Successfully attached to IOMMU\n");
+	if (emac_emb_smmu_ctx.pdev_master)
+		goto smmu_probe_done;
+
+smmu_probe_done:
+	emac_emb_smmu_ctx.ret = result;
+	return result;
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	struct plat_stmmacenet_data *plat_dat;
+	struct plat_stmmacenet_data *plat_dat = NULL;
 	struct stmmac_resources stmmac_res;
-	const struct ethqos_emac_driver_data *data;
-	struct qcom_ethqos *ethqos;
+	struct qcom_ethqos *ethqos = NULL;
+
 	int ret;
 
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "qcom,emac-smmu-embedded"))
+		return emac_emb_smmu_cb_probe(pdev);
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
 		return ret;
@@ -578,15 +677,13 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		goto err_mem;
 	}
 
-	data = of_device_get_match_data(&pdev->dev);
-	ethqos->por = data->por;
-	ethqos->num_por = data->num_por;
-
 	ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_clk)) {
 		ret = PTR_ERR(ethqos->rgmii_clk);
 		goto err_mem;
 	}
+
+	ethqos->por = of_device_get_match_data(&pdev->dev);
 
 	ret = clk_prepare_enable(ethqos->rgmii_clk);
 	if (ret)
@@ -601,6 +698,20 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->has_gmac4 = 1;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,arm-smmu")) {
+		emac_emb_smmu_ctx.pdev_master = pdev;
+		ret = of_platform_populate(pdev->dev.of_node,
+					   qcom_ethqos_match, NULL, &pdev->dev);
+		if (ret)
+			ETHQOSERR("Failed to populate EMAC platform\n");
+		if (emac_emb_smmu_ctx.ret) {
+			ETHQOSERR("smmu probe failed\n");
+			of_platform_depopulate(&pdev->dev);
+			ret = emac_emb_smmu_ctx.ret;
+			emac_emb_smmu_ctx.ret = 0;
+		}
+	}
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
@@ -639,13 +750,12 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 
 	if (phy_intr_en)
 		free_irq(ethqos->phy_intr, ethqos);
+	emac_emb_smmu_exit();
 	ethqos_disable_regulators(ethqos);
 
 	return ret;
 }
 
-static const struct of_device_id qcom_ethqos_match[] = {
-};
 MODULE_DEVICE_TABLE(of, qcom_ethqos_match);
 
 static struct platform_driver qcom_ethqos_driver = {
