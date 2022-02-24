@@ -526,6 +526,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	drm_crtc_vblank_off(crtc);
 
 	mtk_crtc_vblank_irq(&mtk_crtc->base);
+	mtk_gce_backup_slot_save(mtk_crtc);
 	/* 7. power off MTCMOS */
 	mtk_drm_top_clk_disable_unprepare(crtc->dev);
 
@@ -564,12 +565,13 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 
 	/* 1. power on mtcmos */
 	mtk_drm_top_clk_prepare_enable(crtc->dev);
+	mtk_gce_backup_slot_restore(mtk_crtc);
 
 	/* 2. prepare modules would be used in this CRTC */
 	mtk_drm_idlemgr_enable_connector(crtc);
 	mtk_crtc_ddp_prepare(mtk_crtc);
 
-	mtk_gce_backup_slot_init(mtk_crtc);
+	//mtk_gce_backup_slot_init(mtk_crtc);
 
 #ifndef DRM_CMDQ_DISABLE
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)

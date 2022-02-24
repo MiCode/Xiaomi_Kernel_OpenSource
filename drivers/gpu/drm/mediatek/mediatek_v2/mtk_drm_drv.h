@@ -327,6 +327,8 @@ int lcm_fps_ctx_update(unsigned long long cur_ns,
 int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate);
 bool mtk_drm_lcm_is_connect(void);
 bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc);
+size_t mtk_gce_get_dummy_table(unsigned int mmsys_id, struct dummy_mapping **table);
+
 
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 	unsigned int *fps);

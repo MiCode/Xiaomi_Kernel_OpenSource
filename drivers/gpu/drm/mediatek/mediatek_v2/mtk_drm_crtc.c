@@ -102,6 +102,8 @@ static const char * const crtc_gce_client_str[] = {
 	DECLARE_GCE_CLIENT(DECLARE_STR)};
 
 struct drm_mtk_ccorr_caps drm_ccorr_caps;
+static unsigned int dummy_data[MT6983_DUMMY_REG_CNT];
+
 
 #define ALIGN_TO_32(x) ALIGN_TO(x, 32)
 
@@ -9346,32 +9348,55 @@ unsigned int mtk_get_plane_slot_idx(struct mtk_drm_crtc *mtk_crtc, unsigned int 
 	return idx;
 }
 
+void mtk_gce_backup_slot_restore(struct mtk_drm_crtc *mtk_crtc)
+{
+	size_t size = 0;
+	struct dummy_mapping *table = NULL;
+	int i;
+	unsigned int mmsys_id = 0;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+
+	mmsys_id = mtk_get_mmsys_id(crtc);
+	size = mtk_gce_get_dummy_table(mmsys_id, &table);
+	if (size == 0)
+		return;
+
+	for (i = 0; i < size; i++)
+		writel(dummy_data[i], table[i].addr + table[i].offset);
+}
+
+void mtk_gce_backup_slot_save(struct mtk_drm_crtc *mtk_crtc)
+{
+	size_t size = 0;
+	struct dummy_mapping *table = NULL;
+	int i;
+	unsigned int mmsys_id = 0;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+
+	mmsys_id = mtk_get_mmsys_id(crtc);
+	size = mtk_gce_get_dummy_table(mmsys_id, &table);
+	if (size == 0)
+		return;
+
+	for (i = 0; i < size; i++)
+		dummy_data[i] = readl(table[i].addr + table[i].offset);
+}
+
 /* for platform that store information in register rather than mermory */
 void mtk_gce_backup_slot_init(struct mtk_drm_crtc *mtk_crtc)
 {
-	struct drm_crtc *crtc = &mtk_crtc->base;
-	size_t size;
-	struct dummy_mapping *table;
-	unsigned int mmsys_id = 0;
+	size_t size = 0;
+	struct dummy_mapping *table = NULL;
 	int i;
+	unsigned int mmsys_id = 0;
+	struct drm_crtc *crtc = &mtk_crtc->base;
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
-	if ((mmsys_id != MMSYS_MT6983) &&
-		(mmsys_id != MMSYS_MT6895) &&
-		(mmsys_id != MMSYS_MT6879))
+	size = mtk_gce_get_dummy_table(mmsys_id, &table);
+	if (size == 0)
 		return;
 
-	if ((mmsys_id == MMSYS_MT6983) ||
-		(mmsys_id == MMSYS_MT6895)) {
-		table = mt6983_dispsys_dummy_register;
-		size = MT6983_DUMMY_REG_CNT;
-	} else if (mmsys_id == MMSYS_MT6879) {
-		table = mt6879_dispsys_dummy_register;
-		size = MT6879_DUMMY_REG_CNT;
-	} else
-		return;
-
-	for (i = 0 ; i < size ; i++)
+	for (i = 0; i < size; i++)
 		writel(0x0, table[i].addr + table[i].offset);
 }
 
@@ -9379,9 +9404,9 @@ unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 			unsigned int slot_index)
 {
 	struct drm_crtc *crtc = &mtk_crtc->base;
-	size_t size;
+	size_t size = 0;
 	unsigned int offset = 0;
-	struct dummy_mapping *table;
+	struct dummy_mapping *table = NULL;
 	unsigned int idx, mmsys_id = 0;
 
 	if (slot_index > DISP_SLOT_SIZE) {
@@ -9404,15 +9429,8 @@ unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 	}
 
 	idx = slot_index / sizeof(unsigned int);
-
-	if ((mmsys_id == MMSYS_MT6983) ||
-		(mmsys_id == MMSYS_MT6895)) {
-		table = mt6983_dispsys_dummy_register;
-		size = MT6983_DUMMY_REG_CNT;
-	} else if (mmsys_id == MMSYS_MT6879) {
-		table = mt6879_dispsys_dummy_register;
-		size = MT6879_DUMMY_REG_CNT;
-	} else
+	size = mtk_gce_get_dummy_table(mmsys_id, &table);
+	if (size == 0)
 		return NULL;
 
 	if (idx < size) {
@@ -9433,9 +9451,9 @@ dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 			unsigned int slot_index)
 {
 	struct drm_crtc *crtc = &mtk_crtc->base;
-	size_t size;
+	size_t size = 0;
 	unsigned int offset = 0;
-	struct dummy_mapping *table;
+	struct dummy_mapping *table = NULL;
 	unsigned int idx, mmsys_id = 0;
 
 	if (slot_index > DISP_SLOT_SIZE) {
@@ -9458,14 +9476,8 @@ dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 	}
 
 	idx = slot_index / sizeof(unsigned int);
-	if ((mmsys_id == MMSYS_MT6983) ||
-		(mmsys_id == MMSYS_MT6895)) {
-		table = mt6983_dispsys_dummy_register;
-		size = MT6983_DUMMY_REG_CNT;
-	} else if (mmsys_id == MMSYS_MT6879) {
-		table = mt6879_dispsys_dummy_register;
-		size = MT6879_DUMMY_REG_CNT;
-	} else
+	size = mtk_gce_get_dummy_table(mmsys_id, &table);
+	if (size == 0)
 		return 0;
 
 	if (idx < size) {

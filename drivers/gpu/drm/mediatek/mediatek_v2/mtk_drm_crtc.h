@@ -1005,6 +1005,9 @@ int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en);
 
 unsigned int mtk_get_mmsys_id(struct drm_crtc *crtc);
 
+void mtk_gce_backup_slot_restore(struct mtk_drm_crtc *mtk_crtc);
+void mtk_gce_backup_slot_save(struct mtk_drm_crtc *mtk_crtc);
+
 unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 			unsigned int slot_index);
 

@@ -4404,27 +4404,31 @@ err_handle_mtk_drm_get_mml_drm_ctx:
 	return priv->mml_ctx;
 }
 
+size_t mtk_gce_get_dummy_table(unsigned int mmsys_id,
+	struct dummy_mapping **table)
+{
+	size_t size = 0;
+
+	if ((mmsys_id == MMSYS_MT6983) ||
+		(mmsys_id == MMSYS_MT6895)) {
+		*table = mt6983_dispsys_dummy_register;
+		size = MT6983_DUMMY_REG_CNT;
+	} else if (mmsys_id == MMSYS_MT6879) {
+		*table = mt6879_dispsys_dummy_register;
+		size = MT6879_DUMMY_REG_CNT;
+	} else
+		return size;
+	return size;
+}
+
 static void mtk_drm_init_dummy_table(struct mtk_drm_private *priv)
 {
-	struct dummy_mapping *table;
-	size_t size;
+	struct dummy_mapping *table = NULL;
+	size_t size = 0;
 	int i;
 
-	switch (priv->data->mmsys_id) {
-	case MMSYS_MT6983:
-		table = mt6983_dispsys_dummy_register;
-		size = MT6983_DUMMY_REG_CNT;
-		break;
-	case MMSYS_MT6895:
-		/* mt6895 same with mt6983 */
-		table = mt6983_dispsys_dummy_register;
-		size = MT6983_DUMMY_REG_CNT;
-		break;
-	case MMSYS_MT6879:
-		table = mt6879_dispsys_dummy_register;
-		size = MT6879_DUMMY_REG_CNT;
-		break;
-	default:
+	size = mtk_gce_get_dummy_table(priv->data->mmsys_id, &table);
+	if (size == 0) {
 		DDPMSG("no dummy table\n");
 		return;
 	}
