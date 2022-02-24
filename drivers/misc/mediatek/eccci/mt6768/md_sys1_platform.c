@@ -15,9 +15,9 @@
 #include <mach/mtk_pbm.h>
 #include <clk-mt6768-pg.h>
 
-//#define FEATURE_CLK_BUF
+#define FEATURE_CLK_BUF
 #ifdef FEATURE_CLK_BUF
-#include <mtk_clkbuf_ctl.h>
+#include <mtk-clkbuf-bridge.h>
 #endif
 #ifdef CONFIG_MTK_EMI_BWL
 #include <emi_mbw.h>
