@@ -97,10 +97,11 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		heap_mask = data.allocation.heap_id_mask;
 
-		handle = ion_alloc(client, data.allocation.len,
-				   data.allocation.align,
-				   data.allocation.heap_id_mask,
-				   data.allocation.flags);
+		handle = __ion_alloc(client, data.allocation.len,
+				     data.allocation.align,
+				     data.allocation.heap_id_mask,
+				     data.allocation.flags, true);
+
 		if (IS_ERR(handle)) {
 			IONMSG("IOC_ALLOC handle invalid. ret = %d\n", ret);
 			return PTR_ERR(handle);
@@ -217,6 +218,7 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			if (cleanup_handle) {
 				mutex_lock(&client->lock);
 				user_ion_free_nolock(client, cleanup_handle);
+				ion_handle_put_nolock(cleanup_handle);
 				mutex_unlock(&client->lock);
 			}
 			IONMSG("%s %d fail! cmd = %d, n = %d.\n",
@@ -225,5 +227,7 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 	}
+	if (cleanup_handle)
+		ion_handle_put(cleanup_handle);
 	return ret;
 }
