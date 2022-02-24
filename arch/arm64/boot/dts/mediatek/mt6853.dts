@@ -18,14 +18,12 @@
 #include <dt-bindings/gce/mt6853-gce.h>
 #include <dt-bindings/reset/ti-syscon.h>
 #include <dt-bindings/mmc/mt6853-msdc.h>
-
+#include <dt-bindings/phy/phy.h>
 #ifdef CONFIG_MFD_MT6360_PMU
-#include "mediatek/v1/mt6360.dtsi"
 #include "mediatek/v1/mt6360_pd.dtsi"
 #else
 #include <dt-bindings/mfd/mt6362.h>
 #endif
-#include <dt-bindings/phy/phy.h>
 
 / {
 	model = "MT6853";
@@ -6397,6 +6395,8 @@ page_owner=on loop.max_part=7";
 };
 
 #ifdef CONFIG_MFD_MT6360_PMU
+#include "mediatek/v1/mt6360.dtsi"
+
 &mt6360_pmic {
 	buck2 {
 		/delete-property/ regulator-always-on;
