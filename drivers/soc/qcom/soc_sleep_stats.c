@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -29,6 +29,11 @@
 #define LAST_EXITED_AT_ADDR	0x10
 #define ACCUMULATED_ADDR	0x18
 #define CLIENT_VOTES_ADDR	0x1c
+
+#define AOSD_LAST_ENTERED_AT_ADDR	0x0
+#define AOSD_LAST_EXITED_AT_ADDR	0x18
+#define AOSD_ACCUMULATED_ADDR		0x30
+#define AOSD_COUNT_ADDR		0x38
 
 #define DDR_STATS_MAGIC_KEY	0xA1157A75
 #define DDR_STATS_MAX_NUM_MODES	0x14
@@ -71,6 +76,7 @@ struct stats_config {
 	unsigned int ddr_offset_addr;
 	unsigned int num_records;
 	bool appended_stats_avail;
+	bool aosd_hardened;
 };
 
 struct stats_entry {
@@ -173,6 +179,22 @@ static int soc_sleep_stats_show(struct seq_file *s, void *d)
 }
 
 DEFINE_SHOW_ATTRIBUTE(soc_sleep_stats);
+
+static int soc_sleep_stats_aosd_show(struct seq_file *s, void *d)
+{
+	void __iomem *reg = s->private;
+	struct sleep_stats stat;
+
+	stat.count = readl_relaxed(reg + AOSD_COUNT_ADDR);
+	stat.last_entered_at = readq(reg + AOSD_LAST_ENTERED_AT_ADDR);
+	stat.last_exited_at = readq(reg + AOSD_LAST_EXITED_AT_ADDR);
+	stat.accumulated = readq(reg + AOSD_ACCUMULATED_ADDR);
+	print_sleep_stats(s, &stat);
+
+	return 0;
+}
+
+DEFINE_SHOW_ATTRIBUTE(soc_sleep_stats_aosd);
 
 static void  print_ddr_stats(struct seq_file *s, int *count,
 			     struct stats_entry *data, u64 accumulated_duration)
@@ -420,6 +442,7 @@ EXPORT_SYMBOL(ddr_stats_get_ss_vote_info);
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *create_debugfs_entries(void __iomem *reg,
 					     void __iomem *ddr_reg,
+					     void __iomem *aosd_reg,
 					     struct stats_prv_data *prv_data,
 					     struct device_node *node)
 {
@@ -447,6 +470,10 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 				    &prv_data[i],
 				    &soc_sleep_stats_fops);
 	}
+
+	if (prv_data[0].config->aosd_hardened)
+		debugfs_create_file("aosd", 0444,
+				     root, aosd_reg, &soc_sleep_stats_aosd_fops);
 
 	n_subsystems = of_property_count_strings(node, "ss-name");
 	if (n_subsystems < 0)
@@ -481,7 +508,7 @@ exit:
 static int soc_sleep_stats_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	void __iomem *reg_base, *reg, *ddr_reg = NULL;
+	void __iomem *reg_base, *reg, *ddr_reg = NULL, *aosd_reg = NULL;
 	void __iomem *offset_addr;
 	phys_addr_t stats_base;
 	resource_size_t stats_size;
@@ -579,8 +606,14 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 							"ddr-freq-update");
 
 skip_ddr_stats:
+	if (config->aosd_hardened) {
+		aosd_reg = devm_platform_get_and_ioremap_resource(pdev, 1, NULL);
+		if (!aosd_reg)
+			return -ENOMEM;
+	}
+
 #if IS_ENABLED(CONFIG_DEBUG_FS)
-	root = create_debugfs_entries(reg_base, ddr_reg, prv_data,
+	root = create_debugfs_entries(reg_base, ddr_reg, aosd_reg, prv_data,
 				      pdev->dev.of_node);
 	platform_set_drvdata(pdev, root);
 #endif
@@ -612,9 +645,18 @@ static const struct stats_config rpmh_data = {
 	.appended_stats_avail = false,
 };
 
+static const struct stats_config rpmh_v2_data = {
+	.offset_addr = 0x4,
+	.ddr_offset_addr = 0x1c,
+	.num_records = 2,
+	.appended_stats_avail = false,
+	.aosd_hardened = true,
+};
+
 static const struct of_device_id soc_sleep_stats_table[] = {
 	{ .compatible = "qcom,rpm-sleep-stats", .data = &rpm_data },
 	{ .compatible = "qcom,rpmh-sleep-stats", .data = &rpmh_data },
+	{ .compatible = "qcom,rpmh-sleep-stats-v2", .data = &rpmh_v2_data },
 	{ }
 };
 
