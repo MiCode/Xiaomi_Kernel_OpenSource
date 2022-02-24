@@ -3114,6 +3114,30 @@ void Charger_Detect_Release(void)
 }
 EXPORT_SYMBOL(Charger_Detect_Release);
 
+#ifndef FPGA_PLATFORM
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
+static void usb_dpidle_request(int mode)
+{
+	struct arm_smccc_res res;
+	int op;
+
+	switch (mode) {
+	case USB_DPIDLE_SUSPEND:
+		op = MTK_USB_SMC_INFRA_SUSPEND;
+		break;
+	case USB_DPIDLE_RESUME:
+		op = MTK_USB_SMC_INFRA_RESUME;
+		break;
+	default:
+		return;
+	}
+
+	DBG(0, "operation = %d\n", op);
+	arm_smccc_smc(MTK_SIP_KERNEL_USB_CONTROL, op, 0, 0, 0, 0, 0, 0, &res);
+}
+#endif
+
 #ifdef DISABLE_FOR_BRING_UP
 #if IS_ENABLED(CONFIG_USB_MTK_OTG)
 static struct regmap *pericfg;
@@ -4186,7 +4210,7 @@ static int mt_usb_init(struct musb *musb)
 	mt_usb_otg_init(musb);
 	/* enable host suspend mode */
 	/* mt_usb_wakeup_init(musb); */
-	/* musb->host_suspend = true; */
+	musb->host_suspend = true;
 #endif
 	DBG(0, "%s done\n", __func__);
 	return 0;
@@ -4370,9 +4394,7 @@ static int musb_probe(struct platform_device *pdev)
 	mtk_host_qmu_force_isoc_restart = 0;
 #endif
 #ifndef FPGA_PLATFORM
-#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
-	/* register_usb_hal_dpidle_request(usb_6765_dpidle_request); */
-#endif
+	register_usb_hal_dpidle_request(usb_dpidle_request);
 #endif
 	register_usb_hal_disconnect_check(trigger_disconnect_check_work);
 
