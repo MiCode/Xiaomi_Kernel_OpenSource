@@ -3186,7 +3186,7 @@ page_owner=on loop.max_part=7";
 
 	mali@13040000 {
 		compatible =
-			"mediatek,mali", "arm,mali-midgard", "arm,mali-bifrost";
+			"mediatek,mali", "arm,mali-valhall";
 		reg = <0 0x13040000 0 0x10000>;
 		interrupts =
 			<GIC_SPI 309 IRQ_TYPE_LEVEL_LOW>,
