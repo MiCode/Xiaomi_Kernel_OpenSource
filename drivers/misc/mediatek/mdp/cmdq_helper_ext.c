@@ -844,6 +844,11 @@ bool cmdq_core_should_pqrb_log(void)
 	return cmdq_ctx.logLevel & (1 << CMDQ_LOG_LEVEL_PQ_READBACK);
 }
 
+bool cmdq_core_should_clock_log(void)
+{
+	return cmdq_ctx.logLevel & (1 << CMDQ_LOG_LEVEL_CLOCK);
+}
+
 bool cmdq_core_aee_enable(void)
 {
 	return cmdq_ctx.aee;

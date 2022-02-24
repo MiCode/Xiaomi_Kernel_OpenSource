@@ -283,7 +283,8 @@ static void cmdq_mdp_common_clock_enable(u64 engine_flag)
 {
 	s32 smi_ref = atomic_inc_return(&mdp_ctx.mdp_smi_usage);
 
-	CMDQ_MSG("[CLOCK]MDP SMI clock enable %d\n", smi_ref);
+	CMDQ_LOG_CLOCK("%s MDP SMI clock enable %d, engine_flag:%llx\n",
+		__func__, smi_ref, engine_flag);
 	cmdq_mdp_get_func()->mdpEnableCommonClock(true, engine_flag);
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_smi,
@@ -294,7 +295,8 @@ static void cmdq_mdp_common_clock_disable(u64 engine_flag)
 {
 	s32 smi_ref = atomic_dec_return(&mdp_ctx.mdp_smi_usage);
 
-	CMDQ_MSG("[CLOCK]MDP SMI clock disable %d\n", smi_ref);
+	CMDQ_LOG_CLOCK("%s MDP SMI clock disable %d, engine_flag:%llx\n",
+		__func__, smi_ref, engine_flag);
 	cmdq_mdp_get_func()->mdpEnableCommonClock(false, engine_flag);
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_smi,
@@ -307,7 +309,7 @@ static s32 cmdq_mdp_clock_enable(u64 engine_flag)
 
 	mutex_lock(&mdp_clock_mutex);
 
-	CMDQ_MSG("[CLOCK]%s engine:0x%llx\n", __func__, engine_flag);
+	CMDQ_LOG_CLOCK("%s engine:0x%llx\n", __func__, engine_flag);
 
 	/* common clock enable when get enabled engine,
 	 * thus only enable mdp engine clocks.
@@ -327,7 +329,7 @@ static s32 cmdq_mdp_clock_disable(u64 engine_flag)
 {
 	s32 ret;
 
-	CMDQ_MSG("[CLOCK]%s engine:0x%llx\n", __func__, engine_flag);
+	CMDQ_LOG_CLOCK("%s engine:0x%llx\n", __func__, engine_flag);
 
 	mutex_lock(&mdp_clock_mutex);
 

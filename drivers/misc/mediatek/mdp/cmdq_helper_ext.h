@@ -64,6 +64,13 @@ do { \
 	} \
 } while (0)
 
+#define CMDQ_LOG_CLOCK(string, args...) \
+do { \
+	if (cmdq_core_should_clock_log()) { \
+		pr_notice("[MDP]"string, ##args); \
+	} \
+} while (0)
+
 #define CMDQ_LOG(string, args...) \
 do {			\
 	pr_notice("[MDP]"string, ##args); \
@@ -329,6 +336,7 @@ enum CMDQ_LOG_LEVEL_ENUM {
 	CMDQ_LOG_LEVEL_PMQOS = 4,
 	CMDQ_LOG_LEVEL_SECURE = 5,
 	CMDQ_LOG_LEVEL_PQ_READBACK = 6,
+	CMDQ_LOG_LEVEL_CLOCK = 7,
 
 	CMDQ_LOG_LEVEL_MAX	/* ALWAYS keep at the end */
 };
@@ -809,6 +817,7 @@ bool cmdq_core_should_full_error(void);
 bool cmdq_core_should_pmqos_log(void);
 bool cmdq_core_should_secure_log(void);
 bool cmdq_core_should_pqrb_log(void);
+bool cmdq_core_should_clock_log(void);
 bool cmdq_core_aee_enable(void);
 void cmdq_core_set_aee(bool enable);
 
