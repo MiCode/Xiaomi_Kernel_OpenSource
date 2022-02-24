@@ -881,7 +881,7 @@ unsigned int get_cal_data(struct EEPROM_DRV_FD_DATA *pdata, unsigned int *pGetSe
 
 	must_log("last_sensor_id = 0x%x current_sensor_id = 0x%x",
 				last_sensor_id, pCamCalData->sensorID);
-	if (last_sensor_id != pCamCalData->sensorID) {
+	if (last_sensor_id != pCamCalData->sensorID || pCamCalData->DataVer == CAM_CAL_TYPE_NUM) {
 		last_sensor_id = pCamCalData->sensorID;
 		debug_log("search %u layouts", cam_cal_number);
 		for (cam_cal_index = 0; cam_cal_index < cam_cal_number; cam_cal_index++) {
