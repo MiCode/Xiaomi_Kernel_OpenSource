@@ -712,6 +712,14 @@ int pkvm_load_pvmfw_pages(struct kvm_shadow_vm *vm, u64 ipa, phys_addr_t phys,
 	return 0;
 }
 
+void pkvm_clear_pvmfw_pages(void)
+{
+	void *addr = hyp_phys_to_virt(pvmfw_base);
+
+	memset(addr, 0, pvmfw_size);
+	kvm_flush_dcache_to_poc(addr, pvmfw_size);
+}
+
 /*
  * This function sets the registers on the vcpu to their architecturally defined
  * reset values.
