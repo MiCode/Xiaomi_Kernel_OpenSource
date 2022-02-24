@@ -8819,8 +8819,8 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				"cpu_emi_bw";
 
 			node_30 = "SSPM_SWPM_CPU__DVFS",
-				"vproc2,vproc1,cpuL_freq,cpu_L_opp,",
-				"cpuB_freq,cpu_B_opp,cci_volt,cci_freq,cci_opp";
+				"vproc2,vproc1,cpuL_freq,cpuB_freq,",
+				"cpu_L_opp,cpu_B_opp,cci_volt,cci_freq,cci_opp";
 
 			node_31 = "SSPM_SWPM_CPU__LKG_POWER",
 				"cpu_L,cpu_B,dsu";
