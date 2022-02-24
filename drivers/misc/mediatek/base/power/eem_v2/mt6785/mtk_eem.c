@@ -3458,7 +3458,7 @@ void eem_init01(void)
 #endif
 			}
 			timeout = 0;
-#if 1//angus todo
+#ifndef CONFIG_MACH_MT6785//angus todo
 			while (det->real_vboot != det->VBOOT) {
 				eem_debug
 			("@%s():%d, get_volt(%s) = 0x%08X, VBOOT = 0x%08X\n",
