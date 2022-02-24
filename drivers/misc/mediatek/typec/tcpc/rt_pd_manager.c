@@ -13,7 +13,11 @@
 #include "inc/tcpci_typec.h"
 #ifdef CONFIG_MTK_CHARGER
 #include <charger_class.h>
+#ifdef ADAPT_CHARGER_V1
+#include <mt-plat/v1/mtk_charger.h>
+#else
 #include <mtk_charger.h>
+#endif
 #endif /* CONFIG_MTK_CHARGER */
 #ifdef CONFIG_WATER_DETECTION
 #include <mt-plat/mtk_boot.h>

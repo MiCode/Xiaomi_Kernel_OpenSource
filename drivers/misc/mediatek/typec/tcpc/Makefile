@@ -19,6 +19,7 @@ obj-$(CONFIG_USB_POWER_DELIVERY)	+= tcpci_event.o \
 		pd_policy_engine_dbg.o pd_policy_engine_com.o pd_dpm_alt_mode_dc.o
 
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6877) $(CONFIG_MACH_MT6768) $(CONFIG_MACH_MT6781) \
-$(CONFIG_MACH_MT6739) $(CONFIG_MACH_MT6833) $(CONFIG_MACH_MT6893) $(CONFIG_MACH_MT6885)))
+$(CONFIG_MACH_MT6739) $(CONFIG_MACH_MT6833) $(CONFIG_MACH_MT6893) $(CONFIG_MACH_MT6885) \
+$(CONFIG_MACH_MT6853) $(CONFIG_MACH_MT6873)))
 	ccflags-y += -DADAPT_CHARGER_V1
 endif
