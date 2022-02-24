@@ -97,12 +97,12 @@ unsigned int *debounce_times_up_adb;
 static int debounce_times_perf_down = 50;
 static int debounce_times_perf_force_down = 100;
 #if IS_ENABLED(CONFIG_MTK_CM_IPI)
+static int cm_mgr_dram_opp_ceiling = -1;
+static int cm_mgr_dram_opp_floor = -1;
 static int dsu_enable = 1;
 static int dsu_opp_send = 0xff;
 static int dsu_mode;
 static int cm_aggr;
-static int cm_mgr_dram_opp_ceiling = -1;
-static int cm_mgr_dram_opp_floor = -1;
 unsigned int cm_hint;
 #endif
 int debounce_times_reset_adb;
@@ -386,14 +386,34 @@ EXPORT_SYMBOL_GPL(cm_mgr_to_sspm_command);
 #endif /* CONFIG_MTK_CM_IPI */
 
 #if IS_ENABLED(CONFIG_MTK_CM_IPI)
+int cm_mgr_judge_perfs_dram_opp(int dram_opp)
+{
+	int perf_num = cm_mgr_get_num_perf();
+
+	if (cm_mgr_dram_opp_ceiling < 0 && cm_mgr_dram_opp_floor < 0)
+		return dram_opp;
+
+	if (cm_mgr_dram_opp_ceiling >= 0) {
+		if (cm_mgr_dram_opp_floor >= 0 && cm_mgr_dram_opp_ceiling > cm_mgr_dram_opp_floor)
+			return dram_opp;
+		if (cm_mgr_dram_opp_ceiling <= perf_num && cm_mgr_dram_opp_ceiling > dram_opp)
+			dram_opp = cm_mgr_dram_opp_ceiling;
+	}
+
+	return dram_opp;
+}
+EXPORT_SYMBOL_GPL(cm_mgr_judge_perfs_dram_opp);
+
 void cm_mgr_set_dram_opp_ceiling(int opp)
 {
+	cm_mgr_dram_opp_ceiling = opp;
 	cm_mgr_to_sspm_command(IPI_CM_MGR_DRAM_OPP_CEILING, opp);
 }
 EXPORT_SYMBOL_GPL(cm_mgr_set_dram_opp_ceiling);
 
 void cm_mgr_set_dram_opp_floor(int opp)
 {
+	cm_mgr_dram_opp_floor = opp;
 	cm_mgr_to_sspm_command(IPI_CM_MGR_DRAM_OPP_FLOOR, opp);
 }
 EXPORT_SYMBOL_GPL(cm_mgr_set_dram_opp_floor);

@@ -60,9 +60,11 @@ struct cm_mgr_hook {
 #define IPI_CM_MGR_BBCPU_WEIGHT_MIN_SET 27
 #endif /* CONFIG_MTK_CM_IPI */
 
+
 /* common api */
 #if IS_ENABLED(CONFIG_MTK_CM_IPI)
 extern int get_cm_step_num(void);
+extern int cm_mgr_judge_perfs_dram_opp(int dram_opp);
 #endif
 extern void cm_mgr_update_dram_by_cpu_opp(int cpu_opp);
 #if !IS_ENABLED(CONFIG_MTK_CM_IPI)

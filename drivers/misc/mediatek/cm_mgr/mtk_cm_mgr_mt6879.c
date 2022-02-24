@@ -156,15 +156,17 @@ void cm_mgr_perf_platform_set_status_mt6879(int enable)
 		if (cm_mgr_get_dram_opp_base() == -1) {
 			cm_mgr_dram_opp = 0;
 			cm_mgr_set_dram_opp_base(cm_mgr_get_num_perf());
-			icc_set_bw(cm_mgr_get_bw_path(), 0,
-					cm_mgr_perfs[cm_mgr_dram_opp]);
+
 		} else {
-			if (cm_mgr_dram_opp > 0) {
+			if (cm_mgr_dram_opp > 0)
 				cm_mgr_dram_opp--;
-				icc_set_bw(cm_mgr_get_bw_path(), 0,
-						cm_mgr_perfs[cm_mgr_dram_opp]);
-			}
 		}
+
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+		cm_mgr_dram_opp = cm_mgr_judge_perfs_dram_opp(cm_mgr_dram_opp);
+#endif
+		icc_set_bw(cm_mgr_get_bw_path(), 0,
+					cm_mgr_perfs[cm_mgr_dram_opp]);
 
 		pm_qos_update_request_status = enable;
 	} else {
@@ -232,15 +234,16 @@ static void cm_mgr_perf_platform_set_force_status(int enable)
 
 		if (cm_mgr_get_dram_opp_base() == -1) {
 			cm_mgr_dram_opp = 0;
-			icc_set_bw(cm_mgr_get_bw_path(), 0,
-					cm_mgr_perfs[cm_mgr_dram_opp]);
 		} else {
-			if (cm_mgr_dram_opp > 0) {
+			if (cm_mgr_dram_opp > 0)
 				cm_mgr_dram_opp--;
-				icc_set_bw(cm_mgr_get_bw_path(), 0,
-						cm_mgr_perfs[cm_mgr_dram_opp]);
-			}
 		}
+
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+		cm_mgr_dram_opp = cm_mgr_judge_perfs_dram_opp(cm_mgr_dram_opp);
+#endif
+		icc_set_bw(cm_mgr_get_bw_path(), 0,
+					cm_mgr_perfs[cm_mgr_dram_opp]);
 
 		pm_qos_update_request_status = enable;
 	} else {
