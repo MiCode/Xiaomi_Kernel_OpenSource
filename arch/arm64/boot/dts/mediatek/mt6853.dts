@@ -6370,6 +6370,21 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,irq_nfc-eint";
 	};
 	/* NFC end */
+
+	typec_mux_switch: typec_mux_switch {
+		compatible = "mediatek,typec_mux_switch";
+		status = "okay";
+	};
+
+	fusb304: fusb304 {
+		compatible = "mediatek,fusb304";
+		status = "okay";
+	};
+
+	ptn36241g: ptn36241g {
+		compatible = "mediatek,ptn36241g";
+		status = "okay";
+	};
 };
 
 &i2c6 {
@@ -6992,6 +7007,7 @@ page_owner=on loop.max_part=7";
 			wd,sbu_ph_ubound1_c2c = <3150>;	/* mV */
 			wd,sbu_ph_ubound2_c2c = <3800>;	/* mV */
 			wd,sbu_aud_ubound = <1600>;	/* mV */
+			switch = <&typec_mux_switch>;
 			pd-data {
 				/*
 				 * VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,

@@ -6621,6 +6621,21 @@ page_owner=on loop.max_part=7";
 		interrupt-parent = <&pio>;
 		interrupts = <211 IRQ_TYPE_LEVEL_LOW 223 0>;
 	};
+
+	typec_mux_switch: typec_mux_switch {
+		compatible = "mediatek,typec_mux_switch";
+		status = "okay";
+	};
+
+	fusb304: fusb304 {
+		compatible = "mediatek,fusb304";
+		status = "okay";
+	};
+
+	ptn36241g: ptn36241g {
+		compatible = "mediatek,ptn36241g";
+		status = "okay";
+	};
 };
 
 &spmi_bus {
