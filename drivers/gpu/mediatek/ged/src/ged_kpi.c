@@ -232,7 +232,7 @@ static struct GED_KPI_MEOW_DVFS_FREQ_PRED *g_psGIFT;
 
 static int g_target_fps_default = GED_KPI_MAX_FPS;
 
-#define GED_KPI_TOTAL_ITEMS 128
+#define GED_KPI_TOTAL_ITEMS 256
 #define GED_KPI_UID(pid, wnd) (pid | ((unsigned long)wnd))
 #define SCREEN_IDLE_PERIOD 500000000
 
@@ -1402,6 +1402,13 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				psKPI->i32QueueID == psTimeStamp->i32FrameID))
 					break;
 				psKPI = NULL;
+
+				// check for abnormal list
+				if (psListEntry->prev == NULL || psListEntry->next == NULL)
+					GED_LOGI(
+				"[GED_KPI] PID: 0x%x, Wnd:0x%llx, count: %d. prev/next: %p/%p",
+						psHead->pid, psHead->ullWnd, psHead->i32Count,
+						psListEntry->prev, psListEntry->next);
 			}
 
 			if (psKPI) {
