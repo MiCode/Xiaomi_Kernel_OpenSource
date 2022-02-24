@@ -332,6 +332,7 @@ struct mtk_vcu {
 	struct vcu_ipi_desc ipi_desc[IPI_MAX];
 	struct device *dev;
 	struct device *dev_io_enc;
+	struct device *dev_gcem;
 	struct mutex vcu_mutex[VCU_CODEC_MAX];
 	struct mutex vcu_gce_mutex[VCU_CODEC_MAX];
 	struct mutex ctx_ipi_binding[VCU_CODEC_MAX];
@@ -340,6 +341,7 @@ struct mtk_vcu {
 	struct file *file;
 	struct iommu_domain *io_domain;
 	struct iommu_domain *io_domain_enc;
+	struct iommu_domain *io_domain_gcem;
 	bool   iommu_padding;
 	/* temp for 33bits larb adding bits "1" iommu */
 	struct map_hw_reg map_base[VCU_MAP_HW_REG_NUM];
@@ -1569,7 +1571,7 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 		vcuid = 2;
 	else if (strcmp(current->comm, "mdpd") == 0)
 		vcuid = 1;
-	else if (strcmp(current->comm, "vpud") == 0) {
+	else if (strcmp(current->comm, "vpud") == 0 || strcmp(current->comm, "v3avpud") == 0) {
 		mutex_lock(&vpud_task_mutex);
 		if (vcud_task &&
 			(current->tgid != vcud_task->tgid ||
@@ -1748,6 +1750,12 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 			atomic_inc(&((struct vcu_pa_pages *)ret)->ref_cnt);
 			vma->vm_ops = &mtk_vcu_page_vm_ops;
 			vma->vm_private_data = ret;
+			if (vcu_queue->cmdq_clt->use_iommu) {
+				pa_start = iommu_iova_to_phys(vcu_dev->io_domain_gcem,
+					((vma->vm_pgoff << PAGE_SHIFT) - gce_mminfra));
+			} else {
+				pa_start = (vma->vm_pgoff << PAGE_SHIFT) - gce_mminfra;
+			}
 			vma->vm_pgoff = pa_start >> PAGE_SHIFT;
 			vma->vm_page_prot =
 				pgprot_writecombine(vma->vm_page_prot);
@@ -2359,6 +2367,8 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	unsigned int vcuid, off = 0;
 	const char *gce_event_name;
 	int gce_event_id;
+	struct device_node *gcem_node = NULL;
+	struct platform_device	*gcem_pdev = NULL;
 
 	dev_dbg(&pdev->dev, "[VCU] initialization\n");
 
@@ -2527,6 +2537,17 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		ret = (int)PTR_ERR(vcu_mtkdev[vcuid]->vcu_device);
 		dev_info(dev, "[VCU] device_create fail (ret=%d)", ret);
 		goto err_device;
+	}
+
+	gcem_node = of_parse_phandle(dev->of_node, "mediatek,gcem", 0);
+	if (gcem_node) {
+		gcem_pdev = of_find_device_by_node(gcem_node);
+		if (gcem_pdev) {
+			vcu->dev_gcem = &gcem_pdev->dev;
+#if IS_ENABLED(CONFIG_MTK_IOMMU)
+			vcu->io_domain_gcem = iommu_get_domain_for_dev(vcu->dev_gcem);
+#endif
+		}
 	}
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,dec_gce_th_num",
