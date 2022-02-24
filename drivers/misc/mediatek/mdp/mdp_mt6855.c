@@ -38,6 +38,7 @@ int gCmdqRdmaPrebuiltSupport;
 /* support register MSB */
 int gMdpRegMSBSupport = 1;
 
+static atomic_t mdp_smi_clk_usage;
 /* use to generate [CMDQ_ENGINE_ENUM_id and name] mapping for status print */
 #define CMDQ_FOREACH_MODULE_PRINT(ACTION)\
 {		\
@@ -921,11 +922,13 @@ int32_t cmdqMdpClockOn(uint64_t engineFlag)
 
 #endif				/* #ifdef CMDQ_PWR_AWARE */
 
-	CMDQ_MSG("%s: cmdq_util_prebuilt_init(0)\n", __func__);
-	cmdq_util_prebuilt_init(0);
+	if (engineFlag != 0) {
+		CMDQ_MSG("%s: cmdq_util_prebuilt_init(0)\n", __func__);
+		cmdq_util_prebuilt_init(0);
 
-	CMDQ_MSG("%s: set BYPASS_MUX_SHADOW bit0 as 0x1\n", __func__);
-	CMDQ_REG_SET32(MMSYS_CONFIG_BASE + 0xF00, 0x1);
+		CMDQ_MSG("%s: set BYPASS_MUX_SHADOW bit0 as 0x1\n", __func__);
+		CMDQ_REG_SET32(MMSYS_CONFIG_BASE + 0xF00, 0x1);
+	}
 
 	CMDQ_MSG("%s: Enable MDP(0x%llx) clock end\n", __func__, engineFlag);
 	return 0;
@@ -1416,30 +1419,47 @@ u64 cmdq_mdp_get_engine_group_bits(u32 engine_group)
 static void mdp_enable_larb(bool enable, struct device *larb)
 {
 #if IS_ENABLED(CONFIG_MTK_SMI)
+	s32 mdp_clk_usage;
+
 	if (!larb) {
 		CMDQ_ERR("%s smi larb not support\n", __func__);
 		return;
 	}
 
 	if (enable) {
-		int ret = mtk_smi_larb_get(larb);
+		int ret = 0;
 
-		cmdq_mdp_enable_clock_APB(enable);
-		cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
+		mdp_clk_usage = atomic_inc_return(&mdp_smi_clk_usage);
 
-		if (ret)
-			CMDQ_ERR("%s enable fail ret:%d\n",
-				__func__, ret);
+		if (mdp_clk_usage == 1) {
+			ret = mtk_smi_larb_get(larb);
+			if (ret)
+				CMDQ_ERR("%s enable larb fail ret:%d\n", __func__, ret);
+
+			cmdq_mdp_enable_clock_APB(enable);
+			cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
+			CMDQ_LOG_CLOCK("%s enable, mdp_smi_clk_usage:%d\n",
+				__func__, mdp_clk_usage);
+		}
 	} else {
-		cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
-		cmdq_mdp_enable_clock_APB(enable);
-		mtk_smi_larb_put(larb);
+
+		mdp_clk_usage = atomic_dec_return(&mdp_smi_clk_usage);
+
+		if (mdp_clk_usage == 0) {
+			cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
+			cmdq_mdp_enable_clock_APB(enable);
+			mtk_smi_larb_put(larb);
+			CMDQ_LOG_CLOCK("%s disable, mdp_smi_clk_usage:%d\n",
+				__func__, mdp_clk_usage);
+		}
 	}
 #endif
 }
 
 static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
 {
+	CMDQ_LOG_CLOCK("%s enable:%d, engine_flag:%llx\n", __func__, enable, engine_flag);
+
 	if (engine_flag & MDP_ENG_LARB2)
 		mdp_enable_larb(enable, larb2);
 }
