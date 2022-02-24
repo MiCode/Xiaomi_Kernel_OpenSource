@@ -1455,6 +1455,12 @@ static int calc_hrt_num(struct drm_device *dev,
 	}
 	*/
 
+	if (disp_info->layer_num[HRT_PRIMARY] <= 0 &&
+		l_rule_info->dal_enable) {
+		sum_overlap_w += HRT_AEE_WEIGHT;
+		DDPMSG("%s: only dal layer,set sum_overlap_w = %d\n", sum_overlap_w);
+	}
+
 	emi_hrt_level = get_hrt_level(sum_overlap_w, false);
 
 	overlap_num = sum_overlap_w;
