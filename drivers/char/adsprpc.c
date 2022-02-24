@@ -2450,9 +2450,10 @@ static void fastrpc_ramdump_collection(int cid)
 		if (ret < 0)
 			ADSPRPC_ERR("adsprpc: %s: unable to dump PD memory (err %d)\n",
 				__func__, ret);
-		if (fl)
+		if (fl) {
+			hlist_del_init(&buf->hn_init);
 			complete(&fl->work);
-		hlist_del_init(&buf->hn_init);
+		}
 	}
 }
 
