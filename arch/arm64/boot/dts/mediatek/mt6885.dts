@@ -8066,7 +8066,7 @@ page_owner=on loop.max_part=7";
 
 #include "mediatek/v1/mt6360.dtsi"
 
-&subpmic_pmic_mtk {
+&mt6360_pmic {
 	ldo6 {
 		/delete-property/ regulator-always-on;
 	};
@@ -8331,7 +8331,7 @@ page_owner=on loop.max_part=7";
 #include "mediatek/mt6315_s3.dtsi"
 #include "mediatek/mt6359p.dtsi"
 #include "mediatek/cust_mt6893_msdc.dtsi"
-#include "mediatek/mt6360_pd.dtsi"
+#include "mediatek/v1/mt6360_pd.dtsi"
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #include "mediatek/trusty.dtsi"
 #endif
