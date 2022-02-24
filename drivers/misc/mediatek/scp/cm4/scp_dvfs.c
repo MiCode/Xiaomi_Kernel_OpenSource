@@ -550,8 +550,11 @@ int scp_request_freq(void)
 			spm_resource_req(SPM_RESOURCE_USER_SCP,
 						SPM_RESOURCE_MAINPLL);
 			#endif
-    #endif
 		else if (scp_expected_freq == UNIVPLL_416M)
+	#else
+		if (scp_expected_freq == UNIVPLL_416M)
+	#endif
+
 			#if defined(CONFIG_MACH_MT6781)
 			scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR);
 			#else
