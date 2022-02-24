@@ -4816,7 +4816,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	MSDK_SENSOR_REG_INFO_STRUCT *sensor_reg_data =
 		(MSDK_SENSOR_REG_INFO_STRUCT *) feature_para;
 
-	pr_debug("feature_id = %d\n", feature_id);
+	/*pr_debug("feature_id = %d\n", feature_id);*/
 	switch (feature_id) {
 
 	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
@@ -4962,8 +4962,8 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		spin_unlock(&imgsensor_drv_lock);
 		break;
 	case SENSOR_FEATURE_GET_CROP_INFO:
-		pr_debug("SENSOR_FEATURE_GET_CROP_INFO:");
-		pr_debug("scenarioId:%d\n", *feature_data_32);
+		/*pr_debug("SENSOR_FEATURE_GET_CROP_INFO:");*/
+		/*pr_debug("scenarioId:%d\n", *feature_data_32);*/
 		wininfo =
 			(struct SENSOR_WINSIZE_INFO_STRUCT *)
 			(uintptr_t)(*(feature_data + 1));
@@ -4998,8 +4998,8 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		}
 		break;
 	case SENSOR_FEATURE_GET_PDAF_INFO:
-		pr_debug("SENSOR_FEATURE_GET_PDAF_INFO");
-		pr_debug("scenarioId:%lld\n", *feature_data);
+		/*pr_debug("SENSOR_FEATURE_GET_PDAF_INFO");*/
+		/*pr_debug("scenarioId:%lld\n", *feature_data);*/
 		PDAFinfo =
 			(struct SET_PD_BLOCK_INFO_T *)
 			(uintptr_t)(*(feature_data + 1));
@@ -5015,8 +5015,8 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		}
 		break;
 	case SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY:
-		pr_debug("SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY");
-		pr_debug("scenarioId:%lld\n", *feature_data);
+		/*pr_debug("SENSOR_FEATURE_GET_SENSOR_PDAF_CAPACITY");*/
+		/*pr_debug("scenarioId:%lld\n", *feature_data);*/
 		/*PDAF capacity enable or not, 2p8 only full size support PDAF*/
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
