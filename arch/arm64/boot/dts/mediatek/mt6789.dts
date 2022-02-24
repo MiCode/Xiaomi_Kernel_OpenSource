@@ -14,6 +14,7 @@
 #include <dt-bindings/soc/mediatek,boot-mode.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
+#include <dt-bindings/memory/mt6789-larb-port.h>
 
 / {
 	model = "MT6789";
@@ -1244,29 +1245,74 @@
 			reg = <0 0x14015000 0 0x1000>;
 		};
 
-		mm_iommu_0@14016000 {
-			compatible = "mediatek,mm_iommu_0";
-			reg = <0 0x14016000 0 0x1000>;
-		};
-
-		mm_iommu_1@14017000 {
-			compatible = "mediatek,mm_iommu_1";
+		disp_iommu_bank1: iommu@14017000 {
+			compatible = "mediatek,common-disp-iommu-bank1";
+			mediatek,bank-id = <1>;
 			reg = <0 0x14017000 0 0x1000>;
+			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
-		mm_iommu_2@14018000 {
-			compatible = "mediatek,mm_iommu_2";
+		disp_iommu_bank2: iommu@14018000 {
+			compatible = "mediatek,common-disp-iommu-bank2";
+			mediatek,bank-id = <2>;
 			reg = <0 0x14018000 0 0x1000>;
+			interrupts = <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
-		mm_iommu_3@14019000 {
-			compatible = "mediatek,mm_iommu_3";
+		disp_iommu_bank3: iommu@14019000 {
+			compatible = "mediatek,common-disp-iommu-bank3";
+			mediatek,bank-id = <3>;
 			reg = <0 0x14019000 0 0x1000>;
+			interrupts = <GIC_SPI 306 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
-		mm_iommu_4@1401a000 {
-			compatible = "mediatek,mm_iommu_4";
+		disp_iommu_bank4: iommu@1401a000 {
+			compatible = "mediatek,common-disp-iommu-bank4";
+			mediatek,bank-id = <4>;
 			reg = <0 0x1401a000 0 0x1000>;
+			interrupts = <GIC_SPI 307 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		disp_iommu: iommu@14016000 {
+			compatible = "mediatek,mt6789-disp-iommu";
+			reg = <0 0x14016000 0 0x1000>;
+			interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,iommu_banks = <&disp_iommu_bank1 &disp_iommu_bank2
+						&disp_iommu_bank3 &disp_iommu_bank4>;
+			clock-names = "bclk";
+			#iommu-cells = <1>;
+		};
+
+		iommu_test {
+			compatible = "mediatek,ktf-iommu-test";
+			iommus = <&disp_iommu M4U_PORT_L0_DISP_POSTMASK0>;
+		};
+
+		mtk_iommu_debug {
+			compatible = "mediatek,mt6789-iommu-debug";
+		};
+
+		mtk_iommu_test_dmaheap_normal {
+			compatible = "mediatek,dmaheap-normal";
+			iommus = <&disp_iommu M4U_PORT_L0_DISP_POSTMASK0>;
+		};
+
+		mtk_iommu_test0 {
+			compatible = "mediatek,iommu-test-dom0";
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&disp_iommu M4U_PORT_L0_DISP_POSTMASK0>;
+		};
+
+		mtk_iommu_test1 {
+			compatible = "mediatek,iommu-test-dom1";
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&disp_iommu M4U_PORT_L4_VDEC_MC_EXT>;
+		};
+
+		mtk_iommu_test2 {
+			compatible = "mediatek,iommu-test-dom2";
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			iommus = <&disp_iommu M4U_PORT_L2_MDP_RDMA0>;
 		};
 
 		disp_smi_2x1_sub_common_u0@1401b000 {
