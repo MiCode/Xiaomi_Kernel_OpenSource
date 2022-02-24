@@ -2729,6 +2729,11 @@ page_owner=on loop.max_part=7";
 		mediatek,enabled = <1>;
 		mediatek,chain_length = <0xa7f8>;
 		mediatek,rg_dfd_timeout = <0xa0>;
+
+		mediatek,check_dfd_support = <1>;
+		mediatek,dfd_infra_base = <0x390>;
+		mediatek,dfd_ap_addr_offset = <24>;
+		mediatek,dfd_latch_offset = <0x48>;
 	};
 
 	dfd_cache: dfd_cache {
@@ -5831,7 +5836,7 @@ page_owner=on loop.max_part=7";
 	};
 };
 
-#include "mediatek/mt6359.dtsi"
+#include "mediatek/v1/mt6359.dtsi"
 #include "mediatek/cust_mt6785_msdc.dtsi"
 #include "mediatek/v1/mt6360.dtsi"
 #include "mediatek/v1/mt6360_pd.dtsi"

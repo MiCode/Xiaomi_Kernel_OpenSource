@@ -67,6 +67,24 @@
 };
 /* accdet end */
 
+/* keypad start */
+&keypad {
+	pinctrl-names = "default";
+	pinctrl-0 = <&kpd_pins_default>;
+};
+
+&pio {
+	kpd_pins_default: kpdgpiodefault {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO80__FUNC_BPI_BUS8>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_10>;
+			input-enable;
+			input-schmitt-enable;
+		};
+	};
+};
+/* keypad end */
+
 &odm {
 	led0:led@0 {
 		compatible = "mediatek,red";
