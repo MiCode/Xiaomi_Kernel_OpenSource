@@ -136,11 +136,19 @@ void set_logtoomuch_enable(void)
 {
 	logmuch_enable = true;
 }
+EXPORT_SYMBOL_GPL(set_logtoomuch_enable);
 
 void set_logtoomuch_disable(void)
 {
 	logmuch_enable = false;
 }
+EXPORT_SYMBOL_GPL(set_logtoomuch_disable);
+
+bool get_logtoomuch_status(void)
+{
+	return logmuch_enable;
+}
+EXPORT_SYMBOL_GPL(get_logtoomuch_status);
 
 void set_detect_count(int val)
 {
@@ -160,8 +168,13 @@ EXPORT_SYMBOL_GPL(set_detect_count);
 
 int get_detect_count(void)
 {
-	pr_info("get log_much detect value %d.\n", detect_count);
-	return detect_count;
+	pr_info("get log_much detect value %d,get log_much detect after value %d.\n",
+		detect_count, detect_count_after);
+
+	if (detect_count_after_effect_flag)
+		return detect_count_after;
+	else
+		return detect_count;
 }
 EXPORT_SYMBOL_GPL(get_detect_count);
 
@@ -279,6 +292,23 @@ int get_detect_count(void)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(get_detect_count);
+void set_logtoomuch_enable(void)
+{
+
+}
+EXPORT_SYMBOL_GPL(set_logtoomuch_enable);
+
+void set_logtoomuch_disable(void)
+{
+
+}
+EXPORT_SYMBOL_GPL(set_logtoomuch_disable);
+
+bool get_logtoomuch_status(void)
+{
+	return false;
+}
+EXPORT_SYMBOL_GPL(get_logtoomuch_status);
 #endif
 
 
