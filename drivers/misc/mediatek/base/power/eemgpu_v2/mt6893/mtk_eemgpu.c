@@ -2453,6 +2453,7 @@ det->ops->get_volt_gpu(det));
 
 void eemg_init01_gpu(void)
 {
+	eemg_init02_gpu(__func__);
 }
 
 #if EN_EEMGPU
