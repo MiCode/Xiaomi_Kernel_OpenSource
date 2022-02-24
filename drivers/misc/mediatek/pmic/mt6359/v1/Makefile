@@ -9,11 +9,12 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb_c/tcpc/inc
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/pmic/include
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
-ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V2)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
+else ifneq ($(CONFIG_MTK_TINYSYS_SSPM_VERSION),"")
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_TINYSYS_SSPM_VERSION)
 else
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm
 endif
 obj-y += pmic_ipi.o
 endif

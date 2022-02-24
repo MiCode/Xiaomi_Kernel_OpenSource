@@ -43,7 +43,7 @@
 #include "ufs-mtk-block.h"
 #include "unipro.h"
 
-#ifdef CONFIG_MACH_MT6781
+#if defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6785)
 #include "mtk_clkbuf_ctl.h"
 #endif
 
@@ -103,7 +103,7 @@ static const struct of_device_id ufs_mtk_of_match[] = {
 	{},
 };
 
-#ifdef CONFIG_MACH_MT6781
+#if defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6785)
 extern bool clk_buf_ctrl(enum clk_buf_id id, bool onoff);
 #endif
 
@@ -731,7 +731,7 @@ static int ufs_mtk_setup_ref_clk(struct ufs_hba *hba, bool on)
 		return 0;
 
 	if (on) {
-		#ifdef CONFIG_MACH_MT6781
+		#if defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6785)
 			clk_buf_ctrl(CLK_BUF_UFS, on);
 		#else
 			ufs_mtk_ref_clk_notify(on, res);
@@ -786,7 +786,7 @@ out:
 	host->ref_clk_enabled = on;
 	if (!on) {
 		ufshcd_delay_us(host->ref_clk_gating_wait_us, 10);
-	#ifdef CONFIG_MACH_MT6781
+	#if defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6785)
 		clk_buf_ctrl(CLK_BUF_UFS, on);
 	#else
 		ufs_mtk_ref_clk_notify(on, res);

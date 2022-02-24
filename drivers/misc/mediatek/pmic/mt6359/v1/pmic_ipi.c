@@ -5,7 +5,7 @@
 #include <linux/ratelimit.h>
 #include <mt-plat/upmu_common.h>
 #include <sspm_ipi_pin.h>
-#include <v1/sspm_ipi.h>
+#include <sspm_ipi.h>
 #include <include/pmic_ipi.h>
 #include <include/pmic_ipi_service_id.h>
 
