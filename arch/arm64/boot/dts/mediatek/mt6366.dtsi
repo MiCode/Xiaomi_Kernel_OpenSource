@@ -15,14 +15,15 @@
 			compatible = "mediatek,mt63xx-debug";
 		};
 
-		pmic_efuse: mt6366-efuse {
-			compatible = "mediatek,mt6366-efuse";
+		pmic_efuse: mt6358-efuse {
+			compatible = "mediatek,mt6358-efuse";
 			#address-cells = <1>;
 			#size-cells = <1>;
 		};
 
 		pmic_auxadc: mt635x-auxadc {
-			compatible = "mediatek,mt6358-auxadc";
+			compatible = "mediatek,pmic-auxadc",
+				     "mediatek,mt6358-auxadc";
 			#io-channel-cells = <1>;
 			/* efuse offset from mt6358 */
 			cali-efuse-offset = <1>;
@@ -261,6 +262,14 @@
 
 			mt6358_vsram_others_reg: ldo_vsram_others {
 				regulator-name = "vsram_others";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <1293750>;
+				regulator-enable-ramp-delay = <240>;
+				regulator-always-on;
+			};
+
+			mt6358_vsram_core_reg: ldo_vsram_core {
+				regulator-name = "vsram_core";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <1293750>;
 				regulator-enable-ramp-delay = <240>;

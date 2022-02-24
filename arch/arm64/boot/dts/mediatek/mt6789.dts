@@ -428,6 +428,14 @@
 		#clock-cells = <1>;
 	};
 
+	low_battery_throttling {
+		compatible = "mediatek,low_battery_throttling";
+		hv_thd_volt = <3400>;
+		lv1_thd_volt = <3250>;
+		lv2_thd_volt = <3100>;
+		status = "disabled";
+	};
+
 	soc {
 		#address-cells = <2>;
 		#size-cells = <2>;
