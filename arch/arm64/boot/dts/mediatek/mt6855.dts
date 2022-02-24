@@ -4140,8 +4140,28 @@
 				<&disp_iommu M4U_LARB4_PORT10>,
 				<&disp_iommu M4U_LARB4_PORT11>,
 				<&disp_iommu M4U_LARB4_PORT12>;
-			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
-			//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			mediatek,mailbox-gce = <&gce>;
+			mediatek,gcem = <&gce_m>;
+			mediatek,dec_gce_th_num = <0>; /* VDEC GCE HW THREAD NUM*/
+			mediatek,enc_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
+
+			mboxes = <&gce_m 22 0 CMDQ_THR_PRIO_1>,
+				<&gce_m_sec 12 0 CMDQ_THR_PRIO_1>;
+			gce-event-names = "venc_eof",
+				"venc_cmdq_pause_done",
+				"venc_mb_done",
+				"venc_128B_cnt_done",
+				"venc_pps_done",
+				"venc_sps_done";
+			gce-events =  <&gce CMDQ_EVENT_VENC_FRAME_DONE>,
+				<&gce CMDQ_EVENT_VENC_PAUSE_DONE>,
+				<&gce CMDQ_EVENT_VENC_MB_DONE>,
+				<&gce CMDQ_EVENT_VENC_128BYTE_DONE>,
+				<&gce CMDQ_EVENT_VENC_PPS_DONE>,
+				<&gce CMDQ_EVENT_VENC_SPS_DONE>;
+
+			gce-gpr = <GCE_GPR_R10>, <GCE_GPR_R11>;
 		};
 
 		vcu_iommu_venc {
