@@ -611,6 +611,10 @@ static int get_hw_btsmdpa_temp(void)
 #endif
 
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
+	if (IS_ERR_OR_NULL(thermistor_ch1)) {
+		mtkts_btsmdpa_dprintk("invalid thermistor_ch1:0x%p\n", thermistor_ch1);
+		return ret;
+	}
 	ret = iio_read_channel_processed(thermistor_ch1, &val);
 	mtkts_btsmdpa_dprintk("%s val=%d\n", __func__, val);
 
