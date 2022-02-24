@@ -194,6 +194,8 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6855_TOP_AXI_PROT_EN_MMSYS0_DISP),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6855_TOP_AXI_PROT_EN_MMSYS1_DISP),
 		},
 	},
 	[MT6855_POWER_DOMAIN_MM_INFRA] = {
@@ -229,6 +231,8 @@ static const struct scp_domain_data scp_domain_data_mt6855[] = {
 				MT6855_VLP_AXI_PROT_EN_MM_PROC),
 			BUS_PROT_IGN(VLP_TYPE, 0x0214, 0x0218, 0x0210, 0x0220,
 				MT6855_VLP_AXI_PROT_EN_MM_PROC_2ND),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6855_TOP_AXI_PROT_EN_MMSYS1_MM_PROC),
 		},
 		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
 	},
