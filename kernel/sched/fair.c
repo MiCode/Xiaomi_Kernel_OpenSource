@@ -7435,9 +7435,21 @@ static int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu, int sy
 			continue;
 
 		cur_energy = compute_energy(p, cpu, pd);
-		if (cur_energy < best_energy) {
-			best_energy = cur_energy;
-			best_energy_cpu = cpu;
+		if (cur_energy <= best_energy) {
+			int best_cpu_cap = capacity_orig_of(best_energy_cpu);
+			int cur_cpu_cap = capacity_orig_of(cpu);
+
+			if (cur_cpu_cap > best_cpu_cap){
+				if((best_energy - cur_energy) > (best_energy >> 4 )) {
+					best_energy = cur_energy;
+					best_energy_cpu = cpu;
+				}
+
+			}else{
+				best_energy = cur_energy;
+				best_energy_cpu = cpu;
+			}
+
 		}
 	}
 unlock:
