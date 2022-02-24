@@ -89,6 +89,11 @@ DEFINE_RAW_SPINLOCK(callback_list_lock);
 static void show_status(int flag);
 static void monitor_hang_kick(int lParam);
 static void show_bt_by_pid(int task_pid);
+static void log_hang_info(const char *fmt, ...);
+static bool check_white_list(void);
+static int show_white_list_bt(struct task_struct *p);
+static int find_task_by_name(char *name);
+static int run_callback(void);
 
 static void (*p_ldt_disable_aee)(void);
 void monitor_hang_regist_ldt(void (*fn)(void))
@@ -222,9 +227,19 @@ do {                \
 		pr_debug(x);        \
 } while (0)
 
+static void monitor_hang_callback_dummy1(void)
+{
+	log_hang_info("callback 1 ok\n");
+}
+
+static void monitor_hang_callback_dummy2(void)
+{
+	log_hang_info("callback 2 ok\n");
+}
+
 static int monitor_hang_show(struct seq_file *m, void *v)
 {
-	SEQ_printf(m, "show hang_detect_raw");
+	SEQ_printf(m, "show hang_detect_raw\n");
 	SEQ_printf(m, "%s", Hang_Info);
 	return 0;
 }
@@ -241,6 +256,7 @@ static ssize_t monitor_hang_proc_write(struct file *filp, const char *ubuf,
 	char buf[64];
 	long val;
 	int ret;
+	struct task_struct *p;
 
 	if (cnt >= sizeof(buf))
 		return -EINVAL;
@@ -258,11 +274,31 @@ static ssize_t monitor_hang_proc_write(struct file *filp, const char *ubuf,
 	if (val == 2) {
 		reset_hang_info();
 		show_status(0);
-	} else if (val == 3) {
-		reset_hang_info();
-		show_status(1);
-	} else if (val > 10) {
-		show_bt_by_pid((int)val);
+
+		log_hang_info("white list start\n");
+		add_white_list("system_server");
+		add_white_list("name1");
+		add_white_list("name2");
+		del_white_list("name1");
+		del_white_list("name2");
+		check_white_list();
+		rcu_read_lock();
+		for_each_process(p) {
+			if (!strcmp(p->comm, "system_server"))
+				break;
+		}
+		rcu_read_unlock();
+		if (show_white_list_bt(p) == 0)
+			log_hang_info("white list ok\n");
+		del_white_list("system_server");
+		log_hang_info("white list done\n");
+
+		if (find_task_by_name("system_server") == p->pid)
+			log_hang_info("find task by name ok\n");
+
+		register_hang_callback(monitor_hang_callback_dummy1);
+		register_hang_callback(monitor_hang_callback_dummy2);
+		run_callback();
 	}
 
 	return cnt;
@@ -1154,7 +1190,7 @@ static int show_white_list_bt(struct task_struct *p)
 	return -1;
 }
 
-static int run_callback()
+static int run_callback(void)
 {
 	struct hang_callback_list *pList = NULL;
 
@@ -1329,7 +1365,7 @@ void wake_up_dump(void)
 }
 
 
-bool check_white_list(void)
+static bool check_white_list(void)
 {
 	struct name_list *pList = NULL;
 
