@@ -119,6 +119,7 @@ obj-$(CONFIG_SXR_GPUCC_NEO) += gpucc-neo.o
 obj-$(CONFIG_SM_VIDEOCC_DIWALI) += videocc-diwali.o
 obj-$(CONFIG_SM_VIDEOCC_PARROT) += videocc-parrot.o
 obj-$(CONFIG_SM_VIDEOCC_SHIMA) += videocc-shima.o
+obj-$(CONFIG_SXR_VIDEOCC_ANORAK) += videocc-anorak.o
 obj-$(CONFIG_SXR_VIDEOCC_NEO) += videocc-neo.o
 obj-$(CONFIG_SPMI_PMIC_CLKDIV) += clk-spmi-pmic-div.o
 obj-$(CONFIG_TCSRCC) += tcsrcc.o
