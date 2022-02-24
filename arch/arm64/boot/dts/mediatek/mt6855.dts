@@ -6158,6 +6158,20 @@
 			};
 		};
 
+		ktf-mmdvfs-test {
+			compatible = "mediatek,ktf-mmdvfs-test";
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_LARB1_PORT1)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB2_PORT0)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT0)
+						&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "l1_r_disp_ovl1_2l",
+						"l2_r_mdp_rdma0",
+						"l4_r_hw_vdec_mc_ext";
+		};
+
 		mmdvfs-debug {
 			compatible = "mediatek,mmdvfs-debug";
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
