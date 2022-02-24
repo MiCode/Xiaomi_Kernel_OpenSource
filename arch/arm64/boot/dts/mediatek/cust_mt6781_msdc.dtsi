@@ -10,6 +10,7 @@
 &mmc0 {
 	status = "okay";
 	host-index = <0>;
+	host-function = <MSDC_EMMC>;
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc0_pins_default>;
 	pinctrl-1 = <&mmc0_pins_uhs>;
@@ -81,6 +82,7 @@
 &mmc1 {
 	status = "okay";
 	host-index = <1>;
+	host-function = <MSDC_SD>;
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc1_pins_default>;
 	pinctrl-1 = <&mmc1_pins_uhs>;
