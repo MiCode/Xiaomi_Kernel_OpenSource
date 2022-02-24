@@ -767,6 +767,11 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 			ged_dvfs_gpu_freq_commit((unsigned long)i32NewFreqID
 			, ged_get_freq_by_idx(i32NewFreqID)
 			, GED_DVFS_LOADING_BASE_COMMIT);
+
+			/* Reset frame window when FB to LB */
+			num_pre_frames = 0;
+			for (i = 0; i < GED_DVFS_BUSY_CYCLE_MONITORING_WINDOW_NUM; i++)
+				busy_cycle[i] = 0;
 		}
 
 	}
