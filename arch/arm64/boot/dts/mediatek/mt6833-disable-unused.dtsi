@@ -150,12 +150,6 @@
 			power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
 	};
 
-	disable-unused-clk-mfg {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&mfg_top_config_clk CLK_MFGCFG_BG3D>;
-	};
-
 	disable-unused-clk-imp_iic_wrap_n {
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
