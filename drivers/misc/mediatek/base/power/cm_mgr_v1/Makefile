@@ -31,6 +31,8 @@ else ifeq ($(CONFIG_MACH_MT6785),y)
 PLATFORM_DIR = mt6785
 else ifeq ($(CONFIG_MACH_MT6885),y)
 PLATFORM_DIR = mt6885
+else ifeq ($(CONFIG_MACH_MT6893),y)
+PLATFORM_DIR = mt6893
 endif
 
 ifeq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6771"))

@@ -174,5 +174,6 @@ obj-$(CONFIG_MACH_MT6853) += cm_mgr_v1/
 obj-$(CONFIG_MACH_MT6873) += cm_mgr_v1/
 obj-$(CONFIG_MACH_MT6785) += cm_mgr_v1/
 obj-$(CONFIG_MACH_MT6885) += cm_mgr_v1/
+obj-$(CONFIG_MACH_MT6893) += cm_mgr_v1/
 endif
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += qos/
