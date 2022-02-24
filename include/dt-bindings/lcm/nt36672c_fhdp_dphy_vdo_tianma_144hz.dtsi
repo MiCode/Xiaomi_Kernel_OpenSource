@@ -150,7 +150,7 @@
 					/* esd check table */
 					lcm-params-dsi-cust_esd_check = <1>;
 					lcm-params-dsi-esd_check_enable = <1>;
-					lcm-params-dsi-lcm_esd_check_table0 = <0x0A 0x01 0x9C>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0A 01 9C];
 					lcm-params-dsi-lcm_esd_check_table1;
 					lcm-params-dsi-lcm_esd_check_table2;
 
@@ -336,7 +336,7 @@
 					/* esd check table */
 					lcm-params-dsi-cust_esd_check = <1>;
 					lcm-params-dsi-esd_check_enable = <1>;
-					lcm-params-dsi-lcm_esd_check_table0 = <0x0A 0x01 0x9C>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0A 01 9C];
 					lcm-params-dsi-lcm_esd_check_table1;
 					lcm-params-dsi-lcm_esd_check_table2;
 
@@ -522,7 +522,7 @@
 					/* esd check table */
 					lcm-params-dsi-cust_esd_check = <1>;
 					lcm-params-dsi-esd_check_enable = <1>;
-					lcm-params-dsi-lcm_esd_check_table0 = <0x0A 0x01 0x9C>;
+					lcm-params-dsi-lcm_esd_check_table0 = [0A 01 9C];
 					lcm-params-dsi-lcm_esd_check_table1;
 					lcm-params-dsi-lcm_esd_check_table2;
 
@@ -742,96 +742,96 @@
 
 			lcm-ops-dsi {
 				compatible = "mediatek,lcm-ops-dsi";
-				prepare_table = <MTK_LCM_UTIL_TYPE_RESET 1 0>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 5>,
-					<MTK_LCM_UTIL_TYPE_RESET 1 1>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 5>,
-					<MTK_LCM_UTIL_TYPE_RESET 1 0>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 5>,
-					<MTK_LCM_UTIL_TYPE_RESET 1 1>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 15>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x10>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 6>,
-						<0x3B 0x03 0x14 0x2E 0x04 0x04>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xB0 0x00>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
-						<0xC1 0x89 0x28 0x00 0x08 0x00 0xAA 0x02 0x0E 0x00>,
-						<0x2B 0x00 0x07 0x0D 0xB7 0x0C 0xB7>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 3 0xC2 0x1B 0xA0>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE9 0x01>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0xF0>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x5A 0x00>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9F 0x0F>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x10>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x51 0xFF>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x53 0x24>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x55 0x00>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x29>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x11>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 100>,
-					<MTK_LCM_TYPE_END>;
+				prepare_table = [MTK_LCM_UTIL_TYPE_HEX_RESET 01 00],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 05],
+					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 05],
+					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 00],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 05],
+					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0f],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 FF 10],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 FB 01],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 06],
+						[3B 03 14 2E 04 04],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 B0 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 11],
+						[C1 89 28 00 08 00 AA 02 0E 00],
+						[2B 00 07 0D B7 0C B7],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03 C2 1B A0],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 E9 01],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 FF F0],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 FB 01],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 5A 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 9F 0F],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 FF 10],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 51 FF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 53 24],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 55 00],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 29],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 11],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 64],
+					[MTK_LCM_TYPE_HEX_END];
 
 				unprepare_table =
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x28 0x00>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 50>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x10 0x00>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 150>,
-					<MTK_LCM_TYPE_END>;
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 28 00],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 32],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02 10 00],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 96],
+					[MTK_LCM_TYPE_HEX_END];
 
 				set_display_on_table =
-					<MTK_LCM_PHASE_TYPE_START 2>,
-						<MTK_LCM_PHASE_LK>,
-						<MTK_LCM_PHASE_LK_DISPLAY_ON_DELAY>,
-					<MTK_LCM_UTIL_TYPE_TDELAY 1 200>,
-					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x29>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 100>,
-					<MTK_LCM_PHASE_TYPE_END 2>,
-						<MTK_LCM_PHASE_LK>,
-						<MTK_LCM_PHASE_LK_DISPLAY_ON_DELAY>,
-					<MTK_LCM_TYPE_END>;
+					[MTK_LCM_PHASE_TYPE_HEX_START 02],
+						[MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
+					[MTK_LCM_UTIL_TYPE_HEX_TDELAY 01 c8],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 29],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 64],
+					[MTK_LCM_PHASE_TYPE_HEX_END 02],
+						[MTK_LCM_PHASE_HEX_LK],
+						[MTK_LCM_PHASE_HEX_LK_DISPLAY_ON_DELAY],
+					[MTK_LCM_TYPE_HEX_END];
 
-				lcm_update_table = <MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 3>,
-						<MTK_LCM_LK_TYPE_PREPARE_PARAM 5>,
-						<0x0 0x0 0x5 0x39 0x2>,
-					/*0x2a is of data[1] bit0 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_FIX_BIT 3 1 0 0x2a>,
+				lcm_update_table = [MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 03],
+						[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05],
+						[00 00 05 39 02],
+					/*2a is of data[1] bit0 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_FIX_BIT 03 01 00 2a],
 					/*x0_msb is of data[1] bit8 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_X0_MSB_BIT 3 1 8 0x0>,
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X0_MSB_BIT 03 01 08 00],
 					/*x0_lsb is of data[1] bit16 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_X0_LSB_BIT 3 1 16 0x0>,
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X0_LSB_BIT 03 01 10 00],
 					/*x1_msb is of data[1] bit24 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_X1_MSB_BIT  3 1 24 0x0>,
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X1_MSB_BIT 03 01 18 00],
 					/*x0_lsb is of data[2] bit0 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_X1_LSB_BIT  3 2 0 0x0>,
-					<MTK_LCM_LK_TYPE_WRITE_PARAM 0>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 3>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM 5>,
-						<0x0 0x0 0x5 0x39 0x2>,
-					/*0x2b is of data[1] bit0 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_FIX_BIT 3 1 0 0x2b>,
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X1_LSB_BIT 03 02 00 00],
+					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 03],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05],
+						[00 00 05 39 02],
+					/*2b is of data[1] bit0 */
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_FIX_BIT 03 01 00 2b],
 					/*y0_msb is of data[1] bit8 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_Y0_MSB_BIT  3 1 8 0x0>,
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y0_MSB_BIT  03 01 08 00],
 					/*y0_lsb is of data[1] bit16 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_Y0_LSB_BIT  3 1 16 0x0>,
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y0_LSB_BIT  03 01 10 00],
 					/*y1_msb is of data[1] bit24 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_Y1_MSB_BIT  3 1 24 0x0>,
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y1_MSB_BIT  03 01 18 00],
 					/*y0_lsb is of data[2] bit0 */
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_Y1_LSB_BIT  3 2 0 0x0>,
-					<MTK_LCM_LK_TYPE_WRITE_PARAM 0>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 1>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM 5>,
-						<0x0 0x0 0x2c 0x39 0x9>,
-					<MTK_LCM_LK_TYPE_WRITE_PARAM_UNFORCE 0>,
-					<MTK_LCM_TYPE_END>;
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y1_LSB_BIT  03 02 00 00],
+					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 01],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05],
+						[00 00 2c 39 09],
+					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM_UNFORCE 00],
+					[MTK_LCM_TYPE_HEX_END];
 
 				set_backlight_mask = <0xfff>;
 				set_backlight_cmdq_table =
 					/* runtime input count, data id*/
-					<MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE 7 2 1 2>,
-						<3 0x51 0xF 0xFF>,/*data count, data mask or value*/
-					<MTK_LCM_TYPE_END>;
+					[MTK_LCM_CB_TYPE_HEX_RUNTIME_INPUT_MULTIPLE 07 02 01 02],
+						[03 51 0f FF],/*data count, data mask or value*/
+					[MTK_LCM_TYPE_HEX_END];
 
 				set_aod_light_mask = <0xfff>;
 				set_aod_light_table;
@@ -841,30 +841,30 @@
 				ata_check_table;
 
 				compare_id_value_length = <1>;
-				compare_id_value_data = <0x55>;
-				compare_id_table = <MTK_LCM_UTIL_TYPE_RESET 1 1>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 10>,
-					<MTK_LCM_UTIL_TYPE_RESET 1 0>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 10>,
-					<MTK_LCM_UTIL_TYPE_RESET 1 1>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 10>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 1>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM 5 0 0x00 0x10 0x05 0x00>,
-					<MTK_LCM_LK_TYPE_WRITE_PARAM 0>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 20>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 1>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM 5 0 0x00 0x01 0x37 0x00>,
-					<MTK_LCM_LK_TYPE_WRITE_PARAM 0>,
-					<MTK_LCM_CMD_TYPE_READ_BUFFER 3 0 1 0xDA>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 1>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM 5 0 0xf0 0xff 0x15 0x0>,
-					<MTK_LCM_LK_TYPE_WRITE_PARAM 0>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 2>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 1>,
-					<MTK_LCM_LK_TYPE_PREPARE_PARAM 5 0 0x00 0x01 0x37 0x00>,
-					<MTK_LCM_LK_TYPE_WRITE_PARAM 0>,
-					<MTK_LCM_UTIL_TYPE_MDELAY 1 2>,
-					<MTK_LCM_TYPE_END>;
+				compare_id_value_data = [55];
+				compare_id_table = [MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0a],
+					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 00],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0a],
+					[MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0a],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 01],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05 00 00 10 05 00],
+					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 14],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 01],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05 00 00 01 37 00],
+					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
+					[MTK_LCM_CMD_TYPE_HEX_READ_BUFFER 03 00 01 DA],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 01],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05 00 f0 ff 15 00],
+					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 02],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_COUNT 01 01],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM 05 00 00 01 37 00],
+					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
+					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 02],
+					[MTK_LCM_TYPE_HEX_END];
 
 				doze_enable_start_table;
 
