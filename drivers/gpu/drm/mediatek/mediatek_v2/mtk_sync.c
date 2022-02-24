@@ -158,6 +158,25 @@ static void mtk_sync_timeline_fence_release(struct dma_fence *fence)
 	struct sync_timeline *parent = dma_fence_parent(fence);
 	unsigned long flags;
 
+#if IS_ENABLED(CONFIG_MTK_RECU_FENCE_LOCK)
+	/*
+	 * Fix fence_lock occur deadlock;
+	 * When fence is running signal, ref is reduced 0, it will trigger release
+	 * flow, and no matter where is in signal or release flow, we will hold fence->lock,
+	 * so deadlock will be happened.
+	 */
+	if (pt) {
+		if (!list_empty(&pt->link)) {
+			spin_lock_irqsave(fence->lock, flags);
+			if (!list_empty(&pt->link)) {
+				list_del(&pt->link);
+				rb_erase(&pt->node, &parent->pt_tree);
+
+			}
+			spin_unlock_irqrestore(fence->lock, flags);
+		}
+	}
+#else
 	if (pt) {
 		spin_lock_irqsave(fence->lock, flags);
 		if (!list_empty(&pt->link)) {
@@ -167,7 +186,7 @@ static void mtk_sync_timeline_fence_release(struct dma_fence *fence)
 		}
 		spin_unlock_irqrestore(fence->lock, flags);
 	}
-
+#endif
 	mtk_sync_timeline_put(parent);
 	dma_fence_free(fence);
 }

@@ -38,3 +38,12 @@ config MTK_DISP_LOGGER
 	  initial display loggger during driver probe
 	  stage, but can still manual disable this function
 	  through debugfs or procfs.
+
+config MTK_RECU_FENCE_LOCK
+	bool "enable fence deadlock workarond for img_gpu"
+	help
+	  For IMG GPU, it will attach to display fence
+	  by callback, and it maybe occur deadlock when fence ref is
+	  reduced to zero in fence signal flow because of linux fence
+	  limitation. So the option will control whether display run
+	  workaround flow.
