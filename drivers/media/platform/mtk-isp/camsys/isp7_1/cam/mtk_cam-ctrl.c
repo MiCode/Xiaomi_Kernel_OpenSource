@@ -1143,7 +1143,7 @@ static int mtk_cam_exp_sensor_switch(struct mtk_cam_ctx *ctx,
 	}
 	time_after_sof = ktime_get_boottime_ns() / 1000000 -
 			   ctx->sensor_ctrl.sof_time;
-	dev_dbg(cam->dev,
+	dev_info(cam->dev,
 		"[%s] [SOF+%dms]] ctx:%d, req:%d\n",
 		__func__, time_after_sof, ctx->stream_id, req_stream_data->frame_seq_no);
 
@@ -1901,7 +1901,7 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
 	int working_req_found = 0;
-	int switch_type;
+	int switch_type, i;
 	unsigned int sensor_request_seq_no = atomic_read(&sensor_ctrl->sensor_request_seq_no);
 
 	/* List state-queue status*/
@@ -1945,6 +1945,16 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 		}
 		/* counter for state queue*/
 		que_cnt++;
+	}
+
+	if (que_cnt > 1 && (prev_stream_data == NULL || state_outer == NULL)) {
+		for (i = 0; i < que_cnt; i++) {
+			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(state_rec[i]);
+			dev_info(raw_dev->dev,
+			"[SOF] STATE_CHECK_DBG [N-%d] Req:%d / State:%d\n",
+			i, req_stream_data->frame_seq_no,
+			state_rec[i]->estate);
+		}
 	}
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
 	/* HW imcomplete case */
@@ -2086,9 +2096,10 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 							"[SOF] previous req (state:%d) doesn't DB load\n",
 							prev_stream_data->state.estate);
 						return STATE_RESULT_PASS_CQ_SW_DELAY;
-					}
-					dev_dbg(raw_dev->dev, "[SOF] previous req (state:%d)\n",
-						prev_stream_data->state.estate);
+					} else if (prev_stream_data->state.estate != E_STATE_INNER)
+						dev_info(raw_dev->dev, "[SOF] previous req frame no %d (state:%d)\n",
+							prev_stream_data->frame_seq_no,
+							prev_stream_data->state.estate);
 				}
 				return STATE_RESULT_TRIGGER_CQ;
 			}
@@ -2769,10 +2780,16 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			if (mtk_cam_is_subsample(ctx))
 				state_transition(current_state,
 				E_STATE_SUBSPL_READY, E_STATE_SUBSPL_SCQ);
-			else
+			else {
 				state_transition(current_state,
 				E_STATE_SENSOR, E_STATE_CQ);
 
+				if (current_state->estate != E_STATE_CQ)
+					dev_info(raw_dev->dev,
+						"SOF_INT_ST, state transition failed, frame_seq:%d, state:%d\n",
+						req_stream_data->frame_seq_no,
+						current_state->estate);
+			}
 			dev_dbg(raw_dev->dev,
 			"SOF[ctx:%d-#%d], CQ-%d is update, composed:%d, cq_addr:0x%x, time:%lld, monotime:%lld\n",
 			ctx->stream_id, dequeued_frame_seq_no, req_stream_data->frame_seq_no,
