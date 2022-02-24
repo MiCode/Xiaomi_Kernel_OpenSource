@@ -1129,9 +1129,9 @@ static void mtk_ccorr_config(struct mtk_ddp_comp *comp,
 
 	DDPINFO("%s\n", __func__);
 
-	if (cfg->bpc == 8)
+	if (cfg->source_bpc == 8)
 		g_ccorr_8bit_switch[index_of_ccorr(comp->id)] = 1;
-	else if (cfg->bpc == 10)
+	else if (cfg->source_bpc == 10)
 		g_ccorr_8bit_switch[index_of_ccorr(comp->id)] = 0;
 	else
 		DDPINFO("Disp CCORR's bit is : %u\n", cfg->bpc);

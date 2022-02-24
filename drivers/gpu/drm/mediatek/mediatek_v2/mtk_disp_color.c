@@ -2133,10 +2133,10 @@ static void mtk_color_config(struct mtk_ddp_comp *comp,
 		       comp->regs_pa + DISP_COLOR_HEIGHT(color), cfg->h, ~0);
 
 	// set color_8bit_switch register
-	if (cfg->bpc == 8)
+	if (cfg->source_bpc == 8)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN, (0x1 << 25), (0x1 << 25));
-	else if (cfg->bpc == 10)
+	else if (cfg->source_bpc == 10)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN, (0x0 << 25), (0x1 << 25));
 	else

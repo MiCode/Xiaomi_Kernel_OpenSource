@@ -753,10 +753,10 @@ static void mtk_aal_config(struct mtk_ddp_comp *comp,
 		comp->regs_pa + DISP_AAL_OUTPUT_OFFSET,
 		(0 << 16) | 0, ~0);
 
-	if (cfg->bpc == 8)
+	if (cfg->source_bpc == 8)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_AAL_CFG, (0x1 << 8), (0x1 << 8));
-	else if (cfg->bpc == 10)
+	else if (cfg->source_bpc == 10)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_AAL_CFG, (0x0 << 8), (0x1 << 8));
 	else

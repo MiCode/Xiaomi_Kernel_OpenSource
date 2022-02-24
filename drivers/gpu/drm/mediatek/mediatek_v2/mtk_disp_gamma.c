@@ -57,7 +57,7 @@ static unsigned int g_gamma_relay_value[DISP_GAMMA_TOTAL];
 // It's a work around for no comp assigned in functions.
 static struct mtk_ddp_comp *default_comp;
 
-static unsigned int g_gamma_data_mode;
+unsigned int g_gamma_data_mode;
 
 struct gamma_color_protect {
 	unsigned int gamma_color_protect_support;

@@ -33,6 +33,7 @@ extern void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 	unsigned int gain[3], unsigned int bl);
 
 extern unsigned int m_new_pq_persist_property[32];
+extern unsigned int g_gamma_data_mode;
 enum mtk_pq_persist_property {
 	DISP_PQ_COLOR_BYPASS,
 	DISP_PQ_CCORR_BYPASS,
