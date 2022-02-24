@@ -5622,6 +5622,11 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 				    priv->helper_opt,
 				    MTK_DRM_OPT_USE_PQ))
 			mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
+
+		if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL)
+			cfg.source_bpc = mtk_ddp_comp_io_cmd(comp, NULL,
+				OVL_GET_SOURCE_BPC, NULL);
+		DDPINFO("%s %d source_bpc[%d]\n", __func__, __LINE__, cfg.source_bpc);
 	}
 
 	if (mtk_crtc->is_dual_pipe) {
@@ -6374,6 +6379,10 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_NORMAL, NULL);
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 			MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
+		if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL)
+			cfg.source_bpc = mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+				OVL_GET_SOURCE_BPC, NULL);
+		DDPINFO("%s %d source_bpc[%d]\n", __func__, __LINE__, cfg.source_bpc);
 	}
 	if (mtk_crtc->is_dual_pipe) {
 		DDPFUNC();

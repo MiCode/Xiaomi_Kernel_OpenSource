@@ -431,6 +431,7 @@ enum mtk_ddp_io_cmd {
 	/*Msync 2.0 cmd end*/
 	DUAL_TE_INIT,
 	DSI_GET_CMD_MODE_LINE_TIME,
+	OVL_GET_SOURCE_BPC,
 };
 
 struct golden_setting_context {
@@ -451,6 +452,7 @@ struct mtk_ddp_config {
 	unsigned int vrefresh;
 	unsigned int bpc;
 	struct golden_setting_context *p_golden_setting_context;
+	unsigned int source_bpc;
 };
 
 struct mtk_ddp_fb_info {

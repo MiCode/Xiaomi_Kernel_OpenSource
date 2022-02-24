@@ -3276,6 +3276,12 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			slot, CMDQ_THR_SPR_IDX3);
 		break;
 	}
+	case OVL_GET_SOURCE_BPC: {
+		struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+
+		DDPINFO("%s, source_bpc[%d]\n", __func__, ovl->data->source_bpc);
+		return ovl->data->source_bpc;
+	}
 	default:
 		break;
 	}
@@ -4094,6 +4100,7 @@ static const struct mtk_disp_ovl_data mt2701_ovl_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6779  = {
@@ -4113,6 +4120,7 @@ static const struct mtk_disp_ovl_data mt6779_ovl_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6885  = {
@@ -4139,6 +4147,7 @@ static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
 	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x7777,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6983  = {
@@ -4167,6 +4176,7 @@ static const struct mtk_disp_ovl_data mt6983_ovl_driver_data = {
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6983,
 	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6983,
+	.source_bpc = 10,
 };
 
 static const struct compress_info compr_info_mt6895  = {
@@ -4195,6 +4205,7 @@ static const struct mtk_disp_ovl_data mt6895_ovl_driver_data = {
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6895,
 	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6895,
+	.source_bpc = 10,
 };
 
 static const struct compress_info compr_info_mt6873  = {
@@ -4221,6 +4232,7 @@ static const struct mtk_disp_ovl_data mt6873_ovl_driver_data = {
 	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x5555,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6853  = {
@@ -4247,6 +4259,7 @@ static const struct mtk_disp_ovl_data mt6853_ovl_driver_data = {
 	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x5555,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6833  = {
@@ -4273,6 +4286,7 @@ static const struct mtk_disp_ovl_data mt6833_ovl_driver_data = {
 	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x5555,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6879  = {
@@ -4301,6 +4315,7 @@ static const struct mtk_disp_ovl_data mt6879_ovl_driver_data = {
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6879,
 	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6879,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6855  = {
@@ -4329,6 +4344,7 @@ static const struct mtk_disp_ovl_data mt6855_ovl_driver_data = {
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6855,
 	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6855,
+	.source_bpc = 8,
 };
 
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
@@ -4342,6 +4358,7 @@ static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {

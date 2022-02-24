@@ -30,6 +30,7 @@ struct mtk_disp_ovl_data {
 	bool is_support_34bits;
 	unsigned int (*aid_sel_mapping)(struct mtk_ddp_comp *comp);
 	resource_size_t (*mmsys_mapping)(struct mtk_ddp_comp *comp);
+	unsigned int source_bpc;
 };
 
 struct compress_info {
