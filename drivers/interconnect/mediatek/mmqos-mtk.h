@@ -17,13 +17,18 @@
 #define MMQOS_COMM_CHANNEL_NUM (2)
 #define MMQOS_MAX_DUAL_PIPE_LARB_NUM (2)
 
+enum {
+	MD_SCEN_NONE,
+	MD_SCEN_SUB6_EXT,
+};
+
 struct mmqos_hrt {
 	u32 hrt_bw[HRT_TYPE_NUM];
 	u32 hrt_ratio[HRT_TYPE_NUM];
 	u32 hrt_total_bw;
 	u32 cam_max_bw;
 	u32 cam_occu_bw;
-	u32 md_speech_bw[2];
+	u32 md_speech_bw[4];
 	u32 emi_ratio;
 	bool blocking;
 	bool cam_bw_inc;
@@ -32,6 +37,9 @@ struct mmqos_hrt {
 	atomic_t lock_count;
 	wait_queue_head_t hrt_wait;
 	struct mutex blocking_lock;
+	bool in_speech;
+	u8 md_type;
+	u8 md_scen;
 };
 
 struct mmqos_base_node {
@@ -89,6 +97,7 @@ struct mtk_mmqos_desc {
 	const u32 dual_pipe_larbs[MMQOS_MAX_DUAL_PIPE_LARB_NUM];
 	const u8 comm_port_channels[MMQOS_MAX_COMM_NUM][MMQOS_MAX_COMM_PORT_NUM];
 	const u8 comm_port_hrt_types[MMQOS_MAX_COMM_NUM][MMQOS_MAX_COMM_PORT_NUM];
+	const u8 md_scen;
 };
 
 #define DEFINE_MNODE(_name, _id, _bw_ratio, _is_write, _channel, _link) {	\

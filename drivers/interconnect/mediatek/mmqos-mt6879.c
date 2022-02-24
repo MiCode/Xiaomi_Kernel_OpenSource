@@ -765,7 +765,7 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6879 = {
 	.hrt = {
 		.hrt_bw = {8095, 0, 0},
 		.hrt_total_bw = 22000, /*Todo: Use DRAMC API 5500*2(channel)*2(io width)*/
-		.md_speech_bw = { 8720, 8095},
+		.md_speech_bw = { 8720, 8095, 5960, 5374},
 		.hrt_ratio = {1000, 860, 880, 880}, /* MD, CAM, DISP, MML */
 		.blocking = true,
 		.emi_ratio = 705,
@@ -773,7 +773,7 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6879 = {
 	.hrt_LPDDR4 = {
 		.hrt_bw = {8510, 0, 0},
 		.hrt_total_bw = 17064, /*Todo: Use DRAMC API 4266*2(channel)*2(io width)*/
-		.md_speech_bw = { 9096, 8510},
+		.md_speech_bw = { 9096, 8510, 5960, 5374},
 		.hrt_ratio = {1000, 880, 900, 900}, /* MD, CAM, DISP, MML */
 		.blocking = true,
 		.emi_ratio = 800,
@@ -785,6 +785,7 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6879 = {
 		{ HRT_MAX_BWL, HRT_MAX_BWL, HRT_MML, HRT_NONE, HRT_NONE,
 			HRT_NONE, HRT_CAM, HRT_CAM, HRT_DISP },
 	},
+	.md_scen = MD_SCEN_SUB6_EXT,
 };
 static const struct of_device_id mtk_mmqos_mt6879_of_ids[] = {
 	{

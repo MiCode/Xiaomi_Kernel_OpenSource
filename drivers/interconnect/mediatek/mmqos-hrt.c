@@ -124,6 +124,27 @@ static void notify_bw_throttle(enum hrt_scen scen, bool is_start)
 		scen, jiffies_to_msecs(jiffies-start_jiffies));
 }
 
+static void set_md_hrt_by_scen(u8 md_scen, bool in_speech, u32 md_type)
+{
+	u32 md_index = 0;
+
+	switch (md_scen) {
+	case MD_SCEN_SUB6_EXT:
+		if (md_type == 1) /* sub6 only */
+			md_index = 2;
+		break;
+	case MD_SCEN_NONE:
+	default:
+		break;
+	}
+	pr_notice("mmqos_hrt %s: md_scen=%u in_speech=%u md_type=%u md_index=%u\n",
+		__func__, md_scen, in_speech, md_type, md_index);
+
+	mmqos_hrt->hrt_bw[HRT_MD] = in_speech ?
+		mmqos_hrt->md_speech_bw[md_index] :
+		mmqos_hrt->md_speech_bw[md_index + 1];
+}
+
 s32 mtk_mmqos_hrt_scen(enum hrt_scen scen, bool is_start)
 {
 	s32 ret = 0;
@@ -135,24 +156,30 @@ s32 mtk_mmqos_hrt_scen(enum hrt_scen scen, bool is_start)
 
 	pr_notice("%s: scen=%d, is_start=%d\n", __func__, scen, is_start);
 	switch (scen) {
-		case CAM_SCEN_CHANGE:
-			notify_bw_throttle(scen, is_start);
-			break;
-		case MD_SPEECH:
-			mmqos_hrt->hrt_bw[HRT_MD] = is_start ?
-				mmqos_hrt->md_speech_bw[0] :
-				mmqos_hrt->md_speech_bw[1];
-			notify_bw_throttle(scen, is_start);
-			break;
-		default:
-			pr_notice("%s: wrong hrt_scen(%d)\n", __func__, scen);
-			ret = -EINVAL;
-			break;
+	case CAM_SCEN_CHANGE:
+		notify_bw_throttle(scen, is_start);
+		break;
+	case MD_SPEECH:
+		mmqos_hrt->in_speech = is_start;
+		set_md_hrt_by_scen(mmqos_hrt->md_scen, is_start, mmqos_hrt->md_type);
+		notify_bw_throttle(scen, is_start);
+		break;
+	default:
+		pr_notice("%s: wrong hrt_scen(%d)\n", __func__, scen);
+		ret = -EINVAL;
+		break;
 	}
 
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_mmqos_hrt_scen);
+
+void mtk_mmqos_set_md_type(u32 md_type)
+{
+	mmqos_hrt->md_type = md_type;
+	mtk_mmqos_hrt_scen(MD_SPEECH, mmqos_hrt->in_speech);
+}
+EXPORT_SYMBOL_GPL(mtk_mmqos_set_md_type);
 
 static ssize_t mtk_mmqos_scen_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
