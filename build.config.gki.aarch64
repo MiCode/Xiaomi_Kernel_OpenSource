@@ -7,7 +7,6 @@ Image.lz4
 "
 
 ABI_DEFINITION=android/abi_gki_aarch64.xml
-TIDY_ABI=1
 # Update BUILD.bazel, define_common_kernels() if the list differs from
 # android/abi_gki_aarch64* in the filesystem.
 KMI_SYMBOL_LIST=android/abi_gki_aarch64
