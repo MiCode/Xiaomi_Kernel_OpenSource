@@ -1193,4 +1193,10 @@ void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
 
 void mhi_dev_pm_relax(struct mhi_dev *mhi_ctx);
 void mhi_dev_resume_init_with_link_up(struct ep_pcie_notify *notify);
+
+int  mhi_edma_release(void);
+
+int  mhi_edma_status(void);
+
+int mhi_edma_init(struct device *dev);
 #endif /* _MHI_H */
