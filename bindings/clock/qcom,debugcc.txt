@@ -11,6 +11,7 @@ Required properties :
 			"qcom,waipio-debugcc"
 			"qcom,diwali-debugcc"
 			"qcom,neo-debugcc"
+			"qcom,parrot-debugcc"
 
 - qcom,gcc: phandle to the GCC device node.
 - qcom,videocc: phandle to the Video CC device node.
