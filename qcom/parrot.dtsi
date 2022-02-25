@@ -1841,6 +1841,7 @@
 #include "parrot-qupv3.dtsi"
 #include "parrot-pinctrl.dtsi"
 #include "parrot-dma-heaps.dtsi"
+#include "parrot-gpu.dtsi"
 #include "msm-arm-smmu-parrot.dtsi"
 
 &qupv3_se3_2uart {
