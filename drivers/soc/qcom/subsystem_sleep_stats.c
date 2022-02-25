@@ -32,6 +32,11 @@
 #define DDR_STATS_COUNT_ADDR		0x4
 #define DDR_STATS_DURATION_ADDR		0x8
 
+#define AOSD_LAST_ENTERED_AT_ADDR	0x0
+#define AOSD_LAST_EXITED_AT_ADDR	0x18
+#define AOSD_ACCUMULATED_ADDR		0x30
+#define AOSD_COUNT_ADDR		0x38
+
 #define APSS_IOCTL		_IOR(SUBSYSTEM_STATS_MAGIC_NUM, 0, \
 				     struct sleep_stats *)
 #define MODEM_IOCTL		_IOR(SUBSYSTEM_STATS_MAGIC_NUM, 1, \
@@ -104,6 +109,7 @@ struct stats_config {
 	unsigned int offset_addr;
 	unsigned int ddr_offset_addr;
 	unsigned int num_records;
+	bool aosd_hardened;
 };
 
 struct sleep_stats_data {
@@ -114,6 +120,7 @@ struct sleep_stats_data {
 	const struct stats_config	**config;
 	void __iomem	*reg_base;
 	void __iomem	*ddr_reg;
+	void __iomem	*aosd_reg;
 	void __iomem	**reg;
 	u32	ddr_key;
 	u32	ddr_entry_count;
@@ -183,10 +190,26 @@ void ddr_stats_sleep_stat(struct sleep_stats_data *stats_data, struct sleep_stat
 	}
 }
 
+static void aosd_harden_stats_sleep_stat(struct sleep_stats_data *stats_data,
+							struct sleep_stats *aosd_stats)
+{
+	void __iomem *reg = stats_data->aosd_reg;
+
+	aosd_stats->count = readl_relaxed(reg + AOSD_COUNT_ADDR);
+	aosd_stats->last_entered_at = readq(reg + AOSD_LAST_ENTERED_AT_ADDR);
+	aosd_stats->last_exited_at = readq(reg + AOSD_LAST_EXITED_AT_ADDR);
+	aosd_stats->accumulated = readq(reg + AOSD_ACCUMULATED_ADDR);
+}
+
 static int subsystem_sleep_stats(struct sleep_stats_data *stats_data, struct sleep_stats *stats,
 					unsigned int pid, unsigned int idx)
 {
 	struct sleep_stats *subsystem_stats_data;
+
+	if ((idx == AOSD) && stats_data->config[0]->aosd_hardened) {
+		aosd_harden_stats_sleep_stat(stats_data, stats);
+		return 0;
+	}
 
 	if (pid == SUBSYSTEM_STATS_OTHERS_NUM)
 		memcpy_fromio(stats, stats_data->reg[idx], sizeof(*stats));
@@ -505,6 +528,14 @@ static int subsystem_stats_probe(struct platform_device *pdev)
 	ddr_freq_update = of_property_read_bool(pdev->dev.of_node,
 							"ddr-freq-update");
 
+	if (config->aosd_hardened) {
+		stats_data->aosd_reg = devm_platform_get_and_ioremap_resource(pdev, 1, NULL);
+		if (!stats_data->aosd_reg) {
+			ret = -ENOMEM;
+			goto fail_device_create;
+		}
+	}
+
 	platform_set_drvdata(pdev, stats_data);
 
 	return 0;
@@ -588,8 +619,16 @@ static const struct stats_config rpmh_data = {
 	.num_records = 3,
 };
 
+static const struct stats_config rpmh_v2_data = {
+	.offset_addr = 0x4,
+	.ddr_offset_addr = 0x1c,
+	.num_records = 2,
+	.aosd_hardened = true,
+};
+
 static const struct of_device_id subsystem_stats_table[] = {
 	{ .compatible = "qcom,subsystem-sleep-stats", .data = &rpmh_data},
+	{ .compatible = "qcom,subsystem-sleep-stats-v2", .data = &rpmh_v2_data},
 	{},
 };
 
