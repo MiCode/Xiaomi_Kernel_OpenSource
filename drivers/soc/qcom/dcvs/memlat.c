@@ -40,6 +40,7 @@
 #define MISS_DELTA_PCT_THRES 30U
 #define SPM_FREQ_THRES 2000U
 #define L2MISS_RATIO_THRES 150U
+#define SPM_CPU_FREQ_IGN 200U
 
 enum common_ev_idx {
 	INST_IDX,
@@ -951,7 +952,7 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 		if (avg_spm >= mon->spm_thres && ((max_l2miss_ratio && max_l2miss_ratio
 			< L2MISS_RATIO_THRES) || max_spm_cpufreq >= SPM_FREQ_THRES))
 			mon->spm_vote_inc_steps++;
-		if (avg_spm < mon->disable_spm_value && mon->spm_vote_inc_steps > 1)
+		else if (avg_spm < mon->disable_spm_value && mon->spm_vote_inc_steps >= 1)
 			mon->spm_vote_inc_steps--;
 
 		if (mon->spm_vote_inc_steps && max_miss < mon->prev_max_miss) {
@@ -961,12 +962,16 @@ static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 				mon->spm_vote_inc_steps = 0;
 		}
 		mon->prev_max_miss = max_miss;
-		if (max_max_spm_cpufreq < mon->spm_freq_map[0].cpufreq_mhz)
-			spm_max_vote_khz = mon->spm_freq_map[0].memfreq_khz;
-		else if (max_max_spm_cpufreq < mon->spm_freq_map[1].cpufreq_mhz)
-			spm_max_vote_khz = mon->spm_freq_map[1].memfreq_khz;
-		else
-			spm_max_vote_khz = mon->max_freq;
+		if (max_spm_cpufreq < SPM_CPU_FREQ_IGN)
+			mon->spm_vote_inc_steps = 0;
+		if (mon->spm_vote_inc_steps) {
+			if (max_max_spm_cpufreq < mon->spm_freq_map[0].cpufreq_mhz)
+				spm_max_vote_khz = mon->spm_freq_map[0].memfreq_khz;
+			else if (max_max_spm_cpufreq < mon->spm_freq_map[1].cpufreq_mhz)
+				spm_max_vote_khz = mon->spm_freq_map[1].memfreq_khz;
+			else
+				spm_max_vote_khz = mon->max_freq;
+		}
 	} else
 		mon->spm_vote_inc_steps = 0;
 
