@@ -790,4 +790,32 @@ config QDRU_GCC_CINDER
 	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
 	  USB, ECPRI, TSC, ETU, SD/eMMC, PCIe, etc.
 
+config SM_CAMCC_8150
+	tristate "SM8150 Camera Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc
+	  SM8150 devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config SM_NPUCC_8150
+	tristate "SM8150 NPU Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the NPU Clock Controller on Qualcomm Technologies, Inc.
+	  sm8150 devices.
+	  Say Y if you want to enable use of the Network Processing Unit in
+	  order to speed up certain types of calculations.
+
+config SM_SCC_8150
+	tristate "SM8150 Sensor Clock Controller"
+	select SM_GCC_8150
+	help
+	  Support for the sensor clock controller on Qualcomm Technologies, Inc.
+	  SM8150 devices.  The sensor controller contains several QUP clocks
+	  which can be managed using DFS.  This controller is typically owned by
+	  the sensor processor.  However, on some systems it is instead owned
+	  by the application processor.
+
 endif

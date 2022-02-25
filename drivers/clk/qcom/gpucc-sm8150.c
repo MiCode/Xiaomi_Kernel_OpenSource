@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -100,21 +101,7 @@ static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 		.name = "gpu_cc_gmu_clk_src",
 		.parent_data = gpu_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(gpu_cc_parent_data_0),
-		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
-	},
-};
-
-static struct clk_branch gpu_cc_ahb_clk = {
-	.halt_reg = 0x1078,
-	.halt_check = BRANCH_HALT_DELAY,
-	.clkr = {
-		.enable_reg = 0x1078,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpu_cc_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
 	},
 };
 
@@ -126,19 +113,6 @@ static struct clk_branch gpu_cc_crc_ahb_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_crc_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gpu_cc_cx_apb_clk = {
-	.halt_reg = 0x1088,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x1088,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpu_cc_cx_apb_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -241,9 +215,7 @@ static struct gdsc gpu_gx_gdsc = {
 };
 
 static struct clk_regmap *gpu_cc_sm8150_clocks[] = {
-	[GPU_CC_AHB_CLK] = &gpu_cc_ahb_clk.clkr,
 	[GPU_CC_CRC_AHB_CLK] = &gpu_cc_crc_ahb_clk.clkr,
-	[GPU_CC_CX_APB_CLK] = &gpu_cc_cx_apb_clk.clkr,
 	[GPU_CC_CX_GMU_CLK] = &gpu_cc_cx_gmu_clk.clkr,
 	[GPU_CC_CX_SNOC_DVM_CLK] = &gpu_cc_cx_snoc_dvm_clk.clkr,
 	[GPU_CC_CXO_AON_CLK] = &gpu_cc_cxo_aon_clk.clkr,
@@ -303,6 +275,12 @@ static int gpu_cc_sm8150_probe(struct platform_device *pdev)
 		gpu_cc_gmu_clk_src.freq_tbl = ftbl_gpu_cc_gmu_clk_src_sc8180x;
 
 	clk_trion_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
+
+	/*
+	 * Keep clocks always enabled:
+	 * GPU_CC_AHB_CLK.
+	 */
+	regmap_update_bits(regmap, 0x1078, BIT(0), BIT(0));
 
 	return qcom_cc_really_probe(pdev, &gpu_cc_sm8150_desc, regmap);
 }
