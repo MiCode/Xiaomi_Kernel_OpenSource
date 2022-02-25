@@ -526,6 +526,7 @@ struct ufs_qcom_host {
 	unsigned int num_aes_cores;
 	struct device_node *np;
 	int chosen_algo;
+	struct ufs_clk_info *ref_clki;
 };
 
 static inline u32

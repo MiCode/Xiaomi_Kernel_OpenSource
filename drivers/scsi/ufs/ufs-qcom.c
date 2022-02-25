@@ -2124,23 +2124,6 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			err = ufs_qcom_set_bus_vote(hba, true);
 			if (ufs_qcom_is_link_hibern8(hba))
 				ufs_qcom_phy_set_src_clk_h8_exit(phy);
-		} else {
-			if (!ufs_qcom_is_link_active(hba)) {
-				/* disable device ref_clk */
-				ufs_qcom_dev_ref_clk_ctrl(host, false);
-
-				/* power off PHY during aggressive clk gating */
-				err = ufs_qcom_phy_power_off(hba);
-				if (err) {
-					dev_err(hba->dev, "%s: phy power off failed, ret = %d\n",
-							 __func__, err);
-					return err;
-				}
-			}
-		}
-		break;
-	case POST_CHANGE:
-		if (on) {
 			err = ufs_qcom_phy_power_on(hba);
 			if (err) {
 				dev_err(hba->dev, "%s: phy power on failed, ret = %d\n",
@@ -2151,7 +2134,38 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			/* enable the device ref clock for HS mode*/
 			if (ufshcd_is_hs_mode(&hba->pwr_info))
 				ufs_qcom_dev_ref_clk_ctrl(host, true);
+			/* Device ref clk should be enabled before Unipro clock */
+			err = clk_prepare_enable(host->ref_clki->clk);
+			if (!err)
+				host->ref_clki->enabled = on;
+			else
+				dev_err(hba->dev, "%s: Fail dev-ref-clk enabled, ret=%d\n",
+					__func__, err);
 		} else {
+			if (!ufs_qcom_is_link_active(hba)) {
+				/*
+				 * Dont turn off dev ref-clk before unipro clk.
+				 * Setting ref_clki state to requested state of
+				 * 'on' would prevent toggling of this clock by
+				 * ufshcd core. Refer ufshcd_setup_clocks()
+				 */
+				host->ref_clki->enabled = on;
+			}
+			break;
+		}
+	case POST_CHANGE:
+		if (!on) {
+			if (!ufs_qcom_is_link_active(hba)) {
+				err = ufs_qcom_phy_power_off(hba);
+				if (err) {
+					dev_err(hba->dev, "%s: phy power off failed, ret=%d\n",
+						__func__, err);
+					return err;
+				}
+				ufs_qcom_dev_ref_clk_ctrl(host, false);
+				/* ref_clk state is already changed in PRE_CHANGE */
+				clk_disable_unprepare(host->ref_clki->clk);
+			}
 			if (ufs_qcom_is_link_hibern8(hba))
 				ufs_qcom_phy_set_src_clk_h8_enter(phy);
 			err = ufs_qcom_set_bus_vote(hba, false);
@@ -3248,6 +3262,8 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	list_for_each_entry(clki, &hba->clk_list_head, list) {
 		if (!strcmp(clki->name, "core_clk_unipro"))
 			clki->keep_link_active = true;
+		else if (!strcmp(clki->name, "ref_clk"))
+			host->ref_clki = clki;
 	}
 
 	err = ufs_qcom_init_lane_clks(host);
