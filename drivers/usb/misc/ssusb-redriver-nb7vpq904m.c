@@ -104,6 +104,8 @@ struct ssusb_redriver {
 	int			pullup_req;
 	bool			work_ongoing;
 
+	struct work_struct	host_work;
+
 	struct dentry	*debug_root;
 };
 
@@ -670,6 +672,34 @@ int redriver_gadget_pullup_exit(struct device_node *node, int is_on)
 }
 EXPORT_SYMBOL(redriver_gadget_pullup_exit);
 
+static void redriver_host_work(struct work_struct *w)
+{
+	struct ssusb_redriver *redriver =
+			container_of(w, struct ssusb_redriver, host_work);
+	u8 val = redriver->gen_dev_val;
+
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val & ~CHIP_EN);
+	usleep_range(2000, 2500);
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val);
+}
+
+int redriver_powercycle(struct device_node *node)
+{
+	struct ssusb_redriver *redriver;
+
+	redriver = check_devnode(node);
+	if (IS_ERR_OR_NULL(redriver))
+		return -EINVAL;
+
+	if (redriver->op_mode != OP_MODE_USB)
+		return -EINVAL;
+
+	schedule_work(&redriver->host_work);
+
+	return 0;
+}
+EXPORT_SYMBOL(redriver_powercycle);
+
 static void ssusb_redriver_orientation_gpio_init(
 		struct ssusb_redriver *redriver)
 {
@@ -726,6 +756,7 @@ static int redriver_i2c_probe(struct i2c_client *client,
 	}
 
 	INIT_WORK(&redriver->pullup_work, redriver_gadget_pullup_work);
+	INIT_WORK(&redriver->host_work, redriver_host_work);
 
 	redriver->lane_channel_swap =
 	    of_property_read_bool(redriver->dev->of_node, "lane-channel-swap");
