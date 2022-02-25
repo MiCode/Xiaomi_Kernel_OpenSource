@@ -65,3 +65,5 @@ secure_buffer.ko
 msm_qmp.ko
 tmecom-intf.ko
 qcom_aoss.ko
+clk-rpmh.ko
+qcom-cpufreq-hw.ko
