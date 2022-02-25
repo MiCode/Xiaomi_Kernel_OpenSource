@@ -4594,6 +4594,10 @@ static void cnss_pci_send_hang_event(struct cnss_pci_data *pci_priv)
 			length = HANG_DATA_LENGTH;
 		}
 		break;
+	case KIWI_DEVICE_ID:
+		offset = plat_priv->hang_data_addr_offset;
+		length = plat_priv->hang_event_data_len;
+		break;
 	default:
 		cnss_pr_err("Skip Hang Event Data as unsupported Device ID received: %d\n",
 			    pci_priv->device_id);
