@@ -5577,6 +5577,9 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 			mdwc->max_rh_port_speed = USB_SPEED_UNKNOWN;
 			dwc3_msm_update_bus_bw(mdwc, mdwc->default_bus_vote);
 			dwc3_msm_host_ss_powerup(mdwc);
+
+			if (udev->parent->speed >= USB_SPEED_SUPER)
+				redriver_powercycle(mdwc->ss_redriver_node);
 		}
 	} else if (!udev->parent) {
 		/* USB root hub device */
