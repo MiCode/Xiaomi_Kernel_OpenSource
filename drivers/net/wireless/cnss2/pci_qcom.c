@@ -514,7 +514,7 @@ int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv)
 int _cnss_pci_get_reg_dump(struct cnss_pci_data *pci_priv,
 			   u8 *buf, u32 len)
 {
-	return 0;
+	return msm_pcie_reg_dump(pci_priv->pci_dev, buf, len);
 }
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)
