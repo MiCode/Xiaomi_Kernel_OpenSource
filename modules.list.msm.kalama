@@ -39,6 +39,7 @@ mem_buf_dev.ko
 mem_buf_msgq.ko
 mem_buf.ko
 memory_dump_v2.ko
+minidump.ko
 msm_dma_iommu_mapping.ko
 pinctrl-kalama.ko
 qnoc-kalama.ko
@@ -54,6 +55,7 @@ qcom-dcvs.ko
 qcom-dload-mode.ko
 qcom_dma_heaps.ko
 qcom_hwspinlock.ko
+qcom_logbuf_vh.ko
 qcom_iommu_util.ko
 qcom_llcc_pmu.ko
 qcom-pmu-lib.ko
