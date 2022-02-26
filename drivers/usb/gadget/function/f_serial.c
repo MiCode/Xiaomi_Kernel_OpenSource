@@ -322,9 +322,6 @@ gser_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 			__func__, w_value & ACM_CTRL_DTR ? 1 : 0,
 			w_value & ACM_CTRL_RTS ? 1 : 0);
 
-		if (gser->port.notify_modem)
-			gser->port.notify_modem(&gser->port, 0, w_value);
-
 		break;
 
 	default:
@@ -503,56 +500,6 @@ static void gser_connect(struct gserial *port)
 	gser_notify_serial_state(gser);
 }
 
-static unsigned int gser_get_dtr(struct gserial *port)
-{
-	struct f_gser *gser = port_to_gser(port);
-
-	if (gser->port_handshake_bits & ACM_CTRL_DTR)
-		return 1;
-	else
-		return 0;
-}
-
-static unsigned int gser_get_rts(struct gserial *port)
-{
-	struct f_gser *gser = port_to_gser(port);
-
-	if (gser->port_handshake_bits & ACM_CTRL_RTS)
-		return 1;
-	else
-		return 0;
-}
-
-static unsigned int gser_send_carrier_detect(struct gserial *port,
-	unsigned int yes)
-{
-	u16	state;
-	struct f_gser *gser = port_to_gser(port);
-
-	state = gser->serial_state;
-	state &= ~ACM_CTRL_DCD;
-	if (yes)
-		state |= ACM_CTRL_DCD;
-
-	gser->serial_state = state;
-	return gser_notify_serial_state(gser);
-}
-
-static unsigned int gser_send_ring_indicator(struct gserial *port,
-	unsigned int yes)
-{
-	u16	state;
-	struct f_gser *gser = port_to_gser(port);
-
-	state = gser->serial_state;
-	state &= ~ACM_CTRL_RI;
-	if (yes)
-		state |= ACM_CTRL_RI;
-
-	gser->serial_state = state;
-	return gser_notify_serial_state(gser);
-}
-
 static void gser_disconnect(struct gserial *port)
 {
 	struct f_gser *gser = port_to_gser(port);
@@ -572,15 +519,6 @@ static int gser_send_break(struct gserial *port, int duration)
 		state |= ACM_CTRL_BRK;
 
 	gser->serial_state = state;
-	return gser_notify_serial_state(gser);
-}
-
-static int gser_send_modem_ctrl_bits(struct gserial *port, int ctrl_bits)
-{
-	struct f_gser *gser = port_to_gser(port);
-
-	gser->serial_state = ctrl_bits;
-
 	return gser_notify_serial_state(gser);
 }
 
@@ -795,11 +733,6 @@ static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 	gser->port.func.free_func = gser_free;
 	gser->port.func.setup = gser_setup;
 	gser->port.connect = gser_connect;
-	gser->port.get_dtr = gser_get_dtr;
-	gser->port.get_rts = gser_get_rts;
-	gser->port.send_carrier_detect = gser_send_carrier_detect;
-	gser->port.send_ring_indicator = gser_send_ring_indicator;
-	gser->port.send_modem_ctrl_bits = gser_send_modem_ctrl_bits;
 	gser->port.disconnect = gser_disconnect;
 	gser->port.send_break = gser_send_break;
 
