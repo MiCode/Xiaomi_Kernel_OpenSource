@@ -634,6 +634,29 @@ static const struct clk_rpmh_desc clk_rpmh_sdxlemur = {
 	.num_clks = ARRAY_SIZE(sdxlemur_rpmh_clocks),
 };
 
+DEFINE_CLK_RPMH_VRM(parrot, ln_bb_clk3, ln_bb_clk3_ao, "lnbclka3", 2);
+
+static struct clk_hw *parrot_rpmh_clocks[] = {
+	[RPMH_CXO_CLK]		= &waipio_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]	= &waipio_bi_tcxo_ao.hw,
+	[RPMH_LN_BB_CLK2]	= &waipio_ln_bb_clk2.hw,
+	[RPMH_LN_BB_CLK2_A]	= &waipio_ln_bb_clk2_ao.hw,
+	[RPMH_LN_BB_CLK3]	= &parrot_ln_bb_clk3.hw,
+	[RPMH_LN_BB_CLK3_A]	= &parrot_ln_bb_clk3_ao.hw,
+	[RPMH_RF_CLK1]		= &lahaina_rf_clk1.hw,
+	[RPMH_RF_CLK1_A]	= &lahaina_rf_clk1_ao.hw,
+	[RPMH_RF_CLK2]		= &lahaina_rf_clk2.hw,
+	[RPMH_RF_CLK2_A]	= &lahaina_rf_clk2_ao.hw,
+	[RPMH_RF_CLK5]		= &waipio_rf_clk5.hw,
+	[RPMH_RF_CLK5_A]	= &waipio_rf_clk5_ao.hw,
+	[RPMH_IPA_CLK]		= &lahaina_ipa.hw,
+};
+
+static const struct clk_rpmh_desc clk_rpmh_parrot = {
+	.clks = parrot_rpmh_clocks,
+	.num_clks = ARRAY_SIZE(parrot_rpmh_clocks),
+};
+
 static struct clk_hw *of_clk_rpmh_hw_get(struct of_phandle_args *clkspec,
 					 void *data)
 {
@@ -737,6 +760,7 @@ static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,sdxlemur-rpmh-clk", .data = &clk_rpmh_sdxlemur},
 	{ .compatible = "qcom,diwali-rpmh-clk", .data = &clk_rpmh_diwali},
 	{ .compatible = "qcom,neo-rpmh-clk", .data = &clk_rpmh_neo},
+	{ .compatible = "qcom,parrot-rpmh-clk", .data = &clk_rpmh_parrot},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);
