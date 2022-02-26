@@ -500,9 +500,11 @@ static int ion_sgl_sync_range(struct device *dev, struct scatterlist *sgl,
 			break;
 
 		if (i > 0) {
-			pr_warn_ratelimited("Partial cmo only supported with 1 segment\n"
-				"is dma_set_max_seg_size being set on dev:%s\n",
-				dev_name(dev));
+			if (get_dma_ops(dev)) {
+				pr_warn_ratelimited("Partial cmo only supported with 1 segment\n"
+					"is dma_set_max_seg_size being set on dev:%s\n",
+					dev_name(dev));
+			}
 			return -EINVAL;
 		}
 	}
