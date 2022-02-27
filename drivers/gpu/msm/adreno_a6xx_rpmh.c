@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
@@ -330,20 +331,20 @@ static int setup_gx_arc_votes(struct adreno_device *adreno_dev,
 	memset(vlvl_tbl, 0, sizeof(vlvl_tbl));
 
 	table->gx_votes[0].freq = 0;
+	table->gx_votes[0].acd =  pwr->pwrlevels[0].cx_min;
 
 	/* GMU power levels are in ascending order */
 	for (index = 1, i = pwr->num_pwrlevels - 1; i >= 0; i--, index++) {
 		vlvl_tbl[index] = pwr->pwrlevels[i].voltage_level;
 		table->gx_votes[index].freq = pwr->pwrlevels[i].gpu_freq / 1000;
+		table->gx_votes[index].acd =  pwr->pwrlevels[i].cx_min;
 	}
 
 	ret = setup_volt_dependency_tbl(gx_votes, pri_rail,
 			sec_rail, vlvl_tbl, table->gpu_level_num);
 	if (!ret) {
-		for (i = 0; i < table->gpu_level_num; i++) {
+		for (i = 0; i < table->gpu_level_num; i++)
 			table->gx_votes[i].vote = gx_votes[i];
-			table->gx_votes[i].acd = 0xffffffff;
-		}
 	}
 
 	return ret;

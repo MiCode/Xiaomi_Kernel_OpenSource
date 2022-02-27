@@ -664,9 +664,13 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		level->gpu_freq = freq;
 		level->bus_freq = bus;
 		level->voltage_level = voltage;
+		level->cx_min = 0xffffffff;
 
 		of_property_read_u32(child, "qcom,acd-level",
 			&level->acd_level);
+
+		of_property_read_u32(child, "qcom,min-cx-level",
+			&level->cx_min);
 
 		level->bus_min = level->bus_freq;
 		kgsl_of_property_read_ddrtype(child,
