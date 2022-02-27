@@ -22,7 +22,7 @@
 
 	chosen: chosen {
 		stdout-path = "/soc/qcom,qup_uart@98C000:115200n8";
-		bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K";
+		bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K cpufreq.default_governor=performance";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
@@ -52,6 +52,7 @@
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD0>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
 				compatible = "arm,arch-cache";
@@ -75,6 +76,7 @@
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD1>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 				compatible = "arm,arch-cache";
@@ -93,6 +95,7 @@
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD2>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			next-level-cache = <&L2_2>;
 			L2_2: l2-cache {
 				compatible = "arm,arch-cache";
@@ -111,6 +114,7 @@
 			cpu-idle-states = <&LITTLE_CPU_OFF &LITTLE_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD3>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			next-level-cache = <&L2_3>;
 			L2_3: l2-cache {
 				compatible = "arm,arch-cache";
@@ -129,6 +133,7 @@
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD4>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			L2_4: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -146,6 +151,7 @@
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD5>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			next-level-cache = <&L2_5>;
 			L2_5: l2-cache {
 				compatible = "arm,arch-cache";
@@ -164,6 +170,7 @@
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD6>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			next-level-cache = <&L2_6>;
 			L2_6: l2-cache {
 				compatible = "arm,arch-cache";
@@ -182,6 +189,7 @@
 			cpu-idle-states = <&BIG_CPU_OFF &BIG_CPU_RAIL_OFF>;
 			power-domains = <&CPU_PD7>;
 			power-domain-names = "psci";
+			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			next-level-cache = <&L2_7>;
 			L2_7: l2-cache {
 				compatible = "arm,arch-cache";
@@ -416,6 +424,11 @@
 				  <CONTROL_TCS   0>, /* PDC wakeup values will be written from TZ */
 				  <FAST_PATH_TCS 1>;
 		power-domains = <&CLUSTER_PD>;
+
+		rpmhcc: qcom,rpmhclk {
+			compatible = "qcom,parrot-rpmh-clk";
+			#clock-cells = <1>;
+		};
 
 		apps_bcm_voter: bcm_voter {
 			compatible = "qcom,bcm-voter";
@@ -732,7 +745,7 @@
 	clocks {
 		xo_board: xo-board {
 			compatible = "fixed-clock";
-			clock-frequency = <38400000>;
+			clock-frequency = <76800000>;
 			clock-output-names = "xo_board";
 			#clock-cells = <0>;
 		};
@@ -780,29 +793,6 @@
 		};
 	};
 
-	bi_tcxo: bi_tcxo {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <2>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
-	bi_tcxo_ao: bi_tcxo_ao {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <2>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
-	rpmhcc: qcom,rpmhcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmhcc_clocks";
-		#clock-cells = <1>;
-		#reset-cells = <1>;
-	};
-
 	gcc: clock-controller@100000 {
 		compatible = "qcom,parrot-gcc", "syscon";
 		reg = <0x100000 0x1f4200>;
@@ -835,8 +825,15 @@
 	};
 
 	dispcc: clock-controller@af00000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "dispcc_clocks";
+		compatible = "qcom,parrot-dispcc", "syscon";
+		reg = <0xaf00000 0x20000>;
+		reg-name = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		clocks = <&rpmhcc RPMH_CXO_CLK>,
+			<&rpmhcc RPMH_CXO_CLK_A>,
+			<&sleep_clk>,
+			<&gcc GCC_DISP_AHB_CLK>;
+		clock-names = "bi_tcxo", "bi_tcxo_ao", "sleep_clk", "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -869,6 +866,49 @@
 		clock-names = "bi_tcxo", "sleep_clk", "iface";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
+	};
+
+	apsscc: syscon@17aa0000 {
+		compatible = "syscon";
+		reg = <0x17aa0000 0x1c>;
+	};
+
+	mccc: syscon@190ba000 {
+		compatible = "syscon";
+		reg = <0x190ba000 0x54>;
+	};
+
+	debugcc: debug-clock-controller@0 {
+		compatible = "qcom,parrot-debugcc";
+		qcom,gcc = <&gcc>;
+		qcom,videocc = <&videocc>;
+		qcom,dispcc = <&dispcc>;
+		qcom,camcc = <&camcc>;
+		qcom,gpucc = <&gpucc>;
+		qcom,apsscc = <&apsscc>;
+		qcom,mccc = <&mccc>;
+		clock-names = "xo_clk_src";
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		#clock-cells = <1>;
+	};
+
+	cpufreq_hw: qcom,cpufreq-hw {
+		compatible = "qcom,cpufreq-hw-epss";
+		reg = <0x17d91000 0x1000>, <0x17d92000 0x1000>;
+		reg-names = "freq-domain0", "freq-domain1";
+		clocks = <&rpmhcc RPMH_CXO_CLK>, <&gcc GCC_GPLL0>;
+		clock-names = "xo", "alternate";
+		qcom,lut-row-size = <4>;
+		qcom,skip-enable-check;
+		interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "dcvsh0_int", "dcvsh1_int";
+		#freq-domain-cells = <2>;
+	};
+
+	qcom,cpufreq-hw-debug {
+		compatible = "qcom,cpufreq-hw-epss-debug";
+		qcom,freq-hw-domain = <&cpufreq_hw 0>, <&cpufreq_hw 1>;
 	};
 
 	sdhc1_opp_table: sdhc1-opp-table {
@@ -1749,7 +1789,6 @@
 #include "ipcc-test-parrot.dtsi"
 
 &gcc_pcie_0_gdsc {
-	/delete-property/ qcom,support-hw-trigger;
 	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
@@ -1797,14 +1836,12 @@
 };
 
 &disp_cc_mdss_core_gdsc {
-	compatible = "regulator-fixed";
-	/delete-property/ qcom,support-hw-trigger;
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &disp_cc_mdss_core_int2_gdsc {
-	compatible = "regulator-fixed";
-	/delete-property/ qcom,support-hw-trigger;
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
