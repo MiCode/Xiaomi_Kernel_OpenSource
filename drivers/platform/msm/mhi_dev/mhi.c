@@ -4080,6 +4080,20 @@ static int mhi_init(struct mhi_dev *mhi)
 	int rc = 0, i = 0;
 	struct platform_device *pdev = mhi->pdev;
 
+	if (mhi_ctx->use_edma) {
+		rc = mhi_edma_init(&pdev->dev);
+		if (rc) {
+			pr_err("MHI: mhi edma init failed, rc = %d\n", rc);
+			return rc;
+		}
+
+		rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+		if (rc) {
+			pr_err("Error set MHI DMA mask: rc = %d\n", rc);
+			return rc;
+		}
+	}
+
 	rc = mhi_dev_mmio_init(mhi);
 	if (rc) {
 		pr_err("Failed to update the MMIO init\n");
@@ -4473,20 +4487,6 @@ static int mhi_dev_probe(struct platform_device *pdev)
 
 		mhi_uci_init(&dev_ops);
 		mhi_update_state_info(MHI_STATE_CONFIGURED);
-	}
-
-	if (mhi_ctx->use_edma) {
-		rc = mhi_edma_init(&pdev->dev);
-		if (rc) {
-			pr_err("MHI: mhi edma init failed, rc = %d\n", rc);
-			return rc;
-		}
-
-		rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
-		if (rc) {
-			pr_err("Error set MHI DMA mask: rc = %d\n", rc);
-			return rc;
-		}
 	}
 
 	if (mhi_ctx->use_edma) {
