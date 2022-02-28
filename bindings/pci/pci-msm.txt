@@ -392,6 +392,21 @@ interconnects:
 	Definition: Enable to notify the client driver for recovery when
 		config space is not accessible
 
+- qcom,parf-debug-reg:
+	Usage: optional
+	value type: <u32>
+	Definition: Offset from PCIe parf base to dump pcie parf status registers
+
+- qcom,dbi-debug-reg:
+        Usage: optional
+        value type: <u32>
+        Definition: Offset from PCIe DBI base to dump pcie DBI status registers
+
+- qcom,phy-debug-reg:
+        Usage: optional
+        value type: <u32>
+        Definition: Offset from PCIe PHY base to dump pcie phy status registers
+
 ==============
 Root port node
 ==============
