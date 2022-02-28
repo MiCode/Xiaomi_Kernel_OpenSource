@@ -4431,7 +4431,7 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		dev_info(dwc->dev, "changing max_speed on rev %08x\n",
 				dwc->revision);
 
-	dwc->gadget.max_speed		= dwc->maximum_speed;
+	dwc->gadget.max_speed		= dwc->max_hw_supp_speed;
 
 	/*
 	 * REVISIT: Here we should clear all pending IRQs to be
