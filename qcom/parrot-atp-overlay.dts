@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "parrot-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Parrot ATP";
+	compatible = "qcom,parrot-atp", "qcom,parrot", "qcom,atp";
+	qcom,msm-id = <537 0x10000>;
+	qcom,board-id = <33 0>;
+};
