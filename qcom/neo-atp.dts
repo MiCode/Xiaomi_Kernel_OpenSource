@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "neo.dtsi"
+#include "neo-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Neo ATP";
+	compatible = "qcom,neo-atp", "qcom,neo", "qcom,atp";
+	qcom,board-id = <33 0>;
+};
+

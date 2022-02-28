@@ -151,7 +151,6 @@ Generic board variants:
 - HDK device:
   compatible = "qcom,hdk"
 
-
 Boards (SoC type + board variant):
 
 compatible = "qcom,apq8016"
@@ -289,6 +288,8 @@ compatible = "qcom,diwali-lte-qrd"
 compatible = "qcom,diwali-lte-atp"
 compatible = "qcom,neo-rumi"
 compatible = "qcom,neo-qxr"
+compatible = "qcom,neo-idp"
+compatible = "qcom,neo-atp"
 compatible = "qcom,parrot-rumi"
 compatible = "qcom,parrot-idp"
 compatible = "qcom,parrot-qrd"
