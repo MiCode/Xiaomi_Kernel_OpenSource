@@ -36,7 +36,7 @@ static int entry_dwc3_gadget_run_stop(struct kretprobe_instance *ri,
 		 * It has been found to not have noticeable performance impact.
 		 */
 		struct irq_desc *irq_desc = irq_to_desc(dwc->irq_gadget);
-		struct irqaction *action = irq_desc->action;
+		struct irqaction *action = irq_desc ? irq_desc->action : NULL;
 
 		for ( ; action != NULL; action = action->next) {
 			if (action->thread) {
