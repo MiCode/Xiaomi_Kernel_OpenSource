@@ -257,14 +257,14 @@ static struct kvm_shadow_vm *find_shadow_by_handle(int shadow_handle)
 	return shadow_table[shadow_index];
 }
 
-struct kvm_vcpu *get_shadow_vcpu(int shadow_handle, int vcpu_idx)
+struct kvm_vcpu *get_shadow_vcpu(int shadow_handle, unsigned int vcpu_idx)
 {
 	struct kvm_vcpu *vcpu = NULL;
 	struct kvm_shadow_vm *vm;
 
 	hyp_spin_lock(&shadow_lock);
 	vm = find_shadow_by_handle(shadow_handle);
-	if (!vm || vcpu_idx < 0 || vm->created_vcpus <= vcpu_idx)
+	if (!vm || vm->created_vcpus <= vcpu_idx)
 		goto unlock;
 	vcpu = &vm->shadow_vcpus[vcpu_idx].vcpu;
 
@@ -342,14 +342,37 @@ static int copy_features(struct kvm_vcpu *shadow_vcpu, struct kvm_vcpu *host_vcp
 	return 0;
 }
 
-static void unpin_host_vcpus(struct kvm_shadow_vm *vm)
+static void unpin_host_vcpus(struct shadow_vcpu_state *shadow_vcpus, int nr_vcpus)
 {
 	int i;
 
-	for (i = 0; i < vm->created_vcpus; i++) {
-		struct kvm_vcpu *vcpu = vm->vcpus[i]->arch.pkvm.host_vcpu;
-		hyp_unpin_shared_mem(vcpu, vcpu + 1);
+	for (i = 0; i < nr_vcpus; i++) {
+		struct kvm_vcpu *host_vcpu = shadow_vcpus[i].vcpu.arch.pkvm.host_vcpu;
+
+		hyp_unpin_shared_mem(host_vcpu, host_vcpu + 1);
 	}
+}
+
+static int set_host_vcpus(struct shadow_vcpu_state *shadow_vcpus, int nr_vcpus,
+			  struct kvm_vcpu **vcpu_array, size_t vcpu_array_size)
+{
+	int i;
+
+	if (vcpu_array_size < sizeof(*vcpu_array) * nr_vcpus)
+		return -EINVAL;
+
+	for (i = 0; i < nr_vcpus; i++) {
+		struct kvm_vcpu *host_vcpu = kern_hyp_va(vcpu_array[i]);
+
+		if (hyp_pin_shared_mem(host_vcpu, host_vcpu + 1)) {
+			unpin_host_vcpus(shadow_vcpus, i);
+			return -EBUSY;
+		}
+
+		shadow_vcpus[i].vcpu.arch.pkvm.host_vcpu = host_vcpu;
+	}
+
+	return 0;
 }
 
 static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm,
@@ -359,20 +382,14 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm,
 	int ret;
 
 	vm->host_kvm = kvm;
-	vm->created_vcpus = 0;
+	vm->created_vcpus = nr_vcpus;
 	vm->arch.pkvm.pvmfw_load_addr = kvm->arch.pkvm.pvmfw_load_addr;
 	vm->arch.pkvm.enabled = READ_ONCE(kvm->arch.pkvm.enabled);
 
 	for (i = 0; i < nr_vcpus; i++) {
-		struct kvm_vcpu *host_vcpu = kern_hyp_va(vcpu_array[i]);
 		struct shadow_vcpu_state *shadow_state = &vm->shadow_vcpus[i];
 		struct kvm_vcpu *shadow_vcpu = &shadow_state->vcpu;
-
-		ret = hyp_pin_shared_mem(host_vcpu, host_vcpu + 1);
-		if (ret)
-			return -EBUSY;
-
-		vm->created_vcpus++;
+		struct kvm_vcpu *host_vcpu = shadow_vcpu->arch.pkvm.host_vcpu;
 
 		shadow_vcpu->kvm = kvm;
 		shadow_vcpu->vcpu_id = host_vcpu->vcpu_id;
@@ -391,7 +408,6 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm,
 
 		shadow_vcpu->arch.hw_mmu = &vm->arch.mmu;
 		shadow_vcpu->arch.pkvm.shadow_handle = vm->shadow_handle;
-		shadow_vcpu->arch.pkvm.host_vcpu = host_vcpu;
 		shadow_vcpu->arch.pkvm.shadow_vm = vm;
 		shadow_vcpu->arch.power_off = true;
 
@@ -547,6 +563,16 @@ static int check_shadow_size(int nr_vcpus, size_t shadow_size)
  *
  * Unmaps the donated memory from the host at stage 2.
  *
+ * kvm: A pointer to the host's struct kvm (host va).
+ * shadow_va: The host va of the area being donated for the shadow state.
+ * 	      Must be page aligned.
+ * shadow_size: The size of the area being donated for the shadow state.
+ * 		Must be a multiple of the page size.
+ * pgd: The host va of the area being donated for the stage-2 PGD for the VM.
+ * 	Must be page aligned. Its size is implied by the VM's VTCR.
+ * Note: An array to the host KVM VCPUs (host VA) is passed via the pgd, as to
+ * 	 not to be dependent on how the VCPU's are layed out in struct kvm.
+ *
  * Return a unique handle to the protected VM on success,
  * negative error code on failure.
  */
@@ -558,10 +584,17 @@ int __pkvm_init_shadow(struct kvm *kvm,
 	struct kvm_shadow_vm *vm = kern_hyp_va(shadow_va);
 	phys_addr_t shadow_pa = hyp_virt_to_phys(vm);
 	u64 pfn = hyp_phys_to_pfn(shadow_pa);
-	u64 nr_pages = shadow_size >> PAGE_SHIFT;
-	u64 pgd_size;
+	u64 nr_shadow_pages = shadow_size >> PAGE_SHIFT;
+	u64 nr_pgd_pages;
+	size_t pgd_size;
 	int nr_vcpus = 0;
 	int ret = 0;
+
+	/* Check that the donated memory is aligned to page boundaries. */
+	if (!PAGE_ALIGNED(shadow_va) ||
+	    !PAGE_ALIGNED(shadow_size) ||
+	    !PAGE_ALIGNED(pgd))
+		return -EINVAL;
 
 	kvm = kern_hyp_va(kvm);
 	pgd = kern_hyp_va(pgd);
@@ -576,22 +609,28 @@ int __pkvm_init_shadow(struct kvm *kvm,
 	if (ret)
 		goto err;
 
-	ret = __pkvm_host_donate_hyp(pfn, nr_pages);
+	ret = __pkvm_host_donate_hyp(pfn, nr_shadow_pages);
 	if (ret)
 		goto err;
 
 	/* Ensure we're working with a clean slate. */
 	memset(vm, 0, shadow_size);
+
 	vm->arch.vtcr = host_kvm.arch.vtcr;
-	pgd_size = kvm_pgtable_stage2_pgd_size(vm->arch.vtcr) >> PAGE_SHIFT;
-	ret =  __pkvm_host_donate_hyp(hyp_virt_to_pfn(pgd), pgd_size);
+	pgd_size = kvm_pgtable_stage2_pgd_size(host_kvm.arch.vtcr);
+	nr_pgd_pages = pgd_size >> PAGE_SHIFT;
+	ret = __pkvm_host_donate_hyp(hyp_virt_to_pfn(pgd), nr_pgd_pages);
 	if (ret)
 		goto err_remove_mappings;
+
+	ret = set_host_vcpus(vm->shadow_vcpus, nr_vcpus, pgd, pgd_size);
+	if (ret)
+		goto err_remove_pgd;
 
 	/* Add the entry to the shadow table. */
 	ret = insert_shadow_table(kvm, vm, shadow_size);
 	if (ret < 0)
-		goto err_remove_pgd;
+		goto err_unpin_host_vcpus;
 
 	ret = init_shadow_structs(kvm, vm, pgd, nr_vcpus);
 	if (ret < 0)
@@ -606,11 +645,13 @@ int __pkvm_init_shadow(struct kvm *kvm,
 err_remove_shadow_table:
 	remove_shadow_table(vm->shadow_handle);
 
+err_unpin_host_vcpus:
+	unpin_host_vcpus(vm->shadow_vcpus, nr_vcpus);
+
 err_remove_pgd:
-	WARN_ON(__pkvm_hyp_donate_host(hyp_virt_to_pfn(pgd), pgd_size));
+	WARN_ON(__pkvm_hyp_donate_host(hyp_virt_to_pfn(pgd), nr_pgd_pages));
 
 err_remove_mappings:
-	unpin_host_vcpus(vm);
 	/* Clear the donated shadow memory on failure to avoid data leaks. */
 	memset(vm, 0, shadow_size);
 	WARN_ON(__pkvm_hyp_donate_host(hyp_phys_to_pfn(shadow_pa),
@@ -621,20 +662,16 @@ err:
 	return ret;
 }
 
-int __pkvm_teardown_shadow(struct kvm *kvm)
+int __pkvm_teardown_shadow(int shadow_handle)
 {
 	struct kvm_hyp_memcache *mc;
 	struct kvm_shadow_vm *vm;
 	struct kvm *host_kvm;
 	size_t shadow_size;
-	int err, shadow_handle;
+	int err;
 	u64 pfn;
 	u64 nr_pages;
 	void *addr;
-
-	kvm = kern_hyp_va(kvm);
-
-	shadow_handle = kvm->arch.pkvm.shadow_handle;
 
 	/* Lookup then remove entry from the shadow table. */
 	hyp_spin_lock(&shadow_lock);
@@ -655,7 +692,7 @@ int __pkvm_teardown_shadow(struct kvm *kvm)
 	/* Reclaim guest pages, and page-table pages */
 	mc = &vm->host_kvm->arch.pkvm.teardown_mc;
 	reclaim_guest_pages(vm, mc);
-	unpin_host_vcpus(vm);
+	unpin_host_vcpus(vm->shadow_vcpus, vm->created_vcpus);
 
 	/* Push the metadata pages to the teardown memcache */
 	shadow_size = vm->shadow_area_size;
@@ -710,6 +747,14 @@ int pkvm_load_pvmfw_pages(struct kvm_shadow_vm *vm, u64 ipa, phys_addr_t phys,
 	}
 
 	return 0;
+}
+
+void pkvm_clear_pvmfw_pages(void)
+{
+	void *addr = hyp_phys_to_virt(pvmfw_base);
+
+	memset(addr, 0, pvmfw_size);
+	kvm_flush_dcache_to_poc(addr, pvmfw_size);
 }
 
 /*

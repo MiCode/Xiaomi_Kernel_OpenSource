@@ -210,7 +210,7 @@ static int handle_trap_exceptions(struct kvm_vcpu *vcpu)
 	if (is_protected_kvm_enabled() && !kvm_vm_is_protected(vcpu->kvm)) {
 		preempt_disable();
 		if (!(vcpu->arch.flags & KVM_ARM64_PKVM_STATE_DIRTY)) {
-			kvm_call_hyp_nvhe(__pkvm_vcpu_sync_state, vcpu);
+			kvm_call_hyp_nvhe(__pkvm_vcpu_sync_state);
 			vcpu->arch.flags |= KVM_ARM64_PKVM_STATE_DIRTY;
 		}
 		preempt_enable();
