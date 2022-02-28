@@ -2463,7 +2463,11 @@ static void fastrpc_ramdump_collection(int cid)
 				__func__, ret);
 		hlist_del_init(&buf->hn_init);
 		if (fl) {
-			complete(&fl->work);
+			spin_lock_irqsave(&me->hlock, irq_flags);
+			if (fl->file_close)
+				complete(&fl->work);
+			fl->is_ramdump_pend = false;
+			spin_unlock_irqrestore(&me->hlock, irq_flags);
 		}
 	}
 }
@@ -4481,6 +4485,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	remote_arg_t ra[1];
 	int tgid = 0;
 	int cid = -1;
+	unsigned long irq_flags = 0;
 
 	if (!fl) {
 		err = -EBADF;
@@ -4519,9 +4524,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	ioctl.perf_kernel = NULL;
 	ioctl.perf_dsp = NULL;
 	ioctl.job = NULL;
-	spin_lock(&fl->apps->hlock);
+	spin_lock_irqsave(&fl->apps->hlock, irq_flags);
 	fl->file_close = FASTRPC_PROCESS_DSP_EXIT_INIT;
-	spin_unlock(&fl->apps->hlock);
+	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 	/*
 	 * Pass 2 for "kernel" arg to send kernel msg to DSP
 	 * with non-zero msg PID for the DSP to directly use
@@ -4529,14 +4534,19 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	 */
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, KERNEL_MSG_WITH_NONZERO_PID, &ioctl)));
-	spin_lock(&fl->apps->hlock);
+	spin_lock_irqsave(&fl->apps->hlock, irq_flags);
 	fl->file_close = FASTRPC_PROCESS_DSP_EXIT_COMPLETE;
-	spin_unlock(&fl->apps->hlock);
+	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 	if (err && fl->dsp_proc_init)
 		ADSPRPC_ERR(
 			"releasing DSP process failed with %d (0x%x) for %s\n",
 			err, err, current->comm);
 bail:
+	if (err) {
+		spin_lock_irqsave(&fl->apps->hlock, irq_flags);
+		fl->file_close = FASTRPC_PROCESS_DSP_EXIT_ERROR;
+		spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
+	}
 	return err;
 }
 
@@ -5526,6 +5536,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	bool is_driver_closed = false;
 	int err = 0;
 	unsigned long irq_flags = 0;
+	bool is_locked = false;
 
 	if (!fl)
 		return 0;
@@ -5545,18 +5556,23 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	(void)fastrpc_release_current_dsp_process(fl);
 
 	spin_lock_irqsave(&fl->apps->hlock, irq_flags);
+	is_locked = true;
 	if (!fl->is_ramdump_pend) {
-		spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 		goto skip_dump_wait;
 	}
+	is_locked = false;
 	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 	wait_for_completion(&fl->work);
 
 skip_dump_wait:
-	spin_lock_irqsave(&fl->apps->hlock, irq_flags);
+	if (!is_locked) {
+		spin_lock_irqsave(&fl->apps->hlock, irq_flags);
+		is_locked = true;
+	}
 	hlist_del_init(&fl->hn);
 	fl->is_ramdump_pend = false;
 	fl->dsp_process_state = PROCESS_CREATE_DEFAULT;
+	is_locked = false;
 	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 
 	if (!fl->sctx) {
