@@ -4889,6 +4889,20 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 	if (mdwc->dwc3)
 		return 0;
 
+	ret = usb_phy_init(mdwc->hs_phy);
+	if (ret) {
+		dev_err(mdwc->dev, "failed to init HS PHY\n");
+		goto err;
+	}
+
+	if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER) {
+		ret = usb_phy_init(mdwc->ss_phy);
+		if (ret) {
+			dev_err(mdwc->dev, "failed to init SS PHY\n");
+			goto err;
+		}
+	}
+
 	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
 	if (!dwc3_node) {
