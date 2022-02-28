@@ -5606,7 +5606,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 	 */
 	if (udev->parent && !udev->parent->parent &&
 			udev->dev.parent->parent == &dwc->xhci->dev) {
-		if (event == USB_DEVICE_ADD && udev->actconfig) {
+		if (event == USB_DEVICE_ADD) {
 			if (!dwc3_msm_is_ss_rhport_connected(mdwc)) {
 				/*
 				 * Core clock rate can be reduced only if root
