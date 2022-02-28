@@ -4025,8 +4025,12 @@ void icnss_add_fw_prefix_name(struct icnss_priv *priv, char *prefix_name,
 		return;
 	}
 
-	scnprintf(prefix_name, ICNSS_MAX_FILE_NAME,
-		  QCA6750_PATH_PREFIX "%s", name);
+	if (priv->device_id == ADRASTEA_DEVICE_ID)
+		scnprintf(prefix_name, ICNSS_MAX_FILE_NAME,
+			  ADRASTEA_PATH_PREFIX "%s", name);
+	else
+		scnprintf(prefix_name, ICNSS_MAX_FILE_NAME,
+			  QCA6750_PATH_PREFIX "%s", name);
 
 	icnss_pr_dbg("File added with prefix: %s\n", prefix_name);
 }
