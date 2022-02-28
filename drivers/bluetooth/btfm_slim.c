@@ -504,7 +504,7 @@ static int btfm_slim_probe(struct slim_device *slim)
 	pr_info("%s: name = %s\n", __func__, dev_name(&slim->dev));
 	/*this as true during the probe then slimbus won't check for logical address*/
 	slim->is_laddr_valid = true;
-	dev_set_name(&slim->dev, "%s", "btfmslimslv");
+	dev_set_name(&slim->dev, "%s", "btfmslim_slave");
 	pr_info("%s: name = %s\n", __func__, dev_name(&slim->dev));
 
 	BTFMSLIM_DBG("");
