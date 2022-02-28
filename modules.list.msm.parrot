@@ -1,11 +1,14 @@
 gh_virt_wdt.ko
 qcom_wdt_core.ko
 clk-dummy.ko
+clk-rpmh.ko
 clk-qcom.ko
 deferred-free-helper.ko
+dispcc-parrot.ko
 gcc-parrot.ko
 gdsc-regulator.ko
 pinctrl-parrot.ko
+qcom-cpufreq-hw.ko
 qnoc-parrot.ko
 qcom_wdt_core.ko
 icc-rpmh.ko
