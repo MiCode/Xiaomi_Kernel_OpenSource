@@ -3466,7 +3466,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 
 				smmu->s2crs[i].pinned = true;
 				bitmap_set(smmu->context_map, smmu->s2crs[i].cbndx, 1);
-				handoff_smrs[i].valid = false;
+				handoff_smrs[index].valid = false;
 
 				break;
 
