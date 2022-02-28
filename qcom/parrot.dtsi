@@ -1079,6 +1079,32 @@
 		};
 	};
 
+	slimbam: bamdma@3304000 {
+		compatible = "qcom,bam-v1.7.0";
+		qcom,controlled-remotely;
+		reg = <0x3304000 0x20000>, <0x326b000 0x1000>;
+		reg-names = "bam", "bam_remote_mem";
+		num-channels  = <31>;
+		interrupts = <0 164 IRQ_TYPE_LEVEL_HIGH>;
+		#dma-cells = <1>;
+		qcom,ee = <1>;
+		qcom,num-ees = <2>;
+	};
+
+	slim_msm: slim@3340000 {
+		compatible = "qcom,slim-ngd-v1.5.0";
+		reg = <0x3340000 0x2C000>, <0x326a000 0x1000>;
+		reg-names = "ctrl", "slimbus_remote_mem";
+		interrupts = <0 163 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,apps-ch-pipes = <0x0>;
+		qcom,ea-pc = <0x440>;
+		dmas = <&slimbam 3>, <&slimbam 4>;
+		dma-names = "rx", "tx";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
 	cluster-device {
 		compatible = "qcom,lpm-cluster-dev";
 		power-domains = <&CLUSTER_PD>;
