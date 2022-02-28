@@ -441,6 +441,22 @@ int qcom_pmu_idle_unregister(struct qcom_pmu_notif_node *idle_node)
 }
 EXPORT_SYMBOL(qcom_pmu_idle_unregister);
 
+static int events_caching_enable(void)
+{
+	int ret = 0;
+	unsigned int enable = 1;
+
+	if (!qcom_pmu_inited)
+		return -EPROBE_DEFER;
+
+	if (!ops || !pmu_base)
+		return ret;
+
+	ret = ops->set_cache_enable(ph, &enable);
+
+	return ret;
+}
+
 static int configure_cpucp_map(cpumask_t mask)
 {
 	struct event_data *event;
@@ -451,7 +467,7 @@ static int configure_cpucp_map(cpumask_t mask)
 	if (!qcom_pmu_inited)
 		return -EPROBE_DEFER;
 
-	if (!ops || !pmu_base)
+	if (!ops)
 		return ret;
 
 	/*
@@ -860,6 +876,12 @@ int rimps_pmu_init(struct scmi_device *sdev)
 	 * will be de-allocated. Make ops NULL to avoid further scmi calls.
 	 */
 	ret = configure_cpucp_map(*cpu_possible_mask);
+	if (ret < 0) {
+		ops = NULL;
+		return ret;
+	}
+
+	ret = events_caching_enable();
 	if (ret < 0)
 		ops = NULL;
 

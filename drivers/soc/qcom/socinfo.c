@@ -1409,6 +1409,12 @@ const char *socinfo_get_id_string(void)
 }
 EXPORT_SYMBOL(socinfo_get_id_string);
 
+uint32_t socinfo_get_serial_number(void)
+{
+	return (socinfo) ? le32_to_cpu(socinfo->serial_num) : 0;
+}
+EXPORT_SYMBOL(socinfo_get_serial_number);
+
 #ifdef CONFIG_DEBUG_FS
 
 #define QCOM_OPEN(name, _func)						\
@@ -1713,9 +1719,7 @@ static int qcom_socinfo_probe(struct platform_device *pdev)
 					   SOCINFO_MINOR(le32_to_cpu(info->ver)));
 	qs->attr.soc_id = kasprintf(GFP_KERNEL, "%d", socinfo_get_id());
 	if (offsetof(struct socinfo, serial_num) <= item_size)
-		qs->attr.serial_number = devm_kasprintf(&pdev->dev, GFP_KERNEL,
-							"%u",
-							le32_to_cpu(info->serial_num));
+		qs->attr.serial_number = kasprintf(GFP_KERNEL, "%u", socinfo_get_serial_number());
 
 	qsocinfo = qs;
 	init_rwsem(&qs->current_image_rwsem);

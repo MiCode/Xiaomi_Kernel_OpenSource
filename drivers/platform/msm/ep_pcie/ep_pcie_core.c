@@ -24,9 +24,9 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/interconnect.h>
+#include <linux/pci_regs.h>
 
 #include "ep_pcie_com.h"
-//#include <asm/dma-iommu.h>
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 
@@ -103,6 +103,7 @@ static const struct ep_pcie_res_info_t ep_pcie_res_info[EP_PCIE_MAX_RES] = {
 	{"edma",	NULL, NULL},
 	{"tcsr_pcie_perst_en",	NULL, NULL},
 	{"aoss_cc_reset", NULL, NULL},
+	{"rumi", NULL, NULL},
 };
 
 static const struct ep_pcie_irq_info_t ep_pcie_irq_info[EP_PCIE_MAX_IRQ] = {
@@ -121,6 +122,36 @@ static int ep_pcie_core_wakeup_host_internal(enum ep_pcie_event event);
 int ep_pcie_get_debug_mask(void)
 {
 	return ep_pcie_debug_mask;
+}
+
+static int ep_pcie_find_capability(struct ep_pcie_dev_t *dev, u32 cap)
+{
+	u8 next_cap_ptr, cap_id;
+	u16 reg;
+
+	if (!(readl_relaxed(dev->dm_core + PCIE20_COMMAND_STATUS)
+		& PCIE20_CMD_STS_CAP_LIST))
+		return -EINVAL;
+
+
+	reg = readl_relaxed(dev->dm_core + PCI_CAPABILITY_LIST);
+	next_cap_ptr = (reg & 0x00FF);
+	if (!next_cap_ptr)
+		return 0;
+
+	do  {
+		reg = readl_relaxed(dev->dm_core + next_cap_ptr);
+		cap_id = (reg & 0x00FF);
+		if (cap_id > PCI_CAP_ID_MAX)
+			return 0;
+
+		if (cap_id == cap)
+			return next_cap_ptr;
+
+		next_cap_ptr = (reg & 0xFF00) >> 8;
+	} while (cap_id < PCI_CAP_ID_MAX);
+
+	return 0;
 }
 
 static bool ep_pcie_confirm_linkup(struct ep_pcie_dev_t *dev,
@@ -468,6 +499,9 @@ static int ep_pcie_pipe_clk_init(struct ep_pcie_dev_t *dev)
 
 	EP_PCIE_DBG(dev, "PCIe V%d\n", dev->rev);
 
+	if (dev->rumi)
+		return 0;
+
 	for (i = 0; i < EP_PCIE_MAX_PIPE_CLK; i++) {
 		info = &dev->pipeclk[i];
 
@@ -530,25 +564,69 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 {
 	struct resource *res = dev->res[EP_PCIE_RES_MMIO].resource;
 	u32 mask = resource_size(res);
-	u32 properties = 0x4;
+	u32 msix_mask = 0x1FFF; //8KB size
+	u32 properties = 0x4; /* 64 bit Non-prefetchable memory */
+	bool msix_cap = false;
+	int ret;
 
 	EP_PCIE_DBG(dev, "PCIe V%d: BAR mask to program is 0x%x\n",
 			dev->rev, mask);
 
+	/* MSI-X capable */
+	ret = ep_pcie_find_capability(dev, PCI_CAP_ID_MSIX);
+	if (ret > 0) {
+		/*
+		 * SNSP controller uses BAR0 by default for MSI-X. Update
+		 * this default behavior to use BAR0 for MHI MMIO access.
+		 * Value 0x1DFB indicates TARGET_MAP_PF is now enabled for
+		 * different bar decoding (0x1DFB indicates BAR 2 Decoding)
+		 */
+		ep_pcie_write_reg(dev->dm_core, PCIE20_TRGT_MAP_CTRL_OFF,
+				0x00001DFB);
+		msix_cap = true;
+
+		EP_PCIE_DBG(dev, "PCIe V%d: MSI-X capable\n", dev->rev);
+	}
+
 	/* Configure BAR mask via CS2 */
 	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, 0, BIT(0));
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, mask);
+
+	/* Set the BAR number 0 and enable 4 KB */
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, mask - 1);
+
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x4, 0);
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, mask);
+
+	/* enable BAR2 with BAR size 8K for MSI-X */
+	if (msix_cap)
+		ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, msix_mask);
+	else
+		ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, 0);
+
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0xc, 0);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x10, 0);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x14, 0);
+
 	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, BIT(0), 0);
 
-	/* Configure BAR properties via CS */
+	/* Configure BAR0 type and MSI-X BIR value via CS */
 	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, 0, BIT(0));
+
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, properties);
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, properties);
+
+	if (msix_cap) {
+		ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, properties);
+
+		/* Set the BIR value 2 for MSIX table and PBA table via CS2 */
+		ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, 0,
+				BIT(0));
+		writel_relaxed(0x2,
+				dev->dm_core + PCIE20_MSIX_TABLE_OFFSET_REG);
+		writel_relaxed(0x00004002,
+				dev->dm_core + PCIE20_MSIX_PBA_OFFSET_REG);
+		ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, BIT(0),
+				0);
+	}
+
 	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0), 0);
 }
 
@@ -653,7 +731,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 
 		EP_PCIE_DBG2(dev, "PCIe V%d: Clear disconn_req after D3_COLD\n",
 			     dev->rev);
-		ep_pcie_write_reg_field(dev->tcsr_perst_en,
+
+		if (!dev->tcsr_not_supported)
+			ep_pcie_write_reg_field(dev->tcsr_perst_en,
 					TCSR_PCIE_RST_SEPARATION, BIT(5), 0);
 	}
 
@@ -1297,7 +1377,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 					dev->rev, res_info->name);
 			if (!strcmp(res_info->name, "tcsr_pcie_perst_en") ||
 				(!strcmp(res_info->name, "aoss_cc_reset"))) {
-				if (!dev->tcsr_not_supported && !dev->aoss_rst_clear) {
+				if (!dev->tcsr_not_supported && dev->aoss_rst_clear) {
 					ret = -ENOMEM;
 					goto out;
 				}
@@ -1347,6 +1427,7 @@ static int ep_pcie_get_resources(struct ep_pcie_dev_t *dev,
 	dev->iatu = dev->res[EP_PCIE_RES_IATU].base;
 	dev->tcsr_perst_en = dev->res[EP_PCIE_RES_TCSR_PERST].base;
 	dev->aoss_rst_perst = dev->res[EP_PCIE_RES_AOSS_CC_RESET].base;
+	dev->rumi = dev->res[EP_PCIE_RES_RUMI].base;
 
 out:
 	kfree(clkfreq);
@@ -1804,6 +1885,12 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 			goto link_fail;
 	}
 
+	if (dev->rumi) {
+		EP_PCIE_DBG(dev, "PCIe V%d: RUMI: drive clk from RC\n",
+				dev->rev);
+		ep_pcie_write_reg(dev->rumi, 0, 0x7701);
+	}
+
 	if (!(opt & EP_PCIE_OPT_ENUM))
 		goto out;
 
@@ -2054,8 +2141,10 @@ int ep_pcie_core_disable_endpoint(void)
 
 	EP_PCIE_DBG2(dev, "PCIe V%d: Set pcie_disconnect_req during D3_COLD\n",
 		     dev->rev);
-	ep_pcie_write_reg_field(dev->tcsr_perst_en,
-				TCSR_PCIE_RST_SEPARATION, BIT(5), 1);
+
+	if (!dev->tcsr_not_supported)
+		ep_pcie_write_reg_field(dev->tcsr_perst_en,
+					TCSR_PCIE_RST_SEPARATION, BIT(5), 1);
 
 	ep_pcie_pipe_clk_deinit(dev);
 	ep_pcie_clk_deinit(dev);

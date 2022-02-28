@@ -29,7 +29,7 @@ config QCOM_MEM_BUF_DEV_GH
 
 config QCOM_MEM_BUF_MSGQ
 	tristate "Qualcomm Technologies, Inc. Memory Buffer Message Queue Support"
-	depends on GH_MSGQ
+	depends on GH_MSGQ && QCOM_MEM_BUF_DEV_GH
 	help
 	  Enables support for communicating with VMs over message queues. The communication
 	  with the VMs follows a specific communication format that is defined by the mem-buf

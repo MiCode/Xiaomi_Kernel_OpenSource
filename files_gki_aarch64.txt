@@ -96,9 +96,11 @@ arch/arm64/include/asm/kvm_pgtable.h
 arch/arm64/include/asm/kvm_pkvm.h
 arch/arm64/include/asm/kvm_ptrauth.h
 arch/arm64/include/asm/kvm_ras.h
+arch/arm64/include/asm/kvm_s2mpu.h
 arch/arm64/include/asm/kvm_types.h
 arch/arm64/include/asm/linkage.h
 arch/arm64/include/asm/lse.h
+arch/arm64/include/asm/mem_encrypt.h
 arch/arm64/include/asm/memory.h
 arch/arm64/include/asm/mman.h
 arch/arm64/include/asm/mmu_context.h
@@ -302,11 +304,12 @@ arch/arm64/kvm/hyp/include/hyp/fault.h
 arch/arm64/kvm/hyp/include/hyp/switch.h
 arch/arm64/kvm/hyp/include/hyp/sysreg-sr.h
 arch/arm64/kvm/hyp/include/nvhe/early_alloc.h
-arch/arm64/kvm/hyp/include/nvhe/fixed_config.h
 arch/arm64/kvm/hyp/include/nvhe/gfp.h
+arch/arm64/kvm/hyp/include/nvhe/iommu.h
 arch/arm64/kvm/hyp/include/nvhe/memory.h
 arch/arm64/kvm/hyp/include/nvhe/mem_protect.h
 arch/arm64/kvm/hyp/include/nvhe/mm.h
+arch/arm64/kvm/hyp/include/nvhe/pkvm.h
 arch/arm64/kvm/hyp/include/nvhe/spinlock.h
 arch/arm64/kvm/hyp/include/nvhe/trap_handler.h
 arch/arm64/kvm/hyp/nvhe/cache.S
@@ -319,6 +322,7 @@ arch/arm64/kvm/hyp/nvhe/hyp.lds.S
 arch/arm64/kvm/hyp/nvhe/hyp-main.c
 arch/arm64/kvm/hyp/nvhe/hyp-reloc.S
 arch/arm64/kvm/hyp/nvhe/hyp-smp.c
+arch/arm64/kvm/hyp/nvhe/iommu/s2mpu.c
 arch/arm64/kvm/hyp/nvhe/mem_protect.c
 arch/arm64/kvm/hyp/nvhe/mm.c
 arch/arm64/kvm/hyp/nvhe/page_alloc.c
@@ -340,6 +344,7 @@ arch/arm64/kvm/hyp/vhe/sysreg-sr.c
 arch/arm64/kvm/hyp/vhe/timer-sr.c
 arch/arm64/kvm/hyp/vhe/tlb.c
 arch/arm64/kvm/inject_fault.c
+arch/arm64/kvm/iommu/s2mpu.c
 arch/arm64/kvm/irq.h
 arch/arm64/kvm/mmio.c
 arch/arm64/kvm/mmu.c
@@ -406,6 +411,7 @@ arch/arm64/mm/flush.c
 arch/arm64/mm/init.c
 arch/arm64/mm/ioremap.c
 arch/arm64/mm/kasan_init.c
+arch/arm64/mm/mem_encrypt.c
 arch/arm64/mm/mmap.c
 arch/arm64/mm/mmu.c
 arch/arm64/mm/mteswap.c
@@ -749,6 +755,7 @@ drivers/devfreq/governor_powersave.c
 drivers/devfreq/governor_simpleondemand.c
 drivers/devfreq/governor_userspace.c
 drivers/dma-buf/dma-buf.c
+drivers/dma-buf/dma-buf-sysfs-stats.c
 drivers/dma-buf/dma-buf-sysfs-stats.h
 drivers/dma-buf/dma-fence-array.c
 drivers/dma-buf/dma-fence.c
@@ -757,6 +764,8 @@ drivers/dma-buf/dma-heap.c
 drivers/dma-buf/dma-resv.c
 drivers/dma-buf/heaps/deferred-free-helper.c
 drivers/dma-buf/heaps/deferred-free-helper.h
+drivers/dma-buf/heaps/page_pool.c
+drivers/dma-buf/heaps/page_pool.h
 drivers/dma-buf/seqno-fence.c
 drivers/dma-buf/sync_file.c
 drivers/dma/dmaengine.c

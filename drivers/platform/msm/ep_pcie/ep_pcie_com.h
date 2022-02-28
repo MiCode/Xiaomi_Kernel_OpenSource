@@ -88,6 +88,7 @@
 #define PCIE20_MASK_DEVICE_ID          GENMASK(31, 16)
 #define PCIE20_MASK_VENDOR_ID          GENMASK(15, 0)
 #define PCIE20_COMMAND_STATUS          0x04
+#define PCIE20_CMD_STS_CAP_LIST        BIT(20)
 #define PCIE20_CLASS_CODE_REVISION_ID  0x08
 #define PCIE20_BIST_HDR_TYPE           0x0C
 #define PCIE20_BAR0                    0x10
@@ -100,6 +101,8 @@
 #define PCIE20_MSI_DATA                0x5C
 #define PCIE20_MSI_MASK                0x60
 #define PCIE20_DEVICE_CAPABILITIES     0x74
+#define PCIE20_MSIX_TABLE_OFFSET_REG   0xB4
+#define PCIE20_MSIX_PBA_OFFSET_REG	0xB8
 #define PCIE20_MASK_EP_L1_ACCPT_LATENCY 0xE00
 #define PCIE20_MASK_EP_L0S_ACCPT_LATENCY 0x1C0
 #define PCIE20_LINK_CAPABILITIES       0x7C
@@ -114,6 +117,7 @@
 #define PCIE20_BUS_DISCONNECT_STATUS   0x68c
 #define PCIE20_ACK_F_ASPM_CTRL_REG     0x70C
 #define PCIE20_MASK_ACK_N_FTS          0xff00
+#define PCIE20_TRGT_MAP_CTRL_OFF       0x81C
 #define PCIE20_MISC_CONTROL_1          0x8BC
 
 #define PCIE20_PLR_IATU_VIEWPORT       0x900
@@ -251,6 +255,7 @@ enum ep_pcie_res {
 	EP_PCIE_RES_EDMA,
 	EP_PCIE_RES_TCSR_PERST,
 	EP_PCIE_RES_AOSS_CC_RESET,
+	EP_PCIE_RES_RUMI,
 	EP_PCIE_MAX_RES,
 };
 
@@ -344,6 +349,7 @@ struct ep_pcie_dev_t {
 	void __iomem                 *iatu;
 	void __iomem		     *tcsr_perst_en;
 	void __iomem		     *aoss_rst_perst;
+	void __iomem		     *rumi;
 
 	struct msm_bus_scale_pdata   *bus_scale_table;
 	struct icc_path		     *icc_path;

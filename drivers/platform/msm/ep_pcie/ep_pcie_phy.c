@@ -10,6 +10,10 @@
 
 void ep_pcie_phy_init(struct ep_pcie_dev_t *dev)
 {
+
+	if (dev->rumi)
+		return;
+
 	switch (dev->phy_rev) {
 	case 3:
 		EP_PCIE_DBG(dev,
@@ -143,6 +147,9 @@ void ep_pcie_phy_init(struct ep_pcie_dev_t *dev)
 bool ep_pcie_phy_is_ready(struct ep_pcie_dev_t *dev)
 {
 	u32 offset;
+
+	if (dev->rumi)
+		return true;
 
 	if (dev->phy_status_reg)
 		offset = dev->phy_status_reg;

@@ -6,16 +6,23 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
+#include <linux/regulator/consumer.h>
+#include <linux/of_gpio.h>
+#include <linux/io.h>
+#include <linux/iopoll.h>
+#include <linux/mii.h>
+#include <linux/of_mdio.h>
+#include <linux/slab.h>
+#include <linux/ipc_logging.h>
+#include <linux/poll.h>
+#include <linux/debugfs.h>
+
 #include "stmmac.h"
 #include "stmmac_platform.h"
+#include "dwmac-qcom-ethqos.h"
 
-#define RGMII_IO_MACRO_CONFIG		0x0
-#define SDCC_HC_REG_DLL_CONFIG		0x4
-#define SDCC_HC_REG_DDR_CONFIG		0xC
-#define SDCC_HC_REG_DLL_CONFIG2		0x10
-#define SDC4_STATUS			0x14
-#define SDCC_USR_CTL			0x18
-#define RGMII_IO_MACRO_CONFIG2		0x1C
+#include "stmmac_ptp.h"
+
 #define RGMII_IO_MACRO_DEBUG1		0x20
 #define EMAC_SYSTEM_LOW_POWER_DEBUG	0x28
 
@@ -70,27 +77,28 @@
 #define RGMII_CONFIG2_DATA_DIVIDE_CLK_SEL	BIT(6)
 #define RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN	BIT(5)
 
-struct ethqos_emac_por {
-	unsigned int offset;
-	unsigned int value;
-};
+#define EMAC_I0_EMAC_CORE_HW_VERSION_RGOFFADDR 0x00000070
 
-struct ethqos_emac_driver_data {
-	const struct ethqos_emac_por *por;
-	unsigned int num_por;
-};
+#define MII_BUSY 0x00000001
+#define MII_WRITE 0x00000002
 
-struct qcom_ethqos {
-	struct platform_device *pdev;
-	void __iomem *rgmii_base;
+/* GMAC4 defines */
+#define MII_GMAC4_GOC_SHIFT		2
+#define MII_GMAC4_WRITE			BIT(MII_GMAC4_GOC_SHIFT)
+#define MII_GMAC4_READ			(3 << MII_GMAC4_GOC_SHIFT)
 
-	unsigned int rgmii_clk_rate;
-	struct clk *rgmii_clk;
-	unsigned int speed;
+#define MII_BUSY 0x00000001
+#define MII_WRITE 0x00000002
 
-	const struct ethqos_emac_por *por;
-	unsigned int num_por;
-};
+#define DWC_ETH_QOS_PHY_INTR_STATUS     0x0013
+
+#define LINK_UP 1
+#define LINK_DOWN 0
+
+#define LINK_DOWN_STATE 0x800
+#define LINK_UP_STATE 0x400
+
+bool phy_intr_en;
 
 static int rgmii_readl(struct qcom_ethqos *ethqos, unsigned int offset)
 {
@@ -166,20 +174,6 @@ static void ethqos_set_func_clk_en(struct qcom_ethqos *ethqos)
 	rgmii_updatel(ethqos, RGMII_CONFIG_FUNC_CLK_EN,
 		      RGMII_CONFIG_FUNC_CLK_EN, RGMII_IO_MACRO_CONFIG);
 }
-
-static const struct ethqos_emac_por emac_v2_3_0_por[] = {
-	{ .offset = RGMII_IO_MACRO_CONFIG,	.value = 0x00C01343 },
-	{ .offset = SDCC_HC_REG_DLL_CONFIG,	.value = 0x2004642C },
-	{ .offset = SDCC_HC_REG_DDR_CONFIG,	.value = 0x00000000 },
-	{ .offset = SDCC_HC_REG_DLL_CONFIG2,	.value = 0x00200000 },
-	{ .offset = SDCC_USR_CTL,		.value = 0x00010800 },
-	{ .offset = RGMII_IO_MACRO_CONFIG2,	.value = 0x00002060 },
-};
-
-static const struct ethqos_emac_driver_data emac_v2_3_0_data = {
-	.por = emac_v2_3_0_por,
-	.num_por = ARRAY_SIZE(emac_v2_3_0_por),
-};
 
 static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
 {
@@ -296,7 +290,8 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      SDCC_DDR_CONFIG_PRG_DLY_EN,
 			      SDCC_HC_REG_DDR_CONFIG);
 		rgmii_updatel(ethqos, RGMII_CONFIG_LOOPBACK_EN,
-			      RGMII_CONFIG_LOOPBACK_EN, RGMII_IO_MACRO_CONFIG);
+			      RGMII_CONFIG_LOOPBACK_EN,
+			      RGMII_IO_MACRO_CONFIG);
 		break;
 
 	case SPEED_100:
@@ -330,7 +325,8 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      SDCC_DDR_CONFIG_EXT_PRG_RCLK_DLY_EN,
 			      SDCC_HC_REG_DDR_CONFIG);
 		rgmii_updatel(ethqos, RGMII_CONFIG_LOOPBACK_EN,
-			      RGMII_CONFIG_LOOPBACK_EN, RGMII_IO_MACRO_CONFIG);
+			      RGMII_CONFIG_LOOPBACK_EN,
+			      RGMII_IO_MACRO_CONFIG);
 		break;
 
 	case SPEED_10:
@@ -345,7 +341,8 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      0, RGMII_IO_MACRO_CONFIG);
 		rgmii_updatel(ethqos, RGMII_CONFIG2_DATA_DIVIDE_CLK_SEL,
 			      0, RGMII_IO_MACRO_CONFIG2);
-		rgmii_updatel(ethqos, RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
+		rgmii_updatel(ethqos,
+			      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
 			      0, RGMII_IO_MACRO_CONFIG2);
 		rgmii_updatel(ethqos, RGMII_CONFIG_MAX_SPD_PRG_9,
 			      BIT(12) | GENMASK(9, 8),
@@ -364,7 +361,8 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      SDCC_DDR_CONFIG_EXT_PRG_RCLK_DLY_EN,
 			      SDCC_HC_REG_DDR_CONFIG);
 		rgmii_updatel(ethqos, RGMII_CONFIG_LOOPBACK_EN,
-			      RGMII_CONFIG_LOOPBACK_EN, RGMII_IO_MACRO_CONFIG);
+			      RGMII_CONFIG_LOOPBACK_EN,
+			      RGMII_IO_MACRO_CONFIG);
 		break;
 	default:
 		dev_err(&ethqos->pdev->dev,
@@ -447,6 +445,104 @@ static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 	ethqos_configure(ethqos);
 }
 
+static int ethqos_mdio_read(struct stmmac_priv  *priv, int phyaddr, int phyreg)
+{
+	unsigned int mii_address = priv->hw->mii.addr;
+	unsigned int mii_data = priv->hw->mii.data;
+	u32 v;
+	int data;
+	u32 value = MII_BUSY;
+
+	value |= (phyaddr << priv->hw->mii.addr_shift)
+		& priv->hw->mii.addr_mask;
+	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
+	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
+		& priv->hw->mii.clk_csr_mask;
+	if (priv->plat->has_gmac4)
+		value |= MII_GMAC4_READ;
+
+	if (readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
+			       100, 10000))
+		return -EBUSY;
+
+	writel_relaxed(value, priv->ioaddr + mii_address);
+
+	if (readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
+			       100, 10000))
+		return -EBUSY;
+
+	/* Read the data from the MII data register */
+	data = (int)readl_relaxed(priv->ioaddr + mii_data);
+
+	return data;
+}
+
+static int ethqos_phy_intr_config(struct qcom_ethqos *ethqos)
+{
+	int ret = 0;
+
+	ethqos->phy_intr = platform_get_irq_byname(ethqos->pdev, "phy-intr");
+
+	if (ethqos->phy_intr < 0) {
+		if (ethqos->phy_intr != -EPROBE_DEFER) {
+			dev_err(&ethqos->pdev->dev,
+				"PHY IRQ configuration information not found\n");
+		}
+		ret = 1;
+	}
+
+	return ret;
+}
+
+static void ethqos_handle_phy_interrupt(struct qcom_ethqos *ethqos)
+{
+	int phy_intr_status = 0;
+	struct platform_device *pdev = ethqos->pdev;
+
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct stmmac_priv *priv = netdev_priv(dev);
+
+	phy_intr_status = ethqos_mdio_read(priv, priv->plat->phy_addr,
+					   DWC_ETH_QOS_PHY_INTR_STATUS);
+
+	if (phy_intr_status & LINK_UP_STATE)
+		phylink_mac_change(priv->phylink, LINK_UP);
+	else if (phy_intr_status & LINK_DOWN_STATE)
+		phylink_mac_change(priv->phylink, LINK_DOWN);
+}
+
+static void ethqos_defer_phy_isr_work(struct work_struct *work)
+{
+	struct qcom_ethqos *ethqos =
+		container_of(work, struct qcom_ethqos, emac_phy_work);
+
+	ethqos_handle_phy_interrupt(ethqos);
+}
+
+static irqreturn_t ETHQOS_PHY_ISR(int irq, void *dev_data)
+{
+	struct qcom_ethqos *ethqos = (struct qcom_ethqos *)dev_data;
+
+	queue_work(system_wq, &ethqos->emac_phy_work);
+}
+
+static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
+{
+	int ret = 0;
+	struct net_device *dev = platform_get_drvdata(ethqos->pdev);
+
+	INIT_WORK(&ethqos->emac_phy_work, ethqos_defer_phy_isr_work);
+	ret = request_irq(ethqos->phy_intr, ETHQOS_PHY_ISR,
+			  IRQF_SHARED, "stmmac", ethqos);
+	if (ret) {
+		ETHQOSERR("Unable to register PHY IRQ %d\n",
+			  ethqos->phy_intr);
+		return ret;
+	}
+	phy_intr_en = true;
+	return ret;
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -461,19 +557,22 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		return ret;
 
 	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
-	if (IS_ERR(plat_dat)) {
-		dev_err(&pdev->dev, "dt configuration failed\n");
-		return PTR_ERR(plat_dat);
-	}
-
 	ethqos = devm_kzalloc(&pdev->dev, sizeof(*ethqos), GFP_KERNEL);
 	if (!ethqos) {
 		ret = -ENOMEM;
 		goto err_mem;
 	}
-
 	ethqos->pdev = pdev;
-	ethqos->rgmii_base = devm_platform_ioremap_resource_byname(pdev, "rgmii");
+
+	ethqos_init_reqgulators(ethqos);
+
+	ethqos_init_gpio(ethqos);
+
+	if (IS_ERR(plat_dat)) {
+		dev_err(&pdev->dev, "dt configuration failed\n");
+		return PTR_ERR(plat_dat);
+	}
+
 	if (IS_ERR(ethqos->rgmii_base)) {
 		ret = PTR_ERR(ethqos->rgmii_base);
 		goto err_mem;
@@ -507,8 +606,14 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_clk;
 
-	rgmii_dump(ethqos);
+	ethqos->emac_ver = rgmii_readl(ethqos,
+				       EMAC_I0_EMAC_CORE_HW_VERSION_RGOFFADDR);
 
+	if (!ethqos_phy_intr_config(ethqos))
+		ethqos_phy_intr_enable(ethqos);
+	else
+		ETHQOSERR("Phy interrupt configuration failed");
+	rgmii_dump(ethqos);
 	return ret;
 
 err_clk:
@@ -532,12 +637,14 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 	ret = stmmac_pltfr_remove(pdev);
 	clk_disable_unprepare(ethqos->rgmii_clk);
 
+	if (phy_intr_en)
+		free_irq(ethqos->phy_intr, ethqos);
+	ethqos_disable_regulators(ethqos);
+
 	return ret;
 }
 
 static const struct of_device_id qcom_ethqos_match[] = {
-	{ .compatible = "qcom,qcs404-ethqos", .data = &emac_v2_3_0_data},
-	{ }
 };
 MODULE_DEVICE_TABLE(of, qcom_ethqos_match);
 

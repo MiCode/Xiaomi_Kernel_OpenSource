@@ -17,6 +17,17 @@ struct tlb_inv_context {
 static void __tlb_switch_to_guest(struct kvm_s2_mmu *mmu,
 				  struct tlb_inv_context *cxt)
 {
+	struct kvm_cpu_context *host_ctxt;
+	struct kvm_vcpu *vcpu;
+
+	host_ctxt = &this_cpu_ptr(&kvm_host_data)->host_ctxt;
+	vcpu = host_ctxt->__hyp_running_vcpu;
+
+	if (vcpu) {
+		WARN_ON(vcpu->arch.hw_mmu->vmid.vmid != mmu->vmid.vmid);
+		return;
+	}
+
 	if (cpus_have_final_cap(ARM64_WORKAROUND_SPECULATIVE_AT)) {
 		u64 val;
 
@@ -45,6 +56,12 @@ static void __tlb_switch_to_guest(struct kvm_s2_mmu *mmu,
 
 static void __tlb_switch_to_host(struct tlb_inv_context *cxt)
 {
+	struct kvm_cpu_context *host_ctxt;
+
+	host_ctxt = &this_cpu_ptr(&kvm_host_data)->host_ctxt;
+	if (host_ctxt->__hyp_running_vcpu)
+		return;
+
 	__load_host_stage2();
 
 	if (cpus_have_final_cap(ARM64_WORKAROUND_SPECULATIVE_AT)) {

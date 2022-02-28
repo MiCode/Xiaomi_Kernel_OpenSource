@@ -476,9 +476,25 @@ static int ufs_qcom_check_hibern8(struct ufs_hba *hba)
 
 static void ufs_qcom_select_unipro_mode(struct ufs_qcom_host *host)
 {
+	int submode = host->limit_phy_submode;
+
 	ufshcd_rmwl(host->hba, QUNIPRO_SEL,
 		   ufs_qcom_cap_qunipro(host) ? QUNIPRO_SEL : 0,
 		   REG_UFS_CFG1);
+
+	if (host->hw_ver.major < 0x05)
+		goto out;
+
+	/* HS-G5 requires 38.4MHz ref_clock */
+	if (submode == UFS_QCOM_PHY_SUBMODE_G5 &&
+		host->hba->dev_ref_clk_freq == REF_CLK_FREQ_38_4_MHZ)
+		ufshcd_rmwl(host->hba, QUNIPRO_G4_SEL, 0, REG_UFS_CFG0);
+	else if (submode == UFS_QCOM_PHY_SUBMODE_G4)
+		ufshcd_rmwl(host->hba, QUNIPRO_G4_SEL,
+				QUNIPRO_G4_SEL, REG_UFS_CFG0);
+	else
+		dev_warn(host->hba->dev, "%s:Unknown ufs submode\n", __func__);
+out:
 	/* make sure above configuration is applied before we return */
 	mb();
 }
@@ -630,6 +646,11 @@ static int ufs_qcom_enable_hw_clk_gating(struct ufs_hba *hba)
 	ufshcd_writel(hba,
 		ufshcd_readl(hba, REG_UFS_CFG2) | REG_UFS_CFG2_CGC_EN_ALL,
 		REG_UFS_CFG2);
+
+	if (host->hw_ver.major == 0x05)
+		/* Ensure unused Unipro block's clock is gated */
+		ufshcd_rmwl(host->hba, UNUSED_UNIPRO_CLK_GATED,
+			UNUSED_UNIPRO_CLK_GATED, UFS_AH8_CFG);
 
 	/* Ensure that HW clock gating is enabled before next operations */
 	mb();
@@ -1759,25 +1780,6 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		ufs_qcom_cap.desired_working_mode =
 					UFS_QCOM_LIMIT_DESIRED_MODE;
 
-		if (host->hw_ver.major == 0x1) {
-			/*
-			 * HS-G3 operations may not reliably work on legacy QCOM
-			 * UFS host controller hardware even though capability
-			 * exchange during link startup phase may end up
-			 * negotiating maximum supported gear as G3.
-			 * Hence downgrade the maximum supported gear to HS-G2.
-			 */
-			if (ufs_qcom_cap.hs_tx_gear > UFS_HS_G2)
-				ufs_qcom_cap.hs_tx_gear = UFS_HS_G2;
-			if (ufs_qcom_cap.hs_rx_gear > UFS_HS_G2)
-				ufs_qcom_cap.hs_rx_gear = UFS_HS_G2;
-		} else if (host->hw_ver.major < 0x4) {
-			if (ufs_qcom_cap.hs_tx_gear > UFS_HS_G3)
-				ufs_qcom_cap.hs_tx_gear = UFS_HS_G3;
-			if (ufs_qcom_cap.hs_rx_gear > UFS_HS_G3)
-				ufs_qcom_cap.hs_rx_gear = UFS_HS_G3;
-		}
-
 		ret = ufs_qcom_get_pwr_dev_param(&ufs_qcom_cap,
 						 dev_max_params,
 						 dev_req_params);
@@ -1793,7 +1795,7 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 			ufs_qcom_dev_ref_clk_ctrl(host, true);
 
 		if (host->hw_ver.major >= 0x4) {
-			if (dev_req_params->gear_tx == UFS_HS_G4) {
+			if (dev_req_params->gear_tx >= UFS_HS_G4) {
 				/* INITIAL ADAPT */
 				ufshcd_dme_set(hba,
 					       UIC_ARG_MIB(PA_TXHSADAPTTYPE),
@@ -3029,6 +3031,27 @@ static int ufs_qcom_shared_ice_init(struct ufs_hba *hba)
 	return ufs_qcom_parse_shared_ice_config(hba);
 }
 
+static void ufs_qcom_setup_max_hs_gear(struct ufs_qcom_host *host)
+{
+	u32 param0;
+
+	if (host->hw_ver.major == 0x1) {
+		/*
+		 * HS-G3 operations may not reliably work on legacy QCOM UFS
+		 * host controller hardware even though capability exchange
+		 * during link startup phase may end up negotiating maximum
+		 * supported gear as G3. Hence, downgrade the maximum supported
+		 * gear to HS-G2.
+		 */
+		host->max_hs_gear = UFS_HS_G2;
+	} else if (host->hw_ver.major < 0x4) {
+		host->max_hs_gear = UFS_HS_G3;
+	} else {
+		param0 = ufshcd_readl(host->hba, REG_UFS_PARAM0);
+		host->max_hs_gear = UFS_QCOM_MAX_HS_GEAR(param0);
+	}
+}
+
 /**
  * ufs_qcom_init - bind phy with controller
  * @hba: host controller instance
@@ -3150,6 +3173,8 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 			host->dev_ref_clk_en_mask = BIT(5);
 		}
 	}
+
+	ufs_qcom_setup_max_hs_gear(host);
 
 	/* update phy revision information before calling phy_init() */
 	/*
@@ -3774,8 +3799,8 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	if (!np)
 		return;
 
-	host->limit_tx_hs_gear = UFS_QCOM_LIMIT_HSGEAR_TX;
-	host->limit_rx_hs_gear = UFS_QCOM_LIMIT_HSGEAR_RX;
+	host->limit_tx_hs_gear = host->max_hs_gear;
+	host->limit_rx_hs_gear = host->max_hs_gear;
 	host->limit_tx_pwm_gear = UFS_QCOM_LIMIT_PWMGEAR_TX;
 	host->limit_rx_pwm_gear = UFS_QCOM_LIMIT_PWMGEAR_RX;
 	host->limit_rate = UFS_QCOM_LIMIT_HS_RATE;
@@ -3829,6 +3854,13 @@ static int ufs_qcom_device_reset(struct ufs_hba *hba)
 	/* reset gpio is optional */
 	if (!host->device_reset)
 		return -EOPNOTSUPP;
+
+	/*
+	 * If Host Tx keeps bursting during and after H/W reset,
+	 * some UFS devices may fail the next following link startup,
+	 * hence disable hba before reset the device.
+	 */
+	ufshcd_hba_stop(hba);
 
 	/*
 	 * The UFS device shall detect reset pulses of 1us, sleep for 10us to

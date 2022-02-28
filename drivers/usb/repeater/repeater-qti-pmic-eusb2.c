@@ -5,15 +5,11 @@
 
 #include <linux/debugfs.h>
 #include <linux/err.h>
-#include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <linux/power_supply.h>
 #include <linux/regmap.h>
-#include <linux/types.h>
-#include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/repeater.h>
@@ -98,9 +94,6 @@ struct eusb2_repeater {
 	struct regulator	*vdd18;
 	struct regulator	*vdd3;
 	bool			power_enabled;
-
-	struct gpio_desc	*reset_gpiod;
-	int			reset_gpio_irq;
 
 	struct dentry		*root;
 	u8			usb2_crossover;
@@ -386,9 +379,10 @@ static int eusb2_repeater_reset(struct usb_repeater *ur,
 	struct eusb2_repeater *er =
 			container_of(ur, struct eusb2_repeater, ur);
 
-	dev_dbg(ur->dev, "reset gpio: pulling %s\n",
-			bring_out_of_reset ? "high" : "low");
-	gpiod_set_value_cansleep(er->reset_gpiod, bring_out_of_reset);
+	dev_dbg(ur->dev, "eUSB2 repeater %s\n",
+		bring_out_of_reset ? "out of reset" : "hold into reset");
+	eusb2_repeater_masked_write(er, EUSB2_EN_CTL1, EUSB2_RPTR_EN,
+		bring_out_of_reset ? EUSB2_RPTR_EN : 0x0);
 	return 0;
 }
 
@@ -408,19 +402,11 @@ static int eusb2_repeater_powerdown(struct usb_repeater *ur)
 	return eusb2_repeater_power(er, false);
 }
 
-static irqreturn_t eusb2_reset_gpio_irq_handler(int irq, void *dev_id)
-{
-	struct eusb2_repeater *er = dev_id;
-
-	dev_dbg(er->ur.dev, "reset gpio interrupt handled\n");
-	return IRQ_HANDLED;
-}
-
 static int eusb2_repeater_probe(struct platform_device *pdev)
 {
 	struct eusb2_repeater *er;
 	struct device *dev = &pdev->dev;
-	int ret = 0;
+	int ret = 0, num_elem, base;
 
 	er = devm_kzalloc(dev, sizeof(*er), GFP_KERNEL);
 	if (!er) {
@@ -435,12 +421,13 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		goto err_probe;
 	}
 
-	ret = of_property_read_u16(pdev->dev.of_node, "reg", &er->reg_base);
+	ret = of_property_read_u32(pdev->dev.of_node, "reg", &base);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to get reg base address:%d\n", ret);
 		goto err_probe;
 	}
 
+	er->reg_base = base;
 	er->vdd3 = devm_regulator_get(dev, "vdd3");
 	if (IS_ERR(er->vdd3)) {
 		dev_err(dev, "unable to get vdd3 supply\n");
@@ -455,36 +442,17 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		goto err_probe;
 	}
 
-	er->reset_gpiod = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(er->reset_gpiod)) {
-		ret = PTR_ERR(er->reset_gpiod);
-		goto err_probe;
-	}
-
-	er->reset_gpio_irq = gpiod_to_irq(er->reset_gpiod);
-	if (er->reset_gpio_irq < 0) {
-		dev_err(dev, "failed to get reset gpio IRQ\n");
-		goto err_probe;
-	}
-
-	ret = devm_request_irq(dev, er->reset_gpio_irq,
-			eusb2_reset_gpio_irq_handler, IRQF_TRIGGER_RISING,
-			pdev->name, er);
-	if (ret < 0) {
-		dev_err(dev, "failed to request reset gpio irq\n");
-		goto err_probe;
-	}
-
-	er->param_override_seq_cnt = of_property_count_elems_of_size(
-				dev->of_node, "qcom,param-override-seq",
+	num_elem = of_property_count_elems_of_size(dev->of_node,
+				"qcom,param-override-seq",
 				sizeof(*er->param_override_seq));
-	if (er->param_override_seq_cnt % 2) {
-		dev_err(dev, "invalid param_override_seq_len\n");
-		ret = -EINVAL;
-		goto err_probe;
-	}
+	if (num_elem > 0) {
+		if (num_elem % 2) {
+			dev_err(dev, "invalid param_override_seq_len\n");
+			ret = -EINVAL;
+			goto err_probe;
+		}
 
-	if (er->param_override_seq_cnt > 0) {
+		er->param_override_seq_cnt = num_elem;
 		er->param_override_seq = devm_kcalloc(dev,
 				er->param_override_seq_cnt,
 				sizeof(*er->param_override_seq), GFP_KERNEL);

@@ -23,6 +23,7 @@ enum cpucp_ev_idx {
 	STALL_BACKEND_EVT,
 	L2D_CACHE_REFILL_EVT,
 	L2D_WB_EVT,
+	L3_CACHE_REFILL_EVT,
 	L3_ACCESS_EVT,
 	LLCC_CACHE_REFILL_EVT,
 	MAX_CPUCP_EVT,
@@ -39,5 +40,6 @@ struct scmi_protocol_handle;
 struct scmi_pmu_vendor_ops {
 	int (*set_pmu_map)(const struct scmi_protocol_handle *ph, void *buf);
 	int (*set_enable_trace)(const struct scmi_protocol_handle *ph, void *buf);
+	int (*set_cache_enable)(const struct scmi_protocol_handle *ph, void *buf);
 };
 #endif

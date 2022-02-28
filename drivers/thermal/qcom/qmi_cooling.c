@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -19,12 +19,11 @@
 
 #define QMI_CDEV_DRIVER		"qmi-cooling-device"
 #define QMI_TMD_RESP_TOUT	msecs_to_jiffies(100)
-#define QMI_CLIENT_NAME_LENGTH	40
 
 struct qmi_cooling_device {
 	struct device_node		*np;
-	char				cdev_name[THERMAL_NAME_LENGTH];
-	char				qmi_name[QMI_CLIENT_NAME_LENGTH];
+	char				cdev_name[QMI_TMD_MITIGATION_DEV_ID_LENGTH_MAX_V01];
+	char				qmi_name[QMI_TMD_MITIGATION_DEV_ID_LENGTH_MAX_V01];
 	bool                            connection_active;
 	struct list_head		qmi_node;
 	struct thermal_cooling_device	*cdev;
@@ -45,7 +44,7 @@ struct qmi_tmd_instance {
 static struct qmi_tmd_instance *tmd_instances;
 static int tmd_inst_cnt;
 
-static char  device_clients[][QMI_CLIENT_NAME_LENGTH] = {
+static char  device_clients[][QMI_TMD_MITIGATION_DEV_ID_LENGTH_MAX_V01] = {
 	{"pa"},
 	{"pa_fr1"},
 	{"cx_vdd_limit"},
@@ -96,6 +95,24 @@ static char  device_clients[][QMI_CLIENT_NAME_LENGTH] = {
 	{"mmw2_dsc"},
 	{"mmw3_dsc"},
 	{"mmw_ific_dsc"},
+	{"modem_lte_sub1_dsc"},
+	{"modem_nr_sub1_dsc"},
+	{"modem_nr_scg_sub1_dsc"},
+	{"sdr0_lte_sub1_dsc"},
+	{"sdr1_lte_sub1_dsc"},
+	{"sdr0_nr_sub1_dsc"},
+	{"sdr1_nr_sub1_dsc"},
+	{"pa_lte_sdr0_sub1_dsc"},
+	{"pa_lte_sdr1_sub1_dsc"},
+	{"pa_nr_sdr0_sub1_dsc"},
+	{"pa_nr_sdr1_sub1_dsc"},
+	{"pa_nr_sdr0_scg_sub1_dsc"},
+	{"pa_nr_sdr1_scg_sub1_dsc"},
+	{"mmw0_sub1_dsc"},
+	{"mmw1_sub1_dsc"},
+	{"mmw2_sub1_dsc"},
+	{"mmw3_sub1_dsc"},
+	{"mmw_ific_sub1_dsc"},
 };
 
 static int qmi_get_max_state(struct thermal_cooling_device *cdev,
@@ -308,6 +325,34 @@ static int verify_devices_and_register(struct qmi_tmd_instance *tmd)
 		}
 	}
 
+	for (i = 0; tmd_resp->mitigation_device_list_ext01_valid &&
+		i < tmd_resp->mitigation_device_list_ext01_len; i++) {
+		struct qmi_cooling_device *qmi_cdev = NULL;
+
+		list_for_each_entry(qmi_cdev, &tmd->tmd_cdev_list,
+					qmi_node) {
+			struct tmd_mitigation_dev_list_type_v01 *device =
+				&tmd_resp->mitigation_device_list_ext01[i];
+
+			if ((strncasecmp(qmi_cdev->qmi_name,
+				device->mitigation_dev_id.mitigation_dev_id,
+				QMI_TMD_MITIGATION_DEV_ID_LENGTH_MAX_V01)))
+				continue;
+
+			qmi_cdev->connection_active = true;
+			qmi_cdev->max_level = device->max_mitigation_level;
+			/*
+			 * It is better to set current state
+			 * initially or during restart
+			 */
+			qmi_tmd_send_state_request(qmi_cdev,
+						qmi_cdev->mtgn_state);
+			if (!qmi_cdev->cdev)
+				ret = qmi_register_cooling_device(qmi_cdev);
+			break;
+		}
+	}
+
 	kfree(tmd_resp);
 	return ret;
 
@@ -447,13 +492,13 @@ static int of_get_qmi_tmd_platform_data(struct device *dev)
 			}
 
 			strscpy(qmi_cdev->cdev_name, cdev_np->name,
-				THERMAL_NAME_LENGTH);
+				QMI_TMD_MITIGATION_DEV_ID_LENGTH_MAX_V01);
 
 			if (!of_property_read_string(cdev_np,
 					"qcom,qmi-dev-name",
 					&qmi_name)) {
 				strscpy(qmi_cdev->qmi_name, qmi_name,
-						QMI_CLIENT_NAME_LENGTH);
+				   QMI_TMD_MITIGATION_DEV_ID_LENGTH_MAX_V01);
 			} else {
 				dev_err(dev, "Fail to parse dev name for %s\n",
 					cdev_np->name);

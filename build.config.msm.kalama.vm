@@ -1,0 +1,47 @@
+################################################################################
+## Inheriting configs from ACK
+. ${ROOT_DIR}/common/build.config.common
+. ${ROOT_DIR}/common/build.config.aarch64
+
+################################################################################
+## Variant setup
+MSM_ARCH=kalama_tuivm
+VARIANTS=(defconfig debug_defconfig)
+[ -z "${VARIANT}" ] && VARIANT=debug_defconfig
+
+if [ -e "${ROOT_DIR}/msm-kernel" -a "${KERNEL_DIR}" = "common" ]; then
+	KERNEL_DIR="msm-kernel"
+fi
+
+BOOT_IMAGE_HEADER_VERSION=3
+BASE_ADDRESS=0x80000000
+PAGE_SIZE=4096
+VM_DTB_IMG_CREATE=1
+
+declare -A MKDTIMGDTBS
+
+################################################################################
+## Define TUI VM parameters
+TUIVM_KERNEL_OFFSET=0xf3c00000
+TUIVM_DTB_OFFSET=0xf5c00000
+TUIVM_RAMDISK_OFFSET=0xf5d00000
+TUIVM_DUMMY_IMG_OFFSET=0xf7ef2000
+
+MKDTIMGDTBS["kalama_tuivm"]="kalama-vm"
+
+################################################################################
+## Define OEM VM parameters
+OEMVM_KERNEL_OFFSET=0xf8000000
+OEMVM_DTB_OFFSET=0xfa000000
+OEMVM_RAMDISK_OFFSET=0xfa100000
+OEMVM_DUMMY_IMG_OFFSET=0xfcefb000
+
+MKDTIMGDTBS["kalama_oemvm"]="kalama-oemvm"
+
+VM_SIZE_EXT4=270000000
+DUMMY_IMG_SIZE=4096
+
+################################################################################
+## Inheriting MSM configs
+. ${KERNEL_DIR}/build.config.msm.common
+. ${KERNEL_DIR}/build.config.msm.vm

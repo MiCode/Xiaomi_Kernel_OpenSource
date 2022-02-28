@@ -143,6 +143,8 @@
 #define IPA_IOCTL_SET_IPPT_SW_FLT               90
 #define IPA_IOCTL_ADD_MACSEC_MAPPING            92
 #define IPA_IOCTL_DEL_MACSEC_MAPPING            93
+#define IPA_IOCTL_SET_NAT_EXC_RT_TBL_IDX        94
+#define IPA_IOCTL_SET_CONN_TRACK_EXC_RT_TBL_IDX 95
 
 /**
  * max size of the header to be inserted
@@ -3661,6 +3663,13 @@ struct ipa_ioc_macsec_info {
 				IPA_IOCTL_DEL_MACSEC_MAPPING, \
 				struct ipa_ioc_macsec_info)
 
+#define IPA_IOC_SET_NAT_EXC_RT_TBL_IDX _IOW(IPA_IOC_MAGIC, \
+				IPA_IOCTL_SET_NAT_EXC_RT_TBL_IDX, \
+				uint32_t)
+
+#define IPA_IOC_SET_CONN_TRACK_EXC_RT_TBL_IDX _IOW(IPA_IOC_MAGIC, \
+				IPA_IOCTL_SET_CONN_TRACK_EXC_RT_TBL_IDX, \
+				uint32_t)
 /*
  * unique magic number of the Tethering bridge ioctls
  */

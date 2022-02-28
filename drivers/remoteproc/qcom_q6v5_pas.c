@@ -308,7 +308,7 @@ load_q6_fw:
 
 free_metadata:
 	if (adsp->dtb_pas_id)
-		qcom_mdt_free_metadata(adsp->dtb_pas_id, &mdata, ret);
+		qcom_mdt_free_metadata(adsp->dev, adsp->dtb_pas_id, &mdata, ret);
 release_dtb_fw:
 	if (adsp->dtb_pas_id)
 		release_firmware(dtb_firmware);
@@ -437,7 +437,7 @@ unscale_bus:
 disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
 free_metadata:
-	qcom_mdt_free_metadata(adsp->pas_id, adsp->mdata, ret);
+	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata, ret);
 
 	return ret;
 }
@@ -820,6 +820,8 @@ static int adsp_probe(struct platform_device *pdev)
 
 	if (ret)
 		goto detach_proxy_pds;
+
+	qcom_q6v5_register_ssr_subdev(&adsp->q6v5, &adsp->ssr_subdev.subdev);
 
 	timeout_disabled = qcom_pil_timeouts_disabled();
 	qcom_add_glink_subdev(rproc, &adsp->glink_subdev, desc->ssr_name);

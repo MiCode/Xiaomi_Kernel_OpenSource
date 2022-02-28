@@ -785,6 +785,7 @@ struct msm_pcie_dev_t {
 	bool drv_supported;
 
 	bool aer_dump;
+	bool panic_on_aer;
 	void (*rumi_init)(struct msm_pcie_dev_t *pcie_dev);
 };
 
@@ -1712,11 +1713,36 @@ static ssize_t boot_option_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(boot_option);
 
+static ssize_t panic_on_aer_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%x\n", pcie_dev->panic_on_aer);
+}
+
+static ssize_t panic_on_aer_store(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t count)
+{
+	u32 panic_on_aer;
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);
+
+	if (kstrtou32(buf, 0, &panic_on_aer))
+		return -EINVAL;
+
+	pcie_dev->panic_on_aer = panic_on_aer;
+
+	return count;
+}
+static DEVICE_ATTR_RW(panic_on_aer);
+
 static struct attribute *msm_pcie_debug_attrs[] = {
 	&dev_attr_link_check_max_count.attr,
 	&dev_attr_enumerate.attr,
 	&dev_attr_l23_rdy_poll_timeout.attr,
 	&dev_attr_boot_option.attr,
+	&dev_attr_panic_on_aer.attr,
 	NULL,
 };
 
@@ -6157,11 +6183,11 @@ static void msm_pcie_drv_rpmsg_remove(struct rpmsg_device *rpdev)
 		return;
 
 	ret = qcom_unregister_ssr_notifier(pcie_drv->notifier, &pcie_drv->nb);
-	if (ret) {
+	if (ret)
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: error %d unregistering notifier\n",
 			 pcie_dev->rc_idx, ret);
-		pcie_drv->notifier = NULL;
-	}
+
+	pcie_drv->notifier = NULL;
 }
 
 static int msm_pcie_drv_rpmsg_cb(struct rpmsg_device *rpdev, void *data,
@@ -6331,9 +6357,7 @@ static void msm_pcie_drv_connect_worker(struct work_struct *work)
 
 	if (!pcie_dev->drv_name)
 		return;
-
-	pcie_drv->notifier = qcom_register_ssr_notifier(pcie_dev->drv_name,
-							&pcie_drv->nb);
+	pcie_drv->notifier = qcom_register_early_ssr_notifier(pcie_dev->drv_name, &pcie_drv->nb);
 	if (IS_ERR(pcie_drv->notifier)) {
 		PCIE_ERR(pcie_dev, "PCIe: RC%d: DRV: failed to register ssr notifier\n",
 			 pcie_dev->rc_idx);

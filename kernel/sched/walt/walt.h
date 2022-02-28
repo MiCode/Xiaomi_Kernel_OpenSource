@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2022, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _WALT_H
@@ -719,11 +720,13 @@ static inline bool task_fits_capacity(struct task_struct *p,
 					int cpu)
 {
 	unsigned int margin;
+	struct walt_rq *src_wrq = (struct walt_rq *) cpu_rq(task_cpu(p))->android_vendor_data1;
+	struct walt_rq *dst_wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
 
 	/*
 	 * Derive upmigration/downmigrate margin wrt the src/dest CPU.
 	 */
-	if (capacity_orig_of(task_cpu(p)) > capacity_orig_of(cpu))
+	if (src_wrq->cluster->id > dst_wrq->cluster->id)
 		margin = sched_capacity_margin_down[cpu];
 	else
 		margin = sched_capacity_margin_up[task_cpu(p)];
@@ -903,6 +906,7 @@ struct compute_energy_output {
 	unsigned int	cluster_first_cpu[MAX_CLUSTERS];
 };
 
+bool walt_halt_check_last(int cpu);
 extern struct cpumask __cpu_halt_mask;
 #define cpu_halt_mask ((struct cpumask *)&__cpu_halt_mask)
 #define cpu_halted(cpu) cpumask_test_cpu((cpu), cpu_halt_mask)
@@ -915,6 +919,16 @@ extern int in_sched_bug;
 extern struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
 				 struct task_struct *p, int dest_cpu);
 
+enum WALT_DEBUG_FEAT {
+	WALT_BUG_UPSTREAM,
+	WALT_BUG_WALT,
+	WALT_BUG_NONCRITICAL,
+	WALT_BUG_UNUSED,
+
+	/* maximum 4 entries allowed */
+	WALT_DEBUG_FEAT_NR,
+};
+
 #define WALT_PANIC(condition)				\
 ({							\
 	if (unlikely(!!(condition)) && !in_sched_bug) {	\
@@ -924,21 +938,46 @@ extern struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
 	}						\
 })
 
-#define WALT_PANIC_SENTINEL 0x4544DEAD
+/* the least signifcant byte is the bitmask for features and printk */
+#define WALT_PANIC_SENTINEL	0x4544DE00
 
-/*
- * crash if walt bugs are fatal, otherwise return immediately.
- * output format and arguments to console
- */
-#define WALT_BUG(p, format, args...)					\
-({									\
-	if (unlikely(sysctl_panic_on_walt_bug == WALT_PANIC_SENTINEL)) {\
-		printk_deferred("WALT-BUG " format, args);		\
-		if (p)							\
-			walt_task_dump(p);				\
-		WALT_PANIC(1);						\
-	}								\
+#define walt_debug_bitmask_panic(x) (1UL << x)
+#define walt_debug_bitmask_print(x) (1UL << (x + WALT_DEBUG_FEAT_NR))
+
+/* setup initial values, bug and print on upstream and walt, ignore noncritical */
+#define walt_debug_initial_values()			\
+	(WALT_PANIC_SENTINEL |				\
+	 walt_debug_bitmask_panic(WALT_BUG_UPSTREAM) |	\
+	 walt_debug_bitmask_print(WALT_BUG_UPSTREAM) |	\
+	 walt_debug_bitmask_panic(WALT_BUG_WALT) |	\
+	 walt_debug_bitmask_print(WALT_BUG_WALT))
+
+/* least significant nibble is the bug feature itself */
+#define walt_debug_feat_panic(x) (!!(sysctl_panic_on_walt_bug & (1UL << x)))
+
+/* 2nd least significant nibble is the print capability */
+#define walt_debug_feat_print(x) (!!(sysctl_panic_on_walt_bug & (1UL << (x + WALT_DEBUG_FEAT_NR))))
+
+/* return true if the sentinel is set, regardless of feature set */
+static inline bool is_walt_sentinel(void)
+{
+	if (unlikely((sysctl_panic_on_walt_bug & 0xFFFFFF00) == WALT_PANIC_SENTINEL))
+		return true;
+	return false;
+}
+
+/* if the sentinel is properly set, print and/or panic as configured */
+#define WALT_BUG(feat, p, format, args...)					\
+({										\
+	if (is_walt_sentinel()) {						\
+		if (walt_debug_feat_print(feat))				\
+			printk_deferred("WALT-BUG " format, args);		\
+		if (walt_debug_feat_panic(feat)) {				\
+			if (p)							\
+				walt_task_dump(p);				\
+			WALT_PANIC(1);						\
+		}								\
+	}									\
 })
-
 
 #endif /* _WALT_H */

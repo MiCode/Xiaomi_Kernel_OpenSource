@@ -8,6 +8,7 @@ qcom_ipcc.ko
 qcom_ipc_logging.ko
 qcom-pdc.ko
 rpmh-regulator.ko
+bwmon.ko
 qcom-cpufreq-hw.ko
 sched-walt.ko
 clk-dummy.ko
@@ -15,6 +16,7 @@ clk-qcom.ko
 cmd-db.ko
 cqhci.ko
 dcc_v2.ko
+dcvs_fp.ko
 debug-regulator.ko
 dispcc-kalama.ko
 tcsrcc-kalama.ko
@@ -31,6 +33,7 @@ iommu-logger.ko
 llcc-qcom.ko
 mem-hooks.ko
 mem_buf_dev.ko
+mem_buf_msgq.ko
 mem_buf.ko
 memory_dump_v2.ko
 msm_dma_iommu_mapping.ko
@@ -44,10 +47,15 @@ phy-qcom-ufs-qmp-v4-kalama.ko
 phy-qcom-ufs-qrbtc-sdm845.ko
 pinctrl-msm.ko
 proxy-consumer.ko
+qcom-dcvs.ko
 qcom-dload-mode.ko
 qcom_dma_heaps.ko
 qcom_hwspinlock.ko
 qcom_iommu_util.ko
+qcom_llcc_pmu.ko
+qcom-pmu-lib.ko
+pmu_vendor.ko
+pmu_scmi.ko
 qcom-spmi-pmic.ko
 spmi-pmic-arb.ko
 qcom-reboot-reason.ko
@@ -66,3 +74,6 @@ ufs_qcom.ko
 arm_smmu.ko
 mem-offline.ko
 sdhci-msm.ko
+qcom_rimps.ko
+c1dcvs_vendor.ko
+c1dcvs_scmi.ko

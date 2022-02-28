@@ -2562,12 +2562,6 @@ bool qcom_scm_is_available(void)
 }
 EXPORT_SYMBOL(qcom_scm_is_available);
 
-void *qcom_get_scm_device(void)
-{
-	return __scm ? __scm->dev : NULL;
-}
-EXPORT_SYMBOL(qcom_get_scm_device);
-
 static int qcom_scm_do_restart(struct notifier_block *this, unsigned long event,
 			      void *ptr)
 {
@@ -2732,7 +2726,7 @@ static int qcom_scm_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(64));
 	if (ret)
 		return ret;
 

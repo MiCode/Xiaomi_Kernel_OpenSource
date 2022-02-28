@@ -36,6 +36,8 @@ static DEFINE_MUTEX(clk_debug_lock);
 static LIST_HEAD(clk_hw_debug_list);
 static LIST_HEAD(clk_hw_debug_mux_list);
 
+#define INVALID_MUX_SEL		0xDEADBEEF
+
 #define TCXO_DIV_4_HZ		4800000
 #define SAMPLE_TICKS_1_MS	0x1000
 #define SAMPLE_TICKS_27_MS	0x20000
@@ -46,6 +48,40 @@ static LIST_HEAD(clk_hw_debug_mux_list);
 #define XO_DIV4_TERM_CNT_MASK	GENMASK(19, 0)
 #define MEASURE_CNT		GENMASK(24, 0)
 #define CBCR_ENA		BIT(0)
+
+static int _clk_runtime_get_debug_mux(struct clk_debug_mux *mux, bool get)
+{
+	struct clk_regmap *rclk;
+	struct clk_hw *parent;
+	int i, ret = 0;
+
+	for (i = 0; i < clk_hw_get_num_parents(&mux->hw); i++) {
+		if (i < mux->num_mux_sels && mux->mux_sels[i] == INVALID_MUX_SEL)
+			continue;
+
+		parent = clk_hw_get_parent_by_index(&mux->hw, i);
+		if (clk_is_regmap_clk(parent)) {
+			rclk = to_clk_regmap(parent);
+			if (get)
+				ret = clk_runtime_get_regmap(rclk);
+			else
+				clk_runtime_put_regmap(rclk);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static int clk_runtime_get_debug_mux(struct clk_debug_mux *mux)
+{
+	return _clk_runtime_get_debug_mux(mux, true);
+}
+
+static void clk_runtime_put_debug_mux(struct clk_debug_mux *mux)
+{
+	_clk_runtime_get_debug_mux(mux, false);
+}
 
 /* Sample clock for 'ticks' reference clock ticks. */
 static u32 run_measurement(unsigned int ticks, struct regmap *regmap,
@@ -175,6 +211,8 @@ static bool clk_is_debug_mux(struct clk_hw *hw)
 
 static int clk_find_and_set_parent(struct clk_hw *mux, struct clk_hw *clk)
 {
+	struct clk_debug_mux *dmux;
+	struct clk_hw *parent;
 	int i;
 
 	if (!clk || !clk_is_debug_mux(mux))
@@ -183,8 +221,13 @@ static int clk_find_and_set_parent(struct clk_hw *mux, struct clk_hw *clk)
 	if (mux == clk || !clk_set_parent(mux->clk, clk->clk))
 		return 0;
 
+	dmux = to_clk_measure(mux);
+
 	for (i = 0; i < clk_hw_get_num_parents(mux); i++) {
-		struct clk_hw *parent = clk_hw_get_parent_by_index(mux, i);
+		if (i < dmux->num_mux_sels && dmux->mux_sels[i] == INVALID_MUX_SEL)
+			continue;
+
+		parent = clk_hw_get_parent_by_index(mux, i);
 
 		if (!clk_find_and_set_parent(parent, clk))
 			return clk_set_parent(mux->clk, parent->clk);
@@ -233,33 +276,70 @@ static int clk_debug_mux_set_parent(struct clk_hw *hw, u8 index)
 	if (!mux->mux_sels)
 		return 0;
 
-	ret = clk_debug_mux_set_mux_sel(mux, mux->mux_sels[index]);
+	ret = clk_runtime_get_debug_mux(mux);
 	if (ret)
 		return ret;
 
+	ret = clk_debug_mux_set_mux_sel(mux, mux->mux_sels[index]);
+	if (ret)
+		goto err;
+
 	/* Set the mux's post divider bits */
-	return regmap_update_bits(mux->regmap, mux->post_div_offset,
-		mux->post_div_mask,
-		(mux->post_div_val - 1) << mux->post_div_shift);
+	ret = regmap_update_bits(mux->regmap, mux->post_div_offset,
+				 mux->post_div_mask,
+				 (mux->post_div_val - 1) << mux->post_div_shift);
+
+err:
+	clk_runtime_put_debug_mux(mux);
+	return ret;
+}
+
+static int clk_debug_mux_init(struct clk_hw *hw)
+{
+	struct clk_debug_mux *mux;
+	struct clk_hw *parent;
+	unsigned int i;
+
+	mux = to_clk_measure(hw);
+
+	for (i = 0; i < clk_hw_get_num_parents(hw); i++) {
+		parent = clk_hw_get_parent_by_index(hw, i);
+
+		if (!parent && i < mux->num_mux_sels) {
+			mux->mux_sels[i] = INVALID_MUX_SEL;
+			pr_debug("%s: invalidating %s mux_sel %d\n", __func__,
+				 clk_hw_get_name(hw), i);
+		}
+	}
+
+	return 0;
 }
 
 const struct clk_ops clk_debug_mux_ops = {
 	.get_parent = clk_debug_mux_get_parent,
 	.set_parent = clk_debug_mux_set_parent,
 	.debug_init = clk_debug_measure_add,
+	.init = clk_debug_mux_init,
 };
 EXPORT_SYMBOL(clk_debug_mux_ops);
 
-static void enable_debug_clks(struct clk_hw *mux)
+static int enable_debug_clks(struct clk_hw *mux)
 {
 	struct clk_debug_mux *meas = to_clk_measure(mux);
 	struct clk_hw *parent;
+	int ret;
 
 	if (!clk_is_debug_mux(mux))
-		return;
+		return 0;
+
+	ret = clk_runtime_get_debug_mux(meas);
+	if (ret)
+		return ret;
 
 	parent = clk_hw_get_parent(mux);
-	enable_debug_clks(parent);
+	ret = enable_debug_clks(parent);
+	if (ret)
+		goto err;
 
 	meas->en_mask = meas->en_mask ? meas->en_mask : CBCR_ENA;
 
@@ -267,6 +347,10 @@ static void enable_debug_clks(struct clk_hw *mux)
 	if (meas->cbcr_offset != U32_MAX)
 		regmap_update_bits(meas->regmap, meas->cbcr_offset,
 				   meas->en_mask, meas->en_mask);
+
+err:
+	clk_runtime_put_debug_mux(meas);
+	return ret;
 }
 
 static void disable_debug_clks(struct clk_hw *mux)
@@ -277,11 +361,16 @@ static void disable_debug_clks(struct clk_hw *mux)
 	if (!clk_is_debug_mux(mux))
 		return;
 
+	if (clk_runtime_get_debug_mux(meas))
+		return;
+
 	meas->en_mask = meas->en_mask ? meas->en_mask : CBCR_ENA;
 
 	if (meas->cbcr_offset != U32_MAX)
 		regmap_update_bits(meas->regmap, meas->cbcr_offset,
 					meas->en_mask, 0);
+
+	clk_runtime_put_debug_mux(meas);
 
 	parent = clk_hw_get_parent(mux);
 	disable_debug_clks(parent);
@@ -317,9 +406,14 @@ static int clk_debug_measure_set(void *data, u64 val)
 	if (!clk_is_debug_mux(hw))
 		return 0;
 
+	mux = to_clk_measure(hw);
+
+	ret = clk_runtime_get_debug_mux(mux);
+	if (ret)
+		return ret;
+
 	mutex_lock(&clk_debug_lock);
 
-	mux = to_clk_measure(hw);
 	clk_debug_mux_set_mux_sel(mux, val);
 
 	/*
@@ -334,26 +428,22 @@ static int clk_debug_measure_set(void *data, u64 val)
 		pr_err("Failed to orphan debug mux.\n");
 
 	mutex_unlock(&clk_debug_lock);
+	clk_runtime_put_debug_mux(mux);
 	return ret;
 }
 
 static int clk_debug_measure_get(void *data, u64 *val)
 {
+	struct clk_debug_mux *meas = to_clk_measure(measure);
 	struct clk_debug_mux *mux = NULL;
-	struct clk_regmap *rclk = NULL;
 	struct clk_hw *hw = data;
 	struct clk_hw *parent;
 	int ret = 0;
 	u32 regval;
 
-	if (clk_is_regmap_clk(hw))
-		rclk = to_clk_regmap(hw);
-
-	if (rclk) {
-		ret = clk_runtime_get_regmap(rclk);
-		if (ret)
-			return ret;
-	}
+	ret = clk_runtime_get_debug_mux(meas);
+	if (ret)
+		return ret;
 
 	mutex_lock(&clk_debug_lock);
 
@@ -376,7 +466,10 @@ static int clk_debug_measure_get(void *data, u64 *val)
 		*val = 1000000000000UL;
 		do_div(*val, regval);
 	} else {
-		enable_debug_clks(measure);
+		ret = enable_debug_clks(measure);
+		if (ret)
+			goto exit;
+
 		*val = clk_debug_mux_measure_rate(measure);
 
 		/* recursively calculate actual freq */
@@ -385,8 +478,7 @@ static int clk_debug_measure_get(void *data, u64 *val)
 	}
 exit:
 	mutex_unlock(&clk_debug_lock);
-	if (rclk)
-		clk_runtime_put_regmap(rclk);
+	clk_runtime_put_debug_mux(meas);
 	return ret;
 }
 
@@ -674,10 +766,16 @@ void clk_common_debug_init(struct clk_hw *hw, struct dentry *dentry)
 
 static int clk_list_rate_vdd_level(struct clk_hw *hw, unsigned int rate)
 {
-	struct clk_regmap *rclk = to_clk_regmap(hw);
-	struct clk_vdd_class_data *vdd_data = &rclk->vdd_data;
+	struct clk_regmap *rclk;
+	struct clk_vdd_class_data *vdd_data;
 
-	if (!vdd_data->vdd_class || !clk_is_regmap_clk(hw))
+	if (!clk_is_regmap_clk(hw))
+		return 0;
+
+	rclk = to_clk_regmap(hw);
+	vdd_data = &rclk->vdd_data;
+
+	if (!vdd_data->vdd_class)
 		return 0;
 
 	return clk_find_vdd_level(hw, vdd_data, rate);
@@ -706,24 +804,49 @@ static int clock_debug_print_clock(struct hw_debug_clk *dclk, struct seq_file *s
 
 	do {
 		clk_hw = __clk_get_hw(clk);
-		clk_enabled = clk_hw_is_enabled(clk_hw);
-		clk_prepared = clk_hw_is_prepared(clk_hw);
+		if (!clk_hw)
+			break;
+
 		clk_rate = clk_hw_get_rate(clk_hw);
 		vdd_level = clk_list_rate_vdd_level(clk_hw, clk_rate);
 
-		if (vdd_level)
-			clock_debug_output_cont(s, "%s%s:%u:%u [%ld, %d]", start,
+		if (s) {
+			/*
+			 * Only call clk_hw_is_enabled() if we're printing to a
+			 * debugfs file. If we're printing to the kernel log in
+			 * the debug_suspend path, then we aren't guaranteed to
+			 * have the necessary regulators enabled for register
+			 * access. And if the clock defines the is_enabled()
+			 * callback, then it'll access registers and cause a
+			 * bus error.
+			 */
+			clk_enabled = clk_hw_is_enabled(clk_hw);
+			clk_prepared = clk_hw_is_prepared(clk_hw);
+
+			if (vdd_level)
+				clock_debug_output_cont(s, "%s%s:%u:%u [%ld, %d]", start,
+					clk_hw_get_name(clk_hw),
+					clk_enabled,
+					clk_prepared,
+					clk_rate,
+					vdd_level);
+			else
+				clock_debug_output_cont(s, "%s%s:%u:%u [%ld]", start,
+					clk_hw_get_name(clk_hw),
+					clk_enabled,
+					clk_prepared,
+					clk_rate);
+		} else if (vdd_level) {
+			clock_debug_output_cont(s, "%s%s [%ld, %d]", start,
 				clk_hw_get_name(clk_hw),
-				clk_enabled,
-				clk_prepared,
 				clk_rate,
 				vdd_level);
-		else
-			clock_debug_output_cont(s, "%s%s:%u:%u [%ld]", start,
+		} else {
+			clock_debug_output_cont(s, "%s%s [%ld]", start,
 				clk_hw_get_name(clk_hw),
-				clk_enabled,
-				clk_prepared,
 				clk_rate);
+		}
+
 		start = " -> ";
 
 	} while ((clk = clk_get_parent(clk_hw->clk)));
@@ -868,10 +991,10 @@ static void clk_hw_debug_remove(struct hw_debug_clk *dclk)
 
 static void clk_debug_unregister(void)
 {
-	struct hw_debug_clk *dclk;
+	struct hw_debug_clk *dclk, *temp;
 
 	mutex_lock(&clk_debug_lock);
-	list_for_each_entry(dclk, &clk_hw_debug_list, list)
+	list_for_each_entry_safe(dclk, temp, &clk_hw_debug_list, list)
 		clk_hw_debug_remove(dclk);
 	mutex_unlock(&clk_debug_lock);
 }

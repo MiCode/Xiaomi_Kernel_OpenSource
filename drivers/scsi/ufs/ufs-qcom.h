@@ -30,14 +30,14 @@
 
 #define UFS_VENDOR_MICRON	0x12C
 
-/* vendor specific pre-defined parameters */
-#define UFS_HS_G4	4		/* HS Gear 4 */
-
 #define SLOW 1
 #define FAST 2
 
-#define UFS_QCOM_PHY_SUBMODE_NON_G4	0
-#define UFS_QCOM_PHY_SUBMODE_G4		1
+enum ufs_qcom_phy_submode {
+	UFS_QCOM_PHY_SUBMODE_NON_G4,
+	UFS_QCOM_PHY_SUBMODE_G4,
+	UFS_QCOM_PHY_SUBMODE_G5,
+};
 
 #define UFS_QCOM_LIMIT_NUM_LANES_RX	2
 #define UFS_QCOM_LIMIT_NUM_LANES_TX	2
@@ -64,8 +64,10 @@ enum {
 	REG_UFS_TX_SYMBOL_CLK_NS_US         = 0xC4,
 	REG_UFS_LOCAL_PORT_ID_REG           = 0xC8,
 	REG_UFS_PA_ERR_CODE                 = 0xCC,
-	REG_UFS_RETRY_TIMER_REG             = 0xD0,
+	REG_UFS_PARAM0                      = 0xD0,
 	REG_UFS_PA_LINK_STARTUP_TIMER       = 0xD8,
+
+	REG_UFS_CFG0                        = 0xD8,
 	REG_UFS_CFG1                        = 0xDC,
 	REG_UFS_CFG2                        = 0xE0,
 	REG_UFS_HW_VERSION                  = 0xE4,
@@ -112,6 +114,9 @@ enum {
 #define UFS_CNTLR_2_x_x_VEN_REGS_OFFSET(x)	(0x000 + x)
 #define UFS_CNTLR_3_x_x_VEN_REGS_OFFSET(x)	(0x400 + x)
 
+/* bit definitions for REG_UFS_CFG0 register */
+#define QUNIPRO_G4_SEL		BIT(5)
+
 /* bit definitions for REG_UFS_CFG1 register */
 #define QUNIPRO_SEL		0x1
 #define UTP_DBG_RAMS_EN		0x20000
@@ -144,10 +149,22 @@ enum {
 #define CC_UFS_UNIPRO_CORE_CLK_REQ_EN	BIT(4)
 #define CC_UFS_AUXCLK_REQ_EN		BIT(5)
 
+#define UNUSED_UNIPRO_CORE_CGC_EN	BIT(11)
+#define UNUSED_UNIPRO_SYMB_CGC_EN	BIT(12)
+#define UNUSED_UNIPRO_CLK_GATED	(UNUSED_UNIPRO_CORE_CGC_EN |\
+					UNUSED_UNIPRO_SYMB_CGC_EN)
+
 #define UFS_HW_CLK_CTRL_EN	(CC_UFS_SYS_CLK_REQ_EN |\
 				 CC_UFS_ICE_CORE_CLK_REQ_EN |\
 				 CC_UFS_UNIPRO_CORE_CLK_REQ_EN |\
 				 CC_UFS_AUXCLK_REQ_EN)
+
+/* UFS_MEM_PARAM0 register */
+#define UFS_MAX_HS_GEAR_SHIFT	(4)
+#define UFS_MAX_HS_GEAR_MASK	(0x7 << UFS_MAX_HS_GEAR_SHIFT)
+#define UFS_QCOM_MAX_HS_GEAR(x) (((x) & UFS_MAX_HS_GEAR_MASK) >>\
+				 UFS_MAX_HS_GEAR_SHIFT)
+
 /* bit offset */
 enum {
 	OFFSET_UFS_PHY_SOFT_RESET           = 1,
@@ -469,6 +486,7 @@ struct ufs_qcom_host {
 
 	struct gpio_desc *device_reset;
 
+	int max_hs_gear;
 	int limit_tx_hs_gear;
 	int limit_rx_hs_gear;
 	int limit_tx_pwm_gear;
