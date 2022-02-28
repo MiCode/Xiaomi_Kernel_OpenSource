@@ -1125,12 +1125,6 @@ static void ufs_qcom_apply_turbo_setting(struct ufs_hba *hba)
 			ATTR_HW_CGC_EN_TURBO, PA_VS_CLK_CFG_REG);
 	if (err)
 		dev_err(hba->dev, "%s apply of turbo setting failed\n", __func__);
-	/*
-	 * clear bit 1 of ICE_CONTROL Register to support ice
-	 * core clock frequency greater than 300 MHz
-	 */
-	if (host->turbo_additional_conf_req)
-		ufshcd_ice_rmwl(host, ICE_CONTROL, 0, REG_UFS_ICE_CONTROL);
 
 	host->turbo_unipro_attr_applied = true;
 }
@@ -1152,12 +1146,6 @@ static void ufs_qcom_remove_turbo_setting(struct ufs_hba *hba)
 			ATTR_HW_CGC_EN_NON_TURBO, PA_VS_CLK_CFG_REG);
 	if (err)
 		dev_err(hba->dev, "%s remove of turbo setting failed\n", __func__);
-	/*
-	 * Set bit 1 of ICE_CONTROL Register to support ice
-	 * core clock frequency lesser or equal than 300 MHz
-	 */
-	if (host->turbo_additional_conf_req)
-		ufshcd_ice_rmwl(host, ICE_CONTROL, 1, REG_UFS_ICE_CONTROL);
 
 	host->turbo_unipro_attr_applied = false;
 }
