@@ -170,3 +170,7 @@
 		};
 	};
 };
+
+&tcsrcc {
+	/delete-property/ protected-clocks;
+};

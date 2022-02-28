@@ -4,6 +4,7 @@
 #include <dt-bindings/clock/qcom,gpucc-neo.h>
 #include <dt-bindings/clock/qcom,camcc-neo.h>
 #include <dt-bindings/clock/qcom,dispcc-neo.h>
+#include <dt-bindings/clock/qcom,tcsrcc.h>
 #include <dt-bindings/clock/qcom,videocc-neo.h>
 #include <dt-bindings/interconnect/qcom,icc.h>
 #include <dt-bindings/interconnect/qcom,neo.h>
@@ -683,6 +684,16 @@
 	qcom,cpufreq-hw-debug {
 		compatible = "qcom,cpufreq-hw-epss-debug";
 		qcom,freq-hw-domain = <&cpufreq_hw 0>;
+	};
+
+	tcsrcc: clock-controller@1fc0000 {
+		compatible = "qcom,tcsrcc", "syscon";
+		reg = <0x1fc0000 0x30000>;
+		reg-name = "cc_base";
+		protected-clocks = <TCSR_PCIE_0_CLKREF_EN>,
+				<TCSR_PCIE_1_CLKREF_EN>;
+		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	sdhc1_opp_table: sdhc1-opp-table {
