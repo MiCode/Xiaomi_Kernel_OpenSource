@@ -339,6 +339,9 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 	struct dev_pm_opp *opp;
 	unsigned int freq;
 
+	if (!dev)
+		return;
+
 	/*
 	 * Get the h/w throttled frequency, normalize it using the
 	 * registered opp table and use it to calculate thermal pressure.
