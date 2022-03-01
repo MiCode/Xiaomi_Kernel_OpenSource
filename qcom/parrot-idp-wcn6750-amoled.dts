@@ -2,6 +2,7 @@
 
 #include "parrot.dtsi"
 #include "parrot-idp-wcn6750-amoled.dtsi"
+#include "parrot-idp-pm7250b.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. Parrot WCN6750 IDP + AMOLED";
