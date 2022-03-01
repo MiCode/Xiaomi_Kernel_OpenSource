@@ -465,6 +465,7 @@ struct icnss_priv {
 	struct icnss_dms_data dms;
 	u8 use_nv_mac;
 	u32 wlan_en_delay_ms;
+	unsigned long device_config;
 };
 
 struct icnss_reg_info {
