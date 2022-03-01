@@ -5528,6 +5528,15 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 
 	/*
+	 * Regardless of where the device is in the host tree, the USB generic
+	 * device's PM resume/suspend should be skipped.  Otherwise, the USB
+	 * generic device will end up with failures during PM resume, as XHCI
+	 * relies on the DWC3 MSM to issue the PM runtime resume to wake up
+	 * the entire host device chain.
+	 */
+	if (event == USB_DEVICE_ADD)
+		dev_pm_syscore_device(&udev->dev, true);
+	/*
 	 * For direct-attach devices, new udev is direct child of root hub
 	 * i.e. dwc -> xhci -> root_hub -> udev
 	 * root_hub's udev->parent==NULL, so traverse struct device hierarchy
@@ -5553,7 +5562,6 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 					dwc3_msm_host_ss_powerup(mdwc);
 				mdwc->max_rh_port_speed = USB_SPEED_SUPER;
 			}
-			dev_pm_syscore_device(&udev->dev, true);
 		} else {
 			/* set rate back to default core clk rate */
 			clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
@@ -5568,7 +5576,6 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 		if (event == USB_DEVICE_ADD) {
 			pm_runtime_use_autosuspend(&udev->dev);
 			pm_runtime_set_autosuspend_delay(&udev->dev, 1000);
-			dev_pm_syscore_device(&udev->dev, true);
 		}
 	}
 
