@@ -22,7 +22,6 @@ struct xstats {
 	u64 ram_time;
 	u64 ram_wait;
 	int buslevel;
-	unsigned long gpu_minfreq;
 };
 
 struct devfreq_msm_adreno_tz_data {

@@ -338,7 +338,6 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 		last_b->ram_time = device->pwrscale.accum_stats.ram_time;
 		last_b->ram_wait = device->pwrscale.accum_stats.ram_wait;
 		last_b->buslevel = device->pwrctrl.cur_buslevel;
-		last_b->gpu_minfreq = pwrctrl->pwrlevels[pwrctrl->min_pwrlevel].gpu_freq;
 	}
 
 	kgsl_pwrctrl_busy_time(device, stat->total_time, stat->busy_time);
@@ -405,7 +404,6 @@ int kgsl_busmon_get_dev_status(struct device *dev,
 		b->ram_time = last_b->ram_time;
 		b->ram_wait = last_b->ram_wait;
 		b->buslevel = last_b->buslevel;
-		b->gpu_minfreq = last_b->gpu_minfreq;
 	}
 	return 0;
 }

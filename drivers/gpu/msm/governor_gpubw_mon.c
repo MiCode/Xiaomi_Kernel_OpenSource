@@ -165,7 +165,7 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 		(priv->bus.num - 1) : act_level;
 		if ((norm_cycles > priv->bus.up[act_level] ||
 				wait_active_percent > WAIT_THRESHOLD) &&
-				(gpu_percent > CAP || b.gpu_minfreq == *freq))
+				gpu_percent > CAP)
 			bus_profile->flag = DEVFREQ_FLAG_FAST_HINT;
 		else if (norm_cycles < priv->bus.down[act_level] && b.buslevel)
 			bus_profile->flag = DEVFREQ_FLAG_SLOW_HINT;
