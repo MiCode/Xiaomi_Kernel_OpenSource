@@ -1955,6 +1955,14 @@ static irqreturn_t fts_irq_handler(int irq, void *data)
 	if (!mutex_trylock(&fts_data->transition_lock))
 		return IRQ_HANDLED;
 
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
+#ifndef CONFIG_ARCH_QTI_VM
+	if (atomic_read(&fts_data->trusted_touch_enabled) == 1) {
+		mutex_unlock(&fts_data->transition_lock);
+		return IRQ_HANDLED;
+	}
+#endif
+#endif
 	fts_irq_read_report();
 	mutex_unlock(&fts_data->transition_lock);
 
