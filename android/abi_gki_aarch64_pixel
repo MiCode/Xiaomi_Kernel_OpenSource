@@ -53,6 +53,7 @@
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
   bpf_trace_run10
+  bpf_trace_run11
   bpf_trace_run1
   bpf_trace_run2
   bpf_trace_run3
@@ -60,6 +61,7 @@
   bpf_trace_run5
   bpf_trace_run6
   bpf_trace_run7
+  bpf_trace_run8
   build_skb
   bus_find_device
   bus_for_each_dev
@@ -338,6 +340,7 @@
   __devm_regmap_init_spi
   devm_regulator_bulk_get
   devm_regulator_get
+  devm_regulator_get_exclusive
   devm_regulator_get_optional
   devm_regulator_put
   devm_regulator_register
@@ -393,6 +396,10 @@
   dma_buf_get
   dma_buf_map_attachment
   dma_buf_mmap
+  dmabuf_page_pool_alloc
+  dmabuf_page_pool_create
+  dmabuf_page_pool_destroy
+  dmabuf_page_pool_free
   dma_buf_put
   dma_buf_unmap_attachment
   dma_buf_vmap
@@ -943,6 +950,7 @@
   kstrtouint
   kstrtouint_from_user
   kstrtoull
+  kstrtoull_from_user
   kthread_bind
   kthread_bind_mask
   kthread_cancel_delayed_work_sync
@@ -1019,7 +1027,6 @@
   misc_register
   __mmdrop
   mod_delayed_work_on
-  mod_node_page_state
   mod_timer
   __module_get
   module_layout
@@ -1142,6 +1149,7 @@
   of_root
   of_thermal_get_ntrips
   of_thermal_get_trip_points
+  of_thermal_is_trip_valid
   of_translate_address
   of_usb_host_tpl_support
   page_mapping
@@ -1414,6 +1422,10 @@
   rtc_tm_to_time64
   rtc_update_irq
   rtc_valid_tm
+  __rt_mutex_init
+  rt_mutex_lock
+  rt_mutex_trylock
+  rt_mutex_unlock
   rtnl_is_locked
   rtnl_lock
   rtnl_unlock
@@ -1915,6 +1927,7 @@
   wakeup_source_destroy
   wakeup_source_register
   wakeup_source_unregister
+  __wake_up_sync
   __warn_printk
   watchdog_init_timeout
   watchdog_register_device

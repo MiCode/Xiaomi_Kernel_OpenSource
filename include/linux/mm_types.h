@@ -5,6 +5,7 @@
 #include <linux/mm_types_task.h>
 
 #include <linux/auxvec.h>
+#include <linux/kref.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <linux/rbtree.h>
@@ -310,6 +311,12 @@ struct vm_userfaultfd_ctx {
 struct vm_userfaultfd_ctx {};
 #endif /* CONFIG_USERFAULTFD */
 
+struct anon_vma_name {
+	struct kref kref;
+	/* The name needs to be at the end because it is dynamically sized. */
+	char name[];
+};
+
 /*
  * This struct describes a virtual memory area. There is one of these
  * per VM-area/task. A VM area is any part of the process virtual memory
@@ -352,15 +359,16 @@ struct vm_area_struct {
 	 * linkage into the address_space->i_mmap interval tree.
 	 *
 	 * For private anonymous mappings, a pointer to a null terminated string
-	 * in the user process containing the name given to the vma, or NULL
-	 * if unnamed.
+	 * containing the name given to the vma, or NULL if unnamed.
 	 */
+
 	union {
 		struct {
 			struct rb_node rb;
 			unsigned long rb_subtree_last;
 		} shared;
-		const char __user *anon_name;
+		/* Serialized by mmap_sem. */
+		struct anon_vma_name *anon_name;
 	};
 
 	/*
@@ -815,14 +823,5 @@ enum tlb_flush_reason {
 typedef struct {
 	unsigned long val;
 } swp_entry_t;
-
-/* Return the name for an anonymous mapping or NULL for a file-backed mapping */
-static inline const char __user *vma_get_anon_name(struct vm_area_struct *vma)
-{
-	if (vma->vm_file)
-		return NULL;
-
-	return vma->anon_name;
-}
 
 #endif /* _LINUX_MM_TYPES_H */
