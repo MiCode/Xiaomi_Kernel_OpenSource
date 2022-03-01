@@ -11,12 +11,11 @@
 #include "msm_adreno_devfreq.h"
 
 #define MIN_BUSY                1000
-#define LONG_FLOOR              5000
+#define LONG_FLOOR              50000
 #define HIST                    5
 #define TARGET                  80
 #define CAP                     75
 #define WAIT_THRESHOLD          10
-#define WAIT_SAMPLE_THRESHOLD   30
 /* AB vote is in multiple of BW_STEP Mega bytes */
 #define BW_STEP                 50
 
@@ -129,6 +128,9 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 	priv->bus.ram_time += b.ram_time;
 	priv->bus.ram_wait += b.ram_wait;
 
+	if (priv->bus.total_time < bus_profile->sampling_ms)
+		return result;
+
 	norm_max_cycles = (unsigned int)(priv->bus.ram_time) /
 			(unsigned int) priv->bus.total_time;
 	norm_cycles = (unsigned int)(priv->bus.ram_time + priv->bus.ram_wait) /
@@ -137,15 +139,6 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 			(unsigned int) priv->bus.ram_time;
 	gpu_percent = (100 * (unsigned int)priv->bus.gpu_time) /
 			(unsigned int) priv->bus.total_time;
-
-	/*
-	 * If there is a high active wait percentage then run through
-	 * the algorithm below sooner rather than later. Otherwise return
-	 * early if under the sampling window.
-	 */
-	if (priv->bus.total_time < bus_profile->sampling_ms &&
-			wait_active_percent < WAIT_SAMPLE_THRESHOLD)
-		return result;
 
 	/*
 	 * If there's a new high watermark, update the cutoffs and send the
