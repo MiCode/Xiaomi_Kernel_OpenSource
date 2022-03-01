@@ -2393,6 +2393,10 @@
 		};
 	};
 
+	qcom,glink {
+		compatible = "qcom,glink";
+	};
+
 	aoss_qmp: power-controller@c300000 {
 		compatible = "qcom,waipio-aoss-qmp";
 		reg = <0xc300000 0x400>;
