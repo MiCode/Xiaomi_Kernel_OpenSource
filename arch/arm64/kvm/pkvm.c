@@ -196,6 +196,31 @@ int create_el2_shadow(struct kvm *kvm)
 	return ret;
 }
 
+void kvm_shadow_destroy(struct kvm *kvm)
+{
+	struct kvm_pinned_page *ppage, *tmp;
+	struct mm_struct *mm = current->mm;
+	struct list_head *ppages;
+
+	if (kvm->arch.pkvm.shadow_handle)
+		WARN_ON(kvm_call_hyp_nvhe(__pkvm_teardown_shadow,
+					  kvm->arch.pkvm.shadow_handle));
+
+	free_hyp_memcache(&kvm->arch.pkvm.teardown_mc);
+
+	ppages = &kvm->arch.pkvm.pinned_pages;
+	list_for_each_entry_safe(ppage, tmp, ppages, link) {
+		WARN_ON(kvm_call_hyp_nvhe(__pkvm_host_reclaim_page,
+					  page_to_pfn(ppage->page)));
+		cond_resched();
+
+		account_locked_vm(mm, 1, false);
+		unpin_user_pages_dirty_lock(&ppage->page, 1, true);
+		list_del(&ppage->link);
+		kfree(ppage);
+	}
+}
+
 static int __init pkvm_firmware_rmem_err(struct reserved_mem *rmem,
 					 const char *reason)
 {

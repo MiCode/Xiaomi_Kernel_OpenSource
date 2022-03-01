@@ -195,31 +195,6 @@ vm_fault_t kvm_arch_vcpu_fault(struct kvm_vcpu *vcpu, struct vm_fault *vmf)
 	return VM_FAULT_SIGBUS;
 }
 
-void free_hyp_memcache(struct kvm_hyp_memcache *mc);
-static void kvm_shadow_destroy(struct kvm *kvm)
-{
-	struct kvm_pinned_page *ppage, *tmp;
-	struct mm_struct *mm = current->mm;
-	struct list_head *ppages;
-
-	if (kvm->arch.pkvm.shadow_handle)
-		WARN_ON(kvm_call_hyp_nvhe(__pkvm_teardown_shadow, kvm));
-
-	free_hyp_memcache(&kvm->arch.pkvm.teardown_mc);
-
-	ppages = &kvm->arch.pkvm.pinned_pages;
-	list_for_each_entry_safe(ppage, tmp, ppages, link) {
-		WARN_ON(kvm_call_hyp_nvhe(__pkvm_host_reclaim_page,
-					  page_to_pfn(ppage->page)));
-		cond_resched();
-
-		account_locked_vm(mm, 1, false);
-		unpin_user_pages_dirty_lock(&ppage->page, 1, true);
-		list_del(&ppage->link);
-		kfree(ppage);
-	}
-}
-
 /**
  * kvm_arch_destroy_vm - destroy the VM data structure
  * @kvm:	pointer to the KVM struct
@@ -231,7 +206,9 @@ void kvm_arch_destroy_vm(struct kvm *kvm)
 	bitmap_free(kvm->arch.pmu_filter);
 
 	kvm_vgic_destroy(kvm);
-	kvm_shadow_destroy(kvm);
+
+	if (is_protected_kvm_enabled())
+		kvm_shadow_destroy(kvm);
 
 	for (i = 0; i < KVM_MAX_VCPUS; ++i) {
 		if (kvm->vcpus[i]) {
@@ -577,7 +554,9 @@ nommu:
 	kvm_arch_vcpu_load_debug_state_flags(vcpu);
 
 	if (is_protected_kvm_enabled()) {
-		kvm_call_hyp_nvhe(__pkvm_vcpu_load, vcpu);
+		kvm_call_hyp_nvhe(__pkvm_vcpu_load,
+				  vcpu->kvm->arch.pkvm.shadow_handle,
+				  vcpu->vcpu_idx, vcpu->arch.hcr_el2);
 		kvm_call_hyp(__vgic_v3_restore_vmcr_aprs,
 			     &vcpu->arch.vgic_cpu.vgic_v3);
 	}
@@ -588,7 +567,7 @@ void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
 	if (is_protected_kvm_enabled()) {
 		kvm_call_hyp(__vgic_v3_save_vmcr_aprs,
 			     &vcpu->arch.vgic_cpu.vgic_v3);
-		kvm_call_hyp_nvhe(__pkvm_vcpu_put, vcpu);
+		kvm_call_hyp_nvhe(__pkvm_vcpu_put);
 
 		/* __pkvm_vcpu_put implies a sync of the state */
 		if (!kvm_vm_is_protected(vcpu->kvm))
