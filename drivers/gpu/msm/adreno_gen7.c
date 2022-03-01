@@ -195,6 +195,10 @@ int gen7_init(struct adreno_device *adreno_dev)
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
 			ADRENO_COOP_RESET);
 
+	/* If the memory type is DDR 4, override the existing configuration */
+	if (of_fdt_get_ddrtype() == 0x7)
+		adreno_dev->highest_bank_bit = 14;
+
 	gen7_crashdump_init(adreno_dev);
 
 	return adreno_allocate_global(device, &adreno_dev->pwrup_reglist,
