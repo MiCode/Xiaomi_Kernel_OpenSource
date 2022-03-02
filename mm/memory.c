@@ -4806,6 +4806,8 @@ static vm_fault_t __handle_mm_fault(struct vm_area_struct *vma,
 		}
 
 		p4d = p4d_offset(pgd, address);
+		if (pgd_val(READ_ONCE(*pgd)) != pgd_val(pgdval))
+			goto spf_fail;
 		p4dval = READ_ONCE(*p4d);
 		if (p4d_none(p4dval) || unlikely(p4d_bad(p4dval))) {
 			count_vm_spf_event(SPF_ABORT_PUD);
@@ -4813,6 +4815,8 @@ static vm_fault_t __handle_mm_fault(struct vm_area_struct *vma,
 		}
 
 		vmf.pud = pud_offset(p4d, address);
+		if (p4d_val(READ_ONCE(*p4d)) != p4d_val(p4dval))
+			goto spf_fail;
 		pudval = READ_ONCE(*vmf.pud);
 		if (pud_none(pudval) || unlikely(pud_bad(pudval)) ||
 		    unlikely(pud_trans_huge(pudval)) ||
@@ -4822,6 +4826,8 @@ static vm_fault_t __handle_mm_fault(struct vm_area_struct *vma,
 		}
 
 		vmf.pmd = pmd_offset(vmf.pud, address);
+		if (pud_val(READ_ONCE(*vmf.pud)) != pud_val(pudval))
+			goto spf_fail;
 		vmf.orig_pmd = READ_ONCE(*vmf.pmd);
 
 		/*
@@ -4853,6 +4859,11 @@ static vm_fault_t __handle_mm_fault(struct vm_area_struct *vma,
 		 */
 
 		vmf.pte = pte_offset_map(vmf.pmd, address);
+		if (pmd_val(READ_ONCE(*vmf.pmd)) != pmd_val(vmf.orig_pmd)) {
+			pte_unmap(vmf.pte);
+			vmf.pte = NULL;
+			goto spf_fail;
+		}
 		vmf.orig_pte = READ_ONCE(*vmf.pte);
 		barrier();
 		if (pte_none(vmf.orig_pte)) {
