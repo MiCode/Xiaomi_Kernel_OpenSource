@@ -2174,6 +2174,7 @@
 #include "helios.dtsi"
 #include "neo-eva.dtsi"
 #include "neo-regulators.dtsi"
+#include "neo-pcie.dtsi"
 
 &qupv3_se8_i2c {
 	status = "ok";
