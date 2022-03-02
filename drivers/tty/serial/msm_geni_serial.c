@@ -3244,6 +3244,7 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
 	int len = (sizeof(struct msm_geni_serial_ver_info) * 2);
 	char fwver[20];
+	int invalid_fw_err = 0;
 
 	/* clks_on/off only for HSUART, as console remains actve */
 	if (!msm_port->is_console) {
@@ -3261,7 +3262,7 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 	if (unlikely(geni_se_common_get_proto(uport->membase) != GENI_SE_UART)) {
 		dev_err(uport->dev, "%s: Invalid FW %d loaded.\n",
 			 __func__, geni_se_common_get_proto(uport->membase));
-		ret = -ENXIO;
+		invalid_fw_err = -ENXIO;
 		goto exit_ver_info;
 	}
 
@@ -3283,6 +3284,7 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 		&msm_port->ver_info.hw_step_ver);
 
 	msm_geni_serial_enable_interrupts(uport);
+
 exit_ver_info:
 	if (!msm_port->is_console) {
 		geni_se_common_clks_off(msm_port->serial_rsc.se_clk,
@@ -3295,7 +3297,8 @@ exit_ver_info:
 			return ret;
 		}
 	}
-	return ret;
+
+	return invalid_fw_err ? invalid_fw_err : ret;
 }
 
 static int msm_geni_serial_get_irq_pinctrl(struct platform_device *pdev,
