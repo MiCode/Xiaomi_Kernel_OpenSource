@@ -363,6 +363,11 @@
 		apps_bcm_voter: bcm_voter {
 			compatible = "qcom,bcm-voter";
 		};
+
+		rpmhcc: qcom,rpmhclk {
+			compatible = "qcom,neo-rpmh-clk";
+			#clock-cells = <1>;
+		};
 	};
 
 	cluster-device {
@@ -472,7 +477,7 @@
 	clocks {
 		xo_board: xo_board {
 			compatible = "fixed-clock";
-			clock-frequency = <38400000>;
+			clock-frequency = <19200000>;
 			clock-output-names = "xo_board";
 			#clock-cells = <0>;
 		};
@@ -504,13 +509,6 @@
 			clock-output-names = "usb3_phy_wrapper_gcc_usb30_pipe_clk";
 			#clock-cells = <0>;
 		};
-	};
-
-	rpmhcc: qcom,rpmhcc {
-		compatible = "qcom,dummycc";
-		clock-output-names = "rpmhcc_clocks";
-		#clock-cells = <1>;
-		#reset-cells = <1>;
 	};
 
 	gcc: clock-controller@100000 {
