@@ -733,10 +733,6 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		if (err)
 			dev_err(hba->dev, "%s: enable lane clks failed,	ret=%d\n",
 				__func__, err);
-		err = ufs_qcom_config_shared_ice(host);
-		if (err)
-			dev_err(hba->dev, "%s: config shared ice failed, ret=%d\n",
-				__func__, err);
 		/*
 		 * ICE enable needs to be called before ufshcd_crypto_enable
 		 * during resume as it is needed before reprogramming all
@@ -745,6 +741,13 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		ufs_qcom_ice_enable(host);
 		break;
 	case POST_CHANGE:
+		err = ufs_qcom_config_shared_ice(host);
+		if (err) {
+			dev_err(hba->dev, "%s: config shared ice failed, ret=%d\n",
+				__func__, err);
+			break;
+		}
+
 		/* check if UFS PHY moved from DISABLED to HIBERN8 */
 		err = ufs_qcom_check_hibern8(hba);
 		ufs_qcom_enable_hw_clk_gating(hba);
@@ -2922,22 +2925,22 @@ static int ufs_qcom_config_alg1(struct ufs_hba *hba)
 	int ret;
 	unsigned int val, rx_aes;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	unsigned int num_aes_cores;
 
 	ret = of_property_read_u32(host->np, "rx-alloc-percent", &val);
 	if (ret < 0)
 		return ret;
 
+	num_aes_cores = ufshcd_readl(hba, REG_UFS_MEM_ICE_NUM_AES_CORES);
 	ufshcd_writel(hba, STATIC_ALLOC_ALG1, REG_UFS_MEM_SHARED_ICE_CONFIG);
 	/*
 	 * DTS specifies the percent allocation to rx stream
 	 * Calculation -
 	 *  Num Tx stream = N_TOT - (N_TOT * percent of rx stream allocation)
 	 */
-	rx_aes = DIV_ROUND_CLOSEST(host->num_aes_cores * val, 100);
-	val = rx_aes | ((host->num_aes_cores - rx_aes) << 8);
+	rx_aes = DIV_ROUND_CLOSEST(num_aes_cores * val, 100);
+	val = rx_aes | ((num_aes_cores - rx_aes) << 8);
 	ufshcd_writel(hba, val, REG_UFS_MEM_SHARED_ICE_ALG1_NUM_CORE);
-
-	host->chosen_algo = STATIC_ALLOC_ALG1;
 
 	return 0;
 }
@@ -2979,8 +2982,6 @@ static int ufs_qcom_config_alg2(struct ufs_hba *hba)
 		reg += 4;
 	}
 
-	host->chosen_algo = FLOOR_BASED_ALG2;
-
 	return 0;
 }
 
@@ -3001,8 +3002,6 @@ static int ufs_qcom_config_alg3(struct ufs_hba *hba)
 	config = val[0] | (val[1] << 8) | (val[2] << 16) | (val[3] << 24);
 	ufshcd_writel(hba, config, REG_UFS_MEM_SHARED_ICE_ALG3_NUM_CORE);
 
-	host->chosen_algo = INSTANTANEOUS_ALG3;
-
 	return 0;
 }
 
@@ -3019,21 +3018,23 @@ static int ufs_qcom_parse_shared_ice_config(struct ufs_hba *hba)
 
 	/* Only 1 algo can be enabled, pick the first */
 	host->np = of_get_next_available_child(np, NULL);
-	if (!host->np)
+	if (!host->np) {
+		dev_err(hba->dev, "Resort to default alg2\n");
 		/* No overrides, use floor based as default */
-		return ufs_qcom_config_alg2(hba);
+		host->chosen_algo = FLOOR_BASED_ALG2;
+		return 0;
+	}
 
 	ret = of_property_read_string(host->np, "alg-name", &alg_name);
 	if (ret < 0)
 		return ret;
 
-	host->num_aes_cores = ufshcd_readl(hba, REG_UFS_MEM_ICE_NUM_AES_CORES);
 	if (!strcmp(alg_name, "alg1"))
-		ret = ufs_qcom_config_alg1(hba);
+		host->chosen_algo = STATIC_ALLOC_ALG1;
 	else if (!strcmp(alg_name, "alg2"))
-		ret = ufs_qcom_config_alg2(hba);
+		host->chosen_algo = FLOOR_BASED_ALG2;
 	else if (!strcmp(alg_name, "alg3"))
-		ret = ufs_qcom_config_alg3(hba);
+		host->chosen_algo = INSTANTANEOUS_ALG3;
 	else
 		/* Absurd condition */
 		return -ENODATA;
@@ -3043,13 +3044,6 @@ static int ufs_qcom_parse_shared_ice_config(struct ufs_hba *hba)
 static int ufs_qcom_config_shared_ice(struct ufs_qcom_host *host)
 {
 	if (!is_shared_ice_supported(host))
-		return 0;
-
-	/*
-	 * Forbid during init, by which its already configured
-	 * Refer ufs_qcom_hce_enable_notify()
-	 */
-	if (!host->hba->pm_op_in_progress && !host->hba->eh_flags)
 		return 0;
 
 	switch (host->chosen_algo) {
@@ -3819,6 +3813,9 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 
 	ufshcd_dump_regs(hba, REG_UFS_SYS1CLK_1US, 16 * 4,
 			 "HCI Vendor Specific Registers ");
+
+	ufshcd_dump_regs(hba, UFS_MEM_ICE, 29 * 4,
+			 "HCI Shared ICE Registers ");
 
 	/* sleep a bit intermittently as we are dumping too much data */
 	ufs_qcom_print_hw_debug_reg_all(hba, NULL, ufs_qcom_dump_regs_wrapper);
