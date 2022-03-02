@@ -342,8 +342,8 @@ void smc_conn_free(struct smc_connection *conn)
 	} else {
 		smc_cdc_tx_dismiss_slots(conn);
 	}
-	smc_lgr_unregister_conn(conn);
 	smc_buf_unuse(conn, lgr);		/* allow buffer reuse */
+	smc_lgr_unregister_conn(conn);
 	conn->lgr = NULL;
 
 	if (!lgr->conns_num)
