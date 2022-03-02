@@ -357,11 +357,8 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 	struct net_device *ndev = bus->priv;
 	struct stmmac_priv *priv = netdev_priv(ndev);
 	unsigned int mii_address = priv->hw->mii.addr;
-	bool active_high = true;
+	bool active_high = false;
 
-#ifdef CONFIG_DWMAC_QCOM_ETHQOS
-	active_high = false;
-#endif
 #ifdef CONFIG_OF
 	if (priv->device->of_node) {
 		struct gpio_desc *reset_gpio;

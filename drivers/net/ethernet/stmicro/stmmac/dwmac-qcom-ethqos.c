@@ -111,9 +111,16 @@
 #define AUTONEG_STATE_MASK 0x20
 #define MICREL_LINK_UP_INTR_STATUS BIT(0)
 
-bool phy_intr_en;
-
 struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
+
+inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
+{
+	struct platform_device *pdev = ethqos->pdev;
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct stmmac_priv *priv = netdev_priv(dev);
+
+	return priv;
+}
 
 static int rgmii_readl(struct qcom_ethqos *ethqos, unsigned int offset)
 {
@@ -630,6 +637,7 @@ static irqreturn_t ETHQOS_PHY_ISR(int irq, void *dev_data)
 static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 {
 	int ret = 0;
+	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
 
 	INIT_WORK(&ethqos->emac_phy_work, ethqos_defer_phy_isr_work);
 	ret = request_irq(ethqos->phy_intr, ETHQOS_PHY_ISR,
@@ -639,7 +647,7 @@ static int ethqos_phy_intr_enable(struct qcom_ethqos *ethqos)
 			  ethqos->phy_intr);
 		return ret;
 	}
-	phy_intr_en = true;
+	priv->plat->phy_intr_en_extn_stm = true;
 	return ret;
 }
 
@@ -788,6 +796,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	}
 	ETHQOSDBG(": emac_core_version = %d\n", ethqos->emac_ver);
 
+	plat_dat->stmmac_emb_smmu_ctx = emac_emb_smmu_ctx;
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
 		goto err_clk;
@@ -811,15 +820,18 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 {
 	struct qcom_ethqos *ethqos;
 	int ret;
+	struct stmmac_priv *priv;
 
 	ethqos = get_stmmac_bsp_priv(&pdev->dev);
 	if (!ethqos)
 		return -ENODEV;
 
+	priv = qcom_ethqos_get_priv(ethqos);
+
 	ret = stmmac_pltfr_remove(pdev);
 	clk_disable_unprepare(ethqos->rgmii_clk);
 
-	if (phy_intr_en)
+	if (priv->plat->phy_intr_en_extn_stm)
 		free_irq(ethqos->phy_intr, ethqos);
 	emac_emb_smmu_exit();
 	ethqos_disable_regulators(ethqos);
