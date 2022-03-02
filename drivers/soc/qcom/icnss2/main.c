@@ -480,7 +480,8 @@ static int icnss_send_smp2p(struct icnss_priv *priv,
 					msecs_to_jiffies(SMP2P_SOC_WAKE_TIMEOUT))) {
 				icnss_pr_err("SMP2P Soc Wake timeout msg %d, %s\n", msg_id,
 					     icnss_smp2p_str[smp2p_entry]);
-				ICNSS_ASSERT(0);
+				if (!test_bit(ICNSS_FW_DOWN, &priv->state))
+					ICNSS_ASSERT(0);
 			}
 		}
 	}
