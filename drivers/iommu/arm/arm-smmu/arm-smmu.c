@@ -1816,8 +1816,7 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 			smrs[idx].id = sid;
 			smrs[idx].mask = mask;
 			smrs[idx].valid = config_smrs;
-		} else if (smrs) {
-			WARN_ON(smrs[idx].valid != config_smrs);
+		} else if (smrs && WARN_ON(smrs[idx].valid != config_smrs)) {
 			ret = -EINVAL;
 			goto out_err;
 		}
