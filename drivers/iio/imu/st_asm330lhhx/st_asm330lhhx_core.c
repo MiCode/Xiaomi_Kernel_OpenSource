@@ -52,7 +52,8 @@ static struct st_asm330lhhx_selftest_table {
 };
 
 static struct st_asm330lhhx_suspend_resume_entry
-	st_asm330lhhx_suspend_resume[ST_ASM330LHHX_SUSPEND_RESUME_REGS] = {
+	st_asm330lhhx_suspend_resume[ST_ASM330LHHX_SUSPEND_RESUME_REGS] =
+{
 	[ST_ASM330LHHX_CTRL1_XL_REG] = {
 		.page = FUNC_CFG_ACCESS_0,
 		.addr = ST_ASM330LHHX_CTRL1_XL_ADDR,
@@ -167,7 +168,8 @@ static struct st_asm330lhhx_suspend_resume_entry
 #endif /* ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS */
 };
 
-static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
+static const struct
+st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 	[ST_ASM330LHHX_ID_ACC] = {
 		.size = 7,
 		.reg = {
@@ -226,7 +228,8 @@ static const struct st_asm330lhhx_odr_table_entry st_asm330lhhx_odr_table[] = {
 	},
 };
 
-static const struct st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
+static const struct
+st_asm330lhhx_fs_table_entry st_asm330lhhx_fs_table[] = {
 	[ST_ASM330LHHX_ID_ACC] = {
 		.size = 4,
 		.fs_avl[0] = {
@@ -365,9 +368,98 @@ static const struct iio_chan_spec st_asm330lhhx_temp_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(1),
 };
 
-static __maybe_unused int st_asm330lhhx_reg_access(struct iio_dev *iio_dev,
-				 unsigned int reg, unsigned int writeval,
-				 unsigned int *readval)
+static int __maybe_unused dump_registers(const char *info,
+					 struct st_asm330lhhx_hw *hw)
+{
+	unsigned int data;
+	int i, err = 0;
+
+	mutex_lock(&hw->page_lock);
+
+	for (i = ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR;
+	     i <= ST_ASM330LHHX_REG_FIFO_STATUS2_ADDR; i++) {
+		switch (i) {
+		case ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR:
+		case ST_ASM330LHHX_REG_FIFO_CTRL1_ADDR:
+		case ST_ASM330LHHX_REG_FIFO_CTRL2_ADDR:
+		case ST_ASM330LHHX_REG_FIFO_CTRL3_ADDR:
+		case ST_ASM330LHHX_REG_FIFO_CTRL4_ADDR:
+		case ST_ASM330LHHX_REG_INT1_CTRL_ADDR:
+		case ST_ASM330LHHX_REG_INT2_CTRL_ADDR:
+		case ST_ASM330LHHX_CTRL1_XL_ADDR:
+		case ST_ASM330LHHX_CTRL2_G_ADDR:
+		case ST_ASM330LHHX_REG_CTRL3_C_ADDR:
+		case ST_ASM330LHHX_REG_CTRL4_C_ADDR:
+		case ST_ASM330LHHX_REG_CTRL5_C_ADDR:
+		case ST_ASM330LHHX_REG_CTRL6_C_ADDR:
+		case ST_ASM330LHHX_REG_CTRL7_G_ADDR:
+		case ST_ASM330LHHX_REG_CTRL10_C_ADDR:
+		case ST_ASM330LHHX_REG_STATUS_ADDR:
+		case ST_ASM330LHHX_FSM_STATUS_A_MAINPAGE:
+		case ST_ASM330LHHX_FSM_STATUS_B_MAINPAGE:
+		case ST_ASM330LHHX_MLC_STATUS_MAINPAGE:
+		case ST_ASM330LHHX_REG_FIFO_STATUS1_ADDR:
+		case ST_ASM330LHHX_REG_FIFO_STATUS2_ADDR:
+			err = regmap_read(hw->regmap, i, &data);
+			if (err < 0) {
+				dev_err(hw->dev,
+					"failed to read register %02x\n", i);
+				goto out_lock;
+			}
+			printk("%s: %02x: %02x\n", info, i, data);
+			break;
+		default:
+			break;
+		}
+	}
+
+	err = st_asm330lhhx_set_page_access(hw, true,
+					    ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+	if (err < 0)
+		goto out_lock;
+
+	for (i = ST_ASM330LHHX_PAGE_SEL_ADDR;
+	     i <= ST_ASM330LHHX_REG_EMB_FUNC_INIT_B_ADDR; i++) {
+		switch (i) {
+		case ST_ASM330LHHX_PAGE_SEL_ADDR:
+		case ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR:
+		case ST_ASM330LHHX_FSM_INT1_A_ADDR:
+		case ST_ASM330LHHX_FSM_INT1_B_ADDR:
+		case ST_ASM330LHHX_MLC_INT1_ADDR:
+		case ST_ASM330LHHX_FSM_INT2_A_ADDR:
+		case ST_ASM330LHHX_FSM_INT2_B_ADDR:
+		case ST_ASM330LHHX_MLC_INT2_ADDR:
+		case ST_ASM330LHHX_REG_MLC_STATUS_ADDR:
+		case ST_ASM330LHHX_REG_PAGE_RW:
+		case ST_ASM330LHHX_FSM_ENABLE_A_ADDR:
+		case ST_ASM330LHHX_FSM_ENABLE_B_ADDR:
+		case ST_ASM330LHHX_REG_EMB_FUNC_INIT_B_ADDR:
+			err = regmap_read(hw->regmap, i, &data);
+			if (err < 0) {
+				dev_err(hw->dev,
+					"failed to read register %02x\n", i);
+				goto out_lock;
+			}
+			printk("%s: %02x: %02x\n", info, i, data);
+			break;
+		default:
+			break;
+		}
+	}
+
+out_lock:
+	st_asm330lhhx_set_page_access(hw, false,
+				      ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+
+	mutex_unlock(&hw->page_lock);
+
+	return err;
+}
+
+static __maybe_unused int
+st_asm330lhhx_reg_access(struct iio_dev *iio_dev,
+			 unsigned int reg, unsigned int writeval,
+			 unsigned int *readval)
 {
 	struct st_asm330lhhx_sensor *sensor = iio_priv(iio_dev);
 	int ret;
@@ -398,7 +490,8 @@ static int st_asm330lhhx_check_whoami(struct st_asm330lhhx_hw *hw)
 	int err;
 	int data;
 
-	err = regmap_read(hw->regmap, ST_ASM330LHHX_REG_WHOAMI_ADDR, &data);
+	err = regmap_read(hw->regmap, ST_ASM330LHHX_REG_WHOAMI_ADDR,
+			  &data);
 	if (err < 0) {
 		dev_err(hw->dev, "failed to read whoami register\n");
 		return err;
@@ -412,13 +505,15 @@ static int st_asm330lhhx_check_whoami(struct st_asm330lhhx_hw *hw)
 	return 0;
 }
 
-static int st_asm330lhhx_get_odr_calibration(struct st_asm330lhhx_hw *hw)
+static int
+st_asm330lhhx_get_odr_calibration(struct st_asm330lhhx_hw *hw)
 {
 	int err;
 	int data;
 	s64 odr_calib;
 
-	err = regmap_read(hw->regmap, ST_ASM330LHHX_INTERNAL_FREQ_FINE, &data);
+	err = regmap_read(hw->regmap,
+			  ST_ASM330LHHX_INTERNAL_FREQ_FINE, &data);
 	if (err < 0) {
 		dev_err(hw->dev, "failed to read %d register\n",
 				ST_ASM330LHHX_INTERNAL_FREQ_FINE);
@@ -434,8 +529,9 @@ static int st_asm330lhhx_get_odr_calibration(struct st_asm330lhhx_hw *hw)
 	return 0;
 }
 
-static int st_asm330lhhx_set_full_scale(struct st_asm330lhhx_sensor *sensor,
-				     u32 gain)
+static int
+st_asm330lhhx_set_full_scale(struct st_asm330lhhx_sensor *sensor,
+			     u32 gain)
 {
 	enum st_asm330lhhx_sensor_id id = sensor->id;
 	struct st_asm330lhhx_hw *hw = sensor->hw;
@@ -454,7 +550,7 @@ static int st_asm330lhhx_set_full_scale(struct st_asm330lhhx_sensor *sensor,
 				 st_asm330lhhx_fs_table[id].fs_avl[i].reg.addr,
 				 st_asm330lhhx_fs_table[id].fs_avl[i].reg.mask,
 				 ST_ASM330LHHX_SHIFT_VAL(val,
-				st_asm330lhhx_fs_table[id].fs_avl[i].reg.mask));
+				  st_asm330lhhx_fs_table[id].fs_avl[i].reg.mask));
 	if (err < 0)
 		return err;
 
@@ -464,7 +560,7 @@ static int st_asm330lhhx_set_full_scale(struct st_asm330lhhx_sensor *sensor,
 }
 
 int st_asm330lhhx_get_odr_val(enum st_asm330lhhx_sensor_id id, int odr,
-			     int uodr, int *podr, int *puodr, u8 *val)
+			      int uodr, int *podr, int *puodr, u8 *val)
 {
 	int all_odr = ST_ASM330LHHX_ODR_EXPAND(odr, uodr);
 	int sensor_odr;
@@ -497,8 +593,8 @@ int st_asm330lhhx_get_odr_val(enum st_asm330lhhx_sensor_id id, int odr,
 }
 
 int __maybe_unused
-st_asm330lhhx_get_odr_from_reg(enum st_asm330lhhx_sensor_id id, u8 reg_val,
-			       u16 *podr, u32 *puodr)
+st_asm330lhhx_get_odr_from_reg(enum st_asm330lhhx_sensor_id id,
+			       u8 reg_val, u16 *podr, u32 *puodr)
 {
 	int i;
 
@@ -516,8 +612,8 @@ st_asm330lhhx_get_odr_from_reg(enum st_asm330lhhx_sensor_id id, u8 reg_val,
 	return 0;
 }
 
-int st_asm330lhhx_get_batch_val(struct st_asm330lhhx_sensor *sensor, int odr,
-			       int uodr, u8 *val)
+int st_asm330lhhx_get_batch_val(struct st_asm330lhhx_sensor *sensor,
+			        int odr, int uodr, u8 *val)
 {
 	enum st_asm330lhhx_sensor_id id = sensor->id;
 	int all_odr = ST_ASM330LHHX_ODR_EXPAND(odr, uodr);
@@ -540,9 +636,10 @@ int st_asm330lhhx_get_batch_val(struct st_asm330lhhx_sensor *sensor, int odr,
 	return 0;
 }
 
-static u16 st_asm330lhhx_check_odr_dependency(struct st_asm330lhhx_hw *hw,
-					   int odr, int uodr,
-					   enum st_asm330lhhx_sensor_id ref_id)
+static u16
+st_asm330lhhx_check_odr_dependency(struct st_asm330lhhx_hw *hw,
+				   int odr, int uodr,
+				   enum st_asm330lhhx_sensor_id ref_id)
 {
 	struct st_asm330lhhx_sensor *ref = iio_priv(hw->iio_devs[ref_id]);
 	bool enable = odr > 0;
@@ -561,13 +658,130 @@ static u16 st_asm330lhhx_check_odr_dependency(struct st_asm330lhhx_hw *hw,
 	return ret;
 }
 
+static int st_asm330lhhx_update_odr_fsm(struct st_asm330lhhx_hw *hw,
+					enum st_asm330lhhx_sensor_id id,
+					u8 val, int delay)
+{
+	int ret = 0;
+
+	if (st_asm330lhhx_fsm_running(hw)) {
+		/*
+		 * In STMC_PAGE:
+		 * Addr 0x02 bit 1 set to 1 -- CLK Disable
+		 * Addr 0x05 bit 0 set to 0 -- FSM_EN=0
+		 * Addr 0x05 bit 4 set to 0 -- MLC_EN=0
+		 * Addr 0x67 bit 0 set to 0 -- FSM_INIT=0
+		 * Addr 0x67 bit 4 set to 0 -- MLC_INIT=0
+		 * Addr 0x02 bit 1 set to 0 -- CLK Disable
+		 * - ODR change
+		 * - Wait
+		 * In STMC_PAGE:
+		 * Addr 0x05 bit 0 set to 1 -- FSM_EN=1
+		 * Addr 0x05 bit 4 set to 1 -- MLC_EN=1
+		 */
+		dev_info(hw->dev,
+			 "toggle algos while updating odr (delay %d)\n",
+			 delay);
+		mutex_lock(&hw->page_lock);
+		ret = st_asm330lhhx_set_page_access(hw, true,
+				       ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+		if (ret < 0)
+			goto unlock_page;
+
+		ret = regmap_update_bits(hw->regmap,
+					 ST_ASM330LHHX_PAGE_SEL_ADDR,
+					 BIT(1), FIELD_PREP(BIT(1), 1));
+		if (ret < 0)
+			goto unlock_page;
+
+		ret = regmap_update_bits(hw->regmap,
+			ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
+			ST_ASM330LHHX_FSM_EN_MASK,
+			FIELD_PREP(ST_ASM330LHHX_FSM_EN_MASK, 0));
+		if (ret < 0)
+			goto unlock_page;
+
+		ret = regmap_update_bits(hw->regmap,
+			ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
+			ST_ASM330LHHX_MLC_EN_MASK,
+			FIELD_PREP(ST_ASM330LHHX_MLC_EN_MASK, 0));
+		if (ret < 0)
+			goto unlock_page;
+
+		ret = regmap_update_bits(hw->regmap,
+			ST_ASM330LHHX_REG_EMB_FUNC_INIT_B_ADDR,
+			ST_ASM330LHHX_FSM_INIT_MASK,
+			FIELD_PREP(ST_ASM330LHHX_FSM_INIT_MASK, 0));
+		if (ret < 0)
+			goto unlock_page;
+
+		ret = regmap_update_bits(hw->regmap,
+			ST_ASM330LHHX_REG_EMB_FUNC_INIT_B_ADDR,
+			ST_ASM330LHHX_MLC_INIT_MASK,
+			FIELD_PREP(ST_ASM330LHHX_MLC_INIT_MASK, 0));
+		if (ret < 0)
+			goto unlock_page;
+
+		ret = regmap_update_bits(hw->regmap,
+					 ST_ASM330LHHX_PAGE_SEL_ADDR,
+					 BIT(1), FIELD_PREP(BIT(1), 0));
+
+		if (ret < 0)
+			goto unlock_page;
+
+		ret = st_asm330lhhx_set_page_access(hw, false,
+				      ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+		if (ret < 0)
+			goto unlock_page;
+
+		ret = regmap_update_bits(hw->regmap,
+			st_asm330lhhx_odr_table[id].reg.addr,
+			st_asm330lhhx_odr_table[id].reg.mask,
+			ST_ASM330LHHX_SHIFT_VAL(val,
+				st_asm330lhhx_odr_table[id].reg.mask));
+		if (ret < 0)
+			goto unlock_page;
+
+		usleep_range(delay, delay + (delay / 10));
+
+		st_asm330lhhx_set_page_access(hw, true,
+				       ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+
+		ret = regmap_update_bits(hw->regmap,
+			ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
+			ST_ASM330LHHX_FSM_EN_MASK,
+			FIELD_PREP(ST_ASM330LHHX_FSM_EN_MASK, 1));
+		if (ret < 0)
+			goto unlock_page;
+
+		ret = regmap_update_bits(hw->regmap,
+			ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
+			ST_ASM330LHHX_MLC_EN_MASK,
+			FIELD_PREP(ST_ASM330LHHX_MLC_EN_MASK, 1));
+
+unlock_page:
+		st_asm330lhhx_set_page_access(hw, false,
+				       ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+		mutex_unlock(&hw->page_lock);
+		//dump_registers("u", hw);
+	} else {
+		ret = regmap_update_bits(hw->regmap,
+			st_asm330lhhx_odr_table[id].reg.addr,
+			st_asm330lhhx_odr_table[id].reg.mask,
+			ST_ASM330LHHX_SHIFT_VAL(val,
+				 st_asm330lhhx_odr_table[id].reg.mask));
+	}
+
+	return ret;
+}
+
 static int st_asm330lhhx_set_odr(struct st_asm330lhhx_sensor *sensor,
 				 int req_odr, int req_uodr)
 {
 	enum st_asm330lhhx_sensor_id id = sensor->id;
 	struct st_asm330lhhx_hw *hw = sensor->hw;
+	int err, delay;
 	u8 val = 0;
-	int err;
 
 	switch (id) {
 #ifdef CONFIG_IIO_ST_ASM330LHHX_MLC
@@ -604,7 +818,8 @@ static int st_asm330lhhx_set_odr(struct st_asm330lhhx_sensor *sensor,
 		int i;
 
 		id = ST_ASM330LHHX_ID_ACC;
-		for (i = ST_ASM330LHHX_ID_ACC; i <= ST_ASM330LHHX_ID_MAX; i++) {
+		for (i = ST_ASM330LHHX_ID_ACC;
+		     i <= ST_ASM330LHHX_ID_MAX; i++) {
 			if (!hw->iio_devs[i] || i == sensor->id)
 				continue;
 
@@ -624,30 +839,27 @@ static int st_asm330lhhx_set_odr(struct st_asm330lhhx_sensor *sensor,
 	}
 
 	err = st_asm330lhhx_get_odr_val(id, req_odr, req_uodr, &req_odr,
-				       &req_uodr, &val);
+				        &req_uodr, &val);
 	if (err < 0)
 		return err;
 
 	/* check if sensor supports power mode setting */
 	if (sensor->pm != ST_ASM330LHHX_NO_MODE) {
-		err = regmap_update_bits(hw->regmap,
-					 st_asm330lhhx_odr_table[id].pm.addr,
-					 st_asm330lhhx_odr_table[id].pm.mask,
-					 ST_ASM330LHHX_SHIFT_VAL(sensor->pm,
-						st_asm330lhhx_odr_table[id].pm.mask));
+		err = st_asm330lhhx_update_bits_locked(hw,
+				st_asm330lhhx_odr_table[id].pm.addr,
+				st_asm330lhhx_odr_table[id].pm.mask,
+				sensor->pm);
 		if (err < 0)
 			return err;
 	}
 
-	return regmap_update_bits(hw->regmap,
-				  st_asm330lhhx_odr_table[id].reg.addr,
-				  st_asm330lhhx_odr_table[id].reg.mask,
-				  ST_ASM330LHHX_SHIFT_VAL(val,
-					st_asm330lhhx_odr_table[id].reg.mask));
+	delay = 4000000 / req_odr;
+
+	return st_asm330lhhx_update_odr_fsm(hw, id, val, delay);
 }
 
 int st_asm330lhhx_sensor_set_enable(struct st_asm330lhhx_sensor *sensor,
-				   bool enable)
+				    bool enable)
 {
 	int uodr = enable ? sensor->uodr : 0;
 	int odr = enable ? sensor->odr : 0;
@@ -665,8 +877,9 @@ int st_asm330lhhx_sensor_set_enable(struct st_asm330lhhx_sensor *sensor,
 	return 0;
 }
 
-static int st_asm330lhhx_read_oneshot(struct st_asm330lhhx_sensor *sensor,
-				      u8 addr, int *val)
+static int
+st_asm330lhhx_read_oneshot(struct st_asm330lhhx_sensor *sensor,
+			   u8 addr, int *val)
 {
 	struct st_asm330lhhx_hw *hw = sensor->hw;
 	int err, delay;
@@ -676,14 +889,15 @@ static int st_asm330lhhx_read_oneshot(struct st_asm330lhhx_sensor *sensor,
 		u8 status;
 
 		err = st_asm330lhhx_read_locked(hw,
-					       ST_ASM330LHHX_REG_STATUS_ADDR,
-					       &status, sizeof(status));
+					ST_ASM330LHHX_REG_STATUS_ADDR,
+					&status, sizeof(status));
 		if (err < 0)
 			return err;
 
 		if (status & ST_ASM330LHHX_REG_STATUS_TDA) {
 			err = st_asm330lhhx_read_locked(hw, addr,
-						       &data, sizeof(data));
+						        &data,
+							sizeof(data));
 			if (err < 0)
 				return err;
 
@@ -729,7 +943,8 @@ static int st_asm330lhhx_read_raw(struct iio_dev *iio_dev,
 		if (ret)
 			return ret;
 
-		ret = st_asm330lhhx_read_oneshot(sensor, ch->address, val);
+		ret = st_asm330lhhx_read_oneshot(sensor, ch->address,
+						 val);
 		iio_device_release_direct_mode(iio_dev);
 		break;
 	case IIO_CHAN_INFO_OFFSET:
@@ -789,16 +1004,16 @@ static int st_asm330lhhx_write_raw(struct iio_dev *iio_dev,
 		int todr, tuodr;
 		u8 data;
 
-		err = st_asm330lhhx_get_odr_val(sensor->id, val, val2, &todr,
-					       &tuodr, &data);
+		err = st_asm330lhhx_get_odr_val(sensor->id, val, val2,
+					       &todr, &tuodr, &data);
 		if (!err) {
 			sensor->odr = val;
 			sensor->uodr = tuodr;
 
 			/*
-			 * VTS test testSamplingRateHotSwitchOperation not
-			 * toggle the enable status of sensor after changing
-			 * the ODR -> force it
+			 * VTS test testSamplingRateHotSwitchOperation
+			 * not toggle the enable status of sensor after
+			 * changing the ODR -> force it
 			 */
 			if (sensor->hw->enable_mask & BIT(sensor->id)) {
 				switch (sensor->id) {
@@ -850,9 +1065,10 @@ st_asm330lhhx_sysfs_sampling_frequency_avail(struct device *dev,
 	return len;
 }
 
-static ssize_t st_asm330lhhx_sysfs_scale_avail(struct device *dev,
-					       struct device_attribute *attr,
-					       char *buf)
+static ssize_t
+st_asm330lhhx_sysfs_scale_avail(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
 {
 	struct st_asm330lhhx_sensor *sensor = iio_priv(dev_get_drvdata(dev));
 	enum st_asm330lhhx_sensor_id id = sensor->id;
@@ -866,8 +1082,9 @@ static ssize_t st_asm330lhhx_sysfs_scale_avail(struct device *dev,
 	return len;
 }
 
-ssize_t st_asm330lhhx_get_power_mode(struct device *dev,
-				     struct device_attribute *attr, char *buf)
+static ssize_t
+st_asm330lhhx_get_power_mode(struct device *dev,
+			     struct device_attribute *attr, char *buf)
 {
 	struct iio_dev *iio_dev = dev_get_drvdata(dev);
 	struct st_asm330lhhx_sensor *sensor = iio_priv(iio_dev);
@@ -875,9 +1092,10 @@ ssize_t st_asm330lhhx_get_power_mode(struct device *dev,
 	return sprintf(buf, "%d\n", sensor->pm);
 }
 
-ssize_t st_asm330lhhx_set_power_mode(struct device *dev,
-				     struct device_attribute *attr,
-				     const char *buf, size_t size)
+static ssize_t
+st_asm330lhhx_set_power_mode(struct device *dev,
+			     struct device_attribute *attr,
+			     const char *buf, size_t size)
 {
 	struct iio_dev *iio_dev = dev_get_drvdata(dev);
 	struct st_asm330lhhx_sensor *sensor = iio_priv(iio_dev);
@@ -891,7 +1109,8 @@ ssize_t st_asm330lhhx_set_power_mode(struct device *dev,
 	if (err < 0)
 		goto out;
 
-	if (val >= ST_ASM330LHHX_HP_MODE && val < ST_ASM330LHHX_NO_MODE)
+	if ((val >= ST_ASM330LHHX_HP_MODE) &&
+	    (val < ST_ASM330LHHX_NO_MODE))
 		sensor->pm = val;
 	else
 		err = -EINVAL;
@@ -912,8 +1131,8 @@ int st_asm330lhhx_of_get_pin(struct st_asm330lhhx_hw *hw, int *pin)
 	return of_property_read_u32(np, "st,int-pin", pin);
 }
 
-static int _st_asm330lhhx_get_int_reg(struct st_asm330lhhx_hw *hw, int int_pin,
-				      u8 *drdy_reg)
+static int _st_asm330lhhx_get_int_reg(struct st_asm330lhhx_hw *hw,
+				      int int_pin, u8 *drdy_reg)
 {
 	int err = 0;
 
@@ -933,7 +1152,8 @@ static int _st_asm330lhhx_get_int_reg(struct st_asm330lhhx_hw *hw, int int_pin,
 	return err;
 }
 
-static int st_asm330lhhx_get_int_reg(struct st_asm330lhhx_hw *hw, u8 *drdy_reg)
+static int st_asm330lhhx_get_int_reg(struct st_asm330lhhx_hw *hw,
+				     u8 *drdy_reg)
 {
 	int err = 0, int_pin;
 
@@ -954,7 +1174,8 @@ static int st_asm330lhhx_get_int_reg(struct st_asm330lhhx_hw *hw, u8 *drdy_reg)
 	return err;
 }
 
-static int __maybe_unused st_asm330lhhx_bk_regs(struct st_asm330lhhx_hw *hw)
+static int
+__maybe_unused st_asm330lhhx_bk_regs(struct st_asm330lhhx_hw *hw)
 {
 	unsigned int data;
 #ifdef ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS
@@ -968,11 +1189,10 @@ static int __maybe_unused st_asm330lhhx_bk_regs(struct st_asm330lhhx_hw *hw)
 #ifdef ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS
 		if (st_asm330lhhx_suspend_resume[i].page != FUNC_CFG_ACCESS_0) {
 			err = regmap_update_bits(hw->regmap,
-					ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
-					ST_ASM330LHHX_REG_ACCESS_MASK,
-					FIELD_PREP(
-					 ST_ASM330LHHX_REG_ACCESS_MASK,
-					 st_asm330lhhx_suspend_resume[i].page));
+				ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
+				ST_ASM330LHHX_REG_ACCESS_MASK,
+				FIELD_PREP(ST_ASM330LHHX_REG_ACCESS_MASK,
+				 st_asm330lhhx_suspend_resume[i].page));
 			if (err < 0) {
 				dev_err(hw->dev,
 					"failed to update %02x reg\n",
@@ -997,9 +1217,9 @@ static int __maybe_unused st_asm330lhhx_bk_regs(struct st_asm330lhhx_hw *hw)
 #ifdef ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS
 		if (restore) {
 			err = regmap_update_bits(hw->regmap,
-					ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
-					ST_ASM330LHHX_REG_ACCESS_MASK,
-					FUNC_CFG_ACCESS_0);
+				ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
+				ST_ASM330LHHX_REG_ACCESS_MASK,
+				FUNC_CFG_ACCESS_0);
 			if (err < 0) {
 				dev_err(hw->dev,
 					"failed to update %02x reg\n",
@@ -1028,7 +1248,8 @@ out_lock:
 	return err;
 }
 
-static int __maybe_unused st_asm330lhhx_restore_regs(struct st_asm330lhhx_hw *hw)
+static int
+__maybe_unused st_asm330lhhx_restore_regs(struct st_asm330lhhx_hw *hw)
 {
 #ifdef ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS
 	bool restore = 0;
@@ -1041,11 +1262,10 @@ static int __maybe_unused st_asm330lhhx_restore_regs(struct st_asm330lhhx_hw *hw
 #ifdef ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS
 		if (st_asm330lhhx_suspend_resume[i].page != FUNC_CFG_ACCESS_0) {
 			err = regmap_update_bits(hw->regmap,
-					ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
-					ST_ASM330LHHX_REG_ACCESS_MASK,
-					FIELD_PREP(
-					 ST_ASM330LHHX_REG_ACCESS_MASK,
-					 st_asm330lhhx_suspend_resume[i].page));
+				ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
+				ST_ASM330LHHX_REG_ACCESS_MASK,
+				FIELD_PREP(ST_ASM330LHHX_REG_ACCESS_MASK,
+				 st_asm330lhhx_suspend_resume[i].page));
 			if (err < 0) {
 				dev_err(hw->dev,
 					"failed to backup %02x reg\n",
@@ -1057,9 +1277,9 @@ static int __maybe_unused st_asm330lhhx_restore_regs(struct st_asm330lhhx_hw *hw
 		}
 #endif /* ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS */
 		err = regmap_update_bits(hw->regmap,
-					 st_asm330lhhx_suspend_resume[i].addr,
-					 st_asm330lhhx_suspend_resume[i].mask,
-					 st_asm330lhhx_suspend_resume[i].val);
+				st_asm330lhhx_suspend_resume[i].addr,
+				st_asm330lhhx_suspend_resume[i].mask,
+				st_asm330lhhx_suspend_resume[i].val);
 		if (err < 0) {
 			dev_err(hw->dev,
 				"failed to update %02x reg\n",
@@ -1070,9 +1290,9 @@ static int __maybe_unused st_asm330lhhx_restore_regs(struct st_asm330lhhx_hw *hw
 #ifdef ST_ASM330LHHX_BACKUP_FUNC_CFG_REGS
 		if (restore) {
 			err = regmap_update_bits(hw->regmap,
-					ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
-					ST_ASM330LHHX_REG_ACCESS_MASK,
-					FUNC_CFG_ACCESS_0);
+				ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR,
+				ST_ASM330LHHX_REG_ACCESS_MASK,
+				FUNC_CFG_ACCESS_0);
 			if (err < 0) {
 				dev_err(hw->dev,
 					"failed to update %02x reg\n",
@@ -1099,8 +1319,9 @@ static int __maybe_unused st_asm330lhhx_restore_regs(struct st_asm330lhhx_hw *hw
 	return err;
 }
 
-static int st_asm330lhhx_set_selftest(struct st_asm330lhhx_sensor *sensor,
-				      int index)
+static int
+st_asm330lhhx_set_selftest(struct st_asm330lhhx_sensor *sensor,
+			   int index)
 {
 	u8 mode, mask;
 
@@ -1118,19 +1339,21 @@ static int st_asm330lhhx_set_selftest(struct st_asm330lhhx_sensor *sensor,
 	}
 
 	return st_asm330lhhx_update_bits_locked(sensor->hw,
-						ST_ASM330LHHX_REG_CTRL5_C_ADDR,
-						mask, mode);
+					ST_ASM330LHHX_REG_CTRL5_C_ADDR,
+					mask, mode);
 }
 
-static ssize_t st_asm330lhhx_sysfs_get_selftest_available(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static ssize_t
+st_asm330lhhx_sysfs_get_selftest_available(struct device *dev,
+			struct device_attribute *attr, char *buf)
 {
 	return sprintf(buf, "%s, %s\n",
 		       st_asm330lhhx_selftest_table[1].string_mode,
 		       st_asm330lhhx_selftest_table[2].string_mode);
 }
 
-static ssize_t st_asm330lhhx_sysfs_get_selftest_status(struct device *dev,
+static ssize_t
+st_asm330lhhx_sysfs_get_selftest_status(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
 	struct st_asm330lhhx_sensor *sensor = iio_priv(dev_get_drvdata(dev));
@@ -1153,8 +1376,9 @@ static ssize_t st_asm330lhhx_sysfs_get_selftest_status(struct device *dev,
 	return sprintf(buf, "%s\n", message);
 }
 
-static int st_asm330lhhx_selftest_sensor(struct st_asm330lhhx_sensor *sensor,
-					 int test)
+static int
+st_asm330lhhx_selftest_sensor(struct st_asm330lhhx_sensor *sensor,
+			      int test)
 {
 	int x_selftest = 0, y_selftest = 0, z_selftest = 0;
 	int x = 0, y = 0, z = 0, try_count = 0;
@@ -1194,14 +1418,17 @@ static int st_asm330lhhx_selftest_sensor(struct st_asm330lhhx_sensor *sensor,
 	/* power up, wait 100 ms for stable output */
 	msleep(100);
 
-	/* for 5 times, after checking status bit, read the output registers */
+	/*
+	 * for 5 times, after checking status bit, read the output
+	 * registers
+	 */
 	for (i = 0; i < 5; i++) {
 		try_count = 0;
 		while (try_count < 3) {
 			usleep_range(delay, delay + delay/10);
 			ret = st_asm330lhhx_read_locked(sensor->hw,
-						ST_ASM330LHHX_REG_STATUS_ADDR,
-						&status, sizeof(status));
+					ST_ASM330LHHX_REG_STATUS_ADDR,
+					&status, sizeof(status));
 			if (ret < 0)
 				goto selftest_failure;
 
@@ -1212,8 +1439,8 @@ static int st_asm330lhhx_selftest_sensor(struct st_asm330lhhx_sensor *sensor,
 					goto selftest_failure;
 
 				/*
-				 * for 5 times, after checking status bit,
-				 * read the output registers
+				 * for 5 times, after checking status
+				 * bit, read the output registers
 				 */
 				x += ((s16)*(u16 *)&raw_data[0]) / 5;
 				y += ((s16)*(u16 *)&raw_data[2]) / 5;
@@ -1244,14 +1471,17 @@ static int st_asm330lhhx_selftest_sensor(struct st_asm330lhhx_sensor *sensor,
 	/* wait 100 ms for stable output */
 	msleep(100);
 
-	/* for 5 times, after checking status bit, read the output registers */
+	/*
+	 * for 5 times, after checking status bit,
+	 * read the output registers
+	 */
 	for (i = 0; i < 5; i++) {
 		try_count = 0;
 		while (try_count < 3) {
 			usleep_range(delay, delay + delay/10);
 			ret = st_asm330lhhx_read_locked(sensor->hw,
-						ST_ASM330LHHX_REG_STATUS_ADDR,
-						&status, sizeof(status));
+					ST_ASM330LHHX_REG_STATUS_ADDR,
+					&status, sizeof(status));
 			if (ret < 0)
 				goto selftest_failure;
 
@@ -1310,7 +1540,8 @@ selftest_failure:
 }
 
 static ssize_t st_asm330lhhx_sysfs_start_selftest(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t size)
+			struct device_attribute *attr,
+			const char *buf, size_t size)
 {
 	struct iio_dev *iio_dev = dev_get_drvdata(dev);
 	struct st_asm330lhhx_sensor *sensor = iio_priv(iio_dev);
@@ -1326,7 +1557,7 @@ static ssize_t st_asm330lhhx_sysfs_start_selftest(struct device *dev,
 
 	for (test = 0; test < ARRAY_SIZE(st_asm330lhhx_selftest_table); test++) {
 		if (strncmp(buf, st_asm330lhhx_selftest_table[test].string_mode,
-			strlen(st_asm330lhhx_selftest_table[test].string_mode)) == 0)
+			    strlen(st_asm330lhhx_selftest_table[test].string_mode)) == 0)
 			break;
 	}
 
@@ -1376,7 +1607,8 @@ static ssize_t st_asm330lhhx_sysfs_start_selftest(struct device *dev,
 		st_asm330lhhx_set_full_scale(sensor, gain);
 	} else {
 		/* set BDU = 1, ODR = 208 Hz, FS = 2000 dps */
-		st_asm330lhhx_set_full_scale(sensor, IIO_DEGREE_TO_RAD(70000));
+		st_asm330lhhx_set_full_scale(sensor,
+					     IIO_DEGREE_TO_RAD(70000));
 		st_asm330lhhx_set_odr(sensor, 208, 0);
 		sensor->odr = 208;
 		sensor->uodr = 0;
@@ -1491,8 +1723,12 @@ static const struct iio_info st_asm330lhhx_temp_info = {
 	.write_raw = st_asm330lhhx_write_raw,
 };
 
-static const unsigned long st_asm330lhhx_available_scan_masks[] = { 0x7, 0x0 };
-static const unsigned long st_asm330lhhx_temp_available_scan_masks[] = { 0x1, 0x0 };
+static const unsigned long st_asm330lhhx_available_scan_masks[] = {
+	0x7, 0x0
+};
+static const unsigned long st_asm330lhhx_temp_available_scan_masks[] = {
+	0x1, 0x0
+};
 
 static int st_asm330lhhx_reset_device(struct st_asm330lhhx_hw *hw)
 {
@@ -1549,20 +1785,23 @@ static int st_asm330lhhx_init_device(struct st_asm330lhhx_hw *hw)
 	int err;
 
 	/* latch interrupts */
-	err = regmap_update_bits(hw->regmap, ST_ASM330LHHX_REG_TAP_CFG0_ADDR,
+	err = regmap_update_bits(hw->regmap,
+				 ST_ASM330LHHX_REG_TAP_CFG0_ADDR,
 				 ST_ASM330LHHX_REG_LIR_MASK,
 				 FIELD_PREP(ST_ASM330LHHX_REG_LIR_MASK, 1));
 	if (err < 0)
 		return err;
 
 	/* enable Block Data Update */
-	err = regmap_update_bits(hw->regmap, ST_ASM330LHHX_REG_CTRL3_C_ADDR,
+	err = regmap_update_bits(hw->regmap,
+				 ST_ASM330LHHX_REG_CTRL3_C_ADDR,
 				 ST_ASM330LHHX_REG_BDU_MASK,
 				 FIELD_PREP(ST_ASM330LHHX_REG_BDU_MASK, 1));
 	if (err < 0)
 		return err;
 
-	err = regmap_update_bits(hw->regmap, ST_ASM330LHHX_REG_CTRL5_C_ADDR,
+	err = regmap_update_bits(hw->regmap,
+				 ST_ASM330LHHX_REG_CTRL5_C_ADDR,
 				 ST_ASM330LHHX_REG_ROUNDING_MASK,
 				 FIELD_PREP(ST_ASM330LHHX_REG_ROUNDING_MASK, 3));
 	if (err < 0)
@@ -1577,7 +1816,8 @@ static int st_asm330lhhx_init_device(struct st_asm330lhhx_hw *hw)
 		return err;
 
 	/* Enable DRDY MASK for filters settling time */
-	err = regmap_update_bits(hw->regmap, ST_ASM330LHHX_REG_CTRL4_C_ADDR,
+	err = regmap_update_bits(hw->regmap,
+				 ST_ASM330LHHX_REG_CTRL4_C_ADDR,
 				 ST_ASM330LHHX_REG_DRDY_MASK,
 				 ST_ASM330LHHX_SHIFT_VAL(1,
 					ST_ASM330LHHX_REG_DRDY_MASK));
@@ -1591,8 +1831,9 @@ static int st_asm330lhhx_init_device(struct st_asm330lhhx_hw *hw)
 				 FIELD_PREP(ST_ASM330LHHX_REG_FIFO_TH_MASK, 1));
 }
 
-static struct iio_dev *st_asm330lhhx_alloc_iiodev(struct st_asm330lhhx_hw *hw,
-					       enum st_asm330lhhx_sensor_id id)
+static struct
+iio_dev *st_asm330lhhx_alloc_iiodev(struct st_asm330lhhx_hw *hw,
+				    enum st_asm330lhhx_sensor_id id)
 {
 	struct st_asm330lhhx_sensor *sensor;
 	struct iio_dev *iio_dev;
@@ -1617,46 +1858,52 @@ static struct iio_dev *st_asm330lhhx_alloc_iiodev(struct st_asm330lhhx_hw *hw,
 	switch (id) {
 	case ST_ASM330LHHX_ID_ACC:
 		iio_dev->channels = st_asm330lhhx_acc_channels;
-		iio_dev->num_channels = ARRAY_SIZE(st_asm330lhhx_acc_channels);
+		iio_dev->num_channels =
+				ARRAY_SIZE(st_asm330lhhx_acc_channels);
 		iio_dev->name = "asm330lhhx_accel";
 		iio_dev->info = &st_asm330lhhx_acc_info;
 		iio_dev->available_scan_masks =
-					st_asm330lhhx_available_scan_masks;
+				st_asm330lhhx_available_scan_masks;
 		sensor->max_watermark = ST_ASM330LHHX_MAX_FIFO_DEPTH;
 		sensor->offset = 0;
 		sensor->pm = ST_ASM330LHHX_HP_MODE;
 		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[0].hz;
-		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[0].uhz;
+		sensor->uodr =
+			     st_asm330lhhx_odr_table[id].odr_avl[0].uhz;
 		sensor->min_st = ST_ASM330LHHX_SELFTEST_ACCEL_MIN;
 		sensor->max_st = ST_ASM330LHHX_SELFTEST_ACCEL_MAX;
 		break;
 	case ST_ASM330LHHX_ID_GYRO:
 		iio_dev->channels = st_asm330lhhx_gyro_channels;
-		iio_dev->num_channels = ARRAY_SIZE(st_asm330lhhx_gyro_channels);
+		iio_dev->num_channels =
+				ARRAY_SIZE(st_asm330lhhx_gyro_channels);
 		iio_dev->name = "asm330lhhx_gyro";
 		iio_dev->info = &st_asm330lhhx_gyro_info;
 		iio_dev->available_scan_masks =
-					st_asm330lhhx_available_scan_masks;
+				st_asm330lhhx_available_scan_masks;
 		sensor->max_watermark = ST_ASM330LHHX_MAX_FIFO_DEPTH;
 		sensor->offset = 0;
 		sensor->pm = ST_ASM330LHHX_HP_MODE;
 		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[0].hz;
-		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[0].uhz;
+		sensor->uodr =
+			     st_asm330lhhx_odr_table[id].odr_avl[0].uhz;
 		sensor->min_st = ST_ASM330LHHX_SELFTEST_GYRO_MIN;
 		sensor->max_st = ST_ASM330LHHX_SELFTEST_GYRO_MAX;
 		break;
 	case ST_ASM330LHHX_ID_TEMP:
 		iio_dev->channels = st_asm330lhhx_temp_channels;
-		iio_dev->num_channels = ARRAY_SIZE(st_asm330lhhx_temp_channels);
+		iio_dev->num_channels =
+				ARRAY_SIZE(st_asm330lhhx_temp_channels);
 		iio_dev->name = "asm330lhhx_temp";
 		iio_dev->info = &st_asm330lhhx_temp_info;
 		iio_dev->available_scan_masks =
-					st_asm330lhhx_temp_available_scan_masks;
+				st_asm330lhhx_temp_available_scan_masks;
 		sensor->max_watermark = ST_ASM330LHHX_MAX_FIFO_DEPTH;
 		sensor->offset = ST_ASM330LHHX_TEMP_OFFSET;
 		sensor->pm = ST_ASM330LHHX_NO_MODE;
 		sensor->odr = st_asm330lhhx_odr_table[id].odr_avl[0].hz;
-		sensor->uodr = st_asm330lhhx_odr_table[id].odr_avl[0].uhz;
+		sensor->uodr =
+			     st_asm330lhhx_odr_table[id].odr_avl[0].uhz;
 		break;
 	default:
 		return NULL;
@@ -1755,10 +2002,11 @@ int st_asm330lhhx_probe(struct device *dev, int irq,
 }
 EXPORT_SYMBOL(st_asm330lhhx_probe);
 
-static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
+static int
+__maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 {
-	struct st_asm330lhhx_sensor *sensor, *sensor_acc;
-	int i, err = 0, mlc_event = 0, id_acc;
+	struct st_asm330lhhx_sensor *sensor;
+	int i, err = 0, mlc_event = 0;
 
 	err = st_asm330lhhx_bk_regs(hw);
 	if (err < 0)
@@ -1782,15 +2030,16 @@ static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 	}
 
 	if (mlc_event) {
+		struct st_asm330lhhx_sensor *sensor_acc;
 		u8 drdy_reg;
+		int id_acc;
 
 		/* set low power mode to acc at 12.5 Hz in FIFO */
 		id_acc = ST_ASM330LHHX_ID_ACC;
-		err = regmap_update_bits(hw->regmap,
-					st_asm330lhhx_odr_table[id_acc].pm.addr,
-					st_asm330lhhx_odr_table[id_acc].pm.mask,
-					ST_ASM330LHHX_SHIFT_VAL(ST_ASM330LHHX_LP_MODE,
-					  st_asm330lhhx_odr_table[id_acc].pm.mask));
+		err = st_asm330lhhx_update_bits_locked(hw,
+				st_asm330lhhx_odr_table[id_acc].pm.addr,
+				st_asm330lhhx_odr_table[id_acc].pm.mask,
+				ST_ASM330LHHX_LP_MODE);
 		if (err < 0)
 			return err;
 
@@ -1799,44 +2048,41 @@ static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 		if (err < 0)
 			return err;
 
+		/* get int pin configuration */
+		err = _st_asm330lhhx_get_int_reg(hw, hw->int_pin,
+						 &drdy_reg);
+		if (err < 0)
+			return err;
+
+		/* disable FIFO watermark interrupt */
+		err = st_asm330lhhx_write_with_mask_locked(hw,
+			   drdy_reg, ST_ASM330LHHX_REG_FIFO_TH_MASK, 0);
+		if (err < 0)
+			return err;
+
 		hw->resume_sample_tick_ns = 80000000ull;
 		hw->resume_sample_in_packet = 1;
 
-		sensor_acc = iio_priv(hw->iio_devs[id_acc]);
-		err = regmap_update_bits(hw->regmap,
-				  st_asm330lhhx_odr_table[id_acc].reg.addr,
-				  st_asm330lhhx_odr_table[id_acc].reg.mask,
-				  ST_ASM330LHHX_SHIFT_VAL(
-					st_asm330lhhx_odr_table[id_acc].odr_avl[0].val,
-					st_asm330lhhx_odr_table[id_acc].reg.mask));
+		/* wait 4 ODRs for internal filter settling time */
+		err = st_asm330lhhx_update_odr_fsm(hw, id_acc,
+			st_asm330lhhx_odr_table[id_acc].odr_avl[0].val,
+			4 * (1000000 / 12.5));
 		if (err < 0)
 			return err;
 
 		/* enable FIFO batch for acc only */
 		err = st_asm330lhhx_update_bits_locked(hw,
-				hw->odr_table_entry[id_acc].batching_reg.addr,
-				hw->odr_table_entry[id_acc].batching_reg.mask,
-				st_asm330lhhx_odr_table[id_acc].odr_avl[0].batch_val);
-		if (err < 0)
-			return err;
-
-		/* get int pin configuration */
-		err = _st_asm330lhhx_get_int_reg(hw, hw->int_pin, &drdy_reg);
-		if (err < 0)
-			return err;
-
-		/* remove interrupt from FIFO watermark */
-		err = regmap_update_bits(hw->regmap, drdy_reg,
-					 ST_ASM330LHHX_REG_FIFO_TH_MASK,
-					 FIELD_PREP(
-					    ST_ASM330LHHX_REG_FIFO_TH_MASK, 0));
+			hw->odr_table_entry[id_acc].batching_reg.addr,
+			hw->odr_table_entry[id_acc].batching_reg.mask,
+			st_asm330lhhx_odr_table[id_acc].odr_avl[0].batch_val);
 		if (err < 0)
 			return err;
 
 		/* set FIFO watermark to max level */
+		sensor_acc = iio_priv(hw->iio_devs[id_acc]);
 		hw->suspend_fifo_watermark = hw->fifo_watermark;
 		err = st_asm330lhhx_update_watermark(sensor_acc,
-						ST_ASM330LHHX_MAX_FIFO_DEPTH);
+					ST_ASM330LHHX_MAX_FIFO_DEPTH);
 		if (err < 0)
 			return err;
 
@@ -1847,6 +2093,9 @@ static int __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 
 		/* setting state to resuming */
 		hw->resuming = true;
+
+		//dump_registers("suspend", hw);
+
 	} else {
 		if (st_asm330lhhx_is_fifo_enabled(hw)) {
 			err = st_asm330lhhx_suspend_fifo(hw);
@@ -1882,11 +2131,11 @@ static int __maybe_unused st_asm330lhhx_suspend(struct device *dev)
 	return err < 0 ? err : 0;
 }
 
-static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw)
+static int
+__maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw)
 {
 	struct st_asm330lhhx_sensor *sensor, *sensor_acc;
-	int i, err, id_acc;
-	int notify;
+	int i, err, notify;
 
 	if (hw->resuming) {
 		notify = st_asm330lhhx_mlc_check_status(hw);
@@ -1897,8 +2146,7 @@ static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw)
 		hw->resuming = false;
 
 		/* stop acc */
-		id_acc = ST_ASM330LHHX_ID_ACC;
-		sensor_acc = iio_priv(hw->iio_devs[id_acc]);
+		sensor_acc = iio_priv(hw->iio_devs[ST_ASM330LHHX_ID_ACC]);
 		err = st_asm330lhhx_set_odr(sensor_acc, 0, 0);
 		if (err < 0)
 			return err;
@@ -1908,7 +2156,7 @@ static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw)
 
 		/* restore FIFO watermark */
 		err = st_asm330lhhx_update_watermark(sensor_acc,
-						     hw->suspend_fifo_watermark);
+					hw->suspend_fifo_watermark);
 		if (err < 0)
 			return err;
 	}
@@ -1927,7 +2175,8 @@ static int __maybe_unused _st_asm330lhhx_resume(struct st_asm330lhhx_hw *hw)
 		if (!(hw->enable_mask & BIT(sensor->id)))
 			continue;
 
-		err = st_asm330lhhx_set_odr(sensor, sensor->odr, sensor->uodr);
+		err = st_asm330lhhx_set_odr(sensor, sensor->odr,
+					    sensor->uodr);
 		if (err < 0)
 			return err;
 	}
@@ -1961,7 +2210,10 @@ void st_asm330lhhx_shutdown(struct device *dev)
 	struct st_asm330lhhx_hw *hw = dev_get_drvdata(dev);
 
 	mutex_lock(&hw->fifo_lock);
-	/* after reset the irq line can be pulled up by hardware, disable it */
+	/*
+	 * after reset the irq line can be pulled up by
+	 * hardware, disable it
+	 */
 	disable_irq(hw->irq);
 	mutex_unlock(&hw->fifo_lock);
 
@@ -1977,14 +2229,16 @@ void st_asm330lhhx_shutdown(struct device *dev)
 	/* reset device */
 	regmap_update_bits(hw->regmap, ST_ASM330LHHX_REG_CTRL3_C_ADDR,
 			   ST_ASM330LHHX_REG_SW_RESET_MASK,
-			   FIELD_PREP(ST_ASM330LHHX_REG_SW_RESET_MASK, 1));
+			   FIELD_PREP(ST_ASM330LHHX_REG_SW_RESET_MASK,
+				      1));
 
 	dev_info(dev, "Set all devices in power down\n");
 }
 EXPORT_SYMBOL(st_asm330lhhx_shutdown);
 
 const struct dev_pm_ops st_asm330lhhx_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(st_asm330lhhx_suspend, st_asm330lhhx_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(st_asm330lhhx_suspend,
+				st_asm330lhhx_resume)
 };
 EXPORT_SYMBOL(st_asm330lhhx_pm_ops);
 
