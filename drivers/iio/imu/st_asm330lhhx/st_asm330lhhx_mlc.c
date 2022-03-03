@@ -148,11 +148,21 @@ static int st_asm330lhhx_mlc_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 		int int_mlc_value;
 
 		int_mlc_value = enable ? hw->mlc_config->mlc_int_mask : 0;
-		err = st_asm330lhhx_write_page_locked(hw,
-					hw->mlc_config->mlc_int_addr,
+		if (hw->mlc_config->mlc_int_pin  & BIT(0)) {
+			err = st_asm330lhhx_write_page_locked(hw,
+					ST_ASM330LHHX_MLC_INT1_ADDR,
 					&int_mlc_value, 1);
-		if (err < 0)
-			return err;
+			if (err < 0)
+				return err;
+		}
+
+		if (hw->mlc_config->mlc_int_pin & BIT(1)) {
+			err = st_asm330lhhx_write_page_locked(hw,
+					ST_ASM330LHHX_MLC_INT2_ADDR,
+					&int_mlc_value, 1);
+			if (err < 0)
+				return err;
+		}
 
 		err = st_asm330lhhx_update_page_bits_locked(hw,
 				ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
@@ -184,13 +194,22 @@ static int st_asm330lhhx_mlc_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 			/* enable interrupts only if requested by ucf */
 			bitmask = mask & hw->mlc_config->fsm_int_mask[0];
 			if (bitmask) {
-				err = st_asm330lhhx_update_page_bits_locked(hw,
-						hw->mlc_config->fsm_int_addr[0],
-						bitmask,
-						ST_ASM330LHHX_SHIFT_VAL(enable ? 1 : 0,
-								bitmask));
-				if (err < 0)
-					return err;
+				if (hw->mlc_config->mlc_int_pin  & BIT(0)) {
+					err = st_asm330lhhx_update_page_bits_locked(hw,
+							ST_ASM330LHHX_FSM_INT1_A_ADDR,
+							bitmask,
+							ST_ASM330LHHX_SHIFT_VAL(enable ? 1 : 0, bitmask));
+					if (err < 0)
+						return err;
+				}
+				if (hw->mlc_config->mlc_int_pin  & BIT(1)) {
+					err = st_asm330lhhx_update_page_bits_locked(hw,
+							ST_ASM330LHHX_FSM_INT2_A_ADDR,
+							bitmask,
+							ST_ASM330LHHX_SHIFT_VAL(enable ? 1 : 0, bitmask));
+					if (err < 0)
+						return err;
+				}
 			}
 
 			dev_info(sensor->hw->dev,
@@ -210,13 +229,23 @@ static int st_asm330lhhx_mlc_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 
 			bitmask = mask & hw->mlc_config->fsm_int_mask[1];
 			if (bitmask) {
-				err = st_asm330lhhx_update_page_bits_locked(hw,
-						hw->mlc_config->fsm_int_addr[1],
-						bitmask,
-						ST_ASM330LHHX_SHIFT_VAL(enable ? 1 : 0,
-								bitmask));
-				if (err < 0)
-					return err;
+				if (hw->mlc_config->mlc_int_pin  & BIT(0)) {
+					err = st_asm330lhhx_update_page_bits_locked(hw,
+							ST_ASM330LHHX_FSM_INT1_B_ADDR,
+							bitmask,
+							ST_ASM330LHHX_SHIFT_VAL(enable ? 1 : 0, bitmask));
+					if (err < 0)
+						return err;
+				}
+
+				if (hw->mlc_config->mlc_int_pin  & BIT(1)) {
+					err = st_asm330lhhx_update_page_bits_locked(hw,
+							ST_ASM330LHHX_FSM_INT2_B_ADDR,
+							bitmask,
+							ST_ASM330LHHX_SHIFT_VAL(enable ? 1 : 0, bitmask));
+					if (err < 0)
+						return err;
+				}
 			}
 
 			dev_info(sensor->hw->dev,
@@ -1524,15 +1553,46 @@ int st_asm330lhhx_mlc_check_status(struct st_asm330lhhx_hw *hw)
 	return ret < 0 ? ret : notify;
 }
 
+/**
+ * st_asm330lhhx_of_get_mlc_int_pin - Read of configuration of mlc int
+ *
+ * @hw: Sensor hw structure.
+ * @pin: Interrupt pin used by MLC.
+ *
+ * Possible configurations are:
+ * st,mlc-int-pin = <1>; int1 pin will be used by MLC
+ * st,mlc-int-pin = <2>; int2 pin will be used by MLC
+ * st,mlc-int-pin = <3>; both interrupt pins will be used by MLC
+ */
 static int st_asm330lhhx_of_get_mlc_int_pin(struct st_asm330lhhx_hw *hw,
 					    int *pin)
 {
 	struct device_node *np = hw->dev->of_node;
+	int int_pin;
+	int ret;
 
 	if (!np)
 		return -EINVAL;
 
-	return of_property_read_u32(np, "st,mlc-int-pin", pin);
+	ret = of_property_read_u32(np, "st,mlc-int-pin", &int_pin);
+	if (ret < 0) {
+		dev_info(hw->dev,
+			 "missing mlc-int-pin, using default (%d)\n",
+			 hw->int_pin);
+		int_pin = hw->int_pin;
+	}
+
+	if (!(int_pin & 0x03)) {
+		dev_err(hw->dev,
+			"invalid mlc interrupt configuration (%d)\n",
+			int_pin);
+
+		return -EINVAL;
+	}
+
+	*pin = int_pin;
+
+	return 0;
 }
 
 static const struct iio_buffer_setup_ops st_asm330lhhx_mlc_fifo_ops = {
@@ -1545,15 +1605,8 @@ int st_asm330lhhx_mlc_probe(struct st_asm330lhhx_hw *hw)
 	int ret;
 
 	ret = st_asm330lhhx_of_get_mlc_int_pin(hw, &int_pin);
-	if (ret < 0) {
-		dev_info(hw->dev, "missing mlc-int-pin, using default\n");
-		int_pin = hw->int_pin;
-	}
-
-	if (int_pin != 1 && int_pin != 2) {
-		dev_err(hw->dev, "invalid mlc interrupt configuration\n");
+	if (ret)
 		return -EINVAL;
-	}
 
 	/* prepare FIFO_MLC IIO device with buffer */
 	hw->iio_devs[ST_ASM330LHHX_ID_FIFO_MLC] =
@@ -1584,16 +1637,6 @@ int st_asm330lhhx_mlc_probe(struct st_asm330lhhx_hw *hw)
 		return -ENOMEM;
 
 	hw->mlc_config->mlc_int_pin = int_pin;
-
-	hw->mlc_config->mlc_int_addr = (hw->mlc_config->mlc_int_pin == 1 ?
-				    ST_ASM330LHHX_MLC_INT1_ADDR :
-				    ST_ASM330LHHX_MLC_INT2_ADDR);
-	hw->mlc_config->fsm_int_addr[0] = (hw->mlc_config->mlc_int_pin == 1 ?
-				    ST_ASM330LHHX_FSM_INT1_A_ADDR :
-				    ST_ASM330LHHX_FSM_INT2_A_ADDR);
-	hw->mlc_config->fsm_int_addr[1] = (hw->mlc_config->mlc_int_pin == 1 ?
-				    ST_ASM330LHHX_FSM_INT1_B_ADDR :
-				    ST_ASM330LHHX_FSM_INT2_B_ADDR);
 
 	return 0;
 }

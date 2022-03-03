@@ -21,7 +21,7 @@
 #define ST_ASM330LHHX_ODR_EXPAND(odr, uodr)		((odr * 1000000) + uodr)
 
 #define ST_ASM330LHHX_DEV_NAME				"asm330lhhx"
-#define ST_ASM330LHHX_DRV_VERSION			"1.24"
+#define ST_ASM330LHHX_DRV_VERSION			"1.25"
 
 #define ST_ASM330LHHX_REG_FUNC_CFG_ACCESS_ADDR		0x01
 #define ST_ASM330LHHX_REG_SHUB_REG_MASK			BIT(6)
@@ -255,10 +255,8 @@ enum st_asm330lhhx_fsm_mlc_enable_id {
 
 /**
  * struct mlc_config_t -
- * @mlc_int_addr: interrupt register address
  * @mlc_int_mask: interrupt register mask
  * @fsm_enabled_mask: enable fsm register mask
- * @fsm_int_addr: interrupt register address
  * @fsm_int_mask: interrupt register mask
  * @mlc_configured: number of mlc configured
  * @fsm_configured: number of fsm configured
@@ -269,10 +267,8 @@ enum st_asm330lhhx_fsm_mlc_enable_id {
  * @status: mlc/fsm status
  */
 struct st_asm330lhhx_mlc_config_t {
-	u8 mlc_int_addr;
 	u8 mlc_int_mask;
 	u8 fsm_enabled_mask[2];
-	u8 fsm_int_addr[2];
 	u8 fsm_int_mask[2];
 	u8 mlc_configured;
 	u8 fsm_configured;
