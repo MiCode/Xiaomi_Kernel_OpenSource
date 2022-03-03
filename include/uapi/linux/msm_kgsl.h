@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _UAPI_MSM_KGSL_H
@@ -2115,6 +2116,6 @@ struct kgsl_recurring_command {
 };
 
 #define IOCTL_KGSL_RECURRING_COMMAND \
-	_IOWR(KGSL_IOC_TYPE, 0x5E, struct kgsl_recurring_command)
+	_IOWR(KGSL_IOC_TYPE, 0x5F, struct kgsl_recurring_command)
 
 #endif /* _UAPI_MSM_KGSL_H */
