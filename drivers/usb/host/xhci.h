@@ -2452,6 +2452,8 @@ static inline const char *xhci_decode_ctrl_ctx(unsigned long drop,
 	unsigned int	bit;
 	int		ret = 0;
 
+	str[0] = '\0';
+
 	if (drop) {
 		ret = sprintf(str, "Drop:");
 		for_each_set_bit(bit, &drop, 32)
