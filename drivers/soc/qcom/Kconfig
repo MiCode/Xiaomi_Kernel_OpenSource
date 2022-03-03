@@ -1011,6 +1011,16 @@ config MSM_QBT_HANDLER
          from the queue. It also creates an input device to send key events such as
          KEY_POWER, KEY_HOME.
 
+config QCOM_VM_DMESG_DUMPER
+	tristate "Dump a VM's kmsg to a shared reserved memory upon panic"
+	depends on GH_RM_DRV
+	depends on QCOM_SECURE_BUFFER || ARCH_QTI_VM
+	help
+	  Upon encountering a kernel panic in a Virtual machine, enable the
+	  dumping the kmsg log buffer to a reserved memory section through the
+	  use of a Gunyah shared-memory doorbell object. This driver is to be
+	  enabled on both Primary VM and the other VM whose kmsg is desired.
+
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
 
