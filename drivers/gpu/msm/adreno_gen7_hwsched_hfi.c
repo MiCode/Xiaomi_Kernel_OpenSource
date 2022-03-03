@@ -710,6 +710,12 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 	if (entry)
 		return entry;
 
+	if (desc->mem_kind >= HFI_MEMKIND_MAX) {
+		dev_err(&gmu->pdev->dev, "Invalid mem kind: %d\n",
+			desc->mem_kind);
+		return ERR_PTR(-EINVAL);
+	}
+
 	if (hfi->mem_alloc_entries == ARRAY_SIZE(hfi->mem_alloc_table)) {
 		dev_err(&gmu->pdev->dev,
 			"Reached max mem alloc entries\n");
@@ -1442,6 +1448,8 @@ int gen7_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 
 	if (WARN_ON(cmd_sizebytes > HFI_MAX_MSG_SIZE))
 		return -EMSGSIZE;
+
+	memset(cmdbuf, 0x0, cmd_sizebytes);
 
 	cmd = cmdbuf;
 
