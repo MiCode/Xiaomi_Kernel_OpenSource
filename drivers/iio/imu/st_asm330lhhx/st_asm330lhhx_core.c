@@ -696,9 +696,12 @@ static int st_asm330lhhx_read_oneshot(struct st_asm330lhhx_sensor *sensor,
 		if (err < 0)
 			return err;
 
-		/* Use big delay for data valid because of drdy mask enabled */
-		delay = 10000000 / (sensor->odr + sensor->uodr);
-		usleep_range(delay, 2 * delay);
+		/*
+		 * use at least three time delay for data valid because
+		 * when sensor enabled need 3 samples to be stable
+		 */
+		delay = 3000000 / sensor->odr;
+		usleep_range(delay, delay + (delay / 10));
 
 		err = st_asm330lhhx_read_locked(hw, addr,
 				       &data, sizeof(data));
