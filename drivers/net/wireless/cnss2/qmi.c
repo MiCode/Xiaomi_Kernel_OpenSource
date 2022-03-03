@@ -951,7 +951,7 @@ int cnss_wlfw_qdss_data_send_sync(struct cnss_plat_data *plat_priv, char *file_n
 			goto fail;
 		}
 
-		ret = qmi_txn_wait(&txn, plat_priv->ctrl_params.qmi_timeout);
+		ret = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
 
 		if (ret < 0) {
 			cnss_pr_err("QDSS trace resp wait failed with rc %d\n",
@@ -1118,7 +1118,7 @@ int cnss_wlfw_qdss_dnld_send_sync(struct cnss_plat_data *plat_priv)
 			goto err_send;
 		}
 
-		ret = qmi_txn_wait(&txn, plat_priv->ctrl_params.qmi_timeout);
+		ret = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
 		if (ret < 0) {
 			cnss_pr_err("Failed to wait for response of QDSS download request, err: %d\n",
 				    ret);
@@ -1208,7 +1208,7 @@ static int wlfw_send_qdss_trace_mode_req
 		goto out;
 	}
 
-	rc = qmi_txn_wait(&txn, plat_priv->ctrl_params.qmi_timeout);
+	rc = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
 	if (rc < 0) {
 		cnss_pr_err("QDSS Mode resp wait failed with rc %d\n",
 			    rc);
