@@ -663,8 +663,11 @@ static int st_asm330lhhx_update_odr_fsm(struct st_asm330lhhx_hw *hw,
 					u8 val, int delay)
 {
 	int ret = 0;
+	int fsm_running = st_asm330lhhx_fsm_running(hw);
+	int mlc_running = st_asm330lhhx_mlc_running(hw);
+	int status;
 
-	if (st_asm330lhhx_fsm_running(hw)) {
+	if (fsm_running || mlc_running) {
 		/*
 		 * In STMC_PAGE:
 		 * Addr 0x02 bit 1 set to 1 -- CLK Disable
@@ -674,17 +677,20 @@ static int st_asm330lhhx_update_odr_fsm(struct st_asm330lhhx_hw *hw,
 		 * Addr 0x67 bit 4 set to 0 -- MLC_INIT=0
 		 * Addr 0x02 bit 1 set to 0 -- CLK Disable
 		 * - ODR change
-		 * - Wait
+		 * - Wait (~3 ODRs)
 		 * In STMC_PAGE:
-		 * Addr 0x05 bit 0 set to 1 -- FSM_EN=1
-		 * Addr 0x05 bit 4 set to 1 -- MLC_EN=1
+		 * Addr 0x05 bit 0 set to 1 -- FSM_EN = 1
+		 * Addr 0x05 bit 4 set to 1 -- MLC_EN = 1
 		 */
-		dev_info(hw->dev,
-			 "toggle algos while updating odr (delay %d)\n",
-			 delay);
 		mutex_lock(&hw->page_lock);
 		ret = st_asm330lhhx_set_page_access(hw, true,
 				       ST_ASM330LHHX_REG_FUNC_CFG_MASK);
+		if (ret < 0)
+			goto unlock_page;
+
+		ret = regmap_read(hw->regmap,
+				  ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
+				  &status);
 		if (ret < 0)
 			goto unlock_page;
 
@@ -701,10 +707,19 @@ static int st_asm330lhhx_update_odr_fsm(struct st_asm330lhhx_hw *hw,
 		if (ret < 0)
 			goto unlock_page;
 
+		if (st_asm330lhhx_mlc_running(hw)) {
+			ret = regmap_update_bits(hw->regmap,
+				ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
+				ST_ASM330LHHX_MLC_EN_MASK,
+				FIELD_PREP(ST_ASM330LHHX_MLC_EN_MASK, 0));
+			if (ret < 0)
+				goto unlock_page;
+		}
+
 		ret = regmap_update_bits(hw->regmap,
-			ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
-			ST_ASM330LHHX_MLC_EN_MASK,
-			FIELD_PREP(ST_ASM330LHHX_MLC_EN_MASK, 0));
+			ST_ASM330LHHX_REG_EMB_FUNC_INIT_B_ADDR,
+			ST_ASM330LHHX_MLC_INIT_MASK,
+			FIELD_PREP(ST_ASM330LHHX_MLC_INIT_MASK, 0));
 		if (ret < 0)
 			goto unlock_page;
 
@@ -716,16 +731,8 @@ static int st_asm330lhhx_update_odr_fsm(struct st_asm330lhhx_hw *hw,
 			goto unlock_page;
 
 		ret = regmap_update_bits(hw->regmap,
-			ST_ASM330LHHX_REG_EMB_FUNC_INIT_B_ADDR,
-			ST_ASM330LHHX_MLC_INIT_MASK,
-			FIELD_PREP(ST_ASM330LHHX_MLC_INIT_MASK, 0));
-		if (ret < 0)
-			goto unlock_page;
-
-		ret = regmap_update_bits(hw->regmap,
 					 ST_ASM330LHHX_PAGE_SEL_ADDR,
 					 BIT(1), FIELD_PREP(BIT(1), 0));
-
 		if (ret < 0)
 			goto unlock_page;
 
@@ -747,23 +754,13 @@ static int st_asm330lhhx_update_odr_fsm(struct st_asm330lhhx_hw *hw,
 		st_asm330lhhx_set_page_access(hw, true,
 				       ST_ASM330LHHX_REG_FUNC_CFG_MASK);
 
-		ret = regmap_update_bits(hw->regmap,
-			ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
-			ST_ASM330LHHX_FSM_EN_MASK,
-			FIELD_PREP(ST_ASM330LHHX_FSM_EN_MASK, 1));
-		if (ret < 0)
-			goto unlock_page;
-
-		ret = regmap_update_bits(hw->regmap,
-			ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
-			ST_ASM330LHHX_MLC_EN_MASK,
-			FIELD_PREP(ST_ASM330LHHX_MLC_EN_MASK, 1));
-
+		ret = regmap_write(hw->regmap,
+				   ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
+				   status);
 unlock_page:
 		st_asm330lhhx_set_page_access(hw, false,
 				       ST_ASM330LHHX_REG_FUNC_CFG_MASK);
 		mutex_unlock(&hw->page_lock);
-		//dump_registers("u", hw);
 	} else {
 		ret = regmap_update_bits(hw->regmap,
 			st_asm330lhhx_odr_table[id].reg.addr,
@@ -2006,7 +2003,7 @@ static int
 __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 {
 	struct st_asm330lhhx_sensor *sensor;
-	int i, err = 0, mlc_event = 0;
+	int i, err = 0;
 
 	err = st_asm330lhhx_bk_regs(hw);
 	if (err < 0)
@@ -2023,13 +2020,10 @@ __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 		err = st_asm330lhhx_set_odr(sensor, 0, 0);
 		if (err < 0)
 			return err;
-
-		/* check for some mlc/fsm enabled during suspend */
-		if (sensor->id > ST_ASM330LHHX_ID_MLC)
-			mlc_event++;
 	}
 
-	if (mlc_event) {
+	if (st_asm330lhhx_fsm_running(hw) ||
+	    st_asm330lhhx_mlc_running(hw)) {
 		struct st_asm330lhhx_sensor *sensor_acc;
 		u8 drdy_reg;
 		int id_acc;
@@ -2094,7 +2088,7 @@ __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 		/* setting state to resuming */
 		hw->resuming = true;
 
-		//dump_registers("suspend", hw);
+		dump_registers("suspend", hw);
 
 	} else {
 		if (st_asm330lhhx_is_fifo_enabled(hw)) {
