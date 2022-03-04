@@ -676,7 +676,8 @@ extern void *mhi_ipc_log;
 
 #define mhi_log(_msg_lvl, _msg, ...) do { \
 	if (_msg_lvl >= mhi_msg_lvl) { \
-		pr_err("[%s] "_msg, __func__, ##__VA_ARGS__); \
+		pr_err("[0x%x %s] "_msg, bhi_imgtxdb, \
+				__func__, ##__VA_ARGS__); \
 	} \
 	if (mhi_ipc_log && (_msg_lvl >= mhi_ipc_msg_lvl)) { \
 		ipc_log_string(mhi_ipc_log,                     \
