@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2022, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -15,16 +15,18 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 
-#define NUM_LOG_PAGES		10
-#define MAX_PRINT_SIZE		200
-#define MAX_BUF_NUM		10
+#define MAX_PRINT_SIZE		1024
+#define MAX_BUF_NUM		4
 #define MAX_RESIDUAL_SIZE	MAX_PRINT_SIZE
-#define LOG_ID_MARKER	0x474F4C
+#define LOG_ID_MARKER		0x474F4C
 #define LOG_ID_MARKER_SHIFT	24
 #define LOG_ID_MARKER_MASK	0xFFFFFF
-#define LOG_ID_MASK	0xFF
-#define SIZE_ADJUST	4
-#define SRC_OFFSET	4
+#define LOG_ID_MASK		0xFF
+#define SIZE_ADJUST		4
+#define SRC_OFFSET		4
+
+#define CREATE_TRACE_POINTS
+#include "trace_cpucp.h"
 
 enum sync_mode {
 	ping_pong,
@@ -50,7 +52,6 @@ struct rimps_log_info {
 	struct delayed_work work;
 	struct device *dev;
 	void __iomem *base;
-	void *ipc_log_ctxt;
 	enum sync_mode sync_mode;
 	unsigned int rmem_idx;
 	unsigned int num_bufs;
@@ -65,20 +66,20 @@ static LIST_HEAD(full_buffers_list);
 static LIST_HEAD(free_buffers_list);
 static struct workqueue_struct *rimps_wq;
 
-static inline int get_next_logbuf(char *buf, int size)
+static inline bool get_last_newline(char *buf, int size, int *cnt)
 {
 	int i;
 
 	for (i = (size - 1); i >= 0 ; i--) {
-		if (buf[i] == '\n')
-			break;
+		if (buf[i] == '\n') {
+			buf[i] = '\0';
+			*cnt = i + 1;
+			return true;
+		}
 	}
-	if (i >= 0)
-		buf[i] = '\0';
-	else
-		return size;
 
-	return i + 1;
+	*cnt = size;
+	return false;
 }
 
 static void rimps_log_work(struct work_struct *work)
@@ -89,7 +90,8 @@ static void rimps_log_work(struct work_struct *work)
 	char *src;
 	int buf_start = 0;
 	int cnt = 0, print_size = 0, buf_size = 0;
-	char c;
+	bool ret;
+	char tmp_buf[MAX_PRINT_SIZE + 1];
 	struct rimps_buf *buf_node;
 	unsigned long flags;
 
@@ -114,27 +116,24 @@ static void rimps_log_work(struct work_struct *work)
 		do {
 			print_size = (buf_size >= MAX_PRINT_SIZE) ?
 						MAX_PRINT_SIZE : buf_size;
-			cnt = get_next_logbuf(src, print_size);
+			ret = get_last_newline(src, print_size, &cnt);
 			if (cnt == print_size) {
-				if (buf_size < MAX_PRINT_SIZE) {
+				if (!ret && buf_size < MAX_PRINT_SIZE) {
 					info->rem_len = buf_size;
 					memcpy(info->rem_buf, src, buf_size);
 					goto out;
 				} else {
-					c = src[cnt - 1];
-					src[cnt - 1] = '\0';
-					ipc_log_string(info->ipc_log_ctxt,
-							"%s%c\n", src, c);
+					snprintf(tmp_buf, print_size + 1, "%s", src);
+					trace_cpucp_log(tmp_buf);
 				}
-			} else {
-				ipc_log_string(info->ipc_log_ctxt,
-						"%s\n", src, c);
-			}
+			} else
+				trace_cpucp_log(src);
 
 			buf_start += cnt;
 			buf_size -= cnt;
 			src = &buf_node->buf[buf_start];
 		} while (buf_size > 0);
+
 out:
 		spin_lock_irqsave(&info->free_list_lock, flags);
 		list_add_tail(&buf_node->node, &free_buffers_list);
@@ -289,6 +288,7 @@ static int rimps_log_probe(struct platform_device *pdev)
 		} else if (!prev_size) {
 			prev_size = rmem->size;
 		}
+
 		info->num_bufs++;
 	}
 	info->glb_buf = devm_kzalloc(dev, MAX_BUF_NUM *
@@ -328,13 +328,6 @@ static int rimps_log_probe(struct platform_device *pdev)
 		ret = PTR_ERR(info->ch);
 		if (ret != -EPROBE_DEFER)
 			dev_err(dev, "Failed to request mbox info: %d\n", ret);
-		goto exit;
-	}
-	info->ipc_log_ctxt = ipc_log_context_create(NUM_LOG_PAGES,
-					dev_name(dev), 0);
-	if (!info->ipc_log_ctxt) {
-		dev_err(dev, "failed to create log context\n");
-		ret = -ENOMEM;
 		goto exit;
 	}
 
