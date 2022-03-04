@@ -937,6 +937,18 @@ config SERIAL_QCOM_GENI
 	depends on QCOM_GENI_SE
 	select SERIAL_CORE
 
+config SERIAL_QCOM_GENI_CONSOLE_DEFAULT_ENABLED
+	bool "Enable QCOM on-chip GENI serial port for kernel console usage"
+	default y
+	depends on SERIAL_QCOM_GENI
+	help
+	  Runtime enablement of serial HW for kernel can be controlled using
+	  qcom_geni_serial.con_enabled=1. This is useful for kernels that should
+	  have serial driver compiled, but not used for performance.
+	  This option controls the default value for con_enabled.
+
+	  If unsure, say Y.
+
 config SERIAL_QCOM_GENI_CONSOLE
 	bool "QCOM GENI Serial Console support"
 	depends on SERIAL_QCOM_GENI
