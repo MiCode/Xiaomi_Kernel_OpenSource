@@ -22,6 +22,7 @@ obj-$(CONFIG_DWMAC_MESON)	+= dwmac-meson.o dwmac-meson8b.o
 obj-$(CONFIG_DWMAC_OXNAS)	+= dwmac-oxnas.o
 obj-$(CONFIG_DWMAC_QCOM_ETHQOS) += dwmac-qcom-eth.o
 dwmac-qcom-eth-objs := dwmac-qcom-ethqos.o dwmac-qcom-gpio.o
+obj-$(CONFIG_DWMAC_QCOM_ETHQOS)	+= dwmac-qcom-pps.o
 obj-$(CONFIG_DWMAC_ROCKCHIP)	+= dwmac-rk.o
 obj-$(CONFIG_DWMAC_SOCFPGA)	+= dwmac-altr-socfpga.o
 obj-$(CONFIG_DWMAC_STI)		+= dwmac-sti.o
@@ -39,4 +40,7 @@ dwmac-altr-socfpga-objs := altr_tse_pcs.o dwmac-socfpga.o
 obj-$(CONFIG_STMMAC_PCI)	+= stmmac-pci.o
 obj-$(CONFIG_DWMAC_INTEL)	+= dwmac-intel.o
 obj-$(CONFIG_DWMAC_LOONGSON)	+= dwmac-loongson.o
+
+ccflags-$(CONFIG_PTP_1588_CLOCK)+=-DCONFIG_PTPSUPPORT_OBJ
+
 stmmac-pci-objs:= stmmac_pci.o
