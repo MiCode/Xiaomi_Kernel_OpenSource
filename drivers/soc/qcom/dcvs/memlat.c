@@ -1200,9 +1200,10 @@ static int configure_cpucp_mon(struct memlat_mon *mon)
 	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
 	struct device_node *of_node = mon->dev->of_node;
 	int ret;
+	const char c = ':';
 
 	ret = ops->set_mon(memlat_data->ph, mon->cpus_mpidr, grp->hw_type,
-			   mon->is_compute, mon->index);
+			   mon->is_compute, mon->index, (strrchr(dev_name(mon->dev), c) + 1));
 	if (ret < 0) {
 		pr_err("failed to configure monitor %s\n", of_node->name);
 		return ret;

@@ -39,6 +39,7 @@ struct node_msg {
 	uint32_t hw_type;
 	uint32_t mon_type;
 	uint32_t mon_idx;
+	char mon_name[MAX_NAME_LEN];
 };
 
 struct scalar_param_msg {
@@ -97,7 +98,7 @@ static int scmi_set_map(const struct scmi_protocol_handle *ph, u32 hw_type,
 
 static int scmi_set_memgrp_mon(const struct scmi_protocol_handle *ph,
 			       u32 cpus_mpidr, u32 hw_type, u32 mon_type,
-			       u32 mon_idx, u32 msg_id)
+			       u32 mon_idx, const char *mon_name, u32 msg_id)
 {
 	int ret = 0;
 	struct scmi_xfer *t;
@@ -113,24 +114,26 @@ static int scmi_set_memgrp_mon(const struct scmi_protocol_handle *ph,
 	msg->hw_type = cpu_to_le32(hw_type);
 	msg->mon_type = cpu_to_le32(mon_type);
 	msg->mon_idx = cpu_to_le32(mon_idx);
+	if (mon_name)
+		snprintf(msg->mon_name, MAX_NAME_LEN, mon_name);
 	ret = ph->xops->do_xfer(ph, t);
 	ph->xops->xfer_put(ph, t);
 
 	return ret;
 }
 
-static int scmi_set_mon(const struct scmi_protocol_handle *ph,
-			u32 cpus_mpidr, u32 hw_type, u32 mon_type, u32 mon_idx)
+static int scmi_set_mon(const struct scmi_protocol_handle *ph, u32 cpus_mpidr,
+			u32 hw_type, u32 mon_type, u32 mon_idx, const char *mon_name)
 {
 	return scmi_set_memgrp_mon(ph, cpus_mpidr, hw_type, mon_type,
-				   mon_idx, MEMLAT_SET_MONITOR);
+				   mon_idx, mon_name, MEMLAT_SET_MONITOR);
 }
 
 static int scmi_set_mem_grp(const struct scmi_protocol_handle *ph,
 			    u32 cpus_mpidr, u32 hw_type)
 {
 	return scmi_set_memgrp_mon(ph, cpus_mpidr, hw_type, 0,
-				   0, MEMLAT_SET_MEM_GROUP);
+				   0, NULL, MEMLAT_SET_MEM_GROUP);
 }
 
 static int scmi_freq_map(const struct scmi_protocol_handle *ph, u32 hw_type,
