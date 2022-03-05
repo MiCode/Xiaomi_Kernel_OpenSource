@@ -83,6 +83,7 @@ enum {
 	 * added in HW Version 3.0.0
 	 */
 	UFS_AH8_CFG				= 0xFC,
+	UFS_MEM_ICE				= 0x2600,
 };
 
 /* QCOM UFS host controller vendor specific debug registers */
@@ -523,9 +524,9 @@ struct ufs_qcom_host {
 	int config_cpu;
 	void *ufs_ipc_log_ctx;
 	bool dbg_en;
-	unsigned int num_aes_cores;
 	struct device_node *np;
 	int chosen_algo;
+	struct ufs_clk_info *ref_clki;
 };
 
 static inline u32
