@@ -1337,7 +1337,7 @@ static void mhi_dev_get_erdb_db_cfg(struct mhi_dev *mhi,
 				struct ep_pcie_db_config *erdb_cfg)
 {
 	if (mhi->cfg.event_rings == NUM_CHANNELS) {
-		erdb_cfg->base = HW_CHANNEL_BASE;
+		erdb_cfg->base = mhi->mhi_chan_hw_base;
 		erdb_cfg->end = HW_CHANNEL_END;
 	} else {
 		erdb_cfg->base = mhi->cfg.event_rings -
@@ -1355,7 +1355,7 @@ int mhi_pcie_config_db_routing(struct mhi_dev *mhi)
 		return -EINVAL;
 
 	/* Configure Doorbell routing */
-	chdb_cfg.base = HW_CHANNEL_BASE;
+	chdb_cfg.base = mhi->mhi_chan_hw_base;
 	chdb_cfg.end = HW_CHANNEL_END;
 	chdb_cfg.tgt_addr = (uint32_t) mhi->mhi_dma_uc_mbox_crdb;
 
@@ -1431,7 +1431,7 @@ static int mhi_hwc_init(struct mhi_dev *mhi)
 	mhi_init_dma_params.msi.data = cfg.data;
 	mhi_init_dma_params.msi.mask = ((1 << cfg.msg_num) - 1);
 	mhi_init_dma_params.first_er_idx = erdb_cfg.base;
-	mhi_init_dma_params.first_ch_idx = HW_CHANNEL_BASE;
+	mhi_init_dma_params.first_ch_idx = mhi_ctx->mhi_chan_hw_base;
 
 	if (mhi_ctx->config_iatu)
 		mhi_init_dma_params.mmio_addr =
@@ -1540,12 +1540,12 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 	switch (type) {
 	case MHI_DEV_RING_EL_RESET:
 	case MHI_DEV_RING_EL_STOP:
-		if ((chid-HW_CHANNEL_BASE) > NUM_HW_CHANNELS) {
+		if ((chid-(mhi->mhi_chan_hw_base)) > NUM_HW_CHANNELS) {
 			pr_err("Invalid Channel ID = 0x%X\n", chid);
 			return -EINVAL;
 		}
 
-		disconnect_params.clnt_hdl = mhi->dma_clnt_hndl[chid-HW_CHANNEL_BASE];
+		disconnect_params.clnt_hdl = mhi->dma_clnt_hndl[chid-(mhi->mhi_chan_hw_base)];
 
 		rc = mhi_dma_disconnect_endp(mhi->mhi_dma_fun_params,
 				&disconnect_params);
@@ -1560,7 +1560,7 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 			return -EINVAL;
 		}
 
-		if ((chid-HW_CHANNEL_BASE) > NUM_HW_CHANNELS) {
+		if ((chid-(mhi->mhi_chan_hw_base)) > NUM_HW_CHANNELS) {
 			pr_err("Invalid Channel = 0x%X\n", chid);
 			return -EINVAL;
 		}
@@ -1569,7 +1569,7 @@ static int mhi_hwc_chcmd(struct mhi_dev *mhi, uint chid,
 
 		rc = mhi_dma_connect_endp(mhi->mhi_dma_fun_params,
 				&connect_params,
-				&mhi->dma_clnt_hndl[chid-HW_CHANNEL_BASE]);
+				&mhi->dma_clnt_hndl[chid-(mhi->mhi_chan_hw_base)]);
 		if (rc)
 			pr_err("HW Channel%d start failed : %d\n",
 							chid, rc);
@@ -1956,7 +1956,7 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 	case MHI_DEV_RING_EL_START:
 		mhi_log(MHI_MSG_VERBOSE, "received start cmd for channel %d\n",
 								ch_id);
-		if (ch_id >= (HW_CHANNEL_BASE)) {
+		if (ch_id >= (mhi->mhi_chan_hw_base)) {
 			rc = mhi_hwc_chcmd(mhi, ch_id, el->generic.type);
 			if (rc) {
 				mhi_log(MHI_MSG_ERROR,
@@ -2058,7 +2058,7 @@ send_start_completion_event:
 		mhi_uci_chan_state_notify(mhi, ch_id, MHI_STATE_CONNECTED);
 		break;
 	case MHI_DEV_RING_EL_STOP:
-		if (ch_id >= HW_CHANNEL_BASE) {
+		if (ch_id >= (mhi->mhi_chan_hw_base)) {
 			rc = mhi_hwc_chcmd(mhi, ch_id, el->generic.type);
 			if (rc)
 				mhi_log(MHI_MSG_ERROR,
@@ -2120,7 +2120,7 @@ send_start_completion_event:
 	case MHI_DEV_RING_EL_RESET:
 		mhi_log(MHI_MSG_VERBOSE,
 			"received reset cmd for channel %d\n", ch_id);
-		if (ch_id >= HW_CHANNEL_BASE) {
+		if (ch_id >= (mhi->mhi_chan_hw_base)) {
 			rc = mhi_hwc_chcmd(mhi, ch_id, el->generic.type);
 			if (rc)
 				mhi_log(MHI_MSG_ERROR,
@@ -4038,6 +4038,14 @@ static int get_device_tree_data(struct platform_device *pdev)
 		pr_err("qcom,mhi-version does not exist\n");
 		goto err;
 	}
+
+	rc = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,mhi-chan-hw-base",
+				&mhi_ctx->mhi_chan_hw_base);
+	if (rc)
+		mhi_ctx->mhi_chan_hw_base = HW_CHANNEL_BASE;
+
+	mhi_log(MHI_MSG_VERBOSE, "MHI HW_CHAN_BASE:%d\n", mhi_ctx->mhi_chan_hw_base);
 
 	mhi->use_edma = of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,use-pcie-edma");
