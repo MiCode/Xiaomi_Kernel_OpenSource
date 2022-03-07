@@ -3,6 +3,15 @@
 menu "Qualcomm technologies inc. MSM specific device drivers"
 	depends on ARCH_QCOM
 
+config ECPRI_DMA
+	tristate "ECPRI_DMA support"
+	depends on NET
+	help
+	  eCPRI DMA is a programmable direct memory access (DMA) HW block
+	  designed to service memory access for eCPRI complex.
+	  The driver supports client connection and configuration of the
+	  DMA hw block.
+
 config IPA3
 	tristate "IPA3 support"
 	depends on NET
