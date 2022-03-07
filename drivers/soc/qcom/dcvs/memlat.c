@@ -1229,12 +1229,6 @@ static int configure_cpucp_mon(struct memlat_mon *mon)
 		return ret;
 	}
 
-	ret = ops->sample_ms(memlat_data->ph, memlat_data->cpucp_sample_ms);
-	if (ret < 0) {
-		pr_err("failed to set cpucp sample_ms for %s\n", of_node->name);
-		return ret;
-	}
-
 	ret = ops->wb_pct_thres(memlat_data->ph, grp->hw_type, mon->index,
 				mon->wb_pct_thres);
 	if (ret < 0) {
@@ -1333,6 +1327,12 @@ int cpucp_memlat_init(struct scmi_device *sdev)
 			start_cpucp_timer = true;
 		}
 		mutex_unlock(&grp->mons_lock);
+	}
+
+	ret = ops->sample_ms(memlat_data->ph, memlat_data->cpucp_sample_ms);
+	if (ret < 0) {
+		pr_err("failed to set cpucp sample_ms\n");
+		return ret;
 	}
 
 	/* Start sampling and voting timer */

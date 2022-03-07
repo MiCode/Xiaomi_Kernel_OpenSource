@@ -51,6 +51,8 @@
 #if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
 #define SYSMON_CDSP_VTCM_SEND_TEST_TX_STATUS  15
 #endif
+#define SYSMON_CDSP_FEATURE_CRM_PDKILL		16
+#define SYSMON_CDSP_CRM_PDKILL_RX_STATUS	17
 
 #define SYSMON_CDSP_QOS_FLAG_IGNORE	0
 #define SYSMON_CDSP_QOS_FLAG_ENABLE	1
@@ -145,8 +147,13 @@ struct sysmon_msg {
 #if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
 		unsigned int vtcm_test_rx_status;
 #endif
+		unsigned int crm_pdkill_status;
 	} fs;
 	unsigned int size;
+};
+
+struct crm_pdkill {
+	unsigned int b_enable;
 };
 
 struct sysmon_msg_tx {
@@ -168,6 +175,7 @@ struct sysmon_msg_tx_v2 {
 	unsigned int feature_id;
 	union {
 		struct vtcm_partition_interface vtcm_partition;
+		struct crm_pdkill pdkill;
 	} fs;
 };
 
@@ -193,6 +201,9 @@ struct cdsprm {
 	unsigned int			b_vtcm_test_partitioning;
 #endif
 	unsigned int			b_vtcm_partition_en;
+	unsigned int			b_resmgr_pdkill;
+	unsigned int			b_resmgr_pdkill_override;
+	unsigned int            b_resmgr_pdkill_status;
 	struct completion		msg_avail;
 	struct cdsprm_request		msg_queue[CDSPRM_MSG_QUEUE_DEPTH];
 	struct vtcm_partition_interface		vtcm_partition;
@@ -243,6 +254,8 @@ struct cdsprm {
 #endif
 	struct dentry			*debugfs_file_priority;
 	struct dentry			*debugfs_file_vtcm;
+	struct dentry			*debugfs_resmgr_pdkill_override;
+	struct dentry			*debugfs_resmgr_pdkill_state;
 	int (*set_l3_freq)(unsigned int freq_khz);
 	int (*set_l3_freq_cached)(unsigned int freq_khz);
 	int (*set_corner_limit)(enum cdsprm_npu_corner);
@@ -401,6 +414,31 @@ int cdsprm_compute_vtcm_set_partition_map(unsigned int b_vtcm_partitioning)
 	return result;
 }
 EXPORT_SYMBOL(cdsprm_compute_vtcm_set_partition_map);
+
+int cdsprm_resmgr_pdkill_config(unsigned int b_enable)
+{
+	int result = -EINVAL;
+	struct sysmon_msg_tx_v2 rpmsg_v2;
+
+	if (gcdsprm.rpmsgdev && gcdsprm.cdsp_version > 2) {
+		rpmsg_v2.cdsp_ver_info = SYSMON_CDSP_GLINK_VERSION;
+		rpmsg_v2.feature_id = SYSMON_CDSP_FEATURE_CRM_PDKILL;
+		rpmsg_v2.fs.pdkill.b_enable = b_enable;
+		rpmsg_v2.size = sizeof(rpmsg_v2);
+		result = rpmsg_send(gcdsprm.rpmsgdev->ept,
+				&rpmsg_v2,
+				sizeof(rpmsg_v2));
+
+		if (result)
+			pr_info("Sending resmgr pdkill config failed: %d\n", result);
+		else {
+			gcdsprm.b_resmgr_pdkill_override = b_enable;
+			pr_info("resmgr pdkill config set to %d\n", b_enable);
+		}
+	}
+
+	return result;
+}
 
 int cdsprm_cxlimit_npu_activity_notify(unsigned int b_enabled)
 {
@@ -835,6 +873,8 @@ static void cdsprm_rpmsg_send_details(void)
 		cdsprm_thermal_hvx_instruction_limit(
 			gcdsprm.thermal_hvx_level);
 	}
+
+	cdsprm_resmgr_pdkill_config(gcdsprm.b_resmgr_pdkill_override);
 }
 
 static struct cdsprm_request *get_next_request(void)
@@ -1053,7 +1093,13 @@ static int cdsprm_rpmsg_callback(struct rpmsg_device *dev, void *data,
 	}
 #endif
 
-	else {
+	else if (msg->feature_id == SYSMON_CDSP_CRM_PDKILL_RX_STATUS) {
+		if (!msg->fs.crm_pdkill_status)
+			gcdsprm.b_resmgr_pdkill_status = gcdsprm.b_resmgr_pdkill_override;
+		dev_dbg(&dev->dev,
+				"Received ack for resmgr pdkill config (%d) with status (%d)\n",
+				gcdsprm.b_resmgr_pdkill_override, msg->fs.crm_pdkill_status);
+	} else {
 		dev_err(&dev->dev, "Received incorrect msg feature %d\n",
 		msg->feature_id);
 	}
@@ -1215,11 +1261,77 @@ DEFINE_DEBUGFS_ATTRIBUTE(cdsprmvtcm_test_debugfs_fops,
 			"%llu\n");
 #endif
 
+static int cdsprm_resmgr_pdkill_override_read(void *data, u64 *val)
+{
+	*val = gcdsprm.b_resmgr_pdkill_status;
+
+	return 0;
+}
+
+static int cdsprm_resmgr_pdkill_override_write(void *data, u64 val)
+{
+	int result = cdsprm_resmgr_pdkill_config((unsigned int)val);
+
+	pr_info("resmgr pdkill override %d sent to NSP, returned %d\n", val, result);
+
+	return result;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(cdsprm_resmgr_pdkill_debugfs_fops,
+			cdsprm_resmgr_pdkill_override_read,
+			cdsprm_resmgr_pdkill_override_write,
+			"%llu\n");
+
+static int cdsprm_resmgr_pdkill_state_show(struct seq_file *s, void *d)
+{
+	if (gcdsprm.b_resmgr_pdkill_status == 0) {
+		if (gcdsprm.b_resmgr_pdkill == 0)
+			seq_puts(s, "\nresmgr pdkill feature is disabled\n");
+		else
+			seq_puts(s,
+				"\nresmgr pdkill feature is disabled by debugfs override\n");
+	} else {
+		if (gcdsprm.b_resmgr_pdkill)
+			seq_puts(s, "\nresmgr pdkill feature is enabled\n");
+		else
+			seq_puts(s,
+				"\nresmgr pdkill feature is enabled by debugfs override\n");
+	}
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(cdsprm_resmgr_pdkill_state);
+
 static const struct thermal_cooling_device_ops hvx_cooling_ops = {
 	.get_max_state = hvx_get_max_state,
 	.get_cur_state = hvx_get_cur_state,
 	.set_cur_state = hvx_set_cur_state,
 };
+
+static void pd_kill_rpmsg(struct device *dev)
+{
+	gcdsprm.b_resmgr_pdkill = of_property_read_bool(dev->of_node,
+				"qcom,resmgr-pdkill-enable");
+	gcdsprm.b_resmgr_pdkill_override = gcdsprm.b_resmgr_pdkill;
+
+	if (gcdsprm.debugfs_dir) {
+		gcdsprm.debugfs_resmgr_pdkill_override =
+				debugfs_create_file("resmgr_pdkill_override_state",
+				0644, gcdsprm.debugfs_dir, NULL,
+				&cdsprm_resmgr_pdkill_debugfs_fops);
+
+		if (!gcdsprm.debugfs_resmgr_pdkill_override)
+			dev_err(dev, "Failed to create resmgr debugfs file\n");
+
+		gcdsprm.debugfs_resmgr_pdkill_state =
+				debugfs_create_file("resmgr_pdkill_state",
+				0444, gcdsprm.debugfs_dir, NULL,
+				&cdsprm_resmgr_pdkill_state_fops);
+
+		if (!gcdsprm.debugfs_resmgr_pdkill_state)
+			dev_err(dev, "Failed to create resmgr debugfs file\n");
+	}
+}
 
 static int cdsp_rm_driver_probe(struct platform_device *pdev)
 {
@@ -1245,6 +1357,13 @@ static int cdsp_rm_driver_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	gcdsprm.debugfs_dir = debugfs_create_dir("compute", NULL);
+
+	if (!gcdsprm.debugfs_dir) {
+		dev_err(dev,
+		"Failed to create debugfs directory for cdsprm\n");
+	}
+
 	gcdsprm.compute_prio_idx = CDSPRM_COMPUTE_AIX_OVER_HVX;
 	of_property_read_u32(dev->of_node,
 				"qcom,compute-priority-mode",
@@ -1254,12 +1373,7 @@ static int cdsp_rm_driver_probe(struct platform_device *pdev)
 				"qcom,compute-cx-limit-en");
 
 	if (gcdsprm.b_cx_limit_en) {
-		gcdsprm.debugfs_dir = debugfs_create_dir("compute", NULL);
-
-		if (!gcdsprm.debugfs_dir) {
-			dev_err(dev,
-			"Failed to create debugfs directory for cdsprm\n");
-		} else {
+		if (gcdsprm.debugfs_dir) {
 			gcdsprm.debugfs_file_priority =
 						debugfs_create_file("priority",
 						0644, gcdsprm.debugfs_dir,
@@ -1412,7 +1526,7 @@ static int cdsp_rm_driver_probe(struct platform_device *pdev)
 			 = (unsigned char)p;
 		}
 
-		if (!gcdsprm.b_cx_limit_en || !gcdsprm.debugfs_dir)
+		if (!gcdsprm.debugfs_dir)
 			gcdsprm.debugfs_dir
 			 = debugfs_create_dir("compute", NULL);
 
@@ -1433,6 +1547,8 @@ static int cdsp_rm_driver_probe(struct platform_device *pdev)
 					"Failed to create debugfs file\n");
 		}
 	}
+
+	pd_kill_rpmsg(dev);
 
 	dev_dbg(dev, "CDSP request manager driver probe called\n");
 
@@ -1688,6 +1804,8 @@ static void __exit cdsprm_exit(void)
 #if IS_ENABLED(CONFIG_CDSPRM_VTCM_DYNAMIC_DEBUG)
 	gcdsprm.debugfs_file_vtcm_test = NULL;
 #endif
+	gcdsprm.debugfs_resmgr_pdkill_override = NULL;
+	gcdsprm.debugfs_resmgr_pdkill_state = NULL;
 	gcdsprm.hvx_tcdev = NULL;
 	gcdsprm.cdsp_tcdev = NULL;
 

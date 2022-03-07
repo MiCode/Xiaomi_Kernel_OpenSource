@@ -460,16 +460,16 @@ config QCOM_SOCINFO
 
 source "drivers/soc/qcom/dcvs/Kconfig"
 
-config QTI_HW_MEMLAT_LOG
-	tristate "Qualcomm Technologies Inc. HW MEMLAT Logging"
+config QTI_RIMPS_LOG
+	tristate "Qualcomm Technologies Inc. HW RIMPS Logging"
 	depends on IPC_LOGGING && QCOM_RIMPS
 	default n
 	help
-	  Memlat hw logging driver, this driver has the infra to collect logs
-	  generated in MEMLAT HW and log the buffers.
+	  Rimps logging driver, this driver has the infra to collect logs
+	  generated in RIMPS HW and log the buffers.
 
 	  This driver register with IPC_Logging framework, to have dedicated
-	  buffer for memlat hw device.
+	  buffer for rimps hw device.
 
 
 config QCOM_SOC_SLEEP_STATS
@@ -781,6 +781,33 @@ config QCOM_PANEL_EVENT_NOTIFIER
 	can use these notifications for power saving or align its operations
 	with display panel power state.
 
+config QTI_CRYPTO_COMMON
+	tristate "Enable common crypto functionality used for FBE"
+	depends on SCSI_UFS_CRYPTO_QTI
+	help
+	 Say 'Y' to enable the common crypto implementation to be used by
+	 different storage layers such as UFS and EMMC for file based hardware
+	 encryption. This library implements API to program and evict
+	 keys using Trustzone or Hardware Key Manager.
+
+config QTI_CRYPTO_TZ
+	tristate "Enable Trustzone to be used for FBE"
+	depends on QTI_CRYPTO_COMMON
+	help
+	 Say 'Y' to enable routing crypto requests to Trustzone while
+	 performing hardware based file encryption. This means keys are
+	 programmed and managed through SCM calls to TZ where ICE driver
+	 will configure keys.
+
+config QTI_HW_KEY_MANAGER
+	tristate "Enable QTI Hardware Key Manager for storage encryption"
+	default n
+	help
+	 Say 'Y' to enable the hardware key manager driver used to operate
+	 and access key manager hardware block. This is used to interface with
+	 HWKM hardware to perform key operations from the kernel which will
+	 be used for storage encryption.
+
 config QCOM_MEM_OFFLINE
 	tristate "Dynamic Memory Region Offline driver"
 	depends on MEMORY_HOTPLUG
@@ -927,6 +954,16 @@ config QCOM_LOGBUF_VENDOR_HOOKS
 	  debugging issues which are manifestation
 	  of failure during initial bootup.
 
+config MSM_QBT_HANDLER
+        tristate "Event Handler for QTI Ultrasonic Fingerprint Sensor"
+        help
+         This driver acts as a interrupt handler, where the interrupt is generated
+         by the QTI Ultrasonic Fingerprint Sensor. It queues the events for each
+         interrupt in an event queue and notifies the userspace to read the events
+         from the queue. It also creates an input device to send key events such as
+         KEY_POWER, KEY_HOME.
+
 source "drivers/soc/qcom/mem_buf/Kconfig"
+source "drivers/soc/qcom/tmecom/Kconfig"
 
 endmenu

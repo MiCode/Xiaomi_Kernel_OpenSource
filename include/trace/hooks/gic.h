@@ -7,14 +7,19 @@
 #if !defined(_TRACE_HOOK_GIC_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_GIC_H
 
-#include <linux/irqdomain.h>
-
 #include <linux/tracepoint.h>
 #include <trace/hooks/vendor_hooks.h>
+struct gic_chip_data;
+struct irq_data;
 
 DECLARE_HOOK(android_vh_gic_resume,
-	TP_PROTO(struct irq_domain *domain, void __iomem *dist_base),
-	TP_ARGS(domain, dist_base));
+       TP_PROTO(struct gic_chip_data *gd),
+       TP_ARGS(gd));
+
+DECLARE_HOOK(android_vh_gic_set_affinity,
+	TP_PROTO(struct irq_data *d, const struct cpumask *mask_val,
+		 bool force, u8 *gic_cpu_map, void __iomem *reg),
+	TP_ARGS(d, mask_val, force, gic_cpu_map, reg));
 
 #endif /* _TRACE_HOOK_GIC_H */
 /* This part must be outside protection */

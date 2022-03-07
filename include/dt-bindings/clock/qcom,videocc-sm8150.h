@@ -24,8 +24,8 @@
 #define VIDEO_CC_MVSC_CORE_CLK_BCR			4
 
 /* VIDEO_CC GDSCRs */
-#define MVS0_GDSC					0
-#define MVS1_GDSC					1
-#define MVSC_GDSC					2
+#define VENUS_GDSC					0
+#define VCODEC0_GDSC					1
+#define VCODEC1_GDSC					2
 
 #endif

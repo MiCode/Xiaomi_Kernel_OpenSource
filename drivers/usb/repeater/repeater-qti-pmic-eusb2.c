@@ -296,11 +296,13 @@ err_vdd18:
 	return ret;
 }
 
+#define INIT_MAX_CNT 5
 static int eusb2_repeater_init(struct usb_repeater *ur)
 {
 	u8 status;
 	struct eusb2_repeater *er =
 			container_of(ur, struct eusb2_repeater, ur);
+	unsigned int rptr_init_cnt = INIT_MAX_CNT;
 
 	/* override init sequence using devicetree based values */
 	eusb2_repeater_update_seq(er, er->param_override_seq,
@@ -366,10 +368,16 @@ static int eusb2_repeater_init(struct usb_repeater *ur)
 			V_CLK_19P2M_EN, V_CLK_19P2M_EN);
 	}
 
-	/* read eUSB2 repeater status */
-	eusb2_repeater_reg_read(er, &status, EUSB2_RPTR_STATUS, 1);
-	dev_info(er->ur.dev, "eUSB2 repeater status:0x%02x\n", status);
+	/* Wait for RPTR_STATUS for OK */
+	do {
+		eusb2_repeater_reg_read(er, &status, EUSB2_RPTR_STATUS, 1);
+		if (status & RPTR_OK)
+			break;
+		usleep_range(10, 20);
+	} while (--rptr_init_cnt);
 
+	dev_info(er->ur.dev, "eUSB2 repeater status:%s\n",
+			(status & RPTR_OK) ? "OK" : "NOT OK");
 	return 0;
 }
 

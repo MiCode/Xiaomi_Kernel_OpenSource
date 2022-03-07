@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2022, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/syscore_ops.h>
@@ -4210,23 +4211,6 @@ static void android_rvh_build_perf_domains(void *unused, bool *eas_check)
 	*eas_check = true;
 }
 
-static void dump_throttled_rt_tasks(void *unused, int cpu, u64 clock,
-		ktime_t rt_period, u64 rt_runtime, s64 rt_period_timer_expires)
-{
-	printk_deferred("sched: RT throttling activated for cpu %d\n", cpu);
-	printk_deferred("rt_period_timer: expires=%lld now=%llu rt_time=%llu runtime=%llu period=%llu\n",
-			rt_period_timer_expires, ktime_get_ns(),
-			task_rq(current)->rt.rt_time, rt_runtime, rt_period);
-	printk_deferred("potential CPU hogs:\n");
-#ifdef CONFIG_SCHED_INFO
-	if (sched_info_on())
-		printk_deferred("current %s (%d) is running for %llu nsec\n",
-				current->comm, current->pid,
-				clock - current->sched_info.last_arrival);
-#endif
-	BUG_ON(sysctl_sched_bug_on_rt_throttle);
-}
-
 static void android_rvh_set_cpus_allowed_ptr_locked(void *unused,
 						    const struct cpumask *cpu_valid_mask,
 						    const struct cpumask *new_mask,
@@ -4261,6 +4245,14 @@ static void android_rvh_rto_next_cpu(void *unused,
 	}
 }
 
+static void android_rvh_is_cpu_allowed(void *unused, int cpu, bool *allowed)
+{
+	if (unlikely(walt_disabled))
+		return;
+
+	*allowed = !cpumask_test_cpu(cpu, cpu_halt_mask);
+}
+
 static void register_walt_hooks(void)
 {
 	register_trace_android_rvh_wake_up_new_task(android_rvh_wake_up_new_task, NULL);
@@ -4288,10 +4280,10 @@ static void register_walt_hooks(void)
 	register_trace_android_rvh_sched_exec(android_rvh_sched_exec, NULL);
 	register_trace_android_rvh_build_perf_domains(android_rvh_build_perf_domains, NULL);
 	register_trace_cpu_frequency_limits(walt_cpu_frequency_limits, NULL);
-	register_trace_android_vh_dump_throttled_rt_tasks(dump_throttled_rt_tasks, NULL);
 	register_trace_android_rvh_set_cpus_allowed_ptr_locked(
 						android_rvh_set_cpus_allowed_ptr_locked, NULL);
 	register_trace_android_rvh_rto_next_cpu(android_rvh_rto_next_cpu, NULL);
+	register_trace_android_rvh_is_cpu_allowed(android_rvh_is_cpu_allowed, NULL);
 }
 
 atomic64_t walt_irq_work_lastq_ws;

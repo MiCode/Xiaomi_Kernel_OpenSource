@@ -684,7 +684,8 @@ static inline u64 vcpu_arch_read_sys_reg(const struct kvm_vcpu_arch *vcpu_arch, 
 {
 	u64 val = 0x8badf00d8badf00d;
 
-	if (is_vhe_hyp_code() && vcpu_arch->sysregs_loaded_on_cpu &&
+	/* sysregs_loaded_on_cpu is only used in VHE */
+	if (!is_nvhe_hyp_code() && vcpu_arch->sysregs_loaded_on_cpu &&
 	    __vcpu_read_sys_reg_from_cpu(reg, &val))
 		return val;
 
@@ -693,7 +694,8 @@ static inline u64 vcpu_arch_read_sys_reg(const struct kvm_vcpu_arch *vcpu_arch, 
 
 static inline void vcpu_arch_write_sys_reg(struct kvm_vcpu_arch *vcpu_arch, u64 val, int reg)
 {
-	if (is_vhe_hyp_code() && vcpu_arch->sysregs_loaded_on_cpu &&
+	/* sysregs_loaded_on_cpu is only used in VHE */
+	if (!is_nvhe_hyp_code() && vcpu_arch->sysregs_loaded_on_cpu &&
 	    __vcpu_write_sys_reg_to_cpu(val, reg))
 		return;
 

@@ -655,7 +655,6 @@ int __pkvm_teardown_shadow(struct kvm *kvm)
 	/* Reclaim guest pages, and page-table pages */
 	mc = &vm->host_kvm->arch.pkvm.teardown_mc;
 	reclaim_guest_pages(vm, mc);
-	remove_shadow_table(shadow_handle);
 	unpin_host_vcpus(vm);
 
 	/* Push the metadata pages to the teardown memcache */

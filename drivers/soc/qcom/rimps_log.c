@@ -104,11 +104,13 @@ static void rimps_log_work(struct work_struct *work)
 		list_del(&buf_node->node);
 		spin_unlock_irqrestore(&info->full_list_lock, flags);
 		buf_start = buf_node->cpy_idx - info->rem_len;
-		if (info->rem_len)
-			memcpy(&buf_node->buf[buf_start],
-					info->rem_buf, info->rem_len);
 		src = &buf_node->buf[buf_start];
 		buf_size = buf_node->size + info->rem_len;
+		if (info->rem_len) {
+			memcpy(&buf_node->buf[buf_start],
+					info->rem_buf, info->rem_len);
+			info->rem_len = 0;
+		}
 		do {
 			print_size = (buf_size >= MAX_PRINT_SIZE) ?
 						MAX_PRINT_SIZE : buf_size;
@@ -276,6 +278,7 @@ static int rimps_log_probe(struct platform_device *pdev)
 					resource_size(res));
 		if (IS_ERR(mem_base)) {
 			ret =  PTR_ERR(mem_base);
+			dev_err(dev, "Failed to io remap the region err: %d\n", ret);
 			goto exit;
 		}
 		rmem->start = mem_base;
@@ -314,6 +317,12 @@ static int rimps_log_probe(struct platform_device *pdev)
 	cl->knows_txdone = true;
 	cl->rx_callback = rimps_log_rx;
 
+	dev_set_drvdata(dev, info);
+	INIT_DEFERRABLE_WORK(&info->work, &rimps_log_work);
+	spin_lock_init(&info->free_list_lock);
+	spin_lock_init(&info->full_list_lock);
+	rimps_wq = create_freezable_workqueue("rimps_wq");
+
 	info->ch = mbox_request_channel(cl, 0);
 	if (IS_ERR(info->ch)) {
 		ret = PTR_ERR(info->ch);
@@ -329,11 +338,6 @@ static int rimps_log_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
-	dev_set_drvdata(dev, info);
-	INIT_DEFERRABLE_WORK(&info->work, &rimps_log_work);
-	spin_lock_init(&info->free_list_lock);
-	spin_lock_init(&info->full_list_lock);
-	rimps_wq = create_freezable_workqueue("rimps_wq");
 	dev_info(dev, "RIMPS logging initialized\n");
 
 	return 0;

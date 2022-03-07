@@ -1049,6 +1049,7 @@ static const struct adsp_data sm8350_cdsp_resource = {
 	},
 	.proxy_pd_names = (char*[]){
 		"cx",
+		"mxc",
 		NULL
 	},
 	.ssr_name = "cdsp",

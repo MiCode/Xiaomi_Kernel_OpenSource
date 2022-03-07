@@ -210,6 +210,7 @@ struct stmmac_priv {
 	struct mac_device_info *hw;
 	int (*hwif_quirks)(struct stmmac_priv *priv);
 	struct mutex lock;
+	struct phy_device *phydev;
 
 	/* RX Queue */
 	struct stmmac_rx_queue rx_queue[MTL_MAX_RX_QUEUES];
@@ -325,7 +326,9 @@ enum stmmac_state {
 	STMMAC_SERVICE_SCHED,
 };
 
-extern bool phy_intr_en;
+#define GET_MEM_PDEV_DEV (priv->plat->stmmac_emb_smmu_ctx.valid ? \
+			&priv->plat->stmmac_emb_smmu_ctx.smmu_pdev->dev : priv->device)
+
 int stmmac_mdio_unregister(struct net_device *ndev);
 int stmmac_mdio_register(struct net_device *ndev);
 int stmmac_mdio_reset(struct mii_bus *mii);

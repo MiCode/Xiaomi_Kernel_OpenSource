@@ -33,7 +33,6 @@ blocklist mt2131
 blocklist mt2266
 blocklist mxl301rf
 blocklist net_failover
-blocklist qca_cld3_kiwi
 blocklist qm1d1b0004
 blocklist qm1d1c0042
 blocklist qt1010

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020-2022, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <trace/hooks/sched.h>
@@ -227,6 +228,7 @@ static inline bool is_complex_sibling_idle(int cpu)
 	return false;
 }
 
+#define DIRE_STRAITS_PREV_NR_LIMIT 10
 static void walt_find_best_target(struct sched_domain *sd,
 					cpumask_t *candidates,
 					struct task_struct *p,
@@ -239,8 +241,9 @@ static void walt_find_best_target(struct sched_domain *sd,
 	int i, start_cpu;
 	long spare_wake_cap, most_spare_wake_cap = 0;
 	int most_spare_cap_cpu = -1;
+	int least_nr_cpu = -1;
+	unsigned int cpu_rq_runnable_cnt = UINT_MAX;
 	int prev_cpu = task_cpu(p);
-	int active_candidate = -1;
 	int order_index = fbt_env->order_index, end_index = fbt_env->end_index;
 	int stop_index = INT_MAX;
 	int cluster;
@@ -311,9 +314,6 @@ static void walt_find_best_target(struct sched_domain *sd,
 			if (cpu_halted(i))
 				continue;
 
-			if (active_candidate == -1)
-				active_candidate = i;
-
 			/*
 			 * This CPU is the target of an active migration that's
 			 * yet to complete. Avoid placing another task on it.
@@ -342,6 +342,16 @@ static void walt_find_best_target(struct sched_domain *sd,
 			if (spare_wake_cap > most_spare_wake_cap) {
 				most_spare_wake_cap = spare_wake_cap;
 				most_spare_cap_cpu = i;
+			}
+
+			/*
+			 * Keep track of runnables for each CPU, if none of the
+			 * CPUs have spare capacity then use CPU with less
+			 * number of runnables.
+			 */
+			if (cpu_rq(i)->nr_running < cpu_rq_runnable_cnt) {
+				cpu_rq_runnable_cnt = cpu_rq(i)->nr_running;
+				least_nr_cpu = i;
 			}
 
 			/*
@@ -455,21 +465,26 @@ static void walt_find_best_target(struct sched_domain *sd,
 	 * We have set idle or target as long as they are valid CPUs.
 	 * If we don't find either, then we fallback to most_spare_cap,
 	 * If we don't find most spare cap, we fallback to prev_cpu,
-	 * provided that the prev_cpu is active.
-	 * If the prev_cpu is not active, we fallback to active_candidate.
+	 * provided that the prev_cpu is active and has less than
+	 * DIRE_STRAITS_PREV_NR_LIMIT runnables otherwise, we fallback to cpu
+	 * with least number of runnables.
 	 */
 
 	if (unlikely(cpumask_empty(candidates))) {
 		if (most_spare_cap_cpu != -1)
 			cpumask_set_cpu(most_spare_cap_cpu, candidates);
-		else if (!cpu_active(prev_cpu) && active_candidate != -1)
-			cpumask_set_cpu(active_candidate, candidates);
+		else if (cpu_active(prev_cpu)
+			 && (cpu_rq(prev_cpu)->nr_running < DIRE_STRAITS_PREV_NR_LIMIT))
+			cpumask_set_cpu(prev_cpu, candidates);
+		else if (least_nr_cpu != -1)
+			cpumask_set_cpu(least_nr_cpu, candidates);
 	}
 
 out:
 	trace_sched_find_best_target(p, min_task_util, start_cpu, cpumask_bits(candidates)[0],
 			     most_spare_cap_cpu, order_index, end_index,
-			     fbt_env->skip_cpu, task_on_rq_queued(p));
+			     fbt_env->skip_cpu, task_on_rq_queued(p), least_nr_cpu,
+			     cpu_rq_runnable_cnt);
 }
 
 static inline unsigned long
@@ -774,7 +789,7 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		return prev_cpu;
 
 	if (unlikely(!cpu_array))
-		return -EPERM;
+		return prev_cpu;
 
 	walt_get_indicies(p, &order_index, &end_index, task_boost, uclamp_boost,
 								&energy_eval_needed);
@@ -912,6 +927,9 @@ unlock:
 	rcu_read_unlock();
 
 done:
+	if (best_energy_cpu < 0 || best_energy_cpu >= WALT_NR_CPUS)
+		best_energy_cpu = prev_cpu;
+
 	trace_sched_task_util(p, cpumask_bits(candidates)[0], best_energy_cpu,
 			sync, fbt_env.need_idle, fbt_env.fastpath,
 			start_t, uclamp_boost, start_cpu);
@@ -920,7 +938,7 @@ done:
 
 fail:
 	rcu_read_unlock();
-	return -EPERM;
+	return prev_cpu;
 }
 
 static void
@@ -938,8 +956,6 @@ walt_select_task_rq_fair(void *unused, struct task_struct *p, int prev_cpu,
 	p->wake_q_count = 0;
 
 	*target_cpu = walt_find_energy_efficient_cpu(p, prev_cpu, sync, sibling_count_hint);
-	if (unlikely(*target_cpu < 0))
-		*target_cpu = prev_cpu;
 }
 
 static void walt_binder_low_latency_set(void *unused, struct task_struct *task,
@@ -1255,6 +1271,16 @@ preempt:
 	trace_walt_cfs_mvp_wakeup_preempt(p, wts_p, walt_cfs_mvp_task_limit(p));
 }
 
+#ifdef CONFIG_FAIR_GROUP_SCHED
+/* Walk up scheduling entities hierarchy */
+#define for_each_sched_entity(se) \
+		for (; se; se = se->parent)
+#else	/* !CONFIG_FAIR_GROUP_SCHED */
+#define for_each_sched_entity(se) \
+		for (; se; se = NULL)
+#endif
+
+extern void set_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *se);
 static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct task_struct **p,
 					    struct sched_entity **se, bool *repick, bool simple,
 					    struct task_struct *prev)
@@ -1262,6 +1288,7 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts;
 	struct task_struct *mvp;
+	struct cfs_rq *cfs_rq;
 
 	if (unlikely(walt_disabled))
 		return;
@@ -1285,6 +1312,17 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	*p = mvp;
 	*se = &mvp->se;
 	*repick = true;
+
+	if (simple) {
+		for_each_sched_entity((*se)) {
+			/*
+			 * TODO If CFS_BANDWIDTH is enabled, we might pick
+			 * from a throttled cfs_rq
+			 */
+			cfs_rq = cfs_rq_of(*se);
+			set_next_entity(cfs_rq, *se);
+		}
+	}
 
 	if ((*p) && (*p) != prev && ((*p)->on_cpu == 1 || (*p)->on_rq == 0 ||
 				     (*p)->on_rq == TASK_ON_RQ_MIGRATING ||
