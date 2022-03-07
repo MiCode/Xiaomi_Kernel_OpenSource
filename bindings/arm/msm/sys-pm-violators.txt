@@ -15,6 +15,7 @@ PROPERTIES
 		    - "qcom,sys-pm-lahaina"
 		    - "qcom,sys-pm-waipio"
 		    - "qcom,sys-pm-diwali"
+		    - "qcom,sys-pm-cape"
 
 - reg:
 	Usage: required

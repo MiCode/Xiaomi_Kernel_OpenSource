@@ -1,0 +1,12 @@
+/dts-v1/;
+
+#include "diwali-lte.dtsi"
+#include "diwali-lte-atp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali LTE ATP";
+	compatible = "qcom,diwali-lte-atp", "qcom,diwali-lte", "qcom,atp";
+	qcom,board-id = <33 0>;
+	qcom,pmic-id-size = <9>;
+	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x2E>;
+};

@@ -3088,6 +3088,7 @@
 
 		iommus = <&apps_smmu 0x0500 0>;
 		qcom,iommu-dma-addr-pool = <0x0 0xffc00000>;
+		dma-coherent;
 
 		coresight-csr = <&csr>;
 		csr-atid-offset = <0x104>;

@@ -1,0 +1,13 @@
+/dts-v1/;
+
+#include "diwali-lte.dtsi"
+#include "diwali-idp.dtsi"
+#include "diwali-idp-pm7250b.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Diwali LTE IDP";
+	compatible = "qcom,diwali-lte-idp", "qcom,diwali-lte", "qcom,idp";
+	qcom,board-id = <34 0>;
+	qcom,pmic-id-size = <9>;
+	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x2E>;
+};

@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "neo_la.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. NEO-LA SoC";
+	compatible = "qcom,neo";
+	qcom,board-id = <0 0>;
+};

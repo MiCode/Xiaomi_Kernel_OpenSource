@@ -75,7 +75,7 @@
 	qcom,vdd-io-voltage-level = <2960000 2960000>;
 	qcom,vdd-io-current-level = <0 22000>;
 
-	max-frequency = <100000000>;
+	is_rumi;
 
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&sdc2_on>;
@@ -128,26 +128,6 @@
 	qcom,rumi_platform;
 };
 
-&gcc {
-	clocks = <&bi_tcxo>, <&sleep_clk>,
-		<&pcie_0_pipe_clk>, <&ufs_phy_rx_symbol_0_clk>,
-		<&ufs_phy_rx_symbol_1_clk>, <&ufs_phy_tx_symbol_0_clk>,
-		<&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
-};
-
-&camcc {
-	clocks = <&bi_tcxo>, <&gcc GCC_CAMERA_AHB_CLK>;
-};
-
-&videocc {
-	clocks = <&bi_tcxo>,
-		<&sleep_clk>,
-		<&gcc GCC_VIDEO_AHB_CLK>;
-};
-
-&gpucc {
-	clocks = <&bi_tcxo>,
-		<&gcc GCC_GPU_GPLL0_CLK_SRC>,
-		<&gcc GCC_GPU_GPLL0_DIV_CLK_SRC>,
-		<&gcc GCC_GPU_SNOC_DVM_GFX_CLK>;
+&tsens0 {
+	status = "disabled";
 };

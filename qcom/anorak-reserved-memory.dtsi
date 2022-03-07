@@ -1,0 +1,196 @@
+&reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	hyp_qheebsp_mem: hyp_qheebsp_region@80000000 {
+		no-map;
+		reg = <0x0 0x80000000 0x0 0x200000>;
+	};
+
+	hyp_data_mem: hyp_data_region@80200000 {
+		no-map;
+		reg = <0x0 0x80200000 0x0 0x400000>;
+	};
+
+	hyp_rm_hypx_mem: hyp_rm_hypx_region@80600000 {
+		no-map;
+		reg = <0x0 0x80600000 0x0 0x200000>;
+	};
+
+	cpusys_vm_mem: cpusys_vm_region@80800000 {
+		no-map;
+		reg = <0x0 0x80800000 0x0 0x400000>;
+	};
+
+	hyp_heap_mem: hyp_heap_region@80c00000 {
+		no-map;
+		reg = <0x0 0x80c00000 0x0 0x200000>;
+	};
+
+	tags_hyp_mem: tags_hyp_region@80e00000 {
+		no-map;
+		reg = <0x0 0x80e00000 0x0 0x3d0000>;
+	};
+
+	xbl_dtlog_mem: xbl_dtlog_region@81a00000 {
+		no-map;
+		reg = <0x0 0x81a00000 0x0 0x40000>;
+	};
+
+	xbl_ramdump_mem: xbl_ramdump_region@81a40000 {
+		no-map;
+		reg = <0x0 0x81a40000 0x0 0x1c0000>;
+	};
+
+	aop_image_mem: aop_image_region@81c00000 {
+		no-map;
+		reg = <0x0 0x81c00000 0x0 0x60000>;
+	};
+
+	aop_cmd_db_mem: aop_cmd_db_region@81c60000 {
+		compatible = "qcom,cmd-db";
+		no-map;
+		reg = <0x0 0x81c60000 0x0 0x20000>;
+	};
+
+	aop_config_mem: aop_config_region@81c80000 {
+		no-map;
+		reg = <0x0 0x81c80000 0x0 0x20000>;
+	};
+
+	tme_crash_dump_mem: tme_crash_dump_region@81ca0000 {
+		no-map;
+		reg = <0x0 0x81ca0000 0x0 0x40000>;
+	};
+
+	tme_log_mem: tme_log_region@81ce0000 {
+		no-map;
+		reg = <0x0 0x81ce0000 0x0 0x4000>;
+	};
+
+	secdata_apss_mem: secdata_apss_region@81cff000 {
+		no-map;
+		reg = <0x0 0x81cff000 0x0 0x1000>;
+	};
+
+	smem_mem: smem_region@81d00000 {
+		no-map;
+		reg = <0x0 0x81d00000 0x0 0x200000>;
+	};
+
+	global_sync_mem: global_sync_region@82600000 {
+		no-map;
+		reg = <0x0 0x82600000 0x0 0x100000>;
+	};
+
+	tz_stat_mem: tz_stat_region@82700000 {
+		no-map;
+		reg = <0x0 0x82700000 0x0 0x100000>;
+	};
+
+	cdsp_secure_heap_mem: cdsp_secure_heap_region@82800000 {
+		no-map;
+		reg = <0x0 0x82800000 0x0 0x4600000>;
+	};
+
+	video_mem: video_region@87300000 {
+		no-map;
+		reg = <0x0 0x87300000 0x0 0x700000>;
+	};
+
+	adsp_mem: adsp_region@87a00000 {
+		no-map;
+		reg = <0x0 0x87a00000 0x0 0x2100000>;
+	};
+
+	slpi_mem: slpi_region@89c00000 {
+		no-map;
+		reg = <0x0 0x89c00000 0x0 0x1900000>;
+	};
+
+	cdsp_mem: cdsp_region@8b500000 {
+		no-map;
+		reg = <0x0 0x8b500000 0x0 0x2000000>;
+	};
+
+	ipa_fw_mem: ipa_fw_region@8d500000 {
+		no-map;
+		reg = <0x0 0x8d500000 0x0 0x10000>;
+	};
+
+	ipa_gsi_mem: ipa_gsi_region@8d510000 {
+		no-map;
+		reg = <0x0 0x8d510000 0x0 0xa000>;
+	};
+
+	gpu_microcode_mem: gpu_microcode_region@8d51a000 {
+		no-map;
+		reg = <0x0 0x8d51a000 0x0 0x2000>;
+	};
+
+	spss_region_mem: spss_region_region@8d600000 {
+		no-map;
+		reg = <0x0 0x8d600000 0x0 0x180000>;
+	};
+
+	spu_secure_shared_memory_mem: spu_secure_shared_memory_region@8d780000 {
+		no-map;
+		reg = <0x0 0x8d780000 0x0 0x80000>;
+	};
+
+	cvp_mem: cvp_region@8d800000 {
+		no-map;
+		reg = <0x0 0x8d800000 0x0 0x700000>;
+	};
+
+	camera_mem: camera_region@8df00000 {
+		no-map;
+		reg = <0x0 0x8df00000 0x0 0x800000>;
+	};
+
+	cpucp_fw_mem: cpucp_fw_region@d8000000 {
+		no-map;
+		reg = <0x0 0xd8000000 0x0 0x100000>;
+	};
+
+	xbl_sc_mem: xbl_sc_region@d8100000 {
+		no-map;
+		reg = <0x0 0xd8100000 0x0 0x40000>;
+	};
+
+	reserved_mem: reserved_region@d8140000 {
+		no-map;
+		reg = <0x0 0xd8140000 0x0 0x1c0000>;
+	};
+
+	qtee_mem: qtee_region@d8300000 {
+		no-map;
+		reg = <0x0 0xd8300000 0x0 0x500000>;
+	};
+
+	ta_mem: ta_region@d8800000 {
+		no-map;
+		reg = <0x0 0xd8800000 0x0 0x8a00000>;
+	};
+
+	tags_tz_mem: tags_tz_region@e1200000 {
+		no-map;
+		reg = <0x0 0xe1200000 0x0 0x2710000>;
+	};
+
+	tui_vm_mem: tui_vm_region@f3c00000 {
+		no-map;
+		reg = <0x0 0xf3c00000 0x0 0x4400000>;
+	};
+
+	oem_vm_mem: oem_vm_region@f8000000 {
+		no-map;
+		reg = <0x0 0xf8000000 0x0 0x5000000>;
+	};
+
+	tags_hyp_ext_mem: tags_hyp_ext_region@fd000000 {
+		no-map;
+		reg = <0x0 0xfd000000 0x0 0x2800000>;
+	};
+};

@@ -117,3 +117,20 @@
 	clocks = <&bi_tcxo>, <&bi_tcxo_ao>,
 		<&sleep_clk>, <&gcc GCC_DISP_AHB_CLK>;
 };
+
+&tsens0 {
+	status = "disabled";
+};
+
+&debugcc {
+	clocks = <&bi_tcxo>;
+};
+
+&cpufreq_hw {
+	clocks = <&bi_tcxo>, <&gcc GCC_GPLL0>;
+};
+
+&rpmhcc {
+	compatible = "qcom,dummycc";
+	clock-output-names = "rpmhcc_clocks";
+};

@@ -44,33 +44,48 @@
 		interconnect-names = "pcie_to_memnoc", "memnoc_to_ddr";
 
 		qcom,icc-path-count = <2>;
-		qcom,bus-bw-cfg-count = <7>;
+		qcom,bus-bw-cfg-count = <9>;
 		qcom,bus-bw-cfg =
 		/** ICC Path 1 **/
 		<0 0>, /* no vote */
 		/* idle: 0-18 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
-		<2250 390000>,
+		<2250 1600000>,
 		/* low: 18-60 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
-		<7500 390000>,
-		/* medium: 60-240 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
-		<30000 790000>,
-		/* high: 240-1080 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
-		<100000 790000>,
-		/* very high: > 1080 Mbps snoc/anoc: 403 Mhz ddr: 451.2 MHz */
-		<175000 1600000>,
+		<7500 1600000>,
+		/* medium: 60-240 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		<30000 1600000>,
+		/* high: 240-1200 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
+		<100000 3200000>,
+		/* very high: > 1200 Mbps snoc/anoc: 403 Mhz ddr: 1555 MHz */
+		<175000 6448000>,
+		/* ultra high: DBS mode snoc/anoc: 403 Mhz ddr: 2092 MHz */
+		<175000 6448000>,
+		/* super high: DBS mode snoc/anoc: 533 Mhz ddr: 3.2GHz */
+		<175000 8528000>,
 		/* low (latency critical): 18-60 Mbps snoc/anoc: 200 Mhz
 		 * ddr: 547.2 MHz
 		 */
-		<7500 390000>,
+		<7500 3200000>,
 
 		/** ICC Path 2 **/
 		<0 0>,
+		/* ddr: 451.2 MHz */
 		<2250 1804800>,
+		/* ddr: 451.2 MHz */
 		<7500 1804800>,
+		/* ddr: 451.2 MHz */
 		<30000 1804800>,
+		/* ddr: 451.2 MHz */
 		<100000 1804800>,
+		/* ddr: 1555 MHz */
 		<175000 6220800>,
+		/* ddr: 2092 MHz */
+		<175000 8368000>,
+		/* ddr: 3.2 GHz */
+		<175000 12800000>,
+		/* ddr: 547.2 MHz */
 		<7500 2188800>;
+
 	};
 
 	bt_hmt: bt_kiwi {

@@ -879,6 +879,12 @@
 				hysteresis = <5000>;
 				type = "passive";
 			};
+
+			nspss_0_config0: junction-config0 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
 		};
 
 		cooling-maps {
@@ -886,6 +892,17 @@
 				trip = <&nspss_0_config>;
 				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT
 							THERMAL_NO_LIMIT>;
+			};
+
+			nsp_cdev1 {
+				trip = <&nspss_0_config0>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			gpu_cdev {
+				trip = <&nspss_0_config0>;
+				/* Limit freq to 285000000 Hz*/
+				cooling-device = <&msm_gpu 5 5>;
 			};
 		};
 	};
@@ -918,6 +935,12 @@
 				hysteresis = <5000>;
 				type = "passive";
 			};
+
+			nspss_1_config1: junction-config1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
 		};
 
 		cooling-maps {
@@ -925,6 +948,17 @@
 				trip = <&nspss_1_config>;
 				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT
 							THERMAL_NO_LIMIT>;
+			};
+
+			nsp_cdev1 {
+				trip = <&nspss_1_config1>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			gpu_cdev {
+				trip = <&nspss_1_config1>;
+				/* Limit freq to 285000000 Hz*/
+				cooling-device = <&msm_gpu 5 5>;
 			};
 		};
 	};
@@ -957,6 +991,12 @@
 				hysteresis = <5000>;
 				type = "passive";
 			};
+
+			nspss_2_config1: junction-config2 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
 		};
 
 		cooling-maps {
@@ -964,6 +1004,17 @@
 				trip = <&nspss_2_config>;
 				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT
 							THERMAL_NO_LIMIT>;
+			};
+
+			nsp_cdev1 {
+				trip = <&nspss_2_config1>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			gpu_cdev {
+				trip = <&nspss_2_config1>;
+				/* Limit freq to 285000000 Hz*/
+				cooling-device = <&msm_gpu 5 5>;
 			};
 		};
 	};

@@ -16,6 +16,7 @@ Required properties :
 		"qcom,sdxlemur-rpmh-clk"
 		"qcom,diwali-rpmh-clk"
 		"qcom,neo-rpmh-clk"
+		"qcom,parrot-rpmh-clk"
 
 - #clock-cells : must contain 1
 

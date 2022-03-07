@@ -106,7 +106,7 @@
 	pm7250b-ibat-lvl0 {
 		trips {
 			ibat-lvl0 {
-				temperature = <6000>;
+				temperature = <9000>;
 			};
 		};
 	};
@@ -114,7 +114,7 @@
 	pm7250b-ibat-lvl1 {
 		trips {
 			ibat-lvl1 {
-				temperature = <7500>;
+				temperature = <10000>;
 			};
 		};
 	};
