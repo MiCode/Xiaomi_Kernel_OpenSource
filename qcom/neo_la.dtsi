@@ -4,3 +4,35 @@
 	model = "Qualcomm Technologies, Inc. NEO-LA";
 	qcom,msm-id = <554 0x10000>;
 };
+
+&chosen {
+	bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none";
+
+	stdout-path = "/soc/qcom,qup_uart@994000:115200n8";
+};
+
+&firmware {
+	qcom_scm {
+		compatible = "qcom,scm";
+	};
+
+	android {
+		compatible = "android,firmware";
+		vbmeta {
+			compatible = "android,vbmeta";
+			parts = "vbmeta,boot,system,vendor,dtbo,recovery";
+		};
+
+		fstab {
+			compatible = "android,fstab";
+			vendor {
+				compatible = "android,vendor";
+				dev = "/dev/block/platform/soc/7c4000.sdhci/by-name/vendor";
+				type = "ext4";
+				mnt_flags = "ro,barrier=1,discard";
+				fsmgr_flags = "wait,slotselect";
+				status = "ok";
+			};
+		};
+	};
+};
