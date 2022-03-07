@@ -589,7 +589,7 @@ static int msm_minidump_driver_probe(struct platform_device *pdev)
 	minidump_table.revision = md_global_toc->md_revision;
 	md_ss_toc = &md_global_toc->md_ss_toc[MD_SS_HLOS_ID];
 
-	md_ss_toc->encryption_status = MD_SS_ENCR_NONE;
+	md_ss_toc->encryption_status = MD_SS_ENCR_DONE;
 	md_ss_toc->encryption_required = MD_SS_ENCR_NOTREQ;
 
 	minidump_table.md_ss_toc = md_ss_toc;
