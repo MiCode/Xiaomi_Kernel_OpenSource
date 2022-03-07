@@ -2160,6 +2160,11 @@ static int spi_geni_runtime_suspend(struct device *dev)
 		if (ret)
 			return ret;
 	}
+
+	/* For tui usecase LA should control clk/gpio/icb */
+	if (geni_mas->is_la_vm)
+		goto exit_rt_suspend;
+
 	/* Do not unconfigure the GPIOs for a shared_se usecase */
 	if (geni_mas->shared_ee && !geni_mas->shared_se)
 		goto exit_rt_suspend;
@@ -2219,7 +2224,8 @@ static int spi_geni_runtime_resume(struct device *dev)
 		return spi_geni_levm_resume_proc(geni_mas, spi);
 
 	SPI_LOG_DBG(geni_mas->ipc, false, geni_mas->dev, "%s:\n", __func__);
-	if (geni_mas->shared_ee)
+
+	if (geni_mas->shared_ee || geni_mas->is_la_vm)
 		goto exit_rt_resume;
 
 	if (geni_mas->gsi_mode) {
