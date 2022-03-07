@@ -231,12 +231,6 @@
 		thermal-sensors = <&pm8350b_tz>;
 
 		trips {
-			thermal-engine-config {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-
 			pm8350b_trip0: trip0 {
 				temperature = <90000>;
 				hysteresis = <0>;

@@ -431,12 +431,6 @@
 		thermal-sensors = <&pm7250b_tz>;
 
 		trips {
-			thermal-engine-config {
-				temperature = <125000>;
-				hysteresis = <1000>;
-				type = "passive";
-			};
-
 			pm7250b_trip0: trip0 {
 				temperature = <90000>;
 				hysteresis = <0>;
