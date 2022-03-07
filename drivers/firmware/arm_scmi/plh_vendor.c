@@ -12,6 +12,8 @@
 #define SCMI_VENDOR_MSG_SPLH_END		(31)
 #define SCMI_VENDOR_MSG_LPLH_START		(32)  /* Each PLH module to use MAX 16 MSG */
 #define SCMI_VENDOR_MSG_LPLH_END		(47)
+#define SCMI_VENDOR_MSG_DPLH_START		(48)  /* Each PLH module to use MAX 16 MSG */
+#define SCMI_VENDOR_MSG_DPLH_END		(53)
 
 enum scmi_plh_protocol_cmd {
 	PERF_LOCK_SCROLL_INIT_IPC_FREQ_TBL_MSG_ID = SCMI_VENDOR_MSG_SPLH_START,
@@ -26,6 +28,11 @@ enum scmi_plh_protocol_cmd {
 	PERF_LOCK_LAUNCH_SET_SAMPLE_MS,
 	PERF_LOCK_LAUNCH_SET_LOG_LEVEL,
 	PERF_LOCK_LAUNCH_MAX_MSG_ID = SCMI_VENDOR_MSG_LPLH_END,
+	PERF_LOCK_DRAG_INIT_IPC_FREQ_TBL_MSG_ID = SCMI_VENDOR_MSG_DPLH_START,
+	PERF_LOCK_DRAG_START_MSG_ID,
+	PERF_LOCK_DRAG_STOP_MSG_ID,
+	PERF_LOCK_DRAG_SET_LOG_LEVEL,
+	PERF_LOCK_DRAG_MAX_MSG_ID = SCMI_VENDOR_MSG_DPLH_END,
 };
 
 
@@ -49,6 +56,9 @@ static int scmi_plh_init_ipc_freq_tbl(const struct scmi_protocol_handle *ph,
 				(msg_size), sizeof(uint32_t), &t);
 	else if (feature == PERF_LOCK_LAUNCH)
 		ret = ph->xops->xfer_get_init(ph, PERF_LOCK_LAUNCH_INIT_IPC_FREQ_TBL_MSG_ID,
+				(msg_size), sizeof(uint32_t), &t);
+	else if (feature == PERF_LOCK_DRAG)
+		ret = ph->xops->xfer_get_init(ph, PERF_LOCK_DRAG_INIT_IPC_FREQ_TBL_MSG_ID,
 				(msg_size), sizeof(uint32_t), &t);
 	else
 		return -EINVAL;
@@ -100,6 +110,8 @@ static int scmi_plh_start_cmd(const struct scmi_protocol_handle *ph,
 		ret = scmi_plh_set_u16_val(ph, value, PERF_LOCK_SCROLL_START_MSG_ID);
 	else if (feature == PERF_LOCK_LAUNCH)
 		ret = scmi_plh_set_u16_val(ph, value, PERF_LOCK_LAUNCH_START_MSG_ID);
+	else if (feature == PERF_LOCK_DRAG)
+		ret = scmi_plh_set_u16_val(ph, value, PERF_LOCK_DRAG_START_MSG_ID);
 	else
 		ret = -EINVAL;
 
@@ -114,6 +126,8 @@ static int scmi_plh_stop_cmd(const struct scmi_protocol_handle *ph, enum plh_fea
 		ret = scmi_plh_set_u16_val(ph, 0, PERF_LOCK_SCROLL_STOP_MSG_ID);
 	else if (feature == PERF_LOCK_LAUNCH)
 		ret = scmi_plh_set_u16_val(ph, 0, PERF_LOCK_LAUNCH_STOP_MSG_ID);
+	else if (feature == PERF_LOCK_DRAG)
+		ret = scmi_plh_set_u16_val(ph, 0, PERF_LOCK_DRAG_STOP_MSG_ID);
 	else
 		ret = -EINVAL;
 
@@ -144,6 +158,8 @@ static int scmi_plh_set_log_level(const struct scmi_protocol_handle *ph,
 		ret = scmi_plh_set_u16_val(ph, log_level, PERF_LOCK_SCROLL_SET_LOG_LEVEL);
 	else if (feature == PERF_LOCK_LAUNCH)
 		ret = scmi_plh_set_u16_val(ph, log_level, PERF_LOCK_LAUNCH_SET_LOG_LEVEL);
+	else if (feature == PERF_LOCK_DRAG)
+		ret = scmi_plh_set_u16_val(ph, log_level, PERF_LOCK_DRAG_SET_LOG_LEVEL);
 	else
 		ret = -EINVAL;
 
