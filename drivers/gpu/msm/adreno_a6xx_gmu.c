@@ -964,6 +964,9 @@ static int a6xx_complete_rpmh_votes(struct adreno_device *adreno_dev,
 	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS3_DRV0_STATUS,
 			BIT(0), timeout, BIT(0));
 
+	if (ret)
+		dev_err(device->dev, "RPMH votes timedout: %d\n", ret);
+
 	return ret;
 }
 
