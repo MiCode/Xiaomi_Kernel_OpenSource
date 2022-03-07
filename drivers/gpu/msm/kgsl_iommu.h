@@ -168,15 +168,16 @@ struct kgsl_iommu {
 
 /*
  * struct kgsl_iommu_pt - Iommu pagetable structure private to kgsl driver
- * @domain: Pointer to the iommu domain that contains the iommu pagetable
+ * @base: Container of the base kgsl pagetable
  * @ttbr0: register value to set when using this pagetable
+ * @ pgtbl_ops: Pagetable operations for mapping/unmapping buffers
+ * @info: Pagetable info used to allocate pagetable operations
  */
 struct kgsl_iommu_pt {
 	struct kgsl_pagetable base;
 	u64 ttbr0;
-
 	struct io_pgtable_ops *pgtbl_ops;
-	struct io_pgtable_cfg cfg;
+	struct qcom_io_pgtable_info info;
 };
 
 #endif
