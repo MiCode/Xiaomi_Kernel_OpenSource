@@ -104,6 +104,8 @@ Optional properties:
                    power amp config
   - qcom,xo-clk-gpio: Added for QCA6490 XO CLK selection leakage prevention.
   - qcom,sw-ctrl-gpio: Switch control GPIO for device power control.
+  - wlan-dev-sol-gpio: Device->host Sign-Of-Life GPIO number
+  - wlan-host-sol-gpio: Host->device Sign-Of-Life GPIO number
 
 Examples:
 
