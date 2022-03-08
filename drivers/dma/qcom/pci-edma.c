@@ -640,7 +640,7 @@ static void edma_free_chan_resources(struct dma_chan *chan)
 		return;
 
 	/* get ldesc of desc */
-	ldesc = ec_dev->dl_wr_p + ec_dev->n_de_avail + 1;
+	ldesc = ec_dev->dl_wr_p + ec_dev->n_de_avail;
 	while (ldesc) {
 		struct edma_desc *ldesc_t = *ldesc;
 
@@ -891,6 +891,26 @@ static int edma_pause(struct dma_chan *chan)
 	return -EINVAL;
 }
 
+static enum dma_status edma_tx_status(struct dma_chan *chan,
+	dma_cookie_t cookie, struct dma_tx_state *txstate)
+{
+	struct edmav_dev *ev_dev = to_edmav_dev(chan);
+	struct edmac_dev *ec_dev = ev_dev->ec_dev;
+	enum dma_status status = DMA_IN_PROGRESS;
+	unsigned long flags;
+	enum edma_hw_state hw_state;
+
+	hw_state = edma_get_hw_state(ec_dev);
+	spin_lock_irqsave(&ec_dev->edma_lock, flags);
+
+	if (unlikely(list_empty(&ev_dev->dl)) &&
+		((hw_state ==  EDMA_HW_STATE_INIT) ||
+			(hw_state ==  EDMA_HW_STATE_STOPPED)))
+		status =  DMA_COMPLETE;
+	spin_unlock_irqrestore(&ec_dev->edma_lock, flags);
+	return status;
+}
+
 static int edma_resume(struct dma_chan *chan)
 {
 	return -EINVAL;
@@ -1050,7 +1070,7 @@ static void edma_init_dma_device(struct edma_dev *e_dev)
 		edma_free_chan_resources;
 	e_dev->dma_device.device_prep_dma_memcpy = edma_prep_dma_memcpy;
 	e_dev->dma_device.device_issue_pending = edma_issue_pending;
-	e_dev->dma_device.device_tx_status = dma_cookie_status;
+	e_dev->dma_device.device_tx_status = edma_tx_status;
 }
 
 void edma_dump(void)
