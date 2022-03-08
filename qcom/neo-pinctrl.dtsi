@@ -1267,5 +1267,21 @@
 				};
 			};
 		};
+
+		eusb2_reset_ctrl: eusb2_reset_ctrl {
+			eusb2_reset_ctrl_default: eusb2_reset_ctrl_default {
+				mux {
+					pins = "gpio99";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio99";
+					output-low;
+					bias-pull-down;
+					drive-strength = <2>;
+				};
+			};
+		};
 	};
 };
