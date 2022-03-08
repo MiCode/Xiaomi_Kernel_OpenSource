@@ -20,6 +20,8 @@ Optional property:
  - qcom,shared : Boolean flag to support multi-ee usecase, used in GSI mode.
    Needs to be added by client driver node in case of multi-ee usecase.
  - qcom,le-vm : Boolean flag to support I2C functionality in trusted VM.
+ - qcom,rtl_se : Boolean flag to bypass Cancel for RTL based SE. Applicable
+   for QUP version < 3.9.0 .
 
 Child nodes should conform to i2c bus binding.
 
