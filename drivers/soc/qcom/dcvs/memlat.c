@@ -1287,7 +1287,7 @@ int cpucp_memlat_init(struct scmi_device *sdev)
 	struct memlat_group *grp;
 	bool start_cpucp_timer = false;
 
-	if (!memlat_data->inited)
+	if (!memlat_data || !memlat_data->inited)
 		return -EPROBE_DEFER;
 
 	if (!sdev || !sdev->handle)
