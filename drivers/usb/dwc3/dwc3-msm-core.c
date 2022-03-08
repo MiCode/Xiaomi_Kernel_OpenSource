@@ -3158,6 +3158,13 @@ void dwc3_msm_notify_event(struct dwc3 *dwc,
 		break;
 	case DWC3_CONTROLLER_CONNDONE_EVENT:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_CONNDONE_EVENT received\n");
+
+		/*
+		 * SW WA for CV9 RESET DEVICE TEST(TD 9.23) compliance failure.
+		 * Visit eUSB2 phy driver for more details.
+		 */
+		if (mdwc->use_eusb2_phy && (dwc->gadget->speed >= USB_SPEED_SUPER))
+			usb_phy_notify_connect(mdwc->hs_phy, dwc->gadget->speed);
 		/*
 		 * Add power event if the dbm indicates coming out of L1 by
 		 * interrupt
