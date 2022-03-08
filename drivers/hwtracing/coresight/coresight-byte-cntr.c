@@ -182,7 +182,7 @@ EXPORT_SYMBOL(tmc_etr_byte_cntr_stop);
 
 static void etr_pcie_close_channel(struct byte_cntr *byte_cntr_data)
 {
-	if (!byte_cntr_data)
+	if (!byte_cntr_data || !byte_cntr_data->pcie_chan_opened)
 		return;
 
 	mutex_lock(&byte_cntr_data->byte_cntr_lock);
