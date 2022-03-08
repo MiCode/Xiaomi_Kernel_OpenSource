@@ -691,8 +691,8 @@
   extcon_set_state_sync
   fd_install
   fget
-  find_vma
   find_vpid
+  __find_vma
   finish_wait
   firmware_request_nowarn
   flush_dcache_page

@@ -686,7 +686,7 @@
   find_get_pid
   _find_next_bit
   find_task_by_vpid
-  find_vma
+  __find_vma
   finish_wait
   flush_work
   flush_workqueue
