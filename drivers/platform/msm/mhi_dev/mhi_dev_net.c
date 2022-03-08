@@ -279,7 +279,7 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 				struct mhi_req, list);
 		list_del_init(&req->list);
 		spin_unlock_irqrestore(&mhi_handle->rd_lock, flags);
-		skb = alloc_skb(MHI_NET_DEFAULT_MTU, GFP_ATOMIC);
+		skb = alloc_skb(MHI_NET_DEFAULT_MTU, GFP_KERNEL);
 		if (skb == NULL) {
 			pr_err("%s(): skb alloc failed\n", __func__);
 			spin_lock_irqsave(&mhi_handle->rd_lock, flags);
