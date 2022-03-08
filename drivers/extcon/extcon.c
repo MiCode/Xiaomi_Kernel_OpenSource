@@ -486,7 +486,7 @@ EXPORT_SYMBOL_GPL(extcon_sync);
  *
  * Returns 0 if success or error number if fail.
  */
-int extcon_get_state(struct extcon_dev *edev, const unsigned int id)
+int extcon_get_state(struct extcon_dev *edev, unsigned int id)
 {
 	int index, state;
 	unsigned long flags;

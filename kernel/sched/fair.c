@@ -4047,6 +4047,11 @@ static inline void util_est_update(struct cfs_rq *cfs_rq,
 {
 	long last_ewma_diff, last_enqueued_diff;
 	struct util_est ue;
+	int ret = 0;
+
+	trace_android_rvh_util_est_update(cfs_rq, p, task_sleep, &ret);
+	if (ret)
+		return;
 
 	if (!sched_feat(UTIL_EST))
 		return;
@@ -5588,6 +5593,12 @@ static inline unsigned long cpu_util(int cpu);
 
 static inline bool cpu_overutilized(int cpu)
 {
+	int overutilized = -1;
+
+	trace_android_rvh_cpu_overutilized(cpu, &overutilized);
+	if (overutilized != -1)
+		return overutilized;
+
 	return !fits_capacity(cpu_util(cpu), capacity_of(cpu));
 }
 

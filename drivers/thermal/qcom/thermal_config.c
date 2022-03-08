@@ -289,7 +289,7 @@ static ssize_t thermal_dbgfs_config_write(struct file *file,
 	if (copy_from_user(sensor_name, user_buf, count))
 		return -EFAULT;
 
-	if (sscanf(sensor_name, "%20[^\n\t ]", tzone_sensor_name) != 1)
+	if (sscanf(sensor_name, "%19[^\n\t ]", tzone_sensor_name) != 1)
 		return -EINVAL;
 
 	tz = thermal_zone_get_zone_by_name((const char *)tzone_sensor_name);

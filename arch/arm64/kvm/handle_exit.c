@@ -210,7 +210,7 @@ static int handle_trap_exceptions(struct kvm_vcpu *vcpu)
 	if (is_protected_kvm_enabled() && !kvm_vm_is_protected(vcpu->kvm)) {
 		preempt_disable();
 		if (!(vcpu->arch.flags & KVM_ARM64_PKVM_STATE_DIRTY)) {
-			kvm_call_hyp_nvhe(__pkvm_vcpu_sync_state, vcpu);
+			kvm_call_hyp_nvhe(__pkvm_vcpu_sync_state);
 			vcpu->arch.flags |= KVM_ARM64_PKVM_STATE_DIRTY;
 		}
 		preempt_enable();
@@ -240,6 +240,14 @@ static int handle_trap_exceptions(struct kvm_vcpu *vcpu)
 int handle_exit(struct kvm_vcpu *vcpu, int exception_index)
 {
 	struct kvm_run *run = vcpu->run;
+
+	if (ARM_SERROR_PENDING(exception_index)) {
+		/*
+		 * The SError is handled by handle_exit_early(). If the guest
+		 * survives it will re-execute the original instruction.
+		 */
+		return 1;
+	}
 
 	exception_index = ARM_EXCEPTION_CODE(exception_index);
 
