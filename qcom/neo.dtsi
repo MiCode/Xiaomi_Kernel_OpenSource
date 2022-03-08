@@ -9,6 +9,7 @@
 #include <dt-bindings/interconnect/qcom,neo.h>
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. NEO";
@@ -221,7 +222,6 @@
 	};
 };
 
-#include "neo-stub-regulator.dtsi"
 #include "neo-reserved-memory.dtsi"
 
 &reserved_memory {
@@ -1823,3 +1823,4 @@
 #include "neo-usb.dtsi"
 #include "neo-thermal.dtsi"
 #include "neo-eva.dtsi"
+#include "neo-regulators.dtsi"
