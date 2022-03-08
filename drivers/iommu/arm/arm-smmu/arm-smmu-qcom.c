@@ -435,6 +435,7 @@ struct qsmmuv500_tbu_impl {
 	phys_addr_t (*trigger_atos)(struct qsmmuv500_tbu_device *tbu, dma_addr_t iova, u32 sid,
 				 unsigned long trans_flags);
 	void (*write_sync)(struct qsmmuv500_tbu_device *tbu);
+	void (*log_outstanding_transactions)(struct qsmmuv500_tbu_device *tbu);
 };
 
 struct arm_tbu_device {
@@ -560,12 +561,56 @@ static void arm_tbu_write_sync(struct qsmmuv500_tbu_device *tbu)
 	readl_relaxed(tbu->base + DEBUG_SR_HALT_ACK_REG);
 }
 
+static void arm_tbu_log_outstanding_transactions(struct qsmmuv500_tbu_device *tbu)
+{
+	void __iomem *base = tbu->base;
+	u64 outstanding_tnxs;
+	u64 tcr_cntl_val, res;
+
+	tcr_cntl_val = readq_relaxed(base + TNX_TCR_CNTL);
+
+	/* Write 1 into MATCH_MASK_UPD of TNX_TCR_CNTL */
+	writeq_relaxed(tcr_cntl_val | TNX_TCR_CNTL_MATCH_MASK_UPD,
+		       base + TNX_TCR_CNTL);
+
+	/*
+	 * Simultaneously write 0 into MATCH_MASK_UPD, 0 into
+	 * ALWAYS_CAPTURE, 0 into MATCH_MASK_VALID, and 1 into
+	 * TBU_OT_CAPTURE_EN of TNX_TCR_CNTL
+	 */
+	tcr_cntl_val &= ~(TNX_TCR_CNTL_MATCH_MASK_UPD |
+			  TNX_TCR_CNTL_ALWAYS_CAPTURE |
+			  TNX_TCR_CNTL_MATCH_MASK_VALID);
+	writeq_relaxed(tcr_cntl_val | TNX_TCR_CNTL_TBU_OT_CAPTURE_EN,
+		       base + TNX_TCR_CNTL);
+
+	/* Poll for CAPTURE1_VALID to become 1 on TNX_TCR_CNTL_2 */
+	if (readq_poll_timeout_atomic(base + TNX_TCR_CNTL_2, res,
+				      res & TNX_TCR_CNTL_2_CAP1_VALID,
+				      0, TBU_DBG_TIMEOUT_US)) {
+		dev_err_ratelimited(tbu->dev,
+				    "Timeout on TNX snapshot poll\n");
+		goto poll_timeout;
+	}
+
+	/* Read Register CAPTURE1_SNAPSHOT_1 */
+	outstanding_tnxs = readq_relaxed(base + CAPTURE1_SNAPSHOT_1);
+	dev_err_ratelimited(tbu->dev,
+			    "Outstanding Transaction Bitmap: 0x%llx\n",
+			    outstanding_tnxs);
+poll_timeout:
+	/* Write TBU_OT_CAPTURE_EN to 0 of TNX_TCR_CNTL */
+	writeq_relaxed(tcr_cntl_val & ~TNX_TCR_CNTL_TBU_OT_CAPTURE_EN,
+		       tbu->base + TNX_TCR_CNTL);
+}
+
 static const struct qsmmuv500_tbu_impl arm_tbu_impl = {
 	.halt_req = arm_tbu_halt_req,
 	.halt_poll = arm_tbu_halt_poll,
 	.resume = arm_tbu_resume,
 	.trigger_atos = arm_tbu_trigger_atos,
 	.write_sync = arm_tbu_write_sync,
+	.log_outstanding_transactions = arm_tbu_log_outstanding_transactions,
 };
 
 /*
@@ -762,6 +807,47 @@ out:
  */
 static DEFINE_MUTEX(capture_reg_lock);
 static DEFINE_SPINLOCK(testbus_lock);
+
+static void qsmmuv500_log_outstanding_transactions(struct work_struct *work)
+{
+	struct qsmmuv500_tbu_device *tbu = NULL;
+	struct qsmmuv500_archdata *data = container_of(work,
+						struct qsmmuv500_archdata,
+						outstanding_tnx_work);
+	struct arm_smmu_device *smmu = &data->smmu;
+
+	if (!mutex_trylock(&capture_reg_lock)) {
+		dev_warn_ratelimited(smmu->dev,
+			"Tnx snapshot regs in use, not dumping OT tnxs.\n");
+		goto bug;
+	}
+
+	if (arm_smmu_power_on(smmu->pwr)) {
+		dev_err_ratelimited(smmu->dev,
+				    "%s: Failed to power on SMMU.\n",
+				    __func__);
+		goto unlock;
+	}
+
+	list_for_each_entry(tbu, &data->tbus, list) {
+		if (arm_smmu_power_on(tbu->pwr)) {
+			dev_err_ratelimited(tbu->dev,
+					    "%s: Failed to power on TBU.\n",
+					    __func__);
+			continue;
+		}
+
+		tbu->impl->log_outstanding_transactions(tbu);
+
+		arm_smmu_power_off(smmu, tbu->pwr);
+	}
+
+	arm_smmu_power_off(smmu, smmu->pwr);
+unlock:
+	mutex_unlock(&capture_reg_lock);
+bug:
+	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
+}
 
 __maybe_unused static struct dentry *get_iommu_debug_dir(void)
 {
@@ -1105,85 +1191,6 @@ static void arm_smmu_testbus_dump(struct arm_smmu_device *smmu, u16 sid)
 							TCU_TESTBUS_SEL_ALL);
 		spin_unlock(&testbus_lock);
 	}
-}
-
-static void qsmmuv500_log_outstanding_transactions(struct work_struct *work)
-{
-	struct qsmmuv500_tbu_device *tbu = NULL;
-	u64 outstanding_tnxs;
-	u64 tcr_cntl_val, res;
-	struct qsmmuv500_archdata *data = container_of(work,
-						struct qsmmuv500_archdata,
-						outstanding_tnx_work);
-	struct arm_smmu_device *smmu = &data->smmu;
-	void __iomem *base;
-
-	if (!mutex_trylock(&capture_reg_lock)) {
-		dev_warn_ratelimited(smmu->dev,
-			"Tnx snapshot regs in use, not dumping OT tnxs.\n");
-		goto bug;
-	}
-
-	if (arm_smmu_power_on(smmu->pwr)) {
-		dev_err_ratelimited(smmu->dev,
-				    "%s: Failed to power on SMMU.\n",
-				    __func__);
-		goto unlock;
-	}
-
-	list_for_each_entry(tbu, &data->tbus, list) {
-		if (arm_smmu_power_on(tbu->pwr)) {
-			dev_err_ratelimited(tbu->dev,
-					    "%s: Failed to power on TBU.\n",
-					    __func__);
-			continue;
-		}
-		base = tbu->base;
-
-		tcr_cntl_val = readq_relaxed(base + TNX_TCR_CNTL);
-
-		/* Write 1 into MATCH_MASK_UPD of TNX_TCR_CNTL */
-		writeq_relaxed(tcr_cntl_val | TNX_TCR_CNTL_MATCH_MASK_UPD,
-			       base + TNX_TCR_CNTL);
-
-		/*
-		 * Simultaneously write 0 into MATCH_MASK_UPD, 0 into
-		 * ALWAYS_CAPTURE, 0 into MATCH_MASK_VALID, and 1 into
-		 * TBU_OT_CAPTURE_EN of TNX_TCR_CNTL
-		 */
-		tcr_cntl_val &= ~(TNX_TCR_CNTL_MATCH_MASK_UPD |
-				  TNX_TCR_CNTL_ALWAYS_CAPTURE |
-				  TNX_TCR_CNTL_MATCH_MASK_VALID);
-		writeq_relaxed(tcr_cntl_val | TNX_TCR_CNTL_TBU_OT_CAPTURE_EN,
-			       base + TNX_TCR_CNTL);
-
-		/* Poll for CAPTURE1_VALID to become 1 on TNX_TCR_CNTL_2 */
-		if (readq_poll_timeout_atomic(base + TNX_TCR_CNTL_2, res,
-					      res & TNX_TCR_CNTL_2_CAP1_VALID,
-					      0, TBU_DBG_TIMEOUT_US)) {
-			dev_err_ratelimited(tbu->dev,
-					    "Timeout on TNX snapshot poll\n");
-			goto poll_timeout;
-		}
-
-		/* Read Register CAPTURE1_SNAPSHOT_1 */
-		outstanding_tnxs = readq_relaxed(base + CAPTURE1_SNAPSHOT_1);
-		dev_err_ratelimited(tbu->dev,
-				    "Outstanding Transaction Bitmap: 0x%llx\n",
-				    outstanding_tnxs);
-poll_timeout:
-		/* Write TBU_OT_CAPTURE_EN to 0 of TNX_TCR_CNTL */
-		writeq_relaxed(tcr_cntl_val & ~TNX_TCR_CNTL_TBU_OT_CAPTURE_EN,
-			       tbu->base + TNX_TCR_CNTL);
-
-		arm_smmu_power_off(smmu, tbu->pwr);
-	}
-
-	arm_smmu_power_off(smmu, smmu->pwr);
-unlock:
-	mutex_unlock(&capture_reg_lock);
-bug:
-	BUG_ON(IS_ENABLED(CONFIG_IOMMU_TLBSYNC_DEBUG));
 }
 
 
