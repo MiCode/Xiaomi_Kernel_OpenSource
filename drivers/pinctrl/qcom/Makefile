@@ -5,6 +5,7 @@ obj-$(CONFIG_PINCTRL_LAHAINA) += pinctrl-lahaina.o
 obj-$(CONFIG_PINCTRL_SHIMA) += pinctrl-shima.o
 obj-$(CONFIG_PINCTRL_HOLI) += pinctrl-holi.o
 obj-$(CONFIG_PINCTRL_NEO) += pinctrl-neo.o
+obj-$(CONFIG_PINCTRL_ANORAK) += pinctrl-anorak.o
 obj-$(CONFIG_PINCTRL_WAIPIO) += pinctrl-waipio.o
 obj-$(CONFIG_PINCTRL_DIWALI) += pinctrl-diwali.o
 obj-$(CONFIG_PINCTRL_CAPE) += pinctrl-cape.o

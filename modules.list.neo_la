@@ -26,7 +26,6 @@ llcc-qcom.ko
 qmi_helpers.ko
 qcom_hwspinlock.ko
 cmd-db.ko
-pmic_glink.ko
 qcom_soc_wdt.ko
 smem.ko
 qcom_sync_file.ko
@@ -62,6 +61,5 @@ gcc-neo.ko
 gdsc-regulator.ko
 dispcc-neo.ko
 secure_buffer.ko
-msm_qmp.ko
-tmecom-intf.ko
-qcom_aoss.ko
+clk-rpmh.ko
+qcom-cpufreq-hw.ko

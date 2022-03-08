@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -20,11 +21,10 @@ static const struct msm_pinctrl_soc_data parrot_pinctrl = {
 	.nfunctions = ARRAY_SIZE(parrot_functions),
 	.groups = parrot_groups,
 	.ngroups = ARRAY_SIZE(parrot_groups),
-	.ngpios = 141,
+	.ngpios = 142,
 	.wakeirq_map = parrot_pdc_map,
 	.nwakeirq_map = ARRAY_SIZE(parrot_pdc_map),
 };
-
 static void qcom_trace_gpio_read(void *unused, struct gpio_device *gdev,
 				bool *block_gpio_read)
 {

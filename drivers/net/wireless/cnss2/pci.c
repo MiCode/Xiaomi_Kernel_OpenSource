@@ -2735,8 +2735,13 @@ int cnss_wlan_register_driver(struct cnss_wlan_driver *driver_ops)
 	const struct pci_device_id *id_table = driver_ops->id_table;
 	unsigned int timeout;
 
+	if (!cnss_check_driver_loading_allowed()) {
+		cnss_pr_info("No cnss2 dtsi entry present");
+		return -ENODEV;
+	}
+
 	if (!plat_priv) {
-		cnss_pr_info("plat_priv is not ready for register driver\n");
+		cnss_pr_buf("plat_priv is not ready for register driver\n");
 		return -EAGAIN;
 	}
 

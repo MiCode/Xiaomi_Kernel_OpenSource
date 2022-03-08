@@ -679,6 +679,12 @@ static struct hfi_mem_alloc_entry *get_mem_alloc_entry(
 	if (entry)
 		return entry;
 
+	if (desc->mem_kind >= HFI_MEMKIND_MAX) {
+		dev_err(&gmu->pdev->dev, "Invalid mem kind: %d\n",
+			desc->mem_kind);
+		return ERR_PTR(-EINVAL);
+	}
+
 	if (hfi->mem_alloc_entries == ARRAY_SIZE(hfi->mem_alloc_table)) {
 		dev_err(&gmu->pdev->dev,
 			"Reached max mem alloc entries\n");
@@ -947,7 +953,7 @@ static int enable_preemption(struct adreno_device *adreno_dev)
 	 * Bits[3:0] contain the preemption timeout enable bit per ringbuffer
 	 * Bits[31:4] contain the timeout in ms
 	 */
-	return a6xx_hfi_send_feature_ctrl(adreno_dev, HFI_VALUE_BIN_TIME, 1,
+	return a6xx_hfi_send_set_value(adreno_dev, HFI_VALUE_BIN_TIME, 1,
 			FIELD_PREP(GENMASK(31, 4), 3000) |
 			FIELD_PREP(GENMASK(3, 0), 0xf));
 }
@@ -1405,6 +1411,8 @@ int a6xx_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
 
 	if (WARN_ON(cmd_sizebytes > HFI_MAX_MSG_SIZE))
 		return -EMSGSIZE;
+
+	memset(cmdbuf, 0x0, cmd_sizebytes);
 
 	cmd = cmdbuf;
 

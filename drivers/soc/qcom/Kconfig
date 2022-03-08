@@ -873,6 +873,19 @@ config QTI_PLH_SCMI_CLIENT
 	  driver, and interface driver will use this handle to communicate
 	  with RIMPS PLH.
 
+config QTI_GPLAF_SCMI_CLIENT
+	tristate "Qualcomm Technologies Inc. SCMI client driver for GPLAF"
+	depends on MSM_PERFORMANCE && QTI_SCMI_GPLAF_PROTOCOL
+	default n
+	help
+	  SCMI client driver registers itself with SCMI framework for GPLAF
+	  vendor protocol, and also registers with the gplaf interface driver
+	  msm_performance.
+
+	  This driver deliver the GPLAF vendor protocol handle to interface
+	  driver, and interface driver will use this handle to communicate
+	  with RIMPS GPLAF.
+
 config QCOM_SUBSYSTEM_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. Subsystem sleep stats driver"
 	depends on QCOM_SMEM

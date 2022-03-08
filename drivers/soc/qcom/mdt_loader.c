@@ -355,8 +355,8 @@ deinit:
 		scm_dev = qcom_get_scm_device();
 		if (!scm_dev)
 			goto out;
-
-		dma_free_coherent(scm_dev, metadata_len, metadata, metadata_phys);
+		if (mdata)
+			dma_free_coherent(scm_dev, mdata->size, mdata->buf, mdata->buf_phys);
 	}
 out:
 	kfree(fw_name);

@@ -71,6 +71,17 @@ config QTI_SCMI_MEMLAT_PROTOCOL
 	  this protocol provides interface to communicate with micro controller
 	  which is executing the hw memlat governor
 
+config QTI_SCMI_GPLAF_PROTOCOL
+	tristate "Qualcomm Technologies, Inc. SCMI GPLAF vendor Protocol"
+	depends on ARM_SCMI_PROTOCOL && QCOM_RIMPS
+	help
+	  System Control and Management Interface (SCMI) gplaf vendor protocol
+	  this protocol provides interface to communicate with micro controller
+	  which is executing the gplaf algorithm
+
+	  This driver defines the commands or message ID's used for this
+	  communication and also exposes the ops used by clients.
+
 config ARM_SCMI_POWER_DOMAIN
 	tristate "SCMI power domain driver"
 	depends on ARM_SCMI_PROTOCOL || (COMPILE_TEST && OF)

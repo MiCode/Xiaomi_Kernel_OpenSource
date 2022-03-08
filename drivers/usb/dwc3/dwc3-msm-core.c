@@ -58,6 +58,7 @@
 #define DWC3_GUCTL1_IP_GAP_ADD_ON(n)	(n << 21)
 #define DWC3_GUCTL1_IP_GAP_ADD_ON_MASK	DWC3_GUCTL1_IP_GAP_ADD_ON(7)
 #define DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST	BIT(8)
+#define DWC3_GUCTL3_USB20_RETRY_DISABLE	BIT(16)
 #define DWC3_GUSB3PIPECTL_DISRXDETU3	BIT(22)
 #define DWC31_LINK_GDBGLTSSM	0xd050
 #define DWC3_GDBGLTSSM_LINKSTATE_MASK	(0xF << 22)
@@ -545,6 +546,7 @@ struct dwc3_msm {
 
 	struct dwc3_hw_ep	hw_eps[DWC3_ENDPOINTS_NUM];
 	bool			dis_sending_cm_l1_quirk;
+	bool			use_eusb2_phy;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -3327,13 +3329,37 @@ static void enable_usb_pdc_interrupt(struct dwc3_msm *mdwc, bool enable)
 		goto disable_usb_irq;
 
 	if (mdwc->hs_phy->flags & PHY_LS_MODE) {
-		configure_usb_wakeup_interrupt(mdwc,
-			&mdwc->wakeup_irq[DM_HS_PHY_IRQ],
-			IRQ_TYPE_EDGE_FALLING, enable);
+		/*
+		 * According to eUSB2 spec, eDP line will be pulled high for remote
+		 * wakeup scenario for LS connected device in host mode. On disconnect
+		 * during bus-suspend case, irrespective of the speed of the connected
+		 * device, both eDM and eDP line will be pulled high (XeSE1).
+		 */
+		if (mdwc->use_eusb2_phy)
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DP_HS_PHY_IRQ],
+				IRQ_TYPE_EDGE_RISING, enable);
+		else
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DM_HS_PHY_IRQ],
+				IRQ_TYPE_EDGE_FALLING, enable);
+
 	} else if (mdwc->hs_phy->flags & PHY_HSFS_MODE) {
-		configure_usb_wakeup_interrupt(mdwc,
-			&mdwc->wakeup_irq[DP_HS_PHY_IRQ],
-			IRQ_TYPE_EDGE_FALLING, enable);
+		/*
+		 * According to eUSB2 spec, eDM line will be pulled high for remote
+		 * wakeup scenario for HS/FS connected device in host mode. On disconnect
+		 * during bus-suspend case, irrespective of the speed of the connected
+		 * device, both eDM and eDP line will be pulled high (XeSE1).
+		 */
+		if (mdwc->use_eusb2_phy)
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DM_HS_PHY_IRQ],
+				IRQ_TYPE_EDGE_RISING, enable);
+		else
+			configure_usb_wakeup_interrupt(mdwc,
+				&mdwc->wakeup_irq[DP_HS_PHY_IRQ],
+				IRQ_TYPE_EDGE_FALLING, enable);
+
 	} else {
 		/* When in host mode, with no device connected, set the HS
 		 * to level high triggered.  This is to ensure device connection
@@ -4863,6 +4889,20 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 	if (mdwc->dwc3)
 		return 0;
 
+	ret = usb_phy_init(mdwc->hs_phy);
+	if (ret) {
+		dev_err(mdwc->dev, "failed to init HS PHY\n");
+		goto err;
+	}
+
+	if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER) {
+		ret = usb_phy_init(mdwc->ss_phy);
+		if (ret) {
+			dev_err(mdwc->dev, "failed to init SS PHY\n");
+			goto err;
+		}
+	}
+
 	/* Assumes dwc3 is the first DT child of dwc3-msm */
 	dwc3_node = of_get_next_available_child(node, NULL);
 	if (!dwc3_node) {
@@ -5170,6 +5210,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->disable_host_ssphy_powerdown = of_property_read_bool(node,
 				"qcom,disable-host-ssphy-powerdown");
+
+	mdwc->use_eusb2_phy = of_property_read_bool(node, "qcom,use-eusb2-phy");
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
 		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
@@ -5486,13 +5528,22 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 
 	/*
+	 * Regardless of where the device is in the host tree, the USB generic
+	 * device's PM resume/suspend should be skipped.  Otherwise, the USB
+	 * generic device will end up with failures during PM resume, as XHCI
+	 * relies on the DWC3 MSM to issue the PM runtime resume to wake up
+	 * the entire host device chain.
+	 */
+	if (event == USB_DEVICE_ADD)
+		dev_pm_syscore_device(&udev->dev, true);
+	/*
 	 * For direct-attach devices, new udev is direct child of root hub
 	 * i.e. dwc -> xhci -> root_hub -> udev
 	 * root_hub's udev->parent==NULL, so traverse struct device hierarchy
 	 */
 	if (udev->parent && !udev->parent->parent &&
 			udev->dev.parent->parent == &dwc->xhci->dev) {
-		if (event == USB_DEVICE_ADD && udev->actconfig) {
+		if (event == USB_DEVICE_ADD) {
 			if (!dwc3_msm_is_ss_rhport_connected(mdwc)) {
 				/*
 				 * Core clock rate can be reduced only if root
@@ -5511,7 +5562,6 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 					dwc3_msm_host_ss_powerup(mdwc);
 				mdwc->max_rh_port_speed = USB_SPEED_SUPER;
 			}
-			dev_pm_syscore_device(&udev->dev, true);
 		} else {
 			/* set rate back to default core clk rate */
 			clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
@@ -5526,7 +5576,6 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 		if (event == USB_DEVICE_ADD) {
 			pm_runtime_use_autosuspend(&udev->dev);
 			pm_runtime_set_autosuspend_delay(&udev->dev, 1000);
-			dev_pm_syscore_device(&udev->dev, true);
 		}
 	}
 
@@ -5606,12 +5655,29 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		if (!dwc->dis_enblslpm_quirk)
 			dwc3_en_sleep_mode(mdwc);
 
-		/* Increase Inter-packet delay by 1 UTMI clock cycle (EL_23) */
-		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUCTL1,
-				DWC3_GUCTL1_IP_GAP_ADD_ON_MASK, 1);
-
 		if (mdwc->dis_sending_cm_l1_quirk)
 			mdwc3_dis_sending_cm_l1(mdwc);
+
+		/*
+		 * Increase Inter-packet delay by 1 UTMI clock cycle (EL_23).
+		 *
+		 * STAR 9001346572: Host: When a Single USB 2.0 Endpoint Receives NAKs Continuously,
+		 * Host Stops Transfers to Other Endpoints. When an active endpoint that is not
+		 * currently cached in the host controller is chosen to be cached to the same cache
+		 * index as the endpoint that receives NAK, The endpoint that receives the NAK
+		 * responses would be in continuous retry mode that would prevent it from getting
+		 * evicted out of the host controller cache. This would prevent the new endpoint to
+		 * get into the endpoint cache and therefore service to this endpoint is not done.
+		 * The workaround is to disable lower layer LSP retrying the USB2.0 NAKed transfer.
+		 * Forcing this to LSP upper layer allows next EP to evict the stuck EP from cache.
+		 */
+		if (DWC3_VER_IS_WITHIN(DWC31, 170A, ANY)) {
+			dwc3_msm_write_reg_field(mdwc->base, DWC3_GUCTL1,
+				DWC3_GUCTL1_IP_GAP_ADD_ON_MASK, 1);
+
+			dwc3_msm_write_reg_field(mdwc->base, DWC3_GUCTL3,
+				DWC3_GUCTL3_USB20_RETRY_DISABLE, 1);
+		}
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_HOST);
 		if (dwc->dr_mode == USB_DR_MODE_OTG)

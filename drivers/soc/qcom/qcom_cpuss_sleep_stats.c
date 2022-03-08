@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -27,17 +28,42 @@
 #define MAX_CPU_RESIDENCY_BITS	5
 #define MAX_CL_RESIDENCY_BITS	3
 
-#define APSS_LPM_COUNTER_CPUx_C1_LO_VAL		0x8000
-#define APSS_LPM_COUNTER_CPUx_C2D_LO_VAL	0x8048
-#define APSS_LPM_COUNTER_CPUx_C3_LO_VAL		0x8090
-#define APSS_LPM_COUNTER_CPUx_C4_LO_VAL		0x80D8
+enum {
+	APSS_LPM_COUNTER_CPUx_C1_LO_VAL,
+	APSS_LPM_COUNTER_CPUx_C2D_LO_VAL,
+	APSS_LPM_COUNTER_CPUx_C3_LO_VAL,
+	APSS_LPM_COUNTER_CPUx_C4_LO_VAL,
+	APSS_CPU_LPM_RESIDENCY_CNTR_CFG_n,
+	APSS_CL_LPM_RESIDENCY_CNTR_CFG,
+	APSS_LPM_RESIDENCY_C2_D2_CNTR_n,
+	APSS_LPM_RESIDENCY_C3_CNTR_n,
+	APSS_LPM_RESIDENCY_C4_D4_CNTR_n,
+};
 
-#define APSS_CPU_LPM_RESIDENCY_CNTR_CFG_n	0xC004
-#define APSS_CL_LPM_RESIDENCY_CNTR_CFG		0xC030
+static u32 qcom_cpuss_cntr_v1_offsets[] = {
+	[APSS_LPM_COUNTER_CPUx_C1_LO_VAL]	=	0x8000,
+	[APSS_LPM_COUNTER_CPUx_C2D_LO_VAL]	=	0x8048,
+	[APSS_LPM_COUNTER_CPUx_C3_LO_VAL]	=	0x8090,
+	[APSS_LPM_COUNTER_CPUx_C4_LO_VAL]	=	0x80D8,
+	[APSS_CPU_LPM_RESIDENCY_CNTR_CFG_n]	=	0xC004,
+	[APSS_CL_LPM_RESIDENCY_CNTR_CFG]	=	0xC030,
+	[APSS_LPM_RESIDENCY_C2_D2_CNTR_n]	=	0xC040,
+	[APSS_LPM_RESIDENCY_C3_CNTR_n]		=	0xC090,
+	[APSS_LPM_RESIDENCY_C4_D4_CNTR_n]	=	0xC0D0,
+};
 
-#define APSS_LPM_RESIDENCY_C2_D2_CNTR_n		0xC040
-#define APSS_LPM_RESIDENCY_C3_CNTR_n		0xC090
-#define APSS_LPM_RESIDENCY_C4_D4_CNTR_n		0xC0D0
+static u32 qcom_cpuss_cntr_v2_offsets[] = {
+	[APSS_LPM_COUNTER_CPUx_C1_LO_VAL]	=	0x8000,
+	[APSS_LPM_COUNTER_CPUx_C2D_LO_VAL]	=	0x8028,
+	[APSS_LPM_COUNTER_CPUx_C3_LO_VAL]	=	0x8050,
+	[APSS_LPM_COUNTER_CPUx_C4_LO_VAL]	=	0x8078,
+	[APSS_CPU_LPM_RESIDENCY_CNTR_CFG_n]	=	0xC004,
+	[APSS_CL_LPM_RESIDENCY_CNTR_CFG]	=	0xC030,
+	[APSS_LPM_RESIDENCY_C2_D2_CNTR_n]	=	0xC040,
+	[APSS_LPM_RESIDENCY_C3_CNTR_n]		=	0xC090,
+	[APSS_LPM_RESIDENCY_C4_D4_CNTR_n]	=	0xC0D0,
+};
+
 
 /* bits are per CPU LPM_CFG register */
 #define LPM_COUNTER_EN_C1	BIT(0)
@@ -103,6 +129,7 @@ struct qcom_target_info {
 	u32 apss_seq_mem_size;
 	phys_addr_t l3_seq_lpm_cfg;
 	u32 l3_seq_lpm_size;
+	u32 *offsets;
 	struct qcom_cpuss_stats complete_stats;
 
 	struct dentry *stats_rootdir;
@@ -170,22 +197,22 @@ static char *get_str_cl_res(u8 cfg)
 
 }
 
-static int get_cpu_lpm_read_offset(u8 cpu, u8 cpu_mode)
+static int get_cpu_lpm_read_offset(u8 cpu, u8 cpu_mode, u32 *regs)
 {
 	int offset;
 
 	switch (cpu_mode) {
 	case LPM_COUNTER_EN_C1:
-		offset = APSS_LPM_COUNTER_CPUx_C1_LO_VAL +  (cpu * OFFSET_8BYTES);
+		offset = regs[APSS_LPM_COUNTER_CPUx_C1_LO_VAL] + (cpu * OFFSET_8BYTES);
 		break;
 	case LPM_COUNTER_EN_C2D:
-		offset = APSS_LPM_COUNTER_CPUx_C2D_LO_VAL +  (cpu * OFFSET_8BYTES);
+		offset = regs[APSS_LPM_COUNTER_CPUx_C2D_LO_VAL] + (cpu * OFFSET_8BYTES);
 		break;
 	case LPM_COUNTER_EN_C3:
-		offset = APSS_LPM_COUNTER_CPUx_C3_LO_VAL +  (cpu * OFFSET_8BYTES);
+		offset = regs[APSS_LPM_COUNTER_CPUx_C3_LO_VAL] + (cpu * OFFSET_8BYTES);
 		break;
 	case LPM_COUNTER_EN_C4:
-		offset = APSS_LPM_COUNTER_CPUx_C4_LO_VAL +  (cpu * OFFSET_8BYTES);
+		offset = regs[APSS_LPM_COUNTER_CPUx_C4_LO_VAL] + (cpu * OFFSET_8BYTES);
 		break;
 	default:
 		pr_err("Unknown mode\n");
@@ -195,19 +222,19 @@ static int get_cpu_lpm_read_offset(u8 cpu, u8 cpu_mode)
 	return offset;
 }
 
-static int get_cpu_residency_read_offset(u8 cpu, u8 cpu_res_cfg)
+static int get_cpu_residency_read_offset(u8 cpu, u8 cpu_res_cfg, u32 *regs)
 {
 	int offset;
 
 	switch (cpu_res_cfg) {
 	case RESIDENCY_CNTR_C2_EN:
-		offset = APSS_LPM_RESIDENCY_C2_D2_CNTR_n + (cpu * OFFSET_8BYTES);
+		offset = regs[APSS_LPM_RESIDENCY_C2_D2_CNTR_n] + (cpu * OFFSET_8BYTES);
 		break;
 	case RESIDENCY_CNTR_C3_EN:
-		offset = APSS_LPM_RESIDENCY_C3_CNTR_n + (cpu * OFFSET_8BYTES);
+		offset = regs[APSS_LPM_RESIDENCY_C3_CNTR_n] + (cpu * OFFSET_8BYTES);
 		break;
 	case RESIDENCY_CNTR_C4_EN:
-		offset = APSS_LPM_RESIDENCY_C4_D4_CNTR_n + (cpu * OFFSET_8BYTES);
+		offset = regs[APSS_LPM_RESIDENCY_C4_D4_CNTR_n] + (cpu * OFFSET_8BYTES);
 		break;
 	default:
 		pr_err("Unknown mode\n");
@@ -217,16 +244,16 @@ static int get_cpu_residency_read_offset(u8 cpu, u8 cpu_res_cfg)
 	return offset;
 }
 
-static int get_cl_residency_read_offset(int ncpu, u8 cl_res_cfg)
+static int get_cl_residency_read_offset(int ncpu, u8 cl_res_cfg, u32 *regs)
 {
 	int offset;
 
 	switch (cl_res_cfg) {
 	case RESIDENCY_CNTR_D2_EN:
-		offset = APSS_LPM_RESIDENCY_C2_D2_CNTR_n + OFFSET_8BYTES * ncpu;
+		offset = regs[APSS_LPM_RESIDENCY_C2_D2_CNTR_n] + OFFSET_8BYTES * ncpu;
 		break;
 	case RESIDENCY_CNTR_D4_EN:
-		offset = APSS_LPM_RESIDENCY_C4_D4_CNTR_n + OFFSET_8BYTES * ncpu;
+		offset = regs[APSS_LPM_RESIDENCY_C4_D4_CNTR_n] + OFFSET_8BYTES * ncpu;
 		break;
 	default:
 		pr_err("Unknown mode\n");
@@ -236,22 +263,22 @@ static int get_cl_residency_read_offset(int ncpu, u8 cl_res_cfg)
 	return offset;
 }
 
-static int get_cl_lpm_read_offset(int ncpu, u8 cl_mode)
+static int get_cl_lpm_read_offset(int ncpu, u8 cl_mode, u32 *regs)
 {
 	int offset;
 
 	switch (cl_mode) {
 	case LPM_COUNTER_EN_D1:
-		offset = APSS_LPM_COUNTER_CPUx_C1_LO_VAL + ncpu * OFFSET_8BYTES;
+		offset = regs[APSS_LPM_COUNTER_CPUx_C1_LO_VAL] + ncpu * OFFSET_8BYTES;
 		break;
 	case LPM_COUNTER_EN_D2D:
-		offset = APSS_LPM_COUNTER_CPUx_C2D_LO_VAL + ncpu * OFFSET_8BYTES;
+		offset = regs[APSS_LPM_COUNTER_CPUx_C2D_LO_VAL] + ncpu * OFFSET_8BYTES;
 		break;
 	case LPM_COUNTER_EN_D3:
-		offset = APSS_LPM_COUNTER_CPUx_C3_LO_VAL + ncpu * OFFSET_8BYTES;
+		offset = regs[APSS_LPM_COUNTER_CPUx_C3_LO_VAL] + ncpu * OFFSET_8BYTES;
 		break;
 	case LPM_COUNTER_EN_D4:
-		offset = APSS_LPM_COUNTER_CPUx_C4_LO_VAL + ncpu * OFFSET_8BYTES;
+		offset = regs[APSS_LPM_COUNTER_CPUx_C4_LO_VAL] + ncpu * OFFSET_8BYTES;
 		break;
 	default:
 		pr_err("Unknown mode\n");
@@ -355,7 +382,7 @@ static ssize_t qcom_cpuss_stats_reset_write(struct file *file,
 			goto error;
 
 		ret = qcom_cpuss_reset_clear_lpm_residency(t_info->apss_seq_mem_base +
-				APSS_CPU_LPM_RESIDENCY_CNTR_CFG_n + 0x4 * i,
+				t_info->offsets[APSS_CPU_LPM_RESIDENCY_CNTR_CFG_n] + 0x4 * i,
 				CLR_ALL_CPU_RESIDENCY);
 		if (ret)
 			goto error;
@@ -368,7 +395,7 @@ static ssize_t qcom_cpuss_stats_reset_write(struct file *file,
 		goto error;
 
 	ret = qcom_cpuss_reset_clear_lpm_residency(t_info->apss_seq_mem_base +
-			APSS_CL_LPM_RESIDENCY_CNTR_CFG, CLR_CL_RESIDENCY);
+			t_info->offsets[APSS_CL_LPM_RESIDENCY_CNTR_CFG], CLR_CL_RESIDENCY);
 	if (ret)
 		goto error;
 	mutex_unlock(&t_info->stats_reset_lock);
@@ -424,7 +451,7 @@ static int qcom_cpuss_sleep_stats_create_cpu_debugfs(struct qcom_target_info *t_
 
 	for (bit = 0; bit < MAX_CPU_LPM_BITS; bit++) {
 		if (lpm_cfg & BIT(bit)) {
-			offset = get_cpu_lpm_read_offset(cpu, BIT(bit));
+			offset = get_cpu_lpm_read_offset(cpu, BIT(bit), t_info->offsets);
 			if (offset == -EINVAL)
 				return offset;
 
@@ -467,7 +494,7 @@ static int qcom_cpuss_sleep_stats_create_cluster_debugfs(struct qcom_target_info
 
 	for (bit = 0; bit < MAX_CL_LPM_BITS; bit++) {
 		if (cl_cfg & BIT(bit)) {
-			offset = get_cl_lpm_read_offset(t_info->ncpu, BIT(bit));
+			offset = get_cl_lpm_read_offset(t_info->ncpu, BIT(bit), t_info->offsets);
 			if (offset == -EINVAL)
 				return offset;
 
@@ -504,7 +531,7 @@ static int qcom_cpuss_sleep_stats_create_cpu_residency_debugfs(struct qcom_targe
 
 	for (bit = 0; bit < MAX_CPU_RESIDENCY_BITS; bit += 2) {
 		if (residency_cfg & BIT(bit)) {
-			offset = get_cpu_residency_read_offset(cpu, BIT(bit));
+			offset = get_cpu_residency_read_offset(cpu, BIT(bit), t_info->offsets);
 			if (offset == -EINVAL)
 				return offset;
 
@@ -539,7 +566,7 @@ static int qcom_cpuss_sleep_stats_create_cl_residency_debugfs(struct qcom_target
 	for (bit = 0; bit < MAX_CL_RESIDENCY_BITS; bit += 2) {
 		if (cl_residency_cfg & BIT(bit)) {
 			offset = get_cl_residency_read_offset(t_info->ncpu,
-							      BIT(bit));
+							      BIT(bit), t_info->offsets);
 			if (offset == -EINVAL)
 				return offset;
 
@@ -580,7 +607,7 @@ static int qcom_cpuss_read_lpm_and_residency_cfg_informaion(struct qcom_target_i
 			return ret;
 
 		addr = t_info->apss_seq_mem_base;
-		addr += (APSS_CPU_LPM_RESIDENCY_CNTR_CFG_n + OFFSET_4BYTES * i);
+		addr += (t_info->offsets[APSS_CPU_LPM_RESIDENCY_CNTR_CFG_n] + OFFSET_4BYTES * i);
 		ret = qcom_scm_io_readl(addr, &val);
 		if (ret)
 			return -EINVAL;
@@ -601,7 +628,7 @@ static int qcom_cpuss_read_lpm_and_residency_cfg_informaion(struct qcom_target_i
 		return ret;
 
 	/* cluster residency */
-	addr = t_info->apss_seq_mem_base + APSS_CL_LPM_RESIDENCY_CNTR_CFG;
+	addr = t_info->apss_seq_mem_base + t_info->offsets[APSS_CL_LPM_RESIDENCY_CNTR_CFG];
 	ret = qcom_scm_io_readl(addr, &val);
 	if (ret)
 		return -EINVAL;
@@ -663,6 +690,10 @@ static int qcom_cpuss_sleep_stats_probe(struct platform_device *pdev)
 	if (t_info->ncpu < MIN_POSSIBLE_CPUS ||  t_info->ncpu > MAX_POSSIBLE_CPUS)
 		return -EINVAL;
 
+	t_info->offsets = (u32 *)device_get_match_data(&pdev->dev);
+	if (!t_info->offsets)
+		return -ENODEV;
+
 	/*
 	 * Function to read cfgs register to know lpm stats per cpu/cluster and
 	 * create debugfs
@@ -695,7 +726,8 @@ static int qcom_cpuss_sleep_stats_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id qcom_cpuss_stats_table[] = {
-		{.compatible = "qcom,cpuss-sleep-stats", },
+		{ .compatible = "qcom,cpuss-sleep-stats", .data = &qcom_cpuss_cntr_v1_offsets },
+		{ .compatible = "qcom,cpuss-sleep-stats-v2", .data = &qcom_cpuss_cntr_v2_offsets },
 		{ },
 };
 

@@ -183,10 +183,26 @@ enum hfi_mem_kind {
 	/** @MEMKIND_CMD_BUFFER: Used for composing ringbuffer content */
 	HFI_MEMKIND_CMD_BUFFER,
 	/**
+	 * @HFI_MEMKIND_GPU_BUSY_DATA_BUFFER: Used for GPU busy buffer for
+	 * all the contexts
+	 */
+	HFI_MEMKIND_GPU_BUSY_DATA_BUFFER,
+	/** @HFI_MEMKIND_GPU_BUSY_CMD_BUFFER: Used for GPU busy cmd buffer
+	 * (Only readable to GPU)
+	 */
+	HFI_MEMKIND_GPU_BUSY_CMD_BUFFER,
+	/**
 	 *@MEMKIND_MMIO_IPC_CORE: Used for IPC_core region mapping to GMU space
 	 * for EVA to GPU communication.
 	 */
 	HFI_MEMKIND_MMIO_IPC_CORE,
+	/** @HFIMEMKIND_MMIO_IPCC_AOSS: Used for IPCC AOSS, second memory region */
+	HFI_MEMKIND_MMIO_IPCC_AOSS,
+	/**
+	 * @MEMKIND_CSW_LPAC_PRIV_NON_SECURE: Used for privileged nonsecure
+	 * memory for LPAC context record
+	 */
+	HFI_MEMKIND_CSW_LPAC_PRIV_NON_SECURE,
 	HFI_MEMKIND_MAX,
 };
 
@@ -208,7 +224,11 @@ static const char * const hfi_memkind_strings[] = {
 	[HFI_MEMKIND_PROFILE] = "GMU KERNEL PROFILING",
 	[HFI_MEMKIND_USER_PROFILE_IBS] = "GMU USER PROFILING",
 	[HFI_MEMKIND_CMD_BUFFER] = "GMU CMD BUFFER",
+	[HFI_MEMKIND_GPU_BUSY_DATA_BUFFER] = "GMU BUSY DATA BUFFER",
+	[HFI_MEMKIND_GPU_BUSY_CMD_BUFFER] = "GMU BUSY CMD BUFFER",
 	[HFI_MEMKIND_MMIO_IPC_CORE] = "GMU MMIO IPC",
+	[HFI_MEMKIND_MMIO_IPCC_AOSS] = "GMU MMIO IPCC AOSS",
+	[HFI_MEMKIND_CSW_LPAC_PRIV_NON_SECURE] = "GMU CSW LPAC PRIV NON SECURE",
 	[HFI_MEMKIND_MAX] = "GMU UNKNOWN",
 };
 

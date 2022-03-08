@@ -273,7 +273,7 @@ static struct alpha_pll_config cam_cc_pll2_config = {
 	.alpha = 0x0,
 	.config_ctl_val = 0x90008830,
 	.config_ctl_hi_val = 0x00890263,
-	.config_ctl_hi1_val = 0x00000217,
+	.config_ctl_hi1_val = 0x00000247,
 };
 
 static struct alpha_pll_config cam_cc_pll2_config_waipio_v2 = {
@@ -282,7 +282,7 @@ static struct alpha_pll_config cam_cc_pll2_config_waipio_v2 = {
 	.alpha = 0x0,
 	.config_ctl_val = 0x90008820,
 	.config_ctl_hi_val = 0x00890263,
-	.config_ctl_hi1_val = 0x00000217,
+	.config_ctl_hi1_val = 0x00000247,
 };
 
 static struct clk_init_data cam_cc_pll2_cape_init = {

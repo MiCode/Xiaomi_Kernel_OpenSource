@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"eusb2_phy: %s: " fmt, __func__
@@ -44,6 +44,7 @@
 
 #define USB_PHY_CFG_CTRL_1		(0x58)
 #define PHY_CFG_PLL_CPBIAS_CNTRL	(0xfe)
+#define PHY_CFG_PLL_CPBIAS_CNTRL_SHIFT	(0x1)
 
 #define USB_PHY_CFG_CTRL_2		(0x5c)
 #define PHY_CFG_PLL_FB_DIV_7_0		(0xff)
@@ -66,14 +67,19 @@
 
 #define USB_PHY_CFG_CTRL_4		(0x68)
 #define PHY_CFG_PLL_GMP_CNTRL		(0x3)
+#define PHY_CFG_PLL_GMP_CNTRL_SHIFT	(0x0)
 #define PHY_CFG_PLL_INT_CNTRL		(0xfc)
+#define PHY_CFG_PLL_INT_CNTRL_SHIFT	(0x2)
 
 #define USB_PHY_CFG_CTRL_5		(0x6c)
 #define PHY_CFG_PLL_PROP_CNTRL		(0x1f)
+#define PHY_CFG_PLL_PROP_CNTRL_SHIFT	(0x0)
 #define PHY_CFG_PLL_VREF_TUNE		(0x3 << 6)
+#define PHY_CFG_PLL_VREF_TUNE_SHIFT	(6)
 
 #define USB_PHY_CFG_CTRL_6		(0x70)
 #define PHY_CFG_PLL_VCO_CNTRL		(0x7)
+#define PHY_CFG_PLL_VCO_CNTRL_SHIFT	(0x0)
 
 #define USB_PHY_CFG_CTRL_7		(0x74)
 
@@ -81,13 +87,19 @@
 #define PHY_CFG_TX_FSLS_VREF_TUNE	(0x3)
 #define PHY_CFG_TX_FSLS_VREG_BYPASS	BIT(2)
 #define PHY_CFG_TX_HS_VREF_TUNE		(0x7 << 3)
+#define PHY_CFG_TX_HS_VREF_TUNE_SHIFT	(0x3)
 #define PHY_CFG_TX_HS_XV_TUNE		(0x3 << 6)
+#define PHY_CFG_TX_HS_XV_TUNE_SHIFT	(6)
 
 #define USB_PHY_CFG_CTRL_9		(0x7c)
 #define PHY_CFG_TX_PREEMP_TUNE		(0x7)
+#define PHY_CFG_TX_PREEMP_TUNE_SHIFT	(0x0)
 #define PHY_CFG_TX_RES_TUNE		(0x3 << 3)
+#define PHY_CFG_TX_RES_TUNE_SHIFT	(0x3)
 #define PHY_CFG_TX_RISE_TUNE		(0x3 << 5)
+#define PHY_CFG_TX_RISE_TUNE_SHIFT	(0x5)
 #define PHY_CFG_RCAL_BYPASS		BIT(7)
+#define PHY_CFG_RCAL_BYPASS_SHIFT	(0x7)
 
 #define USB_PHY_CFG_CTRL_10		(0x80)
 
@@ -150,6 +162,7 @@ struct msm_eusb2_phy {
 	bool			re_enable_eud;
 
 	struct clk		*ref_clk_src;
+	struct clk		*ref_clk;
 	struct reset_control	*phy_reset;
 
 	struct regulator	*vdd;
@@ -160,6 +173,7 @@ struct msm_eusb2_phy {
 	bool			power_enabled;
 	bool			suspended;
 	bool			cable_connected;
+	bool			ref_clk_enable;
 
 	struct power_supply	*usb_psy;
 	unsigned int		vbus_draw;
@@ -196,10 +210,17 @@ static void msm_eusb2_phy_clocks(struct msm_eusb2_phy *phy, bool on)
 	if (phy->clocks_enabled == on)
 		return;
 
-	if (on)
+	if (on) {
 		clk_prepare_enable(phy->ref_clk_src);
-	else
+
+		if (phy->ref_clk)
+			clk_prepare_enable(phy->ref_clk);
+	} else {
+		if (phy->ref_clk)
+			clk_disable_unprepare(phy->ref_clk);
+
 		clk_disable_unprepare(phy->ref_clk_src);
+	}
 
 	phy->clocks_enabled = on;
 }
@@ -559,23 +580,23 @@ static void msm_eusb2_parameter_override(struct msm_eusb2_phy *phy)
 {
 	/* default parameters: tx pre-emphasis */
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_9,
-		PHY_CFG_TX_PREEMP_TUNE, 0);
+		PHY_CFG_TX_PREEMP_TUNE, (0 << PHY_CFG_TX_PREEMP_TUNE_SHIFT));
 
 	/* tx rise/fall time */
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_9,
-		PHY_CFG_TX_RISE_TUNE, 0x2);
+		PHY_CFG_TX_RISE_TUNE, (0x2 << PHY_CFG_TX_RISE_TUNE_SHIFT));
 
 	/* source impedance adjustment */
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_9,
-		PHY_CFG_TX_RES_TUNE, 0x1);
+		PHY_CFG_TX_RES_TUNE, (0x1 << PHY_CFG_TX_RES_TUNE_SHIFT));
 
 	/* dc voltage level adjustement */
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_8,
-		PHY_CFG_TX_HS_VREF_TUNE, 0x3);
+		PHY_CFG_TX_HS_VREF_TUNE, (0x3 << PHY_CFG_TX_HS_VREF_TUNE_SHIFT));
 
 	/* transmitter HS crossover adjustement */
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_8,
-		PHY_CFG_TX_HS_XV_TUNE, 0x0);
+		PHY_CFG_TX_HS_XV_TUNE, (0x0 << PHY_CFG_TX_HS_XV_TUNE_SHIFT));
 
 	/* override init sequence using devicetree based values */
 	eusb2_phy_write_seq(phy->base, phy->param_override_seq,
@@ -584,23 +605,28 @@ static void msm_eusb2_parameter_override(struct msm_eusb2_phy *phy)
 	/* override tune params using debugfs based values */
 	if (phy->tx_pre_emphasis && phy->tx_pre_emphasis <= 7)
 		msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_9,
-			PHY_CFG_TX_PREEMP_TUNE, phy->tx_pre_emphasis);
+			PHY_CFG_TX_PREEMP_TUNE,
+			(phy->tx_pre_emphasis << PHY_CFG_TX_PREEMP_TUNE_SHIFT));
 
 	if (phy->tx_rise_fall_time && phy->tx_rise_fall_time <= 4)
 		msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_9,
-			PHY_CFG_TX_RISE_TUNE, phy->tx_rise_fall_time);
+			PHY_CFG_TX_RISE_TUNE,
+			(phy->tx_rise_fall_time << PHY_CFG_TX_RISE_TUNE_SHIFT));
 
 	if (phy->tx_src_impedence && phy->tx_src_impedence <= 4)
 		msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_9,
-			PHY_CFG_TX_RES_TUNE, phy->tx_src_impedence);
+			PHY_CFG_TX_RES_TUNE,
+			(phy->tx_src_impedence << PHY_CFG_TX_RES_TUNE_SHIFT));
 
 	if (phy->tx_dc_vref && phy->tx_dc_vref <= 7)
 		msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_8,
-			PHY_CFG_TX_HS_VREF_TUNE, phy->tx_dc_vref);
+			PHY_CFG_TX_HS_VREF_TUNE,
+			(phy->tx_dc_vref << PHY_CFG_TX_HS_VREF_TUNE_SHIFT));
 
 	if (phy->tx_xv && phy->tx_xv <= 4)
 		msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_8,
-			PHY_CFG_TX_HS_XV_TUNE, 0x0);
+			PHY_CFG_TX_HS_XV_TUNE,
+			(phy->tx_xv << PHY_CFG_TX_HS_XV_TUNE_SHIFT));
 }
 
 static void msm_eusb2_ref_clk_init(struct usb_phy *uphy)
@@ -708,22 +734,28 @@ static int msm_eusb2_phy_init(struct usb_phy *uphy)
 	msm_eusb2_ref_clk_init(uphy);
 
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_1,
-			PHY_CFG_PLL_CPBIAS_CNTRL, 0x1);
+			PHY_CFG_PLL_CPBIAS_CNTRL,
+			(0x1 << PHY_CFG_PLL_CPBIAS_CNTRL_SHIFT));
 
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_4,
-			PHY_CFG_PLL_INT_CNTRL, 0x20);
+			PHY_CFG_PLL_INT_CNTRL,
+			(0x8 << PHY_CFG_PLL_INT_CNTRL_SHIFT));
 
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_4,
-			PHY_CFG_PLL_GMP_CNTRL, 0x1);
+			PHY_CFG_PLL_GMP_CNTRL,
+			(0x1 << PHY_CFG_PLL_GMP_CNTRL_SHIFT));
 
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_5,
-			PHY_CFG_PLL_PROP_CNTRL, 0x10);
+			PHY_CFG_PLL_PROP_CNTRL,
+			(0x10 << PHY_CFG_PLL_PROP_CNTRL_SHIFT));
 
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_6,
-			PHY_CFG_PLL_VCO_CNTRL, 0x0);
+			PHY_CFG_PLL_VCO_CNTRL,
+			(0x0 << PHY_CFG_PLL_VCO_CNTRL_SHIFT));
 
 	msm_eusb2_write_readback(phy->base, USB_PHY_CFG_CTRL_5,
-			PHY_CFG_PLL_VREF_TUNE, 0x1);
+			PHY_CFG_PLL_VREF_TUNE,
+			(0x1 << PHY_CFG_PLL_VREF_TUNE_SHIFT));
 
 	msm_eusb2_write_readback(phy->base, USB_PHY_HS_PHY_CTRL2,
 			VBUS_DET_EXT_SEL, VBUS_DET_EXT_SEL);
@@ -765,6 +797,16 @@ static int msm_eusb2_phy_set_suspend(struct usb_phy *uphy, int suspend)
 		if (phy->cable_connected ||
 			(phy->phy.flags & PHY_HOST_MODE)) {
 			msm_eusb2_phy_clocks(phy, false);
+			/*
+			 * Keep the ref_clk for PHY on to detect resume signalling in bus
+			 * suspend case. As this vote is suppressible, this will allow XO
+			 * shutdown.
+			 */
+			if (phy->ref_clk && !phy->ref_clk_enable) {
+				phy->ref_clk_enable = true;
+				clk_prepare_enable(phy->ref_clk);
+			}
+
 			goto suspend_exit;
 		}
 
@@ -778,6 +820,11 @@ static int msm_eusb2_phy_set_suspend(struct usb_phy *uphy, int suspend)
 		/* With EUD spoof disconnect, keep clk and ldos on */
 		if (phy->phy.flags & EUD_SPOOF_DISCONNECT)
 			goto suspend_exit;
+
+		if (phy->ref_clk && phy->ref_clk_enable) {
+			clk_disable_unprepare(phy->ref_clk);
+			phy->ref_clk_enable = false;
+		}
 
 		msm_eusb2_phy_clocks(phy, false);
 		msm_eusb2_phy_power(phy, false);
@@ -929,6 +976,13 @@ static int msm_eusb2_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(phy->ref_clk_src)) {
 		dev_dbg(dev, "clk get failed for ref_clk_src\n");
 		ret = PTR_ERR(phy->ref_clk_src);
+		goto err_ret;
+	}
+
+	phy->ref_clk = devm_clk_get_optional(dev, "ref_clk");
+	if (IS_ERR(phy->ref_clk)) {
+		dev_dbg(dev, "clk get failed for ref_clk\n");
+		ret = PTR_ERR(phy->ref_clk);
 		goto err_ret;
 	}
 

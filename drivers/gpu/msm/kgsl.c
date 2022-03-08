@@ -2259,6 +2259,9 @@ long kgsl_ioctl_recurring_command(struct kgsl_device_private *dev_priv,
 
 	drawobj = DRAWOBJ(cmdobj);
 
+	/* Clear the profiling flag for recurring command */
+	drawobj->flags &= ~(unsigned long)KGSL_DRAWOBJ_PROFILING;
+
 	result = kgsl_drawobj_cmd_add_cmdlist(device, cmdobj,
 		u64_to_user_ptr(param->cmdlist),
 		param->cmdsize, param->numcmds);
@@ -2270,9 +2273,6 @@ long kgsl_ioctl_recurring_command(struct kgsl_device_private *dev_priv,
 		param->objsize, param->numobjs);
 	if (result)
 		goto done;
-
-	/* Clear the profiling flag for recurring command */
-	drawobj->flags &= ~(unsigned long)KGSL_DRAWOBJ_PROFILING;
 
 	if (drawobj->flags & KGSL_DRAWOBJ_STOP_RECURRING) {
 		result = device->ftbl->dequeue_recurring_cmd(device, context);

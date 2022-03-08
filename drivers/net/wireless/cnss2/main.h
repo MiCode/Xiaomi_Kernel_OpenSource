@@ -23,7 +23,7 @@
 #include <linux/platform_device.h>
 #include <linux/time64.h>
 #include <net/cnss2.h>
-#if IS_ENABLED(CONFIG_QCOM_MEMORY_DUMP_V2)
+#if IS_ENABLED(CONFIG_QCOM_MEMORY_DUMP_V2) || IS_ENABLED(CONFIG_QCOM_MINIDUMP)
 #include <soc/qcom/memory_dump.h>
 #endif
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART) || \
@@ -344,7 +344,6 @@ enum cnss_debug_quirks {
 	ENABLE_WALTEST,
 	ENABLE_PCI_LINK_DOWN_PANIC,
 	FBC_BYPASS,
-	ENABLE_DAEMON_SUPPORT,
 	DISABLE_DRV,
 	DISABLE_IO_COHERENCY,
 	IGNORE_PCI_LINK_FAILURE,
@@ -603,4 +602,5 @@ int cnss_set_feature_list(struct cnss_plat_data *plat_priv,
 int cnss_get_feature_list(struct cnss_plat_data *plat_priv,
 			  u64 *feature_list);
 int cnss_get_input_gpio_value(struct cnss_plat_data *plat_priv, int gpio_num);
+bool cnss_check_driver_loading_allowed(void);
 #endif /* _CNSS_MAIN_H */

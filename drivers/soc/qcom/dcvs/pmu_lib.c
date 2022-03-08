@@ -907,7 +907,7 @@ static int init_pmu_events(struct device *dev)
 	if (len % NUM_COL || len == 0)
 		return -EINVAL;
 	len /= NUM_COL;
-	if (len >= MAX_PMU_EVS)
+	if (len > MAX_PMU_EVS)
 		return -ENOSPC;
 
 	for (i = 0, j = 0; i < len; i++, j += NUM_COL) {
