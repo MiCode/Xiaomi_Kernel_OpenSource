@@ -58,7 +58,6 @@ typedef u32 pkvm_id;
 static const pkvm_id pkvm_host_id	= 0;
 static const pkvm_id pkvm_hyp_id	= (1 << 16);
 static const pkvm_id pkvm_ffa_id	= pkvm_hyp_id + 1; /* Secure world */
-static const pkvm_id pkvm_host_poison	= pkvm_ffa_id + 1;
 
 extern unsigned long hyp_nr_cpus;
 
