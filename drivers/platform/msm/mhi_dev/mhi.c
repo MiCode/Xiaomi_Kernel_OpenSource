@@ -384,6 +384,7 @@ static void mhi_dev_event_buf_completion_cb(void *req)
 		ch = ereq->context;
 		mhi = ch->ring->mhi_dev;
 	}
+	ereq->snd_cmpl = 0;
 
 	if (ereq->dma && ereq->dma_len)
 		unmap_single(mhi, ereq->dma, ereq->dma_len, DMA_TO_DEVICE);
@@ -777,10 +778,12 @@ static int mhi_dev_flush_cmd_completion_events(struct mhi_dev *mhi,
 }
 
 static int mhi_dev_flush_transfer_completion_events(struct mhi_dev *mhi,
-		struct mhi_dev_channel *ch)
+		struct mhi_dev_channel *ch, u32 snd_cmpl_num)
 {
 	int rc = 0;
+	unsigned long flags = 0;
 	struct event_req *flush_ereq;
+	struct event_req *itr, *tmp;
 
 	do {
 
@@ -800,8 +803,33 @@ static int mhi_dev_flush_transfer_completion_events(struct mhi_dev *mhi,
 		if (list_empty(&ch->flush_event_req_buffers)) {
 			break;
 		}
-		flush_ereq = container_of(ch->flush_event_req_buffers.next,
+		if (mhi->use_mhi_dma && !mhi->use_edma)
+			flush_ereq = container_of(ch->flush_event_req_buffers.next,
 					struct event_req, list);
+
+		/*
+		 * Edma read and write channels can run parallelly, where as ipa will acts as
+		 * single channel and serializes the read and write reqs. For read channel
+		 * completion  should be sent only after that transfer is completed. To track
+		 * the completed reqs updating the mreq with snd completion number. When that
+		 * particular req is completed, from the callback function we retrieve the
+		 * send completion from the mreq, call this function with send completion
+		 * number, here we compare the send completion number and if it matches
+		 * with flush req send completion number we send completion to the host
+		 */
+		if (mhi->use_edma) {
+			list_for_each_entry_safe(itr, tmp, &ch->flush_event_req_buffers, list) {
+				flush_ereq = itr;
+				if (flush_ereq->snd_cmpl == snd_cmpl_num)
+					break;
+			}
+
+			if (flush_ereq->snd_cmpl != snd_cmpl_num) {
+				spin_unlock_irqrestore(&mhi->lock, flags);
+				break;
+			}
+		}
+
 		list_del_init(&flush_ereq->list);
 
 		if (ch->flush_req_cnt++ >= U32_MAX)
@@ -831,6 +859,13 @@ static int mhi_dev_flush_transfer_completion_events(struct mhi_dev *mhi,
 			mhi_log(MHI_MSG_ERROR, "failed to send compl evts\n");
 			break;
 		}
+
+		/*
+		 * In edma case as we send completion only when we get completion
+		 * callback breaking from the while loop
+		 */
+		if (mhi->use_edma)
+			break;
 	} while (true);
 
 	return rc;
@@ -929,8 +964,14 @@ static int mhi_dev_queue_transfer_completion(struct mhi_req *mreq, bool *flush)
 			if (flush)
 				*flush = true;
 
-			if (!mreq->snd_cmpl)
-				mreq->snd_cmpl = 1;
+			/*
+			 * Update the send complete number in both flush req
+			 * and mreq
+			 */
+			ch->curr_ereq->snd_cmpl = ch->snd_cmpl_cnt;
+			mreq->snd_cmpl = ch->curr_ereq->snd_cmpl;
+			if (ch->snd_cmpl_cnt++ >= U32_MAX)
+				ch->snd_cmpl_cnt = 1;
 
 			ch->curr_ereq->tr_events = ch->tr_events +
 				ch->curr_ereq->start;
@@ -1123,7 +1164,7 @@ int mhi_transfer_device_to_host_mhi_dma(uint64_t host_addr, void *dev, uint32_t 
 			return rc;
 		}
 		if (snd_cmpl || flush) {
-			rc = mhi_dev_flush_transfer_completion_events(mhi, ch);
+			rc = mhi_dev_flush_transfer_completion_events(mhi, ch, req->snd_cmpl);
 			if (rc) {
 				mhi_log(MHI_MSG_ERROR,
 					"Failed to flush write completions to host\n");
@@ -1472,7 +1513,7 @@ int mhi_transfer_device_to_host_edma(uint64_t host_addr, void *dev,
 		dma_async_issue_pending(mhi->mhi_hw_ctx->tx_dma_chan);
 
 		if (snd_cmpl || flush) {
-			rc = mhi_dev_flush_transfer_completion_events(mhi, ch);
+			rc = mhi_dev_flush_transfer_completion_events(mhi, ch, req->snd_cmpl);
 			if (rc) {
 				mhi_log(MHI_MSG_ERROR,
 					"Failed to flush write completions to host\n");
@@ -1943,8 +1984,8 @@ static int mhi_dev_send_completion_event_async(struct mhi_dev_channel *ch,
 		return rc;
 	}
 
-	mhi_log(MHI_MSG_VERBOSE, "Calling flush for ch_id:%d\n", ch->ch_id);
-	rc = mhi_dev_flush_transfer_completion_events(mhi, ch);
+	mhi_log(MHI_MSG_VERBOSE, "Calling flush for ch_id %d\n", ch->ch_id);
+	rc = mhi_dev_flush_transfer_completion_events(mhi, ch, mreq->snd_cmpl);
 	if (rc) {
 		mhi_log(MHI_MSG_ERROR,
 			"Failed to flush read completions to host\n");
@@ -2789,7 +2830,7 @@ static void mhi_dev_transfer_completion_cb(void *mreq)
 	if (snd_cmpl && mhi_ctx->ch_ctx_cache[ch->ch_id].ch_type ==
 				MHI_DEV_CH_TYPE_OUTBOUND_CHANNEL) {
 		mhi_log(MHI_MSG_DBG, "Calling flush for ch_id:%d\n", ch->ch_id);
-		rc = mhi_dev_flush_transfer_completion_events(mhi_ctx, ch);
+		rc = mhi_dev_flush_transfer_completion_events(mhi_ctx, ch, snd_cmpl);
 		if (rc) {
 			mhi_log(MHI_MSG_ERROR,
 				"Failed to flush read completions to host\n");
@@ -3487,6 +3528,7 @@ static int __mhi_dev_open_channel(struct mhi_dev *mhi_ctx,
 	(*handle_client)->event_trigger = mhi_dev_client_cb_reason;
 	(*handle_client)->vf_id = mhi_ctx->vf_id;
 	ch->pend_wr_count = 0;
+	ch->snd_cmpl_cnt = 1;
 
 	if (ch->state == MHI_DEV_CH_UNINT) {
 		ch->ring = &mhi_ctx->ring[chan_id + mhi_ctx->ch_ring_start];
@@ -3572,9 +3614,7 @@ EXPORT_SYMBOL(mhi_dev_channel_has_pending_write);
 void mhi_dev_close_channel(struct mhi_dev_client *handle)
 {
 	struct mhi_dev_channel *ch;
-	struct mhi_dev *mhi_ctx = mhi_get_dev_ctx(mhi_hw_ctx, handle->vf_id);
 	int count = 0;
-	int rc = 0;
 	struct event_req *itr, *tmp;
 
 	if (!handle) {
@@ -3583,13 +3623,6 @@ void mhi_dev_close_channel(struct mhi_dev_client *handle)
 	}
 	ch = handle->channel;
 
-	mutex_lock(&ch->ch_lock);
-
-	rc = mhi_dev_flush_transfer_completion_events(mhi_ctx, ch);
-	if (rc) {
-		mhi_log(MHI_MSG_ERROR,
-			"Failed to flush read completions to host\n");
-	}
 	do {
 		if (ch->flush_req_cnt != ch->pend_flush_cnt) {
 			usleep_range(MHI_DEV_CH_CLOSE_TIMEOUT_MIN,
@@ -3597,6 +3630,8 @@ void mhi_dev_close_channel(struct mhi_dev_client *handle)
 		} else
 			break;
 	} while (++count < MHI_DEV_CH_CLOSE_TIMEOUT_COUNT);
+
+	mutex_lock(&ch->ch_lock);
 
 	if (ch->pend_wr_count)
 		mhi_log(MHI_MSG_INFO, "%d writes pending for ch_id:%d\n",
