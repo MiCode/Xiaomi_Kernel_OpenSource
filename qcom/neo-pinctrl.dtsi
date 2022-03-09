@@ -1305,6 +1305,9 @@
 					bias-disable;
 				};
 			};
+
+			cnss_pins: cnss_pins {
+			};
 		};
 
 		usb0_phy_ps: usb0_phy_ps {
