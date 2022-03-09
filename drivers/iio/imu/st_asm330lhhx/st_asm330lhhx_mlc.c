@@ -87,7 +87,7 @@ static struct threshold_t crash_impact_th[] = {
 
 /* algo_crash_min_duration */
 static struct fsm_duration_t crash_min_duration[] = {
-	{ .thh = 0x00, .thl = 0x00, .addr = 0x04dc },
+	{ .thh = 0x00, .thl = 0x00, .addr = 0x04d6 },
 };
 
 static struct
