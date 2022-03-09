@@ -286,17 +286,13 @@ static int reclaim_walker(u64 addr, u64 end, u32 level, kvm_pte_t *ptep,
 		void * const arg)
 {
 	kvm_pte_t pte = *ptep;
-	phys_addr_t phys;
+	struct hyp_page *page;
 
 	if (!kvm_pte_valid(pte))
 		return 0;
 
-	/*
-	 * Only update the host stage-2 -- we're about to tear-down the guest
-	 * stage-2 so no need to waste effort trying to keep it in sync.
-	 */
-	phys = kvm_pte_to_phys(pte);
-	BUG_ON(host_stage2_set_owner_locked(phys, PAGE_SIZE, pkvm_host_poison));
+	page = hyp_phys_to_page(kvm_pte_to_phys(pte));
+	page->flags |= HOST_PAGE_NEED_POISONING;
 
 	return 0;
 }
@@ -518,11 +514,6 @@ int host_stage2_idmap_locked(phys_addr_t addr, u64 size,
 static kvm_pte_t kvm_init_invalid_leaf_owner(pkvm_id owner_id)
 {
 	return FIELD_PREP(KVM_INVALID_PTE_OWNER_MASK, owner_id);
-}
-
-static pkvm_id kvm_get_owner_id(kvm_pte_t pte)
-{
-	return FIELD_GET(KVM_INVALID_PTE_OWNER_MASK, pte);
 }
 
 int host_stage2_set_owner_locked(phys_addr_t addr, u64 size,
@@ -1864,7 +1855,7 @@ static int hyp_zero_page(phys_addr_t phys)
 int __pkvm_host_reclaim_page(u64 pfn)
 {
 	u64 addr = hyp_pfn_to_phys(pfn);
-	enum pkvm_page_state state;
+	struct hyp_page *page;
 	kvm_pte_t pte;
 	int ret;
 
@@ -1874,23 +1865,17 @@ int __pkvm_host_reclaim_page(u64 pfn)
 	if (ret)
 		goto unlock;
 
-	if (kvm_pte_valid(pte)) {
-		state = host_get_page_state(pte);
-		ret = (state == PKVM_PAGE_OWNED) ? 0 : -EPERM;
+	if (host_get_page_state(pte) == PKVM_PAGE_OWNED)
 		goto unlock;
-	}
 
-	switch (kvm_get_owner_id(pte)) {
-	case pkvm_host_id:
-		ret = 0;
-		break;
-	case pkvm_host_poison:
+	page = hyp_phys_to_page(addr);
+	if (page->flags & HOST_PAGE_NEED_POISONING) {
 		ret = hyp_zero_page(addr);
 		if (ret)
 			goto unlock;
+		page->flags &= ~HOST_PAGE_NEED_POISONING;
 		ret = host_stage2_set_owner_locked(addr, PAGE_SIZE, pkvm_host_id);
-		break;
-	default:
+	} else {
 		ret = -EPERM;
 	}
 

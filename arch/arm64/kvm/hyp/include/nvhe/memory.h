@@ -7,9 +7,16 @@
 
 #include <linux/types.h>
 
+/*
+ * Accesses to struct hyp_page flags must be serialized by the host stage-2
+ * page-table lock due to the lack of atomics at EL2.
+ */
+#define HOST_PAGE_NEED_POISONING	BIT(0)
+
 struct hyp_page {
 	unsigned short refcount;
-	unsigned short order;
+	u8 order;
+	u8 flags;
 };
 
 extern u64 __hyp_vmemmap;
