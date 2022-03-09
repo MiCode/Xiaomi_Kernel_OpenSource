@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -311,9 +312,6 @@ static int gen7_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_BCL))
 		adreno_dev->bcl_enabled = true;
-
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LSR))
-		adreno_dev->lsr_enabled = true;
 
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_AWARE);
 

@@ -607,7 +607,8 @@ int gen7_hwsched_hfi_init(struct adreno_device *adreno_dev)
 			return PTR_ERR(hw_hfi->big_ib);
 	}
 
-	if (adreno_dev->lsr_enabled && IS_ERR_OR_NULL(hw_hfi->big_ib_recurring)) {
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LSR) &&
+			IS_ERR_OR_NULL(hw_hfi->big_ib_recurring)) {
 		hw_hfi->big_ib_recurring = gen7_reserve_gmu_kernel_block(
 				to_gen7_gmu(adreno_dev), 0,
 				HWSCHED_MAX_IBS * sizeof(struct hfi_issue_ib),
@@ -1031,7 +1032,7 @@ int gen7_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
-	if (adreno_dev->lsr_enabled) {
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LSR)) {
 		ret = gen7_hfi_send_feature_ctrl(adreno_dev, HFI_FEATURE_LSR,
 				1, 0);
 		if (ret)
