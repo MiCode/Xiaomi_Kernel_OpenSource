@@ -25,6 +25,7 @@
 #include <linux/workqueue.h>
 #include <linux/power_supply.h>
 #include <linux/qcom_scm.h>
+#include <linux/delay.h>
 
 #define EUD_ENABLE_CMD 1
 #define EUD_DISABLE_CMD 0
@@ -85,6 +86,7 @@ struct eud_chip {
 static const unsigned int eud_extcon_cable[] = {
 	EXTCON_USB,
 	EXTCON_CHG_USB_SDP,
+	EXTCON_JIG,
 	EXTCON_NONE,
 };
 
@@ -157,6 +159,16 @@ static void enable_eud(struct platform_device *pdev)
 	struct eud_chip *priv = platform_get_drvdata(pdev);
 	int ret;
 
+	/*
+	 * Set the default cable state to usb connect and charger
+	 * enable
+	 */
+	extcon_set_state_sync(priv->extcon, EXTCON_USB, true);
+	/* indicate that the eud enable is due to the module param */
+	extcon_set_state(priv->extcon, EXTCON_JIG, false);
+	/* perform spoof disconnect as recommended */
+	extcon_set_state_sync(priv->extcon, EXTCON_USB, false);
+
 	msm_eud_clkref_en(priv, true);
 
 	/* write into CSR to enable EUD */
@@ -176,13 +188,10 @@ static void enable_eud(struct platform_device *pdev)
 	/* Ensure Register Writes Complete */
 	wmb();
 
-	/*
-	 * Set the default cable state to usb connect and charger
-	 * enable
-	 */
+	usleep_range(50, 100);
+	/* perform spoof connect as recommended */
 	extcon_set_state_sync(priv->extcon, EXTCON_USB, true);
 	extcon_set_state_sync(priv->extcon, EXTCON_CHG_USB_SDP, true);
-
 	dev_dbg(&pdev->dev, "%s: EUD is Enabled\n", __func__);
 }
 
@@ -190,6 +199,12 @@ static void disable_eud(struct platform_device *pdev)
 {
 	struct eud_chip *priv = platform_get_drvdata(pdev);
 	int ret;
+
+	/* indicate that the eud enable is due to the module param */
+	extcon_set_state(priv->extcon, EXTCON_JIG, false);
+
+	/* perform spoof disconnect as recommended */
+	extcon_set_state_sync(priv->extcon, EXTCON_USB, false);
 
 	/* write into CSR to disable EUD */
 	writel_relaxed(0, priv->eud_reg_base + EUD_REG_CSR_EUD_EN);
@@ -205,6 +220,9 @@ static void disable_eud(struct platform_device *pdev)
 
 	msm_eud_clkref_en(priv, false);
 
+	usleep_range(50, 100);
+	/* perform spoof connect as recommended */
+	extcon_set_state_sync(priv->extcon, EXTCON_USB, true);
 	dev_dbg(&pdev->dev, "%s: EUD Disabled!\n", __func__);
 }
 
@@ -257,10 +275,11 @@ static void eud_event_notifier(struct work_struct *eud_work)
 					eud_work);
 	union power_supply_propval pval;
 
-	if (chip->int_status == EUD_INT_VBUS)
+	if (chip->int_status == EUD_INT_VBUS) {
+		extcon_set_state(chip->extcon, EXTCON_JIG, true);
 		extcon_set_state_sync(chip->extcon, chip->extcon_id,
 					chip->usb_attach);
-	else if (chip->int_status == EUD_INT_CHGR) {
+	} else if (chip->int_status == EUD_INT_CHGR) {
 		if (is_usb_psy_available(chip)) {
 			int ret;
 
