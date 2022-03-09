@@ -411,6 +411,17 @@ bool icnss_is_fw_down(void)
 }
 EXPORT_SYMBOL(icnss_is_fw_down);
 
+unsigned long icnss_get_device_config(void)
+{
+	struct icnss_priv *priv = icnss_get_plat_priv();
+
+	if (!priv)
+		return 0;
+
+	return priv->device_config;
+}
+EXPORT_SYMBOL(icnss_get_device_config);
+
 bool icnss_is_rejuvenate(void)
 {
 	if (!penv)
@@ -4068,6 +4079,14 @@ static void icnss_init_control_params(struct icnss_priv *priv)
 		priv->ctrl_params.bdf_type = ICNSS_BDF_BIN;
 }
 
+static void icnss_read_device_configs(struct icnss_priv *priv)
+{
+	if (of_property_read_bool(priv->pdev->dev.of_node,
+				  "wlan-ipa-disabled")) {
+		set_bit(ICNSS_IPA_DISABLED, &priv->device_config);
+	}
+}
+
 static inline void icnss_runtime_pm_init(struct icnss_priv *priv)
 {
 	pm_runtime_get_sync(&priv->pdev->dev);
@@ -4150,6 +4169,8 @@ static int icnss_probe(struct platform_device *pdev)
 	icnss_allow_recursive_recovery(dev);
 
 	icnss_init_control_params(priv);
+
+	icnss_read_device_configs(priv);
 
 	ret = icnss_resource_parse(priv);
 	if (ret)
