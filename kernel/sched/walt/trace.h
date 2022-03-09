@@ -1334,7 +1334,7 @@ TRACE_EVENT(update_cpu_capacity,
 		__entry->thermal_cap = arch_scale_cpu_capacity(cpu) -
 					arch_scale_thermal_pressure(cpu);
 		__entry->max_freq = cluster->max_freq;
-		__entry->max_possible_freq = cluster->max_freq;
+		__entry->max_possible_freq = cluster->max_possible_freq;
 	),
 
 	TP_printk("cpu=%d arch_capacity=%lu thermal_cap=%lu rt_pressure=%lu max_freq=%lu max_possible_freq=%lu capacity=%lu",
