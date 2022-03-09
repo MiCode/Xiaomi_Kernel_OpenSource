@@ -4038,7 +4038,6 @@ include/trace/hooks/ftrace_dump.h
 include/trace/hooks/futex.h
 include/trace/hooks/gic.h
 include/trace/hooks/gic_v3.h
-include/trace/hooks/hung_task.h
 include/trace/hooks/iommu.h
 include/trace/hooks/logbuf.h
 include/trace/hooks/memory.h
