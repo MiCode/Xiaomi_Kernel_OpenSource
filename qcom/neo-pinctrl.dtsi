@@ -504,6 +504,20 @@
 			};
 		};
 
+	gpio_vol_up: gpio_vol_up {
+		mux {
+			pins = "gpio122";
+			function = "gpio";
+		};
+
+		 config {
+			pins = "gpio122";
+			drive-strength = <2>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
 	qupv3_se11_2uart_pins: qupv3_se11_2uart_pins {
 			qupv3_se11_2uart_active: qupv3_se11_2uart_active {
 				mux {
