@@ -14,6 +14,7 @@
 #include <linux/suspend.h>
 #include <linux/memblock.h>
 #include <linux/completion.h>
+#include <linux/sched.h>
 
 #include "main.h"
 #include "bus.h"
@@ -61,6 +62,7 @@
 #endif
 
 #define RAMDUMP_SIZE_DEFAULT		0x420000
+#define CNSS_256KB_SIZE			0x40000
 #define DEVICE_RDDM_COOKIE		0xCAFECACE
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
@@ -1407,6 +1409,41 @@ static void cnss_pci_dump_bl_sram_mem(struct cnss_pci_data *pci_priv)
 	}
 }
 
+static void cnss_pci_dump_sram(struct cnss_pci_data *pci_priv)
+{
+	struct cnss_plat_data *plat_priv;
+	u32 i, mem_addr;
+	u32 *dump_ptr;
+
+	plat_priv = pci_priv->plat_priv;
+
+	if (plat_priv->device_id != QCA6490_DEVICE_ID ||
+	    cnss_get_host_build_type() != QMI_HOST_BUILD_TYPE_PRIMARY_V01)
+		return;
+
+	if (!plat_priv->sram_dump) {
+		cnss_pr_err("SRAM dump memory is not allocated\n");
+		return;
+	}
+
+	if (cnss_pci_check_link_status(pci_priv))
+		return;
+
+	cnss_pr_dbg("Dumping SRAM at 0x%lx\n", plat_priv->sram_dump);
+
+	for (i = 0; i < SRAM_DUMP_SIZE; i += sizeof(u32)) {
+		mem_addr = SRAM_START + i;
+		dump_ptr = (u32 *)(plat_priv->sram_dump + i);
+		if (cnss_pci_reg_read(pci_priv, mem_addr, dump_ptr)) {
+			cnss_pr_err("SRAM Dump failed at 0x%x\n", mem_addr);
+			break;
+		}
+		/* Relinquish CPU after dumping 256KB chunks*/
+		if (!(i % CNSS_256KB_SIZE))
+			cond_resched();
+	}
+}
+
 static int cnss_pci_handle_mhi_poweron_timeout(struct cnss_pci_data *pci_priv)
 {
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
@@ -1430,6 +1467,7 @@ static int cnss_pci_handle_mhi_poweron_timeout(struct cnss_pci_data *pci_priv)
 		cnss_pci_soc_scratch_reg_dump(pci_priv);
 		/* Dump PBL/SBL error log if RDDM cookie is not set */
 		cnss_pci_dump_bl_sram_mem(pci_priv);
+		cnss_pci_dump_sram(pci_priv);
 		return -ETIMEDOUT;
 	}
 
