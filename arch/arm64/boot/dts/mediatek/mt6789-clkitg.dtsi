@@ -13,7 +13,6 @@
 			<&topckgen_clk CLK_TOP_DISP_SEL>,
 			<&topckgen_clk CLK_TOP_MDP_SEL>,
 			<&topckgen_clk CLK_TOP_IMG1_SEL>,
-			<&topckgen_clk CLK_TOP_IMG2_SEL>,
 			<&topckgen_clk CLK_TOP_IPE_SEL>,
 			<&topckgen_clk CLK_TOP_CAM_SEL>,
 			<&topckgen_clk CLK_TOP_MFG_REF_SEL>,
@@ -136,12 +135,6 @@
 			<&infracfg_ao_clk CLK_IFRAO_SPI6_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI7_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_66MP_BUS_MCLK_CKP>,
-			<&infracfg_ao_clk CLK_IFRAO_INFRA_FREE_DCM_133M>,
-			<&infracfg_ao_clk CLK_IFRAO_INFRA_FREE_DCM_66M>,
-			<&infracfg_ao_clk CLK_IFRAO_PERU_BUS_DCM_133M>,
-			<&infracfg_ao_clk CLK_IFRAO_PERU_BUS_DCM_66M>,
-			<&infracfg_ao_clk CLK_IFRAO_RG_FLASHIFP_26M_CK>,
-			<&infracfg_ao_clk CLK_IFRAO_RG_FLASHIF_SFLASH_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_AP_DMA>,
 			<&apmixedsys_clk CLK_APMIXED_UNIVPLL>,
 			<&apmixedsys_clk CLK_APMIXED_MSDCPLL>,
@@ -232,7 +225,6 @@
 			<&afe_clk CLK_AFE_24M>,
 			<&afe_clk CLK_AFE_APLL2_TUNER>,
 			<&afe_clk CLK_AFE_APLL_TUNER>,
-			<&afe_clk CLK_AFE_TDM>,
 			<&afe_clk CLK_AFE_ADC>,
 			<&afe_clk CLK_AFE_DAC>,
 			<&afe_clk CLK_AFE_DAC_PREDIS>,
@@ -249,14 +241,7 @@
 			<&afe_clk CLK_AFE_DAC_HIRES>,
 			<&afe_clk CLK_AFE_ADC_HIRES>,
 			<&afe_clk CLK_AFE_ADC_HIRES_TML>,
-			<&afe_clk CLK_AFE_ADDA6_ADC>,
-			<&afe_clk CLK_AFE_ADDA6_ADC_HIRES>,
-			<&afe_clk CLK_AFE_3RD_DAC>,
-			<&afe_clk CLK_AFE_3RD_DAC_PREDIS>,
-			<&afe_clk CLK_AFE_3RD_DAC_TML>,
-			<&afe_clk CLK_AFE_3RD_DAC_HIRES>,
 			<&camsys_main_clk CLK_CAM_M_LARB13>,
-			<&camsys_main_clk CLK_CAM_M_DFP_VAD>,
 			<&camsys_main_clk CLK_CAM_M_LARB14>,
 			<&camsys_main_clk CLK_CAM_M_CAM>,
 			<&camsys_main_clk CLK_CAM_M_CAMTG>,
@@ -264,11 +249,8 @@
 			<&camsys_main_clk CLK_CAM_M_CAMSV1>,
 			<&camsys_main_clk CLK_CAM_M_CAMSV2>,
 			<&camsys_main_clk CLK_CAM_M_CAMSV3>,
-			<&camsys_main_clk CLK_CAM_M_CCU0>,
-			<&camsys_main_clk CLK_CAM_M_CCU1>,
 			<&camsys_main_clk CLK_CAM_M_MRAW0>,
 			<&camsys_main_clk CLK_CAM_M_FAKE_ENG>,
-			<&camsys_main_clk CLK_CAM_M_CCU_GALS>,
 			<&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>,
 			<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
 			<&camsys_rawa_clk CLK_CAM_RA_CAM>,
@@ -301,11 +283,6 @@
 	bring-up-pd-isp {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6789_POWER_DOMAIN_ISP>;
-	};
-
-	bring-up-pd-isp2 {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6789_POWER_DOMAIN_ISP2>;
 	};
 
 	bring-up-pd-ipe {

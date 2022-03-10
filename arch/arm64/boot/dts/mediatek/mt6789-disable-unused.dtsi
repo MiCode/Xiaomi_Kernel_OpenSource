@@ -64,7 +64,6 @@
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
 			<&camsys_main_clk CLK_CAM_M_LARB13>,
-			<&camsys_main_clk CLK_CAM_M_DFP_VAD>,
 			<&camsys_main_clk CLK_CAM_M_LARB14>,
 			<&camsys_main_clk CLK_CAM_M_CAM>,
 			<&camsys_main_clk CLK_CAM_M_CAMTG>,
@@ -72,11 +71,8 @@
 			<&camsys_main_clk CLK_CAM_M_CAMSV1>,
 			<&camsys_main_clk CLK_CAM_M_CAMSV2>,
 			<&camsys_main_clk CLK_CAM_M_CAMSV3>,
-			<&camsys_main_clk CLK_CAM_M_CCU0>,
-			<&camsys_main_clk CLK_CAM_M_CCU1>,
 			<&camsys_main_clk CLK_CAM_M_MRAW0>,
 			<&camsys_main_clk CLK_CAM_M_FAKE_ENG>,
-			<&camsys_main_clk CLK_CAM_M_CCU_GALS>,
 			<&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>;
 			power-domains = <&scpsys MT6789_POWER_DOMAIN_CAM>;
 	};
@@ -180,7 +176,6 @@
 			<&afe_clk CLK_AFE_24M>,
 			<&afe_clk CLK_AFE_APLL2_TUNER>,
 			<&afe_clk CLK_AFE_APLL_TUNER>,
-			<&afe_clk CLK_AFE_TDM>,
 			<&afe_clk CLK_AFE_ADC>,
 			<&afe_clk CLK_AFE_DAC>,
 			<&afe_clk CLK_AFE_DAC_PREDIS>,
@@ -196,13 +191,7 @@
 			<&afe_clk CLK_AFE_GENERAL2_ASRC>,
 			<&afe_clk CLK_AFE_DAC_HIRES>,
 			<&afe_clk CLK_AFE_ADC_HIRES>,
-			<&afe_clk CLK_AFE_ADC_HIRES_TML>,
-			<&afe_clk CLK_AFE_ADDA6_ADC>,
-			<&afe_clk CLK_AFE_ADDA6_ADC_HIRES>,
-			<&afe_clk CLK_AFE_3RD_DAC>,
-			<&afe_clk CLK_AFE_3RD_DAC_PREDIS>,
-			<&afe_clk CLK_AFE_3RD_DAC_TML>,
-			<&afe_clk CLK_AFE_3RD_DAC_HIRES>;
+			<&afe_clk CLK_AFE_ADC_HIRES_TML>;
 			power-domains = <&scpsys MT6789_POWER_DOMAIN_AUDIO>;
 	};
 
@@ -277,12 +266,6 @@
 			<&infracfg_ao_clk CLK_IFRAO_SPI6_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_SPI7_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_66MP_BUS_MCLK_CKP>,
-			<&infracfg_ao_clk CLK_IFRAO_INFRA_FREE_DCM_133M>,
-			<&infracfg_ao_clk CLK_IFRAO_INFRA_FREE_DCM_66M>,
-			<&infracfg_ao_clk CLK_IFRAO_PERU_BUS_DCM_133M>,
-			<&infracfg_ao_clk CLK_IFRAO_PERU_BUS_DCM_66M>,
-			<&infracfg_ao_clk CLK_IFRAO_RG_FLASHIFP_26M_CK>,
-			<&infracfg_ao_clk CLK_IFRAO_RG_FLASHIF_SFLASH_CK>,
 			<&infracfg_ao_clk CLK_IFRAO_AP_DMA>;
 	};
 
@@ -304,7 +287,6 @@
 			<&topckgen_clk CLK_TOP_DISP_SEL>,
 			<&topckgen_clk CLK_TOP_MDP_SEL>,
 			<&topckgen_clk CLK_TOP_IMG1_SEL>,
-			<&topckgen_clk CLK_TOP_IMG2_SEL>,
 			<&topckgen_clk CLK_TOP_IPE_SEL>,
 			<&topckgen_clk CLK_TOP_CAM_SEL>,
 			<&topckgen_clk CLK_TOP_MFG_REF_SEL>,
@@ -380,11 +362,6 @@
 	disable-unused-pd-isp {
 		compatible = "mediatek,scpsys-disable-unused";
 		power-domains = <&scpsys MT6789_POWER_DOMAIN_ISP>;
-	};
-
-	disable-unused-pd-isp2 {
-		compatible = "mediatek,scpsys-disable-unused";
-		power-domains = <&scpsys MT6789_POWER_DOMAIN_ISP2>;
 	};
 
 	disable-unused-pd-ipe {
