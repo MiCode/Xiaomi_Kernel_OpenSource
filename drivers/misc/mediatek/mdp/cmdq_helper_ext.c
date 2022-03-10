@@ -4746,3 +4746,24 @@ unsigned long cmdq_get_tracing_mark(void)
 
 	return tracing_mark_write_addr;
 }
+
+noinline int tracing_mark_write(char *fmt, ...)
+{
+#if IS_ENABLED(CONFIG_TRACING)
+	char buf[TRACE_MSG_LEN];
+	va_list args;
+	int len;
+
+	va_start(args, fmt);
+	len = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+
+	if (len >= TRACE_MSG_LEN) {
+		CMDQ_ERR("%s trace size %u exceed limit\n", __func__, len);
+		return -1;
+	}
+
+	trace_puts(buf);
+#endif
+	return 0;
+}
