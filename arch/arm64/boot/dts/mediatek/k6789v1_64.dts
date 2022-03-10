@@ -102,4 +102,6 @@
 		};
 	};
 };
+
+#include "mediatek/cust_mt6789_touch_1080x2400.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
