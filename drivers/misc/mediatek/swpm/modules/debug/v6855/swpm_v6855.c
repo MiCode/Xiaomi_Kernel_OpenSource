@@ -94,7 +94,7 @@ struct me_swpm_rec_data *me_ptr;
 
 /* rt => /100000, uA => *1000, res => 100 */
 #define CORE_DEFAULT_DEG (30)
-#define CORE_STATIC_MA (34)
+#define CORE_STATIC_MA (70)
 #define CORE_STATIC_ID (7)
 #define CORE_STATIC_RT_RES (100)
 #define V_OF_CORE_STATIC (750)
@@ -104,7 +104,7 @@ static char core_ts_name[NR_CORE_TS][MAX_POWER_NAME_LENGTH] = {
 static unsigned int core_static;
 static unsigned int core_static_replaced;
 static unsigned short core_static_rt[NR_CORE_STATIC_TYPE] = {
-	6893, 7823, 8187, 14263, 15893, 18254, 28687,
+	2170, 3804, 3931, 4335, 10544, 11673, 11788, 13976, 17134, 20646
 };
 static unsigned short core_volt_tbl[NR_CORE_VOLT] = {
 	550, 600, 650, 750,
