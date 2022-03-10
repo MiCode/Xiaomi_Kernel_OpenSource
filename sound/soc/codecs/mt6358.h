@@ -230,6 +230,7 @@
 #define MT6358_AUXADC_SPL_LIST_0             0x1262
 #define MT6358_AUXADC_SPL_LIST_1             0x1264
 #define MT6358_AUXADC_SPL_LIST_2             0x1266
+#define MT6358_LDO_VAUD28_CON0               0x1ac4
 #define MT6358_LDO_VUSB_OP_EN                0x1b32
 #define MT6358_LDO_VUSB_OP_EN_SET            0x1b34
 #define MT6358_LDO_VUSB_OP_EN_CLR            0x1b36
@@ -3776,7 +3777,8 @@ struct mt6358_priv {
 
 	struct dentry *debugfs;
 	unsigned int debug_flag;
-	struct regulator *avdd_reg;
+	/* regulator */
+	struct regulator *reg_vaud28;
 
 	/* vow control */
 	int vow_enable;

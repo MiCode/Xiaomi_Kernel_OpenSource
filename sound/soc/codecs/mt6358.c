@@ -21,7 +21,7 @@
 #include <sound/core.h>
 
 #include "mt6358.h"
-#if IS_ENABLED(CONFIG_SND_SOC_MT6358_ACCDET)
+#if IS_ENABLED(CONFIG_SND_SOC_MT6366_ACCDET) || IS_ENABLED(CONFIG_SND_SOC_MT6358_ACCDET)
 #include "mt6358-accdet.h"
 #endif
 
@@ -214,7 +214,7 @@ static int mt6358_mtkaif_tx_disable(struct mt6358_priv *priv)
 
 int mt6358_mtkaif_calibration_enable(struct snd_soc_component *cmpnt)
 {
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	playback_gpio_set(priv);
 	capture_gpio_set(priv);
@@ -280,7 +280,7 @@ EXPORT_SYMBOL_GPL(mt6358_set_mtkaif_calibration_phase);
 static int mt6358_get_hpofs_auxadc(struct mt6358_priv *priv)
 {
 	int value = 0;
-#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
 	int ret;
 	struct iio_channel *auxadc = priv->hpofs_cal_auxadc;
 
@@ -3242,6 +3242,7 @@ static int mt_amic_connect(struct snd_soc_dapm_widget *source,
 /* DAPM Widgets */
 static const struct snd_soc_dapm_widget mt6358_dapm_widgets[] = {
 	/* Global Supply*/
+	SND_SOC_DAPM_REGULATOR_SUPPLY("vaud28", 0, 0),
 	SND_SOC_DAPM_SUPPLY_S("CLK_BUF", SUPPLY_SEQ_CLK_BUF,
 			      MT6358_DCXO_CW14,
 			      RG_XO_AUDIO_EN_M_SFT, 0, NULL, 0),
@@ -3463,6 +3464,7 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 	{"AIF1TX", NULL, "CLK_BUF"},
 	{"AIF1TX", NULL, "AUDGLB"},
 	{"AIF1TX", NULL, "CLKSQ Audio"},
+	{"AIF1TX", NULL, "vaud28"},
 
 	{"AIF1TX", NULL, "AUD_CK"},
 	{"AIF1TX", NULL, "AUDIF_CK"},
@@ -3518,6 +3520,7 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 	{"DL Power Supply", NULL, "ZCD13M_CK"},
 	{"DL Power Supply", NULL, "AUD_CK"},
 	{"DL Power Supply", NULL, "AUDIF_CK"},
+	{"DL Power Supply", NULL, "vaud28"},
 
 	/* DL Digital Supply */
 	{"DL Digital Clock", NULL, "AUDIO_TOP_AFE_CTL"},
@@ -3581,6 +3584,7 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 	{"VOW TX", NULL, "VOW_LDO"},
 	{"VOW TX", NULL, "ADC L"},
 	{"VOW TX", NULL, "AIN0_DMIC"},
+	{"VOW TX", NULL, "vaud28"},
 
 	/* mic bias */
 	{"AIN0", NULL, "MIC_BIAS", mt_amic_connect},
@@ -3876,7 +3880,33 @@ static int apply_dc_compensation(struct mt6358_priv *priv, bool enable)
 }
 #endif
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
+#if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
+static void enable_trim_circuit(struct mt6358_priv *priv, bool enable)
+{
+	int status = 0;
+	unsigned int value = 0;
+
+	if (enable) {
+		if (!IS_ERR(priv->reg_vaud28)) {
+			status = regulator_enable(priv->reg_vaud28);
+			if (status)
+				dev_info(priv->dev, "%s() failed to enable vaud28(%d)\n",
+					__func__, status);
+		}
+	} else {
+		if (!IS_ERR(priv->reg_vaud28)) {
+			status = regulator_disable(priv->reg_vaud28);
+			if (status)
+				dev_info(priv->dev, "%s() failed to disable vaud28(%d)\n",
+					__func__, status);
+		}
+	}
+
+	regmap_read(priv->regmap, MT6358_LDO_VAUD28_CON0, &value);
+	dev_dbg(priv->dev, "%s(), enable(%d), 0x%x MT6358_LDO_VAUD28_CON0 = 0x%x\n",
+		__func__, enable, MT6358_LDO_VAUD28_CON0, value);
+}
+
 static int calculate_trim_result(struct mt6358_priv *priv,
 		int *on_value, int *off_value,
 		int trim_times, int discard_num, int useful_num)
@@ -4558,9 +4588,7 @@ static void stop_trim_hardware_with_lo(struct mt6358_priv *priv)
 	/* Reset playback gpio (mosi/clk/sync) */
 	playback_gpio_reset(priv);
 }
-#endif
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
 static void hp_trim_offset(struct mt6358_priv *priv)
 {
 	int on_value_l[TRIM_TIMES], on_value_r[TRIM_TIMES];
@@ -4627,12 +4655,10 @@ static void hp_trim_offset(struct mt6358_priv *priv)
 			priv->dc_trim.hp_trim_offset[CH_L],
 			priv->dc_trim.hp_trim_offset[CH_R]);
 }
-#endif
 
 static int spk_trim_offset(struct mt6358_priv *priv, int channel)
 {
 	int offset = 0;
-#ifndef CONFIG_FPGA_EARLY_PORTING
 	int on_value[TRIM_TIMES];
 	int off_value[TRIM_TIMES];
 	int i;
@@ -4669,12 +4695,10 @@ static int spk_trim_offset(struct mt6358_priv *priv, int channel)
 			TRIM_TIMES, TRIM_DISCARD_NUM, TRIM_USEFUL_NUM);
 	dev_info(priv->dev, "%s(), channel = %d, offset = %d\n",
 			__func__, channel, offset);
-#endif
 	return offset;
 }
 
 #ifdef ANALOG_HPTRIM
-#ifndef CONFIG_FPGA_EARLY_PORTING
 static int pick_hp_finetrim(int offset_base,
 							int offset_finetrim_1,
 							int offset_finetrim_3)
@@ -4708,11 +4732,9 @@ static int pick_spk_finetrim(int offset_base,
 			return 0x3;
 	}
 }
-#endif
 
 static void set_lr_trim_code(struct mt6358_priv *priv)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
 	int hpl_base = 0, hpr_base = 0;
 	int hpl_min = 0, hpr_min = 0;
 	int hpl_ceiling = 0, hpr_ceiling = 0;
@@ -5254,12 +5276,10 @@ EXIT:
 		 __func__,
 		 priv->dc_trim.hp_trim_offset[CH_L],
 		 priv->dc_trim.hp_trim_offset[CH_R]);
-#endif
 }
 
 static void set_lr_trim_code_spk(struct mt6358_priv *priv, int channel)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
 	int hpl_base = 0;
 	int hpl_min = 0;
 	int hpl_ceiling = 0;
@@ -5563,8 +5583,9 @@ EXIT:
 			spk_hp_3_pole_trim_setting, spk_hp_4_pole_trim_setting);
 	dev_info(priv->dev, "%s(), get spkl offset = %d, channel = %d\n",
 			__func__, spk_trim_offset(priv, channel), channel);
-#endif
 }
+#endif
+
 #endif
 
 static void get_hp_trim_offset(struct mt6358_priv *priv, bool force)
@@ -5575,6 +5596,8 @@ static void get_hp_trim_offset(struct mt6358_priv *priv, bool force)
 		return;
 
 	dev_info(priv->dev, "%s(), Start DCtrim Calibrating", __func__);
+#if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
+	enable_trim_circuit(priv, true);
 #ifdef ANALOG_HPTRIM
 	set_lr_trim_code(priv);
 	priv->dc_trim.hp_offset[CH_L] = priv->dc_trim.hp_trim_offset[CH_L];
@@ -5592,7 +5615,9 @@ static void get_hp_trim_offset(struct mt6358_priv *priv, bool force)
 	dc_trim->hp_offset[CH_L] = hp_trim_offset(priv, TRIM_BUF_MUX_HPL);
 	dc_trim->hp_offset[CH_R] = hp_trim_offset(priv, TRIM_BUF_MUX_HPR);
 #endif
+	enable_trim_circuit(priv, false);
 	udelay(1000);
+#endif
 	dc_trim->calibrated = true;
 	dev_info(priv->dev, "%s(), End DCtrim Calibrating, L: %d, R: %d",
 		 __func__,
@@ -6005,9 +6030,17 @@ static int mt6358_rcv_mic_set(struct snd_kcontrol *kcontrol,
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	int rcv_mic_type = ucontrol->value.integer.value[0];
+	int status;
 
 	dev_info(priv->dev, "%s(), rcv_mic_type = %d\n",
 			__func__, rcv_mic_type);
+
+	if (!IS_ERR(priv->reg_vaud28)) {
+		status = regulator_enable(priv->reg_vaud28);
+		if (status)
+			dev_info(priv->dev, "%s() failed to enable vaud28(%d)\n",
+				__func__, status);
+	}
 
 	/* receiver downlink */
 	playback_gpio_set(priv);
@@ -6348,7 +6381,7 @@ static void mt6358_codec_init_reg(struct mt6358_priv *priv)
 	enable_trim_buf(priv, true);
 }
 
-#if !defined(SKIP_SB)
+#if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
 static int get_hp_current_calibrate_val(struct mt6358_priv *priv)
 {
 	int ret = 0;
@@ -6389,7 +6422,6 @@ static int get_hp_current_calibrate_val(struct mt6358_priv *priv)
 static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 {
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-	int ret;
 
 	dev_info(priv->dev, "%s()\n", __func__);
 
@@ -6411,19 +6443,11 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = 3;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 3;
 
-#if !defined(SKIP_SB)
+#if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
+#else
+	priv->hp_current_calibrate_val = 0;
 #endif
-
-	priv->avdd_reg = devm_regulator_get(priv->dev, "Avdd");
-	if (IS_ERR(priv->avdd_reg)) {
-		dev_err(priv->dev, "%s() have no Avdd supply", __func__);
-		return PTR_ERR(priv->avdd_reg);
-	}
-
-	ret = regulator_enable(priv->avdd_reg);
-	if (ret)
-		return  ret;
 
 	return 0;
 }
@@ -6590,7 +6614,9 @@ static ssize_t mt6358_debugfs_read(struct file *file, char __user *buf,
 	regmap_read(priv->regmap, MT6358_AUXADC_CON10, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "MT6358_AUXADC_CON10 = 0x%x\n", value);
-
+	regmap_read(priv->regmap, MT6358_LDO_VAUD28_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6358_LDO_VAUD28_CON0 = 0x%x\n", value);
 	regmap_read(priv->regmap, MT6358_AUD_TOP_ID, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "MT6358_AUD_TOP_ID = 0x%x\n", value);
@@ -7233,7 +7259,6 @@ static int mt6358_parse_dt(struct mt6358_priv *priv)
 		priv->vow_dmic_lp = 0;
 	}
 
-#if !defined(SKIP_SB)
 	/* get auxadc channel */
 	priv->hpofs_cal_auxadc = devm_iio_channel_get(dev,
 						      "pmic_hpofs_cal");
@@ -7241,32 +7266,47 @@ static int mt6358_parse_dt(struct mt6358_priv *priv)
 	ret = PTR_ERR_OR_ZERO(priv->hpofs_cal_auxadc);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)	//EPROBE_DEFER:517
-			dev_err(dev,
+			dev_info(dev,
 				"%s() Get pmic_hpofs_cal iio ch failed (%d)\n",
 				__func__, ret);
 		else
-			dev_err(dev,
+			dev_info(dev,
 				"%s() Get pmic_hpofs_cal iio ch failed (%d), will retry ...\n",
 				__func__, ret);
 
 		return ret;
 	}
 
-
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
 	/* get pmic efuse handler */
 	priv->hp_efuse = devm_nvmem_device_get(dev, "pmic-hp-efuse");
 	ret = PTR_ERR_OR_ZERO(priv->hp_efuse);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)
-			dev_err(dev, "%s() Get efuse failed (%d)\n",
+			dev_info(dev, "%s() Get efuse failed (%d)\n",
 				__func__, ret);
 		else
-			dev_err(dev, "%s() Get efuse failed (%d), will retry ...\n",
+			dev_info(dev, "%s() Get efuse failed (%d), will retry ...\n",
 				__func__, ret);
 
 		return ret;
 	}
 #endif
+
+	/* get pmic regulator handler */
+	priv->reg_vaud28 = devm_regulator_get_optional(dev, "reg_vaud28");
+	ret = IS_ERR(priv->reg_vaud28);
+	if (ret) {
+		ret = PTR_ERR(priv->reg_vaud28);
+		if (ret != -EPROBE_DEFER)
+			dev_info(dev, "%s() Get regulator failed (%d)\n",
+				__func__, ret);
+		else
+			dev_info(dev, "%s() Get regulator failed (%d), will retry ...\n",
+				__func__, ret);
+
+		return ret;
+	}
 
 	return 0;
 }
