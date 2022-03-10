@@ -66,7 +66,7 @@ s32 cmdq_sec_mtee_allocate_wsm(struct cmdq_sec_mtee_context *tee,
 
 #ifndef CMDQ_LATE_INIT_SUPPORT
 	/* region_id = 0, mapAry = NULL for continuous */
-	*wsm_buffer = kzalloc(size);
+	*wsm_buffer = kzalloc(size, GFP_KERNEL);
 	if (!*wsm_buffer)
 		return -ENOMEM;
 #endif
@@ -85,7 +85,7 @@ s32 cmdq_sec_mtee_allocate_wsm(struct cmdq_sec_mtee_context *tee,
 		tee->wsm_param.size, *wsm_buffer, *wsm_buffer);
 
 #ifndef CMDQ_LATE_INIT_SUPPORT
-	*wsm_buf_ex = kzalloc(size_ex);
+	*wsm_buf_ex = kzalloc(size_ex, GFP_KERNEL);
 	if (!*wsm_buf_ex)
 		return -ENOMEM;
 #endif
@@ -104,7 +104,7 @@ s32 cmdq_sec_mtee_allocate_wsm(struct cmdq_sec_mtee_context *tee,
 			tee->wsm_ex_param.size, *wsm_buf_ex, *wsm_buf_ex);
 
 #ifndef CMDQ_LATE_INIT_SUPPORT
-	*wsm_buf_ex2 = kzalloc(size_ex2);
+	*wsm_buf_ex2 = kzalloc(size_ex2, GFP_KERNEL);
 	if (!*wsm_buf_ex2)
 		return -ENOMEM;
 #endif
