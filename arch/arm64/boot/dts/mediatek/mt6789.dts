@@ -2437,6 +2437,27 @@
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
+		btif@1100c000 {
+			compatible = "mediatek,btif";
+				/*btif base*/
+			reg = <0 0x1100c000 0 0x1000>,
+				/*btif tx dma base*/
+				<0 0x10217b00 0 0x80>,
+				/*btif rx dma base*/
+				<0 0x10217b80 0 0x80>;
+				/*btif irq, IRQS_Sync ID, btif_irq_b*/
+			interrupts = <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH 0>,
+				/*btif tx dma irq*/
+				<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH 0>,
+				/*btif rx dma irq*/
+				<GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_BTIF>,
+				/*btif clock*/
+				<&infracfg_ao_clk CLK_IFRAO_AP_DMA>;
+				/*ap dma clock*/
+			clock-names = "btifc","apdmac";
+		};
+
 		spi1: spi1@11010000 {
 			compatible = "mediatek,mt6789-spi";
 			mediatek,pad-select = <0>;
@@ -4084,6 +4105,51 @@
 		mbist@17060000 {
 			compatible = "mediatek,mbist";
 			reg = <0 0x17060000 0 0x10000>;
+		};
+
+		consys: consys@18002000 {
+			compatible = "mediatek,mt6789-consys";
+			#thermal-sensor-cells = <0>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+				/*CONN_MCU_CONFIG_BASE */
+			reg = <0 0x18002000 0 0x1000>,
+				/*TOP_RGU_BASE */
+			<0 0x10007000 0 0x0100>,
+				/*INFRACFG_AO_BASE */
+			    <0 0x10001000 0 0x1000>,
+				/*SPM_BASE */
+			    <0 0x10006000 0 0x1000>,
+				/*CONN_HIF_ON_BASE */
+			    <0 0x18007000 0 0x1000>,
+				/*CONN_TOP_MISC_OFF_BASE */
+			    <0 0x180b1000 0 0x1000>,
+				/*CONN_MCU_CFG_ON_BASE */
+			    <0 0x180a3000 0 0x1000>,
+				/*CONN_MCU_CIRQ_BASE */
+			    <0 0x180a5000 0 0x800>,
+				/*CONN_TOP_MISC_ON_BASE */
+			    <0 0x180c1000 0 0x1000>,
+				/*CONN_HIF_PDMA_BASE */
+			    <0 0x18004000 0 0x1000>,
+				/* INFRASYS_COMMON AP2MD_PCCIF4_BASE */
+			    <0 0x1024C000 0 0x40>,
+				/*INFRA_AO_PERICFG_BASE */
+			    <0 0x10003000 0 0x1000>;
+				/*BGF_EINT */
+			interrupts = <GIC_SPI 410 IRQ_TYPE_LEVEL_HIGH 0>,
+				/*WDT_EINT */
+				   <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH 0>,
+				/*conn2ap_sw_irq*/
+				   <GIC_SPI 411 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6789_POWER_DOMAIN_CONN>;
+			emi-addr = <0>;
+			emi-size = <0x500000>;
+			emi-alignment = <0x1000000>;
+			emi-max-addr = <0x80000000>;
+			pmic = <&pmic>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_CCIF4_AP>;
+			clock-names = "ccif";
 		};
 
 		ipesys_config@1b000000 {
