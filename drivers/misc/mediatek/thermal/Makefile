@@ -32,6 +32,8 @@ else ifeq ($(CONFIG_MACH_MT6873),y)
 	PDIR = mt6873
 else ifeq ($(CONFIG_MACH_MT6785),y)
 	PDIR = mt6785
+else ifeq ($(CONFIG_MACH_MT6771),y)
+	PDIR = mt6771
 else
 	PDIR = $(MTK_PLATFORM)
 endif
@@ -79,6 +81,8 @@ else ifeq ($(CONFIG_MACH_MT6853),y)
 obj-y += mt6853/
 else ifeq ($(CONFIG_MACH_MT6785),y)
 obj-y += mt6785/
+else ifeq ($(CONFIG_MACH_MT6771),y)
+obj-y += mt6771/
 else
 obj-y += $(subst ",,$(CONFIG_MTK_LEGACY_THERMAL_PLATFORM))/
 

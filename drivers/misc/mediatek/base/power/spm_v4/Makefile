@@ -37,6 +37,7 @@ endif
 
 ifeq ($(CONFIG_MACH_MT6771), y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)/inc/
+ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/
 endif
 ifeq ($(CONFIG_MTK_SND_SOC_NEW_ARCH), y)
 ccflags-y += -I$(srctree)/sound/soc/mediatek/$(MTK_PLATFORM)/
