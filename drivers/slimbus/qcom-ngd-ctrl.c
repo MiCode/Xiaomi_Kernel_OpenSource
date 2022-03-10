@@ -200,7 +200,6 @@ struct qcom_slim_ngd_ctrl {
 	struct completion qmi_up;
 	spinlock_t tx_buf_lock;
 	struct mutex tx_lock;
-	struct mutex suspend_resume_lock;
 	struct mutex ssr_lock;
 	struct notifier_block nb;
 	void *notifier;
@@ -1565,11 +1564,8 @@ static int qcom_slim_ngd_runtime_resume(struct device *dev)
 	int ret = 0;
 
 	SLIM_INFO(ctrl, "Slim runtime resume\n");
-	mutex_lock(&ctrl->suspend_resume_lock);
-	if (!ctrl->qmi.handle) {
-		mutex_unlock(&ctrl->suspend_resume_lock);
+	if (!ctrl->qmi.handle)
 		return 0;
-	}
 
 	if (!ctrl->qmi.handle)
 		return 0;
@@ -1586,7 +1582,6 @@ static int qcom_slim_ngd_runtime_resume(struct device *dev)
 		ctrl->state = QCOM_SLIM_NGD_CTRL_AWAKE;
 	}
 
-	mutex_unlock(&ctrl->suspend_resume_lock);
 	SLIM_INFO(ctrl, "Slim runtime resume: ret %d\n", ret);
 	return 0;
 }
@@ -1732,7 +1727,6 @@ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
 	case QCOM_SSR_BEFORE_SHUTDOWN:
 	case SERVREG_SERVICE_STATE_DOWN:
 		/* Make sure the last dma xfer is finished */
-		mutex_lock(&ctrl->suspend_resume_lock);
 		mutex_lock(&ctrl->tx_lock);
 		if (ctrl->state != QCOM_SLIM_NGD_CTRL_DOWN) {
 			pm_runtime_get_noresume(ctrl->ctrl.dev);
@@ -1744,7 +1738,6 @@ static int qcom_slim_ngd_ssr_pdr_notify(struct qcom_slim_ngd_ctrl *ctrl,
 			SLIM_INFO(ctrl, "SLIM SSR down\n");
 		}
 		mutex_unlock(&ctrl->tx_lock);
-		mutex_unlock(&ctrl->suspend_resume_lock);
 		break;
 	case QCOM_SSR_AFTER_POWERUP:
 	case SERVREG_SERVICE_STATE_UP:
@@ -2015,7 +2008,6 @@ static int qcom_slim_ngd_ctrl_probe(struct platform_device *pdev)
 	ctrl->state = QCOM_SLIM_NGD_CTRL_DOWN;
 
 	mutex_init(&ctrl->tx_lock);
-	mutex_init(&ctrl->suspend_resume_lock);
 	mutex_init(&ctrl->ssr_lock);
 	spin_lock_init(&ctrl->tx_buf_lock);
 	init_completion(&ctrl->reconf);
@@ -2117,13 +2109,11 @@ static int __maybe_unused qcom_slim_ngd_runtime_suspend(struct device *dev)
 	 * Need reset dma for every suspend/resume to have a clean
 	 * HW reset on remote slimbus side.
 	 */
-	mutex_lock(&ctrl->suspend_resume_lock);
 	qcom_slim_ngd_exit_dma(ctrl);
 
-	if (!ctrl->qmi.handle) {
-		mutex_unlock(&ctrl->suspend_resume_lock);
+	if (!ctrl->qmi.handle)
 		return 0;
-	}
+
 	SLIM_INFO(ctrl, "Sending QMI power off request\n");
 	ret = qcom_slim_qmi_power_request(ctrl, false);
 	if (ret && ret != -EBUSY)
@@ -2131,7 +2121,6 @@ static int __maybe_unused qcom_slim_ngd_runtime_suspend(struct device *dev)
 	if (!ret || ret == -ETIMEDOUT)
 		ctrl->state = QCOM_SLIM_NGD_CTRL_ASLEEP;
 
-	mutex_unlock(&ctrl->suspend_resume_lock);
 	SLIM_INFO(ctrl, "Slim runtime suspend: ret %d\n", ret);
 	return ret;
 }
