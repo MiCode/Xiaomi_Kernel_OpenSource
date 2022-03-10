@@ -46,7 +46,7 @@
 #include "mtk_spm_resource_req.h"
 
 #if (defined(CONFIG_MACH_MT6781)  \
-	||defined(CONFIG_MACH_MT6768))
+	||defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6771))
 #include <mt-plat/upmu_common.h>
 //#include <mt-plat/mtk_secure_api.h>
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
@@ -336,7 +336,7 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 		unsigned int vcore;
 		unsigned int uv = dvfs->opp[idx].uv_idx;
 	#if !defined(CONFIG_MACH_MT6768) \
-		&& !defined(CONFIG_MACH_MT6781)
+		&& !defined(CONFIG_MACH_MT6781) && !defined(CONFIG_MACH_MT6771)
 		int max_vcore = dvfs->opp[dvfs->scp_opp_num - 1].vcore + 100000;
 		int max_vsram = dvfs->opp[dvfs->scp_opp_num - 1].vsram + 100000;
 	#endif
@@ -348,7 +348,7 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 		/* vcore MAX_uV set to highest opp + 100mV */
 
 	#if (defined(CONFIG_MACH_MT6768) \
-	|| defined(CONFIG_MACH_MT6781))
+	|| defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6771))
 		ret_vc = pmic_scp_set_vcore(vcore);
 		ret_vs = pmic_scp_set_vsram_vcore(dvfs->opp[idx].vsram);
 	#else
@@ -496,6 +496,7 @@ int scp_request_freq(void)
 			is_increasing_freq = 1;
 		}
 
+	#ifndef CONFIG_MACH_MT6771
 		/* Request SPM not to turn off mainpll/26M/infra */
 		/* because SCP may park in it during DFS process */
 		#if defined(CONFIG_MACH_MT6781)
@@ -506,6 +507,7 @@ int scp_request_freq(void)
 						SPM_RESOURCE_CK_26M |
 						SPM_RESOURCE_AXI_BUS);
 		#endif
+	#endif
 
 		/*  turn on PLL if necessary */
 		scp_pll_ctrl_set(PLL_ENABLE, scp_expected_freq);
@@ -542,6 +544,8 @@ int scp_request_freq(void)
 		/* do DVS after DFS if decreasing frequency */
 		if (is_increasing_freq == 0)
 			scp_vcore_request(scp_expected_freq);
+
+#ifndef CONFIG_MACH_MT6771
 	#ifndef CONFIG_MACH_MT6768
 		if (scp_expected_freq == MAINPLL_273M)
 			#if defined(CONFIG_MACH_MT6781)
@@ -569,6 +573,7 @@ int scp_request_freq(void)
 			spm_resource_req(SPM_RESOURCE_USER_SCP,
 							 SPM_RESOURCE_RELEASE);
 			#endif
+#endif
 	}
 
 	__pm_relax(scp_suspend_lock);
@@ -1364,6 +1369,72 @@ static void mt_pmic_sshub_init_for_mt6768(void)
 #endif
 }
 #endif
+
+#if defined(CONFIG_MACH_MT6771)
+void mt_pmic_sshub_init_for_mt6771(void)
+{
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+	unsigned int val[8];
+
+	val[0] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_EN);
+	val[1] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_VOSEL);
+	val[2] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_SLEEP_VOSEL_EN);
+	val[3] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_VOSEL_SLEEP);
+	val[4] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_EN);
+	val[5] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL);
+	val[6] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_SLEEP_VOSEL_EN);
+	val[7] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_SLEEP);
+	pr_debug(
+	"Before: vcore=(0x%x,0x%x,0x%x,0x%x), vsram=(0x%x,0x%x,0x%x,0x%x)\n",
+	val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]);
+
+	pmic_scp_set_vcore(600000);
+	pmic_scp_set_vcore_sleep(600000);
+	pmic_set_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_EN, 1);
+	pmic_set_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_SLEEP_VOSEL_EN, 0);
+	pmic_scp_set_vsram_vcore(850000);
+	pmic_scp_set_vsram_vcore_sleep(850000);
+	pmic_set_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_EN, 1);
+	pmic_set_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_SLEEP_VOSEL_EN, 0);
+
+	val[0] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_EN);
+	val[1] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_VOSEL);
+	val[2] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_SLEEP_VOSEL_EN);
+	val[3] = pmic_get_register_value(
+		PMIC_RG_BUCK_VCORE_SSHUB_VOSEL_SLEEP);
+	val[4] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_EN);
+	val[5] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL);
+	val[6] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_SLEEP_VOSEL_EN);
+	val[7] = pmic_get_register_value(
+		PMIC_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_SLEEP);
+	pr_debug(
+	"After: vcore=(0x%x,0x%x,0x%x,0x%x), vsram=(0x%x,0x%x,0x%x,0x%x)\n",
+	val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]);
+
+	/*  Workaround once force BUCK in NML mode */
+	pmic_set_register_value(PMIC_RG_SRCVOLTEN_LP_EN, 1);
+#endif
+}
+#endif
+
 static void __init mt_pmic_sshub_init(void)
 {
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
@@ -1371,6 +1442,8 @@ static void __init mt_pmic_sshub_init(void)
 	mt_pmic_sshub_init_for_mt6768();
 #elif defined(CONFIG_MACH_MT6781)
 	mt_pmic_sshub_init_for_mt6781();
+#elif defined(CONFIG_MACH_MT6771)
+	mt_pmic_sshub_init_for_mt6771();
 #else
 	int max_vcore = dvfs->opp[dvfs->scp_opp_num - 1].vcore + 100000;
 	int max_vsram = dvfs->opp[dvfs->scp_opp_num - 1].vsram + 100000;
@@ -1614,8 +1687,8 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	}
 
 #if (defined (CONFIG_MACH_MT6768) \
-	||defined(CONFIG_MACH_MT6781))
-	pr_notice("mt6768  6781 no pmic config in dts\n");
+	||defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6771))
+	pr_notice("mt6768  6781 6771 no pmic config in dts\n");
 	mt_pmic_sshub_init();
 	goto pass;
 #endif
