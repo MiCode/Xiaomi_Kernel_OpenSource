@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: GPL-2.0
+
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ */
+
+&i2c7 {
+	speaker_amp: speaker_amp@34 {
+		status = "disabled";
+	};
+};
+
+&i2c7 {
+	fs16xx@34 {
+		compatible = "foursemi,fs16xx";
+		reg = <0x34>;
+		fsm,position = "LTOP"; // left top
+	    //fsm_vddd-supply = <&vdd_1v8_reg>; // Vddd-1.8V
+		status = "okay";
+	};
+
+	fs16xx@35 {
+		compatible = "foursemi,fs16xx";
+		reg = <0x35>;
+		fsm,position = "LBTM"; // left buttom
+	    //fsm_vddd-supply = <&vdd_1v8_reg>; // Vddd-1.8V
+		status = "okay";
+	};
+
+	fs16xx@36 {
+		compatible = "foursemi,fs16xx";
+		reg = <0x36>;
+		fsm,position = "RTOP"; // right top
+	    //fsm_vddd-supply = <&vdd_1v8_reg>; // Vddd-1.8V
+		status = "okay";
+	};
+
+	fs16xx@37 {
+		compatible = "foursemi,fs16xx";
+		reg = <0x37>;
+		fsm,position = "RBTM"; // right buttom
+	    //fsm_vddd-supply = <&vdd_1v8_reg>; // Vddd-1.8V
+		status = "okay";
+	};
+};
