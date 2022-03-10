@@ -96,7 +96,9 @@ static enum IMGSENSOR_RETURN mclk_set(
 		*/
 
 	if (pin_state < IMGSENSOR_HW_PIN_STATE_LEVEL_0 ||
-	   pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH) {
+	   pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH ||
+	   sensor_idx < IMGSENSOR_SENSOR_IDX_MIN_NUM ||
+	   sensor_idx > IMGSENSOR_SENSOR_IDX_MAX_NUM) {
 		ret = IMGSENSOR_RETURN_ERROR;
 	} else {
 		state_index = (pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_0) ? MCLK_STATE_ENABLE : MCLK_STATE_DISABLE;
