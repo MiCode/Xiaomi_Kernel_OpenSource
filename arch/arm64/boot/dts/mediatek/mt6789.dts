@@ -4487,7 +4487,7 @@
 			mdp_tdshp0 = <&mdp_tdshp0>;
 			mdp_aal0   = <&mdp_aal0>;
 			mdp_hdr0   = <&mdp_hdr0>;
-			// mediatek,larb = <&smi_larb2>;
+			mediatek,larb = <&smi_larb2>;
 			g3d_config_base = <0x13000000 0 0xffff0000>;
 			mmsys_config_base = <0x14000000 1 0xffff0000>;
 			disp_dither_base = <0x14010000 2 0xffff0000>;
