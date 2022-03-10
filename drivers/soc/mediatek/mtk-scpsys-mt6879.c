@@ -150,6 +150,8 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6879_TOP_AXI_PROT_EN_MMSYS0_ISP_VCORE),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS1_ISP_VCORE),
 		},
 	},
 	[MT6879_POWER_DOMAIN_VDE0] = {
@@ -253,6 +255,8 @@ static const struct scp_domain_data scp_domain_data_mt6879[] = {
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x0C14, 0x0C18, 0x0C10, 0x0C1C,
 				MT6879_TOP_AXI_PROT_EN_MMSYS0_DISP),
+			BUS_PROT_IGN(IFR_TYPE, 0x0C24, 0x0C28, 0x0C20, 0x0C2C,
+				MT6879_TOP_AXI_PROT_EN_MMSYS1_DISP),
 		},
 	},
 	[MT6879_POWER_DOMAIN_MM_INFRA] = {
