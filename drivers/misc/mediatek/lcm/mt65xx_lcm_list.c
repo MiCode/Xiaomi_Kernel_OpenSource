@@ -1251,6 +1251,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(OTM1911A_FHDP_DSI_VDO_TRULY_RT5081_HDP)
 	&otm1911a_fhdp_dsi_vdo_truly_rt5081_hdp_lcm_drv,
 #endif
+
+#if defined(OTM1911A_FHDP_DSI_VDO_TRULY_RT4801)
+	&otm1911a_fhdp_dsi_vdo_truly_rt4801_lcm_drv,
+#endif
 };
 
 unsigned char lcm_name_list[][128] = {
