@@ -499,10 +499,6 @@ static struct clkchk_ops clkchk_mt6789_ops = {
 	.devapc_dump = devapc_dump,
 };
 
-void __attribute__((weak)) register_devapc_vio_callback(struct devapc_vio_callbacks *viocb)
-{
-}
-
 static int clk_chk_mt6789_probe(struct platform_device *pdev)
 {
 	init_regbase();
