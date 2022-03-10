@@ -114,6 +114,14 @@ config ARM_RK3399_DMC_DEVFREQ
           It sets the frequency for the memory controller and reads the usage counts
           from hardware.
 
+config MTK_QOS_SUPPORT
+	bool "MTK QOS SUPPORT"
+	help
+	  This kernel config can be used to enable MTK QOS support.
+	  MTK QOS can support adjust vcore voltage and dram
+	  frequency
+	  If unsure, say N.
+
 config MTK_DVFSRC_MT6833_PRETEST
 	tristate "MTK_DVFSRC_MT6833_PRETEST"
 	help
