@@ -130,6 +130,19 @@
 			};
 		};
 
+		mt6366keys: mt6366keys {
+			compatible = "mediatek,mt6366-keys";
+			mediatek,long-press-mode = <1>;
+			power-off-time-sec = <0>;
+			power {
+				linux,keycodes = <116>;
+				wakeup-source;
+			};
+			home {
+				linux,keycodes = <115>;
+			};
+		};
+
 		mt6358regulator: mt6358regulator {
 			compatible = "mediatek,mt6358-regulator";
 
