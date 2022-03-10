@@ -60,6 +60,10 @@
 
 #define MSDC_BURST_64B          0x6
 
+#define MSDC_EMMC          (0)
+#define MSDC_SD            (1)
+#define MSDC_SDIO          (2)
+
 /*--------------------------------------------------------------------------*/
 /* Register Offset                                                          */
 /*--------------------------------------------------------------------------*/
@@ -2688,6 +2692,14 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (host->mmc->caps2 & MMC_CAP2_NO_SD)
 		host->mmc->caps2 |= MMC_CAP2_CRYPTO;
 #endif
+
+	if (device_property_read_u32(&pdev->dev, "host-function", &mmc->host_function) <0){
+		dev_info(&pdev->dev, "host_function isn't found in device tree\n");
+		mmc->host_function = -1;
+	}
+
+	if (mmc->host_function == MSDC_SD)
+		mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	host->base = devm_ioremap_resource(&pdev->dev, res);
