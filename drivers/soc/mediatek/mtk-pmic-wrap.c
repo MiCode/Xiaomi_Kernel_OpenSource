@@ -237,6 +237,21 @@ static const u32 mt6359p_regs[] = {
 	[PWRAP_DEW_RDDMY_NO] =		0x0424,
 };
 
+static const u32 mt6366_regs[] = {
+	[PWRAP_DEW_DIO_EN] =		0x040c,
+	[PWRAP_DEW_READ_TEST] =		0x040e,
+	[PWRAP_DEW_WRITE_TEST] =	0x0410,
+	[PWRAP_DEW_CRC_EN] =		0x0414,
+	[PWRAP_DEW_CRC_VAL] =		0x0416,
+	[PWRAP_DEW_CIPHER_KEY_SEL] =	0x0418,
+	[PWRAP_DEW_CIPHER_IV_SEL] =	0x041a,
+	[PWRAP_DEW_CIPHER_EN] =		0x041c,
+	[PWRAP_DEW_CIPHER_RDY] =	0x041e,
+	[PWRAP_DEW_CIPHER_MODE] =	0x0420,
+	[PWRAP_DEW_CIPHER_SWRST] =	0x0422,
+	[PWRAP_DEW_RDDMY_NO] =		0x0424,
+};
+
 static const u32 mt6359_regs[] = {
 	[PWRAP_DEW_RG_EN_RECORD] =	0x040a,
 	[PWRAP_DEW_DIO_EN] =		0x040c,
@@ -647,6 +662,17 @@ static int mt6797_regs[] = {
 	[PWRAP_WDT_SRC_EN] =		0x100,
 	[PWRAP_DCM_EN] =		0x1CC,
 	[PWRAP_DCM_DBC_PRD] =		0x1D4,
+};
+
+static int mt6789_regs[] = {
+	[PWRAP_INIT_DONE2] =		0x0,
+	[PWRAP_TIMER_EN] =		0x3E4,
+	[PWRAP_INT_EN] =		0x450,
+	[PWRAP_WACS2_CMD] =		0x880,
+	[PWRAP_SWINF_2_WDATA_31_0] =	0x884,
+	[PWRAP_SWINF_2_RDATA_31_0] =	0x894,
+	[PWRAP_WACS2_VLDCLR] =		0x8A4,
+	[PWRAP_WACS2_RDATA] =		0x8A8,
 };
 
 static int mt6833_regs[] = {
@@ -1103,6 +1129,7 @@ enum pmic_type {
 	PMIC_MT6358,
 	PMIC_MT6359,
 	PMIC_MT6359P,
+	PMIC_MT6366,
 	PMIC_MT6380,
 	PMIC_MT6397,
 };
@@ -1111,6 +1138,7 @@ enum pwrap_type {
 	PWRAP_MT2701,
 	PWRAP_MT6765,
 	PWRAP_MT6779,
+	PWRAP_MT6789,
 	PWRAP_MT6797,
 	PWRAP_MT6833,
 	PWRAP_MT6853,
@@ -1957,6 +1985,15 @@ static const struct pwrap_slv_type pmic_mt6359p = {
 	.pwrap_write = pwrap_write16,
 };
 
+static const struct pwrap_slv_type pmic_mt6366 = {
+	.dew_regs = mt6366_regs,
+	.type = PMIC_MT6366,
+	.regmap = &pwrap_regmap_config16,
+	.caps = 0,
+	.pwrap_read = pwrap_read16,
+	.pwrap_write = pwrap_write16,
+};
+
 static const struct pwrap_slv_type pmic_mt6380 = {
 	.dew_regs = NULL,
 	.type = PMIC_MT6380,
@@ -1995,6 +2032,9 @@ static const struct of_device_id of_slave_match_tbl[] = {
 	}, {
 		.compatible = "mediatek,mt6359p",
 		.data = &pmic_mt6359p,
+	}, {
+		.compatible = "mediatek,mt6366",
+		.data = &pmic_mt6366,
 	}, {
 		/* The MT6380 PMIC only implements a regulator, so we bind it
 		 * directly instead of using a MFD.
@@ -2044,6 +2084,19 @@ static const struct pmic_wrapper_type pwrap_mt6779 = {
 	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
 	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
 	.caps = 0,
+	.init_reg_clock = pwrap_common_init_reg_clock,
+	.init_soc_specific = NULL,
+};
+
+static struct pmic_wrapper_type pwrap_mt6789 = {
+	.regs = mt6789_regs,
+	.type = PWRAP_MT6789,
+	.arb_en_all = 0x777f,
+	.int_en_all = 0x180000,
+	.int1_en_all = 0,
+	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
+	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
+	.caps = PWRAP_CAP_ARB,
 	.init_reg_clock = pwrap_common_init_reg_clock,
 	.init_soc_specific = NULL,
 };
@@ -2188,6 +2241,9 @@ static const struct of_device_id of_pwrap_match_tbl[] = {
 		.compatible = "mediatek,mt6779-pwrap",
 		.data = &pwrap_mt6779,
 	}, {
+		.compatible = "mediatek,mt6789-pwrap",
+		.data = &pwrap_mt6789,
+	}, {
 		.compatible = "mediatek,mt6797-pwrap",
 		.data = &pwrap_mt6797,
 	}, {
@@ -2236,7 +2292,7 @@ static int pwrap_probe(struct platform_device *pdev)
 		of_slave_id = of_match_node(of_slave_match_tbl, np->child);
 
 	if (!of_slave_id) {
-		dev_dbg(&pdev->dev, "slave pmic should be defined in dts\n");
+		dev_notice(&pdev->dev, "slave pmic should be defined in dts\n");
 		return -EINVAL;
 	}
 
@@ -2259,7 +2315,7 @@ static int pwrap_probe(struct platform_device *pdev)
 		wrp->rstc = devm_reset_control_get(wrp->dev, "pwrap");
 		if (IS_ERR(wrp->rstc)) {
 			ret = PTR_ERR(wrp->rstc);
-			dev_dbg(wrp->dev, "cannot get pwrap reset: %d\n", ret);
+			dev_notice(wrp->dev, "cannot get pwrap reset: %d\n", ret);
 			return ret;
 		}
 	}
@@ -2275,7 +2331,7 @@ static int pwrap_probe(struct platform_device *pdev)
 							  "pwrap-bridge");
 		if (IS_ERR(wrp->rstc_bridge)) {
 			ret = PTR_ERR(wrp->rstc_bridge);
-			dev_dbg(wrp->dev,
+			dev_notice(wrp->dev,
 				"cannot get pwrap-bridge reset: %d\n", ret);
 			return ret;
 		}
@@ -2283,47 +2339,47 @@ static int pwrap_probe(struct platform_device *pdev)
 
 	wrp->clk_spi = devm_clk_get(wrp->dev, "spi");
 	if (IS_ERR(wrp->clk_spi)) {
-		dev_dbg(wrp->dev, "failed to get clock: %ld\n",
+		dev_notice(wrp->dev, "failed to get clock: %ld\n",
 			PTR_ERR(wrp->clk_spi));
-		return PTR_ERR(wrp->clk_spi);
+	} else {
+		ret = clk_prepare_enable(wrp->clk_spi);
+		if (ret)
+			dev_notice(wrp->dev, "failed to enable clock: %ld\n",
+				PTR_ERR(wrp->clk_spi));
 	}
 
 	wrp->clk_wrap = devm_clk_get(wrp->dev, "wrap");
 	if (IS_ERR(wrp->clk_wrap)) {
-		dev_dbg(wrp->dev, "failed to get clock: %ld\n",
+		dev_notice(wrp->dev, "failed to get clock: %ld\n",
 			PTR_ERR(wrp->clk_wrap));
-		return PTR_ERR(wrp->clk_wrap);
+	} else {
+		ret = clk_prepare_enable(wrp->clk_wrap);
+		if (ret)
+			dev_notice(wrp->dev, "failed to enable clock: %ld\n",
+				PTR_ERR(wrp->clk_wrap));
 	}
 
 	wrp->clk_ulposc = devm_clk_get(wrp->dev, "ulposc");
 	if (IS_ERR(wrp->clk_ulposc)) {
-		dev_dbg(wrp->dev, "failed to get clock: %ld\n",
+		dev_notice(wrp->dev, "failed to get clock: %ld\n",
 			PTR_ERR(wrp->clk_ulposc));
-		return PTR_ERR(wrp->clk_ulposc);
+	} else {
+		ret = clk_prepare_enable(wrp->clk_ulposc);
+		if (ret)
+			dev_notice(wrp->dev, "failed to enable clock: %ld\n",
+				PTR_ERR(wrp->clk_ulposc));
 	}
 
 	wrp->clk_ulposc_osc = devm_clk_get(wrp->dev, "ulposc_osc");
 	if (IS_ERR(wrp->clk_ulposc_osc)) {
-		dev_dbg(wrp->dev, "failed to get clock: %ld\n",
+		dev_notice(wrp->dev, "failed to get clock: %ld\n",
 			PTR_ERR(wrp->clk_ulposc_osc));
-		return PTR_ERR(wrp->clk_ulposc_osc);
+	} else {
+		ret = clk_prepare_enable(wrp->clk_ulposc_osc);
+		if (ret)
+			dev_notice(wrp->dev, "failed to enable clock: %ld\n",
+				PTR_ERR(wrp->clk_ulposc_osc));
 	}
-
-	ret = clk_prepare_enable(wrp->clk_spi);
-	if (ret)
-		return ret;
-
-	ret = clk_prepare_enable(wrp->clk_wrap);
-	if (ret)
-		goto err_out_wrap;
-
-	ret = clk_prepare_enable(wrp->clk_ulposc);
-	if (ret)
-		goto err_out_ulposc;
-
-	ret = clk_prepare_enable(wrp->clk_ulposc_osc);
-	if (ret)
-		goto err_out_ulposc_osc;
 
 	/* Enable internal dynamic clock */
 	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_DCM)) {
@@ -2338,7 +2394,7 @@ static int pwrap_probe(struct platform_device *pdev)
 	if (!pwrap_readl(wrp, PWRAP_INIT_DONE2)) {
 		ret = pwrap_init(wrp);
 		if (ret) {
-			dev_dbg(wrp->dev, "init failed with %d\n", ret);
+			dev_notice(wrp->dev, "init failed with %d\n", ret);
 			goto err_out;
 		}
 	}
@@ -2350,7 +2406,7 @@ static int pwrap_probe(struct platform_device *pdev)
 		rdata = pwrap_readl(wrp, PWRAP_WACS2_RDATA) &
 				    PWRAP_STATE_INIT_DONE1;
 	if (!rdata) {
-		dev_dbg(wrp->dev, "initialization isn't finished\n");
+		dev_notice(wrp->dev, "initialization isn't finished\n");
 		ret = -ENODEV;
 		goto err_out;
 	}
@@ -2381,22 +2437,27 @@ static int pwrap_probe(struct platform_device *pdev)
 		pwrap_writel(wrp, wrp->master->int1_en_all, PWRAP_INT1_EN);
 
 	irq = platform_get_irq(pdev, 0);
-	ret = devm_request_irq(wrp->dev, irq, pwrap_interrupt,
-			       IRQF_TRIGGER_HIGH,
-			       "mt-pmic-pwrap", wrp);
-	if (ret)
-		goto err_out;
+	if (irq < 0) {
+		dev_notice(&pdev->dev,
+			"Failed to get pwrap irq, irq = %d\n", irq);
+	} else {
+		ret = devm_request_irq(wrp->dev, irq, pwrap_interrupt,
+				IRQF_TRIGGER_HIGH, "mt-pmic-pwrap", wrp);
+		if (ret)
+			dev_notice(&pdev->dev,
+				"Failed to register pwrap irq, ret = %d\n", ret);
+	}
 
 	wrp->regmap = devm_regmap_init(wrp->dev, NULL, wrp, wrp->slave->regmap);
 	if (IS_ERR(wrp->regmap)) {
+		dev_notice(&pdev->dev, "regmap init fail\n");
 		ret = PTR_ERR(wrp->regmap);
 		goto err_out;
 	}
 
 	ret = of_platform_populate(np, NULL, NULL, wrp->dev);
 	if (ret) {
-		dev_dbg(wrp->dev, "failed to create child devices at %pOF\n",
-				np);
+		dev_notice(wrp->dev, "failed to create child devices at %pOF\n", np);
 		goto err_out;
 	}
 
@@ -2406,18 +2467,18 @@ static int pwrap_probe(struct platform_device *pdev)
 	    pwrap_read(wrp, wrp->slave->dew_regs[PWRAP_DEW_WRITE_TEST],
 		       &rdata) ||
 	    (rdata != PWRAP_DEW_WRITE_TEST_VAL)) {
-		dev_notice(wrp->dev, "rdata=0x%04X\n", rdata);
-		return -EFAULT;
+			dev_notice(wrp->dev, "pwrap read/write fail rdata=0x%x\n",
+				rdata);
+			return -EFAULT;
+	} else {
+		dev_notice(wrp->dev, "pwrap read/write test pass\n");
 	}
 	return 0;
 
 err_out:
 	clk_disable_unprepare(wrp->clk_ulposc_osc);
-err_out_ulposc_osc:
 	clk_disable_unprepare(wrp->clk_ulposc);
-err_out_ulposc:
 	clk_disable_unprepare(wrp->clk_wrap);
-err_out_wrap:
 	clk_disable_unprepare(wrp->clk_spi);
 
 	return ret;
