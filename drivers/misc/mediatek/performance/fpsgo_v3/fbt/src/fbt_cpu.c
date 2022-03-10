@@ -256,6 +256,7 @@ static int gcc_positive_clamp;
 static int boost_LR;
 static int aa_retarget;
 static int sbe_rescue_enable;
+static int loading_ignore_enable;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -325,6 +326,7 @@ module_param(gcc_deq_bound_quota, int, 0644);
 module_param(gcc_positive_clamp, int, 0644);
 module_param(boost_LR, int, 0644);
 module_param(aa_retarget, int, 0644);
+module_param(loading_ignore_enable, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -1325,7 +1327,7 @@ static void fbt_clear_min_cap(struct render_info *thr)
 static int fbt_is_light_loading(int loading)
 {
 	if (!loading_th || loading > loading_th
-		|| loading == -1 || loading == 0)
+		|| loading == -1 || (loading == 0 && !loading_ignore_enable))
 		return 0;
 
 	return 1;
