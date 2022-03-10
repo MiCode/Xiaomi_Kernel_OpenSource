@@ -619,6 +619,40 @@ static ssize_t dcs_mode_store(struct kobject *kobj,
 static KOBJ_ATTR_RW(dcs_mode);
 #endif /* GED_DCS_POLICY */
 
+static ssize_t fw_idle_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	unsigned int ui32FwIdle;
+	int pos = 0;
+	int length;
+
+	ui32FwIdle = ged_kpi_get_fw_idle();
+
+	length = scnprintf(buf + pos, PAGE_SIZE - pos,
+			"%d\n", ui32FwIdle);
+	pos += length;
+
+	return pos;
+}
+
+static ssize_t fw_idle_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	int i32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0)
+				ged_kpi_set_fw_idle(i32Value);
+		}
+	}
+
+	return count;
+}
+static KOBJ_ATTR_RW(fw_idle);
 //-----------------------------------------------------------------------------
 GED_ERROR ged_hal_init(void)
 {
@@ -729,6 +763,12 @@ GED_ERROR ged_hal_init(void)
 	}
 #endif /* GED_DCS_POLICY */
 
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_fw_idle);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to create fw_idle entry!\n");
+		goto ERROR;
+	}
+
 	return err;
 
 ERROR:
@@ -759,6 +799,8 @@ void ged_hal_exit(void)
 #ifdef GED_DCS_POLICY
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dcs_mode);
 #endif
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fw_idle);
+
 	ged_sysfs_remove_dir(&hal_kobj);
 }
 //-----------------------------------------------------------------------------

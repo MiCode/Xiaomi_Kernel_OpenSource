@@ -36,6 +36,9 @@ unsigned int ged_kpi_get_cur_avg_response_time(void);
 unsigned int ged_kpi_get_cur_avg_gpu_remained_time(void);
 unsigned int ged_kpi_get_cur_avg_cpu_remained_time(void);
 unsigned int ged_kpi_get_cur_avg_gpu_freq(void);
+unsigned int ged_kpi_get_fw_idle(void);
+
+
 void ged_kpi_get_latest_perf_state(long long *t_cpu_remained,
 		long long *t_gpu_remained,
 		long *t_cpu_target,
@@ -50,6 +53,7 @@ unsigned int ged_kpi_enabled(void);
 void ged_kpi_set_target_FPS(u64 ulID, int target_FPS);
 void ged_kpi_set_target_FPS_margin(u64 ulID, int target_FPS,
 		int target_FPS_margin, int eara_fps_margin, int cpu_time);
+void ged_kpi_set_fw_idle(unsigned int time);
 
 GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real, int *pT_gpu_pipe,
 	int *pT_gpu_target, unsigned long long *pullWnd);
