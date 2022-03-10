@@ -199,7 +199,6 @@ def main(**args):
     file_handle.write(build_config_fragments + '"\n')
     file_handle.write('if [ "x${ENABLE_GKI_CHECKER}" == "xtrue" ] || [ -d "${ROOT_DIR}/../vendor/mediatek/internal" ] && [ "${KERNEL_BUILD_MODE}" == "user" ]; then\n')
     file_handle.write('  BUILD_CONFIG_FRAGMENTS="${BUILD_CONFIG_FRAGMENTS} ${KERNEL_DIR}/build.config.mtk.check_gki"\n')
-    file_handle.write('  ADDITIONAL_HOST_TOOLS="${ADDITIONAL_HOST_TOOLS} strings less"\n')
     file_handle.write('fi\n')
     if kernel_build_config_overlays:
         build_config_fragments = 'BUILD_CONFIG_FRAGMENTS="${BUILD_CONFIG_FRAGMENTS} %s"' % (kernel_build_config_overlays)
