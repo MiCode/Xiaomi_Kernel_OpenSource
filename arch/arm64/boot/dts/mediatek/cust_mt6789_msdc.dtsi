@@ -11,33 +11,35 @@
 	host-index = <0>;
 	status = "okay";
 	pinctrl-names = "default", "state_uhs";
-	//pinctrl-0 = <&mmc0_pins_default>;
-	//pinctrl-1 = <&mmc0_pins_uhs>;
+	pinctrl-0 = <&mmc0_pins_default>;
+	pinctrl-1 = <&mmc0_pins_uhs>;
 	bus-width = <8>;
 	max-frequency = <200000000>;
+	ocr-voltage = <0x00030000>;
 	cap-mmc-highspeed;
-	//mmc-ddr-1_8v;
-	//mmc-hs200-1_8v;
-	//mmc-hs400-1_8v;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
 	//cap-mmc-hw-reset;
 	no-sdio;
 	no-sd;
 	hs400-ds-delay = <0x12814>;
-	//vmmc-supply = <&mt6359p_vemc_reg>;
+	vmmc-supply = <&mt6358_vemc_reg>;
 	non-removable;
 	supports-cqe;
-	//dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-	//req-vcore = <650000>;
+	dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+	req-vcore = <650000>;
 };
 
 &mmc1 {
 	host-index = <1>;
 	status = "okay";
 	pinctrl-names = "default", "state_uhs";
-	//pinctrl-0 = <&mmc1_pins_default>;
-	//pinctrl-1 = <&mmc1_pins_uhs>;
+	pinctrl-0 = <&mmc1_pins_default>;
+	pinctrl-1 = <&mmc1_pins_uhs>;
 	bus-width = <4>;
 	max-frequency = <200000000>;
+	ocr-voltage = <0x00030000>;
 	cap-sd-highspeed;
 	sd-uhs-sdr12;
 	sd-uhs-sdr25;
@@ -45,14 +47,15 @@
 	sd-uhs-sdr104;
 	sd-uhs-ddr50;
 	cd-debounce-delay-ms = <0>;
-	cd-gpios = <&pio 23 GPIO_ACTIVE_LOW>;
-	//vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
-	//vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
+	cd-gpios = <&pio 7 GPIO_ACTIVE_LOW>;
+	vmmc-supply = <&mt6358_vmch_reg>;
+	vqmmc-supply = <&mt6358_vmc_reg>;
 	no-mmc;
 	no-sdio;
+	dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+	req-vcore = <650000>;
 };
 
-#if 0
 &pio {
 	mmc0_pins_default: mmc0default {
 		pins_cmd_dat {
@@ -148,4 +151,3 @@
 		};
 	};
 };
-#endif
