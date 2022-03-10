@@ -9,7 +9,7 @@
 #include "himax_modular_table.h"
 /*rotate*/
 
-#if 0
+#if defined(CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW)
 static void tpd_rotate_180(int *x, int *y)
 {
 	*x = TPD_RES_X - *x;
@@ -2434,7 +2434,10 @@ static void himax_finger_report(struct himax_ts_data *ts)
 			input_report_abs(ts->input_dev, ABS_MT_TRACKING_ID,
 					i + 1);
 #endif
-			//tpd_rotate_180(&g_target_report_data->x[i], &g_target_report_data->y[i]);
+
+#if defined(CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW)
+			tpd_rotate_180(&g_target_report_data->x[i], &g_target_report_data->y[i]);
+#endif
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_X,
 					g_target_report_data->x[i]);
 			input_report_abs(ts->input_dev, ABS_MT_POSITION_Y,
