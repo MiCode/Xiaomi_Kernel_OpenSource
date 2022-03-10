@@ -1608,18 +1608,6 @@
 			interrupts = <GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
-		sleep@10006a00 {
-			compatible = "mediatek,sleep";
-			reg = <0 0x10006a00 0 0x400>;
-			interrupts = <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH 0>;
-		};
-
-		sleep@10006e00 {
-			compatible = "mediatek,sleep";
-			reg = <0 0x10006e00 0 0x200>;
-			interrupts = <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH 0>;
-		};
-
 		watchdog: watchdog@10007000 {
 			compatible = "mediatek,mt6789-wdt",
 			      "mediatek,mt6589-wdt",
