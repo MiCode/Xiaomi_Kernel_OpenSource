@@ -21,7 +21,7 @@ enum dvfs_apmcu_task_id {
 	DVFS_CCU_NO_NEED_CB = -1,
 	DVFS_CCU_INIT = 0,
 	DVFS_VOLTAGE_UPDATE = 1,
-	DVFS_CCU_UNINIT = 2,
+	DVFS_CCU_DVFS_RESET = 2,
 	DVFS_CCU_QUERY_VB = 3,
 };
 
@@ -51,7 +51,6 @@ struct dvfs_info {
 
 struct ccu_handle_info {
 	phandle handle;
-	struct rproc *proc;
 	struct platform_device *ccu_pdev;
 };
 
@@ -67,8 +66,6 @@ struct dvfs_driver_data {
 	u32 disable_dvfs;
 	struct ccu_handle_info ccu_handle;
 	atomic_t ccu_power_on;
-	atomic_t request_power_on;
-	struct work_struct work_structure;
 };
 
 struct dvfs_ipc_init {
