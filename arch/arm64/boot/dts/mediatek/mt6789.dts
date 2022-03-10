@@ -18,6 +18,7 @@
 #include <dt-bindings/mfd/mt6375.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/memory/mt6789-larb-port.h>
+#include <dt-bindings/reset/ti-syscon.h>
 
 / {
 	model = "MT6789";
@@ -1010,6 +1011,7 @@
 		compatible = "mediatek,mt6789-infracfg_ao", "syscon", "simple-mfd";
 		reg = <0 0x10001000 0 0x1000>;
 		#clock-cells = <1>;
+
 		infracfg_rst: reset-controller {
 			compatible = "ti,syscon-reset";
 			#reset-cells = <1>;
@@ -1017,7 +1019,15 @@
 			ti,reset-bits = <
 				0x120 0 0x124 0 0 0
 				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* lvts_ap */
-			>;
+
+				/* ufs reset */
+				0x130 15 0x134 15 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 1: ufshci */
+				0x140  7 0x144  7 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 2: unipro */
+				0x150 21 0x154 21 0 0
+				(ASSERT_SET | DEASSERT_SET | STATUS_NONE) /* 3: ufs-crypto */
+				>;
 		};
 	};
 
@@ -2675,9 +2685,29 @@
 			reg = <0 0x11270000 0 0x2300>;
 			interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH 0>;
 
-			bootmode = <&chosen>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_UFS>,
+				   <&infracfg_ao_clk CLK_IFRAO_UFS_SAP_BCLK>,
+				   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_TICK>,
+				   <&infracfg_ao_clk CLK_IFRAO_UNIPRO_SYSCLK>,
+				   <&infracfg_ao_clk CLK_IFRAO_UFS_AES>,
+				   <&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
+				   <&topckgen_clk CLK_TOP_UFS_SEL>;
+			clock-names = "ufs", "ufs_mp", "unipro_tick",
+					"unipro_sys", "ufs_aes",
+					"ufsfde_ck", "ufs_ck";
+
+			freq-table-hz = <0 0>, <0 0>, <0 0>, <0 0>, <0 0>,
+					<0 0>, <0 0>;
+
+			/* vccq2 is ext ldo */
+			vcc-supply = <&mt6358_vemc_reg>;
+
+			resets = <&infracfg_rst 1>, <&infracfg_rst 2>,
+				<&infracfg_rst 3>;
+			reset-names = "hci_rst", "unipro_rst", "crypto_rst";
 
 			mediatek,ufs-disable-ah8;
+			bootmode = <&chosen>;
 			mediatek,ufs-qos;
 		};
 
@@ -4499,6 +4529,10 @@
 };
 
 &mt6358_vaux18_reg {
+	regulator-always-on;
+};
+
+&mt6358_vemc_reg {
 	regulator-always-on;
 };
 
