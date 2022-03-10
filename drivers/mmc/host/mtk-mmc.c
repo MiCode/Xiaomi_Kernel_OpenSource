@@ -898,6 +898,7 @@ static bool msdc_command_resp_polling(struct msdc_host *host,
 	unsigned long tmo;
 	int events;
 
+retry:
 	/* polling */
 	tmo = jiffies + timeout;
 	while (1) {
@@ -920,6 +921,14 @@ static bool msdc_command_resp_polling(struct msdc_host *host,
 
 	if (cmd)
 		ret = msdc_cmd_done(host, events, mrq, cmd);
+
+	/* if only autocmd23 done,
+	 * it needs to polling read/write interrupt directly
+	 */
+	if (!ret && mrq->sbc && cmd == mrq->cmd &&
+	    (events & (MSDC_INT_ACMDRDY | MSDC_INT_ACMDCRCERR
+		| MSDC_INT_ACMDTMO)))
+		goto retry;
 
 exit:
 	return ret;
