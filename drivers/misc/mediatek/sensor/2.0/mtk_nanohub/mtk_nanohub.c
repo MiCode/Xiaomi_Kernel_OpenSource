@@ -313,9 +313,13 @@ static void mtk_nanohub_sync_time_func(struct timer_list *list)
 
 static int mtk_nanohub_direct_push_work(void *data)
 {
+	int ret = 0;
+
 	for (;;) {
-		wait_event(chre_kthread_wait,
+		ret = wait_event_interruptible(chre_kthread_wait,
 			READ_ONCE(chre_kthread_wait_condition));
+		if (ret)
+			continue;
 		WRITE_ONCE(chre_kthread_wait_condition, false);
 		mtk_nanohub_read_wp_queue();
 	}
@@ -1792,13 +1796,14 @@ static void mtk_nanohub_start_timesync(void)
 
 void mtk_nanohub_power_up_loop(void *data)
 {
-	int id = 0;
+	int ret = 0, id = 0;
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
 	unsigned long flags = 0;
 
-	wait_event(power_reset_wait,
+	ret = wait_event_interruptible(power_reset_wait,
 		READ_ONCE(scp_system_ready) && READ_ONCE(scp_chre_ready));
-
+	if (ret)
+		return;
 	pr_info("SCP power up\n");
 	spin_lock_irqsave(&scp_state_lock, flags);
 	WRITE_ONCE(scp_chre_ready, false);
