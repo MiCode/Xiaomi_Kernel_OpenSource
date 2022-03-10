@@ -38,6 +38,7 @@
 #include "imgsensor_cfg_table.h"
 #include "imgsensor_sensor_list.h"
 #include "imgsensor_hw.h"
+#include "imgsensor_sensor.h"
 #include "imgsensor_i2c.h"
 #include "imgsensor_proc.h"
 #ifdef IMGSENSOR_OC_ENABLE
