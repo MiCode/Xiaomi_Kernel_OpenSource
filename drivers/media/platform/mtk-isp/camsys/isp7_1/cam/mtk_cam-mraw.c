@@ -228,6 +228,9 @@ static int mtk_mraw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 			pipe->enabled_dmas |= (1ULL << pipe->vdev_nodes[i].desc.dma_port);
 		}
 	} else {
+		for (i = 0; i < ARRAY_SIZE(mraw->devs); i++)
+			if (pipe->enabled_mraw & 1<<i)
+				pm_runtime_put_sync(mraw->devs[i]);
 		pipe->enabled_mraw = 0;
 		pipe->enabled_dmas = 0;
 	}
@@ -1876,8 +1879,6 @@ int mtk_cam_mraw_dev_stream_on(
 			mtk_cam_mraw_fbc_disable(mraw_dev) ||
 			mtk_cam_mraw_dma_disable(mraw_dev) ||
 			mtk_cam_mraw_tg_disable(mraw_dev);
-
-		pm_runtime_put_sync(mraw_dev->dev);
 	}
 
 	dev_info(dev, "mraw %d %s en(%d)\n", mraw_dev->id, __func__, streaming);

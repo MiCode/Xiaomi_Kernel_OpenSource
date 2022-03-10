@@ -217,6 +217,12 @@ static int mtk_camsv_sd_s_stream(struct v4l2_subdev *sd, int enable)
 			pipe->enabled_dmas |= pipe->vdev_nodes[i].desc.dma_port;
 		}
 	} else {
+		for (i = 0; i < ARRAY_SIZE(sv->devs); i++) {
+			if (pipe->enabled_sv & 1 << i) {
+				dev_info(sv->cam_dev, "%s: power off sv (%d)\n", __func__, i);
+				pm_runtime_put_sync(sv->devs[i]);
+			}
+		}
 		pipe->enabled_sv = 0;
 		pipe->enabled_dmas = 0;
 	}
@@ -2174,7 +2180,6 @@ int mtk_cam_sv_dev_stream_on(
 			mtk_cam_sv_fbc_disable(camsv_dev) ||
 			mtk_cam_sv_dmao_disable(camsv_dev) ||
 			mtk_cam_sv_tg_disable(camsv_dev);
-		pm_runtime_put_sync(camsv_dev->dev);
 	}
 
 	dev_info(dev, "camsv %d %s en(%d)\n", camsv_dev->id, __func__, streaming);

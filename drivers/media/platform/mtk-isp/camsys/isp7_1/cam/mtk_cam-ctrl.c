@@ -5,6 +5,7 @@
 
 #include <linux/list.h>
 #include <linux/of.h>
+#include <linux/pm_runtime.h>
 
 #include <media/v4l2-event.h>
 #include <media/v4l2-subdev.h>
@@ -5217,6 +5218,7 @@ void mtk_cam_extisp_sv_stream_delayed(struct mtk_cam_ctx *ctx,
 
 void mtk_cam_extisp_sv_stream(struct mtk_cam_ctx *ctx, bool en)
 {
+	struct mtk_camsv_device *camsv_dev;
 	unsigned int hw_scen =
 			(1 << MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP);
 	int sv_i;
@@ -5276,6 +5278,10 @@ void mtk_cam_extisp_sv_stream(struct mtk_cam_ctx *ctx, bool en)
 				ctx->cam->sv.pipelines[sv_i - MTKCAM_SUBDEV_CAMSV_START]
 					.is_occupied = 0;
 				ctx->pipe->enabled_raw &= ~(1 << sv_i);
+
+				camsv_dev = get_camsv_dev(ctx->cam, &ctx->cam->sv.pipelines[
+					sv_i - MTKCAM_SUBDEV_CAMSV_START]);
+				pm_runtime_put_sync(camsv_dev->dev);
 			}
 		}
 	}

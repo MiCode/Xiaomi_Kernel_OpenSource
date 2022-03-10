@@ -5205,6 +5205,10 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 					cam->sv.pipelines[
 						i - MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
 					ctx->pipe->enabled_raw &= ~(1 << i);
+
+					sv_dev = get_camsv_dev(cam, &cam->sv.pipelines[
+						i - MTKCAM_SUBDEV_CAMSV_START]);
+					pm_runtime_put_sync(sv_dev->dev);
 				}
 			}
 		} else {
@@ -5249,6 +5253,10 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 					(ctx, i - MTKCAM_SUBDEV_CAMSV_START, 0, hw_scen);
 				cam->sv.pipelines[i - MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
 				ctx->pipe->enabled_raw &= ~(1 << i);
+
+				sv_dev = get_camsv_dev(cam, &cam->sv.pipelines[
+					i - MTKCAM_SUBDEV_CAMSV_START]);
+				pm_runtime_put_sync(sv_dev->dev);
 			}
 		}
 	} else if (mtk_cam_is_with_w_channel(ctx)) {
@@ -5260,6 +5268,10 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 					(ctx, i - MTKCAM_SUBDEV_CAMSV_START, 0, hw_scen);
 				cam->sv.pipelines[i - MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
 				ctx->pipe->enabled_raw &= ~(1 << i);
+
+				sv_dev = get_camsv_dev(cam, &cam->sv.pipelines[
+					i - MTKCAM_SUBDEV_CAMSV_START]);
+				pm_runtime_put_sync(sv_dev->dev);
 			}
 		}
 	}
@@ -7289,6 +7301,8 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev;
 	struct mtk_raw_device *raw_dev;
+	struct mtk_camsv_device *camsv_dev;
+
 	unsigned int i, enabled_sv = 0;
 	int ret;
 	int feature = 0;
@@ -7368,6 +7382,10 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 						i - MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
 					ctx->pipe->enabled_raw &= ~(1 << i);
 					enabled_sv |= (1 << i);
+
+					camsv_dev = get_camsv_dev(cam, &cam->sv.pipelines[
+						i - MTKCAM_SUBDEV_CAMSV_START]);
+					pm_runtime_put_sync(camsv_dev->dev);
 				}
 			}
 			if (mtk_cam_ts_are_all_ctx_off(cam, ctx))
@@ -7409,6 +7427,10 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 				cam->sv.pipelines[i - MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
 				ctx->pipe->enabled_raw &= ~(1 << i);
 				enabled_sv |= (1 << i);
+
+				camsv_dev = get_camsv_dev(cam, &cam->sv.pipelines[
+					i - MTKCAM_SUBDEV_CAMSV_START]);
+				pm_runtime_put_sync(camsv_dev->dev);
 			}
 		}
 	}
