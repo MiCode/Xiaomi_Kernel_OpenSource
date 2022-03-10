@@ -5,6 +5,8 @@
 #include <linux/module.h>
 #include <linux/init.h>
 
+#include <clkchk-mt6983.h>
+
 #include "mtk_cam.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-video.h"
@@ -213,6 +215,12 @@ static bool camsys_support_AFO_independent(unsigned long fps)
 	return true;
 }
 
+static bool camsys_dump_raw_hw_debug_info(u32 raw_id)
+{
+	/* Don't dump debug info for mt6983 */
+	return true;
+}
+
 static struct camsys_plat_fp plat_fp = {
 	.get_meta_version = camsys_get_meta_version,
 	.get_meta_size = camsys_get_meta_size,
@@ -224,6 +232,7 @@ static struct camsys_plat_fp plat_fp = {
 	.get_port_bw = camsys_get_port_bw,
 	.get_timestamp_addr = camsys_get_timestamp_addr,
 	.support_AFO_independent = camsys_support_AFO_independent,
+	.dump_raw_hw_debug_info = camsys_dump_raw_hw_debug_info,
 };
 
 static int __init plat_module_init(void)

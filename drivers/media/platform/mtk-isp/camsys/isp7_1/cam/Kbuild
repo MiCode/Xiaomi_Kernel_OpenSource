@@ -11,6 +11,7 @@ subdir-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
 	     -I$(srctree)/drivers/misc/mediatek/imgsensor/inc/ \
 	     -I$(srctree)/drivers/dma-buf/heaps/ \
 	     -I$(srctree)/drivers/misc/mediatek/iommu/ \
+	     -I$(srctree)/drivers/clk/mediatek/ \
 	     -I$(src)
 
 
