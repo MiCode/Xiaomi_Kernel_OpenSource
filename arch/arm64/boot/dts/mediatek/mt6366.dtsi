@@ -39,6 +39,30 @@
 					"pmic_ptim_r";
 		};
 
+		accdet: accdet {
+			compatible = "mediatek,mt6358-accdet";
+			accdet-name = "mt6358-accdet";
+			/* accdet micbias voltage: 0x07,2.7v;0x05,2.5v;0x02,1.9v */
+			accdet-mic-vol = <6>;
+			headset-mode-setting = <0x500 0x500 1 0x1f0 0x800 0x800 0x20 0x44>;
+			accdet-plugout-debounce = <1>;
+			/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
+			accdet-mic-mode = <1>;
+			/* eint_level_trigger: 8,LEVEL_LOW(DEF) ;4,LV_HIGH;others,LV_LOW */
+			headset-eint-level-pol = <8>;
+			/*0--MD_MAX--UP_MAX--DW_MAX*/
+			headset-three-key-threshold = <0 80 220 400>;
+			headset-three-key-threshold-CDD = <0 121 192 600>;
+			/*0--MD_MAX--VOICE_MAX--UP_MAX--DW_MAX*/
+			headset-four-key-threshold = <0 58 121 192 400>;
+			io-channels = <&pmic_auxadc AUXADC_ACCDET>;
+			io-channel-names = "pmic_accdet";
+			nvmem = <&pmic_efuse>;
+			nvmem-names = "mt63xx-accdet-efuse";
+			mediatek,accdet-pmic = <0x66>;
+			status = "okay";
+		};
+
 		pmic_auxadc: mt635x-auxadc {
 			compatible = "mediatek,pmic-auxadc",
 				     "mediatek,mt6358-auxadc";
