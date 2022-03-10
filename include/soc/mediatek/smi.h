@@ -14,6 +14,10 @@
 
 #define MTK_SMI_MMU_EN(port)	BIT(port)
 
+#define RESET_CELL_NUM			(2)
+#define MAX_LARB_FOR_CLAMP		(6)
+#define MAX_COMMON_FOR_CLAMP	(3)
+
 struct mtk_smi_larb_iommu {
 	struct device *dev;
 	unsigned int   mmu;
@@ -48,6 +52,18 @@ struct mtk_smi_dev {
 
 	u32 nr_scen_pairs;
 	struct mtk_smi_pair **scen_pairs;
+
+	u32	power_reset_pa[MAX_LARB_FOR_CLAMP];
+	void __iomem *power_reset_reg[MAX_LARB_FOR_CLAMP];
+	u32	power_reset_value[MAX_LARB_FOR_CLAMP];
+
+	u32	comm_reset_pa[MAX_LARB_FOR_CLAMP];
+	void __iomem *comm_reset_reg[MAX_LARB_FOR_CLAMP];
+	u32	comm_reset_value[MAX_LARB_FOR_CLAMP];
+	bool comm_reset;
+
+	bool comm_clamp_enable;
+	u32	comm_clamp_value[MAX_LARB_FOR_CLAMP];
 };
 
 s32 mtk_smi_clk_enable(struct mtk_smi_dev *smi);

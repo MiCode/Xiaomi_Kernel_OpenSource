@@ -1198,16 +1198,55 @@ static void smi_subsys_after_on(enum subsys_id sys)
 	u32 subsys = smi_subsys_to_larbs[sys];
 	u32 smi_scen = smi_scen_map[smi_drv.scen];
 	s32 i;
+#if IS_ENABLED(CONFIG_MACH_MT6781)
+	s32 j;
+#endif
 
 	if (!subsys)
 		return;
+
+#if IS_ENABLED(CONFIG_MACH_MT6781)
+	for (i = SMI_DEV_NUM - 1; i >= 0; i--) {
+		if (subsys & (1 << i)) {
+			smi_clk_record(i, true, NULL);
+			mtk_smi_clk_enable(smi_dev[i]);
+
+			//larb enable
+			if (smi_dev[i]->comm_reset) {
+				//power reset
+				for (j = 0; (j < MAX_LARB_FOR_CLAMP)
+					&& smi_dev[i]->power_reset_reg[j]; j++) {
+					writel(smi_dev[i]->power_reset_value[j],
+						smi_dev[i]->power_reset_reg[j]);
+					writel(0, smi_dev[i]->power_reset_reg[j]);
+				}
+				//common reset
+				for (j = 0; (j < MAX_LARB_FOR_CLAMP)
+					&& smi_dev[i]->comm_reset_reg[j]; j++) {
+					writel(smi_dev[i]->comm_reset_value[j],
+						smi_dev[i]->comm_reset_reg[j]
+						+ SMI_COMMON_CLAMP_EN_CLR);
+				}
+			}
+			//common enable
+			for (j = 0; (j < MAX_LARB_FOR_CLAMP)
+						&& smi_dev[i]->comm_clamp_value[j]; j++) {
+				writel(smi_dev[i]->comm_clamp_value[j],
+					smi_dev[i]->base + SMI_COMMON_CLAMP_EN_SET);
+			}
+		}
+	}
+#endif
+
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	//mmprofile_log(smi_mmp_event[sys], MMPROFILE_FLAG_START);
 #endif
 	for (i = SMI_DEV_NUM - 1; i >= 0; i--)
 		if (subsys & (1 << i)) {
+#if !IS_ENABLED(CONFIG_MACH_MT6781)
 			smi_clk_record(i, true, NULL);
 			mtk_smi_clk_enable(smi_dev[i]);
+#endif
 			mtk_smi_conf_set(smi_dev[i], smi_scen);
 			smi_larb_port_set(smi_dev[i]);
 		}
@@ -1218,6 +1257,9 @@ static void smi_subsys_before_off(enum subsys_id sys)
 {
 	u32 subsys = smi_subsys_to_larbs[sys];
 	s32 i;
+#if IS_ENABLED(CONFIG_MACH_MT6781)
+	s32 j;
+#endif
 
 	if (!subsys)
 		return;
@@ -1232,11 +1274,29 @@ static void smi_subsys_before_off(enum subsys_id sys)
 			if ((smi_mm_first & subsys) && sys == SYS_MDP)
 				continue;
 #endif
+#if !IS_ENABLED(CONFIG_MACH_MT6781)
 			mtk_smi_clk_disable(smi_dev[i]);
+#endif
 		}
 	smi_mm_first &= ~subsys;
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	//mmprofile_log(smi_mmp_event[sys], MMPROFILE_FLAG_END);
+#endif
+#if IS_ENABLED(CONFIG_MACH_MT6781)
+	for (i = SMI_DEV_NUM - 1; i >= 0; i--) {
+		if (subsys & (1 << i)) {
+			if (smi_dev[i]->comm_reset) {
+				for (j = 0; (j < MAX_LARB_FOR_CLAMP)
+						&& smi_dev[i]->comm_reset_reg[j]; j++) {
+					//larb disable
+					writel(smi_dev[i]->comm_reset_value[j],
+						smi_dev[i]->comm_reset_reg[j] +
+						SMI_COMMON_CLAMP_EN_SET);
+				}
+			}
+			mtk_smi_clk_disable(smi_dev[i]);
+		}
+	}
 #endif
 }
 

@@ -684,6 +684,9 @@ static int mtk_smi_dev_probe(struct platform_device *pdev, const u32 id)
 {
 	struct resource *res;
 	void __iomem *base;
+	u32 reset_tmp, reset_num, offset,
+		comm_reset_tmp, comm_reset_num, comm_offset, comm_clamp_tmp;
+	s32 i;
 
 
 	if (id > nr_dev) {
@@ -711,6 +714,54 @@ static int mtk_smi_dev_probe(struct platform_device *pdev, const u32 id)
 	dev_info(&pdev->dev,
 		"SMI%u base: VA=%p, PA=%pa\n", id, base, &res->start);
 	platform_set_drvdata(pdev, smi_dev[id]);
+
+	if (of_get_property(smi_dev[id]->dev->of_node, "power-reset", &reset_tmp)) {
+		reset_num = reset_tmp / (sizeof(u32) * RESET_CELL_NUM);
+		for (i = 0; i < reset_num; i++) {
+			offset = i * RESET_CELL_NUM;
+			if (of_property_read_u32_index(smi_dev[id]->dev->of_node,
+					"power-reset", offset, &reset_tmp))
+				break;
+			smi_dev[id]->power_reset_pa[i] = reset_tmp;
+			smi_dev[id]->power_reset_reg[i] = ioremap(reset_tmp, 4);
+
+			if (of_property_read_u32_index(smi_dev[id]->dev->of_node,
+					"power-reset", offset + 1, &reset_tmp))
+				break;
+			smi_dev[id]->power_reset_value[i] = 1 << reset_tmp;
+		}
+	}
+
+	if (of_get_property(smi_dev[id]->dev->of_node, "common-reset", &comm_reset_tmp)) {
+		comm_reset_num = comm_reset_tmp / (sizeof(u32) * RESET_CELL_NUM);
+		for (i = 0; i < comm_reset_num; i++) {
+			comm_offset = i * RESET_CELL_NUM;
+			if (of_property_read_u32_index(smi_dev[id]->dev->of_node,
+					"common-reset", comm_offset, &comm_reset_tmp)) {
+				break;
+			}
+			smi_dev[id]->comm_reset_pa[i] = comm_reset_tmp;
+			smi_dev[id]->comm_reset_reg[i] = ioremap(comm_reset_tmp, 1000);
+			if (of_property_read_u32_index(smi_dev[id]->dev->of_node,
+					"common-reset", comm_offset + 1, &comm_reset_tmp)) {
+				break;
+			}
+			smi_dev[id]->comm_reset_value[i] = 1 << comm_reset_tmp;
+			smi_dev[id]->comm_reset = true;
+		}
+	}
+
+	if (of_get_property(smi_dev[id]->dev->of_node, "common-clamp", &comm_clamp_tmp)) {
+		for (i = 0; i < MAX_COMMON_FOR_CLAMP; i++) {
+			comm_offset = i * RESET_CELL_NUM;
+			if (of_property_read_u32_index(smi_dev[id]->dev->of_node,
+					"common-clamp",comm_offset, &comm_clamp_tmp)) {
+				break;
+			}
+			smi_dev[id]->comm_clamp_value[i] = 1 << comm_clamp_tmp;
+		}
+	}
+
 	return mtk_smi_clks_get(smi_dev[id]);
 }
 
