@@ -727,6 +727,9 @@ int __init spm_module_init(void)
 	SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS, SPM_ARGS_SPMFW_IDX,
 		 __spm_get_dram_type(), is_ext_buck);
 
+	SMC_CALL(MTK_SIP_KERNEL_SPM_VCOREFS_ARGS, 0x01,
+		 SPM_FLAG_RUN_COMMON_SCENARIO, 0);
+
 	spm_vcorefs_init();
 
 	return 0;
