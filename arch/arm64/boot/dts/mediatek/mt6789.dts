@@ -49,7 +49,6 @@
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram \
 			    loglevel=8 \
-			    androidboot.selinux=permissive \
 			    androidboot.hardware=mt6789 \
 			    initcall_debug=1 \
 			    vmalloc=400M swiotlb=noforce cma=64M \
