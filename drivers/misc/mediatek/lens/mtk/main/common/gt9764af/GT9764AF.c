@@ -133,6 +133,9 @@ static int initAF(void)
 {
 	LOG_INF("+\n");
 
+	//wait driver ic ready
+	mdelay(5);
+
 	if (*g_pAF_Opened == 1) {
 
 		//int i4RetValue = 0;

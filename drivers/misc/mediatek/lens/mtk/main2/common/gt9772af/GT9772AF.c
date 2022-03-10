@@ -127,6 +127,10 @@ static inline int getAFInfo(__user struct stAF_MotorInfo *pstMotorInfo)
 /* initAF include driver initialization and standby mode */
 static int initAF(void)
 {
+	LOG_INF("+\n");
+
+	//wait driver ic ready
+	mdelay(5);
 
 	if (*g_pAF_Opened == 1) {
 
