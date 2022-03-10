@@ -142,6 +142,7 @@ void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
 
 void fbt_set_cpu_prefer(int pid, unsigned int prefer_type)
 {
+#if defined(CONFIG_MTK_SCHED_CPU_PREFER)
 	long ret;
 
 	if (!pid)
@@ -149,6 +150,7 @@ void fbt_set_cpu_prefer(int pid, unsigned int prefer_type)
 
 	ret = sched_set_cpuprefer(pid, prefer_type);
 	fpsgo_systrace_c_fbt(pid, 0, prefer_type, "set_cpuprefer");
+#endif
 }
 
 int fbt_get_L_min_ceiling(void)
