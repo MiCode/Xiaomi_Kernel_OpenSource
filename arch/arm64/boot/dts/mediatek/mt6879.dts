@@ -4225,7 +4225,7 @@
 			< 750000	750000	0xff		0xfff		133  0	0x0>,
 			< 750000	750000	0xff		0xfff		200  0	0x0>,
 			< 750000	750000	0xff		0xfff		400  0	0x0>,
-			< 750000	750000	0xff		0xfff		624  1	0x0>;
+			< 750000	750000	0xff		0xfff		624  1	0x3>;
 
 			gpio-base = <&scp_gpio>;
 			gpio-vreq-mode = <1>;
