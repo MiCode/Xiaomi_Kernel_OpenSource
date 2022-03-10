@@ -27,6 +27,12 @@ obj-y += mtk_mcdi_governor_hint.o
 obj-y += mtk_mcdi_api.o
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
+
+ifeq ($(CONFIG_MACH_MT6771), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/mcdi_v1/
+obj-y += mcdi_v1/
+endif
+
 ifeq ($(CONFIG_MACH_MT3967), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/mcdi_v1/
 obj-y += mcdi_v1/

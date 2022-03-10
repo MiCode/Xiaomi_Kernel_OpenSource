@@ -132,6 +132,7 @@ obj-$(CONFIG_MACH_MT6765) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6761) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6779) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6785) += cpuidle_v3/
+obj-$(CONFIG_MACH_MT6771) += cpuidle_v3/
 #obj-$(CONFIG_MACH_MT6739) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6771) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6779) += cpuhotplug/
@@ -163,6 +164,7 @@ obj-$(CONFIG_MACH_MT6761) += mcdi/
 obj-$(CONFIG_MACH_MT6779) += mcdi/
 obj-$(CONFIG_MACH_MT6768) += mcdi/
 obj-$(CONFIG_MACH_MT6785) += mcdi/
+obj-$(CONFIG_MACH_MT6771) += mcdi/
 ifeq ($(CONFIG_MTK_CM_MGR_LEGACY), y)
 obj-$(CONFIG_MACH_MT6765) += cm_mgr_v1/
 obj-$(CONFIG_MACH_MT6761) += cm_mgr_v1/
