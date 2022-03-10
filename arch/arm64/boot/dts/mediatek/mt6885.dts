@@ -460,21 +460,6 @@ page_owner=on loop.max_part=7";
 		#size-cells = <2>;
 		ranges;
 
-		reserve-memory-ssmr {
-			compatible = "mediatek,reserve-memory-ssmr";
-			no-map;
-			size = <0 0x1000>;
-			alignment = <0 0x1000>;
-			alloc-ranges = <0 0xc0000000 4 0x00000000>;
-		};
-
-		zmc-default {
-			compatible = "mediatek,zone_movable_cma";
-			size = <0 0x35000000>;
-			alignment = <0 0x1000000>;
-			alloc-ranges = <0 0xc0000000 4 0x00000000>;
-		};
-
 		ion-carveout-heap {
 			compatible = "mediatek,ion-carveout-heap";
 			no-map;
@@ -545,6 +530,13 @@ page_owner=on loop.max_part=7";
 			size = <0 0x200000>; /* 2M  */
 			alignment = <0 0x10000>;
 			alloc-ranges = <0 0x40000000 0 0x60000000>;
+		};
+		ssmr_cma_mem: ssmr-reserved-cma_memory {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x10000000>;
+			alignment = <0 0x1000000>;
+			alloc-range = <0 0xc0000000 0 0x10000000>;
 		};
 	};
 
@@ -6236,6 +6228,11 @@ page_owner=on loop.max_part=7";
 	odm: odm {
 		compatible = "simple-bus";
 		/* reserved for overlay by odm */
+	};
+
+	ssmr {
+		compatible = "mediatek,trusted_mem";
+		memory-region = <&ssmr_cma_mem>;
 	};
 
 	memory_ssmr_features: memory-ssmr-features {
