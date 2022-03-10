@@ -2772,6 +2772,7 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 	int err = 0;
 	unsigned int response;
 	unsigned int uCmdEdge = 0;
+	unsigned int uDatEdge = 0;
 	u64 RawData64 = 0LL;
 	unsigned int score = 0;
 	unsigned int j, k, cycle_value;
@@ -2903,62 +2904,117 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 	} else
 		AUTOK_RAWPRINT("[AUTOK]CMD err while check device status\r\n");
 
-	/* tune data pad delay , find data pad boundary */
-	for (j = 0; j < 32; j++) {
-		autok_adjust_paddly(host, &j, DAT_PAD_RDLY);
-		for (k = 0; k < AUTOK_CMD_TIMES / 4; k++) {
-			ret = autok_send_tune_cmd(host, opcode, TUNE_DATA,
-			    &autok_host_para);
-			if ((ret & (E_RES_CMD_TMO | E_RES_RSP_CRC)) != 0) {
-				AUTOK_RAWPRINT
-				    ("[AUTOK]Err CMD Fail@RD\r\n");
-				goto fail;
-			} else if ((ret & (E_RES_DAT_CRC | E_RES_DAT_TMO)) != 0)
-				break;
-			else if ((ret & E_RES_FATAL_ERR) != 0) {
+	if (support_new_rx(host->dev_comp->new_rx_ver)) {
+		if (host->top_base)
+			sdr_set_field(host->top_base + EMMC50_PAD_DS_TUNE,
+				(PAD_DS_DLY2_SEL | PAD_DS_DLY_SEL), 0);
+		uDatEdge = 0;
+		do {
+			autok_adjust_param(host, RD_FIFO_EDGE, &uDatEdge, AUTOK_WRITE);
+			RawData64 = 0LL;
+			for (j = 0; j < 64; j++) {
+				autok_adjust_paddly(host, &j, DAT_PAD_RDLY);
+				for (k = 0; k < AUTOK_CMD_TIMES / 2; k++) {
+					ret = autok_send_tune_cmd(host, opcode,
+							TUNE_DATA, &autok_host_para);
+					if ((ret & (E_RES_CMD_TMO
+						| E_RES_RSP_CRC)) != 0) {
+						AUTOK_RAWPRINT
+							("[AUTOK]Err CMD Fail@RD\r\n");
+						goto fail;
+					} else if ((ret & (E_RES_DAT_CRC
+								| E_RES_DAT_TMO)) != 0) {
+						RawData64 |= (u64) (1LL << j);
+						break;
+					} else if ((ret & E_RES_FATAL_ERR) != 0)
+						goto fail;
+				}
+			}
+			score = autok_simple_score64(tune_result_str64, RawData64);
+			AUTOK_DBGPRINT(AUTOK_DBG_RES, "[AUTOK]DAT %d \t %d \t %s\r\n",
+				uDatEdge, score, tune_result_str64);
+			if (uDatEdge)
+				autok_window_apply(DAT_FALL,
+					RawData64, p_autok_tune_res);
+			else
+				autok_window_apply(DAT_RISE,
+					RawData64, p_autok_tune_res);
+			if (autok_check_scan_res64(RawData64,
+					&pBdInfo->scan_info[uDatEdge],
+					AUTOK_TUNING_INACCURACY) != 0) {
+				host->autok_error = -1;
 				goto fail;
 			}
+			uDatEdge ^= 0x1;
+		} while (uDatEdge);
+		err = autok_pad_dly_sel(pBdInfo);
+		if (err == -2) {
+			AUTOK_DBGPRINT(AUTOK_DBG_RES,
+					   "[AUTOK][Error]======Analysis Failed!!======\r\n");
+			goto fail;
 		}
-		if ((ret & (E_RES_DAT_CRC | E_RES_DAT_TMO)) != 0) {
-			p_autok_tune_res[DAT_RD_D_DLY1] = j;
-			if (j)
-				p_autok_tune_res[DAT_RD_D_DLY1_SEL] = 1;
-			break;
-		}
-	}
-	autok_tuning_parameter_init(host, p_autok_tune_res);
-	memset(pInfo, 0, sizeof(struct AUTOK_REF_INFO_NEW));
-	RawData64 = 0LL;
-	/* tune DS delay , base on data pad boundary */
-	for (j = 0; j < 32; j++) {
-		autok_adjust_paddly(host, &j, DS_PAD_RDLY);
-		for (k = 0; k < AUTOK_CMD_TIMES / 4; k++) {
-			ret = autok_send_tune_cmd(host, opcode, TUNE_DATA,
-			    &autok_host_para);
-			if ((ret & (E_RES_CMD_TMO
-			    | E_RES_RSP_CRC)) != 0) {
-				AUTOK_RAWPRINT
-				    ("[AUTOK]Err CMD Fail@RD\r\n");
-				goto fail;
-			} else if ((ret & (E_RES_DAT_CRC
-					    | E_RES_DAT_TMO)) != 0) {
-				RawData64 |= (u64) (1LL << j);
+		autok_param_update(RD_FIFO_EDGE, pBdInfo->opt_edge_sel,
+			p_autok_tune_res);
+		autok_paddly_update(DAT_PAD_RDLY, pBdInfo->opt_dly_cnt,
+			p_autok_tune_res);
+		autok_param_update(WD_FIFO_EDGE, pBdInfo->opt_edge_sel,
+			p_autok_tune_res);
+	} else {
+		/* tune data pad delay , find data pad boundary */
+		for (j = 0; j < 32; j++) {
+			autok_adjust_paddly(host, &j, DAT_PAD_RDLY);
+			for (k = 0; k < AUTOK_CMD_TIMES / 4; k++) {
+				ret = autok_send_tune_cmd(host, opcode, TUNE_DATA,
+				    &autok_host_para);
+				if ((ret & (E_RES_CMD_TMO | E_RES_RSP_CRC)) != 0) {
+					AUTOK_RAWPRINT
+					    ("[AUTOK]Err CMD Fail@RD\r\n");
+					goto fail;
+				} else if ((ret & (E_RES_DAT_CRC | E_RES_DAT_TMO)) != 0)
+					break;
+				else if ((ret & E_RES_FATAL_ERR) != 0) {
+					goto fail;
+				}
+			}
+			if ((ret & (E_RES_DAT_CRC | E_RES_DAT_TMO)) != 0) {
+				p_autok_tune_res[DAT_RD_D_DLY1] = j;
+				if (j)
+					p_autok_tune_res[DAT_RD_D_DLY1_SEL] = 1;
 				break;
-			} else if ((ret & E_RES_FATAL_ERR) != 0)
-				goto fail;
+			}
 		}
+		autok_tuning_parameter_init(host, p_autok_tune_res);
+		memset(pInfo, 0, sizeof(struct AUTOK_REF_INFO_NEW));
+		RawData64 = 0LL;
+		/* tune DS delay , base on data pad boundary */
+		for (j = 0; j < 32; j++) {
+			autok_adjust_paddly(host, &j, DS_PAD_RDLY);
+			for (k = 0; k < AUTOK_CMD_TIMES / 4; k++) {
+				ret = autok_send_tune_cmd(host, opcode, TUNE_DATA,
+				    &autok_host_para);
+				if ((ret & (E_RES_CMD_TMO
+				    | E_RES_RSP_CRC)) != 0) {
+					AUTOK_RAWPRINT
+					    ("[AUTOK]Err CMD Fail@RD\r\n");
+					goto fail;
+				} else if ((ret & (E_RES_DAT_CRC
+						    | E_RES_DAT_TMO)) != 0) {
+					RawData64 |= (u64) (1LL << j);
+					break;
+				} else if ((ret & E_RES_FATAL_ERR) != 0)
+					goto fail;
+			}
+		}
+		RawData64 |= 0xffffffff00000000;
+		score = autok_simple_score64(tune_result_str64, RawData64);
+		AUTOK_DBGPRINT(AUTOK_DBG_RES, "[AUTOK]DLY1/2 %d \t %d \t %s\r\n",
+			uCmdEdge, score, tune_result_str64);
+		autok_window_apply(DS_DATA_WIN, RawData64, p_autok_tune_res);
+		if (autok_check_scan_res64_new(RawData64, &pInfo->scan_info[0], 0) != 0)
+			goto fail;
+		autok_ds_dly_sel(&pInfo->scan_info[0], &uDatDly);
+		autok_paddly_update(DS_PAD_RDLY, uDatDly, p_autok_tune_res);
 	}
-	RawData64 |= 0xffffffff00000000;
-	score = autok_simple_score64(tune_result_str64, RawData64);
-	AUTOK_DBGPRINT(AUTOK_DBG_RES, "[AUTOK]DLY1/2 %d \t %d \t %s\r\n",
-		uCmdEdge, score, tune_result_str64);
-	autok_window_apply(DS_DATA_WIN, RawData64, p_autok_tune_res);
-	if (autok_check_scan_res64_new(RawData64, &pInfo->scan_info[0], 0) != 0)
-		goto fail;
-
-	autok_ds_dly_sel(&pInfo->scan_info[0], &uDatDly);
-	autok_paddly_update(DS_PAD_RDLY, uDatDly, p_autok_tune_res);
-
 	autok_tuning_parameter_init(host, p_autok_tune_res);
 	autok_result_dump(host, p_autok_tune_res);
 
@@ -3557,6 +3613,7 @@ void autok_low_speed_switch_edge(struct msdc_host *host,
 	unsigned int cur_resp_edge, cur_crc_fifo_edge;
 	unsigned int orig_read_edge, orig_read_fifo_edge;
 	unsigned int cur_read_edge, cur_read_fifo_edge;
+	unsigned int orig_read_data_sample = 0, cur_read_data_sample = 0;
 
 	AUTOK_RAWPRINT("[AUTOK][low speed switch edge]======start======\r\n");
 	if (host->id == MSDC_EMMC) {
@@ -3593,10 +3650,22 @@ void autok_low_speed_switch_edge(struct msdc_host *host,
 				sdr_get_field(host->base + MSDC_PATCH_BIT,
 				    MSDC_PATCH_BIT_RD_DAT_SEL,
 				    &cur_read_fifo_edge);
+				if (support_new_tx(host->dev_comp->new_tx_ver)) {
+					sdr_get_field(host->base + MSDC_IOCON,
+					    MSDC_IOCON_DSPL,
+					    &orig_read_data_sample);
+					sdr_set_field(host->base + MSDC_IOCON,
+					    MSDC_IOCON_DSPL,
+					    orig_read_data_sample ^ 0x1);
+					sdr_get_field(host->base + MSDC_IOCON,
+					    MSDC_IOCON_DSPL,
+					    &cur_read_data_sample);
+				}
 				AUTOK_RAWPRINT("[AUTOK][RD err]fifo_edge = %d",
 					cur_read_fifo_edge);
-				AUTOK_RAWPRINT("edge %d->%d\r\n",
-					orig_read_edge, cur_read_edge);
+				AUTOK_RAWPRINT("edge %d->%d, read_data_sample %d->%d\r\n",
+					orig_read_edge, cur_read_edge,
+					orig_read_data_sample, cur_read_data_sample);
 			} else {
 				sdr_set_field(host->base + MSDC_IOCON,
 					MSDC_IOCON_DSPLSEL, 0);
@@ -3684,10 +3753,22 @@ void autok_low_speed_switch_edge(struct msdc_host *host,
 				sdr_get_field(host->base + MSDC_PATCH_BIT,
 					MSDC_PATCH_BIT_RD_DAT_SEL,
 					&cur_read_fifo_edge);
+				if (support_new_tx(host->dev_comp->new_tx_ver)) {
+					sdr_get_field(host->base + MSDC_IOCON,
+					    MSDC_IOCON_DSPL,
+					    &orig_read_data_sample);
+					sdr_set_field(host->base + MSDC_IOCON,
+					    MSDC_IOCON_DSPL,
+					    orig_read_data_sample ^ 0x1);
+					sdr_get_field(host->base + MSDC_IOCON,
+					    MSDC_IOCON_DSPL,
+					    &cur_read_data_sample);
+				}
 				AUTOK_RAWPRINT("[AUTOK][RD err]fifo_edge = %d",
 					cur_read_fifo_edge);
-				AUTOK_RAWPRINT("edge %d->%d\r\n",
-					orig_read_edge, cur_read_edge);
+				AUTOK_RAWPRINT("edge %d->%d, read_data_sample %d->%d\r\n",
+					orig_read_edge, cur_read_edge,
+					orig_read_data_sample, cur_read_data_sample);
 			} else {
 				sdr_set_field(host->base + MSDC_IOCON,
 					MSDC_IOCON_DSPLSEL, 0);
