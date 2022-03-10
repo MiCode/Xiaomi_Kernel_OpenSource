@@ -1703,15 +1703,13 @@ static kal_uint32 set_test_pattern_mode(kal_uint32 modes)
 	} else if (modes == 5) {
 		LOG_INF("make sure no need to store 0x5004: 0x%x\n",
 			read_cmos_sensor(0x5004));
-		// r5004[4]=0 r5004[1]=1
-		write_cmos_sensor(0x5004, ((read_cmos_sensor(0x5004) & 0xEF) | 0x02));
+		write_cmos_sensor(0x5004,
+		((read_cmos_sensor(0x5004) & 0xEF) | 0x02));// r5004[4]=0 r5004[1]=1
 		LOG_INF("make sure no need to store d_gain: 0x%2x%2x\n",
 			read_cmos_sensor(0x350a), read_cmos_sensor(0x350b));
 		//set dgain as 0
-		//write_cmos_sensor(0x350a, 0x00);
-		//write_cmos_sensor(0x350b, 0x00);
-		write_cmos_sensor(0x3019, 0xf0);
-		write_cmos_sensor(0x4308, 0x01);
+		write_cmos_sensor(0x350a, 0x00);
+		write_cmos_sensor(0x350b, 0x00);
 	}
 	if ((modes != 2) && (imgsensor.test_pattern == 2)) {//colorbar off
 		write_cmos_sensor(0x5000, 0x77);
@@ -1720,10 +1718,8 @@ static kal_uint32 set_test_pattern_mode(kal_uint32 modes)
 	} else if (modes != 5 && (imgsensor.test_pattern == 5)) {
 		LOG_INF("0x5004: 0x%x\n",
 			read_cmos_sensor(0x5004));
-		//write_cmos_sensor(0x350a, 0x01);
-		//write_cmos_sensor(0x350b, 0x00);
-		write_cmos_sensor(0x3019, 0xd2);
-		write_cmos_sensor(0x4308, 0x00);
+		write_cmos_sensor(0x350a, 0x01);
+		write_cmos_sensor(0x350b, 0x00);
 	}
 
 	spin_lock(&imgsensor_drv_lock);
