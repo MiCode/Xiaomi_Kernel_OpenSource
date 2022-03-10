@@ -4140,6 +4140,12 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 	if (drm_crtc_index(crtc) != 0)
 		return;
 
+	if (mtk_crtc->enabled == false) {
+		DDPINFO("%s, skip update hrt since crtc%u is disabled\n",
+			__func__, drm_crtc_index(crtc));
+		return;
+	}
+
 	if (priv->power_state == false)
 		return;
 
