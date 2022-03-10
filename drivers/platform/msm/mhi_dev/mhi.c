@@ -466,6 +466,11 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 		return -EINVAL;
 	}
 
+	if (!ring) {
+		pr_err("%s(): Ring %d not present\n", __func__, evnt_ring_idx);
+		return -EINVAL;
+	}
+
 	ctx = (union mhi_dev_ring_ctx *)&mhi->ev_ctx_cache[evnt_ring];
 
 	if (mhi_ring_get_state(ring) == RING_STATE_UINT) {

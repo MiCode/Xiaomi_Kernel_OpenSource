@@ -73,7 +73,7 @@ int set_qdss_data_connection(struct f_qdss *qdss, int enable)
 		bam_info.qdss_bam_iova = dma_map_resource(dev->parent,
 				bam_info.qdss_bam_phys, bam_info.qdss_bam_size,
 				DMA_BIDIRECTIONAL, 0);
-		if (!bam_info.qdss_bam_iova) {
+		if (dma_mapping_error(dev, bam_info.qdss_bam_iova)) {
 			pr_err("dma_map_resource failed\n");
 			return -ENOMEM;
 		}

@@ -174,7 +174,6 @@ extern const struct clk_ops clk_alpha_pll_postdiv_zonda_ops;
 extern const struct clk_ops clk_alpha_pll_zonda_5lpe_ops;
 
 extern const struct clk_ops clk_alpha_pll_lucid_5lpe_ops;
-extern const struct clk_ops clk_alpha_pll_lucid_5lpe_sdx_cpu_ops;
 extern const struct clk_ops clk_alpha_pll_fixed_lucid_5lpe_ops;
 extern const struct clk_ops clk_alpha_pll_postdiv_lucid_5lpe_ops;
 extern const struct clk_ops clk_alpha_pll_slew_ops;

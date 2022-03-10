@@ -2488,8 +2488,9 @@ static int i2c_msm_rsrcs_irq_init(struct platform_device *pdev,
 		return irq;
 	}
 
-	ret = request_irq(irq, i2c_msm_qup_isr, IRQF_TRIGGER_HIGH | IRQF_EARLY_RESUME,
-						"i2c-msm-v2-irq", ctrl);
+	ret = request_irq(irq, i2c_msm_qup_isr,
+			IRQF_TRIGGER_HIGH | IRQF_EARLY_RESUME | IRQF_NO_SUSPEND,
+			"i2c-msm-v2-irq", ctrl);
 	if (ret) {
 		dev_err(ctrl->dev, "error request_irq(irq_num:%d ) ret:%d\n",
 								irq, ret);

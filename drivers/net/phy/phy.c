@@ -367,6 +367,7 @@ EXPORT_SYMBOL(phy_ethtool_ksettings_set);
 void phy_ethtool_ksettings_get(struct phy_device *phydev,
 			       struct ethtool_link_ksettings *cmd)
 {
+	mutex_lock(&phydev->lock);
 	linkmode_copy(cmd->link_modes.supported, phydev->supported);
 	linkmode_copy(cmd->link_modes.advertising, phydev->advertising);
 	linkmode_copy(cmd->link_modes.lp_advertising, phydev->lp_advertising);
@@ -383,6 +384,7 @@ void phy_ethtool_ksettings_get(struct phy_device *phydev,
 	cmd->base.autoneg = phydev->autoneg;
 	cmd->base.eth_tp_mdix_ctrl = phydev->mdix_ctrl;
 	cmd->base.eth_tp_mdix = phydev->mdix;
+	mutex_unlock(&phydev->lock);
 }
 EXPORT_SYMBOL(phy_ethtool_ksettings_get);
 
@@ -553,6 +555,37 @@ static int phy_check_link_status(struct phy_device *phydev)
 }
 
 /**
+ * _phy_start_aneg - start auto-negotiation for this PHY device
+ * @phydev: the phy_device struct
+ *
+ * Description: Sanitizes the settings (if we're not autonegotiating
+ *   them), and then calls the driver's config_aneg function.
+ *   If the PHYCONTROL Layer is operating, we change the state to
+ *   reflect the beginning of Auto-negotiation or forcing.
+ */
+static int _phy_start_aneg(struct phy_device *phydev)
+{
+	int err;
+
+	lockdep_assert_held(&phydev->lock);
+
+	if (!phydev->drv)
+		return -EIO;
+
+	if (AUTONEG_DISABLE == phydev->autoneg)
+		phy_sanitize_settings(phydev);
+
+	err = phy_config_aneg(phydev);
+	if (err < 0)
+		return err;
+
+	if (phy_is_started(phydev))
+		err = phy_check_link_status(phydev);
+
+	return err;
+}
+
+/**
  * phy_start_aneg - start auto-negotiation for this PHY device
  * @phydev: the phy_device struct
  *
@@ -565,21 +598,8 @@ int phy_start_aneg(struct phy_device *phydev)
 {
 	int err;
 
-	if (!phydev->drv)
-		return -EIO;
-
 	mutex_lock(&phydev->lock);
-
-	if (AUTONEG_DISABLE == phydev->autoneg)
-		phy_sanitize_settings(phydev);
-
-	err = phy_config_aneg(phydev);
-	if (err < 0)
-		goto out_unlock;
-
-	if (phy_is_started(phydev))
-		err = phy_check_link_status(phydev);
-out_unlock:
+	err = _phy_start_aneg(phydev);
 	mutex_unlock(&phydev->lock);
 
 	return err;
