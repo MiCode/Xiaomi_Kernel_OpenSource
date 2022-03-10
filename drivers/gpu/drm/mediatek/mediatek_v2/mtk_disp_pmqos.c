@@ -15,6 +15,7 @@
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <soc/mediatek/mmqos.h>
 
+#include "mtk_drm_assert.h"
 
 #define CRTC_NUM		3
 static struct drm_crtc *dev_crtc;
@@ -206,6 +207,18 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 	if (priv->data->mmsys_id == MMSYS_MT6895) {
 		if (mtk_disp_check_segment(mtk_crtc, priv) == false)
 			tmp = 1;
+	}
+
+	if (priv->data->mmsys_id == MMSYS_MT6879) {
+		if (crtc->state && crtc->state->active) {
+			if (tmp == 0 && mtk_drm_dal_enable()) {
+				tmp = mtk_drm_primary_frame_bw(crtc) / 2;
+				DDPMSG("%s: add HRT bw %u when active and only have dal layer\n",
+					__func__, mtk_drm_primary_frame_bw(crtc) / 2);
+			}
+		} else {
+			DDPMSG("%s: set HRT bw %u when suspend\n", __func__, tmp);
+		}
 	}
 
 	mtk_icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(tmp));
