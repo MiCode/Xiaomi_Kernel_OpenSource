@@ -505,6 +505,12 @@
 
 		mt6358codec: mt6358codec {
 			compatible = "mediatek,mt6366-sound";
+			mediatek,dmic-mode = <0>;
+			mediatek,mic-type = <1>;
+			io-channels = <&pmic_auxadc AUXADC_HPOFS_CAL>;
+			io-channel-names = "pmic_hpofs_cal";
+			nvmem = <&pmic_efuse>;
+			nvmem-names = "pmic-hp-efuse";
 		};
 	};
 };
