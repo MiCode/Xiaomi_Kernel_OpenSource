@@ -3030,6 +3030,7 @@
 					<&dvfsrc_freq_opp1>;
 			net_spd_ver = <4>;
 			hw_reset_ver = <1>;
+			dl_bat_entry_size = <8192>;
 		};
 
 		ccifdriver:ccifdriver@10209000 {
