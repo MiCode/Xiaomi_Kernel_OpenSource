@@ -1061,6 +1061,11 @@
 			#clock-cells = <0>;
 			clock-frequency = <26000000>;
 		};
+		clk13m: clk13m {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <13000000>;
+		};
 		ulposc: ulposc {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
@@ -2222,8 +2227,8 @@
 			compatible = "mediatek,mt6789-timer",
 			      "mediatek,mt6765-timer";
 			reg = <0 0x10017000 0 0x1000>;
-			interrupts = <GIC_SPI 280 IRQ_TYPE_LEVEL_HIGH 0>;
-			/* clocks = <&clk13m>; */
+			interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH 0>;
+			clocks = <&clk13m>;
 		};
 
 		modem_temp_share@10018000 {

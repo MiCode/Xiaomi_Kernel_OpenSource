@@ -22,10 +22,6 @@
 	};
 };
 
-&timer {
-	clock-frequency = <150000000>;
-};
-
 &pio {
 	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
 		pins_cmd_dat {
