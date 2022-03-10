@@ -533,7 +533,7 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb, struct mddp_f_cb *cb)
 		} else {
 			struct nf_conntrack_tuple *nf_tuple;
 
-			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple;
+			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
 			cb->src[0] = t.nat.src;
 			cb->dst[0] = nf_tuple->dst.u3.ip;
 			cb->sport = nf_tuple->src.u.all;
@@ -630,7 +630,7 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb, struct mddp_f_cb *cb)
 		} else {
 			struct nf_conntrack_tuple *nf_tuple;
 
-			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_REPLY].tuple;
+			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
 			cb->src[0] = t.nat.src;
 			cb->dst[0] = nf_tuple->dst.u3.ip;
 			cb->sport = nf_tuple->src.u.all;
