@@ -266,6 +266,14 @@
 			size = <0 0x10000000>;
 			alignment = <0 0x1000000>;
 		};
+
+		reserve-memory-scp_share {  /* for scp legacy dump */
+			compatible = "mediatek,reserve-memory-scp_share";
+			no-map;
+			size = <0 0x003A0000>; /*3MB + 128K share mem size */
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x50000000 0 0x40000000>;
+		};
 	};
 
 	memory_ssmr_features: memory-ssmr-features {
@@ -2650,6 +2658,179 @@
 		sys_cirq@10314000 {
 			compatible = "mediatek,sys_cirq";
 			reg = <0 0x10314000 0 0x1000>;
+		};
+
+		scp_infra: scp_infra@10001000 {
+			compatible = "mediatek,scpinfra";
+			reg = <0 0x10001000 0 0x1000>;  /* infracfg_ao */
+			#clock-cells = <1>;
+		};
+
+		scp@10500000 {
+			compatible = "mediatek,scp";
+			status = "okay";
+			reg = <0 0x10500000 0 0xc0000>, /* tcm */
+			<0 0x10724000 0 0x1000>,	 /* cfg */
+			<0 0x10721000 0 0x1000>,	 /* clk*/
+			<0 0x10730000 0 0x3000>,	 /* cfg core0 */
+			<0 0x10740000 0 0x1000>,	 /* cfg core1 */
+			<0 0x10752000 0 0x1000>,	 /* bus tracker */
+			<0 0x10760000 0 0x40000>,	 /* llc */
+			<0 0x107a5000 0 0x4>,		 /* cfg_sec */
+			<0 0x107fb000 0 0x100>,		 /* mbox0 base */
+			<0 0x107fb100 0 0x4>,		 /* mbox0 set */
+			<0 0x107fb10c 0 0x4>,		 /* mbox0 clr */
+			<0 0x107a5020 0 0x4>,		 /* mbox0 init */
+			<0 0x107fc000 0 0x100>,		 /* mbox1 base */
+			<0 0x107fc100 0 0x4>,		 /* mbox1 set */
+			<0 0x107fc10c 0 0x4>,		 /* mbox1 clr */
+			<0 0x107a5024 0 0x4>,		 /* mbox1 init */
+			<0 0x107fd000 0 0x100>,		 /* mbox2 base */
+			<0 0x107fd100 0 0x4>,		 /* mbox2 set */
+			<0 0x107fd10c 0 0x4>,		 /* mbox2 clr */
+			<0 0x107a5028 0 0x4>,		 /* mbox2 init */
+			<0 0x107fe000 0 0x100>,		 /* mbox3 base */
+			<0 0x107fe100 0 0x4>,		 /* mbox3 set */
+			<0 0x107fe10c 0 0x4>,		 /* mbox3 clr */
+			<0 0x107a502c 0 0x4>,		 /* mbox3 init */
+			<0 0x107ff000 0 0x100>,		 /* mbox4 base */
+			<0 0x107ff100 0 0x4>,		 /* mbox4 set */
+			<0 0x107ff10c 0 0x4>,		 /* mbox4 clr */
+			<0 0x107a5030 0 0x4>;		 /* mbox4 init */
+
+			reg-names = "scp_sram_base",
+			"scp_cfgreg",
+			"scp_clkreg",
+			"scp_cfgreg_core0",
+			"scp_cfgreg_core1",
+			"scp_bus_tracker",
+			"scp_l1creg",
+			"scp_cfgreg_sec",
+			"mbox0_base",
+			"mbox0_set",
+			"mbox0_clr",
+			"mbox0_init",
+			"mbox1_base",
+			"mbox1_set",
+			"mbox1_clr",
+			"mbox1_init",
+			"mbox2_base",
+			"mbox2_set",
+			"mbox2_clr",
+			"mbox2_init",
+			"mbox3_base",
+			"mbox3_set",
+			"mbox3_clr",
+			"mbox3_init",
+			"mbox4_base",
+			"mbox4_set",
+			"mbox4_clr",
+			"mbox4_init";
+
+			interrupts = <GIC_SPI 466 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 467 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 468 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 469 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 470 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 471 IRQ_TYPE_LEVEL_HIGH 0>,
+			<GIC_SPI 472 IRQ_TYPE_LEVEL_HIGH 0>;
+
+			interrupt-names = "ipc0",
+			"ipc1",
+			"mbox0",
+			"mbox1",
+			"mbox2",
+			"mbox3",
+			"mbox4";
+
+			core_0 = "enable";
+			scp_sramSize = <0x000c0000>;
+			core_nums = <1>;	/* core number */
+			twohart = <1>;		/* two hart arch */
+
+			mbox_count = <5>;
+			/* id, mbox, send_size*/
+			send_table =
+			< 0 0  9>, /* IPI_OUT_AUDIO_VOW_1 */
+			< 3 1  2>, /* IPI_OUT_APCCCI_0 */
+			< 4 1  1>, /* IPI_OUT_DVFS_SET_FREQ_0 */
+			< 5 1  2>, /* IPI_OUT_C_SLEEP_0 */
+			< 6 1  1>, /* IPI_OUT_TEST_0 */
+			<26 1  9>, /* IPI_OUT_AUDIO_ULTRA_SND_0 */
+			<11 2  4>, /* IPI_OUT_SCP_MPOOL_0 */
+			<29 2 16>, /* IPI_OUT_SENSOR_CTRL */
+			<31 2  7>, /* IPI_OUT_SENSOR_NOTIFY */
+			<14 3  1>, /* IPI_OUT_DVFS_SET_FREQ_1 */
+			<15 3  2>, /* IPI_OUT_C_SLEEP_1 */
+			<16 3  1>, /* IPI_OUT_TEST_1 */
+			<17 3  6>, /* IPI_OUT_LOGGER_CTRL */
+			<18 3  2>, /* IPI_OUT_SCPCTL_1 */
+			<24 4  4>; /* IPI_OUT_SCP_MPOOL_1 */
+
+			/* id, mbox, recv_size, recv_opt */
+			recv_table =
+			< 1 0  2 0>, /* IPI_IN_AUDIO_VOW_ACK_1 */
+			< 2 0 26 0>, /* IPI_IN_AUDIO_VOW_1 */
+			< 7 1  2 0>, /* IPI_IN_APCCCI_0 */
+			< 8 1 10 0>, /* IPI_IN_SCP_ERROR_INFO_0 */
+			< 9 1  1 0>, /* IPI_IN_SCP_READY_0 */
+			<10 1  2 0>, /* IPI_IN_SCP_RAM_DUMP_0 */
+			<27 1  2 0>, /* IPI_IN_AUDIO_ULTRA_SND_ACK_0 */
+			<28 1  5 0>, /* IPI_IN_AUDIO_ULTRA_SND_0 */
+			< 5 1  1 1>, /* IPI_OUT_C_SLEEP_0 */
+			<12 2  4 0>, /* IPI_IN_SCP_MPOOL_0 */
+			<30 2  2 0>, /* IPI_IN_SENSOR_CTRL */
+			<32 2  7 0>, /* IPI_IN_SENSOR_NOTIFY */
+			<20 3 10 0>, /* IPI_IN_SCP_ERROR_INFO_1 */
+			<21 3  6 0>, /* IPI_IN_LOGGER_CTRL */
+			<22 3  1 0>, /* IPI_IN_SCP_READY_1 */
+			<23 3  2 0>, /* IPI_IN_SCP_RAM_DUMP_1 */
+			<15 3  1 1>, /* IPI_OUT_C_SLEEP_1 */
+			<25 4  4 0>; /* IPI_IN_SCP_MPOOL_1 */
+
+			/* feature, frequecy, coreid */
+			scp_feature_tbl =
+			< 0   5 1>,	/* vow */
+			< 1 350 0>,	/* sensor */
+			< 2  26 0>,	/* flp */
+			< 3   0 0>,	/* rtos */
+			< 4 200 1>,	/* speaker */
+			< 5   0 0>,	/* vcore */
+			< 6 120 1>,	/* barge in */
+			< 7  10 1>,	/* vow dump */
+			< 8  80 1>,	/* vow vendor M */
+			< 9  43 1>,	/* vow vendor A */
+			<10  22 1>,	/* vow vendor G */
+			<11  20 1>,	/* vow dual mic */
+			<12 135 1>,	/* vow dual mic barge in */
+			<13 200 0>;	/* ultrasound */
+
+			debug_dumptimeout = "enable"; /*core dump timeout debug*/
+			secure_dump = "disable";	/* enable dump via secure world */
+			secure_dump_size = <0x200000>;
+
+			scp_mem_key = "mediatek,reserve-memory-scp_share";
+			scp_mem_tbl =
+			< 0 0x0>,      /* secure dump, its size is in secure_dump_size */
+			< 1 0x4E300>,  /* vow, 297KB (2 model size)*/
+			< 2 0x100000>, /* ensor main, 1 MB */
+			< 3 0x180000>, /* logger, 1.5 MB */
+			< 4 0x19000>,  /* audio, 100 KB */
+			< 5 0x5A00>,   /* vow bargein, 22.5KB */
+			< 6 0x100>,    /* scp parames, 256 bytes */
+			< 7 0x19000>,   /* ultrasound */
+			< 8 0x10000>,  /* sensor supper, 64 KB */
+			< 9 0x1000>,   /* sensor list, 4 KB */
+			<10 0x2000>,  /* sensor debug, 8 KB */
+			<11 0x100>,   /* sensor custom writer, 256 bytes */
+			<12 0x100>;   /* sensor custom reader, 256 bytes */
+
+			memorydump =
+			<0x0c0000>, /* l2tcm */
+			<0x03c000>, /* l1c */
+			<0x003c00>, /* regdump */
+			<0x000400>, /* trace buffer */
+			<0x100000>; /* dram */
 		};
 
 		dramc_ch1_rsv@10900000 {
