@@ -184,7 +184,7 @@ struct pi_efuse_index {
 static int eem_log_en;
 static unsigned int eem_checkEfuse = 1;
 static unsigned int informEEMisReady;
-//static unsigned int gpu_bin;
+static unsigned int gpu_bin;
 static struct pi_efuse_index pi_efuse_idx[] = {
 	/* Without LOO enabled */
 	{EEM_DET_CCI, 3, 0, 4, 16, 0, 16, 0, 0, {0} },
@@ -232,7 +232,7 @@ static struct eem_det *id_to_eem_det(enum eem_det_id id)
 	else
 		return NULL;
 }
-#if 0
+
 static int get_devinfo(void)
 {
 #if !ENABLE_MINIHQA
@@ -428,7 +428,7 @@ static int get_devinfo(void)
 	FUNC_EXIT(FUNC_LV_HELP);
 	return ret;
 }
-#endif
+
 /*============================================================
  * function declarations of EEM detectors
  *============================================================
@@ -4727,7 +4727,7 @@ static int __init eem_init(void)
 	FT_VAL = (FT_VAL >> 4) & 0xF;
 	if (FT_VAL >= 2)
 		g_fake_efuse = 0;
-//	get_devinfo();
+	get_devinfo();
 
 	/* move to eem_probe */
 	/* create_procfs(); */
