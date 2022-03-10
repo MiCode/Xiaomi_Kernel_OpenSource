@@ -192,7 +192,7 @@ void init_perf_order_domains(struct perf_domain *pd)
 	for_each_possible_cpu(cpu) {
 		tbl = upower_get_core_tbl(cpu);
 		if (arch_scale_cpu_capacity(NULL, cpu) != tbl->row[tbl->row_num - 1].cap) {
-			pr_info("arch_scale_cpu_capacity(%d)=%d, tbl->row[last_idx].cap=%d\n",
+			pr_info("arch_scale_cpu_capacity(%d)=%lu, tbl->row[last_idx].cap=%llu\n",
 				cpu, arch_scale_cpu_capacity(NULL, cpu),
 				tbl->row[tbl->row_num - 1].cap);
 			topology_set_cpu_scale(cpu, tbl->row[tbl->row_num - 1].cap);
