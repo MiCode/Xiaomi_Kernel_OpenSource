@@ -389,8 +389,8 @@ static void write_shutter(kal_uint16 shutter)
 
 	/* Update Shutter*/
 	write_cmos_sensor_16_16(0x0202, shutter);
-	LOG_INF("shutter = %d, framelength = %d\n",
-		shutter, imgsensor.frame_length);
+	LOG_INF("shutter = %d, framelength = %d, autoflicker_en = %d\n",
+		shutter, imgsensor.frame_length, imgsensor.autoflicker_en);
 
 }	/*	write_shutter  */
 
@@ -4607,7 +4607,7 @@ static kal_uint32 set_video_mode(UINT16 framerate)
 
 static kal_uint32 set_auto_flicker_mode(kal_bool enable, UINT16 framerate)
 {
-	LOG_INF("enable = %d, framerate = %d\n", enable, framerate);
+	/*LOG_INF("enable = %d, framerate = %d\n", enable, framerate);*/
 	spin_lock(&imgsensor_drv_lock);
 	if (enable) {/*enable auto flicker*/
 		imgsensor.autoflicker_en = KAL_TRUE;
