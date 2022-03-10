@@ -149,6 +149,20 @@ static unsigned short get_cpu_level(void)
 }
 #endif
 
+int cpu_cluster_mapping(unsigned int cpu)
+{
+	enum upower_bank bank = UPOWER_BANK_LL;
+
+	if (cpu < 4) /* cpu 0-3 */
+		bank = UPOWER_BANK_LL;
+	else if (cpu < 8) /* cpu 4-7 */
+		bank = UPOWER_BANK_LL + 1;
+	else if (cpu < 10) /* cpu 8-9 */
+		bank = UPOWER_BANK_LL + 2;
+
+	return bank;
+}
+
 void get_original_table(void)
 {
 	unsigned int i, j;

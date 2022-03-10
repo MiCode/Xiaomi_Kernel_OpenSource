@@ -86,6 +86,8 @@ struct upower_doe {
 	char *dtsn[NR_UPOWER_BANK];
 };
 
+extern int cpu_cluster_mapping(unsigned int cpu);
+
 #ifdef __cplusplus
 }
 #endif

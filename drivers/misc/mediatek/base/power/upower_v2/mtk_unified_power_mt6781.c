@@ -188,9 +188,9 @@ int cpu_cluster_mapping(unsigned int cpu)
 {
 	enum upower_bank bank = UPOWER_BANK_LL;
 
-	if (cpu < 6) /* cpu 0-3 */
+	if (cpu < 6) /* cpu 0-5 */
 		bank = UPOWER_BANK_LL;
-	else if (cpu < 8) /* cpu 4-7 */
+	else if (cpu < 8) /* cpu 6-7 */
 		bank = UPOWER_BANK_L;
 
 	return bank;

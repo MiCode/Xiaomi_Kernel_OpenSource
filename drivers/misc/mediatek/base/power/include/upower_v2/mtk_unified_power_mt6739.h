@@ -85,6 +85,8 @@ enum upower_dtype {
 
 extern unsigned int _mt_cpufreq_get_cpu_level(void);
 
+extern int cpu_cluster_mapping(unsigned int cpu);
+
 #ifdef __cplusplus
 }
 #endif
