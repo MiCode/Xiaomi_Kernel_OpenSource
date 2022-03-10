@@ -33,9 +33,6 @@
 #if defined(CONFIG_MTK_PMIC) || defined(CONFIG_MTK_PMIC_NEW_ARCH)
 #include <mt-plat/upmu_common.h>
 #endif
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-#include <scp_dvfs.h>
-#endif /* CONFIG_MTK_TINYSYS_SCP_SUPPORT */
 #if defined(CONFIG_MACH_MT6739)
 #include <mt-plat/mtk_secure_api.h>
 #endif /* CONFIG_MACH_MT6739 */
