@@ -8,6 +8,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #endif
 #include <linux/clk.h> /* for clk_prepare/un* */
 
@@ -126,6 +127,19 @@ static int scp_set_clk_cg(unsigned int on)
 		CCCI_NORMAL_LOG(MD_SYS1, FSM, "%s:on=%u skip set scp clk!\n",
 			__func__, on);
 		return 0;
+	}
+
+	/* Before OFF CCIF2 clk, set the ACK register to 1 */
+	if (on == 0) {
+		if (!ccci_scp_ctl.ccif2_ap_base || !ccci_scp_ctl.ccif2_md_base) {
+			CCCI_ERROR_LOG(MD_SYS1, FSM, "%s can't ack ccif2\n",
+				       __func__);
+		} else {
+			ccci_write32(ccci_scp_ctl.ccif2_ap_base, APCCIF_ACK, 0xFFFF);
+			ccci_write32(ccci_scp_ctl.ccif2_md_base, APCCIF_ACK, 0xFFFF);
+			CCCI_NORMAL_LOG(MD_SYS1, FSM, "%s, ack ccif2 reg done!\n",
+					__func__);
+		}
 	}
 
 	for (idx = 0; idx < ARRAY_SIZE(scp_clk_table); idx++) {
@@ -411,32 +425,6 @@ static struct notifier_block apsync_notifier = {
 };
 #endif
 #endif
-int fsm_scp_init(struct ccci_fsm_scp *scp_ctl)
-{
-#ifndef CCCI_KMODULE_ENABLE
-	struct ccci_fsm_ctl *ctl =
-		container_of(scp_ctl, struct ccci_fsm_ctl, scp_ctl);
-#endif
-	int ret = 0;
-
-#ifdef FEATURE_SCP_CCCI_SUPPORT
-	scp_A_register_notify(&apsync_notifier);
-#endif
-#ifndef CCCI_KMODULE_ENABLE
-	scp_ctl->md_id = ctl->md_id;
-#endif
-#ifdef FEATURE_SCP_CCCI_SUPPORT
-	INIT_WORK(&scp_ctl->scp_md_state_sync_work,
-		ccci_scp_md_state_sync_work);
-	register_ccci_sys_call_back(scp_ctl->md_id, CCISM_SHM_INIT_ACK,
-		fsm_ccism_init_ack_handler);
-#endif
-
-	register_ccci_sys_call_back(scp_ctl->md_id, MD_SIM_TYPE,
-		fsm_sim_type_handler);
-
-	return ret;
-}
 
 static int ccif_scp_clk_init(struct device *dev)
 {
@@ -457,27 +445,76 @@ static int ccif_scp_clk_init(struct device *dev)
 	return 0;
 }
 
+static int fsm_scp_hw_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
+{
+	scp_ctl->ccif2_ap_base = of_iomap(dev->of_node, 0);
+	scp_ctl->ccif2_md_base = of_iomap(dev->of_node, 1);
+
+	if (!scp_ctl->ccif2_ap_base || !scp_ctl->ccif2_md_base) {
+		CCCI_ERROR_LOG(-1, FSM,
+			"ccif2_ap_base=NULL or ccif2_md_base=NULL\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int fsm_scp_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
+{
+	int ret = 0;
+
+#ifndef CCCI_KMODULE_ENABLE
+	struct ccci_fsm_ctl *ctl =
+		container_of(scp_ctl, struct ccci_fsm_ctl, scp_ctl);
+#endif
+
+	ret = fsm_scp_hw_init(scp_ctl, dev);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(-1, FSM, "ccci scp hw init fail\n");
+		return ret;
+	}
+
+	ret = ccif_scp_clk_init(dev);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(-1, FSM, "ccif scp clk init fail\n");
+		return ret;
+	}
+
+#ifdef FEATURE_SCP_CCCI_SUPPORT
+	scp_A_register_notify(&apsync_notifier);
+#endif
+#ifndef CCCI_KMODULE_ENABLE
+	scp_ctl->md_id = ctl->md_id;
+#endif
+#ifdef FEATURE_SCP_CCCI_SUPPORT
+	INIT_WORK(&scp_ctl->scp_md_state_sync_work,
+		ccci_scp_md_state_sync_work);
+	register_ccci_sys_call_back(scp_ctl->md_id, CCISM_SHM_INIT_ACK,
+		fsm_ccism_init_ack_handler);
+#endif
+
+	register_ccci_sys_call_back(scp_ctl->md_id, MD_SIM_TYPE,
+		fsm_sim_type_handler);
+
+	return ret;
+}
+
 #ifdef CCCI_KMODULE_ENABLE
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 int ccci_scp_probe(struct platform_device *pdev)
 {
 	int ret;
 
-	ret = ccif_scp_clk_init(&pdev->dev);
-	if (ret < 0) {
-		CCCI_ERROR_LOG(-1, FSM, "ccif scp clk init fail");
-		return ret;
-	}
-
-	ret = fsm_scp_init(&ccci_scp_ctl);
+	ret = fsm_scp_init(&ccci_scp_ctl, &pdev->dev);
 	if (ret < 0) {
 		CCCI_ERROR_LOG(-1, FSM, "ccci get scp info fail");
 		return ret;
 	}
+
 	ccci_fsm_scp_register(0, &ccci_scp_ctl);
+
 	return 0;
 }
-
 
 static const struct of_device_id ccci_scp_of_ids[] = {
 	{.compatible = "mediatek,ccci_md_scp"},
