@@ -102,6 +102,14 @@ subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.0/inc
 obj-y += 5.0/
 endif
 
+ifeq ($(CONFIG_MACH_MT6779),y)
+$(info FDVT: Drv use 5.0 folder)
+MTKCAM_FDVT_VERSION := 5.0
+MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.0
+subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.0/inc
+obj-y += 5.0/
+endif
+
 #FDVT 5.1
 ifeq ($(CONFIG_MACH_MT6893),y)
   $(info FDVT: Drv use 5.1 folder)
