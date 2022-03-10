@@ -16,7 +16,7 @@
 
 #include <lpm_trace_event.h>
 #include <dbg_fs.h>
-//#include <dbg_power_gs.h>
+#include <dbg_power_gs.h>
 #include <lpm_logger.h>
 
 static int __init dbg_early_initcall(void)
@@ -34,8 +34,7 @@ static int __init dbg_device_initcall(void)
 	dbg_fs_init();
 	mtk_cpupm_dbg_init();
 #if IS_ENABLED(CONFIG_MTK_LPM_GS_DUMP_SUPPORT)
-	/*FIXME*/
-	//mt6789_power_gs_init();
+	power_gs_init();
 #endif
 	return 0;
 }
@@ -84,8 +83,7 @@ dbg_init_fail:
 void __exit dbg_exit(void)
 {
 #if IS_ENABLED(CONFIG_MTK_LPM_GS_DUMP_SUPPORT)
-	/*FIXME*/
-	//mt6789_power_gs_deinit();
+	power_gs_deinit();
 #endif
 	lpm_dbg_pm_exit();
 	lpm_dbg_common_fs_exit();
