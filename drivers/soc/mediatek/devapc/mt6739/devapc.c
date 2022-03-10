@@ -476,17 +476,18 @@ static void execute_aee(unsigned int i, unsigned int dbg0, unsigned int dbg1)
 {
 	char aee_str[256];
 	unsigned int domain_id;
-
+	int ret = 0;
 	DEVAPC_VIO_MSG("[DEVAPC] Executing AEE Exception...\n");
 	/* Mark the flag for showing AEE (AEE should be shown only once) */
 	devapc_vio_aee_shown[i] = 1;
 
 	if (devapc_vio_current_aee_trigger_times < DEVAPC_VIO_MAX_TOTAL_MODULE_AEE_TRIGGER_TIMES) {
 		devapc_vio_current_aee_trigger_times++;
-		snprintf(aee_str, sizeof(aee_str),
+		ret = snprintf(aee_str, sizeof(aee_str),
 			"[DEVAPC] Access Violation Slave: %s (infra index=%d)\n",
 			devapc_infra_devices[i].device, i);
-
+		if (ret < 0 || ret >= sizeof(aee_str))
+			DEVAPC_VIO_MSG("[DEVAPC] snprintf failed ret = %d\n",ret);
 		domain_id = (dbg0 & INFRA_VIO_DBG_DMNID) >> INFRA_VIO_DBG_DMNID_START_BIT;
 		if (domain_id == 1) {
 			aee_kernel_exception(aee_str,
