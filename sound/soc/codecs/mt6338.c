@@ -659,6 +659,142 @@ static void mt6338_set_2nd_dl_src(struct mt6338_priv *priv, bool enable)
 			0x0 << AFE_2ND_DL_SRC_ON_TMP_CTL_PRE_SFT);
 	}
 }
+static void mt6338_set_ulcf(struct mt6338_priv *priv, bool enable)
+{
+	regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_UL_SRC_CON0_3,
+		ADDA_ULCF_CFG_EN_CTL_MASK_SFT,
+		enable << ADDA_ULCF_CFG_EN_CTL_SFT);
+	if (enable) {
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_02_01_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_02_01_2, 0x9b);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_02_01_1, 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_02_01_0, 0x96);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_04_03_3, 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_04_03_2, 0x7a);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_04_03_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_04_03_0, 0x20);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_06_05_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_06_05_2, 0x6b);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_06_05_1, 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_06_05_0, 0xf0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_08_07_3, 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_08_07_2, 0xbc);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_08_07_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_08_07_0, 0xf);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_10_09_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_10_09_2, 0xb);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_10_09_1, 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_10_09_0, 0xe4);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_12_11_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_12_11_2, 0x43);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_12_11_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_12_11_0, 0x38);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_14_13_3, 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_14_13_2, 0x54);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_14_13_1, 0xff);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_14_13_0, 0x99);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_16_15_3, 0x1);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_16_15_2, 0x33);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_16_15_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_16_15_0, 0xac);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_18_17_3, 0xfe);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_18_17_2, 0x1d);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_18_17_1, 0xfe);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_18_17_0, 0xf2);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_20_19_3, 0x2);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_20_19_2, 0xc6);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_20_19_1, 0x1);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_20_19_0, 0x95);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_22_21_3, 0xfc);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_22_21_2, 0xa);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_22_21_1, 0xfd);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_22_21_0, 0xb2);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_24_23_3, 0x5);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_24_23_2, 0x9e);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_24_23_1, 0x3);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_24_23_0, 0x4b);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_26_25_3, 0xf7);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_26_25_2, 0xda);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_26_25_1, 0xfb);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_26_25_0, 0x4c);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_28_27_3, 0xc);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_28_27_2, 0xaf);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_28_27_1, 0x6);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_28_27_0, 0xd8);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_30_29_3, 0xe8);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_30_29_2, 0x65);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_30_29_1, 0xf5);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_30_29_0, 0x99);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_32_31_3, 0x49);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_32_31_2, 0x90);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_32_31_1, 0x10);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_32_31_0, 0x50);
+	} else {
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_02_01_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_02_01_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_02_01_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_02_01_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_04_03_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_04_03_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_04_03_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_04_03_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_06_05_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_06_05_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_06_05_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_06_05_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_08_07_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_08_07_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_08_07_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_08_07_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_10_09_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_10_09_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_10_09_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_10_09_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_12_11_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_12_11_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_12_11_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_12_11_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_14_13_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_14_13_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_14_13_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_14_13_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_16_15_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_16_15_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_16_15_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_16_15_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_18_17_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_18_17_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_18_17_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_18_17_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_20_19_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_20_19_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_20_19_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_20_19_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_22_21_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_22_21_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_22_21_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_24_23_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_24_23_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_24_23_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_24_23_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_26_25_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_26_25_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_26_25_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_26_25_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_28_27_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_28_27_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_28_27_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_28_27_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_30_29_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_30_29_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_30_29_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_30_29_0, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_32_31_3, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_32_31_2, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_32_31_1, 0x0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_ULCF_CFG_32_31_0, 0x0);
+	}
+}
 
 static void mt6338_set_ul_src(struct mt6338_priv *priv, bool enable)
 {
@@ -1121,8 +1257,7 @@ static int mt6338_put_volsw(struct snd_kcontrol *kcontrol,
 	int indexR = ucontrol->value.integer.value[1];
 	int ret;
 
-
-	dev_info(priv->dev,
+	dev_dbg(priv->dev,
 		"%s(), name %s, reg(0x%x) = 0x%x, set index = %x indeR = %x\n",
 		 __func__, kcontrol->id.name, mc->reg, reg, index, indexR);
 
@@ -1138,20 +1273,20 @@ static int mt6338_put_volsw(struct snd_kcontrol *kcontrol,
 		}
 		break;
 	case MT6338_AUDENC_PMU_CON1:
-		if (!priv->mic_hifi_mode)
-			ucontrol->value.integer.value[0] = index - 2;
+		if (priv->mic_hifi_mode)
+			ucontrol->value.integer.value[0] = index + 2;
 		break;
 	case MT6338_AUDENC_PMU_CON3:
-		if (!priv->mic_hifi_mode)
-			ucontrol->value.integer.value[0] = index - 2;
+		if (priv->mic_hifi_mode)
+			ucontrol->value.integer.value[0] = index + 2;
 		break;
 	case MT6338_AUDENC_PMU_CON5:
-		if (!priv->mic_hifi_mode)
-			ucontrol->value.integer.value[0] = index - 2;
+		if (priv->mic_hifi_mode)
+			ucontrol->value.integer.value[0] = index + 2;
 		break;
 	case MT6338_AUDENC_PMU_CON7:
-		if (!priv->mic_hifi_mode)
-			ucontrol->value.integer.value[0] = index - 2;
+		if (priv->mic_hifi_mode)
+			ucontrol->value.integer.value[0] = index + 2;
 		break;
 	}
 
@@ -1216,7 +1351,7 @@ static int mt6338_put_volsw(struct snd_kcontrol *kcontrol,
 		break;
 	}
 
-	dev_dbg(priv->dev, "%s(), name %s, reg(0x%x) = 0x%x, set index = %x\n",
+	dev_info(priv->dev, "%s(), name %s, reg(0x%x) = 0x%x, set index = %x\n",
 		 __func__, kcontrol->id.name, mc->reg, reg, index);
 
 	return ret;
@@ -1224,7 +1359,7 @@ static int mt6338_put_volsw(struct snd_kcontrol *kcontrol,
 
 static const DECLARE_TLV_DB_SCALE(hp_playback_tlv, 0, 300, 0);
 static const DECLARE_TLV_DB_SCALE(playback_tlv, -1000, 100, 0);
-static const DECLARE_TLV_DB_SCALE(capture_tlv, 0, 300, 0);
+static const DECLARE_TLV_DB_SCALE(capture_tlv, 0, 360, 0);
 static const DECLARE_TLV_DB_SCALE(capture_neg_tlv, -900, 300, 0);
 
 #define MT_SOC_ENUM_EXT_ID(xname, xenum, xhandler_get, xhandler_put, id) \
@@ -2739,7 +2874,7 @@ static int mtk_hp_impedance_disable(struct mt6338_priv *priv)
 		RG_HPLOUTPUTSTBENH_VAUDP18_MASK_SFT,
 		0x3 << RG_HPLOUTPUTSTBENH_VAUDP18_SFT);
 
-#if IS_ENABLED(CONFIG_SND_SOC_mt6338_ACCDET)
+#if IS_ENABLED(CONFIG_SND_SOC_MT6338_ACCDET)
 	/* from accdet request */
 	mt6338_accdet_modify_vref_volt();
 #endif
@@ -4526,6 +4661,39 @@ static int mt_ul_src_34_dmic_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6338_AFE_ADDA6_UL_SRC_CON0_0,
 			ADDA6_UL_SRC_ON_TMP_CTL_MASK_SFT,
 			0x0 << ADDA6_UL_SRC_ON_TMP_CTL_SFT);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int is_need_ulcf(struct snd_soc_dapm_widget *source,
+			       struct snd_soc_dapm_widget *sink)
+{
+	struct snd_soc_dapm_widget *w = sink;
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	return (priv->mic_ulcf_en) ? 1 : 0;
+}
+
+static int mt_ulcf_event(struct snd_soc_dapm_widget *w,
+			      struct snd_kcontrol *kcontrol,
+			      int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	dev_info(priv->dev, "%s(), event = 0x%x\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		mt6338_set_ulcf(priv, true);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		mt6338_set_ulcf(priv, false);
 		break;
 	default:
 		break;
@@ -6753,6 +6921,12 @@ static const struct snd_soc_dapm_widget mt6338_dapm_widgets[] = {
 			      mt_mtkaif_tx_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
+	SND_SOC_DAPM_SUPPLY_S("UL_SRC_CF", SUPPLY_SEQ_UL_SRC,
+			      MT6338_AFE_ADDA_UL_SRC_CON0_3,
+			      ADDA_ULCF_CFG_EN_CTL_SFT, 0,
+				  mt_ulcf_event,
+				  SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_SUPPLY_S("UL_SRC", SUPPLY_SEQ_UL_SRC,
 			      SND_SOC_NOPM, 0, 0,
 			      mt_ul_src_event,
@@ -7048,6 +7222,7 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 	{"UL_SRC_MUX", "AMIC", "ADC_R"},
 	{"UL_SRC_MUX", "DMIC", "DMIC0_MUX"},
 	{"UL_SRC_MUX", "DMIC", "DMIC1_MUX"},
+	{"UL_SRC_MUX", NULL, "UL_SRC_CF", is_need_ulcf},
 	{"UL_SRC_MUX", NULL, "UL_SRC"},
 
 	{"UL2_SRC_MUX", "AMIC", "ADC_3"},
@@ -8841,7 +9016,7 @@ static int dc_trim_thread(void *arg)
 
 	get_hp_trim_offset(priv, false);
 
-#if IS_ENABLED(CONFIG_SND_SOC_mt6338_ACCDET)
+#if IS_ENABLED(CONFIG_SND_SOC_MT6338_ACCDET)
 	mt6338_accdet_late_init(0);
 #endif
 	do_exit(0);
@@ -9421,6 +9596,32 @@ static int mic_hifi_mode_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int mic_ulcf_en_get(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	ucontrol->value.integer.value[0] = priv->mic_ulcf_en;
+	return 0;
+}
+
+static int mic_ulcf_en_set(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	if (ucontrol->value.enumerated.item[0] > ARRAY_SIZE(off_on_function)) {
+		dev_info(priv->dev, "%s(), return -EINVAL\n", __func__);
+		return -EINVAL;
+	}
+
+	priv->mic_ulcf_en = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
 static const struct soc_enum misc_control_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(off_on_function), off_on_function),
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(hifi_on_function), hifi_on_function),
@@ -9581,6 +9782,8 @@ static const struct snd_kcontrol_new mt6338_snd_misc_controls[] = {
 		hp_hifi_mode_get, hp_hifi_mode_set),
 	SOC_ENUM_EXT("MIC Hifi mode", misc_control_enum[0],
 		mic_hifi_mode_get, mic_hifi_mode_set),
+	SOC_ENUM_EXT("MIC ULCF EN", misc_control_enum[0],
+		mic_ulcf_en_get, mic_ulcf_en_set),
 };
 
 static void keylock_set(struct mt6338_priv *priv)
