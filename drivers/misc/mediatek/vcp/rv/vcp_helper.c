@@ -628,10 +628,9 @@ static void vcp_err_info_handler(int id, void *prdata, void *data,
  */
 void trigger_vcp_halt(enum vcp_core_id id)
 {
-	if (vcp_ready[id]) {
+	if ((!is_suspending) && mmup_enable_count() && vcp_ready[id]) {
 		/* trigger halt isr, force vcp enter wfi */
 		writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
-		wait_vcp_wdt_irq_done();
 	}
 }
 EXPORT_SYMBOL_GPL(trigger_vcp_halt);
