@@ -82,6 +82,7 @@ struct fpsgo_loading {
 	int prefer_type;
 	int policy;
 	long nice_bk;
+	int action;
 };
 
 struct fbt_thread_blc {
