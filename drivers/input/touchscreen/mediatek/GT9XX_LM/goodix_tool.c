@@ -222,7 +222,7 @@ s32 init_wr_node(struct i2c_client *client)
 	register_i2c_func();
 
 	tool_set_proc_name(procname);
-	goodix_proc_entry = proc_create(procname, 0444, NULL, &tool_ops);
+	goodix_proc_entry = proc_create(procname, 0440, NULL, &tool_ops);
 
 	if (misc_register(&hotknot_misc_device)) {
 		GTP_ERROR("mtk_tpd: hotknot_device register failed\n");

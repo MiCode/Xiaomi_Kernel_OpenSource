@@ -464,7 +464,7 @@ s32 gtp_extents_init(void)
 	memset(gestures_flag, 0, sizeof(gestures_flag));
 	memset((u8 *)&gesture_data, 0, sizeof(struct gesture_data));
 
-	proc_entry = proc_create(GESTURE_NODE, 0444, NULL, &gtp_fops);
+	proc_entry = proc_create(GESTURE_NODE, 0440, NULL, &gtp_fops);
 	if (proc_entry == NULL) {
 		GTP_ERROR("Couldn't create proc entry[GESTURE_NODE]!");
 		return -1;
