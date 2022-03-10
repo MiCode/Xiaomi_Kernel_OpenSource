@@ -3030,7 +3030,6 @@
 					<&dvfsrc_freq_opp1>;
 			net_spd_ver = <4>;
 			hw_reset_ver = <1>;
-			gro_config = <1>;
 		};
 
 		ccifdriver:ccifdriver@10209000 {
