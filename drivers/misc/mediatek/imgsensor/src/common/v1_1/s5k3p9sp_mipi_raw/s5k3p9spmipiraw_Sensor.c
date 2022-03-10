@@ -4063,7 +4063,7 @@ static void slim_video_setting(void)
 	LOG_INF("E\n");
 }
 
-#define FOUR_CELL_SIZE 3072
+#define FOUR_CELL_SIZE 2048
 #define FOUR_CELL_ADDR 0x150F
 static u32 is_read_four_cell;
 static char four_cell_data[FOUR_CELL_SIZE + 2];
@@ -4082,7 +4082,7 @@ static void read_four_cell_from_eeprom(char *data)
 	}
 	if (data != NULL) {
 		LOG_INF("return data\n");
-		memcpy(data, four_cell_data, FOUR_CELL_SIZE);
+		memcpy(data, four_cell_data, FOUR_CELL_SIZE + 2);
 	}
 }
 
