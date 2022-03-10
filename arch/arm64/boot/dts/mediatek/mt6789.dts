@@ -3314,7 +3314,7 @@
 			clocks =
 				<&topckgen_clk CLK_TOP_MFG_PLL_SEL>,
 				<&topckgen_clk CLK_TOP_MFGPLL>,
-				<&topckgen_clk CLK_TOP_MFG_REF_SEL_CK>,
+				<&topckgen_clk CLK_TOP_MFG_REF>,
 				<&mfg_top_config_clk CLK_MFGCFG_BG3D>;
 			clock-names =
 				"clk_mux",
