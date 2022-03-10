@@ -1769,6 +1769,14 @@
 			};
 		};
 
+		regulator_vibrator: regulator_vibrator {
+			compatible = "regulator-vibrator";
+			label = "vibrator";
+			min-volt = <2800000>;
+			max-volt = <3500000>;
+			vib-supply = <&mt6358_vibr_reg>;
+		};
+
 		topckgen@10000000 {
 			compatible = "mediatek,topckgen";
 			reg = <0 0x10000000 0 0x1000>;
