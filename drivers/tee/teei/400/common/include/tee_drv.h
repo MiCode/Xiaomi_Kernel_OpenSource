@@ -40,6 +40,7 @@ struct tee_context {
 	struct list_head list_shm;
 	u8 hostname[TEE_MAX_HOSTNAME_SIZE];
 	void *data;
+	struct mutex mutex;
 };
 
 struct tee_param_memref {
@@ -208,6 +209,7 @@ void isee_shm_kfree(struct tee_shm *shm);
  *
  * @returns a pointer to 'struct tee_shm'
  */
+struct tee_shm *isee_shm_alloc_noid(struct tee_context *ctx, size_t size, u32 flags);
 struct tee_shm *isee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags);
 
 /**

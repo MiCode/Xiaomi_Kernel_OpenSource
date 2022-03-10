@@ -456,4 +456,10 @@ struct tee_ioctl_capi_proxy_arg {
  * munmap(): unmaps previously shared memory
  */
 
+#define TEE_IOC_SHM_RELEASE _IOR(TEE_IOC_MAGIC, TEE_IOC_BASE + 12, \
+					struct tee_ioctl_shm_alloc_data)
+
+#define TEE_IOC_SHM_ID _IOR(TEE_IOC_MAGIC, TEE_IOC_BASE + 13, \
+					struct tee_ioctl_shm_alloc_data)
+
 #endif /*__TEE_H*/

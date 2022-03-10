@@ -76,12 +76,17 @@ static void teedev_close_context(struct tee_context *ctx)
 {
 	struct tee_shm *shm;
 
+	mutex_lock(&ctx->mutex);
+
 	ctx->teedev->desc->ops->release(ctx);
 	mutex_lock(&ctx->teedev->mutex);
 	list_for_each_entry(shm, &ctx->list_shm, link)
 		shm->ctx = NULL;
 	mutex_unlock(&ctx->teedev->mutex);
 	isee_device_put(ctx->teedev);
+
+	mutex_unlock(&ctx->mutex);
+
 	kfree(ctx);
 }
 
@@ -100,6 +105,8 @@ int tee_k_open(struct file *filp)
 	if (IS_ERR(ctx))
 		return PTR_ERR(ctx);
 
+	mutex_init(&ctx->mutex);
+
 	filp->private_data = ctx;
 	return 0;
 }
@@ -111,6 +118,8 @@ static int tee_open(struct inode *inode, struct file *filp)
 	ctx = teedev_open(container_of(inode->i_cdev, struct tee_device, cdev));
 	if (IS_ERR(ctx))
 		return PTR_ERR(ctx);
+
+	mutex_init(&ctx->mutex);
 
 	filp->private_data = ctx;
 	return 0;
@@ -142,44 +151,6 @@ static int tee_ioctl_version(struct tee_context *ctx,
 		return -EFAULT;
 
 	return 0;
-}
-
-static int tee_ioctl_shm_alloc(struct tee_context *ctx,
-			       struct tee_ioctl_shm_alloc_data __user *udata)
-{
-	long ret;
-	struct tee_ioctl_shm_alloc_data data;
-	struct tee_shm *shm;
-
-	if (copy_from_user(&data, udata, sizeof(data)))
-		return -EFAULT;
-
-	/* Currently no input flags are supported */
-	if (data.flags)
-		return -EINVAL;
-
-	data.id = -1;
-
-	shm = isee_shm_alloc(ctx, data.size, TEE_SHM_MAPPED | TEE_SHM_DMA_BUF);
-	if (IS_ERR(shm))
-		return PTR_ERR(shm);
-
-	data.id = shm->id;
-	data.flags = shm->flags;
-	data.size = shm->size;
-
-	if (copy_to_user(udata, &data, sizeof(data)))
-		ret = -EFAULT;
-	else
-		ret = isee_shm_get_fd(shm);
-
-	/*
-	 * When user space closes the file descriptor the shared memory
-	 * should be freed or if isee_shm_get_fd() failed then it will
-	 * be freed immediately.
-	 */
-	isee_shm_put(shm);
-	return ret;
 }
 
 #ifdef CONFIG_MICROTRUST_TEST_DRIVERS
@@ -288,6 +259,12 @@ static int params_from_user(struct tee_context *ctx, struct tee_param *params,
 			shm = isee_shm_get_from_id(ctx, ip.c);
 			if (IS_ERR(shm))
 				return PTR_ERR(shm);
+
+			if ((ip.a >= shm->size) || (ip.b > shm->size)
+					|| ((ip.a + ip.b) > shm->size)) {
+				IMSG_ERROR("Inval param in %s\n", __func__);
+				return -EINVAL;
+			}
 
 			params[n].u.memref.shm_offs = ip.a;
 			params[n].u.memref.size = ip.b;
@@ -689,40 +666,143 @@ static int tee_ioctl_set_hostname(struct tee_context *ctx,
 	return 0;
 }
 
+static int tee_ioctl_shm_id(struct tee_context *ctx, unsigned long uaddr)
+{
+	struct tee_device *teedev = ctx->teedev;
+	struct tee_shm *shm = NULL;
+	int shm_found = 0;
+
+	mutex_lock(&teedev->mutex);
+
+	list_for_each_entry(shm, &(ctx->list_shm), link) {
+		if (shm->uaddr == uaddr) {
+			shm_found = 1;
+			break;
+		}
+	}
+
+	mutex_unlock(&teedev->mutex);
+
+	if (shm_found == 0) {
+		IMSG_ERROR("Failed to find the shm with uaddr =%llx\n", uaddr);
+		return -EINVAL;
+	}
+
+	return shm->id;
+}
+
+static int tee_ioctl_shm_release(struct tee_context *ctx, unsigned long arg)
+{
+	int shm_id = 0;
+	struct tee_shm *shm = NULL;
+
+	shm_id = (int)arg;
+
+	shm = isee_shm_get_from_id(ctx, shm_id);
+	if (IS_ERR(shm)) {
+		IMSG_ERROR("Failed to the shm with ID %d\n", shm_id);
+		return PTR_ERR(shm);
+	}
+
+	isee_shm_kfree(shm);
+
+	return 0;
+}
+
+
 long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct tee_context *ctx = filp->private_data;
 	void __user *uarg = (void __user *)arg;
+	long retVal = 0;
+
+#ifdef CONFIG_MICROTRUST_TEST_DRIVERS
+	if (cmd != TEE_IOC_CAPI_PROXY)
+#endif
+		mutex_lock(&ctx->mutex);
 
 	switch (cmd) {
 	case TEE_IOC_VERSION:
-		return tee_ioctl_version(ctx, uarg);
-	case TEE_IOC_SHM_ALLOC:
-		return tee_ioctl_shm_alloc(ctx, uarg);
+		retVal = tee_ioctl_version(ctx, uarg);
+		break;
+	case TEE_IOC_SHM_RELEASE:
+		retVal = tee_ioctl_shm_release(ctx, arg);
+		break;
+	case TEE_IOC_SHM_ID:
+		retVal = tee_ioctl_shm_id(ctx, arg);
+		break;
 #ifdef CONFIG_MICROTRUST_TEST_DRIVERS
 	case TEE_IOC_SHM_KERN_OP:
-		return tee_ioctl_shm_kern_op(ctx, uarg);
+		retVal = tee_ioctl_shm_kern_op(ctx, uarg);
+		break;
 	case TEE_IOC_CAPI_PROXY:
-		return tee_ioctl_capi_proxy(ctx, uarg);
+		retVal = tee_ioctl_capi_proxy(ctx, uarg);
+		break;
 #endif
 	case TEE_IOC_OPEN_SESSION:
-		return tee_ioctl_open_session(ctx, uarg);
+		retVal = tee_ioctl_open_session(ctx, uarg);
+		break;
 	case TEE_IOC_INVOKE:
-		return tee_ioctl_invoke(ctx, uarg);
+		retVal = tee_ioctl_invoke(ctx, uarg);
+		break;
 	case TEE_IOC_CANCEL:
-		return tee_ioctl_cancel(ctx, uarg);
+		retVal = tee_ioctl_cancel(ctx, uarg);
+		break;
 	case TEE_IOC_CLOSE_SESSION:
-		return tee_ioctl_close_session(ctx, uarg);
+		retVal = tee_ioctl_close_session(ctx, uarg);
+		break;
 	case TEE_IOC_SUPPL_RECV:
-		return tee_ioctl_supp_recv(ctx, uarg);
+		retVal = tee_ioctl_supp_recv(ctx, uarg);
+		break;
 	case TEE_IOC_SUPPL_SEND:
-		return tee_ioctl_supp_send(ctx, uarg);
+		retVal = tee_ioctl_supp_send(ctx, uarg);
+		break;
 	case TEE_IOC_SET_HOSTNAME:
-		return tee_ioctl_set_hostname(ctx, uarg);
+		retVal = tee_ioctl_set_hostname(ctx, uarg);
+		break;
 	default:
-		return -EINVAL;
+		retVal = -EINVAL;
 	}
+
+#ifdef CONFIG_MICROTRUST_TEST_DRIVERS
+	if (cmd != TEE_IOC_CAPI_PROXY)
+#endif
+		mutex_unlock(&ctx->mutex);
+
+	return retVal;
 }
+
+static int tee_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	size_t size = vma->vm_end - vma->vm_start;
+	struct tee_context *ctx = filp->private_data;
+	struct tee_shm *shm = NULL;
+	int retVal = 0;
+
+	mutex_lock(&ctx->mutex);
+
+	shm = isee_shm_kalloc(ctx, size, TEE_SHM_MAPPED | TEE_SHM_DMA_KERN_BUF);
+	if (IS_ERR(shm)) {
+		IMSG_ERROR("Failed to alloc shm %d\n", PTR_ERR(shm));
+		retVal = PTR_ERR(shm);
+		goto exit;
+	}
+
+	retVal = remap_pfn_range(vma, vma->vm_start, shm->paddr >> PAGE_SHIFT,
+					size, vma->vm_page_prot);
+
+	if (retVal != 0) {
+		IMSG_ERROR("Failed to remap the shm %d\n", retVal);
+		isee_shm_kfree(shm);
+	} else
+		shm->uaddr = vma->vm_start;
+
+exit:
+	mutex_unlock(&ctx->mutex);
+
+	return retVal;
+}
+
 
 static const struct file_operations tee_fops = {
 	.owner = THIS_MODULE,
@@ -732,6 +812,7 @@ static const struct file_operations tee_fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = tee_ioctl,
 #endif
+	.mmap = tee_mmap,
 };
 
 static void tee_release_device(struct device *dev)

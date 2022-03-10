@@ -99,7 +99,7 @@ static void soter_release(struct tee_context *ctx)
 	if (!ctxdata)
 		return;
 
-	shm = isee_shm_alloc(ctx, sizeof(struct optee_msg_arg), TEE_SHM_MAPPED);
+	shm = isee_shm_alloc_noid(ctx, sizeof(struct optee_msg_arg), TEE_SHM_MAPPED);
 	if (!IS_ERR(shm)) {
 		arg = isee_shm_get_va(shm, 0);
 		/*
