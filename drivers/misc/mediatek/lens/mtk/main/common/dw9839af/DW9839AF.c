@@ -372,6 +372,8 @@ int DW9839AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient, spinlock_t
 *pAF_SpinLock, int *pAF_Opened)
 {
 	int ret = 0;
+	unsigned short InitPos = 0, InitPosM = 0, InitPosL = 0;
+
 	g_pstAF_I2Cclient = pstAF_I2Cclient;
 	g_pAF_SpinLock = pAF_SpinLock;
 	g_pAF_Opened = pAF_Opened;
@@ -383,8 +385,6 @@ int DW9839AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient, spinlock_t
 	#endif
 
 	if (*g_pAF_Opened == 1) {
-		unsigned short InitPos, InitPosM, InitPosL;
-
 		if (initdrv() == 1) {
 			spin_lock(g_pAF_SpinLock);
 			*g_pAF_Opened = 2;

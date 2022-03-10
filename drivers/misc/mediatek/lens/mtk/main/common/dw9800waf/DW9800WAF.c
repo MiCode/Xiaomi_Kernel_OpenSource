@@ -256,13 +256,13 @@ int DW9800WAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 	spinlock_t *pAF_SpinLock, int *pAF_Opened)
 {
 	int ret = 0;
+	unsigned short InitPos = 0;
+
 	g_pstAF_I2Cclient = pstAF_I2Cclient;
 	g_pAF_SpinLock = pAF_SpinLock;
 	g_pAF_Opened = pAF_Opened;
 
 	if (*g_pAF_Opened == 1) {
-		unsigned short InitPos;
-
 		initdrv();
 		ret = s4DW9800WAF_ReadReg(&InitPos);
 
