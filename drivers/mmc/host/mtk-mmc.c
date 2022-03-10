@@ -137,6 +137,22 @@ static const struct mtk_mmc_compatible mt6779_compat = {
 	.need_gate_cg = true,
 };
 
+static const struct mtk_mmc_compatible mt6789_compat = {
+	.clk_div_bits = 12,
+	.recheck_sdio_irq = false,
+	.hs400_tune = false,
+	.pad_tune_reg = MSDC_PAD_TUNE0,
+	.async_fifo = true,
+	.data_tune = true,
+	.busy_check = true,
+	.stop_clk_fix = true,
+	.enhance_rx = true,
+	.support_64g = true,
+	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
+};
+
 static const struct mtk_mmc_compatible common_compat = {
 	.clk_div_bits = 12,
 	.recheck_sdio_irq = false,
@@ -175,6 +191,7 @@ static const struct of_device_id msdc_of_ids[] = {
 	{ .compatible = "mediatek,mt8516-mmc", .data = &mt8516_compat},
 	{ .compatible = "mediatek,mt7620-mmc", .data = &mt7620_compat},
 	{ .compatible = "mediatek,mt6779-mmc", .data = &mt6779_compat},
+	{ .compatible = "mediatek,mt6789-mmc", .data = &mt6789_compat},
 	{ .compatible = "mediatek,common-mmc", .data = &common_compat},
 	{ .compatible = "mediatek,common-mmc-v2", .data = &common_v2_compat},
 	{}
@@ -425,6 +442,65 @@ static void msdc_ungate_clock(struct msdc_host *host)
 		cpu_relax();
 }
 
+static void msdc_new_tx_rx_setting_v1(struct msdc_host *host,
+	unsigned char timing)
+{
+	switch (timing) {
+	case MMC_TIMING_LEGACY:
+	case MMC_TIMING_MMC_HS:
+	case MMC_TIMING_SD_HS:
+	case MMC_TIMING_UHS_SDR12:
+	case MMC_TIMING_UHS_SDR25:
+	case MMC_TIMING_UHS_DDR50:
+	case MMC_TIMING_MMC_DDR52:
+		sdr_set_bits(host->top_base + LOOP_TEST_CONTROL,
+			     TEST_LOOP_DSCLK_MUX_SEL);
+		sdr_set_bits(host->top_base + LOOP_TEST_CONTROL,
+			     TEST_LOOP_LATCH_MUX_SEL);
+		sdr_clr_bits(host->top_base + LOOP_TEST_CONTROL,
+			     LOOP_EN_SEL_CLK);
+		sdr_clr_bits(host->top_base + LOOP_TEST_CONTROL,
+			     TEST_HS400_CMD_LOOP_MUX_SEL);
+		break;
+	case MMC_TIMING_UHS_SDR50:
+	case MMC_TIMING_UHS_SDR104:
+	case MMC_TIMING_MMC_HS200:
+		sdr_set_bits(host->top_base + LOOP_TEST_CONTROL,
+			     TEST_LOOP_DSCLK_MUX_SEL);
+		sdr_set_bits(host->top_base + LOOP_TEST_CONTROL,
+			     TEST_LOOP_LATCH_MUX_SEL);
+		sdr_set_bits(host->top_base + LOOP_TEST_CONTROL,
+			     LOOP_EN_SEL_CLK);
+		sdr_clr_bits(host->top_base + LOOP_TEST_CONTROL,
+			     TEST_HS400_CMD_LOOP_MUX_SEL);
+		break;
+	case MMC_TIMING_MMC_HS400:
+		sdr_clr_bits(host->top_base + LOOP_TEST_CONTROL,
+			     TEST_LOOP_DSCLK_MUX_SEL);
+		sdr_clr_bits(host->top_base + LOOP_TEST_CONTROL,
+			     TEST_LOOP_LATCH_MUX_SEL);
+		sdr_set_bits(host->top_base + LOOP_TEST_CONTROL,
+			     LOOP_EN_SEL_CLK);
+		sdr_set_bits(host->top_base + LOOP_TEST_CONTROL,
+			     TEST_HS400_CMD_LOOP_MUX_SEL);
+		break;
+	default:
+		break;
+	}
+}
+
+static void msdc_new_tx_rx_setting(struct msdc_host *host, unsigned char timing)
+{
+	switch (host->dev_comp->new_tx_ver) {
+	case MSDC_NEW_TX_V2:
+	case MSDC_NEW_RX_V1:
+		msdc_new_tx_rx_setting_v1(host, timing);
+		break;
+	default:
+		break;
+	}
+}
+
 static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 {
 	struct mmc_host *mmc = mmc_from_priv(host);
@@ -435,6 +511,7 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 #if !IS_ENABLED(CONFIG_MMC_AUTOK)
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
 #endif
+	int timing_changed = 0;
 
 	if (!hz) {
 		dev_dbg(host->dev, "set mclk to 0\n");
@@ -443,6 +520,8 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 		return;
 	}
 
+	if (host->timing != timing)
+		timing_changed  = 1;
 	flags = readl(host->base + MSDC_INTEN);
 	sdr_clr_bits(host->base + MSDC_INTEN, flags);
 	if (host->dev_comp->clk_div_bits == 8)
@@ -575,6 +654,9 @@ static void msdc_set_mclk(struct msdc_host *host, unsigned char timing, u32 hz)
 			      MSDC_PAD_TUNE_CMDRRDLY,
 			      host->hs400_cmd_int_delay);
 #endif
+	if (timing_changed && support_new_tx(host->dev_comp->new_tx_ver)
+		&& support_new_rx(host->dev_comp->new_rx_ver))
+		msdc_new_tx_rx_setting(host, timing);
 
 	dev_info(host->dev, "sclk: %d, timing: %d\n", mmc->actual_clock,
 		timing);
@@ -1444,6 +1526,11 @@ static void msdc_init_hw(struct msdc_host *host)
 	if (host->dev_comp->support_64g)
 		sdr_set_bits(host->base + MSDC_PATCH_BIT2,
 			     MSDC_PB2_SUPPORT_64G);
+	if (support_new_tx(host->dev_comp->new_tx_ver))
+		sdr_set_bits(host->base + SDC_ADV_CFG0, SDC_NEW_TX_EN);
+	if (support_new_rx(host->dev_comp->new_rx_ver))
+		sdr_set_bits(host->base + MSDC_NEW_RX_CFG,
+			MSDC_NEW_RX_PATH_SEL);
 
 #if !IS_ENABLED(CONFIG_MMC_AUTOK)
 	if (host->dev_comp->data_tune) {
@@ -2963,6 +3050,10 @@ static void msdc_save_reg(struct msdc_host *host)
 			readl(host->top_base + EMMC_TOP_CMD);
 		host->save_para.emmc50_pad_ds_tune =
 			readl(host->top_base + EMMC50_PAD_DS_TUNE);
+		host->save_para.top_loop_test_control =
+			readl(host->top_base + LOOP_TEST_CONTROL);
+		host->save_para.top_new_rx_cfg =
+			readl(host->top_base + MSDC_TOP_NEW_RX_CFG);
 	} else {
 		host->save_para.pad_tune = readl(host->base + tune_reg);
 	}
@@ -2991,6 +3082,10 @@ static void msdc_restore_reg(struct msdc_host *host)
 		       host->top_base + EMMC_TOP_CMD);
 		writel(host->save_para.emmc50_pad_ds_tune,
 		       host->top_base + EMMC50_PAD_DS_TUNE);
+		writel(host->save_para.top_loop_test_control,
+			   host->top_base + LOOP_TEST_CONTROL);
+		writel(host->save_para.top_new_rx_cfg,
+			   host->top_base + MSDC_TOP_NEW_RX_CFG);
 	} else {
 		writel(host->save_para.pad_tune, host->base + tune_reg);
 	}
@@ -3037,6 +3132,10 @@ void msdc_save_timing_setting(struct msdc_host *host)
 				= readl(host->top_base + EMMC50_PAD_DAT0_TUNE
 					+ i * 4);
 		}
+		host->save_para.top_loop_test_control
+			= readl(host->top_base + LOOP_TEST_CONTROL);
+		host->save_para.top_new_rx_cfg
+			= readl(host->top_base + MSDC_TOP_NEW_RX_CFG);
 	} else {
 		host->save_para.pad_tune = readl(host->base + tune_reg);
 		host->save_para.pad_tune1 = readl(host->base + MSDC_PAD_TUNE1);
@@ -3100,6 +3199,10 @@ void msdc_restore_timing_setting(struct msdc_host *host)
 			writel(host->save_para.top_emmc50_pad_dat_tune[i],
 				host->top_base + EMMC50_PAD_DAT0_TUNE + i * 4);
 		}
+		writel(host->save_para.top_loop_test_control,
+			   host->top_base + LOOP_TEST_CONTROL);
+		writel(host->save_para.top_new_rx_cfg,
+			   host->top_base + MSDC_TOP_NEW_RX_CFG);
 	}
 	if (sdio_irq_claimed(mmc))
 		__msdc_enable_sdio_irq(host, 1);
