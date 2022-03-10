@@ -95,11 +95,11 @@ ifeq ($(CONFIG_MACH_MT8168),y)
 endif
 
 ifeq ($(CONFIG_MACH_MT6785),y)
-$(info FDVT: Drv use 5.0 folder)
+$(info FDVT: Drv use mt6785 folder)
 MTKCAM_FDVT_VERSION := 5.0
-MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.0
-subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.0/inc
-obj-y += 5.0/
+MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/mt6785
+subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/mt6785/inc
+obj-y += mt6785/
 endif
 
 ifeq ($(CONFIG_MACH_MT6779),y)
