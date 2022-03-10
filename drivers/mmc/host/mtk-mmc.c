@@ -1416,6 +1416,20 @@ static void msdc_init_hw(struct msdc_host *host)
 		sdr_set_bits(host->base + MSDC_PATCH_BIT2,
 			     MSDC_PATCH_BIT2_CFGCRCSTS);
 	}
+#else
+	if (host->dev_comp->enhance_rx) {
+		if (host->top_base)
+			sdr_set_bits(host->top_base + EMMC_TOP_CONTROL,
+					SDC_RX_ENH_EN);
+		else
+			sdr_set_bits(host->base + SDC_ADV_CFG0,
+					SDC_RX_ENHANCE_EN);
+	} else {
+		sdr_set_field(host->base + MSDC_PATCH_BIT2,
+				MSDC_PB2_RESPSTSENSEL, 2);
+		sdr_set_field(host->base + MSDC_PATCH_BIT2,
+				MSDC_PB2_CRCSTSENSEL, 2);
+	}
 #endif
 
 	if (host->dev_comp->support_64g)
