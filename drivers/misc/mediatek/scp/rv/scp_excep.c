@@ -29,7 +29,6 @@
 
 #define SCP_SECURE_DUMP_MEASURE 0
 #define POLLING_RETRY 200
-#define SCP_SECURE_DUMP_DEBUG 1
 #if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM) && SCP_SECURE_DUMP_MEASURE
 	struct cal {
 		uint64_t start, end;
@@ -406,7 +405,6 @@ void scp_do_tbufdump_RV55(uint32_t *out, uint32_t *out_end)
 	}
 }
 
-extern unsigned int debug_dumptimeout_flag;
 /*
  * this function need SCP to keeping awaken
  * scp_crash_dump: dump scp tcm info.
@@ -481,21 +479,9 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 				mdelay(polling);
 				retry--;
 			}
-			if (retry == 0)	{
+			if (retry == 0)
 				pr_notice("[SCP] Dump timed out:%d\n", POLLING_RETRY);
-#if SCP_SECURE_DUMP_DEBUG
-				pr_notice("[SCP] Dump timeout dump once again.\n");
-				print_clk_registers();
-
-				/* scp_do_tbuf_dump(); */
-				scp_do_reg_dump();
-				/* scp_do_l2tcm_dump(); */
-#endif
-			}
 		}
-		/* dump rvbus for debugging */
-		if (debug_dumptimeout_flag == 1)
-			scp_do_rvbus_dump();
 		dump_end = ktime_get_boottime_ns();
 		pr_notice("[SCP] Dump: %lld ns\n", (dump_end - dump_start));
 
@@ -509,62 +495,46 @@ static unsigned int scp_crash_dump(enum scp_core_id id)
 		}
 #endif
 
-		if (debug_dumptimeout_flag == 1) {
-			/* read start from out */
+		/* tbuf is different between rv33/rv55 */
+		if (scpreg.twohart) {
+			/* RV55 */
 			uint32_t *out = (uint32_t *)get_MDUMP_addr(MDUMP_TBUF);
-			uint32_t *buf = out;
 			int i;
 
-			pr_notice("[SCP] TBUF_WPTR = 0x%08x\n", buf[0]);
-			buf++;
+			for (i = 0; i < 32; i++) {
+				pr_notice("[SCP] C0:H0:%02d:0x%08x::0x%08x\n",
+					i, *(out + i * 2), *(out + i * 2 + 1));
+			}
+
 
 			for (i = 0; i < 32; i++) {
-				pr_notice("[SCP] C0:%02d:0x%08x::0x%08x::0x%08x::0x%08x\n",
-					i, buf[0], buf[1], buf[2], buf[3]);
-				buf += 4;
+				pr_notice("[SCP] C0:H1:%02d:0x%08x::0x%08x\n",
+					i, *(out + 64 + i * 2), *(out + 64 + i * 2 + 1));
+			}
+			if (scpreg.core_nums > 1) {
+				for (i = 0; i < 32; i++) {
+					pr_notice("[SCP] C1:H0:%02d:0x%08x::0x%08x\n",
+						i, *(out + 128 + i * 2),
+						*(out + 128 + i * 2 + 1));
+				}
+				for (i = 0; i < 32; i++) {
+					pr_notice("[SCP] C1:H1:%02d:0x%08x::0x%08x\n",
+						i, *(out + 192 + i * 2),
+						*(out + 192 + i * 2 + 1));
+				}
 			}
 		} else {
-			/* tbuf is different between rv33/rv55 */
-			if (scpreg.twohart) {
-				/* RV55 */
-				uint32_t *out = (uint32_t *)get_MDUMP_addr(MDUMP_TBUF);
-				int i;
+			/* RV33 */
+			uint32_t *out = (uint32_t *)get_MDUMP_addr(MDUMP_TBUF);
+			int i;
 
-				for (i = 0; i < 32; i++) {
-					pr_notice("[SCP] C0:H0:%02d:0x%08x::0x%08x\n",
-						i, *(out + i * 2), *(out + i * 2 + 1));
-				}
-
-
-				for (i = 0; i < 32; i++) {
-					pr_notice("[SCP] C0:H1:%02d:0x%08x::0x%08x\n",
-						i, *(out + 64 + i * 2), *(out + 64 + i * 2 + 1));
-				}
-				if (scpreg.core_nums > 1) {
-					for (i = 0; i < 32; i++) {
-						pr_notice("[SCP] C1:H0:%02d:0x%08x::0x%08x\n",
-							i, *(out + 128 + i * 2),
-							*(out + 128 + i * 2 + 1));
-					}
-					for (i = 0; i < 32; i++) {
-						pr_notice("[SCP] C1:H1:%02d:0x%08x::0x%08x\n",
-							i, *(out + 192 + i * 2),
-							*(out + 192 + i * 2 + 1));
-					}
-				}
-			} else {
-				/* RV33 */
-				uint32_t *out = (uint32_t *)get_MDUMP_addr(MDUMP_TBUF);
-				int i;
-
-				for (i = 0; i < 16; i++) {
-					pr_notice("[SCP] C0:%02d:0x%08x::0x%08x\n",
-						i, *(out + i * 2), *(out + i * 2 + 1));
-				}
-				for (i = 0; i < 16; i++) {
-					pr_notice("[SCP] C1:%02d:0x%08x::0x%08x\n",
-						i, *(out + i * 2 + 16), *(out + i * 2 + 17));
-				}
+			for (i = 0; i < 16; i++) {
+				pr_notice("[SCP] C0:%02d:0x%08x::0x%08x\n",
+					i, *(out + i * 2), *(out + i * 2 + 1));
+			}
+			for (i = 0; i < 16; i++) {
+				pr_notice("[SCP] C1:%02d:0x%08x::0x%08x\n",
+					i, *(out + i * 2 + 16), *(out + i * 2 + 17));
 			}
 		}
 

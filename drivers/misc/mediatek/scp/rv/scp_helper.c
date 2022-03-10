@@ -82,8 +82,6 @@ unsigned int scp_dvfs_cali_ready;
 
 /*scp awake variable*/
 int scp_awake_counts[SCP_CORE_TOTAL];
-/* debug flag for Dump timeout*/
-unsigned int debug_dumptimeout_flag;
 
 unsigned int scp_recovery_flag[SCP_CORE_TOTAL];
 #define SCP_A_RECOVERY_OK	0x44
@@ -1726,13 +1724,6 @@ void print_clk_registers(void)
 		value = (unsigned int)readl(cfg_core0 + offset);
 		pr_notice("[SCP] cfg_core0[0x%04x]: 0x%08x\n", offset, value);
 	}
-	if (debug_dumptimeout_flag == 1) {
-	// 0x31000 ~ 0x31428 DMA register
-		for (offset = 0x0000; offset <= 0x0428; offset += 4) {
-			value = (unsigned int)readl(cfg_core0 + 0x1000 + offset);
-			pr_notice("[SCP] cfg_core0_dma[0x%04x]: 0x%08x\n", offset, value);
-		}
-	}
 	if (scpreg.core_nums == 1)
 		return;
 	// 0x40000 ~ 0x40114 (inclusive)
@@ -2240,7 +2231,6 @@ static int scp_device_probe(struct platform_device *pdev)
 	const char *core_status = NULL;
 	const char *scp_hwvoter = NULL;
 	const char *secure_dump = NULL;
-	const char *debug_dumptimeout = NULL;
 	const char *debug_timeout_reset = NULL;
 
 	struct device *dev = &pdev->dev;
@@ -2366,14 +2356,6 @@ static int scp_device_probe(struct platform_device *pdev)
 		if (!strncmp(secure_dump, "enable", strlen("enable"))) {
 			pr_notice("[SCP] secure dump enabled\n");
 			scpreg.secure_dump = 1;
-		}
-	}
-
-	debug_dumptimeout_flag = 0;
-	if (!of_property_read_string(pdev->dev.of_node, "debug_dumptimeout", &debug_dumptimeout)) {
-		if (!strncmp(debug_dumptimeout, "enable", strlen("enable"))) {
-			pr_notice("[SCP] debug dump timeout enabled\n");
-			debug_dumptimeout_flag = 1;
 		}
 	}
 
