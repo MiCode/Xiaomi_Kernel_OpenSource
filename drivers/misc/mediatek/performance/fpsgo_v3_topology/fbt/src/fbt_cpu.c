@@ -738,12 +738,29 @@ static void fbt_set_idleprefer_locked(int enable)
 
 static void fbt_set_down_throttle_locked(int nsec)
 {
+	if (!fbt_down_throttle_enable)
+		return;
 
+	if (down_throttle_ns == nsec)
+		return;
+
+	xgf_trace("fpsgo set down_throttle %d", nsec);
+	update_schedplus_down_throttle_ns(EAS_THRES_KIR_FPSGO, nsec);
+	update_schedplus_up_throttle_ns(EAS_THRES_KIR_FPSGO, nsec);
+	down_throttle_ns = nsec;
 }
 
 static void fbt_set_sync_flag_locked(int input)
 {
+	if (!fbt_sync_flag_enable)
+		return;
 
+	if (sync_flag == input)
+		return;
+
+	xgf_trace("fpsgo set sync_flag %d", input);
+	update_schedplus_sync_flag(EAS_SYNC_FLAG_KIR_FPSGO, input);
+	sync_flag = input;
 }
 
 static void fbt_set_ultra_rescue_locked(int input)
