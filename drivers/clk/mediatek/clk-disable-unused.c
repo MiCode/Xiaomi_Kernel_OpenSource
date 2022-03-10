@@ -31,6 +31,8 @@ static int disable_unused_probe(struct platform_device *pdev)
 	if (!clk_con)
 		return 0;
 
+	pr_notice("disable_unused dev: %s ongo\n",
+					pdev->name);
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 	for (i = 0; i < clk_con; i++) {
@@ -44,6 +46,8 @@ static int disable_unused_probe(struct platform_device *pdev)
 				pr_notice("get clk %d fail, ret=%d, clk_con=%d\n",
 						i, (int)ret, clk_con);
 		} else {
+			pr_notice("disable_unused clk [%d]: %s ongo\n",
+					i, __clk_get_name(clk));
 #if DUMP_UNUSED_CLKS
 			/* enable parent clk first because of clk dependency */
 			clk_prepare_enable(clk_get_parent(clk));

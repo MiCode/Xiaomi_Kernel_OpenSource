@@ -28,7 +28,6 @@ const char * const *get_mt6789_all_clk_names(void)
 		"disp_sel",
 		"mdp_sel",
 		"img1_sel",
-		"img2_sel",
 		"ipe_sel",
 		"cam_sel",
 		"mfg_ref_sel",
@@ -100,12 +99,8 @@ const char * const *get_mt6789_all_clk_names(void)
 		"apll12_div9",
 
 		/* infracfg_ao */
-		"ifrao_infra_force",
 		"ifrao_pmic_tmr",
 		"ifrao_pmic_ap",
-		"ifrao_sej",
-		"ifrao_apxgpt",
-		"ifrao_mcupm",
 		"ifrao_gce",
 		"ifrao_gce2",
 		"ifrao_therm",
@@ -127,9 +122,6 @@ const char * const *get_mt6789_all_clk_names(void)
 		"ifrao_msdc0",
 		"ifrao_msdc1",
 		"ifrao_msdc0_clk",
-		"ifrao_dvfsrc",
-		"ifrao_gcpu",
-		"ifrao_trng",
 		"ifrao_auxadc",
 		"ifrao_cpum",
 		"ifrao_ccif1_ap",
@@ -137,68 +129,37 @@ const char * const *get_mt6789_all_clk_names(void)
 		"ifrao_auxadc_md",
 		"ifrao_msdc1_clk",
 		"ifrao_msdc0_aes_clk",
-		"ifrao_dapc",
 		"ifrao_ccif_ap",
 		"ifrao_debugsys",
 		"ifrao_audio",
 		"ifrao_ccif_md",
-		"ifrao_dxcc_ao",
-		"ifrao_dbg_trace",
-		"ifrao_devmpu_bclk",
-		"ifrao_dramc26",
-		"ifrao_irtx",
 		"ifrao_ssusb",
 		"ifrao_disp_pwm",
 		"ifrao_cldmabclk",
 		"ifrao_audio26m",
-		"ifrao_mdtemp",
 		"ifrao_spi1",
 		"ifrao_spi2",
 		"ifrao_spi3",
 		"ifrao_unipro_sysclk",
 		"ifrao_unipro_tick",
 		"ifrao_u_bclk",
-		"ifrao_md32_bclk",
-		"ifrao_fsspm",
-		"ifrao_unipro_mbist",
-		"ifrao_sspm_hclk",
 		"ifrao_spi4",
 		"ifrao_spi5",
-		"ifrao_cq_dma",
 		"ifrao_ufs",
 		"ifrao_u_aes",
-		"ifrao_u_tick",
-		"ifrao_sspm_26m",
-		"ifrao_sspm_32k",
-		"ifrao_u_axi",
 		"ifrao_ap_msdc0",
 		"ifrao_md_msdc0",
 		"ifrao_ccif5_md",
 		"ifrao_ccif2_ap",
 		"ifrao_ccif2_md",
-		"ifrao_ccif3_ap",
-		"ifrao_ccif3_md",
-		"ifrao_sej_f13m",
-		"ifrao_aes",
 		"ifrao_fbist2fpc",
-		"ifrao_dapc_sync",
 		"ifrao_dpmaif_main",
 		"ifrao_ccif4_ap",
 		"ifrao_ccif4_md",
 		"ifrao_spi6_ck",
 		"ifrao_spi7_ck",
 		"ifrao_66mp_mclkp",
-		"ifrao_infra_133m",
-		"ifrao_infra_66m",
-		"ifrao_peru_bus_133m",
-		"ifrao_peru_bus_66m",
-		"ifrao_flash_26m",
-		"ifrao_sflash_ck",
 		"ifrao_ap_dma",
-		"ifrao_dcmforce",
-
-		/* pericfg */
-		"periaxi_disable",
 
 		/* apmixedsys */
 		"armpll_ll",
@@ -216,14 +177,6 @@ const char * const *get_mt6789_all_clk_names(void)
 		"apll2",
 		"usbpll",
 
-		/* dvfsrc_top */
-		"dvfsrc_dvfsrc_en",
-
-		/* infracfg */
-		"ifr_bus_mon_enable",
-		"ifr_bus_mon_1",
-		"ifr_bus_mon_2",
-
 		/* imp_iic_wrap_c */
 		"impc_ap_clock_i2c3",
 		"impc_ap_clock_i2c5",
@@ -235,7 +188,6 @@ const char * const *get_mt6789_all_clk_names(void)
 		"afe_24m",
 		"afe_apll2_tuner",
 		"afe_apll_tuner",
-		"afe_tdm_ck",
 		"afe_adc",
 		"afe_dac",
 		"afe_dac_predis",
@@ -252,15 +204,6 @@ const char * const *get_mt6789_all_clk_names(void)
 		"afe_dac_hires",
 		"afe_adc_hires",
 		"afe_adc_hires_tml",
-		"afe_adda6_adc",
-		"afe_adda6_adc_hires",
-		"afe_3rd_dac",
-		"afe_3rd_dac_predis",
-		"afe_3rd_dac_tml",
-		"afe_3rd_dac_hires",
-
-		/* msdc0 */
-		"msdc0_axi_wrap_cken",
 
 		/* imp_iic_wrap_w */
 		"impw_ap_clock_i2c0",
@@ -330,7 +273,6 @@ const char * const *get_mt6789_all_clk_names(void)
 
 		/* camsys_main */
 		"cam_m_larb13",
-		"cam_m_dfp_vad",
 		"cam_m_larb14",
 		"cam_m_cam",
 		"cam_m_camtg",
@@ -338,11 +280,8 @@ const char * const *get_mt6789_all_clk_names(void)
 		"cam_m_camsv1",
 		"cam_m_camsv2",
 		"cam_m_camsv3",
-		"cam_m_ccu0",
-		"cam_m_ccu1",
 		"cam_m_mraw0",
 		"cam_m_fake_eng",
-		"cam_m_ccu_gals",
 		"cam_m_cam2mm_gals",
 
 		/* camsys_rawa */
@@ -382,9 +321,6 @@ const char * const *get_mt6789_all_clk_names(void)
 		"mdp_aal0",
 		"mdp_img_dl_rel0_as0",
 		"mdp_img_dl_rel1_as1",
-
-		/* dbgao */
-		"dbgao_atb_en",
 
 
 	};

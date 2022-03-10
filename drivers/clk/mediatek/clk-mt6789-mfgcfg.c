@@ -36,7 +36,7 @@ static const struct mtk_gate_regs mfgcfg_cg_regs = {
 
 static const struct mtk_gate mfgcfg_clks[] = {
 	GATE_MFGCFG(CLK_MFGCFG_BG3D, "mfgcfg_bg3d",
-			"mfg_ref_ck"/* parent */, 0),
+			"mfg_pll_ck"/* parent */, 0),
 };
 
 static const struct mtk_clk_desc mfgcfg_mcd = {

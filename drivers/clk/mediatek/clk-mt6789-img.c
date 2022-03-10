@@ -37,13 +37,13 @@ static const struct mtk_gate_regs imgsys1_cg_regs = {
 
 static const struct mtk_gate imgsys1_clks[] = {
 	GATE_IMGSYS1(CLK_IMGSYS1_LARB9, "imgsys1_larb9",
-			"img2_ck"/* parent */, 0),
+			"img1_ck"/* parent */, 0),
 	GATE_IMGSYS1(CLK_IMGSYS1_LARB10, "imgsys1_larb10",
-			"img2_ck"/* parent */, 1),
+			"img1_ck"/* parent */, 1),
 	GATE_IMGSYS1(CLK_IMGSYS1_DIP, "imgsys1_dip",
-			"img2_ck"/* parent */, 2),
+			"img1_ck"/* parent */, 2),
 	GATE_IMGSYS1(CLK_IMGSYS1_GALS, "imgsys1_gals",
-			"img2_ck"/* parent */, 12),
+			"img1_ck"/* parent */, 12),
 };
 
 static const struct mtk_clk_desc imgsys1_mcd = {
@@ -82,7 +82,7 @@ static const struct mtk_gate ipe_clks[] = {
 	GATE_IPE(CLK_IPE_DPE, "ipe_dpe",
 			"ipe_ck"/* parent */, 6),
 	GATE_IPE(CLK_IPE_GALS, "ipe_gals",
-			"img2_ck"/* parent */, 8),
+			"img1_ck"/* parent */, 8),
 };
 
 static const struct mtk_clk_desc ipe_mcd = {

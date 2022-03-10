@@ -245,18 +245,6 @@ static const struct mtk_gate ifrao_clks[] = {
 	/* IFRAO4 */
 	GATE_IFRAO4(CLK_IFRAO_66MP_BUS_MCLK_CKP, "ifrao_66mp_mclkp",
 			"axi_ck"/* parent */, 2),
-	GATE_IFRAO4(CLK_IFRAO_INFRA_FREE_DCM_133M, "ifrao_infra_133m",
-			"axi_ck"/* parent */, 3),
-	GATE_IFRAO4(CLK_IFRAO_INFRA_FREE_DCM_66M, "ifrao_infra_66m",
-			"axi_ck"/* parent */, 4),
-	GATE_IFRAO4(CLK_IFRAO_PERU_BUS_DCM_133M, "ifrao_peru_bus_133m",
-			"axi_ck"/* parent */, 5),
-	GATE_IFRAO4(CLK_IFRAO_PERU_BUS_DCM_66M, "ifrao_peru_bus_66m",
-			"axi_ck"/* parent */, 6),
-	GATE_IFRAO4(CLK_IFRAO_RG_FLASHIFP_26M_CK, "ifrao_flash_26m",
-			"axi_ck"/* parent */, 30),
-	GATE_IFRAO4(CLK_IFRAO_RG_FLASHIF_SFLASH_CK, "ifrao_sflash_ck",
-			"axi_ck"/* parent */, 31),
 	/* IFRAO5 */
 	GATE_IFRAO5(CLK_IFRAO_AP_DMA, "ifrao_ap_dma",
 			"apdma_ck"/* parent */, 31),

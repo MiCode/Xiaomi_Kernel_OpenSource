@@ -43,7 +43,6 @@ static const struct fmeter_clk fclks[] = {
 	FMCLK2(CKGEN, FM_DISP_CK, "fm_disp_ck", 0x0020, 7, 1),
 	FMCLK2(CKGEN, FM_MDP_CK, "fm_mdp_ck", 0x0020, 15, 1),
 	FMCLK2(CKGEN, FM_IMG1_CK, "fm_img1_ck", 0x0020, 23, 1),
-	FMCLK2(CKGEN, FM_IMG2_CK, "fm_img2_ck", 0x0020, 31, 1),
 	FMCLK2(CKGEN, FM_IPE_CK, "fm_ipe_ck", 0x0030, 7, 1),
 	FMCLK2(CKGEN, FM_CAM_CK, "fm_cam_ck", 0x0030, 23, 1),
 	FMCLK2(CKGEN, FM_MFG_REF_CK, "fm_mfg_ref_ck", 0x0050, 23, 1),

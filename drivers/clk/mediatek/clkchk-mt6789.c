@@ -42,10 +42,8 @@ static struct regbase rb[] = {
 	[spm] = REGBASE_V(0x10006000, spm, PD_NULL, CLK_NULL),
 	[apmixed] = REGBASE_V(0x1000C000, apmixed, PD_NULL, CLK_NULL),
 	[dvfsrc_top] = REGBASE_V(0x10012000, dvfsrc_top, PD_NULL, CLK_NULL),
-	[ifr] = REGBASE_V(0x1020e000, ifr, PD_NULL, CLK_NULL),
 	[impc] = REGBASE_V(0x1101B000, impc, PD_NULL, CLK_NULL),
 	[afe] = REGBASE_V(0x11210000, afe, MT6789_POWER_DOMAIN_AUDIO, CLK_NULL),
-	[msdc0] = REGBASE_V(0x11230000, msdc0, PD_NULL, CLK_NULL),
 	[impw] = REGBASE_V(0x11E02000, impw, PD_NULL, CLK_NULL),
 	[impen] = REGBASE_V(0x11EB4000, impen, PD_NULL, CLK_NULL),
 	[impn] = REGBASE_V(0x11F01000, impn, PD_NULL, CLK_NULL),
@@ -101,16 +99,12 @@ static struct regname rn[] = {
 	/* INFRACFG_AO_BUS register */
 	REGNAME(infracfg, 0x0220, INFRA_TOPAXI_PROTECTEN),
 	REGNAME(infracfg, 0x0228, INFRA_TOPAXI_PROTECTEN_STA1),
-	REGNAME(infracfg, 0x0B80, INFRA_TOPAXI_PROTECTEN_VDNR),
-	REGNAME(infracfg, 0x0B90, INFRA_TOPAXI_PROTECTEN_VDNR_STA1),
+	REGNAME(infracfg, 0x0B80, INFRA_TOPAXI_PROTECTEN_INFRA_VDNR),
+	REGNAME(infracfg, 0x0B90, INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_STA1),
 	REGNAME(infracfg, 0x0250, INFRA_TOPAXI_PROTECTEN_1),
 	REGNAME(infracfg, 0x0258, INFRA_TOPAXI_PROTECTEN_STA1_1),
 	REGNAME(infracfg, 0x0710, INFRA_TOPAXI_PROTECTEN_2),
 	REGNAME(infracfg, 0x0724, INFRA_TOPAXI_PROTECTEN_STA1_2),
-	REGNAME(infracfg, 0x0BA0, INFRA_TOPAXI_PROTECTEN_VDNR_1),
-	REGNAME(infracfg, 0x0BB0, INFRA_TOPAXI_PROTECTEN_VDNR_STA1_1),
-	REGNAME(infracfg, 0x02C0, INFRA_TOPAXI_PROTECTEN_MCU),
-	REGNAME(infracfg, 0x02E4, INFRA_TOPAXI_PROTECTEN_MCU_STA1),
 	REGNAME(infracfg, 0x0DC8, INFRA_TOPAXI_PROTECTEN_MM_2),
 	REGNAME(infracfg, 0x0DD8, INFRA_TOPAXI_PROTECTEN_MM_STA1_2),
 	REGNAME(infracfg, 0x02D0, INFRA_TOPAXI_PROTECTEN_MM),
@@ -128,7 +122,6 @@ static struct regname rn[] = {
 	REGNAME(spm, 0x310, MFG2_PWR_CON),
 	REGNAME(spm, 0x314, MFG3_PWR_CON),
 	REGNAME(spm, 0x334, ISP_PWR_CON),
-	REGNAME(spm, 0x338, ISP2_PWR_CON),
 	REGNAME(spm, 0x33C, IPE_PWR_CON),
 	REGNAME(spm, 0x340, VDE_PWR_CON),
 	REGNAME(spm, 0x348, VEN_PWR_CON),
@@ -199,17 +192,14 @@ static struct regname rn[] = {
 	REGNAME(apmixed, 0x3c4, USBPLL_CON0),
 	REGNAME(apmixed, 0x3c8, USBPLL_CON1),
 	REGNAME(apmixed, 0x3cc, USBPLL_CON2),
+	REGNAME(apmixed, 0x14, AP_PLL_5),
 	/* DVFSRC_TOP register */
 	REGNAME(dvfsrc_top, 0x0, DVFSRC_BASIC_CONTROL),
-	/* INFRACFG register */
-	REGNAME(ifr, 0xB00, BUS_MON_CKEN),
 	/* IMP_IIC_WRAP_C register */
 	REGNAME(impc, 0xE00, AP_CLOCK_CG_CEN),
 	/* AFE register */
 	REGNAME(afe, 0x0, AUDIO_TOP_0),
 	REGNAME(afe, 0x4, AUDIO_TOP_1),
-	/* MSDC0 register */
-	REGNAME(msdc0, 0xB4, PATCH_BIT1),
 	/* IMP_IIC_WRAP_W register */
 	REGNAME(impw, 0xE00, AP_CLOCK_CG_WST),
 	/* IMP_IIC_WRAP_EN register */
@@ -309,12 +299,10 @@ static struct pvd_msk pvd_pwr_mask[] = {
 	{"imp_iic_wrap_en", PWR_STA, 0x00000000},
 	{"imp_iic_wrap_n", PWR_STA, 0x00000000},
 	{"imp_iic_wrap_w", PWR_STA, 0x00000000},
-	{"infracfg", PWR_STA, 0x00000000},
 	{"infracfg_ao", PWR_STA, 0x00000000},
 	{"ipesys", PWR_STA, 0x00008000},
 	{"mdpsys", PWR_STA, 0x00200000},
 	{"mfg", PWR_STA, 0x00000020},
-	{"msdc0sys", PWR_STA, 0x00000000},
 	{"pericfg", PWR_STA, 0x00000000},
 	{"vdecsys", PWR_STA, 0x00010000},
 	{"vencsys", PWR_STA, 0x00040000},
@@ -346,7 +334,6 @@ static struct mtk_vf vf_table[] = {
 	MTK_VF_TABLE("disp_sel", 546000, 416000, 312000, 208000),
 	MTK_VF_TABLE("mdp_sel", 594000, 436800, 343750, 229167),
 	MTK_VF_TABLE("img1_sel", 624000, 458333, 343750, 229167),
-	MTK_VF_TABLE("img2_sel", 624000, 458333, 343750, 229167),
 	MTK_VF_TABLE("ipe_sel", 546000, 416000, 312000, 229167),
 	MTK_VF_TABLE("cam_sel", 624000, 546000, 392857, 286000),
 	MTK_VF_TABLE("mfg_ref_sel", 364000, 364000, 364000, 364000),
@@ -461,7 +448,6 @@ static struct devapc_vio_callbacks devapc_vio_handle = {
 #endif
 
 static const char * const off_pll_names[] = {
-	"mainpll",
 	"univpll",
 	"msdcpll",
 	"mmpll",

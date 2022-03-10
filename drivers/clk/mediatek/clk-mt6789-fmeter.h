@@ -17,11 +17,8 @@
 #define FM_DISP_CK				5
 #define FM_MDP_CK				6
 #define FM_IMG1_CK				7
-#define FM_IMG2_CK				8
 #define FM_IPE_CK				9
-#define FM_DPE_CK				10
 #define FM_CAM_CK				11
-#define FM_CCU_CK				12
 #define FM_MFG_REF_CK				19
 #define FM_CAMTG_CK				20
 #define FM_CAMTG2_CK				21
@@ -39,7 +36,6 @@
 #define FM_PWRAP_ULPOSC_CK			34
 #define FM_ATB_CK				35
 #define FM_SSPM_CK				36
-#define FM_DPI_CK				37
 #define FM_SCAM_CK				38
 #define FM_DISP_PWM_CK				39
 #define FM_USB_CK				40
@@ -48,7 +44,6 @@
 #define FM_SENINF1_CK				44
 #define FM_SENINF2_CK				45
 #define FM_SENINF3_CK				46
-#define FM_TL_CK				47
 #define FM_DXCC_CK				48
 #define FM_AUD_ENGEN1_CK			49
 #define FM_AUD_ENGEN2_CK			50
@@ -56,7 +51,6 @@
 #define FM_U_CK					52
 #define FM_AUD_1_CK				53
 #define FM_AUD_2_CK				54
-#define FM_ADSP_CK				55
 #define FM_DPMAIF_MAIN_CK			56
 #define FM_VENC_CK				57
 #define FM_VDEC_CK				58

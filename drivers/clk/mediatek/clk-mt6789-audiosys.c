@@ -62,8 +62,6 @@ static const struct mtk_gate afe_clks[] = {
 			"aud_engen2_ck"/* parent */, 18),
 	GATE_AFE0(CLK_AFE_APLL_TUNER, "afe_apll_tuner",
 			"aud_engen1_ck"/* parent */, 19),
-	GATE_AFE0(CLK_AFE_TDM, "afe_tdm_ck",
-			"aud_1_ck"/* parent */, 20),
 	GATE_AFE0(CLK_AFE_ADC, "afe_adc",
 			"audio_ck"/* parent */, 24),
 	GATE_AFE0(CLK_AFE_DAC, "afe_dac",
@@ -97,18 +95,6 @@ static const struct mtk_gate afe_clks[] = {
 			"audio_h_ck"/* parent */, 16),
 	GATE_AFE1(CLK_AFE_ADC_HIRES_TML, "afe_adc_hires_tml",
 			"audio_h_ck"/* parent */, 17),
-	GATE_AFE1(CLK_AFE_ADDA6_ADC, "afe_adda6_adc",
-			"audio_ck"/* parent */, 20),
-	GATE_AFE1(CLK_AFE_ADDA6_ADC_HIRES, "afe_adda6_adc_hires",
-			"audio_h_ck"/* parent */, 21),
-	GATE_AFE1(CLK_AFE_3RD_DAC, "afe_3rd_dac",
-			"audio_ck"/* parent */, 28),
-	GATE_AFE1(CLK_AFE_3RD_DAC_PREDIS, "afe_3rd_dac_predis",
-			"audio_ck"/* parent */, 29),
-	GATE_AFE1(CLK_AFE_3RD_DAC_TML, "afe_3rd_dac_tml",
-			"audio_ck"/* parent */, 30),
-	GATE_AFE1(CLK_AFE_3RD_DAC_HIRES, "afe_3rd_dac_hires",
-			"audio_h_ck"/* parent */, 31),
 };
 
 static const struct mtk_clk_desc afe_mcd = {
