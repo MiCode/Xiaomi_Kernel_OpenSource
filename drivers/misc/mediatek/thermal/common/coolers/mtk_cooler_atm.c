@@ -445,7 +445,6 @@ mtk_eara_thermal_pb_handle(int total_pwr_budget,
 			   int max_cpu_power, int max_gpu_power,
 			   int max_vpu_power,  int max_mdla_power)
 {
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
 	return 0;
 }
 
