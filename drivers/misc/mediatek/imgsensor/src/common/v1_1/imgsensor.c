@@ -931,7 +931,7 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 {
 	struct ACDK_SENSOR_FEATURECONTROL_STRUCT *pFeatureCtrl;
 	struct IMGSENSOR_SENSOR *psensor;
-	unsigned int FeatureParaLen, Patternmode = 0;
+	unsigned int FeatureParaLen = 0, Patternmode = 0;
 	void *pFeaturePara = NULL;
 	struct ACDK_KD_SENSOR_SYNC_STRUCT *pSensorSyncInfo = NULL;
 	signed int ret = 0;
