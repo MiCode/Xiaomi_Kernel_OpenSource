@@ -1064,7 +1064,15 @@
 			"cpccfg_reg";
 	};
 
+	clk_ao: clk_ao {
+		compatible = "simple-bus";
+	};
+
 	clkitg: clkitg {
+		compatible = "simple-bus";
+	};
+
+	disable_unused: disable_unused {
 		compatible = "simple-bus";
 	};
 
@@ -5135,6 +5143,7 @@
 #include "mediatek/mt6366.dtsi"
 #include "mediatek/rt5133.dtsi"
 #include "mediatek/mt6789-clkitg.dtsi"
+#include "mediatek/mt6789-disable-unused.dtsi"
 
 &rt5133 {
 	interrupts-extended = <&pio 5 0x0>;
