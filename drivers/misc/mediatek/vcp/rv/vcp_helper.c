@@ -158,7 +158,6 @@ static unsigned int vcp_timeout_times;
 
 #endif
 
-static bool is_suspending;
 static DEFINE_MUTEX(vcp_pw_clk_mutex);
 static DEFINE_MUTEX(vcp_A_notify_mutex);
 static DEFINE_MUTEX(vcp_feature_mutex);
@@ -628,7 +627,7 @@ static void vcp_err_info_handler(int id, void *prdata, void *data,
  */
 void trigger_vcp_halt(enum vcp_core_id id)
 {
-	if ((!is_suspending) && mmup_enable_count() && vcp_ready[id]) {
+	if (mmup_enable_count() && vcp_ready[id]) {
 		/* trigger halt isr, force vcp enter wfi */
 		writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
 	}
@@ -815,6 +814,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 		mutex_lock(&vcp_pw_clk_mutex);
 		pr_notice("[VCP] PM_SUSPEND_PREPARE entered %d %d\n", pwclkcnt, is_suspending);
 		if ((!is_suspending) && pwclkcnt) {
+			is_suspending = true;
 #if VCP_RECOVERY_SUPPORT
 			/* make sure all reset done */
 			flush_workqueue(vcp_reset_workqueue);
@@ -947,11 +947,6 @@ void vcp_set_clk(void)
 int reset_vcp(int reset)
 {
 	struct arm_smccc_res res;
-
-	mutex_lock(&vcp_A_notify_mutex);
-	blocking_notifier_call_chain(&vcp_A_notifier_list, VCP_EVENT_STOP,
-		NULL);
-	mutex_unlock(&vcp_A_notify_mutex);
 
 	if (reset & 0x0f) { /* do reset */
 		/* make sure vcp is in idle state */
