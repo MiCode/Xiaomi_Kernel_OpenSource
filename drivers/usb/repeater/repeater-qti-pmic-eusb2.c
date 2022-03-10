@@ -83,9 +83,11 @@
 /* Force Enable registers */
 #define EUSB2_FORCE_EN_5		0xE8
 #define F_CLK_19P2M_EN			BIT(6)
+#define F_CLK_19P2M_EN_SHIFT		6
 
 #define EUSB2_FORCE_VAL_5		0xED
 #define V_CLK_19P2M_EN			BIT(6)
+#define V_CLK_19P2M_EN_SHIFT		6
 
 struct eusb2_repeater {
 	struct usb_repeater	ur;
@@ -363,9 +365,20 @@ static int eusb2_repeater_init(struct usb_repeater *ur)
 	 */
 	if (ur->flags & PHY_HOST_MODE) {
 		eusb2_repeater_masked_write(er, EUSB2_FORCE_EN_5,
-			F_CLK_19P2M_EN, F_CLK_19P2M_EN);
+			F_CLK_19P2M_EN, (1 << F_CLK_19P2M_EN_SHIFT));
 		eusb2_repeater_masked_write(er, EUSB2_FORCE_VAL_5,
-			V_CLK_19P2M_EN, V_CLK_19P2M_EN);
+			V_CLK_19P2M_EN, (1 << V_CLK_19P2M_EN_SHIFT));
+	} else {
+		/*
+		 * In device mode clear host mode related workaround as there
+		 * is no repeater reset available, and enable/disable of
+		 * repeater doesn't clear previous value due to shared
+		 * regulators (say host <-> device mode switch).
+		 */
+		eusb2_repeater_masked_write(er, EUSB2_FORCE_EN_5,
+			F_CLK_19P2M_EN, (0 << F_CLK_19P2M_EN_SHIFT));
+		eusb2_repeater_masked_write(er, EUSB2_FORCE_VAL_5,
+			V_CLK_19P2M_EN, (0 << V_CLK_19P2M_EN_SHIFT));
 	}
 
 	/* Wait for RPTR_STATUS for OK */
