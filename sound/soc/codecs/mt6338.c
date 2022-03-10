@@ -2111,10 +2111,14 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 			0x0 << DA_AUDHPLNEGR_EN_VAUDP18_SFT);
 	}
 	if (priv->hp_hifi_mode == 2) {
-		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M, 0xe1);
-		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG, 0xe1);
+		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H, 0x81);
+		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M, 0x17);
+		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_L, 0x81);
+		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG, 0x17);
 		regmap_write(priv->regmap, MT6338_AFE_NLE_CFG, 0x1);
+		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H, 0x81);
 		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M, 0x40);
+		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_L, 0x81);
 		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG, 0x40);
 	} else {
 		/*Enable HPR/L main output stage to min*/
