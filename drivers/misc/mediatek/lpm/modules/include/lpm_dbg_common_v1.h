@@ -89,6 +89,8 @@ struct spm_condition {
 
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 struct md_sleep_status {
+	u64 guard_sleep_cnt1;
+	u64 sleep_utc;
 	u64 sleep_wall_clk;
 	u64 sleep_cnt;
 	u64 sleep_cnt_reserve;
@@ -99,6 +101,8 @@ struct md_sleep_status {
 	u64 wcdma_sleep_time; //uS
 	u64 lte_sleep_time; // uS
 	u64 nr_sleep_time; // uS
+	u64 reserved[51]; //0x60~0x1F0
+	u64 guard_sleep_cnt2;
 };
 #endif
 
