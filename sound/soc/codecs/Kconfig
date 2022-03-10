@@ -1835,6 +1835,15 @@ config SND_SOC_MT6359
 	  Enable support for the platform which uses MT6359 as
 	  external codec device.
 
+config SND_SOC_MT6366_ACCDET
+	tristate "MediaTek MT6366 ACCDET driver"
+	depends on MFD_MT6397
+	help
+	  ACCDET means Accessory Detection technology,
+	  MediaTek develop it for ASoC codec soc-jack
+	  detection mechanism. Select N if you don't
+	  have jack on board.
+
 config SND_SOC_MT6368_ACCDET
 	tristate "MediaTek MT6368 ACCDET driver"
 	depends on MFD_MTK_SPMI_PMIC

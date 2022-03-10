@@ -133,6 +133,12 @@ static const struct resource mt6359p_accdet_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_ACCDET_EINT1, "ACCDET_EINT1"),
 };
 
+static const struct resource mt6366_accdet_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6366_IRQ_ACCDET, "ACCDET_IRQ"),
+	DEFINE_RES_IRQ_NAMED(MT6366_IRQ_ACCDET_EINT0, "ACCDET_EINT0"),
+	DEFINE_RES_IRQ_NAMED(MT6366_IRQ_ACCDET_EINT1, "ACCDET_EINT1"),
+};
+
 static const struct mfd_cell mt6323_devs[] = {
 	{
 		.name = "mt6323-rtc",
@@ -239,6 +245,11 @@ static const struct mfd_cell mt6366_devs[] = {
 	{
 		.name = "mt-pmic",
 		.of_compatible = "mediatek,mt63xx-debug",
+	}, {
+		.name = "mediatek,pmic-accdet",
+		.of_compatible = "mediatek,mt6366-accdet",
+		.num_resources = ARRAY_SIZE(mt6366_accdet_resources),
+		.resources = mt6366_accdet_resources,
 	}, {
 		.name = "mt635x-auxadc",
 		.of_compatible = "mediatek,mt6358-auxadc",
