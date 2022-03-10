@@ -491,7 +491,7 @@ static int ocp96011_remove(struct i2c_client *i2c)
 		return -EINVAL;
 
 	ocp96011_usbc_update_settings(fsa_priv, 0x18, 0x98);
-	cancel_work(&fsa_priv->usbc_analog_work);
+	cancel_work_sync(&fsa_priv->usbc_analog_work);
 	pm_relax(fsa_priv->dev);
 	/* deregister from PMI */
 #if 1

@@ -26,7 +26,7 @@
 #define RT_PD_MANAGER_VERSION	"1.0.8_MTK"
 
 #ifdef CONFIG_OCP96011_I2C
-#include "../u3_switch/ocp96011-i2c.h"
+#include "../switch/ocp96011-i2c.h"
 extern void typec_headset_queue_work(void);
 #endif
 
