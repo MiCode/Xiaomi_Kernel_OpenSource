@@ -776,8 +776,8 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
 		mediatek,sram_size = <512>;
-		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 175 IRQ_TYPE_LEVEL_LOW>;
 		clocks = <&infracfg_ao INFRACFG_AO_CCIF_AP_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF_MD_CG>,
 			<&infracfg_ao INFRACFG_AO_CCIF1_AP_CG>,
@@ -799,14 +799,14 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,mddriver";
 		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */
 		mediatek,md_id = <0>;
-		mediatek,ap_plat_info = <6781>;
+		mediatek,ap_plat_info = <6785>;
 		mediatek,md_generation = <6295>;
 		mediatek,cldma_capability = <6>;
 		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
-		interrupts = <GIC_SPI 77 IRQ_TYPE_EDGE_RISING>, /*MDWDT*/
-			     <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>, /*CCIF0 GIC Interrupt ID 196-32*/
-			     <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>; /*CCIF0 GIC Interrupt ID 197-32*/
+		interrupts = <GIC_SPI 77 IRQ_TYPE_EDGE_FALLING>, /*MDWDT*/
+			     <GIC_SPI 174 IRQ_TYPE_LEVEL_LOW>, /*CCIF0 GIC Interrupt ID 196-32*/
+			     <GIC_SPI 175 IRQ_TYPE_LEVEL_LOW>; /*CCIF0 GIC Interrupt ID 197-32*/
 		clocks = <&scpsys SCP_SYS_MD1>;
 		clock-names = "scp-sys-md1-main";
 		ccci-infracfg = <&infracfg_ao>;
