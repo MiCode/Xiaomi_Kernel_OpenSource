@@ -2250,6 +2250,23 @@ static int musb_gadget_vbus_draw
 	return usb_phy_set_power(musb->xceiv, mA);
 }
 
+/* default value 0 */
+static int usb_rdy;
+void set_usb_rdy(void)
+{
+	DBG(0, "set usb_rdy, wake up bat\n");
+	usb_rdy = 1;
+}
+
+bool is_usb_rdy(void)
+{
+	if (usb_rdy)
+		return true;
+	else
+		return false;
+}
+EXPORT_SYMBOL(is_usb_rdy);
+
 static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct musb *musb = gadget_to_musb(gadget);
@@ -2277,6 +2294,7 @@ static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 
 	if (!musb->is_ready && is_on) {
 		musb->is_ready = true;
+		set_usb_rdy();
 		/* direct issue connection work if usb is forced on */
 		if (musb_force_on) {
 			DBG(0, "mt_usb_connect() on is_ready begin\n");

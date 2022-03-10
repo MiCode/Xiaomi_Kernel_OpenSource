@@ -100,23 +100,6 @@ static void usb_dpidle_request(int mode)
 }
 #endif
 
-/* default value 0 */
-static int usb_rdy;
-bool is_usb_rdy(void)
-{
-	if (mtk_musb->is_ready) {
-		usb_rdy = 1;
-		DBG(0, "set usb_rdy, wake up bat\n");
-	}
-
-	if (usb_rdy)
-		return true;
-	else
-		return false;
-}
-EXPORT_SYMBOL(is_usb_rdy);
-
-
 /* BC1.2 */
 /* Duplicate define in phy-mtk-tphy */
 #define PHY_MODE_BC11_SW_SET 1
