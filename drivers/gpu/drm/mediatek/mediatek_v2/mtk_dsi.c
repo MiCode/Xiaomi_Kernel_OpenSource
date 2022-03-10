@@ -7324,7 +7324,7 @@ static const struct mtk_dsi_driver_data mt6855_dsi_driver_data = {
 	.dsi_buffer = false,
 	.dsi_new_trail = false,
 	.max_vfp = 0x7ffe,
-	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
 static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
