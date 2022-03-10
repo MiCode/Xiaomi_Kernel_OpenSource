@@ -4131,6 +4131,133 @@
 			reg = <0 0x1b10f000 0 0x1000>;
 		};
 
+		vcp: vcp@1ec00000 {
+			compatible = "mediatek,vcp";
+			vcp-support = <0>;
+			status = "okay";
+		};
+
+		vcu: vcu@16000000 {
+			compatible = "mediatek-vcu";
+			mediatek,vcuid = <0>;
+			mediatek,vcuname = "vcu";
+			mediatek,vcu-off  = <0>;
+			reg = <0 0x16000000 0 0x40000>, /* VDEC_BASE */
+				<0 0x17020000 0 0x10000>,  /* VENC_BASE */
+				<0 0x17820000 0 0x10000>;  /* VENC_C1_BASE */
+			iommus = <&disp_iommu M4U_PORT_L4_VDEC_MC_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_UFO_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_PP_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_PRED_RD_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_PRED_WR_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_PPWRAP_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_TILE_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_VLD_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_VLD2_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_AVC_MV_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_UFO_ENC_EXT>;
+			//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		};
+
+		vdec@16000000 {
+			compatible = "mediatek,mt6789-vcodec-dec";
+			mediatek,platform = "platform:mt6789";
+			mediatek,ipm = <1>;
+			reg = <0 0x16000000 0 0x1000>,		/* VDEC_BASE */
+				<0 0x1602f000 0 0x1000>,	/* VDEC_SYS */
+				<0 0x16020000 0 0x1000>,	/* VDEC_VLD */
+				<0 0x16021000 0 0x1000>,	/* VDEC_MC */
+				<0 0x16023000 0 0x1000>,	/* VDEC_MV */
+				<0 0x16025000 0 0x4000>;	/* VDEC_MISC */
+			reg-names =
+				"VDEC_BASE",
+				"VDEC_SYS",
+				"VDEC_VLD",
+				"VDEC_MC",
+				"VDEC_MV",
+				"VDEC_MISC";
+
+			iommus = <&disp_iommu M4U_PORT_L4_VDEC_MC_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_UFO_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_PP_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_PRED_RD_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_PRED_WR_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_PPWRAP_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_TILE_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_VLD_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_VLD2_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_AVC_MV_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT>,
+				<&disp_iommu M4U_PORT_L4_VDEC_UFO_ENC_EXT>;
+			//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			m4u-ports =
+				<M4U_PORT_L4_VDEC_MC_EXT>,
+				<M4U_PORT_L4_VDEC_UFO_EXT>,
+				<M4U_PORT_L4_VDEC_PP_EXT>,
+				<M4U_PORT_L4_VDEC_PRED_RD_EXT>,
+				<M4U_PORT_L4_VDEC_PRED_WR_EXT>,
+				<M4U_PORT_L4_VDEC_PPWRAP_EXT>,
+				<M4U_PORT_L4_VDEC_TILE_EXT>,
+				<M4U_PORT_L4_VDEC_VLD_EXT>,
+				<M4U_PORT_L4_VDEC_VLD2_EXT>,
+				<M4U_PORT_L4_VDEC_AVC_MV_EXT>,
+				<M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT>,
+				<M4U_PORT_L4_VDEC_UFO_ENC_EXT>;
+			m4u-port-names =
+				"M4U_PORT_VDEC_MC",
+				"M4U_PORT_VDEC_UFO",
+				"M4U_PORT_VDEC_PP",
+				"M4U_PORT_VDEC_PRED_RD",
+				"M4U_PORT_VDEC_PRED_WR",
+				"M4U_PORT_VDEC_PPWRAP",
+				"M4U_PORT_VDEC_TILE",
+				"M4U_PORT_VDEC_VLD",
+				"M4U_PORT_VDEC_VLD2",
+				"M4U_PORT_VDEC_AVC_MV",
+				"M4U_PORT_VDEC_RG_CTRL_DMA",
+				"M4U_PORT_VDEC_UFO_ENC";
+			//mediatek,larbs = <&smi_larb4>;
+			interrupts = <GIC_SPI 458 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,vcu = <&vcu>;
+			clocks =
+				<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>;
+			clock-names =
+				"CORE_MT_CG_VDEC0";
+		};
+
+		venc@17000000 {
+			compatible = "mediatek,mt6789-vcodec-enc";
+			mediatek,platform = "platform:mt6789";
+			mediatek,ipm = <1>;
+			reg = <0 0x17020000 0 0x2000>,
+				<0 0x17820000 0 0x20000>;
+			reg-names =
+				"VENC_SYS",
+				"VENC_C1_SYS";
+			iommus = <&disp_iommu M4U_PORT_L7_VENC_RCPU>,
+				<&disp_iommu M4U_PORT_L7_VENC_REC>,
+				<&disp_iommu M4U_PORT_L7_VENC_BSDMA>,
+				<&disp_iommu M4U_PORT_L7_VENC_SV_COMV>,
+				<&disp_iommu M4U_PORT_L7_VENC_RD_COMV>,
+				<&disp_iommu M4U_PORT_L7_VENC_CUR_LUMA>,
+				<&disp_iommu M4U_PORT_L7_VENC_CUR_CHROMA>,
+				<&disp_iommu M4U_PORT_L7_VENC_REF_LUMA>,
+				<&disp_iommu M4U_PORT_L7_VENC_REF_CHROMA>,
+				<&disp_iommu M4U_PORT_L7_JPGENC_Y_RDMA>,
+				<&disp_iommu M4U_PORT_L7_JPGENC_C_RDMA>,
+				<&disp_iommu M4U_PORT_L7_JPGENC_Q_TABLE>,
+				<&disp_iommu M4U_PORT_L7_JPGENC_BSDMA>;
+			//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			//mediatek,larbs = <&smi_larb7>;
+			interrupts = <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH 0>;
+			mediatek,vcu = <&vcu>;
+			clocks =
+				<&venc_gcon_clk CLK_VEN1_CKE1_VENC>;
+			clock-names =
+				"MT_CG_VENC0";
+		};
+
 		mdpsys_config: mdpsys_config@1f000000 {
 			compatible = "mediatek,mdpsys_config", "syscon";
 			reg = <0 0x1f000000 0 0x1000>;
