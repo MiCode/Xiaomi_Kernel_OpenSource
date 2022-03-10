@@ -118,6 +118,7 @@ struct mtk_m4u_plat_data {
 	u32				port_nr[TYPE_NUM];
 	const struct mau_config_info	*mau_config;
 	u32				mau_config_nr;
+	u32				mm_tf_ccu_support;
 	int (*mm_tf_is_gce_videoup)(u32 port_tf, u32 vld_tf);
 	char *(*peri_tf_analyse)(enum peri_iommu bus_id, u32 id);
 };
@@ -861,9 +862,9 @@ static const struct mtk_iommu_port mm_port_mt6855[] = {
 	MM_IOMMU_PORT_INIT("LARB20_PORT5", DISP_IOMMU, 20, 0x19, 5),
 
 	/* Larb32 -- 3 */
-	MM_IOMMU_PORT_INIT("VIDEO_uP", DISP_IOMMU, 32, 0x8, 0),
-	MM_IOMMU_PORT_INIT("GCE_D_M", DISP_IOMMU, 32, 0x8, 1),
-	MM_IOMMU_PORT_INIT("GCE_M_M", DISP_IOMMU, 32, 0x8, 2),
+	MM_IOMMU_PORT_INIT("VIDEO_uP", DISP_IOMMU, 32, 0x10, 0),
+	MM_IOMMU_PORT_INIT("GCE_D_M", DISP_IOMMU, 32, 0x10, 1),
+	MM_IOMMU_PORT_INIT("GCE_M_M", DISP_IOMMU, 32, 0x10, 2),
 
 	MM_IOMMU_PORT_INIT("MM_UNKNOWN", 0, 0, 0, 0)
 };
@@ -3645,27 +3646,31 @@ static int mtk_iommu_get_tf_port_idx(int tf_id, enum mtk_iommu_type type, int id
 	pr_info("get vld tf_id:0x%x\n", vld_id);
 	port_nr =  m4u_data->plat_data->port_nr[type];
 	port_list = m4u_data->plat_data->port_list[type];
-	/* check (larb | port) for smi_larb or apu_bus */
-	for (i = 0; i < port_nr; i++) {
-		if (port_list[i].tf_id == vld_id &&
-		    port_list[i].m4u_id == id)
-			return i;
-	}
+
 	/* check larb for smi_common */
-	for (i = 0; i < port_nr; i++) {
-		if ((port_list[i].tf_id & F_MMU_INT_TF_CCU_MSK) == (vld_id &
-		    F_MMU_INT_TF_CCU_MSK) && port_list[i].m4u_id == id)
-			return i;
+	if (type == MM_IOMMU && m4u_data->plat_data->mm_tf_ccu_support) {
+		for (i = 0; i < port_nr; i++) {
+			if ((port_list[i].tf_id & F_MMU_INT_TF_CCU_MSK) == (vld_id &
+			    F_MMU_INT_TF_CCU_MSK) && port_list[i].m4u_id == id)
+				return i;
+		}
 	}
 
 	/* check gce/video_uP */
 	mm_tf_is_gce_videoup = m4u_data->plat_data->mm_tf_is_gce_videoup;
-	if (mm_tf_is_gce_videoup) {
+	if (type == MM_IOMMU && mm_tf_is_gce_videoup) {
 		for (i = 0; i < port_nr; i++) {
 			if (mm_tf_is_gce_videoup(port_list[i].tf_id, tf_id) &&
 			    port_list[i].m4u_id == id)
 				return i;
 		}
+	}
+
+	/* check (larb | port) for smi_larb or apu_bus */
+	for (i = 0; i < port_nr; i++) {
+		if (port_list[i].tf_id == vld_id &&
+		    port_list[i].m4u_id == id)
+			return i;
 	}
 
 	return port_nr;
@@ -4575,8 +4580,7 @@ static int mtk_m4u_dbg_probe(struct platform_device *pdev)
 
 static int mt6855_tf_is_gce_videoup(u32 port_tf, u32 vld_tf)
 {
-	return F_MMU_INT_TF_LARB(port_tf) ==
-	       FIELD_GET(GENMASK(12, 8), vld_tf) &&
+	return (port_tf & GENMASK(12, 8)) == (vld_tf & GENMASK(12, 8)) &&
 	       F_MMU_INT_TF_PORT(port_tf) ==
 	       FIELD_GET(GENMASK(1, 0), vld_tf);
 }
@@ -4601,16 +4605,19 @@ static int mt6983_tf_is_gce_videoup(u32 port_tf, u32 vld_tf)
 static const struct mtk_m4u_plat_data mt6779_data = {
 	.port_list[MM_IOMMU] = iommu_port_mt6779,
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(iommu_port_mt6779),
+	.mm_tf_ccu_support   = 1,
 };
 
 static const struct mtk_m4u_plat_data mt6789_data = {
 	.port_list[MM_IOMMU] = mm_port_mt6789,
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6789),
+	.mm_tf_ccu_support   = 0,
 };
 
 static const struct mtk_m4u_plat_data mt6833_data = {
 	.port_list[MM_IOMMU] = mm_port_mt6853,
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6853),
+	.mm_tf_ccu_support   = 1,
 };
 
 static const struct mtk_m4u_plat_data mt6873_data = {
@@ -4618,6 +4625,7 @@ static const struct mtk_m4u_plat_data mt6873_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6873),
 	.port_list[APU_IOMMU] = apu_port_mt6873,
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6873),
+	.mm_tf_ccu_support = 1,
 };
 
 static const struct mtk_m4u_plat_data mt6853_data = {
@@ -4625,12 +4633,14 @@ static const struct mtk_m4u_plat_data mt6853_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6853),
 	.port_list[APU_IOMMU] = apu_port_mt6853,
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6853),
+	.mm_tf_ccu_support = 1,
 };
 
 static const struct mtk_m4u_plat_data mt6855_data = {
 	.port_list[MM_IOMMU] = mm_port_mt6855,
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6855),
 	.mm_tf_is_gce_videoup = mt6855_tf_is_gce_videoup,
+	.mm_tf_ccu_support = 0,
 };
 
 static const struct mtk_m4u_plat_data mt6893_data = {
@@ -4638,6 +4648,7 @@ static const struct mtk_m4u_plat_data mt6893_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6893),
 	.port_list[APU_IOMMU] = apu_port_mt6893,
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6893),
+	.mm_tf_ccu_support = 1,
 };
 
 static const struct mtk_m4u_plat_data mt6983_data = {
@@ -4645,6 +4656,7 @@ static const struct mtk_m4u_plat_data mt6983_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6983),
 	.port_list[APU_IOMMU] = apu_port_mt6983,
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6983),
+	.mm_tf_ccu_support = 1,
 	.mm_tf_is_gce_videoup = mt6983_tf_is_gce_videoup,
 	.peri_data	= mt6983_peri_iommu_data,
 	.peri_tf_analyse = mt6983_peri_tf,
@@ -4659,6 +4671,7 @@ static const struct mtk_m4u_plat_data mt6879_data = {
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6879),
 	.port_list[PERI_IOMMU] = peri_port_mt6879,
 	.port_nr[PERI_IOMMU]   = ARRAY_SIZE(peri_port_mt6879),
+	.mm_tf_ccu_support = 1,
 	.mm_tf_is_gce_videoup = mt6879_tf_is_gce_videoup,
 	.mau_config	= mau_config_default,
 	.mau_config_nr = ARRAY_SIZE(mau_config_default),
@@ -4669,6 +4682,7 @@ static const struct mtk_m4u_plat_data mt6895_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6895),
 	.port_list[APU_IOMMU] = apu_port_mt6895,
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6895),
+	.mm_tf_ccu_support = 1,
 	.mm_tf_is_gce_videoup = mt6983_tf_is_gce_videoup,
 	.peri_data	= mt6983_peri_iommu_data,
 	.peri_tf_analyse = mt6983_peri_tf,
