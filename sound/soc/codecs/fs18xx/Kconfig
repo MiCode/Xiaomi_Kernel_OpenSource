@@ -1,0 +1,6 @@
+config SND_SOC_FS16XX
+	tristate "FourSemi fs16xx Codec Driver"
+	depends on I2C
+#	default y
+	help
+	  for FourSemi True Smart Amplifier.

@@ -619,6 +619,14 @@ config SND_SOC_ES8328_SPI
 	depends on SPI_MASTER
 	select SND_SOC_ES8328
 
+config SND_SOC_FS16XX
+	tristate "Foursemi speaker amplifier"
+	depends on I2C
+	help
+	  Config of FS18xx . It is a Smart power amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would be set to yes if device with FS18xx on it.
+	  Select this if your FS16xx is connected via an I2S bus.
+
 config SND_SOC_GTM601
 	tristate 'GTM601 UMTS modem audio codec'
 
