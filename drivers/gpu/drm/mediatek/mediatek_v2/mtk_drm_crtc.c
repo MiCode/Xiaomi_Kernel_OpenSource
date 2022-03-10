@@ -6776,10 +6776,11 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 			mtk_crtc->enabled, 0);
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-	if (output_comp)
+	if (output_comp) {
+		mtk_crtc->qos_ctx->last_mmclk_req_idx += 1;
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);
-
+	}
 	if (!mtk_crtc->enabled) {
 		CRTC_MMP_MARK(crtc_id, disable, 0, 0);
 		DDPINFO("crtc%d skip %s\n", crtc_id, __func__);
