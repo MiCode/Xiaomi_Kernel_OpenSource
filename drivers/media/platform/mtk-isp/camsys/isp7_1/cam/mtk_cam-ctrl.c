@@ -1596,6 +1596,11 @@ static void mtk_cam_try_set_sensor(struct mtk_cam_ctx *ctx)
 			if (state_entry->estate == E_STATE_CQ && USINGSCQ &&
 			    req_stream_data->frame_seq_no > INITIAL_DROP_FRAME_CNT &&
 			    !mtk_cam_is_stagger(ctx)) {
+				/**
+				 * FIXME: sw scq delay judgement, may need hw signal to confirm.
+				 * because CQ_MAIN_TRIG_DLY_ST is coming
+				 * in the next sof, a bit too late, can't depend on it.
+				 */
 				state_entry->estate = E_STATE_CQ_SCQ_DELAY;
 				spin_unlock(&sensor_ctrl->camsys_state_lock);
 				dev_dbg(ctx->cam->dev,
@@ -2826,18 +2831,18 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
 		atomic_set(&ctx->composed_delay_seq_no, req_stream_data->frame_seq_no);
 	} else {
+		spin_lock(&ctx->processing_buffer_list.lock);
 		is_apply = true;
 		buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
 					     struct mtk_cam_working_buf_entry,
 					     list_entry);
 		list_del(&buf_entry->list_entry);
 		ctx->composed_buffer_list.cnt--;
-		spin_unlock(&ctx->composed_buffer_list.lock);
-		spin_lock(&ctx->processing_buffer_list.lock);
 		list_add_tail(&buf_entry->list_entry,
 			      &ctx->processing_buffer_list.list);
 		ctx->processing_buffer_list.cnt++;
 		spin_unlock(&ctx->processing_buffer_list.lock);
+		spin_unlock(&ctx->composed_buffer_list.lock);
 		base_addr = buf_entry->buffer.iova;
 		apply_cq(raw_dev, 0, base_addr,
 			buf_entry->cq_desc_size,
@@ -2893,7 +2898,15 @@ void mtk_camsys_composed_delay_enque(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_working_buf_entry *buf_entry;
 	dma_addr_t base_addr;
 	bool is_apply = false;
+	struct mtk_camsys_sensor_ctrl *sensor_ctrl = &ctx->sensor_ctrl;
+	int time_after_sof = ktime_get_boottime_ns() / 1000000 -
+			   sensor_ctrl->sof_time;
 
+	if (time_after_sof > SCQ_DEADLINE_MS) {
+		dev_info(raw_dev->dev, "[%s] wrong timing:sof+%d(ms)\n",
+				__func__, time_after_sof);
+		return;
+	}
 	if (mtk_cam_is_subsample(ctx)) {
 		if (req_stream_data->state.estate != E_STATE_SUBSPL_READY) {
 			dev_info(raw_dev->dev, "[%s] wrong state 0x%x",
@@ -2909,41 +2922,52 @@ void mtk_camsys_composed_delay_enque(struct mtk_raw_device *raw_dev,
 	}
 	/* apply next composed buffer */
 	spin_lock(&ctx->composed_buffer_list.lock);
-	is_apply = true;
-	buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
-				     struct mtk_cam_working_buf_entry,
-				     list_entry);
-	list_del(&buf_entry->list_entry);
-	ctx->composed_buffer_list.cnt--;
-	spin_unlock(&ctx->composed_buffer_list.lock);
-	spin_lock(&ctx->processing_buffer_list.lock);
-	list_add_tail(&buf_entry->list_entry,
-		      &ctx->processing_buffer_list.list);
-	ctx->processing_buffer_list.cnt++;
-	spin_unlock(&ctx->processing_buffer_list.lock);
-	base_addr = buf_entry->buffer.iova;
-	apply_cq(raw_dev, 0, base_addr,
-		buf_entry->cq_desc_size,
-		buf_entry->cq_desc_offset,
-		buf_entry->sub_cq_desc_size,
-		buf_entry->sub_cq_desc_offset);
-
-	/* Transit state from Sensor -> CQ */
-	if (ctx->sensor) {
-		/* update qos bw */
-		mtk_cam_qos_bw_calc(ctx, req_stream_data->raw_dmas, false);
-		if (mtk_cam_is_subsample(ctx))
-			state_transition(&req_stream_data->state,
-			E_STATE_SUBSPL_READY, E_STATE_SUBSPL_SCQ);
-		else
-			state_transition(&req_stream_data->state,
-			E_STATE_SENSOR, E_STATE_CQ);
-
+	/* in case sof comes and runs out of composed buffer before */
+	if (list_empty(&ctx->composed_buffer_list.list)) {
 		dev_info(raw_dev->dev,
-		"[%s][ctx:%d], CQ-%d is update, composed:%d, cq_addr:0x%x, time:%lld, monotime:%lld\n",
-		__func__, ctx->stream_id, req_stream_data->frame_seq_no,
-		ctx->composed_frame_seq_no, base_addr, req_stream_data->timestamp,
-		req_stream_data->timestamp_mono);
+			"[%s], no buffer update, cq_num:%d, s_data:%d\n",
+			__func__, ctx->composed_frame_seq_no,
+			req_stream_data->frame_seq_no);
+		spin_unlock(&ctx->composed_buffer_list.lock);
+	} else {
+		spin_lock(&ctx->processing_buffer_list.lock);
+		is_apply = true;
+		buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
+					struct mtk_cam_working_buf_entry,
+					list_entry);
+		list_del(&buf_entry->list_entry);
+		ctx->composed_buffer_list.cnt--;
+		list_add_tail(&buf_entry->list_entry,
+			&ctx->processing_buffer_list.list);
+		ctx->processing_buffer_list.cnt++;
+		base_addr = buf_entry->buffer.iova;
+		spin_lock(&sensor_ctrl->camsys_state_lock);
+		apply_cq(raw_dev, 0, base_addr,
+			buf_entry->cq_desc_size,
+			buf_entry->cq_desc_offset,
+			buf_entry->sub_cq_desc_size,
+			buf_entry->sub_cq_desc_offset);
+
+		/* Transit state from Sensor -> CQ */
+		if (ctx->sensor) {
+			/* update qos bw */
+			mtk_cam_qos_bw_calc(ctx, req_stream_data->raw_dmas, false);
+			if (mtk_cam_is_subsample(ctx))
+				state_transition(&req_stream_data->state,
+				E_STATE_SUBSPL_READY, E_STATE_SUBSPL_SCQ);
+			else
+				state_transition(&req_stream_data->state,
+				E_STATE_SENSOR, E_STATE_CQ);
+
+			dev_info(raw_dev->dev,
+			"[%s:SOF+%dms][ctx:%d], CQ-%d is update, composed:%d, cq_addr:0x%x, time:%lld, monotime:%lld\n",
+			__func__, time_after_sof, ctx->stream_id, req_stream_data->frame_seq_no,
+			ctx->composed_frame_seq_no, base_addr, req_stream_data->timestamp,
+			req_stream_data->timestamp_mono);
+		}
+		spin_unlock(&sensor_ctrl->camsys_state_lock);
+		spin_unlock(&ctx->processing_buffer_list.lock);
+		spin_unlock(&ctx->composed_buffer_list.lock);
 	}
 
 	if (mtk_cam_is_with_w_channel(ctx) && is_apply) {
