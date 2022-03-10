@@ -1368,19 +1368,24 @@ static ssize_t gt9896s_sysfs_fwimage_store(struct file *file,
 			attr_fwimage);
 	fw_data = &fw_ctrl->fw_data;
 
+	mutex_lock(&fw_ctrl->mutex);
 	if (!fw_data->firmware) {
 		ts_err("Need set fw image size first");
+		mutex_unlock(&fw_ctrl->mutex);
 		return -ENOMEM;
 	}
 
 	if (fw_data->firmware->size == 0) {
 		ts_err("Invalid firmware size");
+		mutex_unlock(&fw_ctrl->mutex);
 		return -EINVAL;
 	}
 
-	if (pos + count > fw_data->firmware->size)
+	if (pos + count > fw_data->firmware->size) {
+		mutex_unlock(&fw_ctrl->mutex);
 		return -EFAULT;
-	mutex_lock(&fw_ctrl->mutex);
+	}
+
 	memcpy((u8 *)&fw_data->firmware->data[pos], buf, count);
 	mutex_unlock(&fw_ctrl->mutex);
 	return count;
