@@ -28,8 +28,12 @@
 #include "mt6789-afe-gpio.h"
 #include "mt6789-interconnection.h"
 
+#define SKIP_SB
+
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(SKIP_SB)
 #include "../ultrasound/ultra_scp/mtk-scp-ultra-common.h"
+#endif
 #endif
 /* FORCE_FPGA_ENABLE_IRQ use irq in fpga */
 /* #define FORCE_FPGA_ENABLE_IRQ */
@@ -1159,8 +1163,6 @@ static const struct snd_kcontrol_new memif_ul2_ch1_mix[] = {
 				    I_DL6_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL7_CH1", AFE_CONN5_1,
 				    I_DL7_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN5,
-				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN5,
 				    I_PCM_2_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("I2S2_CH1", AFE_CONN5,
@@ -1190,8 +1192,6 @@ static const struct snd_kcontrol_new memif_ul2_ch2_mix[] = {
 				    I_DL6_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL7_CH2", AFE_CONN6_1,
 				    I_DL7_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN6,
-				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN6,
 				    I_PCM_2_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("I2S2_CH2", AFE_CONN6,
@@ -1255,8 +1255,6 @@ static const struct snd_kcontrol_new memif_ul6_ch1_mix[] = {
 				    I_DL3_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH1", AFE_CONN46_1,
 				    I_DL4_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN46,
-				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN46,
 				    I_PCM_2_CAP_CH1, 1, 0),
 };
@@ -1276,8 +1274,6 @@ static const struct snd_kcontrol_new memif_ul6_ch2_mix[] = {
 				    I_DL3_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH2", AFE_CONN47_1,
 				    I_DL4_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN47,
-				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN47,
 				    I_PCM_2_CAP_CH1, 1, 0),
 };
@@ -1311,8 +1307,6 @@ static const struct snd_kcontrol_new memif_ul8_ch2_mix[] = {
 };
 
 static const struct snd_kcontrol_new memif_ul_mono_1_mix[] = {
-	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN12,
-				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN12,
 				    I_PCM_2_CAP_CH1, 1, 0),
 };
@@ -1432,13 +1426,10 @@ static const struct snd_soc_dapm_route mt6789_memif_routes[] = {
 	{"UL2_CH1", "I2S2_CH1", "I2S2"},
 	{"UL2_CH2", "I2S2_CH2", "I2S2"},
 
-	{"UL2_CH1", "PCM_1_CAP_CH1", "PCM 1 Capture"},
-	{"UL2_CH2", "PCM_1_CAP_CH1", "PCM 1 Capture"},
 	{"UL2_CH1", "PCM_2_CAP_CH1", "PCM 2 Capture"},
 	{"UL2_CH2", "PCM_2_CAP_CH1", "PCM 2 Capture"},
 
 	{"UL_MONO_1", NULL, "UL_MONO_1_CH1"},
-	{"UL_MONO_1_CH1", "PCM_1_CAP_CH1", "PCM 1 Capture"},
 	{"UL_MONO_1_CH1", "PCM_2_CAP_CH1", "PCM 2 Capture"},
 
 	{"UL_MONO_2", NULL, "UL_MONO_2_CH1"},
@@ -1488,8 +1479,6 @@ static const struct snd_soc_dapm_route mt6789_memif_routes[] = {
 	{"UL6_CH1", "DL4_CH1", "Hostless_UL6 UL"},
 	{"UL6_CH2", "DL4_CH2", "Hostless_UL6 UL"},
 	{"Hostless_UL6 UL", NULL, "UL6_VIRTUAL_INPUT"},
-	{"UL6_CH1", "PCM_1_CAP_CH1", "PCM 1 Capture"},
-	{"UL6_CH2", "PCM_1_CAP_CH1", "PCM 1 Capture"},
 	{"UL6_CH1", "PCM_2_CAP_CH1", "PCM 2 Capture"},
 	{"UL6_CH2", "PCM_2_CAP_CH1", "PCM 2 Capture"},
 
@@ -1528,7 +1517,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = DL1_MODE_MASK,
 		.mono_reg = AFE_DL1_CON0,
 		.mono_shift = DL1_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = DL1_ON_SFT,
 		.hd_reg = AFE_DL1_CON0,
 		.hd_shift = DL1_HD_MODE_SFT,
@@ -1557,7 +1546,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = DL12_MODE_MASK,
 		.mono_reg = AFE_DL12_CON0,
 		.mono_shift = DL12_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = DL12_ON_SFT,
 		.hd_reg = AFE_DL12_CON0,
 		.hd_shift = DL12_HD_MODE_SFT,
@@ -1586,7 +1575,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = DL2_MODE_MASK,
 		.mono_reg = AFE_DL2_CON0,
 		.mono_shift = DL2_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = DL2_ON_SFT,
 		.hd_reg = AFE_DL2_CON0,
 		.hd_shift = DL2_HD_MODE_SFT,
@@ -1615,7 +1604,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = DL3_MODE_MASK,
 		.mono_reg = AFE_DL3_CON0,
 		.mono_shift = DL3_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = DL3_ON_SFT,
 		.hd_reg = AFE_DL3_CON0,
 		.hd_shift = DL3_HD_MODE_SFT,
@@ -1644,7 +1633,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = DL4_MODE_MASK,
 		.mono_reg = AFE_DL4_CON0,
 		.mono_shift = DL4_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = DL4_ON_SFT,
 		.hd_reg = AFE_DL4_CON0,
 		.hd_shift = DL4_HD_MODE_SFT,
@@ -1673,7 +1662,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = DL5_MODE_MASK,
 		.mono_reg = AFE_DL5_CON0,
 		.mono_shift = DL5_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = DL5_ON_SFT,
 		.hd_reg = AFE_DL5_CON0,
 		.hd_shift = DL5_HD_MODE_SFT,
@@ -1702,7 +1691,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = DL6_MODE_MASK,
 		.mono_reg = AFE_DL6_CON0,
 		.mono_shift = DL6_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = DL6_ON_SFT,
 		.hd_reg = AFE_DL6_CON0,
 		.hd_shift = DL6_HD_MODE_SFT,
@@ -1731,7 +1720,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = DL7_MODE_MASK,
 		.mono_reg = AFE_DL7_CON0,
 		.mono_shift = DL7_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = DL7_ON_SFT,
 		.hd_reg = AFE_DL7_CON0,
 		.hd_shift = DL7_HD_MODE_SFT,
@@ -1760,7 +1749,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = DL8_MODE_MASK,
 		.mono_reg = AFE_DL8_CON0,
 		.mono_shift = DL8_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = DL8_ON_SFT,
 		.hd_reg = AFE_DL8_CON0,
 		.hd_shift = DL8_HD_MODE_SFT,
@@ -1790,7 +1779,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.mono_reg = AFE_DAI_CON0,
 		.mono_shift = DAI_DUPLICATE_WR_SFT,
 		.mono_invert = 1,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = DAI_ON_SFT,
 		.hd_reg = AFE_DAI_CON0,
 		.hd_shift = DAI_HD_MODE_SFT,
@@ -1814,7 +1803,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.mono_reg = AFE_MOD_DAI_CON0,
 		.mono_shift = MOD_DAI_DUPLICATE_WR_SFT,
 		.mono_invert = 1,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = MOD_DAI_ON_SFT,
 		.hd_reg = AFE_MOD_DAI_CON0,
 		.hd_shift = MOD_DAI_HD_MODE_SFT,
@@ -1838,7 +1827,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.mono_reg = AFE_DAI2_CON0,
 		.mono_shift = DAI2_DUPLICATE_WR_SFT,
 		.mono_invert = 1,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = DAI2_ON_SFT,
 		.hd_reg = AFE_DAI2_CON0,
 		.hd_shift = DAI2_HD_MODE_SFT,
@@ -1864,7 +1853,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.quad_ch_reg = AFE_VUL12_CON0,
 		.quad_ch_mask = VUL12_4CH_EN_MASK,
 		.quad_ch_shift = VUL12_4CH_EN_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = VUL12_ON_SFT,
 		.hd_reg = AFE_VUL12_CON0,
 		.hd_shift = VUL12_HD_MODE_SFT,
@@ -1887,7 +1876,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = VUL2_MODE_MASK,
 		.mono_reg = AFE_VUL2_CON0,
 		.mono_shift = VUL2_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = VUL2_ON_SFT,
 		.hd_reg = AFE_VUL2_CON0,
 		.hd_shift = VUL2_HD_MODE_SFT,
@@ -1910,7 +1899,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = AWB_MODE_MASK,
 		.mono_reg = AFE_AWB_CON0,
 		.mono_shift = AWB_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = AWB_ON_SFT,
 		.hd_reg = AFE_AWB_CON0,
 		.hd_shift = AWB_HD_MODE_SFT,
@@ -1933,7 +1922,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = AWB2_MODE_MASK,
 		.mono_reg = AFE_AWB2_CON0,
 		.mono_shift = AWB2_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = AWB2_ON_SFT,
 		.hd_reg = AFE_AWB2_CON0,
 		.hd_shift = AWB2_HD_MODE_SFT,
@@ -1956,7 +1945,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = VUL3_MODE_MASK,
 		.mono_reg = AFE_VUL3_CON0,
 		.mono_shift = VUL3_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = VUL3_ON_SFT,
 		.hd_reg = AFE_VUL3_CON0,
 		.hd_shift = VUL3_HD_MODE_SFT,
@@ -1979,7 +1968,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = VUL4_MODE_MASK,
 		.mono_reg = AFE_VUL4_CON0,
 		.mono_shift = VUL4_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = VUL4_ON_SFT,
 		.hd_reg = AFE_VUL4_CON0,
 		.hd_shift = VUL4_HD_MODE_SFT,
@@ -2002,7 +1991,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = VUL5_MODE_MASK,
 		.mono_reg = AFE_VUL5_CON0,
 		.mono_shift = VUL5_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = VUL5_ON_SFT,
 		.hd_reg = AFE_VUL5_CON0,
 		.hd_shift = VUL5_HD_MODE_SFT,
@@ -2025,7 +2014,7 @@ static const struct mtk_base_memif_data memif_data[MT6789_MEMIF_NUM] = {
 		.fs_maskbit = VUL6_MODE_MASK,
 		.mono_reg = AFE_VUL6_CON0,
 		.mono_shift = VUL6_MONO_SFT,
-		.enable_reg = AFE_DAC_CON0,
+		.enable_reg = AFE_AGENT_ON,
 		.enable_shift = VUL6_ON_SFT,
 		.hd_reg = AFE_VUL6_CON0,
 		.hd_shift = VUL6_HD_MODE_SFT,
@@ -2751,6 +2740,9 @@ static bool mt6789_is_volatile_reg(struct device *dev, unsigned int reg)
 	case AFE_IRQ_MCU_EN:
 	case AFE_IRQ_MCU_DSP_EN:
 	case AFE_IRQ_MCU_SCP_EN:
+	case AFE_AGENT_ON:
+	case AFE_AGENT_ON_SET:
+	case AFE_AGENT_ON_CLR:
 		return true;
 	default:
 		return false;
@@ -2865,8 +2857,10 @@ skip_regmap:
 static int mt6789_afe_runtime_resume(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
-	struct mt6789_afe_private *afe_priv = afe->platform_priv;
 	int ret;
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+#endif
 
 	dev_info(afe->dev, "%s()\n", __func__);
 
@@ -2879,9 +2873,11 @@ static int mt6789_afe_runtime_resume(struct device *dev)
 
 	regcache_cache_only(afe->regmap, false);
 	regcache_sync(afe->regmap);
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	/* enable audio sys DCM for power saving */
 	regmap_update_bits(afe_priv->infracfg,
 			   PERI_BUS_DCM_CTRL, 0x1 << 29, 0x1 << 29);
+#endif
 	regmap_update_bits(afe->regmap, AUDIO_TOP_CON0, 0x1 << 29, 0x1 << 29);
 	/* force cpu use 8_24 format when writing 32bit data */
 	regmap_update_bits(afe->regmap, AFE_MEMIF_CON0,
@@ -3290,6 +3286,9 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_I2S_CON2, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_I2S_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MRGIF_CON, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_MRGIF_CON = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_I2S_CON3, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_I2S_CON3 = 0x%x\n", value);
@@ -3929,6 +3928,12 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT26, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_IRQ_MCU_CNT26 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SPM_CONTROL_REQ, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_SPM_CONTROL_REQ = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SPM_CONTROL_ACK, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_SPM_CONTROL_ACK = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_IRQ9_MCU_CNT_MON, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_IRQ9_MCU_CNT_MON = 0x%x\n", value);
@@ -4985,9 +4990,15 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_DL8_END, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_DL8_END = 0x%x\n", value);
-	regmap_read(afe->regmap, AFE_SE_SECURE_CON, &value);
+	regmap_read(afe->regmap, AFE_CONN_RS_2, &value);
 	n += scnprintf(buffer + n, size - n,
-		       "AFE_SE_SECURE_CON = 0x%x\n", value);
+		       "AFE_CONN_RS_2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN_DI_2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_CONN_DI_2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN_24BIT_2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "AFE_CONN_24BIT_2 = 0x%x\n", value);
 	regmap_read(afe->regmap, AFE_PROT_SIDEBAND_MON, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_PROT_SIDEBAND_MON = 0x%x\n", value);
@@ -5348,6 +5359,42 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_SECURE_MASK_CONN56_1, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_SECURE_MASK_CONN56_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN60_1, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_CONN60_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN61_1, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_CONN61_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN62_1, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_CONN62_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN63_1, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_CONN63_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN64_1, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_CONN64_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN65_1, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_CONN65_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN66_1, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_CONN66_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAC_CON0_USER1, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_DAC_CON0_USER1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAC_CON0_USER2, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_DAC_CON0_USER2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AGENT_ON, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_AGENT_ON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AGENT_ON_SET, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_AGENT_ON_SET = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AGENT_ON_CLR, &value);
+	n += scnprintf(buffer + n, size - n,
+			   "AFE_AGENT_ON_CLR = 0x%x\n", value);
 	return n;
 }
 
@@ -5427,7 +5474,9 @@ static int mt6789_afe_pcm_dev_probe(struct platform_device *pdev)
 	struct mt6789_afe_private *afe_priv;
 	struct resource *res;
 	struct device *dev;
+#if !defined(SKIP_SB)
 	struct arm_smccc_res smccc_res;
+#endif
 
 	pr_info("+%s()\n", __func__);
 
@@ -5506,7 +5555,7 @@ static int mt6789_afe_pcm_dev_probe(struct platform_device *pdev)
 		return ret;
 
 	/* init memif */
-	afe->is_memif_bit_banding = 0;
+	afe->is_memif_bit_banding = 1;
 	afe->memif_32bit_supported = 1;
 	afe->memif_size = MT6789_MEMIF_NUM;
 	afe->memif = devm_kcalloc(dev, afe->memif_size, sizeof(*afe->memif),
@@ -5554,9 +5603,11 @@ static int mt6789_afe_pcm_dev_probe(struct platform_device *pdev)
 		dev_err(dev, "enable_irq_wake %d err: %d\n", irq_id, ret);
 #endif
 
+#if !defined(SKIP_SB)
 	/* init arm_smccc_smc call */
 	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_INIT,
 		      0, 0, 0, 0, 0, 0, &smccc_res);
+#endif
 
 	/* init sub_dais */
 	INIT_LIST_HEAD(&afe->sub_dais);
@@ -5611,7 +5662,9 @@ static int mt6789_afe_pcm_dev_probe(struct platform_device *pdev)
 	}
 
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(SKIP_SB)
 	ultra_set_dsp_afe(afe);
+#endif
 #endif
 	return 0;
 

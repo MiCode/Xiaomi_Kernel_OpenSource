@@ -70,6 +70,7 @@ struct mtk_afe_adda_priv {
 	int ul_rate;
 };
 
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 static struct mtk_afe_adda_priv *get_adda_priv_by_name(struct mtk_base_afe *afe,
 						       const char *name)
 {
@@ -84,6 +85,7 @@ static struct mtk_afe_adda_priv *get_adda_priv_by_name(struct mtk_base_afe *afe,
 
 	return afe_priv->dai_priv[dai_id];
 }
+#endif
 
 static unsigned int adda_dl_rate_transform(struct mtk_base_afe *afe,
 					   unsigned int rate)
@@ -158,8 +160,6 @@ static const struct snd_kcontrol_new mtk_adda_dl_ch1_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("GAIN1_OUT_CH1", AFE_CONN3,
 				    I_GAIN1_OUT_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN3,
-				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN3,
 				    I_PCM_2_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("SRC_1_OUT_CH1", AFE_CONN3_1,
@@ -187,12 +187,8 @@ static const struct snd_kcontrol_new mtk_adda_dl_ch2_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("GAIN1_OUT_CH2", AFE_CONN4,
 				    I_GAIN1_OUT_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN4,
-				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN4,
 				    I_PCM_2_CAP_CH1, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH2", AFE_CONN4,
-				    I_PCM_1_CAP_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH2", AFE_CONN4,
 				    I_PCM_2_CAP_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("SRC_1_OUT_CH2", AFE_CONN4_1,
@@ -679,54 +675,6 @@ static int mtk_stf_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-/* stf mux */
-enum {
-	STF_SRC_ADDA = 0,
-	STF_SRC_O19O20,
-};
-
-static const char *const stf_o19o20_mux_map[] = {
-	"ADDA",
-	"O19O20",
-};
-
-static int stf_o19o20_mux_map_value[] = {
-	STF_SRC_ADDA,
-	STF_SRC_O19O20,
-};
-
-static SOC_VALUE_ENUM_SINGLE_DECL(stf_o19o20_mux_map_enum,
-				  AFE_SIDETONE_CON1,
-				  STF_SOURCE_FROM_O19O20_SFT,
-				  STF_SOURCE_FROM_O19O20_MASK,
-				  stf_o19o20_mux_map,
-				  stf_o19o20_mux_map_value);
-
-static const struct snd_kcontrol_new stf_o19O20_mux_control =
-	SOC_DAPM_ENUM("STF_O19O20_MUX", stf_o19o20_mux_map_enum);
-
-enum {
-	STF_EN_SEL_ADDA = 0,
-};
-
-static const char *const stf_adda_mux_map[] = {
-	"ADDA",
-};
-
-static int stf_adda_mux_map_value[] = {
-	STF_EN_SEL_ADDA,
-};
-
-static SOC_VALUE_ENUM_SINGLE_DECL(stf_adda_mux_map_enum,
-				  AFE_SIDETONE_CON1,
-				  STF_O19O20_OUT_EN_SEL_SFT,
-				  STF_O19O20_OUT_EN_SEL_MASK,
-				  stf_adda_mux_map,
-				  stf_adda_mux_map_value);
-
-static const struct snd_kcontrol_new stf_adda_mux_control =
-	SOC_DAPM_ENUM("STF_ADDA_MUX", stf_adda_mux_map_enum);
-
 /* ADDA UL MUX */
 enum {
 	ADDA_UL_MUX_MTKAIF = 0,
@@ -810,10 +758,6 @@ static const struct snd_soc_dapm_widget mtk_dai_adda_widgets[] = {
 			      mtk_stf_event,
 			      SND_SOC_DAPM_PRE_PMU |
 			      SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MUX("STF_O19O20_MUX", SND_SOC_NOPM, 0, 0,
-			 &stf_o19O20_mux_control),
-	SND_SOC_DAPM_MUX("STF_ADDA_MUX", SND_SOC_NOPM, 0, 0,
-			 &stf_adda_mux_control),
 	SND_SOC_DAPM_MIXER("STF_CH1", SND_SOC_NOPM, 0, 0,
 			   mtk_stf_ch1_mix,
 			   ARRAY_SIZE(mtk_stf_ch1_mix)),
@@ -823,6 +767,7 @@ static const struct snd_soc_dapm_widget mtk_dai_adda_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("STF_OUTPUT"),
 
 	/* clock */
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	SND_SOC_DAPM_CLOCK_SUPPLY("top_mux_audio_h"),
 
 	SND_SOC_DAPM_CLOCK_SUPPLY("aud_dac_clk"),
@@ -831,8 +776,10 @@ static const struct snd_soc_dapm_widget mtk_dai_adda_widgets[] = {
 
 	SND_SOC_DAPM_CLOCK_SUPPLY("aud_adc_clk"),
 	SND_SOC_DAPM_CLOCK_SUPPLY("aud_adc_hires_clk"),
+#endif
 };
 
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 #define HIRES_THRESHOLD 48000
 static int mtk_afe_dac_hires_connect(struct snd_soc_dapm_widget *source,
 				     struct snd_soc_dapm_widget *sink)
@@ -869,6 +816,7 @@ static int mtk_afe_adc_hires_connect(struct snd_soc_dapm_widget *source,
 
 	return (adda_priv->ul_rate > HIRES_THRESHOLD) ? 1 : 0;
 }
+#endif
 
 static const struct snd_soc_dapm_route mtk_dai_adda_routes[] = {
 	/* playback */
@@ -926,16 +874,13 @@ static const struct snd_soc_dapm_route mtk_dai_adda_routes[] = {
 	{"AP DMIC Capture", NULL, "AP_DMIC_INPUT"},
 
 	/* sidetone filter */
-	{"STF_ADDA_MUX", "ADDA", "ADDA_UL_Mux"},
+	{"Sidetone Filter", "Switch", "STF_CH1"},
+	{"Sidetone Filter", "Switch", "STF_CH2"},
 
-	{"STF_O19O20_MUX", "ADDA", "STF_ADDA_MUX"},
-	{"STF_O19O20_MUX", "O19O20", "STF_CH1"},
-	{"STF_O19O20_MUX", "O19O20", "STF_CH2"},
-
-	{"Sidetone Filter", "Switch", "STF_O19O20_MUX"},
 	{"STF_OUTPUT", NULL, "Sidetone Filter"},
 	{"ADDA Playback", NULL, "Sidetone Filter"},
 
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	/* clk */
 	{"ADDA Playback", NULL, "aud_dac_clk"},
 	{"ADDA Playback", NULL, "aud_dac_predis_clk"},
@@ -950,6 +895,7 @@ static const struct snd_soc_dapm_route mtk_dai_adda_routes[] = {
 
 	{"aud_dac_hires_clk", NULL, "top_mux_audio_h"},
 	{"aud_adc_hires_clk", NULL, "top_mux_audio_h"},
+#endif
 };
 
 /* dai ops */

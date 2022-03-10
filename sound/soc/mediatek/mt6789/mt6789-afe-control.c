@@ -111,7 +111,6 @@ unsigned int mt6789_rate_transform(struct device *dev,
 	case MT6789_MEMIF_DAI:
 	case MT6789_MEMIF_MOD_DAI:
 		return dai_memif_rate_transform(dev, rate);
-	case MT6789_DAI_PCM_1:
 	case MT6789_DAI_PCM_2:
 		return pcm_rate_transform(dev, rate);
 	default:

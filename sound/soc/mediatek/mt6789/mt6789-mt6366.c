@@ -18,6 +18,7 @@
 #include "../../codecs/mt6358.h"
 
 #include "../common/mtk-sp-spk-amp.h"
+#define SKIP_SB
 
 /*
  * if need additional control for the ext spk amp that is connected
@@ -142,6 +143,7 @@ static const struct snd_soc_ops mt6789_mt6366_i2s_ops = {
 
 static int mt6789_mt6366_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 {
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	struct snd_soc_component *component =
 		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
@@ -277,7 +279,7 @@ static int mt6789_mt6366_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 		 afe_priv->mtkaif_chosen_phase[0],
 		 afe_priv->mtkaif_chosen_phase[1],
 		 miso0_need_calib, miso1_need_calib);
-
+#endif
 	return 0;
 }
 
@@ -330,6 +332,7 @@ static int mt6789_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 }
 
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)  && !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(SKIP_SB)
 static const struct snd_pcm_hardware mt6789_mt6366_vow_hardware = {
 	.info = (SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
 		 SNDRV_PCM_INFO_MMAP_VALID),
@@ -383,6 +386,7 @@ static const struct snd_soc_ops mt6789_mt6366_vow_ops = {
 	.shutdown = mt6789_mt6366_vow_shutdown,
 };
 #endif  // #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+#endif
 
 /* FE */
 SND_SOC_DAILINK_DEFS(playback1,
@@ -503,7 +507,7 @@ SND_SOC_DAILINK_DEFS(hostless_src_bargein,
 /* BE */
 SND_SOC_DAILINK_DEFS(adda,
 	DAILINK_COMP_ARRAY(COMP_CPU("ADDA")),
-	DAILINK_COMP_ARRAY(COMP_CODEC(DEVICE_MT6358_NAME,
+	DAILINK_COMP_ARRAY(COMP_CODEC("mt6358-sound",
 				      "mt6358-snd-codec-aif1")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(ap_dmic,
@@ -546,10 +550,6 @@ SND_SOC_DAILINK_DEFS(connsys_i2s,
 	DAILINK_COMP_ARRAY(COMP_CPU("CONNSYS_I2S")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
-SND_SOC_DAILINK_DEFS(pcm1,
-	DAILINK_COMP_ARRAY(COMP_CPU("PCM 1")),
-	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 SND_SOC_DAILINK_DEFS(pcm2,
 	DAILINK_COMP_ARRAY(COMP_CPU("PCM 2")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -581,23 +581,29 @@ SND_SOC_DAILINK_DEFS(hostless_src_aaudio,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD) && !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(SKIP_SB)
 SND_SOC_DAILINK_DEFS(btcvsd,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("18830000.mtk-btcvsd-snd")));
 #endif
+#endif
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)  && !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(SKIP_SB)
 SND_SOC_DAILINK_DEFS(vow,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_CODEC(DEVICE_MT6358_NAME,
 						"mt6358-snd-codec-vow")),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 #endif
+#endif
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(SKIP_SB)
 SND_SOC_DAILINK_DEFS(ultra,
 		DAILINK_COMP_ARRAY(COMP_DUMMY()),
 		DAILINK_COMP_ARRAY(COMP_DUMMY()),
 		DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_scp_ultra")));
+#endif
 #endif
 
 static struct snd_soc_dai_link mt6789_mt6366_dai_links[] = {
@@ -972,14 +978,6 @@ static struct snd_soc_dai_link mt6789_mt6366_dai_links[] = {
 		SND_SOC_DAILINK_REG(connsys_i2s),
 	},
 	{
-		.name = "PCM 1",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.dpcm_capture = 1,
-		.ignore_suspend = 1,
-		SND_SOC_DAILINK_REG(pcm1),
-	},
-	{
 		.name = "PCM 2",
 		.no_pcm = 1,
 		.dpcm_playback = 1,
@@ -1039,14 +1037,17 @@ static struct snd_soc_dai_link mt6789_mt6366_dai_links[] = {
 	},
 	/* BTCVSD */
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD) && !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(SKIP_SB)
 	{
 		.name = "BTCVSD",
 		.stream_name = "BTCVSD",
 		SND_SOC_DAILINK_REG(btcvsd),
 	},
 #endif
+#endif
 	/* VoW */
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) && !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(SKIP_SB)
 	{
 		.name = "VOW_Capture",
 		.stream_name = "VOW_Capture",
@@ -1055,12 +1056,15 @@ static struct snd_soc_dai_link mt6789_mt6366_dai_links[] = {
 		SND_SOC_DAILINK_REG(vow),
 	},
 #endif
+#endif
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(SKIP_SB)
 	{
 		.name = "SCP_ULTRA_Playback",
 		.stream_name = "SCP_ULTRA_Playback",
 		SND_SOC_DAILINK_REG(ultra),
 	},
+#endif
 #endif
 };
 

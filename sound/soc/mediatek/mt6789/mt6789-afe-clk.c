@@ -37,18 +37,32 @@ static DEFINE_MUTEX(mutex_request_dram);
 
 static const char *aud_clks[CLK_NUM] = {
 	[CLK_AFE] = "aud_afe_clk",
-	/*[CLK_DAC] = "aud_dac_clk",*/
-	/*[CLK_DAC_PREDIS] = "aud_dac_predis_clk",*/
-	/*[CLK_ADC] = "aud_adc_clk",*/
-	[CLK_TML] = "aud_tml_clk",
+	// [CLK_DAC] = "aud_dac_clk",
+	// [CLK_DAC_PREDIS] = "aud_dac_predis_clk",
+	// [CLK_ADC] = "aud_adc_clk",
 	[CLK_APLL22M] = "aud_apll22m_clk",
 	[CLK_APLL24M] = "aud_apll24m_clk",
 	[CLK_APLL1_TUNER] = "aud_apll1_tuner_clk",
 	[CLK_APLL2_TUNER] = "aud_apll2_tuner_clk",
+	[CLK_TML] = "aud_tml_clk",
 	[CLK_NLE] = "aud_nle",
 	[CLK_SCP_SYS_AUD] = "scp_sys_audio",
 	[CLK_INFRA_SYS_AUDIO] = "aud_infra_clk",
 	[CLK_INFRA_AUDIO_26M] = "aud_infra_26m_clk",
+	[CLK_GENERAL3_ASRC] = "aud_general3_asrc",
+	[CLK_CONNSYS_I2S_ASRC] = "aud_connsys_i2s_asrc",
+	[CLK_GENERAL1_ASRC] = "aud_general1_asrc",
+	[CLK_GENERAL2_ASRC] = "aud_general2_asrc",
+	[CLK_DAC_HIRES] = "aud_dac_hires_clk",
+	[CLK_ADC_HIRES] = "aud_adc_hires_clk",
+	[CLK_ADC_HIRES_TML] = "aud_adc_hires_tml",
+	[CLK_I2S1_BCLK] = "aud_i2s1_bclk",
+	[CLK_I2S2_BCLK] = "aud_i2s2_bclk",
+	[CLK_I2S3_BCLK] = "aud_i2s3_bclk",
+	[CLK_I2S4_BCLK] = "aud_i2s4_bclk",
+	[CLK_I2S5_BCLK] = "aud_i2s5_bclk",
+	[CLK_APMIXED_APLL1] = "aud_clk_apmixed_apll1",
+	[CLK_APMIXED_APLL2] = "aud_clk_apmixed_apll2",
 	[CLK_MUX_AUDIO] = "top_mux_audio",
 	[CLK_MUX_AUDIOINTBUS] = "top_mux_audio_int",
 	[CLK_TOP_MAINPLL_D4_D4] = "top_mainpll_d4_d4",
@@ -57,15 +71,15 @@ static const char *aud_clks[CLK_NUM] = {
 	[CLK_TOP_MUX_AUD_2] = "top_mux_aud_2",
 	[CLK_TOP_APLL2_CK] = "top_apll2_ck",
 	[CLK_TOP_MUX_AUD_ENG1] = "top_mux_aud_eng1",
+	[CLK_TOP_APLL1_D4] = "top_apll1_d4",
 	[CLK_TOP_APLL1_D8] = "top_apll1_d8",
 	[CLK_TOP_MUX_AUD_ENG2] = "top_mux_aud_eng2",
+	[CLK_TOP_APLL2_D4] = "top_apll2_d4",
 	[CLK_TOP_APLL2_D8] = "top_apll2_d8",
-	[CLK_TOP_MUX_AUDIO_H] = "top_mux_audio_h",
 	[CLK_TOP_I2S0_M_SEL] = "top_i2s0_m_sel",
 	[CLK_TOP_I2S1_M_SEL] = "top_i2s1_m_sel",
 	[CLK_TOP_I2S2_M_SEL] = "top_i2s2_m_sel",
 	[CLK_TOP_I2S3_M_SEL] = "top_i2s3_m_sel",
-	[CLK_TOP_I2S4_M_SEL] = "top_i2s4_m_sel",
 	[CLK_TOP_APLL12_DIV0] = "top_apll12_div0",
 	[CLK_TOP_APLL12_DIV1] = "top_apll12_div1",
 	[CLK_TOP_APLL12_DIV2] = "top_apll12_div2",
@@ -73,6 +87,7 @@ static const char *aud_clks[CLK_NUM] = {
 	[CLK_TOP_APLL12_DIV4] = "top_apll12_div4",
 	[CLK_TOP_APLL12_DIVB] = "top_apll12_divb",
 	[CLK_TOP_APLL12_DIV5] = "top_apll12_div5",
+	[CLK_TOP_MUX_AUDIO_H] = "top_mux_audio_h",
 	[CLK_CLK26M] = "top_clk26m_clk",
 };
 
@@ -322,7 +337,9 @@ int mt6789_afe_dram_request(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+#if !defined(SKIP_SB)
 	struct arm_smccc_res res;
+#endif
 
 	dev_info(dev, "%s(), dram_resource_counter %d\n",
 		 __func__, afe_priv->dram_resource_counter);
@@ -331,10 +348,11 @@ int mt6789_afe_dram_request(struct device *dev)
 
 	/* use arm_smccc_smc to notify SPM */
 	if (afe_priv->dram_resource_counter == 0)
+#if !defined(SKIP_SB)
 		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
 			      MTK_AUDIO_SMC_OP_DRAM_REQUEST,
 			      0, 0, 0, 0, 0, 0, &res);
-
+#endif
 	afe_priv->dram_resource_counter++;
 	mutex_unlock(&mutex_request_dram);
 	return 0;
@@ -344,8 +362,9 @@ int mt6789_afe_dram_release(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
+#if !defined(SKIP_SB)
 	struct arm_smccc_res res;
-
+#endif
 	dev_info(dev, "%s(), dram_resource_counter %d\n",
 		 __func__, afe_priv->dram_resource_counter);
 
@@ -354,10 +373,11 @@ int mt6789_afe_dram_release(struct device *dev)
 
 	/* use arm_smccc_smc to notify SPM */
 	if (afe_priv->dram_resource_counter == 0)
+#if !defined(SKIP_SB)
 		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
 			      MTK_AUDIO_SMC_OP_DRAM_RELEASE,
 			      0, 0, 0, 0, 0, 0, &res);
-
+#endif
 	if (afe_priv->dram_resource_counter < 0) {
 		dev_warn(dev, "%s(), dram_resource_counter %d\n",
 			 __func__, afe_priv->dram_resource_counter);
@@ -656,6 +676,8 @@ int mt6789_init_clock(struct mtk_base_afe *afe)
 {
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
 	int i = 0;
+	int ret = 0;
+	int value;
 
 	afe_priv->clk = devm_kcalloc(afe->dev, CLK_NUM, sizeof(*afe_priv->clk),
 				     GFP_KERNEL);
@@ -678,7 +700,40 @@ int mt6789_init_clock(struct mtk_base_afe *afe)
 	if (IS_ERR(afe_priv->apmixed)) {
 		dev_err(afe->dev, "%s() Cannot find apmixedsys: %ld\n",
 			__func__, PTR_ERR(afe_priv->apmixed));
-		return PTR_ERR(afe_priv->apmixed);
+	}
+
+	ret = clk_set_rate(afe_priv->clk[CLK_APMIXED_APLL1], 180633601);
+	if (ret) {
+		dev_err(afe->dev, "%s(), clk_set_rate %s, rate 180633601, fail %d\n",
+			__func__, aud_clks[CLK_APMIXED_APLL1], ret);
+		return ret;
+	}
+	ret = clk_set_rate(afe_priv->clk[CLK_APMIXED_APLL1], 180633600);
+	if (ret) {
+		dev_err(afe->dev, "%s(), clk_set_rate %s, rate 180633600, fail %d\n",
+			__func__, aud_clks[CLK_APMIXED_APLL1], ret);
+		return ret;
+	}
+
+	ret = clk_set_rate(afe_priv->clk[CLK_APMIXED_APLL2], 196608001);
+	if (ret) {
+		dev_err(afe->dev, "%s(), clk_set_rate %s, rate 196608001, fail %d\n",
+			__func__, aud_clks[CLK_APMIXED_APLL2], ret);
+		return ret;
+	}
+	ret = clk_set_rate(afe_priv->clk[CLK_APMIXED_APLL2], 196608000);
+	if (ret) {
+		dev_err(afe->dev, "%s(), clk_set_rate %s, rate 196608000, fail %d\n",
+			__func__, aud_clks[CLK_APMIXED_APLL2], ret);
+		return ret;
+	}
+
+	if (afe_priv->apmixed != NULL) {
+		regmap_read(afe_priv->apmixed, APLL1_TUNER_CON0, &value);
+		dev_dbg(afe->dev, "%s() APLL1_TUNER_CON0 = 0x%x\n", __func__, value);
+
+		regmap_read(afe_priv->apmixed, APLL2_TUNER_CON0, &value);
+		dev_dbg(afe->dev, "%s() APLL2_TUNER_CON0 = 0x%x\n", __func__, value);
 	}
 
 	afe_priv->topckgen = syscon_regmap_lookup_by_phandle(afe->dev->of_node,

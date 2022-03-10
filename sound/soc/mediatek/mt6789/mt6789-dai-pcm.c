@@ -183,9 +183,7 @@ static const struct snd_soc_dapm_route mtk_dai_pcm_routes[] = {
 	{"PCM 2 Capture", NULL, "PCM_2_EN"},
 
 	{"AFE_TO_MD1", NULL, "PCM 2 Playback"},
-	{"AFE_TO_MD2", NULL, "PCM 1 Playback"},
 	{"PCM 2 Capture", NULL, "MD1_TO_AFE"},
-	{"PCM 1 Capture", NULL, "MD2_TO_AFE"},
 
 	{"PCM_2_PB_CH1", "DL2_CH1", "DL2"},
 	{"PCM_2_PB_CH2", "DL2_CH2", "DL2"},
