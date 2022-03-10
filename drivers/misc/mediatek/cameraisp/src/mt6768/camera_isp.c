@@ -70,7 +70,7 @@
 #include <smi_public.h>
 
 /*for kernel log count*/
-#define _K_LOG_ADJUST (1)//wait log owner rdy
+#define _K_LOG_ADJUST (0)//wait log owner rdy
 
 #ifdef CONFIG_COMPAT
 /* 64 bit */
