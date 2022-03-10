@@ -443,10 +443,6 @@ static struct mutex open_isp_mutex;
 /* Get HW modules' base address from device nodes */
 #define ISP_CAMSYS_CONFIG_BASE (isp_devs[ISP_CAMSYS_CONFIG_IDX].regs)
 
-#ifdef CONFIG_MACH_MT6781
-#define SUB_COMMON_CLR
-#endif
-
 #ifdef SUB_COMMON_CLR
 #define LARB_IDLE (0)
 #define LARB_BUSY (1)
