@@ -1043,24 +1043,20 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	}
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
-	mtk_lcm_dts_read_u32(np, "compare_id_value_length",
-			&ops->compare_id_value_length);
-	if (ops->compare_id_value_length > 0 &&
-	    ops->compare_id_value_length <= MTK_PANEL_COMPARE_ID_LENGTH) {
-		LCM_KZALLOC(ops->compare_id_value_data,
-			ops->compare_id_value_length, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->compare_id_value_data)) {
-			DDPPR_ERR("%s,%d: failed to allocate compare id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		len = mtk_lcm_dts_read_u8_array(np,
-					"compare_id_value_data",
-					&ops->compare_id_value_data[0], 0,
-					ops->compare_id_value_length);
-		if (len != ops->compare_id_value_length)
-			DDPPR_ERR("%s,%d: warn parse compare id data, len:%d, expect:%u\n",
-				__func__, __LINE__, len, ops->compare_id_value_length);
+	LCM_KZALLOC(ops->compare_id_value_data,
+		MTK_PANEL_COMPARE_ID_LENGTH, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(ops->compare_id_value_data)) {
+		DDPPR_ERR("%s,%d: failed to allocate compare id data\n",
+			__func__, __LINE__);
+		return -ENOMEM;
+	}
+	len = mtk_lcm_dts_read_u8_array(np,
+				"compare_id_value_data",
+				&ops->compare_id_value_data[0], 0,
+				MTK_PANEL_COMPARE_ID_LENGTH);
+	if (len > 0 &&
+	    len < MTK_PANEL_COMPARE_ID_LENGTH) {
+		ops->compare_id_value_length = len;
 
 		ret = parse_lcm_ops_func(np,
 					&ops->compare_id, "compare_id_table",
@@ -1071,6 +1067,10 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				__func__, __LINE__, ret);
 			return ret;
 		}
+	} else {
+		DDPMSG("%s, %d, failed to get compare id,len%d\n",
+			__func__, __LINE__, len);
+		ops->compare_id_value_length = 0;
 	}
 #endif
 
@@ -1087,25 +1087,20 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		return ret;
 	}
 
-	mtk_lcm_dts_read_u32(np, "ata_id_value_length",
-			&ops->ata_id_value_length);
-	if (ops->ata_id_value_length > 0 &&
-	    ops->ata_id_value_length <= MTK_PANEL_ATA_ID_LENGTH) {
-		LCM_KZALLOC(ops->ata_id_value_data,
-				ops->ata_id_value_length, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->ata_id_value_data)) {
-			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		len = mtk_lcm_dts_read_u8_array(np,
-					"ata_id_value_data",
-					&ops->ata_id_value_data[0], 0,
-					ops->ata_id_value_length);
-		if (len != ops->ata_id_value_length)
-			DDPPR_ERR("%s,%d: failed to parse ata id data, len:%d, expect:%u\n",
-				__func__, __LINE__, len,
-				ops->ata_id_value_length);
+	LCM_KZALLOC(ops->ata_id_value_data,
+			MTK_PANEL_ATA_ID_LENGTH, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(ops->ata_id_value_data)) {
+		DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
+			__func__, __LINE__);
+		return -ENOMEM;
+	}
+	len = mtk_lcm_dts_read_u8_array(np,
+				"ata_id_value_data",
+				&ops->ata_id_value_data[0], 0,
+				MTK_PANEL_ATA_ID_LENGTH);
+	if (len > 0 &&
+	    len < MTK_PANEL_ATA_ID_LENGTH) {
+		ops->ata_id_value_length = len;
 
 		ret = parse_lcm_ops_func(np,
 					&ops->ata_check, "ata_check_table",
@@ -1116,6 +1111,10 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				__func__, __LINE__, ret);
 			return ret;
 		}
+	} else {
+		DDPMSG("%s, %d, failed to get ata id,len%d\n",
+			__func__, __LINE__, len);
+		ops->ata_id_value_length = 0;
 	}
 
 	mtk_lcm_dts_read_u32(np, "set_aod_light_mask",
