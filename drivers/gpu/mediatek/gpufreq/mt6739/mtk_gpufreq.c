@@ -551,6 +551,7 @@ static int mt_gpufreq_input_connect(struct input_handler *handler,
 	if (error)
 		goto err1;
 
+	kfree(handle);
 	return 0;
 err1:
 	input_unregister_handle(handle);
