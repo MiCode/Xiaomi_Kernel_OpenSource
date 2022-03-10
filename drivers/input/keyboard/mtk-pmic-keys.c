@@ -18,8 +18,20 @@
 #include <linux/mfd/mt6363/registers.h>
 #include <linux/mfd/mt6397/registers.h>
 #include <linux/mfd/mt6363/core.h>
+#include <linux/mfd/mt6366/core.h>
 #include <linux/mfd/mt6397/core.h>
 
+
+#define MT6366_TOPSTATUS			(0x28)
+#define MT6366_PSC_TOP_INT_CON0			(0x910)
+#define MT6366_TOP_RST_MISC			(0x14c)
+#define MT6366_PWRKEY_DEB_MASK			1
+#define MT6366_HOMEKEY_DEB_MASK			3
+#define MT6366_RG_INT_EN_HOMEKEY_MASK           1
+#define MT6366_RG_INT_EN_PWRKEY_MASK            0
+#define MT6366_PWRKEY_RST_SHIFT                 9
+#define MT6366_HOMEKEY_RST_SHIFT                8
+#define MT6366_RST_DU_SHIFT                     12
 #define MTK_PMIC_PWRKEY_INDEX			0
 #define MTK_PMIC_HOMEKEY_INDEX			1
 #define MTK_PMIC_MAX_KEY_COUNT			2
@@ -124,6 +136,24 @@ static const struct mtk_pmic_regs mt6363_regs = {
 	.pwrkey_rst_shift = MT6363_PWRKEY_RST_SHIFT,
 	.homekey_rst_shift = MT6363_HOMEKEY_RST_SHIFT,
 	.rst_du_shift = MT6363_RST_DU_SHIFT,
+};
+
+static const struct mtk_pmic_regs mt6366_regs = {
+	.keys_regs[MTK_PMIC_PWRKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(MT6366_TOPSTATUS,
+		MT6366_PWRKEY_DEB_MASK,
+		MT6366_PSC_TOP_INT_CON0,
+		MT6366_RG_INT_EN_PWRKEY_MASK),
+	.keys_regs[MTK_PMIC_HOMEKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(MT6366_TOPSTATUS,
+		MT6366_HOMEKEY_DEB_MASK,
+		MT6366_PSC_TOP_INT_CON0,
+		MT6366_RG_INT_EN_HOMEKEY_MASK),
+	.release_irq = true,
+	.pmic_rst_reg = MT6366_TOP_RST_MISC,
+	.pwrkey_rst_shift = MT6366_PWRKEY_RST_SHIFT,
+	.homekey_rst_shift = MT6366_HOMEKEY_RST_SHIFT,
+	.rst_du_shift = MT6366_RST_DU_SHIFT,
 };
 
 struct mtk_pmic_keys_info {
@@ -331,6 +361,9 @@ static const struct of_device_id of_mtk_pmic_keys_match_tbl[] = {
 	}, {
 		.compatible = "mediatek,mt6363-keys",
 		.data = &mt6363_regs,
+	},  {
+		.compatible = "mediatek,mt6366-keys",
+		.data = &mt6366_regs,
 	}, {
 		/* sentinel */
 	}
