@@ -5978,20 +5978,23 @@ static void mtk_dsi_dy_fps_cmdq_cb(struct cmdq_cb_data data)
 	unsigned int cb_pixclk = cb_data->misc;
 	unsigned int cb_mmclk_req_idx = cb_data->mmclk_req_idx;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(cb_data->crtc);
-	unsigned int last_mmclk_req_idx = mtk_crtc->qos_ctx->last_mmclk_req_idx;
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
 	struct mtk_drm_private *priv =
 		mtk_crtc->base.dev->dev_private;
 
-	DDPINFO("%s vdo mode fps change done\n", __func__);
+	DDPINFO("%s: vdo mode fps change, cur:%u, clk:%u, last:%u\n",
+		__func__, cb_mmclk_req_idx, cb_pixclk,
+		mtk_crtc->qos_ctx->last_mmclk_req_idx);
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 		MTK_DRM_OPT_MMDVFS_SUPPORT)) {
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 		if (comp && (comp->id == DDP_COMPONENT_DSI0 ||
 			comp->id == DDP_COMPONENT_DSI1)
-			&& cb_mmclk_req_idx == last_mmclk_req_idx) {
+			&& cb_mmclk_req_idx == mtk_crtc->qos_ctx->last_mmclk_req_idx) {
 			mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, cb_pixclk, __func__);
 		}
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	}
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
@@ -6150,6 +6153,8 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 	cb_data->crtc = &mtk_crtc->base;
 	cb_data->misc = pixclk;
 	cb_data->mmclk_req_idx = mtk_crtc->qos_ctx->last_mmclk_req_idx;
+	CRTC_MMP_MARK(drm_crtc_index(&mtk_crtc->base), mode_switch, pixclk,
+			mtk_crtc->qos_ctx->last_mmclk_req_idx);
 	if (cmdq_pkt_flush_threaded(handle,
 		mtk_dsi_dy_fps_cmdq_cb, cb_data) < 0)
 		DDPPR_ERR("failed to flush dsi_dy_fps\n");

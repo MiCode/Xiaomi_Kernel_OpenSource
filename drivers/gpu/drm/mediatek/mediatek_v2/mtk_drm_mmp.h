@@ -48,11 +48,12 @@ struct DRM_MMP_Events {
 	mmp_event postmask0;
 	mmp_event abnormal_irq;
 	mmp_event iova_tf;
+	mmp_event mmclk;
 	mmp_event pmqos;
 	mmp_event hrt_bw;
-	mmp_event mutex_lock;
 	mmp_event layering;
 	mmp_event layering_blob;
+	mmp_event mutex_lock;
 	mmp_event dma_alloc;
 	mmp_event dma_free;
 	mmp_event dma_get;

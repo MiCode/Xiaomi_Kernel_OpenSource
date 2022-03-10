@@ -75,16 +75,18 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.aal, "AAL0");
 	g_DRM_MMP_Events.aal1 =
 		mmprofile_register_event(g_DRM_MMP_Events.aal, "AAL1");
+	g_DRM_MMP_Events.mmclk =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "MMCLK");
 	g_DRM_MMP_Events.pmqos =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "PMQOS");
 	g_DRM_MMP_Events.hrt_bw =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "HRT_BW");
-	g_DRM_MMP_Events.mutex_lock =
-		mmprofile_register_event(g_DRM_MMP_Events.drm, "LOCK");
 	g_DRM_MMP_Events.layering =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "HRT");
 	g_DRM_MMP_Events.layering_blob =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "HRT_BLOB");
+	g_DRM_MMP_Events.mutex_lock =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "LOCK");
 	g_DRM_MMP_Events.dma_alloc =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_ALLOC");
 	g_DRM_MMP_Events.dma_free =

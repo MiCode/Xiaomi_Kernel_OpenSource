@@ -3291,14 +3291,13 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 		return;
 	}
 
-	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), mode_switch, 0, 0);
-
 	DDPMSG("%s++ from %u to %u\n", __func__,
 		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
 		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 
 	fps_src = drm_mode_vrefresh(&old_state->mode);
 	fps_dst = drm_mode_vrefresh(&crtc->state->mode);
+	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), mode_switch, fps_src, fps_dst);
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (output_comp) {
@@ -3356,7 +3355,8 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
-	CRTC_MMP_EVENT_END(drm_crtc_index(crtc), mode_switch, 0, 0);
+	CRTC_MMP_EVENT_END(drm_crtc_index(crtc), mode_switch, mode_chg_index,
+			mtk_crtc->qos_ctx->last_mmclk_req_idx);
 	DDPMSG("%s--\n", __func__);
 }
 
