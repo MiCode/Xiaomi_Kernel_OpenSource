@@ -33,7 +33,7 @@
 #include "apu_power_tag.h"
 #endif
 
-int g_pwr_log_level = APUSYS_PWR_LOG_VERBOSE;
+int g_pwr_log_level = APUSYS_PWR_LOG_ERR;
 int g_pm_procedure;
 int power_on_off_stress;
 static int apu_power_counter;
