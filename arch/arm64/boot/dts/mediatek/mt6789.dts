@@ -3768,7 +3768,13 @@
 
 #include "mediatek/cust_mt6789_msdc.dtsi"
 #include "mediatek/mt6366.dtsi"
+#include "mediatek/rt5133.dtsi"
 #include "mediatek/mt6789-clkitg.dtsi"
+
+&rt5133 {
+	interrupts-extended = <&pio 5 0x0>;
+	enable-gpio = <&pio 15 0x0>;
+};
 
 &pmic {
 	interrupt-parent = <&pio>;
