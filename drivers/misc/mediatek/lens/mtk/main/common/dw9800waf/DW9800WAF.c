@@ -158,30 +158,6 @@ static inline int moveAF(unsigned long a_u4Position)
 		return -EINVAL;
 	}
 
-	if (*g_pAF_Opened == 1) {
-		unsigned short InitPos;
-
-		initdrv();
-		ret = s4DW9800WAF_ReadReg(&InitPos);
-
-		if (ret == 0) {
-			LOG_INF("Init Pos %6d\n", InitPos);
-
-			spin_lock(g_pAF_SpinLock);
-			g_u4CurrPosition = (unsigned long)InitPos;
-			spin_unlock(g_pAF_SpinLock);
-
-		} else {
-			spin_lock(g_pAF_SpinLock);
-			g_u4CurrPosition = 0;
-			spin_unlock(g_pAF_SpinLock);
-		}
-
-		spin_lock(g_pAF_SpinLock);
-		*g_pAF_Opened = 2;
-		spin_unlock(g_pAF_SpinLock);
-	}
-
 	if (g_u4CurrPosition == a_u4Position)
 		return 0;
 
@@ -279,9 +255,34 @@ int DW9800WAF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 int DW9800WAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 	spinlock_t *pAF_SpinLock, int *pAF_Opened)
 {
+	int ret = 0;
 	g_pstAF_I2Cclient = pstAF_I2Cclient;
 	g_pAF_SpinLock = pAF_SpinLock;
 	g_pAF_Opened = pAF_Opened;
+
+	if (*g_pAF_Opened == 1) {
+		unsigned short InitPos;
+
+		initdrv();
+		ret = s4DW9800WAF_ReadReg(&InitPos);
+
+		if (ret == 0) {
+			LOG_INF("Init Pos %6d\n", InitPos);
+
+			spin_lock(g_pAF_SpinLock);
+			g_u4CurrPosition = (unsigned long)InitPos;
+			spin_unlock(g_pAF_SpinLock);
+
+		} else {
+			spin_lock(g_pAF_SpinLock);
+			g_u4CurrPosition = 0;
+			spin_unlock(g_pAF_SpinLock);
+		}
+
+		spin_lock(g_pAF_SpinLock);
+		*g_pAF_Opened = 2;
+		spin_unlock(g_pAF_SpinLock);
+	}
 
 	return 1;
 }
