@@ -178,8 +178,8 @@ struct mtk_devapc_pd_reg {
 	uint32_t pd_vio_shift_sta_reg;
 	uint32_t pd_vio_shift_sel_reg;
 	uint32_t pd_vio_shift_con_reg;
-	void __iomem *pd_vio_mask_reg;
-	void __iomem *pd_vio_sta_reg;
+	uint32_t *pd_vio_mask_reg;
+	uint32_t *pd_vio_sta_reg;
 };
 
 struct mtk_devapc_soc {
