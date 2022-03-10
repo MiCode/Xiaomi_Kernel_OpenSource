@@ -1381,8 +1381,7 @@ static ssize_t gt9896s_sysfs_fwimage_store(struct file *file,
 	}
 
 	if (IS_ERR_OR_NULL(&fw_data->firmware->data[pos])) {
-		ts_err("fw_data->firmware->data[pos] is invalid or NULL!!! pos:%d, count:%d\n",
-			pos, count);
+		ts_err("fw_data->firmware->data[pos] is invalid or NULL!!!");
 		return -ENOMEM;
 	}
 
