@@ -683,6 +683,9 @@ static irqreturn_t mtu3_link_isr(struct mtu3 *mtu)
 	mtu->g.ep0->maxpacket = maxpkt;
 	mtu->ep0_state = MU3D_EP0_STATE_SETUP;
 
+	if (udev_speed >= MTU3_SPEED_SUPER)
+		ssusb_phy_dp_pullup(mtu->ssusb);
+
 	if (udev_speed == USB_SPEED_UNKNOWN)
 		mtu3_gadget_disconnect(mtu);
 	else

@@ -324,6 +324,8 @@ struct ssusb_mtk {
 	bool clk_on;
 	bool clk_mgr;
 	bool spm_mgr;
+	/* u2 cdp */
+	struct work_struct dp_work;
 };
 
 /**
@@ -483,6 +485,7 @@ int ssusb_check_clocks(struct ssusb_mtk *ssusb, u32 ex_clks);
 void ssusb_set_force_vbus(struct ssusb_mtk *ssusb, bool vbus_on);
 int ssusb_phy_power_on(struct ssusb_mtk *ssusb);
 void ssusb_phy_power_off(struct ssusb_mtk *ssusb);
+void ssusb_phy_dp_pullup(struct ssusb_mtk *ssusb);
 int ssusb_clks_enable(struct ssusb_mtk *ssusb);
 void ssusb_clks_disable(struct ssusb_mtk *ssusb);
 void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);

@@ -18,6 +18,9 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
+#define PHY_MODE_DPPULLUP_SET 5
+#define PHY_MODE_DPPULLUP_CLR 6
+
 #ifdef MTU3_USE_SPM_API
 void ssusb_spm_request(struct ssusb_mtk *ssusb, int mode)
 {
@@ -190,6 +193,23 @@ void ssusb_phy_power_off(struct ssusb_mtk *ssusb)
 
 	for (i = 0; i < ssusb->num_phys; i++)
 		phy_power_off(ssusb->phys[i]);
+}
+
+static void ssusb_dp_pullup_work(struct work_struct *w)
+{
+	struct ssusb_mtk *ssusb = container_of(w, struct ssusb_mtk, dp_work);
+
+	phy_set_mode_ext(ssusb->phys[0], PHY_MODE_USB_DEVICE,
+		PHY_MODE_DPPULLUP_SET);
+	mdelay(50);
+	phy_set_mode_ext(ssusb->phys[0], PHY_MODE_USB_DEVICE,
+		PHY_MODE_DPPULLUP_CLR);
+}
+
+void ssusb_phy_dp_pullup(struct ssusb_mtk *ssusb)
+{
+	dev_info(ssusb->dev, "%s\n", __func__);
+	queue_work(system_power_efficient_wq, &ssusb->dp_work);
 }
 
 int ssusb_clks_enable(struct ssusb_mtk *ssusb)
@@ -527,6 +547,8 @@ static int mtu3_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto comm_exit;
 	}
+
+	INIT_WORK(&ssusb->dp_work, ssusb_dp_pullup_work);
 
 	return 0;
 
