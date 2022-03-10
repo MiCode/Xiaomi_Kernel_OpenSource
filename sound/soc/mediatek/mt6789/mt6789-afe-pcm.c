@@ -2858,7 +2858,7 @@ static int mt6789_afe_runtime_resume(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	int ret;
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
 #endif
 
@@ -2873,7 +2873,7 @@ static int mt6789_afe_runtime_resume(struct device *dev)
 
 	regcache_cache_only(afe->regmap, false);
 	regcache_sync(afe->regmap);
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
 	/* enable audio sys DCM for power saving */
 	regmap_update_bits(afe_priv->infracfg,
 			   PERI_BUS_DCM_CTRL, 0x1 << 29, 0x1 << 29);
@@ -3174,7 +3174,7 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 			       "memif[%d], irq_usage %d\n",
 			       i, afe->memif[i].irq_usage);
 	}
-
+#if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
 	regmap_read(afe_priv->topckgen, CLK_CFG_7, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_CFG_7 = 0x%x\n", value);
@@ -3246,7 +3246,7 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe_priv->infracfg, MODULE_SW_CG_2_STA, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "MODULE_SW_CG_2_STA = 0x%x\n", value);
-
+#endif
 	regmap_read(afe->regmap, AUDIO_TOP_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AUDIO_TOP_CON0 = 0x%x\n", value);

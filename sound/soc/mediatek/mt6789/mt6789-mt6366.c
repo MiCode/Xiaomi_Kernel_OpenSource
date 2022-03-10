@@ -143,7 +143,7 @@ static const struct snd_soc_ops mt6789_mt6366_i2s_ops = {
 
 static int mt6789_mt6366_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 {
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
 	struct snd_soc_component *component =
 		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
@@ -331,7 +331,7 @@ static int mt6789_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)  && !defined(CONFIG_FPGA_EARLY_PORTING)
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) && !defined(CONFIG_FPGA_EARLY_PORTING)
 #if !defined(SKIP_SB)
 static const struct snd_pcm_hardware mt6789_mt6366_vow_hardware = {
 	.info = (SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED |
