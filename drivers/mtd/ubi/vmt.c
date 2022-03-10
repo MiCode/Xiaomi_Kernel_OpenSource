@@ -86,7 +86,7 @@ static ssize_t vol_attribute_show(struct device *dev,
 		}
 		ret = scnprintf(buf, size, "%s\n", tp);
 	} else if (attr == &attr_vol_name)
-		ret = scnprintf(buf, vol->name_len + 1, "%s\n",
+		ret = scnprintf(buf, UBI_MAX_VOLUME_NAME + 1, "%s\n",
 				vol->name);
 	else if (attr == &attr_vol_corrupted)
 		ret = scnprintf(buf, sizeof(int), "%d\n",
