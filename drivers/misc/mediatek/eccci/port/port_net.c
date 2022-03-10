@@ -554,7 +554,6 @@ static void port_net_queue_state_notify(struct port_t *port, int dir,
 			return;
 		}
 	}
-#if MD_GENERATION > (6293)
 	if (state == TX_FULL) {
 		if (ccci_dpmaif_empty_query(qno) > 0) {
 			if (dir == OUT)
@@ -562,7 +561,6 @@ static void port_net_queue_state_notify(struct port_t *port, int dir,
 			return;
 		}
 	}
-#endif
 	ccmni_ops.queue_state_callback(port->md_id,
 		GET_CCMNI_IDX(port), state, is_ack);
 

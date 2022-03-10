@@ -75,8 +75,7 @@ char *ccci_port_get_dev_name(unsigned int rx_user_id)
 }
 EXPORT_SYMBOL(ccci_port_get_dev_name);
 
-#if MD_GENERATION > (6295)
-int send_new_time_to_new_md(int md_id, int tz)
+int send_new_time_to_md_after_6297(int md_id, int tz)
 {
 	struct timespec64 tv;
 	unsigned int timeinfo[4];
@@ -100,7 +99,6 @@ int send_new_time_to_new_md(int md_id, int tz)
 
 	return ret;
 }
-#endif
 
 int port_dev_kernel_read(struct port_t *port, char *buf, int size)
 {

@@ -358,6 +358,14 @@ static int md_cd_topclkgen_off(struct ccci_modem *md)
 	unsigned int reg_value;
 	int ret;
 
+	if (md_cd_plat_val_ptr.power_flow_config & (1 << SKIP_TOPCLK_BIT)) {
+		CCCI_BOOTUP_LOG(md->index, TAG,
+			"[POWER OFF] bypass %s\n", __func__);
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"[POWER OFF] bypass %s\n", __func__);
+		return 0;
+	}
+
 	CCCI_BOOTUP_LOG(md->index, TAG, "[POWER OFF]%s start\n", __func__);
 	CCCI_NORMAL_LOG(md->index, TAG, "[POWER OFF]%s start\n", __func__);
 
@@ -709,6 +717,16 @@ static int md_cd_topclkgen_on(struct ccci_modem *md)
 	unsigned int reg_value = 0;
 	int ret;
 
+	if (md_cd_plat_val_ptr.power_flow_config & (1 << SKIP_TOPCLK_BIT)) {
+		CCCI_BOOTUP_LOG(md->index, TAG,
+			"[POWER ON] bypass %s\n", __func__);
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"[POWER ON] bypass %s\n", __func__);
+		return 0;
+	}
+
+	CCCI_BOOTUP_LOG(md->index, TAG,
+		"[POWER ON]%s start\n", __func__);
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"[POWER ON]%s start\n", __func__);
 

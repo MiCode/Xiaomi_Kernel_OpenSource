@@ -771,17 +771,10 @@ static void md_HS1_Fail_dump(int md_id, char *ex_info, unsigned int len)
 			"boot_status0: 0x%x\nboot_status1: 0x%x\n"
 			"MD Offender:DVFS\n",
 			0, reg_value[0], reg_value[1]);
-#if MD_GENERATION >= (6295)
 	} else if ((reg_value[0] == 0x5443000C) ||
 				(reg_value[0] == 0) ||
 				(reg_value[0] >= 0x53310000 &&
 				reg_value[0] <= 0x533100FF)) {
-#else
-	} else if ((reg_value[0] == 0x54430007) ||
-				(reg_value[0] == 0) ||
-				(reg_value[0] >= 0x53310000 &&
-				reg_value[0] <= 0x533100FF)) {
-#endif
 		ret = snprintf(ex_info, len,
 			"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n",
 			1);

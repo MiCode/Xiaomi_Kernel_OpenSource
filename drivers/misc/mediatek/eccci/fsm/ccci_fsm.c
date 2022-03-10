@@ -828,6 +828,7 @@ int ccci_fsm_init(int md_id)
 {
 	struct ccci_fsm_ctl *ctl = NULL;
 	int ret = 0;
+	struct device_node *node = NULL;
 
 	if (md_id < 0 || md_id >= ARRAY_SIZE(ccci_fsm_entries))
 		return -CCCI_ERR_INVALID_PARAM;
@@ -839,9 +840,16 @@ int ccci_fsm_init(int md_id)
 					__func__);
 		return -1;
 	}
+	node = of_find_compatible_node(NULL, NULL,
+		"mediatek,mddriver");
+	if (node)
+		of_property_read_u32(node,
+			"mediatek,md_generation", &ctl->fsm_md_gen);
+
 	ctl->md_id = md_id;
 	ctl->last_state = CCCI_FSM_INVALID;
 	ctl->curr_state = CCCI_FSM_GATED;
+
 	INIT_LIST_HEAD(&ctl->command_queue);
 	INIT_LIST_HEAD(&ctl->event_queue);
 	init_waitqueue_head(&ctl->command_wq);

@@ -34,13 +34,8 @@ enum ccci_hif_debug_flg {
 	CCCI_HIF_DEBUG_RESET,
 };
 
-#if (MD_GENERATION == 6293)
-#define MD1_NET_HIF		CLDMA_HIF_ID
-#define MD1_NORMAL_HIF		CCIF_HIF_ID
-#else
 #define MD1_NET_HIF		DPMAIF_HIF_ID
 #define MD1_NORMAL_HIF		CCIF_HIF_ID
-#endif
 
 int ccci_hif_init(unsigned char md_id, unsigned int hif_flag);
 int ccci_hif_late_init(unsigned char md_id, unsigned int hif_flag);

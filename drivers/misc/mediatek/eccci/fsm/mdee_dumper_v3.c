@@ -82,7 +82,7 @@ static void ccci_aed_v3(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 		ex_log_len = mdss_dbg->size;
 		if (md && md->hw_info && md->hw_info->md_l2sram_base) {
 			md_dump_addr = md->hw_info->md_l2sram_base;
-			md_dump_len = MD_L2SRAM_SIZE;
+			md_dump_len = MD_L2SRAM_SIZE_V3;
 		}
 	}
 	if (dump_flag & CCCI_AED_DUMP_EX_PKT) {
@@ -313,7 +313,7 @@ static void mdee_info_dump_v3(struct ccci_fsm_ee *mdee)
 			md_cd_lock_modem_clock_src(1);
 
 			ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
-				md->hw_info->md_l2sram_base, MD_L2SRAM_SIZE);
+				md->hw_info->md_l2sram_base, MD_L2SRAM_SIZE_V3);
 
 			md_cd_lock_modem_clock_src(0);
 		}
@@ -788,7 +788,7 @@ static void mdee_dumper_v3_dump_ee_info(struct ccci_fsm_ee *mdee,
 					md_cd_lock_modem_clock_src(1);
 
 					ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
-						md->hw_info->md_l2sram_base, MD_L2SRAM_SIZE);
+						md->hw_info->md_l2sram_base, MD_L2SRAM_SIZE_V3);
 
 					md_cd_lock_modem_clock_src(0);
 				}
@@ -809,7 +809,7 @@ static void mdee_dumper_v3_dump_ee_info(struct ccci_fsm_ee *mdee,
 				md_cd_lock_modem_clock_src(1);
 
 				ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
-					md->hw_info->md_l2sram_base, MD_L2SRAM_SIZE);
+					md->hw_info->md_l2sram_base, MD_L2SRAM_SIZE_V3);
 
 				md_cd_lock_modem_clock_src(0);
 			}

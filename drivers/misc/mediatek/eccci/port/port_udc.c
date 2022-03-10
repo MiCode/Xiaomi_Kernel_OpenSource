@@ -175,6 +175,12 @@ void udc_cmd_check(struct port_t *port,
 			spin_lock_irqsave(&port->rx_skb_list.lock, flags);
 			/* dequeue */
 			*skb = __skb_dequeue(&port->rx_skb_list);
+			if ((*skb) == NULL) {
+				CCCI_ERROR_LOG(md_id, UDC,
+					"%s:__skb_dequeue fail\n", __func__);
+				spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
+				return;
+			}
 			spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 			ccci_udc_deactv
 				= (struct ccci_udc_deactv_param_t *)
@@ -351,8 +357,8 @@ int udc_deactv_handler(struct z_stream_s *zcpr, u32 inst_id)
 				break;
 			}
 			rslt_des = rslt_des_base + ap_write;
-			rslt_des->sdu_idx = rslt_des->sdu_idx;
-			rslt_des->sit_type = rslt_des->sit_type;
+			rslt_des->sdu_idx = req_des->sdu_idx;
+			rslt_des->sit_type = req_des->sit_type;
 			rslt_des->udc = 0;
 
 			ap_write = (ap_write + 1) % 512;
@@ -471,6 +477,10 @@ static int check_cmp_buf(u32 inst_id,
 		ap_read = rw_index->md_des_ins1.read;
 		ap_write = rw_index->ap_resp_ins1.write;
 		md_read = rw_index->ap_resp_ins1.read;
+	} else {
+		CCCI_ERROR_LOG(-1, UDC,
+			"inst_id is error,rslt_des_base maybe null\n");
+		return -1;
 	}
 
 	md_read_len = (rslt_des_base + md_read)->cmp_addr
@@ -508,7 +518,7 @@ static int check_cmp_buf(u32 inst_id,
 static int cal_udc_param(struct z_stream_s *zcpr, u32 inst_id,
 	int *max_output_size, int *udc_chksum)
 {
-	struct udc_comp_req_t *req_des_tmp, *req_des_base = NULL;
+	struct udc_comp_req_t *req_des_tmp = NULL, *req_des_base = NULL;
 	unsigned int ap_read = 0, md_write = 0;
 	unsigned int uncomp_len_total = 0;
 	int j = 0;
@@ -521,10 +531,20 @@ static int cal_udc_param(struct z_stream_s *zcpr, u32 inst_id,
 		req_des_base = req_des_1_base;
 		ap_read = rw_index->md_des_ins1.read;
 		md_write = rw_index->md_des_ins1.write;
+	} else {
+		CCCI_ERROR_LOG(-1, UDC,
+			"inst_id is error\n");
+		return -1;
 	}
 
 	if (*max_output_size == 0) {
 		req_des_tmp = req_des_base + ap_read;
+		if (!req_des_tmp) {
+			CCCI_ERROR_LOG(-1, UDC,
+				"%s:req_des_base&ap_read is null\n",
+				__func__);
+			return -1;
+		}
 		if (req_des_tmp->con == 0)
 			*max_output_size = deflateBound_cb(zcpr,
 			req_des_tmp->seg_len);
@@ -609,8 +629,8 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 	static unsigned int udc_chksum;
 	static unsigned int is_rst;
 	unsigned int ap_read = 0, ap_write = 0, md_read = 0, md_write = 0;
-	struct udc_comp_req_t *req_des, *req_des_base = NULL;
-	struct udc_comp_rslt_t *rslt_des, *rslt_des_base = NULL;
+	struct udc_comp_req_t *req_des = NULL, *req_des_base = NULL;
+	struct udc_comp_rslt_t *rslt_des = NULL, *rslt_des_base = NULL;
 	unsigned int uncomp_len, comp_len = 0;
 	unsigned int remain_len;
 	unsigned char *uncomp_data = NULL;
@@ -631,6 +651,10 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 		ap_write = rw_index->ap_resp_ins1.write;
 		md_read = rw_index->ap_resp_ins1.read;
 		md_write = rw_index->md_des_ins1.write;
+	} else {
+		CCCI_ERROR_LOG(md_id, UDC,
+			"inst_id is error\n");
+		return -1;
 	}
 
 	/* check if cmp_rslt table is full */
@@ -996,6 +1020,7 @@ retry_kick:
 			ap_read = rw_index->md_des_ins1.read;
 			md_write = rw_index->md_des_ins1.write;
 		}
+		ctl->curr_state = atomic_read(&udc_status);
 
 		while (ap_read != md_write) {
 			if (inst_id == 0) {

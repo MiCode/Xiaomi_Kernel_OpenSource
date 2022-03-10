@@ -12,6 +12,14 @@
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
+
+#if IS_ENABLED(CONFIG_OF)
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+#endif
+
 #include "mt-plat/mtk_ccci_common.h"
 #include "ccci_fsm.h"
 #include "port_smem.h"
@@ -237,6 +245,11 @@ int port_smem_rx_poll(struct port_t *port, unsigned int user_data)
 		"before wait event, bitmask=%x\n", user_data);
 #ifdef DEBUG_FOR_CCB
 	idx = smem_port->poll_save_idx;
+	if (idx >= CCB_POLL_PTR_MAX - 2) {
+		CCCI_ERROR_LOG(md_id, TAG,
+			"invalid idx = %d\n", idx);
+		return -EFAULT;
+	}
 	smem_port->last_poll_time[idx] = local_clock();
 	smem_port->last_in[idx].al_id = buf[0].dl_alloc_index;
 	smem_port->last_in[idx].fr_id = buf[0].dl_free_index;
@@ -344,17 +357,25 @@ void __iomem *get_smem_start_addr(int md_id,
 	void __iomem *addr = NULL;
 	struct ccci_smem_region *smem_region =
 		ccci_md_get_smem_by_user_id(md_id, user_id);
+	struct device_node *node = NULL;
+	int smem_md_gen = 0;
+
+	node = of_find_compatible_node(NULL, NULL,
+		"mediatek,mddriver");
+	if (node)
+		of_property_read_u32(node,
+			"mediatek,md_generation", &smem_md_gen);
+
 
 	if (smem_region) {
 		addr = smem_region->base_ap_view_vir;
-
-		#if (MD_GENERATION < 6297)
-		/* dbm addr returned to user should
-		 * step over Guard pattern header
-		 */
-		if (user_id == SMEM_USER_RAW_DBM)
-			addr += CCCI_SMEM_SIZE_DBM_GUARD;
-		#endif
+		if (smem_md_gen < 6297) {
+			/* dbm addr returned to user should
+			 * step over Guard pattern header
+			 */
+			if (user_id == SMEM_USER_RAW_DBM)
+				addr += CCCI_SMEM_SIZE_DBM_GUARD;
+		}
 
 		if (size_o)
 			*size_o = smem_region->size;
