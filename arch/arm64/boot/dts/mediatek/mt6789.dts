@@ -3213,8 +3213,63 @@
 			ged-supply = <&ged>;
 		};
 
+		gpufreq: gpufreq {
+			compatible = "mediatek,gpufreq";
+			reg =
+				<0 0x13fbf000 0 0x1000>,  /* MFG_TOP_CONFIG (G3D_CONFIG) */
+				<0 0x10006000 0 0x1000>,  /* SLEEP */
+				<0 0x1021c000 0 0x1000>,  /* NTH_EMICFG_REG */
+				<0 0x1020e000 0 0x1000>,  /* infracfg */
+				<0 0x10042000 0 0x1000>,  /* FMEM_AO_DEBUG_CTRL */
+				<0 0x10001000 0 0x1000>,  /* INFRACFG_AO */
+				<0 0x10023000 0 0x1000>,  /* INFRA_AO_DEBUG_CTRL */
+				<0 0x1002b000 0 0x1000>,  /* INFRA_AO1_DEBUG_CTRL */
+				<0 0x11c10000 0 0x1000>;  /* EFUSE */
+			reg-names = "mfg_top_config",
+				"sleep",
+				"nth_emicfg_reg",
+				"infracfg",
+				"fmem_ao_debug_ctrl",
+				"infracfg_ao",
+				"infra_ao_debug_ctrl",
+				"infra_ao1_debug_ctrl",
+				"efuse";
+			clocks =
+				<&topckgen_clk CLK_TOP_MFG_PLL_SEL>,
+				<&topckgen_clk CLK_TOP_MFGPLL>,
+				<&topckgen_clk CLK_TOP_MFG_REF_SEL_CK>,
+				<&mfg_top_config_clk CLK_MFGCFG_BG3D>;
+			clock-names =
+				"clk_mux",
+				"clk_main_parent",
+				"clk_sub_parent",
+				"subsys_bg3d";
+			power-domains =
+				<&scpsys MT6789_POWER_DOMAIN_MFG0>,
+				<&scpsys MT6789_POWER_DOMAIN_MFG1>,
+				<&scpsys MT6789_POWER_DOMAIN_MFG2>,
+				<&scpsys MT6789_POWER_DOMAIN_MFG3>;
+			power-domain-names =
+				"pd_mfg0",
+				"pd_mfg1",
+				"pd_mfg2",
+				"pd_mfg3";
+			_vgpu-supply = <&mt6358_vgpu_reg>;
+			_vsram_gpu-supply = <&mt6358_vsram_gpu_reg>;
+			//fhctl-supply = <&fhctl>;
+			gpufreq_wrapper-supply = <&gpufreq_wrapper>;
+		};
+
+		gpufreq_wrapper: gpufreq_wrapper {
+			compatible = "mediatek,gpufreq_wrapper";
+			gpufreq-version = <2>;
+			dual-buck = <0>;
+			gpueb-support = <0>;
+		};
+
 		ged: ged {
 			compatible = "mediatek,ged";
+			gpufreq-supply = <&gpufreq>;
 		};
 
 		dfd@13e00000 {
@@ -5025,6 +5080,14 @@
 };
 
 &mt6358_vemc_reg {
+	regulator-always-on;
+};
+
+&mt6358_vgpu_reg {
+	regulator-always-on;
+};
+
+&mt6358_vsram_gpu_reg {
 	regulator-always-on;
 };
 
