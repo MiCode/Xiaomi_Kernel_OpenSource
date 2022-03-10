@@ -33,6 +33,7 @@
 #include <mali_kbase_reset_gpu.h>
 #include <mali_kbase_ctx_sched.h>
 #include <mali_kbase_kinstr_jm.h>
+#include <mali_kbase_hwaccess_instr.h>
 #include <mali_kbase_hwcnt_context.h>
 #include <device/mali_kbase_device.h>
 #include <backend/gpu/mali_kbase_irq_internal.h>
@@ -892,7 +893,7 @@ void kbase_jm_wait_for_zero_jobs(struct kbase_context *kctx)
 	if (timeout != 0)
 		goto exit;
 
-	if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_NONE)) {
+	if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_HWC_UNRECOVERABLE_ERROR)) {
 		dev_err(kbdev->dev,
 			"Issuing GPU soft-reset because jobs failed to be killed (within %d ms) as part of context termination (e.g. process exit)\n",
 			ZAP_TIMEOUT);
@@ -1248,6 +1249,13 @@ static void kbasep_reset_timeout_worker(struct work_struct *data)
 	kbase_pm_metrics_update(kbdev, NULL);
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
+	/* Tell hardware counters a reset is about to occur.
+	 * If the instr backend is in an unrecoverable error state (e.g. due to
+	 * HW being unresponsive), this will transition the backend out of
+	 * it, on the assumption a reset will fix whatever problem there was.
+	 */
+	kbase_instr_hwcnt_on_before_reset(kbdev);
+
 	/* Reset the GPU */
 	kbase_pm_init_hw(kbdev, 0);
 
@@ -1380,7 +1388,7 @@ static void kbasep_try_reset_gpu_early(struct kbase_device *kbdev)
  * @kbdev: kbase device
  * @flags: Bitfield indicating impact of reset (see flag defines)
  *
- * This function just soft-stops all the slots to ensure that as many jobs as
+ * This function soft-stops all the slots to ensure that as many jobs as
  * possible are saved.
  *
  * Return:
@@ -1394,7 +1402,6 @@ bool kbase_prepare_to_reset_gpu_locked(struct kbase_device *kbdev,
 {
 	int i;
 
-	CSTD_UNUSED(flags);
 	KBASE_DEBUG_ASSERT(kbdev);
 
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
@@ -1405,6 +1412,9 @@ bool kbase_prepare_to_reset_gpu_locked(struct kbase_device *kbdev,
 		return false;
 	}
 #endif
+
+	if (flags & RESET_FLAGS_HWC_UNRECOVERABLE_ERROR)
+		kbase_instr_hwcnt_on_unrecoverable_error(kbdev);
 
 	if (atomic_cmpxchg(&kbdev->hwaccess.backend.reset_gpu,
 						KBASE_RESET_GPU_NOT_PENDING,
