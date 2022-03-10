@@ -1209,6 +1209,60 @@ static int debug_err_detect_initialize(struct seninf_ctx *ctx)
 	return 0;
 }
 
+static int mtk_senif_get_ccu_phandle(struct seninf_core *core)
+{
+	struct device *dev = core->dev;
+	struct device_node *node;
+	int ret = 0;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,camera_fsync_ccu");
+	if (node == NULL) {
+		dev_info(dev, "of_find mediatek,camera_fsync_ccu fail\n");
+		ret = PTR_ERR(node);
+		goto out;
+	}
+
+	ret = of_property_read_u32(node, "mediatek,ccu_rproc",
+				   &core->rproc_ccu_phandle);
+	if (ret) {
+		dev_info(dev, "fail to get rproc_ccu_phandle:%d\n", ret);
+		ret = -EINVAL;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
+static int mtk_senif_power_ctrl_ccu(struct seninf_core *core, int on_off)
+{
+	int ret;
+
+	if (on_off) {
+		ret = mtk_senif_get_ccu_phandle(core);
+		if (ret)
+			goto out;
+		core->rproc_ccu_handle = rproc_get_by_phandle(core->rproc_ccu_phandle);
+		if (core->rproc_ccu_handle == NULL) {
+			dev_info(core->dev, "Get ccu handle fail\n");
+			ret = PTR_ERR(core->rproc_ccu_handle);
+			goto out;
+		}
+
+		ret = rproc_boot(core->rproc_ccu_handle);
+		if (ret)
+			dev_info(core->dev, "boot ccu rproc fail\n");
+	} else {
+		if (core->rproc_ccu_handle) {
+			rproc_shutdown(core->rproc_ccu_handle);
+			ret = 0;
+		} else
+			ret = -EINVAL;
+	}
+out:
+	return ret;
+}
+
 static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
@@ -1216,6 +1270,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 #endif
 	int ret;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct seninf_core *core = ctx->core;
 
 	if (ctx->streaming == enable)
 		return 0;
@@ -1239,10 +1294,12 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 					ctx->sensor_pad_idx, &ctx->buffered_pixel_rate);
 
 		get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
+		mtk_senif_power_ctrl_ccu(core, 1);
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
 			pm_runtime_put_noidle(ctx->dev);
+			mtk_senif_power_ctrl_ccu(core, 0);
 			return ret;
 		}
 
@@ -1290,6 +1347,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		g_seninf_ops->_poweroff(ctx);
 		ctx->dbg_last_dump_req = 0;
 		pm_runtime_put_sync(ctx->dev);
+		mtk_senif_power_ctrl_ccu(core, 0);
 	}
 
 	ctx->streaming = enable;
@@ -1816,7 +1874,6 @@ static int runtime_suspend(struct device *dev)
 		seninf_core_pm_runtime_put(core);
 		if (ctx->core->dfs.reg && regulator_is_enabled(ctx->core->dfs.reg))
 			regulator_disable(ctx->core->dfs.reg);
-
 	}
 
 	mutex_unlock(&core->mutex);

@@ -485,6 +485,9 @@ struct mtk_cam_device {
 	phandle rproc_phandle;
 	struct rproc *rproc_handle;
 
+	phandle rproc_ccu_phandle;
+	struct rproc *rproc_ccu_handle;
+
 	struct workqueue_struct *link_change_wq;
 	unsigned int composer_cnt;
 

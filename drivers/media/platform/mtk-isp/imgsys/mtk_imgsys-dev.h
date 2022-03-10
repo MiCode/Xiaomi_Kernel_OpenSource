@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
+#include <linux/remoteproc.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
@@ -294,6 +295,9 @@ struct mtk_imgsys_dev {
 	struct workqueue_struct *mdp_wq[RUNNER_WQ_NR];
 	struct imgsys_queue runnerque;
 	wait_queue_head_t flushing_waitq;
+
+	/* CCU control flow */
+	struct rproc *rproc_ccu_handle;
 
 	struct work_pool gwork_pool;
 	atomic_t num_composing;	/* increase after ipi */
