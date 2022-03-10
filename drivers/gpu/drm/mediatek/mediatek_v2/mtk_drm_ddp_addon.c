@@ -49,11 +49,21 @@ static const int disp_wdma0_path[] = {
 	DDP_COMPONENT_WDMA0,
 };
 
+static const int disp_wdma0_path_v2[] = {
+	DDP_COMPONENT_MAIN_OVL_DISP_WDMA_VIRTUAL,
+	DDP_COMPONENT_WDMA0,
+};
+
 static const int disp_wdma1_path[] = {
 	DDP_COMPONENT_WDMA1,
 };
 
 static const int disp_wdma2_path[] = {
+	DDP_COMPONENT_WDMA2,
+};
+
+static const int disp_wdma2_path_v2[] = {
+	DDP_COMPONENT_MAIN_OVL_DISP1_WDMA_VIRTUAL,
 	DDP_COMPONENT_WDMA2,
 };
 
@@ -141,6 +151,10 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 				.path = disp_wdma0_path,
 				.path_len = ARRAY_SIZE(disp_wdma0_path),
 			},
+		[DISP_WDMA0_v2] = {
+				.path = disp_wdma0_path_v2,
+				.path_len = ARRAY_SIZE(disp_wdma0_path_v2),
+			},
 		[DISP_WDMA1] = {
 				.path = disp_wdma1_path,
 				.path_len = ARRAY_SIZE(disp_wdma1_path),
@@ -148,6 +162,10 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DISP_WDMA2] = {
 				.path = disp_wdma2_path,
 				.path_len = ARRAY_SIZE(disp_wdma2_path),
+			},
+		[DISP_WDMA2_v2] = {
+				.path = disp_wdma2_path_v2,
+				.path_len = ARRAY_SIZE(disp_wdma2_path_v2),
 			},
 		[MML_RSZ] = {
 				.path = mml_rsz_path,
