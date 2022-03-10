@@ -145,8 +145,8 @@
 /* AID offset in mmsys config */
 #define MT6895_OVL_DUMMY_REG	(0x200UL)
 
-#define MT6879_WDMA0_AID_SEL	(0xB1CUL)
-#define MT6879_WDMA1_AID_SEL	(0xB20UL)
+#define MT6879_MMSYS	        0x14000000
+#define MT6879_MMSYS_DUMMY_REG	(0x40CUL)
 
 enum GS_WDMA_FLD {
 	GS_WDMA_SMI_CON = 0, /* whole reg */
@@ -321,11 +321,13 @@ resource_size_t mtk_wdma_check_sec_reg_MT6895(struct mtk_ddp_comp *comp)
 	}
 }
 
-unsigned int mtk_wdma_aid_sel_MT6879(struct mtk_ddp_comp *comp)
+resource_size_t mtk_wdma_check_sec_reg_MT6879(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
+	case DDP_COMPONENT_WDMA0:
+		return 0;
 	case DDP_COMPONENT_WDMA1:
-		return MT6879_WDMA1_AID_SEL;
+		return MT6879_MMSYS + MT6879_MMSYS_DUMMY_REG;
 	default:
 		return 0;
 	}
@@ -1702,11 +1704,11 @@ static const struct mtk_disp_wdma_data mt6879_wdma_driver_data = {
 	.fifo_size_3plane = 302,
 	.fifo_size_uv_3plane = 74,
 	.sodi_config = mt6879_mtk_sodi_config,
-	.aid_sel = &mtk_wdma_aid_sel_MT6879,
+	.check_wdma_sec_reg = &mtk_wdma_check_sec_reg_MT6879,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.is_support_34bits = true,
-	.use_larb_control_sec = false,
+	.use_larb_control_sec = true,
 };
 
 static const struct mtk_disp_wdma_data mt6855_wdma_driver_data = {
