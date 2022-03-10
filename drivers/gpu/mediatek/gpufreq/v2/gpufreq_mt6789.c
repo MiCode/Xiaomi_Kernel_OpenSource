@@ -1647,6 +1647,13 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 		goto done;
 	}
 
+	/* 0x1000C000 */
+	g_apmixed_base = __gpufreq_of_ioremap("mediatek,mt6789-apmixedsys", 0);
+	if (unlikely(!g_apmixed_base)) {
+		GPUFREQ_LOGE("fail to ioremap APMIXED");
+		goto done;
+	}
+
 	/* 0x13FA0000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_pll");
 	if (unlikely(!res)) {
@@ -1711,8 +1718,6 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 		readl(g_mali_base), readl(g_mfg_top_base));
 	GPUFREQ_LOGI("[TOP] FMETER: %d, CON1: %d",
 		__gpufreq_get_fmeter_fgpu(), __gpufreq_get_real_fgpu());
-	GPUFREQ_LOGI("[MUX] MFG_RPC_AO_CLK_CFG: 0x%08x",
-		readl(g_mfg_rpc_base + CLK_MUX_OFS));
 	GPUFREQ_LOGI("@%s: [PWR_ACK] MFG0~MFG3=0x%08X(0x%08X)\n",
 		__func__,
 		readl(g_sleep + 0x16C) & 0x0000003C,
@@ -3203,7 +3208,7 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* keep probe successful but do nothing when bringup */
 	if (__gpufreq_bringup()) {
 		GPUFREQ_LOGI("skip gpufreq platform driver probe when bringup");
-		//__gpufreq_dump_bringup_status(pdev);
+		__gpufreq_dump_bringup_status(pdev);
 		goto done;
 	}
 
