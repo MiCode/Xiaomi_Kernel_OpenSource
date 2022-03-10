@@ -78,6 +78,7 @@ static enum IMGSENSOR_RETURN gpio_init(void *pinstance)
 	enum   IMGSENSOR_RETURN ret           = IMGSENSOR_RETURN_SUCCESS;
 	char str_pinctrl_name[LENGTH_FOR_SNPRINTF];
 	char *lookup_names = NULL;
+	int ret_snprintf = 0;
 
 
 	pgpio->ppinctrl = devm_pinctrl_get(&pplatform_dev->dev);
@@ -92,11 +93,16 @@ static enum IMGSENSOR_RETURN gpio_init(void *pinstance)
 			lookup_names =
 				gpio_pinctrl_list_cam[i].ppinctrl_lookup_names;
 			if (lookup_names) {
-				snprintf(str_pinctrl_name,
+				ret_snprintf = snprintf(str_pinctrl_name,
 					sizeof(str_pinctrl_name),
 					"cam%d_%s",
 					j,
 					lookup_names);
+				if (ret_snprintf < 0) {
+					pr_info(
+					"snprintf alloc error!, ret_snprintf = %d\n",
+					ret_snprintf);
+				}
 				pgpio->ppinctrl_state_cam[j][i] =
 					pinctrl_lookup_state(
 					    pgpio->ppinctrl,
