@@ -4157,6 +4157,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	}
 	/* Enable clock */
 	DPE_EnableClock(MTRUE);
+	cmdq_mbox_enable(dpe_clt->chan);
 	g_SuspendCnt = 0;
 	LOG_INF("DPE open g_u4EnableClockCount: %d", g_u4EnableClockCount);
 	/*  */
@@ -4200,6 +4201,8 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 	/*  */
 	LOG_INF("Curr UsrCnt(%d), (process, pid, tgid)=(%s, %d, %d), last user",
 		DPEInfo.UserCount, current->comm, current->pid, current->tgid);
+
+	cmdq_mbox_disable(dpe_clt->chan);
 	/* Disable clock. */
 	DPE_EnableClock(MFALSE);
 	LOG_DBG("DPE release g_u4EnableClockCount: %d", g_u4EnableClockCount);
