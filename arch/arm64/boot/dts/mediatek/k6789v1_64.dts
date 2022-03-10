@@ -23,6 +23,22 @@
 };
 
 &pio {
+	mtkfb_pins_lcm_led_en1: lcm_led_en1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_led_en0: lcm_led_en0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
 	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO85__FUNC_GPIO85>;
@@ -46,11 +62,14 @@
 };
 
 &mtkfb {
-	pinctrl-names = "lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+	pinctrl-names = "lcm_led_en1_gpio", "lcm_led_en0_gpio",
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
 		"mode_te_te";
-	pinctrl-1 = <&mtkfb_pins_lcm_rst_out1_gpio>;
-	pinctrl-2 = <&mtkfb_pins_lcm_rst_out0_gpio>;
-	pinctrl-3 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-0 = <&mtkfb_pins_lcm_led_en1>;
+	pinctrl-1 = <&mtkfb_pins_lcm_led_en0>;
+	pinctrl-2 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-3 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-4 = <&mtkfb_pins_lcm_dsi_te>;
 	status = "okay";
 };
 
@@ -71,7 +90,9 @@
 	panel1@0 {
 		compatible = "jdi,nt36672e,vdo,120hz,hfp";
 		reg = <0>;
+		pm-enable-gpios = <&pio 12 0>;
 		reset-gpios = <&pio 85 0>;
+		gate-ic = <4831>;
 		pinctrl-names = "default";
 		port {
 			panel_in1: endpoint {
@@ -82,7 +103,9 @@
 	panel2@0 {
 		compatible = "truly,td4330,cmd";
 		reg = <1>;
+		pm-enable-gpios = <&pio 12 0>;
 		reset-gpios = <&pio 85 0>;
+		gate-ic = <4831>;
 		pinctrl-names = "default";
 		port {
 			panel_in2: endpoint {
