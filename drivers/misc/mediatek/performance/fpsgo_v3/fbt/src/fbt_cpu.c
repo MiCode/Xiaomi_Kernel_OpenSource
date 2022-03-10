@@ -180,6 +180,7 @@ enum FPSGO_SCN_TYPE {
 	FPSGO_SCN_CAM = 0,
 	FPSGO_SCN_UX,
 	FPSGO_SCN_GAME,
+	FPSGO_SCN_VIDEO,
 };
 
 static struct kobject *fbt_kobj;
@@ -1655,7 +1656,8 @@ static int fbt_check_scn(struct render_info *thr)
 {
 	if (fpsgo_fbt2fstb_get_cam_active())
 		return FPSGO_SCN_CAM;
-
+	if (fpsgo_fbt2fstb_get_video_active())
+		return FPSGO_SCN_VIDEO;
 	if (thr->api == NATIVE_WINDOW_API_EGL
 		&& thr->hwui == RENDER_INFO_HWUI_NONE)
 		return FPSGO_SCN_GAME;
@@ -2030,6 +2032,7 @@ static void fbt_do_sjerk(struct work_struct *work)
 	scn = fbt_check_scn(thr);
 
 	if (scn == FPSGO_SCN_CAM
+		|| scn == FPSGO_SCN_VIDEO
 		|| (scn == FPSGO_SCN_GAME && !rescue_second_g_enable)
 		|| (scn == FPSGO_SCN_UX && !rescue_second_enable))
 		goto EXIT;
