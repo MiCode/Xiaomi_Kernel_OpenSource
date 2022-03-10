@@ -303,8 +303,8 @@ static int mt6789_mt6366_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* set mtkaif protocol */
 	mt6358_set_mtkaif_protocol(codec_component,
-				   MT6358_MTKAIF_PROTOCOL_2_CLK_P2);
-	afe_priv->mtkaif_protocol = MTKAIF_PROTOCOL_2_CLK_P2;
+				   MT6358_MTKAIF_PROTOCOL_1);
+	afe_priv->mtkaif_protocol = MT6358_MTKAIF_PROTOCOL_1;
 
 	/* mtkaif calibration */
 	if (afe_priv->mtkaif_protocol == MTKAIF_PROTOCOL_2_CLK_P2)

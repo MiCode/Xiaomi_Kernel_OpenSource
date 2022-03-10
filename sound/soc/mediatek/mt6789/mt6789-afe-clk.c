@@ -15,7 +15,7 @@
 #include "mt6789-afe-common.h"
 #include "mt6789-afe-clk.h"
 
-#if defined(CONFIG_FPGA_EARLY_PORTING)
+#if defined(CONFIG_FPGA_EARLY_PORTING) || defined(SKIP_SB)
 int mt6789_init_clock(struct mtk_base_afe *afe) { return 0; }
 int mt6789_afe_enable_clock(struct mtk_base_afe *afe) { return 0; }
 void mt6789_afe_disable_clock(struct mtk_base_afe *afe) {}
