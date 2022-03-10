@@ -104,6 +104,9 @@ static DEFINE_MUTEX(fstb_lock);
 static DEFINE_MUTEX(fstb_fps_active_time);
 static DEFINE_MUTEX(fstb_cam_active_time);
 
+static struct rb_root video_pid_tree;
+static DEFINE_MUTEX(fstb_video_pid_tree_lock);
+
 void (*gbe_fstb2gbe_poll_fp)(struct hlist_head *list);
 
 static void enable_fstb_timer(void)
@@ -1381,6 +1384,33 @@ out:
 	mutex_unlock(&fstb_cam_active_time);
 }
 
+void fstb_set_video_pid(int pid)
+{
+	struct video_info *video_info_instance;
+
+	if (pid == 0)
+		return;
+
+	mutex_lock(&fstb_video_pid_tree_lock);
+	video_info_instance = fstb_search_and_add_video_info(pid, 1);
+	mutex_unlock(&fstb_video_pid_tree_lock);
+	if (video_info_instance)
+		fpsgo_systrace_c_fstb_man(-100, 0,
+			video_info_instance->count_instance, "video_pid[%d]", pid);
+	fpsgo_main_trace("[FSTB_Video]: pid=%d, %s", pid, __func__);
+}
+
+void fstb_clear_video_pid(int pid)
+{
+	if (pid == 0)
+		return;
+
+	mutex_lock(&fstb_video_pid_tree_lock);
+	fstb_delete_video_info(pid);
+	mutex_unlock(&fstb_video_pid_tree_lock);
+	fpsgo_main_trace("[FSTB_Video]: pid=%d, %s", pid, __func__);
+}
+
 static int fstb_get_queue_fps2(struct FSTB_FRAME_INFO *iter)
 {
 	unsigned long long retval = 0;
@@ -2216,6 +2246,71 @@ static void fstb_fps_stats(struct work_struct *work)
 
 }
 
+struct video_info *fstb_search_and_add_video_info(int pid, int add_node)
+{
+	struct rb_node **rb_ptr = &video_pid_tree.rb_node;
+	struct rb_node *parent = NULL;
+	struct video_info *ptr_video_info = NULL;
+
+	WARN_ON(!mutex_is_locked(&fstb_video_pid_tree_lock));
+
+	while (*rb_ptr) {
+		parent = *rb_ptr;
+		ptr_video_info = rb_entry(parent, struct video_info, entry);
+
+		if (pid < ptr_video_info->pid)
+			rb_ptr = &(*rb_ptr)->rb_left;
+		else if (pid > ptr_video_info->pid)
+			rb_ptr = &(*rb_ptr)->rb_right;
+		else
+			break;
+	}
+
+	/* search only */
+	if (!add_node) {
+		if (*rb_ptr)
+			return ptr_video_info;
+		else
+			return NULL;
+	}
+
+	/* add node */
+	if (*rb_ptr) {
+		ptr_video_info->count_instance++;
+		return ptr_video_info;
+	}
+
+	ptr_video_info = kzalloc(sizeof(*ptr_video_info), GFP_KERNEL);
+	ptr_video_info->pid = pid;
+	ptr_video_info->count_instance = 1U;
+	rb_link_node(&ptr_video_info->entry, parent, rb_ptr);
+	rb_insert_color(&ptr_video_info->entry, &video_pid_tree);
+
+	return ptr_video_info;
+}
+
+void fstb_delete_video_info(int pid)
+{
+	struct video_info *video_info_instance;
+
+	WARN_ON(!mutex_is_locked(&fstb_video_pid_tree_lock));
+
+	video_info_instance = fstb_search_and_add_video_info(pid, 0);
+
+	if (!video_info_instance)
+		return;
+
+	if (video_info_instance->count_instance > 1) {
+		video_info_instance->count_instance--;
+		fpsgo_systrace_c_fstb_man(-100, 0,
+			video_info_instance->count_instance, "video_pid[%d]", pid);
+		return;
+	}
+	fpsgo_systrace_c_fstb_man(-100, 0, 0, "video_pid[%d]", pid);
+	rb_erase(&video_info_instance->entry, &video_pid_tree);
+	kfree(video_info_instance);
+}
+
 static int set_soft_fps_level(int nr_level, struct fps_level *level)
 {
 	mutex_lock(&fstb_lock);
@@ -2278,6 +2373,139 @@ out:
 }
 
 static KOBJ_ATTR_RW(set_cam_active);
+
+/*
+ *	PowerHAL API for videoplayback hint.
+ *
+ *	Two write-only nodes to set/clear video pid to the list:
+ *		1. set_video_pid
+ *		2. clear_video_pid
+ *		e.g.
+ *			echo $pid > set_video_pid
+ *	One read-only node to show the video pid list:
+ *		1. fstb_video_pid_list
+ *		e.g.
+ *			cat fstb_video_pid_list
+ */
+static ssize_t fstb_video_pid_list_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct rb_node *n;
+	struct video_info *video_instance;
+	char pid_str[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
+	length = scnprintf(pid_str + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+	"tgid\tcount_instance\n");
+	pos += length;
+
+	rcu_read_lock();
+	for (n = rb_first(&video_pid_tree); n != NULL; n = rb_next(n)) {
+		video_instance = rb_entry(n, struct video_info, entry);
+		length = scnprintf(pid_str + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"%d\t%u\n", video_instance->pid, video_instance->count_instance);
+		pos += length;
+	}
+	rcu_read_unlock();
+	return scnprintf(buf, PAGE_SIZE, "%s", pid_str);
+}
+static KOBJ_ATTR_RO(fstb_video_pid_list);
+
+static ssize_t set_video_pid_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg = -1;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) != 0)
+				goto out;
+			mtk_fstb_dprintk_always("%s %d\n", __func__, arg);
+			if (arg != -1)
+				fstb_set_video_pid(arg);
+		}
+	}
+
+out:
+	return count;
+}
+
+static ssize_t set_video_pid_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct rb_node *n;
+	struct video_info *video_instance;
+	char pid_str[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
+	length = scnprintf(pid_str + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+	"tgid\tcount_instance\n");
+	pos += length;
+
+	rcu_read_lock();
+	for (n = rb_first(&video_pid_tree); n != NULL; n = rb_next(n)) {
+		video_instance = rb_entry(n, struct video_info, entry);
+		length = scnprintf(pid_str + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"%d\t%u\n", video_instance->pid, video_instance->count_instance);
+		pos += length;
+	}
+	rcu_read_unlock();
+	return scnprintf(buf, PAGE_SIZE, "%s", pid_str);
+}
+
+static KOBJ_ATTR_RW(set_video_pid);
+
+static ssize_t clear_video_pid_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg = -1;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) != 0)
+				goto out;
+			mtk_fstb_dprintk_always("%s %d\n", __func__, arg);
+			if (arg != -1)
+				fstb_clear_video_pid(arg);
+		}
+	}
+
+out:
+	return count;
+}
+
+static ssize_t clear_video_pid_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	struct rb_node *n;
+	struct video_info *video_instance;
+	char pid_str[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
+	length = scnprintf(pid_str + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+	"tgid\tcount_instance\n");
+	pos += length;
+
+	rcu_read_lock();
+	for (n = rb_first(&video_pid_tree); n != NULL; n = rb_next(n)) {
+		video_instance = rb_entry(n, struct video_info, entry);
+		length = scnprintf(pid_str + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"%d\t%u\n", video_instance->pid, video_instance->count_instance);
+		pos += length;
+	}
+	rcu_read_unlock();
+	return scnprintf(buf, PAGE_SIZE, "%s", pid_str);
+}
+
+static KOBJ_ATTR_RW(clear_video_pid);
+
 
 static ssize_t set_ui_ctrl_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -3163,6 +3391,12 @@ int mtk_fstb_init(void)
 				&kobj_attr_set_cam_active);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_tfps_to_powerhal_enable);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_set_video_pid);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_clear_video_pid);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_fstb_video_pid_list);
 	}
 
 	reset_fps_level();
@@ -3240,6 +3474,12 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_set_cam_active);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_tfps_to_powerhal_enable);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+				&kobj_attr_set_video_pid);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_clear_video_pid);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_fstb_video_pid_list);
 
 	fpsgo_sysfs_remove_dir(&fstb_kobj);
 

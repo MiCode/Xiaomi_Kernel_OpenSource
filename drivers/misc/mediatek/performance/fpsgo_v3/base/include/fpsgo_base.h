@@ -213,6 +213,12 @@ struct hwui_info {
 	struct rb_node entry;
 };
 
+struct video_info {
+	int pid;
+	unsigned int count_instance;
+	struct rb_node entry;
+};
+
 struct gbe_runtime {
 	int pid;
 	unsigned long long runtime;
