@@ -3077,7 +3077,7 @@
 			interconnect-names = "icc-mdspd-bw";
 			required-opps = <&dvfsrc_freq_opp0>,
 					<&dvfsrc_freq_opp1>;
-			net_spd_ver = <1>;
+			net_spd_ver = <6>;
 		};
 
 		ccifdriver:ccifdriver@10209000 {
