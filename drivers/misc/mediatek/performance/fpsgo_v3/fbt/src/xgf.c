@@ -2043,7 +2043,8 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 	unsigned long long now_ts = xgf_get_time();
 	long long diff, check_period, recycle_period;
 	struct xgf_hw_event *hw_iter;
-	struct hlist_node *hw_t;
+	struct hlist_node *hw_t, *r_t;
+	struct xgf_render *r_iter;
 
 	/* over 1 seconds since last check2recycle */
 	check_period = NSEC_PER_SEC;
@@ -2079,6 +2080,25 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 
 		hlist_del(&hw_iter->hlist);
 		xgf_free(hw_iter);
+	}
+
+	hlist_for_each_entry_safe(r_iter, r_t, &xgf_renders, hlist) {
+		diff = now_ts - r_iter->queue.end_ts;
+		if (diff >= check_period) {
+			xgf_clean_deps_list(r_iter, INNER_DEPS);
+			xgf_clean_deps_list(r_iter, OUTER_DEPS);
+			xgf_clean_deps_list(r_iter, PREVI_DEPS);
+			xgf_reset_render_sector(r_iter);
+			xgf_reset_render_hw_list(r_iter);
+
+			if (r_iter->ema2_pt) {
+				xgf_ema2_free(r_iter->ema2_pt);
+				r_iter->ema2_pt = 0;
+			}
+
+			hlist_del(&r_iter->hlist);
+			xgf_free(r_iter);
+		}
 	}
 
 out:
