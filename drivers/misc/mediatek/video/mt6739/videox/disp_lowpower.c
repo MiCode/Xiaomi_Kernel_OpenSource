@@ -869,10 +869,10 @@ int primary_display_request_dvfs_perf(int scenario, int req)
 	if ((scenario != MMDVFS_SCEN_DISP) ||
 	    (atomic_read(&dvfs_ovl_req_status) != req)) {
 		switch (req) {
-		case HRT_LEVEL_LEVEL3:
+		case HRT_LEVEL_UHPM:
 			step = MMDVFS_FINE_STEP_OPP0;
 			break;
-		case HRT_LEVEL_LEVEL2:
+		case HRT_LEVEL_HPM:
 			step = MMDVFS_FINE_STEP_OPP3;
 			break;
 		case HRT_LEVEL_DEFAULT:
@@ -940,9 +940,9 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 		/* when screen idle:let smi know */
 		primary_display_request_dvfs_perf(SMI_BWC_SCEN_UI_IDLE,
-						  HRT_LEVEL_LEVEL0);
+						  HRT_LEVEL_HPM);
 		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-						  HRT_LEVEL_LEVEL0);
+						  HRT_LEVEL_HPM);
 
 #endif
 

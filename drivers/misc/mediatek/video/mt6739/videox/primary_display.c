@@ -1745,9 +1745,9 @@ static int _DL_switch_to_DC_fast(void)
 
 /* overlap=4 && wdma_en, need increase dvfs*/
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	if (dvfs_last_ovl_req > HRT_LEVEL_LEVEL0)
+	if (dvfs_last_ovl_req > HRT_LEVEL_HPM)
 		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-						  HRT_LEVEL_LEVEL3);
+						  HRT_LEVEL_UHPM);
 #endif
 	/* 1.save a temp frame to intermediate buffer */
 	directlink_path_add_memory(&wdma_config, DISP_MODULE_OVL0);
@@ -1813,9 +1813,9 @@ static int _DL_switch_to_DC_fast(void)
 	_cmdq_flush_config_handle(1, NULL, 0);
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	if (dvfs_last_ovl_req > HRT_LEVEL_LEVEL0)
+	if (dvfs_last_ovl_req > HRT_LEVEL_HPM)
 		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-						  HRT_LEVEL_LEVEL0);
+						  HRT_LEVEL_HPM);
 #endif
 
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_switch_mode,
@@ -1959,9 +1959,9 @@ static int _DC_switch_to_DL_fast(void)
 	cmdqRecReset(pgc->cmdq_handle_ovl1to2_config);
 	pgc->ovl2mem_path_handle = NULL;
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	if (dvfs_last_ovl_req > HRT_LEVEL_LEVEL0)
+	if (dvfs_last_ovl_req > HRT_LEVEL_HPM)
 		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
-						  HRT_LEVEL_LEVEL3);
+						  HRT_LEVEL_UHPM);
 #endif
 
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_switch_mode,
@@ -5508,12 +5508,12 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	data_config->overlap_layer_num = hrt_level;
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	if (hrt_level > HRT_LEVEL_LEVEL0)
-		dvfs_last_ovl_req = HRT_LEVEL_LEVEL3;
+	if (hrt_level > HRT_LEVEL_HPM)
+		dvfs_last_ovl_req = HRT_LEVEL_UHPM;
 	else
-		dvfs_last_ovl_req = HRT_LEVEL_LEVEL0;
+		dvfs_last_ovl_req = HRT_LEVEL_HPM;
 
-	primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP, HRT_LEVEL_LEVEL0);
+	primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP, HRT_LEVEL_HPM);
 #endif
 
 	if (disp_helper_get_option(DISP_OPT_SHOW_VISUAL_DEBUG_INFO)) {
