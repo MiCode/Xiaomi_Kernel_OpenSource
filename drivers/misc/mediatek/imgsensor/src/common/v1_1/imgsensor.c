@@ -1955,7 +1955,9 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 					((void *)pData, (void __user *)usr_ptr,
 					sizeof(struct SET_SENSOR_PATTERN_SOLID_COLOR))) {
 					kfree(pData);
+					kfree(pFeaturePara);
 					PK_DBG("[CAMERA_HW]ERROR: copy_from_user fail\n");
+					return -EFAULT;
 				}
 				//pr_debug("%x %x %x %x",pData->COLOR_R,pData->COLOR_Gr,
 				//pData->COLOR_Gb,pData->COLOR_B);
