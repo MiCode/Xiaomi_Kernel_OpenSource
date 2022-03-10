@@ -211,6 +211,30 @@ static const struct llcc_slice_config sdm845_data[] =  {
 	{ LLCC_AUDHW,    22, 1024, 1, 1, 0xffc, 0x2,   0, 0, 1, 1, 0 },
 };
 
+static const struct llcc_slice_config sm8150_data[] =  {
+	{ LLCC_CPUSS,    1,  3072, 1, 1, 0xfff, 0x0,   0, 0, 0, 1, 1 },
+	{ LLCC_VIDSC0,   2,  512,  2, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_VIDSC1,   3,  512,  2, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_AUDIO,    6,  1024, 1, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_MDMHPGRW, 7,  3072, 1, 0, 0xff,  0xf00, 0, 0, 0, 1, 0 },
+	{ LLCC_MDM,      8,  3072, 1, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_MDMHW,    9,  1024, 1, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_CMPT,     10, 3072, 1, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_GPUHTW,   11, 512,  1, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_GPU,      12, 2560, 1, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_MMUHWT,   13, 1024, 1, 1, 0xfff, 0x0,   0, 0, 0, 0, 1 },
+	{ LLCC_CMPTDMA,  15, 3072, 1, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_DISP,     16, 3072, 1, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_MDMHPFX,  20, 1024, 2, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_MDMPNG,   21, 1024, 0, 1, 0xf,   0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_AUDHW,    22, 1024, 1, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_NPU,      23, 3072, 1, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_WLNHW,    24, 3072, 1, 1, 0xfff, 0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_MDMVPE,   29, 256,  1, 1, 0xf,   0x0,   0, 0, 0, 1, 0 },
+	{ LLCC_APTCM,    30, 256,  3, 1, 0x0,   0x1,   1, 0, 0, 0, 0 },
+	{ LLCC_WRTCH,    31, 128,  1, 1, 0xfff, 0x0,   0, 0, 0, 0, 0 },
+};
+
 static const struct llcc_slice_config lahaina_data[] =  {
 	{LLCC_CPUSS,     1, 3072, 1, 1, 0xFFF, 0x0,   0, 0, 0, 1, 1, 0 },
 	{LLCC_VIDSC0,    2,  512, 3, 1, 0xFFF, 0x0,   0, 0, 0, 1, 0, 0 },
@@ -366,6 +390,11 @@ static const struct qcom_llcc_config sc7180_cfg = {
 static const struct qcom_llcc_config sdm845_cfg = {
 	.sct_data	= sdm845_data,
 	.size		= ARRAY_SIZE(sdm845_data),
+};
+
+static const struct qcom_llcc_config sm8150_cfg = {
+	.sct_data       = sm8150_data,
+	.size           = ARRAY_SIZE(sm8150_data),
 };
 
 static const struct qcom_llcc_config lahaina_cfg = {
@@ -964,6 +993,7 @@ err:
 static const struct of_device_id qcom_llcc_of_match[] = {
 	{ .compatible = "qcom,sc7180-llcc", .data = &sc7180_cfg },
 	{ .compatible = "qcom,sdm845-llcc", .data = &sdm845_cfg },
+	{ .compatible = "qcom,sm8150-llcc", .data = &sm8150_cfg },
 	{ .compatible = "qcom,lahaina-llcc", .data = &lahaina_cfg },
 	{ .compatible = "qcom,shima-llcc", .data = &shima_cfg },
 	{ .compatible = "qcom,waipio-llcc", .data = &waipio_cfg },
