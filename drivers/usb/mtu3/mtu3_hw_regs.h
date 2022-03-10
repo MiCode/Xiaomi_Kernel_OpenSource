@@ -268,8 +268,10 @@
 #define U3D_DEVICE_CONF			(SSUSB_EPCTL_CSR_BASE + 0x0000)
 #define U3D_EP_RST			(SSUSB_EPCTL_CSR_BASE + 0x0004)
 
+#define U3D_USB2_EPCTL_LPM		(SSUSB_EPCTL_CSR_BASE + 0x0028)
 #define U3D_DEV_LINK_INTR_ENABLE	(SSUSB_EPCTL_CSR_BASE + 0x0050)
 #define U3D_DEV_LINK_INTR		(SSUSB_EPCTL_CSR_BASE + 0x0054)
+#define U3D_USB2_EPCTL_LPM_FC_CHK	(SSUSB_EPCTL_CSR_BASE + 0x0060)
 
 /*---------------- SSUSB_EPCTL_CSR FIELD DEFINITION ----------------*/
 
@@ -286,6 +288,15 @@
 #define EP1_OUT_RST		BIT(1)
 #define EP_RST(is_in, epnum)	(((is_in) ? BIT(16) : BIT(0)) << (epnum))
 #define EP0_RST			BIT(0)
+
+/* U3D_USB2_EPCTL_LPM */
+#define L1_EXIT_EP0_CHK BIT(0)
+#define L1_EXIT_EP_CHK(is_in, epnum) \
+	(((is_in) ? BIT(0) : BIT(16)) << (epnum))
+
+/* U3D_USB2_EPCTL_LPM_FC_CHK */
+#define L1_EXIT_EP_FC_CHK(is_in, epnum) \
+	(((is_in) ? BIT(0) : BIT(16)) << (epnum))
 
 /* U3D_DEV_LINK_INTR_ENABLE */
 /* U3D_DEV_LINK_INTR */
