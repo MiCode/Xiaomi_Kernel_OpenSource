@@ -38,4 +38,12 @@ config MTK_USB_TYPEC_U3_MUX_V2
 	  It is more easily for customer to manager and add mux
 	  module driver.
 
+config OCP96011_I2C
+	tristate "analog audio switch"
+	depends on I2C
+	help
+	  The OCP96011 is a high-performance USB Type-C port
+	  multimedia switch. The OCP96011 supports USB2.0
+	  signal, analog audio, sideband use wires and analog
+	  microphone signal.
 source "drivers/misc/mediatek/typec/tcpc/Kconfig"

@@ -25,6 +25,11 @@
 
 #define RT_PD_MANAGER_VERSION	"1.0.8_MTK"
 
+#ifdef CONFIG_OCP96011_I2C
+#include "../u3_switch/ocp96011-i2c.h"
+extern void typec_headset_queue_work(void);
+#endif
+
 struct rt_pd_manager_data {
 	struct device *dev;
 #ifdef CONFIG_MTK_CHARGER
@@ -166,10 +171,18 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			   new_state == TYPEC_ATTACHED_AUDIO) {
 			dev_info(rpmd->dev, "%s Audio plug in\n", __func__);
 			/* enable AudioAccessory connection */
+#ifdef CONFIG_OCP96011_I2C
+			ocp96011_switch_event(0);
+			typec_headset_queue_work();
+#endif
 		} else if (old_state == TYPEC_ATTACHED_AUDIO &&
 			   new_state == TYPEC_UNATTACHED) {
 			dev_info(rpmd->dev, "%s Audio plug out\n", __func__);
 			/* disable AudioAccessory connection */
+#ifdef CONFIG_OCP96011_I2C
+			ocp96011_switch_event(1);
+			typec_headset_queue_work();
+#endif
 		}
 
 		if (new_state == TYPEC_UNATTACHED) {
