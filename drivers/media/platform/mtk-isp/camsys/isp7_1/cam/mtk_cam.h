@@ -436,6 +436,7 @@ struct mtk_cam_ctx {
 	struct mtk_cam_working_buf_list processing_img_buffer_list;
 
 	atomic_t enqueued_frame_seq_no;
+	atomic_t composed_delay_seq_no;
 	unsigned int composed_frame_seq_no;
 	unsigned int dequeued_frame_seq_no;
 	unsigned int component_dequeued_frame_seq_no;

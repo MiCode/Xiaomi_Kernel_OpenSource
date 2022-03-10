@@ -4737,7 +4737,6 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 
 		return 0;
 	}
-
 	spin_lock(&ctx->composed_buffer_list.lock);
 	list_add_tail(&buf_entry->list_entry,
 		      &ctx->composed_buffer_list.list);
@@ -4756,6 +4755,12 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 		spin_unlock(&ctx->mraw_composed_buffer_list[i].lock);
 	}
 	spin_unlock(&ctx->using_buffer_list.lock);
+	/*composed delay to over sof, to keep fps, trigger cq here by conditions*/
+	if (s_data->frame_seq_no == atomic_read(&ctx->composed_delay_seq_no)) {
+		dev = mtk_cam_find_raw_dev(cam, ctx->pipe->enabled_raw);
+		raw_dev = dev_get_drvdata(dev);
+		mtk_camsys_composed_delay_enque(raw_dev, ctx, s_data);
+	}
 	/*EXT-ISP enqueue sv buffer first*/
 	if (mtk_cam_is_ext_isp(ctx) &&
 		ctx->composed_frame_seq_no == 1) {
@@ -5110,7 +5115,7 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 	if (ctx_stream_data->frame_seq_no == 1 &&
 		!mtk_cam_is_immediate_switch_req(req, ctx->stream_id)) {
 		mtk_cam_sv_update_all_buffer_ts(ctx, ktime_get_boottime_ns());
-		mtk_cam_sv_apply_all_buffers(ctx);
+		mtk_cam_sv_apply_all_buffers(ctx, true);
 		if (ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
 			ctx->stream_id < MTKCAM_SUBDEV_CAMSV_END) {
 			if (ctx_stream_data->state.estate == E_STATE_READY ||
@@ -6582,6 +6587,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	ctx->seninf = NULL;
 	ctx->prev_seninf = NULL;
 	atomic_set(&ctx->enqueued_frame_seq_no, 0);
+	atomic_set(&ctx->composed_delay_seq_no, 0);
 	ctx->enqueued_request_cnt = 0;
 	ctx->next_sof_mask_frame_seq_no = 0;
 	ctx->working_request_seq = 0;

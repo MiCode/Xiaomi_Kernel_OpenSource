@@ -1763,7 +1763,7 @@ int mtk_cam_sv_update_all_buffer_ts(struct mtk_cam_ctx *ctx, u64 ts_ns)
 	return 1;
 }
 
-int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
+int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 {
 	unsigned int seq_no;
 	dma_addr_t base_addr;
@@ -1789,7 +1789,7 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
 		buf_entry = list_first_entry(&ctx->sv_using_buffer_list[i].list,
 				struct mtk_camsv_working_buf_entry, list_entry);
 		if (mtk_cam_sv_is_vf_on(camsv_dev) &&
-			(ctx->used_raw_num != 0)) {
+			(ctx->used_raw_num != 0) && is_check_ts) {
 			if (buf_entry->is_stagger == 0 ||
 				(buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0)) {
 				if ((buf_entry->ts_sv == 0) ||

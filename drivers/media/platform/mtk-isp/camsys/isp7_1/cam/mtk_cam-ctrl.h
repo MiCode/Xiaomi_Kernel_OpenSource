@@ -151,6 +151,10 @@ struct mtk_camsys_ctrl {
 	/* resource ctrl */
 	struct mtk_camsys_dvfs dvfs_info;
 };
+void mtk_camsys_composed_delay_enque(struct mtk_raw_device *raw_dev,
+				       struct mtk_cam_ctx *ctx,
+				       struct mtk_cam_request_stream_data *req_stream_data);
+
 void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 				struct mtk_camsys_sensor_ctrl *sensor_ctrl,
 				struct mtk_cam_request *req);

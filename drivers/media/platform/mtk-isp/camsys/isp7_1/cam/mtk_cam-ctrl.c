@@ -2769,6 +2769,8 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			"SOF[ctx:%d-#%d], CQ isn't updated [composed_frame_deq (%d) ts:%lu]\n",
 			ctx->stream_id, dequeued_frame_seq_no,
 			ctx->composed_frame_seq_no, irq_info->ts_ns / 1000);
+		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
+		atomic_set(&ctx->composed_delay_seq_no, req_stream_data->frame_seq_no);
 		return;
 	}
 	/* apply next composed buffer */
@@ -2779,6 +2781,8 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			ctx->composed_frame_seq_no, dequeued_frame_seq_no,
 			irq_info->ts_ns / 1000);
 		spin_unlock(&ctx->composed_buffer_list.lock);
+		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
+		atomic_set(&ctx->composed_delay_seq_no, req_stream_data->frame_seq_no);
 	} else {
 		is_apply = true;
 		buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
@@ -2831,14 +2835,89 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			dev_info(raw_dev->dev, "rgbw: sv apply next buffer failed");
 	}
 	if (ctx->used_sv_num && is_apply) {
-		if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_sv_apply_all_buffers(ctx, true) == 0)
 			dev_info(raw_dev->dev, "sv apply all buffers failed");
 	}
 	if (ctx->used_mraw_num && is_apply) {
-		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_mraw_apply_all_buffers(ctx, true) == 0)
 			dev_info(raw_dev->dev, "mraw apply all buffers failed");
 	}
 }
+
+void mtk_camsys_composed_delay_enque(struct mtk_raw_device *raw_dev,
+				       struct mtk_cam_ctx *ctx,
+				       struct mtk_cam_request_stream_data *req_stream_data)
+{
+	struct mtk_cam_working_buf_entry *buf_entry;
+	dma_addr_t base_addr;
+	bool is_apply = false;
+
+	if (mtk_cam_is_subsample(ctx)) {
+		if (req_stream_data->state.estate != E_STATE_SUBSPL_READY) {
+			dev_info(raw_dev->dev, "[%s] wrong state 0x%x",
+				__func__, req_stream_data->state.estate);
+			return;
+		}
+	} else {
+		if (req_stream_data->state.estate != E_STATE_SENSOR) {
+			dev_info(raw_dev->dev, "[%s] wrong state 0x%x",
+				__func__, req_stream_data->state.estate);
+			return;
+		}
+	}
+	/* apply next composed buffer */
+	spin_lock(&ctx->composed_buffer_list.lock);
+	is_apply = true;
+	buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
+				     struct mtk_cam_working_buf_entry,
+				     list_entry);
+	list_del(&buf_entry->list_entry);
+	ctx->composed_buffer_list.cnt--;
+	spin_unlock(&ctx->composed_buffer_list.lock);
+	spin_lock(&ctx->processing_buffer_list.lock);
+	list_add_tail(&buf_entry->list_entry,
+		      &ctx->processing_buffer_list.list);
+	ctx->processing_buffer_list.cnt++;
+	spin_unlock(&ctx->processing_buffer_list.lock);
+	base_addr = buf_entry->buffer.iova;
+	apply_cq(raw_dev, 0, base_addr,
+		buf_entry->cq_desc_size,
+		buf_entry->cq_desc_offset,
+		buf_entry->sub_cq_desc_size,
+		buf_entry->sub_cq_desc_offset);
+
+	/* Transit state from Sensor -> CQ */
+	if (ctx->sensor) {
+		/* update qos bw */
+		mtk_cam_qos_bw_calc(ctx, req_stream_data->raw_dmas, false);
+		if (mtk_cam_is_subsample(ctx))
+			state_transition(&req_stream_data->state,
+			E_STATE_SUBSPL_READY, E_STATE_SUBSPL_SCQ);
+		else
+			state_transition(&req_stream_data->state,
+			E_STATE_SENSOR, E_STATE_CQ);
+
+		dev_info(raw_dev->dev,
+		"[%s][ctx:%d], CQ-%d is update, composed:%d, cq_addr:0x%x, time:%lld, monotime:%lld\n",
+		__func__, ctx->stream_id, req_stream_data->frame_seq_no,
+		ctx->composed_frame_seq_no, base_addr, req_stream_data->timestamp,
+		req_stream_data->timestamp_mono);
+	}
+
+	if (mtk_cam_is_with_w_channel(ctx) && is_apply) {
+		if (mtk_cam_sv_rgbw_apply_next_buffer(buf_entry->s_data) == 0)
+			dev_info(raw_dev->dev, "rgbw: sv apply next buffer failed");
+	}
+	if (ctx->used_sv_num && is_apply) {
+		if (mtk_cam_sv_apply_all_buffers(ctx, false) == 0)
+			dev_info(raw_dev->dev, "sv apply all buffers failed");
+	}
+	if (ctx->used_mraw_num && is_apply) {
+		if (mtk_cam_mraw_apply_all_buffers(ctx, false) == 0)
+			dev_info(raw_dev->dev, "mraw apply all buffers failed");
+	}
+}
+
 static void seamless_switch_check_bad_frame(
 		struct mtk_cam_ctx *ctx, unsigned int frame_seq_no)
 
@@ -3026,11 +3105,11 @@ int hdr_apply_cq_at_last_sof(struct mtk_raw_device *raw_dev,
 			dev_info(raw_dev->dev, "rgbw: sv apply next buffer failed");
 	}
 	if (ctx->used_sv_num && is_apply) {
-		if (mtk_cam_sv_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_sv_apply_all_buffers(ctx, true) == 0)
 			dev_info(raw_dev->dev, "sv apply all buffers failed");
 	}
 	if (ctx->used_mraw_num && is_apply) {
-		if (mtk_cam_mraw_apply_all_buffers(ctx) == 0)
+		if (mtk_cam_mraw_apply_all_buffers(ctx, true) == 0)
 			dev_info(raw_dev->dev, "mraw apply all buffers failed");
 	}
 
@@ -5485,7 +5564,7 @@ void mtk_camsys_extisp_yuv_frame_start(struct mtk_camsv_device *camsv,
 	} else {
 		spin_unlock(&ctx->composed_buffer_list.lock);
 		if (ctx->used_sv_num)
-			mtk_cam_sv_apply_all_buffers(ctx);
+			mtk_cam_sv_apply_all_buffers(ctx, true);
 		seninf_padidx =
 			ctx->cam->sv.pipelines[camsv->id].seninf_padidx;
 		raw_vdevidx =
@@ -5578,7 +5657,7 @@ void mtk_camsys_extisp_raw_frame_start(struct mtk_raw_device *raw_dev,
 		spin_unlock(&ctx->composed_buffer_list.lock);
 	} else {
 		if (ctx->used_sv_num)
-			mtk_cam_sv_apply_all_buffers(ctx);
+			mtk_cam_sv_apply_all_buffers(ctx, true);
 		buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
 					     struct mtk_cam_working_buf_entry,
 					     list_entry);
