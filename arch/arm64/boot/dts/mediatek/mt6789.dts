@@ -3586,3 +3586,5 @@
 &mt6358_vaux18_reg {
 	regulator-always-on;
 };
+
+#include "mediatek/bat_setting/mt6789_battery_prop.dtsi"
