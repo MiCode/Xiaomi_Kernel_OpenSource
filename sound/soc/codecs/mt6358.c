@@ -212,8 +212,8 @@ static int mt6358_mtkaif_tx_disable(struct mt6358_priv *priv)
 
 int mt6358_mtkaif_calibration_enable(struct snd_soc_component *cmpnt)
 {
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
 	playback_gpio_set(priv);
 	capture_gpio_set(priv);
 	mt6358_mtkaif_tx_enable(priv);
@@ -230,6 +230,7 @@ int mt6358_mtkaif_calibration_enable(struct snd_soc_component *cmpnt)
 	regmap_update_bits(priv->regmap, MT6358_AUDIO_DIG_CFG,
 			   RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK_MASK_SFT,
 			   1 << RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK_SFT);
+#endif
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt6358_mtkaif_calibration_enable);
@@ -598,7 +599,7 @@ static const char * const hp_in_mux_map[] = {
 	"Audio Playback",
 	"Test Mode",
 	"HP Impedance",
-	"undefined1",
+	"Loud DualSPK Playback",
 	"undefined2",
 	"undefined3",
 };
@@ -609,7 +610,7 @@ static int hp_in_mux_map_value[] = {
 	HP_MUX_HP,
 	HP_MUX_TEST_MODE,
 	HP_MUX_HP_IMPEDANCE,
-	HP_MUX_OPEN,
+	HP_MUX_HP_DUALSPK,
 	HP_MUX_OPEN,
 	HP_MUX_OPEN,
 };
@@ -3223,7 +3224,6 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 
 	{"AIF Out Mux", NULL, "Mic Type Mux"},
 	{"AIF Out Mux", NULL, "AIN0_DMIC"},
-	{"AIF Out Mux", NULL, "AIN2_DMIC"},
 	{"AIF Out Mux", NULL, "ADC L"},
 	{"AIF Out Mux", NULL, "ADC R"},
 
@@ -3323,7 +3323,6 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 	{"AIN1", NULL, "MIC_BIAS", mt_amic_connect},
 	{"AIN2", NULL, "MIC_BIAS", mt_amic_connect},
 	{"AIN0_DMIC", NULL, "MIC_BIAS", mt_dmic_connect},
-	{"AIN2_DMIC", NULL, "MIC_BIAS", mt_dmic_connect},
 };
 
 static int mt6358_codec_dai_hw_params(struct snd_pcm_substream *substream,
@@ -5335,7 +5334,7 @@ static int dc_trim_thread(void *arg)
 	struct mt6358_priv *priv = arg;
 
 	get_hp_trim_offset(priv, false);
-#if IS_ENABLED(CONFIG_SND_SOC_MT6358_ACCDET)
+#if IS_ENABLED(CONFIG_SND_SOC_MT6366_ACCDET) || IS_ENABLED(CONFIG_SND_SOC_MT6358_ACCDET)
 	accdet_late_init(0);
 #endif
 	do_exit(0);
@@ -6076,22 +6075,15 @@ static void mt6358_codec_init_reg(struct mt6358_priv *priv)
 static int get_hp_current_calibrate_val(struct mt6358_priv *priv)
 {
 	int ret = 0;
+	unsigned short efuse_val = 0;
 	int value, sign;
 
-	/* 1. enable efuse ctrl engine clock */
-	regmap_update_bits(priv->regmap, MT6358_TOP_CKHWEN_CON0_CLR,
-			   0x1 << 2, 0x1 << 2);
-	regmap_update_bits(priv->regmap, MT6358_TOP_CKPDN_CON0_CLR,
-			   0x1 << 4, 0x1 << 4);
-
-	/* 2. set RG_OTP_RD_SW */
-	regmap_update_bits(priv->regmap, MT6358_OTP_CON11, 0x0001, 0x0001);
 #if defined(CONFIG_SND_SOC_MT6366)
 	/* 3. set EFUSE addr */
 	/* HPDET_COMP[6:0] @ efuse bit 1880 ~ 1886 */
 	/* HPDET_COMP_SIGN @ efuse bit 1887 */
 	/* 1880 / 8 = 235 --> 0xeb */
-	regmap_update_bits(priv->regmap, MT6358_OTP_CON0, 0xff, 0xeb);
+	ret = nvmem_device_read(priv->hp_efuse, 0xeb, 2, &efuse_val);
 #else
 	/* 3. set EFUSE addr */
 	/* HPDET_COMP[6:0] @ efuse bit 1696 ~ 1702 */
@@ -6099,44 +6091,20 @@ static int get_hp_current_calibrate_val(struct mt6358_priv *priv)
 	/* 1696 / 8 = 212 --> 0xd4 */
 	regmap_update_bits(priv->regmap, MT6358_OTP_CON0, 0xff, 0xd4);
 #endif
-	/* 4. Toggle RG_OTP_RD_TRIG */
-	regmap_read(priv->regmap, MT6358_OTP_CON8, &ret);
-	if (ret == 0)
-		regmap_update_bits(priv->regmap, MT6358_OTP_CON8,
-				   0x0001, 0x0001);
-	else
-		regmap_update_bits(priv->regmap, MT6358_OTP_CON8,
-				   0x0001, 0x0000);
 
-	/* 5. Polling RG_OTP_RD_BUSY */
-	do {
-		regmap_read(priv->regmap, MT6358_OTP_CON13, &ret);
-		ret = ret & 0x0001;
-		usleep_range(100, 200);
-		dev_dbg(priv->dev, "%s(), polling MT6358_OTP_CON13 = 0x%x\n",
-			__func__, ret);
-	} while (ret == 1);
+	if (ret < 0) {
+		dev_err(priv->dev, "%s(), efuse read fail: %d\n", __func__,
+			ret);
+		efuse_val = 0;
+	}
 
-	/* Need to delay at least 1ms for 0xC1A and than can read */
-	usleep_range(500, 1000);
-
-	/* 6. Read RG_OTP_DOUT_SW */
-	regmap_read(priv->regmap, MT6358_OTP_CON12, &ret);
-	dev_dbg(priv->dev, "%s(), efuse = 0x%x\n",
-		__func__, ret);
-
-	sign = (ret >> 7) & 0x1;
-	value = ret & 0x7f;
+	/* extract value and signed from HPDET_COMP[6:0] & HPDET_COMP_SIGN */
+	sign = (efuse_val >> 7) & 0x1;
+	value = efuse_val & 0x7f;
 	value = sign ? -value : value;
 
-	/* 7. Disables efuse_ctrl egine clock */
-	regmap_update_bits(priv->regmap, MT6358_OTP_CON11, 0x0001, 0x0000);
-	regmap_update_bits(priv->regmap, MT6358_TOP_CKPDN_CON0_SET,
-			   0x1 << 4, 0x1 << 4);
-	regmap_update_bits(priv->regmap, MT6358_TOP_CKHWEN_CON0_SET,
-			   0x1 << 2, 0x1 << 2);
+	dev_info(priv->dev, "%s(), efuse: %d\n", __func__, value);
 
-	dev_dbg(priv->dev, "%s(), efuse: %d\n", __func__, value);
 	return value;
 }
 
@@ -6939,24 +6907,81 @@ static const struct snd_soc_component_driver mt6358_soc_component_driver = {
 	.num_dapm_routes = ARRAY_SIZE(mt6358_dapm_routes),
 };
 
-static void mt6358_parse_dt(struct mt6358_priv *priv)
+static int mt6358_parse_dt(struct mt6358_priv *priv)
 {
 	int ret;
 	struct device *dev = priv->dev;
+	struct device_node *np;
 
-	ret = of_property_read_u32(dev->of_node, "mediatek,dmic-mode",
+	np = of_get_child_by_name(dev->parent->of_node, "mt6358codec");
+	if (!np)
+		return -EINVAL;
+
+	/* get mic type */
+	ret = of_property_read_u32(np, "mediatek,dmic-mode",
 				   &priv->dmic_one_wire_mode);
 	if (ret) {
-		dev_warn(priv->dev, "%s() failed to read dmic-mode\n",
+		dev_info(dev, "%s() failed to read dmic-mode, default 2 wire\n",
 			 __func__);
 		priv->dmic_one_wire_mode = 0;
 	}
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,mic-type",
+				   &priv->mux_select[MUX_MIC_TYPE]);
+	if (ret) {
+		dev_info(dev, "%s() failed to read mic-type, default ACC\n",
+			 __func__);
+		priv->mux_select[MUX_MIC_TYPE] = MIC_TYPE_MUX_ACC;
+	}
+
+	ret = of_property_read_bool(dev->of_node, "vow_dmic_lp");
+	if (ret) {
+		priv->vow_dmic_lp = 1;
+	} else {
+		dev_info(dev, "%s() vow_dmic_lp node not exist, default off.\n",
+			 __func__);
+		priv->vow_dmic_lp = 0;
+	}
+
+	/* get auxadc channel */
+	priv->hpofs_cal_auxadc = devm_iio_channel_get(dev,
+						      "pmic_hpofs_cal");
+
+	ret = PTR_ERR_OR_ZERO(priv->hpofs_cal_auxadc);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)	//EPROBE_DEFER:517
+			dev_err(dev,
+				"%s() Get pmic_hpofs_cal iio ch failed (%d)\n",
+				__func__, ret);
+		else
+			dev_err(dev,
+				"%s() Get pmic_hpofs_cal iio ch failed (%d), will retry ...\n",
+				__func__, ret);
+
+		return ret;
+	}
+
+	/* get pmic efuse handler */
+	priv->hp_efuse = devm_nvmem_device_get(dev, "pmic-hp-efuse");
+	ret = PTR_ERR_OR_ZERO(priv->hp_efuse);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "%s() Get efuse failed (%d)\n",
+				__func__, ret);
+		else
+			dev_err(dev, "%s() Get efuse failed (%d), will retry ...\n",
+				__func__, ret);
+
+		return ret;
+	}
+	return 0;
 }
 
 static int mt6358_platform_driver_probe(struct platform_device *pdev)
 {
 	struct mt6358_priv *priv;
 	struct mt6397_chip *mt6397 = dev_get_drvdata(pdev->dev.parent);
+	int ret;
 
 	priv = devm_kzalloc(&pdev->dev,
 			    sizeof(struct mt6358_priv),
@@ -6977,7 +7002,12 @@ static int mt6358_platform_driver_probe(struct platform_device *pdev)
 					    S_IFREG | 0444, NULL,
 					    priv, &mt6358_debugfs_ops);
 
-	mt6358_parse_dt(priv);
+	ret = mt6358_parse_dt(priv);
+	if (ret) {
+		dev_warn(&pdev->dev,
+			 "%s() fail to parse dts: %d\n", __func__, ret);
+		return ret;
+	}
 
 	dev_info(priv->dev, "%s(), dev name %s\n",
 		 __func__, dev_name(&pdev->dev));

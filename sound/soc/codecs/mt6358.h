@@ -3767,7 +3767,8 @@ struct mt6358_priv {
 	struct dc_trim_data dc_trim;
 	struct iio_channel *hpofs_cal_auxadc;
 
-	/* hp impedance */
+	/* headphone impedence */
+	struct nvmem_device *hp_efuse;
 	int hp_impedance;
 	int hp_current_calibrate_val;
 
