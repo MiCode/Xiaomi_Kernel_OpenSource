@@ -41,6 +41,9 @@
 #include <mmu/mali_kbase_mmu_internal.h>
 #include <mali_kbase_cs_experimental.h>
 #include <device/mali_kbase_device.h>
+#if !MALI_USE_CSF
+#include <mali_kbase_hwaccess_jm.h>
+#endif
 
 #include <mali_kbase_trace_gpu_mem.h>
 #define KBASE_MMU_PAGE_ENTRIES 512
@@ -1717,6 +1720,15 @@ void kbase_mmu_disable(struct kbase_context *kctx)
 	kbase_mmu_flush_invalidate_noretain(kctx, 0, ~0, true);
 
 	kctx->kbdev->mmu_mode->disable_as(kctx->kbdev, kctx->as_nr);
+#if !MALI_USE_CSF
+	/*
+	 * JM GPUs has some L1 read only caches that need to be invalidated
+	 * with START_FLUSH configuration. Purge the MMU disabled kctx from
+	 * the slot_rb tracking field so such invalidation is performed when
+	 * a new katom is executed on the affected slots.
+	 */
+	kbase_backend_slot_kctx_purge_locked(kctx->kbdev, kctx);
+#endif
 }
 KBASE_EXPORT_TEST_API(kbase_mmu_disable);
 
