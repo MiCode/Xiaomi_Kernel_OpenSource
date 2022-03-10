@@ -167,6 +167,7 @@
   __tracepoint_device_pm_callback_end
   __tracepoint_device_pm_callback_start
   __tracepoint_gpu_mem_total
+  __tracepoint_kfree_skb
   __tracepoint_pelt_cfs_tp
   __tracepoint_suspend_resume
   __tty_alloc_driver
