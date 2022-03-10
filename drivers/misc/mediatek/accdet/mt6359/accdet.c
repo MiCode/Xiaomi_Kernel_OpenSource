@@ -1135,16 +1135,18 @@ static void multi_key_detection(u32 cur_AB)
 #ifdef CONFIG_ACCDET_EINT_IRQ
 	irq_bit = !(pmic_read(PMIC_ACCDET_IRQ_ADDR) & ACCDET_EINT_IRQ_B2_B3);
 	/* send key when: no eint is flaged in reg, and now eint PLUG_IN */
-	if (irq_bit && (cur_eint_state == EINT_PIN_PLUG_IN))
-#elif defined CONFIG_ACCDET_EINT
-	if (cur_eint_state == EINT_PIN_PLUG_IN)
+	if (irq_bit) {
 #endif
-		send_key_event(cur_key, !cur_AB);
-	else {
-		pr_info("accdet plugout sideeffect key,do not report key=%d\n",
-			cur_key);
-		cur_key = NO_KEY;
+		if (cur_eint_state == EINT_PIN_PLUG_IN) {
+			send_key_event(cur_key, !cur_AB);
+		} else {
+			pr_info("accdet plugout sideeffect key,do not report key=%d\n",
+				cur_key);
+			cur_key = NO_KEY;
+		}
+#ifdef CONFIG_ACCDET_EINT_IRQ
 	}
+#endif
 
 	if (cur_AB)
 		cur_key = NO_KEY;
@@ -1934,7 +1936,7 @@ static inline void check_cable_type(void)
 {
 	u32 cur_AB;
 
-cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
+	cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 	cur_AB = cur_AB & ACCDET_STATE_AB_MASK;
 	pr_notice("accdet %s(), cur_status:%s current AB = %d\n", __func__,
 		     accdet_status_str[accdet_status], cur_AB);
@@ -1949,8 +1951,9 @@ cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 			if (eint_accdet_sync_flag) {
 				cable_type = HEADSET_NO_MIC;
 				accdet_status = HOOK_SWITCH;
-			} else
+			} else {
 				pr_info("accdet headset has been plug-out\n");
+			}
 			mutex_unlock(&accdet_eint_irq_sync_mutex);
 			/* wk, for IOT HP */
 			accdet_set_debounce(eint_state011,
@@ -1960,8 +1963,9 @@ cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 			if (eint_accdet_sync_flag) {
 				accdet_status = MIC_BIAS;
 				cable_type = HEADSET_MIC;
-			} else
+			} else {
 				pr_info("accdet headset has been plug-out\n");
+			}
 			mutex_unlock(&accdet_eint_irq_sync_mutex);
 			/* solution: adjust hook switch debounce time
 			 * for fast key press condition, avoid to miss key
@@ -1983,12 +1987,14 @@ cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 			if (eint_accdet_sync_flag) {
 				accdet_status = PLUG_OUT;
 				cable_type = NO_DEVICE;
-			} else
+			} else {
 				pr_info("accdet headset has been plug-out\n");
+			}
 			mutex_unlock(&accdet_eint_irq_sync_mutex);
 #endif
-		} else
+		} else {
 			pr_info("accdet %s Invalid AB.Do nothing\n", __func__);
+		}
 		break;
 	case MIC_BIAS:
 		if (cur_AB == ACCDET_STATE_AB_00) {
@@ -1997,8 +2003,9 @@ cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 				s_button_status = 1;
 				accdet_status = HOOK_SWITCH;
 				multi_key_detection(cur_AB);
-			} else
+			} else {
 				pr_info("accdet headset has been plug-out\n");
+			}
 			mutex_unlock(&accdet_eint_irq_sync_mutex);
 		} else if (cur_AB == ACCDET_STATE_AB_01) {
 			mutex_lock(&accdet_eint_irq_sync_mutex);
@@ -2006,8 +2013,9 @@ cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 				accdet_status = MIC_BIAS;
 				cable_type = HEADSET_MIC;
 				pr_info("accdet MIC_BIAS state not change!\n");
-			} else
+			} else {
 				pr_info("accdet headset has been plug-out\n");
+			}
 			mutex_unlock(&accdet_eint_irq_sync_mutex);
 			/* wk, for IOT HP */
 			accdet_set_debounce(eint_state011, 0x1);
@@ -2019,8 +2027,9 @@ cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 			else
 				pr_info("accdet headset has been plug-out\n");
 			mutex_unlock(&accdet_eint_irq_sync_mutex);
-		} else
+		} else {
 			pr_info("accdet %s Invalid AB.Do nothing\n", __func__);
+		}
 		break;
 	case HOOK_SWITCH:
 		if (cur_AB == ACCDET_STATE_AB_00) {
@@ -2041,8 +2050,9 @@ cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 				multi_key_detection(cur_AB);
 				accdet_status = MIC_BIAS;
 				cable_type = HEADSET_MIC;
-			} else
+			} else {
 				pr_info("accdet headset has been plug-out\n");
+			}
 			mutex_unlock(&accdet_eint_irq_sync_mutex);
 
 			/* adjust debounce0 and debounce1 to fix miss key issue.
@@ -2062,8 +2072,9 @@ cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 			else
 				pr_info("accdet headset has been plug-out\n");
 			mutex_unlock(&accdet_eint_irq_sync_mutex);
-		} else
+		} else {
 			pr_info("accdet %s Invalid AB.Do nothing\n", __func__);
+		}
 		break;
 	case STAND_BY:
 		pr_info("accdet %s STANDBY state.Err!Do nothing!\n", __func__);
@@ -2165,8 +2176,9 @@ static int pmic_eint_queue_work(int eintID)
 #else
 		eint_work_callback();
 #endif /* end of #if PMIC_ACCDET_KERNEL */
-	} else
+	} else {
 		pr_info("%s invalid EINT ID!\n", __func__);
+	}
 
 #elif defined CONFIG_ACCDET_SUPPORT_EINT1
 	if (eintID == PMIC_EINT1) {
@@ -2330,6 +2342,21 @@ static u32 config_moisture_detect_2_1_1(void)
 	return 0;
 }
 
+#endif
+
+#ifdef CONFIG_OCP96011_I2C
+void typec_headset_queue_work(void)
+{
+	pr_info("%s() begin!\n", __func__);
+	if(cur_eint_state == EINT_PIN_PLUG_IN) {
+		cur_eint_state = EINT_PIN_PLUG_OUT;
+	} else {
+		cur_eint_state = EINT_PIN_PLUG_IN;
+		mod_timer(&micbias_timer,(jiffies + MICBIAS_DISABLE_TIMER));
+	}
+	queue_work(eint_workqueue, &eint_work);
+}
+EXPORT_SYMBOL(typec_headset_queue_work);
 #endif
 
 void accdet_irq_handle(void)
@@ -3193,7 +3220,7 @@ static void accdet_modify_vref_volt_self(void)
 			pr_info("%s Plug-out, no dis micbias\n", __func__);
 			return;
 		}
-cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
+		cur_AB = pmic_read(PMIC_ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
 		cur_AB = cur_AB & ACCDET_STATE_AB_MASK;
 
 		/* if 3pole disable accdet
