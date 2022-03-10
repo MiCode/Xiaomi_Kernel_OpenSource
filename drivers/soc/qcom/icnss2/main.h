@@ -485,6 +485,7 @@ struct icnss_priv {
 	uint32_t fw_soc_wake_ack_irq;
 	char foundry_name;
 	bool bdf_download_support;
+	unsigned long device_config;
 };
 
 struct icnss_reg_info {
