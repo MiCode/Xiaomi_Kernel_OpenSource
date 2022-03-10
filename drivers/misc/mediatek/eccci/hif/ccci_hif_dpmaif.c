@@ -4581,6 +4581,7 @@ int ccci_dpmaif_hif_init(struct device *dev)
 		CCCI_ERROR_LOG(md_id, TAG,
 			 "dpmaif get infra-dpmaif-clk failed\n");
 		hif_ctrl->clk_ref0 = NULL;
+		ret = -1;
 		goto DPMAIF_INIT_FAIL;
 	}
 
