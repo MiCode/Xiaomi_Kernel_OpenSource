@@ -807,6 +807,16 @@ config CHARGER_BQ25601
 	  It depends on
 	  the config MTK_CHARGER.
 
+config CUSTOM_BATTERY_EXTERNAL_CHANNEL
+	bool "customer external gauge test"
+	depends on MTK_PMIC_CHIP_MT6359P
+	default n
+	help
+	  This config is for internal testing only.
+	  Say Yes to enable support for Customer external gauge.
+          It depends on MTK_PMIC_CHIP_MT6359P
+          Added for Battery System test
+
 if MACH_MT6768
 source "drivers/power/supply/mediatek/battery/Kconfig"
 source "drivers/power/supply/mediatek/charger/Kconfig"
