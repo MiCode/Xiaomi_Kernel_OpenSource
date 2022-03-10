@@ -24,6 +24,7 @@
 #include "kd_imgsensor.h"
 #include "kd_imgsensor_define.h"
 #include "kd_imgsensor_errcode.h"
+#include "imgsensor_sensor.h"
 
 enum IMGSENSOR_MODE {
 	IMGSENSOR_MODE_INIT,
@@ -82,6 +83,7 @@ struct imgsensor_struct {
 	kal_uint8  ihdr_en;				//ihdr enable or disable
 	kal_uint8  pdaf_mode;				//ihdr enable or disable
 	kal_uint8 i2c_write_id; //record current sensor's i2c write id
+	struct SENSOR_FUNCTION_STRUCT *psensor_func;
 };
 
 /* SENSOR PRIVATE STRUCT FOR CONSTANT*/
