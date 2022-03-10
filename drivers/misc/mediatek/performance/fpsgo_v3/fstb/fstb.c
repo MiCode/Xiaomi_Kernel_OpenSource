@@ -109,6 +109,9 @@ static struct rb_root video_pid_tree;
 static DEFINE_MUTEX(fstb_video_pid_tree_lock);
 static DEFINE_MUTEX(fstb_is_video_active_lock);
 
+static set_cam_active_fpsgo_off;
+static DEFINE_MUTEX(fstb_set_cam_active_fpsgo_off_lock);
+
 
 void (*gbe_fstb2gbe_poll_fp)(struct hlist_head *list);
 
@@ -1385,6 +1388,19 @@ static void fstb_set_cam_active(int active)
 
 	fstb_is_cam_active = active;
 	fpsgo_fstb2xgf_set_camera_flag(fstb_is_cam_active);
+
+	if (set_cam_active_fpsgo_off) {
+		if (fstb_is_cam_active) {
+			fpsgo_switch_enable(0);
+			mtk_fstb_dprintk_always("[FSTB] %s: FPSGO_OFF", __func__);
+			fpsgo_systrace_c_fstb(-100, 0, 1, "cam_fpsgo_off");
+		} else {
+			fpsgo_switch_enable(1);
+			mtk_fstb_dprintk_always("[FSTB] %s: FPSGO_ON", __func__);
+			fpsgo_systrace_c_fstb(-100, 0, 0, "cam_fpsgo_off");
+		}
+	}
+
 out:
 	mutex_unlock(&fstb_cam_active_time);
 }
@@ -2379,6 +2395,57 @@ static void reset_fps_level(void)
 
 	set_soft_fps_level(1, level);
 }
+
+void fstb_set_cam_active_fpsgo_off(int active)
+{
+	if (active == set_cam_active_fpsgo_off)
+		return;
+
+	mutex_lock(&fstb_set_cam_active_fpsgo_off_lock);
+	set_cam_active_fpsgo_off = active;
+	mutex_unlock(&fstb_set_cam_active_fpsgo_off_lock);
+
+	if (fstb_is_cam_active) {
+		if (set_cam_active_fpsgo_off) {
+			fpsgo_switch_enable(0);
+			mtk_fstb_dprintk_always("[FSTB] %s: FPSGO_OFF", __func__);
+			fpsgo_systrace_c_fstb(-100, 0, 1, "cam_fpsgo_off");
+		} else {
+			fpsgo_switch_enable(1);
+			mtk_fstb_dprintk_always("[FSTB] %s: FPSGO_ON", __func__);
+			fpsgo_systrace_c_fstb(-100, 0, 0, "cam_fpsgo_off");
+		}
+	}
+}
+
+static ssize_t set_cam_active_fpsgo_off_show(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", set_cam_active_fpsgo_off);
+}
+
+static ssize_t set_cam_active_fpsgo_off_store(struct kobject *kobj,
+				struct kobj_attribute *attr,
+				const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) != 0)
+				goto out;
+			mtk_fstb_dprintk_always("%s %d\n", __func__, arg);
+			fstb_set_cam_active_fpsgo_off(!!arg);
+		}
+	}
+
+out:
+		return count;
+}
+
+static KOBJ_ATTR_RW(set_cam_active_fpsgo_off);
 
 static ssize_t set_cam_active_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -3442,6 +3509,8 @@ int mtk_fstb_init(void)
 				&kobj_attr_fstb_video_pid_list);
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_fstb_video_active);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_set_cam_active_fpsgo_off);
 	}
 
 	reset_fps_level();
@@ -3527,6 +3596,8 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_fstb_video_pid_list);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 				&kobj_attr_fstb_video_active);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+				&kobj_attr_set_cam_active_fpsgo_off);
 
 	fpsgo_sysfs_remove_dir(&fstb_kobj);
 
