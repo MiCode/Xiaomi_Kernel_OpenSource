@@ -9,12 +9,7 @@
 #include "cpu_ctrl.h"
 #include "usb_boost.h"
 #include <linux/plist.h>
-#if defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6771) \
-	|| defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6781) \
-	|| defined(CONFIG_MACH_MT6785) || defined(CONFIG_MACH_MT6833) \
-	|| defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6873) \
-	|| defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6885) \
-	|| defined(CONFIG_MACH_MT6893)
+#ifdef PM_QOS_API_V1
 #include <helio-dvfsrc-opp.h>
 #else
 #include <linux/soc/mediatek/mtk-pm-qos.h>
@@ -95,7 +90,11 @@ struct act_arg_obj dram_vcore_test_arg = {DDR_OPP_0, -1, -1};
 /* add new here */
 #endif
 
+#ifdef PM_QOS_API_V1
+static struct pm_qos_request pm_qos_req;
+#else
 static struct mtk_pm_qos_request pm_qos_req;
+#endif
 static struct mtk_pm_qos_request pm_qos_emi_req;
 static struct cpu_ctrl_data *freq_to_set;
 static int cluster_num;
@@ -137,8 +136,11 @@ static int core_hold(struct act_arg_obj *arg)
 	/*Disable MCDI to save around 100us
 	 *"Power ON CPU -> CPU context restore"
 	 */
-
+#ifdef PM_QOS_API_V1
+	pm_qos_update_request(&pm_qos_req, 50);
+#else
 	mtk_pm_qos_update_request(&pm_qos_req, 50);
+#endif
 	return 0;
 }
 
@@ -147,7 +149,11 @@ static int core_release(struct act_arg_obj *arg)
 	USB_BOOST_DBG("\n");
 
 	/*Enable MCDI*/
+#ifdef PM_QOS_API_V1
+	pm_qos_update_request(&pm_qos_req, PM_QOS_DEFAULT_VALUE);
+#else
 	mtk_pm_qos_update_request(&pm_qos_req, PM_QOS_DEFAULT_VALUE);
+#endif
 	return 0;
 }
 
@@ -184,8 +190,13 @@ static int __init usbboost(void)
 	register_usb_boost_act(TYPE_DRAM_VCORE, ACT_HOLD, vcorefs_hold);
 	register_usb_boost_act(TYPE_DRAM_VCORE, ACT_RELEASE, vcorefs_release);
 
+#ifdef PM_QOS_API_V1
+	pm_qos_add_request(&pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
+		PM_QOS_DEFAULT_VALUE);
+#else
 	mtk_pm_qos_add_request(&pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
 		PM_QOS_DEFAULT_VALUE);
+#endif
 
 	mtk_pm_qos_add_request(&pm_qos_emi_req, MTK_PM_QOS_DDR_OPP,
 		MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
