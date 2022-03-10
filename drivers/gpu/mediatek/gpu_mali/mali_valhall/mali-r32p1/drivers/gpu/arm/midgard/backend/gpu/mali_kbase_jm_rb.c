@@ -757,6 +757,13 @@ static int kbase_jm_exit_protected_mode(struct kbase_device *kbdev,
 		/* ***TRANSITION TO HIGHER STATE*** */
 		/* fallthrough */
 	case KBASE_ATOM_EXIT_PROTECTED_RESET:
+		/* L2 cache has been turned off (which is needed prior to the reset of GPU
+		 * to exit the protected mode), so the override flag can be safely cleared.
+		 * Even if L2 cache is powered up again before the actual reset, it should
+		 * not be an issue (there are no jobs running on the GPU).
+		 */
+		kbase_pm_protected_override_disable(kbdev);
+
 		/* Issue the reset to the GPU */
 		err = kbase_gpu_protected_mode_reset(kbdev);
 
@@ -765,7 +772,6 @@ static int kbase_jm_exit_protected_mode(struct kbase_device *kbdev,
 
 		if (err) {
 			kbdev->protected_mode_transition = false;
-			kbase_pm_protected_override_disable(kbdev);
 
 			/* Failed to exit protected mode, fail atom */
 			katom[idx]->event_code = BASE_JD_EVENT_JOB_INVALID;
