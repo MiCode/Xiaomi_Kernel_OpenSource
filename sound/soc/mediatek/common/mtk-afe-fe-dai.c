@@ -780,6 +780,9 @@ int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
 	unsigned int phys_buf_addr = lower_32_bits(dma_addr);
 	unsigned int phys_buf_addr_upper_32 = upper_32_bits(dma_addr);
 	unsigned int value;
+	dma_addr_t dma_addr_end = dma_addr + dma_bytes - 1;
+	unsigned int phys_buf_end_addr = lower_32_bits(dma_addr_end);
+	unsigned int phys_buf_end_addr_upper_32 = upper_32_bits(dma_addr_end);
 
 	/* check the memif already disable */
 	regmap_read(afe->regmap, memif->data->enable_reg, &value);
@@ -803,12 +806,12 @@ int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
 	if (memif->data->reg_ofs_end)
 		mtk_regmap_write(afe->regmap,
 				 memif->data->reg_ofs_end,
-				 phys_buf_addr + dma_bytes - 1);
+				 phys_buf_end_addr);
 	else
 		mtk_regmap_write(afe->regmap,
 				 memif->data->reg_ofs_base +
 				 AFE_BASE_END_OFFSET,
-				 phys_buf_addr + dma_bytes - 1);
+				 phys_buf_end_addr);
 
 	/* set start, end, upper 32 bits */
 	if (memif->data->reg_ofs_base_msb) {
@@ -816,7 +819,7 @@ int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
 				 phys_buf_addr_upper_32);
 		mtk_regmap_write(afe->regmap,
 				 memif->data->reg_ofs_end_msb,
-				 phys_buf_addr_upper_32);
+				 phys_buf_end_addr_upper_32);
 	}
 
 	/* set MSB to 33-bit */
