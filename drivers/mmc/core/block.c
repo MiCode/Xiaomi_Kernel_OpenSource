@@ -3191,7 +3191,7 @@ static int mmc_blk_probe(struct mmc_card *card)
 
 #ifdef CONFIG_MMC_SD_IOSCHED
 	if (card->type == MMC_TYPE_SD
-		&& md->disk && md->disk->queue
+		&& md->disk->queue
 		&& strlen(CONFIG_MMC_SD_IOSCHED) != 0) {
 		if (elv_iosched_store(md->disk->queue,
 				CONFIG_MMC_SD_IOSCHED,
