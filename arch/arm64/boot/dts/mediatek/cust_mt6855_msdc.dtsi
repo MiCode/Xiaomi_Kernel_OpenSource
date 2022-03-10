@@ -20,6 +20,7 @@
 	mmc-hs400-1_8v;
 	hs400-ds-delay = <0x12814>;
 	vmmc-supply = <&mt6363_vemc>;
+	vqmmc-supply = <&mt6363_vufs18>;
 	no-sdio;
 	no-sd;
 	non-removable;
