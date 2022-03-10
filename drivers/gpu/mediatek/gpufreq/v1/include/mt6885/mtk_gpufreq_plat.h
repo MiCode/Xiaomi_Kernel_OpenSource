@@ -12,7 +12,7 @@
 
 #define MT_GPUFREQ_BRINGUP                      0
 #define MT_GPUFREQ_KICKER_PBM_READY             0
-#define MT_GPUFREQ_STATIC_PWR_READY2USE         0
+#define MT_GPUFREQ_STATIC_PWR_READY2USE         1
 #define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   1
 
 #define GPUFERQ_TAG	"[GPU/DVFS] "
