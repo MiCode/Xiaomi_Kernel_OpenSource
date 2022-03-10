@@ -446,6 +446,11 @@ struct tee_ioctl_capi_proxy_arg {
 #define TEE_IOC_CAPI_PROXY  _IOWR(TEE_IOC_MAGIC, TEE_IOC_BASE + 11, \
 				     struct tee_ioctl_capi_proxy_arg)
 
+#define TEE_IOC_SHM_RELEASE _IOR(TEE_IOC_MAGIC, TEE_IOC_BASE + 12, \
+				     struct tee_ioctl_shm_alloc_data)
+
+#define TEE_IOC_SHM_ID _IOR(TEE_IOC_MAGIC, TEE_IOC_BASE + 13, \
+				     struct tee_ioctl_shm_alloc_data)
 /*
  * Five syscalls are used when communicating with the TEE driver.
  * open(): opens the device associated with the driver
@@ -457,5 +462,4 @@ struct tee_ioctl_capi_proxy_arg {
  *	   tee_ioctl_shm_alloc_data
  * munmap(): unmaps previously shared memory
  */
-
 #endif /*__TEE_H*/

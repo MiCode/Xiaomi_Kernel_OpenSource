@@ -30,9 +30,13 @@ static void tee_shm_release(struct tee_shm *shm)
 	struct tee_device *teedev = shm->teedev;
 
 	mutex_lock(&teedev->mutex);
-	idr_remove(&teedev->idr, shm->id);
+
+	if (shm->id >= 0)
+		idr_remove(&teedev->idr, shm->id);
+
 	if (shm->ctx)
 		list_del(&shm->link);
+
 	mutex_unlock(&teedev->mutex);
 
 	if (shm->flags & TEE_SHM_EXT_DMA_BUF) {
@@ -190,7 +194,7 @@ EXPORT_SYMBOL_GPL(isee_shm_kfree);
  * set. If TEE_SHM_DMA_BUF global shared memory will be allocated and
  * associated with a dma-buf handle, else driver private memory.
  */
-struct tee_shm *isee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags)
+struct tee_shm *isee_shm_alloc_noid(struct tee_context *ctx, size_t size, u32 flags)
 {
 	struct tee_device *teedev = ctx->teedev;
 	struct tee_shm_pool_mgr *poolm = NULL;
@@ -238,13 +242,7 @@ struct tee_shm *isee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags)
 		goto err_kfree;
 	}
 
-	mutex_lock(&teedev->mutex);
-	shm->id = idr_alloc(&teedev->idr, shm, 1, 0, GFP_KERNEL);
-	mutex_unlock(&teedev->mutex);
-	if (shm->id < 0) {
-		ret = ERR_PTR(shm->id);
-		goto err_pool_free;
-	}
+	shm->id = -1;
 
 	if (flags & TEE_SHM_DMA_BUF) {
 #if KERNEL_VERSION(4, 4, 1) <= LINUX_VERSION_CODE
@@ -271,15 +269,43 @@ struct tee_shm *isee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags)
 
 	return shm;
 err_rem:
-	mutex_lock(&teedev->mutex);
-	idr_remove(&teedev->idr, shm->id);
-	mutex_unlock(&teedev->mutex);
-err_pool_free:
 	poolm->ops->free(poolm, shm);
 err_kfree:
 	kfree(shm);
 err_dev_put:
 	isee_device_put(teedev);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(isee_shm_alloc_noid);
+
+
+struct tee_shm *isee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags)
+{
+	struct tee_device *teedev = ctx->teedev;
+	struct tee_shm *shm = NULL;
+	void *ret = NULL;
+
+	shm = isee_shm_alloc_noid(ctx, size, flags);
+	if (IS_ERR(shm)) {
+		IMSG_ERROR("Failed to alloc shm %lld\n", PTR_ERR(shm));
+		return shm;
+	}
+
+	mutex_lock(&teedev->mutex);
+	shm->id = idr_alloc(&teedev->idr, shm, 1, 0, GFP_KERNEL);
+	mutex_unlock(&teedev->mutex);
+
+	if (shm->id < 0) {
+		IMSG_ERROR("Failed to alloc shm_id %d\n", shm->id);
+		ret = ERR_PTR(shm->id);
+		goto err_shm_free;
+	}
+
+	return shm;
+
+err_shm_free:
+	tee_shm_release(shm);
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(isee_shm_alloc);
