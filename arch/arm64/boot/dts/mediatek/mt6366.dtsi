@@ -19,6 +19,9 @@
 			compatible = "mediatek,mt6358-efuse";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			mt6366_thermal_efuse: mt6366_e_data {
+				reg = <0x40 12>;
+			};
 		};
 
 		pmic_auxadc: mt635x-auxadc {
