@@ -461,6 +461,17 @@ config MTK_TIMER
 	help
 	  Support for Mediatek timer driver.
 
+config MTK_TIMER_APXGPT_V1
+      bool "Mediatek apxgpt driver" if COMPILE_TEST
+      depends on GENERIC_CLOCKEVENTS && HAS_IOMEM
+      select CLKSRC_OF
+      select CLKSRC_MMIO
+      help
+        Support for Mediatek NON-IPM gpt timer driver.
+        used for tick broadcast.
+        resolve some issue that gpt interrupt masked.
+        add important debug info.
+
 config SPRD_TIMER
 	bool "Spreadtrum timer driver" if EXPERT
 	depends on HAS_IOMEM
