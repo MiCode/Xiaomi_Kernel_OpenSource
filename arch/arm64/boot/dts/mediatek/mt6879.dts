@@ -8642,6 +8642,11 @@
 		mediatek,ccu_rproc = <&ccu_rproc>;
 	};
 
+	camera_imgsys_ccu {
+		compatible = "mediatek,camera_imgsys_ccu";
+		mediatek,ccu_rproc = <&ccu_rproc>;
+	};
+
 	fusb304: fusb304 {
 		compatible = "mediatek,fusb304";
 		status = "okay";
