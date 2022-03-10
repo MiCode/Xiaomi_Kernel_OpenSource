@@ -282,6 +282,7 @@ static int mtk_plane_atomic_check(struct drm_plane *plane,
 	struct drm_framebuffer *fb = state->fb;
 	struct drm_crtc_state *crtc_state;
 	struct mtk_drm_private *private = plane->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc;
 
 	if (!fb)
 		return 0;
@@ -297,6 +298,32 @@ static int mtk_plane_atomic_check(struct drm_plane *plane,
 	crtc_state = drm_atomic_get_crtc_state(state->state, state->crtc);
 	if (IS_ERR(crtc_state))
 		return PTR_ERR(crtc_state);
+
+	mtk_crtc = to_mtk_crtc(state->crtc);
+	if (mtk_crtc->res_switch && (drm_crtc_index(state->crtc) == 0)) {
+		struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc_state);
+		struct mtk_crtc_state *old_mtk_state = to_mtk_crtc_state(state->crtc->state);
+
+		if (mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]
+			!= old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]) {
+			struct drm_display_mode *mode = mtk_drm_crtc_avail_disp_mode(state->crtc,
+				mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+			DDPDBG("%s++ from %u to %u\n", __func__,
+					old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
+					mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+			if (crtc_state->mode.hdisplay < mode->hdisplay
+				|| crtc_state->mode.vdisplay < mode->vdisplay) {
+				crtc_state->mode.hdisplay = mode->hdisplay;
+				crtc_state->mode.vdisplay = mode->vdisplay;
+
+				DDPDBG("%s: state dst:%dx%d, src:%dx%d; crtc:%dx%d\n", __func__,
+					state->crtc_w, state->crtc_h, state->src_w, state->src_h,
+					crtc_state->mode.hdisplay, crtc_state->mode.vdisplay);
+			}
+		}
+	}
 
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_RPO))
 		return drm_atomic_helper_check_plane_state(

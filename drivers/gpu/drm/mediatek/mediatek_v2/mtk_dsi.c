@@ -1169,9 +1169,9 @@ static int mtk_dsi_get_virtual_heigh(struct mtk_dsi *dsi,
 	    to_mtk_crtc_state(crtc->state);
 	struct drm_display_mode adjusted_mode = state->base.adjusted_mode;
 	unsigned int virtual_heigh = adjusted_mode.vdisplay;
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_RES_SWITCH)) {
+	if (!mtk_crtc->res_switch) {
 		panel_ext = dsi->ext;
 		if (panel_ext && panel_ext->funcs
 				&& panel_ext->funcs->get_virtual_heigh)
@@ -1192,9 +1192,9 @@ static int mtk_dsi_get_virtual_width(struct mtk_dsi *dsi,
 	    to_mtk_crtc_state(crtc->state);
 	struct drm_display_mode adjusted_mode = state->base.adjusted_mode;
 	unsigned int virtual_width = adjusted_mode.hdisplay;
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	if (!mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_RES_SWITCH)) {
+	if (!mtk_crtc->res_switch) {
 		panel_ext = dsi->ext;
 		if (panel_ext && panel_ext->funcs
 				&& panel_ext->funcs->get_virtual_width)
@@ -2399,7 +2399,6 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	unsigned int mode_id = mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX];
 	unsigned int mode_chg_index = 0;
-	struct mtk_drm_private *priv = (mtk_crtc->base).dev->dev_private;
 
 	DDPINFO("%s +\n", __func__);
 
@@ -2438,9 +2437,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 		mode_chg_index = mtk_crtc->mode_change_index;
 
 		/* add for ESD recovery */
-		if (!mtk_drm_helper_get_opt(priv->helper_opt,
-				MTK_DRM_OPT_RES_SWITCH)
-			&& (mode_id != 0)
+		if (!mtk_crtc->res_switch && (mode_id != 0)
 			&& (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) ||
 				mode_chg_index & MODE_DSI_HFP)) {
 			if (dsi->ext && dsi->ext->funcs &&
@@ -5811,11 +5808,11 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 
 unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 		struct mtk_drm_crtc *mtk_crtc,
-		struct mtk_dsi *dsi)
+		struct mtk_dsi *dsi, int mode_idx)
 {
 	static unsigned long long bw_base;
 	struct drm_display_mode *mode
-		= &mtk_crtc->avail_modes[mtk_crtc->mode_idx];
+		= mtk_drm_crtc_avail_disp_mode(&mtk_crtc->base, mode_idx);
 	int vrefresh = drm_mode_vrefresh(mode);
 	unsigned int compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 	unsigned int data_rate = mtk_dsi_default_rate(dsi);
@@ -5825,11 +5822,11 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 	if (panel_ext && panel_ext->funcs && panel_ext->funcs->ext_param_get) {
 		struct mtk_panel_params *panel_params = NULL;
 		int ret = panel_ext->funcs->ext_param_get(dsi->panel, &dsi->conn,
-			&panel_params, mtk_crtc->mode_idx);
+			&panel_params, mode_idx);
 
 		if (ret)
 			DDPMSG("%s, error:not support this mode:%d\n",
-				__func__, mtk_crtc->mode_idx);
+				__func__, mode_idx);
 
 		if (panel_params) {
 			if (dsi->mipi_hopping_sta
@@ -5856,7 +5853,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 		bw_base = bw_base / bpp / 100;
 	}
 
-	DDPMSG("%s Frame Bw:%llu\n", __func__, bw_base);
+	DDPDBG("%s Frame Bw:%llu, mode_idx:%d\n", __func__, bw_base, mode_idx);
 	return bw_base;
 }
 
@@ -6742,6 +6739,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		struct mtk_drm_crtc *crtc = (struct mtk_drm_crtc *)params;
 		struct drm_display_mode *m;
 		unsigned int i = 0;
+		u16 vdisplay = 0;
 
 		crtc->avail_modes_num = 0;
 		list_for_each_entry(m, &dsi->conn.modes, head)
@@ -6753,6 +6751,13 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		list_for_each_entry(m, &dsi->conn.modes, head) {
 			drm_mode_copy(&crtc->avail_modes[i], m);
 			i++;
+
+			if (vdisplay == 0)
+				vdisplay = m->vdisplay;
+			else if ((vdisplay != m->vdisplay) && !crtc->res_switch) {
+				DDPMSG("Panel support resolution switch.\n");
+				crtc->res_switch = true;
+			}
 		}
 	}
 		break;
@@ -6832,10 +6837,10 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case GET_FRAME_HRT_BW_BY_MODE:
 	{
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
-		unsigned long long *base_bw =
-			(unsigned long long *)params;
+		unsigned long long *base_bw = (unsigned long long *)params;
+		int mode_idx = (int)*base_bw;
 
-		*base_bw = mtk_dsi_get_frame_hrt_bw_base_by_mode(crtc, dsi);
+		*base_bw = mtk_dsi_get_frame_hrt_bw_base_by_mode(crtc, dsi, mode_idx);
 	}
 		break;
 	case DSI_SEND_DDIC_CMD:
