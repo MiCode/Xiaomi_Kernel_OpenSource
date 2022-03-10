@@ -653,6 +653,82 @@ page_owner=on loop.max_part=7";
 		#clock-cells = <1>;
 	};
 
+	camsys: camsys@1a000000 {
+		compatible = "mediatek,camsys", "syscon";
+		reg = <0 0x1a000000 0 0x10000>;
+		#clock-cells = <1>;
+		/* Camera CCF */
+		clocks = <&scpsys SCP_SYS_MDP>,
+				<&scpsys SCP_SYS_CAM>,
+				<&scpsys SCP_SYS_CAM_RAWA>,
+				<&scpsys SCP_SYS_CAM_RAWB>,
+				<&scpsys SCP_SYS_CAM_RAWC>,
+				<&camsys_clk CAMSYS_MAIN_CAM_CGPDN>,
+				<&camsys_clk CAMSYS_MAIN_CAMTG_CGPDN>,
+				<&camsys_clk CAMSYS_MAIN_CAMSV0_CGPDN>,
+				<&camsys_clk CAMSYS_MAIN_CAMSV1_CGPDN>,
+				<&camsys_clk CAMSYS_MAIN_CAMSV2_CGPDN>,
+				<&camsys_clk CAMSYS_MAIN_CAMSV3_CGPDN>,
+				<&camsys_clk CAMSYS_MAIN_LARB13_CGPDN>,
+				<&camsys_clk CAMSYS_MAIN_LARB14_CGPDN>,
+				<&camsys_clk CAMSYS_MAIN_CCU0_CGPDN>,
+				<&camsys_clk CAMSYS_MAIN_SENINF_CGPDN>,
+				<&camsys_clk CAMSYS_MAIN_CAM2MM_GALS_CGPDN>,
+				<&camsys_rawa CAMSYS_RAWA_LARBX_CGPDN>,
+				<&camsys_rawa CAMSYS_RAWA_CAM_CGPDN>,
+				<&camsys_rawa CAMSYS_RAWA_CAMTG_CGPDN>,
+				<&camsys_rawb CAMSYS_RAWB_LARBX_CGPDN>,
+				<&camsys_rawb CAMSYS_RAWB_CAM_CGPDN>,
+				<&camsys_rawb CAMSYS_RAWB_CAMTG_CGPDN>,
+				<&camsys_rawc CAMSYS_RAWC_LARBX_CGPDN>,
+				<&camsys_rawc CAMSYS_RAWC_CAM_CGPDN>,
+				<&camsys_rawc CAMSYS_RAWC_CAMTG_CGPDN>,
+				<&topckgen TOP_MUX_CCU>,
+				<&topckgen TOP_MUX_CAMTM>;
+		clock-names = "ISP_SCP_SYS_MDP",
+				"ISP_SCP_SYS_CAM",
+				"ISP_SCP_SYS_RAWA",
+				"ISP_SCP_SYS_RAWB",
+				"ISP_SCP_SYS_RAWC",
+				"CAMSYS_CAM_CGPDN",
+				"CAMSYS_CAMTG_CGPDN",
+				"CAMSYS_CAMSV0_CGPDN",
+				"CAMSYS_CAMSV1_CGPDN",
+				"CAMSYS_CAMSV2_CGPDN",
+				"CAMSYS_CAMSV3_CGPDN",
+				"CAMSYS_LARB13_CGPDN",
+				"CAMSYS_LARB14_CGPDN",
+				"CAMSYS_CCU0_CGPDN",
+				"CAMSYS_SENINF_CGPDN",
+				"CAMSYS_MAIN_CAM2MM_GALS_CGPDN",
+				"CAMSYS_RAWALARB16_CGPDN",
+				"CAMSYS_RAWACAM_CGPDN",
+				"CAMSYS_RAWATG_CGPDN",
+				"CAMSYS_RAWBLARB17_CGPDN",
+				"CAMSYS_RAWBCAM_CGPDN",
+				"CAMSYS_RAWBTG_CGPDN",
+				"CAMSYS_RAWCLARB18_CGPDN",
+				"CAMSYS_RAWCCAM_CGPDN",
+				"CAMSYS_RAWCTG_CGPDN",
+				"TOPCKGEN_TOP_MUX_CCU",
+				"TOPCKGEN_TOP_MUX_CAMTM";
+	};
+
+	camsys_a: camsys_a@1a04f000 {
+		compatible = "mediatek,camsys_a";
+		reg = <0 0x1a04f000 0 0x1000>;
+	};
+
+	camsys_b: camsys_b@1a06f000 {
+		compatible = "mediatek,camsys_b";
+		reg = <0 0x1a06f000 0 0x1000>;
+	};
+
+	camsys_c: camsys_c@1a08f000 {
+		compatible = "mediatek,camsys_c";
+		reg = <0 0x1a08f000 0 0x1000>;
+	};
+
 	imgsys_config_clk: imgsys_config_clk@15020000 {
 		compatible = "mediatek,mt6873-imgsys", "syscon";
 		reg = <0 0x15020000 0 0x1000>;
@@ -3498,67 +3574,6 @@ page_owner=on loop.max_part=7";
 
 	kd_camera_hw1:kd_camera_hw1@1a004000 {
 		compatible = "mediatek,imgsensor";
-	};
-
-	camsys: camsys@1a000000 {
-		compatible = "mediatek,camsys", "syscon";
-		reg = <0 0x1a000000 0 0x10000>;
-		#clock-cells = <1>;
-		/* Camera CCF */
-		clocks = <&scpsys SCP_SYS_MDP>,
-				<&scpsys SCP_SYS_CAM>,
-				<&scpsys SCP_SYS_CAM_RAWA>,
-				<&scpsys SCP_SYS_CAM_RAWB>,
-				<&scpsys SCP_SYS_CAM_RAWC>,
-				<&camsys_clk CAMSYS_MAIN_CAM_CGPDN>,
-				<&camsys_clk CAMSYS_MAIN_CAMTG_CGPDN>,
-				<&camsys_clk CAMSYS_MAIN_CAMSV0_CGPDN>,
-				<&camsys_clk CAMSYS_MAIN_CAMSV1_CGPDN>,
-				<&camsys_clk CAMSYS_MAIN_CAMSV2_CGPDN>,
-				<&camsys_clk CAMSYS_MAIN_CAMSV3_CGPDN>,
-				<&camsys_clk CAMSYS_MAIN_LARB13_CGPDN>,
-				<&camsys_clk CAMSYS_MAIN_LARB14_CGPDN>,
-				<&camsys_clk CAMSYS_MAIN_CCU0_CGPDN>,
-				<&camsys_clk CAMSYS_MAIN_SENINF_CGPDN>,
-				<&camsys_clk CAMSYS_MAIN_CAM2MM_GALS_CGPDN>,
-				<&camsys_rawa CAMSYS_RAWA_LARBX_CGPDN>,
-				<&camsys_rawa CAMSYS_RAWA_CAM_CGPDN>,
-				<&camsys_rawa CAMSYS_RAWA_CAMTG_CGPDN>,
-				<&camsys_rawb CAMSYS_RAWB_LARBX_CGPDN>,
-				<&camsys_rawb CAMSYS_RAWB_CAM_CGPDN>,
-				<&camsys_rawb CAMSYS_RAWB_CAMTG_CGPDN>,
-				<&camsys_rawc CAMSYS_RAWC_LARBX_CGPDN>,
-				<&camsys_rawc CAMSYS_RAWC_CAM_CGPDN>,
-				<&camsys_rawc CAMSYS_RAWC_CAMTG_CGPDN>,
-				<&topckgen TOP_MUX_CCU>,
-				<&topckgen TOP_MUX_CAMTM>;
-		clock-names = "ISP_SCP_SYS_MDP",
-				"ISP_SCP_SYS_CAM",
-				"ISP_SCP_SYS_RAWA",
-				"ISP_SCP_SYS_RAWB",
-				"ISP_SCP_SYS_RAWC",
-				"CAMSYS_CAM_CGPDN",
-				"CAMSYS_CAMTG_CGPDN",
-				"CAMSYS_CAMSV0_CGPDN",
-				"CAMSYS_CAMSV1_CGPDN",
-				"CAMSYS_CAMSV2_CGPDN",
-				"CAMSYS_CAMSV3_CGPDN",
-				"CAMSYS_LARB13_CGPDN",
-				"CAMSYS_LARB14_CGPDN",
-				"CAMSYS_CCU0_CGPDN",
-				"CAMSYS_SENINF_CGPDN",
-				"CAMSYS_MAIN_CAM2MM_GALS_CGPDN",
-				"CAMSYS_RAWALARB16_CGPDN",
-				"CAMSYS_RAWACAM_CGPDN",
-				"CAMSYS_RAWATG_CGPDN",
-				"CAMSYS_RAWBLARB17_CGPDN",
-				"CAMSYS_RAWBCAM_CGPDN",
-				"CAMSYS_RAWBTG_CGPDN",
-				"CAMSYS_RAWCLARB18_CGPDN",
-				"CAMSYS_RAWCCAM_CGPDN",
-				"CAMSYS_RAWCTG_CGPDN",
-				"TOPCKGEN_TOP_MUX_CCU",
-				"TOPCKGEN_TOP_MUX_CAMTM";
 	};
 
 	flashlight_core: flashlight_core {
