@@ -509,8 +509,8 @@ static void qcom_cpufreq_hw_lmh_exit(struct qcom_cpufreq_data *data)
 	data->cancel_throttle = true;
 	mutex_unlock(&data->throttle_lock);
 
-	cancel_delayed_work_sync(&data->throttle_work);
 	free_irq(data->throttle_irq, data);
+	cancel_delayed_work_sync(&data->throttle_work);
 }
 
 static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
