@@ -291,11 +291,6 @@ static inline int md_sys1_sw_init(struct ccci_modem *md)
 			md->md_wdt_irq_id, ret);
 		return ret;
 	}
-	ret = irq_set_irq_wake(md->md_wdt_irq_id, 1);
-	if (ret)
-		CCCI_ERROR_LOG(md->index, TAG,
-			"irq_set_irq_wake MD_WDT IRQ(%d) error %d\n",
-			md->md_wdt_irq_id, ret);
 	return 0;
 }
 
