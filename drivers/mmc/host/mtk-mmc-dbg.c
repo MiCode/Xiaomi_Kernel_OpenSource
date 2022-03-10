@@ -558,6 +558,8 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 	u64 *task_desc = NULL;
 	u64 data;
 	struct cqhci_host *cq_host = NULL;
+	unsigned long flags;
+	struct msdc_host *host = NULL;
 
 	if (!cmd_hist_enabled)
 		return;
@@ -565,10 +567,14 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 	if (!mmc)
 		return;
 
+	host = mmc_priv(mmc);
 	cq_host = mmc->cqe_private;
 	t = cpu_clock(print_cpu_test);
 	tn = t;
 	nanosec_rem = do_div(t, 1000000000)/1000;
+
+	spin_lock_irqsave(&host->log_lock, flags);
+
 	if (!(mrq->cmd) && cq_host && cq_host->desc_base) { /* CQE */
 		task_desc = (__le64 __force *)dbg_get_desc(cq_host, mrq->tag);
 		cqhci_prep_task_desc_dbg(mrq, &data, 1);
@@ -599,6 +605,7 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 				dbg_host_cnt = dbg_max_cnt;
 			/* remove type = 0, command */
 			dbg_host_cnt--;
+			spin_unlock_irqrestore(&host->log_lock, flags);
 			return;
 		}
 		last_cmd = mrq->cmd->opcode;
@@ -627,6 +634,8 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 
 	if (dbg_host_cnt >= dbg_max_cnt)
 		dbg_host_cnt = 0;
+
+	spin_unlock_irqrestore(&host->log_lock, flags);
 }
 
 static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
@@ -637,6 +646,8 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 	static int last_cmd, last_arg, skip;
 	int l_skip = 0;
 	struct cqhci_host *cq_host = NULL;
+	unsigned long flags;
+	struct msdc_host *host = NULL;
 
 	if (!cmd_hist_enabled)
 		return;
@@ -644,10 +655,13 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 	if (!mmc)
 		return;
 
+	host = mmc_priv(mmc);
 	cq_host = mmc->cqe_private;
 	t = cpu_clock(print_cpu_test);
 
 	nanosec_rem = do_div(t, 1000000000)/1000;
+
+	spin_lock_irqsave(&host->log_lock, flags);
 
 	if (!(mrq->cmd)) { /* CQE */
 		dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
@@ -666,6 +680,7 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 				dbg_host_cnt = dbg_max_cnt;
 			/* remove type = 0, command */
 			dbg_host_cnt--;
+			spin_unlock_irqrestore(&host->log_lock, flags);
 			return;
 		}
 		last_cmd = mrq->cmd->opcode;
@@ -693,6 +708,8 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 	}
 	if (dbg_host_cnt >= dbg_max_cnt)
 		dbg_host_cnt = 0;
+
+	spin_unlock_irqrestore(&host->log_lock, flags);
 }
 
 static void __sd_store_buf_start(void *__data, struct mmc_host *mmc,
@@ -700,6 +717,8 @@ static void __sd_store_buf_start(void *__data, struct mmc_host *mmc,
 {
 	unsigned long long t, tn;
 	unsigned long long nanosec_rem;
+	unsigned long flags;
+	struct msdc_host *host = NULL;
 
 	if (!cmd_hist_enabled)
 		return;
@@ -707,9 +726,12 @@ static void __sd_store_buf_start(void *__data, struct mmc_host *mmc,
 	if (!mmc)
 		return;
 
+	host = mmc_priv(mmc);
 	t = cpu_clock(print_cpu_test);
 	tn = t;
 	nanosec_rem = do_div(t, 1000000000)/1000;
+
+	spin_lock_irqsave(&host->log_lock, flags);
 
 	dbg_run_sd_log_dat[dbg_sd_cnt].time_sec = t;
 	dbg_run_sd_log_dat[dbg_sd_cnt].time_usec = nanosec_rem;
@@ -721,6 +743,8 @@ static void __sd_store_buf_start(void *__data, struct mmc_host *mmc,
 
 	if (dbg_sd_cnt >= sd_dbg_max_cnt)
 		dbg_sd_cnt = 0;
+
+	spin_unlock_irqrestore(&host->log_lock, flags);
 }
 
 static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
@@ -730,6 +754,8 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 	unsigned long long nanosec_rem;
 	static int last_cmd, last_arg, skip;
 	int l_skip = 0;
+	unsigned long flags;
+	struct msdc_host *host = NULL;
 
 	if (!cmd_hist_enabled)
 		return;
@@ -737,6 +763,7 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 	if (!mmc)
 		return;
 
+	host = mmc_priv(mmc);
 	t = cpu_clock(print_cpu_test);
 	tn = t;
 	nanosec_rem = do_div(t, 1000000000)/1000;
@@ -745,16 +772,20 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 	if (last_cmd == mrq->cmd->opcode &&
 		last_arg == mrq->cmd->arg && mrq->cmd->opcode == 13) {
 		skip++;
+		spin_lock_irqsave(&host->log_lock, flags);
 		if (dbg_sd_cnt == 0)
 			dbg_sd_cnt = sd_dbg_max_cnt;
 		/* remove type = 0, command */
 		dbg_sd_cnt--;
+		spin_unlock_irqrestore(&host->log_lock, flags);
 		return;
 	}
 	last_cmd = mrq->cmd->opcode;
 	last_arg = mrq->cmd->arg;
 	l_skip = skip;
 	skip = 0;
+
+	spin_lock_irqsave(&host->log_lock, flags);
 
 	dbg_run_sd_log_dat[dbg_sd_cnt].time_sec = t;
 	dbg_run_sd_log_dat[dbg_sd_cnt].time_usec = nanosec_rem;
@@ -766,6 +797,8 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 
 	if (dbg_sd_cnt >= sd_dbg_max_cnt)
 		dbg_sd_cnt = 0;
+
+	spin_unlock_irqrestore(&host->log_lock, flags);
 }
 
 /* all cases which except softirq of IO */

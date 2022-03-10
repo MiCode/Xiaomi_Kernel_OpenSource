@@ -1444,6 +1444,7 @@ static void msdc_init_hw(struct msdc_host *host)
 	if (host->dev_comp->support_64g)
 		sdr_set_bits(host->base + MSDC_PATCH_BIT2,
 			     MSDC_PB2_SUPPORT_64G);
+
 #if !IS_ENABLED(CONFIG_MMC_AUTOK)
 	if (host->dev_comp->data_tune) {
 		if (host->top_base) {
@@ -2849,6 +2850,9 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	msdc_init_gpd_bd(host, &host->dma);
 	INIT_DELAYED_WORK(&host->req_timeout, msdc_request_timeout);
 	spin_lock_init(&host->lock);
+#if IS_ENABLED(CONFIG_MMC_DEBUG)
+	spin_lock_init(&host->log_lock);
+#endif
 
 	platform_set_drvdata(pdev, mmc);
 	msdc_init_hw(host);
