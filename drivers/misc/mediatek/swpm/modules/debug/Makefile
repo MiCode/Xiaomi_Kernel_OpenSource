@@ -2,6 +2,9 @@
 obj-$(CONFIG_MTK_SWPM_MODULE) += v1/
 
 # platform dependent  KOs
+ifeq ($(CONFIG_MTK_SWPM_MT6789),m)
+obj-$(CONFIG_MTK_SWPM_MT6789) += v6789/
+endif
 ifeq ($(CONFIG_MTK_SWPM_MT6853),m)
 obj-$(CONFIG_MTK_SWPM_MT6853) += v6853/
 endif

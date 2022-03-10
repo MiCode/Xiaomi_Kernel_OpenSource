@@ -20,6 +20,16 @@ config MTK_SWPM_PERF_ARMV8_PMU
 	   Select MTK_SWPM_PERF_ARMV8_PMU then support for the
 	   ARMV8 PMU and L3 cache performance monitor unit (PMU).
 
+config MTK_SWPM_MT6789
+	tristate "Specify Mediatek SWPM Platform is MT6789"
+	depends on MTK_SWPM_MODULE
+	select MTK_SWPM_DBG_COMMON
+	help
+	  Select MediaTek Software Power Model Platform is MT6789
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6789.
+	  If unsure, set N to disable.
+
 config MTK_SWPM_MT6853
 	tristate "Specify Mediatek SWPM Platform is MT6853"
 	depends on MTK_SWPM_MODULE
