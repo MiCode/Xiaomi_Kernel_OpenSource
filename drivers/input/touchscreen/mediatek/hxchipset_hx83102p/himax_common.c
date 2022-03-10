@@ -17,6 +17,34 @@ static void tpd_rotate_180(int *x, int *y)
 }
 #endif
 
+static inline void wakeup_source_prepare(struct wakeup_source *ws, const char *name)
+{
+	if (ws) {
+		memset(ws, 0, sizeof(*ws));
+		ws->name = name;
+	}
+}
+
+static inline void wakeup_source_drop(struct wakeup_source *ws)
+{
+	if (!ws)
+		return;
+	__pm_relax(ws);
+}
+
+static inline void wakeup_source_init(struct wakeup_source *ws,
+				      const char *name)
+{
+	wakeup_source_prepare(ws, name);
+	wakeup_source_add(ws);
+}
+
+static inline void wakeup_source_trash(struct wakeup_source *ws)
+{
+	wakeup_source_remove(ws);
+	wakeup_source_drop(ws);
+}
+
 #if defined(__HIMAX_MOD__)
 int (*hx_msm_drm_register_client)(struct notifier_block *nb);
 int (*hx_msm_drm_unregister_client)(struct notifier_block *nb);
