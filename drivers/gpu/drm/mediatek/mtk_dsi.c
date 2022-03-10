@@ -5889,7 +5889,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 		bw_base = data_rate * dsi->lanes * compress_rate * 4;
 		bw_base = bw_base / bpp / 100;
 	}
-	DDPDBG("Frame Bw:%llu",	bw_base);
+	DDPDBG("Frame Bw:%llu, bpp:%d",	bw_base, bpp);
 	return bw_base;
 }
 
@@ -7079,6 +7079,14 @@ int fbconfig_mtk_dsi_get_mode_type(struct mtk_ddp_comp *comp)
 	return vid_mode;
 }
 
+int fbconfig_mtk_dsi_get_bpp(struct mtk_ddp_comp *comp)
+{
+	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+	int bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
+
+	DDPINFO("%s, format:%d, bpp:%d\n", __func__, dsi->format, bpp);
+	return bpp;
+}
 
 u32 PanelMaster_get_dsi_timing(struct mtk_dsi *dsi, enum MIPI_SETTING_TYPE type)
 {

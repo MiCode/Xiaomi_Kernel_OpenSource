@@ -2180,8 +2180,8 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 	struct cmdq_pkt_buffer *cmdq_buf = &(mtk_crtc->gce_obj.buf);
 	unsigned int bw = overlap_to_bw(crtc, frame_weight);
 
-	DDPINFO("%s bw=%d, last_hrt_req=%d\n",
-		__func__, bw, mtk_crtc->qos_ctx->last_hrt_req);
+	DDPINFO("%s bw=%d, last_hrt_req=%d, overlap=%d\n",
+		__func__, bw, mtk_crtc->qos_ctx->last_hrt_req, frame_weight);
 
 	/* Only update HRT information on path with HRT comp */
 	if (bw > mtk_crtc->qos_ctx->last_hrt_req) {
