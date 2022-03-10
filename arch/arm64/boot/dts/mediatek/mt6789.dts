@@ -1013,6 +1013,10 @@
 		};
 	};
 
+	touch: touch {
+		compatible = "mediatek,touch";
+	};
+
 	scpsys: power-controller@10006000 {
 		compatible = "mediatek,mt6789-scpsys", "syscon";
 		reg = <0 0x10006000 0 0x1000>;
