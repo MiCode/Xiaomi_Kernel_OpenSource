@@ -2643,13 +2643,13 @@ static void dpmaif_irq_tx_done(unsigned int tx_done_isr)
 }
 
 #ifdef ENABLE_DPMAIF_ISR_LOG
-static inline void dpmaif_record_isr_cnt(unsigned long long ts,
+static inline int dpmaif_record_isr_cnt(unsigned long long ts,
 		unsigned int L2TISAR0, unsigned int L2RISAR0)
 {
-	int i;
+	unsigned int i;
 
 	if (g_isr_log == NULL)
-		return;
+		return 0;
 
 	if ((ts - g_pre_time) >= 1000000000) {  // > 1s
 		g_isr_log_idx++;
@@ -2672,6 +2672,8 @@ static inline void dpmaif_record_isr_cnt(unsigned long long ts,
 		if (L2TISAR0 & (1<<i)) {
 			L2TISAR0 &= (~(1<<i));
 			g_isr_log[g_isr_log_idx].irq_cnt[i]++;
+			if (g_isr_log[g_isr_log_idx].irq_cnt[i] > 50000)
+				return -1;
 		}
 	}
 
@@ -2682,14 +2684,18 @@ static inline void dpmaif_record_isr_cnt(unsigned long long ts,
 		if (L2RISAR0 & (1<<i)) {
 			L2RISAR0 &= (~(1<<i));
 			g_isr_log[g_isr_log_idx].irq_cnt[i+32]++;
+			if (g_isr_log[g_isr_log_idx].irq_cnt[i + 32] > 50000)
+				return -1;
 		}
 	}
+
+	return 0;
 }
 #endif
 
 static void dpmaif_irq_cb(struct hif_dpmaif_ctrl *hif_ctrl)
 {
-	unsigned int L2RISAR0, L2TISAR0;
+	unsigned int L2RISAR0, L2TISAR0, L2RISAR0_bak, L2TISAR0_bak;
 	unsigned int L2RIMR0, L2TIMR0;
 #ifdef DPMAIF_DEBUG_LOG
 	unsigned long long ts = 0, isr_rem_nsec;
@@ -2697,9 +2703,11 @@ static void dpmaif_irq_cb(struct hif_dpmaif_ctrl *hif_ctrl)
 
 	/* RX interrupt */
 	L2RISAR0 = drv3_dpmaif_get_dl_isr_event();
+	L2RISAR0_bak = L2RISAR0;
 	L2RIMR0 = drv3_dpmaif_get_dl_interrupt_mask();
 	/* TX interrupt */
 	L2TISAR0 = drv3_dpmaif_get_ul_isr_event();
+	L2TISAR0_bak = L2TISAR0;
 	L2TIMR0 = drv3_dpmaif_ul_get_ul_interrupt_mask();
 
 	/* clear IP busy register wake up cpu case */
@@ -2760,7 +2768,9 @@ static void dpmaif_irq_cb(struct hif_dpmaif_ctrl *hif_ctrl)
 	}
 
 #ifdef ENABLE_DPMAIF_ISR_LOG
-	dpmaif_record_isr_cnt(hif_ctrl->traffic_info.latest_isr_time, L2TISAR0, L2RISAR0);
+	if (dpmaif_record_isr_cnt(hif_ctrl->traffic_info.latest_isr_time, L2TISAR0, L2RISAR0))
+		CCCI_ERROR_LOG(0, TAG, "DPMAIF IRQ L2(%x/%x)(%x/%x)!\n",
+				L2TISAR0_bak, L2RISAR0_bak, L2TIMR0, L2RIMR0);
 #endif
 
 
