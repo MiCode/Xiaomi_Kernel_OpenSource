@@ -5337,13 +5337,26 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				atomic_read(&ctx->enqueued_frame_seq_no));
 			/*sensor setting after request drained check*/
 			if (ctx->used_raw_num) {
-				if (ctx->pipe->feature_active == 0) {
-					drained_seq_no =
-						atomic_read(&sensor_ctrl->last_drained_seq_no);
+				drained_seq_no = atomic_read(&sensor_ctrl->last_drained_seq_no);
+				dev_dbg(cam->dev, "%s: feature pending(0x%x) active(0x%x)\n",
+							__func__,
+							ctx->pipe->feature_pending,
+							ctx->pipe->feature_active);
+				if (ctx->pipe->feature_active == 0 ||
+						(mtk_cam_feature_is_mstream(
+						ctx->pipe->feature_active) &&
+						!mtk_cam_is_mstream(ctx))) {
 					/* check if deadline timer drained ever triggered */
 					/* should exclude sensor set in below <= second request */
 					if (atomic_read(&sensor_ctrl->sensor_enq_seq_no) ==
 						drained_seq_no && drained_seq_no > 2)
+						mtk_cam_submit_kwork_in_sensorctrl(
+							sensor_ctrl->sensorsetting_wq,
+							sensor_ctrl);
+				} else if (mtk_cam_is_mstream(ctx)) {
+					req_stream_data = mtk_cam_req_get_s_data(req, stream_id, 1);
+					if (req_stream_data->frame_seq_no ==
+							drained_seq_no && drained_seq_no > 2)
 						mtk_cam_submit_kwork_in_sensorctrl(
 							sensor_ctrl->sensorsetting_wq,
 							sensor_ctrl);

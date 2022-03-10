@@ -129,17 +129,17 @@ static bool mtk_cam_request_drained(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 		sensor_seq_no_next = atomic_read(&ctx->sensor_ctrl.isp_enq_seq_no) + 1;
 
 	if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) {
-		sensor_seq_no_next = atomic_read(&ctx->sensor_ctrl.isp_enq_seq_no) + 1;
-		if (sensor_seq_no_next <= atomic_read(&ctx->enqueued_frame_seq_no) ||
+		if (sensor_seq_no_next <= atomic_read(&ctx->sensor_ctrl.sensor_enq_seq_no) ||
 				!ctx->trigger_next_drain)
 			res = 1;
 	} else {
-		if (sensor_seq_no_next <= atomic_read(&ctx->enqueued_frame_seq_no))
+		if (sensor_seq_no_next <= atomic_read(&ctx->sensor_ctrl.sensor_enq_seq_no))
 			res = 1;
 	}
 
 	/* Send V4L2_EVENT_REQUEST_DRAINED event */
 	if (res == 0) {
+		atomic_set(&sensor_ctrl->last_drained_seq_no, sensor_seq_no_next);
 		mtk_cam_event_request_drained(ctx->pipe);
 		dev_dbg(ctx->cam->dev, "request_drained:(%d)\n",
 			sensor_seq_no_next);
@@ -1732,9 +1732,6 @@ static enum hrtimer_restart sensor_deadline_timer_handler(struct hrtimer *t)
 	if (ctx->used_raw_num) {
 		if (ctx->pipe->feature_active == 0 ||
 				mtk_cam_feature_is_mstream(ctx->pipe->feature_active)) {
-			int drained_seq_no =
-				atomic_read(&sensor_ctrl->sensor_request_seq_no) + 1;
-			atomic_set(&sensor_ctrl->last_drained_seq_no, drained_seq_no);
 			return HRTIMER_NORESTART;
 		}
 	}
