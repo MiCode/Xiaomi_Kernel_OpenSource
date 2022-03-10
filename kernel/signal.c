@@ -911,7 +911,12 @@ static bool prepare_signal(int sig, struct task_struct *p, bool force)
 
 	if (signal->flags & SIGNAL_GROUP_EXIT) {
 		if (signal->core_state)
+#if IS_ENABLED(CONFIG_MTK_AVOID_TRUNCATE_COREDUMP)
+			pr_info("[%d:%s] skip sig %d due to coredump\n",
+					p->pid, p->comm, sig);
+#else
 			return sig == SIGKILL;
+#endif
 		/*
 		 * The process is in the middle of dying, drop the signal.
 		 */
