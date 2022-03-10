@@ -25,6 +25,8 @@ static const struct mtk_mmc_compatible mt8135_compat = {
 	.enhance_rx = false,
 	.support_64g = false,
 	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
 };
 
 static const struct mtk_mmc_compatible mt8173_compat = {
@@ -39,6 +41,8 @@ static const struct mtk_mmc_compatible mt8173_compat = {
 	.enhance_rx = false,
 	.support_64g = false,
 	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
 };
 
 static const struct mtk_mmc_compatible mt8183_compat = {
@@ -53,6 +57,8 @@ static const struct mtk_mmc_compatible mt8183_compat = {
 	.enhance_rx = true,
 	.support_64g = true,
 	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
 };
 
 static const struct mtk_mmc_compatible mt2701_compat = {
@@ -67,6 +73,8 @@ static const struct mtk_mmc_compatible mt2701_compat = {
 	.enhance_rx = false,
 	.support_64g = false,
 	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
 };
 
 static const struct mtk_mmc_compatible mt2712_compat = {
@@ -81,6 +89,8 @@ static const struct mtk_mmc_compatible mt2712_compat = {
 	.enhance_rx = true,
 	.support_64g = true,
 	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
 };
 
 static const struct mtk_mmc_compatible mt7622_compat = {
@@ -95,6 +105,8 @@ static const struct mtk_mmc_compatible mt7622_compat = {
 	.enhance_rx = true,
 	.support_64g = false,
 	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
 };
 
 static const struct mtk_mmc_compatible mt8516_compat = {
@@ -107,6 +119,8 @@ static const struct mtk_mmc_compatible mt8516_compat = {
 	.busy_check = true,
 	.stop_clk_fix = true,
 	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
 };
 
 static const struct mtk_mmc_compatible mt7620_compat = {
@@ -121,6 +135,8 @@ static const struct mtk_mmc_compatible mt7620_compat = {
 	.enhance_rx = false,
 	.use_internal_cd = true,
 	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
 };
 
 static const struct mtk_mmc_compatible mt6779_compat = {
@@ -135,6 +151,8 @@ static const struct mtk_mmc_compatible mt6779_compat = {
 	.enhance_rx = true,
 	.support_64g = true,
 	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
 };
 
 static const struct mtk_mmc_compatible mt6789_compat = {
@@ -165,6 +183,8 @@ static const struct mtk_mmc_compatible common_compat = {
 	.enhance_rx = true,
 	.support_64g = true,
 	.need_gate_cg = true,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
 };
 
 static const struct mtk_mmc_compatible common_v2_compat = {
@@ -179,6 +199,8 @@ static const struct mtk_mmc_compatible common_v2_compat = {
 	.enhance_rx = true,
 	.support_64g = true,
 	.need_gate_cg = false,
+	.new_tx_ver = 0,
+	.new_rx_ver = 0,
 };
 
 static const struct of_device_id msdc_of_ids[] = {
