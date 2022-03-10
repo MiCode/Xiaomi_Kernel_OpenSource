@@ -3790,13 +3790,31 @@
 			reg = <0 0x11200000 0 0x10000>,
 				<0 0x11f40000 0 0x10000>;
 			interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH  0>;
-			phys = <&u3fpgaport0 PHY_TYPE_USB2>;
+			clocks =  <&clk26m>;
+			clock-names = "sys_clk";
+			phys = <&u2port0 PHY_TYPE_USB2>;
 			mode = <2>;
 			multipoint = <1>;
 			num_eps = <16>;
 			interrupt-names = "mc";
 			dr_mode = "otg";
 			usb-role-switch;
+			cdp-block;
+		};
+
+		u2phy0: usb-phy@11f40000 {
+			compatible = "mediatek,generic-tphy-v2";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+			status = "okay";
+			u2port0: usb-phy@11f40000 {
+				reg = <0 0x11f40000 0 0x700>;
+				clocks = <&clk26m>;
+				clock-names = "ref";
+				#phy-cells = <1>;
+				status = "okay";
+			};
 		};
 
 		u3fpgaphy: usb-phy {
@@ -3805,7 +3823,7 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			fpga_i2c_physical_base = <0x11eb0000>;
-			status = "okay";
+			status = "disabled";
 
 			u3fpgaport0: usb-phy@0 {
 				chip-id= <0xa60931a>;
