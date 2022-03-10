@@ -414,8 +414,9 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		state->pending.enable = plane->state->visible;
 		state->pending.pitch = pitch;
 		state->pending.format = fb->format->format;
-		state->pending.addr = (mtk_crtc->mml_ir_sram) ?
-			(dma_addr_t)(mtk_crtc->mml_ir_sram->paddr) : (dma_addr_t)(0);
+		state->pending.addr = (mtk_crtc->mml_ir_sram.data)
+					  ? (dma_addr_t)(mtk_crtc->mml_ir_sram.data->paddr)
+					  : (dma_addr_t)(0);
 		state->pending.modifier = MTK_FMT_NONE;
 		state->pending.size = pitch  * height;
 		state->pending.src_x = 0;
