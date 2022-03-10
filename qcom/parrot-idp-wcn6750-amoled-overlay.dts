@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "parrot-idp-wcn6750-amoled.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Parrot WCN6750 IDP + AMOLED";
+	compatible = "qcom,parrot-idp", "qcom,parrot", "qcom,idp";
+	qcom,msm-id = <537 0x10000>;
+	qcom,board-id = <34 4>;
+};

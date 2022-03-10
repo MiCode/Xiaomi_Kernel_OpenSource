@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "parrot-qrd-wcn6750.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Parrot QRD";
+	compatible = "qcom,parrot-qrd", "qcom,parrot", "qcom,qrd";
+	qcom,msm-id = <537 0x10000>;
+	qcom,board-id = <0x1000B 1>;
+};
