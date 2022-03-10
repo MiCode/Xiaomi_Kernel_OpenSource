@@ -39,6 +39,7 @@ struct STRUCT_CAM_CAL_CONFIG_STRUCT imx481_mtk_tri_eeprom = {
 	.max_size = 0x2000,
 	.enable_preload = 0,
 	.preload_size = 0x0000,
+	.has_stored_data = 0,
 };
 
 static unsigned int do_2a_gain_default(struct EEPROM_DRV_FD_DATA *pdata,

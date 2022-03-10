@@ -270,6 +270,16 @@ static long eeprom_ioctl(struct file *a_file, unsigned int a_cmd,
 		}
 		kfree(pBuff);
 		return ret;
+	case CAM_CALIOC_G_GKI_NEED_POWER_ON:
+		ret = get_is_need_power_on(pdata, (unsigned int *)pBuff);
+		if (ret == CAM_CAL_ERR_NO_ERR) {
+			if (copy_to_user((u8 __user *) a_param, (u8 *) pBuff, _IOC_SIZE(a_cmd))) {
+				kfree(pBuff);
+				return CAM_CAL_ERR_NO_DEVICE;
+			}
+		}
+		kfree(pBuff);
+		return ret;
 	default:
 		kfree(pBuff);
 		must_log("No such command %d\n", a_cmd);

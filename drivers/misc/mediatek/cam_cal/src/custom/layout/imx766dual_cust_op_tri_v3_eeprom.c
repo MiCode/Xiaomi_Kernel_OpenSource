@@ -43,6 +43,7 @@ struct STRUCT_CAM_CAL_CONFIG_STRUCT imx766dual_cust_op_tri_v3_eeprom = {
 	.max_size = 0x8000,
 	.enable_preload = 1,
 	.preload_size = 0x8000,
+	.has_stored_data = 1,
 };
 
 static unsigned int do_single_lsc_imx766dual(struct EEPROM_DRV_FD_DATA *pdata,

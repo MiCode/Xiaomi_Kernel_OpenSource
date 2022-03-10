@@ -228,6 +228,13 @@ struct STRUCT_CAM_CAL_LENS_ID_STRUCT {
 	unsigned char LensDrvId[10];
 };
 
+struct STRUCT_CAM_CAL_NEED_POWER_ON {
+	enum ENUM_CAMERA_CAM_CAL_TYPE_ENUM Command;
+	unsigned int sensorID;
+	unsigned int deviceID;
+	unsigned int needPowerOn;
+};
+
 /*****************************************************************************
  * Arrary
  *****************************************************************************/
