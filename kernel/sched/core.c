@@ -1360,6 +1360,34 @@ bool uclamp_latency_sensitive(struct task_struct *p)
 static inline void init_uclamp(void) { }
 #endif /* CONFIG_UCLAMP_TASK */
 
+int dequeue_idle_cpu(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+#ifdef CONFIG_SMP
+	if (rq->ttwu_pending)
+		return 0;
+#endif
+	if (rq->nr_running == 1)
+		return 1;
+
+	return 0;
+}
+
+DEFINE_PER_CPU(int, cpufreq_idle_cpu);
+DEFINE_PER_CPU(spinlock_t, cpufreq_idle_cpu_lock);
+static void sched_queuedeq_task(int type, struct rq *rq, struct task_struct *p, int flags)
+{
+	int cpu = rq->cpu;
+
+	spin_lock(&per_cpu(cpufreq_idle_cpu_lock, cpu));
+	if ((type == -1) && dequeue_idle_cpu(cpu) && (flags & DEQUEUE_SLEEP))
+		per_cpu(cpufreq_idle_cpu, cpu) = 1;
+	else
+		per_cpu(cpufreq_idle_cpu, cpu) = 0;
+	spin_unlock(&per_cpu(cpufreq_idle_cpu_lock, cpu));
+}
+
 static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 {
 	if (!(flags & ENQUEUE_NOCLOCK))
@@ -1371,6 +1399,7 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 	}
 
 	uclamp_rq_inc(rq, p);
+	sched_queuedeq_task(1, rq, p, flags);
 	p->sched_class->enqueue_task(rq, p, flags);
 
 	/* update last_enqueued_ts for big task rotation */
@@ -1388,6 +1417,7 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 	}
 
 	uclamp_rq_dec(rq, p);
+	sched_queuedeq_task(-1, rq, p, flags);
 	p->sched_class->dequeue_task(rq, p, flags);
 }
 
@@ -2482,6 +2512,13 @@ void sched_ttwu_pending(void)
 	if (!llist)
 		return;
 
+	/*
+	 * rq::ttwu_pending racy indication of out-standing wakeups.
+	 * Races such that false-negatives are possible, since they
+	 * are shorter lived that false-positives would be.
+	 */
+	WRITE_ONCE(rq->ttwu_pending, 0);
+
 	rq_lock_irqsave(rq, &rf);
 	update_rq_clock(rq);
 
@@ -2539,6 +2576,7 @@ static void ttwu_queue_remote(struct task_struct *p, int cpu, int wake_flags)
 
 	p->sched_remote_wakeup = !!(wake_flags & WF_MIGRATED);
 
+	WRITE_ONCE(rq->ttwu_pending, 1);
 	if (llist_add(&p->wake_entry, &cpu_rq(cpu)->wake_list)) {
 		if (!set_nr_if_polling(rq->idle))
 			smp_send_reschedule(cpu);
@@ -4897,7 +4935,7 @@ int idle_cpu(int cpu)
 		return 0;
 
 #ifdef CONFIG_SMP
-	if (!llist_empty(&rq->wake_list))
+	if (rq->ttwu_pending)
 		return 0;
 #endif
 
