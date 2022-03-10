@@ -1252,7 +1252,13 @@ static int mtk_senif_power_ctrl_ccu(struct seninf_core *core, int on_off)
 		ret = rproc_boot(core->rproc_ccu_handle);
 		if (ret)
 			dev_info(core->dev, "boot ccu rproc fail\n");
+
+		if (core->dfs.reg)
+			regulator_enable(core->dfs.reg);
 	} else {
+		if (core->dfs.reg && regulator_is_enabled(core->dfs.reg))
+			regulator_disable(core->dfs.reg);
+
 		if (core->rproc_ccu_handle) {
 			rproc_shutdown(core->rproc_ccu_handle);
 			ret = 0;
@@ -1872,8 +1878,6 @@ static int runtime_suspend(struct device *dev)
 				clk_disable_unprepare(ctx->core->clk[i]);
 		} while (i);
 		seninf_core_pm_runtime_put(core);
-		if (ctx->core->dfs.reg && regulator_is_enabled(ctx->core->dfs.reg))
-			regulator_disable(ctx->core->dfs.reg);
 	}
 
 	mutex_unlock(&core->mutex);
@@ -1892,8 +1896,6 @@ static int runtime_resume(struct device *dev)
 	core->refcnt++;
 
 	if (core->refcnt == 1) {
-		if (ctx->core->dfs.reg)
-			regulator_enable(ctx->core->dfs.reg);
 		seninf_core_pm_runtime_get_sync(core);
 		for (i = 0; i < CLK_TOP_SENINF_END; i++) {
 			if (core->clk[i])

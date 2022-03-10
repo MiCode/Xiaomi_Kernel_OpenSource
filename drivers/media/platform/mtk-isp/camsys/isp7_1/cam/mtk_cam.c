@@ -6298,6 +6298,7 @@ faile_release_msg_dev:
 static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 {
 	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
+	struct mtk_camsys_dvfs *dvfs_info = &cam_dev->camsys_ctrl.dvfs_info;
 	int ret;
 
 	if (on_off) {
@@ -6314,7 +6315,13 @@ static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 		ret = rproc_boot(cam_dev->rproc_ccu_handle);
 		if (ret)
 			dev_info(dev, "boot ccu rproc fail\n");
+
+		if (dvfs_info->reg_vmm)
+			regulator_enable(dvfs_info->reg_vmm);
 	} else {
+		if (dvfs_info->reg_vmm && regulator_is_enabled(dvfs_info->reg_vmm))
+			regulator_disable(dvfs_info->reg_vmm);
+
 		if (cam_dev->rproc_ccu_handle) {
 			rproc_shutdown(cam_dev->rproc_ccu_handle);
 			ret = 0;
@@ -6327,28 +6334,14 @@ out:
 
 static int mtk_cam_runtime_suspend(struct device *dev)
 {
-	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
-	struct mtk_camsys_dvfs *dvfs_info =
-				&cam_dev->camsys_ctrl.dvfs_info;
-
 	dev_dbg(dev, "- %s\n", __func__);
-
-	if (dvfs_info->reg_vmm && regulator_is_enabled(dvfs_info->reg_vmm))
-		regulator_disable(dvfs_info->reg_vmm);
 
 	return 0;
 }
 
 static int mtk_cam_runtime_resume(struct device *dev)
 {
-	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
-	struct mtk_camsys_dvfs *dvfs_info =
-				&cam_dev->camsys_ctrl.dvfs_info;
-
 	dev_dbg(dev, "- %s\n", __func__);
-
-	if (dvfs_info->reg_vmm)
-		regulator_enable(dvfs_info->reg_vmm);
 
 	mtk_cam_timesync_init(true);
 
