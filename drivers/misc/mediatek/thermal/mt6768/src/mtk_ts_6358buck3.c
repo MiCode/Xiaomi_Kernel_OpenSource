@@ -576,7 +576,7 @@ static int __init mt6358tsbuck3_init(void)
 
 	struct proc_dir_entry *entry = NULL;
 	struct proc_dir_entry *mt6358tsbuck3_dir = NULL;
-	struct regmap  *reg_nul;
+	struct regmap  *reg_nul = NULL;
 	mtktspmic_info("[%s]\n", __func__);
 
 	mtktspmic_cali_prepare(reg_nul);
