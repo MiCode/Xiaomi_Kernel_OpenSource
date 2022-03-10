@@ -1707,10 +1707,10 @@ int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 		if (render_iter->spid)
 			xgf_add_pid2prev_dep(render_iter, render_iter->spid, 0);
 
+		xgf_add_pid2prev_dep(render_iter, pid, 0);
+
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
-
-		xgf_add_pid2prev_dep(render_iter, pid, 0);
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
@@ -1890,10 +1890,10 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 		if (render_iter->spid)
 			xgf_add_pid2prev_dep(render_iter, render_iter->spid, 0);
 
+		xgf_add_pid2prev_dep(render_iter, pid, 0);
+
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
-
-		xgf_add_pid2prev_dep(render_iter, pid, 0);
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
