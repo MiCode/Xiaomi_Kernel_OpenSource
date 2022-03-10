@@ -10114,8 +10114,8 @@ static int mtk_drm_pf_release_thread(void *data)
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
 	struct drm_crtc *crtc;
 	unsigned int crtc_idx;
-	unsigned long flags = 0;
 #ifndef DRM_CMDQ_DISABLE
+	unsigned long flags = 0;
 	ktime_t pf_time;
 	unsigned int fence_idx = 0;
 #endif
