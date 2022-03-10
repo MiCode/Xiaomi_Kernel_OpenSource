@@ -7,6 +7,7 @@
 #ifdef CONFIG_MTK_TASK_TURBO
 #include <mt-plat/turbo_common.h>
 #endif
+#include "../../drivers/misc/mediatek/base/power/include/mtk_upower.h"
 
 DEFINE_PER_CPU(struct task_struct*, migrate_task);
 static int idle_pull_cpu_stop(void *data)
@@ -145,6 +146,8 @@ int perf_domain_compare(void *priv, struct list_head *a, struct list_head *b)
 void init_perf_order_domains(struct perf_domain *pd)
 {
 	struct perf_order_domain *domain;
+	struct upower_tbl *tbl;
+	int cpu;
 
 	pr_info("Initializing perf order domain:\n");
 
@@ -185,6 +188,16 @@ void init_perf_order_domains(struct perf_domain *pd)
 	perf_order_cpu_mask_setup();
 
 	pod_ready = true;
+
+	for_each_possible_cpu(cpu) {
+		tbl = upower_get_core_tbl(cpu);
+		if (arch_scale_cpu_capacity(NULL, cpu) != tbl->row[tbl->row_num - 1].cap) {
+			pr_info("arch_scale_cpu_capacity(%d)=%d, tbl->row[last_idx].cap=%d\n",
+				cpu, arch_scale_cpu_capacity(NULL, cpu),
+				tbl->row[tbl->row_num - 1].cap);
+			topology_set_cpu_scale(cpu, tbl->row[tbl->row_num - 1].cap);
+		}
+	}
 
 	pr_info("Initializing perf order domain done\n");
 }
