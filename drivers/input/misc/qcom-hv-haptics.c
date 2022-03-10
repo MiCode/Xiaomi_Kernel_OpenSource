@@ -1655,7 +1655,7 @@ static int haptics_update_memory_data(struct haptics_chip *chip,
 }
 
 static int haptics_update_fifo_samples(struct haptics_chip *chip,
-					u8 *samples, u32 length)
+					u8 *samples, u32 length, bool refill)
 {
 	int rc;
 	u8 val;
@@ -1665,7 +1665,7 @@ static int haptics_update_fifo_samples(struct haptics_chip *chip,
 		return -EINVAL;
 	}
 
-	if (chip->hw_type == HAP525_HV) {
+	if (chip->hw_type == HAP525_HV && !refill) {
 		val = MEM_FLUSH_RELOAD_BIT;
 		rc = haptics_write(chip, chip->ptn_addr_base,
 				HAP_PTN_MEM_OP_ACCESS_REG, &val, 1);
@@ -1919,7 +1919,7 @@ static int haptics_set_fifo(struct haptics_chip *chip, struct fifo_cfg *fifo)
 	if ((num < fifo->num_s) && (num % HAP_PTN_FIFO_DIN_NUM))
 		num = round_down(num, HAP_PTN_FIFO_DIN_NUM);
 
-	rc = haptics_update_fifo_samples(chip, fifo->samples, num);
+	rc = haptics_update_fifo_samples(chip, fifo->samples, num, false);
 	if (rc < 0) {
 		dev_err(chip->dev, "write FIFO samples failed, rc=%d\n", rc);
 		return rc;
@@ -3065,7 +3065,7 @@ static irqreturn_t fifo_empty_irq_handler(int irq, void *data)
 		else
 			num = samples_left;
 
-		rc = haptics_update_fifo_samples(chip, samples, num);
+		rc = haptics_update_fifo_samples(chip, samples, num, true);
 		if (rc < 0) {
 			dev_err(chip->dev, "Update FIFO samples failed, rc=%d\n",
 					rc);
