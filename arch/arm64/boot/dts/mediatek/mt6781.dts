@@ -3099,6 +3099,8 @@
 			<&camsys_rawa CLK_CAM_RA_LARBX>;
 		clock-names = "scp-cam-rawa", "cam-rawa-larbx";
 		mediatek,smi-id = <16>;
+		power-reset = <0x1a04f00c 0>;
+		common-reset = <0x1a00c000 2>;
 	};
 
 	smi_larb17: smi_larb17@1a010000 {
@@ -3109,6 +3111,8 @@
 			<&camsys_rawb CLK_CAM_RB_LARBX>;
 		clock-names = "scp-cam-rawb", "cam-rawb-larbx";
 		mediatek,smi-id = <17>;
+		power-reset = <0x1a06f00c 0>;
+		common-reset = <0x1a00d000 3>;
 	};
 
 	smi_larb18: smi_larb18@1a011000 {
@@ -3885,6 +3889,7 @@
 		clocks = <&scpsys SCP_SYS_ISP>;
 		clock-names = "scp-isp";
 		mediatek,smi-id = <28>;
+		common-clamp = <1>;
 	};
 
 	mfb@15010000 {
@@ -3981,6 +3986,9 @@
 			<&imgsys2 CLK_IMGSYS2_LARB9>;
 		clock-names = "scp-isp2", "img2-larb9";
 		mediatek,smi-id = <11>;
+		power-reset = <0x1502000c 2>,
+				<0x1582000c 0>;
+		common-reset = <0x1502f000 1>;
 	};
 
 	smi_larb12@15830000 {
@@ -4261,6 +4269,7 @@
 		clocks = <&scpsys SCP_SYS_CAM>;
 		clock-names = "scp-cam";
 		mediatek,smi-id = <26>;
+		common-clamp = <2>;
 	};
 
 	cam_smi_subcom@1a00d000 {
@@ -4269,6 +4278,7 @@
 		clocks = <&scpsys SCP_SYS_CAM>;
 		clock-names = "scp-cam";
 		mediatek,smi-id = <27>;
+		common-clamp = <3>;
 	};
 
 	flashlight_core: flashlight_core {
