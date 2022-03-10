@@ -247,13 +247,13 @@ static const struct of_device_id isp_of_ids[] = {
 		.compatible = "mediatek,camsys",
 	},
 	{
-		.compatible = "mediatek,camsys_rawa",
+		.compatible = "mediatek,camsys_a",
 	},
 	{
-		.compatible = "mediatek,camsys_rawb",
+		.compatible = "mediatek,camsys_b",
 	},
 	{
-		.compatible = "mediatek,camsys_rawc",
+		.compatible = "mediatek,camsys_c",
 	},
 	{
 		.compatible = "mediatek,cam1_inner",
