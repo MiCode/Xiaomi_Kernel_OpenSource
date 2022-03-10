@@ -2794,70 +2794,70 @@
 			mediatek,smi-id = <1>;
 //			fake-engine = <&smi_larb0 M4U_PORT_L0_DISP_FAKE0>,
 //					<&smi_larb1 M4U_PORT_L1_DISP_FAKE1>;
-//			power-domains = <&scpsys MT6789_POWER_DOMAIN_DISP>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_26M>,
-//				   <&dispsys_config_clk CLK_MM_APB_BUS>,
-//				   <&dispsys_config_clk CLK_MM_DISP_MUTEX0>;
-//			clock-num = <3>;
+			power-domains = <&scpsys MT6789_POWER_DOMAIN_DISP>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_26M>,
+				   <&dispsys_config_clk CLK_MM_APB_BUS>,
+				   <&dispsys_config_clk CLK_MM_DISP_MUTEX0>;
+			clock-num = <3>;
 //			operating-points-v2 = <&opp_table_disp>;
-			// dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-			// interconnects = <&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>;
-			// interconnect-names = "disp_hrt_qos";
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			//interconnects = <&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>;
+			//interconnect-names = "disp_hrt_qos";
 
 			/* define threads, see mt6789-gce.h */
-//			mediatek,mailbox-gce = <&gce>;
-//			mboxes = <&gce 0 0 CMDQ_THR_PRIO_4>,
-//				<&gce 1 0 CMDQ_THR_PRIO_4>,
-//				<&gce 2 0 CMDQ_THR_PRIO_4>,
-//				<&gce 3 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
-//				<&gce 4 0 CMDQ_THR_PRIO_4>,
-//				<&gce 6 0 CMDQ_THR_PRIO_3>;
-//
-//			gce-client-names = "CLIENT_CFG0",
-//				"CLIENT_CFG1",
-//				"CLIENT_CFG2",
-//				"CLIENT_TRIG_LOOP0",
-//				"CLIENT_SUB_CFG0",
-//				"CLIENT_DSI_CFG0";
-//
-//			gce-subsys = <&gce 0x14000000 SUBSYS_1400XXXX>,
-//				<&gce 0x14010000 SUBSYS_1401XXXX>,
-//				<&gce 0x14020000 SUBSYS_1402XXXX>;
-//
-//			gce-event-names = "disp_mutex0_eof",
-//				"disp_token_stream_dirty0",
-//				"disp_wait_dsi0_te",
-//				"disp_token_stream_eof0",
-//				"disp_dsi0_eof",
-//				"disp_token_esd_eof0",
-//				"disp_rdma0_eof0",
-//				"disp_wdma0_eof0",
-//				"disp_token_stream_block0",
-//				"disp_token_cabc_eof0",
-//				"disp_wdma0_eof2",
-//				"disp_dsi0_sof0",
-//				"disp_token_disp_va_start0",
-//				"disp_token_disp_va_end0",
-//				"disp_token_disp_va_start2",
-//				"disp_token_disp_va_end2";
-//
-//			gce-events =
-//				<&gce CMDQ_EVENT_DISP_STREAM_DONE_ENG_EVENT_0>,
-//				<&gce CMDQ_SYNC_TOKEN_CONFIG_DIRTY>,
-//				<&gce CMDQ_EVENT_DSI0_TE_ENG_EVENT>,
-//				<&gce CMDQ_SYNC_TOKEN_STREAM_EOF>,
-//				<&gce CMDQ_EVENT_DSI0_FRAME_DONE>,
-//				<&gce CMDQ_SYNC_TOKEN_ESD_EOF>,
-//				<&gce CMDQ_EVENT_DISP_RDMA0_FRAME_DONE>,
-//				<&gce CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
-//				<&gce CMDQ_SYNC_TOKEN_STREAM_BLOCK>,
-//				<&gce CMDQ_SYNC_TOKEN_CABC_EOF>,
-//				<&gce CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
-//				<&gce CMDQ_EVENT_DSI0_SOF>,
-//				<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
-//				<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
-//				<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
-//				<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>;
+			mediatek,mailbox-gce = <&gce>;
+			mboxes = <&gce 0 0 CMDQ_THR_PRIO_4>,
+				<&gce 1 0 CMDQ_THR_PRIO_4>,
+				<&gce 2 0 CMDQ_THR_PRIO_4>,
+				<&gce 3 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
+				<&gce 4 0 CMDQ_THR_PRIO_4>,
+				<&gce 6 0 CMDQ_THR_PRIO_3>;
+
+			gce-client-names = "CLIENT_CFG0",
+				"CLIENT_CFG1",
+				"CLIENT_CFG2",
+				"CLIENT_TRIG_LOOP0",
+				"CLIENT_SUB_CFG0",
+				"CLIENT_DSI_CFG0";
+
+			gce-subsys = <&gce 0x14000000 SUBSYS_1400XXXX>,
+				<&gce 0x14010000 SUBSYS_1401XXXX>,
+				<&gce 0x14020000 SUBSYS_1402XXXX>;
+
+			gce-event-names = "disp_mutex0_eof",
+				"disp_token_stream_dirty0",
+				"disp_wait_dsi0_te",
+				"disp_token_stream_eof0",
+				"disp_dsi0_eof",
+				"disp_token_esd_eof0",
+				"disp_rdma0_eof0",
+				"disp_wdma0_eof0",
+				"disp_token_stream_block0",
+				"disp_token_cabc_eof0",
+				"disp_wdma0_eof2",
+				"disp_dsi0_sof0",
+				"disp_token_disp_va_start0",
+				"disp_token_disp_va_end0",
+				"disp_token_disp_va_start2",
+				"disp_token_disp_va_end2";
+
+			gce-events =
+				<&gce CMDQ_EVENT_DISP_STREAM_DONE_ENG_EVENT_0>,
+				<&gce CMDQ_SYNC_TOKEN_CONFIG_DIRTY>,
+				<&gce CMDQ_EVENT_DISP_DSI0_TE_ENG_EVENT>,
+				<&gce CMDQ_SYNC_TOKEN_STREAM_EOF>,
+				<&gce CMDQ_EVENT_DISP_DSI0_FRAME_DONE>,
+				<&gce CMDQ_SYNC_TOKEN_ESD_EOF>,
+				<&gce CMDQ_EVENT_DISP_DISP_RDMA0_FRAME_DONE>,
+				<&gce CMDQ_EVENT_DISP_DISP_WDMA0_FRAME_DONE>,
+				<&gce CMDQ_SYNC_TOKEN_STREAM_BLOCK>,
+				<&gce CMDQ_SYNC_TOKEN_CABC_EOF>,
+				<&gce CMDQ_EVENT_DISP_DISP_WDMA0_FRAME_DONE>,
+				<&gce CMDQ_EVENT_DISP_DSI0_SOF>,
+				<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
+				<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
+				<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
+				<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>;
 
 			helper-name = "MTK_DRM_OPT_STAGE",
 				"MTK_DRM_OPT_USE_CMDQ",
@@ -2908,7 +2908,7 @@
 				"MTK_DRM_OPT_MML_PRIMARY";
 
 			helper-value = <1>, /*MTK_DRM_OPT_STAGE*/
-				<0>, /*MTK_DRM_OPT_USE_CMDQ*/
+				<1>, /*MTK_DRM_OPT_USE_CMDQ*/
 				<0>, /*MTK_DRM_OPT_USE_M4U*/
 				<0>, /*MTK_DRM_OPT_MMQOS_SUPPORT*/
 				<0>, /*MTK_DRM_OPT_MMDVFS_SUPPORT*/
@@ -2961,7 +2961,7 @@
 					"mediatek,mt6789-disp-mutex";
 			reg = <0 0x14001000 0 0x1000>;
 			interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_MUTEX0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_MUTEX0>;
 		};
 
 		disp_ovl0: disp_ovl0@14005000 {
@@ -2969,7 +2969,7 @@
 					"mediatek,mt6789-disp-ovl";
 			reg = <0 0x14005000 0 0x1000>;
 			interrupts = <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_OVL0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_OVL0>;
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <0>;
 			//iommus = <&iommu0 M4U_PORT_L0_OVL_RDMA0>,
@@ -2981,7 +2981,7 @@
 					"mediatek,mt6789-disp-ovl";
 			reg = <0 0x14006000 0 0x1000>;
 			interrupts = <GIC_SPI 288 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_OVL0_2L>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_OVL0_2L>;
 			mediatek,larb = <&smi_larb1>;
 			mediatek,smi-id = <1>;
 			//iommus = <&iommu0 M4U_PORT_L1_OVL_2L_RDMA0>,
@@ -2993,7 +2993,7 @@
 					"mediatek,mt6789-disp-rdma";
 			reg = <0 0x14007000 0 0x1000>;
 			interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_RDMA0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_RDMA0>;
 			mediatek,larb = <&smi_larb1>;
 			mediatek,smi-id = <1>;
 			//iommus = <&iommu0 M4U_PORT_L1_DISP_RDMA0>;
@@ -3004,7 +3004,7 @@
 					"mediatek,mt6789-disp-rsz";
 			reg = <0 0x14008000 0 0x1000>;
 			interrupts = <GIC_SPI 290 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_RSZ0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_RSZ0>;
 		};
 
 		disp_color0: disp_color0@14009000 {
@@ -3012,7 +3012,7 @@
 					"mediatek,mt6789-disp-color";
 			reg = <0 0x14009000 0 0x1000>;
 			interrupts = <GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_COLOR0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_COLOR0>;
 		};
 
 		reserved@1400a000 {
@@ -3025,7 +3025,7 @@
 					"mediatek,mt6789-disp-ccorr";
 			reg = <0 0x1400b000 0 0x1000>;
 			interrupts = <GIC_SPI 292 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_CCORR0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_CCORR0>;
 		};
 
 		disp_aal0: disp_aal0@1400c000 {
@@ -3033,7 +3033,7 @@
 					"mediatek,mt6789-disp-aal";
 			reg = <0 0x1400c000 0 0x1000>;
 			interrupts = <GIC_SPI 294 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_AAL0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_AAL0>;
 			mtk_aal_support = <1>;
 			mtk_dre30_support = <0>;
 		};
@@ -3043,14 +3043,7 @@
 					"mediatek,mt6789-disp-gamma";
 			reg = <0 0x1400d000 0 0x1000>;
 			interrupts = <GIC_SPI 295 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_GAMMA0>;
-			gamma_data_mode = <2>;
-			color_protect_red = <0>;
-			color_protect_green = <0>;
-			color_protect_blue = <0>;
-			color_protect_white = <0>;
-			color_protect_black = <0>;
-			color_protect_lsb = <0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_GAMMA0>;
 		};
 
 		disp_postmask0: disp_postmask0@1400e000 {
@@ -3058,7 +3051,7 @@
 					"mediatek,mt6789-disp-postmask";
 			reg = <0 0x1400e000 0 0x1000>;
 			interrupts = <GIC_SPI 296 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_POSTMASK0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_POSTMASK0>;
 			mediatek,larb = <&smi_larb0>;
 			mediatek,smi-id = <0>;
 			//iommus = <&iommu0 M4U_PORT_L0_DISP_POSTMASK0>;
@@ -3069,7 +3062,7 @@
 					"mediatek,mt6789-disp-dither";
 			reg = <0 0x1400f000 0 0x1000>;
 			interrupts = <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_DITHER0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_DITHER0>;
 			pure_clr_det = <0>;
 			pure_clr_num = <7>;
 			pure_clr_rgb = <255 0 0
@@ -3096,14 +3089,14 @@
 						"mediatek,mt6789-disp-dsc";
 			reg = <0 0x14012000 0 0x1000>;
 			interrupts = <GIC_SPI 300 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_DSC_WRAP0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_DSC_WRAP0>;
 		};
 
 		mipi_tx_config0: mipi_tx_config@11f60000 {
 			compatible = "mediatek,mipi_tx_config0",
 						"mediatek,mt6789-mipi-tx";
 			reg = <0 0x11f60000 0 0x1000>;
-//			clocks = <&clk26m>;
+			clocks = <&clk26m>;
 			#clock-cells = <0>;
 			#phy-cells = <0>;
 			clock-output-names = "mipi_tx0_pll";
@@ -3114,10 +3107,10 @@
 					"mediatek,mt6789-dsi";
 			reg = <0 0x14013000 0 0x1000>;
 			interrupts = <GIC_SPI 301 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DSI0>,
-//				<&dispsys_config_clk CLK_MM_DSI0_DSI_CK_DOMAIN>,
-//				<&mipi_tx_config0>;
-//			clock-names = "engine", "digital", "hs";
+			clocks = <&dispsys_config_clk CLK_MM_DSI0>,
+				<&dispsys_config_clk CLK_MM_DSI0_DSI_CK_DOMAIN>,
+				<&mipi_tx_config0>;
+			clock-names = "engine", "digital", "hs";
 			phys = <&mipi_tx_config0>;
 			phy-names = "dphy";
 		};
@@ -3132,7 +3125,7 @@
 					"mediatek,mt6789-disp-wdma";
 			reg = <0 0x14014000 0 0x1000>;
 			interrupts = <GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH 0>;
-//			clocks = <&dispsys_config_clk CLK_MM_DISP_WDMA0>;
+			clocks = <&dispsys_config_clk CLK_MM_DISP_WDMA0>;
 			mediatek,larb = <&smi_larb1>;
 			mediatek,smi-id = <1>;
 			//iommus = <&iommu0 M4U_PORT_L1_DISP_WDMA0>;
@@ -4454,6 +4447,16 @@
 		dbg {
 			compatible = "mediatek,mt6375-dbg";
 		};
+	};
+};
+
+&i2c6 {
+	gate_ic: gate_ic@11 {
+		compatible = "mediatek,gate-ic-i2c";
+		gate-power-gpios = <&pio 12 0>;
+		reg = <0x11>;
+		id = <6>;
+		status = "okay";
 	};
 };
 
