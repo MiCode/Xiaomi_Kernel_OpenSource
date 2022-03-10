@@ -2504,6 +2504,10 @@
 			#interconnect-cells = <1>;
 		};
 
+		smart_pa: smart_pa {
+		};
+
+
 		afe: mt6789-afe-pcm@11210000 {
 			compatible = "mediatek,mt6789-sound";
 			reg = <0 0x11210000 0 0x2000>;
