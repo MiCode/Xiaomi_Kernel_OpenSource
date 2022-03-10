@@ -4579,15 +4579,15 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,goodix-fp";
 	};
 
-	//accdet: accdet {
-	//	compatible = "mediatek,pmic-accdet";
+	accdet: accdet {
+		compatible = "mediatek,pmic-accdet";
 		/* ACCDET GPIO standardization for AP EINT */
 		/*
 		 *pinctrl-names = "default", "state_eint_as_int";
 		 *pinctrl-0 = <&accdet_pins_default>;
 		 *pinctrl-1 = <&accdet_pins_eint_as_int>;
 		 */
-	//};
+	};
 	/*
 	 *&pio {
 	 *	accdet_pins_default: accdetdefault {

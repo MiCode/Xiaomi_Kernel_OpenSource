@@ -184,30 +184,31 @@
 				  "fg_cur_l";
 	};
 
-	accdet: accdet {
-			compatible = "mediatek,mt6359-accdet";
-			accdet-name = "mt63xx-accdet";
-			accdet-mic-vol = <8>;
-			accdet-plugout-debounce = <1>;
-			accdet-mic-mode = <2>;
-			eint_use_ext_res = <0>;
-			headset-mode-setting = <0x500 0x500 1 0x1f0
-						0x800 0x800 0x20 0x44
-						0x4 0x1
-						0x5 0x3 0x3 0x5 0xe>;
-			headset-use-ap-eint = <0>;
-			headset-eint-num = <0>;
-			headset-eint-trig-mode = <1>;
-			headset-key-mode = <0>;
-			headset-three-key-threshold = <0 80 220 400>;
-			headset-three-key-threshold-CDD = <0 121 192 600>;
-			headset-four-key-threshold = <0 58 121 192 400>;
-			io-channels = <&pmic_auxadc AUXADC_ACCDET>;
-			io-channel-names = "pmic_accdet";
-			nvmem = <&pmic_efuse>;
-			nvmem-names = "mt63xx-accdet-efuse";
-			status = "okay";
-		};
+	/*accdet: accdet {
+	 *		compatible = "mediatek,mt6359-accdet";
+	 *		accdet-name = "mt63xx-accdet";
+	 *		accdet-mic-vol = <8>;
+	 *		accdet-plugout-debounce = <1>;
+	 *		accdet-mic-mode = <2>;
+	 *		eint_use_ext_res = <0>;
+	 *		headset-mode-setting = <0x500 0x500 1 0x1f0
+	 *					0x800 0x800 0x20 0x44
+	 *					0x4 0x1
+	 *					0x5 0x3 0x3 0x5 0xe>;
+	 *		headset-use-ap-eint = <0>;
+	 *		headset-eint-num = <0>;
+	 *		headset-eint-trig-mode = <1>;
+	 *		headset-key-mode = <0>;
+	 *		headset-three-key-threshold = <0 80 220 400>;
+	 *		headset-three-key-threshold-CDD = <0 121 192 600>;
+	 *		headset-four-key-threshold = <0 58 121 192 400>;
+	 *		io-channels = <&pmic_auxadc AUXADC_ACCDET>;
+	 *		io-channel-names = "pmic_accdet";
+	 *		nvmem = <&pmic_efuse>;
+	 *		nvmem-names = "mt63xx-accdet-efuse";
+	 *		status = "okay";
+	 *	};
+	 */
 
 		mt6359keys: mt6359keys {
 			compatible = "mediatek,mt6359-keys";
