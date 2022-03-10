@@ -265,4 +265,8 @@ int mt6885_adda_dl_gain_control(bool mute);
 
 int mt6885_dai_set_priv(struct mtk_base_afe *afe, int id,
 			int priv_size, const void *priv_data);
+#ifdef CONFIG_SND_SOC_CS35L43
+extern const struct snd_soc_ops cirrus_amp_ops;
+extern int cs35l41_snd_init(struct snd_soc_pcm_runtime *rtd);
+#endif
 #endif
