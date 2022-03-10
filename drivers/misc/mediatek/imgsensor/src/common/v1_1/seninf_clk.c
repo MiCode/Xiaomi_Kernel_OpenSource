@@ -78,6 +78,11 @@ int seninf_dfs_ctrl(struct seninf_dfs_ctx *ctx,
 		freq = *(unsigned int *)pbuff;
 		freq = freq * 1000000; /*MHz->Hz*/
 		opp = dev_pm_opp_find_freq_ceil(ctx->dev, &freq);
+		if (IS_ERR(opp)) {
+			pr_info("Failed to find OPP for frequency %lu: %ld\n",
+				freq, PTR_ERR(opp));
+			return -EFAULT;
+		}
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 		pr_debug("%s: freq=%ld Hz, volt=%ld\n", __func__, freq, volt);
