@@ -2069,11 +2069,6 @@ page_owner=on loop.max_part=7";
 	};
 #endif
 
-	dpmaif@1022c000 {
-		compatible = "mediatek,dpmaif";
-		reg = <0 0x1022c000 0 0x1000>;
-	};
-
 	chn0_emi@10235000 {
 		compatible = "mediatek,chn0_emi";
 		reg = <0 0x10235000 0 0x1000>;
