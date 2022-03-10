@@ -296,7 +296,7 @@
 	usb_default: usb_default {
 	};
 
-	gpio_redriver_c1_init: c1_init {
+	gpio_redriver_c1_init: redriver_c1_init {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO113__FUNC_GPIO113>;
 			slew-rate = <1>;
@@ -304,7 +304,7 @@
 		};
 	};
 
-	gpio_redriver_c1_low: c1_low {
+	gpio_redriver_c1_low: redriver_c1_low {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO113__FUNC_GPIO113>;
 			slew-rate = <1>;
@@ -312,7 +312,7 @@
 		};
 	};
 
-	gpio_redriver_c1_hiz: c1_highz {
+	gpio_redriver_c1_hiz: redriver_c1_highz {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO113__FUNC_GPIO113>;
 			slew-rate= <0>;
@@ -320,7 +320,7 @@
 		};
 	};
 
-	gpio_redriver_c1_high: c1_high {
+	gpio_redriver_c1_high: redriver_c1_high {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO113__FUNC_GPIO113>;
 			slew-rate = <1>;
@@ -328,7 +328,7 @@
 		};
 	};
 
-	gpio_redriver_c2_init: c2_init {
+	gpio_redriver_c2_init: redriver_c2_init {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO112__FUNC_GPIO112>;
 			slew-rate = <1>;
@@ -336,7 +336,7 @@
 		};
 	};
 
-	gpio_redriver_c2_low: c2_low {
+	gpio_redriver_c2_low: redriver_c2_low {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO112__FUNC_GPIO112>;
 			slew-rate = <1>;
@@ -344,7 +344,7 @@
 		};
 	};
 
-	gpio_redriver_c2_hiz: c2_highz {
+	gpio_redriver_c2_hiz: redriver_c2_highz {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO112__FUNC_GPIO112>;
 			slew-rate= <0>;
@@ -352,7 +352,7 @@
 		};
 	};
 
-	gpio_redriver_c2_high: c2_high {
+	gpio_redriver_c2_high: redriver_c2_high {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO112__FUNC_GPIO112>;
 			slew-rate = <1>;
