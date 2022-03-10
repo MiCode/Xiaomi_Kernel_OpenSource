@@ -1141,6 +1141,34 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 		},
 	},
 #endif
+/* Onyx */
+#if defined(OV13B10LN_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV13B10LN_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{AVDD, Vol_High, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_High, 1},
+			{RST, Vol_High, 1},
+			{SensorMCLK, Vol_High, 1},
+		},
+	},
+#endif
+
+#if defined(S5K4H7LN_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5K4H7LN_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{SensorMCLK, Vol_High, 5},
+			{AVDD, Vol_High, 1},
+			{DVDD, Vol_High, 1},
+			{DOVDD, Vol_1800, 1},
+			{RST, Vol_High, 1}
+		},
+	},
+#endif
 
 	/* add new sensor before this line */
 	{NULL,},
