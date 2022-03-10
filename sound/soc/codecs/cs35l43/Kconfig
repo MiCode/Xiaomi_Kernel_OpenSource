@@ -1,0 +1,4 @@
+config SND_SOC_CS35L43
+	tristate "cirrus Semiconductors cs35l43 amplifier"
+	default n
+
