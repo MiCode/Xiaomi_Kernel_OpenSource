@@ -2727,6 +2727,9 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 				mdp_curr_bandwidth);
 			mm_qos_set_request(request, mdp_curr_bandwidth, 0,
 				comp_type);
+			CMDQ_LOG_PMQOS(
+				"[%d]begin task qos update mdp bandwidth:%u, port:%u\n",
+				thread_id, mdp_curr_bandwidth, target_pmqos->qos2_mdp_port[i]);
 		}
 		CMDQ_SYSTRACE_BEGIN("%s qos mdp %d\n", __func__, thread_id);
 		mm_qos_update_all_request(
@@ -3068,6 +3071,9 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				mdp_curr_bandwidth);
 			mm_qos_set_request(request, mdp_curr_bandwidth, 0,
 				comp_type);
+			CMDQ_LOG_PMQOS(
+				"[%d]end task qos update bandwidth:%u, port:%u\n",
+				thread_id, mdp_curr_bandwidth, target_pmqos->qos2_mdp_port[i]);
 		}
 
 		CMDQ_SYSTRACE_BEGIN("%s qos mdp %d\n", __func__, thread_id);
