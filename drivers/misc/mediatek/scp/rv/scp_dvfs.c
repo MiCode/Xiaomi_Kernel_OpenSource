@@ -583,8 +583,7 @@ int scp_request_freq_vcore(void)
 				SCP_REQ_SYSPLL);
 
 		/*  turn on PLL if necessary */
-		if (!dvfs.vlp_support) /* no parking needed for vlp */
-			scp_pll_ctrl_set(PLL_ENABLE, scp_expected_freq);
+		scp_pll_ctrl_set(PLL_ENABLE, scp_expected_freq);
 
 		do {
 			ret = mtk_ipi_send(&scp_ipidev,
@@ -612,8 +611,7 @@ int scp_request_freq_vcore(void)
 		} while (scp_current_freq != scp_expected_freq);
 
 		/* turn off PLL if necessary */
-		if (!dvfs.vlp_support) /* no parking needed for vlp */
-			scp_pll_ctrl_set(PLL_DISABLE, scp_expected_freq);
+		scp_pll_ctrl_set(PLL_DISABLE, scp_expected_freq);
 
 		/* do DVS after DFS if decreasing frequency */
 		if (is_increasing_freq == 0)
@@ -639,6 +637,7 @@ int scp_request_freq_vlp(void)
 	int timeout = 50;
 	int ret = 0;
 	unsigned long spin_flags;
+	int opp_idx;
 
 	if (scp_dvfs_flag != 1) {
 		pr_debug("[%s]: warning: SCP DVFS is OFF\n", __func__);
@@ -675,6 +674,9 @@ int scp_request_freq_vlp(void)
 				SCP_REQ_INFRA |
 				SCP_REQ_SYSPLL);
 
+		/*  turn on PLL if necessary */
+		scp_pll_ctrl_set(PLL_ENABLE, scp_expected_freq);
+
 		do {
 			ret = mtk_ipi_send(&scp_ipidev,
 				IPI_OUT_DVFS_SET_FREQ_0,
@@ -704,9 +706,16 @@ int scp_request_freq_vlp(void)
 			return -ESCP_DVFS_IPI_FAILED;
 		}
 
+		/* turn off PLL if necessary */
+		scp_pll_ctrl_set(PLL_DISABLE, scp_expected_freq);
+
 		scp_awake_unlock((void *)SCP_A_ID);
 
-		scp_resource_req(SCP_REQ_RELEASE);
+		opp_idx = scp_get_freq_idx(scp_expected_freq);
+		if (dvfs.opp[opp_idx].resource_req)
+			scp_resource_req(dvfs.opp[opp_idx].resource_req);
+		else
+			scp_resource_req(SCP_REQ_RELEASE);
 	}
 
 	__pm_relax(scp_suspend_lock);
@@ -747,7 +756,7 @@ static int set_scp_clk_mux(unsigned int  pll_ctrl_flag)
 
 	if (pll_ctrl_flag == PLL_ENABLE) {
 		if (!dvfs.pre_mux_en) {
-			ret = clk_prepare_enable(mt_scp_pll.clk_mux);
+			ret = clk_prepare_enable(mt_scp_pll.clk_mux); /* should not enable twice */
 			if (ret) {
 				pr_notice("[%s]: clk_prepare_enable failed\n",
 					__func__);
@@ -757,7 +766,7 @@ static int set_scp_clk_mux(unsigned int  pll_ctrl_flag)
 			dvfs.pre_mux_en = true;
 		}
 	} else if (pll_ctrl_flag == PLL_DISABLE) {
-		clk_disable_unprepare(mt_scp_pll.clk_mux);
+		clk_disable_unprepare(mt_scp_pll.clk_mux); /* should not disable twice */
 		dvfs.pre_mux_en = false;
 	}
 
@@ -833,6 +842,7 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 		}
 	} else if ((pll_ctrl_flag == PLL_DISABLE) &&
 			(dvfs.opp[idx].resource_req == 0)) {
+		/* if resource_req != 0, it means it may need resource to keep pll on. */
 		set_scp_clk_mux(pll_ctrl_flag);
 	}
 	return ret;
@@ -1100,6 +1110,7 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 		} else {
 			pr_notice("[%s]: invalid debug core: %d\n",
 				__func__, dvfs.cur_dbg_core);
+			return -ESCP_DVFS_DBG_INVALID_CMD;
 		}
 		ret = mtk_ipi_send(&scp_ipidev, ipi_cmd, IPI_SEND_WAIT,
 			&ipi_data, ipi_cmd_size, 500);
