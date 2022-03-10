@@ -66,9 +66,9 @@ ifeq ($(CONFIG_MACH_MT3967),y)
   obj-y += $(subst ",,isp_50)/
 endif
 
-#ifeq ($(CONFIG_MACH_MT6785),y)
-#  obj-y += $(subst ",,isp_50)/
-#endif
+ifeq ($(CONFIG_MACH_MT6785),y)
+  obj-y += $(subst ",,isp_50)/
+endif
 
 ifeq ($(CONFIG_MACH_MT6893),y)
   obj-y += $(subst ",,isp_6s)/
