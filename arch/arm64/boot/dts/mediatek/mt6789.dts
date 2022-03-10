@@ -1570,6 +1570,14 @@
 		#clock-cells = <1>;
 	};
 
+	flashlight_core: flashlight_core {
+		compatible = "mediatek,flashlight_core";
+	};
+
+	mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
+		compatible = "mediatek,mtk_composite_v4l2_1";
+	};
+
 	ipesys_clk: syscon@1b000000 {
 		compatible = "mediatek,mt6789-ipesys", "syscon";
 		reg = <0 0x1b000000 0 0x1000>;
