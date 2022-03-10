@@ -3119,6 +3119,11 @@ static int a6xx_power_off(struct adreno_device *adreno_dev)
 		goto no_gx_power;
 	}
 
+	if (a6xx_irq_pending(adreno_dev)) {
+		a6xx_gmu_oob_clear(device, oob_gpu);
+		return -EBUSY;
+	}
+
 	kgsl_pwrscale_update_stats(device);
 
 	/* Save active coresight registers if applicable */
@@ -3174,29 +3179,36 @@ static void gmu_idle_check(struct work_struct *work)
 					struct kgsl_device, idle_check_ws);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
+	int ret;
 
 	mutex_lock(&device->mutex);
 
 	if (test_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags))
 		goto done;
 
-	if (!atomic_read(&device->active_cnt)) {
-		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags)) {
-			spin_lock(&device->submit_lock);
+	if (atomic_read(&device->active_cnt)) {
+		kgsl_pwrscale_update(device);
+		kgsl_start_idle_timer(device);
+		goto done;
+	}
 
-			if (device->submit_now) {
-				spin_unlock(&device->submit_lock);
-				kgsl_pwrscale_update(device);
-				kgsl_start_idle_timer(device);
-				goto done;
-			}
+	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+		goto done;
 
-			device->slumber = true;
-			spin_unlock(&device->submit_lock);
+	spin_lock(&device->submit_lock);
 
-			a6xx_power_off(adreno_dev);
-		}
-	} else {
+	if (device->submit_now) {
+		spin_unlock(&device->submit_lock);
+		kgsl_pwrscale_update(device);
+		kgsl_start_idle_timer(device);
+		goto done;
+	}
+
+	device->slumber = true;
+	spin_unlock(&device->submit_lock);
+
+	ret = a6xx_power_off(adreno_dev);
+	if (ret == -EBUSY) {
 		kgsl_pwrscale_update(device);
 		kgsl_start_idle_timer(device);
 	}

@@ -2388,6 +2388,18 @@ static int gen7_first_boot(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+static bool gen7_irq_pending(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	u32 status;
+
+	kgsl_regread(device, GEN7_RBBM_INT_0_STATUS, &status);
+
+	/* Return busy if a interrupt is pending */
+	return ((status & adreno_dev->irq_mask) ||
+		atomic_read(&adreno_dev->pending_irq_refcnt));
+}
+
 static int gen7_power_off(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
@@ -2409,15 +2421,22 @@ static int gen7_power_off(struct adreno_device *adreno_dev)
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_SLUMBER);
 
 	ret = gen7_gmu_oob_set(device, oob_gpu);
-	if (!ret) {
-		kgsl_pwrscale_update_stats(device);
+	if (ret)
+		goto no_gx_power;
 
-		/* Save active coresight registers if applicable */
-		adreno_coresight_stop(adreno_dev);
-
-		adreno_irqctrl(adreno_dev, 0);
+	if (gen7_irq_pending(adreno_dev)) {
+		gen7_gmu_oob_clear(device, oob_gpu);
+		return -EBUSY;
 	}
 
+	kgsl_pwrscale_update_stats(device);
+
+	/* Save active coresight registers if applicable */
+	adreno_coresight_stop(adreno_dev);
+
+	adreno_irqctrl(adreno_dev, 0);
+
+no_gx_power:
 	gen7_gmu_oob_clear(device, oob_gpu);
 
 	kgsl_pwrctrl_irq(device, false);
@@ -2462,29 +2481,36 @@ static void gmu_idle_check(struct work_struct *work)
 					struct kgsl_device, idle_check_ws);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	int ret;
 
 	mutex_lock(&device->mutex);
 
 	if (test_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags))
 		goto done;
 
-	if (!atomic_read(&device->active_cnt)) {
-		if (test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags)) {
-			spin_lock(&device->submit_lock);
+	if (atomic_read(&device->active_cnt)) {
+		kgsl_pwrscale_update(device);
+		kgsl_start_idle_timer(device);
+		goto done;
+	}
 
-			if (device->submit_now) {
-				spin_unlock(&device->submit_lock);
-				kgsl_pwrscale_update(device);
-				kgsl_start_idle_timer(device);
-				goto done;
-			}
+	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
+		goto done;
 
-			device->slumber = true;
-			spin_unlock(&device->submit_lock);
+	spin_lock(&device->submit_lock);
 
-			gen7_power_off(adreno_dev);
-		}
-	} else {
+	if (device->submit_now) {
+		spin_unlock(&device->submit_lock);
+		kgsl_pwrscale_update(device);
+		kgsl_start_idle_timer(device);
+		goto done;
+	}
+
+	device->slumber = true;
+	spin_unlock(&device->submit_lock);
+
+	ret = gen7_power_off(adreno_dev);
+	if (ret == -EBUSY) {
 		kgsl_pwrscale_update(device);
 		kgsl_start_idle_timer(device);
 	}
