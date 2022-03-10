@@ -139,8 +139,6 @@ static struct platform_driver g_gpufreq_pdrv = {
 };
 
 static void __iomem *g_apmixed_base;
-static void __iomem *g_mfg_pll_base;
-static void __iomem *g_mfg_rpc_base;
 static void __iomem *g_mfg_top_base;
 static void __iomem *g_sleep;
 static void __iomem *g_infracfg_base;
@@ -1654,18 +1652,6 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 		goto done;
 	}
 
-	/* 0x13FA0000 */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_pll");
-	if (unlikely(!res)) {
-		GPUFREQ_LOGE("fail to get resource MFG_PLL");
-		goto done;
-	}
-	g_mfg_pll_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
-	if (unlikely(!g_mfg_pll_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFG_PLL: 0x%llx", res->start);
-		goto done;
-	}
-
 	/* 0x13FBF000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_top_config");
 	if (unlikely(!res)) {
@@ -1694,18 +1680,6 @@ static void __gpufreq_dump_bringup_status(struct platform_device *pdev)
 	g_mali_base = __gpufreq_of_ioremap("mediatek,mali", 0);
 	if (unlikely(!g_mali_base)) {
 		GPUFREQ_LOGE("fail to ioremap MALI");
-		goto done;
-	}
-
-	/* 0x13F90000 */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_rpc");
-	if (unlikely(!res)) {
-		GPUFREQ_LOGE("fail to get resource MFG_RPC");
-		goto done;
-	}
-	g_mfg_rpc_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
-	if (unlikely(!g_mfg_rpc_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFG_RPC: 0x%llx", res->start);
 		goto done;
 	}
 
@@ -3042,18 +3016,6 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
-	/* 0x13FA0000 */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_pll");
-	if (unlikely(!res)) {
-		GPUFREQ_LOGE("fail to get resource MFG_PLL");
-		goto done;
-	}
-	g_mfg_pll_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
-	if (unlikely(!g_mfg_pll_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFG_PLL: 0x%llx", res->start);
-		goto done;
-	}
-
 	/* 0x13FBF000 */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_top_config");
 	if (unlikely(!res)) {
@@ -3063,18 +3025,6 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	g_mfg_top_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_mfg_top_base)) {
 		GPUFREQ_LOGE("fail to ioremap MFG_TOP_CONFIG: 0x%llx", res->start);
-		goto done;
-	}
-
-	/* 0x13F90000 */
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mfg_rpc");
-	if (unlikely(!res)) {
-		GPUFREQ_LOGE("fail to get resource MFG_RPC");
-		goto done;
-	}
-	g_mfg_rpc_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
-	if (unlikely(!g_mfg_rpc_base)) {
-		GPUFREQ_LOGE("fail to ioremap MFG_RPC: 0x%llx", res->start);
 		goto done;
 	}
 
