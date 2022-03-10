@@ -3705,11 +3705,9 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 		caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_VIRUTAL_DISPLAY;
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_USE_M4U))
 		caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_IOMMU;
-#endif
 
 	ddp_comp = private->ddp_comp[DDP_COMPONENT_CHIST0];
 	if (ddp_comp) {
