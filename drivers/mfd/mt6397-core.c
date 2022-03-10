@@ -264,6 +264,9 @@ static const struct mfd_cell mt6366_devs[] = {
 	}, {
 		.name = "mt63xx-oc-debug",
 		.of_compatible = "mediatek,mt63xx-oc-debug",
+	}, {
+		.name = "mt6358-sound",
+		.of_compatible = "mediatek,mt6366-sound"
 	},
 };
 
