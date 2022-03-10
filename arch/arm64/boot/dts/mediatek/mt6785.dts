@@ -4421,6 +4421,11 @@ page_owner=on loop.max_part=7";
 		sdsp-firmware-size = <0 0x1000000>;
 	};
 
+	ssmr {
+		compatible = "mediatek,trusted_mem";
+		memory-region = <&ssmr_cma_mem>;
+	};
+
 	alc@60000000 {
 		compatible = "mediatek,alc";
 		reg = <0 0x60000000 0 0x1000>;
