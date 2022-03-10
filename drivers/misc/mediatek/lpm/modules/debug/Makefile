@@ -2,6 +2,13 @@
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += v1/
 
 # platform dependent  KOs
+
+ifeq ($(CONFIG_MTK_LPM_MT6789),m)
+ifneq ($(wildcard $(srctree)/$(src)/mt6789),)
+obj-$(CONFIG_MTK_LPM_MT6789) += mt6789/
+endif
+endif
+
 ifeq ($(CONFIG_MTK_LPM_MT6873),m)
 ifneq ($(wildcard $(srctree)/$(src)/mt6873),)
 obj-$(CONFIG_MTK_LPM_MT6873) += mt6873/
