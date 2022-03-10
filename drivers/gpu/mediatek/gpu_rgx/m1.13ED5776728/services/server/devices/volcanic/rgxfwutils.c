@@ -360,16 +360,18 @@ PVRSRV_ERROR RGXSetupFwAllocation(PVRSRV_RGXDEV_INFO*  psDevInfo,
 		{
 			OSDeviceMemSet(pvTempCpuPtr, 0, ui32Size);
 		}
-#endif
 		if (ppvCpuPtr)
+#endif
 		{
 			*ppvCpuPtr = pvTempCpuPtr;
 		}
+#if defined(SUPPORT_AUTOVZ)
 		else
 		{
 			DevmemReleaseCpuVirtAddr(*ppsMemDesc);
 			pvTempCpuPtr = NULL;
 		}
+#endif
 	}
 
 	PVR_DPF((PVR_DBG_MESSAGE, "%s: %s set up at Fw VA 0x%x and CPU VA 0x%p",
@@ -4790,7 +4792,22 @@ PVRSRV_ERROR RGXScheduleCleanupCommand(PVRSRV_RGXDEV_INFO	*psDevInfo,
 											  0,
 											  ui32PDumpFlags,
 											  &ui32kCCBCommandSlot);
-	PVR_LOG_GOTO_IF_ERROR(eError, "RGXScheduleCommandAndGetKCCBSlot", fail_command);
+	if (eError != PVRSRV_OK)
+	{
+		/* If we hit a temporary KCCB exhaustion, return a RETRY to caller */
+		if (eError == PVRSRV_ERROR_KERNEL_CCB_FULL)
+		{
+			eError = PVRSRV_ERROR_RETRY;
+		}
+		else
+		{
+			PVR_DPF((PVR_DBG_ERROR,
+			        "In %s() failed to schedule cleanup command %d for %d",
+			        __func__, eCleanupType, eDM));
+		}
+
+		goto fail_command;
+	}
 
 	/* Wait for command kCCB slot to be updated by FW */
 	PDUMPCOMMENT("Wait for the firmware to reply to the cleanup command");

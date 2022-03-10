@@ -60,6 +60,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "log2.h"
 #if defined(__KERNEL__)
 #include "pvrsrv.h"
+#include "srvcore.h"
+#else
+#include "srvcore_intern.h"
 #endif
 
 
@@ -184,7 +187,9 @@ FreeSyncPrimitiveBlock(SYNC_PRIM_BLOCK *psSyncBlk)
 
 	DevmemReleaseCpuVirtAddr(psSyncBlk->hMemDesc);
 	DevmemFree(psSyncBlk->hMemDesc);
-	BridgeFreeSyncPrimitiveBlock(GetBridgeHandle(psContext->hDevConnection),
+	(void) DestroyServerResource(psContext->hDevConnection,
+	                             NULL,
+	                             BridgeFreeSyncPrimitiveBlock,
 	                             psSyncBlk->hServerSyncPrimBlock);
 	OSFreeMem(psSyncBlk);
 }
@@ -302,16 +307,19 @@ static void SyncPrimLocalFree(SYNC_PRIM *psSyncInt)
 
 	{
 		PVRSRV_ERROR eError;
-		IMG_HANDLE hBridge =
-				GetBridgeHandle(psSyncInt->u.sLocal.psSyncBlock->psContext->hDevConnection);
+		SHARED_DEV_CONNECTION hDevConnection =
+			psSyncInt->u.sLocal.psSyncBlock->psContext->hDevConnection;
 
-		if (GetInfoPageDebugFlags(psSyncInt->u.sLocal.psSyncBlock->psContext->hDevConnection) & DEBUG_FEATURE_FULL_SYNC_TRACKING_ENABLED)
+		if (GetInfoPageDebugFlags(hDevConnection) & DEBUG_FEATURE_FULL_SYNC_TRACKING_ENABLED)
 		{
 			if (psSyncInt->u.sLocal.hRecord)
 			{
 				/* remove this sync record */
-				eError = BridgeSyncRecordRemoveByHandle(hBridge,
-				                                        psSyncInt->u.sLocal.hRecord);
+				eError = DestroyServerResource(hDevConnection,
+				                               NULL,
+				                               BridgeSyncRecordRemoveByHandle,
+				                               psSyncInt->u.sLocal.hRecord);
+				PVR_LOG_IF_ERROR(eError, "BridgeSyncRecordRemoveByHandle");
 			}
 		}
 		else
@@ -319,7 +327,7 @@ static void SyncPrimLocalFree(SYNC_PRIM *psSyncInt)
 			IMG_UINT32 ui32FWAddr = psSyncBlock->ui32FirmwareAddr +
 					SyncPrimGetOffset(psSyncInt);
 
-			eError = BridgeSyncFreeEvent(hBridge, ui32FWAddr);
+			eError = BridgeSyncFreeEvent(GetBridgeHandle(hDevConnection), ui32FWAddr);
 			PVR_LOG_IF_ERROR(eError, "BridgeSyncFreeEvent");
 		}
 	}

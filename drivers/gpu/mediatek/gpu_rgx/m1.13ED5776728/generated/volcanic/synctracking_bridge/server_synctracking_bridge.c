@@ -68,22 +68,30 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 static IMG_INT
 PVRSRVBridgeSyncRecordRemoveByHandle(IMG_UINT32 ui32DispatchTableEntry,
-				     PVRSRV_BRIDGE_IN_SYNCRECORDREMOVEBYHANDLE *
-				     psSyncRecordRemoveByHandleIN,
-				     PVRSRV_BRIDGE_OUT_SYNCRECORDREMOVEBYHANDLE
-				     * psSyncRecordRemoveByHandleOUT,
+				     IMG_UINT8 *
+				     psSyncRecordRemoveByHandleIN_UI8,
+				     IMG_UINT8 *
+				     psSyncRecordRemoveByHandleOUT_UI8,
 				     CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_SYNCRECORDREMOVEBYHANDLE *psSyncRecordRemoveByHandleIN
+	    =
+	    (PVRSRV_BRIDGE_IN_SYNCRECORDREMOVEBYHANDLE *)
+	    IMG_OFFSET_ADDR(psSyncRecordRemoveByHandleIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_SYNCRECORDREMOVEBYHANDLE
+	    *psSyncRecordRemoveByHandleOUT =
+	    (PVRSRV_BRIDGE_OUT_SYNCRECORDREMOVEBYHANDLE *)
+	    IMG_OFFSET_ADDR(psSyncRecordRemoveByHandleOUT_UI8, 0);
 
 	/* Lock over handle destruction. */
 	LockHandle(psConnection->psHandleBase);
 
 	psSyncRecordRemoveByHandleOUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE)
-					    psSyncRecordRemoveByHandleIN->
-					    hhRecord,
-					    PVRSRV_HANDLE_TYPE_SYNC_RECORD_HANDLE);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE)
+					      psSyncRecordRemoveByHandleIN->
+					      hhRecord,
+					      PVRSRV_HANDLE_TYPE_SYNC_RECORD_HANDLE);
 	if (unlikely
 	    ((psSyncRecordRemoveByHandleOUT->eError != PVRSRV_OK)
 	     && (psSyncRecordRemoveByHandleOUT->eError != PVRSRV_ERROR_RETRY)))
@@ -105,12 +113,29 @@ SyncRecordRemoveByHandle_exit:
 	return 0;
 }
 
+static PVRSRV_ERROR _SyncRecordAddpshRecordIntRelease(void *pvData)
+{
+	PVRSRV_ERROR eError;
+	eError = PVRSRVSyncRecordRemoveByHandleKM((SYNC_RECORD_HANDLE) pvData);
+	return eError;
+}
+
+static_assert(PVRSRV_SYNC_NAME_LENGTH <= IMG_UINT32_MAX,
+	      "PVRSRV_SYNC_NAME_LENGTH must not be larger than IMG_UINT32_MAX");
+
 static IMG_INT
 PVRSRVBridgeSyncRecordAdd(IMG_UINT32 ui32DispatchTableEntry,
-			  PVRSRV_BRIDGE_IN_SYNCRECORDADD * psSyncRecordAddIN,
-			  PVRSRV_BRIDGE_OUT_SYNCRECORDADD * psSyncRecordAddOUT,
+			  IMG_UINT8 * psSyncRecordAddIN_UI8,
+			  IMG_UINT8 * psSyncRecordAddOUT_UI8,
 			  CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_SYNCRECORDADD *psSyncRecordAddIN =
+	    (PVRSRV_BRIDGE_IN_SYNCRECORDADD *)
+	    IMG_OFFSET_ADDR(psSyncRecordAddIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_SYNCRECORDADD *psSyncRecordAddOUT =
+	    (PVRSRV_BRIDGE_OUT_SYNCRECORDADD *)
+	    IMG_OFFSET_ADDR(psSyncRecordAddOUT_UI8, 0);
+
 	SYNC_RECORD_HANDLE pshRecordInt = NULL;
 	IMG_HANDLE hhServerSyncPrimBlock =
 	    psSyncRecordAddIN->hhServerSyncPrimBlock;
@@ -123,8 +148,10 @@ PVRSRVBridgeSyncRecordAdd(IMG_UINT32 ui32DispatchTableEntry,
 	IMG_BOOL bHaveEnoughSpace = IMG_FALSE;
 #endif
 
-	IMG_UINT32 ui32BufferSize =
-	    (psSyncRecordAddIN->ui32ClassNameSize * sizeof(IMG_CHAR)) + 0;
+	IMG_UINT32 ui32BufferSize = 0;
+	IMG_UINT64 ui64BufferSize =
+	    ((IMG_UINT64) psSyncRecordAddIN->ui32ClassNameSize *
+	     sizeof(IMG_CHAR)) + 0;
 
 	if (unlikely
 	    (psSyncRecordAddIN->ui32ClassNameSize > PVRSRV_SYNC_NAME_LENGTH))
@@ -133,6 +160,15 @@ PVRSRVBridgeSyncRecordAdd(IMG_UINT32 ui32DispatchTableEntry,
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;
 		goto SyncRecordAdd_exit;
 	}
+
+	if (ui64BufferSize > IMG_UINT32_MAX)
+	{
+		psSyncRecordAddOUT->eError =
+		    PVRSRV_ERROR_BRIDGE_BUFFER_TOO_SMALL;
+		goto SyncRecordAdd_exit;
+	}
+
+	ui32BufferSize = (IMG_UINT32) ui64BufferSize;
 
 	if (ui32BufferSize != 0)
 	{
@@ -239,7 +275,7 @@ PVRSRVBridgeSyncRecordAdd(IMG_UINT32 ui32DispatchTableEntry,
 				      PVRSRV_HANDLE_TYPE_SYNC_RECORD_HANDLE,
 				      PVRSRV_HANDLE_ALLOC_FLAG_NONE,
 				      (PFN_HANDLE_RELEASE) &
-				      PVRSRVSyncRecordRemoveByHandleKM);
+				      _SyncRecordAddpshRecordIntRelease);
 	if (unlikely(psSyncRecordAddOUT->eError != PVRSRV_OK))
 	{
 		UnlockHandle(psConnection->psHandleBase);
@@ -273,7 +309,10 @@ SyncRecordAdd_exit:
 	}
 
 	/* Allocated space should be equal to the last updated offset */
-	PVR_ASSERT(ui32BufferSize == ui32NextOffset);
+#ifdef PVRSRV_NEED_PVR_ASSERT
+	if (psSyncRecordAddOUT->eError == PVRSRV_OK)
+		PVR_ASSERT(ui32BufferSize == ui32NextOffset);
+#endif /* PVRSRV_NEED_PVR_ASSERT */
 
 #if defined(INTEGRITY_OS)
 	if (pArrayArgsBuffer)

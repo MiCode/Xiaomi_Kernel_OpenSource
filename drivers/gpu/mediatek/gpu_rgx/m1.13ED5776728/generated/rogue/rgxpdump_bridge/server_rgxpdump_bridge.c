@@ -67,12 +67,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 static IMG_INT
 PVRSRVBridgePDumpTraceBuffer(IMG_UINT32 ui32DispatchTableEntry,
-			     PVRSRV_BRIDGE_IN_PDUMPTRACEBUFFER *
-			     psPDumpTraceBufferIN,
-			     PVRSRV_BRIDGE_OUT_PDUMPTRACEBUFFER *
-			     psPDumpTraceBufferOUT,
+			     IMG_UINT8 * psPDumpTraceBufferIN_UI8,
+			     IMG_UINT8 * psPDumpTraceBufferOUT_UI8,
 			     CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_PDUMPTRACEBUFFER *psPDumpTraceBufferIN =
+	    (PVRSRV_BRIDGE_IN_PDUMPTRACEBUFFER *)
+	    IMG_OFFSET_ADDR(psPDumpTraceBufferIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_PDUMPTRACEBUFFER *psPDumpTraceBufferOUT =
+	    (PVRSRV_BRIDGE_OUT_PDUMPTRACEBUFFER *)
+	    IMG_OFFSET_ADDR(psPDumpTraceBufferOUT_UI8, 0);
 
 	psPDumpTraceBufferOUT->eError =
 	    PVRSRVPDumpTraceBufferKM(psConnection, OSGetDevNode(psConnection),
@@ -83,12 +87,16 @@ PVRSRVBridgePDumpTraceBuffer(IMG_UINT32 ui32DispatchTableEntry,
 
 static IMG_INT
 PVRSRVBridgePDumpSignatureBuffer(IMG_UINT32 ui32DispatchTableEntry,
-				 PVRSRV_BRIDGE_IN_PDUMPSIGNATUREBUFFER *
-				 psPDumpSignatureBufferIN,
-				 PVRSRV_BRIDGE_OUT_PDUMPSIGNATUREBUFFER *
-				 psPDumpSignatureBufferOUT,
+				 IMG_UINT8 * psPDumpSignatureBufferIN_UI8,
+				 IMG_UINT8 * psPDumpSignatureBufferOUT_UI8,
 				 CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_PDUMPSIGNATUREBUFFER *psPDumpSignatureBufferIN =
+	    (PVRSRV_BRIDGE_IN_PDUMPSIGNATUREBUFFER *)
+	    IMG_OFFSET_ADDR(psPDumpSignatureBufferIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_PDUMPSIGNATUREBUFFER *psPDumpSignatureBufferOUT =
+	    (PVRSRV_BRIDGE_OUT_PDUMPSIGNATUREBUFFER *)
+	    IMG_OFFSET_ADDR(psPDumpSignatureBufferOUT_UI8, 0);
 
 	psPDumpSignatureBufferOUT->eError =
 	    PVRSRVPDumpSignatureBufferKM(psConnection,
@@ -101,12 +109,16 @@ PVRSRVBridgePDumpSignatureBuffer(IMG_UINT32 ui32DispatchTableEntry,
 
 static IMG_INT
 PVRSRVBridgePDumpCRCSignatureCheck(IMG_UINT32 ui32DispatchTableEntry,
-				   PVRSRV_BRIDGE_IN_PDUMPCRCSIGNATURECHECK *
-				   psPDumpCRCSignatureCheckIN,
-				   PVRSRV_BRIDGE_OUT_PDUMPCRCSIGNATURECHECK *
-				   psPDumpCRCSignatureCheckOUT,
+				   IMG_UINT8 * psPDumpCRCSignatureCheckIN_UI8,
+				   IMG_UINT8 * psPDumpCRCSignatureCheckOUT_UI8,
 				   CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_PDUMPCRCSIGNATURECHECK *psPDumpCRCSignatureCheckIN =
+	    (PVRSRV_BRIDGE_IN_PDUMPCRCSIGNATURECHECK *)
+	    IMG_OFFSET_ADDR(psPDumpCRCSignatureCheckIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_PDUMPCRCSIGNATURECHECK *psPDumpCRCSignatureCheckOUT =
+	    (PVRSRV_BRIDGE_OUT_PDUMPCRCSIGNATURECHECK *)
+	    IMG_OFFSET_ADDR(psPDumpCRCSignatureCheckOUT_UI8, 0);
 
 	psPDumpCRCSignatureCheckOUT->eError =
 	    PVRSRVPDumpCRCSignatureCheckKM(psConnection,

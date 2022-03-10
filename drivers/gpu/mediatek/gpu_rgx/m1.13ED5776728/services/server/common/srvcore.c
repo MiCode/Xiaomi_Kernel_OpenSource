@@ -785,8 +785,8 @@ PVRSRVHWOpTimeoutKM(CONNECTION_DATA *psConnection,
 
 IMG_INT
 DummyBW(IMG_UINT32 ui32DispatchTableEntry,
-		void *psBridgeIn,
-		void *psBridgeOut,
+		IMG_UINT8 *psBridgeIn,
+		IMG_UINT8 *psBridgeOut,
 		CONNECTION_DATA *psConnection)
 {
 	PVR_UNREFERENCED_PARAMETER(psBridgeIn);
@@ -880,6 +880,9 @@ PVRSRV_ERROR PVRSRVGetMultiCoreInfoKM(CONNECTION_DATA *psConnection,
 {
 	PVRSRV_ERROR eError = PVRSRV_ERROR_NOT_SUPPORTED;
 	PVR_UNREFERENCED_PARAMETER(psConnection);
+
+	//Initialise the Buffer
+	memset(pui64Caps, 0x00, (ui32CapsSize * sizeof(IMG_UINT64)));
 
 	if (psDeviceNode->pfnGetMultiCoreInfo != NULL)
 	{

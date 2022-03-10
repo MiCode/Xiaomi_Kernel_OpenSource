@@ -65,14 +65,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * Server-side bridge entry points
  */
 
+static PVRSRV_ERROR _RGXCreateComputeContextpsComputeContextIntRelease(void
+								       *pvData)
+{
+	PVRSRV_ERROR eError;
+	eError =
+	    PVRSRVRGXDestroyComputeContextKM((RGX_SERVER_COMPUTE_CONTEXT *)
+					     pvData);
+	return eError;
+}
+
+static_assert(RGXFWIF_STATIC_COMPUTECONTEXT_SIZE <= IMG_UINT32_MAX,
+	      "RGXFWIF_STATIC_COMPUTECONTEXT_SIZE must not be larger than IMG_UINT32_MAX");
+
 static IMG_INT
 PVRSRVBridgeRGXCreateComputeContext(IMG_UINT32 ui32DispatchTableEntry,
-				    PVRSRV_BRIDGE_IN_RGXCREATECOMPUTECONTEXT *
-				    psRGXCreateComputeContextIN,
-				    PVRSRV_BRIDGE_OUT_RGXCREATECOMPUTECONTEXT *
-				    psRGXCreateComputeContextOUT,
+				    IMG_UINT8 * psRGXCreateComputeContextIN_UI8,
+				    IMG_UINT8 *
+				    psRGXCreateComputeContextOUT_UI8,
 				    CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXCREATECOMPUTECONTEXT *psRGXCreateComputeContextIN =
+	    (PVRSRV_BRIDGE_IN_RGXCREATECOMPUTECONTEXT *)
+	    IMG_OFFSET_ADDR(psRGXCreateComputeContextIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXCREATECOMPUTECONTEXT *psRGXCreateComputeContextOUT
+	    =
+	    (PVRSRV_BRIDGE_OUT_RGXCREATECOMPUTECONTEXT *)
+	    IMG_OFFSET_ADDR(psRGXCreateComputeContextOUT_UI8, 0);
+
 	IMG_HANDLE hPrivData = psRGXCreateComputeContextIN->hPrivData;
 	IMG_HANDLE hPrivDataInt = NULL;
 	IMG_BYTE *psStaticComputeContextStateInt = NULL;
@@ -84,9 +104,10 @@ PVRSRVBridgeRGXCreateComputeContext(IMG_UINT32 ui32DispatchTableEntry,
 	IMG_BOOL bHaveEnoughSpace = IMG_FALSE;
 #endif
 
-	IMG_UINT32 ui32BufferSize =
-	    (psRGXCreateComputeContextIN->ui32StaticComputeContextStateSize *
-	     sizeof(IMG_BYTE)) + 0;
+	IMG_UINT32 ui32BufferSize = 0;
+	IMG_UINT64 ui64BufferSize =
+	    ((IMG_UINT64) psRGXCreateComputeContextIN->
+	     ui32StaticComputeContextStateSize * sizeof(IMG_BYTE)) + 0;
 
 	if (unlikely
 	    (psRGXCreateComputeContextIN->ui32StaticComputeContextStateSize >
@@ -96,6 +117,15 @@ PVRSRVBridgeRGXCreateComputeContext(IMG_UINT32 ui32DispatchTableEntry,
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;
 		goto RGXCreateComputeContext_exit;
 	}
+
+	if (ui64BufferSize > IMG_UINT32_MAX)
+	{
+		psRGXCreateComputeContextOUT->eError =
+		    PVRSRV_ERROR_BRIDGE_BUFFER_TOO_SMALL;
+		goto RGXCreateComputeContext_exit;
+	}
+
+	ui32BufferSize = (IMG_UINT32) ui64BufferSize;
 
 	if (ui32BufferSize != 0)
 	{
@@ -212,7 +242,7 @@ PVRSRVBridgeRGXCreateComputeContext(IMG_UINT32 ui32DispatchTableEntry,
 				      PVRSRV_HANDLE_TYPE_RGX_SERVER_COMPUTE_CONTEXT,
 				      PVRSRV_HANDLE_ALLOC_FLAG_MULTI,
 				      (PFN_HANDLE_RELEASE) &
-				      PVRSRVRGXDestroyComputeContextKM);
+				      _RGXCreateComputeContextpsComputeContextIntRelease);
 	if (unlikely(psRGXCreateComputeContextOUT->eError != PVRSRV_OK))
 	{
 		UnlockHandle(psConnection->psHandleBase);
@@ -246,7 +276,10 @@ RGXCreateComputeContext_exit:
 	}
 
 	/* Allocated space should be equal to the last updated offset */
-	PVR_ASSERT(ui32BufferSize == ui32NextOffset);
+#ifdef PVRSRV_NEED_PVR_ASSERT
+	if (psRGXCreateComputeContextOUT->eError == PVRSRV_OK)
+		PVR_ASSERT(ui32BufferSize == ui32NextOffset);
+#endif /* PVRSRV_NEED_PVR_ASSERT */
 
 #if defined(INTEGRITY_OS)
 	if (pArrayArgsBuffer)
@@ -260,22 +293,30 @@ RGXCreateComputeContext_exit:
 
 static IMG_INT
 PVRSRVBridgeRGXDestroyComputeContext(IMG_UINT32 ui32DispatchTableEntry,
-				     PVRSRV_BRIDGE_IN_RGXDESTROYCOMPUTECONTEXT *
-				     psRGXDestroyComputeContextIN,
-				     PVRSRV_BRIDGE_OUT_RGXDESTROYCOMPUTECONTEXT
-				     * psRGXDestroyComputeContextOUT,
+				     IMG_UINT8 *
+				     psRGXDestroyComputeContextIN_UI8,
+				     IMG_UINT8 *
+				     psRGXDestroyComputeContextOUT_UI8,
 				     CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXDESTROYCOMPUTECONTEXT *psRGXDestroyComputeContextIN
+	    =
+	    (PVRSRV_BRIDGE_IN_RGXDESTROYCOMPUTECONTEXT *)
+	    IMG_OFFSET_ADDR(psRGXDestroyComputeContextIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXDESTROYCOMPUTECONTEXT
+	    *psRGXDestroyComputeContextOUT =
+	    (PVRSRV_BRIDGE_OUT_RGXDESTROYCOMPUTECONTEXT *)
+	    IMG_OFFSET_ADDR(psRGXDestroyComputeContextOUT_UI8, 0);
 
 	/* Lock over handle destruction. */
 	LockHandle(psConnection->psHandleBase);
 
 	psRGXDestroyComputeContextOUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE)
-					    psRGXDestroyComputeContextIN->
-					    hComputeContext,
-					    PVRSRV_HANDLE_TYPE_RGX_SERVER_COMPUTE_CONTEXT);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE)
+					      psRGXDestroyComputeContextIN->
+					      hComputeContext,
+					      PVRSRV_HANDLE_TYPE_RGX_SERVER_COMPUTE_CONTEXT);
 	if (unlikely
 	    ((psRGXDestroyComputeContextOUT->eError != PVRSRV_OK)
 	     && (psRGXDestroyComputeContextOUT->eError != PVRSRV_ERROR_RETRY)))
@@ -299,12 +340,17 @@ RGXDestroyComputeContext_exit:
 
 static IMG_INT
 PVRSRVBridgeRGXFlushComputeData(IMG_UINT32 ui32DispatchTableEntry,
-				PVRSRV_BRIDGE_IN_RGXFLUSHCOMPUTEDATA *
-				psRGXFlushComputeDataIN,
-				PVRSRV_BRIDGE_OUT_RGXFLUSHCOMPUTEDATA *
-				psRGXFlushComputeDataOUT,
+				IMG_UINT8 * psRGXFlushComputeDataIN_UI8,
+				IMG_UINT8 * psRGXFlushComputeDataOUT_UI8,
 				CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXFLUSHCOMPUTEDATA *psRGXFlushComputeDataIN =
+	    (PVRSRV_BRIDGE_IN_RGXFLUSHCOMPUTEDATA *)
+	    IMG_OFFSET_ADDR(psRGXFlushComputeDataIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXFLUSHCOMPUTEDATA *psRGXFlushComputeDataOUT =
+	    (PVRSRV_BRIDGE_OUT_RGXFLUSHCOMPUTEDATA *)
+	    IMG_OFFSET_ADDR(psRGXFlushComputeDataOUT_UI8, 0);
+
 	IMG_HANDLE hComputeContext = psRGXFlushComputeDataIN->hComputeContext;
 	RGX_SERVER_COMPUTE_CONTEXT *psComputeContextInt = NULL;
 
@@ -349,12 +395,21 @@ RGXFlushComputeData_exit:
 
 static IMG_INT
 PVRSRVBridgeRGXSetComputeContextPriority(IMG_UINT32 ui32DispatchTableEntry,
-					 PVRSRV_BRIDGE_IN_RGXSETCOMPUTECONTEXTPRIORITY
-					 * psRGXSetComputeContextPriorityIN,
-					 PVRSRV_BRIDGE_OUT_RGXSETCOMPUTECONTEXTPRIORITY
-					 * psRGXSetComputeContextPriorityOUT,
+					 IMG_UINT8 *
+					 psRGXSetComputeContextPriorityIN_UI8,
+					 IMG_UINT8 *
+					 psRGXSetComputeContextPriorityOUT_UI8,
 					 CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXSETCOMPUTECONTEXTPRIORITY
+	    *psRGXSetComputeContextPriorityIN =
+	    (PVRSRV_BRIDGE_IN_RGXSETCOMPUTECONTEXTPRIORITY *)
+	    IMG_OFFSET_ADDR(psRGXSetComputeContextPriorityIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXSETCOMPUTECONTEXTPRIORITY
+	    *psRGXSetComputeContextPriorityOUT =
+	    (PVRSRV_BRIDGE_OUT_RGXSETCOMPUTECONTEXTPRIORITY *)
+	    IMG_OFFSET_ADDR(psRGXSetComputeContextPriorityOUT_UI8, 0);
+
 	IMG_HANDLE hComputeContext =
 	    psRGXSetComputeContextPriorityIN->hComputeContext;
 	RGX_SERVER_COMPUTE_CONTEXT *psComputeContextInt = NULL;
@@ -405,14 +460,21 @@ RGXSetComputeContextPriority_exit:
 static IMG_INT
 PVRSRVBridgeRGXGetLastComputeContextResetReason(IMG_UINT32
 						ui32DispatchTableEntry,
-						PVRSRV_BRIDGE_IN_RGXGETLASTCOMPUTECONTEXTRESETREASON
-						*
-						psRGXGetLastComputeContextResetReasonIN,
-						PVRSRV_BRIDGE_OUT_RGXGETLASTCOMPUTECONTEXTRESETREASON
-						*
-						psRGXGetLastComputeContextResetReasonOUT,
+						IMG_UINT8 *
+						psRGXGetLastComputeContextResetReasonIN_UI8,
+						IMG_UINT8 *
+						psRGXGetLastComputeContextResetReasonOUT_UI8,
 						CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXGETLASTCOMPUTECONTEXTRESETREASON
+	    *psRGXGetLastComputeContextResetReasonIN =
+	    (PVRSRV_BRIDGE_IN_RGXGETLASTCOMPUTECONTEXTRESETREASON *)
+	    IMG_OFFSET_ADDR(psRGXGetLastComputeContextResetReasonIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXGETLASTCOMPUTECONTEXTRESETREASON
+	    *psRGXGetLastComputeContextResetReasonOUT =
+	    (PVRSRV_BRIDGE_OUT_RGXGETLASTCOMPUTECONTEXTRESETREASON *)
+	    IMG_OFFSET_ADDR(psRGXGetLastComputeContextResetReasonOUT_UI8, 0);
+
 	IMG_HANDLE hComputeContext =
 	    psRGXGetLastComputeContextResetReasonIN->hComputeContext;
 	RGX_SERVER_COMPUTE_CONTEXT *psComputeContextInt = NULL;
@@ -463,14 +525,21 @@ RGXGetLastComputeContextResetReason_exit:
 
 static IMG_INT
 PVRSRVBridgeRGXNotifyComputeWriteOffsetUpdate(IMG_UINT32 ui32DispatchTableEntry,
-					      PVRSRV_BRIDGE_IN_RGXNOTIFYCOMPUTEWRITEOFFSETUPDATE
-					      *
-					      psRGXNotifyComputeWriteOffsetUpdateIN,
-					      PVRSRV_BRIDGE_OUT_RGXNOTIFYCOMPUTEWRITEOFFSETUPDATE
-					      *
-					      psRGXNotifyComputeWriteOffsetUpdateOUT,
+					      IMG_UINT8 *
+					      psRGXNotifyComputeWriteOffsetUpdateIN_UI8,
+					      IMG_UINT8 *
+					      psRGXNotifyComputeWriteOffsetUpdateOUT_UI8,
 					      CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXNOTIFYCOMPUTEWRITEOFFSETUPDATE
+	    *psRGXNotifyComputeWriteOffsetUpdateIN =
+	    (PVRSRV_BRIDGE_IN_RGXNOTIFYCOMPUTEWRITEOFFSETUPDATE *)
+	    IMG_OFFSET_ADDR(psRGXNotifyComputeWriteOffsetUpdateIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXNOTIFYCOMPUTEWRITEOFFSETUPDATE
+	    *psRGXNotifyComputeWriteOffsetUpdateOUT =
+	    (PVRSRV_BRIDGE_OUT_RGXNOTIFYCOMPUTEWRITEOFFSETUPDATE *)
+	    IMG_OFFSET_ADDR(psRGXNotifyComputeWriteOffsetUpdateOUT_UI8, 0);
+
 	IMG_HANDLE hComputeContext =
 	    psRGXNotifyComputeWriteOffsetUpdateIN->hComputeContext;
 	RGX_SERVER_COMPUTE_CONTEXT *psComputeContextInt = NULL;
@@ -515,12 +584,26 @@ RGXNotifyComputeWriteOffsetUpdate_exit:
 	return 0;
 }
 
+static_assert(PVRSRV_MAX_SYNCS <= IMG_UINT32_MAX,
+	      "PVRSRV_MAX_SYNCS must not be larger than IMG_UINT32_MAX");
+static_assert(PVRSRV_SYNC_NAME_LENGTH <= IMG_UINT32_MAX,
+	      "PVRSRV_SYNC_NAME_LENGTH must not be larger than IMG_UINT32_MAX");
+static_assert(RGXFWIF_DM_INDEPENDENT_KICK_CMD_SIZE <= IMG_UINT32_MAX,
+	      "RGXFWIF_DM_INDEPENDENT_KICK_CMD_SIZE must not be larger than IMG_UINT32_MAX");
+
 static IMG_INT
 PVRSRVBridgeRGXKickCDM2(IMG_UINT32 ui32DispatchTableEntry,
-			PVRSRV_BRIDGE_IN_RGXKICKCDM2 * psRGXKickCDM2IN,
-			PVRSRV_BRIDGE_OUT_RGXKICKCDM2 * psRGXKickCDM2OUT,
+			IMG_UINT8 * psRGXKickCDM2IN_UI8,
+			IMG_UINT8 * psRGXKickCDM2OUT_UI8,
 			CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXKICKCDM2 *psRGXKickCDM2IN =
+	    (PVRSRV_BRIDGE_IN_RGXKICKCDM2 *)
+	    IMG_OFFSET_ADDR(psRGXKickCDM2IN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXKICKCDM2 *psRGXKickCDM2OUT =
+	    (PVRSRV_BRIDGE_OUT_RGXKICKCDM2 *)
+	    IMG_OFFSET_ADDR(psRGXKickCDM2OUT_UI8, 0);
+
 	IMG_HANDLE hComputeContext = psRGXKickCDM2IN->hComputeContext;
 	RGX_SERVER_COMPUTE_CONTEXT *psComputeContextInt = NULL;
 	SYNC_PRIMITIVE_BLOCK **psClientUpdateUFOSyncPrimBlockInt = NULL;
@@ -536,14 +619,18 @@ PVRSRVBridgeRGXKickCDM2(IMG_UINT32 ui32DispatchTableEntry,
 	IMG_BOOL bHaveEnoughSpace = IMG_FALSE;
 #endif
 
-	IMG_UINT32 ui32BufferSize =
-	    (psRGXKickCDM2IN->ui32ClientUpdateCount *
+	IMG_UINT32 ui32BufferSize = 0;
+	IMG_UINT64 ui64BufferSize =
+	    ((IMG_UINT64) psRGXKickCDM2IN->ui32ClientUpdateCount *
 	     sizeof(SYNC_PRIMITIVE_BLOCK *)) +
-	    (psRGXKickCDM2IN->ui32ClientUpdateCount * sizeof(IMG_HANDLE)) +
-	    (psRGXKickCDM2IN->ui32ClientUpdateCount * sizeof(IMG_UINT32)) +
-	    (psRGXKickCDM2IN->ui32ClientUpdateCount * sizeof(IMG_UINT32)) +
-	    (PVRSRV_SYNC_NAME_LENGTH * sizeof(IMG_CHAR)) +
-	    (psRGXKickCDM2IN->ui32CmdSize * sizeof(IMG_BYTE)) + 0;
+	    ((IMG_UINT64) psRGXKickCDM2IN->ui32ClientUpdateCount *
+	     sizeof(IMG_HANDLE)) +
+	    ((IMG_UINT64) psRGXKickCDM2IN->ui32ClientUpdateCount *
+	     sizeof(IMG_UINT32)) +
+	    ((IMG_UINT64) psRGXKickCDM2IN->ui32ClientUpdateCount *
+	     sizeof(IMG_UINT32)) +
+	    ((IMG_UINT64) PVRSRV_SYNC_NAME_LENGTH * sizeof(IMG_CHAR)) +
+	    ((IMG_UINT64) psRGXKickCDM2IN->ui32CmdSize * sizeof(IMG_BYTE)) + 0;
 
 	if (unlikely(psRGXKickCDM2IN->ui32ClientUpdateCount > PVRSRV_MAX_SYNCS))
 	{
@@ -560,6 +647,14 @@ PVRSRVBridgeRGXKickCDM2(IMG_UINT32 ui32DispatchTableEntry,
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;
 		goto RGXKickCDM2_exit;
 	}
+
+	if (ui64BufferSize > IMG_UINT32_MAX)
+	{
+		psRGXKickCDM2OUT->eError = PVRSRV_ERROR_BRIDGE_BUFFER_TOO_SMALL;
+		goto RGXKickCDM2_exit;
+	}
+
+	ui32BufferSize = (IMG_UINT32) ui64BufferSize;
 
 	if (ui32BufferSize != 0)
 	{
@@ -599,6 +694,9 @@ PVRSRVBridgeRGXKickCDM2(IMG_UINT32 ui32DispatchTableEntry,
 		psClientUpdateUFOSyncPrimBlockInt =
 		    (SYNC_PRIMITIVE_BLOCK **) IMG_OFFSET_ADDR(pArrayArgsBuffer,
 							      ui32NextOffset);
+		OSCachedMemSet(psClientUpdateUFOSyncPrimBlockInt, 0,
+			       psRGXKickCDM2IN->ui32ClientUpdateCount *
+			       sizeof(SYNC_PRIMITIVE_BLOCK *));
 		ui32NextOffset +=
 		    psRGXKickCDM2IN->ui32ClientUpdateCount *
 		    sizeof(SYNC_PRIMITIVE_BLOCK *);
@@ -802,7 +900,7 @@ RGXKickCDM2_exit:
 		{
 
 			/* Unreference the previously looked up handle */
-			if (hClientUpdateUFOSyncPrimBlockInt2[i])
+			if (psClientUpdateUFOSyncPrimBlockInt[i])
 			{
 				PVRSRVReleaseHandleUnlocked(psConnection->
 							    psHandleBase,
@@ -816,7 +914,10 @@ RGXKickCDM2_exit:
 	UnlockHandle(psConnection->psHandleBase);
 
 	/* Allocated space should be equal to the last updated offset */
-	PVR_ASSERT(ui32BufferSize == ui32NextOffset);
+#ifdef PVRSRV_NEED_PVR_ASSERT
+	if (psRGXKickCDM2OUT->eError == PVRSRV_OK)
+		PVR_ASSERT(ui32BufferSize == ui32NextOffset);
+#endif /* PVRSRV_NEED_PVR_ASSERT */
 
 #if defined(INTEGRITY_OS)
 	if (pArrayArgsBuffer)
@@ -830,12 +931,21 @@ RGXKickCDM2_exit:
 
 static IMG_INT
 PVRSRVBridgeRGXSetComputeContextProperty(IMG_UINT32 ui32DispatchTableEntry,
-					 PVRSRV_BRIDGE_IN_RGXSETCOMPUTECONTEXTPROPERTY
-					 * psRGXSetComputeContextPropertyIN,
-					 PVRSRV_BRIDGE_OUT_RGXSETCOMPUTECONTEXTPROPERTY
-					 * psRGXSetComputeContextPropertyOUT,
+					 IMG_UINT8 *
+					 psRGXSetComputeContextPropertyIN_UI8,
+					 IMG_UINT8 *
+					 psRGXSetComputeContextPropertyOUT_UI8,
 					 CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXSETCOMPUTECONTEXTPROPERTY
+	    *psRGXSetComputeContextPropertyIN =
+	    (PVRSRV_BRIDGE_IN_RGXSETCOMPUTECONTEXTPROPERTY *)
+	    IMG_OFFSET_ADDR(psRGXSetComputeContextPropertyIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXSETCOMPUTECONTEXTPROPERTY
+	    *psRGXSetComputeContextPropertyOUT =
+	    (PVRSRV_BRIDGE_OUT_RGXSETCOMPUTECONTEXTPROPERTY *)
+	    IMG_OFFSET_ADDR(psRGXSetComputeContextPropertyOUT_UI8, 0);
+
 	IMG_HANDLE hComputeContext =
 	    psRGXSetComputeContextPropertyIN->hComputeContext;
 	RGX_SERVER_COMPUTE_CONTEXT *psComputeContextInt = NULL;

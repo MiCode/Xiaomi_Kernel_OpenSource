@@ -69,12 +69,17 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 static IMG_INT
 PVRSRVBridgeRGXSetBreakpoint(IMG_UINT32 ui32DispatchTableEntry,
-			     PVRSRV_BRIDGE_IN_RGXSETBREAKPOINT *
-			     psRGXSetBreakpointIN,
-			     PVRSRV_BRIDGE_OUT_RGXSETBREAKPOINT *
-			     psRGXSetBreakpointOUT,
+			     IMG_UINT8 * psRGXSetBreakpointIN_UI8,
+			     IMG_UINT8 * psRGXSetBreakpointOUT_UI8,
 			     CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXSETBREAKPOINT *psRGXSetBreakpointIN =
+	    (PVRSRV_BRIDGE_IN_RGXSETBREAKPOINT *)
+	    IMG_OFFSET_ADDR(psRGXSetBreakpointIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXSETBREAKPOINT *psRGXSetBreakpointOUT =
+	    (PVRSRV_BRIDGE_OUT_RGXSETBREAKPOINT *)
+	    IMG_OFFSET_ADDR(psRGXSetBreakpointOUT_UI8, 0);
+
 	IMG_HANDLE hPrivData = psRGXSetBreakpointIN->hPrivData;
 	IMG_HANDLE hPrivDataInt = NULL;
 
@@ -124,12 +129,17 @@ RGXSetBreakpoint_exit:
 
 static IMG_INT
 PVRSRVBridgeRGXClearBreakpoint(IMG_UINT32 ui32DispatchTableEntry,
-			       PVRSRV_BRIDGE_IN_RGXCLEARBREAKPOINT *
-			       psRGXClearBreakpointIN,
-			       PVRSRV_BRIDGE_OUT_RGXCLEARBREAKPOINT *
-			       psRGXClearBreakpointOUT,
+			       IMG_UINT8 * psRGXClearBreakpointIN_UI8,
+			       IMG_UINT8 * psRGXClearBreakpointOUT_UI8,
 			       CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXCLEARBREAKPOINT *psRGXClearBreakpointIN =
+	    (PVRSRV_BRIDGE_IN_RGXCLEARBREAKPOINT *)
+	    IMG_OFFSET_ADDR(psRGXClearBreakpointIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXCLEARBREAKPOINT *psRGXClearBreakpointOUT =
+	    (PVRSRV_BRIDGE_OUT_RGXCLEARBREAKPOINT *)
+	    IMG_OFFSET_ADDR(psRGXClearBreakpointOUT_UI8, 0);
+
 	IMG_HANDLE hPrivData = psRGXClearBreakpointIN->hPrivData;
 	IMG_HANDLE hPrivDataInt = NULL;
 
@@ -175,12 +185,17 @@ RGXClearBreakpoint_exit:
 
 static IMG_INT
 PVRSRVBridgeRGXEnableBreakpoint(IMG_UINT32 ui32DispatchTableEntry,
-				PVRSRV_BRIDGE_IN_RGXENABLEBREAKPOINT *
-				psRGXEnableBreakpointIN,
-				PVRSRV_BRIDGE_OUT_RGXENABLEBREAKPOINT *
-				psRGXEnableBreakpointOUT,
+				IMG_UINT8 * psRGXEnableBreakpointIN_UI8,
+				IMG_UINT8 * psRGXEnableBreakpointOUT_UI8,
 				CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXENABLEBREAKPOINT *psRGXEnableBreakpointIN =
+	    (PVRSRV_BRIDGE_IN_RGXENABLEBREAKPOINT *)
+	    IMG_OFFSET_ADDR(psRGXEnableBreakpointIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXENABLEBREAKPOINT *psRGXEnableBreakpointOUT =
+	    (PVRSRV_BRIDGE_OUT_RGXENABLEBREAKPOINT *)
+	    IMG_OFFSET_ADDR(psRGXEnableBreakpointOUT_UI8, 0);
+
 	IMG_HANDLE hPrivData = psRGXEnableBreakpointIN->hPrivData;
 	IMG_HANDLE hPrivDataInt = NULL;
 
@@ -227,12 +242,17 @@ RGXEnableBreakpoint_exit:
 
 static IMG_INT
 PVRSRVBridgeRGXDisableBreakpoint(IMG_UINT32 ui32DispatchTableEntry,
-				 PVRSRV_BRIDGE_IN_RGXDISABLEBREAKPOINT *
-				 psRGXDisableBreakpointIN,
-				 PVRSRV_BRIDGE_OUT_RGXDISABLEBREAKPOINT *
-				 psRGXDisableBreakpointOUT,
+				 IMG_UINT8 * psRGXDisableBreakpointIN_UI8,
+				 IMG_UINT8 * psRGXDisableBreakpointOUT_UI8,
 				 CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXDISABLEBREAKPOINT *psRGXDisableBreakpointIN =
+	    (PVRSRV_BRIDGE_IN_RGXDISABLEBREAKPOINT *)
+	    IMG_OFFSET_ADDR(psRGXDisableBreakpointIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXDISABLEBREAKPOINT *psRGXDisableBreakpointOUT =
+	    (PVRSRV_BRIDGE_OUT_RGXDISABLEBREAKPOINT *)
+	    IMG_OFFSET_ADDR(psRGXDisableBreakpointOUT_UI8, 0);
+
 	IMG_HANDLE hPrivData = psRGXDisableBreakpointIN->hPrivData;
 	IMG_HANDLE hPrivDataInt = NULL;
 
@@ -279,12 +299,20 @@ RGXDisableBreakpoint_exit:
 
 static IMG_INT
 PVRSRVBridgeRGXOverallocateBPRegisters(IMG_UINT32 ui32DispatchTableEntry,
-				       PVRSRV_BRIDGE_IN_RGXOVERALLOCATEBPREGISTERS
-				       * psRGXOverallocateBPRegistersIN,
-				       PVRSRV_BRIDGE_OUT_RGXOVERALLOCATEBPREGISTERS
-				       * psRGXOverallocateBPRegistersOUT,
+				       IMG_UINT8 *
+				       psRGXOverallocateBPRegistersIN_UI8,
+				       IMG_UINT8 *
+				       psRGXOverallocateBPRegistersOUT_UI8,
 				       CONNECTION_DATA * psConnection)
 {
+	PVRSRV_BRIDGE_IN_RGXOVERALLOCATEBPREGISTERS
+	    *psRGXOverallocateBPRegistersIN =
+	    (PVRSRV_BRIDGE_IN_RGXOVERALLOCATEBPREGISTERS *)
+	    IMG_OFFSET_ADDR(psRGXOverallocateBPRegistersIN_UI8, 0);
+	PVRSRV_BRIDGE_OUT_RGXOVERALLOCATEBPREGISTERS
+	    *psRGXOverallocateBPRegistersOUT =
+	    (PVRSRV_BRIDGE_OUT_RGXOVERALLOCATEBPREGISTERS *)
+	    IMG_OFFSET_ADDR(psRGXOverallocateBPRegistersOUT_UI8, 0);
 
 	psRGXOverallocateBPRegistersOUT->eError =
 	    PVRSRVRGXOverallocateBPRegistersKM(psConnection,
