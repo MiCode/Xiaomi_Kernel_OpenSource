@@ -2181,8 +2181,7 @@
 			interrupts = <GIC_SPI 110 IRQ_TYPE_EDGE_RISING 0>, /*MDWDT 142-32*/
 				     <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH 0>;
-			clocks = <&scpsys MT6789_POWER_DOMAIN_MD>;
-			clock-names = "scp-sys-md1-main";
+			power-domains = <&scpsys MT6789_POWER_DOMAIN_MD>;
 			ccci-infracfg = <&infracfg_ao_clk>;
 			ccci-topckgen = <&topckgen_clk>;
 			ccci_spmsleep = <&apccci_mdo1>;
