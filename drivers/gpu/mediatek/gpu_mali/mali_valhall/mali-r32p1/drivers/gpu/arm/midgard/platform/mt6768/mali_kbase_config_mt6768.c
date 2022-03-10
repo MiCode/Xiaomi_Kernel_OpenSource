@@ -124,7 +124,7 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 
 	/* Write 1 into 0x13000130 bit 0 to enable timestamp register (TIMESTAMP).*/
 	/* TIMESTAMP will be used by clGetEventProfilingInfo.*/
-	writel(0x00000001, g_MFG_base + 0x130);
+	writel(0x00000003, g_MFG_base + 0x130);
 
 #ifdef MT_GPUFREQ_SRAM_DEBUG
 	aee_rr_rec_gpu_dvfs_status(0x6 | (aee_rr_curr_gpu_dvfs_status() & 0xF0));
