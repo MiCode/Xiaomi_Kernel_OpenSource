@@ -24,10 +24,8 @@ ${BUILD_LPM_DBG_MODUDLE_NAME}-objs += lpm_logger.o
 ${BUILD_LPM_DBG_MODUDLE_NAME}-objs += lpm_trace_event.o
 
 ifeq (${CONFIG_MTK_LPM_GS_DUMP_SUPPORT},y)
-#/*FIXME*/
-#${BUILD_LPM_DBG_MODUDLE_NAME}-objs += dbg_power_gs.o
-#${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mtk_power_gs_6363_array.o
-#${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mtk_power_gs_6373_array.o
-#${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mtk_dcm_array.o
-#${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mtk_cg_array.o
+${BUILD_LPM_DBG_MODUDLE_NAME}-objs += dbg_power_gs.o
+${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mtk_power_gs_6366_array.o
+${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mtk_dcm_array.o
+${BUILD_LPM_DBG_MODUDLE_NAME}-objs += mtk_cg_array.o
 endif
