@@ -96,6 +96,17 @@ unsigned int normalized_sysctl_sched_wakeup_granularity	= 1000000UL;
 
 const_debug unsigned int sysctl_sched_migration_cost	= 500000UL;
 
+/*
+ * Remove and clamp on negative, from a local variable.
+ *
+ * A variant of sub_positive(), which does not use explicit load-store
+ * and is thus optimized for local variable updates.
+ */
+#define lsub_positive(_ptr, _val) do {				\
+	typeof(_ptr) ptr = (_ptr);				\
+	*ptr -= min_t(typeof(*ptr), *ptr, _val);		\
+} while (0)
+
 #ifdef CONFIG_SMP
 /*
  * For asym packing, by default the lower numbered CPU has higher priority.
@@ -7233,11 +7244,13 @@ static void select_cpu_candidates(struct sched_domain *sd, cpumask_t *cpus,
 		struct perf_domain *pd, struct task_struct *p, int prev_cpu)
 {
 	int highest_spare_cap_cpu = prev_cpu, best_idle_cpu = -1;
-	unsigned long spare_cap, max_spare_cap, util, cpu_cap;
+	unsigned long util, cpu_cap;
 	bool prefer_idle = uclamp_latency_sensitive(p);
 	bool boosted = uclamp_boosted(p);
+	long idle_max_spare_cap = LONG_MIN, spare_cap, max_spare_cap;
+	int idle_max_spare_cap_cpu = -1;
 	unsigned long target_cap = boosted ? 0 : ULONG_MAX;
-	unsigned long highest_spare_cap = 0;
+	long highest_spare_cap = LONG_MIN;
 	unsigned int min_exit_lat = UINT_MAX;
 	int cpu, max_spare_cap_cpu;
 	struct cpuidle_state *idle;
@@ -7259,7 +7272,25 @@ static void select_cpu_candidates(struct sched_domain *sd, cpumask_t *cpus,
 
 			util = cpu_util_next(cpu, p, cpu);
 			cpu_cap = capacity_of(cpu);
-			spare_cap = cpu_cap - util;
+			spare_cap = cpu_cap;
+			lsub_positive(&spare_cap, util);
+
+			if (spare_cap > highest_spare_cap) {
+				highest_spare_cap = spare_cap;
+				highest_spare_cap_cpu = cpu;
+			}
+
+			/*
+			 * if there is no best idle cpu, then select max spare cap
+			 * and idle cpu for latency_sensitive task to avoid runnable.
+			 * Because this is just a backup option, we do not take care
+			 * of exit latency.
+			 */
+			if (prefer_idle && idle_cpu(cpu) &&
+					spare_cap > idle_max_spare_cap) {
+				idle_max_spare_cap = spare_cap;
+				idle_max_spare_cap_cpu = cpu;
+			}
 
 			/*
 			 * Skip CPUs that cannot satisfy the capacity request.
@@ -7286,10 +7317,6 @@ static void select_cpu_candidates(struct sched_domain *sd, cpumask_t *cpus,
 
 			if (idle_cpu(cpu)) {
 				cpu_cap = capacity_orig_of(cpu);
-				if (boosted && cpu_cap < target_cap)
-					continue;
-				if (!boosted && cpu_cap > target_cap)
-					continue;
 
 				idle = idle_get_state(cpu_rq(cpu));
 				if (idle && idle->exit_latency > min_exit_lat &&
@@ -7300,23 +7327,25 @@ static void select_cpu_candidates(struct sched_domain *sd, cpumask_t *cpus,
 					min_exit_lat = idle->exit_latency;
 				target_cap = cpu_cap;
 				best_idle_cpu = cpu;
-			} else if (spare_cap > highest_spare_cap) {
-				highest_spare_cap = spare_cap;
-				highest_spare_cap_cpu = cpu;
 			}
 		}
 
 		if (!prefer_idle && max_spare_cap_cpu >= 0)
 			cpumask_set_cpu(max_spare_cap_cpu, cpus);
+
+		if (prefer_idle && best_idle_cpu >= 0)
+			cpumask_set_cpu(best_idle_cpu, cpus);
 	}
 
 	if (!prefer_idle)
 		return;
 
-	if (best_idle_cpu >= 0)
-		cpumask_set_cpu(best_idle_cpu, cpus);
-	else
-		cpumask_set_cpu(highest_spare_cap_cpu, cpus);
+	if (cpumask_empty(cpus)) {
+		if (idle_max_spare_cap_cpu >= 0)
+			cpumask_set_cpu(idle_max_spare_cap_cpu, cpus);
+		else
+			cpumask_set_cpu(highest_spare_cap_cpu, cpus);
+	}
 }
 
 static DEFINE_PER_CPU(cpumask_t, energy_cpus);
@@ -11056,7 +11085,7 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 	unsigned long next_balance = jiffies + HZ;
 	int this_cpu = this_rq->cpu;
 	struct sched_domain *sd;
-	int pulled_task = 0;
+	int pulled_task = 0, overload;
 	u64 curr_cost = 0;
 
 	if (cpu_isolated(this_cpu))
@@ -11081,8 +11110,9 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 	 */
 	rq_unpin_lock(this_rq, rf);
 
+	overload = READ_ONCE(this_rq->rd->overload);
 	if (this_rq->avg_idle < sysctl_sched_migration_cost ||
-	    !READ_ONCE(this_rq->rd->overload)) {
+	    !overload) {
 
 		rcu_read_lock();
 		sd = rcu_dereference_check_sched_domain(this_rq->sd);
@@ -11090,7 +11120,7 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 			update_next_balance(sd, &next_balance);
 		rcu_read_unlock();
 #ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
-		if (!this_rq->rd->overload) {
+		if (!overload) {
 			raw_spin_unlock(&this_rq->lock);
 			goto hinted_idle_pull;
 		}
