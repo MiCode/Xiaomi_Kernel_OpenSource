@@ -82,6 +82,7 @@ static const char * const accl_str[] = {
 	"", "", "", "CLK", "VREG", "BUS",
 };
 
+static LIST_HEAD(rpmh_rsc_dev_list);
 static struct rsc_drv *__rsc_drv[MAX_RSC_COUNT];
 static int __rsc_count;
 bool rpmh_standalone;
@@ -1351,6 +1352,39 @@ int rpmh_rsc_update_fast_path(struct rsc_drv *drv,
 	return 0;
 }
 
+static int rpmh_rsc_poweroff_noirq(struct device *dev)
+{
+	return 0;
+}
+
+static void rpmh_rsc_tcs_irq_enable(struct rsc_drv *drv)
+{
+	u32 tcs_mask;
+	int ch;
+
+	for (ch = 0; ch < MAX_CHANNEL; ch++) {
+		if (!drv->ch[ch].initialized)
+			continue;
+
+		tcs_mask = readl_relaxed(drv->tcs_base + drv->regs[RSC_DRV_IRQ_ENABLE]);
+		tcs_mask |= drv->ch[ch].tcs[ACTIVE_TCS].mask;
+		writel_relaxed(tcs_mask, drv->tcs_base + drv->regs[RSC_DRV_IRQ_ENABLE]);
+	}
+}
+
+static int rpmh_rsc_restore_noirq(struct device *dev)
+{
+	struct rsc_drv_top *rsc_top = dev_get_drvdata(dev);
+	int i;
+
+	for (i = 0; i < rsc_top->drv_count; i++) {
+		if (rsc_top->drv[i].initialized)
+			rpmh_rsc_tcs_irq_enable(&rsc_top->drv[i]);
+	}
+
+	return 0;
+}
+
 static int rpmh_probe_channel_tcs_config(struct device_node *np,
 					 struct rsc_drv *drv,
 					 u32 max_tcs, u32 ncpt, int ch)
@@ -1487,6 +1521,7 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 {
 	struct device_node *np, *dn = pdev->dev.of_node;
 	struct rsc_drv *drv;
+	struct rsc_drv_top *rsc_top;
 	int ret, irq;
 	u32 rsc_id, major_ver, minor_ver, solver_config;
 	int i, drv_count;
@@ -1509,6 +1544,10 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "RPMH is running in standalone mode.\n");
 
 
+	rsc_top = devm_kzalloc(&pdev->dev, sizeof(*rsc_top), GFP_KERNEL);
+	if (!rsc_top)
+		return -ENOMEM;
+
 	ret = of_property_read_u32(dn, "qcom,drv-count", &drv_count);
 	if (ret)
 		return ret;
@@ -1520,6 +1559,11 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 	name = of_get_property(dn, "label", NULL);
 	if (!name)
 		name = dev_name(&pdev->dev);
+
+	rsc_top->drv_count = drv_count;
+	rsc_top->drv = drv;
+	rsc_top->dev = &pdev->dev;
+	scnprintf(rsc_top->name, sizeof(rsc_top->name), "%s", name);
 
 	for_each_child_of_node(dn, np) {
 		struct device *drv_dev;
@@ -1639,8 +1683,17 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 			return ret;
 	}
 
+	INIT_LIST_HEAD(&rsc_top->list);
+	list_add_tail(&rsc_top->list, &rpmh_rsc_dev_list);
+	dev_set_drvdata(&pdev->dev, &rsc_top);
+
 	return devm_of_platform_populate(&pdev->dev);
 }
+
+static const struct dev_pm_ops rpmh_rsc_dev_pm_ops = {
+	.poweroff_noirq = rpmh_rsc_poweroff_noirq,
+	.restore_noirq = rpmh_rsc_restore_noirq,
+};
 
 static const struct of_device_id rpmh_drv_match[] = {
 	{ .compatible = "qcom,rpmh-rsc", },
@@ -1653,6 +1706,7 @@ static struct platform_driver rpmh_driver = {
 	.driver = {
 		  .name = "rpmh",
 		  .of_match_table = rpmh_drv_match,
+		  .pm = &rpmh_rsc_dev_pm_ops,
 		  .suppress_bind_attrs = true,
 	},
 };
