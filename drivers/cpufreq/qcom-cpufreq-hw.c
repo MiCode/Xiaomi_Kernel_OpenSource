@@ -47,6 +47,7 @@ struct qcom_cpufreq_soc_data {
 	u32 reg_cycle_cntr;
 	u32 reg_intr_status;
 	u32 reg_intr_clear;
+	u32 throttle_freq_mask;
 	u8 lut_row_size;
 	u8 throttle_irq_bit;
 	bool accumulative_counter;
@@ -328,9 +329,12 @@ static void qcom_get_related_cpus(int index, struct cpumask *m)
 
 static unsigned int qcom_lmh_get_throttle_freq(struct qcom_cpufreq_data *data)
 {
-	unsigned int val = readl_relaxed(data->base + data->soc_data->reg_current_vote);
+	const struct qcom_cpufreq_soc_data *soc_data = data->soc_data;
+	unsigned int val = readl_relaxed(data->base + soc_data->reg_current_vote);
 
-	return (val & 0x3FF) * 19200;
+	val &= soc_data->throttle_freq_mask;
+
+	return val * 19200;
 }
 
 static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
@@ -436,6 +440,7 @@ static const struct qcom_cpufreq_soc_data qcom_soc_data = {
 	.reg_intr_status = 0x77c,
 	.reg_perf_state = 0x920,
 	.reg_cycle_cntr = 0x9c0,
+	.throttle_freq_mask = 0x3ff,
 	.lut_row_size = 32,
 	.throttle_irq_bit = 1,
 	.accumulative_counter = true,
@@ -443,12 +448,14 @@ static const struct qcom_cpufreq_soc_data qcom_soc_data = {
 
 static const struct qcom_cpufreq_soc_data epss_soc_data = {
 	.reg_enable = 0x0,
+	.reg_current_vote = 0x20,
 	.reg_freq_lut = 0x100,
 	.reg_volt_lut = 0x200,
 	.reg_intr_clear = 0x308,
 	.reg_intr_status = 0x30c,
 	.reg_perf_state = 0x320,
 	.reg_cycle_cntr = 0x3c4,
+	.throttle_freq_mask = 0xff,
 	.lut_row_size = 4,
 	.throttle_irq_bit = 2,
 	.accumulative_counter = false,
