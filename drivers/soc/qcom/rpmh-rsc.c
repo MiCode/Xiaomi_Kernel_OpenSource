@@ -23,6 +23,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/syscore_ops.h>
 #include <linux/wait.h>
 
 #include <soc/qcom/cmd-db.h>
@@ -1385,6 +1386,54 @@ static int rpmh_rsc_restore_noirq(struct device *dev)
 	return 0;
 }
 
+static struct rsc_drv_top *rpmh_rsc_get_top_device(const char *name)
+{
+	struct rsc_drv_top *rsc_top;
+	bool rsc_dev_present = false;
+
+	list_for_each_entry(rsc_top, &rpmh_rsc_dev_list, list) {
+		if (!strcmp(name, rsc_top->name)) {
+			rsc_dev_present = true;
+			break;
+		}
+	}
+
+	if (!rsc_dev_present)
+		return ERR_PTR(-ENODEV);
+
+	return rsc_top;
+}
+
+static int rpmh_rsc_syscore_suspend(void)
+{
+	struct rsc_drv_top *rsc_top = rpmh_rsc_get_top_device("apps_rsc");
+	int i, ch, ret = 0;
+
+	if (IS_ERR(rsc_top))
+		return ret;
+
+	for (i = 0; i < rsc_top->drv_count; i++) {
+		if (rsc_top->drv[i].initialized) {
+			ch = rpmh_rsc_get_channel(&rsc_top->drv[i]);
+			if (ch < 0)
+				return -EBUSY;
+
+			ret =  _rpmh_flush(&rsc_top->drv[i].client, ch);
+		}
+	}
+
+	return ret;
+}
+
+static void rpmh_rsc_syscore_resume(void)
+{
+}
+
+static struct syscore_ops rpmh_rsc_syscore_ops = {
+	.suspend = rpmh_rsc_syscore_suspend,
+	.resume = rpmh_rsc_syscore_resume,
+};
+
 static int rpmh_probe_channel_tcs_config(struct device_node *np,
 					 struct rsc_drv *drv,
 					 u32 max_tcs, u32 ncpt, int ch)
@@ -1631,6 +1680,7 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 			ret = rpmh_rsc_pd_attach(&drv[i]);
 			if (ret)
 				return ret;
+			register_syscore_ops(&rpmh_rsc_syscore_ops);
 		} else if (!solver_config &&
 			   !of_find_property(dn, "qcom,hw-channel", NULL)) {
 			drv[i].rsc_pm.notifier_call = rpmh_rsc_cpu_pm_callback;
