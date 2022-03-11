@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 
@@ -10,6 +11,8 @@
 #include <linux/bitmap.h>
 #include <linux/wait.h>
 #include <soc/qcom/tcs.h>
+
+#define MAX_NAME_LENGTH			20
 
 #define TCS_TYPE_NR			5
 #define MAX_CMDS_PER_TCS		16
@@ -89,6 +92,21 @@ struct rpmh_ctrlr {
 	bool in_solver_mode;
 	u32 flags;
 	struct list_head batch_cache;
+};
+
+/**
+ * struct rsc_drv_top: our representation of the top RSC device
+ *
+ * @name:               Controller RSC device name.
+ * @drv:                Controller for each DRV
+ * @dev:                RSC top device
+ * @list:               RSC device added in rpmh_rsc_dev_list.
+ */
+struct rsc_drv_top {
+	char name[MAX_NAME_LENGTH];
+	struct rsc_drv *drv;
+	struct device *dev;
+	struct list_head list;
 };
 
 /**
