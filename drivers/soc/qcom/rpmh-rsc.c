@@ -23,6 +23,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/syscore_ops.h>
 #include <linux/wait.h>
 
 #include <soc/qcom/cmd-db.h>
@@ -1125,6 +1126,46 @@ static int rpmh_rsc_restore_noirq(struct device *dev)
 	return 0;
 }
 
+static struct rsc_drv_top *rpmh_rsc_get_top_device(const char *name)
+{
+	struct rsc_drv_top *rsc_top;
+	bool rsc_dev_present = false;
+
+	list_for_each_entry(rsc_top, &rpmh_rsc_dev_list, list) {
+		if (!strcmp(name, rsc_top->name)) {
+			rsc_dev_present = true;
+			break;
+		}
+	}
+
+	if (!rsc_dev_present)
+		return ERR_PTR(-ENODEV);
+
+	return rsc_top;
+}
+
+static int rpmh_rsc_syscore_suspend(void)
+{
+	struct rsc_drv_top *rsc_top = rpmh_rsc_get_top_device("apps_rsc");
+
+	if (IS_ERR(rsc_top))
+		return 0;
+
+	if (rpmh_rsc_ctrlr_is_busy(rsc_top->drv))
+		return -EAGAIN;
+
+	return _rpmh_flush(&rsc_top->drv->client);
+}
+
+static void rpmh_rsc_syscore_resume(void)
+{
+}
+
+static struct syscore_ops rpmh_rsc_syscore_ops = {
+	.suspend = rpmh_rsc_syscore_suspend,
+	.resume = rpmh_rsc_syscore_resume,
+};
+
 static int rpmh_probe_tcs_config(struct platform_device *pdev,
 				 struct rsc_drv *drv, void __iomem *base)
 {
@@ -1312,6 +1353,7 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 			pr_err("Failed to attach RSC %s to domain ret=%d\n", drv->name, ret);
 			return ret;
 		}
+		register_syscore_ops(&rpmh_rsc_syscore_ops);
 	} else if (!solver_config) {
 		drv->rsc_pm.notifier_call = rpmh_rsc_cpu_pm_callback;
 		cpu_pm_register_notifier(&drv->rsc_pm);
