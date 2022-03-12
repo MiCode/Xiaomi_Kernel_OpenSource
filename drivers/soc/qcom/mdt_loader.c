@@ -111,6 +111,7 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 	const struct elf32_phdr *phdrs;
 	const struct elf32_hdr *ehdr;
 	const struct firmware *seg_fw;
+	struct device *scm_dev = NULL;
 	size_t hash_index;
 	size_t hash_size;
 	size_t ehdr_size;
@@ -143,10 +144,16 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 	 * data blob, so make sure it's physically contiguous, 4K aligned and
 	 * non-cachable to avoid XPU violations.
 	 */
-	if (metadata_phys)
-		data = dma_alloc_coherent(dev, ehdr_size + hash_size, metadata_phys, GFP_KERNEL);
-	else
+	if (metadata_phys) {
+		scm_dev = qcom_get_scm_device();
+		if (!scm_dev)
+			return ERR_PTR(-EPROBE_DEFER);
+
+		data = dma_alloc_coherent(scm_dev, ehdr_size + hash_size,
+				metadata_phys, GFP_KERNEL);
+	} else {
 		data = kmalloc(ehdr_size + hash_size, GFP_KERNEL);
+	}
 
 	if (!data)
 		return ERR_PTR(-ENOMEM);
@@ -179,7 +186,7 @@ void *qcom_mdt_read_metadata(struct device *dev, const struct firmware *fw, cons
 	return data;
 free_metadata:
 	if (metadata_phys)
-		dma_free_coherent(dev, ehdr_size + hash_size, data, *metadata_phys);
+		dma_free_coherent(scm_dev, ehdr_size + hash_size, data, *metadata_phys);
 	else
 		kfree(data);
 	return ERR_PTR(ret);
@@ -198,6 +205,7 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw, const 
 	phys_addr_t min_addr = PHYS_ADDR_MAX;
 	phys_addr_t max_addr = 0;
 	dma_addr_t metadata_phys;
+	struct device *scm_dev = NULL;
 	size_t metadata_len;
 	size_t fw_name_len;
 	ssize_t offset;
@@ -343,7 +351,12 @@ deinit:
 	if (ret || !mdata) {
 		if (ret)
 			qcom_scm_pas_shutdown(pas_id);
-		dma_free_coherent(dev, metadata_len, metadata, metadata_phys);
+
+		scm_dev = qcom_get_scm_device();
+		if (!scm_dev)
+			goto out;
+
+		dma_free_coherent(scm_dev, metadata_len, metadata, metadata_phys);
 	}
 out:
 	kfree(fw_name);
@@ -433,13 +446,21 @@ EXPORT_SYMBOL(qcom_mdt_load_no_free);
  * Free the metadata that was allocated by mdt loader.
  *
  */
-void qcom_mdt_free_metadata(struct device *dev, int pas_id, struct qcom_mdt_metadata *mdata,
+void qcom_mdt_free_metadata(int pas_id, struct qcom_mdt_metadata *mdata,
 			    int err)
 {
+	struct device *scm_dev;
+
 	if (err && qcom_scm_pas_shutdown_retry(pas_id))
 		panic("Panicking, failed to shutdown peripheral %d\n", pas_id);
-	if (mdata)
-		dma_free_coherent(dev, mdata->size, mdata->buf, mdata->buf_phys);
+	if (mdata) {
+		scm_dev = qcom_get_scm_device();
+		if (!scm_dev) {
+			pr_err("%s: scm_dev has not been created!\n", __func__);
+			return;
+		}
+		dma_free_coherent(scm_dev, mdata->size, mdata->buf, mdata->buf_phys);
+	}
 }
 EXPORT_SYMBOL(qcom_mdt_free_metadata);
 

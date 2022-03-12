@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2022 XiaoMi, Inc.
  */
 
 #include <linux/syscore_ops.h>
@@ -21,6 +22,40 @@
 
 #include "walt.h"
 #include "trace.h"
+
+#ifdef CONFIG_MI_SCHED_WALT
+#include <linux/pkg_stat.h>
+#endif
+
+#ifdef CONFIG_MIGT_WALT
+#include "../../../drivers/mihw/include/mi_module.h"
+#endif
+
+#ifdef CONFIG_MI_SCHED_WALT
+extern void update_pkg_load(struct task_struct *tsk, int cpu, int flag,
+		u64 wallclock, u64 delta);
+extern bool pkg_enable(void);
+extern void mi_task_fork(void *nouse, struct task_struct *tsk);
+#endif
+
+#ifdef CONFIG_MIGT_WALT
+mi_enqueue_task_fair mi_enqueue_task_fair_func = NULL;
+mi_dequeue_task_fair mi_dequeue_task_fair_func = NULL;
+
+void register_mi_enqueue_task_fair_hook(mi_enqueue_task_fair f)
+{
+	pr_info("%s now\n",  __FUNCTION__);
+	mi_enqueue_task_fair_func = f;
+}
+EXPORT_SYMBOL_GPL(register_mi_enqueue_task_fair_hook);
+
+void register_mi_dequeue_task_fair_hook(mi_dequeue_task_fair f)
+{
+	pr_info("%s now\n",  __FUNCTION__);
+	mi_dequeue_task_fair_func = f;
+}
+EXPORT_SYMBOL_GPL(register_mi_dequeue_task_fair_hook);
+#endif
 
 const char *task_event_names[] = {
 	"PUT_PREV_TASK",
@@ -106,6 +141,9 @@ u64 walt_ktime_get_ns(void)
 		return ktime_to_ns(ktime_last);
 	return ktime_get_ns();
 }
+#ifdef CONFIG_MIGT_WALT
+EXPORT_SYMBOL_GPL(walt_ktime_get_ns);
+#endif
 
 static void walt_resume(void)
 {
@@ -478,8 +516,13 @@ static void walt_sched_account_irqstart(int cpu, struct task_struct *curr)
 	raw_spin_unlock(&rq->lock);
 }
 
+#ifdef CONFIG_MIGT_3_0_WALT
+extern void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
+						u64 wallclock, u64 irqtime);
+#else
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
+#endif
 static void walt_sched_account_irqend(int cpu, struct task_struct *curr, u64 delta)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -1500,6 +1543,14 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 	return (delta * wrq->task_exec_scale) >> 10;
 }
 
+#ifdef CONFIG_MIGT_3_0_WALT
+u64 get_scale_exec_time(u64 delta, int cpu)
+{
+	return scale_exec_time(delta, cpu_rq(cpu));
+}
+EXPORT_SYMBOL_GPL(get_scale_exec_time);
+#endif
+
 /* Convert busy time to frequency equivalent
  * Assumes load is scaled to 1024
  */
@@ -1845,6 +1896,63 @@ account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event)
 	return 1;
 }
 
+#ifdef CONFIG_MI_SCHED_WALT
+static int
+__account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event,
+		bool account_wait_time)
+{
+	/*
+	 * No need to bother updating task demand for exiting tasks
+	 * or the idle task.
+	 */
+	if (is_idle_task(p))
+		return 0;
+
+	/*
+	 * When a task is waking up it is completing a segment of non-busy
+	 * time. Likewise, if wait time is not treated as busy time, then
+	 * when a task begins to run or is migrated, it is not running and
+	 * is completing a segment of non-busy time.
+	 */
+	if (event == TASK_WAKE || (!account_wait_time &&
+			 (event == PICK_NEXT_TASK || event == TASK_MIGRATE)))
+		return 0;
+
+	/*
+	 * The idle exit time is not accounted for the first task _picked_ up to
+	 * run on the idle CPU.
+	 */
+	if (event == PICK_NEXT_TASK && rq->curr == rq->idle)
+		return 0;
+
+	/*
+	 * TASK_UPDATE can be called on sleeping task, when its moved between
+	 * related groups
+	 */
+	if (event == TASK_UPDATE) {
+		if (rq->curr == p)
+			return 1;
+
+		return p->on_rq ? account_wait_time : 0;
+	}
+
+	return 1;
+}
+
+static int
+account_pkg_busy_time(struct rq *rq, struct task_struct *p, int event)
+{
+	if (is_idle_task(p)) {
+		if (event == PICK_NEXT_TASK)
+			return 0;
+
+		return 1;
+	}
+
+	return __account_busy_for_task_demand(rq, p, event, false);
+}
+#endif
+
 /*
  * Called when new window is starting for a task, to record cpu usage over
  * recently concluded window(s). Normally 'samples' should be 1. It can be > 1
@@ -2158,8 +2266,13 @@ static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
+#ifdef CONFIG_MIGT_3_0_WALT
+void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
+						u64 wallclock, u64 irqtime)
+#else
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime)
+#endif
 {
 	u64 old_window_start;
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
@@ -2184,6 +2297,23 @@ static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int even
 	if (event == PUT_PREV_TASK && p->state)
 		wts->iowaited = p->in_iowait;
 
+#ifdef CONFIG_MI_SCHED_WALT
+	if (pkg_enable()) {
+		int fstat = 0;
+		u64 delta = 0;
+		int pkg_task_busy = account_pkg_busy_time(rq, p, event);
+		if (pkg_task_busy) {
+			fstat |= PKG_TASK_BUSY;
+			if (is_idle_task(p))
+				delta = irqtime;
+			else
+				delta = wallclock - wts->mark_start;
+			delta = scale_exec_time(delta, rq);
+			update_pkg_load(p, rq->cpu, fstat, wallclock, delta);
+		}
+	}
+#endif
+
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
 				&wrq->grp_time, wrq, wts);
 	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
@@ -2194,6 +2324,9 @@ done:
 
 	run_walt_irq_work(old_window_start, rq);
 }
+#ifdef CONFIG_MIGT_3_0_WALT
+EXPORT_SYMBOL_GPL(walt_update_task_ravg);
+#endif
 
 static void __sched_fork_init(struct task_struct *p)
 {
@@ -2316,6 +2449,9 @@ struct walt_sched_cluster *sched_cluster[WALT_NR_CPUS];
 __read_mostly int num_sched_clusters;
 
 struct list_head cluster_head;
+#ifdef CONFIG_MIGT_3_0_WALT
+EXPORT_SYMBOL_GPL(cluster_head);
+#endif
 
 static struct walt_sched_cluster init_cluster = {
 	.list			= LIST_HEAD_INIT(init_cluster.list),
@@ -3839,6 +3975,11 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq, struct task_st
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 	bool double_enqueue = false;
 
+#ifdef CONFIG_MIGT_WALT
+	if(mi_enqueue_task_fair_func)
+		mi_enqueue_task_fair_func(rq, p);
+#endif
+
 	if (unlikely(walt_disabled))
 		return;
 
@@ -3878,6 +4019,11 @@ static void android_rvh_dequeue_task(void *unused, struct rq *rq, struct task_st
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 	bool double_dequeue = false;
+
+#ifdef CONFIG_MIGT_WALT
+	if(mi_dequeue_task_fair_func)
+		mi_dequeue_task_fair_func(rq, p);
+#endif
 
 	if (unlikely(walt_disabled))
 		return;
@@ -3988,9 +4134,13 @@ static void android_rvh_try_to_wake_up_success(void *unused, struct task_struct 
 {
 	unsigned long flags;
 	int cpu = p->cpu;
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (unlikely(walt_disabled))
 		return;
+
+	if (wts->mvp_list.prev == NULL && wts->mvp_list.next == NULL)
+		init_new_task_load(p);
 
 	raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
 	if (do_pl_notif(cpu_rq(cpu)))
@@ -4115,6 +4265,9 @@ static void android_rvh_sched_fork_init(void *unused, struct task_struct *p)
 	if (unlikely(walt_disabled))
 		return;
 
+#ifdef CONFIG_MI_SCHED_WALT
+	mi_task_fork(NULL, p);
+#endif
 	__sched_fork_init(p);
 }
 

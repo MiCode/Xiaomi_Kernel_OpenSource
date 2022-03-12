@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2022 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt) "VendorHooks: " fmt
@@ -16,8 +17,6 @@
 #include <linux/spinlock.h>
 #include <linux/atomic.h>
 #include <linux/sched/debug.h>
-#include <linux/sched/task.h>
-#include <linux/rwsem.h>
 #include <linux/io.h>
 
 #include <soc/qcom/watchdog.h>
@@ -25,9 +24,7 @@
 #include <trace/hooks/debug.h>
 #include <trace/hooks/printk.h>
 #include <trace/hooks/timer.h>
-#include <trace/hooks/rwsem.h>
-
-#define RWSEM_MAX_PREEMPT_ALLOWED 3000
+#include <trace/hooks/traps.h>
 
 static DEFINE_PER_CPU(struct pt_regs, regs_before_stop);
 static DEFINE_RAW_SPINLOCK(stop_lock);
@@ -53,6 +50,51 @@ static void timer_recalc_index(void *unused,
 			unsigned int lvl, unsigned long *expires)
 {
 	*expires -= 1;
+}
+
+static int instruction_read(void *addr, u32 *insnp)
+{
+	int ret;
+	__le32 val;
+
+	ret = copy_from_kernel_nofault(&val, addr, AARCH64_INSN_SIZE);
+	if (!ret)
+		*insnp = le32_to_cpu(val);
+
+	return ret;
+}
+
+static void dump_instr(const char *rname, u64 instr)
+{
+	char str[sizeof("00000000 ") * 5 + 2 + 1], *p = str;
+	int i;
+
+	for (i = -4; i < 1; i++) {
+		unsigned int val, bad;
+
+		bad = instruction_read(&((u32 *)instr)[i], &val);
+
+		if (!bad)
+			p += snprintf(p, sizeof(str), i == 0 ? "(%08x) " : "%08x ", val);
+		else {
+			p += snprintf(p, sizeof(str), "bad value from 0x%lx, maybe PAC encrypted", instr);
+			break;
+		}
+	}
+
+	printk(KERN_EMERG "%s Code: %s\n", rname, str);
+}
+
+static void print_undefinstr(void *unused,
+			struct pt_regs *regs, bool user)
+{
+	if (!user) {
+		unsigned long esr = read_sysreg(esr_el1);
+		pr_err("[%s] esr : 0x%lx\n", __func__, esr);
+		dump_instr("PC", regs->pc);
+		dump_instr("LR", regs->regs[30]);
+		show_regs(regs);
+	}
 }
 
 #if IS_ENABLED(CONFIG_DEBUG_SPINLOCK) && \
@@ -106,45 +148,6 @@ static void register_spinlock_bug_hook(struct platform_device *pdev)
 #else
 static inline void register_spinlock_bug_hook(struct platform_device *pdev) { }
 #endif
-
-static inline void rwsem_list_add_per_prio(void *ignore,
-				    struct rwsem_waiter *waiter_in,
-				    struct rw_semaphore *sem, bool *already_on_list)
-{
-	struct list_head *pos;
-	struct list_head *head;
-	struct rwsem_waiter *waiter = NULL;
-
-	pos = head = &sem->wait_list;
-	/*
-	 * Rules for task prio aware rwsem wait list queueing:
-	 * 1: Only try to preempt waiters with which task priority
-	 *	which is higher than DEFAULT_PRIO.
-	 * 2: To avoid starvation, add count in rw_semaphore struct
-	 *	to record how many high priority waiters preempt to queue
-	 *	in wait list.
-	 *	If preempt count is exceed RWSEM_MAX_PREEMPT_ALLOWED,
-	 *	use simple fifo until wait list is empty.
-	 */
-	if (list_empty(head)) {
-		sem->android_vendor_data1 = 0;
-		return;
-	}
-
-	if (waiter_in->task->prio < DEFAULT_PRIO
-		&& sem->android_vendor_data1 < RWSEM_MAX_PREEMPT_ALLOWED) {
-
-		list_for_each(pos, head) {
-			waiter = list_entry(pos, struct rwsem_waiter, list);
-			if (waiter->task->prio > waiter_in->task->prio) {
-				list_add(&waiter_in->list, pos->prev);
-				sem->android_vendor_data1++;
-				*already_on_list = true;
-				return;
-			}
-		}
-	}
-}
 
 #ifdef CONFIG_RANDOMIZE_BASE
 #define KASLR_OFFSET_MASK	0x00000000FFFFFFFF
@@ -210,14 +213,9 @@ static int cpu_vendor_hooks_driver_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = register_trace_android_vh_alter_rwsem_list_add(rwsem_list_add_per_prio, NULL);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to android_vh_alter_rwsem_list_add\n");
-		unregister_trace_android_vh_ipi_stop(trace_ipi_stop, NULL);
-		unregister_trace_android_vh_printk_hotplug(printk_hotplug, NULL);
-		unregister_trace_android_vh_timer_calc_index(timer_recalc_index, NULL);
-		return ret;
-	}
+	ret = register_trace_android_rvh_do_undefinstr(print_undefinstr, NULL);
+	if (ret)
+		dev_err(&pdev->dev, "Failed to android_rvh_do_undefinstr hook\n");
 
 	register_spinlock_bug_hook(pdev);
 
@@ -230,7 +228,6 @@ static int cpu_vendor_hooks_driver_remove(struct platform_device *pdev)
 	unregister_trace_android_vh_ipi_stop(trace_ipi_stop, NULL);
 	unregister_trace_android_vh_printk_hotplug(printk_hotplug, NULL);
 	unregister_trace_android_vh_timer_calc_index(timer_recalc_index, NULL);
-	unregister_trace_android_vh_alter_rwsem_list_add(rwsem_list_add_per_prio, NULL);
 	return 0;
 }
 

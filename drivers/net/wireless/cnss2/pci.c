@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #include <linux/cma.h>
 #include <linux/io.h>
@@ -2687,6 +2690,7 @@ static int cnss_qca6290_powerup(struct cnss_pci_data *pci_priv)
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 	unsigned int timeout;
 	int retry = 0, bt_en_gpio = plat_priv->pinctrl_info.bt_en_gpio;
+	int sw_ctrl_gpio = plat_priv->pinctrl_info.sw_ctrl_gpio;
 
 	if (plat_priv->ramdump_info_v2.dump_data_valid) {
 		cnss_pci_clear_dump_info(pci_priv);
@@ -2710,6 +2714,8 @@ retry:
 	ret = cnss_resume_pci_link(pci_priv);
 	if (ret) {
 		cnss_pr_err("Failed to resume PCI link, err = %d\n", ret);
+		cnss_pr_dbg("Value of SW_CTRL GPIO: %d\n",
+			    cnss_get_input_gpio_value(plat_priv, sw_ctrl_gpio));
 		if (test_bit(IGNORE_PCI_LINK_FAILURE,
 			     &plat_priv->ctrl_params.quirks)) {
 			cnss_pr_dbg("Ignore PCI link resume failure\n");
@@ -2719,13 +2725,18 @@ retry:
 		if (ret == -EAGAIN && retry++ < POWER_ON_RETRY_MAX_TIMES) {
 			cnss_power_off_device(plat_priv);
 			/* Force toggle BT_EN GPIO low */
-			if (retry == POWER_ON_RETRY_MAX_TIMES &&
-			    bt_en_gpio >= 0) {
-				cnss_pr_info("Set BT_EN GPIO(%u) low\n",
-					     bt_en_gpio);
-				gpio_direction_output(bt_en_gpio, 0);
+			if (retry == POWER_ON_RETRY_MAX_TIMES) {
+				cnss_pr_dbg("Retry #%d. Set BT_EN GPIO(%u) low\n",
+					    retry, bt_en_gpio);
+				if (bt_en_gpio >= 0)
+					gpio_direction_output(bt_en_gpio, 0);
+				cnss_pr_dbg("BT_EN GPIO val: %d\n",
+					    gpio_get_value(bt_en_gpio));
 			}
 			cnss_pr_dbg("Retry to resume PCI link #%d\n", retry);
+			cnss_pr_dbg("Value of SW_CTRL GPIO: %d\n",
+				    cnss_get_input_gpio_value(plat_priv,
+							      sw_ctrl_gpio));
 			msleep(POWER_ON_RETRY_DELAY_MS * retry);
 			goto retry;
 		}
@@ -3020,6 +3031,10 @@ static void cnss_wlan_reg_driver_work(struct work_struct *work)
 	} else {
 		cnss_pr_err("Timeout waiting for calibration to complete\n");
 		del_timer(&plat_priv->fw_boot_timer);
+		if (plat_priv->charger_mode) {
+			cnss_pr_err("Ignore calibration timeout in charger mode\n");
+			return;
+		}
 		if (!test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state))
 			CNSS_ASSERT(0);
 		cal_info = kzalloc(sizeof(*cal_info), GFP_KERNEL);

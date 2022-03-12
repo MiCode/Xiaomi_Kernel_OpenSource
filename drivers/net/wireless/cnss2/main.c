@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
+/*
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 #include <linux/delay.h>
 #include <linux/jiffies.h>
@@ -27,12 +30,11 @@
 #define CNSS_DUMP_NAME			"CNSS_WLAN"
 #define CNSS_DUMP_DESC_SIZE		0x1000
 #define CNSS_DUMP_SEG_VER		0x1
-#define RECOVERY_DELAY_MS		100
 #define FILE_SYSTEM_READY		1
 #define FW_READY_TIMEOUT		20000
 #define FW_ASSERT_TIMEOUT		5000
 #define CNSS_EVENT_PENDING		2989
-#define COLD_BOOT_CAL_SHUTDOWN_DELAY_MS	50
+#define POWER_RESET_MIN_DELAY_MS	100
 
 #define CNSS_QUIRKS_DEFAULT		0
 #ifdef CONFIG_CNSS_EMULATION
@@ -540,7 +542,7 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 		if (cfg) {
 			if (!cfg->dms_mac_addr_supported) {
 				cnss_pr_err("DMS MAC address not supported\n");
-				CNSS_ASSERT(0);
+				//CNSS_ASSERT(0);
 				return -EINVAL;
 			}
 		}
@@ -549,13 +551,13 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 				break;
 
 			ret = cnss_qmi_get_dms_mac(plat_priv);
-			if (ret == 0)
+			if (ret != -EAGAIN)
 				break;
 			msleep(CNSS_DMS_QMI_CONNECTION_WAIT_MS);
 		}
-		if (!plat_priv->dms.mac_valid) {
+		if (!plat_priv->dms.nv_mac_not_prov && !plat_priv->dms.mac_valid) {
 			cnss_pr_err("Unable to get MAC from DMS after retries\n");
-			CNSS_ASSERT(0);
+			//CNSS_ASSERT(0);
 			return -EINVAL;
 		}
 	}
@@ -1319,7 +1321,7 @@ static void cnss_recovery_work_handler(struct work_struct *work)
 
 	cnss_bus_dev_shutdown(plat_priv);
 	cnss_bus_dev_ramdump(plat_priv);
-	msleep(RECOVERY_DELAY_MS);
+	msleep(POWER_RESET_MIN_DELAY_MS);
 
 	ret = cnss_bus_dev_powerup(plat_priv);
 	if (ret)
@@ -1372,6 +1374,20 @@ static const char *cnss_recovery_reason_to_str(enum cnss_recovery_reason reason)
 	return "UNKNOWN";
 };
 
+#ifdef CONFIG_CNSS2_DEBUG
+static bool cnss_link_down_self_recovery(void)
+{
+	/* Attempt self recovery only in production builds */
+	return false;
+}
+#else
+static bool cnss_link_down_self_recovery(void)
+{
+	cnss_pr_warn("PCI link down recovery failed. Force self recovery\n");
+	return true;
+}
+#endif
+
 static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			    enum cnss_recovery_reason reason)
 {
@@ -1410,6 +1426,9 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			clear_bit(CNSS_DRIVER_RECOVERY,
 				  &plat_priv->driver_state);
 			return 0;
+		} else {
+			if (cnss_link_down_self_recovery())
+				goto self_recovery;
 		}
 		break;
 	case CNSS_REASON_RDDM:
@@ -1759,7 +1778,7 @@ static int cnss_cold_boot_cal_done_hdlr(struct cnss_plat_data *plat_priv,
 	cnss_bus_free_qdss_mem(plat_priv);
 	cnss_release_antenna_sharing(plat_priv);
 	cnss_bus_dev_shutdown(plat_priv);
-	msleep(COLD_BOOT_CAL_SHUTDOWN_DELAY_MS);
+	msleep(POWER_RESET_MIN_DELAY_MS);
 	complete(&plat_priv->cal_complete);
 	clear_bit(CNSS_IN_COLD_BOOT_CAL, &plat_priv->driver_state);
 	set_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state);
@@ -2892,9 +2911,12 @@ static ssize_t fs_ready_store(struct device *dev,
 {
 	int fs_ready = 0;
 	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	cnss_pr_err("fs_ready event!\n");
 
-	if (sscanf(buf, "%du", &fs_ready) != 1)
+	if (sscanf(buf, "%du", &fs_ready) != 1) {
+		cnss_pr_err("no parm to write to fs_ready!\n");
 		return -EINVAL;
+	}
 
 	cnss_pr_dbg("File system is ready, fs_ready is %d, count is %zu\n",
 		    fs_ready, count);
@@ -2908,6 +2930,8 @@ static ssize_t fs_ready_store(struct device *dev,
 		cnss_pr_dbg("QMI is bypassed\n");
 		return count;
 	}
+
+	cnss_pr_dbg("device ID 0x%lx\n", plat_priv->device_id);
 
 	switch (plat_priv->device_id) {
 	case QCA6290_DEVICE_ID:
@@ -2982,6 +3006,21 @@ static ssize_t hw_trace_override_store(struct device *dev,
 	return count;
 }
 
+static ssize_t charger_mode_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	int tmp = 0;
+
+	if (sscanf(buf, "%du", &tmp) != 1)
+		return -EINVAL;
+
+	plat_priv->charger_mode = tmp;
+	cnss_pr_dbg("Received Charger Mode: %d\n", tmp);
+	return count;
+}
+
 static DEVICE_ATTR_WO(fs_ready);
 static DEVICE_ATTR_WO(shutdown);
 static DEVICE_ATTR_WO(recovery);
@@ -2990,6 +3029,7 @@ static DEVICE_ATTR_WO(qdss_trace_start);
 static DEVICE_ATTR_WO(qdss_trace_stop);
 static DEVICE_ATTR_WO(qdss_conf_download);
 static DEVICE_ATTR_WO(hw_trace_override);
+static DEVICE_ATTR_WO(charger_mode);
 
 static struct attribute *cnss_attrs[] = {
 	&dev_attr_fs_ready.attr,
@@ -3000,6 +3040,7 @@ static struct attribute *cnss_attrs[] = {
 	&dev_attr_qdss_trace_stop.attr,
 	&dev_attr_qdss_conf_download.attr,
 	&dev_attr_hw_trace_override.attr,
+	&dev_attr_charger_mode.attr,
 	NULL,
 };
 
@@ -3011,6 +3052,8 @@ static int cnss_create_sysfs_link(struct cnss_plat_data *plat_priv)
 {
 	struct device *dev = &plat_priv->plat_dev->dev;
 	int ret;
+
+	cnss_pr_err("start create cnss link\n");
 
 	ret = sysfs_create_link(kernel_kobj, &dev->kobj, "cnss");
 	if (ret) {
@@ -3257,6 +3300,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	const struct platform_device_id *device_id;
 	int retry = 0;
 
+	cnss_pr_err("cnss_probe!\n");
 	if (cnss_get_plat_priv(plat_dev)) {
 		cnss_pr_err("Driver is already initialized!\n");
 		ret = -EEXIST;

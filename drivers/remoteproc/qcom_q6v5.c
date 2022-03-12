@@ -15,9 +15,15 @@
 #include <linux/remoteproc.h>
 #include <linux/delay.h>
 #include "qcom_common.h"
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
 #include "qcom_q6v5.h"
 
 #define Q6V5_PANIC_DELAY_MS	200
+#define MAX_SSR_REASON_LEN	256U
+
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+static struct proc_dir_entry *last_modem_sfr_entry;
 
 /**
  * qcom_q6v5_prepare() - reinitialize the qcom_q6v5 context before start
@@ -99,10 +105,15 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 	}
 
 	msg = qcom_smem_get(QCOM_SMEM_HOST_ANY, q6v5->crash_reason, &len);
-	if (!IS_ERR(msg) && len > 0 && msg[0])
+	if (!IS_ERR(msg) && len > 0 && msg[0]){
 		dev_err(q6v5->dev, "watchdog received: %s\n", msg);
-	else
+		dev_err(q6v5->dev, "subsystem failure reason: %s. \n", msg);
+        strlcpy(last_modem_sfr_reason, msg, MAX_SSR_REASON_LEN);
+	}else {
 		dev_err(q6v5->dev, "watchdog without message\n");
+		dev_err(q6v5->dev, "subsystem failure reason: watchdog without message. \n");
+        //strlcpy(last_modem_sfr_reason, msg, MAX_SSR_REASON_LEN);
+	}
 
 	q6v5->running = false;
 	if (q6v5->rproc->recovery_disabled)
@@ -125,11 +136,16 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 	}
 
 	msg = qcom_smem_get(QCOM_SMEM_HOST_ANY, q6v5->crash_reason, &len);
-	if (!IS_ERR(msg) && len > 0 && msg[0])
+	if (!IS_ERR(msg) && len > 0 && msg[0]){
 		dev_err(q6v5->dev, "fatal error received: %s\n", msg);
-	else
+		dev_err(q6v5->dev, "subsystem failure reason: %s. \n", msg);
+        strlcpy(last_modem_sfr_reason, msg, MAX_SSR_REASON_LEN);
+	}else {
 		dev_err(q6v5->dev, "fatal error without message\n");
-
+		dev_err(q6v5->dev, "subsystem failure reason: fatal error without message. \n");
+        //strlcpy(last_modem_sfr_reason, msg, MAX_SSR_REASON_LEN);
+	}
+	
 	q6v5->running = false;
 	if (q6v5->rproc->recovery_disabled)
 		schedule_work(&q6v5->crash_handler);
@@ -147,6 +163,26 @@ static irqreturn_t q6v5_ready_interrupt(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+
+/* modem crash history entry */
+static int last_modem_sfr_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", last_modem_sfr_reason);
+	return 0;
+}
+
+static int last_modem_sfr_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, last_modem_sfr_proc_show, NULL);
+}
+
+static const struct proc_ops last_modem_sfr_file_ops = {
+	//.owner   = THIS_MODULE,
+	.proc_open    = last_modem_sfr_proc_open,
+	.proc_read    = seq_read,
+	.proc_lseek  = seq_lseek,
+	.proc_release = single_release,
+};
 
 /**
  * qcom_q6v5_wait_for_start() - wait for remote processor start signal
@@ -200,7 +236,12 @@ static irqreturn_t q6v5_stop_interrupt(int irq, void *data)
 int qcom_q6v5_request_stop(struct qcom_q6v5 *q6v5, struct qcom_sysmon *sysmon)
 {
 	int ret;
-
+    
+	if (last_modem_sfr_entry) {
+        remove_proc_entry("last_mcrash", NULL);
+        last_modem_sfr_entry = NULL;
+	}
+	
 	q6v5->running = false;
 
 	/* Don't perform SMP2P dance if sysmon already shut
@@ -253,7 +294,10 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
 		   void (*handover)(struct qcom_q6v5 *q6v5))
 {
 	int ret;
-
+    last_modem_sfr_entry = proc_create("last_mcrash", S_IFREG | S_IRUGO, NULL, &last_modem_sfr_file_ops);
+	if (!last_modem_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry last_mcrash\n");
+	}
 	q6v5->rproc = rproc;
 	q6v5->dev = &pdev->dev;
 	q6v5->crash_reason = crash_reason;

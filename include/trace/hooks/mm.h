@@ -126,6 +126,13 @@ DECLARE_HOOK(android_vh_mmap_region,
 DECLARE_HOOK(android_vh_try_to_unmap_one,
 	TP_PROTO(struct vm_area_struct *vma, struct page *page, unsigned long addr, bool ret),
 	TP_ARGS(vma, page, addr, ret));
+struct device;
+DECLARE_HOOK(android_vh_subpage_dma_contig_alloc,
+	TP_PROTO(bool *allow_subpage_alloc, struct device *dev, size_t *size),
+	TP_ARGS(allow_subpage_alloc, dev, size));
+DECLARE_HOOK(android_vh_no_iommu_config,
+	TP_PROTO(struct device *dev),
+	TP_ARGS(dev));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_MM_H */

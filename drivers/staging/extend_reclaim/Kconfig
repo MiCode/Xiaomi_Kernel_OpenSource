@@ -1,0 +1,3 @@
+config EXTEND_RECLAIM
+    tristate "Xiaomi extend reclaim"
+    default n

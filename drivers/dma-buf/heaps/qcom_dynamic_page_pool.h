@@ -28,6 +28,15 @@
 				| __GFP_COMP)
 #define LOW_ORDER_GFP (GFP_HIGHUSER | __GFP_ZERO | __GFP_COMP)
 
+extern u64 totalram;
+/*
+ * 6GB totalram unit is pages
+ * 6 * 1024 * 1024 / 4 = 1572864
+ */
+#define HIGH_MEM_DEVICE (totalram > 1572864)
+#define THIRTY_MB_PAGES (7680)
+#define THREE_HUNDRED_MB_PAGES (76800)
+#define ONE_EIGHTH_AT_A_TIME (3)
 /*
  * We add __GFP_NOWARN for order 4 allocations since the core mm/ framework
  * makes no guarantee of these allocations succeeding.
@@ -37,7 +46,7 @@ static gfp_t order_flags[] = {HIGH_ORDER_GFP, LOW_ORDER_GFP | __GFP_NOWARN,
 #if defined(CONFIG_IOMMU_IO_PGTABLE_ARMV7S) && !defined(CONFIG_64BIT) && !defined(CONFIG_ARM_LPAE)
 static const unsigned int orders[] = {8, 4, 0};
 #else
-static const unsigned int orders[] = {9, 4, 0};
+static const unsigned int orders[] = {4, 0};
 #endif
 #define NUM_ORDERS ARRAY_SIZE(orders)
 

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2016, 2019-2021, The Linux Foundation. All rights reserved. */
+/* Copyright (C) 2022 XiaoMi, Inc. */
 
 #ifndef __QCOM_CLK_DEBUG_H__
 #define __QCOM_CLK_DEBUG_H__
@@ -64,6 +65,7 @@ struct measure_clk_data {
  */
 struct clk_debug_mux {
 	int *mux_sels;
+	int num_mux_sels;
 	int *pre_div_vals;
 	int num_parents;
 	struct regmap *regmap;

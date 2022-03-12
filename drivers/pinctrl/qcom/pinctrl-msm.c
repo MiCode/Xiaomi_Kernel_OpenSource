@@ -1328,6 +1328,134 @@ static bool msm_gpio_needs_valid_mask(struct msm_pinctrl *pctrl)
 	return have_reserved || have_gpios;
 }
 
+#if 0
+#ifdef CONFIG_MI_POWER_INFO_MODULE
+/* add ifdef CONFIG_MI_POWER_INFO_MODULE start */
+struct gpio_dbg_device {
+	struct list_head list;
+	char *name;
+	void (*gpiolib_dbg_info_print)(struct gpio_chip *chip);
+	struct gpio_chip *chip;
+};
+
+/* add ifdef CONFIG_MI_POWER_INFO_MODULE start */
+extern void gpiochip_add_dbg_device(struct gpio_dbg_device *dev);
+//extern void log_irq_wakeup_reason(int irq);
+
+static void msm_gpio_dbg_info_print_one(struct pinctrl_dev *pctldev,
+				  struct gpio_chip *chip,
+				  unsigned offset,
+				  unsigned gpio)
+{
+	const struct msm_pingroup *g;
+	struct msm_pinctrl *pctrl = gpiochip_get_data(chip);
+	unsigned func;
+	int is_out;
+	int drive;
+	int pull;
+	int val;
+	u32 ctl_reg, io_reg;
+
+	static const char * const pulls_keeper[] = {
+		"no pull",
+		"pull down",
+		"keeper",
+		"pull up"
+	};
+
+	static const char * const pulls_no_keeper[] = {
+		"no pull",
+		"pull down",
+		"pull up",
+	};
+
+	if (!gpiochip_line_is_valid(chip, offset))
+		return;
+
+	g = &pctrl->soc->groups[offset];
+	ctl_reg = msm_readl_ctl(pctrl, g);
+	io_reg = msm_readl_io(pctrl, g);
+
+	is_out = !!(ctl_reg & BIT(g->oe_bit));
+	func = (ctl_reg >> g->mux_bit) & 7;
+	drive = (ctl_reg >> g->drv_bit) & 7;
+	pull = (ctl_reg >> g->pull_bit) & 3;
+
+	if (is_out)
+		val = !!(io_reg & BIT(g->out_bit));
+	else
+		val = !!(io_reg & BIT(g->in_bit));
+
+	if (pctrl->soc->pull_no_keeper)
+		pr_info("%-8s: %-3s, %-4s func%d  %dmA %s", g->name, is_out? "out": "in",
+				val? "high": "low", func, msm_regval_to_drive(drive), pulls_no_keeper[pull]);
+	else
+		pr_info("%-8s: %-3s, %-4s func%d  %dmA %s", g->name, is_out? "out": "in",
+				val? "high": "low", func, msm_regval_to_drive(drive), pulls_keeper[pull]);
+}
+
+void msm_pinctrl_dbg_info_print(struct gpio_chip *chip)
+{
+	unsigned gpio = chip->base;
+	unsigned i;
+
+	for (i = 0; i < chip->ngpio; i++, gpio++)
+		msm_gpio_dbg_info_print_one(NULL, chip, i, gpio);
+
+}
+
+struct gpio_dbg_device msm_pinctrl_dbg_device = {
+	.name = "msm-pinctrl",
+	.gpiolib_dbg_info_print = msm_pinctrl_dbg_info_print,
+};
+
+void msm_pinctrl_gpio_dbg_register(struct gpio_chip *chip)
+{
+    if (chip == NULL)
+       return;
+
+	msm_pinctrl_dbg_device.chip = chip;
+	gpiochip_add_dbg_device(&msm_pinctrl_dbg_device);
+
+}
+
+bool msm_pinctrl_check_wakeup_event(void *data)
+{
+	int i, irq;
+	bool ret = false;
+	u32 val;
+	unsigned long flags;
+	struct irq_desc *desc;
+	const struct msm_pingroup *g;
+	const char *name = "null";
+	struct msm_pinctrl *pctrl= msm_pinctrl_data;
+
+	raw_spin_lock_irqsave(&pctrl->lock, flags);
+	for_each_set_bit(i, pctrl->enabled_irqs, pctrl->chip.ngpio) {
+		g = &pctrl->soc->groups[i];
+		val = readl_relaxed(pctrl->regs[g->tile] + g->intr_status_reg);
+		if (val & BIT(g->intr_status_bit)){
+			irq = irq_find_mapping(pctrl->chip.irq.domain, i);
+			//log_irq_wakeup_reason(irq);
+			desc = irq_to_desc(irq);
+			if (desc == NULL)
+				name = "stray_irq";
+			else if (desc->action && desc->action->name)
+				name = desc->action->name;
+			ret = true;
+			pr_warn("%s:%d triggered %s\n", __func__, irq, name);
+		}
+	}
+
+	raw_spin_unlock_irqrestore(&pctrl->lock, flags);
+
+	return ret;
+}
+EXPORT_SYMBOL(msm_pinctrl_check_wakeup_event);
+/* add ifdef CONFIG_MI_POWER_INFO_MODULE end */
+#endif// end of CONFIG_MI_POWER_INFO_MODULE
+#endif
+
 static int msm_gpio_init(struct msm_pinctrl *pctrl)
 {
 	struct gpio_chip *chip;
@@ -1424,6 +1552,13 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 			return ret;
 		}
 	}
+
+#if 0
+#ifdef CONFIG_MI_POWER_INFO_MODULE
+    /* add ifdef CONFIG_MI_POWER_INFO_MODULE */
+	msm_pinctrl_gpio_dbg_register(chip);
+#endif// end of CONFIG_MI_POWER_INFO_MODULE
+#endif
 
 	return 0;
 }

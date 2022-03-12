@@ -4,6 +4,7 @@
  *                  devfreq
  *
  * Copyright (C) 2014-2015 ARM Limited
+ * Copyright (C) 2022 XiaoMi, Inc.
  *
  * TODO:
  *    - If OPPs are added or removed after devfreq cooling has
@@ -96,16 +97,18 @@ static int devfreq_cooling_set_cur_state(struct thermal_cooling_device *cdev,
 	if (state == dfc->cooling_state)
 		return 0;
 
-	dev_dbg(dev, "Setting cooling state %lu\n", state);
+	printk(KERN_ERR "[ABCD] Setting cooling state %lu\n", state);
 
 	if (state >= dfc->freq_table_size)
 		return -EINVAL;
 
 	freq = dfc->freq_table[state];
 
+	printk(KERN_ERR "[ABCD] Setting cooling freq %lu\n", freq);
 	dev_pm_qos_update_request(&dfc->req_max_freq,
 				  DIV_ROUND_UP(freq, HZ_PER_KHZ));
 
+	printk(KERN_ERR "[ABCD] Setting cooling freq DIV %lu\n", DIV_ROUND_UP(freq, HZ_PER_KHZ));
 	dfc->cooling_state = state;
 
 	return 0;

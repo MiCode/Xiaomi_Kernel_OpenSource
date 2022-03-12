@@ -256,23 +256,24 @@ void *qcom_dma_common_contiguous_remap(struct page *page, size_t size,
 }
 
 /*
- * Unmaps a range previously mapped by dma_common_*_remap
+* Unmaps a range previously mapped by dma_common_contiguous_remap or
+* dma_common_pages_remap. Note that dma_common_contiguous_remap does
+* not insert an rb_tree entry since there is no pages array to save.
  */
 void qcom_dma_common_free_remap(void *cpu_addr, size_t size)
 {
 	struct qcom_iommu_dma_area *area;
 
-	vunmap(cpu_addr);
-
 	/* qcom_dma_common_contiguous_remap doesn't save the pages array */
 	area = qcom_find_vm_area(cpu_addr);
-	if (!area)
-		return;
+	if (area) {
+		mutex_lock(&rbtree_lock);
+		rb_erase(&area->node, root);
+		mutex_unlock(&rbtree_lock);
+		kfree(area);
+	}
 
-	mutex_lock(&rbtree_lock);
-	rb_erase(&area->node, root);
-	mutex_unlock(&rbtree_lock);
-	kfree(area);
+	vunmap(cpu_addr);
 }
 
 static struct gen_pool *atomic_pool __ro_after_init;

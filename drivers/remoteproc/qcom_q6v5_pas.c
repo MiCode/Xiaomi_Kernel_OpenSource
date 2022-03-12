@@ -418,7 +418,7 @@ unscale_bus:
 disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
 free_metadata:
-	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata, ret);
+	qcom_mdt_free_metadata(adsp->pas_id, adsp->mdata, ret);
 
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "exit");
 	return ret;
@@ -707,8 +707,9 @@ static int adsp_probe(struct platform_device *pdev)
 	if (ret < 0 && ret != -EINVAL)
 		return ret;
 
-	if (desc->minidump_id)
-		ops = &adsp_minidump_ops;
+	//delete it for ssr minidump by xiaomi
+	//if (desc->minidump_id)
+	//	ops = &adsp_minidump_ops;
 
 	rproc = rproc_alloc(&pdev->dev, pdev->name, ops, fw_name, sizeof(*adsp));
 

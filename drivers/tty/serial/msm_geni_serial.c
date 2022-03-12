@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2022 XiaoMi, Inc.
  */
 
 #include <linux/bitmap.h>
@@ -1730,7 +1731,7 @@ static int stop_rx_sequencer(struct uart_port *uport)
 
 				geni_se_dump_dbg_regs(&port->serial_rsc,
 					uport->membase, port->ipc_log_misc);
-
+				BUG_ON(1);
 			}
 		}
 	}
@@ -2091,6 +2092,7 @@ static bool handle_rx_fifo_xfer(u32 s_irq_status, struct uart_port *uport,
 	if (s_irq_status & (S_CMD_CANCEL_EN | S_CMD_ABORT_EN)) {
 		ret = true;
 		drop_rx = true;
+		UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev, " %s sirq", __func__, s_irq_status);
 	}
 	if (s_irq_status & (S_RX_FIFO_WATERMARK_EN |
 						S_RX_FIFO_LAST_EN)) {

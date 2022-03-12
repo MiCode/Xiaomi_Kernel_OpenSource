@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2022 XiaoMi, Inc.
  */
 
 #include <linux/module.h>
@@ -9,6 +10,8 @@
 #include <trace/hooks/signal.h>
 #include <trace/hooks/vmscan.h>
 #include <linux/printk.h>
+#include <linux/dma-mapping.h>
+#include <linux/dma-direct.h>
 
 static unsigned long panic_on_oom_timeout;
 struct task_struct *saved_tsk;
@@ -79,6 +82,16 @@ static void balance_reclaim(void *unused, bool *balance_anon_file_reclaim)
 	*balance_anon_file_reclaim = true;
 }
 
+static void allow_subpage_alloc(void *data, bool *allow_subpage_alloc, struct device *dev,
+				size_t *size)
+{
+	if (dev->iommu_group == false && !(dev->coherent_dma_mask == DMA_BIT_MASK(64) &&
+		dma_get_mask(dev) == DMA_BIT_MASK(64))) {
+		*allow_subpage_alloc = true;
+		*size = PAGE_ALIGN(*size);
+	}
+}
+
 static int __init init_mem_hooks(void)
 {
 	int ret;
@@ -122,6 +135,13 @@ static int __init init_mem_hooks(void)
 			return ret;
 		}
 	}
+
+	ret = register_trace_android_vh_subpage_dma_contig_alloc(allow_subpage_alloc, NULL);
+	if (ret) {
+		pr_err("Failed to register set_dma_mask hook\n");
+		return ret;
+	}
+
 	return 0;
 }
 

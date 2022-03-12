@@ -606,6 +606,42 @@ config TASK_IO_ACCOUNTING
 
 	  Say N if unsure.
 
+config MIHW
+	bool "MI driver"
+	default n
+	help
+	  Mi driver code
+
+config MI_SCHED_WALT
+	bool "mi sched walt"
+	default n
+	help
+	  MI SCHED WALT
+
+config MIGT_WALT
+	bool "migt walt"
+	default n
+	help
+	  MIGT WALT
+
+config MIGT_3_0_WALT
+	bool "migt walt"
+	default n
+	help
+	  MIGT WALT
+
+config MI_SCHED
+        tristate "schedule policy defined by xiaomi"
+        default n
+        help
+          This option can show package runtime info in sup/big/little core.
+
+config TURBO_WALT
+	bool "turbo walt"
+	default n
+	help
+          TURBO_WALT
+
 config PSI
 	bool "Pressure stall information tracking"
 	help

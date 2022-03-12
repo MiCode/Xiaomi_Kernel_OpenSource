@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2022 XiaoMi, Inc.
  */
 
 #include <uapi/linux/sched/types.h>
@@ -873,11 +874,18 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	struct kgsl_process_private *private = container_of(kref,
 			struct kgsl_process_private, refcount);
 
+/*
+ * While removing sysfs entries, kernfs_mutex is held by sysfs apis. Since
+ * it is a global fs mutex, sometimes it takes longer for kgsl to get hold
+ * of the lock. Meanwhile, kgsl open thread may exhaust all its re-tries
+ * and open can fail. To avoid this, remove sysfs entries inside process
+ * mutex to avoid wasting re-tries when kgsl is waiting for kernfs mutex.
+ */
+	mutex_lock(&kgsl_driver.process_mutex);
+
 	debugfs_remove_recursive(private->debug_root);
 	kobject_put(&private->kobj_memtype);
 	kobject_put(&private->kobj);
-
-	mutex_lock(&kgsl_driver.process_mutex);
 
 	/* When using global pagetables, do not detach global pagetable */
 	if (private->pagetable->name != KGSL_MMU_GLOBAL_PT)
@@ -1087,9 +1095,12 @@ static struct kgsl_process_private *kgsl_process_private_open(
 	 * private destroy is triggered but didn't complete. Retry creating
 	 * process private after sometime to allow previous destroy to complete.
 	 */
-	for (i = 0; (PTR_ERR_OR_ZERO(private) == -EEXIST) && (i < 5); i++) {
+	for (i = 0; (PTR_ERR_OR_ZERO(private) == -EEXIST) && (i < 100); i++) {
 		usleep_range(10, 100);
 		private = _process_private_open(device);
+	}
+	if (i >= 100) {
+		pr_info("kgsl: kgsl_process_private_open times = %d\n", i);
 	}
 
 	return private;
@@ -1196,7 +1207,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 static int kgsl_open_device(struct kgsl_device *device)
 {
 	int result = 0;
-
+	pr_info("kgsl: kgsl_open_device Enter\n");
 	mutex_lock(&device->mutex);
 	if (device->open_count == 0) {
 		result = device->ftbl->first_open(device);
@@ -1206,6 +1217,7 @@ static int kgsl_open_device(struct kgsl_device *device)
 	device->open_count++;
 out:
 	mutex_unlock(&device->mutex);
+	pr_info("kgsl: kgsl_open_device Exit\n");
 	return result;
 }
 

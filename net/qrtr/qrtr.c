@@ -40,7 +40,7 @@
 
 #define AID_VENDOR_QRTR	KGIDT_INIT(2906)
 
-#if defined(CONFIG_RPMSG_QCOM_GLINK_NATIVE)
+#if defined(CONFIG_RPMSG_QCOM_GLINK)
 extern bool glink_resume_pkt;
 #endif
 
@@ -268,7 +268,7 @@ static void qrtr_log_tx_msg(struct qrtr_node *node, struct qrtr_hdr_v1 *hdr,
 	}
 }
 
-#if defined(CONFIG_RPMSG_QCOM_GLINK_NATIVE)
+#if defined(CONFIG_RPMSG_QCOM_GLINK)
 static void qrtr_log_resume_pkt(struct qrtr_cb *cb, u64 pl_buf)
 {
 	int service_id;
@@ -305,7 +305,7 @@ static void qrtr_log_rx_msg(struct qrtr_node *node, struct sk_buff *skb)
 			  skb->len, cb->confirm_rx, cb->src_node, cb->src_port,
 			  cb->dst_node, cb->dst_port,
 			  (unsigned int)pl_buf, (unsigned int)(pl_buf >> 32));
-#if defined(CONFIG_RPMSG_QCOM_GLINK_NATIVE)
+#if defined(CONFIG_RPMSG_QCOM_GLINK)
 		qrtr_log_resume_pkt(cb, pl_buf);
 #endif
 	} else {
@@ -372,7 +372,6 @@ static void __qrtr_node_release(struct kref *kref)
 	struct qrtr_node *node = container_of(kref, struct qrtr_node, ref);
 	unsigned long flags;
 	void __rcu **slot;
-
 	spin_lock_irqsave(&qrtr_nodes_lock, flags);
 	if (node->nid != QRTR_EP_NID_AUTO) {
 		radix_tree_for_each_slot(slot, &qrtr_nodes, &iter, 0) {
@@ -499,7 +498,6 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 	int confirm_rx = 0;
 	long timeo;
 	long ret;
-	int cond;
 
 	/* Never set confirm_rx on non-data packets */
 	if (type != QRTR_TYPE_DATA)
@@ -564,10 +562,9 @@ static int qrtr_tx_wait(struct qrtr_node *node, struct sockaddr_qrtr *to,
 		}
 		mutex_unlock(&node->qrtr_tx_lock);
 
-		cond = (!node->ep || READ_ONCE(flow->tx_failed) ||
-			atomic_read(&flow->pending) < QRTR_TX_FLOW_HIGH);
-		ret = wait_event_interruptible_timeout(node->resume_tx,
-						       cond, timeo);
+		ret = wait_event_interruptible_timeout(node->resume_tx, (!node->ep || READ_ONCE(flow->tx_failed) || 
+				atomic_read(&flow->pending) < QRTR_TX_FLOW_HIGH), timeo);
+
 		if (ret < 0)
 			return ret;
 		if (!node->ep)
@@ -1754,8 +1751,11 @@ static int qrtr_send_resume_tx(struct qrtr_cb *cb)
 		return -EINVAL;
 
 	skb = qrtr_alloc_ctrl_packet(&pkt);
-	if (!skb)
-		return -ENOMEM;
+	if (!skb) {
+		QRTR_INFO(node->ilc, "qrtr_alloc_ctrl_packet failed\n");
+		qrtr_node_release(node);
+ 		return -ENOMEM;
+	}
 
 	pkt->cmd = cpu_to_le32(QRTR_TYPE_RESUME_TX);
 	pkt->client.node = cpu_to_le32(cb->dst_node);
