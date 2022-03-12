@@ -1,5 +1,9 @@
 #include <dt-bindings/thermal/thermal_qti.h>
 
+&msm_gpu {
+	#cooling-cells = <2>;
+};
+
 &soc {
 	tsens0: thermal-sensor@c263000 {
 		compatible = "qcom,tsens-v2";
@@ -21,6 +25,178 @@
 			     <GIC_SPI 509 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "uplow","critical";
 		#thermal-sensor-cells = <1>;
+	};
+
+	qcom,cpu-pause {
+		compatible = "qcom,thermal-pause";
+
+		cpu0_pause: cpu0-pause {
+			qcom,cpus = <&CPU0>;
+			#cooling-cells = <2>;
+		};
+
+		cpu1_pause: cpu1-pause {
+			qcom,cpus = <&CPU1>;
+			#cooling-cells = <2>;
+		};
+
+		cpu2_pause: cpu2-pause {
+			qcom,cpus = <&CPU2>;
+			#cooling-cells = <2>;
+		};
+
+		cpu3_pause: cpu3-pause {
+			qcom,cpus = <&CPU3>;
+			#cooling-cells = <2>;
+		};
+
+		cpu5_pause: cpu5-pause {
+			qcom,cpus = <&CPU5>;
+			#cooling-cells = <2>;
+		};
+
+		cpu6_pause: cpu6-pause {
+			qcom,cpus = <&CPU6>;
+			#cooling-cells = <2>;
+		};
+
+		cpu7_pause: cpu7-pause {
+			qcom,cpus = <&CPU7>;
+			#cooling-cells = <2>;
+		};
+
+		APC1_pause: apc1-pause {
+			qcom,cpus = <&CPU5 &CPU6 &CPU7>;
+			#cooling-cells = <2>;
+		};
+
+		cpu_6_7_pause: cpu-6-7-pause {
+			qcom,cpus = <&CPU6 &CPU7>;
+			#cooling-cells = <2>;
+		};
+
+		/* Thermal-engine cooling devices */
+		pause-cpu0 {
+			qcom,cpus = <&CPU0>;
+			qcom,cdev-alias = "pause-cpu0";
+		};
+
+		pause-cpu1 {
+			qcom,cpus = <&CPU1>;
+			qcom,cdev-alias = "pause-cpu1";
+		};
+
+		pause-cpu2 {
+			qcom,cpus = <&CPU2>;
+			qcom,cdev-alias = "pause-cpu2";
+		};
+
+		pause-cpu3 {
+			qcom,cpus = <&CPU3>;
+			qcom,cdev-alias = "pause-cpu3";
+		};
+
+		pause-cpu5 {
+			qcom,cpus = <&CPU5>;
+			qcom,cdev-alias = "pause-cpu5";
+		};
+
+		pause-cpu6 {
+			qcom,cpus = <&CPU6>;
+			qcom,cdev-alias = "pause-cpu6";
+		};
+
+		pause-cpu7 {
+			qcom,cpus = <&CPU7>;
+			qcom,cdev-alias = "pause-cpu7";
+		};
+	};
+
+	qcom,cpu-hotplug {
+		compatible = "qcom,cpu-hotplug";
+
+		cpu0_hotplug: cpu0-hotplug {
+			qcom,cpu = <&CPU0>;
+			#cooling-cells = <2>;
+		};
+
+		cpu1_hotplug: cpu1-hotplug {
+			qcom,cpu = <&CPU1>;
+			#cooling-cells = <2>;
+		};
+
+		cpu2_hotplug: cpu2-hotplug {
+			qcom,cpu = <&CPU2>;
+			#cooling-cells = <2>;
+		};
+
+		cpu3_hotplug: cpu3-hotplug {
+			qcom,cpu = <&CPU3>;
+			#cooling-cells = <2>;
+		};
+
+		cpu5_hotplug: cpu5-hotplug {
+			qcom,cpu = <&CPU5>;
+			#cooling-cells = <2>;
+		};
+
+		cpu6_hotplug: cpu6-hotplug {
+			qcom,cpu = <&CPU6>;
+			#cooling-cells = <2>;
+		};
+
+		cpu7_hotplug: cpu7-hotplug {
+			qcom,cpu = <&CPU7>;
+			#cooling-cells = <2>;
+		};
+	};
+
+	thermal_ddr_freq_table: thermal-ddr-freq-table {
+		qcom,freq-tbl = < 2092800 >;
+	};
+
+	ddr_cdev: qcom,ddr-cdev {
+		compatible = "qcom,ddr-cooling-device";
+		#cooling-cells = <2>;
+		qcom,freq-table = <&thermal_ddr_freq_table>;
+		qcom,bus-width = <4>;
+		interconnects = <&mc_virt MASTER_LLCC &mc_virt SLAVE_EBI1>;
+	};
+
+	qmi_tmd: qmi-tmd-devices {
+		compatible = "qcom,qmi-cooling-devices";
+		cdsp {
+			qcom,instance-id = <QMI_CDSP_INST_ID>;
+
+			cdsp_sw: cdsp {
+				qcom,qmi-dev-name = "cdsp_sw";
+				#cooling-cells = <2>;
+			};
+
+			cdsp_hw: cdsp_hw {
+				qcom,qmi-dev-name = "cdsp_hw";
+				#cooling-cells = <2>;
+			};
+		};
+	};
+
+	qcom,cpufreq-cdev {
+		compatible = "qcom,cpufreq-cdev";
+		qcom,cpus = <&CPU0 &CPU4>;
+	};
+
+	qcom,devfreq-cdev {
+		compatible = "qcom,devfreq-cdev";
+		qcom,devfreq = <&msm_gpu>;
+	};
+
+	qcom,userspace-cdev {
+		compatible = "qcom,userspace-cooling-devices";
+
+		display_fps: display-fps {
+			qcom,max-level = <3>;
+			#cooling-cells = <2>;
+		};
 	};
 };
 
@@ -145,7 +321,7 @@
 	};
 
 	cpu-1-2 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 5>;
 		trips {
@@ -173,10 +349,17 @@
 				type = "passive";
 			};
 		};
+
+		cooling-maps {
+			cpu12_cdev {
+				trip = <&cpu5_emerg0>;
+				cooling-device = <&cpu5_pause 1 1>;
+			};
+		};
 	};
 
 	cpu-1-3 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 6>;
 		trips {
@@ -204,10 +387,17 @@
 				type = "passive";
 			};
 		};
+
+		cooling-maps {
+			cpu13_cdev {
+				trip = <&cpu5_emerg1>;
+				cooling-device = <&cpu5_pause 1 1>;
+			};
+		};
 	};
 
 	cpu-1-4 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 7>;
 		trips {
@@ -235,10 +425,17 @@
 				type = "passive";
 			};
 		};
+
+		cooling-maps {
+			cpu14_cdev {
+				trip = <&cpu6_emerg0>;
+				cooling-device = <&cpu6_pause 1 1>;
+			};
+		};
 	};
 
 	cpu-1-5 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 8>;
 		trips {
@@ -266,10 +463,17 @@
 				type = "passive";
 			};
 		};
+
+		cooling-maps {
+			cpu15_cdev {
+				trip = <&cpu6_emerg1>;
+				cooling-device = <&cpu6_pause 1 1>;
+			};
+		};
 	};
 
 	cpu-1-6 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 9>;
 		trips {
@@ -297,10 +501,17 @@
 				type = "passive";
 			};
 		};
+
+		cooling-maps {
+			cpu16_cdev {
+				trip = <&cpu7_emerg0>;
+				cooling-device = <&cpu7_pause 1 1>;
+			};
+		};
 	};
 
 	cpu-1-7 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 10>;
 		trips {
@@ -326,6 +537,13 @@
 				temperature = <110000>;
 				hysteresis = <10000>;
 				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			cpu17_cdev {
+				trip = <&cpu7_emerg1>;
+				cooling-device = <&cpu7_pause 1 1>;
 			};
 		};
 	};
@@ -359,6 +577,13 @@
 				type = "passive";
 			};
 		};
+
+		cooling-maps {
+			gpu0_cdev {
+				trip = <&gpu0_tj_cfg>;
+				cooling-device = <&msm_gpu 0 THERMAL_NO_LIMIT>;
+			};
+		};
 	};
 
 	gpuss-1 {
@@ -388,6 +613,13 @@
 				temperature = <95000>;
 				hysteresis = <5000>;
 				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			gpu1_cdev {
+				trip = <&gpu1_tj_cfg>;
+				cooling-device = <&msm_gpu 0 THERMAL_NO_LIMIT>;
 			};
 		};
 	};
@@ -459,6 +691,13 @@
 				type = "passive";
 			};
 		};
+
+		cooling-maps {
+			cpu00_cdev {
+				trip = <&cpu0_emerg>;
+				cooling-device = <&cpu0_pause 1 1>;
+			};
+		};
 	};
 
 	cpu-0-1 {
@@ -488,6 +727,13 @@
 				temperature = <110000>;
 				hysteresis = <10000>;
 				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			cpu01_cdev {
+				trip = <&cpu1_emerg>;
+				cooling-device = <&cpu1_pause 1 1>;
 			};
 		};
 	};
@@ -521,6 +767,13 @@
 				type = "passive";
 			};
 		};
+
+		cooling-maps {
+			cpu02_cdev {
+				trip = <&cpu2_emerg>;
+				cooling-device = <&cpu2_pause 1 1>;
+			};
+		};
 	};
 
 	cpu-0-3 {
@@ -550,6 +803,13 @@
 				temperature = <110000>;
 				hysteresis = <10000>;
 				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			cpu03_cdev {
+				trip = <&cpu3_emerg>;
+				cooling-device = <&cpu3_pause 1 1>;
 			};
 		};
 	};
@@ -583,6 +843,14 @@
 				type = "passive";
 			};
 		};
+
+		cooling-maps {
+			nsp_cdev {
+				trip = <&nspss_0_config>;
+				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
+			};
+		};
 	};
 
 	nspss-1 {
@@ -612,6 +880,14 @@
 				temperature = <95000>;
 				hysteresis = <5000>;
 				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			nsp_cdev {
+				trip = <&nspss_1_config>;
+				cooling-device = <&cdsp_sw THERMAL_NO_LIMIT
+							THERMAL_NO_LIMIT>;
 			};
 		};
 	};
@@ -656,6 +932,25 @@
 				temperature = <115000>;
 				hysteresis = <5000>;
 				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			gold_cdev {
+				trip = <&ddr_config0>;
+				cooling-device = <&CPU4
+					THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+
+			gold_plus_cdev {
+				trip = <&ddr_config0>;
+				cooling-device = <&CPU7
+					THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+
+			ddr_cdev {
+				trip = <&ddr_config0>;
+				cooling-device = <&ddr_cdev 1 1>;
 			};
 		};
 	};
