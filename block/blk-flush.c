@@ -222,8 +222,10 @@ static void flush_end_io(struct request *flush_rq, blk_status_t error)
 		return;
 	}
 
-	if (fq->rq_status != BLK_STS_OK)
+	if (fq->rq_status != BLK_STS_OK) {
 		error = fq->rq_status;
+		fq->rq_status = BLK_STS_OK;
+	}
 
 	hctx = flush_rq->mq_hctx;
 	if (!q->elevator) {
