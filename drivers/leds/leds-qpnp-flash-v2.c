@@ -446,7 +446,7 @@ led_brightness qpnp_flash_led_brightness_get(struct led_classdev *led_cdev)
 
 static int qpnp_flash_led_headroom_config(struct qpnp_flash_led *led)
 {
-	int rc, i, addr_offset;
+	int rc = 0, i, addr_offset;
 
 	for (i = 0; i < led->num_fnodes; i++) {
 		addr_offset = led->fnode[i].id;
