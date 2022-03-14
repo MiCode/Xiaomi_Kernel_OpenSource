@@ -1137,8 +1137,8 @@ static const struct adreno_a6xx_core adreno_gpu_core_a621 = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A621, 6, 2, 1, ANY_ID),
 		.compatible = "qcom,adreno-gpu-a621",
 		.features = ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
-			ADRENO_APRIV,
-		.gpudev = &adreno_a630_gpudev.base,
+			ADRENO_APRIV | ADRENO_LSR,
+		.gpudev = &adreno_a6xx_hwsched_gpudev.base,
 		.perfcounters = &adreno_a6xx_perfcounters,
 		.gmem_base = 0,
 		.gmem_size = SZ_512K,
