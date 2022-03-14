@@ -137,5 +137,7 @@
 			"memnoc_clk", "ahb_clk", "hub_clk",
 			"smmu_vote", "apb_pclk";
 
+		/* GPU-MPROC IPC page */
+		qcom,ipc-core = <0x0ed19000 0x1000>;
 	};
 };
