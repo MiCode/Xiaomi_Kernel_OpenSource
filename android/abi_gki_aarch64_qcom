@@ -1385,6 +1385,7 @@
   rdev_get_drvdata
   reboot_mode
   refcount_dec_and_lock
+  reclaim_shmem_address_space
   refcount_dec_not_one
   refcount_warn_saturate
   register_console
