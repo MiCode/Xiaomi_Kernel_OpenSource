@@ -18,3 +18,4 @@ qcom_soc_wdt.ko
 qrtr.ko
 secure_buffer.ko
 smem.ko
+socinfo.ko
