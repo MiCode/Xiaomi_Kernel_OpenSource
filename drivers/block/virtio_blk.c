@@ -509,6 +509,10 @@ static int init_vq(struct virtio_blk *vblk)
 				   &num_vqs);
 	if (err)
 		num_vqs = 1;
+	if (!err && !num_vqs) {
+		dev_err(&vdev->dev, "MQ advertisted but zero queues reported\n");
+		return -EINVAL;
+	}
 
 	num_vqs = min_t(unsigned int, nr_cpu_ids, num_vqs);
 
