@@ -336,6 +336,7 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 		req->len = MHI_NET_DEFAULT_MTU;
 		req->context = skb;
 		req->mode = DMA_ASYNC;
+		req->snd_cmpl = 0;
 		bytes_avail = mhi_dev_read_channel(req);
 
 		if (bytes_avail < 0) {
