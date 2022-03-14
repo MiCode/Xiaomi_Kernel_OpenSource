@@ -13,6 +13,15 @@
 #include <linux/gunyah/gh_dbl.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/kmsg_dump.h>
+#include <linux/pm.h>
+#include <linux/suspend.h>
+#include <linux/proc_fs.h>
+
+#define DDUMP_DBL_MASK	0x1
+#define LOG_LINE_MAX	1024
+#define DDUMP_BUFFER_OFFSET	sizeof(size_t)
+#define DDUMP_PROFS_NAME	"vmkmsg"
+#define DDUMP_WAIT_WAKEIRQ_TIMEOUT	msecs_to_jiffies(1000)
 
 struct qcom_dmesg_dumper {
 	struct device *dev;
@@ -24,6 +33,10 @@ struct qcom_dmesg_dumper {
 	u32 label, peer_name, memparcel;
 	bool primary_vm;
 	struct notifier_block rm_nb;
+	void *tx_dbl;
+	void *rx_dbl;
+	struct completion ddump_completion;
+	struct wakeup_source *wakeup_source;
 };
 
 static void qcom_ddump_to_shm(struct kmsg_dumper *dumper,
@@ -207,6 +220,176 @@ static int qcom_ddump_rm_cb(struct notifier_block *nb, unsigned long cmd,
 	return NOTIFY_DONE;
 }
 
+static bool qcom_ddump_alive_log_to_shm(struct kmsg_dumper *dumper, size_t count)
+{
+	struct qcom_dmesg_dumper *qdd = container_of(dumper,
+					struct qcom_dmesg_dumper, dump);
+	size_t line_len;
+	size_t total_len = 0;
+	size_t max_len = qdd->size - LOG_LINE_MAX - DDUMP_BUFFER_OFFSET;
+	char *shm_offset;
+	bool ret = false;
+
+	while ((total_len < max_len) && (total_len < count - LOG_LINE_MAX)) {
+		shm_offset = qdd->base + total_len + DDUMP_BUFFER_OFFSET;
+		if (kmsg_dump_get_line(&qdd->iter, true, shm_offset, LOG_LINE_MAX, &line_len)) {
+			total_len = total_len + line_len;
+		} else {
+			ret = true;
+			break;
+		}
+	}
+	memcpy(qdd->base, &total_len, sizeof(size_t));
+	return ret;
+}
+
+static inline int qcom_ddump_gh_kick(struct qcom_dmesg_dumper *qdd)
+{
+	gh_dbl_flags_t dbl_mask = DDUMP_DBL_MASK;
+	int ret;
+
+	ret = gh_dbl_send(qdd->tx_dbl, &dbl_mask, 0);
+	if (ret)
+		dev_err(qdd->dev, "failed to raise virq to the sender %d\n", ret);
+
+	return ret;
+}
+
+static void qcom_ddump_gh_cb(int irq, void *data)
+{
+	struct qcom_dmesg_dumper *qdd;
+	gh_dbl_flags_t dbl_mask = DDUMP_DBL_MASK;
+	size_t count;
+	bool kmsg_end;
+
+	qdd = data;
+	gh_dbl_read_and_clean(qdd->rx_dbl, &dbl_mask, GH_DBL_NONBLOCK);
+
+	if (qdd->primary_vm) {
+		complete(&qdd->ddump_completion);
+	} else {
+		/* avoid system enter suspend */
+		pm_wakeup_ws_event(qdd->wakeup_source, 2000, true);
+		memcpy(&count, qdd->base, sizeof(count));
+		kmsg_end = qcom_ddump_alive_log_to_shm(&qdd->dump, count);
+		qcom_ddump_gh_kick(qdd);
+		if (kmsg_end)
+			pm_wakeup_ws_event(qdd->wakeup_source, 0, true);
+	}
+}
+
+static ssize_t qcom_ddump_vmkmsg_read(struct file *file, char __user *buf,
+			 size_t count, loff_t *ppos)
+{
+	struct qcom_dmesg_dumper *qdd = PDE_DATA(file_inode(file));
+	int ret;
+	size_t len;
+
+	if (count < LOG_LINE_MAX) {
+		dev_err(qdd->dev, "user buffer size should greater than %d\n", LOG_LINE_MAX);
+		return -EINVAL;
+	}
+
+	memcpy(qdd->base, &count, sizeof(count));
+	qcom_ddump_gh_kick(qdd);
+	ret = wait_for_completion_timeout(&qdd->ddump_completion, DDUMP_WAIT_WAKEIRQ_TIMEOUT);
+	if (!ret) {
+		dev_err(qdd->dev, "wait for completion timeout\n");
+		return -ETIMEDOUT;
+	}
+
+	memcpy(&len, qdd->base, sizeof(len));
+	if (len > count) {
+		dev_err(qdd->dev, "can not read the correct length of svm kmsg\n");
+		return -EINVAL;
+	}
+
+	if (len == 0)
+		return 0;
+
+	if (copy_to_user(buf, qdd->base + DDUMP_BUFFER_OFFSET, len)) {
+		dev_err(qdd->dev, "copy_to_user fail\n");
+		return -EFAULT;
+	}
+
+	return len;
+}
+
+static const struct proc_ops ddump_proc_ops = {
+	.proc_flags	= PROC_ENTRY_PERMANENT,
+	.proc_read	= qcom_ddump_vmkmsg_read,
+};
+
+static int qcom_ddump_alive_log_probe(struct qcom_dmesg_dumper *qdd)
+{
+	struct device *dev = qdd->dev;
+	struct proc_dir_entry *dent;
+	enum gh_dbl_label dbl_label;
+	struct resource *res;
+	size_t shm_min_size;
+	int ret;
+
+	shm_min_size = LOG_LINE_MAX + DDUMP_BUFFER_OFFSET;
+	if (qdd->size < shm_min_size) {
+		dev_err(dev, "Shared memory size should greater than %d\n", shm_min_size);
+		return -EINVAL;
+	}
+
+	dbl_label = qdd->label;
+	qdd->tx_dbl = gh_dbl_tx_register(dbl_label);
+	if (IS_ERR_OR_NULL(qdd->tx_dbl)) {
+		ret = PTR_ERR(qdd->tx_dbl);
+		dev_err(dev, "%s:Failed to get gunyah tx dbl %d\n", __func__, ret);
+		return ret;
+	}
+
+	qdd->rx_dbl = gh_dbl_rx_register(dbl_label, qcom_ddump_gh_cb, qdd);
+	if (IS_ERR_OR_NULL(qdd->rx_dbl)) {
+		ret = PTR_ERR(qdd->rx_dbl);
+		dev_err(dev, "%s:Failed to get gunyah rx dbl %d\n", __func__, ret);
+		goto err_unregister_tx_dbl;
+	}
+
+	if (qdd->primary_vm) {
+		res = devm_request_mem_region(dev, qdd->res.start, qdd->size, dev_name(dev));
+		if (!res) {
+			ret = -ENXIO;
+			dev_err(dev, "request mem region fail\n");
+			goto err_unregister_rx_dbl;
+		}
+
+		qdd->base = devm_ioremap_wc(dev, qdd->res.start, qdd->size);
+		if (!qdd->base) {
+			ret = -ENOMEM;
+			dev_err(dev, "devm_ioremap_wc fail\n");
+			goto err_unregister_rx_dbl;
+		}
+
+		init_completion(&qdd->ddump_completion);
+		dent = proc_create_data(DDUMP_PROFS_NAME, 0400, NULL, &ddump_proc_ops, qdd);
+		if (!dent) {
+			dev_err(dev, "proc_create_data fail\n");
+			ret = -ENOMEM;
+			goto err_unregister_rx_dbl;
+		}
+	} else {
+		qdd->wakeup_source = wakeup_source_register(dev, dev_name(dev));
+		if (!qdd->wakeup_source) {
+			ret = -ENOMEM;
+			goto err_unregister_rx_dbl;
+		}
+	}
+
+	return 0;
+
+err_unregister_rx_dbl:
+	gh_dbl_rx_unregister(qdd->rx_dbl);
+err_unregister_tx_dbl:
+	gh_dbl_tx_unregister(qdd->tx_dbl);
+
+	return ret;
+}
+
 static int qcom_ddump_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -263,6 +446,17 @@ static int qcom_ddump_probe(struct platform_device *pdev)
 			return ret;
 	}
 
+	if (IS_ENABLED(CONFIG_QCOM_VM_ALIVE_LOG_DUMPER)) {
+		ret = qcom_ddump_alive_log_probe(qdd);
+		if (ret) {
+			if (qdd->primary_vm)
+				gh_rm_unregister_notifier(&qdd->rm_nb);
+			else
+				kmsg_dump_unregister(&qdd->dump);
+			return ret;
+		}
+	}
+
 	return 0;
 }
 
@@ -271,9 +465,22 @@ static int qcom_ddump_remove(struct platform_device *pdev)
 	int ret;
 	struct qcom_dmesg_dumper *qdd = platform_get_drvdata(pdev);
 
-	ret = kmsg_dump_unregister(&qdd->dump);
-	if (ret)
-		return ret;
+	if (IS_ENABLED(CONFIG_QCOM_VM_ALIVE_LOG_DUMPER)) {
+		gh_dbl_tx_unregister(qdd->tx_dbl);
+		gh_dbl_rx_unregister(qdd->rx_dbl);
+		if (qdd->primary_vm)
+			remove_proc_entry(DDUMP_PROFS_NAME, NULL);
+		else
+			wakeup_source_unregister(qdd->wakeup_source);
+	}
+
+	if (qdd->primary_vm) {
+		gh_rm_unregister_notifier(&qdd->rm_nb);
+	} else {
+		ret = kmsg_dump_unregister(&qdd->dump);
+		if (ret)
+			return ret;
+	}
 
 	return 0;
 }

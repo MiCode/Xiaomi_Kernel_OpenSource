@@ -1021,6 +1021,15 @@ config QCOM_VM_DMESG_DUMPER
 	  use of a Gunyah shared-memory doorbell object. This driver is to be
 	  enabled on both Primary VM and the other VM whose kmsg is desired.
 
+config QCOM_VM_ALIVE_LOG_DUMPER
+	bool "Dump a VM's alive kmsg to a shared reserved memory Support"
+	depends on QCOM_VM_DMESG_DUMPER
+	default n
+	help
+	  This enables to dump a VM's alive kmsg log buffer to the reserved
+	  memory section, triggered by Primary VM. This needs to be enabled on
+	  both Primary VM and the other VM whose kmsg is desired.
+
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
 
