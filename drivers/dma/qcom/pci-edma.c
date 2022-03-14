@@ -405,9 +405,8 @@ static void edmac_process_workqueue(struct work_struct *work)
 	struct edmac_dev *ec_dev = container_of(work, struct edmac_dev, pending_work);
 	struct edma_dev *e_dev = ec_dev->e_dev;
 	dma_addr_t llp_low, llp_high, llp;
-	unsigned long flags;
 
-	spin_lock_irqsave(&ec_dev->edma_lock, flags);
+	spin_lock(&ec_dev->edma_lock);
 	EDMAC_VERB(ec_dev, EDMAV_NO_CH_ID, "enter\n");
 
 	llp_low = readl_relaxed(ec_dev->llp_low_reg);
@@ -448,11 +447,11 @@ static void edmac_process_workqueue(struct work_struct *work)
 			 * context. Release spinlock to avoid deadlock scenarios
 			 * as we use same lock duing descriptor queuing.
 			 */
-			spin_unlock_irqrestore(&ec_dev->edma_lock, flags);
+			spin_unlock(&ec_dev->edma_lock);
 			dmaengine_desc_get_callback_invoke(&desc->tx, NULL);
 
 			/* Acquire spinlock again to continue edma operations */
-			spin_lock_irqsave(&ec_dev->edma_lock, flags);
+			spin_lock(&ec_dev->edma_lock);
 			kfree(desc);
 		} else {
 			EDMAC_VERB(ec_dev, EDMAV_NO_CH_ID,
@@ -462,7 +461,7 @@ static void edmac_process_workqueue(struct work_struct *work)
 
 	edma_set_clear(ec_dev->int_mask_reg, 0, BIT(ec_dev->ch_id));
 	EDMAC_VERB(ec_dev, EDMAV_NO_CH_ID, "exit\n");
-	spin_unlock_irqrestore(&ec_dev->edma_lock, flags);
+	spin_unlock(&ec_dev->edma_lock);
 }
 
 static irqreturn_t handle_edma_irq(int irq, void *data)
@@ -741,9 +740,8 @@ struct dma_async_tx_descriptor *edma_prep_dma_memcpy(struct dma_chan *chan,
 {
 	struct edmav_dev *ev_dev = to_edmav_dev(chan);
 	struct edma_desc *desc;
-	unsigned long l_flags;
 
-	spin_lock_irqsave(&ev_dev->ec_dev->edma_lock, l_flags);
+	spin_lock(&ev_dev->ec_dev->edma_lock);
 	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "enter\n");
 
 	desc = edma_alloc_descriptor(ev_dev);
@@ -756,13 +754,13 @@ struct dma_async_tx_descriptor *edma_prep_dma_memcpy(struct dma_chan *chan,
 	list_add_tail(&desc->node, &ev_dev->dl);
 
 	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "exit\n");
-	spin_unlock_irqrestore(&ev_dev->ec_dev->edma_lock, l_flags);
+	spin_unlock(&ev_dev->ec_dev->edma_lock);
 
 	return &desc->tx;
 err:
 	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id,
 		"edma alloc descriptor failed for channel:%d\n", ev_dev->ch_id);
-	spin_unlock_irqrestore(&ev_dev->ec_dev->edma_lock, l_flags);
+	spin_unlock(&ev_dev->ec_dev->edma_lock);
 	return NULL;
 }
 
@@ -819,14 +817,13 @@ static void edma_issue_pending(struct dma_chan *chan)
 	struct edmac_dev *ec_dev = ev_dev->ec_dev;
 	struct edma_desc *desc;
 	enum edma_hw_state hw_state;
-	unsigned long flags;
 
-	spin_lock_irqsave(&ec_dev->edma_lock, flags);
+	spin_lock(&ec_dev->edma_lock);
 	EDMAC_VERB(ec_dev, ev_dev->ch_id, "enter\n");
 
 	if (unlikely(list_empty(&ev_dev->dl))) {
 		EDMAC_VERB(ec_dev, ev_dev->ch_id, "No descriptor to issue\n");
-		spin_unlock_irqrestore(&ec_dev->edma_lock, flags);
+		spin_unlock(&ec_dev->edma_lock);
 		return;
 	}
 
@@ -873,7 +870,8 @@ static void edma_issue_pending(struct dma_chan *chan)
 	}
 
 	EDMAC_VERB(ec_dev, ev_dev->ch_id, "exit\n");
-	spin_unlock_irqrestore(&ec_dev->edma_lock, flags);
+	spin_unlock(&ec_dev->edma_lock);
+	return;
 }
 
 static int edma_config(struct dma_chan *chan, struct dma_slave_config *config)
@@ -897,17 +895,16 @@ static enum dma_status edma_tx_status(struct dma_chan *chan,
 	struct edmav_dev *ev_dev = to_edmav_dev(chan);
 	struct edmac_dev *ec_dev = ev_dev->ec_dev;
 	enum dma_status status = DMA_IN_PROGRESS;
-	unsigned long flags;
 	enum edma_hw_state hw_state;
 
 	hw_state = edma_get_hw_state(ec_dev);
-	spin_lock_irqsave(&ec_dev->edma_lock, flags);
+	spin_lock(&ec_dev->edma_lock);
 
 	if (unlikely(list_empty(&ev_dev->dl)) &&
 		((hw_state ==  EDMA_HW_STATE_INIT) ||
 			(hw_state ==  EDMA_HW_STATE_STOPPED)))
 		status =  DMA_COMPLETE;
-	spin_unlock_irqrestore(&ec_dev->edma_lock, flags);
+	spin_unlock(&ec_dev->edma_lock);
 	return status;
 }
 
