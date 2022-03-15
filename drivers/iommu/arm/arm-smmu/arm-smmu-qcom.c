@@ -1812,12 +1812,14 @@ static irqreturn_t arm_smmu_debug_capture_bus_match(int irq, void *dev)
 
 static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 {
-	u32 sync_inv_ack, tbu_pwr_status, sync_inv_progress;
+	u32 sync_inv_ack, tbu_pwr_status, sync_inv_progress, safe_sec_cfg;
 	u32 tbu_inv_pending = 0, tbu_sync_pending = 0;
 	u32 tbu_inv_acked = 0, tbu_sync_acked = 0;
 	u32 tcu_inv_pending = 0, tcu_sync_pending = 0;
+	u32 safe_req = 0, safe_ack = 0;
 	unsigned long tbu_ids = 0;
 	struct qsmmuv500_archdata *data = to_qsmmuv500_archdata(smmu);
+	bool dump_safe_info = false;
 	int ret;
 
 	static DEFINE_RATELIMIT_STATE(_rs,
@@ -1867,6 +1869,21 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 	tcu_inv_pending = FIELD_GET(TCU_INV_IN_PRGSS, sync_inv_progress);
 	tcu_sync_pending = FIELD_GET(TCU_SYNC_IN_PRGSS, sync_inv_progress);
 
+	/*
+	 * Let's continue to dump other TBU information in case of an error.
+	 */
+	ret = qcom_scm_io_readl((unsigned long)(smmu->phys_addr +
+				APPS_SMMU_SAFE_SEC_CFG), &safe_sec_cfg);
+	if (!ret) {
+		safe_req = FIELD_GET(SAFE_REQ, safe_sec_cfg);
+		safe_ack = FIELD_GET(SAFE_ACK, safe_sec_cfg);
+		dump_safe_info = true;
+	} else {
+		dev_err_ratelimited(smmu->dev,
+				"SCM read of SAFE_SEC_CFG failed: %d\n",
+				ret);
+	}
+
 	if (__ratelimit(&_rs)) {
 		unsigned long tbu_id;
 
@@ -1877,6 +1894,12 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 			"TCU invalidation %s, TCU sync %s\n",
 			tcu_inv_pending?"pending":"completed",
 			tcu_sync_pending?"pending":"completed");
+		if (dump_safe_info)
+			dev_err(smmu->dev,
+				"safe_sec_cfg 0x%x safe_req %s and safe_ack %s\n",
+				safe_sec_cfg,
+				safe_req ? "not received" : "received",
+				safe_ack ? "not received" : "received");
 
 		for_each_set_bit(tbu_id, &tbu_ids, sizeof(tbu_ids) *
 				 BITS_PER_BYTE) {
@@ -1900,6 +1923,7 @@ static void qsmmuv500_tlb_sync_timeout(struct arm_smmu_device *smmu)
 
 		/*dump TCU testbus*/
 		arm_smmu_testbus_dump(smmu, U16_MAX);
+
 
 	}
 
