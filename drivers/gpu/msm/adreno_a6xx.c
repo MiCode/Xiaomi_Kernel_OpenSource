@@ -285,7 +285,7 @@ __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 	else if (adreno_is_a615_family(adreno_dev))
 		return 0x00000222;
 	/* a662 should be checked before a660 */
-	else if (adreno_is_a662(adreno_dev))
+	else if (adreno_is_a662(adreno_dev) || adreno_is_a621(adreno_dev))
 		return 0x00020200;
 	else if (adreno_is_a660(adreno_dev))
 		return 0x00020000;
@@ -317,7 +317,9 @@ __get_gmu_ao_cgc_hyst_cntl(struct adreno_device *adreno_dev)
 
 static unsigned int __get_gmu_wfi_config(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a620(adreno_dev) || adreno_is_a640(adreno_dev) ||
+	unsigned int rev = ADRENO_GPUREV(adreno_dev);
+
+	if ((rev == ADRENO_REV_A620) || adreno_is_a640(adreno_dev) ||
 		adreno_is_a650(adreno_dev))
 		return 0x00000002;
 
@@ -329,7 +331,7 @@ void a6xx_cx_regulator_disable_wait(struct regulator *reg,
 {
 	u32 offset;
 
-	offset = adreno_is_a662(ADRENO_DEVICE(device)) ?
+	offset = (adreno_is_a662(ADRENO_DEVICE(device)) || adreno_is_a621(ADRENO_DEVICE(device)))  ?
 			 A662_GPU_CC_CX_GDSCR : A6XX_GPU_CC_CX_GDSCR;
 
 	if (!adreno_regulator_disable_poll(device, reg, offset, timeout)) {
