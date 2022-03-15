@@ -264,8 +264,8 @@ static int gh_wdt_probe(struct platform_device *pdev)
 
 static const struct dev_pm_ops gh_wdt_dev_pm_ops = {
 #ifdef CONFIG_PM_SLEEP
-	.suspend_noirq = qcom_wdt_pet_suspend,
-	.resume_noirq = qcom_wdt_pet_resume,
+	.suspend_late = qcom_wdt_pet_suspend,
+	.resume_early = qcom_wdt_pet_resume,
 #endif
 };
 
