@@ -33,21 +33,20 @@
 #define RESET_CONTROL			0x01
 #define LINK_CONTROL1			0x02
 #define LINK_CONTROL2			0x03
-#define LINK_CONTROL3			0x04
-#define eUSB2_RX_CONTROL		0x05
-#define eUSB2_TX_CONTROL		0x06
-#define USB2_RX_CONTROL			0x07
-#define USB2_TX_CONTROL1		0x08
-#define USB2_TX_CONTROL2		0x09
-#define USB2_HS_TERMINATION		0x0A
-#define USB2_HS_DISCONNECT_THRESHOLD	0x0B
-#define RAP_SIGNATURE			0x0E
-#define DEVICE_STATUS			0x10
-#define LINK_STATUS			0x11
-#define REVISION_ID			0x14
-#define CHIP_ID_0			0x15
-#define CHIP_ID_1			0x16
-#define CHIP_ID_2			0x17
+#define eUSB2_RX_CONTROL		0x04
+#define eUSB2_TX_CONTROL		0x05
+#define USB2_RX_CONTROL			0x06
+#define USB2_TX_CONTROL1		0x07
+#define USB2_TX_CONTROL2		0x08
+#define USB2_HS_TERMINATION		0x09
+#define RAP_SIGNATURE			0x0D
+#define VDX_CONTROL			0x0E
+#define DEVICE_STATUS			0x0F
+#define LINK_STATUS			0x10
+#define REVISION_ID			0x13
+#define CHIP_ID_0			0x14
+#define CHIP_ID_1			0x15
+#define CHIP_ID_2			0x16
 
 /* TI eUSB2 repeater registers */
 #define GPIO0_CONFIG			0x00
