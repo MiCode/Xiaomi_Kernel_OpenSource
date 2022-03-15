@@ -715,11 +715,7 @@ static int redriver_i2c_probe(struct i2c_client *client,
 	redriver->lane_channel_swap =
 	    of_property_read_bool(redriver->dev->of_node, "lane-channel-swap");
 
-	if (of_property_read_bool(redriver->dev->of_node, "init-none"))
-		redriver->op_mode = OP_MODE_NONE;
-	else
-		redriver->op_mode = OP_MODE_DEFAULT;
-	ssusb_redriver_channel_update(redriver); /* a little expensive ??? */
+	redriver->op_mode = OP_MODE_NONE;
 	ssusb_redriver_gen_dev_set(redriver);
 
 	ssusb_redriver_orientation_gpio_init(redriver);
