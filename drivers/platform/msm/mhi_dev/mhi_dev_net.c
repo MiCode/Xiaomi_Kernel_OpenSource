@@ -32,6 +32,7 @@
 #define MHI_NET_IPC_PAGES     (100)
 #define MHI_MAX_RX_REQ        (128)
 #define MHI_MAX_TX_REQ        (128)
+#define MHI_NUM_NW_CLIENT_LIMIT 3
 
 enum mhi_dev_net_dbg_lvl {
 	MHI_VERBOSE = 0x1,
@@ -63,6 +64,39 @@ struct mhi_dev_net_chan_attr {
 	enum mhi_chan_dir dir;
 };
 
+static struct mhi_dev_net_chan_attr mhi_chan_attr_table_netdev[] = {
+	{
+		MHI_CLIENT_IP_SW_4_OUT,
+		TRB_MAX_DATA_SIZE,
+		MHI_DIR_OUT,
+	},
+	{
+		MHI_CLIENT_IP_SW_4_IN,
+		TRB_MAX_DATA_SIZE,
+		MHI_DIR_IN,
+	},
+	{
+		MHI_CLIENT_IP_SW_5_OUT,
+		TRB_MAX_DATA_SIZE,
+		MHI_DIR_OUT,
+	},
+	{
+		MHI_CLIENT_IP_SW_5_IN,
+		TRB_MAX_DATA_SIZE,
+		MHI_DIR_IN,
+	},
+	{
+		MHI_CLIENT_IP_SW_6_OUT,
+		TRB_MAX_DATA_SIZE,
+		MHI_DIR_OUT,
+	},
+	{
+		MHI_CLIENT_IP_SW_6_IN,
+		TRB_MAX_DATA_SIZE,
+		MHI_DIR_IN,
+	},
+};
+
 #define CHAN_TO_CLIENT(_CHAN_NR) (_CHAN_NR / 2)
 
 #define mhi_dev_net_log(_msg_lvl, _msg, ...) do { \
@@ -83,6 +117,8 @@ struct mhi_dev_net_client {
 	bool eth_iface;
 	struct mhi_dev_client *out_handle;
 	struct mhi_dev_client *in_handle;
+	struct mhi_dev_net_chan_attr *in_chan_attr;
+	struct mhi_dev_net_chan_attr *out_chan_attr;
 	/*process pendig packets */
 	struct workqueue_struct *pending_pckt_wq;
 	struct work_struct       xmit_work;
@@ -103,7 +139,7 @@ struct mhi_dev_net_client {
 
 struct mhi_dev_net_ctxt {
 	struct mhi_dev_net_chan_attr chan_attr[MHI_MAX_SOFTWARE_CHANNELS];
-	struct mhi_dev_net_client *client_handle;
+	struct mhi_dev_net_client *client_handles[MHI_NUM_NW_CLIENT_LIMIT];
 	struct platform_device		*pdev;
 	void (*net_event_notifier)(struct mhi_dev_client_cb_reason *cb);
 };
@@ -111,26 +147,28 @@ struct mhi_dev_net_ctxt {
 static struct mhi_dev_net_ctxt mhi_net_ctxt;
 static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *);
 
-static int mhi_dev_net_init_ch_attributes(struct mhi_dev_net_ctxt *mhi_ctxt)
+struct mhi_dev_net_client *chan_to_net_client(int chan)
 {
-	u32 channel = 0;
-	struct mhi_dev_net_chan_attr *chan_attrib = NULL;
+	struct mhi_dev_net_client *client_handle = NULL;
+	u32 i;
 
-	channel = MHI_CLIENT_IP_SW_4_OUT;
-	chan_attrib = &mhi_ctxt->chan_attr[channel];
-	chan_attrib->dir = MHI_DIR_OUT;
-	chan_attrib->chan_id = channel;
-	chan_attrib->max_packet_size = TRB_MAX_DATA_SIZE;
+	for (i = 0; i < MHI_NUM_NW_CLIENT_LIMIT; i++) {
+		client_handle = mhi_net_ctxt.client_handles[i];
+		if (chan == client_handle->in_chan || chan == client_handle->out_chan)
+			return client_handle;
+	}
+	return NULL;
+}
+
+static int mhi_dev_net_init_ch_attributes(struct mhi_dev_net_client *client,
+		struct mhi_dev_net_chan_attr *chan_attrib)
+{
+	client->out_chan_attr = chan_attrib;
+	client->in_chan_attr = ++chan_attrib;
 	mhi_dev_net_log(MHI_INFO, "Write chan attributes dir %d chan_id %d\n",
-			chan_attrib->dir, chan_attrib->chan_id);
-
-	channel = MHI_CLIENT_IP_SW_4_IN;
-	chan_attrib = &mhi_ctxt->chan_attr[channel];
-	chan_attrib->dir = MHI_DIR_IN;
-	chan_attrib->chan_id = channel;
-	chan_attrib->max_packet_size = TRB_MAX_DATA_SIZE;
+			client->out_chan_attr->dir, client->out_chan_attr->chan_id);
 	mhi_dev_net_log(MHI_INFO, "Read chan attributes dir %d chan_id %d\n",
-			chan_attrib->dir, chan_attrib->chan_id);
+			client->in_chan_attr->dir, client->in_chan_attr->chan_id);
 	return 0;
 }
 
@@ -196,7 +234,7 @@ static void mhi_dev_net_process_queue_packets(struct work_struct *work)
 
 static void mhi_dev_net_event_notifier(struct mhi_dev_client_cb_reason *reason)
 {
-	struct mhi_dev_net_client *client_handle = mhi_net_ctxt.client_handle;
+	struct mhi_dev_net_client *client_handle = chan_to_net_client(reason->ch_id);
 
 	if (reason->reason == MHI_DEV_TRE_AVAILABLE) {
 		if (reason->ch_id % 2) {
@@ -231,10 +269,10 @@ static __be16 mhi_dev_net_eth_type_trans(struct sk_buff *skb)
 
 static void mhi_dev_net_read_completion_cb(void *req)
 {
-	struct mhi_dev_net_client *net_handle =
-		mhi_net_ctxt.client_handle;
 	struct mhi_req *mreq =
 		(struct mhi_req *)req;
+	struct mhi_dev_net_client *net_handle = chan_to_net_client(mreq->chan);
+
 	struct sk_buff *skb = mreq->context;
 	unsigned long   flags;
 
@@ -323,8 +361,8 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 
 static void mhi_dev_net_write_completion_cb(void *req)
 {
-	struct mhi_dev_net_client *client_handle = mhi_net_ctxt.client_handle;
 	struct mhi_req *wreq = (struct mhi_req *)req;
+	struct mhi_dev_net_client *client_handle = chan_to_net_client(wreq->chan);
 	struct sk_buff *skb = wreq->context;
 	unsigned long   flags;
 
@@ -469,7 +507,7 @@ static int mhi_dev_net_enable_iface(struct mhi_dev_net_client *mhi_dev_net_ptr)
 			"mhi_dev_net interface registration\n");
 	netdev = alloc_netdev(sizeof(struct mhi_dev_net_client),
 			MHI_NET_DEV_NAME, NET_NAME_PREDICTABLE,
-			mhi_net_ctxt.client_handle->eth_iface ?
+			mhi_dev_net_ptr->eth_iface ?
 			mhi_dev_net_ether_setup :
 			mhi_dev_net_rawip_setup);
 	if (!netdev) {
@@ -477,7 +515,7 @@ static int mhi_dev_net_enable_iface(struct mhi_dev_net_client *mhi_dev_net_ptr)
 		goto net_dev_alloc_fail;
 	}
 
-	if (mhi_net_ctxt.client_handle->eth_iface) {
+	if (mhi_dev_net_ptr->eth_iface) {
 		eth_random_addr(netdev->dev_addr);
 		if (!is_valid_ether_addr(netdev->dev_addr))
 			return -EADDRNOTAVAIL;
@@ -579,22 +617,24 @@ handle_not_rdy_err:
 static int mhi_dev_net_close(void)
 {
 	struct mhi_dev_net_client *client;
-
+	u32 i;
 	mhi_dev_net_log(MHI_INFO,
 			"mhi_dev_net module is removed\n");
-	client = mhi_net_ctxt.client_handle;
-	mhi_dev_close_channel(client->out_handle);
-	atomic_set(&client->tx_enabled, 0);
-	mhi_dev_close_channel(client->in_handle);
-	atomic_set(&client->rx_enabled, 0);
-	if (client->dev != NULL) {
-		netif_stop_queue(client->dev);
-		unregister_netdev(client->dev);
-		free_netdev(client->dev);
-		client->dev = NULL;
+	for (i = 0; i < MHI_NUM_NW_CLIENT_LIMIT; i++) {
+		client = mhi_net_ctxt.client_handles[i];
+		mhi_dev_close_channel(client->out_handle);
+		atomic_set(&client->tx_enabled, 0);
+		mhi_dev_close_channel(client->in_handle);
+		atomic_set(&client->rx_enabled, 0);
+		if (client->dev != NULL) {
+			netif_stop_queue(client->dev);
+			unregister_netdev(client->dev);
+			free_netdev(client->dev);
+			client->dev = NULL;
+		}
+		/* freeing mhi client and IPC context */
+		kfree(client);
 	}
-	/* freeing mhi client and IPC context */
-	kfree(client);
 	kfree(mhi_net_ipc_log);
 	return 0;
 }
@@ -694,101 +734,110 @@ static void mhi_dev_net_state_cb(struct mhi_dev_client_cb_data *cb_data)
 
 int mhi_dev_net_interface_init(void)
 {
-	int ret_val = 0, index = 0;
-	bool out_channel_started = false;
-	struct mhi_dev_net_client *mhi_net_client = NULL;
+	u32 i = 0, j = 0;
+	int ret_val = 0;
+	bool out_channel_started[MHI_NUM_NW_CLIENT_LIMIT] = {false};
+	struct mhi_dev_net_client *mhi_net_client[MHI_NUM_NW_CLIENT_LIMIT];
 
-	if (mhi_net_ctxt.client_handle) {
+	if (mhi_net_ctxt.client_handles[0]) {
 		mhi_dev_net_log(MHI_INFO,
 			"MHI Netdev interface already initialized\n");
 		return ret_val;
 	}
 
-	mhi_net_client = kzalloc(sizeof(struct mhi_dev_net_client), GFP_KERNEL);
-	if (!mhi_net_client)
-		return -ENOMEM;
-
 	mhi_net_ipc_log = ipc_log_context_create(MHI_NET_IPC_PAGES,
 						"mhi-net", 0);
 	if (!mhi_net_ipc_log)
 		pr_err("Failed to create IPC logging for mhi_dev_net\n");
-	mhi_net_ctxt.client_handle = mhi_net_client;
 
-	if (mhi_net_ctxt.pdev)
-		mhi_net_ctxt.client_handle->eth_iface =
-			of_property_read_bool
-			((&mhi_net_ctxt.pdev->dev)->of_node,
-				"qcom,mhi-ethernet-interface");
+	for (i = 0; i < MHI_NUM_NW_CLIENT_LIMIT; i++) {
+		mhi_net_client[i] = kzalloc(sizeof(struct mhi_dev_net_client), GFP_KERNEL);
+		if (!mhi_net_client[i])
+			goto mem_alloc_fail;
+		mhi_net_ctxt.client_handles[i] = mhi_net_client[i];
 
-	/*Process pending packet work queue*/
-	mhi_net_client->pending_pckt_wq =
-		create_singlethread_workqueue("pending_xmit_pckt_wq");
-	INIT_WORK(&mhi_net_client->xmit_work,
+		if (mhi_net_ctxt.pdev) {
+			mhi_net_ctxt.client_handles[i]->eth_iface =
+				of_property_read_bool
+				((&mhi_net_ctxt.pdev->dev)->of_node,
+					"qcom,mhi-ethernet-interface");
+		}
+		/*Process pending packet work queue*/
+		mhi_net_client[i]->pending_pckt_wq =
+			create_singlethread_workqueue("pending_xmit_pckt_wq");
+		INIT_WORK(&mhi_net_client[i]->xmit_work,
 			mhi_dev_net_process_queue_packets);
 
-	mhi_dev_net_log(MHI_INFO,
-			"Registering for MHI transfer events from host\n");
-	mhi_net_ctxt.net_event_notifier = mhi_dev_net_event_notifier;
+		mhi_dev_net_log(MHI_INFO,
+				"Registering for MHI transfer events from host\n");
+		mhi_net_ctxt.net_event_notifier = mhi_dev_net_event_notifier;
 
-	ret_val = mhi_dev_net_init_ch_attributes(&mhi_net_ctxt);
-	if (ret_val < 0) {
-		mhi_dev_net_log(MHI_ERROR,
-				"Failed to init client attributes\n");
-		goto channel_init_fail;
-	}
-	mhi_dev_net_log(MHI_DBG, "Initializing client\n");
-	index = MHI_CLIENT_IP_SW_4_OUT;
-	ret_val = mhi_dev_net_rgstr_client(mhi_net_client, index);
-	if (ret_val) {
-		mhi_dev_net_log(MHI_CRITICAL,
-				"Failed to reg client %d ret 0\n", ret_val);
-		goto client_register_fail;
-	}
-	ret_val = mhi_register_state_cb(mhi_dev_net_state_cb,
-				mhi_net_client, MHI_CLIENT_IP_SW_4_OUT);
-	/* -EEXIST indicates success and channel is already open */
-	if (ret_val == -EEXIST)
-		out_channel_started = true;
-	else if (ret_val < 0)
-		goto register_state_cb_fail;
-
-	ret_val = mhi_register_state_cb(mhi_dev_net_state_cb,
-				mhi_net_client, MHI_CLIENT_IP_SW_4_IN);
-	/* -EEXIST indicates success and channel is already open */
-	if (ret_val == -EEXIST) {
-		/**
-		 * If both in and out channels were opened by host at the
-		 * time of registration proceed with opening channels and
-		 * create network interface from device side.
-		 * if the channels are not opened at the time of registration
-		 * we will get a call back notification mhi_dev_net_state_cb()
-		 * and proceed to open channels and create network interface
-		 * with mhi_dev_net_open_chan_create_netif().
-		 */
-		ret_val = 0;
-		if (out_channel_started) {
-			ret_val = mhi_dev_net_open_chan_create_netif
-							(mhi_net_client);
-			if (ret_val < 0) {
-				mhi_dev_net_log(MHI_ERROR,
-					"Failed to open channels\n");
-				goto channel_open_fail;
-			}
+		ret_val = mhi_dev_net_init_ch_attributes(mhi_net_client[i],
+				&mhi_chan_attr_table_netdev[i * 2]);
+		if (ret_val < 0) {
+			mhi_dev_net_log(MHI_ERROR,
+					"Failed to init client attributes\n");
+			goto channel_init_fail;
 		}
-	} else if (ret_val < 0) {
-		goto register_state_cb_fail;
-	}
+		mhi_dev_net_log(MHI_DBG, "Initializing client\n");
+		mhi_net_client[i] = mhi_net_ctxt.client_handles[i];
+		ret_val = mhi_dev_net_rgstr_client(mhi_net_client[i],
+				mhi_net_client[i]->out_chan_attr->chan_id);
+		if (ret_val) {
+			mhi_dev_net_log(MHI_CRITICAL,
+				"Failed to reg client %d ret 0\n", ret_val);
+			goto client_register_fail;
+		}
 
+		ret_val = mhi_register_state_cb(mhi_dev_net_state_cb,
+				mhi_net_client[i], mhi_net_client[i]->out_chan);
+		/* -EEXIST indicates success and channel is already open */
+		if (ret_val == -EEXIST)
+			out_channel_started[i] = true;
+		else if (ret_val < 0)
+			goto register_state_cb_fail;
+
+		ret_val = mhi_register_state_cb(mhi_dev_net_state_cb,
+				mhi_net_client[i], mhi_net_client[i]->in_chan);
+		/* -EEXIST indicates success and channel is already open */
+		if (ret_val == -EEXIST) {
+			/**
+			 * If both in and out channels were opened by host at the
+			 * time of registration proceed with opening channels and
+			 * create network interface from device side.
+			 * if the channels are not opened at the time of registration
+			 * we will get a call back notification mhi_dev_net_state_cb()
+			 * and proceed to open channels and create network interface
+			 * with mhi_dev_net_open_chan_create_netif().
+			 */
+			ret_val = 0;
+			if (out_channel_started[i]) {
+				ret_val = mhi_dev_net_open_chan_create_netif
+								(mhi_net_client[i]);
+				if (ret_val < 0) {
+					mhi_dev_net_log(MHI_ERROR,
+						"Failed to open channels\n");
+					goto channel_open_fail;
+				}
+			}
+		} else if (ret_val < 0) {
+			goto register_state_cb_fail;
+		}
+	}
 	return ret_val;
 
+mem_alloc_fail:
+	ret_val = -ENOMEM;
 channel_open_fail:
 register_state_cb_fail:
-	mhi_dev_net_dergstr_client(mhi_net_client);
+	for (j = i ; j >= 0; j--)
+		mhi_dev_net_dergstr_client(mhi_net_client[j]);
 client_register_fail:
 channel_init_fail:
-	destroy_workqueue(mhi_net_client->pending_pckt_wq);
-	kfree(mhi_net_client);
-	kfree(mhi_net_ipc_log);
+	for (j = i ; j >= 0; j--) {
+		destroy_workqueue(mhi_net_client[j]->pending_pckt_wq);
+		kfree(mhi_net_client[j]);
+	}
 	return ret_val;
 }
 EXPORT_SYMBOL(mhi_dev_net_interface_init);
