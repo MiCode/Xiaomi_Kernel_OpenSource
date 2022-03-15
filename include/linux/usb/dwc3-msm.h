@@ -140,6 +140,7 @@ struct gsi_channel_info {
 };
 
 struct dwc3;
+extern void *dwc_trace_ipc_log_ctxt;
 
 #if IS_ENABLED(CONFIG_USB_DWC3_MSM)
 void dwc3_msm_notify_event(struct dwc3 *dwc,

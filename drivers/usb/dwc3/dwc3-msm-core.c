@@ -561,6 +561,9 @@ struct dwc3_msm {
 #define USB_SSPHY_1P8_VOL_MAX		1800000 /* uV */
 #define USB_SSPHY_1P8_HPM_LOAD		23000	/* uA */
 
+/* unfortunately, dwc3 core doesn't manage multiple dwc3 instances for trace */
+void *dwc_trace_ipc_log_ctxt;
+
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
 
 static inline void dwc3_msm_ep_writel(void __iomem *base, u32 offset, u32 value)
@@ -4845,19 +4848,26 @@ EXPORT_SYMBOL(dwc3_msm_release_ss_lane);
 
 static int dwc3_msm_debug_init(struct dwc3_msm *mdwc)
 {
-	char dma_ipc_log_ctx_name[40];
+	char ipc_log_ctx_name[40];
 
 	mdwc->dwc_ipc_log_ctxt = ipc_log_context_create(NUM_LOG_PAGES,
 					dev_name(mdwc->dev), 0);
 	if (!mdwc->dwc_ipc_log_ctxt)
 		dev_err(mdwc->dev, "Error getting ipc_log_ctxt\n");
 
-	snprintf(dma_ipc_log_ctx_name, sizeof(dma_ipc_log_ctx_name),
+	snprintf(ipc_log_ctx_name, sizeof(ipc_log_ctx_name),
 				"%s.ep_events", dev_name(mdwc->dev));
 	mdwc->dwc_dma_ipc_log_ctxt = ipc_log_context_create(2 * NUM_LOG_PAGES,
-					dma_ipc_log_ctx_name, 0);
+					ipc_log_ctx_name, 0);
 	if (!mdwc->dwc_dma_ipc_log_ctxt)
 		dev_err(mdwc->dev, "Error getting ipc_log_ctxt for ep_events\n");
+
+	snprintf(ipc_log_ctx_name, sizeof(ipc_log_ctx_name),
+				"%s.trace", dev_name(mdwc->dev));
+	dwc_trace_ipc_log_ctxt = ipc_log_context_create(3 * NUM_LOG_PAGES,
+					ipc_log_ctx_name, 0);
+	if (!dwc_trace_ipc_log_ctxt)
+		dev_err(mdwc->dev, "Error getting trace_ipc_log_ctxt for ep_events\n");
 
 	return 0;
 }

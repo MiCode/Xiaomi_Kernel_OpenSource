@@ -7,6 +7,7 @@
 #define __DWC3_DEBUG_IPC_H
 
 #include "core.h"
+#include "debug.h"
 #include <linux/ipc_logging.h>
 
 /*
@@ -47,6 +48,40 @@
 	ipc_log_string(mdwc->dwc_ipc_log_ctxt,\
 			"%s: " fmt, __func__, ##__VA_ARGS__)
 
+#define dbg_trace_ctrl_req(ctrl) \
+	dwc3_dbg_trace_log_ctrl(dwc_trace_ipc_log_ctxt, ctrl)
+
+#define dbg_trace_ep_queue(req) \
+	dwc3_dbg_trace_log_request(dwc_trace_ipc_log_ctxt, req, "dbg_ep_queue")
+
+#define dbg_trace_ep_dequeue(req) \
+	dwc3_dbg_trace_log_request(dwc_trace_ipc_log_ctxt, req, "dbg_ep_dequeue")
+
+#define dbg_trace_gadget_giveback(req) \
+	dwc3_dbg_trace_log_request(dwc_trace_ipc_log_ctxt, req, "dbg_gadget_giveback")
+
+#define dbg_trace_gadget_ep_cmd(dep, cmd, params, cmd_status) \
+	dwc3_dbg_trace_ep_cmd(dwc_trace_ipc_log_ctxt, dep, cmd, params, cmd_status)
+
+#define dbg_trace_trb_prepare(dep, event) \
+	dwc3_dbg_trace_trb_complete(dwc_trace_ipc_log_ctxt, dep, trb, "dbg_prepare")
+
+#define dbg_trace_trb_complete(dep, event) \
+	dwc3_dbg_trace_trb_complete(dwc_trace_ipc_log_ctxt, dep, trb, "dbg_complete")
+
+#define dbg_trace_event(event, dwc) \
+	dwc3_dbg_trace_event(dwc_trace_ipc_log_ctxt, event, dwc)
+
+void dwc3_dbg_trace_log_ctrl(void *log_ctxt, struct usb_ctrlrequest *ctrl);
+void dwc3_dbg_trace_log_request(void *log_ctxt, struct dwc3_request *req,
+				char *tag);
+void dwc3_dbg_trace_ep_cmd(void *log_ctxt, struct dwc3_ep *dep,
+				unsigned int cmd,
+				struct dwc3_gadget_ep_cmd_params *params,
+				int cmd_status);
+void dwc3_dbg_trace_trb_complete(void *log_ctxt, struct dwc3_ep *dep,
+					struct dwc3_trb *trb, char *tag);
+void dwc3_dbg_trace_event(void *log_ctxt, u32 event, struct dwc3 *dwc);
 void dwc3_dbg_print(void *log_ctxt, u8 ep_num,
 		const char *name, int status, const char *extra);
 void dwc3_dbg_done(void *log_ctxt, u8 ep_num,
