@@ -76,6 +76,11 @@
 			   ARM_SMCCC_SMC_32,				\
 			   0, 0x7fff)
 
+#define ARM_SMCCC_ARCH_WORKAROUND_3					\
+	ARM_SMCCC_CALL_VAL(ARM_SMCCC_FAST_CALL,				\
+			   ARM_SMCCC_SMC_32,				\
+			   0, 0x3fff)
+
 #define SMCCC_ARCH_WORKAROUND_RET_UNAFFECTED	1
 
 #ifndef __ASSEMBLY__
