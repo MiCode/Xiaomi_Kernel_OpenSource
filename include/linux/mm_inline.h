@@ -113,6 +113,11 @@ static __always_inline void del_page_from_lru_list(struct page *page,
  */
 extern const char *vma_anon_name(struct vm_area_struct *vma);
 
+/* mmap_lock should be read-locked */
+extern struct anon_vma_name *vma_anon_name_get(struct vm_area_struct *vma);
+
+extern void vma_anon_name_put(struct anon_vma_name *anon_name);
+
 /*
  * mmap_lock should be read-locked for orig_vma->vm_mm.
  * mmap_lock should be write-locked for new_vma->vm_mm or new_vma should be
@@ -144,6 +149,14 @@ static inline const char *vma_anon_name(struct vm_area_struct *vma)
 {
 	return NULL;
 }
+
+static inline
+struct anon_vma_name *vma_anon_name_get(struct vm_area_struct *vma)
+{
+	return NULL;
+}
+
+static inline void vma_anon_name_put(struct anon_vma_name *anon_name) {}
 static inline void dup_vma_anon_name(struct vm_area_struct *orig_vma,
 			      struct vm_area_struct *new_vma) {}
 static inline void free_vma_anon_name(struct vm_area_struct *vma) {}

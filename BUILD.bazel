@@ -19,4 +19,8 @@ package(
 
 load("//build/kernel/kleaf:common_kernels.bzl", "define_common_kernels")
 
+# This uses android/abi_gki_aarch64* in kmi_configs. If the list of
+# glob(["android/abi_gki_aarch64*"]) differs from
+# KMI_SYMBOL_LIST + ADDITIONAL_KMI_SYMBOL_LISTS in build.config.gki.aarch64,
+# or TRIM_NONLISTED_KMI changes, override kmi_configs here.
 define_common_kernels()
