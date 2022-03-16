@@ -2006,7 +2006,7 @@ struct j1939_session *j1939_tp_send(struct j1939_priv *priv,
 		/* set the end-packet for broadcast */
 		session->pkt.last = session->pkt.total;
 
-	skcb->tskey = atomic_inc_return(&session->sk->sk_tskey) - 1;
+	skcb->tskey = session->sk->sk_tskey++;
 	session->tskey = skcb->tskey;
 
 	return session;

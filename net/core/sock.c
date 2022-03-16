@@ -867,9 +867,9 @@ int sock_set_timestamping(struct sock *sk, int optname,
 			if ((1 << sk->sk_state) &
 			    (TCPF_CLOSE | TCPF_LISTEN))
 				return -EINVAL;
-			atomic_set(&sk->sk_tskey, tcp_sk(sk)->snd_una);
+			sk->sk_tskey = tcp_sk(sk)->snd_una;
 		} else {
-			atomic_set(&sk->sk_tskey, 0);
+			sk->sk_tskey = 0;
 		}
 	}
 
