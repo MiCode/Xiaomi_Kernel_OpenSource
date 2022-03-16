@@ -5219,6 +5219,11 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		if (err)
 			goto bail_unlock;
 	}
+	VERIFY(err, VALID_FASTRPC_CID(ctx->fl->cid));
+	if (err) {
+		err = -ECHRNG;
+		goto bail_unlock;
+	}
 	context_notify_user(ctx, rsp->retval, rsp_flags, early_wake_time);
 bail_unlock:
 	spin_unlock_irqrestore(&chan->ctxlock, irq_flags);
@@ -5902,7 +5907,6 @@ int fastrpc_get_info(struct fastrpc_file *fl, uint32_t *info)
 		fl->cid = cid;
 		goto bail;
 	}
-
 	if (fl->cid == -1) {
 		struct fastrpc_channel_ctx *chan = NULL;
 
@@ -6071,6 +6075,11 @@ int fastrpc_internal_control(struct fastrpc_file *fl,
 			fl->ws_timeout = MAX_PM_TIMEOUT_MS;
 		else
 			fl->ws_timeout = cp->pm.timeout;
+		VERIFY(err, VALID_FASTRPC_CID(fl->cid));
+		if (err) {
+			err = -ECHRNG;
+			goto bail;
+		}
 		fastrpc_pm_awake(fl, gcinfo[fl->cid].secure);
 		break;
 	case FASTRPC_CONTROL_DSPPROCESS_CLEAN:
