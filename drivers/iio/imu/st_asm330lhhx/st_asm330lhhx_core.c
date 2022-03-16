@@ -536,7 +536,6 @@ st_asm330lhhx_set_full_scale(struct st_asm330lhhx_sensor *sensor,
 	enum st_asm330lhhx_sensor_id id = sensor->id;
 	struct st_asm330lhhx_hw *hw = sensor->hw;
 	int i, err;
-	u8 val;
 
 	for (i = 0; i < st_asm330lhhx_fs_table[id].size; i++)
 		if (st_asm330lhhx_fs_table[id].fs_avl[i].gain == gain)
@@ -545,12 +544,10 @@ st_asm330lhhx_set_full_scale(struct st_asm330lhhx_sensor *sensor,
 	if (i == st_asm330lhhx_fs_table[id].size)
 		return -EINVAL;
 
-	val = st_asm330lhhx_fs_table[id].fs_avl[i].val;
-	err = regmap_update_bits(hw->regmap,
-				 st_asm330lhhx_fs_table[id].fs_avl[i].reg.addr,
-				 st_asm330lhhx_fs_table[id].fs_avl[i].reg.mask,
-				 ST_ASM330LHHX_SHIFT_VAL(val,
-				  st_asm330lhhx_fs_table[id].fs_avl[i].reg.mask));
+	err = st_asm330lhhx_update_bits_locked(hw,
+			st_asm330lhhx_fs_table[id].fs_avl[i].reg.addr,
+			st_asm330lhhx_fs_table[id].fs_avl[i].reg.mask,
+			st_asm330lhhx_fs_table[id].fs_avl[i].val);
 	if (err < 0)
 		return err;
 
@@ -660,7 +657,7 @@ st_asm330lhhx_check_odr_dependency(struct st_asm330lhhx_hw *hw,
 
 static int st_asm330lhhx_update_odr_fsm(struct st_asm330lhhx_hw *hw,
 					enum st_asm330lhhx_sensor_id id,
-					u8 val, int delay)
+					int val, int delay)
 {
 	int ret = 0;
 	int fsm_running = st_asm330lhhx_fsm_running(hw);
@@ -762,11 +759,10 @@ unlock_page:
 				       ST_ASM330LHHX_REG_FUNC_CFG_MASK);
 		mutex_unlock(&hw->page_lock);
 	} else {
-		ret = regmap_update_bits(hw->regmap,
-			st_asm330lhhx_odr_table[id].reg.addr,
-			st_asm330lhhx_odr_table[id].reg.mask,
-			ST_ASM330LHHX_SHIFT_VAL(val,
-				 st_asm330lhhx_odr_table[id].reg.mask));
+		ret = st_asm330lhhx_update_bits_locked(hw,
+				st_asm330lhhx_odr_table[id].reg.addr,
+				st_asm330lhhx_odr_table[id].reg.mask,
+				val);
 	}
 
 	return ret;
