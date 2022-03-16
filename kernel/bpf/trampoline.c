@@ -541,12 +541,11 @@ static u64 notrace bpf_prog_start_time(void)
 static void notrace inc_misses_counter(struct bpf_prog *prog)
 {
 	struct bpf_prog_stats *stats;
-	unsigned int flags;
 
 	stats = this_cpu_ptr(prog->stats);
-	flags = u64_stats_update_begin_irqsave(&stats->syncp);
+	u64_stats_update_begin(&stats->syncp);
 	u64_stats_inc(&stats->misses);
-	u64_stats_update_end_irqrestore(&stats->syncp, flags);
+	u64_stats_update_end(&stats->syncp);
 }
 
 /* The logic is similar to bpf_prog_run(), but with an explicit
