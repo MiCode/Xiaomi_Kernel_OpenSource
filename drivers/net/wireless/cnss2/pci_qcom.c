@@ -301,7 +301,8 @@ int cnss_wlan_adsp_pc_enable(struct cnss_pci_data *pci_priv,
 static int cnss_set_pci_link_status(struct cnss_pci_data *pci_priv,
 				    enum pci_link_status status)
 {
-	u16 link_speed, link_width;
+	u16 link_speed, link_width = pci_priv->def_link_width;
+	u16 one_lane = PCI_EXP_LNKSTA_NLW_X1 >> PCI_EXP_LNKSTA_NLW_SHIFT;
 	int ret;
 
 	cnss_pr_vdbg("Set PCI link status to: %u\n", status);
@@ -309,16 +310,17 @@ static int cnss_set_pci_link_status(struct cnss_pci_data *pci_priv,
 	switch (status) {
 	case PCI_GEN1:
 		link_speed = PCI_EXP_LNKSTA_CLS_2_5GB;
-		link_width = PCI_EXP_LNKSTA_NLW_X1 >> PCI_EXP_LNKSTA_NLW_SHIFT;
+		if (!link_width)
+			link_width = one_lane;
 		break;
 	case PCI_GEN2:
 		link_speed = PCI_EXP_LNKSTA_CLS_5_0GB;
-		link_width = PCI_EXP_LNKSTA_NLW_X1 >> PCI_EXP_LNKSTA_NLW_SHIFT;
+		if (!link_width)
+			link_width = one_lane;
 		break;
 	case PCI_DEF:
 		link_speed = pci_priv->def_link_speed;
-		link_width = pci_priv->def_link_width;
-		if (!link_speed && !link_width) {
+		if (!link_speed || !link_width) {
 			cnss_pr_err("PCI link speed or width is not valid\n");
 			return -EINVAL;
 		}
