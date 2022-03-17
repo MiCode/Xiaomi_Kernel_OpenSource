@@ -345,10 +345,21 @@ struct arm_smmu_s2cr {
 	bool				pinned;
 };
 
+/*
+ * Add smr state for debug purpose, it indicate the SMR
+ * table entry from kernel side.
+ */
+enum arm_smmu_smr_state {
+	SMR_INVALID,
+	SMR_PROGRAMMED,
+	SMR_ALLOCATED,
+};
+
 struct arm_smmu_smr {
 	u16				mask;
 	u16				id;
 	bool				valid;
+	enum arm_smmu_smr_state		state;
 };
 
 struct arm_smmu_device {
