@@ -27,8 +27,6 @@ struct usb_qdss_ch {
 	void (*notify)(void *priv, unsigned int event,
 		struct qdss_request *d_req, struct usb_qdss_ch *ch);
 	void *priv;
-	void *priv_usb;
-	int app_conn;
 	int ch_type;
 };
 
@@ -75,7 +73,7 @@ struct f_qdss {
 	unsigned int ctrl_in_enabled:1;
 	unsigned int ctrl_out_enabled:1;
 	struct workqueue_struct *wq;
-	bool qdss_close;
+	bool opened;
 };
 
 struct usb_qdss_opts {
