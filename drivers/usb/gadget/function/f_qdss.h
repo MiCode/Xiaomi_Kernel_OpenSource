@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/ipc_logging.h>
 #include <linux/list.h>
+#include <linux/mutex.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/composite.h>
@@ -73,7 +74,9 @@ struct f_qdss {
 	unsigned int ctrl_in_enabled:1;
 	unsigned int ctrl_out_enabled:1;
 	struct workqueue_struct *wq;
-	bool opened;
+
+	struct mutex mutex;
+	bool opened;	/* protected by 'mutex' */
 };
 
 struct usb_qdss_opts {
