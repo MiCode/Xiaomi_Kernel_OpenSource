@@ -12,6 +12,7 @@
  * page-table lock due to the lack of atomics at EL2.
  */
 #define HOST_PAGE_NEED_POISONING	BIT(0)
+#define HOST_PAGE_PENDING_RECLAIM	BIT(1)
 
 struct hyp_page {
 	unsigned short refcount;
