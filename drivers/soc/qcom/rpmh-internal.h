@@ -200,6 +200,7 @@ int rpmh_rsc_mode_solver_set(struct rsc_drv *drv, bool enable);
 int rpmh_rsc_get_channel(struct rsc_drv *drv);
 int rpmh_rsc_switch_channel(struct rsc_drv *drv, int ch);
 int rpmh_rsc_drv_enable(struct rsc_drv *drv, bool enable);
+const struct device *rpmh_rsc_get_device(const char *name, u32 drv_id);
 
 void rpmh_tx_done(const struct tcs_request *msg);
 int rpmh_flush(struct rpmh_ctrlr *ctrlr, int ch);

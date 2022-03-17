@@ -1401,6 +1401,22 @@ static struct rsc_drv_top *rpmh_rsc_get_top_device(const char *name)
 	return rsc_top;
 }
 
+const struct device *rpmh_rsc_get_device(const char *name, u32 drv_id)
+{
+	struct rsc_drv_top *rsc_top = rpmh_rsc_get_top_device(name);
+	int i;
+
+	if (IS_ERR(rsc_top))
+		return ERR_PTR(-ENODEV);
+
+	for (i = 0; i < rsc_top->drv_count; i++) {
+		if (i == drv_id && rsc_top->drv[i].initialized)
+			return rsc_top->drv[i].dev;
+	}
+
+	return ERR_PTR(-ENODEV);
+}
+
 static int rpmh_rsc_syscore_suspend(void)
 {
 	struct rsc_drv_top *rsc_top = rpmh_rsc_get_top_device("apps_rsc");
