@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -133,6 +133,9 @@ int qcom_icc_rpm_set(struct icc_node *src, struct icc_node *dst)
 			do_div(clk_rate, qn->buswidth);
 
 			bus_clk_rate[i] = max(bus_clk_rate[i], clk_rate);
+
+			if (bus_clk_rate[i] > RPM_CLK_MAX_LEVEL)
+				bus_clk_rate[i] = RPM_CLK_MAX_LEVEL;
 		}
 	}
 
