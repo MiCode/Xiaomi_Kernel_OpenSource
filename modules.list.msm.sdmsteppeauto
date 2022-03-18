@@ -1,0 +1,3 @@
+pinctrl-msm.ko
+pinctrl-sm6150.ko
+qcom-scm.ko
