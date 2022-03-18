@@ -10,7 +10,7 @@
 		alloc-ranges = <0x1 0x00000000 0xfffffffe 0xffffffff>;
 		reusable;
 		alignment = <0x0 0x400000>;
-		size = <0 0x3400000>;
+		size = <0 0x2800000>;
 	};
 };
 
@@ -296,11 +296,6 @@
 			qcom,dump-id = <0x127>;
 		};
 
-		gemnoc {
-			qcom,dump-size = <0x100000>;
-			qcom,dump-id = <0x162>;
-		};
-
 		mhm_scan {
 			qcom,dump-size = <0x20000>;
 			qcom,dump-id = <0x161>;
@@ -339,16 +334,6 @@
 		etfswao_reg {
 			qcom,dump-size = <0x1000>;
 			qcom,dump-id = <0x102>;
-		};
-
-		LLCC_1: llcc_1_dcache {
-			qcom,dump-size = <0x1141c0>;
-			qcom,dump-id = <0x140>;
-		};
-
-		LLCC_2: llcc_2_dcache {
-			qcom,dump-size = <0x1141c0>;
-			qcom,dump-id = <0x141>;
 		};
 
 		misc_data {
