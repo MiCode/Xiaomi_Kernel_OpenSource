@@ -440,7 +440,7 @@ static void mem_buf_cleanup_alloc_req(struct mem_buf_xfer_mem *xfer_mem,
 				kfree(acl_desc);
 				return;
 			}
-			kfree(sgl_desc);
+			kvfree(sgl_desc);
 			kfree(acl_desc);
 		}
 	}
@@ -881,7 +881,7 @@ out_free_mem:
 	mem_buf_destroy_txn(mem_buf_msgq_hdl, membuf->txn);
 	mem_buf_free_mem_type_data(membuf->dst_mem_type, membuf->dst_data);
 	mem_buf_free_mem_type_data(membuf->src_mem_type, membuf->src_data);
-	kfree(membuf->sgl_desc);
+	kvfree(membuf->sgl_desc);
 	kfree(membuf->acl_desc);
 	kfree(membuf);
 	return ret;
@@ -991,13 +991,13 @@ err_add_mem:
 	return ERR_PTR(ret);
 err_get_file:
 	if (mem_buf_unmap_mem_s1(membuf->sgl_desc) < 0) {
-		kfree(membuf->sgl_desc);
+		kvfree(membuf->sgl_desc);
 		goto err_mem_req;
 	}
 err_map_mem_s1:
 err_map_mem_s2:
 	mem_buf_relinquish_mem(membuf);
-	kfree(membuf->sgl_desc);
+	kvfree(membuf->sgl_desc);
 err_mem_req:
 	mem_buf_destroy_txn(mem_buf_msgq_hdl, membuf->txn);
 err_init_txn:
@@ -1160,7 +1160,7 @@ struct dma_buf *mem_buf_retrieve(struct mem_buf_retrieve_kernel_arg *arg)
 	}
 
 	/* sgt & qcom_sg_buffer will be freed by mem_buf_retrieve_release */
-	kfree(sgl_desc);
+	kvfree(sgl_desc);
 	kfree(acl_desc);
 	return dmabuf;
 
@@ -1169,7 +1169,7 @@ err_export_dma_buf:
 err_dup_sgt:
 	mem_buf_unmap_mem_s1(sgl_desc);
 err_map_mem_s1:
-	kfree(sgl_desc);
+	kvfree(sgl_desc);
 	mem_buf_unmap_mem_s2(arg->memparcel_hdl);
 err_map_s2:
 	kfree(acl_desc);
