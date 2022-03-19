@@ -502,6 +502,8 @@ static int qcom_cpufreq_hw_lmh_init(struct cpufreq_policy *policy, int index)
 
 static void qcom_cpufreq_hw_lmh_exit(struct qcom_cpufreq_data *data)
 {
+	struct cpufreq_policy *policy = data->policy;
+
 	if (data->throttle_irq <= 0)
 		return;
 
@@ -511,6 +513,8 @@ static void qcom_cpufreq_hw_lmh_exit(struct qcom_cpufreq_data *data)
 
 	free_irq(data->throttle_irq, data);
 	cancel_delayed_work_sync(&data->throttle_work);
+
+	arch_set_thermal_pressure(policy->related_cpus, 0);
 }
 
 static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
