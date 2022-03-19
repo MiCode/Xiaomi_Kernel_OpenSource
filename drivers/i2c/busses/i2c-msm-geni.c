@@ -1405,7 +1405,7 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		 * core clk should be voted explicitly.
 		 */
 		if (gi2c->is_i2c_hub) {
-			gi2c->core_clk = devm_clk_get(dev->parent, "core-clk");
+			gi2c->core_clk = devm_clk_get(&pdev->dev, "core-clk");
 			if (IS_ERR(gi2c->core_clk)) {
 				ret = PTR_ERR(gi2c->core_clk);
 				dev_err(&pdev->dev, "Err getting core-clk %d\n", ret);
