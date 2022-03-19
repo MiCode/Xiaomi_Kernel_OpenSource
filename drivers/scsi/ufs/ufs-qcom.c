@@ -4664,6 +4664,38 @@ out:
 }
 static DEVICE_ATTR_RW(turbo_support);
 
+static ssize_t hibern8_count_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	u32 hw_h8_enter;
+	u32 sw_h8_enter;
+	u32 sw_hw_h8_enter;
+	u32 hw_h8_exit;
+	u32	sw_h8_exit;
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+	pm_runtime_get_sync(hba->dev);
+	ufshcd_hold(hba, false);
+	hw_h8_enter = ufshcd_readl(hba, REG_UFS_HW_H8_ENTER_CNT);
+	sw_h8_enter = ufshcd_readl(hba, REG_UFS_SW_H8_ENTER_CNT);
+	sw_hw_h8_enter = ufshcd_readl(hba, REG_UFS_SW_AFTER_HW_H8_ENTER_CNT);
+	hw_h8_exit = ufshcd_readl(hba, REG_UFS_HW_H8_EXIT_CNT);
+	sw_h8_exit = ufshcd_readl(hba, REG_UFS_SW_H8_EXIT_CNT);
+	ufshcd_release(hba);
+	pm_runtime_put_sync(hba->dev);
+
+	return sysfs_emit(buf,
+			 "%s: %d\n%s: %d\n%s: %d\n%s: %d\n%s: %d\n",
+			 "hw_h8_enter", hw_h8_enter,
+			 "sw_h8_enter", sw_h8_enter,
+			 "sw_after_hw_h8_enter", sw_hw_h8_enter,
+			 "hw_h8_exit", hw_h8_exit,
+			 "sw_h8_exit", sw_h8_exit);
+
+}
+
+static DEVICE_ATTR_RO(hibern8_count);
+
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_power_mode.attr,
@@ -4674,6 +4706,7 @@ static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_crash_on_err.attr,
 	&dev_attr_clk_mode.attr,
 	&dev_attr_turbo_support.attr,
+	&dev_attr_hibern8_count.attr,
 	NULL
 };
 

@@ -471,6 +471,11 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 		return -EINVAL;
 	}
 
+	if (!ring) {
+		pr_err("%s(): Ring %d not present\n", __func__, evnt_ring_idx);
+		return -EINVAL;
+	}
+
 	ctx = (union mhi_dev_ring_ctx *)&mhi->ev_ctx_cache[evnt_ring];
 
 	if (mhi_ring_get_state(ring) == RING_STATE_UINT) {
@@ -4109,6 +4114,20 @@ static int mhi_init(struct mhi_dev *mhi)
 	int rc = 0, i = 0;
 	struct platform_device *pdev = mhi->pdev;
 
+	if (mhi_ctx->use_edma) {
+		rc = mhi_edma_init(&pdev->dev);
+		if (rc) {
+			pr_err("MHI: mhi edma init failed, rc = %d\n", rc);
+			return rc;
+		}
+
+		rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+		if (rc) {
+			pr_err("Error set MHI DMA mask: rc = %d\n", rc);
+			return rc;
+		}
+	}
+
 	rc = mhi_dev_mmio_init(mhi);
 	if (rc) {
 		pr_err("Failed to update the MMIO init\n");
@@ -4431,21 +4450,45 @@ static void mhi_dev_pcie_handle_event(struct work_struct *work)
 	}
 }
 
-static int mhi_edma_init(struct device *dev)
+int mhi_edma_release(void)
 {
-	mhi_ctx->tx_dma_chan = dma_request_slave_channel(dev, "tx");
-	if (IS_ERR_OR_NULL(mhi_ctx->tx_dma_chan)) {
-		pr_err("%s(): request for TX chan failed\n", __func__);
-		return -EIO;
-	}
+	dma_release_channel(mhi_ctx->tx_dma_chan);
+	mhi_ctx->tx_dma_chan = NULL;
+	dma_release_channel(mhi_ctx->rx_dma_chan);
+	mhi_ctx->rx_dma_chan = NULL;
+	return 0;
+}
 
+int mhi_edma_status(void)
+{
+	int ret = 0;
+
+	if (dmaengine_tx_status(mhi_ctx->tx_dma_chan, 0, NULL) == DMA_IN_PROGRESS)
+		ret = -EBUSY;
+	if (dmaengine_tx_status(mhi_ctx->rx_dma_chan, 0, NULL) == DMA_IN_PROGRESS)
+		ret = -EBUSY;
+
+	return ret;
+}
+
+int mhi_edma_init(struct device *dev)
+{
+	if (!mhi_ctx->tx_dma_chan) {
+		mhi_ctx->tx_dma_chan = dma_request_slave_channel(dev, "tx");
+		if (IS_ERR_OR_NULL(mhi_ctx->tx_dma_chan)) {
+			pr_err("%s(): request for TX chan failed\n", __func__);
+			return -EIO;
+		}
+	}
 	mhi_log(MHI_MSG_VERBOSE, "request for TX chan returned :%pK\n",
 			mhi_ctx->tx_dma_chan);
 
-	mhi_ctx->rx_dma_chan = dma_request_slave_channel(dev, "rx");
-	if (IS_ERR_OR_NULL(mhi_ctx->rx_dma_chan)) {
-		pr_err("%s(): request for RX chan failed\n", __func__);
-		return -EIO;
+	if (!mhi_ctx->rx_dma_chan) {
+		mhi_ctx->rx_dma_chan = dma_request_slave_channel(dev, "rx");
+		if (IS_ERR_OR_NULL(mhi_ctx->rx_dma_chan)) {
+			pr_err("%s(): request for RX chan failed\n", __func__);
+			return -EIO;
+		}
 	}
 	mhi_log(MHI_MSG_VERBOSE, "request for RX chan returned :%pK\n",
 			mhi_ctx->rx_dma_chan);
@@ -4478,20 +4521,6 @@ static int mhi_dev_probe(struct platform_device *pdev)
 
 		mhi_uci_init(&dev_ops);
 		mhi_update_state_info(MHI_STATE_CONFIGURED);
-	}
-
-	if (mhi_ctx->use_edma) {
-		rc = mhi_edma_init(&pdev->dev);
-		if (rc) {
-			pr_err("MHI: mhi edma init failed, rc = %d\n", rc);
-			return rc;
-		}
-
-		rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
-		if (rc) {
-			pr_err("Error set MHI DMA mask: rc = %d\n", rc);
-			return rc;
-		}
 	}
 
 	if (mhi_ctx->use_edma) {

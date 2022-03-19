@@ -207,6 +207,7 @@ enum adreno_gpurev {
 	ADRENO_REV_GEN7_0_0 = 0x070000,
 	ADRENO_REV_GEN7_0_1 = 0x070001,
 	ADRENO_REV_GEN7_4_0 = 0x070400,
+	ADRENO_REV_GEN7_3_0 = 0x070300,
 };
 
 #define ADRENO_SOFT_FAULT BIT(0)
@@ -1136,6 +1137,7 @@ static inline int adreno_is_gen7(struct adreno_device *adreno_dev)
 ADRENO_TARGET(gen7_0_0, ADRENO_REV_GEN7_0_0)
 ADRENO_TARGET(gen7_0_1, ADRENO_REV_GEN7_0_1)
 ADRENO_TARGET(gen7_4_0, ADRENO_REV_GEN7_4_0)
+ADRENO_TARGET(gen7_3_0, ADRENO_REV_GEN7_3_0)
 
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum

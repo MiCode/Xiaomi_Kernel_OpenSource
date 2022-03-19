@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "adreno_gen7_snapshot.h"
@@ -281,23 +282,87 @@ static void gen7_snapshot_shader(struct kgsl_device *device,
 	}
 }
 
+static void gen7_3_0_snapshot_shader(struct kgsl_device *device,
+				struct kgsl_snapshot *snapshot)
+{
+	unsigned int i;
+	struct gen7_shader_block_info info;
+	u64 *ptr;
+	u32 offset = 0;
+	size_t (*func)(struct kgsl_device *device, u8 *buf, size_t remain,
+		void *priv) = gen7_legacy_snapshot_shader;
+
+	if (CD_SCRIPT_CHECK(device)) {
+		for (i = 0; i < ARRAY_SIZE(gen7_3_0_shader_blocks); i++) {
+			info.block = &gen7_3_0_shader_blocks[i];
+			info.offset = offset;
+			offset += gen7_3_0_shader_blocks[i].size << 2;
+
+			/* Shader working/shadow memory */
+			kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_SHADER_V2,
+				snapshot, func, &info);
+		}
+		return;
+	}
+
+	/* Build the crash script */
+	ptr = gen7_capturescript->hostptr;
+	offset = 0;
+
+	for (i = 0; i < ARRAY_SIZE(gen7_3_0_shader_blocks); i++) {
+		struct gen7_shader_block *block = &gen7_3_0_shader_blocks[i];
+
+		/* Program the aperture */
+		ptr += CD_WRITE(ptr, GEN7_SP_READ_SEL,
+			GEN7_SP_READ_SEL_VAL(block->location, block->pipeid,
+				block->statetype, block->usptp, block->sp_id));
+
+		/* Read all the data in one chunk */
+		ptr += CD_READ(ptr, GEN7_SP_AHB_READ_APERTURE, block->size,
+			gen7_crashdump_registers->gpuaddr + offset);
+
+		offset += block->size << 2;
+	}
+
+	/* Marker for end of script */
+	CD_FINISH(ptr, offset);
+
+	/* Try to run the crash dumper */
+	if (_gen7_do_crashdump(device))
+		func = gen7_snapshot_shader_memory;
+
+	offset = 0;
+
+	for (i = 0; i < ARRAY_SIZE(gen7_3_0_shader_blocks); i++) {
+		info.block = &gen7_3_0_shader_blocks[i];
+		info.offset = offset;
+		offset += gen7_3_0_shader_blocks[i].size << 2;
+
+		/* Shader working/shadow memory */
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_SHADER_V2,
+			snapshot, func, &info);
+	}
+}
+
 static void gen7_snapshot_mempool(struct kgsl_device *device,
 				struct kgsl_snapshot *snapshot)
 {
 	/* set CP_CHICKEN_DBG[StabilizeMVC] to stabilize it while dumping */
 	kgsl_regrmw(device, GEN7_CP_CHICKEN_DBG, 0x4, 0x4);
-	kgsl_regrmw(device, GEN7_CP_BV_CHICKEN_DBG, 0x4, 0x4);
 
 	kgsl_snapshot_indexed_registers(device, snapshot,
 		GEN7_CP_MEM_POOL_DBG_ADDR, GEN7_CP_MEM_POOL_DBG_DATA,
 		0, 0x2100);
 
-	kgsl_snapshot_indexed_registers(device, snapshot,
-		GEN7_CP_BV_MEM_POOL_DBG_ADDR, GEN7_CP_BV_MEM_POOL_DBG_DATA,
-		0, 0x2100);
+	if (!adreno_is_gen7_3_0(ADRENO_DEVICE(device))) {
+		kgsl_regrmw(device, GEN7_CP_BV_CHICKEN_DBG, 0x4, 0x4);
+		kgsl_snapshot_indexed_registers(device, snapshot,
+			GEN7_CP_BV_MEM_POOL_DBG_ADDR, GEN7_CP_BV_MEM_POOL_DBG_DATA,
+			0, 0x2100);
+		kgsl_regrmw(device, GEN7_CP_BV_CHICKEN_DBG, 0x4, 0x0);
+	}
 
 	kgsl_regrmw(device, GEN7_CP_CHICKEN_DBG, 0x4, 0x0);
-	kgsl_regrmw(device, GEN7_CP_BV_CHICKEN_DBG, 0x4, 0x0);
 }
 
 static unsigned int gen7_read_dbgahb(struct kgsl_device *device,
@@ -868,16 +933,28 @@ static void gen7_snapshot_debugbus(struct adreno_device *adreno_dev,
 	adreno_cx_dbgc_regwrite(device, GEN7_CX_DBGC_CFG_DBGBUS_MASKL_2, 0);
 	adreno_cx_dbgc_regwrite(device, GEN7_CX_DBGC_CFG_DBGBUS_MASKL_3, 0);
 
-	for (i = 0; i < ARRAY_SIZE(gen7_debugbus_blocks); i++) {
-		kgsl_snapshot_add_section(device,
-			KGSL_SNAPSHOT_SECTION_DEBUGBUS,
-			snapshot, gen7_snapshot_dbgc_debugbus_block,
-			(void *) &gen7_debugbus_blocks[i]);
-		kgsl_snapshot_add_section(device,
-			KGSL_SNAPSHOT_SECTION_SIDE_DEBUGBUS,
-			snapshot, gen7_snapshot_dbgc_side_debugbus_block,
-			(void *) &gen7_debugbus_blocks[i]);
-	}
+	if (adreno_is_gen7_3_0(adreno_dev))
+		for (i = 0; i < ARRAY_SIZE(gen7_3_0_debugbus_blocks); i++) {
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+				snapshot, gen7_snapshot_dbgc_debugbus_block,
+				(void *) &gen7_3_0_debugbus_blocks[i]);
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_SIDE_DEBUGBUS,
+				snapshot, gen7_snapshot_dbgc_side_debugbus_block,
+				(void *) &gen7_3_0_debugbus_blocks[i]);
+		}
+	else
+		for (i = 0; i < ARRAY_SIZE(gen7_debugbus_blocks); i++) {
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+				snapshot, gen7_snapshot_dbgc_debugbus_block,
+				(void *) &gen7_debugbus_blocks[i]);
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_SIDE_DEBUGBUS,
+				snapshot, gen7_snapshot_dbgc_side_debugbus_block,
+				(void *) &gen7_debugbus_blocks[i]);
+		}
 
 	/*
 	 * GBIF has same debugbus as of other GPU blocks hence fall back to
@@ -1165,9 +1242,14 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 		snapshot, adreno_snapshot_registers_v2,
 		(void *)gen7_gpucc_registers);
 
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS_V2,
-		snapshot, adreno_snapshot_registers_v2,
-		(void *)gen7_cpr_registers);
+	if (adreno_is_gen7_3_0(adreno_dev))
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS_V2,
+			snapshot, adreno_snapshot_registers_v2,
+			(void *)gen7_3_0_cpr_registers);
+	else
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS_V2,
+			snapshot, adreno_snapshot_registers_v2,
+			(void *)gen7_cpr_registers);
 
 	gen7_reglist_snapshot(device, snapshot);
 
@@ -1179,25 +1261,33 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 		kgsl_regread(device, GEN7_RBBM_CLOCK_MODE_CP, &cgc);
 		kgsl_regrmw(device, GEN7_RBBM_CLOCK_MODE_CP, 0x7, 0);
 	}
-	kgsl_snapshot_indexed_registers(device, snapshot,
-		GEN7_CP_RESOURCE_TBL_DBG_ADDR, GEN7_CP_RESOURCE_TBL_DBG_DATA,
-		0, 0x4100);
 
 	/* Reprogram the register back to the original stored value */
 	if (device->ftbl->is_hwcg_on(device))
 		kgsl_regwrite(device, GEN7_RBBM_CLOCK_MODE_CP, cgc);
 
-	for (i = 0; i < ARRAY_SIZE(gen7_cp_indexed_reg_list); i++)
+	if (adreno_is_gen7_3_0(adreno_dev)) {
+		for (i = 0; i < ARRAY_SIZE(gen7_3_0_cp_indexed_reg_list); i++)
+			kgsl_snapshot_indexed_registers(device, snapshot,
+				gen7_3_0_cp_indexed_reg_list[i].addr,
+				gen7_3_0_cp_indexed_reg_list[i].data, 0,
+				gen7_3_0_cp_indexed_reg_list[i].size);
+	} else {
 		kgsl_snapshot_indexed_registers(device, snapshot,
-			gen7_cp_indexed_reg_list[i].addr,
-			gen7_cp_indexed_reg_list[i].data, 0,
-			gen7_cp_indexed_reg_list[i].size);
+			GEN7_CP_RESOURCE_TBL_DBG_ADDR, GEN7_CP_RESOURCE_TBL_DBG_DATA,
+			0, 0x4100);
+
+		for (i = 0; i < ARRAY_SIZE(gen7_cp_indexed_reg_list); i++)
+			kgsl_snapshot_indexed_registers(device, snapshot,
+				gen7_cp_indexed_reg_list[i].addr,
+				gen7_cp_indexed_reg_list[i].data, 0,
+				gen7_cp_indexed_reg_list[i].size);
+
+		gen7_snapshot_bv_roq(device, snapshot);
+		gen7_snapshot_lpac_roq(device, snapshot);
+	}
 
 	gen7_snapshot_br_roq(device, snapshot);
-
-	gen7_snapshot_bv_roq(device, snapshot);
-
-	gen7_snapshot_lpac_roq(device, snapshot);
 
 	/* SQE Firmware */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
@@ -1207,7 +1297,10 @@ void gen7_snapshot(struct adreno_device *adreno_dev,
 	gen7_snapshot_mempool(device, snapshot);
 
 	/* Shader memory */
-	gen7_snapshot_shader(device, snapshot);
+	if (adreno_is_gen7_3_0(adreno_dev))
+		gen7_3_0_snapshot_shader(device, snapshot);
+	else
+		gen7_snapshot_shader(device, snapshot);
 
 	/* MVC register section */
 	gen7_snapshot_mvc_regs(device, snapshot);

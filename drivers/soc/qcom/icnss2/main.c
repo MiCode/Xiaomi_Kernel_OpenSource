@@ -411,6 +411,17 @@ bool icnss_is_fw_down(void)
 }
 EXPORT_SYMBOL(icnss_is_fw_down);
 
+unsigned long icnss_get_device_config(void)
+{
+	struct icnss_priv *priv = icnss_get_plat_priv();
+
+	if (!priv)
+		return 0;
+
+	return priv->device_config;
+}
+EXPORT_SYMBOL(icnss_get_device_config);
+
 bool icnss_is_rejuvenate(void)
 {
 	if (!penv)
@@ -1910,6 +1921,24 @@ static char *icnss_qcom_ssr_notify_state_to_str(enum qcom_ssr_notify_type code)
 	}
 };
 
+static int icnss_wpss_early_notifier_nb(struct notifier_block *nb,
+					unsigned long code,
+					void *data)
+{
+	struct icnss_priv *priv = container_of(nb, struct icnss_priv,
+					       wpss_early_ssr_nb);
+
+	icnss_pr_vdbg("WPSS-EARLY-Notify: event %s(%lu)\n",
+		      icnss_qcom_ssr_notify_state_to_str(code), code);
+
+	if (code == QCOM_SSR_BEFORE_SHUTDOWN) {
+		set_bit(ICNSS_FW_DOWN, &priv->state);
+		icnss_ignore_fw_timeout(true);
+	}
+
+	return NOTIFY_DONE;
+}
+
 static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 				  unsigned long code,
 				  void *data)
@@ -2045,6 +2074,24 @@ out:
 	return NOTIFY_OK;
 }
 
+static int icnss_wpss_early_ssr_register_notifier(struct icnss_priv *priv)
+{
+	int ret = 0;
+
+	priv->wpss_early_ssr_nb.notifier_call = icnss_wpss_early_notifier_nb;
+
+	priv->wpss_early_notify_handler =
+		qcom_register_early_ssr_notifier("wpss",
+						 &priv->wpss_early_ssr_nb);
+
+	if (IS_ERR(priv->wpss_early_notify_handler)) {
+		ret = PTR_ERR(priv->wpss_early_notify_handler);
+		icnss_pr_err("WPSS register early notifier failed: %d\n", ret);
+	}
+
+	return ret;
+}
+
 static int icnss_wpss_ssr_register_notifier(struct icnss_priv *priv)
 {
 	int ret = 0;
@@ -2091,6 +2138,16 @@ static int icnss_modem_ssr_register_notifier(struct icnss_priv *priv)
 	set_bit(ICNSS_SSR_REGISTERED, &priv->state);
 
 	return ret;
+}
+
+static void icnss_wpss_early_ssr_unregister_notifier(struct icnss_priv *priv)
+{
+	if (IS_ERR(priv->wpss_early_notify_handler))
+		return;
+
+	qcom_unregister_early_ssr_notifier(priv->wpss_early_notify_handler,
+					   &priv->wpss_early_ssr_nb);
+	priv->wpss_early_notify_handler = NULL;
 }
 
 static int icnss_wpss_ssr_unregister_notifier(struct icnss_priv *priv)
@@ -2367,6 +2424,7 @@ static int icnss_enable_recovery(struct icnss_priv *priv)
 		return ret;
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		icnss_wpss_early_ssr_register_notifier(priv);
 		icnss_wpss_ssr_register_notifier(priv);
 		return 0;
 	}
@@ -4068,6 +4126,14 @@ static void icnss_init_control_params(struct icnss_priv *priv)
 		priv->ctrl_params.bdf_type = ICNSS_BDF_BIN;
 }
 
+static void icnss_read_device_configs(struct icnss_priv *priv)
+{
+	if (of_property_read_bool(priv->pdev->dev.of_node,
+				  "wlan-ipa-disabled")) {
+		set_bit(ICNSS_IPA_DISABLED, &priv->device_config);
+	}
+}
+
 static inline void icnss_runtime_pm_init(struct icnss_priv *priv)
 {
 	pm_runtime_get_sync(&priv->pdev->dev);
@@ -4150,6 +4216,8 @@ static int icnss_probe(struct platform_device *pdev)
 	icnss_allow_recursive_recovery(dev);
 
 	icnss_init_control_params(priv);
+
+	icnss_read_device_configs(priv);
 
 	ret = icnss_resource_parse(priv);
 	if (ret)
@@ -4286,6 +4354,7 @@ static int icnss_remove(struct platform_device *pdev)
 	icnss_destroy_ramdump_device(priv->msa0_dump_dev);
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		icnss_wpss_early_ssr_unregister_notifier(priv);
 		icnss_wpss_ssr_unregister_notifier(priv);
 		rproc_put(priv->rproc);
 		icnss_destroy_ramdump_device(priv->m3_dump_phyareg);

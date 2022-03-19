@@ -57,6 +57,9 @@ static struct cnss_clk_cfg cnss_clk_list[] = {
 
 #define BOOTSTRAP_GPIO			"qcom,enable-bootstrap-gpio"
 #define BOOTSTRAP_ACTIVE		"bootstrap_active"
+#define HOST_SOL_GPIO			"wlan-host-sol-gpio"
+#define DEV_SOL_GPIO			"wlan-dev-sol-gpio"
+#define SOL_DEFAULT			"sol_default"
 #define WLAN_EN_GPIO			"wlan-en-gpio"
 #define BT_EN_GPIO			"qcom,bt-en-gpio"
 #define XO_CLK_GPIO			"qcom,xo-clk-gpio"
@@ -725,6 +728,20 @@ int cnss_get_pinctrl(struct cnss_plat_data *plat_priv)
 		}
 	}
 
+	if (of_find_property(dev->of_node, HOST_SOL_GPIO, NULL) &&
+	    of_find_property(dev->of_node, DEV_SOL_GPIO, NULL)) {
+		pinctrl_info->sol_default =
+			pinctrl_lookup_state(pinctrl_info->pinctrl,
+					     SOL_DEFAULT);
+		if (IS_ERR_OR_NULL(pinctrl_info->sol_default)) {
+			ret = PTR_ERR(pinctrl_info->sol_default);
+			cnss_pr_err("Failed to get sol default state, err = %d\n",
+				    ret);
+			goto out;
+		}
+		cnss_pr_dbg("Got sol default state\n");
+	}
+
 	if (of_find_property(dev->of_node, WLAN_EN_GPIO, NULL)) {
 		pinctrl_info->wlan_en_active =
 			pinctrl_lookup_state(pinctrl_info->pinctrl,
@@ -846,6 +863,17 @@ static int cnss_select_pinctrl_state(struct cnss_plat_data *plat_priv,
 			}
 			udelay(BOOTSTRAP_DELAY);
 		}
+		if (!IS_ERR_OR_NULL(pinctrl_info->sol_default)) {
+			ret = pinctrl_select_state
+				(pinctrl_info->pinctrl,
+				 pinctrl_info->sol_default);
+			if (ret) {
+				cnss_pr_err("Failed to select sol default state, err = %d\n",
+					    ret);
+				goto out;
+			}
+			cnss_pr_dbg("Selected sol default state\n");
+		}
 		cnss_set_xo_clk_gpio_state(plat_priv, true);
 		if (!IS_ERR_OR_NULL(pinctrl_info->wlan_en_active)) {
 			ret = pinctrl_select_state
@@ -965,6 +993,8 @@ int cnss_power_on_device(struct cnss_plat_data *plat_priv)
 	}
 
 	plat_priv->powered_on = true;
+	cnss_enable_dev_sol_irq(plat_priv);
+	cnss_set_host_sol_value(plat_priv, 0);
 
 	return 0;
 
@@ -983,6 +1013,7 @@ void cnss_power_off_device(struct cnss_plat_data *plat_priv)
 		return;
 	}
 
+	cnss_disable_dev_sol_irq(plat_priv);
 	cnss_select_pinctrl_state(plat_priv, false);
 	cnss_clk_off(plat_priv, &plat_priv->clk_list);
 	cnss_vreg_off_type(plat_priv, CNSS_VREG_PRIM);

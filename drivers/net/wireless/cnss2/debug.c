@@ -146,11 +146,21 @@ static int cnss_stats_show_state(struct seq_file *s,
 	return 0;
 }
 
+static int cnss_stats_show_gpio_state(struct seq_file *s,
+				      struct cnss_plat_data *plat_priv)
+{
+	seq_printf(s, "\nHost SOL: %d", cnss_get_host_sol_value(plat_priv));
+	seq_printf(s, "\nDev SOL: %d", cnss_get_dev_sol_value(plat_priv));
+
+	return 0;
+}
+
 static int cnss_stats_show(struct seq_file *s, void *data)
 {
 	struct cnss_plat_data *plat_priv = s->private;
 
 	cnss_stats_show_state(s, plat_priv);
+	cnss_stats_show_gpio_state(s, plat_priv);
 
 	return 0;
 }
@@ -207,6 +217,10 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 					     CNSS_DRIVER_EVENT_POWER_DOWN,
 					     0, NULL);
 		clear_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
+	} else if (sysfs_streq(cmd, "assert_host_sol")) {
+		ret = cnss_set_host_sol_value(plat_priv, 1);
+	} else if (sysfs_streq(cmd, "deassert_host_sol")) {
+		ret = cnss_set_host_sol_value(plat_priv, 0);
 	} else {
 		pci_priv = plat_priv->bus_priv;
 		if (!pci_priv)

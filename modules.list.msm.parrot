@@ -56,3 +56,12 @@ debug-regulator.ko
 gh_arm_drv.ko
 gh_ctrl.ko
 gh_dbl.ko
+rpmh-regulator.ko
+qti-fixed-regulator.ko
+nvmem_qcom-spmi-sdam.ko
+proxy-consumer.ko
+qcom-spmi-pmic.ko
+spmi-pmic-arb.ko
+qti-regmap-debugfs.ko
+regmap-spmi.ko
+rtc-pm8xxx.ko

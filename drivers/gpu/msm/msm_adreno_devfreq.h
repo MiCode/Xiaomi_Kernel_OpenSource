@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef MSM_ADRENO_DEVFREQ_H
@@ -66,6 +67,7 @@ struct msm_busmon_extended_profile {
 	u32 sampling_ms;
 	unsigned long percent_ab;
 	unsigned long ab_mbytes;
+	u32 wait_active_percent;
 	struct devfreq_msm_adreno_tz_data *private_data;
 	struct devfreq_dev_profile profile;
 };
