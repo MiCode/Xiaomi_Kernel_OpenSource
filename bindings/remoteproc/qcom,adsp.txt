@@ -42,6 +42,7 @@ on the Qualcomm ADSP Hexagon core.
 		    "qcom,parrot-wpss-pas"
 		    "qcom,neo-adsp-pas"
 		    "qcom,neo-cdsp-pas"
+		    "qcom,neo-wpss-pas"
 
 
 - interrupts-extended:

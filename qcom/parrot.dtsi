@@ -22,7 +22,7 @@
 
 	chosen: chosen {
 		stdout-path = "/soc/qcom,qup_uart@98C000:115200n8";
-		bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K cpufreq.default_governor=performance";
+		bootargs = "console=ttyMSM0,115200n8 loglevel=6 log_buf_len=256K cpufreq.default_governor=performance";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
@@ -54,6 +54,7 @@
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			next-level-cache = <&L2_0>;
+			#cooling-cells = <2>;
 			L2_0: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -78,6 +79,7 @@
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			next-level-cache = <&L2_1>;
+			#cooling-cells = <2>;
 			L2_1: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -97,6 +99,7 @@
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			next-level-cache = <&L2_2>;
+			#cooling-cells = <2>;
 			L2_2: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -116,6 +119,7 @@
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 0 4>;
 			next-level-cache = <&L2_3>;
+			#cooling-cells = <2>;
 			L2_3: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -134,6 +138,7 @@
 			power-domains = <&CPU_PD4>;
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
+			#cooling-cells = <2>;
 			L2_4: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -153,6 +158,7 @@
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			next-level-cache = <&L2_5>;
+			#cooling-cells = <2>;
 			L2_5: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -172,6 +178,7 @@
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			next-level-cache = <&L2_6>;
+			#cooling-cells = <2>;
 			L2_6: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -191,6 +198,7 @@
 			power-domain-names = "psci";
 			qcom,freq-domain = <&cpufreq_hw 1 4>;
 			next-level-cache = <&L2_7>;
+			#cooling-cells = <2>;
 			L2_7: l2-cache {
 				compatible = "arm,arch-cache";
 				cache-level = <2>;
@@ -327,6 +335,7 @@
 #include "parrot-usb.dtsi"
 #include "parrot-reserved-memory.dtsi"
 #include "parrot-coresight.dtsi"
+#include "parrot-debug.dtsi"
 &reserved_memory {
 	#address-cells = <2>;
 	#size-cells = <2>;
@@ -693,6 +702,10 @@
 			qcom,glinkpkt-ch-name = "DATA11";
 			qcom,glinkpkt-dev-name = "smd11";
 		};
+	};
+
+	qcom,glink {
+		compatible = "qcom,glink";
 	};
 
 	aoss_qmp: power-controller@c300000 {
@@ -1198,6 +1211,32 @@
 		};
 	};
 
+	slimbam: bamdma@3304000 {
+		compatible = "qcom,bam-v1.7.0";
+		qcom,controlled-remotely;
+		reg = <0x3304000 0x20000>, <0x326b000 0x1000>;
+		reg-names = "bam", "bam_remote_mem";
+		num-channels  = <31>;
+		interrupts = <0 164 IRQ_TYPE_LEVEL_HIGH>;
+		#dma-cells = <1>;
+		qcom,ee = <1>;
+		qcom,num-ees = <2>;
+	};
+
+	slim_msm: slim@3340000 {
+		compatible = "qcom,slim-ngd-v1.5.0";
+		reg = <0x3340000 0x2C000>, <0x326a000 0x1000>;
+		reg-names = "ctrl", "slimbus_remote_mem";
+		interrupts = <0 163 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,apps-ch-pipes = <0x0>;
+		qcom,ea-pc = <0x440>;
+		dmas = <&slimbam 3>, <&slimbam 4>;
+		dma-names = "rx", "tx";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
 	cluster-device {
 		compatible = "qcom,lpm-cluster-dev";
 		power-domains = <&CLUSTER_PD>;
@@ -1624,6 +1663,11 @@
 		restrict-access;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm-sps-4k";
+		qcom,pipe-attr-ee;
+	};
+
 	msm_fastrpc: qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-compute";
 		qcom,adsp-remoteheap-vmid = <22 37>;
@@ -1875,8 +1919,8 @@
 };
 
 #include "parrot-regulators.dtsi"
-#include "parrot-qupv3.dtsi"
 #include "parrot-pinctrl.dtsi"
+#include "parrot-qupv3.dtsi"
 #include "parrot-dma-heaps.dtsi"
 #include "parrot-gpu.dtsi"
 #include "msm-arm-smmu-parrot.dtsi"

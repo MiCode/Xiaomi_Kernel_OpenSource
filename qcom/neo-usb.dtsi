@@ -23,13 +23,24 @@
 		resets = <&gcc GCC_USB30_PRIM_BCR>;
 		reset-names = "core_reset";
 
-		interrupts = <GIC_SPI 350 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "pwr_event_irq";
+		interrupts-extended = <&pdc 14 IRQ_TYPE_EDGE_RISING>,
+					<&intc GIC_SPI 350 IRQ_TYPE_LEVEL_HIGH>,
+					<&pdc 17 IRQ_TYPE_LEVEL_HIGH>,
+					<&pdc 15 IRQ_TYPE_EDGE_RISING>;
+
+		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
+				"ss_phy_irq", "dm_hs_phy_irq";
+		qcom,use-pdc-interrupts;
+		qcom,use-eusb2-phy;
 
 		qcom,core-clk-rate = <133333333>;
 		qcom,core-clk-rate-hs = <66666667>;
 
-		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
+		qcom,pm-qos-latency = <2>;
+
+		interconnect-names = "usb-ddr", "ddr-usb";
+		interconnects = <&system_noc MASTER_USB3_0 &mc_virt SLAVE_EBI1>,
+				<&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_USB3_0>;
 
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
@@ -50,6 +61,7 @@
 			snps,dis-u2-entry-quirk;
 			snps,dis_u2_susphy_quirk;
 			tx-fifo-resize;
+			dr_mode = "peripheral";
 			maximum-speed = "super-speed";
 		};
 	};

@@ -166,13 +166,16 @@ endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 dtbo-$(CONFIG_ARCH_NEO) += neo-rumi-overlay.dtbo \
-		neo_la-rumi-overlay.dtbo
+		neo_la-rumi-overlay.dtbo \
+		neo-qxr-overlay.dtbo
 
 neo-rumi-overlay.dtbo-base := neo.dtb
 neo_la-rumi-overlay.dtbo-base := neo_la.dtb
+neo-qxr-overlay.dtbo-base := neo.dtb
 else
 dtb-$(CONFIG_ARCH_NEO) += neo-rumi.dtb
 dtb-$(CONFIG_ARCH_NEO) += neo_la-rumi.dtb
+dtb-$(CONFIG_ARCH_NEO) += neo-qxr.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
@@ -294,11 +297,35 @@ dtb-$(CONFIG_ARCH_CAPE) += cape-mtp-pm8008.dtb \
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
-dtbo-$(CONFIG_ARCH_PARROT) += parrot-rumi-overlay.dtbo
+dtbo-$(CONFIG_ARCH_PARROT) += parrot-rumi-overlay.dtbo \
+	parrot-atp-overlay.dtbo \
+	parrot-idp-overlay.dtbo \
+	parrot-idp-wcn3990-overlay.dtbo \
+	parrot-idp-wcn3990-amoled-rcm-overlay.dtbo \
+	parrot-idp-wcn6750-amoled-rcm-overlay.dtbo \
+	parrot-idp-wcn6750-amoled-overlay.dtbo \
+	parrot-qrd-overlay.dtbo \
+	parrot-qrd-wcn6750-overlay.dtbo
 
 parrot-rumi-overlay.dtbo-base := parrot.dtb
+parrot-atp-overlay.dtbo-base := parrot.dtb
+parrot-idp-overlay.dtbo-base := parrot.dtb
+parrot-idp-wcn3990-overlay.dtbo-base := parrot.dtb
+parrot-idp-wcn3990-amoled-rcm-overlay.dtbo-base := parrot.dtb
+parrot-idp-wcn6750-amoled-rcm-overlay.dtbo-base := parrot.dtb
+parrot-idp-wcn6750-amoled-overlay.dtbo-base := parrot.dtb
+parrot-qrd-overlay.dtbo-base := parrot.dtb
+parrot-qrd-wcn6750-overlay.dtbo-base := parrot.dtb
 else
-dtb-$(CONFIG_ARCH_PARROT) += parrot-rumi.dtb
+dtb-$(CONFIG_ARCH_PARROT) += parrot-rumi.dtb \
+	parrot-atp.dtb \
+	parrot-idp.dtb \
+	parrot-idp-wcn3990.dtb \
+	parrot-idp-wcn3990-amoled-rcm.dtb \
+	parrot-idp-wcn6750-amoled.dtb \
+	parrot-idp-wcn6750-amoled-rcm.dtb \
+	parrot-qrd.dtb \
+	parrot-qrd-wcn6750.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)

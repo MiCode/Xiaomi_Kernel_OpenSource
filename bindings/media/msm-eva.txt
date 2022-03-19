@@ -9,6 +9,7 @@ Required properties:
 	- "qcom,waipio-cvp" : Invokes driver specific data for waipio
 	- "qcom,lahaina-cvp" : Invokes driver specific data for Lahaina.
 	- "qcom,kona-cvp" : Invokes driver specific data for kona.
+	- "qcom,aurora-cvp" : Invokes driver specific data for aurora.
 
 Optional properties:
 - reg : offset and length of the CSR register set for the device.

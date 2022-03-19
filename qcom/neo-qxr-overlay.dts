@@ -1,0 +1,11 @@
+/dts-v1/;
+/plugin/;
+
+#include "neo-qxr.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. NEO QXR";
+	compatible = "qcom,neo", "qcom,neo-qxr";
+	qcom,msm-id = <525 0x10000>;
+	qcom,board-id = <0x10026 0>;
+};

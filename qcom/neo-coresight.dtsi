@@ -84,7 +84,8 @@
 
 		coresight-name = "coresight-audio_etm0";
 		qcom,inst-id = <5>;
-		atid = <40>;
+
+		atid = <40 41>;
 
 		out-ports {
 			port {
@@ -96,18 +97,35 @@
 		};
 	};
 
+	lpass_stm: lpass_stm {
+		compatible = "qcom,coresight-dummy";
+		coresight-name = "coresight-lpass-stm";
+		qcom,dummy-source;
 
-	audio_etm1 {
-		compatible = "qcom,coresight-remote-etm";
-
-		coresight-name = "coresight-audio_etm1";
-		qcom,inst-id = <10>;
+		atid = <25>;
 
 		out-ports {
 			port {
-				audio_etm1_out_funnel_lpass_lpi: endpoint {
+				lpass_stm_out_funnel_lpass_lpi: endpoint {
 					remote-endpoint =
-						<&funnel_lpass_lpi_in_audio_etm1>;
+					<&funnel_lpass_lpi_in_lpass_stm>;
+				};
+			};
+		};
+	};
+
+	tpdm_lpass_lpi: tpdm@10b46000 {
+		compatible = "qcom,coresight-dummy";
+		coresight-name = "coresight-tpdm-lpass-lpi";
+		qcom,dummy-source;
+
+		atid = <26>;
+
+		out-ports {
+			port {
+				tpdm_lpass_lpi_out_funnel_lpass_lpi: endpoint {
+					remote-endpoint =
+					<&funnel_lpass_lpi_in_tpdm_lpass_lpi>;
 				};
 			};
 		};
@@ -126,23 +144,6 @@
 				turing_etm0_out_funnel_turing_dup: endpoint {
 					remote-endpoint =
 						<&funnel_turing_dup_in_turing_etm0>;
-				};
-			};
-		};
-	};
-
-	tpdm_lpass_lpi: tpdm@10b46000 {
-		compatible = "qcom,coresight-dummy";
-		coresight-name = "coresight-tpdm-lpass-lpi";
-		qcom,dummy-source;
-
-		atid = <26>;
-
-		out-ports {
-			port {
-				tpdm_lpass_lpi_out_funnel_lpass_lpi: endpoint {
-					remote-endpoint =
-					<&funnel_lpass_lpi_in_tpdm_lpass_lpi>;
 				};
 			};
 		};
@@ -328,7 +329,6 @@
 		atid = <78>;
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
-		status = "disabled";
 
 		out-ports {
 			port {
@@ -350,6 +350,7 @@
 		atid = <78>;
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
+		status = "disabled";
 
 		out-ports {
 			port {
@@ -474,7 +475,6 @@
 		atid = <78>;
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
-		status = "disabled";
 
 		out-ports {
 			port {
@@ -580,7 +580,6 @@
 		atid = <78>;
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
-		status = "disabled";
 
 		out-ports {
 			port {
@@ -792,6 +791,7 @@
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 
+		status = "disabled";
 		out-ports {
 			port {
 				tpdm_dl_north_out_tpda_dl_north: endpoint {
@@ -951,36 +951,29 @@
 		};
 	};
 
+
 	funnel_lpass_lpi: funnel@10b44000 {
-		compatible = "arm,primecell";
-		arm,primecell-periphid = <0x000bb908>;
-
-		reg = <0x10b44000 0x1000>;
-		reg-names = "funnel-base";
-
+		compatible = "arm,coresight-static-funnel";
 		coresight-name = "coresight-funnel-lpass_lpi";
-
-		clocks = <&aoss_qmp>;
-		clock-names = "apb_pclk";
 
 		in-ports {
 
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			port@1 {
-				reg = <1>;
-				funnel_lpass_lpi_in_audio_etm1: endpoint {
-					remote-endpoint =
-					<&audio_etm1_out_funnel_lpass_lpi>;
-				};
-			};
-
 			port@0 {
 				reg = <0>;
 				funnel_lpass_lpi_in_audio_etm0: endpoint {
 					remote-endpoint =
 					<&audio_etm0_out_funnel_lpass_lpi>;
+				};
+			};
+
+			port@4 {
+				reg = <4>;
+				funnel_lpass_lpi_in_lpass_stm: endpoint {
+					remote-endpoint =
+					<&lpass_stm_out_funnel_lpass_lpi>;
 				};
 			};
 
@@ -1014,7 +1007,6 @@
 		reg-names = "funnel-base";
 
 		coresight-name = "coresight-funnel-gpu_dl";
-		status = "disabled";
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 
@@ -1054,7 +1046,6 @@
 		reg-names = "funnel-base";
 
 		coresight-name = "coresight-funnel-video";
-		status = "disabled";
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
 
@@ -1766,8 +1757,8 @@
 
 		clocks = <&aoss_qmp>;
 		clock-names = "apb_pclk";
-
 		qcom,tpda-atid = <97>;
+
 		status = "disabled";
 		qcom,dsb-elem-size = <2 32>;
 		qcom,cmb-elem-size = <0 32>;
