@@ -7,8 +7,8 @@
 #define __LINUX_USB_QDSS_H
 
 #include <linux/err.h>
-#include <linux/errno.h>
 #include <linux/kernel.h>
+#include <linux/scatterlist.h>
 
 #define USB_QDSS_CH_MDM	"qdss_mdm"
 #define USB_QDSS_CH_MSM	"qdss"
@@ -24,28 +24,13 @@ struct qdss_request {
 	unsigned int num_sgs;
 };
 
-struct usb_qdss_ch {
-	const char *name;
-	struct list_head list;
-	void (*notify)(void *priv, unsigned int event,
-		struct qdss_request *d_req, struct usb_qdss_ch *ch);
-	void *priv;
-	void *priv_usb;
-	int app_conn;
-};
+struct usb_qdss_ch;
 
 enum qdss_state {
 	USB_QDSS_CONNECT,
 	USB_QDSS_DISCONNECT,
 	USB_QDSS_CTRL_READ_DONE,
 	USB_QDSS_DATA_WRITE_DONE,
-};
-
-struct qdss_req {
-	struct usb_request *usb_req;
-	struct completion write_done;
-	struct qdss_request *qdss_req;
-	struct list_head list;
 };
 
 #if IS_ENABLED(CONFIG_USB_F_QDSS)
