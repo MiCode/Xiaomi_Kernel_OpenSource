@@ -401,6 +401,11 @@
 				  <WAKE_TCS      1>,
 				  <CONTROL_TCS   0>,
 				  <FAST_PATH_TCS 0>;
+
+		disp_bcm_voter: bcm_voter {
+			compatible = "qcom,bcm-voter";
+			qcom,tcs-wait = <QCOM_ICC_TAG_AMC>;
+		};
 	};
 
 	memtimer: timer@17420000 {
@@ -887,8 +892,8 @@
 
 	mc_virt: interconnect@1 {
 		compatible = "qcom,neo-mc_virt";
-		qcom,bcm-voter-names = "hlos";
-		qcom,bcm-voters = <&apps_bcm_voter>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
@@ -919,16 +924,16 @@
 	mmss_noc: interconnect@1740000 {
 		reg = <0x1740000 0x1F100>;
 		compatible = "qcom,neo-mmss_noc";
-		qcom,bcm-voter-names = "hlos";
-		qcom,bcm-voters = <&apps_bcm_voter>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
 	gem_noc: interconnect@19100000 {
 		reg = <0x19100000 0xA2080>;
 		compatible = "qcom,neo-gem_noc";
-		qcom,bcm-voter-names = "hlos";
-		qcom,bcm-voters = <&apps_bcm_voter>;
+		qcom,bcm-voter-names = "hlos", "disp";
+		qcom,bcm-voters = <&apps_bcm_voter>, <&disp_bcm_voter>;
 		#interconnect-cells = <1>;
 	};
 
