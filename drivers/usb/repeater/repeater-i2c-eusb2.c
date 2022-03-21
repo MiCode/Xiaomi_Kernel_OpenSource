@@ -83,7 +83,7 @@ struct eusb2_repeater {
 
 	struct gpio_desc		*reset_gpiod;
 	int				reset_gpio_irq;
-	u8				*param_override_seq;
+	u32				*param_override_seq;
 	u8				param_override_seq_cnt;
 };
 
@@ -131,7 +131,7 @@ static int eusb2_i2c_write_reg(struct eusb2_repeater *er, u8 reg, u8 mask, u8 va
 	return 0;
 }
 
-static void eusb2_repeater_update_seq(struct eusb2_repeater *er, u8 *seq, u8 cnt)
+static void eusb2_repeater_update_seq(struct eusb2_repeater *er, u32 *seq, u8 cnt)
 {
 	int i;
 	u8 mask = 0xFF;
@@ -406,7 +406,7 @@ static int eusb2_repeater_i2c_probe(struct i2c_client *client)
 			goto err_probe;
 		}
 
-		ret = of_property_read_u8_array(dev->of_node,
+		ret = of_property_read_u32_array(dev->of_node,
 				"qcom,param-override-seq",
 				er->param_override_seq,
 				er->param_override_seq_cnt);
