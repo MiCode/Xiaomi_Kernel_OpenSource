@@ -69,10 +69,10 @@ static inline int rpmh_update_fast_path(const struct device *dev,
 					u32 update_mask)
 { return -ENODEV; }
 
-int rpmh_drv_start(const struct device *dev)
+static int rpmh_drv_start(const struct device *dev)
 { return -ENODEV; }
 
-int rpmh_drv_stop(const struct device *dev)
+static int rpmh_drv_stop(const struct device *dev)
 { return -ENODEV; }
 
 #endif /* CONFIG_QCOM_RPMH */
