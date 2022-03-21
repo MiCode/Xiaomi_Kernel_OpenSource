@@ -26,6 +26,11 @@ bool mem_buf_dma_buf_exclusive_owner(struct dma_buf *dmabuf);
 int mem_buf_dma_buf_copy_vmperm(struct dma_buf *dmabuf, int **vmids, int **perms,
 		int *nr_acl_entries);
 
+typedef int (*mem_buf_dma_buf_destructor)(void *dtor_data);
+int mem_buf_dma_buf_set_destructor(struct dma_buf *dmabuf,
+				   mem_buf_dma_buf_destructor dtor,
+				   void *dtor_data);
+
 /**
  * struct mem_buf_allocation_data - Data structure that contains information
  * about a memory buffer allocation request.
