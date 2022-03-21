@@ -3257,6 +3257,8 @@ static int __arm_smmu_sid_switch(struct device *dev, void *data)
 			arm_smmu_write_sme(smmu, idx);
 		}
 	}
+	 /* Add barrier to ensure that the SMR register writes is completed. */
+	wmb();
 	arm_smmu_rpm_put(smmu);
 	return 0;
 }
