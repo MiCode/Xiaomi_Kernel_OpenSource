@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/ipc_logging.h>
 #include <linux/list.h>
+#include <linux/mutex.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/composite.h>
@@ -27,8 +28,6 @@ struct usb_qdss_ch {
 	void (*notify)(void *priv, unsigned int event,
 		struct qdss_request *d_req, struct usb_qdss_ch *ch);
 	void *priv;
-	void *priv_usb;
-	int app_conn;
 };
 
 struct usb_qdss_bam_connect_info {
@@ -74,7 +73,9 @@ struct f_qdss {
 	unsigned int ctrl_in_enabled:1;
 	unsigned int ctrl_out_enabled:1;
 	struct workqueue_struct *wq;
-	bool qdss_close;
+
+	struct mutex mutex;
+	bool opened;	/* protected by 'mutex' */
 };
 
 struct usb_qdss_opts {
