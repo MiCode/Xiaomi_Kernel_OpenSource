@@ -1104,8 +1104,11 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 			if ((geni_ios & 0x3) != 0x3) { //SCL:b'1, SDA:b'0
 				I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
 					"%s: IO lines not in good state\n", __func__);
-					gi2c->prev_cancel_pending = true;
-					goto geni_i2c_gsi_cancel_pending;
+					/* doing pending cancel only rtl based SE's */
+					if (gi2c->is_i2c_rtl_based) {
+						gi2c->prev_cancel_pending = true;
+						goto geni_i2c_gsi_cancel_pending;
+					}
 			}
 		}
 geni_i2c_err_prep_sg:
@@ -1342,8 +1345,11 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 				I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
 					"%s: IO lines not in good state: 0x%x\n",
 					__func__, geni_ios);
-				gi2c->prev_cancel_pending = true;
-				goto geni_i2c_txn_ret;
+				/* doing pending cancel only rtl based SE's */
+				if (gi2c->is_i2c_rtl_based) {
+					gi2c->prev_cancel_pending = true;
+					goto geni_i2c_txn_ret;
+				}
 			}
 		}
 
