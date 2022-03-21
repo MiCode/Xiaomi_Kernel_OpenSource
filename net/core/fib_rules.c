@@ -300,7 +300,7 @@ jumped:
 		else
 			err = ops->action(rule, fl, flags, arg);
 
-		if (!err && ops->suppress && ops->suppress(rule, arg))
+		if (!err && ops->suppress && ops->suppress(rule, flags, arg))
 			continue;
 
 		if (err != -EAGAIN) {
