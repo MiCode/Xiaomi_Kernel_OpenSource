@@ -1148,6 +1148,9 @@ static ssize_t trusted_touch_type_show(struct device *dev,
 {
 	struct fts_ts_data *info = fts_data;
 
+	if (!info->vm_info)
+		return -EINVAL;
+
 	return scnprintf(buf, PAGE_SIZE, "%s", info->vm_info->trusted_touch_type);
 }
 
