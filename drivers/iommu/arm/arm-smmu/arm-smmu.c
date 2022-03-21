@@ -3245,6 +3245,8 @@ static int __arm_smmu_sid_switch(struct device *dev, void *data)
 		return 0;
 
 	smmu = cfg->smmu;
+
+	arm_smmu_rpm_get(smmu);
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (dir == SID_RELEASE) {
 			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), 0);
@@ -3255,6 +3257,7 @@ static int __arm_smmu_sid_switch(struct device *dev, void *data)
 			arm_smmu_write_sme(smmu, idx);
 		}
 	}
+	arm_smmu_rpm_put(smmu);
 	return 0;
 }
 
