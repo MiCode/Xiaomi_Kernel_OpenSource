@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -42,7 +43,6 @@
 #include <linux/reset.h>
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/role.h>
-#include <linux/usb/redriver.h>
 
 #include "core.h"
 #include "gadget.h"
@@ -558,9 +558,6 @@ struct dwc3_msm {
 	struct usb_role_switch *dwc3_drd_sw;
 	bool			ss_release_called;
 	int			orientation_override;
-
-	struct device_node	*ss_redriver_node;
-	struct work_struct	redriver_work;
 
 #define MAX_ERROR_RECOVERY_TRIES	3
 	bool			err_evt_seen;
@@ -3175,8 +3172,6 @@ void dwc3_msm_notify_event(struct dwc3 *dwc,
 		break;
 	case DWC3_CONTROLLER_PULLUP:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_PULLUP %d\n", value);
-		if (!value)
-			schedule_work(&mdwc->redriver_work);
 		break;
 	case DWC3_GSI_EVT_BUF_SETUP:
 		dev_dbg(mdwc->dev, "DWC3_GSI_EVT_BUF_SETUP\n");
@@ -3483,12 +3478,6 @@ static void dwc3_set_ssphy_orientation_flag(struct dwc3_msm *mdwc)
 
 	if (mdwc->orientation_override) {
 		mdwc->ss_phy->flags |= mdwc->orientation_override;
-	} else if (mdwc->ss_redriver_node) {
-		ret = redriver_orientation_get(mdwc->ss_redriver_node);
-		if (ret == 0)
-			mdwc->ss_phy->flags |= PHY_LANE_A;
-		else
-			mdwc->ss_phy->flags |= PHY_LANE_B;
 	} else {
 		if (mdwc->extcon && mdwc->vbus_active && !mdwc->in_restart) {
 			extcon_id = EXTCON_USB;
@@ -5059,7 +5048,6 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 	/* flush any pending work */
 	flush_work(&mdwc->resume_work);
 	flush_workqueue(mdwc->sm_usb_wq);
-	redriver_release_usb_lanes(mdwc->ss_redriver_node);
 
 	mutex_lock(&mdwc->role_switch_mutex);
 	if (mdwc->id_state == DWC3_ID_GROUND) {
@@ -5283,15 +5271,6 @@ static int dwc3_msm_parse_core_params(struct dwc3_msm *mdwc, struct device_node 
 	}
 
 	return ret;
-}
-
-static void dwc3_msm_redriver_work(struct work_struct *w)
-{
-	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, redriver_work);
-
-	redriver_gadget_pullup(mdwc->ss_redriver_node, 0);
-	/* register write time should enough to allow host lost RX detection */
-	redriver_gadget_pullup(mdwc->ss_redriver_node, 1);
 }
 
 static int dwc3_msm_probe(struct platform_device *pdev)
@@ -5557,9 +5536,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mutex_init(&mdwc->suspend_resume_mutex);
 	mutex_init(&mdwc->role_switch_mutex);
 
-	mdwc->ss_redriver_node = of_parse_phandle(node, "ssusb_redriver", 0);
-	INIT_WORK(&mdwc->redriver_work, dwc3_msm_redriver_work);
-
 	mdwc->force_gen1 = of_property_read_bool(node, "qcom,force-gen1");
 
 	if (of_property_read_bool(node, "usb-role-switch")) {
@@ -5646,7 +5622,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 put_dwc3:
 	usb_role_switch_unregister(mdwc->role_switch);
-	of_node_put(mdwc->ss_redriver_node);
 	for (i = 0; i < ARRAY_SIZE(mdwc->icc_paths); i++)
 		icc_put(mdwc->icc_paths[i]);
 
@@ -5663,7 +5638,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	int i, ret_pm;
 
 	usb_role_switch_unregister(mdwc->role_switch);
-	of_node_put(mdwc->ss_redriver_node);
 
 	if (mdwc->dpdm_nb.notifier_call) {
 		regulator_unregister_notifier(mdwc->dpdm_reg, &mdwc->dpdm_nb);
@@ -5910,7 +5884,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		}
 		dbg_event(0xFF, "StrtHost gync",
 			atomic_read(&mdwc->dev->power.usage_count));
-		redriver_notify_connect(mdwc->ss_redriver_node);
 		clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 		dwc3_msm_set_clk_sel(mdwc);
 		if (dwc->maximum_speed >= USB_SPEED_SUPER) {
@@ -6026,7 +5999,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 					USB_SPEED_SUPER);
 			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
 		}
-		redriver_notify_disconnect(mdwc->ss_redriver_node);
 
 		mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
 		usb_unregister_notify(&mdwc->host_nb);
@@ -6102,7 +6074,6 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_SETUP, 0);
 
 		dwc3_override_vbus_status(mdwc, true);
-		redriver_notify_connect(mdwc->ss_redriver_node);
 		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
 		usb_phy_notify_connect(mdwc->ss_phy, USB_SPEED_SUPER);
 
@@ -6147,7 +6118,6 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		mdwc->in_device_mode = false;
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
-		redriver_notify_disconnect(mdwc->ss_redriver_node);
 
 		dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_CLEAR, 0);
 		dwc3_override_vbus_status(mdwc, false);
