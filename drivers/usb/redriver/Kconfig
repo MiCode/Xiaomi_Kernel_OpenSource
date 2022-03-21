@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menuconfig USB_REDRIVER
+	tristate "USB super speed (plus) redriver support"
+	help
+	  USB super speed (plus) redriver chip used to improve
+	  USB signal which have long path(USB connector <-->
+	  FPC cable <---> USB PHY).
+
+	  Normally this kind of chip have i2c bus interface.
+
