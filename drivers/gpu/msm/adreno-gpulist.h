@@ -1139,7 +1139,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_a621 = {
 		.features = ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
 			ADRENO_APRIV | ADRENO_LSR,
 		.gpudev = &adreno_a6xx_hwsched_gpudev.base,
-		.perfcounters = &adreno_a6xx_perfcounters,
+		.perfcounters = &adreno_a6xx_hwsched_perfcounters,
 		.gmem_base = 0,
 		.gmem_size = SZ_512K,
 		.bus_width = 32,
