@@ -8,6 +8,12 @@
 #include "pmr735a.dtsi"
 
 &soc {
+	reboot_reason {
+		compatible = "qcom,reboot-reason";
+		nvmem-cells = <&restart_reason>;
+		nvmem-cell-names = "restart_reason";
+	};
+
 	pmic-pon-log {
 		compatible = "qcom,pmic-pon-log";
 		nvmem = <&pmk8350_sdam_5>;
