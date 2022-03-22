@@ -100,6 +100,12 @@ struct ssusb_redriver {
 	u8	gen_dev_val;
 	bool	lane_channel_swap;
 
+	struct work_struct	pullup_work;
+	int			pullup_req;
+	bool			work_ongoing;
+
+	struct work_struct	host_work;
+
 	struct dentry	*debug_root;
 };
 
@@ -603,35 +609,96 @@ int redriver_release_usb_lanes(struct device_node *node)
 }
 EXPORT_SYMBOL(redriver_release_usb_lanes);
 
-/* NOTE: DO NOT change mode in this funciton */
-int redriver_gadget_pullup(struct device_node *node, int is_on)
+static void redriver_gadget_pullup_work(struct work_struct *w)
+{
+	struct ssusb_redriver *redriver =
+			container_of(w, struct ssusb_redriver, pullup_work);
+	u8 val = redriver->gen_dev_val;
+
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val & ~CHIP_EN);
+	usleep_range(1000, 1500);
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val);
+
+	redriver->work_ongoing = false;
+}
+
+int redriver_gadget_pullup_enter(struct device_node *node, int is_on)
 {
 	struct ssusb_redriver *redriver;
-	u8 val = 0;
+	int timeout = 0;
 
 	redriver = check_devnode(node);
 	if (IS_ERR_OR_NULL(redriver))
 		return -EINVAL;
 
-	/*
-	 * when redriver connect to a USB hub, and do adb root operation,
-	 * due to redriver rx termination detection issue,
-	 * hub will not detct device logical removal.
-	 * workaround to temp disable/enable redriver when usb pullup operation.
-	 */
-	if (redriver->op_mode == OP_MODE_USB ||
-	    redriver->op_mode == OP_MODE_DEFAULT) {
-		val = redriver->gen_dev_val;
-		if (!is_on)
-			val &= ~CHIP_EN;
-	}
+	if (redriver->op_mode != OP_MODE_USB &&
+	    redriver->op_mode != OP_MODE_DEFAULT)
+		return 0;
 
-	if (val)
-		redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val);
+	if (is_on) {
+		while (redriver->work_ongoing) {
+			usleep_range(1000, 1500);
+			if (++timeout > 10) {
+				dev_warn(redriver->dev, "pullup timeout\n");
+				break;
+			}
+		}
+	}
 
 	return 0;
 }
-EXPORT_SYMBOL(redriver_gadget_pullup);
+EXPORT_SYMBOL(redriver_gadget_pullup_enter);
+
+int redriver_gadget_pullup_exit(struct device_node *node, int is_on)
+{
+	struct ssusb_redriver *redriver;
+
+	redriver = check_devnode(node);
+	if (IS_ERR_OR_NULL(redriver))
+		return -EINVAL;
+
+	redriver->pullup_req = is_on;
+
+	if (redriver->op_mode != OP_MODE_USB &&
+	    redriver->op_mode != OP_MODE_DEFAULT)
+		return 0;
+
+	if (!is_on) {
+		redriver->work_ongoing = true;
+		schedule_work(&redriver->pullup_work);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(redriver_gadget_pullup_exit);
+
+static void redriver_host_work(struct work_struct *w)
+{
+	struct ssusb_redriver *redriver =
+			container_of(w, struct ssusb_redriver, host_work);
+	u8 val = redriver->gen_dev_val;
+
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val & ~CHIP_EN);
+	usleep_range(2000, 2500);
+	redriver_i2c_reg_set(redriver, GEN_DEV_SET_REG, val);
+}
+
+int redriver_powercycle(struct device_node *node)
+{
+	struct ssusb_redriver *redriver;
+
+	redriver = check_devnode(node);
+	if (IS_ERR_OR_NULL(redriver))
+		return -EINVAL;
+
+	if (redriver->op_mode != OP_MODE_USB)
+		return -EINVAL;
+
+	schedule_work(&redriver->host_work);
+
+	return 0;
+}
+EXPORT_SYMBOL(redriver_powercycle);
 
 static void ssusb_redriver_orientation_gpio_init(
 		struct ssusb_redriver *redriver)
@@ -687,6 +754,9 @@ static int redriver_i2c_probe(struct i2c_client *client,
 			"Failed to read default configuration: %d\n", ret);
 		return ret;
 	}
+
+	INIT_WORK(&redriver->pullup_work, redriver_gadget_pullup_work);
+	INIT_WORK(&redriver->host_work, redriver_host_work);
 
 	redriver->lane_channel_swap =
 	    of_property_read_bool(redriver->dev->of_node, "lane-channel-swap");

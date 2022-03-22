@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _ADRENO_A6XX_H_
@@ -455,4 +456,12 @@ to_a6xx_gpudev(const struct adreno_gpudev *gpudev)
  * Reset the preemption records at the time of hard reset
  */
 void a6xx_reset_preempt_records(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_irq_pending - Check if there is any gpu irq pending
+ * @adreno_dev: Handle to the adreno device
+ *
+ * Return true if there is any gpu irq pending
+ */
+bool a6xx_irq_pending(struct adreno_device *adreno_dev);
 #endif

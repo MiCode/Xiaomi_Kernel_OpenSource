@@ -1587,6 +1587,13 @@ static int icnss_m3_dump_upload_req_hdlr(struct icnss_priv *priv,
 		return ret;
 	}
 
+	if (IS_ERR_OR_NULL(priv->m3_dump_phyareg) ||
+	    IS_ERR_OR_NULL(priv->m3_dump_phydbg) ||
+	    IS_ERR_OR_NULL(priv->m3_dump_wmac0reg) ||
+	    IS_ERR_OR_NULL(priv->m3_dump_wcssdbg) ||
+	    IS_ERR_OR_NULL(priv->m3_dump_phyapdmem))
+		return ret;
+
 	INIT_LIST_HEAD(&head);
 
 	for (i = 0; i < event_data->no_of_valid_segments; i++) {
@@ -1846,6 +1853,9 @@ static int icnss_msa0_ramdump(struct icnss_priv *priv)
 		icnss_pr_info("Dump collection is not enabled\n");
 		return ret;
 	}
+
+	if (IS_ERR_OR_NULL(msa0_dump_dev))
+		return ret;
 
 	INIT_LIST_HEAD(&head);
 
@@ -2300,6 +2310,8 @@ void *icnss_create_ramdump_device(struct icnss_priv *priv, const char *dev_name)
 	struct icnss_ramdump_info *ramdump_info;
 
 	ramdump_info = kzalloc(sizeof(*ramdump_info), GFP_KERNEL);
+	if (!ramdump_info)
+		return ERR_PTR(-ENOMEM);
 
 	if (!dev_name) {
 		icnss_pr_err("%s: Invalid device name.\n", __func__);
@@ -2350,7 +2362,7 @@ static int icnss_register_ramdump_devices(struct icnss_priv *priv)
 
 	priv->msa0_dump_dev = icnss_create_ramdump_device(priv, "wcss_msa0");
 
-	if (!priv->msa0_dump_dev->dev) {
+	if (IS_ERR_OR_NULL(priv->msa0_dump_dev) || !priv->msa0_dump_dev->dev) {
 		icnss_pr_err("Failed to create msa0 dump device!");
 		return -ENOMEM;
 	}
@@ -2360,7 +2372,8 @@ static int icnss_register_ramdump_devices(struct icnss_priv *priv)
 						ICNSS_M3_SEGMENT(
 						ICNSS_M3_SEGMENT_PHYAREG));
 
-		if (!priv->m3_dump_phyareg->dev) {
+		if (IS_ERR_OR_NULL(priv->m3_dump_phyareg) ||
+		    !priv->m3_dump_phyareg->dev) {
 			icnss_pr_err("Failed to create m3 dump for Phyareg segment device!");
 			return -ENOMEM;
 		}
@@ -2369,7 +2382,8 @@ static int icnss_register_ramdump_devices(struct icnss_priv *priv)
 						ICNSS_M3_SEGMENT(
 						ICNSS_M3_SEGMENT_PHYA));
 
-		if (!priv->m3_dump_phydbg->dev) {
+		if (IS_ERR_OR_NULL(priv->m3_dump_phydbg) ||
+		    !priv->m3_dump_phydbg->dev) {
 			icnss_pr_err("Failed to create m3 dump for Phydbg segment device!");
 			return -ENOMEM;
 		}
@@ -2378,7 +2392,8 @@ static int icnss_register_ramdump_devices(struct icnss_priv *priv)
 						ICNSS_M3_SEGMENT(
 						ICNSS_M3_SEGMENT_WMACREG));
 
-		if (!priv->m3_dump_wmac0reg->dev) {
+		if (IS_ERR_OR_NULL(priv->m3_dump_wmac0reg) ||
+		    !priv->m3_dump_wmac0reg->dev) {
 			icnss_pr_err("Failed to create m3 dump for Wmac0reg segment device!");
 			return -ENOMEM;
 		}
@@ -2387,7 +2402,8 @@ static int icnss_register_ramdump_devices(struct icnss_priv *priv)
 						ICNSS_M3_SEGMENT(
 						ICNSS_M3_SEGMENT_WCSSDBG));
 
-		if (!priv->m3_dump_wcssdbg->dev) {
+		if (IS_ERR_OR_NULL(priv->m3_dump_wcssdbg) ||
+		    !priv->m3_dump_wcssdbg->dev) {
 			icnss_pr_err("Failed to create m3 dump for Wcssdbg segment device!");
 			return -ENOMEM;
 		}
@@ -2396,7 +2412,8 @@ static int icnss_register_ramdump_devices(struct icnss_priv *priv)
 						ICNSS_M3_SEGMENT(
 						ICNSS_M3_SEGMENT_PHYAM3));
 
-		if (!priv->m3_dump_phyapdmem->dev) {
+		if (IS_ERR_OR_NULL(priv->m3_dump_phyapdmem) ||
+		    !priv->m3_dump_phyapdmem->dev) {
 			icnss_pr_err("Failed to create m3 dump for Phyapdmem segment device!");
 			return -ENOMEM;
 		}
@@ -4320,6 +4337,10 @@ out_reset_drvdata:
 
 void icnss_destroy_ramdump_device(struct icnss_ramdump_info *ramdump_info)
 {
+
+	if (IS_ERR_OR_NULL(ramdump_info))
+		return;
+
 	device_unregister(ramdump_info->dev);
 
 	ida_simple_remove(&rd_minor_id, ramdump_info->minor);
