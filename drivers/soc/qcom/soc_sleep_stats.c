@@ -449,8 +449,11 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 	struct dentry *root;
 	char stat_type[sizeof(u32) + 1] = {0};
 	u32 offset, type, key;
-	int i, j, n_subsystems;
+	int i;
+#if IS_ENABLED(CONFIG_QCOM_SMEM)
 	const char *name;
+	int j, n_subsystems;
+#endif
 
 	root = debugfs_create_dir("qcom_sleep_stats", NULL);
 
@@ -475,6 +478,7 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 		debugfs_create_file("aosd", 0444,
 				     root, aosd_reg, &soc_sleep_stats_aosd_fops);
 
+#if IS_ENABLED(CONFIG_QCOM_SMEM)
 	n_subsystems = of_property_count_strings(node, "ss-name");
 	if (n_subsystems < 0)
 		goto exit;
@@ -491,7 +495,7 @@ static struct dentry *create_debugfs_entries(void __iomem *reg,
 			}
 		}
 	}
-
+#endif
 	if (!ddr_reg)
 		goto exit;
 
@@ -508,7 +512,7 @@ exit:
 static int soc_sleep_stats_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	void __iomem *reg_base, *reg, *ddr_reg = NULL, *aosd_reg = NULL;
+	void __iomem *reg_base, *ddr_reg = NULL, *aosd_reg = NULL;
 	void __iomem *offset_addr;
 	phys_addr_t stats_base;
 	resource_size_t stats_size;
@@ -518,7 +522,10 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	const struct stats_config *config;
 	struct stats_prv_data *prv_data;
 	int i;
+#if IS_ENABLED(CONFIG_MSM_QMP)
 	u32 name;
+	void __iomem *reg;
+#endif
 
 	config = device_get_match_data(&pdev->dev);
 	if (!config)
