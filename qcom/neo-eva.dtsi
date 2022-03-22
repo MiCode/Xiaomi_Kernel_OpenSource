@@ -1,0 +1,123 @@
+&soc {
+	msm_cvp: qcom,cvp@ab00000 {
+		compatible = "qcom,msm-cvp", "qcom,aurora-cvp";
+		status = "ok";
+		reg = <0xab00000 0x100000>;
+		interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>;
+
+		/* LLCC Cache */
+		cache-slice-names = "cvp";
+
+		/* Supply */
+		cvp-supply = <&video_cc_mvs1c_gdsc>;
+		cvp-core-supply = <&video_cc_mvs1_gdsc>;
+
+		/* Clocks */
+		clock-names = "gcc_video_axi1", "cvp_clk", "core_clk",
+				"video_cc_mvs1_clk_src";
+		clock-ids = <GCC_VIDEO_AXI1_CLK VIDEO_CC_MVS1C_CLK
+			VIDEO_CC_MVS1_CLK VIDEO_CC_MVS1_CLK_SRC>;
+		clocks = <&gcc GCC_VIDEO_AXI1_CLK>,
+			<&videocc VIDEO_CC_MVS1C_CLK>,
+			<&videocc VIDEO_CC_MVS1_CLK>,
+			<&videocc VIDEO_CC_MVS1_CLK_SRC>;
+		qcom,proxy-clock-names = "gcc_video_axi1",
+			"cvp_clk", "core_clk", "video_cc_mvs1_clk_src";
+
+		qcom,clock-configs = <0x0 0x0 0x0 0x1>;
+		qcom,allowed-clock-rates = <350000000 450000000 500000000 550000000>;
+
+		resets = <&videocc VIDEO_CC_MVS1C_CLK_ARES>;
+		reset-names = "cvp_core_reset";
+		reset-power-status = <0x2>;
+
+		qcom,reg-presets = <0xB0088 0x0>;
+		qcom,ipcc-reg = <0x400000 0x100000>;
+		qcom,gcc-reg = <0x110000 0x40000>;
+
+		pas-id = <26>;
+		memory-region = <&cvp_mem>;
+		/*Aurora */
+		/*Register space Mapping */
+		/* Memory regions: start IOVA, size */
+		uncached_mapping = <0xFD000000 0x2800000>;
+		device_mapping = <0xFF800000 0x700000>;
+
+		/* Memory mappings: start IOVA, size, phys addr */
+		//UC region mappings
+		ipclite_mappings = <0xFE500000 0x100000 0xa6f00000>;
+
+		//Device region mappings
+		//LLCC_BROADCAST_ORLLCC_TRP_SCID_n_ATTRIBUTE_CFG1, (scid)n=0..31 ,
+							//phy_addr = 0x19A0000C + (0x1000*n)
+		//llcc_evaleft     = <0xFF800000, 0x1000, 0x19a0000c>;//scid = 20
+		//llcc_evaright    = <0xFF801000, 0x1000, 0x19a0000c>;//scid = 21
+		//llcc_evagain     = <0xFF802000, 0x1000, 0x19a0000c>;//scid = 25
+		//display          = <0xFF900000, 0x1000, 0xae36000>; //MDP_INTF_1
+		//always_on_timers = <0xFFA00000, 0x1000, 0x0c220000>;//G_RD_CNTR
+		hwmutex_mappings = <0xFFB00000 0x2000 0x1f4a000>;
+		//ipcc_computel0   = <0xFFC00000, 0x1000, 0x40a000>;
+		//ipcc_mproc       = <0xFFD00000, 0x1000, 0xed1a000>;
+
+
+		/* CVP Firmware ELF image name */
+		cvp,firmware-name = "evass";
+
+		/* Buses */
+		cvp_cnoc {
+			compatible = "qcom,msm-cvp,bus";
+			label = "cvp-cnoc";
+			qcom,bus-master = <MASTER_APPSS_PROC>;
+			qcom,bus-slave = <SLAVE_VENUS_CFG>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1000 1000>;
+		};
+
+		cvp_bus_ddr {
+			compatible = "qcom,msm-cvp,bus";
+			label = "cvp-ddr";
+			qcom,bus-master = <MASTER_VIDEO_PROC>;
+			qcom,bus-slave = <SLAVE_EBI1>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1000 6533000>;
+		};
+
+		/* MMUs */
+		cvp_non_secure_cb {
+			compatible = "qcom,msm-cvp,context-bank";
+			label = "cvp_hlos";
+			iommus = <&apps_smmu 0x800 0x400>,<&apps_smmu 0x29a0 0x0000>,<&apps_smmu 0x2be0 0x0000>;
+			buffer-types = <0xfff>;
+			dma-coherent;
+			qcom,iommu-faults = "non-fatal", "stall-disable";
+			qcom,iommu-dma-addr-pool = <0x4b000000 0x90000000>;
+		};
+
+
+		cvp_secure_nonpixel_cb {
+			compatible = "qcom,msm-cvp,context-bank";
+			label = "cvp_sec_nonpixel";
+			iommus = <&apps_smmu 0x804 0x400>,<&apps_smmu 0x29a4 0x0000>,<&apps_smmu 0x2be4 0x0000>;
+			buffer-types = <0x741>;
+			qcom,iommu-faults = "non-fatal", "stall-disable";
+			qcom,iommu-dma-addr-pool = <0x01000000 0x25800000>;
+			qcom,iommu-vmid = <0xB>;
+		};
+
+		cvp_secure_pixel_cb {
+			compatible = "qcom,msm-cvp,context-bank";
+			label = "cvp_sec_pixel";
+			iommus = <&apps_smmu 0x803 0x400>,<&apps_smmu 0x29a3 0x0000>;
+			buffer-types = <0x106>;
+			qcom,iommu-faults = "non-fatal", "stall-disable";
+			qcom,iommu-dma-addr-pool = <0x26800000 0x24800000>;
+			qcom,iommu-vmid = <0xA>;
+		};
+
+		/* Memory Heaps */
+		qcom,msm-cvp,mem_cdsp {
+			compatible = "qcom,msm-cvp,mem-cdsp";
+			memory-region = <&cdsp_eva_mem>;
+		};
+	};
+};

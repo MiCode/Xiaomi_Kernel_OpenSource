@@ -1359,6 +1359,9 @@
 		compatible = "qcom,guestvm-loader";
 		qcom,pas-id = <28>;
 		qcom,vmid = <45>;
+		qcom,isolate-cpus;
+		qcom,reserved-cpus = <0x5>, <0x6>;
+		qcom,unisolate-timeout-ms = <12000>;
 		qcom,firmware-name = "trustedvm";
 		memory-region = <&trust_ui_vm_mem>;
 	};
