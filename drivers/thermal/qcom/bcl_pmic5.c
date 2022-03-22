@@ -462,6 +462,7 @@ static int bcl_set_lbat(void *data, int low, int high)
 	if (high == INT_MAX &&
 		bat_data->irq_num && bat_data->irq_enabled) {
 		disable_irq_nosync(bat_data->irq_num);
+		disable_irq_wake(bat_data->irq_num);
 		bat_data->irq_enabled = false;
 		pr_debug("lbat[%d]: disable irq:%d\n",
 				bat_data->type,
@@ -469,6 +470,7 @@ static int bcl_set_lbat(void *data, int low, int high)
 	} else if (high != INT_MAX &&
 		bat_data->irq_num && !bat_data->irq_enabled) {
 		enable_irq(bat_data->irq_num);
+		enable_irq_wake(bat_data->irq_num);
 		bat_data->irq_enabled = true;
 		pr_debug("lbat[%d]: enable irq:%d\n",
 				bat_data->type,
