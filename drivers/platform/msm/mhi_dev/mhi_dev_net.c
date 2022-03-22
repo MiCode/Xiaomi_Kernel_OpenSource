@@ -47,7 +47,7 @@ enum mhi_dev_net_dbg_lvl {
 	MSG_NET_reserved = 0x80000000
 };
 
-static enum mhi_dev_net_dbg_lvl mhi_net_msg_lvl = MHI_CRITICAL;
+static enum mhi_dev_net_dbg_lvl mhi_net_msg_lvl = MHI_ERROR;
 static enum mhi_dev_net_dbg_lvl mhi_net_ipc_log_lvl = MHI_VERBOSE;
 static void *mhi_net_ipc_log;
 
@@ -189,7 +189,7 @@ static void mhi_dev_net_process_queue_packets(struct work_struct *work)
 	struct mhi_req *wreq = NULL;
 
 	if (mhi_dev_channel_isempty(client->in_handle)) {
-		mhi_dev_net_log(MHI_INFO, "%s stop network xmmit\n", __func__);
+		mhi_dev_net_log(MHI_INFO, "stop network xmmit\n");
 		netif_stop_queue(client->dev);
 		return;
 	}
@@ -222,8 +222,9 @@ static void mhi_dev_net_process_queue_packets(struct work_struct *work)
 		spin_unlock_irqrestore(&client->wrt_lock, flags);
 		xfer_data = mhi_dev_write_channel(wreq);
 		if (xfer_data <= 0) {
-			pr_err("%s(): Failed to write skb len %d\n",
-					__func__, skb->len);
+			mhi_dev_net_log(MHI_ERROR,
+					"Failed to write skb len %d\n",
+					 skb->len);
 			kfree_skb(skb);
 			return;
 		}
@@ -232,8 +233,7 @@ static void mhi_dev_net_process_queue_packets(struct work_struct *work)
 		/* Check if free buffers are available*/
 		if (mhi_dev_channel_isempty(client->in_handle)) {
 			mhi_dev_net_log(MHI_INFO,
-					"%s buffers are full stop xmit\n",
-					__func__);
+					"buffers are full stop xmit\n");
 			netif_stop_queue(client->dev);
 			break;
 		}
@@ -328,7 +328,7 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 		spin_unlock_irqrestore(&mhi_handle->rd_lock, flags);
 		skb = alloc_skb(MHI_NET_DEFAULT_MTU, GFP_KERNEL);
 		if (skb == NULL) {
-			pr_err("%s(): skb alloc failed\n", __func__);
+			mhi_dev_net_log(MHI_ERROR, "skb alloc failed\n");
 			spin_lock_irqsave(&mhi_handle->rd_lock, flags);
 			list_add_tail(&req->list, &mhi_handle->rx_buffers);
 			spin_unlock_irqrestore(&mhi_handle->rd_lock, flags);
@@ -347,7 +347,8 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 		bytes_avail = mhi_dev_read_channel(req);
 
 		if (bytes_avail < 0) {
-			pr_err("Failed to read chan %d bytes_avail = %d\n",
+			mhi_dev_net_log(MHI_ERROR,
+					"Failed to read chan %d bytes_avail = %d\n",
 					chan, bytes_avail);
 			spin_lock_irqsave(&mhi_handle->rd_lock, flags);
 			kfree_skb(skb);
@@ -531,7 +532,8 @@ static int mhi_dev_net_enable_iface(struct mhi_dev_net_client *mhi_dev_net_ptr)
 			mhi_dev_net_ether_setup :
 			mhi_dev_net_rawip_setup);
 	if (!netdev) {
-		pr_err("Failed to allocate netdev for mhi_dev_net\n");
+		mhi_dev_net_log(MHI_ERROR,
+			"Failed to allocate netdev for mhi_dev_net\n");
 		goto net_dev_alloc_fail;
 	}
 
@@ -546,7 +548,8 @@ static int mhi_dev_net_enable_iface(struct mhi_dev_net_client *mhi_dev_net_ptr)
 	*mhi_dev_net_ctxt = mhi_dev_net_ptr;
 	ret = register_netdev(mhi_dev_net_ptr->dev);
 	if (ret) {
-		pr_err("Failed to register mhi_dev_net device\n");
+		mhi_dev_net_log(MHI_ERROR,
+				"Failed to register mhi_dev_net device\n");
 		goto net_dev_reg_fail;
 	}
 	mhi_dev_net_log(MHI_INFO, "Successfully registred mhi_dev_net\n");
@@ -609,12 +612,14 @@ static int mhi_dev_net_open_chan_create_netif(struct mhi_dev_net_client *client)
 
 	ret = mhi_dev_net_alloc_read_reqs(client);
 	if (ret) {
-		pr_err("failed to allocate rx req buffers\n");
+		mhi_dev_net_log(MHI_ERROR,
+			"failed to allocate rx req buffers\n");
 		goto rx_req_failed;
 	}
 	ret = mhi_dev_net_alloc_write_reqs(client);
 	if (ret) {
-		pr_err("failed to allocate write req buffers\n");
+		mhi_dev_net_log(MHI_ERROR,
+			"failed to allocate write req buffers\n");
 		goto tx_req_failed;
 	}
 	if (atomic_read(&client->tx_enabled)) {
