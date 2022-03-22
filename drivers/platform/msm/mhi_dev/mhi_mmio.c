@@ -101,7 +101,7 @@ static int mhi_dev_mmio_mask_set_chdb_int_a7(struct mhi_dev *dev,
 	chid_idx = chdb_id/32;
 
 	if (chid_idx >= MHI_MASK_ROWS_CH_EV_DB) {
-		mhi_log(MHI_MSG_ERROR, "Invalid channel id:%d\n", chid_idx);
+		mhi_log(MHI_MSG_ERROR, "Invalid ch_id:%d\n", chid_idx);
 		return -EINVAL;
 	}
 

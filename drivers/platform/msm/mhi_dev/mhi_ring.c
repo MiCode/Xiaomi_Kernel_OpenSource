@@ -94,7 +94,7 @@ int mhi_dev_cache_ring(struct mhi_dev_ring *ring, size_t wr_offset)
 
 	if (ring->wr_offset == wr_offset) {
 		mhi_log(MHI_MSG_VERBOSE,
-			"nothing to cache for ring %d, local wr_ofst %lu\n",
+			"nothing to cache for ring_id:%d, local wr_ofst %lu\n",
 			ring->id, ring->wr_offset);
 		mhi_log(MHI_MSG_VERBOSE,
 			"new wr_offset %lu\n", wr_offset);
@@ -112,16 +112,16 @@ int mhi_dev_cache_ring(struct mhi_dev_ring *ring, size_t wr_offset)
 		ring->id < (mhi_ctx->ev_ring_start +
 				mhi_ctx->cfg.event_rings)) {
 		mhi_log(MHI_MSG_VERBOSE,
-				"not caching event ring %d\n", ring->id);
+				"not caching event ring_id:%d\n", ring->id);
 		return 0;
 	}
 
-	mhi_log(MHI_MSG_VERBOSE, "caching ring %d, start %lu, end %lu\n",
+	mhi_log(MHI_MSG_VERBOSE, "caching ring_id:%d, start %lu, end %lu\n",
 			ring->id, old_offset, wr_offset);
 
 	if (mhi_dev_fetch_ring_elements(ring, old_offset, wr_offset)) {
 		mhi_log(MHI_MSG_ERROR,
-		"failed to fetch elements for ring %d, start %lu, end %lu\n",
+		"failed to fetch elements for ring_id:%d, start %lu, end %lu\n",
 		ring->id, old_offset, wr_offset);
 		return -EINVAL;
 	}
@@ -147,7 +147,7 @@ int mhi_dev_update_wr_offset(struct mhi_dev_ring *ring)
 			return rc;
 		}
 		mhi_log(MHI_MSG_VERBOSE,
-			"ring %d wr_offset from db 0x%lx\n",
+			"ring_id:%d wr_offset from db 0x%lx\n",
 			ring->id, (size_t) wr_offset);
 		break;
 	case RING_TYPE_ER:
@@ -164,7 +164,7 @@ int mhi_dev_update_wr_offset(struct mhi_dev_ring *ring)
 			return rc;
 		}
 		mhi_log(MHI_MSG_VERBOSE,
-			"ring %d wr_offset from db 0x%lx\n",
+			"ring_id:%d wr_offset from db 0x%lx\n",
 			ring->id, (size_t) wr_offset);
 		break;
 	default:
@@ -202,7 +202,7 @@ int mhi_dev_process_ring_element(struct mhi_dev_ring *ring, size_t offset)
 	if (ring->ring_cb)
 		return ring->ring_cb(ring->mhi_dev, el, (void *)ring);
 	else
-		mhi_log(MHI_MSG_ERROR, "No callback registered for ring %d\n",
+		mhi_log(MHI_MSG_ERROR, "No callback registered for ring_id:%d\n",
 				ring->id);
 
 	return 0;
@@ -217,19 +217,19 @@ int mhi_dev_process_ring(struct mhi_dev_ring *ring)
 		return -EINVAL;
 
 	mhi_log(MHI_MSG_VERBOSE,
-			"Before wr update ring_id (%d) rp:%lu wp:%lu\n",
+			"Before wr update ring_id:%d rp:%lu wp:%lu\n",
 			ring->id, ring->rd_offset, ring->wr_offset);
 
 	rc = mhi_dev_update_wr_offset(ring);
 	if (rc) {
 		mhi_log(MHI_MSG_ERROR,
-				"Error updating write-offset for ring %d\n",
+				"Error updating write-offset for ring_id:%d\n",
 				ring->id);
 		return rc;
 	}
 
 	mhi_log(MHI_MSG_VERBOSE,
-			"After wp update ring_id (%d) rp:%lu with wr:%lu\n",
+			"After wp update ring_id:%d rp:%lu with wr:%lu\n",
 			ring->id, ring->rd_offset, ring->wr_offset);
 
 	/*
@@ -247,13 +247,13 @@ int mhi_dev_process_ring(struct mhi_dev_ring *ring)
 
 	while (ring->rd_offset != ring->wr_offset) {
 		mhi_log(MHI_MSG_VERBOSE,
-			"Processing ring (%d) rd_offset:%lu, wr_offset:%lu\n",
+			"Processing ring_id:%d rd_offset:%lu, wr_offset:%lu\n",
 			ring->id, ring->rd_offset, ring->wr_offset);
 
 		rc = mhi_dev_process_ring_element(ring, ring->rd_offset);
 		if (rc) {
 			mhi_log(MHI_MSG_ERROR,
-				"Error processing ring (%d) element(rp) (%lu)\n",
+				"Error processing ring_id:%d element(rp):%lu\n",
 				ring->id, ring->rd_offset);
 			return rc;
 		}
@@ -298,7 +298,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 				ring->wr_offset - 1;
 
 	if (num_free_elem < num_elem) {
-		mhi_log(MHI_MSG_ERROR, "No space to add %d elem in ring (%d)\n",
+		mhi_log(MHI_MSG_ERROR, "No space to add %d elem in ring_id:%d\n",
 			num_elem, ring->id);
 		return -EINVAL;
 	}
@@ -313,8 +313,9 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 		mhi_dev_ring_inc_index(ring, ring->rd_offset);
 
 	mhi_log(MHI_MSG_VERBOSE,
-		"Writing %d elements, ring old 0x%x, new 0x%x\n",
-		num_elem, old_offset, ring->rd_offset);
+		"Writing %d elements in ring_id:%d\t"
+		"ring old-offset 0x%x, new-offset 0x%x\n",
+		num_elem, ring->id, old_offset, ring->rd_offset);
 
 	ring->ring_ctx->generic.rp = (ring->rd_offset *
 		sizeof(union mhi_dev_ring_element_type)) +
@@ -336,7 +337,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 		host_addr.virt_addr = element;
 		host_addr.size = sizeof(union mhi_dev_ring_element_type);
 
-		mhi_log(MHI_MSG_VERBOSE, "adding element to ring (%d)\n",
+		mhi_log(MHI_MSG_VERBOSE, "adding element to ring_id:%d\n",
 					ring->id);
 		mhi_log(MHI_MSG_VERBOSE, "rd_ofset %lu\n", ring->rd_offset);
 		mhi_log(MHI_MSG_VERBOSE, "type %d\n", element->generic.type);
@@ -356,7 +357,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 			(element + i)->evt_tr_comp.code);
 		mhi_log(MHI_MSG_VERBOSE, "evnt type :0x%x\n",
 			(element + i)->evt_tr_comp.type);
-		mhi_log(MHI_MSG_VERBOSE, "evnt chid :0x%x\n",
+		mhi_log(MHI_MSG_VERBOSE, "evnt ch_id :0x%x\n",
 			(element + i)->evt_tr_comp.chid);
 	}
 	/* Adding multiple ring elements */
