@@ -55,7 +55,7 @@ enum uci_dbg_level {
 	UCI_DBG_reserved = 0x80000000
 };
 
-static enum uci_dbg_level mhi_uci_msg_lvl = UCI_DBG_CRITICAL;
+static enum uci_dbg_level mhi_uci_msg_lvl = UCI_DBG_ERROR;
 static enum uci_dbg_level mhi_uci_ipc_log_lvl = UCI_DBG_INFO;
 static void *mhi_uci_ipc_log;
 
@@ -944,7 +944,7 @@ static int mhi_uci_read_sync(struct uci_client *uci_handle, int *bytes_avail)
 	struct mhi_req ureq;
 	struct mhi_dev_client *client_handle;
 
-	uci_log(UCI_DBG_ERROR,
+	uci_log(UCI_DBG_INFO,
 		"Sync read for ch %d\n", uci_handle->in_chan);
 
 	client_handle = uci_handle->in_handle;
@@ -985,8 +985,7 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 	int rc = 0;
 
 	if (!mhi_uci_are_channels_connected(uci_client)) {
-		uci_log(UCI_DBG_ERROR, "%s:Channels are not connected\n",
-			__func__);
+		uci_log(UCI_DBG_ERROR, "Channels are not connected\n");
 		return -ENODEV;
 	}
 
@@ -1247,7 +1246,7 @@ static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
 
 	rc = mhi_ctrl_state_info(MHI_DEV_UEVENT_CTRL, &info);
 	if (rc) {
-		pr_err("Failed to obtain MHI_STATE\n");
+		uci_log(UCI_DBG_ERROR, "Failed to obtain MHI_STATE\n");
 		return -EINVAL;
 	}
 
@@ -1257,12 +1256,13 @@ static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
 	for (i = 0; i < ARRAY_SIZE(mhi_chan_attr_table); i++) {
 		chan_attrib = &mhi_chan_attr_table[i];
 		if (chan_attrib->state_bcast) {
-			uci_log(UCI_DBG_ERROR, "Calling notify for ch %d\n",
+			uci_log(UCI_DBG_INFO, "Calling notify for ch %d\n",
 					chan_attrib->chan_id);
 			rc = mhi_ctrl_state_info(chan_attrib->chan_id, &info);
 			if (rc) {
-				pr_err("Failed to obtain channel %d state\n",
-						chan_attrib->chan_id);
+				uci_log(UCI_DBG_ERROR,
+					"Failed to obtain channel %d state\n",
+					chan_attrib->chan_id);
 				return -EINVAL;
 			}
 			nbytes = 0;
@@ -1307,7 +1307,7 @@ static ssize_t mhi_uci_ctrl_client_read(struct file *file,
 			"MHI_STATE=DISCONNECTED");
 		break;
 	default:
-		pr_err("invalid info:%d\n", info);
+		uci_log(UCI_DBG_ERROR, "invalid info:%d\n", info);
 		return -EINVAL;
 	}
 
@@ -1329,8 +1329,7 @@ static int __mhi_uci_client_read(struct uci_client *uci_handle,
 
 	do {
 		if (!mhi_uci_are_channels_connected(uci_handle)) {
-			uci_log(UCI_DBG_ERROR,
-				"%s:Channels are not connected\n", __func__);
+			uci_log(UCI_DBG_ERROR, "Channels are not connected\n");
 			return -ENODEV;
 		}
 
@@ -1481,8 +1480,7 @@ static ssize_t mhi_uci_client_write(struct file *file,
 	}
 
 	if (!mhi_uci_are_channels_connected(uci_handle)) {
-		uci_log(UCI_DBG_ERROR, "%s:Channels are not connected\n",
-			__func__);
+		uci_log(UCI_DBG_ERROR, "Channels are not connected\n");
 		return -ENODEV;
 	}
 
@@ -1541,8 +1539,7 @@ static ssize_t mhi_uci_client_write_iter(struct kiocb *iocb,
 	}
 
 	if (!mhi_uci_are_channels_connected(uci_handle)) {
-		uci_log(UCI_DBG_ERROR, "%s:Channels are not connected\n",
-			__func__);
+		uci_log(UCI_DBG_ERROR, "Channels are not connected\n");
 		return -ENODEV;
 	}
 
@@ -1651,7 +1648,7 @@ void uci_ctrl_update(struct mhi_dev_client_cb_reason *reason)
 	if (reason->reason == MHI_DEV_CTRL_UPDATE) {
 		uci_ctrl_handle = &uci_ctxt.ctrl_handle;
 		if (!uci_ctrl_handle) {
-			pr_err("Invalid uci ctrl handle\n");
+			uci_log(UCI_DBG_ERROR, "Invalid uci ctrl handle\n");
 			return;
 		}
 
@@ -2254,7 +2251,7 @@ int mhi_uci_init(void)
 	/* Control node */
 	uci_ctxt.cdev_ctrl = cdev_alloc();
 	if (uci_ctxt.cdev_ctrl == NULL) {
-		pr_err("%s: ctrl cdev alloc failed\n", __func__);
+		uci_log(UCI_DBG_ERROR, "ctrl cdev alloc failed\n");
 		return 0;
 	}
 
