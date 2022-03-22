@@ -1035,4 +1035,13 @@ config SA_DISPCC_LEMANS
 	  Say Y if you want to support display devices and functionality such as
 	  splash screen.
 
+config SA_DEBUGCC_LEMANS
+	tristate "Lemans Debug Clock Controller"
+	depends on SA_GCC_LEMANS
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  LEMANS devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
 endif
