@@ -220,9 +220,9 @@
 				qcom,gpu-freq = <220000000>;
 				qcom,level = <RPMH_REGULATOR_LEVEL_MIN_SVS>;
 
-				qcom,bus-freq = <5>;
+				qcom,bus-freq = <2>;
 				qcom,bus-min = <1>;
-				qcom,bus-max = <11>;
+				qcom,bus-max = <5>;
 
 				qcom,acd-level = <0x882f5ffd>;
 			};
