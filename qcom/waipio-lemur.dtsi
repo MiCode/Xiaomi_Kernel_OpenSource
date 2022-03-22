@@ -20,6 +20,7 @@
 
 &pcie1 {
 	qcom,target-link-width = <1>; /* force X1 lane width */
+	qcom,panic-genspeed-mismatch;
 	qcom,no-l0s-supported;
 	qcom,target-link-speed = <2>; /* Boot up in Gen2 with a max of Gen4 */
 	qcom,vreg-0p9-voltage-level = <912000 912000 193000>;
