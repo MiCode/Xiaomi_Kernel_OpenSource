@@ -68,8 +68,8 @@ struct kgsl_pwrlevel {
 	unsigned int bus_min;
 	unsigned int bus_max;
 	unsigned int acd_level;
-	/** @cx_min: Min CX vote */
-	u32 cx_min;
+	/** @cx_level: CX vote */
+	u32 cx_level;
 	/** @voltage_level: Voltage level used by the GMU to vote RPMh */
 	u32 voltage_level;
 };
