@@ -6,7 +6,7 @@
 #include "phy-qcom-ufs-i.h"
 
 #define MAX_PROP_NAME              32
-#define VDDA_PHY_MIN_UV            800000
+#define VDDA_PHY_MIN_UV            880000
 #define VDDA_PHY_MAX_UV            925000
 #define VDDA_PLL_MIN_UV            1200000
 #define VDDA_PLL_MAX_UV            1800000
