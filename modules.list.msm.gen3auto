@@ -19,3 +19,4 @@ qrtr.ko
 secure_buffer.ko
 smem.ko
 socinfo.ko
+qcom_ipc_logging.ko
