@@ -82,9 +82,12 @@ static int mtk_lp_pm_driver_probe(struct platform_device *pdev)
 	if (ret)
 		goto put_device;
 
-	platform_device_add_data(mtk_cpuidle_pm_dev,
+	ret = platform_device_add_data(mtk_cpuidle_pm_dev,
 				       &mtk_lpm_pwr,
 				       sizeof(mtk_lpm_pwr));
+
+	if (ret)
+		goto put_device;
 
 	device_init_wakeup(&mtk_cpuidle_pm_dev->dev, true);
 
