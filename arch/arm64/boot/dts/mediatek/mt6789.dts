@@ -2148,6 +2148,7 @@
 			clk-dbg-ver = "v1";
 			ccf-fmeter-support;
 			secure_access = "enable"; /* enable: need to secure access scp */
+			scp_dvfs_flag = "disable"; /* turn off SCP DVFS */
 		};
 
 		mbist_ao@10013000 {
