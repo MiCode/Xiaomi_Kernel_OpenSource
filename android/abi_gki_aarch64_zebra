@@ -1,0 +1,8 @@
+[abi_symbol_list]
+# commonly used symbols
+
+# for wifi
+  mmc_sw_reset
+  nla_reserve
+  nla_append
+  prandom_seed
