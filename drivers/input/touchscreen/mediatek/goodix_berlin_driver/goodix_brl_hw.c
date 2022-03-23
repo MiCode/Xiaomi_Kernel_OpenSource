@@ -269,23 +269,31 @@ int brl_suspend(struct goodix_ts_core *cd)
 	if (cd->hw_ops->send_cmd(cd, &sleep_cmd))
 		ts_err("failed send sleep cmd");
 
+	if(!(cd->gesture_type & (GESTURE_DOUBLE_TAP | GESTURE_SINGLE_TAP | GESTURE_FOD_PRESS))){
+		brl_power_on(cd , false);
+	}
+
 	return 0;
 }
 
 int brl_resume(struct goodix_ts_core *cd)
 {
+	if(!(cd->gesture_type & (GESTURE_DOUBLE_TAP | GESTURE_SINGLE_TAP | GESTURE_FOD_PRESS))){
+		brl_power_on(cd , true);
+	}
+
 	return cd->hw_ops->reset(cd, GOODIX_NORMAL_RESET_DELAY_MS);
 }
 
-#define GOODIX_GESTURE_CMD_BA	0x12
-#define GOODIX_GESTURE_CMD		0xA6
+//#define GOODIX_GESTURE_CMD_BA	0x12
+#define GOODIX_GESTURE_CMD	0x12
 int brl_gesture(struct goodix_ts_core *cd, int gesture_type)
 {
 	struct goodix_ts_cmd cmd;
 
-	if (cd->bus->ic_type == IC_TYPE_BERLIN_A)
-		cmd.cmd = GOODIX_GESTURE_CMD_BA;
-	else
+	//if (cd->bus->ic_type == IC_TYPE_BERLIN_A)
+		//cmd.cmd = GOODIX_GESTURE_CMD_BA;
+	//else
 		cmd.cmd = GOODIX_GESTURE_CMD;
 	cmd.len = 5;
 	cmd.data[0] = gesture_type;

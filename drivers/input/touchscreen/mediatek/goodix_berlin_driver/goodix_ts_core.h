@@ -47,6 +47,14 @@
 #define TS_DEFAULT_FIRMWARE				"goodix_firmware.bin"
 #define TS_DEFAULT_CFG_BIN				"goodix_cfg_group.bin"
 
+#define GOODIX_MAX_BUFFER		32
+#define MAX_IO_CONTROL_REPORT	16
+#define TPD_ROTATION_SUPPORT
+#define SCREEN_MAX_X		2560
+#define SCREEN_MAX_Y		1536
+
+#define P537_PALM_EN	1
+
 enum GOODIX_GESTURE_TYP {
 	GESTURE_SINGLE_TAP = (1 << 0),
 	GESTURE_DOUBLE_TAP = (1 << 1),
@@ -367,6 +375,33 @@ struct goodix_pen_data {
 	struct goodix_ts_key keys[GOODIX_MAX_PEN_KEY];
 };
 
+enum{
+    DATA_TYPE_RAW = 0
+};
+
+struct goodix_pen_coords_buffer {
+	signed char status;
+	signed char tool_type;
+	signed char tilt_x;
+	signed char tilt_y;
+	unsigned long int x;
+	unsigned long int y;
+	unsigned long int p;
+};
+
+struct goodix_pen_info {
+	unsigned char frame_no;
+	unsigned char data_type;
+	unsigned char reserve[2];
+	struct goodix_pen_coords_buffer coords;
+};
+
+struct io_pen_report {
+	unsigned char report_num;
+	unsigned char reserve[3];
+	struct goodix_pen_info pen_info[MAX_IO_CONTROL_REPORT];
+};
+
 /*
  * struct goodix_ts_event - touch event struct
  * @event_type: touch event type, touch data or
@@ -455,6 +490,7 @@ struct goodix_ic_config {
 
 struct goodix_ts_core {
 	int init_stage;
+	int palm_state;
 	struct platform_device *pdev;
 	struct goodix_fw_version fw_version;
 	struct goodix_ic_info ic_info;

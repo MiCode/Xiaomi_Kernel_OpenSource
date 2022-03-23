@@ -26,9 +26,9 @@
 /* test config */
 #define TOTAL_FRAME_NUM 					1 /* rawdata test frames */
 #define NOISEDATA_TEST_TIMES				1  /* noise test frames */
-// #define SAVE_IN_CSV
+#define SAVE_IN_CSV
 
-#define GOODIX_RESULT_SAVE_PATH				"/vendor/etc/Test_Data.csv"
+#define GOODIX_RESULT_SAVE_PATH				"/sdcard/Test_Data.csv"
 #define GOODIX_TEST_FILE_NAME				"goodix"
 #define MAX_DATA_BUFFER						28000
 #define MAX_SHORT_NUM						15
@@ -2208,6 +2208,7 @@ static int goodix_save_limits(struct goodix_ts_test *ts_test,
 	data = kzalloc(MAX_DATA_BUFFER, GFP_KERNEL);
 	if (!data) {
 		return -ENOMEM;
+	}
 
 	bytes += sprintf(&data[bytes], "<TestItems>\n");
 
@@ -2853,7 +2854,6 @@ static int goodix_do_inspect(struct goodix_ts_core *cd,
 {
 	int ret;
 	struct goodix_ts_test *ts_test = NULL;
-
 	if (!cd || !info) {
 		ts_err("core_data or info is NULL");
 		return -ENODEV;
@@ -2893,15 +2893,28 @@ static ssize_t get_rawdata_show(struct device *dev,
 	struct goodix_ts_core *cd = dev_get_drvdata(dev);
 
 	info = kzalloc(sizeof(*info), GFP_KERNEL);
-	if (!info)
+	if (!info) {
+		ts_err("alloc memory failed");
 		return -ENOMEM;
+	}
 
-	goodix_do_inspect(cd, info);
+	ret = goodix_do_inspect(cd, info);
+	if (ret < 0) {
+		ts_err("goodix_test failed");
+		return 0;
+	}
 
 	ret = snprintf(buf, PAGE_SIZE, "resultInfo: %s", info->result);
 
+	if(strstr(info->result,"PASS"))
+		ret = 2;
+	else if(strstr(info->result,"FAIL"))
+		ret = 1;
+		else
+			ret = 0;
+
 	kfree(info);
-	return ret;
+	return snprintf(buf,8, "%d\n", ret);
 }
 
 static DEVICE_ATTR(get_rawdata, 0444, get_rawdata_show, NULL);

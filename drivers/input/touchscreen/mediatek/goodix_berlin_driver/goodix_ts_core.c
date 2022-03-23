@@ -25,15 +25,36 @@
 #define INPUT_TYPE_B_PROTOCOL
 #endif
 
+#include <linux/string.h>
+#include <linux/cdev.h>
 #include "goodix_ts_core.h"
 
 #define GOODIX_DEFAULT_CFG_NAME		"goodix_cfg_group.cfg"
 #define GOOIDX_INPUT_PHYS			"goodix_ts/input0"
 
+#define DRIVER_NAME "goodix_penraw_driver"
+#define DEVICE_NAME "goodix_penraw"
+static const unsigned int MINOR_NUMBER_START ; /* the minor number starts at */
+static const unsigned int NUMBER_MINOR_NUMBER ; /* the number of minor numbers */
+static unsigned int major_number; /* the major number of the device */
+/* ioctl for direct access */
+static struct cdev penraw_char_dev; /* character device */
+static struct class *penraw_char_dev_class ; /* class object */
+
+#include <linux/uaccess.h>
+
+//Direct access via IOCTL
+static struct goodix_pen_info pen_buffer[GOODIX_MAX_BUFFER];
+static unsigned char pen_report_num;
+static unsigned char pen_frame_no;
+static unsigned char pen_buffer_wp;
+
 struct goodix_module goodix_modules;
 int core_module_prob_sate = CORE_MODULE_UNPROBED;
 
 static int goodix_send_ic_config(struct goodix_ts_core *cd, int type);
+
+
 /**
  * __do_register_ext_module - register external module
  * to register into touch core modules structure
@@ -44,7 +65,7 @@ static int __do_register_ext_module(struct goodix_ext_module *module)
 	struct goodix_ext_module *ext_module, *next;
 	struct list_head *insert_point = &goodix_modules.head;
 
-	/* prority level *must* be set */
+	/* priority level *must* be set */
 	if (module->priority == EXTMOD_PRIO_RESERVED) {
 		ts_err("Priority of module [%s] needs to be set",
 		       module->name);
@@ -326,6 +347,43 @@ static ssize_t chip_info_show(struct device  *dev,
 	}
 
 	return cnt;
+}
+
+/*firmware version & chip info read*/
+static ssize_t goodix_fw_version_info_read(struct file *file, char __user *buf,
+			size_t count, loff_t *pos)
+{
+	struct goodix_ts_core *cd = PDE_DATA(file_inode(file));
+	struct goodix_ts_hw_ops *hw_ops = cd->hw_ops;
+	struct goodix_fw_version fw_ver;
+	struct goodix_ic_info ic_info;
+	int ret;
+	u8 temp_buf[100] = {0};
+
+	if (*pos != 0)
+		return 0;
+
+
+	if(hw_ops->read_version){
+		ret = hw_ops->read_version(cd,&fw_ver);
+		if (ret == 0){
+			ts_err("read version success!");
+		}
+	}
+
+	if(hw_ops->get_ic_info){
+		ret = hw_ops->get_ic_info(cd,&ic_info);
+		if (ret == 0){
+			ts_err("get ic info success!");
+		}
+	}
+
+	snprintf(temp_buf, 100, "[VENDOR]BOE,[cfg]%x,[FW]%02x%02x%02x%02x,[IC]GT%s\n",
+				ic_info.version.config_version ,
+				fw_ver.patch_vid[0],fw_ver.patch_vid[1],fw_ver.patch_vid[2],fw_ver.patch_vid[3],
+				fw_ver.patch_pid);
+
+	return simple_read_from_buffer(buf, count, pos, temp_buf, strlen(temp_buf));
 }
 
 /* reset chip */
@@ -847,6 +905,85 @@ static int rawdata_proc_open(struct inode *inode, struct file *file)
 			PDE_DATA(inode), PAGE_SIZE * 10);
 }
 
+
+#if P537_PALM_EN
+static ssize_t tp_palm_write(struct file *file, const char *buffer, size_t count, loff_t *pos)
+{
+	char dbg[10] = { 0 };
+	uint8_t state;
+	uint8_t ret;
+	struct goodix_ts_core *cd = PDE_DATA(file_inode(file));
+	struct goodix_ts_hw_ops *hw_ops = cd->hw_ops;
+	struct goodix_ts_cmd palm_enhance_cmd;
+	struct goodix_ts_cmd palm_enhance_exit_cmd;
+	struct goodix_ts_cmd palm_decline_cmd;
+	struct goodix_ts_cmd palm_decline_exit_cmd;
+
+	palm_enhance_cmd.len = 8;
+	palm_enhance_cmd.cmd = 0xBA;
+	palm_enhance_cmd.data[0] = 0x02;
+	palm_enhance_exit_cmd.len = 8;
+	palm_enhance_exit_cmd.cmd = 0xBA;
+	palm_enhance_exit_cmd.data[0] = 0x01;
+
+	palm_decline_cmd.len = 4;
+	palm_decline_cmd.cmd = 0x16;
+	palm_decline_exit_cmd.len = 4;
+	palm_decline_exit_cmd.cmd = 0x17;
+
+	ret = copy_from_user(dbg, (uint8_t *) buffer, sizeof(uint8_t));
+	if (ret)
+		return -EINVAL;
+
+	ret = kstrtou8(dbg, 16, &state);
+	if (ret < 0)
+		return ret;
+
+	cd->palm_state = state;
+	ts_info("tp palm set %d!\n", state);
+
+	if(cd->palm_state == 1){
+		hw_ops->send_cmd(cd, &palm_enhance_cmd);
+	} else if(cd->palm_state == 2){
+		hw_ops->send_cmd(cd, &palm_enhance_exit_cmd);
+	} else if(cd->palm_state == 3){
+		hw_ops->send_cmd(cd, &palm_decline_cmd);
+	}else if(cd->palm_state == 4){
+		hw_ops->send_cmd(cd, &palm_decline_exit_cmd);
+	}else{
+		ts_err("Not support state!\n");
+	}
+	return count;
+}
+
+static ssize_t tp_palm_read(struct file *file, char __user *buf,
+			size_t count, loff_t *pos)
+{
+	struct goodix_ts_core *cd = PDE_DATA(file_inode(file));
+	u8 temp_buf[100] = {0};
+	//char dbg[10] = { 0 };
+	uint8_t state;
+	//uint8_t ret;
+
+	if (*pos != 0)
+		return 0;
+
+	/*ret = copy_from_user(dbg, (uint8_t *) buf, sizeof(uint8_t));
+	if (ret)
+		return -EINVAL;
+
+	ret = kstrtou8(dbg, 16, &state);
+	if (ret < 0)
+		return ret;*/
+
+	state = cd->palm_state;
+	ts_info("palm_state is %d", state);
+	snprintf(temp_buf, 100, "%d\n",state);
+	return simple_read_from_buffer(buf, count, pos, temp_buf, strlen(temp_buf));
+}
+#endif
+
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0))
 static const struct proc_ops rawdata_proc_fops = {
 	.proc_open = rawdata_proc_open,
@@ -863,6 +1000,21 @@ static const struct file_operations rawdata_proc_fops = {
 };
 #endif
 
+static const struct file_operations goodix_fw_version_info_ops = {
+	.read = goodix_fw_version_info_read,
+	.open  = simple_open,
+	.owner = THIS_MODULE,
+};
+
+#if P537_PALM_EN
+static const struct file_operations tp_palm_ops = {
+	.write  = tp_palm_write,
+	.read = tp_palm_read,
+	.open = simple_open,
+	.owner = THIS_MODULE,
+};
+#endif
+
 static void goodix_ts_procfs_init(struct goodix_ts_core *core_data)
 {
 	struct proc_dir_entry *proc_entry;
@@ -873,12 +1025,29 @@ static void goodix_ts_procfs_init(struct goodix_ts_core *core_data)
 			0664, NULL, &rawdata_proc_fops, core_data);
 	if (!proc_entry)
 		ts_err("failed to create proc entry");
+
+	proc_entry = proc_create_data("tp_info", 0440, NULL,
+			&goodix_fw_version_info_ops, core_data);
+	if (!proc_entry)
+		ts_err("failed to create proc tp_info");
+
+#if P537_PALM_EN
+	proc_entry = proc_create_data("goodix_ts/tp_palm", 0440, NULL,
+			&tp_palm_ops, core_data);
+	if (!proc_entry)
+		ts_err("failed to create proc tp_palm");
+#endif
 }
 
 static void goodix_ts_procfs_exit(struct goodix_ts_core *core_data)
 {
 	remove_proc_entry("goodix_ts/tp_capacitance_data", NULL);
+#if P537_PALM_EN
+	remove_proc_entry("goodix_ts/tp_palm",NULL);
+#endif
+
 	remove_proc_entry("goodix_ts", NULL);
+	remove_proc_entry("tp_info", NULL);
 }
 
 /* event notifier */
@@ -1092,19 +1261,91 @@ static int goodix_parse_dt(struct device_node *node,
 }
 #endif
 
+/*add rotation function start*/
+#ifdef TPD_ROTATION_SUPPORT
+static void tpd_swap_xy(int *x, int *y)
+{
+	int temp = 0;
+
+	temp = *x;
+	*x = *y;
+	*y = temp;
+}
+
+static void tpd_rotate_90(int *x, int *y)
+{
+	*x = SCREEN_MAX_X + 1 - *x;
+
+	*x = (*x * SCREEN_MAX_Y) / SCREEN_MAX_X;
+	*y = (*y * SCREEN_MAX_X) / SCREEN_MAX_Y;
+
+	tpd_swap_xy(x, y);
+}
+static void tpd_rotate_180(int *x, int *y)
+{
+	*y = SCREEN_MAX_Y + 1 - *y;
+	*x = SCREEN_MAX_X + 1 - *x;
+}
+static void tpd_rotate_270(int *x, int *y)
+{
+	*y = SCREEN_MAX_Y + 1 - *y;
+
+	*x = (*x * SCREEN_MAX_Y) / SCREEN_MAX_X;
+	*y = (*y * SCREEN_MAX_X) / SCREEN_MAX_Y;
+
+	tpd_swap_xy(x, y);
+}
+#endif
+
+
 static void goodix_ts_report_pen(struct input_dev *dev,
 		struct goodix_pen_data *pen_data)
 {
 	int i;
+	struct goodix_pen_info *ppen_info;
 
 	mutex_lock(&dev->mutex);
 
 	if (pen_data->coords.status == TS_TOUCH) {
+		 /*add rotate for pen*/
+			if (strncmp(CONFIG_MTK_LCM_PHYSICAL_ROTATION,
+						"90", 2) == 0) {
+						tpd_rotate_90(&pen_data->coords.x, &pen_data->coords.y);
+				} else if (strncmp(CONFIG_MTK_LCM_PHYSICAL_ROTATION,
+						"180", 3) == 0) {
+						tpd_rotate_180(&pen_data->coords.x, &pen_data->coords.y);
+				} else if (strncmp(CONFIG_MTK_LCM_PHYSICAL_ROTATION,
+						"270", 3) == 0) {
+						tpd_rotate_270(&pen_data->coords.x, &pen_data->coords.y);
+				}
 		input_report_key(dev, BTN_TOUCH, 1);
 		input_report_key(dev, pen_data->coords.tool_type, 1);
 		input_report_abs(dev, ABS_X, pen_data->coords.x);
 		input_report_abs(dev, ABS_Y, pen_data->coords.y);
 		input_report_abs(dev, ABS_PRESSURE, pen_data->coords.p);
+
+		// ioctl-DAA Buffering pen raw data
+		ppen_info  = (struct goodix_pen_info *)&pen_buffer[0];
+		ppen_info += pen_buffer_wp;
+		memset(ppen_info, 0, sizeof(struct goodix_pen_info));
+		ppen_info->coords.status = (signed char)pen_data->coords.status;
+		ppen_info->coords.tool_type = (signed char)pen_data->coords.tool_type;
+		ppen_info->coords.tilt_x = pen_data->coords.tilt_x;
+		ppen_info->coords.tilt_y = pen_data->coords.tilt_y;
+		ppen_info->coords.x = pen_data->coords.x;
+		ppen_info->coords.y = pen_data->coords.y;
+		ppen_info->coords.p = pen_data->coords.p;
+		ppen_info->frame_no = pen_frame_no;
+		ppen_info->data_type = DATA_TYPE_RAW;
+		pen_frame_no++;
+		if(MAX_IO_CONTROL_REPORT > pen_report_num) {	// Max count: MAX_IO_CONTROL_REPORT
+			pen_report_num++;
+		}
+		pen_buffer_wp++;
+		if(GOODIX_MAX_BUFFER == pen_buffer_wp) {
+			pen_buffer_wp = 0;
+		}
+
 		input_report_abs(dev, ABS_TILT_X, pen_data->coords.tilt_x);
 		input_report_abs(dev, ABS_TILT_Y, pen_data->coords.tilt_y);
 		ts_debug("pen_data:x %d, y %d, p %d, tilt_x %d tilt_y %d key[%d %d]",
@@ -1117,6 +1358,7 @@ static void goodix_ts_report_pen(struct input_dev *dev,
 		input_report_key(dev, BTN_TOUCH, 0);
 		input_report_key(dev, pen_data->coords.tool_type, 0);
 	}
+
 	/* report pen button */
 	for (i = 0; i < GOODIX_MAX_PEN_KEY; i++) {
 		if (pen_data->keys[i].status == TS_TOUCH)
@@ -1145,6 +1387,20 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 				touch_data->coords[i].w);
 			input_mt_slot(dev, i);
 			input_mt_report_slot_state(dev, MT_TOOL_FINGER, true);
+
+		/*add rotate for pen*/
+				if (strncmp(CONFIG_MTK_LCM_PHYSICAL_ROTATION,
+						"90", 2) == 0) {
+						tpd_rotate_90(&touch_data->coords[i].x, &touch_data->coords[i].y);
+				} else if (strncmp(CONFIG_MTK_LCM_PHYSICAL_ROTATION,
+						"180", 3) == 0) {
+						tpd_rotate_180(&touch_data->coords[i].x, &touch_data->coords[i].y);
+				} else if (strncmp(CONFIG_MTK_LCM_PHYSICAL_ROTATION,
+						"270", 3) == 0) {
+						tpd_rotate_270(&touch_data->coords[i].x, &touch_data->coords[i].y);
+				}
+
+
 			input_report_abs(dev, ABS_MT_POSITION_X,
 					touch_data->coords[i].x);
 			input_report_abs(dev, ABS_MT_POSITION_Y,
@@ -2246,6 +2502,78 @@ static int goodix_ts_remove(struct platform_device *pdev)
 	return 0;
 }
 
+// Linux 2.0/2.2
+static int penraw_open(struct inode *inode, struct file *file)
+{
+  return 0;
+}
+
+// Linux 2.1: int type
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 1, 0)
+static int penraw_close(struct inode *inode, struct file *file)
+{
+	return 0;
+}
+#else
+static void penraw_close(struct inode *inode, struct file *file)
+{
+}
+#endif
+
+#define PENRAW_IOC_TYPE 'P'
+#define PENRAW_GET_VALUES _IOR(PENRAW_IOC_TYPE, 0, struct io_pen_report)
+
+static struct io_pen_report pen_report;	// return report
+static long penraw_ioctl(struct file *file,
+	      unsigned int cmd, unsigned long arg)
+{
+	int len = 0;
+	unsigned long	flags;
+	struct goodix_pen_info *ppen_info;
+	unsigned char cnt;
+	unsigned char pen_buffer_rp;
+	unsigned char wp;
+	unsigned char num;
+
+	switch(cmd){
+	case PENRAW_GET_VALUES:
+		local_irq_save(flags);
+		wp = pen_buffer_wp;
+		num = pen_report_num;
+		local_irq_restore(flags);
+		if(MAX_IO_CONTROL_REPORT <= num) {
+			pen_buffer_rp = (unsigned char)((wp + (GOODIX_MAX_BUFFER - MAX_IO_CONTROL_REPORT)) % GOODIX_MAX_BUFFER);
+		} else {
+			pen_buffer_rp = 0;
+		}
+		memset(&pen_report, 0, sizeof(pen_report));
+		pen_report.report_num = num;
+		ppen_info = (struct goodix_pen_info *)&pen_report.pen_info[0];
+		for(cnt = 0; cnt < num; cnt++) {
+			memcpy(ppen_info, &pen_buffer[pen_buffer_rp], sizeof(struct goodix_pen_info));
+			ppen_info++;
+			pen_buffer_rp++;
+			if(GOODIX_MAX_BUFFER == pen_buffer_rp) {
+				pen_buffer_rp = 0;
+			}
+		}
+		if (copy_to_user((void __user *)arg, &pen_report, sizeof(pen_report))) {
+			return -EFAULT;
+		}
+		break;
+	default:
+		ts_err("unsupported command %d\n", cmd);
+		return -EFAULT;
+	}	return len;
+}
+
+static struct file_operations penraw_fops = {
+	.owner = THIS_MODULE,
+	.open = penraw_open,
+	.release = penraw_close,
+	.unlocked_ioctl = penraw_ioctl,
+};
+
 #if IS_ENABLED(CONFIG_PM)
 static const struct dev_pm_ops dev_pm_ops = {
 #if !IS_ENABLED(CONFIG_FB) && !IS_ENABLED(CONFIG_HAS_EARLYSUSPEND)
@@ -2276,6 +2604,9 @@ static struct platform_driver goodix_ts_driver = {
 
 static int __init goodix_ts_core_init(void)
 {
+	int alloc_ret;
+	dev_t dev;
+	int cdev_ret;
 	int ret;
 
 	ts_info("Core layer init:%s", GOODIX_DRIVER_VERSION);
@@ -2288,11 +2619,55 @@ static int __init goodix_ts_core_init(void)
 		ts_err("failed add bus driver");
 		return ret;
 	}
+	pen_report_num = 0;
+	pen_frame_no = 0;
+	pen_buffer_wp = 0;
 	return platform_driver_register(&goodix_ts_driver);
+	if(ret){
+		ts_err("failed register driver");
+		return ret;
+	}
+
+	/* get not assigned major numbers */
+	alloc_ret = alloc_chrdev_region(&dev, MINOR_NUMBER_START, NUMBER_MINOR_NUMBER, DRIVER_NAME);
+	if (alloc_ret != 0) {
+		ts_err("failed to alloc_chrdev_region()\n");
+		return -EINVAL;
+	}
+
+	/* get one number from the not-assigend numbers */
+	major_number = MAJOR(dev);
+
+	/* initialize cdev and function table */
+	cdev_init(&penraw_char_dev, &penraw_fops);
+	penraw_char_dev.owner = THIS_MODULE;
+
+	/* register the driver */
+	cdev_ret = cdev_add(&penraw_char_dev, dev, NUMBER_MINOR_NUMBER);
+	if (cdev_ret != 0) {
+		ts_err("failed to cdev_add()\n");
+		unregister_chrdev_region(dev, NUMBER_MINOR_NUMBER);
+		return -EINVAL;
+	}
+
+	/* register a class */
+	penraw_char_dev_class = class_create(THIS_MODULE, DEVICE_NAME);
+	if (IS_ERR(penraw_char_dev_class)) {
+		ts_err("class_create()\n");
+		cdev_del(&penraw_char_dev);
+		unregister_chrdev_region(dev, NUMBER_MINOR_NUMBER);
+		return -EINVAL;
+	}
+
+	/* create "/sys/class/my_device/my_device" */
+	device_create(penraw_char_dev_class, NULL, MKDEV(major_number, 0), NULL, DEVICE_NAME);
+
+	return 0;
 }
 
 static void __exit goodix_ts_core_exit(void)
 {
+	dev_t dev = MKDEV(major_number, MINOR_NUMBER_START);
 	ts_info("Core layer exit");
 	platform_driver_unregister(&goodix_ts_driver);
 #ifdef CONFIG_TOUCHSCREEN_GOODIX_BRL_SPI
@@ -2300,6 +2675,17 @@ static void __exit goodix_ts_core_exit(void)
 #else
 	goodix_i2c_bus_exit();
 #endif
+	/* remove "/dev/goodix_penraw */
+	device_destroy(penraw_char_dev_class, MKDEV(major_number, 0));
+
+	/* remove class */
+	class_destroy(penraw_char_dev_class);
+
+	/* remove driver */
+	cdev_del(&penraw_char_dev);
+
+	/* release the major number */
+	unregister_chrdev_region(dev, NUMBER_MINOR_NUMBER);
 }
 
 late_initcall(goodix_ts_core_init);

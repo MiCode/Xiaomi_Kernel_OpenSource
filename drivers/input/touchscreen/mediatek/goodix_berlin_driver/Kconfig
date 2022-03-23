@@ -1,9 +1,20 @@
 #
 # Goodix touchscreen driver configuration
 #
+menuconfig TOUCHSCREEN_GOODIX_BRL
+	tristate "Goodix berlin touchscreen"
+	help
+	  Say Y here if you have a Goodix berlin series touch controller
+	  to your system
+
+	  If build module, say M.
+	  If unsure, say N.
+
+if TOUCHSCREEN_GOODIX_BRL
 
 config TOUCHSCREEN_GOODIX_BRL_SPI
-	depends on TOUCHSCREEN_GOODIX_BRL
-	bool "support SPI bus connection" 
+	bool "support SPI bus connection"
 	help
 		Say Y here if the touchscreen is connected via SPI bus.
+
+endif
