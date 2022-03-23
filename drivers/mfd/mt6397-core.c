@@ -342,7 +342,12 @@ static const struct mfd_cell mt6366_devs[] = {
 	}, {
 		.name = "mtk-clock-buffer",
 		.of_compatible = "mediatek,clock_buffer",
-	}
+	}, {
+		.name = "mt6358-rtc",
+		.num_resources = ARRAY_SIZE(mt6358_rtc_resources),
+		.resources = mt6358_rtc_resources,
+		.of_compatible = "mediatek,mt6358-rtc",
+	},
 };
 
 static const struct mfd_cell mt6397_devs[] = {
