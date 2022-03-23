@@ -217,8 +217,8 @@ static __init int mrdump_parse_chosen(struct mrdump_params *mparams)
 					       reg, ARRAY_SIZE(reg)) == 0) {
 			mparams->cb_addr = reg[0];
 			mparams->cb_size = reg[1];
-			pr_notice("%s: mrdump_cbaddr=%x, mrdump_cbsize=%x\n",
-				  __func__, mparams->cb_addr, mparams->cb_size);
+			pr_notice("%s: mrdump_cbaddr=%pa, mrdump_cbsize=%pa\n",
+				  __func__, &mparams->cb_addr, &mparams->cb_size);
 		}
 
 		if (of_property_read_string(node, "mrdump,lk", &lkver) == 0) {
