@@ -2220,6 +2220,28 @@
 			compatible = "mediatek,imgsensor";
 		};
 
+		seninf_n3d_top: seninf_n3d_top@1a004000 {
+			compatible = "mediatek,seninf_n3d_top";
+			interrupts = <GIC_SPI 351 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6789_POWER_DOMAIN_CAM>;
+
+			reg = <0 0x1a004000 0 0x100>,
+			      <0 0x1a004100 0 0x100>,
+			      <0 0x1a004200 0 0x100>;
+			reg-names = "seninf_top",
+				    "seninf_n3d_a",
+				    "seninf_n3d_b";
+
+			clocks = <&camsys_main_clk CLK_CAM_M_SENINF>,
+				 <&camsys_main_clk CLK_CAM_M_CAM>,
+				 <&camsys_main_clk CLK_CAM_M_CAMTG>,
+				 <&topckgen_clk CLK_TOP_CAMTM_SEL>;
+			clock-names = "CAMSYS_SENINF_CGPDN",
+				      "CAMSYS_CAM_CGPDN",
+				      "CAMSYS_CAMTG_CGPDN",
+				      "CAMSYS_CAMTM_SEL";
+		};
+
 		pwrap: pwrap@10026000 {
 			compatible = "mediatek,mt6789-pwrap";
 			reg = <0 0x10026000 0 0x1000>;
