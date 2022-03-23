@@ -345,9 +345,8 @@
 
 	tboard_thermistor1: thermal-ntc1 {
 		compatible = "generic-adc-thermal";
-		status = "disabled";
 		#thermal-sensor-cells = <0>;
-		/* io-channels = <&auxadc 0>; */
+		io-channels = <&auxadc 0>;
 		io-channel-names = "sensor-channel";
 		temperature-lookup-table = <
 			(-40000) 1760
@@ -520,9 +519,8 @@
 
 	tboard_thermistor2: thermal-ntc2 {
 		compatible = "generic-adc-thermal";
-		status = "disabled";
 		#thermal-sensor-cells = <0>;
-		/* io-channels = <&auxadc 1>; */
+		io-channels = <&auxadc 1>;
 		io-channel-names = "sensor-channel";
 		temperature-lookup-table = <
 			(-40000) 1760
@@ -800,22 +798,22 @@
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 8>;
 		};
-		cpu_mfg1 {
+		gpu2 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 9>;
 		};
-		cpu_mfg2 {
+		gpu1 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 10>;
 		};
-		cpu_soc1 {
+		soc1 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 11>;
 		};
-		cpu_soc2 {
+		soc2 {
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 12>;
