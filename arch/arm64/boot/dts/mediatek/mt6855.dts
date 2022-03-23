@@ -4307,22 +4307,17 @@
 						&mmqos SLAVE_COMMON(0)>,
 					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT8)
 						&mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT9)
-						&mmqos SLAVE_COMMON(0)>,
-					<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT10)
-						&mmqos SLAVE_COMMON(0)>,
 					<&mmqos SLAVE_LARB(4) &mmqos SLAVE_COMMON(0)>;
-			interconnect-names = "path_vdec_mc", "path_vdec_ufo",
+			interconnect-names = "path_vdec_mc",
 						"path_vdec_pp", "path_vdec_pred_rd",
 						"path_vdec_pred_wr", "path_vdec_ppwrap",
 						"path_vdec_tile", "path_vdec_vld",
 						"path_vdec_vld2", "path_vdec_avc_mv",
-						"path_vdec_ufo_c",
 						"path_larb4";
-			interconnect-num = <12>;
+			interconnect-num = <10>;
 			throughput-op-rate-thresh = <120>;
 			throughput-min = <218000000>;
-			throughput-normal-max = <416000000>;
+			throughput-normal-max = <312000000>;
 			profile-duration = <60 2000>;
 			profile-target = <15 25 30 50 60 90 120 150 180 240 480>;
 			max-op-rate-table =
@@ -4353,7 +4348,6 @@
 				<808539713 0 722 722>; /* AV1 */
 			bandwidth-table =
 				<3 1100>,
-				<3 144>,
 				<2 550>,
 				<5 10>,
 				<5 10>,
@@ -4362,7 +4356,6 @@
 				<0 26>,
 				<0 26>,
 				<5 26>,
-				<5 20>,
 				<6 4>;
 		};
 		vdec_fmt: vdec_fmt@16080000 {
@@ -4402,21 +4395,21 @@
 			wdma1_tile_done =
 			/bits/ 16 <CMDQ_EVENT_VDEC_FMT_MDP1_WDMA_TILE_DONE>;
 			gce-gpr = <GCE_GPR_R10>;
-			iommus = <&disp_iommu M4U_LARB4_PORT11>,
-					<&disp_iommu M4U_LARB4_PORT12>;
+			iommus = <&disp_iommu M4U_LARB4_PORT9>,
+					<&disp_iommu M4U_LARB4_PORT10>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			power-domains = <&scpsys MT6855_POWER_DOMAIN_VDE0>;
 			mediatek,larbs = <&smi_larb4>;
 			operating-points-v2 = <&opp_table_vdec>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			interconnects =
-			<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT11) &mmqos SLAVE_COMMON(0)>,
-			<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT12) &mmqos SLAVE_COMMON(0)>;
+			<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT9) &mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_LARB4_PORT10) &mmqos SLAVE_COMMON(0)>;
 			interconnect-names = "path_mini_mdp_r0",
 						"path_mini_mdp_w0";
 			m4u-ports =
-				<M4U_LARB4_PORT11>,
-				<M4U_LARB4_PORT12>;
+				<M4U_LARB4_PORT9>,
+				<M4U_LARB4_PORT10>;
 		};
 
 		venc@17000000 {
@@ -4511,14 +4504,14 @@
 			<1179206984 4294967295 9 7>;
 		bandwidth-table =
 			<4 10>,
-			<3 291>,
+			<3 160>, /* use FHD60 worst case * 0.7: 256*458/766 * 1.5 * 0.7 */
 			<0 20>,
 			<5 4>,
 			<5 16>,
 			<1 194>,
 			<2 97>,
-			<1 776>,
-			<2 388>,
+			<1 0>,
+			<2 642>, /* use FHD60 worst case * 0.7: 256*458/766 * 1.5 * 4 * 0.7*/
 			<6 7>;
 		};
 
