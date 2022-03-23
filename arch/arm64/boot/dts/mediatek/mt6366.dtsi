@@ -15,6 +15,10 @@
 			compatible = "mediatek,mt63xx-debug";
 		};
 
+		mt63xx-oc-debug {
+			compatible = "mediatek,mt63xx-oc-debug";
+		};
+
 		pmic_efuse: mt6358-efuse {
 			compatible = "mediatek,mt6358-efuse";
 			#address-cells = <1>;
@@ -474,6 +478,27 @@
 				regulator-max-microvolt = <3100000>;
 				regulator-enable-ramp-delay = <540>;
 			};
+
+			mt6358_vcore_sshub_reg: buck_vcore_sshub {
+				regulator-name = "vcore_sshub";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <1293750>;
+			};
+
+			mt6358_vsram_others_sshub_reg: ldo_vsram_others_sshub {
+				regulator-name = "vsram_others_sshub";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <1293750>;
+			};
+
+			mt6358_va09_reg: ldo_va09 {
+				regulator-name = "va09";
+				compatible = "regulator-fixed";
+				regulator-min-microvolt = <900000>;
+				regulator-max-microvolt = <900000>;
+				regulator-enable-ramp-delay = <264>;
+				/*by platform setting: regulator-boot-on;*/
+			};
 		};
 
 		mt6366_clock_buffer: mt6366_clock_buffer {
@@ -506,12 +531,10 @@
 			io-channel-names = "pmic_ptim",
 					   "pmic_imix_r",
 					   "pmic_batadc";
-			status = "disabled";
 		};
 
 		mt6358_lbat: pmic_lbat_service {
 			compatible = "mediatek,mt6358-lbat_service";
-			status = "disabled";
 		};
 
 		mt6358codec: mt6358codec {

@@ -6088,7 +6088,6 @@
 		compatible = "mediatek,mt6358-battery_oc_throttling";
 		oc-thd-h = <5800>;
 		oc-thd-l = <6300>;
-		status = "disabled";
 	};
 };
 
