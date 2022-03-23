@@ -103,7 +103,7 @@ void IMGSENSOR_PROFILE(struct timeval *ptv, char *tag)
 	time_interval =
 	    (tv.tv_sec - ptv->tv_sec) * 1000000 + (tv.tv_usec - ptv->tv_usec);
 
-	PK_DBG("[%s]Profile = %lu us\n", tag, time_interval);
+	pr_info("[%s]Profile = %lu us\n", tag, time_interval);
 }
 
 #else
@@ -460,15 +460,15 @@ static inline int imgsensor_check_is_alive(struct IMGSENSOR_SENSOR *psensor)
 			&retLen);
 
 	if (sensorID == 0 || sensorID == 0xFFFFFFFF) {
-		PK_DBG("Fail to get sensor ID %x\n", sensorID);
+		pr_info("Fail to get sensor ID %x\n", sensorID);
 		err = ERROR_SENSOR_CONNECT_FAIL;
 	} else {
-		PK_DBG(" Sensor found ID = 0x%x\n", sensorID);
+		pr_info(" Sensor found ID = 0x%x\n", sensorID);
 		err = ERROR_NONE;
 	}
 
 	if (err != ERROR_NONE)
-		PK_DBG("ERROR: No imgsensor alive\n");
+		pr_info("ERROR: No imgsensor alive\n");
 
 	imgsensor_hw_power(&pgimgsensor->hw,
 	    psensor,
@@ -498,8 +498,8 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 
 	static int orderedSearchList[MAX_NUM_OF_SUPPORT_SENSOR] = {-1};
 	static bool get_search_list = true;
-	int i = 0;
-	int j = 0;
+	unsigned int i = 0;
+	unsigned int j = 0;
 	char *driver_name = NULL;
 
 	imgsensor_mutex_init(psensor_inst);
@@ -522,7 +522,7 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 
 			*(psensor_list_config+strlen(sensor_configs)-2) = '\0';
 
-			PK_DBG("sensor_list %s\n", psensor_list_config);
+			pr_info("sensor_list %s\n", psensor_list_config);
 			driver_name = strsep(&psensor_list_config, " \0");
 
 			while (driver_name != NULL) {
@@ -589,7 +589,7 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 				    psensor->pfunc->arch;
 #endif
 				if (!imgsensor_check_is_alive(psensor)) {
-					PK_DBG(
+					pr_info(
 					    "[%s]:[%d][%d][%s]\n",
 					    __func__,
 					    psensor->inst.sensor_idx,
@@ -752,7 +752,7 @@ static void cam_temperature_report_wq_routine(
 	    &valid[0],
 	    &temp[0]);
 
-	PK_DBG("senDevId(%d), valid(%d), temperature(%d)\n",
+	pr_info("senDevId(%d), valid(%d), temperature(%d)\n",
 				DUAL_CAMERA_MAIN_SENSOR, valid[0], temp[0]);
 
 	if (ret != ERROR_NONE)
@@ -764,7 +764,7 @@ static void cam_temperature_report_wq_routine(
 	    &valid[1],
 	    &temp[1]);
 
-	PK_DBG("senDevId(%d), valid(%d), temperature(%d)\n",
+	pr_info("senDevId(%d), valid(%d), temperature(%d)\n",
 				DUAL_CAMERA_SUB_SENSOR, valid[1], temp[1]);
 
 	if (ret != ERROR_NONE)
@@ -776,7 +776,7 @@ static void cam_temperature_report_wq_routine(
 	    &valid[2],
 	    &temp[2]);
 
-	PK_DBG("senDevId(%d), valid(%d), temperature(%d)\n",
+	pr_info("senDevId(%d), valid(%d), temperature(%d)\n",
 				DUAL_CAMERA_MAIN_2_SENSOR, valid[2], temp[2]);
 
 	if (ret != ERROR_NONE)
@@ -787,7 +787,7 @@ static void cam_temperature_report_wq_routine(
 	    &valid[3],
 	    &temp[3]);
 
-	PK_DBG("senDevId(%d), valid(%d), temperature(%d)\n",
+	pr_info("senDevId(%d), valid(%d), temperature(%d)\n",
 				DUAL_CAMERA_SUB_2_SENSOR, valid[3], temp[3]);
 
 	if (ret != ERROR_NONE)
@@ -821,13 +821,13 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 	if (pSensorGetInfo == NULL ||
 	    pSensorGetInfo->pInfo == NULL ||
 	    pSensorGetInfo->pSensorResolution == NULL) {
-		PK_DBG("[%s] NULL arg.\n", __func__);
+		pr_info("[%s] NULL arg.\n", __func__);
 		return -EFAULT;
 	}
 
 	psensor = imgsensor_sensor_get_inst(pSensorGetInfo->SensorId);
 	if (psensor == NULL) {
-		PK_DBG("[%s] NULL psensor.\n", __func__);
+		pr_info("[%s] NULL psensor.\n", __func__);
 		return -EFAULT;
 	}
 
@@ -2812,7 +2812,7 @@ static int imgsensor_open(struct inode *a_pstInode, struct file *a_pstFile)
 		imgsensor_clk_enable_all(&pgimgsensor->clk);
 
 	atomic_inc(&pgimgsensor->imgsensor_open_cnt);
-	PK_DBG(
+	pr_info(
 	    "%s %d\n",
 	    __func__,
 	    atomic_read(&pgimgsensor->imgsensor_open_cnt));
@@ -2842,7 +2842,7 @@ static int imgsensor_release(struct inode *a_pstInode, struct file *a_pstFile)
 		imgsensor_dfs_ctrl(DFS_RELEASE, NULL);
 #endif
 	}
-	PK_DBG(
+	pr_info(
 	    "%s %d\n",
 	    __func__,
 	    atomic_read(&pgimgsensor->imgsensor_open_cnt));
@@ -3010,7 +3010,7 @@ static struct platform_driver gimgsensor_platform_driver = {
  */
 static int __init imgsensor_init(void)
 {
-	PK_DBG("[camerahw_probe] start\n");
+	pr_info("[camerahw_probe] start\n");
 
 	if (platform_driver_register(&gimgsensor_platform_driver)) {
 		PK_DBG("failed to register CAMERA_HW driver\n");
