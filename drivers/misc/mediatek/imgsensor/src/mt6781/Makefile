@@ -74,3 +74,5 @@ subdir-ccflags-y += -I$(IMGSENSOR_DRIVER_PATH)/$(CONFIG_MTK_PLATFORM_SENSOR)/sen
 $(info imgsensor subdir-ccflags-y = $(subdir-ccflags-y))
 
 subdir-ccflags-y += -DNEED_LATE_INITCALL
+
+subdir-ccflags-y += -DIMGSENSOR_MT6781

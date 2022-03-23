@@ -24,6 +24,9 @@ enum IMGSENSOR_HW_PIN {
 #ifdef CONFIG_REGULATOR_RT5133
 	IMGSENSOR_HW_PIN_AVDD1,
 #endif
+#if defined(IMGSENSOR_MT6781) || defined(IMGSENSOR_MT6877)
+	IMGSENSOR_HW_PIN_AFVDD,
+#endif
 	IMGSENSOR_HW_PIN_DVDD,
 	IMGSENSOR_HW_PIN_DOVDD,
 #ifdef MIPI_SWITCH
@@ -66,7 +69,11 @@ enum IMGSENSOR_HW_PIN_STATE {
 #define VDD_None    IMGSENSOR_HW_PIN_NONE
 
 	/* For backward compatible */
+#if defined(IMGSENSOR_MT6781) || defined(IMGSENSOR_MT6877)
+#define AFVDD       IMGSENSOR_HW_PIN_AFVDD
+#else
 #define AFVDD       IMGSENSOR_HW_PIN_UNDEF
+#endif
 
 
 /* Voltage */

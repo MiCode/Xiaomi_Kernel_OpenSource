@@ -56,7 +56,9 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 #ifdef CONFIG_REGULATOR_RT5133
 			{AVDD1, Vol_1800, 0},
 #endif
-		//	{AFVDD, Vol_2800, 0},
+#if defined(IMGSENSOR_MT6781) || defined(IMGSENSOR_MT6877)
+			{AFVDD, Vol_2800, 0},
+#endif
 			{DVDD, Vol_1100, 0},
 			{SensorMCLK, Vol_High, 1},
 			{RST, Vol_High, 3}
@@ -114,7 +116,9 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 			{RST, Vol_Low, 1},
 			{DVDD, Vol_1100, 1},
 			{AVDD, Vol_2800, 1},
-			//{AFVDD, Vol_2800, 0},
+#if defined(IMGSENSOR_MT6781) || defined(IMGSENSOR_MT6877)
+			{AFVDD, Vol_2800, 0},
+#endif
 			{DOVDD, Vol_1800, 1},
 			{RST, Vol_High, 2},
 			{SensorMCLK, Vol_High, 1}
@@ -203,7 +207,9 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 			//PMIC output 1.1V
 			{DVDD, Vol_1100, 0},
 #endif
-//			{AFVDD, Vol_2800, 1},
+#if defined(IMGSENSOR_MT6781) || defined(IMGSENSOR_MT6877)
+			{AFVDD, Vol_2800, 1},
+#endif
 			{SensorMCLK, Vol_High, 1},
 			{PDN, Vol_High, 0},
 			{RST, Vol_High, 10}
