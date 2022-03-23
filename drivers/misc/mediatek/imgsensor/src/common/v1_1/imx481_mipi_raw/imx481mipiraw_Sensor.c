@@ -268,14 +268,26 @@ static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[4] = {
 	 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0000, 0x0000}
 };
 
+static struct IMGSENSOR_I2C_CFG *get_i2c_cfg(void)
+{
+	return &(((struct IMGSENSOR_SENSOR_INST *)
+		  (imgsensor.psensor_func->psensor_inst))->i2c_cfg);
+}
+
 static kal_uint16 read_cmos_sensor(kal_uint32 addr)
 {
 	kal_uint16 get_byte = 0;
 
 	char pu_send_cmd[2] = { (char)(addr >> 8), (char)(addr & 0xFF) };
 
-	iReadRegI2C(
-		pu_send_cmd, 2, (u8 *) &get_byte, 1, imgsensor.i2c_write_id);
+	imgsensor_i2c_read(
+		get_i2c_cfg(),
+		pu_send_cmd,
+		2,
+		(u8 *)&get_byte,
+		1,
+		imgsensor.i2c_write_id,
+		IMGSENSOR_I2C_SPEED);
 
 	return get_byte;
 }
@@ -285,8 +297,13 @@ static int write_cmos_sensor(kal_uint32 addr, kal_uint32 para)
 	char pu_send_cmd[3] = {
 		(char)(addr >> 8), (char)(addr & 0xFF), (char)(para & 0xFF) };
 
-	return iWriteRegI2CTiming(
-	    pu_send_cmd, 3, imgsensor.i2c_write_id, imgsensor_info.i2c_speed);
+	return imgsensor_i2c_write(
+			get_i2c_cfg(),
+			pu_send_cmd,
+			3,
+			3,
+			imgsensor.i2c_write_id,
+			IMGSENSOR_I2C_SPEED);
 }
 
 static void set_dummy(void)
@@ -712,10 +729,12 @@ static kal_uint16 imx481_table_write_cmos_sensor(
 		    || len == IDX
 		    || addr != addr_last) {
 
-			iBurstWriteReg_multi(puSendCmd,
+			imgsensor_i2c_write(
+				get_i2c_cfg(),
+				puSendCmd,
 				tosend,
-				imgsensor.i2c_write_id,
 				3,
+				imgsensor.i2c_write_id,
 				imgsensor_info.i2c_speed);
 
 			tosend = 0;
@@ -2527,7 +2546,10 @@ UINT32 IMX481_MIPI_RAW_SensorInit(
 			struct SENSOR_FUNCTION_STRUCT **pfFunc)
 {
 	/* To Do : Check Sensor status here */
+	sensor_func.arch = IMGSENSOR_ARCH_V2;
 	if (pfFunc != NULL)
 		*pfFunc = &sensor_func;
+	if (imgsensor.psensor_func == NULL)
+		imgsensor.psensor_func = &sensor_func;
 	return ERROR_NONE;
 } /* IMX481_MIPI_RAW_SensorInit */

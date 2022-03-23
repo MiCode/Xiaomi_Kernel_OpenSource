@@ -21,6 +21,7 @@
  ****************************************************************************/
 #ifndef _IMX586MIPI_SENSOR_H
 #define _IMX586MIPI_SENSOR_H
+#include "imgsensor_sensor.h"
 
 
 enum IMGSENSOR_MODE {
@@ -98,6 +99,7 @@ struct imgsensor_struct {
 	kal_uint8 ihdr_mode; /* ihdr enable or disable */
 	kal_uint8 pdaf_mode; /* ihdr enable or disable */
 	kal_uint8 i2c_write_id; /* record current sensor's i2c write id */
+	struct SENSOR_FUNCTION_STRUCT *psensor_func;
 };
 
 /* SENSOR PRIVATE STRUCT FOR CONSTANT*/
