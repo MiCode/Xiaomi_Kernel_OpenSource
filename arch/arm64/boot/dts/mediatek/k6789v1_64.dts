@@ -89,7 +89,7 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	panel1@0 {
-		compatible = "jdi,nt36672e,vdo,60hz";
+		compatible = "jdi,nt36672e,vdo,120hz,hfp";
 		reg = <0>;
 		pm-enable-gpios = <&pio 12 0>;
 		reset-gpios = <&pio 85 0>;

@@ -51,6 +51,7 @@
 		gamma0 = &disp_gamma0;
 		dither0 = &disp_dither0;
 		postmask0 = &disp_postmask0;
+		dsc0 = &disp_dsc_wrap0;
 	};
 
 	/* chosen */
@@ -1647,12 +1648,6 @@
 	dispsys_config_clk: syscon@14000000 {
 		compatible = "mediatek,mt6789-mmsys", "syscon";
 		reg = <0 0x14000000 0 0x1000>;
-		#clock-cells = <1>;
-	};
-
-	disp_dsc_clk: syscon@14012000 {
-		compatible = "mediatek,mt6789-disp_dsc", "syscon";
-		reg = <0 0x14012000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 

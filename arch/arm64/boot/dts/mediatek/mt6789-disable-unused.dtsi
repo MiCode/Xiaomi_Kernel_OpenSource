@@ -111,12 +111,6 @@
 			power-domains = <&scpsys MT6789_POWER_DOMAIN_ISP>;
 	};
 
-	disable-unused-clk-disp_dsc {
-		compatible = "mediatek,clk-disable-unused";
-		clocks =
-			<&disp_dsc_clk CLK_DISP_DSC_DSC_EN>;
-	};
-
 	disable-unused-clk-mmsys {
 		compatible = "mediatek,clk-disable-unused";
 		clocks =
