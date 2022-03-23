@@ -44,29 +44,9 @@ extern int clk_buf_dump_log(void);
 extern int clk_buf_get_xo_en_sta(const char *xo_name);
 extern int clk_buf_bblpm_enter_cond(void);
 
-#if defined(SRCLKEN_RC_SUPPORT)
 extern int srclken_dump_sta_log(void);
 extern int srclken_dump_cfg_log(void);
 extern int srclken_dump_last_sta_log(void);
 extern int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req);
-#else /* !defined(SRCLKEN_RC_SUPPORT) */
-static inline int srclken_dump_sta_log(void)
-{
-	return -ENODEV;
-}
-static inline int srclken_dump_cfg_log(void)
-{
-	return -ENODEV;
-}
-
-static inline int srclken_dump_last_sta_log(void)
-{
-	return -ENODEV;
-}
-static inline int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req)
-{
-	return -ENODEV;
-}
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
 
 #endif /* CLKBUF_CTL_H */

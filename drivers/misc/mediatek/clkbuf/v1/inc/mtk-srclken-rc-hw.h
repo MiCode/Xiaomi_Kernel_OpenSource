@@ -22,9 +22,11 @@ struct srclken_rc_subsys {
 
 struct srclken_rc_hw {
 	struct srclken_rc_subsys *subsys;
+	bool init_done;
 	u8 subsys_num;
 };
 
+bool is_srclken_rc_init_done(void);
 int srclken_rc_init(void);
 void srclken_rc_exit(void);
 int srclken_rc_post_init(void);
@@ -46,5 +48,25 @@ int srclken_rc_dump_trace(u8 idx, char *buf, u32 buf_size);
 u8 rc_get_trace_num(void);
 int srclken_rc_dump_subsys_sta(u8 idx, char *buf);
 int srclken_rc_dump_sta(const char *name, char *buf);
+
+/* Sysfs functions */
+ssize_t rc_cfg_ctl_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf);
+ssize_t rc_trace_ctl_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count);
+ssize_t rc_trace_ctl_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf);
+ssize_t rc_subsys_ctl_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf);
+ssize_t rc_subsys_ctl_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count);
+ssize_t rc_subsys_sta_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count);
+ssize_t rc_subsys_sta_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf);
+ssize_t rc_sta_reg_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count);
+ssize_t rc_sta_reg_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf);
 
 #endif /* SRCLKEN_RC_HW_H */

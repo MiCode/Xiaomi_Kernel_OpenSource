@@ -42,6 +42,8 @@
 #define CLKBUF_DCT_XO_DESNSE		"medaitek,clkbuf-controls-for-desense"
 #define CLKBUF_DCT_XO_DRVCURR		"mediatek,clkbuf-driving-current"
 
+#define XO_NAME_LEN 10
+
 static struct dcxo_hw *dcxo;
 
 static struct dcxo_hw *dcxos[CLKBUF_PMIC_ID_MAX] = {
@@ -629,7 +631,23 @@ DUMP_DESENSE_LOG:
 	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
 
 DUMP_DRV_CURR_LOG:
+	if (!dcxo->drv_curr_support)
+		goto DUMP_MISC_DONE;
+	/* dump current desense setting */
+	len += snprintf(buf + len, PAGE_SIZE - len, "XO_BUF DRV_CURR: ");
+	for (i = 0; i < dcxo->xo_num; i++) {
+		if (!dcxo->xo_bufs[i].in_use)
+			continue;
+		ret = clk_buf_read(&dcxo->hw,
+				&dcxo->xo_bufs[i]._drv_curr, &val);
+		if (ret)
+			continue;
+		len += snprintf(buf + len, PAGE_SIZE - len, "0x%x ", val);
+	}
+	len -= 1;
+	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
 
+DUMP_MISC_DONE:
 	return len;
 
 DUMP_MISC_FAILED:
@@ -1248,7 +1266,7 @@ static int clkbuf_dcxo_dts_init_xo_by_name_prop(struct device_node *node,
 {
 	struct device_node *ctl_node;
 	char xo_en_prop[20] = {0};
-	char buf[10] = {0};
+	char buf[XO_NAME_LEN] = {0};
 	char *pp = NULL;
 	char *p = NULL;
 	int ret = 0;
@@ -1262,8 +1280,7 @@ static int clkbuf_dcxo_dts_init_xo_by_name_prop(struct device_node *node,
 		pr_notice("get clkbuf_ctl node failed\n");
 		return -EFIND_DTS_ERR;
 	}
-
-	strncpy(buf, dcxo->xo_bufs[idx].xo_name, 10);
+	strncpy(buf, dcxo->xo_bufs[idx].xo_name, XO_NAME_LEN);
 	p = buf;
 	strsep(&p, "_");
 	if (!(*p))
@@ -1273,14 +1290,12 @@ static int clkbuf_dcxo_dts_init_xo_by_name_prop(struct device_node *node,
 		*pp = tolower(*pp);
 		pp++;
 	}
-	strncpy(xo_en_prop, CLKBUF_XO_PROP, 20);
-	strncat(xo_en_prop, p, 20);
-
+	strncpy(xo_en_prop, CLKBUF_XO_PROP, XO_NAME_LEN + 10);
+	strncat(xo_en_prop, p, XO_NAME_LEN + 10);
 	ret = of_property_read_u32(ctl_node, xo_en_prop, &tmp);
 	if (ret)
 		return ret;
 	dcxo->xo_bufs[idx].support &= (tmp ? 1 : 0);
-
 	of_node_put(ctl_node);
 
 	return 0;
@@ -1312,6 +1327,7 @@ static int clkbuf_dcxo_dts_init_xo(struct device_node *node)
 		dcxo->xo_bufs[i].support = tmp;
 
 		/* get xo name */
+		dcxo->xo_bufs[i].xo_name = vmalloc(XO_NAME_LEN);
 		ret = of_property_read_string_index(node, CLKBUF_XO_NAME_PROP,
 				i, &dcxo->xo_bufs[i].xo_name);
 		if (ret) {

@@ -35,6 +35,5 @@ clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo-6359p.o
 clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo-6685.o
 clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-clkbuf-dcxo-6366.o
 
-clkbuf-$(CONFIG_MTK_SRCLKEN_RC_V1) += v1/src/mtk-srclken-rc-hw.o
-clkbuf-$(CONFIG_MTK_SRCLKEN_RC_V1) += v1/src/mtk-srclken-rc-hw-v1.o
-ccflags-$(CONFIG_MTK_SRCLKEN_RC_V1) += -D SRCLKEN_RC_SUPPORT
+clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-srclken-rc-hw.o
+clkbuf-$(CONFIG_MTK_CLKBUF_V1) += v1/src/mtk-srclken-rc-hw-v1.o

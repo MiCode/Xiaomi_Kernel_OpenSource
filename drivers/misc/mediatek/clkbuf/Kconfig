@@ -43,13 +43,4 @@ config MTK_CLKBUF_V1
 	  Select yes for Mediatek Clock Buffer driver V1 support.
 	  The driver support for SW debug control for DCXO related
 	  interfaces which control connsys, nfc interface for 26M
-	  output.
-
-config MTK_SRCLKEN_RC_V1
-	bool "Mediatek SRCLKEN RC Support"
-	depends on MTK_CLKBUF
-	help
-	  Select yes for Mediatek SRCLKEN RC HW module support. The
-	  HW module for central manager control of DCXO HW output.
-	  Moreover, it support finer control of DCXO to several
-	  module such as Connsys can be divided to Wifi, BT, GPS etc.
+	  output. And also SRCLKEN_RC driver.

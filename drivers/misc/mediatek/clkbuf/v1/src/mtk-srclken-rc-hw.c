@@ -11,6 +11,8 @@
 #include <linux/platform_device.h>
 
 #include "mtk_clkbuf_common.h"
+#include "mtk_clkbuf_ctl.h"
+#include "mtk-clkbuf-dcxo.h"
 #include "mtk-srclken-rc-hw.h"
 #if IS_ENABLED(CONFIG_MTK_SRCLKEN_RC_V1)
 #include "mtk-srclken-rc-hw-v1.h"
@@ -23,9 +25,18 @@
 
 struct srclken_rc_hw rc_hw;
 
+static char rc_dump_subsys_sta_name[21];
+static char rc_dump_sta_reg_name[21];
+static u8 rc_trace_dump_num = 2;
+
 u8 srclken_rc_get_subsys_count(void)
 {
 	return rc_hw.subsys_num;
+}
+
+bool is_srclken_rc_init_done(void)
+{
+	return rc_hw.init_done;
 }
 
 const char *srclken_rc_get_subsys_name(u8 idx)
@@ -148,9 +159,347 @@ static int srclken_rc_dts_init(struct platform_device *pdev)
 	return ret;
 }
 
+int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req)
+{
+	if (!rc_hw.init_done) {
+		pr_notice("RC HW not init yet\n");
+		return -ENODEV;
+	}
+
+	if (rc_req > MAX_RC_REQ_NUM) {
+		pr_notice("rc_req exceeds MAX_RC_REQ_NUM!\n");
+		return -EINVAL;
+	}
+
+	return srclken_rc_subsys_ctrl(subsys_id, rc_req_list[rc_req]);
+}
+EXPORT_SYMBOL(clk_buf_voter_ctrl_by_id);
+
+int srclken_dump_sta_log(void)
+{
+	struct xo_buf_ctl_cmd_t cmd = {
+		.hw_id = CLKBUF_RC_SUBSYS,
+		.cmd = CLKBUF_CMD_SHOW,
+	};
+	char *buf = NULL;
+	int ret = 0;
+	u32 val = 0;
+	u8 i;
+
+	if (!rc_hw.init_done) {
+		pr_notice("clkbuf not init yet\n");
+		return -ENODEV;
+	}
+
+	buf = vmalloc(PAGE_SIZE);
+	if (!buf)
+		return -ENOMEM;
+
+	cmd.buf = buf;
+
+	for (i = 0; i < clkbuf_dcxo_get_xo_num(); i++) {
+		if (!clkbuf_dcxo_is_xo_in_use(i))
+			continue;
+
+		if (clkbuf_dcxo_get_xo_en(i, &val)) {
+			pr_notice("get xo_buf%u en failed\n", i);
+			continue;
+		}
+
+		if (val) {
+			pr_notice("%s is on\n", clkbuf_dcxo_get_xo_name(i));
+			ret = clkbuf_dcxo_notify(i, &cmd);
+		}
+
+		if (ret)
+			pr_notice("get xo_buf%u srlkcen_rc status failed\n", i);
+	}
+
+	vfree(buf);
+
+	return 0;
+}
+EXPORT_SYMBOL(srclken_dump_sta_log);
+
+static int __srclken_rc_dump_all_cfg(char *buf)
+{
+	int len = 0;
+	int ret = 0;
+	u32 val = 0;
+	u32 i;
+
+	for (i = 0; i < srclken_rc_get_cfg_count(); i++) {
+		ret = srclken_rc_get_cfg_val(srclken_rc_get_cfg_name(i), &val);
+		if (ret)
+			continue;
+
+		len += snprintf(buf + len, PAGE_SIZE - len, "%s= 0x%x\n",
+				srclken_rc_get_cfg_name(i),
+				val);
+	}
+
+	return len;
+}
+
+int srclken_dump_cfg_log(void)
+{
+	char *buf = NULL;
+	int len = 0;
+
+	if (!rc_hw.init_done) {
+		pr_notice("clkbuf HW not init yet\n");
+		return -ENODEV;
+	}
+
+	buf = vmalloc(CLKBUF_STATUS_INFO_SIZE);
+	if (!buf)
+		return -ENOMEM;
+
+	len += __srclken_rc_dump_all_cfg(buf);
+	if (len <= 0) {
+		vfree(buf);
+		return -EAGAIN;
+	}
+
+	pr_notice("%s\n", buf);
+
+	vfree(buf);
+
+	return 0;
+}
+EXPORT_SYMBOL(srclken_dump_cfg_log);
+
+static int __rc_dump_trace(char *buf, u32 buf_size)
+{
+	int len = 0;
+	u8 i;
+
+	for (i = 0; i < rc_get_trace_num() && i < rc_trace_dump_num; i++) {
+		len += srclken_rc_dump_trace(i, buf + len, buf_size - len);
+		len += srclken_rc_dump_time(i, buf + len, buf_size - len);
+	}
+
+	return len;
+}
+
+int srclken_dump_last_sta_log(void)
+{
+	char *buf = NULL;
+	int len = 0;
+
+	if (!rc_hw.init_done) {
+		pr_notice("clkbuf HW not init yet\n");
+		return -ENODEV;
+	}
+
+	buf = vmalloc(CLKBUF_STATUS_INFO_SIZE);
+	if (!buf)
+		return -ENOMEM;
+
+	len += __rc_dump_trace(buf, CLKBUF_STATUS_INFO_SIZE);
+	if (len <= 0) {
+		vfree(buf);
+		return -EAGAIN;
+	}
+
+	pr_notice("%s\n", buf);
+
+	vfree(buf);
+
+	return 0;
+}
+EXPORT_SYMBOL(srclken_dump_last_sta_log);
+
+ssize_t rc_cfg_ctl_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	if (!rc_hw.init_done) {
+		pr_notice("RC HW not init yet\n");
+		return -ENODEV;
+	}
+
+	return __srclken_rc_dump_all_cfg(buf);
+}
+
+ssize_t rc_trace_ctl_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char cmd[11] = {0};
+	u32 val = 0;
+
+	if (!rc_hw.init_done) {
+		pr_notice("RC HW not init yet\n");
+		return -ENODEV;
+	}
+
+	if (sscanf(buf, "%10s %u", cmd, &val) != 2)
+		return -EPERM;
+
+	if (!strcmp(cmd, "TRACE_NUM")) {
+		if (val < 0)
+			val = 0;
+		rc_trace_dump_num = val;
+		return count;
+	}
+
+	pr_notice("unknown cmd: %s, val %u\n", cmd, val);
+	return -EPERM;
+}
+
+ssize_t rc_trace_ctl_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	if (!rc_hw.init_done) {
+		pr_notice("RC HW not init yet\n");
+		return -ENODEV;
+	}
+
+	return __rc_dump_trace(buf, PAGE_SIZE);
+}
+
+ssize_t rc_subsys_ctl_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+	u8 i;
+
+	if (!rc_hw.init_done) {
+		pr_notice("RC HW not init yet\n");
+		return -ENODEV;
+	}
+
+	len += snprintf(buf + len, PAGE_SIZE - len,
+			"available subsys: ");
+
+	for (i = 0; i < srclken_rc_get_subsys_count(); i++)
+		len += snprintf(buf + len, PAGE_SIZE - len,
+				"%s, ", srclken_rc_get_subsys_name(i));
+
+	len -= 2;
+	len += snprintf(buf + len, PAGE_SIZE - len,
+			"\navailable control: HW/SW/SW_OFF/SW_FPM/SW_BBLPM\n");
+
+	return len;
+}
+
+ssize_t rc_subsys_ctl_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	char name[21];
+	char mode[11];
+	u8 i;
+
+	if (!rc_hw.init_done) {
+		pr_notice("RC HW not init yet\n");
+		return -ENODEV;
+	}
+
+	if (sscanf(buf, "%20s %10s", name, mode) != 2)
+		return -EPERM;
+
+	for (i = 0; i < srclken_rc_get_subsys_count(); i++)
+		if (!strcmp(srclken_rc_get_subsys_name(i), name))
+			srclken_rc_subsys_ctrl(i, mode);
+
+	return count;
+}
+
+ssize_t rc_subsys_sta_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	if (!rc_hw.init_done) {
+		pr_notice("RC HW not init yet\n");
+		return -ENODEV;
+	}
+
+	if (sscanf(buf, "%20s", rc_dump_subsys_sta_name) != 1)
+		return -EPERM;
+
+	return count;
+}
+
+static ssize_t __rc_subsys_sta_show(u8 idx, char *buf)
+{
+	int len = 0;
+
+	if (!rc_hw.init_done) {
+		pr_notice("RC HW not init yet\n");
+		return -ENODEV;
+	}
+
+	len += snprintf(buf + len, PAGE_SIZE - len,
+		"[%s] -\n", srclken_rc_get_subsys_name(idx));
+
+	len += srclken_rc_dump_subsys_sta(idx, buf + len);
+
+	return len;
+}
+
+ssize_t rc_subsys_sta_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+	u8 i;
+
+	if (!rc_hw.init_done) {
+		pr_notice("RC HW not init yet\n");
+		return -ENODEV;
+	}
+
+	if (!strcmp(rc_dump_subsys_sta_name, "ALL")) {
+		for (i = 0; i < srclken_rc_get_subsys_count(); i++)
+			len += __rc_subsys_sta_show(i, buf + len);
+
+		return len;
+	}
+	for (i = 0; i < srclken_rc_get_subsys_count(); i++) {
+		if (!strcmp(rc_dump_subsys_sta_name,
+				srclken_rc_get_subsys_name(i))) {
+			len += __rc_subsys_sta_show(i, buf + len);
+
+			return len;
+		}
+	}
+
+	len += snprintf(buf + len, PAGE_SIZE - len,
+		"unknown subsys name: %s\n",
+		rc_dump_subsys_sta_name);
+
+	return len;
+}
+
+ssize_t rc_sta_reg_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	if (!rc_hw.init_done) {
+		pr_notice("RC HW not init yet\n");
+		return -ENODEV;
+	}
+
+	if (sscanf(buf, "%20s", rc_dump_sta_reg_name) != 1)
+		return -EINVAL;
+
+	return count;
+}
+
+ssize_t rc_sta_reg_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	if (!rc_hw.init_done) {
+		pr_notice("RC HW not init yet\n");
+		return -ENODEV;
+	}
+
+	len += srclken_rc_dump_sta(rc_dump_sta_reg_name, buf + len);
+
+	return len;
+}
+
 static int mtk_srclken_rc_probe(struct platform_device *pdev)
 {
-	int ret = 0;
+	int ret = 0, i;
 
 	ret = srclken_rc_dts_init(pdev);
 	if (ret) {
@@ -163,21 +512,7 @@ static int mtk_srclken_rc_probe(struct platform_device *pdev)
 		goto RC_INIT_FAILED;
 	}
 
-	srclken_rc_init_done_callback(RC_INIT_DONE);
-
-	return 0;
-
-RC_INIT_FAILED:
-	srclken_rc_init_done_callback(ret);
-
-	return ret;
-}
-
-int srclken_rc_post_init(void)
-{
-	int ret = 0;
-	u32 i;
-
+	/* Post init */
 	for (i = 0; i < rc_hw.subsys_num; i++) {
 		ret = srclken_rc_get_subsys_req_mode(i,
 				&rc_hw.subsys[i].init_mode);
@@ -193,6 +528,11 @@ int srclken_rc_post_init(void)
 		}
 	}
 
+	rc_hw.init_done = true;
+	return 0;
+
+RC_INIT_FAILED:
+	rc_hw.init_done = false;
 	return ret;
 }
 

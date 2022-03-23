@@ -94,6 +94,9 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		.xo_en_auxout_sel = 6,
 		.in_use = 1,
 	},
+	[XO_RSV1] = {
+		.in_use = 0,
+	},
 	[XO_RSV2] = {
 		MT6366_SET_REG_BY_NAME(xo_mode, XO_EXTBUF6_MODE)
 		MT6366_SET_REG_BY_NAME(xo_en, XO_EXTBUF6_EN_M)
@@ -101,7 +104,7 @@ static struct xo_buf_t xo_bufs[XO_NUM] = {
 		MT6366_SET_REG_BY_NAME(drv_curr, RG_XO_EXTBUF6_ISET)
 		MT6366_SET_REG_BY_NAME(hwbblpm_msk, XO_EXTBUF6_BBLPM_EN_MASK)
 		.xo_en_auxout_sel = 7,
-		.in_use = 1,
+		.in_use = 0,
 	},
 	[XO_EXT] = {
 		MT6366_SET_REG_BY_NAME(xo_mode, XO_EXTBUF7_MODE)
@@ -140,9 +143,10 @@ static int mt6366_dcxo_dump_reg_log(char *buf)
 		if (clk_buf_read(&mt6366_dcxo.hw,
 				((struct reg_t *)&debug_reg) + i, &val))
 			goto DUMP_REG_LOG_FAILED;
-		len += snprintf(buf+len, PAGE_SIZE - len, "DCXO_CW%2d=0x%x, ",
+		len += snprintf(buf + len, PAGE_SIZE - len, "DCXO_CW%2d=0x%x, ",
 				mt6366_debug_regs_index[i], val);
 	}
+	len += snprintf(buf + len, PAGE_SIZE - len, "\n");
 	return len;
 DUMP_REG_LOG_FAILED:
 	len -= 2;

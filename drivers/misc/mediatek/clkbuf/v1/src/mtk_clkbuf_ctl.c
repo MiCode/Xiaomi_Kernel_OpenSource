@@ -19,28 +19,11 @@
 #include "mtk-clkbuf-dcxo.h"
 #include "mtk-clkbuf-pmif.h"
 
-#if defined(SRCLKEN_RC_SUPPORT)
 #include "mtk-srclken-rc-hw.h"
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
 
 DEFINE_MUTEX(clk_buf_lock);
 
 static struct clkbuf_misc clkbuf_ctl;
-
-#if defined(SRCLKEN_RC_SUPPORT)
-static char rc_dump_subsys_sta_name[21];
-static char rc_dump_sta_reg_name[21];
-static u8 rc_trace_dump_num = 2;
-static int rc_init_done;
-
-/* called when srclken_rc probe done */
-void srclken_rc_init_done_callback(int rc_done)
-{
-	if (rc_init_done)
-		return;
-	rc_init_done = rc_done;
-}
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
 
 int clk_buf_ctrl(const char *xo_name, bool onoff)
 {
@@ -78,24 +61,6 @@ int clk_buf_hw_ctrl(const char *xo_name, bool onoff)
 	return clkbuf_dcxo_notify(id, &ctl_cmd);
 }
 EXPORT_SYMBOL(clk_buf_hw_ctrl);
-
-#if defined(SRCLKEN_RC_SUPPORT)
-int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req)
-{
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	if (rc_req > MAX_RC_REQ_NUM) {
-		pr_notice("rc_req exceeds MAX_RC_REQ_NUM!\n");
-		return -EINVAL;
-	}
-
-	return srclken_rc_subsys_ctrl(subsys_id, rc_req_list[rc_req]);
-}
-EXPORT_SYMBOL(clk_buf_voter_ctrl_by_id);
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
 
 static bool clk_buf_get_flightmode(void)
 {
@@ -375,143 +340,6 @@ const char *clk_buf_get_xo_name(u8 idx)
 	return clkbuf_dcxo_get_xo_name(idx);
 }
 EXPORT_SYMBOL(clk_buf_get_xo_name);
-
-#if defined(SRCLKEN_RC_SUPPORT)
-int srclken_dump_sta_log(void)
-{
-	struct xo_buf_ctl_cmd_t cmd = {
-		.hw_id = CLKBUF_RC_SUBSYS,
-		.cmd = CLKBUF_CMD_SHOW,
-	};
-	char *buf = NULL;
-	int ret = 0;
-	u32 val = 0;
-	u8 i;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf not init yet\n");
-		return -ENODEV;
-	}
-
-	buf = vmalloc(PAGE_SIZE);
-	if (!buf)
-		return -ENOMEM;
-
-	cmd.buf = buf;
-
-	for (i = 0; i < clkbuf_dcxo_get_xo_num(); i++) {
-		if (!clkbuf_dcxo_is_xo_in_use(i))
-			continue;
-
-		if (clkbuf_dcxo_get_xo_en(i, &val)) {
-			pr_notice("get xo_buf%u en failed\n", i);
-			continue;
-		}
-
-		if (val) {
-			pr_notice("%s is on\n", clkbuf_dcxo_get_xo_name(i));
-			ret = clkbuf_dcxo_notify(i, &cmd);
-		}
-
-		if (ret)
-			pr_notice("get xo_buf%u srlkcen_rc status failed\n", i);
-	}
-
-	vfree(buf);
-
-	return 0;
-}
-EXPORT_SYMBOL(srclken_dump_sta_log);
-
-static int __srclken_rc_dump_all_cfg(char *buf)
-{
-	int len = 0;
-	int ret = 0;
-	u32 val = 0;
-	u32 i;
-
-	for (i = 0; i < srclken_rc_get_cfg_count(); i++) {
-		ret = srclken_rc_get_cfg_val(srclken_rc_get_cfg_name(i), &val);
-		if (ret)
-			continue;
-
-		len += snprintf(buf + len, PAGE_SIZE - len, "%s= 0x%x\n",
-				srclken_rc_get_cfg_name(i),
-				val);
-	}
-
-	return len;
-}
-
-int srclken_dump_cfg_log(void)
-{
-	char *buf = NULL;
-	int len = 0;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	buf = vmalloc(CLKBUF_STATUS_INFO_SIZE);
-	if (!buf)
-		return -ENOMEM;
-
-	len += __srclken_rc_dump_all_cfg(buf);
-	if (len <= 0) {
-		vfree(buf);
-		return -EAGAIN;
-	}
-
-	pr_notice("%s\n", buf);
-
-	vfree(buf);
-
-	return 0;
-}
-EXPORT_SYMBOL(srclken_dump_cfg_log);
-
-static int __rc_dump_trace(char *buf, u32 buf_size)
-{
-	int len = 0;
-	u8 i;
-
-	for (i = 0; i < rc_get_trace_num() && i < rc_trace_dump_num; i++) {
-		len += srclken_rc_dump_trace(i, buf + len, buf_size - len);
-		len += srclken_rc_dump_time(i, buf + len, buf_size - len);
-	}
-
-	return len;
-}
-
-int srclken_dump_last_sta_log(void)
-{
-	char *buf = NULL;
-	int len = 0;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	buf = vmalloc(CLKBUF_STATUS_INFO_SIZE);
-	if (!buf)
-		return -ENOMEM;
-
-	len += __rc_dump_trace(buf, CLKBUF_STATUS_INFO_SIZE);
-	if (len <= 0) {
-		vfree(buf);
-		return -EAGAIN;
-	}
-
-	pr_notice("%s\n", buf);
-
-	vfree(buf);
-
-	return 0;
-}
-EXPORT_SYMBOL(srclken_dump_last_sta_log);
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
 
 #if IS_ENABLED(CONFIG_PM)
 static int __clk_buf_pmic_ctrl_all(const char *arg1)
@@ -882,195 +710,6 @@ static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 	return len;
 }
 
-#if defined(SRCLKEN_RC_SUPPORT)
-static ssize_t rc_cfg_ctl_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	return __srclken_rc_dump_all_cfg(buf);
-}
-
-static ssize_t rc_trace_ctl_store(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf, size_t count)
-{
-	char cmd[11] = {0};
-	u32 val = 0;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	if (sscanf(buf, "%10s %u", cmd, &val) != 2)
-		return -EPERM;
-
-	if (!strcmp(cmd, "TRACE_NUM")) {
-		if (val < 0)
-			val = 0;
-		rc_trace_dump_num = val;
-		return count;
-	}
-
-	pr_notice("unknown cmd: %s, val %u\n", cmd, val);
-	return -EPERM;
-}
-
-static ssize_t rc_trace_ctl_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	return __rc_dump_trace(buf, PAGE_SIZE);
-}
-
-static ssize_t rc_subsys_ctl_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	int len = 0;
-	u8 i;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	len += snprintf(buf + len, PAGE_SIZE - len,
-			"available subsys: ");
-
-	for (i = 0; i < srclken_rc_get_subsys_count(); i++)
-		len += snprintf(buf + len, PAGE_SIZE - len,
-				"%s, ", srclken_rc_get_subsys_name(i));
-
-	len -= 2;
-	len += snprintf(buf + len, PAGE_SIZE - len,
-			"\navailable control: HW/SW/SW_OFF/SW_FPM/SW_BBLPM\n");
-
-	return len;
-}
-
-static ssize_t rc_subsys_ctl_store(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf, size_t count)
-{
-	char name[21];
-	char mode[11];
-	u8 i;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	if (sscanf(buf, "%20s %10s", name, mode) != 2)
-		return -EPERM;
-
-	for (i = 0; i < srclken_rc_get_subsys_count(); i++)
-		if (!strcmp(srclken_rc_get_subsys_name(i), name))
-			srclken_rc_subsys_ctrl(i, mode);
-
-	return count;
-}
-
-static ssize_t rc_subsys_sta_store(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf, size_t count)
-{
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	if (sscanf(buf, "%20s", rc_dump_subsys_sta_name) != 1)
-		return -EPERM;
-
-	return count;
-}
-
-static ssize_t __rc_subsys_sta_show(u8 idx, char *buf)
-{
-	int len = 0;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	len += snprintf(buf + len, PAGE_SIZE - len,
-		"[%s] -\n", srclken_rc_get_subsys_name(idx));
-
-	len += srclken_rc_dump_subsys_sta(idx, buf + len);
-
-	return len;
-}
-
-static ssize_t rc_subsys_sta_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	int len = 0;
-	u8 i;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	if (!strcmp(rc_dump_subsys_sta_name, "ALL")) {
-		for (i = 0; i < srclken_rc_get_subsys_count(); i++)
-			len += __rc_subsys_sta_show(i, buf + len);
-
-		return len;
-	}
-	for (i = 0; i < srclken_rc_get_subsys_count(); i++) {
-		if (!strcmp(rc_dump_subsys_sta_name,
-				srclken_rc_get_subsys_name(i))) {
-			len += __rc_subsys_sta_show(i, buf + len);
-
-			return len;
-		}
-	}
-
-	len += snprintf(buf + len, PAGE_SIZE - len,
-		"unknown subsys name: %s\n",
-		rc_dump_subsys_sta_name);
-
-	return len;
-}
-
-static ssize_t rc_sta_reg_store(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf, size_t count)
-{
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	if (sscanf(buf, "%20s", rc_dump_sta_reg_name) != 1)
-		return -EINVAL;
-
-	return count;
-}
-
-static ssize_t rc_sta_reg_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
-{
-	int len = 0;
-
-	if (!clkbuf_ctl.init_done) {
-		pr_notice("clkbuf HW not init yet\n");
-		return -ENODEV;
-	}
-
-	len += srclken_rc_dump_sta(rc_dump_sta_reg_name, buf + len);
-
-	return len;
-}
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
-
 static ssize_t clk_buf_all_ctrl_store(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
@@ -1164,30 +803,25 @@ DEFINE_ATTR_RW(clk_buf_pmic);
 DEFINE_ATTR_RW(clk_buf_pmif);
 DEFINE_ATTR_RW(clk_buf_debug);
 DEFINE_ATTR_RW(clk_buf_bblpm);
-#if defined(SRCLKEN_RC_SUPPORT)
 DEFINE_ATTR_RO(rc_cfg_ctl);
 DEFINE_ATTR_RW(rc_sta_reg);
 DEFINE_ATTR_RW(rc_trace_ctl);
 DEFINE_ATTR_RW(rc_subsys_ctl);
 DEFINE_ATTR_RW(rc_subsys_sta);
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
 
 static struct attribute *clk_buf_attrs[] = {
-	/* for clock buffer and srclken_rc control */
+	/* for clock buffer and RC control */
 	__ATTR_OF(clk_buf_all_ctrl),
 	__ATTR_OF(clk_buf_ctrl),
 	__ATTR_OF(clk_buf_pmic),
 	__ATTR_OF(clk_buf_pmif),
 	__ATTR_OF(clk_buf_debug),
 	__ATTR_OF(clk_buf_bblpm),
-#if defined(SRCLKEN_RC_SUPPORT)
 	__ATTR_OF(rc_cfg_ctl),
 	__ATTR_OF(rc_sta_reg),
 	__ATTR_OF(rc_trace_ctl),
 	__ATTR_OF(rc_subsys_ctl),
 	__ATTR_OF(rc_subsys_sta),
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
-
 	/* must */
 	NULL,
 };
@@ -1250,27 +884,12 @@ static int clkbuf_post_init(void)
 {
 	int ret = 0;
 
-#if defined(SRCLKEN_RC_SUPPORT)
-	if (rc_init_done != RC_INIT_DONE) {
-		pr_notice(" srclken_rc driver init failed: %d\n",
-			rc_init_done);
-		return rc_init_done;
-	}
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
-
 	ret = clkbuf_dcxo_post_init();
 	if (ret) {
 		pr_notice("dcxo post init failed\n");
 		return ret;
 	}
 
-#if defined(SRCLKEN_RC_SUPPORT)
-	ret = srclken_rc_post_init();
-	if (ret) {
-		pr_notice("srclken_rc post init failed\n");
-		return ret;
-	}
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
 	ret = clkbuf_pmif_post_init();
 	if (ret) {
 		pr_notice("clkbuf pmif init failed: %d\n", ret);
@@ -1294,15 +913,15 @@ static int clkbuf_init(struct platform_device *pdev)
 {
 	int ret = 0;
 
+	if (clkbuf_ctl.init_done) {
+		pr_notice("clkbuf_ctl hw already init\n");
+		return -EHW_ALREADY_INIT;
+	}
+
 	ret = clkbuf_dts_init(pdev);
 	if (ret) {
 		pr_notice("clkbuf_ctl dts init failed with err: %d\n", ret);
 		return ret;
-	}
-
-	if (clkbuf_ctl.init_done) {
-		pr_notice("clkbuf_ctl hw already init\n");
-		return -EHW_ALREADY_INIT;
 	}
 
 	ret = clkbuf_dcxo_init(pdev);
@@ -1311,14 +930,12 @@ static int clkbuf_init(struct platform_device *pdev)
 		return ret;
 	}
 
-#if defined(SRCLKEN_RC_SUPPORT)
+	/* Register RC driver */
 	ret = srclken_rc_init();
 	if (ret) {
 		pr_notice("srclken_rc init failed\n");
 		return ret;
 	}
-
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
 
 	ret = clkbuf_pmif_hw_init(pdev);
 	if (ret) {
@@ -1362,11 +979,10 @@ static int __clk_buf_dev_pm_dump(void)
 	len += snprintf(buf + len, CLKBUF_STATUS_INFO_SIZE - len,
 		"xo_buf_en: 0x%x ", val);
 
-#if defined(SRCLKEN_RC_SUPPORT)
-	for (i = 0; i < rc_trace_dump_num; i++)
-		len += srclken_rc_dump_trace(i, buf + len,
-				CLKBUF_STATUS_INFO_SIZE - len);
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
+	if (is_srclken_rc_init_done())
+		for (i = 0; i < 8; i++)
+			len += srclken_rc_dump_trace(i, buf + len,
+					CLKBUF_STATUS_INFO_SIZE - len);
 
 	strreplace(buf, '\n', ' ');
 
@@ -1406,16 +1022,10 @@ static int mtk_clkbuf_ctl_probe(struct platform_device *pdev)
 	if (ret)
 		pr_notice("clkbuf post init failed: %d\n", ret);
 
-	pr_notice("clkbuf init done\n");
+	pr_notice("clkbuf probe done\n");
 
 	return ret;
 }
-
-static const struct platform_device_id mtk_clkbuf_ids[] = {
-	{"mtk-clock-buffer", 0},
-	{ /*sentinel */ },
-};
-MODULE_DEVICE_TABLE(platform, mtk_clkbuf_ids);
 
 static const struct of_device_id mtk_clkbuf_of_match[] = {
 	{
@@ -1432,19 +1042,18 @@ static struct platform_driver mtk_clkbuf_driver = {
 		.pm = &clk_buf_suspend_ops,
 	},
 	.probe = mtk_clkbuf_ctl_probe,
-	.id_table = mtk_clkbuf_ids,
 };
 
 static int __init mtk_clkbuf_init(void)
 {
+	pr_notice("clkbuf init start\n");
 	return platform_driver_register(&mtk_clkbuf_driver);
 }
 
 static void __exit mtk_clkbuf_exit(void)
 {
-#if defined(SRCLKEN_RC_SUPPORT)
+	/* Unregister RC driver */
 	srclken_rc_exit();
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
 
 	platform_driver_unregister(&mtk_clkbuf_driver);
 }
