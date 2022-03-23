@@ -4476,6 +4476,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	trace_android_rvh_finish_prio_fork(p);
 
 
+
 #ifdef CONFIG_SCHED_INFO
 	if (likely(sched_info_on()))
 		memset(&p->sched_info, 0, sizeof(p->sched_info));

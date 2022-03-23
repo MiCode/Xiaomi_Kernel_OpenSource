@@ -2,8 +2,6 @@ arch/arm64/crypto/aes-ce-core.S
 arch/arm64/crypto/aes-ce-glue.c
 arch/arm64/crypto/aes-ce.S
 arch/arm64/crypto/aes-ce-setkey.h
-arch/arm64/crypto/aes-cipher-core.S
-arch/arm64/crypto/aes-cipher-glue.c
 arch/arm64/crypto/aes-glue.c
 arch/arm64/crypto/aes-modes.S
 arch/arm64/crypto/chacha-neon-core.S
@@ -324,6 +322,7 @@ arch/arm64/kvm/hyp/nvhe/hyp.lds.S
 arch/arm64/kvm/hyp/nvhe/hyp-main.c
 arch/arm64/kvm/hyp/nvhe/hyp-reloc.S
 arch/arm64/kvm/hyp/nvhe/hyp-smp.c
+arch/arm64/kvm/hyp/nvhe/iommu.c
 arch/arm64/kvm/hyp/nvhe/iommu/s2mpu.c
 arch/arm64/kvm/hyp/nvhe/mem_protect.c
 arch/arm64/kvm/hyp/nvhe/mm.c
@@ -346,6 +345,7 @@ arch/arm64/kvm/hyp/vhe/sysreg-sr.c
 arch/arm64/kvm/hyp/vhe/timer-sr.c
 arch/arm64/kvm/hyp/vhe/tlb.c
 arch/arm64/kvm/inject_fault.c
+arch/arm64/kvm/iommu.c
 arch/arm64/kvm/iommu/s2mpu.c
 arch/arm64/kvm/irq.h
 arch/arm64/kvm/mmio.c
@@ -528,7 +528,6 @@ crypto/cmac.c
 crypto/compress.c
 crypto/crc32c_generic.c
 crypto/crc32_generic.c
-crypto/cryptd.c
 crypto/crypto_engine.c
 crypto/crypto_null.c
 crypto/ctr.c
@@ -577,7 +576,6 @@ crypto/sha1_generic.c
 crypto/sha256_generic.c
 crypto/sha512_generic.c
 crypto/shash.c
-crypto/simd.c
 crypto/skcipher.c
 crypto/testmgr.c
 crypto/xcbc.c
@@ -1342,7 +1340,6 @@ drivers/of/fdt_address.c
 drivers/of/fdt.c
 drivers/of/irq.c
 drivers/of/kobj.c
-drivers/of/of_net.c
 drivers/of/of_private.h
 drivers/of/of_reserved_mem.c
 drivers/of/platform.c
@@ -2316,7 +2313,6 @@ include/crypto/blake2b.h
 include/crypto/blake2s.h
 include/crypto/chacha20poly1305.h
 include/crypto/chacha.h
-include/crypto/cryptd.h
 include/crypto/ctr.h
 include/crypto/curve25519.h
 include/crypto/drbg.h
@@ -4031,6 +4027,7 @@ include/trace/events/writeback.h
 include/trace/events/xdp.h
 include/trace/hooks/avc.h
 include/trace/hooks/binder.h
+include/trace/hooks/bug.h
 include/trace/hooks/cgroup.h
 include/trace/hooks/cpufreq.h
 include/trace/hooks/cpuidle.h
@@ -4039,6 +4036,8 @@ include/trace/hooks/creds.h
 include/trace/hooks/debug.h
 include/trace/hooks/dtask.h
 include/trace/hooks/epoch.h
+include/trace/hooks/fault.h
+include/trace/hooks/fips140.h
 include/trace/hooks/fpsimd.h
 include/trace/hooks/ftrace_dump.h
 include/trace/hooks/futex.h
@@ -4053,16 +4052,20 @@ include/trace/hooks/module.h
 include/trace/hooks/mpam.h
 include/trace/hooks/net.h
 include/trace/hooks/pm_domain.h
+include/trace/hooks/power.h
 include/trace/hooks/preemptirq.h
 include/trace/hooks/printk.h
 include/trace/hooks/remoteproc.h
 include/trace/hooks/sched.h
 include/trace/hooks/selinux.h
+include/trace/hooks/softlockup.h
 include/trace/hooks/syscall_check.h
 include/trace/hooks/sys.h
 include/trace/hooks/sysrqcrash.h
+include/trace/hooks/thermal.h
 include/trace/hooks/timer.h
 include/trace/hooks/topology.h
+include/trace/hooks/traps.h
 include/trace/hooks/ufshcd.h
 include/trace/hooks/vendor_hooks.h
 include/trace/hooks/vmscan.h
@@ -5322,6 +5325,7 @@ net/core/net-procfs.c
 net/core/net-sysfs.c
 net/core/net-sysfs.h
 net/core/net-traces.c
+net/core/of_net.c
 net/core/page_pool.c
 net/core/ptp_classifier.c
 net/core/request_sock.c
