@@ -5684,3 +5684,4 @@
 		};
 	};
 };
+#include "mediatek/trusty.dtsi"
