@@ -1243,13 +1243,11 @@ static int cmdq_remove(struct platform_device *pDevice)
 
 static int cmdq_suspend(struct device *pDevice)
 {
-	CMDQ_LOG("%s ignore\n", __func__);
 	return cmdq_core_suspend();
 }
 
 static int cmdq_resume(struct device *pDevice)
 {
-	CMDQ_LOG("%s ignore\n", __func__);
 	return cmdq_core_resume();
 }
 
