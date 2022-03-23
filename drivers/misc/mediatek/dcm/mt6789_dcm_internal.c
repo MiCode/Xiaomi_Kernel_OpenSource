@@ -3,9 +3,11 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/io.h>
 #include <linux/export.h>
 #include <linux/module.h>
+#include <mtk_sip_svc.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -52,6 +54,8 @@ short is_dcm_bringup(void)
 #endif
 }
 
+/* SMC call for mcusys_par_wrap_big_dcm initializations */
+static int dcm_smc_call_control(int onoff, unsigned int mask);
 /*****************************************
  * following is implementation per DCM module.
  * 1. per-DCM function is 1-argu with ON/OFF/MODE option.
@@ -152,7 +156,6 @@ int dcm_armcore(int on)
 
 int dcm_mcusys(int on)
 {
-	dcm_mcusys_par_wrap_big_dcm(on);
 	dcm_mp_cpusys_top_adb_dcm(on);
 	dcm_mp_cpusys_top_apb_dcm(on);
 	dcm_mp_cpusys_top_core_stall_dcm(on);
@@ -178,6 +181,12 @@ int dcm_big_core_preset(void)
 
 int dcm_big_core(int on)
 {
+	// TODO: Modify the value of BIG_CORE_DCM_TYPE
+	if (0) {
+		dcm_mcusys_par_wrap_big_dcm(on);
+		dcm_smc_call_control(on, BIG_CORE_DCM_TYPE);
+	}
+
 	return 0;
 }
 
@@ -577,6 +586,15 @@ int mt_dcm_dts_map(void)
 void dcm_pre_init(void)
 {
 	dcm_pr_info("weak function of %s\n", __func__);
+}
+
+static int dcm_smc_call_control(int onoff, unsigned int mask)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_DCM, onoff, mask, 0, 0, 0, 0, 0, &res);
+
+	return 0;
 }
 
 static int __init mt6789_dcm_init(void)
