@@ -4478,6 +4478,19 @@
 			compatible = "mediatek,mt6789-iommu-debug";
 		};
 
+		mtk_iommu_pseudo {
+			compatible = "mediatek,mt6789-iommu-pseudo";
+			mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2
+					  &smi_larb4 &smi_larb7 &smi_larb9
+					  &smi_larb13 &smi_larb14 &smi_larb16
+					  &smi_larb17 &smi_larb20>;
+		};
+
+		mtk_sec_dmaheap {
+			compatible = "mediatek,dmaheap-region-base";
+			iommus = <&disp_iommu M4U_PORT_L0_DISP_POSTMASK0>;
+		};
+
 		mtk_iommu_test_dmaheap_normal {
 			compatible = "mediatek,dmaheap-normal";
 			iommus = <&disp_iommu M4U_PORT_L0_DISP_POSTMASK0>;
