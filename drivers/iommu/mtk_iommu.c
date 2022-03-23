@@ -3189,7 +3189,7 @@ static const struct mtk_iommu_plat_data mt6789_data = {
 	.m4u_plat = M4U_MT6789,
 	.flags         = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			 NOT_STD_AXI_MODE | IOVA_34_EN | SHARE_PGTABLE |
-			 IOMMU_CLK_AO_EN | IOMMU_EN_PRE | IOMMU_NO_SMCCC,
+			 IOMMU_CLK_AO_EN | IOMMU_NO_SMCCC,
 	.inv_sel_reg   = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
