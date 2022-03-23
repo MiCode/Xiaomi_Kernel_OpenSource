@@ -5128,7 +5128,6 @@
 					"MDP_IMG_DL_RELAY1_ASYNC1",
 					"MDP_APB_BUS";
 			iommus = <&disp_iommu M4U_PORT_L2_MDP_RDMA0>,
-				<&disp_iommu M4U_PORT_L2_MDP_RDMA1>,
 				<&disp_iommu M4U_PORT_L2_MDP_WROT0>,
 				<&disp_iommu M4U_PORT_L2_MDP_WROT1>;
 			dma_mask_bit = <35>;
@@ -5240,9 +5239,65 @@
 			mdp_rdma0_frame_done = <CMDQ_EVENT_MDP_MDP_RDMA0_FRAME_DONE>;
 			mdp_hdr0_frame_done = <CMDQ_EVENT_MDP_MDP_HDR0_FRAME_DONE>;
 			mdp_aal_frame_done = <CMDQ_EVENT_MDP_MDP_AAL0_FRAME_DONE>;
-			// operating-points-v2 = <&opp_table_mdp>, <&opp_table_img>;
-			// mdp-opp = <&opp_table_mdp>;
-			// isp-opp = <&opp_table_img>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L2_MDP_RDMA0)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L2_MDP_WROT0)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L2_MDP_WROT1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_IMGI_D1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_IMGBI_D1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_DMGI_D1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_DEPI_D1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_ICE_D1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_SMTI_D1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_SMTO_D2)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_SMTO_D1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_CRZO_D1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_IMG3O_D1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_VIPI_D1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_SMTI_D5)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_TIMGO_D1)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_UFBC_W0)
+					&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG_UFBC_R0)
+					&mmqos SLAVE_COMMON(0)>;
+			interconnect-names =
+				"mdp_rdma0",
+				"mdp_wrot0",
+				"mdp_wrot1",
+				"l9_img_imgi_d1",
+				"l9_img_imgbi_d1",
+				"l9_img_dmgi_d1",
+				"l9_img_depi_d1",
+				"l9_img_ice_d1",
+				"l9_img_smti_d1",
+				"l9_img_smto_d2",
+				"l9_img_smto_d1",
+				"l9_img_crzo_d1",
+				"l9_img_img3o_d1",
+				"l9_img_vipi_d1",
+				"l9_img_smti_d5",
+				"l9_img_timgo_d1",
+				"l9_img_ufbc_w0",
+				"l9_img_ufbc_r0";
+			operating-points-v2 = <&opp_table_mdp0>, <&opp_table_img>;
+			mdp-opp = <&opp_table_mdp0>;
+			isp-opp = <&opp_table_img>;
 			mdp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			isp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			dre30_hist_sram_start = <1536>;
