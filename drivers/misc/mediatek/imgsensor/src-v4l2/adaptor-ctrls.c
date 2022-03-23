@@ -2,6 +2,7 @@
 // Copyright (c) 2020 MediaTek Inc.
 
 #include <linux/pm_runtime.h>
+#include <linux/thermal.h>
 
 #include "kd_imgsensor_define_v4l2.h"
 #include "adaptor.h"
@@ -522,12 +523,15 @@ static int g_volatile_temperature(struct adaptor_ctx *ctx,
 	union feature_para para;
 	u32 len = 0;
 
-	subdrv_call(ctx, feature_control,
-		SENSOR_FEATURE_GET_TEMPERATURE_VALUE,
-		para.u8, &len);
+	if (ctx->is_streaming) {
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_GET_TEMPERATURE_VALUE,
+			para.u8, &len);
 
-	if (len)
-		*ctrl->p_new.p_s32 = para.u32[0];
+		if (len)
+			*ctrl->p_new.p_s32 = para.u32[0];
+	} else
+		*ctrl->p_new.p_s32 = THERMAL_TEMP_INVALID;
 
 	return 0;
 }
