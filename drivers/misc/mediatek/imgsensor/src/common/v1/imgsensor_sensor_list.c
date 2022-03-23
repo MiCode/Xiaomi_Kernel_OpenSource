@@ -15,6 +15,16 @@
  *     mediatek\custom\common\hal\imgsensor\src\sensorlist.cpp
  */
 struct IMGSENSOR_INIT_FUNC_LIST kdSensorList[MAX_NUM_OF_SUPPORT_SENSOR] = {
+#if defined(S5K4H7_MIPI_RAW)
+	{S5K4H7_SENSOR_ID,
+	SENSOR_DRVNAME_S5K4H7_MIPI_RAW,
+	S5K4H7_MIPI_RAW_SensorInit},
+#endif
+#if defined(S5K4H7SUB_MIPI_RAW)
+	{S5K4H7SUB_SENSOR_ID,
+	SENSOR_DRVNAME_S5K4H7SUB_MIPI_RAW,
+	S5K4H7SUB_MIPI_RAW_SensorInit},
+#endif
 	/*IMX*/
 #if defined(IMX519_MIPI_RAW)
 	{IMX519_SENSOR_ID,
