@@ -1883,7 +1883,11 @@ int bq27xxx_battery_setup(struct bq27xxx_device_info *di)
 	if (!psy_desc)
 		return -ENOMEM;
 
+#if defined(CONFIG_MACH_MT6893)
+	psy_desc->name = "battery";
+#else
 	psy_desc->name = di->name;
+#endif
 	psy_desc->type = POWER_SUPPLY_TYPE_BATTERY;
 	psy_desc->properties = bq27xxx_chip_data[di->chip].props;
 	psy_desc->num_properties = bq27xxx_chip_data[di->chip].props_size;

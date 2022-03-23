@@ -87,6 +87,18 @@ signed int battery_get_bat_current(void)
 {
 	int curr_val;
 	bool is_charging;
+#if defined(CONFIG_MTK_DISABLE_GAUGE)
+	union power_supply_propval value;
+
+	/* get battery current from external "battery" power supply if support */
+	struct power_supply *ba_psy = power_supply_get_by_name("battery");
+
+	if (ba_psy) {
+		power_supply_get_property(ba_psy, POWER_SUPPLY_PROP_CURRENT_NOW, &value);
+		pr_info("%s:get ba_psy success, bat_current(%d)\n",__func__, value.intval);
+		return value.intval;
+	}
+#endif
 
 	is_charging = gauge_get_current(&curr_val);
 	if (is_charging == false)
@@ -103,6 +115,19 @@ signed int battery_get_soc(void)
 {
 	struct mtk_battery *gm = get_mtk_battery();
 
+#if defined(CONFIG_MTK_DISABLE_GAUGE)
+	union power_supply_propval value;
+
+	/* get battery current from external "battery" power supply if support */
+	struct power_supply *ba_psy = power_supply_get_by_name("battery");
+
+	if (ba_psy) {
+		power_supply_get_property(ba_psy, POWER_SUPPLY_PROP_CAPACITY, &value);
+		pr_info("s:get ba_psy success, soc(%d)\n",__func__, value.intval);
+		return value.intval;
+	}
+#endif
+
 	if (gm != NULL)
 		return gm->soc;
 	else
@@ -111,6 +136,11 @@ signed int battery_get_soc(void)
 
 signed int battery_get_uisoc(void)
 {
+#if defined(CONFIG_MTK_DISABLE_GAUGE)
+	union power_supply_propval value;
+	struct power_supply *ba_psy = power_supply_get_by_name("battery");
+#endif
+
 	struct mtk_battery *gm = get_mtk_battery();
 	int boot_mode = gm->boot_mode;
 
@@ -119,6 +149,16 @@ signed int battery_get_uisoc(void)
 		(boot_mode == FACTORY_BOOT) ||
 		(boot_mode == ATE_FACTORY_BOOT))
 		return 75;
+
+	/* get battery ui_soc from external "battery" power supply if support */
+#if defined(CONFIG_MTK_DISABLE_GAUGE)
+	if (ba_psy) {
+		power_supply_get_property(ba_psy, POWER_SUPPLY_PROP_CAPACITY, &value);
+		pr_info("%s:get ba_psy success, ui_soc(%d)\n",__func__, value.intval);
+		return value.intval;
+	}
+#endif
+
 	if (gm != NULL)
 		return gm->ui_soc;
 	else
@@ -127,6 +167,22 @@ signed int battery_get_uisoc(void)
 
 signed int battery_get_bat_temperature(void)
 {
+#if defined(CONFIG_MTK_DISABLE_GAUGE)
+	union power_supply_propval value;
+
+	/* get battery current from external "battery" power supply if support */
+	struct power_supply *ba_psy = power_supply_get_by_name("battery");
+
+	if (ba_psy) {
+		power_supply_get_property(ba_psy, POWER_SUPPLY_PROP_TEMP, &value);
+		pr_info("%s:get ba_psy success, temp(%d)\n",__func__, value.intval);
+		if (value.intval >= 100)
+			value.intval /= 10;
+
+		return value.intval;
+	}
+#endif
+
 	/* TODO */
 	if (is_battery_init_done())
 		return force_get_tbat(true);
@@ -147,6 +203,20 @@ signed int battery_get_vbus(void)
 signed int battery_get_bat_avg_current(void)
 {
 	bool valid;
+
+#if defined(CONFIG_MTK_DISABLE_GAUGE)
+		union power_supply_propval value;
+
+		/* get battery current from external "battery" power supply if support */
+		struct power_supply *ba_psy = power_supply_get_by_name("battery");
+
+		if (ba_psy) {
+			power_supply_get_property(ba_psy, POWER_SUPPLY_PROP_CURRENT_AVG, &value);
+			pr_info("%s:get ba_psy success, bat_avg_current(%d)\n",__func__,
+				value.intval);
+			return value.intval;
+		}
+#endif
 
 	return gauge_get_average_current(&valid);
 }
