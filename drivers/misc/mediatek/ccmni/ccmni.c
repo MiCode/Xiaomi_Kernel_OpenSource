@@ -1713,7 +1713,7 @@ static void ccmni_dump(int md_id, int ccmni_idx, unsigned int flag)
 		 * packets is count by qdisc in net device layer
 		 */
 		CCMNI_INF_MSG(md_id,
-			"%s(%d,%d), irat_MD%d, rx=(%ld,%ld,%d), tx=(%ld,%d,%lld), txq_len=(%d,%d), tx_drop=(%ld,%d,%d), rx_drop=(%ld,%ld), tx_busy=(%ld,%ld), sta=(0x%lx,0x%x,0x%lx,0x%lx)\n",
+			"%s(%d,%d), irat_MD%d, rx=(%lu,%lu,%u), tx=(%lu,%u,%u), txq_len=(%u,%u), tx_drop=(%lu,%u,%u), rx_drop=(%lu,%ld), tx_busy=(%lu,%lu), sta=(0x%lx,0x%x,0x%lx,0x%lx)\n",
 				  dev->name,
 				  atomic_read(&ccmni->usage),
 				  atomic_read(&ccmni_tmp->usage),
@@ -1733,7 +1733,7 @@ static void ccmni_dump(int md_id, int ccmni_idx, unsigned int flag)
 				  ack_queue->state);
 	} else
 		CCMNI_INF_MSG(md_id,
-			      "%s(%d,%d), irat_MD%d, rx=(%ld,%ld,%d), tx=(%ld,%ld), txq_len=%d, tx_drop=(%ld,%d), rx_drop=(%ld,%ld), tx_busy=(%ld,%ld), sta=(0x%lx,0x%x,0x%lx)\n",
+			      "%s(%d,%d), irat_MD%d, rx=(%lu,%lu,%u), tx=(%lu,%lu), txq_len=%u, tx_drop=(%lu,%u), rx_drop=(%lu,%ld), tx_busy=(%lu,%lu), sta=(0x%lx,0x%x,0x%lx)\n",
 			      dev->name, atomic_read(&ccmni->usage),
 				  atomic_read(&ccmni_tmp->usage),
 						(ccmni->md_id + 1),
