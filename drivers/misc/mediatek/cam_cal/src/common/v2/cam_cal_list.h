@@ -19,6 +19,9 @@ struct stCAM_CAL_LIST_STRUCT {
 	cam_cal_cmd_func writeCamCalData;
 };
 
+extern unsigned int s5k4h7_read_region(struct i2c_client *client,
+				unsigned int addr,
+				unsigned char *data, unsigned int size);
 
 unsigned int cam_cal_get_sensor_list
 		(struct stCAM_CAL_LIST_STRUCT **ppCamcalList);
