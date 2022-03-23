@@ -10,15 +10,8 @@
 		compatible = "mediatek,clk-bring-up";
 		clocks =
 			<&topckgen_clk CLK_TOP_IPE_SEL>,
-			<&topckgen_clk CLK_TOP_CAM_SEL>,
 			<&topckgen_clk CLK_TOP_MFG_REF_SEL>,
 			<&topckgen_clk CLK_TOP_MFG_PLL_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG2_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG3_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG4_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG5_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTG6_SEL>,
 			<&topckgen_clk CLK_TOP_UART_SEL>,
 			<&topckgen_clk CLK_TOP_SPI_SEL>,
 			<&topckgen_clk CLK_TOP_MSDC50_0_HCLK_SEL>,
@@ -31,10 +24,6 @@
 			<&topckgen_clk CLK_TOP_SCAM_SEL>,
 			<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_USB_TOP_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF1_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF2_SEL>,
-			<&topckgen_clk CLK_TOP_SENINF3_SEL>,
 			<&topckgen_clk CLK_TOP_AUD_ENGEN1_SEL>,
 			<&topckgen_clk CLK_TOP_AUD_ENGEN2_SEL>,
 			<&topckgen_clk CLK_TOP_AES_UFSFDE_SEL>,
@@ -44,7 +33,6 @@
 			<&topckgen_clk CLK_TOP_DPMAIF_MAIN_SEL>,
 			<&topckgen_clk CLK_TOP_VENC_SEL>,
 			<&topckgen_clk CLK_TOP_VDEC_SEL>,
-			<&topckgen_clk CLK_TOP_CAMTM_SEL>,
 			<&topckgen_clk CLK_TOP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_AUDIO_H_SEL>,
 			<&topckgen_clk CLK_TOP_AES_MSDCFDE_SEL>,
@@ -191,24 +179,7 @@
 			<&afe_clk CLK_AFE_GENERAL2_ASRC>,
 			<&afe_clk CLK_AFE_DAC_HIRES>,
 			<&afe_clk CLK_AFE_ADC_HIRES>,
-			<&afe_clk CLK_AFE_ADC_HIRES_TML>,
-			<&camsys_main_clk CLK_CAM_M_LARB13>,
-			<&camsys_main_clk CLK_CAM_M_LARB14>,
-			<&camsys_main_clk CLK_CAM_M_CAM>,
-			<&camsys_main_clk CLK_CAM_M_CAMTG>,
-			<&camsys_main_clk CLK_CAM_M_SENINF>,
-			<&camsys_main_clk CLK_CAM_M_CAMSV1>,
-			<&camsys_main_clk CLK_CAM_M_CAMSV2>,
-			<&camsys_main_clk CLK_CAM_M_CAMSV3>,
-			<&camsys_main_clk CLK_CAM_M_MRAW0>,
-			<&camsys_main_clk CLK_CAM_M_FAKE_ENG>,
-			<&camsys_main_clk CLK_CAM_M_CAM2MM_GALS>,
-			<&camsys_rawa_clk CLK_CAM_RA_LARBX>,
-			<&camsys_rawa_clk CLK_CAM_RA_CAM>,
-			<&camsys_rawa_clk CLK_CAM_RA_CAMTG>,
-			<&camsys_rawb_clk CLK_CAM_RB_LARBX>,
-			<&camsys_rawb_clk CLK_CAM_RB_CAM>,
-			<&camsys_rawb_clk CLK_CAM_RB_CAMTG>;
+			<&afe_clk CLK_AFE_ADC_HIRES_TML>;
 	};
 
 	bring-up-pd-mfg0 {
@@ -260,20 +231,4 @@
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6789_POWER_DOMAIN_AUDIO>;
 	};
-
-	bring-up-pd-cam {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6789_POWER_DOMAIN_CAM>;
-	};
-
-	bring-up-pd-cam_rawa {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6789_POWER_DOMAIN_CAM_RAWA>;
-	};
-
-	bring-up-pd-cam_rawb {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6789_POWER_DOMAIN_CAM_RAWB>;
-	};
-
 };
