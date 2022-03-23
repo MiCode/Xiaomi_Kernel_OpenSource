@@ -4633,7 +4633,8 @@ static int kbase_jd_user_buf_map(struct kbase_context *kctx,
 		dma_addr = dma_map_page(dev, pages[i],
 				offset, min,
 				DMA_BIDIRECTIONAL);
-		if (dma_mapping_error(dev, dma_addr))
+		err = dma_mapping_error(dev, dma_addr);
+		if (err)
 			goto unwind;
 
 		alloc->imported.user_buf.dma_addrs[i] = dma_addr;
