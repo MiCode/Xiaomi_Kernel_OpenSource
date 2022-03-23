@@ -66,7 +66,7 @@ static int ufs_abort_aee_count;
 	ufs_mtk_smc(UFS_MTK_SIP_DEVICE_PWR_CTRL, res, on, ufs_version)
 
 static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
-	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
+	UFS_FIX(UFS_ANY_VENDOR, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_AFTER_LPM),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ21AFAMZDAR",
 		UFS_DEVICE_QUIRK_SUPPORT_EXTENDED_FEATURES),
