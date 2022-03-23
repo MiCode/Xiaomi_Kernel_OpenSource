@@ -300,6 +300,9 @@ static ssize_t cpufreq_debug_proc_write(struct file *file,
 	struct device *cpu_dev = get_cpu_device(cpu);
 	struct cpufreq_policy *policy;
 
+	if (count >= 1000)
+		return -EINVAL;
+
 	if (copy_from_user(buf, buffer, count)) {
 		free_page((unsigned long)buf);
 		return -EINVAL;
