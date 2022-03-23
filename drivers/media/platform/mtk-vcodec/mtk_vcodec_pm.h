@@ -130,6 +130,10 @@ enum mtk_dec_dump_addr_type {
 #define MTK_VDEC_M4U_PORT_NAME_LAT0_MC		"M4U_PORT_VDEC_LAT0_MC"
 #define MTK_VDEC_M4U_PORT_NAME_LAT0_UFO_ENC	"M4U_PORT_VDEC_LAT0_UFO_ENC"
 #define MTK_VDEC_M4U_PORT_NAME_LAT0_UFO_ENC_C	"M4U_PORT_VDEC_LAT0_UFO_ENC_C"
+#define MTK_VDEC_M4U_PORT_NAME_UP_1		"M4U_PORT_VIDEO_UP_1"
+#define MTK_VDEC_M4U_PORT_NAME_UP_2		"M4U_PORT_VIDEO_UP_2"
+#define MTK_VDEC_M4U_PORT_NAME_UP_3		"M4U_PORT_VIDEO_UP_3"
+#define MTK_VDEC_M4U_PORT_NAME_UP_4		"M4U_PORT_VIDEO_UP_4"
 
 enum mtk_dec_dtsi_m4u_port_idx {
 	VDEC_M4U_PORT_MC,
@@ -154,6 +158,10 @@ enum mtk_dec_dtsi_m4u_port_idx {
 	VDEC_M4U_PORT_LAT0_MC,
 	VDEC_M4U_PORT_LAT0_UFO,
 	VDEC_M4U_PORT_LAT0_UFO_C,
+	VDEC_M4U_PORT_UP_1,
+	VDEC_M4U_PORT_UP_2,
+	VDEC_M4U_PORT_UP_3,
+	VDEC_M4U_PORT_UP_4,
 	NUM_MAX_VDEC_M4U_PORT
 };
 
@@ -180,6 +188,10 @@ static char *dec_port_name[NUM_MAX_VDEC_M4U_PORT+1] = {
 	[VDEC_M4U_PORT_LAT0_MC]             = "LAT_MC",
 	[VDEC_M4U_PORT_LAT0_UFO]            = "LAT_UFO",
 	[VDEC_M4U_PORT_LAT0_UFO_C]          = "LAT_UFO_C",
+	[VDEC_M4U_PORT_UP_1]                = "UP_1",
+	[VDEC_M4U_PORT_UP_2]                = "UP_2",
+	[VDEC_M4U_PORT_UP_3]                = "UP_3",
+	[VDEC_M4U_PORT_UP_4]                = "UP_4",
 	[NUM_MAX_VDEC_M4U_PORT]             = "UNKNOWN",
 };
 
