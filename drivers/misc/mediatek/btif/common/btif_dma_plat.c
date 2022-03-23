@@ -792,7 +792,7 @@ int hal_tx_dma_irq_handler(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 			BTIF_ERR_FUNC
 			    ("*************ERROR, ERROR, ERROR************\n");
 			BTIF_ERR_FUNC(
-			     "Tx happened %d times, between %ld.%ld and %ld.%ld\n",
+			     "Tx happened %d times, between %lld.%ld and %lld.%ld\n",
 			     MAX_CONTINUOUS_TIMES, start_timer.tv_sec,
 			     start_timer.tv_nsec, end_timer.tv_sec,
 			     end_timer.tv_nsec);
