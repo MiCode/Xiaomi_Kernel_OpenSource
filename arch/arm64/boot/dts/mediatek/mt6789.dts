@@ -4662,6 +4662,54 @@
 			reg = <0 0x15812000 0 0x1000>;
 		};
 
+		vdec_fmt: vdec_fmt@16080000 {
+			compatible = "mediatek-vdec-fmt";
+			mediatek,fmtname = "vdec-fmt";
+			reg = <0 0x16080000 0 0x1000>, /* mini_mdp0_rdma */
+				<0 0x16081000 0 0x1000>, /* mini_mdp0_wdma */
+				<0 0x1602f000 0 0x10000>; /* VDEC_SOC_GCON */
+			clocks = <&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>,
+				<&vdec_gcon_base_clk CLK_VDE2_MINI_MDP_CKEN_CFG_RG>;
+			clock-names = "MT_CG_VDEC", "MT_CG_MINI_MDP";
+			mediatek,fmt_gce_th_num = <1>; /* FMT GCE HW THREAD NUM */
+			mboxes = <&gce 13 2000 CMDQ_THR_PRIO_1>;
+			/* rdma0_sw_rst_done_eng_event */
+			rdma0_sw_rst_done_eng =
+			/bits/ 16 <CMDQ_EVENT_VDEC_VDEC_MINI_MDP_EVENT_0>;
+			/* rdma0_tile_done */
+			rdma0_tile_done =
+			/bits/ 16 <CMDQ_EVENT_VDEC_VDEC_MINI_MDP_EVENT_1>;
+			/* wdma0_sw_rst_done_eng_event */
+			wdma0_sw_rst_done_eng =
+			/bits/ 16 <CMDQ_EVENT_VDEC_VDEC_MINI_MDP_EVENT_2>;
+			/* wdma0_tile_done */
+			wdma0_tile_done =
+			/bits/ 16 <CMDQ_EVENT_VDEC_VDEC_MINI_MDP_EVENT_3>;
+			/* rdma1_sw_rst_done_eng_event */
+			rdma1_sw_rst_done_eng =
+			/bits/ 16 <CMDQ_EVENT_VDEC_VDEC_MINI_MDP_EVENT_4>;
+			/* rdma1_tile_done */
+			rdma1_tile_done =
+			/bits/ 16 <CMDQ_EVENT_VDEC_VDEC_MINI_MDP_EVENT_7>;
+			/* wdma1_sw_rst_done_eng_event */
+			wdma1_sw_rst_done_eng =
+			/bits/ 16 <CMDQ_EVENT_VDEC_VDEC_MINI_MDP_EVENT_6>;
+			/* wdma1_tile_done */
+			wdma1_tile_done =
+			/bits/ 16 <CMDQ_EVENT_VDEC_VDEC_MINI_MDP_EVENT_8>;
+			gce-gpr = <GCE_GPR_R10>;
+			iommus = <&disp_iommu M4U_PORT_L4_MINI_MDP_R0_EXT>,
+					<&disp_iommu M4U_PORT_L4_MINI_MDP_W0_EXT>;
+			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			power-domains = <&scpsys MT6789_POWER_DOMAIN_VDEC>;
+			mediatek,larbs = <&smi_larb4>;
+			operating-points-v2 = <&opp_table_vdec>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			m4u-ports =
+				<M4U_PORT_L4_MINI_MDP_R0_EXT>,
+				<M4U_PORT_L4_MINI_MDP_W0_EXT>;
+		};
+
 		jpgenc@17030000 {
 			compatible = "mediatek,jpgenc";
 			reg = <0 0x17030000 0 0x10000>;
