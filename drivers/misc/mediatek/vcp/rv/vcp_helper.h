@@ -160,6 +160,8 @@ struct vcp_region_info_st {
 	uint32_t ap_params_start;
 };
 
+extern unsigned int vcp_support;
+
 /* vcp device attribute */
 extern struct device_attribute dev_attr_vcp_A_mobile_log_UT;
 extern struct device_attribute dev_attr_vcp_A_logger_wakeup_AP;

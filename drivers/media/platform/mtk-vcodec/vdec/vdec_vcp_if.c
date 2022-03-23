@@ -843,7 +843,7 @@ void vdec_vcp_probe(struct mtk_vcodec_dev *dev)
 	init_waitqueue_head(&dev->mq.wq);
 	atomic_set(&dev->mq.cnt, 0);
 
-	if (!VCU_FPTR(vcu_load_firmware))
+	if (vcp_support)
 		mtk_vcodec_vcp |= 1 << MTK_INST_DECODER;
 
 	ret = mtk_ipi_register(&vcp_ipidev, IPI_IN_VDEC_1,

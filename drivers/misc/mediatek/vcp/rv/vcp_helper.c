@@ -83,6 +83,8 @@ unsigned int vcp_enable[VCP_CORE_TOTAL];
 unsigned int vcp_expected_freq;
 unsigned int vcp_current_freq;
 unsigned int vcp_support;
+EXPORT_SYMBOL_GPL(vcp_support);
+
 unsigned int vcp_dbg_log;
 
 /*vcp awake variable*/
