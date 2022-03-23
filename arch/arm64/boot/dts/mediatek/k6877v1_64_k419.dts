@@ -171,8 +171,6 @@
 		reg = <0>;
 		pm-enable-gpios = <&pio 107 0>;
 		reset-gpios = <&pio 40 0>;
-		bias-gpios = <&pio 108 0>,
-			<&pio 111 0>;
 		pinctrl-names = "default";
 		port {
 			panel_in1: endpoint {
@@ -185,8 +183,6 @@
 		reg = <1>;
 		pm-enable-gpios = <&pio 107 0>;
 		reset-gpios = <&pio 40 0>;
-		bias-gpios = <&pio 108 0>,
-			<&pio 111 0>;
 		pinctrl-names = "default";
 		port {
 			panel_in2: endpoint {
@@ -199,8 +195,6 @@
 		reg = <2>;
 		pm-enable-gpios = <&pio 107 0>;
 		reset-gpios = <&pio 40 0>;
-		bias-gpios = <&pio 108 0>,
-			<&pio 111 0>;
 		pinctrl-names = "default";
 		port {
 			panel_in3: endpoint {
