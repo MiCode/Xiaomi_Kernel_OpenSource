@@ -250,6 +250,8 @@ static  struct dvfs_ref s_dl_dvfs_tbl[] = {
 	{0LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x3D},
 };
 
+#ifndef CCCI_PLATFORM_MT6877
+/* for mt6853 UL dvfs table */
 static  struct dvfs_ref s_ul_dvfs_tbl[] = {
 	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps*/
 	{600000000LL, 2700000, 2706000, -1, -1, 0, 0x02, 0xC0, 0xC0},
@@ -260,6 +262,18 @@ static  struct dvfs_ref s_ul_dvfs_tbl[] = {
 	/* normal */
 	{0LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x3D},
 };
+#else
+/* for mt6877 UL dvfs table */
+static  struct dvfs_ref s_ul_dvfs_tbl[] = {
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps*/
+	{500000000LL, 1800000, 910000, -1, -1, 0, 0x02, 0xC0, 0xC0},
+	{300000000LL, 1703000, 740000, -1, -1, 1, 0xFF, 0xFF, 0x3D},
+	{250000000LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x3D},
+
+	/* normal */
+	{0LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x3D},
+};
+#endif
 
 struct dvfs_ref *mtk_ccci_get_dvfs_table(int is_ul, int *tbl_num)
 {
