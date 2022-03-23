@@ -3495,36 +3495,35 @@
 				"top_mux_audio_h",
 				"top_clk26m_clk";
 
-			/* pinctrl-names = "aud_clk_mosi_off",
-			 *		"aud_clk_mosi_on",
-			 *		"aud_clk_miso_off",
-			 *		"aud_clk_miso_on",
-			 *		"aud_dat_mosi_off",
-			 *		"aud_dat_mosi_on",
-			 *		"aud_dat_miso0_off",
-			 *		"aud_dat_miso0_on",
-			 *		"aud_dat_miso1_off",
-			 *		"aud_dat_miso1_on",
-			 *		"aud_gpio_i2s0_off",
-			 *		"aud_gpio_i2s0_on",
-			 *		"aud_gpio_i2s3_off",
-			 *		"aud_gpio_i2s3_on";
+			pinctrl-names = "aud_clk_mosi_off",
+					"aud_clk_mosi_on",
+					"aud_clk_miso_off",
+					"aud_clk_miso_on",
+					"aud_dat_mosi_off",
+					"aud_dat_mosi_on",
+					"aud_dat_miso0_off",
+					"aud_dat_miso0_on",
+					"aud_dat_miso1_off",
+					"aud_dat_miso1_on",
+					"aud_gpio_i2s0_off",
+					"aud_gpio_i2s0_on",
+					"aud_gpio_i2s3_off",
+					"aud_gpio_i2s3_on";
 
-			 * pinctrl-0 = <&aud_clk_mosi_off>;
-			 * pinctrl-1 = <&aud_clk_mosi_on>;
-			 * pinctrl-2 = <&aud_clk_miso_off>;
-			 * pinctrl-3 = <&aud_clk_miso_on>;
-			 * pinctrl-4 = <&aud_dat_mosi_off>;
-			 * pinctrl-5 = <&aud_dat_mosi_on>;
-			 * pinctrl-6 = <&aud_dat_miso0_off>;
-			 * pinctrl-7 = <&aud_dat_miso0_on>;
-			 * pinctrl-8 = <&aud_dat_miso1_off>;
-			 * pinctrl-9 = <&aud_dat_miso1_on>;
-			 * pinctrl-10 = <&aud_gpio_i2s0_off>;
-			 * pinctrl-11 = <&aud_gpio_i2s0_on>;
-			 * pinctrl-12 = <&aud_gpio_i2s3_off>;
-			 * pinctrl-13 = <&aud_gpio_i2s3_on>;
-			 */
+			pinctrl-0 = <&aud_clk_mosi_off>;
+			pinctrl-1 = <&aud_clk_mosi_on>;
+			pinctrl-2 = <&aud_clk_miso_off>;
+			pinctrl-3 = <&aud_clk_miso_on>;
+			pinctrl-4 = <&aud_dat_mosi_off>;
+			pinctrl-5 = <&aud_dat_mosi_on>;
+			pinctrl-6 = <&aud_dat_miso0_off>;
+			pinctrl-7 = <&aud_dat_miso0_on>;
+			pinctrl-8 = <&aud_dat_miso1_off>;
+			pinctrl-9 = <&aud_dat_miso1_on>;
+			pinctrl-10 = <&aud_gpio_i2s0_off>;
+			pinctrl-11 = <&aud_gpio_i2s0_on>;
+			pinctrl-12 = <&aud_gpio_i2s3_off>;
+			pinctrl-13 = <&aud_gpio_i2s3_on>;
 		};
 
 		audio_sram@11212000 {
