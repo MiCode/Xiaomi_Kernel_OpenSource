@@ -641,7 +641,9 @@ struct devfreq *devfreq_add_device(struct device *dev,
 		mutex_unlock(&devfreq->lock);
 		err = set_freq_table(devfreq);
 		if (err < 0)
+		#if !defined(CONFIG_MACH_MT6771)
 			goto err_out;
+		#endif
 		mutex_lock(&devfreq->lock);
 	}
 
@@ -651,8 +653,10 @@ struct devfreq *devfreq_add_device(struct device *dev,
 	devfreq->scaling_max_freq = find_available_max_freq(devfreq);
 	if (!devfreq->scaling_max_freq) {
 		mutex_unlock(&devfreq->lock);
+		#if !defined(CONFIG_MACH_MT6771)
 		err = -EINVAL;
 		goto err_dev;
+		#endif
 	}
 	devfreq->max_freq = devfreq->scaling_max_freq;
 

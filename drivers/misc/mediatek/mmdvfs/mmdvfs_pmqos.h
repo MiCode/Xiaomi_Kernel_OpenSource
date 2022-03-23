@@ -45,7 +45,7 @@ struct mm_qos_request {
 	u32 comp_type;	/* compression type */
 	bool init;	/* initialized check */
 	bool updated;	/* update check */
-	struct pm_qos_request qos_request;	/* EMI setting */
+	struct mtk_pm_qos_request qos_request;	/* EMI setting */
 };
 
 enum mmdvfs_limit_source {
