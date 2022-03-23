@@ -6271,7 +6271,6 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		for (j = 0; j < clkcnt; j++)
 			ISP_EnableClock(i, MFALSE);
 	}
-
 	for (i = RUNTIME_ISP_CAMSV_START_IDX; i <= ISP_CAMSV_END_IDX; i++) {
 		int clkcnt = 0;
 		int j = 0;
@@ -6289,9 +6288,13 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		Reg &= 0xfffffffE; /* close Vfinder */
 		ISP_WR32(CAMSV_REG_TG_VF_CON(i), Reg);
 
-		LOG_INF("dev(%d): Disable all clk, cnt(%d)\n", i, clkcnt);
+		LOG_INF("CAMSV_%d_REG_TG_VF_CON 0x%08x\n",
+					   (i - ISP_CAMSV_START_IDX),
+					   ISP_RD32(CAMSV_REG_TG_VF_CON(i)));
+		LOG_INF("dev(%d): Disable all clk, cnt(%d) +\n", i, clkcnt);
 		for (j = 0; j < clkcnt; j++)
 			ISP_EnableClock(i, MFALSE);
+		LOG_INF("dev(%d): Disable all clk, cnt(%d) -\n", i, clkcnt);
 	}
 
 	/* why i add this wake_unlock here, */
