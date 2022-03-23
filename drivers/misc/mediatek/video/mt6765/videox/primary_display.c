@@ -2263,6 +2263,9 @@ static int _DC_switch_to_DL_fast(int block)
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	int active_cfg = 0;
 #endif
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	unsigned int vfp;
+#endif
 
 	/* 3.destroy ovl->mem path. */
 	data_config_dc = dpmgr_path_get_last_config(pgc->ovl2mem_path_handle);
@@ -2348,6 +2351,15 @@ static int _DC_switch_to_DL_fast(int block)
 	gset_arg.is_decouple_mode = 0;
 	dpmgr_path_ioctl(pgc->dpmgr_handle, pgc->cmdq_handle_config,
 		DDP_OVL_GOLDEN_SETTING, &gset_arg);
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	if (primary_display_is_support_DynFPS()) {
+		primary_display_dynfps_get_vfp_info(&vfp, NULL);
+		DISPMSG("%s, apply vfp=%d\n", __func__, vfp);
+		dpmgr_path_ioctl(pgc->dpmgr_handle, pgc->cmdq_handle_config,
+			DDP_DSI_PORCH_CHANGE, &vfp);
+	}
+#endif
 
 	cmdqRecBackupUpdateSlot(pgc->cmdq_handle_config, pgc->rdma_buff_info,
 		0, 0);

@@ -893,7 +893,6 @@ void _vdo_mode_leave_idle(void)
 	/* Enable irq & restore vfp */
 	if (!primary_is_sec()) {
 		if (idlemgr_pgc->cur_lp_cust_mode != 0) {
-			primary_display_dsi_vfp_change(0);
 			idlemgr_pgc->cur_lp_cust_mode = 0;
 			if (disp_helper_get_option(
 				DISP_OPT_DYNAMIC_RDMA_GOLDEN_SETTING))
