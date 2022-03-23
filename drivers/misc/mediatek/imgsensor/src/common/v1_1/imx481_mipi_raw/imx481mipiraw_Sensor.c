@@ -2254,7 +2254,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			break;
 		}
 		break;
-#ifdef IMGSENSOR_MT6885
+#if defined(IMGSENSOR_MT6885) || defined(IMGSENSOR_MT6877)
 	case SENSOR_FEATURE_GET_OFFSET_TO_START_OF_EXPOSURE:
 		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 1500000;
 		break;

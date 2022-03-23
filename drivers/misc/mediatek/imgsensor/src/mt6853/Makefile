@@ -7,6 +7,7 @@ MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 
 ifeq ($(CONFIG_MACH_MT6877),y)
 MTK_DERIVED_PLATFORM := mt6877
+subdir-ccflags-y += -DIMGSENSOR_MT6877
 endif
 
 ifeq ($(CONFIG_MACH_MT6833),y)
