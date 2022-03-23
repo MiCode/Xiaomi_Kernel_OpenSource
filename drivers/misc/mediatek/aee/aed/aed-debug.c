@@ -469,7 +469,7 @@ static ssize_t proc_generate_nested_ke_write(struct file *file,
 		register_die_notifier(&panic_blk);
 		break;
 	}
-	BUG();
+	//BUG();
 	return 0;
 }
 
@@ -637,6 +637,39 @@ static ssize_t proc_generate_scp_write(struct file *file,
 	return 0;
 }
 
+static ssize_t proc_generate_adsp_read(struct file *file,
+					char __user *buf, size_t size,
+					loff_t *ppos)
+{
+#define TEST_ADSP_PHY_SIZE      65536
+	char buffer[BUFSIZE];
+	int i;
+	char *ptr;
+	int n;
+
+	if ((*ppos)++)
+		return 0;
+	ptr = kmalloc(TEST_ADSP_PHY_SIZE, GFP_KERNEL);
+	if (ptr == NULL)
+		return sprintf(buffer, "kmalloc fail\n");
+	for (i = 0; i < TEST_ADSP_PHY_SIZE; i++)
+		ptr[i] = (i % 26) + 'a';
+
+	n = sprintf(buffer, "ADSP EE log here\n");
+	if (n < 0 || n >= sizeof(buffer))
+		strncpy(buffer, "unknown error", sizeof(buffer));
+	aed_common_exception("adsp", (int *)buffer, (int)sizeof(buffer),
+				(int *)ptr, TEST_ADSP_PHY_SIZE, __FILE__);
+	kfree(ptr);
+	return sprintf(buffer, "ADSP EE Generated\n");
+}
+
+static ssize_t proc_generate_adsp_write(struct file *file,
+					const char __user *buf, size_t size,
+					loff_t *ppos)
+{
+	return 0;
+}
 
 static ssize_t proc_generate_kernel_notify_read(struct file *file,
 						char __user *buf, size_t size,
@@ -696,15 +729,18 @@ static ssize_t proc_generate_kernel_notify_write(struct file *file,
 
 	switch (msg[0]) {
 	case 'R':
-		aee_kernel_reminding(&msg[2], "Hello World[Error]");
+		aee_kernel_reminding_api(__FILE__, __LINE__,
+				DB_OPT_DEFAULT | DB_OPT_NATIVE_BACKTRACE, &msg[2], colon_ptr + 1);
 		break;
 
 	case 'W':
-		aee_kernel_warning(&msg[2], "Hello World[Error]");
+		aee_kernel_warning_api(__FILE__, __LINE__,
+				DB_OPT_DEFAULT | DB_OPT_NATIVE_BACKTRACE, &msg[2], colon_ptr + 1);
 		break;
 
 	case 'E':
-		aee_kernel_exception(&msg[2], "Hello World[Error]");
+		aee_kernel_exception_api(__FILE__, __LINE__,
+				DB_OPT_DEFAULT | DB_OPT_NATIVE_BACKTRACE, &msg[2], colon_ptr + 1);
 		break;
 
 	default:
@@ -722,6 +758,7 @@ AED_FILE_OPS(generate_ee);
 AED_FILE_OPS(generate_combo);
 AED_FILE_OPS(generate_md32);
 AED_FILE_OPS(generate_scp);
+AED_FILE_OPS(generate_adsp);
 
 int aed_proc_debug_init(struct proc_dir_entry *aed_proc_dir)
 {
@@ -737,6 +774,7 @@ int aed_proc_debug_init(struct proc_dir_entry *aed_proc_dir)
 	AED_PROC_ENTRY(generate-combo, generate_combo, 0400);
 	AED_PROC_ENTRY(generate-md32, generate_md32, 0400);
 	AED_PROC_ENTRY(generate-scp, generate_scp, 0400);
+	AED_PROC_ENTRY(generate-adsp, generate_adsp, 0400);
 
 	return 0;
 }
@@ -751,5 +789,6 @@ int aed_proc_debug_done(struct proc_dir_entry *aed_proc_dir)
 	remove_proc_entry("generate-md32", aed_proc_dir);
 	remove_proc_entry("generate-scp", aed_proc_dir);
 	remove_proc_entry("generate-wdt", aed_proc_dir);
+	remove_proc_entry("generate-adsp", aed_proc_dir);
 	return 0;
 }
