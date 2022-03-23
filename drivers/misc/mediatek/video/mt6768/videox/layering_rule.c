@@ -546,7 +546,6 @@ static bool filter_by_yuv_layers(struct disp_layer_info *disp_info)
 				continue;
 			}
 
-#if defined(CONFIG_MTK_HIGH_FRAME_RATE)
 			/* ovl support total 1 yuv layer, align to mt6853*/
 			if (is_yuv(info->src_fmt)) {
 				yuv_cnt++;
@@ -555,7 +554,6 @@ static bool filter_by_yuv_layers(struct disp_layer_info *disp_info)
 					flag = true;
 				}
 			}
-#endif
 		}
 	}
 
