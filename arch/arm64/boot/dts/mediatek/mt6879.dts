@@ -2932,6 +2932,8 @@
 			reg-names = "performance-domain0",
 				"performance-domain1";
 			#performance-domain-cells = <1>;
+			/* CPUDVFS MCL50 Config */
+			dvfs-config = "mcl50";
 		};
 
 		cpu_mcucfg: mcusys_ao_cfg@0c530000 {
