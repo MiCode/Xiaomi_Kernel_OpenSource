@@ -3599,7 +3599,6 @@
 				<&infracfg_rst 3>;
 			reset-names = "hci_rst", "unipro_rst", "crypto_rst";
 
-			mediatek,ufs-disable-ah8;
 			bootmode = <&chosen>;
 			mediatek,ufs-qos;
 		};
@@ -6363,10 +6362,6 @@
 };
 
 &mt6358_vaux18_reg {
-	regulator-always-on;
-};
-
-&mt6358_vemc_reg {
 	regulator-always-on;
 };
 
