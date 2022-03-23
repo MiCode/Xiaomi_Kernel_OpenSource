@@ -254,7 +254,7 @@ static const struct mfd_cell mt6366_devs[] = {
 		.of_compatible = "mediatek,mt63xx-debug",
 	}, {
 		.name = "mediatek,pmic-accdet",
-		.of_compatible = "mediatek,mt6366-accdet",
+		.of_compatible = "mediatek,mt6358-accdet",
 		.num_resources = ARRAY_SIZE(mt6366_accdet_resources),
 		.resources = mt6366_accdet_resources,
 	}, {
