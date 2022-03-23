@@ -731,50 +731,79 @@ int mtk_mbox_probe(struct platform_device *pdev, struct mtk_mbox_device *mbdev,
 	if (pdev) {
 		snprintf(name, sizeof(name), "mbox%d_base", mbox);
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
-		minfo->base = devm_ioremap_resource(dev, res);
+		if (IS_ERR_OR_NULL(res)) {
+			pr_info("MBOX %s:get resource %s failed!\n",
+				__func__, name);
+		} else {
+			minfo->base = devm_ioremap_resource(dev, res);
 
-		if (IS_ERR((void const *) minfo->base))
-			pr_err("MBOX %d can't remap base\n", mbox);
+			if (IS_ERR((void const *) minfo->base))
+				pr_info("MBOX %d can't remap base\n", mbox);
 
-		minfo->slot = (unsigned int)resource_size(res)/MBOX_SLOT_SIZE;
-
+			minfo->slot = (unsigned int)resource_size(res)/MBOX_SLOT_SIZE;
+		}
 		/*init reg*/
 		snprintf(name, sizeof(name), "mbox%d_init", mbox);
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
-		minfo->init_base_reg = devm_ioremap_resource(dev, res);
-		if (IS_ERR((void const *) minfo->init_base_reg))
-			pr_err("MBOX %d can't find init reg\n", mbox);
+		if (IS_ERR_OR_NULL(res)) {
+			pr_info("MBOX %s:get resource %s failed!\n",
+				__func__, name);
+		} else {
+			minfo->init_base_reg = devm_ioremap_resource(dev, res);
+			if (IS_ERR((void const *) minfo->init_base_reg))
+				pr_info("MBOX %d can't find init reg\n", mbox);
+		}
 		/*set irq reg*/
 		snprintf(name, sizeof(name), "mbox%d_set", mbox);
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
-		minfo->set_irq_reg = devm_ioremap_resource(dev, res);
-		if (IS_ERR((void const *) minfo->set_irq_reg)) {
-			pr_err("MBOX %d can't find set reg\n", mbox);
-			goto mtk_mbox_probe_fail;
+		if (IS_ERR_OR_NULL(res)) {
+			pr_info("MBOX %s:get resource %s failed!\n",
+				__func__, name);
+		} else {
+			minfo->set_irq_reg = devm_ioremap_resource(dev, res);
+			if (IS_ERR((void const *) minfo->set_irq_reg)) {
+				pr_info("MBOX %d can't find set reg\n", mbox);
+				goto mtk_mbox_probe_fail;
+			}
 		}
 		/*clear reg*/
 		snprintf(name, sizeof(name), "mbox%d_clr", mbox);
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
-		minfo->clr_irq_reg = devm_ioremap_resource(dev, res);
-		if (IS_ERR((void const *) minfo->clr_irq_reg)) {
-			pr_err("MBOX %d can't find clr reg\n", mbox);
-			goto mtk_mbox_probe_fail;
+		if (IS_ERR_OR_NULL(res)) {
+			pr_info("MBOX %s:get resource %s failed!\n",
+				__func__, name);
+		} else {
+			minfo->clr_irq_reg = devm_ioremap_resource(dev, res);
+			if (IS_ERR((void const *) minfo->clr_irq_reg)) {
+				pr_info("MBOX %d can't find clr reg\n", mbox);
+				goto mtk_mbox_probe_fail;
+			}
 		}
 		/*send status reg*/
 		snprintf(name, sizeof(name), "mbox%d_send", mbox);
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
-		minfo->send_status_reg = devm_ioremap_resource(dev, res);
-		if (IS_ERR((void const *) minfo->send_status_reg)) {
-			pr_notice("MBOX %d can't find send status reg\n", mbox);
-			minfo->send_status_reg = NULL;
+		if (IS_ERR_OR_NULL(res)) {
+			pr_info("MBOX %s:get resource %s failed!\n",
+				__func__, name);
+		} else {
+			minfo->send_status_reg = devm_ioremap_resource(dev, res);
+			if (IS_ERR((void const *) minfo->send_status_reg)) {
+				pr_notice("MBOX %d can't find send status reg\n", mbox);
+				minfo->send_status_reg = NULL;
+			}
 		}
 		/*recv status reg*/
 		snprintf(name, sizeof(name), "mbox%d_recv", mbox);
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, name);
-		minfo->recv_status_reg = devm_ioremap_resource(dev, res);
-		if (IS_ERR((void const *) minfo->recv_status_reg)) {
-			pr_notice("MBOX %d can't find recv status reg\n", mbox);
-			minfo->recv_status_reg = NULL;
+		if (IS_ERR_OR_NULL(res)) {
+			pr_info("MBOX %s:get resource %s failed!\n",
+				__func__, name);
+		} else {
+			minfo->recv_status_reg = devm_ioremap_resource(dev, res);
+			if (IS_ERR((void const *) minfo->recv_status_reg)) {
+				pr_notice("MBOX %d can't find recv status reg\n", mbox);
+				minfo->recv_status_reg = NULL;
+			}
 		}
 
 		snprintf(name, sizeof(name), "mbox%d", mbox);
