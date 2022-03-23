@@ -175,6 +175,7 @@ arch/arm64/include/asm/vdso/gettimeofday.h
 arch/arm64/include/asm/vdso.h
 arch/arm64/include/asm/vdso/processor.h
 arch/arm64/include/asm/vdso/vsyscall.h
+arch/arm64/include/asm/vectors.h
 arch/arm64/include/asm/vermagic.h
 arch/arm64/include/asm/virt.h
 arch/arm64/include/asm/vmalloc.h
