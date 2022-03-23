@@ -36,6 +36,7 @@ struct dbg_internal {
 	u16 size;
 	u16 data_buffer_size;
 	void *data_buffer;
+	bool access_lock;
 };
 
 struct dbg_info {
@@ -262,12 +263,15 @@ static ssize_t lock_debug_read(struct file *file,
 	struct dbg_info *di = file->private_data;
 	struct dbg_internal *d = &di->internal;
 	char buf[10];
-	int ret = 0;
+	bool lock;
 
-	ret = snprintf(buf, sizeof(buf), "%d\n", mutex_is_locked(&d->io_lock));
-	if (ret < 0)
-		return ret;
+	mutex_lock(&d->io_lock);
+	lock = d->access_lock;
+	mutex_unlock(&d->io_lock);
+
+	snprintf(buf, sizeof(buf), "%d\n", lock);
 	return simple_read_from_buffer(user_buf, cnt, loff, buf, strlen(buf));
+
 }
 
 static ssize_t lock_debug_write(struct file *file,
@@ -276,14 +280,18 @@ static ssize_t lock_debug_write(struct file *file,
 {
 	struct dbg_info *di = file->private_data;
 	struct dbg_internal *d = &di->internal;
-	u32 lock = 0;
-	int ret = 0;
+	u32 lock;
+	int ret;
 
 	ret = kstrtou32_from_user(user_buf, cnt, 0, &lock);
 	if (ret < 0)
 		return ret;
-	lock ? mutex_lock(&d->io_lock) : mutex_unlock(&d->io_lock);
-	return cnt;
+	mutex_lock(&d->io_lock);
+	if (!!lock == d->access_lock)
+		ret = -EFAULT;
+	d->access_lock = !!lock;
+	mutex_unlock(&d->io_lock);
+	return (ret < 0) ? ret : cnt;
 }
 
 static const struct file_operations lock_debug_fops = {
@@ -311,6 +319,7 @@ static int generic_debugfs_init(struct dbg_info *di)
 			return -ENODEV;
 		d->rt_dir_create = true;
 	}
+	mutex_init(&d->io_lock);
 	d->ic_root = debugfs_create_dir(di->dirname, d->rt_root);
 	if (!d->ic_root)
 		goto err_cleanup_rt;
@@ -327,11 +336,11 @@ static int generic_debugfs_init(struct dbg_info *di)
 	if (!debugfs_create_file("lock", 0644,
 				 d->ic_root, di, &lock_debug_fops))
 		goto err_cleanup_ic;
-	mutex_init(&d->io_lock);
 	return 0;
 err_cleanup_ic:
 	debugfs_remove_recursive(d->ic_root);
 err_cleanup_rt:
+	mutex_destroy(&d->io_lock);
 	if (d->rt_dir_create)
 		debugfs_remove_recursive(d->rt_root);
 	kfree(d->data_buffer);
@@ -342,8 +351,8 @@ static void generic_debugfs_exit(struct dbg_info *di)
 {
 	struct dbg_internal *d = &di->internal;
 
-	mutex_destroy(&d->io_lock);
 	debugfs_remove_recursive(d->ic_root);
+	mutex_destroy(&d->io_lock);
 	if (d->rt_dir_create)
 		debugfs_remove_recursive(d->rt_root);
 	kfree(d->data_buffer);
@@ -1243,7 +1252,7 @@ module_exit(rt5512_driver_exit);
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("RT5512 SPKAMP Driver");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("1.0.4_M");
+MODULE_VERSION("1.0.5_M");
 /*
  * 1.0.2_M
  *	1. update INIT SETTING & amp on flow
@@ -1251,4 +1260,6 @@ MODULE_VERSION("1.0.4_M");
  *	1. update amp flow
  * 1.0.4_M
  *	1. fix id check return error code
+ * 1.0.5_M
+ *	1. fix lock debug io
  */
