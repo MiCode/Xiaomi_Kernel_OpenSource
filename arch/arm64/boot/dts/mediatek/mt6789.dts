@@ -2121,6 +2121,42 @@
 			reg = <0 0x1000c000 0 0xe00>;
 		};
 
+		emicen: emicen@10219000 {
+			compatible = "mediatek,common-emicen";
+			reg = <0 0x10219000 0 0x1000>;
+			mediatek,emi-reg = <&emichn>;
+			a2d_hash = <7>;
+			a2d_disph = <0>;
+		};
+
+		emichn: emichn@10245000 {
+			compatible = "mediatek,common-emichn";
+			reg = <0 0x10245000 0 0x1000>,
+			      <0 0x10235000 0 0x1000>;
+		};
+
+		emiisu {
+			compatible = "mediatek,common-emiisu";
+			ctrl_intf = <1>;
+		};
+
+		emimpu: emimpu@10226000 {
+			compatible = "mediatek,common-emimpu";
+			reg = <0 0x10226000 0 0x1000>;
+			mediatek,emi-reg = <&emicen>;
+			interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH 0>;
+			region_cnt = <32>;
+			domain_cnt = <16>;
+			addr_align = <16>;
+			dump = <0x1f0 0x1f8 0x1fc>;
+			clear = <0x160 0xffffffff 16>,
+				<0x200 0x00000003 16>,
+				<0x1f0 0x80000000 1>;
+			clear_md = <0x1fc 0x80000000 1>;
+			ctrl_intf = <1>;
+			slverr = <0>;
+		};
+
 		seninf1@1a004000 {
 			compatible = "mediatek,seninf1";
 			reg = <0 0x1a004000 0 0x1000>;
