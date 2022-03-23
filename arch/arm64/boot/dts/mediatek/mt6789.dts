@@ -2225,8 +2225,9 @@
 
 		dvfsrc: dvfsrc@10012000 {
 			compatible = "mediatek,mt6789-dvfsrc";
-			reg = <0 0x10012000 0 0x1000>;
-			reg-names = "dvfsrc";
+			reg = <0 0x10012000 0 0x1000>,
+				<0 0x10006000 0 0x1000>;
+			reg-names = "dvfsrc", "spm";
 			dvfsrc,bringup = <1>;
 			dvfsrc_flag = <0x3>;
 			#interconnect-cells = <1>;
@@ -2287,6 +2288,12 @@
 			};
 
 			dvfsrc-met {
+				rc-vcore-supply = <&dvfsrc_vcore>;
+				interconnects = <&dvfsrc MT6873_MASTER_DBGIF
+							&dvfsrc MT6873_SLAVE_DDR_EMI>,
+						<&dvfsrc MT6873_MASTER_HRT_DBGIF
+							&dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+				interconnect-names = "icc-bw", "icc-hrt-bw";
 				compatible = "mediatek,dvfsrc-met";
 			};
 		};
