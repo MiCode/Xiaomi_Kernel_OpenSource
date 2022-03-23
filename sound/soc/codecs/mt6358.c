@@ -471,14 +471,12 @@ static int mt6358_put_volsw(struct snd_kcontrol *kcontrol,
 		regmap_read(priv->regmap, MT6358_ZCD_CON3, &reg);
 		priv->ana_gain[AUDIO_ANALOG_VOLUME_HSOUTL] =
 			(reg >> RG_AUDHSGAIN_SFT) & RG_AUDHSGAIN_MASK;
-		priv->ana_gain[AUDIO_ANALOG_VOLUME_HSOUTR] =
-			(reg >> RG_AUDHSGAIN_SFT) & RG_AUDHSGAIN_MASK;
 		break;
 	case MT6358_AUDENC_ANA_CON0:
-	case MT6358_AUDENC_ANA_CON1:
 		regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON0, &reg);
 		priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] =
 			(reg >> RG_AUDPREAMPLGAIN_SFT) & RG_AUDPREAMPLGAIN_MASK;
+	case MT6358_AUDENC_ANA_CON1:
 		regmap_read(priv->regmap, MT6358_AUDENC_ANA_CON1, &reg);
 		priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] =
 			(reg >> RG_AUDPREAMPRGAIN_SFT) & RG_AUDPREAMPRGAIN_MASK;
@@ -596,13 +594,13 @@ static const DECLARE_TLV_DB_SCALE(capture_tlv, 0, 600, 0);
 static const struct snd_kcontrol_new mt6358_snd_controls[] = {
 	/* dl pga gain */
 	SOC_DOUBLE_EXT_TLV("Headset Volume",
-			   MT6358_ZCD_CON2, 0, 7, 0x12, 1,
+			   MT6358_ZCD_CON2, 0, 7, 0x12, 0,
 			   snd_soc_get_volsw, mt6358_put_volsw, playback_tlv),
 	SOC_DOUBLE_EXT_TLV("Lineout Volume",
-			   MT6358_ZCD_CON1, 0, 7, 0x12, 1,
+			   MT6358_ZCD_CON1, 0, 7, 0x12, 0,
 			   snd_soc_get_volsw, mt6358_put_volsw, playback_tlv),
 	SOC_SINGLE_EXT_TLV("Handset Volume",
-			   MT6358_ZCD_CON3, 0, 0x12, 1,
+			   MT6358_ZCD_CON3, 0, 0x12, 0,
 			   snd_soc_get_volsw, mt6358_put_volsw, playback_tlv),
 
 	/* ul pga gain */
@@ -6438,15 +6436,6 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 				       mt6358_snd_vow_controls,
 				       ARRAY_SIZE(mt6358_snd_vow_controls));
 	mt6358_codec_init_reg(priv);
-
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL] = 8;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTR] = 8;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTL] = 8;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTR] = 8;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = 3;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 3;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_HSOUTL] = 8;
-	priv->ana_gain[AUDIO_ANALOG_VOLUME_HSOUTR] = 8;
 
 #if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
