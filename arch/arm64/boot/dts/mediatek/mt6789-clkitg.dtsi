@@ -147,18 +147,6 @@
 			<&ipesys_clk CLK_IPE_RSC>,
 			<&ipesys_clk CLK_IPE_DPE>,
 			<&ipesys_clk CLK_IPE_GALS>,
-			<&vdec_gcon_base_clk CLK_VDE2_LARB1_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_LAT_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_LAT_ACTIVE>,
-			<&vdec_gcon_base_clk CLK_VDE2_LAT_CKEN_ENG>,
-			<&vdec_gcon_base_clk CLK_VDE2_MINI_MDP_CKEN_CFG_RG>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_ACTIVE>,
-			<&vdec_gcon_base_clk CLK_VDE2_VDEC_CKEN_ENG>,
-			<&venc_gcon_clk CLK_VEN1_CKE0_LARB>,
-			<&venc_gcon_clk CLK_VEN1_CKE1_VENC>,
-			<&venc_gcon_clk CLK_VEN1_CKE2_JPGENC>,
-			<&venc_gcon_clk CLK_VEN1_CKE5_GALS>,
 			<&afe_clk CLK_AFE_AFE>,
 			<&afe_clk CLK_AFE_22M>,
 			<&afe_clk CLK_AFE_24M>,
@@ -210,16 +198,6 @@
 	bring-up-pd-ipe {
 		compatible = "mediatek,scpsys-bring-up";
 		power-domains = <&scpsys MT6789_POWER_DOMAIN_IPE>;
-	};
-
-	bring-up-pd-vdec {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6789_POWER_DOMAIN_VDEC>;
-	};
-
-	bring-up-pd-venc {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6789_POWER_DOMAIN_VENC>;
 	};
 
 	bring-up-pd-disp {
