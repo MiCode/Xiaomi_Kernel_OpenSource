@@ -149,8 +149,7 @@ static inline int drci_rd_reg(struct usb_device *dev, u16 reg, u16 *buf)
 	retval = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
 				 DRCI_READ_REQ, req_type,
 				 0x0000,
-				 reg, dma_buf, sizeof(*dma_buf),
-				 USB_CTRL_GET_TIMEOUT);
+				 reg, dma_buf, sizeof(*dma_buf), 5 * HZ);
 	*buf = le16_to_cpu(*dma_buf);
 	kfree(dma_buf);
 
@@ -177,7 +176,7 @@ static inline int drci_wr_reg(struct usb_device *dev, u16 reg, u16 data)
 			       reg,
 			       NULL,
 			       0,
-			       USB_CTRL_SET_TIMEOUT);
+			       5 * HZ);
 }
 
 static inline int start_sync_ep(struct usb_device *usb_dev, u16 ep)

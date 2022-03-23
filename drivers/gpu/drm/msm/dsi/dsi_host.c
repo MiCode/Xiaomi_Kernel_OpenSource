@@ -464,7 +464,7 @@ static int dsi_bus_clk_enable(struct msm_dsi_host *msm_host)
 
 	return 0;
 err:
-	while (--i >= 0)
+	for (; i > 0; i--)
 		clk_disable_unprepare(msm_host->bus_clks[i]);
 
 	return ret;

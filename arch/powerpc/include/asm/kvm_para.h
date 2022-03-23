@@ -8,7 +8,7 @@
 #ifndef __POWERPC_KVM_PARA_H__
 #define __POWERPC_KVM_PARA_H__
 
-#include <asm/kvm_guest.h>
+#include <asm/firmware.h>
 
 #include <uapi/asm/kvm_para.h>
 

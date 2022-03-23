@@ -39,7 +39,6 @@ struct mdesc_hdr {
 	u32	node_sz; /* node block size */
 	u32	name_sz; /* name block size */
 	u32	data_sz; /* data block size */
-	char	data[];
 } __attribute__((aligned(16)));
 
 struct mdesc_elem {
@@ -613,7 +612,7 @@ EXPORT_SYMBOL(mdesc_get_node_info);
 
 static struct mdesc_elem *node_block(struct mdesc_hdr *mdesc)
 {
-	return (struct mdesc_elem *) mdesc->data;
+	return (struct mdesc_elem *) (mdesc + 1);
 }
 
 static void *name_block(struct mdesc_hdr *mdesc)

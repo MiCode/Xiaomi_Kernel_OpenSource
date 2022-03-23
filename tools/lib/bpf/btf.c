@@ -205,29 +205,32 @@ static int btf_parse_hdr(struct btf *btf)
 		}
 		btf_bswap_hdr(hdr);
 	} else if (hdr->magic != BTF_MAGIC) {
-		pr_debug("Invalid BTF magic: %x\n", hdr->magic);
+		pr_debug("Invalid BTF magic:%x\n", hdr->magic);
 		return -EINVAL;
 	}
 
-	if (btf->raw_size < hdr->hdr_len) {
-		pr_debug("BTF header len %u larger than data size %u\n",
-			 hdr->hdr_len, btf->raw_size);
+	meta_left = btf->raw_size - sizeof(*hdr);
+	if (!meta_left) {
+		pr_debug("BTF has no data\n");
 		return -EINVAL;
 	}
 
-	meta_left = btf->raw_size - hdr->hdr_len;
-	if (meta_left < (long long)hdr->str_off + hdr->str_len) {
-		pr_debug("Invalid BTF total size: %u\n", btf->raw_size);
+	if (meta_left < hdr->type_off) {
+		pr_debug("Invalid BTF type section offset:%u\n", hdr->type_off);
 		return -EINVAL;
 	}
 
-	if ((long long)hdr->type_off + hdr->type_len > hdr->str_off) {
-		pr_debug("Invalid BTF data sections layout: type data at %u + %u, strings data at %u + %u\n",
-			 hdr->type_off, hdr->type_len, hdr->str_off, hdr->str_len);
+	if (meta_left < hdr->str_off) {
+		pr_debug("Invalid BTF string section offset:%u\n", hdr->str_off);
 		return -EINVAL;
 	}
 
-	if (hdr->type_off % 4) {
+	if (hdr->type_off >= hdr->str_off) {
+		pr_debug("BTF type section offset >= string section offset. No type?\n");
+		return -EINVAL;
+	}
+
+	if (hdr->type_off & 0x02) {
 		pr_debug("BTF type section is not aligned to 4 bytes\n");
 		return -EINVAL;
 	}

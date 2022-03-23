@@ -4802,9 +4802,7 @@ static atomic_t recv_msg_inuse_count = ATOMIC_INIT(0);
 static void free_smi_msg(struct ipmi_smi_msg *msg)
 {
 	atomic_dec(&smi_msg_inuse_count);
-	/* Try to keep as much stuff out of the panic path as possible. */
-	if (!oops_in_progress)
-		kfree(msg);
+	kfree(msg);
 }
 
 struct ipmi_smi_msg *ipmi_alloc_smi_msg(void)
@@ -4823,9 +4821,7 @@ EXPORT_SYMBOL(ipmi_alloc_smi_msg);
 static void free_recv_msg(struct ipmi_recv_msg *msg)
 {
 	atomic_dec(&recv_msg_inuse_count);
-	/* Try to keep as much stuff out of the panic path as possible. */
-	if (!oops_in_progress)
-		kfree(msg);
+	kfree(msg);
 }
 
 static struct ipmi_recv_msg *ipmi_alloc_recv_msg(void)
@@ -4843,7 +4839,7 @@ static struct ipmi_recv_msg *ipmi_alloc_recv_msg(void)
 
 void ipmi_free_recv_msg(struct ipmi_recv_msg *msg)
 {
-	if (msg->user && !oops_in_progress)
+	if (msg->user)
 		kref_put(&msg->user->refcount, free_user);
 	msg->done(msg);
 }

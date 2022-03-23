@@ -204,18 +204,11 @@ struct mn88443x_priv {
 	struct regmap *regmap_t;
 };
 
-static int mn88443x_cmn_power_on(struct mn88443x_priv *chip)
+static void mn88443x_cmn_power_on(struct mn88443x_priv *chip)
 {
-	struct device *dev = &chip->client_s->dev;
 	struct regmap *r_t = chip->regmap_t;
-	int ret;
 
-	ret = clk_prepare_enable(chip->mclk);
-	if (ret) {
-		dev_err(dev, "Failed to prepare and enable mclk: %d\n",
-			ret);
-		return ret;
-	}
+	clk_prepare_enable(chip->mclk);
 
 	gpiod_set_value_cansleep(chip->reset_gpio, 1);
 	usleep_range(100, 1000);
@@ -229,8 +222,6 @@ static int mn88443x_cmn_power_on(struct mn88443x_priv *chip)
 	} else {
 		regmap_write(r_t, HIZSET3, 0x8f);
 	}
-
-	return 0;
 }
 
 static void mn88443x_cmn_power_off(struct mn88443x_priv *chip)
@@ -747,10 +738,7 @@ static int mn88443x_probe(struct i2c_client *client,
 	chip->fe.demodulator_priv = chip;
 	i2c_set_clientdata(client, chip);
 
-	ret = mn88443x_cmn_power_on(chip);
-	if (ret)
-		goto err_i2c_t;
-
+	mn88443x_cmn_power_on(chip);
 	mn88443x_s_sleep(chip);
 	mn88443x_t_sleep(chip);
 

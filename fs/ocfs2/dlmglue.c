@@ -3933,7 +3933,7 @@ static int ocfs2_data_convert_worker(struct ocfs2_lock_res *lockres,
 		oi = OCFS2_I(inode);
 		oi->ip_dir_lock_gen++;
 		mlog(0, "generation: %u\n", oi->ip_dir_lock_gen);
-		goto out_forget;
+		goto out;
 	}
 
 	if (!S_ISREG(inode->i_mode))
@@ -3964,7 +3964,6 @@ static int ocfs2_data_convert_worker(struct ocfs2_lock_res *lockres,
 		filemap_fdatawait(mapping);
 	}
 
-out_forget:
 	forget_all_cached_acls(inode);
 
 out:

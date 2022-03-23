@@ -198,7 +198,7 @@ static void ath11k_copy_regd(struct ieee80211_regdomain *regd_orig,
 		       sizeof(struct ieee80211_reg_rule));
 }
 
-int ath11k_regd_update(struct ath11k *ar)
+int ath11k_regd_update(struct ath11k *ar, bool init)
 {
 	struct ieee80211_regdomain *regd, *regd_copy = NULL;
 	int ret, regd_len, pdev_id;
@@ -209,10 +209,7 @@ int ath11k_regd_update(struct ath11k *ar)
 
 	spin_lock_bh(&ab->base_lock);
 
-	/* Prefer the latest regd update over default if it's available */
-	if (ab->new_regd[pdev_id]) {
-		regd = ab->new_regd[pdev_id];
-	} else {
+	if (init) {
 		/* Apply the regd received during init through
 		 * WMI_REG_CHAN_LIST_CC event. In case of failure to
 		 * receive the regd, initialize with a default world
@@ -225,6 +222,8 @@ int ath11k_regd_update(struct ath11k *ar)
 				    "failed to receive default regd during init\n");
 			regd = (struct ieee80211_regdomain *)&ath11k_world_regd;
 		}
+	} else {
+		regd = ab->new_regd[pdev_id];
 	}
 
 	if (!regd) {
@@ -681,7 +680,7 @@ void ath11k_regd_update_work(struct work_struct *work)
 					 regd_update_work);
 	int ret;
 
-	ret = ath11k_regd_update(ar);
+	ret = ath11k_regd_update(ar, false);
 	if (ret) {
 		/* Firmware has already moved to the new regd. We need
 		 * to maintain channel consistency across FW, Host driver

@@ -8,7 +8,8 @@
 
 static int ath11k_dbring_bufs_replenish(struct ath11k *ar,
 					struct ath11k_dbring *ring,
-					struct ath11k_dbring_element *buff)
+					struct ath11k_dbring_element *buff,
+					gfp_t gfp)
 {
 	struct ath11k_base *ab = ar->ab;
 	struct hal_srng *srng;
@@ -34,7 +35,7 @@ static int ath11k_dbring_bufs_replenish(struct ath11k *ar,
 		goto err;
 
 	spin_lock_bh(&ring->idr_lock);
-	buf_id = idr_alloc(&ring->bufs_idr, buff, 0, ring->bufs_max, GFP_ATOMIC);
+	buf_id = idr_alloc(&ring->bufs_idr, buff, 0, ring->bufs_max, gfp);
 	spin_unlock_bh(&ring->idr_lock);
 	if (buf_id < 0) {
 		ret = -ENOBUFS;
@@ -71,7 +72,8 @@ err:
 }
 
 static int ath11k_dbring_fill_bufs(struct ath11k *ar,
-				   struct ath11k_dbring *ring)
+				   struct ath11k_dbring *ring,
+				   gfp_t gfp)
 {
 	struct ath11k_dbring_element *buff;
 	struct hal_srng *srng;
@@ -90,11 +92,11 @@ static int ath11k_dbring_fill_bufs(struct ath11k *ar,
 	size = sizeof(*buff) + ring->buf_sz + align - 1;
 
 	while (num_remain > 0) {
-		buff = kzalloc(size, GFP_ATOMIC);
+		buff = kzalloc(size, gfp);
 		if (!buff)
 			break;
 
-		ret = ath11k_dbring_bufs_replenish(ar, ring, buff);
+		ret = ath11k_dbring_bufs_replenish(ar, ring, buff, gfp);
 		if (ret) {
 			ath11k_warn(ar->ab, "failed to replenish db ring num_remain %d req_ent %d\n",
 				    num_remain, req_entries);
@@ -174,7 +176,7 @@ int ath11k_dbring_buf_setup(struct ath11k *ar,
 	ring->hp_addr = ath11k_hal_srng_get_hp_addr(ar->ab, srng);
 	ring->tp_addr = ath11k_hal_srng_get_tp_addr(ar->ab, srng);
 
-	ret = ath11k_dbring_fill_bufs(ar, ring);
+	ret = ath11k_dbring_fill_bufs(ar, ring, GFP_KERNEL);
 
 	return ret;
 }
@@ -320,7 +322,7 @@ int ath11k_dbring_buffer_release_event(struct ath11k_base *ab,
 		}
 
 		memset(buff, 0, size);
-		ath11k_dbring_bufs_replenish(ar, ring, buff);
+		ath11k_dbring_bufs_replenish(ar, ring, buff, GFP_ATOMIC);
 	}
 
 	spin_unlock_bh(&srng->lock);

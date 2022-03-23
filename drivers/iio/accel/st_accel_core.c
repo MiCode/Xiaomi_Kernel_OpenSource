@@ -1255,9 +1255,13 @@ int st_accel_common_probe(struct iio_dev *indio_dev)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &accel_info;
 
+	err = st_sensors_power_enable(indio_dev);
+	if (err)
+		return err;
+
 	err = st_sensors_verify_id(indio_dev);
 	if (err < 0)
-		return err;
+		goto st_accel_power_off;
 
 	adata->num_data_channels = ST_ACCEL_NUMBER_DATA_CHANNELS;
 	indio_dev->num_channels = ST_SENSORS_NUMBER_ALL_CHANNELS;
@@ -1266,8 +1270,10 @@ int st_accel_common_probe(struct iio_dev *indio_dev)
 	channels = devm_kmemdup(&indio_dev->dev,
 				adata->sensor_settings->ch,
 				channels_size, GFP_KERNEL);
-	if (!channels)
-		return -ENOMEM;
+	if (!channels) {
+		err = -ENOMEM;
+		goto st_accel_power_off;
+	}
 
 	if (apply_acpi_orientation(indio_dev, channels))
 		dev_warn(&indio_dev->dev,
@@ -1282,11 +1288,11 @@ int st_accel_common_probe(struct iio_dev *indio_dev)
 
 	err = st_sensors_init_sensor(indio_dev, pdata);
 	if (err < 0)
-		return err;
+		goto st_accel_power_off;
 
 	err = st_accel_allocate_ring(indio_dev);
 	if (err < 0)
-		return err;
+		goto st_accel_power_off;
 
 	if (adata->irq > 0) {
 		err = st_sensors_allocate_trigger(indio_dev,
@@ -1309,6 +1315,9 @@ st_accel_device_register_error:
 		st_sensors_deallocate_trigger(indio_dev);
 st_accel_probe_trigger_error:
 	st_accel_deallocate_ring(indio_dev);
+st_accel_power_off:
+	st_sensors_power_disable(indio_dev);
+
 	return err;
 }
 EXPORT_SYMBOL(st_accel_common_probe);
@@ -1316,6 +1325,8 @@ EXPORT_SYMBOL(st_accel_common_probe);
 void st_accel_common_remove(struct iio_dev *indio_dev)
 {
 	struct st_sensor_data *adata = iio_priv(indio_dev);
+
+	st_sensors_power_disable(indio_dev);
 
 	iio_device_unregister(indio_dev);
 	if (adata->irq > 0)

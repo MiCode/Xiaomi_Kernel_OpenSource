@@ -144,8 +144,8 @@ static int netlbl_cipsov4_add_std(struct genl_info *info,
 		return -ENOMEM;
 	doi_def->map.std = kzalloc(sizeof(*doi_def->map.std), GFP_KERNEL);
 	if (doi_def->map.std == NULL) {
-		kfree(doi_def);
-		return -ENOMEM;
+		ret_val = -ENOMEM;
+		goto add_std_failure;
 	}
 	doi_def->type = CIPSO_V4_MAP_TRANS;
 

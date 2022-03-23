@@ -2160,15 +2160,13 @@ static int tegra_pcie_parse_dt(struct tegra_pcie *pcie)
 		rp->np = port;
 
 		rp->base = devm_pci_remap_cfg_resource(dev, &rp->regs);
-		if (IS_ERR(rp->base)) {
-			err = PTR_ERR(rp->base);
-			goto err_node_put;
-		}
+		if (IS_ERR(rp->base))
+			return PTR_ERR(rp->base);
 
 		label = devm_kasprintf(dev, GFP_KERNEL, "pex-reset-%u", index);
 		if (!label) {
-			err = -ENOMEM;
-			goto err_node_put;
+			dev_err(dev, "failed to create reset GPIO label\n");
+			return -ENOMEM;
 		}
 
 		/*
@@ -2186,8 +2184,7 @@ static int tegra_pcie_parse_dt(struct tegra_pcie *pcie)
 			} else {
 				dev_err(dev, "failed to get reset GPIO: %ld\n",
 					PTR_ERR(rp->reset_gpio));
-				err = PTR_ERR(rp->reset_gpio);
-				goto err_node_put;
+				return PTR_ERR(rp->reset_gpio);
 			}
 		}
 

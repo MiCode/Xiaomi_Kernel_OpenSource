@@ -1590,16 +1590,15 @@ static bool nfs_stateid_is_sequential(struct nfs4_state *state,
 {
 	if (test_bit(NFS_OPEN_STATE, &state->flags)) {
 		/* The common case - we're updating to a new sequence number */
-		if (nfs4_stateid_match_other(stateid, &state->open_stateid)) {
-			if (nfs4_stateid_is_next(&state->open_stateid, stateid))
-				return true;
-			return false;
+		if (nfs4_stateid_match_other(stateid, &state->open_stateid) &&
+			nfs4_stateid_is_next(&state->open_stateid, stateid)) {
+			return true;
 		}
-		/* The server returned a new stateid */
+	} else {
+		/* This is the first OPEN in this generation */
+		if (stateid->seqid == cpu_to_be32(1))
+			return true;
 	}
-	/* This is the first OPEN in this generation */
-	if (stateid->seqid == cpu_to_be32(1))
-		return true;
 	return false;
 }
 

@@ -13,7 +13,6 @@ import logging
 import os
 import re
 import subprocess
-import sys
 
 _DEFAULT_OUTPUT = 'compile_commands.json'
 _DEFAULT_LOG_LEVEL = 'WARNING'

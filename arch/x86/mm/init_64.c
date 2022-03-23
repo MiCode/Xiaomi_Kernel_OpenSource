@@ -1389,18 +1389,18 @@ int kern_addr_valid(unsigned long addr)
 		return 0;
 
 	p4d = p4d_offset(pgd, addr);
-	if (!p4d_present(*p4d))
+	if (p4d_none(*p4d))
 		return 0;
 
 	pud = pud_offset(p4d, addr);
-	if (!pud_present(*pud))
+	if (pud_none(*pud))
 		return 0;
 
 	if (pud_large(*pud))
 		return pfn_valid(pud_pfn(*pud));
 
 	pmd = pmd_offset(pud, addr);
-	if (!pmd_present(*pmd))
+	if (pmd_none(*pmd))
 		return 0;
 
 	if (pmd_large(*pmd))

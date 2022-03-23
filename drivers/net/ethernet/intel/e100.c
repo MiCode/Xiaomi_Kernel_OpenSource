@@ -2431,15 +2431,11 @@ static void e100_get_drvinfo(struct net_device *netdev,
 		sizeof(info->bus_info));
 }
 
-#define E100_PHY_REGS 0x1D
+#define E100_PHY_REGS 0x1C
 static int e100_get_regs_len(struct net_device *netdev)
 {
 	struct nic *nic = netdev_priv(netdev);
-
-	/* We know the number of registers, and the size of the dump buffer.
-	 * Calculate the total size in bytes.
-	 */
-	return (1 + E100_PHY_REGS) * sizeof(u32) + sizeof(nic->mem->dump_buf);
+	return 1 + E100_PHY_REGS + sizeof(nic->mem->dump_buf);
 }
 
 static void e100_get_regs(struct net_device *netdev,
@@ -2453,18 +2449,14 @@ static void e100_get_regs(struct net_device *netdev,
 	buff[0] = ioread8(&nic->csr->scb.cmd_hi) << 24 |
 		ioread8(&nic->csr->scb.cmd_lo) << 16 |
 		ioread16(&nic->csr->scb.status);
-	for (i = 0; i < E100_PHY_REGS; i++)
-		/* Note that we read the registers in reverse order. This
-		 * ordering is the ABI apparently used by ethtool and other
-		 * applications.
-		 */
-		buff[1 + i] = mdio_read(netdev, nic->mii.phy_id,
-					E100_PHY_REGS - 1 - i);
+	for (i = E100_PHY_REGS; i >= 0; i--)
+		buff[1 + E100_PHY_REGS - i] =
+			mdio_read(netdev, nic->mii.phy_id, i);
 	memset(nic->mem->dump_buf, 0, sizeof(nic->mem->dump_buf));
 	e100_exec_cb(nic, NULL, e100_dump);
 	msleep(10);
-	memcpy(&buff[1 + E100_PHY_REGS], nic->mem->dump_buf,
-	       sizeof(nic->mem->dump_buf));
+	memcpy(&buff[2 + E100_PHY_REGS], nic->mem->dump_buf,
+		sizeof(nic->mem->dump_buf));
 }
 
 static void e100_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)

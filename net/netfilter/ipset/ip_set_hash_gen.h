@@ -132,11 +132,11 @@ htable_size(u8 hbits)
 {
 	size_t hsize;
 
-	/* We must fit both into u32 in jhash and INT_MAX in kvmalloc_node() */
+	/* We must fit both into u32 in jhash and size_t */
 	if (hbits > 31)
 		return 0;
 	hsize = jhash_size(hbits);
-	if ((INT_MAX - sizeof(struct htable)) / sizeof(struct hbucket *)
+	if ((((size_t)-1) - sizeof(struct htable)) / sizeof(struct hbucket *)
 	    < hsize)
 		return 0;
 

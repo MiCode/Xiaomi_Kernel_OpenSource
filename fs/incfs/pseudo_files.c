@@ -147,12 +147,8 @@ static long ioctl_permit_fill(struct file *f, void __user *arg)
 		return -EFAULT;
 
 	file = fget(permit_fill.file_descriptor);
-	if (IS_ERR_OR_NULL(file)) {
-		if (!file)
-			return -ENOENT;
-
+	if (IS_ERR(file))
 		return PTR_ERR(file);
-	}
 
 	if (file->f_op != &incfs_file_ops) {
 		error = -EPERM;

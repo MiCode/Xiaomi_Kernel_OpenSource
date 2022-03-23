@@ -43,19 +43,19 @@ group emmc_nb
 
 group pwm0
  - pin 11 (GPIO1-11)
- - functions pwm, led, gpio
+ - functions pwm, gpio
 
 group pwm1
  - pin 12
- - functions pwm, led, gpio
+ - functions pwm, gpio
 
 group pwm2
  - pin 13
- - functions pwm, led, gpio
+ - functions pwm, gpio
 
 group pwm3
  - pin 14
- - functions pwm, led, gpio
+ - functions pwm, gpio
 
 group pmic1
  - pin 7

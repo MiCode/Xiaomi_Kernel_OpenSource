@@ -196,41 +196,29 @@ int batadv_mesh_init(struct net_device *soft_iface)
 
 	bat_priv->gw.generation = 0;
 
+	ret = batadv_v_mesh_init(bat_priv);
+	if (ret < 0)
+		goto err;
+
 	ret = batadv_originator_init(bat_priv);
-	if (ret < 0) {
-		atomic_set(&bat_priv->mesh_state, BATADV_MESH_DEACTIVATING);
-		goto err_orig;
-	}
+	if (ret < 0)
+		goto err;
 
 	ret = batadv_tt_init(bat_priv);
-	if (ret < 0) {
-		atomic_set(&bat_priv->mesh_state, BATADV_MESH_DEACTIVATING);
-		goto err_tt;
-	}
-
-	ret = batadv_v_mesh_init(bat_priv);
-	if (ret < 0) {
-		atomic_set(&bat_priv->mesh_state, BATADV_MESH_DEACTIVATING);
-		goto err_v;
-	}
+	if (ret < 0)
+		goto err;
 
 	ret = batadv_bla_init(bat_priv);
-	if (ret < 0) {
-		atomic_set(&bat_priv->mesh_state, BATADV_MESH_DEACTIVATING);
-		goto err_bla;
-	}
+	if (ret < 0)
+		goto err;
 
 	ret = batadv_dat_init(bat_priv);
-	if (ret < 0) {
-		atomic_set(&bat_priv->mesh_state, BATADV_MESH_DEACTIVATING);
-		goto err_dat;
-	}
+	if (ret < 0)
+		goto err;
 
 	ret = batadv_nc_mesh_init(bat_priv);
-	if (ret < 0) {
-		atomic_set(&bat_priv->mesh_state, BATADV_MESH_DEACTIVATING);
-		goto err_nc;
-	}
+	if (ret < 0)
+		goto err;
 
 	batadv_gw_init(bat_priv);
 	batadv_mcast_init(bat_priv);
@@ -240,20 +228,8 @@ int batadv_mesh_init(struct net_device *soft_iface)
 
 	return 0;
 
-err_nc:
-	batadv_dat_free(bat_priv);
-err_dat:
-	batadv_bla_free(bat_priv);
-err_bla:
-	batadv_v_mesh_free(bat_priv);
-err_v:
-	batadv_tt_free(bat_priv);
-err_tt:
-	batadv_originator_free(bat_priv);
-err_orig:
-	batadv_purge_outstanding_packets(bat_priv, NULL);
-	atomic_set(&bat_priv->mesh_state, BATADV_MESH_INACTIVE);
-
+err:
+	batadv_mesh_free(soft_iface);
 	return ret;
 }
 

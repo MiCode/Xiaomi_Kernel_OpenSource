@@ -14,7 +14,6 @@
 #include <linux/of.h>
 
 #include <asm/firmware.h>
-#include <asm/kvm_guest.h>
 
 #ifdef CONFIG_PPC64
 unsigned long powerpc_firmware_features __read_mostly;
@@ -22,8 +21,7 @@ EXPORT_SYMBOL_GPL(powerpc_firmware_features);
 #endif
 
 #if defined(CONFIG_PPC_PSERIES) || defined(CONFIG_KVM_GUEST)
-DEFINE_STATIC_KEY_FALSE(kvm_guest);
-int __init check_kvm_guest(void)
+bool is_kvm_guest(void)
 {
 	struct device_node *hyper_node;
 
@@ -31,11 +29,9 @@ int __init check_kvm_guest(void)
 	if (!hyper_node)
 		return 0;
 
-	if (of_device_is_compatible(hyper_node, "linux,kvm"))
-		static_branch_enable(&kvm_guest);
+	if (!of_device_is_compatible(hyper_node, "linux,kvm"))
+		return 0;
 
-	of_node_put(hyper_node);
-	return 0;
+	return 1;
 }
-core_initcall(check_kvm_guest); // before kvm_guest_init()
 #endif

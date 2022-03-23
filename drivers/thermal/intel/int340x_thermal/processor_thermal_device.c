@@ -185,7 +185,7 @@ static int tcc_offset_update(unsigned int tcc)
 	return 0;
 }
 
-static int tcc_offset_save = -1;
+static unsigned int tcc_offset_save;
 
 static ssize_t tcc_offset_degree_celsius_store(struct device *dev,
 				struct device_attribute *attr, const char *buf,
@@ -709,8 +709,7 @@ static int proc_thermal_resume(struct device *dev)
 	proc_dev = dev_get_drvdata(dev);
 	proc_thermal_read_ppcc(proc_dev);
 
-	if (tcc_offset_save >= 0)
-		tcc_offset_update(tcc_offset_save);
+	tcc_offset_update(tcc_offset_save);
 
 	return 0;
 }

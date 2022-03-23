@@ -1176,10 +1176,8 @@ int dump_vma_snapshot(struct coredump_params *cprm, int *vma_count,
 
 	mmap_write_unlock(mm);
 
-	if (WARN_ON(i != *vma_count)) {
-		kvfree(*vma_meta);
+	if (WARN_ON(i != *vma_count))
 		return -EFAULT;
-	}
 
 	*vma_data_size_ptr = vma_data_size;
 	return 0;

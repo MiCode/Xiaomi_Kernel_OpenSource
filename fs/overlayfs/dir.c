@@ -542,10 +542,8 @@ static int ovl_create_over_whiteout(struct dentry *dentry, struct inode *inode,
 			goto out_cleanup;
 	}
 	err = ovl_instantiate(dentry, inode, newdentry, hardlink);
-	if (err) {
-		ovl_cleanup(udir, newdentry);
-		dput(newdentry);
-	}
+	if (err)
+		goto out_cleanup;
 out_dput:
 	dput(upper);
 out_unlock:
@@ -1217,13 +1215,9 @@ static int ovl_rename(struct inode *olddir, struct dentry *old,
 				goto out_dput;
 		}
 	} else {
-		if (!d_is_negative(newdentry)) {
-			if (!new_opaque || !ovl_is_whiteout(newdentry))
-				goto out_dput;
-		} else {
-			if (flags & RENAME_EXCHANGE)
-				goto out_dput;
-		}
+		if (!d_is_negative(newdentry) &&
+		    (!new_opaque || !ovl_is_whiteout(newdentry)))
+			goto out_dput;
 	}
 
 	if (olddentry == trap)

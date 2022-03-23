@@ -347,7 +347,7 @@ int extract_build_id(char *build_id, size_t size)
 
 	if (getline(&line, &len, fp) == -1)
 		goto err;
-	pclose(fp);
+	fclose(fp);
 
 	if (len > size)
 		len = size;
@@ -356,7 +356,7 @@ int extract_build_id(char *build_id, size_t size)
 	free(line);
 	return 0;
 err:
-	pclose(fp);
+	fclose(fp);
 	return -1;
 }
 

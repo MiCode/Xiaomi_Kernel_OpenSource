@@ -1113,7 +1113,7 @@ static int virtio_uml_probe(struct platform_device *pdev)
 		rc = os_connect_socket(pdata->socket_path);
 	} while (rc == -EINTR);
 	if (rc < 0)
-		goto error_free;
+		return rc;
 	vu_dev->sock = rc;
 
 	spin_lock_init(&vu_dev->sock_lock);
@@ -1132,8 +1132,6 @@ static int virtio_uml_probe(struct platform_device *pdev)
 
 error_init:
 	os_close_file(vu_dev->sock);
-error_free:
-	kfree(vu_dev);
 	return rc;
 }
 

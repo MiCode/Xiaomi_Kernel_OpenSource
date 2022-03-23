@@ -139,9 +139,7 @@ static int rpcif_spi_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	rpc = spi_controller_get_devdata(ctlr);
-	error = rpcif_sw_init(rpc, parent);
-	if (error)
-		return error;
+	rpcif_sw_init(rpc, parent);
 
 	platform_set_drvdata(pdev, ctlr);
 

@@ -455,9 +455,8 @@ sub parse_file
 
 	open my $fh, "<", $file or return;
 	while ( <$fh> ) {
-		chomp;
 		if (may_leak_address($_)) {
-			printf("$file: $_\n");
+			print $file . ': ' . $_;
 		}
 	}
 	close $fh;

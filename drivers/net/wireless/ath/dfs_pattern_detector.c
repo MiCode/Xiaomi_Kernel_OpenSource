@@ -182,12 +182,10 @@ static void channel_detector_exit(struct dfs_pattern_detector *dpd,
 	if (cd == NULL)
 		return;
 	list_del(&cd->head);
-	if (cd->detectors) {
-		for (i = 0; i < dpd->num_radar_types; i++) {
-			struct pri_detector *de = cd->detectors[i];
-			if (de != NULL)
-				de->exit(de);
-		}
+	for (i = 0; i < dpd->num_radar_types; i++) {
+		struct pri_detector *de = cd->detectors[i];
+		if (de != NULL)
+			de->exit(de);
 	}
 	kfree(cd->detectors);
 	kfree(cd);

@@ -83,9 +83,15 @@
 			};
 
 			eeprom@52 {
-				compatible = "onnn,cat24c04", "atmel,24c04";
+				compatible = "atmel,24c512";
 				reg = <0x52>;
 			};
+
+			eeprom@53 {
+				compatible = "atmel,24c512";
+				reg = <0x53>;
+			};
+
 		};
 	};
 };

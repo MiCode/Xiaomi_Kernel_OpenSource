@@ -69,7 +69,6 @@ static int run_smbios_call(struct wmi_device *wdev)
 		if (obj->type == ACPI_TYPE_INTEGER)
 			dev_dbg(&wdev->dev, "SMBIOS call failed: %llu\n",
 				obj->integer.value);
-		kfree(output.pointer);
 		return -EIO;
 	}
 	memcpy(&priv->buf->std, obj->buffer.pointer, obj->buffer.length);

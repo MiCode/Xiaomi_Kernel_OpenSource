@@ -325,7 +325,7 @@ static long vhost_vdpa_set_config_call(struct vhost_vdpa *v, u32 __user *argp)
 	struct eventfd_ctx *ctx;
 
 	cb.callback = vhost_vdpa_config_cb;
-	cb.private = v;
+	cb.private = v->vdpa;
 	if (copy_from_user(&fd, argp, sizeof(fd)))
 		return  -EFAULT;
 

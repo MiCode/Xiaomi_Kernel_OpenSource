@@ -35,20 +35,20 @@ TRACE_EVENT(erofs_lookup,
 	TP_STRUCT__entry(
 		__field(dev_t,		dev	)
 		__field(erofs_nid_t,	nid	)
-		__string(name,		dentry->d_name.name	)
+		__field(const char *,	name	)
 		__field(unsigned int,	flags	)
 	),
 
 	TP_fast_assign(
 		__entry->dev	= dir->i_sb->s_dev;
 		__entry->nid	= EROFS_I(dir)->nid;
-		__assign_str(name, dentry->d_name.name);
+		__entry->name	= dentry->d_name.name;
 		__entry->flags	= flags;
 	),
 
 	TP_printk("dev = (%d,%d), pnid = %llu, name:%s, flags:%x",
 		show_dev_nid(__entry),
-		__get_str(name),
+		__entry->name,
 		__entry->flags)
 );
 

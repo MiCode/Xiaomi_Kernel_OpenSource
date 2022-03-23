@@ -1215,13 +1215,13 @@
 
 		cpu@0 {
 			device_type = "cpu";
-			compatible = "nvidia,tegra132-denver";
+			compatible = "nvidia,denver";
 			reg = <0>;
 		};
 
 		cpu@1 {
 			device_type = "cpu";
-			compatible = "nvidia,tegra132-denver";
+			compatible = "nvidia,denver";
 			reg = <1>;
 		};
 	};

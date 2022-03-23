@@ -74,8 +74,10 @@ void fscache_free_cookie(struct fscache_cookie *cookie)
 static int fscache_set_key(struct fscache_cookie *cookie,
 			   const void *index_key, size_t index_key_len)
 {
+	unsigned long long h;
 	u32 *buf;
 	int bufs;
+	int i;
 
 	bufs = DIV_ROUND_UP(index_key_len, sizeof(*buf));
 
@@ -89,7 +91,17 @@ static int fscache_set_key(struct fscache_cookie *cookie,
 	}
 
 	memcpy(buf, index_key, index_key_len);
-	cookie->key_hash = fscache_hash(0, buf, bufs);
+
+	/* Calculate a hash and combine this with the length in the first word
+	 * or first half word
+	 */
+	h = (unsigned long)cookie->parent;
+	h += index_key_len + cookie->type;
+
+	for (i = 0; i < bufs; i++)
+		h += buf[i];
+
+	cookie->key_hash = h ^ (h >> 32);
 	return 0;
 }
 

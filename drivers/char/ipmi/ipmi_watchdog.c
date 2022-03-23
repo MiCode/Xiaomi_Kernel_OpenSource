@@ -342,17 +342,13 @@ static atomic_t msg_tofree = ATOMIC_INIT(0);
 static DECLARE_COMPLETION(msg_wait);
 static void msg_free_smi(struct ipmi_smi_msg *msg)
 {
-	if (atomic_dec_and_test(&msg_tofree)) {
-		if (!oops_in_progress)
-			complete(&msg_wait);
-	}
+	if (atomic_dec_and_test(&msg_tofree))
+		complete(&msg_wait);
 }
 static void msg_free_recv(struct ipmi_recv_msg *msg)
 {
-	if (atomic_dec_and_test(&msg_tofree)) {
-		if (!oops_in_progress)
-			complete(&msg_wait);
-	}
+	if (atomic_dec_and_test(&msg_tofree))
+		complete(&msg_wait);
 }
 static struct ipmi_smi_msg smi_msg = {
 	.done = msg_free_smi
@@ -438,10 +434,8 @@ static int _ipmi_set_timeout(int do_heartbeat)
 	rv = __ipmi_set_timeout(&smi_msg,
 				&recv_msg,
 				&send_heartbeat_now);
-	if (rv) {
-		atomic_set(&msg_tofree, 0);
+	if (rv)
 		return rv;
-	}
 
 	wait_for_completion(&msg_wait);
 
@@ -586,7 +580,6 @@ restart:
 				      &recv_msg,
 				      1);
 	if (rv) {
-		atomic_set(&msg_tofree, 0);
 		pr_warn("heartbeat send failure: %d\n", rv);
 		return rv;
 	}

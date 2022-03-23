@@ -760,10 +760,8 @@ __hwmon_device_register(struct device *dev, const char *name, void *drvdata,
 	dev_set_drvdata(hdev, drvdata);
 	dev_set_name(hdev, HWMON_ID_FORMAT, id);
 	err = device_register(hdev);
-	if (err) {
-		put_device(hdev);
-		goto ida_remove;
-	}
+	if (err)
+		goto free_hwmon;
 
 	INIT_LIST_HEAD(&hwdev->tzdata);
 

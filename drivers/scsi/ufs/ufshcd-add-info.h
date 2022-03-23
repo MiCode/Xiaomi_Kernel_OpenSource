@@ -11,7 +11,6 @@
  */
 struct ufs_hba_add_info {
 	struct ufs_hba hba;
-	u32 reserved_slot;
 	struct request **tmf_rqs;
 #ifdef CONFIG_SCSI_UFS_HPB
 	struct ufshpb_dev_info hpb_dev;

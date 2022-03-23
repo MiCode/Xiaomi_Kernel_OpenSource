@@ -1750,16 +1750,15 @@ static void cma_cancel_route(struct rdma_id_private *id_priv)
 	}
 }
 
-static void _cma_cancel_listens(struct rdma_id_private *id_priv)
+static void cma_cancel_listens(struct rdma_id_private *id_priv)
 {
 	struct rdma_id_private *dev_id_priv;
-
-	lockdep_assert_held(&lock);
 
 	/*
 	 * Remove from listen_any_list to prevent added devices from spawning
 	 * additional listen requests.
 	 */
+	mutex_lock(&lock);
 	list_del(&id_priv->list);
 
 	while (!list_empty(&id_priv->listen_list)) {
@@ -1773,12 +1772,6 @@ static void _cma_cancel_listens(struct rdma_id_private *id_priv)
 		rdma_destroy_id(&dev_id_priv->id);
 		mutex_lock(&lock);
 	}
-}
-
-static void cma_cancel_listens(struct rdma_id_private *id_priv)
-{
-	mutex_lock(&lock);
-	_cma_cancel_listens(id_priv);
 	mutex_unlock(&lock);
 }
 
@@ -1821,8 +1814,6 @@ static void cma_release_port(struct rdma_id_private *id_priv)
 static void destroy_mc(struct rdma_id_private *id_priv,
 		       struct cma_multicast *mc)
 {
-	bool send_only = mc->join_state == BIT(SENDONLY_FULLMEMBER_JOIN);
-
 	if (rdma_cap_ib_mcast(id_priv->id.device, id_priv->id.port_num))
 		ib_sa_free_multicast(mc->sa_mc);
 
@@ -1839,10 +1830,7 @@ static void destroy_mc(struct rdma_id_private *id_priv,
 
 			cma_set_mgid(id_priv, (struct sockaddr *)&mc->addr,
 				     &mgid);
-
-			if (!send_only)
-				cma_igmp_send(ndev, &mgid, false);
-
+			cma_igmp_send(ndev, &mgid, false);
 			dev_put(ndev);
 		}
 
@@ -2589,7 +2577,7 @@ static int cma_listen_on_all(struct rdma_id_private *id_priv)
 	return 0;
 
 err_listen:
-	_cma_cancel_listens(id_priv);
+	list_del(&id_priv->list);
 	mutex_unlock(&lock);
 	if (to_destroy)
 		rdma_destroy_id(&to_destroy->id);
@@ -3744,13 +3732,9 @@ int rdma_listen(struct rdma_cm_id *id, int backlog)
 	int ret;
 
 	if (!cma_comp_exch(id_priv, RDMA_CM_ADDR_BOUND, RDMA_CM_LISTEN)) {
-		struct sockaddr_in any_in = {
-			.sin_family = AF_INET,
-			.sin_addr.s_addr = htonl(INADDR_ANY),
-		};
-
 		/* For a well behaved ULP state will be RDMA_CM_IDLE */
-		ret = rdma_bind_addr(id, (struct sockaddr *)&any_in);
+		id->route.addr.src_addr.ss_family = AF_INET;
+		ret = rdma_bind_addr(id, cma_src_addr(id_priv));
 		if (ret)
 			return ret;
 		if (WARN_ON(!cma_comp_exch(id_priv, RDMA_CM_ADDR_BOUND,

@@ -246,13 +246,14 @@ EXPORT_SYMBOL(strcmp);
 #ifdef __HAVE_ARCH_STRRCHR
 char *strrchr(const char *s, int c)
 {
-	ssize_t len = __strend(s) - s;
+       size_t len = __strend(s) - s;
 
-	do {
-		if (s[len] == (char)c)
-			return (char *)s + len;
-	} while (--len >= 0);
-	return NULL;
+       if (len)
+	       do {
+		       if (s[len] == (char) c)
+			       return (char *) s + len;
+	       } while (--len > 0);
+       return NULL;
 }
 EXPORT_SYMBOL(strrchr);
 #endif
