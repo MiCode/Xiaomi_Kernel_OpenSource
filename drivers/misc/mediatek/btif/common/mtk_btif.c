@@ -3533,22 +3533,13 @@ static int _btif_rx_thread_lock(struct _mtk_btif_ *p_btif, bool enable)
 
 int btif_rx_data_path_lock(struct _mtk_btif_ *p_btif)
 {
-	/* rx_thread_lock takes the mutex, and dma_lock takes the spinlock,
-	 * and we must take the thread_lock before spinlock
-	 */
 	if (_btif_rx_thread_lock(p_btif, true))
 		return E_BTIF_FAIL;
-
-	if (hal_rx_dma_lock(true)) {
-		_btif_rx_thread_lock(p_btif, false);
-		return E_BTIF_FAIL;
-	}
 	return 0;
 }
 
 int btif_rx_data_path_unlock(struct _mtk_btif_ *p_btif)
 {
-	hal_rx_dma_lock(false);
 	_btif_rx_thread_lock(p_btif, false);
 	return 0;
 }
