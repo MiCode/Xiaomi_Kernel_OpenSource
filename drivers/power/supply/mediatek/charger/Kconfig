@@ -196,6 +196,22 @@ config CHARGER_BQ25601
 	  and config MTK_SWCHR_SUPPORT
 	  Set to Yes if BQ25601 is used.
 
+config CHARGER_BQ25890
+	bool "CHARGER_BQ25890"
+	help
+	  This is to enable MediaTek supports to BQ25890.
+	  It depends on config MTK_SMART_BATTERY
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if BQ25890 is used.
+
+config CHARGER_SGM41511
+	bool "CHARGER_SGM41511"
+	help
+	  This is to enable MediaTek supports to SGM41511.
+	  It depends on config MTK_SMART_BATTERY
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if SGM41511 is used.
+
 config LOAD_SWITCH_RT9750
 	bool "Load Switch Driver for Richtek RT9750"
 	depends on MTK_CHARGER
@@ -204,3 +220,10 @@ config LOAD_SWITCH_RT9750
 	  It is a load switch,
 	  which is good for direct charge.
 	  It depends on config MTK_CHARGER.
+
+config CHARGER_MM8013
+	bool "CHARGER MM8013"
+	help
+	  Say Y to enable
+	  mm8013 driver.
+	  Set to Yes if MM8013 is used.
