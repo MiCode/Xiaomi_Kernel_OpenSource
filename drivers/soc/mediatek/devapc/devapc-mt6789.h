@@ -611,8 +611,8 @@ static struct mtk_device_info mt6789_devices_infra[] = {
 	{-1, -1, 393, "MDP_MALI", true},
 	{-1, -1, 394, "reserve", false},
 	{-1, -1, 395, "MMSYS_MALI", true},
-	{-1, -1, 396, "PMIC_WRAP", true},
-	{-1, -1, 397, "PMIF1", true},
+	{-1, -1, 396, "PMIC_WRAP", false},
+	{-1, -1, 397, "PMIF1", false},
 	{-1, -1, 398, "reserve", false},
 	{-1, -1, 399, "reserve", false},
 	{-1, -1, 400, "DEVICE_APC_INFRA_AO", false},
@@ -1080,13 +1080,13 @@ static struct mtk_device_info mt6789_devices_peri2[] = {
 	{-1, -1, 217, "Decode_error", true},
 	{-1, -1, 218, "Decode_error", true},
 	{-1, -1, 219, "Decode_error", true},
-	{-1, -1, 220, "CQ_DMA", true},
-	{-1, -1, 221, "EMI", true},
+	{-1, -1, 220, "CQ_DMA", false},
+	{-1, -1, 221, "EMI", false},
 
 	/* 220 */
-	{-1, -1, 222, "EMI_MPU", true},
-	{-1, -1, 223, "GCE", true},
-	{-1, -1, 224, "AP_DMA", true},
+	{-1, -1, 222, "EMI_MPU", false},
+	{-1, -1, 223, "GCE", false},
+	{-1, -1, 224, "AP_DMA", false},
 	{-1, -1, 225, "DEVICE_APC_PERI_AO2", false},
 	{-1, -1, 226, "DEVICE_APC_PERI_PDN2", false},
 };
@@ -1160,7 +1160,7 @@ static struct mtk_device_info mt6789_devices_peri_par[] = {
 	{-1, -1, 53, "Decode_error", true},
 	{-1, -1, 54, "Decode_error", true},
 	{-1, -1, 55, "reserve", false},
-	{-1, -1, 56, "IMP_IIC_WRAP", true},
+	{-1, -1, 56, "IMP_IIC_WRAP", false},
 	{-1, -1, 57, "DEVICE_APC_PERI_PAR_AO", false},
 	{-1, -1, 58, "DEVICE_APC_PERI_PAR_PDN", false},
 };
