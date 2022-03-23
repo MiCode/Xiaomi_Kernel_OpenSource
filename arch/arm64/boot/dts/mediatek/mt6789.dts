@@ -1155,15 +1155,14 @@
 		mcucfg-ver = <0>;
 		apmixedsys = <&cpu_pll>;
 		clk-div-base = <&cpu_mcucfg>;
-		pll-con = <0x20c>, <0x21c>, <0x23c>;
+		pll-con = <0x20c>, <0x21c>, <0x25c>;
 		clk-div = <0xa2a0>, <0xa2a4>, <0xa2e0>;
 
 		/* regulator */
-		/* proc1-supply = <&mt6363_vbuck1>; //L */
-		/* proc2-supply = <&mt6363_vbuck2>; //B */
-		/* proc3-supply = <&mt6363_vbuck1>; //DSU */
-		/* regulator step value */
-		proc2 = <6250>; //B
+		proc1-supply = <&mt6358_vproc11_reg>; //L
+		proc2-supply = <&mt6358_vproc12_reg>; //B
+		proc3-supply = <&mt6358_vproc11_reg>; //DSU
+
 		/* leakage info */
 		nvmem-cells = <&lkginfo>;
 		nvmem-cell-names = "lkginfo";
