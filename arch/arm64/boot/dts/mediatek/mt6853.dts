@@ -1964,7 +1964,7 @@ page_owner=on loop.max_part=7";
 		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
 		mboxes = <&gce_mbox 23 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
-			<&gce_mbox 11 0 CMDQ_THR_PRIO_1>;
+			<&gce_mbox_sec 11 0 CMDQ_THR_PRIO_1>;
 		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 	};
