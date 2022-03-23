@@ -4484,7 +4484,7 @@
 				<&disp_iommu M4U_PORT_L4_VDEC_AVC_MV_EXT>,
 				<&disp_iommu M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT>,
 				<&disp_iommu M4U_PORT_L4_VDEC_UFO_ENC_EXT>;
-			//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		};
 
 		vdec@16000000 {
@@ -4517,7 +4517,7 @@
 				<&disp_iommu M4U_PORT_L4_VDEC_AVC_MV_EXT>,
 				<&disp_iommu M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT>,
 				<&disp_iommu M4U_PORT_L4_VDEC_UFO_ENC_EXT>;
-			//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			m4u-ports =
 				<M4U_PORT_L4_VDEC_MC_EXT>,
 				<M4U_PORT_L4_VDEC_UFO_EXT>,
@@ -4575,7 +4575,7 @@
 				<&disp_iommu M4U_PORT_L7_JPGENC_C_RDMA>,
 				<&disp_iommu M4U_PORT_L7_JPGENC_Q_TABLE>,
 				<&disp_iommu M4U_PORT_L7_JPGENC_BSDMA>;
-			//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 			//mediatek,larbs = <&smi_larb7>;
 			interrupts = <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH 0>;
 			mediatek,vcu = <&vcu>;
