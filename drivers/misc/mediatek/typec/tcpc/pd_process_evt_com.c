@@ -8,6 +8,8 @@
 #include "inc/pd_process_evt.h"
 #include "inc/pd_dpm_core.h"
 
+#include "usb_boost.h"
+
 /*
  * [BLOCK] DRP (dr_swap, pr_swap, vconn_swap)
  */
@@ -240,10 +242,12 @@ static inline bool pd_process_ctrl_msg(
 
 	/* Swap */
 	case PD_CTRL_DR_SWAP:
+		usb_boost();
 		ret = pd_process_ctrl_msg_dr_swap(pd_port, pd_event);
 		break;
 
 	case PD_CTRL_PR_SWAP:
+		usb_boost();
 		ret = pd_process_ctrl_msg_pr_swap(pd_port, pd_event);
 		break;
 
