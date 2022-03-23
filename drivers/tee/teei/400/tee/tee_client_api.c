@@ -652,9 +652,8 @@ TEEC_Result TEEC_RegisterSharedMemory(struct TEEC_Context *ctx,
 	if (!s)
 		s = 8;
 
-	mutex_lock(&tee_ctx->mutex);
-
 	tee_ctx = ctx->fd->private_data;
+	mutex_lock(&tee_ctx->mutex);
 	tee_shm = isee_shm_kalloc(tee_ctx, s, TEE_SHM_DMA_KERN_BUF | TEE_SHM_MAPPED);
 	if (IS_ERR(shm)) {
 		IMSG_ERROR("%s:%d Failed to get tee_shm!\n", __func__, __LINE__);
