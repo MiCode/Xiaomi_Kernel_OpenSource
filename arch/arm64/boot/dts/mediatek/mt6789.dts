@@ -1533,6 +1533,10 @@
 		compatible = "mediatek,mtk_composite_v4l2_1";
 	};
 
+	camera_af_hw_node: camera_af_hw_node {
+		compatible = "mediatek,camera_af_lens";
+	};
+
 	ipesys_clk: syscon@1b000000 {
 		compatible = "mediatek,mt6789-ipesys", "syscon";
 		reg = <0 0x1b000000 0 0x1000>;
