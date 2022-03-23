@@ -275,6 +275,8 @@ static unsigned int g_log_def_constraint;
 #define ISP_REG_ADDR_CAMSV_FMT_SEL              (ISP_ADDR +     0x5004)
 #define ISP_REG_ADDR_CAMSV_INT                  (ISP_ADDR +     0x500C)
 #define ISP_REG_ADDR_CAMSV_SW_CTL               (ISP_ADDR +     0x5010)
+#define ISP_REG_ADDR_AFO_D_XSIZE                (ISP_ADDR +     0x3534)
+#define ISP_REG_ADDR_AFO_D_YSIZE                (ISP_ADDR +     0x353C)
 #define ISP_REG_ADDR_CAMSV_TG_INTER_ST          (ISP_ADDR +     0x544C)
 #define ISP_REG_ADDR_CAMSV2_FMT_SEL             (ISP_ADDR +     0x5804)
 #define ISP_REG_ADDR_CAMSV2_INT                 (ISP_ADDR +     0x580C)
@@ -360,6 +362,8 @@ static unsigned int g_log_def_constraint;
 #define ISP_INNER_REG_ADDR_RRZO_YSIZE           (ISP_ADDR_CAMINF + 0xF32C)
 #define ISP_INNER_REG_ADDR_RRZO_STRIDE          (ISP_ADDR_CAMINF + 0xF330)
 #define ISP_INNER_REG_ADDR_RRZO_CROP            (ISP_ADDR_CAMINF + 0xF33C)
+#define ISP_INNER_REG_ADDR_AFO_D_XSIZE          (ISP_ADDR_CAMINF + 0xF534)
+#define ISP_INNER_REG_ADDR_AFO_D_YSIZE          (ISP_ADDR_CAMINF + 0xF53C)
 #if (ISP_RAW_D_SUPPORT == 1)
 #define ISP_INNER_REG_ADDR_IMGO_D_XSIZE         (ISP_ADDR_CAMINF + 0xF4DC)
 #define ISP_INNER_REG_ADDR_IMGO_D_YSIZE         (ISP_ADDR_CAMINF + 0xF4E0)
@@ -9792,7 +9796,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 			_fbc_chk[0].Reg_val = ISP_RD32(ISP_REG_ADDR_IMGO_FBC);
 			_fbc_chk[1].Reg_val = ISP_RD32(ISP_REG_ADDR_RRZO_FBC);
 			IRQ_LOG_KEEPER(_IRQ, m_CurrentPPB, _LOG_INF,
-				       "P1_SOF_%d_%d(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x)\n",
+				       "P1_SOF_%d_%d(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x)\n",
 				       sof_count[_PASS1], cur_v_cnt,
 				       (unsigned int)(_fbc_chk[0].Reg_val),
 				       (unsigned int)(_fbc_chk[1].Reg_val),
@@ -9800,6 +9804,10 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 				       ISP_RD32(ISP_REG_ADDR_RRZO_BASE_ADDR),
 				       ISP_RD32(ISP_INNER_REG_ADDR_IMGO_YSIZE),
 				       ISP_RD32(ISP_INNER_REG_ADDR_RRZO_YSIZE),
+				       ISP_RD32(ISP_REG_ADDR_AFO_D_XSIZE),
+				       ISP_RD32(ISP_REG_ADDR_AFO_D_YSIZE),
+				       ISP_RD32(ISP_INNER_REG_ADDR_AFO_D_XSIZE),
+				       ISP_RD32(ISP_INNER_REG_ADDR_AFO_D_YSIZE),
 				       ISP_RD32(ISP_REG_ADDR_TG_MAGIC_0));
 			/* 1 port is enough     */
 			if (pstRTBuf->ring_buf[_imgo_].active) {
