@@ -43,11 +43,11 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM
 ifeq ($(CONFIG_MTK_QOS_SUPPORT), y)
 obj-$(CONFIG_MACH_MT6771)		+= helio-dvfsrc.o helio-dvfsrc-sysfs.o
 obj-$(CONFIG_MACH_MT6771)		+= helio-dvfsrc-mt6771.o
+obj-$(CONFIG_MACH_MT6771)		+= helio-dvfsrc-opp-mt6771.o
 endif
 obj-$(CONFIG_MACH_MT6768)		+= helio-dvfsrc-ipi.o
 obj-$(CONFIG_MACH_MT6768)		+= helio-dvfsrc-v2/helio-dvfsrc.o helio-dvfsrc-v2/helio-dvfsrc-mt6768.o helio-dvfsrc-v2/helio-dvfsrc-opp-mt6768.o helio-dvfsrc-v2/helio-dvfsrc-opp.o helio-dvfsrc-v2/helio-dvfsrc-sysfs.o
 
-obj-$(CONFIG_MACH_MT6771)		+= helio-dvfsrc-opp-mt6771.o
 obj-$(CONFIG_MACH_MT6785)		+= helio-dvfsrc-v3/
 obj-$(CONFIG_MACH_MT6885)		+= helio-dvfsrc-v3/
 obj-$(CONFIG_MACH_MT6873)		+= helio-dvfsrc-v3/

@@ -69,13 +69,13 @@ obj-y += mtk_spm_resource_req.o
 obj-y += mtk_spm_sleep.o
 obj-y += mtk_spm_sodi.o
 obj-y += mtk_spm_sodi3p0.o
-obj-y += mtk_spm_vcorefs_mt6771.o
+obj-$(CONFIG_MTK_QOS_SUPPORT) += mtk_spm_vcorefs_mt6771.o
 obj-y += mtk_lp_sysfs.o
 obj-y += mtk_lp_kernfs.o
 obj-y += mtk_idle_sysfs.o
 obj-y += mtk_lp_sysfs_procfs.o
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
-obj-y += mtk_spm_vcorefs_ipi_mt6771.o
+obj-$(CONFIG_MTK_QOS_SUPPORT) += mtk_spm_vcorefs_ipi_mt6771.o
 endif
 else
 obj-y += mtk_idle.o
