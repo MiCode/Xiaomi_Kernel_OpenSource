@@ -25,7 +25,6 @@
 #include <trace/hooks/topology.h>
 #include <trace/hooks/debug.h>
 #include <trace/hooks/wqlockup.h>
-#include <trace/hooks/sysrqcrash.h>
 #include <trace/hooks/cgroup.h>
 #include <trace/hooks/sys.h>
 
