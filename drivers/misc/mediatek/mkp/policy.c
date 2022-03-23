@@ -8,6 +8,11 @@
 
 DEBUG_SET_LEVEL(DEBUG_LEVEL_ERR);
 
+/* Threshold of warning count */
+#define MAX_WARNING_COUNT	(3)
+static atomic_t policy_violations[MKP_POLICY_NR];
+static int panic_on __ro_after_init;
+
 int __ro_after_init policy_ctrl[MKP_POLICY_NR];
 uint32_t __ro_after_init mkp_policy_action[MKP_POLICY_NR] = {
 	/* Policy Table */
@@ -62,14 +67,49 @@ int __init set_ext_policy(uint32_t policy)
 	return 0;
 }
 
+void __init enable_action_panic(void)
+{
+	pr_info("%s\n", __func__);
+	panic_on = 1;
+}
+
+static void do_policy_action_panic(uint32_t policy)
+{
+	pr_info("%s for policy:%u\n", __func__, policy);
+
+	/* Is action_panic enabled */
+	if (!panic_on)
+		return;
+
+	// For now we use warn for panic.
+	panic("mkp action panic for policy:%u\n", policy);
+}
+
+static void do_policy_action_warning(uint32_t policy)
+{
+	pr_info("%s for policy:%u\n", __func__, policy);
+
+	/* Is action_panic enabled */
+	if (!panic_on)
+		return;
+
+	if (atomic_add_return(1, &policy_violations[policy]) > MAX_WARNING_COUNT)
+		panic("mkp action warning exceeds threshold for policy:%u\n", policy);
+}
+
 void handle_mkp_err_action(uint32_t policy)
 {
+	if ((int)policy < 0 || policy >= MKP_POLICY_NR)
+		return;
+
 	if (mkp_policy_action[policy] & ACTION_PANIC) {
 		MKP_ERR("mkp error\n");
-		// For now we use warn for panic.
-		//WARN("1, mkp panic\n");
-	} else if (mkp_policy_action[policy] & ACTION_WARNING)
+		do_policy_action_panic(policy);
+	} else if (mkp_policy_action[policy] & ACTION_WARNING) {
 		MKP_WARN("mkp warning\n");
-	else
+		do_policy_action_warning(policy);
+	} else {
+		/* just notification */
 		MKP_INFO("mkp error\n");
+	}
 }
