@@ -31,6 +31,14 @@
 		list_for_each_entry(edges,\
 				&mtk_irqremain, list)
 
+#define IRQ_REMAIN_FREE(_irq_remain) ({\
+	if (_irq_remain) {\
+		kfree(_irq_remain->irqs);\
+		kfree(_irq_remain->wakeup_src_cat);\
+		kfree(_irq_remain->wakeup_src);\
+		kfree(_irq_remain);\
+	} })
+
 
 enum MTK_LPM_IRQREMAIN_TYPE {
 	MTK_LPM_IRQREMAIN_LIST,
@@ -115,6 +123,8 @@ int mtk_lpm_irqremain_get(struct mtk_lpm_irqremain **irq)
 	if (!tar)
 		goto mtk_lpm_irqremain_release;
 
+	tar->irqs = tar->wakeup_src_cat = tar->wakeup_src = NULL;
+
 	tar->irqs = kcalloc(count,
 				sizeof(*tar->irqs), GFP_KERNEL);
 
@@ -128,7 +138,7 @@ int mtk_lpm_irqremain_get(struct mtk_lpm_irqremain **irq)
 		goto mtk_lpm_irqremain_release;
 
 	tar->wakeup_src = kcalloc(count,
-				sizeof(*tar->irqs), GFP_KERNEL);
+				sizeof(*tar->wakeup_src), GFP_KERNEL);
 
 	if (!tar->wakeup_src)
 		goto mtk_lpm_irqremain_release;
@@ -149,11 +159,7 @@ int mtk_lpm_irqremain_get(struct mtk_lpm_irqremain **irq)
 	return 0;
 
 mtk_lpm_irqremain_release:
-	if (tar) {
-		kfree(tar->irqs);
-		kfree(tar->wakeup_src);
-		kfree(tar);
-	}
+	IRQ_REMAIN_FREE(tar);
 	mtk_lpm_system_unlock(flag);
 
 	return -ENOMEM;
@@ -162,11 +168,7 @@ EXPORT_SYMBOL(mtk_lpm_irqremain_get);
 
 void mtk_lpm_irqremain_put(struct mtk_lpm_irqremain *irqs)
 {
-	if (irqs) {
-		kfree(irqs->irqs);
-		kfree(irqs->wakeup_src);
-		kfree(irqs);
-	}
+	IRQ_REMAIN_FREE(irqs);
 }
 EXPORT_SYMBOL(mtk_lpm_irqremain_put);
 
