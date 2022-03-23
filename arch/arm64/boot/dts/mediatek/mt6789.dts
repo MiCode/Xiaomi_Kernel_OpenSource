@@ -2818,6 +2818,10 @@
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
+		goodix_fp: fingerprint {
+			compatible = "mediatek,goodix-fp";
+		};
+
 		uart0: serial@11002000 {
 			compatible = "mediatek,mt6577-uart";
 			reg = <0 0x11002000 0 0x1000>;
