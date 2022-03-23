@@ -25,4 +25,5 @@
 #define CCU_ISR_LOG_BASE	(0x1A00)
 #define CCU_ISR_LOG_SIZE	(0x200)
 
+#define CCU_HEADER_NUM (20)
 #endif

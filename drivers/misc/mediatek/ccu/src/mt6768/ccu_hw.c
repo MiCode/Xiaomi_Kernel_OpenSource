@@ -18,6 +18,8 @@
 #include <linux/iommu.h>
 #include <linux/sched.h>
 #include <linux/firmware.h>
+#include <crypto/hash.h>
+#include <crypto/akcipher.h>
 
 #include "mtk_ion.h"
 #include "ion_priv.h"
@@ -35,6 +37,7 @@
 
 #include "ccu_inc.h"
 #include "ccu_hw.h"
+#include "ccu_fw_pubk.h"
 #include "ccu_reg.h"
 #include "ccu_cmn.h"
 #include "ccu_kd_mailbox.h"
@@ -79,6 +82,11 @@ struct ap_task_manage_t {
 	struct list_head ApTskWorkList;
 };
 
+struct sdesc {
+	struct shash_desc shash;
+	char ctx[];
+};
+
 struct ap_task_manage_t ap_task_manage;
 
 
@@ -93,6 +101,8 @@ static int _ccu_allocate_mva(uint32_t *mva, void *va,
 static int _ccu_deallocate_mva(struct ion_client **client,
 	struct ion_handle **handle);
 static int ccu_load_segments(const struct firmware *fw);
+static int ccu_sanity_check(const struct firmware *fw);
+static int ccu_cert_check(const struct firmware *fw);
 
 static int _ccu_config_m4u_port(void)
 {
@@ -908,12 +918,230 @@ int ccu_load_bin(struct ccu_device_s *device)
 		goto EXIT;
 	}
 
+	ret = ccu_sanity_check(firmware_p);
+	if (ret < 0) {
+		LOG_ERR("sanity check failed: %d\n", ret);
+		goto EXIT;
+	}
+
+	ret = ccu_cert_check(firmware_p);
+	if (ret < 0) {
+		LOG_ERR("cert check failed: %d\n", ret);
+		goto EXIT;
+	}
+
 	ret = ccu_load_segments(firmware_p);
 	if (ret < 0)
 		LOG_ERR("load segments failed: %d\n", ret);
 EXIT:
 	release_firmware(firmware_p);
 	return ret;
+}
+struct tcrypt_result {
+	struct completion completion;
+	int err;
+};
+
+static void tcrypt_complete(struct crypto_async_request *req, int err)
+{
+	struct tcrypt_result *res = (struct tcrypt_result *) req->data;
+
+	if (err == -EINPROGRESS)
+		return;
+
+	res->err = err;
+	complete(&res->completion);
+}
+
+static int wait_async_op(struct tcrypt_result *tr, int ret)
+{
+	if (ret == -EINPROGRESS || ret == -EBUSY) {
+		wait_for_completion(&tr->completion);
+		reinit_completion(&tr->completion);
+		ret = tr->err;
+	}
+
+	return ret;
+}
+
+CCU_FW_PUBK;
+
+int ccu_cert_check(const struct firmware *fw)
+{
+	uint8_t hash[32];
+	uint8_t *cert = NULL;
+	uint8_t *sign = NULL;
+	uint8_t *digest = NULL;
+	int cert_len = 0x110;
+	int block_len = 0x100;
+	struct crypto_shash *alg = NULL;
+	struct crypto_akcipher *rsa_alg = NULL;
+	struct akcipher_request *req = NULL;
+	struct tcrypt_result result;
+	struct sdesc *sdesc = NULL;
+	struct scatterlist sg_in;
+	struct scatterlist sg_out;
+	uint32_t firmware_size, size;
+	int ret, i;
+
+	LOG_DBG_MUST("%s+\n", __func__);
+	if (fw->size < cert_len) {
+		LOG_ERR("firmware size small than cert\n");
+		return -EINVAL;
+	}
+
+	cert = (uint8_t *)fw->data + fw->size - cert_len;
+
+	alg = crypto_alloc_shash("sha256", 0, 0);
+	if (IS_ERR(alg)) {
+		LOG_ERR("can't alloc alg sha256\n");
+		ret = -EINVAL;
+		goto free_req;
+	}
+	size = sizeof(struct shash_desc) + crypto_shash_descsize(alg);
+	sdesc = kmalloc(size, GFP_KERNEL);
+	if (!sdesc) {
+		LOG_ERR("can't alloc sdesc\n");
+		ret = -ENOMEM;
+		goto free_req;
+	}
+	digest = kmalloc(block_len, GFP_KERNEL);
+	if (!digest) {
+		LOG_ERR("can't alloc sdesc\n");
+		ret = -ENOMEM;
+		goto free_req;
+	}
+	sign = kmalloc(block_len, GFP_KERNEL);
+	if (!sign) {
+		LOG_ERR("can't alloc sdesc\n");
+		ret = -ENOMEM;
+		goto free_req;
+	}
+
+	firmware_size = *(uint32_t *)(cert);
+	sdesc->shash.tfm = alg;
+	ret = crypto_shash_digest(&sdesc->shash, fw->data, firmware_size, hash);
+
+	memcpy(sign, cert + 0x10, block_len);
+	rsa_alg = crypto_alloc_akcipher("rsa", 0, 0);
+	if (IS_ERR(rsa_alg)) {
+		LOG_ERR("can't alloc alg %ld\n", PTR_ERR(rsa_alg));
+		goto free_req;
+	}
+
+	req = akcipher_request_alloc(rsa_alg, GFP_KERNEL);
+	if (!req) {
+		LOG_ERR("can't request alg rsa\n");
+		goto free_req;
+	}
+
+	ret = crypto_akcipher_set_pub_key(rsa_alg, g_ccu_pubk, CCU_FW_PUBK_SZ);
+	if (ret) {
+		LOG_ERR("set pubkey err %d %d\n", ret, CCU_FW_PUBK_SZ);
+		goto free_req;
+	}
+
+	sg_init_one(&sg_in, sign, block_len);
+	sg_init_one(&sg_out, digest, block_len);
+
+	akcipher_request_set_crypt(req, &sg_in, &sg_out, block_len, block_len);
+	init_completion(&result.completion);
+
+	akcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
+		tcrypt_complete, &result);
+	ret = wait_async_op(&result, crypto_akcipher_verify(req));
+	if (ret) {
+		LOG_ERR("verify err %d\n", ret);
+		goto free_req;
+	}
+
+	if (memcmp(digest + 0xE0, hash, 0x20)) {
+		LOG_ERR("firmware is corrupted\n");
+		LOG_ERR("digest:\n");
+		for (i = 0xE0; i < 0x100; i += 8) {
+			LOG_ERR("%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			digest[i], digest[i+1], digest[i+2], digest[i+3],
+			digest[i+4], digest[i+5], digest[i+6], digest[i+7]);
+		}
+		LOG_ERR("hash:\n");
+		for (i = 0; i < 32; i += 8) {
+			LOG_INF_MUST("%02x%02x%02x%02x%02x%02x%02x%02x\n",
+			hash[i], hash[i+1], hash[i+2], hash[i+3],
+			hash[i+4], hash[i+5], hash[i+6], hash[i+7]);
+		}
+		ret = -EINVAL;
+	}
+
+free_req:
+	if (rsa_alg)
+		crypto_free_akcipher(rsa_alg);
+	if (req)
+		akcipher_request_free(req);
+	if (alg)
+		crypto_free_shash(alg);
+	kfree(sdesc);
+	LOG_DBG_MUST("%s-\n", __func__);
+	return ret;
+}
+
+int ccu_sanity_check(const struct firmware *fw)
+{
+	// const char *name = rproc->firmware;
+	struct elf32_hdr *ehdr;
+	uint32_t phdr_offset;
+	char class;
+
+	if (!fw) {
+		LOG_ERR("failed to load ccu_bin\n");
+		return -EINVAL;
+	}
+
+	if (fw->size < sizeof(struct elf32_hdr)) {
+		LOG_ERR("Image is too small\n");
+		return -EINVAL;
+	}
+
+	ehdr = (struct elf32_hdr *)fw->data;
+
+	/* We only support ELF32 at this point */
+	class = ehdr->e_ident[EI_CLASS];
+	if (class != ELFCLASS32) {
+		LOG_ERR("Unsupported class: %d\n", class);
+		return -EINVAL;
+	}
+
+	/* We assume the firmware has the same endianness as the host */
+# ifdef __LITTLE_ENDIAN
+	if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB) {
+# else /* BIG ENDIAN */
+	if (ehdr->e_ident[EI_DATA] != ELFDATA2MSB) {
+# endif
+		LOG_ERR("Unsupported firmware endianness\n");
+		return -EINVAL;
+	}
+
+	if (fw->size < ehdr->e_shoff + sizeof(struct elf32_shdr)) {
+		LOG_ERR("Image is too small\n");
+		return -EINVAL;
+	}
+
+	if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG)) {
+		LOG_ERR("Image is corrupted (bad magic)\n");
+		return -EINVAL;
+	}
+
+	if ((ehdr->e_phnum == 0) || (ehdr->e_phnum > CCU_HEADER_NUM)) {
+		LOG_ERR("loadable segments is invalid: %x\n", ehdr->e_phnum);
+		return -EINVAL;
+	}
+
+	phdr_offset = ehdr->e_phoff + sizeof(struct elf32_phdr) * ehdr->e_phnum;
+	if (phdr_offset > fw->size) {
+		LOG_ERR("Firmware size is too small\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static void ccu_load_memcpy(void *dst, const void *src, uint32_t len)
