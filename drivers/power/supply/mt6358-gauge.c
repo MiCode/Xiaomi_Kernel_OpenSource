@@ -1160,7 +1160,7 @@ int bat_cycle_intr_threshold_set(struct mtk_gauge *gauge,
 
 	carReg = car + 5;
 #if defined(__LP64__) || defined(_LP64)
-	carReg = do_div(carReg, 10);
+	do_div(carReg, 10);
 #else
 	carReg = div_s64(carReg, 10);
 #endif
