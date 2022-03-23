@@ -4529,38 +4529,6 @@
 			reg = <0 0x15812000 0 0x1000>;
 		};
 
-		vdec_gcon@16000000 {
-			compatible = "mediatek,vdec_gcon";
-			reg = <0 0x16000000 0 0x10000>;
-		};
-
-		vdec_gcon@16010000 {
-			compatible = "mediatek,vdec_gcon";
-			reg = <0 0x16010000 0 0x8000>;
-		};
-
-		vdec_gcon@16018000 {
-			compatible = "mediatek,vdec_gcon";
-			reg = <0 0x16018000 0 0x8000>;
-		};
-
-		vdec@16020000 {
-			compatible = "mediatek,vdec";
-			reg = <0 0x16020000 0 0xe000>;
-			interrupts = <GIC_SPI 458 IRQ_TYPE_LEVEL_HIGH 0>;
-		};
-
-		venc_gcon@17000000 {
-			compatible = "mediatek,venc_gcon";
-			reg = <0 0x17000000 0 0x10000>;
-		};
-
-		venc@17020000 {
-			compatible = "mediatek,venc";
-			reg = <0 0x17020000 0 0x10000>;
-			interrupts = <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH 0>;
-		};
-
 		jpgenc@17030000 {
 			compatible = "mediatek,jpgenc";
 			reg = <0 0x17030000 0 0x10000>;
@@ -4699,6 +4667,54 @@
 				<&disp_iommu M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT>,
 				<&disp_iommu M4U_PORT_L4_VDEC_UFO_ENC_EXT>;
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+
+			mediatek,dec_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
+			mediatek,enc_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
+
+			mboxes = <&gce 7 0 CMDQ_THR_PRIO_1>,
+					<&gce 12 0 CMDQ_THR_PRIO_1>,
+					<&gce_sec 12 0 CMDQ_THR_PRIO_1>;
+			gce-event-names = "venc_eof",
+					"venc_cmdq_pause_done",
+					"venc_mb_done",
+					"venc_sps_done",
+					"venc_pps_done",
+					"venc_128B_cnt_done",
+					"vdec_pic_start",
+					"vdec_decode_done",
+					"vdec_pause",
+					"vdec_dec_error",
+					"vdec_mc_busy_overflow_timeout",
+					"vdec_all_dram_req_done",
+					"vdec_ini_fetch_rdy",
+					"vdec_process_flag",
+					"vdec_search_start_code_done",
+					"vdec_ref_reorder_done",
+					"vdec_wp_tble_done",
+					"vdec_count_sram_clr_done",
+					"vdec_gce_cnt_op_threshold";
+
+			gce-events =  <&gce CMDQ_EVENT_VENC_VENCSYS_CMDQ_DONE_CAT_0>,
+					<&gce CMDQ_EVENT_VENC_VENCSYS_CMDQ_DONE_CAT_1>,
+					<&gce CMDQ_EVENT_VENC_VENCSYS_CMDQ_DONE_CAT_3>,
+					<&gce CMDQ_EVENT_VENC_VENCSYS_CMDQ_DONE_CAT_8>,
+					<&gce CMDQ_EVENT_VENC_VENCSYS_CMDQ_DONE_CAT_7>,
+					<&gce CMDQ_EVENT_VENC_VENCSYS_CMDQ_DONE_CAT_4>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_0>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_1>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_2>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_3>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_4>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_5>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_6>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_7>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_8>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_9>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_10>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_11>,
+					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_15>;
+
+			gce-gpr = <GCE_GPR_R10>, <GCE_GPR_R11>;
 		};
 
 		vdec@16000000 {
@@ -4758,7 +4774,7 @@
 				"M4U_PORT_VDEC_AVC_MV",
 				"M4U_PORT_VDEC_RG_CTRL_DMA",
 				"M4U_PORT_VDEC_UFO_ENC";
-			//mediatek,larbs = <&smi_larb4>;
+			mediatek,larbs = <&smi_larb4>;
 			interrupts = <GIC_SPI 458 IRQ_TYPE_LEVEL_HIGH 0>;
 			mediatek,vcu = <&vcu>;
 			clocks =
@@ -4790,7 +4806,7 @@
 				<&disp_iommu M4U_PORT_L7_JPGENC_Q_TABLE>,
 				<&disp_iommu M4U_PORT_L7_JPGENC_BSDMA>;
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
-			//mediatek,larbs = <&smi_larb7>;
+			mediatek,larbs = <&smi_larb7>;
 			interrupts = <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH 0>;
 			mediatek,vcu = <&vcu>;
 			clocks =
