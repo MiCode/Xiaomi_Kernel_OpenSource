@@ -208,6 +208,8 @@ int lpm_gs_pmic_cmp(int user)
 		regmap = NULL;
 		if (!strcmp((*_pmic)->pwr_domain, "6363"))
 			regmap = pmic_get_regmap("pmic");
+		else if (!strcmp((*_pmic)->pwr_domain, "6366"))
+			regmap = pmic_get_regmap("pwrap");
 		else if (!strcmp((*_pmic)->pwr_domain, "6368") ||
 			 !strcmp((*_pmic)->pwr_domain, "6373"))
 			regmap = pmic_get_regmap("second_pmic");

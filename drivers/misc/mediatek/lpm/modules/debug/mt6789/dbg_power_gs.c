@@ -98,7 +98,7 @@ struct lpm_gs_clk_info clk_infos = {
 /* PMIC */
 struct lpm_gs_pmic pmic6366 = {
 	.type = GS_PMIC,
-	.regulator = "mediatek,mt6366-regulator",
+	.regulator = "mediatek,mt6358-regulator",
 	.pwr_domain = "6366",
 };
 
@@ -115,7 +115,7 @@ int power_gs_pmic_user_attach(struct lpm_gs_pmic *p)
 	/* Set compare golden setting for scenario */
 	pr_info("p regulaor %s\n", p->regulator);
 	/*FIXME mediatek,mt6369-regulator*/
-	if (!strcmp(p->regulator, "mediatek,mt6366-regulator")) {
+	if (!strcmp(p->regulator, "mediatek,mt6358-regulator")) {
 		p->user[LPM_PWR_GS_TYPE_SUSPEND].name = "suspend";
 		p->user[LPM_PWR_GS_TYPE_SUSPEND].array =
 			AP_PMIC_REG_6366_gs_suspend_32kless;
