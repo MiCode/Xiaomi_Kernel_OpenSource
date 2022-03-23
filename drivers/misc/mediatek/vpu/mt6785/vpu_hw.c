@@ -2696,7 +2696,7 @@ static int vpu_service_routine(void *arg)
 		if (!req) {
 			if (i >= VPU_REQ_MAX_NUM_PRIORITY || i < 0) {
 				LOG_ERR("invalid priority %d\n", i);
-				break;
+				i = 0;
 			}
 			req = vpu_pool_dequeue(
 				&vpu_dev->pool[service_core],
