@@ -46,7 +46,6 @@ int mt6789_afe_gpio_init(struct mtk_base_afe *afe)
 {
 	int ret;
 	int i = 0;
-
 	aud_pinctrl = devm_pinctrl_get(afe->dev);
 	if (IS_ERR(aud_pinctrl)) {
 		ret = PTR_ERR(aud_pinctrl);
@@ -54,8 +53,13 @@ int mt6789_afe_gpio_init(struct mtk_base_afe *afe)
 			__func__, ret);
 		return -ENODEV;
 	}
-
 	for (i = 0; i < ARRAY_SIZE(aud_gpios); i++) {
+		dev_info(afe->dev, "%s(), aud_gpios[%d]: %s\n", __func__, i, aud_gpios[i].name);
+		if (aud_gpios[i].name == NULL) {
+			dev_info(afe->dev, "%s(), aud_gpios[%d]: %s NULL, bypass\n",
+				 __func__, i, aud_gpios[i].name);
+			continue;
+		}
 		aud_gpios[i].gpioctrl = pinctrl_lookup_state(aud_pinctrl,
 							     aud_gpios[i].name);
 		if (IS_ERR(aud_gpios[i].gpioctrl)) {

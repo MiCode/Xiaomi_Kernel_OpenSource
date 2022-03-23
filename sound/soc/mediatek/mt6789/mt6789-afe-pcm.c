@@ -4784,7 +4784,6 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_CONNSYS_I2S_MON, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_CONNSYS_I2S_MON = 0x%x\n", value);
-	/*
 	regmap_read(afe->regmap, AFE_ASRC_2CH_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_ASRC_2CH_CON0 = 0x%x\n", value);
@@ -4824,7 +4823,6 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_ASRC_2CH_CON13, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_ASRC_2CH_CON13 = 0x%x\n", value);
-	*/
 	regmap_read(afe->regmap, AFE_ADDA6_IIR_COEF_02_01, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_ADDA6_IIR_COEF_02_01 = 0x%x\n", value);
@@ -4960,7 +4958,6 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_ADDA6_MTKAIF_RX_CFG2, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_ADDA6_MTKAIF_RX_CFG2 = 0x%x\n", value);
-	/*
 	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_GENERAL1_ASRC_2CH_CON0 = 0x%x\n", value);
@@ -5006,7 +5003,6 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, GENERAL_ASRC_EN_ON, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "GENERAL_ASRC_EN_ON = 0x%x\n", value);
-	*/
 	regmap_read(afe->regmap, AFE_CONN48, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_CONN48 = 0x%x\n", value);
@@ -5055,7 +5051,6 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_CONN55_1, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_CONN55_1 = 0x%x\n", value);
-	/*
 	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_GENERAL2_ASRC_2CH_CON0 = 0x%x\n", value);
@@ -5095,7 +5090,6 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON13, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_GENERAL2_ASRC_2CH_CON13 = 0x%x\n", value);
-	*/
 	regmap_read(afe->regmap, AFE_DL5_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_DL5_CON0 = 0x%x\n", value);
