@@ -238,7 +238,7 @@ static struct imgsensor_struct imgsensor = {
 /* Sensor output window information */
 static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	{4656, 3496, 0, 0, 4656, 3496, 2328, 1748,
-	0000, 0000, 2328, 1748, 0, 0, 2328, 1746},	/*Preview*/
+	0000, 0000, 2328, 1748, 0, 1, 2328, 1746},	/*Preview*/
 	{4656, 3496, 0, 0, 4656, 3496, 4656, 3496,
 	0000, 0000, 4656, 3496, 0, 2, 4656, 3492},	/*Capture*/
 	{4656, 3496, 0, 444, 4656, 2608, 4656, 2608,
@@ -246,7 +246,7 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	{4656, 3496, 0, 664, 4656, 2160, 2328, 1080,
 	204, 0000, 1920, 1080, 0, 0, 1920, 1080},	/*hs-video*/
 	{4656, 3496, 0, 0, 4656, 3496, 2328, 1748,
-	0000, 0000, 2328, 1748, 0, 0, 2328, 1746},	/*slim video*/
+	0000, 0000, 2328, 1748, 0, 1, 2328, 1746},	/*slim video*/
 };
 
 static struct SENSOR_VC_INFO_STRUCT SENSOR_VC_INFO[4] = {
