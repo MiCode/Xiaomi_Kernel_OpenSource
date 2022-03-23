@@ -109,9 +109,9 @@ endif
 obj-$(CONFIG_MTK_SMI) += smi/
 obj-$(CONFIG_MTK_SMI_VARIANT) += smi/
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += lpm/
-ifneq ($(CONFIG_MTK_PLATFORM), "mt6771")
+#ifneq ($(CONFIG_MTK_PLATFORM), "mt6771")
 obj-$(CONFIG_MTK_PERFORMANCE_MODULE) += performance/
-endif
+#endif
 obj-y += mmdvfs/
 obj-$(CONFIG_MTK_IOMMU_MISC) += iommu/
 obj-$(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON) += mmqos/
