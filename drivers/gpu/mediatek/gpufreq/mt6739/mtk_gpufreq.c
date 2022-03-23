@@ -1251,9 +1251,12 @@ static void mt_gpufreq_clock_switch_transient(unsigned int freq_new,  enum post_
 			__func__, DRV_Reg32(GPUPLL_CON1));
 
 	/* Step2. Modify gpupll_ck */
-#ifdef FHCTL_READY
 	mt_dfs_general_pll(FH_PLL3, dds);
-#endif
+	cur_freq = _mt_gpufreq_get_cur_freq();
+	if (cur_freq != freq_new) {
+		gpufreq_pr_err("@%s: switch freq fail! cur_freq = %d, expect freq: freq_new = %d\n",
+			__func__, cur_freq, freq_new);
+	}
 
 }
 
