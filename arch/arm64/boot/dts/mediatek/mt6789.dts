@@ -5962,7 +5962,7 @@
 			dramc_ver = <2>;
 			/* 0: dram ebg, 1:emi_freq, 2: DRAMC_DCM_CTRL 3:chn_emi_low_effi */
 			/* 4: SLC */
-			met_emi_support_list = <0x7>;
+			met_emi_support_list = <0x5>;
 			cen_emi_reg_base = <0x10219000 0x1021d000>;
 			cen_emi_reg_size = <0x1000>;
 			chn_emi_reg_base = <0x10235000 0x10245000 0x10255000 0x10265000>;
@@ -6015,13 +6015,7 @@
 				 node_2 = "SSPM_QOS_BOUND_STATE",
 				 "ver,apu_num,idx,state,num,event,emibw_mon_total,",
 				 "emibw_mon_cpu,emibw_mon_gpu,emibw_mon_mm,",
-				 "emibw_mon_md,smibw_mon_gpu,smibw_mon_apu,",
-				 "apubw_mon_vpu0,apubw_mon_vpu1,apubw_mon_mdla0,",
-				 "apubw_mon_mdla1,apubw_mon_mdla2,apubw_mon_mdla3,",
-				 "apubw_mon_edma0,apubw_mon_edma1,",
-				 "apulat_mon_vpu0,apulat_mon_vpu1,apulat_mon_mdla0,",
-				 "apulat_mon_mdla1,apulat_mon_mdla2,apulat_mon_mdla3,",
-				 "apulat_mon_edma0,apulat_mon_edma1";
+				 "emibw_mon_md,smibw_mon_gpu,smibw_mon_apu";
 
 				 node_3 = "SSPM_CM_MGR_NON_WFX",
 				 "non_wfx_0,non_wfx_1,non_wfx_2,non_wfx_3,",
