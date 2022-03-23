@@ -24,6 +24,8 @@ else ifeq ($(CONFIG_MACH_MT6873),y)
 	USE_PPM_CPI = "true"
 else ifeq ($(CONFIG_MACH_MT6853),y)
 	USE_PPM_CPI = "true"
+else ifeq ($(CONFIG_MACH_MT6885),y)
+	USE_PPM_CPI = "true"
 else
 	USE_PPM_CPI = "false"
 endif
@@ -50,6 +52,13 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/mt6833\
 	-I$(srctree)/drivers/misc/mediatek/thermal/mt6833/inc/mach/
+endif
+
+ifeq ($(CONFIG_MACH_MT6885), y)
+ccflags-y += \
+	-I$(PPM_ROOT_DIR)/src/mach/mt6885\
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6885/include	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/mt6885
 endif
 
 ifneq (,$(findstring 3gear,$(PROJECT_DTB_NAMES)))
