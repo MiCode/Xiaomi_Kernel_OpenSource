@@ -6,6 +6,7 @@ msm_qmp.ko
 ns.ko
 pinctrl-msm.ko
 pinctrl-sm8150.ko
+qcom-dload-mode.ko
 qcom_aoss.ko
 qcom_hwspinlock.ko
 qcom-pdc.ko
@@ -17,3 +18,4 @@ qcom_soc_wdt.ko
 qrtr.ko
 secure_buffer.ko
 smem.ko
+socinfo.ko
