@@ -1746,6 +1746,17 @@ static void mdp_qos_clear_all_isp(u32 thread_id)
 	mtk_icc_set_bw(path_l11_img_mfb_wdma1[thread_id], 0, 0);
 }
 
+#define ISP_MFB_PORT_BW_LIMIT 4096
+static void mdp_qos_check_bw_limit(u32 thread_id,
+	u32 port, u32 user_bw, u32 set_bw)
+{
+	if (port >= M4U_LARB11_PORT18 && port <= M4U_LARB11_PORT25)
+		if (set_bw > ISP_MFB_PORT_BW_LIMIT)
+			CMDQ_ERR(
+				"thread_id:%d, port:0x%x, user-bw %u, set-bw:%u over limit!!\n",
+				thread_id, port, user_bw, set_bw);
+}
+
 static u32 mdp_get_group_max(void)
 {
 	return CMDQ_MAX_GROUP_COUNT;
@@ -1943,6 +1954,8 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->qosGetPath = mdp_qos_get_path;
 	pFunc->qosClearAll = mdp_qos_clear_all;
 	pFunc->qosClearAllIsp = mdp_qos_clear_all_isp;
+	pFunc->qosCheckBWLimit = mdp_qos_check_bw_limit;
+
 	pFunc->getGroupMax = mdp_get_group_max;
 	pFunc->getGroupIsp = mdp_get_group_isp_plat;
 	pFunc->getGroupMdp = mdp_get_group_mdp;
