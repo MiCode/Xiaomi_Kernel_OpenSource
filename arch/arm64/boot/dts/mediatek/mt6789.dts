@@ -4625,6 +4625,16 @@
 			compatible = "mediatek,mdpsys_config", "syscon";
 			reg = <0 0x1f000000 0 0x1000>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			clocks = <&mdpsys_config_clk CLK_MDP_IMG_DL_ASYNC0>,
+				<&mdpsys_config_clk CLK_MDP_IMG_DL_ASYNC1>,
+				<&mdpsys_config_clk CLK_MDP_IMG_DL_RELAY0_ASYNC0>,
+				<&mdpsys_config_clk CLK_MDP_IMG_DL_RELAY1_ASYNC1>,
+				<&mdpsys_config_clk CLK_MDP_APB_BUS>;
+			clock-names = "MDP_IMG_DL_ASYNC0",
+					"MDP_IMG_DL_ASYNC1",
+					"MDP_IMG_DL_RELAY0_ASYNC0",
+					"MDP_IMG_DL_RELAY1_ASYNC1",
+					"MDP_APB_BUS";
 			iommus = <&disp_iommu M4U_PORT_L2_MDP_RDMA0>,
 				<&disp_iommu M4U_PORT_L2_MDP_RDMA1>,
 				<&disp_iommu M4U_PORT_L2_MDP_WROT0>,
