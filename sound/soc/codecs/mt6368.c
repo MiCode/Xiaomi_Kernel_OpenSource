@@ -69,8 +69,15 @@ EXPORT_SYMBOL_GPL(mt6368_set_mtkaif_protocol);
 static void mt6368_set_playback_gpio(struct mt6368_priv *priv)
 {
 	/* set gpio mosi mode, clk / data / sync */
-	regmap_write(priv->regmap, MT6368_GPIO_MODE4_CLR, 0x38);
-	regmap_write(priv->regmap, MT6368_GPIO_MODE4_SET, 0x8);
+	unsigned int reg_value = 0;
+
+	regmap_read(priv->regmap, MT6368_GPIO_MODE4, &reg_value);
+	/* only reset the IO mode if necessary */
+	if ((reg_value & 0x38) != 0x8) {
+		regmap_write(priv->regmap, MT6368_GPIO_MODE4_CLR, 0x38);
+		regmap_write(priv->regmap, MT6368_GPIO_MODE4_SET, 0x8);
+	}
+
 	regmap_write(priv->regmap, MT6368_GPIO_MODE5_CLR, 0x3f);
 	regmap_write(priv->regmap, MT6368_GPIO_MODE5_SET, 0x9);
 	regmap_write(priv->regmap, MT6368_GPIO_MODE6_CLR, 0x3f);
