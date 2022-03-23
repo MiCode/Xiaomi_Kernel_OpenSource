@@ -17,6 +17,8 @@
 #include <linux/slab.h>
 #include <linux/soc/qcom/mdt_loader.h>
 #include <linux/soc/qcom/smem.h>
+#include <trace/hooks/remoteproc.h>
+#include <trace/events/rproc_qcom.h>
 
 #include "remoteproc_internal.h"
 #include "qcom_common.h"
@@ -26,6 +28,10 @@
 #define to_glink_subdev(d) container_of(d, struct qcom_rproc_glink, subdev)
 #define to_smd_subdev(d) container_of(d, struct qcom_rproc_subdev, subdev)
 #define to_ssr_subdev(d) container_of(d, struct qcom_rproc_ssr, subdev)
+
+#define GLINK_SUBDEV_NAME	"glink"
+#define SMD_SUBDEV_NAME		"smd"
+#define SSR_SUBDEV_NAME		"ssr"
 
 #define MAX_NUM_OF_SS           10
 #define MAX_REGION_NAME_LENGTH  16
@@ -190,6 +196,8 @@ static int glink_subdev_prepare(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
 
+	trace_rproc_qcom_event(dev_name(glink->dev->parent), GLINK_SUBDEV_NAME, "prepare");
+
 	glink->edge = qcom_glink_smem_register(glink->dev, glink->node);
 
 	return PTR_ERR_OR_ZERO(glink->edge);
@@ -199,12 +207,17 @@ static int glink_subdev_start(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
 
+	trace_rproc_qcom_event(dev_name(glink->dev->parent), GLINK_SUBDEV_NAME, "start");
+
 	return qcom_glink_smem_start(glink->edge);
 }
 
 static void glink_subdev_stop(struct rproc_subdev *subdev, bool crashed)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
+
+	trace_rproc_qcom_event(dev_name(glink->dev->parent), GLINK_SUBDEV_NAME,
+			       crashed ? "crash stop" : "stop");
 
 	qcom_glink_smem_unregister(glink->edge);
 	glink->edge = NULL;
@@ -213,6 +226,8 @@ static void glink_subdev_stop(struct rproc_subdev *subdev, bool crashed)
 static void glink_subdev_unprepare(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
+
+	trace_rproc_qcom_event(dev_name(glink->dev->parent), GLINK_SUBDEV_NAME, "unprepare");
 
 	qcom_glink_ssr_notify(glink->ssr_name);
 }
@@ -309,6 +324,8 @@ static int smd_subdev_start(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_subdev *smd = to_smd_subdev(subdev);
 
+	trace_rproc_qcom_event(dev_name(smd->dev->parent), SMD_SUBDEV_NAME, "start");
+
 	smd->edge = qcom_smd_register_edge(smd->dev, smd->node);
 
 	return PTR_ERR_OR_ZERO(smd->edge);
@@ -317,6 +334,9 @@ static int smd_subdev_start(struct rproc_subdev *subdev)
 static void smd_subdev_stop(struct rproc_subdev *subdev, bool crashed)
 {
 	struct qcom_rproc_subdev *smd = to_smd_subdev(subdev);
+
+	trace_rproc_qcom_event(dev_name(smd->dev->parent), SMD_SUBDEV_NAME,
+			       crashed ? "crash stop" : "stop");
 
 	qcom_smd_unregister_edge(smd->edge);
 	smd->edge = NULL;
@@ -485,6 +505,8 @@ static int ssr_notify_prepare(struct rproc_subdev *subdev)
 		.crashed = false,
 	};
 
+	trace_rproc_qcom_event(ssr->info->name, SSR_SUBDEV_NAME, "prepare");
+
 	ssr->notification = QCOM_SSR_BEFORE_POWERUP;
 	notify_ssr_clients(ssr, &data);
 	return 0;
@@ -497,6 +519,8 @@ static int ssr_notify_start(struct rproc_subdev *subdev)
 		.name = ssr->info->name,
 		.crashed = false,
 	};
+
+	trace_rproc_qcom_event(ssr->info->name, SSR_SUBDEV_NAME, "start");
 
 	ssr->notification = QCOM_SSR_AFTER_POWERUP;
 	notify_ssr_clients(ssr, &data);
@@ -511,6 +535,8 @@ static void ssr_notify_stop(struct rproc_subdev *subdev, bool crashed)
 		.crashed = crashed,
 	};
 
+	trace_rproc_qcom_event(ssr->info->name, SSR_SUBDEV_NAME, crashed ? "crash stop" : "stop");
+
 	ssr->notification = QCOM_SSR_BEFORE_SHUTDOWN;
 	notify_ssr_clients(ssr, &data);
 }
@@ -522,6 +548,8 @@ static void ssr_notify_unprepare(struct rproc_subdev *subdev)
 		.name = ssr->info->name,
 		.crashed = false,
 	};
+
+	trace_rproc_qcom_event(ssr->info->name, SSR_SUBDEV_NAME, "unprepare");
 
 	ssr->notification = QCOM_SSR_AFTER_SHUTDOWN;
 	notify_ssr_clients(ssr, &data);
