@@ -35,8 +35,37 @@ int is_module_or_bpf_addr(/*unsigned long x */const void *x)
 	 */
 	return 0;
 }
+
+static int call_helper(enum helper_ops ops, uint32_t policy, uint32_t handle)
+{
+	int ret = -1;
+
+	switch (ops) {
+	case HELPER_MAPPING_RO:
+		ret = mkp_set_mapping_ro(policy, handle);
+		break;
+	case HELPER_MAPPING_RW:
+		ret = mkp_set_mapping_rw(policy, handle);
+		break;
+	case HELPER_MAPPING_NX:
+		ret = mkp_set_mapping_nx(policy, handle);
+		break;
+	case HELPER_MAPPING_X:
+		ret = mkp_set_mapping_x(policy, handle);
+		break;
+	case HELPER_CLEAR_MAPPING:
+		ret = mkp_clear_mapping(policy, handle);
+		break;
+	default:
+		pr_info("%s: ops:%d is not available!\n", __func__, ops);
+		break;
+	}
+
+	return ret;
+}
+
 int mkp_set_mapping_xxx_helper(unsigned long addr, int nr_pages, uint32_t policy,
-	int (*set_memory)(uint32_t policy, uint32_t handle))
+		enum helper_ops ops)
 {
 	struct mkp_rb_node *data = NULL, *found = NULL;
 	int ret = 0;
@@ -65,7 +94,7 @@ int mkp_set_mapping_xxx_helper(unsigned long addr, int nr_pages, uint32_t policy
 				i = i + ((found->size) >> PAGE_SHIFT)-1;
 				start_pfn = 0; count = 1;
 				handle = found->handle;
-				ret = set_memory(policy, handle);
+				ret = call_helper(ops, policy, handle);
 				if (ret == -1) {
 					MKP_WARN("%s:%d: policy: %u, Set memory fail\n",
 						__func__, __LINE__, policy);
@@ -97,7 +126,7 @@ int mkp_set_mapping_xxx_helper(unsigned long addr, int nr_pages, uint32_t policy
 					start_pfn = 0; count = 1;
 					continue;
 				}
-				ret = set_memory(policy, handle);
+				ret = call_helper(ops, policy, handle);
 				if (ret == -1) {
 					ret = mkp_destroy_handle(policy, handle);
 					kfree(data);

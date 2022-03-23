@@ -96,11 +96,11 @@ static void probe_android_vh_set_memory_ro(void *ignore, unsigned long addr,
 	region = is_module_or_bpf_addr((void *)addr);
 	if (region == MKP_DEMO_MODULE_CASE) {
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
-			mkp_set_mapping_ro);
+			HELPER_MAPPING_RO);
 	} else if (region == MKP_DEMO_BPF_CASE) {
 #ifndef CONFIG_DEBUG_VIRTUAL
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_KERNEL_PAGES,
-			mkp_set_mapping_ro);
+			HELPER_MAPPING_RO);
 #endif
 	}
 }
@@ -114,11 +114,11 @@ static void probe_android_vh_set_memory_x(void *ignore, unsigned long addr,
 	region = is_module_or_bpf_addr((void *)addr);
 	if (region == MKP_DEMO_MODULE_CASE) {
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
-			mkp_set_mapping_x);
+			HELPER_MAPPING_X);
 	} else if (region == MKP_DEMO_BPF_CASE) {
 #ifndef CONFIG_DEBUG_VIRTUAL
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_KERNEL_PAGES,
-			mkp_set_mapping_x);
+			HELPER_MAPPING_X);
 #endif
 	}
 }
@@ -135,11 +135,11 @@ static void probe_android_vh_set_memory_rw(void *ignore, unsigned long addr,
 	region = is_module_or_bpf_addr((void *)addr);
 	if (region == MKP_DEMO_MODULE_CASE) {
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
-			mkp_set_mapping_rw);
+			HELPER_MAPPING_RW);
 	} else if (region == MKP_DEMO_BPF_CASE) {
 #ifndef CONFIG_DEBUG_VIRTUAL
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_KERNEL_PAGES,
-			mkp_set_mapping_rw);
+			HELPER_MAPPING_RW);
 #endif
 	}
 }
@@ -161,12 +161,12 @@ static void probe_android_vh_set_memory_nx(void *ignore, unsigned long addr,
 	region = is_module_or_bpf_addr((void *)addr);
 	if (region == MKP_DEMO_MODULE_CASE) {
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_DRV,
-			mkp_set_mapping_nx);
+			HELPER_MAPPING_NX);
 		policy = MKP_POLICY_DRV;
 	} else if (region == MKP_DEMO_BPF_CASE) {
 #ifndef CONFIG_DEBUG_VIRTUAL
 		ret = mkp_set_mapping_xxx_helper(addr, nr_pages, MKP_POLICY_KERNEL_PAGES,
-			mkp_set_mapping_nx);
+			HELPER_MAPPING_NX);
 		policy = MKP_POLICY_KERNEL_PAGES;
 #else
 		return;
