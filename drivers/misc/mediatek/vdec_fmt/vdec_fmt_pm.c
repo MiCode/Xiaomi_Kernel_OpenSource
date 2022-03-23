@@ -113,8 +113,8 @@ void fmt_prepare_dvfs_emi_bw(struct mtk_vdec_fmt *fmt)
 
 	i = 0;
 	fmt->fmt_qos_req[i++] = of_mtk_icc_get(fmt->dev, "path_mini_mdp_r0");
-	fmt->fmt_qos_req[i++] = of_mtk_icc_get(fmt->dev, "path_mini_mdp_w0");
 	fmt->fmt_qos_req[i++] = of_mtk_icc_get(fmt->dev, "path_mini_mdp_r1");
+	fmt->fmt_qos_req[i++] = of_mtk_icc_get(fmt->dev, "path_mini_mdp_w0");
 	fmt->fmt_qos_req[i++] = of_mtk_icc_get(fmt->dev, "path_mini_mdp_w1");
 
 }
