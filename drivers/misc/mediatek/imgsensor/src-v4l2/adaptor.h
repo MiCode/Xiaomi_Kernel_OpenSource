@@ -48,6 +48,7 @@ struct sensor_mode {
 	u64 linetime_in_ns_readout;
 	u64 fine_intg_line;
 	struct mtk_csi_param csi_param;
+	u8 esd_reset_by_user;
 };
 
 struct adaptor_hw_ops {
@@ -128,6 +129,7 @@ struct adaptor_ctx {
 	unsigned int is_streaming:1;
 	unsigned int is_sensor_inited:1;
 	unsigned int is_sensor_scenario_inited:1;
+	unsigned int is_sensor_reset_stream_off:1;
 
 	int open_refcnt;
 	int power_refcnt;
