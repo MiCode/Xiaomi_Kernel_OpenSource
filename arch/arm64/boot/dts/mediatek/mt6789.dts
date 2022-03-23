@@ -3546,11 +3546,11 @@
 			};
 
 			lvts_e_data1: data1 {
-				reg = <0x1a4 0x2c>;
+				reg = <0x1b4 0x2c>;
 			};
 
 			lvts_e_data2: data2 {
-				reg = <0x1d0 0x8>;
+				reg = <0x2f8 0x8>;
 			};
 
 			lkginfo: lkg {
