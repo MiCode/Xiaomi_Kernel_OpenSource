@@ -49,7 +49,9 @@
 #include "blk-mq.h"
 #include "blk-mq-sched.h"
 #include "blk-pm.h"
+#ifndef __GENKSYMS__
 #include "blk-rq-qos.h"
+#endif
 
 struct dentry *blk_debugfs_root;
 
