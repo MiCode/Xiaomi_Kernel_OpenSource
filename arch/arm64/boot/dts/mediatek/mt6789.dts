@@ -2347,6 +2347,12 @@
 			reg = <0 0x10016000 0 0x1000>;
 		};
 
+		masp: masp@1000a000 {
+			compatible = "mediatek,masp";
+			reg = <0 0x1000a000 0 0x1000>;
+			interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		systimer: systimer@10017000 {
 			compatible = "mediatek,mt6789-timer",
 			      "mediatek,mt6765-timer";
