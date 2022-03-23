@@ -714,6 +714,10 @@ static __maybe_unused int helio_dvfsrc_suspend(struct device *dev)
 	struct helio_dvfsrc *dvfsrc = dev_get_drvdata(dev);
 	int ret = 0;
 
+#if defined(CONFIG_MACH_MT6771)
+	if (IS_ERR(dvfsrc->devfreq))
+		return ret;
+#endif
 	ret = devfreq_suspend_device(dvfsrc->devfreq);
 	if (ret < 0) {
 		dev_info(dev, "failed to suspend the devfreq devices\n");
@@ -728,6 +732,10 @@ static __maybe_unused int helio_dvfsrc_resume(struct device *dev)
 	struct helio_dvfsrc *dvfsrc = dev_get_drvdata(dev);
 	int ret = 0;
 
+#if defined(CONFIG_MACH_MT6771)
+	if (IS_ERR(dvfsrc->devfreq))
+		return ret;
+#endif
 	ret = devfreq_resume_device(dvfsrc->devfreq);
 	if (ret < 0) {
 		dev_info(dev, "failed to resume the devfreq devices\n");

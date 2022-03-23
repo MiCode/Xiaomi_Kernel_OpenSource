@@ -836,6 +836,7 @@ int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 	int ret;
 
 #if defined(CONFIG_MACH_MT6771)
+	lockdep_off();
 	mutex_lock(&c->qos_lock);
 #endif
 	spin_lock_irqsave(&pm_qos_lock, flags);
@@ -885,6 +886,7 @@ int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 
 #if defined(CONFIG_MACH_MT6771)
 	mutex_unlock(&c->qos_lock);
+	lockdep_on();
 #endif
 	return ret;
 }
