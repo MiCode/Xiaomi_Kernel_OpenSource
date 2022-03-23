@@ -89,6 +89,61 @@ int dcm_peri(int on)
 	return 0;
 }
 
+int dcm_mcusys_acp(int on)
+{
+	return 0;
+}
+
+int dcm_mcusys_adb(int on)
+{
+	return 0;
+}
+
+int dcm_mcusys_bus(int on)
+{
+	return 0;
+}
+
+int dcm_mcusys_cbip(int on)
+{
+	return 0;
+}
+
+int dcm_mcusys_core(int on)
+{
+	return 0;
+}
+
+int dcm_mcusys_io(int on)
+{
+	return 0;
+}
+
+int dcm_mcusys_cpc_pbi(int on)
+{
+	return 0;
+}
+
+int dcm_mcusys_cpc_turbo(int on)
+{
+	return 0;
+}
+
+int dcm_mcusys_stall(int on)
+{
+	return 0;
+}
+
+int dcm_mcusys_apb(int on)
+{
+	return 0;
+}
+
+int dcm_vlp(int on)
+{
+	return 0;
+}
+
 int dcm_armcore(int on)
 {
 
@@ -294,6 +349,94 @@ struct DCM dcm_array[NR_DCM_TYPE] = {
 	 .default_state = PERI_DCM_ON,
 	 .disable_refcnt = 0,
 	 },
+	{
+	 .typeid = MCUSYS_ACP_DCM_TYPE,
+	 .name = "MCU_ACP_DCM",
+	 .func = (DCM_FUNC) dcm_mcusys_acp,
+	 .current_state = MCUSYS_ACP_DCM_ON,
+	 .default_state = MCUSYS_ACP_DCM_ON,
+	 .disable_refcnt = 0,
+	},
+	{
+	 .typeid = MCUSYS_ADB_DCM_TYPE,
+	 .name = "MCU_ADB_DCM",
+	 .func = (DCM_FUNC) dcm_mcusys_adb,
+	 .current_state = MCUSYS_ADB_DCM_ON,
+	 .default_state = MCUSYS_ADB_DCM_ON,
+	 .disable_refcnt = 0,
+	},
+	{
+	 .typeid = MCUSYS_BUS_DCM_TYPE,
+	 .name = "MCU_BUS_DCM",
+	 .func = (DCM_FUNC) dcm_mcusys_bus,
+	 .current_state = MCUSYS_BUS_DCM_ON,
+	 .default_state = MCUSYS_BUS_DCM_ON,
+	 .disable_refcnt = 0,
+	},
+	{
+	 .typeid = MCUSYS_CBIP_DCM_TYPE,
+	 .name = "MCU_CBIP_DCM",
+	 .func = (DCM_FUNC) dcm_mcusys_cbip,
+	 .current_state = MCUSYS_CBIP_DCM_ON,
+	 .default_state = MCUSYS_CBIP_DCM_ON,
+	 .disable_refcnt = 0,
+	},
+	{
+	 .typeid = MCUSYS_CORE_DCM_TYPE,
+	 .name = "MCU_CORE_DCM",
+	 .func = (DCM_FUNC) dcm_mcusys_core,
+	 .current_state = MCUSYS_CORE_DCM_ON,
+	 .default_state = MCUSYS_CORE_DCM_ON,
+	 .disable_refcnt = 0,
+	},
+	{
+	 .typeid = MCUSYS_IO_DCM_TYPE,
+	 .name = "MCU_IO_DCM",
+	 .func = (DCM_FUNC) dcm_mcusys_io,
+	 .current_state = MCUSYS_IO_DCM_ON,
+	 .default_state = MCUSYS_IO_DCM_ON,
+	 .disable_refcnt = 0,
+	},
+	{
+	 .typeid = MCUSYS_CPC_PBI_DCM_TYPE,
+	 .name = "MCU_CPC_PBI_DCM",
+	 .func = (DCM_FUNC) dcm_mcusys_cpc_pbi,
+	 .current_state = MCUSYS_CPC_PBI_DCM_ON,
+	 .default_state = MCUSYS_CPC_PBI_DCM_ON,
+	 .disable_refcnt = 0,
+	},
+	{
+	 .typeid = MCUSYS_CPC_TURBO_DCM_TYPE,
+	 .name = "MCU_CPC_TURBO_DCM",
+	 .func = (DCM_FUNC) dcm_mcusys_cpc_turbo,
+	 .current_state = MCUSYS_CPC_TURBO_DCM_ON,
+	 .default_state = MCUSYS_CPC_TURBO_DCM_ON,
+	 .disable_refcnt = 0,
+	},
+	{
+	 .typeid = MCUSYS_STALL_DCM_TYPE,
+	 .name = "MCU_STALL_DCM",
+	 .func = (DCM_FUNC) dcm_mcusys_stall,
+	 .current_state = MCUSYS_STALL_DCM_ON,
+	 .default_state = MCUSYS_STALL_DCM_ON,
+	 .disable_refcnt = 0,
+	},
+	{
+	 .typeid = MCUSYS_APB_DCM_TYPE,
+	 .name = "MCU_APB_DCM",
+	 .func = (DCM_FUNC) dcm_mcusys_apb,
+	 .current_state = MCUSYS_APB_DCM_ON,
+	 .default_state = MCUSYS_APB_DCM_ON,
+	 .disable_refcnt = 0,
+	},
+	{
+	 .typeid = VLP_DCM_TYPE,
+	 .name = "VLP_DCM",
+	 .func = (DCM_FUNC) dcm_vlp,
+	 .current_state = VLP_DCM_ON,
+	 .default_state = VLP_DCM_ON,
+	 .disable_refcnt = 0,
+	},
 	{
 	 .typeid = EMI_DCM_TYPE,
 	 .name = "EMI_DCM",
