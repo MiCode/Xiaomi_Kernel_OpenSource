@@ -66,7 +66,7 @@
 #define SEMAPHORE_3WAY_TIMEOUT 5000
 /* vcp ready timeout definition */
 #define VCP_30MHZ 30000
-#define VCP_READY_TIMEOUT (3 * HZ) /* 3 seconds*/
+#define VCP_READY_TIMEOUT (4 * HZ) /* 4 seconds*/
 #define VCP_A_TIMER 0
 
 /* vcp ipi message buffer */
@@ -960,6 +960,10 @@ int reset_vcp(int reset)
 		writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
 		vcp_set_clk();
 
+#if VCP_BOOT_TIME_OUT_MONITOR
+		vcp_ready_timer[VCP_A_ID].tl.expires = jiffies + VCP_READY_TIMEOUT;
+		add_timer(&vcp_ready_timer[VCP_A_ID].tl);
+#endif
 		if (reset == VCP_ALL_SUSPEND) {
 			arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
 				MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
@@ -975,11 +979,6 @@ int reset_vcp(int reset)
 			readl(R_CORE0_SW_RSTN_CLR), res.a0,
 			mt_get_fmeter_freq(vcpreg.femter_ck, CKGEN));
 
-		dsb(SY); /* may take lot of time */
-#if VCP_BOOT_TIME_OUT_MONITOR
-		vcp_ready_timer[VCP_A_ID].tl.expires = jiffies + VCP_READY_TIMEOUT;
-		add_timer(&vcp_ready_timer[VCP_A_ID].tl);
-#endif
 	}
 	pr_debug("[VCP] %s: done\n", __func__);
 
