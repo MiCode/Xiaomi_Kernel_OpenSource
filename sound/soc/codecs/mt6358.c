@@ -2242,6 +2242,9 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 		/* Enable HS driver core circuits */
 		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON6, 0x0093);
 
+		/* Set HS gain to normal gain step by step */
+		regmap_write(priv->regmap, MT6358_ZCD_CON3,
+			     priv->ana_gain[AUDIO_ANALOG_VOLUME_HSOUTL]);
 		/* Enable AUD_CLK */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
 				   0x1, 0x1);
@@ -5630,7 +5633,7 @@ static int dc_trim_thread(void *arg)
 
 	get_hp_trim_offset(priv, false);
 #if IS_ENABLED(CONFIG_SND_SOC_MT6366_ACCDET) || IS_ENABLED(CONFIG_SND_SOC_MT6358_ACCDET)
-	accdet_late_init(0);
+	mt6358_accdet_late_init(0);
 #endif
 	do_exit(0);
 	return 0;
@@ -6442,6 +6445,8 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_LINEOUTR] = 8;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = 3;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 3;
+	priv->ana_gain[AUDIO_ANALOG_VOLUME_HSOUTL] = 8;
+	priv->ana_gain[AUDIO_ANALOG_VOLUME_HSOUTR] = 8;
 
 #if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
