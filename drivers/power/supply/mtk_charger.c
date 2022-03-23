@@ -1460,6 +1460,8 @@ static void chg_nl_data_handler(struct sk_buff *skb)
 
 void sc_select_charging_current(struct mtk_charger *info, struct charger_data *pdata)
 {
+	if (info->sc.g_scd_pid == 0)
+		info->sc.sc_ibat = -1;	/* kpoc and factory mode */
 
 	if (info->sc.g_scd_pid != 0 && info->sc.disable_in_this_plug == false) {
 		chr_debug("sck: %d %d %d %d %d\n",
@@ -1496,7 +1498,6 @@ void sc_select_charging_current(struct mtk_charger *info, struct charger_data *p
 		info->sc.disable_in_this_plug == false) {
 		pdata->charging_current_limit = info->sc.sc_ibat;
 	}
-
 
 }
 
