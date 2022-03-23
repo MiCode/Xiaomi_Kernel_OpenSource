@@ -547,5 +547,23 @@
 			nvmem-names = "pmic-hp-efuse";
 			reg_vaud28-supply = <&mt6358_vaud28_reg>;
 		};
+
+		mt6358rtc: mt6358rtc {
+			compatible = "mediatek,mt6358-rtc";
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			fg_init: fg_init {
+				reg = <0 0x1>;
+			};
+			fg_soc: fg_soc {
+				reg = <1 0x1>;
+			};
+			ext_32k: ext_32k {
+				reg = <2 0x1>;
+				bits = <6 1>;
+			};
+		};
 	};
 };
