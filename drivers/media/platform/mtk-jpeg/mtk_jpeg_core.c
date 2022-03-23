@@ -967,6 +967,9 @@ static int mtk_jpeg_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 		goto end;
 
 	vq = v4l2_m2m_get_vq(fh->m2m_ctx, buf->type);
+	if (!vq)
+		return -EINVAL;
+
 	if (buf->index >= vq->num_buffers) {
 		dev_err(ctx->jpeg->dev, "buffer index out of range\n");
 		return -EINVAL;
