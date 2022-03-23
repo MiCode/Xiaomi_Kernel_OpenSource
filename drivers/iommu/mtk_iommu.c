@@ -3184,12 +3184,12 @@ static const struct mtk_iommu_plat_data mt6833_data = {
 			 {0, 14, 16}, {0, 13, 18, 17}},
 };
 
-//HAS_BCLK | WR_THROT_EN | SKIP_CFG_PORT | IOMMU_SEC_BK_EN | TLB_SYNC_EN
 static const struct mtk_iommu_plat_data mt6789_data = {
 	.m4u_plat = M4U_MT6789,
 	.flags         = HAS_SUB_COMM | OUT_ORDER_WR_EN | GET_DOM_ID_LEGACY |
 			 NOT_STD_AXI_MODE | IOVA_34_EN | SHARE_PGTABLE |
-			 IOMMU_CLK_AO_EN | IOMMU_NO_SMCCC | IOMMU_SEC_BK_EN,
+			 IOMMU_NO_SMCCC | IOMMU_SEC_BK_EN |
+			 HAS_SMI_SUB_COMM | WR_THROT_EN | HAS_BCLK,
 	.inv_sel_reg   = REG_MMU_INV_SEL_GEN2,
 	.iommu_id	= DISP_IOMMU,
 	.iommu_type     = MM_IOMMU,
