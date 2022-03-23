@@ -283,21 +283,43 @@ int mkp_update_sharebuf_hvc_call(uint32_t policy, uint32_t handle, unsigned long
 int __init mkp_setup_essential_hvc_call(unsigned long phys_offset,
 		unsigned long fixaddr_top, unsigned long fixaddr_real_start)
 {
+	uint64_t phys_addr;
 	static int is_executed;
 	struct arm_smccc_res res;
 	int mkp_hvc_fast_call_id;
 	int ret = -1;
 
+	/* Get subscribe's IPA */
+	phys_addr = (uint64_t)(vmalloc_to_pfn((void *)&subscribe) << PAGE_SHIFT) +
+		    ((uint64_t)&subscribe & ~PAGE_MASK);
+
 	if (is_executed == 0) {
 		mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(0, HVC_FUNC_ESS_0);
 		mkp_smccc_hvc(mkp_hvc_fast_call_id, phys_offset, fixaddr_top,
-			      fixaddr_real_start, 0, 0, 0, 0, &res);
+			      fixaddr_real_start, phys_addr, 0, 0, 0, &res);
 		is_executed = 1;
 
 		/* Success */
 		if (res.a0 == 0)
 			ret = 0;
 	}
+
+	return ret;
+}
+
+/* Tell MKP service it should start granting */
+int __init mkp_start_granting_hvc_call(void)
+{
+	struct arm_smccc_res res;
+	int mkp_hvc_fast_call_id;
+	int ret = -1;
+
+	mkp_hvc_fast_call_id = MKP_HVC_CALL_ID(0, HVC_FUNC_ESS_1);
+	mkp_smccc_hvc(mkp_hvc_fast_call_id, 0, 0, 0, 0, 0, 0, 0, &res);
+
+	/* Success */
+	if (res.a0 == 0)
+		ret = 0;
 
 	return ret;
 }

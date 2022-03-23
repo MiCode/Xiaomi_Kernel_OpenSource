@@ -43,10 +43,24 @@
 #include "policy.h"
 #include "mkp_hvc.h"
 
+extern bool __init prepare_grant_ticket(void);
+
 static __always_inline int do_secure_ops(uint32_t policy, uint32_t handle,
 		int (*set_memory_hvc)(uint32_t policy, uint32_t handle))
 {
-	return set_memory_hvc(policy, handle);
+	unsigned long flags;
+	int ret = -1;
+
+	if (!grant_ticket)
+		goto exit;
+
+	local_irq_save(flags);
+	*grant_ticket = subscribe;
+	ret = set_memory_hvc(policy, handle);
+	local_irq_restore(flags);
+
+exit:
+	return ret;
 }
 
 static __always_inline int mkp_set_mapping_ro(uint32_t policy, uint32_t handle)
