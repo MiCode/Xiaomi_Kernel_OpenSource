@@ -35,7 +35,7 @@ ccflags-y += -DDYNAMIC_DISP_HRT
 SUPPORT_USE_DDR_TYPE := true
 SUPPORT_MMP := true
 FORCE_STEP0 := false
-BUILD_MMDVFS := false
+BUILD_MMDVFS := true
 else ifeq ($(CONFIG_MACH_MT6833),y)
 BUILD_MMDVFS_PMQOS := true
 SUPPORT_MMP := true
