@@ -391,9 +391,11 @@ static void EnableClock(bool En)
 	if (En) {			/* Enable clock. */
 
 		// Enable clock count
+		spin_lock(&g_PDA_SpinLock);
 		switch (g_u4EnableClockCount) {
 		case 0:
 			g_u4EnableClockCount++;
+			spin_unlock(&g_PDA_SpinLock);
 
 #ifndef FPGA_UT
 #ifdef FOR_DEBUG
@@ -409,15 +411,17 @@ static void EnableClock(bool En)
 			break;
 		default:
 			g_u4EnableClockCount++;
+			spin_unlock(&g_PDA_SpinLock);
 			break;
 		}
 	} else {			/* Disable clock. */
 
-		// Enable clock count
+		// Disable clock count
+		spin_lock(&g_PDA_SpinLock);
 		g_u4EnableClockCount--;
 		switch (g_u4EnableClockCount) {
 		case 0:
-
+			spin_unlock(&g_PDA_SpinLock);
 #ifndef FPGA_UT
 #ifdef FOR_DEBUG
 		LOG_INF("It's real ic load, Disable Clock");
@@ -431,6 +435,7 @@ static void EnableClock(bool En)
 
 			break;
 		default:
+			spin_unlock(&g_PDA_SpinLock);
 			break;
 		}
 	}
@@ -1899,8 +1904,8 @@ static long PDA_Ioctl(struct file *a_pstFile,
 	int ret = 0;
 	struct PDA_Init_Data Init_Data;
 
-	if (g_u4EnableClockCount == 0 || g_PDA_quantity == 0) {
-		LOG_INF("Cannot process without enable pda clock or no PDA support\n");
+	if (g_PDA_quantity == 0) {
+		LOG_INF("no PDA support\n");
 		return -1;
 	}
 
@@ -1931,6 +1936,14 @@ static long PDA_Ioctl(struct file *a_pstFile,
 
 		break;
 	case PDA_ENQUE_WAITIRQ_V2:
+
+		spin_lock(&g_PDA_SpinLock);
+		if (g_u4EnableClockCount == 0) {
+			LOG_INF("Cannot process without enable pda clock\n");
+			spin_unlock(&g_PDA_SpinLock);
+			return -1;
+		}
+		spin_unlock(&g_PDA_SpinLock);
 
 #ifdef GET_PDA_TIME
 		ktime_get_real_ts64(&total_time_begin);
