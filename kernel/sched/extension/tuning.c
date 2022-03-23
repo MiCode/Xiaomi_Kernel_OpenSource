@@ -99,10 +99,10 @@ int cpu_prefer(struct task_struct *task)
 	int cs_prefer = task_cs_cpu_perfer(task);
 
 	if (cpu_prefer == SCHED_PREFER_LITTLE &&
-		schedtune_task_boost(task))
+		uclamp_boosted(task))
 		cpu_prefer = SCHED_PREFER_NONE;
 
-	if (cs_prefer >= SCHED_PREFER_NONE && cs_prefer < SCHED_PREFER_END)
+	if (cs_prefer > SCHED_PREFER_NONE && cs_prefer < SCHED_PREFER_END)
 		cpu_prefer = cs_prefer;
 
 	switch (sched_boost_type) {
@@ -137,7 +137,7 @@ inline int cpu_prefer(struct task_struct *task)
 	int cpu_prefer = task->cpu_prefer;
 
 	if (cpu_prefer == SCHED_PREFER_LITTLE &&
-		schedtune_task_boost(task))
+		uclamp_boosted(task))
 		cpu_prefer = SCHED_PREFER_NONE;
 	}
 	return cpu_prefer;
