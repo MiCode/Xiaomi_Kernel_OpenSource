@@ -755,7 +755,6 @@
 
 	mt6366_temp: mt6366_temp {
 		compatible = "mediatek,mt6366-pmic-temp";
-		status = "disabled";
 		io-channels =
 			<&pmic_auxadc AUXADC_CHIP_TEMP>,
 			<&pmic_auxadc AUXADC_VCORE_TEMP>,
