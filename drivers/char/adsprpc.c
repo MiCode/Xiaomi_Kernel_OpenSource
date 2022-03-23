@@ -1455,7 +1455,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 {
 	struct fastrpc_apps *me = &gfa;
 	struct fastrpc_session_ctx *sess;
-	struct fastrpc_apps *apps = fl->apps;
+	struct fastrpc_apps *apps = NULL;
 	int cid = -1;
 	struct fastrpc_channel_ctx *chan = NULL;
 	struct fastrpc_mmap *map = NULL;
@@ -1466,6 +1466,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 		err = -EBADF;
 		goto bail;
 	}
+	apps = fl->apps;
 	cid = fl->cid;
 	VERIFY(err, VALID_FASTRPC_CID(cid));
 	if (err) {
@@ -1816,11 +1817,6 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 	buf->type = buf_type;
 	ktime_get_real_ts64(&buf->buf_start_time);
 
-	VERIFY(err, fl && fl->sctx != NULL);
-	if (err) {
-		err = -EBADR;
-		goto bail;
-	}
 	buf->virt = dma_alloc_attrs(fl->sctx->smmu.dev, buf->size,
 						(dma_addr_t *)&buf->phys,
 						GFP_KERNEL, buf->dma_attr);
@@ -4543,7 +4539,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 			"releasing DSP process failed with %d (0x%x) for %s\n",
 			err, err, current->comm);
 bail:
-	if (err) {
+	if (err && fl && fl->apps) {
 		spin_lock_irqsave(&fl->apps->hlock, irq_flags);
 		fl->file_close = FASTRPC_PROCESS_DSP_EXIT_ERROR;
 		spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
@@ -6937,8 +6933,9 @@ static void  fastrpc_print_debug_data(int cid)
 		for (i = rx_index, count = 0; i > 0 &&
 				count <= gmsg_log_iter; i--, count++) {
 			rsp = &chan->gmsg_log.rx_msgs[i].rsp;
-			scnprintf(gmsg_log_rx + strlen(gmsg_log_rx), MD_GMSG_BUFFER,
-					"ctx: 0x%x , retval: %d, flags: %d, early_wake_time: %d, version: %d\n",
+			scnprintf(gmsg_log_rx + strlen(gmsg_log_rx),
+					MD_GMSG_BUFFER - strlen(gmsg_log_rx),
+					"ctx: 0x%x, retval: %d, flags: %d, early_wake_time: %d, version: %d\n",
 					rsp->ctx, rsp->retval, rsp->flags,
 					rsp->early_wake_time, rsp->version);
 		}
@@ -6948,7 +6945,8 @@ static void  fastrpc_print_debug_data(int cid)
 				i > 0 && count <= gmsg_log_iter;
 				i--, count++) {
 			tx_msg = &chan->gmsg_log.tx_msgs[i];
-			scnprintf(gmsg_log_tx + strlen(gmsg_log_tx), MD_GMSG_BUFFER,
+			scnprintf(gmsg_log_tx + strlen(gmsg_log_tx),
+					MD_GMSG_BUFFER - strlen(gmsg_log_tx),
 					"pid: %d, tid: %d, ctx: 0x%x, handle: 0x%x, sc: 0x%x, addr: 0x%x, size:%d\n",
 					tx_msg->msg.pid,
 					tx_msg->msg.tid,
