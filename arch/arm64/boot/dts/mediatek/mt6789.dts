@@ -251,6 +251,29 @@
 		method = "smc";
 	};
 
+	firmware: firmware {
+		scmi: scmi {
+			compatible = "arm,scmi";
+			mboxes = <&tinysys_mbox 0>, <&tinysys_mbox 1>;
+			shmem = <&scmi_tx_shmem>, <&scmi_rx_shmem>;
+			mbox-names = "tx", "rx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			scmi_tinysys: protocol@80 {
+				reg = <0x80>;
+				scmi_qos = <1>;
+				scmi_pmic = <2>;
+				scmi_met = <3>;
+				scmi_gpupm = <4>;
+				scmi_plt = <5>;
+				scmi_smi = <6>;
+				scmi_cm = <7>;
+				scmi_apmcupm = <8>;
+			};
+		};
+	};
+
 	sspm: sspm@10400000 {
 
 		compatible = "mediatek,sspm";
@@ -267,7 +290,45 @@
 		interrupt-names = "ipc";
 		sspm_res_ram_start = <0x0>;
 		sspm_res_ram_size = <0x510000>; /* 5M + 64K */
-		mediatek,fake_sspm = <1>;
+	};
+
+	ssram1@10450000  {
+		compatible = "mmio-sram_1";
+		reg = <0x0 0x10450000 0x0 0x80>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0x0 0x10450000 0x80>;
+
+		scmi_tx_shmem: tiny_mbox@0 {
+			compatible = "arm,scmi-tx-shmem";
+			reg = <0x0 0x80>;
+		};
+	};
+
+	ssram2@10460000 {
+		compatible = "mmio-sram_2";
+		reg = <0x0 0x10460000 0x0 0x80>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0x0 0x10460000 0x80>;
+
+		scmi_rx_shmem: tiny_mbox@1 {
+			compatible = "arm,scmi-rx-shmem";
+			reg = <0x0 0x80>;
+		};
+	};
+
+	tinysys_mbox: tinysys_mbox@10451000 {
+		compatible = "mediatek,tinysys_mbox";
+		reg = <0 0x10451000 0 0x1000>,
+			  <0 0x10461000 0 0x1000>;
+
+		shmem = <&scmi_tx_shmem>, <&scmi_rx_shmem>;
+		interrupts = <GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 277 IRQ_TYPE_LEVEL_HIGH 0>;
+		#mbox-cells = <1>;
 	};
 
 	memory {
