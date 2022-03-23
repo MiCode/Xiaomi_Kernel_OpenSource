@@ -884,7 +884,7 @@ static s32 cmdq_mdp_check_engine_waiting_unlock(struct cmdqRecStruct *handle)
 		if (mdp_ctx.thread[i].task_count &&
 			handle->secData.is_secure != mdp_ctx.thread[i].secure){
 			CMDQ_LOG(
-			  "sec engine busy %u count:%u engine:%#llx & %#llx submit:%llu trigger:%llu\n",
+			  "sec engine busy %u count:%u engine:%#llx submit:%llu trigger:%llu\n",
 				i, mdp_ctx.thread[i].engine_flag,
 				handle->engineFlag,
 				handle->submit, handle->trigger);
@@ -1365,7 +1365,7 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	handle->secData.addrMetadatas =
 		(cmdqU32Ptr_t)(unsigned long)p_metadatas;
 
-	CMDQ_LOG("%s extension:%d\n", __func__, secData->extension);
+	CMDQ_LOG("%s extension:%llu\n", __func__, secData->extension);
 	if (secData->extension & 0x1)
 		cmdq_task_set_secure_id(handle, MEM_WFD);
 	else

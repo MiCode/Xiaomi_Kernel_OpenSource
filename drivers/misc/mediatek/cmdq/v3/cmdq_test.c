@@ -8089,7 +8089,7 @@ static ssize_t cmdq_write_test_proc_config(struct file *file,
 		len = (count < (sizeof(desc) - 1)) ?
 			count : (sizeof(desc) - 1);
 		if (copy_from_user(desc, userBuf, len)) {
-			CMDQ_MSG("TEST_CONFIG: data fail, length:%d\n", len);
+			CMDQ_MSG("TEST_CONFIG: data fail, length:%llu\n", len);
 			break;
 		}
 		desc[len] = '\0';
