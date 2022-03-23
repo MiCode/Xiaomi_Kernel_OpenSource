@@ -1363,7 +1363,7 @@ static int dcc_add_loop(struct dcc_drvdata *drvdata, unsigned long loop_cnt)
 {
 	struct dcc_config_entry *entry;
 
-	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	entry = devm_kzalloc(drvdata->dev, sizeof(*entry), GFP_KERNEL);
 	if (!entry)
 		return -ENOMEM;
 
@@ -1429,7 +1429,7 @@ static int dcc_rd_mod_wr_add(struct dcc_drvdata *drvdata, unsigned int mask,
 		goto err;
 	}
 
-	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	entry = devm_kzalloc(drvdata->dev, sizeof(*entry), GFP_KERNEL);
 	if (!entry) {
 		ret = -ENOMEM;
 		goto err;
@@ -1474,7 +1474,7 @@ static int dcc_add_write(struct dcc_drvdata *drvdata, unsigned int addr,
 {
 	struct dcc_config_entry *entry;
 
-	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	entry = devm_kzalloc(drvdata->dev, sizeof(*entry), GFP_KERNEL);
 	if (!entry)
 		return -ENOMEM;
 
