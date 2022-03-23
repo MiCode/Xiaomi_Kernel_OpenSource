@@ -2430,14 +2430,30 @@ static int vcp_device_probe(struct platform_device *pdev)
 		return ret;
 	}
 #endif
-	/* device link to SMI for iommu */
+	/* device link to SMI for Dram iommu */
 	smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", 0);
 	psmi_com_dev = of_find_device_by_node(smi_node);
 	if (psmi_com_dev) {
 		link = device_link_add(dev, &psmi_com_dev->dev,
 				DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
+		pr_info("[VCP] device link to %s\n", dev_name(&psmi_com_dev->dev));
 		if (!link) {
-			dev_info(dev, "Unable to link %s.\n",
+			dev_info(dev, "Unable to link Dram %s.\n",
+				dev_name(&psmi_com_dev->dev));
+			ret = -EINVAL;
+			return ret;
+		}
+	}
+
+	/* device link to SMI for SLB/Infra */
+	smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", 1);
+	psmi_com_dev = of_find_device_by_node(smi_node);
+	if (psmi_com_dev) {
+		link = device_link_add(dev, &psmi_com_dev->dev,
+				DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
+		pr_info("[VCP] device link to %s\n", dev_name(&psmi_com_dev->dev));
+		if (!link) {
+			dev_info(dev, "Unable to link SLB/Infra %s.\n",
 				dev_name(&psmi_com_dev->dev));
 			ret = -EINVAL;
 			return ret;
