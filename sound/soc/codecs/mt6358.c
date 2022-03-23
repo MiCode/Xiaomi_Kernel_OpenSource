@@ -25,8 +25,6 @@
 #include "mt6358-accdet.h"
 #endif
 
-#define SKIP_SB
-
 int mt6358_set_codec_ops(struct snd_soc_component *cmpnt,
 			 struct mt6358_codec_ops *ops)
 {
@@ -629,9 +627,9 @@ static int lo_in_mux_map_value[] = {
 };
 
 static SOC_VALUE_ENUM_SINGLE_DECL(lo_in_mux_map_enum,
-				  MT6358_AUDDEC_ANA_CON7,
-				  RG_AUDLOLMUXINPUTSEL_VAUDP15_SFT,
-				  RG_AUDLOLMUXINPUTSEL_VAUDP15_MASK,
+				  SND_SOC_NOPM,
+				  0,
+				  LOL_MUX_MASK,
 				  lo_in_mux_map,
 				  lo_in_mux_map_value);
 
@@ -905,8 +903,8 @@ static int mt_aif_in_event(struct snd_soc_dapm_widget *w,
 
 		/* sdm audio fifo clock power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0006);
-		/* scrambler clock on enable */
-		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xCBA1);
+		/* scrambler clock on enable, invert left channel */
+		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcfa1);
 		/* sdm power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0003);
 		/* sdm fifo enable */
@@ -915,7 +913,7 @@ static int mt_aif_in_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		/* DL scrambler disabling sequence */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0000);
-		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcba0);
+		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcfa0);
 
 		playback_gpio_reset(priv);
 		break;
@@ -2247,11 +2245,14 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
 				   0x1, 0x1);
 
-		/* Enable Audio DAC  */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON0, 0x0009);
+		/* Enable Audio DAC L */
+		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
+				RG_AUDDACLPWRUP_VAUDP15_MASK_SFT |
+				RG_AUD_DAC_PWL_UP_VA28_MASK_SFT, 0x0009);
+
 		/* Enable low-noise mode of DAC */
 		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x0001);
-		/* Switch HS MUX to audio DAC */
+		/* Switch HS MUX to audio DAC L */
 		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON6, 0x009b);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
@@ -2260,9 +2261,10 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 				   RG_AUDHSMUXINPUTSEL_VAUDP15_MASK_SFT,
 				   RCV_MUX_OPEN);
 
-		/* Disable Audio DAC */
+		/* Disable Audio DAC L */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
-				   0x000f, 0x0000);
+				RG_AUDDACLPWRUP_VAUDP15_MASK_SFT |
+				RG_AUD_DAC_PWL_UP_VA28_MASK_SFT, 0x0000);
 
 		/* Disable AUD_CLK */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
