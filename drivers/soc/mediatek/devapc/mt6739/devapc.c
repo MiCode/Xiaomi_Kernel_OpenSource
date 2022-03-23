@@ -524,7 +524,7 @@ static void evaluate_aee_exception(unsigned int i, unsigned int dbg0, unsigned i
 				/* get current time from start-up in ns */
 				devapc_vio_first_trigger_time[i] = sched_clock();
 
-				DEVAPC_VIO_MSG("[DEVAPC] devapc_vio_first_trigger_time: %u\n",
+				DEVAPC_VIO_MSG("[DEVAPC] devapc_vio_first_trigger_time: %lu\n",
 					/*ms*/
 					do_div(devapc_vio_first_trigger_time[i], 1000000));
 			}
@@ -533,7 +533,7 @@ static void evaluate_aee_exception(unsigned int i, unsigned int dbg0, unsigned i
 		if (devapc_vio_count[i] >= DEVAPC_VIO_AEE_TRIGGER_TIMES) {
 			current_time = sched_clock(); /* get current time from start-up in ns */
 
-			DEVAPC_VIO_MSG("[DEVAPC] current_time: %u\n",
+			DEVAPC_VIO_MSG("[DEVAPC] current_time: %lu\n",
 					do_div(current_time, 1000000)); /* ms */
 			DEVAPC_VIO_MSG("[DEVAPC] devapc_vio_count[%d]: %d\n",
 							i, devapc_vio_count[i]);
