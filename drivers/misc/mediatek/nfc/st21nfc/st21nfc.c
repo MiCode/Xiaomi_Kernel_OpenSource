@@ -64,6 +64,8 @@ static char *I2CDMAReadBuf; /*= NULL;*/ /* unnecessary initialise */
 static unsigned int I2CDMAReadBuf_pa; /* = NULL; */
 #endif /* KRNMTKLEGACY_I2C */
 
+extern int clk_buf_hw_ctrl(const char *xo_name, bool onoff);
+
 static bool enable_debug_log;
 
 /*The enum is used to index a pw_states array, the values matter here*/
@@ -579,6 +581,14 @@ static int st21nfc_dev_open(struct inode *inode, struct file *filp)
 	} else {
 		st21nfc_dev->device_open = true;
 	}
+
+	//#ifndef NO_MTK_CLK_MANAGEMENT
+	/*If use XTAL mode, please remove this function "clk_buf_ctrl" to
+	 *avoid additional power consumption.
+	 */
+	clk_buf_hw_ctrl("XO_BBCK4", true);
+	//#endif
+
 	return ret;
 }
 
@@ -586,6 +596,13 @@ static int st21nfc_release(struct inode *inode, struct file *file)
 {
 	struct st21nfc_device *st21nfc_dev = container_of(
 		file->private_data, struct st21nfc_device, st21nfc_device);
+
+	//#ifndef NO_MTK_CLK_MANAGEMENT
+	/*If use XTAL mode, please remove this function "clk_buf_ctrl" to
+	 *avoid additional power consumption.
+	 */
+	clk_buf_hw_ctrl("XO_BBCK4", false);
+	//#endif
 
 	st21nfc_dev->device_open = false;
 	if (enable_debug_log)
