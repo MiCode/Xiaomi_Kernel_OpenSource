@@ -187,6 +187,7 @@ struct GED_BRIDGE_OUT_BOOSTGPUFREQ {
 struct GED_BRIDGE_IN_MONITOR3DFENCE {
 	int fd;
 	int pid;
+	int timeouts;
 	int dump_flag; // 1:dump 0:not_dump
 	GED_SWD_FENCE_TYPE eType;
 };
