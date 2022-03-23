@@ -14,6 +14,7 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/spinlock_types.h>
+#include <linux/math64.h>
 
 #include <linux/vmalloc.h>
 #include <linux/blk_types.h>
@@ -320,7 +321,7 @@ static void mt_bio_context_eval(struct mt_bio_context *ctx)
 	} else {
 		period = ctx->workload.period;
 		usage = ctx->workload.usage * 100;
-		result = do_div(usage, period);
+		result = div_u64(usage, period);
 		ctx->workload.percent = usage & (BIT_ULL(32) - 1);
 	}
 
