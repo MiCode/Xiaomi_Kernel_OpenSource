@@ -1352,7 +1352,7 @@
 			reg = <0 0x1a000000 0 0x10000>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 			power-domains = <&scpsys MT6789_POWER_DOMAIN_CAM>;
-			//mediatek,larbs = <&smi_larb13 &smi_larb14>;
+			mediatek,larb = <&smi_larb13>;
 			mediatek,platform = "mt6789";
 
 			#clock-cells = <1>;
@@ -1396,7 +1396,7 @@
 			compatible = "mediatek,cam1_legacy";
 			reg = <0 0x1a030000 0 0x8000>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
-			interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 352 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6789_POWER_DOMAIN_CAM_RAWA>;
 			mediatek,larb = <&smi_larb16>;
 		};
@@ -1419,7 +1419,7 @@
 			compatible = "mediatek,cam2_legacy";
 			reg = <0 0x1a050000 0 0x8000>;
 			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
-			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 353 IRQ_TYPE_LEVEL_HIGH 0>;
 			power-domains = <&scpsys MT6789_POWER_DOMAIN_CAM_RAWB>;
 			mediatek,larb = <&smi_larb17>;
 		};
