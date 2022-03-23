@@ -447,6 +447,11 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 	unsigned long flags;
 	unsigned int service_flags;
 
+	if (default_comp == NULL || default_comp->mtk_crtc == NULL) {
+		AALERR("%s null pointer!\n", __func__);
+		return;
+	}
+
 	AALAPI_LOG("%d/%d\n", trans_backlight, max_backlight);
 	disp_aal_notify_backlight_log(trans_backlight);
 	//disp_aal_exit_idle(__func__, 1);

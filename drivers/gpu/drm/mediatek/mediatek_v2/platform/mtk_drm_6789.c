@@ -166,10 +166,10 @@ const struct mtk_dsi_driver_data mt6789_dsi_driver_data = {
 
 // ddp
 #define MT6789_MMSYS_OVL_CON 0xF04
-	#define DISP_OVL0_GO_BG          BIT(1)
-	#define DISP_OVL0_GO_BLEND       BIT(0)
-	#define DISP_OVL0_2L_GO_BG       BIT(3)
-	#define DISP_OVL0_2L_GO_BLEND    BIT(2)
+	#define MT6789_DISP_OVL0_GO_BG          BIT(1)
+	#define MT6789_DISP_OVL0_GO_BLEND       BIT(0)
+	#define MT6789_DISP_OVL0_2L_GO_BG       BIT(3)
+	#define MT6789_DISP_OVL0_2L_GO_BLEND    BIT(2)
 
 #define MT6789_DISP_REG_CONFIG_DL_VALID_0 0xe9c
 #define MT6789_DISP_REG_CONFIG_DL_VALID_1 0xea0
@@ -182,7 +182,7 @@ const struct mtk_dsi_driver_data mt6789_dsi_driver_data = {
 #define DISP_REG_CONFIG_MMSYS_CG_CON0_MT6789 0x100
 #define DISP_REG_CONFIG_MMSYS_CG_CON1_MT6789 0x110
 
-#define RDMA0_SOUT_COLOR0 0x1
+#define MT6789_RDMA0_SOUT_COLOR0 0x1
 
 static const unsigned int mt6789_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_OVL0] = MT6789_MUTEX_MOD_DISP_OVL0,
@@ -218,7 +218,7 @@ const struct mtk_disp_ddp_data mt6789_ddp_driver_data = {
 const struct mtk_mmsys_reg_data mt6789_mmsys_reg_data = {
 	.ovl0_mout_en = MT6789_DISP_OVL0_MOUT_EN,
 	.rdma0_sout_sel_in = MT6789_DISP_REG_CONFIG_DISP_RDMA0_RSZ0_SOUT_SEL,
-	.rdma0_sout_color0 = RDMA0_SOUT_COLOR0,
+	.rdma0_sout_color0 = MT6789_RDMA0_SOUT_COLOR0,
 };
 
 static char *ddp_signal_0_mt6789(int bit)
@@ -641,36 +641,36 @@ int mtk_ddp_ovl_bg_blend_en_MT6789(const struct mtk_mmsys_reg_data *data,
 	if (cur == DDP_COMPONENT_OVL0_2L &&
 		next == DDP_COMPONENT_OVL0) {
 		*addr = MT6789_MMSYS_OVL_CON;
-		value = DISP_OVL0_2L_GO_BG;
+		value = MT6789_DISP_OVL0_2L_GO_BG;
 	} else if (cur == DDP_COMPONENT_OVL0_2L &&
 		next == DDP_COMPONENT_RSZ0) {
 		*addr = MT6789_MMSYS_OVL_CON;
-		value = DISP_OVL0_2L_GO_BLEND;
+		value = MT6789_DISP_OVL0_2L_GO_BLEND;
 	} else if (cur == DDP_COMPONENT_OVL0_2L &&
 		next == DDP_COMPONENT_RDMA0) {
 		*addr = MT6789_MMSYS_OVL_CON;
-		value = DISP_OVL0_2L_GO_BLEND;
+		value = MT6789_DISP_OVL0_2L_GO_BLEND;
 	} else if (cur == DDP_COMPONENT_OVL0_2L &&
 		next == DDP_COMPONENT_WDMA0) {
 		*addr = MT6789_MMSYS_OVL_CON;
-		value = DISP_OVL0_2L_GO_BLEND;
+		value = MT6789_DISP_OVL0_2L_GO_BLEND;
 	/*OVL0*/
 	} else if (cur == DDP_COMPONENT_OVL0 &&
 		next == DDP_COMPONENT_OVL0_2L) {
 		*addr = MT6789_MMSYS_OVL_CON;
-		value = DISP_OVL0_GO_BG;
+		value = MT6789_DISP_OVL0_GO_BG;
 	} else if (cur == DDP_COMPONENT_OVL0 &&
 		next == DDP_COMPONENT_RSZ0) {
 		*addr = MT6789_MMSYS_OVL_CON;
-		value = DISP_OVL0_GO_BLEND;
+		value = MT6789_DISP_OVL0_GO_BLEND;
 	} else if (cur == DDP_COMPONENT_OVL0 &&
 		next == DDP_COMPONENT_RDMA0) {
 		*addr = MT6789_MMSYS_OVL_CON;
-		value = DISP_OVL0_GO_BLEND;
+		value = MT6789_DISP_OVL0_GO_BLEND;
 	} else if (cur == DDP_COMPONENT_OVL0 &&
 		next == DDP_COMPONENT_WDMA0) {
 		*addr = MT6789_MMSYS_OVL_CON;
-		value = DISP_OVL0_GO_BLEND;
+		value = MT6789_DISP_OVL0_GO_BLEND;
 	/*No cur or next component*/
 	} else {
 		value = -1;
