@@ -17,6 +17,7 @@
 #include "mt6855_dcm_internal.h"
 #include "mtk_dcm.h"
 
+#define enable_infra_aximem 0
 #define DEBUGLINE dcm_pr_info("%s %d\n", __func__, __LINE__)
 
 static short dcm_cpu_cluster_stat;
@@ -82,7 +83,9 @@ int dcm_infra_preset(int on)
 
 int dcm_infra(int on)
 {
+#if enable_infra_aximem
 	dcm_infracfg_ao_aximem_bus_dcm(on);
+#endif
 	dcm_infracfg_ao_infra_bus_dcm(on);
 	dcm_infracfg_ao_infra_rx_p2p_dcm(on);
 	dcm_infra_ao_bcrm_infra_bus_dcm(on);
