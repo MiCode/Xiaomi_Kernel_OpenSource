@@ -32,6 +32,9 @@
 #define PORT_F_CLEAN            (1<<9)
 /*Dump pkt of ccmni*/
 #define PORT_F_NET_DUMP         (1<<10)
+/* skip create device port */
+#define PORT_F_GEN95_NOT_SUPPORT (1<<11)
+
 enum {
 	PORT_DBG_DUMP_RILD = 0,
 	PORT_DBG_DUMP_AUDIO,

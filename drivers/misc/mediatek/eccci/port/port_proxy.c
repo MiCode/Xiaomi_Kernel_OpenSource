@@ -19,6 +19,12 @@
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
+#if IS_ENABLED(CONFIG_OF)
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+#endif
 
 #include "mt-plat/mtk_ccci_common.h"
 
@@ -45,6 +51,7 @@ atomic_t udc_status = ATOMIC_INIT(0);
 #define CHECK_MD_ID(md_id)
 #define CHECK_HIF_ID(hif_id)
 #define CHECK_QUEUE_ID(queue_id)
+static int port_md_gen;
 
 struct ccci_proc_user {
 	unsigned int busy;
@@ -263,6 +270,14 @@ int mtk_ccci_read_data(int index, char *buf, size_t count)
 	ret = find_port_by_channel(index, &rx_port);
 	if (ret < 0)
 		return -EINVAL;
+
+	if (port_md_gen < 6297) {
+		if (rx_port->flags & PORT_F_GEN95_NOT_SUPPORT) {
+			CCCI_NORMAL_LOG(-1, TAG,
+				 "%s:not support %s\n", __func__, rx_port->name);
+			return -1;
+		}
+	}
 
 	if (atomic_read(&rx_port->usage_cnt)) {
 		ret = port_dev_kernel_read(rx_port, buf, count);
@@ -1644,6 +1659,13 @@ static inline void proxy_init_all_ports(struct port_proxy *proxy_p)
 	/* init port */
 	for (i = 0; i < proxy_p->port_number; i++) {
 		port = proxy_p->ports + i;
+		if (port_md_gen < 6297) {
+			if (port->flags & PORT_F_GEN95_NOT_SUPPORT) {
+				CCCI_NORMAL_LOG(proxy_p->md_id, TAG,
+					 "%s:not support %s\n", __func__, port->name);
+				continue;
+			}
+		}
 		port_struct_init(port, proxy_p);
 		if (port->tx_ch == CCCI_SYSTEM_TX)
 			proxy_p->sys_port = port;
@@ -1921,12 +1943,22 @@ static void ccci_proc_init(void)
 int ccci_port_init(int md_id)
 {
 	struct port_proxy *proxy_p = NULL;
+	struct device_node *node = NULL;
 
 	if (md_id < 0 || md_id >= MAX_MD_NUM) {
 		CCCI_ERROR_LOG(-1, TAG,
 			"invalid md_id = %d\n", md_id);
 		return -1;
 	}
+
+	node = of_find_compatible_node(NULL, NULL,
+		"mediatek,mddriver");
+	if (node)
+		of_property_read_u32(node,
+			"mediatek,md_generation", &port_md_gen);
+	CCCI_NORMAL_LOG(md_id, TAG, "%s: port_md_gen=%d\n",
+		__func__, port_md_gen);
+
 	CHECK_MD_ID(md_id);
 	ccci_proc_init();
 	proxy_p = proxy_alloc(md_id);
