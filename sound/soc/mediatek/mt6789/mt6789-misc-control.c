@@ -24,38 +24,36 @@ static const char * const mt6789_sgen_mode_str[] = {
 	"I0I1",   "I2",     "I3I4",   "I5I6",
 	"I7I8",   "I9",     "I10I11", "I12I13",
 	"I14",    "I15I16", "I17I18", "I19I20",
-	"I21I22", "I23I24", "I25I26", "I27I28",
+	"I23I24", "I25I26", "I27I28",
 	"I33",    "I34I35", "I36I37", "I38I39",
 	"I40I41", "I42I43", "I44I45", "I46I47",
 	"I48I49", "I50I51", "I52I53", "I54I55",
 	"O0O1",   "O2",     "O3O4",   "O5O6",
-	"O7O8",   "O9O10",  "O11",    "O12",
+	"O9O10",  "O11",    "O12",
 	"O13O14", "O15O16", "O17O18", "O19O20",
 	"O21O22", "O23O24", "O25",    "O28O29",
 	"O34",    "O32O33", "O36O37", "O38O39",
-	"O30O31", "O40O41", "O42O43", "O44O45",
-	"O46O47", "O48O49", "O50O51", "O52O53",
-	"O54O55", "O56O57", "OFF",    "O3",
-	"O4",
+	"O30O31", "O40O41", "O42O43", "O44O45O52O53",
+	"O46O47", "O48O49", "O50O51",
+	"O54O55", "O56O57", "OFF",
 };
 
 static const int mt6789_sgen_mode_idx[] = {
-	0, 1, 2, 3,
-	4, 5, 6, 7,
-	8, 9, 10, 11,
-	12, 13, 14, 15,
-	18, 19, 20, 21,
-	22, 23, 24, 25,
-	26, 27, 28, 29,
-	32, 33, 34, 35,
-	36, 37, 38, 39,
-	40, 41, 42, 43,
-	44, 45, 46, 47,
-	49, 50, 52, 53,
-	54, 55, 56, 57,
-	58, 59, 60, 57,
-	61, 62, -1, -1,
-	-1,
+	0, 1, 4, 6,
+	8, 22, 10, 12,
+	14, 16, 18, 20,
+	24, 26, 28,
+	33, 34, 36, 38,
+	40, 42, 44, 46,
+	48, 50, 52, 54,
+	128, 130, 132, 134,
+	138, 139, 140,
+	142, 144, 166, 148,
+	150, 152, 153, 156,
+	162, 160, 164, 166,
+	158, 168, 170, 172,
+	174, 176, 178,
+	182, 184, -1,
 };
 
 static const char * const mt6789_sgen_rate_str[] = {
@@ -111,18 +109,14 @@ static int mt6789_sgen_set(struct snd_kcontrol *kcontrol,
 		 __func__, mode, mode_idx);
 
 	if (mode_idx >= 0) {
-		regmap_update_bits(afe->regmap, AFE_SINEGEN_CON2,
-				   INNER_LOOP_BACK_MODE_MASK_SFT,
-				   mode_idx << INNER_LOOP_BACK_MODE_SFT);
+		regmap_write(afe->regmap, AFE_SINEGEN_CON2, mode_idx);
 		regmap_write(afe->regmap, AFE_SINEGEN_CON0, 0x04ac2ac1);
 	} else {
 		/* disable sgen */
 		regmap_update_bits(afe->regmap, AFE_SINEGEN_CON0,
 				   DAC_EN_MASK_SFT,
 				   0x0);
-		regmap_update_bits(afe->regmap, AFE_SINEGEN_CON2,
-				   INNER_LOOP_BACK_MODE_MASK_SFT,
-				   0x3f << INNER_LOOP_BACK_MODE_SFT);
+		regmap_write(afe->regmap, AFE_SINEGEN_CON2, 0x3f);
 	}
 
 	afe_priv->sgen_mode = mode;
