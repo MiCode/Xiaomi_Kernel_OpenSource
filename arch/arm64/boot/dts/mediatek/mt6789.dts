@@ -3535,7 +3535,6 @@
 
 		lvts: lvts@1100B000 {
 			compatible = "mediatek,mt6789-lvts";
-			status = "disabled";
 			#thermal-sensor-cells = <1>;
 			reg = <0 0x1100B000 0 0x1000>;  /* AP domain */
 			interrupts = <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH 0>;  /* AP domain */
