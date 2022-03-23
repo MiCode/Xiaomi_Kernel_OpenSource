@@ -4395,10 +4395,24 @@
 			reg = <0 0x1b000000 0 0x1000>;
 		};
 
-		fdvt@1b001000 {
-			compatible = "mediatek,fdvt";
+		aie@1b001000 {
+			compatible = "mediatek,mt6789-aie", "mediatek,aie-hw2.0";
 			reg = <0 0x1b001000 0 0x1000>;
 			interrupts = <GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH 0>;
+			power-domains = <&scpsys MT6789_POWER_DOMAIN_IPE>;
+		    dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			clocks = <&ipesys_clk CLK_IPE_FD>,
+					 <&ipesys_clk CLK_IPE_LARB20>;
+			clock-names = "aie",
+						  "FDVT_CLK_IPE_LARB20";
+			mboxes = <&gce 20 0 CMDQ_THR_PRIO_1>,
+				  <&gce_sec 11 0 CMDQ_THR_PRIO_1>;
+			iommus = <&disp_iommu M4U_PORT_L20_IPE_FDVT_RDA>,
+				  <&disp_iommu M4U_PORT_L20_IPE_FDVT_RDB>,
+					 <&disp_iommu M4U_PORT_L20_IPE_FDVT_WRA>,
+					 <&disp_iommu M4U_PORT_L20_IPE_FDVT_WRB>;
+			fdvt_frame_done = <CMDQ_EVENT_IPE_GCE_EVENT_0>;
+			mediatek,larb = <&smi_larb20>;
 		};
 
 		fe@1b002000 {
@@ -4409,8 +4423,20 @@
 
 		rsc@1b003000 {
 			compatible = "mediatek,rsc";
+			mediatek,larb = <&smi_larb20>;
+			dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
+			power-domains = <&scpsys MT6789_POWER_DOMAIN_IPE>;
+			iommus = <&disp_iommu M4U_PORT_L20_IPE_RSC_RDMA0>,
+					 <&disp_iommu M4U_PORT_L20_IPE_RSC_WDMA>;
 			reg = <0 0x1b003000 0 0x1000>;
 			interrupts = <GIC_SPI 392 IRQ_TYPE_LEVEL_HIGH 0>;
+			mboxes = <&gce 21 0 CMDQ_THR_PRIO_1>;
+			gce-event-names = "rsc_eof";
+			gce-events = <&gce CMDQ_EVENT_IPE_GCE_EVENT_2>;
+			clocks = <&ipesys_clk CLK_IPE_RSC>,
+					 <&ipesys_clk CLK_IPE_LARB20>;
+			clock-names = "RSC_CLK_IPE_RSC",
+						  "RSC_CLK_IPE_LARB20";
 		};
 
 		depth@1b100000 {
