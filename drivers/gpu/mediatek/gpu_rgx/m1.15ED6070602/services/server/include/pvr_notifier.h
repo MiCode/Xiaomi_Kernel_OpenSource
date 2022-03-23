@@ -45,7 +45,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "img_types.h"
 #include "pvr_debug.h"
-
+#include "mtk_pp.h"
 
 /*************************************************************************/ /*!
 Command Complete Notifier Interface
@@ -160,10 +160,6 @@ Debug Notifier Interface
  * is also required as a local variable to serve as a file identifier for the
  * printf function if required.
  */
-#if defined(MTK_FULL_PORTING)
-#include "mtk_pp.h"
-#endif
-
 #if defined(MTK_DEBUG_PROC_PRINT)
 #define _MTKPP_GPULOG_FW(...) MTKPP_LOG(g_use_id, __VA_ARGS__)
 #define PVR_DUMPDEBUG_LOG(...)                                \
@@ -281,8 +277,8 @@ PVRSRVDebugRequest(struct _PVRSRV_DEVICE_NODE_ *psDevNode,
                    IMG_UINT32 ui32VerbLevel,
                    DUMPDEBUG_PRINTF_FUNC *pfnDumpDebugPrintf,
                    void *pvDumpDebugFile);
-#if defined(MTK_FULL_PORTING)
+#if defined(MTK_DEBUG_PROC_PRINT)
 IMG_BOOL MTK_PVRSRVDebugRequestGetSilence(void);
 void MTK_PVRSRVDebugRequestSetSilence(IMG_BOOL bEnable);
-#endif
+#endif /* MTK_DEBUG_PROC_PRINT */
 #endif /* !defined(PVR_NOTIFIER_H) */

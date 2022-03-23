@@ -311,10 +311,18 @@ $(PVRSRV_MODNAME)-$(CONFIG_METAG) += services/server/env/linux/osfunc_metag.o
 $(PVRSRV_MODNAME)-$(CONFIG_MIPS) += services/server/env/linux/osfunc_mips.o
 $(PVRSRV_MODNAME)-$(CONFIG_RISCV) += services/server/env/linux/osfunc_riscv.o
 
+ifeq ($(MTK_MINI_PORTING),1)
+ifeq ($(CONFIG_PROC_FS),y)
+$(PVRSRV_MODNAME)-$(CONFIG_PROC_FS) += services/server/env/linux/pvr_procfs.o
+else ifeq ($(CONFIG_DEBUG_FS),y)
+$(PVRSRV_MODNAME)-$(CONFIG_DEBUG_FS) += services/server/env/linux/pvr_debugfs.o
+endif
+else
 ifeq ($(CONFIG_DEBUG_FS),y)
 $(PVRSRV_MODNAME)-$(CONFIG_DEBUG_FS) += services/server/env/linux/pvr_debugfs.o
 else ifeq ($(CONFIG_PROC_FS),y)
 $(PVRSRV_MODNAME)-$(CONFIG_PROC_FS) += services/server/env/linux/pvr_procfs.o
+endif
 endif
 ifeq ($(SUPPORT_DI_BRG_IMPL),1)
 $(PVRSRV_MODNAME)-y += services/server/common/di_impl_brg.o

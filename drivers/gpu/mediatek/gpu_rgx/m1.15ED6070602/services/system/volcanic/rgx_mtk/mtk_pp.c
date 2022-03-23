@@ -31,11 +31,10 @@
 
 static struct proc_dir_entry *g_MTKPP_proc;
 static struct MTK_PROC_PRINT_DATA *g_MTKPPdata[MTKPP_ID_SIZE];
-
 static int g_init_done;
+int g_use_id;
 
 #if defined(ENABLE_AEE_WHEN_LOCKUP)
-
 struct MTKPP_WORKQUEUE {
 	int cycle;
 	struct workqueue_struct *psWorkQueue;
@@ -48,8 +47,7 @@ struct MTKPP_WORKQUEUE_WORKER {
 
 struct MTKPP_WORKQUEUE g_MTKPP_workqueue;
 struct MTKPP_WORKQUEUE_WORKER g_MTKPP_worker;
-
-#endif
+#endif /* ENABLE_AEE_WHEN_LOCKUP */
 
 static void MTKPP_InitLock(struct MTK_PROC_PRINT_DATA *data)
 {
@@ -398,6 +396,8 @@ static int MTKPP_ProcOpen(struct inode *inode, struct file *file)
 	return seq_open(file, &g_MTKPP_seq_ops);
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0))
+
 static const struct file_operations g_MTKPP_proc_ops = {
 	.open    = MTKPP_ProcOpen,
 	.read    = seq_read,
@@ -405,8 +405,18 @@ static const struct file_operations g_MTKPP_proc_ops = {
 	.release = seq_release
 };
 
-#if defined(ENABLE_AEE_WHEN_LOCKUP)
+#else
 
+static const struct proc_ops g_MTKPP_proc_ops = {
+	.proc_open    = MTKPP_ProcOpen,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
+	.proc_release = seq_release
+};
+
+#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0)) */
+
+#if defined(ENABLE_AEE_WHEN_LOCKUP)
 static void MTKPP_WORKR_Handle(struct work_struct *_psWork)
 {
 	int bug_on;
@@ -424,10 +434,8 @@ static void MTKPP_WORKR_Handle(struct work_struct *_psWork)
 		WARN_ON(1);
 	}
 }
+#endif /* ENABLE_AEE_WHEN_LOCKUP */
 
-#endif
-
-int g_use_id;
 void MTKPP_Init(void)
 {
 	int i;
@@ -474,7 +482,7 @@ void MTKPP_Init(void)
 	g_MTKPP_workqueue.psWorkQueue =
 	alloc_ordered_workqueue("mwp", WQ_FREEZABLE | WQ_MEM_RECLAIM);
 	INIT_WORK(&g_MTKPP_worker.sWork, MTKPP_WORKR_Handle);
-#endif
+#endif /* ENABLE_AEE_WHEN_LOCKUP */
 
 	g_use_id = MTKPP_ID_FW;
 	g_init_done = 1;
@@ -517,7 +525,7 @@ void MTKPP_TriggerAEE(int bug_on)
 	if (g_init_done)
 		queue_work(g_MTKPP_workqueue.psWorkQueue,
 			   &g_MTKPP_worker.sWork);
-#endif
+#endif /* ENABLE_AEE_WHEN_LOCKUP */
 }
 
-#endif
+#endif /* MTK_DEBUG_PROC_PRINT */

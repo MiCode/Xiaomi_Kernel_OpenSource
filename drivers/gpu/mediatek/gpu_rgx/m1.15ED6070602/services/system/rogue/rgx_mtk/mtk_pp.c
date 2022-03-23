@@ -398,12 +398,25 @@ static int MTKPP_ProcOpen(struct inode *inode, struct file *file)
 	return seq_open(file, &g_MTKPP_seq_ops);
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0))
+
 static const struct file_operations g_MTKPP_proc_ops = {
 	.open    = MTKPP_ProcOpen,
 	.read    = seq_read,
 	.llseek  = seq_lseek,
 	.release = seq_release
 };
+
+#else
+
+static const struct proc_ops g_MTKPP_proc_ops = {
+	.proc_open    = MTKPP_ProcOpen,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
+	.proc_release = seq_release
+};
+
+#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(5, 6, 0)) */
 
 #if defined(ENABLE_AEE_WHEN_LOCKUP)
 

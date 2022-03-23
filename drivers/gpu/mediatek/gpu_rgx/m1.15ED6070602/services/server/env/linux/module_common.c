@@ -210,6 +210,22 @@ int PVRSRVDriverInit(void)
 	}
 #endif
 
+#if defined(MTK_MINI_PORTING)
+/* MTK: use procfs first */
+#if defined(CONFIG_PROC_FS)
+	error = PVRProcFsRegister();
+	if (error != PVRSRV_OK)
+	{
+		return -ENOMEM;
+	}
+#elif defined(CONFIG_DEBUG_FS)
+	error = PVRDebugFsRegister();
+	if (error != PVRSRV_OK)
+	{
+		return -ENOMEM;
+	}
+#endif /* defined(CONFIG_PROC_FS) || defined(CONFIG_DEBUG_FS) */
+#else /* MTK_MINI_PORTING */
 #if defined(CONFIG_DEBUG_FS)
 	error = PVRDebugFsRegister();
 	if (error != PVRSRV_OK)
@@ -223,6 +239,7 @@ int PVRSRVDriverInit(void)
 		return -ENOMEM;
 	}
 #endif /* defined(CONFIG_DEBUG_FS) || defined(CONFIG_PROC_FS) */
+#endif /* MTK_MINI_PORTING */
 
 	error = PVRSRVIonStatsInitialise();
 	if (error != PVRSRV_OK)

@@ -140,6 +140,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "virt_validation_defs.h"
 #endif
 
+#if defined(MTK_MINI_PORTING) && defined(CONFIG_MTK_GPUFREQ_V2)
+#include <mtk_gpufreq.h>
+#endif
+
 #if defined(PVRSRV_SERVER_THREADS_INDEFINITE_SLEEP)
 #define INFINITE_SLEEP_TIMEOUT 0ULL
 #endif
@@ -2953,6 +2957,9 @@ PVRSRV_ERROR PVRSRVPollForValueKM (PVRSRV_DEVICE_NODE  *psDevNode,
 		PVR_DPF((PVR_DBG_ERROR, "%s: Failed! Error(%s) CPU linear address(%p) Expected value(%u)",
 		                        __func__, PVRSRVGetErrorString(eError),
 								pui32LinMemAddr, ui32Value));
+#if defined(MTK_MINI_PORTING) && defined(CONFIG_MTK_GPUFREQ_V2)
+		gpufreq_dump_infra_status();
+#endif /* MTK_MINI_PORTING && CONFIG_MTK_GPUFREQ_V2 */
 		PVRSRVDebugRequest(psDevNode, DEBUG_REQUEST_VERBOSITY_MAX, NULL, NULL);
 	}
 

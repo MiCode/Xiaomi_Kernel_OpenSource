@@ -5633,7 +5633,7 @@ PVRSRV_ERROR RGXUpdateHealthStatus(PVRSRV_DEVICE_NODE* psDevNode,
 							psRGXFWIfTraceBufCtl->sTraceBuf[ui32ThreadCount].sAssertBuf.ui32LineNum));
 					eNewStatus = PVRSRV_DEVICE_HEALTH_STATUS_DEAD;
 					eNewReason = PVRSRV_DEVICE_HEALTH_REASON_ASSERTED;
-#if defined(MTK_FULL_PORTING)
+#if defined(MTK_DEBUG_PROC_PRINT)
 					{
 						/* MTK: dump log */
 						static int dump = 0;
@@ -5644,7 +5644,7 @@ PVRSRV_ERROR RGXUpdateHealthStatus(PVRSRV_DEVICE_NODE* psDevNode,
 							dump = 1;
 						}
 					}
-#endif /* MTK_FULL_PORTING */
+#endif /* MTK_DEBUG_PROC_PRINT */
 					goto _RGXUpdateHealthStatus_Exit;
 				}
 

@@ -68,6 +68,9 @@
 #include "services_kernel_client.h"
 
 #include "kernel_compatibility.h"
+#if defined(MTK_MINI_PORTING)
+#include "sysinfo.h"
+#endif
 
 #define PVR_DRM_DRIVER_NAME PVR_DRM_NAME
 #define PVR_DRM_DRIVER_DESC "Imagination Technologies PVR DRM"
@@ -80,6 +83,9 @@ static int pvr_pm_suspend(struct device *dev)
 	struct pvr_drm_private *priv = ddev->dev_private;
 
 	DRM_DEBUG_DRIVER("device %p\n", dev);
+#if defined(MTK_MINI_PORTING)
+	MTK_LOGI("RGX suspend");
+#endif /* MTK_MINI_PORTING */
 
 	return PVRSRVDeviceSuspend(priv->dev_node);
 }
@@ -90,6 +96,9 @@ static int pvr_pm_resume(struct device *dev)
 	struct pvr_drm_private *priv = ddev->dev_private;
 
 	DRM_DEBUG_DRIVER("device %p\n", dev);
+#if defined(MTK_MINI_PORTING)
+	MTK_LOGI("RGX resume");
+#endif /* MTK_MINI_PORTING */
 
 	return PVRSRVDeviceResume(priv->dev_node);
 }

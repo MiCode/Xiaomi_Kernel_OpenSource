@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2021 MediaTek Inc.
+ * Copyright (C) 2022 MediaTek Inc.
  */
 
 #define PVRSRV_APPHINT_FIRMWARE_HEAP_POLICY 5
@@ -174,8 +174,6 @@
 #define PVRSRV_ENABLE_PVR_ION_STATS
 #define MTK_MINI_PORTING
 #define MTK_FULL_PORTING
-#define MTK_USE_HW_APM
-#define MTK_DEBUG
 #define MTK_DEBUG_PROC_PRINT
 #define MTK_CONFIG_OF
 #define ENABLE_COMMON_DVFS
