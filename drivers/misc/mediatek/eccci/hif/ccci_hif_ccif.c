@@ -809,7 +809,7 @@ static void md_ccif_traffic_work_func(struct work_struct *work)
 		}
 		for (idx = 0; idx < CCIF_CH_NUM; idx++) {
 			ret = snprintf(string_temp, 1024,
-				"%srxq%d isr_cnt=%d;",	string, idx,
+				"%srxq%d isr_cnt=%lld;", string, idx,
 				md_ctrl->isr_cnt[idx]);
 			if (ret < 0 || ret >= 1024) {
 				CCCI_DEBUG_LOG(md_ctrl->md_id, TAG,

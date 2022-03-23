@@ -885,6 +885,11 @@ void udc_cmd_handler(struct port_t *port, struct sk_buff *skb)
 	}
 
 	ctl = kzalloc(sizeof(struct udc_state_ctl), GFP_KERNEL);
+	if (ctl == NULL) {
+		CCCI_ERROR_LOG(md_id, UDC,
+			"%s:kzalloc ctl fail\n", __func__);
+		return;
+	}
 
 	ccci_udc_actv = (struct ccci_udc_actv_param_t *)skb->data;
 	udc_cmd = ccci_udc_actv->udc_cmd;
