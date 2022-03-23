@@ -2149,10 +2149,10 @@
 			compatible = "mediatek,dpmaif";
 			reg = <0 0x10014000 0 0x1000>, /*AO_UL*/
 				<0 0x10014400 0 0x1000>, /*AO_DL*/
-				<0 0x1021d000 0 0x1000>, /*PD_UL*/
-				<0 0x1021d100 0 0x1000>, /*PD_DL*/
-				<0 0x1021d400 0 0x1000>, /*PD_MISC*/
-				<0 0x1021c000 0 0x1000>, /*PD_MD_MISC*/
+				<0 0x1022d000 0 0x1000>, /*PD_UL*/
+				<0 0x1022d100 0 0x1000>, /*PD_DL*/
+				<0 0x1022d400 0 0x1000>, /*PD_MISC*/
+				<0 0x1022c000 0 0x1000>, /*PD_MD_MISC*/
 				<0 0x1022e000 0 0x1000>; /*SRAM*/
 			/*GIC Interrupt ID 273-32*/
 			interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH 0>;
