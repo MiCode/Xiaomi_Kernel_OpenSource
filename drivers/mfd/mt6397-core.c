@@ -290,7 +290,12 @@ static const struct mfd_cell mt6366_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6366_keys_resources),
 		.resources = mt6366_keys_resources,
 		.of_compatible = "mediatek,mt6366-keys"
-	}
+	}, {
+		.name = "mt6358-gauge",
+		.num_resources = ARRAY_SIZE(mt6366_gauge_resources),
+		.resources = mt6366_gauge_resources,
+		.of_compatible = "mediatek,mt6358-gauge",
+	},
 };
 
 static const struct mfd_cell mt6397_devs[] = {
