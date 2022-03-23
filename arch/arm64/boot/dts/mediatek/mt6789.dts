@@ -3520,6 +3520,10 @@
 				reg = <0x78 0x4>;
 			};
 
+			u2_phy_data: u2_phy_data {
+				reg = <0x1b0 0x4>;
+			};
+
 			lvts_e_data1: data1 {
 				reg = <0x1a4 0x2c>;
 			};
@@ -5289,6 +5293,14 @@
 				clocks = <&clk26m>;
 				clock-names = "ref";
 				#phy-cells = <1>;
+				mediatek,eye-vrt = <4>;
+				mediatek,eye-term = <4>;
+				mediatek,rev4 = <1>;
+				mediatek,rx_sqth = <5>;
+				mediatek,discth = <7>;
+				nvmem-cells = <&u2_phy_data>;
+				nvmem-cell-names = "intr_cal";
+				nvmem-cell-masks = <0x1f>;
 				status = "okay";
 			};
 		};
