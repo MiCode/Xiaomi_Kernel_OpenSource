@@ -515,7 +515,6 @@ static void evaluate_aee_exception(unsigned int i, unsigned int dbg0, unsigned i
 {
 	unsigned long long current_time;
 
-	if (devapc_vio_aee_shown[i] == 0) {
 		if (devapc_vio_count[i] < DEVAPC_VIO_AEE_TRIGGER_TIMES) {
 			devapc_vio_count[i] += i;
 
@@ -545,7 +544,6 @@ static void evaluate_aee_exception(unsigned int i, unsigned int dbg0, unsigned i
 				execute_aee(i, dbg0, dbg1);
 			}
 		}
-	}
 }
 #endif
 
