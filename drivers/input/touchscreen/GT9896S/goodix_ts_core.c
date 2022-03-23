@@ -1445,6 +1445,11 @@ static int gt9896s_ts_input_dev_config(struct gt9896s_ts_core *core_data)
 	struct input_dev *input_dev = NULL;
 	int r;
 
+	if (!ts_bdata) {
+		ts_err("ts_bdata is NULL");
+		return -ENOMEM;
+	}
+
 	input_dev = input_allocate_device();
 	if (!input_dev) {
 		ts_err("Failed to allocated input device");
@@ -1507,6 +1512,11 @@ static int gt9896s_ts_pen_dev_config(struct gt9896s_ts_core *core_data)
 	struct gt9896s_ts_board_data *ts_bdata = board_data(core_data);
 	struct input_dev *pen_dev = NULL;
 	int r;
+
+	if (!ts_bdata) {
+		ts_err("ts_bdata is NULL");
+		return -ENOMEM;
+	}
 
 	pen_dev = input_allocate_device();
 	if (!pen_dev) {
