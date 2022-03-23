@@ -31,8 +31,6 @@
 			<&topckgen_clk CLK_TOP_AUD_1_SEL>,
 			<&topckgen_clk CLK_TOP_AUD_2_SEL>,
 			<&topckgen_clk CLK_TOP_DPMAIF_MAIN_SEL>,
-			<&topckgen_clk CLK_TOP_VENC_SEL>,
-			<&topckgen_clk CLK_TOP_VDEC_SEL>,
 			<&topckgen_clk CLK_TOP_PWM_SEL>,
 			<&topckgen_clk CLK_TOP_AUDIO_H_SEL>,
 			<&topckgen_clk CLK_TOP_AES_MSDCFDE_SEL>,
