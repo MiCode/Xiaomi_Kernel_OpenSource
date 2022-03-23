@@ -364,6 +364,7 @@ config MACH_MT6771
 	select OVERLAY_FS
 	select MTK_SYSTRACKER_V2
 	select MTK_SECURITY_SW_SUPPORT
+	select PM_OPP
 	help
 	  This enables support for MediaTek MT6771
 	  Support for aarch64 Architecture
