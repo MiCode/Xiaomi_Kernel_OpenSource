@@ -298,6 +298,9 @@ struct mtk_imgsys_dev {
 
 	/* CCU control flow */
 	struct rproc *rproc_ccu_handle;
+	/* larb control */
+	struct device **larbs;
+	unsigned int larbs_num;
 
 	struct work_pool gwork_pool;
 	atomic_t num_composing;	/* increase after ipi */
