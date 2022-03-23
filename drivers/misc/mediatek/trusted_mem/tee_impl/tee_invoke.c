@@ -87,6 +87,10 @@ int tee_directly_invoke_cmd(struct trusted_driver_cmd_params *invoke_params)
 {
 	int ret = TMEM_OK;
 
+#if defined(CONFIG_MICROTRUST_TEE_SUPPORT)
+	return TMEM_OK;
+#endif
+
 	TEE_CMD_LOCK();
 	ret = tee_directly_invoke_cmd_locked(invoke_params);
 	TEE_CMD_UNLOCK();
