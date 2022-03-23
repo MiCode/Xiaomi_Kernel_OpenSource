@@ -488,7 +488,8 @@ int mt6983_chip_data_remote_sync(struct plat_cfg_data *plat_cfg)
 
 	reg_data = (plat_cfg->aging_flag & 0xf)
 		| ((plat_cfg->hw_id & 0xf) << 4)
-		| ((plat_cfg->vsram_vb_en & 0xff) << 8);
+		| ((plat_cfg->vsram_vb_en & 0xff) << 8)
+		| ((plat_cfg->misc_cfg & 0xff) << 16);
 
 	pr_info("%s 0x%08x\n", __func__, reg_data);
 	apu_writel(reg_data, spare_reg_base + PLAT_CFG_SYNC_REG);

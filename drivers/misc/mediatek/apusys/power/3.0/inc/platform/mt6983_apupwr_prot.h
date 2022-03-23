@@ -57,6 +57,7 @@ struct plat_cfg_data {
 	int8_t aging_flag:4,
 	       hw_id:4;
 	int8_t vsram_vb_en;
+	int8_t misc_cfg;
 };
 
 struct device_opp_limit {
