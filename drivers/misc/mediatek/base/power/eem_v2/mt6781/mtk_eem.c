@@ -213,7 +213,7 @@ unsigned int gpu_vb_volt;
 unsigned int gpu_vb_turn_pt;
 unsigned int gpu_opp0_t_volt[8] = {
 	90000, 90000, 87500, 85000,
-	82500, 80000, 77500, 75000
+	82500, 80000, 92500, 95000
 };
 
 
