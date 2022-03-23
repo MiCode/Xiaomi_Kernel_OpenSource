@@ -169,6 +169,12 @@ int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 			ipidev->name, index);
 		mtk_rpchan = mtk_rpmsg_create_channel(mtk_rpdev, index,
 				chan_name);
+		if (!mtk_rpchan) {
+			pr_info("%s create rpmsg channel %d fail.\n",
+				ipidev->name, index);
+			kfree(mtk_rpdev);
+			return IPI_RPMSG_ERR;
+		}
 		ipi_chan_table[index].rpchan = mtk_rpchan;
 		ipi_chan_table[index].ept =
 			rpmsg_create_ept(&(mtk_rpdev->rpdev),
