@@ -56,9 +56,9 @@
 /*  FLASH TIMEOUT DURATION
  *	min 32ms, step 32ms, max 1024ms
  */
-#define LM3643_FLASH_TOUT_MIN 200
-#define LM3643_FLASH_TOUT_STEP 200
-#define LM3643_FLASH_TOUT_MAX 1600
+#define LM3643_FLASH_TOUT_MIN 100
+#define LM3643_FLASH_TOUT_STEP 50
+#define LM3643_FLASH_TOUT_MAX 400
 
 /*  TORCH BRT
  *	min 977uA, step 1400uA, max 179000uA
@@ -337,13 +337,13 @@ static int lm3643_flash_tout_ctrl(struct lm3643_flash *flash,
 	u8 tout_bits;
 
 	pr_info("%s tout:%u", __func__, tout);
-	if (tout == 200)
+	if (tout == 50)
 		tout_bits = 0x04;
 	else
 		tout_bits = 0x07 + (tout / LM3643_FLASH_TOUT_STEP);
 
 	rval = regmap_update_bits(flash->regmap,
-				  REG_FLASH_TOUT, 0x1f, tout_bits);
+				  REG_FLASH_TOUT, 0x0f, tout_bits);
 
 	return rval;
 }
