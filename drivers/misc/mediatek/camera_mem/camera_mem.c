@@ -404,6 +404,10 @@ static bool cam_mem_mmu_get_dma_buffer(
 	mmu->attach = dma_buf_attach(mmu->dmaBuf, cam_mem_dev.dev);
 	if (IS_ERR(mmu->attach))
 		goto err_attach;
+
+	/* Lower down the MIPS */
+	mmu->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+
 	/* buffer and iova map */
 	mmu->sgt = dma_buf_map_attachment(mmu->attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(mmu->sgt))
