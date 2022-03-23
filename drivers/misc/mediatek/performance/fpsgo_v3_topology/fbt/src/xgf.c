@@ -2145,7 +2145,7 @@ static unsigned long long xgf_sqrt(unsigned long long x)
 	if (x <= 1)
 		return x;
 
-	m = 1UL << (__fls(x) & ~1UL);
+	m = 1ULL << (__fls(x) & ~1ULL);
 	while (m != 0) {
 		b = y + m;
 		y >>= 1;
