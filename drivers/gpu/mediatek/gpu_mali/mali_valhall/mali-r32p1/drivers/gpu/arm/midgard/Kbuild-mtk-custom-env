@@ -32,6 +32,8 @@ ccflags-y += -I$(srctree)/drivers/gpu/mediatek/mt-plat
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/ged/include
 ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873" "mt6853"))
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_bm_k414
+else ifeq ($(CONFIG_MACH_MT6781),y)
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_bm_k414
 else
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpu_bm
 endif
@@ -46,11 +48,6 @@ ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DCONFIG_MTK_GPU_COMMON_DVFS
 # Enable by specific Family-ID
 ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873" "mt6853"))
 ccflags-y += -DMTK_GPU_BM_2
-
-ifneq (, $(findstring $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873"))
-ccflags-y += -DGPU_BM_PORTING
-endif
-
 $(info *GPU defined GPU BM QoS 2.0)
 endif
 
@@ -63,7 +60,6 @@ endif
 ifeq ($(CONFIG_MACH_MT6781),y)
 ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DGED_ENABLE_DVFS_LOADING_MODE
 ccflags-y += -DMTK_GPU_BM_2
-ccflags-y += -DGPU_BM_PORTING
 $(info *GPU defined GPU BM QoS 2.0)
 endif
 
