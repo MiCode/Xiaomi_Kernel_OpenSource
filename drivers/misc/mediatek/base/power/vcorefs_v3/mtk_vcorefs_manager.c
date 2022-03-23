@@ -56,7 +56,8 @@ struct vcorefs_profile {
 static struct vcorefs_profile vcorefs_ctrl = {
 	.plat_init_opp	= 0,
 	.init_done	= 0,
-#if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6758)
+#if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6758) \
+	|| defined(CONFIG_MACH_MT6771)
 	.autok_finish   = 1,
 #else
 	.autok_finish   = 0,

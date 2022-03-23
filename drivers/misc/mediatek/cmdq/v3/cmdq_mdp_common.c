@@ -22,7 +22,10 @@
 #endif	/* CONFIG_MTK_SMI_EXT */
 
 #include <linux/slab.h>
+#if !defined(CONFIG_MACH_MT6771)
 #include <linux/soc/mediatek/mtk-pm-qos.h>
+#endif
+
 #include <linux/math64.h>
 #include "cmdq_mdp_pmqos.h"
 #ifdef CONFIG_MTK_SMI_EXT

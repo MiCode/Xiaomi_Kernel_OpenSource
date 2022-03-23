@@ -108,6 +108,8 @@ struct opp_profile {
 #define LATE_INIT_OPP           (NUM_OPP - 1)
 #elif defined(CONFIG_MACH_MT6739)
 #define LATE_INIT_OPP           (NUM_OPP - 1)
+#elif defined(CONFIG_MACH_MT6771)
+#define LATE_INIT_OPP			(OPP_0)
 #else
 #define LATE_INIT_OPP           (NUM_OPP - 1)
 #endif
