@@ -675,6 +675,8 @@ struct SV_LOG_STR {
 
 static void *pLog_kmalloc;
 static struct SV_LOG_STR gSvLog[ISP_IRQ_TYPE_AMOUNT];
+static bool g_is_dumping[ISP_DEV_NODE_NUM] = {0};
+#define STR_REG "Addr(0x%x) 0x%8x-0x%8x-0x%8x-0x%8x|0x%8x-0x%8x-0x%8x-0x%8x\n"
 
 /**
  *   for irq used,keep log until IRQ_LOG_PRINTER being involked,
@@ -1326,6 +1328,50 @@ static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 /*******************************************************************************
  *
  ******************************************************************************/
+
+void dumpAllRegs(enum ISP_DEV_NODE_ENUM module)
+{
+	unsigned int i = 0;
+	unsigned int log_ba = 0;
+
+	if (g_is_dumping[module])
+		return;
+
+	switch (module) {
+	case ISP_CAM_A_IDX:
+		log_ba = CAM_A_BASE_HW;
+		break;
+	case ISP_CAM_B_IDX:
+		log_ba = CAM_B_BASE_HW;
+		break;
+	case ISP_CAM_C_IDX:
+		log_ba = CAM_C_BASE_HW;
+		break;
+	default:
+		break;
+	}
+
+	g_is_dumping[module] = MTRUE;
+	LOG_INF("----%s(module:%d)----\n", __func__, module);
+
+	for (i = 0 ; i < ISP_REG_RANGE; i += 0x0020) {
+		LOG_INF(STR_REG,
+			log_ba + i,
+			ISP_RD32(isp_devs[module].regs + i),
+			ISP_RD32(isp_devs[module].regs + i + 0x0004),
+			ISP_RD32(isp_devs[module].regs + i + 0x0008),
+			ISP_RD32(isp_devs[module].regs + i + 0x000C),
+			ISP_RD32(isp_devs[module].regs + i + 0x0010),
+			ISP_RD32(isp_devs[module].regs + i + 0x0014),
+			ISP_RD32(isp_devs[module].regs + i + 0x0018),
+			ISP_RD32(isp_devs[module].regs + i + 0x001C));
+	}
+	g_is_dumping[module] = MFALSE;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
 static void ISP_DumpCQDbg(enum ISP_IRQ_TYPE_ENUM module,
 				enum ISP_DEV_NODE_ENUM regModule)
 {
@@ -1570,8 +1616,8 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 			0);
 	}
 
-	if (dmaerr[_rawi_] | dmaerr[_bpci_] | dmaerr[_lsci_] | dmaerr[_bpci_r2_] | dmaerr[_pdi_] |
-			dmaerr[_ufdi_r2]) {
+	if ((dmaerr[_rawi_] | dmaerr[_bpci_] | dmaerr[_lsci_] | dmaerr[_bpci_r2_] | dmaerr[_pdi_] |
+			dmaerr[_ufdi_r2]) != 0xffff0000) {
 		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
 		"%s:RAWI=0x%x,BPCI:0x%x,LSCI=0x%x,BPCI_R2=0x%x,PDI=0x%x,UFDI_R2=0x%x,\n",
 			cam,
@@ -1616,13 +1662,13 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 	/* Module DebugInfo when no p1_done */
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
 		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			(0x00800100 + (i * 0x100)));
+			(0x00040100 + (i * 0x100)));
 		moduleReqStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(regModule));
 	}
 
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
 		ISP_WR32(CAM_REG_DBG_SET(regModule),
-			(0x00801100 + (i * 0x100)));
+			(0x00041100 + (i * 0x100)));
 		moduleRdyStatus[i] = ISP_RD32(CAM_REG_DBG_PORT(regModule));
 	}
 
@@ -1636,6 +1682,8 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 		moduleReqStatus[4], moduleRdyStatus[4],
 		moduleReqStatus[5], moduleRdyStatus[5],
 		moduleReqStatus[6], moduleRdyStatus[6]);
+
+	dumpAllRegs(regModule);
 
 #undef ISP_MODULE_GROUPS
 	ISP_DumpCQDbg(module, regModule);
@@ -3804,9 +3852,13 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						"CAM_%d: vf already enabled\n",
 						module);
 				} else {
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_A_IDX), 0x00040000);
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_B_IDX), 0x00040000);
+
 					ISP_WR32(
 						CAM_REG_TG_VF_CON(DebugFlag[1]),
 						(vf+0x1));
+
 				}
 
 #if (TIMESTAMP_QUEUE_EN == 1)
