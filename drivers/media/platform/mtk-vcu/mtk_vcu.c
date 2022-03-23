@@ -1795,7 +1795,8 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 		else
 			pa_start -= MAP_SHMEM_MM_BASE;
 
-		mem_buff_data.iova = pa_start;
+		mem_buff_data.iova = (vcu_ptr->iommu_padding) ?
+			(pa_start | 0x100000000UL) : pa_start;
 		mem_buff_data.len = length;
 		src_vb = NULL;
 		dst_vb = NULL;
@@ -1820,6 +1821,8 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 #if IS_ENABLED(CONFIG_MTK_IOMMU)
 		while (length > 0) {
 			vma->vm_pgoff = iommu_iova_to_phys(io_domain,
+				(vcu_ptr->iommu_padding) ?
+				((pa_start + pos) | 0x100000000UL) :
 				(pa_start + pos));
 			if (vma->vm_pgoff == 0) {
 				dev_info(vcu_dev->dev, "[VCU] iommu_iova_to_phys fail vcu_ptr->iommu_padding = %d pa_start = 0x%lx\n",
@@ -1975,6 +1978,8 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		if (cmd == VCU_MVA_FREE) {
+			if (vcu_ptr->iommu_padding)
+				mem_buff_data.iova |= 0x100000000UL;
 			ret = mtk_vcu_free_buffer(vcu_queue, &mem_buff_data);
 		} else if (cmd == VCU_UBE_MVA_FREE) {
 			struct device *io_dev = vcu_queue->dev;
@@ -2029,6 +2034,8 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			       __func__, __LINE__);
 			return -EINVAL;
 		}
+		if (vcu_ptr->iommu_padding)
+			mem_buff_data.iova |= 0x100000000UL;
 		ret = vcu_buffer_cache_sync(dev, vcu_queue,
 			(dma_addr_t)mem_buff_data.iova,
 			(size_t)mem_buff_data.len,
@@ -2390,6 +2397,14 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		pr_info("[VCU] VCU on\n");
 	}
 
+	if (of_property_read_bool(pdev->dev.of_node, "mediatek,iommu-padding")) {
+		vcu->iommu_padding = 1;
+		pr_info("[VCU] padding on\n");
+	} else {
+		vcu->iommu_padding = 0;
+		pr_info("[VCU] padding off\n");
+	}
+
 	ret = of_property_read_u32(dev->of_node, "mediatek,vcuid", &vcuid);
 	if (ret != 0) {
 		dev_info(dev, "[VCU] failed to find mediatek,vcuid\n");
@@ -2414,9 +2429,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 			dev_info(&pdev->dev, "64-bit DMA enable failed\n");
 			return ret;
 		}
-		vcu->iommu_padding = 0;
-	} else
-		vcu->iommu_padding = 1;
+	}
 
 	if (!pdev->dev.dma_parms) {
 		pdev->dev.dma_parms =
