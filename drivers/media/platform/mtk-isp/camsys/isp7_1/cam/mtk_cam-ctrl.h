@@ -199,6 +199,9 @@ mtk_cam_set_sensor_switch(struct mtk_cam_request_stream_data *s_data,
 			  struct mtk_camsys_sensor_ctrl *sensor_ctrl);
 
 /*EXT ISP*/
+void mtk_cam_event_esd_recovery(struct mtk_raw_pipeline *pipeline,
+				     unsigned int frame_seq_no);
+
 int mtk_cam_extisp_prepare_meta(struct mtk_cam_ctx *ctx, int pad_src);
 void mtk_cam_extisp_sv_stream_delayed(struct mtk_cam_ctx *ctx,
 	struct mtk_camsv_device *camsv_dev, int seninf_padidx);
