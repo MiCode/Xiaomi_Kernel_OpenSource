@@ -40,6 +40,18 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&otm1285a_hd720_dsi_vdo_tm_lcm_drv,
 #endif
 
+#if defined(OTM1901A_FHD_DSI_VDO_TPV)
+	&otm1901a_fhd_dsi_vdo_tpv_lcm_drv,
+#endif
+
+#if defined(R63350A_FHD_DSI_VDO_TRULY)
+	&r63350a_fhd_dsi_vdo_truly_lcm_drv,
+#endif
+
+#if defined(NT35532_FHD_DSI_VDO_SHARP)
+	&nt35532_fhd_dsi_vdo_sharp_lcm_drv,
+#endif
+
 #if defined(NT35595_FHD_DSI_CMD_TRULY_8163)
 	&nt35595_fhd_dsi_cmd_truly_8163_lcm_drv,
 #endif
