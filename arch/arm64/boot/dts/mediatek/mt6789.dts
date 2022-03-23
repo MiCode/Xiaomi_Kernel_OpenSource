@@ -19,6 +19,7 @@
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/memory/mt6789-larb-port.h>
 #include <dt-bindings/reset/ti-syscon.h>
+#include <dt-bindings/interconnect/mtk,mmqos.h>
 
 / {
 	model = "MT6789";
@@ -3568,6 +3569,27 @@
 		g3d_config@13fbf000 {
 			compatible = "mediatek,g3d_config";
 			reg = <0 0x13fbf000 0 0x1000>;
+		};
+
+		mmqos_wrapper {
+				compatible = "mediatek,mt6789-mmqos-wrapper";
+		};
+
+		mmqos: interconnect {
+			compatible = "mediatek,mt6789-mmqos";
+			#mtk-interconnect-cells = <1>;
+			mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2
+						&smi_larb4 &smi_larb7 &smi_larb9
+						&smi_larb13 &smi_larb14 &smi_larb16
+						&smi_larb17 &smi_larb20>;
+			mediatek,commons = <&smi_disp_common>;
+			disable-mmqos;
+			clocks = <&topckgen_clk CLK_TOP_DISP_SEL>;
+			clock-names = "mm";
+			interconnects = <&dvfsrc MT6873_MASTER_MMSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
+					<&dvfsrc MT6873_MASTER_HRT_MMSYS
+					&dvfsrc MT6873_SLAVE_HRT_DDR_EMI>;
+			interconnect-names = "icc-bw", "icc-hrt-bw";
 		};
 
 		disp_smi_2x1_sub_common_u0: disp_smi_2x1_sub_comm0@1401b000 {
