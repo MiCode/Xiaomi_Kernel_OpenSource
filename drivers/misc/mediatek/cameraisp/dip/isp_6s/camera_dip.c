@@ -183,7 +183,6 @@ pr_debug(MyTag "[%s] " format, __func__, ##args)
 
 bool g_DIP_PMState;
 uint32_t mtk_dip_count;
-uint32_t mtk_no_mfb;
 uint32_t max_tdr_no;
 #define DIP_B_BASE_HW   0x15821000
 #define CHECK_SERVICE_IF_0	0
@@ -3511,7 +3510,7 @@ static signed int DIP_DumpDIPReg(void)
 	cmdq_util_err("g_bDumpPhyDIPBuf:(0x%x), g_pPhyDIPBuffer:(0x%p)",
 		g_bDumpPhyDIPBuf, g_pPhyDIPBuffer);
 
-	if (mtk_no_mfb == 0) {
+	if (dip_clk.DIP_IMG_MFB_DIP != NULL) {
 		cmdq_util_err("g_pPhyMFBBuffer:(0x%p), g_pPhyMSSBuffer:(0x%p)",
 		g_pPhyMFBBuffer, g_pPhyMSSBuffer);
 	}
@@ -3550,7 +3549,7 @@ static signed int DIP_DumpDIPReg(void)
 		DIP_RD32(DIP_IMGSYS_CONFIG_BASE + 0x238));
 	DIP_Dump_IMGSYS_DIP_Reg();
 
-	if (mtk_no_mfb == 0) {
+	if (dip_clk.DIP_IMG_MFB_DIP != NULL) {
 		cmdq_util_err("MSS Config Info");
 		cmdq_util_err("MSSTOP_DBG: 0x%x(0x%x)-0x%x(0x%x)",
 			(mss_base_hw + 0x438), DIP_RD32(MSS_BASE + 0x438),
@@ -3979,7 +3978,7 @@ static signed int DIP_DumpDIPReg(void)
 			g_pPhyDIPBuffer);
 		}
 		if (g_pPhyMFBBuffer != NULL) {
-			if (mtk_no_mfb == 0) {
+			if (dip_clk.DIP_IMG_MFB_DIP != NULL) {
 				for (i = 0; i < (MFB_REG_RANGE >> 2); i = i + 4) {
 					g_pPhyMFBBuffer[i] =
 						DIP_RD32(MSF_BASE + (i*4));
@@ -3996,7 +3995,7 @@ static signed int DIP_DumpDIPReg(void)
 			g_pPhyMFBBuffer);
 		}
 		if (g_pPhyMSSBuffer != NULL) {
-			if (mtk_no_mfb == 0) {
+			if (dip_clk.DIP_IMG_MFB_DIP != NULL) {
 				for (i = 0; i < (MSS_REG_RANGE >> 2); i = i + 4) {
 					g_pPhyMSSBuffer[i] =
 						DIP_RD32(MSS_BASE + (i*4));
@@ -4148,12 +4147,13 @@ static inline void Prepare_Enable_ccf_clock(void)
 	int ret;
 	/* enable through smi API */
 	pm_runtime_get_sync(dip_devs->dev);
-	LOG_INF("larb9: %p, larb11: %p", dip_devs->larb9, dip_devs->larb11);
+	LOG_INF("larb9: %p, larb11: %p ,clk_MFB: %d\n", dip_devs->larb9, dip_devs->larb11,
+		dip_clk.DIP_IMG_MFB_DIP);
 	ret = mtk_smi_larb_get(dip_devs->larb9);
 	if (ret)
 		LOG_ERR("mtk_smi_larb_get larb9 fail %d\n", ret);
 
-	if (mtk_no_mfb == 0) {
+	if (dip_clk.DIP_IMG_MFB_DIP != NULL) {
 		ret = mtk_smi_larb_get(dip_devs->larb11);
 	if (ret)
 		LOG_ERR("mtk_smi_larb_get larb11 fail %d\n", ret);
@@ -4167,7 +4167,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_ERR("cannot prepare and enable DIP_IMG_DIP clock\n");
 
-	if (mtk_no_mfb == 0) {
+	if (dip_clk.DIP_IMG_MFB_DIP != NULL) {
 		ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB11);
 	if (ret)
 		LOG_ERR("cannot prepare and enable DIP_IMG_LARB11 clock\n");
@@ -4186,7 +4186,6 @@ static inline void Prepare_Enable_ccf_clock(void)
 		if (ret)
 			LOG_ERR("cannot prepare and enable DIP_IMG_DIP clock\n");
 	}
-
 }
 #endif
 
@@ -4195,7 +4194,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	if (mtk_dip_count == 2)
 		clk_disable_unprepare(dip_clk.DIP_IMG_DIP2);
 
-	if (mtk_no_mfb == 0) {
+	if (dip_clk.DIP_IMG_MFB_DIP != NULL) {
 		clk_disable_unprepare(dip_clk.DIP_IMG_MFB_DIP);
 		clk_disable_unprepare(dip_clk.DIP_IMG_DIP_MSS);
 		clk_disable_unprepare(dip_clk.DIP_IMG_LARB11);
@@ -4206,10 +4205,11 @@ static inline void Disable_Unprepare_ccf_clock(void)
 
 	mtk_smi_larb_put(dip_devs->larb9);
 
-	if (mtk_no_mfb == 0)
+	if (dip_clk.DIP_IMG_MFB_DIP != NULL)
 		mtk_smi_larb_put(dip_devs->larb11);
 
 	pm_runtime_put_sync(dip_devs->dev);
+
 }
 
 
@@ -7147,7 +7147,6 @@ static signed int DIP_probe(struct platform_device *pDev)
 	LOG_INF("- E. DIP driver probe. nr_dip_devs : %d.\n", nr_dip_devs);
 	max_tdr_no = 0;
 	mtk_dip_count = 1;
-	mtk_no_mfb = 0;
 	/* Get platform_device parameters */
 #ifdef CONFIG_OF
 
@@ -7185,8 +7184,10 @@ static signed int DIP_probe(struct platform_device *pDev)
 		/* parse larb node*/
 		node_larb9 = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", 0);
 		node_larb11 = of_parse_phandle(pDev->dev.of_node, "mediatek,larb", 1);
+
 		if (!node_larb9 || !node_larb11)
-			return -EINVAL;
+			LOG_INF("no get node_larb9 or larb11\n");
+
 		pdev_larb9 = of_find_device_by_node(node_larb9);
 		pdev_larb11 = of_find_device_by_node(node_larb11);
 		if (WARN_ON(!pdev_larb9) || WARN_ON(!pdev_larb11)) {
@@ -7359,7 +7360,7 @@ static signed int DIP_probe(struct platform_device *pDev)
 			LOG_ERR("cannot get DIP_IMG_DIP_MSS clock\n");
 		}
 		if (IS_ERR(dip_clk.DIP_IMG_MFB_DIP)) {
-			mtk_no_mfb = 1;
+			dip_clk.DIP_IMG_MFB_DIP = NULL;
 			LOG_ERR("cannot get DIP_IMG_MFB_DIP clock\n");
 		}
 		if (IS_ERR(dip_clk.DIP_IMG_LARB11)) {
