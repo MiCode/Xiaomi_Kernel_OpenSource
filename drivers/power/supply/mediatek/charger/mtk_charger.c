@@ -3432,9 +3432,11 @@ static void sc_nl_send_to_user(u32 pid, int seq, struct sc_nl_msg_t *reply_msg)
 	ret = netlink_unicast(pinfo->sc.daemo_nl_sk, skb, pid, MSG_DONTWAIT);
 	if (ret < 0) {
 		chr_err("[Netlink] sc send failed %d\n", ret);
+		kfree_skb(skb);
 		return;
 	}
 
+	kfree_skb(skb);
 }
 
 
