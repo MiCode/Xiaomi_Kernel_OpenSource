@@ -266,6 +266,8 @@ struct _compat_disp_layer_info {
 	compat_int_t res_idx;
 	compat_uint_t hrt_weight;
 	compat_uint_t hrt_idx;
+	/*DynFPS*/
+	compat_int_t active_config_id[2];
 };
 
 struct compat_disp_scenario_config_t {
