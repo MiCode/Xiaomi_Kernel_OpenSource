@@ -244,7 +244,7 @@ s32 cmdq_sec_mtee_execute_session(struct cmdq_sec_mtee_context *tee,
 		param[2].value.a, param[2].value.b,
 		param[3].value.a, param[3].value.b);
 
-	status = KREE_TeeServiceCall(tee->pHandle, cmd, types, param);
+	status = KREE_TeeServiceCallPlus(tee->pHandle, cmd, types, param, 0);
 	if (status != TZ_RESULT_SUCCESS)
 		cmdq_err("%s:%d cmd:%u", __func__, status, cmd);
 	else
