@@ -88,7 +88,9 @@ obj-$(CONFIG_MTK_CLK_BUFFER) += clkbuf/
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += qos/
 obj-$(CONFIG_MTK_SLBC) += slbc/
 ifneq ($(CONFIG_MACH_MT6893), y)
+ifneq ($(CONFIG_MACH_MT6771), y)
 obj-$(CONFIG_MTK_CM_MGR) += cm_mgr/
+endif
 endif
 ifneq ($(CONFIG_MTK_BASE_POWER), y)
 obj-$(CONFIG_MTK_PPM) += ppm_v3/
