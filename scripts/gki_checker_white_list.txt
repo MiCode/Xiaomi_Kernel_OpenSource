@@ -33,6 +33,7 @@ f mm/swap.c
 f net/core/rtnetlink.c
 f security/selinux/avc.c
 f security/selinux/include/avc.h
+f drivers/iommu/iova.c
 s vermagic
 s ufshcd_add_tm_upiu_trace
 s f2fs_quota_sync
@@ -40,6 +41,11 @@ s block_operations
 s __ufshcd_issue_tm_cmd
 s linux_banner
 s ufshcd_add_tm_upiu_trace
+s split_and_remove_iova
+s free_iova_fast
+s free_global_cached_iovas
+s free_cpu_cached_iovas
+s __free_iova
 c CONFIG_CFG80211_DEFAULT_PS
 c CONFIG_UFSTW_BOOT_ENABLED
 c CONFIG_UFSTW_IGNORE_GUARANTEE_BIT
