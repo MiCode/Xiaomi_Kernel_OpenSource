@@ -72,6 +72,33 @@ struct mt6358_regulator_info {
 	.modeset_shift = _modeset_shift	\
 }
 
+#define MT6358_SSHUB(match, vreg, min, max, step,	\
+	volt_ranges, _enable_reg, _status_reg,		\
+	_da_vsel_reg, _da_vsel_mask, _da_vsel_shift,	\
+	_vsel_reg, _vsel_mask)				\
+[MT6358_ID_##vreg] = {	\
+	.desc = {	\
+		.name = #vreg,					\
+		.of_match = of_match_ptr(match),		\
+		.ops = &mt6358_sshub_ops,			\
+		.type = REGULATOR_VOLTAGE,			\
+		.id = MT6358_ID_##vreg,				\
+		.owner = THIS_MODULE,				\
+		.n_voltages = ((max) - (min)) / (step) + 1,	\
+		.linear_ranges = volt_ranges,			\
+		.n_linear_ranges = ARRAY_SIZE(volt_ranges),	\
+		.vsel_reg = _vsel_reg,		\
+		.vsel_mask = _vsel_mask,	\
+		.enable_reg = _enable_reg,	\
+		.enable_mask = BIT(0),		\
+	},				\
+	.status_reg = _status_reg,	\
+	.qi = BIT(0),			\
+	.da_vsel_reg = _da_vsel_reg,	\
+	.da_vsel_mask = _da_vsel_mask,	\
+	.da_vsel_shift = _da_vsel_shift,\
+}
+
 #define MT6358_LDO(match, vreg, ldo_volt_table,	\
 	enreg, enbit, vosel, vosel_mask, vosel_shift) \
 [MT6358_ID_##vreg] = {	\
@@ -584,6 +611,19 @@ static const struct regulator_ops mt6358_volt_fixed_ops = {
 	.get_status = mt6358_get_status,
 };
 
+/* for sshub */
+static const struct regulator_ops mt6358_sshub_ops = {
+	.list_voltage = regulator_list_voltage_linear_range,
+	.map_voltage = regulator_map_voltage_linear_range,
+	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.get_voltage_sel = mt6358_get_buck_voltage_sel,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
+	.enable = regulator_enable_regmap,
+	.disable = regulator_disable_regmap,
+	.is_enabled = regulator_is_enabled_regmap,
+	.get_status = mt6358_get_status,
+};
+
 /* Regulator EXT_PMIC2 ops */
 static const struct regulator_ops pmic_regulator_ext2_ops = {
 	.enable = mt6358_regulator_ext2_enable,
@@ -635,6 +675,13 @@ static struct mt6358_regulator_info mt6358_regulators[] = {
 	MT6358_BUCK("buck_vs1", VS1, 1000000, 2587500, 12500,
 		    buck_volt_range4, 0x7f, MT6358_BUCK_VS1_DBG0, 0x7f, 0,
 		    MT6358_VS1_ANA_CON0, 8),
+	MT6358_SSHUB("buck_vcore_sshub", VCORE_SSHUB, 500000, 1293750, 6250,
+		     buck_volt_range1, MT6358_BUCK_VCORE_SSHUB_CON0, MT6358_BUCK_VCORE_DBG1,
+		     MT6358_BUCK_VCORE_DBG0, 0x7f, 0, MT6358_BUCK_VCORE_SSHUB_CON1, 0x7f),
+	MT6358_SSHUB("ldo_vsram_others_sshub", VSRAM_OTHERS_SSHUB, 500000, 1293750, 6250,
+		     buck_volt_range1, MT6358_LDO_VSRAM_OTHERS_SSHUB_CON0,
+		     MT6358_LDO_VSRAM_OTHERS_DBG1, MT6358_LDO_VSRAM_OTHERS_DBG0, 0x7f, 8,
+		     MT6358_LDO_VSRAM_OTHERS_SSHUB_CON1, 0x7f),
 	MT6358_REG_FIXED("ldo_vrf12", VRF12, MT6358_LDO_VRF12_CON0, 0, 1200000),
 	MT6358_REG_FIXED("ldo_vio18", VIO18, MT6358_LDO_VIO18_CON0, 0, 1800000),
 	MT6358_REG_FIXED("ldo_vcamio", VCAMIO, MT6358_LDO_VCAMIO_CON0, 0, 1800000),
