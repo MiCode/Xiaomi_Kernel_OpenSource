@@ -1495,18 +1495,18 @@ done:
 
 static unsigned int __gpufreq_settle_time_vgpu(unsigned int mode, int deltaV)
 {
-	/* [MT6359P][VGPU]
-	 * DVS Rising : delta(mV) / 10(mV/us) + 4(us) + 5(us)
-	 * DVS Falling: delta(mV) / 10(mV/us) + 4(us) + 5(us)
+	/* [MT6358][VGPU]
+	 * DVS Rising : delta(mV) / 8(mV/us) + 4(us) + 5(us)
+	 * DVS Falling: delta(mV) / 4(mV/us) + 4(us) + 5(us)
 	 */
 	unsigned int t_settle = 0;
 
 	if (mode) {
-		/*  rising 10 mV/us */
-		t_settle = deltaV / (10 * 100) + 9;
+		/*  rising 8 mV/us */
+		t_settle = deltaV / (8 * 100) + 9;
 	} else {
-		/* falling 10 mV/us*/
-		t_settle = deltaV / (10 * 100) + 9;
+		/* falling 4 mV/us*/
+		t_settle = deltaV / (4 * 100) + 9;
 	}
 
 	return t_settle; /* us */
@@ -1514,18 +1514,18 @@ static unsigned int __gpufreq_settle_time_vgpu(unsigned int mode, int deltaV)
 
 static unsigned int __gpufreq_settle_time_vsram(unsigned int mode, int deltaV)
 {
-	/* [MT6359P][VSRAM_GPU]
-	 * DVS Rising : delta(mV) / 10(mV/us) + 3(us) + 5(us)
-	 * DVS Falling: delta(mV) /  5(mV/us) + 3(us) + 5(us)
+	/* [MT6358][VSRAM_GPU]
+	 * DVS Rising : delta(mV) / 8(mV/us) + 3(us) + 5(us)
+	 * DVS Falling: delta(mV) /  4(mV/us) + 3(us) + 5(us)
 	 */
 	unsigned int t_settle = 0;
 
 	if (mode) {
-		/* rising 10 mv/us*/
-		t_settle = deltaV / (10 * 100) + 8;
+		/* rising 8 mv/us*/
+		t_settle = deltaV / (8 * 100) + 8;
 	} else {
-		/* falling 5 mv/us*/
-		t_settle = deltaV / (5 * 100) + 8;
+		/* falling 4 mv/us*/
+		t_settle = deltaV / (4 * 100) + 8;
 	}
 
 	return t_settle; /* us */
@@ -2296,26 +2296,28 @@ static void __gpufreq_interpolate_volt(void)
 static void __gpufreq_apply_aging(unsigned int apply_aging)
 {
 	int i = 0;
-	struct gpufreq_opp_info *working_table = g_gpu.working_table;
-	int opp_num = g_gpu.opp_num;
+	GPUFREQ_TRACE_START("apply_aging=%d", apply_aging);
 
 	mutex_lock(&gpufreq_lock);
 
-	for (i = 0; i < opp_num; i++) {
+	for (i = 0; i < g_gpu.opp_num; i++) {
 		if (apply_aging)
-			working_table[i].volt -= working_table[i].vaging;
+			g_gpu.working_table[i].volt -= g_gpu.working_table[i].vaging;
 		else
-			working_table[i].volt += working_table[i].vaging;
+			g_gpu.working_table[i].volt += g_gpu.working_table[i].vaging;
 
-		working_table[i].vsram = __gpufreq_get_vsram_by_vgpu(working_table[i].volt);
+		g_gpu.working_table[i].vsram =
+			__gpufreq_get_vsram_by_vgpu(g_gpu.working_table[i].volt);
 
-		GPUFREQ_LOGD("apply Vaging: %d, GPU[%02d] Volt: %d, Vsram: %d",
-			apply_aging, i, working_table[i].volt, working_table[i].vsram);
+		GPUFREQ_LOGD("apply Vaging: %d, GPU[%02d] vgpu: %d, Vsram: %d",
+			apply_aging, i, g_gpu.working_table[i].volt, g_gpu.working_table[i].vsram);
 	}
 
 	__gpufreq_set_springboard();
 
 	mutex_unlock(&gpufreq_lock);
+
+	GPUFREQ_TRACE_END();
 }
 
 /* API: apply given adjustment table to signed table */
@@ -2748,9 +2750,8 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 
 	/* init working OPP range */
 	segment_id = g_gpu.segment_id;
-	/* for mt6789 swrgo */
 	if (segment_id == MT6789_SEGMENT)
-		g_gpu.segment_upbound = 11;
+		g_gpu.segment_upbound = 0;
 	else
 		g_gpu.segment_upbound = 8;
 	g_gpu.segment_lowbound = SIGNED_OPP_GPU_NUM - 1;
@@ -3006,7 +3007,6 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	/* ignore return error and use default value if property doesn't exist */
 	of_property_read_u32(gpufreq_dev->of_node, "aging-load", &g_aging_load);
 	of_property_read_u32(gpufreq_dev->of_node, "mcl50-load", &g_mcl50_load);
-	of_property_read_u32(gpufreq_dev->of_node, "enable-aging", &g_aging_enable);
 	of_property_read_u32(of_wrapper, "gpueb-support", &g_gpueb_support);
 
 	/* 0x1000C000 */
@@ -3219,6 +3219,9 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_ON, ret);
 		goto done;
 	}
+
+	/* apply aging volt to working table volt depending on Aging load */
+	g_aging_enable = g_aging_load;
 
 	if (g_aging_enable)
 		__gpufreq_apply_aging(true);
