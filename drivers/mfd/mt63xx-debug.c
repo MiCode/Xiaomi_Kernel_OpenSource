@@ -24,6 +24,7 @@ static ssize_t pmic_access_show(struct device *dev,
 	return sprintf(buf, "0x%x\n", data->reg_value);
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 static ssize_t pmic_access_store(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf,
@@ -67,6 +68,7 @@ static ssize_t pmic_access_store(struct device *dev,
 	return size;
 }
 static DEVICE_ATTR_RW(pmic_access);
+#endif
 
 static int mt63xx_debug_probe(struct platform_device *pdev)
 {
@@ -84,17 +86,21 @@ static int mt63xx_debug_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, drvdata);
 
 	regmap_write(chip->regmap, 0x910, 0xF);
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	/* Create sysfs entry */
 	ret = device_create_file(&pdev->dev, &dev_attr_pmic_access);
 	if (ret < 0)
 		pr_info("%s failed to create sysfs file\n", __func__);
+#endif
 
 	return ret;
 }
 
 static int mt63xx_debug_remove(struct platform_device *pdev)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	device_remove_file(&pdev->dev, &dev_attr_pmic_access);
+#endif
 
 	return 0;
 }
