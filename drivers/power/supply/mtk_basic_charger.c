@@ -216,8 +216,9 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	else {
 		is_basic = true;
 		/* AICL */
-		charger_dev_run_aicl(info->chg1_dev,
-			&pdata->input_current_limit_by_aicl);
+		if (!info->disable_aicl)
+			charger_dev_run_aicl(info->chg1_dev,
+				&pdata->input_current_limit_by_aicl);
 		if (info->enable_dynamic_mivr) {
 			if (pdata->input_current_limit_by_aicl >
 				info->data.max_dmivr_charger_current)
@@ -305,7 +306,8 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		info->setting.input_current_limit2 = -1;
 
 	if (is_basic == true && pdata->input_current_limit_by_aicl != -1
-		&& !info->charger_unlimited) {
+		&& !info->charger_unlimited
+		&& !info->disable_aicl) {
 		if (pdata->input_current_limit_by_aicl <
 		    pdata->input_current_limit)
 			pdata->input_current_limit =

@@ -219,6 +219,7 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	info->enable_sw_safety_timer =
 			of_property_read_bool(np, "enable_sw_safety_timer");
 	info->sw_safety_timer_setting = info->enable_sw_safety_timer;
+	info->disable_aicl = of_property_read_bool(np, "disable_aicl");
 
 	/* common */
 
