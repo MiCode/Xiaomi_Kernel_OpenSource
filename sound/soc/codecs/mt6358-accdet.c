@@ -2018,19 +2018,8 @@ static inline void accdet_init(void)
 	accdet_set_debounce(accdet_state011, cust_pwm_deb->debounce3);
 	/* auxadc:2ms */
 	accdet_set_debounce(accdet_auxadc, cust_pwm_deb->debounce4);
-	if (accdet_dts.moisture_detect_enable == 0x1) {
-		/* eint_state001 can be configured, less than 2ms */
-		accdet_set_debounce(eint_state001,
-			accdet_dts.pwm_deb.eint_debounce1);
-		accdet_set_debounce(eint_state010,
-			accdet_dts.pwm_deb.eint_debounce2);
-	} else {
-		accdet_set_debounce(eint_state001,
-			accdet_dts.pwm_deb.eint_debounce1);
-	}
 	accdet_set_debounce(eint_inverter_state000,
 		accdet_dts.pwm_deb.eint_inverter_debounce);
-
 	pr_info("%s() done.\n", __func__);
 }
 
@@ -2053,7 +2042,6 @@ static void delay_init_work_callback(struct work_struct *work)
 	accdet_init();
 	accdet_init_debounce();
 	accdet_init_once();
-	pr_info("%s() done\n", __func__);
 }
 
 static void delay_init_timerhandler(struct timer_list *t)
@@ -2101,6 +2089,7 @@ static int mt6358_accdet_probe(struct platform_device *pdev)
 
 	int ret = 0;
 	struct resource *res;
+	struct mt6397_chip *mt6397_chip = dev_get_drvdata(pdev->dev.parent);
 	const struct of_device_id *of_id =
 				of_match_device(accdet_of_match, &pdev->dev);
 
@@ -2135,7 +2124,7 @@ static int mt6358_accdet_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, accdet);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	accdet->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	accdet->regmap = mt6397_chip->regmap;
 	accdet->dev = &pdev->dev;
 
 	/* get pmic auxadc iio channel handler */
@@ -2326,6 +2315,7 @@ static int mt6358_accdet_probe(struct platform_device *pdev)
 	}
 	atomic_set(&accdet_first, 1);
 	mod_timer(&accdet_init_timer, (jiffies + ACCDET_INIT_WAIT_TIMER));
+	pr_info("%s done!\n", __func__);
 
 	return 0;
 

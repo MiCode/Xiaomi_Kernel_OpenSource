@@ -130,7 +130,7 @@ enum {
 
 extern int accdet_read_audio_res(unsigned int res_value);
 /* just be called by audio module for DC trim */
-extern void accdet_late_init(unsigned long data);
+extern void mt6358_accdet_late_init(unsigned long data);
 extern const struct file_operations *accdet_get_fops(void);
 extern void mt_accdet_remove(void);
 extern void mt_accdet_suspend(void);
