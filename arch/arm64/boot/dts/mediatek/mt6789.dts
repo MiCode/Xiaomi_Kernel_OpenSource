@@ -82,6 +82,9 @@
 			reg = <0x0000>;
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu1: cpu@001 {
@@ -91,6 +94,9 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <407>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu2: cpu@002 {
@@ -100,6 +106,9 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <407>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu3: cpu@003 {
@@ -109,6 +118,9 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <407>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu4: cpu@004 {
@@ -118,6 +130,9 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <407>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu5: cpu@005 {
@@ -127,6 +142,9 @@
 			performance-domains = <&performance 0>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <407>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu6: cpu@100 {
@@ -136,6 +154,9 @@
 			performance-domains = <&performance 1>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <1024>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu7: cpu@101 {
@@ -145,6 +166,9 @@
 			performance-domains = <&performance 1>;
 			enable-method = "psci";
 			capacity-dmips-mhz = <1024>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu-map {
@@ -5436,19 +5460,19 @@
 			rc_bus26m: rc_bus26m {
 				rc-name = "bus26m";
 				id = <0x00000000>;
-				value = <1>;
+				value = <0>;
 				cond-info = <1>;
 			};
 			rc_syspll: rc_syspll {
 				rc-name = "syspll";
 				id = <0x00000001>;
-				value = <1>;
+				value = <0>;
 				cond-info = <1>;
 			};
 			rc_dram: rc_dram {
 				rc-name = "dram";
 				id = <0x00000002>;
-				value = <1>;
+				value = <0>;
 				cond-info = <1>;
 			};
 			rc_cpu_buck_ldo: rc_cpu_buck_ldo{
