@@ -243,6 +243,11 @@ void mtk_clk_register_fixup_dividers(const struct mtk_clk_divider *mcds,
 
 struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num);
 
+struct clk_onecell_data *mtk_devm_alloc_clk_data(struct device *dev,
+			unsigned int clk_num);
+
+void mtk_devm_free_clk_data(struct device *dev, struct clk_onecell_data *clk_data);
+
 #define HAVE_RST_BAR	BIT(0)
 #define PLL_AO		BIT(1)
 #define HAVE_RST_BAR_4_TIMES	(BIT(2) | BIT(0))

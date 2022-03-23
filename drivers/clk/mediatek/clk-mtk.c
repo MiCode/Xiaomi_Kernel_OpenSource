@@ -27,6 +27,39 @@
 #include "clk-gate.h"
 #include "clk-fixup-div.h"
 
+struct clk_onecell_data *mtk_devm_alloc_clk_data(struct device *dev, unsigned int clk_num)
+{
+	int i;
+	struct clk_onecell_data *clk_data;
+
+	clk_data = devm_kzalloc(dev, sizeof(*clk_data), GFP_KERNEL);
+	if (!clk_data)
+		return NULL;
+
+	clk_data->clks = devm_kcalloc(dev, clk_num, sizeof(*clk_data->clks), GFP_KERNEL);
+	if (!clk_data->clks)
+		goto devm_err_out;
+
+	clk_data->clk_num = clk_num;
+
+	for (i = 0; i < clk_num; i++)
+		clk_data->clks[i] = ERR_PTR(-ENOENT);
+
+	return clk_data;
+devm_err_out:
+	devm_kfree(dev, clk_data);
+	return NULL;
+}
+
+void mtk_devm_free_clk_data(struct device *dev, struct clk_onecell_data *clk_data)
+{
+	if (!clk_data)
+		return;
+
+	devm_kfree(dev, clk_data->clks);
+	devm_kfree(dev, clk_data);
+}
+
 struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num)
 {
 	int i;
@@ -372,15 +405,23 @@ int mtk_clk_simple_probe(struct platform_device *pdev)
 	if (!mcd)
 		return -EINVAL;
 
-	clk_data = mtk_alloc_clk_data(mcd->num_clks);
+	clk_data = mtk_devm_alloc_clk_data(&pdev->dev, mcd->num_clks);
 	if (!clk_data)
 		return -ENOMEM;
 
 	r = mtk_clk_register_gates(node, mcd->clks, mcd->num_clks, clk_data);
 	if (r)
-		return r;
+		goto free_data;
 
-	return of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	if (r)
+		goto free_data;
+
+	return r;
+
+free_data:
+	mtk_devm_free_clk_data(&pdev->dev, clk_data);
+	return r;
 }
 EXPORT_SYMBOL(mtk_clk_simple_probe);
 
