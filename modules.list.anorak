@@ -34,3 +34,6 @@ smem.ko
 msm_qmp.ko
 qcom_aoss.ko
 ns.ko
+phy-qcom-ufs.ko
+phy-qcom-ufs-qrbtc-sdm845.ko
+ufs_qcom.ko
