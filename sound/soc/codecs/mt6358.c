@@ -862,11 +862,11 @@ static int mt_sgen_event(struct snd_soc_dapm_widget *w,
 		/* sdm audio fifo clock power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0006);
 		/* scrambler clock on enable */
-		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xCBA1);
+		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcba1);
 		/* sdm power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0003);
 		/* sdm fifo enable */
-		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x000B);
+		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x000b);
 
 		regmap_update_bits(priv->regmap, MT6358_AFE_SGEN_CFG0,
 				   0xff3f,
@@ -904,7 +904,7 @@ static int mt_aif_in_event(struct snd_soc_dapm_widget *w,
 		/* sdm audio fifo clock power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0006);
 		/* scrambler clock on enable, invert left channel */
-		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcfa1);
+		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcba1);
 		/* sdm power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0003);
 		/* sdm fifo enable */
@@ -913,7 +913,7 @@ static int mt_aif_in_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		/* DL scrambler disabling sequence */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0000);
-		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcfa0);
+		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcba0);
 
 		playback_gpio_reset(priv);
 		break;
@@ -1524,6 +1524,9 @@ static int mtk_hp_dual_spk_enable(struct mt6358_priv *priv)
 {
 	unsigned int trim_setting = 0;
 	unsigned int reg_value = 0;
+
+	/* scrambler clock on enable, invert left channel */
+	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcfa1);
 #ifdef ANALOG_HPTRIM
 	regmap_read(priv->regmap, MT6358_AUDDEC_ELR_0, &reg_value);
 	dev_info(priv->dev, "%s(), current AUDDEC_ELR_0 = 0x%x, mic_vinp_mv = %d\n",
@@ -3976,7 +3979,7 @@ static void start_trim_hardware(struct mt6358_priv *priv, bool buffer_on)
 	/* sdm audio fifo clock power on */
 	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0006);
 	/* scrambler clock on enable */
-	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xCBA1);
+	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcba1);
 	/* sdm power on */
 	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0003);
 	/* sdm fifo enable */
@@ -4277,7 +4280,7 @@ static void start_trim_hardware_with_lo(struct mt6358_priv *priv,
 	/* sdm audio fifo clock power on */
 	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0006);
 	/* scrambler clock on enable */
-	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xCBA1);
+	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcba1);
 	/* sdm power on */
 	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0003);
 	/* sdm fifo enable */
@@ -5678,7 +5681,7 @@ static int calculate_impedance(struct mt6358_priv *priv,
 				128);
 	}
 
-	dev_dbg(priv->dev, "%s(), pcm_offset %d dcoffset %d detected resistor is %d\n",
+	dev_info(priv->dev, "%s(), pcm_offset %d dcoffset %d detected resistor is %d\n",
 		__func__, pcm_offset, dc_value, r_tmp);
 
 	return r_tmp;
@@ -6070,7 +6073,7 @@ static int mt6358_rcv_mic_set(struct snd_kcontrol *kcontrol,
 	/* sdm audio fifo clock power on */
 	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0006);
 	/* scrambler clock on enable */
-	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xCBA1);
+	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcba1);
 	/* sdm power on */
 	regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0003);
 	/* sdm fifo enable */
