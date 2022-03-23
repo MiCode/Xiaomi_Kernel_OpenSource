@@ -511,7 +511,7 @@ static int ocp96011_remove(struct i2c_client *i2c)
 static void ocp96011_shutdown(struct i2c_client *i2c)
 {
 	printk("%s enter \n", __func__);
-	ocp96011_switch_event(2);
+	ocp96011_switch_event(1);
 }
 
 ///#ifdef CONFIG_OF
