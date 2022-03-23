@@ -2496,8 +2496,8 @@ int musb_init_controller(struct device *dev, int nIrq, void __iomem *ctrl)
 	INIT_WORK(&musb->otg_notifier_work, musb_otg_notifier_work);
 #endif
 	/* attach to the IRQ */
-	if (request_irq(musb->nIrq, musb->isr
-			, IRQF_TRIGGER_NONE, dev_name(dev), musb)) {
+	if (request_threaded_irq(musb->nIrq, NULL, musb->isr
+			, IRQF_ONESHOT, dev_name(dev), musb)) {
 		DBG(0, "request_irq %d failed!\n", musb->nIrq);
 		status = -ENODEV;
 		goto fail3;
