@@ -12299,6 +12299,13 @@ unsigned int mtk_drm_primary_display_get_debug_state(
 			 (mtk_crtc_is_frame_trigger_mode(crtc) ?
 			  "cmd" : "vdo"), hrt_lp_switch_get());
 
+	if (mtk_crtc->qos_ctx)
+		len += scnprintf(stringbuf + len, buf_len - len,
+			 "Last request HRT BW: %u, overlap weight: %u\n",
+			 mtk_crtc->qos_ctx->last_hrt_req,
+			 mtk_crtc->qos_ctx->last_hrt_req * 100 /
+			 (overlap_to_bw(crtc, 400)));
+
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	len += scnprintf(stringbuf + len, buf_len - len,
