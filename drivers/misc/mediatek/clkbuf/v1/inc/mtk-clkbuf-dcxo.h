@@ -76,6 +76,9 @@ struct dcxo_hw {
 	struct reg_t _hwbblpm_sel;
 	struct reg_t _srclken_i3;
 	struct reg_t _dcxo_pmrc_en;
+	struct reg_t _xo_cdac_fpm;
+	struct reg_t _xo_aac_fpm_swen;
+	struct reg_t _xo_heater_sel;
 	struct pmic_pmrc_en *pmrc_en;
 	struct dcxo_op ops;
 	const char * const *valid_dcxo_cmd;
@@ -109,6 +112,11 @@ int clkbuf_dcxo_dump_misc_log(char *buf);
 int clkbuf_dcxo_dump_dws(char *buf);
 int clkbuf_dcxo_dump_pmrc_en(char *buf);
 bool clkbuf_dcxo_is_bblpm_support(void);
+int clkbuf_dcxo_set_capid_pre(void);
+int clkbuf_dcxo_get_capid(u32 *capid);
+int clkbuf_dcxo_set_capid(u32 capid);
+int clkbuf_dcxo_get_heater(bool *on);
+int clkbuf_dcxo_set_heater(bool on);
 
 /* Get platform dcxo structures */
 extern struct dcxo_hw mt6359p_dcxo;

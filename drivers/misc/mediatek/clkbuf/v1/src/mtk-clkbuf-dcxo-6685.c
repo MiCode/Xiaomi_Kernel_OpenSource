@@ -210,6 +210,9 @@ struct dcxo_hw mt6685_dcxo = {
 	MT6685_SET_REG_BY_NAME(swbblpm_en, XO_BB_LPM_EN_M)
 	MT6685_SET_REG_BY_NAME(hwbblpm_sel, XO_BB_LPM_EN_SEL)
 	MT6685_SET_REG_BY_NAME(dcxo_pmrc_en, PMRC_EN0)
+	MT6685_SET_REG_BY_NAME(xo_cdac_fpm, RG_XO_CDAC_FPM)
+	MT6685_SET_REG_BY_NAME(xo_aac_fpm_swen, RG_XO_AAC_FPM_SWEN)
+	MT6685_SET_REG_BY_NAME(xo_heater_sel, RG_XO_HEATER_SEL)
 	.ops = {
 		.dcxo_dump_reg_log = mt6685_dcxo_dump_reg_log,
 		.dcxo_dump_misc_log = mt6685_dcxo_dump_misc_log,

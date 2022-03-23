@@ -532,6 +532,86 @@ int clkbuf_dcxo_get_bblpm_en(u32 *val)
 			&dcxo->_bblpm_auxout, val);
 }
 
+int clkbuf_dcxo_set_capid_pre(void)
+{
+	int ret = 0;
+
+	ret = clk_buf_write(&dcxo->hw, &dcxo->_xo_aac_fpm_swen, 0);
+	if (ret) {
+		pr_notice("set aac fpm swen failed\n");
+		return ret;
+	}
+	mdelay(1);
+
+	ret = clk_buf_write(&dcxo->hw, &dcxo->_xo_aac_fpm_swen, 1);
+	if (ret) {
+		pr_notice("set aac fpm swen failed\n");
+		return ret;
+	}
+
+	mdelay(5);
+
+	return ret;
+}
+
+int clkbuf_dcxo_get_capid(u32 *capid)
+{
+	return clk_buf_read(&dcxo->hw, &dcxo->_xo_cdac_fpm, capid);
+}
+
+int clkbuf_dcxo_set_capid(u32 capid)
+{
+	int ret = 0;
+
+	ret = clk_buf_write(&dcxo->hw, &dcxo->_xo_cdac_fpm, capid);
+	if (ret) {
+		pr_notice("set capid failed\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+int clkbuf_dcxo_get_heater(bool *on)
+{
+	u32 heat_sel;
+	int ret = 0;
+
+	ret =  clk_buf_read(&dcxo->hw, &dcxo->_xo_heater_sel, &heat_sel);
+	if (ret) {
+		pr_notice("get heat sel failed\n");
+		return ret;
+	}
+	pr_notice("get heat sel 0x%x\n", heat_sel);
+	if (!heat_sel)
+		*on = false;
+	else
+		*on = true;
+
+	return ret;
+}
+
+int clkbuf_dcxo_set_heater(bool on)
+{
+	int ret = 0;
+
+	if (on) {
+		ret = clk_buf_write(&dcxo->hw, &dcxo->_xo_heater_sel, 2);
+		if (ret) {
+			pr_notice("switch on heater failed\n");
+			return ret;
+		}
+	} else {
+		ret = clk_buf_write(&dcxo->hw, &dcxo->_xo_heater_sel, 0);
+		if (ret) {
+			pr_notice("switch off heater failed\n");
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
 int clkbuf_dcxo_get_xo_mode(u8 xo_idx, u32 *mode)
 {
 	int ret = 0;
