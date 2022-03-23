@@ -70,7 +70,7 @@ struct mtk_afe_adda_priv {
 	int ul_rate;
 };
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB_CLK)
 static struct mtk_afe_adda_priv *get_adda_priv_by_name(struct mtk_base_afe *afe,
 						       const char *name)
 {
@@ -767,7 +767,7 @@ static const struct snd_soc_dapm_widget mtk_dai_adda_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("STF_OUTPUT"),
 
 	/* clock */
-#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB_CLK)
 	SND_SOC_DAPM_CLOCK_SUPPLY("top_mux_audio_h"),
 
 	SND_SOC_DAPM_CLOCK_SUPPLY("aud_dac_clk"),
@@ -779,7 +779,7 @@ static const struct snd_soc_dapm_widget mtk_dai_adda_widgets[] = {
 #endif
 };
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB_CLK)
 #define HIRES_THRESHOLD 48000
 static int mtk_afe_dac_hires_connect(struct snd_soc_dapm_widget *source,
 				     struct snd_soc_dapm_widget *sink)
@@ -880,7 +880,7 @@ static const struct snd_soc_dapm_route mtk_dai_adda_routes[] = {
 	{"STF_OUTPUT", NULL, "Sidetone Filter"},
 	{"ADDA Playback", NULL, "Sidetone Filter"},
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB_CLK)
 	/* clk */
 	{"ADDA Playback", NULL, "aud_dac_clk"},
 	{"ADDA Playback", NULL, "aud_dac_predis_clk"},

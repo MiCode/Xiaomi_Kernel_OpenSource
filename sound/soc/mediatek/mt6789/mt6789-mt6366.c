@@ -22,7 +22,6 @@
 #endif
 
 #include "../common/mtk-sp-spk-amp.h"
-#define SKIP_SB
 
 /*
  * if need additional control for the ext spk amp that is connected

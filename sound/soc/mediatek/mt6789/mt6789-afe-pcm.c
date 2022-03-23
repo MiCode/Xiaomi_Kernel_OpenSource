@@ -30,7 +30,6 @@
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 #include "../audio_dsp/mtk-dsp-common.h"
 #endif
-#define SKIP_SB
 
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
 #if !defined(SKIP_SB)
@@ -3042,7 +3041,7 @@ static int mt6789_afe_runtime_resume(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	int ret;
-#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB_CLK)
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
 #endif
 
@@ -3057,7 +3056,7 @@ static int mt6789_afe_runtime_resume(struct device *dev)
 
 	regcache_cache_only(afe->regmap, false);
 	regcache_sync(afe->regmap);
-#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SKIP_SB_CLK)
 	/* enable audio sys DCM for power saving */
 	regmap_update_bits(afe_priv->infracfg,
 			   PERI_BUS_DCM_CTRL, 0x1 << 29, 0x1 << 29);
@@ -3358,7 +3357,7 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 			       "memif[%d], irq_usage %d\n",
 			       i, afe->memif[i].irq_usage);
 	}
-#if !defined(SKIP_SB) && !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(SKIP_SB_CLK) && !defined(CONFIG_FPGA_EARLY_PORTING)
 	regmap_read(afe_priv->topckgen, CLK_CFG_7, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "CLK_CFG_7 = 0x%x\n", value);
@@ -3905,6 +3904,7 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT12, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_IRQ_MCU_CNT12 = 0x%x\n", value);
+
 	regmap_read(afe->regmap, AFE_GAIN1_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_GAIN1_CON0 = 0x%x\n", value);
@@ -4784,6 +4784,7 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_CONNSYS_I2S_MON, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_CONNSYS_I2S_MON = 0x%x\n", value);
+	/*
 	regmap_read(afe->regmap, AFE_ASRC_2CH_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_ASRC_2CH_CON0 = 0x%x\n", value);
@@ -4823,6 +4824,7 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_ASRC_2CH_CON13, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_ASRC_2CH_CON13 = 0x%x\n", value);
+	*/
 	regmap_read(afe->regmap, AFE_ADDA6_IIR_COEF_02_01, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_ADDA6_IIR_COEF_02_01 = 0x%x\n", value);
@@ -4958,6 +4960,7 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_ADDA6_MTKAIF_RX_CFG2, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_ADDA6_MTKAIF_RX_CFG2 = 0x%x\n", value);
+	/*
 	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_GENERAL1_ASRC_2CH_CON0 = 0x%x\n", value);
@@ -5003,6 +5006,7 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, GENERAL_ASRC_EN_ON, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "GENERAL_ASRC_EN_ON = 0x%x\n", value);
+	*/
 	regmap_read(afe->regmap, AFE_CONN48, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_CONN48 = 0x%x\n", value);
@@ -5051,6 +5055,7 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_CONN55_1, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_CONN55_1 = 0x%x\n", value);
+	/*
 	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_GENERAL2_ASRC_2CH_CON0 = 0x%x\n", value);
@@ -5090,6 +5095,7 @@ static ssize_t mt6789_debug_read_reg(char *buffer, int size, struct mtk_base_afe
 	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON13, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_GENERAL2_ASRC_2CH_CON13 = 0x%x\n", value);
+	*/
 	regmap_read(afe->regmap, AFE_DL5_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "AFE_DL5_CON0 = 0x%x\n", value);
@@ -5658,7 +5664,7 @@ static int mt6789_afe_pcm_dev_probe(struct platform_device *pdev)
 	struct mt6789_afe_private *afe_priv;
 	struct resource *res;
 	struct device *dev;
-#if !defined(SKIP_SB)
+#if !defined(SKIP_SB_SMC)
 	struct arm_smccc_res smccc_res;
 #endif
 
@@ -5787,7 +5793,7 @@ static int mt6789_afe_pcm_dev_probe(struct platform_device *pdev)
 		dev_err(dev, "enable_irq_wake %d err: %d\n", irq_id, ret);
 #endif
 
-#if !defined(SKIP_SB)
+#if !defined(SKIP_SB_SMC)
 	/* init arm_smccc_smc call */
 	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_INIT,
 		      0, 0, 0, 0, 0, 0, &smccc_res);

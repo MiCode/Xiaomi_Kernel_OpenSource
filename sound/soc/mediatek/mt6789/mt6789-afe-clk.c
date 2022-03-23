@@ -15,7 +15,7 @@
 #include "mt6789-afe-common.h"
 #include "mt6789-afe-clk.h"
 
-#if defined(CONFIG_FPGA_EARLY_PORTING) || defined(SKIP_SB)
+#if defined(CONFIG_FPGA_EARLY_PORTING) || defined(SKIP_SB_CLK)
 int mt6789_init_clock(struct mtk_base_afe *afe) { return 0; }
 int mt6789_afe_enable_clock(struct mtk_base_afe *afe) { return 0; }
 void mt6789_afe_disable_clock(struct mtk_base_afe *afe) {}
@@ -46,7 +46,6 @@ static const char *aud_clks[CLK_NUM] = {
 	[CLK_APLL2_TUNER] = "aud_apll2_tuner_clk",
 	[CLK_TML] = "aud_tml_clk",
 	[CLK_NLE] = "aud_nle",
-	[CLK_SCP_SYS_AUD] = "scp_sys_audio",
 	[CLK_INFRA_SYS_AUDIO] = "aud_infra_clk",
 	[CLK_INFRA_AUDIO_26M] = "aud_infra_26m_clk",
 	[CLK_GENERAL3_ASRC] = "aud_general3_asrc",
@@ -60,7 +59,6 @@ static const char *aud_clks[CLK_NUM] = {
 	[CLK_I2S2_BCLK] = "aud_i2s2_bclk",
 	[CLK_I2S3_BCLK] = "aud_i2s3_bclk",
 	[CLK_I2S4_BCLK] = "aud_i2s4_bclk",
-	[CLK_I2S5_BCLK] = "aud_i2s5_bclk",
 	[CLK_APMIXED_APLL1] = "aud_clk_apmixed_apll1",
 	[CLK_APMIXED_APLL2] = "aud_clk_apmixed_apll2",
 	[CLK_MUX_AUDIO] = "top_mux_audio",
@@ -113,6 +111,7 @@ static int apll1_mux_setting(struct mtk_base_afe *afe, bool enable)
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
 	int ret = 0;
 
+	dev_info(afe->dev, "%s()\n", __func__);
 	if (enable) {
 		ret = clk_prepare_enable(afe_priv->clk[CLK_TOP_MUX_AUD_1]);
 		if (ret) {
@@ -174,6 +173,8 @@ static int apll2_mux_setting(struct mtk_base_afe *afe, bool enable)
 {
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
 	int ret = 0;
+
+	dev_info(afe->dev, "%s(), enable = %d\n", __func__, enable);
 
 	if (enable) {
 		ret = clk_prepare_enable(afe_priv->clk[CLK_TOP_MUX_AUD_2]);
@@ -238,13 +239,6 @@ int mt6789_afe_enable_clock(struct mtk_base_afe *afe)
 	int ret = 0;
 
 	dev_info(afe->dev, "%s()\n", __func__);
-
-	ret = clk_prepare_enable(afe_priv->clk[CLK_SCP_SYS_AUD]);
-	if (ret) {
-		dev_err(afe->dev, "%s clk_prepare_enable %s fail %d\n",
-			__func__, aud_clks[CLK_SCP_SYS_AUD], ret);
-		goto CLK_SCP_SYS_AUD_ERR;
-	}
 
 	ret = clk_prepare_enable(afe_priv->clk[CLK_INFRA_SYS_AUDIO]);
 	if (ret) {
@@ -312,8 +306,6 @@ CLK_INFRA_AUDIO_26M_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_AUDIO_26M]);
 CLK_INFRA_SYS_AUDIO_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_SYS_AUDIO]);
-CLK_SCP_SYS_AUD_ERR:
-	clk_disable_unprepare(afe_priv->clk[CLK_SCP_SYS_AUD]);
 	return ret;
 }
 
@@ -330,14 +322,13 @@ void mt6789_afe_disable_clock(struct mtk_base_afe *afe)
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIO]);
 	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_AUDIO_26M]);
 	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_SYS_AUDIO]);
-	clk_disable_unprepare(afe_priv->clk[CLK_SCP_SYS_AUD]);
 }
 
 int mt6789_afe_dram_request(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
-#if !defined(SKIP_SB)
+#if !defined(SKIP_SB_SMC)
 	struct arm_smccc_res res;
 #endif
 
@@ -348,7 +339,7 @@ int mt6789_afe_dram_request(struct device *dev)
 
 	/* use arm_smccc_smc to notify SPM */
 	if (afe_priv->dram_resource_counter == 0)
-#if !defined(SKIP_SB)
+#if !defined(SKIP_SB_SMC)
 		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
 			      MTK_AUDIO_SMC_OP_DRAM_REQUEST,
 			      0, 0, 0, 0, 0, 0, &res);
@@ -362,7 +353,7 @@ int mt6789_afe_dram_release(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
-#if !defined(SKIP_SB)
+#if !defined(SKIP_SB_SMC)
 	struct arm_smccc_res res;
 #endif
 	dev_info(dev, "%s(), dram_resource_counter %d\n",
@@ -373,7 +364,7 @@ int mt6789_afe_dram_release(struct device *dev)
 
 	/* use arm_smccc_smc to notify SPM */
 	if (afe_priv->dram_resource_counter == 0)
-#if !defined(SKIP_SB)
+#if !defined(SKIP_SB_SMC)
 		arm_smccc_smc(MTK_SIP_AUDIO_CONTROL,
 			      MTK_AUDIO_SMC_OP_DRAM_RELEASE,
 			      0, 0, 0, 0, 0, 0, &res);
@@ -392,6 +383,7 @@ int mt6789_apll1_enable(struct mtk_base_afe *afe)
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
 	int ret;
 
+	dev_info(afe->dev, "%s()\n", __func__);
 	/* setting for APLL */
 	apll1_mux_setting(afe, true);
 
@@ -410,7 +402,7 @@ int mt6789_apll1_enable(struct mtk_base_afe *afe)
 	}
 
 	regmap_update_bits(afe->regmap, AFE_APLL1_TUNER_CFG,
-			   0x0000FFF7, 0x00000832);
+			   0x0000FFF7, 0x00000432);
 	regmap_update_bits(afe->regmap, AFE_APLL1_TUNER_CFG, 0x1, 0x1);
 
 	regmap_update_bits(afe->regmap, AFE_HD_ENGEN_ENABLE,
@@ -448,6 +440,7 @@ int mt6789_apll2_enable(struct mtk_base_afe *afe)
 	struct mt6789_afe_private *afe_priv = afe->platform_priv;
 	int ret;
 
+	dev_info(afe->dev, "%s()\n", __func__);
 	/* setting for APLL */
 	apll2_mux_setting(afe, true);
 
@@ -466,7 +459,7 @@ int mt6789_apll2_enable(struct mtk_base_afe *afe)
 	}
 
 	regmap_update_bits(afe->regmap, AFE_APLL2_TUNER_CFG,
-			   0x0000FFF7, 0x00000634);
+			   0x0000FFF7, 0x00000434);
 	regmap_update_bits(afe->regmap, AFE_APLL2_TUNER_CFG, 0x1, 0x1);
 
 	regmap_update_bits(afe->regmap, AFE_HD_ENGEN_ENABLE,
@@ -679,6 +672,7 @@ int mt6789_init_clock(struct mtk_base_afe *afe)
 	int ret = 0;
 	int value;
 
+	dev_info(afe->dev, "%s()", __func__);
 	afe_priv->clk = devm_kcalloc(afe->dev, CLK_NUM, sizeof(*afe_priv->clk),
 				     GFP_KERNEL);
 	if (!afe_priv->clk)
