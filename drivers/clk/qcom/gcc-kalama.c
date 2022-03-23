@@ -3826,9 +3826,6 @@ static int gcc_kalama_probe(struct platform_device *pdev)
 	regmap_update_bits(regmap, gcc_ufs_phy_ice_core_clk.halt_reg,
 			   BIT(14), BIT(14));
 
-	/* Clear GDSC_SLEEP_ENA_VOTE to stop votes being auto-removed in sleep. */
-	regmap_write(regmap, 0x52024, 0x0);
-
 	ret = qcom_cc_really_probe(pdev, &gcc_kalama_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register GCC clocks\n");
