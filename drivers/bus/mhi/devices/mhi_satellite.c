@@ -447,9 +447,15 @@ static void mhi_sat_process_cmds(struct mhi_sat_cntrl *sat_cntrl,
 			buf->phys_addr = MHI_TRE_GET_PTR(pkt);
 			buf->len = MHI_TRE_GET_SIZE(pkt);
 
-			iova = dma_map_resource(parent_dev,
-						buf->phys_addr, buf->len,
-						DMA_BIDIRECTIONAL, 0);
+			/*
+			 * DMA_ATTR_SKIP_CPU_SYNC used due to assumption CPU does
+			 * not read/write this memory, and addr & size may not be
+			 * aligned per CMO requirements.
+			 */
+			iova = dma_map_single_attrs(parent_dev,
+						    phys_to_virt(buf->phys_addr),
+						    buf->len, DMA_BIDIRECTIONAL,
+						    DMA_ATTR_SKIP_CPU_SYNC);
 			if (dma_mapping_error(parent_dev, iova)) {
 				kfree(buf);
 				goto iommu_map_cmd_completion;
@@ -868,8 +874,9 @@ static void mhi_sat_rpmsg_remove(struct rpmsg_device *rpdev)
 					 node) {
 			struct device *parent_dev =
 				sat_cntrl->mhi_cntrl->mhi_dev->dev.parent;
-			dma_unmap_resource(parent_dev, buf->dma_addr, buf->len,
-					   DMA_BIDIRECTIONAL, 0);
+			dma_unmap_single_attrs(parent_dev, buf->dma_addr,
+					       buf->len, DMA_BIDIRECTIONAL,
+					       DMA_ATTR_SKIP_CPU_SYNC);
 			list_del(&buf->node);
 			kfree(buf);
 		}
@@ -1003,8 +1010,9 @@ static void mhi_sat_dev_remove(struct mhi_device *mhi_dev)
 	list_for_each_entry_safe(buf, tmp, &sat_cntrl->addr_map_list, node) {
 		struct device *parent_dev =
 				sat_cntrl->mhi_cntrl->mhi_dev->dev.parent;
-		dma_unmap_resource(parent_dev, buf->dma_addr, buf->len,
-				   DMA_BIDIRECTIONAL, 0);
+		dma_unmap_single_attrs(parent_dev, buf->dma_addr,
+				       buf->len, DMA_BIDIRECTIONAL,
+				       DMA_ATTR_SKIP_CPU_SYNC);
 		list_del(&buf->node);
 		kfree(buf);
 	}
