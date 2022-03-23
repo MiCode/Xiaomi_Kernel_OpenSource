@@ -812,7 +812,7 @@ static int lcm_get_modes(struct drm_panel *panel,
 		return -ENOMEM;
 	}
 	drm_mode_set_name(mode_1);
-	mode_1->type = DRM_MODE_TYPE_DRIVER;
+	mode_1->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 	drm_mode_probed_add(connector, mode_1);
 
 	mode_2 = drm_mode_duplicate(connector->dev, &switch_mode_90hz);
