@@ -4178,7 +4178,8 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 		 dev->rc_idx, dev->current_link_speed,
 		 dev->current_link_width);
 
-	if (dev->panic_genspeed_mismatch && dev->target_link_speed &&
+	if ((!dev->enumerated) && dev->panic_genspeed_mismatch &&
+	    dev->target_link_speed &&
 	    dev->target_link_speed != dev->current_link_speed)
 		panic("PCIe: RC%d: Gen-speed mismatch:%d, expected:%d\n",
 		      dev->rc_idx, dev->current_link_speed,
