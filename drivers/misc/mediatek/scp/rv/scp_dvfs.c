@@ -127,6 +127,7 @@ const char *scp_dvfs_hw_chip_ver[MAX_SCP_DVFS_CHIP_HW] __initconst = {
 	[MT6873] = "mediatek,mt6873",
 	[MT6893] = "mediatek,mt6893",
 	[MT6833] = "mediatek,mt6833",
+	[MT6789] = "mediatek,mt6789",
 };
 
 struct ulposc_cali_regs cali_regs[MAX_ULPOSC_VERSION] __initdata = {
@@ -207,6 +208,11 @@ struct scp_pmic_regs scp_pmic_hw_regs[MAX_SCP_DVFS_CHIP_HW] = {
 		REG_DEFINE_WITH_INIT(pmrc_en, 0x1ac, 0x1, 2, 0, 1)
 	},
 	[MT6833] = {
+		REG_DEFINE_WITH_INIT(sshub_op_mode, 0x1520, 0x1, 11, 0, 1)
+		REG_DEFINE_WITH_INIT(sshub_op_en, 0x1514, 0x1, 11, 1, 1)
+		REG_DEFINE_WITH_INIT(sshub_op_cfg, 0x151a, 0x1, 11, 1, 1)
+	},
+	[MT6789] = {
 		REG_DEFINE_WITH_INIT(sshub_op_mode, 0x1520, 0x1, 11, 0, 1)
 		REG_DEFINE_WITH_INIT(sshub_op_en, 0x1514, 0x1, 11, 1, 1)
 		REG_DEFINE_WITH_INIT(sshub_op_cfg, 0x151a, 0x1, 11, 1, 1)
@@ -2661,6 +2667,11 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 			dvfs.secure_access_scp = 1;
 	}
 	pr_notice("secure_access_scp: %s\n", dvfs.secure_access_scp?"enable":"disable");
+
+	/* get SCP DVFS enable/disable flag */
+	of_property_read_string(node, "scp_dvfs_flag", &str);
+	if (str && strcmp(str, "disable") == 0)
+		scp_dvfs_flag = 0;
 
 PASS:
 	return 0;

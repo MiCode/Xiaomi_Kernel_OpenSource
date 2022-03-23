@@ -128,6 +128,7 @@ enum scp_dvfs_chip_hw_enum {
 	MT6873,
 	MT6893,
 	MT6833,
+	MT6789,
 	MAX_SCP_DVFS_CHIP_HW,
 };
 
