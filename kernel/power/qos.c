@@ -65,13 +65,17 @@ static struct pm_qos_object null_pm_qos;
 
 static BLOCKING_NOTIFIER_HEAD(cpu_dma_lat_notifier);
 static struct pm_qos_constraints cpu_dma_constraints = {
+#if defined(CONFIG_MACH_MT6771)
 	.req_list = LIST_HEAD_INIT(cpu_dma_constraints.req_list),
+#endif
 	.list = PLIST_HEAD_INIT(cpu_dma_constraints.list),
 	.target_value = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE,
 	.default_value = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_CPU_DMA_LAT_DEFAULT_VALUE,
 	.type = PM_QOS_MIN,
+#if defined(CONFIG_MACH_MT6771)
 	.qos_lock = __MUTEX_INITIALIZER(cpu_dma_constraints.qos_lock),
+#endif
 	.notifiers = &cpu_dma_lat_notifier,
 };
 static struct pm_qos_object cpu_dma_pm_qos = {
@@ -81,13 +85,17 @@ static struct pm_qos_object cpu_dma_pm_qos = {
 
 static BLOCKING_NOTIFIER_HEAD(network_lat_notifier);
 static struct pm_qos_constraints network_lat_constraints = {
+#if defined(CONFIG_MACH_MT6771)
 	.req_list = LIST_HEAD_INIT(network_lat_constraints.req_list),
+#endif
 	.list = PLIST_HEAD_INIT(network_lat_constraints.list),
 	.target_value = PM_QOS_NETWORK_LAT_DEFAULT_VALUE,
 	.default_value = PM_QOS_NETWORK_LAT_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_NETWORK_LAT_DEFAULT_VALUE,
 	.type = PM_QOS_MIN,
+#if defined(CONFIG_MACH_MT6771)
 	.qos_lock = __MUTEX_INITIALIZER(network_lat_constraints.qos_lock),
+#endif
 	.notifiers = &network_lat_notifier,
 };
 static struct pm_qos_object network_lat_pm_qos = {
@@ -98,13 +106,17 @@ static struct pm_qos_object network_lat_pm_qos = {
 
 static BLOCKING_NOTIFIER_HEAD(network_throughput_notifier);
 static struct pm_qos_constraints network_tput_constraints = {
+#if defined(CONFIG_MACH_MT6771)
 	.req_list = LIST_HEAD_INIT(network_tput_constraints.req_list),
+#endif
 	.list = PLIST_HEAD_INIT(network_tput_constraints.list),
 	.target_value = PM_QOS_NETWORK_THROUGHPUT_DEFAULT_VALUE,
 	.default_value = PM_QOS_NETWORK_THROUGHPUT_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_NETWORK_THROUGHPUT_DEFAULT_VALUE,
 	.type = PM_QOS_MAX,
+#if defined(CONFIG_MACH_MT6771)
 	.qos_lock = __MUTEX_INITIALIZER(network_tput_constraints.qos_lock),
+#endif
 	.notifiers = &network_throughput_notifier,
 };
 static struct pm_qos_object network_throughput_pm_qos = {
@@ -115,13 +127,17 @@ static struct pm_qos_object network_throughput_pm_qos = {
 
 static BLOCKING_NOTIFIER_HEAD(memory_bandwidth_notifier);
 static struct pm_qos_constraints memory_bw_constraints = {
+#if defined(CONFIG_MACH_MT6771)
 	.req_list = LIST_HEAD_INIT(memory_bw_constraints.req_list),
+#endif
 	.list = PLIST_HEAD_INIT(memory_bw_constraints.list),
 	.target_value = PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.default_value = PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.no_constraint_value = PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
 	.type = PM_QOS_SUM,
+#if defined(CONFIG_MACH_MT6771)
 	.qos_lock = __MUTEX_INITIALIZER(memory_bw_constraints.qos_lock),
+#endif
 	.notifiers = &memory_bandwidth_notifier,
 };
 static struct pm_qos_object memory_bandwidth_pm_qos = {
@@ -626,7 +642,7 @@ static inline void pm_qos_set_value(struct pm_qos_constraints *c, s32 value)
 {
 	c->target_value = value;
 }
-
+#if defined(CONFIG_MACH_MT6771)
 void pm_qos_trace_dbg_show_request(int pm_qos_class)
 {
 	struct pm_qos_constraints *c;
@@ -675,6 +691,7 @@ void pm_qos_trace_dbg_dump(int pm_qos_class)
 	spin_unlock_irqrestore(&pm_qos_lock, flags);
 }
 static inline int pm_qos_get_value(struct pm_qos_constraints *c);
+#endif
 static int pm_qos_dbg_show_requests(struct seq_file *s, void *unused)
 {
 	struct pm_qos_object *qos = (struct pm_qos_object *)s->private;
@@ -684,7 +701,9 @@ static int pm_qos_dbg_show_requests(struct seq_file *s, void *unused)
 	unsigned long flags;
 	int tot_reqs = 0;
 	int active_reqs = 0;
+#if defined(CONFIG_MACH_MT6771)
 	struct list_head *l;
+#endif
 
 	if (IS_ERR_OR_NULL(qos)) {
 		pr_err("%s: bad qos param!\n", __func__);
@@ -732,11 +751,13 @@ static int pm_qos_dbg_show_requests(struct seq_file *s, void *unused)
 	seq_printf(s, "Type=%s, Value=%d, Requests: active=%d / total=%d\n",
 		   type, pm_qos_get_value(c), active_reqs, tot_reqs);
 
+#if defined(CONFIG_MACH_MT6771)
 	list_for_each(l, &c->req_list) {
 		req = list_entry(l, struct pm_qos_request, list_node);
 
 		seq_printf(s, "%s: %d\n", req->owner, req->node.prio);
 	}
+#endif
 out:
 	spin_unlock_irqrestore(&pm_qos_lock, flags);
 	return 0;
@@ -814,7 +835,9 @@ int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 	int prev_value, curr_value, new_value;
 	int ret;
 
+#if defined(CONFIG_MACH_MT6771)
 	mutex_lock(&c->qos_lock);
+#endif
 	spin_lock_irqsave(&pm_qos_lock, flags);
 	prev_value = pm_qos_get_value(c);
 	if (value == PM_QOS_DEFAULT_VALUE)
@@ -860,7 +883,9 @@ int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 		ret = 0;
 	}
 
+#if defined(CONFIG_MACH_MT6771)
 	mutex_unlock(&c->qos_lock);
+#endif
 	return ret;
 }
 
@@ -1026,7 +1051,9 @@ static void pm_qos_irq_notify(struct irq_affinity_notify *notify,
 void pm_qos_add_request(struct pm_qos_request *req,
 			int pm_qos_class, s32 value)
 {
+#if defined(CONFIG_MACH_MT6771)
 	char owner[20];
+#endif
 	if (!req) /*guard against callers passing in null */
 		return;
 
@@ -1034,7 +1061,9 @@ void pm_qos_add_request(struct pm_qos_request *req,
 		WARN(1, KERN_ERR "pm_qos_add_request() called for already added request\n");
 		return;
 	}
+#if defined(CONFIG_MACH_MT6771)
 	strncpy(req->owner, owner, sizeof(req->owner) - 1);
+#endif
 	req->pm_qos_class = pm_qos_class;
 	INIT_DELAYED_WORK(&req->work, pm_qos_work_fn);
 	trace_pm_qos_add_request(pm_qos_class, value);

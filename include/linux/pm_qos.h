@@ -106,7 +106,9 @@ enum pm_qos_req_type {
 
 struct pm_qos_request {
 	enum pm_qos_req_type type;
+#if defined(CONFIG_MACH_MT6771)
 	struct list_head list_node;
+#endif
 	struct cpumask cpus_affine;
 #ifdef CONFIG_SMP
 	uint32_t irq;
@@ -116,7 +118,9 @@ struct pm_qos_request {
 	struct plist_node node;
 	int pm_qos_class;
 	struct delayed_work work; /* for pm_qos_update_request_timeout */
+#if defined(CONFIG_MACH_MT6771)
 	char owner[20];
+#endif
 };
 
 struct pm_qos_flags_request {
@@ -152,14 +156,18 @@ enum pm_qos_type {
  * types linux supports for 32 bit quantites
  */
 struct pm_qos_constraints {
+#if defined(CONFIG_MACH_MT6771)
 	struct list_head req_list;
+#endif
 	struct plist_head list;
 	s32 target_value;	/* Do not change to 64 bit */
 	s32 target_per_cpu[NR_CPUS];
 	s32 default_value;
 	s32 no_constraint_value;
 	enum pm_qos_type type;
+#if defined(CONFIG_MACH_MT6771)
 	struct mutex qos_lock;
+#endif
 	struct blocking_notifier_head *notifiers;
 };
 
