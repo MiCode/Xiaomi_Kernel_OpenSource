@@ -80,7 +80,7 @@
 //#define m4u_en
 //!#define smi_en
 //!#define WAKEUP_INIT
-
+#define ENQUE_FAIL -1
 
 #ifdef m4u_en
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
@@ -270,6 +270,7 @@ static void logPrint(struct work_struct *data);
 struct wakeup_source DPE_wake_lock;
 static DEFINE_MUTEX(gDpeMutex);
 static DEFINE_MUTEX(gDpeDequeMutex);
+static DEFINE_MUTEX(MutexDPERef);
 static DEFINE_MUTEX(gFDMutex);
 static DEFINE_MUTEX(gDVSMutex);
 #if IS_ENABLED(CONFIG_OF)
@@ -457,7 +458,7 @@ struct DPE_IRQ_INFO_STRUCT {
 	unsigned int Mask[DPE_IRQ_TYPE_AMOUNT];
 };
 struct DPE_INFO_STRUCT {
-	spinlock_t SpinLockDPERef;
+	//spinlock_t SpinLockDPERef;
 	spinlock_t SpinLockDPE;
 	spinlock_t SpinLockFD;//!
 	spinlock_t SpinLockIrq[DPE_IRQ_TYPE_AMOUNT];
@@ -1399,6 +1400,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_Y_L_fd fail\n");
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1424,6 +1426,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_Y_R fail\n");
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1448,6 +1451,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_ValidMap_L fail\n");
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1474,6 +1478,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_ValidMap_R fail\n");
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1500,6 +1505,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_OutBuf_OCC fail\n");
+			return ENQUE_FAIL;
 		}
 		mutex_unlock(&gFDMutex);
 		//spin_unlock(&(DPEInfo.SpinLockFD));
@@ -1682,6 +1688,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_Y fail\n");
+			return ENQUE_FAIL;
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
@@ -1707,6 +1714,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_C fail\n");
+			return ENQUE_FAIL;
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
@@ -1732,6 +1740,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_InBuf_OCC fail\n");
+			return ENQUE_FAIL;
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
@@ -1757,6 +1766,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_OutBuf_CRM fail\n");
+			return ENQUE_FAIL;
 		}
 		//spin_unlock(&(DPEInfo.SpinLockFD));
 		mutex_unlock(&gFDMutex);
@@ -3257,6 +3267,10 @@ signed int CmdqDPEHW(struct frame *frame)
 
 	LOG_DBG("%s request sent to CMDQ driver", __func__);
 	pDpeUserConfig = (struct DPE_Config *) frame->data;
+	LOG_INF("frm_width =%d ", pDpeUserConfig->Dpe_DVSSettings.frm_width);
+	if (pDpeUserConfig->Dpe_DVSSettings.frm_width == 0)
+		return -1;
+
 	pDpeConfig = &DpeConfig;
 /************** Pass User info to DPE_Kernel_Config **************/
 
@@ -4320,12 +4334,12 @@ static inline void DPE_Reset(void)
 {
 	LOG_DBG("- E.");
 	LOG_DBG(" DPE Reset start!\n");
-	spin_lock(&(DPEInfo.SpinLockDPERef));
+	mutex_lock(&(MutexDPERef));
 	if (DPEInfo.UserCount > 1) {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		LOG_DBG("Curr UserCount(%d) users exist", DPEInfo.UserCount);
 	} else {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		/* Reset DPE flow */
 		#ifdef CMdq_en
 		DPE_MASKWR(DVS_CTRL01_REG, 0x70000000, 0x70000000);
@@ -5403,7 +5417,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	LOG_INF("- E. UserCount: %d.", DPEInfo.UserCount);
 
 	/*  */
-	spin_lock(&(DPEInfo.SpinLockDPERef));
+	mutex_lock(&(MutexDPERef));
 	pFile->private_data = NULL;
 	pFile->private_data = kmalloc(sizeof(struct DPE_USER_INFO_STRUCT),
 								GFP_ATOMIC);
@@ -5412,6 +5426,8 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 								current->comm,
 						current->pid, current->tgid);
 		Ret = -ENOMEM;
+		mutex_unlock(&(MutexDPERef));
+		goto EXIT;
 	} else {
 		pUserInfo = (struct DPE_USER_INFO_STRUCT *) pFile->private_data;
 		pUserInfo->Pid = DPEInfo.UserCount;
@@ -5420,14 +5436,14 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	/*  */
 	if (DPEInfo.UserCount > 0) {
 		DPEInfo.UserCount++;
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		LOG_DBG("Cur Usr(%d), (proc, pid, tgid)=(%s, %d, %d), exist",
 			DPEInfo.UserCount, current->comm, current->pid,
 								current->tgid);
 		goto EXIT;
 	} else {
 		DPEInfo.UserCount++;
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+
 		/* do wait queue head init when re-enter in camera */
 		/*  */
 		for (i = 0; i < _SUPPORT_MAX_DPE_REQUEST_RING_SIZE_; i++) {
@@ -5464,6 +5480,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 		//open dvp
 		dpe_register_requests(&dpe_reqs_dvp, sizeof(struct DPE_Config));
 		dpe_set_engine_ops(&dpe_reqs_dvp, &dpe_ops);
+		mutex_unlock(&(MutexDPERef));
 		//
 		LOG_DBG("Cur Usr(%d), (proc, pid, tgid)=(%s, %d, %d), 1st user",
 			DPEInfo.UserCount, current->comm, current->pid,
@@ -5514,18 +5531,18 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 		pFile->private_data = NULL;
 	}
 	/*  */
-	spin_lock(&(DPEInfo.SpinLockDPERef));
+	mutex_lock(&(MutexDPERef));
 	DPEInfo.UserCount--;
 	if (DPEInfo.UserCount > 0) {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		LOG_DBG("Cur UsrCnt(%d), (proc, pid, tgid)=(%s, %d, %d), exist",
 			DPEInfo.UserCount, current->comm, current->pid,
 								current->tgid);
 		goto EXIT;
 	} else {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
 		dpe_unregister_requests(&dpe_reqs_dvs);
 		dpe_unregister_requests(&dpe_reqs_dvp);
+		mutex_unlock(&(MutexDPERef));
 	}
 	/*  */
 	LOG_INF("Curr UsrCnt(%d), (process, pid, tgid)=(%s, %d, %d), last user",
@@ -6167,7 +6184,6 @@ if (DPE_dev->irq > 0) {
 	//pm_runtime_enable(gdev);
 
 		/* Init spinlocks */
-		spin_lock_init(&(DPEInfo.SpinLockDPERef));
 		spin_lock_init(&(DPEInfo.SpinLockDPE));
 		spin_lock_init(&(DPEInfo.SpinLockFD));//!
 		for (n = 0; n < DPE_IRQ_TYPE_AMOUNT; n++)
@@ -6185,9 +6201,9 @@ if (DPE_dev->irq > 0) {
 			tasklet_init(DPE_tasklet[i].pDPE_tkt,
 					DPE_tasklet[i].tkt_cb, 0);
 		/* Init DPEInfo */
-		spin_lock(&(DPEInfo.SpinLockDPERef));
+		mutex_lock(&(MutexDPERef));
 		DPEInfo.UserCount = 0;
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		/*  */
 		DPEInfo.IrqInfo.Mask[DPE_IRQ_TYPE_INT_DVP_ST] = INT_ST_MASK_DPE;
 #if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
