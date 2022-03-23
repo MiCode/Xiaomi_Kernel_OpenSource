@@ -32,6 +32,8 @@ static unsigned int latest_vs1_period;
 static unsigned int latest_vs2_period;
 static unsigned int vs2_diff_cnt_correction;
 static struct Vtimestamp records[MAX_RECORD_SENSOR];
+static int array_oob_detected;
+static unsigned int mis_trig_cnt;
 
 int reset_recorder(int cammux_id1, int cammux_id2)
 {
@@ -44,6 +46,8 @@ int reset_recorder(int cammux_id1, int cammux_id2)
 	latest_vs1_period = 0;
 	latest_vs2_period = 0;
 	vs2_diff_cnt_correction = 0;
+	array_oob_detected = 0;
+	mis_trig_cnt = 0;
 
 	for (i = 0; i < ARRAY_SIZE(records); i++) {
 		records[i].cammux_id = -1;
@@ -66,8 +70,19 @@ static int record_vs(unsigned int idx, unsigned int tclk)
 	unsigned int pre_time;
 	unsigned int ts = CLK_TO_TIME_IN_US(tclk);
 
+	if (idx < 0 || idx >= MAX_RECORD_SENSOR) {
+		// never be here
+		array_oob_detected = 1;
+		return -1;
+	}
+
 	if (global_time != 0) {
 		w_pos = records[idx].w_cur_pos;
+		if (w_pos < -1 || w_pos >= MAX_RECORD_NUM) {
+			// never be here
+			array_oob_detected = 2;
+			return -1;
+		}
 		if (w_pos == -1)
 			pre_time = global_time;
 		else
@@ -109,6 +124,13 @@ static int update_vs1_rec(unsigned int d_tclk)
 		vs1_pos = records[vs1_idx].w_cur_pos;
 		vs2_pos = records[vs2_idx].w_cur_pos;
 
+		if (vs1_pos < -1 || vs1_pos >= MAX_RECORD_NUM ||
+		    vs2_pos < -1 || vs2_pos >= MAX_RECORD_NUM) {
+			// never be here
+			array_oob_detected = 3;
+			return -1;
+		}
+
 		vs2_latest_ts = records[vs2_idx].timestamps[vs2_pos];
 
 		if (records[vs1_idx].timestamps[vs1_pos] > vs2_latest_ts) {
@@ -135,6 +157,13 @@ static int update_vs2_rec(unsigned int d_tclk)
 	if (global_time != 0) {
 		vs1_pos = records[vs1_idx].w_cur_pos;
 		vs2_pos = records[vs2_idx].w_cur_pos;
+
+		if (vs1_pos < -1 || vs1_pos >= MAX_RECORD_NUM ||
+		    vs2_pos < -1 || vs2_pos >= MAX_RECORD_NUM) {
+			// never be here
+			array_oob_detected = 4;
+			return -1;
+		}
 
 		vs1_latest_ts = records[vs1_idx].timestamps[vs1_pos];
 
@@ -245,6 +274,13 @@ int record_vs2(unsigned int tclk)
 	return 0;
 }
 
+int record_mis_trigger_cnt(void)
+{
+	mis_trig_cnt++;
+
+	return 0;
+}
+
 /* ISR */
 int show_records(unsigned int idx)
 {
@@ -303,17 +339,19 @@ int query_n3d_vsync_data(struct vsync_rec *pData)
 	pData->cur_tick = max_tick + 1;
 	pData->tick_factor = 1;
 
-	LOG_D("idx 1 time[0] = %u, time[1] = %u, time[2] = %u, time[3] = %u\n",
+	LOG_D("idx 1 time[0] = %u, time[1] = %u, time[2] = %u, time[3] = %u oob_dected(%d)\n",
 	       pData->recs[0].timestamps[0],
 	       pData->recs[0].timestamps[1],
 	       pData->recs[0].timestamps[2],
-	       pData->recs[0].timestamps[3]);
+	       pData->recs[0].timestamps[3],
+	       array_oob_detected);
 
-	LOG_D("idx 2 time[0] = %u, time[1] = %u, time[2] = %u, time[3] = %u\n",
+	LOG_D("idx 2 time[0] = %u, time[1] = %u, time[2] = %u, time[3] = %u mis_trig_cnt(%u)\n",
 	       pData->recs[1].timestamps[0],
 	       pData->recs[1].timestamps[1],
 	       pData->recs[1].timestamps[2],
-	       pData->recs[1].timestamps[3]);
+	       pData->recs[1].timestamps[3],
+	       mis_trig_cnt);
 
 	return 0;
 }

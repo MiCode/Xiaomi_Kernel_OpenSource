@@ -109,6 +109,10 @@ int read_status(struct base_reg *regs)
 				 result, (ck_cnt & 0x7FFFFFFF));
 	}
 
+	/* for irq mis trigger debug */
+	if (!result)
+		record_mis_trigger_cnt();
+
 #ifdef IRQ_PRINT
 	if (result) {
 		show_records(0);
