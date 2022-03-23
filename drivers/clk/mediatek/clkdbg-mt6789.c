@@ -374,5 +374,17 @@ static struct platform_driver clk_dbg_mt6789_drv = {
  * init functions
  */
 
-module_platform_driver(clk_dbg_mt6789_drv);
+static int __init clkdbg_mt6789_init(void)
+{
+	pr_notice("%s start\n", __func__);
+	return clk_dbg_driver_register(&clk_dbg_mt6789_drv, "clk-dbg-mt6789");
+}
+
+static void __exit clkdbg_mt6789_exit(void)
+{
+	platform_driver_unregister(&clk_dbg_mt6789_drv);
+}
+
+subsys_initcall(clkdbg_mt6789_init);
+module_exit(clkdbg_mt6789_exit);
 MODULE_LICENSE("GPL");
