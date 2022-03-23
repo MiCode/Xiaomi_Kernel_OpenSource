@@ -934,6 +934,9 @@ static const struct dvfsrc_debug_data mt6879_data = {
 
 static const struct of_device_id dvfsrc_helper_of_match[] = {
 	{
+		.compatible = "mediatek,mt6789-dvfsrc",
+		.data = &mt6789_data,
+	}, {
 		.compatible = "mediatek,mt6873-dvfsrc",
 		.data = &mt6873_data,
 	}, {
