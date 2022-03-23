@@ -1711,7 +1711,7 @@
 			opp-microvolt = <600000>;
 		};
 		opp-2 {
-			opp-hz = /bits/ 64 <430000000>;
+			opp-hz = /bits/ 64 <436000000>;
 			opp-microvolt = <650000>;
 		};
 		opp-3 {
@@ -1818,6 +1818,95 @@
 			opp-hz = /bits/ 64 <546000000>;
 			opp-microvolt = <725000>;
 		};
+	};
+
+	mmdvfs-debug {
+		compatible = "mediatek,mmdvfs-debug";
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		force-step0 = <1>;
+		release-step0 = <0>;
+	};
+
+	mmdvfs {
+		compatible = "mediatek,mmdvfs";
+		operating-points-v2 = <&opp_table_disp0>;
+		mediatek,support_mux = "disp0", "venc",
+			"vdec", "mdp0", "cam", "img1", "ipe";
+		mediatek,mux_disp0 = "TOP_UNIVPLL_D6_D2",
+			"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
+			"TOP_MAINPLL_D4";
+		mediatek,mux_venc = "TOP_UNIVPLL_D5_D2",
+			"TOP_MAINPLL_D6", "TOP_MMPLL_D6",
+			"TOP_UNIVPLL_D4";
+		mediatek,mux_vdec = "TOP_MAINPLL_D5_D2",
+			"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
+			"TOP_MAINPLL_D4";
+		mediatek,mux_mdp0 = "TOP_MMPLL_D5_D2",
+			"TOP_MMPLL_D4_D2", "TOP_MAINPLL_D5",
+			"TOP_TVDPLL";
+		mediatek,mux_cam = "TOP_NPUPLL",
+			"TOP_MMPLL_D7", "TOP_MAINPLL_D4",
+			"TOP_UNIVPLL_D4";
+		mediatek,mux_img1 = "TOP_MMPLL_D5_D2",
+			"TOP_MMPLL_D4_D2", "TOP_MMPLL_D6",
+			"TOP_UNIVPLL_D4";
+		mediatek,mux_ipe = "TOP_MMPLL_D5_D2",
+			"TOP_UNIVPLL_D4_D2", "TOP_UNIVPLL_D6",
+			"TOP_MAINPLL_D4";
+
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		mediatek,support_hopping = "clk_mmpll_ck";
+		mediatek,hopping_clk_mmpll_ck = <2290000000 2750000000
+			2750000000 2750000000>;
+		mediatek,action = <1>;
+
+		clocks = <&topckgen_clk CLK_TOP_DISP_SEL>,	/* 0 */
+			<&topckgen_clk CLK_TOP_VENC_SEL>,	/* 2 */
+			<&topckgen_clk CLK_TOP_VDEC_SEL>,	/* 3 */
+			<&topckgen_clk CLK_TOP_MDP_SEL>,	/* 4 */
+			<&topckgen_clk CLK_TOP_CAM_SEL>,	/* 5 */
+			<&topckgen_clk CLK_TOP_IMG1_SEL>,	/* 6 */
+			<&topckgen_clk CLK_TOP_IPE_SEL>,	/* 7 */
+			<&topckgen_clk CLK_TOP_MAINPLL_D4>,	/* 8 */
+			<&topckgen_clk CLK_TOP_UNIVPLL_D6>,	/* 9 */
+			<&topckgen_clk CLK_TOP_UNIVPLL_D4_D2>,	/* 10 */
+			<&topckgen_clk CLK_TOP_UNIVPLL_D6_D2>,		/* 11 */
+			<&topckgen_clk CLK_TOP_TVDPLL>,	/* 12 */
+			<&topckgen_clk CLK_TOP_MAINPLL_D5>,	/* 13 */
+			<&topckgen_clk CLK_TOP_MMPLL_D4_D2>,	/* 14 */
+			<&topckgen_clk CLK_TOP_MMPLL_D5_D2>,	/* 15 */
+			<&topckgen_clk CLK_TOP_UNIVPLL_D4>,		/* 16 */
+			<&topckgen_clk CLK_TOP_MMPLL_D6>,	/* 17 */
+			<&topckgen_clk CLK_TOP_MMPLL_D7>,	/* 18 */
+			<&topckgen_clk CLK_TOP_NPUPLL>,	/* 19 */
+			<&topckgen_clk CLK_TOP_MAINPLL_D6>,	/* 20 */
+			<&topckgen_clk CLK_TOP_UNIVPLL_D5_D2>,	/* 21 */
+			<&topckgen_clk CLK_TOP_MAINPLL_D5_D2>,	/* 22 */
+			<&apmixedsys_clk CLK_APMIXED_MMPLL>;
+
+		clock-names = "disp0",	/* 0 */
+			"venc",		/* 2 */
+			"vdec",		/* 3 */
+			"mdp0",		/* 4 */
+			"cam",		/* 5 */
+			"img1",		/* 6 */
+			"ipe",		/* 7 */
+			"TOP_MAINPLL_D4",	/* 8 */
+			"TOP_UNIVPLL_D6",	/* 9 */
+			"TOP_UNIVPLL_D4_D2",	/* 10 */
+			"TOP_UNIVPLL_D6_D2",		/* 11 */
+			"TOP_TVDPLL",	/* 12 */
+			"TOP_MAINPLL_D5",	/* 13 */
+			"TOP_MMPLL_D4_D2",	/* 14 */
+			"TOP_MMPLL_D5_D2",	/* 15 */
+			"TOP_UNIVPLL_D4",		/* 16 */
+			"TOP_MMPLL_D6",		/* 17 */
+			"TOP_MMPLL_D7",	/* 18 */
+			"TOP_NPUPLL",		/* 19 */
+			"TOP_MAINPLL_D6",	/* 20 */
+			"TOP_UNIVPLL_D5_D2",	/* 21 */
+			"TOP_MAINPLL_D5_D2",	/* 22 */
+			"clk_mmpll_ck";
 	};
 
 	low_battery_throttling {
