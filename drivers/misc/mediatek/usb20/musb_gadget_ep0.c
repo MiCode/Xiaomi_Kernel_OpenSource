@@ -655,25 +655,27 @@ forward_to_driver(struct musb *musb, const struct usb_ctrlrequest *ctrlrequest)
 __releases(musb->lock)
 __acquires(musb->lock)
 {
-	int retval;
+	int retval = -EINVAL;
 	int usb_state = 0;
 	/* u16 w_value = le16_to_cpu(ctrlrequest->wValue); */
 
 	if (!musb->gadget_driver || !musb->softconnect)
 		return -EOPNOTSUPP;
-	spin_unlock(&musb->lock);
 
-	retval = musb->gadget_driver->setup(&musb->g, ctrlrequest);
+	if (musb->async_callbacks) {
+		spin_unlock(&musb->lock);
+		retval = musb->gadget_driver->setup(&musb->g, ctrlrequest);
 
-	if (ctrlrequest->bRequest == USB_REQ_SET_CONFIGURATION) {
-		if (ctrlrequest->wValue & 0xff)
-			usb_state = USB_CONFIGURED;
-		else
-			usb_state = USB_UNCONFIGURED;
-		musb_sync_with_bat(musb, usb_state);
+		if (ctrlrequest->bRequest == USB_REQ_SET_CONFIGURATION) {
+			if (ctrlrequest->wValue & 0xff)
+				usb_state = USB_CONFIGURED;
+			else
+				usb_state = USB_UNCONFIGURED;
+			musb_sync_with_bat(musb, usb_state);
+		}
+		spin_lock(&musb->lock);
 	}
 
-	spin_lock(&musb->lock);
 	return retval;
 }
 

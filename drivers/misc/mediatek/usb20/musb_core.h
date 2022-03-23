@@ -495,7 +495,7 @@ struct musb {
 	bool usb_connected;
 
 	unsigned is_gadget_ready:1;
-
+	unsigned async_callbacks:1;
 };
 
 static inline struct musb *gadget_to_musb(struct usb_gadget *g)

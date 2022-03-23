@@ -2323,6 +2323,17 @@ static int musb_gadget_start
 		(struct usb_gadget *g, struct usb_gadget_driver *driver);
 static int musb_gadget_stop(struct usb_gadget *g);
 
+static void musb_gadget_async_callbacks(struct usb_gadget *g, bool enable)
+{
+	struct musb *musb = gadget_to_musb(g);
+	unsigned long flags;
+
+	spin_lock_irqsave(&musb->lock, flags);
+	musb->async_callbacks = enable;
+	spin_unlock_irqrestore(&musb->lock, flags);
+}
+
+
 static const struct usb_gadget_ops musb_gadget_operations = {
 	.get_frame = musb_gadget_get_frame,
 	.wakeup = musb_gadget_wakeup,
@@ -2332,6 +2343,7 @@ static const struct usb_gadget_ops musb_gadget_operations = {
 	.pullup = musb_gadget_pullup,
 	.udc_start = musb_gadget_start,
 	.udc_stop = musb_gadget_stop,
+	.udc_async_callbacks = musb_gadget_async_callbacks,
 };
 
 /* ----------------------------------------------------------------------- */
@@ -2452,6 +2464,7 @@ int musb_gadget_setup(struct musb *musb)
 	musb_g_init_endpoints(musb);
 
 	musb->is_active = 0;
+	musb->g.irq = musb->nIrq;
 	musb_platform_try_idle(musb, 0);
 
 	/* Fix: gadget device dma ops is null,so add musb controller dma ops */
@@ -2664,7 +2677,8 @@ void musb_g_resume(struct musb *musb)
 	case OTG_STATE_B_WAIT_ACON:
 	case OTG_STATE_B_PERIPHERAL:
 		musb->is_active = 1;
-		if (musb->gadget_driver && musb->gadget_driver->resume) {
+		if (musb->async_callbacks && musb->gadget_driver &&
+				musb->gadget_driver->resume) {
 			spin_unlock(&musb->lock);
 			musb->gadget_driver->resume(&musb->g);
 			spin_lock(&musb->lock);
@@ -2691,7 +2705,8 @@ void musb_g_suspend(struct musb *musb)
 		break;
 	case OTG_STATE_B_PERIPHERAL:
 		musb->is_suspended = 1;
-		if (musb->gadget_driver && musb->gadget_driver->suspend) {
+		if (musb->async_callbacks && musb->gadget_driver &&
+				musb->gadget_driver->suspend) {
 			spin_unlock(&musb->lock);
 			musb->gadget_driver->suspend(&musb->g);
 			spin_lock(&musb->lock);
@@ -2728,7 +2743,8 @@ void musb_g_disconnect(struct musb *musb)
 	(void)musb_gadget_vbus_draw(&musb->g, 0);
 
 	musb->g.speed = USB_SPEED_UNKNOWN;
-	if (musb->gadget_driver && musb->gadget_driver->disconnect) {
+	if (musb->async_callbacks && musb->gadget_driver &&
+			musb->gadget_driver->disconnect) {
 		spin_unlock(&musb->lock);
 		musb->gadget_driver->disconnect(&musb->g);
 		spin_lock(&musb->lock);
