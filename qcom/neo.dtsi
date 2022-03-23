@@ -1922,4 +1922,5 @@
 
 #include "neo-usb.dtsi"
 #include "neo-thermal.dtsi"
+#include "helios.dtsi"
 #include "neo-eva.dtsi"
