@@ -1636,7 +1636,7 @@ static int mtk_dsp_pcm_copy(struct snd_pcm_substream *substream, int channel,
 
 	if (bytes <= 0) {
 		pr_info(
-			"error %s channel = %d pos = %lu bytes = %d\n",
+			"error %s channel = %d pos = %lu bytes = %lu\n",
 			__func__, channel, pos, bytes);
 		return -1;
 	}
