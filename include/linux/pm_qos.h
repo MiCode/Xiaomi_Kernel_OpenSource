@@ -217,49 +217,23 @@ s32 pm_qos_read_value(struct pm_qos_constraints *c);
 #define MTK_PM_QOS_VCORE_OPP PM_QOS_VCORE_OPP
 #define MTK_PM_QOS_MM_MEMORY_BANDWIDTH PM_QOS_MM_MEMORY_BANDWIDTH
 #define MTK_PM_QOS_VCORE_OPP_DEFAULT_VALUE PM_QOS_VCORE_OPP_DEFAULT_VALUE
+#define MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE
 
-struct mtk_pm_qos_request {
-	struct list_head list_node;
-	struct plist_node node;
-	struct pm_qos_request q_request;
-	char owner[20];
-};
+#define mtk_pm_qos_request pm_qos_request
 
-static inline void mtk_pm_qos_add_request(struct mtk_pm_qos_request *req,
-	unsigned int mtk_pm_qos_class, s32 value)
-{
-	pm_qos_add_request(&req->q_request, mtk_pm_qos_class, value);
-}
-static inline void mtk_pm_qos_update_request(
-	struct mtk_pm_qos_request *req, s32 new_value)
-{
-	pm_qos_update_request(&req->q_request, new_value);
-}
-static inline void mtk_pm_qos_remove_request(struct mtk_pm_qos_request *req)
-{
-	pm_qos_remove_request(&req->q_request);
-}
+#define mtk_pm_qos_add_request(_req, _class, _value) \
+			pm_qos_add_request(_req, _class, _value)
+#define mtk_pm_qos_update_request(_req, _value) \
+			pm_qos_update_request(_req, _value)
+#define mtk_pm_qos_remove_request(_req) \
+			pm_qos_remove_request(_req)
+#define mtk_pm_qos_add_notifier(_class, _notifier) \
+			pm_qos_add_notifier(_class, _notifier)
+#define mtk_pm_qos_remove_notifier(_class, _notifier) \
+			pm_qos_remove_notifier(_class, _notifier)
+#define mtk_pm_qos_request_active(_req) \
+			pm_qos_request_active(_req)
 
-static inline int mtk_pm_qos_request(unsigned int mtk_pm_qos_class)
-{
-	return pm_qos_request(mtk_pm_qos_class);
-}
-static inline int mtk_pm_qos_add_notifier(unsigned int mtk_pm_qos_class,
-	struct notifier_block *notifier)
-{
-	return pm_qos_add_notifier(mtk_pm_qos_class, notifier);
-}
-
-static inline int mtk_pm_qos_remove_notifier(unsigned int mtk_pm_qos_class,
-	struct notifier_block *notifier)
-{
-	return pm_qos_remove_notifier(mtk_pm_qos_class, notifier);
-}
-
-static inline int mtk_pm_qos_request_active(struct mtk_pm_qos_request *req)
-{
-	return pm_qos_request_active(&req->q_request);
-}
 #endif
 
 #ifdef CONFIG_PM
