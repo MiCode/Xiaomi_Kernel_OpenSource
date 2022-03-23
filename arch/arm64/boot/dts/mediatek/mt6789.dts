@@ -6415,8 +6415,8 @@
 
 	mt6358_batoc_throttle: mtk_battery_oc_throttling {
 		compatible = "mediatek,mt6358-battery_oc_throttling";
-		oc-thd-h = <5800>;
-		oc-thd-l = <6300>;
+		oc-thd-h = <5950>;
+		oc-thd-l = <7000>;
 	};
 };
 
