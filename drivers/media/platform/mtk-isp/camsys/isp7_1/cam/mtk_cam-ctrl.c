@@ -2166,7 +2166,9 @@ static int mtk_camsys_raw_state_handle(struct mtk_raw_device *raw_dev,
 			if (state_rec[0]->estate == E_STATE_SENSOR) {
 				*current_state = state_rec[0];
 				if (prev_stream_data) {
-					if (prev_stream_data->state.estate < E_STATE_INNER) {
+					if (prev_stream_data->state.estate < E_STATE_INNER ||
+							prev_stream_data->state.estate ==
+							E_STATE_CQ_SCQ_DELAY) {
 						dev_info(raw_dev->dev,
 							"[SOF] previous req (state:%d) doesn't DB load\n",
 							prev_stream_data->state.estate);
