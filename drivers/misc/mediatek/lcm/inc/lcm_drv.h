@@ -561,10 +561,11 @@ struct vsync_trigger_time {
 enum DynFPS_LEVEL {
 	DFPS_LEVEL0 = 0,
 	DFPS_LEVEL1,
+	DFPS_LEVEL2,
 	DFPS_LEVELNUM,
 };
 
-#define DFPS_LEVELS 2
+#define DFPS_LEVELS 3
 enum FPS_CHANGE_INDEX {
 	DYNFPS_NOT_DEFINED = 0,
 	DYNFPS_DSI_VFP = 1,
@@ -689,6 +690,7 @@ struct LCM_DSI_PARAMS {
 	/* PLL_CLOCK = (int) PLL_CLOCK */
 	unsigned int PLL_CLOCK;
 	/* data_rate = PLL_CLOCK x 2 */
+	unsigned int ap_data_rate;
 	unsigned int data_rate;
 	unsigned int PLL_CK_VDO;
 	unsigned int PLL_CK_CMD;

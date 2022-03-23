@@ -660,7 +660,7 @@ unsigned long long layering_get_frame_bw(void)
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	/* should use the real timing fps such as VFP solution*/
 	primary_display_get_cfg_fps(
-			active_cfg_id, NULL, &_vact_timing_FPS);
+			0, NULL, &_vact_timing_FPS);
 	timing_fps = _vact_timing_FPS / 100;
 #endif
 	/*ToDo: Resolution switch
