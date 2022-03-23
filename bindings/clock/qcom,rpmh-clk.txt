@@ -17,6 +17,7 @@ Required properties :
 		"qcom,diwali-rpmh-clk"
 		"qcom,neo-rpmh-clk"
 		"qcom,parrot-rpmh-clk"
+		"qcom,anorak-rpmh-clk"
 
 - #clock-cells : must contain 1
 
