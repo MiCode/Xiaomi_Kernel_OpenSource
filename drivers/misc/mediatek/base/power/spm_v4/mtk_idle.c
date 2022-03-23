@@ -1170,7 +1170,7 @@ int dpidle_enter(int cpu)
 	u32 operation_cond = 0;
 
 	/* don't check lock dependency */
-
+	lockdep_off();
 
 	dpidle_profile_time(DPIDLE_PROFILE_ENTER);
 
@@ -1202,7 +1202,7 @@ int dpidle_enter(int cpu)
 	dpidle_profile_time(DPIDLE_PROFILE_LEAVE);
 	dpidle_show_profile_time();
 
-
+	lockdep_on();
 
 	/* For test */
 	if (dpidle_run_once)
@@ -1221,7 +1221,7 @@ int soidle3_enter(int cpu)
 	is_sodi3_enter = true;
 
 	/* don't check lock dependency */
-
+	lockdep_off();
 
 	profile_so3_end(PIDX_SELECT_TO_ENTER);
 
@@ -1267,7 +1267,7 @@ int soidle3_enter(int cpu)
 	/* dump latency profiling result */
 	profile_so3_dump();
 
-
+	lockdep_on();
 
 	return ret;
 }
@@ -1282,7 +1282,7 @@ int soidle_enter(int cpu)
 	is_sodi3_enter = false;
 
 	/* don't check lock dependency */
-
+	lockdep_off();
 
 	profile_so_end(PIDX_SELECT_TO_ENTER);
 
@@ -1328,7 +1328,7 @@ int soidle_enter(int cpu)
 	/* dump latency profiling result */
 	profile_so_dump();
 
-
+	lockdep_on();
 
 	return ret;
 }
