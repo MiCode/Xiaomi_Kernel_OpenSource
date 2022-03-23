@@ -4198,6 +4198,7 @@
 			reg = <0 0x15001000 0 0x1000>;
 			mediatek,smi = <&smi_img_subcommon0>;
 			mediatek,larb-id = <9>;
+			mediatek,comm-port-id = <0>;
 			power-domains = <&scpsys MT6895_POWER_DOMAIN_ISP_MAIN>;
 			clocks = <&imgsys_main_clk CLK_IMG_LARB9>,
 					<&imgsys_main_clk CLK_IMG_LARB9>;
@@ -4210,6 +4211,7 @@
 			reg = <0 0x15004000 0 0x1000>;
 			mediatek,smi = <&smi_img_subcommon1 &smi_sysram_subcommon2>;
 			mediatek,larb-id = <18>;
+			mediatek,comm-port-id = <3>;
 			power-domains = <&scpsys MT6895_POWER_DOMAIN_ISP_MAIN>;
 			clocks = <&imgsys_main_clk CLK_IMG_ADL_LARB>,
 					<&imgsys_main_clk CLK_IMG_ADL_LARB>;
@@ -4222,6 +4224,7 @@
 			reg = <0 0x15120000 0 0x1000>;
 			mediatek,smi = <&smi_img_subcommon0>;
 			mediatek,larb-id = <10>;
+			mediatek,comm-port-id = <1>;
 			power-domains = <&scpsys MT6895_POWER_DOMAIN_ISP_DIP1>;
 			clocks = <&dip_top_dip1_clk CLK_DIP_TOP_DIP1_DIP_TOP>,
 					<&dip_top_dip1_clk CLK_DIP_TOP_DIP1_LARB10>;
@@ -4234,6 +4237,7 @@
 			reg = <0 0x15140000 0 0x1000>;
 			mediatek,smi = <&smi_img_subcommon1>;
 			mediatek,larb-id = <15>;
+			mediatek,comm-port-id = <1>;
 			power-domains = <&scpsys MT6895_POWER_DOMAIN_ISP_DIP1>;
 			clocks = <&dip_nr_dip1_clk CLK_DIP_NR_DIP1_DIP_NR>,
 					<&dip_nr_dip1_clk CLK_DIP_NR_DIP1_LARB15>;
@@ -4246,6 +4250,7 @@
 			reg = <0 0x15230000 0 0x1000>;
 			mediatek,smi = <&smi_img_subcommon0>;
 			mediatek,larb-id = <11>;
+			mediatek,comm-port-id = <2>;
 			power-domains = <&scpsys MT6895_POWER_DOMAIN_ISP_DIP1>;
 			clocks = <&wpe1_dip1_clk CLK_WPE1_DIP1_WPE>,
 					<&wpe1_dip1_clk CLK_WPE1_DIP1_LARB11>;
@@ -4270,6 +4275,7 @@
 			reg = <0 0x15530000 0 0x1000>;
 			mediatek,smi = <&smi_img_subcommon1>;
 			mediatek,larb-id = <22>;
+			mediatek,comm-port-id = <2>;
 			power-domains = <&scpsys MT6895_POWER_DOMAIN_ISP_DIP1>;
 			clocks = <&wpe2_dip1_clk CLK_WPE2_DIP1_WPE>,
 					<&wpe2_dip1_clk CLK_WPE2_DIP1_LARB11>;
@@ -4282,6 +4288,7 @@
 			reg = <0 0x15630000 0 0x1000>;
 			mediatek,smi = <&smi_img_subcommon0>;
 			mediatek,larb-id = <23>;
+			mediatek,comm-port-id = <3>;
 			power-domains = <&scpsys MT6895_POWER_DOMAIN_ISP_DIP1>;
 			clocks = <&wpe3_dip1_clk CLK_WPE3_DIP1_WPE>,
 					<&wpe3_dip1_clk CLK_WPE3_DIP1_LARB11>;
