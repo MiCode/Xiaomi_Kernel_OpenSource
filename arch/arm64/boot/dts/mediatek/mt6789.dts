@@ -2694,7 +2694,7 @@
 			clock-names = "parent-clk", "sel-clk", "spi-clk";
 		};
 
-		btif@1100c000 {
+		btif: btif@1100c000 {
 			compatible = "mediatek,btif";
 				/*btif base*/
 			reg = <0 0x1100c000 0 0x1000>,
@@ -5170,7 +5170,10 @@
 		logger-enable-states = "mcusysoff", "system_mem",
 					"system_pll", "system_bus";
 
-		irq-remain = <>;
+		irq-remain = <&edge_keypad &edge_mdwdt>,
+				<&level_btif_tx &level_btif_rx>,
+				<&level_usb>;
+
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
 		constraints = <&rc_bus26m &rc_syspll &rc_dram>,
@@ -5199,7 +5202,27 @@
 		};
 
 		irq-remain-list {
-				};
+			edge_keypad: edge_keypad {
+				target = <&keypad>;
+				value = <1 0 0 0x04>;
+			};
+			edge_mdwdt: edge_mdwdt {
+				target = <&mddriver>;
+				value = <1 0 0x80000000 0x02000000>;
+			};
+			level_btif_tx: level_btif_tx {
+				target = <&btif>;
+				value = <0 1 0 0>;
+			};
+			level_btif_rx: level_btif_rx {
+				target = <&btif>;
+				value = <0 2 0 0>;
+			};
+			level_usb: level_usb {
+				target = <&usb>;
+				value = <0 0 0 0>;
+			};
+		};
 
 		resource-ctrl-list {
 			bus26m: bus26m {
