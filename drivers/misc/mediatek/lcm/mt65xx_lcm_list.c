@@ -1243,6 +1243,22 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&td4320_fhdp_dsi_vdo_auo_rt5081_lcm_drv,
 #endif
 
+#if defined(TD4320_FHDP_DSI_VDO_AUO_RT4801)
+	&td4320_fhdp_dsi_vdo_auo_rt4801_lcm_drv,
+#endif
+
+#if defined(NT36672C_FHDP_DSI_VDO_AUO_CPHY_90HZ_JDI)
+	&nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_jdi_lcm_drv,
+#endif
+
+#if defined(NT36672C_FHDP_DSI_VDO_120HZ_SHENCHAO_6382)
+	&nt36672c_fhdp_dsi_vdo_120hz_shenchao_6382_lcm_drv,
+#endif
+
+#if defined(R66451_FHDP_DSI_CMD_TIANMA)
+	&r66451_fhdp_dsi_cmd_tianma_lcm_drv,
+#endif
+
 /*6768 OTM*/
 #if defined(OTM1911A_FHDP_DSI_VDO_TRULY_RT5081)
 	&otm1911a_fhdp_dsi_vdo_truly_rt5081_lcm_drv,

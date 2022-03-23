@@ -138,7 +138,7 @@ void disp_pm_qos_init(void)
 			   PM_QOS_MM_FREQ_DEFAULT_VALUE);
 
 #ifdef CONFIG_MTK_MT6382_BDG
-	mtk_pm_qos_add_request(&vcore_request, PM_QOS_VCORE_OPP,  //add for mipi clk 1.7GHz //
+	mtk_pm_qos_add_request(&vcore_request, MTK_PM_QOS_VCORE_OPP,  //add for mipi clk 1.7GHz //
 				VCORE_OPP_1);
 #endif
 
