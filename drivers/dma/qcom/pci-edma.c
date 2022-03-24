@@ -399,6 +399,23 @@ static struct edmav_dev *to_edmav_dev(struct dma_chan *dma_ch)
 	return container_of(dma_ch, struct edmav_dev, dma_ch);
 }
 
+static dma_cookie_t edma_submit(struct dma_async_tx_descriptor *desc)
+{
+	dma_cookie_t cookie = {0};
+	struct edmav_dev *ev_dev = to_edmav_dev(desc->chan);
+	struct edmac_dev *ec_dev = ev_dev->ec_dev;
+	struct edma_desc *edma_desc = container_of(desc, struct edma_desc, tx);
+
+	spin_lock(&ec_dev->edma_lock);
+	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "enter\n");
+
+	/* insert the descriptor to client descriptor list */
+	list_add_tail(&edma_desc->node, &ev_dev->dl);
+
+	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "exit\n");
+	spin_unlock(&ec_dev->edma_lock);
+	return cookie;
+}
 static void edmac_process_workqueue(struct work_struct *work)
 {
 
@@ -730,6 +747,7 @@ static struct edma_desc *edma_alloc_descriptor(struct edmav_dev *ev_dev)
 	ev_dev->n_de++;
 
 	dma_async_tx_descriptor_init(&desc->tx, &ev_dev->dma_ch);
+	desc->tx.tx_submit = edma_submit;
 
 	return desc;
 }
@@ -749,9 +767,6 @@ struct dma_async_tx_descriptor *edma_prep_dma_memcpy(struct dma_chan *chan,
 		goto err;
 
 	edma_compose_data_element(ev_dev, desc->de, dst, src, len, flags);
-
-	/* insert the descriptor to client descriptor list */
-	list_add_tail(&desc->node, &ev_dev->dl);
 
 	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "exit\n");
 	spin_unlock(&ev_dev->ec_dev->edma_lock);
