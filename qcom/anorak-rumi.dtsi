@@ -1,7 +1,3 @@
-&chosen {
-	bootargs = "nokaslr kpti=0 log_buf_len=256K swiotlb=0 loop.max_part=7";
-};
-
 &arch_timer {
 	clock-frequency = <500000>;
 };

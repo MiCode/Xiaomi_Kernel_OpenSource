@@ -19,7 +19,10 @@
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
 
 
-	chosen: chosen { };
+	chosen: chosen {
+		bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-5 ftrace_dump_on_oops pstore.compress=none";
+
+	};
 
 	reserved_memory: reserved-memory { };
 
