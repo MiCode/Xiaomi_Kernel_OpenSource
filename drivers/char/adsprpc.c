@@ -6617,6 +6617,10 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			AUDIO_PDR_SERVICE_LOCATION_CLIENT_NAME);
 	if (err)
 		goto bail;
+	err = fastrpc_check_pd_status(fl,
+			SENSORS_PDR_ADSP_SERVICE_LOCATION_CLIENT_NAME);
+	if (err)
+		goto bail;
 
 	spin_lock(&fl->hlock);
 	if (fl->file_close >= FASTRPC_PROCESS_EXIT_START) {
