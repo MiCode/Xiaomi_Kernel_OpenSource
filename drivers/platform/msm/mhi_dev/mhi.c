@@ -3155,6 +3155,11 @@ int mhi_dev_open_channel(uint32_t chan_id,
 	struct mhi_dev_channel *ch;
 	struct platform_device *pdev;
 
+	if (!mhi_ctx || !mhi_ctx->pdev) {
+		mhi_log(MHI_MSG_ERROR, "Invalid open channel call for ch_id:%d\n", chan_id);
+		return -EINVAL;
+	}
+
 	pdev = mhi_ctx->pdev;
 	ch = &mhi_ctx->ch[chan_id];
 
