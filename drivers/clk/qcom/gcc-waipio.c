@@ -1503,7 +1503,7 @@ static const struct freq_tbl ftbl_gcc_ufs_phy_axi_clk_src_cape[] = {
 	F(300000000, P_GCC_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(600000000, P_GCC_GPLL0_OUT_MAIN, 1, 0, 0),
 	F(806400000, P_GCC_GPLL2_OUT_EVEN, 1, 0, 0),
-	F(850000000, P_GCC_GPLL2_OUT_EVEN, 1, 0, 0),
+	F(850000000, P_GCC_GPLL3_OUT_EVEN, 1, 0, 0),
 	{ }
 };
 
@@ -1554,7 +1554,7 @@ static const struct freq_tbl ftbl_gcc_ufs_phy_ice_core_clk_src_cape[] = {
 	F(300000000, P_GCC_GPLL0_OUT_MAIN, 2, 0, 0),
 	F(600000000, P_GCC_GPLL0_OUT_MAIN, 1, 0, 0),
 	F(806400000, P_GCC_GPLL2_OUT_EVEN, 1, 0, 0),
-	F(850000000, P_GCC_GPLL2_OUT_EVEN, 1, 0, 0),
+	F(850000000, P_GCC_GPLL3_OUT_EVEN, 1, 0, 0),
 	{ }
 };
 
