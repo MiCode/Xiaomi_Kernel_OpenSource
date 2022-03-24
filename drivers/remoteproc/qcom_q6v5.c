@@ -64,8 +64,18 @@ static void qcom_q6v5_crash_handler_work(struct work_struct *work)
 	struct qcom_q6v5 *q6v5 = container_of(work, struct qcom_q6v5, crash_handler);
 	struct rproc *rproc = q6v5->rproc;
 	struct rproc_subdev *subdev;
+	int votes;
 
 	mutex_lock(&rproc->lock);
+
+	rproc->state = RPROC_CRASHED;
+
+	votes = atomic_xchg(&rproc->power, 0);
+	/* if votes are zero, rproc has already been shutdown */
+	if (votes == 0) {
+		mutex_unlock(&rproc->lock);
+		return;
+	}
 
 	list_for_each_entry_reverse(subdev, &rproc->subdevs, node) {
 		if (subdev->stop)
@@ -90,6 +100,7 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 
 	/* Sometimes the stop triggers a watchdog rather than a stop-ack */
 	if (!q6v5->running) {
+		dev_info(q6v5->dev, "received wdog irq while q6 is offline\n");
 		complete(&q6v5->stop_done);
 		return IRQ_HANDLED;
 	}
@@ -118,6 +129,11 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 	struct qcom_q6v5 *q6v5 = data;
 	size_t len;
 	char *msg;
+
+	if (!q6v5->running) {
+		dev_info(q6v5->dev, "received fatal irq while q6 is offline\n");
+		return IRQ_HANDLED;
+	}
 
 	msg = qcom_smem_get(QCOM_SMEM_HOST_ANY, q6v5->crash_reason, &len);
 	if (!IS_ERR(msg) && len > 0 && msg[0])

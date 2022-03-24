@@ -13,8 +13,6 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/rpmsg.h>
-
-#define CREATE_TRACE_POINTS
 #include <trace/events/rproc_qcom.h>
 
 #include "qcom_common.h"
@@ -67,25 +65,6 @@ struct qcom_sysmon {
 
 	struct qmi_handle qmi;
 	struct sockaddr_qrtr ssctl;
-};
-
-enum {
-	SSCTL_SSR_EVENT_BEFORE_POWERUP,
-	SSCTL_SSR_EVENT_AFTER_POWERUP,
-	SSCTL_SSR_EVENT_BEFORE_SHUTDOWN,
-	SSCTL_SSR_EVENT_AFTER_SHUTDOWN,
-};
-
-static const char * const sysmon_state_string[] = {
-	[SSCTL_SSR_EVENT_BEFORE_POWERUP]	= "before_powerup",
-	[SSCTL_SSR_EVENT_AFTER_POWERUP]		= "after_powerup",
-	[SSCTL_SSR_EVENT_BEFORE_SHUTDOWN]	= "before_shutdown",
-	[SSCTL_SSR_EVENT_AFTER_SHUTDOWN]	= "after_shutdown",
-};
-
-struct sysmon_event {
-	const char *subsys_name;
-	u32 ssr_event;
 };
 
 static DEFINE_MUTEX(sysmon_lock);
@@ -601,10 +580,12 @@ static int sysmon_start(struct rproc_subdev *subdev)
 
 	mutex_lock(&sysmon_lock);
 	list_for_each_entry(target, &sysmon_list, node) {
-		if (target == sysmon)
-			continue;
-
 		mutex_lock(&target->state_lock);
+		if (target == sysmon || target->state != QCOM_SSR_AFTER_POWERUP) {
+			mutex_unlock(&target->state_lock);
+			continue;
+		}
+
 		send_event(sysmon, target);
 		mutex_unlock(&target->state_lock);
 	}
