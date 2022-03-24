@@ -26,12 +26,6 @@
  */
 #define DMA_ATTR_DELAYED_UNMAP		(1UL << 17)
 
-#ifndef DMA_ATTR_SYS_CACHE_ONLY
-/* Attributes are not supported, so render them ineffective. */
-#define DMA_ATTR_SYS_CACHE_ONLY		(0UL)
-#define DMA_ATTR_SYS_CACHE_ONLY_NWA	(0UL)
-#endif
-
 /*
  * DMA_ATTR_IOMMU_USE_UPSTREAM_HINT: Normally an smmu will override any bus
  * attributes (i.e cacheablilty) provided by the client device. Some hardware

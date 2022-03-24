@@ -150,7 +150,7 @@ static void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf)
 		/* Find suitable destination for @next */
 		dest_cpu = select_fallback_rq(dead_rq->cpu, next);
 
-		if (cpu_of(rq) != dest_cpu) {
+		if (cpu_of(rq) != dest_cpu && !is_migration_disabled(next)) {
 			/* only perform a required migration */
 			rq = __migrate_task(rq, rf, next, dest_cpu);
 
@@ -268,11 +268,16 @@ static int start_cpus(struct cpumask *cpus)
 	for_each_cpu(cpu, cpus) {
 		halt_cpu_state = per_cpu_ptr(&halt_state, cpu);
 		halt_cpu_state->last_halt = 0;
-
-		/* guarantee zero'd last_halt before clearing from the mask */
 		wmb();
 
+		/* wmb to guarantee zero'd last_halt before clearing from the mask */
+
 		cpumask_clear_cpu(cpu, cpu_halt_mask);
+
+		/* kick the cpu so it can pull tasks
+		 * after the mask has been cleared.
+		 */
+		walt_kick_cpu(cpu);
 	}
 
 	trace_halt_cpus(cpus, start_time, 0, 0);
@@ -435,9 +440,52 @@ unlock:
 	rcu_read_unlock();
 }
 
+static void android_rvh_set_cpus_allowed_ptr_locked(void *unused,
+						    const struct cpumask *cpu_valid_mask,
+						    const struct cpumask *new_mask,
+						    unsigned int *dest_cpu)
+{
+	cpumask_t allowed_cpus;
+
+	if (unlikely(walt_disabled))
+		return;
+
+	if (cpu_halted(*dest_cpu)) {
+		/* remove halted cpus from the valid mask, and store locally */
+		cpumask_andnot(&allowed_cpus, cpu_valid_mask, cpu_halt_mask);
+		*dest_cpu = cpumask_any_and_distribute(&allowed_cpus, new_mask);
+	}
+}
+
+static void android_rvh_rto_next_cpu(void *unused, int rto_cpu, struct cpumask *rto_mask, int *cpu)
+{
+	cpumask_t allowed_cpus;
+
+	if (unlikely(walt_disabled))
+		return;
+
+	if (cpu_halted(*cpu)) {
+		/* remove halted cpus from the valid mask, and store locally */
+		cpumask_andnot(&allowed_cpus, rto_mask, cpu_halt_mask);
+		*cpu = cpumask_next(rto_cpu, &allowed_cpus);
+	}
+}
+
+static void android_rvh_is_cpu_allowed(void *unused, int cpu, bool *allowed)
+{
+	if (unlikely(walt_disabled))
+		return;
+
+	*allowed = !cpumask_test_cpu(cpu, cpu_halt_mask);
+}
+
 void walt_halt_init(void)
 {
 	register_trace_android_rvh_get_nohz_timer_target(android_rvh_get_nohz_timer_target, NULL);
+	register_trace_android_rvh_set_cpus_allowed_ptr_locked(
+						android_rvh_set_cpus_allowed_ptr_locked, NULL);
+	register_trace_android_rvh_rto_next_cpu(android_rvh_rto_next_cpu, NULL);
+	register_trace_android_rvh_is_cpu_allowed(android_rvh_is_cpu_allowed, NULL);
 
 }
 

@@ -1,7 +1,16 @@
+cmd-db.ko
 mem_buf.ko
 mem_buf_dev.ko
+msm_qmp.ko
+ns.ko
 pinctrl-msm.ko
 pinctrl-sm8150.ko
+qcom_aoss.ko
+qcom_hwspinlock.ko
+qcom-pdc.ko
 qcom-scm.ko
 qcom_dma_heaps.ko
+qcom_rpmh.ko
+qrtr.ko
 secure_buffer.ko
+smem.ko

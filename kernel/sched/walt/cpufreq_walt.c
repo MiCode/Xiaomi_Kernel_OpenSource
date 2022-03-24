@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2016, Intel Corporation
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -264,9 +265,9 @@ static unsigned long waltgov_get_util(struct waltgov_cpu *wg_cpu)
 
 #define NL_RATIO 75
 #define DEFAULT_HISPEED_LOAD 90
-#define DEFAULT_CPU0_RTG_BOOST_FREQ 1000000
-#define DEFAULT_CPU4_RTG_BOOST_FREQ 768000
-#define DEFAULT_CPU7_RTG_BOOST_FREQ 0
+#define DEFAULT_SILVER_RTG_BOOST_FREQ 1000000
+#define DEFAULT_GOLD_RTG_BOOST_FREQ 768000
+#define DEFAULT_PRIME_RTG_BOOST_FREQ 0
 #define DEFAULT_TARGET_LOAD_THRESH 1024
 #define DEFAULT_TARGET_LOAD_SHIFT 4
 static void waltgov_walt_adjust(struct waltgov_cpu *wg_cpu, unsigned long cpu_util,
@@ -413,7 +414,7 @@ static void waltgov_work(struct kthread_work *work)
 	raw_spin_lock_irqsave(&wg_policy->update_lock, flags);
 	freq = wg_policy->next_freq;
 	waltgov_track_cycles(wg_policy, wg_policy->policy->cur,
-			   ktime_get_ns());
+			   walt_sched_clock());
 	raw_spin_unlock_irqrestore(&wg_policy->update_lock, flags);
 
 	mutex_lock(&wg_policy->work_lock);
@@ -855,18 +856,12 @@ static int waltgov_init(struct cpufreq_policy *policy)
 	tunables->target_load_thresh = DEFAULT_TARGET_LOAD_THRESH;
 	tunables->target_load_shift = DEFAULT_TARGET_LOAD_SHIFT;
 
-	switch (policy->cpu) {
-	default:
-	case 0:
-		tunables->rtg_boost_freq = DEFAULT_CPU0_RTG_BOOST_FREQ;
-		break;
-	case 4:
-		tunables->rtg_boost_freq = DEFAULT_CPU4_RTG_BOOST_FREQ;
-		break;
-	case 7:
-		tunables->rtg_boost_freq = DEFAULT_CPU7_RTG_BOOST_FREQ;
-		break;
-	}
+	if (is_min_cluster_cpu(policy->cpu))
+		tunables->rtg_boost_freq = DEFAULT_SILVER_RTG_BOOST_FREQ;
+	else if (is_max_cluster_cpu(policy->cpu))
+		tunables->rtg_boost_freq = DEFAULT_PRIME_RTG_BOOST_FREQ;
+	else
+		tunables->rtg_boost_freq = DEFAULT_GOLD_RTG_BOOST_FREQ;
 
 	policy->governor_data = wg_policy;
 	wg_policy->tunables = tunables;
@@ -972,14 +967,14 @@ static void waltgov_limits(struct cpufreq_policy *policy)
 		mutex_lock(&wg_policy->work_lock);
 		raw_spin_lock_irqsave(&wg_policy->update_lock, flags);
 		waltgov_track_cycles(wg_policy, wg_policy->policy->cur,
-				   ktime_get_ns());
+				   walt_sched_clock());
 		raw_spin_unlock_irqrestore(&wg_policy->update_lock, flags);
 		cpufreq_policy_apply_limits(policy);
 		mutex_unlock(&wg_policy->work_lock);
 	} else {
 		raw_spin_lock_irqsave(&wg_policy->update_lock, flags);
 		freq = policy->cur;
-		now = ktime_get_ns();
+		now = walt_sched_clock();
 
 		/*
 		 * cpufreq_driver_resolve_freq() has a clamp, so we do not need

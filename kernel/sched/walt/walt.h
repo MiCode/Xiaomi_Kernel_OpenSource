@@ -121,6 +121,7 @@ struct walt_rq {
 	u64			last_cc_update;
 	u64			cycles;
 	struct list_head	mvp_tasks;
+	u64			latest_clock;
 };
 
 struct walt_sched_cluster {
@@ -160,6 +161,7 @@ extern int sched_set_boost(int enable);
 extern void walt_boost_init(void);
 extern int sched_pause_cpus(struct cpumask *pause_cpus);
 extern int sched_unpause_cpus(struct cpumask *unpause_cpus);
+extern void walt_kick_cpu(int cpu);
 
 extern unsigned int sched_get_cpu_util_pct(int cpu);
 extern void sched_update_hyst_times(void);
@@ -167,7 +169,7 @@ extern int sched_boost_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos);
 extern int sched_busy_hyst_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos);
-extern u64 walt_ktime_get_ns(void);
+extern u64 walt_sched_clock(void);
 extern void walt_init_tg(struct task_group *tg);
 extern void walt_init_topapp_tg(struct task_group *tg);
 extern void walt_init_foreground_tg(struct task_group *tg);
@@ -271,7 +273,6 @@ extern unsigned int sysctl_sched_task_unfilter_period;
 extern unsigned int __read_mostly sysctl_sched_asym_cap_sibling_freq_match_pct;
 extern unsigned int sysctl_walt_low_latency_task_threshold; /* disabled by default */
 extern unsigned int sysctl_sched_sync_hint_enable;
-extern unsigned int sysctl_sched_bug_on_rt_throttle;
 extern unsigned int sysctl_sched_suppress_region2;
 extern unsigned int sysctl_sched_skip_sp_newly_idle_lb;
 extern unsigned int sysctl_sched_asymcap_boost;
@@ -362,7 +363,7 @@ static inline void waltgov_run_callback(struct rq *rq, unsigned int flags)
 
 	cb = rcu_dereference_sched(*per_cpu_ptr(&waltgov_cb_data, cpu_of(rq)));
 	if (cb)
-		cb->func(cb, walt_ktime_get_ns(), flags);
+		cb->func(cb, walt_sched_clock(), flags);
 }
 
 extern unsigned long cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load);
@@ -607,7 +608,7 @@ static inline int per_task_boost(struct task_struct *p)
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (wts->boost_period) {
-		if (sched_clock() > wts->boost_expires) {
+		if (walt_sched_clock() > wts->boost_expires) {
 			wts->boost_period = 0;
 			wts->boost_expires = 0;
 			wts->boost = 0;
@@ -785,13 +786,6 @@ static inline unsigned int task_load(struct task_struct *p)
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	return wts->demand;
-}
-
-static inline unsigned int task_pl(struct task_struct *p)
-{
-	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
-
-	return wts->pred_demand;
 }
 
 static inline bool task_in_related_thread_group(struct task_struct *p)

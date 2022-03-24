@@ -28,6 +28,8 @@
 #define LLCC_MDMHPFX     20
 #define LLCC_MDMPNG      21
 #define LLCC_AUDHW       22
+#define LLCC_NPU         23
+#define LLCC_WLNHW       24
 #define LLCC_ECC         26
 #define LLCC_CVP         28
 #define LLCC_MDMVPE      29
@@ -50,6 +52,8 @@
 #define LLCC_CAMEXP2     50
 #define LLCC_CAMEXP3     51
 #define LLCC_CAMEXP4     52
+#define LLCC_DISP_WB     53
+#define LLCC_DISP_1      54
 
 /**
  * llcc_slice_desc - Cache slice descriptor

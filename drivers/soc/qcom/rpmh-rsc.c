@@ -1217,8 +1217,8 @@ int rpmh_rsc_switch_channel(struct rsc_drv *drv, int ch)
  */
 int rpmh_rsc_drv_enable(struct rsc_drv *drv, bool enable)
 {
-	int ret = 0;
-	u32 chn_en, ch;
+	int ret = 0, ch;
+	u32 chn_en;
 
 	spin_lock(&drv->lock);
 

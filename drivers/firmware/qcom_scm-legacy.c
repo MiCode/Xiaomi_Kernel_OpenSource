@@ -160,6 +160,9 @@ int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 
 	rsp = scm_legacy_command_to_response(cmd);
 
+	if (!dev)
+		return -EPROBE_DEFER;
+
 	cmd_phys = dma_map_single(dev, cmd, alloc_len, DMA_TO_DEVICE);
 	if (dma_mapping_error(dev, cmd_phys)) {
 		kfree(cmd);

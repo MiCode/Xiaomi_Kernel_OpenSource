@@ -1809,7 +1809,7 @@ static struct clk_branch gcc_camera_xo_clk = {
 
 static struct clk_branch gcc_cfg_noc_pcie_anoc_ahb_clk = {
 	.halt_reg = 0x10028,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_SKIP,
 	.hwcg_reg = 0x10028,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -3825,6 +3825,9 @@ static int gcc_kalama_probe(struct platform_device *pdev)
 	/* FORCE_MEM_CORE_ON for ufs phy ice core clocks */
 	regmap_update_bits(regmap, gcc_ufs_phy_ice_core_clk.halt_reg,
 			   BIT(14), BIT(14));
+
+	/* Clear GDSC_SLEEP_ENA_VOTE to stop votes being auto-removed in sleep. */
+	regmap_write(regmap, 0x52024, 0x0);
 
 	ret = qcom_cc_really_probe(pdev, &gcc_kalama_desc, regmap);
 	if (ret) {

@@ -184,6 +184,15 @@ config QCOM_PDR_HELPERS
 	  crash/recover without disrupting the other PDs running on
 	  the same Q6 ADSP.
 
+config MSM_BOOT_TIME_MARKER
+	bool "Use MSM boot time marker reporting"
+	depends on MSM_BOOT_STATS
+	help
+	  Use this to mark msm boot kpi for measurement.
+	  An instrumentation for boot time measurement.
+	  To create an entry, call "place_marker" function.
+	  At userspace, write marker name to "/sys/kernel/boot_kpi/kpi_values"
+
 config QCOM_QMI_HELPERS
 	tristate
 	depends on NET

@@ -477,25 +477,13 @@ static int ufs_qcom_check_hibern8(struct ufs_hba *hba)
 
 static void ufs_qcom_select_unipro_mode(struct ufs_qcom_host *host)
 {
-	int submode = host->limit_phy_submode;
-
 	ufshcd_rmwl(host->hba, QUNIPRO_SEL,
 		   ufs_qcom_cap_qunipro(host) ? QUNIPRO_SEL : 0,
 		   REG_UFS_CFG1);
 
-	if (host->hw_ver.major < 0x05)
-		goto out;
-
-	/* HS-G5 requires 38.4MHz ref_clock */
-	if (submode == UFS_QCOM_PHY_SUBMODE_G5 &&
-		host->hba->dev_ref_clk_freq == REF_CLK_FREQ_38_4_MHZ)
+	if (host->hw_ver.major == 0x05)
 		ufshcd_rmwl(host->hba, QUNIPRO_G4_SEL, 0, REG_UFS_CFG0);
-	else if (submode == UFS_QCOM_PHY_SUBMODE_G4)
-		ufshcd_rmwl(host->hba, QUNIPRO_G4_SEL,
-				QUNIPRO_G4_SEL, REG_UFS_CFG0);
-	else
-		dev_warn(host->hba->dev, "%s:Unknown ufs submode\n", __func__);
-out:
+
 	/* make sure above configuration is applied before we return */
 	mb();
 }
@@ -538,6 +526,13 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 				 __func__, ret);
 
 	usleep_range(1000, 1100);
+	/*
+	 * The ice registers are also reset to default values after a ufs
+	 * host controller reset. Reset the ice internal software flags here
+	 * so that the ice hardware will be re-initialized properly in the
+	 * later part of the UFS host controller reset.
+	 */
+	ufs_qcom_ice_disable(host);
 
 	if (reenable_intr) {
 		enable_irq(hba->irq);
@@ -733,10 +728,6 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		if (err)
 			dev_err(hba->dev, "%s: enable lane clks failed,	ret=%d\n",
 				__func__, err);
-		err = ufs_qcom_config_shared_ice(host);
-		if (err)
-			dev_err(hba->dev, "%s: config shared ice failed, ret=%d\n",
-				__func__, err);
 		/*
 		 * ICE enable needs to be called before ufshcd_crypto_enable
 		 * during resume as it is needed before reprogramming all
@@ -745,6 +736,13 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 		ufs_qcom_ice_enable(host);
 		break;
 	case POST_CHANGE:
+		err = ufs_qcom_config_shared_ice(host);
+		if (err) {
+			dev_err(hba->dev, "%s: config shared ice failed, ret=%d\n",
+				__func__, err);
+			break;
+		}
+
 		/* check if UFS PHY moved from DISABLED to HIBERN8 */
 		err = ufs_qcom_check_hibern8(hba);
 		ufs_qcom_enable_hw_clk_gating(hba);
@@ -1071,6 +1069,7 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 	struct device *dev = hba->dev;
+	u32 temp;
 
 	switch (status) {
 	case PRE_CHANGE:
@@ -1098,6 +1097,17 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 		err = ufs_qcom_enable_hw_clk_gating(hba);
 		if (err)
 			goto out;
+
+		/*
+		 * Controller checks ICE configuration error without
+		 * checking if the command is SCSI command
+		 */
+		temp = readl_relaxed(host->dev_ref_clk_ctrl_mmio);
+		temp |= BIT(31);
+		writel_relaxed(temp, host->dev_ref_clk_ctrl_mmio);
+		/* ensure that UTP_SCASI_CHECK_DIS is enabled before link startup */
+		wmb();
+
 		/*
 		 * Some UFS devices (and may be host) have issues if LCC is
 		 * enabled. So we are setting PA_Local_TX_LCC_Enable to 0
@@ -2124,23 +2134,6 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			err = ufs_qcom_set_bus_vote(hba, true);
 			if (ufs_qcom_is_link_hibern8(hba))
 				ufs_qcom_phy_set_src_clk_h8_exit(phy);
-		} else {
-			if (!ufs_qcom_is_link_active(hba)) {
-				/* disable device ref_clk */
-				ufs_qcom_dev_ref_clk_ctrl(host, false);
-
-				/* power off PHY during aggressive clk gating */
-				err = ufs_qcom_phy_power_off(hba);
-				if (err) {
-					dev_err(hba->dev, "%s: phy power off failed, ret = %d\n",
-							 __func__, err);
-					return err;
-				}
-			}
-		}
-		break;
-	case POST_CHANGE:
-		if (on) {
 			err = ufs_qcom_phy_power_on(hba);
 			if (err) {
 				dev_err(hba->dev, "%s: phy power on failed, ret = %d\n",
@@ -2151,7 +2144,38 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			/* enable the device ref clock for HS mode*/
 			if (ufshcd_is_hs_mode(&hba->pwr_info))
 				ufs_qcom_dev_ref_clk_ctrl(host, true);
+			/* Device ref clk should be enabled before Unipro clock */
+			err = clk_prepare_enable(host->ref_clki->clk);
+			if (!err)
+				host->ref_clki->enabled = on;
+			else
+				dev_err(hba->dev, "%s: Fail dev-ref-clk enabled, ret=%d\n",
+					__func__, err);
 		} else {
+			if (!ufs_qcom_is_link_active(hba)) {
+				/*
+				 * Dont turn off dev ref-clk before unipro clk.
+				 * Setting ref_clki state to requested state of
+				 * 'on' would prevent toggling of this clock by
+				 * ufshcd core. Refer ufshcd_setup_clocks()
+				 */
+				host->ref_clki->enabled = on;
+			}
+			break;
+		}
+	case POST_CHANGE:
+		if (!on) {
+			if (!ufs_qcom_is_link_active(hba)) {
+				err = ufs_qcom_phy_power_off(hba);
+				if (err) {
+					dev_err(hba->dev, "%s: phy power off failed, ret=%d\n",
+						__func__, err);
+					return err;
+				}
+				ufs_qcom_dev_ref_clk_ctrl(host, false);
+				/* ref_clk state is already changed in PRE_CHANGE */
+				clk_disable_unprepare(host->ref_clki->clk);
+			}
 			if (ufs_qcom_is_link_hibern8(hba))
 				ufs_qcom_phy_set_src_clk_h8_enter(phy);
 			err = ufs_qcom_set_bus_vote(hba, false);
@@ -2163,8 +2187,6 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			atomic_set(&host->clks_on, on);
 		break;
 	}
-	if (!(!!atomic_read(&host->clks_on)))
-		cancel_dwork_unvote_cpufreq(hba);
 	ufs_qcom_log_str(host, "#,%d,%d,%d\n", status, on, err);
 
 	return err;
@@ -2859,10 +2881,9 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 	struct ufs_hba *hba = dev_get_drvdata(tcd->devdata);
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct scsi_device *sdev;
-	int ret = 0;
 
 	if (data == host->uqt.curr_state)
-		return ret;
+		return 0;
 
 	switch (data) {
 	case UFS_QCOM_LVL_NO_THERM:
@@ -2888,12 +2909,12 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 		break;
 	default:
 		dev_err(tcd->devdata, "Invalid UFS thermal state (%d)\n", data);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	host->uqt.curr_state = data;
 
-	return ret;
+	return 0;
 }
 
 struct thermal_cooling_device_ops ufs_thermal_ops = {
@@ -2908,22 +2929,22 @@ static int ufs_qcom_config_alg1(struct ufs_hba *hba)
 	int ret;
 	unsigned int val, rx_aes;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	unsigned int num_aes_cores;
 
 	ret = of_property_read_u32(host->np, "rx-alloc-percent", &val);
 	if (ret < 0)
 		return ret;
 
+	num_aes_cores = ufshcd_readl(hba, REG_UFS_MEM_ICE_NUM_AES_CORES);
 	ufshcd_writel(hba, STATIC_ALLOC_ALG1, REG_UFS_MEM_SHARED_ICE_CONFIG);
 	/*
 	 * DTS specifies the percent allocation to rx stream
 	 * Calculation -
 	 *  Num Tx stream = N_TOT - (N_TOT * percent of rx stream allocation)
 	 */
-	rx_aes = DIV_ROUND_CLOSEST(host->num_aes_cores * val, 100);
-	val = rx_aes | ((host->num_aes_cores - rx_aes) << 8);
+	rx_aes = DIV_ROUND_CLOSEST(num_aes_cores * val, 100);
+	val = rx_aes | ((num_aes_cores - rx_aes) << 8);
 	ufshcd_writel(hba, val, REG_UFS_MEM_SHARED_ICE_ALG1_NUM_CORE);
-
-	host->chosen_algo = STATIC_ALLOC_ALG1;
 
 	return 0;
 }
@@ -2965,8 +2986,6 @@ static int ufs_qcom_config_alg2(struct ufs_hba *hba)
 		reg += 4;
 	}
 
-	host->chosen_algo = FLOOR_BASED_ALG2;
-
 	return 0;
 }
 
@@ -2987,8 +3006,6 @@ static int ufs_qcom_config_alg3(struct ufs_hba *hba)
 	config = val[0] | (val[1] << 8) | (val[2] << 16) | (val[3] << 24);
 	ufshcd_writel(hba, config, REG_UFS_MEM_SHARED_ICE_ALG3_NUM_CORE);
 
-	host->chosen_algo = INSTANTANEOUS_ALG3;
-
 	return 0;
 }
 
@@ -3005,21 +3022,23 @@ static int ufs_qcom_parse_shared_ice_config(struct ufs_hba *hba)
 
 	/* Only 1 algo can be enabled, pick the first */
 	host->np = of_get_next_available_child(np, NULL);
-	if (!host->np)
+	if (!host->np) {
+		dev_err(hba->dev, "Resort to default alg2\n");
 		/* No overrides, use floor based as default */
-		return ufs_qcom_config_alg2(hba);
+		host->chosen_algo = FLOOR_BASED_ALG2;
+		return 0;
+	}
 
 	ret = of_property_read_string(host->np, "alg-name", &alg_name);
 	if (ret < 0)
 		return ret;
 
-	host->num_aes_cores = ufshcd_readl(hba, REG_UFS_MEM_ICE_NUM_AES_CORES);
 	if (!strcmp(alg_name, "alg1"))
-		ret = ufs_qcom_config_alg1(hba);
+		host->chosen_algo = STATIC_ALLOC_ALG1;
 	else if (!strcmp(alg_name, "alg2"))
-		ret = ufs_qcom_config_alg2(hba);
+		host->chosen_algo = FLOOR_BASED_ALG2;
 	else if (!strcmp(alg_name, "alg3"))
-		ret = ufs_qcom_config_alg3(hba);
+		host->chosen_algo = INSTANTANEOUS_ALG3;
 	else
 		/* Absurd condition */
 		return -ENODATA;
@@ -3029,13 +3048,6 @@ static int ufs_qcom_parse_shared_ice_config(struct ufs_hba *hba)
 static int ufs_qcom_config_shared_ice(struct ufs_qcom_host *host)
 {
 	if (!is_shared_ice_supported(host))
-		return 0;
-
-	/*
-	 * Forbid during init, by which its already configured
-	 * Refer ufs_qcom_hce_enable_notify()
-	 */
-	if (!host->hba->pm_op_in_progress && !host->hba->eh_flags)
 		return 0;
 
 	switch (host->chosen_algo) {
@@ -3248,6 +3260,8 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	list_for_each_entry(clki, &hba->clk_list_head, list) {
 		if (!strcmp(clki->name, "core_clk_unipro"))
 			clki->keep_link_active = true;
+		else if (!strcmp(clki->name, "ref_clk"))
+			host->ref_clki = clki;
 	}
 
 	err = ufs_qcom_init_lane_clks(host);
@@ -3519,6 +3533,9 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 	int err = 0;
 
 	if (status == PRE_CHANGE) {
+		err = ufshcd_uic_hibern8_enter(hba);
+		if (err)
+			return err;
 		if (scale_up) {
 			err = ufs_qcom_clk_scale_up_pre_change(hba);
 			if (!host->cpufreq_dis) {
@@ -3532,6 +3549,8 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 			err = ufs_qcom_clk_scale_down_pre_change(hba);
 			cancel_dwork_unvote_cpufreq(hba);
 		}
+		if (err)
+			ufshcd_uic_hibern8_exit(hba);
 	} else {
 		if (scale_up)
 			err = ufs_qcom_clk_scale_up_post_change(hba);
@@ -3539,15 +3558,17 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 			err = ufs_qcom_clk_scale_down_post_change(hba);
 
 
-		if (err || !dev_req_params)
+		if (err || !dev_req_params) {
+			ufshcd_uic_hibern8_exit(hba);
 			goto out;
-
+		}
 		ufs_qcom_cfg_timers(hba,
 				    dev_req_params->gear_rx,
 				    dev_req_params->pwr_rx,
 				    dev_req_params->hs_rate,
 				    false);
 		ufs_qcom_update_bus_bw_vote(host);
+		ufshcd_uic_hibern8_exit(hba);
 	}
 
 	if (!err)
@@ -3804,6 +3825,9 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 	ufshcd_dump_regs(hba, REG_UFS_SYS1CLK_1US, 16 * 4,
 			 "HCI Vendor Specific Registers ");
 
+	ufshcd_dump_regs(hba, UFS_MEM_ICE, 29 * 4,
+			 "HCI Shared ICE Registers ");
+
 	/* sleep a bit intermittently as we are dumping too much data */
 	ufs_qcom_print_hw_debug_reg_all(hba, NULL, ufs_qcom_dump_regs_wrapper);
 
@@ -3918,14 +3942,13 @@ static void ufs_qcom_config_scaling_param(struct ufs_hba *hba,
 
 	d = (struct devfreq_simple_ondemand_data *)data;
 	p->polling_ms = 60;
+	p->timer = DEVFREQ_TIMER_DELAYED;
 	d->upthreshold = 70;
-	d->downdifferential = 5;
+	d->downdifferential = 65;
 }
 
 static struct ufs_dev_fix ufs_qcom_dev_fixups[] = {
-	UFS_FIX(UFS_VENDOR_SAMSUNG, "KLUEG8UHDB-C2D1",
-		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
-	UFS_FIX(UFS_VENDOR_SAMSUNG, "KLUDG4UHDB-B2D1",
+	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
 	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),

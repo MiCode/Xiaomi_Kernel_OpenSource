@@ -487,7 +487,7 @@ static initcall_t init_table[] __initdata = {
 };
 
 static exitcall_t exit_table[] = {
-	dma_mapping_fast_exit,
+	NULL, /* dma_mapping_fast_exit */
 	qcom_dma_iommu_generic_driver_exit,
 	NULL, /*qcom_arm_lpae_do_selftests */
 	qcom_io_pgtable_alloc_exit,

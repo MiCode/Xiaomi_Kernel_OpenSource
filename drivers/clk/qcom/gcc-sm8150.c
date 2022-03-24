@@ -1128,7 +1128,8 @@ static struct clk_rcg2 gcc_sdcc2_apps_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 19200000,
+			[VDD_MIN] = 9600000,
+			[VDD_LOWER] = 19200000,
 			[VDD_LOW] = 100000000,
 			[VDD_LOW_L1] = 202000000},
 	},
@@ -1161,9 +1162,11 @@ static struct clk_rcg2 gcc_sdcc4_apps_clk_src = {
 		.vdd_class = &vdd_cx,
 		.num_rate_max = VDD_NUM,
 		.rate_max = (unsigned long[VDD_NUM]) {
-			[VDD_MIN] = 19200000,
+			[VDD_MIN] = 9600000,
+			[VDD_LOWER] = 19200000,
 			[VDD_LOW] = 50000000,
-			[VDD_LOW_L1] = 100000000},
+			[VDD_LOW_L1] = 50000000,
+			[VDD_NOMINAL] = 100000000},
 	},
 };
 
@@ -4045,39 +4048,10 @@ static struct qcom_cc_desc gcc_sm8150_desc = {
 static const struct of_device_id gcc_sm8150_match_table[] = {
 	{ .compatible = "qcom,gcc-sm8150" },
 	{ .compatible = "qcom,sm8150-gcc" },
-	{ .compatible = "qcom,sm8150-gcc-v2" },
 	{ .compatible = "qcom,sa8155-gcc" },
-	{ .compatible = "qcom,sa8155-gcc-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gcc_sm8150_match_table);
-
-static void gcc_sm8150_fixup_sm8150v2(struct regmap *regmap)
-{
-	gcc_sdcc2_apps_clk_src.clkr.vdd_data.rate_max[VDD_MIN] = 9600000;
-	gcc_sdcc2_apps_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 19200000;
-
-	gcc_sdcc4_apps_clk_src.clkr.vdd_data.rate_max[VDD_MIN] = 9600000;
-	gcc_sdcc4_apps_clk_src.clkr.vdd_data.rate_max[VDD_LOWER] = 19200000;
-	gcc_sdcc4_apps_clk_src.clkr.vdd_data.rate_max[VDD_LOW_L1] = 50000000;
-	gcc_sdcc4_apps_clk_src.clkr.vdd_data.rate_max[VDD_NOMINAL] = 100000000;
-}
-
-static int gcc_sm8150_fixup(struct platform_device *pdev, struct regmap *regmap)
-{
-	const char *compat = NULL;
-	int compatlen = 0;
-
-	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
-	if (!compat || (compatlen <= 0))
-		return -EINVAL;
-
-	if (!strcmp(compat, "qcom,sm8150-gcc-v2") ||
-			!strcmp(compat, "qcom,sa8155-gcc-v2"))
-		gcc_sm8150_fixup_sm8150v2(regmap);
-
-	return 0;
-}
 
 static int gcc_sm8150_probe(struct platform_device *pdev)
 {
@@ -4093,10 +4067,6 @@ static int gcc_sm8150_probe(struct platform_device *pdev)
 	/* Disable the GPLL0 active input to NPU and GPU via MISC registers */
 	regmap_update_bits(regmap, 0x4d110, 0x3, 0x3);
 	regmap_update_bits(regmap, 0x71028, 0x3, 0x3);
-
-	ret = gcc_sm8150_fixup(pdev, regmap);
-	if (ret)
-		return ret;
 
 	/*
 	 * Keep clocks always enabled:

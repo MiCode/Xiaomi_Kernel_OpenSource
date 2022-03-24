@@ -145,6 +145,7 @@ struct gsi_channel_info {
 };
 
 struct dwc3;
+extern void *dwc_trace_ipc_log_ctxt;
 
 /**
  * usb_gadget_autopm_get - increment PM-usage counter of usb gadget's parent

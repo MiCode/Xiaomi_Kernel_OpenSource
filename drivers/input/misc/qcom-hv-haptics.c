@@ -160,6 +160,7 @@
 #define VMAX_HDRM_MAX_MV			6350
 
 #define HAP_CFG_VSET_CFG_REG			0x68
+#define FORCE_VSET_ACK_BIT			BIT(1) /* This is only for HAP525_HV */
 #define FORCE_VREG_RDY_BIT			BIT(0)
 
 #define HAP_CFG_MOD_STATUS_SEL_REG		0x70
@@ -202,6 +203,7 @@
 #define HAP_PTN_FIFO_DIN_NUM			4
 
 #define HAP_PTN_FIFO_PLAY_RATE_REG		0x24
+#define PAT_MEM_PLAY_RATE_MASK			GENMASK(7, 4)
 #define FIFO_PLAY_RATE_MASK			GENMASK(3, 0)
 
 #define HAP_PTN_FIFO_EMPTY_CFG_REG		0x2A
@@ -470,6 +472,7 @@ struct mmap_partition {
 struct haptics_mmap {
 	struct mmap_partition	fifo_mmap;
 	struct mmap_partition	pat_sel_mmap[PAT_MEM_MAX];
+	enum s_period		pat_play_rate;
 };
 
 /**
@@ -728,9 +731,9 @@ static void __dump_effects(struct haptics_chip *chip)
 
 			dev_dbg(chip->dev, "%s\n", str);
 			kfree(str);
-			dev_dbg(chip->dev, "FIFO data play rate: %s\n",
-					period_str[effect->fifo->period_per_s]);
-			dev_dbg(chip->dev, "FIFO data play length: %dus\n",
+			dev_dbg(chip->dev, "FIFO data preload: %d, play rate: %s, play length: %uus\n",
+					effect->fifo->preload,
+					period_str[effect->fifo->period_per_s],
 					effect->fifo->play_length_us);
 		}
 
@@ -1374,14 +1377,18 @@ static int haptics_enable_hpwr_vreg(struct haptics_chip *chip, bool en)
 static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
 {
 	int rc = 0;
-	u8 val;
+	u8 mask, val;
+
+	mask = FORCE_VREG_RDY_BIT;
+	if (chip->hw_type == HAP525_HV)
+		mask |= FORCE_VSET_ACK_BIT;
 
 	if ((is_boost_vreg_enabled_in_open_loop(chip) ||
 	     is_haptics_external_powered(chip)) && en) {
 		/* Force VREG_RDY */
+		val = mask;
 		rc = haptics_masked_write(chip, chip->cfg_addr_base,
-				HAP_CFG_VSET_CFG_REG, FORCE_VREG_RDY_BIT,
-				FORCE_VREG_RDY_BIT);
+				HAP_CFG_VSET_CFG_REG, mask, val);
 		if (rc < 0)
 			return rc;
 
@@ -1412,8 +1419,7 @@ static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
 		}
 	} else if (!is_haptics_external_powered(chip)) {
 		rc = haptics_masked_write(chip, chip->cfg_addr_base,
-				HAP_CFG_VSET_CFG_REG,
-				FORCE_VREG_RDY_BIT, 0);
+				HAP_CFG_VSET_CFG_REG, mask, 0);
 	}
 
 	return rc;
@@ -1592,7 +1598,7 @@ static int haptics_update_memory_data(struct haptics_chip *chip,
 }
 
 static int haptics_update_fifo_samples(struct haptics_chip *chip,
-					u8 *samples, u32 length)
+					u8 *samples, u32 length, bool refill)
 {
 	int rc;
 	u8 val;
@@ -1602,7 +1608,7 @@ static int haptics_update_fifo_samples(struct haptics_chip *chip,
 		return -EINVAL;
 	}
 
-	if (chip->hw_type == HAP525_HV) {
+	if (chip->hw_type == HAP525_HV && !refill) {
 		val = MEM_FLUSH_RELOAD_BIT;
 		rc = haptics_write(chip, chip->ptn_addr_base,
 				HAP_PTN_MEM_OP_ACCESS_REG, &val, 1);
@@ -1852,7 +1858,7 @@ static int haptics_set_fifo(struct haptics_chip *chip, struct fifo_cfg *fifo)
 		return available;
 
 	num = min_t(u32, available, num);
-	rc = haptics_update_fifo_samples(chip, fifo->samples, num);
+	rc = haptics_update_fifo_samples(chip, fifo->samples, num, false);
 	if (rc < 0) {
 		dev_err(chip->dev, "write FIFO samples failed, rc=%d\n", rc);
 		return rc;
@@ -2599,6 +2605,15 @@ static int haptics_mmap_config(struct haptics_chip *chip)
 	if (rc < 0)
 		return rc;
 
+	/* config PATx_PLAY_RATE */
+	rc = haptics_masked_write(chip, chip->ptn_addr_base,
+			HAP_PTN_FIFO_PLAY_RATE_REG, PAT_MEM_PLAY_RATE_MASK,
+			FIELD_PREP(PAT_MEM_PLAY_RATE_MASK, chip->mmap.pat_play_rate));
+	if (rc < 0) {
+		dev_err(chip->dev, "Set pat_mem play rate failed, rc=%d\n", rc);
+		return rc;
+	}
+
 	dev_dbg(chip->dev, "haptics memory map configured with FIFO: %d, PAT1:%d, PAT2: %d, PAT3: %d, PAT4: %d\n",
 			chip->mmap.fifo_mmap.length,
 			chip->mmap.pat_sel_mmap[PAT1_MEM].length,
@@ -2619,6 +2634,13 @@ static int haptics_mmap_preload_fifo_effect(struct haptics_chip *chip,
 		return -EINVAL;
 	}
 
+	if (chip->mmap.pat_play_rate == F_RESERVED) {
+		chip->mmap.pat_play_rate = effect->fifo->period_per_s;
+	} else if (chip->mmap.pat_play_rate != effect->fifo->period_per_s) {
+		dev_warn(chip->dev, "PATx_MEM sources only support one play rate\n");
+		goto mmap_failed;
+	}
+
 	length = effect->fifo->num_s;
 	if (length % MMAP_PAT_LEN_PER_LSB)
 		length = (length / MMAP_PAT_LEN_PER_LSB + 1) * MMAP_PAT_LEN_PER_LSB;
@@ -2630,10 +2652,9 @@ static int haptics_mmap_preload_fifo_effect(struct haptics_chip *chip,
 	}
 
 	for (i = PAT4_MEM; i >= PAT1_MEM; i--) {
-		if (chip->mmap.pat_sel_mmap[i].in_use)
-			continue;
-		if (length > chip->mmap.pat_sel_mmap[i].max_size)
-			continue;
+		if (!chip->mmap.pat_sel_mmap[i].in_use &&
+				(length <= chip->mmap.pat_sel_mmap[i].max_size))
+			break;
 	}
 
 	if (i < PAT1_MEM) {
@@ -2676,6 +2697,7 @@ static void haptics_mmap_init(struct haptics_chip *chip)
 			(u32)MMAP_PAT3_PAT4_LEN_MASK * MMAP_PAT_LEN_PER_LSB);
 	chip->mmap.pat_sel_mmap[PAT4_MEM].max_size = min(max_pat_mem_size,
 			(u32)MMAP_PAT3_PAT4_LEN_MASK * MMAP_PAT_LEN_PER_LSB);
+	chip->mmap.pat_play_rate = F_RESERVED;
 }
 
 static int haptics_init_fifo_memory(struct haptics_chip *chip)
@@ -2841,7 +2863,7 @@ static int haptics_init_vmax_config(struct haptics_chip *chip)
 
 	chip->is_hv_haptics = true;
 	chip->max_vmax_mv = MAX_VMAX_MV;
-	if (chip->hw_type == HAP520_MV) {
+	if (chip->hw_type == HAP520_MV || chip->hw_type == HAP525_HV) {
 		rc = haptics_read(chip, chip->cfg_addr_base,
 			HAP_CFG_HW_CONFIG_REG, &val, 1);
 		if (rc < 0)
@@ -2986,7 +3008,7 @@ static irqreturn_t fifo_empty_irq_handler(int irq, void *data)
 		samples = fifo->samples + status->samples_written;
 
 		/* Write more pattern data into FIFO memory. */
-		rc = haptics_update_fifo_samples(chip, samples, num);
+		rc = haptics_update_fifo_samples(chip, samples, num, true);
 		if (rc < 0) {
 			dev_err(chip->dev, "Update FIFO samples failed, rc=%d\n",
 					rc);

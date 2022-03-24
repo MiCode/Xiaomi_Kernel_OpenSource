@@ -2,10 +2,3 @@
 # commonly used symbols
   module_layout
   __put_task_struct
-
-# required by test_stackinit.ko
-  memcpy
-  memset
-  _printk
-  __stack_chk_fail
-  __ubsan_handle_cfi_check_fail_abort

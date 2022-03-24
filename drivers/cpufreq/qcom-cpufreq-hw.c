@@ -45,7 +45,11 @@ struct qcom_cpufreq_soc_data {
 	u32 reg_current_vote;
 	u32 reg_perf_state;
 	u32 reg_cycle_cntr;
+	u32 reg_intr_status;
+	u32 reg_intr_clear;
+	u32 throttle_freq_mask;
 	u8 lut_row_size;
+	u8 throttle_irq_bit;
 	bool accumulative_counter;
 };
 
@@ -60,6 +64,7 @@ struct qcom_cpufreq_data {
 	 */
 	struct mutex throttle_lock;
 	int throttle_irq;
+	char irq_name[15];
 	bool cancel_throttle;
 	struct delayed_work throttle_work;
 	struct cpufreq_policy *policy;
@@ -325,19 +330,24 @@ static void qcom_get_related_cpus(int index, struct cpumask *m)
 
 static unsigned int qcom_lmh_get_throttle_freq(struct qcom_cpufreq_data *data)
 {
-	unsigned int val = readl_relaxed(data->base + data->soc_data->reg_current_vote);
+	const struct qcom_cpufreq_soc_data *soc_data = data->soc_data;
+	unsigned int val = readl_relaxed(data->base + soc_data->reg_current_vote);
 
-	return (val & 0x3FF) * 19200;
+	val &= soc_data->throttle_freq_mask;
+
+	return val * 19200;
 }
 
 static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 {
+	const struct qcom_cpufreq_soc_data *soc_data = data->soc_data;
 	unsigned long max_capacity, capacity, freq_hz, throttled_freq;
 	struct cpufreq_policy *policy = data->policy;
 	int cpu = cpumask_first(policy->cpus);
 	struct device *dev = get_cpu_device(cpu);
 	struct dev_pm_opp *opp;
 	unsigned int freq;
+	u32 val;
 
 	if (!dev)
 		return;
@@ -382,11 +392,16 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 	 * If h/w throttled frequency is higher than what cpufreq has requested
 	 * for, then stop polling and switch back to interrupt mechanism.
 	 */
-	if (throttled_freq >= qcom_cpufreq_hw_get(cpu))
+	if (throttled_freq >= qcom_cpufreq_hw_get(cpu)) {
+		val = readl_relaxed(data->base + soc_data->reg_intr_clear);
+		val |= BIT(soc_data->throttle_irq_bit);
+		writel_relaxed(val, data->base + soc_data->reg_intr_clear);
+
 		enable_irq(data->throttle_irq);
-	else
+	} else {
 		mod_delayed_work(system_highpri_wq, &data->throttle_work,
 				 msecs_to_jiffies(10));
+	}
 
 out:
 	mutex_unlock(&data->throttle_lock);
@@ -403,6 +418,12 @@ static void qcom_lmh_dcvs_poll(struct work_struct *work)
 static irqreturn_t qcom_lmh_dcvs_handle_irq(int irq, void *data)
 {
 	struct qcom_cpufreq_data *c_data = data;
+	const struct qcom_cpufreq_soc_data *soc_data = c_data->soc_data;
+	u32 val;
+
+	val = readl_relaxed(c_data->base + soc_data->reg_intr_status);
+	if (!(val & BIT(soc_data->throttle_irq_bit)))
+		return IRQ_NONE;
 
 	/* Disable interrupt and enable polling */
 	disable_irq_nosync(c_data->throttle_irq);
@@ -416,19 +437,28 @@ static const struct qcom_cpufreq_soc_data qcom_soc_data = {
 	.reg_freq_lut = 0x110,
 	.reg_volt_lut = 0x114,
 	.reg_current_vote = 0x704,
+	.reg_intr_clear = 0x778,
+	.reg_intr_status = 0x77c,
 	.reg_perf_state = 0x920,
 	.reg_cycle_cntr = 0x9c0,
+	.throttle_freq_mask = 0x3ff,
 	.lut_row_size = 32,
+	.throttle_irq_bit = 1,
 	.accumulative_counter = true,
 };
 
 static const struct qcom_cpufreq_soc_data epss_soc_data = {
 	.reg_enable = 0x0,
+	.reg_current_vote = 0x20,
 	.reg_freq_lut = 0x100,
 	.reg_volt_lut = 0x200,
+	.reg_intr_clear = 0x308,
+	.reg_intr_status = 0x30c,
 	.reg_perf_state = 0x320,
 	.reg_cycle_cntr = 0x3c4,
+	.throttle_freq_mask = 0xff,
 	.lut_row_size = 4,
+	.throttle_irq_bit = 2,
 	.accumulative_counter = false,
 };
 
@@ -443,7 +473,6 @@ static int qcom_cpufreq_hw_lmh_init(struct cpufreq_policy *policy, int index)
 {
 	struct qcom_cpufreq_data *data = policy->driver_data;
 	struct platform_device *pdev = cpufreq_get_driver_data();
-	char irq_name[15];
 	int ret;
 
 	/*
@@ -460,11 +489,11 @@ static int qcom_cpufreq_hw_lmh_init(struct cpufreq_policy *policy, int index)
 	mutex_init(&data->throttle_lock);
 	INIT_DEFERRABLE_WORK(&data->throttle_work, qcom_lmh_dcvs_poll);
 
-	snprintf(irq_name, sizeof(irq_name), "dcvsh-irq-%u", policy->cpu);
+	snprintf(data->irq_name, sizeof(data->irq_name), "dcvsh-irq-%u", policy->cpu);
 	ret = request_threaded_irq(data->throttle_irq, NULL, qcom_lmh_dcvs_handle_irq,
-				   IRQF_ONESHOT, irq_name, data);
+				   IRQF_ONESHOT, data->irq_name, data);
 	if (ret) {
-		dev_err(&pdev->dev, "Error registering %s: %d\n", irq_name, ret);
+		dev_err(&pdev->dev, "Error registering %s: %d\n", data->irq_name, ret);
 		return 0;
 	}
 
@@ -480,8 +509,8 @@ static void qcom_cpufreq_hw_lmh_exit(struct qcom_cpufreq_data *data)
 	data->cancel_throttle = true;
 	mutex_unlock(&data->throttle_lock);
 
-	cancel_delayed_work_sync(&data->throttle_work);
 	free_irq(data->throttle_irq, data);
+	cancel_delayed_work_sync(&data->throttle_work);
 }
 
 static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)

@@ -564,7 +564,7 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 {
 	struct resource *res = dev->res[EP_PCIE_RES_MMIO].resource;
 	u32 mask = resource_size(res);
-	u32 msix_mask = 0x1FFF; //8KB size
+	u32 msix_mask = 0x7FFF; //32KB size
 	u32 properties = 0x4; /* 64 bit Non-prefetchable memory */
 	bool msix_cap = false;
 	int ret;

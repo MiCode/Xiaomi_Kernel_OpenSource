@@ -12,6 +12,7 @@ rpmh-regulator.ko
 bwmon.ko
 qcom-cpufreq-hw.ko
 sched-walt.ko
+sched-walt-debug.ko
 clk-dummy.ko
 clk-qcom.ko
 cmd-db.ko

@@ -638,6 +638,12 @@ static const struct stats_config rpm_data = {
 	.appended_stats_avail = true,
 };
 
+static const struct stats_config rpmh_legacy_data = {
+	.offset_addr = 0x4,
+	.num_records = 3,
+	.appended_stats_avail = false,
+};
+
 static const struct stats_config rpmh_data = {
 	.offset_addr = 0x4,
 	.ddr_offset_addr = 0x1c,
@@ -655,6 +661,7 @@ static const struct stats_config rpmh_v2_data = {
 
 static const struct of_device_id soc_sleep_stats_table[] = {
 	{ .compatible = "qcom,rpm-sleep-stats", .data = &rpm_data },
+	{ .compatible = "qcom,rpmh-sleep-stats-legacy", .data = &rpmh_legacy_data },
 	{ .compatible = "qcom,rpmh-sleep-stats", .data = &rpmh_data },
 	{ .compatible = "qcom,rpmh-sleep-stats-v2", .data = &rpmh_v2_data },
 	{ }

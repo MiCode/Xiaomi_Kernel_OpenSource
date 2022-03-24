@@ -938,6 +938,7 @@ struct msm_pcie_dev_t {
 	uint32_t aux_clk_freq;
 	bool linkdown_panic;
 	uint32_t boot_option;
+	uint32_t link_speed_override;
 	bool lpi_enable;
 
 	uint32_t rc_idx;
@@ -1388,6 +1389,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->aer_enable ? "" : "not");
 	PCIE_DBG_FS(dev, "boot_option is 0x%x\n",
 		dev->boot_option);
+	PCIE_DBG_FS(dev, "link_speed_override is 0x%x\n",
+		dev->link_speed_override);
 	PCIE_DBG_FS(dev, "phy_ver is %d\n",
 		dev->phy_ver);
 	PCIE_DBG_FS(dev, "drv_ready is %d\n",
@@ -1950,12 +1953,51 @@ static ssize_t panic_on_aer_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(panic_on_aer);
 
+static ssize_t link_speed_override_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);
+
+	return scnprintf(buf, PAGE_SIZE,
+			 "PCIe: RC%d: link speed override is set to: 0x%x\n",
+			 pcie_dev->rc_idx, pcie_dev->link_speed_override);
+}
+
+static ssize_t link_speed_override_store(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	u32 link_speed_override;
+	struct msm_pcie_dev_t *pcie_dev = dev_get_drvdata(dev);
+	int ret;
+
+	if (kstrtou32(buf, 0, &link_speed_override))
+		return -EINVAL;
+
+	/* Set target PCIe link speed as maximum device/link is capable of */
+	ret = msm_pcie_set_target_link_speed(pcie_dev->rc_idx,
+					     link_speed_override, true);
+	if (ret) {
+		PCIE_DBG(pcie_dev,
+			 "PCIe: RC%d: Failed to override link speed: %d. %d\n",
+			 pcie_dev->rc_idx, link_speed_override, ret);
+	} else {
+		pcie_dev->link_speed_override = link_speed_override;
+		PCIE_DBG(pcie_dev, "PCIe: RC%d: link speed override set to: %d\n",
+			 pcie_dev->rc_idx, link_speed_override);
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(link_speed_override);
+
 static struct attribute *msm_pcie_debug_attrs[] = {
 	&dev_attr_link_check_max_count.attr,
 	&dev_attr_enumerate.attr,
 	&dev_attr_l23_rdy_poll_timeout.attr,
 	&dev_attr_boot_option.attr,
 	&dev_attr_panic_on_aer.attr,
+	&dev_attr_link_speed_override.attr,
 	NULL,
 };
 
@@ -6502,6 +6544,13 @@ int msm_pcie_prevent_l1(struct pci_dev *pci_dev)
 				pcie_dev->rc_idx, pci_dev->bus->number,
 				PCI_SLOT(pci_dev->devfn),
 				PCI_FUNC(pci_dev->devfn));
+
+			PCIE_ERR(pcie_dev,
+				"PCIe: RC%d: dump PCIe registers\n",
+				pcie_dev->rc_idx);
+			pcie_parf_dump(pcie_dev);
+			pcie_dm_core_dump(pcie_dev);
+			pcie_phy_dump(pcie_dev);
 			ret = -EIO;
 			goto err;
 		}
@@ -7389,7 +7438,7 @@ static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
 				   struct msm_pcie_drv_msg *msg)
 {
 	struct msm_pcie_drv_info *drv_info = pcie_dev->drv_info;
-	int ret;
+	int ret, re_try = 5; /* sleep 5 ms per re-try */
 
 	mutex_lock(&pcie_drv.rpmsg_lock);
 	if (!pcie_drv.rpdev) {
@@ -7408,8 +7457,15 @@ static int msm_pcie_drv_send_rpmsg(struct msm_pcie_dev_t *pcie_dev,
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: DRV: sending rpmsg: command: 0x%x\n",
 		pcie_dev->rc_idx, msg->pkt.dword[0]);
 
+retry:
 	ret = rpmsg_trysend(pcie_drv.rpdev->ept, msg, sizeof(*msg));
 	if (ret) {
+		if (ret == -EBUSY && re_try) {
+			usleep_range(5000, 5001);
+			re_try--;
+			goto retry;
+		}
+
 		PCIE_ERR(pcie_dev,
 			 "PCIe: RC%d: DRV: failed to send rpmsg, ret:%d\n",
 			pcie_dev->rc_idx, ret);

@@ -14,6 +14,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/phy.h>
+#include <linux/netdevice.h>
 
 #define MTL_MAX_RX_QUEUES	8
 #define MTL_MAX_TX_QUEUES	8
@@ -251,6 +252,7 @@ struct plat_stmmacenet_data {
 	struct clk *pclk;
 	struct clk *clk_ptp_ref;
 	unsigned int clk_ptp_rate;
+	unsigned int clk_ptp_req_rate;
 	unsigned int clk_ref_rate;
 	unsigned int mult_fact_100ns;
 	s32 ptp_max_adj;
@@ -284,5 +286,10 @@ struct plat_stmmacenet_data {
 	struct emac_emb_smmu_cb_ctx stmmac_emb_smmu_ctx;
 	bool phy_intr_en_extn_stm;
 	int has_c22_mdio_probe_capability;
+	u16	(*tx_select_queue)
+		(struct net_device *dev, struct sk_buff *skb,
+		 struct net_device *sb_dev);
+	unsigned int (*get_plat_tx_coal_frames)
+		(struct sk_buff *skb);
 };
 #endif
