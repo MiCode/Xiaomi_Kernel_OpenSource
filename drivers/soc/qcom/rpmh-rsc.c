@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2018, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
@@ -884,7 +885,8 @@ static struct tcs_group *get_tcs_from_index(struct rsc_drv *drv, int tcs_id)
 	return NULL;
 }
 
-static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl)
+static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl,
+			   bool *aoss_irq_sts)
 {
 	int ch = 0;
 	struct tcs_group *tcs_grp = get_tcs_from_index(drv, tcs_id);
@@ -912,6 +914,8 @@ static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl)
 		tcs_id, sts ? "IDLE" : "BUSY", data,
 		(irq_sts & BIT(tcs_id)) ? "COMPLETED" : "PENDING");
 
+	*aoss_irq_sts = (irq_sts & BIT(tcs_id)) ? true : false;
+
 print_tcs_data:
 	for_each_set_bit(i, &cmds_enabled, tcs_grp->ncpt) {
 		addr = read_tcs_cmd(drv, drv->regs[RSC_DRV_CMD_ADDR], tcs_id, i);
@@ -930,7 +934,7 @@ print_tcs_data:
 void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 {
 	struct irq_data *rsc_irq_data = irq_get_irq_data(drv->irq);
-	bool irq_sts;
+	bool gic_irq_sts, aoss_irq_sts;
 	int i;
 	int busy = 0;
 	unsigned long accl = 0;
@@ -942,7 +946,7 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 		if (!test_bit(i, drv->tcs_in_use))
 			continue;
 		busy++;
-		print_tcs_info(drv, i, &accl);
+		print_tcs_info(drv, i, &accl, &aoss_irq_sts);
 	}
 
 	if (!rsc_irq_data) {
@@ -950,9 +954,9 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 		return;
 	}
 
-	irq_get_irqchip_state(drv->irq, IRQCHIP_STATE_PENDING, &irq_sts);
+	irq_get_irqchip_state(drv->irq, IRQCHIP_STATE_PENDING, &gic_irq_sts);
 	pr_warn("HW IRQ %lu is %s at GIC\n", rsc_irq_data->hwirq,
-		irq_sts ? "PENDING" : "NOT PENDING");
+		gic_irq_sts ? "PENDING" : "NOT PENDING");
 	pr_warn("Completion is %s to finish\n",
 		completion_done(compl) ? "PENDING" : "NOT PENDING");
 
@@ -961,10 +965,10 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 		strlcat(str, " ", sizeof(str));
 	}
 
-	if (busy && !irq_sts)
+	if ((busy && !gic_irq_sts) || !aoss_irq_sts)
 		pr_warn("ERROR:Accelerator(s) { %s } at AOSS did not respond\n",
 			str);
-	else if (irq_sts)
+	else if (gic_irq_sts)
 		pr_warn("ERROR:Possible lockup in Linux\n");
 
 	/* Show fast path status, if the TCS is busy */
@@ -981,7 +985,7 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 
 			if (!sts) {
 				pr_err("Fast-path TCS information:\n");
-				print_tcs_info(drv, tcs_id, &accl);
+				print_tcs_info(drv, tcs_id, &accl, &aoss_irq_sts);
 			}
 		}
 	}
