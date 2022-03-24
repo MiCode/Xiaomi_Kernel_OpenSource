@@ -620,6 +620,7 @@
   dma_buf_get
   dma_buf_map_attachment
   dma_buf_put
+  dma_buf_set_name
   dma_buf_unmap_attachment
   dma_contiguous_default_area
   dma_fence_add_callback
@@ -691,8 +692,8 @@
   extcon_set_state_sync
   fd_install
   fget
-  find_vma
   find_vpid
+  __find_vma
   finish_wait
   firmware_request_nowarn
   flush_dcache_page
@@ -1384,6 +1385,7 @@
   rdev_get_drvdata
   reboot_mode
   refcount_dec_and_lock
+  reclaim_shmem_address_space
   refcount_dec_not_one
   refcount_warn_saturate
   register_console
