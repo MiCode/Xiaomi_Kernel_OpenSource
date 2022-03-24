@@ -4211,6 +4211,7 @@ EXPORT_SYMBOL_GPL(shmem_read_mapping_page_gfp);
 
 int reclaim_shmem_address_space(struct address_space *mapping)
 {
+#ifdef CONFIG_SHMEM
 	pgoff_t start = 0;
 	struct page *page;
 	LIST_HEAD(page_list);
@@ -4244,5 +4245,8 @@ int reclaim_shmem_address_space(struct address_space *mapping)
 	reclaimed = reclaim_pages_from_list(&page_list);
 
 	return reclaimed;
+#else
+	return 0;
+#endif
 }
 EXPORT_SYMBOL_GPL(reclaim_shmem_address_space);
