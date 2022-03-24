@@ -9,7 +9,7 @@
 	interrupt-controller;
 	#interrupt-cells = <4>;
 
-	qcom,pm6150l@4 {
+	pm6150l_4: qcom,pm6150l@4 {
 		compatible = "qcom,spmi-pmic";
 		reg = <4 SPMI_USID>;
 		#address-cells = <1>;
@@ -114,7 +114,7 @@
 		};
 	};
 
-	qcom,pm6150l@5 {
+	pm6150l_5: qcom,pm6150l@5 {
 		compatible ="qcom,spmi-pmic";
 		reg = <5 SPMI_USID>;
 		#address-cells = <1>;
