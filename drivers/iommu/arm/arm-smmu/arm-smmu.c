@@ -1881,8 +1881,12 @@ static void arm_smmu_write_smr(struct arm_smmu_device *smmu, int idx)
 	u32 reg = FIELD_PREP(ARM_SMMU_SMR_ID, smr->id) |
 		  FIELD_PREP(ARM_SMMU_SMR_MASK, smr->mask);
 
-	if (!(smmu->features & ARM_SMMU_FEAT_EXIDS) && smr->valid)
+	if (!(smmu->features & ARM_SMMU_FEAT_EXIDS) && smr->valid) {
 		reg |= ARM_SMMU_SMR_VALID;
+		smr->state = SMR_PROGRAMMED;
+	} else {
+		smr->state = SMR_INVALID;
+	}
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), reg);
 }
 
@@ -2045,6 +2049,7 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 			smrs[idx].id = sid;
 			smrs[idx].mask = mask;
 			smrs[idx].valid = true;
+			smrs[idx].state = SMR_ALLOCATED;
 		}
 		smmu->s2crs[idx].count++;
 		cfg->smendx[i] = (s16)idx;
@@ -3240,14 +3245,21 @@ static int __arm_smmu_sid_switch(struct device *dev, void *data)
 		return 0;
 
 	smmu = cfg->smmu;
+
+	arm_smmu_rpm_get(smmu);
 	for_each_cfg_sme(cfg, fwspec, i, idx) {
 		if (dir == SID_RELEASE) {
 			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_SMR(idx), 0);
 			arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_S2CR(idx), 0);
+			/* Update smr structure to inline with actual operation */
+			smmu->smrs[idx].state = SMR_ALLOCATED;
 		} else {
 			arm_smmu_write_sme(smmu, idx);
 		}
 	}
+	 /* Add barrier to ensure that the SMR register writes is completed. */
+	wmb();
+	arm_smmu_rpm_put(smmu);
 	return 0;
 }
 
@@ -3442,6 +3454,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 			 */
 			smrs.mask = FIELD_GET(ARM_SMMU_SMR_MASK,
 					      smr & ~ARM_SMMU_SMR_VALID);
+			smrs.state = SMR_PROGRAMMED;
 		}
 
 		for (index = 0; index < num_handoff_smrs; index++) {
