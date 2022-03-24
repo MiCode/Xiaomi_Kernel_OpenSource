@@ -315,8 +315,10 @@ dtbo-$(CONFIG_ARCH_PARROT) += parrot-rumi-overlay.dtbo \
 	parrot-idp-wcn3990-amoled-rcm-overlay.dtbo \
 	parrot-idp-wcn6750-amoled-rcm-overlay.dtbo \
 	parrot-idp-wcn6750-amoled-overlay.dtbo \
+	parrot-idp-nopmi-overlay.dtbo \
 	parrot-qrd-overlay.dtbo \
-	parrot-qrd-wcn6750-overlay.dtbo
+	parrot-qrd-wcn6750-overlay.dtbo \
+	parrot-qrd-nopmi-overlay.dtbo
 
 parrot-rumi-overlay.dtbo-base := parrot.dtb
 parrot-atp-overlay.dtbo-base := parrot.dtb
@@ -325,8 +327,10 @@ parrot-idp-wcn3990-overlay.dtbo-base := parrot.dtb
 parrot-idp-wcn3990-amoled-rcm-overlay.dtbo-base := parrot.dtb
 parrot-idp-wcn6750-amoled-rcm-overlay.dtbo-base := parrot.dtb
 parrot-idp-wcn6750-amoled-overlay.dtbo-base := parrot.dtb
+parrot-idp-nopmi-overlay.dtbo-base := parrot.dtb
 parrot-qrd-overlay.dtbo-base := parrot.dtb
 parrot-qrd-wcn6750-overlay.dtbo-base := parrot.dtb
+parrot-qrd-nopmi-overlay.dtbo-base := parrot.dtb
 else
 dtb-$(CONFIG_ARCH_PARROT) += parrot-rumi.dtb \
 	parrot-atp.dtb \
@@ -334,9 +338,11 @@ dtb-$(CONFIG_ARCH_PARROT) += parrot-rumi.dtb \
 	parrot-idp-wcn3990.dtb \
 	parrot-idp-wcn3990-amoled-rcm.dtb \
 	parrot-idp-wcn6750-amoled.dtb \
+	parrot-idp-nopmi.dtb \
 	parrot-idp-wcn6750-amoled-rcm.dtb \
 	parrot-qrd.dtb \
-	parrot-qrd-wcn6750.dtb
+	parrot-qrd-wcn6750.dtb \
+	parrot-qrd-nopmi.dtb
 endif
 
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
