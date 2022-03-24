@@ -47,7 +47,7 @@
 			reg = <0xa600000 0xe000>;
 
 			iommus = <&apps_smmu 0x020 0x0>;
-			qcom,iommu-dma = "bypass";
+			qcom,iommu-dma = "atomic";
 			qcom,iommu-dma-addr-pool = <0x90000000 0x60000000>;
 			dma-coherent;
 
