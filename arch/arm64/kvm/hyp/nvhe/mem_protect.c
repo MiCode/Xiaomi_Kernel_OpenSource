@@ -1073,10 +1073,14 @@ static int guest_complete_donation(u64 addr, const struct pkvm_mem_transition *t
 	u64 size = tx->nr_pages * PAGE_SIZE;
 	int err;
 
-	if (tx->initiator.id == PKVM_ID_HOST && ipa_in_pvmfw_region(vm, addr)) {
-		err = pkvm_load_pvmfw_pages(vm, addr, phys, size);
-		if (err)
-			return err;
+	if (tx->initiator.id == PKVM_ID_HOST) {
+		psci_mem_protect_inc();
+
+		if (ipa_in_pvmfw_region(vm, addr)) {
+			err = pkvm_load_pvmfw_pages(vm, addr, phys, size);
+			if (err)
+				return err;
+		}
 	}
 
 	return kvm_pgtable_stage2_map(&vm->pgt, addr, size, phys, prot,
@@ -1893,6 +1897,7 @@ int __pkvm_host_reclaim_page(u64 pfn)
 		if (ret)
 			goto unlock;
 		page->flags &= ~HOST_PAGE_NEED_POISONING;
+		psci_mem_protect_dec();
 	}
 
 	ret = host_stage2_set_owner_locked(addr, PAGE_SIZE, pkvm_host_id);
