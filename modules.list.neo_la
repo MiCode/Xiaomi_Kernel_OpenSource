@@ -63,3 +63,4 @@ dispcc-neo.ko
 secure_buffer.ko
 clk-rpmh.ko
 qcom-cpufreq-hw.ko
+tcsrcc.ko
