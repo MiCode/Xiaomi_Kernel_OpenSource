@@ -252,7 +252,12 @@
 	status = "ok";
 };
 
+&pmr735a_spmi {
+	reg = <6 SPMI_USID>;
+};
+
 &pmr735a_tz {
+	interrupts = <0x6 0xa 0x0 IRQ_TYPE_EDGE_BOTH>;
 	io-channels = <&pmk8350_vadc PMR735A_ADC7_DIE_TEMP>;
 	io-channel-names = "thermal";
 };
