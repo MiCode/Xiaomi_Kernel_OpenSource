@@ -52,6 +52,7 @@
 #include <trace/hooks/traps.h>
 #include <trace/hooks/fips140.h>
 #include <trace/hooks/thermal.h>
+#include <trace/hooks/rwsem.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -253,3 +254,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_modify_thermal_request_freq);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_modify_thermal_target_freq);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rproc_recovery_set);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_enable_thermal_power_throttle);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_init);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_finished);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_rwsem_list_add);

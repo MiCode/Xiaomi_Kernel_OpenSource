@@ -918,4 +918,26 @@ config ANON_VMA_NAME
 
 source "mm/damon/Kconfig"
 
+config ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT
+       def_bool n
+
+config SPECULATIVE_PAGE_FAULT
+	bool "Speculative page faults"
+	default y
+	depends on ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT && MMU && SMP
+	help
+	  Try to handle user space page faults without holding the mmap lock.
+
+	  Instead of blocking writers through the use of mmap lock,
+	  the page fault handler merely verifies, at the end of the page
+	  fault, that no writers have been running concurrently with it.
+
+	  In high concurrency situations, the speculative fault handler
+	  gains a throughput advantage by avoiding having to update the
+	  mmap lock reader count.
+
+	  If the check fails due to a concurrent writer, or due to hitting
+	  an unsupported case, the fault handler falls back to classical
+	  processing using the mmap read lock.
+
 endmenu
