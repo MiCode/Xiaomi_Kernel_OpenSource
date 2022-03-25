@@ -2044,7 +2044,6 @@ out:
 
 int ep_pcie_core_disable_endpoint(void)
 {
-	u32 val = 0;
 	unsigned long irqsave_flags;
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
 
@@ -2073,10 +2072,6 @@ int ep_pcie_core_disable_endpoint(void)
 			dev->rev);
 	}
 	dev->conf_ipa_msi_iatu = false;
-
-	val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
-	EP_PCIE_DBG(dev, "PCIe V%d: LTSSM_STATE during disable:0x%x\n",
-		dev->rev, (val >> 0xC) & 0x3f);
 
 	if (!dev->tcsr_not_supported) {
 		EP_PCIE_DBG2(dev, "PCIe V%d: Set pcie_disconnect_req during D3_COLD\n",
