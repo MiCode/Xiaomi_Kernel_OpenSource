@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt)	"qti-flash: %s: " fmt, __func__
 
@@ -175,6 +175,7 @@ struct flash_switch_data {
  * @module_en:			Flag used to enable/disable flash LED module
  * @trigger_lmh:		Flag to enable lmh mitigation
  * @non_all_mask_switch_present: Used in handling symmetry for all_mask switch
+ * @debug_board_present:	Flag to indicate debug board present
  */
 struct qti_flash_led {
 	struct platform_device		*pdev;
@@ -199,6 +200,7 @@ struct qti_flash_led {
 	bool				module_en;
 	bool				trigger_lmh;
 	bool				non_all_mask_switch_present;
+	bool				debug_board_present;
 };
 
 struct flash_current_headroom {
@@ -344,7 +346,7 @@ static int qti_flash_lmh_mitigation_config(struct qti_flash_led *led,
 	u8 val = enable ? FLASH_LED_LMH_MITIGATION_SW_EN : 0;
 	int rc;
 
-	if (enable == led->trigger_lmh)
+	if (led->debug_board_present || enable == led->trigger_lmh)
 		return 0;
 
 	rc = qti_flash_led_write(led, FLASH_LED_MITIGATION_SW, &val, 1);
@@ -943,6 +945,7 @@ static int qti_flash_led_calc_max_avail_current(
 
 	if (!rbatt_uohm) {
 		*max_current_ma = MAX_FLASH_CURRENT_MA;
+		led->debug_board_present = true;
 		return 0;
 	}
 
