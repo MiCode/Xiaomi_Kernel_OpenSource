@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -369,7 +369,7 @@ static const struct file_operations sys_pm_vx_fops = {
 	.release = single_release,
 };
 
-#if defined(DEBUG_FS)
+#if defined(CONFIG_DEBUG_FS)
 static int vx_create_debug_nodes(struct vx_platform_data *pd)
 {
 	struct dentry *pf;
@@ -424,7 +424,7 @@ static int vx_probe(struct platform_device *pdev)
 	pd->ndrv = i;
 	pd->drvs = drvs;
 
-#if defined(DEBUG_FS)
+#if defined(CONFIG_DEBUG_FS)
 	ret = vx_create_debug_nodes(pd);
 	if (ret)
 		return ret;
@@ -476,7 +476,7 @@ static int vx_remove(struct platform_device *pdev)
 {
 	struct vx_platform_data *pd = platform_get_drvdata(pdev);
 
-#if defined(DEBUG_FS)
+#if defined(CONFIG_DEBUG_FS)
 	debugfs_remove(pd->vx_file);
 #endif
 	device_remove_file(&pdev->dev, &dev_attr_debug_time_ms);
