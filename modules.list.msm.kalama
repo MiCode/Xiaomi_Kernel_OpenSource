@@ -8,11 +8,14 @@ camcc-kalama.ko
 qcom_ipcc.ko
 qcom_ipc_logging.ko
 qcom-pdc.ko
+qcom_tsens.ko
 rpmh-regulator.ko
 bwmon.ko
 qcom-cpufreq-hw.ko
 sched-walt.ko
 sched-walt-debug.ko
+thermal_pause.ko
+cpu_hotplug.ko
 clk-dummy.ko
 clk-qcom.ko
 cmd-db.ko
@@ -88,3 +91,4 @@ sdhci-msm.ko
 qcom_rimps.ko
 c1dcvs_vendor.ko
 c1dcvs_scmi.ko
+bcl_pmic5.ko
