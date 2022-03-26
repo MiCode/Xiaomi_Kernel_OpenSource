@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
 
-// Copyright (c) 2021-2022 The Linux Foundation. All rights reserved.
 // Copyright (c) 2018-19, Linaro Limited
 // Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
 
