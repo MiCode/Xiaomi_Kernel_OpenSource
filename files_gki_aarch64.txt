@@ -1242,6 +1242,7 @@ drivers/net/can/dev/skb.c
 drivers/net/dummy.c
 drivers/net/ifb.c
 drivers/net/loopback.c
+drivers/net/macsec.c
 drivers/net/mdio/fwnode_mdio.c
 drivers/net/mdio/of_mdio.c
 drivers/net/mii.c
@@ -3586,6 +3587,7 @@ include/linux/virtio_ring.h
 include/linux/virtio_vsock.h
 include/linux/vmacache.h
 include/linux/vmalloc.h
+include/linux/vm_event.h
 include/linux/vm_event_item.h
 include/linux/vmpressure.h
 include/linux/vmstat.h
@@ -3734,6 +3736,7 @@ include/net/llc_sap.h
 include/net/lwtunnel.h
 include/net/mac80211.h
 include/net/mac802154.h
+include/net/macsec.h
 include/net/mip6.h
 include/net/mld.h
 include/net/mpls.h
@@ -4057,6 +4060,7 @@ include/trace/hooks/power.h
 include/trace/hooks/preemptirq.h
 include/trace/hooks/printk.h
 include/trace/hooks/remoteproc.h
+include/trace/hooks/rwsem.h
 include/trace/hooks/sched.h
 include/trace/hooks/selinux.h
 include/trace/hooks/softlockup.h
@@ -4204,6 +4208,7 @@ include/uapi/linux/if_hippi.h
 include/uapi/linux/if_infiniband.h
 include/uapi/linux/if_link.h
 include/uapi/linux/if_ltalk.h
+include/uapi/linux/if_macsec.h
 include/uapi/linux/if_packet.h
 include/uapi/linux/if_pppol2tp.h
 include/uapi/linux/if_pppox.h

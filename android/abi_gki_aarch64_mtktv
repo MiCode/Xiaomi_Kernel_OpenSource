@@ -568,7 +568,7 @@
   _find_first_bit
   find_get_pid
   _find_next_bit
-  find_vma
+  __find_vma
   finish_wait
   flush_dcache_page
   flush_delayed_work
