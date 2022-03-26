@@ -2544,7 +2544,7 @@ static void set_rfr_wm(struct msm_geni_serial_port *port)
 static void msm_geni_serial_shutdown(struct uart_port *uport)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
-	int ret;
+	int ret = 0;
 
 	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev, "%s: %d\n", __func__, true);
 	/* Stop the console before stopping the current tx */
@@ -2574,11 +2574,11 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 			msm_port->ioctl_count = 0;
 		}
 
-			ret = pm_runtime_put_sync_suspend(uport->dev);
-			if (ret) {
-				UART_LOG_DBG(msm_port->ipc_log_pwr, uport->dev,
-				"%s: Failed to suspend:%d\n", __func__, ret);
-			}
+		ret = pm_runtime_put_sync_suspend(uport->dev);
+		if (ret)
+			UART_LOG_DBG(msm_port->ipc_log_pwr, uport->dev,
+				     "%s: Failed to suspend:%d\n",
+				     __func__, ret);
 
 		if (msm_port->wakeup_irq > 0 && msm_port->wakeup_enabled) {
 			irq_set_irq_wake(msm_port->wakeup_irq, 0);
