@@ -55,3 +55,4 @@ llcc-qcom.ko
 msm_dma_iommu_mapping.ko
 socinfo.ko
 gh_virt_wdt.ko
+tcsrcc.ko
