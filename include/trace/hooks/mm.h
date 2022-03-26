@@ -33,6 +33,9 @@ DECLARE_HOOK(android_vh_drain_all_pages_bypass,
 DECLARE_HOOK(android_vh_cma_drain_all_pages_bypass,
 	TP_PROTO(unsigned int migratetype, bool *bypass),
 	TP_ARGS(migratetype, bypass));
+DECLARE_HOOK(android_vh_pcplist_add_cma_pages_bypass,
+	TP_PROTO(int migratetype, bool *bypass),
+	TP_ARGS(migratetype, bypass));
 
 #endif /* _TRACE_HOOK_MM_H */
 
