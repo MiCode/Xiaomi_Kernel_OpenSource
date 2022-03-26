@@ -5191,8 +5191,6 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 		goto err;
 	}
 
-	dwc3_msm_set_clk_sel(mdwc);
-
 	ret = of_platform_populate(node, NULL, NULL, mdwc->dev);
 	if (ret) {
 		dev_err(mdwc->dev,
@@ -5930,7 +5928,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dbg_event(0xFF, "StrtHost gync",
 			atomic_read(&mdwc->dev->power.usage_count));
 		clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
-		dwc3_msm_set_clk_sel(mdwc);
 		if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER) {
 			mdwc->ss_phy->flags |= PHY_HOST_MODE;
 			usb_phy_notify_connect(mdwc->ss_phy,
