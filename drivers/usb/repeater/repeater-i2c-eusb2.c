@@ -33,21 +33,20 @@
 #define RESET_CONTROL			0x01
 #define LINK_CONTROL1			0x02
 #define LINK_CONTROL2			0x03
-#define LINK_CONTROL3			0x04
-#define eUSB2_RX_CONTROL		0x05
-#define eUSB2_TX_CONTROL		0x06
-#define USB2_RX_CONTROL			0x07
-#define USB2_TX_CONTROL1		0x08
-#define USB2_TX_CONTROL2		0x09
-#define USB2_HS_TERMINATION		0x0A
-#define USB2_HS_DISCONNECT_THRESHOLD	0x0B
-#define RAP_SIGNATURE			0x0E
-#define DEVICE_STATUS			0x10
-#define LINK_STATUS			0x11
-#define REVISION_ID			0x14
-#define CHIP_ID_0			0x15
-#define CHIP_ID_1			0x16
-#define CHIP_ID_2			0x17
+#define eUSB2_RX_CONTROL		0x04
+#define eUSB2_TX_CONTROL		0x05
+#define USB2_RX_CONTROL			0x06
+#define USB2_TX_CONTROL1		0x07
+#define USB2_TX_CONTROL2		0x08
+#define USB2_HS_TERMINATION		0x09
+#define RAP_SIGNATURE			0x0D
+#define VDX_CONTROL			0x0E
+#define DEVICE_STATUS			0x0F
+#define LINK_STATUS			0x10
+#define REVISION_ID			0x13
+#define CHIP_ID_0			0x14
+#define CHIP_ID_1			0x15
+#define CHIP_ID_2			0x16
 
 /* TI eUSB2 repeater registers */
 #define GPIO0_CONFIG			0x00
@@ -84,7 +83,7 @@ struct eusb2_repeater {
 
 	struct gpio_desc		*reset_gpiod;
 	int				reset_gpio_irq;
-	u8				*param_override_seq;
+	u32				*param_override_seq;
 	u8				param_override_seq_cnt;
 };
 
@@ -132,7 +131,7 @@ static int eusb2_i2c_write_reg(struct eusb2_repeater *er, u8 reg, u8 mask, u8 va
 	return 0;
 }
 
-static void eusb2_repeater_update_seq(struct eusb2_repeater *er, u8 *seq, u8 cnt)
+static void eusb2_repeater_update_seq(struct eusb2_repeater *er, u32 *seq, u8 cnt)
 {
 	int i;
 	u8 mask = 0xFF;
@@ -407,7 +406,7 @@ static int eusb2_repeater_i2c_probe(struct i2c_client *client)
 			goto err_probe;
 		}
 
-		ret = of_property_read_u8_array(dev->of_node,
+		ret = of_property_read_u32_array(dev->of_node,
 				"qcom,param-override-seq",
 				er->param_override_seq,
 				er->param_override_seq_cnt);
