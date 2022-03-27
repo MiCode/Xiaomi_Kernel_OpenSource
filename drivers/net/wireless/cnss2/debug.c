@@ -188,6 +188,8 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 	char buf[64];
 	char *cmd;
 	unsigned int len = 0;
+	char *sptr, *token;
+	const char *delim = " ";
 	int ret = 0;
 
 	if (!plat_priv)
@@ -198,7 +200,13 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 		return -EFAULT;
 
 	buf[len] = '\0';
-	cmd = buf;
+	sptr = buf;
+
+	token = strsep(&sptr, delim);
+	if (!token)
+		return -EINVAL;
+	cmd = token;
+
 	cnss_pr_dbg("Received dev_boot debug command: %s\n", cmd);
 
 	if (sysfs_streq(cmd, "on")) {
@@ -221,6 +229,10 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 		ret = cnss_set_host_sol_value(plat_priv, 1);
 	} else if (sysfs_streq(cmd, "deassert_host_sol")) {
 		ret = cnss_set_host_sol_value(plat_priv, 0);
+	} else if (sysfs_streq(cmd, "pdc_update")) {
+		if (!sptr)
+			return -EINVAL;
+		ret = cnss_aop_send_msg(plat_priv, sptr);
 	} else {
 		pci_priv = plat_priv->bus_priv;
 		if (!pci_priv)
@@ -266,7 +278,9 @@ static int cnss_dev_boot_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "shutdown: full power off sequence to shutdown device\n");
 	seq_puts(s, "assert: trigger firmware assert\n");
 	seq_puts(s, "set_cbc_done: Set cold boot calibration done status\n");
-
+	seq_puts(s, "\npdc_update usage:");
+	seq_puts(s, "1. echo pdc_update {class: wlan_pdc ss: <pdc_ss>, res: <vreg>.<mode>, <seq>: <val>} > <debugfs_path>/cnss/dev_boot\n");
+	seq_puts(s, "2. echo pdc_update {class: wlan_pdc ss: <pdc_ss>, res: pdc, enable: <val>} > <debugfs_path>/cnss/dev_boot\n");
 	return 0;
 }
 
