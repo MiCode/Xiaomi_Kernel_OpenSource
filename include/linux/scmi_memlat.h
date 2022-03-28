@@ -14,7 +14,7 @@
 
 
 #define SCMI_PROTOCOL_MEMLAT    0x80
-#define MAX_EV_CNTRS		7
+#define MAX_EV_CNTRS		4 /* Maximum number of grp or common events */
 #define MAX_NAME_LEN		20
 
 struct scmi_protocol_handle;
@@ -45,8 +45,10 @@ struct scmi_memlat_vendor_ops {
 			   u32 cpus_mpidr, u32 hw_type);
 	int (*set_mon)(const struct scmi_protocol_handle *ph, u32 cpus_mpidr,
 		       u32 hw_type, u32 mon_type, u32 index, const char *mon_name);
-	int (*set_ev_map)(const struct scmi_protocol_handle *ph, u32 hw_type,
-			  void *buf);
+	int (*set_grp_ev_map)(const struct scmi_protocol_handle *ph, u32 hw_type,
+			  void *buf, u32 num_evs);
+	int (*set_common_ev_map)(const struct scmi_protocol_handle *ph, void *buf,
+				 u32 num_evs);
 	int (*ipm_ceil)(const struct scmi_protocol_handle *ph,
 			u32 hw_type, u32 index, u32 val);
 	int (*fe_stall_floor)(const struct scmi_protocol_handle *ph,

@@ -1154,21 +1154,13 @@ static inline bool should_enable_memlat_fp(void)
 	return false;
 }
 
-static int configure_cpucp_grp(struct memlat_group *grp)
+static int configure_cpucp_common_events(void)
 {
 	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
 	int ret = 0, i, j = 0;
-	struct device_node *of_node = grp->dev->of_node;
-	u8 ev_map[MAX_EV_CNTRS];
+	u8 ev_map[NUM_COMMON_EVS];
 
-	ret = ops->set_mem_grp(memlat_data->ph, *cpumask_bits(cpu_possible_mask),
-			       grp->hw_type);
-	if (ret < 0) {
-		pr_err("Failed to configure mem grp %s\n", of_node->name);
-		return ret;
-	}
-
-	memset(ev_map, 0xFF, MAX_EV_CNTRS);
+	memset(ev_map, 0xFF, NUM_COMMON_EVS);
 	for (i = 0; i < NUM_COMMON_EVS; i++, j++) {
 		if (!memlat_data->common_ev_ids[i])
 			continue;
@@ -1178,6 +1170,25 @@ static int configure_cpucp_grp(struct memlat_group *grp)
 			ev_map[j] = ret;
 	}
 
+	ret = ops->set_common_ev_map(memlat_data->ph, ev_map, NUM_COMMON_EVS);
+	return ret;
+}
+
+static int configure_cpucp_grp(struct memlat_group *grp)
+{
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
+	int ret = 0, i, j = 0;
+	struct device_node *of_node = grp->dev->of_node;
+	u8 ev_map[NUM_GRP_EVS];
+
+	ret = ops->set_mem_grp(memlat_data->ph, *cpumask_bits(cpu_possible_mask),
+			       grp->hw_type);
+	if (ret < 0) {
+		pr_err("Failed to configure mem grp %s\n", of_node->name);
+		return ret;
+	}
+
+	memset(ev_map, 0xFF, NUM_GRP_EVS);
 	for (i = 0; i < NUM_GRP_EVS; i++, j++) {
 		if (!grp->grp_ev_ids[i])
 			continue;
@@ -1187,7 +1198,7 @@ static int configure_cpucp_grp(struct memlat_group *grp)
 			ev_map[j] = ret;
 	}
 
-	ret = ops->set_ev_map(memlat_data->ph, grp->hw_type, ev_map);
+	ret = ops->set_grp_ev_map(memlat_data->ph, grp->hw_type, ev_map, NUM_GRP_EVS);
 	if (ret < 0)
 		pr_err("Failed to configure event map for mem grp %s\n",
 							of_node->name);
@@ -1302,7 +1313,14 @@ int cpucp_memlat_init(struct scmi_device *sdev)
 	memlat_data->ph = ph;
 	memlat_data->memlat_ops = ops;
 
-	/* Configure group and common parameters */
+	/* Configure common events */
+	ret = configure_cpucp_common_events();
+	if (ret < 0) {
+		pr_err("Failed to configure common events: %d\n", ret);
+		goto memlat_unlock;
+	}
+
+	/* Configure group/mon parameters */
 	for (i = 0; i < MAX_MEMLAT_GRPS; i++) {
 		grp = memlat_data->groups[i];
 		if (!grp->cpucp_enabled)
