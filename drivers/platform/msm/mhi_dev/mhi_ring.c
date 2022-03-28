@@ -143,7 +143,7 @@ int mhi_dev_update_wr_offset(struct mhi_dev_ring *ring)
 	case RING_TYPE_CMD:
 		rc = mhi_dev_mmio_get_cmd_db(ring, &wr_offset);
 		if (rc) {
-			pr_err("%s: CMD DB read failed\n", __func__);
+			mhi_log(MHI_MSG_ERROR, "CMD DB read failed\n");
 			return rc;
 		}
 		mhi_log(MHI_MSG_VERBOSE,
@@ -153,14 +153,14 @@ int mhi_dev_update_wr_offset(struct mhi_dev_ring *ring)
 	case RING_TYPE_ER:
 		rc = mhi_dev_mmio_get_erc_db(ring, &wr_offset);
 		if (rc) {
-			pr_err("%s: EVT DB read failed\n", __func__);
+			mhi_log(MHI_MSG_ERROR, "EVT DB read failed\n");
 			return rc;
 		}
 		break;
 	case RING_TYPE_CH:
 		rc = mhi_dev_mmio_get_ch_db(ring, &wr_offset);
 		if (rc) {
-			pr_err("%s: CH DB read failed\n", __func__);
+			mhi_log(MHI_MSG_ERROR, "CH DB read failed\n");
 			return rc;
 		}
 		mhi_log(MHI_MSG_VERBOSE,
@@ -237,7 +237,7 @@ int mhi_dev_process_ring(struct mhi_dev_ring *ring)
 		/* notify the clients that there are elements in the ring */
 		rc = mhi_dev_process_ring_element(ring, ring->rd_offset);
 		if (rc)
-			pr_err("Error fetching elements\n");
+			mhi_log(MHI_MSG_ERROR, "Error fetching elements\n");
 		return rc;
 	}
 	mhi_log(MHI_MSG_VERBOSE,
@@ -490,19 +490,6 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 	ring->ring_shadow.device_va = mhi->ctrl_base.device_va + offset;
 	ring->ring_shadow.host_pa = mhi->ctrl_base.host_pa + offset;
 
-	if (ring->type == RING_TYPE_ER)
-		ring->ring_ctx_shadow =
-		(union mhi_dev_ring_ctx *) (mhi->ev_ctx_shadow.device_va +
-			(ring->id - mhi->ev_ring_start) *
-			sizeof(union mhi_dev_ring_ctx));
-	else if (ring->type == RING_TYPE_CMD)
-		ring->ring_ctx_shadow =
-		(union mhi_dev_ring_ctx *) mhi->cmd_ctx_shadow.device_va;
-	else if (ring->type == RING_TYPE_CH)
-		ring->ring_ctx_shadow =
-		(union mhi_dev_ring_ctx *) (mhi->ch_ctx_shadow.device_va +
-		(ring->id - mhi->ch_ring_start)*sizeof(union mhi_dev_ring_ctx));
-
 	ring->ring_ctx_shadow = ring->ring_ctx;
 
 	if (ring->type != RING_TYPE_ER || ring->type != RING_TYPE_CH) {
@@ -574,7 +561,7 @@ void mhi_ring_set_state(struct mhi_dev_ring *ring,
 		return;
 
 	if (state > RING_STATE_PENDING) {
-		pr_err("%s: Invalid ring state\n", __func__);
+		mhi_log(MHI_MSG_ERROR, "Invalid ring state\n");
 		return;
 	}
 
