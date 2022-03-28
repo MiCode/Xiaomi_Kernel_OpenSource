@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2011-2017, 2021, The Linux Foundation
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -165,11 +166,11 @@ static int slim_add_device(struct slim_controller *ctrl,
 	sbdev->dev.of_node = of_node_get(node);
 	sbdev->dev.fwnode = of_fwnode_handle(node);
 
-	dev_set_name(&sbdev->dev, "%x:%x:%x:%x",
+	dev_set_name(&sbdev->dev, "%x:%x:%x:%x%s",
 				  sbdev->e_addr.manf_id,
 				  sbdev->e_addr.prod_code,
 				  sbdev->e_addr.dev_index,
-				  sbdev->e_addr.instance);
+				  sbdev->e_addr.instance, EXTRA_CHAR);
 
 	return device_register(&sbdev->dev);
 }
