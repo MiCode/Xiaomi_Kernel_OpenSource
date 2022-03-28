@@ -32,6 +32,7 @@ enum MHI_DEBUG_LEVEL {
  * @dma_addr: IOMMU address of the buffer
  * @phys_addr: physical address of the buffer
  * @len: # of bytes
+ * @is_io: buffer is of IO/registesr type (resource) rather than of DDR/RAM type
  */
 struct mhi_buf_extended {
 	struct list_head node;
@@ -40,6 +41,7 @@ struct mhi_buf_extended {
 	dma_addr_t dma_addr;
 	phys_addr_t phys_addr;
 	size_t len;
+	bool is_io;
 };
 
 #ifdef CONFIG_MHI_BUS_MISC
