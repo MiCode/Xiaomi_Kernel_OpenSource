@@ -2,7 +2,8 @@
 # Qualcomm pin control drivers
 obj-$(CONFIG_PINCTRL_MSM)	+= pinctrl-msm.o
 obj-$(CONFIG_PINCTRL_KALAMA)	+= pinctrl-kalama.o
-obj-$(CONFIG_PINCTRL_CINDER)	+= pinctrl-cinder.o
+obj-$(CONFIG_PINCTRL_CINDER)    += pinctrl-cinder.o
+obj-$(CONFIG_PINCTRL_SDXPINN)	+= pinctrl-sdxpinn.o
 obj-$(CONFIG_PINCTRL_APQ8064)	+= pinctrl-apq8064.o
 obj-$(CONFIG_PINCTRL_APQ8084)	+= pinctrl-apq8084.o
 obj-$(CONFIG_PINCTRL_IPQ4019)	+= pinctrl-ipq4019.o
