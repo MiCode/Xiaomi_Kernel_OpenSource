@@ -216,6 +216,10 @@ static void int3400_notify(acpi_handle handle,
 		thermal_prop[4] = NULL;
 		kobject_uevent_env(&priv->thermal->device.kobj, KOBJ_CHANGE,
 				thermal_prop);
+		kfree(thermal_prop[0]);
+		kfree(thermal_prop[1]);
+		kfree(thermal_prop[2]);
+		kfree(thermal_prop[3]);
 		break;
 	default:
 		/* Ignore unknown notification codes sent to INT3400 device */
