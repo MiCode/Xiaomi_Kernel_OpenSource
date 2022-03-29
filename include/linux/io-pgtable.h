@@ -145,6 +145,9 @@ struct io_pgtable_cfg {
  *
  * @map:          Map a physically contiguous memory region.
  * @map_pages:    Map a physically contiguous range of pages of the same size.
+ * @map_sg:       Map a scatter-gather list of physically contiguous memory
+ *                chunks. The mapped pointer argument is used to store how
+ *                many bytes are mapped.
  * @unmap:        Unmap a physically contiguous memory region.
  * @unmap_pages:  Unmap a range of virtually contiguous pages of the same size.
  * @iova_to_phys: Translate iova to physical address.
@@ -158,6 +161,9 @@ struct io_pgtable_ops {
 	int (*map_pages)(struct io_pgtable_ops *ops, unsigned long iova,
 			 phys_addr_t paddr, size_t pgsize, size_t pgcount,
 			 int prot, gfp_t gfp, size_t *mapped);
+	int (*map_sg)(struct io_pgtable_ops *ops, unsigned long iova,
+		      struct scatterlist *sg, unsigned int nents, int prot,
+		      gfp_t gfp, size_t *mapped);
 	size_t (*unmap)(struct io_pgtable_ops *ops, unsigned long iova,
 			size_t size, struct iommu_iotlb_gather *gather);
 	size_t (*unmap_pages)(struct io_pgtable_ops *ops, unsigned long iova,

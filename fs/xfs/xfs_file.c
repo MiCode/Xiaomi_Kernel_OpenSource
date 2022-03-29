@@ -1410,6 +1410,9 @@ xfs_filemap_map_pages(
 	struct inode		*inode = file_inode(vmf->vma->vm_file);
 	vm_fault_t ret;
 
+	if (!xfs_ilock_nowait(XFS_I(inode), XFS_MMAPLOCK_SHARED))
+		return (vmf->flags & FAULT_FLAG_SPECULATIVE) ?
+			VM_FAULT_RETRY : 0;
 	xfs_ilock(XFS_I(inode), XFS_MMAPLOCK_SHARED);
 	ret = filemap_map_pages(vmf, start_pgoff, end_pgoff);
 	xfs_iunlock(XFS_I(inode), XFS_MMAPLOCK_SHARED);
