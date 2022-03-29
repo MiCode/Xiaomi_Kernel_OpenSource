@@ -4467,7 +4467,7 @@ out_vote_err:
 	msm_host->sdhci_qos = NULL;
 }
 
-static ssize_t sdhci_msm_dbg_state_store(struct device *dev,
+static ssize_t dbg_state_store(struct device *dev,
 			struct device_attribute *attr,
 			const char *buf, size_t count)
 {
@@ -4487,7 +4487,7 @@ static ssize_t sdhci_msm_dbg_state_store(struct device *dev,
 	return count;
 }
 
-static ssize_t sdhci_msm_dbg_state_show(struct device *dev,
+static ssize_t dbg_state_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
@@ -4501,10 +4501,10 @@ static ssize_t sdhci_msm_dbg_state_show(struct device *dev,
 	return scnprintf(buf, PAGE_SIZE, "%d\n", msm_host->dbg_en);
 }
 
-static DEVICE_ATTR_RW(sdhci_msm_dbg_state);
+static DEVICE_ATTR_RW(dbg_state);
 
 static struct attribute *sdhci_msm_sysfs_attrs[] = {
-	&dev_attr_sdhci_msm_dbg_state.attr,
+	&dev_attr_dbg_state.attr,
 	NULL
 };
 
