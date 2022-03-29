@@ -262,7 +262,7 @@
 			USB3_DP_QSERDES_RXB_AUX_DATA_TCOARSE_TFINE                 0xA0 0
 			USB3_DP_QSERDES_RXB_VGA_CAL_CNTRL1                         0x54 0
 			USB3_DP_QSERDES_RXB_VGA_CAL_CNTRL2                         0x0F 0
-			USB3_DP_QSERDES_RXB_GM_CAL                                 0x00 0
+			USB3_DP_QSERDES_RXB_GM_CAL                                 0x13 0
 			USB3_DP_QSERDES_RXB_RX_EQU_ADAPTOR_CNTRL2                  0x0F 0
 			USB3_DP_QSERDES_RXB_RX_EQU_ADAPTOR_CNTRL3                  0x4A 0
 			USB3_DP_QSERDES_RXB_RX_EQU_ADAPTOR_CNTRL4                  0x0A 0
