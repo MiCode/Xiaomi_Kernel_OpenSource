@@ -341,43 +341,41 @@
 		qcom,bus-bw-cfg =
 		/** ICC Path 1 **/
 		<0 0>, /* no vote */
-		/* idle: 0-18 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		/* idle: 0-18 Mbps snoc/anoc: 100 Mhz */
 		<2250 1600000>,
-		/* low: 18-60 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		/* low: 18-60 Mbps snoc/anoc: 100 Mhz */
 		<7500 1600000>,
-		/* medium: 60-240 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		/* medium: 60-240 Mbps snoc/anoc: 100 Mhz*/
 		<30000 1600000>,
-		/* high: 240-1200 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
+		/* high: 240-1200 Mbps snoc/anoc: 200 Mhz */
 		<100000 3200000>,
-		/* very high: > 1200 Mbps snoc/anoc: 403 Mhz ddr: 1555 MHz */
-		<175000 6448000>,
-		/* ultra high: DBS mode snoc/anoc: 403 Mhz ddr: 2092 MHz */
-		<175000 6448000>,
-		/* super high: DBS mode snoc/anoc: 533 Mhz ddr: 3.2GHz */
-		<175000 8528000>,
-		/* low (latency critical): 18-60 Mbps snoc/anoc: 200 Mhz
-		 * ddr: 547.2 MHz
-		 */
+		/* very high: > 1200 Mbps snoc/anoc: 403 Mhz */
+		<175000 6553200>,
+		/* ultra high: DBS mode snoc/anoc: 403 Mhz */
+		<175000 6553200>,
+		/* super high: DBS mode snoc/anoc: 403 Mhz */
+		<175000 6553200>,
+		/* low (latency critical): 18-60 Mbps snoc/anoc: 200 Mhz */
 		<7500 3200000>,
 
 		/** ICC Path 2 **/
 		<0 0>,
 		/* ddr: 451.2 MHz */
-		<2250 1804800>,
+		<2250 902212>,
 		/* ddr: 451.2 MHz */
-		<7500 1804800>,
+		<7500 902212>,
 		/* ddr: 451.2 MHz */
-		<30000 1804800>,
+		<30000 902212>,
 		/* ddr: 451.2 MHz */
-		<100000 1804800>,
+		<100000 902212>,
 		/* ddr: 1555 MHz */
-		<175000 6220800>,
+		<175000 3110362>,
 		/* ddr: 2092 MHz */
-		<175000 8368000>,
-		/* ddr: 3.2 GHz */
-		<175000 12800000>,
+		<175000 4185562>,
+		/* ddr: 2133 MHz */
+		<175000 4300537>,
 		/* ddr: 547.2 MHz */
-		<7500 2188800>;
+		<7500 1094362>;
 
 	};
 };
