@@ -200,6 +200,15 @@
 	};
 };
 
+#include "waipio-thermal-modem.dtsi"
+
+&soc {
+	qmi-tmd-devices {
+		/delete-node/ modem_usr;
+		/delete-node/ cdsp_usr;
+	};
+};
+
 &thermal_zones {
 	aoss-0 {
 		polling-delay-passive = <0>;
