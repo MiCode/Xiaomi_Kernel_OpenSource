@@ -1,4 +1,5 @@
 #include <dt-bindings/clock/qcom,gcc-parrot.h>
+#include <dt-bindings/phy/qcom,usb3-5nm-qmp-combo.h>
 
 &soc {
 	usb0: ssusb@a600000 {
@@ -23,11 +24,30 @@
 		resets = <&gcc GCC_USB30_PRIM_BCR>;
 		reset-names = "core_reset";
 
-		interrupts = <GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "pwr_event_irq";
+		interrupts-extended = <&pdc 14 IRQ_TYPE_EDGE_RISING>,
+				      <&intc GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>,
+				      <&pdc 17 IRQ_TYPE_LEVEL_HIGH>,
+				      <&pdc 15 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "dp_hs_phy_irq", "pwr_event_irq",
+				"ss_phy_irq", "dm_hs_phy_irq";
+		qcom,use-pdc-interrupts;
 
 		qcom,core-clk-rate = <133333333>;
 		qcom,core-clk-rate-hs = <66666667>;
+		qcom,pm-qos-latency = <2>;
+		qcom,num-gsi-evt-buffs = <0x3>;
+		qcom,gsi-reg-offset =
+			<0x0fc /* GSI_GENERAL_CFG */
+			0x110 /* GSI_DBL_ADDR_L */
+			0x120 /* GSI_DBL_ADDR_H */
+			0x130 /* GSI_RING_BASE_ADDR_L */
+			0x144 /* GSI_RING_BASE_ADDR_H */
+			0x1a4>; /* GSI_IF_STS */
+
+		interconnect-names = "usb-ddr", "usb-ipa", "ddr-usb";
+		interconnects = <&aggre1_noc MASTER_USB3_0 &mc_virt SLAVE_EBI1>,
+				<&aggre1_noc MASTER_USB3_0 &cnoc2 SLAVE_IPA_CFG>,
+				<&gem_noc MASTER_APPSS_PROC &cnoc2 SLAVE_USB3_0>;
 
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
@@ -47,7 +67,9 @@
 			snps,dis-u2-entry-quirk;
 			snps,dis_u2_susphy_quirk;
 			tx-fifo-resize;
+			dr_mode = "peripheral";
 			maximum-speed = "super-speed";
 		};
+
 	};
 };
