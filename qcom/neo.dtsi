@@ -2187,5 +2187,12 @@
 		vdd18-supply = <&L15A>;
 		vdd3-supply = <&L2A>;
 		reset-gpio = <&tlmm 99 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&eusb2_reset_ctrl_default>;
 	};
+};
+
+&eusb2_phy0 {
+	dummy-supply = <&nxp_eusb2_repeater>;
+	usb-repeater = <&nxp_eusb2_repeater>;
 };
