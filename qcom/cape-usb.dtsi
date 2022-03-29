@@ -33,6 +33,7 @@
 		qcom,use-pdc-interrupts;
 		qcom,use-eusb2-phy;
 
+		qcom,dis-sending-cm-l1-quirk;
 		qcom,core-clk-rate = <200000000>;
 		qcom,core-clk-rate-disconnected = <133333333>;
 		qcom,core-clk-rate-hs = <66666667>;
