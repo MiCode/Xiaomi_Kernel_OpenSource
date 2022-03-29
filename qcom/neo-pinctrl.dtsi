@@ -572,6 +572,60 @@
 			};
 		};
 
+		pcie1 {
+			pcie1_perst_default: pcie1_perst_default {
+				mux {
+					pins = "gpio58";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio58";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			pcie1_clkreq_default: pcie1_clkreq_default {
+				mux {
+					pins = "gpio59";
+					function = "pcie1_clkreqn";
+				};
+
+				config {
+					pins = "gpio59";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			pcie1_wake_default: pcie1_wake_default {
+				mux {
+					pins = "gpio60";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio60";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			pcie1_clkreq_sleep: pcie1_clkreq_sleep {
+				mux {
+					pins = "gpio59";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio59";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+		};
+
 	qupv3_se11_2uart_pins: qupv3_se11_2uart_pins {
 			qupv3_se11_2uart_active: qupv3_se11_2uart_active {
 				mux {
