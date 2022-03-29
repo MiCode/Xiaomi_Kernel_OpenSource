@@ -490,7 +490,7 @@ static int nb7vpq904m_gadget_pullup_enter(struct usb_redriver *r, int is_on)
 {
 	struct nb7vpq904m_redriver *redriver =
 		container_of(r, struct nb7vpq904m_redriver, r);
-	int timeout = 0;
+	u64 time = 0;
 
 	dev_dbg(redriver->dev, "%s: mode %s, %d, %d\n", __func__,
 		OPMODESTR(redriver->op_mode), is_on, redriver->work_ongoing);
@@ -498,15 +498,15 @@ static int nb7vpq904m_gadget_pullup_enter(struct usb_redriver *r, int is_on)
 	if (redriver->op_mode != OP_MODE_USB)
 		return -EINVAL;
 
-	if (is_on) {
-		while (redriver->work_ongoing) {
-			usleep_range(1000, 1500);
-			if (++timeout > 10) {
-				dev_warn(redriver->dev, "pullup timeout\n");
-				break;
-			}
-		}
+	if (!is_on)
+		return 0;
+
+	while (redriver->work_ongoing) {
+		udelay(1);
+		time++;
 	}
+
+	dev_dbg(redriver->dev, "pull-up disable work took %llu us\n", time);
 
 	return 0;
 }
@@ -522,10 +522,11 @@ static int nb7vpq904m_gadget_pullup_exit(struct usb_redriver *r, int is_on)
 	if (redriver->op_mode != OP_MODE_USB)
 		return -EINVAL;
 
-	if (!is_on) {
-		redriver->work_ongoing = true;
-		schedule_work(&redriver->pullup_work);
-	}
+	if (is_on)
+		return 0;
+
+	redriver->work_ongoing = true;
+	queue_work(system_highpri_wq, &redriver->pullup_work);
 
 	return 0;
 }
