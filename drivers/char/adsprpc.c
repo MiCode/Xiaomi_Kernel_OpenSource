@@ -3807,6 +3807,11 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		err = fastrpc_mmap_remove_pdr(fl);
 		if (err)
 			goto bail;
+	} else {
+		ADSPRPC_ERR(
+			"Create static process is failed for proc_name %s",
+			proc_name);
+		goto bail;
 	}
 
 	if (!me->staticpd_flags && !me->legacy_remote_heap) {
@@ -3823,7 +3828,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		 * If remote-heap VMIDs are defined in DTSI, then do
 		 * hyp_assign from HLOS to those VMs (LPASS, ADSP).
 		 */
-		if (rhvm->vmid) {
+		if (rhvm->vmid && mem->refs == 1 && size) {
 			err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1,
 				rhvm->vmid, rhvm->vmperm, rhvm->vmcount);
@@ -4320,7 +4325,7 @@ bail:
 
 static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 					uintptr_t va, uint64_t phys,
-					size_t size, uintptr_t *raddr)
+					size_t size, int refs, uintptr_t *raddr)
 {
 	struct fastrpc_ioctl_invoke_async ioctl;
 	struct fastrpc_apps *me = &gfa;
@@ -4386,7 +4391,7 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 		}
 	}
 	if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR
-				&& me->channel[cid].rhvm.vmid) {
+				&& me->channel[cid].rhvm.vmid && refs == 1) {
 		err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1, me->channel[cid].rhvm.vmid,
 				me->channel[cid].rhvm.vmperm,
@@ -4882,12 +4887,18 @@ int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		if (err)
 			goto bail;
 		err = fastrpc_mmap_on_dsp(fl, ud->flags, 0,
-				rbuf->phys, rbuf->size, &raddr);
+				rbuf->phys, rbuf->size, 0, &raddr);
 		if (err)
 			goto bail;
 		rbuf->raddr = raddr;
 	} else {
 		uintptr_t va_to_dsp;
+		if (fl->is_unsigned_pd && ud->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+			err = -EINVAL;
+			ADSPRPC_ERR(
+				"Secure memory allocation is not supported in unsigned PD");
+			goto bail;
+		}
 
 		mutex_lock(&fl->map_mutex);
 		VERIFY(err, !(err = fastrpc_mmap_create(fl, ud->fd, NULL, 0,
@@ -4903,7 +4914,7 @@ int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		else
 			va_to_dsp = (uintptr_t)map->va;
 		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl, ud->flags,
-			va_to_dsp, map->phys, map->size, &raddr)));
+			va_to_dsp, map->phys, map->size, map->refs, &raddr)));
 		if (err)
 			goto bail;
 		map->raddr = raddr;
@@ -7569,7 +7580,7 @@ long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
 		}
 		/* Map DMA buffer on DSP*/
 		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl,
-			map->flags, 0, map->phys, map->size, &raddr)));
+			map->flags, 0, map->phys, map->size, map->refs, &raddr)));
 		if (err) {
 			mutex_unlock(&fl->internal_map_mutex);
 			break;
