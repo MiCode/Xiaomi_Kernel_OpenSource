@@ -3441,6 +3441,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 
 			smrs.id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
 			smrs.mask = FIELD_GET(ARM_SMMU_SMR_MASK, smr);
+			smrs.state = SMR_PROGRAMMED;
 
 		} else {
 			smrs.valid = FIELD_GET(ARM_SMMU_SMR_VALID, smr);
