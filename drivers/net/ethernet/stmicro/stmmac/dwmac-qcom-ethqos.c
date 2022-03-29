@@ -1202,11 +1202,20 @@ static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
 	ETHQOSINFO("Exit\n");
 }
 
-void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat)
+static void qcom_ethqos_request_phy_wol(void *plat_n)
 {
-	struct qcom_ethqos *ethqos = plat->bsp_priv;
-	struct platform_device *pdev = ethqos->pdev;
-	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct plat_stmmacenet_data *plat = plat_n;
+	struct qcom_ethqos *ethqos;
+	struct platform_device *pdev;
+	struct net_device *ndev;
+
+	if (!plat)
+		return;
+
+	ethqos = plat->bsp_priv;
+
+	pdev = ethqos->pdev;
+	ndev = platform_get_drvdata(pdev);
 
 	ethqos->phy_wol_supported = 0;
 	ethqos->phy_wol_wolopts = 0;
@@ -1474,6 +1483,9 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		plat_dat->has_c22_mdio_probe_capability = 0;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
+	plat_dat->handle_prv_ioctl = ethqos_handle_prv_ioctl;
+	plat_dat->request_phy_wol = qcom_ethqos_request_phy_wol;
+	plat_dat->init_pps = ethqos_init_pps;
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,arm-smmu")) {
 		emac_emb_smmu_ctx.pdev_master = pdev;

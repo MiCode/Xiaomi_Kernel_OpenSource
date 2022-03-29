@@ -1325,7 +1325,7 @@ static int stmmac_init_phy(struct net_device *dev)
 			    !priv->phydev->drv->config_intr(priv->phydev)) {
 				pr_err(" qcom-ethqos: %s config_phy_intr successful aftre connect\n",
 				       __func__);
-				qcom_ethqos_request_phy_wol(priv->plat);
+				priv->plat->request_phy_wol(priv->plat);
 			}
 		} else {
 			pr_info("stmmac phy polling mode\n");
@@ -3430,7 +3430,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool ptp_register)
 		clk_set_rate(priv->plat->clk_ptp_ref,
 					 priv->plat->clk_ptp_rate);
 
-	ret = ethqos_init_pps(priv);
+	ret = priv->plat->init_pps(priv);
 
 	priv->eee_tw_timer = STMMAC_DEFAULT_TWT_LS;
 
@@ -4357,6 +4357,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 	bool has_vlan, set_ic;
 	int entry, first_tx;
 	dma_addr_t des;
+	unsigned int int_mod;
 
 	tx_q = &priv->tx_queue[queue];
 	first_tx = tx_q->cur_tx;
@@ -4462,29 +4463,47 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 	tx_packets = (entry + 1) - first_tx;
 	tx_q->tx_count_frames += tx_packets;
 
-	if ((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) && priv->hwts_tx_en)
-		set_ic = true;
-	else if (!priv->tx_coal_frames[queue])
-		set_ic = false;
-	else if (tx_packets > priv->tx_coal_frames[queue])
-		set_ic = true;
-	else if ((tx_q->tx_count_frames %
-		  priv->tx_coal_frames[queue]) < tx_packets)
-		set_ic = true;
-	else
-		set_ic = false;
+	if (likely(priv->tx_coal_timer_disable)) {
+		if (priv->plat->get_plat_tx_coal_frames) {
+			int_mod = priv->plat->get_plat_tx_coal_frames(skb);
+			if (!(tx_q->cur_tx % int_mod)) {
+				if (likely(priv->extend_desc))
+					desc = &tx_q->dma_etx[entry].basic;
+				else if (tx_q->tbs & STMMAC_TBS_AVAIL)
+					desc = &tx_q->dma_entx[entry].basic;
+				else
+					desc = &tx_q->dma_tx[entry];
 
-	if (set_ic) {
-		if (likely(priv->extend_desc))
-			desc = &tx_q->dma_etx[entry].basic;
-		else if (tx_q->tbs & STMMAC_TBS_AVAIL)
-			desc = &tx_q->dma_entx[entry].basic;
+			tx_q->tx_count_frames = 0;
+			stmmac_set_tx_ic(priv, desc);
+			priv->xstats.tx_set_ic_bit++;
+			}
+		}
+	} else {
+		if ((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) && priv->hwts_tx_en)
+			set_ic = true;
+		else if (!priv->tx_coal_frames[queue])
+			set_ic = false;
+		else if (tx_packets > priv->tx_coal_frames[queue])
+			set_ic = true;
+		else if ((tx_q->tx_count_frames %
+			priv->tx_coal_frames[queue]) < tx_packets)
+			set_ic = true;
 		else
-			desc = &tx_q->dma_tx[entry];
+			set_ic = false;
 
-		tx_q->tx_count_frames = 0;
-		stmmac_set_tx_ic(priv, desc);
-		priv->xstats.tx_set_ic_bit++;
+		if (set_ic) {
+			if (likely(priv->extend_desc))
+				desc = &tx_q->dma_etx[entry].basic;
+			else if (tx_q->tbs & STMMAC_TBS_AVAIL)
+				desc = &tx_q->dma_entx[entry].basic;
+			else
+				desc = &tx_q->dma_tx[entry];
+
+			tx_q->tx_count_frames = 0;
+			stmmac_set_tx_ic(priv, desc);
+			priv->xstats.tx_set_ic_bit++;
+		}
 	}
 
 	/* We've used all descriptors we need for this skb, however,
@@ -5968,11 +5987,13 @@ static void stmmac_poll_controller(struct net_device *dev)
  */
 static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 {
-	struct stmmac_priv *priv = netdev_priv (dev);
 	int ret = -EOPNOTSUPP;
+	struct stmmac_priv *priv;
 
 	if (!netif_running(dev))
 		return -EINVAL;
+
+	priv = netdev_priv(dev);
 
 	switch (cmd) {
 	case SIOCGMIIPHY:
@@ -5986,7 +6007,7 @@ static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	case SIOCGHWTSTAMP:
 		ret = stmmac_hwtstamp_get(dev, rq);
 	case SIOCDEVPRIVATE:
-		ret = ethqos_handle_prv_ioctl(dev, rq, cmd);
+		ret = priv->plat->handle_prv_ioctl(dev, rq, cmd);
 		break;
 	default:
 		break;
