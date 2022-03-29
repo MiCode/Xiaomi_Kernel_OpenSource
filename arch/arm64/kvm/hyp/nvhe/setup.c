@@ -150,6 +150,10 @@ static int recreate_hyp_mappings(phys_addr_t phys, unsigned long size,
 	if (ret)
 		return ret;
 
+	ret = pkvm_create_mappings(&kvm_vgic_global_state, &kvm_vgic_global_state + 1, prot);
+	if (ret)
+		return ret;
+
 	start = hyp_phys_to_virt(pvmfw_base);
 	end = start + pvmfw_size;
 	prot = pkvm_mkstate(PAGE_HYP, PKVM_PAGE_OWNED);
