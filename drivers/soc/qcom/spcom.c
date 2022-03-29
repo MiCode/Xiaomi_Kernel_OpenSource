@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2019, 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2015-2019, 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -2375,6 +2375,12 @@ send_message_err:
 		mutex_unlock(&ch->shared_sync_lock);
 	}
 
+	/* close pm awake window after spcom server response */
+	if (ch->is_server) {
+		__pm_relax(spcom_dev->ws);
+		spcom_pr_dbg("ch[%s]:pm_relax() called for server, after tx\n",
+			     ch->name);
+	}
 	mutex_unlock(&ch->lock);
 	memset(tx_buf, 0, tx_buf_size);
 	kfree(tx_buf);
@@ -2994,6 +3000,14 @@ get_message_out:
 
 	kfree(rx_buf);
 
+	/* close pm awake window for spcom client get response */
+	mutex_lock(&ch->lock);
+	if (!ch->is_server) {
+		__pm_relax(spcom_dev->ws);
+		spcom_pr_dbg("ch[%s]:pm_relax() called for server, after tx\n",
+			     ch->name);
+	}
+	mutex_unlock(&ch->lock);
 	return ret;
 }
 
