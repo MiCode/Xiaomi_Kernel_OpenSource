@@ -33,6 +33,11 @@
 
 #define MDP_TASK_PAENDING_TIME_MAX	100000000
 
+#define RDMA_CPR_PREBUILT(mod, pipe, index) \
+	((index) < CMDQ_CPR_PREBUILT_REG_CNT ? \
+	CMDQ_CPR_PREBUILT(mod, pipe, index) : \
+	CMDQ_CPR_PREBUILT_EXT(mod, pipe, (index) - CMDQ_CPR_PREBUILT_REG_CNT))
+
 struct mdpsys_con_context {
 	struct device *dev;
 };
@@ -380,8 +385,8 @@ static s32 translate_meta(struct op_meta *meta,
 			return -EINVAL;
 		}
 
-		if ((meta->cpr_idx >= CPR_IDX_MDP_RDMA_SRC_BASE_0) &&
-		    (meta->cpr_idx <= CPR_IDX_MDP_RDMA_UFO_DEC_LENGTH_BASE_C)) {
+		if ((meta->cpr_idx >= CPR_MDP_RDMA_SRC_BASE_0) &&
+		    (meta->cpr_idx <= CPR_MDP_RDMA_UFO_DEC_LENGTH_BASE_C)) {
 
 			/* check platform support LSB/MSB or not */
 			if (gMdpRegMSBSupport) {
@@ -393,12 +398,12 @@ static s32 translate_meta(struct op_meta *meta,
 			}
 
 			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
+					RDMA_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
 							  meta->pipe_idx, meta->cpr_idx),
 					src_base_lsb);
 
 			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
+					RDMA_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
 							  meta->pipe_idx, meta->cpr_idx + 5),
 					src_base_msb);
 		} else {
@@ -419,33 +424,33 @@ static s32 translate_meta(struct op_meta *meta,
 			return -EINVAL;
 		}
 
-		if (meta->cpr_idx > CPR_IDX_MDP_RDMA_PIPE_IDX) {
-			CMDQ_ERR("%s: op:%u, engine %d, rdma_idx, cpr_idx %d invalid\n",
+		if (meta->cpr_idx > CPR_MDP_RDMA_PIPE_IDX) {
+			CMDQ_ERR("%s: op:%u, engine %d, rdma_idx %d, cpr_idx %d invalid\n",
 				 __func__, meta->op, meta->engine, rdma_idx, meta->cpr_idx);
 			return -EINVAL;
 		}
 
-		if (meta->cpr_idx == CPR_IDX_MDP_RDMA_PIPE_IDX) {
+		if (meta->cpr_idx == CPR_MDP_RDMA_PIPE_IDX) {
 			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
 					CMDQ_CPR_PREBUILT_PIPE(CMDQ_PREBUILT_MDP), meta->pipe_idx);
-		} else if ((meta->cpr_idx >= CPR_IDX_MDP_RDMA_SRC_BASE_0) &&
-			   (meta->cpr_idx <= CPR_IDX_MDP_RDMA_UFO_DEC_LENGTH_BASE_C)) {
+		} else if ((meta->cpr_idx >= CPR_MDP_RDMA_SRC_BASE_0) &&
+			   (meta->cpr_idx <= CPR_MDP_RDMA_UFO_DEC_LENGTH_BASE_C)) {
 
 			src_base_msb = 0x0;
 			src_base_lsb = meta->value;
 
 			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
+					RDMA_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
 							  meta->pipe_idx, meta->cpr_idx),
 					src_base_lsb);
 
 			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
+					RDMA_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
 							  meta->pipe_idx, meta->cpr_idx + 5),
 					src_base_msb);
 		} else {
 			status = cmdq_op_assign_reg_idx_ex(handle, cmd_buf,
-					CMDQ_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
+					RDMA_CPR_PREBUILT(CMDQ_PREBUILT_MDP,
 							  meta->pipe_idx, meta->cpr_idx),
 					meta->value);
 		}
@@ -1358,6 +1363,7 @@ s32 mdp_ioctl_simulate(unsigned long param)
 		status = -EINVAL;
 		goto done;
 	}
+
 	CMDQ_LOG("%s done\n", __func__);
 
 done:

@@ -64,6 +64,13 @@ do { \
 	} \
 } while (0)
 
+#define CMDQ_LOG_CLOCK(string, args...) \
+do { \
+	if (cmdq_core_should_clock_log()) { \
+		pr_notice("[MDP]"string, ##args); \
+	} \
+} while (0)
+
 #define CMDQ_LOG(string, args...) \
 do {			\
 	pr_notice("[MDP]"string, ##args); \
@@ -175,19 +182,16 @@ do {if (1) mmprofile_log_ex(args); } while (0);	\
 #endif
 
 /* CMDQ FTRACE */
-#define CMDQ_TRACE_FORCE_BEGIN(fmt, args...) do { \
-	preempt_disable(); \
-	/*event_trace_printk(cmdq_get_tracing_mark(),*/ \
-	/*	"B|%d|"fmt, current->tgid, ##args);*/ \
-	preempt_enable();\
-} while (0)
+#define TRACE_MSG_LEN	1024
 
-#define CMDQ_TRACE_FORCE_END() do { \
-	preempt_disable(); \
-	/*event_trace_printk(cmdq_get_tracing_mark(), "E\n");*/ \
-	preempt_enable(); \
-} while (0)
+#define CMDQ_TRACE_FORCE_BEGIN_TID(tid, fmt, args...) \
+	tracing_mark_write("B|%d|" fmt "\n", tid, ##args)
 
+#define CMDQ_TRACE_FORCE_BEGIN(fmt, args...) \
+	CMDQ_TRACE_FORCE_BEGIN_TID(current->tgid, fmt, ##args)
+
+#define CMDQ_TRACE_FORCE_END() \
+	tracing_mark_write("E\n")
 
 #define CMDQ_SYSTRACE_BEGIN(fmt, args...) do { \
 	if (cmdq_core_ftrace_enabled()) { \
@@ -329,6 +333,7 @@ enum CMDQ_LOG_LEVEL_ENUM {
 	CMDQ_LOG_LEVEL_PMQOS = 4,
 	CMDQ_LOG_LEVEL_SECURE = 5,
 	CMDQ_LOG_LEVEL_PQ_READBACK = 6,
+	CMDQ_LOG_LEVEL_CLOCK = 7,
 
 	CMDQ_LOG_LEVEL_MAX	/* ALWAYS keep at the end */
 };
@@ -809,6 +814,7 @@ bool cmdq_core_should_full_error(void);
 bool cmdq_core_should_pmqos_log(void);
 bool cmdq_core_should_secure_log(void);
 bool cmdq_core_should_pqrb_log(void);
+bool cmdq_core_should_clock_log(void);
 bool cmdq_core_aee_enable(void);
 void cmdq_core_set_aee(bool enable);
 
@@ -993,6 +999,7 @@ void cmdq_core_initialize(void);
 void cmdq_core_late_init(void);
 void cmdq_core_deinitialize(void);
 unsigned long cmdq_get_tracing_mark(void);
+int tracing_mark_write(char *fmt, ...);
 void cmdq_helper_ext_deinit(void);
 
 struct cmdqSecSharedMemoryStruct *cmdq_core_get_secure_shared_memory(void);

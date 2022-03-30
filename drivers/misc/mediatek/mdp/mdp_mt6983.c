@@ -499,26 +499,6 @@ int cmdq_TranslationFault_callback(
 
 	cmdq_core_dump_tasks_info();
 
-	cmdq_core_dump_mmsys_config();
-
-	switch (port) {
-	case M4U_PORT_L2_MDP_RDMA0:
-		cmdq_mdp_dump_rdma(MDP_RDMA0_BASE, "RDMA0");
-		break;
-	case M4U_PORT_L2_MDP_RDMA2:
-		cmdq_mdp_dump_rdma(MDP_RDMA1_BASE, "RDMA1");
-		break;
-	case M4U_PORT_L2_MDP_WROT0:
-		cmdq_mdp_dump_rot(MDP_WROT0_BASE, "WROT0");
-		break;
-	case M4U_PORT_L2_MDP_WROT2:
-		cmdq_mdp_dump_rot(MDP_WROT1_BASE, "WROT1");
-		break;
-	default:
-		CMDQ_ERR("[MDP M4U]fault callback function");
-		break;
-	}
-
 	CMDQ_ERR(
 		"=============== [MDP] Frame Information Begin ===============================\n");
 	/* find dispatch module and assign dispatch key */
@@ -1168,24 +1148,15 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_DLI1_SEL))
 		mout_bits |= (1 << MOUT_BITS_MDP_RDMA1);
 
+	CMDQ_LOG("%s, remove rdma reset, add engine bit to mdpsys\n", __func__);
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA0)) {
 		mout_bits |= (1 << MOUT_BITS_MDP_BYP0);
-
-		status = cmdq_mdp_loop_reset(CMDQ_ENG_MDP_RDMA0,
-			MDP_RDMA0_BASE + 0x8, MDP_RDMA0_BASE + 0x408,
-			0x7FF00, 0x100, false);
-		if (status != 0)
-			engineToResetAgain |= (1LL << CMDQ_ENG_MDP_RDMA0);
+		engineToResetAgain |= (1LL << CMDQ_ENG_MDP_RDMA0);
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA1)) {
 		mout_bits |= (1 << MOUT_BITS_MDP_BYP1);
-
-		status = cmdq_mdp_loop_reset(CMDQ_ENG_MDP_RDMA1,
-			MDP_RDMA1_BASE + 0x8, MDP_RDMA1_BASE + 0x408,
-			0x7FF00, 0x100, false);
-		if (status != 0)
-			engineToResetAgain |= (1LL << CMDQ_ENG_MDP_RDMA1);
+		engineToResetAgain |= (1LL << CMDQ_ENG_MDP_RDMA1);
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP0)) {
@@ -1238,19 +1209,12 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 		/* smi_hanging_debug(5); */
 		/* } */
 
-		CMDQ_ERR(
+		CMDQ_MSG(
 			"Reset failed MDP engines(0x%llx), reset again with MMSYS_SW0_RST_B\n",
 			 engineToResetAgain);
 
 		cmdq_mdp_reset_with_mmsys(engineToResetAgain);
 		cmdqMdpDumpInfo(engineToResetAgain, 0);
-
-		/* finally, raise AEE warning to report normal reset fail. */
-		/* we hope that reset MMSYS. */
-		CMDQ_AEE("MDP", "Disable 0x%llx engine failed\n",
-			engineToResetAgain);
-
-		status = -EFAULT;
 	}
 	/* MOUT configuration reset */
 	CMDQ_REG_SET32(MMSYS_MOUT_RST_REG, (mout_bits_old & (~mout_bits)));
@@ -1334,13 +1298,11 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA0)) {
-		cmdq_mdp_loop_off(CMDQ_ENG_MDP_RDMA0, MDP_RDMA0_BASE + 0x008,
-			MDP_RDMA0_BASE + 0x408, 0x7FF00, 0x100, false);
+		cmdq_mdp_get_func()->enableMdpClock(false, CMDQ_ENG_MDP_RDMA0);
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA1)) {
-		cmdq_mdp_loop_off(CMDQ_ENG_MDP_RDMA1, MDP_RDMA1_BASE + 0x008,
-			MDP_RDMA1_BASE + 0x408, 0x7FF00, 0x100, false);
+		cmdq_mdp_get_func()->enableMdpClock(false, CMDQ_ENG_MDP_RDMA1);
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_COLOR0)) {
@@ -1726,12 +1688,12 @@ static const char *const mdp_get_engine_group_name(void)
 	return (const char *const)engineGroupName;
 }
 
-static u32 *mdp_engine_base_get(void)
+phys_addr_t *mdp_engine_base_get(void)
 {
-	return (u32 *)mdp_base;
+	return (phys_addr_t *)mdp_base;
 }
 
-static u32 mdp_engine_base_count(void)
+u32 mdp_engine_base_count(void)
 {
 	return (u32)ENGBASE_COUNT;
 }

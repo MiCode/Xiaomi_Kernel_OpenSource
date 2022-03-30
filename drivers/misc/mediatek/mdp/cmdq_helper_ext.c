@@ -75,7 +75,6 @@ static struct cmdq_base *cmdq_client_base;
 struct device *mbox_dev;
 
 static atomic_t cmdq_thread_usage;
-static atomic_t cmdq_thread_usage_clk;
 static wait_queue_head_t *cmdq_wait_queue; /* task done notify */
 static struct DumpCommandBufferStruct cmdq_command_dump;
 
@@ -845,6 +844,11 @@ bool cmdq_core_should_pqrb_log(void)
 	return cmdq_ctx.logLevel & (1 << CMDQ_LOG_LEVEL_PQ_READBACK);
 }
 
+bool cmdq_core_should_clock_log(void)
+{
+	return cmdq_ctx.logLevel & (1 << CMDQ_LOG_LEVEL_CLOCK);
+}
+
 bool cmdq_core_aee_enable(void)
 {
 	return cmdq_ctx.aee;
@@ -1585,8 +1589,8 @@ int cmdqCoreWriteAddressVcpAlloc(u32 count, dma_addr_t *vcp_paStart,
 		pWriteAddr->fp = fp;
 		pWriteAddr->count = count;
 		pWriteAddr->pool = false;
-		pWriteAddr->pa = vcp_iova_base + rb_slot_index * sizeof(u32);
-		pWriteAddr->va = vcp_va_base + rb_slot_index * sizeof(u32);
+		pWriteAddr->pa = vcp_iova_base + rb_slot_index * PAGE_SIZE;
+		pWriteAddr->va = vcp_va_base + rb_slot_index * PAGE_SIZE;
 
 		CMDQ_LOG_PQ("%s: rb_slot[%u], alloc va:%p, pa:%pa, vcp va_base:%p, iova_base:%pa\n",
 			__func__, rb_slot_index, pWriteAddr->va, &pWriteAddr->pa,
@@ -3228,18 +3232,6 @@ static void cmdq_core_clk_enable(struct cmdqRecStruct *handle)
 	if (clock_count == 1)
 		mdp_lock_wake_lock(true);
 
-	if (!handle->secData.is_secure) {
-		s32 clk_cnt = atomic_inc_return(&cmdq_thread_usage_clk);
-
-		if (clk_cnt == 1)
-			cmdq_mbox_enable(((struct cmdq_client *)
-				handle->pkt->cl)->chan);
-	}
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-		else {
-			cmdq_sec_mbox_enable(((struct cmdq_client *)
-				handle->pkt->cl)->chan);
-#endif
 	cmdq_mdp_reset_resource();
 
 	cmdq_core_group_clk_cb(true, handle->engineFlag, handle->engine_clk);
@@ -3251,21 +3243,6 @@ static void cmdq_core_clk_disable(struct cmdqRecStruct *handle)
 
 	cmdq_core_group_clk_cb(false, handle->engineFlag, handle->engine_clk);
 
-	if (!handle->secData.is_secure) {
-		s32 clk_cnt = atomic_dec_return(&cmdq_thread_usage_clk);
-
-		if (clk_cnt == 0)
-			cmdq_mbox_disable(((struct cmdq_client *)
-				handle->pkt->cl)->chan);
-		else if (clk_cnt < 0)
-			CMDQ_ERR("disable clock %s error usage:%d\n",
-				__func__, clk_cnt);
-	}
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	else
-		cmdq_sec_mbox_disable(((struct cmdq_client *)
-			handle->pkt->cl)->chan);
-#endif
 	clock_count = atomic_dec_return(&cmdq_thread_usage);
 
 	CMDQ_MSG("[CLOCK]disable usage:%d\n", clock_count);
@@ -4603,7 +4580,7 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 		}
 
 		cmdq_clients[chan_id] = clt;
-		CMDQ_LOG("chan %d 0x%p dev:0x%p\n",
+		CMDQ_LOG("chan_id %d 0x%p dev:0x%p\n",
 			chan_id, cmdq_clients[chan_id]->chan, dev);
 
 		if (!cmdq_entry && chan_id >= CMDQ_DYNAMIC_THREAD_ID_START)
@@ -4684,8 +4661,7 @@ void cmdq_core_initialize(void)
 		if (!cmdq_clients[index])
 			cmdq_ctx.thread[index].used = true;
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_PATH_SUPPORT
 	/* for secure path reserve irq notify thread */
 	cmdq_ctx.thread[CMDQ_SEC_IRQ_THREAD].used = true;
 #endif
@@ -4769,4 +4745,25 @@ unsigned long cmdq_get_tracing_mark(void)
 	 */
 
 	return tracing_mark_write_addr;
+}
+
+noinline int tracing_mark_write(char *fmt, ...)
+{
+#if IS_ENABLED(CONFIG_MTK_FTRACER)
+	char buf[TRACE_MSG_LEN];
+	va_list args;
+	int len;
+
+	va_start(args, fmt);
+	len = vsnprintf(buf, sizeof(buf), fmt, args);
+	va_end(args);
+
+	if (len >= TRACE_MSG_LEN) {
+		CMDQ_ERR("%s trace size %u exceed limit\n", __func__, len);
+		return -1;
+	}
+
+	trace_puts(buf);
+#endif
+	return 0;
 }

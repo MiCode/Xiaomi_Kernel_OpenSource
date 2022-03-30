@@ -12,7 +12,7 @@
 #include <linux/met_drv.h>
 #endif
 #include <linux/slab.h>
-#IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 #include "mtk_iommu_ext.h"
 #elif defined(COFNIG_MTK_IOMMU)
 #include "mtk_iommu.h"
@@ -104,7 +104,7 @@ static struct icc_path *path_l11_img_mfb_rdma5[MDP_TOTAL_THREAD];
 static struct icc_path *path_l11_img_mfb_wdma0[MDP_TOTAL_THREAD];
 static struct icc_path *path_l11_img_mfb_wdma1[MDP_TOTAL_THREAD];
 
-#IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+#ifdef IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 #include <mach/mt_iommu.h>
 #include "mach/pseudo_m4u.h"
 #endif
@@ -530,7 +530,7 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 	return 0;
 }
 
-#IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 enum mtk_iommu_callback_ret_t cmdq_TranslationFault_callback(
 	int port, unsigned long mva, void *data)
 {
@@ -752,7 +752,7 @@ bool cmdq_mdp_clock_is_on(u32 engine)
 
 static void config_port_34bit(enum CMDQ_ENG_ENUM engine)
 {
-#IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	struct M4U_PORT_STRUCT sPort;
 	int ret = 0;
 
@@ -1600,7 +1600,7 @@ struct device *mdp_init_larb(struct platform_device *pdev, u8 idx)
 
 void cmdqMdpInitialSetting(struct platform_device *pdev)
 {
-#IS_ENABLED(CONFIG_MTK_IOMMU_V2)
+#if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	char *data = kzalloc(MDP_DISPATCH_KEY_STR_LEN, GFP_KERNEL);
 
 	/* Register ION Translation Fault function */
@@ -2073,12 +2073,12 @@ static const char *const mdp_get_engine_group_name(void)
 	return (const char *const)engineGroupName;
 }
 
-static u32 *mdp_engine_base_get(void)
+phys_addr_t *mdp_engine_base_get(void)
 {
-	return (u32 *)mdp_base;
+	return (phys_addr_t *)mdp_base;
 }
 
-static u32 mdp_engine_base_count(void)
+u32 mdp_engine_base_count(void)
 {
 	return (u32)ENGBASE_COUNT;
 }
@@ -2087,7 +2087,7 @@ static void mdp_readback_aal_by_engine(struct cmdqRecStruct *handle,
 	u16 engine, dma_addr_t pa, u32 param)
 {
 	phys_addr_t base;
-	u32 pipe;
+	u32 pipe = 0;
 
 	switch (engine) {
 	case CMDQ_ENG_MDP_AAL0:
