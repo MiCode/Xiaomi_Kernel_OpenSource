@@ -57,7 +57,7 @@
 #define MTK_IMGSYS_DVFS_GROUP			3
 #define MTK_IMGSYS_QOS_GROUP			2
 
-#define MTK_IMGSYS_LOG_LENGTH			1024
+#define MTK_IMGSYS_LOG_LENGTH			256
 
 extern unsigned int nodes_num;
 
