@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include "mtk_layering_rule.h"
@@ -11,22 +11,19 @@
 #include "mtk_dump.h"
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
-#ifdef MTK_DISP_MMQOS_SUPPORT
+
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <soc/mediatek/mmqos.h>
-#endif
 
+
+#define CRTC_NUM		3
 static struct drm_crtc *dev_crtc;
-
 /* add for mm qos */
-#ifdef MTK_DISP_MMDVFS_SUPPORT
 static struct regulator *mm_freq_request;
 static u32 *g_freq_steps;
-static int g_freq_level = -1;
+static int g_freq_level[CRTC_NUM] = {-1};
 static int step_size = 1;
-#endif
 
-#ifdef MTK_DISP_MMQOS_SUPPORT
 void mtk_disp_pmqos_get_icc_path_name(char *buf, int buf_len,
 				struct mtk_ddp_comp *comp, char *qos_event)
 {
@@ -68,6 +65,18 @@ int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode)
 			return DISP_PMQOS_OVL3_2L_FBDC_BW;
 		else
 			return DISP_PMQOS_OVL3_2L_BW;
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+	case DDP_COMPONENT_OVL2_2L_NWCG:
+		if (mode == DISP_BW_FBDC_MODE)
+			return DISP_PMQOS_OVL0_2L_NWCG_FBDC_BW;
+		else
+			return DISP_PMQOS_OVL0_2L_NWCG_BW;
+	case DDP_COMPONENT_OVL1_2L_NWCG:
+	case DDP_COMPONENT_OVL3_2L_NWCG:
+		if (mode == DISP_BW_FBDC_MODE)
+			return DISP_PMQOS_OVL1_2L_NWCG_FBDC_BW;
+		else
+			return DISP_PMQOS_OVL1_2L_NWCG_BW;
 	case DDP_COMPONENT_RDMA0:
 		return DISP_PMQOS_RDMA0_BW;
 	case DDP_COMPONENT_RDMA1:
@@ -125,6 +134,11 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 			ret |= mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_HRT_BW,
 						   &tmp);
 		}
+		if (!mtk_crtc->is_dual_pipe)
+			continue;
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, j, i)
+			ret |= mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_HRT_BW,
+					&tmp);
 	}
 
 	if (ret == RDMA_REQ_HRT)
@@ -207,25 +221,34 @@ int mtk_disp_hrt_bw_dbg(void)
 
 	return 0;
 }
-#endif
 
 int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_private *priv;
 
 	dev_crtc = crtc;
 	mtk_crtc = to_mtk_crtc(dev_crtc);
+
+	if (IS_ERR_OR_NULL(mtk_crtc)) {
+		DDPPR_ERR("%s:mtk_crtc is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	priv = mtk_crtc->base.dev->dev_private;
 
 	mtk_crtc->qos_ctx = vmalloc(sizeof(struct mtk_drm_qos_ctx));
 	if (mtk_crtc->qos_ctx == NULL) {
 		DDPPR_ERR("%s:allocate qos_ctx failed\n", __func__);
 		return -ENOMEM;
 	}
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT))
+		mtk_mmqos_register_bw_throttle_notifier(&pmqos_hrt_notifier);
 
 	return 0;
 }
 
-#ifdef MTK_DISP_MMDVFS_SUPPORT
 static void mtk_drm_mmdvfs_get_avail_freq(struct device *dev)
 {
 	int i = 0;
@@ -242,6 +265,7 @@ static void mtk_drm_mmdvfs_get_avail_freq(struct device *dev)
 		dev_pm_opp_put(opp);
 	}
 }
+
 void mtk_drm_mmdvfs_init(struct device *dev)
 {
 	dev_pm_opp_of_add_table(dev);
@@ -250,30 +274,45 @@ void mtk_drm_mmdvfs_init(struct device *dev)
 	mtk_drm_mmdvfs_get_avail_freq(dev);
 }
 
-static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
+void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 			const char *caller)
 {
 	struct dev_pm_opp *opp;
 	unsigned long freq;
-	int volt, ret;
+	int volt, ret, idx, i;
 
-	if (drm_crtc_index(crtc) != 0)
+	idx = drm_crtc_index(crtc);
+
+	DDPINFO("%s[%d] g_freq_level[idx=%d]: %d\n",
+		__func__, __LINE__, idx, level);
+
+	/* only for crtc = 0, 1 */
+	if (idx > 2)
 		return;
 
 	if (level < 0 || level > (step_size - 1))
 		level = -1;
 
-	if (level == g_freq_level)
+	if (level == g_freq_level[idx])
 		return;
 
-	g_freq_level = level;
+	g_freq_level[idx] = level;
 
-	DDPINFO("%s set mmclk level: %d\n", caller, g_freq_level);
+	for (i = 0 ; i < CRTC_NUM; i++) {
+		if (g_freq_level[i] > g_freq_level[idx]) {
+			DDPINFO("%s[%d] g_freq_level[i=%d]=%d > g_freq_level[idx=%d]=%d\n",
+				__func__, __LINE__, i, g_freq_level[i], idx, g_freq_level[idx]);
+			return;
+		}
+	}
 
-	if (g_freq_level >= 0)
-		freq = g_freq_steps[g_freq_level];
+	if (g_freq_level[idx] >= 0)
+		freq = g_freq_steps[g_freq_level[idx]];
 	else
 		freq = g_freq_steps[0];
+
+	DDPINFO("%s[%d] g_freq_level[idx=%d](freq=%d)\n",
+		__func__, __LINE__, idx, g_freq_level[idx], freq);
 
 	opp = dev_pm_opp_find_freq_ceil(crtc->dev->dev, &freq);
 	volt = dev_pm_opp_get_voltage(opp);
@@ -282,6 +321,7 @@ static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 
 	if (ret)
 		DDPPR_ERR("%s:regulator_set_voltage fail\n", __func__);
+
 }
 
 void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
@@ -309,4 +349,4 @@ void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
 			mtk_drm_set_mmclk(crtc, 0, caller);
 	}
 }
-#endif
+

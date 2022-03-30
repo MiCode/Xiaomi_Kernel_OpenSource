@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/string.h>
@@ -300,7 +300,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 		/* but drm framework not support ssc anymore */
 		uint32_t ssc = pm->pMtk_panel_params->ssc_range;
 
-		if (pm->pMtk_panel_params->ssc_disable)
+		if (!pm->pMtk_panel_params->ssc_enable)
 			ssc = 0;
 		return put_user(ssc, (unsigned long *)argp);
 	}

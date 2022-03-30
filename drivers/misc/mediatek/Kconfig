@@ -116,6 +116,7 @@ source "drivers/misc/mediatek/adsp/Kconfig"
 source "drivers/misc/mediatek/audio_ipi/Kconfig"
 source "drivers/misc/mediatek/usb_mtp/Kconfig"
 source "drivers/misc/mediatek/sensor/Kconfig"
+source "drivers/misc/mediatek/gate_ic/Kconfig"
 endmenu # Other Peripheral
 
 menu "Performance"

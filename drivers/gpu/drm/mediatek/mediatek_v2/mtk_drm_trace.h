@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef __MTK_DRM_TRACE__
@@ -18,31 +18,39 @@
 extern bool g_trace_log;
 #define mtk_drm_trace_begin(fmt, args...) do { \
 	if (g_trace_log) { \
-		preempt_disable(); \
-		/* event_trace_printk(mtk_drm_get_tracing_mark(), */ \
-			/* "B|%d|"fmt"\n", current->tgid, ##args); */ \
-		preempt_enable();\
+		mtk_drm_print_trace( \
+			"B|%d|"fmt"\n", current->tgid, ##args); \
 	} \
 } while (0)
 
 #define mtk_drm_trace_end() do { \
 	if (g_trace_log) { \
-		preempt_disable(); \
-		/* event_trace_printk(mtk_drm_get_tracing_mark(), "E\n"); */ \
-		preempt_enable(); \
+		mtk_drm_print_trace("E\n"); \
+	} \
+} while (0)
+
+#define mtk_drm_trace_async_begin(fmt, args...) do { \
+	if (g_trace_log) { \
+		mtk_drm_print_trace( \
+			"S|%d|"fmt"\n", current->tgid, ##args); \
+	} \
+} while (0)
+
+#define mtk_drm_trace_async_end(fmt, args...) do { \
+	if (g_trace_log) { \
+		mtk_drm_print_trace( \
+			"F|%d|"fmt"\n", current->tgid, ##args); \
 	} \
 } while (0)
 
 #define mtk_drm_trace_c(fmt, args...) do { \
 	if (g_trace_log) { \
-		preempt_disable(); \
-		/* event_trace_printk(mtk_drm_get_tracing_mark(), */ \
-			/* "C|"fmt"\n", ##args); */ \
-		preempt_enable();\
+		mtk_drm_print_trace( \
+			"C|"fmt"\n", ##args); \
 	} \
 } while (0)
 
-unsigned long mtk_drm_get_tracing_mark(void);
+void mtk_drm_print_trace(char *fmt, ...);
 void drm_trace_tag_start(const char *tag);
 void drm_trace_tag_end(const char *tag);
 void drm_trace_tag_mark(const char *tag);

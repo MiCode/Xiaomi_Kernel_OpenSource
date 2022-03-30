@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef __MTK_FBCONFIG_KDEBUG_H
@@ -98,6 +98,11 @@ struct ESD_PARA {
 	int para_num;
 	char *esd_ret_buffer;
 };
+
+#ifdef DRM_CMDQ_DISABLE
+//drm_dev define in mtk_fbconfig_kdebug.c, PanelMaster_Init() must be called before crtc_create
+extern struct drm_device *drm_dev;
+#endif
 
 #ifdef IF_ZERO
 struct LAYER_H_SIZE {

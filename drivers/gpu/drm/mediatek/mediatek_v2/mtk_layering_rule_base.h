@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef __MTK_LAYERING_RULE_BASE__
@@ -134,6 +134,8 @@ enum SCN_FACTOR {
 	SCN_NEED_VP_PQ = 0x00000001,
 	SCN_NEED_GAME_PQ = 0x00000002,
 	SCN_TRIPLE_DISP =  0x00000004,
+	SCN_MML = 0x00000008,
+	SCN_MML_SRAM_ONLY = 0x00000010,
 };
 
 struct layering_rule_ops {
@@ -158,7 +160,8 @@ struct layering_rule_ops {
 				   enum ADJUST_LAYOUT_PURPOSE p);
 	void (*fbdc_restore_layout)(struct drm_mtk_layering_info *dst_info,
 				    enum ADJUST_LAYOUT_PURPOSE p);
-	void (*fbdc_rule)(struct drm_mtk_layering_info *disp_info);
+	void (*fbdc_rule)(struct drm_device *dev,
+		struct drm_mtk_layering_info *disp_info);
 };
 
 #define HRT_GET_DVFS_LEVEL(hrt_num) (hrt_num & 0xF)

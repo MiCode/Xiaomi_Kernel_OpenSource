@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <drm/drm_atomic_helper.h>
@@ -156,7 +156,7 @@ int mtk_wb_connector_init(struct drm_device *drm_dev,
 	return 0;
 }
 
-#ifdef CONFIG_MTK_DISPLAY_CMDQ
+#ifndef DRM_CMDQ_DISABLE
 void mtk_wb_atomic_commit(struct mtk_drm_crtc *mtk_crtc, unsigned int v,
 			  unsigned int h, void *cmdq_handle)
 #else
@@ -174,12 +174,15 @@ void mtk_wb_atomic_commit(struct mtk_drm_crtc *mtk_crtc)
 	    conn_state->writeback_job->fb != NULL) {
 		struct drm_framebuffer *fb = conn_state->writeback_job->fb;
 		u32 addr;
-#ifdef CONFIG_MTK_DISPLAY_CMDQ
+#ifndef DRM_CMDQ_DISABLE
 #else
 		void *cmdq_handle = NULL;
 #endif
 		wdma = mtk_wb_find_wdma(mtk_crtc);
+		if (!wdma)
+			return;
 		mtk_crtc->wb_enable = true;
+
 		drm_writeback_queue_job(wb_conn, conn_state);
 
 		addr = (u32)mtk_fb_get_dma(fb);

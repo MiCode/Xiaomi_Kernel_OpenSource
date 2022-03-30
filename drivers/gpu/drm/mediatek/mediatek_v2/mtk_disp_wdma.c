@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/clk.h>
@@ -8,8 +8,14 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
-#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#include <linux/dma-mapping.h>
 #include <drm/drm_fourcc.h>
+
+#ifndef DRM_CMDQ_DISABLE
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -52,9 +58,7 @@
 #define DISP_REG_WDMA_DST_WIN_BYTE 0x0028
 #define DISP_REG_WDMA_ALPHA 0x002C
 #define DISP_REG_WDMA_DST_UV_PITCH 0x0078
-#define DISP_REG_WDMA_DST_ADDR_OFFSET0 0x0080
-#define DISP_REG_WDMA_DST_ADDR_OFFSET1 0x0084
-#define DISP_REG_WDMA_DST_ADDR_OFFSET2 0x0088
+#define DISP_REG_WDMA_DST_ADDR_OFFSETX(n) (0x0080 + 0x04 * (n))
 
 #define DISP_REG_WDMA_FLOW_CTRL_DBG 0x00A0
 #define FLOW_CTRL_DBG_FLD_WDMA_STA_FLOW_CTRL REG_FLD_MSB_LSB(9, 0)
@@ -115,10 +119,12 @@
 #define FLD_WDMA_URGENT_LOW_V REG_FLD_MSB_LSB(9, 0)
 #define FLD_WDMA_URGENT_HIGH_V REG_FLD_MSB_LSB(25, 16)
 
-#define DISP_REG_WDMA_DST_ADDR0 0x0f00
-#define DISP_REG_WDMA_DST_ADDR1 0x0f04
-#define DISP_REG_WDMA_DST_ADDR2 0x0f08
+#define DISP_REG_WDMA_DST_ADDRX(n) (0x0f00 + 0x04 * (n))
+#define DISP_REG_WDMA_DST_ADDRX_MSB(n) (0x0f20 + 0x04 * (n))
+#define DISP_REG_WDMA_DST_ADDR_OFFSETX_MSB(n) (0x0f30 + 0x04 * (n))
+
 #define DISP_REG_WDMA_RGB888 0x10
+#define DISP_REG_WDMA_DUMMY 0x100
 
 #define MEM_MODE_INPUT_FORMAT_RGB565 0x0U
 #define MEM_MODE_INPUT_FORMAT_RGB888 (0x001U << 4)
@@ -128,6 +134,14 @@
 #define MEM_MODE_INPUT_FORMAT_YUYV (0x005U << 4)
 #define MEM_MODE_INPUT_FORMAT_IYUV (0x008U << 4)
 #define MEM_MODE_INPUT_SWAP BIT(16)
+
+
+/* AID offset in mmsys config */
+#define MT6983_WDMA0_AID_SEL	(0xB1CUL)
+#define MT6983_WDMA1_AID_SEL	(0xB20UL)
+
+#define MT6895_WDMA0_AID_SEL	(0xB1CUL)
+#define MT6895_WDMA1_AID_SEL	(0xB20UL)
 
 enum GS_WDMA_FLD {
 	GS_WDMA_SMI_CON = 0, /* whole reg */
@@ -183,14 +197,18 @@ struct mtk_disp_wdma_data {
 
 	void (*sodi_config)(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
+	unsigned int (*aid_sel)(struct mtk_ddp_comp *comp);
+	bool support_shadow;
 	bool need_bypass_shadow;
+	bool is_support_34bits;
 };
 
 struct mtk_wdma_cfg_info {
-	unsigned int addr;
+	dma_addr_t addr;
 	unsigned int width;
 	unsigned int height;
 	unsigned int fmt;
+	unsigned int count;
 };
 
 /**
@@ -207,7 +225,10 @@ struct mtk_disp_wdma {
 static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_wdma *priv = dev_id;
-	struct mtk_ddp_comp *wdma = &priv->ddp_comp;
+	struct mtk_ddp_comp *wdma = NULL;
+	struct mtk_cwb_info *cwb_info = NULL;
+	struct mtk_drm_private *drm_priv = NULL;
+	unsigned int buf_idx;
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
@@ -216,12 +237,18 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
+	if (IS_ERR_OR_NULL(priv))
+		return IRQ_NONE;
+
+	wdma = &priv->ddp_comp;
+	if (IS_ERR_OR_NULL(wdma))
+		return IRQ_NONE;
+
 	val = readl(wdma->regs + DISP_REG_WDMA_INTSTA);
 	if (!val) {
 		ret = IRQ_NONE;
 		goto out;
 	}
-
 	DRM_MMP_MARK(IRQ, irq, val);
 
 	if (wdma->id == DDP_COMPONENT_WDMA0)
@@ -239,6 +266,16 @@ static irqreturn_t mtk_wdma_irq_handler(int irq, void *dev_id)
 
 		DDPIRQ("[IRQ] %s: frame complete!\n",
 			mtk_dump_comp_str(wdma));
+		drm_priv = mtk_crtc->base.dev->dev_private;
+		cwb_info = mtk_crtc->cwb_info;
+		if (cwb_info && cwb_info->enable &&
+			cwb_info->comp->id == wdma->id &&
+			drm_priv && !drm_priv->cwb_is_preempted) {
+			buf_idx = cwb_info->buf_idx;
+			cwb_info->buffer[buf_idx].timestamp = 100;
+			atomic_set(&mtk_crtc->cwb_task_active, 1);
+			wake_up_interruptible(&mtk_crtc->cwb_wq);
+		}
 		if (mtk_crtc->dc_main_path_commit_task) {
 			atomic_set(
 				&mtk_crtc->dc_main_path_commit_event, 1);
@@ -264,17 +301,47 @@ static inline struct mtk_disp_wdma *comp_to_wdma(struct mtk_ddp_comp *comp)
 	return container_of(comp, struct mtk_disp_wdma, ddp_comp);
 }
 
+unsigned int mtk_wdma_aid_sel_MT6983(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_WDMA1:
+		return MT6983_WDMA1_AID_SEL;
+	default:
+		return 0;
+	}
+}
+
+unsigned int mtk_wdma_aid_sel_MT6895(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_WDMA1:
+		return MT6895_WDMA1_AID_SEL;
+	default:
+		return 0;
+	}
+}
+
 static void mtk_wdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 	const struct mtk_disp_wdma_data *data = wdma->data;
 	unsigned int inten;
 	bool en = 1;
+	unsigned int aid_sel_offset = 0;
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+	resource_size_t mmsys_reg = priv->config_regs_pa;
 
 	inten = REG_FLD_VAL(INTEN_FLD_FME_CPL_INTEN, 1) |
 		REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
 	mtk_ddp_write(comp, WDMA_EN, DISP_REG_WDMA_EN, handle);
 	mtk_ddp_write(comp, inten, DISP_REG_WDMA_INTEN, handle);
+
+
+	if (data && data->aid_sel)
+		aid_sel_offset = data->aid_sel(comp);
+	if (aid_sel_offset)
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			mmsys_reg + aid_sel_offset, BIT(1), BIT(1));
 
 	if (data && data->sodi_config)
 		data->sodi_config(comp->mtk_crtc->base.dev, comp->id, handle,
@@ -543,13 +610,17 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 }
 
 static void mtk_wdma_golden_setting(struct mtk_ddp_comp *comp,
-				    struct mtk_ddp_config *cfg,
+				    struct golden_setting_context *gsc,
 				    struct cmdq_pkt *handle)
 {
-	struct golden_setting_context *gsc = cfg->p_golden_setting_context;
 	unsigned int gs[GS_WDMA_FLD_NUM];
 	unsigned int value = 0;
 
+	if (!gsc) {
+		DDPPR_ERR("golden setting is null, %s,%d\n", __FILE__,
+			  __LINE__);
+		return;
+	}
 	mtk_wdma_calc_golden_setting(gsc, comp, true, gs);
 
 #ifdef IF_ZERO
@@ -716,10 +787,37 @@ static unsigned int wdma_fmt_convert(unsigned int fmt)
 	}
 }
 
+static void write_dst_addr(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+			 int id, dma_addr_t addr)
+{
+	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
+
+	mtk_ddp_write(comp, addr, DISP_REG_WDMA_DST_ADDRX(id), handle);
+
+	if (wdma->data->is_support_34bits)
+		mtk_ddp_write(comp, (addr >> 32),
+				DISP_REG_WDMA_DST_ADDRX_MSB(id), handle);
+}
+
+static dma_addr_t read_dst_addr(struct mtk_ddp_comp *comp, int id)
+{
+	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
+	dma_addr_t addr = 0;
+
+	if (wdma->data->is_support_34bits) {
+		addr = readl(comp->regs + DISP_REG_WDMA_DST_ADDRX_MSB(id));
+		addr = (addr << 32);
+	}
+
+	addr += readl(comp->regs + DISP_REG_WDMA_DST_ADDRX(id));
+
+	return addr;
+}
+
 static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 			      uint32_t fmt, unsigned int dstPitch,
-			      unsigned int Height, unsigned long dstAddress,
-			      void *handle)
+			      unsigned int Height, dma_addr_t dstAddress,
+			      uint32_t sec, void *handle)
 {
 	/* size_t size; */
 	unsigned int u_off = 0;
@@ -730,6 +828,10 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 	/* unsigned int v_size = 0; */
 	unsigned int stride = dstPitch;
 	int has_v = 1;
+	unsigned int aid_sel_offset = 0;
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+	resource_size_t mmsys_reg = priv->config_regs_pa;
+	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 
 	if (fmt != DRM_FORMAT_YUV420 && fmt != DRM_FORMAT_YVU420 &&
 		fmt != DRM_FORMAT_NV12 && fmt != DRM_FORMAT_NV21)
@@ -749,12 +851,23 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 		has_v = 0;
 	}
 
-	mtk_ddp_write(comp, dstAddress + u_off,
-		DISP_REG_WDMA_DST_ADDR1, handle);
+	if (wdma->data && wdma->data->aid_sel)
+		aid_sel_offset = wdma->data->aid_sel(comp);
+	if (aid_sel_offset) {
+		if (sec)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				mmsys_reg + aid_sel_offset,
+				BIT(0), BIT(0));
+		else
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				mmsys_reg + aid_sel_offset,
+				0, BIT(0));
+	}
 
+	write_dst_addr(comp, handle, 1, dstAddress + u_off);
 	if (has_v)
-		mtk_ddp_write(comp, dstAddress + v_off,
-			DISP_REG_WDMA_DST_ADDR2, handle);
+		write_dst_addr(comp, handle, 2, dstAddress + v_off);
+
 	mtk_ddp_write_mask(comp, u_stride,
 			DISP_REG_WDMA_DST_UV_PITCH, 0xFFFF, handle);
 	return 0;
@@ -784,11 +897,27 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 {
 	unsigned int size = 0;
 	unsigned int con = 0;
-	unsigned int addr = 0;
+	dma_addr_t addr = 0;
 	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 	struct mtk_wdma_cfg_info *cfg_info = &wdma->cfg_info;
 	int crtc_idx = drm_crtc_index(&comp->mtk_crtc->base);
 	int clip_w, clip_h;
+	struct golden_setting_context *gsc;
+	u32 sec;
+	unsigned int frame_cnt = cfg_info->count + 1;
+	struct drm_crtc_state *crtc_state = comp->mtk_crtc->base.state;
+	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
+	int need_skip = (int)state->prop_val[CRTC_PROP_SKIP_CONFIG];
+	unsigned int aid_sel_offset = 0;
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+	resource_size_t mmsys_reg = priv->config_regs_pa;
+
+	if (need_skip) {
+		mtk_ddp_write(comp, frame_cnt | 0x80000000U,
+				DISP_REG_WDMA_DUMMY, handle);
+		cfg_info->count = frame_cnt;
+		return;
+	}
 
 	if (!comp->fb) {
 		if (crtc_idx != 2)
@@ -797,17 +926,19 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 		return;
 	}
 
-	addr = (u32)mtk_fb_get_dma(comp->fb);
+	addr = mtk_fb_get_dma(comp->fb);
 	if (!addr) {
 		DDPPR_ERR("%s:%d C%d no dma_buf\n",
 				__func__, __LINE__,
 				crtc_idx);
 		return;
 	}
+	sec = mtk_drm_fb_is_secure(comp->fb);
+
 	addr += comp->fb->offsets[0];
 	con = wdma_fmt_convert(comp->fb->format->format);
-	DDPINFO("%s fmt:0x%x, con:0x%x\n", __func__,
-		comp->fb->format->format, con);
+	DDPINFO("%s fmt:0x%x, con:0x%x addr:0x%lx\n", __func__,
+		comp->fb->format->format, con, (unsigned long)addr);
 	if (!addr) {
 		DDPPR_ERR("%s wdma dst addr is zero\n", __func__);
 		return;
@@ -834,7 +965,8 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 
 	if (is_yuv(comp->fb->format->format)) {
 		wdma_config_yuv420(comp, comp->fb->format->format,
-				comp->fb->pitches[0], cfg->h, addr, handle);
+				comp->fb->pitches[0], cfg->h,
+				addr, sec, handle);
 		mtk_ddp_write_mask(comp, 0,
 				DISP_REG_WDMA_CFG, WDMA_UFO_DCP_ENABLE, handle);
 		mtk_ddp_write_mask(comp, WDMA_CT_EN,
@@ -850,14 +982,100 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 
 	mtk_ddp_write(comp, comp->fb->pitches[0],
 		DISP_REG_WDMA_DST_WIN_BYTE, handle);
-	mtk_ddp_write(comp, addr & 0xFFFFFFFFU,
-			DISP_REG_WDMA_DST_ADDR0, handle);
 
-	mtk_wdma_golden_setting(comp, cfg, handle);
+	if (wdma->data && wdma->data->aid_sel)
+		aid_sel_offset = wdma->data->aid_sel(comp);
+	if (aid_sel_offset) {
+		if (sec)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				mmsys_reg + aid_sel_offset,
+				BIT(0), BIT(0));
+		else
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				mmsys_reg + aid_sel_offset,
+				0, BIT(0));
+	}
+
+	write_dst_addr(comp, handle, 0, addr);
+
+	mtk_ddp_write(comp, frame_cnt, DISP_REG_WDMA_DUMMY, handle);
+
+	gsc = cfg->p_golden_setting_context;
+	mtk_wdma_golden_setting(comp, gsc, handle);
 
 	cfg_info->addr = addr;
 	cfg_info->width = cfg->w;
 	cfg_info->height = cfg->h;
+	cfg_info->fmt = comp->fb->format->format;
+	cfg_info->count = frame_cnt;
+}
+
+static void mtk_wdma_addon_config(struct mtk_ddp_comp *comp,
+				 enum mtk_ddp_comp_id prev,
+				 enum mtk_ddp_comp_id next,
+				 union mtk_addon_config *addon_config,
+				 struct cmdq_pkt *handle)
+{
+	unsigned int size = 0;
+	unsigned int con = 0;
+	dma_addr_t addr = 0;
+	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
+	struct mtk_wdma_cfg_info *cfg_info = &wdma->cfg_info;
+	int crtc_idx = drm_crtc_index(&comp->mtk_crtc->base);
+	int src_w, src_h, clip_w, clip_h, clip_x, clip_y, pitch;
+	struct golden_setting_context *gsc;
+
+	comp->fb = addon_config->addon_wdma_config.fb;
+	if (!comp->fb) {
+		DDPPR_ERR("%s fb is empty, CRTC%d\n", __func__, crtc_idx);
+		return;
+	}
+
+	con = wdma_fmt_convert(comp->fb->format->format);
+
+	addr = addon_config->addon_wdma_config.addr;
+	if (!addr) {
+		DDPPR_ERR("%s:%d C%d no dma_buf\n", __func__,
+				__LINE__, crtc_idx);
+		return;
+	}
+	cfg_info->addr = addr;
+
+	write_dst_addr(comp, handle, 0, addr);
+
+	src_w = addon_config->addon_wdma_config.wdma_src_roi.width;
+	src_h = addon_config->addon_wdma_config.wdma_src_roi.height;
+
+	clip_w = addon_config->addon_wdma_config.wdma_dst_roi.width;
+	clip_h = addon_config->addon_wdma_config.wdma_dst_roi.height;
+	clip_x = addon_config->addon_wdma_config.wdma_dst_roi.x;
+	clip_y = addon_config->addon_wdma_config.wdma_dst_roi.y;
+	pitch = addon_config->addon_wdma_config.pitch;
+
+	size = (src_w & 0x3FFFU) + ((src_h << 16U) & 0x3FFF0000U);
+	mtk_ddp_write(comp, size, DISP_REG_WDMA_SRC_SIZE, handle);
+	mtk_ddp_write(comp, (clip_y << 16) | clip_x,
+		DISP_REG_WDMA_CLIP_COORD, handle);
+	mtk_ddp_write(comp, (clip_h << 16) | clip_w,
+		DISP_REG_WDMA_CLIP_SIZE, handle);
+	mtk_ddp_write_mask(comp, con, DISP_REG_WDMA_CFG,
+		WDMA_OUT_FMT | WDMA_CON_SWAP, handle);
+
+	mtk_ddp_write_mask(comp, 0,
+			DISP_REG_WDMA_CFG, WDMA_UFO_DCP_ENABLE, handle);
+	mtk_ddp_write_mask(comp, 0,
+			DISP_REG_WDMA_CFG, WDMA_CT_EN, handle);
+
+	mtk_ddp_write(comp, pitch,
+		DISP_REG_WDMA_DST_WIN_BYTE, handle);
+
+	gsc = addon_config->addon_wdma_config.p_golden_setting_context;
+	mtk_wdma_golden_setting(comp, gsc, handle);
+
+	DDPMSG("[capture] config addr:0x%lx, roi:(%d,%d,%d,%d)\n",
+		(unsigned long)addr, clip_x, clip_y, clip_w, clip_h);
+	cfg_info->width = clip_w;
+	cfg_info->height = clip_h;
 	cfg_info->fmt = comp->fb->format->format;
 }
 
@@ -868,6 +1086,10 @@ void mtk_wdma_dump_golden_setting(struct mtk_ddp_comp *comp)
 	int i;
 
 	DDPDUMP("-- %s Golden Setting --\n", mtk_dump_comp_str(comp));
+	if (comp->mtk_crtc && comp->mtk_crtc->sec_on) {
+		DDPDUMP("Skip dump secure wdma!\n");
+		return;
+	}
 	DDPDUMP("0x%03x:0x%08x 0x%03x:0x%08x\n",
 		0x10, readl(DISP_REG_WDMA_SMI_CON + baddr),
 		0x38, readl(DISP_REG_WDMA_BUF_CON1 + baddr));
@@ -1014,8 +1236,15 @@ void mtk_wdma_dump_golden_setting(struct mtk_ddp_comp *comp)
 int mtk_wdma_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
+	struct mtk_disp_wdma *wdma = comp_to_wdma(comp);
 
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+
+	if (comp->mtk_crtc && comp->mtk_crtc->sec_on) {
+		DDPDUMP("Skip dump secure wdma!\n");
+		return 0;
+	}
+
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
 		unsigned int i = 0;
@@ -1046,9 +1275,15 @@ int mtk_wdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_WDMA_DST_UV_PITCH + baddr));
 
 		DDPDUMP("0x080:0x%08x 0x%08x 0x%08x\n",
-			readl(DISP_REG_WDMA_DST_ADDR_OFFSET0 + baddr),
-			readl(DISP_REG_WDMA_DST_ADDR_OFFSET1 + baddr),
-			readl(DISP_REG_WDMA_DST_ADDR_OFFSET2 + baddr));
+			readl(DISP_REG_WDMA_DST_ADDR_OFFSETX(0) + baddr),
+			readl(DISP_REG_WDMA_DST_ADDR_OFFSETX(1) + baddr),
+			readl(DISP_REG_WDMA_DST_ADDR_OFFSETX(2) + baddr));
+
+		if (wdma->data->is_support_34bits)
+			DDPDUMP("0xf30:0x%08x 0x%08x 0x%08x\n",
+				readl(DISP_REG_WDMA_DST_ADDR_OFFSETX_MSB(0) + baddr),
+				readl(DISP_REG_WDMA_DST_ADDR_OFFSETX_MSB(1) + baddr),
+				readl(DISP_REG_WDMA_DST_ADDR_OFFSETX_MSB(2) + baddr));
 
 		DDPDUMP("0x0a0:0x%08x 0x%08x 0x%08x 0x0b8:0x%08x\n",
 			readl(DISP_REG_WDMA_FLOW_CTRL_DBG + baddr),
@@ -1057,9 +1292,15 @@ int mtk_wdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_WDMA_DEBUG + baddr));
 
 		DDPDUMP("0xf00:0x%08x 0x%08x 0x%08x\n",
-			readl(DISP_REG_WDMA_DST_ADDR0 + baddr),
-			readl(DISP_REG_WDMA_DST_ADDR1 + baddr),
-			readl(DISP_REG_WDMA_DST_ADDR2 + baddr));
+			readl(DISP_REG_WDMA_DST_ADDRX(0) + baddr),
+			readl(DISP_REG_WDMA_DST_ADDRX(1) + baddr),
+			readl(DISP_REG_WDMA_DST_ADDRX(2) + baddr));
+
+		if (wdma->data->is_support_34bits)
+			DDPDUMP("0xf20:0x%08x 0x%08x 0x%08x\n",
+				readl(DISP_REG_WDMA_DST_ADDRX_MSB(0) + baddr),
+				readl(DISP_REG_WDMA_DST_ADDRX_MSB(1) + baddr),
+				readl(DISP_REG_WDMA_DST_ADDRX_MSB(2) + baddr));
 	}
 
 	mtk_wdma_dump_golden_setting(comp);
@@ -1099,6 +1340,11 @@ int mtk_wdma_analysis(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 
 	DDPDUMP("== DISP %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+
+	if (comp->mtk_crtc && comp->mtk_crtc->sec_on) {
+		DDPDUMP("Skip dump secure wdma!\n");
+		return 0;
+	}
 	DDPDUMP("en=%d,src(%dx%d),clip=(%d,%d,%dx%d)\n",
 		readl(baddr + DISP_REG_WDMA_EN) & 0x01,
 		readl(baddr + DISP_REG_WDMA_SRC_SIZE) & 0x3fff,
@@ -1107,12 +1353,12 @@ int mtk_wdma_analysis(struct mtk_ddp_comp *comp)
 		(readl(baddr + DISP_REG_WDMA_CLIP_COORD) >> 16) & 0x3fff,
 		readl(baddr + DISP_REG_WDMA_CLIP_SIZE) & 0x3fff,
 		(readl(baddr + DISP_REG_WDMA_CLIP_SIZE) >> 16) & 0x3fff);
-	DDPDUMP("pitch=(W=%d,UV=%d),addr=(0x%08x,0x%08x,0x%08x),cfg=0x%x\n",
+	DDPDUMP("pitch=(W=%d,UV=%d),addr=(0x%x,0x%x,0x%x),cfg=0x%x\n",
 		readl(baddr + DISP_REG_WDMA_DST_WIN_BYTE),
 		readl(baddr + DISP_REG_WDMA_DST_UV_PITCH),
-		readl(baddr + DISP_REG_WDMA_DST_ADDR0),
-		readl(baddr + DISP_REG_WDMA_DST_ADDR1),
-		readl(baddr + DISP_REG_WDMA_DST_ADDR2),
+		read_dst_addr(comp, 0),
+		read_dst_addr(comp, 1),
+		read_dst_addr(comp, 2),
 		readl(baddr + DISP_REG_WDMA_CFG));
 	DDPDUMP("state=%s,in_req=%d(prev sent data)\n",
 		wdma_get_state(DISP_REG_GET_FIELD(
@@ -1138,8 +1384,8 @@ int MMPathTraceWDMA(struct mtk_ddp_comp *ddp_comp, char *str,
 	struct mtk_wdma_cfg_info *cfg_info = &wdma->cfg_info;
 
 	n += scnprintf(str + n, strlen - n,
-		"out=0x%x, out_width=%d, out_height=%d, out_fmt=%s, out_bpp=%d",
-		cfg_info->addr,
+		"out=0x%lx, out_width=%d, out_height=%d, out_fmt=%s, out_bpp=%d",
+		(unsigned long)cfg_info->addr,
 		cfg_info->width,
 		cfg_info->height,
 		mtk_get_format_name(cfg_info->fmt),
@@ -1148,13 +1394,72 @@ int MMPathTraceWDMA(struct mtk_ddp_comp *ddp_comp, char *str,
 	return n;
 }
 
+static int mtk_wdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+			  enum mtk_ddp_io_cmd cmd, void *params)
+{
+	struct mtk_disp_wdma *wdma = container_of(comp, struct mtk_disp_wdma, ddp_comp);
+
+	switch (cmd) {
+	case WDMA_WRITE_DST_ADDR0:
+	{
+		dma_addr_t addr = *(dma_addr_t *)params;
+
+		write_dst_addr(comp, handle, 0, addr);
+		DDPMSG("[capture] update addr:0x%x\n", addr);
+		wdma->cfg_info.addr = addr;
+	}
+		break;
+	case WDMA_READ_DST_SIZE:
+	{
+		unsigned int val, w, h;
+		struct mtk_cwb_info *cwb_info = (struct mtk_cwb_info *)params;
+
+		val = readl(comp->regs + DISP_REG_WDMA_CLIP_SIZE);
+		w = val & 0x3fff;
+		h = (val >> 16) & 0x3fff;
+		cwb_info->copy_w = w;
+		cwb_info->copy_h = h;
+		DDPDBG("[capture] sof get (w,h)=(%d,%d)\n", w, h);
+	}
+		break;
+	case IRQ_LEVEL_IDLE: {
+		mtk_ddp_write(comp, 0x0, DISP_REG_WDMA_INTEN, handle);
+		break;
+	}
+	case IRQ_LEVEL_ALL: {
+		unsigned int inten;
+
+		inten = REG_FLD_VAL(INTEN_FLD_FME_CPL_INTEN, 1) |
+			REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
+
+		mtk_ddp_write(comp, inten, DISP_REG_WDMA_INTEN, handle);
+		break;
+	}
+	case IRQ_LEVEL_NORMAL: {
+		unsigned int inten;
+
+		inten = REG_FLD_VAL(INTEN_FLD_FME_CPL_INTEN, 1) |
+			REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
+
+		mtk_ddp_write(comp, inten, DISP_REG_WDMA_INTEN, handle);
+		break;
+	}
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_wdma_funcs = {
 	.config = mtk_wdma_config,
+	.addon_config = mtk_wdma_addon_config,
 	.start = mtk_wdma_start,
 	.stop = mtk_wdma_stop,
 	.prepare = mtk_wdma_prepare,
 	.unprepare = mtk_wdma_unprepare,
 	.is_busy = mtk_wdma_is_busy,
+	.io_cmd = mtk_wdma_io_cmd,
 };
 
 static int mtk_disp_wdma_bind(struct device *dev, struct device *master,
@@ -1194,7 +1499,8 @@ static int mtk_disp_wdma_probe(struct platform_device *pdev)
 	struct mtk_disp_wdma *priv;
 	enum mtk_ddp_comp_id comp_id;
 	int irq;
-	int ret;
+	int ret, len;
+	const __be32 *ranges = NULL;
 
 	DDPMSG("%s+\n", __func__);
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -1232,6 +1538,10 @@ static int mtk_disp_wdma_probe(struct platform_device *pdev)
 
 	priv->data = of_device_get_match_data(dev);
 
+	ranges = of_get_property(dev->of_node, "dma-ranges", &len);
+	if (ranges && priv->data && priv->data->is_support_34bits)
+		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
+
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
 	ret = component_add(dev, &mtk_disp_wdma_component_ops);
@@ -1257,7 +1567,9 @@ static int mtk_disp_wdma_remove(struct platform_device *pdev)
 
 static const struct mtk_disp_wdma_data mt6779_wdma_driver_data = {
 	.sodi_config = mt6779_mtk_sodi_config,
+	.support_shadow = false,
 	.need_bypass_shadow = false,
+	.is_support_34bits = false,
 };
 
 static const struct mtk_disp_wdma_data mt6885_wdma_driver_data = {
@@ -1268,7 +1580,9 @@ static const struct mtk_disp_wdma_data mt6885_wdma_driver_data = {
 	.fifo_size_3plane = 228,
 	.fifo_size_uv_3plane = 50,
 	.sodi_config = mt6885_mtk_sodi_config,
+	.support_shadow = false,
 	.need_bypass_shadow = false,
+	.is_support_34bits = false,
 };
 
 static const struct mtk_disp_wdma_data mt6873_wdma_driver_data = {
@@ -1279,7 +1593,9 @@ static const struct mtk_disp_wdma_data mt6873_wdma_driver_data = {
 	.fifo_size_3plane = 402,
 	.fifo_size_uv_3plane = 99,
 	.sodi_config = mt6873_mtk_sodi_config,
+	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.is_support_34bits = false,
 };
 
 static const struct mtk_disp_wdma_data mt6853_wdma_driver_data = {
@@ -1290,7 +1606,77 @@ static const struct mtk_disp_wdma_data mt6853_wdma_driver_data = {
 	.fifo_size_3plane = 402,
 	.fifo_size_uv_3plane = 99,
 	.sodi_config = mt6853_mtk_sodi_config,
+	.support_shadow = false,
 	.need_bypass_shadow = true,
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_wdma_data mt6833_wdma_driver_data = {
+	.fifo_size_1plane = 578,
+	.fifo_size_uv_1plane = 29,
+	.fifo_size_2plane = 402,
+	.fifo_size_uv_2plane = 201,
+	.fifo_size_3plane = 402,
+	.fifo_size_uv_3plane = 99,
+	.sodi_config = mt6833_mtk_sodi_config,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_wdma_data mt6879_wdma_driver_data = {
+	.fifo_size_1plane = 578,
+	.fifo_size_uv_1plane = 29,
+	.fifo_size_2plane = 402,
+	.fifo_size_uv_2plane = 201,
+	.fifo_size_3plane = 402,
+	.fifo_size_uv_3plane = 99,
+	.sodi_config = mt6853_mtk_sodi_config,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.is_support_34bits = false,
+
+};
+
+static const struct mtk_disp_wdma_data mt6855_wdma_driver_data = {
+	.fifo_size_1plane = 578,
+	.fifo_size_uv_1plane = 29,
+	.fifo_size_2plane = 402,
+	.fifo_size_uv_2plane = 201,
+	.fifo_size_3plane = 402,
+	.fifo_size_uv_3plane = 99,
+	.sodi_config = mt6853_mtk_sodi_config,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_wdma_data mt6983_wdma_driver_data = {
+	.fifo_size_1plane = 905,
+	.fifo_size_uv_1plane = 29,
+	.fifo_size_2plane = 599,
+	.fifo_size_uv_2plane = 299,
+	.fifo_size_3plane = 596,
+	.fifo_size_uv_3plane = 148,
+	.sodi_config = mt6983_mtk_sodi_config,
+	.aid_sel = &mtk_wdma_aid_sel_MT6983,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.is_support_34bits = true,
+};
+
+static const struct mtk_disp_wdma_data mt6895_wdma_driver_data = {
+	.fifo_size_1plane = 905,
+	.fifo_size_uv_1plane = 29,
+	.fifo_size_2plane = 599,
+	.fifo_size_uv_2plane = 299,
+	.fifo_size_3plane = 596,
+	.fifo_size_uv_3plane = 148,
+	.sodi_config = mt6895_mtk_sodi_config,
+	.aid_sel = &mtk_wdma_aid_sel_MT6895,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.is_support_34bits = true,
 };
 
 static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
@@ -1304,6 +1690,16 @@ static const struct of_device_id mtk_disp_wdma_driver_dt_match[] = {
 	 .data = &mt6873_wdma_driver_data},
 	{.compatible = "mediatek,mt6853-disp-wdma",
 	 .data = &mt6853_wdma_driver_data},
+	{.compatible = "mediatek,mt6833-disp-wdma",
+	 .data = &mt6833_wdma_driver_data},
+	{.compatible = "mediatek,mt6879-disp-wdma",
+	 .data = &mt6879_wdma_driver_data},
+	{.compatible = "mediatek,mt6983-disp-wdma",
+	 .data = &mt6983_wdma_driver_data},
+	{.compatible = "mediatek,mt6895-disp-wdma",
+	 .data = &mt6895_wdma_driver_data},
+	{.compatible = "mediatek,mt6855-disp-wdma",
+	 .data = &mt6855_wdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_wdma_driver_dt_match);

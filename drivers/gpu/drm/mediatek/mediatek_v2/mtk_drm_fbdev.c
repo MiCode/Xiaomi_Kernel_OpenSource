@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/gfp.h>
@@ -143,8 +143,9 @@ static int mtk_drm_fb_pan_display(struct fb_var_screeninfo *var,
 void disp_get_fb_address(unsigned long *fbVirAddr)
 {
 	*fbVirAddr = (unsigned long)debug_info->screen_base;
-	pr_info(
-		  "fbdev->fb_va_base = 0x%p\n", debug_info->screen_base);
+	DDPMSG(
+		  "%s fbdev->fb_va_base = 0x%p\n",
+		  __func__, debug_info->screen_base);
 }
 
 int pan_display_test(int frame_num, int bpp)
@@ -159,12 +160,18 @@ int pan_display_test(int frame_num, int bpp)
 
 	debug_info->var.yoffset = 0;
 	disp_get_fb_address((unsigned long *)&fb_va);
+	if (!fb_va)
+		return 0;
+
+	if (!mtk_crtc_frame_buffer_existed())
+		return 0;
+
 	fb_size = debug_info->fix.smem_len;
 	w = debug_info->var.xres;
 	h = debug_info->var.yres;
 	fb_h = fb_size / (ALIGN_TO(w, 32) * Bpp) - 10;
 
-	pr_info("%s: frame_num=%d,bpp=%d, w=%d,h=%d,fb_h=%d\n",
+	DDPMSG("%s: frame_num=%d,bpp=%d, w=%d,h=%d,fb_h=%d\n",
 		__func__, frame_num, bpp, w, h, fb_h);
 
 	for (i = 0; i < fb_h; i++)
@@ -192,6 +199,7 @@ int pan_display_test(int frame_num, int bpp)
 		mtk_drm_fb_pan_display(&debug_info->var, debug_info);
 	}
 
+	DDPMSG("%s, %d--\n", __func__, __LINE__);
 	return 0;
 }
 
@@ -250,6 +258,9 @@ bool mtk_drm_lcm_is_connect(void)
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 			unsigned int *fps)
 {
+#ifdef CONFIG_MTK_DISP_NO_LK
+		return -1;
+#else
 	struct device_node *chosen_node;
 
 	*fps = 6000;
@@ -283,41 +294,31 @@ found:
 	DDPINFO("[DT][videolfb] fps	   = %d\n", *fps);
 
 	return 0;
-}
-
-static int free_reserved_buf(phys_addr_t start_phys, phys_addr_t end_phys)
-{
-	phys_addr_t pos;
-
-	BUG_ON(start_phys & ~PAGE_MASK);
-	BUG_ON(end_phys & ~PAGE_MASK);
-
-	if (end_phys <= start_phys) {
-		DDPPR_ERR("%s end_phys:0x%lx is smaller than start_phys:0x%lx\n",
-			__func__, (unsigned long)end_phys, (unsigned long)start_phys);
-
-		return -1;
-	}
-
-	for (pos = start_phys; pos < end_phys; pos += PAGE_SIZE)
-		free_reserved_page(phys_to_page(pos));
-
-	return 0;
+#endif
 }
 
 int free_fb_buf(void)
 {
+	unsigned long va_start = 0;
+	unsigned long va_end = 0;
 	phys_addr_t fb_base;
 	unsigned int vramsize, fps;
 
 	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
 
-	if (fb_base)
-		free_reserved_buf(fb_base, fb_base + vramsize);
-	else {
+	if (!fb_base) {
 		DDPINFO("%s:get fb pa error\n", __func__);
 		return -1;
 	}
+
+	va_start = (unsigned long)__va(fb_base);
+	va_end = (unsigned long)__va(fb_base + (unsigned long)vramsize);
+	if (va_start)
+		//free_reserved_area((void *)va_start,
+		//		   (void *)va_end, 0xff, "fbmem");
+		;
+	else
+		DDPINFO("%s:va invalid\n", __func__);
 
 	return 0;
 }

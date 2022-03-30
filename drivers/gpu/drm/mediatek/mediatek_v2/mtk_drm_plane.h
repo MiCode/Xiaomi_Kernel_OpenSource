@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef _MTK_DRM_PLANE_H_
@@ -9,6 +9,7 @@
 #include <drm/drm_crtc.h>
 #include <linux/types.h>
 #include <drm/mediatek_drm.h>
+#include "../mml/mtk-mml.h"
 
 #define MAKE_DISP_FORMAT_ID(id, bpp) (((id) << 8) | (bpp))
 
@@ -98,7 +99,8 @@ enum DISP_YUV_RANGE_ENUM {
 
 enum MTK_FMT_MODIFIER {
 	MTK_FMT_NONE = 0,
-	MTK_FMT_PREMULTIPLIER = 1,
+	MTK_FMT_PREMULTIPLIED = 1,
+	MTK_FMT_SECURE = 2,
 };
 
 enum MTK_PLANE_PROP {
@@ -110,6 +112,8 @@ enum MTK_PLANE_PROP {
 	PLANE_PROP_VPITCH,
 	PLANE_PROP_COMPRESS,
 	PLANE_PROP_DIM_COLOR,
+	PLANE_PROP_IS_MML,
+	PLANE_PROP_MML_SUBMIT,
 	PLANE_PROP_MAX,
 };
 
@@ -124,6 +128,7 @@ struct mtk_plane_pending_state {
 	bool config;
 	bool enable;
 	dma_addr_t addr;
+	void __iomem *sram_p_addr;
 	size_t size;
 	unsigned int pitch;
 	unsigned int format;
@@ -136,7 +141,9 @@ struct mtk_plane_pending_state {
 	unsigned int height;
 	bool dirty;
 	bool is_sec;
-	unsigned int prop_val[PLANE_PROP_MAX];
+	enum mml_mode mml_mode;
+	struct mml_submit *mml_cfg;
+	uint64_t prop_val[PLANE_PROP_MAX];
 };
 
 struct mtk_plane_input_config {
@@ -199,7 +206,9 @@ struct mtk_plane_state {
 	struct drm_crtc *crtc;
 
 	/* property */
-	unsigned int prop_val[PLANE_PROP_MAX];
+	uint64_t prop_val[PLANE_PROP_MAX];
+	enum mml_mode mml_mode;
+	struct mml_submit *mml_cfg;
 };
 
 #define to_mtk_plane_state(x) container_of(x, struct mtk_plane_state, base)

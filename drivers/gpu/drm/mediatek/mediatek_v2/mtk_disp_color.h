@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef __MTK_DISP_COLOR_H__
@@ -183,8 +183,8 @@ bool disp_color_reg_get(struct mtk_ddp_comp *comp,
 void disp_color_set_window(struct mtk_ddp_comp *comp,
 	unsigned int sat_upper, unsigned int sat_lower,
 	unsigned int hue_upper, unsigned int hue_lower);
-
-void mtk_color_setbypass(struct mtk_ddp_comp *comp, bool bypass);
+void ddp_color_bypass_color(struct mtk_ddp_comp *comp, int bypass,
+		struct cmdq_pkt *handle);
 
 int mtk_drm_ioctl_set_pqparam(struct drm_device *dev, void *data,
 		struct drm_file *file_priv);
@@ -217,76 +217,23 @@ int mtk_drm_ioctl_write_sw_reg(struct drm_device *dev, void *data,
 #define MIRAVISION_HW_VERSION_SHIFT (24)
 #define MIRAVISION_SW_VERSION_SHIFT (16)
 #define MIRAVISION_SW_FEATURE_SHIFT (0)
-
-#if defined(CONFIG_MACH_MT6595)
-#define MIRAVISION_HW_VERSION       (1)
-#elif defined(CONFIG_MACH_MT6752)
-#define MIRAVISION_HW_VERSION       (2)
-#elif defined(CONFIG_MACH_MT6795)
-#define MIRAVISION_HW_VERSION       (3)
-#elif defined(CONFIG_MACH_MT6735) || defined(CONFIG_MACH_MT8167)
-#define MIRAVISION_HW_VERSION       (4)
-#elif defined(CONFIG_MACH_MT6735M)
-#define MIRAVISION_HW_VERSION       (5)
-#elif defined(CONFIG_MACH_MT6753)
-#define MIRAVISION_HW_VERSION       (6)
-#elif defined(CONFIG_MACH_MT6580)
-#define MIRAVISION_HW_VERSION       (7)
-#elif defined(CONFIG_MACH_MT6755)
-#define MIRAVISION_HW_VERSION       (8)
-#elif defined(CONFIG_MACH_MT6797)
-#define MIRAVISION_HW_VERSION       (9)
-#elif defined(CONFIG_MACH_MT6750)
-#define MIRAVISION_HW_VERSION       (10)
-#elif defined(CONFIG_MACH_MT6757)
-#define MIRAVISION_HW_VERSION       (11)
-#define MIRAVISION_HW_P_VERSION     (13)
-#elif defined(CONFIG_MACH_MT6799)
-#define MIRAVISION_HW_VERSION       (12)
-#elif defined(CONFIG_MACH_MT6763)
-#define MIRAVISION_HW_VERSION       (14)
-#elif defined(CONFIG_MACH_MT6758)
-#define MIRAVISION_HW_VERSION       (15)
-#elif defined(CONFIG_MACH_MT6739)
-#define MIRAVISION_HW_VERSION       (16)
-#elif defined(CONFIG_MACH_MT6775)
-#define MIRAVISION_HW_VERSION       (17)
-#elif defined(CONFIG_MACH_MT6771)
-#define MIRAVISION_HW_VERSION       (18)
-#elif defined(CONFIG_MACH_MT6765)
-#define MIRAVISION_HW_VERSION       (19)
-#else
 #define MIRAVISION_HW_VERSION       (0)
-#endif
 
 #define MIRAVISION_SW_VERSION       (3)	/* 3:Android N*/
 #define MIRAVISION_SW_FEATURE_VIDEO_DC  (0x1)
 #define MIRAVISION_SW_FEATURE_AAL       (0x2)
 #define MIRAVISION_SW_FEATURE_PQDS       (0x4)
 
-#if defined(CONFIG_MACH_MT6757)
-#define MIRAVISION_VERSION \
-	((color_get_chip_ver() << MIRAVISION_HW_VERSION_SHIFT) | \
-	(MIRAVISION_SW_VERSION << MIRAVISION_SW_VERSION_SHIFT) | \
-	MIRAVISION_SW_FEATURE_VIDEO_DC | \
-	MIRAVISION_SW_FEATURE_AAL | \
-	MIRAVISION_SW_FEATURE_PQDS)
-#else
 #define MIRAVISION_VERSION \
 	((MIRAVISION_HW_VERSION << MIRAVISION_HW_VERSION_SHIFT) | \
 	(MIRAVISION_SW_VERSION << MIRAVISION_SW_VERSION_SHIFT) | \
 	MIRAVISION_SW_FEATURE_VIDEO_DC | \
 	MIRAVISION_SW_FEATURE_AAL | \
 	MIRAVISION_SW_FEATURE_PQDS)
-#endif
 
 #define SW_VERSION_VIDEO_DC         (1)
 #define SW_VERSION_AAL              (1)
-#if defined(CONFIG_MACH_MT6755)
-#define SW_VERSION_PQDS             (2)
-#else
 #define SW_VERSION_PQDS             (1)
-#endif
 
 #define DISP_COLOR_SWREG_START          (0xFFFF0000)
 #define DISP_COLOR_SWREG_COLOR_BASE     (DISP_COLOR_SWREG_START)
@@ -312,6 +259,8 @@ int mtk_drm_ioctl_write_sw_reg(struct drm_device *dev, void *data,
 #define SWREG_MDP_RDMA_BASE_ADDRESS     (DISP_COLOR_SWREG_COLOR_BASE + 0x000B)
 #define SWREG_MDP_AAL_BASE_ADDRESS      (DISP_COLOR_SWREG_COLOR_BASE + 0x000C)
 #define SWREG_MDP_HDR_BASE_ADDRESS      (DISP_COLOR_SWREG_COLOR_BASE + 0x000D)
+#define SWREG_MML_COLOR_BASE_ADDRESS    (DISP_COLOR_SWREG_COLOR_BASE + 0x000E)
+#define SWREG_MML_TDSHP_BASE_ADDRESS    (DISP_COLOR_SWREG_COLOR_BASE + 0x000F)
 
 #define SWREG_TDSHP_TUNING_MODE         (DISP_COLOR_SWREG_TDSHP_BASE + 0x0000)
 #define SWREG_TDSHP_GAIN_MID	        (DISP_COLOR_SWREG_TDSHP_BASE + 0x0001)

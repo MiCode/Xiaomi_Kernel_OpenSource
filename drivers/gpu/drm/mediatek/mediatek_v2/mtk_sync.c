@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/debugfs.h>
@@ -10,7 +10,7 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
-
+#include <linux/module.h>
 #include <linux/sync_file.h>
 
 #include "mtk_sync.h"
@@ -158,12 +158,15 @@ static void mtk_sync_timeline_fence_release(struct dma_fence *fence)
 	struct sync_timeline *parent = dma_fence_parent(fence);
 	unsigned long flags;
 
-	spin_lock_irqsave(fence->lock, flags);
-	if (!list_empty(&pt->link)) {
-		list_del(&pt->link);
-		rb_erase(&pt->node, &parent->pt_tree);
+	if (pt) {
+		spin_lock_irqsave(fence->lock, flags);
+		if (!list_empty(&pt->link)) {
+			list_del(&pt->link);
+			rb_erase(&pt->node, &parent->pt_tree);
+
+		}
+		spin_unlock_irqrestore(fence->lock, flags);
 	}
-	spin_unlock_irqrestore(fence->lock, flags);
 
 	mtk_sync_timeline_put(parent);
 	dma_fence_free(fence);
@@ -186,7 +189,13 @@ static void mtk_sync_timeline_fence_value_str(
 					      char *str,
 					      int size)
 {
-	snprintf(str, size, "%lld", fence->seqno);
+	int r;
+
+	r = snprintf(str, size, "%lld", fence->seqno);
+	if (r < 0) {
+		/* Handle snprintf() error */
+		pr_debug("snprintf error\n");
+	}
 }
 
 static void mtk_sync_timeline_fence_timeline_value_str(struct dma_fence *fence,
@@ -218,7 +227,7 @@ static struct dma_fence_ops mtk_sync_timeline_fence_ops = {
  * has signaled or has an error condition.
  */
 static void mtk_sync_timeline_signal(struct sync_timeline *obj,
-				     unsigned int inc)
+				     unsigned int inc, ktime_t time)
 {
 	struct sync_pt *pt, *next;
 
@@ -241,7 +250,10 @@ static void mtk_sync_timeline_signal(struct sync_timeline *obj,
 		 * prevent deadlocking on timeline->lock inside
 		 * timeline_fence_release().
 		 */
-		dma_fence_signal_locked(&pt->base);
+		if (time != 0)
+			dma_fence_signal_timestamp_locked(&pt->base, time);
+		else
+			dma_fence_signal_locked(&pt->base);
 	}
 
 	spin_unlock_irq(&obj->lock);
@@ -254,6 +266,7 @@ static void mtk_sync_timeline_signal(struct sync_timeline *obj,
  * Creates a new sync_timeline. Returns the sync_timeline object or NULL in
  * case of error.
  */
+
 struct sync_timeline *mtk_sync_timeline_create(const char *name)
 {
 	struct sync_timeline *obj;
@@ -274,16 +287,19 @@ struct sync_timeline *mtk_sync_timeline_create(const char *name)
 
 	return obj;
 }
+EXPORT_SYMBOL_GPL(mtk_sync_timeline_create);
 
 void mtk_sync_timeline_destroy(struct sync_timeline *obj)
 {
 	mtk_sync_timeline_put(obj);
 }
+EXPORT_SYMBOL_GPL(mtk_sync_timeline_destroy);
 
-void mtk_sync_timeline_inc(struct sync_timeline *obj, u32 value)
+void mtk_sync_timeline_inc(struct sync_timeline *obj, u32 value, ktime_t time)
 {
-	mtk_sync_timeline_signal(obj, value);
+	mtk_sync_timeline_signal(obj, value, time);
 }
+EXPORT_SYMBOL_GPL(mtk_sync_timeline_inc);
 
 int mtk_sync_fence_create(struct sync_timeline *obj, struct fence_data *data)
 {
@@ -318,3 +334,6 @@ err:
 	put_unused_fd(fd);
 	return err;
 }
+EXPORT_SYMBOL_GPL(mtk_sync_fence_create);
+
+MODULE_LICENSE("GPL");

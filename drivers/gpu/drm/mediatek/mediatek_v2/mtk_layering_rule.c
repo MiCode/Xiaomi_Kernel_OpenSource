@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/delay.h>
@@ -24,9 +24,8 @@
 #include "mtk_rect.h"
 #include "mtk_drm_drv.h"
 #include "mtk_drm_graphics_base.h"
-#ifdef MTK_DISP_MMQOS_SUPPORT
+
 #include <soc/mediatek/mmqos.h>
-#endif
 
 static struct layering_rule_ops l_rule_ops;
 static struct layering_rule_info_t l_rule_info;
@@ -54,12 +53,18 @@ static int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 static uint16_t layer_mapping_table[HRT_TB_NUM] = {
 	0x0003, 0x007E, 0x007A, 0x0001
 };
+static uint16_t layer_mapping_table_vds_switch[HRT_TB_NUM] = {
+	0x0078, 0x0078, 0x0078, 0x0078
+};
 
 /**
  * The larb mapping table represent the relation between LARB and OVL.
  */
 static uint16_t larb_mapping_table[HRT_TB_NUM] = {
 	0x0001, 0x0010, 0x0010, 0x0001
+};
+static uint16_t larb_mapping_tb_vds_switch[HRT_TB_NUM] = {
+	0x0010, 0x0010, 0x0010, 0x0001
 };
 
 /**
@@ -68,6 +73,9 @@ static uint16_t larb_mapping_table[HRT_TB_NUM] = {
  */
 static uint16_t ovl_mapping_table[HRT_TB_NUM] = {
 	0x0002, 0x0045, 0x0045, 0x0001
+};
+static uint16_t ovl_mapping_tb_vds_switch[HRT_TB_NUM] = {
+	0x0045, 0x0045, 0x0045, 0x0045
 };
 
 #define GET_SYS_STATE(sys_state)                                               \
@@ -85,7 +93,11 @@ static void layering_rule_scenario_decision(unsigned int scn_decision_flag,
 	l_rule_info.primary_fps = 60;
 	l_rule_info.bound_tb_idx = HRT_BOUND_TYPE_LP4;
 
-	if (scn_decision_flag & SCN_NEED_GAME_PQ)
+	if (scn_decision_flag & SCN_MML_SRAM_ONLY)
+		l_rule_info.addon_scn[HRT_PRIMARY] = MML_SRAM_ONLY;
+	else if (scn_decision_flag & SCN_MML)
+		l_rule_info.addon_scn[HRT_PRIMARY] = MML;
+	else if (scn_decision_flag & SCN_NEED_GAME_PQ)
 		l_rule_info.addon_scn[HRT_PRIMARY] = GAME_PQ;
 	else if (scn_decision_flag & SCN_NEED_VP_PQ)
 		l_rule_info.addon_scn[HRT_PRIMARY] = VP_PQ;
@@ -247,15 +259,19 @@ static void filter_by_wcg(struct drm_device *dev,
 		}
 }
 
-static bool can_be_compress(uint32_t format)
+static bool can_be_compress(struct drm_device *dev, uint32_t format)
 {
-	if (mtk_is_yuv(format) || format == DRM_FORMAT_RGB565)
+	struct mtk_drm_private *priv = dev->dev_private;
+
+	if (mtk_is_yuv(format) || (format == DRM_FORMAT_RGB565 &&
+			!priv->data->can_compress_rgb565))
 		return 0;
-	else
-		return 1;
+
+	return 1;
 }
 
-static void filter_by_fbdc(struct drm_mtk_layering_info *disp_info)
+static void filter_by_fbdc(struct drm_device *dev,
+			struct drm_mtk_layering_info *disp_info)
 {
 	unsigned int i, j;
 	struct drm_mtk_layer_config *c;
@@ -267,7 +283,7 @@ static void filter_by_fbdc(struct drm_mtk_layering_info *disp_info)
 		if (!c->compress)
 			continue;
 
-		if (can_be_compress(c->src_fmt) == 0)
+		if (can_be_compress(dev, c->src_fmt) == 0)
 			mtk_rollback_compress_layer_to_GPU(disp_info,
 							   HRT_PRIMARY, i);
 	}
@@ -306,8 +322,7 @@ static bool filter_by_hw_limitation(struct drm_device *dev,
 static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 				  enum DISP_HW_MAPPING_TB_TYPE tb_type,
 				  int param);
-static int layering_get_valid_hrt(struct drm_crtc *crtc,
-					struct drm_display_mode *mode);
+static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx);
 
 static void copy_hrt_bound_table(struct drm_mtk_layering_info *disp_info,
 			int is_larb, int *hrt_table, struct drm_device *dev)
@@ -315,7 +330,6 @@ static void copy_hrt_bound_table(struct drm_mtk_layering_info *disp_info,
 	unsigned long flags = 0;
 	int valid_num, ovl_bound, i;
 	struct drm_crtc *crtc;
-	struct drm_display_mode *mode;
 
 	/* Not used in 6779 */
 	if (is_larb)
@@ -326,12 +340,9 @@ static void copy_hrt_bound_table(struct drm_mtk_layering_info *disp_info,
 			break;
 	}
 
-	mode = mtk_drm_crtc_avail_disp_mode(crtc,
-		disp_info->disp_mode_idx[0]);
-
 	/* update table if hrt bw is enabled */
 	spin_lock_irqsave(&hrt_table_lock, flags);
-	valid_num = layering_get_valid_hrt(crtc, mode);
+	valid_num = layering_get_valid_hrt(crtc, disp_info->disp_mode_idx[0]);
 	ovl_bound = mtk_get_phy_layer_limit(
 		get_mapping_table(dev, 0, DISP_HW_LAYER_TB, MAX_PHY_OVL_CNT));
 	valid_num = min(valid_num, ovl_bound * 100);
@@ -367,6 +378,7 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 	int cnt = 0;
 	struct drm_crtc *crtc;
 	const struct mtk_addon_scenario_data *addon_data = NULL;
+	struct mtk_drm_private *priv = dev->dev_private;
 
 	drm_for_each_crtc(crtc, dev) {
 		if (drm_crtc_index(crtc) == disp_idx) {
@@ -386,13 +398,26 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 	switch (tb_type) {
 	case DISP_HW_OVL_TB:
 		map = ovl_mapping_table[addon_data->hrt_type];
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+			priv->need_vds_path_switch)
+			map = ovl_mapping_tb_vds_switch[addon_data->hrt_type];
 		break;
 	case DISP_HW_LARB_TB:
 		map = larb_mapping_table[addon_data->hrt_type];
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+			priv->need_vds_path_switch)
+			map = larb_mapping_tb_vds_switch[addon_data->hrt_type];
 		break;
 	case DISP_HW_LAYER_TB:
 		if (param <= MAX_PHY_OVL_CNT && param >= 0) {
 			tmp_map = layer_mapping_table[addon_data->hrt_type];
+			if (mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+				priv->need_vds_path_switch)
+				tmp_map = layer_mapping_table_vds_switch[
+					addon_data->hrt_type];
 
 			for (i = 0, map = 0; i < 16; i++) {
 				if (cnt == param)
@@ -434,6 +459,11 @@ void mtk_layering_rule_init(struct drm_device *dev)
 static bool _rollback_all_to_GPU_for_idle(struct drm_device *dev)
 {
 	struct mtk_drm_private *priv = dev->dev_private;
+
+	/* Slghtly modify this function for TUI */
+
+	if (atomic_read(&priv->rollback_all))
+		return true;
 
 	if (!mtk_drm_helper_get_opt(priv->helper_opt,
 				    MTK_DRM_OPT_IDLEMGR_BY_REPAINT) ||
@@ -481,14 +511,18 @@ unsigned long long _layering_get_frame_bw(struct drm_crtc *crtc,
 	return bw_base;
 }
 
-static int layering_get_valid_hrt(struct drm_crtc *crtc,
-					struct drm_display_mode *mode)
+static int layering_get_valid_hrt(struct drm_crtc *crtc, int mode_idx)
 {
 	unsigned long long dvfs_bw = 0;
-#ifdef MTK_DISP_MMQOS_SUPPORT
 	unsigned long long tmp = 0;
 	struct mtk_ddp_comp *output_comp;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv =
+			mtk_crtc->base.dev->dev_private;
+
+	if (!mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT))
+		return 600;
 
 	dvfs_bw = mtk_mmqos_get_avail_hrt_bw(HRT_DISP);
 	if (dvfs_bw == 0xffffffffffffffff) {
@@ -499,9 +533,18 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	dvfs_bw *= 10000;
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-	if (output_comp)
-		mtk_ddp_comp_io_cmd(output_comp, NULL,
-			GET_FRAME_HRT_BW_BY_DATARATE, &tmp);
+	if (mode_idx == mtk_crtc->mode_idx) {
+		if (output_comp)
+			mtk_ddp_comp_io_cmd(output_comp, NULL,
+				GET_FRAME_HRT_BW_BY_DATARATE, &tmp);
+	} else {
+		DDPMSG("%s mode_idx:%d->%d\n", __func__,
+			mtk_crtc->mode_idx, mode_idx);
+		mtk_crtc->mode_idx = mode_idx;
+		if (output_comp)
+			mtk_ddp_comp_io_cmd(output_comp, NULL,
+				GET_FRAME_HRT_BW_BY_MODE, &tmp);
+	}
 	if (!tmp) {
 		DDPPR_ERR("Get frame hrt bw by datarate is zero\n");
 		return 600;
@@ -519,9 +562,6 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	DDPINFO("get avail HRT BW:%u : %llu %llu\n",
 		mtk_mmqos_get_avail_hrt_bw(HRT_DISP),
 		dvfs_bw, tmp);
-#else
-	dvfs_bw = 600;
-#endif
 
 	return dvfs_bw;
 }
@@ -696,6 +736,9 @@ static int get_below_ext_layer(struct drm_mtk_layering_info *disp_info,
 {
 	struct drm_mtk_layer_config *c, *tmp_c;
 	int phy_id = -1, ext_id = -1, l_dst_offset_y = -1, i;
+
+	if (disp_idx < 0)
+		return -1;
 
 	c = &(disp_info->input_config[disp_idx][cur]);
 

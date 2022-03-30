@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/uaccess.h>
@@ -48,8 +53,8 @@ static void mtk_read_reg(unsigned long addr)
 {
 	void __iomem *reg_va = 0;
 
-	reg_va = ioremap_nocache(addr, sizeof(reg_va));
-	pr_info("r:0x%8lx = 0x%08x\n", addr, readl(reg_va));
+	reg_va = ioremap(addr, sizeof(reg_va));
+	DDPMSG("r:0x%8lx = 0x%08x\n", addr, readl(reg_va));
 	iounmap(reg_va);
 }
 
@@ -57,7 +62,7 @@ static void mtk_write_reg(unsigned long addr, unsigned long val)
 {
 	void __iomem *reg_va = 0;
 
-	reg_va = ioremap_nocache(addr, sizeof(reg_va));
+	reg_va = ioremap(addr, sizeof(reg_va));
 	writel(val, reg_va);
 	iounmap(reg_va);
 }
@@ -406,8 +411,10 @@ static ssize_t debug_write(struct file *file, const char __user *ubuf,
 
 	return ret;
 }
-
+#if S_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *mtkdrm_dbgfs;
+#endif
+
 static const struct file_operations debug_fops = {
 	.read = debug_read, .write = debug_write, .open = debug_open,
 };
@@ -430,8 +437,10 @@ void mtk_drm_debugfs_init(struct drm_device *dev, struct mtk_drm_private *priv)
 	int ret;
 
 	DRM_DEBUG_DRIVER("%s\n", __func__);
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	mtkdrm_dbgfs = debugfs_create_file("mtkdrm", 0644, NULL, (void *)0,
 					   &debug_fops);
+#endif
 
 	/* TODO: The debugfs_init would be different in latest kernel version,
 	 * so we will refine the debugfs with multiple path in latest verion.
@@ -484,11 +493,13 @@ void mtk_drm_debugfs_init(struct drm_device *dev, struct mtk_drm_private *priv)
 		gdrm_disp2_base[i] = mutex_regs;
 		gdrm_disp2_reg_range[i].reg_base = mutex_phys;
 	}
-
+out:
 	DRM_DEBUG_DRIVER("%s..done\n", __func__);
 }
 
 void mtk_drm_debugfs_deinit(void)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	debugfs_remove(mtkdrm_dbgfs);
+#endif
 }

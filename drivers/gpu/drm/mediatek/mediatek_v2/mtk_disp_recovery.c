@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/clk.h>
@@ -17,7 +17,12 @@
 #include <linux/delay.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/pinctrl/consumer.h>
+
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_ddp_comp.h"
@@ -33,6 +38,7 @@
 /* pinctrl implementation */
 long _set_state(struct drm_crtc *crtc, const char *name)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct pinctrl_state *pState = 0;
 	long ret = 0;
@@ -56,10 +62,14 @@ long _set_state(struct drm_crtc *crtc, const char *name)
 
 exit:
 	return ret; /* Good! */
+#else
+	return 0; /* Good! */
+#endif
 }
 
 long disp_dts_gpio_init(struct device *dev, struct mtk_drm_private *private)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	long ret = 0;
 	struct pinctrl *pctrl;
 
@@ -75,6 +85,9 @@ long disp_dts_gpio_init(struct device *dev, struct mtk_drm_private *private)
 
 exit:
 	return ret;
+#else
+	return 0;
+#endif
 }
 
 static inline int _can_switch_check_mode(struct drm_crtc *crtc,
@@ -185,8 +198,7 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 				     mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, ESD_CHECK_READ,
-				    (void *)mtk_crtc->gce_obj.buf.pa_base +
-					    DISP_SLOT_ESD_READ_BASE);
+				    (void *)mtk_crtc);
 
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
@@ -198,6 +210,13 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
 						 DDP_FIRST_PATH, 1);
 
+		if (mtk_crtc->msync2.msync_on) {
+			u32 vfp_early_stop = 1;
+
+			mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_VFP_EARLYSTOP,
+							&vfp_early_stop);
+		}
+
 		CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 2);
 
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_STOP_VDO_MODE,
@@ -207,8 +226,7 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 
 
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, ESD_CHECK_READ,
-				    (void *)mtk_crtc->gce_obj.buf.pa_base +
-					    DISP_SLOT_ESD_READ_BASE);
+				    (void *)mtk_crtc);
 
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
 				    DSI_START_VDO_MODE, NULL);
@@ -244,8 +262,7 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	}
 
 	ret = mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_CHECK_CMP,
-				  (void *)mtk_crtc->gce_obj.buf.va_base +
-					  DISP_SLOT_ESD_READ_BASE);
+				  (void *)mtk_crtc);
 done:
 	cmdq_pkt_destroy(cmdq_handle);
 	return ret;
@@ -265,6 +282,7 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	int ret = 1;
 
 	DDPINFO("[ESD]ESD check eint\n");
@@ -274,7 +292,12 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 		return -EINVAL;
 	}
 
-	enable_irq(esd_ctx->eint_irq);
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_DUAL_TE) &&
+			(atomic_read(&mtk_crtc->d_te.te_switched) == 1))
+		atomic_set(&mtk_crtc->d_te.esd_te1_en, 1);
+	else
+		enable_irq(esd_ctx->eint_irq);
 
 	/* check if there is TE in the last 2s, if so ESD check is pass */
 	if (wait_event_interruptible_timeout(
@@ -283,7 +306,12 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 		    HZ / 2) > 0)
 		ret = 0;
 
-	disable_irq(esd_ctx->eint_irq);
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_DUAL_TE) &&
+			(atomic_read(&mtk_crtc->d_te.te_switched) == 1))
+		atomic_set(&mtk_crtc->d_te.esd_te1_en, 0);
+	else
+		disable_irq(esd_ctx->eint_irq);
 	atomic_set(&esd_ctx->ext_te_event, 0);
 
 	return ret;
@@ -388,6 +416,7 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	int ret = 0;
 
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), esd_recovery, 0, 0);
@@ -409,6 +438,13 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	mtk_drm_crtc_disable(crtc, true);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 2);
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_MMQOS_SUPPORT)) {
+		if (drm_crtc_index(crtc) == 0)
+			mtk_disp_set_hrt_bw(mtk_crtc,
+				mtk_crtc->qos_ctx->last_hrt_req);
+	}
 
 	mtk_drm_crtc_enable(crtc);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 3);
@@ -445,6 +481,7 @@ done:
 
 static int mtk_drm_esd_check_worker_kthread(void *data)
 {
+	struct sched_param param = {.sched_priority = 87};
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
 	struct mtk_drm_private *private = crtc->dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -453,7 +490,7 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	int i = 0;
 	int recovery_flg = 0;
 
-	sched_set_normal(current, 19);
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	if (!crtc) {
 		DDPPR_ERR("%s invalid CRTC context, stop thread\n", __func__);
@@ -463,6 +500,8 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 
 	while (1) {
 		msleep(ESD_CHECK_PERIOD);
+		if (esd_ctx->chk_en == 0)
+			continue;
 		ret = wait_event_interruptible(
 			esd_ctx->check_task_wq,
 			atomic_read(&esd_ctx->check_wakeup) &&
@@ -587,6 +626,7 @@ static void mtk_disp_esd_chk_init(struct drm_crtc *crtc)
 	}
 	mtk_crtc->esd_ctx = esd_ctx;
 
+	esd_ctx->chk_en = 1;
 	esd_ctx->disp_esd_chk_task = kthread_create(
 		mtk_drm_esd_check_worker_kthread, crtc, "disp_echk");
 
@@ -595,7 +635,10 @@ static void mtk_disp_esd_chk_init(struct drm_crtc *crtc)
 	atomic_set(&esd_ctx->check_wakeup, 0);
 	atomic_set(&esd_ctx->ext_te_event, 0);
 	atomic_set(&esd_ctx->target_time, 0);
-	esd_ctx->chk_mode = READ_EINT;
+	if (panel_ext->params->cust_esd_check == 1)
+		esd_ctx->chk_mode = READ_LCM;
+	else
+		esd_ctx->chk_mode = READ_EINT;
 	mtk_drm_request_eint(crtc);
 
 	wake_up_process(esd_ctx->disp_esd_chk_task);

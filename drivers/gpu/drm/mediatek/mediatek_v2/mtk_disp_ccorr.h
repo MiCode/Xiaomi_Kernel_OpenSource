@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef __MTK_DISP_CCORR_H__
@@ -25,6 +25,8 @@ int mtk_drm_ioctl_ccorr_get_irq(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
+int mtk_get_ccorr_caps(struct drm_mtk_ccorr_caps *ccorr_caps);
+int mtk_set_ccorr_caps(struct drm_mtk_ccorr_caps *ccorr_caps);
 
 #endif
 

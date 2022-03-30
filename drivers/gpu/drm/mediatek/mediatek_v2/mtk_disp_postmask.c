@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/clk.h>
@@ -8,7 +8,12 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -53,6 +58,9 @@
 #define BLEND_CFG_FLD_A_EN REG_FLD_MSB_LSB(0, 0)
 #define DISP_POSTMASK_ROI_BGCLR 0x54
 #define DISP_POSTMASK_MASK_CLR 0x58
+#define DISP_REG_POSTMASK_SODI 0x60
+#define PM_MASK_THRESHOLD_LOW_FOR_SODI  REG_FLD_MSB_LSB(13, 0)
+#define PM_MASK_THRESHOLD_HIGH_FOR_SODI REG_FLD_MSB_LSB(29, 16)
 #define DISP_POSTMASK_STATUS 0xA0
 #define DISP_POSTMASK_INPUT_COUNT 0xA4
 #define DISP_POSTMASK_MEM_ADDR 0x100
@@ -67,6 +75,7 @@
 #define DISP_POSTMASK_PAUSE_REGION 0x110
 #define PAUSE_REGION_FLD_RDMA_PAUSE_END REG_FLD_MSB_LSB(27, 16)
 #define PAUSE_REGION_FLD_RDMA_PAUSE_START REG_FLD_MSB_LSB(11, 0)
+#define DISP_POSTMASK_MEM_ADDR_MSB 0x114
 #define DISP_POSTMASK_RDMA_GREQ_NUM 0x130
 #define GREQ_FLD_IOBUF_FLUSH_ULTRA REG_FLD_MSB_LSB(31, 31)
 #define GREQ_FLD_IOBUF_FLUSH_PREULTRA REG_FLD_MSB_LSB(30, 30)
@@ -102,17 +111,29 @@
 #define DISP_POSTMASK_GRAD_VAL_0 0xA00
 #define DISP_POSTMASK_GRAD_VAL(n) (DISP_POSTMASK_GRAD_VAL_0 + (0x4 * (n)))
 
+static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id) __always_unused;
+
+struct mtk_disp_postmask_data {
+	bool is_support_34bits;
+};
+
 struct mtk_disp_postmask {
 	struct mtk_ddp_comp ddp_comp;
 	struct drm_crtc *crtc;
 	unsigned int underflow_cnt;
 	unsigned int abnormal_cnt;
+	const struct mtk_disp_postmask_data *data;
 };
+
+static inline struct mtk_disp_postmask *comp_to_postmask(struct mtk_ddp_comp *comp)
+{
+	return container_of(comp, struct mtk_disp_postmask, ddp_comp);
+}
 
 static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_postmask *priv = dev_id;
-	struct mtk_ddp_comp *postmask = &priv->ddp_comp;
+	struct mtk_ddp_comp *postmask = NULL;
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
@@ -120,6 +141,13 @@ static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 		DDPIRQ("%s, top clk off\n", __func__);
 		return IRQ_NONE;
 	}
+
+	if (IS_ERR_OR_NULL(priv))
+		return IRQ_NONE;
+
+	postmask = &priv->ddp_comp;
+	if (IS_ERR_OR_NULL(postmask))
+		return IRQ_NONE;
 
 	val = readl(postmask->regs + DISP_POSTMASK_INTSTA);
 	if (!val) {
@@ -151,11 +179,11 @@ static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 		priv->abnormal_cnt++;
 	}
 
-	if (val & (1 << 8)) {
-		DDPPR_ERR("[IRQ] %s: frame underflow! cnt=%d\n",
-			  mtk_dump_comp_str(postmask), priv->underflow_cnt);
-		priv->underflow_cnt++;
-	}
+	//if (val & (1 << 8)) {
+		//DDPPR_ERR("[IRQ] %s: frame underflow! cnt=%d\n",
+			  //mtk_dump_comp_str(postmask), priv->underflow_cnt);
+		//priv->underflow_cnt++;
+	//}
 
 	ret = IRQ_HANDLED;
 
@@ -178,8 +206,19 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 	unsigned int num = 0;
 #else
 	struct mtk_drm_gem_obj *gem;
+	unsigned int size = 0;
+	dma_addr_t addr = 0;
+	unsigned int force_relay = 0;
+	struct mtk_disp_postmask *postmask = comp_to_postmask(comp);
 #endif
 #endif
+	unsigned int width;
+
+	if (comp->mtk_crtc->is_dual_pipe)
+		width = cfg->w / 2;
+	else
+		width = cfg->w;
+
 	value = (REG_FLD_VAL((BLEND_CFG_FLD_A_EN), 1) |
 		 REG_FLD_VAL((BLEND_CFG_FLD_PARGB_BLD), 0) |
 		 REG_FLD_VAL((BLEND_CFG_FLD_CONST_BLD), 0));
@@ -189,7 +228,7 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 			      handle);
 	mtk_ddp_write_relaxed(comp, 0xff000000, DISP_POSTMASK_MASK_CLR, handle);
 
-	value = (cfg->w << 16) + cfg->h;
+	value = (width << 16) + cfg->h;
 	mtk_ddp_write_relaxed(comp, value, DISP_POSTMASK_SIZE, handle);
 
 	if (!panel_ext)
@@ -255,20 +294,47 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 				      DISP_POSTMASK_RDMA_BUF_HIGH_TH, handle);
 
 #ifdef POSTMASK_DRAM_MODE
-		value = (REG_FLD_VAL((CFG_FLD_RELAY_MODE), 0) |
+		if (comp->mtk_crtc->is_dual_pipe) {
+			if (comp->id == DDP_COMPONENT_POSTMASK0 &&
+			    comp->mtk_crtc->round_corner_gem_l &&
+			    panel_ext->corner_pattern_tp_size_l) {
+				gem = comp->mtk_crtc->round_corner_gem_l;
+				addr = gem->dma_addr;
+				size = panel_ext->corner_pattern_tp_size_l;
+			} else if (comp->id == DDP_COMPONENT_POSTMASK1 &&
+			    comp->mtk_crtc->round_corner_gem_r &&
+			    panel_ext->corner_pattern_tp_size_r) {
+				gem = comp->mtk_crtc->round_corner_gem_r;
+				addr = gem->dma_addr;
+				size = panel_ext->corner_pattern_tp_size_r;
+			}
+		} else if (comp->mtk_crtc->round_corner_gem &&
+			   panel_ext->corner_pattern_tp_size) {
+			gem = comp->mtk_crtc->round_corner_gem;
+			addr = gem->dma_addr;
+			size = panel_ext->corner_pattern_tp_size;
+		}
+
+		if (addr == 0 || size == 0) {
+			DDPPR_ERR("invalid postmaks addr/size\n");
+			force_relay = 1;
+		}
+		value = (REG_FLD_VAL((CFG_FLD_RELAY_MODE), force_relay) |
 			 REG_FLD_VAL((CFG_FLD_DRAM_MODE), 1) |
 			 REG_FLD_VAL((CFG_FLD_BGCLR_IN_SEL), 1) |
 			 REG_FLD_VAL((CFG_FLD_GCLAST_EN), 1) |
 			 REG_FLD_VAL((CFG_FLD_STALL_CG_ON), 1));
 		mtk_ddp_write_relaxed(comp, value, DISP_POSTMASK_CFG, handle);
 
-		gem = comp->mtk_crtc->round_corner_gem;
-		value = (unsigned int)gem->dma_addr;
-		mtk_ddp_write_relaxed(comp, value, DISP_POSTMASK_MEM_ADDR,
+		mtk_ddp_write_relaxed(comp, addr, DISP_POSTMASK_MEM_ADDR,
 				      handle);
 
-		mtk_ddp_write_relaxed(comp, panel_ext->corner_pattern_tp_size,
-				      DISP_POSTMASK_MEM_LENGTH, handle);
+		if (postmask->data->is_support_34bits)
+			mtk_ddp_write_relaxed(comp, (addr >> 32),
+					DISP_POSTMASK_MEM_ADDR_MSB, handle);
+
+		mtk_ddp_write_relaxed(comp, size, DISP_POSTMASK_MEM_LENGTH,
+				      handle);
 #else
 		value = (REG_FLD_VAL((CFG_FLD_RELAY_MODE), 0) |
 			 REG_FLD_VAL((CFG_FLD_DRAM_MODE), 0) |
@@ -324,7 +390,7 @@ int mtk_postmask_dump(struct mtk_ddp_comp *comp)
 	mtk_serial_dump_reg(baddr, 0xA0, 2);
 	mtk_serial_dump_reg(baddr, 0xB0, 3);
 	mtk_serial_dump_reg(baddr, 0x100, 4);
-	mtk_serial_dump_reg(baddr, 0x110, 1);
+	mtk_serial_dump_reg(baddr, 0x110, 2);
 	mtk_serial_dump_reg(baddr, 0x130, 2);
 	mtk_serial_dump_reg(baddr, 0x140, 3);
 
@@ -334,6 +400,8 @@ int mtk_postmask_dump(struct mtk_ddp_comp *comp)
 int mtk_postmask_analysis(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
+	struct mtk_disp_postmask *postmask = comp_to_postmask(comp);
+	dma_addr_t addr = 0;
 
 	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
 	DDPDUMP("en=%d,cfg=0x%x,size=(%dx%d)\n",
@@ -350,9 +418,17 @@ int mtk_postmask_analysis(struct mtk_ddp_comp *comp)
 		readl(DISP_POSTMASK_MEM_GMC_SETTING2 + baddr),
 		readl(DISP_POSTMASK_RDMA_BUF_LOW_TH + baddr),
 		readl(DISP_POSTMASK_RDMA_BUF_HIGH_TH + baddr));
+
+	if (postmask->data->is_support_34bits) {
+		addr = readl(DISP_POSTMASK_MEM_ADDR_MSB + baddr);
+		addr = (addr << 32);
+	}
+
+	addr += readl(DISP_POSTMASK_MEM_ADDR + baddr);
+
 	DDPDUMP("mem_addr=0x%x,length=0x%x\n",
-		readl(DISP_POSTMASK_MEM_ADDR + baddr),
-		readl(DISP_POSTMASK_MEM_LENGTH + baddr));
+		addr, readl(DISP_POSTMASK_MEM_LENGTH + baddr));
+
 	DDPDUMP("status=0x%x,cur_pos=0x%x\n",
 		readl(DISP_POSTMASK_STATUS + baddr),
 		readl(DISP_POSTMASK_INPUT_COUNT + baddr));
@@ -369,7 +445,7 @@ static void mtk_postmask_start(struct mtk_ddp_comp *comp,
 {
 	DDPDBG("%s\n", __func__);
 
-	mtk_postmask_io_cmd(comp, handle, IRQ_LEVEL_ALL, NULL);
+	mtk_postmask_io_cmd(comp, handle, IRQ_LEVEL_NORMAL, NULL);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_POSTMASK_EN, 1, ~0);
@@ -432,7 +508,7 @@ static int mtk_postmask_io_cmd(struct mtk_ddp_comp *comp,
 			       enum mtk_ddp_io_cmd io_cmd, void *params)
 {
 	switch (io_cmd) {
-	case IRQ_LEVEL_ALL: {
+	case IRQ_LEVEL_NORMAL: {
 		unsigned int inten;
 
 		inten = REG_FLD_VAL(INTEN_FLD_PM_IF_FME_END_INTEN, 1) |
@@ -481,7 +557,6 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_disp_postmask *priv;
 	enum mtk_ddp_comp_id comp_id;
-	int irq;
 	int ret;
 
 	DDPINFO("%s+\n", __func__);
@@ -489,10 +564,6 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (priv == NULL)
 		return -ENOMEM;
-
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return irq;
 
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DISP_POSTMASK);
 	if ((int)comp_id < 0) {
@@ -507,17 +578,9 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	platform_set_drvdata(pdev, priv);
+	priv->data = of_device_get_match_data(dev);
 
-	ret = devm_request_irq(dev, irq, mtk_postmask_irq_handler,
-			       IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev),
-			       priv);
-	if (ret < 0) {
-		DDPAEE("%s:%d, failed to request irq:%d ret:%d comp_id:%d\n",
-				__func__, __LINE__,
-				irq, ret, comp_id);
-		return ret;
-	}
+	platform_set_drvdata(pdev, priv);
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
@@ -541,11 +604,61 @@ static int mtk_disp_postmask_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct mtk_disp_postmask_data mt6779_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6885_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6983_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6895_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6873_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6853_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6833_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6879_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
+static const struct mtk_disp_postmask_data mt6855_postmask_driver_data = {
+	.is_support_34bits = false,
+};
+
 static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt6779-disp-postmask",},
-	{ .compatible = "mediatek,mt6885-disp-postmask",},
-	{ .compatible = "mediatek,mt6873-disp-postmask",},
-	{ .compatible = "mediatek,mt6853-disp-postmask",},
+	{ .compatible = "mediatek,mt6779-disp-postmask",
+	  .data = &mt6779_postmask_driver_data},
+	{ .compatible = "mediatek,mt6885-disp-postmask",
+	  .data = &mt6885_postmask_driver_data},
+	{ .compatible = "mediatek,mt6983-disp-postmask",
+	  .data = &mt6983_postmask_driver_data},
+	{ .compatible = "mediatek,mt6895-disp-postmask",
+	  .data = &mt6895_postmask_driver_data},
+	{ .compatible = "mediatek,mt6873-disp-postmask",
+	  .data = &mt6873_postmask_driver_data},
+	{ .compatible = "mediatek,mt6853-disp-postmask",
+	  .data = &mt6853_postmask_driver_data},
+	{ .compatible = "mediatek,mt6833-disp-postmask",
+	  .data = &mt6833_postmask_driver_data},
+	{ .compatible = "mediatek,mt6879-disp-postmask",
+	  .data = &mt6879_postmask_driver_data},
+	{ .compatible = "mediatek,mt6855-disp-postmask",
+	  .data = &mt6855_postmask_driver_data},
 	{},
 };
 

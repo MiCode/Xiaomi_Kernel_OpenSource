@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/font.h>
@@ -10,6 +10,7 @@
 #include <linux/font.h>
 
 #include "mtk_drm_fbconsole.h"
+#include "mtk_log.h"
 
 /* ------------------------------------------------------------------------- */
 
@@ -79,11 +80,11 @@ static void _mfc_draw_char(struct MFC_CONTEXT *ctxt, UINT32 x, UINT32 y, char c)
 	int font_draw_table16[4];
 
 	if (x > (MFC_WIDTH - MFC_FONT_WIDTH)) {
-		pr_info("draw width too large,x=%d\n", x);
+		DDPPR_ERR("draw width too large,x=%d\n", x);
 		return;
 	}
 	if (y > (MFC_HEIGHT - MFC_FONT_HEIGHT)) {
-		pr_info("draw hight too large,y=%d\n", y);
+		DDPPR_ERR("draw hight too large,y=%d\n", y);
 		return;
 	}
 
@@ -157,7 +158,7 @@ static void _mfc_draw_char(struct MFC_CONTEXT *ctxt, UINT32 x, UINT32 y, char c)
 		}
 		break;
 	default:
-		pr_info("draw char fail,MFC_BPP=%d\n", MFC_BPP);
+		DDPPR_ERR("draw char fail,MFC_BPP=%d\n", MFC_BPP);
 		break;
 	}
 }
@@ -349,6 +350,37 @@ enum MFC_STATUS MFC_SetColor(MFC_HANDLE handle, unsigned int fg_color,
 
 	return MFC_STATUS_OK;
 }
+
+enum MFC_STATUS MFC_SetWH(MFC_HANDLE handle, unsigned int fb_width,
+				unsigned int fb_height)
+{
+	struct MFC_CONTEXT *ctxt = (struct MFC_CONTEXT *)handle;
+
+	if (!ctxt)
+		return MFC_STATUS_INVALID_ARGUMENT;
+
+	if (down_interruptible(&ctxt->sem)) {
+		DDPPR_ERR("[MFC] ERROR: Can't get semaphore in %s()\n", __func__);
+		return MFC_STATUS_LOCK_FAIL;
+	}
+
+	ctxt->scale = MFC_GetScale(fb_width, fb_height, ctxt->fb_bpp);
+	if (ctxt->scale == 0)
+		ctxt->scale = 1;
+
+	ctxt->fb_width = fb_width;
+	ctxt->fb_height = fb_height;
+	ctxt->rows = fb_height / (MFC_FONT_HEIGHT * ctxt->scale);
+	ctxt->cols = fb_width / (MFC_FONT_WIDTH * ctxt->scale);
+	ctxt->cursor_row = 0;
+	ctxt->cursor_col = 0;
+	ctxt->screen_color = 0;
+
+	up(&ctxt->sem);
+
+	return MFC_STATUS_OK;
+}
+
 
 enum MFC_STATUS MFC_ResetCursor(MFC_HANDLE handle)
 {

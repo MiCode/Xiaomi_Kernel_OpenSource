@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <drm/drm_crtc.h>
+#include "mtk_drm_drv.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_fb.h"
@@ -48,6 +49,10 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA0");
 	g_DRM_MMP_Events.rdma1 =
 		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA1");
+	g_DRM_MMP_Events.rdma4 =
+		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA4");
+	g_DRM_MMP_Events.rdma5 =
+		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA5");
 	g_DRM_MMP_Events.wdma =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "WDMA");
 	g_DRM_MMP_Events.wdma0 =
@@ -70,6 +75,10 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_ALLOC");
 	g_DRM_MMP_Events.dma_free =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_FREE");
+	g_DRM_MMP_Events.dma_get =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_GET");
+	g_DRM_MMP_Events.dma_put =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_PUT");
 	g_DRM_MMP_Events.ion_import_dma =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "I_DMA");
 	g_DRM_MMP_Events.ion_import_fd =
@@ -94,19 +103,27 @@ void init_drm_mmp_event(void)
 		g_DRM_MMP_Events.postmask, "POSTMASK0");
 	g_DRM_MMP_Events.abnormal_irq =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "ABNORMAL_IRQ");
+	g_DRM_MMP_Events.dp_intf0 =
+		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "dp_intf0");
 }
 
 /* need to update if add new mmp_event in CRTC_MMP_Events */
 void init_crtc_mmp_event(void)
 {
 	int i = 0;
+	int r = 0;
 
 	for (i = 0; i < MMP_CRTC_NUM; i++) {
 		char name[32];
 		mmp_event crtc_mmp_root;
 
 		/* create i th root of CRTC mmp events */
-		snprintf(name, sizeof(name), "crtc%d", i);
+		r = snprintf(name, sizeof(name), "crtc%d", i);
+		if (r < 0) {
+			/* Handle snprintf() error */
+			DDPPR_ERR("%s:snprintf error\n", __func__);
+			return;
+		}
 		crtc_mmp_root =
 			mmprofile_register_event(g_DRM_MMP_Events.drm, name);
 		g_DRM_MMP_Events.crtc[i] = crtc_mmp_root;
@@ -126,6 +143,22 @@ void init_crtc_mmp_event(void)
 		g_CRTC_MMP_Events[i].release_present_fence =
 			mmprofile_register_event(crtc_mmp_root,
 				"release_present_fence");
+		g_CRTC_MMP_Events[i].present_fence_timestamp_same =
+			mmprofile_register_event(crtc_mmp_root,
+				"present_fence_timestamp_same");
+		g_CRTC_MMP_Events[i].present_fence_timestamp =
+			mmprofile_register_event(crtc_mmp_root,
+				"present_fence_timestamp");
+		g_CRTC_MMP_Events[i].update_sf_present_fence =
+			mmprofile_register_event(crtc_mmp_root,
+				"update_sf_present_fence");
+		g_CRTC_MMP_Events[i].release_sf_present_fence =
+			mmprofile_register_event(crtc_mmp_root,
+				"release_sf_present_fence");
+		g_CRTC_MMP_Events[i].warn_sf_pf_0 =
+			mmprofile_register_event(crtc_mmp_root, "warn_sf_pf_0");
+		g_CRTC_MMP_Events[i].warn_sf_pf_2 =
+			mmprofile_register_event(crtc_mmp_root, "warn_sf_pf_2");
 		g_CRTC_MMP_Events[i].atomic_begin = mmprofile_register_event(
 			crtc_mmp_root, "atomic_begin");
 		g_CRTC_MMP_Events[i].atomic_flush = mmprofile_register_event(
@@ -203,6 +236,29 @@ void init_crtc_mmp_event(void)
 					mmprofile_register_event(
 					g_CRTC_MMP_Events[i].layerBmpDump,
 					"layer5_dump");
+		g_CRTC_MMP_Events[i].cwbBmpDump =
+					mmprofile_register_event(
+					crtc_mmp_root, "CwbBmpDump");
+		g_CRTC_MMP_Events[i].cwb_dump =
+					mmprofile_register_event(
+					g_CRTC_MMP_Events[i].cwbBmpDump,
+					"cwb_dump");
+		/*Msync 2.0 mmp start*/
+		g_CRTC_MMP_Events[i].ovl_status_err =
+			mmprofile_register_event(crtc_mmp_root, "ovl_status_err");
+		g_CRTC_MMP_Events[i].vfp_period =
+			mmprofile_register_event(crtc_mmp_root, "vfp_period");
+		g_CRTC_MMP_Events[i].not_vfp_period =
+			mmprofile_register_event(crtc_mmp_root, "not_vfp_period");
+		g_CRTC_MMP_Events[i].dsi_state_dbg7 =
+			mmprofile_register_event(crtc_mmp_root, "dsi_state_dbg7");
+		g_CRTC_MMP_Events[i].dsi_dbg7_after_sof =
+			mmprofile_register_event(crtc_mmp_root, "dsi_dbg7_after_sof");
+		g_CRTC_MMP_Events[i].msync_enable =
+			mmprofile_register_event(crtc_mmp_root, "msync_enable");
+		/*Msync 2.0 mmp end*/
+		g_CRTC_MMP_Events[i].mode_switch = mmprofile_register_event(
+			crtc_mmp_root, "mode_switch");
 	}
 }
 void drm_mmp_init(void)
@@ -232,7 +288,7 @@ struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id)
 }
 
 //#include <mtk_iommu_ext.h>
-#include "mtk_drm_drv.h"
+#include <mtk_drm_drv.h>
 
 #define DISP_PAGE_MASK 0xfffL
 
@@ -242,7 +298,7 @@ int crtc_mva_map_kernel(unsigned int mva, unsigned int size,
 #ifdef IF_ZERO
 	struct disp_iommu_device *disp_dev = disp_get_iommu_dev();
 
-	if ((disp_dev != NULL) && (disp_dev->iommu_pdev != NULL))
+	if ((disp_dev != NULL) && (disp_dev->iommu_pdev != NULL) && (mva != 0))
 		mtk_iommu_iova_to_va(&(disp_dev->iommu_pdev->dev),
 				     mva, map_va, size);
 	else
@@ -255,9 +311,8 @@ int crtc_mva_map_kernel(unsigned int mva, unsigned int size,
 int crtc_mva_unmap_kernel(unsigned int mva, unsigned int size,
 			  unsigned long map_va)
 {
-#if IS_ENABLED(CONFIG_MTK_IOMMU)
 	vunmap((void *)(map_va & (~DISP_PAGE_MASK)));
-#endif
+
 	return 0;
 }
 
@@ -266,12 +321,19 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 {
 	struct mtk_plane_pending_state *pending = &state->pending;
 	struct drm_crtc *crtc = state->crtc;
+	struct mtk_drm_private *private = crtc->dev->dev_private;
 	int crtc_idx = drm_crtc_index(crtc);
 	struct mmp_metadata_bitmap_t bitmap;
 	struct mmp_metadata_t meta;
 	unsigned int fmt = pending->format;
 	int raw = 0;
 	int yuv = 0;
+
+	if (!mtk_drm_helper_get_opt(private->helper_opt,
+				MTK_DRM_OPT_USE_M4U)) {
+		DDPPR_ERR("[MMP]display iommu is disabled\n");
+		return -1;
+	}
 
 	if (!pending->enable) {
 		DDPINFO("[MMP]layer is not disable\n");
@@ -348,7 +410,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 		bitmap.down_sample_x = downSampleX;
 		bitmap.down_sample_y = downSampleY;
 
-		if (crtc_mva_map_kernel(pending->addr, bitmap.data_size,
+		if (!pending->addr || crtc_mva_map_kernel(pending->addr, bitmap.data_size,
 					(unsigned long *)&bitmap.p_data,
 					&bitmap.data_size) != 0) {
 			DDPINFO("%s,fail to dump rgb\n", __func__);
@@ -356,11 +418,18 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 		}
 
 		event_base = g_CRTC_MMP_Events[crtc_idx].layer_dump;
-		if (event_base)
-			mmprofile_log_meta_bitmap(
-			event_base[state->comp_state.lye_id],
-			MMPROFILE_FLAG_PULSE,
-			&bitmap);
+		if (event_base) {
+			if (!yuv)
+				mmprofile_log_meta_bitmap(
+				event_base[state->comp_state.lye_id],
+				MMPROFILE_FLAG_PULSE,
+				&bitmap);
+			else
+				mmprofile_log_meta_yuv_bitmap(
+				event_base[state->comp_state.lye_id],
+				MMPROFILE_FLAG_PULSE,
+				&bitmap);
+		}
 		crtc_mva_unmap_kernel(pending->addr, bitmap.data_size,
 				      (unsigned long)bitmap.p_data);
 	} else {
@@ -389,5 +458,50 @@ end:
 	CRTC_MMP_EVENT_END(crtc_idx, layerBmpDump,
 			   pending->addr, pending->format);
 
+	return 0;
+}
+
+int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
+		struct mtk_cwb_info *cwb_info,
+		void *buffer, unsigned int buf_idx)
+{
+	int crtc_idx = drm_crtc_index(crtc);
+	enum CWB_BUFFER_TYPE type = cwb_info->type;
+	struct mmp_metadata_bitmap_t bitmap;
+	mmp_event event_base = 0;
+
+	memset(&bitmap, 0, sizeof(struct mmp_metadata_bitmap_t));
+	bitmap.data1 = buf_idx;
+	bitmap.width = cwb_info->copy_w;
+	bitmap.height = cwb_info->copy_h;
+
+	bitmap.format = MMPROFILE_BITMAP_RGB888;
+	bitmap.bpp = 24;
+
+	CRTC_MMP_EVENT_START(crtc_idx, cwbBmpDump,
+			     0, 0);
+
+	bitmap.pitch = bitmap.width * 3;
+	bitmap.start_pos = 0;
+	bitmap.data_size = bitmap.pitch * bitmap.height;
+	bitmap.down_sample_x = 1;
+	bitmap.down_sample_y = 1;
+	if (type == IMAGE_ONLY) {
+		bitmap.p_data = (void *)buffer;
+	} else if (type == CARRY_METADATA) {
+		struct user_cwb_buffer *tmp = (struct user_cwb_buffer *)buffer;
+
+		bitmap.p_data = (void *)tmp->data.image;
+	}
+
+	event_base = g_CRTC_MMP_Events[crtc_idx].cwb_dump;
+	if (event_base)
+		mmprofile_log_meta_bitmap(
+			event_base,
+			MMPROFILE_FLAG_PULSE,
+			&bitmap);
+
+	CRTC_MMP_EVENT_END(crtc_idx, cwbBmpDump,
+			   0, 0);
 	return 0;
 }

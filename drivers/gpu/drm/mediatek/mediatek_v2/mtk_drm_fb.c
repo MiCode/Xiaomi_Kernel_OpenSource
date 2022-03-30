@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <drm/drm_crtc_helper.h>
@@ -162,7 +162,7 @@ int mtk_fb_wait(struct drm_framebuffer *fb)
 		return 0;
 
 	resv = gem->dma_buf->resv;
-	ret = dma_resv_wait_timeout(resv, false, true,
+	ret = dma_resv_wait_timeout_rcu(resv, false, true,
 					MAX_SCHEDULE_TIMEOUT);
 	/* MAX_SCHEDULE_TIMEOUT on success, -ERESTARTSYS if interrupted */
 	if (ret < 0) {
@@ -199,6 +199,11 @@ mtk_drm_mode_fb_create(struct drm_device *dev, struct drm_file *file,
 	size += cmd->offsets[0];
 
 	mtk_gem = to_mtk_gem_obj(gem);
+
+	if (cmd->modifier[0] & MTK_FMT_SECURE)
+		mtk_gem->sec = true;
+
+	//TO-DO: should need remove "!mtk_gem->sec"
 	if (gem->size < size && !mtk_gem->sec) {
 		DRM_ERROR("%s:%d, size:(%ld,%d), sec:%d\n",
 			__func__, __LINE__,

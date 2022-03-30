@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/of.h>
@@ -15,10 +15,15 @@
 #include "mtk_drm_helper.h"
 #include "mtk_log.h"
 
+static enum DISP_HELPER_STAGE disp_global_stage;
+
 static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_STAGE, 0, "MTK_DRM_OPT_STAGE"},       /* must enable */
 	{MTK_DRM_OPT_USE_CMDQ, 0, "MTK_DRM_OPT_USE_CMDQ"}, /* must enable */
-	{MTK_DRM_OPT_USE_M4U, 0, "MTK_DRM_OPT_USE_M4U"},   /* must enable */
+	{MTK_DRM_OPT_USE_M4U, 1, "MTK_DRM_OPT_USE_M4U"},   /* must enable */
+
+	{MTK_DRM_OPT_MMQOS_SUPPORT, 1, "MTK_DRM_OPT_MMQOS_SUPPORT"},
+	{MTK_DRM_OPT_MMDVFS_SUPPORT, 1, "MTK_DRM_OPT_MMDVFS_SUPPORT"},
 
 	/* low power option start */
 	{MTK_DRM_OPT_SODI_SUPPORT, 0, "MTK_DRM_OPT_SODI_SUPPORT"},
@@ -50,7 +55,7 @@ static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_RPO, 0, "MTK_DRM_OPT_RPO"},
 	{MTK_DRM_OPT_DUAL_PIPE, 0, "MTK_DRM_OPT_DUAL_PIPE"},
 	{MTK_DRM_OPT_DC_BY_HRT, 0, "MTK_DRM_OPT_DC_BY_HRT"},
-	{MTK_DRM_OPT_OVL_WCG, 0, "MTK_DRM_OPT_OVL_WCG"},
+	{MTK_DRM_OPT_OVL_WCG, 1, "MTK_DRM_OPT_OVL_WCG"},
 	{MTK_DRM_OPT_OVL_SBCH, 0, "MTK_DRM_OPT_OVL_SBCH"},
 	{MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK, 0,
 	 "MTK_DRM_OPT_COMMIT_NO_WAIT_VBLANK"},
@@ -62,7 +67,28 @@ static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_HBM, 0, "MTK_DRM_OPT_HBM"},
 	{MTK_DRM_OPT_LAYER_REC, 0, "MTK_DRM_OPT_LAYER_REC"},
 	{MTK_DRM_OPT_CLEAR_LAYER, 0, "MTK_DRM_OPT_CLEAR_LAYER"},
+	{MTK_DRM_OPT_VDS_PATH_SWITCH, 0, "MTK_DRM_OPT_VDS_PATH_SWITCH"},
+	{MTK_DRM_OPT_LFR, 0, "MTK_DRM_OPT_LFR"},
+	{MTK_DRM_OPT_SF_PF, 0, "MTK_DRM_OPT_SF_PF"},
+	{MTK_DRM_OPT_PQ_34_COLOR_MATRIX, 0, "MTK_DRM_OPT_PQ_34_COLOR_MATRIX"},
+	{MTK_DRM_OPT_DYN_MIPI_CHANGE, 1, "MTK_DRM_OPT_DYN_MIPI_CHANGE"},
+	{MTK_DRM_OPT_PRIM_DUAL_PIPE, 0, "MTK_DRM_OPT_PRIM_DUAL_PIPE"},
+	{MTK_DRM_OPT_MSYNC2_0, 0, "MTK_DRM_OPT_MSYNC2_0"},
+	{MTK_DRM_OPT_MML_PRIMARY, 0, "MTK_DRM_OPT_MML_PRIMARY"},
+	{MTK_DRM_OPT_DUAL_TE, 0, "MTK_DRM_OPT_DUAL_TE"},
+	/* Resolution switch */
+	{MTK_DRM_OPT_RES_SWITCH, 1, "MTK_DRM_OPT_RES_SWITCH"},
 };
+
+enum DISP_HELPER_STAGE disp_helper_get_stage(void)
+{
+	return disp_global_stage;
+}
+
+void disp_helper_set_stage(enum DISP_HELPER_STAGE stage)
+{
+	disp_global_stage = stage;
+}
 
 static const char *mtk_drm_helper_opt_spy(struct mtk_drm_helper *helper_opt,
 					  enum MTK_DRM_HELPER_OPT option)
@@ -173,6 +199,12 @@ void mtk_drm_helper_init(struct device *dev, struct mtk_drm_helper **helper_opt)
 		tmp_opt[i].val = value;
 		DDPINFO("%s %d\n", tmp_opt[i].desc, tmp_opt[i].val);
 	}
+
+	if (of_property_read_bool(dev->of_node, "force_no_prim_dual_pipe"))
+		mtk_drm_helper_set_opt_by_name(tmp_opt,
+				"MTK_DRM_OPT_PRIM_DUAL_PIPE", 0);
+
+
 	*helper_opt = tmp_opt;
 }
 

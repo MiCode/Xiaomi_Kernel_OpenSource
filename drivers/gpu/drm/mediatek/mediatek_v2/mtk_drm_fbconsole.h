@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef __MTK_FB_CONSOLE_H__
@@ -70,6 +70,9 @@ enum MFC_STATUS MFC_Close(MFC_HANDLE handle);
 
 enum MFC_STATUS MFC_SetColor(MFC_HANDLE handle, unsigned int fg_color,
 			     unsigned int bg_color);
+
+enum MFC_STATUS MFC_SetWH(MFC_HANDLE handle, unsigned int fb_width,
+				unsigned int fb_height);
 
 enum MFC_STATUS MFC_ResetCursor(MFC_HANDLE handle);
 

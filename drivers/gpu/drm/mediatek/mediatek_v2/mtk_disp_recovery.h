@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef _MTK_DRM_RECOVERY_H
@@ -24,10 +24,12 @@ struct mtk_drm_esd_ctx {
 	u32 chk_active;
 	u32 chk_mode;
 	u32 chk_sta;
+	u32 chk_en;
 };
 
 void mtk_disp_esd_check_switch(struct drm_crtc *crtc, bool enable);
 void mtk_disp_chk_recover_init(struct drm_crtc *crtc);
 long disp_dts_gpio_init(struct device *dev, struct mtk_drm_private *private);
+long _set_state(struct drm_crtc *crtc, const char *name);
 
 #endif

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef _MTK_DRM_PMQOS_H_
@@ -16,7 +16,7 @@ enum DISP_QOS_BW_MODE {
 	DISP_BW_HRT_MODE,
 };
 
-#define NO_PENDING_HRT (0xFFFFFFFF)
+#define NO_PENDING_HRT (0xFFFF)
 #define OVL_REQ_HRT (0x1)
 #define RDMA_REQ_HRT (0x2)
 
@@ -43,6 +43,7 @@ void mtk_drm_pan_disp_set_hrt_bw(struct drm_crtc *crtc, const char *caller);
 int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode);
 int mtk_disp_hrt_cond_init(struct drm_crtc *crtc);
 void mtk_drm_mmdvfs_init(struct device *dev);
+void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, const char *caller);
 void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc, unsigned int pixclk,
 			const char *caller);
 #endif

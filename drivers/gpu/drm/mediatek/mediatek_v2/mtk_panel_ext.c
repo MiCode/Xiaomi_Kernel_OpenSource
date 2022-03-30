@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/err.h>
@@ -22,6 +22,7 @@ struct _panel_rst_ctx {
 static DEFINE_MUTEX(panel_ext_lock);
 static LIST_HEAD(panel_ext_list);
 static struct _panel_rst_ctx panel_rst_ctx;
+static enum mtk_lcm_version g_lcm_version;
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx)
 {
@@ -119,6 +120,10 @@ int mtk_panel_ext_create(struct device *dev,
 
 	mtk_panel_add(ext_ctx);
 	mtk_panel_attach(ext_ctx, panel);
+	if (IS_ERR_OR_NULL(ext_funcs->get_lcm_version))
+		g_lcm_version = MTK_LEGACY_LCM_DRV;
+	else
+		g_lcm_version = ext_funcs->get_lcm_version();
 
 	return 0;
 }
@@ -152,6 +157,12 @@ struct mtk_panel_ext *find_panel_ext(struct drm_panel *panel)
 	return NULL;
 }
 EXPORT_SYMBOL(find_panel_ext);
+
+enum mtk_lcm_version mtk_drm_get_lcm_version(void)
+{
+	return g_lcm_version;
+}
+EXPORT_SYMBOL(mtk_drm_get_lcm_version);
 
 MODULE_AUTHOR("Tai-Hua Tseng <tai-hua.tseng@mediatek.com>");
 MODULE_DESCRIPTION("MTK DRM panel infrastructure");

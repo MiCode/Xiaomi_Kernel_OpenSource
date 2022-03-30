@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef __MTK_DRM_MMP_H__
@@ -29,11 +29,14 @@ struct DRM_MMP_Events {
 	mmp_event rdma;
 	mmp_event rdma0;
 	mmp_event rdma1;
+	mmp_event rdma4;
+	mmp_event rdma5;
 	mmp_event wdma;
 	mmp_event wdma0;
 	mmp_event dsi;
 	mmp_event dsi0;
 	mmp_event dsi1;
+	mmp_event dp_intf0;
 	mmp_event ddp;
 	mmp_event mutex[DISP_MUTEX_DDP_COUNT];
 	mmp_event postmask;
@@ -45,6 +48,8 @@ struct DRM_MMP_Events {
 	mmp_event layering;
 	mmp_event dma_alloc;
 	mmp_event dma_free;
+	mmp_event dma_get;
+	mmp_event dma_put;
 	mmp_event ion_import_dma;
 	mmp_event ion_import_fd;
 	mmp_event ion_import_free;
@@ -59,6 +64,12 @@ struct CRTC_MMP_Events {
 	mmp_event release_fence;
 	mmp_event update_present_fence;
 	mmp_event release_present_fence;
+	mmp_event present_fence_timestamp_same;
+	mmp_event present_fence_timestamp;
+	mmp_event update_sf_present_fence;
+	mmp_event release_sf_present_fence;
+	mmp_event warn_sf_pf_0;
+	mmp_event warn_sf_pf_2;
 	mmp_event atomic_begin;
 	mmp_event atomic_flush;
 	mmp_event enable_vblank;
@@ -86,6 +97,17 @@ struct CRTC_MMP_Events {
 	mmp_event clk_change;
 	mmp_event layerBmpDump;
 	mmp_event layer_dump[6];
+	mmp_event cwbBmpDump;
+	mmp_event cwb_dump;
+	/*Msync 2.0 mmp start*/
+	mmp_event ovl_status_err;
+	mmp_event vfp_period;
+	mmp_event not_vfp_period;
+	mmp_event dsi_state_dbg7;
+	mmp_event dsi_dbg7_after_sof;
+	mmp_event msync_enable;
+	/*Msync 2.0 mmp end*/
+	mmp_event mode_switch;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);
@@ -93,8 +115,12 @@ struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id);
 void drm_mmp_init(void);
 int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 			  u32 downSampleX, u32 downSampleY);
+int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
+	struct mtk_cwb_info *cwb_info,
+	void *buffer, unsigned int buf_idx);
 
 /* print mmp log for DRM_MMP_Events */
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 #define DRM_MMP_MARK(event, v1, v2)                                            \
 	mmprofile_log_ex(get_drm_mmp_events()->event,                  \
 			 MMPROFILE_FLAG_PULSE, v1, v2)
@@ -128,5 +154,13 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 			mmprofile_log_ex(get_crtc_mmp_events(id)->event,       \
 					 MMPROFILE_FLAG_END, v1, v2);       \
 	} while (0)
+#else
+#define DRM_MMP_MARK(event, v1, v2) do { } while (0)
+#define DRM_MMP_EVENT_START(event, v1, v2) do { } while (0)
+#define DRM_MMP_EVENT_END(event, v1, v2) do { } while (0)
+#define CRTC_MMP_MARK(id, event, v1, v2) do { } while (0)
+#define CRTC_MMP_EVENT_START(id, event, v1, v2) do { } while (0)
+#define CRTC_MMP_EVENT_END(id, event, v1, v2) do { } while (0)
+#endif
 
 #endif

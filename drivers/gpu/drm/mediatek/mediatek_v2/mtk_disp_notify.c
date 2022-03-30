@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/module.h>
 #include "mtk_disp_notify.h"
+#include "mtk_log.h"
 
 static BLOCKING_NOTIFIER_HEAD(disp_notifier_list);
 
@@ -13,7 +14,7 @@ int mtk_disp_notifier_register(const char *source, struct notifier_block *nb)
 	if (!source)
 		return -EINVAL;
 
-	pr_info("%s:%s", __func__, source);
+	DDPFUNC(":%s", source);
 
 	return blocking_notifier_chain_register(&disp_notifier_list, nb);
 }

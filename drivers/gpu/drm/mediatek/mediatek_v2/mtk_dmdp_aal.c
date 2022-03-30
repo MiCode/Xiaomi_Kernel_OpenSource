@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/clk.h>
@@ -8,7 +8,12 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -30,8 +35,9 @@
 #define DMDP_AAL_R2Y_00		0x04D4
 
 #define AAL_EN BIT(0)
-
+static int g_dre30_support;
 struct mtk_dmdp_aal_data {
+	bool support_shadow;
 	bool need_bypass_shadow;
 	u32 block_info_00_mask;
 };
@@ -77,10 +83,10 @@ static void mtk_dmdp_aal_stop(struct mtk_ddp_comp *comp,
 		       0x0, ~0);
 }
 
-static void mtk_dmdp_aal_bypass(struct mtk_ddp_comp *comp,
+static void mtk_dmdp_aal_bypass(struct mtk_ddp_comp *comp, int bypass,
 	struct cmdq_pkt *handle)
 {
-	DDPINFO("%s\n", __func__);
+	DDPINFO("%s : bypass = %d\n", __func__, bypass);
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_EN,
 		       AAL_EN, ~0);
@@ -95,11 +101,25 @@ static void mtk_dmdp_aal_bypass(struct mtk_ddp_comp *comp,
 static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
 			   struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
-	unsigned int val = (cfg->w << 16) | (cfg->h);
+	unsigned int val = 0;
+	int width = cfg->w, height = cfg->h;
+
+	if (comp->mtk_crtc->is_dual_pipe)
+		width = cfg->w / 2;
+	else
+		width = cfg->w;
+
+	val = (width << 16) | height;
 
 	DDPINFO("%s: 0x%08x\n", __func__, val);
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,
-			0, 1);
+
+	if (g_dre30_support == 0)
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DMDP_AAL_CFG, 1, 0x1);
+	else
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DMDP_AAL_CFG, 0, 0x1);
+
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_SIZE,
 			val, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -141,6 +161,8 @@ struct aal_backup { /* structure for backup AAL register value */
 	unsigned int DUAL_PIPE_INFO_00;
 	unsigned int DUAL_PIPE_INFO_01;
 	unsigned int TILE_00;
+	unsigned int DRE0_TILE_00;
+	unsigned int DRE1_TILE_00;
 	unsigned int TILE_01;
 	unsigned int TILE_02;
 };
@@ -193,12 +215,20 @@ static void ddp_aal_dre3_backup(struct mtk_ddp_comp *comp)
 		readl(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_00);
 	g_aal_backup.DUAL_PIPE_INFO_01 =
 		readl(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_01);
-	g_aal_backup.TILE_00 =
-		readl(comp->regs + DMDP_AAL_TILE_00);
 	g_aal_backup.TILE_01 =
 		readl(comp->regs + DMDP_AAL_TILE_01);
 	g_aal_backup.TILE_02 =
 		readl(comp->regs + DMDP_AAL_TILE_02);
+	if (comp->mtk_crtc->is_dual_pipe) {
+		if (comp->id == DDP_COMPONENT_DMDP_AAL0)
+			g_aal_backup.DRE0_TILE_00 =
+					readl(comp->regs + DMDP_AAL_TILE_00);
+		else if (comp->id == DDP_COMPONENT_DMDP_AAL1)
+			g_aal_backup.DRE1_TILE_00 =
+					readl(comp->regs + DMDP_AAL_TILE_00);
+	} else
+		g_aal_backup.TILE_00 =
+			readl(comp->regs + DMDP_AAL_TILE_00);
 }
 
 static void ddp_aal_dre_backup(struct mtk_ddp_comp *comp)
@@ -247,12 +277,21 @@ static void ddp_aal_dre3_restore(struct mtk_ddp_comp *comp)
 		g_aal_backup.DUAL_PIPE_INFO_00, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_DUAL_PIPE_INFO_01,
 		g_aal_backup.DUAL_PIPE_INFO_01, ~0);
-	mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_00,
-		g_aal_backup.TILE_00, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_01,
 		g_aal_backup.TILE_01, ~0);
 	mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_02,
 		g_aal_backup.TILE_02, ~0);
+
+	if (comp->mtk_crtc->is_dual_pipe) {
+		if (comp->id == DDP_COMPONENT_DMDP_AAL0)
+			mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_00,
+				g_aal_backup.DRE0_TILE_00, ~0);
+		else if (comp->id == DDP_COMPONENT_DMDP_AAL1)
+			mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_00,
+				g_aal_backup.DRE1_TILE_00, ~0);
+	} else
+		mtk_aal_write_mask(comp->regs + DMDP_AAL_TILE_00,
+			g_aal_backup.TILE_00, ~0);
 }
 
 static void ddp_aal_dre_restore(struct mtk_ddp_comp *comp)
@@ -284,6 +323,13 @@ static void mtk_dmdp_aal_prepare(struct mtk_ddp_comp *comp)
 			DMDP_AAL_SHADOW_CTRL, AAL_BYPASS_SHADOW);
 
 	mtk_dmdp_aal_restore(comp);
+
+	if (g_dre30_support == 0) {
+		mtk_aal_write_mask(comp->regs + DMDP_AAL_EN, AAL_EN, ~0);
+		mtk_aal_write_mask(comp->regs + DMDP_AAL_CFG, 0x400003, ~0);
+		mtk_aal_write_mask(comp->regs + DMDP_AAL_CFG_MAIN, 0, ~0);
+		mtk_aal_write_mask(comp->regs + DMDP_AAL_DRE_BILATERAL, 0, ~0);
+	}
 }
 
 static void mtk_dmdp_aal_unprepare(struct mtk_ddp_comp *comp)
@@ -350,6 +396,7 @@ static int mtk_dmdp_aal_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_dmdp_aal *priv;
+	struct device_node *aal_node;
 	enum mtk_ddp_comp_id comp_id;
 	int ret;
 
@@ -363,6 +410,14 @@ static int mtk_dmdp_aal_probe(struct platform_device *pdev)
 	if ((int)comp_id < 0) {
 		DDPMSG("Failed to identify by alias: %d\n", comp_id);
 		return comp_id;
+	}
+
+	aal_node = of_find_compatible_node(NULL, NULL, "mediatek,disp_aal0");
+	if (of_property_read_u32(aal_node, "mtk_dre30_support",
+		&g_dre30_support)) {
+		DDPMSG("comp_id: %d, mtk_dre30_support = %d\n",
+			comp_id, g_dre30_support);
+		return -EINVAL;
 	}
 
 	ret = mtk_ddp_comp_init(dev, dev->of_node, &priv->ddp_comp, comp_id,
@@ -397,13 +452,27 @@ static int mtk_dmdp_aal_remove(struct platform_device *pdev)
 }
 
 static const struct mtk_dmdp_aal_data mt6885_dmdp_aal_driver_data = {
+	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.block_info_00_mask = 0x3FFFFFF,
 };
 
 static const struct mtk_dmdp_aal_data mt6873_dmdp_aal_driver_data = {
+	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.block_info_00_mask = 0x3FFF3FFF,
+};
+
+static const struct mtk_dmdp_aal_data mt6895_dmdp_aal_driver_data = {
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.block_info_00_mask = 0xFFFFFFFF,
+};
+
+static const struct mtk_dmdp_aal_data mt6983_dmdp_aal_driver_data = {
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+	.block_info_00_mask = 0xFFFFFFFF,
 };
 
 static const struct of_device_id mtk_dmdp_aal_driver_dt_match[] = {
@@ -411,6 +480,10 @@ static const struct of_device_id mtk_dmdp_aal_driver_dt_match[] = {
 	  .data = &mt6885_dmdp_aal_driver_data},
 	{ .compatible = "mediatek,mt6873-dmdp-aal",
 	  .data = &mt6873_dmdp_aal_driver_data},
+	{ .compatible = "mediatek,mt6983-dmdp-aal",
+	  .data = &mt6983_dmdp_aal_driver_data},
+	{ .compatible = "mediatek,mt6895-dmdp-aal",
+	  .data = &mt6895_dmdp_aal_driver_data},
 	{},
 };
 

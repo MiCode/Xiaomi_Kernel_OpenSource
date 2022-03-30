@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/clk.h>
@@ -8,7 +8,12 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp_comp.h"
@@ -67,6 +72,7 @@
 struct mtk_disp_rsz_data {
 	unsigned int tile_length;
 	unsigned int in_max_height;
+	bool support_shadow;
 	bool need_bypass_shadow;
 };
 
@@ -279,8 +285,21 @@ static void mtk_rsz_addon_config(struct mtk_ddp_comp *comp,
 		return;
 	}
 
-	mtk_rsz_calc_tile_params(rsz_config->frm_in_w, rsz_config->frm_out_w,
-				 tile_mode, rsz_config->tw);
+	if (comp->mtk_crtc->is_dual_pipe) {
+		rsz_config->tw[tile_idx].in_len =
+			addon_config->addon_rsz_config.rsz_param.in_len;
+		rsz_config->tw[tile_idx].out_len =
+			addon_config->addon_rsz_config.rsz_param.out_len;
+		rsz_config->tw[tile_idx].step =
+			addon_config->addon_rsz_config.rsz_param.step;
+		rsz_config->tw[tile_idx].int_offset =
+			addon_config->addon_rsz_config.rsz_param.int_offset;
+		rsz_config->tw[tile_idx].sub_offset =
+			addon_config->addon_rsz_config.rsz_param.sub_offset;
+	} else {
+		mtk_rsz_calc_tile_params(rsz_config->frm_in_w, rsz_config->frm_out_w,
+					 tile_mode, rsz_config->tw);
+	}
 	mtk_rsz_calc_tile_params(rsz_config->frm_in_h, rsz_config->frm_out_h,
 				 tile_mode, rsz_config->th);
 
@@ -361,9 +380,9 @@ int mtk_rsz_dump(struct mtk_ddp_comp *comp)
 	return 0;
 }
 
-#define LEN 100
 int mtk_rsz_analysis(struct mtk_ddp_comp *comp)
 {
+#define LEN 100
 	void __iomem *baddr = comp->regs;
 	u32 enable = 0;
 	u32 con1 = 0;
@@ -373,7 +392,6 @@ int mtk_rsz_analysis(struct mtk_ddp_comp *comp)
 	u32 out_size = 0;
 	u32 in_pos = 0;
 	u32 shadow = 0;
-	const int len = LEN;
 	char msg[LEN];
 	int n = 0;
 
@@ -389,7 +407,7 @@ int mtk_rsz_analysis(struct mtk_ddp_comp *comp)
 	DDPDUMP("== DISP %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
 
 	writel(0x3, baddr + DISP_REG_RSZ_DEBUG_SEL);
-	n = snprintf(msg, len,
+	n = snprintf(msg, LEN,
 		     "en:%d,rst:%d,h_en:%d,v_en:%d,h_table:%d,v_table:%d,",
 		     REG_FLD_VAL_GET(FLD_RSZ_EN, enable),
 		     REG_FLD_VAL_GET(FLD_RSZ_RST, enable),
@@ -397,24 +415,24 @@ int mtk_rsz_analysis(struct mtk_ddp_comp *comp)
 		     REG_FLD_VAL_GET(FLD_RSZ_VERTICAL_EN, con1),
 		     REG_FLD_VAL_GET(FLD_RSZ_HORIZONTAL_TABLE_SELECT, con1),
 		     REG_FLD_VAL_GET(FLD_RSZ_VERTICAL_TABLE_SELECT, con1));
-	n += snprintf(msg + n, len - n, "dcm_dis:%d,int_en:%d,wclr_en:%d\n",
+	n += snprintf(msg + n, LEN - n, "dcm_dis:%d,int_en:%d,wclr_en:%d\n",
 		      REG_FLD_VAL_GET(FLD_RSZ_DCM_DIS, con1),
 		      REG_FLD_VAL_GET(FLD_RSZ_INTEN, con1),
 		      REG_FLD_VAL_GET(FLD_RSZ_INT_WCLR_EN, con1));
 	DDPDUMP("%s", msg);
 
-	n = snprintf(msg, len,
+	n = snprintf(msg, LEN,
 		     "power_saving:%d,rgb_bit_mode:%d,frm_start:%d,frm_end:%d,",
 		     REG_FLD_VAL_GET(FLD_RSZ_POWER_SAVING, con2),
 		     REG_FLD_VAL_GET(FLD_RSZ_RGB_BIT_MODE, con2),
 		     REG_FLD_VAL_GET(FLD_RSZ_FRAME_START, int_flag),
 		     REG_FLD_VAL_GET(FLD_RSZ_FRAME_END, int_flag));
-	n += snprintf(msg + n, len - n, "size_err:%d,sof_rst:%d\n",
+	n += snprintf(msg + n, LEN - n, "size_err:%d,sof_rst:%d\n",
 		      REG_FLD_VAL_GET(FLD_RSZ_SIZE_ERR, int_flag),
 		      REG_FLD_VAL_GET(FLD_RSZ_SOF_RESET, int_flag));
 	DDPDUMP("%s", msg);
 
-	n = snprintf(msg, len, "in(%ux%u),out(%ux%u),h_step:%d,v_step:%d\n",
+	n = snprintf(msg, LEN, "in(%ux%u),out(%ux%u),h_step:%d,v_step:%d\n",
 		     REG_FLD_VAL_GET(FLD_RSZ_INPUT_IMAGE_W, in_size),
 		     REG_FLD_VAL_GET(FLD_RSZ_INPUT_IMAGE_H, in_size),
 		     REG_FLD_VAL_GET(FLD_RSZ_OUTPUT_IMAGE_W, out_size),
@@ -424,20 +442,20 @@ int mtk_rsz_analysis(struct mtk_ddp_comp *comp)
 	DDPDUMP("%s", msg);
 
 	n = snprintf(
-		msg, len, "luma_h:%d.%d,luma_v:%d.%d\n",
+		msg, LEN, "luma_h:%d.%d,luma_v:%d.%d\n",
 		readl(baddr + DISP_REG_RSZ_LUMA_HORIZONTAL_INTEGER_OFFSET),
 		readl(baddr + DISP_REG_RSZ_LUMA_HORIZONTAL_SUBPIXEL_OFFSET),
 		readl(baddr + DISP_REG_RSZ_LUMA_VERTICAL_INTEGER_OFFSET),
 		readl(baddr + DISP_REG_RSZ_LUMA_VERTICAL_SUBPIXEL_OFFSET));
 	DDPDUMP("%s", msg);
 
-	n = snprintf(msg, len,
+	n = snprintf(msg, LEN,
 		     "dbg_sel:%d, in(%u,%u);shadow_ctrl:bypass:%d,force:%d,",
 		     readl(baddr + DISP_REG_RSZ_DEBUG_SEL), in_pos & 0xFFFF,
 		     (in_pos >> 16) & 0xFFFF,
 		     REG_FLD_VAL_GET(FLD_RSZ_BYPASS_SHADOW, shadow),
 		     REG_FLD_VAL_GET(FLD_RSZ_FORCE_COMMIT, shadow));
-	n += snprintf(msg + n, len - n, "read_working:%d\n",
+	n += snprintf(msg + n, LEN - n, "read_working:%d\n",
 		      REG_FLD_VAL_GET(FLD_RSZ_READ_WRK_REG, shadow));
 	DDPDUMP("%s", msg);
 
@@ -477,7 +495,7 @@ static int mtk_disp_rsz_bind(struct device *dev, struct device *master,
 	struct mtk_drm_private *private = drm_dev->dev_private;
 	int ret;
 
-	pr_info("%s\n", __func__);
+	DDPFUNC();
 	ret = mtk_ddp_comp_register(drm_dev, &priv->ddp_comp);
 	if (ret < 0) {
 		dev_err(dev, "Failed to register component %s: %d\n",
@@ -557,21 +575,55 @@ static int mtk_disp_rsz_remove(struct platform_device *pdev)
 
 static const struct mtk_disp_rsz_data mt6779_rsz_driver_data = {
 	.tile_length = 1088, .in_max_height = 4096,
+	.support_shadow = false,
 	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_rsz_data mt6885_rsz_driver_data = {
 	.tile_length = 1440, .in_max_height = 4096,
+	.support_shadow = false,
 	.need_bypass_shadow = false,
 };
 
 static const struct mtk_disp_rsz_data mt6873_rsz_driver_data = {
 	.tile_length = 1440, .in_max_height = 4096,
+	.support_shadow = false,
 	.need_bypass_shadow = true,
 };
 
 static const struct mtk_disp_rsz_data mt6853_rsz_driver_data = {
 	.tile_length = 1088, .in_max_height = 4096,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+};
+
+static const struct mtk_disp_rsz_data mt6833_rsz_driver_data = {
+	.tile_length = 1088, .in_max_height = 4096,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+};
+
+static const struct mtk_disp_rsz_data mt6879_rsz_driver_data = {
+	.tile_length = 1440, .in_max_height = 4096,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+};
+
+static const struct mtk_disp_rsz_data mt6855_rsz_driver_data = {
+	.tile_length = 1088, .in_max_height = 4096,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+};
+
+static const struct mtk_disp_rsz_data mt6983_rsz_driver_data = {
+	.tile_length = 1440, .in_max_height = 4096,
+	.support_shadow = false,
+	.need_bypass_shadow = true,
+};
+
+static const struct mtk_disp_rsz_data mt6895_rsz_driver_data = {
+	.tile_length = 1952, .in_max_height = 4096,
+	.support_shadow = false,
 	.need_bypass_shadow = true,
 };
 
@@ -584,6 +636,16 @@ static const struct of_device_id mtk_disp_rsz_driver_dt_match[] = {
 	 .data = &mt6873_rsz_driver_data},
 	{.compatible = "mediatek,mt6853-disp-rsz",
 	 .data = &mt6853_rsz_driver_data},
+	{.compatible = "mediatek,mt6833-disp-rsz",
+	 .data = &mt6833_rsz_driver_data},
+	{.compatible = "mediatek,mt6879-disp-rsz",
+	 .data = &mt6879_rsz_driver_data},
+	{.compatible = "mediatek,mt6983-disp-rsz",
+	 .data = &mt6983_rsz_driver_data},
+	{.compatible = "mediatek,mt6895-disp-rsz",
+	 .data = &mt6895_rsz_driver_data},
+	{.compatible = "mediatek,mt6855-disp-rsz",
+	 .data = &mt6855_rsz_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rsz_driver_dt_match);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <drm/drm_gem.h>
@@ -49,7 +49,7 @@ char drm_dal_str_buf[DAL_STR_BUF_LEN];
 static int drm_dal_enable;
 static struct drm_crtc *dal_crtc;
 static void *dal_va;
-static u32 dal_pa;
+static dma_addr_t dal_pa;
 
 static u32 DAL_GetLayerSize(void)
 {
@@ -198,12 +198,16 @@ static struct mtk_ddp_comp *_handle_phy_top_plane(struct mtk_drm_crtc *mtk_crtc)
 	return ovl_comp;
 }
 
+#ifndef DRM_CMDQ_DISABLE
+#ifndef MTK_DRM_FB_LEAK
 static void mtk_drm_cmdq_done(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *cmdq_handle = data.data;
 
 	cmdq_pkt_destroy(cmdq_handle);
 }
+#endif
+#endif
 
 static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
 						       bool enable)
@@ -214,7 +218,10 @@ static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
 	struct mtk_plane_pending_state *pending;
 	struct mtk_ddp_comp *ovl_comp = _handle_phy_top_plane(mtk_crtc);
 	struct MFC_CONTEXT *ctxt = (struct MFC_CONTEXT *)mfc_handle;
-	int layer_id = mtk_ovl_layer_num(ovl_comp) - 1;
+	int layer_id = -1;
+
+	if (ovl_comp)
+		layer_id = mtk_ovl_layer_num(ovl_comp) - 1;
 
 	if (!ctxt) {
 		DDPPR_ERR("%s MFC_CONTEXT is NULL\n", __func__);
@@ -250,12 +257,64 @@ static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
 	plane_state->comp_state.comp_id = ovl_comp->id;
 	plane_state->comp_state.lye_id = layer_id;
 	plane_state->comp_state.ext_lye_id = 0;
+	plane_state->base.crtc = crtc;
 
 	return plane_state;
 }
 
+static void disable_attached_layer(struct drm_crtc *crtc, struct mtk_ddp_comp *ovl_comp,
+	int layer_id, struct cmdq_pkt *cmdq_handle)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	int i;
+
+	for (i = 0; i < mtk_crtc->layer_nr; i++) {
+		struct mtk_drm_private *priv = crtc->dev->dev_private;
+		struct drm_plane *plane = &mtk_crtc->planes[i].base;
+		struct mtk_plane_state *plane_state;
+		struct mtk_ddp_comp *comp;
+		unsigned int ext_lye_id;
+
+		plane_state = to_mtk_plane_state(plane->state);
+		if (i >= OVL_PHY_LAYER_NR && !plane_state->comp_state.comp_id)
+			continue;
+		comp = priv->ddp_comp[plane_state->comp_state.comp_id];
+
+		if (comp == NULL)
+			continue;
+
+		if (comp == ovl_comp && plane_state->comp_state.lye_id &&
+				plane_state->comp_state.lye_id == layer_id &&
+				plane_state->comp_state.ext_lye_id) {
+			DDPINFO("plane %d comp_id %u lye_id %u ext_id %u\n",
+				i, plane_state->comp_state.comp_id,
+				plane_state->comp_state.lye_id,
+				plane_state->comp_state.ext_lye_id);
+				ext_lye_id = plane_state->comp_state.ext_lye_id;
+		} else {
+			continue;
+		}
+
+		if (mtk_crtc->is_dual_pipe) {
+			struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+			struct mtk_ddp_comp *r_comp;
+			unsigned int comp_id = plane_state->comp_state.comp_id;
+			unsigned int r_comp_id;
+
+			r_comp_id = dual_pipe_comp_mapping(priv->data->mmsys_id, comp_id);
+			r_comp = priv->ddp_comp[r_comp_id];
+			mtk_ddp_comp_layer_off(r_comp, layer_id,
+						ext_lye_id, cmdq_handle);
+		}
+		mtk_ddp_comp_layer_off(comp, layer_id, ext_lye_id, cmdq_handle);
+	}
+}
+
 int drm_show_dal(struct drm_crtc *crtc, bool enable)
 {
+#ifdef DRM_CMDQ_DISABLE
+	return 0;
+#else
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_plane_state *plane_state;
 	struct mtk_ddp_comp *ovl_comp = _handle_phy_top_plane(mtk_crtc);
@@ -288,13 +347,25 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	/* set DAL config and trigger display */
-	cmdq_handle = mtk_crtc_gce_commit_begin(crtc);
+	cmdq_handle = mtk_crtc_gce_commit_begin(crtc, NULL, NULL);
 
-	mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
+	disable_attached_layer(crtc, ovl_comp, layer_id, cmdq_handle);
 
+	if (mtk_crtc->is_dual_pipe)
+		mtk_crtc_dual_layer_config(mtk_crtc, ovl_comp, layer_id, plane_state, cmdq_handle);
+	else
+		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
+
+#ifdef MTK_DRM_FB_LEAK
+	mtk_crtc_gce_flush(crtc, NULL, cmdq_handle, cmdq_handle);
+	cmdq_pkt_wait_complete(cmdq_handle);
+	cmdq_pkt_destroy(cmdq_handle);
+#else
 	mtk_crtc_gce_flush(crtc, mtk_drm_cmdq_done, cmdq_handle, cmdq_handle);
+#endif
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 	return 0;
+#endif
 }
 
 void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
@@ -320,7 +391,31 @@ void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 		return;
 	}
 
-	mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
+	disable_attached_layer(crtc, ovl_comp, layer_id, cmdq_handle);
+
+	if (mtk_crtc->is_dual_pipe)
+		mtk_crtc_dual_layer_config(mtk_crtc, ovl_comp, layer_id, plane_state, cmdq_handle);
+	else
+		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
+
+}
+
+void drm_update_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
+{
+	if (!mfc_handle)
+		return;
+
+	DAL_LOCK();
+	MFC_SetWH(mfc_handle, crtc->state->mode.hdisplay,
+		     crtc->state->mode.vdisplay);
+	DAL_SetScreenColor(DAL_COLOR_RED);
+
+	if (drm_dal_enable)
+		MFC_Print(mfc_handle, "Resolution switch, clean dal!\n");
+	DAL_UNLOCK();
+
+	if (drm_dal_enable)
+		drm_set_dal(crtc, cmdq_handle);
 }
 
 int DAL_Clean(void)
@@ -375,7 +470,9 @@ int DAL_Printf(const char *fmt, ...)
 	if (drm_dal_enable == 0)
 		drm_dal_enable = 1;
 
+#ifndef DRM_CMDQ_DISABLE
 	drm_show_dal(dal_crtc, true);
+#endif
 
 	DAL_UNLOCK();
 
@@ -419,8 +516,12 @@ void mtk_drm_assert_init(struct drm_device *dev)
 	crtc = list_first_entry(&(dev)->mode_config.crtc_list,
 		typeof(*crtc), head);
 
-	width = crtc->mode.hdisplay;
-	height = crtc->mode.vdisplay;
+	mtk_drm_crtc_get_panel_original_size(crtc, &width, &height);
+	if (width == 0 || height == 0) {
+		DDPFUNC("display size error(%dx%d).\n", width, height);
+		return;
+	}
+
 	size = width * height * DAL_BPP;
 
 	mtk_gem = mtk_drm_gem_create(dev, size, true);
@@ -434,6 +535,9 @@ void mtk_drm_assert_init(struct drm_device *dev)
 
 	dal_va = mtk_gem->kvaddr;
 	dal_pa = mtk_gem->dma_addr;
+
+	width = crtc->mode.hdisplay;
+	height = crtc->mode.vdisplay;
 
 	MFC_Open(&mfc_handle, mtk_gem->kvaddr, width, height, DAL_BPP,
 		RGB888_To_RGB565(DAL_COLOR_WHITE),

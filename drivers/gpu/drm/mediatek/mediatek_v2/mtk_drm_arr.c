@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/mutex.h>
@@ -11,6 +11,7 @@
 static DEFINE_MUTEX(cb_table_lock);
 #define DISP_MAX_FPSCHG_CALLBACK 5
 static FPS_CHG_CALLBACK fps_chg_callback_table[DISP_MAX_FPSCHG_CALLBACK];
+static bool fisrt_invoke;
 
 /****************ARR function start************************/
 int drm_register_fps_chg_callback(FPS_CHG_CALLBACK fps_chg_cb)
@@ -32,6 +33,7 @@ int drm_register_fps_chg_callback(FPS_CHG_CALLBACK fps_chg_cb)
 	for (j = 0; j < DISP_MAX_FPSCHG_CALLBACK; j++) {
 		if (fps_chg_callback_table[j] == NULL) {
 			fps_chg_callback_table[j] = fps_chg_cb;
+			fisrt_invoke = true;
 			DDPMSG("[fps]: %s, entry[%d] done!\n", __func__, j);
 			break;
 		}
@@ -81,4 +83,14 @@ void drm_invoke_fps_chg_callbacks(unsigned int new_fps)
 		}
 	}
 	mutex_unlock(&cb_table_lock);
+}
+
+bool drm_need_fisrt_invoke_fps_callbacks(void)
+{
+	if (fisrt_invoke) {
+		fisrt_invoke = false;
+		return true;
+	}
+
+	return false;
 }

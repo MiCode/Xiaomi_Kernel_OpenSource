@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef MTK_WRITEBACK_H
@@ -14,7 +14,7 @@ void mtk_wb_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc);
 int mtk_wb_set_possible_crtcs(struct drm_device *drm_dev,
 			      struct mtk_drm_crtc *mtk_crtc,
 			      unsigned long possible_crtc);
-#ifdef CONFIG_MTK_DISPLAY_CMDQ
+#ifndef DRM_CMDQ_DISABLE
 void mtk_wb_atomic_commit(struct mtk_drm_crtc *mtk_crtc, unsigned int v,
 			  unsigned int h, void *cmdq_handle);
 #else

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #include <linux/clk.h>
@@ -10,7 +10,13 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+
+#ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
+
 #include <soc/mediatek/smi.h>
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 #include "iommu_debug.h"
@@ -23,12 +29,10 @@
 #include "mtk_drm_gem.h"
 #include "mtk_dump.h"
 
-
 #define MTK_SMI_CLK_CTRL
 #ifdef MTK_SMI_CLK_CTRL
 #include <soc/mediatek/smi.h>
 #endif
-
 
 #define DISP_OD_EN 0x0000
 #define DISP_OD_INTEN 0x0008
@@ -66,47 +70,96 @@
 #define DITHER_ADD_LSHIFT_G(x) (((x)&0x7) << 4)
 #define DITHER_ADD_RSHIFT_G(x) (((x)&0x7) << 0)
 
-#define MMSYS_SODI_REQ_MASK	0xF4
-#define SODI_REQ_SEL_ALL			REG_FLD_MSB_LSB(11, 8)
-#define MT6873_SODI_REQ_SEL_ALL			REG_FLD_MSB_LSB(9, 8)
-#define SODI_REQ_SEL_RDMA0_PD_MODE	REG_FLD_MSB_LSB(8, 8)
-#define SODI_REQ_SEL_RDMA0_CG_MODE	REG_FLD_MSB_LSB(9, 9)
-#define SODI_REQ_SEL_RDMA1_PD_MODE	REG_FLD_MSB_LSB(10, 10)
-#define SODI_REQ_SEL_RDMA1_CG_MODE	REG_FLD_MSB_LSB(11, 11)
+#define MMSYS_SODI_REQ_MASK                       0xF4
 
-#define SODI_REQ_VAL_ALL			REG_FLD_MSB_LSB(15, 12)
-#define MT6873_SODI_REQ_VAL_ALL			REG_FLD_MSB_LSB(13, 12)
-#define SODI_REQ_VAL_RDMA0_PD_MODE	REG_FLD_MSB_LSB(12, 12)
-#define SODI_REQ_VAL_RDMA0_CG_MODE	REG_FLD_MSB_LSB(13, 13)
-#define SODI_REQ_VAL_RDMA1_PD_MODE	REG_FLD_MSB_LSB(14, 14)
-#define SODI_REQ_VAL_RDMA1_CG_MODE	REG_FLD_MSB_LSB(15, 15)
+#define SODI_HRT_FIFO_SEL                         REG_FLD_MSB_LSB(3, 0)
+	#define SODI_HRT_FIFO_SEL_DISP0_PD_MODE       REG_FLD_MSB_LSB(0, 0)
+	#define SODI_HRT_FIFO_SEL_DISP0_CG_MODE       REG_FLD_MSB_LSB(1, 1)
+	#define SODI_HRT_FIFO_SEL_DISP1_PD_MODE       REG_FLD_MSB_LSB(2, 2)
+	#define SODI_HRT_FIFO_SEL_DISP1_CG_MODE       REG_FLD_MSB_LSB(3, 3)
 
-#define MMSYS_EMI_REQ_CTL	0xF8
-#define HRT_URGENT_CTL_SEL_ALL		REG_FLD_MSB_LSB(7, 0)
-#define HRT_URGENT_CTL_SEL_RDMA0	REG_FLD_MSB_LSB(0, 0)
-#define HRT_URGENT_CTL_SEL_WDMA0	REG_FLD_MSB_LSB(1, 1)
-#define HRT_URGENT_CTL_SEL_RDMA1	REG_FLD_MSB_LSB(2, 2)
-#define HRT_URGENT_CTL_SEL_WDMA1	REG_FLD_MSB_LSB(3, 3)
-#define HRT_URGENT_CTL_SEL_RDMA4	REG_FLD_MSB_LSB(4, 4)
-#define HRT_URGENT_CTL_SEL_RDMA5	REG_FLD_MSB_LSB(5, 5)
-#define HRT_URGENT_CTL_SEL_MDP_RDMA4	REG_FLD_MSB_LSB(6, 6)
+#define SODI_REQ_SEL_APSRC				          REG_FLD_MSB_LSB(0, 0)
+#define SODI_REQ_SEL_DDREN				          REG_FLD_MSB_LSB(1, 1)
 
-#define HRT_URGENT_CTL_VAL_ALL		REG_FLD_MSB_LSB(16, 9)
-#define HRT_URGENT_CTL_VAL_RDMA0		REG_FLD_MSB_LSB(9, 9)
-#define HRT_URGENT_CTL_VAL_WDMA0		REG_FLD_MSB_LSB(10, 10)
-#define HRT_URGENT_CTL_VAL_RDMA4		REG_FLD_MSB_LSB(13, 13)
-#define HRT_URGENT_CTL_VAL_MDP_RDMA4		REG_FLD_MSB_LSB(15, 15)
+#define SODI_REQ_SEL_ALL                          REG_FLD_MSB_LSB(11, 8)
+	#define SODI_REQ_SEL_RDMA0_PD_MODE            REG_FLD_MSB_LSB(8, 8)
+	#define SODI_REQ_SEL_RDMA0_CG_MODE            REG_FLD_MSB_LSB(9, 9)
+	#define SODI_REQ_SEL_RDMA1_PD_MODE            REG_FLD_MSB_LSB(10, 10)
+	#define SODI_REQ_SEL_RDMA1_CG_MODE            REG_FLD_MSB_LSB(11, 11)
 
-#define DVFS_HALT_MASK_SEL_ALL		REG_FLD_MSB_LSB(23, 18)
-#define DVFS_HALT_MASK_SEL_RDMA0	REG_FLD_MSB_LSB(18, 18)
-#define DVFS_HALT_MASK_SEL_RDMA1	REG_FLD_MSB_LSB(19, 19)
-#define DVFS_HALT_MASK_SEL_RDMA4	REG_FLD_MSB_LSB(20, 20)
-#define DVFS_HALT_MASK_SEL_RDMA5	REG_FLD_MSB_LSB(21, 21)
-#define DVFS_HALT_MASK_SEL_WDMA0	REG_FLD_MSB_LSB(22, 22)
-#define DVFS_HALT_MASK_SEL_WDMA1	REG_FLD_MSB_LSB(23, 23)
+#define MT6873_SODI_REQ_SEL_ALL                   REG_FLD_MSB_LSB(9, 8)
 
+#define SODI_REQ_VAL_ALL                          REG_FLD_MSB_LSB(15, 12)
+	#define SODI_REQ_VAL_RDMA0_PD_MODE            REG_FLD_MSB_LSB(12, 12)
+	#define SODI_REQ_VAL_RDMA0_CG_MODE            REG_FLD_MSB_LSB(13, 13)
+	#define SODI_REQ_VAL_RDMA1_PD_MODE            REG_FLD_MSB_LSB(14, 14)
+	#define SODI_REQ_VAL_RDMA1_CG_MODE            REG_FLD_MSB_LSB(15, 15)
+
+#define MT6873_SODI_REQ_VAL_ALL                   REG_FLD_MSB_LSB(13, 12)
+
+#define MT6879_DVFS_HALT_MASK_SEL_ALL             REG_FLD_MSB_LSB(21, 16)
+	#define MT6879_DVFS_HALT_MASK_SEL_RDMA0       REG_FLD_MSB_LSB(16, 16)
+	#define MT6879_DVFS_HALT_MASK_SEL_RDMA1       REG_FLD_MSB_LSB(17, 17)
+	#define MT6879_DVFS_HALT_MASK_SEL_RDMA4       REG_FLD_MSB_LSB(18, 18)
+	#define MT6879_DVFS_HALT_MASK_SEL_RDMA5       REG_FLD_MSB_LSB(19, 19)
+	#define MT6879_DVFS_HALT_MASK_SEL_WDMA0       REG_FLD_MSB_LSB(20, 20)
+	#define MT6879_DVFS_HALT_MASK_SEL_WDMA1       REG_FLD_MSB_LSB(21, 21)
+
+#define MMSYS_EMI_REQ_CTL                         0xF8
+#define HRT_URGENT_CTL_SEL_ALL                    REG_FLD_MSB_LSB(7, 0)
+	#define HRT_URGENT_CTL_SEL_RDMA0              REG_FLD_MSB_LSB(0, 0)
+	#define HRT_URGENT_CTL_SEL_WDMA0              REG_FLD_MSB_LSB(1, 1)
+	#define HRT_URGENT_CTL_SEL_RDMA1              REG_FLD_MSB_LSB(2, 2)
+	#define HRT_URGENT_CTL_SEL_WDMA1              REG_FLD_MSB_LSB(3, 3)
+	#define HRT_URGENT_CTL_SEL_RDMA4              REG_FLD_MSB_LSB(4, 4)
+	#define HRT_URGENT_CTL_SEL_RDMA5              REG_FLD_MSB_LSB(5, 5)
+	#define HRT_URGENT_CTL_SEL_MDP_RDMA4          REG_FLD_MSB_LSB(6, 6)
+
+#define MT6879_HRT_URGENT_CTL_SEL_ALL             REG_FLD_MSB_LSB(7, 0)
+	#define MT6879_HRT_URGENT_CTL_SEL_RDMA0       REG_FLD_MSB_LSB(0, 0)
+	#define MT6879_HRT_URGENT_CTL_SEL_RDMA1       REG_FLD_MSB_LSB(1, 1)
+	#define MT6879_HRT_URGENT_CTL_SEL_WDMA0       REG_FLD_MSB_LSB(2, 2)
+	#define MT6879_HRT_URGENT_CTL_SEL_WDMA1       REG_FLD_MSB_LSB(3, 3)
+	#define MT6879_HRT_URGENT_CTL_SEL_DSI0        REG_FLD_MSB_LSB(5, 5)
+	#define MT6879_HRT_URGENT_CTL_SEL_MDP_RDMA0   REG_FLD_MSB_LSB(6, 6)
+
+#define MT6855_HRT_URGENT_CTL_SEL_ALL             REG_FLD_MSB_LSB(7, 0)
+	#define MT6855_HRT_URGENT_CTL_SEL_RDMA0       REG_FLD_MSB_LSB(0, 0)
+	#define MT6855_HRT_URGENT_CTL_SEL_WDMA0       REG_FLD_MSB_LSB(2, 2)
+	#define MT6855_HRT_URGENT_CTL_SEL_DSI0        REG_FLD_MSB_LSB(5, 5)
+
+#define HRT_URGENT_CTL_VAL_ALL                    REG_FLD_MSB_LSB(16, 9)
+	#define HRT_URGENT_CTL_VAL_RDMA0              REG_FLD_MSB_LSB(9, 9)
+	#define HRT_URGENT_CTL_VAL_WDMA0              REG_FLD_MSB_LSB(10, 10)
+	#define HRT_URGENT_CTL_VAL_RDMA4              REG_FLD_MSB_LSB(13, 13)
+	#define HRT_URGENT_CTL_VAL_MDP_RDMA4          REG_FLD_MSB_LSB(15, 15)
+
+#define MT6879_HRT_URGENT_CTL_VAL_ALL             REG_FLD_MSB_LSB(15, 8)
+	#define MT6879_HRT_URGENT_CTL_VAL_RDMA0       REG_FLD_MSB_LSB(8, 8)
+	#define MT6879_HRT_URGENT_CTL_VAL_RDMA1       REG_FLD_MSB_LSB(9, 9)
+	#define MT6879_HRT_URGENT_CTL_VAL_WDMA0       REG_FLD_MSB_LSB(10, 10)
+	#define MT6879_HRT_URGENT_CTL_VAL_WDMA1       REG_FLD_MSB_LSB(11, 11)
+	#define MT6879_HRT_URGENT_CTL_VAL_DSI0        REG_FLD_MSB_LSB(13, 13)
+	#define MT6879_HRT_URGENT_CTL_VAL_MDP_RDMA4   REG_FLD_MSB_LSB(15, 15)
+
+#define MT6855_HRT_URGENT_CTL_VAL_ALL             REG_FLD_MSB_LSB(15, 8)
+	#define MT6855_HRT_URGENT_CTL_VAL_RDMA0       REG_FLD_MSB_LSB(8, 8)
+	#define MT6855_HRT_URGENT_CTL_VAL_WDMA0       REG_FLD_MSB_LSB(10, 10)
+	#define MT6855_HRT_URGENT_CTL_VAL_DSI0        REG_FLD_MSB_LSB(13, 13)
+
+#define DVFS_HALT_MASK_SEL_ALL                    REG_FLD_MSB_LSB(23, 18)
+	#define DVFS_HALT_MASK_SEL_RDMA0              REG_FLD_MSB_LSB(18, 18)
+	#define DVFS_HALT_MASK_SEL_RDMA1              REG_FLD_MSB_LSB(19, 19)
+	#define DVFS_HALT_MASK_SEL_RDMA4              REG_FLD_MSB_LSB(20, 20)
+	#define DVFS_HALT_MASK_SEL_RDMA5              REG_FLD_MSB_LSB(21, 21)
+	#define DVFS_HALT_MASK_SEL_WDMA0              REG_FLD_MSB_LSB(22, 22)
+	#define DVFS_HALT_MASK_SEL_WDMA1              REG_FLD_MSB_LSB(23, 23)
+
+#define MT6833_INFRA_DISP_DDR_CTL  0x2C
+#define MT6833_INFRA_FLD_DDR_MASK  REG_FLD_MSB_LSB(7, 4)
 
 #define SMI_LARB_NON_SEC_CON 0x0380
+#define MMSYS_DUMMY0 0x0400
 
 #define MTK_DDP_COMP_USER "DISP"
 
@@ -114,7 +167,7 @@
 void mtk_ddp_write(struct mtk_ddp_comp *comp, unsigned int value,
 		   unsigned int offset, void *handle)
 {
-#ifdef CONFIG_MTK_DISPLAY_CMDQ
+#ifndef DRM_CMDQ_DISABLE
 	cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
 		       comp->regs_pa + offset, value, ~0);
 #else
@@ -125,26 +178,32 @@ void mtk_ddp_write(struct mtk_ddp_comp *comp, unsigned int value,
 void mtk_ddp_write_relaxed(struct mtk_ddp_comp *comp, unsigned int value,
 			   unsigned int offset, void *handle)
 {
-#ifdef CONFIG_MTK_DISPLAY_CMDQ
-	cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
+#ifndef DRM_CMDQ_DISABLE
+	if (handle) {
+		cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
 		       comp->regs_pa + offset, value, ~0);
-#else
-	writel_relaxed(value, comp->regs + offset);
+		return;
+	}
 #endif
+	writel_relaxed(value, comp->regs + offset);
+
 }
 
 void mtk_ddp_write_mask(struct mtk_ddp_comp *comp, unsigned int value,
 			unsigned int offset, unsigned int mask, void *handle)
 {
-#ifdef CONFIG_MTK_DISPLAY_CMDQ
-	cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
-		       comp->regs_pa + offset, value, mask);
-#else
-	unsigned int tmp = readl(comp->regs + offset);
+	unsigned int tmp;
 
+#ifndef DRM_CMDQ_DISABLE
+	if (handle) {
+		cmdq_pkt_write((struct cmdq_pkt *)handle, comp->cmdq_base,
+		       comp->regs_pa + offset, value, mask);
+		return;
+	}
+#endif
+	tmp = readl(comp->regs + offset);
 	tmp = (tmp & ~mask) | (value & mask);
 	writel(tmp, comp->regs + offset);
-#endif
 }
 
 void mtk_ddp_write_mask_cpu(struct mtk_ddp_comp *comp,
@@ -246,6 +305,7 @@ static const char *const mtk_ddp_comp_stem[MTK_DDP_COMP_TYPE_MAX] = {
 	[MTK_DISP_DITHER] = "dither",
 	[MTK_DISP_UFOE] = "ufoe",
 	[MTK_DSI] = "dsi",
+	[MTK_DP_INTF] = "dp_intf",
 	[MTK_DPI] = "dpi",
 	[MTK_DISP_PWM] = "pwm",
 	[MTK_DISP_MUTEX] = "mutex",
@@ -258,9 +318,21 @@ static const char *const mtk_ddp_comp_stem[MTK_DDP_COMP_TYPE_MAX] = {
 	[MTK_DMDP_AAL] = "maal",
 	[MTK_DMDP_RSZ] = "mrsz",
 	[MTK_DMDP_TDSHP] = "mtdshp",
+	[MTK_DISP_CM] = "cm",
+	[MTK_DISP_SPR] = "spr",
 	[MTK_DISP_DSC] = "dsc",
 	[MTK_DISP_MERGE] = "merge",
+	[MTK_DISP_DPTX] = "dptx",
+	[MTK_DISP_RDMA_OUT_RELAY] = "rmda_out_relay",
 	[MTK_DISP_VIRTUAL] = "virtual",
+	[MTK_DISP_CHIST] = "chist",
+	[MTK_DISP_C3D] = "c3d",
+	[MTK_DISP_TDSHP] = "tdshp",
+	[MTK_DISP_Y2R] = "y2r",
+	[MTK_DISP_DLO_ASYNC] = "dlo_async",
+	[MTK_DISP_DLI_ASYNC] = "dli_async",
+	[MTK_DISP_INLINE_ROTATE] = "inlinerotate",
+	[MTK_MMLSYS_BYPASS] = "mmlsys_bypass",
 };
 
 struct mtk_ddp_comp_match {
@@ -275,8 +347,18 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_AAL0, MTK_DISP_AAL, 0, NULL, 0},
 	{DDP_COMPONENT_AAL1, MTK_DISP_AAL, 1, NULL, 0},
 	{DDP_COMPONENT_BLS, MTK_DISP_BLS, 0, NULL, 0},
+	{DDP_COMPONENT_CHIST0, MTK_DISP_CHIST, 0, NULL, 0},
+	{DDP_COMPONENT_CHIST1, MTK_DISP_CHIST, 1, NULL, 0},
+	{DDP_COMPONENT_CHIST2, MTK_DISP_CHIST, 2, NULL, 0},
+	{DDP_COMPONENT_CHIST3, MTK_DISP_CHIST, 3, NULL, 0},
+	{DDP_COMPONENT_TDSHP0, MTK_DISP_TDSHP, 0, NULL, 0},
+	{DDP_COMPONENT_TDSHP1, MTK_DISP_TDSHP, 1, NULL, 0},
+	{DDP_COMPONENT_C3D0, MTK_DISP_C3D, 0, NULL, 0},
+	{DDP_COMPONENT_C3D1, MTK_DISP_C3D, 1, NULL, 0},
 	{DDP_COMPONENT_CCORR0, MTK_DISP_CCORR, 0, NULL, 0},
 	{DDP_COMPONENT_CCORR1, MTK_DISP_CCORR, 1, NULL, 0},
+	{DDP_COMPONENT_CCORR2, MTK_DISP_CCORR, 2, NULL, 0},
+	{DDP_COMPONENT_CCORR3, MTK_DISP_CCORR, 3, NULL, 0},
 	{DDP_COMPONENT_COLOR0, MTK_DISP_COLOR, 0, NULL, 0},
 	{DDP_COMPONENT_COLOR1, MTK_DISP_COLOR, 1, NULL, 0},
 	{DDP_COMPONENT_COLOR2, MTK_DISP_COLOR, 2, NULL, 0},
@@ -287,7 +369,7 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_DSI0, MTK_DSI, 0, NULL, 1},
 	{DDP_COMPONENT_DSI1, MTK_DSI, 1, NULL, 1},
 	{DDP_COMPONENT_GAMMA0, MTK_DISP_GAMMA, 0, NULL, 0},
-	{DDP_COMPONENT_GAMMA1, MTK_DISP_GAMMA, 0, NULL, 0},
+	{DDP_COMPONENT_GAMMA1, MTK_DISP_GAMMA, 1, NULL, 0},
 	{DDP_COMPONENT_OD, MTK_DISP_OD, 0, &ddp_od, 0},
 	{DDP_COMPONENT_OD1, MTK_DISP_OD, 1, &ddp_od, 0},
 	{DDP_COMPONENT_OVL0, MTK_DISP_OVL, 0, NULL, 0},
@@ -297,10 +379,20 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_OVL1_2L, MTK_DISP_OVL, 4, NULL, 0},
 	{DDP_COMPONENT_OVL2_2L, MTK_DISP_OVL, 5, NULL, 0},
 	{DDP_COMPONENT_OVL3_2L, MTK_DISP_OVL, 6, NULL, 0},
+	{DDP_COMPONENT_OVL0_2L_NWCG, MTK_DISP_OVL, 7, NULL, 0},
+	{DDP_COMPONENT_OVL1_2L_NWCG, MTK_DISP_OVL, 8, NULL, 0},
+	{DDP_COMPONENT_OVL2_2L_NWCG, MTK_DISP_OVL, 9, NULL, 0},
+	{DDP_COMPONENT_OVL3_2L_NWCG, MTK_DISP_OVL, 10, NULL, 0},
 	{DDP_COMPONENT_OVL0_2L_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_OVL1_2L_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_OVL2_2L_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_OVL3_2L_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_OVL0_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_OVL0_VIRTUAL1, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_OVL1_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_OVL1_VIRTUAL1, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_OVL0_2L_NWCG_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_OVL2_2L_NWCG_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_OVL0_OVL0_2L_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_PWM0, MTK_DISP_PWM, 0, NULL, 0},
 	{DDP_COMPONENT_PWM1, MTK_DISP_PWM, 1, NULL, 0},
@@ -319,6 +411,8 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_UFOE, MTK_DISP_UFOE, 0, &ddp_ufoe, 0},
 	{DDP_COMPONENT_WDMA0, MTK_DISP_WDMA, 0, NULL, 1},
 	{DDP_COMPONENT_WDMA1, MTK_DISP_WDMA, 1, NULL, 1},
+	{DDP_COMPONENT_WDMA2, MTK_DISP_WDMA, 2, NULL, 1},
+	{DDP_COMPONENT_WDMA3, MTK_DISP_WDMA, 3, NULL, 1},
 	{DDP_COMPONENT_UFBC_WDMA0, MTK_DISP_WDMA, 2, NULL, 1},
 	{DDP_COMPONENT_WDMA_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_WDMA_VIRTUAL1, MTK_DISP_VIRTUAL, -1, NULL, 0},
@@ -329,9 +423,65 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_DMDP_AAL0, MTK_DMDP_AAL, 0, NULL, 0},
 	{DDP_COMPONENT_DMDP_RSZ0, MTK_DMDP_RSZ, 0, NULL, 0},
 	{DDP_COMPONENT_DMDP_TDSHP0, MTK_DMDP_TDSHP, 0, NULL, 0},
+	{DDP_COMPONENT_DMDP_RDMA1, MTK_DMDP_RDMA, 1, NULL, 0},
+	{DDP_COMPONENT_DMDP_HDR1, MTK_DMDP_HDR, 1, NULL, 0},
+	{DDP_COMPONENT_DMDP_AAL1, MTK_DMDP_AAL, 1, NULL, 0},
+	{DDP_COMPONENT_DMDP_RSZ1, MTK_DMDP_RSZ, 1, NULL, 0},
+	{DDP_COMPONENT_DMDP_TDSHP1, MTK_DMDP_TDSHP, 1, NULL, 0},
+	{DDP_COMPONENT_CM0, MTK_DISP_CM, 0, NULL, 0},
+	{DDP_COMPONENT_CM1, MTK_DISP_CM, 1, NULL, 0},
+	{DDP_COMPONENT_SPR0, MTK_DISP_SPR, 0, NULL, 0},
+	{DDP_COMPONENT_SPR1, MTK_DISP_SPR, 1, NULL, 0},
 	{DDP_COMPONENT_DSC0, MTK_DISP_DSC, 0, NULL, 0},
+	{DDP_COMPONENT_DSC1, MTK_DISP_DSC, 1, NULL, 0},
+	{DDP_COMPONENT_DLO_ASYNC0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLO_ASYNC1, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLO_ASYNC2, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLO_ASYNC3, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLO_ASYNC4, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLO_ASYNC5, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLO_ASYNC6, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLO_ASYNC7, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLI_ASYNC0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLI_ASYNC1, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLI_ASYNC2, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLI_ASYNC3, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLI_ASYNC4, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLI_ASYNC5, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLI_ASYNC6, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLI_ASYNC7, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_MERGE0, MTK_DISP_MERGE, 0, NULL, 0},
+	{DDP_COMPONENT_DPTX, MTK_DISP_DPTX, 0, NULL, 1},
+	{DDP_COMPONENT_DP_INTF0, MTK_DP_INTF, 0, NULL, 1},
+	{DDP_COMPONENT_RDMA4_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_RDMA5_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_MERGE1, MTK_DISP_MERGE, 1, NULL, 0},
 	{DDP_COMPONENT_SPR0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_RDMA0_OUT_RELAY, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_RDMA2_OUT_RELAY, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_PQ0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_PQ1_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_TV0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_TV1_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_MAIN0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_MAIN1_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_SUB0_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_SUB1_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_SUB0_VIRTUAL1, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_SUB1_VIRTUAL1, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_PQ0_RDMA0_POS_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_MAIN_OVL_DISP_PQ0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_Y2R0, MTK_DISP_Y2R, 0, NULL, 0},
+	{DDP_COMPONENT_Y2R0_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_DLO_ASYNC, MTK_DISP_DLO_ASYNC, 0, NULL, 0},
+	{DDP_COMPONENT_DLI_ASYNC, MTK_DISP_DLI_ASYNC, 0, NULL, 0},
+	{DDP_COMPONENT_INLINE_ROTATE0, MTK_DISP_INLINE_ROTATE, 0, NULL, 0},
+	{DDP_COMPONENT_INLINE_ROTATE1, MTK_DISP_INLINE_ROTATE, 1, NULL, 0},
+	{DDP_COMPONENT_MMLSYS_BYPASS, MTK_MMLSYS_BYPASS, 0, NULL, 0},
+	{DDP_COMPONENT_MAIN_OVL_DISP_WDMA_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_MAIN_OVL_DISP1_WDMA_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_SUB_OVL_DISP0_PQ0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_SUB_OVL_DISP1_PQ0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
 };
 
 bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
@@ -344,6 +494,8 @@ bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
 
 void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 {
+	int r;
+
 	if (comp->id < 0 || comp->id >= DDP_COMPONENT_ID_MAX) {
 		DDPPR_ERR("%s(), invalid id %d, set buf to 0\n",
 			  __func__, comp->id);
@@ -353,10 +505,17 @@ void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 
 	if (buf_len > sizeof(buf))
 		buf_len = sizeof(buf);
-
-	snprintf(buf, buf_len, "%s%d",
+	if (mtk_ddp_matches[comp->id].type < 0) {
+		DDPPR_ERR("%s invalid type\n", __func__);
+		return;
+	}
+	r = snprintf(buf, buf_len, "%s%d",
 		  mtk_ddp_comp_stem[mtk_ddp_matches[comp->id].type],
 		  mtk_ddp_matches[comp->id].alias_id);
+	if (r < 0) {
+		/* Handle snprintf() error */
+		DDPPR_ERR("snprintf error\n");
+	}
 }
 
 int mtk_ddp_comp_get_type(enum mtk_ddp_comp_id comp_id)
@@ -390,8 +549,13 @@ static bool mtk_drm_find_comp_in_ddp(struct mtk_ddp_comp ddp_comp,
 enum mtk_ddp_comp_id mtk_ddp_comp_get_id(struct device_node *node,
 					 enum mtk_ddp_comp_type comp_type)
 {
-	int id = of_alias_get_id(node, mtk_ddp_comp_stem[comp_type]);
+	int id;
 	int i;
+
+	if (comp_type < 0)
+		return -EINVAL;
+
+	id = of_alias_get_id(node, mtk_ddp_comp_stem[comp_type]);
 
 	DDPINFO("id:%d, comp_type:%d\n", id, comp_type);
 	for (i = 0; i < ARRAY_SIZE(mtk_ddp_matches); i++) {
@@ -566,6 +730,9 @@ int mtk_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
 	if (private->ddp_comp[comp->id])
 		return -EBUSY;
 
+	if (comp->id < 0)
+		return -EINVAL;
+
 	private->ddp_comp[comp->id] = comp;
 	return 0;
 }
@@ -573,8 +740,8 @@ int mtk_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
 void mtk_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp)
 {
 	struct mtk_drm_private *private = drm->dev_private;
-
-	private->ddp_comp[comp->id] = NULL;
+	if (comp && comp->id >= 0)
+		private->ddp_comp[comp->id] = NULL;
 }
 
 void mtk_ddp_comp_pm_enable(struct mtk_ddp_comp *comp)
@@ -631,10 +798,10 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 static int mtk_ddp_m4u_callback(int port, dma_addr_t mva, void *data)
 {
-	struct mtk_ddp_comp *comp = data;
+	struct mtk_ddp_comp *comp = (struct mtk_ddp_comp *)data;
 
-	DDPPR_ERR("fault call port=%d, mva=0x%lx, data=0x%p\n", port, mva,
-		  data);
+	DDPPR_ERR("fault call port=0x%x, mva=0x%lx, data=0x%p\n", port,
+		  (unsigned long)mva, data);
 
 	if (comp) {
 		mtk_dump_analysis(comp);
@@ -651,9 +818,12 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 {
 	int port, index, ret;
 	struct resource res;
+	struct mtk_drm_private *priv;
 
-	if (!comp->dev || !comp->larb_dev)
+	if (!comp->dev || !comp->larb_dev || !comp->mtk_crtc)
 		return;
+
+	priv = comp->mtk_crtc->base.dev->dev_private;
 
 	index = 0;
 	while (1) {
@@ -663,9 +833,11 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 			break;
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-		mtk_iommu_register_fault_callback(
-			port, mtk_ddp_m4u_callback,
-			comp, false);
+			if (disp_helper_get_stage() ==
+					DISP_HELPER_STAGE_NORMAL)
+				mtk_iommu_register_fault_callback(
+					port, mtk_ddp_m4u_callback,
+					comp, false);
 #endif
 
 		port &= (unsigned int)GET_M4U_PORT;
@@ -675,9 +847,18 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 				comp->larb_dev->of_node->full_name);
 			return;
 		}
-		cmdq_pkt_write(handle, NULL,
-			       res.start + SMI_LARB_NON_SEC_CON + port * 4, 0x1,
-			       0x1);
+
+		if (!mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_USE_M4U))
+			//bypass m4u
+			cmdq_pkt_write(handle, NULL,
+				res.start + SMI_LARB_NON_SEC_CON + port * 4, 0,
+				0x1);
+		else
+			cmdq_pkt_write(handle, NULL,
+				res.start + SMI_LARB_NON_SEC_CON + port * 4, 0x1,
+				0x1);
+
 		index++;
 	}
 }
@@ -715,6 +896,7 @@ void mt6779_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa + 0xF8, val,
 			       mask);
 }
+
 void mt6853_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data)
 {
@@ -770,6 +952,236 @@ void mt6853_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 					HRT_URGENT_CTL_SEL_WDMA0);
 		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
 					DVFS_HALT_MASK_SEL_WDMA0);
+	} else
+		return;
+
+	if (handle == NULL) {
+		unsigned int v;
+
+		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
+			& (~sodi_req_mask));
+		v += (sodi_req_val & sodi_req_mask);
+		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
+
+		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
+			& (~emi_req_mask));
+		v += (emi_req_val & emi_req_mask);
+		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
+	} else {
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+	}
+}
+
+void mt6833_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data)
+{
+	struct mtk_drm_private *priv = drm->dev_private;
+	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
+	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	unsigned int infra_req_val = 0, infra_req_mask = 0;
+	bool en = *((bool *)data);
+
+	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
+		if (!en)
+			return;
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, MT6873_SODI_REQ_SEL_ALL);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, MT6873_SODI_REQ_VAL_ALL);
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_SEL_RDMA0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_VAL_RDMA0_PD_MODE);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0x1, HRT_URGENT_CTL_SEL_RDMA0);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0x1, HRT_URGENT_CTL_SEL_WDMA0);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, HRT_URGENT_CTL_VAL_RDMA0);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, HRT_URGENT_CTL_VAL_WDMA0);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, HRT_URGENT_CTL_VAL_RDMA4);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, HRT_URGENT_CTL_VAL_MDP_RDMA4);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, DVFS_HALT_MASK_SEL_RDMA0);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, DVFS_HALT_MASK_SEL_RDMA4);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, DVFS_HALT_MASK_SEL_WDMA0);
+	} else if (id == DDP_COMPONENT_RDMA0) {
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
+					SODI_REQ_SEL_RDMA0_CG_MODE);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+				HRT_URGENT_CTL_SEL_RDMA0);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+				DVFS_HALT_MASK_SEL_RDMA0);
+	} else if (id == DDP_COMPONENT_WDMA0) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+					HRT_URGENT_CTL_SEL_WDMA0);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+					DVFS_HALT_MASK_SEL_WDMA0);
+	} else
+		return;
+
+	if (priv->data->bypass_infra_ddr_control)
+		SET_VAL_MASK(infra_req_val, infra_req_mask,
+				0xf, MT6833_INFRA_FLD_DDR_MASK);
+
+	if (handle == NULL) {
+		unsigned int v;
+
+		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
+			& (~sodi_req_mask));
+		v += (sodi_req_val & sodi_req_mask);
+		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
+
+		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
+			& (~emi_req_mask));
+		v += (emi_req_val & emi_req_mask);
+		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
+		if (priv->data->bypass_infra_ddr_control) {
+			if (!IS_ERR(priv->infra_regs)) {
+				v = (readl(priv->infra_regs + MT6833_INFRA_DISP_DDR_CTL)
+					| MT6833_INFRA_FLD_DDR_MASK);
+				writel_relaxed(v, priv->infra_regs + MT6833_INFRA_DISP_DDR_CTL);
+			} else
+				DDPINFO("%s: failed to disable infra ddr control\n", __func__);
+		}
+	} else {
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+		if (priv->data->bypass_infra_ddr_control) {
+			if (priv->infra_regs_pa) {
+				cmdq_pkt_write(handle, NULL,  priv->infra_regs_pa +
+						MT6833_INFRA_DISP_DDR_CTL,
+						infra_req_val, infra_req_mask);
+			} else
+				DDPINFO("%s: failed to disable infra ddr control\n", __func__);
+		}
+	}
+}
+
+void mt6879_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data)
+{
+	struct mtk_drm_private *priv = drm->dev_private;
+	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
+	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	bool en = *((bool *)data);
+
+	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
+		if (!en)
+			return;
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_SEL_ALL);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_VAL_ALL);
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_HRT_FIFO_SEL_DISP0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_HRT_FIFO_SEL_DISP0_CG_MODE);
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_SEL_RDMA0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_VAL_RDMA0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, MT6879_DVFS_HALT_MASK_SEL_ALL);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0xFF, MT6879_HRT_URGENT_CTL_SEL_ALL);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, MT6879_HRT_URGENT_CTL_VAL_ALL);
+	} else if (id == DDP_COMPONENT_RDMA0) {
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
+					SODI_REQ_SEL_RDMA0_CG_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, en,
+					MT6879_DVFS_HALT_MASK_SEL_RDMA0);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+					MT6879_HRT_URGENT_CTL_SEL_DSI0);
+	} else if (id == DDP_COMPONENT_WDMA0) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+					MT6879_HRT_URGENT_CTL_SEL_WDMA0);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+					MT6879_DVFS_HALT_MASK_SEL_WDMA0);
+	} else
+		return;
+
+	if (handle == NULL) {
+		unsigned int v;
+
+		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
+			& (~sodi_req_mask));
+		v += (sodi_req_val & sodi_req_mask);
+		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
+
+		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
+			& (~emi_req_mask));
+		v += (emi_req_val & emi_req_mask);
+		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
+	} else {
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+	}
+}
+
+void mt6855_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data)
+{
+	struct mtk_drm_private *priv = drm->dev_private;
+	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
+	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	bool en = *((bool *)data);
+
+	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
+		if (!en)
+			return;
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_SEL_ALL);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_VAL_ALL);
+
+		/* apply sodi hrt with rdma fifo*/
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_HRT_FIFO_SEL_DISP0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_HRT_FIFO_SEL_DISP0_CG_MODE);
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_SEL_RDMA0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_VAL_RDMA0_PD_MODE);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0xFF, MT6855_HRT_URGENT_CTL_SEL_ALL);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, MT6855_HRT_URGENT_CTL_VAL_ALL);
+	} else if (id == DDP_COMPONENT_RDMA0) {
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
+					SODI_REQ_SEL_RDMA0_CG_MODE);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+					MT6855_HRT_URGENT_CTL_SEL_RDMA0);
+	} else if (id == DDP_COMPONENT_WDMA0) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+					MT6855_HRT_URGENT_CTL_SEL_WDMA0);
 	} else
 		return;
 
@@ -967,6 +1379,215 @@ void mt6885_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+	}
+}
+
+void mt6983_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data)
+{
+	struct mtk_drm_private *priv = drm->dev_private;
+	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
+	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	bool en = *((bool *)data);
+
+	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
+		if (!en)
+			return;
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_SEL_ALL);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_VAL_ALL);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_SEL_RDMA0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_VAL_RDMA0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_SEL_RDMA1_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					1, SODI_REQ_VAL_RDMA1_PD_MODE);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0xFF, HRT_URGENT_CTL_SEL_ALL);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, HRT_URGENT_CTL_VAL_ALL);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, DVFS_HALT_MASK_SEL_ALL);
+	} else if (id == DDP_COMPONENT_RDMA0) {
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!(unsigned int)en),
+					SODI_REQ_SEL_RDMA0_CG_MODE);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
+				HRT_URGENT_CTL_SEL_RDMA0);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+				DVFS_HALT_MASK_SEL_RDMA0);
+	} else if (id == DDP_COMPONENT_RDMA1) {
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!(unsigned int)en),
+					SODI_REQ_SEL_RDMA1_CG_MODE);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
+					HRT_URGENT_CTL_SEL_RDMA1);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+					DVFS_HALT_MASK_SEL_RDMA1);
+	} else if (id == DDP_COMPONENT_RDMA4) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
+					HRT_URGENT_CTL_SEL_RDMA4);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+					DVFS_HALT_MASK_SEL_RDMA4);
+	} else if (id == DDP_COMPONENT_RDMA5) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
+					HRT_URGENT_CTL_SEL_RDMA5);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+					DVFS_HALT_MASK_SEL_RDMA5);
+	} else if (id == DDP_COMPONENT_WDMA0) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
+					HRT_URGENT_CTL_SEL_WDMA0);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+					DVFS_HALT_MASK_SEL_WDMA0);
+	} else if (id == DDP_COMPONENT_WDMA1) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
+					HRT_URGENT_CTL_SEL_WDMA1);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+					DVFS_HALT_MASK_SEL_WDMA1);
+	} else
+		return;
+
+	if (handle == NULL) {
+		unsigned int v;
+
+		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
+			& (~sodi_req_mask));
+		v += (sodi_req_val & sodi_req_mask);
+		/* TODO: HARD CODE for RDMA0 scenario */
+		v = 0xF500;
+		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
+		writel_relaxed(0x7, priv->config_regs + MMSYS_DUMMY0);
+		if (priv->side_config_regs) {
+			writel_relaxed(v, priv->side_config_regs + MMSYS_SODI_REQ_MASK);
+			writel_relaxed(0x7, priv->side_config_regs + MMSYS_DUMMY0);
+		}
+		v = 0xDF;
+		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
+		if (priv->side_config_regs)
+			writel_relaxed(v, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
+	} else {
+		/* TODO: HARD CODE for RDMA0 scenario */
+		// cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+		//	MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_SODI_REQ_MASK, 0xf500, ~0);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_DUMMY0, 0x7, ~0);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_EMI_REQ_CTL, 0xdf, ~0);
+		if (priv->side_config_regs_pa) {
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				MMSYS_SODI_REQ_MASK, 0xf500, ~0);
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				MMSYS_DUMMY0, 0x7, ~0);
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				MMSYS_EMI_REQ_CTL, 0xdf, ~0);
+		}
+	}
+}
+
+void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data)
+{
+	struct mtk_drm_private *priv = drm->dev_private;
+	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
+	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	bool en = *((bool *)data);
+
+	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
+		if (!en)
+			return;
+
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_SEL_ALL);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+					0, SODI_REQ_VAL_ALL);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0xFF, HRT_URGENT_CTL_SEL_ALL);
+		SET_VAL_MASK(emi_req_val, emi_req_mask,
+					0, HRT_URGENT_CTL_VAL_ALL);
+	} else if (id == DDP_COMPONENT_RDMA0 ||
+	    id == DDP_COMPONENT_RDMA2) {
+		/* Select ddren smi req source from dsi */
+		/* Todo: judge by dsi_buf on/off */
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, 0,
+					SODI_REQ_SEL_DDREN);
+
+		/* apsrc */
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, 1,
+					SODI_REQ_SEL_RDMA0_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, ((unsigned int)en),
+					SODI_REQ_VAL_RDMA0_PD_MODE);
+
+		/* ddren */
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!(unsigned int)en),
+					SODI_REQ_SEL_RDMA0_CG_MODE);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
+				HRT_URGENT_CTL_SEL_RDMA0);
+	} else if (id == DDP_COMPONENT_RDMA1 ||
+	    id == DDP_COMPONENT_RDMA3) {
+		/* apsrc */
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, 1,
+					SODI_REQ_SEL_RDMA1_PD_MODE);
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, ((unsigned int)en),
+					SODI_REQ_VAL_RDMA1_PD_MODE);
+
+		/* ddren */
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!(unsigned int)en),
+					SODI_REQ_SEL_RDMA1_CG_MODE);
+
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
+					HRT_URGENT_CTL_SEL_RDMA1);
+	} else if (id == DDP_COMPONENT_WDMA0) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
+					HRT_URGENT_CTL_SEL_WDMA0);
+	} else if (id == DDP_COMPONENT_WDMA1) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
+					HRT_URGENT_CTL_SEL_WDMA1);
+	} else
+		return;
+
+	if (handle == NULL) {
+		unsigned int v;
+
+		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
+			& (~sodi_req_mask));
+		v += (sodi_req_val & sodi_req_mask);
+		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
+		writel_relaxed(0x7, priv->config_regs + MMSYS_DUMMY0);
+		if (priv->side_config_regs) {
+			writel_relaxed(v, priv->side_config_regs +  MMSYS_SODI_REQ_MASK);
+			writel_relaxed(0x7, priv->side_config_regs + MMSYS_DUMMY0);
+		}
+
+		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
+			& (~emi_req_mask));
+		v += (emi_req_val & emi_req_mask);
+		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
+		if (priv->side_config_regs)
+			writel_relaxed(v, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
+	} else {
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_DUMMY0, 0x7, ~0);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+		if (priv->side_config_regs_pa) {
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				MMSYS_DUMMY0, 0x7, ~0);
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+		}
 	}
 }
 

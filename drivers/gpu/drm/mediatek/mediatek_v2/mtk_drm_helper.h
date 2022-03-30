@@ -1,15 +1,22 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
 
 #ifndef _MTK_DRM_HELPER_H_
 #define _MTK_DRM_HELPER_H_
 
+enum DISP_HELPER_STAGE {
+	DISP_HELPER_STAGE_NORMAL = 0,
+	DISP_HELPER_STAGE_BRING_UP
+};
+
 enum MTK_DRM_HELPER_OPT {
 	MTK_DRM_OPT_STAGE = 0,
 	MTK_DRM_OPT_USE_CMDQ,
 	MTK_DRM_OPT_USE_M4U,
+	MTK_DRM_OPT_MMQOS_SUPPORT,
+	MTK_DRM_OPT_MMDVFS_SUPPORT,
 	/* Begin: lowpower option*/
 	MTK_DRM_OPT_SODI_SUPPORT,
 	MTK_DRM_OPT_IDLE_MGR,
@@ -48,6 +55,21 @@ enum MTK_DRM_HELPER_OPT {
 	MTK_DRM_OPT_HBM,
 	MTK_DRM_OPT_LAYER_REC,
 	MTK_DRM_OPT_CLEAR_LAYER,
+	MTK_DRM_OPT_VDS_PATH_SWITCH,
+	/*ARR4*/
+	MTK_DRM_OPT_LFR,
+	MTK_DRM_OPT_SF_PF,
+	/*PQ*/
+	MTK_DRM_OPT_PQ_34_COLOR_MATRIX,
+	MTK_DRM_OPT_DYN_MIPI_CHANGE,
+	MTK_DRM_OPT_PRIM_DUAL_PIPE,
+	/*Msync2.0*/
+	MTK_DRM_OPT_MSYNC2_0,
+	/* MML primary display */
+	MTK_DRM_OPT_MML_PRIMARY,
+	MTK_DRM_OPT_DUAL_TE,
+	/* Resolution switch */
+	MTK_DRM_OPT_RES_SWITCH,
 	MTK_DRM_OPT_NUM
 };
 
@@ -63,6 +85,9 @@ enum MTK_DRM_HELPER_STAGE {
 	MTK_DRM_HELPER_STAGE_NORMAL
 };
 
+enum DISP_HELPER_STAGE disp_helper_get_stage(void);
+void disp_helper_set_stage(enum DISP_HELPER_STAGE stage);
+
 int mtk_drm_helper_get_opt(struct mtk_drm_helper *helper_opt,
 			   enum MTK_DRM_HELPER_OPT option);
 int mtk_drm_helper_set_opt(struct mtk_drm_helper *helper_opt,
@@ -74,8 +99,6 @@ int mtk_drm_helper_get_opt_list(struct mtk_drm_helper *helper_opt,
 void mtk_drm_helper_init(struct device *dev,
 			 struct mtk_drm_helper **helper_opt);
 
-enum DISP_HELPER_STAGE disp_helper_get_stage(void);
-const char *disp_helper_stage_spy(void);
 enum MTK_DRM_HELPER_OPT
 mtk_drm_helper_name_to_opt(struct mtk_drm_helper *helper_opt, const char *name);
 
