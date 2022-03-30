@@ -463,6 +463,17 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 	return ret;
 }
 
+static int mminfra_pm_suspend(struct device *dev)
+{
+	pr_notice("%s: start to check cg status\n", __func__);
+	mtk_smi_dbg_cg_status();
+	return 0;
+}
+
+static const struct dev_pm_ops mminfra_debug_pm_ops = {
+	.suspend = mminfra_pm_suspend,
+};
+
 static const struct of_device_id of_mminfra_debug_match_tbl[] = {
 	{
 		.compatible = "mediatek,mminfra-debug",
@@ -475,6 +486,7 @@ static struct platform_driver mminfra_debug_drv = {
 	.driver = {
 		.name = "mtk-mminfra-debug",
 		.of_match_table = of_mminfra_debug_match_tbl,
+		.pm = &mminfra_debug_pm_ops,
 	},
 };
 
