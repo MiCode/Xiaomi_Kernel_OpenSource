@@ -251,6 +251,16 @@ config SND_SOC_MTK_AUDIO_DSP
 	  This adds dsp driver for Mediatek boards
 	  that can be used with other platforms
 
+config MTK_ULTRASND_PROXIMITY
+	tristate "MTK ultra sound proximity support"
+	help
+	  For ultra sound proximity kernel driver config.
+	  This ultra sound proximity kernel driver
+	  cooperate with SCP ultra sound driver to
+	  emulate physical proximity sensor. Using
+	  IPI interface to communicate with SCP side and
+	  be controlled by sensor hal.
+
 config SND_SOC_MT8192
 	tristate "ASoC support for Mediatek MT8192 chip"
 	depends on ARCH_MEDIATEK
