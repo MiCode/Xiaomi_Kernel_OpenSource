@@ -1746,6 +1746,7 @@ int mtk_cam_sv_dev_config(
 	}
 
 	/* Update cfg_in_param */
+	// FIXME: this function will be called before seninf pixel mode is set
 	mtk_cam_seninf_get_pixelmode(ctx->seninf, pad_idx, &pixel_mode);
 	cfg_in_param.pixel_mode = pixel_mode;
 	cfg_in_param.data_pattern = 0x0;

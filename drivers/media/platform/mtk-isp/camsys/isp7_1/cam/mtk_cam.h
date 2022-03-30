@@ -884,6 +884,8 @@ int get_main_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
 int get_sub_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
 int get_last_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
 
+int mtk_cam_dc_last_camsv(int raw_id);
+
 struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,

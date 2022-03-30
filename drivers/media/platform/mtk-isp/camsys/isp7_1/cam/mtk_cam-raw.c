@@ -619,8 +619,7 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 
 	ret = mtk_cam_raw_res_store(pipeline, res_user);
 	pipeline->user_res = *res_user;
-	pipeline->hw_mode = res_user->raw_res.hw_mode;
-	pipeline->hw_mode_pending = res_user->raw_res.hw_mode;
+
 	if (pipeline->subdev.entity.stream_count) {
 		/* If the pipeline is streaming, pending the change */
 		dev_dbg(dev, "%s:pipe(%d): pending res calc has not been supported except bin\n",
@@ -2269,8 +2268,8 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	if (res_found) {
 		dev_info(cam->dev, "Res-end:%d BIN/FRZ/HWN/CLK/pxl/pxl(seninf):", idx_res);
 		dev_info(cam->dev,
-			"%d/%d(%d)/%d/%d/%d/%d:%10llu, clk:%d\n",
-			res->bin_enable, res->frz_enable, res->frz_ratio,
+			"Res-end:%d %d/%d(%d)/%d/%d/%d/%d:%10llu, clk:%d\n",
+			idx_res, res->bin_enable, res->frz_enable, res->frz_ratio,
 			res->raw_num_used, clk_res, res->tgo_pxl_mode,
 			res->tgo_pxl_mode_before_raw, eq_throughput, res->clk_target);
 	} else {
@@ -3067,11 +3066,11 @@ int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
 
 	selected = raw_stagger_select(ctx,
 				raw_status,
-				pipe->user_res.raw_res.hw_mode,
+				ctx->pipe->hw_mode,
 				&result);
 
+	ctx->pipe->hw_mode = result.hw_mode;
 	ctx->pipe->hw_mode_pending = result.hw_mode;
-	ctx->pipe->hw_mode = ctx->pipe->hw_mode_pending;
 	pipe->enabled_raw |= result.enabled_raw;
 
 	return selected;
@@ -3085,7 +3084,6 @@ static int mtk_cam_s_data_raw_stagger_select(struct mtk_cam_request_stream_data 
 	bool selected;
 	struct mtk_raw_stagger_select *result;
 	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
-
 
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	pipe = ctx->pipe;
@@ -3246,6 +3244,10 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		ctx->pipe = pipe;
 		ctx->used_raw_num++;
 		pipe->feature_active = pipe->user_res.raw_res.feature;
+
+		ctx->pipe->hw_mode = pipe->res_config.hw_mode;
+		ctx->pipe->hw_mode_pending = pipe->res_config.hw_mode;
+
 		for (i = 0; i < ARRAY_SIZE(pipe->vdev_nodes); i++) {
 			if (!pipe->vdev_nodes[i].enabled)
 				continue;
@@ -3261,9 +3263,9 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		}
 	}
 
-	dev_info(raw->cam_dev, "%s:raw-%d: en %d, dev 0x%x dmas 0x%x\n",
+	dev_info(raw->cam_dev, "%s:raw-%d: en %d, dev 0x%x dmas 0x%x hw_mode %d\n",
 		 __func__, pipe->id, enable, pipe->enabled_raw,
-		 pipe->enabled_dmas);
+		 pipe->enabled_dmas, ctx->pipe->hw_mode);
 
 	return 0;
 }
