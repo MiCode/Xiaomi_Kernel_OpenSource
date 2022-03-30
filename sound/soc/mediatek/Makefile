@@ -8,9 +8,12 @@ obj-$(CONFIG_SND_SOC_MT8173) += mt8173/
 obj-$(CONFIG_SND_SOC_MT8183) += mt8183/
 obj-$(CONFIG_SND_SOC_MT8192) += mt8192/
 obj-$(CONFIG_SND_SOC_MT8195) += mt8195/
-
+ifneq ($(wildcard $(srctree)/$(src)/mt6983/Makefile),)
 obj-$(CONFIG_SND_SOC_MT6983) += mt6983/
+endif
+ifneq ($(wildcard $(srctree)/$(src)/mt6985/Makefile),)
 obj-$(CONFIG_SND_SOC_MT6985) += mt6985/
+endif
 
 # vow related code
 obj-$(CONFIG_MTK_VOW_SUPPORT) += vow/
