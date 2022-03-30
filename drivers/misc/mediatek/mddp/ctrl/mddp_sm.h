@@ -17,6 +17,9 @@
 #define MDDP_ABNORMAL_CCCI_SEND_FAILED                      (1U << 0)
 #define MDDP_ABNORMAL_CHECK_FEATURE_ABSENT                  (1U << 1)
 #define MDDP_ABNORMAL_WIFI_DRV_GET_FEATURE_BEFORE_MD_READY  (1U << 2)
+#define MDFPM_TTY_BUF_SZ 256
+#define MDFPM_SEND_LOG_HEADER 3
+#define MDFPM_SEND_LOG_BUF_SZ (MDFPM_TTY_BUF_SZ - MDFPM_SEND_LOG_HEADER)
 //------------------------------------------------------------------------------
 // Struct definition.
 // -----------------------------------------------------------------------------
@@ -159,4 +162,32 @@ void mddp_sm_dereg_callback(
 	struct mddp_drv_conf_t *conf,
 	struct mddp_drv_handle_t *handle);
 void mddp_netdev_notifier_exit(void);
+
+struct mdfpm_log {
+	uint16_t action_id;
+	uint8_t buffer_len;
+	uint8_t buf[MDFPM_SEND_LOG_BUF_SZ];
+};
+
+enum mdfpm_log_action_id {
+	MDFPM_LOG_NONE,
+	MDFPM_LOG_MDDP_WH_RUN,
+	MDFPM_LOG_MDDP_WH_STOP,
+	MDFPM_LOG_MDDP_EM_TEST,
+	MDFPM_LOG_MDDP_WH_LOCK_MD,
+	MDFPM_LOG_MDDP_WH_RM_BY_REQ,
+	MDFPM_LOG_MDDP_WH_RM_BY_ASSIGN,
+	MDFPM_LOG_MDDP_WH_RM_BY_SCORE,
+	MDFPM_LOG_MD_ADD_FILTER_V4,
+	MDFPM_LOG_MD_DEL_FILTER_V4,
+	MDFPM_LOG_CS_ADD_FILTER_V4,
+	MDFPM_LOG_CS_DEL_FILTER_V4,
+	MDFPM_LOG_MD_ADD_FILTER_V6,
+	MDFPM_LOG_MD_DEL_FILTER_V6,
+	MDFPM_LOG_CS_ADD_FILTER_V6,
+	MDFPM_LOG_CS_DEL_FILTER_V6,
+	MDFPM_LOG_NUM,
+
+	MDFPM_LOG_MAX = 0Xffff,
+};
 #endif /* __MDDP_SM_H */

@@ -13,6 +13,7 @@
 #include "mddp_filter.h"
 #include "mddp_sm.h"
 #include "mddp_usage.h"
+#include "mddp_dev.h"
 
 //------------------------------------------------------------------------------
 // Struct definition.
@@ -86,6 +87,156 @@ static void mddp_handshake_done(uint32_t feature)
 	app->abnormal_flags &= ~MDDP_ABNORMAL_CHECK_FEATURE_ABSENT;
 }
 
+char operate[4][14] = {
+	"Add dl filter",
+	"Del dl filter",
+	"Add ul filter",
+	"Del ul filter"
+};
+
+uint32_t printV4Msg(struct mdfpm_log *mdfpm_log_buf, int action_id_t, char *str_dstate)
+{
+	uint32_t idx, size;
+	uint16_t port[2];
+	uint8_t d8Addr[8];
+	char SrcAddr[16];
+	char DstAddr[16];
+
+	for (idx = 0; idx < 8; idx++)
+		d8Addr[idx] = mdfpm_log_buf->buf[idx];
+	snprintf(SrcAddr, 16, "%3u.%3u.%3u.%3u", d8Addr[0], d8Addr[1], d8Addr[2], d8Addr[3]);
+	snprintf(DstAddr, 16, "%3u.%3u.%3u.%3u", d8Addr[4], d8Addr[5], d8Addr[6], d8Addr[7]);
+	memcpy(&port[0], mdfpm_log_buf->buf+8, sizeof(port[0]));
+	memcpy(&port[1], mdfpm_log_buf->buf+10, sizeof(port[1]));
+	size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
+			"[MDDP_WH] %s, src_addr(%s), dst_addr(%s), src_port(%5u), dst_port(%5u)",
+			operate[action_id_t%4], SrcAddr, DstAddr, port[0], port[1]);
+	MDDP_S_LOG(MDDP_LL_DEBUG, "%s", str_dstate);
+	return size;
+}
+
+uint32_t printV6Msg(struct mdfpm_log *mdfpm_log_buf, int action_id_t, char *str_dstate)
+{
+	uint32_t idx, size;
+	uint16_t d16Addr[16], v6Port[2];
+	char v6SrcAddr[40];
+	char v6DstAddr[40];
+
+	for (idx = 0; idx < 16; idx++)
+		memcpy(&d16Addr[idx], mdfpm_log_buf->buf+(2*idx), sizeof(d16Addr[idx]));
+	snprintf(v6SrcAddr, 40,
+			"%4x:%4x:%4x:%4x:%4x:%4x:%4x:%4x",
+			d16Addr[0], d16Addr[1], d16Addr[2], d16Addr[3],
+			d16Addr[4], d16Addr[5], d16Addr[6], d16Addr[7]);
+	snprintf(v6DstAddr, 40,
+			"%4x:%4x:%4x:%4x:%4x:%4x:%4x:%4x",
+			d16Addr[8], d16Addr[9], d16Addr[10], d16Addr[11],
+			d16Addr[12], d16Addr[13], d16Addr[14], d16Addr[15]);
+	memcpy(&v6Port[0], mdfpm_log_buf->buf+32, sizeof(v6Port[0]));
+	memcpy(&v6Port[1], mdfpm_log_buf->buf+34, sizeof(v6Port[1]));
+	size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
+			"[MDDP_WH] %s, src_addr(%s), dst_addr(%s), src_port(%5u), dst_port(%5u)",
+			operate[action_id_t%4], v6SrcAddr, v6DstAddr, v6Port[0], v6Port[1]);
+	MDDP_S_LOG(MDDP_LL_DEBUG, "%s", str_dstate);
+	return size;
+}
+
+uint32_t print_unexpected_id(struct mdfpm_log *mdfpm_log_buf, uint32_t buf_len, char *str_dstate)
+{
+	uint32_t i, size, idx = 0;
+	uint8_t temp[MDFPM_SEND_LOG_BUF_SZ];
+	char buffer[MDFPM_SEND_LOG_BUF_SZ];
+
+	for (i = 0; i < buf_len; i++) {
+		memcpy(&temp[i], mdfpm_log_buf->buf+i, sizeof(uint8_t));
+		idx += snprintf(&buffer[idx], buf_len-idx, "%u", temp[i]);
+	}
+	size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
+			"[MDDP_WH] Unexpected id, buffer:%s", buffer);
+	MDDP_S_LOG(MDDP_LL_DEBUG, "%s\n", str_dstate);
+	return size;
+}
+
+static void mddp_print_mdfpm_log(struct mdfpm_log *buf, uint32_t buf_len)
+{
+	uint32_t size;
+	struct mdfpm_log *mdfpm_log_buf;
+	char str_dstate[MDFPM_SEND_LOG_BUF_SZ];
+
+	if (buf_len >= MDFPM_SEND_LOG_HEADER) {
+		mdfpm_log_buf = (struct mdfpm_log *)buf;
+		switch (mdfpm_log_buf->action_id) {
+		case MDFPM_LOG_NONE:
+		case MDFPM_LOG_MDDP_WH_RUN:
+			size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ, "[MDDP_WH] Running");
+			MDDP_S_LOG(MDDP_LL_DEBUG, "%s", str_dstate);
+			break;
+		case MDFPM_LOG_MDDP_WH_STOP:
+			size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ, "[MDDP_WH] Stopped");
+			MDDP_S_LOG(MDDP_LL_DEBUG, "%s", str_dstate);
+			break;
+		case MDFPM_LOG_MDDP_EM_TEST:
+			size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
+					"[MDDP_WH] em_test_cmd_id(%u)",
+					mdfpm_log_buf->buf[0]);
+			MDDP_S_LOG(MDDP_LL_DEBUG, "%s", str_dstate);
+			break;
+		case MDFPM_LOG_MDDP_WH_LOCK_MD:
+			size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
+					"[MDDP_WH] Lock MD path(%u)",
+					mdfpm_log_buf->buf[0]);
+			MDDP_S_LOG(MDDP_LL_DEBUG, "%s", str_dstate);
+			break;
+		case MDFPM_LOG_MDDP_WH_RM_BY_REQ:
+			size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
+					"[MDDP_WH] Del filter by req, task_id(%u), level(%u)",
+					mdfpm_log_buf->buf[0], mdfpm_log_buf->buf[1]);
+			MDDP_S_LOG(MDDP_LL_DEBUG, "%s", str_dstate);
+			break;
+		case MDFPM_LOG_MDDP_WH_RM_BY_ASSIGN:
+			size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
+					"[MDDP_WH] Del filter by assign, level(%u)",
+					mdfpm_log_buf->buf[0]);
+			MDDP_S_LOG(MDDP_LL_DEBUG, "%s", str_dstate);
+			break;
+		case MDFPM_LOG_MDDP_WH_RM_BY_SCORE:
+			size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
+					"[MDDP_WH] Del filter by score, level(%u)",
+					mdfpm_log_buf->buf[0]);
+			MDDP_S_LOG(MDDP_LL_DEBUG, "%s", str_dstate);
+			break;
+		case MDFPM_LOG_MD_ADD_FILTER_V4:
+		case MDFPM_LOG_MD_DEL_FILTER_V4:
+		case MDFPM_LOG_CS_ADD_FILTER_V4:
+		case MDFPM_LOG_CS_DEL_FILTER_V4:
+			size = printV4Msg(mdfpm_log_buf, mdfpm_log_buf->action_id, &str_dstate[0]);
+			break;
+		case MDFPM_LOG_MD_ADD_FILTER_V6:
+		case MDFPM_LOG_MD_DEL_FILTER_V6:
+		case MDFPM_LOG_CS_ADD_FILTER_V6:
+		case MDFPM_LOG_CS_DEL_FILTER_V6:
+			size = printV6Msg(mdfpm_log_buf, mdfpm_log_buf->action_id, &str_dstate[0]);
+			break;
+		default:
+			break;
+		}
+		if (mdfpm_log_buf->action_id >= MDFPM_LOG_NUM
+				&& mdfpm_log_buf->action_id < MDFPM_LOG_MAX)
+			size = print_unexpected_id(mdfpm_log_buf, buf_len, &str_dstate[0]);
+		else if (mdfpm_log_buf->action_id > MDFPM_LOG_MAX) {
+			size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
+					"[MDDP_WH] error, action_id is incorrect\n");
+			MDDP_S_LOG(MDDP_LL_INFO, "%s", str_dstate);
+		}
+	} else {
+		size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ,
+				"[MDDP_WH] error, buf_len(%u) should large than %u",
+				buf_len, MDFPM_SEND_LOG_HEADER);
+		MDDP_S_LOG(MDDP_LL_INFO, "%s", str_dstate);
+	}
+	mddp_enqueue_md_log(MDDP_MD_LOG_ID_GET_LOG, size, str_dstate);
+}
+
 static int32_t mddp_sm_ctrl_msg_hdlr(
 		uint32_t msg_id,
 		void *buf,
@@ -96,6 +247,9 @@ static int32_t mddp_sm_ctrl_msg_hdlr(
 	switch (msg_id) {
 	case IPC_MSG_ID_MDFPM_CHECK_FEATURE_RSP:
 		mddp_handshake_done(*(uint32_t *)buf);
+		break;
+	case IPC_MSG_ID_MDFPM_LOG:
+		mddp_print_mdfpm_log(buf, buf_len);
 		break;
 	default:
 		MDDP_S_LOG(MDDP_LL_ERR,

@@ -15,6 +15,8 @@
 // -----------------------------------------------------------------------------
 #define MDDP_DETAILED_STATE_ENABLE 19283746
 #define MDDP_DETAILED_STATE_DISABLE 0
+#define MDDP_MD_LOG_ENABLE 19283746
+#define MDDP_MD_LOG_DISABLE 0
 #define MDDP_EM_SUPPORT	1                   /**< Engineer mode support */
 
 //------------------------------------------------------------------------------
@@ -26,5 +28,6 @@ void mddp_dev_response(enum mddp_app_type_e type,
 		enum mddp_ctrl_msg_e msg, bool is_success,
 		uint8_t *data, uint32_t data_len);
 void mddp_enqueue_dstate(enum mddp_dstate_id_e id, ...);
+void mddp_enqueue_md_log(enum mddp_md_log_id_e id, ...);
 
 #endif /* __MDDP_DEV_H */

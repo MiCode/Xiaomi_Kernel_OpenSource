@@ -73,14 +73,29 @@ enum mddp_dstate_id_e {
 	MDDP_DSTATE_ID_SUSPEND_TAG,
 	MDDP_DSTATE_ID_RESUME_TAG,
 	MDDP_DSTATE_ID_GET_OFFLOAD_STATS,
+	MDDP_DSTATE_ID_GET_MD_LOG,
 
 	MDDP_DSTATE_ID_NUM,
+};
+
+enum mddp_md_log_id_e {
+	MDDP_MD_LOG_ID_START,
+	MDDP_MD_LOG_ID_STOP,
+	MDDP_MD_LOG_ID_GET_LOG,
+
+	MDDP_MD_LOG_ID_NUM,
 };
 
 #define MDDP_DSTATE_STR_SZ 96
 struct mddp_dstate_t {
 	enum mddp_dstate_id_e   id;
-	uint8_t                 str[MDDP_DSTATE_STR_SZ];
+	uint8_t                 *str;
+};
+
+#define MD_LOG_START_SZ 90
+struct mddp_md_log_t {
+	enum mddp_md_log_id_e   id;
+	uint8_t                 *str;
 };
 
 static struct mddp_dstate_t mddp_dstate_temp_s[] = {
@@ -96,6 +111,15 @@ static struct mddp_dstate_t mddp_dstate_temp_s[] = {
 	"[%s] Resume tag"},
 	{MDDP_DSTATE_ID_GET_OFFLOAD_STATS,
 	"[%s] Get offload stats, rx(%08llu), tx(%08llu)"},
+};
+
+static struct mddp_md_log_t mddp_md_log_temp_s[] = {
+	{MDDP_MD_LOG_ID_START,
+	"==================== [%s] START MD LOG ===================="},
+	{MDDP_MD_LOG_ID_STOP,
+	"==================== [%s] STOP MD LOG ===================="},
+	{MDDP_MD_LOG_ID_GET_LOG,
+	"[%s] %s"},
 };
 
 //------------------------------------------------------------------------------

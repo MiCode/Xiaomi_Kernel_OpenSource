@@ -59,6 +59,8 @@ struct mddp_dev_rb_head_t {
 
 #define MDDP_DSTATE_IS_VALID_ID(_id) (_id >= 0 && _id < MDDP_DSTATE_ID_NUM)
 #define MDDP_DSTATE_IS_ACTIVATED() (mddp_dstate_activated_s)
+#define MDDP_MD_LOG_IS_VALID_ID(_id) (_id >= 0 && _id < MDDP_MD_LOG_ID_NUM)
+#define MDDP_MD_LOG_IS_ACTIVATED() (mddp_md_log_activated_s)
 
 //------------------------------------------------------------------------------
 // Private prototype.
@@ -99,6 +101,9 @@ static const struct file_operations mddp_dev_fops = {
 static atomic_t mddp_dev_open_ref_cnt_s;
 static struct mddp_dev_rb_head_t mddp_hidl_rb_head_s;
 static struct mddp_dev_rb_head_t mddp_dstate_rb_head_s;
+static struct mddp_dev_rb_head_t mddp_md_log_rb_head_s;
+uint32_t dstate_buffer_size;
+uint32_t md_log_buffer_size;
 
 #define MDDP_CMCMD_RSP_CNT (MDDP_CMCMD_RSP_END - MDDP_CMCMD_RSP_BEGIN)
 static enum mddp_dev_evt_type_e
@@ -117,6 +122,7 @@ mddp_dev_rsp_status_mapping_s[MDDP_CMCMD_RSP_CNT][2] =  {
 uint32_t mddp_debug_log_class_s = MDDP_LC_ALL;
 uint32_t mddp_debug_log_level_s = MDDP_LL_DEFAULT;
 static bool mddp_dstate_activated_s;
+static bool mddp_md_log_activated_s;
 
 //------------------------------------------------------------------------------
 // Function Prototype.
@@ -369,6 +375,54 @@ not_support_error:
 static DEVICE_ATTR_RW(em_test);
 #endif /* MDDP_EM_SUPPORT */
 
+
+static ssize_t
+md_log_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	uint32_t                    ret_num = 0;
+	uint32_t                    seq = 0;
+	struct mddp_dev_rb_head_t  *list = &mddp_md_log_rb_head_s;
+	struct mddp_dev_rb_t       *entry;
+
+	/*
+	 * Detailed state.
+	 */
+	entry = mddp_query_dstate(list, seq);
+	while (entry) {
+		ret_num += scnprintf(buf + ret_num, PAGE_SIZE - ret_num,
+				"%s\n",	((struct mddp_md_log_t *)entry->rb_data)->str);
+
+		seq += 1;
+		entry = mddp_query_dstate(list, seq);
+	}
+
+	// OK.
+	return ret_num;
+}
+
+static ssize_t
+md_log_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf,
+		size_t count)
+{
+	unsigned long           value;
+
+	if (!kstrtoul(buf, 0, &value)) {
+		if (value == MDDP_MD_LOG_ENABLE) {
+			mddp_md_log_activated_s = true;
+			mddp_enqueue_md_log(MDDP_MD_LOG_ID_START);
+		} else  if (value == MDDP_MD_LOG_DISABLE) {
+			mddp_enqueue_md_log(MDDP_MD_LOG_ID_STOP);
+			mddp_md_log_activated_s = false;
+		}
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(md_log);
+
+
 static struct attribute *mddp_attrs[] = {
 	&dev_attr_version.attr,
 	&dev_attr_state.attr,
@@ -376,6 +430,7 @@ static struct attribute *mddp_attrs[] = {
 	&dev_attr_debug_log.attr,
 
 	&dev_attr_wh_enable.attr,
+	&dev_attr_md_log.attr,
 #ifdef MDDP_EM_SUPPORT
 	&dev_attr_em_test.attr,
 #endif
@@ -506,6 +561,7 @@ static void mddp_clear_dstate(
 
 	entry = mddp_dequeue_dstate(list);
 	while (entry) {
+		kfree(((struct mddp_md_log_t *)entry->rb_data)->str);
 		kfree(entry->rb_data);
 		kfree(entry);
 
@@ -542,6 +598,7 @@ int32_t mddp_dev_init(void)
 	 */
 	mddp_dev_list_init(&mddp_hidl_rb_head_s);
 	mddp_dev_list_init(&mddp_dstate_rb_head_s);
+	mddp_dev_list_init(&mddp_md_log_rb_head_s);
 
 	/*
 	 * Create device node.
@@ -564,8 +621,11 @@ void mddp_dev_uninit(void)
 	 */
 	misc_deregister(&mddp_dev);
 
+	dstate_buffer_size = 0;
+	md_log_buffer_size = 0;
 	mddp_clear_dstate(&mddp_hidl_rb_head_s);
 	mddp_clear_dstate(&mddp_dstate_rb_head_s);
+	mddp_clear_dstate(&mddp_md_log_rb_head_s);
 }
 
 void mddp_dev_response(enum mddp_app_type_e type,
@@ -621,6 +681,8 @@ void mddp_dev_response(enum mddp_app_type_e type,
 }
 
 #define MDDP_CURR_TIME_STR_SZ 32
+#define MDDP_DSTATE_MAX_BUF_SZ 4000
+
 void mddp_enqueue_dstate(enum mddp_dstate_id_e id, ...)
 {
 	struct mddp_dev_rb_head_t  *list = &mddp_dstate_rb_head_s;
@@ -642,8 +704,15 @@ void mddp_enqueue_dstate(enum mddp_dstate_id_e id, ...)
 	if (unlikely(!dstat))
 		return;
 
+	dstat->str = kzalloc(MDDP_DSTATE_STR_SZ, GFP_ATOMIC);
+	if (unlikely(!dstat->str)) {
+		kfree(dstat);
+		return;
+	}
+
 	entry = kzalloc(sizeof(struct mddp_dev_rb_t), GFP_ATOMIC);
 	if (unlikely(!entry)) {
+		kfree(dstat->str);
 		kfree(dstat);
 		return;
 	}
@@ -661,6 +730,7 @@ void mddp_enqueue_dstate(enum mddp_dstate_id_e id, ...)
 	va_start(ap, id);
 	switch (id) {
 	case MDDP_DSTATE_ID_START:
+		dstate_buffer_size = 0;
 		mddp_clear_dstate(list);
 		snprintf(dstat->str, MDDP_DSTATE_STR_SZ,
 				mddp_dstate_temp_s[id].str, curr_time_str);
@@ -694,9 +764,107 @@ void mddp_enqueue_dstate(enum mddp_dstate_id_e id, ...)
 	}
 	va_end(ap);
 
-	entry->rb_len = sizeof(struct mddp_dstate_t);
+	entry->rb_len = MDDP_DSTATE_STR_SZ;
 	entry->rb_data = dstat;
 	mddp_dev_rb_enqueue_tail(list, entry);
+	dstate_buffer_size += entry->rb_len;
+	while (dstate_buffer_size > MDDP_DSTATE_MAX_BUF_SZ) {
+		entry = mddp_dev_rb_dequeue(list);
+		dstate_buffer_size -= entry->rb_len;
+		kfree(((struct mddp_dstate_t *)entry->rb_data)->str);
+		kfree(entry->rb_data);
+		kfree(entry);
+	}
+}
+
+void mddp_enqueue_md_log(enum mddp_md_log_id_e id, ...)
+{
+	struct mddp_dev_rb_head_t  *list = &mddp_md_log_rb_head_s;
+	struct mddp_dev_rb_t       *entry;
+	struct mddp_md_log_t       *log;
+	struct rtc_time             rt;
+	struct timespec64           ts;
+	char                        curr_time_str[MDDP_CURR_TIME_STR_SZ];
+	va_list                     ap;
+	char						*mdfpm_log_str;
+	uint32_t					strSize = 0;
+
+	if (!MDDP_MD_LOG_IS_VALID_ID(id) || !MDDP_MD_LOG_IS_ACTIVATED())
+		return;
+
+	log = kzalloc(sizeof(struct mddp_md_log_t), GFP_ATOMIC);
+	if (unlikely(!log))
+		return;
+
+	entry = kzalloc(sizeof(struct mddp_dev_rb_t), GFP_ATOMIC);
+	if (unlikely(!entry)) {
+		kfree(log);
+		return;
+	}
+
+	// Generate current time string.
+	ktime_get_real_ts64(&ts);
+	rtc_time64_to_tm(ts.tv_sec, &rt);
+	snprintf(curr_time_str, MDDP_CURR_TIME_STR_SZ,
+			"%d%02d%02d %02d:%02d:%02d.%09ld UTC",
+			rt.tm_year + 1900, rt.tm_mon + 1, rt.tm_mday,
+			rt.tm_hour, rt.tm_min, rt.tm_sec, ts.tv_nsec);
+
+	// Generate detailed state message.
+	log->id = id;
+	va_start(ap, id);
+
+	switch (id) {
+	case MDDP_MD_LOG_ID_START:
+		log->str = kzalloc(MD_LOG_START_SZ, GFP_ATOMIC);
+		if (unlikely(!(log->str))) {
+			kfree(log);
+			kfree(entry);
+			return;
+		}
+		md_log_buffer_size = 0;
+		mddp_clear_dstate(list);
+		snprintf(log->str, MDDP_DSTATE_STR_SZ,
+				mddp_md_log_temp_s[id].str, curr_time_str);
+		break;
+	case MDDP_MD_LOG_ID_STOP:
+		log->str = kzalloc(MD_LOG_START_SZ, GFP_ATOMIC);
+		if (unlikely(!(log->str))) {
+			kfree(log);
+			kfree(entry);
+			return;
+		}
+		snprintf(log->str, MDDP_DSTATE_STR_SZ,
+				mddp_md_log_temp_s[id].str, curr_time_str);
+		break;
+	case MDDP_MD_LOG_ID_GET_LOG:
+		strSize = va_arg(ap, uint32_t);
+		log->str = kzalloc(strSize + MDDP_CURR_TIME_STR_SZ + 3, GFP_ATOMIC);
+		if (unlikely(!(log->str))) {
+			kfree(log);
+			kfree(entry);
+			return;
+		}
+		mdfpm_log_str = va_arg(ap, char*);
+		snprintf(log->str, strSize + MDDP_CURR_TIME_STR_SZ + 3,
+				mddp_md_log_temp_s[id].str,	curr_time_str, mdfpm_log_str);
+		break;
+	default:
+		break;
+	}
+
+	va_end(ap);
+	entry->rb_len = strSize + MDDP_CURR_TIME_STR_SZ + 3;
+	entry->rb_data = log;
+	mddp_dev_rb_enqueue_tail(list, entry);
+	md_log_buffer_size += entry->rb_len;
+	while (md_log_buffer_size > MDDP_DSTATE_MAX_BUF_SZ) {
+		entry = mddp_dev_rb_dequeue(list);
+		kfree(((struct mddp_md_log_t *)entry->rb_data)->str);
+		kfree(entry->rb_data);
+		kfree(entry);
+		md_log_buffer_size -= entry->rb_len;
+	}
 }
 
 //------------------------------------------------------------------------------
