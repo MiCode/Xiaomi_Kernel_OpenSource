@@ -111,7 +111,7 @@ static inline struct icc_node *mtk_icc_node_create(int id)
 	return ERR_PTR(-ENOTSUPP);
 }
 
-void mtk_icc_node_destroy(int id)
+static inline void mtk_icc_node_destroy(int id)
 {
 }
 
@@ -120,16 +120,16 @@ static inline int mtk_icc_link_create(struct icc_node *node, const int dst_id)
 	return -ENOTSUPP;
 }
 
-int mtk_icc_link_destroy(struct icc_node *src, struct icc_node *dst)
+static inline int mtk_icc_link_destroy(struct icc_node *src, struct icc_node *dst)
 {
 	return -ENOTSUPP;
 }
 
-void mtk_icc_node_add(struct icc_node *node, struct icc_provider *provider)
+static inline void mtk_icc_node_add(struct icc_node *node, struct icc_provider *provider)
 {
 }
 
-void mtk_icc_node_del(struct icc_node *node)
+static inline void mtk_icc_node_del(struct icc_node *node)
 {
 }
 
