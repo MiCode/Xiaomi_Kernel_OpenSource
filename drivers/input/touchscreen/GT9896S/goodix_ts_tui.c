@@ -17,7 +17,7 @@
   *
   */
 
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 #include "goodix_ts_core.h"
 
 atomic_t gt9896s_tui_flag = ATOMIC_INIT(0);
@@ -35,12 +35,13 @@ int tpd_enter_tui(void)
 
 	gt9896s_ts_irq_enable(ts_core_for_tui, false);
 
-	mt_spi_enable_master_clk(ts_core_for_tui->ts_dev->spi_dev);
+//	mt_spi_enable_master_clk(ts_core_for_tui->ts_dev->spi_dev);
 
 	atomic_set(&gt9896s_tui_flag, true);
 
 	return ret;
 }
+EXPORT_SYMBOL(tpd_enter_tui);
 
 int tpd_exit_tui(void)
 {
@@ -48,7 +49,7 @@ int tpd_exit_tui(void)
 
 	ts_info("[%s] exit TUI", __func__);
 
-	mt_spi_disable_master_clk(ts_core_for_tui->ts_dev->spi_dev);
+//	mt_spi_disable_master_clk(ts_core_for_tui->ts_dev->spi_dev);
 
 	gt9896s_ts_irq_enable(ts_core_for_tui, false);
 
@@ -58,5 +59,6 @@ int tpd_exit_tui(void)
 
 	return ret;
 }
+EXPORT_SYMBOL(tpd_exit_tui);
 #endif
 

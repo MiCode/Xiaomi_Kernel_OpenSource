@@ -44,7 +44,7 @@ static struct gt9896s_ts_core *ts_core;
 
 struct gt9896s_module gt9896s_modules;
 
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 struct gt9896s_ts_core *ts_core_for_tui;
 EXPORT_SYMBOL_GPL(ts_core_for_tui);
 #endif
@@ -1905,13 +1905,13 @@ static int gt9896s_ts_disp_notifier_callback(struct notifier_block *nb,
 		if (value == MTK_DISP_EARLY_EVENT_BLANK) {
 			ts_info("%s IN", __func__);
 			if (*data == MTK_DISP_BLANK_UNBLANK) {
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 				if (!atomic_read(&gt9896s_tui_flag))
 #endif
 					gt9896s_ts_resume(core_data);
 			} else if (*data == MTK_DISP_BLANK_POWERDOWN) {
 
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 				if (!atomic_read(&gt9896s_tui_flag))
 #endif
 					gt9896s_ts_suspend(core_data);
@@ -2180,7 +2180,7 @@ static int gt9896s_ts_probe(struct platform_device *pdev)
 #endif
 
 	/* for tui touch */
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
 	ts_core_for_tui = core_data;
 #endif
 

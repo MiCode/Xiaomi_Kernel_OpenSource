@@ -12,4 +12,4 @@ gt9896s-y += goodix_ts_core.o
 gt9896s-y += goodix_cfg_bin.o
 gt9896s-y += goodix_gtx8_update.o
 gt9896s-n += goodix_ts_tools.o
-gt9896s-n += goodix_ts_tui.o
+gt9896s-y += goodix_ts_tui.o
