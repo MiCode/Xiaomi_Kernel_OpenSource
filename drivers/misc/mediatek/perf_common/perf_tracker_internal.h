@@ -55,7 +55,11 @@ extern struct kobj_attribute perf_charger_period_attr;
 #if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
 extern struct kobj_attribute perf_gpu_pmu_enable_attr;
 extern struct kobj_attribute perf_gpu_pmu_period_attr;
+extern void mtk_ltr_gpu_pmu_start(unsigned int interval_ns);
+extern void mtk_ltr_gpu_pmu_stop(void);
 #endif
+
+
 
 #else
 static inline void perf_tracker(u64 wallclock,
