@@ -25,7 +25,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/rv/
 #ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/hif/
 
-ccci_fsm_scp-y := ccci_fsm_scp.o
+ccci_fsm_scp-y := ccci_fsm_scp_c.o
 obj-$(CONFIG_MTK_ECCCI_DRIVER) += ccci_fsm_scp.o
 
 endif
@@ -52,7 +52,7 @@ ccci_fsm_all-y := ccci_fsm.o \
 			ccci_fsm_ioctl.o \
 			ccci_fsm_monitor.o \
 			ccci_fsm_poller.o \
-			ccci_fsm_scp.o \
+			ccci_fsm_scp_c.o \
 			ccci_fsm_ee.o \
 			ccci_fsm_sys.o \
 			mdee_dumper_v1.o \

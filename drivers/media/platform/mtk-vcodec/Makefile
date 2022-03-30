@@ -36,8 +36,8 @@ ifeq ($(CONFIG_VIDEO_MEDIATEK_VCODEC_V1),y)
 			v1/mtk_vcodec_enc_pm_plat.o \
 			v1/vcodec_dvfs.o
 
-	mtk-vcodec-dec-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o
-	mtk-vcodec-enc-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-enc.o
+	mtk-vcodec-dec-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += $(mtk-vcodec-dec-m) $(mtk-vcodec-dec-y)
+	mtk-vcodec-enc-v1-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += $(mtk-vcodec-enc-m) $(mtk-vcodec-enc-y)
 endif
 
 ifeq ($(CONFIG_VIDEO_MEDIATEK_VCODEC_V2),y)
@@ -52,8 +52,8 @@ ifeq ($(CONFIG_VIDEO_MEDIATEK_VCODEC_V2),y)
 			v2/mtk_vcodec_enc_pm_plat.o \
 			v2/vcodec_dvfs.o
 
-	mtk-vcodec-dec-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o
-	mtk-vcodec-enc-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-enc.o
+	mtk-vcodec-dec-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += $(mtk-vcodec-dec-m) $(mtk-vcodec-dec-y)
+	mtk-vcodec-enc-v2-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += $(mtk-vcodec-enc-m) $(mtk-vcodec-enc-y)
 endif
 
 subdir-ccflags-y += -Werror
