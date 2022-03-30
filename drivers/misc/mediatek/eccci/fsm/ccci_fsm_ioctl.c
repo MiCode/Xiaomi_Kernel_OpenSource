@@ -536,15 +536,6 @@ long ccci_fsm_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 		return -EINVAL;
 
 	switch (cmd) {
-	case CCCI_IOC_TEST:
-		if (copy_from_user(&data, (void __user *)arg,
-				sizeof(unsigned int)) == 0) {
-			CCCI_NORMAL_LOG(md_id, FSM,
-				"CCCI_IOC_TEST: 0x%x called by %s\n",
-				data, current->comm);
-			ret = -EFAULT;
-		}
-		break;
 	case CCCI_IOC_GET_MD_STATE:
 		state_for_user = ccci_fsm_get_md_state_for_user(md_id);
 		if (state_for_user >= 0) {

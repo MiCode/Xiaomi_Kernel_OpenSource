@@ -201,11 +201,6 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 	}
 
 	md_cd_lock_modem_clock_src(1);
-
-	if (md_cd_plat_val_ptr.md_gen >= 6298)
-		md_dump_reg(md->index);
-	else if (md->hw_info->plat_ptr->md_dump_reg)
-		md->hw_info->plat_ptr->md_dump_reg(md->index);
 	md_dump_reg(md->index);
 	md_cd_lock_modem_clock_src(0);
 

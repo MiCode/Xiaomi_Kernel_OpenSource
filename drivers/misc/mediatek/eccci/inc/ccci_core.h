@@ -284,7 +284,6 @@ extern struct ccci_ccb_config ccb_configs[];
 #define CCCI_IOC_RILD_POWER_OFF_MD		\
 	_IO(CCCI_IOC_MAGIC,  125)
 
-#define CCCI_IOC_TEST _IO(CCCI_IOC_MAGIC,  199)
 
 #define CCCI_IPC_MAGIC 'P' /* only for IPC user */
 #define CCCI_IPC_RESET_RECV			_IO(CCCI_IPC_MAGIC, 0)
