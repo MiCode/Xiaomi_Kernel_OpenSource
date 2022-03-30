@@ -114,7 +114,7 @@ def main(**args):
         sys.exit(2)
 
     file_text.append("PATH=${ROOT_DIR}/../prebuilts/perl/linux-x86/bin:${ROOT_DIR}/build/build-tools/path/linux-x86:/usr/bin:/bin")
-    file_text.append("MAKE_GOALS=\"all\"")
+    file_text.append("MAKE_GOALS=\"all Image.lz4\"")
     file_text.append("TRIM_NONLISTED_KMI=")
     file_text.append("KMI_SYMBOL_LIST_STRICT_MODE=")
     file_text.append("MODULES_ORDER=")

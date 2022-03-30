@@ -28,10 +28,13 @@ endef
     KERNEL_ROOT_OUT := $(if $(filter /% ~%,$(KERNEL_OUT)),,$(KERNEL_ROOT_DIR)/)$(KERNEL_OUT)
     ifeq (yes,$(strip $(BUILD_KERNEL)))
     ifeq ($(KERNEL_TARGET_ARCH), arm64)
+      ifeq (,$(strip $(MTK_KERNEL_COMPRESS_FORMAT)))
+        MTK_KERNEL_COMPRESS_FORMAT := gz
+      endif
       ifeq ($(MTK_APPENDED_DTB_SUPPORT), yes)
-        KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz-dtb
+        KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.$(MTK_KERNEL_COMPRESS_FORMAT)-dtb
       else
-        KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz
+        KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.$(MTK_KERNEL_COMPRESS_FORMAT)
       endif
     else
       ifeq ($(MTK_APPENDED_DTB_SUPPORT), yes)
