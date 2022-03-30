@@ -56,34 +56,31 @@ int scmi_tinysys_notifier_fn(struct notifier_block *nb,
 	}
 	return NOTIFY_OK;
 }
-#if 0 // TODO: Kernel-5.15 not support.
+
 static struct notifier_block tinysys_nb = {
 	.notifier_call = scmi_tinysys_notifier_fn,
 };
-#endif
+
 int scmi_tinysys_event_notify(u32 feature_id, u32 notify_enable)
 {
-#if 1
+
 	int ret = 0;
-#else // TODO: Kernel-5.15 not support.
-	int ret;
 	int f_id = feature_id;
-	const struct scmi_handle *handle = t_info->sdev->handle;
+	struct scmi_device *sdev = t_info->sdev;
 
 	if (notify_enable) {
-		ret = handle->notify_ops->register_event_notifier(handle, SCMI_PROTOCOL_TINYSYS,
-			SCMI_EVENT_TINYSYS_NOTIFIER, &f_id, &tinysys_nb);	//fix NULL
+		ret = sdev->handle->notify_ops->devm_event_notifier_register(sdev,
+			 SCMI_PROTOCOL_TINYSYS, SCMI_EVENT_TINYSYS_NOTIFIER, &f_id, &tinysys_nb);
 		if (ret)
 			pr_notice("scmi register_event_notifier f_id:%d ret:%d\n", f_id, ret);
 
 	} else {
-		ret = handle->notify_ops->unregister_event_notifier(handle, SCMI_PROTOCOL_TINYSYS,
-			SCMI_EVENT_TINYSYS_NOTIFIER, &f_id, &tinysys_nb);	//fix NULL
+		ret = sdev->handle->notify_ops->devm_event_notifier_unregister(sdev,
+			 SCMI_PROTOCOL_TINYSYS, SCMI_EVENT_TINYSYS_NOTIFIER, &f_id, &tinysys_nb);
 		if (ret)
 			pr_notice("scmi unregister_event_notifier f_id:%d ret:%d\n", f_id, ret);
-
 	}
-#endif
+
 	return ret;
 }
 EXPORT_SYMBOL(scmi_tinysys_event_notify);
@@ -163,28 +160,27 @@ DEVICE_ATTR_RW(tinysys_scmi_debug);
 static int scmi_tinysys_probe(struct scmi_device *sdev)
 {
 	struct device *dev = &sdev->dev;
-#if 0 // TODO: Kernel-5.15 not support.
+
 	const struct scmi_handle *handle = sdev->handle;
 	struct scmi_protocol_handle *ph;
 
 	if (!handle)
 		return -ENODEV;
-#endif
 
 	scmi_tinysys_register();
-#if 0 // TODO: Kernel-5.15 not support.
-	tinysys_ops = handle->devm_get_protocol(sdev, SCMI_PROTOCOL_TINYSYS, &ph);
+
+	tinysys_ops = handle->devm_protocol_get(sdev, SCMI_PROTOCOL_TINYSYS, &ph);
 	if (IS_ERR(tinysys_ops))
 		return PTR_ERR(tinysys_ops);
-#endif
+
 	t_info = devm_kzalloc(dev, sizeof(*t_info), GFP_KERNEL);
 	if (!t_info)
 		return -ENOMEM;
 
 	t_info->sdev = sdev;
-#if 0 // TODO: Kernel-5.15 not support.
+
 	t_info->ph = ph;
-#endif
+
 #ifdef TINYSYS_SCMI_DEBUG
 	if (device_create_file(dev, &dev_attr_tinysys_scmi_debug))
 		pr_notice("tinysys scmi debug ret fail\n");

@@ -162,7 +162,7 @@ static void *scmi_tinysys_fill_custom_report(const struct scmi_protocol_handle *
 
 	return r;
 }
-#if 0 // TODO: Kernel-5.15 not support.
+
 static int scmi_tinysys_attributes_get(const struct scmi_protocol_handle *ph,
 				     struct scmi_tinysys_info *pi)
 {
@@ -184,7 +184,6 @@ static int scmi_tinysys_attributes_get(const struct scmi_protocol_handle *ph,
 	ph->xops->xfer_put(ph, t);
 	return ret;
 }
-#endif
 
 static int scmi_tinysys_get_num_sources(const struct scmi_protocol_handle *ph)
 {
@@ -221,7 +220,7 @@ static const struct scmi_protocol_events tinysys_protocol_events = {
 	.evts = tinysys_events,
 	.num_events = ARRAY_SIZE(tinysys_events),
 };
-#if 0 // TODO: Kernel-5.15 not support.
+
 static int scmi_tinysys_protocol_init(const struct scmi_protocol_handle *ph)
 {
 	u32 version;
@@ -242,12 +241,11 @@ static int scmi_tinysys_protocol_init(const struct scmi_protocol_handle *ph)
 
 	return ph->set_priv(ph, pinfo);
 }
-#endif
+
 const struct scmi_protocol scmi_tinysys_protocol = {
 	.id = SCMI_PROTOCOL_TINYSYS,
 	.owner = THIS_MODULE,
-// TODO: Kernel-5.15 not support.
-//	.init_instance = &scmi_tinysys_protocol_init,
+	.instance_init = &scmi_tinysys_protocol_init,
 	.ops = &tinysys_proto_ops,
 	.events = &tinysys_protocol_events,
 };
