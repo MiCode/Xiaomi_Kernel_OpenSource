@@ -518,6 +518,30 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 			p->tsvc = 1;
 		ctx->param_change |= MTK_ENCODE_PARAM_TSVC;
 		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_MULTI_REF:
+		mtk_v4l2_debug(0,
+			"V4L2_CID_MPEG_MTK_ENCODE_MULTI_REF multi_ref_en: %d\n",
+			ctrl->p_new.p_u32[0]);
+		memcpy(&p->multi_ref, ctrl->p_new.p_u32,
+		sizeof(struct mtk_venc_multi_ref));
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_WPP_MODE:
+		mtk_v4l2_debug(0,
+			"V4L2_CID_MPEG_MTK_ENCODE_WPP_MODE: %d",
+			ctrl->val);
+		p->wpp_mode = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_LOW_LATENCY_MODE:
+		mtk_v4l2_debug(0,
+			"V4L2_CID_MPEG_MTK_ENCODE_LOW_LATENCY_MODE: %d",
+			ctrl->val);
+		p->low_latency_mode = ctrl->val;
+		if (p->low_latency_mode == 1) {
+			p->use_irq = 1;
+			init_waitqueue_head(&ctx->bs_wq);
+		} else
+			p->use_irq = 0;
+		break;
 	case V4L2_CID_MPEG_MTK_ENCODE_ENABLE_HIGHQUALITY:
 		mtk_v4l2_debug(2,
 			"V4L2_CID_MPEG_MTK_ENCODE_ENABLE_HIGHQUALITY: %d",
@@ -2046,6 +2070,10 @@ static void vb2ops_venc_buf_queue(struct vb2_buffer *vb)
 		ctx->param_change = MTK_ENCODE_PARAM_NONE;
 	}
 
+	if ((vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) &&
+		(ctx->enc_params.low_latency_mode == 1))
+		wake_up(&ctx->bs_wq);
+
 	v4l2_m2m_buf_queue_check(ctx->m2m_ctx, to_vb2_v4l2_buffer(vb));
 }
 
@@ -2152,6 +2180,9 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 	int i, ret;
 
 	mtk_v4l2_debug(2, "[%d]-> type=%d", ctx->id, q->type);
+
+	if (ctx->enc_params.low_latency_mode == 1)
+		wake_up(&ctx->bs_wq);
 
 	if (vb2_start_streaming_called(&ctx->m2m_ctx->cap_q_ctx.q) &&
 		vb2_start_streaming_called(&ctx->m2m_ctx->out_q_ctx.q)) {
@@ -3256,6 +3287,46 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.dims[0] = 2;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_MULTI_REF;
+	cfg.type = V4L2_CTRL_TYPE_U32;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode multi ref";
+	cfg.min = 0;
+	cfg.max = 65535;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.dims[0] = sizeof(struct mtk_venc_multi_ref)/sizeof(u32);
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_WPP_MODE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "encode wpp";
+	cfg.min = 0;
+	cfg.max = 1;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_LOW_LATENCY_MODE;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "encode low latency";
+	cfg.min = 0;
+	cfg.max = 1;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	v4l2_ctrl_handler_setup(&ctx->ctrl_hdl);
+	ctx->param_change = MTK_ENCODE_PARAM_NONE;
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_ENABLE_HIGHQUALITY;

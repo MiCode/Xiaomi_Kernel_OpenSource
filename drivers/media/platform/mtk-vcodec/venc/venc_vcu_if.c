@@ -107,6 +107,35 @@ static int check_codec_id(struct venc_vcu_ipi_msg_common *msg, unsigned int fmt)
 	return ret;
 }
 
+static int handle_enc_get_bs_buf(struct venc_vcu_inst *vcu, void *data)
+{
+	struct mtk_vcodec_mem *pbs_buf;
+	struct mtk_vcodec_ctx *ctx = vcu->ctx;
+	struct venc_vsi *vsi = (struct venc_vsi *)vcu->vsi;
+	struct venc_vcu_ipi_msg_get_bs *msg = (struct venc_vcu_ipi_msg_get_bs *)data;
+	long timeout_jiff;
+	int ret = 1;
+
+	pbs_buf =  mtk_vcodec_get_bs(ctx);
+	timeout_jiff = msecs_to_jiffies(1000);
+
+	while (pbs_buf == NULL) {
+		ret = wait_event_interruptible_timeout(
+					vcu->ctx->bs_wq,
+					 v4l2_m2m_num_dst_bufs_ready(
+						 vcu->ctx->m2m_ctx) > 0 ||
+					 vcu->ctx->state == MTK_STATE_FLUSH,
+					 timeout_jiff);
+		pbs_buf = mtk_vcodec_get_bs(ctx);
+	}
+
+	vsi->venc.venc_bs_va = (u64)(uintptr_t)pbs_buf;
+	msg->bs_addr = pbs_buf->dma_addr;
+	msg->bs_size = pbs_buf->size;
+	pbs_buf->buf_fd = msg->bs_fd;
+
+	return 1;
+}
 int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct venc_vcu_ipi_msg_common *msg = data;
@@ -219,6 +248,9 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		else
 			msg->status = -1;
 		ret = 1;
+		break;
+	case VCU_IPIMSG_ENC_GET_BS_BUFFER:
+		ret = handle_enc_get_bs_buf(vcu, data);
 		break;
 	default:
 		mtk_vcodec_err(vcu, "unknown msg id %x", msg->msg_id);

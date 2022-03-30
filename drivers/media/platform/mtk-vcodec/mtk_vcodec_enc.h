@@ -10,18 +10,7 @@
 
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-v4l2.h>
-
-/**
- * enum eos_types  - encoder different eos types
- * @NON_EOS     : no eos, normal frame
- * @EOS_WITH_DATA      : early eos , mean this frame need to encode
- * @EOS : byteused of the last frame is zero
- */
-enum eos_types {
-	NON_EOS = 0,
-	EOS_WITH_DATA,
-	EOS
-};
+#include "mtk_vcodec_util.h"
 
 /**
  * struct mtk_video_enc_buf - Private data related to each VB2 buffer.

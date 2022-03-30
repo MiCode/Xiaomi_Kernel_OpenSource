@@ -413,6 +413,14 @@ static void get_interlacing(struct vdec_inst *inst,
 		*interlacing = inst->vsi->interlacing;
 }
 
+static void get_interlacing_fieldseq(struct vdec_inst *inst,
+			    unsigned int *bottomFirst)
+{
+	inst->vcu.ctx = inst->ctx;
+	if (inst->vsi != NULL)
+		*bottomFirst = inst->vsi->interlacing_fieldseq;
+}
+
 static void get_codec_type(struct vdec_inst *inst,
 			   unsigned int *codec_type)
 {
@@ -517,6 +525,10 @@ static int vdec_get_param(unsigned long h_vdec,
 
 	case GET_PARAM_INPUT_DRIVEN:
 		get_input_driven(inst, out);
+		break;
+
+	case GET_PARAM_INTERLACING_FIELD_SEQ:
+		get_interlacing_fieldseq(inst, out);
 		break;
 
 	default:

@@ -32,6 +32,18 @@
 #define LOG_PROPERTY_SIZE 1024
 #define ROUND_N(X, N)   (((X) + ((N)-1)) & (~((N)-1)))    //only for N is exponential of 2
 
+/**
+ * enum eos_types  - encoder different eos types
+ * @NON_EOS     : no eos, normal frame
+ * @EOS_WITH_DATA      : early eos , mean this frame need to encode
+ * @EOS : byteused of the last frame is zero
+ */
+enum eos_types {
+	NON_EOS = 0,
+	EOS_WITH_DATA,
+	EOS
+};
+
 struct mtk_vcodec_mem {
 	size_t length;
 	size_t size;
@@ -256,6 +268,7 @@ struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev,
 void mtk_vcodec_add_ctx_list(struct mtk_vcodec_ctx *ctx);
 void mtk_vcodec_del_ctx_list(struct mtk_vcodec_ctx *ctx);
 struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx);
+struct mtk_vcodec_mem *mtk_vcodec_get_bs(struct mtk_vcodec_ctx *ctx);
 int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type, bool no_need_put);
 void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx);
 void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,

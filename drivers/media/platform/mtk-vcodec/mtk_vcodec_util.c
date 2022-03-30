@@ -17,6 +17,7 @@
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
 #include "mtk_vcodec_dec.h"
+#include "mtk_vcodec_enc.h"
 #include "vdec_drv_if.h"
 #include "venc_drv_if.h"
 
@@ -288,6 +289,52 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_get_fb);
 
+struct mtk_vcodec_mem *mtk_vcodec_get_bs(struct mtk_vcodec_ctx *ctx)
+{
+	struct vb2_buffer *dst_buf;
+	struct mtk_vcodec_mem *pbs_buf;
+	struct mtk_video_enc_buf *dst_buf_info;
+	struct vb2_v4l2_buffer *dst_vb2_v4l2;
+
+	if (!ctx) {
+		mtk_v4l2_err("Ctx is NULL!");
+		return NULL;
+	}
+
+	mtk_v4l2_debug_enter();
+	dst_vb2_v4l2 = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
+	if (dst_vb2_v4l2 == NULL) {
+		mtk_v4l2_err("[%s][%d]dst_buf empty!!", __func__, ctx->id);
+		return NULL;
+	}
+	dst_buf = &dst_vb2_v4l2->vb2_buf;
+	if (dst_buf != NULL) {
+		dst_buf_info = container_of(dst_vb2_v4l2, struct mtk_video_enc_buf, vb);
+		pbs_buf = &dst_buf_info->bs_buf;
+
+		if (!ctx->enc_params.svp_mode)
+			pbs_buf->va = vb2_plane_vaddr(dst_buf, 0);
+		pbs_buf->dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
+		pbs_buf->size = (size_t)dst_buf->planes[0].length;
+		pbs_buf->dmabuf = dst_buf->planes[0].dbuf;
+
+		dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
+		dst_buf = &dst_vb2_v4l2->vb2_buf;
+		if (dst_buf != NULL) {
+			mtk_v4l2_debug(8, "[%d] index=%d, num_rdy_bufs=%d\n", ctx->id,
+				dst_buf->index,
+				v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx));
+		}
+
+	} else {
+		mtk_v4l2_err("[%d] No free framebuffer in v4l2!!\n", ctx->id);
+		pbs_buf = NULL;
+	}
+	mtk_v4l2_debug_leave();
+
+	return pbs_buf;
+}
+EXPORT_SYMBOL(mtk_vcodec_get_bs);
 
 void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 		void *vbuf)

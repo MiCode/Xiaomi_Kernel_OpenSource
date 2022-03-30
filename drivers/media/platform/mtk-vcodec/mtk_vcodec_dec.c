@@ -2890,6 +2890,13 @@ static int mtk_vdec_g_v_ctrl(struct v4l2_ctrl *ctrl)
 			ret = -EINVAL;
 		}
 		break;
+	case V4L2_CID_MPEG_MTK_INTERLACING_FIELD_SEQ:
+		if (vdec_if_get_param(ctx,
+			GET_PARAM_INTERLACING_FIELD_SEQ, &ctrl->val) != 0) {
+			mtk_v4l2_err("[%d] Error!! Cannot get param", ctx->id);
+			ret = -EINVAL;
+		}
+		break;
 	case V4L2_CID_MPEG_MTK_CODEC_TYPE:
 		if (vdec_if_get_param(ctx, GET_PARAM_CODEC_TYPE, &ctrl->val)
 			!= 0) {
@@ -3080,6 +3087,18 @@ int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.name = "MTK Query HW/SW Codec Type";
 	cfg.min = 0;
 	cfg.max = 10;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_INTERLACING_FIELD_SEQ;
+	cfg.type = V4L2_CTRL_TYPE_BOOLEAN;
+	cfg.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE;
+	cfg.name = "MTK Query Interlacing FieldSeq";
+	cfg.min = 0;
+	cfg.max = 1;
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;

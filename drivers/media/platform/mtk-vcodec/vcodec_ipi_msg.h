@@ -83,6 +83,17 @@ struct mtk_color_desc {
 	__u32   full_range;
 };
 
+struct mtk_venc_multi_ref {
+	__u32	multi_ref_en;
+	__u32	intra_period;
+	__u32	superp_period;
+	__u32	superp_ref_type;
+	__u32	ref0_distance;
+	__u32	ref1_dsitance;
+	__u32	max_distance;
+	__u32	reserved;
+};
+
 struct mtk_hdr_dynamic_info {
 	__u32    max_sc_lR;
 		// u(17); Max R Nits *10; in the range of 0x00000-0x186A0

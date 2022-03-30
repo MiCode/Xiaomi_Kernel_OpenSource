@@ -133,7 +133,8 @@ enum vdec_get_param_type {
 	GET_PARAM_PLATFORM_SUPPORTED_FIX_BUFFERS_SVP,
 	GET_PARAM_INTERLACING,
 	GET_PARAM_CODEC_TYPE,
-	GET_PARAM_INPUT_DRIVEN
+	GET_PARAM_INPUT_DRIVEN,
+	GET_PARAM_INTERLACING_FIELD_SEQ
 };
 
 /*
@@ -431,6 +432,7 @@ struct vdec_vsi {
 	__s32 general_buf_fd;
 	__u64 general_buf_dma;
 	__u32 general_buf_size;
+	__u32 interlacing_fieldseq;
 };
 
 #endif

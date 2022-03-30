@@ -10,7 +10,7 @@
 
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-v4l2.h>
-
+#include "mtk_vcodec_util.h"
 /**
  * struct vdec_fb  - decoder frame buffer
  * @fb_base     : frame buffer plane memory info
@@ -30,18 +30,6 @@ struct vdec_fb {
 	struct dma_buf_attachment *buf_att;
 	struct sg_table *sgt;
 	dma_addr_t dma_general_addr;
-};
-
-/**
- * enum eos_types  - decoder different eos types
- * @NON_EOS     : no eos, normal frame
- * @EOS_WITH_DATA      : early eos , mean this frame need to decode
- * @EOS : byteused of the last frame is zero
- */
-enum eos_types {
-	NON_EOS = 0,
-	EOS_WITH_DATA,
-	EOS
 };
 
 /**

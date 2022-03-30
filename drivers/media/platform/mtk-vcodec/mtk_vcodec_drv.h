@@ -278,6 +278,7 @@ struct mtk_enc_params {
 	unsigned int    roion;
 	unsigned int    heif_grid_size;
 	struct mtk_color_desc color_desc; // data from userspace
+	struct mtk_venc_multi_ref multi_ref; //data from userspace
 	unsigned int    max_w;
 	unsigned int    max_h;
 	unsigned int    slbc_ready;
@@ -295,6 +296,9 @@ struct mtk_enc_params {
 	unsigned int	qp_control_mode;
 	unsigned int	dummynal;
 	int		priority;
+	unsigned int	wpp_mode;
+	unsigned int	low_latency_mode;
+	unsigned int	use_irq;
 };
 
 /*
@@ -489,6 +493,7 @@ struct mtk_vcodec_ctx {
 	struct mtk_video_enc_buf *enc_flush_buf;
 	struct vb2_buffer *pend_src_buf;
 	wait_queue_head_t fm_wq;
+	wait_queue_head_t bs_wq;
 	unsigned char *ipi_blocked;
 	enum vdec_input_driven_mode input_driven;
 
@@ -760,6 +765,12 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 /* Vendor specific - Mediatek ISP compressed formats */
 #define V4L2_PIX_FMT_MTISP_B8	v4l2_fourcc('M', 'T', 'B', '8') /* 8 bit */
 
+/* MTK 10-bit yuv 4:2:0 Hybrid FBC mode, two contiguous planes */
+#define V4L2_PIX_FMT_NV12_HYFBC v4l2_fourcc('N', '1', '2', 'H')
+#define V4L2_PIX_FMT_P010_HYFBC v4l2_fourcc('P', '0', '1', 'H')
+/*< Dolby Vision formats - used for DV query cap*/
+#define V4L2_PIX_FMT_DVAV    v4l2_fourcc('D', 'V', 'A', 'V') /* Dolby Vision AVC */
+#define V4L2_PIX_FMT_DVHE    v4l2_fourcc('D', 'V', 'H', 'E') /* Dolby Vision HEVC */
 
 /* Reference freed flags*/
 #define V4L2_BUF_FLAG_REF_FREED			0x00000200
@@ -873,4 +884,12 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 #define V4L2_CID_MPEG_MTK_VCP_PROP \
 	(V4L2_CID_CODEC_MTK_BASE+49)
 
+#define V4L2_CID_MPEG_MTK_ENCODE_MULTI_REF \
+	(V4L2_CID_CODEC_MTK_BASE+50)
+#define V4L2_CID_MPEG_MTK_INTERLACING_FIELD_SEQ \
+	(V4L2_CID_CODEC_MTK_BASE+51)
+#define V4L2_CID_MPEG_MTK_ENCODE_WPP_MODE \
+		(V4L2_CID_CODEC_MTK_BASE+52)
+#define V4L2_CID_MPEG_MTK_ENCODE_LOW_LATENCY_MODE \
+		(V4L2_CID_CODEC_MTK_BASE+53)
 #endif /* _MTK_VCODEC_DRV_H_ */
