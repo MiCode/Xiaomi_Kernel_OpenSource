@@ -983,6 +983,15 @@ config MFD_MT6685
 	  SoCs.  Note, that this will only be useful paired with descriptions
 	  of the independent functions as children nodes in the device tree.
 
+config MT6685_AUDCLK
+	tristate "MT6685 AUD CLK"
+	depends on MFD_MT6685
+	help
+	  This enables support for MT6685 audio clk control.
+	  These PMICs are currently used with the Mediatek series of
+	  SoCs.  Note, that this will only be useful paired with descriptions
+	  of the independent functions as children nodes in the device tree.
+
 config MFD_MENF21BMC
 	tristate "MEN 14F021P00 Board Management Controller Support"
 	depends on I2C
