@@ -1875,13 +1875,13 @@ void _mtk_crtc_wb_addon_module_disconnect(
 		return;
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
-						WDMA_WRITE_BACK);
+						WDMA_WRITE_BACK_OVL);
 	if (!addon_data)
 		return;
 
 	if (mtk_crtc->is_dual_pipe) {
 		addon_data_dual = mtk_addon_get_scenario_data_dual
-			(__func__, crtc, WDMA_WRITE_BACK);
+			(__func__, crtc, WDMA_WRITE_BACK_OVL);
 
 		if (!addon_data_dual)
 			return;
@@ -1893,7 +1893,7 @@ void _mtk_crtc_wb_addon_module_disconnect(
 		addon_config.config_type.type = addon_module->type;
 
 		if (addon_module->type == ADDON_AFTER &&
-			addon_module->module == DISP_WDMA0) {
+			addon_module->module == DISP_WDMA0_v2) {
 			if (mtk_crtc->is_dual_pipe) {
 				/* disconnect left pipe */
 				mtk_addon_disconnect_after(crtc, ddp_mode, addon_module,
@@ -2098,13 +2098,13 @@ _mtk_crtc_wb_addon_module_connect(
 		return;
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
-					WDMA_WRITE_BACK);
+					WDMA_WRITE_BACK_OVL);
 	if (!addon_data)
 		return;
 
 	if (mtk_crtc->is_dual_pipe) {
 		addon_data_dual = mtk_addon_get_scenario_data_dual
-			(__func__, crtc, WDMA_WRITE_BACK);
+			(__func__, crtc, WDMA_WRITE_BACK_OVL);
 
 		if (!addon_data_dual)
 			return;
@@ -2116,7 +2116,7 @@ _mtk_crtc_wb_addon_module_connect(
 		addon_config.config_type.type = addon_module->type;
 
 		if (addon_module->type == ADDON_AFTER &&
-			addon_module->module == DISP_WDMA0) {
+			addon_module->module == DISP_WDMA0_v2) {
 			struct mtk_rect src_roi = {0};
 			struct mtk_rect dst_roi = {0};
 			struct drm_framebuffer *fb;

@@ -1927,8 +1927,16 @@ static const struct mtk_addon_module_data mt6983_addon_wdma0_data[] = {
 	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_SPR0},
 };
 
+static const struct mtk_addon_module_data mt6983_addon_wdma0_data_v2[] = {
+	{DISP_WDMA0_v2, ADDON_AFTER, DDP_COMPONENT_OVL0_VIRTUAL0},
+};
+
 static const struct mtk_addon_module_data mt6983_addon_wdma2_data[] = {
 	{DISP_WDMA2, ADDON_AFTER, DDP_COMPONENT_SPR1},
+};
+
+static const struct mtk_addon_module_data mt6983_addon_wdma2_data_v2[] = {
+	{DISP_WDMA2_v2, ADDON_AFTER, DDP_COMPONENT_OVL1_VIRTUAL0},
 };
 
 static const struct mtk_addon_module_data mt6895_addon_wdma0_data[] = {
@@ -2077,6 +2085,11 @@ static const struct mtk_addon_scenario_data mt6983_addon_main[ADDON_SCN_NR] = {
 				.module_data = mt6983_addon_wdma0_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
+		[WDMA_WRITE_BACK_OVL] = {
+				.module_num = ARRAY_SIZE(mt6983_addon_wdma0_data_v2),
+				.module_data = mt6983_addon_wdma0_data_v2,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
 		[MML_WITH_PQ] = {
 				.module_num = ARRAY_SIZE(addon_mml_rsz),
 				.module_data = addon_mml_rsz,
@@ -2112,6 +2125,11 @@ static const struct mtk_addon_scenario_data mt6983_addon_main_dual[ADDON_SCN_NR]
 		[WDMA_WRITE_BACK] = {
 				.module_num = ARRAY_SIZE(mt6983_addon_wdma2_data),
 				.module_data = mt6983_addon_wdma2_data,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[WDMA_WRITE_BACK_OVL] = {
+				.module_num = ARRAY_SIZE(mt6983_addon_wdma2_data_v2),
+				.module_data = mt6983_addon_wdma2_data_v2,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[MML_WITH_PQ] = {
