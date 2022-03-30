@@ -1241,7 +1241,7 @@ static void show_task_backtrace(void)
 		/* specify process, need dump maps file and native backtrace */
 		if (!first_dump_blocked &&
 			(!strcmp(p->comm, "init") ||
-			!strcmp(p->comm, "zygote") ||
+			!strcmp(p->comm, "main") ||
 			!strcmp(p->comm, "system_server") ||
 			!strcmp(p->comm, "vold") ||
 			!strcmp(p->comm, "vdc"))) {
