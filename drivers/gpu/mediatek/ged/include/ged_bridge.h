@@ -69,6 +69,14 @@ int ged_bridge_gpu_timestamp(
 	struct GED_BRIDGE_IN_GPU_TIMESTAMP *psGpuBeginINT,
 	struct GED_BRIDGE_OUT_GPU_TIMESTAMP *psGpuBeginOUT);
 
+int ged_bridge_query_dvfs_freq_pred(
+	struct GED_BRIDGE_IN_QUERY_DVFS_FREQ_PRED *QueryDVFSFreqPredIn,
+	struct GED_BRIDGE_OUT_QUERY_DVFS_FREQ_PRED *QueryDVFSFreqPredOut);
+
+int ged_bridge_query_gpu_dvfs_info(
+	struct GED_BRIDGE_IN_QUERY_GPU_DVFS_INFO *QueryGPUDVFSInfoIn,
+	struct GED_BRIDGE_OUT_QUERY_GPU_DVFS_INFO *QueryGPUDVFSInfoOut);
+
 int ged_bridge_ge_alloc(
 	struct GED_BRIDGE_IN_GE_ALLOC *psALLOC_IN,
 	struct GED_BRIDGE_OUT_GE_ALLOC *psALLOC_OUT);
@@ -89,8 +97,16 @@ int ged_bridge_gpu_tuner_status(
 	struct GED_BRIDGE_IN_GPU_TUNER_STATUS *in,
 	struct GED_BRIDGE_OUT_GPU_TUNER_STATUS *out);
 
+int ged_bridge_dmabuf_set_name(
+	struct GED_BRIDGE_IN_DMABUF_SET_NAME *in,
+	struct GED_BRIDGE_OUT_DMABUF_SET_NAME *out);
+
 #ifdef ENABLE_FRR_FOR_MT6XXX_PLATFORM
 int ged_bridge_vsync_wait(void *IN, void *OUT);
 #endif
+
+int ged_bridge_create_timeline(
+	struct GED_BRIDGE_IN_CREATE_TIMELINE *in,
+	struct GED_BRIDGE_OUT_CREATE_TIMELINE *out);
 
 #endif

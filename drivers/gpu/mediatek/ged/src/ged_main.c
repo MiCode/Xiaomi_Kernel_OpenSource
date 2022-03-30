@@ -25,6 +25,8 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/of_platform.h>
 
 #ifdef GED_DEBUG_FS
 #include "ged_debugFS.h"
@@ -39,6 +41,15 @@
 #include "ged_kpi.h"
 #include "ged_ge.h"
 #include "ged_gpu_tuner.h"
+#include "ged_eb.h"
+#include "ged_global.h"
+#include "ged_dcs.h"
+#include "mtk_drm_arr.h"
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+#include <ged_gpufreq_v2.h>
+#else
+#include <ged_gpufreq_v1.h>
+#endif /* CONFIG_MTK_GPUFREQ_V2 */
 
 /**
  * ===============================================
@@ -62,6 +73,7 @@ static long ged_ioctl_compat(struct file *pFile,
 	unsigned int ioctlCmd, unsigned long arg);
 #endif
 static int ged_pdrv_probe(struct platform_device *pdev);
+static int ged_pdrv_remove(struct platform_device *pdev);
 static void ged_exit(void);
 static int ged_init(void);
 
@@ -96,7 +108,7 @@ static const struct of_device_id g_ged_of_match[] = {
 };
 static struct platform_driver g_ged_pdrv = {
 	.probe = ged_pdrv_probe,
-	.remove = NULL,
+	.remove = ged_pdrv_remove,
 	.driver = {
 		.name = "ged",
 		.owner = THIS_MODULE,
@@ -115,6 +127,12 @@ static const struct proc_ops ged_proc_fops = {
 	.proc_compat_ioctl = ged_ioctl_compat,
 #endif
 };
+
+unsigned int g_ged_gpueb_support;
+unsigned int g_ged_fdvfs_support;
+unsigned int g_fastdvfs_mode;
+#define GED_TARGET_UNLIMITED_FPS 240
+unsigned int vGed_Tmp;
 
 /******************************************************************************
  * GED File operations
@@ -271,6 +289,14 @@ static long ged_dispatch(struct file *pFile,
 			VALIDATE_ARG(HINT_FORCE_MDP);
 			ret = ged_bridge_hint_force_mdp(pvIn, pvOut);
 			break;
+		case GED_BRIDGE_COMMAND_QUERY_DVFS_FREQ_PRED:
+			VALIDATE_ARG(QUERY_DVFS_FREQ_PRED);
+			ret = ged_bridge_query_dvfs_freq_pred(pvIn, pvOut);
+			break;
+		case GED_BRIDGE_COMMAND_QUERY_GPU_DVFS_INFO:
+			VALIDATE_ARG(QUERY_GPU_DVFS_INFO);
+			ret = ged_bridge_query_gpu_dvfs_info(pvIn, pvOut);
+			break;
 		case GED_BRIDGE_COMMAND_GE_ALLOC:
 			VALIDATE_ARG(GE_ALLOC);
 			ret = ged_bridge_ge_alloc(pvIn, pvOut);
@@ -295,6 +321,16 @@ static long ged_dispatch(struct file *pFile,
 			VALIDATE_ARG(GPU_TUNER_STATUS);
 			ret = ged_bridge_gpu_tuner_status(pvIn, pvOut);
 			break;
+		case GED_BRIDGE_COMMAND_DMABUF_SET_NAME:
+			VALIDATE_ARG(DMABUF_SET_NAME);
+			ret = ged_bridge_dmabuf_set_name(pvIn, pvOut);
+			break;
+#ifdef CONFIG_SYNC_FILE
+		case GED_BRIDGE_COMMAND_CREATE_TIMELINE:
+			VALIDATE_ARG(CREATE_TIMELINE);
+			ret = ged_bridge_create_timeline(pvIn, pvOut);
+			break;
+#endif
 		default:
 			GED_LOGE("Unknown Bridge ID: %u\n",
 			GED_GET_BRIDGE_ID(psBridgePackageKM->ui32FunctionID));
@@ -386,6 +422,63 @@ unlock_and_return:
 }
 #endif
 
+unsigned int ged_is_fdvfs_support(void)
+{
+	// Todo: Check more conditions
+	GED_LOGD("@%s: gpueb_support: %d, fdvfs_support: %d, kpi_enable: %d\n",
+		__func__, g_ged_gpueb_support, g_ged_fdvfs_support, ged_kpi_enabled());
+	return (g_ged_gpueb_support && g_ged_fdvfs_support && ged_kpi_enabled());
+}
+EXPORT_SYMBOL(ged_is_fdvfs_support);
+
+
+GED_ERROR check_eb_config(void)
+{
+	struct device_node *gpueb_node, *fdvfs_node;
+	int ret = GED_OK;
+
+	gpueb_node = of_find_compatible_node(NULL, NULL, "mediatek,gpueb");
+	if (!gpueb_node) {
+		GED_LOGE("No gpueb node.");
+		g_ged_gpueb_support = 0;
+	} else {
+		ret = of_property_read_u32(gpueb_node, "gpueb-support",
+			&g_ged_gpueb_support);
+		if (unlikely(ret))
+			GED_LOGE("fail to read gpueb-support (%d)", ret);
+	}
+
+	fdvfs_node = of_find_compatible_node(NULL, NULL, "mediatek,gpu_fdvfs");
+	if (!fdvfs_node) {
+		GED_LOGE("No fdvfs node.");
+		g_ged_fdvfs_support = 0;
+	} else {
+		of_property_read_u32(fdvfs_node, "fdvfs-policy-support",
+				&g_ged_fdvfs_support);
+		if (unlikely(ret))
+			GED_LOGE("fail to read fdvfs-policy-support (%d)", ret);
+	}
+
+	if (g_ged_gpueb_support && g_ged_fdvfs_support)
+		g_fastdvfs_mode = 1;
+
+	GED_LOGI("%s. gpueb_support: %d, fdvfs_support: %d, fastdvfs_mode: %d",
+		__func__, g_ged_gpueb_support, g_ged_fdvfs_support, g_fastdvfs_mode);
+
+	return ret;
+}
+
+void ged_dfrc_fps_limit_cb(unsigned int fps_limit)
+{
+	vGed_Tmp = GED_TARGET_UNLIMITED_FPS;
+
+	if (fps_limit > 0 && fps_limit <= GED_TARGET_UNLIMITED_FPS)
+		vGed_Tmp = fps_limit;
+
+	GED_LOGI("[GED_CTRL] dfrc_fps %d\n", vGed_Tmp);
+
+}
+
 /******************************************************************************
  * Module related
  *****************************************************************************/
@@ -394,75 +487,30 @@ unlock_and_return:
  */
 static int ged_pdrv_probe(struct platform_device *pdev)
 {
-	GED_LOGI("@%s: ged driver probe\n", __func__);
+	GED_ERROR err = GED_OK;
 
-	return 0;
-}
+	GED_LOGI("@%s: start to probe ged driver\n", __func__);
 
-/*
- * unregister the gpufreq driver, remove fs node
- */
-static void ged_exit(void)
-{
-#ifndef GED_BUFFER_LOG_DISABLE
-	ged_log_buf_free(gpufreq_ged_log);
-	gpufreq_ged_log = 0;
-
-#ifdef GED_DVFS_DEBUG_BUF
-	ged_log_buf_free(ghLogBuf_DVFS);
-	ghLogBuf_DVFS = 0;
-#endif
-
-	ged_log_buf_free(ghLogBuf_ftrace);
-	ghLogBuf_ftrace = 0;
-	ged_log_buf_free(ghLogBuf_FENCE);
-	ghLogBuf_FENCE = 0;
-	ged_log_buf_free(ghLogBuf_HWC);
-	ghLogBuf_HWC = 0;
-	ged_log_buf_free(ghLogBuf_HWC_ERR);
-	ghLogBuf_HWC_ERR = 0;
-	ged_log_buf_free(ghLogBuf_GPU);
-	ghLogBuf_GPU = 0;
-#endif /* GED_BUFFER_LOG_DISABLE */
-
-	ged_gpu_tuner_exit();
-
-	ged_kpi_system_exit();
-
-	ged_ge_exit();
-
-	ged_dvfs_system_exit();
-
-	ged_notify_sw_vsync_system_exit();
-
-	ged_hal_exit();
-
-	ged_log_system_exit();
-
-#ifdef GED_DEBUG_FS
-	ged_debugFS_exit();
-#endif
-
-	ged_sysfs_exit();
-
-	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
-
-	platform_driver_unregister(&g_ged_pdrv);
-}
-
-/*
- * register the ged driver, create fs node
- */
-static int ged_init(void)
-{
-	GED_ERROR err = GED_ERROR_FAIL;
-
-	GED_LOGI("@%s: start to initialize ged driver\n", __func__);
 	if (proc_create(GED_DRIVER_DEVICE_NAME, 0644, NULL, &ged_proc_fops)
 		== NULL) {
 		err = GED_ERROR_FAIL;
 		GED_LOGE("Failed to register ged proc entry!\n");
 		goto ERROR;
+	}
+
+	g_ged_gpueb_support = 0;
+	g_ged_fdvfs_support = 0;
+	g_fastdvfs_mode		= 0;
+	err = check_eb_config();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to check ged config!\n");
+		goto ERROR;
+	}
+
+	if (g_ged_gpueb_support) {
+		fastdvfs_proc_init();
+		fdvfs_init();
+		GED_LOGI("@%s: fdvfs init done\n", __func__);
 	}
 
 	err = ged_sysfs_init();
@@ -488,6 +536,20 @@ static int ged_init(void)
 	err = ged_hal_init();
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to create hal entry!\n");
+		goto ERROR;
+	}
+
+#ifdef GED_DCS_POLICY
+	err = ged_dcs_init_platform_info();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to init DCS platform info!\n");
+		goto ERROR;
+	}
+#endif
+
+	err = ged_gpufreq_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to init GPU Freq!\n");
 		goto ERROR;
 	}
 
@@ -520,6 +582,10 @@ static int ged_init(void)
 		GED_LOGE("Failed to init GPU Tuner!\n");
 		goto ERROR;
 	}
+
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	drm_register_fps_chg_callback(ged_dfrc_fps_limit_cb);
+#endif
 
 #ifndef GED_BUFFER_LOG_DISABLE
 	ghLogBuf_GPU = ged_log_buf_alloc(512, 128 * 512,
@@ -556,20 +622,102 @@ static int ged_init(void)
 	gpufreq_ged_log = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
 
+	GED_LOGI("@%s: ged driver probe done\n", __func__);
+
+ERROR:
+	return err;
+}
+
+/*
+ * ged driver remove
+ */
+static int ged_pdrv_remove(struct platform_device *pdev)
+{
+#ifndef GED_BUFFER_LOG_DISABLE
+	ged_log_buf_free(gpufreq_ged_log);
+	gpufreq_ged_log = 0;
+
+#ifdef GED_DVFS_DEBUG_BUF
+	ged_log_buf_free(ghLogBuf_DVFS);
+	ghLogBuf_DVFS = 0;
+#endif
+
+	if (g_ged_gpueb_support) {
+		fastdvfs_proc_exit();
+		fdvfs_exit();
+	}
+
+	ged_log_buf_free(ghLogBuf_ftrace);
+	ghLogBuf_ftrace = 0;
+	ged_log_buf_free(ghLogBuf_FENCE);
+	ghLogBuf_FENCE = 0;
+	ged_log_buf_free(ghLogBuf_HWC);
+	ghLogBuf_HWC = 0;
+	ged_log_buf_free(ghLogBuf_HWC_ERR);
+	ghLogBuf_HWC_ERR = 0;
+	ged_log_buf_free(ghLogBuf_GPU);
+	ghLogBuf_GPU = 0;
+#endif /* GED_BUFFER_LOG_DISABLE */
+
+	ged_gpu_tuner_exit();
+
+	ged_kpi_system_exit();
+
+	ged_ge_exit();
+
+	ged_dvfs_system_exit();
+
+	ged_notify_sw_vsync_system_exit();
+
+	ged_hal_exit();
+
+	ged_log_system_exit();
+
+#ifdef GED_DEBUG_FS
+	ged_debugFS_exit();
+#endif
+
+	ged_sysfs_exit();
+
+#ifdef GED_DCS_POLICY
+	ged_dcs_exit();
+#endif
+
+	ged_gpufreq_exit();
+
+	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
+
+	return GED_OK;
+}
+
+/*
+ * unregister the gpufreq driver
+ */
+static void ged_exit(void)
+{
+	platform_driver_unregister(&g_ged_pdrv);
+}
+
+/*
+ * register the ged driver
+ */
+static int ged_init(void)
+{
+	GED_ERROR err = GED_OK;
+
+	GED_LOGI("@%s: start to init ged driver\n", __func__);
+
 	/* register platform driver */
 	err = platform_driver_register(&g_ged_pdrv);
 	if (err) {
-		GED_LOGE("@%s: failed to register ged driver\n",
-		__func__);
+		GED_LOGE("@%s: failed to register ged driver\n", __func__);
 		goto ERROR;
 	}
 
-	return 0;
+	GED_LOGI("@%s: ged driver init done\n", __func__);
 
 ERROR:
-	ged_exit();
-
-	return -EFAULT;
+	return err;
 }
 
 module_init(ged_init);

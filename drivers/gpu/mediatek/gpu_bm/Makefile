@@ -11,16 +11,21 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos/
-ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq_v1/include/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/
 
-ifneq ($(CONFIG_MTK_GPU_SUPPORT),)
-ccflags-y += -DMTK_QOS_FRAMEWORK
+ifeq ($(CONFIG_MTK_GPU_SUPPORT),y)
+ccflags-$(CONFIG_MTK_QOS_FRAMEWORK) += -DMTK_QOS_FRAMEWORK
 $(info *GPU BM QoS 2.0 QOS Framework defined)
 endif
+
+ifeq ($(CONFIG_MTK_QOS_MT6893),y)
+ccflags-y += -DMTK_SCMI
+$(info *GPU BM QoS 2.0 SCMI defined)
+endif
+
 
 obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpu_qos.o
 mtk_gpu_qos-y := gpu_bm.o

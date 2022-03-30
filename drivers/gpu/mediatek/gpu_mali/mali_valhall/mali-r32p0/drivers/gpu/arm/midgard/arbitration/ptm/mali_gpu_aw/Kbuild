@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note OR MIT
+#
+# (C) COPYRIGHT 2020-2021 Arm Limited or its affiliates. All rights reserved.
+#
+#
+
+# When building in module mode, link to the common source such that RG and AW
+# can resolve their own build dependencies in parallel builds.
+$(obj)/mali_gpu_ptm_msg.tmp.c: $(src)/../common/mali_gpu_ptm_msg.c
+	ln -sf $(src)/../common/mali_gpu_ptm_msg.c $(src)/mali_gpu_ptm_msg.tmp.c
+
+# Add this link to be cleaned when make clean is invoked.
+clean-files += mali_gpu_ptm_msg.tmp.c
+
+obj-$(CONFIG_MALI_PARTITION_MANAGER) += mali_gpu_aw.o
+mali_gpu_aw-y = mali_gpu_aw_main.o
+
+# Only include the common objects when building as a module, in built-in  mode
+# these symbols will already be available.
+mali_gpu_aw-m += mali_gpu_ptm_msg.tmp.o
+
+# Use our defines when compiling
+ccflags-y += $(DEFINES)
+ccflags-y += -I$(src)/../include
+ccflags-y += -I$(src)/../common
+ccflags-y += -I$(src)/../../include
+ccflags-y += -I$(src)/../../../arbiter
+subdir-ccflags-y += $(DEFINES)

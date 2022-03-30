@@ -107,7 +107,7 @@ enum {
  */
 // MTK modify
 //#define DEFAULT_PM_POWEROFF_TICK_SHADER (2) /* 400-800us */
-#define DEFAULT_PM_POWEROFF_TICK_SHADER (25) /* 9,600-10,000us */
+#define DEFAULT_PM_POWEROFF_TICK_SHADER (7) /* 2400-2800us */
 
 /**
  * Default scheduling tick granuality

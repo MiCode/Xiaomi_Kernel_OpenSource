@@ -25,6 +25,7 @@
 #include "ged_notify_sw_vsync.h"
 #include "ged_kpi.h"
 #include "ged_global.h"
+#include "ged_dcs.h"
 
 static struct kobject *hal_kobj;
 
@@ -78,10 +79,9 @@ static ssize_t custom_boost_gpu_freq_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	unsigned int ui32BoostGpuFreqLevel;
+	unsigned int ui32BoostGpuFreqLevel = 0;
 
-	if (false == mtk_get_custom_boost_gpu_freq(&ui32BoostGpuFreqLevel))
-		ui32BoostGpuFreqLevel = 0;
+	ui32BoostGpuFreqLevel = ged_dvfs_get_custom_boost_gpu_freq();
 
 	return scnprintf(buf, PAGE_SIZE, "%u\n", ui32BoostGpuFreqLevel);
 }
@@ -112,22 +112,11 @@ static ssize_t custom_upbound_gpu_freq_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	unsigned int ui32UpboundGpuFreqLevel;
-	int pos = 0;
-	int length;
+	unsigned int ui32UpboundGpuFreqLevel = 0;
 
-	if (false == mtk_get_custom_upbound_gpu_freq(
-			&ui32UpboundGpuFreqLevel)) {
-		ui32UpboundGpuFreqLevel = 0;
-		length = scnprintf(buf + pos, PAGE_SIZE - pos,
-				"call mtk_get_custom_upbound_gpu_freq false\n");
-		pos += length;
-	}
-	length = scnprintf(buf + pos, PAGE_SIZE - pos,
-			"%u\n", ui32UpboundGpuFreqLevel);
-	pos += length;
+	ui32UpboundGpuFreqLevel = ged_dvfs_get_custom_ceiling_gpu_freq();
 
-	return pos;
+	return scnprintf(buf, PAGE_SIZE, "%u\n", ui32UpboundGpuFreqLevel);
 }
 
 static ssize_t custom_upbound_gpu_freq_store(struct kobject *kobj,
@@ -259,7 +248,6 @@ static ssize_t ged_kpi_show(struct kobject *kobj, struct kobj_attribute *attr,
 static KOBJ_ATTR_RO(ged_kpi);
 #endif /* MTK_GED_KPI */
 //-----------------------------------------------------------------------------
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 static ssize_t dvfs_margin_value_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -299,9 +287,7 @@ static ssize_t dvfs_margin_value_store(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RW(dvfs_margin_value);
-#endif /* (defined(GED_ENABLE_FB_DVFS) && ...) */
 //-----------------------------------------------------------------------------
-#ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 static ssize_t loading_base_dvfs_step_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -341,9 +327,7 @@ static ssize_t loading_base_dvfs_step_store(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RW(loading_base_dvfs_step);
-#endif /* GED_CONFIGURE_LOADING_BASE_DVFS_STEP */
 //-----------------------------------------------------------------------------
-#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 static ssize_t timer_base_dvfs_margin_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -383,9 +367,8 @@ static ssize_t timer_base_dvfs_margin_store(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RW(timer_base_dvfs_margin);
-#endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */
-//-----------------------------------------------------------------------------
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
+
+
 static ssize_t dvfs_loading_mode_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -425,7 +408,58 @@ static ssize_t dvfs_loading_mode_store(struct kobject *kobj,
 }
 
 static KOBJ_ATTR_RW(dvfs_loading_mode);
-#endif /* GED_ENABLE_DVFS_LOADING_MODE */
+
+static ssize_t fastdvfs_mode_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	unsigned int ui32FastDVFSMode;
+	int pos = 0;
+	int length;
+
+	if (false == mtk_get_fastdvfs_mode(&ui32FastDVFSMode)) {
+		ui32FastDVFSMode = 0;
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
+				"fdvfs is off\n");
+		pos += length;
+	}
+
+	if ((ui32FastDVFSMode & 0x00000001) > 0) {
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
+				"FastDVFS is enabled (%d)\n", ui32FastDVFSMode);
+	} else {
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
+				"FastDVFS is disabled\n");
+	}
+	pos += length;
+
+	return pos;
+}
+
+static ssize_t fastdvfs_mode_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	unsigned int u32Value;
+	unsigned int ui32FastDVFSMode;
+
+	if (true == mtk_get_fastdvfs_mode(&ui32FastDVFSMode)) {
+		ui32FastDVFSMode &= 0xFFFFFFFE;
+		if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+			if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+				if (kstrtouint(acBuffer, 0, &u32Value) == 0) {
+					ui32FastDVFSMode |= (u32Value & 0x1);
+					mtk_set_fastdvfs_mode(ui32FastDVFSMode);
+				}
+			}
+		}
+	}
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(fastdvfs_mode);
 
 //-----------------------------------------------------------------------------
 static struct notifier_block ged_fb_notifier;
@@ -539,6 +573,53 @@ void mtk_ged_event_notify(int events)
 }
 
 //-----------------------------------------------------------------------------
+#ifdef GED_DCS_POLICY
+static ssize_t dcs_mode_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int dcs_enable = 0;
+	int pos = 0;
+
+	dcs_enable = is_dcs_enable();
+
+	if (dcs_enable) {
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+					"DCS Policy is enable\n");
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+					"Current in use core num: %d\n", dcs_get_cur_core_num());
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+					"Available max core num: %d\n",	dcs_get_max_core_num());
+	} else {
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+					"DCS Policy is disabled\n");
+	}
+	return pos;
+}
+
+static ssize_t dcs_mode_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	int i32Value;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
+				if (i32Value < 0)
+					i32Value = 0;
+				dcs_enable(i32Value);
+			}
+		}
+	}
+	return count;
+}
+
+static KOBJ_ATTR_RW(dcs_mode);
+#endif /* GED_DCS_POLICY */
+
+//-----------------------------------------------------------------------------
 GED_ERROR ged_hal_init(void)
 {
 	GED_ERROR err = GED_OK;
@@ -604,15 +685,12 @@ GED_ERROR ged_hal_init(void)
 	}
 #endif
 
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_dvfs_margin_value);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to create dvfs_margin_value entry!\n");
 		goto ERROR;
 	}
-#endif
 
-#ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 	err = ged_sysfs_create_file(hal_kobj,
 		&kobj_attr_loading_base_dvfs_step);
 	if (unlikely(err != GED_OK)) {
@@ -620,9 +698,7 @@ GED_ERROR ged_hal_init(void)
 			"Failed to create loading_base_dvfs_step entry!\n");
 		goto ERROR;
 	}
-#endif
 
-#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 	err = ged_sysfs_create_file(hal_kobj,
 		&kobj_attr_timer_base_dvfs_margin);
 	if (unlikely(err != GED_OK)) {
@@ -630,19 +706,28 @@ GED_ERROR ged_hal_init(void)
 			"Failed to create timer_base_dvfs_margin entry!\n");
 		goto ERROR;
 	}
-#endif
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_dvfs_loading_mode);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to create dvfs_loading_mode entry!\n");
 		goto ERROR;
 	}
-#endif
 
 	ged_fb_notifier.notifier_call = ged_fb_notifier_callback;
 	if (fb_register_client(&ged_fb_notifier))
 		GED_LOGE("Register fb_notifier fail!\n");
+
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_fastdvfs_mode);
+	if (unlikely(err != GED_OK))
+		GED_LOGE("Failed to create fastdvfs_mode entry!\n");
+
+#ifdef GED_DCS_POLICY
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_dcs_mode);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to create dcs_mode entry!\n");
+		goto ERROR;
+	}
+#endif /* GED_DCS_POLICY */
 
 	return err;
 
@@ -655,18 +740,12 @@ ERROR:
 //-----------------------------------------------------------------------------
 void ged_hal_exit(void)
 {
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fastdvfs_mode);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dvfs_loading_mode);
-#endif
-#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_timer_base_dvfs_margin);
-#endif
-#ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_loading_base_dvfs_step);
-#endif
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dvfs_margin_value);
-#endif
+
 #ifdef MTK_GED_KPI
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_ged_kpi);
 #endif
@@ -677,6 +756,9 @@ void ged_hal_exit(void)
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_custom_upbound_gpu_freq);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_custom_boost_gpu_freq);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_total_gpu_freq_level_count);
+#ifdef GED_DCS_POLICY
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dcs_mode);
+#endif
 	ged_sysfs_remove_dir(&hal_kobj);
 }
 //-----------------------------------------------------------------------------

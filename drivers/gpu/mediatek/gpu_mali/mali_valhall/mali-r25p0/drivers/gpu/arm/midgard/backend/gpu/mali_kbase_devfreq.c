@@ -674,6 +674,15 @@ int mtk_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags
 	 * and apply legacy throttle flow
 	 */
 
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	(void)(pow);
+	(void)(opp_idx);
+	gpufreq_set_limit(TARGET_DEFAULT, LIMIT_THERMAL_AP,
+		(unsigned int)(*target_freq/1000), GPUPPM_KEEP_IDX);
+
+	kbdev->current_nominal_freq =
+		gpufreq_get_cur_freq(TARGET_DEFAULT) * 1000; /* khz to hz*/
+#else
 	opp_idx = mt_gpufreq_get_opp_idx_by_freq(*target_freq);
 	if (opp_idx) {
 		pow = mt_gpufreq_get_power_by_idx(opp_idx);
@@ -689,6 +698,7 @@ int mtk_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags
 	opp_idx = mt_gpufreq_get_cur_freq_index();
 	kbdev->current_nominal_freq =
 		mt_gpufreq_get_freq_by_idx(opp_idx) * 1000;
+#endif
 
 	return 0;
 }

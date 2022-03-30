@@ -1,0 +1,17 @@
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note OR MIT */
+
+/*
+ * (C) COPYRIGHT 2020-2021 Arm Limited or its affiliates. All rights reserved.
+ */
+
+bob_kernel_module {
+    name: "mali_gpu_system",
+    srcs: [
+        "Kbuild",
+        "mali_gpu_system.c"
+    ],
+    add_to_alias: [
+        "kernel",
+    ],
+    defaults: ["mali_ptm_config_defaults"],
+}

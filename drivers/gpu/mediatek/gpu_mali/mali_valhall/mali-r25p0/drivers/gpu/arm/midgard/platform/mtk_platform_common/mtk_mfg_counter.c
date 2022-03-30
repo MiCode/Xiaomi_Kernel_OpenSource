@@ -18,6 +18,8 @@
 #include <linux/uaccess.h>
 #include <linux/random.h>
 
+#include <mtk_gpufreq.h>
+
 /*
  *  block position of Txx HWC
  *  It defines in Mali_kbase_hwcnt_names_txx.h
@@ -27,7 +29,7 @@
 #define SHADER_BLOCK_NAME_POS	2
 #define MMU_BLOCK_NAME_POS		3
 //gpu stall counter
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+#if defined(CONFIG_GPU_MT6873) || defined(CONFIG_GPU_MT6853)
 #define GPU_STALL_ADD_BASE	0x1021C000
 #else
 #define GPU_STALL_ADD_BASE	0x1021E000
@@ -539,7 +541,11 @@ static int _mtk_mfg_update_counter(void)
 		ktime_get_real_ts64(&tv_end);
 		end_utime = tv_end.tv_sec * 1000000 + (unsigned int)(tv_end.tv_nsec / 1000);
 		timd_diff_us = (end_utime > start_utime) ? (end_utime - start_utime) : 0;
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+		gpu_freq = gpufreq_get_cur_freq(TARGET_DEFAULT);
+#else
 		gpu_freq = mt_gpufreq_get_cur_freq();
+#endif
 
 		_mtk_mfg_reset_counter(1);
 		for (i = 0; i < nr_hwc_blocks; i++) {

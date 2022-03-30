@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note OR MIT
+#
+# (C) COPYRIGHT 2020-2021 Arm Limited or its affiliates. All rights reserved.
+#
+#
+
+obj-$(CONFIG_MALI_PARTITION_MANAGER) := mali_gpu_assign.o
+ccflags-y += -I$(src)/../include
+ccflags-y += -I$(src)/../../include
+ccflags-y += -I$(src)/../../../arbiter

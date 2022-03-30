@@ -49,6 +49,8 @@ struct GED_BRIDGE_PACKAGE {
 #define GED_BRIDGE_COMMAND_VSYNC_WAIT         12
 #define GED_BRIDGE_COMMAND_GPU_HINT_TO_CPU    13
 #define GED_BRIDGE_COMMAND_HINT_FORCE_MDP     14
+#define GED_BRIDGE_COMMAND_QUERY_DVFS_FREQ_PRED   15
+#define GED_BRIDGE_COMMAND_QUERY_GPU_DVFS_INFO    16
 
 #define GED_BRIDGE_COMMAND_GE_ALLOC           100
 #define GED_BRIDGE_COMMAND_GE_GET             101
@@ -57,6 +59,10 @@ struct GED_BRIDGE_PACKAGE {
 #define GED_BRIDGE_COMMAND_TARGET_FPS         104
 #define GED_BRIDGE_COMMAND_GE_INFO            105
 #define GED_BRIDGE_COMMAND_GPU_TUNER_STATUS   106
+#define GED_BRIDGE_COMMAND_DMABUF_SET_NAME    107
+
+#define GED_BRIDGE_COMMAND_CREATE_TIMELINE    200
+
 #define GED_BRIDGE_COMMAND_ID                 int
 
 #define GED_BRIDGE_IO_LOG_BUF_GET \
@@ -87,6 +93,10 @@ struct GED_BRIDGE_PACKAGE {
 	GED_IOWR(GED_BRIDGE_COMMAND_GPU_HINT_TO_CPU)
 #define GED_BRIDGE_IO_HINT_FORCE_MDP \
 	GED_IOWR(GED_BRIDGE_COMMAND_HINT_FORCE_MDP)
+#define GED_BRIDGE_IO_QUERY_DVFS_FREQ_PRED \
+	GED_IOWR(GED_BRIDGE_COMMAND_QUERY_DVFS_FREQ_PRED)
+#define GED_BRIDGE_IO_QUERY_GPU_DVFS_INFO \
+	GED_IOWR(GED_BRIDGE_COMMAND_QUERY_GPU_DVFS_INFO)
 
 #define GED_BRIDGE_IO_GE_ALLOC \
 	GED_IOWR(GED_BRIDGE_COMMAND_GE_ALLOC)
@@ -102,6 +112,10 @@ struct GED_BRIDGE_PACKAGE {
 	GED_IOWR(GED_BRIDGE_COMMAND_GE_INFO)
 #define GED_BRIDGE_IO_GPU_TUNER_STATUS \
 	GED_IOWR(GED_BRIDGE_COMMAND_GPU_TUNER_STATUS)
+#define GED_BRIDGE_IO_DMABUF_SET_NAME \
+	GED_IOWR(GED_BRIDGE_COMMAND_DMABUF_SET_NAME)
+#define GED_BRIDGE_IO_CREATE_TIMELINE \
+	GED_IOWR(GED_BRIDGE_COMMAND_CREATE_TIMELINE)
 
 /******************************************************************************
  *  LOG_BUF_GET
@@ -329,6 +343,47 @@ struct GED_BRIDGE_OUT_HINT_FORCE_MDP {
 	int32_t mdp_flag; /* 1: Do MDP, 0: No MDP */
 };
 
+/******************************************************************************
+ *  QEURY DVFS GPU_FREQ PREDICTION
+ ******************************************************************************/
+struct GED_BRIDGE_IN_QUERY_DVFS_FREQ_PRED {
+	int32_t pid;
+	int32_t hint;
+};
+
+/*****************************************************************************
+ *  Hint frequency calculated by DVFS
+ *****************************************************************************/
+struct GED_BRIDGE_OUT_QUERY_DVFS_FREQ_PRED {
+	GED_ERROR eError;
+	int gpu_freq_cur;
+	int gpu_freq_max;
+	int gpu_freq_dvfs_pred;
+};
+
+/******************************************************************************
+ *  QEURY DVFS GPU_FREQ PREDICTION
+ ******************************************************************************/
+struct GED_BRIDGE_IN_QUERY_GPU_DVFS_INFO {
+	int32_t pid;
+	int32_t hint;
+	int32_t gift_ratio;
+};
+
+/*****************************************************************************
+ *  Hint DVFS related INFOs
+ *****************************************************************************/
+struct GED_BRIDGE_OUT_QUERY_GPU_DVFS_INFO {
+	GED_ERROR eError;
+	int gpu_freq_cur;
+	int gpu_freq_max;
+	int gpu_freq_dvfs_pred;
+	int target_fps;
+	int target_fps_margin;
+	int eara_fps_margin;
+	int gpu_time;
+};
+
 /*****************************************************************************
  *  GE - gralloc_extra functions
  *****************************************************************************/
@@ -398,6 +453,33 @@ struct GED_BRIDGE_IN_GPU_TUNER_STATUS {
 /* Bridge out structure for GPU_TUNER_STATUS */
 struct GED_BRIDGE_OUT_GPU_TUNER_STATUS {
 	int feature;
+};
+
+/* Bridge in structure for CREATE_TIMELINE */
+struct GED_BRIDGE_IN_CREATE_TIMELINE {
+	char name[GED_LOG_BUF_NAME_LENGTH];
+};
+
+/* Bridge out structure for CREATE_TIMELINE */
+struct GED_BRIDGE_OUT_CREATE_TIMELINE {
+	int timeline_fd;
+};
+
+/*****************************************************************************
+ *  DMABUF - dma-buf functions
+ *****************************************************************************/
+
+#define DMABUF_NAME_LEN 48
+
+/* Bridge in structure for DMABUF_SET_NAME */
+struct GED_BRIDGE_IN_DMABUF_SET_NAME {
+	int32_t share_fd;
+	char name[DMABUF_NAME_LEN];
+};
+
+/* Bridge out structure for DMABUF_SET_NAME */
+struct GED_BRIDGE_OUT_DMABUF_SET_NAME {
+	GED_ERROR eError;
 };
 
 #endif

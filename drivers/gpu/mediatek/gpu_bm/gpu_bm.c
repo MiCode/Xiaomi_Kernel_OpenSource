@@ -9,10 +9,12 @@
 #include <linux/seq_file.h>
 #include <linux/proc_fs.h>
 #include <linux/io.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
 
-#ifdef MTK_QOS_FRAMEWORK
+#if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
 #include <mtk_qos_ipi.h>
-#endif
+#endif /* CONFIG_MTK_QOS_FRAMEWORK */
 #include <mt-plat/mtk_gpu_utility.h>
 #include <mtk_gpufreq.h>
 
@@ -24,7 +26,7 @@ struct v1_data {
 	unsigned int freq;
 };
 struct v1_data *gpu_info_buf;
-//uint32_t __iomem *gpu_info_buf;
+static int gpu_bm_inited;
 
 static void _mgq_proc_show_v1(struct seq_file *m)
 {
@@ -90,6 +92,7 @@ static DECLARE_DELAYED_WORK(g_setupfw_work, setupfw_work_handler);
 
 static void setupfw_work_handler(struct work_struct *work)
 {
+#if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
 	struct qos_ipi_data qos_d;
 	int ret;
 
@@ -97,20 +100,37 @@ static void setupfw_work_handler(struct work_struct *work)
 	qos_d.u.gpu_info.addr = (unsigned int)setupfw_data.phyaddr;
 	qos_d.u.gpu_info.addr_hi = (unsigned int)(setupfw_data.phyaddr >> 32);
 	qos_d.u.gpu_info.size = (unsigned int)setupfw_data.size;
+
+#ifdef MTK_SCMI
+	ret = qos_ipi_to_sspm_scmi_command(qos_d.cmd,
+		qos_d.u.gpu_info.addr,
+		qos_d.u.gpu_info.addr_hi,
+		qos_d.u.gpu_info.size, QOS_IPI_SCMI_SET);
+
+	if (ret)
+		pr_info("%s: sspm_ipi_to_scmi fail (%d)\n", __func__, ret);
+	else
+		pr_info("%s: sspm_ipi_to_scmi success! (%d)\n", __func__, ret);
+
+#else
 	ret = qos_ipi_to_sspm_command(&qos_d, 4);
 
+	if (ret == 1)
+		pr_info("%s: sspm_ipi success! (%d)\n", __func__, ret);
+	else
+		pr_info("%s: sspm_ipi fail (%d)\n", __func__, ret);
+
+#endif /* MTK_SCMI */
+	gpu_bm_inited = 1;
 	pr_debug("%s: addr:0x%x, addr_hi:0x%x, ret:%d\n",
 		__func__,
 		qos_d.u.gpu_info.addr,
 		qos_d.u.gpu_info.addr_hi,
 		ret);
 
-	if (ret == 1) {
-		pr_debug("%s: sspm_ipi success! (%d)\n", __func__, ret);
-	} else {
-		pr_debug("%s: sspm_ipi fail (%d)\n", __func__, ret);
-		schedule_delayed_work(&g_setupfw_work, 5 * HZ);
-	}
+#else
+	pr_debug("%s: sspm_ipi is not support!\n", __func__);
+#endif /* MTK_QOS_FRAMEWORK */
 }
 
 static void _MTKGPUQoS_setupFW(phys_addr_t phyaddr, size_t size)
@@ -128,8 +148,13 @@ static void bw_v1_gpu_power_change_notify(int power_on)
 	unsigned int loading, idx, min_idx;
 
 	mtk_get_gpu_loading(&loading);
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+	idx = gpufreq_get_cur_oppidx(TARGET_DEFAULT);
+	min_idx = gpufreq_get_opp_num(TARGET_DEFAULT) - 1;
+#else
 	idx = mt_gpufreq_get_cur_freq_index();
 	min_idx = mt_gpufreq_get_dvfs_table_num()-1;
+#endif
 
 	if (!power_on) {
 		ctx = gpu_info_buf->ctx;
@@ -146,7 +171,6 @@ static void bw_v1_gpu_power_change_notify(int power_on)
 		else
 			gpu_info_buf->freq = 0;
 	}
-
 }
 
 void MTKGPUQoS_setup(struct v1_data *v1, phys_addr_t phyaddr, size_t size)
@@ -160,19 +184,25 @@ void MTKGPUQoS_setup(struct v1_data *v1, phys_addr_t phyaddr, size_t size)
 }
 EXPORT_SYMBOL(MTKGPUQoS_setup);
 
+int MTKGPUQoS_is_inited(void)
+{
+	return gpu_bm_inited;
+}
+EXPORT_SYMBOL(MTKGPUQoS_is_inited);
+
 uint32_t MTKGPUQoS_getBW(uint32_t offset)
 {
 	return 0;
 }
 EXPORT_SYMBOL(MTKGPUQoS_getBW);
 
-static int mtk_gpu_qos_init(void)
+static int __init mtk_gpu_qos_init(void)
 {
 	/*Do Nothing*/
 	return 0;
 }
 
-static void mtk_gpu_qos_exit(void)
+static void __exit mtk_gpu_qos_exit(void)
 {
 	/*Do Nothing*/
 	;
@@ -184,4 +214,3 @@ module_exit(mtk_gpu_qos_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek GPU QOS");
 MODULE_AUTHOR("MediaTek Inc.");
-

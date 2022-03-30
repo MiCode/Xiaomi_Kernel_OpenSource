@@ -23,8 +23,12 @@ extern int (*mtk_get_gpu_pmu_deinit_fp)(void);
 extern int (*mtk_get_gpu_pmu_swapnreset_fp)(struct GPU_PMU *pmus, int pmu_size);
 extern int (*mtk_get_gpu_pmu_swapnreset_stop_fp)(void);
 /* Need to get current gpu freq from GPU DVFS module */
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+/* directly include mtk_gpufreq.h */
+#else
 extern unsigned int mt_gpufreq_get_cur_freq(void);
 extern unsigned int mt_gpufreq_get_cur_volt(void);
+#endif
 
 void mtk_mfg_counter_init(void);
 void mtk_mfg_counter_destroy(void);

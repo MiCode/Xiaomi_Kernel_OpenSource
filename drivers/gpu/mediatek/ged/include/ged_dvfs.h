@@ -31,13 +31,13 @@
 
 #define GED_DVFS_TIMER_BACKUP          0x5566dead
 
-
-#define GED_DVFS_DEFAULT_COMMIT         0
-#define GED_DVFS_CUSTOM_CEIL_COMMIT     1
-#define GED_DVFS_CUSTOM_BOOST_COMMIT    2
-#define GED_DVFS_SET_BOTTOM_COMMIT      3
-#define GED_DVFS_SET_LIMIT_COMMIT       4
-#define GED_DVFS_INPUT_BOOST_COMMIT     5
+#define GED_DVFS_LOADING_BASE_COMMIT    0
+#define GED_DVFS_FRAME_BASE_COMMIT      1
+#define GED_DVFS_CUSTOM_CEIL_COMMIT     2
+#define GED_DVFS_CUSTOM_BOOST_COMMIT    3
+#define GED_DVFS_SET_BOTTOM_COMMIT      4
+#define GED_DVFS_SET_LIMIT_COMMIT       5
+#define GED_DVFS_INPUT_BOOST_COMMIT     6
 #define GED_DVFS_COMMIT_TYPE            int
 
 #define GED_DVFS_DEFAULT                0
@@ -75,6 +75,8 @@ void mtk_ged_event_notify(int events);
 #define GED_VSYNC_OFFSET_NOT_SYNC -2
 #define GED_VSYNC_OFFSET_SYNC     -3
 
+#define GED_LB_SCALE_LIMIT 16
+
 struct GED_DVFS_FREQ_DATA {
 	unsigned int ui32Idx;
 	unsigned long ulFreq;
@@ -87,8 +89,6 @@ struct GED_DVFS_BW_DATA {
 
 #define MAX_BW_PROFILE 5
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-
 struct GpuUtilization_Ex {
 	unsigned int util_active;
 	unsigned int util_3d;
@@ -99,10 +99,6 @@ struct GpuUtilization_Ex {
 bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
 	unsigned int *pui32Block, unsigned int *pui32Idle,
 	struct GpuUtilization_Ex *Util_Ex);
-#else
-bool ged_dvfs_cal_gpu_utilization(unsigned int *pui32Loading,
-	unsigned int *pui32Block, unsigned int *pui32Idle);
-#endif
 
 
 void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime);
@@ -118,6 +114,8 @@ int ged_dvfs_vsync_offset_level_get(void);
 unsigned int ged_dvfs_get_gpu_loading(void);
 unsigned int ged_dvfs_get_gpu_blocking(void);
 unsigned int ged_dvfs_get_gpu_idle(void);
+unsigned int ged_dvfs_get_custom_ceiling_gpu_freq(void);
+unsigned int ged_dvfs_get_custom_boost_gpu_freq(void);
 
 unsigned long ged_query_info(GED_INFO eType);
 
@@ -142,32 +140,22 @@ unsigned long ged_dvfs_get_last_commit_idx(void);
 extern void (*ged_kpi_set_gpu_dvfs_hint_fp)(int t_gpu_target,
 	int boost_accum_gpu);
 
-#ifdef GED_ENABLE_FB_DVFS
 extern int (*ged_kpi_gpu_dvfs_fp)(int t_gpu, int t_gpu_target,
 	int target_fps_margin, unsigned int force_fallback);
 extern void (*ged_kpi_trigger_fb_dvfs_fp)(void);
 extern int (*ged_kpi_check_if_fallback_mode_fp)(void);
-#endif
-
-extern void (*mtk_get_gpu_dvfs_cal_freq_fp)(unsigned long *pulGpu_tar_freq,
-	int *pmode);
 
 extern void mtk_gpu_ged_hint(int a, int b);
 int ged_dvfs_boost_value(void);
 
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 extern void (*mtk_dvfs_margin_value_fp)(int i32MarginValue);
 extern int (*mtk_get_dvfs_margin_value_fp)(void);
 extern int ged_get_dvfs_margin(void);
 extern unsigned int ged_get_dvfs_margin_mode(void);
-#endif
 
-#ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 extern void (*mtk_loading_base_dvfs_step_fp)(int i32MarginValue);
 extern int (*mtk_get_loading_base_dvfs_step_fp)(void);
-#endif
 
-#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 extern void (*mtk_timer_base_dvfs_margin_fp)(int i32MarginValue);
 extern int (*mtk_get_timer_base_dvfs_margin_fp)(void);
 /* it is not good that ged_dvfs extern API of ged_kpi, need to refactor */
@@ -175,9 +163,8 @@ extern GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real,
 	int *pT_gpu_pipe, int *pT_gpu_target, unsigned long long *pullWnd);
 int ged_dvfs_get_tb_dvfs_margin_cur(void);
 unsigned int ged_dvfs_get_tb_dvfs_margin_mode(void);
-#endif
 
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
+
 #define LOADING_ACTIVE 0
 #define LOADING_MAX_3DTA_COM 1
 #define LOADING_MAX_3DTA 2
@@ -186,7 +173,12 @@ extern void (*mtk_dvfs_loading_mode_fp)(int i32LoadingMode);
 extern int (*mtk_get_dvfs_loading_mode_fp)(void);
 extern void ged_get_gpu_utli_ex(struct GpuUtilization_Ex *util_ex);
 #define MAX(x, y)	((x) < (y) ? (y) : (x))
-#endif
 
 extern unsigned int ged_log_perf_trace_enable;
+extern unsigned int g_gpufreq_v2;
+
+extern void (*mtk_set_fastdvfs_mode_fp)(unsigned int u32Mode);
+extern unsigned int (*mtk_get_fastdvfs_mode_fp)(void);
+extern unsigned int g_eb_workload;
+
 #endif

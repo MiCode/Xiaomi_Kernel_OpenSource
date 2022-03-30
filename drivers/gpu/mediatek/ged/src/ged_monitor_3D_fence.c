@@ -30,6 +30,12 @@
 
 #include <asm/div64.h>
 
+#if defined(CONFIG_MTK_GPUFREQ_V2)
+#include <ged_gpufreq_v2.h>
+#else
+#include <ged_gpufreq_v1.h>
+#endif /* CONFIG_MTK_GPUFREQ_V2 */
+
 static atomic_t g_i32Count = ATOMIC_INIT(0);
 static unsigned int ged_monitor_3D_fence_debug;
 static unsigned int ged_monitor_3D_fence_disable;
@@ -144,12 +150,10 @@ GED_ERROR ged_monitor_3D_fence_add(int fence_fd)
 	ged_log_buf_print(ghLogBuf_DVFS,
 		"[+] %s (ts=%llu) %p", __func__, t, psDebugAddress);
 
-
 #ifdef GED_DEBUG_MONITOR_3D_FENCE
 	ged_log_buf_print(ghLogBuf_GED,
 		"dma_fence_add_callback, err = %d", err);
 #endif
-
 
 	if (err < 0) {
 		dma_fence_put(psMonitor->psSyncFence);
@@ -161,12 +165,11 @@ GED_ERROR ged_monitor_3D_fence_add(int fence_fd)
 			unsigned int uiFreqLevelID;
 			if (mtk_get_bottom_gpu_freq(&uiFreqLevelID)) {
 				if (uiFreqLevelID !=
-					mt_gpufreq_get_dvfs_table_num() - 1) {
+					ged_get_min_oppidx()) {
 
 					if (ged_monitor_3D_fence_switch)
 						mtk_set_bottom_gpu_freq(
-						mt_gpufreq_get_dvfs_table_num()
-						- 1);
+						ged_get_min_oppidx());
 				}
 			}
 		}
