@@ -2419,6 +2419,8 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
 				id, 0, 0);
 		break;
 	case MD_DISPLAY_DYNAMIC_MIPI:
+		fallthrough;
+	case MD_NR_BAND_ACTIVATE_INFO:
 		tmp_data = 0;
 		memcpy((void *)&tmp_data, buf, len);
 		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
