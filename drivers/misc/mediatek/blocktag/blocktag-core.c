@@ -1077,6 +1077,7 @@ static int mtk_btag_mictx_sub_show(struct seq_file *s, void *data)
 {
 	bool mictx_active = false;
 	bool earaio_active = false;
+	char name[BLOCKTAG_NAME_LEN] = {' '};
 
 	if (btag_bootdev) {
 		if (btag_bootdev->mictx.enabled)
@@ -1084,9 +1085,11 @@ static int mtk_btag_mictx_sub_show(struct seq_file *s, void *data)
 		if (btag_bootdev->mictx.earaio_allowed &&
 		    btag_bootdev->mictx.earaio_enabled)
 			earaio_active = true;
+		strncpy(name, btag_bootdev->name, BLOCKTAG_NAME_LEN-1);
 	}
 
 	seq_puts(s, "<MTK Blocktag Mini Context>\n");
+	seq_printf(s, "Storage type of bootdev: %s\n", name);
 	seq_puts(s, "Status:\n");
 	seq_printf(s, "  Mictx Active: %d\n", mictx_active);
 	seq_printf(s, "  Mictx Self-Test: %d\n", mtk_btag_mictx_self_test);
@@ -1125,6 +1128,7 @@ void mtk_btag_free(struct mtk_blocktag *btag)
 	list_del(&btag->list);
 	kfree(btag->ctx.priv);
 	kfree(btag->rt.trace);
+	proc_remove(btag->dentry.droot);
 	kfree(btag);
 }
 EXPORT_SYMBOL_GPL(mtk_btag_free);
@@ -1472,6 +1476,8 @@ static void mtk_btag_mictx_init(const char *name,
 				struct mtk_blocktag *btag,
 				struct mtk_btag_vops *vops)
 {
+	struct proc_dir_entry *proc_entry;
+
 	if (!vops->boot_device)
 		return;
 
@@ -1480,8 +1486,11 @@ static void mtk_btag_mictx_init(const char *name,
 
 	if (vops->earaio_enabled) {
 		mtk_btag_earaio_init_mictx(btag);
-		rs_index_init(btag, btag_proc_root);
+		rs_index_init(btag_proc_root);
 	}
+
+	proc_entry = proc_create("blockio_mictx", S_IFREG | 0444,
+		btag_proc_root, &mtk_btag_mictx_sub_fops);
 }
 
 struct mtk_blocktag *mtk_btag_alloc(const char *name,
@@ -1542,13 +1551,6 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 		btag->dentry.droot, &mtk_btag_sub_fops);
 
 	if (IS_ERR(btag->dentry.dlog))
-		goto out;
-
-	btag->dentry.dlog_mictx = proc_create("blockio_mictx",
-		S_IFREG | 0444,
-		btag->dentry.droot, &mtk_btag_mictx_sub_fops);
-
-	if (IS_ERR(btag->dentry.dlog_mictx))
 		goto out;
 
 	mtk_btag_mictx_init(name, btag, vops);

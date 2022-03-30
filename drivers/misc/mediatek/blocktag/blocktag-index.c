@@ -429,20 +429,20 @@ static const struct proc_ops earasys_fops = {
 	.proc_release = single_release,
 };
 
-void rs_index_init(struct mtk_blocktag *btag,
-	struct proc_dir_entry *parent)
+void rs_index_init(struct proc_dir_entry *parent)
 {
 	int ret = 0;
+	struct proc_dir_entry *proc_entry;
 
 	INIT_LIST_HEAD(&(io_stat_list));
 
 	rsi_getindex_fp = rsi_trans_index;
 	rsi_switch_collect_fp = rsi_switch_collect;
 
-	btag->dentry.dindex = proc_create("eara_io",
+	proc_entry = proc_create("eara_io",
 		0664, parent, &earasys_fops);
 
-	if (IS_ERR(btag->dentry.dindex)) {
+	if (IS_ERR(proc_entry)) {
 		pr_debug(TAG"%s failed with %d\n",
 				"Creating file node ",
 				ret);
