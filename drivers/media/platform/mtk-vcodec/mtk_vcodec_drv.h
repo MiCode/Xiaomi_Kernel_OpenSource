@@ -356,8 +356,7 @@ struct venc_enc_param {
 	unsigned int ip_qpdelta;
 	unsigned int dummynal;
 	unsigned int slbc_addr;
-	char set_vcp_buf[1024];
-	char property_buf[1024];
+	char *set_vcp_buf;
 };
 
 /*

@@ -53,7 +53,9 @@ static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 	struct venc_enc_param enc_prm;
 
 	memset(&enc_prm, 0, sizeof(enc_prm));
-	memset(enc_prm.set_vcp_buf, '\0', 1024);
+	enc_prm.set_vcp_buf = kzalloc(LOG_PROPERTY_SIZE, GFP_KERNEL);
+	if (!enc_prm.set_vcp_buf)
+		return;
 
 	if (id == VENC_SET_PROP_MEM_ID) {
 
@@ -70,6 +72,7 @@ static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 				VENC_SET_PARAM_PROPERTY,
 				&enc_prm) != 0) {
 				mtk_v4l2_err("Error!! Cannot set venc property");
+				kfree(enc_prm.set_vcp_buf);
 				return;
 			}
 			strcpy(mtk_venc_property_prev, enc_prm.set_vcp_buf);
@@ -88,11 +91,14 @@ static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 				VENC_SET_PARAM_VCP_LOG_INFO,
 				&enc_prm) != 0) {
 				mtk_v4l2_err("Error!! Cannot set venc vcp log info");
+				kfree(enc_prm.set_vcp_buf);
 				return;
 			}
 			strcpy(mtk_venc_vcp_log_prev, enc_prm.set_vcp_buf);
 		}
 	}
+
+	kfree(enc_prm.set_vcp_buf);
 }
 static void get_supported_format(struct mtk_vcodec_ctx *ctx)
 {
