@@ -13,6 +13,7 @@ obj-$(CONFIG_MTK_ECCCI_DRIVER) += msg-center/
 obj-$(CONFIG_MTK_MEMORY_BLOCK) += memblock/
 obj-$(CONFIG_MTK_PID_MAP) += pidmap/
 obj-$(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) += sspm/
+obj-$(CONFIG_MTK_TINYSYS_SCMI) += tinysys_scmi/
 obj-$(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT) += mcupm/
 obj-$(CONFIG_MTK_SUBPMIC_MISC) += subpmic/
 obj-$(CONFIG_MMPROFILE) += mmp/

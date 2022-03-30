@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTK_TINYSYS_SCMI
+	tristate "Specify TINYSYS SCMI Interface Support"
+	help
+	  TINYSYS SCMI is for MediaTek in-house power protocol
+	  Set Y to enable this feature.
+	  If unsure, set N to stay with legancy feature.
+

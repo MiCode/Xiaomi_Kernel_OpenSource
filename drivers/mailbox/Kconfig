@@ -236,6 +236,24 @@ config MTK_CMDQ_MBOX
 	  critical time limitation, such as updating display configuration
 	  during the vblank.
 
+config MTK_TINYSYS_MBOX
+	tristate "MediaTek TINYSYS MBOX Mailbox Support"
+	help
+	  Say yes here to add support for the MediaTek TINYSYS mailbox driver.
+	  This uses MTK MBOX driver to communicate with remote processors
+	  base on ipic framework. It provide channels, controller creation
+	  and send operations.
+
+config MTK_SCMI_TIMEOUT_HOOK
+	bool "MediaTek SCMI Timeout Hook Support"
+	help
+	  Say yes here to add support for the MediaTek SCMI Timeout Hook.
+	  SCMI protocol is a set of operating system-independent software
+	  interfaces that are used in system management.
+
+	  This uses to revise MediaTek SCMI Timeout settings. Driver can
+	  revise timeout paremeter for debug and development.
+
 config ZYNQMP_IPI_MBOX
 	bool "Xilinx ZynqMP IPI Mailbox"
 	depends on ARCH_ZYNQMP && OF
