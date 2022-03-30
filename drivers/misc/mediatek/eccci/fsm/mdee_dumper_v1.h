@@ -144,8 +144,6 @@ struct debug_info_t {
 	};
 	void *ext_mem;
 	size_t ext_size;
-	void *md_image;
-	size_t md_size;
 };
 struct mdee_dumper_v1 {
 	struct debug_info_t debug_info;

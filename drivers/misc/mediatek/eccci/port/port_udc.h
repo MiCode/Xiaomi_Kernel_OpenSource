@@ -80,6 +80,7 @@ enum ccci_udc_error {
 	CMP_BUF_FULL = 7,
 	CMP_RSLT_FULL,
 	CMP_ZERO_LEN,
+	CMP_INST_ID_ERR,
 };
 
 enum ccci_udc_buf_sz_e {

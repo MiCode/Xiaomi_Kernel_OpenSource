@@ -92,18 +92,12 @@ struct ccci_modem_ops {
 };
 
 struct md_sys1_info {
-		void __iomem *ap_ccif_base;
-		void __iomem *md_ccif_base;
 		int channel_id;		/* CCIF channel */
 		atomic_t ccif_irq_enabled;
 		unsigned int ap_ccif_irq_id;
 		unsigned long ap_ccif_irq_flags;
 
-#ifdef FEATURE_SCP_CCCI_SUPPORT
-		struct work_struct scp_md_state_sync_work;
-#endif
 		void __iomem *md_rgu_base;
-		void __iomem *l1_rgu_base;
 		void __iomem *md_global_con0;
 
 #ifdef MD_PEER_WAKEUP

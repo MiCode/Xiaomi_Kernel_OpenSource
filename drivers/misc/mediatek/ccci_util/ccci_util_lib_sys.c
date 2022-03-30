@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2021 MediaTek Inc.
  */
 
 //#include <mt-plat/sync_write.h>
@@ -83,17 +83,32 @@ static get_status_func_t get_status_func[MAX_MD_NUM];
 static boot_md_func_t boot_md_func[MAX_MD_NUM];
 static int get_md_status(int md_id, char val[], int size)
 {
+	int ret = 0;
+
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_UTIL_INF_MSG("invalid md_id = %d\n", md_id);
+		return -1;
+	}
 	if ((md_id < MAX_MD_NUM)
 			&& (get_status_func[md_id] != NULL))
 		(get_status_func[md_id]) (md_id, val, size);
-	else
-		snprintf(val, 32, "md%d:n/a", md_id + 1);
-
+	else {
+		ret = snprintf(val, 32, "md%d:n/a", md_id + 1);
+		if (ret < 0 || ret >= 32) {
+			CCCI_UTIL_INF_MSG("%s-%d:snprintf fail,ret=%d\n",
+				__func__, __LINE__, ret);
+			return -1;
+		}
+	}
 	return 0;
 }
 
 static int trigger_md_boot(int md_id)
 {
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_UTIL_INF_MSG("invalid md_id = %d\n", md_id);
+		return -1;
+	}
 	if ((md_id < MAX_MD_NUM) && (boot_md_func[md_id] != NULL))
 		return (boot_md_func[md_id]) (md_id);
 
@@ -132,8 +147,6 @@ static ssize_t boot_status_store(const char *buf, size_t count)
 	if (md_id < MAX_MD_NUM) {
 		if (trigger_md_boot(md_id) != 0)
 			CCCI_UTIL_INF_MSG("md%d n/a\n", md_id + 1);
-		else
-			clear_meta_1st_boot_arg(md_id);
 	} else
 		CCCI_UTIL_INF_MSG("invalid id(%d)\n", md_id + 1);
 	return count;
@@ -161,7 +174,7 @@ static ssize_t ccci_md_enable_show(char *buf)
 			md_en[3], md_en[4]);
 }
 
-CCCI_ATTR(md_en, 0660, &ccci_md_enable_show, NULL);
+CCCI_ATTR(md_en, 0444, &ccci_md_enable_show, NULL);
 
 /* Sys -- post fix */
 static ssize_t ccci_md1_post_fix_show(char *buf)
@@ -207,6 +220,11 @@ static ssize_t debug_enable_show(char *buf)
 	int curr = 0;
 
 	curr = snprintf(buf, 16, "%d\n", 2);/* ccci_debug_enable); */
+	if (curr < 0 || curr >= 16) {
+		CCCI_UTIL_INF_MSG(
+			"%s-%d:snprintf fail,curr=%d\n", __func__, __LINE__, curr);
+		return -1;
+	}
 	return curr;
 }
 
@@ -253,6 +271,7 @@ static ssize_t kcfg_setting_show(char *buf)
 	char md_en[MAX_MD_NUM];
 	unsigned int md_num = 0;
 	int i;
+	char c_en;
 
 	for (i = 0; i < MAX_MD_NUM; i++) {
 		if (get_modem_is_enabled(MD_SYS1 + i)) {
@@ -267,19 +286,44 @@ static ssize_t kcfg_setting_show(char *buf)
 					4096 - 16 - curr,
 					"[modem num]:%d\n",
 					md_num);
+	if (actual_write < 0) {
+		CCCI_UTIL_ERR_MSG(
+			"%s-%d:snprintf fail,actual_write=%d\n",
+			__func__, __LINE__, actual_write);
+		actual_write = 0;
+	} else if (actual_write >= 4096 - 16 - curr)
+		actual_write = 4096 - 16 - curr - 1;
 	curr += actual_write;
 	/* Reserve 16 byte to store size info */
 	actual_write = snprintf(&buf[curr], 4096 - 16 - curr,
 		"[modem en]:%c-%c-%c-%c-%c\n",
 		md_en[0], md_en[1], md_en[2],
 		md_en[3], md_en[4]);
+	if (actual_write < 0) {
+		CCCI_UTIL_ERR_MSG(
+			"%s-%d:snprintf fail,actual_write=%d\n",
+			__func__, __LINE__, actual_write);
+		actual_write = 0;
+	} else if (actual_write >= 4096 - 16 - curr)
+		actual_write = 4096 - 16 - curr - 1;
 	curr += actual_write;
 
-	if (ccci_get_opt_val("opt_eccci_c2k") > 0) {
-		actual_write = snprintf(&buf[curr],
-			4096 - curr, "[MTK_ECCCI_C2K]:1\n");
-		curr += actual_write;
-	}
+	/* ECCCI_C2K */
+	if (check_rat_at_md_img(MD_SYS1, "C"))
+		c_en = '1';
+	else
+		c_en = '0';
+	actual_write = snprintf(&buf[curr],
+			4096 - curr, "[MTK_ECCCI_C2K]:%c\n", c_en);
+	if (actual_write < 0) {
+		CCCI_UTIL_ERR_MSG(
+			"%s-%d:snprintf fail,actual_write=%d\n",
+			__func__, __LINE__, actual_write);
+		actual_write = 0;
+	} else if (actual_write >= 4096 - curr)
+		actual_write = 4096 - curr - 1;
+	curr += actual_write;
+
 	/* ECCCI_FSM */
 	if (ccci_port_ver == 6)
 		/* FSM using v2 */
@@ -288,11 +332,30 @@ static ssize_t kcfg_setting_show(char *buf)
 	else
 		actual_write = snprintf(&buf[curr], 4096 - curr,
 			"[ccci_drv_ver]:V1\n");
+	if (actual_write < 0) {
+		CCCI_UTIL_ERR_MSG(
+			"%s-%d:snprintf fail,actual_write=%d\n",
+			__func__, __LINE__, actual_write);
+		actual_write = 0;
+	} else if (actual_write >= 4096 - curr)
+		actual_write = 4096 - curr - 1;
 	curr += actual_write;
+
+	actual_write = snprintf(&buf[curr],
+		4096 - curr, "[MTK_MD_CAP]:%d\n", get_md_img_type(MD_SYS1));
+	if (actual_write > 0 && actual_write < (4096 - curr))
+		curr += actual_write;
 
 	/* Add total size to tail */
 	actual_write = snprintf(&buf[curr],
 		4096 - curr, "total:%d\n", curr);
+	if (actual_write < 0) {
+		CCCI_UTIL_ERR_MSG(
+			"%s-%d:snprintf fail,actual_write=%d\n",
+			__func__, __LINE__, actual_write);
+		actual_write = 0;
+	} else if (actual_write >= 4096 - curr)
+		actual_write = 4096 - curr - 1;
 	curr += actual_write;
 
 	CCCI_UTIL_INF_MSG("cfg_info_buffer size:%d\n",

@@ -108,7 +108,7 @@ struct port_t {
 	unsigned int tx_busy_count;
 	unsigned int rx_busy_count;
 	int interception;
-	unsigned int rx_pkg_cnt;
+	atomic_t rx_pkg_cnt;
 	unsigned int rx_drop_cnt;
 	unsigned int tx_pkg_cnt;
 	port_skb_handler skb_handler;

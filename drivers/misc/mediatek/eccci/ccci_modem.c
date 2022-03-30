@@ -21,6 +21,7 @@
 #include "modem_sys.h"
 #include "ccci_hif.h"
 #include "md_sys1_platform.h"
+#include "ccci_auxadc.h"
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
@@ -29,15 +30,10 @@
 #include <linux/of_address.h>
 #endif
 
-#ifdef mtk09077
-#include <memory-amms.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
 #endif
 #include "mt-plat/mtk_ccci_common.h"
-
-#if defined(ENABLE_32K_CLK_LESS)
-//#include <mt-plat/mtk_rtc.h>
-#include "ccci_rtc.h"
-#endif
 
 #define TAG "md"
 
@@ -52,11 +48,14 @@ static atomic_t md1_md3_smem_clear = ATOMIC_INIT(0);
 #define DBM_S (CCCI_SMEM_SIZE_DBM + CCCI_SMEM_SIZE_DBM_GUARD * 2)
 #define CCB_CACHE_MIN_SIZE    (2 * 1024 * 1024)
 
-#ifdef CCCI_USE_DFD_OFFSET_0
 struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 	{SMEM_USER_RAW_DFD,	        0,	0,		 0, },
 	{SMEM_USER_RAW_UDC_DATA,	0,	0,		 0, },
 	{SMEM_USER_MD_WIFI_PROXY,	0,	0,		 0,},
+#ifdef CCCI_SUPPORT_AP_MD_SECURE_FEATURE
+	{SMEM_USER_SECURITY_SMEM,	0,	0,
+		SMF_NCLR_FIRST, },
+#endif
 	{SMEM_USER_RAW_AMMS_POS,	0,	0,
 		SMF_NCLR_FIRST, },
 
@@ -76,33 +75,10 @@ struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 		SMF_NCLR_FIRST, },
 	{SMEM_USER_CCISM_MCU,	0, (720+1)*1024,	SMF_NCLR_FIRST, },
 	{SMEM_USER_CCISM_MCU_EXP, 0, (120+1)*1024,	SMF_NCLR_FIRST, },
+	{SMEM_USER_RESERVED, 0, 18*1024,	 0, },
+	{SMEM_USER_MD_DRDI, 0, 512*1024, SMF_NCLR_FIRST, },
 	{SMEM_USER_MAX, }, /* tail guard */
 };
-#else
-struct ccci_smem_region md1_6297_noncacheable_fat[] = {
-{SMEM_USER_RAW_MDCCCI_DBG,	0,		2*1024,		0, },
-{SMEM_USER_RAW_MDSS_DBG,	2*1024,		14*1024,	0, },
-{SMEM_USER_RAW_RESERVED,	16*1024,	42*1024,	0, },
-{SMEM_USER_RAW_RUNTIME_DATA,	58*1024,	4*1024,		0, },
-{SMEM_USER_RAW_FORCE_ASSERT,	62*1024,	1*1024,		0, },
-{SMEM_USER_LOW_POWER,		63*1024,	512,		0, },
-{SMEM_USER_RAW_DBM,		63*1024 + 512,	512,		0, },
-{SMEM_USER_CCISM_SCP,		64*1024,	32*1024,	0, },
-{SMEM_USER_RAW_CCB_CTRL,	96*1024,	4*1024,
-	SMF_NCLR_FIRST, },
-{SMEM_USER_RAW_NETD,		100*1024,	8*1024,		0, },
-{SMEM_USER_RAW_USB,		108*1024,	4*1024,		0, },
-{SMEM_USER_RAW_AUDIO,		112*1024,	52*1024,
-	SMF_NCLR_FIRST, },
-{SMEM_USER_CCISM_MCU,	164*1024,	(720+1)*1024,	SMF_NCLR_FIRST, },
-{SMEM_USER_CCISM_MCU_EXP, 885*1024,	(120+1)*1024,	SMF_NCLR_FIRST, },
-{SMEM_USER_RAW_UDC_DATA,	0,		0,		0, },
-{SMEM_USER_MD_WIFI_PROXY,	0,		0,		0,},
-{SMEM_USER_RAW_DFD,		0,		0,		0, },
-{SMEM_USER_RAW_AMMS_POS,	0,		0, SMF_NCLR_FIRST, },
-{SMEM_USER_MAX, }, /* tail guard */
-};
-#endif
 
 struct ccci_smem_region md1_6297_cacheable[] = {
 /*
@@ -111,7 +87,7 @@ struct ccci_smem_region md1_6297_cacheable[] = {
  * will be re-calculated during port initialization. and please be
  * aware of that CCB user's size will be aligned to 4KB.
  */
-{SMEM_USER_RAW_MD_CONSYS,	0,	0, SMF_NCLR_FIRST, },
+{SMEM_USER_RAW_MD_CONSYS,	0,	0, (SMF_NCLR_FIRST | SMF_NO_REMAP), },
 {SMEM_USER_MD_NVRAM_CACHE,	0,	0, 0, },
 {SMEM_USER_CCB_DHL,		0,	0, 0, },
 {SMEM_USER_CCB_MD_MONITOR,	0,	0, 0, },
@@ -283,8 +259,15 @@ static void init_smem_regions(struct ccci_smem_region *regions,
 
 		regions[i].base_ap_view_phy =
 			base_ap_view_phy + regions[i].offset;
-		regions[i].base_ap_view_vir =
-			base_ap_view_vir + regions[i].offset;
+		/* 1. mapping one region; 2. no mapping; 3. mapping together. */
+		if (!base_ap_view_vir && !(regions[i].flag & SMF_NO_REMAP))
+			regions[i].base_ap_view_vir = (!regions[i].size)?NULL:ccci_map_phy_addr(
+					regions[i].base_ap_view_phy, regions[i].size);
+		else if (regions[i].flag & SMF_NO_REMAP)
+			regions[i].base_ap_view_vir = NULL;
+		else
+			regions[i].base_ap_view_vir =
+				base_ap_view_vir + regions[i].offset;
 		regions[i].base_md_view_phy =
 			base_md_view_phy + regions[i].offset;
 		CCCI_BOOTUP_LOG(-1, TAG,
@@ -408,19 +391,10 @@ static void ccci_6297_md_smem_layout_config(struct ccci_modem *md)
 	/* non-cacheable start */
 	get_md_resv_mem_info(md->index, NULL, NULL, &md_resv_smem_addr, NULL);
 
-#ifdef CCCI_USE_DFD_OFFSET_0
-	i = 0;
-#else
-	i = 1;
-#endif
-	for (; i < (sizeof(md1_6297_noncacheable_fat)/
-		sizeof(struct ccci_smem_region)); i++) {
-
+	for (i = 0; i < ARRAY_SIZE(md1_6297_noncacheable_fat); i++) {
 		update_smem_region(&md1_6297_noncacheable_fat[i]);
-#ifdef CCCI_USE_DFD_OFFSET_0
 		if (i == 0)
 			continue;
-#endif
 		if (md1_6297_noncacheable_fat[i].offset == 0)
 			/* update offset */
 			md1_6297_noncacheable_fat[i].offset =
@@ -451,19 +425,6 @@ static void ccci_6297_md_smem_layout_config(struct ccci_modem *md)
 		&mm_str->md_bank4_cacheable_total.base_ap_view_phy,
 		&mm_str->md_bank4_cacheable_total.size);
 	/* cacheable start */
-	if (mm_str->md_bank4_cacheable_total.base_ap_view_phy &&
-		mm_str->md_bank4_cacheable_total.size)
-		mm_str->md_bank4_cacheable_total.base_ap_view_vir =
-			ccci_map_phy_addr(
-			mm_str->md_bank4_cacheable_total.base_ap_view_phy,
-			mm_str->md_bank4_cacheable_total.size);
-	else
-		CCCI_ERROR_LOG(md->index, TAG,
-			"get cacheable info base:%lx size:%x\n",
-			(unsigned long)
-			mm_str->md_bank4_cacheable_total.base_ap_view_phy,
-			mm_str->md_bank4_cacheable_total.size);
-
 	mm_str->md_bank4_cacheable_total.base_md_view_phy = 0x40000000
 		+ get_md_smem_cachable_offset(MD_SYS1)
 		+ mm_str->md_bank4_cacheable_total.base_ap_view_phy -
@@ -724,10 +685,6 @@ void ccci_md_config(struct ccci_modem *md)
 
 	unsigned int md_resv_mem_size = 0,
 		md_resv_smem_size = 0, md1_md3_smem_size = 0;
-#ifdef mtk09077
-	int amms_pos_size = 0;
-	phys_addr_t bank4_phy_addr;
-#endif
 
 	/* setup config */
 	md->per_md_data.config.load_type = get_md_img_type(md->index);
@@ -746,10 +703,6 @@ void ccci_md_config(struct ccci_modem *md)
 	md->mem_layout.md_bank0.base_ap_view_phy = md_resv_mem_addr;
 	md->mem_layout.md_bank0.size = md_resv_mem_size;
 	/* do not remap whole region, consume too much vmalloc space */
-	md->mem_layout.md_bank0.base_ap_view_vir =
-		ccci_map_phy_addr(
-			md->mem_layout.md_bank0.base_ap_view_phy,
-			MD_IMG_DUMP_SIZE);
 	/* Share memory */
 	/*
 	 * MD bank4 is remap to nearest 32M aligned address
@@ -770,24 +723,7 @@ void ccci_md_config(struct ccci_modem *md)
 			= md1_md3_smem_phy;
 	md->mem_layout.md_bank4_noncacheable_total.size
 			= md_resv_smem_size + md1_md3_smem_size;
-#ifdef mtk09077
-	/* re-alloc smem for amms */
-	amms_pos_size = get_smem_amms_pos_size(MD_SYS1);
-	if (amms_pos_size > 0) {
-		bank4_phy_addr = amms_cma_allocate(md_resv_smem_size);
-		CCCI_BOOTUP_LOG(-1, TAG,
-			"AMMS get phy non-cache mem addr 0x%llx with size:0x%x\r\n",
-			(unsigned long long)bank4_phy_addr,
-			md_resv_smem_size);
-		if (bank4_phy_addr != md_resv_smem_addr) {
-			CCCI_ERROR_LOG(-1, TAG,
-				"AMMS ret memory[0x%llx] miss sync with LK alloc[0x%llx]",
-				(unsigned long long)bank4_phy_addr,
-				(unsigned long long)md_resv_smem_addr);
-			return;
-		}
-	}
-#endif
+
 	md->mem_layout.md_bank4_noncacheable_total.base_ap_view_vir =
 		ccci_map_phy_addr(
 		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_phy,
@@ -1113,8 +1049,12 @@ int ccci_md_register(struct ccci_modem *md)
 
 int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len)
 {
-	int ret = 0;
 	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	unsigned int rat_flag;
+	unsigned int rat_str_int[MD_CFG_RAT_STR5 - MD_CFG_RAT_STR0 + 1];
+	unsigned int wm_idx;
+	char *rat_str;
+	int i, ret;
 
 	if (len < 0 || data == NULL)
 		return -1;
@@ -1125,12 +1065,53 @@ int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len)
 		data[MD_CFG_DUMP_FLAG] == MD_DBG_DUMP_INVALID ?
 		md->per_md_data.md_dbg_dump_flag : data[MD_CFG_DUMP_FLAG];
 
-	return ret;
+	rat_flag = data[MD_CFG_RAT_CHK_FLAG];
+	if (rat_flag) {
+		if (check_rat_at_md_img(md_id, "C") == 0) {
+			char aee_info[32];
+
+			i = scnprintf(aee_info, sizeof(aee_info),
+				"C2K DEP check fail(0x%x)",
+				get_md_bin_capability(md_id));
+			if (i >= (sizeof(aee_info) - 1))
+				CCCI_ERROR_LOG(md_id, TAG, "buf not enough\n");
+			CCCI_ERROR_LOG(md_id, TAG, "C2K DEP check fail\n");
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+			aed_md_exception_api(NULL, 0, NULL,
+				0, aee_info, DB_OPT_DEFAULT);
+#endif
+			return -1;
+		}
+	}
+
+	for (i = 0; i < (MD_CFG_RAT_STR5 - MD_CFG_RAT_STR0 + 1); i++)
+		rat_str_int[i] = data[MD_CFG_RAT_STR0 + i];
+	rat_str = (char *)rat_str_int;
+	rat_str[sizeof(rat_str_int) - 1] = 0;
+
+	wm_idx = data[MD_CFG_WM_IDX];
+	if (set_soc_md_rt_rat_by_idx(md_id, wm_idx) == 0) {
+		CCCI_NORMAL_LOG(-1, TAG, "Using WM IDX: %u\n", wm_idx);
+		return 0;
+	}
+
+	ret = set_soc_md_rt_rat_str(md_id, rat_str);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(md_id, TAG,
+			"Current setting has mistake!!\n");
+		return -1;
+	}
+
+	if (ret == 1)
+		CCCI_ERROR_LOG(md_id, TAG,
+			"runtime rat setting abnormal, using default!!\n");
+
+	return 0;
 }
 
 struct ccci_mem_layout *ccci_md_get_mem(int md_id)
 {
-	if (md_id >= MAX_MD_NUM)
+	if (md_id >= MAX_MD_NUM || md_id < 0)
 		return NULL;
 	return &modem_sys[md_id]->mem_layout;
 }
@@ -1140,7 +1121,7 @@ struct ccci_smem_region *ccci_md_get_smem_by_user_id(int md_id,
 {
 	struct ccci_smem_region *curr = NULL;
 
-	if (md_id >= MAX_MD_NUM)
+	if (md_id >= MAX_MD_NUM || md_id < 0)
 		return NULL;
 
 	if (modem_sys[md_id] == NULL) {
@@ -1518,22 +1499,11 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	md_feature->feature_set[MULTI_MD_MPU].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
 
-#ifdef ENABLE_32K_CLK_LESS
-	if (mtk_crystal_exist_status()) {
-		CCCI_DEBUG_LOG(md->index, TAG,
-			"MISC_32K_LESS no support, mtk_crystal_exist_status 1\n");
-		md_feature->feature_set[MISC_INFO_RTC_32K_LESS].support_mask
-			= CCCI_FEATURE_NOT_SUPPORT;
-	} else {
-		CCCI_DEBUG_LOG(md->index, TAG, "MISC_32K_LESS support\n");
-		md_feature->feature_set[MISC_INFO_RTC_32K_LESS].support_mask
-			= CCCI_FEATURE_MUST_SUPPORT;
-	}
-#else
-	CCCI_DEBUG_LOG(md->index, TAG, "ENABLE_32K_CLK_LESS disabled\n");
+	/* default always support MISC_INFO_RTC_32K_LESS */
+	CCCI_DEBUG_LOG(md->index, TAG, "MISC_32K_LESS support\n");
 	md_feature->feature_set[MISC_INFO_RTC_32K_LESS].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-#endif
+		= CCCI_FEATURE_MUST_SUPPORT;
+
 	md_feature->feature_set[MISC_INFO_RANDOM_SEED_NUM].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
 	md_feature->feature_set[MISC_INFO_GPS_COCLOCK].support_mask
@@ -1603,10 +1573,21 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	md_feature->feature_set[NVRAM_CACHE_SHARE_MEMORY].support_mask =
 		CCCI_FEATURE_NOT_SUPPORT;
 #endif
-
+#ifdef CCCI_SUPPORT_AP_MD_SECURE_FEATURE
+	md_feature->feature_set[SECURITY_SHARE_MEMORY].support_mask =
+		CCCI_FEATURE_MUST_SUPPORT;
+#else
 	/* This item is reserved */
 	md_feature->feature_set[SECURITY_SHARE_MEMORY].support_mask =
 		CCCI_FEATURE_NOT_SUPPORT;
+#endif
+#if (MD_GENERATION >= 6297)
+		md_feature->feature_set[AMMS_DRDI_COPY].support_mask =
+			CCCI_FEATURE_MUST_SUPPORT;
+#else
+		md_feature->feature_set[AMMS_DRDI_COPY].support_mask =
+			CCCI_FEATURE_NOT_SUPPORT;
+#endif
 
 #if (MD_GENERATION >= 6297)
 	md_feature->feature_set[MD_MEM_AP_VIEW_INF].support_mask =
@@ -1749,6 +1730,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 	unsigned int random_seed = 0;
 	struct timespec64 t;
 	unsigned int c2k_flags = 0;
+	int adc_val = 0;
 
 	CCCI_BOOTUP_LOG(md->index, TAG,
 		"prepare_runtime_data  AP total %u features\n",
@@ -1840,6 +1822,16 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				boot_info.boot_channel = CCCI_CONTROL_RX;
 				boot_info.booting_start_id =
 					get_booting_start_id(md);
+				adc_val = ccci_get_adc_mV();
+				/* 0V ~ 0.1V is EVB */
+				if (adc_val >= 100) {
+					CCCI_BOOTUP_LOG(md->index, TAG,
+					"ADC val:%d, Phone\n", adc_val);
+					/* bit 1: 0: EVB 1: Phone */
+					boot_info.boot_attributes |= (1 << 1);
+				} else
+					CCCI_BOOTUP_LOG(md->index, TAG,
+					"ADC val:%d, EVB\n", adc_val);
 				append_runtime_feature(&rt_data,
 					&rt_feature, &boot_info);
 				break;
@@ -1987,14 +1979,14 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				rt_feature.data_len =
 				sizeof(struct ccci_misc_info_element);
 				rt_f_element.feature[0] = md->sbp_code;
-				if (md->per_md_data.config.load_type
-					< modem_ultg)
-					rt_f_element.feature[1] = 0;
-				else
-					rt_f_element.feature[1] =
-					get_wm_bitmap_for_ubin();
+				rt_f_element.feature[1] =
+						get_soc_md_rt_rat(MD_SYS1);
 				CCCI_BOOTUP_LOG(md->index, TAG,
-					"sbp=0x%x,wmid[%d]\n",
+					"sbp=0x%x,wmid[0x%x]\n",
+					rt_f_element.feature[0],
+					rt_f_element.feature[1]);
+				CCCI_NORMAL_LOG(md->index, TAG,
+					"sbp=0x%x,wmid[0x%x]\n",
 					rt_f_element.feature[0],
 					rt_f_element.feature[1]);
 				append_runtime_feature(&rt_data,
@@ -2013,7 +2005,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 			case MISC_INFO_CLIB_TIME:
 				rt_feature.data_len =
 				sizeof(struct ccci_misc_info_element);
-				ktime_get_ts64(&t);
+				ktime_get_real_ts64(&t);
 				/*set seconds information */
 				rt_f_element.feature[0] =
 				((unsigned int *)&t.tv_sec)[0];
@@ -2030,13 +2022,9 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				rt_feature.data_len =
 				sizeof(struct ccci_misc_info_element);
 				c2k_flags = 0;
-				if (is_cdma2000_enable(MD_SYS1)) {
+
+				if (check_rat_at_rt_setting(MD_SYS1, "C"))
 					c2k_flags |= (1 << 2);
-#if (MD_GENERATION == 6290 || MD_GENERATION == 6291)
-					c2k_flags |= (1 << 0);
-					c2k_flags |= (1 << 3);
-#endif
-				}
 				CCCI_NORMAL_LOG(md_id, TAG,
 					"c2k_flags 0x%X; MD_GENERATION: %d\n",
 					c2k_flags, MD_GENERATION);
@@ -2182,6 +2170,22 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 					rt_mem_view, 4);
 				append_runtime_feature(&rt_data, &rt_feature,
 				rt_mem_view);
+				break;
+#ifdef CCCI_SUPPORT_AP_MD_SECURE_FEATURE
+			case SECURITY_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_SECURITY_SMEM,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
+				break;
+#endif
+			case AMMS_DRDI_COPY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_MD_DRDI,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
 				break;
 			default:
 				break;

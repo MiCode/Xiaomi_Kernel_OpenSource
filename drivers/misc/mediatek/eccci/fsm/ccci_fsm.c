@@ -20,6 +20,8 @@
 
 #include "ccci_fsm_internal.h"
 #include "ccci_platform.h"
+#include "md_sys1_platform.h"
+#include "modem_sys.h"
 
 static struct ccci_fsm_ctl *ccci_fsm_entries[MAX_MD_NUM];
 
@@ -74,6 +76,11 @@ void mdee_set_ex_time_str(unsigned char md_id, unsigned int type, char *str)
 {
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
 
+	if (ctl == NULL) {
+		CCCI_ERROR_LOG(md_id, FSM,
+			"%s:fsm_get_entity_by_md_id fail\n", __func__);
+		return;
+	}
 	mdee_set_ex_start_str(&ctl->ee_ctl, type, str);
 }
 
@@ -122,10 +129,23 @@ static inline int fsm_broadcast_state(struct ccci_fsm_ctl *ctl,
 	 */
 	ccci_port_md_status_notify(ctl->md_id, state);
 	ccci_hif_state_notification(ctl->md_id, state);
+#ifdef CCCI_KMODULE_ENABLE
 #ifdef FEATURE_SCP_CCCI_SUPPORT
-	schedule_work(&ctl->scp_ctl.scp_md_state_sync_work);
+	if (ctl->scp_ctl) {
+		CCCI_NORMAL_LOG(ctl->md_id, FSM,
+			"ccci scp state sync %d, %lx, %lx, %d\n", state,
+			(unsigned long)ctl->scp_ctl, (unsigned long)ctl->scp_ctl->md_state_sync,
+			ctl->scp_ctl->md_id);
+		if (ctl->scp_ctl->md_state_sync)
+			ctl->scp_ctl->md_state_sync(state);
+		else {
+			CCCI_NORMAL_LOG(ctl->md_id, FSM,
+				"ccci scp_work not ready %d\n", state);
+		}
+	} else
+		CCCI_NORMAL_LOG(ctl->md_id, FSM, "ccci scp not ready %d\n", state);
 #endif
-
+#endif
 	if (old_state != state &&
 		s_md_state_cb != NULL)
 		s_md_state_cb(old_state, state);
@@ -234,7 +254,9 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		 */
 		ccci_md_exception_handshake(ctl->md_id,
 			MD_EX_CCIF_TIMEOUT);
+#ifdef ENABLE_EMIMPU_CB
 		mtk_clear_md_violation();
+#endif
 		count = 0;
 		while (count < MD_EX_REC_OK_TIMEOUT/EVENT_POLL_INTEVAL) {
 			spin_lock_irqsave(&ctl->event_lock, flags);
@@ -306,7 +328,8 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	__pm_stay_awake(ctl->wakelock);
 	/* 2. poll for critical users exit */
 	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL && !needforcestop) {
-		if (ccci_port_check_critical_user(ctl->md_id) == 0) {
+		if (ccci_port_check_critical_user(ctl->md_id) == 0 ||
+				ccci_port_critical_user_only_fsd(ctl->md_id)) {
 			user_exit = 1;
 			break;
 		}
@@ -509,44 +532,49 @@ success:
 	fsm_finish_command(ctl, cmd, 1);
 }
 
+static int ccci_md_epon_set(int md_id)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_smem_region *mdss_dbg
+			= ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_MDSS_DBG);
+	int ret = 0, in_md_l2sram = 0;
+
+	switch (md_id) {
+	case MD_SYS1:
+		if (!md || !md->hw_info) {
+			CCCI_NORMAL_LOG(md_id, FSM, "%s, NULL!!!\n");
+			break;
+		}
+		if (md->hw_info->md_l2sram_base) {
+			ret = *((int *)(md->hw_info->md_l2sram_base
+				+ md->hw_info->md_epon_offset)) == 0xBAEBAE10;
+			in_md_l2sram = 1;
+		} else if (mdss_dbg && mdss_dbg->base_ap_view_vir)
+			ret = *((int *)(mdss_dbg->base_ap_view_vir
+				+ md->hw_info->md_epon_offset)) == 0xBAEBAE10;
+		break;
+	case MD_SYS3:
+		ret = *((int *)(mdss_dbg->base_ap_view_vir
+			+ CCCI_EE_OFFSET_EPON_MD3))
+				== 0xBAEBAE10;
+		break;
+	}
+	CCCI_NORMAL_LOG(md_id, FSM, "reset MD after WDT, %s, 0x%x\n",
+		(in_md_l2sram?"l2sram":"mdssdbg"), ret);
+	return ret;
+}
+
 static void fsm_routine_wdt(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd)
 {
-	int reset_md = 0, ret;
+	int reset_md = 0;
 	int is_epon_set = 0;
-	struct device_node *node;
-	unsigned int offset_apon_md1 = 0;
-	struct ccci_smem_region *mdss_dbg
-		= ccci_md_get_smem_by_user_id(ctl->md_id,
-			SMEM_USER_RAW_MDSS_DBG);
 
-	node = of_find_compatible_node(NULL, NULL,
-			"mediatek,mddriver");
-	if (node) {
-		ret = of_property_read_u32(node,
-			"mediatek,offset_apon_md1", &offset_apon_md1);
-		if (ret < 0)
-			CCCI_NORMAL_LOG(ctl->md_id, FSM,
-				"[%s] not found: mediatek,offset_apon_md1\n",
-				__func__);
-	} else
-		CCCI_NORMAL_LOG(ctl->md_id, FSM,
-			"[%s] not found: mediatek,mddriver\n", __func__);
+	is_epon_set = ccci_md_epon_set(ctl->md_id);
 
-	if (ctl->md_id == MD_SYS1)
-		is_epon_set =
-			*((int *)(mdss_dbg->base_ap_view_vir
-				+ offset_apon_md1)) == 0xBAEBAE10;
-	else if (ctl->md_id == MD_SYS3)
-		is_epon_set = *((int *)(mdss_dbg->base_ap_view_vir
-			+ CCCI_EE_OFFSET_EPON_MD3))
-				== 0xBAEBAE10;
-
-	if (is_epon_set) {
-		CCCI_NORMAL_LOG(ctl->md_id, FSM,
-			"reset MD after WDT\n");
+	if (is_epon_set)
 		reset_md = 1;
-	} else {
+	else {
 		if (ccci_port_get_critical_user(ctl->md_id,
 				CRIT_USR_MDLOG) == 0) {
 			CCCI_NORMAL_LOG(ctl->md_id, FSM,
@@ -570,10 +598,13 @@ static int fsm_main_thread(void *data)
 	struct ccci_fsm_ctl *ctl = (struct ccci_fsm_ctl *)data;
 	struct ccci_fsm_command *cmd = NULL;
 	unsigned long flags;
+	int ret;
 
-	while (1) {
-		wait_event(ctl->command_wq,
+	while (!kthread_should_stop()) {
+		ret = wait_event_interruptible(ctl->command_wq,
 			!list_empty(&ctl->command_queue));
+		if (ret == -ERESTARTSYS)
+			continue;
 		spin_lock_irqsave(&ctl->command_lock, flags);
 		cmd = list_first_entry(&ctl->command_queue,
 			struct ccci_fsm_command, entry);
@@ -623,6 +654,7 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd = NULL;
 	int result = 0;
 	unsigned long flags;
+	int ret;
 
 	if (cmd_id <= CCCI_COMMAND_INVALID
 			|| cmd_id >= CCCI_COMMAND_MAX) {
@@ -649,21 +681,28 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
 	spin_lock_irqsave(&ctl->command_lock, flags);
 	list_add_tail(&cmd->entry, &ctl->command_queue);
 	spin_unlock_irqrestore(&ctl->command_lock, flags);
-	CCCI_NORMAL_LOG(ctl->md_id, FSM,
-		"command %d is appended %x from %ps\n",
-		cmd_id, flag,
-		__builtin_return_address(0));
+	if (!in_irq())
+		CCCI_NORMAL_LOG(ctl->md_id, FSM,
+			"command %d is appended %x from %ps\n",
+			cmd_id, flag,
+			__builtin_return_address(0));
 	/* after this line, only dereference cmd
 	 * when "wait-for-complete"
 	 */
 	wake_up(&ctl->command_wq);
 	if (flag & FSM_CMD_FLAG_WAIT_FOR_COMPLETE) {
-		wait_event(cmd->complete_wq, cmd->complete != 0);
-		if (cmd->complete != 1)
-			result = -1;
-		spin_lock_irqsave(&ctl->cmd_complete_lock, flags);
-		kfree(cmd);
-		spin_unlock_irqrestore(&ctl->cmd_complete_lock, flags);
+		while (1) {
+			ret = wait_event_interruptible(cmd->complete_wq,
+				cmd->complete != 0);
+			if (ret == -ERESTARTSYS)
+				continue;
+			if (cmd->complete != 1)
+				result = -1;
+			spin_lock_irqsave(&ctl->cmd_complete_lock, flags);
+			kfree(cmd);
+			spin_unlock_irqrestore(&ctl->cmd_complete_lock, flags);
+			break;
+		}
 	}
 	return result;
 }
@@ -813,8 +852,12 @@ int ccci_fsm_init(int md_id)
 	}
 	ctl->fsm_thread = kthread_run(fsm_main_thread, ctl,
 		"ccci_fsm%d", md_id + 1);
+#ifndef CCCI_KMODULE_ENABLE
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	fsm_scp_init(&ctl->scp_ctl);
+#endif
+#else
+	CCCI_NORMAL_LOG(md_id, FSM, "%s oringinal position scp_init\n", __func__);
 #endif
 	fsm_poller_init(&ctl->poller_ctl);
 	fsm_ee_init(&ctl->ee_ctl);
@@ -825,6 +868,24 @@ int ccci_fsm_init(int md_id)
 	return 0;
 }
 
+#ifdef CCCI_KMODULE_ENABLE
+void ccci_fsm_scp_register(int md_id, struct ccci_fsm_scp *scp_ctl)
+{
+	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
+
+	if (!ctl)
+		return;
+
+	ctl->scp_ctl = scp_ctl;
+	CCCI_NORMAL_LOG(ctl->md_id, FSM,
+		"ccci scp register to fsm, %d, %lx, %lx, %lx\n", md_id,
+		(unsigned long)ctl->scp_ctl,
+		(unsigned long)scp_ctl,
+		(unsigned long)&scp_ctl->md_state_sync);
+
+}
+EXPORT_SYMBOL(ccci_fsm_scp_register);
+#endif
 enum MD_STATE ccci_fsm_get_md_state(int md_id)
 {
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
@@ -928,7 +989,9 @@ int ccci_fsm_recv_control_packet(int md_id, struct sk_buff *skb)
 			per_md_data->dtr_state = 0; /*disconnect */
 		break;
 	case C2K_CCISM_SHM_INIT_ACK:
+#ifndef CCCI_KMODULE_ENABLE
 		fsm_ccism_init_ack_handler(ctl->md_id, ccci_h->reserved);
+#endif
 		break;
 	case C2K_FLOW_CTRL_MSG:
 		ccci_hif_start_queue(ctl->md_id, ccci_h->reserved, OUT);

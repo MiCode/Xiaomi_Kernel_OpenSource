@@ -16,6 +16,8 @@
 #include "mt-plat/mtk_ccci_common.h"
 #include "ccci_bm.h"
 #include "ccci_hif_internal.h"
+#include "dpmaif_debug.h"
+
 /*
  * hardcode, max queue number should be synced with port array in port_cfg.c
  */
@@ -201,14 +203,10 @@ struct dpmaif_bat_request {
 	unsigned int    bat_size_cnt;
 	unsigned short    bat_wr_idx;
 	unsigned short    bat_rd_idx;
-	unsigned short    bat_rel_rd_idx;
 	void *bat_skb_ptr;/* collect skb linked to bat */
 	unsigned int     skb_pkt_cnt;
 	unsigned int pkt_buf_sz;
 
-#if defined(_97_REORDER_BAT_PAGE_TABLE_)
-	unsigned char bid_btable[DPMAIF_DL_BAT_ENTRY_SIZE];
-#endif
 	/* for debug */
 	int check_bid_fail_cnt;
 };
@@ -247,10 +245,7 @@ struct dpmaif_rx_queue {
 	unsigned long	  pit_dummy_idx;
 	unsigned char     pit_reload_en;
 #endif
-	struct dpmaif_bat_request bat_req;
-#ifdef HW_FRG_FEATURE_ENABLE
-	struct dpmaif_bat_request bat_frag;
-#endif
+
 	struct tasklet_struct dpmaif_rxq0_task;
 	wait_queue_head_t rx_wq;
 	struct task_struct *rx_thread;
@@ -265,6 +260,8 @@ struct dpmaif_rx_queue {
 
 	struct ccci_skb_queue skb_list;
 	unsigned int pit_dp;
+
+	struct dpmaif_debug_data_t dbg_data;
 };
 
 /****************************************************************************
@@ -299,7 +296,10 @@ struct dpmaif_drb_msg {
 	unsigned int    count_l:16;
 	unsigned int    channel_id:8;
 	unsigned int    network_type:3;
-	unsigned int    reserved2:5;
+	unsigned int    r:1;
+	unsigned int    ipv4:1; /* enable ul checksum offload for ipv4 header */
+	unsigned int    l4:1; /* enable ul checksum offload for tcp/udp */
+	unsigned int    rsv:2;
 };
 
 struct dpmaif_drb_skb {
@@ -330,8 +330,12 @@ struct dpmaif_tx_queue {
 
 	void    *drb_skb_base;
 	wait_queue_head_t req_wq;
-	struct workqueue_struct *worker;
-	struct delayed_work dpmaif_tx_work;
+
+	/* For Tx done Kernel thread */
+	struct hrtimer tx_done_timer;
+	atomic_t txq_done;
+	wait_queue_head_t tx_done_wait;
+	struct task_struct *tx_done_thread;
 
 	spinlock_t tx_lock;
 	atomic_t tx_processing;
@@ -397,11 +401,19 @@ struct hif_dpmaif_ctrl {
 	struct timer_list traffic_monitor;
 	char traffic_started;
 #endif
-	struct clk *clk_ref0;
-	struct clk *clk_ref1;
 	struct platform_device *plat_dev; /* maybe: no need. */
 	struct ccci_hif_dpmaif_val plat_val;
 
+	atomic_t suspend_flag;
+	struct dpmaif_bat_request *bat_req;
+	struct dpmaif_bat_request *bat_frag;
+	wait_queue_head_t   bat_alloc_wq;
+	struct task_struct *bat_alloc_thread;
+	atomic_t bat_need_alloc;
+	atomic_t bat_paused_alloc;
+	int bat_alloc_running;
+
+	int enable_pit_debug;
 };
 
 #ifndef CCCI_KMODULE_ENABLE
@@ -462,9 +474,10 @@ static inline int ccci_dpmaif_hif_set_wakeup_src(unsigned char hif_id,
 	struct hif_dpmaif_ctrl *hif_ctrl =
 		(struct hif_dpmaif_ctrl *)ccci_hif_get_by_id(hif_id);
 
-	if (hif_ctrl)
-		return arch_atomic_set(&hif_ctrl->wakeup_src, value);
-	else
+	if (hif_ctrl) {
+		arch_atomic_set(&hif_ctrl->wakeup_src, value);
+		return value;
+	} else
 		return -1;
 
 }
@@ -504,6 +517,7 @@ int dpmaif_stop_rx(unsigned char hif_id);
 int dpmaif_stop_tx(unsigned char hif_id);
 int dpmaif_stop(unsigned char hif_id);
 void dpmaif_stop_hw(void);
+extern void ccmni_clr_flush_timer(void);
 extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
 	const char *property);
 extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);

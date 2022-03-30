@@ -85,14 +85,16 @@ int send_new_time_to_new_md(int md_id, int tz)
 	int index;
 	char *name = "ccci_0_202";
 
-	ktime_get_ts64(&tv);
+	ktime_get_real_ts64(&tv);
 	timeinfo[0] = tv.tv_sec;
 	timeinfo[1] = sizeof(tv.tv_sec) > 4 ? tv.tv_sec >> 32 : 0;
 	timeinfo[2] = tz;
 	timeinfo[3] = sys_tz.tz_dsttime;
 
-	snprintf(ccci_time, sizeof(ccci_time), "%010u,%010u,%010u,%010u",
+	scnprintf(ccci_time, sizeof(ccci_time), "%010u,%010u,%010u,%010u",
 			timeinfo[0], timeinfo[1], timeinfo[2], timeinfo[3]);
+	CCCI_NORMAL_LOG(md_id, CHAR, "CTime update: %s\n", ccci_time);
+
 	index = mtk_ccci_request_port(name);
 	ret = mtk_ccci_send_data(index, ccci_time, strlen(ccci_time) + 1);
 
@@ -372,7 +374,9 @@ ssize_t port_dev_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 
 READ_START:
 	/* 1. get incoming request */
+	spin_lock_irqsave(&port->rx_skb_list.lock, flags);
 	if (skb_queue_empty(&port->rx_skb_list)) {
+		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 		if (!(file->f_flags & O_NONBLOCK)) {
 			spin_lock_irq(&port->rx_wq.lock);
 			ret = wait_event_interruptible_locked_irq(port->rx_wq,
@@ -386,7 +390,9 @@ READ_START:
 			ret = -EAGAIN;
 			goto exit;
 		}
-	}
+	} else
+		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
+
 	CCCI_DEBUG_LOG(md_id, CHAR,
 		"read on %s for %zu\n", port->name, count);
 	spin_lock_irqsave(&port->rx_skb_list.lock, flags);
@@ -795,6 +801,7 @@ static void port_dump_string(struct port_t *port, int dir,
 	u64 ts_nsec;
 	unsigned long rem_nsec;
 	char *replace_str = NULL;
+	int ret = 0;
 
 	for (i = 0, j = 0; i < len && i < DUMP_BUF_SIZE &&
 		j + 4 < DUMP_BUF_SIZE; i++) {
@@ -818,13 +825,18 @@ static void port_dump_string(struct port_t *port, int dir,
 				replace_str = "";
 				break;
 			}
-			snprintf(buf+j, DUMP_BUF_SIZE - j,
+			ret = snprintf(buf+j, DUMP_BUF_SIZE - j,
 				"%s", replace_str);
 			j += 2;
 		} else {
-			snprintf(buf+j, DUMP_BUF_SIZE - j,
+			ret = snprintf(buf+j, DUMP_BUF_SIZE - j,
 				"[%02X]", char_ptr[i]);
 			j += 4;
+		}
+		if (ret < 0) {
+			CCCI_ERROR_LOG(port->md_id, TAG,
+				"%s-%d:snprintf fail,ret = %d\n", __func__, __LINE__, ret);
+			break;
 		}
 	}
 	buf[j] = '\0';
@@ -835,7 +847,8 @@ static void port_dump_string(struct port_t *port, int dir,
 			"[%5lu.%06lu]C:%d,%d(%d,%d,%d) %s: %d<%s\n",
 			(unsigned long)ts_nsec, rem_nsec / 1000,
 			port->flags, port->rx_ch,
-			port->rx_skb_list.qlen, port->rx_pkg_cnt,
+			port->rx_skb_list.qlen,
+			atomic_read(&port->rx_pkg_cnt),
 			port->rx_drop_cnt, "R", len, buf);
 	else
 		CCCI_HISTORY_LOG(port->md_id, TAG,
@@ -881,7 +894,8 @@ static void port_dump_raw_data(struct port_t *port, int dir,
 			"[%5lu.%06lu]C:%d,%d(%d,%d,%d) %s: %d<",
 			(unsigned long)ts_nsec, rem_nsec / 1000,
 			port->flags, port->rx_ch,
-			port->rx_skb_list.qlen, port->rx_pkg_cnt,
+			port->rx_skb_list.qlen,
+			atomic_read(&port->rx_pkg_cnt),
 			port->rx_drop_cnt, "R", len);
 	else
 		CCCI_HISTORY_LOG(port->md_id, TAG,
@@ -995,7 +1009,7 @@ int port_recv_skb(struct port_t *port, struct sk_buff *skb)
 			}
 		}
 
-		port->rx_pkg_cnt++;
+		atomic_inc(&port->rx_pkg_cnt);
 		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 		__pm_wakeup_event(port->rx_wakelock, jiffies_to_msecs(HZ/2));
 		spin_lock_irqsave(&port->rx_wq.lock, flags);
@@ -1101,6 +1115,11 @@ int port_user_register(struct port_t *port)
 	int rx_ch = port->rx_ch;
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	if (rx_ch == CCCI_FS_RX)
@@ -1121,6 +1140,11 @@ int port_user_unregister(struct port_t *port)
 	int md_id = port->md_id;
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 
@@ -1230,6 +1254,7 @@ static inline int proxy_check_critical_user(struct port_proxy *proxy_p)
 __EXIT_FUN__:
 	return ret;
 }
+
 
 static inline void proxy_setup_channel_mapping(struct port_proxy *proxy_p)
 {
@@ -1474,6 +1499,12 @@ static inline void proxy_dispatch_queue_status(struct port_proxy *proxy_p,
 	int match = 0;
 	int i, matched = 0;
 
+	if (hif < CLDMA_HIF_ID || hif >= CCCI_HIF_NUM
+		|| qno >= MAX_QUEUE_NUM || qno < 0) {
+		CCCI_ERROR_LOG(proxy_p->md_id, CORE,
+			"%s:hif=%d or qno=%d is inval\n", __func__, hif, qno);
+		return;
+	}
 	/*EE then notify EE port*/
 	if (unlikely(ccci_fsm_get_md_state(proxy_p->md_id)
 		== EXCEPTION)) {
@@ -1535,7 +1566,7 @@ static inline void proxy_dispatch_md_status(struct port_proxy *proxy_p,
 		port = proxy_p->ports + i;
 		if ((state == GATED) && (port->flags &
 			PORT_F_CH_TRAFFIC)) {
-			port->rx_pkg_cnt = 0;
+			atomic_set(&port->rx_pkg_cnt, 0);
 			port->rx_drop_cnt = 0;
 			port->tx_pkg_cnt = 0;
 		}
@@ -1549,12 +1580,25 @@ static inline void proxy_dump_status(struct port_proxy *proxy_p)
 	struct port_t *port = NULL;
 	/* hardcode, port number should not be larger than 64 */
 	unsigned long long port_full = 0;
-	unsigned int i;
+	unsigned int i, str_len = 0;
+	char full_port[124];
+	int ret;
 
 	for (i = 0; i < proxy_p->port_number; i++) {
 		port = proxy_p->ports + i;
-		if (port->flags & PORT_F_RX_FULLED)
+		if (port->flags & PORT_F_RX_FULLED) {
 			port_full |= (1LL << i);
+			if (str_len < 124) {
+				ret = snprintf(full_port + str_len,
+					(124 - str_len), "%s;", port->name);
+				if (ret <= 0) {
+					CCCI_ERROR_LOG(proxy_p->md_id, TAG,
+						"port_full len > 124\n");
+					break;
+				}
+				str_len += ret;
+			}
+		}
 		if (port->tx_busy_count != 0 || port->rx_busy_count != 0) {
 			CCCI_REPEAT_LOG(proxy_p->md_id, TAG,
 				"port %s busy count %d/%d\n", port->name,
@@ -1567,7 +1611,7 @@ static inline void proxy_dump_status(struct port_proxy *proxy_p)
 	}
 	if (port_full)
 		CCCI_ERROR_LOG(proxy_p->md_id, TAG,
-			"port_full status=%llx\n", port_full);
+			"port_full status=%llx, %s\n", port_full, full_port);
 }
 
 static inline int proxy_register_char_dev(struct port_proxy *proxy_p)
@@ -1698,12 +1742,22 @@ EXIT_FUN:
 
 struct port_t *port_get_by_minor(int md_id, int minor)
 {
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return NULL;
+	}
 	CHECK_MD_ID(md_id);
 	return proxy_get_port(GET_PORT_PROXY(md_id), minor,
 			CCCI_INVALID_CH_ID);
 }
 struct port_t *port_get_by_channel(int md_id, enum CCCI_CH ch)
 {
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return NULL;
+	}
 	CHECK_MD_ID(md_id);
 	return proxy_get_port(GET_PORT_PROXY(md_id), -1, ch);
 }
@@ -1727,6 +1781,11 @@ int port_send_msg_to_md(struct port_t *port, unsigned int msg,
 	int ch = port->tx_ch;
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_send_msg_to_md(port->port_proxy, ch,
@@ -1853,7 +1912,7 @@ static void ccci_proc_init(void)
 {
 	struct proc_dir_entry *ccci_dbm_proc;
 
-	ccci_dbm_proc = proc_create("ccci_lp_mem", 0444, NULL, &ccci_dbm_ops);
+	ccci_dbm_proc = proc_create("ccci_lp_mem", 0440, NULL, &ccci_dbm_ops);
 	if (ccci_dbm_proc == NULL)
 		CCCI_ERROR_LOG(-1, TAG, "fail to create ccci dbm proc\n");
 	spin_lock_init(&file_lock);
@@ -1865,6 +1924,11 @@ int ccci_port_init(int md_id)
 {
 	struct port_proxy *proxy_p = NULL;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -1;
+	}
 	CHECK_MD_ID(md_id);
 	ccci_proc_init();
 	proxy_p = proxy_alloc(md_id);
@@ -1884,6 +1948,11 @@ void ccci_port_dump_status(int md_id)
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	proxy_dump_status(proxy_p);
@@ -1930,6 +1999,11 @@ void ccci_port_md_status_notify(int md_id, unsigned int state)
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	proxy_dispatch_md_status(proxy_p, (unsigned int)state);
@@ -1947,6 +2021,11 @@ void ccci_port_queue_status_notify(int md_id, int hif_id, int qno,
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return;
+	}
 	CHECK_MD_ID(md_id);
 	CHECK_HIF_ID(hif_id);
 	CHECK_QUEUE_ID(qno);
@@ -1965,6 +2044,11 @@ int ccci_port_recv_skb(int md_id, int hif_id, struct sk_buff *skb,
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_dispatch_recv_skb(proxy_p, hif_id, skb, flag);
@@ -1979,9 +2063,35 @@ int ccci_port_check_critical_user(int md_id)
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_check_critical_user(proxy_p);
+}
+
+/*
+ * This API is called by ccci fsm,
+ * and used to check critical user only ccci_fsd exited.
+ */
+int ccci_port_critical_user_only_fsd(int md_id)
+{
+	struct port_proxy *proxy_p;
+
+	if (md_id < 0 || md_id >= MAX_MD_NUM)
+		return 0;
+
+	proxy_p = GET_PORT_PROXY(md_id);
+	if (!proxy_p)
+		return 0;
+
+	if (proxy_p->critical_user_active == (1 << CRIT_USR_FS))
+		return 1;
+
+	return 0;
 }
 
 /*
@@ -1992,6 +2102,11 @@ int ccci_port_get_critical_user(int md_id, unsigned int user_id)
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_get_critical_user(proxy_p, user_id);
@@ -2006,6 +2121,11 @@ int ccci_port_send_msg_to_md(int md_id, int ch, unsigned int msg,
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_send_msg_to_md(proxy_p, ch, msg, resv, blocking);
@@ -2022,12 +2142,18 @@ void ccci_port_set_traffic_flag(int md_id, unsigned int dump_flag)
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	proxy_set_traffic_flag(proxy_p, dump_flag);
 }
 
-#ifdef CONFIG_MTK_ECCCI_C2K /* only md3 can usb bypass */
+#if IS_ENABLED(CONFIG_MTK_ECCCI_C2K_USB)
+/* only md3 can usb bypass */
 int modem_dtr_set(int on, int low_latency)
 {
 	struct c2k_ctrl_port_msg c2k_ctl_msg;
@@ -2051,6 +2177,7 @@ int modem_dtr_set(int on, int low_latency)
 
 	return ret;
 }
+EXPORT_SYMBOL(modem_dtr_set);
 
 int modem_dcd_state(void)
 {
@@ -2083,6 +2210,7 @@ int modem_dcd_state(void)
 	}
 	return dcd_state;
 }
+EXPORT_SYMBOL(modem_dcd_state);
 
 int ccci_c2k_rawbulk_intercept(int ch_id, unsigned int interception)
 {
@@ -2148,7 +2276,7 @@ int ccci_c2k_rawbulk_intercept(int ch_id, unsigned int interception)
 
 	return ret;
 }
-
+EXPORT_SYMBOL(ccci_c2k_rawbulk_intercept);
 
 int ccci_c2k_buffer_push(int ch_id, void *buf, int count)
 {
@@ -2239,6 +2367,7 @@ push_err_out:
 	}
 	return -ENODEV;
 }
+EXPORT_SYMBOL(ccci_c2k_buffer_push);
 
 #endif
 

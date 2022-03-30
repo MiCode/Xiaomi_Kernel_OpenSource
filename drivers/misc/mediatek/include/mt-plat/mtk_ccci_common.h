@@ -423,6 +423,7 @@ enum {
 	MODEM_CAP_NAPI = (1<<0),
 	MODEM_CAP_TXBUSY_STOP = (1<<1),
 	MODEM_CAP_SGIO = (1<<2),
+	MODEM_CAP_HWTXCSUM = (1<<3),
 	/*bit16-bit31:
 	 *for modem capability only
 	 *related with ccmni driver
@@ -545,7 +546,7 @@ enum SMEM_USER_ID {
 	SMEM_USER_RAW_MD2MD,
 	SMEM_USER_RAW_RESERVED,
 	SMEM_USER_CCISM_MCU,
-	SMEM_USER_CCISM_MCU_EXP,
+	SMEM_USER_CCISM_MCU_EXP, /* 20 */
 	SMEM_USER_SMART_LOGGING,
 	SMEM_USER_RAW_MD_CONSYS,
 	SMEM_USER_RAW_PHY_CAP,
@@ -556,9 +557,17 @@ enum SMEM_USER_ID {
 	SMEM_USER_RAW_UDC_DESCTAB,
 	SMEM_USER_RAW_AMMS_POS,
 	SMEM_USER_RAW_ALIGN_PADDING, /* = SMEM_USER_RAW_AMMS_ALIGN_PADDING */
-	SMEM_USER_MD_WIFI_PROXY,
-	SMEM_USER_MD_NVRAM_CACHE,
+	SMEM_USER_MD_WIFI_PROXY, /* 31 */
+	SMEM_USER_MD_NVRAM_CACHE, /* 32 */
 	SMEM_USER_LOW_POWER,
+	SMEM_USER_SECURITY_SMEM,
+	SMEM_USER_SAP_EX_DBG,
+	SMEM_USER_SAP_DFD_DBG, // 36
+	SMEM_USER_32K_LOW_POWER,
+	SMEM_USER_USB_DATA,
+	SMEM_USER_MD_CDMR, /* CDMR:Crash Dump Memory Region/MIDR:Modem Internals Dump Region */
+	SMEM_USER_RESERVED, //40
+	SMEM_USER_MD_DRDI, //41
 	SMEM_USER_MAX,
 };
 
@@ -631,12 +640,15 @@ int switch_sim_mode(int id, char *buf,
 	unsigned int len); /* Export by SIM switch */
 unsigned int get_sim_switch_type(void); /* Export by SIM switch */
 
-#ifdef CONFIG_MTK_ECCCI_C2K
+#if IS_ENABLED(CONFIG_MTK_ECCCI_C2K_USB)
 /* for c2k usb bypass */
+typedef int (*usb_upstream_buffer_cb_t) (int transfer_id,
+	const void *buffer, unsigned int length);
 int ccci_c2k_rawbulk_intercept(int ch_id, unsigned int interception);
 int ccci_c2k_buffer_push(int ch_id, void *buf, int count);
 int modem_dtr_set(int on, int low_latency);
 int modem_dcd_state(void);
+void ccci_c2k_set_usb_callback(usb_upstream_buffer_cb_t callback);
 #endif
 /* for modem get AP time */
 void notify_time_update(void);
@@ -656,6 +668,8 @@ void clear_meta_1st_boot_arg(int md_id);
 #define CCCI_DUMP_TIME_FLAG		(1<<0)
 #define CCCI_DUMP_CLR_BUF_FLAG	(1<<1)
 #define CCCI_DUMP_CURR_FLAG		(1<<2)
+#define CCCI_DUMP_ANDROID_TIME_FLAG	(1<<3)
+
 enum {
 	CCCI_DUMP_INIT = 0,
 	CCCI_DUMP_BOOTUP,
@@ -664,6 +678,8 @@ enum {
 	CCCI_DUMP_MEM_DUMP,
 	CCCI_DUMP_HISTORY,
 	CCCI_DUMP_REGISTER,
+	CCCI_DUMP_MD_INIT,
+	CCCI_DUMP_DPMAIF,
 	CCCI_DUMP_MAX,
 };
 void ccci_util_mem_dump(int md_id, int buf_type, void *start_addr, int len);
@@ -690,11 +706,14 @@ struct _mpu_cfg *get_mpu_region_cfg_info(int region_id);
 int ccci_get_opt_val(char *opt_name);
 
 /* RAT configure relate */
-unsigned int get_wm_bitmap_for_ubin(void); /* Universal bin */
-void update_rat_bit_map_to_drv(int md_id, unsigned int val);
 int get_md_img_type(int md_id);
-int get_legacy_md_type(int md_id);
-int check_md_type(int data);
+int check_rat_at_md_img(int md_id, char str[]);
+unsigned int get_md_bin_capability(int md_id);
+int set_soc_md_rt_rat_str(int md_id, char str[]);
+unsigned int get_soc_md_rt_rat(int md_id);
+int check_rat_at_rt_setting(int md_id, char str[]);
+unsigned int get_soc_md_rt_rat_idx(int md_id);
+int set_soc_md_rt_rat_by_idx(int md_id, unsigned int wm_idx);
 
 int get_nc_smem_region_info(unsigned int id, unsigned int *ap_off,
 				unsigned int *md_off, unsigned int *size);

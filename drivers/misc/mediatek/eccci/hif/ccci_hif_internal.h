@@ -97,6 +97,7 @@ struct ccci_hif_ops {
 	int (*clear)(unsigned char hif_id);
 	void (*set_clk_cg)(unsigned char md_id, unsigned int on);
 	void (*hw_reset)(unsigned char md_id);
+	int (*empty_query)(int qno);
 };
 
 enum RX_COLLECT_RESULT {
@@ -218,10 +219,5 @@ static inline unsigned int ccci_md_get_seq_num(
 
 extern void ccci_hif_register(unsigned char hif_id, void *hif_per_data,
 	struct ccci_hif_ops *ops);
-
-int mtk_ccci_speed_monitor_init(struct device *dev);
-void mtk_ccci_add_dl_pkt_size(int size);
-void mtk_ccci_add_ul_pkt_size(int size);
-int mtk_ccci_toggle_net_speed_log(void);
 
 #endif

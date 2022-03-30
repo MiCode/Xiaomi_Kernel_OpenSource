@@ -751,6 +751,127 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	iounmap(dump_reg0);
 }
 
+#define MD_REG_DUMP_MAGIC   (0x44554D50) /* DUMP */
+
+static int md_dump_mem_once(unsigned int md_id, const void *buff_src,
+		unsigned long dump_len)
+{
+	int ret;
+	unsigned long i;
+	unsigned long dump_limit;
+	unsigned int tmp_idx;
+	char temp_buf[132] = { 0 };
+
+	if (!buff_src || !dump_len) {
+		CCCI_ERROR_LOG(md_id, TAG, "%s: buff_src = NULL or dump_len = 0x%lx\n",
+			__func__, dump_len);
+		return -1;
+	}
+
+	for (i = 0; i < dump_len;) {
+		dump_limit = ((dump_len - i) < 128) ? (dump_len - i) : 128;
+		memcpy(temp_buf, (buff_src + i), dump_limit);
+		temp_buf[dump_limit] = 0;
+		tmp_idx = 0;
+
+		while (unlikely(strlen(temp_buf + tmp_idx) == 0) && (tmp_idx < dump_limit)) {
+			CCCI_ERROR_LOG(md_id, TAG,
+				"%s: strlen return 0, dump_limit:0x%lx, i:0x%lx, temp_buf[%d]:%d\n",
+				__func__, dump_limit, i, tmp_idx, temp_buf[tmp_idx]);
+			i++;
+			tmp_idx++;
+		}
+
+		if (tmp_idx < dump_limit)
+			ret = ccci_dump_write(md_id, CCCI_DUMP_MEM_DUMP, 0, "%s",
+				(temp_buf + tmp_idx));
+		else {
+			CCCI_ERROR_LOG(md_id, TAG,
+				"%s: dump_limit:0x%lx, i:0x%lx, temp_buf[0->%d] are all 0\n",
+				__func__, dump_limit, i, tmp_idx);
+			continue;
+		}
+
+		if (ret < 0) {
+			CCCI_ERROR_LOG(md_id, TAG,
+				"%s: ccci_dump_write fail %d, 0x%llx, %d, 0x%llx\n",
+				__func__, ret, dump_limit, strlen(temp_buf + tmp_idx), i);
+			return -2;
+		} else if (!ret) {
+			CCCI_ERROR_LOG(md_id, TAG,
+				"%s: ccci_dump_write return 0: %d, 0x%lx, %d, 0x%lx\n",
+				__func__, ret, dump_limit, strlen(temp_buf + tmp_idx), i);
+			i++;
+		}
+		i += ret;
+	}
+
+	return i;
+}
+
+void md_dump_reg(unsigned int md_index)
+{
+	struct arm_smccc_res res;
+	unsigned long long buf_addr, buf_size, total_len = 0;
+	void *buff_src;
+	int loop_max_cnt = 0, ret;
+
+	/* 1. start to dump, send start command */
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_DEBUG_DUMP,
+		MD_REG_DUMP_START, MD_REG_DUMP_MAGIC, 0, 0, 0, 0, &res);
+	buf_addr = res.a1;
+	buf_size = res.a2;
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s][MD_REG_DUMP_START] flag_1=0x%llx, flag_2=0x%llx, flag_3=0x%llx, flag_4=0x%llx\n",
+		__func__, res.a0, res.a1, res.a2, res.a3);
+	if (buf_addr <= 0 || buf_size <= 0)
+		return;
+	/* get read buffer, remap */
+	buff_src = ioremap_wt(buf_addr, buf_size);
+	if (buff_src == NULL) {
+		CCCI_ERROR_LOG(md_index, TAG,
+			"Dump MD failed to ioremap 0x%llx bytes from 0x%llx\n",
+			buf_size, buf_addr);
+		return;
+	}
+	CCCI_MEM_LOG_TAG(md_index, TAG, "MD register dump start, 0x%llx\n",
+		(unsigned long long)buff_src);
+	/* 2. get dump data, send dump_stage command to get */
+	do {
+		loop_max_cnt++;
+		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_DEBUG_DUMP,
+			MD_REG_DUMP_STAGE, 0, 0, 0, 0, 0, &res);
+		CCCI_DEBUG_LOG(-1, TAG,
+			"[%s][MD_REG_DUMP_STAGE] flag_0=0x%llx, flag_1=0x%llx, flag_2=0x%llx, flag_3=0x%llx\n",
+			__func__, res.a0, res.a1, res.a2, res.a3);
+		switch (res.a2) {
+		case DUMP_FINISHED: /* go through */
+		case DUMP_UNFINISHED:
+			if (!res.a1)
+				goto DUMP_END;
+			ret = md_dump_mem_once(md_index, buff_src, res.a1);
+			if (ret < 0)
+				goto DUMP_END;
+			total_len += ret;
+			break;
+		case DUMP_DELAY_us:
+			/* delay a3 */
+			break;
+		default:
+			break;
+		}
+	} while (res.a2);
+
+DUMP_END:
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s]MD register dump end 0x%x, 0x%llx, 0x%llx\n",
+		__func__, loop_max_cnt, buf_size, total_len);
+	CCCI_MEM_LOG_TAG(-1, TAG,
+		"[%s]MD register dump end 0x%x, 0x%llx, 0x%llx\n",
+		__func__, loop_max_cnt, buf_size, total_len);
+	iounmap(buff_src);
+}
+
 void md_dump_register_6873(unsigned int md_index)
 {
 	internal_md_dump_debug_register(md_index);

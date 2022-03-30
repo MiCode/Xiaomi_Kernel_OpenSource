@@ -28,12 +28,12 @@
 #include <linux/module.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
-#include <asm/pgtable.h>
+#include <linux/pgtable.h>
 #include <linux/vmalloc.h>
 #include <linux/page-flags.h>
 #include <linux/mmzone.h>
 #include <linux/cpu.h>
-#include "ccci_util_lib_vmap_reserved_mem.h"
+#include "ccci_util_lib_reserved_mem.h"
 
 
 /**
@@ -70,3 +70,29 @@ void *vmap_reserved_mem(phys_addr_t start, phys_addr_t size, pgprot_t prot)
 	return vaddr;
 }
 EXPORT_SYMBOL(vmap_reserved_mem);
+
+int free_reserved_memory(phys_addr_t start_phys,
+				phys_addr_t end_phys)
+{
+
+	phys_addr_t pos;
+	unsigned long pages = 0;
+
+	if (end_phys <= start_phys) {
+
+		pr_notice("%s end_phys is smaller than start_phys start_phys:0x%pa end_phys:0x%pa\n"
+			, __func__, &start_phys, &end_phys);
+		return -1;
+	}
+
+	for (pos = start_phys; pos < end_phys; pos += PAGE_SIZE, pages++)
+		free_reserved_page(phys_to_page(pos));
+
+	if (pages)
+		pr_info("Freeing reserved memory: %ldK from phys %llx\n",
+			pages << (PAGE_SHIFT - 10),
+			(unsigned long long)start_phys);
+
+	return 0;
+}
+EXPORT_SYMBOL(free_reserved_memory);

@@ -19,5 +19,18 @@ enum MD_REG_ID {
 	MD_REG_USIP_ADDR_5,
 };
 
+enum md_reg_id {
+	MD_REG_DUMP_START = 0,
+	MD_REG_DUMP_STAGE,
+};
+
+/* res.a2 in MD_REG_DUMP_STAGE OP */
+enum md_dump_flag {
+	DUMP_FINISHED,
+	DUMP_UNFINISHED,
+	DUMP_DELAY_us,
+};
+
 void md_dump_register_6873(unsigned int md_index);
+void md_dump_reg(unsigned int md_index);
 #endif

@@ -44,7 +44,6 @@ enum MODEM_DUMP_FLAG {
 	DUMP_FLAG_CLDMA = (1 << 1),
 	DUMP_FLAG_REG = (1 << 2), /* dump modem reg. */
 	DUMP_FLAG_SMEM_EXP = (1 << 3),
-	DUMP_FLAG_IMAGE = (1 << 4),
 	DUMP_FLAG_LAYOUT = (1 << 5),
 	DUMP_FLAG_QUEUE_0 = (1 << 6),
 	DUMP_FLAG_QUEUE_0_1 = (1 << 7),
@@ -93,6 +92,15 @@ enum {
 	MD_CFG_MDLOG_MODE,
 	MD_CFG_SBP_CODE,
 	MD_CFG_DUMP_FLAG,
+	MD_CFG_SBP_SUB_ID,
+	MD_CFG_RAT_CHK_FLAG,
+	MD_CFG_RAT_STR0,
+	MD_CFG_RAT_STR1,
+	MD_CFG_RAT_STR2,
+	MD_CFG_RAT_STR3,
+	MD_CFG_RAT_STR4,
+	MD_CFG_RAT_STR5,
+	MD_CFG_WM_IDX,
 };
 
 enum {
@@ -110,6 +118,7 @@ enum {
 	SMF_CLR_RESET = (1 << 0), /* clear when reset modem */
 	SMF_NCLR_FIRST = (1 << 1), /* do not clear even in MD first boot up */
 	SMF_MD3_RELATED = (1 << 2), /* MD3 related share memory */
+	SMF_NO_REMAP = (1 << 3), /* no need mapping region */
 };
 
 struct ccci_mem_region {
@@ -192,6 +201,7 @@ enum{
 	NVRAM_CACHE_SHARE_MEMORY = 36,
 	SECURITY_SHARE_MEMORY = 37,
 	MD_MEM_AP_VIEW_INF = 38,
+	AMMS_DRDI_COPY = 45,
 	MD_RUNTIME_FEATURE_ID_MAX,
 }; /* MD_CCCI_RUNTIME_FEATURE_ID; */
 

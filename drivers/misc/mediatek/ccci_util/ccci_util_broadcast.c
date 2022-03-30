@@ -110,6 +110,12 @@ static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb,
 			user_ctlb->curr_r = 0;
 	}
 
+	if (user_ctlb->curr_w >= EVENT_BUFF_SIZE || user_ctlb->curr_w < 0) {
+		CCCI_UTIL_ERR_MSG(
+		"%s(user_ctlb->curr_w = %d)\n", __func__, user_ctlb->curr_w);
+		return;
+	}
+
 	user_ctlb->event_buf[user_ctlb->curr_w].time_stamp = *ev_rtime;
 	user_ctlb->event_buf[user_ctlb->curr_w].md_id = md_id;
 	user_ctlb->event_buf[user_ctlb->curr_w].event_type = event_type;
@@ -131,7 +137,7 @@ static void save_last_md_status(int md_id,
 	/* MD_STA_EV_HS1 = 9
 	 * ignore events before MD_STA_EV_HS1
 	 */
-	if (event_type < 9)
+	if (event_type < 9 || md_id < 0 || md_id >= MAX_MD_NUM)
 		return;
 
 	CCCI_UTIL_DBG_MSG("[%s] md_id = %d; event_type = %d\n",
@@ -266,6 +272,10 @@ static int ccci_util_bc_open(struct inode *inode, struct file *filp)
 	unsigned long flag;
 
 	minor = iminor(inode);
+	if (minor < 0 || minor >= MD_BC_MAX_NUM) {
+		CCCI_UTIL_ERR_MSG("invalid minor = %d\n", minor);
+		return -ENOMEM;
+	}
 	bc_dev = s_bc_ctl_tbl[minor];
 
 	user_ctlb = kzalloc(sizeof(struct ccci_util_bc_user_ctlb),

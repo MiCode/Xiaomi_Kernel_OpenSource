@@ -18,9 +18,8 @@
 #include "ccci_bm.h"
 #include "port_sysmsg.h"
 #include "ccci_swtp.h"
-#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
-#include "ccci_fsm_internal.h"
-#endif
+#include "fsm/ccci_fsm_internal.h"
+
 #define MAX_QUEUE_LENGTH 16
 
 struct md_rf_notify_struct {
@@ -233,11 +232,9 @@ static void sys_msg_handler(struct port_t *port, struct sk_buff *skb)
 		port_sys_echo_test_l1core(port, ccci_h->reserved);
 		break;
 #endif
-#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
 	case SIM_LOCK_RANDOM_PATTERN:
 		fsm_monitor_send_message(md_id, CCCI_MD_MSG_RANDOM_PATTERN, 0);
 		break;
-#endif
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	case CCISM_SHM_INIT_ACK:
 		/* Fall through */

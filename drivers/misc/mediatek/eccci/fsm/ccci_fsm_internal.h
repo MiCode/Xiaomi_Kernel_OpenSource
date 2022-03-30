@@ -161,13 +161,11 @@ enum ccci_ipi_op_id {
 
 #define GET_OTHER_MD_ID(a) (a == MD_SYS1 ? MD_SYS3 : MD_SYS1)
 
-#define MD_IMG_DUMP_SIZE  (1<<8)
 #define DSP_IMG_DUMP_SIZE (1<<9)
 #define CCCI_AED_DUMP_EX_MEM		(1<<0)
-#define CCCI_AED_DUMP_MD_IMG_MEM	(1<<1)
 #define CCCI_AED_DUMP_CCIF_REG		(1<<2)
 #define CCCI_AED_DUMP_EX_PKT		(1<<3)
-#define MD_EX_MPU_STR_LEN (128)
+#define MD_EX_MPU_STR_LEN (512)
 #define MD_EX_START_TIME_LEN (128)
 
 /************ structures ************/
@@ -181,6 +179,9 @@ struct ccci_ipi_msg {
 struct ccci_fsm_scp {
 	int md_id;
 	struct work_struct scp_md_state_sync_work;
+#ifdef CCCI_KMODULE_ENABLE
+	void (*md_state_sync)(int);
+#endif
 };
 
 struct ccci_fsm_poller {
@@ -240,7 +241,11 @@ struct ccci_fsm_ctl {
 
 	unsigned long boot_count; /* for throttling feature */
 
+#ifdef CCCI_KMODULE_ENABLE
+	struct ccci_fsm_scp *scp_ctl;
+#else
 	struct ccci_fsm_scp scp_ctl;
+#endif
 	struct ccci_fsm_poller poller_ctl;
 	struct ccci_fsm_ee ee_ctl;
 	struct ccci_fsm_monitor monitor_ctl;
@@ -269,7 +274,11 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
 int fsm_append_event(struct ccci_fsm_ctl *ctl, enum CCCI_FSM_EVENT event_id,
 	unsigned char *data, unsigned int length);
 
+#ifndef CCCI_KMODULE_ENABLE
 int fsm_scp_init(struct ccci_fsm_scp *scp_ctl);
+#else
+extern void ccci_fsm_scp_register(int md_id, struct ccci_fsm_scp *scp_ctl);
+#endif
 int fsm_poller_init(struct ccci_fsm_poller *poller_ctl);
 int fsm_ee_init(struct ccci_fsm_ee *ee_ctl);
 int fsm_monitor_init(struct ccci_fsm_monitor *monitor_ctl);

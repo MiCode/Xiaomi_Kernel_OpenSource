@@ -41,6 +41,8 @@
 #include "ccci_platform.h"
 #include "md_sys1_platform.h"
 #include "modem_reg_base.h"
+#include "modem_secure_base.h"
+
 #include "ccci_debug.h"
 #include "hif/ccci_hif_cldma.h"
 #include "hif/ccci_hif_ccif.h"
@@ -53,8 +55,18 @@ static void debug_in_flight_mode(struct ccci_modem *md);
 #ifdef CCCI_KMODULE_ENABLE
 bool spm_is_md1_sleep(void)
 {
-	pr_notice("[ccci/dummy] %s is not supported!\n", __func__);
-	return 0;
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
+		MD_GET_SLEEP_MODE, 0, 0, 0, 0, 0, &res);
+
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] flag_1=%llx, flag_2=%llx, flag_3=%llx, flag_4=%llx\n",
+		__func__, res.a0, res.a1, res.a2, res.a3);
+	if (res.a0 == 0)
+		return res.a1; /* 1-md is sleep, 0 - is not */
+	else
+		return 2; /* not support, no wait */
 }
 
 #endif
@@ -75,7 +87,7 @@ void ccif_disable_irq(struct ccci_modem *md)
 
 	if (atomic_cmpxchg(&md_info->ccif_irq_enabled, 1, 0) == 1) {
 		disable_irq_nosync(md_info->ap_ccif_irq_id);
-		CCCI_NORMAL_LOG(md->index, TAG, "disable ccif irq\n");
+		/*CCCI_NORMAL_LOG(md->index, TAG, "disable ccif irq\n");*/
 	}
 }
 
@@ -95,7 +107,7 @@ void wdt_disable_irq(struct ccci_modem *md)
 		 * if use disable_irq in isr, system will hang
 		 */
 		disable_irq_nosync(md->md_wdt_irq_id);
-		CCCI_NORMAL_LOG(md->index, TAG, "disable wdt irq\n");
+		/*CCCI_NORMAL_LOG(md->index, TAG, "disable wdt irq\n");*/
 	}
 }
 
@@ -103,31 +115,12 @@ static irqreturn_t md_cd_wdt_isr(int irq, void *data)
 {
 	struct ccci_modem *md = (struct ccci_modem *)data;
 
-	CCCI_ERROR_LOG(md->index, TAG, "MD WDT IRQ\n");
-
+	//CCCI_ERROR_LOG(md->index, TAG, "MD WDT IRQ\n");
+	//ccci_event_log("md%d: MD WDT IRQ\n", md->index);
 	ccif_disable_irq(md);
 	wdt_disable_irq(md);
-
-	ccci_event_log("md%d: MD WDT IRQ\n", md->index);
-#ifndef DISABLE_MD_WDT_PROCESS
-	/* 1. disable MD WDT */
-#ifdef ENABLE_MD_WDT_DBG
-	unsigned int state;
-
-	state = ccci_read32(md->md_rgu_base, WDT_MD_STA);
-	ccci_write32(md->md_rgu_base, WDT_MD_MODE, WDT_MD_MODE_KEY);
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"WDT IRQ disabled for debug, state=%X\n", state);
-#ifdef L1_BASE_ADDR_L1RGU
-	state = ccci_read32(md->l1_rgu_base, REG_L1RSTCTL_WDT_STA);
-	ccci_write32(md->l1_rgu_base,
-		REG_L1RSTCTL_WDT_MODE, L1_WDT_MD_MODE_KEY);
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"WDT IRQ disabled for debug, L1 state=%X\n", state);
-#endif
-#endif
-#endif
 	ccci_fsm_recv_md_interrupt(md->index, MD_IRQ_WDT);
+
 	return IRQ_HANDLED;
 }
 
@@ -258,7 +251,6 @@ int md_fsm_exp_info(int md_id, unsigned int channel_id)
 	struct ccci_modem *md;
 	struct md_sys1_info *md_info;
 
-	CCCI_DEBUG_LOG(0, TAG, "%s\n", __func__);
 	md = ccci_md_get_modem_by_id(md_id);
 	if (!md)
 		return 0;
@@ -586,12 +578,7 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 				md1_sleep_timeout_proc();
 			break;
 		}
-		if (md->hw_info->plat_ptr->lock_cldma_clock_src) {
-			md->hw_info->plat_ptr->lock_cldma_clock_src(1);
-			msleep(1000);
-			md->hw_info->plat_ptr->lock_cldma_clock_src(0);
-			msleep(20);
-		}
+		msleep(1000);
 	}
 }
 static int md_cd_stop(struct ccci_modem *md, unsigned int stop_type)
@@ -719,41 +706,49 @@ static void dump_runtime_data_v2_1(struct ccci_modem *md,
 		ap_feature->tail_pattern);
 }
 
+#if (MD_GENERATION < 6297)
 static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 {
-#if (MD_GENERATION < 6297)
 	int i;
-#endif
-#if IS_ENABLED(CONFIG_MTK_PBM) || (MD_GENERATION < 6297)
 	int __iomem *addr;
 	struct ccci_smem_region *dbm =
 		ccci_md_get_smem_by_user_id(md->index, SMEM_USER_RAW_DBM);
 
 	/* Region 0, dbm */
 	addr = (int __iomem *)dbm->base_ap_view_vir;
-#endif
-#if (MD_GENERATION < 6297)
 	addr[0] = 0x44444444; /* Guard pattern 1 header */
 	addr[1] = 0x44444444; /* Guard pattern 2 header */
-#if !IS_ENABLED(CONFIG_MTK_PBM)
-	for (i = 2; i < (CCCI_SMEM_SIZE_DBM/4+2); i++)
+
+#ifdef DISABLE_PBM_FEATURE
+	for (i = 2; i < (CCCI_SMEM_SIZE_DBM / 4 + 2); i++)
 		addr[i] = 0xFFFFFFFF;
 #else
-	for (i = 2; i < (CCCI_SMEM_SIZE_DBM/4+2); i++)
+	for (i = 2; i < (CCCI_SMEM_SIZE_DBM / 4 + 2); i++)
 		addr[i] = 0x00000000;
 #endif
+
 	addr[i++] = 0x44444444; /* Guard pattern 1 tail */
 	addr[i++] = 0x44444444; /* Guard pattern 2 tail */
-#endif
 
-	/* Notify PBM */
 #if IS_ENABLED(CONFIG_MTK_PBM)
-#if (MD_GENERATION < 6297)
 	addr += CCCI_SMEM_SIZE_DBM_GUARD;
 #endif
 	init_md_section_level(KR_MD1, addr);
+}
+#else
+static void md_cd_smem_sub_region_init(struct ccci_modem *md)
+{
+#if IS_ENABLED(CONFIG_MTK_PBM)
+	int __iomem *addr;
+	struct ccci_smem_region *dbm =
+		ccci_md_get_smem_by_user_id(md->index, SMEM_USER_RAW_DBM);
+
+	/* Region 0, dbm */
+	addr = (int __iomem *)dbm->base_ap_view_vir;
+	init_md_section_level(KR_MD1, addr);
 #endif
 }
+#endif
 
 static void config_ap_runtime_data_v2(struct ccci_modem *md,
 	struct ap_query_md_feature *ap_feature)
@@ -1035,12 +1030,7 @@ static int md_cd_dump_info(struct ccci_modem *md,
 					*(curr_p + 2), *(curr_p + 3));
 		}
 	}
-	if (flag & DUMP_FLAG_IMAGE) {
-		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD image memory\n");
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
-			(void *)md->mem_layout.md_bank0.base_ap_view_vir,
-			MD_IMG_DUMP_SIZE);
-	}
+
 	if (flag & DUMP_FLAG_LAYOUT) {
 		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD layout struct\n");
 		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
@@ -1077,8 +1067,8 @@ static int md_cd_dump_info(struct ccci_modem *md,
 
 	if ((flag & DUMP_MD_BOOTUP_STATUS) &&
 		md->hw_info->plat_ptr->get_md_bootup_status)
-		md->hw_info->plat_ptr->get_md_bootup_status(md,
-		(unsigned int *)buff, length);
+		md->hw_info->plat_ptr->get_md_bootup_status((unsigned int *)buff,
+			length);
 
 	return length;
 }
@@ -1128,6 +1118,11 @@ static ssize_t md_cd_debug_show(struct ccci_modem *md, char *buf)
 	int curr = 0;
 
 	curr = snprintf(buf, 16, "%d\n", ccci_debug_enable);
+	if (curr < 0 || curr >= 16) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s-%d:snprintf fail,curr = %d\n", __func__, __LINE__, curr);
+		return -1;
+	}
 	return curr;
 }
 
@@ -1177,8 +1172,6 @@ static ssize_t md_cd_dump_store(struct ccci_modem *md,
 				DUMP_FLAG_SMEM_CCB_DATA, NULL, 0);
 		if (strncmp(buf, "pccif", count - 1) == 0)
 			md->ops->dump_info(md, DUMP_FLAG_PCCIF_REG, NULL, 0);
-		if (strncmp(buf, "image", count - 1) == 0)
-			md->ops->dump_info(md, DUMP_FLAG_IMAGE, NULL, 0);
 		if (strncmp(buf, "layout", count - 1) == 0)
 			md->ops->dump_info(md, DUMP_FLAG_LAYOUT, NULL, 0);
 		if (strncmp(buf, "mdslp", count - 1) == 0)
@@ -1302,7 +1295,6 @@ static struct syscore_ops ccci_modem_sysops = {
 	.resume = ccci_modem_sysresume,
 };
 
-#define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
 static u64 cldma_dmamask = DMA_BIT_MASK(36);
 
 int ccci_modem_init_common(struct platform_device *plat_dev,
@@ -1360,8 +1352,6 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 		return -1;
 	}
 	/* Copy HW info */
-	md_info->ap_ccif_base = (void __iomem *)md_hw->ap_ccif_base;
-	md_info->md_ccif_base = (void __iomem *)md_hw->md_ccif_base;
 	md_info->ap_ccif_irq_id = md_hw->ap_ccif_irq1_id;
 	md_info->channel_id = 0;
 	atomic_set(&md_info->ccif_irq_enabled, 1);

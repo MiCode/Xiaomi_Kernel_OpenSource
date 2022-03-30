@@ -33,11 +33,10 @@
 #define IPC_L4C_MSG_ID_LEN   (0x40)
 
 /* feature option, always try using platform info first! */
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 #define FEATURE_SCP_CCCI_SUPPORT
 #endif
 /*#define ENABLE_EMI_PROTECTION*/
-#define ENABLE_32K_CLK_LESS
 
 #define HW_CHECK_SUM_ENABLE
 #define HW_FRG_FEATURE_ENABLE

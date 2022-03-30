@@ -264,8 +264,6 @@ extern struct ccci_ccb_config ccb_configs[];
 	_IOWR(CCCI_IOC_MAGIC, 64, struct ccci_ccb_config)
 #define CCCI_IOC_CCB_CTRL_OFFSET		\
 	_IOR(CCCI_IOC_MAGIC, 65, unsigned int)
-#define CCCI_IOC_GET_CCB_DEBUG_VAL		\
-	_IOWR(CCCI_IOC_MAGIC, 67, struct ccci_ccb_debug)
 
 #define CCCI_IOC_CCB_CTRL_INFO			\
 	_IOWR(CCCI_IOC_MAGIC, 71, struct ccb_ctrl_info)
@@ -284,6 +282,9 @@ extern struct ccci_ccb_config ccb_configs[];
 /* RILD  factory */
 #define CCCI_IOC_LEAVE_DEEP_FLIGHT_ENHANCED     \
 	_IO(CCCI_IOC_MAGIC,  124)
+/* RILD nodify ccci power off md */
+#define CCCI_IOC_RILD_POWER_OFF_MD		\
+	_IO(CCCI_IOC_MAGIC,  125)
 
 #define CCCI_IOC_TEST _IO(CCCI_IOC_MAGIC,  199)
 
@@ -499,6 +500,36 @@ enum CCCI_CH {
 	CCCI_GARB_RX			= 204,
 	CCCI_GARB_TX			= 205,
 
+	CCCI_MIPC0_CHANNEL_RX		= 214,
+	CCCI_MIPC0_CHANNEL_TX		= 215,
+	CCCI_MIPC1_CHANNEL_RX		= 216,
+	CCCI_MIPC1_CHANNEL_TX		= 217,
+	CCCI_MIPC2_CHANNEL_RX		= 218,
+	CCCI_MIPC2_CHANNEL_TX		= 219,
+	CCCI_MIPC3_CHANNEL_RX		= 220,
+	CCCI_MIPC3_CHANNEL_TX		= 221,
+	CCCI_MIPC4_CHANNEL_RX		= 222,
+	CCCI_MIPC4_CHANNEL_TX		= 223,
+	CCCI_MIPC5_CHANNEL_RX		= 224,
+	CCCI_MIPC5_CHANNEL_TX		= 225,
+	CCCI_MIPC6_CHANNEL_RX		= 226,
+	CCCI_MIPC6_CHANNEL_TX		= 227,
+	CCCI_MIPC7_CHANNEL_RX		= 228,
+	CCCI_MIPC7_CHANNEL_TX		= 229,
+	CCCI_MIPC8_CHANNEL_RX		= 230,
+	CCCI_MIPC8_CHANNEL_TX		= 231,
+	CCCI_MIPC9_CHANNEL_RX		= 232,
+	CCCI_MIPC9_CHANNEL_TX		= 233,
+
+	CCCI_EPDG1_RX			= 236,
+	CCCI_EPDG1_TX			= 237,
+	CCCI_EPDG2_RX			= 238,
+	CCCI_EPDG2_TX			= 239,
+	CCCI_EPDG3_RX			= 240,
+	CCCI_EPDG3_TX			= 241,
+	CCCI_EPDG4_RX			= 242,
+	CCCI_EPDG4_TX			= 243,
+
 	CCCI_C2K_PPP_DATA, /* data ch for c2k */
 
 	CCCI_C2K_AT,	/*rild AT ch for c2k*/
@@ -583,6 +614,7 @@ enum md_bc_event {
 	MD_STA_EV_READY,
 	MD_STA_EV_EXCEPTION,
 	MD_STA_EV_STOP,
+	MD_STA_EV_RILD_POWEROFF_START,
 };
 
 /* ========================================================================= */

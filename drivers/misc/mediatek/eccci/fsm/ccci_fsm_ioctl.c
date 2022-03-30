@@ -99,22 +99,6 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 			;
 		ret = 0;
 		break;
-#ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
-#ifdef ENABLE_SIM_LOCK_RANDOM
-	case CCCI_IOC_SIM_LOCK_RANDOM_PATTERN: /* Fix me */
-		if (copy_from_user(&val, (void __user *)arg,
-				sizeof(unsigned int)))
-			CCCI_ERROR_LOG(md_id, FSM,
-			"CCCI_IOC_SIM_LOCK_RANDOM_PATTERN: copy_from_user fail\n");
-
-		CCCI_NORMAL_LOG(md_id, FSM,
-			"get SIM lock random pattern %x\n", data);
-
-		snprintf(buffer, sizeof(buffer), "%x", data);
-		set_env("sml_sync", buffer);
-		break;
-#endif
-#endif
 	case CCCI_IOC_SET_MD_BOOT_MODE:
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(unsigned int))) {
@@ -214,25 +198,15 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case CCCI_IOC_RELOAD_MD_TYPE:
-		data = 0;
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(unsigned int))) {
-			CCCI_NORMAL_LOG(md_id, FSM,
+			CCCI_ERROR_LOG(md_id, FSM,
 				"CCCI_IOC_RELOAD_MD_TYPE: copy_from_user fail\n");
 			ret = -EFAULT;
 		} else {
+			ret = set_soc_md_rt_rat_by_idx(md_id, (unsigned int)data);
 			CCCI_NORMAL_LOG(md_id, FSM,
-				"CCCI_IOC_RELOAD_MD_TYPE: 0x%x\n", data);
-			/* add md type check to
-			 * avoid it being changed to illegal value
-			 */
-			if (check_md_type(data) > 0) {
-				if (set_modem_support_cap(md_id, data) == 0)
-					per_md_data->config.load_type = data;
-			} else {
-				CCCI_ERROR_LOG(md_id, FSM,
-				"invalid MD TYPE: 0x%x\n", data);
-			}
+				"CCCI_IOC_RELOAD_MD_TYPE: %d ret:%d\n", data, ret);
 		}
 		break;
 	case CCCI_IOC_SET_MD_IMG_EXIST:
@@ -248,7 +222,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 			"CCCI_IOC_SET_MD_IMG_EXIST: set done!\n");
 		break;
 	case CCCI_IOC_GET_MD_IMG_EXIST:
-		data = get_md_type_from_lk(md_id);
+		data = get_md_img_type(md_id);
 		if (data) {
 			memset(&per_md_data->md_img_exist, 0,
 				sizeof(per_md_data->md_img_exist));
@@ -272,14 +246,19 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case CCCI_IOC_GET_MD_TYPE:
-		retry = 600;
-		do {
-			data = get_legacy_md_type(md_id);
-			if (data)
-				break;
-			msleep(500);
-			retry--;
-		} while (retry);
+		data = get_md_img_type(md_id);
+		if (!data)
+			data = 3; //MT6580 using this
+		else {
+			retry = 6000;
+			do {
+				data = get_soc_md_rt_rat_idx(md_id);
+				if (data)
+					break;
+				msleep(50);
+				retry--;
+			} while (retry);
+		}
 		CCCI_NORMAL_LOG(md_id, FSM,
 			"CCCI_IOC_GET_MD_TYPE: %d!\n", data);
 		ret = put_user((unsigned int)data,
@@ -572,6 +551,14 @@ long ccci_fsm_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 			CCCI_MD_MSG_FLIGHT_START_REQUEST, 0);
 		inject_md_status_event(md_id, MD_STA_EV_LEAVE_FLIGHT_E_REQUEST,
 					current->comm);
+		break;
+	/* RILD nodify ccci power off md */
+	case CCCI_IOC_RILD_POWER_OFF_MD:
+		CCCI_NORMAL_LOG(md_id, FSM,
+				"MD will power off ioctl called by %s\n",
+				current->comm);
+		inject_md_status_event(md_id, MD_STA_EV_RILD_POWEROFF_START,
+				current->comm);
 		break;
 	case CCCI_IOC_SET_EFUN:
 		if (copy_from_user(&data, (void __user *)arg,

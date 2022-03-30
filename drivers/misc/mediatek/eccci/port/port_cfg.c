@@ -210,6 +210,60 @@ static struct port_t md1_ccci_ports[] = {
 	{CCCI_IKERAW_TX, CCCI_IKERAW_RX, 1, 1, 0xFF, 0xFF,
 		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
 		&char_port_ops, 36, "ccci_ikeraw",},
+/* for EPDG use */
+	{CCCI_EPDG1_TX, CCCI_EPDG1_RX, 1, 1, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 37, "ccci_epdg1",},
+	{CCCI_EPDG2_TX, CCCI_EPDG2_RX, 1, 1, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 38, "ccci_epdg2",},
+	{CCCI_EPDG3_TX, CCCI_EPDG3_RX, 1, 1, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 39, "ccci_epdg3",},
+	{CCCI_EPDG4_TX, CCCI_EPDG4_RX, 1, 1, 0xFF, 0xFF,
+		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
+		&char_port_ops, 40, "ccci_epdg4",},
+	/* for muxd/rild mipc, ttyCMIPC0 ~ 9 */
+	{CCCI_MIPC0_CHANNEL_TX, CCCI_MIPC0_CHANNEL_RX,
+		DATA_AT_CMD_Q, DATA_AT_CMD_Q, 0xFF, 0xFF, MD1_NORMAL_HIF,
+		(PORT_F_WITH_CHAR_NODE|PORT_F_CH_TRAFFIC|PORT_F_DUMP_RAW_DATA),
+		&char_port_ops, 41, "ttyCMIPC0",},
+	{CCCI_MIPC1_CHANNEL_TX, CCCI_MIPC1_CHANNEL_RX,
+		DATA_AT_CMD_Q, DATA_AT_CMD_Q, 0xFF, 0xFF, MD1_NORMAL_HIF,
+		(PORT_F_WITH_CHAR_NODE|PORT_F_CH_TRAFFIC|PORT_F_DUMP_RAW_DATA),
+		&char_port_ops, 42, "ttyCMIPC1",},
+	{CCCI_MIPC2_CHANNEL_TX, CCCI_MIPC2_CHANNEL_RX,
+		DATA_AT_CMD_Q, DATA_AT_CMD_Q, 0xFF, 0xFF, MD1_NORMAL_HIF,
+		(PORT_F_WITH_CHAR_NODE|PORT_F_CH_TRAFFIC|PORT_F_DUMP_RAW_DATA),
+		&char_port_ops, 43, "ttyCMIPC2",},
+	{CCCI_MIPC3_CHANNEL_TX, CCCI_MIPC3_CHANNEL_RX,
+		DATA_AT_CMD_Q, DATA_AT_CMD_Q, 0xFF, 0xFF, MD1_NORMAL_HIF,
+		(PORT_F_WITH_CHAR_NODE|PORT_F_CH_TRAFFIC|PORT_F_DUMP_RAW_DATA),
+		&char_port_ops, 44, "ttyCMIPC3",},
+	{CCCI_MIPC4_CHANNEL_TX, CCCI_MIPC4_CHANNEL_RX,
+		DATA_AT_CMD_Q, DATA_AT_CMD_Q, 0xFF, 0xFF, MD1_NORMAL_HIF,
+		(PORT_F_WITH_CHAR_NODE|PORT_F_CH_TRAFFIC|PORT_F_DUMP_RAW_DATA),
+		&char_port_ops, 45, "ttyCMIPC4",},
+	{CCCI_MIPC5_CHANNEL_TX, CCCI_MIPC5_CHANNEL_RX,
+		DATA_AT_CMD_Q, DATA_AT_CMD_Q, 0xFF, 0xFF, MD1_NORMAL_HIF,
+		(PORT_F_WITH_CHAR_NODE|PORT_F_CH_TRAFFIC|PORT_F_DUMP_RAW_DATA),
+		&char_port_ops, 46, "ttyCMIPC5",},
+	{CCCI_MIPC6_CHANNEL_TX, CCCI_MIPC6_CHANNEL_RX,
+		DATA_AT_CMD_Q, DATA_AT_CMD_Q, 0xFF, 0xFF, MD1_NORMAL_HIF,
+		(PORT_F_WITH_CHAR_NODE|PORT_F_CH_TRAFFIC|PORT_F_DUMP_RAW_DATA),
+		&char_port_ops, 47, "ttyCMIPC6",},
+	{CCCI_MIPC7_CHANNEL_TX, CCCI_MIPC7_CHANNEL_RX,
+		DATA_AT_CMD_Q, DATA_AT_CMD_Q, 0xFF, 0xFF, MD1_NORMAL_HIF,
+		(PORT_F_WITH_CHAR_NODE|PORT_F_CH_TRAFFIC|PORT_F_DUMP_RAW_DATA),
+		&char_port_ops, 48, "ttyCMIPC7",},
+	{CCCI_MIPC8_CHANNEL_TX, CCCI_MIPC8_CHANNEL_RX,
+		DATA_AT_CMD_Q, DATA_AT_CMD_Q, 0xFF, 0xFF, MD1_NORMAL_HIF,
+		(PORT_F_WITH_CHAR_NODE|PORT_F_CH_TRAFFIC|PORT_F_DUMP_RAW_DATA),
+		&char_port_ops, 49, "ttyCMIPC8",},
+	{CCCI_MIPC9_CHANNEL_TX, CCCI_MIPC9_CHANNEL_RX,
+		DATA_AT_CMD_Q, DATA_AT_CMD_Q, 0xFF, 0xFF, MD1_NORMAL_HIF,
+		(PORT_F_WITH_CHAR_NODE|PORT_F_CH_TRAFFIC|PORT_F_DUMP_RAW_DATA),
+		&char_port_ops, 50, "ttyCMIPC9",},
 /* IPC char port minor= minor idx + CCCI_IPC_MINOR_BASE(100) */
 	{CCCI_IPC_TX, CCCI_IPC_RX, 1, 1, 0xFF, 0xFF,
 		MD1_NORMAL_HIF, PORT_F_WITH_CHAR_NODE,
@@ -462,6 +516,10 @@ int find_port_by_channel(int index, struct port_t **port)
 
 int mtk_ccci_open_port(int index)
 {
+	if (index < 0 || index >= ARRAY_SIZE(md1_ccci_ports)) {
+		CCCI_ERROR_LOG(-1, PORT, "invalid index = %d\n", index);
+		return -EBUSY;
+	}
 	if (md1_ccci_ports[index].rx_ch != CCCI_CCB_CTRL &&
 		atomic_read(&md1_ccci_ports[index].usage_cnt))
 		return -EBUSY;
@@ -472,7 +530,10 @@ EXPORT_SYMBOL(mtk_ccci_open_port);
 
 int mtk_ccci_release_port(int index)
 {
-
+	if (index < 0 || index >= ARRAY_SIZE(md1_ccci_ports)) {
+		CCCI_ERROR_LOG(-1, PORT, "invalid index = %d\n", index);
+		return -EBUSY;
+	}
 	atomic_dec(&md1_ccci_ports[index].usage_cnt);
 	return 0;
 }

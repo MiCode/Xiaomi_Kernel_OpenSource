@@ -17,6 +17,10 @@
 
 #define QUEUE_NUM   16
 
+/* speciall for user: ccci_fsd data[0] */
+#define CCCI_FS_AP_CCCI_WAKEUP (0x40000000)
+#define CCCI_FS_REQ_SEND_AGAIN 0x80000000
+
 /*#define FLOW_CTRL_ENABLE*/
 #define FLOW_CTRL_HEAD		0x464C4F57	/*FLOW*/
 #define FLOW_CTRL_TAIL		0x4354524C	/*CTRL*/
@@ -99,6 +103,7 @@ struct md_ccif_ctrl {
 	void __iomem *md_pcore_pccif_base;
 	void __iomem *md_ccif4_base;
 	void __iomem *md_ccif5_base;
+	struct regmap *pericfg_base;
 	unsigned int ap_ccif_irq0_id;
 	unsigned int ap_ccif_irq1_id;
 	unsigned long ap_ccif_irq0_flags;
@@ -291,6 +296,9 @@ extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
 extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
 extern void mt_irq_set_sens(unsigned int irq, unsigned int sens);
 extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity);
+#if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
+extern void mt_irq_dump_status(unsigned int irq);
+#endif
 /* used for throttling feature - start */
 extern unsigned long ccci_modem_boot_count[];
 extern int md_fsm_exp_info(int md_id, unsigned int channel_id);
