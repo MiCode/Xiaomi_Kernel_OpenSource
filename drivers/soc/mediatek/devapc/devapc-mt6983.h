@@ -18,15 +18,6 @@
 #define PLAT_DBG_WARN_DEFAULT		true
 #define PLAT_DBG_DAPC_DEFAULT		false
 
-/* devapc status default setting */
-#define ENABLE_DEVAPC_INFRA		1
-#define ENABLE_DEVAPC_INFRA1		1
-#define ENABLE_DEVAPC_PERI		1
-#define ENABLE_DEVAPC_VLP		1
-#define ENABLE_DEVAPC_ADSP		1
-#define ENABLE_DEVAPC_MMINFRA		1
-#define ENABLE_DEVAPC_MMUP		1
-
 /******************************************************************************
  * STRUCTURE DEFINITION
  ******************************************************************************/
@@ -35,15 +26,9 @@ enum DEVAPC_SLAVE_TYPE {
 	SLAVE_TYPE_INFRA1,
 	SLAVE_TYPE_PERI_PAR,
 	SLAVE_TYPE_VLP,
-#if ENABLE_DEVAPC_ADSP
 	SLAVE_TYPE_ADSP,
-#endif
-#if ENABLE_DEVAPC_MMINFRA
 	SLAVE_TYPE_MMINFRA,
-#endif
-#if ENABLE_DEVAPC_MMUP
 	SLAVE_TYPE_MMUP,
-#endif
 	SLAVE_TYPE_NUM,
 };
 
@@ -52,15 +37,9 @@ enum DEVAPC_VIO_MASK_STA_NUM {
 	VIO_MASK_STA_NUM_INFRA1 = 11,
 	VIO_MASK_STA_NUM_PERI_PAR = 3,
 	VIO_MASK_STA_NUM_VLP = 4,
-#if ENABLE_DEVAPC_ADSP
 	VIO_MASK_STA_NUM_ADSP = 3,
-#endif
-#if ENABLE_DEVAPC_MMINFRA
 	VIO_MASK_STA_NUM_MMINFRA = 15,
-#endif
-#if ENABLE_DEVAPC_MMUP
 	VIO_MASK_STA_NUM_MMUP = 4,
-#endif
 };
 
 enum DEVAPC_PD_OFFSET {
@@ -123,15 +102,9 @@ struct MMINFRAAXI_ID_INFO {
 enum DEVAPC_IRQ_TYPE {
 	IRQ_TYPE_INFRA = 0,
 	IRQ_TYPE_VLP,
-#if ENABLE_DEVAPC_ADSP
 	IRQ_TYPE_ADSP,
-#endif
-#if ENABLE_DEVAPC_MMINFRA
 	IRQ_TYPE_MMINFRA,
-#endif
-#if ENABLE_DEVAPC_MMUP
 	IRQ_TYPE_MMUP,
-#endif
 	IRQ_TYPE_NUM,
 };
 
@@ -174,6 +147,15 @@ enum ADSP_MI_SELECT {
 
 #define SRAM_START_ADDR				(0x100000)
 #define SRAM_END_ADDR				(0x1FFFFF)
+
+#define L3CACHE_0_START				(0x01000000)
+#define L3CACHE_0_END				(0x02FFFFFF)
+#define L3CACHE_1_START				(0x0A000000)
+#define L3CACHE_1_END				(0x0C1FFFFF)
+#define L3CACHE_2_START				(0x0C400000)
+#define L3CACHE_2_END				(0x0C7FFFFF)
+#define L3CACHE_3_START				(0x0C802000)
+#define L3CACHE_3_END				(0x0CFFFFFF)
 
 /* For VLP Bus Parser */
 #define VLP_SCP_START_ADDR			(0x1C400000)
@@ -1185,7 +1167,6 @@ static const struct mtk_device_info mt6983_devices_vlp[] = {
 	{-1, -1, 100, "DEVICE_APC_VLP_PDN", false},
 };
 
-#if ENABLE_DEVAPC_ADSP
 static const struct mtk_device_info mt6983_devices_adsp[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
 	/* 0 */
@@ -1273,9 +1254,7 @@ static const struct mtk_device_info mt6983_devices_adsp[] = {
 	{-1, -1, 69, "DEVICE_APC_AO_AUD_BUS_AO_PD", false},
 	{-1, -1, 70, "DEVICE_APC_AUD_BUS_AO_PDN", false},
 };
-#endif
 
-#if ENABLE_DEVAPC_MMINFRA
 static const struct mtk_device_info mt6983_devices_mminfra[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
 	/* 0 */
@@ -1822,9 +1801,7 @@ static const struct mtk_device_info mt6983_devices_mminfra[] = {
 	{-1, -1, 459, "DEVICE_APC_MM_AO", false},
 	{-1, -1, 460, "DEVICE_APC_MM_PDN", false},
 };
-#endif
 
-#if ENABLE_DEVAPC_MMUP
 static const struct mtk_device_info mt6983_devices_mmup[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
 	/* 0 */
@@ -1970,32 +1947,15 @@ static const struct mtk_device_info mt6983_devices_mmup[] = {
 	{-1, -1, 123, "DEVICE_APC_MMUP_AO", false},
 	{-1, -1, 124, "DEVICE_APC_MMUP_PDN", false},
 };
-#endif
 
 enum DEVAPC_VIO_SLAVE_NUM {
 	VIO_SLAVE_NUM_INFRA = ARRAY_SIZE(mt6983_devices_infra),
 	VIO_SLAVE_NUM_INFRA1 = ARRAY_SIZE(mt6983_devices_infra1),
 	VIO_SLAVE_NUM_PERI_PAR = ARRAY_SIZE(mt6983_devices_peri_par),
 	VIO_SLAVE_NUM_VLP = ARRAY_SIZE(mt6983_devices_vlp),
-#if ENABLE_DEVAPC_ADSP
 	VIO_SLAVE_NUM_ADSP = ARRAY_SIZE(mt6983_devices_adsp),
-#endif
-#if ENABLE_DEVAPC_MMINFRA
 	VIO_SLAVE_NUM_MMINFRA = ARRAY_SIZE(mt6983_devices_mminfra),
-#endif
-#if ENABLE_DEVAPC_MMUP
 	VIO_SLAVE_NUM_MMUP = ARRAY_SIZE(mt6983_devices_mmup),
-#endif
 };
-
-int __weak mmup_enable_count(void)
-{
-	return 0;
-}
-
-bool __weak is_adsp_feature_in_active(void)
-{
-	return 0;
-}
 
 #endif /* __DEVAPC_MT6983_H__ */
