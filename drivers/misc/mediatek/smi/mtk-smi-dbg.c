@@ -830,6 +830,8 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 			mtk_smi_dbg_print(smi, true, true, i, false);
 	}
 
+	mtk_smi_dump_last_pd(user);
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_smi_dbg_hang_detect);
@@ -1089,5 +1091,3 @@ static struct kernel_param_ops smi_larb_force_all_put_ops = {
 };
 module_param_cb(smi_force_all_put, &smi_larb_force_all_put_ops, NULL, 0644);
 MODULE_PARM_DESC(smi_force_all_put, "smi larb force all put");
-
-

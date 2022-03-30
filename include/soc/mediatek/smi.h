@@ -35,11 +35,13 @@ void mtk_smi_larb_bw_set(struct device *dev, const u32 port, const u32 val);
 s32 mtk_smi_dbg_hang_detect(const char *user);
 void mtk_smi_add_device_link(struct device *dev, struct device *larbdev);
 void mtk_smi_init_power_off(void);
+void mtk_smi_dump_last_pd(const char *user);
 s32 smi_sysram_enable(struct device *larbdev, const u32 master_id,
 			const bool enable, const char *user);
 s32 mtk_smi_dbg_cg_status(void);
 void mtk_smi_check_comm_ref_cnt(struct device *dev);
 void mtk_smi_check_larb_ref_cnt(struct device *dev);
+int mtk_smi_larb_ultra_dis(struct device *larbdev, bool is_dis);
 #else
 
 
@@ -81,9 +83,17 @@ mtk_smi_add_device_link(struct device *dev, struct device *larbdev) { }
 
 static inline void mtk_smi_init_power_off(void) { }
 
+static inline void mtk_smi_dump_last_pd(const char *user) { }
+
 static inline
 s32 smi_sysram_enable(struct device *larbdev, const u32 master_id,
 			const bool enable, const char *user)
+{
+	return 0;
+}
+
+static inline
+int mtk_smi_larb_ultra_dis(struct device *larbdev, bool is_dis)
 {
 	return 0;
 }
