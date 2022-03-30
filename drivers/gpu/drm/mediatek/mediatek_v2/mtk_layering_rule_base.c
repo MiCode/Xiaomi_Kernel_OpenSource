@@ -396,8 +396,7 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 #define _HRT_FMT \
 	"HRT hrt_num:0x%x/mod:%d/dal:%d/addon_scn:(%d, %d, %d)/bd_tb:%d/i:%d\n"
 #define _L_FMT \
-	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x" \
-	"/compr%d/secure%d\n"
+	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x/compr%d/secure%d\n"
 
 	if (debug_level < DISP_DEBUG_LEVEL_INFO) {
 		DDPMSG(_HRT_FMT,
@@ -1258,25 +1257,6 @@ static int get_layer_weight(int disp_idx,
 	return weight * bpp;
 }
 
-void calc_mml_ir_layer_weight(struct drm_mtk_layering_info *disp_info,
-	int disp, int layer_idx, int *overlap_w)
-{
-	struct mml_frame_info *mml_info = NULL;
-	uint32_t src_size = 0, dst_size = 0;
-
-	if (disp_info == NULL || overlap_w == NULL)
-		return;
-
-	mml_info = &(disp_info->mml_cfg[disp][layer_idx]);
-	src_size = mml_info->dest[0].crop.r.width * mml_info->dest[0].crop.r.height;
-	dst_size = mml_info->dest[0].data.width * mml_info->dest[0].data.height;
-
-	if (src_size && dst_size)
-		*overlap_w = ((uint64_t)((uint64_t)*overlap_w) * src_size) / dst_size;
-	DDPINFO("%s:%d overlap_w:%d, src:%u, dst:%u\n",
-		__func__, __LINE__, *overlap_w, src_size, dst_size);
-}
-
 static int _calc_hrt_num(struct drm_device *dev,
 			 struct drm_mtk_layering_info *disp_info, int disp,
 			 int hrt_type, bool force_scan_y, bool has_dal_layer)
@@ -1317,7 +1297,12 @@ static int _calc_hrt_num(struct drm_device *dev,
 		int ovl_idx;
 
 		layer_info = &disp_info->input_config[disp][i];
-		if (disp_info->gles_head[disp] == -1 ||
+		if ((hrt_type == HRT_TYPE_EMI) &&
+			MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & layer_info->layer_caps) {
+			// Totally have no idea what larb is, and what it should do
+			// if layer is inline-rotate, buffer is come from SRAM
+			// so we don't have to calculate it
+		} else if (disp_info->gles_head[disp] == -1 ||
 		    (i < disp_info->gles_head[disp] ||
 		     i > disp_info->gles_tail[disp])) {
 			if (hrt_type != HRT_TYPE_EMI) {
@@ -1335,10 +1320,6 @@ static int _calc_hrt_num(struct drm_device *dev,
 					continue;
 			}
 			overlap_w = get_layer_weight(disp, layer_info);
-
-			if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & layer_info->layer_caps)
-				calc_mml_ir_layer_weight(disp_info, disp, i, &overlap_w);
-
 			sum_overlap_w += overlap_w;
 			add_layer_entry(layer_info, true, overlap_w);
 		} else if (i == disp_info->gles_head[disp]) {
