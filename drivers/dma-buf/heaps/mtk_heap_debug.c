@@ -1715,3 +1715,4 @@ static void __exit mtk_dma_heap_debug_exit(void)
 module_init(mtk_dma_heap_debug);
 module_exit(mtk_dma_heap_debug_exit);
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(MINIDUMP);

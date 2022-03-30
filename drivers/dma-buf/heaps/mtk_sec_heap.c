@@ -1138,8 +1138,8 @@ static struct dma_buf *tmem_region_allocate(struct dma_heap *heap,
 	struct secure_heap_region *sec_heap = sec_heap_region_get(heap);
 
 	if (!sec_heap) {
-		pr_err("%s, can not find secure heap!!\n",
-			__func__, heap ? dma_heap_get_name(heap) : "null ptr");
+		pr_err("%s, can not find secure heap(%s)!!\n",
+			__func__, (heap ? dma_heap_get_name(heap) : "null ptr"));
 		return ERR_PTR(-EINVAL);
 	}
 

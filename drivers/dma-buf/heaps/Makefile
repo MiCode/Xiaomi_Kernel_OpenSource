@@ -7,3 +7,4 @@ obj-$(CONFIG_DMABUF_HEAPS_CMA)		+= cma_heap.o
 ccflags-y += -I$(srctree)/drivers/iommu/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/
 obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)	+= mtk_sec_heap.o
+obj-$(CONFIG_DMABUF_HEAPS_DEBUG) += mtk_heap_debug.o

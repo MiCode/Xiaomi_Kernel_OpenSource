@@ -256,11 +256,6 @@ static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attac
 		/* mapped before, return saved table */
 		ret = copy_sg_table(buffer->mapped_table[tab_id][dom_id], table);
 
-		/* update device info */
-		buffer->dev_info[tab_id][dom_id].dev = attachment->dev;
-		buffer->dev_info[tab_id][dom_id].direction = direction;
-		buffer->dev_info[tab_id][dom_id].map_attrs = attr;
-
 		mutex_unlock(&buffer->map_lock);
 		if (ret)
 			return ERR_PTR(-EINVAL);
@@ -481,9 +476,28 @@ static void system_heap_vunmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
 	dma_buf_map_clear(map);
 }
 
+static int system_heap_zero_buffer(struct system_heap_buffer *buffer)
+{
+	struct sg_table *sgt = &buffer->sg_table;
+	struct sg_page_iter piter;
+	struct page *p;
+	void *vaddr;
+	int ret = 0;
+
+	for_each_sgtable_page(sgt, &piter, 0) {
+		p = sg_page_iter_page(&piter);
+		vaddr = kmap_atomic(p);
+		memset(vaddr, 0, PAGE_SIZE);
+		kunmap_atomic(vaddr);
+	}
+
+	return ret;
+}
+
 static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
+	unsigned long buf_len = buffer->len;
 	struct sg_table *table;
 	struct scatterlist *sg;
 	int i, j;
@@ -516,58 +530,42 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 		}
 	}
 
-	if (atomic64_sub_return(buffer->len, &dma_heap_normal_total) < 0) {
+	/* Zero the buffer pages before adding back to the pool */
+	system_heap_zero_buffer(buffer);
+
+	/* free buffer memory */
+	table = &buffer->sg_table;
+	for_each_sgtable_sg(table, sg, i) {
+		struct page *page = sg_page(sg);
+
+		for (j = 0; j < NUM_ORDERS; j++) {
+			if (compound_order(page) == orders[j])
+				break;
+		}
+		dmabuf_page_pool_free(pools[j], page);
+	}
+	sg_free_table(table);
+	kfree(buffer);
+
+	if (atomic64_sub_return(buf_len, &dma_heap_normal_total) < 0) {
 		pr_info("warn: %s, total memory underflow, 0x%lx!!, reset as 0\n",
 			__func__, atomic64_read(&dma_heap_normal_total));
 		atomic64_set(&dma_heap_normal_total, 0);
 	}
-
-	/* free buffer memory */
-	table = &buffer->sg_table;
-	for_each_sg(table->sgl, sg, table->nents, i) {
-		struct page *page = sg_page(sg);
-
-		__free_pages(page, compound_order(page));
-	}
-	sg_free_table(table);
-	kfree(buffer);
-}
-
-static int system_heap_zero_buffer(struct system_heap_buffer *buffer)
-{
-	struct sg_table *sgt = &buffer->sg_table;
-	struct sg_page_iter piter;
-	struct page *p;
-	void *vaddr;
-	int ret = 0;
-
-	for_each_sgtable_page(sgt, &piter, 0) {
-		p = sg_page_iter_page(&piter);
-		vaddr = kmap_atomic(p);
-		memset(vaddr, 0, PAGE_SIZE);
-		kunmap_atomic(vaddr);
-	}
-
-	return ret;
 }
 
 static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
+	unsigned long buf_len = buffer->len;
 	struct sg_table *table;
 	struct scatterlist *sg;
 	int i, j;
 
-	/* Zero the buffer pages before adding back to the pool */
-	system_heap_zero_buffer(buffer);
-
 	dmabuf_release_check(dmabuf);
 
-	if (atomic64_sub_return(buffer->len, &dma_heap_normal_total) < 0) {
-		pr_info("warn: %s, total memory underflow, 0x%lx!!, reset as 0\n",
-			__func__, atomic64_read(&dma_heap_normal_total));
-		atomic64_set(&dma_heap_normal_total, 0);
-	}
+	/* Zero the buffer pages before adding back to the pool */
+	system_heap_zero_buffer(buffer);
 
 	table = &buffer->sg_table;
 	for_each_sgtable_sg(table, sg, i) {
@@ -581,6 +579,12 @@ static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
 	}
 	sg_free_table(table);
 	kfree(buffer);
+
+	if (atomic64_sub_return(buf_len, &dma_heap_normal_total) < 0) {
+		pr_info("warn: %s, total memory underflow, 0x%lx!!, reset as 0\n",
+			__func__, atomic64_read(&dma_heap_normal_total));
+		atomic64_set(&dma_heap_normal_total, 0);
+	}
 }
 
 static int system_heap_dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
@@ -661,6 +665,12 @@ static struct dma_buf *system_heap_do_allocate(struct dma_heap *heap,
 	struct page *page, *tmp_page;
 	int i, ret = -ENOMEM;
 	struct task_struct *task = current->group_leader;
+
+	if (len / PAGE_SIZE > totalram_pages()) {
+		pr_info("%s error: len %ld is more than %ld\n",
+			__func__, len, totalram_pages() * PAGE_SIZE);
+		return ERR_PTR(-ENOMEM);
+	}
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer)
@@ -901,10 +911,37 @@ static struct mtk_heap_priv_info system_heap_priv = {
 	.buf_priv_dump = system_heap_buf_priv_dump,
 };
 
+static int set_heap_dev_dma(struct device *heap_dev)
+{
+	int err = 0;
+
+	if (!heap_dev)
+		return -EINVAL;
+
+	dma_coerce_mask_and_coherent(heap_dev, DMA_BIT_MASK(64));
+
+	if (!heap_dev->dma_parms) {
+		heap_dev->dma_parms = devm_kzalloc(heap_dev,
+						   sizeof(*heap_dev->dma_parms),
+						   GFP_KERNEL);
+		if (!heap_dev->dma_parms)
+			return -ENOMEM;
+
+		err = dma_set_max_seg_size(heap_dev, (unsigned int)DMA_BIT_MASK(64));
+		if (err) {
+			devm_kfree(heap_dev, heap_dev->dma_parms);
+			dev_err(heap_dev, "Failed to set DMA segment size, err:%d\n", err);
+			return err;
+		}
+	}
+
+	return 0;
+}
+
 static int system_heap_create(void)
 {
 	struct dma_heap_export_info exp_info;
-	int i;
+	int i, err = 0;
 
 	for (i = 0; i < NUM_ORDERS; i++) {
 		pools[i] = dmabuf_page_pool_create(order_flags[i], orders[i]);
@@ -945,7 +982,10 @@ static int system_heap_create(void)
 	if (IS_ERR(sys_uncached_heap))
 		return PTR_ERR(sys_uncached_heap);
 
-	dma_coerce_mask_and_coherent(dma_heap_get_dev(sys_uncached_heap), DMA_BIT_MASK(64));
+	err = set_heap_dev_dma(dma_heap_get_dev(sys_uncached_heap));
+	if (err)
+		return err;
+
 	mb(); /* make sure we only set allocate after dma_mask is set */
 	system_uncached_heap_ops.allocate = system_uncached_heap_allocate;
 	pr_info("%s add heap[%s] success\n", __func__, exp_info.name);
@@ -957,7 +997,9 @@ static int system_heap_create(void)
 	if (IS_ERR(mtk_mm_uncached_heap))
 		return PTR_ERR(mtk_mm_uncached_heap);
 
-	dma_coerce_mask_and_coherent(dma_heap_get_dev(mtk_mm_uncached_heap), DMA_BIT_MASK(64));
+	err = set_heap_dev_dma(dma_heap_get_dev(mtk_mm_uncached_heap));
+	if (err)
+		return err;
 	mb(); /* make sure we only set allocate after dma_mask is set */
 	mtk_mm_uncached_heap_ops.allocate = mtk_mm_uncached_heap_allocate;
 	pr_info("%s add heap[%s] success\n", __func__, exp_info.name);
