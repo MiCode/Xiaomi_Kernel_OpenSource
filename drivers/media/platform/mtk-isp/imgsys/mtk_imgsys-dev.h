@@ -777,6 +777,7 @@ DECLARE_VLIST(swfrm_info_t);
 struct buf_va_info_t {
 	int buf_fd;
 	unsigned long kva;
+	struct dma_buf_map map;
 	void *dma_buf_putkva;
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;

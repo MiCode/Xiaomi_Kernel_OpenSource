@@ -325,7 +325,7 @@ static int mtk_imgsys_vb2_meta_buf_init(struct vb2_buffer *vb)
 	struct mtk_imgsys_pipe *pipe = vb2_get_drv_priv(vb->vb2_queue);
 	struct mtk_imgsys_video_device *node =
 					mtk_imgsys_vbq_to_node(vb->vb2_queue);
-	phys_addr_t buf_paddr;
+	/* phys_addr_t buf_paddr; */
 
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s:%s: buf type(%d), idx(%d), mem(%d)\n",
@@ -333,7 +333,8 @@ static int mtk_imgsys_vb2_meta_buf_init(struct vb2_buffer *vb)
 		b->vb2_buf.index, b->vb2_buf.memory);
 
 	if (b->vb2_buf.memory == VB2_MEMORY_DMABUF) {
-		dev_buf->scp_daddr[0] = vb2_dma_contig_plane_dma_addr(vb, 0);
+
+		/* dev_buf->scp_daddr[0] = vb2_dma_contig_plane_dma_addr(vb, 0); */
 
 		/*
 		 * We got the incorrect physical address mapped when
@@ -341,21 +342,22 @@ static int mtk_imgsys_vb2_meta_buf_init(struct vb2_buffer *vb)
 		 * directly to workaround here. Please see the detail in
 		 * mtk_imgsys-sys.c
 		 */
-		buf_paddr = dev_buf->scp_daddr[0];
-		dev_buf->isp_daddr[0] =	dma_map_page_attrs(
-							pipe->imgsys_dev->dev,
-							phys_to_page(buf_paddr),
-							0, vb->planes[0].length,
-							DMA_BIDIRECTIONAL,
-							DMA_ATTR_SKIP_CPU_SYNC);
-		if (dma_mapping_error(pipe->imgsys_dev->dev,
-				      dev_buf->isp_daddr[0])) {
-			dev_info(pipe->imgsys_dev->dev,
-				"%s:%s: failed to map buffer: s_daddr(0x%llx)\n",
-				pipe->desc->name, node->desc->name,
-				dev_buf->scp_daddr[0]);
-			return -EINVAL;
-		}
+		/* buf_paddr = dev_buf->scp_daddr[0];
+		 * dev_buf->isp_daddr[0] =	dma_map_page_attrs(
+		 *					pipe->imgsys_dev->dev,
+		 *					phys_to_page(buf_paddr),
+		 *					0, vb->planes[0].length,
+		 *					DMA_BIDIRECTIONAL,
+		 *					DMA_ATTR_SKIP_CPU_SYNC);
+		 * if (dma_mapping_error(pipe->imgsys_dev->dev,
+		 *		      dev_buf->isp_daddr[0])) {
+		 *	dev_info(pipe->imgsys_dev->dev,
+		 *		"%s:%s: failed to map buffer: s_daddr(0x%llx)\n",
+		 *		pipe->desc->name, node->desc->name,
+		 *		dev_buf->scp_daddr[0]);
+		 *	return -EINVAL;
+		 * }
+		 */
 	} else if (b->vb2_buf.memory == VB2_MEMORY_MMAP) {
 #if MTK_CM4_SUPPORT == 0
 		dev_buf->va_daddr[0] = (u64)vb2_plane_vaddr(vb, 0);
@@ -403,15 +405,14 @@ static int mtk_imgsys_vb2_video_buf_init(struct vb2_buffer *vb)
 static void mtk_imgsys_vb2_queue_meta_buf_cleanup(struct vb2_buffer *vb)
 {
 	struct vb2_v4l2_buffer *b = to_vb2_v4l2_buffer(vb);
-	struct mtk_imgsys_dev_buffer *dev_buf =
-					mtk_imgsys_vb2_buf_to_dev_buf(vb);
-	struct mtk_imgsys_pipe *pipe = vb2_get_drv_priv(vb->vb2_queue);
-
+	// struct mtk_imgsys_dev_buffer *dev_buf =
+					// mtk_imgsys_vb2_buf_to_dev_buf(vb);
+	// struct mtk_imgsys_pipe *pipe = vb2_get_drv_priv(vb->vb2_queue);
 	if (b->vb2_buf.memory == VB2_MEMORY_DMABUF) {
-		dma_unmap_page_attrs(pipe->imgsys_dev->dev,
-				     dev_buf->isp_daddr[0],
-				     vb->planes[0].length, DMA_BIDIRECTIONAL,
-				     DMA_ATTR_SKIP_CPU_SYNC);
+		// dma_unmap_page_attrs(pipe->imgsys_dev->dev,
+				     // dev_buf->isp_daddr[0],
+				     // vb->planes[0].length, DMA_BIDIRECTIONAL,
+				     // DMA_ATTR_SKIP_CPU_SYNC);
 	}
 }
 
@@ -1476,11 +1477,12 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 		if (ret)
 			pr_info("%s, map kernel va failed\n", __func__);
 		buf_va_info->kva = (u64)map.vaddr;
+		buf_va_info->map = map;
 		buf_va_info->dma_buf_putkva = dmabuf;
 
 		attach = dma_buf_attach(dmabuf, imgsys_pipe->imgsys_dev->dev);
 		if (IS_ERR(attach)) {
-			dma_buf_vunmap(dmabuf, (void *)buf_va_info->kva);
+			dma_buf_vunmap(dmabuf, &buf_va_info->map);
 			dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_put(dmabuf);
 			vfree(buf_va_info);
@@ -1490,7 +1492,7 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 
 		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 		if (IS_ERR(sgt)) {
-			dma_buf_vunmap(dmabuf, (void *)buf_va_info->kva);
+			dma_buf_vunmap(dmabuf, &buf_va_info->map);
 			dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_detach(dmabuf, attach);
 			dma_buf_put(dmabuf);
@@ -1554,7 +1556,7 @@ static int mtkdip_ioc_del_kva(struct v4l2_subdev *subdev, void *arg)
 		mutex_unlock(&(kva_list->mymutex));
 
 		dmabuf = buf_va_info->dma_buf_putkva;
-		dma_buf_vunmap(dmabuf, (void *)buf_va_info->kva);
+		dma_buf_vunmap(dmabuf, &buf_va_info->map);
 		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 
 		dma_buf_unmap_attachment(buf_va_info->attach, buf_va_info->sgt,

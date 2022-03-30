@@ -357,6 +357,7 @@ struct mtk_hcp_reserve_mblock {
 	phys_addr_t start_dma;
 	phys_addr_t size;
 	uint8_t is_dma_buf;
+	struct dma_buf_map map;
 	/*new add*/
 	int mmap_cnt;
 	void *mem_priv;

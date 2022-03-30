@@ -645,7 +645,7 @@ void mtk_imgsys_put_dma_buf(struct dma_buf *dma_buf,
 	}
 }
 
-void *get_kva(struct mtk_imgsys_dev_buffer *buf)
+void *get_kva(struct mtk_imgsys_dev_buffer *buf, struct dma_buf_map *imap)
 {
 	struct dma_buf *dmabuf;
 	struct dma_buf_map map;
@@ -672,7 +672,7 @@ void *get_kva(struct mtk_imgsys_dev_buffer *buf)
 		goto ERROR;
 	}
 	desc = (struct header_desc *)map.vaddr;
-
+	*imap = map;
 	//Keep dmabuf used in latter for put kva
 	buf->dma_buf_putkva = dmabuf;
 
@@ -695,7 +695,7 @@ static void put_kva(struct buf_va_info_t *buf_va_info)
 
 	dmabuf = buf_va_info->dma_buf_putkva;
 	if (!IS_ERR(dmabuf)) {
-		dma_buf_vunmap(dmabuf, (void *)buf_va_info->kva);
+		dma_buf_vunmap(dmabuf, &buf_va_info->map);
 		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 		dma_buf_unmap_attachment(buf_va_info->attach, buf_va_info->sgt,
 			DMA_BIDIRECTIONAL);
@@ -789,6 +789,7 @@ static void mtk_imgsys_kva_cache(struct mtk_imgsys_dev_buffer *dev_buf)
 	struct list_head *ptr = NULL;
 	bool find = false;
 	struct buf_va_info_t *buf_va_info;
+	struct dma_buf_map map;
 
 	mutex_lock(&(fd_kva_info_list.mymutex));
 	list_for_each(ptr, &(fd_kva_info_list.mylist)) {
@@ -808,7 +809,7 @@ static void mtk_imgsys_kva_cache(struct mtk_imgsys_dev_buffer *dev_buf)
 				dev_buf->va_daddr[0]);
 	} else {
 		mutex_unlock(&(fd_kva_info_list.mymutex));
-		dev_buf->va_daddr[0] = (u64)get_kva(dev_buf);
+		dev_buf->va_daddr[0] = (u64)get_kva(dev_buf, &map);
 
 		buf_va_info = (struct buf_va_info_t *)
 			vzalloc(sizeof(vlist_type(struct buf_va_info_t)));
@@ -819,6 +820,7 @@ static void mtk_imgsys_kva_cache(struct mtk_imgsys_dev_buffer *dev_buf)
 		}
 		buf_va_info->buf_fd = dev_buf->vbb.vb2_buf.planes[0].m.fd;
 		buf_va_info->kva = dev_buf->va_daddr[0];
+		buf_va_info->map = map;
 		buf_va_info->dma_buf_putkva = (void *)dev_buf->dma_buf_putkva;
 
 		mutex_lock(&(fd_kva_info_list.mymutex));
