@@ -568,17 +568,17 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	dev_info(imgsys_dev->dev, "%s: dipctl_dbg_sel_tnc\n", __func__);
 	iowrite32(0x18801, (void *)(dipRegBA + DIPCTL_DBG_SEL));
 	for (i = 0; i < 17; i++) {
-		iowrite32((0x1 + i), (void *)(dipRegBA + TNC_DEBUG_SET));
+		iowrite32((0x1 + i), (void *)(gdipRegBA[1] + TNC_DEBUG_SET));
 		dev_info(imgsys_dev->dev, "%s: tnc_debug: %08X", __func__,
 		(unsigned int)ioread32((void *)(dipRegBA + DIPCTL_DBG_OUT)));
 	}
 	for (i = TNC_CTL_OFFSET; i <= TNC_CTL_OFFSET + TNC_CTL_RANGE; i += 0x10) {
 		dev_info(imgsys_dev->dev, "%s: [0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
-		__func__, (unsigned int)(0x15100000 + i),
-		(unsigned int)ioread32((void *)(dipRegBA + i)),
-		(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
-		(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
-		(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+		__func__, (unsigned int)(0x15150000 + i),
+		(unsigned int)ioread32((void *)(gdipRegBA[1] + i)),
+		(unsigned int)ioread32((void *)(gdipRegBA[1] + i + 0x4)),
+		(unsigned int)ioread32((void *)(gdipRegBA[1] + i + 0x8)),
+		(unsigned int)ioread32((void *)(gdipRegBA[1] + i + 0xc)));
 	}
 
 
