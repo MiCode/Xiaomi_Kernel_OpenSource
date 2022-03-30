@@ -15,6 +15,26 @@
 
 static struct class *charger_algorithm_class;
 
+static const char *const chg_alg_notify_evt_name[EVT_MAX] = {
+	[EVT_PLUG_IN] = "EVT_PLUG_IN",
+	[EVT_PLUG_OUT] = "EVT_PLUG_OUT",
+	[EVT_FULL] = "EVT_FULL",
+	[EVT_RECHARGE] = "EVT_RECHARGE",
+	[EVT_DETACH] = "EVT_DETACH",
+	[EVT_HARDRESET] = "EVT_HARDRESET",
+	[EVT_VBUSOVP] = "EVT_VBUSOVP",
+	[EVT_IBUSOCP] = "EVT_IBUSOCP",
+	[EVT_IBUSUCP_FALL] = "EVT_IBUSUCP_FALL",
+	[EVT_VBATOVP] = "EVT_VBATOVP",
+	[EVT_IBATOCP] = "EVT_IBATOCP",
+	[EVT_VOUTOVP] = "EVT_VOUTOVP",
+	[EVT_VDROVP] = "EVT_VDROVP",
+	[EVT_VBATOVP_ALARM] = "EVT_VBATOVP_ALARM",
+	[EVT_VBUSOVP_ALARM] = "EVT_VBUSOVP_ALARM",
+	[EVT_BATPRO_DONE] = "EVT_BATPRO_DONE",
+	[EVT_ALGO_STOP] = "EVT_ALGO_STOP",
+};
+
 static void chg_alg_device_release(struct device *dev)
 {
 	struct chg_alg_device *chg_dev = to_chg_alg_dev(dev);
@@ -142,6 +162,13 @@ char *chg_alg_state_to_str(int state)
 	return "chg_alg_state_UNKNOWN";
 }
 EXPORT_SYMBOL(chg_alg_state_to_str);
+
+extern const char *const
+chg_alg_notify_evt_tostring(enum chg_alg_notifier_events evt)
+{
+	return chg_alg_notify_evt_name[evt];
+}
+EXPORT_SYMBOL(chg_alg_notify_evt_tostring);
 
 int register_chg_alg_notifier(struct chg_alg_device *alg_dev,
 				struct notifier_block *nb)

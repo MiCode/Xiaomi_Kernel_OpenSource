@@ -89,6 +89,67 @@ int adapter_dev_get_cap(struct adapter_device *adapter_dev,
 }
 EXPORT_SYMBOL(adapter_dev_get_cap);
 
+int adapter_dev_authentication(struct adapter_device *adapter_dev,
+			       struct adapter_auth_data *data)
+{
+	if (adapter_dev != NULL && adapter_dev->ops != NULL &&
+	    adapter_dev->ops->authentication)
+		return adapter_dev->ops->authentication(adapter_dev, data);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(adapter_dev_authentication);
+
+int adapter_dev_is_cc(struct adapter_device *adapter_dev, bool *cc)
+{
+	if (adapter_dev != NULL && adapter_dev->ops != NULL &&
+	    adapter_dev->ops->is_cc)
+		return adapter_dev->ops->is_cc(adapter_dev, cc);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(adapter_dev_is_cc);
+
+int adapter_dev_set_wdt(struct adapter_device *adapter_dev, u32 ms)
+{
+	if (adapter_dev != NULL && adapter_dev->ops != NULL &&
+	    adapter_dev->ops->set_wdt)
+		return adapter_dev->ops->set_wdt(adapter_dev, ms);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(adapter_dev_set_wdt);
+
+int adapter_dev_enable_wdt(struct adapter_device *adapter_dev, bool en)
+{
+	if (adapter_dev != NULL && adapter_dev->ops != NULL &&
+	    adapter_dev->ops->enable_wdt)
+		return adapter_dev->ops->enable_wdt(adapter_dev, en);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(adapter_dev_enable_wdt);
+
+int adapter_dev_sync_volt(struct adapter_device *adapter_dev, u32 mV)
+{
+	if (adapter_dev != NULL && adapter_dev->ops != NULL &&
+	    adapter_dev->ops->sync_volt)
+		return adapter_dev->ops->sync_volt(adapter_dev, mV);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(adapter_dev_sync_volt);
+
+int adapter_dev_send_hardreset(struct adapter_device *adapter_dev)
+{
+	if (adapter_dev != NULL && adapter_dev->ops != NULL &&
+	    adapter_dev->ops->send_hardreset)
+		return adapter_dev->ops->send_hardreset(adapter_dev);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(adapter_dev_send_hardreset);
+
 static DEVICE_ATTR_RO(name);
 
 static struct attribute *adapter_class_attrs[] = {

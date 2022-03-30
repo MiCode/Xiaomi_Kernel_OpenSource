@@ -73,9 +73,9 @@ int pe_hal_init_hardware(struct chg_alg_device *alg)
 	struct mtk_pe *pe;
 	struct pe_hal *hal;
 
-	pr_notice("%s\n", __func__);
+	pe_dbg("%s\n", __func__);
 	if (alg == NULL) {
-		pr_notice("%s: alg is null\n", __func__);
+		pe_err("%s: alg is null\n", __func__);
 		return -EINVAL;
 	}
 
@@ -90,9 +90,9 @@ int pe_hal_init_hardware(struct chg_alg_device *alg)
 
 	hal->chg1_dev = get_charger_by_name("primary_chg");
 	if (hal->chg1_dev)
-		pr_notice("%s: Found primary charger\n", __func__);
+		pe_err("%s: Found primary charger\n", __func__);
 	else {
-		pr_notice("%s: Error : can't find primary charger\n",
+		pe_err("%s: Error : can't find primary charger\n",
 			__func__);
 		return -ENODEV;
 	}
@@ -109,7 +109,7 @@ static int get_pmic_vbus(int *vchr)
 	if (chg_psy == NULL)
 		chg_psy = power_supply_get_by_name("mtk_charger_type");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		pe_err("%s Couldn't get chg_psy\n", __func__);
 		ret = -1;
 	} else {
 		ret = power_supply_get_property(chg_psy,
@@ -117,7 +117,7 @@ static int get_pmic_vbus(int *vchr)
 	}
 	*vchr = prop.intval * 1000;
 
-	pr_notice("%s vbus:%d\n", __func__,
+	pe_dbg("%s vbus:%d\n", __func__,
 		prop.intval);
 	return ret;
 }
@@ -137,7 +137,7 @@ int pe_hal_get_vbus(struct chg_alg_device *alg)
 	if (ret < 0) {
 		ret = get_pmic_vbus(&vchr);
 		if (ret < 0)
-			pr_notice("%s: get vbus failed: %d\n", __func__, ret);
+			pe_err("%s: get vbus failed: %d\n", __func__, ret);
 	}
 
 
@@ -155,9 +155,15 @@ int pe_hal_get_ibat(struct chg_alg_device *alg)
 		return -EINVAL;
 
 	pe = dev_get_drvdata(&alg->dev);
-	bat_psy = devm_power_supply_get_by_phandle(&pe->pdev->dev,
-						       "gauge");
-	if (IS_ERR_OR_NULL(bat_psy)) {
+	bat_psy = pe->bat_psy;
+
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
+		pr_notice("%s retry to get pe->bat_psy\n", __func__);
+		bat_psy = devm_power_supply_get_by_phandle(&pe->pdev->dev, "gauge");
+		pe->bat_psy = bat_psy;
+	}
+
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
 		pr_notice("%s Couldn't get bat_psy\n", __func__);
 		ret = 0;
 	} else {
@@ -184,7 +190,7 @@ int pe_hal_get_charging_current(struct chg_alg_device *alg,
 		charger_dev_get_charging_current(hal->chg1_dev, ua);
 	else if (chgidx == CHG2 && hal->chg2_dev != NULL)
 		charger_dev_get_charging_current(hal->chg2_dev, ua);
-	pr_notice("%s idx:%d %d\n", __func__, chgidx, ua);
+	pe_dbg("%s idx:%d %d\n", __func__, chgidx, ua);
 
 	return 0;
 }
@@ -209,7 +215,7 @@ int pe_hal_enable_charging(struct chg_alg_device *alg, bool enable)
 
 	ret = charger_dev_enable(hal->chg1_dev, enable);
 	if (ret < 0)
-		chr_err("%s: failed, ret = %d\n", __func__, ret);
+		pe_err("%s: failed, ret = %d\n", __func__, ret);
 	return ret;
 }
 
@@ -227,7 +233,7 @@ int pe_hal_set_mivr(struct chg_alg_device *alg, enum chg_idx chgidx, int uV)
 
 	ret = charger_dev_set_mivr(hal->chg1_dev, uV);
 	if (ret < 0)
-		pr_notice("%s: failed, ret = %d\n", __func__, ret);
+		pe_err("%s: failed, ret = %d\n", __func__, ret);
 
 	return ret;
 }
@@ -243,9 +249,15 @@ int pe_hal_get_uisoc(struct chg_alg_device *alg)
 		return -EINVAL;
 
 	pe = dev_get_drvdata(&alg->dev);
-	bat_psy = devm_power_supply_get_by_phandle(&pe->pdev->dev,
-						       "gauge");
-	if (IS_ERR_OR_NULL(bat_psy)) {
+	bat_psy = pe->bat_psy;
+
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
+		pr_notice("%s retry to get pe->bat_psy\n", __func__);
+		bat_psy = devm_power_supply_get_by_phandle(&pe->pdev->dev, "gauge");
+		pe->bat_psy = bat_psy;
+	}
+
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
 		pr_notice("%s Couldn't get bat_psy\n", __func__);
 		ret = 50;
 	} else {
@@ -254,7 +266,7 @@ int pe_hal_get_uisoc(struct chg_alg_device *alg)
 		ret = prop.intval;
 	}
 
-	pr_notice("%s:%d\n", __func__,
+	pe_dbg("%s:%d\n", __func__,
 		ret);
 	return ret;
 }
@@ -270,7 +282,7 @@ int pe_hal_get_charger_type(struct chg_alg_device *alg)
 
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
-		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		pe_err("%s Couldn't get chg_psy\n", __func__);
 		return -EINVAL;
 	} else {
 		info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -279,7 +291,7 @@ int pe_hal_get_charger_type(struct chg_alg_device *alg)
 		ret = info->chr_type;
 	}
 
-	pr_notice("%s type:%d\n", __func__, ret);
+	pe_dbg("%s type:%d\n", __func__, ret);
 	return info->chr_type;
 }
 
@@ -371,8 +383,8 @@ int pe_hal_set_cv(struct chg_alg_device *alg,
 		return -EINVAL;
 
 	hal = chg_alg_dev_get_drv_hal_data(alg);
-	charger_dev_set_constant_voltage(hal->chg1_dev,
-								uv);
+	charger_dev_set_constant_voltage(hal->chg1_dev, uv);
+
 	return 0;
 }
 
@@ -401,4 +413,29 @@ int pe_hal_set_input_current(struct chg_alg_device *alg,
 	hal = chg_alg_dev_get_drv_hal_data(alg);
 	charger_dev_set_input_current(hal->chg1_dev, ua);
 	return 0;
+}
+
+int pe_hal_get_log_level(struct chg_alg_device *alg)
+{
+	struct mtk_charger *info = NULL;
+	struct power_supply *chg_psy = NULL;
+	int ret = 0;
+
+	if (alg == NULL)
+		return -EINVAL;
+
+	chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (IS_ERR_OR_NULL(chg_psy)) {
+		pe_err("%s Couldn't get chg_psy\n", __func__);
+		return -1;
+	} else {
+		info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
+		if (IS_ERR_OR_NULL(info)) {
+			pe_err("%s info is NULL\n", __func__);
+			return -1;
+		}
+		ret = info->log_level;
+	}
+
+	return ret;
 }

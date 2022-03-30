@@ -23,6 +23,7 @@
 /*dual charger */
 #define PE4_SLAVE_MIVR_DIFF 100000
 
+#define DISABLE_VBAT_THRESHOLD -1
 
 #define PE4_ERROR_LEVEL	1
 #define PE4_INFO_LEVEL	2
@@ -109,11 +110,14 @@ struct mtk_pe40 {
 	bool can_query;
 	int state;
 	struct pe4_power_cap cap;
+	struct power_supply *bat_psy;
 
 	int avbus;
 	int vbus;
 	int ibus;
 	int watt;
+	int vbat_threshold; /* For checking Ready */
+	int ref_vbat; /* Vbat with cable in */
 
 	int r_sw;
 	int r_cable;
@@ -133,6 +137,9 @@ struct mtk_pe40 {
 
 	/* module parameters */
 	int cv;
+	int old_cv;
+	int pe4_6pin_en;
+	int stop_6pin_re_en;
 	int input_current_limit1;
 	int input_current_limit2;
 	int charging_current_limit1;
@@ -229,6 +236,8 @@ extern int pe4_hal_get_min_input_current(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 *uA);
 extern int pe4_hal_safety_check(struct chg_alg_device *alg,
 	int ieoc);
+extern int pe4_hal_vbat_mon_en(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool en);
 extern int pe4_hal_set_cv(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 uv);
 extern int pe4_hal_set_cv(struct chg_alg_device *alg,
@@ -236,4 +245,5 @@ extern int pe4_hal_set_cv(struct chg_alg_device *alg,
 extern int pe4_hal_enable_termination(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool enable);
 extern int pe4_hal_reset_eoc_state(struct chg_alg_device *alg);
+extern int pe4_hal_get_log_level(struct chg_alg_device *alg);
 #endif /* __MTK_PE4_H */

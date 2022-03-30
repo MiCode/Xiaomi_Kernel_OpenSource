@@ -160,7 +160,7 @@ int __pe_increase_ta_vchr(struct chg_alg_device *alg)
 
 	/* TA is not exist */
 	ret_value = -ECABLEOUT;
-	pr_notice("%s: failed, cable out\n", __func__);
+	pe_err("%s: failed, cable out\n", __func__);
 	return ret_value;
 }
 
@@ -309,7 +309,8 @@ int __pe_check_charger(struct chg_alg_device *alg)
 		goto out;
 	}
 
-	if (uisoc < pe->ta_start_battery_soc ||
+	if ((uisoc < pe->ta_start_battery_soc &&
+	    pe->ref_vbat > pe->vbat_threshold) ||
 		uisoc >= pe->ta_stop_battery_soc) {
 		ret_value = ALG_TA_CHECKING;
 		goto out;
@@ -344,10 +345,10 @@ out:
 	if (ret_value == 0)
 		ret_value = ALG_TA_NOT_SUPPORT;
 
-	pe_dbg("%s: stop, SOC:%d, chr_type:%d, ret:%d:%d\n",
+	pe_dbg("%s: stop, SOC:%d, chr_type:%d, ret:%d:%d ref_vbat:%d\n",
 		__func__, pe_hal_get_uisoc(alg),
 		pe_hal_get_charger_type(alg), ret,
-		ret_value);
+		ret_value, pe->ref_vbat);
 
 	return ret_value;
 }
@@ -447,7 +448,8 @@ static int _pe_is_algo_ready(struct chg_alg_device *alg)
 		if (pe_hal_get_charger_type(alg) !=
 			POWER_SUPPLY_TYPE_USB_DCP) {
 			ret_value = ALG_TA_NOT_SUPPORT;
-		} else if (uisoc < pe->ta_start_battery_soc ||
+		} else if ((uisoc < pe->ta_start_battery_soc &&
+			    pe->ref_vbat > pe->vbat_threshold) ||
 			uisoc >= pe->ta_stop_battery_soc) {
 			ret_value = ALG_NOT_READY;
 		} else {
@@ -473,6 +475,7 @@ static int _pe_is_algo_ready(struct chg_alg_device *alg)
 static int _pe_init_algo(struct chg_alg_device *alg)
 {
 	struct mtk_pe *pe;
+	int log_level;
 
 	pe = dev_get_drvdata(&alg->dev);
 	pe_dbg("%s\n", __func__);
@@ -481,6 +484,11 @@ static int _pe_init_algo(struct chg_alg_device *alg)
 		pe->state = PE_HW_FAIL;
 	else
 		pe->state = PE_HW_READY;
+
+	log_level = pe_hal_get_log_level(alg);
+	pr_notice("%s: log_level=%d", __func__, log_level);
+	if (log_level > 0)
+		pe_dbg_level = log_level;
 
 	return 0;
 }
@@ -569,6 +577,29 @@ int _pe_get_status(struct chg_alg_device *alg,
 		*value = 12000;
 	else
 		pe_dbg("%s does not support prop:%d\n", __func__, s);
+	return 0;
+}
+
+int _pe_set_prop(struct chg_alg_device *alg,
+		enum chg_alg_props s, int value)
+{
+	struct mtk_pe *pe;
+
+	pr_notice("%s %d %d\n", __func__, s, value);
+
+	pe = dev_get_drvdata(&alg->dev);
+
+	switch (s) {
+	case ALG_LOG_LEVEL:
+		pe_dbg_level = value;
+		break;
+	case ALG_REF_VBAT:
+		pe->ref_vbat = value;
+		break;
+	default:
+		break;
+	}
+
 	return 0;
 }
 
@@ -809,6 +840,7 @@ static struct chg_alg_ops pe_alg_ops = {
 	.stop_algo = _pe_stop_algo,
 	.notifier_call = _pe_notifier_call,
 	.get_prop = _pe_get_status,
+	.set_prop = _pe_set_prop,
 	.set_current_limit = _pe_set_setting,
 };
 
@@ -887,6 +919,14 @@ static void mtk_pe_parse_dt(struct mtk_pe *pe,
 		pe->ta_ac_charger_current = PE_CHARGING_CURRENT;
 	}
 
+	if (of_property_read_u32(np, "vbat_threshold", &val) >= 0)
+		pe->vbat_threshold = val;
+	else {
+		pr_notice("turn off vbat_threshold checking:%d\n",
+			DISABLE_VBAT_THRESHOLD);
+		pe->vbat_threshold = DISABLE_VBAT_THRESHOLD;
+	}
+
 }
 
 static int mtk_pe_probe(struct platform_device *pdev)
@@ -909,6 +949,10 @@ static int mtk_pe_probe(struct platform_device *pdev)
 	pe->ta_vchr_org = 5000000;
 
 	mtk_pe_parse_dt(pe, &pdev->dev);
+	pe->bat_psy = devm_power_supply_get_by_phandle(&pdev->dev, "gauge");
+	if (IS_ERR_OR_NULL(pe->bat_psy))
+		pe_err("%s: devm power fail to get bat_psy\n", __func__);
+
 	pe->alg = chg_alg_device_register("pe", &pdev->dev,
 					pe, &pe_alg_ops, NULL);
 

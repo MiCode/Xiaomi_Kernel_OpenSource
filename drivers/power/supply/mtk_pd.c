@@ -97,7 +97,7 @@ static char *pd_state_to_str(int state)
 static int _pd_init_algo(struct chg_alg_device *alg)
 {
 	struct mtk_pd *pd;
-	int cnt;
+	int cnt, log_level;
 
 	pd = dev_get_drvdata(&alg->dev);
 	pd_dbg("%s\n", __func__);
@@ -108,6 +108,10 @@ static int _pd_init_algo(struct chg_alg_device *alg)
 		pd_err("%s:init hw fail\n", __func__);
 	} else
 		pd->state = PD_HW_READY;
+
+	pd_hal_vbat_mon_en(alg, CHG1, false);
+	pd->old_cv = 0;
+	pd->stop_6pin_re_en = 0;
 
 	if (alg->config == DUAL_CHARGERS_IN_PARALLEL) {
 		pd_err("%s does not support DUAL_CHARGERS_IN_PARALLEL\n",
@@ -121,6 +125,11 @@ static int _pd_init_algo(struct chg_alg_device *alg)
 			alg->config = SINGLE_CHARGER;
 	} else
 		alg->config = SINGLE_CHARGER;
+
+	log_level = pd_hal_get_log_level(alg);
+	pr_notice("%s: log_level=%d", __func__, log_level);
+	if (log_level > 0)
+		pd_dbg_level = log_level;
 
 	pd->pdc_max_watt_setting = -1;
 
@@ -141,7 +150,7 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 	int ret_value;
 	int uisoc;
 
-	pd_err("%s %d\n", __func__, pd->state);
+	pd_dbg("%s %d\n", __func__, pd->state);
 	switch (pd->state) {
 	case PD_HW_UNINIT:
 	case PD_HW_FAIL:
@@ -155,7 +164,8 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 				pd->charging_current_limit1 != -1 ||
 				pd->input_current_limit2 != -1 ||
 				pd->charging_current_limit2 != -1 ||
-				uisoc >= pd->pd_stop_battery_soc)
+				uisoc >= pd->pd_stop_battery_soc ||
+				(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
 				ret_value = ALG_NOT_READY;
 		} else if (ret_value == ALG_TA_NOT_SUPPORT)
 			pd->state = PD_TA_NOT_SUPPORT;
@@ -478,6 +488,8 @@ void mtk_pdc_reset(struct chg_alg_device *alg)
 	__mtk_pdc_init_table(alg);
 	__mtk_pdc_get_reset_idx(alg);
 	__mtk_pdc_setup(alg, pd->pd_reset_idx);
+	pd_hal_vbat_mon_en(alg, CHG1, false);
+	pd->old_cv = 0;
 }
 
 
@@ -693,17 +705,23 @@ static int pd_sc_set_charger(struct chg_alg_device *alg)
 		CHG1, pd->charging_current1);
 	pd_hal_set_input_current(alg,
 		CHG1, pd->input_current1);
-	pd_hal_set_cv(alg,
-		CHG1, pd->cv);
 
-	pd_dbg("%s m:%d s:%d cv:%d chg1:%d,%d min:%d:%d\n", __func__,
-		alg->config,
-		pd->state,
-		pd->cv,
-		pd->input_current1,
-		pd->charging_current1,
-		ichg1_min,
-		aicr1_min);
+	if (pd->old_cv == 0 || (pd->old_cv != pd->cv) || pd->pd_6pin_en == 0) {
+		pd_hal_vbat_mon_en(alg, CHG1, false);
+		pd_hal_set_cv(alg, CHG1, pd->cv);
+		if (pd->pd_6pin_en && pd->stop_6pin_re_en != 1)
+			pd_hal_vbat_mon_en(alg, CHG1, true);
+
+		pd->old_cv = pd->cv;
+	} else {
+		if (pd->pd_6pin_en && pd->stop_6pin_re_en != 1) {
+			pd->stop_6pin_re_en = 1;
+			pd_hal_vbat_mon_en(alg, CHG1, true);
+		}
+	}
+
+	pd_dbg("%s old_cv=%d, new_cv=%d, pd_6pin_en=%d 6pin_re_en=%d\n", __func__,
+		pd->old_cv, pd->cv, pd->pd_6pin_en, pd->stop_6pin_re_en);
 
 	return 0;
 }
@@ -895,7 +913,8 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 					pd->charging_current_limit1 != -1 ||
 					pd->input_current_limit2 != -1 ||
 					pd->charging_current_limit2 != -1 ||
-					uisoc >= pd->pd_stop_battery_soc)
+					uisoc >= pd->pd_stop_battery_soc ||
+					(uisoc == -1 && pd->ref_vbat > pd->vbat_threshold))
 					ret_value = ALG_NOT_READY;
 				else {
 					pd->state = PD_RUN;
@@ -1104,10 +1123,16 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 
 	switch (notify->evt) {
 	case EVT_PLUG_OUT:
+		pd->stop_6pin_re_en = 0;
 		ret_value = pd_plugout_reset(alg);
 		break;
 	case EVT_FULL:
+		pd->stop_6pin_re_en = 1;
 		ret_value = pd_full_evt(alg);
+		break;
+	case EVT_BATPRO_DONE:
+		pd->pd_6pin_en = 0;
+		ret_value = 0;
 		break;
 	default:
 		ret_value = -EINVAL;
@@ -1226,6 +1251,15 @@ static void mtk_pd_parse_dt(struct mtk_pd *pd,
 		pd_err("use default dual_polling_ieoc :%d\n", 750000);
 		pd->dual_polling_ieoc = 750000;
 	}
+
+	if (of_property_read_u32(np, "vbat_threshold", &val) >= 0)
+		pd->vbat_threshold = val;
+	else {
+		pr_notice("turn off vbat_threshold checking:%d\n",
+			DISABLE_VBAT_THRESHOLD);
+		pd->vbat_threshold = DISABLE_VBAT_THRESHOLD;
+	}
+
 }
 
 int _pd_get_prop(struct chg_alg_device *alg,
@@ -1256,6 +1290,7 @@ int _pd_set_setting(struct chg_alg_device *alg_dev,
 
 	mutex_lock(&pd->access_lock);
 	pd->cv = setting->cv;
+	pd->pd_6pin_en = setting->vbat_mon_en;
 	pd->input_current_limit1 = setting->input_current_limit1;
 	pd->charging_current_limit1 = setting->charging_current_limit1;
 	pd->input_current_limit2 = setting->input_current_limit2;
@@ -1268,7 +1303,23 @@ int _pd_set_setting(struct chg_alg_device *alg_dev,
 int _pd_set_prop(struct chg_alg_device *alg,
 		enum chg_alg_props s, int value)
 {
+	struct mtk_pd *pd;
+
 	pr_notice("%s %d %d\n", __func__, s, value);
+
+	pd = dev_get_drvdata(&alg->dev);
+
+	switch (s) {
+	case ALG_LOG_LEVEL:
+		pd_dbg_level = value;
+		break;
+	case ALG_REF_VBAT:
+		pd->ref_vbat = value;
+		break;
+	default:
+		break;
+	}
+
 	return 0;
 }
 
@@ -1299,6 +1350,9 @@ static int mtk_pd_probe(struct platform_device *pdev)
 	mutex_init(&pd->access_lock);
 	mutex_init(&pd->data_lock);
 	mtk_pd_parse_dt(pd, &pdev->dev);
+	pd->bat_psy = devm_power_supply_get_by_phandle(&pdev->dev, "gauge");
+	if (IS_ERR_OR_NULL(pd->bat_psy))
+		pd_err("%s: devm power fail to get bat_psy\n", __func__);
 
 	pd->alg = chg_alg_device_register("pd", &pdev->dev,
 					pd, &pd_alg_ops, NULL);

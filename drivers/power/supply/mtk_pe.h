@@ -15,6 +15,7 @@
 #define TA_START_BATTERY_SOC	0
 #define TA_STOP_BATTERY_SOC	85
 #define PE_V_CHARGER_MIN 4600000 /* 4.6 V */
+#define DISABLE_VBAT_THRESHOLD -1
 
 #define PE_INPUT_CURRENT		3200000
 #define PE_CHARGING_CURRENT	3000000
@@ -69,6 +70,7 @@ struct mtk_pe {
 	struct mutex cable_out_lock;
 	struct wakeup_source *suspend_lock;
 	int state;
+	struct power_supply *bat_psy;
 
 	int ta_vchr_org; /* uA */
 	bool to_tune_ta_vchr;
@@ -87,6 +89,8 @@ struct mtk_pe {
 	bool ta_12v_support;
 	bool ta_9v_support;
 
+	int vbat_threshold; /* For checking Ready */
+	int ref_vbat; /* Vbat with cable in */
 	int cv;
 	int input_current_limit;
 	int charging_current_limit;
@@ -95,7 +99,6 @@ struct mtk_pe {
 
 /* dual charger */
 	int pe_slave_mivr_diff;
-
 
 };
 
@@ -127,7 +130,5 @@ extern int pe_hal_set_charging_current(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 ua);
 extern int pe_hal_set_input_current(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 ua);
-
-
-
+extern int pe_hal_get_log_level(struct chg_alg_device *alg);
 #endif /* __MTK_PE_INTF_H */

@@ -116,7 +116,13 @@ struct adapter_ops {
 	int (*get_cap)(struct adapter_device *dev, enum adapter_cap_type type,
 		struct adapter_power_cap *cap);
 	int (*get_output)(struct adapter_device *dev, int *mV, int *mA);
-
+	int (*authentication)(struct adapter_device *dev,
+			      struct adapter_auth_data *data);
+	int (*is_cc)(struct adapter_device *dev, bool *cc);
+	int (*set_wdt)(struct adapter_device *dev, u32 ms);
+	int (*enable_wdt)(struct adapter_device *dev, bool en);
+	int (*sync_volt)(struct adapter_device *dev, u32 mV);
+	int (*send_hardreset)(struct adapter_device *dev);
 };
 
 static inline void *adapter_dev_get_drvdata(
@@ -159,6 +165,11 @@ extern int adapter_dev_set_cap(struct adapter_device *adapter_dev,
 extern int adapter_dev_get_cap(struct adapter_device *adapter_dev,
 	enum adapter_cap_type type,
 	struct adapter_power_cap *cap);
-
-
+extern int adapter_dev_authentication(struct adapter_device *adapter_dev,
+				      struct adapter_auth_data *data);
+extern int adapter_dev_is_cc(struct adapter_device *adapter_dev, bool *cc);
+extern int adapter_dev_set_wdt(struct adapter_device *adapter_dev, u32 ms);
+extern int adapter_dev_enable_wdt(struct adapter_device *adapter_dev, bool en);
+extern int adapter_dev_sync_volt(struct adapter_device *adapter_dev, u32 mV);
+extern int adapter_dev_send_hardreset(struct adapter_device *adapter_dev);
 #endif /*LINUX_POWER_ADAPTER_CLASS_H*/

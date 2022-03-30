@@ -91,7 +91,6 @@ static int pe2_plugout_reset(struct chg_alg_device *alg)
 		mutex_lock(&pe2->cable_out_lock);
 		pe2->is_cable_out_occur = true;
 		mutex_unlock(&pe2->cable_out_lock);
-
 		while (mutex_trylock(&pe2->access_lock) == 0) {
 			pe2_err("%s:pe2 is running state:%d cnt:%d\n",
 				__func__, pe2->state,
@@ -106,6 +105,10 @@ static int pe2_plugout_reset(struct chg_alg_device *alg)
 
 		pe2->idx = -1;
 		pe2->vbus = 5000000; /* mV */
+
+		pe2_hal_vbat_mon_en(alg, CHG1, false);
+		pe2->old_cv = 0;
+		pe2->stop_6pin_re_en = 0;
 
 		/* Enable OVP */
 		ret = pe2_hal_enable_vbus_ovp(alg, true);
@@ -182,6 +185,10 @@ int pe2_reset_ta_vchr(struct chg_alg_device *alg)
 		}
 		retry_cnt++;
 	} while (retry_cnt < 3);
+
+	pe2_hal_vbat_mon_en(alg, CHG1, false);
+	pe2->old_cv = 0;
+	pe2->stop_6pin_re_en = 0;
 
 	if (ret_value != 0) {
 		pe2_err("%s: failed, ret = %d\n", __func__, ret);
@@ -460,7 +467,8 @@ static int __pe2_check_charger(struct chg_alg_device *alg)
 	if (pe2->is_cable_out_occur)
 		goto out;
 
-	if (uisoc < pe2->ta_start_battery_soc ||
+	if ((uisoc < pe2->ta_start_battery_soc &&
+	    pe2->ref_vbat > pe2->vbat_threshold) ||
 		uisoc >= pe2->ta_stop_battery_soc) {
 		ret_value = ALG_TA_CHECKING;
 		goto out;
@@ -490,7 +498,7 @@ out:
 
 	if (ret_value == 0)
 		ret_value = ALG_TA_NOT_SUPPORT;
-	pe2_dbg("%s:SOC:(%d,%d,%d),state:%d,chr_type:%d,ret:%d,plugout:%d\n",
+	pe2_dbg("%s:SOC:(%d,%d,%d),state:%d,chr_type:%d,ret:%d,plugout:%d ref_vbat:%d\n",
 		__func__,
 		pe2_hal_get_uisoc(alg),
 		pe2->ta_start_battery_soc,
@@ -498,7 +506,8 @@ out:
 		pe2->state,
 		pe2_hal_get_charger_type(alg),
 		ret,
-		pe2->is_cable_out_occur);
+		pe2->is_cable_out_occur,
+		pe2->ref_vbat);
 	return ret_value;
 }
 
@@ -535,7 +544,7 @@ static int pe2_leave(struct chg_alg_device *alg)
 static int _pe2_init_algo(struct chg_alg_device *alg)
 {
 	struct mtk_pe20 *pe2;
-	int ret, cnt;
+	int ret, cnt, log_level;
 
 	pe2 = dev_get_drvdata(&alg->dev);
 	mutex_lock(&pe2->access_lock);
@@ -544,6 +553,11 @@ static int _pe2_init_algo(struct chg_alg_device *alg)
 		pe2_err("%s:init hw fail\n", __func__);
 	} else
 		pe2->state = PE2_HW_READY;
+
+	pe2_hal_vbat_mon_en(alg, CHG1, false);
+	pe2->old_cv = 0;
+	pe2->stop_6pin_re_en = 0;
+
 	ret = pe2_hal_set_efficiency_table(pe2->alg);
 	if (ret != 0)
 		pe2_err("%s: use default table, %d\n", __func__, ret);
@@ -560,6 +574,12 @@ static int _pe2_init_algo(struct chg_alg_device *alg)
 			alg->config = SINGLE_CHARGER;
 	} else
 		alg->config = SINGLE_CHARGER;
+
+	log_level = pe2_hal_get_log_level(alg);
+	pr_notice("%s: log_level=%d", __func__, log_level);
+	if (log_level > 0)
+		pe2_dbg_level = log_level;
+
 	mutex_unlock(&pe2->access_lock);
 	pe2_dbg("%s config:%d\n", __func__, alg->config);
 	return 0;
@@ -612,7 +632,8 @@ static int _pe2_is_algo_ready(struct chg_alg_device *alg)
 		if (pe2_hal_get_charger_type(alg) !=
 			POWER_SUPPLY_TYPE_USB_DCP) {
 			ret_value = ALG_TA_NOT_SUPPORT;
-		} else if (uisoc < pe2->ta_start_battery_soc ||
+		} else if ((uisoc < pe2->ta_start_battery_soc &&
+			    pe2->ref_vbat > pe2->vbat_threshold) ||
 			uisoc >= pe2->ta_stop_battery_soc ||
 			pe2->charging_current_limit1 != -1 ||
 			pe2->charging_current_limit2 != -1) {
@@ -692,17 +713,34 @@ static int pe2_sc_set_charger(struct chg_alg_device *alg)
 		CHG1, pe2->charging_current1);
 	pe2_hal_set_input_current(alg,
 		CHG1, pe2->input_current1);
-	pe2_hal_set_cv(alg,
-		CHG1, pe2->cv);
 
-	pe2_dbg("%s m:%d s:%d cv:%d chg1:%d,%d min:%d:%d\n", __func__,
+	if (pe2->old_cv == 0 || (pe2->old_cv != pe2->cv) || pe2->pe2_6pin_en == 0) {
+		pe2_hal_vbat_mon_en(alg, CHG1, false);
+		pe2_hal_set_cv(alg, CHG1, pe2->cv);
+		if (pe2->pe2_6pin_en && pe2->stop_6pin_re_en != 1)
+			pe2_hal_vbat_mon_en(alg, CHG1, true);
+
+		pe2_dbg("%s old_cv=%d, new_cv=%d, pe2_6pin_en=%d\n", __func__,
+			pe2->old_cv, pe2->cv, pe2->pe2_6pin_en);
+
+		pe2->old_cv = pe2->cv;
+	} else {
+		if (pe2->pe2_6pin_en && pe2->stop_6pin_re_en != 1) {
+			pe2->stop_6pin_re_en = 1;
+			pe2_hal_vbat_mon_en(alg, CHG1, true);
+		}
+	}
+
+	pe2_dbg("%s m:%d s:%d cv:%d chg1:%d,%d min:%d:%d, 6pin_en:%d, 6pin_re_en=%d\n", __func__,
 		alg->config,
 		pe2->state,
 		pe2->cv,
 		pe2->input_current1,
 		pe2->charging_current1,
 		ichg1_min,
-		aicr1_min);
+		aicr1_min,
+		pe2->pe2_6pin_en,
+		pe2->stop_6pin_re_en);
 
 	return 0;
 }
@@ -999,7 +1037,7 @@ static int _pe2_start_algo(struct chg_alg_device *alg)
 			if (ret == ALG_TA_NOT_SUPPORT)
 				pe2->state = PE2_TA_NOT_SUPPORT;
 			else if (ret == ALG_TA_CHECKING) {
-				pe2->state = PE2_RUN;
+				pe2->state = PE2_HW_READY;
 				again = true;
 			} else if (ret == ALG_DONE)
 				pe2->state = PE2_HW_READY;
@@ -1144,10 +1182,16 @@ static int _pe2_notifier_call(struct chg_alg_device *alg,
 
 	switch (notify->evt) {
 	case EVT_PLUG_OUT:
+		pe2->stop_6pin_re_en = 0;
 		ret_value = pe2_plugout_reset(alg);
 		break;
 	case EVT_FULL:
+		pe2->stop_6pin_re_en = 1;
 		ret_value = pe2_full_event(alg);
+		break;
+	case EVT_BATPRO_DONE:
+		pe2->pe2_6pin_en = 0;
+		ret_value = 0;
 		break;
 	default:
 		ret_value = -EINVAL;
@@ -1268,6 +1312,13 @@ static void mtk_pe2_parse_dt(struct mtk_pe20 *pe2,
 		pe2->dual_polling_ieoc = 750000;
 	}
 
+	if (of_property_read_u32(np, "vbat_threshold", &val) >= 0)
+		pe2->vbat_threshold = val;
+	else {
+		pr_notice("turn off vbat_threshold checking:%d\n",
+			DISABLE_VBAT_THRESHOLD);
+		pe2->vbat_threshold = DISABLE_VBAT_THRESHOLD;
+	}
 
 }
 
@@ -1286,7 +1337,23 @@ int _pe2_get_prop(struct chg_alg_device *alg,
 int _pe2_set_prop(struct chg_alg_device *alg,
 		enum chg_alg_props s, int value)
 {
+	struct mtk_pe20 *pe2;
+
 	pr_notice("%s %d %d\n", __func__, s, value);
+
+	pe2 = dev_get_drvdata(&alg->dev);
+
+	switch (s) {
+	case ALG_LOG_LEVEL:
+		pe2_dbg_level = value;
+		break;
+	case ALG_REF_VBAT:
+		pe2->ref_vbat = value;
+		break;
+	default:
+		break;
+	}
+
 	return 0;
 }
 
@@ -1295,22 +1362,26 @@ int _pe2_set_setting(struct chg_alg_device *alg_dev,
 {
 	struct mtk_pe20 *pe2;
 
-	pe2_dbg("%s cv:%d icl:%d,%d cc:%d,%d\n",
+	pe2 = dev_get_drvdata(&alg_dev->dev);
+
+	pe2_dbg("%s cv:%d icl:%d,%d cc:%d,%d, 6pin_en:%d\n",
 		__func__,
 		setting->cv,
 		setting->input_current_limit1,
 		setting->input_current_limit2,
 		setting->charging_current_limit1,
-		setting->charging_current_limit2);
-	pe2 = dev_get_drvdata(&alg_dev->dev);
+		setting->charging_current_limit2,
+		setting->vbat_mon_en);
 
 	mutex_lock(&pe2->access_lock);
 	__pm_stay_awake(pe2->suspend_lock);
 	pe2->cv = setting->cv;
+	pe2->pe2_6pin_en = setting->vbat_mon_en;
 	pe2->input_current_limit1 = setting->input_current_limit1;
 	pe2->charging_current_limit1 = setting->charging_current_limit1;
 	pe2->input_current_limit2 = setting->input_current_limit2;
 	pe2->charging_current_limit2 = setting->charging_current_limit2;
+
 	__pm_relax(pe2->suspend_lock);
 	mutex_unlock(&pe2->access_lock);
 
@@ -1353,6 +1424,10 @@ static int mtk_pe2_probe(struct platform_device *pdev)
 	pe2->vbus = 5000000;
 	pe2->state = PE2_HW_UNINIT;
 	mtk_pe2_parse_dt(pe2, &pdev->dev);
+	pe2->bat_psy = devm_power_supply_get_by_phandle(&pdev->dev, "gauge");
+
+	if (IS_ERR_OR_NULL(pe2->bat_psy))
+		pe2_err("%s: devm power fail to get bat_psy\n", __func__);
 
 	pe2->profile[0].vbat = 3400000;
 	pe2->profile[1].vbat = 3500000;
