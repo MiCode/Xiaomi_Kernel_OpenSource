@@ -165,10 +165,11 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		g_stress_test_enable ? "Enable" : "Disable",
 		gpu_opp_info.gpm_enable ? "Enable" : "Disable");
 	seq_printf(m,
-		"%-15s GPU_SB_Version: 0x%04x, GPU_PTP_Version: 0x%04x\n",
+		"%-15s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x, Temp_Compensate: %s\n",
 		"[Common-Status]",
 		gpu_opp_info.sb_version,
-		gpu_opp_info.ptp_version);
+		gpu_opp_info.ptp_version,
+		gpu_opp_info.temp_compensate ? "Enable" : "Disable");
 
 	mutex_unlock(&gpufreq_debug_lock);
 
