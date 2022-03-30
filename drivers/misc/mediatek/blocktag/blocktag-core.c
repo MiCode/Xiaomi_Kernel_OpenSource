@@ -42,8 +42,6 @@
 #include <mrdump.h>
 #endif
 
-#include "blocktag-ufs.h"
-
 #include "mtk_blocktag.h"
 #if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
 #include "fscmd-trace.h"
