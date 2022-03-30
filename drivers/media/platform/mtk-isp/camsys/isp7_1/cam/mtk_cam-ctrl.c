@@ -2327,23 +2327,20 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 					struct mtk_cam_ctx *ctx,
 					unsigned int dequeued_frame_seq_no)
 {
-	struct mtk_cam_request *req;
-
-	req = mtk_cam_get_req(ctx, dequeued_frame_seq_no);
-	if (req) {
-		struct mtk_cam_request_stream_data *s_data =
+	struct mtk_cam_request *req = NULL;
+	struct mtk_cam_request_stream_data *s_data =
 				mtk_cam_get_req_s_data(ctx, ctx->stream_id,
 				dequeued_frame_seq_no);
 
+	if (s_data)
+		req = s_data->req;
+
+	if (req) {
 		ctx->trigger_next_drain = false;
 
 		/* whether 1exp or 2exp, s_data[0] always holds raw_feature */
 		if (mtk_cam_feature_is_mstream(s_data->feature.raw_feature) ||
 				mtk_cam_feature_is_mstream_m2m(s_data->feature.raw_feature)) {
-			/* get next report s_data */
-			s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
-					dequeued_frame_seq_no);
-
 			if (dequeued_frame_seq_no == ctx->next_sof_frame_seq_no) {
 				dev_dbg(raw_dev->dev,
 					"%s mstream [SOF] with-req frame:%d sof:%d enque_req_cnt:%d next sof frame: %d\n",
