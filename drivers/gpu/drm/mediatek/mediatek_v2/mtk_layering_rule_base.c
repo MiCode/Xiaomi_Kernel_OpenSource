@@ -1007,7 +1007,7 @@ static int insert_entry(struct hrt_sort_entry **head,
 }
 
 static int add_layer_entry(struct drm_mtk_layer_config *l_info, bool sort_by_y,
-			   int overlap_w, int l_idx)
+			   int overlap_w)
 {
 	struct hrt_sort_entry *begin_t, *end_t;
 	struct hrt_sort_entry **p_entry;
@@ -1031,10 +1031,8 @@ static int add_layer_entry(struct drm_mtk_layer_config *l_info, bool sort_by_y,
 
 	begin_t->overlap_w = overlap_w;
 	begin_t->layer_info = l_info;
-	begin_t->idx = l_idx;
 	end_t->overlap_w = -overlap_w;
 	end_t->layer_info = l_info;
-	end_t->idx = l_idx;
 
 	if (*p_entry == NULL) {
 		*p_entry = begin_t;
@@ -1120,24 +1118,16 @@ static int free_all_layer_entry(bool sort_by_y)
 }
 
 static int scan_x_overlap(struct drm_mtk_layering_info *disp_info,
-			  int disp_index, int ovl_overlap_limit_w, uint32_t *max_layer)
+			  int disp_index, int ovl_overlap_limit_w)
 {
 	struct hrt_sort_entry *tmp_entry;
 	int overlap_w_sum, max_overlap;
-	uint32_t temp_layer = 0;
 
 	overlap_w_sum = 0;
 	max_overlap = 0;
 	tmp_entry = x_entry_list;
 	while (tmp_entry) {
 		overlap_w_sum += tmp_entry->overlap_w;
-
-		if (tmp_entry->overlap_w > 0)
-			temp_layer |= 1 << tmp_entry->idx;
-		else
-			temp_layer &= ~(1 << tmp_entry->idx);
-		if (overlap_w_sum > max_overlap)
-			*max_layer = temp_layer;
 		max_overlap = (overlap_w_sum > max_overlap) ? overlap_w_sum
 							    : max_overlap;
 		tmp_entry = tmp_entry->tail;
@@ -1150,7 +1140,6 @@ static int scan_y_overlap(struct drm_mtk_layering_info *disp_info,
 {
 	struct hrt_sort_entry *tmp_entry;
 	int overlap_w_sum, tmp_overlap, max_overlap;
-	uint32_t temp_layer = 0;
 
 	overlap_w_sum = 0;
 	tmp_overlap = 0;
@@ -1159,19 +1148,16 @@ static int scan_y_overlap(struct drm_mtk_layering_info *disp_info,
 	while (tmp_entry) {
 		overlap_w_sum += tmp_entry->overlap_w;
 		if (tmp_entry->overlap_w > 0) {
-			temp_layer |= 1 << tmp_entry->idx;
 			add_layer_entry(tmp_entry->layer_info, false,
-					tmp_entry->overlap_w, tmp_entry->idx);
+					tmp_entry->overlap_w);
 		} else {
-			temp_layer &= ~(1 << tmp_entry->idx);
 			remove_layer_entry(tmp_entry->layer_info, false);
 		}
 
 		if (overlap_w_sum > ovl_overlap_limit_w &&
 		    overlap_w_sum > max_overlap) {
-			temp_layer = 0;
 			tmp_overlap = scan_x_overlap(disp_info, disp_index,
-						     ovl_overlap_limit_w, &temp_layer);
+						     ovl_overlap_limit_w);
 		} else {
 			tmp_overlap = overlap_w_sum;
 		}
@@ -1354,7 +1340,7 @@ static int _calc_hrt_num(struct drm_device *dev,
 				calc_mml_ir_layer_weight(disp_info, disp, i, &overlap_w);
 
 			sum_overlap_w += overlap_w;
-			add_layer_entry(layer_info, true, overlap_w, i);
+			add_layer_entry(layer_info, true, overlap_w);
 		} else if (i == disp_info->gles_head[disp]) {
 			/* Add GLES layer */
 			if (hrt_type != HRT_TYPE_EMI) {
