@@ -376,7 +376,7 @@ struct vm_area_struct *vm_area_dup(struct vm_area_struct *orig)
 		*new = data_race(*orig);
 		INIT_LIST_HEAD(&new->anon_vma_chain);
 		new->vm_next = new->vm_prev = NULL;
-		dup_vma_anon_name(orig, new);
+		dup_anon_vma_name(orig, new);
 	}
 	return new;
 }
@@ -399,7 +399,7 @@ static void __vm_area_free(struct rcu_head *head)
 
 void vm_area_free(struct vm_area_struct *vma)
 {
-	free_vma_anon_name(vma);
+	free_anon_vma_name(vma);
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
 	if (atomic_read(&vma->vm_mm->mm_users) > 1) {
 		call_rcu(&vma->vm_rcu, __vm_area_free);
