@@ -125,8 +125,8 @@ static int dvfsrc_query_sw_req_vcore_opp(struct mtk_dvfsrc *dvfsrc, int vcore_op
 				      &scp_req);
 		sw_req_opp = (sw_req > scp_req) ? sw_req : scp_req;
 		sw_req_opp = dvfsrc->opp_desc->num_vcore_opp - (sw_req_opp + 1);
-		if (vcore_opp < sw_req_opp) {
-			pr_info("Error vcore request = %d %d %d\n", sw_req, scp_req,
+		if (vcore_opp > sw_req_opp) {
+			pr_info("Error vcore request = %d %d %d\n", sw_req, vcore_opp,
 				dvfsrc->force_opp_idx);
 		}
 		return sw_req_opp;
@@ -398,6 +398,13 @@ static void dvfsrc_dump(struct mtk_dvfsrc *dvfsrc)
 		config->dump_spm_info(dvfsrc, p, dump_size);
 		pr_info("%s", dvfsrc->dump_buf);
 	}
+
+	if (config->dump_spm_timer_latch && dvfsrc->spm_regs && dvfsrc->dvd->spm_stamp_en) {
+		p = dvfsrc->dump_buf;
+		config->dump_spm_timer_latch(dvfsrc, p, dump_size);
+		pr_info("%s", dvfsrc->dump_buf);
+	}
+
 	mutex_unlock(&dvfsrc->dump_lock);
 }
 
@@ -435,10 +442,12 @@ static void dvfsrc_debug_notifier_register(struct mtk_dvfsrc *dvfsrc)
 
 static void dvfsrc_force_opp(struct mtk_dvfsrc *dvfsrc, u32 opp)
 {
+	if (dvfsrc->force_opp_idx != opp) {
+		mtk_dvfsrc_send_request(dvfsrc->dev->parent,
+			MTK_DVFSRC_CMD_FORCEOPP_REQUEST,
+			opp);
+	}
 	dvfsrc->force_opp_idx = opp;
-	mtk_dvfsrc_send_request(dvfsrc->dev->parent,
-		MTK_DVFSRC_CMD_FORCEOPP_REQUEST,
-		opp);
 }
 
 static void mtk_dvfsrc_get_perf_bw(struct mtk_dvfsrc *dvfsrc,
@@ -776,6 +785,101 @@ static const struct dvfsrc_debug_data mt6877_data = {
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6877_desc),
 };
 
+static struct dvfsrc_opp dvfsrc_opp_mt6983[] = {
+	{0, 0, 0, 0},
+	{1, 0, 0, 0},
+	{2, 0, 0, 0},
+	{3, 0, 0, 0},
+	{4, 0, 0, 0},
+	{0, 1, 0, 0},
+	{1, 1, 0, 0},
+	{2, 1, 0, 0},
+	{3, 1, 0, 0},
+	{4, 1, 0, 0},
+	{1, 2, 0, 0},
+	{2, 2, 0, 0},
+	{3, 2, 0, 0},
+	{4, 2, 0, 0},
+	{1, 3, 0, 0},
+	{2, 3, 0, 0},
+	{3, 3, 0, 0},
+	{4, 3, 0, 0},
+	{2, 4, 0, 0},
+	{3, 4, 0, 0},
+	{4, 4, 0, 0},
+	{3, 5, 0, 0},
+	{4, 5, 0, 0},
+	{3, 6, 0, 0},
+	{4, 6, 0, 0},
+	{4, 7, 0, 0},
+	{4, 8, 0, 0},
+};
+
+static struct dvfsrc_opp_desc dvfsrc_opp_mt6983_desc[] = {
+	MT_DVFSRC_OPP(5, 9, dvfsrc_opp_mt6983),
+};
+
+static const struct dvfsrc_debug_data mt6983_data = {
+	.version = 0x6983,
+	.config = &mt6983_dvfsrc_config,
+	.opps_desc = dvfsrc_opp_mt6983_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6983_desc),
+	.spm_stamp_en = true,
+};
+
+static const struct dvfsrc_debug_data mt6895_data = {
+	.version = 0x6895,
+	.config = &mt6983_dvfsrc_config,
+	.opps_desc = dvfsrc_opp_mt6983_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6983_desc),
+};
+
+static struct dvfsrc_opp dvfsrc_opp_mt6879[] = {
+	{0, 0, 0, 0},
+	{1, 0, 0, 0},
+	{2, 0, 0, 0},
+	{3, 0, 0, 0},
+	{4, 0, 0, 0},
+	{0, 1, 0, 0},
+	{1, 1, 0, 0},
+	{2, 1, 0, 0},
+	{3, 1, 0, 0},
+	{4, 1, 0, 0},
+	{0, 2, 0, 0},
+	{1, 2, 0, 0},
+	{2, 2, 0, 0},
+	{3, 2, 0, 0},
+	{4, 2, 0, 0},
+	{0, 3, 0, 0},
+	{1, 3, 0, 0},
+	{2, 3, 0, 0},
+	{3, 3, 0, 0},
+	{4, 3, 0, 0},
+	{0, 4, 0, 0},
+	{1, 4, 0, 0},
+	{2, 4, 0, 0},
+	{3, 4, 0, 0},
+	{4, 4, 0, 0},
+	{1, 5, 0, 0},
+	{2, 5, 0, 0},
+	{3, 5, 0, 0},
+	{4, 5, 0, 0},
+	{2, 6, 0, 0},
+	{3, 6, 0, 0},
+	{4, 6, 0, 0},
+	{4, 7, 0, 0},
+};
+
+static struct dvfsrc_opp_desc dvfsrc_opp_mt6879_desc[] = {
+	MT_DVFSRC_OPP(5, 8, dvfsrc_opp_mt6879),
+};
+
+static const struct dvfsrc_debug_data mt6879_data = {
+	.version = 0x6879,
+	.config = &mt6983_dvfsrc_config,
+	.opps_desc = dvfsrc_opp_mt6879_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6879_desc),
+};
 
 static const struct of_device_id dvfsrc_helper_of_match[] = {
 	{
@@ -796,6 +900,15 @@ static const struct of_device_id dvfsrc_helper_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6877-dvfsrc",
 		.data = &mt6877_data,
+	}, {
+		.compatible = "mediatek,mt6983-dvfsrc",
+		.data = &mt6983_data,
+	}, {
+		.compatible = "mediatek,mt6895-dvfsrc",
+		.data = &mt6895_data,
+	}, {
+		.compatible = "mediatek,mt6879-dvfsrc",
+		.data = &mt6879_data,
 	}, {
 		/* sentinel */
 	},
@@ -853,7 +966,7 @@ static int mtk_dvfsrc_helper_probe(struct platform_device *pdev)
 		dev_info(dev, "dvfsrc debug setting fail\n");
 		return ret;
 	}
-
+	mutex_init(&dvfsrc->dump_lock);
 	dvfsrc_drv = dvfsrc;
 	platform_set_drvdata(pdev, dvfsrc);
 	mtk_dvfsrc_regmap_debug_setting(dvfsrc);

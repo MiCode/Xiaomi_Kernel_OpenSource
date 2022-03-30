@@ -8,6 +8,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+#include <linux/regulator/consumer.h>
 
 #include "dvfsrc-met.h"
 #include "dvfsrc-common.h"
@@ -237,12 +238,34 @@ static u32 dvfsrc_mt6877_ddr_qos(u32 qos_bw)
 
 static u32 dvfsrc_ddr_qos(struct mtk_dvfsrc_met *dvfs)
 {
-	u32 qos_total_bw = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_0) +
-			   dvfsrc_met_read(dvfs, DVFSRC_SW_BW_1) +
-			   dvfsrc_met_read(dvfs, DVFSRC_SW_BW_2) +
-			   dvfsrc_met_read(dvfs, DVFSRC_SW_BW_3) +
-			   dvfsrc_met_read(dvfs, DVFSRC_SW_BW_4);
-	u32 qos_peak_bw = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_6);
+	u32 qos_bw0, qos_bw1, qos_bw2, qos_bw3, qos_bw4;
+	u32 qos_total_bw;
+	u32 qos_peak_bw;
+
+	qos_bw0 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_0);
+	qos_bw1 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_1);
+	qos_bw2 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_2);
+	qos_bw3 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_3);
+	qos_bw4 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_4);
+	qos_peak_bw = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_6);
+
+	met_vcorefs_src[PMQOS_BW0] =
+		qos_bw0;
+
+	met_vcorefs_src[PMQOS_BW1] =
+		qos_bw1;
+
+	met_vcorefs_src[PMQOS_BW2] =
+		qos_bw2;
+
+	met_vcorefs_src[PMQOS_BW3] =
+		qos_bw3;
+
+	met_vcorefs_src[PMQOS_BW4] =
+		qos_bw4;
+
+	qos_total_bw = qos_bw0 + qos_bw1 + qos_bw2 + qos_bw3 + qos_bw4;
+	met_vcorefs_src[PMQOS_TATOL] = qos_total_bw;
 
 	qos_total_bw = max_t(u32, qos_total_bw, qos_peak_bw);
 
@@ -367,14 +390,8 @@ static void vcorefs_get_src_vcore_req(struct mtk_dvfsrc_met *dvfs)
 
 static void vcorefs_get_src_misc_info(struct mtk_dvfsrc_met *dvfs)
 {
-	u32 qos_bw0, qos_bw1, qos_bw2, qos_bw3, qos_bw4;
 	u32 sta0, sta2;
 
-	qos_bw0 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_0);
-	qos_bw1 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_1);
-	qos_bw2 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_2);
-	qos_bw3 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_3);
-	qos_bw4 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_4);
 	sta0 = dvfsrc_met_read(dvfs, DVFSRC_DEBUG_STA_0);
 	sta2 = dvfsrc_met_read(dvfs, DVFSRC_DEBUG_STA_2);
 
@@ -383,27 +400,6 @@ static void vcorefs_get_src_misc_info(struct mtk_dvfsrc_met *dvfs)
 
 	met_vcorefs_src[SCP_REQ] =
 		(sta2 >> 14) & 0x1;
-
-	met_vcorefs_src[PMQOS_PEAK_BW] =
-		dvfsrc_met_read(dvfs, DVFSRC_SW_BW_6);
-
-	met_vcorefs_src[PMQOS_TATOL] =
-		qos_bw0 + qos_bw1 + qos_bw2 + qos_bw3 + qos_bw4;
-
-	met_vcorefs_src[PMQOS_BW0] =
-		qos_bw0;
-
-	met_vcorefs_src[PMQOS_BW1] =
-		qos_bw1;
-
-	met_vcorefs_src[PMQOS_BW2] =
-		qos_bw2;
-
-	met_vcorefs_src[PMQOS_BW3] =
-		qos_bw3;
-
-	met_vcorefs_src[PMQOS_BW4] =
-		qos_bw4;
 
 	met_vcorefs_src[HRT_ISP_BW] =
 		dvfsrc_met_read(dvfs, DVFSRC_ISP_HRT);
@@ -420,7 +416,6 @@ static void vcorefs_get_src_misc_info(struct mtk_dvfsrc_met *dvfs)
 	met_vcorefs_src[HIFI_SCENARIO_IDX] =
 		(sta2 >> 16) & 0xFF;
 }
-
 
 static unsigned int *dvfsrc_get_src_req(struct mtk_dvfsrc_met *dvfs)
 {

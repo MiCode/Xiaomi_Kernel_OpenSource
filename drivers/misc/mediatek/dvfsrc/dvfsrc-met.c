@@ -5,6 +5,7 @@
 
 #include <linux/arm-smccc.h>
 #include <linux/clk.h>
+#include <linux/interconnect.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -95,6 +96,7 @@ char **vcorefs_get_src_req_name(void)
 	return NULL;
 }
 EXPORT_SYMBOL(vcorefs_get_src_req_name);
+
 unsigned int *vcorefs_get_src_req(void)
 {
 	struct mtk_dvfsrc_met *dvfsrc = dvfsrc_drv;
@@ -145,10 +147,12 @@ static ssize_t dvfsrc_met_dump_show(struct device *dev,
 	value = vcorefs_get_src_req();
 	p += snprintf(p, buff_end - p,
 		"NUM SRC_REQ: %d\n", res_num);
-	for (i = 0; i < res_num; i++) {
-		p += snprintf(p, buff_end - p,
-			"%s : %d\n",
-			name[i], value[i]);
+	if (name && value) {
+		for (i = 0; i < res_num; i++) {
+			p += snprintf(p, buff_end - p,
+				"%s : %d\n",
+				name[i], value[i]);
+		}
 	}
 
 	return p - buf;
@@ -214,6 +218,22 @@ static const struct dvfsrc_met_data mt6877_data = {
 	.version = 0x6877,
 };
 
+static const struct dvfsrc_met_data mt6983_data = {
+	.met = &mt6983_met_config,
+	.version = 0x6983,
+};
+
+static const struct dvfsrc_met_data mt6895_data = {
+	.met = &mt6983_met_config,
+	.version = 0x6895,
+};
+
+static const struct dvfsrc_met_data mt6879_data = {
+	.met = &mt6983_met_config,
+	.version = 0x6879,
+};
+
+
 
 static const struct of_device_id dvfsrc_met_of_match[] = {
 #if IS_ENABLED(CONFIG_MTK_DVFSRC_MET_MT6873)
@@ -235,6 +255,15 @@ static const struct of_device_id dvfsrc_met_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6877-dvfsrc",
 		.data = &mt6877_data,
+	}, {
+		.compatible = "mediatek,mt6983-dvfsrc",
+		.data = &mt6983_data,
+	}, {
+		.compatible = "mediatek,mt6895-dvfsrc",
+		.data = &mt6895_data,
+	}, {
+		.compatible = "mediatek,mt6879-dvfsrc",
+		.data = &mt6879_data,
 	},
 #endif
 	{
@@ -276,6 +305,26 @@ static int mtk_dvfsrc_met_probe(struct platform_device *pdev)
 
 	if (IS_ERR(dvfsrc->regs))
 		return PTR_ERR(dvfsrc->regs);
+
+	dvfsrc->dvfsrc_vcore_power =
+		regulator_get_optional(dvfsrc->dev, "rc-vcore");
+	if (IS_ERR(dvfsrc->dvfsrc_vcore_power)) {
+		dev_info(dvfsrc->dev, "get dvfsrc_vcore failed = %ld\n",
+			PTR_ERR(dvfsrc->dvfsrc_vcore_power));
+		dvfsrc->dvfsrc_vcore_power = NULL;
+	}
+
+	dvfsrc->bw_path = of_icc_get(dvfsrc->dev, "icc-bw");
+	if (IS_ERR(dvfsrc->bw_path)) {
+		dev_info(dvfsrc->dev, "get icc-bw fail\n");
+		dvfsrc->bw_path = NULL;
+	}
+
+	dvfsrc->hrt_path = of_icc_get(dvfsrc->dev, "icc-hrt-bw");
+	if (IS_ERR(dvfsrc->hrt_path)) {
+		dev_info(dvfsrc->dev, "get icc-hrt_bw fail\n");
+		dvfsrc->hrt_path = NULL;
+	}
 
 	dvfsrc_drv = dvfsrc;
 	platform_set_drvdata(pdev, dvfsrc);

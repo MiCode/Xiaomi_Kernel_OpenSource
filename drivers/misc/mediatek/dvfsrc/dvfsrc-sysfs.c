@@ -46,7 +46,7 @@ static ssize_t dvfsrc_req_hrtbw_store(struct device *dev,
 	if (!dvfsrc->hrt_path)
 		return -EINVAL;
 
-	icc_set_bw(dvfsrc->hrt_path, MBps_to_icc(val), MBps_to_icc(val));
+	icc_set_bw(dvfsrc->hrt_path, MBps_to_icc(val), 0);
 
 	return count;
 }
@@ -139,6 +139,38 @@ static ssize_t dvfsrc_dump_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(dvfsrc_dump);
 
+static ssize_t spm_cmd_dump_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char *p = buf;
+	ssize_t dump_size = PAGE_SIZE - 1;
+	const struct dvfsrc_config *config;
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	config = dvfsrc->dvd->config;
+	if (config->dump_spm_cmd && dvfsrc->spm_regs)
+		p = config->dump_spm_cmd(dvfsrc, p, dump_size - (p - buf));
+
+	return p - buf;
+}
+static DEVICE_ATTR_RO(spm_cmd_dump);
+
+static ssize_t spm_timer_latch_dump_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	char *p = buf;
+	ssize_t dump_size = PAGE_SIZE - 1;
+	const struct dvfsrc_config *config;
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	config = dvfsrc->dvd->config;
+	if (config->dump_spm_timer_latch && dvfsrc->spm_regs)
+		p = config->dump_spm_timer_latch(dvfsrc, p, dump_size - (p - buf));
+
+	return p - buf;
+}
+static DEVICE_ATTR_RO(spm_timer_latch_dump);
+
 static ssize_t dvfsrc_opp_table_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -170,6 +202,38 @@ static ssize_t dvfsrc_opp_table_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(dvfsrc_opp_table);
 
+static ssize_t dvfsrc_num_opps_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", dvfsrc->opp_desc->num_opp);
+}
+static DEVICE_ATTR_RO(dvfsrc_num_opps);
+
+static ssize_t dvfsrc_get_dvfs_time_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	u64 dvfs_time_us;
+
+	const struct dvfsrc_config *config;
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	config = dvfsrc->dvd->config;
+
+	if (dvfsrc->force_opp_idx >= dvfsrc->opp_desc->num_opp)
+		return sprintf(buf, "Not in force mode\n");
+
+	if (config->query_dvfs_time)
+		dvfs_time_us = config->query_dvfs_time(dvfsrc);
+	else
+		return sprintf(buf, "Not Suuport query\n");
+
+	return sprintf(buf, "dvfs_time = %llu us\n", dvfs_time_us);
+}
+DEVICE_ATTR_RO(dvfsrc_get_dvfs_time);
+
+
 static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_req_bw.attr,
 	&dev_attr_dvfsrc_req_hrtbw.attr,
@@ -178,6 +242,10 @@ static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_dump.attr,
 	&dev_attr_dvfsrc_force_vcore_dvfs_opp.attr,
 	&dev_attr_dvfsrc_opp_table.attr,
+	&dev_attr_dvfsrc_num_opps.attr,
+	&dev_attr_dvfsrc_get_dvfs_time.attr,
+	&dev_attr_spm_cmd_dump.attr,
+	&dev_attr_spm_timer_latch_dump.attr,
 	NULL,
 };
 
@@ -195,7 +263,11 @@ int dvfsrc_register_sysfs(struct device *dev)
 
 	ret = sysfs_create_link(&dev->parent->kobj, &dev->kobj,
 		"helio-dvfsrc");
+	if (ret)
+		return ret;
 
+	ret = sysfs_create_link(kernel_kobj, &dev->kobj,
+		"helio-dvfsrc");
 	return ret;
 }
 

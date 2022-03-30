@@ -27,8 +27,13 @@ struct mtk_dvfsrc_met {
 	struct device *dev;
 	void __iomem *regs;
 	const struct dvfsrc_met_data *dvd;
+	struct regulator *dvfsrc_vcore_power;
+	struct icc_path *bw_path;
+	struct icc_path *hrt_path;
 };
 
 extern const struct dvfsrc_met_config mt6873_met_config;
+extern const struct dvfsrc_met_config mt6983_met_config;
+
 #endif
 
