@@ -13,30 +13,16 @@
 #include <leds-mtk.h>
 #include "../drivers/gpu/drm/mediatek/mediatek_v2/mtk_panel_ext.h"
 
+#undef pr_fmt
+#define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
+
 #ifndef MTK_COMMON_LCM_DRV
 #define MTK_COMMON_LCM_DRV 1
 #define MTK_LEGACY_LCM_DRV 2
 #endif
 
-int __weak mtk_drm_gateic_set_backlight(unsigned int level, char func)
-{
-	return -1;
-}
-int __weak _gate_ic_backlight_set(unsigned int brightness)
-{
-	return -1;
-}
-int __weak mtkfb_set_backlight_level(unsigned int brightness)
-{
-	return -1;
-}
-int __weak mtk_drm_get_lcm_version(void)
-{
-	return -1;
-}
-
-#undef pr_fmt
-#define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
+extern int __weak mtk_drm_gateic_set_backlight(unsigned int level, char func);
+extern int __weak _gate_ic_backlight_set(unsigned int brightness);
 
 struct mt_leds_disp {
 	int num_leds;
