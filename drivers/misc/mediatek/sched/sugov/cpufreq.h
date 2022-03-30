@@ -17,6 +17,8 @@
 
 struct pd_capacity_info {
 	int nr_caps;
+	unsigned int *util_opp;
+	unsigned int *util_freq;
 	unsigned long *caps;
 	struct cpumask cpus;
 };

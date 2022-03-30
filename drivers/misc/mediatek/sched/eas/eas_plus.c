@@ -259,7 +259,7 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	scale_cpu = arch_scale_cpu_capacity(cpu);
 	ps = &pd->table[pd->nr_perf_states - 1];
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
-	mtk_map_util_freq(NULL, max_util, ps->frequency, scale_cpu, &freq);
+	mtk_map_util_freq(NULL, max_util, ps->frequency, to_cpumask(pd->cpus), &freq);
 #else
 	freq = map_util_freq(max_util, ps->frequency, scale_cpu);
 #endif
@@ -447,38 +447,6 @@ unsigned int get_thermal_headroom_interval_tick(void)
 	return thermal_headroom_interval_tick;
 }
 EXPORT_SYMBOL_GPL(get_thermal_headroom_interval_tick);
-
-#if IS_ENABLED(CONFIG_UCLAMP_TASK_GROUP)
-void mtk_uclamp_eff_get(void *data, struct task_struct *p, enum uclamp_id clamp_id,
-		struct uclamp_se *uc_max, struct uclamp_se *uc_eff, int *ret)
-{
-	struct uclamp_se group_uclamp = task_group(p)->uclamp[clamp_id];
-
-	*uc_eff =  p->uclamp_req[clamp_id];
-
-	if (task_group_is_autogroup(task_group(p)))
-		goto sys_restriction;
-	if (task_group(p) == &root_task_group)
-		goto sys_restriction;
-	switch (clamp_id) {
-	case UCLAMP_MIN:
-		if (uc_eff->value < group_uclamp.value)
-			*uc_eff = group_uclamp;
-		break;
-	case UCLAMP_MAX:
-		if (uc_eff->value > group_uclamp.value)
-			*uc_eff = group_uclamp;
-		break;
-	default:
-		WARN_ON_ONCE(1);
-		break;
-	}
-sys_restriction:
-	if (uc_eff->value > uc_max->value)
-		*uc_eff = *uc_max;
-	*ret = 1;
-}
-#endif
 
 static DEFINE_RAW_SPINLOCK(migration_lock);
 
