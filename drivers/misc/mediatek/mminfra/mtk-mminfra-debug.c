@@ -465,7 +465,6 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 
 static int mminfra_pm_suspend(struct device *dev)
 {
-	pr_notice("%s: start to check cg status\n", __func__);
 	mtk_smi_dbg_cg_status();
 	return 0;
 }
