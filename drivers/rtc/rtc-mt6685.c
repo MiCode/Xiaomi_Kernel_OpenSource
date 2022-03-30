@@ -421,8 +421,7 @@ static int mtk_rtc_restore_alarm(struct mt6685_rtc *rtc, struct rtc_time *tm)
 
 	ret =  rtc_update_bits(rtc,
 				rtc->addr_base + RTC_IRQ_EN,
-				RTC_IRQ_EN_ONESHOT_AL,
-				RTC_IRQ_EN_ONESHOT_AL);
+				RTC_IRQ_EN_AL, RTC_IRQ_EN_AL);
 	if (ret < 0)
 		goto exit;
 
@@ -597,7 +596,13 @@ static int mtk_rtc_is_alarm_irq(struct mt6685_rtc *rtc)
 					rtc->addr_base + RTC_BBPU, bbpu);
 		if (ret < 0)
 			dev_err(rtc->rtc_dev->dev.parent,
-				"%s error\n", __func__);
+				"%s: %d error\n", __func__, __LINE__);
+		ret =  rtc_update_bits(rtc,
+				rtc->addr_base + RTC_IRQ_EN,
+				RTC_IRQ_EN_AL, 0);
+		if (ret < 0)
+			dev_err(rtc->rtc_dev->dev.parent,
+				"%s: %d error\n", __func__, __LINE__);
 		mtk_rtc_write_trigger(rtc);
 		power_down_mclk(rtc);
 		return RTC_ALSTA;
@@ -992,14 +997,13 @@ static int mtk_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 
 		ret =  rtc_update_bits(rtc,
 					 rtc->addr_base + RTC_IRQ_EN,
-					 RTC_IRQ_EN_ONESHOT_AL,
-					 RTC_IRQ_EN_ONESHOT_AL);
+					 RTC_IRQ_EN_AL, RTC_IRQ_EN_AL);
 		if (ret < 0)
 			goto exit;
 	} else {
 		ret = rtc_update_bits(rtc,
 					 rtc->addr_base + RTC_IRQ_EN,
-					 RTC_IRQ_EN_ONESHOT_AL, 0);
+					 RTC_IRQ_EN_AL, 0);
 
 		if (ret < 0)
 			goto exit;
