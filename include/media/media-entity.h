@@ -145,6 +145,9 @@ struct media_link {
 	struct media_link *reverse;
 	unsigned long flags;
 	bool is_backlink;
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
+	ANDROID_VENDOR_DATA(1);
+#endif
 };
 
 /**
