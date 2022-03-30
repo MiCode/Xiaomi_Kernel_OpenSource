@@ -5,6 +5,25 @@
 
 #include "mkp_api.h"
 
+const uint64_t subscribe = 0x6d6b7021;	/* mkp! */
+uint64_t *grant_ticket __ro_after_init;
+
+/* Preparation for grant ticket */
+bool __init prepare_grant_ticket(void)
+{
+	struct page *tpage;
+	void *taddr;
+
+	tpage = vmalloc_to_page((void *)&subscribe);
+	taddr = vmap(&tpage, 1, VM_MAP, PAGE_KERNEL);
+	if (!taddr)
+		return false;
+
+	grant_ticket = (uint64_t *)((uint64_t)taddr + ((uint64_t)&subscribe & ~PAGE_MASK));
+
+	return true;
+}
+
 void __init mkp_set_policy(u32 policy)
 {
 	// set policy control

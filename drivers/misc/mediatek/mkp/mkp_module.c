@@ -78,6 +78,7 @@ void module_enable_x(const struct module *mod, uint32_t policy)
 }
 void module_enable_ro(const struct module *mod, bool after_init, uint32_t policy)
 {
+	/* DO NOT CHANGE THE FOLLOWING ORDER */
 	frob_text(&mod->core_layout, HELPER_MAPPING_RO, policy);
 	frob_rodata(&mod->core_layout, HELPER_MAPPING_RO, policy);
 	if (policy == MKP_POLICY_DRV) {
@@ -91,6 +92,7 @@ void module_enable_ro(const struct module *mod, bool after_init, uint32_t policy
 void module_enable_nx(const struct module *mod, uint32_t policy)
 {
 	frob_rodata(&mod->core_layout, HELPER_MAPPING_NX, policy);
+	/* DO NOT REMOVE THE FOLLOWING STEP */
 	frob_ro_after_init(&mod->core_layout, HELPER_MAPPING_NX, policy);
 	frob_writable_data(&mod->core_layout, HELPER_MAPPING_NX, policy);
 	if (policy == MKP_POLICY_DRV) {

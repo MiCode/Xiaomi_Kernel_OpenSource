@@ -584,11 +584,13 @@ static void probe_android_vh_check_bpf_syscall(void *ignore,
 	check_selinux_state(&rs_bpf);
 }
 
-static int protect_mkp_self(void)
+static int __init protect_mkp_self(void)
 {
 	module_enable_ro(THIS_MODULE, false, MKP_POLICY_MKP);
 	module_enable_nx(THIS_MODULE, MKP_POLICY_MKP);
 	module_enable_x(THIS_MODULE, MKP_POLICY_MKP);
+
+	mkp_start_granting_hvc_call();
 	return 0;
 }
 
@@ -713,7 +715,20 @@ int __init mkp_demo_init(void)
 	/* Hook up interesting tracepoints and update corresponding policy_ctrl */
 	mkp_hookup_tracepoints();
 
-	/* Set up policy related operations */
+	/* Protect kernel code & rodata */
+	if (policy_ctrl[MKP_POLICY_KERNEL_CODE] != 0 ||
+		policy_ctrl[MKP_POLICY_KERNEL_RODATA] != 0) {
+#if !IS_ENABLED(CONFIG_KASAN_GENERIC) && !IS_ENABLED(CONFIG_KASAN_SW_TAGS)
+		ret = mkp_ka_init();
+		if (ret) {
+			MKP_ERR("mkp_ka_init failed: %d", ret);
+			return ret;
+		}
+		ret = protect_kernel();
+#endif
+	}
+
+	/* Protect MKP itself */
 	if (policy_ctrl[MKP_POLICY_MKP] != 0)
 		ret = protect_mkp_self();
 
@@ -818,17 +833,6 @@ int __init mkp_demo_init(void)
 		}
 	}
 
-	if (policy_ctrl[MKP_POLICY_KERNEL_CODE] != 0 ||
-		policy_ctrl[MKP_POLICY_KERNEL_RODATA] != 0) {
-#if !IS_ENABLED(CONFIG_KASAN_GENERIC) && !IS_ENABLED(CONFIG_KASAN_SW_TAGS)
-		ret = mkp_ka_init();
-		if (ret) {
-			MKP_ERR("mkp_ka_init failed: %d", ret);
-			return ret;
-		}
-		ret = protect_kernel();
-#endif
-	}
 	if (policy_ctrl[MKP_POLICY_TASK_CRED] ||
 		policy_ctrl[MKP_POLICY_SELINUX_STATE]) {
 		ret = register_trace_android_vh_check_mmap_file(

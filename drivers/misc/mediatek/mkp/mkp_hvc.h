@@ -40,6 +40,9 @@
 
 #include "policy.h"
 
+extern const uint64_t subscribe;
+extern uint64_t *grant_ticket;
+
 /* MKP HVC function number */
 enum mkp_hvc_func_num {
 	/* Policy ops */
@@ -70,6 +73,7 @@ enum mkp_hvc_func_num {
 
 	/* Essential for MKP service */
 	HVC_FUNC_ESS_0 = 96,
+	HVC_FUNC_ESS_1 = 97,
 };
 
 int mkp_set_mapping_ro_hvc_call(uint32_t policy, uint32_t handle);
@@ -104,5 +108,7 @@ int mkp_update_sharebuf_hvc_call(uint32_t policy, uint32_t handle, unsigned long
 
 int __init mkp_setup_essential_hvc_call(unsigned long phys_offset, unsigned long fixaddr_top,
 	unsigned long fixaddr_real_start);
+
+int __init mkp_start_granting_hvc_call(void);
 
 #endif /* _MKP_HVC_H */

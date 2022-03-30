@@ -34,6 +34,12 @@ static int __init mkp_init(void)
 		return 0;
 	}
 
+	/* Preparation for grant ticket */
+	if (!prepare_grant_ticket()) {
+		pr_info("%s: no grant ticket.\n", __func__);
+		return 0;
+	}
+
 	pr_info("%s:%d start\n", __func__, __LINE__);
 
 	/****************************************/
