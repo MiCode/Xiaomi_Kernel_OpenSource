@@ -1298,8 +1298,6 @@ static int mtk_aie_s_fmt_out_mp(struct file *file, void *fh,
 static int mtk_aie_enum_fmt_meta_cap(struct file *file, void *fh,
 				     struct v4l2_fmtdesc *f)
 {
-	struct mtk_aie_dev *fd = video_drvdata(file);
-
 	if (f->index)
 		return -EINVAL;
 
@@ -1315,8 +1313,6 @@ static int mtk_aie_enum_fmt_meta_cap(struct file *file, void *fh,
 static int mtk_aie_g_fmt_meta_cap(struct file *file, void *fh,
 				  struct v4l2_format *f)
 {
-	struct mtk_aie_dev *fd = video_drvdata(file);
-
 	f->fmt.meta.dataformat = V4L2_META_FMT_MTFD_RESULT;
 	f->fmt.meta.buffersize = sizeof(struct aie_enq_info);
 
@@ -1327,15 +1323,24 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				  struct v4l2_buffer *buf)
 {
 	struct mtk_aie_dev *fd = video_drvdata(file);
+	struct dma_buf_map map;
+	int ret = 0;
 	/* dev_info(fd->dev, "[%s] start!:%x %x\n", __func__, buf->length, fd->map_count); */
 
 	if (buf->length) {
 		if (!fd->map_count) {
-			int ret = 0;
 
 			fd->dmabuf = dma_buf_get(buf->m.planes[buf->length-1].m.fd);
 			dma_buf_begin_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
-			fd->kva = (u64)dma_buf_vmap(fd->dmabuf);
+
+			ret = (u64)dma_buf_vmap(fd->dmabuf, &map);
+			if (ret) {
+				dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
+				ret = -ENOMEM;
+				goto ERROR;
+			}
+			fd->kva = (unsigned long long)map.vaddr;
+
 			memcpy((char *)&g_user_param, (char *)fd->kva, sizeof(g_user_param));
 			fd->base_para->rpn_anchor_thrd = (signed short)
 						(g_user_param.feature_threshold & 0x0000FFFF);
@@ -1370,6 +1375,13 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 	}
 
 	return v4l2_m2m_ioctl_qbuf(file, priv, buf);
+
+ERROR:
+	dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
+	dma_buf_put(fd->dmabuf);
+
+	return ret;
+
 }
 
 static const struct vb2_ops mtk_aie_vb2_ops = {

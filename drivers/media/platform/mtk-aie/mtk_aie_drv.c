@@ -456,7 +456,17 @@ unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_d
 
 void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf)
 {
-	void *buf_ptr = dma_buf_vmap(my_dma_buf);
+	struct dma_buf_map map;
+	void *buf_ptr = NULL;
+	int ret = 0;
+
+	ret = dma_buf_vmap(my_dma_buf, &map);
+	if (ret) {
+		dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
+		return NULL;
+	}
+
+	buf_ptr = map.vaddr;
 
 	if (!buf_ptr) {
 		dev_info(fd->dev, "map failed\n");
