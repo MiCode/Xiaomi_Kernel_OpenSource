@@ -10,6 +10,7 @@
 
 #include <ged_base.h>
 #include <ged_dcs.h>
+#include <ged_log.h>
 
 #if defined(CONFIG_MTK_GPUFREQ_V2)
 #include <ged_gpufreq_v2.h>
@@ -19,6 +20,7 @@
 #endif /* CONFIG_MTK_GPUFREQ_V2 */
 
 static unsigned int g_dcs_enable;
+static unsigned int g_dcs_support;
 static unsigned int g_dcs_opp_setting;
 static struct mutex g_DCS_lock;
 
@@ -71,20 +73,29 @@ GED_ERROR ged_dcs_init_platform_info(void)
 	int opp_setting = 0;
 	int ret = GED_OK;
 
+	mutex_init(&g_DCS_lock);
+
 	dcs_node = of_find_compatible_node(NULL, NULL, "mediatek,gpu_dcs");
 	if (unlikely(!dcs_node)) {
 		GED_LOGE("Failed to find gpu_dcs node");
 		return ret;
 	}
 
-	of_property_read_u32(dcs_node, "dcs-policy-support", &g_dcs_enable);
+	of_property_read_u32(dcs_node, "dcs-policy-support", &g_dcs_support);
 	of_property_read_u32(dcs_node, "virtual-opp-support", &g_dcs_opp_setting);
 
 	opp_setting = g_dcs_opp_setting;
+
+	if (!g_dcs_support) {
+		GED_LOGE("DCS policy not support");
+		return ret;
+	}
+
 	while (opp_setting) {
 		g_avail_mask_num += opp_setting & 1;
 		opp_setting >>= 1;
 	}
+	g_dcs_enable = 1;
 
 	GED_LOGI("%s: g_dcs_enable: %d,  g_dcs_opp_setting: 0x%X",
 			g_dcs_enable, g_dcs_opp_setting);
@@ -96,6 +107,8 @@ GED_ERROR ged_dcs_init_platform_info(void)
 
 void ged_dcs_exit(void)
 {
+	mutex_destroy(&g_DCS_lock);
+
 	kfree(g_core_mask_table);
 	kfree(g_avail_mask_table);
 }
@@ -154,25 +167,53 @@ int dcs_set_core_mask(unsigned int core_mask, unsigned int core_num)
 {
 	int ret = GED_OK;
 
+	mutex_lock(&g_DCS_lock);
+
+
+	if (!g_dcs_enable || g_cur_core_num == core_num)
+		goto done_unlock;
+
 	if (!g_core_mask_table) {
-		GED_LOGE("null core mask table", core_mask);
-		return GED_ERROR_FAIL;
+		ret = GED_ERROR_FAIL;
+		GED_LOGE("null core mask table");
+		goto done_unlock;
 	}
 
-	if (g_cur_core_num == core_num)
-		return GED_OK;
-
 	ged_dvfs_set_gpu_core_mask_fp(core_mask);
+	g_cur_core_num = core_num;
 
 	/* TODO: set return error */
 	if (ret) {
 		GED_LOGE("Failed to set core_mask: 0x%llX, core_num: %d", core_mask, core_num);
-		return GED_ERROR_FAIL;
+		goto done_unlock;
 	}
 
-	g_cur_core_num = core_num;
+done_unlock:
+	mutex_unlock(&g_DCS_lock);
+	return ret;
+}
 
-	return GED_OK;
+int dcs_restore_max_core_mask(void)
+{
+	int ret = GED_OK;
+
+	mutex_lock(&g_DCS_lock);
+
+	if (!g_dcs_enable || g_cur_core_num == g_max_core_num)
+		goto done_unlock;
+
+	if (g_core_mask_table == NULL) {
+		ret = GED_ERROR_FAIL;
+		GED_LOGE("null core mask table");
+		goto done_unlock;
+	}
+
+	ged_dvfs_set_gpu_core_mask_fp(g_core_mask_table[0].mask);
+	g_cur_core_num = g_max_core_num;
+
+done_unlock:
+	mutex_unlock(&g_DCS_lock);
+	return ret;
 }
 
 int is_dcs_enable(void)
@@ -182,10 +223,10 @@ int is_dcs_enable(void)
 
 void dcs_enable(int enable)
 {
-	mutex_lock(&g_DCS_lock);
-
 	if (g_core_mask_table == NULL)
 		return;
+
+	mutex_lock(&g_DCS_lock);
 
 	if (enable)
 		g_dcs_enable = enable;

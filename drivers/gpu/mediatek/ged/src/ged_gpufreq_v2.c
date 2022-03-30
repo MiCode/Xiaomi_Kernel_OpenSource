@@ -24,6 +24,8 @@ static int g_max_working_oppidx;       /* 0 */
 static int g_min_working_oppidx;       /* opp_num - 1 */
 static int g_min_virtual_oppidx;       /* opp_num - 1 + mask_num -1 */
 
+static int g_max_freq_in_mhz;         /* max freq in opp table */
+
 struct gpufreq_core_mask_info *g_mask_table;
 struct gpufreq_opp_info *g_working_table;
 struct gpufreq_opp_info *g_virtual_table;
@@ -45,6 +47,7 @@ GED_ERROR ged_gpufreq_init(void)
 	g_working_oppnum = gpufreq_get_opp_num(TARGET_DEFAULT);
 	g_min_working_oppidx = g_working_oppnum - 1;
 	g_max_working_oppidx = 0;
+	g_max_freq_in_mhz = gpufreq_get_freq_by_idx(TARGET_DEFAULT, 0) / 1000;
 
 	opp_table  = gpufreq_get_working_table(TARGET_DEFAULT);
 	g_working_table = kcalloc(g_working_oppnum,
@@ -184,6 +187,11 @@ int ged_get_cur_oppidx(void)
 	return oppidx;
 }
 
+int ged_get_max_freq_in_opp(void)
+{
+	return g_max_freq_in_mhz;
+}
+
 int ged_get_max_oppidx(void)
 {
 	return g_max_working_oppidx;
@@ -200,6 +208,14 @@ int ged_get_min_oppidx(void)
 		return gpufreq_get_opp_num(TARGET_DEFAULT) - 1;
 }
 
+int ged_get_min_oppidx_real(void)
+{
+	if (g_min_working_oppidx)
+		return g_min_working_oppidx;
+	else
+		return gpufreq_get_opp_num(TARGET_DEFAULT) - 1;
+}
+
 unsigned int ged_get_opp_num(void)
 {
 	if (is_dcs_enable() && g_virtual_oppnum)
@@ -210,6 +226,15 @@ unsigned int ged_get_opp_num(void)
 	else
 		return gpufreq_get_opp_num(TARGET_DEFAULT);
 }
+
+unsigned int ged_get_opp_num_real(void)
+{
+	if (g_working_oppnum)
+		return g_working_oppnum;
+	else
+		return gpufreq_get_opp_num(TARGET_DEFAULT);
+}
+
 unsigned int ged_get_freq_by_idx(int oppidx)
 {
 	if (is_dcs_enable() && g_virtual_table)
@@ -299,6 +324,9 @@ unsigned int ged_get_cur_limiter_floor(void)
 
 int ged_set_limit_ceil(int limiter, int ceil)
 {
+	if (ceil > g_min_working_oppidx)
+		ceil = g_min_working_oppidx;
+
 	if (limiter)
 		return gpufreq_set_limit(TARGET_DEFAULT,
 			LIMIT_APIBOOST, ceil, GPUPPM_KEEP_IDX);
@@ -309,6 +337,9 @@ int ged_set_limit_ceil(int limiter, int ceil)
 
 int ged_set_limit_floor(int limiter, int floor)
 {
+	if (floor > g_min_working_oppidx)
+		floor = g_min_working_oppidx;
+
 	if (limiter)
 		return gpufreq_set_limit(TARGET_DEFAULT,
 			LIMIT_APIBOOST, GPUPPM_KEEP_IDX, floor);
@@ -317,7 +348,7 @@ int ged_set_limit_floor(int limiter, int floor)
 			LIMIT_FPSGO, GPUPPM_KEEP_IDX, floor);
 }
 
-int ged_gpufreq_commit(int oppidx, int commit_type)
+int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 {
 	int ret = GED_OK;
 	int oppidx_tar = 0;
@@ -328,6 +359,8 @@ int ged_gpufreq_commit(int oppidx, int commit_type)
 
 	/* DCS policy enabled */
 	if (is_dcs_enable()) {
+
+		/* check constraint for lowest virtual opp */
 		if (oppidx == g_min_virtual_oppidx)
 			g_min_count = (g_min_count < DCS_MIN_OPP_CNT) ?
 				g_min_count + 1 : DCS_MIN_OPP_CNT;
@@ -337,17 +370,18 @@ int ged_gpufreq_commit(int oppidx, int commit_type)
 		if (g_min_count > 0 && g_min_count < 4)
 			oppidx -= 1;
 
+		/* check FB fallback timer commit */
+		if (commit_type == GED_DVFS_FB_FALLBACK_COMMIT)
+			if (oppidx > g_min_working_oppidx)
+				oppidx = g_min_working_oppidx;
+
 		/* convert virtual opp to working opp with corresponding core mask */
 		if (oppidx > g_min_working_oppidx) {
 			mask_idx = oppidx - g_virtual_oppnum + g_avail_mask_num;
 			oppidx_tar = g_min_working_oppidx;
-			core_mask_tar = g_mask_table[mask_idx].mask;
-			core_num_tar = g_mask_table[mask_idx].num;
 		} else {
 			mask_idx = 0;
 			oppidx_tar = oppidx;
-			core_mask_tar = g_mask_table[mask_idx].mask;
-			core_num_tar = g_mask_table[mask_idx].num;
 		}
 
 		/* scaling cores to max if freq. is fixed */
@@ -356,16 +390,17 @@ int ged_gpufreq_commit(int oppidx, int commit_type)
 		if (dvfs_state == DVFS_DEBUG_KEEP) {
 			mask_idx = 0;
 			oppidx_tar = oppidx;
-			core_mask_tar = g_mask_table[mask_idx].mask;
-			core_num_tar = g_mask_table[mask_idx].num;
 		}
+
+		core_mask_tar = g_mask_table[mask_idx].mask;
+		core_num_tar = g_mask_table[mask_idx].num;
 
 		/* scaling freq first than scaling shader cores*/
 		if (ged_is_fdvfs_support())
 			mtk_gpueb_dvfs_dcs_commit(oppidx_tar, commit_type,
 				 g_virtual_table[oppidx].freq);
 		else
-			gpufreq_commit(TARGET_DEFAULT, oppidx_tar);
+			ged_dvfs_gpu_freq_commit_fp(TARGET_DEFAULT, oppidx_tar, bCommited);
 
 		dcs_set_core_mask(core_mask_tar, core_num_tar);
 	}
@@ -378,7 +413,7 @@ int ged_gpufreq_commit(int oppidx, int commit_type)
 		if (ged_is_fdvfs_support())
 			mtk_gpueb_dvfs_dcs_commit(oppidx, commit_type, freq);
 		else
-			gpufreq_commit(TARGET_DEFAULT, oppidx);
+			ged_dvfs_gpu_freq_commit_fp(oppidx, commit_type, bCommited);
 	}
 
 	/* TODO: return value handling */

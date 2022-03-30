@@ -452,6 +452,7 @@ GED_ERROR check_eb_config(void)
 	if (!fdvfs_node) {
 		GED_LOGE("No fdvfs node.");
 		g_ged_fdvfs_support = 0;
+		g_ged_gpueb_support = 0;
 	} else {
 		of_property_read_u32(fdvfs_node, "fdvfs-policy-support",
 				&g_ged_fdvfs_support);
@@ -466,17 +467,6 @@ GED_ERROR check_eb_config(void)
 		__func__, g_ged_gpueb_support, g_ged_fdvfs_support, g_fastdvfs_mode);
 
 	return ret;
-}
-
-void ged_dfrc_fps_limit_cb(unsigned int fps_limit)
-{
-	vGed_Tmp = GED_TARGET_UNLIMITED_FPS;
-
-	if (fps_limit > 0 && fps_limit <= GED_TARGET_UNLIMITED_FPS)
-		vGed_Tmp = fps_limit;
-
-	GED_LOGI("[GED_CTRL] dfrc_fps %d\n", vGed_Tmp);
-
 }
 
 /******************************************************************************
@@ -582,10 +572,6 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		GED_LOGE("Failed to init GPU Tuner!\n");
 		goto ERROR;
 	}
-
-#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
-	drm_register_fps_chg_callback(ged_dfrc_fps_limit_cb);
-#endif
 
 #ifndef GED_BUFFER_LOG_DISABLE
 	ghLogBuf_GPU = ged_log_buf_alloc(512, 128 * 512,

@@ -30,6 +30,11 @@ int ged_get_cur_oppidx(void)
 	return mt_gpufreq_get_cur_freq_index();
 }
 
+int ged_get_max_freq_in_opp(void)
+{
+	return mt_gpufreq_get_freq_by_idx(0);
+}
+
 int ged_get_max_oppidx(void)
 {
 	return 0;
@@ -40,7 +45,17 @@ int ged_get_min_oppidx(void)
 	return mt_gpufreq_get_dvfs_table_num() - 1;
 }
 
+int ged_get_min_oppidx_real(void)
+{
+	return mt_gpufreq_get_dvfs_table_num() - 1;
+}
+
 int ged_get_opp_num(void)
+{
+	return mt_gpufreq_get_dvfs_table_num();
+}
+
+int ged_get_opp_num_real(void)
 {
 	return mt_gpufreq_get_dvfs_table_num();
 }
@@ -100,7 +115,7 @@ int ged_set_limit_floor(int limiter, int floor)
 	return 0;
 }
 
-int ged_gpufreq_commit(int oppidx, int commit_type)
+int ged_gpufreq_commit(int oppidx, int commit_type, int *bCommited)
 {
 	return mt_gpufreq_target(KIR_POLICY, oppidx);
 }

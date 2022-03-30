@@ -644,6 +644,23 @@ bool mtk_ltr_gpu_pmu_stop(void)
 }
 EXPORT_SYMBOL(mtk_ltr_gpu_pmu_stop);
 
+/* -----------------------------set gpu idle time--------------------------------- */
+
+void (*mtk_set_gpu_idle_fp)(unsigned int val) = NULL;
+EXPORT_SYMBOL(mtk_set_gpu_idle_fp);
+
+bool mtk_set_gpu_idle(unsigned int val)
+{
+	if (mtk_set_gpu_idle_fp != NULL) {
+		mtk_set_gpu_idle_fp(val);
+		return true;
+	}
+	return false;
+
+}
+EXPORT_SYMBOL(mtk_set_gpu_idle);
+
+
 /* ----------------------gpufreq change notify fp-------------------------- */
 void (*mtk_notify_gpu_freq_change_fp)(u32 clk_idx, u32 gpufreq) = NULL;
 EXPORT_SYMBOL(mtk_notify_gpu_freq_change_fp);

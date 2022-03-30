@@ -30,6 +30,7 @@ int dcs_get_cur_core_num(void);
 int dcs_get_max_core_num(void);
 int dcs_get_avail_mask_num(void);
 int dcs_set_core_mask(unsigned int core_mask, unsigned int core_num);
+int dcs_restore_max_core_mask(void);
 int is_dcs_enable(void);
 void dcs_enable(int enable);
 
