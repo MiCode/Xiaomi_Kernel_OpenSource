@@ -7,7 +7,7 @@
 #include "inc/tcpci_event.h"
 #include "inc/pd_process_evt.h"
 
-#ifdef CONFIG_USB_PD_VCONN_SWAP
+#if CONFIG_USB_PD_VCONN_SWAP
 /* DPM Event reactions */
 
 DECL_PE_STATE_TRANSITION(PD_DPM_MSG_ACK) = {

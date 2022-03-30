@@ -133,7 +133,7 @@ void pe_dfp_vdm_attention_request_entry(struct pd_port *pd_port)
  * [PD2.0] Figure 8-83 DFP Cable Soft Reset or Cable Reset State Diagram
  */
 
-#ifdef CONFIG_PD_DFP_RESET_CABLE
+#if CONFIG_PD_DFP_RESET_CABLE
 
 void pe_dfp_cbl_send_soft_reset_entry(struct pd_port *pd_port)
 {
@@ -153,7 +153,7 @@ void pe_dfp_cbl_send_cable_reset_entry(struct pd_port *pd_port)
  * [PD2.0] Display Port
  */
 
-#ifdef CONFIG_USB_PD_ALT_MODE_DFP
+#if CONFIG_USB_PD_ALT_MODE_DFP
 
 void pe_dfp_vdm_dp_status_update_request_entry(struct pd_port *pd_port)
 {
@@ -191,7 +191,7 @@ void pe_dfp_vdm_dp_configuration_naked_entry(struct pd_port *pd_port)
  * UVDM
  */
 
-#ifdef CONFIG_USB_PD_CUSTOM_VDM
+#if CONFIG_USB_PD_CUSTOM_VDM
 
 void pe_dfp_uvdm_send_entry(struct pd_port *pd_port)
 {

@@ -22,8 +22,12 @@
 #define OUT_BUF_MAX (128)
 static struct {
 	int used;
+	int cnt;
 	char buf[PD_INFO_BUF_SIZE + 1 + OUT_BUF_MAX];
 } pd_dbg_buffer[2];
+
+static bool dbg_log_en;
+module_param(dbg_log_en, bool, 0644);
 
 static struct mutex buff_lock;
 static unsigned int using_buf;
@@ -46,9 +50,9 @@ EXPORT_SYMBOL(pd_dbg_info_unlock);
 
 static inline bool pd_dbg_print_out(void)
 {
-	char temp;
-	int used;
+	int used, cnt;
 	unsigned int index, i;
+	char *str;
 
 	mutex_lock(&buff_lock);
 	index = using_buf;
@@ -59,36 +63,37 @@ static inline bool pd_dbg_print_out(void)
 
 	if (used == 0)
 		return false;
+	cnt = pd_dbg_buffer[index].cnt;
 
-	pd_dbg_buffer[index].buf[used] = '\0';
+	pr_info("///PD dbg info %d %d\n", used, cnt);
 
-	pr_info("///PD dbg info %ud\n", used);
-
-	for (i = 0; i < used; i += OUT_BUF_MAX) {
-		temp = pd_dbg_buffer[index].buf[OUT_BUF_MAX + i];
-		pd_dbg_buffer[index].buf[OUT_BUF_MAX + i] = '\0';
-
+	str = pd_dbg_buffer[index].buf;
+	for (i = 0; i < cnt; i++) {
 		while (atomic_read(&busy))
 			usleep_range(1000, 2000);
 
-		pr_notice("%s", pd_dbg_buffer[index].buf + i);
-		pd_dbg_buffer[index].buf[OUT_BUF_MAX + i] = temp;
+		pr_info("%s", str);
+		str += strlen(str) + 1;
 	}
 
 	/* pr_info("PD dbg info///\n"); */
 	pd_dbg_buffer[index].used = 0;
+	pd_dbg_buffer[index].cnt = 0;
 	msleep(MSG_POLLING_MS);
 	return true;
 }
 
 static int print_out_thread_fn(void *arg)
 {
+	int ret = 0;
 	while (true) {
-		wait_event_interruptible(event_loop_wait_que,
-				atomic_read(&pending_event) |
-				event_loop_thread_stop);
-		if (kthread_should_stop() || event_loop_thread_stop)
+		ret = wait_event_interruptible(event_loop_wait_que,
+					       atomic_read(&pending_event) |
+					       event_loop_thread_stop);
+		if (kthread_should_stop() || event_loop_thread_stop || ret) {
+			pr_notice("%s exits(%d)\n", __func__, ret);
 			break;
+		}
 		do {
 			atomic_dec_if_positive(&pending_event);
 		} while (pd_dbg_print_out());
@@ -101,10 +106,12 @@ int pd_dbg_info(const char *fmt, ...)
 {
 	unsigned int index;
 	va_list args;
-	int r;
-	int used;
+	int r1, r2 = 0, used, left_size;
 	u64 ts;
 	unsigned long rem_usec;
+
+	if (!dbg_log_en)
+		return 0;
 
 	ts = local_clock();
 	rem_usec = do_div(ts, 1000000000) / 1000 / 1000;
@@ -112,15 +119,16 @@ int pd_dbg_info(const char *fmt, ...)
 	mutex_lock(&buff_lock);
 	index = using_buf;
 	used = pd_dbg_buffer[index].used;
-	r = snprintf(pd_dbg_buffer[index].buf + used,
-		PD_INFO_BUF_SIZE - used, "<%5lu.%03lu>",
+	left_size = PD_INFO_BUF_SIZE - used;
+	r1 = snprintf(pd_dbg_buffer[index].buf + used, left_size, "<%5lu.%03lu>",
 		(unsigned long)ts, rem_usec);
-	if (r > 0)
-		used += r;
-	r = vsnprintf(pd_dbg_buffer[index].buf + used,
-			PD_INFO_BUF_SIZE - used, fmt, args);
-	if (r > 0)
-		used += r;
+	if (r1 <= 0 || r1 == left_size)
+		goto out;
+	left_size = PD_INFO_BUF_SIZE - (used + r1);
+	r2 = vsnprintf(pd_dbg_buffer[index].buf + used + r1, left_size, fmt, args);
+	if (r2 <= 0 || r2 == left_size)
+		goto out;
+	used += r1 + r2 + 1;
 
 	if (pd_dbg_buffer[index].used == 0) {
 		atomic_inc(&pending_event);
@@ -128,9 +136,11 @@ int pd_dbg_info(const char *fmt, ...)
 	}
 
 	pd_dbg_buffer[index].used = used;
+	pd_dbg_buffer[index].cnt++;
+out:
 	mutex_unlock(&buff_lock);
 	va_end(args);
-	return r;
+	return r2;
 }
 EXPORT_SYMBOL(pd_dbg_info);
 

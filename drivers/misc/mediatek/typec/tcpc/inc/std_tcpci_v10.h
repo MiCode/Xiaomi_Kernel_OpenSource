@@ -47,6 +47,7 @@
 #define TCPC_V10_REG_TX_HDR				(0x52)
 #define TCPC_V10_REG_TX_DATA				(0x54)/* through 0x6f */
 
+#define TCPC_V10_REG_VBUS_VOLTAGE_L                     (0x70)
 #define TCPC_V10_REG_VBUS_SINK_DISCONNECT_THD		(0x72)
 #define TCPC_V10_REG_VBUS_STOP_DISCHARGE_THD		(0x74)
 #define TCPC_V10_REG_VBUS_VOLTAGE_ALARM_HI		(0x76)
@@ -134,6 +135,7 @@
  */
 
 #define TCPC_V10_REG_VBUS_MONITOR		(1<<6)
+#define TCPC_V10_REG_AUTO_DISCHG_DISCNT         (1<<4)
 #define TCPC_V10_REG_BLEED_DISC_EN		(1<<3)
 #define TCPC_V10_REG_FORCE_DISC_EN		(1<<2)
 #define TCPC_V10_REG_POWER_CTRL_VCONN		(1<<0)
@@ -182,7 +184,7 @@ enum tcpm_v10_command {
  * TCPC_V10_REG_TRANSMIT				(0x50)
  */
 
-#ifdef CONFIG_USB_PD_REV30
+#if CONFIG_USB_PD_REV30
 #define TCPC_V10_REG_TRANSMIT_SET(retry, type) \
 		((retry) << 4 | (type))
 #else

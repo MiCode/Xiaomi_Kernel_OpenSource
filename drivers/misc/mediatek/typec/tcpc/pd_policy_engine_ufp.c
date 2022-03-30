@@ -64,7 +64,7 @@ void pe_ufp_vdm_attention_request_entry(
 	VDM_STATE_NORESP_CMD(pd_port);
 
 	switch (pd_port->mode_svid) {
-#ifdef CONFIG_USB_PD_ALT_MODE
+#if CONFIG_USB_PD_ALT_MODE
 	case USB_SID_DISPLAYPORT:
 		pd_dpm_ufp_send_dp_attention(pd_port);
 		break;
@@ -80,7 +80,7 @@ void pe_ufp_vdm_attention_request_entry(
  * ALT Mode
  */
 
-#ifdef CONFIG_USB_PD_ALT_MODE
+#if CONFIG_USB_PD_ALT_MODE
 
 void pe_ufp_vdm_dp_status_update_entry(struct pd_port *pd_port)
 {
@@ -98,7 +98,7 @@ void pe_ufp_vdm_dp_configure_entry(struct pd_port *pd_port)
  * SVMD/UVDM
  */
 
-#ifdef CONFIG_USB_PD_CUSTOM_VDM
+#if CONFIG_USB_PD_CUSTOM_VDM
 
 void pe_ufp_uvdm_recv_entry(struct pd_port *pd_port)
 {
@@ -106,3 +106,9 @@ void pe_ufp_uvdm_recv_entry(struct pd_port *pd_port)
 }
 
 #endif	/* CONFIG_USB_PD_CUSTOM_VDM */
+
+void pe_ufp_vdm_send_nak_entry(struct pd_port *pd_port)
+{
+	pd_dpm_ufp_send_svdm_nak(pd_port);
+	VDM_STATE_DPM_INFORMED(pd_port);
+}
