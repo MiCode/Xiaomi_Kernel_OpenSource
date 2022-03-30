@@ -16,11 +16,6 @@
 #undef pr_fmt
 #define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
 
-#ifndef MTK_COMMON_LCM_DRV
-#define MTK_COMMON_LCM_DRV 1
-#define MTK_LEGACY_LCM_DRV 2
-#endif
-
 extern int __weak mtk_drm_gateic_set_backlight(unsigned int level, char func);
 extern int __weak _gate_ic_backlight_set(unsigned int brightness);
 
@@ -130,7 +125,6 @@ static int __maybe_unused led_i2c_set(struct mt_led_data *mdev,
 		return mtk_drm_gateic_set_backlight(brightness, 2);
 	else if (version == MTK_LEGACY_LCM_DRV)
 		return _gate_ic_backlight_set(brightness);
-
 	pr_notice("%s, gate ic is not ready yet\n", __func__);
 	return 0;
 }
