@@ -152,7 +152,7 @@ static void wsm_free(struct tee_session *session, struct tee_wsm *wsm)
 static int hash_path_and_data(struct task_struct *task, u8 *hash,
 			      const void *data, unsigned int data_len)
 {
-	struct file *exe_file;
+	struct file *exe_file = NULL;
 	struct crypto_shash *tfm;
 	struct shash_desc *desc;
 	size_t desc_size;
