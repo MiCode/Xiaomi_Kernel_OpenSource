@@ -63,6 +63,8 @@ struct DRM_MMP_Events {
 	mmp_event set_mode;
 	mmp_event top_clk;
 	mmp_event mml_sram;
+	mmp_event sram_alloc;
+	mmp_event sram_free;
 };
 
 /* if changed, need to update init_crtc_mmp_event() */
