@@ -14,3 +14,10 @@ config MTK_PERFORMANCE_MODULE
 	  For MediaTek performance modules, such as FPSGO and EARA-QoS
 	  Select "y" if you want to enable power throttling feature
 	  Select "n" if unsure.
+
+config MTK_FRS
+	tristate "Mediatek Frame Rate Smoother"
+	help
+	  Support Frame Rate Smoother kernel intergface. It will adjustment
+	  target fps by thermal.
+	  If you are not sure about this, set n.
