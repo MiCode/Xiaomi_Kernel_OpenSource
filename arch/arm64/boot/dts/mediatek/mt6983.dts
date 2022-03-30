@@ -13806,6 +13806,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 	gpio_keys: gpio_keys {
 		compatible = "gpio-keys";
 	};
+
+	mtk_ssc: mtk_ssc {
+		compatible = "mediatek,ssc";
+		ssc_enable = <0x1>;
+	};
 };
 
 &i2c6 {
