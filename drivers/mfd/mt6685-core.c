@@ -25,6 +25,9 @@ static const struct mfd_cell mt6685_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6685_dcxo_resources),
 		.resources = mt6685_dcxo_resources,
 		.of_compatible = "mediatek,clock_buffer",
+	}, {
+		.name = "mt6685-rtc",
+		.of_compatible = "mediatek,mt6685-rtc",
 	}
 };
 
