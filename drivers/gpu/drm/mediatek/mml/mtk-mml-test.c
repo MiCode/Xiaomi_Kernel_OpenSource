@@ -1259,6 +1259,7 @@ static ssize_t test_read(struct file *filep, char __user *buf, size_t size,
 {
 	struct mml_test_case user_case = {0};
 	u32 len = sizeof(user_case);
+	int ret;
 
 	if (size < sizeof(user_case)) {
 		mml_err("[test] buf size not match %zu %u",
@@ -1287,7 +1288,11 @@ static ssize_t test_read(struct file *filep, char __user *buf, size_t size,
 	user_case.fd_out1 = the_case.fd_out1;
 	user_case.size_out1 = the_case.size_out1;
 
-	copy_to_user(buf, &user_case, len);
+	ret = copy_to_user(buf, &user_case, len);
+	if (ret) {
+		mml_err("[test]%s copy case fail %d", __func__, ret);
+		return -EFAULT;
+	}
 	*offset += len;
 
 	mml_log("[test]%s format src %#010x dest %#010x",
@@ -1440,17 +1445,20 @@ static int mml_test_create_src(struct dma_heap *heap, struct mml_ut *cur_case,
 	struct mml_buffer *buf)
 {
 	void *va;
+	struct dma_buf_map map;
+	int ret;
 
 	if (mml_test_alloc_frame(heap, buf, cur_case->cfg_src_format,
 		cur_case->cfg_src_w, cur_case->cfg_src_h) < 0)
 		return -EINVAL;
 
 	/* retrieve va to fill in raw data */
-	va = dma_buf_vmap(buf->dmabuf[0]);
-	if (!va) {
+	ret = dma_buf_vmap(buf->dmabuf[0], &map);
+	if (ret) {
 		mml_err("[test]fail to vmap");
 		return -ENOMEM;
 	}
+	va = map.vaddr;
 
 	switch (cur_case->cfg_src_format) {
 	case MML_FMT_RGB888:
@@ -1467,7 +1475,7 @@ static int mml_test_create_src(struct dma_heap *heap, struct mml_ut *cur_case,
 	}
 
 	buf->flush = true;
-	dma_buf_vunmap(buf->dmabuf[0], va);
+	dma_buf_vunmap(buf->dmabuf[0], &map);
 
 	return 0;
 }
