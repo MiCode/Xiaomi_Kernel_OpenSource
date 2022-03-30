@@ -51,6 +51,7 @@ source "drivers/misc/mediatek/geniezone/Kconfig"
 endmenu # Security
 
 menu "Tinysys"
+source "drivers/misc/mediatek/sspm/Kconfig"
 source "drivers/misc/mediatek/tinysys_scmi/Kconfig"
 endmenu # Tinysys
 
