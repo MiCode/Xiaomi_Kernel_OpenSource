@@ -21,3 +21,13 @@ config MTK_FRS
 	  Support Frame Rate Smoother kernel intergface. It will adjustment
 	  target fps by thermal.
 	  If you are not sure about this, set n.
+
+config MTK_LOAD_TRACKER
+	tristate "CPU Loading Tracking Service"
+	depends on CPU_FREQ
+	default n
+	help
+	  MTK_LOAD_TRACKER is the kernel config of CPU Loading Tracking
+	  Service designed by MTK, which is a service to get CPU Loading
+	  information. User can register callback and config polling
+	  duration to get CPU loading.
