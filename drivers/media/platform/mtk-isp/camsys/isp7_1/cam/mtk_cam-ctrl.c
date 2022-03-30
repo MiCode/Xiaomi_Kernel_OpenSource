@@ -32,7 +32,7 @@
 #define SENSOR_SET_DEADLINE_MS  18
 #define SENSOR_SET_RESERVED_MS  7
 #define SENSOR_SET_DEADLINE_MS_60FPS  6
-#define SENSOR_SET_RESERVED_MS_60FPS  6
+#define SENSOR_SET_RESERVED_MS_60FPS  4
 #define SENSOR_SET_STAGGER_DEADLINE_MS  23
 #define SENSOR_SET_STAGGER_RESERVED_MS  6
 
@@ -1699,7 +1699,7 @@ static enum hrtimer_restart sensor_deadline_timer_handler(struct hrtimer *t)
 	if (drained_res == 0) {
 		sen_no = atomic_read(&sensor_ctrl->sensor_enq_seq_no);
 		enq_no = atomic_read(&ctx->enqueued_frame_seq_no);
-		if (enq_no == sen_no) {
+		if (enq_no >= sen_no) {
 			mtk_cam_submit_kwork_in_sensorctrl(
 			sensor_ctrl->sensorsetting_wq, sensor_ctrl);
 			return HRTIMER_NORESTART;
@@ -1708,9 +1708,10 @@ static enum hrtimer_restart sensor_deadline_timer_handler(struct hrtimer *t)
 			"[TimerIRQ [SOF+%dms]] ctx:%d, enq:%d/sensor_enq:%d\n",
 			time_after_sof, ctx->stream_id, enq_no, sen_no);
 	}
-	/*using enque timing for sensor setting*/
+	/* while drianed, using next enque timing for sensor setting*/
 	if (ctx->used_raw_num) {
-		if (ctx->pipe->feature_active == 0) {
+		if (ctx->pipe->feature_active == 0 ||
+				mtk_cam_feature_is_mstream(ctx->pipe->feature_active)) {
 			int drained_seq_no =
 				atomic_read(&sensor_ctrl->sensor_request_seq_no) + 1;
 			atomic_set(&sensor_ctrl->last_drained_seq_no, drained_seq_no);
