@@ -11,6 +11,25 @@
 #include "mtk_vcodec_intr.h"
 #include "mtk_vcodec_util.h"
 
+int g_dec_irq[MTK_VDEC_HW_NUM] = { 0 };
+
+enum mtk_vdec_hw_id mtk_vdec_map_irq_to_hwid(int irq)
+{
+	enum mtk_vdec_hw_id core_id = MTK_VDEC_HW_NUM;
+
+	if (irq == g_dec_irq[MTK_VDEC_CORE])
+		core_id = MTK_VDEC_CORE;
+	else if (irq == g_dec_irq[MTK_VDEC_CORE1])
+		core_id = MTK_VDEC_CORE1;
+	else if (irq == g_dec_irq[MTK_VDEC_LAT])
+		core_id = MTK_VDEC_LAT;
+	else if (irq == g_dec_irq[MTK_VDEC_LAT1])
+		core_id = MTK_VDEC_LAT1;
+	else if (irq == g_dec_irq[MTK_VDEC_LINE_COUNT])
+		core_id = MTK_VDEC_LINE_COUNT;
+
+	return core_id;
+}
 int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx,
 	int core_id, int command, unsigned int timeout_ms)
 
@@ -69,34 +88,60 @@ irqreturn_t mtk_vcodec_dec_irq_handler(int irq, void *priv)
 	struct mtk_vcodec_ctx *ctx;
 	u32 cg_status = 0;
 	unsigned int dec_done_status = 0;
-	void __iomem *vdec_misc_addr = dev->dec_reg_base[VDEC_MISC] +
-		MTK_VDEC_IRQ_CFG_REG;
+	enum mtk_vdec_hw_id core_id;
+	enum mtk_dec_dtsi_reg_idx misc_index;
+	void __iomem *vdec_misc_addr;
+
+	core_id = mtk_vdec_map_irq_to_hwid(irq);
+	if (!((core_id == MTK_VDEC_CORE) || (core_id == MTK_VDEC_CORE1))) {
+		mtk_v4l2_err("DEC ISR, core_id(%d) is not right", core_id);
+		return IRQ_HANDLED;
+	}
 
 	ctx = mtk_vcodec_get_curr_ctx(dev, MTK_VDEC_CORE);
 	if (ctx == NULL)
 		return IRQ_HANDLED;
 
-	/* check if HW active or not */
-	cg_status = readl(dev->dec_reg_base[0]);
-	if ((cg_status & MTK_VDEC_HW_ACTIVE) != 0) {
-		mtk_v4l2_err("DEC ISR, VDEC active is not 0x0 (0x%08x)",
-					 cg_status);
-		return IRQ_HANDLED;
+	misc_index = ((core_id == MTK_VDEC_CORE) ? VDEC_MISC : VDEC_CORE1_MISC);
+	vdec_misc_addr = dev->dec_reg_base[misc_index] +
+		MTK_VDEC_IRQ_CFG_REG;
+
+	if (ctx->dec_params.svp_mode != OPEN_TEE) {
+		/* check if HW active or not */
+		cg_status = readl(dev->dec_reg_base[0]);
+		if ((cg_status & MTK_VDEC_HW_ACTIVE) != 0) {
+			mtk_v4l2_err("DEC ISR, VDEC active is not 0x0 (0x%08x)",
+				cg_status);
+			return IRQ_HANDLED;
+		}
+
+		dec_done_status = readl(vdec_misc_addr);
+		ctx->irq_status = dec_done_status;
+		if ((dec_done_status & MTK_VDEC_IRQ_STATUS_DEC_SUCCESS) !=
+			MTK_VDEC_IRQ_STATUS_DEC_SUCCESS)
+			return IRQ_HANDLED;
+		//rdma crc not to handle
+		if ((readl(dev->dec_reg_base[misc_index] + 103 * 4) & 0x10) == 0x10)
+			return IRQ_HANDLED;
+		/* clear interrupt */
+		if ((core_id == MTK_VDEC_CORE) &&
+			((readl(dev->dec_reg_base[VDEC_BASE] +
+			RW_MCORE_EnableDecode) & 0x01) == 1)) { /*mcore_top base*/
+			//clear multi core interrupt
+			/*set 1 to clear interrupt*/
+			writel((readl(dev->dec_reg_base[VDEC_SOC_GCON] +  9 * 4) | 0x10000),
+				(dev->dec_reg_base[VDEC_SOC_GCON] +  9 * 4));
+			/*set 0 to clear status*/
+			writel((readl(dev->dec_reg_base[VDEC_SOC_GCON] +  9 * 4) & ~0x10000),
+				(dev->dec_reg_base[VDEC_SOC_GCON] +  9 * 4));
+		} else {
+			writel((readl(vdec_misc_addr) | MTK_VDEC_IRQ_CFG),
+				vdec_misc_addr);
+			writel((readl(vdec_misc_addr) & ~MTK_VDEC_IRQ_CLR),
+				vdec_misc_addr);
+		}
 	}
-
-	dec_done_status = readl(vdec_misc_addr);
-	ctx->irq_status = dec_done_status;
-	if ((dec_done_status & MTK_VDEC_IRQ_STATUS_DEC_SUCCESS) !=
-		MTK_VDEC_IRQ_STATUS_DEC_SUCCESS)
-		return IRQ_HANDLED;
-
-	/* clear interrupt */
-	writel((readl(vdec_misc_addr) | MTK_VDEC_IRQ_CFG),
-		   dev->dec_reg_base[VDEC_MISC] + MTK_VDEC_IRQ_CFG_REG);
-	writel((readl(vdec_misc_addr) & ~MTK_VDEC_IRQ_CLR),
-		   dev->dec_reg_base[VDEC_MISC] + MTK_VDEC_IRQ_CFG_REG);
-
-	wake_up_dec_ctx(ctx, MTK_VDEC_CORE);
+	wake_up_dec_ctx(ctx, core_id);
 
 	mtk_v4l2_debug(4,
 				   "%s :wake up ctx %d, dec_done_status=%x",
@@ -113,34 +158,88 @@ irqreturn_t mtk_vcodec_lat_dec_irq_handler(int irq, void *priv)
 	struct mtk_vcodec_ctx *ctx;
 	u32 cg_status = 0;
 	unsigned int dec_done_status = 0;
-	void __iomem *vdec_misc_addr = dev->dec_reg_base[VDEC_LAT_MISC] +
+	enum mtk_vdec_hw_id core_id;
+	enum mtk_dec_dtsi_reg_idx misc_index;
+	void __iomem *vdec_misc_addr;
+
+	core_id = mtk_vdec_map_irq_to_hwid(irq);
+	if (!((core_id == MTK_VDEC_LAT) || (core_id == MTK_VDEC_LAT1))) {
+		mtk_v4l2_err("LAT ISR, core_id(%d) is not right", core_id);
+		return IRQ_HANDLED;
+	}
+	misc_index = ((core_id == MTK_VDEC_LAT) ?
+		VDEC_LAT_MISC : VDEC_LAT1_MISC);
+	vdec_misc_addr = dev->dec_reg_base[misc_index] +
 		MTK_VDEC_IRQ_CFG_REG;
 
 	ctx = mtk_vcodec_get_curr_ctx(dev, MTK_VDEC_LAT);
 	if (ctx == NULL)
 		return IRQ_HANDLED;
 
-	/* check if HW active or not */
-	cg_status = readl(dev->dec_reg_base[0]);
-	if ((cg_status & MTK_VDEC_HW_ACTIVE) != 0) {
-		mtk_v4l2_err("DEC LAT ISR, VDEC active is not 0x0 (0x%08x)",
-					 cg_status);
-		return IRQ_HANDLED;
+	if (ctx->dec_params.svp_mode != OPEN_TEE) {
+		/* check if HW active or not */
+		cg_status = readl(dev->dec_reg_base[0]);
+		if ((cg_status & MTK_VDEC_HW_ACTIVE) != 0) {
+			mtk_v4l2_err("DEC LAT ISR, VDEC active is not 0x0 (0x%08x)",
+				cg_status);
+			return IRQ_HANDLED;
+		}
+
+		dec_done_status = readl(vdec_misc_addr);
+		ctx->irq_status = dec_done_status;
+		if ((dec_done_status & MTK_VDEC_IRQ_STATUS_DEC_SUCCESS) !=
+			MTK_VDEC_IRQ_STATUS_DEC_SUCCESS)
+			return IRQ_HANDLED;
+
+		/* clear interrupt */
+		if ((core_id == MTK_VDEC_LAT) &&
+			((readl(dev->dec_reg_base[VDEC_LAT_TOP] + 75 * 4) & 0x01)
+			== 1)) {  //multi lat clear interrupt
+			if (((readl(dev->dec_reg_base[VDEC_LAT_WDMA] + 9 * 4) &
+				0x01) == 0) ||
+				((readl(dev->dec_reg_base[VDEC_LAT1_WDMA] + 9 * 4) &
+				0x01) == 0)) {
+				writel((readl(dev->dec_reg_base[VDEC_LAT_WDMA] + 9 * 4)
+					| (1 << 24)),
+					dev->dec_reg_base[VDEC_SOC_GCON] + 9 * 4);
+			} else {
+				if (readl(dev->dec_reg_base[VDEC_LAT_WDMA] + 9 * 4) &
+					0x01) {
+					writel((readl(dev->dec_reg_base[VDEC_LAT_MISC] +
+						MTK_VDEC_IRQ_CFG_REG) |
+						MTK_VDEC_IRQ_CFG),
+						dev->dec_reg_base[VDEC_LAT_MISC] +
+						MTK_VDEC_IRQ_CFG_REG);
+					writel((readl(dev->dec_reg_base[VDEC_LAT_MISC] +
+						MTK_VDEC_IRQ_CFG_REG) &
+						~MTK_VDEC_IRQ_CLR),
+						dev->dec_reg_base[VDEC_LAT_MISC] +
+						MTK_VDEC_IRQ_CFG_REG);
+				}
+				if (readl(dev->dec_reg_base[VDEC_LAT1_WDMA] + 9 * 4) &
+					0x01) {
+					writel((readl(dev->dec_reg_base[VDEC_LAT1_MISC]
+						+ MTK_VDEC_IRQ_CFG_REG) |
+						MTK_VDEC_IRQ_CFG),
+						dev->dec_reg_base[VDEC_LAT1_MISC] +
+						MTK_VDEC_IRQ_CFG_REG);
+					writel((readl(dev->dec_reg_base[VDEC_LAT1_MISC]
+						+ MTK_VDEC_IRQ_CFG_REG)
+						& ~MTK_VDEC_IRQ_CLR),
+						dev->dec_reg_base[VDEC_LAT1_MISC] +
+						MTK_VDEC_IRQ_CFG_REG);
+				}
+
+			}
+
+		} else {
+			writel((readl(vdec_misc_addr) | MTK_VDEC_IRQ_CFG),
+				vdec_misc_addr);
+			writel((readl(vdec_misc_addr) & ~MTK_VDEC_IRQ_CLR),
+				vdec_misc_addr);
+		}
 	}
-
-	dec_done_status = readl(vdec_misc_addr);
-	ctx->irq_status = dec_done_status;
-	if ((dec_done_status & MTK_VDEC_IRQ_STATUS_DEC_SUCCESS) !=
-		MTK_VDEC_IRQ_STATUS_DEC_SUCCESS)
-		return IRQ_HANDLED;
-
-	/* clear interrupt */
-	writel((readl(vdec_misc_addr) | MTK_VDEC_IRQ_CFG),
-		   dev->dec_reg_base[VDEC_LAT_MISC] + MTK_VDEC_IRQ_CFG_REG);
-	writel((readl(vdec_misc_addr) & ~MTK_VDEC_IRQ_CLR),
-		   dev->dec_reg_base[VDEC_LAT_MISC] + MTK_VDEC_IRQ_CFG_REG);
-
-	wake_up_dec_ctx(ctx, MTK_VDEC_LAT);
+	wake_up_dec_ctx(ctx, core_id);
 
 	mtk_v4l2_debug(4,
 				   "%s :wake up ctx %d, dec_done_status=%x",
@@ -149,7 +248,52 @@ irqreturn_t mtk_vcodec_lat_dec_irq_handler(int irq, void *priv)
 	return IRQ_HANDLED;
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_lat_dec_irq_handler);
+irqreturn_t mtk_vcodec_line_count_irq_handler(int irq,
+	void *priv)
+{
+#ifndef FPGA_INTERRUPT_API_DISABLE
+	struct mtk_vcodec_dev *dev = priv;
+	struct mtk_vcodec_ctx *ctx;
+	unsigned int dec_done_status = 0;
 
+	enum mtk_vdec_hw_id core_id;
+
+
+	core_id = mtk_vdec_map_irq_to_hwid(irq);
+	if (!(core_id == MTK_VDEC_LINE_COUNT)) {
+		mtk_v4l2_err("LINE_COUNT ISR, core_id(%d) is not right",
+			core_id);
+		return IRQ_HANDLED;
+	}
+
+	ctx = mtk_vcodec_get_curr_ctx(dev, core_id);
+	if (ctx == NULL)
+		return IRQ_HANDLED;
+	if (ctx->dec_params.svp_mode != OPEN_TEE) {
+		dec_done_status = readl(dev->dec_reg_base[VDEC_UFO_ENC] + 122 * 4);
+		ctx->irq_status = dec_done_status;
+		if ((dec_done_status & (1 << 16)) != (1 << 16)) {
+			mtk_v4l2_err("DEC line_count ISR, VDEC active is not 1 (0x%08x)",
+				dec_done_status);
+			return IRQ_HANDLED;
+		}
+
+		/* clear interrupt */
+		writel((readl(dev->dec_reg_base[VDEC_UFO_ENC] + 122 * 4) | 0x1),
+			dev->dec_reg_base[VDEC_UFO_ENC] + 122 * 4);
+
+		writel((readl(dev->dec_reg_base[VDEC_UFO_ENC] + 122 * 4) & ~0x1),
+			dev->dec_reg_base[VDEC_UFO_ENC] + 122 * 4);
+	}
+	wake_up_dec_ctx(ctx, core_id);
+
+	mtk_v4l2_debug(4,
+		"%s :wake up ctx %d, dec_done_status=%x",
+		__func__, ctx->id, dec_done_status);
+#endif
+	return IRQ_HANDLED;
+}
+EXPORT_SYMBOL(mtk_vcodec_line_count_irq_handler);
 
 void clean_irq_status(unsigned int irq_status, void __iomem *addr)
 {
@@ -251,16 +395,18 @@ int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 
 	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
 		dev->dec_irq[i] = platform_get_irq(pdev, i);
-		if (dev->dec_irq[i] < 0) {
-			mtk_v4l2_debug(0, "no IRQ resource, hw id: %d", i);
-			break;
-		}
-		if (i == MTK_VDEC_CORE)
+		g_dec_irq[i] = dev->dec_irq[i];
+		if ((i == MTK_VDEC_CORE) || (i == MTK_VDEC_CORE1))
 			ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
-				mtk_vcodec_dec_irq_handler, 0, pdev->name, dev);
-		else if (i == MTK_VDEC_LAT)
+				mtk_vcodec_dec_irq_handler, IRQF_TRIGGER_HIGH | IRQF_SHARED,
+				pdev->name, dev);
+		else if ((i == MTK_VDEC_LAT) || (i == MTK_VDEC_LAT1))
 			ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
-				mtk_vcodec_lat_dec_irq_handler, 0,
+				mtk_vcodec_lat_dec_irq_handler, IRQF_TRIGGER_HIGH | IRQF_SHARED,
+					pdev->name, dev);
+		else if (i == MTK_VDEC_LINE_COUNT)
+			ret = devm_request_irq(&pdev->dev, dev->dec_irq[i],
+				mtk_vcodec_line_count_irq_handler, IRQF_TRIGGER_HIGH | IRQF_SHARED,
 					pdev->name, dev);
 		if (ret) {
 			mtk_v4l2_debug(1, "Failed to install dev->dec_irq[%d] %d (%d)",

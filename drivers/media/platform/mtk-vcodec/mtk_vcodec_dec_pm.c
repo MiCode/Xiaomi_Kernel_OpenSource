@@ -372,7 +372,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 				clk_id, clks_data->main_clks[j].clk_name, ret);
 	}
 
-	if (hw_id == MTK_VDEC_CORE || hw_id == MTK_VDEC_LAT) {
+	if (hw_id < MTK_VDEC_HW_NUM) {
 		// enable soc clocks
 		for (j = 0; j < clks_data->soc_clks_len; j++) {
 			clk_id = clks_data->soc_clks[j].clk_id;
@@ -382,7 +382,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 					clk_id, clks_data->soc_clks[j].clk_name, ret);
 		}
 	}
-	if (hw_id == MTK_VDEC_CORE) {
+	if (hw_id == MTK_VDEC_CORE || hw_id == MTK_VDEC_CORE1) {
 		// enable core clocks
 		for (j = 0; j < clks_data->core_clks_len; j++) {
 			clk_id = clks_data->core_clks[j].clk_id;
@@ -391,7 +391,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 				mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
 					clk_id, clks_data->core_clks[j].clk_name, ret);
 		}
-	} else if (hw_id == MTK_VDEC_LAT) {
+	} else if (hw_id == MTK_VDEC_LAT || hw_id == MTK_VDEC_LAT1) {
 		// enable lat clocks
 		for (j = 0; j < clks_data->lat_clks_len; j++) {
 			clk_id = clks_data->lat_clks[j].clk_id;
@@ -499,7 +499,7 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 	dev->dec_is_power_on[hw_id] = false;
 	spin_unlock_irqrestore(&dev->dec_power_lock[hw_id], flags);
 
-	if (hw_id == MTK_VDEC_CORE || hw_id == MTK_VDEC_LAT) {
+	if (hw_id < MTK_VDEC_HW_NUM) {
 		// disable soc clocks
 		if (clks_data->soc_clks_len > 0) {
 			for (i = clks_data->soc_clks_len - 1; i >= 0; i--) {
@@ -508,7 +508,7 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 			}
 		}
 	}
-	if (hw_id == MTK_VDEC_CORE) {
+	if (hw_id == MTK_VDEC_CORE || hw_id == MTK_VDEC_CORE1) {
 		// disable core clocks
 		if (clks_data->core_clks_len > 0) {
 			for (i = clks_data->core_clks_len - 1; i >= 0; i--) {
@@ -516,7 +516,7 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 				clk_disable_unprepare(pm->vdec_clks[clk_id]);
 			}
 		}
-	} else if (hw_id == MTK_VDEC_LAT) {
+	} else if (hw_id == MTK_VDEC_LAT || hw_id == MTK_VDEC_LAT1) {
 		// disable lat clocks
 		if (clks_data->lat_clks_len > 0) {
 			for (i = clks_data->lat_clks_len - 1; i >= 0; i--) {

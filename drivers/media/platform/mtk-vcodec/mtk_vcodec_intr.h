@@ -18,6 +18,7 @@
 #define MTK_VDEC_IRQ_CFG        0x11
 #define MTK_VDEC_IRQ_CLR        0x10
 #define MTK_VDEC_IRQ_CFG_REG    0xA4
+#define RW_MCORE_EnableDecode               (24 * 4)
 #define MTK_VDEC_IRQ_STATUS_DEC_SUCCESS        0x10000
 
 #define MTK_VENC_IRQ_STATUS_SPS 0x1
@@ -33,6 +34,14 @@
 
 struct mtk_vcodec_ctx;
 
+enum teeType {
+	NONE_TEE = 0,
+	TRUSTONIC_TEE = 1,
+	INHOUSE_TEE = 2,
+	BLOWFISH_TEE = 3,
+	MICROTRUST_TEE = 4,
+	OPEN_TEE = 5,
+};
 /* timeout is ms */
 int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx,
 	int core_id, int command, unsigned int timeout_ms);
