@@ -67,6 +67,16 @@ unsigned int cpudvfs_get_cur_dvfs_freq_idx(int cluster_id)
 	return 0;
 }
 
+#define DSU_VOLT	0x51c
+#define DSU_FREQ	0x11ec
+
+unsigned int csram_read(unsigned int offs)
+{
+	if (IS_ERR_OR_NULL((void *)csram_base))
+		return 0;
+	return __raw_readl(csram_base + (offs));
+}
+
 int perf_tracer_enable(int on)
 {
 	mutex_lock(&perf_ctl_mutex);
@@ -89,6 +99,7 @@ static inline u32 cpu_stall_ratio(int cpu)
 #define max_cpus 8
 #define bw_hist_nums 8
 #define bw_record_nums 32
+#define dsu_record_nums 2
 
 void perf_tracker(u64 wallclock,
 		  bool hit_long_check)
@@ -97,7 +108,9 @@ void perf_tracker(u64 wallclock,
 	int dram_rate = 0;
 	struct mtk_btag_mictx_iostat_struct *iostat_ptr = &iostat;
 	int bw_c = 0, bw_g = 0, bw_mm = 0, bw_total = 0, bw_idx = 0xFFFF;
-	u32 bw_record = 0, bw_data[bw_record_nums] = {0};
+	u32 bw_record = 0;
+	u32 sbin_data[bw_record_nums+dsu_record_nums] = {0};
+	u32 dsu_v = 0, dsu_f = 0;
 	int vcore_uv = 0;
 	int i;
 	int stall[max_cpus] = {0};
@@ -132,24 +145,29 @@ void perf_tracker(u64 wallclock,
 	if (bw_idx != 0xFFFF) {
 		for (bw_record = 0; bw_record < bw_record_nums; bw_record += 8) {
 			/* occupied bw history */
-			bw_data[bw_record]   = qos_rec_get_hist_bw(bw_idx, 0);
-			bw_data[bw_record+1] = qos_rec_get_hist_bw(bw_idx, 1);
-			bw_data[bw_record+2] = qos_rec_get_hist_bw(bw_idx, 2);
-			bw_data[bw_record+3] = qos_rec_get_hist_bw(bw_idx, 3);
+			sbin_data[bw_record]   = qos_rec_get_hist_bw(bw_idx, 0);
+			sbin_data[bw_record+1] = qos_rec_get_hist_bw(bw_idx, 1);
+			sbin_data[bw_record+2] = qos_rec_get_hist_bw(bw_idx, 2);
+			sbin_data[bw_record+3] = qos_rec_get_hist_bw(bw_idx, 3);
 			/* data bw history */
-			bw_data[bw_record+4] = qos_rec_get_hist_data_bw(bw_idx, 0);
-			bw_data[bw_record+5] = qos_rec_get_hist_data_bw(bw_idx, 1);
-			bw_data[bw_record+6] = qos_rec_get_hist_data_bw(bw_idx, 2);
-			bw_data[bw_record+7] = qos_rec_get_hist_data_bw(bw_idx, 3);
+			sbin_data[bw_record+4] = qos_rec_get_hist_data_bw(bw_idx, 0);
+			sbin_data[bw_record+5] = qos_rec_get_hist_data_bw(bw_idx, 1);
+			sbin_data[bw_record+6] = qos_rec_get_hist_data_bw(bw_idx, 2);
+			sbin_data[bw_record+7] = qos_rec_get_hist_data_bw(bw_idx, 3);
 
 			bw_idx -= 1;
 			if (bw_idx < 0)
 				bw_idx = bw_idx + bw_hist_nums;
 		}
-		/* trace for short bin */
-		trace_perf_index_sbin(bw_data, bw_record);
 	}
 #endif
+	/* dsu */
+	dsu_v = csram_read(DSU_VOLT);
+	dsu_f = csram_read(DSU_FREQ);
+	sbin_data[bw_record_nums] = dsu_v;
+	sbin_data[bw_record_nums+1] = dsu_f;
+	/* trace for short bin */
+	trace_perf_index_sbin(sbin_data, bw_record_nums+dsu_record_nums);
 
 	/*sched: cpu freq */
 	for (cid = 0; cid < cluster_nr; cid++)
