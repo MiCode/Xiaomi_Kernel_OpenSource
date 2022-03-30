@@ -16,6 +16,8 @@
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
 #include <linux/uidgid.h>
+#include <mt-plat/mrdump.h>
+#include <mt-plat/mtk_blocktag.h>
 
 /*  For msdc register dump  */
 u16 msdc_offsets[] = {
@@ -94,6 +96,7 @@ struct mmc_host *mtk_mmc_host[] = {NULL, NULL};
 
 #define dbg_max_cnt (4000)
 #define sd_dbg_max_cnt (500)
+#define MMC_AEE_BUFFER_SIZE (300 * 1024)
 
 struct dbg_run_host_log {
 	unsigned long long time_sec;
@@ -118,13 +121,14 @@ static unsigned int dbg_host_cnt;
 static unsigned int dbg_sd_cnt;
 
 static struct dbg_run_host_log dbg_run_host_log_dat[dbg_max_cnt];
-static struct dbg_run_host_log *dbg_run_sd_log_dat_p;
+static struct dbg_run_host_log dbg_run_sd_log_dat[sd_dbg_max_cnt];
 
 static unsigned int print_cpu_test = UINT_MAX;
 
 static spinlock_t cmd_hist_lock;
 static bool cmd_hist_init;
 static bool cmd_hist_enabled;
+static char *mmc_aee_buffer;
 
 /**
  * Data structures to store tracepoints information
@@ -141,37 +145,43 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 {
 	char buffer[512];
 	char *buf_ptr = buffer;
+	int n = 0;
 
-	if (host->p_clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[p_clk]enable:%d freq:%d,",
-			__clk_is_enabled(host->p_clk), clk_get_rate(host->p_clk));
-	if (host->axi_clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[axi_clk]enable:%d freq:%d,",
-			__clk_is_enabled(host->axi_clk), clk_get_rate(host->axi_clk));
-	if (host->ahb_clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[ahb_clk]enable:%d freq:%d,",
-			__clk_is_enabled(host->ahb_clk), clk_get_rate(host->ahb_clk));
+	if (host->bulk_clks[0].clk)
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[%s]enable:%d freq:%lu,",
+			host->bulk_clks[0].id,
+			__clk_is_enabled(host->bulk_clks[0].clk),
+			clk_get_rate(host->bulk_clks[0].clk));
+	if (host->bulk_clks[1].clk)
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[%s]enable:%d freq:%lu,",
+			host->bulk_clks[1].id,
+			__clk_is_enabled(host->bulk_clks[1].clk),
+			clk_get_rate(host->bulk_clks[1].clk));
+	if (host->bulk_clks[2].clk)
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[%s]enable:%d freq:%lu,",
+			host->bulk_clks[2].id,
+			__clk_is_enabled(host->bulk_clks[2].clk),
+			clk_get_rate(host->bulk_clks[2].clk));
 	if (host->src_clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[src_clk]enable:%d freq:%d,",
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[src_clk]enable:%d freq:%lu,",
 			__clk_is_enabled(host->src_clk), clk_get_rate(host->src_clk));
 	if (host->h_clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[h_clk]enable:%d freq:%d,",
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[h_clk]enable:%d freq:%lu,",
 			__clk_is_enabled(host->h_clk), clk_get_rate(host->h_clk));
 	if (host->bus_clk)
-		buf_ptr += sprintf(buf_ptr,
-			"[bus_clk]enable:%d freq:%d,",
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[bus_clk]enable:%d freq:%lu,",
 			__clk_is_enabled(host->bus_clk), clk_get_rate(host->bus_clk));
 	if (host->src_clk_cg)
-		buf_ptr += sprintf(buf_ptr,
-			"[src_clk_cg]enable:%d freq:%d\n",
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[src_clk_cg]enable:%d freq:%lu\n",
 			__clk_is_enabled(host->src_clk_cg), clk_get_rate(host->src_clk_cg));
 
-	*buf_ptr = '\0';
 	SPREAD_PRINTF(buff, size, m, "%s", buffer);
 }
 
@@ -185,6 +195,7 @@ void msdc_dump_ldo_sts(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host)
 {
 	u32 id = host->id;
+	struct mmc_host *mmc = mmc_from_priv(host);
 
 	switch (id) {
 	/*
@@ -195,24 +206,25 @@ void msdc_dump_ldo_sts(char **buff, unsigned long *size,
 	 */
 	case MSDC_EMMC:
 		SPREAD_PRINTF(buff, size, m,
-			" VEMC_EN=0x%x, VEMC_VOL=%duV [4b'1011(3V)]\n",
-			regulator_is_enabled(host->mmc->supply.vmmc),
-			regulator_get_voltage(host->mmc->supply.vmmc));
+			" VEMC_EN=0x%x, VEMC_VOL=%duV\n",
+			regulator_is_enabled(mmc->supply.vmmc),
+			regulator_get_voltage(mmc->supply.vmmc));
 		break;
 	case MSDC_SD:
 		SPREAD_PRINTF(buff, size, m,
 		" VMCH_EN=0x%x, VMCH_VOL=%duV\n",
-			regulator_is_enabled(host->mmc->supply.vmmc),
-			regulator_get_voltage(host->mmc->supply.vmmc));
+			regulator_is_enabled(mmc->supply.vmmc),
+			regulator_get_voltage(mmc->supply.vmmc));
 		SPREAD_PRINTF(buff, size, m,
-		" VMC_EN=0x%x, VMC_VOL=0%duV\n",
-			regulator_is_enabled(host->mmc->supply.vqmmc),
-			regulator_get_voltage(host->mmc->supply.vqmmc));
+		" VMC_EN=0x%x, VMC_VOL=%duV\n",
+			regulator_is_enabled(mmc->supply.vqmmc),
+			regulator_get_voltage(mmc->supply.vqmmc));
 		break;
 	default:
 		break;
 	}
 }
+EXPORT_SYMBOL(msdc_dump_ldo_sts);
 
 void msdc_dump_register_core(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host)
@@ -305,162 +317,13 @@ void msdc_dump_dbg_register(char **buff, unsigned long *size,
 	writel(0, host->base + MSDC_DBG_SEL);
 }
 
-void msdc_dump_autok(char **buff, unsigned long *size,
-	struct seq_file *m, struct msdc_host *host)
-{
-	int i, j;
-	int bit_pos, byte_pos, start;
-	char buf[65];
-
-	SPREAD_PRINTF(buff, size, m, "[AUTOK]VER : 0x%02x%02x%02x%02x\r\n",
-		host->autok_res[0][AUTOK_VER3],
-		host->autok_res[0][AUTOK_VER2],
-		host->autok_res[0][AUTOK_VER1],
-		host->autok_res[0][AUTOK_VER0]);
-
-	for (i = AUTOK_VCORE_LEVEL1; i >= AUTOK_VCORE_LEVEL0; i--) {
-		start = CMD_SCAN_R0;
-		for (j = 0; j < 64; j++) {
-			bit_pos = j % 8;
-			byte_pos = j / 8 + start;
-			if (host->autok_res[i][byte_pos] & (1 << bit_pos))
-				buf[j] = 'X';
-			else
-				buf[j] = 'O';
-		}
-		buf[j] = '\0';
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]CMD Rising \t: %s\r\n", buf);
-
-		start = CMD_SCAN_F0;
-		for (j = 0; j < 64; j++) {
-			bit_pos = j % 8;
-			byte_pos = j / 8 + start;
-			if (host->autok_res[i][byte_pos] & (1 << bit_pos))
-				buf[j] = 'X';
-			else
-				buf[j] = 'O';
-		}
-		buf[j] = '\0';
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]CMD Falling \t: %s\r\n", buf);
-
-		start = DAT_SCAN_R0;
-		for (j = 0; j < 64; j++) {
-			bit_pos = j % 8;
-			byte_pos = j / 8 + start;
-			if (host->autok_res[i][byte_pos] & (1 << bit_pos))
-				buf[j] = 'X';
-			else
-				buf[j] = 'O';
-		}
-		buf[j] = '\0';
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]DAT Rising \t: %s\r\n", buf);
-
-		start = DAT_SCAN_F0;
-		for (j = 0; j < 64; j++) {
-			bit_pos = j % 8;
-			byte_pos = j / 8 + start;
-			if (host->autok_res[i][byte_pos] & (1 << bit_pos))
-				buf[j] = 'X';
-			else
-				buf[j] = 'O';
-		}
-		buf[j] = '\0';
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]DAT Falling \t: %s\r\n", buf);
-
-		/* cmd response use ds pin, but window is
-		 * different with data pin, because cmd response is SDR.
-		 */
-		start = DS_CMD_SCAN_0;
-		for (j = 0; j < 64; j++) {
-			bit_pos = j % 8;
-			byte_pos = j / 8 + start;
-			if (host->autok_res[i][byte_pos] & (1 << bit_pos))
-				buf[j] = 'X';
-			else
-				buf[j] = 'O';
-		}
-		buf[j] = '\0';
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]DS CMD Window \t: %s\r\n", buf);
-
-		start = DS_DAT_SCAN_0;
-		for (j = 0; j < 64; j++) {
-			bit_pos = j % 8;
-			byte_pos = j / 8 + start;
-			if (host->autok_res[i][byte_pos] & (1 << bit_pos))
-				buf[j] = 'X';
-			else
-				buf[j] = 'O';
-		}
-		buf[j] = '\0';
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]DS DAT Window \t: %s\r\n", buf);
-
-		start = D_DATA_SCAN_0;
-		for (j = 0; j < 32; j++) {
-			bit_pos = j % 8;
-			byte_pos = j / 8 + start;
-			if (host->autok_res[i][byte_pos] & (1 << bit_pos))
-				buf[j] = 'X';
-			else
-				buf[j] = 'O';
-		}
-		buf[j] = '\0';
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]Device Data RX \t: %s\r\n", buf);
-
-		start = H_DATA_SCAN_0;
-		for (j = 0; j < 32; j++) {
-			bit_pos = j % 8;
-			byte_pos = j / 8 + start;
-			if (host->autok_res[i][byte_pos] & (1 << bit_pos))
-				buf[j] = 'X';
-			else
-				buf[j] = 'O';
-		}
-		buf[j] = '\0';
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]Host   Data TX \t: %s\r\n", buf);
-
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]CMD [EDGE:%d CMD_FIFO_EDGE:%d DLY1:%d DLY2:%d]\r\n",
-			host->autok_res[i][0], host->autok_res[i][1],
-			host->autok_res[i][5], host->autok_res[i][7]);
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]DAT [RDAT_EDGE:%d RD_FIFO_EDGE:%d WD_FIFO_EDGE:%d]\r\n",
-			host->autok_res[i][2], host->autok_res[i][3],
-			host->autok_res[i][4]);
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]DAT [LATCH_CK:%d DLY1:%d DLY2:%d]\r\n",
-			host->autok_res[i][13], host->autok_res[i][9],
-			host->autok_res[i][11]);
-		SPREAD_PRINTF(buff, size, m,
-			"[AUTOK]DS  [DLY1:%d DLY2:%d DLY3:%d]\r\n",
-			host->autok_res[i][14], host->autok_res[i][16],
-			host->autok_res[i][18]);
-		SPREAD_PRINTF(buff, size, m, "[AUTOK]DAT [TX SEL:%d]\r\n",
-			host->autok_res[i][20]);
-	}
-}
-
 void msdc_dump_info(char **buff, unsigned long *size, struct seq_file *m,
 	struct msdc_host *host)
 {
-	struct mmc_host *mmc;
-
 	if (host == NULL) {
 		SPREAD_PRINTF(buff, size, m, "msdc host null\n");
 		return;
 	}
-
-	mmc = host->mmc;
-
-	if (host->tuning_in_progress == true)
-		return;
 
 	msdc_dump_register(buff, size, m, host);
 
@@ -470,10 +333,6 @@ void msdc_dump_info(char **buff, unsigned long *size, struct seq_file *m,
 	msdc_dump_clock_sts(buff, size, m, host);
 
 	msdc_dump_ldo_sts(buff, size, m, host);
-
-	/* prevent bad sdcard, print too much log */
-	if (host->id != MSDC_SD)
-		msdc_dump_autok(buff, size, m, host);
 
 	if (!buff)
 		mdelay(10);
@@ -509,10 +368,18 @@ static void cqhci_prep_task_desc_dbg(struct mmc_request *mrq,
 
 static bool is_dcmd_request(struct mmc_request *mrq)
 {
-	struct mmc_queue_req *mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
-	struct request *req = blk_mq_rq_from_pdu(mqrq);
+	struct mmc_queue_req *mqrq;
+	struct request *req;
 	struct mmc_queue *mq;
 	struct mmc_host *host;
+
+	/* skip non-cqe cmd */
+	if (PTR_ERR(mrq->completion.wait.task_list.next)
+		&& PTR_ERR(mrq->completion.wait.task_list.prev))
+		return false;
+
+	mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
+	req = blk_mq_rq_from_pdu(mqrq);
 
 	if (!req || !req->q || !req->q->queuedata)
 		return false;
@@ -524,7 +391,7 @@ static bool is_dcmd_request(struct mmc_request *mrq)
 
 	host = mq->card->host;
 
-	if (!host->hsq_enabled) {
+	if (host->cqe_enabled && !host->hsq_enabled) {
 		if (req_op(req) == REQ_OP_FLUSH)
 			return (host->caps2 & MMC_CAP2_CQE_DCMD) ? true : false;
 	}
@@ -540,7 +407,9 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 	int l_skip = 0;
 	u64 *task_desc = NULL;
 	u64 data;
-	struct cqhci_host *cq_host = mmc->cqe_private;
+	struct cqhci_host *cq_host = NULL;
+	unsigned long flags;
+	struct msdc_host *host = NULL;
 
 	if (!cmd_hist_enabled)
 		return;
@@ -548,9 +417,14 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 	if (!mmc)
 		return;
 
+	host = mmc_priv(mmc);
+	cq_host = mmc->cqe_private;
 	t = cpu_clock(print_cpu_test);
 	tn = t;
 	nanosec_rem = do_div(t, 1000000000)/1000;
+
+	spin_lock_irqsave(&host->log_lock, flags);
+
 	if (!(mrq->cmd) && cq_host && cq_host->desc_base) { /* CQE */
 		task_desc = (__le64 __force *)dbg_get_desc(cq_host, mrq->tag);
 		cqhci_prep_task_desc_dbg(mrq, &data, 1);
@@ -563,6 +437,8 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 		dbg_run_host_log_dat[dbg_host_cnt].arg = lower_32_bits(*task_desc);
 		dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
 		dbg_host_cnt++;
+		if (dbg_host_cnt >= dbg_max_cnt)
+			dbg_host_cnt = 0;
 		dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
 		dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
 		dbg_run_host_log_dat[dbg_host_cnt].type = 5;
@@ -579,6 +455,7 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 				dbg_host_cnt = dbg_max_cnt;
 			/* remove type = 0, command */
 			dbg_host_cnt--;
+			spin_unlock_irqrestore(&host->log_lock, flags);
 			return;
 		}
 		last_cmd = mrq->cmd->opcode;
@@ -607,6 +484,8 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 
 	if (dbg_host_cnt >= dbg_max_cnt)
 		dbg_host_cnt = 0;
+
+	spin_unlock_irqrestore(&host->log_lock, flags);
 }
 
 static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
@@ -616,7 +495,9 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 	unsigned long long nanosec_rem = 0;
 	static int last_cmd, last_arg, skip;
 	int l_skip = 0;
-	struct cqhci_host *cq_host = mmc->cqe_private;
+	struct cqhci_host *cq_host = NULL;
+	unsigned long flags;
+	struct msdc_host *host = NULL;
 
 	if (!cmd_hist_enabled)
 		return;
@@ -624,9 +505,13 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 	if (!mmc)
 		return;
 
+	host = mmc_priv(mmc);
+	cq_host = mmc->cqe_private;
 	t = cpu_clock(print_cpu_test);
 
 	nanosec_rem = do_div(t, 1000000000)/1000;
+
+	spin_lock_irqsave(&host->log_lock, flags);
 
 	if (!(mrq->cmd)) { /* CQE */
 		dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
@@ -645,6 +530,7 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 				dbg_host_cnt = dbg_max_cnt;
 			/* remove type = 0, command */
 			dbg_host_cnt--;
+			spin_unlock_irqrestore(&host->log_lock, flags);
 			return;
 		}
 		last_cmd = mrq->cmd->opcode;
@@ -672,6 +558,8 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 	}
 	if (dbg_host_cnt >= dbg_max_cnt)
 		dbg_host_cnt = 0;
+
+	spin_unlock_irqrestore(&host->log_lock, flags);
 }
 
 static void __sd_store_buf_start(void *__data, struct mmc_host *mmc,
@@ -679,6 +567,8 @@ static void __sd_store_buf_start(void *__data, struct mmc_host *mmc,
 {
 	unsigned long long t, tn;
 	unsigned long long nanosec_rem;
+	unsigned long flags;
+	struct msdc_host *host = NULL;
 
 	if (!cmd_hist_enabled)
 		return;
@@ -686,20 +576,25 @@ static void __sd_store_buf_start(void *__data, struct mmc_host *mmc,
 	if (!mmc)
 		return;
 
+	host = mmc_priv(mmc);
 	t = cpu_clock(print_cpu_test);
 	tn = t;
 	nanosec_rem = do_div(t, 1000000000)/1000;
 
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_sec = t;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_usec = nanosec_rem;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].type = 0;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].cmd = mrq->cmd->opcode;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].arg = mrq->cmd->arg;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].skip = 0;
+	spin_lock_irqsave(&host->log_lock, flags);
+
+	dbg_run_sd_log_dat[dbg_sd_cnt].time_sec = t;
+	dbg_run_sd_log_dat[dbg_sd_cnt].time_usec = nanosec_rem;
+	dbg_run_sd_log_dat[dbg_sd_cnt].type = 0;
+	dbg_run_sd_log_dat[dbg_sd_cnt].cmd = mrq->cmd->opcode;
+	dbg_run_sd_log_dat[dbg_sd_cnt].arg = mrq->cmd->arg;
+	dbg_run_sd_log_dat[dbg_sd_cnt].skip = 0;
 	dbg_sd_cnt++;
 
 	if (dbg_sd_cnt >= sd_dbg_max_cnt)
 		dbg_sd_cnt = 0;
+
+	spin_unlock_irqrestore(&host->log_lock, flags);
 }
 
 static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
@@ -709,6 +604,8 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 	unsigned long long nanosec_rem;
 	static int last_cmd, last_arg, skip;
 	int l_skip = 0;
+	unsigned long flags;
+	struct msdc_host *host = NULL;
 
 	if (!cmd_hist_enabled)
 		return;
@@ -716,6 +613,7 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 	if (!mmc)
 		return;
 
+	host = mmc_priv(mmc);
 	t = cpu_clock(print_cpu_test);
 	tn = t;
 	nanosec_rem = do_div(t, 1000000000)/1000;
@@ -724,10 +622,12 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 	if (last_cmd == mrq->cmd->opcode &&
 		last_arg == mrq->cmd->arg && mrq->cmd->opcode == 13) {
 		skip++;
+		spin_lock_irqsave(&host->log_lock, flags);
 		if (dbg_sd_cnt == 0)
 			dbg_sd_cnt = sd_dbg_max_cnt;
 		/* remove type = 0, command */
 		dbg_sd_cnt--;
+		spin_unlock_irqrestore(&host->log_lock, flags);
 		return;
 	}
 	last_cmd = mrq->cmd->opcode;
@@ -735,34 +635,38 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 	l_skip = skip;
 	skip = 0;
 
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_sec = t;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].time_usec = nanosec_rem;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].type = 1;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].cmd = mrq->cmd->opcode;
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].arg = mrq->cmd->resp[0];
-	dbg_run_sd_log_dat_p[dbg_sd_cnt].skip = l_skip;
+	spin_lock_irqsave(&host->log_lock, flags);
+
+	dbg_run_sd_log_dat[dbg_sd_cnt].time_sec = t;
+	dbg_run_sd_log_dat[dbg_sd_cnt].time_usec = nanosec_rem;
+	dbg_run_sd_log_dat[dbg_sd_cnt].type = 1;
+	dbg_run_sd_log_dat[dbg_sd_cnt].cmd = mrq->cmd->opcode;
+	dbg_run_sd_log_dat[dbg_sd_cnt].arg = mrq->cmd->resp[0];
+	dbg_run_sd_log_dat[dbg_sd_cnt].skip = l_skip;
 	dbg_sd_cnt++;
 
 	if (dbg_sd_cnt >= sd_dbg_max_cnt)
 		dbg_sd_cnt = 0;
+
+	spin_unlock_irqrestore(&host->log_lock, flags);
 }
 
 /* all cases which except softirq of IO */
 static void record_mmc_send_command(void *__data,
 	struct mmc_host *mmc, struct mmc_request *mrq)
 {
-	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		__emmc_store_buf_start(__data, mmc, mrq);
-	else if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
 		__sd_store_buf_start(__data, mmc, mrq);
 }
 
 static void record_mmc_receive_command(void *__data,
 	struct mmc_host *mmc, struct mmc_request *mrq)
 {
-	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		__emmc_store_buf_end(__data, mmc, mrq);
-	else if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
 		__sd_store_buf_end(__data, mmc, mrq);
 }
 
@@ -827,12 +731,12 @@ void sd_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 		i = sd_dbg_max_cnt - 1;
 
 	for (j = 0; j < dump_cnt; j++) {
-		time_sec = dbg_run_sd_log_dat_p[i].time_sec;
-		time_usec = dbg_run_sd_log_dat_p[i].time_usec;
-		type = dbg_run_sd_log_dat_p[i].type;
-		cmd = dbg_run_sd_log_dat_p[i].cmd;
-		arg = dbg_run_sd_log_dat_p[i].arg;
-		skip = dbg_run_sd_log_dat_p[i].skip;
+		time_sec = dbg_run_sd_log_dat[i].time_sec;
+		time_usec = dbg_run_sd_log_dat[i].time_usec;
+		type = dbg_run_sd_log_dat[i].type;
+		cmd = dbg_run_sd_log_dat[i].cmd;
+		arg = dbg_run_sd_log_dat[i].arg;
+		skip = dbg_run_sd_log_dat[i].skip;
 
 		SPREAD_PRINTF(buff, size, m,
 		"%03d [%5llu.%06llu]%2d %3d %08x (%d)\n",
@@ -846,8 +750,8 @@ void sd_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 	SPREAD_PRINTF(buff, size, m,
 		"SD claimed(%d), claim_cnt(%d), claimer pid(%d), comm %s\n",
 		mmc->claimed, mmc->claim_cnt,
-		mmc->claimer ? mmc->claimer->task->pid : 0,
-		mmc->claimer ? mmc->claimer->task->comm : "NULL");
+		mmc->claimer && mmc->claimer->task ? mmc->claimer->task->pid : 0,
+		mmc->claimer && mmc->claimer->task ? mmc->claimer->task->comm : "NULL");
 }
 
 
@@ -1021,20 +925,29 @@ int mmc_dbg_register(struct mmc_host *mmc)
 {
 	int i, ret;
 
-	if (cmd_hist_enabled)
-		return -EINVAL;
-
-	if ((mmc->caps2 & MMC_CAP2_NO_SD) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	if (!(mmc->caps2 & MMC_CAP2_NO_MMC)) {
 		mtk_mmc_host[0] = mmc;
-	else if ((mmc->caps2 & MMC_CAP2_NO_MMC) && (mmc->caps2 & MMC_CAP2_NO_SDIO))
+	} else if (!(mmc->caps2 & MMC_CAP2_NO_SD)) {
 		mtk_mmc_host[1] = mmc;
+	} else /* SDIO no debug */
+		return -EINVAL;
 
 	/* avoid init repeatedly */
 	if (cmd_hist_init == true)
 		return 0;
 
+	/*
+	 * Ignore any failure of AEE buffer allocation to still allow
+	 * command history dump in procfs.
+	 */
+	mmc_aee_buffer = kzalloc(MMC_AEE_BUFFER_SIZE, GFP_NOFS);
+
+	/* Blocktag */
+	ret = mmc_mtk_biolog_init(mmc);
+	if (ret)
+		return ret;
+
 	spin_lock_init(&cmd_hist_lock);
-	cmd_hist_init = true;
 
 	/* Install the tracepoints */
 	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
@@ -1057,29 +970,49 @@ int mmc_dbg_register(struct mmc_host *mmc)
 	/* Create control nodes in procfs */
 	ret = mmc_debug_init_procfs();
 
+	cmd_hist_init = true;
+	cmd_hist_enabled = true;
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mmc_dbg_register);
+
+void mmc_mtk_dbg_get_aee_buffer(unsigned long *vaddr, unsigned long *size)
+{
+	unsigned long free_size = MMC_AEE_BUFFER_SIZE;
+	char *buff;
+
+	if (!mmc_aee_buffer) {
+		pr_info("failed to dump MMC: null AEE buffer");
+		return;
+	}
+
+	buff = mmc_aee_buffer;
+	msdc_dump_host_state(&buff, &free_size, NULL);
+	mmc_cmd_dump(&buff, &free_size, NULL, mtk_mmc_host[0], dbg_max_cnt);
+	sd_cmd_dump(&buff, &free_size, NULL, mtk_mmc_host[1], sd_dbg_max_cnt);
+
+	/* return start location */
+	*vaddr = (unsigned long)mmc_aee_buffer;
+	*size = MMC_AEE_BUFFER_SIZE - free_size;
+}
+EXPORT_SYMBOL_GPL(mmc_mtk_dbg_get_aee_buffer);
 
 static int __init mmc_mtk_dbg_init(void)
 {
 	dbg_host_cnt = 0;
 	dbg_sd_cnt = 0;
+	cmd_hist_init = false;
+	cmd_hist_enabled = false;
 
-	dbg_run_sd_log_dat_p = kcalloc(sd_dbg_max_cnt,
-			   sizeof(struct dbg_run_host_log),
-			   GFP_KERNEL);
-
-	/* if true, mmc_dbg_register() will do nothing */
-	if (!dbg_run_sd_log_dat_p)
-		cmd_hist_enabled = true;
-
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_MMC, mmc_mtk_dbg_get_aee_buffer);
 	return 0;
 }
 
 static void __exit mmc_mtk_dbg_exit(void)
 {
-	kfree(dbg_run_sd_log_dat_p);
+	mrdump_set_extra_dump(AEE_EXTRA_FILE_MMC, NULL);
+	return;
 }
 
 module_init(mmc_mtk_dbg_init);

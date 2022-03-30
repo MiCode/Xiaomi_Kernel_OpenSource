@@ -2,6 +2,9 @@
 #
 # Makefile for MMC/SD host controller drivers
 #
+ccflags-y += -I$(srctree)/drivers/char/rpmb/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y += -I$(srctree)/drivers/scsi/ufs/
 
 obj-$(CONFIG_MMC_ARMMMCI) += armmmci.o
 armmmci-y := mmci.o
@@ -103,7 +106,6 @@ cqhci-y					+= cqhci-core.o
 cqhci-$(CONFIG_MMC_CRYPTO)		+= cqhci-crypto.o
 obj-$(CONFIG_MMC_HSQ)			+= mmc_hsq.o
 obj-$(CONFIG_MMC_MTK_PRO)		+= mtk-mmc.o
-obj-$(CONFIG_MMC_AUTOK)			+= mtk-autok.o
 obj-$(CONFIG_MMC_DEBUG)			+= mtk-mmc-dbg.o
 
 ifeq ($(CONFIG_CB710_DEBUG),y)
