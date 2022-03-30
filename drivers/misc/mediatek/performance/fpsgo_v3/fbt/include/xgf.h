@@ -162,6 +162,7 @@ struct xgf_dep {
 	pid_t tid;
 	int render_dep;
 	int frame_idx;
+	int action;
 };
 
 struct xgf_runtime_sect {

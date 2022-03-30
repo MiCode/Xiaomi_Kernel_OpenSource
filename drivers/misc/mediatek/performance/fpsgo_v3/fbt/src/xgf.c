@@ -1445,7 +1445,7 @@ int xgf_uboost_case(struct xgf_render *render)
 	return ret;
 }
 
-static void xgf_add_pid2prev_dep(struct xgf_render *render, int tid)
+static void xgf_add_pid2prev_dep(struct xgf_render *render, int tid, int action)
 {
 	struct xgf_dep *xd;
 	int curr_frame_index;
@@ -1459,6 +1459,7 @@ static void xgf_add_pid2prev_dep(struct xgf_render *render, int tid)
 		xd->frame_idx = curr_frame_index;
 	else
 		xd = xgf_get_dep(tid, render, PREVI_DEPS, 1);
+	xd->action = action;
 }
 
 static void xgf_wspid_list_add2prev(struct xgf_render *render)
@@ -1471,7 +1472,7 @@ static void xgf_wspid_list_add2prev(struct xgf_render *render)
 	hlist_for_each_entry_safe(xgf_spid_iter, t, &xgf_wspid_list, hlist) {
 		if (xgf_spid_iter->rpid == render->render
 			&& xgf_spid_iter->bufID == render->bufID)
-			xgf_add_pid2prev_dep(render, xgf_spid_iter->tid);
+			xgf_add_pid2prev_dep(render, xgf_spid_iter->tid, xgf_spid_iter->action);
 	}
 }
 
@@ -1617,10 +1618,10 @@ int gbe2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 
 		xgf_r_uboost = xgf_uboost_case(render_iter);
 		if (xgf_r_uboost && xgf_uboost)
-			xgf_add_pid2prev_dep(render_iter, render_iter->parent);
+			xgf_add_pid2prev_dep(render_iter, render_iter->parent, 0);
 
 		if (render_iter->spid)
-			xgf_add_pid2prev_dep(render_iter, render_iter->spid);
+			xgf_add_pid2prev_dep(render_iter, render_iter->spid, 0);
 
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
@@ -1702,15 +1703,15 @@ int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 
 		xgf_r_uboost = xgf_uboost_case(render_iter);
 		if (xgf_r_uboost && xgf_uboost)
-			xgf_add_pid2prev_dep(render_iter, render_iter->parent);
+			xgf_add_pid2prev_dep(render_iter, render_iter->parent, 0);
 
 		if (render_iter->spid)
-			xgf_add_pid2prev_dep(render_iter, render_iter->spid);
+			xgf_add_pid2prev_dep(render_iter, render_iter->spid, 0);
+
+		xgf_add_pid2prev_dep(render_iter, pid, 0);
 
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
-
-		xgf_add_pid2prev_dep(render_iter, pid);
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
@@ -1789,10 +1790,10 @@ int gbe2xgf_get_dep_list(int pid, int count,
 
 		xgf_r_uboost = xgf_uboost_case(render_iter);
 		if (xgf_r_uboost && xgf_uboost)
-			xgf_add_pid2prev_dep(render_iter, render_iter->parent);
+			xgf_add_pid2prev_dep(render_iter, render_iter->parent, 0);
 
 		if (render_iter->spid)
-			xgf_add_pid2prev_dep(render_iter, render_iter->spid);
+			xgf_add_pid2prev_dep(render_iter, render_iter->spid, 0);
 
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
@@ -1885,15 +1886,15 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 
 		xgf_r_uboost = xgf_uboost_case(render_iter);
 		if (xgf_r_uboost && xgf_uboost)
-			xgf_add_pid2prev_dep(render_iter, render_iter->parent);
+			xgf_add_pid2prev_dep(render_iter, render_iter->parent, 0);
 
 		if (render_iter->spid)
-			xgf_add_pid2prev_dep(render_iter, render_iter->spid);
+			xgf_add_pid2prev_dep(render_iter, render_iter->spid, 0);
+
+		xgf_add_pid2prev_dep(render_iter, pid, 0);
 
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
-
-		xgf_add_pid2prev_dep(render_iter, pid);
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
@@ -1906,6 +1907,7 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 				if (out_iter->render_dep && index < count
 					&& !xgf_tid_overlap(out_iter->tid, pid, xgf_r_uboost)) {
 					arr[index].pid = out_iter->tid;
+					arr[index].action = out_iter->action;
 					index++;
 				}
 				out_rbn = rb_next(out_rbn);
@@ -1913,6 +1915,7 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 				if (pre_iter->render_dep && index < count
 					&& !xgf_tid_overlap(pre_iter->tid, pid, xgf_r_uboost)) {
 					arr[index].pid = pre_iter->tid;
+					arr[index].action = pre_iter->action;
 					index++;
 				}
 				pre_rbn = rb_next(pre_rbn);
@@ -1921,6 +1924,7 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 					&& !xgf_tid_overlap(out_iter->tid, pid, xgf_r_uboost)
 					&& index < count) {
 					arr[index].pid = out_iter->tid;
+					arr[index].action = out_iter->action;
 					index++;
 				}
 				out_rbn = rb_next(out_rbn);
@@ -1933,6 +1937,7 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 			if (out_iter->render_dep && index < count
 				&& !xgf_tid_overlap(out_iter->tid, pid, xgf_r_uboost)) {
 				arr[index].pid = out_iter->tid;
+				arr[index].action = out_iter->action;
 				index++;
 			}
 			out_rbn = rb_next(out_rbn);
@@ -1943,6 +1948,7 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 			if (pre_iter->render_dep && index < count
 				&& !xgf_tid_overlap(pre_iter->tid, pid, xgf_r_uboost)) {
 				arr[index].pid = pre_iter->tid;
+				arr[index].action = pre_iter->action;
 				index++;
 			}
 			pre_rbn = rb_next(pre_rbn);
@@ -2044,7 +2050,8 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 	unsigned long long now_ts = xgf_get_time();
 	long long diff, check_period, recycle_period;
 	struct xgf_hw_event *hw_iter;
-	struct hlist_node *hw_t;
+	struct hlist_node *hw_t, *r_t;
+	struct xgf_render *r_iter;
 
 	/* over 1 seconds since last check2recycle */
 	check_period = NSEC_PER_SEC;
@@ -2080,6 +2087,25 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 
 		hlist_del(&hw_iter->hlist);
 		xgf_free(hw_iter);
+	}
+
+	hlist_for_each_entry_safe(r_iter, r_t, &xgf_renders, hlist) {
+		diff = now_ts - r_iter->queue.end_ts;
+		if (diff >= check_period) {
+			xgf_clean_deps_list(r_iter, INNER_DEPS);
+			xgf_clean_deps_list(r_iter, OUTER_DEPS);
+			xgf_clean_deps_list(r_iter, PREVI_DEPS);
+			xgf_reset_render_sector(r_iter);
+			xgf_reset_render_hw_list(r_iter);
+
+			if (r_iter->ema2_pt) {
+				xgf_ema2_free(r_iter->ema2_pt);
+				r_iter->ema2_pt = 0;
+			}
+
+			hlist_del(&r_iter->hlist);
+			xgf_free(r_iter);
+		}
 	}
 
 out:

@@ -82,6 +82,7 @@ struct fpsgo_loading {
 	int prefer_type;
 	int policy;
 	long nice_bk;
+	int action;
 };
 
 struct fbt_thread_blc {
@@ -209,6 +210,12 @@ struct BQ_id {
 
 struct hwui_info {
 	int pid;
+	struct rb_node entry;
+};
+
+struct video_info {
+	int pid;
+	unsigned int count_instance;
 	struct rb_node entry;
 };
 

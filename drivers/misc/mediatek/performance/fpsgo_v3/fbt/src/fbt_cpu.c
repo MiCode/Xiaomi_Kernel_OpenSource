@@ -180,6 +180,7 @@ enum FPSGO_SCN_TYPE {
 	FPSGO_SCN_CAM = 0,
 	FPSGO_SCN_UX,
 	FPSGO_SCN_GAME,
+	FPSGO_SCN_VIDEO,
 };
 
 static struct kobject *fbt_kobj;
@@ -255,6 +256,7 @@ static int gcc_positive_clamp;
 static int boost_LR;
 static int aa_retarget;
 static int sbe_rescue_enable;
+static int loading_ignore_enable;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -324,6 +326,7 @@ module_param(gcc_deq_bound_quota, int, 0644);
 module_param(gcc_positive_clamp, int, 0644);
 module_param(boost_LR, int, 0644);
 module_param(aa_retarget, int, 0644);
+module_param(loading_ignore_enable, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -1360,7 +1363,7 @@ EXIT:
 static int fbt_is_light_loading(int loading)
 {
 	if (!loading_th || loading > loading_th
-		|| loading == -1 || loading == 0)
+		|| loading == -1 || (loading == 0 && !loading_ignore_enable))
 		return 0;
 
 	return 1;
@@ -1572,7 +1575,8 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			}
 		}
 
-		if (fbt_is_light_loading(fl->loading) && bhr_opp != (NR_FREQ_CPU - 1)) {
+		if (fbt_is_light_loading(fl->loading) &&
+			bhr_opp != (NR_FREQ_CPU - 1) && fl->action == 0) {
 			fbt_set_per_task_cap(fl->pid,
 				(!loading_policy) ? 0
 				: min_cap * loading_policy / 100, max_cap);
@@ -1695,7 +1699,8 @@ static int fbt_check_scn(struct render_info *thr)
 {
 	if (fpsgo_fbt2fstb_get_cam_active())
 		return FPSGO_SCN_CAM;
-
+	if (fpsgo_fbt2fstb_get_video_active())
+		return FPSGO_SCN_VIDEO;
 	if (thr->api == NATIVE_WINDOW_API_EGL
 		&& thr->hwui == RENDER_INFO_HWUI_NONE)
 		return FPSGO_SCN_GAME;
@@ -2070,6 +2075,7 @@ static void fbt_do_sjerk(struct work_struct *work)
 	scn = fbt_check_scn(thr);
 
 	if (scn == FPSGO_SCN_CAM
+		|| scn == FPSGO_SCN_VIDEO
 		|| (scn == FPSGO_SCN_GAME && !rescue_second_g_enable)
 		|| (scn == FPSGO_SCN_UX && !rescue_second_enable))
 		goto EXIT;
@@ -2638,7 +2644,7 @@ static void fbt_clear_state(struct render_info *thr)
 	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id, temp_blc_pid, "reset");
 }
 
-static void fbt_set_limit(unsigned int blc_wt,
+static void fbt_set_limit(int cur_pid, unsigned int blc_wt,
 	int pid, unsigned long long buffer_id,
 	int dep_num, struct fpsgo_loading dep[],
 	struct render_info *thread_info, long long runtime)
@@ -2707,6 +2713,9 @@ static void fbt_set_limit(unsigned int blc_wt,
 	fbt_check_cm_limit(thread_info, runtime);
 
 BOOST:
+	if (cur_pid != pid)
+		goto EXIT2;
+
 	if (boosted_group && !boost_ta) {
 		fbt_clear_boost_value();
 		if (thread_info)
@@ -2728,6 +2737,7 @@ BOOST:
 		thrm_aware_frame_start(thread_info->pid, perf_hint);
 	}
 
+EXIT2:
 	max_blc = final_blc;
 	max_blc_cur = final_blc;
 	max_blc_pid = final_blc_pid;
@@ -3373,7 +3383,7 @@ static int fbt_boost_policy(
 	}
 
 	if (boost_info->sbe_rescue == 0) {
-		fbt_set_limit(blc_wt, pid, buffer_id,
+		fbt_set_limit(pid, blc_wt, pid, buffer_id,
 			thread_info->dep_valid_size, thread_info->dep_arr, thread_info, t_cpu_cur);
 
 		if (!boost_ta)
@@ -3514,7 +3524,7 @@ static unsigned long long fbt_est_loading(int cur_ts,
  */
 }
 
-static void fbt_check_max_blc_locked(void)
+static void fbt_check_max_blc_locked(int pid)
 {
 	unsigned int temp_blc = 0;
 	int temp_blc_pid = 0;
@@ -3560,7 +3570,7 @@ static void fbt_check_max_blc_locked(void)
 		if (jatm_notify_fp)
 			jatm_notify_fp(0);
 	} else
-		fbt_set_limit(max_blc, max_blc_pid, max_blc_buffer_id,
+		fbt_set_limit(pid, max_blc, max_blc_pid, max_blc_buffer_id,
 			max_blc_dep_num, max_blc_dep, NULL, 0);
 }
 
@@ -3926,9 +3936,12 @@ SKIP:
 static void fbt_reset_boost(struct render_info *thr)
 {
 	struct fbt_boost_info *boost = NULL;
+	int cur_pid = 0;
 
 	if (!thr)
 		return;
+
+	cur_pid = thr->pid;
 
 	mutex_lock(&blc_mlock);
 	if (thr->p_blc)
@@ -3950,7 +3963,7 @@ static void fbt_reset_boost(struct render_info *thr)
 	mutex_lock(&fbt_mlock);
 	if (!boost_ta)
 		fbt_set_min_cap_locked(thr, 0, FPSGO_JERK_INACTIVE);
-	fbt_check_max_blc_locked();
+	fbt_check_max_blc_locked(cur_pid);
 	mutex_unlock(&fbt_mlock);
 
 }
@@ -4369,7 +4382,7 @@ void fpsgo_base2fbt_check_max_blc(void)
 		return;
 
 	mutex_lock(&fbt_mlock);
-	fbt_check_max_blc_locked();
+	fbt_check_max_blc_locked(0);
 	mutex_unlock(&fbt_mlock);
 }
 
@@ -4776,7 +4789,6 @@ CHECK:
 	if (limit->copp == INVALID_NUM && limit->ropp == INVALID_NUM)
 		limit_policy = FPSGO_LIMIT_NONE;
 }
-
 #ifdef CONFIG_MTK_OPP_CAP_INFO
 static int cmp_uint(const void *a, const void *b)
 {
