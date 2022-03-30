@@ -1904,7 +1904,7 @@
 			/* id, mbox, send_size */
 			send_table =
 				<0 0 4>,
-				<1 0 8>,
+				<1 0 6>,
 				<2 0 3>,
 				<3 0 3>,
 				<4 0 9>,
@@ -1924,7 +1924,7 @@
 			/* id, mbox, recv_size, recv_opt */
 			recv_table =
 				<0 0 4 0>,
-				<1 0 8 1>,
+				<1 0 6 1>,
 				<2 0 1 0>,
 				<3 0 1 0>,
 				<4 0 1 1>,
@@ -1958,7 +1958,7 @@
 			interrupt-names = "mbox0";
 
 			gpueb_mem_table =
-				<0 0x1000>,   /* 4KB */
+				<0 0x4000>,   /* 16KB */
 				<1 0x180000>; /* 1.5MB */
 
 			gpueb_mem_name_table =
