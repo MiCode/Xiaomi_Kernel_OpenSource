@@ -128,6 +128,7 @@
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 				regulator-always-on;
+				regulator-allow-set-load;
 			};
 			mt6363_vbuck1: VBUCK1 {
 				regulator-compatible = "VBUCK1";
@@ -193,6 +194,7 @@
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 				regulator-always-on;
+				regulator-allow-set-load;
 			};
 			mt6363_vs3: VS3 {
 				regulator-compatible = "VS3";
@@ -202,6 +204,7 @@
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 1 2>;
 				regulator-always-on;
+				regulator-allow-set-load;
 			};
 			mt6363_vsram_digrf: VSRAM_DIGRF {
 				regulator-compatible = "VSRAM_DIGRF";
@@ -266,6 +269,7 @@
 				regulator-max-microvolt = <3500000>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
+				regulator-allow-set-load;
 			};
 			mt6363_vcn13: VCN13 {
 				regulator-compatible = "VCN13";
@@ -274,6 +278,7 @@
 				regulator-max-microvolt = <1810000>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
+				regulator-allow-set-load;
 			};
 			mt6363_vtref18: VTREF18 {
 				regulator-compatible = "VTREF18";
@@ -283,6 +288,7 @@
 				regulator-enable-ramp-delay = <240>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
+				regulator-allow-set-load;
 			};
 			mt6363_vaux18: VAUX18 {
 				regulator-compatible = "VAUX18";
@@ -291,6 +297,8 @@
 				regulator-max-microvolt = <3300000>;
 				regulator-enable-ramp-delay = <240>;
 				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
+				regulator-allow-set-load;
 			};
 			mt6363_vcn15: VCN15 {
 				regulator-compatible = "VCN15";
@@ -299,6 +307,7 @@
 				regulator-max-microvolt = <2100000>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
+				regulator-allow-set-load;
 			};
 			mt6363_vufs18: VUFS18 {
 				regulator-compatible = "VUFS18";
@@ -307,6 +316,7 @@
 				regulator-max-microvolt = <2100000>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
+				regulator-allow-set-load;
 			};
 			mt6363_vio18: VIO18 {
 				regulator-compatible = "VIO18";
@@ -316,6 +326,7 @@
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
+				regulator-allow-set-load;
 			};
 			mt6363_vm18: VM18 {
 				regulator-compatible = "VM18";
@@ -324,6 +335,7 @@
 				regulator-max-microvolt = <1850000>;
 				regulator-enable-ramp-delay = <280>;
 				regulator-allowed-modes = <0 2>;
+				regulator-allow-set-load;
 			};
 			mt6363_va15: VA15 {
 				regulator-compatible = "VA15";
@@ -333,6 +345,7 @@
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
+				regulator-allow-set-load;
 			};
 			mt6363_vrf18: VRF18 {
 				regulator-compatible = "VRF18";
@@ -341,6 +354,7 @@
 				regulator-max-microvolt = <2100000>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
+				regulator-allow-set-load;
 			};
 			mt6363_vrfio18: VRFIO18 {
 				regulator-compatible = "VRFIO18";
@@ -349,6 +363,7 @@
 				regulator-max-microvolt = <2100000>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
+				regulator-allow-set-load;
 			};
 			mt6363_vio075: VIO075 {
 				regulator-compatible = "VIO075";
@@ -366,6 +381,7 @@
 				regulator-max-microvolt = <1850000>;
 				regulator-enable-ramp-delay = <280>;
 				regulator-allowed-modes = <0 2>;
+				regulator-allow-set-load;
 			};
 			mt6363_va12_1: VA12_1 {
 				regulator-compatible = "VA12_1";
@@ -375,6 +391,7 @@
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
+				regulator-allow-set-load;
 			};
 			mt6363_va12_2: VA12_2 {
 				regulator-compatible = "VA12_2";
@@ -384,6 +401,7 @@
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
+				regulator-allow-set-load;
 			};
 			mt6363_vrf12: VRF12 {
 				regulator-compatible = "VRF12";
@@ -392,6 +410,7 @@
 				regulator-max-microvolt = <2100000>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
+				regulator-allow-set-load;
 			};
 			mt6363_vrf13: VRF13 {
 				regulator-compatible = "VRF13";
@@ -400,6 +419,7 @@
 				regulator-max-microvolt = <1810000>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
+				regulator-allow-set-load;
 			};
 			mt6363_vrf09: VRF09 {
 				regulator-compatible = "VRF09";
@@ -408,6 +428,7 @@
 				regulator-max-microvolt = <1810000>;
 				regulator-enable-ramp-delay = <180>;
 				regulator-allowed-modes = <0 2>;
+				regulator-allow-set-load;
 			};
 			mt6363_isink_load: ISINK_LOAD {
 				regulator-compatible = "isink_load";
