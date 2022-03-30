@@ -31,7 +31,7 @@
  */
 static unsigned int g_dual_buck;
 static unsigned int g_gpueb_support;
-static unsigned int g_stress_test_enable;
+static unsigned int g_stress_test;
 static unsigned int g_aging_enable;
 static unsigned int g_gpm_enable;
 static unsigned int g_debug_power_state;
@@ -147,7 +147,7 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		"[Common-Status]",
 		gpu_opp_info.aging_enable ? "Enable" : "Disable",
 		gpu_opp_info.avs_enable ? "Enable" : "Disable",
-		g_stress_test_enable ? "Enable" : "Disable",
+		g_stress_test ? "Enable" : "Disable",
 		gpu_opp_info.gpm_enable ? "Enable" : "Disable");
 	seq_printf(m,
 		"%-15s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x, Temp_Compensate: %s (%d'C)\n",
@@ -616,7 +616,7 @@ static int opp_stress_test_proc_show(struct seq_file *m, void *v)
 {
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (g_stress_test_enable)
+	if (g_stress_test)
 		seq_puts(m, "[GPUFREQ-DEBUG] OPP stress test is enabled\n");
 	else
 		seq_puts(m, "[GPUFREQ-DEBUG] OPP stress test is disabled\n");
@@ -652,13 +652,13 @@ static ssize_t opp_stress_test_proc_write(struct file *file,
 		if (ret)
 			GPUFREQ_LOGE("fail to enable stress test (%d)", ret);
 		else
-			g_stress_test_enable = true;
+			g_stress_test = true;
 	} else if (sysfs_streq(buf, "disable")) {
 		ret = gpufreq_set_stress_test(false);
 		if (ret)
 			GPUFREQ_LOGE("fail to disable stress test (%d)", ret);
 		else
-			g_stress_test_enable = false;
+			g_stress_test = false;
 	}
 
 	mutex_unlock(&gpufreq_debug_lock);

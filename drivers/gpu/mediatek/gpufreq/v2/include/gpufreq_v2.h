@@ -156,7 +156,6 @@ struct gpufreq_platform_fp {
 	void (*set_timestamp)(void);
 	void (*check_bus_idle)(void);
 	void (*dump_infra_status)(void);
-	void (*set_stress_test)(unsigned int mode);
 	int (*set_aging_mode)(unsigned int mode);
 	void (*set_gpm_mode)(unsigned int mode);
 	struct gpufreq_asensor_info (*get_asensor_info)(void);
@@ -216,6 +215,7 @@ struct gpuppm_platform_fp {
 		int ceiling_info, int floor_info);
 	int (*switch_limit)(enum gpufreq_target target, enum gpuppm_limiter limiter,
 		int c_enable, int f_enable);
+	void (*set_stress_test)(unsigned int mode);
 	int (*get_ceiling)(void);
 	int (*get_floor)(void);
 	unsigned int (*get_c_limiter)(void);

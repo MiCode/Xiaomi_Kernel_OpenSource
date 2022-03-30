@@ -1571,8 +1571,8 @@ int gpufreq_set_stress_test(unsigned int mode)
 		ret = gpufreq_ipi_to_gpueb(send_msg);
 	/* implement on AP */
 	} else {
-		if (gpufreq_fp && gpufreq_fp->set_stress_test)
-			gpufreq_fp->set_stress_test(mode);
+		if (gpuppm_fp && gpuppm_fp->set_stress_test)
+			gpuppm_fp->set_stress_test(mode);
 		else {
 			ret = GPUFREQ_ENOENT;
 			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");

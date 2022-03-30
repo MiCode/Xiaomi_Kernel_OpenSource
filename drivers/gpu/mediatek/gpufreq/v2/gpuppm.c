@@ -37,7 +37,8 @@ static int __gpuppm_convert_limit_to_idx(enum gpufreq_target target, enum gpuppm
  */
 static DEFINE_MUTEX(gpuppm_lock);
 static struct gpuppm_status g_ppm;
-unsigned int g_gpueb_support;
+static unsigned int g_gpueb_support;
+static unsigned int g_stress_test;
 
 static struct gpuppm_limit_info g_limit_table[] = {
 	LIMITOP(LIMIT_SEGMENT, "SEGMENT", GPUPPM_PRIO_9,
@@ -82,6 +83,7 @@ static struct gpuppm_platform_fp platform_ap_fp = {
 	.limited_commit = gpuppm_limited_commit,
 	.set_limit = gpuppm_set_limit,
 	.switch_limit = gpuppm_switch_limit,
+	.set_stress_test = gpuppm_set_stress_test,
 	.get_ceiling = gpuppm_get_ceiling,
 	.get_floor = gpuppm_get_floor,
 	.get_c_limiter = gpuppm_get_c_limiter,
@@ -298,6 +300,11 @@ static int __gpuppm_convert_limit_to_idx(enum gpufreq_target target, enum gpuppm
 	return ret;
 }
 
+void gpuppm_set_stress_test(unsigned int mode)
+{
+	g_stress_test = mode;
+}
+
 int gpuppm_get_ceiling(void)
 {
 	return g_ppm.ceiling;
@@ -445,6 +452,13 @@ int gpuppm_limited_commit(enum gpufreq_target target, int oppidx)
 	/* fit to limited interval */
 	cur_ceiling = g_ppm.ceiling;
 	cur_floor = g_ppm.floor;
+
+	/* randomly replace target OPP index */
+	if (g_stress_test) {
+		get_random_bytes(&oppidx, sizeof(oppidx));
+		oppidx = oppidx < 0 ? (oppidx * -1) : oppidx;
+		oppidx = (oppidx % (cur_floor - cur_ceiling + 1)) + cur_ceiling;
+	}
 
 	if (oppidx < cur_ceiling)
 		limited_idx = cur_ceiling;

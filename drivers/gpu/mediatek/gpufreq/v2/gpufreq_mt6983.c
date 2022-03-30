@@ -197,7 +197,6 @@ static struct gpufreq_status g_gpu;
 static struct gpufreq_status g_stack;
 static struct gpufreq_asensor_info g_asensor_info;
 static unsigned int g_shader_present;
-static unsigned int g_stress_test_enable;
 static unsigned int g_aging_enable;
 static unsigned int g_avs_enable;
 static unsigned int g_aging_load;
@@ -262,7 +261,6 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.set_timestamp = __gpufreq_set_timestamp,
 	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,
-	.set_stress_test = __gpufreq_set_stress_test,
 	.set_aging_mode = __gpufreq_set_aging_mode,
 	.set_gpm_mode = __gpufreq_set_gpm_mode,
 	.get_asensor_info = __gpufreq_get_asensor_info,
@@ -1040,13 +1038,6 @@ int __gpufreq_generic_commit_stack(int target_oppidx, enum gpufreq_dvfs_state ke
 		goto done_unlock;
 	}
 
-	/* randomly replace target index */
-	if (g_stress_test_enable) {
-		get_random_bytes(&target_oppidx, sizeof(target_oppidx));
-		target_oppidx = target_oppidx < 0 ?
-			(target_oppidx*-1) % opp_num_stack : target_oppidx % opp_num_stack;
-	}
-
 	/* prepare STACK setting */
 	cur_oppidx_stack = g_stack.cur_oppidx;
 	cur_fstack = g_stack.cur_freq;
@@ -1443,12 +1434,6 @@ int __gpufreq_get_low_batt_idx(int low_batt_level)
 
 	return GPUPPM_KEEP_IDX;
 #endif /* GPUFREQ_LOW_BATT_ENABLE && CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING */
-}
-
-/* API: enable/disable random OPP index substitution to do stress test */
-void __gpufreq_set_stress_test(unsigned int mode)
-{
-	g_stress_test_enable = mode;
 }
 
 /* API: apply/restore Vaging to working table of STACK */
