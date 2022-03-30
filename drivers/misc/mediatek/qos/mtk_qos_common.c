@@ -17,11 +17,19 @@
 #include "mtk_qos_sram.h"
 #include "mtk_qos_bound.h"
 #include "mtk_qos_sysfs.h"
+#include "mtk_qos_share.h"
 #include "mtk_qos_common.h"
 
 struct mtk_qos *m_qos;
 static void __iomem *qos_sram_base;
 static unsigned int qos_sram_bound;
+
+unsigned int mtk_qos_enable = 1;
+
+unsigned int is_mtk_qos_enable(void)
+{
+	return mtk_qos_enable;
+}
 
 int qos_get_ipi_cmd(int idx)
 {
@@ -95,6 +103,8 @@ int mtk_qos_probe(struct platform_device *pdev,
 {
 	struct resource *res;
 	struct mtk_qos *qos;
+	struct device_node *node = pdev->dev.of_node;
+	int ret;
 
 	qos = devm_kzalloc(&pdev->dev, sizeof(*qos), GFP_KERNEL);
 	if (!qos)
@@ -104,6 +114,12 @@ int mtk_qos_probe(struct platform_device *pdev,
 	if (!qos->soc)
 		return -EINVAL;
 
+	ret = of_property_read_u32(node,
+			"mediatek,qos_enable", &mtk_qos_enable);
+	if (!ret)
+		pr_info("mtkqos: dts qos_enable = %d\n", mtk_qos_enable);
+	else
+		mtk_qos_enable = 1;
 
 	qos->soc = soc;
 	qos->dev = &pdev->dev;
@@ -112,20 +128,26 @@ int mtk_qos_probe(struct platform_device *pdev,
 	qos->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(qos->regs))
 		return PTR_ERR(qos->regs);
-	qos->regsize = (unsigned int) resource_size(res);
-	m_qos = qos;
-	qos_sram_init(qos->regs, qos->regsize);
 	qos_add_interface(&pdev->dev);
-	qos_ipi_init(qos);
+	if (mtk_qos_enable) {
+		qos->regsize = (unsigned int) resource_size(res);
+		m_qos = qos;
+		qos_sram_init(qos->regs, qos->regsize);
 
-	if (qos->soc->ipi_pin[QOS_IPI_QOS_BOUND].valid == true)
-		qos_bound_init();
+		qos_ipi_init(qos);
 
-	qos_ipi_recv_init(qos);
+		if (qos->soc->ipi_pin[QOS_IPI_QOS_BOUND].valid == true)
+			qos_bound_init();
+
+		qos_ipi_recv_init(qos);
+		qos_init_rec_share();
+	} else {
+		m_qos = NULL;
+	}
+
 	platform_set_drvdata(pdev, qos);
 
-
-	pr_info("mtkqos:%s done\n", __func__);
+	pr_info("mtkqos:%s done (enable=%d)\n", __func__, mtk_qos_enable);
 
 	return 0;
 }

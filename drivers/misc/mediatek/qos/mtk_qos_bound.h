@@ -6,7 +6,8 @@
 #ifndef __MTK_QOS_BOUND_H__
 #define __MTK_QOS_BOUND_H__
 
-#define QOS_BOUND_BUF_SIZE		64
+#define QOS_BOUND_BUF_SIZE		16
+#define QOS_BOUND_VER_TAG		0xA3
 
 #define QOS_BOUND_BW_FREE		0x1
 #define QOS_BOUND_BW_CONGESTIVE		0x2
@@ -26,48 +27,24 @@ enum qos_emibm_type {
 
 	NR_QOS_EMIBM_TYPE
 };
+
 enum qos_smibm_type {
-	QOS_SMIBM_VENC,
-	QOS_SMIBM_CAM,
-	QOS_SMIBM_IMG,
-	QOS_SMIBM_MDP,
 	QOS_SMIBM_GPU,
 	QOS_SMIBM_APU,
-	QOS_SMIBM_VPU0,
-	QOS_SMIBM_VPU1,
-#ifdef MTK_QOS_V1
-	QOS_SMIBM_MDLA0,
-	QOS_SMIBM_EDMA0,
-#endif
-	QOS_SMIBM_APUMD32,
 
 	NR_QOS_SMIBM_TYPE
-};
-
-enum qos_lat_type {
-	QOS_LAT_CPU,
-	QOS_LAT_VPU0,
-	QOS_LAT_VPU1,
-#ifdef MTK_QOS_V1
-	QOS_LAT_MDLA0,
-	QOS_LAT_EDMA0,
-#endif
-	QOS_LAT_APUMD32,
-
-	NR_QOS_LAT_TYPE
 };
 
 struct qos_bound_stat {
 	unsigned short num;
 	unsigned short event;
 	unsigned short emibw_mon[NR_QOS_EMIBM_TYPE];
-	unsigned short emibw_req[NR_QOS_EMIBM_TYPE];
 	unsigned short smibw_mon[NR_QOS_SMIBM_TYPE];
-	unsigned short smibw_req[NR_QOS_SMIBM_TYPE];
-	unsigned short lat_mon[NR_QOS_LAT_TYPE];
 };
 
 struct qos_bound {
+	unsigned short ver;
+	unsigned short apu_num;
 	unsigned short idx;
 	unsigned short state;
 	struct qos_bound_stat stats[QOS_BOUND_BUF_SIZE];
@@ -88,5 +65,8 @@ extern int is_qos_bound_log_enabled(void);
 extern void qos_bound_log_enable(int enable);
 extern unsigned int get_qos_bound_count(void);
 extern unsigned int *get_qos_bound_buf(void);
-extern unsigned short get_qos_bound_smibw_mon(int idx, int smi_id);
+extern unsigned short get_qos_bound_apubw_mon(int idx, int master);
+extern unsigned short get_qos_bound_apulat_mon(int idx, int master);
+extern unsigned short get_qos_bound_emibw_mon(int idx, int master);
+extern unsigned short get_qos_bound_smibw_mon(int idx, int master);
 #endif

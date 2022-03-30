@@ -5,6 +5,7 @@
 
 #include <linux/kthread.h>
 #include <linux/mutex.h>
+#include <linux/platform_device.h>
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_V2)
 #include <sspm_ipi_id.h>
@@ -15,7 +16,7 @@
 #include "mtk_qos_bound.h"
 #include "mtk_qos_ipi.h"
 
-#if defined(CONFIG_MTK_TINYSYS_SSPM_V2)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V2)
 static DEFINE_MUTEX(qos_ipi_mutex);
 static int qos_sspm_ready;
 int qos_ipi_ackdata;
@@ -47,7 +48,7 @@ static int qos_ipi_recv_thread(void *arg)
 
 int qos_ipi_to_sspm_command(void *buffer, int slot)
 {
-#if defined(CONFIG_MTK_TINYSYS_SSPM_V2)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V2)
 	int ret, ackdata;
 	struct qos_ipi_data *qos_ipi_d = buffer;
 	int slot_num = sizeof(struct qos_ipi_data)/SSPM_MBOX_SLOT_SIZE;
@@ -103,6 +104,7 @@ error:
 }
 EXPORT_SYMBOL_GPL(qos_ipi_to_sspm_command);
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V2)
 static void qos_sspm_enable(void)
 {
 	struct qos_ipi_data qos_ipi_d;
@@ -110,10 +112,11 @@ static void qos_sspm_enable(void)
 	qos_ipi_d.cmd = QOS_IPI_QOS_ENABLE;
 	qos_ipi_to_sspm_command(&qos_ipi_d, 1);
 }
+#endif
 
 void qos_ipi_init(struct mtk_qos *qos)
 {
-#if defined(CONFIG_MTK_TINYSYS_SSPM_V2)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V2)
 	unsigned int ret;
 	/* for AP to SSPM */
 	ret = mtk_ipi_register(&sspm_ipidev, IPIS_C_QOS, NULL, NULL,
@@ -141,7 +144,7 @@ EXPORT_SYMBOL_GPL(qos_ipi_init);
 
 void qos_ipi_recv_init(struct mtk_qos *qos)
 {
-#if defined(CONFIG_MTK_TINYSYS_SSPM_V2)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V2)
 	if (qos_sspm_ready != 1) {
 		pr_info("QOS SSPM not ready, recv thread not start!\n");
 		return;

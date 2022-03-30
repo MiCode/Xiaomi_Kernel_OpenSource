@@ -20,7 +20,7 @@
 #include "mtk_qos_bound.h"
 #include "mtk_qos_common.h"
 
-static const struct qos_ipi_cmd mt6873_qos_ipi_pin[] = {
+static const struct qos_ipi_cmd mt6893_qos_ipi_pin[] = {
 	[QOS_IPI_QOS_ENABLE] = {
 			.id = 0,
 			.valid = true,
@@ -76,7 +76,7 @@ static const struct qos_ipi_cmd mt6873_qos_ipi_pin[] = {
 };
 
 
-static const struct qos_sram_addr mt6873_qos_sram_pin[] = {
+static const struct qos_sram_addr mt6893_qos_sram_pin[] = {
 	[QOS_DEBUG_0] = {
 			.offset = 0,
 			.valid = true,
@@ -176,58 +176,58 @@ static const struct qos_sram_addr mt6873_qos_sram_pin[] = {
 };
 
 
-static const struct mtk_qos_soc mt6873_qos_data = {
-	.ipi_pin = mt6873_qos_ipi_pin,
-	.sram_pin = mt6873_qos_sram_pin,
+static const struct mtk_qos_soc mt6893_qos_data = {
+	.ipi_pin = mt6893_qos_ipi_pin,
+	.sram_pin = mt6893_qos_sram_pin,
 };
 
 
-static int mt6873_qos_probe(struct platform_device *pdev)
+static int mt6893_qos_probe(struct platform_device *pdev)
 {
-	return mtk_qos_probe(pdev, &mt6873_qos_data);
+	return mtk_qos_probe(pdev, &mt6893_qos_data);
 }
 
 
 static const struct of_device_id mtk_qos_of_match[] = {
 	{
-		.compatible = "mediatek,mt6873-qos",
-		.data = &mt6873_qos_data,
+		.compatible = "mediatek,mt6893-qos",
+		.data = &mt6893_qos_data,
 	}, {
 		/* sentinel */
 	},
 };
 
-static int mt6873_qos_remove(struct platform_device *pdev)
+static int mt6893_qos_remove(struct platform_device *pdev)
 {
 	return 0;
 }
 
 
-static struct platform_driver mt6873_qos_platdrv = {
-	.probe	= mt6873_qos_probe,
-	.remove	= mt6873_qos_remove,
+static struct platform_driver mt6893_qos_platdrv = {
+	.probe	= mt6893_qos_probe,
+	.remove	= mt6893_qos_remove,
 	.driver	= {
-		.name	= "mt6873-qos",
+		.name	= "mt6893-qos",
 		.of_match_table = mtk_qos_of_match,
 	},
 };
 
-static int __init mt6873_qos_init(void)
+static int __init mt6893_qos_init(void)
 {
 	int ret = 0;
 
-	ret = platform_driver_register(&mt6873_qos_platdrv);
+	ret = platform_driver_register(&mt6893_qos_platdrv);
 
 	return ret;
 }
 
-late_initcall(mt6873_qos_init)
+late_initcall(mt6893_qos_init)
 
-static void __exit mt6873_qos_exit(void)
+static void __exit mt6893_qos_exit(void)
 {
-	platform_driver_unregister(&mt6873_qos_platdrv);
+	platform_driver_unregister(&mt6893_qos_platdrv);
 }
-module_exit(mt6873_qos_exit)
+module_exit(mt6893_qos_exit)
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek QoS driver");
