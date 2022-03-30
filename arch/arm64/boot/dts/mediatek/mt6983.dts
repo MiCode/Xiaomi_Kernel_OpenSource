@@ -513,6 +513,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <339>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu1: cpu@001 {
@@ -524,6 +527,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <339>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu2: cpu@002 {
@@ -535,6 +541,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <339>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu3: cpu@003 {
@@ -546,6 +555,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <339>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&clusteroff_l &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu4: cpu@100 {
@@ -557,6 +569,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <897>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&clusteroff_m &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu5: cpu@101 {
@@ -568,6 +583,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <897>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&clusteroff_m &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu6: cpu@102 {
@@ -579,6 +597,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <897>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&clusteroff_m &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu7: cpu@200 {
@@ -590,6 +611,9 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <1024>;
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
+						&system_mem &system_pll &system_bus
+						&s2idle>;
 		};
 
 		cpu-map {
@@ -13629,23 +13653,23 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		resource-ctrl-list {
 			bus26m: bus26m {
 				id = <0x00000000>;
-				value = <1>;
+				value = <0>;
 			};
 			infra: infra {
 				id = <0x00000001>;
-				value = <1>;
+				value = <0>;
 			};
 			syspll: syspll {
 				id = <0x00000002>;
-				value = <1>;
+				value = <0>;
 			};
 			dram_s0: dram_s0 {
 				id = <0x00000003>;
-				value = <1>;
+				value = <0>;
 			};
 			dram_s1: dram_s1 {
 				id = <0x00000004>;
-				value = <1>;
+				value = <0>;
 			};
 		};
 		constraint-list {
@@ -13670,7 +13694,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			rc_cpu_buck_ldo: rc_cpu_buck_ldo{
 				rc-name = "cpu-buck-ldo";
 				id = <0x00000003>;
-				value = <0>;
+				value = <1>;
 				cond-info = <0>;
 			};
 		};
