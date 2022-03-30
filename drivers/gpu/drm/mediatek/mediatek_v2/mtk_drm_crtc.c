@@ -4058,7 +4058,7 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 
 	id = drm_crtc_index(crtc);
 
-	CRTC_MMP_EVENT_START(id, frame_cfg, 0, 0);
+	CRTC_MMP_EVENT_START(id, frame_cfg, (unsigned long)cb_data->cmdq_handle, 0);
 
 	if ((drm_crtc_index(crtc) != 2) && (priv->power_state)) {
 		// only VDO mode panel use CMDQ call
@@ -5647,7 +5647,6 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	unsigned int crtc_id = drm_crtc_index(&mtk_crtc->base);
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct drm_device *dev = crtc->dev;
-	struct mml_drm_ctx *mml_ctx = NULL;
 	struct mtk_drm_private *priv = dev->dev_private;
 
 	DDPINFO("%s:%d +\n", __func__, __LINE__);
@@ -5706,11 +5705,8 @@ skip:
 			PMQOS_UPDATE_BW, NULL);
 
 	/* 3.1 stop the last mml pkt */
-	if (mtk_crtc->is_mml &&
-		!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
-		mml_drm_racing_stop_sync(mml_ctx, cmdq_handle);
-	}
+	if (mtk_crtc->is_mml)
+		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle);
 
 	cmdq_pkt_flush(cmdq_handle);
 	if (cmdq_handle != NULL)
@@ -6649,50 +6645,28 @@ static bool msync_is_on(struct mtk_drm_private *priv,
 
 void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 {
+	u8 i = 0;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct drm_device *dev = crtc->dev;
-	struct mml_drm_ctx *mml_ctx = NULL;
+	struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *comp = NULL;
+	const enum mtk_ddp_comp_id id[] = {DDP_COMPONENT_INLINE_ROTATE0,
+					   DDP_COMPONENT_INLINE_ROTATE1};
 
 	if (!crtc || !cmdq_handle || !mtk_crtc)
 		return;
 
 	if (mtk_crtc->is_mml) {
-		comp = priv->ddp_comp[DDP_COMPONENT_INLINE_ROTATE0];
-		if (comp && comp->funcs && comp->funcs->addon_config)
-			comp->funcs->addon_config(comp, 0, 0, NULL, cmdq_handle);
-		else
-			DDPINFO("%s not in", __func__);
-
-		mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc,
-			DDP_COMPONENT_INLINE_ROTATE0,
-			mtk_crtc_is_frame_trigger_mode(crtc),
-			cmdq_handle,
-			mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode,
-				DDP_COMPONENT_OVL0));
-
-		if (mtk_crtc->is_dual_pipe) {
-			comp = priv->ddp_comp[DDP_COMPONENT_INLINE_ROTATE1];
-			if (comp && comp->funcs && comp->funcs->addon_config)
-				comp->funcs->addon_config(comp, 0, 0, NULL, cmdq_handle);
-			else
-				DDPINFO("%s not in", __func__);
-
-			mtk_disp_mutex_add_comp_with_cmdq(mtk_crtc,
-				DDP_COMPONENT_INLINE_ROTATE1,
-				mtk_crtc_is_frame_trigger_mode(crtc),
-				cmdq_handle,
-				mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode,
-					DDP_COMPONENT_OVL0));
+		for (; i <= mtk_crtc->is_dual_pipe; ++i) {
+			comp = priv->ddp_comp[id[i]];
+			mtk_ddp_comp_addon_config(comp, 0, 0, NULL, cmdq_handle);
+			mtk_disp_mutex_add_comp_with_cmdq(
+			    mtk_crtc, id[i], false, cmdq_handle,
+			    mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode, DDP_COMPONENT_OVL0));
 		}
-
-		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
 		mml_drm_racing_config_sync(mml_ctx, cmdq_handle);
-	} else if (mtk_crtc->need_stop_last_mml_job  &&
-		!mtk_crtc_is_frame_trigger_mode(crtc)) {
-		mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
-		mml_drm_racing_stop_sync(mml_ctx, cmdq_handle);
+	} else if (mtk_crtc->need_stop_last_mml_job) {
+		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle);
 	}
 }
 
@@ -7396,6 +7370,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	mtk_crtc_state->cmdq_handle =
 		mtk_crtc_gce_commit_begin(crtc, old_crtc_state, mtk_crtc_state, true);
+	CRTC_MMP_MARK(index, atomic_begin, (unsigned long)mtk_crtc_state->cmdq_handle, 0);
 
 	/*Msync 2.0: add cmds to cfg thread*/
 	if (!mtk_crtc_is_frame_trigger_mode(crtc) &&
@@ -11786,4 +11761,89 @@ int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num, bool need_lock)
 		mutex_unlock(&private->commit.lock);
 	}
 	return 0;
+}
+
+void mtk_crtc_mml_racing_resubmit(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_handle)
+{
+	u8 i = 0;
+	bool flush = false;
+	struct cmdq_pkt *cmdq_handle = NULL;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_ddp_comp *comp = NULL;
+	const enum mtk_ddp_comp_id id[] = {DDP_COMPONENT_INLINE_ROTATE0,
+					   DDP_COMPONENT_INLINE_ROTATE1};
+
+	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
+		DDPMSG("%s skip in cmd mode\n", __func__);
+		return;
+	}
+
+	if (!mml_ctx || !mtk_crtc->is_mml) {
+		DDPMSG("%s !mml_ctx or !is_mml\n", __func__);
+		return;
+	}
+
+	mml_drm_submit(mml_ctx, mtk_crtc->mml_cfg, &(mtk_crtc->mml_cb));
+
+	if (_cmdq_handle) {
+		cmdq_handle = _cmdq_handle;
+	} else {
+		mtk_crtc_pkt_create(&cmdq_handle, crtc, mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		flush = true;
+	}
+
+	for (; i <= mtk_crtc->is_dual_pipe; ++i) {
+		comp = priv->ddp_comp[id[i]];
+		mtk_ddp_comp_stop(comp, cmdq_handle);
+		mtk_ddp_comp_start(comp, cmdq_handle);
+		mtk_ddp_comp_addon_config(comp, 0, 0, NULL, cmdq_handle);
+		mtk_disp_mutex_add_comp_with_cmdq(
+		    mtk_crtc, id[i], false, cmdq_handle,
+		    mtk_crtc_get_mutex_id(crtc, mtk_crtc->ddp_mode, DDP_COMPONENT_OVL0));
+	}
+
+	/* prepare racing packet */
+	mml_drm_racing_config_sync(mml_ctx, cmdq_handle);
+
+	/* blocking wait until mml submit is flushed */
+	mtk_drm_wait_mml_submit_done(&(mtk_crtc->mml_cb));
+
+	if (flush) {
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	}
+}
+
+void mtk_crtc_mml_racing_stop_sync(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_handle)
+{
+	bool flush = false;
+	struct cmdq_pkt *cmdq_handle = NULL;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mml_drm_ctx *mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
+
+	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
+		DDPINFO("%s skip in cmd mode\n", __func__);
+		return;
+	}
+
+	if (!mml_ctx) {
+		DDPMSG("%s !mml_ctx\n", __func__);
+		return;
+	}
+
+	if (_cmdq_handle) {
+		cmdq_handle = _cmdq_handle;
+	} else {
+		mtk_crtc_pkt_create(&cmdq_handle, crtc, mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		flush = true;
+	}
+
+	mml_drm_racing_stop_sync(mml_ctx, cmdq_handle);
+
+	if (flush) {
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	}
 }

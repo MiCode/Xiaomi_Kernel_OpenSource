@@ -418,6 +418,7 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	struct mtk_ddp_comp *output_comp;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	int ret = 0;
+	struct cmdq_pkt *cmdq_handle = NULL;
 
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), esd_recovery, 0, 0);
 	if (crtc->state && !crtc->state->active) {
@@ -434,7 +435,13 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	}
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 
-	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_PANEL_DISABLE, NULL);
+	if (mtk_crtc->is_mml) {
+		mtk_crtc_pkt_create(&cmdq_handle, crtc, mtk_crtc->gce_obj.client[CLIENT_CFG]);
+		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle);
+		/* flush cmdq with stop_vdo_mode before it set DSI_START to 0 */
+	}
+
+	mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, CONNECTOR_PANEL_DISABLE, NULL);
 
 	mtk_drm_crtc_disable(crtc, true);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 2);
@@ -448,6 +455,9 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	mtk_drm_crtc_enable(crtc);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 3);
+
+	if (mtk_crtc->is_mml)
+		mtk_crtc_mml_racing_resubmit(crtc, NULL);
 
 	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_PANEL_ENABLE, NULL);
 

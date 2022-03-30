@@ -19,6 +19,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/kthread.h>
 #include <linux/sched.h>
+#include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/kmemleak.h>
 #include <uapi/linux/sched/types.h>
@@ -1111,6 +1112,14 @@ void mtk_free_mml_submit(struct mml_submit *temp)
 	if (!temp)
 		return;
 
+	for (i = 0; i < MML_MAX_PLANES && i < temp->buffer.src.cnt; ++i) {
+		if (temp->buffer.src.use_dma &&
+			temp->buffer.src.dmabuf[i]) {
+			DDPINFO("%s:%d\n", __func__, __LINE__);
+			dma_buf_put(temp->buffer.src.dmabuf[i]);
+		}
+	}
+
 	kfree(temp->job);
 	for (i = 0; i < MML_MAX_OUTPUTS; ++i)
 		kfree(temp->pq_param[i]);
@@ -1178,6 +1187,22 @@ static int copy_mml_submit_from_user(struct mml_submit *src,
 	return 0;
 }
 
+static void *fd_to_dma_buf(int32_t fd)
+{
+	struct dma_buf *dmabuf = NULL;
+
+	if (fd <= 0)
+		return NULL;
+
+	dmabuf = dma_buf_get(fd);
+	if (IS_ERR_OR_NULL(dmabuf)) {
+		DDPMSG("%s fail to get dma_buf by fd %d err %ld",
+			__func__, fd, PTR_ERR(dmabuf));
+		return NULL;
+	}
+	return (void *)dmabuf;
+}
+
 static void _mtk_atomic_mml_plane(struct drm_device *dev,
 	struct mtk_plane_state *mtk_plane_state)
 {
@@ -1243,6 +1268,15 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 					submit_kernel->buffer.dest[i].size[j] = 0;
 				}
 			}
+		}
+
+		for (i = 0; i < MML_MAX_PLANES && i < submit_kernel->buffer.src.cnt; ++i) {
+			int32_t fd = submit_kernel->buffer.src.fd[i];
+
+			submit_kernel->buffer.src.use_dma = true;
+			submit_kernel->buffer.src.dmabuf[i] = fd_to_dma_buf(fd);
+			DDPINFO("%s:%d dmabuf:0x%x\n", __func__, __LINE__,
+				submit_kernel->buffer.src.dmabuf[i]);
 		}
 
 		mml_drm_split_info(submit_kernel, submit_pq);
