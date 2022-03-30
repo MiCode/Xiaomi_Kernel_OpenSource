@@ -1393,9 +1393,11 @@ static int _calc_hrt_num(struct drm_device *dev,
 			if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & layer_info->layer_caps)
 				calc_mml_ir_layer_weight(dev, disp_info, disp, i, &overlap_w);
 
-			sum_overlap_w += overlap_w;
-			add_layer_entry(layer_info, true, overlap_w, i);
-			g_debug_info[disp].max_bw_layers |= 1 << i;
+			if (layer_info->src_width > 40) {
+				sum_overlap_w += overlap_w;
+				add_layer_entry(layer_info, true, overlap_w, i);
+				g_debug_info[disp].max_bw_layers |= 1 << i;
+			}
 		} else if (i == disp_info->gles_head[disp]) {
 			/* Add GLES layer */
 			if (hrt_type != HRT_TYPE_EMI) {
