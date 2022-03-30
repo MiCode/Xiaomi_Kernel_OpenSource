@@ -149,13 +149,16 @@ static int lvts_read_all_tc_temperature(struct lvts_data *lvts_data)
 {
 	struct tc_settings *tc = lvts_data->tc;
 	unsigned int i, j, s_index, msr_raw;
-	int max_temp, current_temp;
+	int max_temp = THERMAL_TEMP_INVALID, current_temp;
 	void __iomem *base;
 	struct platform_ops *ops = &lvts_data->ops;
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
 		base = GET_BASE_ADDR(i);
 		for (j = 0; j < tc[i].num_sensor; j++) {
+			if (tc[i].sensor_on_off[j] != SEN_ON)
+				continue;
+
 			s_index = tc[i].sensor_map[j];
 
 			msr_raw = lvts_read_tc_msr_raw(LVTSMSR0_0 + base + 0x4 * j);
@@ -165,9 +168,7 @@ static int lvts_read_all_tc_temperature(struct lvts_data *lvts_data)
 			else
 				current_temp = ops->lvts_raw_to_temp(&(tc[i].coeff), j, msr_raw);
 
-			if (i == 0 && j == 0)
-				max_temp = current_temp;
-			else if (current_temp > max_temp)
+			if (current_temp > max_temp)
 				max_temp = current_temp;
 
 			mutex_lock(&lvts_data->sen_data_lock);
@@ -367,8 +368,9 @@ static void enable_all_sensing_points(struct lvts_data *lvts_data)
 {
 	struct device *dev = lvts_data->dev;
 	struct tc_settings *tc = lvts_data->tc;
-	unsigned int i, num;
+	unsigned int i, j, num;
 	void __iomem *base;
+	unsigned int flag;
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
 		base = GET_BASE_ADDR(i);
@@ -381,7 +383,14 @@ static void enable_all_sensing_points(struct lvts_data *lvts_data)
 			continue;
 		}
 
-		writel(ENABLE_SENSING_POINT(num), LVTSMONCTL0_0 + base);
+		flag = LVTS_SINGLE_SENSE;
+		for (j = 0; j < tc[i].num_sensor; j++) {
+			if (tc[i].sensor_on_off[j] != SEN_ON)
+				continue;
+
+			flag = flag | (0x1<<j);
+		}
+		writel(flag, LVTSMONCTL0_0 + base);
 	}
 }
 
@@ -1414,40 +1423,62 @@ static int lvts_register_irq_handler(struct lvts_data *lvts_data)
 	return 0;
 }
 
-static int lvts_register_thermal_zones(struct lvts_data *lvts_data)
+static int lvts_register_thermal_zone(int id, struct lvts_data *lvts_data,
+		struct thermal_zone_device **tzdev)
 {
 	struct device *dev = lvts_data->dev;
-	struct thermal_zone_device *tzdev;
 	struct soc_temp_tz *lvts_tz;
-	int i, ret;
+	int ret = 0;
 
-	for (i = 0; i < lvts_data->num_sensor + 1; i++) {
-		lvts_tz = devm_kzalloc(dev, sizeof(*lvts_tz), GFP_KERNEL);
-		if (!lvts_tz) {
-			lvts_close(lvts_data);
-			return -ENOMEM;
-		}
-
-		lvts_tz->id = i;
-		lvts_tz->lvts_data = lvts_data;
-
-		tzdev = devm_thermal_zone_of_sensor_register(dev, lvts_tz->id,
-				lvts_tz, &soc_temp_lvts_ops);
-
-		if (IS_ERR(tzdev)) {
-			ret = PTR_ERR(tzdev);
-			dev_err(dev,
-				"Error: Failed to register lvts tz %d, ret = %d\n",
-				lvts_tz->id, ret);
-			lvts_close(lvts_data);
-			return ret;
-		}
-
-		if (i == 0)
-			lvts_data->tz_dev = tzdev;
+	lvts_tz = devm_kzalloc(dev, sizeof(*lvts_tz), GFP_KERNEL);
+	if (!lvts_tz) {
+		lvts_close(lvts_data);
+		return -ENOMEM;
 	}
 
-	return 0;
+	lvts_tz->id = id;
+	lvts_tz->lvts_data = lvts_data;
+
+	*tzdev = devm_thermal_zone_of_sensor_register(dev, lvts_tz->id,
+			lvts_tz, &soc_temp_lvts_ops);
+
+	if (IS_ERR(*tzdev)) {
+		ret = PTR_ERR(*tzdev);
+		dev_err(dev,
+			"Error: Failed to register lvts tz %d, ret = %d\n",
+			lvts_tz->id, ret);
+		lvts_close(lvts_data);
+	}
+	return ret;
+}
+
+static int lvts_register_thermal_zones(struct lvts_data *lvts_data)
+{
+	struct thermal_zone_device *tzdev;
+	int i, j, s_index, ret = 0;
+
+	ret = lvts_register_thermal_zone(0, lvts_data, &tzdev);
+	if (ret)
+		return ret;
+
+	lvts_data->tz_dev = tzdev;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		for (j = 0; j < lvts_data->tc[i].num_sensor; j++) {
+			if (lvts_data->tc[i].sensor_on_off[j] != SEN_ON)
+				continue;
+
+			s_index = lvts_data->tc[i].sensor_map[j];
+
+			ret = lvts_register_thermal_zone(s_index + 1, lvts_data, &tzdev);
+			if (ret)
+				return ret;
+
+
+		}
+	}
+
+	return ret;
 }
 
 static int lvts_probe(struct platform_device *pdev)
@@ -1839,6 +1870,9 @@ static void set_calibration_data_v4(struct lvts_data *lvts_data)
 		base = GET_BASE_ADDR(i);
 
 		for (j = 0; j < tc[i].num_sensor; j++) {
+			if (tc[i].sensor_on_off[j] != SEN_ON)
+				continue;
+
 			s_index = tc[i].sensor_map[j];
 			if (IS_ENABLE(FEATURE_DEVICE_AUTO_RCK))
 				e_data = cal_data->count_r[s_index];
@@ -1850,47 +1884,17 @@ static void set_calibration_data_v4(struct lvts_data *lvts_data)
 	}
 }
 
-static unsigned int set_sensor_idx(struct lvts_data *lvts_data, int tc_id)
-{
-	struct tc_settings *tc = lvts_data->tc;
-	unsigned int i;
-	bool all_device_id_is_zero = true;
-	unsigned int sensor_idx = 0x0;
-
-	for (i = 0; i < tc[tc_id].num_sensor; i++) {
-		if (tc[tc_id].device_id[i] != 0) {
-			all_device_id_is_zero = false;
-			break;
-		}
-	}
-
-	if (all_device_id_is_zero)
-		return SET_SENSOR_INDEX;
-
-	for (i = 0; i < ALL_SENSING_POINTS; i++) {
-		if (tc[tc_id].device_id[i] >= ALL_SENSING_POINTS)
-			return SET_SENSOR_INDEX;
-		if (i >= tc[tc_id].num_sensor)
-			sensor_idx = sensor_idx + (0x10 << 8*i);
-		else
-			sensor_idx = sensor_idx + ((0x10 + tc[tc_id].device_id[i]) << 8*i);
-	}
-
-	return sensor_idx;
-}
 
 static void init_controller_v4(struct lvts_data *lvts_data)
 {
 	unsigned int i;
 	void __iomem *base;
-	unsigned int sensor_idx = 0x0;
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
 		base = GET_BASE_ADDR(i);
 
 		lvts_write_device(lvts_data, SET_DEVICE_LOW_POWER_SINGLE_MODE_V4, i);
-		sensor_idx = set_sensor_idx(lvts_data, i);
-		writel(sensor_idx, LVTSTSSEL_0 + base);
+		writel(0x13121110, LVTSTSSEL_0 + base);
 		writel(SET_CALC_SCALE_RULES, LVTSCALSCALE_0 + base);
 
 		set_polling_speed(lvts_data, i);
@@ -2045,6 +2049,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 2,
 		.sensor_map = {MT6873_TS1_0, MT6873_TS1_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -2061,6 +2066,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 2,
 		.sensor_map = {MT6873_TS2_0, MT6873_TS2_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -2077,6 +2083,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 4,
 		.sensor_map = {MT6873_TS3_0, MT6873_TS3_1, MT6873_TS3_2, MT6873_TS3_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -2093,6 +2100,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 2,
 		.sensor_map = {MT6873_TS4_0, MT6873_TS4_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -2109,6 +2117,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 2,
 		.sensor_map = {MT6873_TS5_0, MT6873_TS5_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -2125,6 +2134,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 2,
 		.sensor_map = {MT6873_TS6_0, MT6873_TS6_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -2141,6 +2151,7 @@ static struct tc_settings mt6873_tc_settings[] = {
 		.addr_offset = 0x300,
 		.num_sensor = 3,
 		.sensor_map = {MT6873_TS7_0, MT6873_TS7_1, MT6873_TS7_2},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT2,
@@ -2161,6 +2172,7 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 4,
 		.sensor_map = {MT6853_TS1_0, MT6853_TS1_1, MT6853_TS1_2, MT6853_TS1_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT3,
@@ -2177,6 +2189,7 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 2,
 		.sensor_map = {MT6853_TS2_0, MT6853_TS2_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -2193,6 +2206,7 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 4,
 		.sensor_map = {MT6853_TS3_0, MT6853_TS3_1, MT6853_TS3_2, MT6853_TS3_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -2209,6 +2223,7 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 1,
 		.sensor_map = {MT6853_TS4_0},
+		.sensor_on_off = {SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -2225,6 +2240,7 @@ static struct tc_settings mt6853_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 3,
 		.sensor_map = {MT6853_TS5_0, MT6853_TS5_1, MT6853_TS5_2},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT2,
@@ -2556,6 +2572,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 2,
 		.sensor_map = {MT6893_TS1_0, MT6893_TS1_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -2572,6 +2589,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 2,
 		.sensor_map = {MT6893_TS2_0, MT6893_TS2_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -2588,6 +2606,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 4,
 		.sensor_map = {MT6893_TS3_0, MT6893_TS3_1, MT6893_TS3_2, MT6893_TS3_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -2604,6 +2623,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 2,
 		.sensor_map = {MT6893_TS4_0, MT6893_TS4_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -2620,6 +2640,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 2,
 		.sensor_map = {MT6893_TS5_0, MT6893_TS5_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -2636,6 +2657,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 2,
 		.sensor_map = {MT6893_TS6_0, MT6893_TS6_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -2652,6 +2674,7 @@ static struct tc_settings mt6893_tc_settings[] = {
 		.addr_offset = 0x300,
 		.num_sensor = 3,
 		.sensor_map = {MT6893_TS7_0, MT6893_TS7_1, MT6893_TS7_2},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -2715,7 +2738,7 @@ static struct lvts_data mt6893_lvts_data = {
 #define TSBG_DEM_CKSEL_X_TSBG_CHOP_EN_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_4 << 8	\
 						| 0xFF)
 
-#define SET_TS_RSV_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_1 << 8 | 0x94)
+#define SET_TS_RSV_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_1 << 8 | 0x95)
 #define SET_TS_CHOP_CTRL_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xB1)
 #define SET_TS_DIV_EN_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xF5)
 #define SET_VCO_RST_6983 (DEVICE_WRITE | RG_TSV2F_CTRL_0 << 8 | 0xFD)
@@ -2723,6 +2746,10 @@ static struct lvts_data mt6893_lvts_data = {
 #define COF_A_COUNT_R_GLD 12052
 #define COF_A_CONST_OFS 280000
 #define COF_A_OFS (COF_A_T_SLP_GLD - COF_A_CONST_OFS)
+#define COF_A_T_SLP_GLD_ADCT 228040
+#define COF_A_COUNT_R_GLD_ADCT 13353
+#define COF_A_CONST_OFS_ADCT 280000
+#define COF_A_OFS_ADCT (COF_A_T_SLP_GLD_ADCT - COF_A_CONST_OFS_ADCT)
 #define COF_A_T_SLP_GLD_HT 254410
 #define COF_A_COUNT_R_GLD_HT 15380
 #define COF_A_CONST_OFS_HT 170000
@@ -2790,6 +2817,9 @@ static int mt6983_device_read_count_rc_n(struct lvts_data *lvts_data)
 		lvts_write_device(lvts_data, SET_LVTS_MANUAL_RCK_OPERATION_6983, i);
 
 		for (j = 0; j < tc[i].num_sensor; j++) {
+			if (tc[i].sensor_on_off[j] != SEN_ON)
+				continue;
+
 			refine_data_idx[j] = 0xff;
 			s_index = tc[i].sensor_map[j];
 
@@ -2893,6 +2923,10 @@ enum mt6983_lvts_sensor_enum {
 	MT6983_TS3_1,
 	MT6983_TS3_2,
 	MT6983_TS3_3,
+	MT6983_TS4_0,
+	MT6983_TS4_1,
+	MT6983_TS4_2,
+	MT6983_TS4_3,
 	MT6983_TS5_0,
 	MT6983_TS5_1,
 	MT6983_TS6_0,
@@ -2916,6 +2950,7 @@ enum mt6983_lvts_controller_enum {
 	MT6983_LVTS_MCU_CTRL0,
 	MT6983_LVTS_MCU_CTRL1,
 	MT6983_LVTS_MCU_CTRL2,
+	MT6983_LVTS_MCU_CTRL3,
 	MT6983_LVTS_AP_CTRL0,
 	MT6983_LVTS_AP_CTRL1,
 	MT6983_LVTS_AP_CTRL2,
@@ -2929,7 +2964,6 @@ static void mt6983_device_identification(struct lvts_data *lvts_data)
 	struct device *dev = lvts_data->dev;
 	unsigned int i, data;
 	void __iomem *base;
-	struct tc_settings *tc = lvts_data->tc;
 	unsigned int lvts_dev_id;
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
@@ -2944,10 +2978,7 @@ static void mt6983_device_identification(struct lvts_data *lvts_data)
 		/* Check LVTS device ID */
 		data = (readl(LVTS_ID_0 + base) & GENMASK(7, 0));
 
-		if  (tc[i].domain_index == MT6983_AP_DOMAIN)
-			lvts_dev_id = 0x82 + i;
-		else
-			lvts_dev_id = 0x81 + i;
+		lvts_dev_id = 0x81 + i;
 
 		if (data != lvts_dev_id) {
 			dev_err(dev, "LVTS_TC_%d, Device ID should be 0x%x, but 0x%x\n",
@@ -2991,6 +3022,11 @@ static void mt6983_efuse_to_cal_data(struct lvts_data *lvts_data)
 	cal_data->count_r[MT6983_TS3_2] = GET_CAL_DATA_BITMASK(6, 15, 0);
 	cal_data->count_r[MT6983_TS3_3] = GET_CAL_DATA_BITMASK(6, 31, 16);
 
+	cal_data->count_r[MT6983_TS4_0] = GET_CAL_DATA_BITMASK(7, 15, 0);
+	cal_data->count_r[MT6983_TS4_1] = GET_CAL_DATA_BITMASK(7, 31, 16);
+	cal_data->count_r[MT6983_TS4_2] = GET_CAL_DATA_BITMASK(8, 15, 0);
+	cal_data->count_r[MT6983_TS4_3] = GET_CAL_DATA_BITMASK(8, 31, 16);
+
 	cal_data->count_r[MT6983_TS5_0] = GET_CAL_DATA_BITMASK(9, 15, 0);
 	cal_data->count_r[MT6983_TS5_1] = GET_CAL_DATA_BITMASK(9, 31, 16);
 
@@ -3014,6 +3050,7 @@ static void mt6983_efuse_to_cal_data(struct lvts_data *lvts_data)
 	cal_data->count_rc[MT6983_LVTS_MCU_CTRL0] = GET_CAL_DATA_BITMASK(18, 23, 0);
 	cal_data->count_rc[MT6983_LVTS_MCU_CTRL1] = GET_CAL_DATA_BITMASK(19, 23, 0);
 	cal_data->count_rc[MT6983_LVTS_MCU_CTRL2] = GET_CAL_DATA_BITMASK(20, 23, 0);
+	cal_data->count_rc[MT6983_LVTS_MCU_CTRL3] = GET_CAL_DATA_BITMASK(21, 23, 0);
 	cal_data->count_rc[MT6983_LVTS_AP_CTRL0] = GET_CAL_DATA_BITMASK(22, 23, 0);
 	cal_data->count_rc[MT6983_LVTS_AP_CTRL1] = GET_CAL_DATA_BITMASK(23, 23, 0);
 	cal_data->count_rc[MT6983_LVTS_AP_CTRL2] = GET_CAL_DATA_BITMASK(24, 23, 0);
@@ -3021,6 +3058,7 @@ static void mt6983_efuse_to_cal_data(struct lvts_data *lvts_data)
 	cal_data->count_rc[MT6983_LVTS_AP_CTRL4] = GET_CAL_DATA_BITMASK(26, 23, 0);
 }
 
+#define DEFAULT_EFUSE_ADCT_CONTROLLER_COUNT (13380)
 static void mt6983_check_cal_data(struct lvts_data *lvts_data)
 {
 	struct device *dev = lvts_data->dev;
@@ -3045,8 +3083,12 @@ static void mt6983_check_cal_data(struct lvts_data *lvts_data)
 		/* It means all efuse data are equal to 0 */
 		dev_info(dev,
 			"[lvts_cal] This sample is not calibrated, fake !!\n");
-		for (i = 0; i < lvts_data->num_sensor; i++)
+		for (i = 0; i < lvts_data->num_sensor; i++) {
 			cal_data->count_r[i] = cal_data->default_count_r;
+			if (i >= MT6983_TS4_0 && i <= MT6983_TS4_3)
+				cal_data->count_r[i] = DEFAULT_EFUSE_ADCT_CONTROLLER_COUNT;
+
+		}
 
 		for (i = 0; i < lvts_data->num_tc; i++)
 			cal_data->count_rc[i] = cal_data->default_count_rc;
@@ -3068,13 +3110,29 @@ static void mt6983_update_coef_data(struct lvts_data *lvts_data)
 
 	for (i = 0; i < lvts_data->num_tc; i++) {
 		for  (j = 0; j < tc[i].num_sensor; j++) {
+			if (tc[i].sensor_on_off[j] != SEN_ON)
+				continue;
+
 			s_index = tc[i].sensor_map[j];
-			if (tc[i].coeff.cali_mode == CALI_HT)
+			if (tc[i].coeff.cali_mode == CALI_HT) {
 				tc[i].coeff.a[j] = COF_A_OFS_HT + (COF_A_CONST_OFS_HT *
 					cal_data->count_r[s_index] / COF_A_COUNT_R_GLD_HT);
-			else
+			} else if (i == MT6983_LVTS_MCU_CTRL3) {
+				tc[i].coeff.a[j] = COF_A_OFS_ADCT +
+					(COF_A_CONST_OFS_ADCT * cal_data->count_r[s_index]
+					/ COF_A_COUNT_R_GLD_ADCT);
+				pr_info("%s: tc=%d tc[%d].coeff.a[%d]=%d cal_data->count_r[%d]=%d ADCT~~~\n",
+					__func__, i, i, j,
+					tc[i].coeff.a[j],
+					s_index, cal_data->count_r[s_index]);
+			} else {
 				tc[i].coeff.a[j] = COF_A_OFS + (COF_A_CONST_OFS *
 					cal_data->count_r[s_index] / COF_A_COUNT_R_GLD);
+				pr_info("%s: tc=%d tc[%d].coeff.a[%d]=%d cal_data->count_r[%d]=%d~~~\n",
+					__func__, i, i, j,
+					tc[i].coeff.a[j],
+					s_index, cal_data->count_r[s_index]);
+			}
 		}
 	}
 }
@@ -3085,6 +3143,7 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 4,
 		.sensor_map = {MT6983_TS1_0, MT6983_TS1_1, MT6983_TS1_2, MT6983_TS1_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(360, 360, 360, 360),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT2,
@@ -3099,6 +3158,7 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 4,
 		.sensor_map = {MT6983_TS2_0, MT6983_TS2_1, MT6983_TS2_2, MT6983_TS2_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(10, 10, 10, 10),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -3113,6 +3173,7 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 4,
 		.sensor_map = {MT6983_TS3_0, MT6983_TS3_1, MT6983_TS3_2, MT6983_TS3_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(857, 857, 857, 857),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT3,
@@ -3122,11 +3183,27 @@ static struct tc_settings mt6983_tc_settings[] = {
 			.cali_mode = CALI_NT,
 		},
 	},
+	[MT6983_LVTS_MCU_CTRL3] = {
+		.domain_index = MT6983_MCU_DOMAIN,
+		.addr_offset = 0x300,
+		.num_sensor = 4,
+		.sensor_map = {MT6983_TS4_0, MT6983_TS4_1, MT6983_TS4_2, MT6983_TS4_3},
+		.sensor_on_off = {SEN_OFF, SEN_OFF, SEN_OFF, SEN_ON},
+		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
+		.hw_filter = LVTS_FILTER_1,
+		.dominator_sensing_point = SENSING_POINT3,
+		.hw_reboot_trip_point = 116500,
+		.irq_bit = BIT(4),
+		.coeff = {
+			.cali_mode = CALI_NT,
+		},
+	},
 	[MT6983_LVTS_AP_CTRL0] = {
 		.domain_index = MT6983_AP_DOMAIN,
 		.addr_offset = 0x0,
 		.num_sensor = 2,
 		.sensor_map = {MT6983_TS5_0, MT6983_TS5_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -3141,6 +3218,7 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 4,
 		.sensor_map = {MT6983_TS6_0, MT6983_TS6_1, MT6983_TS6_2, MT6983_TS6_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -3155,6 +3233,7 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 3,
 		.sensor_map = {MT6983_TS7_0, MT6983_TS7_1, MT6983_TS7_2},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -3169,6 +3248,7 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.addr_offset = 0x300,
 		.num_sensor = 3,
 		.sensor_map = {MT6983_TS8_0, MT6983_TS8_1, MT6983_TS8_2},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -3183,6 +3263,7 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.addr_offset = 0x400,
 		.num_sensor = 3,
 		.sensor_map = {MT6983_TS9_0, MT6983_TS9_1, MT6983_TS9_2},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(2345, 2345, 2345, 2345),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT2,
@@ -3244,7 +3325,7 @@ static int mt6895_device_read_count_rc_n(struct lvts_data *lvts_data)
 	struct device *dev = lvts_data->dev;
 	struct tc_settings *tc = lvts_data->tc;
 	struct sensor_cal_data *cal_data = &lvts_data->cal_data;
-	unsigned int offset, size, s_index, data, device_id;
+	unsigned int offset, size, s_index, data;
 	void __iomem *base;
 	int ret, i, j;
 	char buffer[512];
@@ -3279,11 +3360,13 @@ static int mt6895_device_read_count_rc_n(struct lvts_data *lvts_data)
 		lvts_write_device(lvts_data, SET_LVTS_MANUAL_RCK_OPERATION_6895, i);
 
 		for (j = 0; j < tc[i].num_sensor; j++) {
+			if (tc[i].sensor_on_off[j] != SEN_ON)
+				continue;
+
 			refine_data_idx[j] = 0xff;
 			s_index = tc[i].sensor_map[j];
-			device_id = tc[i].device_id[j];
 
-			lvts_write_device(lvts_data, SELECT_SENSOR_RCK_V4(device_id), i);
+			lvts_write_device(lvts_data, SELECT_SENSOR_RCK_V4(j), i);
 			lvts_write_device(lvts_data, SET_DEVICE_SINGLE_MODE_V4, i);
 			lvts_write_device(lvts_data, SET_TS_DIV_EN_6895, i);
 			lvts_write_device(lvts_data, SET_VCO_RST_6895, i);
@@ -3386,6 +3469,7 @@ enum mt6895_lvts_sensor_enum {
 	MT6895_TS5_0,
 	MT6895_TS5_1,
 	MT6895_TS6_0,
+	MT6895_TS6_1,
 	MT6895_TS6_2,
 	MT6895_TS7_0,
 	MT6895_TS7_1,
@@ -3513,7 +3597,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 4,
 		.sensor_map = {MT6895_TS1_0, MT6895_TS1_1, MT6895_TS1_2, MT6895_TS1_3},
-		.device_id = {0, 1, 2, 3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(857, 857, 857, 857),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -3528,7 +3612,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 4,
 		.sensor_map = {MT6895_TS2_0, MT6895_TS2_1, MT6895_TS2_2, MT6895_TS2_3},
-		.device_id = {0, 1, 2, 3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(360, 360, 360, 360),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT3,
@@ -3543,7 +3627,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 4,
 		.sensor_map = {MT6895_TS3_0, MT6895_TS3_1, MT6895_TS3_2, MT6895_TS3_3},
-		.device_id = {0, 1, 2, 3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(10, 10, 10, 10),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -3558,7 +3642,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 2,
 		.sensor_map = {MT6895_TS5_0, MT6895_TS5_1},
-		.device_id = {0, 1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(4816, 4816, 4816, 4816),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -3571,9 +3655,9 @@ static struct tc_settings mt6895_tc_settings[] = {
 	[MT6895_LVTS_AP_CTRL1] = {
 		.domain_index = MT6895_AP_DOMAIN,
 		.addr_offset = 0x100,
-		.num_sensor = 2,
-		.sensor_map = {MT6895_TS6_0, MT6895_TS6_2},
-		.device_id = {0, 2},
+		.num_sensor = 3,
+		.sensor_map = {MT6895_TS6_0, MT6895_TS6_1, MT6895_TS6_2},
+		.sensor_on_off = {SEN_ON, SEN_OFF, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(4816, 4816, 4816, 4816),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -3588,7 +3672,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 3,
 		.sensor_map = {MT6895_TS7_0, MT6895_TS7_1, MT6895_TS7_2},
-		.device_id = {0, 1, 2},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(3162, 3162, 3162, 3162),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -3603,7 +3687,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.addr_offset = 0x300,
 		.num_sensor = 3,
 		.sensor_map = {MT6895_TS8_0, MT6895_TS8_1, MT6895_TS8_2},
-		.device_id = {0, 1, 2},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(3162, 3162, 3162, 3162),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT2,
@@ -3618,7 +3702,7 @@ static struct tc_settings mt6895_tc_settings[] = {
 		.addr_offset = 0x400,
 		.num_sensor = 3,
 		.sensor_map = {MT6895_TS9_0, MT6895_TS9_1, MT6895_TS9_2},
-		.device_id = {0, 1, 2},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(3162, 3162, 3162, 3162),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT2,
@@ -3770,6 +3854,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 2,
 		.sensor_map = {MT6879_TS1_0, MT6879_TS1_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(10, 10, 10, 10),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -3785,6 +3870,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 4,
 		.sensor_map = {MT6879_TS2_0, MT6879_TS2_1, MT6879_TS2_2, MT6879_TS2_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT2,
@@ -3800,6 +3886,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 2,
 		.sensor_map = {MT6879_TS3_0, MT6879_TS3_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -3815,6 +3902,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 2,
 		.sensor_map = {MT6879_TS4_0, MT6879_TS4_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -3830,6 +3918,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 4,
 		.sensor_map = {MT6879_TS5_0, MT6879_TS5_1, MT6879_TS5_2, MT6879_TS5_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -3845,6 +3934,7 @@ static struct tc_settings mt6879_tc_settings[] = {
 		.addr_offset = 0x300,
 		.num_sensor = 4,
 		.sensor_map = {MT6879_TS6_0, MT6879_TS6_1, MT6879_TS6_2, MT6879_TS6_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -3987,6 +4077,7 @@ static struct tc_settings mt6855_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 4,
 		.sensor_map = {MT6855_TS1_0, MT6855_TS1_1, MT6855_TS1_2, MT6855_TS1_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(10, 10, 10, 10),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT3,
@@ -4002,6 +4093,7 @@ static struct tc_settings mt6855_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 4,
 		.sensor_map = {MT6855_TS2_0, MT6855_TS2_1, MT6855_TS2_2, MT6855_TS2_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT2,
@@ -4017,6 +4109,7 @@ static struct tc_settings mt6855_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 4,
 		.sensor_map = {MT6855_TS3_0, MT6855_TS3_1, MT6855_TS3_2, MT6855_TS3_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT3,
@@ -4032,6 +4125,7 @@ static struct tc_settings mt6855_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 2,
 		.sensor_map = {MT6855_TS4_0, MT6855_TS4_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -4047,6 +4141,7 @@ static struct tc_settings mt6855_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 4,
 		.sensor_map = {MT6855_TS5_0, MT6855_TS5_1, MT6855_TS5_2, MT6855_TS5_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT3,
@@ -4062,6 +4157,7 @@ static struct tc_settings mt6855_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 3,
 		.sensor_map = {MT6855_TS6_0, MT6855_TS6_1, MT6855_TS6_2},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT2,
@@ -4170,6 +4266,7 @@ static struct tc_settings mt6833_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 4,
 		.sensor_map = {MT6833_TS1_0, MT6833_TS1_1, MT6833_TS1_2, MT6833_TS1_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -4186,6 +4283,7 @@ static struct tc_settings mt6833_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 2,
 		.sensor_map = {MT6833_TS2_0, MT6833_TS2_1},
+		.sensor_on_off = {SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -4202,6 +4300,7 @@ static struct tc_settings mt6833_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 4,
 		.sensor_map = {MT6833_TS3_0, MT6833_TS3_1, MT6833_TS3_2, MT6833_TS3_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -4218,6 +4317,7 @@ static struct tc_settings mt6833_tc_settings[] = {
 		.addr_offset = 0x300,
 		.num_sensor = 3,
 		.sensor_map = {MT6833_TS4_0, MT6833_TS4_1, MT6833_TS4_2},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_2_OF_4,
 		.dominator_sensing_point = SENSING_POINT2,
@@ -4333,6 +4433,7 @@ static struct tc_settings mt6789_tc_settings[] = {
 		.addr_offset = 0x0,
 		.num_sensor = 4,
 		.sensor_map = {MT6789_TS1_0, MT6789_TS1_1, MT6789_TS1_2, MT6789_TS1_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT1,
@@ -4348,6 +4449,7 @@ static struct tc_settings mt6789_tc_settings[] = {
 		.addr_offset = 0x100,
 		.num_sensor = 4,
 		.sensor_map = {MT6789_TS2_0, MT6789_TS2_1, MT6789_TS2_2, MT6789_TS2_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT2,
@@ -4363,6 +4465,7 @@ static struct tc_settings mt6789_tc_settings[] = {
 		.addr_offset = 0x200,
 		.num_sensor = 4,
 		.sensor_map = {MT6789_TS3_0, MT6789_TS3_1, MT6789_TS3_2, MT6789_TS3_3},
+		.sensor_on_off = {SEN_ON, SEN_ON, SEN_ON, SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT0,
@@ -4378,6 +4481,7 @@ static struct tc_settings mt6789_tc_settings[] = {
 		.addr_offset = 0x300,
 		.num_sensor = 1,
 		.sensor_map = {MT6789_TS4_0},
+		.sensor_on_off = {SEN_ON},
 		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
 		.hw_filter = LVTS_FILTER_1,
 		.dominator_sensing_point = SENSING_POINT0,

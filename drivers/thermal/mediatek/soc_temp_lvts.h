@@ -127,12 +127,17 @@ struct formula_coeff {
 	enum calibration_mode cali_mode;
 };
 
+enum sensor_switch_status {
+	SEN_OFF,
+	SEN_ON
+};
+
 struct tc_settings {
 	unsigned int domain_index;
 	unsigned int addr_offset;
 	unsigned int num_sensor;
 	unsigned int sensor_map[ALL_SENSING_POINTS]; /* In sensor ID */
-	unsigned int device_id[ALL_SENSING_POINTS]; /* In LVTS Device ID */
+	enum sensor_switch_status sensor_on_off[ALL_SENSING_POINTS]; /* sensor on/off choice */
 	struct speed_settings tc_speed;
 	/* HW filter setting
 	 * 000: Get one sample
