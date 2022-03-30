@@ -354,7 +354,7 @@ EXPORT_SYMBOL_GPL(get_uclamp_min_ls);
  */
 static void attach_task(struct rq *rq, struct task_struct *p)
 {
-	lockdep_assert_held(&rq->__lock);
+	lockdep_assert_rq_held(rq);
 
 	BUG_ON(task_rq(p) != rq);
 	activate_task(rq, p, ENQUEUE_NOCLOCK);
@@ -591,7 +591,7 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 	unsigned int task_util;
 	bool latency_sensitive = false;
 
-	lockdep_assert_held(&src_rq->__lock);
+	lockdep_assert_rq_held(src_rq);
 
 	rcu_read_lock();
 	dst_capacity = capacity_orig_of(dst_cpu);
@@ -709,7 +709,7 @@ int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target,
 	int active_balance = false;
 	unsigned long flags;
 
-	raw_spin_lock_irqsave(&target->__lock, flags);
+	raw_spin_rq_lock_irqsave(target, flags);
 	if (!target->active_balance &&
 		(task_rq(p) == target) && p->__state != TASK_DEAD) {
 		target->active_balance = 1;
@@ -717,7 +717,7 @@ int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target,
 		active_balance = true;
 		get_task_struct(p);
 	}
-	raw_spin_unlock_irqrestore(&target->__lock, flags);
+	raw_spin_rq_unlock_irqrestore(target, flags);
 	if (active_balance) {
 		trace_sched_force_migrate(p, this_cpu, reason);
 		stop_one_cpu_nowait(cpu_of(target),
@@ -770,7 +770,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	 * re-start the picking loop.
 	 */
 	rq_unpin_lock(this_rq, rf);
-	raw_spin_unlock(&this_rq->__lock);
+	raw_spin_rq_unlock(this_rq);
 
 	this_cpu = this_rq->cpu;
 	for_each_cpu(cpu, cpu_online_mask) {
@@ -824,7 +824,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 					misfit_task_rq, MIGR_IDLE_PULL_MISFIT_RUNNING);
 	if (best_running_task)
 		put_task_struct(best_running_task);
-	raw_spin_lock(&this_rq->__lock);
+	raw_spin_rq_lock(this_rq);
 	/*
 	 * While browsing the domains, we released the rq lock, a task could
 	 * have been enqueued in the meantime. Since we're not going idle,
