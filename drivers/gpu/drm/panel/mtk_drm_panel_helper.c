@@ -216,16 +216,16 @@ static int parse_lcm_ops_func_util(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 
 	switch (lcm_op->type) {
 	case MTK_LCM_UTIL_TYPE_RESET:
-		/* func type size data */
+		/* type size data */
 		lcm_op->param.util_data =  (unsigned int)dts[MTK_LCM_DATA_OFFSET];
 		break;
 	case MTK_LCM_UTIL_TYPE_MDELAY:
 	case MTK_LCM_UTIL_TYPE_UDELAY:
-		/* func type size data */
+		/* type size data */
 		lcm_op->param.util_data = (unsigned int)dts[MTK_LCM_DATA_OFFSET];
 		break;
 	case MTK_LCM_UTIL_TYPE_POWER_VOLTAGE:
-		/* func type size addr level */
+		/* type size voltage */
 		lcm_op->param.util_data =  (unsigned int)dts[MTK_LCM_DATA_OFFSET];
 		break;
 	default:
@@ -249,7 +249,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 
 	switch (lcm_op->type) {
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
-		/* func type size data0 data1 ... */
+		/* type size data0 data1 ... */
 		LCM_KZALLOC(lcm_op->param.buffer_data, lcm_op->size + 1, GFP_KERNEL);
 		if (IS_ERR_OR_NULL(lcm_op->param.buffer_data)) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
@@ -262,7 +262,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		*(lcm_op->param.buffer_data + lcm_op->size) = '\0';
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
-		/* func type size input_type condition data0 data1 ... */
+		/* type size condition_name condition data0 data1 ... */
 		LCM_KZALLOC(lcm_op->param.buf_con_data.data, lcm_op->size - 1, GFP_KERNEL);
 		if (IS_ERR_OR_NULL(lcm_op->param.buf_con_data.data)) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
@@ -284,39 +284,40 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 			(unsigned int)lcm_op->param.buf_con_data.data_len);
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
-		/* func type size input_type id data0 data1 ... */
-		LCM_KZALLOC(lcm_op->param.buf_runtime_data.data, lcm_op->size - 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.buf_runtime_data.data)) {
-			DDPPR_ERR("%s,%d: failed to allocate data\n",
-				__func__, __LINE__);
+		/* type size input_name id_count id0, id1 ... data_count data0 data1 ... */
+		lcm_op->param.buf_runtime_data.name = dts[MTK_LCM_DATA_OFFSET];
+		lcm_op->param.buf_runtime_data.id_len = dts[MTK_LCM_DATA_OFFSET + 1];
+		LCM_KZALLOC(lcm_op->param.buf_runtime_data.id,
+			lcm_op->param.buf_runtime_data.id_len + 1, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(lcm_op->param.buf_runtime_data.id)) {
+			DDPPR_ERR("%s,%d: failed to allocate id, %u\n",
+				__func__, __LINE__, lcm_op->param.buf_runtime_data.id_len);
 			return -ENOMEM;
 		}
+		memcpy(lcm_op->param.buf_runtime_data.id,
+			dts + MTK_LCM_DATA_OFFSET + 2,
+			lcm_op->param.buf_runtime_data.id_len);
+		*(lcm_op->param.buf_runtime_data.id +
+				lcm_op->param.buf_runtime_data.id_len) = '\0';
 
-		lcm_op->param.buf_runtime_data.name = dts[MTK_LCM_DATA_OFFSET];
-		lcm_op->param.buf_runtime_data.id = dts[MTK_LCM_DATA_OFFSET + 1];
-		lcm_op->param.buf_runtime_data.data_len = lcm_op->size - 2;
-		if (lcm_op->param.buf_runtime_data.data_len <=
-		    lcm_op->param.buf_runtime_data.id) {
-			DDPMSG("%s, %d, runtime data index:%u is invalid, %u\n",
-				__func__, __LINE__,
-				lcm_op->param.buf_runtime_data.id,
-				(unsigned int)lcm_op->param.buf_runtime_data.data_len);
-			LCM_KFREE(lcm_op->param.buf_runtime_data.data,
-				lcm_op->param.buf_runtime_data.data_len + 1);
-			return -EINVAL;
+		lcm_op->param.buf_runtime_data.data_len = dts[MTK_LCM_DATA_OFFSET +
+			lcm_op->param.buf_runtime_data.id_len + 2];
+		LCM_KZALLOC(lcm_op->param.buf_runtime_data.data,
+			lcm_op->param.buf_runtime_data.data_len + 1, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(lcm_op->param.buf_runtime_data.data)) {
+			DDPPR_ERR("%s,%d: failed to allocate data, %u\n",
+				__func__, __LINE__, lcm_op->param.buf_runtime_data.data_len);
+			return -ENOMEM;
 		}
 		memcpy(lcm_op->param.buf_runtime_data.data,
-			dts + MTK_LCM_DATA_OFFSET + 2,
+			dts + MTK_LCM_DATA_OFFSET +
+			lcm_op->param.buf_runtime_data.id_len + 3,
 			lcm_op->param.buf_runtime_data.data_len);
 		*(lcm_op->param.buf_runtime_data.data +
-			lcm_op->param.buf_runtime_data.data_len) = '\0';
-		DDPMSG("%s, runtime, %u, %u, %u\n", __func__,
-			lcm_op->param.buf_runtime_data.name,
-			lcm_op->param.buf_runtime_data.id,
-			(unsigned int)lcm_op->param.buf_runtime_data.data_len);
+				lcm_op->param.buf_runtime_data.data_len) = '\0';
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_CMD:
-		/* func type size cmd data0 data1 ... */
+		/* type size cmd data0 data1 ... */
 		LCM_KZALLOC(lcm_op->param.cmd_data.data, lcm_op->size, GFP_KERNEL);
 		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.data)) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
@@ -332,7 +333,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		*(lcm_op->param.cmd_data.data + lcm_op->size - 1) = '\0';
 		break;
 	case MTK_LCM_CMD_TYPE_READ_BUFFER:
-		/* func type size data0 data1 ... */
+		/* type size start_id, data_len, data0 data1 ... */
 		LCM_KZALLOC(lcm_op->param.cmd_data.data, lcm_op->size - 1, GFP_KERNEL);
 		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.data)) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
@@ -347,7 +348,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		*(lcm_op->param.cmd_data.data + lcm_op->size - 2) = '\0';
 		break;
 	case MTK_LCM_CMD_TYPE_READ_CMD:
-		/* func type size cmd data0 data1 ... */
+		/* type size start_id data_len cmd */
 		LCM_KZALLOC(lcm_op->param.cmd_data.data, lcm_op->size - 2, GFP_KERNEL);
 		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.data)) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
@@ -360,95 +361,7 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		*(lcm_op->param.cmd_data.data) = '\0';
 		break;
 	default:
-		DDPPR_ERR("%s/%d: invalid type:%d\n",
-			__func__, __LINE__, lcm_op->type);
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static int parse_lcm_ops_func_cb(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
-		unsigned int len)
-{
-	if (IS_ERR_OR_NULL(lcm_op) ||
-	    IS_ERR_OR_NULL(dts)) {
-		DDPMSG("%s,%d: invalid parameters\n",
-			__func__, __LINE__);
-		return -EINVAL;
-	}
-
-	switch (lcm_op->type) {
-	case MTK_LCM_CB_TYPE_RUNTIME:
-		/* func type size data0 data1 ... */
-		LCM_KZALLOC(lcm_op->param.cb_id_data.buffer_data, lcm_op->size + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cb_id_data.buffer_data)) {
-			DDPPR_ERR("%s,%d: failed to allocate data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-
-		lcm_op->param.cb_id_data.data_count = lcm_op->size;
-		memcpy(lcm_op->param.cb_id_data.buffer_data,
-			dts + MTK_LCM_DATA_OFFSET, lcm_op->size);
-		*(lcm_op->param.cb_id_data.buffer_data + lcm_op->size) = '\0';
-		break;
-	case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
-		/* func type size data0 data1 ... */
-		lcm_op->param.cb_id_data.id_count = 1;
-		lcm_op->param.cb_id_data.data_count = lcm_op->size - 1;
-		LCM_KZALLOC(lcm_op->param.cb_id_data.buffer_data,
-			lcm_op->param.cb_id_data.data_count + 1, GFP_KERNEL);
-		LCM_KZALLOC(lcm_op->param.cb_id_data.id,
-			lcm_op->param.cb_id_data.id_count + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cb_id_data.buffer_data) ||
-		    IS_ERR_OR_NULL(lcm_op->param.cb_id_data.id)) {
-			DDPPR_ERR("%s,%d: failed to allocate data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-
-		lcm_op->param.cb_id_data.id[0] = dts[MTK_LCM_DATA_OFFSET];
-		lcm_op->param.cb_id_data.id[1] = '\0';
-		memcpy(lcm_op->param.cb_id_data.buffer_data,
-			dts + MTK_LCM_DATA_OFFSET + 1,
-			lcm_op->param.cb_id_data.data_count);
-		*(lcm_op->param.cb_id_data.buffer_data +
-			lcm_op->param.cb_id_data.data_count) = '\0';
-		break;
-	case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
-		/* func type size id_count id0, id1 ... data_count data0 data1 ... */
-		lcm_op->param.cb_id_data.id_count = dts[MTK_LCM_DATA_OFFSET];
-		LCM_KZALLOC(lcm_op->param.cb_id_data.id,
-			lcm_op->param.cb_id_data.id_count + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cb_id_data.id)) {
-			DDPPR_ERR("%s,%d: failed to allocate id\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		memcpy(lcm_op->param.cb_id_data.id,
-			dts + MTK_LCM_DATA_OFFSET + 1,
-			lcm_op->param.cb_id_data.id_count);
-		*(lcm_op->param.cb_id_data.id +
-				lcm_op->param.cb_id_data.id_count) = '\0';
-
-		lcm_op->param.cb_id_data.data_count = dts[MTK_LCM_DATA_OFFSET +
-			lcm_op->param.cb_id_data.id_count + 1];
-		LCM_KZALLOC(lcm_op->param.cb_id_data.buffer_data,
-			lcm_op->param.cb_id_data.data_count + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cb_id_data.id)) {
-			DDPPR_ERR("%s,%d: failed to allocate data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		memcpy(lcm_op->param.cb_id_data.buffer_data,
-			dts + MTK_LCM_DATA_OFFSET +
-			lcm_op->param.cb_id_data.id_count + 2,
-			lcm_op->param.cb_id_data.data_count);
-		*(lcm_op->param.cb_id_data.buffer_data +
-				lcm_op->param.cb_id_data.data_count) = '\0';
-		break;
-	default:
-		DDPPR_ERR("%s/%d: invalid type:%d\n",
+		DDPPR_ERR("%s %d: invalid type:%d\n",
 			__func__, __LINE__, lcm_op->type);
 		return -EINVAL;
 	}
@@ -479,7 +392,7 @@ static int parse_lcm_ops_func_gpio(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		lcm_op->param.gpio_data.data = dts[MTK_LCM_DATA_OFFSET + 1];
 		break;
 	default:
-		DDPPR_ERR("%s/%d: invalid type:%d\n",
+		DDPPR_ERR("%s %d: invalid type:%d\n",
 			__func__, __LINE__, lcm_op->type);
 		return -EINVAL;
 	}
@@ -528,9 +441,6 @@ static int parse_lcm_ops_basic(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 	else if (lcm_op->type > MTK_LCM_LK_TYPE_START &&
 	    lcm_op->type < MTK_LCM_LK_TYPE_END)
 		ret = parse_lcm_ops_func_cmd(lcm_op, dts, len);
-	else if (lcm_op->type > MTK_LCM_CB_TYPE_START &&
-	    lcm_op->type < MTK_LCM_CB_TYPE_END)
-		ret = parse_lcm_ops_func_cb(lcm_op, dts, len);
 	else if (lcm_op->type > MTK_LCM_GPIO_TYPE_START &&
 	    lcm_op->type < MTK_LCM_GPIO_TYPE_END)
 		ret = parse_lcm_ops_func_gpio(lcm_op, dts, len);
@@ -539,7 +449,7 @@ static int parse_lcm_ops_basic(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		ret = parse_lcm_ops_func_cust(lcm_op,
 				dts, cust);
 	else {
-		DDPPR_ERR("%s/%d: invalid type:0x%x\n",
+		DDPPR_ERR("%s %d: invalid type:0x%x\n",
 			__func__, __LINE__, lcm_op->type);
 		return -EINVAL;
 	}
@@ -919,15 +829,6 @@ static void mtk_get_type_name(unsigned int type, char *out)
 	case MTK_LCM_CMD_TYPE_READ_CMD:
 		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "READ_CMD");
 		break;
-	case MTK_LCM_CB_TYPE_RUNTIME:
-		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME");
-		break;
-	case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
-		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME_INOUT");
-		break;
-	case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
-		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "CB_RUNTIME_INOUT_MUL");
-		break;
 	case MTK_LCM_GPIO_TYPE_MODE:
 		ret = snprintf(name, MTK_LCM_NAME_LENGTH - 1, "GPIO_MODE");
 		break;
@@ -1067,13 +968,19 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 		}
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
-		DDPDUMP("[%s-%u]:%s,%s,name:0x%x,id:0x%x,dts_size:%u,para_count:%u\n",
+		DDPDUMP("[%s-%u]: func:%s, type:%s, dts_size:%u, id_count:%u, data_count:%u\n",
 			owner, id, func_name, type_name,
-			lcm_op->param.buf_runtime_data.name,
-			lcm_op->param.buf_runtime_data.id,
-			lcm_op->size,
-			(unsigned int)lcm_op->param.buf_runtime_data.data_len);
-		for (i = 0; i < (unsigned int)lcm_op->param.buf_runtime_data.data_len; i += 4) {
+			lcm_op->size, lcm_op->param.buf_runtime_data.id_len,
+			lcm_op->param.buf_runtime_data.data_len);
+		for (i = 0; i < roundup(lcm_op->param.buf_runtime_data.id_len, 4); i += 4) {
+			DDPDUMP("[%s-%u][input_id%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
+				owner, id, i, i + 3,
+				lcm_op->param.buf_runtime_data.id[i],
+				lcm_op->param.buf_runtime_data.id[i + 1],
+				lcm_op->param.buf_runtime_data.id[i + 2],
+				lcm_op->param.buf_runtime_data.id[i + 3]);
+		}
+		for (i = 0; i < roundup(lcm_op->param.buf_runtime_data.data_len, 4); i += 4) {
 			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
 				owner, id, i, i + 3,
 				lcm_op->param.buf_runtime_data.data[i],
@@ -1125,73 +1032,6 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 	}
 }
 
-static void dump_lcm_ops_func_cb(struct mtk_lcm_ops_data *lcm_op,
-		const char *owner, unsigned int id)
-{
-	char func_name[MTK_LCM_NAME_LENGTH] = { 0 };
-	char type_name[MTK_LCM_NAME_LENGTH] = { 0 };
-	unsigned int i = 0;
-
-	if (IS_ERR_OR_NULL(lcm_op) || IS_ERR_OR_NULL(owner))
-		return;
-
-	mtk_get_func_name(lcm_op->func, &func_name[0]);
-	mtk_get_type_name(lcm_op->type, &type_name[0]);
-	switch (lcm_op->type) {
-	case MTK_LCM_CB_TYPE_RUNTIME:
-		DDPDUMP("[%s-%u]: func:%s, type:%s, dts_size:%u\n",
-			owner, id, func_name, type_name, lcm_op->size);
-		for (i = 0; i < roundup(lcm_op->size, 4); i += 4) {
-			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
-				owner, id, i, i + 3,
-				lcm_op->param.cb_id_data.buffer_data[i],
-				lcm_op->param.cb_id_data.buffer_data[i + 1],
-				lcm_op->param.cb_id_data.buffer_data[i + 2],
-				lcm_op->param.cb_id_data.buffer_data[i + 3]);
-		}
-		break;
-	case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
-		DDPDUMP("[%s-%u]: func:%s, type:%s, dts_size:%u, id:%u\n",
-			owner, id, func_name, type_name,
-			lcm_op->size, lcm_op->param.cb_id_data.id[0]);
-		for (i = 0; i < roundup(lcm_op->size - 1, 4); i += 4) {
-			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
-				owner, id, i, i + 3,
-				lcm_op->param.cb_id_data.buffer_data[i],
-				lcm_op->param.cb_id_data.buffer_data[i + 1],
-				lcm_op->param.cb_id_data.buffer_data[i + 2],
-				lcm_op->param.cb_id_data.buffer_data[i + 3]);
-		}
-		break;
-	case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
-		DDPDUMP("[%s-%u]: func:%s, type:%s, dts_size:%u, id_count:%u, data_count:%u\n",
-			owner, id, func_name, type_name,
-			lcm_op->size, lcm_op->param.cb_id_data.id_count,
-			lcm_op->param.cb_id_data.data_count);
-		for (i = 0; i < roundup(lcm_op->param.cb_id_data.id_count, 4); i += 4) {
-			DDPDUMP("[%s-%u][input_id%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
-				owner, id, i, i + 3,
-				lcm_op->param.cb_id_data.id[i],
-				lcm_op->param.cb_id_data.id[i + 1],
-				lcm_op->param.cb_id_data.id[i + 2],
-				lcm_op->param.cb_id_data.id[i + 3]);
-		}
-		for (i = 0; i < roundup(lcm_op->param.cb_id_data.data_count, 4); i += 4) {
-			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
-				owner, id, i, i + 3,
-				lcm_op->param.cb_id_data.buffer_data[i],
-				lcm_op->param.cb_id_data.buffer_data[i + 1],
-				lcm_op->param.cb_id_data.buffer_data[i + 2],
-				lcm_op->param.cb_id_data.buffer_data[i + 3]);
-		}
-		break;
-	default:
-		DDPDUMP("%s: [%s-%u]: invalid type:%u\n",
-			__func__, owner, id, lcm_op->type);
-		break;
-	}
-}
-
 static void dump_lcm_ops_func_gpio(struct mtk_lcm_ops_data *lcm_op,
 		const char *owner, unsigned int id)
 {
@@ -1220,7 +1060,34 @@ static void dump_lcm_ops_func_gpio(struct mtk_lcm_ops_data *lcm_op,
 	}
 }
 
-void dump_lcm_ops_func(struct mtk_lcm_ops_table *table,
+static int dump_lcm_ops_func(struct mtk_lcm_ops_data *lcm_op,
+		struct mtk_panel_cust *cust, unsigned int id, const char *owner)
+{
+	if (IS_ERR_OR_NULL(lcm_op))
+		return -EINVAL;
+
+	if (lcm_op->type > MTK_LCM_UTIL_TYPE_START &&
+	    lcm_op->type < MTK_LCM_UTIL_TYPE_END)
+		dump_lcm_ops_func_util(lcm_op, owner, id);
+	else if (lcm_op->type > MTK_LCM_CMD_TYPE_START &&
+	    lcm_op->type < MTK_LCM_CMD_TYPE_END)
+		dump_lcm_ops_func_cmd(lcm_op, owner, id);
+	else if (lcm_op->type > MTK_LCM_GPIO_TYPE_START &&
+	    lcm_op->type < MTK_LCM_GPIO_TYPE_END)
+		dump_lcm_ops_func_gpio(lcm_op, owner, id);
+	else if (lcm_op->type > MTK_LCM_CUST_TYPE_START &&
+	    lcm_op->type < MTK_LCM_CUST_TYPE_END) {
+		if (cust != NULL &&
+		    atomic_read(&cust->cust_enabled) != 0 &&
+		    cust->dump_ops != NULL)
+			cust->dump_ops(lcm_op, owner, id);
+	} else
+		return -EINVAL;
+
+	return 0;
+}
+
+void dump_lcm_ops_table(struct mtk_lcm_ops_table *table,
 		struct mtk_panel_cust *cust,
 		const char *owner)
 {
@@ -1244,31 +1111,14 @@ void dump_lcm_ops_func(struct mtk_lcm_ops_table *table,
 	DDPDUMP("-------------%s(%u): 0x%lx-----------\n",
 		owner_tmp, table->size, (unsigned long)table);
 	list_for_each_entry(lcm_op, &table->list, node) {
-		if (lcm_op->type > MTK_LCM_UTIL_TYPE_START &&
-		    lcm_op->type < MTK_LCM_UTIL_TYPE_END)
-			dump_lcm_ops_func_util(lcm_op, owner_tmp, i);
-		else if (lcm_op->type > MTK_LCM_CMD_TYPE_START &&
-		    lcm_op->type < MTK_LCM_CMD_TYPE_END)
-			dump_lcm_ops_func_cmd(lcm_op, owner_tmp, i);
-		else if (lcm_op->type > MTK_LCM_CB_TYPE_START &&
-		    lcm_op->type < MTK_LCM_CB_TYPE_END)
-			dump_lcm_ops_func_cb(lcm_op, owner_tmp, i);
-		else if (lcm_op->type > MTK_LCM_GPIO_TYPE_START &&
-		    lcm_op->type < MTK_LCM_GPIO_TYPE_END)
-			dump_lcm_ops_func_gpio(lcm_op, owner_tmp, i);
-		else if (lcm_op->type > MTK_LCM_CUST_TYPE_START &&
-		    lcm_op->type < MTK_LCM_CUST_TYPE_END) {
-			if (cust != NULL &&
-			    atomic_read(&cust->cust_enabled) != 0 &&
-			    cust->dump_ops != NULL)
-				cust->dump_ops(lcm_op, owner, i);
-		} else
+		ret = dump_lcm_ops_func(lcm_op, cust, i, owner);
+		if (ret < 0)
 			DDPDUMP("[%s-%d]: invalid func:%u\n",
 				owner, i, lcm_op->func);
 		i++;
 	}
 }
-EXPORT_SYMBOL(dump_lcm_ops_func);
+EXPORT_SYMBOL(dump_lcm_ops_table);
 
 int mtk_lcm_create_input_packet(struct mtk_lcm_ops_input_packet *input,
 		unsigned int data_count, unsigned int condition_count)
@@ -1403,14 +1253,63 @@ static inline int mtk_lcm_get_input_condition(
 	return -EFAULT;
 }
 
+static int mtk_lcm_update_runtime_input(
+	struct mtk_lcm_ops_input_packet *input,
+	struct mtk_lcm_ops_data *op, u8 *data_out)
+{
+	size_t count = 0, size = 0;
+	int index = 0, i = 0, id = 0;
+	u8 *data = NULL;
+
+	if (IS_ERR_OR_NULL(op) || IS_ERR_OR_NULL(input) ||
+	    IS_ERR_OR_NULL(data_out)) {
+		DDPPR_ERR("%s:invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	count = op->param.buf_runtime_data.id_len;
+	data = op->param.buf_runtime_data.data;
+	size = op->param.buf_runtime_data.data_len;
+	index = mtk_lcm_get_input_data(input,
+			op->param.buf_runtime_data.name);
+	if (index < 0 || size <= 0 ||
+	    IS_ERR_OR_NULL(data)) {
+		DDPPR_ERR("%s, %d, input:%u invalid id:%d, size:%u or data\n",
+			__func__, __LINE__,
+			op->param.buf_runtime_data.name,
+			index, size);
+		return -EINVAL;
+	}
+
+	if (count <= 0 || count > size) {
+		DDPPR_ERR("%s:invalid func:%u of count:%u\n",
+			__func__, op->type, count);
+		return -EINVAL;
+	}
+
+	memcpy(data_out, data, size);
+	for (i = 0; i < count; i++) {
+		id = op->param.buf_runtime_data.id[i];
+		if (id >= size) {
+			DDPPR_ERR("%s:invalid id:%u of table:%u\n",
+				__func__, id, size);
+			return -EINVAL;
+		}
+		data_out[id] = *((u8 *)(input->data[index].data) + i);
+		DDPDUMP("%s, %d, name:%u i:%u, id:%u, value:0x%x\n",
+			__func__, __LINE__, index, i, id, data_out[id]);
+	}
+
+	return 0;
+}
+
 static int mtk_lcm_create_operation_group(struct mtk_panel_para_table *group,
-	u8 *input_data, unsigned int input_count,
+	struct mtk_lcm_ops_input_packet *input,
 	struct mtk_lcm_ops_table *table)
 {
 	struct mtk_lcm_ops_data *op = NULL;
-	size_t size = 0, count = 0;
-	u8 *data = NULL;
-	unsigned int id = 0, j = 0, index = 0;
+	size_t size = 0;
+	unsigned int id = 0, index = 0;
 
 	if (IS_ERR_OR_NULL(group)) {
 		DDPMSG("%s, %d, invalid group\n",
@@ -1425,79 +1324,85 @@ static int mtk_lcm_create_operation_group(struct mtk_panel_para_table *group,
 	}
 
 	list_for_each_entry(op, &table->list, node) {
-		count = op->param.cb_id_data.id_count;
-		data = op->param.cb_id_data.buffer_data;
-		size = op->param.cb_id_data.data_count;
-		if (size > ARRAY_SIZE(group[id].para_list)) {
-			DDPPR_ERR("%s: invalid size:%u\n",
-				__func__, size);
+		switch (op->type) {
+		case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
+			if (IS_ERR_OR_NULL(op->param.buffer_data) ||
+			    op->size <= 0 ||
+			    op->size > ARRAY_SIZE(group[id].para_list))
+				return -EINVAL;
+			group[id].count = size;
+			memcpy(group[id].para_list, op->param.buffer_data,
+				op->size);
+			break;
+		case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
+			if (IS_ERR_OR_NULL(op->param.buf_con_data.data) ||
+			    IS_ERR_OR_NULL(input) ||
+			    IS_ERR_OR_NULL(input->condition))
+				return -EINVAL;
+			index = mtk_lcm_get_input_condition(input,
+					op->param.buf_con_data.name);
+			if (index < 0 || index >= input->condition_count) {
+				DDPPR_ERR("%s, %d, failed to get input, %d\n",
+					__func__, __LINE__, index);
+				return -EINVAL;
+			}
+			if (op->param.buf_con_data.condition ==
+			    *(u8 *)input->condition[index].data) {
+				DDPDUMP("%s,%d, name:0x%x, condition:%u, %u\n", __func__, __LINE__,
+					op->param.buf_con_data.name,
+					op->param.buf_con_data.condition,
+					*(u8 *)input->condition[index].data);
+				if (op->param.buf_con_data.data_len >
+					ARRAY_SIZE(group[id].para_list)) {
+					DDPPR_ERR("%s, %d, invalid size, %u\n",
+						__func__, __LINE__,
+						op->param.buf_con_data.data_len);
+					return -EINVAL;
+				}
+				group[id].count = op->param.buf_con_data.data_len;
+				memcpy(group[id].para_list, op->param.buf_con_data.data,
+					op->param.buf_con_data.data_len);
+			}
+			break;
+		case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
+			size = op->param.buf_runtime_data.data_len;
+			if (size > ARRAY_SIZE(group[id].para_list)) {
+				DDPPR_ERR("%s, %d, invalid size, %u\n",
+					__func__, __LINE__, size);
+				return -EINVAL;
+			}
+			if (mtk_lcm_update_runtime_input(input,
+					op, group[id].para_list) < 0) {
+				DDPPR_ERR("%s,%d: failed to update input\n",
+					__func__, __LINE__);
+				return -EFAULT;
+			}
+			group[id].count = size;
+			break;
+		case MTK_LCM_CMD_TYPE_READ_BUFFER:
+		case MTK_LCM_CMD_TYPE_READ_CMD:
+		case MTK_LCM_CMD_TYPE_WRITE_CMD:
+		default:
+			DDPMSG("%s: not support func:%u\n", __func__, op->func);
 			return -EINVAL;
 		}
 
-		switch (op->type) {
-		case MTK_LCM_CB_TYPE_RUNTIME:
-			group[id].count = size;
-			memcpy(group[id].para_list, data, size);
-			break;
-		case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
-		case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
-			if (count == 0) {
-				DDPPR_ERR("%s:invalid func:%u of count:%u\n",
-					__func__, op->type, count);
-				break;
-			} else if (count != input_count) {
-				DDPMSG("%s, %d, invalid count:%u, expect:%u\n",
-					__func__, __LINE__, count, input_count);
-				break;
-			} else if (IS_ERR_OR_NULL(input_data)) {
-				DDPMSG("%s, %d, invalid data\n", __func__, __LINE__);
-				return -EINVAL;
-			}
-
-			group[id].count = size;
-			memcpy(group[id].para_list, data, size);
-			for (j = 0; j < count; j++) {
-				index = op->param.cb_id_data.id[j];
-				if (index >= size) {
-					DDPPR_ERR("%s:invalid id:%u of table:%u\n",
-						__func__, index, size);
-					return -EINVAL;
-				}
-				group[id].para_list[index] &= input_data[j];
-#if MTK_LCM_DEBUG_DUMP
-				DDPMSG("%s, %d, j:%u, index:%u, para:0x%x\n",
-					__func__, __LINE__, j, index,
-					group[id].para_list[index]);
-#endif
-			}
-			break;
-		default:
-			DDPMSG("%s: invalid cmd:%u\n", __func__, op->type);
-			break;
-		}
+		if (group[id].count > 0)
+			id++;
 	}
 
-	return 0;
+	return id;
 }
 
 int mtk_panel_execute_callback(void *dsi, dcs_write_gce cb,
-	void *handle, u8 *input_data, unsigned int input_count,
-	struct mtk_lcm_ops_table *table, const char *master)
+	void *handle, struct mtk_lcm_ops_table *table,
+	struct mtk_lcm_ops_input_packet *input, const char *master)
 {
-	u8 *data = NULL;
+	u8 *buf = NULL;
 	struct mtk_lcm_ops_data *op = NULL;
-	unsigned int id = -1, j = 0;
-	size_t size = 0, count = 0;
-	unsigned int *mask = NULL;
+	size_t size = 0;
 	char owner[MTK_LCM_NAME_LENGTH] = { 0 };
-	int ret = 0;
-
-	if (IS_ERR_OR_NULL(table) ||
-	    table->size == 0 || table->size >= MTK_PANEL_TABLE_OPS_COUNT) {
-		DDPMSG("%s, %d, invalid table\n",
-			__func__, __LINE__);
-		return -EINVAL;
-	}
+	int ret = 0, index = 0;
 
 	if (IS_ERR_OR_NULL(master))
 		snprintf(owner, MTK_LCM_NAME_LENGTH - 1, "unknown");
@@ -1507,102 +1412,99 @@ int mtk_panel_execute_callback(void *dsi, dcs_write_gce cb,
 		DDPMSG("%s, failed at snprintf, %d", __func__, ret);
 	ret = 0;
 
-	if (input_count > 0) {
-		LCM_KZALLOC(mask, input_count, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(mask)) {
-			DDPPR_ERR("%s:failed to allocate mask buffer, count:%u\n",
-				__func__, input_count);
-			return -ENOMEM;
-		}
+	if (IS_ERR_OR_NULL(table) ||
+	    table->size == 0 || table->size >= MTK_PANEL_TABLE_OPS_COUNT) {
+		DDPMSG("%s, %d, owner:%s invalid table\n",
+			__func__, __LINE__, owner);
+		return -EINVAL;
 	}
 
 	list_for_each_entry(op, &table->list, node) {
-		count = op->param.cb_id_data.id_count;
-		data = op->param.cb_id_data.buffer_data;
-		size = op->param.cb_id_data.data_count;
 		switch (op->type) {
-		case MTK_LCM_CB_TYPE_RUNTIME:
-			cb(dsi, handle, data, size);
-			break;
-		case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
-		case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
-			if (count == 0) {
-				DDPPR_ERR("%s:invalid func:%u of count:%u\n",
-					__func__, op->type, count);
-				break;
-			} else if (count != input_count) {
-				DDPMSG("%s, %d, func:%s, invalid count:%u, expect:%u\n",
-					__func__, __LINE__, owner, count, input_count);
-				cb(dsi, handle, data, size);
-				break;
-			} else if (IS_ERR_OR_NULL(input_data)) {
-				DDPMSG("%s, %d, func:%s, invalid data\n",
-					__func__, __LINE__, owner);
+		case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
+			if (IS_ERR_OR_NULL(op->param.buffer_data) ||
+			    op->size <= 0) {
 				ret = -EINVAL;
 				goto out;
 			}
-
-			for (j = 0; j < count; j++) {
-				id = op->param.cb_id_data.id[j];
-				if (id >= size) {
-					DDPPR_ERR("%s: func:%s, invalid id:%u of table:%u\n",
-						__func__, owner, id, size);
-					LCM_KFREE(mask, count);
-					ret = -EINVAL;
-					goto out;
-				}
-
-				mask[j] = data[id]; //backup backlight mask
-				data[id] &= input_data[j];
-#if MTK_LCM_DEBUG_DUMP
-				DDPMSG("%s, %d, i:%u, mask:0x%x, data:0x%x, id:%u\n",
-					__func__, __LINE__, j, mask[j], data[id], id);
-#endif
+			cb(dsi, handle, op->param.buffer_data,
+				op->size);
+			break;
+		case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
+			if (IS_ERR_OR_NULL(op->param.buf_con_data.data) ||
+			    IS_ERR_OR_NULL(input) ||
+			    IS_ERR_OR_NULL(input->condition)) {
+				ret = -EINVAL;
+				goto out;
 			}
-
-			cb(dsi, handle, data, size);
-
-			/* restore backlight mask*/
-			for (j = 0; j < count; j++) {
-				id = op->param.cb_id_data.id[j];
-				if (id >= size)
-					continue;
-				data[id] = mask[j];
+			index = mtk_lcm_get_input_condition(input,
+					op->param.buf_con_data.name);
+			if (index < 0 || (unsigned int)index >= input->condition_count) {
+				DDPPR_ERR("%s, %d, owner:%s failed to get input, %d\n",
+					__func__, __LINE__, owner, index);
+				ret = -EINVAL;
+				goto out;
+			}
+			if (op->param.buf_con_data.condition ==
+			    *(u8 *)input->condition[index].data) {
+				DDPPR_ERR("%s,%d, owner:%s name:0x%x, condition:%u, %u\n",
+					__func__, __LINE__, owner,
+					op->param.buf_con_data.name,
+					op->param.buf_con_data.condition,
+					*(u8 *)input->condition[index].data);
+				cb(dsi, handle, op->param.buf_con_data.data,
+					op->param.buf_con_data.data_len);
 			}
 			break;
+		case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
+			size = op->param.buf_runtime_data.data_len;
+			LCM_KZALLOC(buf, size, GFP_KERNEL);
+			if (IS_ERR_OR_NULL(buf)) {
+				DDPPR_ERR("%s,%d: owner:%s failed to allocate buf\n",
+					__func__, __LINE__, owner);
+				ret = -ENOMEM;
+				goto out;
+			}
+
+			if (mtk_lcm_update_runtime_input(input,
+					op, buf) < 0) {
+				LCM_KFREE(buf, size);
+				DDPPR_ERR("%s,%d: owner:%s failed to update input\n",
+					__func__, __LINE__, owner);
+				ret = -EFAULT;
+				goto out;
+			}
+
+			cb(dsi, handle, buf, size);
+			LCM_KFREE(buf, size);
+			break;
+		case MTK_LCM_CMD_TYPE_READ_BUFFER:
+		case MTK_LCM_CMD_TYPE_READ_CMD:
+		case MTK_LCM_CMD_TYPE_WRITE_CMD:
 		default:
-			DDPMSG("%s: func:%s, invalid cmd:%u\n",
-				__func__, owner, op->type);
+			ret = -EINVAL;
+			DDPMSG("%s: not support func:%u from owner:%s\n",
+				__func__, op->func, owner);
 			break;
 		}
 	}
 
 out:
 #if MTK_LCM_DEBUG_DUMP
-	DDPMSG("%s, %d, func:%s, count:%u, ret:%d\n",
-		__func__, __LINE__, owner, input_count, ret);
+	DDPMSG("%s, %d, owner:%s, ret:%d\n",
+		__func__, __LINE__, owner, ret);
 #endif
-	if (input_count > 0)
-		LCM_KFREE(mask, input_count);
-
 	return ret;
 }
 EXPORT_SYMBOL(mtk_panel_execute_callback);
 
 int mtk_panel_execute_callback_group(void *dsi, dcs_grp_write_gce cb,
-	void *handle, u8 *input_data, unsigned int input_count,
-	struct mtk_lcm_ops_table *table, const char *master)
+	void *handle, struct mtk_lcm_ops_table *table,
+	struct mtk_lcm_ops_input_packet *input, const char *master)
 {
 	struct mtk_panel_para_table *group = NULL;
 	char owner[MTK_LCM_NAME_LENGTH] = { 0 };
-	int ret = 0;
-
-	if (IS_ERR_OR_NULL(table) ||
-	    table->size == 0 || table->size >= MTK_PANEL_TABLE_OPS_COUNT) {
-		DDPMSG("%s, %d, invalid table\n",
-			__func__, __LINE__);
-		return -EINVAL;
-	}
+	int ret = 0, group_size = 0;
 
 	if (IS_ERR_OR_NULL(master))
 		ret = snprintf(owner, MTK_LCM_NAME_LENGTH - 1, "unknown");
@@ -1612,24 +1514,31 @@ int mtk_panel_execute_callback_group(void *dsi, dcs_grp_write_gce cb,
 		DDPMSG("%s, failed at snprintf, %d", __func__, ret);
 	ret = 0;
 
+	if (IS_ERR_OR_NULL(table) ||
+	    table->size == 0 || table->size >= MTK_PANEL_TABLE_OPS_COUNT) {
+		DDPPR_ERR("%s, %d, owner:%s invalid table\n",
+			__func__, __LINE__, owner);
+		return -EINVAL;
+	}
+
 	LCM_KZALLOC(group, sizeof(struct mtk_panel_para_table) *
 		table->size, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(group)) {
-		DDPPR_ERR("%s:failed to allocate group, count:%u\n",
-			__func__, table->size);
+		DDPPR_ERR("%s:owner:%s failed to allocate group, count:%u\n",
+			__func__, owner, table->size);
 		return -ENOMEM;
 	}
 
-	ret = mtk_lcm_create_operation_group(group,
-		input_data, input_count, table);
-	if (ret < 0) {
-		DDPPR_ERR("%s:failed to create group, ret:%d\n",
-			__func__, ret);
+	group_size = mtk_lcm_create_operation_group(group,
+		input, table);
+	if (group_size <= 0) {
+		DDPPR_ERR("%s:owner:%s failed to create group, ret:%d\n",
+			__func__, owner, group_size);
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	cb(dsi, handle, group, table->size);
+	cb(dsi, handle, group, group_size);
 
 out:
 	LCM_KFREE(group, sizeof(struct mtk_panel_para_table) *
@@ -1638,12 +1547,437 @@ out:
 }
 EXPORT_SYMBOL(mtk_panel_execute_callback_group);
 
-int mtk_execute_func_cmd(void *dev,
+static int mtk_lcm_init_ddic_msg(struct mipi_dsi_msg *msg, unsigned int cmd,
+		unsigned int channel)
+{
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(msg))
+		return -EINVAL;
+
+	if (msg->rx_len > 0) {
+		if (cmd == MTK_LCM_CMD_TYPE_READ_CMD) {
+			msg->type = MIPI_DSI_DCS_READ;
+		} else if (cmd == MTK_LCM_CMD_TYPE_READ_BUFFER) {
+			switch (msg->tx_len) {
+			case 0:
+				msg->type = MIPI_DSI_GENERIC_READ_REQUEST_0_PARAM;
+				break;
+			case 1:
+				msg->type = MIPI_DSI_GENERIC_READ_REQUEST_1_PARAM;
+				break;
+			case 2:
+				msg->type = MIPI_DSI_GENERIC_READ_REQUEST_2_PARAM;
+				break;
+			default:
+				DDPPR_ERR("%s, %d, invalid read type, rx:%u, tx:%u\n",
+						__func__, __LINE__, msg->rx_len, msg->tx_len);
+				ret = -EINVAL;
+				break;
+			}
+		}
+	} else if (msg->tx_buf == NULL) {
+		DDPPR_ERR("%s, %d, invalid write buffer, rx:%u, tx:%u\n",
+			__func__, __LINE__, msg->rx_len, msg->tx_len);
+		ret = -EINVAL;
+	} else if (*((unsigned char *)msg->tx_buf) < 0xB0) {
+		switch (msg->tx_len) {
+		case 0:
+			DDPPR_ERR("%s, %d, invalid dcs type, rx:%u, tx:%u\n",
+				__func__, __LINE__, msg->rx_len, msg->tx_len);
+			ret = -EINVAL;
+			break;
+		case 1:
+			msg->type = MIPI_DSI_DCS_SHORT_WRITE;
+			break;
+		case 2:
+			msg->type = MIPI_DSI_DCS_SHORT_WRITE_PARAM;
+			break;
+		default:
+			msg->type = MIPI_DSI_DCS_LONG_WRITE;
+			break;
+		}
+	} else {
+		switch (msg->tx_len) {
+		case 0:
+			msg->type = MIPI_DSI_GENERIC_SHORT_WRITE_0_PARAM;
+			break;
+		case 1:
+			msg->type = MIPI_DSI_GENERIC_SHORT_WRITE_1_PARAM;
+			break;
+		case 2:
+			msg->type = MIPI_DSI_GENERIC_SHORT_WRITE_2_PARAM;
+			break;
+		default:
+			msg->type = MIPI_DSI_GENERIC_LONG_WRITE;
+			break;
+		}
+	}
+
+	msg->channel = channel;
+	msg->flags |= MIPI_DSI_MSG_USE_LPM;
+
+	return ret;
+}
+
+static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
+	struct mtk_lcm_ops_input_packet *input,
+	struct mtk_lcm_ops_table *table, struct mtk_lcm_ops_data **op_start,
+	struct mtk_lcm_ops_data **op_end)
+{
+	struct mtk_lcm_ops_data *op = NULL;
+	unsigned int prop = 0, len = 0, index = 0;
+	unsigned int cmd_size = 0, cmdq_size = 0, cmdq_size_cur = 0;
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(packet)) {
+		DDPMSG("%s, %d, invalid packet\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+
+	prop = packet->prop;
+	if (*op_start == NULL) {
+		op = list_first_entry(&table->list,
+				struct mtk_lcm_ops_data, node);
+	} else
+		op = *op_start;
+
+	list_for_each_entry_from(op, &table->list, node) {
+		struct mtk_lcm_dsi_cmd *cmd = NULL;
+		unsigned char *buf = NULL;
+
+		LCM_KZALLOC(cmd, sizeof(struct mtk_lcm_dsi_cmd), GFP_KERNEL);
+		if (IS_ERR_OR_NULL(cmd)) {
+			DDPMSG("%s,%d: failed to allocate cmd\n",
+				__func__, __LINE__);
+			return -ENOMEM;
+		}
+
+		switch (op->type) {
+		case MTK_LCM_CMD_TYPE_READ_BUFFER:
+		{
+			unsigned int offset = op->param.cmd_data.start_id;
+			unsigned int len = op->param.cmd_data.data_len;
+
+			if (cmd_size > 0 &&
+			    (prop & MTK_LCM_DSI_CMD_PROP_PACK) != 0) {
+#if MTK_LCM_DEBUG_DUMP
+				DDPMSG("%s, %d: pack end at read cmd:%u, sz:%u\n",
+					__func__, __LINE__, op->type, cmd_size);
+#endif
+				break;
+			}
+
+			if (IS_ERR_OR_NULL(input) ||
+				IS_ERR_OR_NULL(input->data)) {
+				DDPPR_ERR("%s: err input\n", __func__, __LINE__);
+				ret = -EINVAL;
+				break;
+			}
+
+			index = mtk_lcm_get_input_data(input,
+					MTK_LCM_INPUT_TYPE_READBACK);
+			if (index < 0 || index >= input->data_count) {
+				DDPPR_ERR("%s, %d, failed to get input, %d\n",
+					__func__, __LINE__, index);
+				ret = -EINVAL;
+				break;
+			}
+			if (input->data[index].length < offset + len) {
+				DDPPR_ERR("%s: err, data_count:%u,off:%u,len:%u\n",
+					__func__, input->data_count, offset, len);
+				ret = -ENOMEM;
+				break;
+			}
+
+			cmd->msg.tx_len = op->size - 2;
+			cmd->msg.tx_buf = op->param.cmd_data.data;
+			cmd->msg.rx_len = len;
+			cmd->msg.rx_buf = &input->data[index].data[offset];
+			ret = mtk_lcm_init_ddic_msg(&cmd->msg,
+					op->type, packet->channel);
+			packet->prop &= ~MTK_LCM_DSI_CMD_PROP_PACK;
+			break;
+		}
+		case MTK_LCM_CMD_TYPE_READ_CMD:
+		{
+			unsigned int offset = op->param.cmd_data.start_id;
+			unsigned int len = op->param.cmd_data.data_len;
+
+			if (cmd_size > 0 &&
+			    (prop & MTK_LCM_DSI_CMD_PROP_PACK) != 0) {
+#if MTK_LCM_DEBUG_DUMP
+				DDPMSG("%s, %d: pack end at read cmd:%u, sz:%u\n",
+					__func__, __LINE__, op->type, cmd_size);
+#endif
+				break;
+			}
+
+			if (IS_ERR_OR_NULL(input) ||
+				IS_ERR_OR_NULL(input->data)) {
+				DDPPR_ERR("%s: err input\n", __func__, __LINE__);
+				ret = -EINVAL;
+				break;
+			}
+
+			index = mtk_lcm_get_input_data(input,
+					MTK_LCM_INPUT_TYPE_READBACK);
+			if (index < 0 || index >= input->data_count) {
+				DDPPR_ERR("%s, %d, failed to get input, %d\n",
+					__func__, __LINE__, index);
+				ret = -EINVAL;
+				break;
+			}
+			if (input->data[index].length < offset + len) {
+				DDPPR_ERR("%s: err, data_count:%u,off:%u,len:%u\n",
+					__func__, input->data_count, offset, len);
+				ret = -ENOMEM;
+				break;
+			}
+
+			LCM_KZALLOC(buf, 1, GFP_KERNEL);
+			if (IS_ERR_OR_NULL(buf)) {
+				DDPPR_ERR("%s,%d: failed to allocate buf\n",
+					__func__, __LINE__);
+				ret = -ENOMEM;
+				break;
+			}
+			buf[0] = op->param.cmd_data.cmd;
+
+			cmd->msg.tx_len = 1;
+			cmd->msg.tx_buf = buf;
+			cmd->msg.rx_len = len;
+			cmd->msg.rx_buf = &input->data[index].data[offset];
+			cmd->tx_free = true;
+			ret = mtk_lcm_init_ddic_msg(&cmd->msg,
+					op->type, packet->channel);
+			packet->prop &= ~MTK_LCM_DSI_CMD_PROP_PACK;
+			break;
+		}
+		case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
+			cmd->msg.tx_len = op->size;
+			cmd->msg.tx_buf = op->param.buffer_data;
+			ret = mtk_lcm_init_ddic_msg(&cmd->msg,
+					op->type, packet->channel);
+			break;
+		case MTK_LCM_CMD_TYPE_WRITE_CMD:
+		{
+			cmd->msg.tx_len = op->param.cmd_data.data_len + 1;
+			LCM_KZALLOC(buf, cmd->msg.tx_len, GFP_KERNEL);
+			if (IS_ERR_OR_NULL(buf)) {
+				DDPPR_ERR("%s,%d: failed to allocate buf\n",
+					__func__, __LINE__);
+				ret = -ENOMEM;
+				break;
+			}
+
+			buf[0] = op->param.cmd_data.cmd;
+			memcpy(&buf[1], op->param.cmd_data.data,
+					op->param.cmd_data.data_len);
+			cmd->msg.tx_buf = buf;
+			cmd->tx_free = true;
+			ret = mtk_lcm_init_ddic_msg(&cmd->msg,
+					op->type, packet->channel);
+			break;
+		}
+		case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
+		{
+			if (IS_ERR_OR_NULL(input) ||
+				IS_ERR_OR_NULL(input->condition)) {
+				DDPPR_ERR("%s: err input\n", __func__, __LINE__);
+				ret = -EINVAL;
+				break;
+			}
+
+			index = mtk_lcm_get_input_condition(input,
+					op->param.buf_con_data.name);
+			if (index < 0 || index >= input->condition_count) {
+				DDPPR_ERR("%s, %d, failed to get input, %d\n",
+					__func__, __LINE__, index);
+				ret = -EINVAL;
+				break;
+			}
+			if (op->param.buf_con_data.condition ==
+			    *(u8 *)input->condition[index].data) {
+				DDPPR_ERR("%s,%d, name:0x%x, condition:%u, %u\n",
+					__func__, __LINE__,
+					op->param.buf_con_data.name,
+					op->param.buf_con_data.condition,
+					*(u8 *)input->condition[index].data);
+				cmd->msg.tx_len = op->param.buf_con_data.data_len;
+				cmd->msg.tx_buf = op->param.buf_con_data.data;
+				ret = mtk_lcm_init_ddic_msg(&cmd->msg,
+						op->type, packet->channel);
+			}
+			break;
+		}
+		case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
+		{
+			len = op->param.buf_runtime_data.data_len;
+			LCM_KZALLOC(buf, len, GFP_KERNEL);
+			if (IS_ERR_OR_NULL(buf)) {
+				DDPPR_ERR("%s,%d: failed to allocate buf\n",
+					__func__, __LINE__);
+				ret = -ENOMEM;
+				break;
+			}
+
+			if (mtk_lcm_update_runtime_input(input,
+					op, buf) < 0) {
+				LCM_KFREE(buf, len);
+				DDPPR_ERR("%s,%d: failed to update input\n",
+					__func__, __LINE__);
+				ret = -EFAULT;
+				break;
+			}
+
+			cmd->msg.tx_len = len;
+			cmd->msg.tx_buf = buf;
+			cmd->tx_free = true;
+			ret = mtk_lcm_init_ddic_msg(&cmd->msg,
+					op->type, packet->channel);
+			break;
+		}
+		default:
+			DDPDUMP("%s, %d: not a valid ddic cmd:%u\n",
+				__func__, __LINE__, op->type);
+			break;
+		}
+
+		if ((prop & MTK_LCM_DSI_CMD_PROP_PACK) != 0) {
+			if (cmd->msg.tx_len > 2)
+				cmdq_size_cur = 1 + ((cmd->msg.tx_len + 3) / 4);
+			else
+				cmdq_size_cur = 1;
+		}
+
+		/* per package max support 512 cmdq settings*/
+		if ((cmd->msg.tx_len == 0 &&
+		    cmd->msg.rx_len == 0) || ret < 0 ||
+		    cmdq_size_cur > (128 - cmdq_size)) {
+			DDPDUMP("%s, %d, stop package, tx:%u, rx:%u, ret:%d, size:%u, cmdq:%u\n",
+				__func__, __LINE__, cmd->msg.tx_len,
+				cmd->msg.rx_len, ret, cmd_size, cmdq_size);
+			LCM_KFREE(cmd, sizeof(struct mtk_lcm_dsi_cmd));
+			cmd = NULL;
+			break;
+		}
+
+#if MTK_LCM_DEBUG_DUMP
+		DDPDUMP("%s, %d, op:0x%x cmd:0x%x t:0x%x f:0x%x added, id:%u cmdqs:%u\n",
+			__func__, __LINE__, (unsigned long)op, op->type, cmd->msg.type,
+			cmd->msg.flags, cmd_size, cmdq_size_cur);
+#endif
+		list_add_tail(&cmd->list, &packet->cmd_list);
+		*op_end = op;
+		cmd_size++;
+		cmdq_size += cmdq_size_cur;
+	}
+
+	if (ret == 0)
+		ret = cmd_size;
+
+	return ret;
+}
+
+void mtk_lcm_destroy_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet)
+{
+	struct mtk_lcm_dsi_cmd *cmd = NULL, *tmp = NULL;
+
+	if (IS_ERR_OR_NULL(packet))
+		return;
+
+	list_for_each_entry_safe(cmd, tmp, &packet->cmd_list, list) {
+		list_del(&cmd->list);
+		if (cmd->tx_free == true && cmd->msg.tx_len > 0) {
+			LCM_KFREE(cmd->msg.tx_buf, cmd->msg.tx_len);
+			cmd->msg.tx_len = 0;
+		}
+
+		if (cmd->rx_free == true && cmd->msg.rx_len > 0) {
+			LCM_KFREE(cmd->msg.rx_buf, cmd->msg.rx_len);
+			cmd->msg.rx_len = 0;
+		}
+		LCM_KFREE(cmd, sizeof(struct mtk_lcm_dsi_cmd));
+	}
+	LCM_KFREE(packet, sizeof(struct mtk_lcm_dsi_cmd_packet));
+}
+EXPORT_SYMBOL(mtk_lcm_destroy_ddic_packet);
+
+/* output: return the ddic cmd count has been executed */
+int mtk_execute_func_ddic_package(struct mipi_dsi_device *dsi,
+	void *handle, struct mtk_lcm_ops_table *table,
+	struct mtk_lcm_ops_input_packet *input,
+	mtk_dsi_ddic_handler_cb handler_cb,
+	unsigned int prop,
+	struct mtk_lcm_ops_data **op_start,
+	struct mtk_lcm_ops_data **op_end)
+{
+	struct mtk_lcm_dsi_cmd_packet *packet = NULL;
+	int ret = 0, size = 0;
+
+	if (IS_ERR_OR_NULL(table) ||
+	    table->size == 0 || table->size >= MTK_PANEL_TABLE_OPS_COUNT) {
+		DDPPR_ERR("%s, %d, invalid table\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+
+	LCM_KZALLOC(packet, sizeof(struct mtk_lcm_dsi_cmd_packet),
+			GFP_KERNEL);
+	if (IS_ERR_OR_NULL(packet)) {
+		DDPPR_ERR("%s,%d: failed to allocate buf\n",
+			__func__, __LINE__);
+		return -ENOMEM;
+	}
+
+	packet->channel = dsi->channel;
+	packet->prop = prop;
+	INIT_LIST_HEAD(&packet->cmd_list);
+	size = mtk_lcm_init_ddic_packet(packet, input,
+				table, op_start, op_end);
+	if (size < 0) {
+		DDPPR_ERR("%s:failed to init packet, ret:%d\n",
+			__func__, ret);
+		ret = size;
+		goto out;
+	}
+
+	if (size == 0 || list_empty(&packet->cmd_list)) {
+		DDPPR_ERR("%s, %d, cmd list is null, size:%u, list:0x%lx\n",
+			__func__, __LINE__, size, (unsigned long)&packet->cmd_list);
+		ret = -ENODATA;
+		goto out;
+	}
+
+
+	ret = mtk_lcm_dsi_ddic_handler(dsi, handle,
+				handler_cb, packet);
+	if (ret < 0)
+		DDPPR_ERR("%s:failed to handle packet, %d\n",
+			__func__, ret);
+
+out:
+	if (packet != NULL && (ret < 0 ||
+	    (packet->prop & MTK_LCM_DSI_CMD_PROP_ASYNC) == 0)) {
+		mtk_lcm_destroy_ddic_packet(packet);
+		packet = NULL;
+	}
+
+	if (ret >= 0)
+		return size;
+
+	return ret;
+}
+
+int mtk_execute_func_ddic_cmd(void *dev,
 		struct mtk_lcm_ops_data *lcm_op,
 		struct mtk_lcm_ops_input_packet *input)
 {
 	int ret = 0, index = 0;
-	unsigned int rid = 0;
+	unsigned int size = 0;
+	u8 *buf = NULL;
 
 	if (IS_ERR_OR_NULL(lcm_op)) {
 		DDPPR_ERR("%s %d: invalid cmd\n", __func__, __LINE__);
@@ -1685,28 +2019,26 @@ int mtk_execute_func_cmd(void *dev,
 		}
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
-		if (IS_ERR_OR_NULL(lcm_op->param.buf_runtime_data.data) ||
-		    IS_ERR_OR_NULL(input) ||
-		    IS_ERR_OR_NULL(input->data))
-			return -EINVAL;
-
-		rid = lcm_op->param.buf_runtime_data.id;
-		index = mtk_lcm_get_input_data(input,
-				lcm_op->param.buf_runtime_data.name);
-		if (index < 0 || index >= input->data_count) {
-			DDPMSG("%s, %d, failed to get input, %d\n",
-				__func__, __LINE__, index);
-			return -EINVAL;
+		size = lcm_op->param.buf_runtime_data.data_len;
+		LCM_KZALLOC(buf, size, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(buf)) {
+			DDPPR_ERR("%s,%d: failed to allocate buf\n",
+				__func__, __LINE__);
+			return -ENOMEM;
 		}
-		DDPMSG("%s,%d, name:0x%x, id:%u, value:0x%x\n", __func__, __LINE__,
-			lcm_op->param.buf_runtime_data.name, rid,
-			*(u8 *)input->data[index].data);
-		lcm_op->param.buf_runtime_data.data[rid] =
-			*(u8 *)input->data[index].data;
+
+		if (mtk_lcm_update_runtime_input(input,
+				lcm_op, buf) < 0) {
+			LCM_KFREE(buf, size);
+			DDPPR_ERR("%s,%d: failed to update input\n",
+				__func__, __LINE__);
+			return -EFAULT;
+		}
+
 		ret = mtk_panel_dsi_dcs_write_buffer(
 				(struct mipi_dsi_device *)dev,
-				lcm_op->param.buf_runtime_data.data,
-				lcm_op->param.buf_runtime_data.data_len);
+				buf, size);
+		LCM_KFREE(buf, size);
 		break;
 	case MTK_LCM_CMD_TYPE_READ_BUFFER:
 	{
@@ -1735,8 +2067,8 @@ int mtk_execute_func_cmd(void *dev,
 					(struct mipi_dsi_device *)dev,
 					lcm_op->param.cmd_data.data,
 					lcm_op->size,
-					&input->data[index].data[lcm_op->param.cmd_data.start_id],
-					lcm_op->param.cmd_data.data_len);
+					&input->data[index].data[offset],
+					len);
 		break;
 	}
 	case MTK_LCM_CMD_TYPE_WRITE_CMD:
@@ -1772,12 +2104,7 @@ int mtk_execute_func_cmd(void *dev,
 				__func__, input->data_count, offset, len);
 			return -ENOMEM;
 		}
-		LCM_KZALLOC(lcm_op->param.cmd_data.data, len + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.data)) {
-			DDPMSG("%s,%d: failed to allocate data, len:%u\n",
-				__func__, __LINE__, len);
-			return -ENOMEM;
-		}
+
 		ret = mtk_panel_dsi_dcs_read(
 					(struct mipi_dsi_device *)dev,
 					lcm_op->param.cmd_data.cmd,
@@ -1952,23 +2279,23 @@ int mtk_is_lcm_read_ops(unsigned int type)
 }
 EXPORT_SYMBOL(mtk_is_lcm_read_ops);
 
-int mtk_panel_execute_operation(void *dev,
+int mtk_panel_execute_operation(struct mipi_dsi_device *dev,
 		struct mtk_lcm_ops_table *table,
 		const struct mtk_panel_resource *panel_resource,
 		struct mtk_lcm_ops_input_packet *input,
-		const char *owner)
+		void *handle, mtk_dsi_ddic_handler_cb handler_cb,
+		unsigned int prop, const char *master)
 {
-	struct mtk_lcm_ops_data *op = NULL;
-	unsigned int i = 0;
-	char owner_tmp[MTK_LCM_NAME_LENGTH] = { 0 };
+	struct mtk_lcm_ops_data *op = NULL, *op_end = NULL;
+	char owner[MTK_LCM_NAME_LENGTH] = { 0 };
 	char func_name[MTK_LCM_NAME_LENGTH] = { 0 };
 	char type_name[MTK_LCM_NAME_LENGTH] = { 0 };
-	int ret = 0;
+	int ret = 0, i = 0;
 
-	if (IS_ERR_OR_NULL(owner))
-		ret = snprintf(&owner_tmp[0], MTK_LCM_NAME_LENGTH - 1, "unknown");
+	if (IS_ERR_OR_NULL(master))
+		ret = snprintf(&owner[0], MTK_LCM_NAME_LENGTH - 1, "unknown");
 	else
-		ret = snprintf(&owner_tmp[0], MTK_LCM_NAME_LENGTH - 1, owner);
+		ret = snprintf(&owner[0], MTK_LCM_NAME_LENGTH - 1, master);
 	if (ret < 0 || ret >= MTK_LCM_NAME_LENGTH)
 		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
 	ret = 0;
@@ -1976,39 +2303,57 @@ int mtk_panel_execute_operation(void *dev,
 	if (IS_ERR_OR_NULL(dev) || IS_ERR_OR_NULL(table) ||
 	    table->size == 0 || table->size >= MTK_PANEL_TABLE_OPS_COUNT) {
 		DDPINFO("%s: \"%s\" is empty, size:%u\n",
-			__func__, owner_tmp, table->size);
+			__func__, owner, table->size);
 		return 0;
 	}
 
+	DDPDUMP("%s, %d, owner:%s, size:%u\n",
+		__func__, __LINE__, owner, table->size);
 	list_for_each_entry(op, &table->list, node) {
 		if (IS_ERR_OR_NULL(op)) {
-			DDPMSG("%s: owner:%s, invalid op\n",
-				__func__, owner_tmp);
+			DDPMSG("%s: invalid %s-op[%d]\n",
+				__func__, owner, i);
 			ret = -EINVAL;
 			break;
 		}
 
 		mtk_get_func_name(op->func, &func_name[0]);
 		if (op->func != MTK_LCM_FUNC_DSI) {
-			DDPMSG("%s, %d, not support:%s-%d\n",
-				__func__, __LINE__, func_name, op->func);
+			DDPMSG("%s, %d, not support %s-op[%d]:%s-%d\n",
+				__func__, __LINE__, owner, i, func_name, op->func);
 			return -EINVAL;
 		}
 
 		mtk_get_type_name(op->type, &type_name[0]);
 #if MTK_LCM_DEBUG_DUMP
-		DDPMSG("%s: [%s+%u]: func:%s/%u, type:%s/%u\n",
-			__func__, owner_tmp, i,
-			func_name, op->func,
-			type_name, op->type);
+		dump_lcm_ops_func(op, NULL, i, __func__);
 #endif
 
 		if (op->type > MTK_LCM_UTIL_TYPE_START &&
 		    op->type < MTK_LCM_UTIL_TYPE_END)
 			ret = mtk_execute_func_util(op);
 		else if (op->type > MTK_LCM_CMD_TYPE_START &&
-		    op->type < MTK_LCM_CMD_TYPE_END)
-			ret = mtk_execute_func_cmd(dev, op, input);
+		    op->type < MTK_LCM_CMD_TYPE_END) {
+#ifdef USE_LEGACY_FLOW
+			ret = mtk_execute_func_ddic_cmd(dev, op, input);
+#else
+			ret = mtk_execute_func_ddic_package(dev, handle, table,
+					input, handler_cb, prop, &op, &op_end);
+			if (ret > 0 && op_end != NULL) {
+				DDPINFO("%s, %d, finished %s-op[%d:0x%lx-%d:0x%lx] end:0x%x\n",
+					__func__, __LINE__, owner, i,
+					(unsigned long)op, i + ret - 1,
+					(unsigned long)op_end, op_end->type);
+				i = i + ret - 1;
+				ret = 0;
+				op = op_end;
+			} else if (ret == 0) {
+				DDPPR_ERR("%s, %d, failed to execute %s-op[%d] cmd:%s-0x%x\n",
+					__func__, __LINE__, owner, i, type_name, op->type);
+				ret = -EFAULT;
+			}
+#endif
+		}
 		else if (op->type > MTK_LCM_GPIO_TYPE_START &&
 			op->type < MTK_LCM_GPIO_TYPE_END)
 			mtk_execute_func_gpio(op,
@@ -2028,15 +2373,17 @@ int mtk_panel_execute_operation(void *dev,
 		}
 
 		if (ret < 0) {
-			DDPMSG("%s: [%s+%u] func:%s/%u, type:%s/%u, failed:%d\n",
-				__func__, owner_tmp, i,
-				func_name, op->func,
-				type_name, op->type, ret);
+			DDPPR_ERR("%s: %s-op[%d] func:%s/%u, type:%s/%u, failed:%d, total:%u\n",
+				__func__, owner, i, func_name, op->func,
+				type_name, op->type, ret, table->size);
+			dump_lcm_ops_func(op, NULL, i, __func__);
 			break;
 		}
 		i++;
 	}
 
+	DDPDUMP("%s, %d, finished %s, i:%u, total:%u, ret:%d\n",
+		__func__, __LINE__, owner, i, table->size, ret);
 	return ret;
 }
 EXPORT_SYMBOL(mtk_panel_execute_operation);
@@ -2107,6 +2454,12 @@ static void free_lcm_ops_data(struct mtk_lcm_ops_data *lcm_op)
 		}
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
+		if (lcm_op->param.buf_runtime_data.id != NULL &&
+			lcm_op->param.buf_runtime_data.id_len > 0) {
+			LCM_KFREE(lcm_op->param.buf_runtime_data.id,
+				lcm_op->param.buf_runtime_data.id_len + 1);
+			lcm_op->param.buf_runtime_data.id_len = 0;
+		}
 		if (lcm_op->param.buf_runtime_data.data != NULL &&
 			lcm_op->param.buf_runtime_data.data_len > 0) {
 			LCM_KFREE(lcm_op->param.buf_runtime_data.data,
@@ -2129,29 +2482,6 @@ static void free_lcm_ops_data(struct mtk_lcm_ops_data *lcm_op)
 			LCM_KFREE(lcm_op->param.cmd_data.data,
 				lcm_op->param.cmd_data.data_len + 1);
 			lcm_op->param.cmd_data.data_len = 0;
-		}
-		break;
-	case MTK_LCM_CB_TYPE_RUNTIME:
-		if (lcm_op->param.cb_id_data.buffer_data != NULL &&
-			lcm_op->size > 0) {
-			LCM_KFREE(lcm_op->param.cb_id_data.buffer_data,
-				lcm_op->size + 1);
-			lcm_op->size = 0;
-		}
-		break;
-	case MTK_LCM_CB_TYPE_RUNTIME_INPUT:
-	case MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE:
-		if (lcm_op->param.cb_id_data.id != NULL &&
-			lcm_op->param.cb_id_data.id_count > 0) {
-			LCM_KFREE(lcm_op->param.cb_id_data.id,
-				lcm_op->param.cb_id_data.id_count + 1);
-			lcm_op->param.cb_id_data.id_count = 0;
-		}
-		if (lcm_op->param.cb_id_data.buffer_data != NULL &&
-			lcm_op->param.cb_id_data.data_count > 0) {
-			LCM_KFREE(lcm_op->param.cb_id_data.buffer_data,
-				lcm_op->param.cb_id_data.data_count + 1);
-			lcm_op->param.cb_id_data.data_count = 0;
 		}
 		break;
 	default:

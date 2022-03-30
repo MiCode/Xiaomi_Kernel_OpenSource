@@ -4,7 +4,6 @@
  */
 
 #include "mtk_drm_gateic.h"
-#include <dt-bindings/lcm/mtk_lcm_settings.h>
 
 static struct list_head dbi_gateic_list;
 static struct list_head dpi_gateic_list;
@@ -114,6 +113,7 @@ EXPORT_SYMBOL(mtk_drm_gateic_register);
 
 int mtk_drm_gateic_select(const char *lcm_name, char func)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	int ret = 0;
 
 	if (IS_ERR_OR_NULL(lcm_name))
@@ -157,6 +157,9 @@ int mtk_drm_gateic_select(const char *lcm_name, char func)
 	}
 
 	return ret;
+#else
+	return 0;
+#endif
 }
 EXPORT_SYMBOL(mtk_drm_gateic_select);
 
@@ -168,86 +171,122 @@ EXPORT_SYMBOL(mtk_drm_gateic_get);
 
 int mtk_drm_gateic_power_on(char func)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_gateic_funcs *ops  = mtk_drm_gateic_get_ops(func);
 
 	if (IS_ERR_OR_NULL(ops) || IS_ERR_OR_NULL(ops->power_on))
 		return -EFAULT;
 
 	return ops->power_on();
+#else
+	return 0;
+#endif
 }
 EXPORT_SYMBOL(mtk_drm_gateic_power_on);
 
 int mtk_drm_gateic_power_off(char func)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_gateic_funcs *ops  = mtk_drm_gateic_get_ops(func);
 
 	if (IS_ERR_OR_NULL(ops) || IS_ERR_OR_NULL(ops->power_off))
 		return -EFAULT;
 
 	return ops->power_off();
+#else
+	return 0;
+#endif
 }
 EXPORT_SYMBOL(mtk_drm_gateic_power_off);
 
 int mtk_drm_gateic_set_voltage(unsigned int level,
 		char func)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_gateic_funcs *ops  = mtk_drm_gateic_get_ops(func);
 
 	if (IS_ERR_OR_NULL(ops) || IS_ERR_OR_NULL(ops->set_voltage))
 		return -EFAULT;
 
 	return ops->set_voltage(level);
+#else
+	return 0;
+#endif
 }
 EXPORT_SYMBOL(mtk_drm_gateic_set_voltage);
 
 int mtk_drm_gateic_reset(int on, char func)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_gateic_funcs *ops  = mtk_drm_gateic_get_ops(func);
 
 	if (IS_ERR_OR_NULL(ops) || IS_ERR_OR_NULL(ops->reset))
 		return -EFAULT;
 
 	return ops->reset(on);
+#else
+	return 0;
+#endif
 }
 EXPORT_SYMBOL(mtk_drm_gateic_reset);
 
 int mtk_drm_gateic_set_backlight(unsigned int level,
 		char func)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_gateic_funcs *ops  = mtk_drm_gateic_get_ops(func);
 
 	if (IS_ERR_OR_NULL(ops) || IS_ERR_OR_NULL(ops->set_backlight))
 		return -EFAULT;
 
 	return ops->set_backlight(level);
+#else
+	return 0;
+#endif
 }
 EXPORT_SYMBOL(mtk_drm_gateic_set_backlight);
 
 int mtk_drm_gateic_enable_backlight(char func)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_gateic_funcs *ops  = mtk_drm_gateic_get_ops(func);
 
 	if (IS_ERR_OR_NULL(ops) || IS_ERR_OR_NULL(ops->enable_backlight))
 		return -EFAULT;
 
 	return ops->enable_backlight();
+#else
+	return 0;
+#endif
 }
 EXPORT_SYMBOL(mtk_drm_gateic_enable_backlight);
 
 int mtk_drm_gateic_write_bytes(unsigned char addr, unsigned char value, char func)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	return mtk_panel_i2c_write_bytes(addr, value);
+#else
+	return 0;
+#endif
 }
 
 int mtk_drm_gateic_read_bytes(unsigned char addr, unsigned char *value, char func)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	return mtk_panel_i2c_read_bytes(addr, value);
+#else
+	return 0;
+#endif
 }
 
 int mtk_drm_gateic_write_multiple_bytes(unsigned char addr,
 		 unsigned char *value, unsigned int size, char func)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	return mtk_panel_i2c_write_multiple_bytes(addr, value, size);
+#else
+	return 0;
+#endif
 }
 
 static struct platform_driver *const mtk_drm_gateic_drivers[] = {
@@ -257,6 +296,7 @@ static struct platform_driver *const mtk_drm_gateic_drivers[] = {
 
 static int __init mtk_drm_gateic_init(void)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	int ret = 0;
 	int i = 0;
 
@@ -290,16 +330,23 @@ err:
 		platform_driver_unregister(mtk_drm_gateic_drivers[i]);
 
 	return ret;
+#else
+	return 0;
+#endif
 }
 
 static void __exit mtk_drm_gateic_exit(void)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	int i;
 
 	for (i = ARRAY_SIZE(mtk_drm_gateic_drivers) - 1; i >= 0; i--)
 		platform_driver_unregister(mtk_drm_gateic_drivers[i]);
 
 	i2c_del_driver(&mtk_panel_i2c_driver);
+#else
+	return 0;
+#endif
 }
 module_init(mtk_drm_gateic_init);
 module_exit(mtk_drm_gateic_exit);

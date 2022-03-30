@@ -6,9 +6,15 @@
 #ifndef __MTK_PANEL_EXT_H__
 #define __MTK_PANEL_EXT_H__
 
+#include <drm/drm_mipi_dsi.h>
 #include <drm/drm_panel.h>
 #include <drm/drm_modes.h>
 #include <drm/mediatek_drm.h>
+#ifndef DRM_CMDQ_DISABLE
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
 
 #define RT_MAX_NUM 10
 #define ESD_CHECK_NUM 3
@@ -86,8 +92,35 @@ struct mtk_ddic_dsi_cmd {
 	unsigned int cmd_count;
 	struct mtk_ddic_cmd mtk_ddic_cmd_table[MAX_TX_CMD_NUM_PACK];
 };
+//send ddic cmd by gce, return err if cmdq handle is null
+#define MTK_LCM_DSI_CMD_PROP_CMDQ        BIT(0)
+//send ddic cmd by gce, create one if cmdq handle is null
+#define MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE  BIT(1)
+//send cmd when TE signaled
+#define MTK_LCM_DSI_CMD_PROP_ALIGN_TE    BIT(2)
+//send all cmds within 1 dsi burst
+#define MTK_LCM_DSI_CMD_PROP_PACK        BIT(3)
+//send ddic cmd with gce callback without blocking
+#define MTK_LCM_DSI_CMD_PROP_ASYNC       BIT(4)
+//send ddic cmd with crtc mutex lock
+#define MTK_LCM_DSI_CMD_PROP_LOCK        BIT(5)
+//send ddic cmd with when frame done
+#define MTK_LCM_DSI_CMD_PROP_ALIGN_FRAME BIT(6)
 
+struct mtk_lcm_dsi_cmd {
+	struct mipi_dsi_msg msg; //ddic cmd detail information
+	bool tx_free; //free tx buf or not when job done
+	bool rx_free; //free rx buf or not when job done
+	struct list_head list;
+};
 
+struct mtk_lcm_dsi_cmd_packet {
+	unsigned int channel;
+	unsigned int prop;
+	struct list_head cmd_list;
+};
+
+typedef  void (*mtk_dsi_ddic_handler_cb)(struct cmdq_cb_data data);
 typedef void (*dcs_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				const void *data, size_t len);
 typedef void (*dcs_write_gce_pack) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
@@ -96,6 +129,10 @@ typedef void (*dcs_grp_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				struct mtk_panel_para_table *para_table,
 				unsigned int para_size);
 typedef int (*panel_tch_rst) (void);
+
+enum MTK_PANEL_DDIC_OPS {
+	MTK_PANEL_DESTROY_DDIC_PACKET,
+};
 
 enum MTK_PANEL_OUTPUT_PORT_MODE {
 	MTK_PANEL_SINGLE_PORT = 0x0,
@@ -537,6 +574,8 @@ struct mtk_panel_funcs {
 
 	int (*send_ddic_cmd_pack)(struct drm_panel *panel,
 		void *dsi_drv, dcs_write_gce_pack cb, void *handle);
+	int (*ddic_ops)(struct drm_panel *panel, enum MTK_PANEL_DDIC_OPS ops,
+		struct mtk_lcm_dsi_cmd_packet *packet, void *misc);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);
@@ -553,6 +592,10 @@ int mtk_panel_ext_create(struct device *dev,
 int mtk_panel_tch_handle_reg(struct drm_panel *panel);
 void **mtk_panel_tch_handle_init(void);
 int mtk_panel_tch_rst(struct drm_panel *panel);
-int mtk_drm_get_lcm_version(void);
+enum mtk_lcm_version mtk_drm_get_lcm_version(void);
+int mtk_lcm_dsi_ddic_handler(struct mipi_dsi_device *dsi_dev,
+				struct cmdq_pkt *handle,
+				mtk_dsi_ddic_handler_cb handler_cb,
+				struct mtk_lcm_dsi_cmd_packet *packet);
 
 #endif

@@ -158,7 +158,7 @@ struct mtk_panel_ext *find_panel_ext(struct drm_panel *panel)
 }
 EXPORT_SYMBOL(find_panel_ext);
 
-int mtk_drm_get_lcm_version(void)
+enum mtk_lcm_version mtk_drm_get_lcm_version(void)
 {
 	return g_lcm_version;
 }

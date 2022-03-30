@@ -12,6 +12,7 @@
 #include <drm/drm_panel.h>
 #include <drm/drm_device.h>
 #include <drm/drm_connector.h>
+#include <video/mipi_display.h>
 #include "mtk_drm_gateic.h"
 #include "../mediatek/mediatek_v2/mtk_log.h"
 #include "../mediatek/mediatek_v2/mtk_panel_ext.h"
@@ -100,7 +101,7 @@ struct mtk_lcm_params {
  * used to MTK_LCM_CMD_TYPE_WRITE_BUFFER, MTK_LCM_CMD_TYPE_READ_BUFFER
  * cmd: the read/write command or address
  * data: the write data buffer, or returned read buffer
- * data_len: the data buffer length
+ * data_len: the data buffer length for write, the readback buffer length for read
  * start_id: for read command the returned data will be saved at which index of out buffer
  */
 struct mtk_lcm_dcs_cmd_data {
@@ -120,18 +121,6 @@ struct mtk_lcm_gpio_data {
 	u8 data;
 };
 
-/* mtk_lcm_cb_id_data
- * used to MTK_LCM_CB_TYPE_xx
- * id: the input parameter index
- * buffer_data: the ddic command data
- */
-struct mtk_lcm_cb_id_data {
-	unsigned int id_count;
-	u8 *id;
-	unsigned int data_count;
-	u8 *buffer_data;
-};
-
 /* mtk_lcm_buf_con_data
  * used to MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION
  * condition: the execution condition
@@ -149,13 +138,15 @@ struct mtk_lcm_buf_con_data {
 /* mtk_lcm_buf_runtime_data
  * used to MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT
  * id: the parameter index of runtime input
+ * id_len: the parameter count of runtime input
  * name: the input data name
  * data: the ddic command data
  * data_len: the ddic command data count
  */
 struct mtk_lcm_buf_runtime_data {
 	u8 name;
-	u8 id;
+	u8 *id;
+	size_t id_len;
 	u8 *data;
 	size_t data_len;
 };
@@ -166,7 +157,6 @@ union mtk_lcm_ops_data_params {
 	unsigned int util_data;
 	struct mtk_lcm_dcs_cmd_data cmd_data;
 	struct mtk_lcm_gpio_data gpio_data;
-	struct mtk_lcm_cb_id_data cb_id_data;
 	struct mtk_lcm_buf_con_data buf_con_data;
 	struct mtk_lcm_buf_runtime_data buf_runtime_data;
 	void *cust_data;
@@ -315,45 +305,48 @@ int parse_lcm_ops_func(struct device_node *np,
 		struct mtk_panel_cust *cust, unsigned int phase);
 
 /* function: execute lcm operations
- * input: table: lcm operation list
+ * input: dev: the target dsi device
+ *        table: lcm operation list
  *        panel_resource: lcm parameters
- *        data: the private data buffer of lcm operation
- *        size: the private data buffer size of lcm operation
+ *        input: the runtime input data or read back data buffer
+ *        handler: the cmdq handler
+ *        handler_cb: you can customize the ddic callback function
+ *                 or just use the default callback function with NULL
  *        owner: the owner description
  * output: 0 for success, else of failed
  */
-int mtk_panel_execute_operation(void *dev,
+int mtk_panel_execute_operation(struct mipi_dsi_device *dev,
 		struct mtk_lcm_ops_table *table,
 		const struct mtk_panel_resource *panel_resource,
-		struct mtk_lcm_ops_input_packet *input, const char *owner);
+		struct mtk_lcm_ops_input_packet *input,
+		void *handle, mtk_dsi_ddic_handler_cb handler_cb,
+		unsigned int prop, const char *owner);
 
 /* function: execute lcm operations with callback
  * input: dsi: the dsi structure of callback function
  *        cb: callback function
  *        handle: cmdq handler
- *        input_data: the runtime input data buffer
- *        input_count: the runtime input data count
- *        owner: the owner description
  *        table: lcm operation list
+ *        input: the runtime input data package
+ *        master: the owner description
  * output: 0 for success, else of failed
  */
 int mtk_panel_execute_callback(void *dsi, dcs_write_gce cb,
-	void *handle, u8 *input_data, unsigned int input_count,
-	struct mtk_lcm_ops_table *table, const char *owner);
+	void *handle, struct mtk_lcm_ops_table *table,
+	struct mtk_lcm_ops_input_packet *input, const char *master);
 
 /* function: execute lcm operations with group callback
  * input: dsi: the dsi structure of callback function
  *        cb: callback function
  *        handle: cmdq handler
- *        input_data: the runtime input data buffer
- *        input_count: the runtime input data count
- *        owner: the owner description
  *        table: lcm operation list
+ *        input: the runtime input data package
+ *        master: the owner description
  * output: 0 for success, else of failed
  */
 int mtk_panel_execute_callback_group(void *dsi, dcs_grp_write_gce cb,
-	void *handle, u8 *input_data, unsigned int input_count,
-	struct mtk_lcm_ops_table *table, const char *owner);
+	void *handle, struct mtk_lcm_ops_table *table,
+	struct mtk_lcm_ops_input_packet *input, const char *master);
 
 void mtk_lcm_dts_read_u32(struct device_node *np, char *prop,
 		u32 *out);
@@ -405,7 +398,7 @@ void free_lcm_ops_dpi(struct mtk_lcm_ops_dpi *ops);
 void free_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops);
 
 /* function: dump dts settings of lcm driver*/
-void dump_lcm_ops_func(struct mtk_lcm_ops_table *table,
+void dump_lcm_ops_table(struct mtk_lcm_ops_table *table,
 		struct mtk_panel_cust *cust,
 		const char *owner);
 void dump_lcm_dsi_fps_settings(struct mtk_lcm_mode_dsi *mode);
@@ -477,4 +470,9 @@ int mtk_lcm_create_input(struct mtk_lcm_ops_input *input,
  * input: the input package address and data length
  */
 void mtk_lcm_destroy_input(struct mtk_lcm_ops_input *input);
+
+/* function: destroy a ddic cmd packet
+ * input: the ddic packet address
+ */
+void mtk_lcm_destroy_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet);
 #endif

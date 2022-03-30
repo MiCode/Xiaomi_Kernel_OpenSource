@@ -14,8 +14,6 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include "mtk_drm_gateic.h"
-#include <dt-bindings/lcm/mtk_lcm_settings.h>
-
 
 #define ADDR_BACKLIGHT_CONFIG1			(0x02)
 #define ADDR_BACKLIGHT_CONFIG2			(0x03)
@@ -67,7 +65,7 @@ static int rt4831a_push_i2c_data(unsigned char *table, unsigned int size,
 					*(table + i * 2 + 1));
 
 		if (ret < 0) {
-			DDPMSG("%s, failed of i2c write, i:%u addr:0x%x, unit:0x%x",
+			DDPPR_ERR("%s, failed of i2c write, i:%u addr:0x%x, unit:0x%x\n",
 				__func__, i, *(table + i * unit), unit);
 			break;
 		}
@@ -160,14 +158,14 @@ static int rt4831a_enable_backlight(void)
 	}
 
 	if (ret < 0) {
-		DDPMSG("%s, failed to enable backlight, mode:%u",
+		DDPPR_ERR("%s, failed to enable backlight, mode:%u\n",
 			__func__, ctx_rt4831a.backlight_mode);
 		return ret;
 	}
 
 	ret = rt4831a_push_i2c_data(&table[0][0], size, unit);
 	if (ret < 0)
-		DDPMSG("%s, failed to push backlight table, mode:%u, ret:%d",
+		DDPPR_ERR("%s, failed to push backlight table, mode:%u, ret:%d\n",
 			__func__, ctx_rt4831a.backlight_mode, ret);
 
 	//DDPMSG("%s--, %d\n", __func__, ret);
@@ -266,12 +264,12 @@ static int rt4831a_power_on(void)
 
 	ret = rt4831a_enable_backlight();
 	if (ret < 0)
-		DDPMSG("%s, failed to enable backlight, ret:%d",
+		DDPPR_ERR("%s, failed to enable backlight, ret:%d\n",
 			__func__, ret);
 
 	ret = rt4831a_push_i2c_data(&table[0][0], size, unit);
 	if (ret < 0)
-		DDPMSG("%s, failed to push power on table, ret:%d",
+		DDPPR_ERR("%s, failed to push power on table, ret:%d\n",
 			__func__, ret);
 	//DDPMSG("%s--\n", __func__);
 
@@ -304,7 +302,7 @@ static int rt4831a_power_off(void)
 	if (atomic_read(&ctx_rt4831a.backlight_status) == 0) {
 		ret = mtk_panel_i2c_write_bytes(ADDR_BIAS_CONFIG1, 0x18);
 		if (ret < 0)
-			DDPMSG("%s, %d, failed of i2c write\n", __func__, __LINE__);
+			DDPPR_ERR("%s, %d, failed of i2c write\n", __func__, __LINE__);
 
 		ctx_rt4831a.bias_pos_gpio = devm_gpiod_get(ctx_rt4831a.dev,
 			"pm-enable", GPIOD_OUT_HIGH);
@@ -356,7 +354,7 @@ static int rt4831a_set_voltage(unsigned int level)
 
 	ret = rt4831a_push_i2c_data(&table[0][0], size, unit);
 	if (ret < 0)
-		DDPMSG("%s, failed to push voltage table,level:%u-%u, ret:%d",
+		DDPPR_ERR("%s, failed to push voltage table,level:%u-%u, ret:%d\n",
 			__func__, level, RT4831A_VOL_REG_VALUE(level), ret);
 
 	return 0; //for evb case, i2c ops are always failed

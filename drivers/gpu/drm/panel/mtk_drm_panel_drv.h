@@ -9,7 +9,6 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <video/mipi_display.h>
 #include <video/of_videomode.h>
 #include <video/videomode.h>
 #include <linux/backlight.h>

@@ -3,6 +3,7 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
+#include <linux/sched.h>
 #include "mtk_drm_panel_drv.h"
 
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
@@ -13,6 +14,7 @@
 #define MTK_DRM_PANEL_DEBUG
 
 static struct mtk_panel_context *ctx_dsi;
+static unsigned int mtk_lcm_support_cb;
 
 static inline struct mtk_panel_context *panel_to_lcm(
 		struct drm_panel *panel)
@@ -20,7 +22,7 @@ static inline struct mtk_panel_context *panel_to_lcm(
 	return container_of(panel, struct mtk_panel_context, panel);
 }
 
-int mtk_panel_dsi_dcs_write_buffer(struct mipi_dsi_device *dsi,
+int mtk_panel_dsi_dcs_write_buffer(struct mipi_dsi_device *dsi_dev,
 		const void *data, size_t len)
 {
 	ssize_t ret;
@@ -31,9 +33,9 @@ int mtk_panel_dsi_dcs_write_buffer(struct mipi_dsi_device *dsi,
 
 	addr = (char *)data;
 	if ((int)*addr < 0xB0)
-		ret = mipi_dsi_dcs_write_buffer(dsi, data, len);
+		ret = mipi_dsi_dcs_write_buffer(dsi_dev, data, len);
 	else
-		ret = mipi_dsi_generic_write(dsi, data, len);
+		ret = mipi_dsi_generic_write(dsi_dev, data, len);
 	if (ret < 0) {
 		dev_err(ctx_dsi->dev, "error %zd writing seq: %ph\n",
 			ret, data);
@@ -44,7 +46,7 @@ int mtk_panel_dsi_dcs_write_buffer(struct mipi_dsi_device *dsi,
 }
 EXPORT_SYMBOL(mtk_panel_dsi_dcs_write_buffer);
 
-int mtk_panel_dsi_dcs_write(struct mipi_dsi_device *dsi,
+int mtk_panel_dsi_dcs_write(struct mipi_dsi_device *dsi_dev,
 		u8 cmd, void *data, size_t len)
 {
 	ssize_t ret;
@@ -52,7 +54,7 @@ int mtk_panel_dsi_dcs_write(struct mipi_dsi_device *dsi,
 	if (atomic_read(&ctx_dsi->error) < 0)
 		return 0;
 
-	ret = mipi_dsi_dcs_write(dsi, cmd, data, len);
+	ret = mipi_dsi_dcs_write(dsi_dev, cmd, data, len);
 	if (ret < 0) {
 		dev_err(ctx_dsi->dev, "error %d write dcs cmd:(%#x)\n",
 			ret, cmd);
@@ -63,7 +65,7 @@ int mtk_panel_dsi_dcs_write(struct mipi_dsi_device *dsi,
 }
 EXPORT_SYMBOL(mtk_panel_dsi_dcs_write);
 
-int mtk_panel_dsi_dcs_read(struct mipi_dsi_device *dsi,
+int mtk_panel_dsi_dcs_read(struct mipi_dsi_device *dsi_dev,
 		u8 cmd, void *data, size_t len)
 {
 	ssize_t ret;
@@ -71,7 +73,7 @@ int mtk_panel_dsi_dcs_read(struct mipi_dsi_device *dsi,
 	if (atomic_read(&ctx_dsi->error) < 0)
 		return 0;
 
-	ret = mipi_dsi_dcs_read(dsi, cmd, data, len);
+	ret = mipi_dsi_dcs_read(dsi_dev, cmd, data, len);
 	if (ret < 0) {
 		dev_err(ctx_dsi->dev,
 			"error %d reading dcs cmd:(0x%x)\n", ret, cmd);
@@ -82,7 +84,7 @@ int mtk_panel_dsi_dcs_read(struct mipi_dsi_device *dsi,
 }
 EXPORT_SYMBOL(mtk_panel_dsi_dcs_read);
 
-int mtk_panel_dsi_dcs_read_buffer(struct mipi_dsi_device *dsi,
+int mtk_panel_dsi_dcs_read_buffer(struct mipi_dsi_device *dsi_dev,
 		const void *data_in, size_t len_in,
 		void *data_out, size_t len_out)
 {
@@ -91,7 +93,7 @@ int mtk_panel_dsi_dcs_read_buffer(struct mipi_dsi_device *dsi,
 	if (atomic_read(&ctx_dsi->error) < 0)
 		return 0;
 
-	ret = mipi_dsi_generic_read(dsi, data_in,
+	ret = mipi_dsi_generic_read(dsi_dev, data_in,
 			len_in, data_out, len_out);
 	if (ret < 0) {
 		dev_err(ctx_dsi->dev, "error %d reading buffer seq:(%p)\n",
@@ -105,11 +107,11 @@ EXPORT_SYMBOL(mtk_panel_dsi_dcs_read_buffer);
 
 /* register customization callback of panel operation */
 int mtk_panel_register_dsi_customization_callback(
-		struct mipi_dsi_device *dsi,
+		struct mipi_dsi_device *dsi_dev,
 		struct mtk_panel_cust *cust)
 {
 	struct mtk_panel_cust *target_cust = NULL;
-	struct device *dev = &dsi->dev;
+	struct device *dev = &dsi_dev->dev;
 
 	if (IS_ERR_OR_NULL(ctx_dsi)) {
 		ctx_dsi = devm_kzalloc(dev,
@@ -156,7 +158,10 @@ static int mtk_drm_panel_unprepare(struct drm_panel *panel)
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_params *params = &ctx_dsi->panel_resource->params;
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
-	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	if (atomic_read(&ctx_dsi->prepared) == 0)
@@ -167,9 +172,9 @@ static int mtk_drm_panel_unprepare(struct drm_panel *panel)
 	    IS_ERR_OR_NULL(ops))
 		return -EINVAL;
 
-	ret = mtk_panel_execute_operation((void *)dsi,
+	ret = mtk_panel_execute_operation(dsi_dev,
 			&ops->unprepare, ctx_dsi->panel_resource,
-			NULL, "panel_unprepare");
+			NULL, NULL, NULL, prop, "panel_unprepare");
 
 	if (ret < 0) {
 		DDPPR_ERR("%s,%d: failed to do panel unprepare, %d\n",
@@ -192,15 +197,21 @@ static int mtk_drm_panel_unprepare(struct drm_panel *panel)
 static int mtk_drm_panel_do_prepare(struct mtk_panel_context *ctx_dsi)
 {
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
-	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
 	struct mtk_lcm_ops_input_packet input;
 	unsigned long flags = 0;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
+	unsigned long long start = 0, end = 0;
 
 	if (IS_ERR_OR_NULL(ops))
 		return -EINVAL;
 
-	/*prepare input data*/
+	DDPMSG("%s, %d, prop:0x%x size:%lluByte\n",
+		__func__, __LINE__, prop, mtk_lcm_total_size);
+	start = sched_clock();
 	if (mtk_lcm_create_input_packet(&input, 1, 1) < 0)
 		return -ENOMEM;
 
@@ -217,9 +228,9 @@ static int mtk_drm_panel_do_prepare(struct mtk_panel_context *ctx_dsi)
 	*(u8 *)input.data->data = atomic_read(&ctx_dsi->current_backlight);
 
 	/*do panel initialization*/
-	ret = mtk_panel_execute_operation((void *)dsi,
+	ret = mtk_panel_execute_operation(dsi_dev,
 			&ops->prepare, ctx_dsi->panel_resource,
-			&input, "panel_prepare");
+			&input, NULL, NULL, prop, "panel_prepare");
 
 	if (ret < 0)
 		DDPPR_ERR("%s,%d: failed to do panel prepare\n",
@@ -227,12 +238,14 @@ static int mtk_drm_panel_do_prepare(struct mtk_panel_context *ctx_dsi)
 
 	/*deallocate input data*/
 	mtk_lcm_destroy_input(input.data);
-	input.data = NULL;
 fail1:
 	mtk_lcm_destroy_input(input.condition);
-	input.condition = NULL;
 fail2:
 	mtk_lcm_destroy_input_packet(&input);
+	end = sched_clock();
+
+	DDPMSG("%s, %d, prop:0x%x time:%lluns, ret:%d, size:%lluByte\n",
+		__func__, __LINE__, prop, end - start, ret, mtk_lcm_total_size);
 	return ret;
 }
 
@@ -281,8 +294,11 @@ static int mtk_drm_panel_prepare(struct drm_panel *panel)
 static int mtk_drm_panel_enable(struct drm_panel *panel)
 {
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
-	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	if (atomic_read(&ctx_dsi->enabled) != 0)
@@ -292,9 +308,9 @@ static int mtk_drm_panel_enable(struct drm_panel *panel)
 	if (IS_ERR_OR_NULL(ops))
 		return -EINVAL;
 
-	ret = mtk_panel_execute_operation((void *)dsi,
+	ret = mtk_panel_execute_operation(dsi_dev,
 			&ops->enable, ctx_dsi->panel_resource,
-			NULL, "panel_enable");
+			NULL, NULL, NULL, prop, "panel_enable");
 
 	if (ret < 0) {
 		DDPPR_ERR("%s,%d: failed to do panel enable\n",
@@ -317,7 +333,10 @@ static int mtk_drm_panel_disable(struct drm_panel *panel)
 {
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
-	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	if (atomic_read(&ctx_dsi->enabled) == 0)
@@ -332,9 +351,9 @@ static int mtk_drm_panel_disable(struct drm_panel *panel)
 		backlight_update_status(ctx_dsi->backlight);
 	}
 
-	ret = mtk_panel_execute_operation((void *)dsi,
+	ret = mtk_panel_execute_operation(dsi_dev,
 			&ops->disable, ctx_dsi->panel_resource,
-			NULL, "panel_disable");
+			NULL, NULL, NULL, prop, "panel_disable");
 
 	if (ret < 0) {
 		DDPPR_ERR("%s,%d: failed to do panel disable\n",
@@ -472,26 +491,35 @@ static int mtk_panel_ata_check(struct drm_panel *panel)
 {
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
-	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
 	struct mtk_lcm_ops_input_packet input;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	u8 *data = NULL;
 	int ret = 0, i = 0;
 
 	DDPMSG("%s+\n", __func__);
-	if (IS_ERR_OR_NULL(ops))
+	if (IS_ERR_OR_NULL(ops)) {
+		DDPPR_ERR("%s, invalid ops\n", __func__);
 		return 0;
+	}
 
-	/*prepare read back buffer*/
-	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0)
+	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0) {
+		DDPPR_ERR("%s, failed to create input packet\n", __func__);
 		return 0;
+	}
+
 
 	if (mtk_lcm_create_input(input.data, ops->ata_id_value_length,
-			MTK_LCM_INPUT_TYPE_READBACK) < 0)
+			MTK_LCM_INPUT_TYPE_READBACK) < 0) {
+		DDPPR_ERR("%s, failed to create read buffer\n", __func__);
 		goto fail;
+	}
 
-	ret = mtk_panel_execute_operation((void *)dsi,
+	ret = mtk_panel_execute_operation(dsi_dev,
 			&ops->ata_check, ctx_dsi->panel_resource,
-			&input, "ata_check");
+			&input, NULL, NULL, prop, "ata_check");
 	if (ret < 0) {
 		DDPPR_ERR("%s,%d: failed to do ata check, %d\n",
 			__func__, __LINE__, ret);
@@ -501,9 +529,9 @@ static int mtk_panel_ata_check(struct drm_panel *panel)
 
 	data = (u8 *)input.data->data;
 	for (i = 0; i < ops->ata_id_value_length; i++) {
+		DDPMSG("%s, i:%u expect:0x%x, get:0x%x\n", __func__, i,
+			ops->ata_id_value_data[i], (unsigned int)data[i]);
 		if (data[i] != ops->ata_id_value_data[i]) {
-			DDPPR_ERR("ATA data%d is expected:0x%x, we got:0x%x\n",
-				i, ops->ata_id_value_data[i], data[i]);
 			ret = 0;
 			goto end;
 		}
@@ -511,9 +539,7 @@ static int mtk_panel_ata_check(struct drm_panel *panel)
 	ret = 1; /*1 for pass*/
 
 end:
-	/*deallocate read back buffer*/
 	mtk_lcm_destroy_input(input.data);
-	input.data = NULL;
 fail:
 	mtk_lcm_destroy_input_packet(&input);
 
@@ -525,9 +551,14 @@ static int panel_set_backlight(void *dsi, dcs_write_gce cb,
 	void *handle, unsigned int level, struct mtk_lcm_ops_table *table,
 	unsigned int mode)
 {
-	int ret = 0;
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mtk_lcm_ops_input_packet input;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	unsigned int count = 0;
-	u8 data[2] = { 0, 0 };
+	u8 *data = NULL;
+	int ret = 0;
 
 	if (IS_ERR_OR_NULL(table) || table->size == 0)
 		return 0;
@@ -535,24 +566,56 @@ static int panel_set_backlight(void *dsi, dcs_write_gce cb,
 	if (level > 255)
 		level = 255;
 
+	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0)
+		return -ENOMEM;
+
 	if (mode <= 0xff) {
 		count = 1;
-		data[0] = level;
-		data[1] = 0;
+		if (mtk_lcm_create_input(input.data, count,
+				MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT) < 0) {
+			DDPPR_ERR("%s, %d failed to alloc data\n", __func__, __LINE__);
+			ret = -ENOMEM;
+			goto fail;
+		}
+		data = (u8 *)input.data->data;
+		*data = level;
 	} else if (mode <= 0xffff) {
+		count = 2;
 		level = level * 4095 / 255;
+		if (mtk_lcm_create_input(input.data, count,
+				MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT) < 0) {
+			DDPPR_ERR("%s, %d failed to alloc data\n", __func__, __LINE__);
+			ret = -ENOMEM;
+			goto fail;
+		}
+		data = (u8 *)input.data->data;
 		data[0] = ((level >> 8) & 0xf);
 		data[1] = (level & 0xff);
-		count = 2;
-	} else
-		count = 0;
+	} else {
+		DDPPR_ERR("%s, %d, invalid backlight mode:0x%x\n",
+			__func__, __LINE__, mode);
+		ret = -EINVAL;
+		goto fail;
+	}
 
-	DDPINFO("%s, %d, mode:0x%x, level:0x%x, count:%u, data:0x%x, 0x%x\n",
-		__func__, __LINE__, mode, level, count, data[0], data[1]);
-	ret = mtk_panel_execute_callback(dsi, cb, handle,
-				data, count, table, "set_backlight");
+	DDPMSG("%s, %d, mode:0x%x, level:0x%x, count:%u, data:0x%x, 0x%x\n",
+		__func__, __LINE__, mode, level, count,
+		data[0], count > 1 ? data[1] : 0);
+
+	if (mtk_lcm_support_cb == 0)
+		ret = mtk_panel_execute_operation(dsi_dev, table,
+				ctx_dsi->panel_resource, &input, handle, NULL,
+				prop, "set_backlight");
+	else
+		ret = mtk_panel_execute_callback(dsi, cb, handle,
+				table, &input, "set_backlight");
 	atomic_set(&ctx_dsi->current_backlight, level);
 
+	mtk_lcm_destroy_input(input.data);
+fail:
+	mtk_lcm_destroy_input_packet(&input);
+
+	DDPMSG("%s- level:%u %d\n", __func__, level, ret);
 	return ret;
 }
 
@@ -560,9 +623,14 @@ static int panel_set_backlight_group(void *dsi, dcs_grp_write_gce cb,
 	void *handle, unsigned int level, struct mtk_lcm_ops_table *table,
 	unsigned int mode)
 {
-	int ret = 0;
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mtk_lcm_ops_input_packet input;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	unsigned int count = 0;
-	u8 data[2] = { 0, 0 };
+	u8 *data = NULL;
+	int ret = 0;
 
 	if (IS_ERR_OR_NULL(table) || table->size == 0)
 		return 0;
@@ -570,23 +638,54 @@ static int panel_set_backlight_group(void *dsi, dcs_grp_write_gce cb,
 	if (level > 255)
 		level = 255;
 
+	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0)
+		return -ENOMEM;
+
 	if (mode <= 0xff) {
 		count = 1;
-		data[0] = level;
-		data[1] = 0;
+		if (mtk_lcm_create_input(input.data, count,
+				MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT) < 0) {
+			DDPPR_ERR("%s, %d failed to alloc data\n", __func__, __LINE__);
+			ret = -ENOMEM;
+			goto fail;
+		}
+		data = (u8 *)input.data->data;
+		*data = level;
 	} else if (mode <= 0xffff) {
+		count = 2;
 		level = level * 4095 / 255;
+		if (mtk_lcm_create_input(input.data, count,
+				MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT) < 0) {
+			DDPPR_ERR("%s, %d failed to alloc data\n", __func__, __LINE__);
+			ret = -ENOMEM;
+			goto fail;
+		}
+		data = (u8 *)input.data->data;
 		data[0] = ((level >> 8) & 0xf);
 		data[1] = (level & 0xff);
-		count = 2;
-	} else
-		count = 0;
+	} else {
+		DDPPR_ERR("%s, %d, invalid backlight mode:0x%x\n",
+			__func__, __LINE__, mode);
+		ret = -EINVAL;
+		goto fail;
+	}
 
 	DDPINFO("%s, %d, mode:0x%x, level:0x%x, count:%u, data:0x%x, 0x%x\n",
-		__func__, __LINE__, mode, level, count, data[0], data[1]);
-	ret = mtk_panel_execute_callback_group(dsi, cb, handle,
-				data, count, table, "set_backlight");
+		__func__, __LINE__, mode, level, count,
+		data[0], count > 1 ? data[1] : 0);
+
+	if (mtk_lcm_support_cb == 0)
+		ret = mtk_panel_execute_operation(dsi_dev, table,
+				ctx_dsi->panel_resource, &input, handle, NULL,
+				prop, "set_backlight_grp");
+	else
+		ret = mtk_panel_execute_callback_group(dsi, cb, handle,
+				table, &input, "set_backlight_grp");
 	atomic_set(&ctx_dsi->current_backlight, level);
+
+	mtk_lcm_destroy_input(input.data);
+fail:
+	mtk_lcm_destroy_input_packet(&input);
 
 	return ret;
 }
@@ -680,10 +779,13 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 	struct mtk_lcm_ops_table *table = NULL;
 	struct mtk_lcm_params *params = &ctx_dsi->panel_resource->params;
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
-	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
 	struct drm_display_mode *mode = NULL;
 	char owner[MAX_PANEL_OPERATION_NAME] = {0};
 	struct mtk_lcm_mode_dsi *mode_node;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	bool found = false;
 	int ret = 0;
 
@@ -727,9 +829,9 @@ static int mtk_panel_mode_switch(struct drm_panel *panel,
 		mode_node->width, mode_node->height, mode_node->fps);
 	if (ret < 0 || (size_t)ret >= sizeof(owner))
 		DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
-	ret = mtk_panel_execute_operation((void *)dsi, table,
+	ret = mtk_panel_execute_operation(dsi_dev, table,
 				ctx_dsi->panel_resource,
-				NULL, owner);
+				NULL, NULL, NULL, prop, owner);
 
 	DDPMSG("%s-, %d\n", __func__, ret);
 	return ret;
@@ -770,8 +872,12 @@ static int mtk_panel_set_aod_light_mode(void *dsi,
 static int mtk_panel_doze_enable_start(struct drm_panel *panel,
 	void *dsi, dcs_write_gce cb, void *handle)
 {
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	DDPMSG("%s+\n", __func__);
@@ -779,8 +885,14 @@ static int mtk_panel_doze_enable_start(struct drm_panel *panel,
 	    ops->doze_enable_start.size == 0)
 		return -EINVAL;
 
-	ret = mtk_panel_execute_callback(dsi, cb, handle,
-			NULL, 0, &ops->doze_enable_start, "doze_enable_start");
+	if (mtk_lcm_support_cb == 0)
+		ret = mtk_panel_execute_operation(dsi_dev,
+				&ops->doze_enable_start, ctx_dsi->panel_resource,
+				NULL, handle, NULL, prop, "doze_enable_start");
+	else
+		ret = mtk_panel_execute_callback(dsi, cb, handle,
+				&ops->doze_enable_start, NULL, "doze_enable_start");
+
 	DDPMSG("%s- ret:%d\n", __func__, ret);
 	return ret;
 }
@@ -790,6 +902,10 @@ static int mtk_panel_doze_enable(struct drm_panel *panel,
 {
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	DDPMSG("%s+\n", __func__);
@@ -797,8 +913,14 @@ static int mtk_panel_doze_enable(struct drm_panel *panel,
 	    ops->doze_enable.size == 0)
 		return -EINVAL;
 
-	ret = mtk_panel_execute_callback(dsi, cb, handle,
-			NULL, 0, &ops->doze_enable, "doze_enable");
+	if (mtk_lcm_support_cb == 0)
+		ret = mtk_panel_execute_operation(dsi_dev,
+				&ops->doze_enable, ctx_dsi->panel_resource,
+				NULL, handle, NULL, prop, "doze_enable");
+	else
+		ret = mtk_panel_execute_callback(dsi, cb, handle,
+				&ops->doze_enable, NULL, "doze_enable");
+
 	DDPMSG("%s- ret:%d\n", __func__, ret);
 	return ret;
 }
@@ -808,6 +930,10 @@ static int mtk_panel_doze_disable(struct drm_panel *panel,
 {
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	DDPMSG("%s+\n", __func__);
@@ -815,8 +941,14 @@ static int mtk_panel_doze_disable(struct drm_panel *panel,
 	    ops->doze_disable.size == 0)
 		return -EINVAL;
 
-	ret = mtk_panel_execute_callback(dsi, cb, handle,
-			NULL, 0, &ops->doze_disable, "doze_disable");
+	if (mtk_lcm_support_cb == 0)
+		ret = mtk_panel_execute_operation(dsi_dev,
+				&ops->doze_disable, ctx_dsi->panel_resource,
+				NULL, handle, NULL, prop, "doze_disable");
+	else
+		ret = mtk_panel_execute_callback(dsi, cb, handle,
+				&ops->doze_disable, NULL, "doze_disable");
+
 	DDPMSG("%s- ret:%d\n", __func__, ret);
 	return ret;
 }
@@ -826,6 +958,10 @@ static int mtk_panel_doze_post_disp_on(struct drm_panel *panel,
 {
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	DDPMSG("%s+\n", __func__);
@@ -833,8 +969,14 @@ static int mtk_panel_doze_post_disp_on(struct drm_panel *panel,
 	    ops->doze_post_disp_on.size == 0)
 		return -EINVAL;
 
-	ret = mtk_panel_execute_callback(dsi, cb, handle,
-			NULL, 0, &ops->doze_post_disp_on, "doze_post_disp_on");
+	if (mtk_lcm_support_cb == 0)
+		ret = mtk_panel_execute_operation(dsi_dev,
+				&ops->doze_post_disp_on, ctx_dsi->panel_resource,
+				NULL, handle, NULL, prop, "doze_post_disp_on");
+	else
+		ret = mtk_panel_execute_callback(dsi, cb, handle,
+				&ops->doze_post_disp_on, NULL, "doze_post_disp_on");
+
 	DDPMSG("%s- ret:%d\n", __func__, ret);
 	return ret;
 }
@@ -844,6 +986,10 @@ static int mtk_panel_doze_area(struct drm_panel *panel,
 {
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_ops_dsi *ops = ctx_dsi->panel_resource->ops.dsi_ops;
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	DDPMSG("%s+\n", __func__);
@@ -851,8 +997,13 @@ static int mtk_panel_doze_area(struct drm_panel *panel,
 	    ops->doze_area.size == 0)
 		return -EINVAL;
 
-	ret = mtk_panel_execute_callback(dsi, cb, handle,
-			NULL, 0, &ops->doze_area, "doze_area");
+	if (mtk_lcm_support_cb == 0)
+		ret = mtk_panel_execute_operation(dsi_dev,
+				&ops->doze_area, ctx_dsi->panel_resource,
+				NULL, handle, NULL, prop, "doze_area");
+	else
+		ret = mtk_panel_execute_callback(dsi, cb, handle,
+				&ops->doze_area, NULL, "doze_area");
 	DDPMSG("%s- ret:%d\n", __func__, ret);
 	return ret;
 }
@@ -877,7 +1028,11 @@ static int mtk_panel_hbm_set_cmdq(struct drm_panel *panel, void *dsi,
 {
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_lcm_ops_dsi *ops = NULL;
-	u8 data = 0;
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mtk_lcm_ops_input_packet input;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	DDPMSG("%s+\n", __func__);
@@ -896,14 +1051,32 @@ static int mtk_panel_hbm_set_cmdq(struct drm_panel *panel, void *dsi,
 	if (atomic_read(&ctx_dsi->hbm_en) == en)
 		return 0;
 
+	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0)
+		return -EFAULT;
+
+	if (mtk_lcm_create_input(input.data, 1,
+			MTK_LCM_INPUT_TYPE_MISC) < 0)
+		goto fail;
+
 	if (en)
-		data = ops->hbm_set_cmdq_switch_on;
+		*(u8 *)input.data->data =
+				ops->hbm_set_cmdq_switch_on;
 	else
-		data = ops->hbm_set_cmdq_switch_off;
-	ret = mtk_panel_execute_callback(dsi, cb, handle,
-			&data, 1, &ops->hbm_set_cmdq, "hbm_set_cmdq");
+		*(u8 *)input.data->data =
+				ops->hbm_set_cmdq_switch_off;
+	if (mtk_lcm_support_cb == 0)
+		ret = mtk_panel_execute_operation(dsi_dev,
+				&ops->hbm_set_cmdq, ctx_dsi->panel_resource,
+				&input, handle, NULL, prop, "hbm_set_cmdq");
+	else
+		ret = mtk_panel_execute_callback(dsi, cb, handle,
+				&ops->hbm_set_cmdq, &input, "hbm_set_cmdq");
 	atomic_set(&ctx_dsi->hbm_en, en);
 	atomic_set(&ctx_dsi->hbm_wait, 1);
+
+	mtk_lcm_destroy_input(input.data);
+fail:
+	mtk_lcm_destroy_input_packet(&input);
 
 	DDPMSG("%s- ret:%d\n", __func__, ret);
 	return ret;
@@ -1021,7 +1194,11 @@ static struct mtk_lcm_msync_min_fps_switch *mtk_lcm_find_1st_min_fps_switch(
 static int mtk_panel_msync_te_level_switch(void *dsi, dcs_write_gce cb,
 		void *handle, unsigned int fps_level)
 {
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
 	struct mtk_lcm_mode_dsi *mode_node = NULL;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	DDPMSG("%s:%d fps_level:%d\n", __func__, __LINE__, fps_level);
@@ -1038,17 +1215,32 @@ static int mtk_panel_msync_te_level_switch(void *dsi, dcs_write_gce cb,
 			goto out;
 		}
 
-		ret = mtk_panel_execute_callback(dsi, cb, handle,
-				NULL, 0, &ops->msync_close_mte, "msync_close_mte");
-		ret = mtk_panel_execute_callback(dsi, cb, handle,
-				NULL, 0, &ops->msync_default_mte, "msync_default_mte");
+		if (mtk_lcm_support_cb == 0) {
+			ret = mtk_panel_execute_operation(dsi_dev,
+					&ops->msync_close_mte, ctx_dsi->panel_resource,
+					NULL, handle, NULL, prop, "msync_close_mte");
+			ret = mtk_panel_execute_operation(dsi_dev,
+					&ops->msync_default_mte, ctx_dsi->panel_resource,
+					NULL, handle, NULL, prop, "msync_default_mte");
+		} else {
+			ret = mtk_panel_execute_callback(dsi, cb, handle,
+				&ops->msync_close_mte, NULL, "msync_close_mte");
+			ret = mtk_panel_execute_callback(dsi, cb, handle,
+				&ops->msync_default_mte, NULL, "msync_default_mte");
+		}
 	} else {
 		mode_node = mtk_lcm_find_1st_max_fps_mode(fps_level);
 		if (mode_node != NULL) {
 			DDPMSG("%s:%d switch to fps:%u, level:%u\n",
 				__func__, __LINE__, mode_node->fps, fps_level);
-			ret = mtk_panel_execute_callback(dsi, cb, handle,
-					NULL, 0, &mode_node->msync_switch_mte, "msync_switch_mte");
+			if (mtk_lcm_support_cb == 0)
+				ret = mtk_panel_execute_operation(dsi_dev,
+						&mode_node->msync_switch_mte,
+						ctx_dsi->panel_resource, NULL, handle,
+						NULL, prop, "msync_switch_mte");
+			else
+				ret = mtk_panel_execute_callback(dsi, cb, handle,
+					&mode_node->msync_switch_mte, NULL, "msync_switch_mte");
 		} else {
 			DDPMSG("%s, %d, failed to find fps node of level:%u\n",
 				__func__, __LINE__, fps_level);
@@ -1066,7 +1258,11 @@ out:
 static int mtk_panel_msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
 		void *handle, unsigned int fps_level)
 {
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
 	struct mtk_lcm_mode_dsi *mode_node = NULL;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	DDPMSG("%s:%d fps_level:%d\n", __func__, __LINE__, fps_level);
@@ -1083,17 +1279,33 @@ static int mtk_panel_msync_te_level_switch_grp(void *dsi, dcs_grp_write_gce cb,
 			goto out;
 		}
 
-		ret = mtk_panel_execute_callback_group(dsi, cb, handle,
-				NULL, 0, &ops->msync_close_mte, "msync_close_mte");
-		ret = mtk_panel_execute_callback_group(dsi, cb, handle,
-				NULL, 0, &ops->msync_default_mte, "msync_default_mte");
+		if (mtk_lcm_support_cb == 0) {
+			ret = mtk_panel_execute_operation(dsi_dev,
+					&ops->msync_close_mte, ctx_dsi->panel_resource,
+					NULL, handle, NULL, prop, "msync_close_mte");
+			ret = mtk_panel_execute_operation(dsi_dev,
+					&ops->msync_default_mte, ctx_dsi->panel_resource,
+					NULL, handle, NULL, prop, "msync_default_mte");
+		} else {
+			ret = mtk_panel_execute_callback_group(dsi, cb, handle,
+				&ops->msync_close_mte, NULL, "msync_close_mte");
+			ret = mtk_panel_execute_callback_group(dsi, cb, handle,
+				&ops->msync_default_mte, NULL, "msync_default_mte");
+		}
 	} else {
 		mode_node = mtk_lcm_find_1st_max_fps_mode(fps_level);
 		if (mode_node != NULL) {
 			DDPMSG("%s:%d switch to fps:%u, level:%u\n",
 				__func__, __LINE__, mode_node->fps, fps_level);
-			ret = mtk_panel_execute_callback_group(dsi, cb, handle,
-					NULL, 0, &mode_node->msync_switch_mte, "msync_switch_mte");
+			if (mtk_lcm_support_cb == 0)
+				ret = mtk_panel_execute_operation(dsi_dev,
+						&mode_node->msync_switch_mte,
+						ctx_dsi->panel_resource, NULL,
+						handle, NULL, prop, "msync_switch_mte");
+			else
+				ret = mtk_panel_execute_callback_group(dsi, cb,
+						handle, &mode_node->msync_switch_mte,
+						NULL, "msync_switch_mte");
 		} else {
 			DDPPR_ERR("%s, %d, failed to find max fps mode, level:%u\n",
 				__func__, __LINE__, fps_level);
@@ -1116,33 +1328,52 @@ static int mtk_panel_msync_cmd_set_min_fps(void *dsi, dcs_write_gce cb,
 	struct mtk_lcm_mode_dsi *mode_node;
 	struct mtk_lcm_ops_dsi *ops =
 			ctx_dsi->panel_resource->ops.dsi_ops;
+	struct mipi_dsi_device *dsi_dev = to_mipi_dsi_device(ctx_dsi->dev);
+	struct mtk_lcm_ops_input_packet input;
+	struct mtk_lcm_msync_min_fps_switch *node = NULL;
+	unsigned int prop = MTK_LCM_DSI_CMD_PROP_CMDQ |
+				MTK_LCM_DSI_CMD_PROP_CMDQ_FORCE |
+				MTK_LCM_DSI_CMD_PROP_PACK;
 	int ret = 0;
 
 	DDPMSG("%s:%d flag:0x%08x, fps_level:%u min_fps:%u\n",
 			__func__, __LINE__, flag, fps_level, min_fps);
 	mode_node = mtk_lcm_find_1st_max_fps_mode(fps_level);
-	if (mode_node != NULL) {
-		struct mtk_lcm_msync_min_fps_switch *node = NULL;
-
-		DDPMSG("%s:%d get max fps mode:%u, level:%u\n",
-			__func__, __LINE__, mode_node->fps, fps_level);
-		node = mtk_lcm_find_1st_min_fps_switch(min_fps, mode_node);
-		if (node != NULL) {
-			DDPMSG("%s:%d get min fps switch:%u, level:%u\n",
-				__func__, __LINE__, node->fps, min_fps);
-			ret = mtk_panel_execute_callback(dsi, cb, handle,
-				node->data, node->count,
-				&ops->msync_set_min_fps, "msync_set_min_fps");
-		} else {
-			DDPPR_ERR("%s, %d, failed to get min fps switch, level:%u\n",
-				__func__, __LINE__, min_fps);
-			ret = -EFAULT;
-		}
-	} else {
+	if (mode_node == NULL) {
 		DDPPR_ERR("%s, %d, failed to get max fps mode, level:%u\n",
 			__func__, __LINE__, fps_level);
-		ret = -EFAULT;
+		return -EFAULT;
 	}
+
+	DDPMSG("%s:%d get max fps mode:%u, level:%u\n",
+		__func__, __LINE__, mode_node->fps, fps_level);
+	node = mtk_lcm_find_1st_min_fps_switch(min_fps, mode_node);
+	if (node == NULL) {
+		DDPPR_ERR("%s, %d, failed to get min fps switch, level:%u\n",
+			__func__, __LINE__, min_fps);
+		return -EFAULT;
+	}
+	DDPMSG("%s:%d get min fps switch:%u, level:%u\n",
+		__func__, __LINE__, node->fps, min_fps);
+	if (mtk_lcm_create_input_packet(&input, 1, 0) < 0)
+		return -EFAULT;
+
+	if (mtk_lcm_create_input(input.data, node->count,
+			MTK_LCM_INPUT_TYPE_MISC) < 0)
+		goto fail;
+
+	memcpy(input.data->data, node->data, node->count);
+	if (mtk_lcm_support_cb == 0)
+		ret = mtk_panel_execute_operation(dsi_dev,
+				&ops->msync_set_min_fps, ctx_dsi->panel_resource,
+				&input, handle, NULL, prop, "msync_set_min_fps");
+	else
+		ret = mtk_panel_execute_callback(dsi, cb, handle,
+			&ops->msync_set_min_fps, &input, "msync_set_min_fps");
+
+	mtk_lcm_destroy_input(input.data);
+fail:
+	mtk_lcm_destroy_input_packet(&input);
 
 	return ret;
 }
@@ -1150,6 +1381,20 @@ static int mtk_panel_msync_cmd_set_min_fps(void *dsi, dcs_write_gce cb,
 static enum mtk_lcm_version mtk_panel_get_lcm_version(void)
 {
 	return MTK_COMMON_LCM_DRV;
+}
+
+static int mtk_panel_ddic_ops(struct drm_panel *panel, enum MTK_PANEL_DDIC_OPS ops,
+	struct mtk_lcm_dsi_cmd_packet *packet, void *misc)
+{
+	switch (ops) {
+	case MTK_PANEL_DESTROY_DDIC_PACKET:
+		mtk_lcm_destroy_ddic_packet(packet);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
 }
 
 static struct mtk_panel_funcs mtk_drm_panel_ext_funcs = {
@@ -1178,6 +1423,7 @@ static struct mtk_panel_funcs mtk_drm_panel_ext_funcs = {
 	.msync_te_level_switch_grp = mtk_panel_msync_te_level_switch_grp,
 	.msync_cmd_set_min_fps = mtk_panel_msync_cmd_set_min_fps,
 	.get_lcm_version = mtk_panel_get_lcm_version,
+	.ddic_ops = mtk_panel_ddic_ops,
 };
 
 static void mtk_drm_update_disp_mode_params(struct drm_display_mode *mode)
@@ -1309,9 +1555,9 @@ static void check_is_need_fake_resolution(struct device *dev)
 	}
 }
 
-static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
+static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi_dev)
 {
-	struct device *dev = &dsi->dev;
+	struct device *dev = &dsi_dev->dev;
 	struct device_node *backlight = NULL, *lcm_np = NULL;
 	struct mtk_lcm_params_dsi *dsi_params = NULL;
 	int ret = 0;
@@ -1364,13 +1610,13 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 	of_node_put(lcm_np);
 
 	dsi_params = &ctx_dsi->panel_resource->params.dsi_params;
-	dsi->lanes = dsi_params->lanes;
-	dsi->format = dsi_params->format;
-	dsi->mode_flags = dsi_params->mode_flags;
+	dsi_dev->lanes = dsi_params->lanes;
+	dsi_dev->format = dsi_params->format;
+	dsi_dev->mode_flags = dsi_params->mode_flags;
 
 	mtk_drm_gateic_select(ctx_dsi->panel_resource->params.name,
 			MTK_LCM_FUNC_DSI);
-	mipi_dsi_set_drvdata(dsi, ctx_dsi);
+	mipi_dsi_set_drvdata(dsi_dev, ctx_dsi);
 
 	backlight = of_parse_phandle(dev->of_node, "backlight", 0);
 	if (backlight) {
@@ -1395,7 +1641,7 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 			&lcm_drm_funcs, DRM_MODE_CONNECTOR_DSI);
 	drm_panel_add(&ctx_dsi->panel);
 
-	ret = mipi_dsi_attach(dsi);
+	ret = mipi_dsi_attach(dsi_dev);
 	if (ret < 0) {
 		DDPPR_ERR("%s: failed to attach dsi\n", __func__);
 		drm_panel_remove(&ctx_dsi->panel);
@@ -1412,17 +1658,18 @@ static int mtk_drm_lcm_probe(struct mipi_dsi_device *dsi)
 		return ret;
 	}
 	check_is_need_fake_resolution(dev);
-	DDPMSG("%s-\n", __func__);
+	mtk_lcm_support_cb = 0;
+	DDPMSG("%s- cb:%u\n", __func__, mtk_lcm_support_cb);
 
 	return ret;
 }
 
-static int mtk_drm_lcm_remove(struct mipi_dsi_device *dsi)
+static int mtk_drm_lcm_remove(struct mipi_dsi_device *dsi_dev)
 {
-	//struct mtk_panel_context *ctx_dsi = mipi_dsi_get_drvdata(dsi);
+	//struct mtk_panel_context *ctx_dsi = mipi_dsi_get_drvdata(dsi_dev);
 
 	DDPMSG("%s+\n", __func__);
-	mipi_dsi_detach(dsi);
+	mipi_dsi_detach(dsi_dev);
 
 	if (IS_ERR_OR_NULL(ctx_dsi))
 		return 0;

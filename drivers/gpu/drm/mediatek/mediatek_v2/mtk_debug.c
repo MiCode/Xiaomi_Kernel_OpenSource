@@ -408,22 +408,34 @@ int mtk_dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf,
 	return n;
 }
 
-extern int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level);
-int mtkfb_set_backlight_level(unsigned int level)
+int __mtkfb_set_backlight_level(unsigned int level, bool group)
 {
 	struct drm_crtc *crtc;
 	int ret = 0;
 
+	if (IS_ERR_OR_NULL(drm_dev)) {
+		DDPPR_ERR("%s, invalid drm dev\n", __func__);
+		return -EINVAL;
+	}
+
 	/* this debug cmd only for crtc0 */
 	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 				typeof(*crtc), head);
-	if (!crtc) {
-		DDPPR_ERR("find crtc fail\n");
+	if (IS_ERR_OR_NULL(crtc)) {
+		DDPPR_ERR("%s failed to find crtc\n", __func__);
 		return -EINVAL;
 	}
-	ret = mtk_drm_setbacklight(crtc, level);
+	if (group == true)
+		ret = mtk_drm_setbacklight_grp(crtc, level);
+	else
+		ret = mtk_drm_setbacklight(crtc, level);
 
 	return ret;
+}
+
+int mtkfb_set_backlight_level(unsigned int level)
+{
+	return __mtkfb_set_backlight_level(level, false);
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
 
@@ -2246,7 +2258,19 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 
-		mtkfb_set_backlight_level(level);
+		__mtkfb_set_backlight_level(level, false);
+	} else if (strncmp(opt, "backlight_grp:", 14) == 0) {
+		unsigned int level;
+		int ret;
+
+		ret = sscanf(opt, "backlight_grp:%u\n", &level);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		__mtkfb_set_backlight_level(level, true);
 	} else if (!strncmp(opt, "aod_bl:", 7)) {
 		unsigned int level;
 		int ret;

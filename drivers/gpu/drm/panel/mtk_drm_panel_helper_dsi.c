@@ -3,6 +3,7 @@
  * Copyright (c) 2021 MediaTek Inc.
  */
 
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/of.h>
@@ -1042,24 +1043,20 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	}
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
-	mtk_lcm_dts_read_u32(np, "compare_id_value_length",
-			&ops->compare_id_value_length);
-	if (ops->compare_id_value_length > 0 &&
-	    ops->compare_id_value_length <= MTK_PANEL_COMPARE_ID_LENGTH) {
-		LCM_KZALLOC(ops->compare_id_value_data,
-			ops->compare_id_value_length, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->compare_id_value_data)) {
-			DDPPR_ERR("%s,%d: failed to allocate compare id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		len = mtk_lcm_dts_read_u8_array(np,
-					"compare_id_value_data",
-					&ops->compare_id_value_data[0], 0,
-					ops->compare_id_value_length);
-		if (len != ops->compare_id_value_length)
-			DDPPR_ERR("%s,%d: warn parse compare id data, len:%d, expect:%u\n",
-				__func__, __LINE__, len, ops->compare_id_value_length);
+	LCM_KZALLOC(ops->compare_id_value_data,
+		MTK_PANEL_COMPARE_ID_LENGTH, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(ops->compare_id_value_data)) {
+		DDPPR_ERR("%s,%d: failed to allocate compare id data\n",
+			__func__, __LINE__);
+		return -ENOMEM;
+	}
+	len = mtk_lcm_dts_read_u8_array(np,
+				"compare_id_value_data",
+				&ops->compare_id_value_data[0], 0,
+				MTK_PANEL_COMPARE_ID_LENGTH);
+	if (len > 0 &&
+	    len < MTK_PANEL_COMPARE_ID_LENGTH) {
+		ops->compare_id_value_length = len;
 
 		ret = parse_lcm_ops_func(np,
 					&ops->compare_id, "compare_id_table",
@@ -1070,6 +1067,10 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				__func__, __LINE__, ret);
 			return ret;
 		}
+	} else {
+		DDPMSG("%s, %d, failed to get compare id,len%d\n",
+			__func__, __LINE__, len);
+		ops->compare_id_value_length = 0;
 	}
 #endif
 
@@ -1086,25 +1087,20 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		return ret;
 	}
 
-	mtk_lcm_dts_read_u32(np, "ata_id_value_length",
-			&ops->ata_id_value_length);
-	if (ops->ata_id_value_length > 0 &&
-	    ops->ata_id_value_length <= MTK_PANEL_ATA_ID_LENGTH) {
-		LCM_KZALLOC(ops->ata_id_value_data,
-				ops->ata_id_value_length, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(ops->ata_id_value_data)) {
-			DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		len = mtk_lcm_dts_read_u8_array(np,
-					"ata_id_value_data",
-					&ops->ata_id_value_data[0], 0,
-					ops->ata_id_value_length);
-		if (len != ops->ata_id_value_length)
-			DDPPR_ERR("%s,%d: failed to parse ata id data, len:%d, expect:%u\n",
-				__func__, __LINE__, len,
-				ops->ata_id_value_length);
+	LCM_KZALLOC(ops->ata_id_value_data,
+			MTK_PANEL_ATA_ID_LENGTH, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(ops->ata_id_value_data)) {
+		DDPPR_ERR("%s,%d: failed to allocate ata id data\n",
+			__func__, __LINE__);
+		return -ENOMEM;
+	}
+	len = mtk_lcm_dts_read_u8_array(np,
+				"ata_id_value_data",
+				&ops->ata_id_value_data[0], 0,
+				MTK_PANEL_ATA_ID_LENGTH);
+	if (len > 0 &&
+	    len < MTK_PANEL_ATA_ID_LENGTH) {
+		ops->ata_id_value_length = len;
 
 		ret = parse_lcm_ops_func(np,
 					&ops->ata_check, "ata_check_table",
@@ -1115,6 +1111,10 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				__func__, __LINE__, ret);
 			return ret;
 		}
+	} else {
+		DDPMSG("%s, %d, failed to get ata id,len%d\n",
+			__func__, __LINE__, len);
+		ops->ata_id_value_length = 0;
 	}
 
 	mtk_lcm_dts_read_u32(np, "set_aod_light_mask",
@@ -1626,11 +1626,11 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 
 	DDPDUMP("=========== LCM DUMP of DSI ops:0x%lx-0x%lx ==============\n",
 		(unsigned long)ops, (unsigned long)params);
-	dump_lcm_ops_func(&ops->prepare, cust, "prepare");
-	dump_lcm_ops_func(&ops->unprepare, cust, "unprepare");
-	dump_lcm_ops_func(&ops->enable, cust, "enable");
-	dump_lcm_ops_func(&ops->disable, cust, "disable");
-	dump_lcm_ops_func(&ops->set_backlight_cmdq,
+	dump_lcm_ops_table(&ops->prepare, cust, "prepare");
+	dump_lcm_ops_table(&ops->unprepare, cust, "unprepare");
+	dump_lcm_ops_table(&ops->enable, cust, "enable");
+	dump_lcm_ops_table(&ops->disable, cust, "disable");
+	dump_lcm_ops_table(&ops->set_backlight_cmdq,
 		cust, "set_backlight_cmdq");
 
 	DDPDUMP("ata_id_value_length=%u\n",
@@ -1642,7 +1642,7 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 			ops->ata_id_value_data[i + 1],
 			ops->ata_id_value_data[i + 2],
 			ops->ata_id_value_data[i + 3]);
-	dump_lcm_ops_func(&ops->ata_check, cust, "ata_check");
+	dump_lcm_ops_table(&ops->ata_check, cust, "ata_check");
 
 #ifdef MTK_PANEL_SUPPORT_COMPARE_ID
 	DDPDUMP("compare_id_value_length=%u\n",
@@ -1651,26 +1651,26 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 	for (i = 0; i < ops->compare_id_value_length; i++)
 		DDPDUMP("%u,", ops->compare_id_value_data[i]);
 	DDPDUMP("\n");
-	dump_lcm_ops_func(&ops->compare_id, cust, "compare_id");
+	dump_lcm_ops_table(&ops->compare_id, cust, "compare_id");
 #endif
 
-	dump_lcm_ops_func(&ops->doze_enable_start,
+	dump_lcm_ops_table(&ops->doze_enable_start,
 		cust, "doze_enable_start");
-	dump_lcm_ops_func(&ops->doze_enable, cust, "doze_enable");
-	dump_lcm_ops_func(&ops->doze_disable, cust, "doze_disable");
-	dump_lcm_ops_func(&ops->doze_area, cust, "doze_area");
-	dump_lcm_ops_func(&ops->doze_post_disp_on,
+	dump_lcm_ops_table(&ops->doze_enable, cust, "doze_enable");
+	dump_lcm_ops_table(&ops->doze_disable, cust, "doze_disable");
+	dump_lcm_ops_table(&ops->doze_area, cust, "doze_area");
+	dump_lcm_ops_table(&ops->doze_post_disp_on,
 		cust, "doze_post_disp_on");
-	dump_lcm_ops_func(&ops->set_aod_light, cust, "set_aod_light");
+	dump_lcm_ops_table(&ops->set_aod_light, cust, "set_aod_light");
 
 	DDPDUMP("hbm_set_cmdq_switch: on=0x%x,off=0x%x\n",
 		ops->hbm_set_cmdq_switch_on,
 		ops->hbm_set_cmdq_switch_off);
-	dump_lcm_ops_func(&ops->hbm_set_cmdq, cust, "hbm_set_cmdq");
+	dump_lcm_ops_table(&ops->hbm_set_cmdq, cust, "hbm_set_cmdq");
 
-	dump_lcm_ops_func(&ops->msync_set_min_fps, cust, "msync_set_min_fps");
-	dump_lcm_ops_func(&ops->msync_close_mte, cust, "msync_close_mte");
-	dump_lcm_ops_func(&ops->msync_default_mte, cust, "msync_default_mte");
+	dump_lcm_ops_table(&ops->msync_set_min_fps, cust, "msync_set_min_fps");
+	dump_lcm_ops_table(&ops->msync_close_mte, cust, "msync_close_mte");
+	dump_lcm_ops_table(&ops->msync_default_mte, cust, "msync_default_mte");
 
 	if (params != NULL && params->mode_count > 0) {
 		list_for_each_entry(mode_node, &params->mode_list, list) {
@@ -1679,7 +1679,7 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 				 mode_node->height, mode_node->fps);
 			if (ret < 0 || (size_t)ret >= sizeof(mode_name))
 				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
-			dump_lcm_ops_func(&mode_node->fps_switch_bfoff,
+			dump_lcm_ops_table(&mode_node->fps_switch_bfoff,
 				cust, mode_name);
 
 			ret = snprintf(mode_name, sizeof(mode_name),
@@ -1687,7 +1687,7 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 				 mode_node->height, mode_node->fps);
 			if (ret < 0 || (size_t)ret >= sizeof(mode_name))
 				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
-			dump_lcm_ops_func(&mode_node->fps_switch_afon,
+			dump_lcm_ops_table(&mode_node->fps_switch_afon,
 				cust, mode_name);
 
 			ret = snprintf(mode_name, sizeof(mode_name),
@@ -1695,7 +1695,7 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 				 mode_node->height, mode_node->fps);
 			if (ret < 0 || (size_t)ret >= sizeof(mode_name))
 				DDPMSG("%s, %d, snprintf failed\n", __func__, __LINE__);
-			dump_lcm_ops_func(&mode_node->msync_switch_mte,
+			dump_lcm_ops_table(&mode_node->msync_switch_mte,
 				cust, mode_name);
 		}
 	}

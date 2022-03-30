@@ -853,6 +853,7 @@ struct mtk_cmdq_cb_data {
 	unsigned int pres_fence_idx;
 	struct drm_framebuffer *wb_fb;
 	unsigned int hrt_idx;
+	struct mtk_lcm_dsi_cmd_packet *ddic_packet;
 };
 
 extern unsigned int disp_spr_bypass;
@@ -1047,4 +1048,6 @@ int mtk_drm_ioctl_get_pq_caps(struct drm_device *dev, void *data,
 int mtk_drm_ioctl_set_pq_caps(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 void mtk_crtc_prepare_instr(struct drm_crtc *crtc);
+int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level);
+int mtk_drm_setbacklight_grp(struct drm_crtc *crtc, unsigned int level);
 #endif /* MTK_DRM_CRTC_H */

@@ -7,9 +7,6 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include "mtk_drm_gateic.h"
-#include <dt-bindings/lcm/mtk_lcm_settings.h>
-
-
 
 struct mtk_gateic_data ctx_rt4801h;
 
