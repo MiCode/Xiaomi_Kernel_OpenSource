@@ -31,8 +31,9 @@
  * ===============================================
  */
 enum gpueb_smc_op {
-	GPUEB_SMC_OP_TRIGGER_WDT = 0,
-	GPUEB_SMC_OP_NUMBER      = 1,
+	GPUEB_SMC_OP_TRIGGER_WDT            = 0,
+	GPUEB_SMC_OP_SET_RGX_BUS_SECURE     = 1,
+	GPUEB_SMC_OP_NUMBER                 = 2,
 };
 
 static void __iomem *g_gpueb_base;
@@ -101,6 +102,17 @@ void gpueb_trigger_wdt(const char *name)
 		0, 0, 0, 0, 0, 0, &res);
 }
 EXPORT_SYMBOL(gpueb_trigger_wdt);
+
+void gpu_set_rgx_bus_secure(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(
+		MTK_SIP_KERNEL_GPUEB_CONTROL,    /* a0 */
+		GPUEB_SMC_OP_SET_RGX_BUS_SECURE, /* a1 */
+		0, 0, 0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(gpu_set_rgx_bus_secure);
 
 #if defined(CONFIG_PROC_FS)
 /* PROCFS: show current gpueb status */
