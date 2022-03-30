@@ -40,6 +40,7 @@ obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor/src/
 obj-$(CONFIG_MTK_V4L2_IMGSENSOR) += imgsensor/src-v4l2/
 obj-$(CONFIG_MTK_IOMMU_MISC) += iommu/
 obj-$(CONFIG_MTK_COMBO) += connectivity/
+obj-$(CONFIG_MTK_CONN_SCP) += conn_scp/
 obj-$(CONFIG_MTK_BTIF) += btif/
 obj-$(CONFIG_MTK_CONN_MD) += conn_md/
 obj-$(CONFIG_MTK_CAM_CAL) += cam_cal/

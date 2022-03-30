@@ -10,51 +10,40 @@
 
 #define SCP_MBOX_TOTAL 5
 
-/* core1 */
-/* definition of slot size for send PINs */
-#define PIN_OUT_SIZE_AUDIO_VOW_1         9 /* the following will use mbox 0 */
-
-/* definition of slot size for received PINs */
-#define PIN_IN_SIZE_AUDIO_VOW_ACK_1      2 /* the following will use mbox 0 */
-#define PIN_IN_SIZE_AUDIO_VOW_1         26 /* the following will use mbox 0 */
-
-/* core0 */
-/* definition of slot size for send PINs */
-#define PIN_OUT_SIZE_APCCCI_0		 2 /* the following will use mbox 1 */
-#define PIN_OUT_SIZE_DVFS_SET_FREQ_0	 1 /* the following will use mbox 1 */
-#define PIN_OUT_C_SIZE_SLEEP_0           2 /* the following will use mbox 1 */
-#define PIN_OUT_R_SIZE_SLEEP_0           1 /* the following will use mbox 1 */
-#define PIN_OUT_SIZE_TEST_0		 1 /* the following will use mbox 1 */
-
-/* definition of slot size for received PINs */
-#define PIN_IN_SIZE_APCCCI_0		 2 /* the following will use mbox 1 */
-#define PIN_IN_SIZE_SCP_ERROR_INFO_0    10 /* the following will use mbox 1 */
-#define PIN_IN_SIZE_SCP_READY_0		 1 /* the following will use mbox 1 */
-#define PIN_IN_SIZE_SCP_RAM_DUMP_0	 2 /* the following will use mbox 1 */
-/* ============================================================ */
-
-/* core1 */
-/* definition of slot size for send PINs */
-#define PIN_OUT_SIZE_AUDIO_ULTRA_SND_1	 2 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_DVFS_SET_FREQ_1	 1 /* the following will use mbox 3 */
-#define PIN_OUT_C_SIZE_SLEEP_1	         2 /* the following will use mbox 3 */
-#define PIN_OUT_R_SIZE_SLEEP_1	         1 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_TEST_1		 1 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_LOGGER_CTRL	 6 /* the following will use mbox 3 */
-#define PIN_OUT_SIZE_SCPCTL_1		 2 /* the following will use mbox 3 */
-
-/* definition of slot size for received PINs */
-#define PIN_IN_SIZE_AUDIO_ULTRA_SND_1	 2 /* the following will use mbox 3 */
-#define PIN_IN_SIZE_SCP_ERROR_INFO_1	10 /* the following will use mbox 3 */
-#define PIN_IN_SIZE_LOGGER_CTRL		 6 /* the following will use mbox 3 */
-#define PIN_IN_SIZE_LOGGER_INIT_1	 5 /* the following will use mbox 3 */
-#define PIN_IN_SIZE_SCP_READY_1		 1 /* the following will use mbox 3 */
-#define PIN_IN_SIZE_SCP_RAM_DUMP_1	 2 /* the following will use mbox 3 */
-/* ============================================================ */
-
-/* this is mbox pool for 2 cores */
-#define PIN_OUT_SIZE_SCP_MPOOL          34 /* the following will use mbox 2,4 */
-#define PIN_IN_SIZE_SCP_MPOOL           30 /* the following will use mbox 2,4 */
+#define PIN_OUT_SIZE_AUDIO_VOW_1         9
+#define PIN_IN_SIZE_AUDIO_VOW_ACK_1      2
+#define PIN_IN_SIZE_AUDIO_VOW_1         26
+#define PIN_IN_SIZE_AUDIO_ACCDET_1       1
+#define PIN_OUT_SIZE_APCCCI_0		 2
+#define PIN_OUT_SIZE_DVFS_SET_FREQ_0	 1
+#define PIN_OUT_C_SIZE_SLEEP_0           2
+#define PIN_OUT_R_SIZE_SLEEP_0           1
+#define PIN_OUT_SIZE_TEST_0		 1
+#define PIN_OUT_SIZE_AUDIO_ULTRA_SND_0	 9
+#define PIN_IN_SIZE_APCCCI_0		 2
+#define PIN_IN_SIZE_SCP_ERROR_INFO_0    10
+#define PIN_IN_SIZE_SCP_READY_0		 1
+#define PIN_IN_SIZE_SCP_RAM_DUMP_0	 2
+#define PIN_IN_SIZE_AUDIO_ULTRA_SND_0	 5
+#define PIN_IN_SIZE_AUDIO_ULTRA_SND_ACK_0 2
+#define PIN_OUT_SIZE_DVFS_SET_FREQ_1	 1
+#define PIN_OUT_C_SIZE_SLEEP_1	         2
+#define PIN_OUT_R_SIZE_SLEEP_1	         1
+#define PIN_OUT_SIZE_TEST_1		 1
+#define PIN_OUT_SIZE_LOGGER_CTRL	 6
+#define PIN_OUT_SIZE_SCPCTL_1		 2
+#define PIN_IN_SIZE_SCP_ERROR_INFO_1	10
+#define PIN_IN_SIZE_LOGGER_CTRL		 6
+#define PIN_IN_SIZE_SCP_READY_1		 1
+#define PIN_IN_SIZE_SCP_RAM_DUMP_1	 2
+#define PIN_OUT_SIZE_SCP_MPOOL           4
+#define PIN_IN_SIZE_SCP_MPOOL            4
+#define PIN_OUT_SIZE_SENSOR_CTRL        16
+#define PIN_IN_SIZE_SENSOR_CTRL          2
+#define PIN_OUT_SIZE_SENSOR_NOTIFY       7
+#define PIN_IN_SIZE_SENSOR_NOTIFY        7
+#define PIN_OUT_SIZE_SCP_CONNSYS         3
+#define PIN_OUT_SIZE_SCP_HWVOTER_DEBUG   2
 
 /* scp Core ID definition */
 enum scp_core_id {
@@ -63,14 +52,10 @@ enum scp_core_id {
 };
 
 enum {
-/* core1 */
-	/* the following will use mbox0 */
+	/* for mbox mapping, please refer to tinysys side */
 	IPI_OUT_AUDIO_VOW_1       =  0,
 	IPI_IN_AUDIO_VOW_ACK_1	  =  1,
 	IPI_IN_AUDIO_VOW_1        =  2,
-
-/* core0 */
-	/* the following will use mbox1 */
 	IPI_OUT_APCCCI_0          =  3,
 	IPI_OUT_DVFS_SET_FREQ_0	  =  4,
 	IPI_OUT_C_SLEEP_0         =  5,
@@ -79,13 +64,8 @@ enum {
 	IPI_IN_SCP_ERROR_INFO_0   =  8,
 	IPI_IN_SCP_READY_0        =  9,
 	IPI_IN_SCP_RAM_DUMP_0     = 10,
-
-	/* the following will use mbox2 */
 	IPI_OUT_SCP_MPOOL_0       = 11,
 	IPI_IN_SCP_MPOOL_0        = 12,
-
-/* core1 */
-	/* the following will use mbox3 */
 	IPI_OUT_AUDIO_ULTRA_SND_1 = 13,
 	IPI_OUT_DVFS_SET_FREQ_1   = 14,
 	IPI_OUT_C_SLEEP_1         = 15,
@@ -97,9 +77,21 @@ enum {
 	IPI_IN_LOGGER_CTRL        = 21,
 	IPI_IN_SCP_READY_1        = 22,
 	IPI_IN_SCP_RAM_DUMP_1     = 23,
-	/* the following will use mbox4 */
 	IPI_OUT_SCP_MPOOL_1       = 24,
 	IPI_IN_SCP_MPOOL_1        = 25,
+	IPI_OUT_AUDIO_ULTRA_SND_0 =  26,
+	IPI_IN_AUDIO_ULTRA_SND_ACK_0 = 27,
+	IPI_IN_AUDIO_ULTRA_SND_0  =  28,
+	IPI_OUT_SENSOR_CTRL       = 29,
+	IPI_IN_SENSOR_CTRL        = 30,
+	IPI_OUT_SENSOR_NOTIFY     = 31,
+	IPI_IN_SENSOR_NOTIFY      = 32,
+	IPI_OUT_SCP_CONNSYS       = 33,
+	IPI_IN_SCP_CONNSYS        = 34,
+	IPI_OUT_SCP_HWVOTER_DEBUG   = 35,
+	IPI_IN_AUDIO_ACCDET_1     = 36,
+	IPI_OUT_SCP_AOD           = 37,
+	IPI_IN_SCP_AOD            = 38,
 	SCP_IPI_COUNT
 };
 
@@ -114,6 +106,7 @@ enum scp_ipi_status {
 enum SCP_NOTIFY_EVENT {
 	SCP_EVENT_READY = 0,
 	SCP_EVENT_STOP,
+	SCP_EVENT_NOTIFYING,
 };
 /* the order of ipi_id should be consistent with IPI_LEGACY_GROUP */
 enum ipi_id {
@@ -127,33 +120,45 @@ enum ipi_id {
 
 /* scp reserve memory ID definition*/
 enum scp_reserve_mem_id_t {
+	SCP_A_SECDUMP_MEM_ID = 0,   /* please keep SCP_A_SECDUMP_MEM_ID=0 */
 	VOW_MEM_ID,
 	SENS_MEM_ID,
 	SCP_A_LOGGER_MEM_ID,
 	AUDIO_IPI_MEM_ID,
 	VOW_BARGEIN_MEM_ID,
 	SCP_DRV_PARAMS_MEM_ID,
+	ULTRA_MEM_ID,
+	SENS_SUPER_MEM_ID,
+	SENS_LIST_MEM_ID,
+	SENS_DEBUG_MEM_ID,
+	SENS_CUSTOM_W_MEM_ID,
+	SENS_CUSTOM_R_MEM_ID,
 	NUMS_MEM_ID,
 };
 
 /* scp feature ID list */
 enum feature_id {
-	VOW_FEATURE_ID,
-	SENS_FEATURE_ID,
-	FLP_FEATURE_ID,
-	RTOS_FEATURE_ID,
-	SPEAKER_PROTECT_FEATURE_ID,
-	VCORE_TEST_FEATURE_ID,
-	VOW_BARGEIN_FEATURE_ID,
-	VOW_DUMP_FEATURE_ID,
-	VOW_VENDOR_M_FEATURE_ID,
-	VOW_VENDOR_A_FEATURE_ID,
-	VOW_VENDOR_G_FEATURE_ID,
-	NUM_FEATURE_ID,
+	VOW_FEATURE_ID = 0,
+	SENS_FEATURE_ID = 1,
+	FLP_FEATURE_ID = 2,
+	RTOS_FEATURE_ID = 3,
+	SPEAKER_PROTECT_FEATURE_ID = 4,
+	VCORE_TEST_FEATURE_ID = 5,
+	VOW_BARGEIN_FEATURE_ID = 6,
+	VOW_DUMP_FEATURE_ID = 7,
+	VOW_VENDOR_M_FEATURE_ID = 8,
+	VOW_VENDOR_A_FEATURE_ID = 9,
+	VOW_VENDOR_G_FEATURE_ID = 10,
+	VOW_DUAL_MIC_FEATURE_ID = 11,
+	VOW_DUAL_MIC_BARGE_IN_FEATURE_ID = 12,
+	ULTRA_FEATURE_ID = 13,
+	NUM_FEATURE_ID = 14,
 };
 
 extern struct mtk_mbox_device scp_mboxdev;
 extern struct mtk_ipi_device scp_ipidev;
+extern struct mtk_mbox_pin_send *scp_mbox_pin_send;
+extern struct mtk_mbox_pin_recv *scp_mbox_pin_recv;
 
 
 /* An API to get scp status */
@@ -193,6 +198,8 @@ extern phys_addr_t scp_get_reserve_mem_size(enum scp_reserve_mem_id_t id);
 extern void scp_register_feature(enum feature_id id);
 extern void scp_deregister_feature(enum feature_id id);
 
+/* APIs for reset scp */
+extern void scp_wdt_reset(int cpu_id);
 
 #endif
 

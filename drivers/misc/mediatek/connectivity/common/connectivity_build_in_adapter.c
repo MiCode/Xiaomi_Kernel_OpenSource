@@ -23,6 +23,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/trace_events.h>
+#include <linux/notifier.h>
 
 #include <linux/interrupt.h>
 #ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
@@ -60,6 +61,11 @@
 #define TASK_STATE_TO_CHAR_STR "RSDTtXZxKWPNn"
 #endif
 
+/* conninfra init/deinit notifier */
+static BLOCKING_NOTIFIER_HEAD(conn_state_notifier_list);
+static DEFINE_MUTEX(conn_state_notify_mutex);
+struct connsys_state_info g_connsys_state_info;
+
 void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp)
 {
 #ifdef CFG_CONNADP_BUILD_IN
@@ -81,6 +87,55 @@ void connectivity_export_tracing_record_cmdline(struct task_struct *tsk)
 #endif
 }
 EXPORT_SYMBOL(connectivity_export_tracing_record_cmdline);
+
+void connectivity_export_conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr)
+{
+	pr_info("[%s] [%x][%x] [%x][%x]", __func__,
+				chip_info, emi_phy_addr,
+				g_connsys_state_info.chip_info, g_connsys_state_info.emi_phy_addr);
+
+	mutex_lock(&conn_state_notify_mutex);
+	g_connsys_state_info.chip_info = chip_info;
+	g_connsys_state_info.emi_phy_addr = emi_phy_addr;
+
+	blocking_notifier_call_chain(&conn_state_notifier_list, 1, &g_connsys_state_info);
+
+	mutex_unlock(&conn_state_notify_mutex);
+}
+EXPORT_SYMBOL(connectivity_export_conap_scp_init);
+
+
+void connectivity_export_conap_scp_deinit(void)
+{
+
+	mutex_lock(&conn_state_notify_mutex);
+	blocking_notifier_call_chain(&conn_state_notifier_list, 0, NULL);
+	mutex_unlock(&conn_state_notify_mutex);
+}
+EXPORT_SYMBOL(connectivity_export_conap_scp_deinit);
+
+
+void connectivity_register_state_notifier(struct notifier_block *nb)
+{
+	mutex_lock(&conn_state_notify_mutex);
+	blocking_notifier_chain_register(&conn_state_notifier_list, nb);
+
+	pr_debug("[CONNADP] register conn_state notify callback..chip=[%x]\n",
+				g_connsys_state_info.chip_info);
+
+	if (g_connsys_state_info.chip_info != 0)
+		nb->notifier_call(nb, 1, NULL);
+	mutex_unlock(&conn_state_notify_mutex);
+}
+EXPORT_SYMBOL(connectivity_register_state_notifier);
+
+void connectivity_unregister_state_notifier(struct notifier_block *nb)
+{
+	mutex_lock(&conn_state_notify_mutex);
+	blocking_notifier_chain_unregister(&conn_state_notifier_list, nb);
+	mutex_unlock(&conn_state_notify_mutex);
+}
+EXPORT_SYMBOL(connectivity_unregister_state_notifier);
 
 #ifdef CPU_BOOST
 bool connectivity_export_spm_resource_req(unsigned int user,

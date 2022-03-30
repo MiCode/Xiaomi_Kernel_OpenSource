@@ -8,6 +8,11 @@
 
 #define MTK_LARB_NR_MAX			32
 
+#define TAB_ID				(0)
+
+#define MTK_M4U_PORT_ID(tab, dom, larb, port)	(((tab & 0xf) << 20) | ((dom & 0xf) << 16) |\
+						((larb & 0x3f) << 5) | (port & 0x1f))
+
 #define MTK_M4U_ID(larb, port)		(((larb) << 5) | (port))
 #define MTK_M4U_TO_LARB(id)		(((id) >> 5) & 0x1f)
 #define MTK_M4U_TO_PORT(id)		((id) & 0x1f)

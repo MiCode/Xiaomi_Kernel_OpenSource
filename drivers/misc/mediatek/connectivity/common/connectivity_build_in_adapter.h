@@ -15,6 +15,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/sched/debug.h>
 //#include <mtk-clkbuf-bridge.h>
+#include <linux/notifier.h>
 
 /*******************************************************************************
  * Clock Buffer Control
@@ -185,6 +186,17 @@ extern void v7_flush_kern_dcache_area(void *addr, size_t len);
 void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp);
 void connectivity_export_dump_thread_state(const char *name);
 void connectivity_export_tracing_record_cmdline(struct task_struct *tsk);
+
+
+struct connsys_state_info {
+	unsigned int chip_info;
+	phys_addr_t emi_phy_addr;
+};
+void connectivity_export_conap_scp_init(unsigned int chip_info, phys_addr_t emi_phy_addr);
+void connectivity_export_conap_scp_deinit(void);
+void connectivity_register_state_notifier(struct notifier_block *nb);
+void connectivity_unregister_state_notifier(struct notifier_block *nb);
+
 #ifdef CPU_BOOST
 void connectivity_export_mt_ppm_sysboost_freq(enum ppm_sysboost_user user,
 					      unsigned int freq);
@@ -215,8 +227,8 @@ do {                                                              \
 	__trace_printk_check_format(fmt, ##args);                 \
 	KERNEL_tracing_record_cmdline(current);                   \
 	if (__builtin_constant_p(fmt)) {                          \
-		static const char *trace_printk_fmt               \
-		__section(__trace_printk_fmt) =                   \
+		static const char *trace_printk_fmt __used        \
+		__section("__trace_printk_fmt") =                   \
 		__builtin_constant_p(fmt) ? fmt : NULL;           \
 		__trace_bprintk(ip, trace_printk_fmt, ##args);    \
 	} else                                                    \

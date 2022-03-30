@@ -11,5 +11,5 @@
 # GNU General Public License for more details.
 #
 
-obj-y += $(subst ",,$(CONFIG_MTK_TINYSYS_SCP_VERSION))/
+obj-y += rv/
 

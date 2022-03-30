@@ -20,6 +20,8 @@ enum mtk_ipi_dev {
 	IPI_DEV_MCUPM,
 	IPI_DEV_CPUEB,
 	IPI_DEV_APUSYS,
+	IPI_DEV_GPUEB,
+	IPI_DEV_VCP,
 	IPI_DEV_TOTAL,
 };
 
@@ -111,6 +113,8 @@ struct mtk_ipi_device  {
 #define IPI_NO_MEMORY		-5 /* message length is large than defined */
 #define IPI_PIN_BUSY		-6 /* send message timeout */
 #define IPI_COMPL_TIMEOUT	-7 /* polling or wait for ack ipi timeout */
+#define IPI_PRE_CB_FAIL		-8 /* pre-callback fail */
+#define IPI_POST_CB_FAIL	-9 /* post-callback fail */
 #define IPI_RPMSG_ERR		-99 /* some error from rpmsg layer */
 
 
