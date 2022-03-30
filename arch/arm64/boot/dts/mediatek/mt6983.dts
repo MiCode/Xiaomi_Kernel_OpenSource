@@ -6364,6 +6364,8 @@
 			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_MUTEX>,
 			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_APB_BUS>,
 			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_APB_BUS>,
+			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_26M_CLK>,
+			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_26M_CLK>,
 			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLI_ASYNC0>,
 			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLO_ASYNC0>,
 			 <&dispsys_config_clk CLK_DISPSYS_CONFIG_DISP_DLI_ASYNC1>,
@@ -6380,7 +6382,7 @@
 			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLO_ASYNC2>,
 			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLI_ASYNC3>,
 			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLO_ASYNC3>;
-		clock-num = <20>;
+		clock-num = <22>;
 		operating-points-v2 = <&opp_table_disp0>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		interconnects = <&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>;
@@ -6528,6 +6530,7 @@
 			"MTK_DRM_OPT_MML_PQ",
 			"MTK_DRM_OPT_DUAL_TE",
 			"MTK_DRM_OPT_RES_SWITCH",
+			"MTK_DRM_OPT_VIRTUAL_DISP",
 			"MTK_DRM_OPT_PRE_TE";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
@@ -6580,6 +6583,7 @@
 			<0>, /*MTK_DRM_OPT_MML_PQ*/
 			<1>, /*MTK_DRM_OPT_DUAL_TE*/
 			<1>, /*MTK_DRM_OPT_RES_SWITCH*/
+			<1>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
 			<0>; /*MTK_DRM_OPT_PRE_TE*/
 	};
 	disp_mutex0: disp_mutex@14001000 {
