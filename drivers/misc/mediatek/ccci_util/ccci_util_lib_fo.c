@@ -1042,7 +1042,7 @@ static int __init collect_lk_boot_arguments(void)
 {
 	/* Device tree method */
 	struct device_node *node = NULL;
-	int ret;
+//	int ret;
 	unsigned int *raw_ptr;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mddriver");
@@ -1087,7 +1087,7 @@ _common_process:
 		memset_io(s_g_lk_inf_base, 0, s_g_tag_inf_size);
 		iounmap(s_g_lk_inf_base);
 	} else if (s_g_lk_info_tag_version >= 3) {
-		if (!pfn_valid(__phys_to_pfn(s_g_tag_phy_addr))) {
+/*		if (!pfn_valid(__phys_to_pfn(s_g_tag_phy_addr))) {
 			iounmap(s_g_lk_inf_base);
 		} else {
 			vunmap(s_g_lk_inf_base);
@@ -1096,6 +1096,7 @@ _common_process:
 			CCCI_UTIL_INF_MSG(
 				"unmap && free reserved tag result=%d\n", ret);
 		}
+*/
 	}
 
 	return 0;

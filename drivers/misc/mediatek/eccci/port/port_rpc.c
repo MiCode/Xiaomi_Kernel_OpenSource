@@ -586,7 +586,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 	int md_id = port->md_id;
 	int md_val = -1;
 
-	CCCI_DEBUG_LOG(md_id, RPC, "%s++ %d\n", __func__,
+	CCCI_NORMAL_LOG(md_id, RPC, "%s++ %d\n", __func__,
 		p_rpc_buf->para_num);
 	tmp_data[0] = 0;
 	switch (p_rpc_buf->op_id) {
@@ -1181,7 +1181,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 	}
 
 	p_rpc_buf->para_num = pkt_num;
-	CCCI_DEBUG_LOG(md_id, RPC, "%s-- %d\n", __func__,
+	CCCI_NORMAL_LOG(md_id, RPC, "%s-- %d\n", __func__,
 		p_rpc_buf->para_num);
 }
 

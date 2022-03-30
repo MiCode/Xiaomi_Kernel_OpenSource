@@ -899,7 +899,7 @@ static struct md_ee_ops mdee_ops_v5 = {
 	.dump_ee_info = &mdee_dumper_v5_dump_ee_info,
 	.set_ee_pkg = &mdee_dumper_v5_set_ee_pkg,
 };
-
+#ifdef EMI_FIX_MTK25478
 #if IS_ENABLED(CONFIG_MTK_EMI)
 //fixme emi mtk25478 use k5.4
 static void mdee_dumper_v5_emimpu_callback(
@@ -943,7 +943,7 @@ static void mdee_dumper_v5_emimpu_callback(
 		}
 	}
 }
-
+#endif
 #endif
 
 int mdee_dumper_v5_alloc(struct ccci_fsm_ee *mdee)
@@ -951,12 +951,14 @@ int mdee_dumper_v5_alloc(struct ccci_fsm_ee *mdee)
 	struct mdee_dumper_v5 *dumper = NULL;
 	int md_id = mdee->md_id;
 
+#ifdef EMI_FIX_MTK25478
 #if IS_ENABLED(CONFIG_MTK_EMI)
 	if (mtk_emimpu_md_handling_register(
 			&mdee_dumper_v5_emimpu_callback))
 		CCCI_ERROR_LOG(md_id, FSM,
 			"%s: mtk_emimpu_md_handling_register fail\n",
 			__func__);
+#endif
 #endif
 	/* Allocate port_proxy obj and set all member zero */
 	dumper = kzalloc(sizeof(struct mdee_dumper_v5), GFP_KERNEL);

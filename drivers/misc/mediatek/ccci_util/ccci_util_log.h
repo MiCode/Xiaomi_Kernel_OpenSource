@@ -11,7 +11,7 @@ extern int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
 	unsigned long size, const char *name);
 #endif
 
-/* #define BRING_UP_LOG_MODE */
+#define BRING_UP_LOG_MODE
 #ifndef BRING_UP_LOG_MODE
 /* ------------------------------------------------------------------------- */
 /* For normal stage log */

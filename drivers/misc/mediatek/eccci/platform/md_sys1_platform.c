@@ -19,8 +19,11 @@
 #else
 #include <dt-bindings/clock/mt6779-clk.h>
 #endif
+
+#ifdef EMI_FIX_MTK25478
 #ifdef CONFIG_MTK_EMI_BWL
 #include <emi_mbw.h>
+#endif
 #endif
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
@@ -208,10 +211,13 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 		CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)] = { 0 };
 
 	/* EMI debug feature */
+
+#ifdef EMI_FIX_MTK25478
 #if IS_ENABLED(CONFIG_MTK_EMI)
 	mtk_emidbg_dump();
 #endif
-
+#endif
+if (0) {
 	md_cd_get_md_bootup_status(reg_value, 2);
 	md->ops->dump_info(md, DUMP_FLAG_CCIF, ccif_sram, 0);
 	/* copy from HS1 timeout */
@@ -239,6 +245,7 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 		md->hw_info->plat_ptr->md_dump_reg(md->index);
 
 	md_cd_lock_modem_clock_src(0);
+}
 
 }
 
