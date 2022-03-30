@@ -4676,6 +4676,11 @@
 		nvmem-cell-names = "e_data1","e_data2","e_data3";
 	};
 
+	vtskin: vtskin {
+		compatible = "mediatek,mt6983-virtual-tskin";
+		#thermal-sensor-cells = <1>;
+	};
+
 	ktf_lvts: ktf_lvts@10315000 {
 		compatible = "mediatek,ktf-lvts-test";
 		#thermal-sensor-cells = <1>;
@@ -5582,6 +5587,16 @@
 			polling-delay = <0>; /* milliseconds */
 			polling-delay-passive = <0>; /* milliseconds */
 			thermal-sensors = <&lvts 27>;
+		};
+		back_tskin {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&vtskin 0>;
+		};
+		front_tskin {
+			polling-delay = <0>; /* milliseconds */
+			polling-delay-passive = <0>; /* milliseconds */
+			thermal-sensors = <&vtskin 1>;
 		};
 		ap_ntc: ap_ntc {
 			polling-delay = <0>; /* milliseconds */
