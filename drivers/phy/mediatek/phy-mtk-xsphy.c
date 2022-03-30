@@ -74,6 +74,10 @@
 #define P2A6_RG_BC11_SW_EN	BIT(23)
 #define P2A6_RG_OTG_VBUSCMP_EN	BIT(20)
 
+#define XSP_USBPHYACR3		((SSUSB_SIFSLV_U2PHY_COM) + 0x01c)
+#define P2A3_RG_USB20_PUPD_BIST_EN	BIT(12)
+#define P2A3_RG_USB20_EN_PU_DP		BIT(9)
+
 #define XSP_USBPHYACR4		((SSUSB_SIFSLV_U2PHY_COM) + 0x020)
 #define P2A4_RG_USB20_GPIO_CTL		BIT(9)
 #define P2A4_USB20_GPIO_MODE		BIT(8)
@@ -164,6 +168,15 @@ enum mtk_xsphy_mode {
 	XSP_MODE_USB = 0,
 	XSP_MODE_UART,
 	XSP_MODE_JTAG,
+};
+
+enum mtk_xsphy_submode {
+	PHY_MODE_BC11_SW_SET = 1,
+	PHY_MODE_BC11_SW_CLR,
+	PHY_MODE_DPDMPULLDOWN_SET,
+	PHY_MODE_DPDMPULLDOWN_CLR,
+	PHY_MODE_DPPULLUP_SET,
+	PHY_MODE_DPPULLUP_CLR,
 };
 
 enum mtk_xsphy_jtag_version {
@@ -486,26 +499,85 @@ static void u2_phy_instance_power_off(struct mtk_xsphy *xsphy,
 
 static void u2_phy_instance_set_mode(struct mtk_xsphy *xsphy,
 				     struct xsphy_instance *inst,
-				     enum phy_mode mode)
+				     enum phy_mode mode,
+				     int submode)
 {
 	u32 tmp;
 
-	tmp = readl(inst->port_base + XSP_U2PHYDTM1);
-	switch (mode) {
-	case PHY_MODE_USB_DEVICE:
-		tmp |= P2D_FORCE_IDDIG | P2D_RG_IDDIG;
-		break;
-	case PHY_MODE_USB_HOST:
-		tmp |= P2D_FORCE_IDDIG;
-		tmp &= ~P2D_RG_IDDIG;
-		break;
-	case PHY_MODE_USB_OTG:
-		tmp &= ~(P2D_FORCE_IDDIG | P2D_RG_IDDIG);
-		break;
-	default:
-		return;
+	dev_info(xsphy->dev, "%s mode(%d), submode(%d)\n", __func__,
+		mode, submode);
+
+	if (!submode) {
+		tmp = readl(inst->port_base + XSP_U2PHYDTM1);
+		switch (mode) {
+		case PHY_MODE_USB_DEVICE:
+			tmp |= P2D_FORCE_IDDIG | P2D_RG_IDDIG;
+			break;
+		case PHY_MODE_USB_HOST:
+			tmp |= P2D_FORCE_IDDIG;
+			tmp &= ~P2D_RG_IDDIG;
+			break;
+		case PHY_MODE_USB_OTG:
+			tmp &= ~(P2D_FORCE_IDDIG | P2D_RG_IDDIG);
+			break;
+		default:
+			return;
+		}
+		writel(tmp, inst->port_base + XSP_U2PHYDTM1);
+	} else {
+		switch (submode) {
+		case PHY_MODE_BC11_SW_SET:
+			tmp = readl(inst->port_base + XSP_USBPHYACR6);
+			tmp |= P2A6_RG_BC11_SW_EN;
+			writel(tmp, inst->port_base + XSP_USBPHYACR6);
+			break;
+		case PHY_MODE_BC11_SW_CLR:
+			tmp = readl(inst->port_base + XSP_USBPHYACR6);
+			tmp &= ~P2A6_RG_BC11_SW_EN;
+			writel(tmp, inst->port_base + XSP_USBPHYACR6);
+			break;
+		case PHY_MODE_DPDMPULLDOWN_SET:
+			tmp = readl(inst->port_base + XSP_U2PHYDTM0);
+			tmp |= P2D_RG_DPPULLDOWN | P2D_RG_DMPULLDOWN;
+			writel(tmp, inst->port_base + XSP_U2PHYDTM0);
+
+			tmp = readl(inst->port_base + XSP_USBPHYACR6);
+			tmp &= ~P2A6_RG_U2_PHY_REV1;
+			writel(tmp, inst->port_base + XSP_USBPHYACR6);
+
+			tmp = readl(inst->port_base + XSP_USBPHYACR6);
+			tmp |= P2A6_RG_BC11_SW_EN;
+			writel(tmp, inst->port_base + XSP_USBPHYACR6);
+			break;
+		case PHY_MODE_DPDMPULLDOWN_CLR:
+			tmp = readl(inst->port_base + XSP_U2PHYDTM0);
+			tmp &= ~(P2D_RG_DPPULLDOWN | P2D_RG_DMPULLDOWN);
+			writel(tmp, inst->port_base + XSP_U2PHYDTM0);
+
+			tmp = readl(inst->port_base + XSP_USBPHYACR6);
+			tmp |= P2A6_RG_U2_PHY_REV1;
+			writel(tmp, inst->port_base + XSP_USBPHYACR6);
+
+			tmp = readl(inst->port_base + XSP_USBPHYACR6);
+			tmp &= ~P2A6_RG_BC11_SW_EN;
+			writel(tmp, inst->port_base + XSP_USBPHYACR6);
+			break;
+		case PHY_MODE_DPPULLUP_SET:
+			tmp = readl(inst->port_base + XSP_USBPHYACR3);
+			tmp |= P2A3_RG_USB20_PUPD_BIST_EN |
+				P2A3_RG_USB20_EN_PU_DP;
+			writel(tmp, inst->port_base + XSP_USBPHYACR3);
+			break;
+		case PHY_MODE_DPPULLUP_CLR:
+			tmp = readl(inst->port_base + XSP_USBPHYACR3);
+			tmp &= ~(P2A3_RG_USB20_PUPD_BIST_EN |
+				P2A3_RG_USB20_EN_PU_DP);
+			writel(tmp, inst->port_base + XSP_USBPHYACR3);
+			break;
+		default:
+			return;
+		}
 	}
-	writel(tmp, inst->port_base + XSP_U2PHYDTM1);
 }
 
 static void phy_parse_property(struct mtk_xsphy *xsphy,
@@ -678,7 +750,7 @@ static int mtk_phy_set_mode(struct phy *phy, enum phy_mode mode, int submode)
 	struct mtk_xsphy *xsphy = dev_get_drvdata(phy->dev.parent);
 
 	if (inst->type == PHY_TYPE_USB2)
-		u2_phy_instance_set_mode(xsphy, inst, mode);
+		u2_phy_instance_set_mode(xsphy, inst, mode, submode);
 
 	return 0;
 }
