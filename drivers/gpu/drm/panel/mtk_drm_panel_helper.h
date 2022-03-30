@@ -363,6 +363,8 @@ void mtk_lcm_dts_read_u8(struct device_node *np, char *prop,
 		u8 *out);
 int mtk_lcm_dts_read_u8_array(struct device_node *np, char *prop,
 		u8 *out, int min_len, int max_len);
+int mtk_lcm_dts_read_u8_array_from_u32(struct device_node *np, char *prop,
+		u8 *out, int min_len, int max_len);
 
 /* function: parse lcm parameters
  * input: fdt: dts, nodeoffset: dts node,
