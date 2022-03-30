@@ -238,7 +238,7 @@ static long eeprom_ioctl(struct file *a_file, unsigned int a_cmd,
 	pBuff = kzalloc(_IOC_SIZE(a_cmd), GFP_KERNEL);
 	if (pBuff == NULL)
 		return -ENOMEM;
-	((struct CAM_CAL_SENSOR_INFO *)pBuff)->sensor_id = 0;
+	memset(pBuff, 0, _IOC_SIZE(a_cmd));
 
 	if ((_IOC_WRITE & _IOC_DIR(a_cmd)) &&
 	    copy_from_user(pBuff,
@@ -262,6 +262,16 @@ static long eeprom_ioctl(struct file *a_file, unsigned int a_cmd,
 		break;
 	case CAM_CALIOC_G_GKI_READ:
 		ret = get_cal_data(pdata, (unsigned int *)pBuff);
+		if (ret == CAM_CAL_ERR_NO_ERR) {
+			if (copy_to_user((u8 __user *) a_param, (u8 *) pBuff, _IOC_SIZE(a_cmd))) {
+				kfree(pBuff);
+				return CAM_CAL_ERR_NO_DEVICE;
+			}
+		}
+		kfree(pBuff);
+		return ret;
+	case CAM_CALIOC_G_GKI_NEED_POWER_ON:
+		ret = get_is_need_power_on(pdata, (unsigned int *)pBuff);
 		if (ret == CAM_CAL_ERR_NO_ERR) {
 			if (copy_to_user((u8 __user *) a_param, (u8 *) pBuff, _IOC_SIZE(a_cmd))) {
 				kfree(pBuff);

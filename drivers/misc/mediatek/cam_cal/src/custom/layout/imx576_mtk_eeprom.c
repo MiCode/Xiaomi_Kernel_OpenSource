@@ -36,4 +36,5 @@ struct STRUCT_CAM_CAL_CONFIG_STRUCT imx576_mtk_eeprom = {
 	.max_size = 0x2000,
 	.enable_preload = 1,
 	.preload_size = 0x1500,
+	.has_stored_data = 1,
 };

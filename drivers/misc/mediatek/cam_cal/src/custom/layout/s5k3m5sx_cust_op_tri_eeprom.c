@@ -43,6 +43,7 @@ struct STRUCT_CAM_CAL_CONFIG_STRUCT s5k3m5sx_cust_op_tri_eeprom = {
 	.max_size = 0x4000,
 	.enable_preload = 1,
 	.preload_size = 0x4000,
+	.has_stored_data = 1,
 };
 
 static unsigned int do_single_lsc_s5k3m5sx(struct EEPROM_DRV_FD_DATA *pdata,
