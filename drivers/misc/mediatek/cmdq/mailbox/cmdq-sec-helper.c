@@ -14,8 +14,6 @@
 #define CMDQ_IMMEDIATE_VALUE		(0)
 #define CMDQ_REG_TYPE			(1)
 
-#define CMDQ_PREDUMP_TIMEOUT_MS		200
-
 static s32 cmdq_sec_realloc_addr_list(struct cmdq_pkt *pkt, const u32 count)
 {
 	struct cmdq_sec_data *sec_data =
@@ -134,6 +132,27 @@ s32 cmdq_sec_pkt_set_data(struct cmdq_pkt *pkt, const u64 dapc_engine,
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_sec_pkt_set_data);
+
+void cmdq_sec_pkt_set_mtee(struct cmdq_pkt *pkt, const bool enable)
+{
+	struct cmdq_sec_data *sec_data =
+		(struct cmdq_sec_data *)pkt->sec_data;
+	sec_data->mtee = enable;
+	sec_data->sec_id = 0;
+	cmdq_msg("%s pkt:%p mtee:%d sec_id:%d\n",
+		__func__, pkt, ((struct cmdq_sec_data *)pkt->sec_data)->mtee,
+		((struct cmdq_sec_data *)pkt->sec_data)->sec_id);
+}
+EXPORT_SYMBOL(cmdq_sec_pkt_set_mtee);
+
+void cmdq_sec_pkt_free_data(struct cmdq_pkt *pkt)
+{
+	if (pkt->sec_data == NULL)
+		return;
+	kfree((void *)((struct cmdq_sec_data *)pkt->sec_data)->addrMetadatas);
+	kfree(pkt->sec_data);
+}
+EXPORT_SYMBOL(cmdq_sec_pkt_free_data);
 
 s32 cmdq_sec_pkt_set_payload(struct cmdq_pkt *pkt, u8 idx,
 	const u32 meta_size, u32 *meta)
@@ -269,6 +288,7 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt)
 	unsigned long ret;
 	u8 cnt = 0;
 	s32 thread_id = cmdq_sec_mbox_chan_id(client->chan);
+	u32 timeout_ms = cmdq_mbox_get_thread_timeout((void *)client->chan);
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	cmdq_sec_mmp_wait(client->chan, pkt);
@@ -277,8 +297,14 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt)
 	cmdq_sec_mbox_enable(client->chan);
 
 	do {
+		if (timeout_ms == CMDQ_NO_TIMEOUT) {
+			cmdq_msg("%s: timeout:%u", __func__, timeout_ms);
+			wait_for_completion(&pkt->cmplt);
+			break;
+		}
+
 		ret = wait_for_completion_timeout(&pkt->cmplt,
-			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
+			msecs_to_jiffies(CMDQ_PREDUMP_MS(timeout_ms)));
 		if (ret)
 			break;
 
@@ -319,3 +345,4 @@ void cmdq_sec_err_dump(struct cmdq_pkt *pkt, struct cmdq_client *client,
 }
 EXPORT_SYMBOL(cmdq_sec_err_dump);
 
+MODULE_LICENSE("GPL v2");

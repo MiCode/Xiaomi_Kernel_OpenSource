@@ -4984,8 +4984,14 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 			}
 		}
 	}
+/* #if 0 for porting to kernel-5.15 */
+#if 0
 	cmdq_buf->va_base = cmdq_mbox_buf_alloc(
 		mtk_crtc->gce_obj.client[CLIENT_CFG]->chan->mbox->dev,
+		&(cmdq_buf->pa_base));
+#endif
+	cmdq_buf->va_base = cmdq_mbox_buf_alloc(
+		mtk_crtc->gce_obj.client[CLIENT_CFG],
 		&(cmdq_buf->pa_base));
 	memset(cmdq_buf->va_base, 0, DISP_SLOT_SIZE);
 

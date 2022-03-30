@@ -49,12 +49,25 @@ void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util);
 #define CMDQ_TPR_ID			56
 #define CMDQ_HANDSHAKE_REG		59
 #define CMDQ_GPR_CNT_ID			32
+#define CMDQ_EVENT_MAX			0x3FF
+#define SUBSYS_NO_SUPPORT		99
+
+#define GCE_CPR_COUNT			1312
 #define CMDQ_CPR_STRAT_ID		0x8000
 #define CMDQ_CPR_TPR_MASK		0x8000
 #define CMDQ_CPR_DISP_CNT		0x8001
-#define CMDQ_CPR_DDR_USR_CNT	0x8002
-#define CMDQ_EVENT_MAX			0x3FF
-#define SUBSYS_NO_SUPPORT		99
+#define CMDQ_CPR_DDR_USR_CNT		0x8002
+
+/* ATF PREBUILT */
+#define CMDQ_CPR_PREBUILT_PIPE_CNT	2
+#define CMDQ_CPR_PREBUILT_REG_CNT	20
+enum {CMDQ_PREBUILT_MDP, CMDQ_PREBUILT_MML, CMDQ_PREBUILT_VFMT,
+	CMDQ_PREBUILT_DISP, CMDQ_PREBUILT_MOD};
+#define CMDQ_CPR_PREBUILT_PIPE(mod)	(0x8003 + (mod))
+#define CMDQ_CPR_PREBUILT(mod, pipe, index) \
+	(0x8010 + \
+	(mod) * (CMDQ_CPR_PREBUILT_PIPE_CNT) * (CMDQ_CPR_PREBUILT_REG_CNT) + \
+	(pipe) * (CMDQ_CPR_PREBUILT_REG_CNT) + (index))
 
 /* GCE provide 26M timer, thus each tick 1/26M second,
  * which is, 1 microsecond = 26 ticks
@@ -63,9 +76,12 @@ void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util);
 #define CMDQ_TICK_TO_US(_t)		(do_div(_t, 26))
 
 extern int gce_shift_bit;
+extern int gce_mminfra;
+extern bool gce_insert_dummy;
+#define CMDQ_REG_SHIFT_ADDR(addr) (((addr) + gce_mminfra) >> gce_shift_bit)
+#define CMDQ_REG_REVERT_ADDR(addr) (((addr) << gce_shift_bit) - gce_mminfra)
 
-#define CMDQ_REG_SHIFT_ADDR(addr)	((addr) >> gce_shift_bit)
-#define CMDQ_REG_REVERT_ADDR(addr)	((addr) << gce_shift_bit)
+
 
 /* GCE provide 32/64 bit General Purpose Register (GPR)
  * use as data cache or address register
@@ -113,7 +129,33 @@ enum gce_event {
 	CMDQ_TOKEN_SECURE_THR_EOF = 647,
 	CMDQ_TOKEN_TPR_LOCK = 652,
 
-	/* GPR timer token, 994 to 994+23 */
+	/* TZMP sw token */
+	CMDQ_TOKEN_TZMP_ISP_WAIT = 676,
+	CMDQ_TOKEN_TZMP_ISP_SET = 677,
+	CMDQ_TOKEN_TZMP_AIE_WAIT = 678,
+	CMDQ_TOKEN_TZMP_AIE_SET = 679,
+
+	/* ATF PREBUILT sw token */
+	CMDQ_TOKEN_PREBUILT_MDP_WAIT = 680,
+	CMDQ_TOKEN_PREBUILT_MDP_SET = 681,
+	CMDQ_TOKEN_PREBUILT_MDP_LOCK = 682,
+
+	CMDQ_TOKEN_PREBUILT_MML_WAIT = 683,
+	CMDQ_TOKEN_PREBUILT_MML_SET = 684,
+	CMDQ_TOKEN_PREBUILT_MML_LOCK = 685,
+
+	CMDQ_TOKEN_PREBUILT_VFMT_WAIT = 686,
+	CMDQ_TOKEN_PREBUILT_VFMT_SET = 687,
+	CMDQ_TOKEN_PREBUILT_VFMT_LOCK = 688,
+
+	CMDQ_TOKEN_PREBUILT_DISP_WAIT = 689,
+	CMDQ_TOKEN_PREBUILT_DISP_SET = 690,
+	CMDQ_TOKEN_PREBUILT_DISP_LOCK = 691,
+
+	CMDQ_TOKEN_DISP_VA_START = 692,
+	CMDQ_TOKEN_DISP_VA_END = 693,
+
+	/* GPR timer token, 994 to 1009 (for gpr r0 to r15) */
 	CMDQ_EVENT_GPR_TIMER = 994,
 };
 
@@ -136,6 +178,7 @@ struct cmdq_client {
 	struct mbox_chan *chan;
 	void *cl_priv;
 	struct mutex chan_mutex;
+	bool use_iommu;
 };
 
 struct cmdq_operand {
@@ -176,10 +219,27 @@ enum CMDQ_CONDITION_ENUM {
 	CMDQ_CONDITION_MAX,
 };
 
+enum CMDQ_VCP_ENG_ENUM {
+	CMDQ_VCP_ENG_MDP_HDR0,
+	CMDQ_VCP_ENG_MDP_HDR1,
+	CMDQ_VCP_ENG_MDP_AAL0,
+	CMDQ_VCP_ENG_MDP_AAL1,
+	CMDQ_VCP_ENG_MML_HDR0,
+	CMDQ_VCP_ENG_MML_HDR1,
+	CMDQ_VCP_ENG_MML_AAL0,
+	CMDQ_VCP_ENG_MML_AAL1,
+};
+
 struct cmdq_flush_completion {
 	struct cmdq_pkt *pkt;
 	struct completion cmplt;
 	s32 err;
+};
+
+struct cmdq_reuse {
+	u64 *va;
+	u32 val;
+	u32 offset;
 };
 
 u32 cmdq_subsys_id_to_base(struct cmdq_base *cmdq_base, int id);
@@ -210,12 +270,21 @@ struct cmdq_base *cmdq_register_device(struct device *dev);
 struct cmdq_client *cmdq_mbox_create(struct device *dev, int index);
 void cmdq_mbox_stop(struct cmdq_client *cl);
 
+void cmdq_vcp_enable(bool en);
+void *cmdq_get_vcp_buf(enum CMDQ_VCP_ENG_ENUM engine, dma_addr_t *pa_out);
+u32 cmdq_pkt_vcp_reuse_val(enum CMDQ_VCP_ENG_ENUM engine, u32 buf_offset, u16 size);
+s32 cmdq_pkt_readback(struct cmdq_pkt *pkt, enum CMDQ_VCP_ENG_ENUM engine,
+	u32 buf_offset, u16 size, u16 reg_gpr, u64 **curr_buf_va);
+
 void cmdq_mbox_pool_set_limit(struct cmdq_client *cl, u32 limit);
 void cmdq_mbox_pool_create(struct cmdq_client *cl);
 void cmdq_mbox_pool_clear(struct cmdq_client *cl);
 
-void *cmdq_mbox_buf_alloc(struct device *dev, dma_addr_t *pa_out);
-void cmdq_mbox_buf_free(struct device *dev, void *va, dma_addr_t pa);
+void *cmdq_mbox_buf_alloc(struct cmdq_client *cl, dma_addr_t *pa_out);
+
+void cmdq_mbox_buf_free(struct cmdq_client *cl, void *va, dma_addr_t pa);
+
+void cmdq_set_outpin_event(struct cmdq_client *cl, bool ena);
 
 s32 cmdq_dev_get_event(struct device *dev, const char *name);
 
@@ -251,6 +320,8 @@ dma_addr_t cmdq_pkt_get_pa_by_offset(struct cmdq_pkt *pkt, u32 offset);
 
 dma_addr_t cmdq_pkt_get_curr_buf_pa(struct cmdq_pkt *pkt);
 
+void *cmdq_pkt_get_curr_buf_va(struct cmdq_pkt *pkt);
+
 s32 cmdq_pkt_append_command(struct cmdq_pkt *pkt, u16 arg_c, u16 arg_b,
 	u16 arg_a, u8 s_op, u8 arg_c_type, u8 arg_b_type, u8 arg_a_type,
 	enum cmdq_code code);
@@ -277,6 +348,22 @@ s32 cmdq_pkt_write_reg_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 	u32 value, u32 mask);
 
+s32 cmdq_pkt_assign_command_reuse(struct cmdq_pkt *pkt, u16 reg_idx, u32 value,
+	u64 **curr_buf_va, u32 *inst_offset);
+
+s32 cmdq_pkt_write_reg_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
+	u16 src_reg_idx, u32 mask, u64 **curr_buf_va, u32 *inst_offset);
+
+s32 cmdq_pkt_write_value_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
+	u32 value, u32 mask, u64 **curr_buf_va, u32 *inst_offset);
+
+void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,
+	const u32 count);
+
+void cmdq_reuse_refresh(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse, u32 cnt);
+
+s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src);
+
 s32 cmdq_pkt_store_value(struct cmdq_pkt *pkt, u16 indirect_dst_reg_idx,
 	u16 dst_addr_low, u32 value, u32 mask);
 
@@ -288,6 +375,9 @@ s32 cmdq_pkt_store64_value_reg(struct cmdq_pkt *pkt,
 
 s32 cmdq_pkt_write_indriect(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t addr, u16 src_reg_idx, u32 mask);
+
+s32 cmdq_pkt_write_reg_indriect(struct cmdq_pkt *pkt, u16 addr_reg_idx,
+	u16 src_reg_idx, u32 mask);
 
 /**
  * cmdq_pkt_write() - append write command to the CMDQ packet
@@ -302,6 +392,8 @@ s32 cmdq_pkt_write_indriect(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 s32 cmdq_pkt_write(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t addr, u32 value, u32 mask);
 
+s32 cmdq_pkt_write_dummy(struct cmdq_pkt *pkt, dma_addr_t addr);
+
 s32 cmdq_pkt_mem_move(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t src_addr, dma_addr_t dst_addr, u16 swap_reg_idx);
 
@@ -315,6 +407,12 @@ s32 cmdq_pkt_logic_command(struct cmdq_pkt *pkt, enum CMDQ_LOGIC_ENUM s_op,
 s32 cmdq_pkt_jump(struct cmdq_pkt *pkt, s32 offset);
 
 s32 cmdq_pkt_jump_addr(struct cmdq_pkt *pkt, dma_addr_t addr);
+
+s32 cmdq_pkt_cond_jump(struct cmdq_pkt *pkt,
+	u16 offset_reg_idx,
+	struct cmdq_operand *left_operand,
+	struct cmdq_operand *right_operand,
+	enum CMDQ_CONDITION_ENUM condition_operator);
 
 s32 cmdq_pkt_cond_jump_abs(struct cmdq_pkt *pkt,
 	u16 addr_reg_idx,
@@ -385,7 +483,11 @@ s32 cmdq_pkt_set_event(struct cmdq_pkt *pkt, u16 event);
 
 s32 cmdq_pkt_handshake_event(struct cmdq_pkt *pkt, u16 event);
 
+s32 cmdq_pkt_eoc(struct cmdq_pkt *pkt, bool cnt_inc);
+
 s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt);
+
+s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt);
 
 s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt);
 
@@ -427,11 +529,13 @@ void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 	u32 offset, void *inst);
 
 void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
-	dma_addr_t cur_pa, const char *info);
+	dma_addr_t cur_pa, const char *info, void *chan);
 
 s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa);
 
 int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_inst);
+
+char *cmdq_pkt_parse_buf(struct cmdq_pkt *pkt, u32 *size_out);
 
 void cmdq_pkt_set_err_cb(struct cmdq_pkt *pkt,
 	cmdq_async_flush_cb cb, void *data);

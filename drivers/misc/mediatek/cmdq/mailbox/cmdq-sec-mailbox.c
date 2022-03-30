@@ -4,17 +4,28 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/io.h>
 #include <linux/mailbox_controller.h>
+#include <linux/pm_runtime.h>
+#include <linux/pm_domain.h>
 #include <linux/sched/clock.h>
 #include <linux/timer.h>
 
 #include "cmdq-sec.h"
-#include "cmdq-sec-gp.h"
 #include "cmdq-sec-mailbox.h"
 #include "cmdq-sec-tl-api.h"
 #include "cmdq-util.h"
+
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+#include "cmdq_sec_mtee.h"
+#endif
+
+#ifdef CMDQ_GP_SUPPORT
+#include "cmdq-sec-gp.h"
+static atomic_t m4u_init = ATOMIC_INIT(0);
+#endif
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 #include <mmprofile.h>
@@ -45,7 +56,15 @@ struct cmdq_sec_context {
 	void *iwc_ex2;	/* message buffer extra */
 
 #ifdef CMDQ_SECURE_SUPPORT
+#ifdef CMDQ_GP_SUPPORT
 	struct cmdq_sec_tee_context tee;	/* trustzone parameters */
+#endif
+#ifdef CMDQ_SECURE_MTEE_SUPPORT			/* MTEE parameters */
+	void *mtee_iwc_msg;
+	void *mtee_iwc_ex1;
+	void *mtee_iwc_ex2;
+	struct cmdq_sec_mtee_context mtee;
+#endif
 #endif
 };
 
@@ -84,6 +103,7 @@ struct cmdq_sec_thread {
 	u32			next_cookie;
 	u32			task_cnt;
 	struct workqueue_struct	*task_exec_wq;
+	bool			stop;
 };
 
 /**
@@ -128,10 +148,12 @@ struct cmdq_sec {
 	u64			sec_done;
 
 	struct mutex		exec_lock;
+	struct mutex		mbox_mutex;
 	struct cmdq_sec_thread	thread[CMDQ_THR_MAX_COUNT];
 	struct clk		*clock;
 	bool			suspended;
 	atomic_t		usage;
+	atomic_t		mbox_usage;
 	struct workqueue_struct	*notify_wq;
 	struct workqueue_struct	*timeout_wq;
 
@@ -140,17 +162,66 @@ struct cmdq_sec {
 	struct cmdq_sec_context		*context;
 	struct iwcCmdqCancelTask_t	cancel;
 	struct cmdq_mmp_event		mmp;
+	bool			unprepare_in_idle;
 };
 static atomic_t cmdq_path_res = ATOMIC_INIT(0);
+static atomic_t cmdq_path_res_mtee = ATOMIC_INIT(0);
+
+static u32 g_cmdq_cnt;
+static struct cmdq_sec *g_cmdq[2];
+
+static const s32 cmdq_max_task_in_secure_thread[
+	CMDQ_MAX_SECURE_THREAD_COUNT] = {10, 10, 4, 10, 10};
+static const s32 cmdq_tz_cmd_block_size[CMDQ_MAX_SECURE_THREAD_COUNT] = {
+	4 << 12, 4 << 12, 20 << 12, 4 << 12, 4 << 12};
+
+struct cmdq_sec_helper_fp helper_fp = {
+	.sec_insert_backup_cookie_fp = cmdq_sec_insert_backup_cookie,
+	.sec_pkt_wait_complete_fp = cmdq_sec_pkt_wait_complete,
+	.sec_pkt_free_data_fp = cmdq_sec_pkt_free_data,
+	.sec_err_dump_fp = cmdq_sec_err_dump,
+};
 
 static s32
 cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
-	const u32 iwc_cmd, const u32 thrd_idx, void *data);
+	const u32 iwc_cmd, const u32 thrd_idx, void *data, bool mtee);
+
+/* operator API */
+static inline void
+cmdq_sec_setup_tee_context_base(struct cmdq_sec_context *context)
+{
+#ifdef CMDQ_GP_SUPPORT
+	cmdq_sec_setup_tee_context(&context->tee);
+#endif
+
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+	cmdq_sec_mtee_setup_context(&context->mtee);
+#endif
+}
+
+static inline s32
+cmdq_sec_init_context_base(struct cmdq_sec_context *context)
+{
+	s32 status = 0;
+
+#ifdef CMDQ_GP_SUPPORT
+	status = cmdq_sec_init_context(&context->tee);
+	if (status < 0)
+		return status;
+#endif
+
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+	status = cmdq_sec_mtee_open_session(
+		&context->mtee, context->mtee_iwc_msg);
+#endif
+	return status;
+}
 
 static inline void cmdq_mmp_init(struct cmdq_sec *cmdq)
 {
 #if IS_ENABLED(CONFIG_MMPROFILE)
-	char name[12];
+	char name[32];
+	int len;
 
 	mmprofile_enable(1);
 	if (cmdq->mmp.cmdq) {
@@ -158,7 +229,10 @@ static inline void cmdq_mmp_init(struct cmdq_sec *cmdq)
 		return;
 	}
 
-	snprintf(name, sizeof(name), "cmdq_sec_%hhu", cmdq->hwid);
+	len = snprintf(name, sizeof(name), "cmdq_sec_%hhu", cmdq->hwid);
+	if (len >= sizeof(name))
+		cmdq_log("len:%d over name size:%d", len, sizeof(name));
+
 	cmdq->mmp.cmdq_root = mmprofile_register_event(MMP_ROOT_EVENT, "CMDQ");
 	cmdq->mmp.cmdq = mmprofile_register_event(cmdq->mmp.cmdq_root, name);
 	cmdq->mmp.queue = mmprofile_register_event(cmdq->mmp.cmdq, "queue");
@@ -200,6 +274,7 @@ static void cmdq_sec_clk_disable(struct cmdq_sec *cmdq)
 
 	if (!usage) {
 		cmdq_err("usage:%d count error", usage);
+		dump_stack();
 		return;
 	}
 	clk_disable(cmdq->clock);
@@ -214,17 +289,65 @@ void cmdq_sec_mbox_enable(void *chan)
 {
 	struct cmdq_sec *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
+	s32 mbox_usage;
+
+	WARN_ON(cmdq->suspended);
+	if (cmdq->suspended) {
+		cmdq_err("cmdq:%pa id:%u suspend:%d cannot enable usage:%d",
+			&cmdq->base_pa, cmdq->hwid, cmdq->suspended,
+			atomic_read(&cmdq->usage));
+		return;
+	}
+
+	pm_runtime_get_sync(cmdq->mbox.dev);
+
+	mutex_lock(&cmdq->mbox_mutex);
+	mbox_usage = atomic_inc_return(&cmdq->mbox_usage);
+	if (cmdq->unprepare_in_idle) {
+		if (mbox_usage == 1)
+			WARN_ON(clk_prepare(cmdq->clock) < 0);
+	}
+	mutex_unlock(&cmdq->mbox_mutex);
 
 	cmdq_sec_clk_enable(cmdq);
 }
+EXPORT_SYMBOL(cmdq_sec_mbox_enable);
 
 void cmdq_sec_mbox_disable(void *chan)
 {
 	struct cmdq_sec *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
+	s32 mbox_usage;
+
+	WARN_ON(cmdq->suspended);
+	if (cmdq->suspended) {
+		cmdq_err("cmdq:%pa id:%u suspend:%d cannot enable usage:%d",
+			&cmdq->base_pa, cmdq->hwid, cmdq->suspended,
+			atomic_read(&cmdq->usage));
+		return;
+	}
 
 	cmdq_sec_clk_disable(cmdq);
+
+	mutex_lock(&cmdq->mbox_mutex);
+	mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
+	if (cmdq->unprepare_in_idle) {
+		if (mbox_usage == 0)
+			clk_unprepare(cmdq->clock);
+		else if (mbox_usage < 0) {
+			cmdq_err("mbox_usage:%d", mbox_usage);
+			dump_stack();
+		}
+	}
+	mutex_unlock(&cmdq->mbox_mutex);
+
+	pm_runtime_put_sync(cmdq->mbox.dev);
+	if ((mbox_usage == 0) && (atomic_read(&cmdq->usage) > 0))
+		cmdq_err(
+			"sec_mbox_disable when task running,cmdq:%pa id:%u usage:%d",
+			&cmdq->base_pa, cmdq->hwid, atomic_read(&cmdq->usage));
 }
+EXPORT_SYMBOL(cmdq_sec_mbox_disable);
 
 s32 cmdq_sec_mbox_chan_id(void *chan)
 {
@@ -306,6 +429,7 @@ void cmdq_sec_dump_secure_thread_cookie(struct mbox_chan *chan)
 		thread->next_cookie,
 		thread->task_cnt);
 }
+EXPORT_SYMBOL(cmdq_sec_dump_secure_thread_cookie);
 
 void cmdq_sec_dump_thread_all(void *mbox_cmdq)
 {
@@ -337,6 +461,10 @@ static void cmdq_sec_task_done(struct cmdq_sec_task *task, s32 err)
 {
 	cmdq_log("%s done task:%p pkt:%p err:%d",
 		__func__, task, task->pkt, err);
+
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		task->pkt->rec_irq = sched_clock();
+#endif
 
 	if (task->pkt->cb.cb) {
 		struct cmdq_cb_data cb_data;
@@ -413,8 +541,11 @@ static bool cmdq_sec_irq_handler(
 
 		/* for error task, cancel, callback and done */
 		memset(&cmdq->cancel, 0, sizeof(cmdq->cancel));
+		cmdq->cancel.throwAEE = true;
 		cmdq_sec_task_submit(cmdq, cur_task,
-			CMD_CMDQ_TL_CANCEL_TASK, thread->idx, &cmdq->cancel);
+			CMD_CMDQ_TL_CANCEL_TASK, thread->idx, &cmdq->cancel,
+			((struct cmdq_sec_data *)
+				cur_task->pkt->sec_data)->mtee);
 
 		cb_data.err = err;
 		cb_data.data = cur_task->pkt->err_cb.data;
@@ -485,6 +616,7 @@ void cmdq_sec_dump_notify_loop(void *chan)
 
 	cmdq_dump_summary(cmdq->clt, cmdq->clt_pkt);
 }
+EXPORT_SYMBOL(cmdq_sec_dump_notify_loop);
 
 static void cmdq_sec_irq_notify_work(struct work_struct *work_item)
 {
@@ -506,9 +638,24 @@ static void cmdq_sec_irq_notify_work(struct work_struct *work_item)
 		u32 cookie = cmdq_sec_get_cookie(cmdq, thread->idx);
 
 		cmdq_log(
-			"%s gce:%#lx thread:%u cookie:%u wait cookie:%u task count:%u",
+			"%s gce:%#lx thread:%u cookie:%u wait cookie:%u task count:%u stop:%d",
 			__func__, (unsigned long)cmdq->base_pa, thread->idx,
-			cookie, thread->wait_cookie, thread->task_cnt);
+			cookie, thread->wait_cookie, thread->task_cnt,
+			thread->stop);
+
+		if (thread->stop) {
+			stop |= cmdq_sec_irq_handler(
+				thread, thread->wait_cookie, 0);
+
+			cmdq_msg(
+				"%s gce:%pa thread:%u cookie:%u wait cookie:%u task count:%u stop:%d",
+				__func__, &cmdq->base_pa, thread->idx,
+				cookie, thread->wait_cookie, thread->task_cnt,
+				thread->stop);
+
+			thread->stop = false;
+			continue;
+		}
 
 		if (cookie < thread->wait_cookie || !thread->task_cnt)
 			continue;
@@ -531,6 +678,7 @@ static void cmdq_sec_irq_notify_work(struct work_struct *work_item)
 					(unsigned long)cmdq->base_pa);
 			cmdq_mbox_stop(cmdq->clt);
 			cmdq->notify_run = false;
+			cmdq_mbox_disable(cmdq->clt->chan);
 		}
 		cmdq_log("%s stop empty:%s gce:%#lx",
 			__func__, empty ? "true" : "false",
@@ -597,11 +745,13 @@ static s32 cmdq_sec_irq_notify_start(struct cmdq_sec *cmdq)
 	cmdq_pkt_finalize_loop(cmdq->clt_pkt);
 	cmdq_clear_event(cmdq->clt->chan, CMDQ_TOKEN_SECURE_THR_EOF);
 
+	cmdq_mbox_enable(cmdq->clt->chan);
 	err = cmdq_pkt_flush_async(cmdq->clt_pkt,
 		cmdq_sec_irq_notify_callback, (void *)cmdq);
 	if (err < 0) {
 		cmdq_err("irq cmdq_pkt_flush_async failed:%d", err);
 		cmdq_mbox_stop(cmdq->clt);
+		cmdq_mbox_disable(cmdq->clt->chan);
 	} else {
 		cmdq->notify_run = true;
 		cmdq_log("%s gce:%#lx",
@@ -622,38 +772,57 @@ static s32 cmdq_sec_session_init(struct cmdq_sec_context *context)
 
 	switch (context->state) {
 	case IWC_INIT:
-		err = cmdq_sec_init_context(&context->tee);
+		err = cmdq_sec_init_context_base(context);
 		if (err)
 			break;
 		context->state = IWC_CONTEXT_INITED;
 	case IWC_CONTEXT_INITED:
-		if (context->iwc_msg) {
-			cmdq_err("iwcMessage not NULL:%p",
-				context->iwc_msg);
-			err = -EINVAL;
-			break;
+#ifdef CMDQ_GP_SUPPORT
+		if (!context->iwc_msg) {
+			err = cmdq_sec_allocate_wsm(&context->tee,
+				&context->iwc_msg, CMDQ_IWC_MSG,
+				sizeof(struct iwcCmdqMessage_t));
+			if (err)
+				break;
 		}
-		err = cmdq_sec_allocate_wsm(&context->tee,
-			&context->iwc_msg, CMDQ_IWC_MSG,
-			sizeof(struct iwcCmdqMessage_t));
-		if (err)
-			break;
-		err = cmdq_sec_allocate_wsm(&context->tee,
-			&context->iwc_ex1, CMDQ_IWC_MSG1,
-			sizeof(struct iwcCmdqMessageEx_t));
-		if (err)
-			break;
-		err = cmdq_sec_allocate_wsm(&context->tee,
-			&context->iwc_ex2, CMDQ_IWC_MSG2,
-			sizeof(struct iwcCmdqMessageEx2_t));
-		if (err)
-			break;
+		if (!context->iwc_ex1) {
+			err = cmdq_sec_allocate_wsm(&context->tee,
+				&context->iwc_ex1, CMDQ_IWC_MSG1,
+				sizeof(struct iwcCmdqMessageEx_t));
+			if (err)
+				break;
+		}
+		if (!context->iwc_ex2) {
+			err = cmdq_sec_allocate_wsm(&context->tee,
+				&context->iwc_ex2, CMDQ_IWC_MSG2,
+				sizeof(struct iwcCmdqMessageEx2_t));
+			if (err)
+				break;
+		}
+#endif
+
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+		if (!context->mtee_iwc_msg ||
+			!context->mtee_iwc_ex1 || !context->mtee_iwc_ex2) {
+			err = cmdq_sec_mtee_allocate_wsm(&context->mtee,
+				&context->mtee_iwc_msg,
+				sizeof(struct iwcCmdqMessage_t),
+				&context->mtee_iwc_ex1,
+				sizeof(struct iwcCmdqMessageEx_t),
+				&context->mtee_iwc_ex2,
+				sizeof(struct iwcCmdqMessageEx2_t));
+			if (err)
+				break;
+		}
+#endif
 
 		context->state = IWC_WSM_ALLOCATED;
 	case IWC_WSM_ALLOCATED:
+#ifdef CMDQ_GP_SUPPORT
 		err = cmdq_sec_open_session(&context->tee, context->iwc_msg);
 		if (err)
 			break;
+#endif
 		context->state = IWC_SES_OPENED;
 	default:
 		break;
@@ -664,34 +833,56 @@ static s32 cmdq_sec_session_init(struct cmdq_sec_context *context)
 static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 	struct cmdq_sec_task *task, u32 thrd_idx)
 {
-	struct iwcCmdqMessage_t *iwc_msg =
-		(struct iwcCmdqMessage_t *)context->iwc_msg;
-	struct iwcCmdqMessageEx_t *iwc_msg_ex1 =
-		(struct iwcCmdqMessageEx_t *)context->iwc_ex1;
-	struct iwcCmdqMessageEx2_t *iwc_msg_ex2 =
-		(struct iwcCmdqMessageEx2_t *)context->iwc_ex2;
+	struct iwcCmdqMessage_t *iwc_msg = NULL;
+	struct iwcCmdqMessageEx_t *iwc_msg_ex1 = NULL;
+	struct iwcCmdqMessageEx2_t *iwc_msg_ex2 = NULL;
 	struct cmdq_sec_data *data =
 		(struct cmdq_sec_data *)task->pkt->sec_data;
 	struct cmdq_pkt_buffer *buf, *last;
-	u32 size = CMDQ_CMD_BUFFER_SIZE, offset = 0, *instr;
+	u32 size = CMDQ_CMD_BUFFER_SIZE, max_size, offset = 0, *instr;
+	u32 i;
 
-	if (CMDQ_TZ_CMD_BLOCK_SIZE <
-		task->pkt->cmd_buf_size + 4 * CMDQ_INST_SIZE) {
-		cmdq_err("task:%p size:%zu > %u",
-			task, task->pkt->cmd_buf_size, CMDQ_TZ_CMD_BLOCK_SIZE);
-		return -EFAULT;
+	if (!data->mtee) {
+		iwc_msg = (struct iwcCmdqMessage_t *)context->iwc_msg;
+		iwc_msg_ex1 = (struct iwcCmdqMessageEx_t *)context->iwc_ex1;
+		iwc_msg_ex2 = (struct iwcCmdqMessageEx2_t *)context->iwc_ex2;
 	}
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+	else {
+		iwc_msg =
+			(struct iwcCmdqMessage_t *)context->mtee_iwc_msg;
+		iwc_msg_ex1 =
+			(struct iwcCmdqMessageEx_t *)context->mtee_iwc_ex1;
+		iwc_msg_ex2 =
+			(struct iwcCmdqMessageEx2_t *)context->mtee_iwc_ex2;
+	}
+#endif
+
 	if (thrd_idx == CMDQ_INVALID_THREAD) {
 		iwc_msg->command.commandSize = 0;
 		iwc_msg->command.metadata.addrListLength = 0;
 		return 0;
 	}
 
+	if (thrd_idx < CMDQ_MIN_SECURE_THREAD_ID || thrd_idx >=
+		CMDQ_MIN_SECURE_THREAD_ID + CMDQ_MAX_SECURE_THREAD_COUNT)
+		return -EINVAL;
+
+	max_size = cmdq_tz_cmd_block_size[thrd_idx - CMDQ_MIN_SECURE_THREAD_ID];
+	if (max_size < task->pkt->cmd_buf_size + 4 * CMDQ_INST_SIZE) {
+		cmdq_err("task:%p size:%zu > %u",
+			task, task->pkt->cmd_buf_size, max_size);
+		return -EFAULT;
+	}
+
 	iwc_msg->command.thread = thrd_idx;
 	iwc_msg->command.scenario = task->scenario;
 	iwc_msg->command.priority = task->pkt->priority;
 	iwc_msg->command.engineFlag = task->engineFlag;
-
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+	if (data->mtee)
+		iwc_msg->command.sec_id = data->sec_id;
+#endif
 	last = list_last_entry(&task->pkt->buf, typeof(*last), list_entry);
 	list_for_each_entry(buf, &task->pkt->buf, list_entry) {
 		if (buf == last)
@@ -749,21 +940,37 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 			data->client_meta_size[CMDQ_IWC_MSG2]);
 	}
 
+	/* SVP HDR */
+	iwc_msg->command.mdp_extension = data->mdp_extension;
+	iwc_msg->command.readback_cnt = data->readback_cnt;
+	for (i = 0; i < data->readback_cnt; i++) {
+		memcpy(&iwc_msg->command.readback_engs[i],
+			&data->readback_engs[i],
+			sizeof(struct readback_engine));
+	}
+
 	return 0;
 }
 
 static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	struct cmdq_sec_task *task, const u32 iwc_cmd, const u32 thrd_idx,
-	struct cmdq_sec *cmdq)
+	struct cmdq_sec *cmdq, bool mtee)
 {
-	struct iwcCmdqMessage_t *iwc_msg =
-		(struct iwcCmdqMessage_t *)context->iwc_msg;
 	s32 err = 0;
 	bool mem_ex1, mem_ex2;
 	u64 cost;
+	struct iwcCmdqMessage_t *iwc_msg = NULL;
+
+	if (!mtee)
+		iwc_msg = (struct iwcCmdqMessage_t *)context->iwc_msg;
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+	else
+		iwc_msg = (struct iwcCmdqMessage_t *)context->mtee_iwc_msg;
+#endif
 
 	memset(iwc_msg, 0, sizeof(*iwc_msg));
 	iwc_msg->cmd = iwc_cmd;
+	iwc_msg->command.thread = thrd_idx;
 	iwc_msg->cmdq_id = cmdq_util_get_hw_id(cmdq->base_pa);
 	iwc_msg->debug.logLevel =
 		cmdq_util_is_feature_en(CMDQ_LOG_FEAT_SECURE);
@@ -779,9 +986,9 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 			thrd_idx, task->waitCookie);
 		iwc_msg->cancelTask.waitCookie = task->waitCookie;
 		iwc_msg->cancelTask.thread = thrd_idx;
+		iwc_msg->cancelTask.throwAEE = cmdq->cancel.throwAEE;
 		break;
 	case CMD_CMDQ_TL_PATH_RES_ALLOCATE:
-	case CMD_CMDQ_TL_PATH_RES_RELEASE:
 		if (!cmdq->shared_mem ||
 			!cmdq->shared_mem->va) {
 			cmdq_err("shared_mem is NULL");
@@ -791,6 +998,22 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 		iwc_msg->pathResource.shareMemoyPA =
 			cmdq->shared_mem->pa;
 		iwc_msg->pathResource.useNormalIRQ = 1;
+
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+		/* TODO */
+		if (mtee) {
+			err = cmdq_sec_mtee_allocate_shared_memory(
+				&context->mtee,
+				iwc_msg->pathResource.shareMemoyPA,
+				iwc_msg->pathResource.size);
+			if (err) {
+				cmdq_err(
+					"MTEE alloc. shared memory failed");
+				return err;
+			}
+		}
+#endif
+
 		break;
 	default:
 		break;
@@ -808,8 +1031,21 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	cmdq_log("%s execute cmdq:%p task:%lx command:%u thread:%u cookie:%d",
 		__func__, cmdq, (unsigned long)task, iwc_cmd, thrd_idx,
 		task ? task->waitCookie : -1);
-	err = cmdq_sec_execute_session(&context->tee, iwc_cmd, 3000,
-		mem_ex1, mem_ex2);
+
+	/* send message */
+	if (!mtee) {
+#ifdef CMDQ_GP_SUPPORT
+		err = cmdq_sec_execute_session(&context->tee, iwc_cmd, 3000,
+			mem_ex1, mem_ex2);
+#endif
+	}
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+	else
+		err = cmdq_sec_mtee_execute_session(
+			&context->mtee, iwc_cmd, 3000,
+			mem_ex1, mem_ex2);
+#endif
+
 	cmdq->sec_done = sched_clock();
 	cost = div_u64(cmdq->sec_done - cmdq->sec_invoke, 1000000);
 	if (cost >= 1000)
@@ -831,6 +1067,8 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	return err;
 }
 
+#if defined(CMDQ_SECURE_MTEE_SUPPORT) || \
+	defined(CMDQ_GP_SUPPORT)
 static s32 cmdq_sec_session_reply(const u32 iwc_cmd,
 	struct iwcCmdqMessage_t *iwc_msg, void *data,
 	struct cmdq_sec_task *task)
@@ -852,6 +1090,7 @@ static s32 cmdq_sec_session_reply(const u32 iwc_cmd,
 
 	return iwc_msg->rsp;
 }
+#endif
 
 void cmdq_sec_dump_operation(void *chan)
 {
@@ -865,6 +1104,7 @@ void cmdq_sec_dump_operation(void *chan)
 		*(u32 *)(cmdq->shared_mem->va + CMDQ_SEC_SHARED_RESET_CNT),
 		cmdq->sec_invoke, cmdq->sec_done);
 }
+EXPORT_SYMBOL(cmdq_sec_dump_operation);
 
 void cmdq_sec_dump_response(void *chan, struct cmdq_pkt *pkt,
 	u64 **inst, const char **dispatch)
@@ -924,12 +1164,13 @@ void cmdq_sec_dump_response(void *chan, struct cmdq_pkt *pkt,
 		break;
 	}
 }
+EXPORT_SYMBOL(cmdq_sec_dump_response);
 
 static s32
 cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
-	const u32 iwc_cmd, const u32 thrd_idx, void *data)
+	const u32 iwc_cmd, const u32 thrd_idx, void *data, bool mtee)
 {
-	struct cmdq_sec_context *context;
+	struct cmdq_sec_context *context = NULL;
 	char *dispatch = "CMDQ";
 	s32 err;
 	bool dump_err = false;
@@ -959,13 +1200,21 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 		}
 
 		if (cmdq->context->state == IWC_INIT)
-			cmdq_sec_setup_tee_context(&cmdq->context->tee);
+			cmdq_sec_setup_tee_context_base(cmdq->context);
 
 		err = cmdq_sec_session_init(cmdq->context);
 		if (err) {
 			err = -CMDQ_ERR_SEC_CTX_SETUP;
 			break;
 		}
+
+#ifdef CMDQ_GP_SUPPORT
+		/* do m4u sec init */
+		if (atomic_cmpxchg(&m4u_init, 0, 1) == 0) {
+			m4u_sec_init();
+			cmdq_msg("[SEC][task] M4U_sec_init is called\n");
+		}
+#endif
 
 		err = cmdq_sec_irq_notify_start(cmdq);
 		if (err < 0) {
@@ -976,15 +1225,26 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 		if (iwc_cmd == CMD_CMDQ_TL_SUBMIT_TASK && pkt)
 			pkt->rec_trigger = sched_clock();
 		err = cmdq_sec_session_send(
-			cmdq->context, task, iwc_cmd, thrd_idx, cmdq);
+			cmdq->context, task, iwc_cmd, thrd_idx, cmdq, mtee);
 
 		if (err) {
 			cmdq_util_dump_lock();
 			cmdq_util_error_enable();
 			dump_err = true;
 		} else {
-			err = cmdq_sec_session_reply(iwc_cmd,
-				cmdq->context->iwc_msg, data, task);
+			if (!mtee) {
+#ifdef CMDQ_GP_SUPPORT
+				err = cmdq_sec_session_reply(iwc_cmd,
+					cmdq->context->iwc_msg, data, task);
+#endif
+			}
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+			else {
+				err = cmdq_sec_session_reply(iwc_cmd,
+					cmdq->context->mtee_iwc_msg,
+					data, task);
+			}
+#endif
 		}
 	} while (0);
 
@@ -1010,7 +1270,8 @@ static int cmdq_sec_suspend(struct device *dev)
 
 	cmdq_log("cmdq:%p", cmdq);
 	cmdq->suspended = true;
-	clk_unprepare(cmdq->clock);
+	if (!cmdq->unprepare_in_idle)
+		clk_unprepare(cmdq->clock);
 	return 0;
 }
 
@@ -1019,7 +1280,8 @@ static int cmdq_sec_resume(struct device *dev)
 	struct cmdq_sec *cmdq = dev_get_drvdata(dev);
 
 	cmdq_log("cmdq:%p", cmdq);
-	WARN_ON(clk_prepare(cmdq->clock) < 0);
+	if (!cmdq->unprepare_in_idle)
+		WARN_ON(clk_prepare(cmdq->clock) < 0);
 	cmdq->suspended = false;
 	return 0;
 }
@@ -1034,6 +1296,67 @@ static const struct of_device_id cmdq_sec_of_ids[] = {
 	{}
 };
 
+void cmdq_sec_mbox_switch_normal(struct cmdq_client *cl)
+{
+#ifdef CMDQ_GP_SUPPORT
+	struct cmdq_sec *cmdq =
+		container_of(cl->chan->mbox, typeof(*cmdq), mbox);
+	struct cmdq_sec_thread *thread =
+		(struct cmdq_sec_thread *)cl->chan->con_priv;
+
+	WARN_ON(clk_prepare(cmdq->clock) < 0);
+	cmdq_sec_clk_enable(cmdq);
+	cmdq_log("[ IN] %s: cl:%p cmdq:%p thrd:%p idx:%u\n",
+		__func__, cl, cmdq, thread, thread->idx);
+
+	mutex_lock(&cmdq->exec_lock);
+	/* TODO : use other CMD_CMDQ_TL for maintenance */
+	cmdq_sec_task_submit(cmdq, NULL, CMD_CMDQ_TL_PATH_RES_RELEASE,
+		thread->idx, NULL, false);
+	mutex_unlock(&cmdq->exec_lock);
+
+	cmdq_log("[OUT] %s: cl:%p cmdq:%p thrd:%p idx:%u\n",
+		__func__, cl, cmdq, thread, thread->idx);
+	cmdq_sec_clk_disable(cmdq);
+	clk_unprepare(cmdq->clock);
+#endif
+}
+EXPORT_SYMBOL(cmdq_sec_mbox_switch_normal);
+
+void cmdq_sec_mbox_stop(struct cmdq_client *cl)
+{
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+	struct cmdq_sec *cmdq =
+		container_of(cl->chan->mbox, typeof(*cmdq), mbox);
+	struct cmdq_sec_thread *thread =
+		(struct cmdq_sec_thread *)cl->chan->con_priv;
+	struct cmdq_sec_task *task;
+
+	task = list_first_entry_or_null(
+		&thread->task_list, struct cmdq_sec_task, list_entry);
+	if (task) {
+		cmdq_msg("[ IN] %s: cl:%p cmdq:%p thrd:%p idx:%u\n",
+			__func__, cl, cmdq, thread, thread->idx);
+
+		mutex_lock(&cmdq->exec_lock);
+		memset(&cmdq->cancel, 0, sizeof(cmdq->cancel));
+		cmdq->cancel.throwAEE = false;
+		cmdq_sec_task_submit(cmdq, task, CMD_CMDQ_TL_CANCEL_TASK,
+			thread->idx, &cmdq->cancel,
+			((struct cmdq_sec_data *)task->pkt->sec_data)->mtee);
+		mutex_unlock(&cmdq->exec_lock);
+
+		thread->stop = true;
+		cmdq_msg("[OUT] %s: cl:%p cmdq:%p thrd:%p idx:%u\n",
+			__func__, cl, cmdq, thread, thread->idx);
+	}
+
+	if (!work_pending(&cmdq->irq_notify_work))
+		queue_work(cmdq->notify_wq, &cmdq->irq_notify_work);
+#endif
+}
+EXPORT_SYMBOL(cmdq_sec_mbox_stop);
+
 static void cmdq_sec_task_exec_work(struct work_struct *work_item)
 {
 	struct cmdq_sec_task *task =
@@ -1043,7 +1366,7 @@ static void cmdq_sec_task_exec_work(struct work_struct *work_item)
 	struct cmdq_sec_data *data;
 	struct cmdq_pkt_buffer *buf;
 	unsigned long flags;
-	s32 err;
+	s32 err, max_task;
 
 	cmdq_log("%s gce:%#lx task:%p pkt:%p thread:%u",
 		__func__, (unsigned long)cmdq->base_pa, task, task->pkt,
@@ -1051,17 +1374,36 @@ static void cmdq_sec_task_exec_work(struct work_struct *work_item)
 
 	buf = list_first_entry(
 		&task->pkt->buf, struct cmdq_pkt_buffer, list_entry);
-
-	if (!task->pkt->sec_data) {
-		cmdq_err("pkt:%p without sec_data", task->pkt);
-		return;
-	}
 	data = (struct cmdq_sec_data *)task->pkt->sec_data;
 
+	WARN_ON(cmdq->suspended);
 	mutex_lock(&cmdq->exec_lock);
-
 	spin_lock_irqsave(&task->thread->chan->lock, flags);
-	if (!task->thread->task_cnt) {
+
+	max_task = cmdq_max_task_in_secure_thread[
+		task->thread->idx - CMDQ_MIN_SECURE_THREAD_ID];
+	if (task->thread->task_cnt >= max_task) {
+		struct cmdq_cb_data cb_data;
+
+		cmdq_err("task_cnt:%u cannot more than %u task:%p thrd-idx:%u",
+			task->thread->task_cnt, max_task,
+			task, task->thread->idx);
+		spin_unlock_irqrestore(&task->thread->chan->lock, flags);
+
+		cb_data.err = -EMSGSIZE;
+		cb_data.data = task->pkt->err_cb.data;
+		if (task->pkt->err_cb.cb)
+			task->pkt->err_cb.cb(cb_data);
+
+		cb_data.data = task->pkt->cb.data;
+		if (task->pkt->cb.cb)
+			task->pkt->cb.cb(cb_data);
+
+		mutex_unlock(&cmdq->exec_lock);
+		return;
+	}
+
+	if (list_empty(&task->thread->task_list)) {
 		mod_timer(&task->thread->timeout, jiffies +
 			msecs_to_jiffies(task->thread->timeout_ms));
 		task->thread->wait_cookie = 1;
@@ -1082,26 +1424,22 @@ static void cmdq_sec_task_exec_work(struct work_struct *work_item)
 	spin_unlock_irqrestore(&task->thread->chan->lock, flags);
 	task->trigger = sched_clock();
 
-	if (!atomic_cmpxchg(&cmdq_path_res, 0, 1)) {
+	if (!atomic_cmpxchg(data->mtee ?
+		&cmdq_path_res_mtee : &cmdq_path_res, 0, 1)) {
 		err = cmdq_sec_task_submit(cmdq, NULL,
-			CMD_CMDQ_TL_PATH_RES_ALLOCATE, CMDQ_INVALID_THREAD,
-			NULL);
+			CMD_CMDQ_TL_PATH_RES_ALLOCATE,
+			CMDQ_INVALID_THREAD,
+			NULL, data->mtee);
 		if (err) {
-			atomic_set(&cmdq_path_res, 0);
+			atomic_set(data->mtee ?
+				&cmdq_path_res_mtee : &cmdq_path_res, 0);
 			goto task_err_callback;
 		}
 	}
 
-	if (task->thread->task_cnt > CMDQ_MAX_TASK_IN_SECURE_THREAD) {
-		cmdq_err("task_cnt:%u cannot more than %u task:%p thrd-idx:%u",
-			task->thread->task_cnt, CMDQ_MAX_TASK_IN_SECURE_THREAD,
-			task, task->thread->idx);
-		err = -EMSGSIZE;
-		goto task_err_callback;
-	}
-
 	err = cmdq_sec_task_submit(
-		cmdq, task, CMD_CMDQ_TL_SUBMIT_TASK, task->thread->idx, NULL);
+		cmdq, task, CMD_CMDQ_TL_SUBMIT_TASK, task->thread->idx, NULL,
+		data->mtee);
 	if (err)
 		cmdq_err("task submit CMD_CMDQ_TL_SUBMIT_TASK failed:%d gce:%#lx task:%p thread:%u",
 			err, (unsigned long)cmdq->base_pa, task,
@@ -1130,6 +1468,18 @@ task_err_callback:
 		task->thread->next_cookie = (task->thread->next_cookie - 1 +
 			CMDQ_MAX_COOKIE_VALUE) % CMDQ_MAX_COOKIE_VALUE;
 		list_del(&task->list_entry);
+
+		if (list_empty(&task->thread->task_list)) {
+			task->thread->wait_cookie = 0;
+			task->thread->next_cookie = 0;
+			task->thread->task_cnt = 0;
+			__raw_writel(0, cmdq->shared_mem->va +
+				CMDQ_SEC_SHARED_THR_CNT_OFFSET +
+				task->thread->idx * sizeof(s32));
+			cmdq_sec_clk_disable(cmdq);
+			del_timer(&task->thread->timeout);
+		}
+
 		cmdq_msg(
 			"gce:%#lx err:%d task:%p pkt:%p thread:%u task_cnt:%u wait_cookie:%u next_cookie:%u",
 			(unsigned long)cmdq->base_pa, err, task, task->pkt,
@@ -1179,10 +1529,9 @@ static int cmdq_sec_mbox_send_data(struct mbox_chan *chan, void *data)
 	return 0;
 }
 
-static void cmdq_sec_thread_timeout(unsigned long data)
+static void cmdq_sec_thread_timeout(struct timer_list *t)
 {
-	struct cmdq_sec_thread *thread =
-		(struct cmdq_sec_thread *)data;
+	struct cmdq_sec_thread *thread = from_timer(thread, t, timeout);
 	struct cmdq_sec *cmdq =
 		container_of(thread->chan->mbox, struct cmdq_sec, mbox);
 
@@ -1235,14 +1584,17 @@ static int cmdq_sec_mbox_startup(struct mbox_chan *chan)
 {
 	struct cmdq_sec_thread *thread =
 		(struct cmdq_sec_thread *)chan->con_priv;
-	char name[20];
+	char name[32];
+	int len;
 
-	thread->timeout.function = cmdq_sec_thread_timeout;
-	thread->timeout.data = (unsigned long)thread;
-	init_timer(&thread->timeout);
+	timer_setup(&thread->timeout,
+		cmdq_sec_thread_timeout, 0);
 
 	INIT_WORK(&thread->timeout_work, cmdq_sec_task_timeout_work);
-	snprintf(name, sizeof(name), "task_exec_wq_%u", thread->idx);
+	len = snprintf(name, sizeof(name), "task_exec_wq_%u", thread->idx);
+	if (len >= sizeof(name))
+		cmdq_log("len:%d over name size:%d", len, sizeof(name));
+
 	thread->task_exec_wq = create_singlethread_workqueue(name);
 	thread->occupied = true;
 	return 0;
@@ -1254,7 +1606,6 @@ static void cmdq_sec_mbox_shutdown(struct mbox_chan *chan)
 		(struct cmdq_sec_thread *)chan->con_priv;
 
 	thread->occupied = false;
-	/* cmdq_thread_stop(thread); */
 }
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
@@ -1313,6 +1664,7 @@ static struct mbox_chan *cmdq_sec_mbox_of_xlate(
 static int cmdq_sec_probe(struct platform_device *pdev)
 {
 	struct cmdq_sec *cmdq;
+	struct device *dev = &pdev->dev;
 	struct resource *res;
 	s32 i, err;
 
@@ -1333,7 +1685,7 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	cmdq->clock = devm_clk_get(&pdev->dev, "gce");
 	if (IS_ERR(cmdq->clock)) {
 		cmdq_err("gce devm_clk_get failed:%ld", PTR_ERR(cmdq->clock));
-		return PTR_ERR(cmdq->clock);
+		cmdq->clock = NULL;
 	}
 
 	cmdq->mbox.chans = devm_kcalloc(&pdev->dev, CMDQ_THR_MAX_COUNT,
@@ -1348,7 +1700,11 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	cmdq->mbox.txdone_poll = false;
 	cmdq->mbox.of_xlate = cmdq_sec_mbox_of_xlate;
 
+	cmdq->unprepare_in_idle =
+		of_property_read_bool(dev->of_node, "unprepare_in_idle");
+
 	mutex_init(&cmdq->exec_lock);
+	mutex_init(&cmdq->mbox_mutex);
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		cmdq->thread[i].base =
 			cmdq->base + CMDQ_THR_BASE + CMDQ_THR_SIZE * i;
@@ -1376,7 +1732,9 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	cmdq->shared_mem->size = PAGE_SIZE;
 
 	platform_set_drvdata(pdev, cmdq);
-	WARN_ON(clk_prepare(cmdq->clock) < 0);
+	pm_runtime_enable(dev);
+	if (!cmdq->unprepare_in_idle)
+		WARN_ON(clk_prepare(cmdq->clock) < 0);
 
 	cmdq->hwid = cmdq_util_track_ctrl(cmdq, cmdq->base_pa, true);
 
@@ -1384,6 +1742,11 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 
 	cmdq_msg("cmdq:%p(%u) va:%p pa:%pa",
 		cmdq, cmdq->hwid, cmdq->base, &cmdq->base_pa);
+
+	g_cmdq[g_cmdq_cnt++] = cmdq;
+#ifdef CMDQ_SECURE_SUPPORT
+	cmdq_sec_helper_set_fp(&helper_fp);
+#endif
 	return 0;
 }
 
@@ -1392,7 +1755,8 @@ static int cmdq_sec_remove(struct platform_device *pdev)
 	struct cmdq_sec *cmdq = platform_get_drvdata(pdev);
 
 	mbox_controller_unregister(&cmdq->mbox);
-	clk_unprepare(cmdq->clock);
+	if (!cmdq->unprepare_in_idle)
+		clk_unprepare(cmdq->clock);
 	return 0;
 }
 
@@ -1416,4 +1780,59 @@ static int __init cmdq_sec_init(void)
 	return err;
 }
 
+#ifdef CMDQ_GP_SUPPORT
+static s32 cmdq_sec_late_init_wsm(void *data)
+{
+	struct cmdq_sec *cmdq;
+	struct cmdq_sec_context *context = NULL;
+	s32 i = 0, err = 0;
+
+	do {
+		msleep(10000);
+		cmdq = g_cmdq[i];
+		if (!cmdq)
+			break;
+		cmdq_msg("g_cmdq_cnt:%u g_cmdq:%u pa:%pa",
+			g_cmdq_cnt, i, &cmdq->base_pa);
+
+		if (!cmdq->context) {
+			context = kzalloc(sizeof(*cmdq->context),
+				GFP_ATOMIC);
+			if (!context) {
+				err = -CMDQ_ERR_NULL_SEC_CTX_HANDLE;
+				break;
+			}
+			cmdq->context = context;
+			cmdq->context->state = IWC_INIT;
+			cmdq->context->tgid = current->tgid;
+		}
+
+		mutex_lock(&cmdq->exec_lock);
+		if (cmdq->context->state == IWC_INIT)
+			cmdq_sec_setup_tee_context_base(cmdq->context);
+
+		err = cmdq_sec_session_init(cmdq->context);
+		mutex_unlock(&cmdq->exec_lock);
+		if (err) {
+			err = -CMDQ_ERR_SEC_CTX_SETUP;
+			cmdq_err("session init failed:%d", err);
+			continue;
+		}
+	} while (++i < g_cmdq_cnt);
+	return err;
+}
+
+static int __init cmdq_sec_late_init(void)
+{
+	struct task_struct *kthr =
+		kthread_run(cmdq_sec_late_init_wsm, g_cmdq, __func__);
+
+	if (IS_ERR(kthr))
+		cmdq_err("kthread_run failed:%ld", PTR_ERR(kthr));
+	return PTR_ERR(kthr);
+}
+late_initcall(cmdq_sec_late_init);
+#endif
+
 arch_initcall(cmdq_sec_init);
+MODULE_LICENSE("GPL v2");

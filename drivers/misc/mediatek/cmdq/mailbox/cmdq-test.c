@@ -18,6 +18,7 @@
 
 #include "cmdq-util.h"
 #include "cmdq-sec.h"
+#include "cmdq-sec-mailbox.h"
 
 #define CMDQ_THR_SPR3(base, id)		((base) + (0x80 * (id)) + 0x16c)
 #define CMDQ_GPR_R32(base, id)		((base) + (0x4 * (id)) + 0x80)
@@ -82,7 +83,9 @@ static void cmdq_test_mbox_cb_destroy(struct cmdq_cb_data data)
 
 	if (data.err < 0)
 		cmdq_err("pkt:%p err:%d", pkt, data.err);
+	cmdq_dump_pkt(pkt, 0, true);
 	cmdq_pkt_destroy(pkt);
+	cmdq_msg("%s: pkt:%#lx", __func__, pkt);
 }
 
 static void cmdq_test_mbox_cb_dump(struct cmdq_cb_data data)
@@ -95,7 +98,15 @@ static void cmdq_test_mbox_cb_dump_err(struct cmdq_cb_data data)
 	cmdq_err("pkt:0x%p err:%d during err", data.data, data.err);
 }
 
-static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec)
+static int cmdq_test_no_aee(struct cmdq_cb_data data)
+{
+	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
+
+	cmdq_err("pkt:0x%p err:%d during err", pkt, data.err);
+	return CMDQ_NO_AEE;
+}
+
+static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec, const bool aee)
 {
 	struct cmdq_pkt *pkt;
 	struct cmdq_flush_completion cmplt;
@@ -103,6 +114,9 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec)
 	u64 *inst;
 	dma_addr_t pc;
 	struct cmdq_client *clt = sec ? test->sec : test->clt;
+	size_t wfe_offset;
+
+	cmdq_msg("%s sec[%d] aee[%d]", __func__, sec, aee);
 
 	if (clk_prepare_enable(test->gce.clk)) {
 		cmdq_err("clk fail");
@@ -111,6 +125,9 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec)
 
 	cmdq_clear_event(clt->chan, test->token_user0);
 	pkt = cmdq_pkt_create(clt);
+
+	if (!aee)
+		pkt->aee_cb = cmdq_test_no_aee;
 #ifdef CMDQ_SECURE_SUPPORT
 	if (sec)
 		cmdq_sec_pkt_set_data(pkt, 0, 0, CMDQ_SEC_DEBUG,
@@ -118,6 +135,7 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec)
 #endif
 
 	cmdq_pkt_wfe(pkt, test->token_user0);
+	wfe_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 
 	init_completion(&cmplt.cmplt);
 	cmplt.pkt = pkt;
@@ -145,6 +163,12 @@ static void cmdq_test_mbox_err_dump(struct cmdq_test *test, const bool sec)
 	ret = cmdq_pkt_flush_async(pkt, cmdq_test_mbox_cb_dump, (void *)pkt);
 	cmdq_msg("flush pkt:0x%p ret:%d", pkt, ret);
 	ret = cmdq_pkt_wait_complete(pkt);
+	if (wfe_offset == pkt->err_data.offset)
+		cmdq_msg("pkt:0x%p right wfe_offset:%zu = err_offset:%zu",
+			pkt, wfe_offset, pkt->err_data.offset);
+	else
+		cmdq_err("pkt:0x%p wrong wfe_offset:%zu, err_offset:%zu",
+			pkt, wfe_offset, pkt->err_data.offset);
 	cmdq_msg("wait complete pkt:0x%p ret:%d", pkt, ret);
 
 	cmdq_pkt_destroy(pkt);
@@ -189,7 +213,7 @@ static void cmdq_test_mbox_gpr_sleep(struct cmdq_test *test, const bool sleep)
 		cmdq_pkt_wfe(pkt, test->token_gpr_set4);
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
-	out_pa = buf->pa_base + 3096;
+	out_pa = CMDQ_BUF_ADDR(buf) + 3096;
 	out_va = (u32 *)(buf->va_base + 3096);
 	*out_va = 0;
 	*(out_va + 1) = 0;
@@ -297,7 +321,7 @@ u32 *cmdq_test_mbox_polling_timeout_unit(struct cmdq_pkt *pkt,
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 	// last 1k as output buffer
-	out_pa = buf->pa_base + 3096;
+	out_pa = CMDQ_BUF_ADDR(buf) + 3096 + gce_mminfra;
 	out_va = (u32 *)(buf->va_base + 3096);
 	*out_va = 0;
 	*(out_va + 1) = 0;
@@ -397,17 +421,15 @@ void cmdq_test_mbox_polling(
 	cmdq_msg("%s end", __func__);
 }
 
-static void cmdq_test_mbox_large_cmd(struct cmdq_test *test)
+static void cmdq_test_mbox_large_cmd(struct cmdq_test *test, const u32 count)
 {
 	unsigned long	va = (unsigned long)(CMDQ_GPR_R32(
 		test->gce.va, CMDQ_GPR_DEBUG_DUMMY));
 	unsigned long	pa = CMDQ_GPR_R32(
 		test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
 
-	struct cmdq_pkt		*pkt;
+	struct cmdq_pkt		*pkt, *pkt2;
 	s32			i, val;
-	bool			perf_en = cmdq_util_is_feature_en((u8)
-		CMDQ_LOG_FEAT_PERF);
 
 	if (clk_prepare_enable(test->gce.clk)) {
 		cmdq_err("clk fail");
@@ -417,19 +439,31 @@ static void cmdq_test_mbox_large_cmd(struct cmdq_test *test)
 	writel(0xdeaddead, (void *)va);
 
 	pkt = cmdq_pkt_create(test->clt);
-	if (!perf_en)
-		cmdq_pkt_perf_begin(pkt);
-	for (i = 0; i < 64 * 1024 / 8; i++) // 64k instructions
+	for (i = 0; i < count; i++)
 		cmdq_pkt_write(pkt, NULL, pa, i, ~0);
-	if (!perf_en)
-		cmdq_pkt_perf_end(pkt);
+
+	pkt2 = cmdq_pkt_create(test->loop);
+	cmdq_pkt_copy(pkt2, pkt);
+	cmdq_pkt_write(pkt2, NULL, pa, i, ~0);
+
+	cmdq_msg("%s: pkt:%p before flush", __func__, pkt);
+	cmdq_dump_pkt(pkt, 0, true);
 	cmdq_pkt_flush(pkt);
+	cmdq_msg("%s: pkt:%p after flush", __func__, pkt);
+	cmdq_dump_pkt(pkt, 0, true);
 	cmdq_pkt_destroy(pkt);
+
+	cmdq_msg("%s: pkt2:%p before flush", __func__, pkt2);
+	cmdq_dump_pkt(pkt2, 0, true);
+	cmdq_pkt_flush(pkt2);
+	cmdq_msg("%s: pkt2:%p after flush", __func__, pkt2);
+	cmdq_dump_pkt(pkt2, 0, true);
+	cmdq_pkt_destroy(pkt2);
 
 	val = readl((void *)va);
 	clk_disable_unprepare(test->gce.clk);
 
-	if (val != --i)
+	if (val != i)
 		cmdq_err("val:%#x not equal to i:%#x", val, i);
 	else
 		cmdq_msg("val:%#x equals to i:%#x", val, i);
@@ -467,7 +501,8 @@ static void cmdq_test_mbox_loop(struct cmdq_test *test)
 
 	test->iter = 0;
 	test->tick = true;
-	timer_setup(&test->timer, cmdq_test_mbox_sync_token_loop_iter, 0);
+	timer_setup(&test->timer, cmdq_test_mbox_sync_token_loop_iter,
+		0);
 	mod_timer(&test->timer, jiffies + msecs_to_jiffies(300));
 
 	writel(test->token_user0,
@@ -503,7 +538,7 @@ static void cmdq_test_mbox_dma_access(struct cmdq_test *test, const bool secure)
 	dma_addr_t	dma_pa;
 	u32		val;
 
-	dma_va = cmdq_mbox_buf_alloc(clt->client.dev, &dma_pa);
+	dma_va = cmdq_mbox_buf_alloc(clt, &dma_pa);
 	if (!dma_va || !dma_pa) {
 		cmdq_err("cmdq_mbox_buf_alloc failed");
 		return;
@@ -566,8 +601,25 @@ static void cmdq_test_mbox_dma_access(struct cmdq_test *test, const bool secure)
 			dma_va[ofst / 4 + 1], pttn[2]);
 
 	clk_disable_unprepare(test->gce.clk);
-	cmdq_mbox_buf_free(clt->client.dev, dma_va, dma_pa);
-	cmdq_msg("%s done", __func__);
+	cmdq_mbox_buf_free(clt, dma_va, dma_pa);
+}
+
+static void cmdq_test_mbox_write_dma(
+	struct cmdq_test *test, const bool secure, u32 cnt)
+{
+	struct cmdq_client	*clt = secure ? test->sec : test->clt;
+	struct cmdq_pkt		*pkt;
+	u32		*dma_va;
+	dma_addr_t	dma_pa;
+	s32 i;
+
+	dma_va = cmdq_mbox_buf_alloc(clt, &dma_pa);
+	pkt = cmdq_pkt_create(clt);
+	for (i = 0; i < cnt; i++)
+		cmdq_pkt_write(pkt, NULL, dma_pa + ((i * 4) % PAGE_SIZE), i, ~0);
+
+	cmdq_pkt_flush(pkt);
+	cmdq_pkt_destroy(pkt);
 }
 
 static void cmdq_test_mbox_sync_token_flush(struct timer_list *t)
@@ -583,7 +635,7 @@ static void cmdq_test_mbox_sync_token_flush(struct timer_list *t)
 	writel((1L << 16) | test->token_user0,
 		(void *)CMDQ_SYNC_TOKEN_UPD(test->gce.va));
 	val = readl((void *)CMDQ_SYNC_TOKEN_UPD(test->gce.va));
-	cmdq_log("data:%#lx event:%#x val:%#x",
+	cmdq_log("data:%#hx event:%#x val:%#x",
 		test->token_user0, (1 << 16), val);
 
 	if (!test->tick)
@@ -595,7 +647,7 @@ static void cmdq_test_mbox_sync_token_flush(struct timer_list *t)
 }
 
 void cmdq_test_mbox_flush(
-	struct cmdq_test *test, const bool secure, const bool threaded)
+	struct cmdq_test *test, const s32 secure, const bool threaded)
 {
 	struct cmdq_client		*clt = secure ? test->sec : test->clt;
 	struct cmdq_pkt			*pkt[CMDQ_TEST_CNT] = {0};
@@ -604,15 +656,21 @@ void cmdq_test_mbox_flush(
 	cmdq_msg("%s sec:%d threaded:%d", __func__, secure, threaded);
 
 	test->tick = true;
-	timer_setup(&test->timer, &cmdq_test_mbox_sync_token_flush, 0);
+	timer_setup(&test->timer, cmdq_test_mbox_sync_token_flush,
+		0);
 	mod_timer(&test->timer, jiffies + msecs_to_jiffies(10));
 
 	for (i = 0; i < CMDQ_TEST_CNT; i++) {
 		pkt[i] = cmdq_pkt_create(clt);
 #ifdef CMDQ_SECURE_SUPPORT
-		if (secure)
+		if (secure) {
 			cmdq_sec_pkt_set_data(pkt[i], 0, 0, CMDQ_SEC_DEBUG,
 				CMDQ_METAEX_NONE);
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+			if (!~secure)
+				cmdq_sec_pkt_set_mtee(pkt[i], true);
+#endif
+		}
 #endif
 
 		cmdq_pkt_wfe(pkt[i], test->token_user0);
@@ -646,12 +704,10 @@ void cmdq_test_mbox_flush(
 
 	test->tick = false;
 	del_timer(&test->timer);
-
-	cmdq_msg("%s end", __func__);
 }
 
 static void cmdq_test_mbox_write(
-	struct cmdq_test *test, const bool secure, const bool need_mask)
+	struct cmdq_test *test, const s32 secure, const bool need_mask)
 {
 	const u32	mask = need_mask ? (1 << 16) : ~0;
 	const u32	pttn = (1 << 0) | (1 << 2) | (1 << 16);
@@ -677,12 +733,18 @@ static void cmdq_test_mbox_write(
 
 	pkt = cmdq_pkt_create(clt);
 #ifdef CMDQ_SECURE_SUPPORT
-	if (secure)
+	if (secure) {
 		cmdq_sec_pkt_set_data(pkt, 0, 0, CMDQ_SEC_DEBUG,
 			CMDQ_METAEX_NONE);
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+		if (!~secure)
+			cmdq_sec_pkt_set_mtee(pkt, true);
+#endif
+	}
 #endif
 
 	cmdq_pkt_write(pkt, NULL, pa, pttn, mask);
+	cmdq_dump_pkt(pkt, 0, true);
 	cmdq_pkt_flush(pkt);
 
 	val = readl((void *)va);
@@ -695,8 +757,6 @@ static void cmdq_test_mbox_write(
 	cmdq_pkt_destroy(pkt);
 
 	clk_disable_unprepare(test->gce.clk);
-
-	cmdq_msg("%s end", __func__);
 }
 
 static void cmdq_test_mbox_handshake_event(struct cmdq_test *test)
@@ -726,8 +786,6 @@ static void cmdq_test_mbox_handshake_event(struct cmdq_test *test)
 
 	if (ret < 0)
 		cmdq_err("shake event fail:%d", ret);
-
-	cmdq_msg("%s end", __func__);
 }
 
 static void cmdq_access_sub_impl(struct cmdq_test *test,
@@ -737,13 +795,35 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 	u32 *regs, count, *va, i;
 	dma_addr_t pa;
 	u8 swap_reg = CMDQ_THR_SPR_IDX1;
-	u32 pat_init = 0xdeaddead, pat_src = 0xbeefbeef;
+	u32 pat = 0xadceabce, pat_init = 0xdeaddead, pat_src = 0xbeefbeef;
+	void __iomem	*va_base;
+	u32 val = 0;
+	u32 pa_base;
 
-	va = cmdq_mbox_buf_alloc(clt->client.dev, &pa);
 	count = cmdq_util_test_get_subsys_list(&regs);
+	if (count <= 0) {
+		cmdq_err("invalid count:%d", count);
+		return;
+	}
+
+	va = cmdq_mbox_buf_alloc(clt, &pa);
+	if (!va) {
+		cmdq_err("cmdq_mbox_buf_alloc failed");
+		return;
+	}
 
 	for (i = 0; i < count; i++) {
 		va[0] = pat_init;
+
+		cmdq_msg("%s idx:%d, addr:%#x = %#x ", __func__, i, regs[i]);
+		pa_base = regs[i];
+		va_base = ioremap(pa_base, 0x1000);
+		writel(pat, va_base);
+		val = readl(va_base);
+		if (val != pat)
+			cmdq_msg("%s AP write, addr:%#x = %#x, pat:%#x",
+				__func__, regs[i], val, pat);
+		writel(0, va_base);
 
 		pkt = cmdq_pkt_create(test->clt);
 		cmdq_pkt_write_value_addr(pkt, regs[i], pat_src, ~0);
@@ -758,8 +838,7 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 		cmdq_pkt_destroy(pkt);
 	}
 
-	cmdq_mbox_buf_free(test->clt->client.dev, va, pa);
-	cmdq_msg("%s end", __func__);
+	cmdq_mbox_buf_free(test->clt, va, pa);
 }
 
 static void cmdq_test_mbox_subsys_access(struct cmdq_test *test)
@@ -783,16 +862,12 @@ static void cmdq_test_err_irq(struct cmdq_test *test)
 
 	cmdq_pkt_flush(pkt);
 	cmdq_pkt_destroy(pkt);
-
-	cmdq_msg("%s end", __func__);
 }
 
 static void cmdq_test_devapc_vio(struct cmdq_test *test)
 {
 	struct cmdq_pkt *pkt;
 	int ret;
-
-	cmdq_msg("%s", __func__);
 
 	pkt = cmdq_pkt_create(test->clt);
 	cmdq_pkt_read(pkt, NULL, 0x14000000, CMDQ_THR_SPR_IDX3);
@@ -806,8 +881,6 @@ static void cmdq_test_mbox_stop(struct cmdq_test *test)
 {
 	struct cmdq_pkt *pkt[3];
 	int i;
-
-	cmdq_msg("%s", __func__);
 
 	for (i = 0; i < ARRAY_SIZE(pkt); i++) {
 		pkt[i] = cmdq_pkt_create(test->clt);
@@ -824,7 +897,6 @@ static void cmdq_test_mbox_stop(struct cmdq_test *test)
 		cmdq_pkt_destroy(pkt[i]);
 	}
 
-	cmdq_msg("%s end", __func__);
 }
 
 static void cmdq_test_show_events(struct cmdq_test *test)
@@ -838,7 +910,308 @@ static void cmdq_test_show_events(struct cmdq_test *test)
 		if (cmdq_get_event(test->clt->chan, i))
 			cmdq_msg("event set:%u", i);
 	cmdq_mbox_disable(test->clt->chan);
-	cmdq_msg("%s end", __func__);
+}
+
+static void cmdq_test_mbox_reuse_buf_va(struct cmdq_test *test)
+{
+	unsigned long	va = (unsigned long)(CMDQ_GPR_R32(
+		test->gce.va, CMDQ_GPR_DEBUG_DUMMY));
+	unsigned long	pa = CMDQ_GPR_R32(
+		test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
+
+	struct cmdq_pkt		*pkt;
+	s32			i, j = 0, val;
+	struct cmdq_reuse *reuse;
+	const u32 ans = (CMDQ_INST_SIZE * CMDQ_INST_SIZE - 1) * CMDQ_INST_SIZE;
+
+	reuse = kcalloc(CMDQ_INST_SIZE, sizeof(*reuse), GFP_KERNEL);
+
+	if (clk_prepare_enable(test->gce.clk)) {
+		cmdq_err("clk fail");
+		return;
+	}
+
+	writel(0xdeaddead, (void *)va);
+
+	pkt = cmdq_pkt_create(test->clt);
+	for (i = 0; i < CMDQ_INST_SIZE * CMDQ_INST_SIZE; i++) {
+		if (i % CMDQ_INST_SIZE != CMDQ_INST_SIZE - 1)
+			cmdq_pkt_write(pkt, NULL, pa, i, ~0);
+		else {
+			cmdq_pkt_write_value_addr_reuse(
+				pkt, pa, i, ~0, &reuse[j].va, &reuse[j].offset);
+			reuse[j].val = i;
+			cmdq_msg("%s: reuse:%d va:%p val:%#x inst:%#llx",
+				__func__, j,
+				reuse[j].va, reuse[j].val, *reuse[j].va);
+			j += 1;
+		}
+	}
+	cmdq_pkt_flush(pkt);
+
+	for (i = 0; i < j; i++)
+		reuse[i].val *= CMDQ_INST_SIZE;
+	cmdq_pkt_reuse_buf_va(pkt, reuse, CMDQ_INST_SIZE);
+	cmdq_pkt_flush(pkt);
+
+	cmdq_pkt_destroy(pkt);
+
+	val = readl((void *)va);
+	clk_disable_unprepare(test->gce.clk);
+
+	if (val != ans)
+		cmdq_err("val:%#x not equal to ans:%#x", val, ans);
+	else
+		cmdq_msg("val:%#x equals to ans:%#x", val, ans);
+}
+
+static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
+	const u16 mod, const u16 event)
+{
+	struct cmdq_pkt *pkt;
+	struct cmdq_pkt_buffer *buf;
+	struct cmdq_operand lop, rop;
+	u64 *inst, *inst2;
+	s32 mark, mark2, i;
+	/* configure */
+	const u16 spr = CMDQ_THR_SPR_IDX3;
+	unsigned long pa0, pa1, reg[20] = {
+		0x118, 0x120, 0x128, 0x148, 0x150, 0x200,
+		0xf00, 0xf08, 0xf10, 0xf20, 0xf28, 0xf30, 0xf34,
+		0xf38, 0xf3c, 0xf40, 0xf44, 0xf48, 0xf4c, 0xf50};
+
+	if (mod == CMDQ_PREBUILT_MDP) {
+		pa0 = 0x1f003000;
+		pa1 = 0x1f004000;
+	} else if (mod == CMDQ_PREBUILT_MML) {
+		pa0 = 0x1f803000;
+		pa1 = 0x1f804000;
+	} else if (mod == CMDQ_PREBUILT_VFMT) {
+		pa0 = 0x16005000;
+		pa1 = 0x16007000;
+	} else {
+		pa0 = CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_TIMER);
+		pa1 = CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
+		for (i = 0; i < 20; i++)
+			reg[i] = 0;
+	}
+	cmdq_msg("%s: mod:%hu event:%hu pa0:%#lx pa1:%#lx",
+		__func__, mod, event, pa0, pa1);
+
+	pkt = cmdq_pkt_create(test->clt);
+	cmdq_pkt_wfe(pkt, event);
+
+	/* conditional jump */
+	mark = pkt->cmd_buf_size;
+	inst = cmdq_pkt_get_curr_buf_va(pkt);
+	cmdq_pkt_assign_command(pkt, spr, 0);
+
+	lop.reg = true;
+	lop.idx = CMDQ_CPR_PREBUILT_PIPE(mod);
+	rop.reg = false;
+	rop.value = 1;
+	cmdq_pkt_cond_jump(pkt, spr, &lop, &rop, CMDQ_EQUAL);
+
+	/* pipe 0 */
+	for (i = 0; i < 20; i++)
+		cmdq_pkt_write_reg_addr(pkt, pa0 + reg[i],
+			CMDQ_CPR_PREBUILT(mod, 0, i), UINT_MAX);
+
+	mark2 = pkt->cmd_buf_size;
+	inst2 = cmdq_pkt_get_curr_buf_va(pkt);
+	cmdq_pkt_jump(pkt, 0);
+
+	/* pipe 1 */
+	*inst |= CMDQ_REG_SHIFT_ADDR(
+		(s32)pkt->cmd_buf_size - mark - CMDQ_INST_SIZE);
+	for (i = 0; i < 20; i++)
+		cmdq_pkt_write_reg_addr(pkt, pa1 + reg[i],
+			CMDQ_CPR_PREBUILT(mod, 1, i), UINT_MAX);
+
+	*inst2 |= CMDQ_REG_SHIFT_ADDR((s32)pkt->cmd_buf_size - mark2);
+	cmdq_pkt_set_event(pkt, event + 1);
+	cmdq_pkt_finalize_loop(pkt);
+	cmdq_dump_pkt(pkt, 0, true);
+
+	buf = list_first_entry_or_null(&pkt->buf, typeof(*buf), list_entry);
+	if (!buf) {
+		cmdq_pkt_destroy(pkt);
+		return;
+	}
+
+	cmdq_msg("%s: pkt:%p pa:%#lx cmd_buf_size:%#lx pc:%#lx end:%#lx",
+		__func__, pkt, (unsigned long)buf->pa_base, pkt->cmd_buf_size,
+		CMDQ_REG_SHIFT_ADDR((unsigned long)buf->pa_base),
+		CMDQ_REG_SHIFT_ADDR((unsigned long)buf->pa_base +
+			pkt->cmd_buf_size));
+
+	for (i = 0; i < pkt->cmd_buf_size / CMDQ_INST_SIZE; i++)
+		cmdq_msg(",%d,%#llx,", i, *((u64 *)buf->va_base + i));
+
+	cmdq_pkt_destroy(pkt);
+}
+
+static void cmdq_test_mbox_prebuilt(struct cmdq_test *test, const u16 mod,
+	const bool pipe, const bool timeout)
+{
+	unsigned long	va = (unsigned long)
+		CMDQ_GPR_R32(test->gce.va, CMDQ_GPR_DEBUG_DUMMY);
+	unsigned long	pa =
+		CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
+	struct cmdq_pkt *pkt;
+	const u32 ans = pipe ? 0xbeaf : 0xfeed, dead = 0xdead;
+	u16 event = 689, cpr[3];
+	u32 init, cpu[2], val;
+
+	if (clk_prepare_enable(test->gce.clk)) {
+		cmdq_err("clk fail");
+		return;
+	}
+
+	event = CMDQ_PREBUILT_MDP ? 680 : 689;
+	cpr[0] = CMDQ_PREBUILT_MDP ? 0x8003 : 0x8006;
+	cpr[1] = CMDQ_PREBUILT_MDP ? 0x8023 : 0x809b;
+	cpr[2] = CMDQ_PREBUILT_MDP ? 0x8037 : 0x80af;
+
+	writel(0x12345678, (void *)va);
+
+	init = cmdq_get_event(test->clt->chan, event);
+	cmdq_msg(
+		"%s: mod:%hu pipe:%d timeout:%d event:%hu init:%x cpr:%#hx:%#hx:%#hx",
+		__func__, mod, pipe, timeout,
+		event, init, cpr[0], cpr[1], cpr[2]);
+
+	pkt = cmdq_pkt_create(test->clt);
+	cmdq_pkt_assign_command(pkt, cpr[0], pipe ? 0x1 : 0x0);
+	cmdq_pkt_assign_command(pkt, cpr[1], !pipe ? ans : dead);
+	cmdq_pkt_assign_command(pkt, cpr[2], pipe ? ans : dead);
+	if (!timeout)
+		cmdq_pkt_set_event(pkt, event);
+	cmdq_pkt_wfe(pkt, event + 1);
+	cmdq_pkt_flush(pkt);
+	cmdq_pkt_destroy(pkt);
+
+	cpu[0] = cmdq_get_event(test->clt->chan, event);
+	cpu[1] = cmdq_get_event(test->clt->chan, event + 1);
+	val = readl((void *)va);
+	clk_disable_unprepare(test->gce.clk);
+
+	cmdq_msg("%s: event:%hu cpu:%u:%u pa:%#lx val:%#x ans:%#x",
+		__func__, event, cpu[0], cpu[1], pa, val, ans);
+}
+
+static void cmdq_test_mbox_tzmp(struct cmdq_test *test, const s32 secure,
+	const bool timeout)
+{
+	unsigned long	va = (unsigned long)
+		CMDQ_GPR_R32(test->gce.va, CMDQ_GPR_DEBUG_DUMMY);
+	unsigned long	pa =
+		CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
+	const u32	ans = 0xbeafdead, event = 678;
+	struct cmdq_client	*clt = test->clt, *sec = test->sec;
+	struct cmdq_pkt		*pkt, *pkt2;
+	s32			val, i;
+
+	if (clk_prepare_enable(test->gce.clk)) {
+		cmdq_err("clk fail");
+		return;
+	}
+
+	/* trigger secure loop */
+	pkt2 = cmdq_pkt_create(sec);
+#ifdef CMDQ_SECURE_SUPPORT
+	if (secure) {
+		cmdq_sec_pkt_set_data(pkt2, 0, 0, CMDQ_SEC_DEBUG,
+			CMDQ_METAEX_TZMP);
+#ifdef CMDQ_SECURE_MTEE_SUPPORT
+		if (!~secure)
+			cmdq_sec_pkt_set_mtee(pkt2, true);
+#endif
+	}
+#endif
+	cmdq_pkt_finalize_loop(pkt2);
+	cmdq_pkt_flush_threaded(pkt2, NULL, (void *)pkt2);
+
+	/* trigger normal */
+	for (i = 0; i < 3; i++) {
+		writel(0x12345678, (void *)va);
+
+		pkt = cmdq_pkt_create(clt);
+		cmdq_pkt_write(pkt, NULL, pa, ans + i, UINT_MAX);
+		if (!timeout)
+			cmdq_pkt_set_event(pkt, event);
+		cmdq_pkt_wfe(pkt, event + 1);
+		cmdq_pkt_flush(pkt);
+
+		val = readl((void *)va);
+		cmdq_msg("%s: val:%#x ans:%#x", __func__, val, ans + i);
+
+		cmdq_pkt_dump_buf(pkt, 0);
+		cmdq_pkt_destroy(pkt);
+	}
+#ifdef CMDQ_SECURE_SUPPORT
+	cmdq_sec_mbox_stop(sec);
+#endif
+	clk_disable_unprepare(test->gce.clk);
+}
+
+static void cmdq_test_mbox_vcp(struct cmdq_test *test, const bool reuse)
+{
+	struct cmdq_pkt	*pkt1 = cmdq_pkt_create(test->clt);
+	struct cmdq_pkt	*pkt2 = cmdq_pkt_create(test->loop);
+	struct cmdq_reuse reuse1, reuse2;
+	dma_addr_t iova;
+	void *va = cmdq_get_vcp_buf(CMDQ_VCP_ENG_MDP_HDR0, &iova);
+	u32 val[4], i, j;
+
+	for (i = 0; i < 4; i++)
+		writel(0xdeaddead, (void *)va + i * 4);
+
+	cmdq_vcp_enable(true);
+	for (i = 0; i < 4; i++) {
+		if (!i) {
+			cmdq_pkt_readback(pkt1, CMDQ_VCP_ENG_MDP_HDR0, 0, 0,
+				CMDQ_GPR_DEBUG_DUMMY, &reuse1.va);
+			cmdq_pkt_readback(pkt2, CMDQ_VCP_ENG_MDP_HDR1, 4, 0,
+				CMDQ_GPR_DEBUG_TIMER, &reuse2.va);
+		} else {
+			reuse1.val = cmdq_pkt_vcp_reuse_val(
+				CMDQ_VCP_ENG_MDP_HDR0, 0, i);
+			cmdq_pkt_reuse_buf_va(pkt1, &reuse1, 1);
+
+			reuse2.val = cmdq_pkt_vcp_reuse_val(
+				CMDQ_VCP_ENG_MDP_HDR1, 4, i);
+			cmdq_pkt_reuse_buf_va(pkt2, &reuse2, 1);
+		}
+
+		if (reuse) {
+			cmdq_pkt_refinalize(pkt1);
+			cmdq_pkt_flush(pkt1);
+
+			cmdq_pkt_refinalize(pkt2);
+			cmdq_pkt_flush(pkt2);
+
+			for (j = 0; j < 4; j++)
+				val[j] = readl(va + j * 4);
+			cmdq_msg("%s: i:%d va:%p iova:%pa val:%#x %#x %#x %#x",
+				__func__, i, va, &iova,
+				val[0], val[1], val[2], val[3]);
+		} else {
+			cmdq_pkt_flush_threaded(
+				pkt1, cmdq_test_mbox_cb_destroy, (void *)pkt1);
+			cmdq_pkt_flush_threaded(
+				pkt2, cmdq_test_mbox_cb_destroy, (void *)pkt2);
+			msleep(1000);
+			break;
+		}
+	}
+	cmdq_vcp_enable(false);
+
+	for (i = 0; i < 4; i++)
+		val[i] = readl(va + i * 4);
+	cmdq_msg("%s: va:%p iova:%pa", __func__, va, &iova);
+	cmdq_msg("%s: val:%#x %#x %#x %#x",
+		__func__, val[0], val[1], val[2], val[3]);
 }
 
 static void
@@ -854,6 +1227,12 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		return;
 	}
 #endif
+	cmdq_mbox_enable(test->clt->chan);
+	cmdq_mbox_enable(test->loop->chan);
+#ifdef CMDQ_SECURE_SUPPORT
+	cmdq_sec_mbox_enable(test->sec->chan);
+#endif
+
 	switch (id) {
 	case 0:
 		cmdq_test_mbox_write(test, sec, false);
@@ -865,7 +1244,7 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_gpr_sleep(test, false);
 		cmdq_test_mbox_gpr_sleep(test, true);
 		cmdq_test_mbox_loop(test);
-		cmdq_test_mbox_large_cmd(test);
+		cmdq_test_mbox_large_cmd(test, 239);
 		cmdq_test_mbox_cpr(test);
 		break;
 	case 1:
@@ -891,13 +1270,14 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_loop(test);
 		break;
 	case 7:
-		cmdq_test_mbox_large_cmd(test);
+		cmdq_test_mbox_large_cmd(test, 237);
 		break;
 	case 8:
 		cmdq_test_mbox_cpr(test);
 		break;
 	case 9:
-		cmdq_test_mbox_err_dump(test, sec);
+		cmdq_test_mbox_err_dump(test, sec, true);
+		cmdq_test_mbox_err_dump(test, sec, false);
 		break;
 	case 10:
 		cmdq_test_mbox_handshake_event(test);
@@ -920,9 +1300,39 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 	case 16:
 		cmdq_test_show_events(test);
 		break;
+	case 17:
+		cmdq_test_mbox_reuse_buf_va(test);
+		break;
+	case 18:
+		cmdq_test_mbox_prebuilt_instr(test,
+			CMDQ_PREBUILT_MDP, CMDQ_TOKEN_PREBUILT_MDP_WAIT);
+		cmdq_test_mbox_prebuilt_instr(test,
+			CMDQ_PREBUILT_MML, CMDQ_TOKEN_PREBUILT_MML_WAIT);
+		break;
+	case 19:
+		cmdq_test_mbox_prebuilt(test, CMDQ_PREBUILT_DISP, 0, false);
+		cmdq_test_mbox_prebuilt(test, CMDQ_PREBUILT_DISP, 1, false);
+		cmdq_test_mbox_prebuilt(test, CMDQ_PREBUILT_DISP, 1, true);
+		break;
+	case 20:
+		cmdq_test_mbox_tzmp(test, sec, false);
+		break;
+	case 21:
+		cmdq_util_test_set_ostd();
+		cmdq_test_mbox_write_dma(test, sec, 10);
+		break;
+	case 22:
+		cmdq_test_mbox_vcp(test, false);
+		cmdq_test_mbox_vcp(test, true);
+		break;
 	default:
 		break;
 	}
+#ifdef CMDQ_SECURE_SUPPORT
+	cmdq_sec_mbox_disable(test->sec->chan);
+#endif
+	cmdq_mbox_disable(test->loop->chan);
+	cmdq_mbox_disable(test->clt->chan);
 	cmdq_thread_timeout_restore(thread, backup);
 }
 
@@ -933,7 +1343,8 @@ cmdq_test_write(struct file *filp, const char *buf, size_t count, loff_t *offp)
 {
 	struct cmdq_test *test = (struct cmdq_test *)filp->f_inode->i_private;
 	char		str[MAX_SCAN] = {0};
-	s32		len, sec, id = 0;
+	s32		sec, id = 0;
+	u32		len;
 
 	len = (count < MAX_SCAN - 1) ? count : (MAX_SCAN - 1);
 	if (copy_from_user(str, buf, len)) {
@@ -1013,49 +1424,25 @@ static int cmdq_test_probe(struct platform_device *pdev)
 	cmdq_msg("gce dev:%p va:%p pa:%pa",
 		test->gce.dev, test->gce.va, &test->gce.pa);
 
-	// mmsys
-	np = of_parse_phandle(pdev->dev.of_node, "mmsys_config", 0);
-	if (!np) {
-		cmdq_err("of_parse_phandle mmsys_config failed");
-		return -EINVAL;
-	}
-
-	np_pdev = of_find_device_by_node(np);
-	of_node_put(np);
-	if (!np_pdev) {
-		cmdq_err("of_find_device_by_node to mmsys_config failed");
-		return -EINVAL;
-	}
-	test->mmsys.dev = &np_pdev->dev;
-
-	test->mmsys.va = of_iomap(np_pdev->dev.of_node, 0);
-	if (!test->mmsys.va)
-		return -EINVAL;
-
-	ret = of_address_to_resource(np_pdev->dev.of_node, 0, &res);
-	if (ret) {
-		cmdq_err(
-			"of_address_to_resource to mmsys_config failed ret:%d",
-			ret);
-		return ret;
-	}
-	test->mmsys.pa = res.start;
-	cmdq_msg("mmsys dev:%p va:%p pa:%pa",
-		test->mmsys.dev, test->mmsys.va, &test->mmsys.pa);
-
 	// clt
 	test->clt = cmdq_mbox_create(&pdev->dev, 0);
-	if (IS_ERR(test->clt) || !test->clt)
-		return -ENXIO;
+	if (IS_ERR(test->clt) || !test->clt) {
+		if (!test->clt)
+			return -ENXIO;
+	}
 
 	test->loop = cmdq_mbox_create(&pdev->dev, 1);
-	if (IS_ERR(test->loop) || !test->loop)
-		return -ENXIO;
+	if (IS_ERR(test->loop) || !test->loop) {
+		if (!test->loop)
+			return -ENXIO;
+	}
 
 #ifdef CMDQ_SECURE_SUPPORT
 	test->sec = cmdq_mbox_create(&pdev->dev, 2);
-	if (IS_ERR(test->sec) || !test->sec)
-		return -ENXIO;
+	if (IS_ERR(test->sec) || !test->sec) {
+		if (!test->sec)
+			cmdq_err("no test->sec");
+	}
 #endif
 	cmdq_msg("%s test:%p dev:%p clt:%p loop:%p sec:%p",
 		__func__, test, test->dev, test->clt, test->loop, test->sec);
@@ -1094,10 +1481,13 @@ static int cmdq_test_probe(struct platform_device *pdev)
 	}
 
 	// fs
-	dir = debugfs_create_dir("cmdq", NULL);
-	if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
-		cmdq_err("debugfs_create_dir cmdq failed:%ld", PTR_ERR(dir));
-		return PTR_ERR(dir);
+	dir = debugfs_lookup("cmdq", NULL);
+	if (!dir) {
+		dir = debugfs_create_dir("cmdq", NULL);
+		if (IS_ERR(dir) && PTR_ERR(dir) != -EEXIST) {
+			cmdq_err("debugfs_create_dir cmdq failed:%ld", PTR_ERR(dir));
+			return PTR_ERR(dir);
+		}
 	}
 
 	test->fs = debugfs_create_file(

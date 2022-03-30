@@ -11,14 +11,26 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 #include <linux/sched/clock.h>
+#include <linux/timer.h>
+#include <linux/delay.h>
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+#include <iommu_debug.h>
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+#include "vcp.h"
+#include "vcp_status.h"
+#include "vcp_reg.h"
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+#include "cmdq-util.h"
 struct cmdq_util_helper_fp *cmdq_util_helper;
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 #include "cmdq-sec.h"
+struct cmdq_sec_helper_fp *cmdq_sec_helper;
 #endif
 
 #endif
@@ -32,7 +44,9 @@ struct cmdq_util_helper_fp *cmdq_util_helper;
 #ifndef cmdq_util_aee
 #define cmdq_util_aee(k, f, args...) cmdq_dump(f, ##args)
 #endif
-
+#ifndef cmdq_util_aee_ex
+#define cmdq_util_aee_ex(aee, k, f, args...) cmdq_dump(f, ##args)
+#endif
 
 #define CMDQ_ARG_A_WRITE_MASK	0xffff
 #define CMDQ_WRITE_ENABLE_MASK	BIT(0)
@@ -40,8 +54,6 @@ struct cmdq_util_helper_fp *cmdq_util_helper;
 #define CMDQ_EOC_CMD		((u64)((CMDQ_CODE_EOC << CMDQ_OP_CODE_SHIFT)) \
 				<< 32 | CMDQ_EOC_IRQ_EN)
 #define CMDQ_MBOX_BUF_LIMIT	16 /* default limit count */
-
-#define CMDQ_PREDUMP_TIMEOUT_MS		200
 
 /* sleep for 312 tick, which around 12us */
 #define CMDQ_POLL_TICK			312
@@ -73,6 +85,40 @@ struct cmdq_util_helper_fp *cmdq_util_helper;
 #define CMDQ_DBG_PERFBEGIN		CMDQ_CMD_BUFFER_SIZE
 #define CMDQ_DBG_PERFEND		(CMDQ_DBG_PERFBEGIN + 4)
 
+#define CMDQ_BUF_INIT_VAL		((u64)0xdeadbeafdeadbeaf)
+#define CMDQ_PACK_IOVA(addr)     ((uint32_t)((addr) | (((addr) >> 32) & 0xF)))
+#define	CMDQ_UNPACK_IOVA(addr)   \
+	((uint64_t)(addr & 0xFFFFFFF0) | (((uint64_t)(addr) & 0xF) << 32))
+
+#define VCP_TO_SPM_REG_PA			(0x1ec24098)
+#define VCP_USER_CNT		(8)
+#define MMINFRA_BASE			(0x1e800000)
+#define MMINFRA_MBIST_DELSEL10	(MMINFRA_BASE + 0xa28)
+#define MMINFRA_MBIST_DELSEL11	(MMINFRA_BASE + 0xa2c)
+#define MMINFRA_MBIST_DELSEL12	(MMINFRA_BASE + 0xa30)
+#define MMINFRA_MBIST_DELSEL13	(MMINFRA_BASE + 0xa34)
+#define MMINFRA_MBIST_DELSEL14	(MMINFRA_BASE + 0xa38)
+#define MMINFRA_MBIST_DELSEL15	(MMINFRA_BASE + 0xa3c)
+#define MMINFRA_MBIST_DELSEL16	(MMINFRA_BASE + 0xa40)
+#define MMINFRA_MBIST_DELSEL17	(MMINFRA_BASE + 0xa44)
+#define MMINFRA_MBIST_DELSEL18	(MMINFRA_BASE + 0xa48)
+#define MMINFRA_MBIST_DELSEL19	(MMINFRA_BASE + 0xa4c)
+
+#define	MDP_VCP_BUF_SIZE 0x80000
+
+#define	VCP_OFF_DELAY 1000 /* 1000ms */
+
+struct vcp_control {
+	struct mutex vcp_mutex;
+	struct timer_list	vcp_timer;
+	struct work_struct	vcp_work;
+	struct workqueue_struct *vcp_wq;
+	atomic_t		vcp_usage;
+	atomic_t		vcp_power;
+};
+struct vcp_control vcp;
+
+
 struct client_priv {
 	struct dma_pool *buf_pool;
 	u32 pool_limit;
@@ -89,6 +135,15 @@ struct cmdq_instruction {
 	u8 arg_b_type:1;
 	u8 arg_a_type:1;
 	u8 op:8;
+};
+
+struct cmdq_vcp_inst {
+	uint32_t offset : 18;
+	uint16_t size : 9;
+	uint8_t enable : 1;
+	uint8_t enter : 1;
+	uint8_t test : 2;
+	uint8_t error : 1;
 };
 
 struct cmdq_flush_item {
@@ -180,6 +235,8 @@ struct cmdq_client *cmdq_mbox_create(struct device *dev, int index)
 {
 	struct cmdq_client *client;
 	struct client_priv *priv;
+	struct device_node *iommu;
+	struct device *mbox_dev;
 
 	client = kzalloc(sizeof(*client), GFP_KERNEL);
 	if (!client)
@@ -190,12 +247,16 @@ struct cmdq_client *cmdq_mbox_create(struct device *dev, int index)
 	client->client.knows_txdone = true;
 	client->chan = mbox_request_channel(&client->client, index);
 	if (IS_ERR(client->chan)) {
-		cmdq_err("channel request fail:%d, idx:%d",
+		cmdq_err("channel request fail:%ld idx:%d",
 			PTR_ERR(client->chan), index);
 		dump_stack();
 		kfree(client);
 		return NULL;
 	}
+
+	mbox_dev = client->chan->mbox->dev;
+	iommu = of_parse_phandle(mbox_dev->of_node, "iommus", 0);
+	client->use_iommu = iommu ? true : false;
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -218,6 +279,189 @@ void cmdq_mbox_stop(struct cmdq_client *cl)
 	cmdq_mbox_channel_stop(cl->chan);
 }
 EXPORT_SYMBOL(cmdq_mbox_stop);
+
+static void cmdq_vcp_off_work(struct work_struct *work_item)
+{
+	mutex_lock(&vcp.vcp_mutex);
+	if (!atomic_read(&vcp.vcp_usage) && (atomic_read(&vcp.vcp_power) > 0)) {
+		cmdq_msg("[VCP] power off VCP");
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+		vcp_deregister_feature_ex(GCE_FEATURE_ID);
+#endif
+		atomic_dec(&vcp.vcp_power);
+	}
+	mutex_unlock(&vcp.vcp_mutex);
+}
+
+static void cmdq_vcp_off(struct timer_list *t)
+{
+	if (!work_pending(&vcp.vcp_work))
+		queue_work(vcp.vcp_wq, &vcp.vcp_work);
+}
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+static void cmdq_vcp_is_ready(void)
+{
+	int i = 0;
+
+	/* wait mmup ready */
+	while (!is_vcp_ready_ex(VCP_A_ID)) {
+		cmdq_log("[VCP] wait ready");
+		i += 5;
+		msleep_interruptible(5);
+		if (i > 100) {
+			cmdq_err("[VCP] wait ready timeout");
+			break;
+		}
+	}
+
+}
+#endif
+
+void cmdq_vcp_enable(bool en)
+{
+	mutex_lock(&vcp.vcp_mutex);
+	if (en) {
+		if (atomic_inc_return(&vcp.vcp_usage) == 1)
+			del_timer(&vcp.vcp_timer);
+		if (atomic_read(&vcp.vcp_power) <= 0) {
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+			dma_addr_t buf_pa = vcp_get_reserve_mem_phys_ex(GCE_MEM_ID);
+			void __iomem	*rg_base;
+
+			vcp_register_feature_ex(GCE_FEATURE_ID);
+			atomic_inc(&vcp.vcp_power);
+			mutex_unlock(&vcp.vcp_mutex);
+			cmdq_msg("[VCP] power on VCP");
+			cmdq_vcp_is_ready();
+			rg_base = ioremap(MMINFRA_MBIST_DELSEL10, 0x1000);
+			writel(CMDQ_PACK_IOVA(buf_pa), rg_base);
+#endif
+			return;
+		}
+	} else {
+		if (atomic_dec_return(&vcp.vcp_usage) == 0)
+			mod_timer(&vcp.vcp_timer, jiffies +
+				msecs_to_jiffies(VCP_OFF_DELAY));
+	}
+	mutex_unlock(&vcp.vcp_mutex);
+}
+EXPORT_SYMBOL(cmdq_vcp_enable);
+
+void *cmdq_get_vcp_buf(enum CMDQ_VCP_ENG_ENUM engine, dma_addr_t *pa_out)
+{
+	void *va;
+
+	switch (engine) {
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+	case CMDQ_VCP_ENG_MDP_HDR0 ... CMDQ_VCP_ENG_MDP_AAL1:
+		*pa_out = vcp_get_reserve_mem_phys_ex(GCE_MEM_ID);
+		va = (void *)vcp_get_reserve_mem_virt_ex(GCE_MEM_ID);
+		break;
+	case CMDQ_VCP_ENG_MML_HDR0 ... CMDQ_VCP_ENG_MML_AAL1:
+		*pa_out = vcp_get_reserve_mem_phys_ex(GCE_MEM_ID) + MDP_VCP_BUF_SIZE;
+		va = (void *)(vcp_get_reserve_mem_virt_ex(GCE_MEM_ID) + MDP_VCP_BUF_SIZE);
+		break;
+#endif
+	default:
+		return NULL;
+	}
+	return va;
+}
+EXPORT_SYMBOL(cmdq_get_vcp_buf);
+
+static dma_addr_t cmdq_get_vcp_dummy(enum CMDQ_VCP_ENG_ENUM engine)
+{
+	const u32 reg[VCP_USER_CNT] = {
+		MMINFRA_MBIST_DELSEL12, MMINFRA_MBIST_DELSEL13,
+		MMINFRA_MBIST_DELSEL14, MMINFRA_MBIST_DELSEL15,
+		MMINFRA_MBIST_DELSEL16, MMINFRA_MBIST_DELSEL17,
+		MMINFRA_MBIST_DELSEL18, MMINFRA_MBIST_DELSEL19,};
+
+	if (engine < 0 || engine >= VCP_USER_CNT)
+		return 0;
+	return reg[engine];
+}
+
+u32 cmdq_pkt_vcp_reuse_val(enum CMDQ_VCP_ENG_ENUM engine, u32 buf_offset, u16 size)
+{
+	u32 offset = 0;
+	u32 val;
+	struct cmdq_vcp_inst *vcp_inst = (struct cmdq_vcp_inst *)&val;
+
+	switch (engine) {
+	case CMDQ_VCP_ENG_MDP_HDR0:
+	case CMDQ_VCP_ENG_MDP_HDR1:
+	case CMDQ_VCP_ENG_MDP_AAL0:
+	case CMDQ_VCP_ENG_MDP_AAL1:
+		offset = buf_offset >> 2;
+		break;
+	case CMDQ_VCP_ENG_MML_HDR0:
+	case CMDQ_VCP_ENG_MML_HDR1:
+	case CMDQ_VCP_ENG_MML_AAL0:
+	case CMDQ_VCP_ENG_MML_AAL1:
+		offset = (buf_offset + MDP_VCP_BUF_SIZE) >> 2;
+		break;
+	}
+	vcp_inst->enable = 1;
+	vcp_inst->offset = offset & 0x3FFFF;
+	vcp_inst->size = size & 0x1FF;
+	return val;
+}
+EXPORT_SYMBOL(cmdq_pkt_vcp_reuse_val);
+
+s32 cmdq_pkt_readback(struct cmdq_pkt *pkt, enum CMDQ_VCP_ENG_ENUM engine,
+	u32 buf_offset, u16 size, u16 reg_gpr, u64 **curr_buf_va)
+{
+	s32 err = 0;
+	dma_addr_t addr;
+	u32 value;
+
+	pkt->vcp_eng |= 1 << (u32)engine;
+	value = cmdq_pkt_vcp_reuse_val(engine, buf_offset, size);
+	addr = cmdq_get_vcp_dummy(engine);
+	if (!addr)
+		return -1;
+
+	cmdq_pkt_write(pkt, NULL, addr, value, ~0);
+	if (curr_buf_va) /* reuse va */
+		*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
+	/* vcp irq B_GIPC2_SETCLR_0 */
+	cmdq_pkt_write(pkt, NULL, VCP_TO_SPM_REG_PA, B_GIPC2_SETCLR_0, B_GIPC2_SETCLR_0);
+#endif
+	/* timeout 360ms = 12us * 30000 */
+	cmdq_pkt_poll_timeout(pkt, 0, SUBSYS_NO_SUPPORT,
+		addr, ~0, 30000, reg_gpr);
+
+	return err;
+}
+EXPORT_SYMBOL(cmdq_pkt_readback);
+
+static void cmdq_dump_vcp_reg(struct cmdq_pkt *pkt)
+{
+	int eng;
+	unsigned long eng_bit;
+	void __iomem	*rg_base;
+	dma_addr_t addr;
+	u32 val;
+	struct cmdq_vcp_inst *vcp_inst = (struct cmdq_vcp_inst *)&val;
+
+	if (!pkt)
+		return;
+
+	eng_bit = pkt->vcp_eng;
+	for_each_set_bit(eng, &eng_bit, 32) {
+		addr = cmdq_get_vcp_dummy(eng);
+		if (!addr)
+			continue;
+		rg_base = ioremap(addr, 0x1000);
+		val = readl(rg_base);
+		cmdq_msg("%s vcp eng:%d, addr[%pa]=%#x enable:%d enter:%d error:%d",
+			__func__, eng, &addr, val,
+			vcp_inst->enable, vcp_inst->enter, vcp_inst->error);
+	}
+}
 
 void cmdq_mbox_pool_set_limit(struct cmdq_client *cl, u32 limit)
 {
@@ -321,13 +565,16 @@ static void cmdq_mbox_pool_free(struct cmdq_client *cl, void *va, dma_addr_t pa)
 	cmdq_mbox_pool_free_impl(priv->buf_pool, va, pa, &priv->buf_cnt);
 }
 
-void *cmdq_mbox_buf_alloc(struct device *dev, dma_addr_t *pa_out)
+static void *cmdq_mbox_buf_alloc_dev(struct device *dev, dma_addr_t *pa_out)
 {
-	void *va;
-	dma_addr_t pa;
+	void *va = NULL;
+	dma_addr_t pa = 0;
 
-	va = dma_alloc_coherent(dev, CMDQ_BUF_ALLOC_SIZE, &pa, GFP_KERNEL);
+	if (dev)
+		va = dma_alloc_coherent(dev, CMDQ_BUF_ALLOC_SIZE, &pa, GFP_KERNEL);
+
 	if (!va) {
+		cmdq_err("alloc dma buffer fail dev:0x%p", dev);
 		dump_stack();
 		return NULL;
 	}
@@ -335,11 +582,48 @@ void *cmdq_mbox_buf_alloc(struct device *dev, dma_addr_t *pa_out)
 	*pa_out = pa;
 	return va;
 }
+
+void *cmdq_mbox_buf_alloc(struct cmdq_client *cl, dma_addr_t *pa_out)
+{
+	void *va;
+	dma_addr_t pa = 0;
+	struct device *mbox_dev;
+
+	if (!cl) {
+		cmdq_err("cl is NULL");
+		dump_stack();
+		return NULL;
+	}
+	mbox_dev = cl->chan->mbox->dev;
+
+	va = cmdq_mbox_buf_alloc_dev(mbox_dev, &pa);
+	if (!va) {
+		cmdq_err("alloc dma buffer fail dev:0x%p", mbox_dev);
+		return NULL;
+	}
+
+	*pa_out = pa + gce_mminfra;
+	return va;
+}
 EXPORT_SYMBOL(cmdq_mbox_buf_alloc);
 
-void cmdq_mbox_buf_free(struct device *dev, void *va, dma_addr_t pa)
+static void cmdq_mbox_buf_free_dev(struct device *dev, void *va, dma_addr_t pa)
 {
 	dma_free_coherent(dev, CMDQ_BUF_ALLOC_SIZE, va, pa);
+}
+
+void cmdq_mbox_buf_free(struct cmdq_client *cl, void *va, dma_addr_t pa)
+{
+	struct device *mbox_dev;
+
+	if (!cl) {
+		cmdq_err("cl is NULL");
+		dump_stack();
+		return;
+	}
+	mbox_dev = cl->chan->mbox->dev;
+
+	cmdq_mbox_buf_free_dev(mbox_dev, va, pa - gce_mminfra);
 }
 EXPORT_SYMBOL(cmdq_mbox_buf_free);
 
@@ -393,19 +677,37 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 {
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
 	struct cmdq_pkt_buffer *buf;
+	bool use_iommu = false;
 
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
+	if (cl)
+		use_iommu = cl->use_iommu;
+	else if (pkt->dev && pkt->dev->of_node) {
+		struct device_node *iommu;
+
+		cmdq_log("%s cl is NULL, use pkt->dev", __func__);
+		iommu = of_parse_phandle(pkt->dev->of_node, "iommus", 0);
+		use_iommu = iommu?true:false;
+	} else {
+		cmdq_err("pkt->dev is NULL");
+		kfree(buf);
+		dump_stack();
+		return ERR_PTR(-ENODEV);
+	}
+
 	/* try dma pool if available */
 	if (pkt->cur_pool.pool)
 		buf->va_base = cmdq_mbox_pool_alloc_impl(pkt->cur_pool.pool,
-			&buf->pa_base, pkt->cur_pool.cnt, *pkt->cur_pool.limit);
+			use_iommu ? &buf->iova_base : &buf->pa_base,
+			pkt->cur_pool.cnt, *pkt->cur_pool.limit);
 	else if (cl) {
 		struct client_priv *priv = (struct client_priv *)cl->cl_priv;
 
-		buf->va_base = cmdq_mbox_pool_alloc(cl, &buf->pa_base);
+		buf->va_base = cmdq_mbox_pool_alloc(cl,
+			use_iommu ? &buf->iova_base : &buf->pa_base);
 		if (buf->va_base) {
 			pkt->cur_pool.pool = priv->buf_pool;
 			pkt->cur_pool.cnt = &priv->buf_cnt;
@@ -416,15 +718,31 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 	if (buf->va_base)
 		buf->use_pool = true;
 	else	/* allocate directly */
-		buf->va_base = cmdq_mbox_buf_alloc(pkt->dev,
-			&buf->pa_base);
+		buf->va_base = cmdq_mbox_buf_alloc_dev(pkt->dev,
+			use_iommu ? &buf->iova_base : &buf->pa_base);
+
 
 	if (!buf->va_base) {
 		cmdq_err("allocate cmd buffer failed");
 		kfree(buf);
 		return ERR_PTR(-ENOMEM);
 	}
+	*((u64 *)buf->va_base) = CMDQ_BUF_INIT_VAL;
+	*((u64 *)buf->va_base + 1) = CMDQ_BUF_INIT_VAL;
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	if (use_iommu) {
+		struct iommu_domain *domain;
+
+		domain = iommu_get_domain_for_dev(pkt->dev);
+		if (domain)
+			buf->pa_base =
+				iommu_iova_to_phys(domain, buf->iova_base);
+		else
+			cmdq_err("cannot get dev:%p domain", pkt->dev);
+	}
+#endif
+	buf->alloc_time = sched_clock();
 	list_add_tail(&buf->list_entry, &pkt->buf);
 	pkt->avail_buf_size += CMDQ_CMD_BUFFER_SIZE;
 	pkt->buf_size += CMDQ_CMD_BUFFER_SIZE;
@@ -440,23 +758,26 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 
 	list_for_each_entry_safe(buf, tmp, &pkt->buf, list_entry) {
 		list_del(&buf->list_entry);
+		if (!CMDQ_BUF_ADDR(buf))
+			cmdq_err("pkt:0x%p pa:%pa iova:%pa",
+			pkt, &buf->pa_base, &buf->iova_base);
 		if (buf->use_pool) {
 			if (pkt->cur_pool.pool)
 				cmdq_mbox_pool_free_impl(pkt->cur_pool.pool,
-					buf->va_base, buf->pa_base,
+					buf->va_base,
+					CMDQ_BUF_ADDR(buf),
 					pkt->cur_pool.cnt);
 			else {
-				cmdq_err("free pool:%s dev:%#lx pa:%pa cl:%#lx",
+				cmdq_err("free pool:%s dev:%#lx pa:%pa iova:%pa cl:%p",
 					buf->use_pool ? "true" : "false",
 					(unsigned long)pkt->dev,
-					&buf->pa_base,
-					cl);
+					&buf->pa_base, &buf->iova_base, cl);
 				cmdq_mbox_pool_free(cl, buf->va_base,
-					buf->pa_base);
+					CMDQ_BUF_ADDR(buf));
 			}
 		} else
-			cmdq_mbox_buf_free(pkt->dev, buf->va_base,
-				buf->pa_base);
+			cmdq_mbox_buf_free_dev(pkt->dev, buf->va_base,
+				CMDQ_BUF_ADDR(buf));
 		kfree(buf);
 	}
 }
@@ -490,12 +811,13 @@ s32 cmdq_pkt_add_cmd_buffer(struct cmdq_pkt *pkt)
 	prev_va = (u64 *)(prev->va_base + CMDQ_CMD_BUFFER_SIZE -
 		CMDQ_INST_SIZE);
 	*((u64 *)buf->va_base) = *prev_va;
+	*((u64 *)buf->va_base + 1) = CMDQ_BUF_INIT_VAL;
 
 	/* insert jump to jump start of new buffer.
 	 * jump to absolute addr
 	 */
 	*prev_va = ((u64)(CMDQ_CODE_JUMP << 24 | 1) << 32) |
-		(CMDQ_REG_SHIFT_ADDR(buf->pa_base) & 0xFFFFFFFF);
+		(CMDQ_REG_SHIFT_ADDR(CMDQ_BUF_ADDR(buf)) & 0xFFFFFFFF);
 
 	/* decrease available size since insert 1 jump */
 	pkt->avail_buf_size -= CMDQ_INST_SIZE;
@@ -527,19 +849,44 @@ struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client)
 	if (client)
 		pkt->dev = client->chan->mbox->dev;
 
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+	if (client && cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+		cmdq_pkt_perf_begin(pkt);
+#endif
+	pkt->task_alive = true;
 	return pkt;
 }
 EXPORT_SYMBOL(cmdq_pkt_create);
 
 void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 {
+	struct cmdq_client *client = pkt->cl;
+
+	if (client)
+		mutex_lock(&client->chan_mutex);
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+	if (pkt && pkt->task_alloc && !pkt->rec_irq) {
+		if (client && client->chan) {
+			s32 thread_id = cmdq_mbox_chan_id(client->chan);
+
+			cmdq_err("invalid destroy, pkt:%p thd:%d", pkt, thread_id);
+		} else
+			cmdq_err("invalid pkt_destroy, pkt:0x%p", pkt);
+		dump_stack();
+	}
+#endif
+	pkt->task_alive = false;
 	cmdq_pkt_free_buf(pkt);
 	kfree(pkt->flush_item);
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-	kfree(pkt->sec_data);
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+#ifdef CMDQ_SECURE_SUPPORT
+	if (pkt->sec_data)
+		cmdq_sec_helper->sec_pkt_free_data_fp(pkt);
+#endif
 #endif
 	kfree(pkt);
+	if (client)
+		mutex_unlock(&client->chan_mutex);
 }
 EXPORT_SYMBOL(cmdq_pkt_destroy);
 
@@ -571,7 +918,7 @@ dma_addr_t cmdq_pkt_get_pa_by_offset(struct cmdq_pkt *pkt, u32 offset)
 			continue;
 		}
 
-		return buf->pa_base + offset_remaind;
+		return CMDQ_BUF_ADDR(buf) + offset_remaind;
 	}
 
 	return 0;
@@ -588,9 +935,23 @@ dma_addr_t cmdq_pkt_get_curr_buf_pa(struct cmdq_pkt *pkt)
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 
-	return buf->pa_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
+	return CMDQ_BUF_ADDR(buf) + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 }
 EXPORT_SYMBOL(cmdq_pkt_get_curr_buf_pa);
+
+void *cmdq_pkt_get_curr_buf_va(struct cmdq_pkt *pkt)
+{
+	struct cmdq_pkt_buffer *buf;
+
+	if (unlikely(!pkt->avail_buf_size))
+		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
+			return NULL;
+
+	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
+
+	return buf->va_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
+}
+EXPORT_SYMBOL(cmdq_pkt_get_curr_buf_va);
 
 static bool cmdq_pkt_is_finalized(struct cmdq_pkt *pkt)
 {
@@ -601,6 +962,9 @@ static bool cmdq_pkt_is_finalized(struct cmdq_pkt *pkt)
 
 	expect_eoc = cmdq_pkt_get_va_by_offset(pkt,
 		pkt->cmd_buf_size - CMDQ_INST_SIZE * 2);
+	if (((struct cmdq_instruction *)expect_eoc)->op == CMDQ_CODE_JUMP)
+		expect_eoc = cmdq_pkt_get_va_by_offset(pkt,
+			pkt->cmd_buf_size - CMDQ_INST_SIZE * 3);
 	if (expect_eoc && *expect_eoc == CMDQ_EOC_CMD)
 		return true;
 
@@ -641,13 +1005,33 @@ s32 cmdq_pkt_append_command(struct cmdq_pkt *pkt, u16 arg_c, u16 arg_b,
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 	va = buf->va_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 
+	if (pkt->avail_buf_size >= CMDQ_CMD_BUFFER_SIZE - CMDQ_INST_SIZE &&
+		*((u64 *)va) != CMDQ_BUF_INIT_VAL) {
+		struct cmdq_client *client = pkt->cl;
+
+		cmdq_util_err(
+			"%s: pkt:%p avail:%lu va:%p iova:%pa pa:%pa alloc_time:%llu va:%p inst:%#llx",
+			__func__, pkt, pkt->avail_buf_size, buf->va_base,
+			&buf->iova_base, &buf->pa_base, buf->alloc_time,
+			va, *((u64 *)va));
+
+		if (pkt->cl)
+			cmdq_mbox_check_buffer(client->chan, buf);
+	}
+
 	cmdq_pkt_instr_encoder(va, arg_c, arg_b, arg_a, s_op, arg_c_type,
 		arg_b_type, arg_a_type, code);
 	pkt->cmd_buf_size += CMDQ_INST_SIZE;
 	pkt->avail_buf_size -= CMDQ_INST_SIZE;
 
+	if (unlikely(!pkt->avail_buf_size)) {
+		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
+			return -ENOMEM;
+	}
+
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_pkt_append_command);
 
 s32 cmdq_pkt_move(struct cmdq_pkt *pkt, u16 reg_idx, u64 value)
 {
@@ -770,10 +1154,197 @@ s32 cmdq_pkt_write_value_addr(struct cmdq_pkt *pkt, dma_addr_t addr,
 	if (err != 0)
 		return err;
 
-	return cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(addr),
+	err = cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(addr),
 		value, mask);
+
+	if (gce_insert_dummy && (addr > (dma_addr_t)gce_mminfra))
+		cmdq_pkt_read_addr(pkt, addr, CMDQ_SPR_FOR_TEMP);
+
+	return err;
 }
 EXPORT_SYMBOL(cmdq_pkt_write_value_addr);
+
+s32 cmdq_pkt_assign_command_reuse(struct cmdq_pkt *pkt, u16 reg_idx, u32 value,
+	u64 **curr_buf_va, u32 *inst_offset)
+{
+	s32 err;
+
+	err = cmdq_pkt_assign_command(pkt, reg_idx, value);
+
+	*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+	*inst_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+	return err;
+}
+EXPORT_SYMBOL(cmdq_pkt_assign_command_reuse);
+
+s32 cmdq_pkt_write_reg_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
+	u16 src_reg_idx, u32 mask, u64 **curr_buf_va, u32 *inst_offset)
+{
+	s32 err;
+	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
+
+	err = cmdq_pkt_assign_command(pkt, dst_reg_idx,
+		CMDQ_GET_ADDR_HIGH(addr));
+	if (err != 0)
+		return err;
+
+	err = cmdq_pkt_store_value_reg(pkt, dst_reg_idx,
+		CMDQ_GET_ADDR_LOW(addr), src_reg_idx, mask);
+
+	*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+	*inst_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+	return err;
+}
+EXPORT_SYMBOL(cmdq_pkt_write_reg_addr_reuse);
+
+s32 cmdq_pkt_write_value_addr_reuse(struct cmdq_pkt *pkt, dma_addr_t addr,
+	u32 value, u32 mask, u64 **curr_buf_va, u32 *inst_offset)
+{
+	s32 err;
+	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
+
+	/* assign bit 47:16 to spr temp */
+	err = cmdq_pkt_assign_command(pkt, dst_reg_idx,
+		CMDQ_GET_ADDR_HIGH(addr));
+	if (err != 0)
+		return err;
+
+	err = cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(addr),
+		value, mask);
+
+	*curr_buf_va = cmdq_pkt_get_curr_buf_va(pkt) - CMDQ_INST_SIZE;
+	*inst_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
+	cmdq_log("%s: curr_buf_va:%p idx:%u",
+		__func__, *curr_buf_va, *inst_offset);
+	return err;
+}
+EXPORT_SYMBOL(cmdq_pkt_write_value_addr_reuse);
+
+void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,
+	const u32 count)
+{
+	s32 i;
+
+	for (i = 0; i < count; i++) {
+		*reuse[i].va = (*reuse[i].va & GENMASK(63, 32)) | reuse[i].val;
+		cmdq_log("%s:curr reuse:%d va:%p val:%#x inst:%#llx",
+			__func__, i, reuse[i].va, reuse[i].val, *reuse[i].va);
+	}
+}
+EXPORT_SYMBOL(cmdq_pkt_reuse_buf_va);
+
+void cmdq_reuse_refresh(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse, u32 cnt)
+{
+	struct cmdq_pkt_buffer *buf;
+	u32 reuse_idx = 0;
+	u32 cur_off = 0;
+	u32 next_off;
+
+	list_for_each_entry(buf, &pkt->buf, list_entry) {
+		next_off = cur_off + CMDQ_CMD_BUFFER_SIZE;
+		while (reuse_idx < cnt &&
+			reuse[reuse_idx].offset >= cur_off &&
+			reuse[reuse_idx].offset < next_off) {
+			reuse[reuse_idx].va = (u64 *)(buf->va_base +
+				(reuse[reuse_idx].offset % CMDQ_CMD_BUFFER_SIZE));
+			reuse_idx++;
+		}
+
+		if (reuse_idx >= cnt)
+			break;
+
+		cur_off = next_off;
+	}
+}
+EXPORT_SYMBOL(cmdq_reuse_refresh);
+
+s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
+{
+	struct list_head entry;
+	struct cmdq_pkt_buffer *buf, *new, *tmp;
+	struct completion cmplt;
+	struct device *dev = dst->dev;
+	void *cl = dst->cl;
+	u64 *va;
+	u32 cmd_size, copy_size, reduce_size = 0;
+
+	cmdq_pkt_free_buf(dst);
+	INIT_LIST_HEAD(&dst->buf);
+
+	memcpy(&entry, &dst->buf, sizeof(entry));
+	memcpy(&cmplt, &dst->cmplt, sizeof(cmplt));
+	memcpy(dst, src, sizeof(*dst));
+	memcpy(&dst->cmplt, &cmplt, sizeof(cmplt));
+	memcpy(&dst->buf, &entry, sizeof(entry));
+	dst->flush_item = NULL;
+	cmd_size = src->cmd_buf_size;
+
+	if (cmdq_pkt_is_finalized(src)) {
+		reduce_size = 2 * CMDQ_INST_SIZE;
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+			reduce_size += 2 * CMDQ_INST_SIZE;
+#endif
+	}
+	cmd_size -= reduce_size;
+
+	/* copy buf */
+	list_for_each_entry(buf, &src->buf, list_entry) {
+		new = cmdq_pkt_alloc_buf(dst);
+		if (IS_ERR(new)) {
+			cmdq_err("alloc singe buffer fail status:%ld pkt:0x%p",
+				PTR_ERR(new), dst);
+			return PTR_ERR(new);
+		}
+		copy_size = cmd_size > CMDQ_CMD_BUFFER_SIZE ?
+			CMDQ_CMD_BUFFER_SIZE : cmd_size;
+		memcpy(new->va_base, buf->va_base, copy_size);
+		cmd_size -= copy_size;
+
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		if (new == list_first_entry(&dst->buf, typeof(*buf), list_entry) &&
+			cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF)) {
+
+			dst->avail_buf_size = CMDQ_CMD_BUFFER_SIZE;
+			dst->cmd_buf_size = 0;
+			dst->buf_size = CMDQ_CMD_BUFFER_SIZE;
+			cmdq_pkt_perf_begin(dst);
+		}
+#endif
+		/* if last buf contains only perf or eoc, cmd_size goes to 0 so
+		 * stops copy here.
+		 */
+		if (!cmd_size)
+			break;
+	}
+
+	list_for_each_entry_safe(buf, tmp, &dst->buf, list_entry) {
+		cmdq_log("%s: buf:%p va:%p pa:%pa iova_base:%pa tmp:%p",
+			__func__, buf, buf->va_base, &buf->pa_base, &buf->iova_base, tmp);
+
+		if (!list_is_last(&buf->list_entry, &dst->buf)) {
+			va = buf->va_base + CMDQ_CMD_BUFFER_SIZE -
+				CMDQ_INST_SIZE;
+			*va = ((u64)(CMDQ_CODE_JUMP << 24 | 1) << 32) |
+				CMDQ_REG_SHIFT_ADDR(CMDQ_BUF_ADDR(tmp));
+			cmdq_log("%s: va:%p inst:%#llx", __func__, va, *va);
+		}
+	}
+
+	dst->avail_buf_size = src->avail_buf_size + reduce_size;
+	dst->cmd_buf_size = src->cmd_buf_size - reduce_size;
+	dst->buf_size = src->buf_size;
+	if (dst->avail_buf_size > CMDQ_CMD_BUFFER_SIZE) {
+		dst->avail_buf_size -= CMDQ_CMD_BUFFER_SIZE;
+		dst->buf_size -= CMDQ_CMD_BUFFER_SIZE;
+	}
+
+	dst->cl = cl;
+	dst->dev = dev;
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_pkt_copy);
+
 
 s32 cmdq_pkt_store_value(struct cmdq_pkt *pkt, u16 indirect_dst_reg_idx,
 	u16 dst_addr_low, u32 value, u32 mask)
@@ -834,6 +1405,31 @@ s32 cmdq_pkt_store64_value_reg(struct cmdq_pkt *pkt,
 }
 EXPORT_SYMBOL(cmdq_pkt_store64_value_reg);
 
+s32 cmdq_pkt_write_dummy(struct cmdq_pkt *pkt, dma_addr_t addr)
+{
+	s32 err;
+	const u16 dst_reg_idx = CMDQ_SPR_FOR_TEMP;
+	struct cmdq_client *cl = pkt->cl;
+	u32 dummy_addr;
+
+	if (!cl || !gce_mminfra)
+		return 0;
+
+	dummy_addr = (u32)cmdq_mbox_get_dummy_reg(cl->chan);
+	if (addr > (dma_addr_t)gce_mminfra) {
+		/* assign bit 47:16 to spr temp */
+		err = cmdq_pkt_assign_command(pkt, dst_reg_idx,
+			CMDQ_GET_ADDR_HIGH(dummy_addr));
+		if (err != 0)
+			return err;
+
+		return cmdq_pkt_store_value(pkt, dst_reg_idx, CMDQ_GET_ADDR_LOW(dummy_addr),
+			1, ~0);
+	}
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_pkt_write_dummy);
+
 s32 cmdq_pkt_write_indriect(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t addr, u16 src_reg_idx, u32 mask)
 {
@@ -849,6 +1445,26 @@ s32 cmdq_pkt_write_indriect(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	return cmdq_pkt_write_reg_addr(pkt, addr, src_reg_idx, mask);
 }
 EXPORT_SYMBOL(cmdq_pkt_write_indriect);
+
+s32 cmdq_pkt_write_reg_indriect(struct cmdq_pkt *pkt, u16 addr_reg_idx,
+	u16 src_reg_idx, u32 mask)
+{
+	enum cmdq_code op = CMDQ_CODE_WRITE_S;
+
+	if (mask != U32_MAX) {
+		int err = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(~mask),
+			CMDQ_GET_ARG_B(~mask), 0, 0, 0, 0, 0, CMDQ_CODE_MASK);
+		if (err != 0)
+			return err;
+
+		op = CMDQ_CODE_WRITE_S_W_MASK;
+	}
+
+	return cmdq_pkt_append_command(pkt, 0,
+		src_reg_idx, addr_reg_idx, 0,
+		CMDQ_IMMEDIATE_VALUE, CMDQ_REG_TYPE, CMDQ_REG_TYPE, op);
+}
+EXPORT_SYMBOL(cmdq_pkt_write_reg_indriect);
 
 s32 cmdq_pkt_write(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t addr, u32 value, u32 mask)
@@ -913,7 +1529,7 @@ EXPORT_SYMBOL(cmdq_pkt_logic_command);
 
 s32 cmdq_pkt_jump(struct cmdq_pkt *pkt, s32 offset)
 {
-	s64 off = CMDQ_REG_SHIFT_ADDR((s64)offset);
+	s64 off = offset >> gce_shift_bit;
 
 	return cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(off),
 		CMDQ_GET_ARG_B(off), 0, 0, 0, 0, 0, CMDQ_CODE_JUMP);
@@ -1063,8 +1679,8 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr)
 	const u16 event = (u16)CMDQ_EVENT_GPR_TIMER + reg_gpr;
 	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
 	struct cmdq_operand lop, rop;
-	const u32 timeout_en = cmdq_mbox_get_base_pa(cl->chan) +
-		CMDQ_TPR_TIMEOUT_EN;
+	const u32 timeout_en = (cl ? cmdq_mbox_get_base_pa(cl->chan) :
+		cmdq_dev_get_base_pa(pkt->dev)) + CMDQ_TPR_TIMEOUT_EN;
 
 	/* set target gpr value to max to avoid event trigger
 	 * before new value write to gpr
@@ -1132,8 +1748,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 		absolute = false;
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	if (pkt->sec_data)
 		absolute = false;
 #endif
@@ -1168,6 +1783,9 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	}
 
 	/* assign temp spr as empty, shoudl fill in end addr later */
+	if (unlikely(!pkt->avail_buf_size))
+		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
+			return -ENOMEM;
 	end_addr_mark = pkt->cmd_buf_size;
 	cmdq_pkt_assign_command(pkt, reg_tmp, 0);
 
@@ -1209,7 +1827,8 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, reg_counter, &lop,
 		&rop);
 
-	cmdq_pkt_sleep(pkt, CMDQ_POLL_TICK, reg_gpr);
+	if (!of_property_read_bool(pkt->dev->of_node, "skip-poll-sleep"))
+		cmdq_pkt_sleep(pkt, CMDQ_POLL_TICK, reg_gpr);
 
 	/* loop to begin */
 	if (absolute) {
@@ -1266,7 +1885,7 @@ void cmdq_pkt_perf_begin(struct cmdq_pkt *pkt)
 			return;
 
 	pa = cmdq_pkt_get_pa_by_offset(pkt, 0) + CMDQ_DBG_PERFBEGIN;
-	cmdq_pkt_write_indriect(pkt, NULL, pa, CMDQ_TPR_ID, ~0);
+	cmdq_pkt_write_indriect(pkt, NULL, pa + gce_mminfra, CMDQ_TPR_ID, ~0);
 
 	buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
 	*(u32 *)(buf->va_base + CMDQ_DBG_PERFBEGIN) = 0xdeaddead;
@@ -1283,7 +1902,7 @@ void cmdq_pkt_perf_end(struct cmdq_pkt *pkt)
 			return;
 
 	pa = cmdq_pkt_get_pa_by_offset(pkt, 0) + CMDQ_DBG_PERFEND;
-	cmdq_pkt_write_indriect(pkt, NULL, pa, CMDQ_TPR_ID, ~0);
+	cmdq_pkt_write_indriect(pkt, NULL, pa + gce_mminfra, CMDQ_TPR_ID, ~0);
 
 	buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
 	*(u32 *)(buf->va_base + CMDQ_DBG_PERFEND) = 0xdeaddead;
@@ -1400,6 +2019,16 @@ s32 cmdq_pkt_handshake_event(struct cmdq_pkt *pkt, u16 event)
 }
 EXPORT_SYMBOL(cmdq_pkt_handshake_event);
 
+s32 cmdq_pkt_eoc(struct cmdq_pkt *pkt, bool cnt_inc)
+{
+	/* set to 1 to NOT inc exec count */
+	const u8 exec_inc = cnt_inc ? 0 : 1;
+
+	return cmdq_pkt_append_command(pkt, CMDQ_EOC_IRQ_EN,
+		0, 0, exec_inc, 0, 0, 0, CMDQ_CODE_EOC);
+}
+EXPORT_SYMBOL(cmdq_pkt_eoc);
+
 s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 {
 	int err;
@@ -1408,10 +2037,12 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 		return 0;
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+	if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+		cmdq_pkt_perf_end(pkt);
+
+#ifdef CMDQ_SECURE_SUPPORT
 	if (pkt->sec_data) {
-		err = cmdq_sec_insert_backup_cookie(pkt);
+		err = cmdq_sec_helper->sec_insert_backup_cookie_fp(pkt);
 		if (err)
 			return err;
 	}
@@ -1419,8 +2050,7 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 #endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
 
 	/* insert EOC and generate IRQ for each command iteration */
-	err = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(CMDQ_EOC_IRQ_EN),
-		CMDQ_GET_ARG_B(CMDQ_EOC_IRQ_EN), 0, 0, 0, 0, 0, CMDQ_CODE_EOC);
+	err = cmdq_pkt_eoc(pkt, true);
 	if (err < 0)
 		return err;
 
@@ -1435,17 +2065,33 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 }
 EXPORT_SYMBOL(cmdq_pkt_finalize);
 
+s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt)
+{
+	struct cmdq_pkt_buffer *buf;
+	struct cmdq_instruction *inst;
+
+	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
+	inst = buf->va_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size - CMDQ_INST_SIZE;
+	if (inst->op != CMDQ_CODE_JUMP || inst->arg_a != 1)
+		return 0;
+
+	pkt->cmd_buf_size -= CMDQ_INST_SIZE;
+	pkt->avail_buf_size += CMDQ_INST_SIZE;
+
+	return cmdq_pkt_jump(pkt, CMDQ_JUMP_PASS);
+}
+EXPORT_SYMBOL(cmdq_pkt_refinalize);
+
 s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt)
 {
-	u32 start_pa;
+	dma_addr_t start_pa;
 	s32 err;
 
 	if (cmdq_pkt_is_finalized(pkt))
 		return 0;
 
 	/* insert EOC and generate IRQ for each command iteration */
-	err = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(CMDQ_EOC_IRQ_EN),
-		CMDQ_GET_ARG_B(CMDQ_EOC_IRQ_EN), 0, 0, 0, 0, 0, CMDQ_CODE_EOC);
+	err = cmdq_pkt_eoc(pkt, true);
 	if (err < 0)
 		return err;
 
@@ -1496,35 +2142,40 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 
 	cmdq_msg("%s pkt:%p", __func__, pkt);
 
-	cmdq_util_helper->dump_lock();
 	cmdq_util_helper->error_enable();
 
-	cmdq_util_err("begin of error irq %u", err_num++);
-
+	cmdq_util_user_err(client ? client->chan : NULL,
+		"begin of error irq %u", err_num++);
+	cmdq_chan_dump_dbg(client->chan);
 	cmdq_task_get_thread_pc(client->chan, &pc);
-	cmdq_util_err("pkt:%lx thread:%d pc:%lx",
+	cmdq_util_user_err(client ? client->chan : NULL,
+		"pkt:%lx thread:%d pc:%lx",
 		(unsigned long)pkt, thread_id, (unsigned long)pc);
 
 	if (pc) {
 		list_for_each_entry(buf, &pkt->buf, list_entry) {
-			if (pc < buf->pa_base ||
-				pc > buf->pa_base + CMDQ_CMD_BUFFER_SIZE) {
+			if (pc < CMDQ_BUF_ADDR(buf) ||
+				pc > CMDQ_BUF_ADDR(buf) + CMDQ_CMD_BUFFER_SIZE) {
 				size -= CMDQ_CMD_BUFFER_SIZE;
-				cmdq_util_msg("buffer %u va:0x%p pa:%pa",
-					cnt, buf->va_base, &buf->pa_base);
+				cmdq_util_user_msg(client ? client->chan : NULL,
+					"buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llu",
+					cnt, buf, buf->va_base, &buf->pa_base,
+					&buf->iova_base, buf->alloc_time);
 				cnt++;
 				continue;
 			}
 			inst  = (struct cmdq_instruction *)(
-				buf->va_base + (pc - buf->pa_base));
+				buf->va_base + (pc - CMDQ_BUF_ADDR(buf)));
 
 			if (size > CMDQ_CMD_BUFFER_SIZE)
 				size = CMDQ_CMD_BUFFER_SIZE;
 
-			cmdq_util_msg("error irq buffer %u va:0x%p pa:%pa",
-				cnt, buf->va_base, &buf->pa_base);
+			cmdq_util_user_msg(client ? client->chan : NULL,
+				"error irq buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llu",
+				cnt, buf, buf->va_base, &buf->pa_base,
+				&buf->iova_base, buf->alloc_time);
 			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
-				buf->pa_base, pc, NULL);
+				CMDQ_BUF_ADDR(buf), pc, NULL, client->chan);
 
 			break;
 		}
@@ -1544,7 +2195,6 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	}
 
 	cmdq_util_helper->error_disable();
-	cmdq_util_helper->dump_unlock();
 }
 
 static void cmdq_flush_async_cb(struct cmdq_cb_data data)
@@ -1562,7 +2212,6 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 	if (item->cb)
 		item->cb(user_data);
 	complete(&pkt->cmplt);
-	item->done = true;
 }
 #endif
 
@@ -1574,7 +2223,7 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 	char text[txt_len];
 	char text_gpr[30] = {0};
 	void *base;
-	u32 gprid, val;
+	u32 gprid, val, len;
 
 	cmdq_buf_print_wfe(text, txt_len, (u32)(pc & 0xFFFF), (void *)inst);
 
@@ -1584,12 +2233,47 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 		gprid = inst->arg_a - CMDQ_EVENT_GPR_TIMER;
 		val = readl(base + CMDQ_GPR_R0_OFF + gprid * 4);
 
-		snprintf(text_gpr, ARRAY_SIZE(text_gpr),
+		len = snprintf(text_gpr, ARRAY_SIZE(text_gpr),
 			" GPR R%u:%#x", gprid, val);
+		if (len >= ARRAY_SIZE(text_gpr))
+			cmdq_log("len:%d over text_gpr size:%lu",
+				len, ARRAY_SIZE(text_gpr));
+	} else if (inst->arg_a >= CMDQ_TOKEN_TZMP_ISP_WAIT &&
+		inst->arg_a <= CMDQ_TOKEN_TZMP_AIE_SET) {
+		const u16 mod = (inst->arg_a - CMDQ_TOKEN_TZMP_ISP_WAIT) / 2;
+		const u16 event = CMDQ_TOKEN_TZMP_ISP_WAIT + mod * 2;
+
+		cmdq_util_user_msg(chan,
+				"CMDQ_TZMP: mod:%hu event %hu:%#x %#x",
+			mod, event, cmdq_get_event(chan, event),
+			cmdq_get_event(chan, event + 1));
+	} else if (inst->arg_a >= CMDQ_TOKEN_PREBUILT_MDP_WAIT &&
+		inst->arg_a <= CMDQ_TOKEN_DISP_VA_END) {
+		const u16 mod =
+			(inst->arg_a - CMDQ_TOKEN_PREBUILT_MDP_WAIT) / 3;
+		const u16 event = CMDQ_TOKEN_PREBUILT_MDP_WAIT + mod * 3;
+
+		cmdq_util_user_msg(chan,
+				"CMDQ_PREBUILT: mod:%hu event %hu:%#x %#x %#x",
+			mod, event, cmdq_get_event(chan, event),
+			cmdq_get_event(chan, event + 1),
+			cmdq_get_event(chan, event + 2));
 	}
 
-	cmdq_util_msg("curr inst: %s value:%u%s",
+	cmdq_util_user_msg(chan, "curr inst: %s value:%u%s",
 		text, cmdq_get_event(chan, inst->arg_a), text_gpr);
+}
+
+static void cmdq_pkt_call_item_cb(struct cmdq_flush_item *item)
+{
+	struct cmdq_cb_data cb_data = {
+		.data = item->err_data,
+		.err = item->err,
+	};
+
+	if (!item->err_cb)
+		return;
+	item->err_cb(cb_data);
 }
 #endif
 
@@ -1607,26 +2291,35 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	phys_addr_t gce_pa = cmdq_mbox_get_base_pa(client->chan);
 	const char *mod = NULL;
 	s32 thread_id = cmdq_mbox_chan_id(client->chan);
-
-	cmdq_util_helper->dump_lock();
+	enum cmdq_aee_type aee;
 
 	/* assign error during dump cb */
 	item->err = data.err;
 
+	/* The self loop case, callback to caller with -EBUSY without all other
+	 * error message dump.
+	 */
+	if (pkt->self_loop && data.err == -EBUSY) {
+		cmdq_pkt_call_item_cb(item);
+		return;
+	}
+
+	cmdq_util_helper->dump_lock();
+
 	if (err_num == 0)
 		cmdq_util_helper->error_enable();
 
-	cmdq_util_err("Begin of Error %u", err_num);
+	cmdq_util_user_err(client->chan, "Begin of Error %u", err_num);
 
 	cmdq_dump_core(client->chan);
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	/* for secure path dump more detail */
 	if (pkt->sec_data) {
 		cmdq_util_msg("thd:%d Hidden thread info since it's secure",
 			thread_id);
-		cmdq_sec_err_dump(pkt, client, (u64 **)&inst, &mod);
+		cmdq_sec_helper->sec_err_dump_fp(
+			pkt, client, (u64 **)&inst, &mod);
 	} else {
 		cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
 	}
@@ -1640,46 +2333,53 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
 #endif
 
-	if (inst && inst->op == CMDQ_CODE_WFE)
+	if (inst && inst->op == CMDQ_CODE_WFE) {
 		cmdq_print_wait_summary(client->chan, pc, inst);
-	else if (inst)
-		cmdq_buf_cmd_parse((u64 *)inst, 1, pc, pc, "curr inst:");
+
+		if (inst->arg_a >= CMDQ_TOKEN_PREBUILT_MDP_WAIT &&
+			inst->arg_a <= CMDQ_TOKEN_DISP_VA_END)
+			cmdq_util_prebuilt_dump(
+				cmdq_util_get_hw_id(gce_pa), inst->arg_a);
+	} else if (inst)
+		cmdq_buf_cmd_parse((u64 *)inst, 1, pc, pc,
+			"curr inst:", client->chan);
 	else
 		cmdq_util_msg("curr inst: Not Available");
 
-	if (item->err_cb) {
-		struct cmdq_cb_data cb_data = {
-			.data = item->err_data,
-			.err = data.err
-		};
-
-		item->err_cb(cb_data);
-	}
-
+	cmdq_pkt_call_item_cb(item);
 	cmdq_dump_pkt(pkt, pc, true);
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	if (!pkt->sec_data)
 		cmdq_util_helper->dump_smi();
 #else
 	cmdq_util_helper->dump_smi();
 #endif
 
+	pkt->err_data.offset = cmdq_task_current_offset(pc, pkt);
+	if (inst && inst->op == CMDQ_CODE_WFE) {
+		pkt->err_data.wfe_timeout = true;
+		pkt->err_data.event = inst->arg_a;
+	}
+
+	if (!pkt->aee_cb)
+		aee = CMDQ_AEE_WARN;
+	else
+		aee = pkt->aee_cb(data);
+
 	if (inst && inst->op == CMDQ_CODE_WFE) {
 		mod = cmdq_util_helper->event_module_dispatch(gce_pa, inst->arg_a,
 			thread_id);
-		cmdq_util_aee(mod,
+		cmdq_util_aee_ex(aee, mod,
 			"DISPATCH:%s(%s) inst:%#018llx OP:WAIT EVENT:%hu thread:%d",
 			mod, cmdq_util_helper->hw_name(client->chan),
 			*(u64 *)inst, inst->arg_a, thread_id);
 	} else if (inst) {
 		if (!mod)
-			mod = cmdq_util_helper->thread_module_dispatch(gce_pa,
-								thread_id);
+			mod = cmdq_util_helper->thread_module_dispatch(gce_pa, thread_id);
 
 		/* not sync case, print raw */
-		cmdq_util_aee(mod,
+		cmdq_util_aee_ex(aee, mod,
 			"DISPATCH:%s(%s) inst:%#018llx OP:%#04hhx thread:%d",
 			mod, cmdq_util_helper->hw_name(client->chan),
 			*(u64 *)inst, inst->op, thread_id);
@@ -1688,26 +2388,30 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 			mod = "CMDQ";
 
 		/* no inst available */
-		cmdq_util_aee(mod,
-			"DISPATCH:%s(%s) unknown instruction thread:%d",
-			mod, cmdq_util_helper->hw_name(client->chan), thread_id);
+		if (aee == CMDQ_AEE_EXCEPTION)
+			cmdq_util_aee_ex(aee, mod,
+				"DISPATCH:%s(%s) unknown instruction thread:%d",
+				mod, cmdq_util_helper->hw_name(client->chan), thread_id);
+		else
+			cmdq_util_aee_ex(CMDQ_AEE_WARN, mod,
+				"DISPATCH:%s(%s) unknown instruction thread:%d",
+				mod, cmdq_util_helper->hw_name(client->chan), thread_id);
 	}
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 done:
 #endif
-	cmdq_util_err("End of Error %u", err_num);
+
+	cmdq_util_user_err(client->chan, "End of Error %u", err_num);
 	if (err_num == 0) {
 		cmdq_util_helper->error_disable();
 		cmdq_util_helper->set_first_err_mod(client->chan, mod);
 	}
 	err_num++;
-
 	cmdq_util_helper->dump_unlock();
 
 #else
 	cmdq_err("cmdq error:%d", data.err);
-#endif
+#endif	/* CONFIG_MTK_CMDQ_MBOX_EXT */
 }
 
 s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
@@ -1723,6 +2427,11 @@ s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 	if (IS_ERR(item))
 		return -ENOMEM;
 #endif
+	if (!client) {
+		cmdq_err("client is NULL");
+		dump_stack();
+		return -EINVAL;
+	}
 
 	err = cmdq_pkt_finalize(pkt);
 	if (err < 0)
@@ -1769,11 +2478,12 @@ void cmdq_dump_summary(struct cmdq_client *client, struct cmdq_pkt *pkt)
 		cmdq_print_wait_summary(client->chan, pc, inst);
 	else if (inst)
 		cmdq_buf_cmd_parse((u64 *)inst, 1, pc, pc,
-			"curr inst:");
+			"curr inst:", client->chan);
 	else
 		cmdq_msg("curr inst: Not Available");
 	cmdq_dump_pkt(pkt, pc, false);
 }
+EXPORT_SYMBOL(cmdq_dump_summary);
 
 static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 {
@@ -1782,18 +2492,15 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 	unsigned long ret;
 	int cnt = 0;
 	u32 timeout_ms = cmdq_mbox_get_thread_timeout((void *)client->chan);
-	bool skip = false;
+	bool skip = false, clock = false;
 
 #if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
 	cmdq_mmp_wait(client->chan, pkt);
 #endif
 
-	/* make sure gce won't turn off during dump */
-	cmdq_mbox_enable(client->chan);
-
 	while (!pkt->task_alloc) {
 		ret = wait_for_completion_timeout(&pkt->cmplt,
-			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
+			msecs_to_jiffies(CMDQ_PREDUMP_MS(timeout_ms)));
 		if (ret) {
 			/* task alloc failed then skip predump */
 			skip = true;
@@ -1810,22 +2517,27 @@ static int cmdq_pkt_wait_complete_loop(struct cmdq_pkt *pkt)
 		}
 
 		ret = wait_for_completion_timeout(&pkt->cmplt,
-			msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
+			msecs_to_jiffies(CMDQ_PREDUMP_MS(timeout_ms)));
 		if (ret)
 			break;
 
+		if (!clock)   {
+			cmdq_mbox_enable(client->chan);
+			clock = true;
+		}
+
 		cmdq_util_helper->dump_lock();
-		cmdq_msg("===== SW timeout Pre-dump %u =====", cnt++);
+		cmdq_util_user_msg(client->chan,
+			"===== SW timeout Pre-dump %u =====", cnt);
+		++cnt;
 		cmdq_dump_summary(client, pkt);
 		cmdq_util_helper->dump_unlock();
 	}
 
 	pkt->task_alloc = false;
-	cmdq_mbox_disable(client->chan);
 
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
-	cmdq_mmp_wait_done(client->chan, pkt);
-#endif
+	if (clock)
+		cmdq_mbox_disable(client->chan);
 
 	return item->err;
 }
@@ -1842,10 +2554,9 @@ int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt)
 	pkt->rec_wait = sched_clock();
 	cmdq_trace_begin("%s", __func__);
 
-#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	if (pkt->sec_data)
-		cmdq_sec_pkt_wait_complete(pkt);
+		cmdq_sec_helper->sec_pkt_wait_complete_fp(pkt);
 	else
 		cmdq_pkt_wait_complete_loop(pkt);
 #else
@@ -1971,51 +2682,65 @@ EXPORT_SYMBOL(cmdq_pkt_flush);
 static void cmdq_buf_print_read(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	u32 addr;
+	u32 addr, len;
 
 	if (cmdq_inst->arg_b_type == CMDQ_IMMEDIATE_VALUE &&
 		(cmdq_inst->arg_b & CMDQ_ADDR_LOW_BIT)) {
 		/* 48bit format case */
 		addr = cmdq_inst->arg_b & 0xfffc;
 
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Read ] Reg Index %#010x = addr(low) %#06x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a, addr);
 	} else {
 		addr = ((u32)(cmdq_inst->arg_b |
 			(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT)));
 
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Read ] Reg Index %#010x = %s%#010x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a,
 			cmdq_inst->arg_b_type ? "*Reg Index " : "SubSys Reg ",
 			addr);
 	}
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_write(char *text, u32 txt_sz,
-	u32 offset, struct cmdq_instruction *cmdq_inst)
+	u32 offset, struct cmdq_instruction *cmdq_inst, u16 *spr_cache)
 {
-	u32 addr;
+	u32 addr, len;
 
 	if (cmdq_inst->arg_a_type == CMDQ_IMMEDIATE_VALUE &&
 		(cmdq_inst->arg_a & CMDQ_ADDR_LOW_BIT)) {
 		/* 48bit format case */
 		addr = cmdq_inst->arg_a & 0xfffc;
-
-		snprintf(text, txt_sz,
-			"%#06x %#018llx [Write] addr(low) %#06x = %s%#010x%s",
-			offset, *((u64 *)cmdq_inst),
-			addr, CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
-			cmdq_inst->arg_b_type ? cmdq_inst->arg_b :
-			CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c),
-			cmdq_inst->op == CMDQ_CODE_WRITE_S_W_MASK ?
-			" with mask" : "");
+		if (cmdq_inst->s_op < 4) {
+			addr = (spr_cache[cmdq_inst->s_op] << 16) | addr;
+			len = snprintf(text, txt_sz,
+				"%#06x %#018llx [Write] addr %#010x = %s%#010x%s",
+				offset, *((u64 *)cmdq_inst), addr,
+				CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
+				cmdq_inst->arg_b_type ? cmdq_inst->arg_b :
+				CMDQ_GET_32B_VALUE(cmdq_inst->arg_b,
+					cmdq_inst->arg_c),
+					cmdq_inst->op == CMDQ_CODE_WRITE_S_W_MASK ?
+					" with mask" : "");
+		} else {
+			len = snprintf(text, txt_sz,
+				"%#06x %#018llx [Write] addr(low) %#06x = %s%#010x%s",
+				offset, *((u64 *)cmdq_inst), addr,
+				CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
+				cmdq_inst->arg_b_type ? cmdq_inst->arg_b :
+				CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c),
+				cmdq_inst->op == CMDQ_CODE_WRITE_S_W_MASK ?
+				" with mask" : "");
+		}
 	} else {
 		addr = ((u32)(cmdq_inst->arg_a |
 			(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT)));
 
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Write] %s%#010x = %s%#010x%s",
 			offset, *((u64 *)cmdq_inst),
 			cmdq_inst->arg_a_type ? "*Reg Index " : "SubSys Reg ",
@@ -2025,20 +2750,22 @@ static void cmdq_buf_print_write(char *text, u32 txt_sz,
 			cmdq_inst->op == CMDQ_CODE_WRITE_S_W_MASK ?
 			" with mask" : "");
 	}
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 	u32 offset, void *inst)
 {
 	struct cmdq_instruction *cmdq_inst = inst;
-	u32 cmd = CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c);
+	u32 len, cmd = CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c);
 	u32 event_op = cmd & 0x80008000;
 	u16 update_to = cmdq_inst->arg_b & GENMASK(11, 0);
 	u16 wait_to = cmdq_inst->arg_c & GENMASK(11, 0);
 
 	switch (event_op) {
 	case 0x80000000:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Sync ] %s event %u to %u",
 			offset, *((u64 *)cmdq_inst),
 			update_to ? "set" : "clear",
@@ -2046,7 +2773,7 @@ void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 			update_to);
 		break;
 	case 0x8000:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Sync ] wait for event %u become %u",
 			offset, *((u64 *)cmdq_inst),
 			cmdq_inst->arg_a,
@@ -2054,7 +2781,7 @@ void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 		break;
 	case 0x80008000:
 	default:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Sync ] wait for event %u become %u and %s to %u",
 			offset, *((u64 *)cmdq_inst),
 			cmdq_inst->arg_a,
@@ -2063,6 +2790,8 @@ void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 			update_to);
 		break;
 	}
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static const char *cmdq_parse_logic_sop(enum CMDQ_LOGIC_ENUM s_op)
@@ -2116,34 +2845,40 @@ static const char *cmdq_parse_jump_c_sop(enum CMDQ_CONDITION_ENUM s_op)
 static void cmdq_buf_print_move(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	u64 val = (u64)cmdq_inst->arg_a |
+	u64 len, val = (u64)cmdq_inst->arg_a |
 		CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c);
 
-	if (cmdq_inst->arg_a)
-		snprintf(text, txt_sz,
+	if (cmdq_inst->s_op)
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Move ] move %#llx to %s%hhu",
 			offset, *((u64 *)cmdq_inst), val,
 			"Reg Index GPR R", cmdq_inst->s_op);
 	else
-		snprintf(text, txt_sz,
-			"%#06x %#018llx [Move ] mask %#014llx",
-			offset, *((u64 *)cmdq_inst), ~val);
+		len = snprintf(text, txt_sz,
+			"%#06x %#018llx [Move ] mask %#010x",
+			offset, *((u64 *)cmdq_inst), (u32)~val);
+	if (len >= txt_sz)
+		cmdq_log("len:%llu over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_logic(char *text, u32 txt_sz,
-	u32 offset, struct cmdq_instruction *cmdq_inst)
+	u32 offset, struct cmdq_instruction *cmdq_inst, u16 *spr_cache)
 {
+	u32 len;
+
 	switch (cmdq_inst->s_op) {
 	case CMDQ_LOGIC_ASSIGN:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Logic] Reg Index %#06x %s%s%#010x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a,
 			cmdq_parse_logic_sop(cmdq_inst->s_op),
 			CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
 			CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c));
+		if (cmdq_inst->arg_a < 4)
+			spr_cache[cmdq_inst->arg_a] = cmdq_inst->arg_c;
 		break;
 	case CMDQ_LOGIC_NOT:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Logic] Reg Index %#06x %s%s%#010x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a,
 			cmdq_parse_logic_sop(cmdq_inst->s_op),
@@ -2151,7 +2886,7 @@ static void cmdq_buf_print_logic(char *text, u32 txt_sz,
 			cmdq_inst->arg_b);
 		break;
 	default:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Logic] %s%#010x = %s%#010x %s%s%#010x",
 			offset, *((u64 *)cmdq_inst),
 			CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_a_type),
@@ -2162,12 +2897,16 @@ static void cmdq_buf_print_logic(char *text, u32 txt_sz,
 			cmdq_inst->arg_c);
 		break;
 	}
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_write_jump_c(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	snprintf(text, txt_sz,
+	u32 len;
+
+	len = snprintf(text, txt_sz,
 		"%#06x %#018llx [Jumpc] %s if (%s%#010x %s %s%#010x) jump %s%#010x",
 		offset, *((u64 *)cmdq_inst),
 		cmdq_inst->op == CMDQ_CODE_JUMP_C_ABSOLUTE ?
@@ -2176,40 +2915,47 @@ static void cmdq_buf_print_write_jump_c(char *text, u32 txt_sz,
 		cmdq_inst->arg_b, cmdq_parse_jump_c_sop(cmdq_inst->s_op),
 		CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_c_type), cmdq_inst->arg_c,
 		CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_a_type), cmdq_inst->arg_a);
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_poll(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	u32 addr = ((u32)(cmdq_inst->arg_a |
+	u32 len, addr = ((u32)(cmdq_inst->arg_a |
 		(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT)));
 
-	snprintf(text, txt_sz,
+	len = snprintf(text, txt_sz,
 		"%#06x %#018llx [Poll ] poll %s%#010x = %s%#010x",
 		offset, *((u64 *)cmdq_inst),
 		cmdq_inst->arg_a_type ? "*Reg Index " : "SubSys Reg ",
 		addr,
 		CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
 		CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c));
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_jump(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	u32 dst = ((u32)cmdq_inst->arg_b) << 16 | cmdq_inst->arg_c;
+	u32 len, dst = ((u32)cmdq_inst->arg_b) << 16 | cmdq_inst->arg_c;
 
-	snprintf(text, txt_sz,
+	len = snprintf(text, txt_sz,
 		"%#06x %#018llx [Jump ] jump %s %#llx",
 		offset, *((u64 *)cmdq_inst),
 		cmdq_inst->arg_a ? "absolute addr" : "relative offset",
 		cmdq_inst->arg_a ? CMDQ_REG_REVERT_ADDR((u64)dst) :
 		CMDQ_REG_REVERT_ADDR((s64)(s32)dst));
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_misc(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
 	char *cmd_str;
+	u32 len;
 
 	switch (cmdq_inst->op) {
 	case CMDQ_CODE_EOC:
@@ -2220,24 +2966,27 @@ static void cmdq_buf_print_misc(char *text, u32 txt_sz,
 		break;
 	}
 
-	snprintf(text, txt_sz, "%#06x %#018llx %s",
+	len = snprintf(text, txt_sz, "%#06x %#018llx %s",
 		offset, *((u64 *)cmdq_inst), cmd_str);
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
-	dma_addr_t cur_pa, const char *info)
+	dma_addr_t cur_pa, const char *info, void *chan)
 {
 #define txt_sz 128
 	static char text[txt_sz];
 	struct cmdq_instruction *cmdq_inst = (struct cmdq_instruction *)buf;
 	u32 i;
+	u16 spr_cache[4] = {0};
 
 	for (i = 0; i < cmd_nr; i++) {
 		switch (cmdq_inst[i].op) {
 		case CMDQ_CODE_WRITE_S:
 		case CMDQ_CODE_WRITE_S_W_MASK:
 			cmdq_buf_print_write(text, txt_sz, (u32)buf_pa,
-				&cmdq_inst[i]);
+				&cmdq_inst[i], spr_cache);
 			break;
 		case CMDQ_CODE_WFE:
 			cmdq_buf_print_wfe(text, txt_sz, (u32)buf_pa,
@@ -2253,7 +3002,7 @@ void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
 			break;
 		case CMDQ_CODE_LOGIC:
 			cmdq_buf_print_logic(text, txt_sz, (u32)buf_pa,
-				&cmdq_inst[i]);
+				&cmdq_inst[i], spr_cache);
 			break;
 		case CMDQ_CODE_JUMP_C_ABSOLUTE:
 		case CMDQ_CODE_JUMP_C_RELATIVE:
@@ -2273,27 +3022,39 @@ void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
 				&cmdq_inst[i]);
 			break;
 		}
-		cmdq_util_msg("%s%s",
+		cmdq_util_user_msg(chan, "%s%s",
 			info ? info : (buf_pa == cur_pa ? ">>" : "  "),
 			text);
 		buf_pa += CMDQ_INST_SIZE;
 	}
 }
+EXPORT_SYMBOL(cmdq_buf_cmd_parse);
 
 s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 {
+	struct cmdq_client *client;
 	struct cmdq_pkt_buffer *buf;
 	u32 size, cnt = 0;
 
+	if (!pkt) {
+		cmdq_err("pkt is empty");
+		return -EINVAL;
+	}
+	if (!pkt->task_alive) {
+		cmdq_err("task_alive:%d", pkt->task_alive);
+		return -EINVAL;
+	}
+
+	client = (struct cmdq_client *)pkt->cl;
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
 		if (list_is_last(&buf->list_entry, &pkt->buf)) {
 			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
-		} else if (curr_pa != ~0 && cnt > 2 &&
-			!(curr_pa >= buf->pa_base &&
-			curr_pa < buf->pa_base + CMDQ_BUF_ALLOC_SIZE)) {
-			cmdq_util_msg(
-				"buffer %u va:0x%p pa:%pa %#018llx (skip detail) %#018llx",
-				cnt, buf->va_base, &buf->pa_base,
+		} else if (cnt > 2 && !(curr_pa >= CMDQ_BUF_ADDR(buf) &&
+			curr_pa < CMDQ_BUF_ADDR(buf) + CMDQ_BUF_ALLOC_SIZE)) {
+			cmdq_util_user_msg(client ? client->chan : NULL,
+				"buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llu %#018llx (skip detail) %#018llx",
+				cnt, buf, buf->va_base, &buf->pa_base,
+				&buf->iova_base, buf->alloc_time,
 				*((u64 *)buf->va_base),
 				*((u64 *)(buf->va_base +
 				CMDQ_CMD_BUFFER_SIZE - CMDQ_INST_SIZE)));
@@ -2302,10 +3063,14 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 		} else {
 			size = CMDQ_CMD_BUFFER_SIZE;
 		}
-		cmdq_util_msg("buffer %u va:0x%p pa:%pa",
-			cnt, buf->va_base, &buf->pa_base);
-		cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
-			buf->pa_base, curr_pa, NULL);
+		cmdq_util_user_msg(client ? client->chan : NULL,
+			"buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llu",
+			cnt, buf, buf->va_base, &buf->pa_base,
+			&buf->iova_base, buf->alloc_time);
+		if (buf->va_base && client) {
+			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
+				CMDQ_BUF_ADDR(buf), curr_pa, NULL, client->chan);
+		}
 		cnt++;
 	}
 
@@ -2315,26 +3080,88 @@ EXPORT_SYMBOL(cmdq_pkt_dump_buf);
 
 int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 {
-	if (!pkt)
-		return -EINVAL;
+	struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
 
-	cmdq_util_msg(
-		"pkt:0x%p(%#x) size:%zu/%zu avail size:%zu priority:%u%s",
-		pkt, (u32)(unsigned long)pkt, pkt->cmd_buf_size,
-		pkt->buf_size, pkt->avail_buf_size,
-		pkt->priority, pkt->loop ? " loop" : "");
+	if (!pkt) {
+		cmdq_err("%s pkt is empty");
+		return -EINVAL;
+	}
+	if (!pkt->task_alive) {
+		cmdq_err("task_alive:%d", pkt->task_alive);
+		return -EINVAL;
+	}
+	if (client) {
+		cmdq_util_user_msg(client->chan,
+			"pkt:0x%p(%#x) size:%zu/%zu avail size:%zu priority:%u%s",
+			pkt, (u32)(unsigned long)pkt, pkt->cmd_buf_size,
+			pkt->buf_size, pkt->avail_buf_size,
+			pkt->priority, pkt->loop ? " loop" : "");
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	cmdq_util_msg(
-		"submit:%llu trigger:%llu wait:%llu irq:%llu",
-		pkt->rec_submit, pkt->rec_trigger,
-		pkt->rec_wait, pkt->rec_irq);
+		cmdq_util_user_msg(client->chan,
+			"submit:%llu trigger:%llu wait:%llu irq:%llu",
+			pkt->rec_submit, pkt->rec_trigger,
+			pkt->rec_wait, pkt->rec_irq);
 #endif
+	}
+
 	if (dump_ist)
 		cmdq_pkt_dump_buf(pkt, pc);
-
+	cmdq_dump_vcp_reg(pkt);
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_dump_pkt);
+
+#define CMDQ_INST_STR_SIZE 20
+
+char *cmdq_pkt_parse_buf(struct cmdq_pkt *pkt, u32 *size_out)
+{
+	u32 buf_size = CMDQ_NUM_CMD(pkt->cmd_buf_size) * CMDQ_INST_STR_SIZE + 1;
+	char *insts = kmalloc(buf_size, GFP_KERNEL);
+	u32 cur_buf = 0, cur_inst = 0, size;
+	int len;
+	struct cmdq_pkt_buffer *buf;
+
+	cmdq_msg("dump buffer size %u(%zu) pkt %p inst %p",
+		buf_size, pkt->cmd_buf_size, pkt, insts);
+
+	if (!insts) {
+		*size_out = 0;
+		return NULL;
+	}
+
+	list_for_each_entry(buf, &pkt->buf, list_entry) {
+		if (list_is_last(&buf->list_entry, &pkt->buf))
+			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
+		else
+			size = CMDQ_CMD_BUFFER_SIZE - CMDQ_INST_SIZE;
+
+		if (buf == list_first_entry(&pkt->buf, typeof(*buf), list_entry)) {
+			cur_inst = 0;
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+			if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+				cur_inst = 2;
+#endif
+		}
+
+		for (; cur_inst < CMDQ_NUM_CMD(size) && cur_buf < buf_size;
+			cur_inst++) {
+			len = snprintf(insts + cur_buf, buf_size - cur_buf,
+				"%#018llx,\n", *((u64 *)buf->va_base + cur_inst));
+			if (len > 0)
+				cur_buf += len;
+			if (len != CMDQ_INST_STR_SIZE) {
+				cmdq_err(
+					"%s wrong in dump len %d cur size %u buf size %u inst idx %u",
+					__func__, len, cur_buf, size, cur_inst);
+				break;
+			}
+		}
+	}
+
+	*size_out = cur_buf + 1;
+	return insts;
+}
+EXPORT_SYMBOL(cmdq_pkt_parse_buf);
 
 void cmdq_pkt_set_err_cb(struct cmdq_pkt *pkt,
 	cmdq_async_flush_cb cb, void *data)
@@ -2350,14 +3177,26 @@ void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util)
 	cmdq_util_helper = cust_cmdq_util;
 }
 EXPORT_SYMBOL(cmdq_helper_set_fp);
+
+#ifdef CMDQ_SECURE_SUPPORT
+void cmdq_sec_helper_set_fp(struct cmdq_sec_helper_fp *cust_cmdq_sec)
+{
+	cmdq_sec_helper = cust_cmdq_sec;
+}
+EXPORT_SYMBOL(cmdq_sec_helper_set_fp);
+#endif
 #endif
 
 int cmdq_helper_init(void)
 {
 	cmdq_msg("%s enter", __func__);
+	mutex_init(&vcp.vcp_mutex);
+	timer_setup(&vcp.vcp_timer, cmdq_vcp_off, 0);
+	INIT_WORK(&vcp.vcp_work, cmdq_vcp_off_work);
+	vcp.vcp_wq = create_singlethread_workqueue(
+		"cmdq_vcp_power_handler");
 	return 0;
 }
 EXPORT_SYMBOL(cmdq_helper_init);
 
 MODULE_LICENSE("GPL v2");
-

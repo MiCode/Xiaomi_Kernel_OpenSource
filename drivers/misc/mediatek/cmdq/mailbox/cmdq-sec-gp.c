@@ -38,10 +38,11 @@ s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee)
 	}
 #endif
 	cmdq_log("[SEC]TEE is ready");
+
 	/* do m4u sec init */
 	if (atomic_cmpxchg(&m4u_init, 0, 1) == 0) {
 		m4u_sec_init();
-		cmdq_log("[SEC] M4U_sec_init is called\n");
+		cmdq_msg("[SEC] M4U_sec_init is called\n");
 	}
 
 	status = TEEC_InitializeContext(NULL, &tee->gp_context);
@@ -190,3 +191,4 @@ s32 cmdq_sec_execute_session(struct cmdq_sec_tee_context *tee,
 	return status;
 }
 
+MODULE_LICENSE("GPL v2");

@@ -6,19 +6,20 @@
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/debugfs.h>
+#include <linux/dma-mapping.h>
 #include <linux/sched/clock.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/arm-smccc.h>
 
 #include "cmdq-util.h"
 
 #ifdef CMDQ_SECURE_SUPPORT
-#include <mt-plat/mtk_secure_api.h>
 #include "cmdq-sec-mailbox.h"
 #endif
 
-#ifdef CONFIG_MTK_SMI_EXT
-#include "smi_public.h"
+#if IS_ENABLED(CONFIG_MTK_SMI)
+#include <soc/mediatek/smi.h>
 #endif
 #ifdef CONFIG_MTK_DEVAPC
 #include <linux/soc/mediatek/devapc_public.h>
@@ -48,7 +49,7 @@
 
 struct cmdq_util_error {
 	spinlock_t	lock;
-	bool		enable;
+	atomic_t	enable;
 	char		*buffer;
 	u32		length;
 	u64		nsec;
@@ -96,17 +97,15 @@ struct cmdq_util {
 	u32 mbox_cnt;
 	u32 mbox_sec_cnt;
 	const char *first_err_mod[CMDQ_HW_MAX];
+	struct cmdq_client *prebuilt_clt[CMDQ_HW_MAX];
 };
 static struct cmdq_util	util;
 
 static DEFINE_MUTEX(cmdq_record_mutex);
 static DEFINE_MUTEX(cmdq_dump_mutex);
-
 struct cmdq_util_controller_fp controller_fp = {
-	.dump_dbg_reg = cmdq_util_dump_dbg_reg,
 	.track_ctrl = cmdq_util_track_ctrl,
 };
-
 struct cmdq_util_helper_fp helper_fp = {
 	.is_feature_en = cmdq_util_is_feature_en,
 	.dump_lock = cmdq_util_dump_lock,
@@ -145,10 +144,21 @@ const char *cmdq_util_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 		mod = cmdq_platform->event_module_dispatch(gce_pa, event, thread);
 	else
 		cmdq_err("%s event_module_dispatch is NULL ", __func__);
-
 	return mod;
 }
 EXPORT_SYMBOL(cmdq_util_event_module_dispatch);
+
+const char *cmdq_util_thread_module_dispatch(phys_addr_t gce_pa, s32 thread)
+{
+	const char *mod = NULL;
+
+	if (cmdq_platform->thread_module_dispatch)
+		mod = cmdq_platform->thread_module_dispatch(gce_pa, thread);
+	else
+		cmdq_err("%s thread_module_dispatch is NULL ", __func__);
+	return mod;
+}
+EXPORT_SYMBOL(cmdq_util_thread_module_dispatch);
 
 u32 cmdq_util_get_hw_id(u32 pa)
 {
@@ -170,6 +180,15 @@ u32 cmdq_util_test_get_subsys_list(u32 **regs_out)
 }
 EXPORT_SYMBOL(cmdq_util_test_get_subsys_list);
 
+void cmdq_util_test_set_ostd(void)
+{
+	if (!cmdq_platform->test_set_ostd) {
+		cmdq_err("%s test_set_ostd is NULL ", __func__);
+		return;
+	}
+	cmdq_platform->test_set_ostd();
+}
+EXPORT_SYMBOL(cmdq_util_test_set_ostd);
 
 u32 cmdq_util_get_bit_feature(void)
 {
@@ -186,14 +205,19 @@ void cmdq_util_error_enable(void)
 {
 	if (!util.err.nsec)
 		util.err.nsec = sched_clock();
-
-	util.err.enable = true;
+	atomic_inc(&util.err.enable);
 }
 EXPORT_SYMBOL(cmdq_util_error_enable);
 
 void cmdq_util_error_disable(void)
 {
-	util.err.enable = false;
+	s32 enable;
+
+	enable = atomic_dec_return(&util.err.enable);
+	if (enable < 0) {
+		cmdq_err("enable:%d", enable);
+		dump_stack();
+	}
 }
 EXPORT_SYMBOL(cmdq_util_error_disable);
 
@@ -213,13 +237,18 @@ s32 cmdq_util_error_save_lst(const char *format, va_list args)
 {
 	unsigned long flags;
 	s32 size;
+	s32 enable;
 
-	if (!util.err.enable || !util.err.buffer)
+	enable = atomic_read(&util.err.enable);
+	if ((enable <= 0) || !util.err.buffer)
 		return -EFAULT;
 
 	spin_lock_irqsave(&util.err.lock, flags);
 	size = vsnprintf(util.err.buffer + util.err.length,
 		CMDQ_FIRST_ERR_SIZE - util.err.length, format, args);
+	if (size >= CMDQ_FIRST_ERR_SIZE - util.err.length)
+		cmdq_log("size:%d over buf size:%d",
+			size, CMDQ_FIRST_ERR_SIZE - util.err.length);
 	util.err.length += size;
 	spin_unlock_irqrestore(&util.err.lock, flags);
 
@@ -235,8 +264,10 @@ EXPORT_SYMBOL(cmdq_util_error_save_lst);
 s32 cmdq_util_error_save(const char *format, ...)
 {
 	va_list args;
+	s32 enable;
 
-	if (!util.err.enable || !util.err.buffer)
+	enable = atomic_read(&util.err.enable);
+	if ((enable <= 0) || !util.err.buffer)
 		return -EFAULT;
 
 	va_start(args, format);
@@ -383,55 +414,99 @@ DEFINE_SIMPLE_ATTRIBUTE(cmdq_util_log_feature_fops,
 /* sync with request in atf */
 enum cmdq_smc_request {
 	CMDQ_ENABLE_DEBUG,
+	CMDQ_ENABLE_DISP_VA,
+	CMDQ_PREBUILT_INIT,
+	CMDQ_PREBUILT_ENABLE,
+	CMDQ_PREBUILT_DISABLE,
+	CMDQ_PREBUILT_DUMP,
+	CMDQ_MMINFRA_CMD,
 };
 
-#ifdef CMDQ_SMC_SUPPORT
-static atomic_t cmdq_dbg_ctrl = ATOMIC_INIT(0);
-#endif
+static atomic_t cmdq_dbg_ctrl[CMDQ_HW_MAX] = {ATOMIC_INIT(0)};
 
-void cmdq_util_dump_dbg_reg(void *chan)
+void cmdq_util_prebuilt_set_client(const u16 hwid, struct cmdq_client *client)
 {
-	void *base = cmdq_mbox_get_base(chan);
-	u32 dbg0[3], dbg2[6], dbg3, i;
-	u32 id;
+	if (hwid >= CMDQ_HW_MAX)
+		cmdq_err("invalid hwid:%u", hwid);
+	else
+		util.prebuilt_clt[hwid] = client;
+	cmdq_msg("hwid:%u client:%p", hwid, client);
+}
+EXPORT_SYMBOL(cmdq_util_prebuilt_set_client);
 
-	if (!base) {
-		cmdq_util_msg("no cmdq dbg since no base");
-		return;
-	}
+void cmdq_util_enable_disp_va(void)
+{
+	struct arm_smccc_res res;
 
-	id = cmdq_util_get_hw_id((u32)cmdq_mbox_get_base_pa(chan));
-#ifdef CMDQ_SMC_SUPPORT
-	if (atomic_cmpxchg(&cmdq_dbg_ctrl, 0, 1) == 0) {
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_DISP_VA,
+		0, 0, 0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(cmdq_util_enable_disp_va);
+
+void cmdq_util_prebuilt_init(const u16 mod)
+{
+	struct arm_smccc_res res;
+
+	cmdq_log("%s: mod:%u", __func__, mod);
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_PREBUILT_INIT, mod,
+		0, 0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(cmdq_util_prebuilt_init);
+
+void cmdq_util_prebuilt_enable(const u16 hwid)
+{
+	struct arm_smccc_res res;
+
+	cmdq_log("%s: hwid:%u", __func__, hwid);
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_PREBUILT_ENABLE, hwid,
+		0, 0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(cmdq_util_prebuilt_enable);
+
+void cmdq_util_prebuilt_disable(const u16 hwid)
+{
+	struct arm_smccc_res res;
+
+	cmdq_log("%s: hwid:%u", __func__, hwid);
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_PREBUILT_DISABLE, hwid,
+		0, 0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(cmdq_util_prebuilt_disable);
+
+void cmdq_util_prebuilt_dump(const u16 hwid, const u16 event)
+{
+	struct arm_smccc_res res;
+	const u16 mod = (event - CMDQ_TOKEN_PREBUILT_MDP_WAIT) /
+		(CMDQ_TOKEN_PREBUILT_MML_WAIT - CMDQ_TOKEN_PREBUILT_MDP_WAIT);
+
+	cmdq_msg("%s: hwid:%hu event:%hu mod:%hu", __func__, hwid, event, mod);
+
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_PREBUILT_DUMP, mod, event,
+		0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(cmdq_util_prebuilt_dump);
+
+void cmdq_util_mminfra_cmd(const u8 type)
+{
+	struct arm_smccc_res res;
+
+	cmdq_log("%s: type:%hu", __func__, type);
+
+	arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_MMINFRA_CMD, type, 0,
+		0, 0, 0, 0, &res);
+}
+EXPORT_SYMBOL(cmdq_util_mminfra_cmd);
+
+void cmdq_util_enable_dbg(u32 id)
+{
+	if ((id < CMDQ_HW_MAX) && (atomic_cmpxchg(&cmdq_dbg_ctrl[id], 0, 1) == 0)) {
 		struct arm_smccc_res res;
 
 		arm_smccc_smc(MTK_SIP_CMDQ_CONTROL, CMDQ_ENABLE_DEBUG, id,
 			0, 0, 0, 0, 0, &res);
 	}
-#endif
-
-	/* debug select */
-	for (i = 0; i < 6; i++) {
-		if (i < 3) {
-			writel((i << 8) | i, base + GCE_DBG_CTL);
-			dbg0[i] = readl(base + GCE_DBG0);
-		} else {
-			/* only other part */
-			writel(i << 8, base + GCE_DBG_CTL);
-		}
-		dbg2[i] = readl(base + GCE_DBG2);
-	}
-
-	dbg3 = readl(base + GCE_DBG3);
-
-	cmdq_util_msg(
-		"id:%u dbg0:%#x %#x %#x dbg2:%#x %#x %#x %#x %#x %#x dbg3:%#x",
-		id,
-		dbg0[0], dbg0[1], dbg0[2],
-		dbg2[0], dbg2[1], dbg2[2], dbg2[3], dbg2[4], dbg2[5],
-		dbg3);
 }
-EXPORT_SYMBOL(cmdq_util_dump_dbg_reg);
+EXPORT_SYMBOL(cmdq_util_enable_dbg);
 
 void cmdq_util_track(struct cmdq_pkt *pkt)
 {
@@ -473,12 +548,12 @@ void cmdq_util_track(struct cmdq_pkt *pkt)
 
 	if (!list_empty(&pkt->buf)) {
 		buf = list_first_entry(&pkt->buf, typeof(*buf), list_entry);
-		record->start = buf->pa_base;
+		record->start = CMDQ_BUF_ADDR(buf);
 
 		buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 		offset = CMDQ_CMD_BUFFER_SIZE - (pkt->buf_size -
 			pkt->cmd_buf_size);
-		record->end = buf->pa_base + offset;
+		record->end = CMDQ_BUF_ADDR(buf) + offset;
 		record->last_inst = *(u64 *)(buf->va_base + offset -
 			CMDQ_INST_SIZE);
 
@@ -495,17 +570,31 @@ EXPORT_SYMBOL(cmdq_util_track);
 
 void cmdq_util_dump_smi(void)
 {
-#if defined(CONFIG_MTK_SMI_EXT) && !defined(CONFIG_FPGA_EARLY_PORTING) && \
-	!defined(CONFIG_MTK_SMI_VARIANT)
+#if IS_ENABLED(CONFIG_MTK_SMI)
+/* #if 0 for porting to kernel-5.15 */
+#if 0
 	int smi_hang;
 
-	smi_hang = smi_debug_bus_hang_detect(1, "CMDQ");
+	smi_hang = mtk_smi_dbg_hang_detect("CMDQ");
 	cmdq_util_err("smi hang:%d", smi_hang);
+#endif
 #else
 	cmdq_util_err("[WARNING]not enable SMI dump now");
 #endif
 }
 EXPORT_SYMBOL(cmdq_util_dump_smi);
+
+void cmdq_util_devapc_dump(void)
+{
+	u32 i;
+
+	cmdq_util_msg("%s mbox cnt:%u", __func__, util.mbox_cnt);
+	for (i = 0; i < util.mbox_cnt; i++) {
+		cmdq_mbox_dump_dbg(util.cmdq_mbox[i], NULL, true);
+		cmdq_thread_dump_all(util.cmdq_mbox[i], true, true, true);
+	}
+}
+EXPORT_SYMBOL(cmdq_util_devapc_dump);
 
 #ifdef CONFIG_MTK_DEVAPC
 static void cmdq_util_handle_devapc_vio(void)
@@ -514,7 +603,7 @@ static void cmdq_util_handle_devapc_vio(void)
 
 	cmdq_util_msg("%s mbox cnt:%u", __func__, util.mbox_cnt);
 	for (i = 0; i < util.mbox_cnt; i++)
-		cmdq_thread_dump_all(util.cmdq_mbox[i]);
+		cmdq_thread_dump_all(util.cmdq_mbox[i], true, true, false);
 
 #ifdef CMDQ_SECURE_SUPPORT
 	cmdq_util_msg("%s mbox sec cnt:%u", __func__, util.mbox_sec_cnt);
@@ -539,6 +628,7 @@ u8 cmdq_util_track_ctrl(void *cmdq, phys_addr_t base, bool sec)
 
 	return (u8)cmdq_util_get_hw_id((u32)base);
 }
+EXPORT_SYMBOL(cmdq_util_track_ctrl);
 
 void cmdq_util_set_first_err_mod(void *chan, const char *mod)
 {
@@ -558,10 +648,9 @@ EXPORT_SYMBOL(cmdq_util_get_first_err_mod);
 
 int cmdq_util_init(void)
 {
-#if IS_ENABLED(CMDQ_DEBUGFS_SUPPORT)
 	struct dentry	*dir;
 	bool exists = false;
-#endif
+
 	cmdq_msg("%s begin", __func__);
 
 	cmdq_controller_set_fp(&controller_fp);
@@ -571,7 +660,6 @@ int cmdq_util_init(void)
 	if (!util.err.buffer)
 		return -ENOMEM;
 
-#if IS_ENABLED(CMDQ_DEBUGFS_SUPPORT)
 	dir = debugfs_lookup("cmdq", NULL);
 	if (!dir) {
 		dir = debugfs_create_dir("cmdq", NULL);
@@ -605,11 +693,9 @@ int cmdq_util_init(void)
 			PTR_ERR(util.fs.log_feature));
 		return PTR_ERR(util.fs.log_feature);
 	}
+
 	if (exists)
 		dput(dir);
-#endif
-
-	cmdq_util_log_feature_set(NULL, CMDQ_LOG_FEAT_PERF);
 
 #ifdef CONFIG_MTK_DEVAPC
 	register_devapc_vio_callback(&devapc_vio_handle);
