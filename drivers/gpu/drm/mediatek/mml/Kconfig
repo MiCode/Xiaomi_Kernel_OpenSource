@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MTK_MML
+	tristate "DRM MML Support for Mediatek SoCs"
+	help
+	  Choose this option if you have a Mediatek SoCs.
+	  The module will be called mml in mediatek-drm
+	  This driver provides kernel mode setting and
+	  buffer management to display driver.
+
+config MTK_MML_DEBUG
+	bool "DRM MML Debug Support for Mediatek SoCs"
+	help
+	  Choose this option if you have a Mediatek SoCs.
+	  This driver provides mml driver unit test nodes
+	  and mml driver debug feature. Trigger by mml
+	  UnitTest binary.
+
+config MTK_MML_LEGACY
+	tristate "DRM MML Legacy Support for Mediatek SoCs"
+	help
+	  Choose this option if you have a Mediatek SoCs.
+	  The module will be called mml in mediatek-drm
+	  This driver provides kernel mode setting and
+	  buffer management to display driver.
+
