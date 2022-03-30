@@ -961,14 +961,13 @@ static signed int fdvt_dump_reg(struct mtk_aie_dev *fd)
 		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
 
 		loop_num = (unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_0) & 0xFF;
-		if (!loop_num)
-			loop_num = 1;
+
 		dev_info(fd->dev,
 			"fdmode_fdvt_fd_config:	0x%x, fdmode_fdvt_fd_config_size:	%d",
-			(unsigned int *)fd->base_para->fd_fd_cfg_va + (loop_num - 1) * 56,
-			(fd->fd_fd_cfg_size)/87);
-		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_fd_cfg_va + (loop_num - 1) * 56,
-			(fd->fd_fd_cfg_size)/87);
+			(unsigned int *)fd->base_para->fd_fd_cfg_va,
+			((fd->fd_fd_cfg_size)/87) * loop_num);
+		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_fd_cfg_va,
+			((fd->fd_fd_cfg_size)/87) * loop_num);
 
 		dev_info(fd->dev, "FDVT DMA Debug Info\n");
 
