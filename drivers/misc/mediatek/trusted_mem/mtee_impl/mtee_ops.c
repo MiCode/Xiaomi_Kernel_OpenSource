@@ -275,8 +275,8 @@ static int mtee_mem_reg_add(u64 pa, u32 size, void *peer_data, void *dev_desc)
 		if (ret != 0) {
 			pr_info("[%d] MTEE notify reg mem add to TEE failed:%d\n",
 			       mtee_dev_desc->tee_smem_type, ret);
-//			MTEE_SESSION_UNLOCK();
-//			return TMEM_MTEE_NOTIFY_MEM_ADD_CFG_TO_TEE_FAILED;
+			MTEE_SESSION_UNLOCK();
+			return TMEM_MTEE_NOTIFY_MEM_ADD_CFG_TO_TEE_FAILED;
 		}
 	}
 

@@ -78,9 +78,11 @@ int tee_directly_invoke_cmd(struct trusted_driver_cmd_params *invoke_params)
 {
 	int ret = TMEM_OK;
 
-	/* if SVP enable, then TEE will be enabled */
-	if (!is_svp_enabled())
-		return TMEM_OK;
+	/* Default setting doesn't send message to TEE */
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+	return TMEM_OK;
+#endif
 
 	TEE_CMD_LOCK();
 	ret = tee_directly_invoke_cmd_locked(invoke_params);
