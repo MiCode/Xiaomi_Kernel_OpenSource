@@ -33,6 +33,7 @@
 #define SENSOR_SET_RESERVED_MS  7
 #define SENSOR_SET_DEADLINE_MS_60FPS  6
 #define SENSOR_SET_RESERVED_MS_60FPS  4
+#define SENSOR_DELAY_GUARD_TIME_60FPS 16
 #define SENSOR_SET_STAGGER_DEADLINE_MS  23
 #define SENSOR_SET_STAGGER_RESERVED_MS  6
 
@@ -1375,9 +1376,13 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 		MTK_CAM_TRACE_END(BASIC); /* frame_sync_start */
 	}
 
-	if (mtk_cam_is_mstream(ctx))
+	if (mtk_cam_is_mstream(ctx)) {
 		is_mstream_last_exposure =
 			mtk_cam_set_sensor_mstream_exposure(ctx, s_data);
+		if (is_mstream_last_exposure && ctx->sensor_ctrl.sof_time > 0)
+			time_after_sof =
+				ktime_get_boottime_ns() / 1000000 - ctx->sensor_ctrl.sof_time;
+	}
 
 	/* request setup*/
 	/* 1st frame sensor setting in mstream is treated like normal frame and is set with
@@ -1388,8 +1393,11 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 		if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN) {
 			v4l2_ctrl_request_setup(&req->req,
 						s_data->sensor->ctrl_handler);
-			time_after_sof =
-				ktime_get_boottime_ns() / 1000000 - ctx->sensor_ctrl.sof_time;
+			if (ctx->sensor_ctrl.sof_time > 0)
+				time_after_sof =
+					ktime_get_boottime_ns() / 1000000 -
+					ctx->sensor_ctrl.sof_time;
+
 			dev_dbg(cam->dev,
 				"[SOF+%dms] Sensor request:%d[ctx:%d] setup\n",
 				time_after_sof, s_data->frame_seq_no,
@@ -1415,6 +1423,16 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	else
 		state_transition(&s_data->state,
 		E_STATE_READY, E_STATE_SENSOR);
+
+	if (mtk_cam_is_mstream(ctx)) {
+		if (time_after_sof > SENSOR_DELAY_GUARD_TIME_60FPS) {
+			s_data->flags |=
+				MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED;
+			pr_debug("[SOF+%dms] sensor delay req:%d[ctx:%d]\n",
+				time_after_sof, s_data->frame_seq_no,
+				ctx->stream_id);
+		}
+	}
 
 	if (ctx->used_raw_num) {
 		MTK_CAM_TRACE_BEGIN(BASIC, "frame_sync_end");
@@ -3792,14 +3810,10 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	mtk_cam_s_data_reset_vbuf(s_data, MTK_RAW_META_OUT_1);
 
 	/* Let user get the buffer */
-	if (unreliable) {
+	if (unreliable)
 		vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_ERROR);
-		s_data->flags = 0;
-		if (s_data_mstream)
-			s_data_mstream->flags = 0;
-	} else {
+	else
 		vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_DONE);
-	}
 
 	dev_dbg(ctx->cam->dev, "%s:%s: req(%d) done\n",
 		 __func__, req->req.debug_str, s_data->frame_seq_no);
@@ -4615,7 +4629,7 @@ void mtk_cam_mstream_mark_incomplete_frame(struct mtk_cam_ctx *ctx,
 		req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
 				incomplete_s_data->frame_seq_no + i);
 		if (!req_stream_data) {
-			pr_info("%s null s_data:%d bypass\n", __func__,
+			pr_debug("%s null s_data:%d bypass\n", __func__,
 				incomplete_s_data->frame_seq_no + i);
 			continue;
 		}

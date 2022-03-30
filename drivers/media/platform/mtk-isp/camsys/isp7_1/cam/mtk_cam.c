@@ -903,6 +903,9 @@ STOP_SCAN:
 				s_data->frame_seq_no);
 		} else if (unreliable) {
 			buf_state = VB2_BUF_STATE_ERROR;
+			s_data->flags = 0;
+			if (s_data_mstream)
+				s_data_mstream->flags = 0;
 			dev_dbg(ctx->cam->dev,
 				"%s:%s:pipe(%d) seq:%d, done (unreliable)",
 				__func__, req->req.debug_str, pipe_id,
