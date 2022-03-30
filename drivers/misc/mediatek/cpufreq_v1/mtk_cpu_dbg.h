@@ -45,12 +45,21 @@ static const struct proc_ops name ## _proc_fops = {		\
 #define PROC_ENTRY_DATA(name)	\
 {__stringify(name), &name ## _proc_fops, g_ ## name}
 #define LAST_LL_CORE	3
-#define MAX_CLUSTER_NRS	3
+#define MAX_CLUSTER_NRS	4
 #define _BITMASK_(_bits_)               \
 (((unsigned int) -1 >> (31 - ((1) ? _bits_))) & ~((1U << ((0) ? _bits_)) - 1))
 #define _GET_BITS_VAL_(_bits_, _val_)   \
 (((_val_) & (_BITMASK_(_bits_))) >> ((0) ? _bits_))
 
+#define OFFS_CCI_TBL_USER    0x0F94
+#define OFFS_CCI_TOGGLE_BIT  0x0F98
+#define OFFS_CCI_TBL_MODE 0x0F9C
+#define OFFS_CCI_IDX      0x0550
+enum dsu_user {
+	DSU_CMD,
+	SWPM,
+	FPS_PERF,
+};
 
 struct pll_addr_offs {
 	unsigned int armpll_con;
@@ -61,5 +70,30 @@ struct pll_addr {
 	unsigned int reg_addr[2];
 };
 
-extern int mtk_eem_init(void);
+enum {
+	IPI_DVFS_INIT,
+	IPI_SET_VOLT,
+	IPI_SET_FREQ,
+	IPI_GET_VOLT,
+	IPI_GET_FREQ,
+
+	NR_DVFS_IPI,
+};
+
+struct cdvfs_data {
+	unsigned int cmd;
+	union {
+		struct {
+			unsigned int arg[3];
+		} set_fv;
+	} u;
+};
+
+enum mcucfg_ver {
+	MCUCFG_V0, /* armpll in apmixed */
+	MCUCFG_V1, /* armpll in mcusys */
+	MAX_MCUCFG_VERSION,
+};
+
+extern int mtk_eem_init(struct platform_device *pdev);
 
