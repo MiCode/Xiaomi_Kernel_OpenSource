@@ -7481,7 +7481,6 @@ void mtk_drm_layer_dispatch_to_dual_pipe(
 	int right_bg = w/2;
 	int roi_w = w;
 	struct mtk_crtc_state *crtc_state = NULL;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(plane_state->base.crtc);
 
 	memcpy(plane_state_l,
 		plane_state, sizeof(struct mtk_plane_state));
@@ -7489,38 +7488,42 @@ void mtk_drm_layer_dispatch_to_dual_pipe(
 		plane_state, sizeof(struct mtk_plane_state));
 
 	if (plane_state->pending.mml_mode == MML_MODE_RACING &&
-		mtk_crtc->is_mml && mtk_crtc->is_force_mml_scen) {
-		crtc_state = to_mtk_crtc_state(plane_state->base.crtc->state);
-		plane_state_l->pending.width = crtc_state->mml_src_roi[0].width;
-		plane_state_l->pending.height = crtc_state->mml_src_roi[0].height;
-		// crtc_state->mml_src_roi[0].x and crtc_state->mml_src_roi[0].y
-		// should be zero in actually. MML WROT should output at (0,0)
-		// in SRAM.
-		plane_state_l->pending.src_x = crtc_state->mml_src_roi[0].x;
-		plane_state_l->pending.src_y = crtc_state->mml_src_roi[0].y;
-		plane_state_l->pending.dst_x = 0;
-		plane_state_l->pending.dst_y = 0;
+		plane_state->base.crtc != NULL) {
+		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(plane_state->base.crtc);
 
-		DDPINFO("%s:%d, plane_l (%u,%u) (%u,%u), (%u,%u)\n",
-			__func__, __LINE__,
-			plane_state_l->pending.src_x, plane_state_l->pending.src_y,
-			plane_state_l->pending.dst_x, plane_state_l->pending.dst_y,
-			plane_state_l->pending.width, plane_state_l->pending.height);
+		if (mtk_crtc && mtk_crtc->is_mml && mtk_crtc->is_force_mml_scen) {
+			crtc_state = to_mtk_crtc_state(plane_state->base.crtc->state);
+			plane_state_l->pending.width = crtc_state->mml_src_roi[0].width;
+			plane_state_l->pending.height = crtc_state->mml_src_roi[0].height;
+			// crtc_state->mml_src_roi[0].x and crtc_state->mml_src_roi[0].y
+			// should be zero in actually. MML WROT should output at (0,0)
+			// in SRAM.
+			plane_state_l->pending.src_x = crtc_state->mml_src_roi[0].x;
+			plane_state_l->pending.src_y = crtc_state->mml_src_roi[0].y;
+			plane_state_l->pending.dst_x = 0;
+			plane_state_l->pending.dst_y = 0;
 
-		plane_state_r->pending.width = crtc_state->mml_src_roi[1].width;
-		plane_state_r->pending.height = crtc_state->mml_src_roi[1].height;
-		plane_state_r->pending.src_x = crtc_state->mml_src_roi[1].x -
-			crtc_state->mml_src_roi[0].x;
-		plane_state_r->pending.src_y = crtc_state->mml_src_roi[1].y;
-		plane_state_r->pending.dst_x = 0;
-		plane_state_r->pending.dst_y = 0;
+			DDPINFO("%s:%d, plane_l (%u,%u) (%u,%u), (%u,%u)\n",
+				__func__, __LINE__,
+				plane_state_l->pending.src_x, plane_state_l->pending.src_y,
+				plane_state_l->pending.dst_x, plane_state_l->pending.dst_y,
+				plane_state_l->pending.width, plane_state_l->pending.height);
 
-		DDPINFO("%s:%d, plane_r (%u,%u) (%u,%u), (%u,%u)\n",
-			__func__, __LINE__,
-			plane_state_r->pending.src_x, plane_state_r->pending.src_y,
-			plane_state_r->pending.dst_x, plane_state_r->pending.dst_y,
-			plane_state_r->pending.width, plane_state_r->pending.height);
-		return;
+			plane_state_r->pending.width = crtc_state->mml_src_roi[1].width;
+			plane_state_r->pending.height = crtc_state->mml_src_roi[1].height;
+			plane_state_r->pending.src_x = crtc_state->mml_src_roi[1].x -
+				crtc_state->mml_src_roi[0].x;
+			plane_state_r->pending.src_y = crtc_state->mml_src_roi[1].y;
+			plane_state_r->pending.dst_x = 0;
+			plane_state_r->pending.dst_y = 0;
+
+			DDPINFO("%s:%d, plane_r (%u,%u) (%u,%u), (%u,%u)\n",
+				__func__, __LINE__,
+				plane_state_r->pending.src_x, plane_state_r->pending.src_y,
+				plane_state_r->pending.dst_x, plane_state_r->pending.dst_y,
+				plane_state_r->pending.width, plane_state_r->pending.height);
+			return;
+		}
 	}
 	if (plane_state->base.crtc != NULL) {
 		crtc_state = to_mtk_crtc_state(plane_state->base.crtc->state);
