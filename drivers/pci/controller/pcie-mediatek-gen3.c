@@ -8,6 +8,7 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/device.h>
 #include <linux/iopoll.h>
 #include <linux/irq.h>
 #include <linux/irqchip/chained_irq.h>
@@ -15,6 +16,8 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/msi.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/pci.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
@@ -900,6 +903,72 @@ static int mtk_pcie_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+static struct device_node *mtk_pcie_find_node_by_port(int port)
+{
+	struct device_node *pcie_node = NULL;
+
+	do {
+		pcie_node = of_find_node_by_name(pcie_node, "pcie");
+		if (port == of_get_pci_domain_nr(pcie_node))
+			return pcie_node;
+	} while (pcie_node);
+
+	pr_info("pcie device node not found!\n");
+
+	return NULL;
+}
+
+int mtk_pcie_probe_port(int port)
+{
+	struct device_node *pcie_node;
+	struct platform_device *pdev;
+
+	pcie_node = mtk_pcie_find_node_by_port(port);
+	if (!pcie_node)
+		return -ENODEV;
+
+	pdev = of_find_device_by_node(pcie_node);
+	if (!pdev) {
+		pr_info("pcie platform device not found!\n");
+		return -ENODEV;
+	}
+
+	if (device_attach(&pdev->dev) < 0) {
+		device_release_driver(&pdev->dev);
+		pr_info("%s: pcie probe fail!\n", __func__);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_pcie_probe_port);
+
+int mtk_pcie_remove_port(int port)
+{
+	struct device_node *pcie_node;
+	struct platform_device *pdev;
+	struct mtk_pcie_host *pcie_port;
+
+	pcie_node = mtk_pcie_find_node_by_port(port);
+	if (!pcie_node)
+		return -ENODEV;
+
+	pdev = of_find_device_by_node(pcie_node);
+	if (!pdev) {
+		pr_info("pcie platform device not found!\n");
+		return -ENODEV;
+	}
+
+	pcie_port = platform_get_drvdata(pdev);
+	if (!pcie_port)
+		return -ENODEV;
+
+	device_release_driver(&pdev->dev);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_pcie_remove_port);
 
 static void __maybe_unused mtk_pcie_irq_save(struct mtk_pcie_port *port)
 {
