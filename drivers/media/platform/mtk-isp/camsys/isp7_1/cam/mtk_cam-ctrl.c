@@ -836,6 +836,7 @@ static int mtk_cam_set_sensor_mstream_exposure(struct mtk_cam_ctx *ctx,
 		struct v4l2_ctrl *ae_ctrl;
 		struct mtk_hdr_ae ae;
 		u32 shutter, gain;
+		int req_id;
 
 		/* mstream mode on */
 		if (last_req_stream_data->frame_seq_no == 2 || mtk_cam_feature_change_is_mstream(
@@ -853,13 +854,15 @@ static int mtk_cam_set_sensor_mstream_exposure(struct mtk_cam_ctx *ctx,
 
 		shutter = req_stream_data->mtk_cam_exposure.shutter;
 		gain = req_stream_data->mtk_cam_exposure.gain;
+		req_id = req_stream_data->req_id;
 
 		dev_dbg(ctx->cam->dev,
-			"%s exposure:%d gain:%d\n", __func__, shutter, gain);
+			"%s req_id:%d exposure:%d gain:%d\n", __func__, req_id, shutter, gain);
 
 		if (shutter > 0 && gain > 0) {
 			ae.exposure.le_exposure = shutter;
 			ae.gain.le_gain = gain;
+			ae.req_id = req_id;
 
 			if (!is_mstream_last_exposure)
 				ae.subsample_tags = 1;

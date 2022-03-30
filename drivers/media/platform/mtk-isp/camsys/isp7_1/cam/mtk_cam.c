@@ -2165,6 +2165,8 @@ static void mtk_cam_update_s_data_exp(struct mtk_cam_ctx *ctx,
 		req_stream_data_2nd->mtk_cam_exposure = exp->exposure[0];
 		req_stream_data_1st->mtk_cam_exposure = exp->exposure[1];
 	}
+	req_stream_data_1st->req_id = exp->req_id;
+	req_stream_data_2nd->req_id = exp->req_id;
 
 	exp->valid = 0;
 
@@ -3371,6 +3373,7 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 	req_stream_data->pipe_id = pipe_id;
 	req_stream_data->state.estate = E_STATE_READY;
 	req_stream_data->index = s_data_index;
+	req_stream_data->req_id = 0;
 	atomic_set(&req_stream_data->buf_state, -1);
 
 	/**
@@ -4573,7 +4576,9 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtk_cam_device *cam;
 	struct mtk_cam_working_buf_entry *buf_entry;
 	struct mtk_mraw_working_buf_entry *mraw_buf_entry;
+	#ifdef SUPPORT_AFO_MEMCPY
 	struct mtkcam_ipi_meta_output *meta_1_out;
+    #endif
 	struct mtkcam_ipi_img_output *imgo_out_fmt;
 	struct mtk_cam_buffer *meta1_buf;
 	struct mtk_mraw_device *mraw_dev;
@@ -4653,8 +4658,8 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	spin_unlock(&ctx->using_buffer_list.lock);
 
 	/* Prepare MTKCAM_IPI_RAW_META_STATS_1 params */
-#ifdef SUPPORT_AFO_MEMCPY
 	meta1_buf = mtk_cam_s_data_get_vbuf(req_stream_data, MTK_RAW_META_OUT_1);
+	#ifdef SUPPORT_AFO_MEMCPY
 	if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT &&
 	    meta1_buf) {
 		/* replace the video buffer with ccd buffer*/
@@ -5134,7 +5139,7 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 
 			if (ctx->sensor && (initial_frame ||
 					mtk_cam_is_m2m(ctx))) {
-				if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx))
+				if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) {
 					mtk_cam_mstream_initial_sensor_setup(req, ctx);
 					ctx->next_sof_frame_seq_no = 1;
 				} else {
