@@ -106,7 +106,7 @@ static void dvfsrc_setup_opp_table(struct mtk_dvfsrc *dvfsrc)
 			opp->dram_opp, 0, 0, 0, 0, 0,
 			&ares);
 		if (!ares.a0)
-			opp->dram_khz = ares.a1;
+			opp->dram_kbps = ares.a1;
 	}
 }
 
@@ -183,7 +183,7 @@ static int dvfsrc_query_info(u32 id)
 		ret = level;
 		break;
 	case MTK_DVFSRC_CURR_DRAM_KHZ:
-		ret = opp->dram_khz;
+		ret = opp->dram_kbps;
 		break;
 	case MTK_DVFSRC_CURR_VCORE_UV:
 		ret = opp->vcore_uv;
@@ -290,8 +290,8 @@ static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc,
 	p += snprintf(p, buff_end - p, "%-10s: %-8u uv\n",
 			"Vcore", vcore_uv);
 #if IS_ENABLED(CONFIG_MTK_DRAMC)
-	p += snprintf(p, buff_end - p, "%-10s: %-8u khz\n",
-			"DDR", mtk_dramc_get_data_rate() * 1000);
+	p += snprintf(p, buff_end - p, "%-10s: %-8u Mbps\n",
+			"DDR", mtk_dramc_get_data_rate());
 #endif
 	p += snprintf(p, buff_end - p, "%-15s: %d\n",
 			"FORCE_OPP_IDX",
@@ -440,9 +440,13 @@ static void dvfsrc_debug_notifier_register(struct mtk_dvfsrc *dvfsrc)
 	register_dvfsrc_debug_notifier(&dvfsrc->debug_notifier);
 }
 
+static DEFINE_RATELIMIT_STATE(dvfsrc_ratelimit_force, 1 * HZ, 2);
 static void dvfsrc_force_opp(struct mtk_dvfsrc *dvfsrc, u32 opp)
 {
 	if (dvfsrc->force_opp_idx != opp) {
+		if (__ratelimit(&dvfsrc_ratelimit_force))
+			pr_info("dvfsrc_force_opp\n");
+
 		mtk_dvfsrc_send_request(dvfsrc->dev->parent,
 			MTK_DVFSRC_CMD_FORCEOPP_REQUEST,
 			opp);
@@ -623,6 +627,13 @@ static const struct dvfsrc_debug_data mt6873_data = {
 
 static const struct dvfsrc_debug_data mt6853_data = {
 	.version = 0x6853,
+	.config = &mt6873_dvfsrc_config,
+	.opps_desc = dvfsrc_opp_mt6873_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6873_desc),
+};
+
+static const struct dvfsrc_debug_data mt6789_data = {
+	.version = 0x6789,
 	.config = &mt6873_dvfsrc_config,
 	.opps_desc = dvfsrc_opp_mt6873_desc,
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6873_desc),
@@ -923,6 +934,9 @@ static const struct dvfsrc_debug_data mt6879_data = {
 
 static const struct of_device_id dvfsrc_helper_of_match[] = {
 	{
+		.compatible = "mediatek,mt6789-dvfsrc",
+		.data = &mt6789_data,
+	}, {
 		.compatible = "mediatek,mt6873-dvfsrc",
 		.data = &mt6873_data,
 	}, {

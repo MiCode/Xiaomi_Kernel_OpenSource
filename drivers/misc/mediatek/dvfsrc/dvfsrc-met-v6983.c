@@ -133,6 +133,9 @@ static char *met_src_name[SRC_MAX] = {
 #define DVFSRC_SW_BW_8	(0x1FC)
 #define DVFSRC_SW_BW_9	(0x200)
 
+#define DVFSRC_DDR_REQUEST	(0x2C8)
+#define DVFSRC_DDR_REQUEST3	(0x2D0)
+
 #define DVFSRC_MD_DDR_FLOOR_REQUEST (0x5E4)
 #define DVFSRC_QOS_DDR_REQUEST (0x5E8)
 
@@ -177,32 +180,30 @@ static int dvfsrc_emi_mon_gear(struct mtk_dvfsrc_met *dvfs)
 {
 	unsigned int total_bw_status;
 	int i;
-	u32 max_idx, level_mask;
+	int idx = -1;
+	u32 gear;
+	u32 max_idx = dvfs->dvd->max_emi_mon;
 
-	switch (dvfs->dvd->version) {
-	case 0x6983:
-	case 0x6895:
-	case 0x6855:
-		max_idx = 7;
-		level_mask = 0xFF;
-	break;
-	case 0x6879:
-		max_idx = 6;
-		level_mask = 0x7F;
-	break;
-	default:
-		max_idx = 5;
-		level_mask = 0x3F;
-	break;
-	}
+	if (max_idx > MAX_EMI_MON_COUNT)
+		return 0;
 
-	total_bw_status = dvfsrc_met_read(dvfs, DVFSRC_DEBUG_STA_2) & level_mask;
+	total_bw_status = dvfsrc_met_read(dvfs, DVFSRC_DEBUG_STA_2);
 	for (i = max_idx; i >= 0 ; i--) {
-		if ((total_bw_status >> i) > 0)
-			return i + 1;
+		if (total_bw_status & GENMASK(i, i)) {
+			idx = i;
+			break;
+		}
 	}
 
-	return 0;
+	if ((idx >= 0) && (idx < 4)) {
+		gear = dvfsrc_met_read(dvfs, DVFSRC_DDR_REQUEST);
+		return ((gear >> (idx * 4)) & 0xF);
+	} else if ((idx >= 4) && (idx <= max_idx)) {
+		idx = idx - 4;
+		gear = dvfsrc_met_read(dvfs, DVFSRC_DDR_REQUEST3);
+		return ((gear >> (idx * 4)) & 0xF);
+	} else
+		return 0;
 }
 
 static void vcorefs_get_src_ddr_req(struct mtk_dvfsrc_met *dvfs)
@@ -224,7 +225,7 @@ static void vcorefs_get_src_ddr_req(struct mtk_dvfsrc_met *dvfs)
 	met_vcorefs_src[DDR__HIFI] = mtk_dvfsrc_query_debug_info(DVFSRC_HIFI_DDR_REQ);
 
 	met_vcorefs_src[DDR__HIFI_LATENCY] =
-				mtk_dvfsrc_query_debug_info(DVFSRC_HIFI_RISING_DDR_REQ);
+		mtk_dvfsrc_query_debug_info(DVFSRC_HIFI_RISING_DDR_REQ);
 
 	met_vcorefs_src[DDR__MD_LATENCY] = mtk_dvfsrc_query_debug_info(DVFSRC_MD_IMP_DDR_REQ);
 

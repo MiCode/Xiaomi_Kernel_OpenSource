@@ -63,6 +63,7 @@ struct dvfsrc_soc_data {
 	u32 num_domains;
 	struct dvfsrc_domain *domains;
 	u32 num_opp_desc;
+	u32 hrt_bw_unit;
 	const struct dvfsrc_opp_desc *opps_desc;
 	int (*get_target_level)(struct mtk_dvfsrc *dvfsrc);
 	int (*get_current_level)(struct mtk_dvfsrc *dvfsrc);
@@ -424,7 +425,12 @@ static void mt6873_set_dram_peak_bw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 
 static void mt6873_set_dram_hrtbw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 {
-	bw = div_u64((kbps_to_mbps(bw) + 29), 30);
+	u32 hrt_bw_unit = dvfsrc->dvd->hrt_bw_unit;
+
+	if (hrt_bw_unit)
+		bw = div_u64((kbps_to_mbps(bw) + hrt_bw_unit - 1), hrt_bw_unit);
+	else
+		bw = div_u64((kbps_to_mbps(bw) + 29), 30);
 	bw = min_t(u64, bw, 0x3FF);
 	dvfsrc_write(dvfsrc, DVFSRC_SW_HRT_BW, bw);
 }
@@ -1171,6 +1177,9 @@ static const struct of_device_id mtk_dvfsrc_of_match[] = {
 		.data = &mt6873_data,
 	}, {
 		.compatible = "mediatek,mt6853-dvfsrc",
+		.data = &mt6873_data,
+	}, {
+		.compatible = "mediatek,mt6789-dvfsrc",
 		.data = &mt6873_data,
 	}, {
 		.compatible = "mediatek,mt6885-dvfsrc",

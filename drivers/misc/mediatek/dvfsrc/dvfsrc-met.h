@@ -7,6 +7,7 @@
 #define __DVFSRC_MET_H
 #include <dvfsrc-exp.h>
 
+#define MAX_EMI_MON_COUNT 12
 struct mtk_dvfsrc_met;
 
 struct dvfsrc_met_config {
@@ -21,6 +22,7 @@ struct dvfsrc_met_config {
 struct dvfsrc_met_data {
 	const struct dvfsrc_met_config *met;
 	u32 version;
+	u32 max_emi_mon;
 };
 
 struct mtk_dvfsrc_met {

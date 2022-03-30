@@ -191,51 +191,67 @@ static void dvfsrc_met_unregister_sysfs(struct device *dev)
 static const struct dvfsrc_met_data mt6873_data = {
 	.met = &mt6873_met_config,
 	.version = 0x6873,
+	.max_emi_mon =  5,
 };
 
 static const struct dvfsrc_met_data mt6853_data = {
 	.met = &mt6873_met_config,
 	.version = 0x6853,
+	.max_emi_mon =  5,
+};
+
+static const struct dvfsrc_met_data mt6789_data = {
+	.met = &mt6873_met_config,
+	.version = 0x6789,
+	.max_emi_mon =  5,
 };
 
 static const struct dvfsrc_met_data mt6885_data = {
 	.met = &mt6873_met_config,
 	.version = 0x6885,
+	.max_emi_mon =  5,
 };
 
 static const struct dvfsrc_met_data mt6893_data = {
 	.met = &mt6873_met_config,
 	.version = 0x6893,
+	.max_emi_mon =  6,
 };
 
 static const struct dvfsrc_met_data mt6833_data = {
 	.met = &mt6873_met_config,
 	.version = 0x6833,
+	.max_emi_mon =  6,
 };
 
 static const struct dvfsrc_met_data mt6877_data = {
 	.met = &mt6873_met_config,
 	.version = 0x6877,
+	.max_emi_mon =  6,
 };
 
 static const struct dvfsrc_met_data mt6983_data = {
 	.met = &mt6983_met_config,
 	.version = 0x6983,
+	.max_emi_mon =  7,
 };
 
 static const struct dvfsrc_met_data mt6895_data = {
 	.met = &mt6983_met_config,
 	.version = 0x6895,
+	.max_emi_mon =  7,
 };
 
 static const struct dvfsrc_met_data mt6879_data = {
 	.met = &mt6983_met_config,
 	.version = 0x6879,
+	.max_emi_mon =  6,
 };
 
 static const struct dvfsrc_met_data mt6855_data = {
 	.met = &mt6983_met_config,
 	.version = 0x6855,
+	.max_emi_mon =  6,
 };
 
 
@@ -247,6 +263,9 @@ static const struct of_device_id dvfsrc_met_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6853-dvfsrc",
 		.data = &mt6853_data,
+	}, {
+		.compatible = "mediatek,mt6789-dvfsrc",
+		.data = &mt6789_data,
 	}, {
 		.compatible = "mediatek,mt6885-dvfsrc",
 		.data = &mt6885_data,

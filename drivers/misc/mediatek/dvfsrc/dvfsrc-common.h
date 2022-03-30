@@ -22,7 +22,7 @@
 #define MTK_SIP_VCOREFS_GET_VCORE_UV  4
 #define MTK_SIP_VCOREFS_GET_DRAM_FREQ 5
 #define MTK_SIP_VCOREFS_FB_ACTION 8
-
+#define MTK_SIP_VCOREFS_QOS_MODE 32
 
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 extern void register_dvfsrc_opp_handler(int (*handler)(u32 id));
