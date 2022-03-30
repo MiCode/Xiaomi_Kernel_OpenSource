@@ -3988,6 +3988,10 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 		mtk_cam_req_p_data_extend_init(req, pipe_id, 1);
 	}
 
+	/* notify scheduler timer update */
+	atomic_set(&ctx->sensor_ctrl.isp_update_timer_seq_no,
+			req_stream_data->frame_seq_no);
+
 	/* recover main stream buffer */
 	frame_param->img_outs[desc_id].buf[0][0].iova = iova;
 	frame_param->img_outs[desc_id].buf[0][0].size = main_stream_size;

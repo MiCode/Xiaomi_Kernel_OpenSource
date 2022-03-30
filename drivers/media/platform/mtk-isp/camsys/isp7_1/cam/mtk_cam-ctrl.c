@@ -118,6 +118,8 @@ static bool mtk_cam_request_drained(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 	if (mtk_cam_is_subsample(ctx))
 		sensor_seq_no_next = atomic_read(&ctx->sensor_ctrl.isp_enq_seq_no) + 1;
 
+	if (mtk_cam_is_mstream(ctx))
+		sensor_seq_no_next = atomic_read(&ctx->sensor_ctrl.isp_enq_seq_no) + 1;
 	if (sensor_seq_no_next <= atomic_read(&ctx->enqueued_frame_seq_no))
 		res = 1;
 	/* Send V4L2_EVENT_REQUEST_DRAINED event */
@@ -413,7 +415,7 @@ int mtk_cam_sensor_switch_start_hw(struct mtk_cam_ctx *ctx,
 		goto fail_switch_stop;
 	}
 
-	mtk_camsys_ctrl_update(ctx);
+	mtk_camsys_ctrl_update(ctx, 0);
 
 	raw_dev = dev_get_drvdata(dev);
 
@@ -1378,6 +1380,15 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 				"[SOF+%dms] Sensor request:%d[ctx:%d] setup\n",
 				time_after_sof, s_data->frame_seq_no,
 				ctx->stream_id);
+
+			/* update request scheduler timer while sensor fps changes */
+			if (s_data->frame_seq_no ==
+					atomic_read(&sensor_ctrl->isp_update_timer_seq_no)) {
+				int fps_factor = s_data->req->p_data[ctx->stream_id].s_data_num;
+
+				mtk_camsys_ctrl_update(ctx, fps_factor);
+				atomic_set(&sensor_ctrl->isp_update_timer_seq_no, 0);
+			}
 		}
 	}
 
@@ -3270,6 +3281,8 @@ static void mtk_camsys_raw_cq_done(struct mtk_raw_device *raw_dev,
 				mtk_cam_handle_seamless_switch(req_stream_data);
 				feature = req_stream_data->feature.raw_feature;
 				if (mtk_cam_feature_is_mstream(feature)) {
+					atomic_set(&sensor_ctrl->isp_enq_seq_no,
+							req_stream_data->frame_seq_no);
 					mtk_cam_handle_mstream_mux_switch(raw_dev,
 									  ctx,
 									  req_stream_data);
@@ -4598,6 +4611,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	atomic_set(&camsys_sensor_ctrl->sensor_request_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->isp_request_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->isp_enq_seq_no, 0);
+	atomic_set(&camsys_sensor_ctrl->isp_update_timer_seq_no, 0);
 	atomic_set(&camsys_sensor_ctrl->last_drained_seq_no, 0);
 	camsys_sensor_ctrl->initial_cq_done = 0;
 	camsys_sensor_ctrl->sof_time = 0;
@@ -4638,7 +4652,7 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	return 0;
 }
 
-void mtk_camsys_ctrl_update(struct mtk_cam_ctx *ctx)
+void mtk_camsys_ctrl_update(struct mtk_cam_ctx *ctx, int sensor_ctrl_factor)
 {
 	struct mtk_camsys_sensor_ctrl *camsys_sensor_ctrl = &ctx->sensor_ctrl;
 	struct v4l2_subdev_frame_interval fi;
@@ -4646,10 +4660,14 @@ void mtk_camsys_ctrl_update(struct mtk_cam_ctx *ctx)
 
 	if (ctx->used_raw_num) {
 		fi.pad = 0;
-		v4l2_set_frame_interval_which(fi, V4L2_SUBDEV_FORMAT_ACTIVE);
-		v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
-		fps_factor = (fi.interval.numerator > 0) ?
-				(fi.interval.denominator / fi.interval.numerator / 30) : 1;
+		if (sensor_ctrl_factor > 0) {
+			fps_factor = sensor_ctrl_factor;
+		} else {
+			v4l2_set_frame_interval_which(fi, V4L2_SUBDEV_FORMAT_ACTIVE);
+			v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
+			fps_factor = (fi.interval.numerator > 0) ?
+					(fi.interval.denominator / fi.interval.numerator / 30) : 1;
+		}
 		sub_ratio =
 			mtk_cam_get_subsample_ratio(ctx->pipe->res_config.raw_feature);
 	}
