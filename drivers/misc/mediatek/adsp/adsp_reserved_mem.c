@@ -91,28 +91,7 @@ EXPORT_SYMBOL(adsp_get_reserve_mem_size);
 
 void adsp_set_emimpu_shared_region(void)
 {
-#if IS_ENABLED(CONFIG_MTK_EMI)
-	struct emimpu_region_t adsp_region;
-	struct adsp_reserve_mblock *mem = &adsp_reserve_mem;
-	int ret = 0;
-
-	ret = mtk_emimpu_init_region(&adsp_region,
-				     MPU_PROCT_REGION_ADSP_SHARED);
-	if (ret < 0)
-		pr_info("%s fail to init emimpu region\n", __func__);
-	mtk_emimpu_set_addr(&adsp_region, mem->phys_addr,
-			    (mem->phys_addr + mem->size - 0x1));
-	mtk_emimpu_set_apc(&adsp_region, MPU_PROCT_D0_AP,
-			   MTK_EMIMPU_NO_PROTECTION);
-	mtk_emimpu_set_apc(&adsp_region, MPU_PROCT_D10_ADSP,
-			   MTK_EMIMPU_NO_PROTECTION);
-	ret = mtk_emimpu_set_protection(&adsp_region);
-	if (ret < 0)
-		pr_info("%s fail to set emimpu protection\n", __func__);
-	mtk_emimpu_free_region(&adsp_region);
-#else
 	pr_info("%s(), emi config not enable\n", __func__);
-#endif
 }
 
 static int adsp_init_reserve_memory(struct platform_device *pdev, struct adsp_reserve_mblock *mem)
