@@ -24,6 +24,10 @@ struct mml_dle_param {
 	void (*config_cb)(struct mml_task *task, void *cb_param);
 };
 
+struct mml_dle_frame_info {
+	struct mml_rect dl_out[MML_DL_OUT_CNT];
+};
+
 /*
  * mml_dle_get_context - Get mml dle context to configure mml.
  *
@@ -50,12 +54,13 @@ void mml_dle_put_context(struct mml_dle_ctx *ctx);
  *
  * @ctx:	Context of mml dle adaptor. Get by mml_dle_get_context API.
  * @submit:	Frame info which want mml driver to configure.
+ * @dle_info:	Extra dle frame info.
  * @cb_param:	The parameter used in config done callback (if registered).
  *
  * Return:	Result of config. In value < 0 case job was not configured.
  */
 s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
-	void *cb_param);
+		   struct mml_dle_frame_info *dle_info, void *cb_param);
 
 /*
  * mml_dle_start - tell mml dle to start hw task

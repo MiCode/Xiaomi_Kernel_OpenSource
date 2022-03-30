@@ -239,7 +239,8 @@ struct cmdq_flush_completion {
 struct cmdq_reuse {
 	u64 *va;
 	u32 val;
-	u32 offset;
+	u16 offset;
+	u8 op;
 };
 
 u32 cmdq_subsys_id_to_base(struct cmdq_base *cmdq_base, int id);

@@ -152,15 +152,27 @@ static void mutex_debug_dump(struct mml_comp *comp)
 	u8 i, j;
 
 	mml_err("mutex component %u dump:", comp->id);
-
 	for (i = 0; i < mutex->data->mutex_cnt; i++) {
+		u32 en = readl(base + MUTEX_EN(i));
+		u32 sof = readl(base + MUTEX_SOF(i));
+		u32 mod[MUTEX_MAX_MOD_REGS] = {0};
+		bool used = false;
+
 		for (j = 0; j < mutex->data->mod_cnt; j++) {
 			u32 offset = mutex->data->mod_offsets[j];
-			u32 value;
 
-			value = readl(base + MUTEX_MOD(i, offset));
-			mml_err("MDP_MUTEX%d_MOD%d %#010x",
-			i, j, value);
+			mod[j] = readl(base + MUTEX_MOD(i, offset));
+			if (mod[j])
+				used = true;
+		}
+		if (used) {
+			if (en) {
+				mml_err("MDP_MUTEX%d_EN %#010x", i, en);
+				mml_err("MDP_MUTEX%d_SOF %#010x", i, sof);
+			}
+			for (j = 0; j < mutex->data->mod_cnt; j++)
+				mml_err("MDP_MUTEX%d_MOD%d %#010x",
+					i, j, mod[j]);
 		}
 	}
 }
@@ -268,7 +280,7 @@ static void mutex_addon_config(struct mtk_ddp_comp *ddp_comp,
 		return;
 	}
 
-	if (cfg->config_type.module == MML_RSZ_v2)
+	if (cfg->config_type.module == DISP_INLINE_ROTATE_1)
 		pipe = 1;
 	else
 		pipe = 0;

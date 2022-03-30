@@ -154,10 +154,9 @@ typedef enum TILE_RUN_MODE_ENUM {
 
 /* error enum */
 #define MDP_ERROR_MESSAGE_ENUM(n, CMD) \
+	CMD(n, MDP_MESSAGE_BACKWARD_START_LESS_THAN_FORWARD)\
 	/* PRZ check */\
 	CMD(n, MDP_MESSAGE_RESIZER_SCALING_ERROR)\
-	/* TDSHP check */\
-	CMD(n, MDP_MESSAGE_TDSHP_BACK_LT_FORWARD)\
 	/* WROT check */\
 	CMD(n, MDP_MESSAGE_WROT_INVALID_FORMAT)\
 	/* General status */\

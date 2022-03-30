@@ -637,7 +637,7 @@ static void wrot_color_fmt(struct mml_frame_config *cfg,
 	u16 profile_out = cfg->info.dest[wrot_frm->out_idx].data.profile;
 
 	wrot_frm->mat_en = 0;
-	wrot_frm->mat_sel = 0;
+	wrot_frm->mat_sel = 15;
 	wrot_frm->bbp_y = MML_FMT_BITS_PER_PIXEL(fmt);
 
 	switch (fmt) {
@@ -794,8 +794,6 @@ static void wrot_color_fmt(struct mml_frame_config *cfg,
 	/* Enable dither */
 	if (MML_FMT_10BIT(cfg->info.src.format) && !MML_FMT_10BIT(fmt)) {
 		wrot_frm->mat_en = 1;
-		if (!wrot_frm->mat_sel) // if didn't set profile
-			wrot_frm->mat_sel = 15;
 		wrot_frm->dither_con = (0x1 << 10) +
 			 (0x0 << 8) +
 			 (0x0 << 4) +
@@ -963,11 +961,8 @@ static void wrot_config_ready(struct mml_comp_wrot *wrot,
 
 	if (!enable) {
 		cmdq_pkt_write(pkt, NULL, sel, 0, mask);
-	} else if (cfg->dual && cfg->disp_dual) {
-		/* 2:2 monitor disp0 or disp1 by different side */
-		cmdq_pkt_write(pkt, NULL, sel, wrot_frm->sram_side << shift, mask);
-	} else if (!cfg->dual && cfg->disp_dual) {
-		/* 1:2 monitor both disp0 and disp1, mdpsys merge ready */
+	} else if (cfg->disp_dual) {
+		/* 1:2 or 2:2 monitor both disp0 and disp1, mdpsys merge ready */
 		cmdq_pkt_write(pkt, NULL, sel, 2 << shift, mask);
 	} else {
 		/* 1:1 or 2:1 monitor only disp0 */
@@ -1099,6 +1094,9 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 				 wrot_frm, pkt, reuse, cache);
 		/* always turn off ready to wrot */
 		wrot_config_ready(wrot, cfg, wrot_frm, ccfg->pipe, pkt, false);
+
+		/* and clear inlinerot enable since last frame maybe racing mode */
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_IN_LINE_ROT, 0, U32_MAX);
 	}
 
 	/* Write frame related registers */
@@ -1224,8 +1222,8 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		msg = "Flip without rotation";
 	} else if (dest->rotate == MML_ROT_90 && !dest->flip) {
 		/* Target Y offset */
-		ofst->y = ((out_xs / 8) + 1) *
-			  ((wrot_frm->y_stride / 128) - 1) * 1024;
+		ofst->y = (((out_xs / 8) + 1) *
+			  (wrot_frm->y_stride / 128) - 1) * 1024;
 
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
@@ -1271,8 +1269,8 @@ static void wrot_tile_calc_comp(const struct mml_frame_dest *dest,
 		msg = "Rotate 270 degree only";
 	} else if (dest->rotate == MML_ROT_270 && dest->flip) {
 		/* Target Y offset */
-		ofst->y = ((wrot_frm->out_w / 8) - (out_xs / 8)) *
-			  ((wrot_frm->y_stride / 128) - 1) * 1024;
+		ofst->y = (((wrot_frm->out_w / 8) - (out_xs / 8)) *
+			  (wrot_frm->y_stride / 128) - 1) * 1024;
 
 		/* Target U offset */
 		ofst->c = ofst->y / 64;
@@ -1736,7 +1734,7 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 	return 0;
 }
 
-static inline void mml_ir_done_2to1(struct mml_comp_wrot *wrot,
+static inline void mml_ir_done_2to1(struct mml_comp_wrot *wrot, bool disp_dual,
 	struct cmdq_pkt *pkt, u32 pipe, u32 sram, u32 irot_h_off, u32 height)
 {
 	u32 wdone = 1 << sram;
@@ -1751,6 +1749,12 @@ static inline void mml_ir_done_2to1(struct mml_comp_wrot *wrot,
 			height, U32_MAX);
 		cmdq_pkt_write(pkt, NULL, wrot->irot_base[0] + INLINEROT_WDONE,
 			wdone, U32_MAX);
+		if (disp_dual) {
+			cmdq_pkt_write(pkt, NULL, wrot->irot_base[1] + irot_h_off,
+				height, U32_MAX);
+			cmdq_pkt_write(pkt, NULL, wrot->irot_base[1] + INLINEROT_WDONE,
+				wdone, U32_MAX);
+		}
 		if (sram == 1)
 			cmdq_pkt_set_event(pkt, wrot->event_buf_next);
 	} else {
@@ -1773,8 +1777,9 @@ static void wrot_config_inlinerot(struct mml_comp *comp, struct mml_task *task,
 	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
 	struct wrot_frame_data *wrot_frm = wrot_frm_data(ccfg);
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-	struct mml_frame_dest *dest = &task->config->info.dest[wrot_frm->out_idx];
-	struct mml_tile_engine *tile = config_get_tile(task->config, ccfg, idx);
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = &cfg->info.dest[wrot_frm->out_idx];
+	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
 	u32 height;
 	u32 irot_h_off;
 
@@ -1791,11 +1796,13 @@ static void wrot_config_inlinerot(struct mml_comp *comp, struct mml_task *task,
 	irot_h_off = INLINEROT_HEIGHT0 + 4 * wrot_frm->wdone[idx].sram;
 
 	/* config wdone to trigger inlinerot work */
-	if (task->config->dual && !task->config->disp_dual) {
-		/* 2 wrot to 1 disp: wait and trigger 1 wdone */
-		mml_ir_done_2to1(wrot, pkt, ccfg->pipe,
+	if (cfg->dual) {
+		/* 2 wrot to 1 disp: wait and trigger 1 wdone
+		 * 2 wrot to 2 disp: wrot0 and wrot1 sync first
+		 */
+		mml_ir_done_2to1(wrot, cfg->disp_dual, pkt, ccfg->pipe,
 			wrot_frm->wdone[idx].sram, irot_h_off, height);
-	} else if (!task->config->dual && task->config->disp_dual) {
+	} else if (!cfg->dual && cfg->disp_dual) {
 		/* 1 wrot to 2 disp: trigger 2 wdone (dual done) */
 		cmdq_pkt_write(pkt, NULL, wrot->irot_base[0] + irot_h_off,
 			height, U32_MAX);
@@ -1809,7 +1816,6 @@ static void wrot_config_inlinerot(struct mml_comp *comp, struct mml_task *task,
 			1 << wrot_frm->wdone[idx].sram, U32_MAX);
 	} else {
 		/* 1 wrot to 1 disp: trigger 1 wdone (by pipe)
-		 * 2 wrot to 2 disp: trigger 2 wdone (by pipe)
 		 * both case set disp wdone for current pipe
 		 */
 		cmdq_pkt_write(pkt, NULL,
@@ -1946,12 +1952,18 @@ u32 wrot_datasize_get(struct mml_task *task, struct mml_comp_config *ccfg)
 	return wrot_frm->datasize;
 }
 
+u32 wrot_format_get(struct mml_task *task, struct mml_comp_config *ccfg)
+{
+	return task->config->info.dest[ccfg->node->out_idx].data.format;
+}
+
 static const struct mml_comp_hw_ops wrot_hw_ops = {
 	.pw_enable = &mml_comp_pw_enable,
 	.pw_disable = &mml_comp_pw_disable,
 	.clk_enable = &mml_comp_clk_enable,
 	.clk_disable = &mml_comp_clk_disable,
-	.qos_datasize_get = wrot_datasize_get,
+	.qos_datasize_get = &wrot_datasize_get,
+	.qos_format_get = &wrot_format_get,
 	.qos_set = &mml_comp_qos_set,
 	.qos_clear = &mml_comp_qos_clear,
 };
@@ -2067,7 +2079,7 @@ static void wrot_debug_dump(struct mml_comp *comp)
 		(debug[2] >> 1) & 0x1, (debug[2] >> 2) & 0x1,
 		(debug[2] >> 3) & 0x1);
 	state = debug[2] & 0x1;
-	smi_req = (debug[18] >> 31) & 0x1;
+	smi_req = (debug[24] >> 30) & 0x1;
 	mml_err("WROT state: %#x (%s)", state, wrot_state(state));
 	mml_err("WROT x_cnt %u y_cnt %u",
 		debug[9] & 0xffff, (debug[9] >> 16) & 0xffff);
@@ -2084,8 +2096,21 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	}
 }
 
+static void wrot_reset(struct mml_comp *comp, struct mml_frame_config *cfg, u32 pipe)
+{
+	const struct mml_topology_path *path = cfg->path[pipe];
+	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
+
+	if (cfg->info.mode == MML_MODE_RACING) {
+		cmdq_clear_event(path->clt->chan, wrot->event_bufa);
+		cmdq_clear_event(path->clt->chan, wrot->event_bufb);
+		cmdq_clear_event(path->clt->chan, wrot->event_buf_next);
+	}
+}
+
 static const struct mml_comp_debug_ops wrot_debug_ops = {
 	.dump = &wrot_debug_dump,
+	.reset = &wrot_reset,
 };
 
 static int mml_bind(struct device *dev, struct device *master, void *data)
