@@ -125,6 +125,7 @@ enum scp_dvfs_chip_hw_enum {
 	MT6853,
 	MT6873,
 	MT6893,
+	MT6833,
 	MAX_SCP_DVFS_CHIP_HW,
 };
 
@@ -251,6 +252,7 @@ struct scp_dvfs_hw {
 	int vow_lp_en_gear;
 	int cur_dbg_core;
 	u32 core_nums;
+	unsigned int secure_access_scp;
 };
 
 extern int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel);
