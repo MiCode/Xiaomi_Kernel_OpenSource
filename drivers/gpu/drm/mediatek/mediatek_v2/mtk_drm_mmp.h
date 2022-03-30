@@ -108,6 +108,8 @@ struct CRTC_MMP_Events {
 	mmp_event clk_change;
 	mmp_event layerBmpDump;
 	mmp_event layer_dump[6];
+	mmp_event wbBmpDump;
+	mmp_event wb_dump;
 	mmp_event cwbBmpDump;
 	mmp_event cwb_dump;
 	/*Msync 2.0 mmp start*/
@@ -132,6 +134,8 @@ struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id);
 void drm_mmp_init(void);
 int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 			  u32 downSampleX, u32 downSampleY, int global_lye_num);
+int mtk_drm_mmp_wdma_buffer(struct drm_crtc *crtc,
+	struct drm_framebuffer *wb_fb, u32 downSampleX, u32 downSampleY);
 int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 	struct mtk_cwb_info *cwb_info,
 	void *buffer, unsigned int buf_idx);
@@ -171,6 +175,28 @@ int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 			mmprofile_log_ex(get_crtc_mmp_events(id)->event,       \
 					 MMPROFILE_FLAG_END, v1, v2);       \
 	} while (0)
+
+#define CRTC_MMP_BITMAP_MARK(id, event, data)                                  \
+	do {								\
+		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+			mmprofile_log_meta_bitmap(get_crtc_mmp_events(id)->event,  \
+					 MMPROFILE_FLAG_PULSE, data);       \
+	} while (0)
+
+#define CRTC_MMP_YUV_BITMAP_MARK(id, event, data)                              \
+	do {								\
+		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+			mmprofile_log_meta_yuv_bitmap(get_crtc_mmp_events(id)->event,  \
+					 MMPROFILE_FLAG_PULSE, data);       \
+	} while (0)
+
+#define CRTC_MMP_META_MARK(id, event, data)                                    \
+	do {								\
+		if (id >= 0 && id < MMP_CRTC_NUM)                              \
+			mmprofile_log_meta(get_crtc_mmp_events(id)->event,     \
+					 MMPROFILE_FLAG_PULSE, data);       \
+	} while (0)
+
 #else
 #define DRM_MMP_MARK(event, v1, v2) do { } while (0)
 #define DRM_MMP_EVENT_START(event, v1, v2) do { } while (0)

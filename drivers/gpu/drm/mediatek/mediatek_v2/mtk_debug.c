@@ -94,6 +94,8 @@ int gCaptureOVLEn;
 int gCaptureWDMAEn;
 int gCapturePriLayerDownX = 20;
 int gCapturePriLayerDownY = 20;
+int gCaptureOutLayerDownX = 20;
+int gCaptureOutLayerDownY = 20;
 int gCaptureAssignLayer;
 u64 vfp_backup;
 static int hrt_lp_switch;
@@ -1405,6 +1407,25 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state)
 	return 0;
 }
 
+int mtk_dprec_mmp_dump_wdma_layer(struct drm_crtc *crtc,
+	struct drm_framebuffer *wb_fb)
+{
+	if (!gCaptureWDMAEn)
+		return -1;
+
+	if (mtk_drm_fb_is_secure(wb_fb)) {
+		DDPINFO("%s, wb_fb is secure\n", __func__);
+		return -1;
+	}
+
+	mtk_drm_mmp_wdma_buffer(crtc, wb_fb,
+		gCaptureOutLayerDownX, gCaptureOutLayerDownY);
+
+	DDPINFO("%s, gCaptureOutLayerEnable is %d\n",
+		__func__, gCaptureWDMAEn);
+	return 0;
+}
+
 int mtk_dprec_mmp_dump_cwb_buffer(struct drm_crtc *crtc,
 		void *buffer, unsigned int buf_idx)
 {
@@ -2476,6 +2497,26 @@ static void process_dbg_opt(const char *opt)
 		gCaptureOVLEn = dump_en;
 		DDPMSG("dump params (%d,%d,%d,%d)\n", gCaptureOVLEn,
 			gCapturePriLayerDownX, gCapturePriLayerDownY, gCaptureAssignLayer);
+	} else if (strncmp(opt, "dump_out_layer:", 15) == 0) {
+		int ret;
+		unsigned int dump_en;
+		unsigned int downSampleX, downSampleY;
+
+		DDPMSG("get dump\n");
+		ret = sscanf(opt, "dump_out_layer:%d,%d,%d\n", &dump_en,
+			     &downSampleX, &downSampleY);
+		if (ret != 3) {
+			DDPMSG("error to parse cmd\n");
+			return;
+		}
+
+		if (downSampleX)
+			gCaptureOutLayerDownX = downSampleX;
+		if (downSampleY)
+			gCaptureOutLayerDownY = downSampleY;
+		gCaptureWDMAEn = dump_en;
+		DDPMSG("dump params (%d,%d,%d)\n", gCaptureWDMAEn,
+			gCaptureOutLayerDownX, gCaptureOutLayerDownY);
 	} else if (strncmp(opt, "dump_user_buffer:", 17) == 0) {
 		int ret;
 		unsigned int dump_en;

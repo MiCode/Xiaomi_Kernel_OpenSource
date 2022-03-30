@@ -839,6 +839,7 @@ struct mtk_cmdq_cb_data {
 	void __iomem *mmlsys_reg_va;
 	bool is_mml;
 	unsigned int pres_fence_idx;
+	struct drm_framebuffer *wb_fb;
 };
 
 extern unsigned int disp_spr_bypass;

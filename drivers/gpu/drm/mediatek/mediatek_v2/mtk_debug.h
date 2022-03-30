@@ -64,6 +64,8 @@ void disp_dbg_init(struct drm_device *drm_dev);
 void disp_dbg_deinit(void);
 void mtk_drm_cwb_backup_copy_size(void);
 int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
+int mtk_dprec_mmp_dump_wdma_layer(struct drm_crtc *crtc,
+	struct drm_framebuffer *wb_fb);
 int mtk_dprec_mmp_dump_cwb_buffer(struct drm_crtc *crtc,
 	void *buffer, unsigned int buf_idx);
 int disp_met_set(void *data, u64 val);
