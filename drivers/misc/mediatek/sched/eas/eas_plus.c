@@ -641,27 +641,6 @@ static inline bool rt_task_fits_capacity(struct task_struct *p, int cpu)
 }
 #endif
 
-#if IS_ENABLED(CONFIG_SMP)
-static inline bool should_honor_rt_sync(struct rq *rq, struct task_struct *p,
-					bool sync)
-{
-	/*
-	 * If the waker is CFS, then an RT sync wakeup would preempt the waker
-	 * and force it to run for a likely small time after the RT wakee is
-	 * done. So, only honor RT sync wakeups from RT wakers.
-	 */
-	return sync && task_has_rt_policy(rq->curr) &&
-		p->prio <= rq->rt.highest_prio.next &&
-		rq->rt.rt_nr_running <= 2;
-}
-#else
-static inline bool should_honor_rt_sync(struct rq *rq, struct task_struct *p,
-					bool sync)
-{
-	return 0;
-}
-#endif
-
 void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 				int sd_flag, int flags, int *target_cpu)
 {
@@ -688,12 +667,6 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 	/*
 	 * Respect the sync flag as long as the task can run on this CPU.
 	 */
-	if (should_honor_rt_sync(this_cpu_rq, p, sync) &&
-			cpumask_test_cpu(this_cpu, p->cpus_ptr)) {
-		*target_cpu = this_cpu;
-		select_reason = LB_RT_SYNC;
-		goto out_unlock;
-	}
 
 	for_each_cpu_and(cpu, p->cpus_ptr,
 			cpu_active_mask) {
@@ -718,7 +691,6 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 		select_reason = LB_RT_LOWEST_PRIO;
 	}
 
-out_unlock:
 	rcu_read_unlock();
 out:
 
