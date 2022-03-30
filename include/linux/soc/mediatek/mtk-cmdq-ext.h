@@ -84,6 +84,8 @@ enum {CMDQ_PREBUILT_MDP, CMDQ_PREBUILT_MML, CMDQ_PREBUILT_VFMT,
 	(mod & 0x1) * CMDQ_CPR_PREBUILT_PIPE_CNT * CMDQ_CPR_PREBUILT_EXT_REG_CNT + \
 	(pipe) * CMDQ_CPR_PREBUILT_EXT_REG_CNT + (index))
 
+#define CMDQ_CPR_THREAD_COOKIE(idx)	(0x8130 + (idx))
+
 /* GCE provide 26M timer, thus each tick 1/26M second,
  * which is, 1 microsecond = 26 ticks
  */
@@ -92,7 +94,9 @@ enum {CMDQ_PREBUILT_MDP, CMDQ_PREBUILT_MML, CMDQ_PREBUILT_VFMT,
 
 extern int gce_shift_bit;
 extern int gce_mminfra;
-extern bool gce_insert_dummy;
+extern bool gce_in_vcp;
+extern bool skip_poll_sleep;
+
 #define CMDQ_REG_SHIFT_ADDR(addr) (((addr) + gce_mminfra) >> gce_shift_bit)
 #define CMDQ_REG_REVERT_ADDR(addr) (((addr) << gce_shift_bit) - gce_mminfra)
 

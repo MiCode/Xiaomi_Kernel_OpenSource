@@ -172,6 +172,8 @@ struct cmdq_pkt {
 	struct cmdq_pkt_err	err_data;
 	cmdq_aee_cb		aee_cb;
 	u32			vcp_eng;
+
+	struct work_struct	destroy_work;
 };
 
 struct cmdq_thread {
@@ -187,6 +189,7 @@ struct cmdq_thread {
 	bool			occupied;
 	bool			dirty;
 	u64			timer_mod;
+	u64			lock_time;
 	u64			irq_time;
 	u32			irq_task;
 };

@@ -387,7 +387,7 @@ static int cmdq_util_log_feature_get(void *data, u64 *val)
 	return util.fs.bit_feature;
 }
 
-static int cmdq_util_log_feature_set(void *data, u64 val)
+int cmdq_util_log_feature_set(void *data, u64 val)
 {
 	if (val == CMDQ_LOG_FEAT_NUM) {
 		util.fs.bit_feature = 0;
@@ -407,6 +407,7 @@ static int cmdq_util_log_feature_set(void *data, u64 val)
 		data, val, util.fs.bit_feature);
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_util_log_feature_set);
 
 DEFINE_SIMPLE_ATTRIBUTE(cmdq_util_log_feature_fops,
 	cmdq_util_log_feature_get, cmdq_util_log_feature_set, "%llu");
@@ -571,13 +572,10 @@ EXPORT_SYMBOL(cmdq_util_track);
 void cmdq_util_dump_smi(void)
 {
 #if IS_ENABLED(CONFIG_MTK_SMI)
-/* #if 0 for porting to kernel-5.15 */
-#if 0
 	int smi_hang;
 
 	smi_hang = mtk_smi_dbg_hang_detect("CMDQ");
 	cmdq_util_err("smi hang:%d", smi_hang);
-#endif
 #else
 	cmdq_util_err("[WARNING]not enable SMI dump now");
 #endif

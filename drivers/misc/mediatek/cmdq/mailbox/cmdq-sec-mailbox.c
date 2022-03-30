@@ -8,6 +8,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/io.h>
 #include <linux/mailbox_controller.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
 #include <linux/sched/clock.h>
@@ -368,6 +369,7 @@ s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
 	struct cmdq_sec *cmdq =
 		container_of(thread->chan->mbox, struct cmdq_sec, mbox);
 	struct cmdq_operand left, right;
+	u32 xpr;
 	s32 err;
 
 	if (!thread->occupied || !cmdq->shared_mem) {
@@ -385,16 +387,21 @@ s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
 	if (err)
 		return err;
 
+#ifdef CMDQ_SECURE_CPR_SUPPORT
+	xpr = CMDQ_CPR_THREAD_COOKIE(thread->idx);
+#else
+	xpr = CMDQ_THR_SPR_IDX1;
+#endif
+
 	left.reg = true;
-	left.idx = CMDQ_THR_SPR_IDX1;
+	left.idx = xpr;
 	right.reg = false;
 	right.value = 1;
-	cmdq_pkt_logic_command(
-		pkt, CMDQ_LOGIC_ADD, CMDQ_THR_SPR_IDX1, &left, &right);
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, xpr, &left, &right);
 
 	err = cmdq_pkt_write_indriect(pkt, NULL,
 		cmdq->shared_mem->pa + CMDQ_SEC_SHARED_THR_CNT_OFFSET +
-		thread->idx * sizeof(u32), CMDQ_THR_SPR_IDX1, ~0);
+		thread->idx * sizeof(u32) + gce_mminfra, xpr, ~0);
 	if (err)
 		return err;
 	return cmdq_pkt_set_event(pkt, CMDQ_TOKEN_SECURE_THR_EOF);
@@ -893,7 +900,7 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 		if (buf != last) {
 			instr = iwc_msg->command.pVABase + offset;
 			instr[-1] = CMDQ_CODE_JUMP << 24;
-			instr[-2] = CMDQ_REG_SHIFT_ADDR(CMDQ_INST_SIZE);
+			instr[-2] = ((CMDQ_INST_SIZE) >> gce_shift_bit);
 		}
 	}
 	instr = &iwc_msg->command.pVABase[iwc_msg->command.commandSize / 4 - 4];
@@ -1480,7 +1487,7 @@ task_err_callback:
 			del_timer(&task->thread->timeout);
 		}
 
-		cmdq_msg(
+		cmdq_util_aee("CMDQ",
 			"gce:%#lx err:%d task:%p pkt:%p thread:%u task_cnt:%u wait_cookie:%u next_cookie:%u",
 			(unsigned long)cmdq->base_pa, err, task, task->pkt,
 			task->thread->idx, task->thread->task_cnt,
@@ -1661,6 +1668,35 @@ static struct mbox_chan *cmdq_sec_mbox_of_xlate(
 	return &mbox->chans[idx];
 }
 
+static void cmdq_sec_reserved_mem_lookup(struct cmdq_sec_shared_mem *shared_mem)
+{
+	struct device_node node;
+	static struct reserved_mem *mem;
+	static void *va;
+	char buf[NAME_MAX] = {0};
+	u64 pa = 0;
+	s32 i;
+
+	for (i = 0; i < 32 && !mem; i++) {
+		memset(buf, 0, sizeof(buf));
+		snprintf(buf, NAME_MAX - 1, "mblock-%d-me_cmdq_reserved", i);
+		node.full_name = buf;
+		mem = of_reserved_mem_lookup(&node);
+	}
+
+	if (!mem)
+		return;
+
+	pa = mem->base + mem->size - PAGE_SIZE;
+	if (!va)
+		va = ioremap(pa, PAGE_SIZE);
+	shared_mem->va = va;
+	shared_mem->pa = *(u64 *)va ? *(u64 *)va : pa; /* iova */
+
+	cmdq_msg("%s: buf:%s pa:%#llx size:%u va:%p iova:%pa", __func__,
+		buf, pa, shared_mem->size, shared_mem->va, &shared_mem->pa);
+}
+
 static int cmdq_sec_probe(struct platform_device *pdev)
 {
 	struct cmdq_sec *cmdq;
@@ -1730,6 +1766,7 @@ static int cmdq_sec_probe(struct platform_device *pdev)
 	cmdq->shared_mem->va = dma_alloc_coherent(&pdev->dev, PAGE_SIZE,
 		&cmdq->shared_mem->pa, GFP_KERNEL);
 	cmdq->shared_mem->size = PAGE_SIZE;
+	cmdq_sec_reserved_mem_lookup(cmdq->shared_mem);
 
 	platform_set_drvdata(pdev, cmdq);
 	pm_runtime_enable(dev);
@@ -1770,17 +1807,7 @@ static struct platform_driver cmdq_sec_drv = {
 	},
 };
 
-static int __init cmdq_sec_init(void)
-{
-	s32 err;
-
-	err = platform_driver_register(&cmdq_sec_drv);
-	if (err)
-		cmdq_err("platform_driver_register failed:%d", err);
-	return err;
-}
-
-#ifdef CMDQ_GP_SUPPORT
+#if defined(CMDQ_GP_SUPPORT) || defined(CMDQ_SECURE_MTEE_SUPPORT)
 static s32 cmdq_sec_late_init_wsm(void *data)
 {
 	struct cmdq_sec *cmdq;
@@ -1831,8 +1858,23 @@ static int __init cmdq_sec_late_init(void)
 		cmdq_err("kthread_run failed:%ld", PTR_ERR(kthr));
 	return PTR_ERR(kthr);
 }
-late_initcall(cmdq_sec_late_init);
+
 #endif
+
+static int __init cmdq_sec_init(void)
+{
+	s32 err;
+
+	err = platform_driver_register(&cmdq_sec_drv);
+	if (err)
+		cmdq_err("platform_driver_register failed:%d", err);
+
+#if defined(CMDQ_GP_SUPPORT) || defined(CMDQ_SECURE_MTEE_SUPPORT)
+	cmdq_sec_late_init();
+#endif
+
+	return err;
+}
 
 arch_initcall(cmdq_sec_init);
 MODULE_LICENSE("GPL v2");

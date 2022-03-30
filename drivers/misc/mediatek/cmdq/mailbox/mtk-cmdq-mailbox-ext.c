@@ -25,9 +25,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
 
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 #include <iommu_debug.h>
-#endif
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #include "cmdq-util.h"
@@ -125,8 +123,11 @@ EXPORT_SYMBOL(gce_shift_bit);
 int gce_mminfra;
 EXPORT_SYMBOL(gce_mminfra);
 
-bool gce_insert_dummy;
-EXPORT_SYMBOL(gce_insert_dummy);
+bool skip_poll_sleep;
+EXPORT_SYMBOL(skip_poll_sleep);
+
+bool gce_in_vcp;
+EXPORT_SYMBOL(gce_in_vcp);
 
 /* CMDQ log flag */
 int mtk_cmdq_log;
@@ -183,6 +184,8 @@ struct cmdq {
 	phys_addr_t		base_pa;
 	u8			hwid;
 	u32			irq;
+	struct list_head	irq_removes;
+	spinlock_t		irq_removes_lock;
 	struct wait_queue_head	err_irq_wq;
 	unsigned long		err_irq_idx;
 	struct workqueue_struct	*buf_dump_wq;
@@ -987,6 +990,12 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	u32 irq_flag;
 	dma_addr_t curr_pa, task_end_pa;
 	s32 err = 0;
+	unsigned long flags;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 start = sched_clock(), end[4];
+	u32 end_cnt = 0;
+	static u8 time;
+#endif
 
 	if (atomic_read(&cmdq->usage) <= 0) {
 		cmdq_log("irq handling during gce off gce:%lx thread:%u",
@@ -1023,10 +1032,8 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	task_end_pa = cmdq_thread_get_end(thread);
 
 	if (err < 0) {
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 		struct iommu_domain *domain;
 		phys_addr_t pa;
-#endif
 
 		cmdq_err("pc:%pa end:%pa err:%d gce base:%lx thread:%u",
 			&curr_pa, &task_end_pa, err,
@@ -1034,21 +1041,23 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 
 		cmdq_util_prebuilt_dump(
 			cmdq->hwid, CMDQ_TOKEN_PREBUILT_DISP_WAIT); // set iova
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+
 		domain = iommu_get_domain_for_dev(cmdq->mbox.dev);
 		if (domain) {
 			pa = iommu_iova_to_phys(domain, curr_pa);
 			cmdq_err("iova:%pa iommu pa:%pa", &curr_pa, &pa);
 		} else
 			cmdq_err("cannot get dev:%p domain", cmdq->mbox.dev);
-#endif
+
 		set_bit(thread->idx, &cmdq->err_irq_idx);
 		wake_up_interruptible(&cmdq->err_irq_wq);
 	}
 
 	cmdq_log("task status %pa~%pa err:%d",
 		&curr_pa, &task_end_pa, err);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end[end_cnt++] = sched_clock();
+#endif
 	task = list_first_entry_or_null(&thread->task_busy_list,
 		struct cmdq_task, list_entry);
 	if (task && task->pkt->loop) {
@@ -1082,7 +1091,9 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	mmprofile_log_ex(cmdq_mmp.cmdq_irq, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), task ? (unsigned long)task->pkt : 0);
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end[end_cnt++] = sched_clock();
+#endif
 	list_for_each_entry_safe(task, tmp, &thread->task_busy_list,
 				 list_entry) {
 		thread->irq_task += 1;
@@ -1105,20 +1116,26 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 					curr_task->pkt, &curr_pa, &task_end_pa);
 			}
 			cmdq_task_exec_done(task, 0);
-			list_add_tail(&task->list_entry, removes);
+			spin_lock_irqsave(&cmdq->irq_removes_lock, flags);
+			list_add_tail(&task->list_entry, &cmdq->irq_removes);
+			spin_unlock_irqrestore(&cmdq->irq_removes_lock, flags);
 		} else if (err) {
 			cmdq_err("pkt:0x%p thread:%u err:%d",
 				curr_task->pkt, thread->idx, err);
 			cmdq_buf_dump_schedule(task, false, curr_pa);
 			cmdq_task_exec_done(task, err);
 			cmdq_task_handle_error(curr_task);
-			list_add_tail(&task->list_entry, removes);
+			spin_lock_irqsave(&cmdq->irq_removes_lock, flags);
+			list_add_tail(&task->list_entry, &cmdq->irq_removes);
+			spin_unlock_irqrestore(&cmdq->irq_removes_lock, flags);
 		}
 
 		if (curr_task)
 			break;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end[end_cnt++] = sched_clock();
+#endif
 	task = list_first_entry_or_null(&thread->task_busy_list,
 		struct cmdq_task, list_entry);
 	if (!task) {
@@ -1133,6 +1150,16 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		cmdq_log("mod_timer pkt:0x%p timeout:%u thread:%u",
 			task->pkt, thread->timeout_ms, thread->idx);
 	}
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end[end_cnt] = sched_clock();
+	if (end[end_cnt] - start >= 1000000 && !time) /* 1ms */
+		cmdq_util_err(
+			"IRQ_LONG:%llu reg:%llu loop:%llu list:%llu dis:%llu",
+			end[end_cnt] - start, end[0] - start,
+			end[1] - end[0], end[2] - end[1], end[3] - end[2]);
+	if (end[end_cnt] - start >= 1000000)
+		time += 1;
+#endif
 }
 
 static irqreturn_t cmdq_irq_handler(int irq, void *dev)
@@ -1141,10 +1168,12 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	unsigned long irq_status, flags = 0L;
 	int bit, i;
 	bool secure_irq = false;
-	struct cmdq_task *task, *tmp;
-	struct list_head removes;
+	u32 thd_cnt = 0;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	u64 start = sched_clock(), end[4];
-	u32 end_cnt = 0, thd_cnt = 0;
+	u32 end_cnt = 0;
+	static u8 time;
+#endif
 
 	if (atomic_read(&cmdq->usage) == -1)
 		cmdq_util_aee("CMDQ", "%s irq:%d cmdq:%pa suspend:%d usage:%d",
@@ -1152,23 +1181,15 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 			atomic_read(&cmdq->usage));
 
 	if (atomic_read(&cmdq->usage) <= 0) {
-		if (cmdq->suspended)
-			return IRQ_HANDLED;
+		cmdq_err("%s irq:%d cmdq:%pa suspend:%d usage:%d",
+			__func__, irq, &cmdq->base_pa, cmdq->suspended,
+			atomic_read(&cmdq->usage));
 
-		cmdq_clk_enable(cmdq);
-		cmdq_thread_dump_all(cmdq, false, false, false);
-
-		for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
-			if (cmdq->thread[i].chan) {
-				cmdq_dump_core(cmdq->thread[i].chan);
-				break;
-			}
-		cmdq_clk_disable(cmdq);
 		return IRQ_HANDLED;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end[end_cnt++] = sched_clock();
-
+#endif
 	irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) & CMDQ_IRQ_MASK;
 	cmdq_log("gce:%lx irq: %#x, %#x",
 		(unsigned long)cmdq->base_pa, (u32)irq_status,
@@ -1178,15 +1199,14 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 			(u32)irq_status);
 		return IRQ_NONE;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end[end_cnt++] = sched_clock();
-
+#endif
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		cmdq->thread[i].irq_time = 0;
 		cmdq->thread[i].irq_task = 0;
 	}
 
-	INIT_LIST_HEAD(&removes);
 	for_each_clear_bit(bit, &irq_status, fls(CMDQ_IRQ_MASK)) {
 		struct cmdq_thread *thread = &cmdq->thread[bit];
 		u64 irq_time;
@@ -1199,53 +1219,84 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 
 		irq_time = sched_clock();
 		spin_lock_irqsave(&thread->chan->lock, flags);
-		cmdq_thread_irq_handler(cmdq, thread, &removes);
+		thread->lock_time = sched_clock() - irq_time;
+		cmdq_thread_irq_handler(cmdq, thread, &cmdq->irq_removes);
 		spin_unlock_irqrestore(&thread->chan->lock, flags);
 		thread->irq_time = sched_clock() - irq_time;
 		thd_cnt += 1;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end[end_cnt++] = sched_clock();
-
-	list_for_each_entry_safe(task, tmp, &removes, list_entry) {
-		list_del(&task->list_entry);
-		kfree(task);
-	}
-
+#endif
+	set_bit(CMDQ_THR_MAX_COUNT, &cmdq->err_irq_idx);
+	wake_up_interruptible(&cmdq->err_irq_wq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end[end_cnt] = sched_clock();
-	if (end[end_cnt] - start >= 1000000) { /* 1ms */
+	if (end[end_cnt] - start >= 5000000 && !time) { /* 5ms */
 		cmdq_util_err(
-			"IRQ_LONG:%llu atomic:%llu readl:%llu bit:%llu del:%llu",
+			"IRQ_LONG:%llu atomic:%llu readl:%llu bit:%llu wakeup:%llu",
 			end[end_cnt] - start, end[0] - start,
 			end[1] - end[0], end[2] - end[1], end[3] - end[2]);
 		for (i = 0; i < ARRAY_SIZE(cmdq->thread); i += 8) {
 			struct cmdq_thread *thread = &cmdq->thread[i];
 
 			cmdq_util_err(
-				" hwid:%u thread:%u:%d %llu:%u %llu:%u %llu:%u %llu:%u %llu:%u %llu:%u %llu:%u %llu:%u",
-				cmdq->hwid, thd_cnt, i,
+				" hwid:%hu thread:%u:%d %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u %llu:%llu:%u",
+				cmdq->hwid, thd_cnt, i, thread->lock_time,
 				thread->irq_time, thread->irq_task,
+				(thread + 1)->lock_time,
 				(thread + 1)->irq_time, (thread + 1)->irq_task,
+				(thread + 2)->lock_time,
 				(thread + 2)->irq_time, (thread + 2)->irq_task,
+				(thread + 3)->lock_time,
 				(thread + 3)->irq_time, (thread + 3)->irq_task,
+				(thread + 4)->lock_time,
 				(thread + 4)->irq_time, (thread + 4)->irq_task,
+				(thread + 5)->lock_time,
 				(thread + 5)->irq_time, (thread + 5)->irq_task,
+				(thread + 6)->lock_time,
 				(thread + 6)->irq_time, (thread + 6)->irq_task,
+				(thread + 7)->lock_time,
 				(thread + 7)->irq_time, (thread + 7)->irq_task);
 		}
 	}
 
+	if (end[end_cnt] - start >= 1000000)
+		time += 1;
+#endif
 	return secure_irq ? IRQ_NONE : IRQ_HANDLED;
 }
 
 static int cmdq_irq_handler_thread(void *data)
 {
 	struct cmdq *cmdq = data;
-	unsigned long irq = cmdq->err_irq_idx, flags;
+	unsigned long irq, flags;
 	u32 bit;
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(cmdq->err_irq_wq, cmdq->err_irq_idx);
+		irq = cmdq->err_irq_idx;
+
+		if (irq & BIT(CMDQ_THR_MAX_COUNT)) {
+			struct cmdq_task *task, *tmp;
+
+			spin_lock_irqsave(&cmdq->irq_removes_lock, flags);
+			list_for_each_entry_safe(task, tmp, &cmdq->irq_removes,
+				list_entry) {
+				list_del(&task->list_entry);
+
+				spin_unlock_irqrestore(
+					&cmdq->irq_removes_lock, flags);
+				kfree(task);
+				spin_lock_irqsave(
+					&cmdq->irq_removes_lock, flags);
+			}
+			spin_unlock_irqrestore(&cmdq->irq_removes_lock, flags);
+
+			clear_bit(CMDQ_THR_MAX_COUNT, &cmdq->err_irq_idx);
+			if (irq == BIT(CMDQ_THR_MAX_COUNT))
+				continue;
+		}
 
 		for_each_set_bit(bit, &cmdq->err_irq_idx, fls(CMDQ_IRQ_MASK)) {
 			struct cmdq_thread *thread = &cmdq->thread[bit];
@@ -1580,9 +1631,10 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	}
 
 /* if pc match end and irq flag on, dump irq status */
-	if (curr_pa == end_pa && irq)
-		cmdq_util_msg("gic dump not support irq id:%u\n",
-			cmdq->irq);
+	if (curr_pa == end_pa && irq) {
+		cmdq_util_msg("gic dump not support irq id:%u\n", cmdq->irq);
+		mt_irq_dump_status(cmdq->irq);
+	}
 
 	if (inst_out)
 		*inst_out = curr_va;
@@ -2135,16 +2187,13 @@ static void cmdq_config_init_buf(struct device *dev, struct cmdq *cmdq)
 int cmdq_iommu_fault_callback(int port, dma_addr_t mva, void *cb_data)
 {
 	struct cmdq *cmdq = (struct cmdq *)cb_data;
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	struct iommu_domain *domain = iommu_get_domain_for_dev(cmdq->mbox.dev);
 	phys_addr_t pa = domain ? iommu_iova_to_phys(domain, mva) : 0;
 	s32 i;
 
 	cmdq_msg("%s: port:%d mva:%pa cmdq hwid:%hu iommu domain:%p pa:%pa",
 		__func__, port, &mva, cmdq->hwid, domain, &pa);
-#else
-	s32 i;
-#endif
+
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		if (!cmdq->thread[i].occupied || !cmdq->thread[i].chan)
 			continue;
@@ -2164,9 +2213,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	struct device_link *link;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	struct of_phandle_args args;
-#endif
 	struct cmdq *cmdq;
 	struct task_struct *kthr;
 	int err, i;
@@ -2203,6 +2250,9 @@ static int cmdq_probe(struct platform_device *pdev)
 		return err;
 	}
 
+	INIT_LIST_HEAD(&cmdq->irq_removes);
+	spin_lock_init(&cmdq->irq_removes_lock);
+
 	init_waitqueue_head(&cmdq->err_irq_wq);
 	kthr = kthread_run(cmdq_irq_handler_thread, cmdq, "cmdq_irq_thread");
 
@@ -2214,8 +2264,14 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	gce_shift_bit = plat_data->shift;
 	gce_mminfra = plat_data->mminfra;
-	if (of_property_read_bool(dev->of_node, "insert-dummy"))
-		gce_insert_dummy = true;
+	if (of_property_read_bool(dev->of_node, "skip-poll-sleep"))
+		skip_poll_sleep = true;
+
+	if (of_property_read_bool(dev->of_node, "gce_in_vcp"))
+		gce_in_vcp = true;
+
+	if (!of_property_read_bool(dev->of_node, "cmdq-log-perf-off"))
+		cmdq_util_log_feature_set(NULL, CMDQ_LOG_FEAT_PERF);
 
 	dev_notice(dev,
 		"cmdq thread:%u shift:%u mminfra:%#x base:0x%lx pa:0x%lx\n",
@@ -2327,14 +2383,11 @@ static int cmdq_probe(struct platform_device *pdev)
 #endif
 	cmdq->prebuilt_clt = cmdq_mbox_create(&pdev->dev, 0);
 
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	if (!of_parse_phandle_with_args(
 		dev->of_node, "iommus", "#iommu-cells", 0, &args)) {
 		mtk_iommu_register_fault_callback(
 			args.args[0], cmdq_iommu_fault_callback, cmdq, false);
 	}
-#endif
-
 	return 0;
 }
 
@@ -2368,6 +2421,7 @@ static const struct of_device_id cmdq_of_ids[] = {
 	{.compatible = "mediatek,mt6895-gce", .data = (void *)&gce_plat_v5},
 	{.compatible = "mediatek,mt6983-gce", .data = (void *)&gce_plat_v5},
 	{.compatible = "mediatek,mt6855-gce", .data = (void *)&gce_plat_v5},
+	{.compatible = "mediatek,mt6789-gce", .data = (void *)&gce_plat_v4},
 	{}
 };
 
@@ -2633,14 +2687,14 @@ void cmdq_mbox_check_buffer(struct mbox_chan *chan,
 				if (CMDQ_BUF_ADDR(buffer) ==
 					CMDQ_BUF_ADDR(buf)) {
 					cmdq_util_err(
-						"hwid:%u thread:%u cur:%p va:%p iova:%pa pa:%pa alloc_time:%llu",
+						"hwid:%hu thread:%u cur:%p va:%p iova:%pa pa:%pa alloc_time:%llu",
 						cmdq->hwid, thread->idx, buffer,
 						buffer->va_base,
 						&buffer->iova_base,
 						&buffer->pa_base,
 						buffer->alloc_time);
 					cmdq_util_err(
-						"hwid:%u thread:%u buf:%p va:%p iova:%pa pa:%pa alloc_time:%llu allocated",
+						"hwid:%hu thread:%u buf:%p va:%p iova:%pa pa:%pa alloc_time:%llu allocated",
 						cmdq->hwid, thread->idx, buf,
 						buf->va_base, &buf->iova_base,
 						&buf->pa_base, buf->alloc_time);

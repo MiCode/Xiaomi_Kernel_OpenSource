@@ -45,6 +45,7 @@ enum CMDQ_IWC_ADDR_METADATA_TYPE {
 	CMDQ_IWC_H_2_MVA = 1, /* sec handle to sec MVA */
 	CMDQ_IWC_NMVA_2_MVA = 2, /* map normal MVA to secure world */
 	CMDQ_IWC_PH_2_MVA = 3, /* protected handle to sec MVA */
+	CMDQ_IWC_MVA_2_MVA = 4, /* no need to use secure handle for sec MVA */
 };
 
 enum CMDQ_SEC_ENG_ENUM {
