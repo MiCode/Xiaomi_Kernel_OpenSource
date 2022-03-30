@@ -22,47 +22,6 @@ endef
   mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
   current_dir := $(notdir $(patsubst %/,%,$(dir $(mkfile_path))))
 
-  ifeq ($(KERNEL_TARGET_ARCH),arm64)
-    build_config_file := $(current_dir)/build.config.mtk.aarch64
-  else
-    build_config_file := $(current_dir)/build.config.mtk.arm
-  endif
-  include $(build_config_file)
-
-  ARGS := CROSS_COMPILE=$(CROSS_COMPILE)
-  ifneq ($(LLVM),)
-    ARGS += LLVM=1
-    ifneq ($(filter-out false,$(USE_CCACHE)),)
-      CCACHE_EXEC ?= /usr/bin/ccache
-      CCACHE_EXEC := $(abspath $(wildcard $(CCACHE_EXEC)))
-    else
-      CCACHE_EXEC :=
-    endif
-    ifneq ($(CCACHE_EXEC),)
-      ARGS += CCACHE_CPP2=yes CC='$(CCACHE_EXEC) clang'
-    else
-      ARGS += CC=clang
-    endif
-    ifneq ($(LLVM_IAS),)
-      ARGS += LLVM_IAS=$(LLVM_IAS)
-    endif
-    ifeq ($(HOSTCC),)
-      ifneq ($(CC),)
-        ARGS += HOSTCC=$(CC)
-      endif
-    else
-      ARGS += HOSTCC=$(HOSTCC)
-    endif
-    ifneq ($(LD),)
-      ARGS += LD=$(LD) HOSTLD=$(LD)
-      ifneq ($(suffix $(LD)),)
-        ARGS += HOSTLDFLAGS=-fuse-ld=$(subst .,,$(suffix $(LD)))
-      endif
-    endif
-  endif
-
-  TARGET_KERNEL_CROSS_COMPILE := $(KERNEL_ROOT_DIR)/$(LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN)/$(CROSS_COMPILE)
-
   ifeq ($(wildcard $(TARGET_PREBUILT_KERNEL)),)
     KERNEL_OUT ?= $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/$(LINUX_KERNEL_VERSION)
     REL_KERNEL_OUT := $(shell ./$(current_dir)/scripts/get_rel_path.sh $(patsubst %/,%,$(dir $(KERNEL_OUT))) $(KERNEL_ROOT_DIR)/kernel)
@@ -90,10 +49,8 @@ endef
     TARGET_KERNEL_CONFIG := $(KERNEL_OUT)/.config
     GEN_KERNEL_BUILD_CONFIG := $(patsubst %/,%,$(dir $(KERNEL_OUT)))/build.config
     REL_GEN_KERNEL_BUILD_CONFIG := $(REL_KERNEL_OUT)/$(notdir $(GEN_KERNEL_BUILD_CONFIG))
+    GEN_MTK_SETUP_ENV_SH := $(patsubst %/,%,$(dir $(KERNEL_OUT)))/mtk_setup_env.sh
     KERNEL_CONFIG_FILE := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/configs/$(word 1,$(KERNEL_DEFCONFIG))
-    KERNEL_MAKE_OPTION := O=$(KERNEL_ROOT_OUT) ARCH=$(KERNEL_TARGET_ARCH) $(ARGS) ROOTDIR=$(KERNEL_ROOT_DIR)
-    KERNEL_MAKE_PATH_OPTION := $(KERNEL_ROOT_DIR)/prebuilts/perl/linux-x86/bin:/usr/bin
-    KERNEL_MAKE_OPTION += PATH=$(KERNEL_ROOT_DIR)/kernel/$(CLANG_PREBUILT_BIN):$(KERNEL_ROOT_DIR)/kernel/$(LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN):$(KERNEL_MAKE_PATH_OPTION):$$PATH
 
     IMAGE_GZ_PATH := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz
     ifeq ($(MTK_APPEND_DTB),)
