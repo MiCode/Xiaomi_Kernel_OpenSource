@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
-//
-// Copyright (c) 2020 MediaTek Inc.
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
 
 #include <linux/err.h>
 #include <linux/init.h>
@@ -11,6 +12,12 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+#define CREATE_TRACE_POINTS
+#include "internal.h"
+#include "mtk-dvfsrc-regulator-trace.h"
+#endif
 
 #define DVFSRC_ID_VCORE		0
 #define DVFSRC_ID_VSCP		1
@@ -57,20 +64,39 @@ static inline struct device *to_dvfsrc_dev(struct regulator_dev *rdev)
 	return rdev_get_dev(rdev)->parent;
 }
 
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+static int regulator_trace_consumers(struct regulator_dev *rdev, int qos_class)
+{
+	struct regulator *regulator;
+	struct regulator_voltage *voltage;
+	const char *devname;
+
+	list_for_each_entry(regulator, &rdev->consumer_list, list) {
+		voltage = &regulator->voltage[PM_SUSPEND_ON];
+		devname = regulator->dev ? dev_name(regulator->dev) : "deviceless";
+		trace_mtk_pm_qos_update_request(qos_class, voltage->min_uV / 1000, devname);
+	}
+	return 0;
+}
+#endif
 static int dvfsrc_set_voltage_sel(struct regulator_dev *rdev,
-				  unsigned int selector)
+				   unsigned int selector)
 {
 	struct device *dvfsrc_dev = to_dvfsrc_dev(rdev);
 	int id = rdev_get_id(rdev);
 
-	if (id == DVFSRC_ID_VCORE)
+	if (id == DVFSRC_ID_VCORE) {
 		mtk_dvfsrc_send_request(dvfsrc_dev,
 					MTK_DVFSRC_CMD_VCORE_REQUEST,
 					selector);
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+		regulator_trace_consumers(rdev, 20);
+#endif
+	}
 	else if (id == DVFSRC_ID_VSCP)
 		mtk_dvfsrc_send_request(dvfsrc_dev,
-					MTK_DVFSRC_CMD_VSCP_REQUEST,
-					selector);
+				MTK_DVFSRC_CMD_VSCP_REQUEST,
+				selector);
 	else
 		return -EINVAL;
 
@@ -113,7 +139,7 @@ static const unsigned int mt8183_voltages[] = {
 
 static struct dvfsrc_regulator mt8183_regulators[] = {
 	MT_DVFSRC_REGULAR("dvfsrc-vcore", VCORE,
-			  mt8183_voltages),
+		mt8183_voltages),
 };
 
 static const struct dvfsrc_regulator_init_data regulator_mt8183_data = {
@@ -130,9 +156,9 @@ static const unsigned int mt6873_voltages[] = {
 
 static struct dvfsrc_regulator mt6873_regulators[] = {
 	MT_DVFSRC_REGULAR("dvfsrc-vcore", VCORE,
-			  mt6873_voltages),
+		mt6873_voltages),
 	MT_DVFSRC_REGULAR("dvfsrc-vscp", VSCP,
-			  mt6873_voltages),
+		mt6873_voltages),
 };
 
 static const struct dvfsrc_regulator_init_data regulator_mt6873_data = {
@@ -199,6 +225,42 @@ static const struct dvfsrc_regulator_init_data regulator_mt6877_data = {
 	.regulator_info = &mt6877_regulators[0],
 };
 
+static const unsigned int mt6983_voltages[] = {
+	575000,
+	600000,
+	650000,
+	725000,
+	750000,
+};
+
+static struct dvfsrc_regulator mt6983_regulators[] = {
+	MT_DVFSRC_REGULAR("dvfsrc-vcore", VCORE,
+		mt6983_voltages),
+};
+
+static const struct dvfsrc_regulator_init_data regulator_mt6983_data = {
+	.size = ARRAY_SIZE(mt6983_regulators),
+	.regulator_info = &mt6983_regulators[0],
+};
+
+static const unsigned int mt6879_voltages[] = {
+	550000,
+	600000,
+	650000,
+	725000,
+	750000,
+};
+
+static struct dvfsrc_regulator mt6879_regulators[] = {
+	MT_DVFSRC_REGULAR("dvfsrc-vcore", VCORE,
+		mt6879_voltages),
+};
+
+static const struct dvfsrc_regulator_init_data regulator_mt6879_data = {
+	.size = ARRAY_SIZE(mt6879_regulators),
+	.regulator_info = &mt6879_regulators[0],
+};
+
 static const struct of_device_id mtk_dvfsrc_regulator_match[] = {
 	{
 		.compatible = "mediatek,mt8183-dvfsrc",
@@ -224,6 +286,15 @@ static const struct of_device_id mtk_dvfsrc_regulator_match[] = {
 	}, {
 		.compatible = "mediatek,mt6877-dvfsrc",
 		.data = &regulator_mt6877_data,
+	}, {
+		.compatible = "mediatek,mt6983-dvfsrc",
+		.data = &regulator_mt6983_data,
+	}, {
+		.compatible = "mediatek,mt6879-dvfsrc",
+		.data = &regulator_mt6879_data,
+	}, {
+		.compatible = "mediatek,mt6895-dvfsrc",
+		.data = &regulator_mt6983_data,
 	}, {
 		/* sentinel */
 	},
@@ -253,8 +324,8 @@ static int dvfsrc_vcore_regulator_probe(struct platform_device *pdev)
 	for (i = 0; i < regulator_init_data->size; i++) {
 		config.dev = dev->parent;
 		config.driver_data = (mt_regulators + i);
-		rdev = devm_regulator_register(dev, &(mt_regulators + i)->desc,
-					       &config);
+		rdev = devm_regulator_register(dev->parent,
+				&(mt_regulators + i)->desc, &config);
 		if (IS_ERR(rdev)) {
 			dev_err(dev, "failed to register %s\n",
 				(mt_regulators + i)->desc.name);
