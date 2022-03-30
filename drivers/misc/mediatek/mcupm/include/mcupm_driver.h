@@ -14,7 +14,9 @@
 #define MCUPM_LOGGER_SUPPORT		(1)
 #define MCUPM_COREDUMP_SUPPORT		(1)
 #define MCUPM_ALIVE_THREAD		(0)
+#if IS_ENABLED(CONFIG_MTK_EMI)
 #define EMI_MPU                         (1)
+#endif
 
 #define MCUPM_MBOX_NO_SUSPEND		4
 
