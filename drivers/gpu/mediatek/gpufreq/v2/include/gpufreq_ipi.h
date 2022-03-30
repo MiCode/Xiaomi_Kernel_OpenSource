@@ -119,14 +119,10 @@ struct gpufreq_shared_status {
 	unsigned int max_power_stack;
 	unsigned int min_power_gpu;
 	unsigned int min_power_stack;
-	unsigned int cur_ceiling_gpu;
-	unsigned int cur_floor_gpu;
-	unsigned int cur_ceiling_stack;
-	unsigned int cur_floor_stack;
-	unsigned int cur_c_limiter_gpu;
-	unsigned int cur_f_limiter_gpu;
-	unsigned int cur_c_limiter_stack;
-	unsigned int cur_f_limiter_stack;
+	unsigned int cur_ceiling;
+	unsigned int cur_floor;
+	unsigned int cur_c_limiter;
+	unsigned int cur_f_limiter;
 	unsigned int temperature;
 	unsigned int temp_compensate;
 	unsigned int power_control;

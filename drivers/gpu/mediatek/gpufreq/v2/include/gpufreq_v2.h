@@ -97,6 +97,7 @@ enum gpuppm_limiter {
 	LIMIT_DEBUG = 1,
 	LIMIT_THERMAL_AP,
 	LIMIT_THERMAL_EB,
+	LIMIT_TEMPER_COMP,
 	LIMIT_SRAMRC,
 	LIMIT_BATT_OC,
 	LIMIT_BATT_PERCENT,
@@ -215,12 +216,12 @@ struct gpuppm_platform_fp {
 		int ceiling_info, int floor_info);
 	int (*switch_limit)(enum gpufreq_target target, enum gpuppm_limiter limiter,
 		int c_enable, int f_enable);
-	int (*get_ceiling)(enum gpufreq_target target);
-	int (*get_floor)(enum gpufreq_target target);
-	unsigned int (*get_c_limiter)(enum gpufreq_target target);
-	unsigned int (*get_f_limiter)(enum gpufreq_target target);
-	const struct gpuppm_limit_info *(*get_limit_table)(enum gpufreq_target target);
-	struct gpufreq_debug_limit_info (*get_debug_limit_info)(enum gpufreq_target target);
+	int (*get_ceiling)(void);
+	int (*get_floor)(void);
+	unsigned int (*get_c_limiter)(void);
+	unsigned int (*get_f_limiter)(void);
+	const struct gpuppm_limit_info *(*get_limit_table)(void);
+	struct gpufreq_debug_limit_info (*get_debug_limit_info)(void);
 };
 
 /**************************************************

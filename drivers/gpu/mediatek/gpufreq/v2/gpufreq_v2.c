@@ -1077,25 +1077,20 @@ int gpufreq_get_cur_limit_idx(enum gpufreq_target target, enum gpuppm_limit_type
 	if (g_gpueb_support) {
 		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_shared_status_va;
 
-		if (target == TARGET_STACK && shared_status) {
+		if (shared_status) {
 			if (limit == GPUPPM_CEILING)
-				limit_idx = shared_status->cur_ceiling_stack;
+				limit_idx = shared_status->cur_ceiling;
 			else if (limit == GPUPPM_FLOOR)
-				limit_idx = shared_status->cur_floor_stack;
-		} else if (target == TARGET_GPU && shared_status) {
-			if (limit == GPUPPM_CEILING)
-				limit_idx = shared_status->cur_ceiling_gpu;
-			else if (limit == GPUPPM_FLOOR)
-				limit_idx = shared_status->cur_floor_gpu;
+				limit_idx = shared_status->cur_floor;
 		}
 		goto done;
 	}
 
 	/* implement on AP */
 	if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_ceiling)
-		limit_idx = gpuppm_fp->get_ceiling(target);
+		limit_idx = gpuppm_fp->get_ceiling();
 	else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_floor)
-		limit_idx = gpuppm_fp->get_floor(target);
+		limit_idx = gpuppm_fp->get_floor();
 	else
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 
@@ -1134,25 +1129,20 @@ unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_lim
 	if (g_gpueb_support) {
 		shared_status = (struct gpufreq_shared_status *)(uintptr_t)g_shared_status_va;
 
-		if (target == TARGET_STACK && shared_status) {
+		if (shared_status) {
 			if (limit == GPUPPM_CEILING)
-				limiter = shared_status->cur_c_limiter_stack;
+				limiter = shared_status->cur_c_limiter;
 			else if (limit == GPUPPM_FLOOR)
-				limiter = shared_status->cur_f_limiter_stack;
-		} else if (target == TARGET_GPU && shared_status) {
-			if (limit == GPUPPM_CEILING)
-				limiter = shared_status->cur_c_limiter_gpu;
-			else if (limit == GPUPPM_FLOOR)
-				limiter = shared_status->cur_f_limiter_gpu;
+				limiter = shared_status->cur_f_limiter;
 		}
 		goto done;
 	}
 
 	/* implement on AP */
 	if (limit == GPUPPM_CEILING && gpuppm_fp && gpuppm_fp->get_c_limiter)
-		limiter = gpuppm_fp->get_c_limiter(target);
+		limiter = gpuppm_fp->get_c_limiter();
 	else if (limit == GPUPPM_FLOOR && gpuppm_fp && gpuppm_fp->get_f_limiter)
-		limiter = gpuppm_fp->get_f_limiter(target);
+		limiter = gpuppm_fp->get_f_limiter();
 	else
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 
@@ -1305,7 +1295,7 @@ struct gpufreq_debug_limit_info gpufreq_get_debug_limit_info(enum gpufreq_target
 
 	/* implement on AP */
 	if (gpuppm_fp && gpuppm_fp->get_debug_limit_info)
-		limit_info = gpuppm_fp->get_debug_limit_info(target);
+		limit_info = gpuppm_fp->get_debug_limit_info();
 	else
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 
@@ -1405,7 +1395,7 @@ const struct gpuppm_limit_info *gpufreq_get_limit_table(enum gpufreq_target targ
 
 	/* implement on AP */
 	if (gpuppm_fp && gpuppm_fp->get_limit_table)
-		limit_table = gpuppm_fp->get_limit_table(target);
+		limit_table = gpuppm_fp->get_limit_table();
 	else
 		GPUFREQ_LOGE("null gpuppm platform function pointer (ENOENT)");
 
@@ -1774,12 +1764,9 @@ static void gpufreq_dump_dvfs_status(void)
 		GPUFREQ_LOGI("STACK[%d] Freq: %d, Volt: %d, Vsram: %d",
 			shared_status->cur_oppidx_stack, shared_status->cur_fstack,
 			shared_status->cur_vstack, shared_status->cur_vsram_stack);
-		GPUFREQ_LOGI("GPU Ceiling/Floor: %d/%d, Limiter: %d/%d",
-			shared_status->cur_ceiling_gpu, shared_status->cur_floor_gpu,
-			shared_status->cur_c_limiter_gpu, shared_status->cur_f_limiter_gpu);
-		GPUFREQ_LOGI("STACK Ceiling/Floor: %d/%d, Limiter: %d/%d",
-			shared_status->cur_ceiling_stack, shared_status->cur_floor_stack,
-			shared_status->cur_c_limiter_stack, shared_status->cur_f_limiter_stack);
+		GPUFREQ_LOGI("Ceiling/Floor: %d/%d, Limiter: %d/%d",
+			shared_status->cur_ceiling, shared_status->cur_floor,
+			shared_status->cur_c_limiter, shared_status->cur_f_limiter);
 		GPUFREQ_LOGI("Power Count: %d, Aging Enable: %d, AVS Enable: %d",
 			shared_status->power_count, shared_status->aging_enable,
 			shared_status->avs_enable);

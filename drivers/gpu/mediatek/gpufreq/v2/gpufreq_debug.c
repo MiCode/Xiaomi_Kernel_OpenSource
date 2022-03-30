@@ -49,18 +49,15 @@ static DEFINE_MUTEX(gpufreq_debug_lock);
 static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 {
 	struct gpufreq_debug_opp_info gpu_opp_info = {};
-	struct gpufreq_debug_limit_info gpu_limit_info = {};
 	struct gpufreq_debug_opp_info stack_opp_info = {};
-	struct gpufreq_debug_limit_info stack_limit_info = {};
+	struct gpufreq_debug_limit_info limit_info = {};
 
 	mutex_lock(&gpufreq_debug_lock);
 
 	gpu_opp_info = gpufreq_get_debug_opp_info(TARGET_GPU);
-	gpu_limit_info = gpufreq_get_debug_limit_info(TARGET_GPU);
-	if (g_dual_buck) {
+	if (g_dual_buck)
 		stack_opp_info = gpufreq_get_debug_opp_info(TARGET_STACK);
-		stack_limit_info = gpufreq_get_debug_limit_info(TARGET_STACK);
-	}
+	limit_info = gpufreq_get_debug_limit_info(TARGET_DEFAULT);
 
 	seq_printf(m,
 		"[GPUFREQ-DEBUG] Current Status of GPUFREQ\n");
@@ -91,18 +88,6 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		gpu_opp_info.segment_id,
 		gpu_opp_info.opp_num,
 		gpu_opp_info.signed_opp_num);
-	seq_printf(m,
-		"%-15s CeilingIndex: %d, Limiter: %d, Priority: %d\n",
-		"[GPU-LimitC]",
-		gpu_limit_info.ceiling,
-		gpu_limit_info.c_limiter,
-		gpu_limit_info.c_priority);
-	seq_printf(m,
-		"%-15s FloorIndex: %d, Limiter: %d, Priority: %d\n",
-		"[GPU-LimitF]",
-		gpu_limit_info.floor,
-		gpu_limit_info.f_limiter,
-		gpu_limit_info.f_priority);
 
 	if (g_dual_buck) {
 		seq_printf(m,
@@ -132,21 +117,21 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 			stack_opp_info.segment_id,
 			stack_opp_info.opp_num,
 			stack_opp_info.signed_opp_num);
-		seq_printf(m,
-			"%-15s CeilingIndex: %d, Limiter: %d, Priority: %d\n",
-			"[STACK-LimitC]",
-			stack_limit_info.ceiling,
-			stack_limit_info.c_limiter,
-			stack_limit_info.c_priority);
-		seq_printf(m,
-			"%-15s FloorIndex: %d, Limiter: %d, Priority: %d\n",
-			"[STACK-LimitF]",
-			stack_limit_info.floor,
-			stack_limit_info.f_limiter,
-			stack_limit_info.f_priority);
 	}
 
 	/* common info takes from GPU as it always exists */
+	seq_printf(m,
+		"%-15s CeilingIndex: %d, Limiter: %d, Priority: %d\n",
+		"[Common-LimitC]",
+		limit_info.ceiling,
+		limit_info.c_limiter,
+		limit_info.c_priority);
+	seq_printf(m,
+		"%-15s FloorIndex: %d, Limiter: %d, Priority: %d\n",
+		"[Common-LimitF]",
+		limit_info.floor,
+		limit_info.f_limiter,
+		limit_info.f_priority);
 	seq_printf(m,
 		"%-15s Dual Buck: %s, GPUEB Support: %s\n",
 		"[Common-Status]",
