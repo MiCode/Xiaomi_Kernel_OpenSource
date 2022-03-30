@@ -22,11 +22,6 @@ enum {
 	END_INHERIT,
 };
 
-enum rwsem_waiter_type {
-	RWSEM_WAITING_FOR_WRITE,
-	RWSEM_WAITING_FOR_READ
-};
-
 enum {
 	SUB_FEAT_LOCK		= 1U << 0,
 	SUB_FEAT_BINDER		= 1U << 1,
@@ -40,14 +35,6 @@ struct task_turbo_t {
 	unsigned short inherit_cnt:14;
 	short nice_backup;
 	atomic_t inherit_types;
-};
-
-struct rwsem_waiter {
-	struct list_head list;
-	struct task_struct *task;
-	enum rwsem_waiter_type type;
-	unsigned long timeout;
-	unsigned long last_rowner;
 };
 
 struct futex_q {
