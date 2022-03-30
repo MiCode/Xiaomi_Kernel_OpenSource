@@ -12,6 +12,7 @@
 #include "mcupm_plt.h"
 #include "mcupm_ipi_id.h"
 #include "mcupm_ipi_table.h"
+#include "mcupm_timesync.h"
 
 #ifdef EMI_MPU
 #include <soc/mediatek/emi.h>
@@ -468,7 +469,13 @@ static int mcupm_device_probe(struct platform_device *pdev)
 
 	ret = mcupm_plt_module_init();
 	if (ret) {
-		pr_debug("[MCUPM] plt module init fail, ret %d\n", ret);
+		pr_info("[MCUPM] plt module init fail, ret %d\n", ret);
+		return ret;
+	}
+
+	ret = mcupm_timesync_init();
+	if (ret) {
+		pr_info("MCUPM timesync init fail\n");
 		return ret;
 	}
 
@@ -480,6 +487,25 @@ static int mcupm_device_remove(struct platform_device *pdev)
 	mcupm_plt_module_exit();
 	return 0;
 }
+
+#if IS_ENABLED(CONFIG_PM)
+static int mt6779_mcupm_suspend(struct device *dev)
+{
+	mcupm_timesync_suspend();
+	return 0;
+}
+
+static int mt6779_mcupm_resume(struct device *dev)
+{
+	mcupm_timesync_resume();
+	return 0;
+}
+
+static const struct dev_pm_ops mt6779_mcupm_dev_pm_ops = {
+	.suspend = mt6779_mcupm_suspend,
+	.resume  = mt6779_mcupm_resume,
+};
+#endif
 
 static const struct of_device_id mcupm_of_match[] = {
 	{ .compatible = "mediatek,mcupm", },
@@ -501,6 +527,10 @@ static struct platform_driver mtk_mcupm_driver = {
 		.name = "mcupm",
 		.owner = THIS_MODULE,
 		.of_match_table = mcupm_of_match,
+#if IS_ENABLED(CONFIG_PM)
+		.pm = &mt6779_mcupm_dev_pm_ops,
+#endif
+
 	},
 	.id_table = mcupm_id_table,
 };
