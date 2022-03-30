@@ -180,7 +180,7 @@ static int smartpa_swdsp_process_enable_set(struct snd_kcontrol *kcontrol,
 {
 	unsigned int val = ucontrol->value.integer.value[0];
 
-	set_task_attr(AUDIO_TASK_PLAYBACK_ID, ADSP_TASK_ATTR_SMARTPA, val);
+	set_task_attr(AUDIO_TASK_PLAYBACK_ID, ADSP_TASK_ATTR_PROPERTY, val);
 	return 0;
 }
 
@@ -189,10 +189,30 @@ static int smartpa_swdsp_process_enable_get(struct snd_kcontrol *kcontrol,
 {
 	ucontrol->value.integer.value[0] =
 		get_task_attr(AUDIO_TASK_PLAYBACK_ID,
-			      ADSP_TASK_ATTR_SMARTPA);
+			      ADSP_TASK_ATTR_PROPERTY);
 
 	return 0;
 }
+
+static int a2dp_clear_irq_set(struct snd_kcontrol *kcontrol,
+					    struct snd_ctl_elem_value *ucontrol)
+{
+	unsigned int val = ucontrol->value.integer.value[0];
+
+	set_task_attr(AUDIO_TASK_A2DP_ID, ADSP_TASK_ATTR_PROPERTY, val);
+	return 0;
+}
+
+static int a2dp_clear_irq_get(struct snd_kcontrol *kcontrol,
+					    struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] =
+		get_task_attr(AUDIO_TASK_A2DP_ID,
+			      ADSP_TASK_ATTR_PROPERTY);
+
+	return 0;
+}
+
 
 static int ktv_status_set(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
@@ -284,6 +304,9 @@ static const struct snd_kcontrol_new dsp_platform_kcontrols[] = {
 	SOC_SINGLE_EXT("swdsp_smartpa_process_enable", SND_SOC_NOPM, 0, 0xff, 0,
 		       smartpa_swdsp_process_enable_get,
 		       smartpa_swdsp_process_enable_set),
+	SOC_SINGLE_EXT("a2dp_clear_irq", SND_SOC_NOPM, 0, 0x1, 0,
+		       a2dp_clear_irq_get,
+		       a2dp_clear_irq_set),
 	SOC_SINGLE_EXT("ktv_status", SND_SOC_NOPM, 0, 0x1, 0,
 		       ktv_status_get, ktv_status_set),
 	SOC_SINGLE_EXT("audio_dsp_wakelock", SND_SOC_NOPM, 0, 0x1, 0,

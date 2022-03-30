@@ -109,12 +109,20 @@ static int dsp_pcm_taskattr_init(struct platform_device *pdev)
 
 		ret = of_property_read_u32(pdev->dev.of_node,
 			"swdsp_smartpa_process_enable",
-			&(task_attr.spk_protect_in_dsp));
+			&(task_attr.task_property));
 		if (ret)
-			task_attr.spk_protect_in_dsp = 0;
+			task_attr.task_property = 0;
+		set_task_attr(AUDIO_TASK_PLAYBACK_ID, ADSP_TASK_ATTR_PROPERTY,
+			      task_attr.task_property);
 
-		set_task_attr(AUDIO_TASK_PLAYBACK_ID, ADSP_TASK_ATTR_SMARTPA,
-			      task_attr.spk_protect_in_dsp);
+		/* a2dp irq clear in adsp */
+		ret = of_property_read_u32(pdev->dev.of_node,
+			"mtk_dsp_a2dp_irq",
+			&(task_attr.task_property));
+		if (ret)
+			task_attr.task_property = 0;
+		set_task_attr(AUDIO_TASK_A2DP_ID, ADSP_TASK_ATTR_PROPERTY,
+			      task_attr.task_property);
 	}
 	return 0;
 }

@@ -616,8 +616,8 @@ int set_task_attr(int dsp_id, int task_enum, int param)
 	case ADSP_TASK_ATTR_REF_RUNTIME:
 		task_attr->ref_runtime_enable = param;
 		break;
-	case ADSP_TASK_ATTR_SMARTPA:
-		task_attr->spk_protect_in_dsp = param;
+	case ADSP_TASK_ATTR_PROPERTY:
+		task_attr->task_property = param;
 		break;
 	}
 	return 0;
@@ -657,8 +657,8 @@ int get_task_attr(int dsp_id, int task_enum)
 		return task_attr->runtime_enable;
 	case ADSP_TASK_ATTR_REF_RUNTIME:
 		return task_attr->ref_runtime_enable;
-	case ADSP_TASK_ATTR_SMARTPA:
-		return task_attr->spk_protect_in_dsp;
+	case ADSP_TASK_ATTR_PROPERTY:
+		return task_attr->task_property;
 	default:
 		return -1;
 	}
