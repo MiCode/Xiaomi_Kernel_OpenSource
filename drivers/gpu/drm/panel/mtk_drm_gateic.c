@@ -47,6 +47,7 @@ bool mtk_gateic_match_lcm_list(const char *lcm_name,
 	return false;
 }
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 static struct mtk_gateic_funcs *mtk_drm_gateic_match_lcm_list(
 		struct list_head *gateic_list, const char *lcm_name)
 {
@@ -60,6 +61,7 @@ static struct mtk_gateic_funcs *mtk_drm_gateic_match_lcm_list(
 	}
 	return NULL;
 }
+#endif
 
 struct mtk_gateic_funcs *mtk_drm_gateic_get_ops(char func)
 {
