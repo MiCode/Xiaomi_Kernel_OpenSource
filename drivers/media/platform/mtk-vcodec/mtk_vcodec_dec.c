@@ -733,6 +733,96 @@ static int flush_dma_buffer(const struct sg_table *sgt,
 	kfree(sgt_tmp);
 	return 0;
 }
+
+int mtk_vdec_defer_put_fb_job(struct mtk_vcodec_ctx *ctx, int type)
+{
+	int ret = -1;
+
+	mutex_lock(&ctx->resched_lock);
+
+	/* skip once due to we are in reschedule progress already */
+	if (ctx->resched)
+		goto unlock;
+
+	/* allow to schedule m2m ctx if src/dst is empty */
+	v4l2_m2m_set_src_buffered(ctx->m2m_ctx, true);
+	v4l2_m2m_set_dst_buffered(ctx->m2m_ctx, true);
+	v4l2_m2m_try_schedule(ctx->m2m_ctx);
+	ctx->resched = true;
+	ret = 0;
+unlock:
+	mutex_unlock(&ctx->resched_lock);
+	return ret;
+}
+
+int mtk_vdec_cancel_put_fb_job_locked(struct mtk_vcodec_ctx *ctx)
+{
+	int resched = ctx->resched;
+
+	if (resched) {
+		v4l2_m2m_set_src_buffered(ctx->m2m_ctx, false);
+		if (!ctx->input_driven)
+			v4l2_m2m_set_dst_buffered(ctx->m2m_ctx, false);
+		ctx->resched = false;
+	}
+	return resched;
+}
+
+void mtk_vdec_cancel_put_fb_job(struct mtk_vcodec_ctx *ctx)
+{
+	mutex_lock(&ctx->resched_lock);
+	mtk_vdec_cancel_put_fb_job_locked(ctx);
+	mutex_unlock(&ctx->resched_lock);
+}
+
+void mtk_vdec_process_put_fb_job(struct mtk_vcodec_ctx *ctx)
+{
+	struct mtk_video_dec_buf *src_buf_info;
+	struct vb2_v4l2_buffer *src_vb2_v4l2, *dst_vb2_v4l2;
+	int process = 0;
+
+	mutex_lock(&ctx->resched_lock);
+
+	if (!mtk_vdec_cancel_put_fb_job_locked(ctx))
+		goto unlock;
+
+	/* do nothing for low latency and input driven */
+	if (ctx->use_fence || ctx->input_driven)
+		goto unlock;
+
+	src_vb2_v4l2 = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
+	dst_vb2_v4l2 = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
+
+	/* use normal flow ,
+	 * if src_vb2_v4l2 or dst_vb2_v4l2 is NULL
+	 * we will send msg SET_PARAM_PUT_FB
+	 * let LAT get display buffer
+	 */
+	if (src_vb2_v4l2 && dst_vb2_v4l2)
+		goto unlock;
+
+	src_buf_info = container_of(src_vb2_v4l2,
+				    struct mtk_video_dec_buf,
+				    vb);
+	/*
+	 * no need to clean disp/free if we are processing EOS,
+	 * because EOS is handled synchronously
+	 */
+	if (src_vb2_v4l2 && src_buf_info->lastframe != NON_EOS)
+		goto unlock;
+
+	process = 1;
+
+unlock:
+	mutex_unlock(&ctx->resched_lock);
+
+	if (process) {
+		vdec_if_set_param(ctx, SET_PARAM_PUT_FB, NULL);
+		clean_display_buffer(ctx, 0);
+		clean_free_fm_buffer(ctx);
+	}
+}
+
 static void mtk_vdec_queue_res_chg_event(struct mtk_vcodec_ctx *ctx)
 {
 	static const struct v4l2_event ev_src_ch = {
@@ -883,6 +973,7 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 		return;
 	}
 
+	mtk_vdec_cancel_put_fb_job(ctx);
 	clean_free_bs_buffer(ctx, current_bs);
 	clean_display_buffer(ctx, 0);
 	clean_free_fm_buffer(ctx);
@@ -960,12 +1051,26 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type, b
 	int i, ret = 0;
 
 	mtk_v4l2_debug(1, "type = %d", type);
+
+	/* put fb in core stage? */
+	if (type != PUT_BUFFER_WORKER && !(ctx->use_fence || ctx->input_driven))
+		return mtk_vdec_defer_put_fb_job(ctx, type);
+
 	src_vb2_v4l2 = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	src_buf = &src_vb2_v4l2->vb2_buf;
 	src_buf_info = container_of(src_vb2_v4l2, struct mtk_video_dec_buf, vb);
 
-	if (src_buf_info == NULL && type == PUT_BUFFER_WORKER)
-		return 0;
+	if (src_buf_info == NULL) {
+		if (ctx->use_fence && type != PUT_BUFFER_WORKER
+			&& !(ctx->input_driven)) {
+			clean_display_buffer(ctx, false);
+			clean_free_fm_buffer(ctx);
+			return 0;
+		}
+
+		if (type == PUT_BUFFER_WORKER)
+			return 0;
+	}
 
 	if (type == PUT_BUFFER_WORKER && src_buf_info->lastframe == EOS) {
 
@@ -1026,7 +1131,7 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, enum mtk_put_buffer_type type, b
 
 		mtk_vdec_queue_stop_play_event(ctx);
 	} else if (no_need_put == false) {
-		if (!ctx->input_driven)
+		if (!ctx->input_driven && !ctx->use_fence)
 			dst_vb2_v4l2 = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 		clean_display_buffer(ctx,
 			(type == PUT_BUFFER_WORKER  &&
@@ -1073,6 +1178,9 @@ static void mtk_vdec_worker(struct work_struct *work)
 		mutex_unlock(&ctx->worker_lock);
 		return;
 	}
+
+	/* process deferred put fb job */
+	mtk_vdec_process_put_fb_job(ctx);
 
 	mtk_vdec_do_gettimeofday(&worktvstart);
 	src_vb2_v4l2 = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
@@ -1148,6 +1256,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 			drain_fb.status = FB_ST_EOS;
 		vdec_if_decode(ctx, NULL, &drain_fb, &src_chg);
 
+		mtk_vdec_cancel_put_fb_job(ctx);
 		mtk_vdec_put_fb(ctx, PUT_BUFFER_WORKER, false);
 		v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		src_buf_info->lastframe = NON_EOS;
@@ -1220,7 +1329,9 @@ static void mtk_vdec_worker(struct work_struct *work)
 	if (src_chg & VDEC_OUTPUT_NOT_GENERATED)
 		src_vb2_v4l2->flags |= V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED;
 
-	if (!ctx->input_driven)
+	if (ctx->use_fence)
+		v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
+	else if (!ctx->input_driven)
 		mtk_vdec_put_fb(ctx, PUT_BUFFER_WORKER, false);
 
 	if (ret < 0 || mtk_vcodec_unsupport) {

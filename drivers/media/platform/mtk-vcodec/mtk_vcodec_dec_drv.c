@@ -163,6 +163,8 @@ static int fops_vcodec_open(struct file *file)
 		sizeof(struct dma_gen_buf) * MAX_GEN_BUF_CNT);
 	memset(ctx->dma_meta_list, 0,
 		sizeof(struct dma_gen_buf) * MAX_META_BUF_CNT);
+	ctx->resched = false;
+	mutex_init(&ctx->resched_lock);
 
 	return ret;
 
