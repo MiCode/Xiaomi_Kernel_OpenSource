@@ -110,6 +110,10 @@ static const struct rsz_data mt6895_rsz_data = {
 	.tile_width = 520,
 };
 
+static const struct rsz_data mt6985_rsz_data = {
+	.tile_width = 1674,
+};
+
 struct mml_comp_rsz {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
@@ -715,6 +719,10 @@ const struct of_device_id mml_rsz_driver_dt_match[] = {
 	{
 		.compatible = "mediatek,mt6895-mml_rsz3",
 		.data = &mt6895_rsz_data
+	},
+	{
+		.compatible = "mediatek,mt6985-mml_rsz",
+		.data = &mt6985_rsz_data,
 	},
 	{},
 };

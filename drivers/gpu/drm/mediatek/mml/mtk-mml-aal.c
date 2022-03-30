@@ -208,6 +208,15 @@ static const struct aal_data mt6895_aal1_data = {
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
 };
 
+static const struct aal_data mt6985_aal_data = {
+	.min_tile_width = 50,
+	.tile_width = 1690,
+	.min_hist_width = 128,
+	.vcp_readback = false,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+};
+
 struct mml_comp_aal {
 	struct mtk_ddp_comp ddp_comp;
 	struct mml_comp comp;
@@ -1340,6 +1349,10 @@ const struct of_device_id mml_aal_driver_dt_match[] = {
 	{
 		.compatible = "mediatek,mt6895-mml_aal1",
 		.data = &mt6895_aal1_data
+	},
+	{
+		.compatible = "mediatek,mt6985-mml_aal",
+		.data = &mt6985_aal_data
 	},
 	{},
 };

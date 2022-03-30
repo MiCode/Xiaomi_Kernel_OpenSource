@@ -22,7 +22,7 @@
 #define SYS_MISC_REG		0x0f0
 #define SYS_SW0_RST_B_REG	0x700
 #define SYS_SW1_RST_B_REG	0x704
-#define SYS_AID_SEL		0xfa8
+#define SYS_AID_SEL		0xfa8	/* only for mt6983/mt6895 */
 
 #define MML_MAX_SYS_COMPONENTS	10
 #define MML_MAX_SYS_MUX_PINS	88
@@ -41,7 +41,6 @@ enum mml_comp_type {
 	MML_CT_PATH,
 	MML_CT_DL_IN,
 	MML_CT_DL_OUT,
-
 	MML_COMP_TYPE_TOTAL
 };
 
@@ -122,6 +121,7 @@ struct mml_sys {
 	u32 dbg_reg_cnt;
 
 	/* store the bit to enable aid_sel for specific component */
+	u32 aid_sel_reg;
 	u8 aid_sel[MML_MAX_COMPONENTS];
 
 	/* register for racing mode select ready signal */
@@ -263,7 +263,7 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 			aid_sel |= 1 << sys->aid_sel[path->out_engine_ids[i]];
 		mask |= 1 << sys->aid_sel[path->out_engine_ids[i]];
 	}
-	cmdq_pkt_write(pkt, NULL, comp->base_pa + SYS_AID_SEL, aid_sel, mask);
+	cmdq_pkt_write(pkt, NULL, sys->aid_sel_reg, aid_sel, mask);
 
 	return 0;
 }
@@ -656,6 +656,12 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 		sys->dbg_regs[i].name = name;
 		i++;
 	}
+
+	of_property_read_u32(dev->of_node, "aid-sel-reg", &sys->aid_sel_reg);
+	if (sys->aid_sel_reg)
+		sys->aid_sel_reg += comp->base_pa;
+	else
+		sys->aid_sel_reg = comp->base_pa + SYS_AID_SEL;
 
 	cnt = of_property_count_u32_elems(node, "aid-sel");
 	for (i = 0; i + 1 < cnt; i += 2) {
@@ -1547,6 +1553,10 @@ const struct of_device_id mtk_mml_of_ids[] = {
 	{
 		.compatible = "mediatek,mt6895-mml",
 		.data = &mt6895_mml_data,
+	},
+	{
+		.compatible = "mediatek,mt6985-mml",
+		.data = &mt6983_mml_data,
 	},
 	{},
 };

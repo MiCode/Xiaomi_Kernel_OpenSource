@@ -1121,6 +1121,10 @@ const struct of_device_id mml_hdr_driver_dt_match[] = {
 		.compatible = "mediatek,mt6895-mml_hdr",
 		.data = &mt6895_hdr_data,
 	},
+	{
+		.compatible = "mediatek,mt6985-mml_hdr",
+		.data = &mt6893_hdr_data,
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mml_hdr_driver_dt_match);
