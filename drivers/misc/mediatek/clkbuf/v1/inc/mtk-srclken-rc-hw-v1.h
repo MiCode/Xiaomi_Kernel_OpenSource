@@ -1,0 +1,469 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2020 MediaTek Inc.
+ * Author: ren-ting.wang <ren-ting.wang@mediatek.com>
+ */
+
+#ifndef SRCLKEN_RC_HW_V1_H
+#define SRCLKEN_RC_HW_V1_H
+
+#include "mtk_clkbuf_common.h"
+
+enum RC_CFG_ENUM {
+	RC_CFG_REG,
+	CENTRAL_CFG1,
+	CENTRAL_CFG2,
+	CENTRAL_CFG3,
+	CENTRAL_CFG4,
+	RC_PMRC_ADDR,
+	SUBSYS_INF,
+	RC_CFG_NON_BC_MAX,
+	CENTRAL_CFG5 = RC_CFG_NON_BC_MAX,
+	CENTRAL_CFG6,
+	MT_CMD_M_CFG0,
+	MT_CMD_M_CFG1,
+	MT_CMD_P_CFG0,
+	MT_CMD_P_CFG1,
+	MT_CMD_CFG0,
+	RC_CFG_MAX,
+};
+
+enum RC_STA_ENUM {
+	CMD_STA,
+	SPI_STA,
+	FSM_STA,
+	POPI_STA,
+	RC_STA_NON_BC_MAX,
+	SPMI_P_STA = RC_STA_NON_BC_MAX,
+	RC_STA_MAX,
+};
+
+struct srclken_rc_cfg {
+	struct base_hw hw;
+	struct reg_t _rc_cfg_reg;
+	struct reg_t _central_cfg1;
+	struct reg_t _central_cfg2;
+	struct reg_t _central_cfg3;
+	struct reg_t _central_cfg4;
+	struct reg_t _rc_pmrc_en_addr;
+	struct reg_t _subsys_inf_cfg;
+	struct reg_t _m00_cfg;
+//#if IS_ENABLED(CONFIG_SRCLKEN_RC_BROADCAST)
+	struct reg_t _central_cfg5;
+	struct reg_t _central_cfg6;
+	struct reg_t _mt_m_cfg0;
+	struct reg_t _mt_m_cfg1;
+	struct reg_t _mt_p_cfg0;
+	struct reg_t _mt_p_cfg1;
+	struct reg_t _mt_cfg0;
+//#endif /* IS_ENALBED(CONFIG_SRCLKEN_RC_BROADCAST) */
+};
+
+struct srclken_rc_sta {
+	struct base_hw hw;
+	struct reg_t _cmd_sta_0;
+	struct reg_t _cmd_sta_1;
+	struct reg_t _spi_sta;
+	struct reg_t _fsm_sta;
+	struct reg_t _popi_sta;
+	struct reg_t _m00_sta;
+	struct reg_t _trace_lsb;
+	struct reg_t _trace_msb;
+	struct reg_t _timer_lsb;
+	struct reg_t _timer_msb;
+//#if IS_ENABLED(CONFIG_SRCLKEN_RC_BROADCAST)
+	struct reg_t _spmi_p_sta;
+	struct reg_t _trace_p_msb;
+	struct reg_t _trace_p_lsb;
+	struct reg_t _timer_p_msb;
+	struct reg_t _timer_p_lsb;
+//#endif /* IS_ENABLED(CONFIG_SRCLKEN_RC_BROADCAST) */
+};
+
+#define SRCLKEN_RC_CFG			(0x0)
+#define REG_CENTRAL_CFG1		(0x4)
+#define REG_CENTRAL_CFG2		(0x8)
+#define PMIC_RCEN_ADDR_REG		(0x10)
+#define DCXO_FPM_CFG			(0x18)
+#define REG_CENTRAL_CFG3		(0x1C)
+#define M00_SRCLKEN_CFG			(0x20)
+
+//#if !IS_ENABLED(CONFIG_SRCLKEN_RC_BROADCAST)
+#define REG_CENTRAL_CFG4		(0x58)
+//#else /* IS_ENABLED(CONFIG_SRCLKEN_RC_BROADCAST) */
+#define BC_REG_CENTRAL_CFG4		(0x5C)
+#define REG_CENTRAL_CFG5		(0x70)
+#define REG_CENTRAL_CFG6		(0x74)
+#define RCEN_MT_M_CFG_0			(0x78)
+#define RCEN_MT_M_CFG_1			(0x7C)
+#define RCEN_MT_P_CFG_0			(0x80)
+#define RCEN_MT_P_CFG_1			(0x84)
+#define RCEN_MT_CFG_0			(0x88)
+//#endif /* !IS_ENABLED(CONFIG_SRCLKEN_RC_BROADCAST) */
+#define SUBSYS_INF_CFG			(0xBC)
+
+#define FSM_STA_0			(0x0)
+#define CMD_STA_0			(0x4)
+#define CMD_STA_1			(0x8)
+#define SPI_STA_0			(0xC)
+#define PIPO_STA_0			(0x10)
+#define M00_REQ_STA			(0x14)
+//#if !IS_ENABLED(CONFIG_SRCLKEN_RC_BROADCAST)
+#define TRACE_0_LSB			(0x50)
+#define TRACE_0_MSB			(0x54)
+#define TIMER_0_LSB			(0x98)
+#define TIMER_0_MSB			(0x9C)
+//#else /* IS_ENABLED(CONFIG_SRCLKEN_RC_BROADCAST) */
+#define SPMI_P_STA_0			(0x50)
+#define TIMER_P_0_LSB			(0x84)
+#define TIMER_P_0_MSB			(0x88)
+#define BC_TRACE_0_LSB			(0x600)
+#define BC_TRACE_0_MSB			(0x604)
+#define BC_TIMER_0_LSB			(0x640)
+#define BC_TIMER_0_MSB			(0x644)
+#define TRACE_P_0_LSB			(0x6C8)
+#define TRACE_P_0_MSB			(0x6D0)
+//#endif /* !IS_ENABLED(CONFIG_SRCLKEN_RC_BROADCAST) */
+
+/* CFG */
+#define DCXO_SETTLE_PERIOD_ADDR		(REG_CENTRAL_CFG1)
+#define DCXO_SETTLE_PERIOD_MASK		(0x3FF)
+#define DCXO_SETTLE_PERIOD_SHIFT	(22)
+#define NON_DCXO_SETTLE_PERIOD_ADDR	(REG_CENTRAL_CFG1)
+#define NON_DCXO_SETTLE_PERIOD_MASK	(0x7FF)
+#define NON_DCXO_SETTLE_PERIOD_SHIFT	(12)
+#define ULPOSC_SETTLE_PERIOD_ADDR	(REG_CENTRAL_CFG1)
+#define ULPOSC_SETTLE_PERIOD_MASK	(0xF)
+#define ULPOSC_SETTLE_PERIOD_SHIFT	(8)
+#define VCORE_SETTLE_PERIOD_ADDR	(REG_CENTRAL_CFG1)
+#define VCORE_SETTLE_PERIOD_MASK	(0x7)
+#define VCORE_SETTLE_PERIOD_SHIFT	(5)
+#define KEEP_RC_SPI_ACTIVE_ADDR		(REG_CENTRAL_CFG1)
+#define KEEP_RC_SPI_ACTIVE_MASK		(0x1)
+#define KEEP_RC_SPI_ACTIVE_SHIFT	(2)
+#define RCEN_ISSUE_MODE_ADDR		(REG_CENTRAL_CFG1)
+#define RCEN_ISSUE_MODE_MASK		(0x1)
+#define RCEN_ISSUE_MODE_SHIFT		(1)
+#define SRCLKEN_RC_EN_ADDR		(REG_CENTRAL_CFG1)
+#define SRCLKEN_RC_EN_MASK		(0x1)
+#define SRCLKEN_RC_EN_SHIFT		(0)
+#define PWRAP_SLEEP_CTRL_MODE_ADDR	(REG_CENTRAL_CFG2)
+#define PWRAP_SLEEP_CTRL_MODE_MASK	(0xF)
+#define PWRAP_SLEEP_CTRL_MODE_SHIFT	(21)
+#define ULPOSC_CTRL_MODE_ADDR		(REG_CENTRAL_CFG2)
+#define ULPOSC_CTRL_MODE_MASK		(0xF)
+#define ULPOSC_CTRL_MODE_SHIFT		(12)
+#define VREQ_CTRL_MODE_ADDR		(REG_CENTRAL_CFG2)
+#define VREQ_CTRL_MODE_MASK		(0xF)
+#define VREQ_CTRL_MODE_SHIFT		(4)
+#define SRCLKEN_O0_CTRL_MODE_ADDR	(REG_CENTRAL_CFG2)
+#define SRCLKEN_O0_CTRL_MODE_MASK	(0xF)
+#define SRCLKEN_O0_CTRL_MODE_SHIFT	(0)
+#define DCXO_STABLE_PERIOD_ADDR		(M00_SRCLKEN_CFG)
+#define DCXO_STABLE_PERIOD_MASK		(0x3FF)
+#define DCXO_STABLE_PERIOD_SHIFT	(22)
+#define NON_DCXO_STABLE_PERIOD_ADDR	(M00_SRCLKEN_CFG)
+#define NON_DCXO_STABLE_PERIOD_MASK	(0x3FF)
+#define NON_DCXO_STALBE_PERIOD_SHIFT	(12)
+#define SW_BBLPM_EN_ADDR		(M00_SRCLKEN_CFG)
+#define SW_BBLPM_EN_MASK		(0x1)
+#define SW_BBLPM_EN_SHIFT		(5)
+#define SW_FPM_EN_ADDR			(M00_SRCLKEN_CFG)
+#define SW_FPM_EN_MASK			(0x1)
+#define SW_FPM_EN_SHIFT			(4)
+#define SW_RC_REQ_MASK			(0x3)
+#define SW_RC_REQ_SHIFT			(4)
+#define SW_SRCLKEN_RC_EN_ADDR		(M00_SRCLKEN_CFG)
+#define SW_SRCLKEN_RC_EN_MASK		(0x1)
+#define SW_SRCLKEN_RC_EN_SHIFT		(3)
+#define SUBSYS_SRCLKEN_RC_EN_ADDR	(M00_SRCLKEN_CFG)
+#define SUBSYS_SRCLKEN_RC_EN_MASK	(0x1)
+#define SUBSYS_SRCLKEN_RC_EN_SHIFT	(0)
+#define PMIF_VLD_RDY_CTRL_MODE_ADDR	(REG_CENTRAL_CFG4)
+#define PMIF_VLD_RDY_CTRL_MODE_MASK	(0xF)
+#define PMIF_VLD_RDY_CTRL_MODE_SHIFT	(20)
+
+//#if IS_ENABLED(CONFIG_SRCLKEN_RC_BROADCAST)
+#define BYPASS_PMIF_M_ADDR		(REG_CENTRAL_CFG4)
+#define BYPASS_PMIF_M_MASK		(0x1)
+#define BYPASS_PMIF_M_SHIFT		(24)
+#define BYPASS_PMIF_P_ADDR		(REG_CENTRAL_CFG4)
+#define BYPASS_PMIF_P_MASK		(0x1)
+#define BYPASS_PMIF_P_SHIFT		(25)
+#define SPMI_CMD_BYTE_CNT_ADDR		(REG_CENTRAL_CFG5)
+#define SPMI_CMD_BYTE_CNT_MASK		(0x1)
+#define SPMI_CMD_BYTE_CNT_SHIFT		(0)
+#define SPMI_M_SLV_ID_ADDR		(REG_CENTRAL_CFG5)
+#define SPMI_M_SLV_ID_MASK		(0xF)
+#define SPMI_M_SLV_ID_SHIFT		(5)
+#define SPMI_P_SLV_ID_ADDR		(REG_CENTRAL_CFG5)
+#define SPMI_P_SLV_ID_MASK		(0xF)
+#define SPMI_P_SLV_ID_SHIFT		(9)
+#define SPMI_M_PMIF_ID_ADDR		(REG_CENTRAL_CFG5)
+#define SPMI_M_PMIF_ID_MASK		(0x1)
+#define SPMI_M_PMIF_ID_SHIFT		(17)
+#define SPMI_P_PMIF_ID_ADDR		(REG_CENTRAL_CFG5)
+#define SPMI_P_PMIF_ID_MASK		(0x1)
+#define SPMI_P_PMIF_ID_SHIFT		(18)
+#define SPMI_M_CMD_TYPE_ADDR		(REG_CENTRAL_CFG5)
+#define SPMI_M_CMD_TYPE_MASK		(0x3)
+#define SPMI_M_CMD_TYPE_SHIFT		(19)
+#define SPMI_P_CMD_TYPE_ADDR		(REG_CENTRAL_CFG5)
+#define SPMI_P_CMD_TYPE_MASK		(0x3)
+#define SPMI_P_CMD_TYPE_SHAFT		(21)
+#define SPMI_M_WRITE_EN_ADDR		(REG_CENTRAL_CFG5)
+#define SPMI_M_WRITE_EN_MASK		(0x1)
+#define SPMI_M_WRITE_EN_SHIFT		(23)
+#define SPMI_P_WRITE_EN_ADDR		(REG_CENTRAL_CFG5)
+#define SPMI_P_WRITE_EN_MASK		(0x1)
+#define SPMI_P_WRITE_EN_SHIFT		(24)
+#define BROADCAST_MODE_EN_ADDR		(REG_CENTRAL_CFG5)
+#define BROADCAST_MODE_EN_MASK		(0x1)
+#define BROADCAST_MODE_EN_SHIFT		(25)
+#define MULTI_CMD_MODE_EN_ADDR		(REG_CENTRAL_CFG5)
+#define MULTI_CMD_MODE_EN_MASK		(0x1)
+#define MULTI_CMD_MODE_EN_SHIFT		(26)
+#define DCXO_ENCODE_ADDR		(REG_CENTRAL_CFG5)
+#define DCXO_ENCODE_MASK		(0x1)
+#define DCXO_ENCODE_SHIFT		(27)
+#define SPMI_M_FIRST_ADDR		(REG_CENTRAL_CFG5)
+#define SPMI_M_FIRST_MASK		(0x1)
+#define SPMI_M_FIRST_SHIFT		(28)
+#define REQ_TO_DCXO_MASK_ADDR		(REG_CENTRAL_CFG6)
+#define REQ_TO_DCXO_MASK_MASK		(0xFFFF)
+#define REQ_TO_DCXO_MASK_SHIFT		(0)
+#define REQ_TO_SPMI_P_MASK_B_ADDR	(REG_CENTRAL_CFG6)
+#define REQ_TO_SPMI_P_MASK_B_MASK	(0xFFFF)
+#define REQ_TO_SPMI_P_MASK_B_SHIFT	(16)
+#define RCEN_MT_PMIF_SLV_ID_ADDR	(RCEN_MT_M_CFG_0)
+#define RCEN_MT_PMIF_SLV_ID_MASK	(0xF)
+#define RCEN_MT_PMIF_SLV_ID_SHIFT	(0)
+#define PMIC_M_CNT_VAL_ADDR		(RCEN_MT_CFG_0)
+#define PMIC_M_CNT_VAL_MASK		(0xF)
+#define PMIC_M_CNT_VAL_SHIFT		(0)
+#define PMIC_P_CNT_VAL_ADDR		(RCEN_MT_CFG_0)
+#define PMIC_P_CNT_VAL_MASK		(0xF)
+#define PMIC_P_CNT_VAL_SHIFT		(4)
+//#endif /* IS_ENABLED(CONFIG_SRCLKEN_RC_BROADCAST) */
+
+#define CTRL_SIGNAL_BYPASS_MASK		(0x1)
+#define CTRL_SIGANL_BYPASS_SHIFT	(0)
+#define CTRL_SIGNAL_MERGE_MODE_MASK	(0x3)
+#define CTRL_SIGNAL_MERGE_MODE_SHIFT	(1)
+#define CTRL_SIGNAL_ASYNC_MODE_MASK	(0x1)
+#define CTRL_SIGNAL_ASYNC_MODE_SHIFT	(3)
+
+/* STA */
+#define CUR_SPI_STA_ADDR		(FSM_STA_0)
+#define CUR_SPI_STA_MASK		(0xF)
+#define CUR_SPI_STA_SHIFT		(28)
+#define CUR_PWRAP_SLP_STA_ADDR		(FSM_STA_0)
+#define CUR_PWRAP_SLP_STA_MASK		(0x1F)
+#define CUR_PWRAP_SLP_STA_SHIFT		(23)
+#define CUR_ULPOSC_STA_ADDR		(FSM_STA_0)
+#define CUR_ULPOSC_STA_MASK		(0x7)
+#define CUR_ULPOSC_STA_SHIFT		(20)
+#define CUR_PWRAP_CMD_STA_ADDR		(FSM_STA_0)
+#define CUR_PWRAP_CMD_STA_MASK		(0x7FF)
+#define CUR_PWRAP_CMD_STA_SHIFT		(9)
+#define CUR_VCORE_ULPOSC_STA_ADDR	(FSM_STA_0)
+#define CUR_VCORE_ULPOSC_STA_MASK	(0x1F)
+#define CUR_VCORE_ULPOSC_STA_SHIFT	(4)
+#define ANY_DCXO_REQ_ADDR		(FSM_STA_0)
+#define ANY_DCXO_REQ_MASK		(0x1)
+#define ANY_DCXO_REQ_SHIFT		(3)
+#define ANY_DCXO_REQ			(0x1 << ANY_DCXO_REQ_SHIFT)
+#define ANY_NON_DCXO_REQ_ADDR		(FSM_STA_0)
+#define ANY_NON_DCXO_REQ_MASK		(0x1)
+#define ANY_NON_DCXO_REQ_SHIFT		(2)
+#define ANY_NON_DCXO_REQ		(0x1 << ANY_NON_DCXO_REQ_SHIFT)
+#define ANY_BYPASS_REQ_ADDR		(FSM_STA_0)
+#define ANY_BYPASS_REQ_MASK		(0x1)
+#define ANY_BYPASS_REQ_SHIFT		(1)
+#define ANY_BYPASS_REQ			(0x1 << ANY_BYPASS_REQ_SHIFT)
+#define ANY_32K_REQ_ADDR		(FSM_STA_0)
+#define ANY_32K_REQ_MASK		(0x1)
+#define ANY_32K_REQ_SHIFT		(0)
+#define ANY_32K_REQ			(0x1 << ANY_32K_REQ_SHIFT)
+#define CMD_ARB_TARGET_ADDR		(CMD_STA_0)
+#define CMD_ARB_TARGET_MASK		(0xFFFF)
+#define CMD_ARB_TARGET_SHIFT		(16)
+#define CUR_PMIC_DCXO_MODE_ADDR		(CMD_STA_0)
+#define CUR_PMIC_DCXO_MODE_MASK		(0x7)
+#define CUR_PMIC_DCXO_MODE_SHIFT	(13)
+#define CUR_PMIC_RC_EN_ADDR		(CMD_STA_0)
+#define CUR_PMIC_RC_EN_MASK		(0x1FFF)
+#define CUR_PMIC_RC_EN_SHIFT		(0)
+#define CUR_LATCHED_DCXO_ADDR		(CMD_STA_1)
+#define CUR_LATCHED_DCXO_MASK		(0x7)
+#define CUR_LATCHED_DCXO_SHIFT		(13)
+#define CUR_LATCHED_REQ_ADDR		(CMD_STA_1)
+#define CUR_LATCHED_REQ_MASK		(0x1FFF)
+#define CUR_LATCHED_REQ_SHIFT		(0)
+#define SPI_CMD_DATA_ADDR		(SPI_STA_0)
+#define SPI_CMD_DATA_MASK		(0xFFFF)
+#define SPI_CMD_DATA_SHIFT		(16)
+#define SPI_CMD_ADDR_ADDR		(SPI_STA_0)
+#define SPI_CMD_ADDR_MASK		(0x1FFF)
+#define SPI_CMD_ADDR_SHIFT		(2)
+#define SPI_CMD_ACK_ADDR		(SPI_STA_0)
+#define SPI_CMD_ACK_MASK		(0x1)
+#define SPI_CMD_ACK_SHIFT		(1)
+#define SPI_CMD_REQ_ADDR		(SPI_STA_0)
+#define SPI_CMD_REQ_MASK		(0x1)
+#define SPI_CMD_REQ_SHIFT		(0)
+#define PI_AP_26M_RDY_ADDR		(PIPO_STA_0)
+#define PI_AP_26M_RDY_MASK		(0x1)
+#define PI_AP_26M_RDY_SHIFT		(19)
+#define AP_26M_RDY			(0x1 << PI_AP_26M_RDY_SHIFT)
+#define RC_ULPOSC_EN_ADDR		(PIPO_STA_0)
+#define RC_ULPOSC_EN_MASK		(0x1)
+#define RC_ULPOSC_EN_SHIFT		(18)
+#define SCP_ULPOSC_EN_ACK		(0x1 << RC_ULPOSC_EN_SHIFT)
+#define RC_ULPOSC_RST_ADDR		(PIPO_STA_0)
+#define RC_ULPOSC_RST_MASK		(0x1)
+#define RC_ULPOSC_RST_SHIFT		(17)
+#define SCP_ULPOSC_RST_ACK		(0x1 << RC_ULPOSC_RST_SHIFT)
+#define RC_ULPOSC_CK_EN_ADDR		(PIPO_STA_0)
+#define RC_ULPOSC_CK_EN_MASK		(0x1)
+#define RC_ULPOSC_CK_EN_SHIFT		(16)
+#define SCP_ULPOSC_CK_ACK		(0x1 << RC_ULPOSC_CK_EN_SHIFT)
+#define RC_PWRAP_SLP_REQ_ADDR		(PIPO_STA_0)
+#define RC_PWRAP_SLP_REQ_MASK		(0x1)
+#define RC_PWRAP_SLP_REQ_SHIFT		(15)
+#define RC_WRAP_SLP			(0x1 << RC_PWRAP_SLP_REQ_SHIFT)
+#define PWRAP_SLP_ACK_ADDR		(PIPO_STA_0)
+#define PWRAP_SLP_ACK_MASK		(0x1)
+#define PWRAP_SLP_ACK_SHIFT		(14)
+#define RC_WRAP_SLP_ACK			(0x1 << PWRAP_SLP_ACK_SHIFT)
+#define RC_SCP_VREQ_TO_PWRAP_ADDR	(PIPO_STA_0)
+#define RC_SCP_VREQ_TO_PWRAP_MASK	(0x1)
+#define RC_SCP_VREQ_TO_PWRAP_SHIFT	(13)
+#define RC_VREQ_WRAP			(0x1 << RC_SCP_VREQ_TO_PWRAP_SHIFT)
+#define RC_SRCLKEN_O0_ADDR		(PIPO_STA_0)
+#define RC_SRCLKEN_O0_MASK		(0x1)
+#define RC_SRCLKEN_O0_SHIFT		(12)
+#define RC_O0				(0x1 << RC_SRCLKEN_O0_SHIFT)
+#define RC_VREQ_ADDR			(PIPO_STA_0)
+#define RC_VREQ_MASK			(0x1)
+#define RC_VREQ_SHIFT			(11)
+#define RC_VREQ				(0x1 << RC_VREQ_SHIFT)
+#define ULPOSC_EN_ADDR			(PIPO_STA_0)
+#define ULPOSC_EN_MASK			(0x1)
+#define ULPOSC_EN_SHIFT			(10)
+#define SCP_ULPOSC_EN			(0x1 << ULPOSC_EN_SHIFT)
+#define ULPOSC_RST_ADDR			(PIPO_STA_0)
+#define ULPOSC_RST_MASK			(0x1)
+#define ULPOSC_RST_SHIFT		(9)
+#define SCP_ULPOSC_RST			(0x1 << ULPOSC_RST_SHIFT)
+#define ULPOSC_CK_EN_ADDR		(PIPO_STA_0)
+#define ULPOSC_CK_EN_MASK		(0x1)
+#define ULPOSC_CK_EN_SHIFT		(8)
+#define SCP_ULPOSC_CK			(0x1 << ULPOSC_CK_EN_SHIFT)
+#define PWRAP_SLP_REQ_ADDR		(PIPO_STA_0)
+#define PWRAP_SLP_REQ_MASK		(0x1)
+#define PWRAP_SLP_REQ_SHIFT		(7)
+#define SCP_WRAP_SLP			(0x1 << PWRAP_SLP_REQ_SHIFT)
+#define RC_PWRAP_SLP_ACK_ADDR		(PIPO_STA_0)
+#define RC_PWRAP_SLP_ACK_MASK		(0x1)
+#define RC_PWRAP_SLP_ACK_SHIFT		(6)
+#define SCP_WRAP_SLP_ACK		(0x1 << RC_PWRAP_SLP_ACK_SHIFT)
+#define SCP_VREQ_ADDR			(PIPO_STA_0)
+#define SCP_VREQ_MASK			(0x1)
+#define SCP_VREQ_SHIFT			(5)
+#define SCP_VREQ			(0x1 << SCP_VREQ_SHIFT)
+#define RC_SCP_VREQ_ACK_ADDR		(PIPO_STA_0)
+#define RC_SCP_VREQ_ACK_MASK		(0x1)
+#define RC_SCP_VREQ_ACK_SHIFT		(4)
+#define SCP_VREQ_ACK			(0x1 << RC_SCP_VREQ_ACK_SHIFT)
+#define SCP_VREQ_TO_PWRAP_ADDR		(PIPO_STA_0)
+#define SCP_VREQ_TO_PWRAP_MASK		(0x1)
+#define SCP_VREQ_TO_PWRAP_SHIFT		(3)
+#define SCP_VREQ_WRAP			(0x1 << SCP_VREQ_TO_PWRAP_SHIFT)
+#define SPM_MASK_VREQ_ADDR		(PIPO_STA_0)
+#define SPM_MASK_VREQ_MASK		(0x1)
+#define SPM_MASK_VREQ_SHIFT		(2)
+#define SPM_VREQ_MASK_B			(0x1 << SPM_MASK_VREQ_SHIFT)
+#define SPM_O0_ADDR			(PIPO_STA_0)
+#define SPM_O0_MASK			(0x1)
+#define SPM_O0_SHIFT			(1)
+#define SPM_O0				(0x1 << SPM_O0_SHIFT)
+#define SPM_O0_ACK_ADDR			(PIPO_STA_0)
+#define SPM_O0_ACK_MASK			(0x1)
+#define SPM_O0_ACK_SHIFT		(0)
+#define SPM_O0_ACK			(0x1 << SPM_O0_ACK_SHIFT)
+#define NON_DCXO_CMD_OK_ADDR		(M00_REQ_STA)
+#define NON_DCXO_CMD_OK_MASK		(0x1)
+#define NON_DCXO_CMD_OK_SHIFT		(31)
+#define DCXO_CMD_OK_ADDR		(M00_REQ_STA)
+#define DCXO_CMD_OK_MASK		(0x1)
+#define DCXO_CMD_OK_SHIFT		(30)
+#define CMD_OK_MASK			(0x3)
+#define CMD_OK_SHIFT			(30)
+#define CUR_REQ_STATE_ADDR		(M00_REQ_STA)
+#define CUR_REQ_STATE_MASK		(0x1FF)
+#define CUR_REQ_STATE_SHIFT		(21)
+#define NON_DCXO_CMD_FILTER_ADDR	(M00_REQ_STA)
+#define NON_DCXO_CMD_FILTER_MASK	(0x1)
+#define NON_DCXO_CMD_FILTER_SHIFT	(20)
+#define DCXO_CMD_FILTER_ADDR		(M00_REQ_STA)
+#define DCXO_CMD_FILTER_MASK		(0x1)
+#define DCXO_CMD_FILTER_SHIFT		(19)
+#define BYPASS_CMD_FILTER_ADDR		(M00_REQ_STA)
+#define BYPASS_CMD_FILTER_MASK		(0x1)
+#define BYPASS_CMD_FILTER_SHIFT		(18)
+#define REQ_FILTER_MASK			(0x7)
+#define REQ_FILTER_SHIFT		(18)
+#define DCXO_MODE_CHANGED_ADDR		(M00_REQ_STA)
+#define DCXO_MODE_CHANGED_MASK		(0x1)
+#define DCXO_MODE_CHANGED_SHIFT		(17)
+#define DCXO_MODE_EQUAL_ADDR		(M00_REQ_STA)
+#define DCXO_MODE_EQUAL_MASK		(0x1)
+#define DCXO_MODE_EQUAL_SHIFT		(16)
+#define SRCLKEN_FPM_TARGET_ADDR		(M00_REQ_STA)
+#define SRCLKEN_FPM_TARGET_MASK		(0x1)
+#define SRCLKEN_FPM_TARGET_SHIFT	(15)
+#define SRCLKEN_BBLPM_TARGET_ADDR	(M00_REQ_STA)
+#define SRCLKEN_BBLPM_TARGET_MASK	(0x1)
+#define SRCLKEN_BBLPM_TARGET_SHIFT	(14)
+#define RC_CMD_ON_GO_ADDR		(M00_REQ_STA)
+#define RC_CMD_ON_GO_MASK		(0x1)
+#define RC_CMD_ON_GO_SHIFT		(13)
+#define DCXO_MODE_TARGET_ADDR		(M00_REQ_STA)
+#define DCXO_MODE_TARGET_MASK		(0x7)
+#define DCXO_MODE_TARGET_SHIFT		(10)
+#define M00_CUR_PMIC_DCXO_MODE_ADDR	(M00_REQ_STA)
+#define M00_CUR_PMIC_DCXO_MODE_MASK	(0x7)
+#define M00_CUR_PMIC_DCXO_MODE_SHIFT	(7)
+#define CUR_PMIC_RCEN_BIT_ADDR		(M00_REQ_STA)
+#define CUR_PMIC_RCEN_BIT_MASK		(0x1)
+#define CUR_PMIC_RCEN_BIT_SHIFT		(6)
+#define ALLOW_REQ_IN_ADDR		(M00_REQ_STA)
+#define ALLOW_REQ_IN_MASK		(0x1)
+#define ALLOW_REQ_IN_SHIFT		(5)
+#define RC_BBLPM_ACK_ADDR		(M00_REQ_STA)
+#define RC_BBLPM_ACK_MASK		(0x1)
+#define RC_BBLPM_ACK_SHIFT		(3)
+#define RC_BBLPM_REQ_ADDR		(M00_REQ_STA)
+#define RC_BBLPM_REQ_MASK		(0x1)
+#define RC_BBLPM_REQ_SHIFT		(2)
+#define RC_FPM_ACK_ADDR			(M00_REQ_STA)
+#define RC_FPM_ACK_MASK			(0x1)
+#define RC_FPM_ACK_SHIFT		(1)
+#define RC_FPM_REQ_ADDR			(M00_REQ_STA)
+#define RC_FPM_REQ_MASK			(0x1)
+#define RC_FPM_REQ_SHIFT		(0)
+#define SPMI_P_CMD_DATA_ADDR		(SPMI_P_STA_0)
+#define SPMI_P_CMD_DATA_MASK		(0xFFFF)
+#define SPMI_P_CMD_DATA_SHIFT		(16)
+#define SPMI_P_CMD_ADDR_ADDR		(SPMI_P_STA_0)
+#define SPMI_P_CMD_ADDR_MASK		(0x3FFF)
+#define SPMI_P_CMD_ADDR_SHIFT		(2)
+#define SPMI_P_CMD_ACK_ADDR		(SPMI_P_STA_0)
+#define SPMI_P_CMD_ACK_MASK		(0x1)
+#define SPMI_P_CMD_ACK_SHIFT		(1)
+#define SPMI_P_CMD_REQ_ADDR		(SPMI_P_STA_0)
+#define SPMI_P_CMD_REQ_MASK		(0x1)
+#define SPMI_P_CMD_REQ_SHIFT		(0)
+
+#endif /* SRCLKEN_RC_HW_V1_H */
