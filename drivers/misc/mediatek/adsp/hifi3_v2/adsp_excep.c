@@ -48,17 +48,6 @@ static u32 copy_from_buffer(void *dest, size_t destsize, const void *src,
 	return request;
 }
 
-static inline u32 dump_adsp_shared_memory(void *buf, size_t size, int id)
-{
-	void *mem_addr = adsp_get_reserve_mem_virt(id);
-	size_t mem_size = adsp_get_reserve_mem_size(id);
-
-	if (!mem_addr)
-		return 0;
-
-	return copy_from_buffer(buf, size, mem_addr, mem_size, 0, -1);
-}
-
 static inline u32 copy_from_adsp_shared_memory(void *buf, u32 offset,
 					size_t size, int id)
 {
@@ -69,6 +58,18 @@ static inline u32 copy_from_adsp_shared_memory(void *buf, u32 offset,
 		return 0;
 
 	return copy_from_buffer(buf, -1, mem_addr, mem_size, offset, size);
+}
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+static inline u32 dump_adsp_shared_memory(void *buf, size_t size, int id)
+{
+	void *mem_addr = adsp_get_reserve_mem_virt(id);
+	size_t mem_size = adsp_get_reserve_mem_size(id);
+
+	if (!mem_addr)
+		return 0;
+
+	return copy_from_buffer(buf, size, mem_addr, mem_size, 0, -1);
 }
 
 static u32 dump_adsp_internal_mem(struct adsp_priv *pdata,
@@ -149,7 +150,7 @@ static int dump_buffer(struct adsp_exception_control *ctrl, int coredump_id)
 		 __func__, total, buf, n);
 	return n;
 }
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+
 static void adsp_exception_dump(struct adsp_exception_control *ctrl)
 {
 	char detail[ADSP_AED_STR_LEN];
