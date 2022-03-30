@@ -16,6 +16,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
 	-I$(srctree)/drivers/misc/mediatek/sspm \
+	-I$(srctree)/drivers/misc/mediatek/tinysys_scmi/ \
 	-I$(srctree)/drivers/misc/mediatek/qos \
 	-I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/ \
 	-I$(srctree)/include \
@@ -27,6 +28,25 @@ endif
 obj-${CONFIG_MTK_CM_MGR} += mtk_cm_mgr.o
 mtk_cm_mgr-y = mtk_cm_mgr_common.o
 
-mtk_cm_mgr-${CONFIG_MTK_CM_MGR_MT6873} += mtk_cm_mgr_mt6873.o
-mtk_cm_mgr-${CONFIG_MTK_CM_MGR_MT6853} += mtk_cm_mgr_mt6853.o
+obj-${CONFIG_MTK_CM_IPI} += mtk_cm_ipi.o
 
+obj-${CONFIG_MTK_CM_MGR_MT6983} += mtk_cm_mgr_mt6983.o
+
+ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6853.c),)
+obj-${CONFIG_MTK_CM_MGR_MT6853} += mtk_cm_mgr_mt6853.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6855.c),)
+obj-${CONFIG_MTK_CM_MGR_MT6855} += mtk_cm_mgr_mt6855.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6873.c),)
+obj-${CONFIG_MTK_CM_MGR_MT6873} += mtk_cm_mgr_mt6873.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6879.c),)
+obj-${CONFIG_MTK_CM_MGR_MT6879} += mtk_cm_mgr_mt6879.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6893.c),)
+obj-${CONFIG_MTK_CM_MGR_MT6893} += mtk_cm_mgr_mt6893.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk_cm_mgr_mt6895.c),)
+obj-${CONFIG_MTK_CM_MGR_MT6895} += mtk_cm_mgr_mt6895.o
+endif

@@ -16,11 +16,23 @@ struct mtk_cm_mgr {
 	int *buf;
 };
 
+#if !IS_ENABLED(CONFIG_MTK_CM_IPI)
 struct cm_mgr_data {
 	unsigned int cmd;
 	unsigned int arg;
 };
+#endif /* CONFIG_MTK_CM_IPI */
 
+struct cm_mgr_hook {
+	u32 (*cm_mgr_get_perfs)(int enable);
+	void (*cm_mgr_perf_set_force_status)(int enable);
+	void (*check_cm_mgr_status)(unsigned int cluster,
+			unsigned int freq, unsigned int idx);
+	void (*cm_mgr_perf_platform_set_status)(int enable);
+	void (*cm_mgr_perf_set_status)(int enable);
+};
+
+#if !IS_ENABLED(CONFIG_MTK_CM_IPI)
 #define CM_MGR_D_LEN		(2)
 #define IPI_CM_MGR_INIT 0
 #define IPI_CM_MGR_ENABLE 1
@@ -45,77 +57,48 @@ struct cm_mgr_data {
 #define IPI_CM_MGR_OPP_VOLT_SET 23
 #define IPI_CM_MGR_BCPU_WEIGHT_MAX_SET 24
 #define IPI_CM_MGR_BCPU_WEIGHT_MIN_SET 25
+#define IPI_CM_MGR_BBCPU_WEIGHT_MAX_SET 26
+#define IPI_CM_MGR_BBCPU_WEIGHT_MIN_SET 27
+#endif /* CONFIG_MTK_CM_IPI */
 
-extern struct platform_device *cm_mgr_pdev;
-extern void __iomem *cm_mgr_base;
-extern int cm_mgr_num_perf;
-extern u32 *cm_mgr_perfs;
-extern struct icc_path *cm_perf_bw_path;
-extern int cm_mgr_num_array;
-extern int *cm_mgr_buf;
-extern int *cm_mgr_cpu_opp_to_dram;
-extern int cm_mgr_cpu_opp_size;
-
-extern int cm_mgr_blank_status;
-extern int cm_mgr_disable_fb;
-extern int cm_mgr_emi_demand_check;
-extern int cm_mgr_enable;
-extern int cm_mgr_loading_enable;
-extern int cm_mgr_loading_level;
-extern int cm_mgr_opp_enable;
-extern int cm_mgr_perf_enable;
-extern int cm_mgr_perf_force_enable;
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-extern int cm_mgr_sspm_enable;
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
-extern unsigned int *cpu_power_ratio_down;
-extern unsigned int *cpu_power_ratio_up;
-extern unsigned int *vcore_power_ratio_down;
-extern unsigned int *vcore_power_ratio_up;
-extern unsigned int *debounce_times_down_adb;
-extern unsigned int *debounce_times_up_adb;
-extern int debounce_times_perf_down;
-extern int debounce_times_perf_force_down;
-extern int debounce_times_reset_adb;
-extern int light_load_cps;
-
-extern int debounce_times_perf_down_local;
-extern int debounce_times_perf_down_force_local;
-extern int pm_qos_update_request_status;
-extern int cm_mgr_dram_opp_base;
-extern int cm_mgr_dram_opp;
-
-extern int cm_mgr_loop_count;
-extern int total_bw_value;
-extern int cm_mgr_cpu_map_dram_enable;
-extern int cm_mgr_cpu_map_emi_opp;
-extern int cm_mgr_cpu_map_skip_cpu_opp;
-extern void cm_mgr_cpu_map_update_table(void);
-
-extern struct delayed_work cm_mgr_work;
-extern int cm_mgr_cpu_to_dram_opp;
-
-/* setting in DTS */
-extern int cm_mgr_use_bcpu_weight;
-extern int cm_mgr_use_cpu_to_dram_map;
-extern int cm_mgr_use_cpu_to_dram_map_new;
-extern int cpu_power_bcpu_weight_max;
-extern int cpu_power_bcpu_weight_min;
 
 /* common api */
-extern void check_cm_mgr_status(unsigned int cluster, unsigned int freq,
-		unsigned int idx);
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+extern int get_cm_step_num(void);
+extern int cm_mgr_judge_perfs_dram_opp(int dram_opp);
+#endif
 extern void cm_mgr_update_dram_by_cpu_opp(int cpu_opp);
-extern void cm_mgr_perf_set_status(int status);
-extern void cm_mgr_perf_set_force_status(int status);
-extern void cm_mgr_enable_fn(int enable);
+#if !IS_ENABLED(CONFIG_MTK_CM_IPI)
 extern int cm_mgr_to_sspm_command(u32 cmd, int val);
+#endif /* CONFIG_MTK_CM_IPI */
 extern int cm_mgr_check_dts_setting(struct platform_device *pdev);
 extern int cm_mgr_common_init(void);
 extern void cm_mgr_common_exit(void);
 
-/* platform api */
-extern void cm_mgr_perf_platform_set_status(int enable);
-extern void cm_mgr_perf_platform_set_force_status(int enable);
+extern void cm_mgr_set_pdev(struct platform_device *pdev);
+extern int cm_mgr_get_num_array(void);
+extern void cm_mgr_set_num_array(int num);
+extern int cm_mgr_get_dram_opp_base(void);
+extern void cm_mgr_set_dram_opp_base(int num);
+extern int cm_mgr_get_num_perf(void);
+extern void cm_mgr_set_num_perf(int num);
+extern int cm_mgr_get_perf_enable(void);
+extern int cm_mgr_get_perf_force_enable(void);
+extern void cm_mgr_set_perf_force_enable(int enable);
+extern int debounce_times_perf_down_get(void);
+extern int debounce_times_perf_force_down_get(void);
+extern int debounce_times_perf_down_local_get(void);
+extern void debounce_times_perf_down_local_set(int num);
+extern int debounce_times_perf_down_force_local_get(void);
+extern void debounce_times_perf_down_force_local_set(int num);
+extern int cm_mgr_get_blank_status(void);
+extern int cm_mgr_get_disable_fb(void);
+extern struct icc_path *cm_mgr_get_bw_path(void);
+extern struct icc_path *cm_mgr_set_bw_path(struct icc_path *bw_path);
+extern void cm_mgr_perf_set_status(int enable);
+extern void cm_mgr_register_hook(struct cm_mgr_hook *hook);
+extern void cm_mgr_unregister_hook(struct cm_mgr_hook *hook);
+extern void cm_mgr_set_dram_opp_ceiling(int opp);
+extern void cm_mgr_set_dram_opp_floor(int opp);
 
 #endif	/* __MTK_CM_MGR_H__ */
