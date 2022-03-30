@@ -361,6 +361,18 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 			reg_index = VDEC_SOC_GCON;
 		} else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_RACING_CTRL, name)) {
 			reg_index = VDEC_RACING_CTRL;
+		}  else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_CORE1_MISC, name)) {
+			reg_index = VDEC_CORE1_MISC;
+		}  else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_LAT1_MISC, name)) {
+			reg_index = VDEC_LAT1_MISC;
+		}  else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_LAT_WDMA, name)) {
+			reg_index = VDEC_LAT_WDMA;
+		}  else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_LAT1_WDMA, name)) {
+			reg_index = VDEC_LAT1_WDMA;
+		}  else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_LAT_TOP, name)) {
+			reg_index = VDEC_LAT_TOP;
+		}  else if (!strcmp(MTK_VDEC_REG_NAME_VDEC_UFO_ENC, name)) {
+			reg_index = VDEC_UFO_ENC;
 		} else {
 			dev_info(&pdev->dev, "invalid reg name: %s, index: %d", name, i);
 			return -EINVAL;
@@ -548,6 +560,7 @@ static const struct of_device_id mtk_vcodec_match[] = {
 	{.compatible = "mediatek,mt6879-vcodec-dec",},
 	{.compatible = "mediatek,mt6895-vcodec-dec",},
 	{.compatible = "mediatek,mt6855-vcodec-dec",},
+	{.compatible = "mediatek,mt8195-vcodec-dec",},
 	{.compatible = "mediatek,vdec_gcon",},
 	{},
 };
