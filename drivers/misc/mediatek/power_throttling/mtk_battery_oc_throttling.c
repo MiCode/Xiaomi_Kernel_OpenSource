@@ -191,7 +191,7 @@ static ssize_t battery_oc_protect_ut_write(struct file *fp,
 					   loff_t *ppos)
 {
 	struct battery_oc_priv *priv = fp->private_data;
-	char *buf, cmd[20];
+	char *buf, cmd[DEFAULT_BUF_LEN + 1];
 	unsigned int val = 0;
 	ssize_t ret;
 
@@ -253,7 +253,7 @@ static ssize_t battery_oc_protect_stop_write(struct file *fp,
 					     size_t cnt, loff_t *ppos)
 {
 	struct battery_oc_priv *priv = fp->private_data;
-	char *buf, cmd[20];
+	char *buf, cmd[DEFAULT_BUF_LEN + 1];
 	unsigned int val = 0;
 	ssize_t ret;
 

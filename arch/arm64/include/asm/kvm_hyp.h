@@ -61,8 +61,8 @@ void __vgic_v3_save_state(struct vgic_v3_cpu_if *cpu_if);
 void __vgic_v3_restore_state(struct vgic_v3_cpu_if *cpu_if);
 void __vgic_v3_activate_traps(struct vgic_v3_cpu_if *cpu_if);
 void __vgic_v3_deactivate_traps(struct vgic_v3_cpu_if *cpu_if);
-void __vgic_v3_save_aprs(struct vgic_v3_cpu_if *cpu_if);
-void __vgic_v3_restore_aprs(struct vgic_v3_cpu_if *cpu_if);
+void __vgic_v3_save_vmcr_aprs(struct vgic_v3_cpu_if *cpu_if);
+void __vgic_v3_restore_vmcr_aprs(struct vgic_v3_cpu_if *cpu_if);
 int __vgic_v3_perform_cpuif_access(struct kvm_vcpu *vcpu);
 
 #ifdef __KVM_NVHE_HYPERVISOR__
@@ -123,18 +123,6 @@ extern u64 kvm_nvhe_sym(id_aa64mmfr0_el1_sys_val);
 extern u64 kvm_nvhe_sym(id_aa64mmfr1_el1_sys_val);
 extern u64 kvm_nvhe_sym(id_aa64mmfr2_el1_sys_val);
 
-struct kvm_iommu_ops {
-	int (*init)(void);
-	bool (*host_smc_handler)(struct kvm_cpu_context *host_ctxt);
-	bool (*host_mmio_dabt_handler)(struct kvm_cpu_context *host_ctxt,
-				       phys_addr_t fault_pa, unsigned int len,
-				       bool is_write, int rd);
-	void (*host_stage2_set_owner)(phys_addr_t addr, size_t size, u8 owner_id);
-	int (*host_stage2_adjust_mmio_range)(phys_addr_t addr, phys_addr_t *start,
-					     phys_addr_t *end);
-};
-
-extern struct kvm_iommu_ops kvm_iommu_ops;
-extern const struct kvm_iommu_ops kvm_s2mpu_ops;
-
+extern unsigned long kvm_nvhe_sym(__icache_flags);
+extern bool kvm_nvhe_sym(smccc_trng_available);
 #endif /* __ARM64_KVM_HYP_H__ */

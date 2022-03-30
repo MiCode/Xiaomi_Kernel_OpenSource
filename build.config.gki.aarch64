@@ -7,6 +7,8 @@ Image.lz4
 "
 
 TIDY_ABI=1
+# Update BUILD.bazel, define_common_kernels() if the list differs from
+# android/abi_gki_aarch64* in the filesystem.
 KMI_SYMBOL_LIST=android/abi_gki_aarch64
 ADDITIONAL_KMI_SYMBOL_LISTS="
 android/abi_gki_aarch64_virtual_device
@@ -20,6 +22,10 @@ FILES="${FILES}
 arch/arm64/boot/Image.lz4
 "
 
+# Update BUILD.bazel, define_common_kernels() if the value is not 1.
 TRIM_NONLISTED_KMI=${TRIM_NONLISTED_KMI:-1}
 KMI_SYMBOL_LIST_STRICT_MODE=${KMI_SYMBOL_LIST_STRICT_MODE:-1}
+
+BUILD_SYSTEM_DLKM=1
+MODULES_LIST=${ROOT_DIR}/${KERNEL_DIR}/android/gki_system_dlkm_modules
 MODULES_ORDER=android/gki_aarch64_modules

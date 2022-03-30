@@ -70,6 +70,63 @@ u32 __attribute_const__ kvm_target_cpu(void);
 int kvm_reset_vcpu(struct kvm_vcpu *vcpu);
 void kvm_arm_vcpu_destroy(struct kvm_vcpu *vcpu);
 
+struct kvm_hyp_memcache {
+	phys_addr_t head;
+	unsigned long nr_pages;
+};
+
+static inline void push_hyp_memcache(struct kvm_hyp_memcache *mc,
+				     phys_addr_t *p,
+				     phys_addr_t (*to_pa)(void *virt))
+{
+	*p = mc->head;
+	mc->head = to_pa(p);
+	mc->nr_pages++;
+}
+
+static inline void *pop_hyp_memcache(struct kvm_hyp_memcache *mc,
+				     void *(*to_va)(phys_addr_t phys))
+{
+	phys_addr_t *p = to_va(mc->head);
+
+	if (!mc->nr_pages)
+		return NULL;
+
+	mc->head = *p;
+	mc->nr_pages--;
+
+	return p;
+}
+
+static inline int __topup_hyp_memcache(struct kvm_hyp_memcache *mc,
+				       unsigned long min_pages,
+				       void *(*alloc_fn)(void *arg),
+				       phys_addr_t (*to_pa)(void *virt),
+				       void *arg)
+{
+	while (mc->nr_pages < min_pages) {
+		phys_addr_t *p = alloc_fn(arg);
+
+		if (!p)
+			return -ENOMEM;
+		push_hyp_memcache(mc, p, to_pa);
+	}
+
+	return 0;
+}
+
+static inline void __free_hyp_memcache(struct kvm_hyp_memcache *mc,
+				       void (*free_fn)(void *virt, void *arg),
+				       void *(*to_va)(phys_addr_t phys),
+				       void *arg)
+{
+	while (mc->nr_pages)
+		free_fn(pop_hyp_memcache(mc, to_va), arg);
+}
+
+void free_hyp_memcache(struct kvm_hyp_memcache *mc);
+int topup_hyp_memcache(struct kvm_vcpu *vcpu);
+
 struct kvm_vmid {
 	/* The VMID generation used for the virt. memory system */
 	u64    vmid_gen;
@@ -101,6 +158,20 @@ struct kvm_s2_mmu {
 struct kvm_arch_memory_slot {
 };
 
+struct kvm_pinned_page {
+	struct list_head	link;
+	struct page		*page;
+};
+
+struct kvm_protected_vm {
+	bool enabled;
+	int shadow_handle;
+	struct mutex shadow_lock;
+	struct kvm_hyp_memcache teardown_mc;
+	struct list_head pinned_pages;
+	gpa_t pvmfw_load_addr;
+};
+
 struct kvm_arch {
 	struct kvm_s2_mmu mmu;
 
@@ -122,7 +193,12 @@ struct kvm_arch {
 	 * should) opt in to this feature if KVM_CAP_ARM_NISV_TO_USER is
 	 * supported.
 	 */
-	bool return_nisv_io_abort_to_user;
+#define KVM_ARCH_FLAG_RETURN_NISV_IO_ABORT_TO_USER	0
+	/* Memory Tagging Extension enabled for the guest */
+#define KVM_ARCH_FLAG_MTE_ENABLED			1
+	/* Guest has bought into the MMIO guard extension */
+#define KVM_ARCH_FLAG_MMIO_GUARD			2
+	unsigned long flags;
 
 	/*
 	 * VM-wide PMU filter, implemented as a bitmap and big enough for
@@ -134,8 +210,35 @@ struct kvm_arch {
 	u8 pfr0_csv2;
 	u8 pfr0_csv3;
 
-	/* Memory Tagging Extension enabled for the guest */
-	bool mte_enabled;
+	struct kvm_protected_vm pkvm;
+
+	u64 hypercall_exit_enabled;
+};
+
+struct kvm_protected_vcpu {
+	/* A unique id to the shadow structs in the hyp shadow area. */
+	int shadow_handle;
+
+	/* A pointer to the host's vcpu. */
+	struct kvm_vcpu *host_vcpu;
+
+	/* A pointer to the shadow vm. */
+	struct kvm_shadow_vm *shadow_vm;
+
+	/* Tracks exit code for the protected guest. */
+	int exit_code;
+
+	/*
+	 * Track the power state transition of a protected vcpu.
+	 * Can be in one of three states:
+	 * PSCI_0_2_AFFINITY_LEVEL_ON
+	 * PSCI_0_2_AFFINITY_LEVEL_OFF
+	 * PSCI_0_2_AFFINITY_LEVEL_PENDING
+	 */
+	int power_state;
+
+	/* True if this vcpu is currently loaded on a cpu. */
+	bool loaded_on_cpu;
 };
 
 struct kvm_vcpu_fault_info {
@@ -252,6 +355,7 @@ struct kvm_host_data {
 struct kvm_host_psci_config {
 	/* PSCI version used by host. */
 	u32 version;
+	u32 smccc_version;
 
 	/* Function IDs used by host if version is v0.1. */
 	struct psci_0_1_function_ids function_ids_0_1;
@@ -367,8 +471,12 @@ struct kvm_vcpu_arch {
 	/* Don't run the guest (internal implementation need) */
 	bool pause;
 
-	/* Cache some mmu pages needed inside spinlock regions */
-	struct kvm_mmu_memory_cache mmu_page_cache;
+	union {
+		/* Cache some mmu pages needed inside spinlock regions */
+		struct kvm_mmu_memory_cache mmu_page_cache;
+		/* Pages to be donated to pkvm/EL2e if it runs out */
+		struct kvm_hyp_memcache pkvm_memcache;
+	};
 
 	/* Target CPU and feature flags */
 	int target;
@@ -389,6 +497,8 @@ struct kvm_vcpu_arch {
 		u64 last_steal;
 		gpa_t base;
 	} steal;
+
+	struct kvm_protected_vcpu pkvm;
 };
 
 /* Pointer to the vcpu's SVE FFR for sve_{save,load}_state() */
@@ -446,6 +556,7 @@ struct kvm_vcpu_arch {
 #define KVM_ARM64_DEBUG_STATE_SAVE_SPE	(1 << 12) /* Save SPE context if active  */
 #define KVM_ARM64_DEBUG_STATE_SAVE_TRBE	(1 << 13) /* Save TRBE context if active  */
 #define KVM_ARM64_FP_FOREIGN_FPSTATE	(1 << 14)
+#define KVM_ARM64_PKVM_STATE_DIRTY	(1 << 15)
 
 #define KVM_GUESTDBG_VALID_MASK (KVM_GUESTDBG_ENABLE | \
 				 KVM_GUESTDBG_USE_SW_BP | \
@@ -478,9 +589,6 @@ struct kvm_vcpu_arch {
 #define ctxt_sys_reg(c,r)	(*__ctxt_sys_reg(c,r))
 
 #define __vcpu_sys_reg(v,r)	(ctxt_sys_reg(&(v)->arch.ctxt, (r)))
-
-u64 vcpu_read_sys_reg(const struct kvm_vcpu *vcpu, int reg);
-void vcpu_write_sys_reg(struct kvm_vcpu *vcpu, u64 val, int reg);
 
 static inline bool __vcpu_read_sys_reg_from_cpu(int reg, u64 *val)
 {
@@ -572,6 +680,31 @@ static inline bool __vcpu_write_sys_reg_to_cpu(u64 val, int reg)
 
 	return true;
 }
+
+static inline u64 vcpu_arch_read_sys_reg(const struct kvm_vcpu_arch *vcpu_arch, int reg)
+{
+	u64 val = 0x8badf00d8badf00d;
+
+	/* sysregs_loaded_on_cpu is only used in VHE */
+	if (!is_nvhe_hyp_code() && vcpu_arch->sysregs_loaded_on_cpu &&
+	    __vcpu_read_sys_reg_from_cpu(reg, &val))
+		return val;
+
+	return ctxt_sys_reg(&vcpu_arch->ctxt, reg);
+}
+
+static inline void vcpu_arch_write_sys_reg(struct kvm_vcpu_arch *vcpu_arch, u64 val, int reg)
+{
+	/* sysregs_loaded_on_cpu is only used in VHE */
+	if (!is_nvhe_hyp_code() && vcpu_arch->sysregs_loaded_on_cpu &&
+	    __vcpu_write_sys_reg_to_cpu(val, reg))
+		return;
+
+	 ctxt_sys_reg(&vcpu_arch->ctxt, reg) = val;
+}
+
+#define vcpu_read_sys_reg(vcpu, reg) vcpu_arch_read_sys_reg(&((vcpu)->arch), reg)
+#define vcpu_write_sys_reg(vcpu, val, reg) vcpu_arch_write_sys_reg(&((vcpu)->arch), val, reg)
 
 struct kvm_vm_stat {
 	struct kvm_vm_stat_generic generic;
@@ -777,12 +910,7 @@ int kvm_set_ipa_limit(void);
 struct kvm *kvm_arch_alloc_vm(void);
 void kvm_arch_free_vm(struct kvm *kvm);
 
-int kvm_arm_setup_stage2(struct kvm *kvm, unsigned long type);
-
-static inline bool kvm_vm_is_protected(struct kvm *kvm)
-{
-	return false;
-}
+#define kvm_vm_is_protected(kvm)	((kvm)->arch.pkvm.enabled)
 
 void kvm_init_protected_traps(struct kvm_vcpu *vcpu);
 
@@ -792,7 +920,9 @@ bool kvm_arm_vcpu_is_finalized(struct kvm_vcpu *vcpu);
 #define kvm_arm_vcpu_sve_finalized(vcpu) \
 	((vcpu)->arch.flags & KVM_ARM64_VCPU_SVE_FINALIZED)
 
-#define kvm_has_mte(kvm) (system_supports_mte() && (kvm)->arch.mte_enabled)
+#define kvm_has_mte(kvm)					\
+	(system_supports_mte() &&				\
+	 test_bit(KVM_ARCH_FLAG_MTE_ENABLED, &(kvm)->arch.flags))
 #define kvm_vcpu_has_pmu(vcpu)					\
 	(test_bit(KVM_ARM_VCPU_PMU_V3, (vcpu)->arch.features))
 

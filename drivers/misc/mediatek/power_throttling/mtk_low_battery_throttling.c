@@ -97,7 +97,7 @@ static ssize_t low_battery_protect_ut_store(
 {
 	unsigned int val = 0;
 	unsigned int thd = 0;
-	char cmd[20];
+	char cmd[21];
 
 	if (sscanf(buf, "%20s %u\n", cmd, &val) != 2) {
 		dev_info(dev, "parameter number not correct\n");
@@ -140,7 +140,7 @@ static ssize_t low_battery_protect_stop_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	unsigned int val = 0;
-	char cmd[20];
+	char cmd[21];
 
 	if (sscanf(buf, "%20s %u\n", cmd, &val) != 2) {
 		dev_info(dev, "parameter number not correct\n");

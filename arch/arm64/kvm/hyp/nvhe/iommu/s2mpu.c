@@ -13,6 +13,7 @@
 
 #include <linux/arm-smccc.h>
 
+#include <nvhe/iommu.h>
 #include <nvhe/memory.h>
 #include <nvhe/mm.h>
 #include <nvhe/spinlock.h>
@@ -113,10 +114,26 @@ static void __set_control_regs(struct s2mpu *dev)
 	writel_relaxed(ctrl0, dev->va + REG_NS_CTRL0);
 }
 
+/* Poll the given SFR as long as its value has all bits of a given mask set. */
+static void __wait_while(void __iomem *addr, u32 mask)
+{
+	while ((readl_relaxed(addr) & mask) == mask)
+		continue;
+}
+
+static void __wait_for_invalidation_complete(struct s2mpu *dev)
+{
+	/* Must not access SFRs while S2MPU is busy invalidating (v9 only). */
+	if (is_version(dev, S2MPU_VERSION_9)) {
+		__wait_while(dev->va + REG_NS_STATUS,
+			     STATUS_BUSY | STATUS_ON_INVALIDATING);
+	}
+}
+
 static void __all_invalidation(struct s2mpu *dev)
 {
-	writel_relaxed(INVALIDATION_INVALIDATE,
-		       dev->va + REG_NS_ALL_INVALIDATION);
+	writel_relaxed(INVALIDATION_INVALIDATE, dev->va + REG_NS_ALL_INVALIDATION);
+	__wait_for_invalidation_complete(dev);
 }
 
 static void __range_invalidation(struct s2mpu *dev, phys_addr_t first_byte,
@@ -128,6 +145,7 @@ static void __range_invalidation(struct s2mpu *dev, phys_addr_t first_byte,
 	writel_relaxed(start_ppn, dev->va + REG_NS_RANGE_INVALIDATION_START_PPN);
 	writel_relaxed(end_ppn, dev->va + REG_NS_RANGE_INVALIDATION_END_PPN);
 	writel_relaxed(INVALIDATION_INVALIDATE, dev->va + REG_NS_RANGE_INVALIDATION);
+	__wait_for_invalidation_complete(dev);
 }
 
 static void __set_l1entry_attr_with_prot(struct s2mpu *dev, unsigned int gb,
@@ -157,7 +175,7 @@ static void __set_l1entry_l2table_addr(struct s2mpu *dev, unsigned int gb,
 	       dev->va + REG_NS_L1ENTRY_L2TABLE_ADDR(vid, gb));
 }
 
-/**
+/*
  * Initialize S2MPU device and set all GB regions to 1G granularity with
  * given protection bits.
  */
@@ -176,7 +194,7 @@ static void initialize_with_prot(struct s2mpu *dev, enum mpt_prot prot)
 	__set_control_regs(dev);
 }
 
-/**
+/*
  * Initialize S2MPU device, set L2 table addresses and configure L1TABLE_ATTR
  * registers according to the given MPT struct.
  */
@@ -199,7 +217,7 @@ static void initialize_with_mpt(struct s2mpu *dev, struct mpt *mpt)
 	__set_control_regs(dev);
 }
 
-/**
+/*
  * Set MPT protection bits set to 'prot' in the give byte range (page-aligned).
  * Update currently powered S2MPUs.
  */
@@ -237,10 +255,13 @@ static void set_mpt_range_locked(struct mpt *mpt, phys_addr_t first_byte,
 		__range_invalidation(dev, first_byte, last_byte);
 }
 
-static void s2mpu_host_stage2_set_owner(phys_addr_t addr, size_t size, u8 owner_id)
+static void s2mpu_host_stage2_set_owner(phys_addr_t addr, size_t size,
+					pkvm_id owner_id)
 {
+	enum mpt_prot prot;
+
 	/* Grant access only to the default owner of the page table (ID=0). */
-	enum mpt_prot prot = owner_id ? MPT_PROT_NONE : MPT_PROT_RW;
+	prot = owner_id == pkvm_host_id ? MPT_PROT_RW : MPT_PROT_NONE;
 
 	/*
 	 * NOTE: The following code refers to 'end' as the exclusive upper
