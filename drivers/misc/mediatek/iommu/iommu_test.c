@@ -1243,6 +1243,123 @@ static int iommu_test_dom_probe(struct platform_device *pdev)
 	return 0;
 }
 
+/*************************************************************************/
+/*
+ * iommu test DTS sample node:
+ * iommu_mm_test0 {
+ *	compatible = "mediatek,iommu-test-dom0";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+ *	iommus = <&disp_iommu M4U_PORT_L0_DISP_FAKE0>;
+ *};
+ *
+ * iommu_mm_test1 {
+ *	compatible = "mediatek,iommu-test-dom1";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+ *	iommus = <&mdp_iommu M4U_PORT_L4_HW_VDEC_VLD_EXT>;
+ * };
+ *
+ * iommu_mm_test2 {
+ *	compatible = "mediatek,iommu-test-dom0";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+ *	iommus = <&disp_iommu M4U_PORT_L35_RESERVED_0>;
+ * };
+ *
+ * iommu_mm_test3 {
+ *	compatible = "mediatek,iommu-test-dom3";
+ *	dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+ *	iommus = <&mdp_iommu M4U_PORT_L38_CCU0>;
+ * };
+ *
+ * iommu_mm_test4 {
+ *	compatible = "mediatek,iommu-test-dom4";
+ *	dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+ *	iommus = <&mdp_iommu M4U_PORT_L38_CCU1>;
+ * };
+ *
+ * iommu_mm_test5 {
+ *	compatible = "mediatek,iommu-test-dom5";
+ *	dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+ *	iommus = <&mdp_iommu M4U_PORT_L40_VIDEO_UP_512MB1>;
+ * };
+ *
+ * iommu_mm_test6 {
+ *	compatible = "mediatek,iommu-test-dom6";
+ *	dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+ *	iommus = <&mdp_iommu M4U_PORT_L40_VIDEO_UP_512MB2>;
+ * };
+ *
+ * iommu_mm_test7 {
+ *	compatible = "mediatek,iommu-test-dom7";
+ *	dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+ *	iommus = <&mdp_iommu M4U_PORT_L40_VIDEO_UP_256MB1>;
+ * };
+ *
+ * iommu_mm_test8 {
+ *	compatible = "mediatek,iommu-test-dom8";
+ *	dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
+ *	iommus = <&mdp_iommu M4U_PORT_L40_VIDEO_UP_256MB2>;
+ * };
+ *
+ * iommu_apu_test0 {
+ *	compatible = "mediatek,iommu-test-dom0";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+ *	iommus = <&apu_iommu0 M4U_PORT_L41_APU_DATA>;
+ * };
+ *
+ * iommu_apu_test1 {
+ *	compatible = "mediatek,iommu-test-dom0";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+ *	iommus = <&apu_iommu1 M4U_PORT_L41_APU_DATA>;
+ * };
+ *
+ * iommu_apu_test2 {
+ *	compatible = "mediatek,iommu-test-dom1";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+ *	iommus = <&apu_iommu0 M4U_PORT_L41_APU_SECURE>;
+ * };
+ *
+ * iommu_apu_test3 {
+ *	compatible = "mediatek,iommu-test-dom2";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x1 0x0>;
+ *	iommus = <&apu_iommu0 M4U_PORT_L41_APU_CODE>;
+ * };
+ *
+ * iommu_test_dmaheap_normal {
+ *	compatible = "mediatek,dmaheap-normal";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+ *	iommus = <&disp_iommu M4U_PORT_L0_DISP_FAKE0>;
+ * };
+ *
+ * iommu_test_dmaheap_normal_region {
+ *	compatible = "mediatek,dmaheap-sec-normal-region";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+ *	iommus = <&mdp_iommu M4U_PORT_L0_DISP_FAKE0>;
+ * };
+ *
+ * iommu_test_dmaheap_ccu0 {
+ *	compatible = "mediatek,dmaheap-sec-ccu0";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+ *	iommus = <&disp_iommu M4U_PORT_L38_CCU0>;
+ * };
+ *
+ * iommu_test_dmaheap_up {
+ *	compatible = "mediatek,dmaheap-sec-up";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+ *	iommus = <&disp_iommu M4U_PORT_L40_VIDEO_UP_512MB1>;
+ * };
+ *
+ * iommu_test_dmaheap_vdec {
+ *	compatible = "mediatek,dmaheap-sec-vdec";
+ *	dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+ *	iommus = <&disp_iommu M4U_PORT_L4_HW_VDEC_VLD_EXT>;
+ * };
+ *
+ * iommu_test_dmaheap_pa {
+ *	compatible = "mediatek,dmaheap-sec-pa";
+ * };
+ */
+/*************************************************************************/
+
 static const struct of_device_id iommu_test_dom_match_table[] = {
 	{.compatible = "mediatek,iommu-test-dom0"},
 	{.compatible = "mediatek,iommu-test-dom1"},
