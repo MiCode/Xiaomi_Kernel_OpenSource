@@ -485,6 +485,8 @@ struct rdma_frame_data {
 	u32 vdo_blk_shift_h;
 	u32 pixel_acc;		/* pixel accumulation */
 	u32 datasize;		/* qos data size in bytes */
+	u16 crop_off_l;		/* crop offset left */
+	u16 crop_off_t;		/* crop offset top */
 
 	/* array of indices to one of entry in cache entry list,
 	 * use in reuse command
@@ -597,6 +599,7 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 		     sizeof(struct mml_crop))) {
 		struct mml_frame_dest *dest = &cfg->info.dest[0];
 		u32 in_crop_w, in_crop_h;
+		struct rdma_frame_data *rdma_frm = rdma_frm_data(ccfg);
 
 		data->rdma.crop = dest->crop.r;
 
@@ -612,6 +615,9 @@ static s32 rdma_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 			func->full_size_x_out = in_crop_w;
 			func->full_size_y_out = in_crop_h;
 		}
+
+		rdma_frm->crop_off_l = data->rdma.crop.left;
+		rdma_frm->crop_off_t = data->rdma.crop.top;
 	} else {
 		data->rdma.crop.left = 0;
 		data->rdma.crop.top = 0;
@@ -1377,8 +1383,8 @@ static s32 rdma_config_tile(struct mml_comp *comp, struct mml_task *task,
 		mf_clip_h = (out_ye - out_ys + 1) << rdma_frm->field;
 
 		/* Set crop offset */
-		mf_offset_w_1 = out_xs - in_xs;
-		mf_offset_h_1 = (out_ys - in_ys) << rdma_frm->field;
+		mf_offset_w_1 = out_xs + rdma_frm->crop_off_l - in_xs;
+		mf_offset_h_1 = (out_ys + rdma_frm->crop_off_t - in_ys) << rdma_frm->field;
 	}
 
 	rdma_write_ofst(pkt, base_pa, hw_pipe, CPR_RDMA_SRC_OFFSET_0,
