@@ -21,3 +21,4 @@ obj-$(CONFIG_MTK_CAMERA_ISP_SUPPORT) += dpe/
 #obj-y += tsf/
 obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += mfb/
 obj-y += fdvt/
+obj-$(CONFIG_MTK_CAMERA_ISP_PDA_SUPPORT) += pda/
