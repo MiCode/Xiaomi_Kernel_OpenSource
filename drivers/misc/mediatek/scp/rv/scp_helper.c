@@ -81,8 +81,6 @@ unsigned int scp_dvfs_cali_ready;
 
 /*scp awake variable*/
 int scp_awake_counts[SCP_CORE_TOTAL];
-/* debug flag for Dump timeout*/
-unsigned int debug_dumptimeout_flag;
 
 unsigned int scp_recovery_flag[SCP_CORE_TOTAL];
 #define SCP_A_RECOVERY_OK	0x44
@@ -1445,71 +1443,7 @@ void set_scp_mpu(void)
 }
 #endif
 
-void scp_register_feature(enum feature_id id)
-{
-	int ret = 0;
-
-	/*prevent from access when scp is down*/
-	if (!scp_ready[SCP_A_ID]) {
-		pr_debug("[SCP] %s: not ready, scp=%u\n", __func__,
-			scp_ready[SCP_A_ID]);
-		return;
-	}
-
-	/* prevent from access when scp dvfs cali isn't done */
-	if (!scp_dvfs_cali_ready) {
-		pr_debug("[SCP] %s: dvfs cali not ready, scp_dvfs_cali=%u\n",
-		__func__, scp_dvfs_cali_ready);
-		return;
-	}
-
-	if (id >= NUM_FEATURE_ID) {
-		pr_notice("[SCP] %s, invalid feature id:%u, max id:%u\n",
-			__func__, id, NUM_FEATURE_ID - 1);
-		return;
-	}
-	/* because feature_table is a global variable,
-	 * use mutex lock to protect it from accessing in the same time
-	 */
-	mutex_lock(&scp_feature_mutex);
-
-	feature_table[id].enable = 1;
-#if SCP_DVFS_INIT_ENABLE
-	scp_expected_freq = scp_get_freq();
-#endif
-
-	scp_current_freq = readl(CURRENT_FREQ_REG);
-#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
-	/* if secure_dump is enabled, expected_freq is sent in scp_request_freq() */
-	if (!scpreg.secure_dump) {
-#else
-	{
-#endif
-	writel(scp_expected_freq, EXPECTED_FREQ_REG);
-	}
-
-	/* send request only when scp is not down */
-	if (scp_ready[SCP_A_ID]) {
-		if (scp_current_freq != scp_expected_freq) {
-			/* set scp freq. */
-#if SCP_DVFS_INIT_ENABLE
-			ret = scp_request_freq();
-#endif
-			if (ret == -1) {
-				pr_notice("[SCP]%s request_freq fail\n", __func__);
-				WARN_ON(1);
-			}
-		}
-	} else {
-		pr_notice("[SCP]Not send SCP DVFS request because SCP is down\n");
-		WARN_ON(1);
-	}
-
-	mutex_unlock(&scp_feature_mutex);
-}
-EXPORT_SYMBOL_GPL(scp_register_feature);
-
-void scp_deregister_feature(enum feature_id id)
+static void scp_control_feature(enum feature_id id, bool enable)
 {
 	int ret = 0;
 
@@ -1534,7 +1468,7 @@ void scp_deregister_feature(enum feature_id id)
 	}
 	mutex_lock(&scp_feature_mutex);
 
-	feature_table[id].enable = 0;
+	feature_table[id].enable = enable;
 #if SCP_DVFS_INIT_ENABLE
 	scp_expected_freq = scp_get_freq();
 #endif
@@ -1568,10 +1502,21 @@ void scp_deregister_feature(enum feature_id id)
 
 	mutex_unlock(&scp_feature_mutex);
 }
+
+void scp_register_feature(enum feature_id id)
+{
+	scp_control_feature(id, true);
+}
+EXPORT_SYMBOL_GPL(scp_register_feature);
+
+void scp_deregister_feature(enum feature_id id)
+{
+	scp_control_feature(id, false);
+}
 EXPORT_SYMBOL_GPL(scp_deregister_feature);
 
 /*scp sensor type register*/
-void scp_register_sensor(enum feature_id id, enum scp_sensor_id sensor_id)
+void scp_register_sensor(enum feature_id id, int sensor_id)
 {
 	uint32_t i;
 
@@ -1593,14 +1538,16 @@ void scp_register_sensor(enum feature_id id, enum scp_sensor_id sensor_id)
 			sensor_type_table[i].enable = 1;
 	}
 
-	/* register sensor*/
-	scp_register_feature(id);
+	/* register sensor */
+	scp_control_feature(id, true);
 	mutex_unlock(&scp_register_sensor_mutex);
-
 }
+EXPORT_SYMBOL_GPL(scp_register_sensor);
+
 /*scp sensor type deregister*/
-void scp_deregister_sensor(enum feature_id id, enum scp_sensor_id sensor_id)
+void scp_deregister_sensor(enum feature_id id, int sensor_id)
 {
+	bool feature_enable = false;
 	uint32_t i;
 
 	/* prevent from access when scp is down */
@@ -1616,14 +1563,17 @@ void scp_deregister_sensor(enum feature_id id, enum scp_sensor_id sensor_id)
 	 * accessing in the same time
 	 */
 	mutex_lock(&scp_register_sensor_mutex);
+	if (sensor_type_table[sensor_id].feature == sensor_id)
+		sensor_type_table[sensor_id].enable = 0;
 	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-		if (sensor_type_table[i].feature == sensor_id)
-			sensor_type_table[i].enable = 0;
+		if (sensor_type_table[i].enable)
+			feature_enable = true;
 	}
 	/* deregister sensor*/
-	scp_deregister_feature(id);
+	scp_control_feature(id, feature_enable);
 	mutex_unlock(&scp_register_sensor_mutex);
 }
+EXPORT_SYMBOL_GPL(scp_deregister_sensor);
 
 /*
  * apps notification
@@ -1731,13 +1681,6 @@ void print_clk_registers(void)
 		value = (unsigned int)readl(cfg_core0 + offset);
 		pr_notice("[SCP] cfg_core0[0x%04x]: 0x%08x\n", offset, value);
 	}
-	if (debug_dumptimeout_flag == 1) {
-	// 0x31000 ~ 0x31428 DMA register
-		for (offset = 0x0000; offset <= 0x0428; offset += 4) {
-			value = (unsigned int)readl(cfg_core0 + 0x1000 + offset);
-			pr_notice("[SCP] cfg_core0_dma[0x%04x]: 0x%08x\n", offset, value);
-		}
-	}
 	if (scpreg.core_nums == 1)
 		return;
 	// 0x40000 ~ 0x40114 (inclusive)
@@ -1832,6 +1775,9 @@ void scp_sys_reset_ws(struct work_struct *ws)
 			pr_notice("[SCP] rstn core0 %x core1 %x\n",
 			readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET));
 		} else {
+			/* reset type scp WDT or CMD*/
+			/* make sure scp is in idle state */
+			scp_reset_wait_timeout();
 			scp_do_rstn_set(1); /* write CORE_REBOOT_OK to SCP_GPR_CORE0_REBOOT */
 			pr_notice("[SCP] rstn core0 %x core1 %x\n",
 			readl(R_CORE0_SW_RSTN_SET), readl(R_CORE1_SW_RSTN_SET));
@@ -1959,7 +1905,7 @@ void scp_recovery_init(void)
 	scp_loader_virt = ioremap_wc(
 		scp_region_info_copy.ap_loader_start,
 		scp_region_info_copy.ap_loader_size);
-	pr_debug("[SCP] loader image mem: virt:0x%llx - 0x%llx\n",
+	pr_notice("[SCP] loader image mem: virt:0x%llx - 0x%llx\n",
 		(uint64_t)(phys_addr_t)scp_loader_virt,
 		(uint64_t)(phys_addr_t)scp_loader_virt +
 		(phys_addr_t)scp_region_info_copy.ap_loader_size);
@@ -1970,7 +1916,7 @@ void scp_recovery_init(void)
 	/* init reset by cmd flag */
 	scp_reset_by_cmd = 0;
 
-	scp_regdump_virt = ioremap_wc(
+	scp_regdump_virt = ioremap(
 			scp_region_info_copy.regdump_start,
 			scp_region_info_copy.regdump_size);
 	pr_debug("[SCP] scp_regdump_virt map: 0x%x + 0x%x\n",
@@ -1983,7 +1929,7 @@ void scp_recovery_init(void)
 		scp_region_info_copy.ap_dram_start,
 		ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
 
-	pr_notice("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
+	pr_debug("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
 		scp_region_info_copy.ap_dram_start,
 		scp_region_info_copy.ap_dram_size);
 	}
@@ -2231,7 +2177,6 @@ static int scp_device_probe(struct platform_device *pdev)
 	const char *core_status = NULL;
 	const char *scp_hwvoter = NULL;
 	const char *secure_dump = NULL;
-	const char *debug_dumptimeout = NULL;
 	struct device *dev = &pdev->dev;
 	struct device_node *node;
 
@@ -2358,13 +2303,6 @@ static int scp_device_probe(struct platform_device *pdev)
 		}
 	}
 
-	debug_dumptimeout_flag = 0;
-	if (!of_property_read_string(pdev->dev.of_node, "debug_dumptimeout", &debug_dumptimeout)) {
-		if (!strncmp(debug_dumptimeout, "enable", strlen("enable"))) {
-			pr_notice("[SCP] debug dump timeout enabled\n");
-			debug_dumptimeout_flag = 1;
-		}
-	}
 	scpreg.irq0 = platform_get_irq_byname(pdev, "ipc0");
 	if (scpreg.irq0 < 0)
 		pr_notice("[SCP] get ipc0 irq failed\n");
@@ -2499,15 +2437,10 @@ static int scpsys_device_probe(struct platform_device *pdev)
 	scpreg.scpsys = devm_ioremap_resource(dev, res);
 	//pr_notice("[SCP] scpreg.scpsys = %x\n", scpreg.scpsys);
 	if (IS_ERR((void const *) scpreg.scpsys)) {
-		pr_notice("[SCP] scpreg.sram error\n");
+		pr_notice("[SCP] scpreg.scpsys error\n");
 		return -1;
 	}
 	return ret;
-}
-
-static int scpsys_device_remove(struct platform_device *dev)
-{
-	return 0;
 }
 
 static const struct dev_pm_ops scp_ipi_dbg_pm_ops = {
@@ -2538,8 +2471,6 @@ static const struct of_device_id scpsys_of_ids[] = {
 };
 
 static struct platform_driver mtk_scpsys_device = {
-	.probe = scpsys_device_probe,
-	.remove = scpsys_device_remove,
 	.driver = {
 		.name = "scpsys",
 		.owner = THIS_MODULE,
@@ -2604,7 +2535,7 @@ static int __init scp_init(void)
 	if (platform_driver_register(&mtk_scp_device))
 		pr_notice("[SCP] scp probe fail\n");
 
-	if (platform_driver_register(&mtk_scpsys_device))
+	if (platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe))
 		pr_notice("[SCP] scpsys probe fail\n");
 
 	/* skip initial if dts status = "disable" */
