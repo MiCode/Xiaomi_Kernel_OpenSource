@@ -18,7 +18,9 @@
 #include <linux/pci.h>
 #include <linux/usb.h>
 #include <linux/version.h>
-
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
+#include <trace/hooks/v4l2mc.h>
+#endif
 #include <media/media-device.h>
 #include <media/media-devnode.h>
 #include <media/media-entity.h>
@@ -203,6 +205,9 @@ static long media_device_setup_link(struct media_device *mdev, void *arg)
 	struct media_link *link = NULL;
 	struct media_entity *source;
 	struct media_entity *sink;
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
+	int ret = 0;
+#endif
 
 	/* Find the source and sink entities and link.
 	 */
@@ -221,6 +226,11 @@ static long media_device_setup_link(struct media_device *mdev, void *arg)
 	if (link == NULL)
 		return -EINVAL;
 
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
+	trace_android_rvh_media_device_setup_link(link, linkd, &ret);
+	if (ret)
+		return ret;
+#endif
 	memset(linkd->reserved, 0, sizeof(linkd->reserved));
 
 	/* Setup the link on both entities. */

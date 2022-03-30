@@ -23,6 +23,10 @@
 #include <media/v4l2-fh.h>
 #include <media/v4l2-event.h>
 
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
+#include <trace/hooks/v4l2core.h>
+#endif
+
 #if defined(CONFIG_VIDEO_V4L2_SUBDEV_API)
 static int subdev_fh_init(struct v4l2_subdev_fh *fh, struct v4l2_subdev *sd)
 {
@@ -489,10 +493,18 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 
 	case VIDIOC_SUBDEV_S_FMT: {
 		struct v4l2_subdev_format *format = arg;
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
+		int ret = 0;
+#endif
 
 		if (format->which != V4L2_SUBDEV_FORMAT_TRY && ro_subdev)
 			return -EPERM;
-
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
+		trace_android_rvh_v4l2subdev_set_fmt(sd, subdev_fh->state,
+					format, &ret);
+		if (ret)
+			return ret;
+#endif
 		memset(format->reserved, 0, sizeof(format->reserved));
 		memset(format->format.reserved, 0, sizeof(format->format.reserved));
 		return v4l2_subdev_call(sd, pad, set_fmt, subdev_fh->state, format);
@@ -563,10 +575,17 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 
 	case VIDIOC_SUBDEV_S_FRAME_INTERVAL: {
 		struct v4l2_subdev_frame_interval *fi = arg;
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
+		int ret = 0;
+#endif
 
 		if (ro_subdev)
 			return -EPERM;
-
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
+		trace_android_rvh_v4l2subdev_set_frame_interval(sd, fi, &ret);
+		if (ret)
+			return ret;
+#endif
 		memset(fi->reserved, 0, sizeof(fi->reserved));
 		return v4l2_subdev_call(sd, video, s_frame_interval, arg);
 	}
@@ -589,10 +608,18 @@ static long subdev_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 
 	case VIDIOC_SUBDEV_S_SELECTION: {
 		struct v4l2_subdev_selection *sel = arg;
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
+		int ret = 0;
+#endif
 
 		if (sel->which != V4L2_SUBDEV_FORMAT_TRY && ro_subdev)
 			return -EPERM;
-
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
+		trace_android_rvh_v4l2subdev_set_selection(sd, subdev_fh->state,
+					sel, &ret);
+		if (ret)
+			return ret;
+#endif
 		memset(sel->reserved, 0, sizeof(sel->reserved));
 		return v4l2_subdev_call(
 			sd, pad, set_selection, subdev_fh->state, sel);
