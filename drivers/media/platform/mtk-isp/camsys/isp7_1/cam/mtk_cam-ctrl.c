@@ -39,8 +39,6 @@
 
 #define STATE_NUM_AT_SOF 3
 #define INITIAL_DROP_FRAME_CNT 1
-/*stagger sensor stability option for camsys*/
-#define STAGGER_CQ_LAST_SOF 1
 #define STAGGER_DYNAMIC_SWITCH 1
 
 enum MTK_CAMSYS_STATE_RESULT {
