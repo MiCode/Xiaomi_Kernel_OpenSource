@@ -338,6 +338,7 @@ static const struct md_cooling_platform_data md_cooling_pdata = {
 };
 
 static const struct of_device_id md_cooling_of_match[] = {
+	{ .compatible = "mediatek,mt6295-md-cooler", },
 	{ .compatible = "mediatek,mt6297-md-cooler", },
 	{ .compatible = "mediatek,mt6298-md-cooler", },
 	{},

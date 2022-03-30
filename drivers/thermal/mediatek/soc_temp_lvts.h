@@ -218,6 +218,7 @@ struct lvts_data {
 	struct sensor_cal_data cal_data;
 	bool init_done; /*lvts driver init finish*/
 	unsigned int *irq_bitmap;
+	int enable_dump_log;
 };
 
 struct soc_temp_tz {

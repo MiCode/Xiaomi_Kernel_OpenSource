@@ -13,6 +13,7 @@
 #define AP_NTC_HEADROOM_OFFSET      (0x80)
 #define TPCB_OFFSET                 (0x84)
 #define TARGET_TPCB_OFFSET          (0x88)
+#define SPORTS_MODE_ENABLE          (0x90)
 #define TTJ_OFFSET                 (0x100)
 #define POWER_BUDGET_OFFSET        (0x110)
 #define CPU_MIN_OPP_HINT_OFFSET    (0x120)
@@ -30,6 +31,7 @@
 #define ATC_OFFSET                 (0x280)
 #define ATC_NUM                    (17)
 #define UTC_COUNT_OFFSET           (0x27C)
+#define INFOB_OFFSET               (0x2C4)
 
 #define APU_MBOX_TTJ_OFFSET        (0x700)
 #define APU_MBOX_PB_OFFSET         (0x704)

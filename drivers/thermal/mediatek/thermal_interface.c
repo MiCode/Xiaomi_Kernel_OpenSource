@@ -804,6 +804,17 @@ static ssize_t md_actuator_info_show(struct kobject *kobj, struct kobj_attribute
 	return len;
 }
 
+static ssize_t info_b_show(struct kobject *kobj, struct kobj_attribute *attr,
+	char *buf)
+{
+	int len = 0, val;
+
+	val = therm_intf_read_csram_s32(INFOB_OFFSET);
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", val);
+
+	return len;
+}
+
 static ssize_t utc_count_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
@@ -813,6 +824,32 @@ static ssize_t utc_count_show(struct kobject *kobj,
 		therm_intf_read_csram_s32(UTC_COUNT_OFFSET));
 
 	return len;
+}
+
+static ssize_t sports_mode_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+	int enable = therm_intf_read_csram_s32(SPORTS_MODE_ENABLE);
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", enable);
+
+	return len;
+}
+
+static ssize_t sports_mode_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int enable = 0;
+
+	if (!kstrtoint(buf, 10, &enable))
+		therm_intf_write_csram(enable, SPORTS_MODE_ENABLE);
+	else {
+		pr_info("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	return count;
 }
 
 static struct kobj_attribute ttj_attr = __ATTR_RW(ttj);
@@ -830,11 +867,13 @@ static struct kobj_attribute atc_attr = __ATTR_RO(atc);
 static struct kobj_attribute target_tpcb_attr = __ATTR_RW(target_tpcb);
 static struct kobj_attribute md_sensor_info_attr = __ATTR_RW(md_sensor_info);
 static struct kobj_attribute md_actuator_info_attr = __ATTR_RW(md_actuator_info);
+static struct kobj_attribute info_b_attr = __ATTR_RO(info_b);
 static struct kobj_attribute utc_count_attr = __ATTR_RO(utc_count);
 static struct kobj_attribute max_ttj_attr = __ATTR_RW(max_ttj);
 static struct kobj_attribute min_ttj_attr = __ATTR_RW(min_ttj);
 static struct kobj_attribute min_throttle_freq_attr =
 	__ATTR_RW(min_throttle_freq);
+static struct kobj_attribute sports_mode_attr = __ATTR_RW(sports_mode);
 
 
 static struct attribute *thermal_attrs[] = {
@@ -853,10 +892,12 @@ static struct attribute *thermal_attrs[] = {
 	&target_tpcb_attr.attr,
 	&md_sensor_info_attr.attr,
 	&md_actuator_info_attr.attr,
+	&info_b_attr.attr,
 	&max_ttj_attr.attr,
 	&min_ttj_attr.attr,
 	&utc_count_attr.attr,
 	&min_throttle_freq_attr.attr,
+	&sports_mode_attr.attr,
 	NULL
 };
 static struct attribute_group thermal_attr_group = {
@@ -989,10 +1030,17 @@ static int therm_intf_probe(struct platform_device *pdev)
 
 	thermal_csram_base = addr;
 
+	/* Some projects don't support APU */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apu_mbox");
-	addr = ioremap(res->start, res->end - res->start + 1);
-	if (!IS_ERR_OR_NULL(addr))
-		thermal_apu_mbox_base = addr;
+	if (!res) {
+		dev_info(&pdev->dev, "Failed to get apu_mbox resource\n");
+	} else {
+		addr = ioremap(res->start, res->end - res->start + 1);
+		if (!IS_ERR_OR_NULL(addr))
+			dev_info(&pdev->dev, "Failed to remap apu_mbox addr\n");
+		else
+			thermal_apu_mbox_base = addr;
+	}
 
 	/* get CPU cluster num */
 	for_each_possible_cpu(cpu) {
