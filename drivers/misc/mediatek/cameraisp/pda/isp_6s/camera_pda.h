@@ -476,4 +476,16 @@ enum PDA_CMD_ENUM {
 #define PDA_GET_VERSION    \
 	_IOWR(PDA_MAGIC, PDA_CMD_GET_VERSION, struct PDA_Init_Data)
 
+
+// pda api function
+void pda_mmqos_init(struct device *pdev);
+void pda_mmqos_bw_set(void);
+void pda_mmqos_bw_reset(void);
+void pda_init_larb(struct platform_device *pdev);
+int pda_devm_clk_get(struct platform_device *pdev);
+void pda_clk_prepare_enable(void);
+void pda_clk_disable_unprepare(void);
+void __iomem *pda_get_camsys_address(void);
+unsigned int GetResetBitMask(int PDA_Index);
+
 #endif/*__MTK_PDA_HW_H__*/

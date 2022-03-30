@@ -11,7 +11,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/jiffies.h>
 
-#include <linux/time.h>  //do_gettimeofday()
+#include <linux/time.h>		//do_gettimeofday()
 
 #include "mtk-interconnect.h"
 
@@ -21,8 +21,6 @@
 #include <linux/scatterlist.h>
 #include <linux/dma-buf.h>
 // ----------------------------
-
-#include <soc/mediatek/smi.h>  // mtk_smi_larb_get()
 
 #include "camera_pda.h"
 
@@ -34,11 +32,6 @@
 #define CHECK_IRQ_COUNT
 #define PDA_MMQOS
 // --------------------------------
-
-#ifdef PDA_TF_DUMP_71_1
-#include "iommu_debug.h"
-#include <dt-bindings/memory/mt6983-larb-port.h>
-#endif
 
 #define PDA_DEV_NAME "camera-pda"
 
@@ -61,20 +54,15 @@
 #define PDA_WR32(addr, data) mt_reg_sync_writel(data, addr)
 #define PDA_RD32(addr) ioread32(addr)
 
-#ifdef FPGA_UT
 void __iomem *CAMSYS_CONFIG_BASE;
 #define CAMSYS_MAIN_BASE_ADDR CAMSYS_CONFIG_BASE
 #define REG_CAMSYS_CG_SET               (CAMSYS_MAIN_BASE_ADDR + 0x4)
 #define REG_CAMSYS_CG_CLR               (CAMSYS_MAIN_BASE_ADDR + 0x8)
-#endif
-
-void __iomem *MRAW_BASE;
-#define MRAW_BASE_ADDR MRAW_BASE
-#define REG_CAMSYS_SW_RST               (MRAW_BASE_ADDR + 0xA0)
+#define REG_CAMSYS_SW_RST               (CAMSYS_MAIN_BASE_ADDR + 0xC)
 
 #define PDA_DONE 0x00000001
 #define PDA_ERROR 0x00000002
-#define PDA_STATUS_REG 0x00000001
+#define PDA_STATUS_REG 0x00000003
 #define PDA_CLEAR_REG 0x00000000
 #define PDA_TRIGGER 0x00000003
 #define PDA_DOUBLE_BUFFER 0x00000009
@@ -84,9 +72,6 @@ void __iomem *MRAW_BASE;
 #define PDA_HW_RESET 0x00000004
 
 struct device *g_dev1, *g_dev2;
-
-struct device *larb1;
-struct device *larb2;
 
 static spinlock_t g_PDA_SpinLock;
 
@@ -102,55 +87,23 @@ static int g_PDA0_IRQCount;
 static int g_PDA1_IRQCount;
 #endif
 
-static struct PDA_Data_t_v2 g_pda_Pdadata;
+static struct PDA_Data_t g_pda_Pdadata;
 
 // pda device information
-// static struct PDA_device *PDA_devs;
 static struct PDA_device PDA_devs[PDA_MAX_QUANTITY];
 
-// clock relate
-static const char * const clk_names[] = {
-	"camsys_mraw_pda0",
-	"camsys_mraw_pda1",
-	"mraw_larbx",
-	"cam_main_cam2mm0_gals_cg_con",
-	"cam_main_cam2mm1_gals_cg_con",
-	"cam_main_cam_cg_con",
-};
-#define PDA_CLK_NUM ARRAY_SIZE(clk_names)
-struct PDA_CLK_STRUCT pda_clk[PDA_CLK_NUM];
-
-#ifdef PDA_MMQOS
-// mmqos relate
-static const char * const mmqos_names_rdma[] = {
-	"l25_pdai_a0",
-	"l25_pdai_a1",
-	"l26_pdai_b0",
-	"l26_pdai_b1"
-};
-#define PDA_MMQOS_RDMA_NUM ARRAY_SIZE(mmqos_names_rdma)
-struct icc_path *icc_path_pda_rdma[PDA_MMQOS_RDMA_NUM];
-
-static const char * const mmqos_names_wdma[] = {
-	"l25_pdao_a",
-	"l26_pdao_b"
-};
-#define PDA_MMQOS_WDMA_NUM ARRAY_SIZE(mmqos_names_wdma)
-struct icc_path *icc_path_pda_wdma[PDA_MMQOS_WDMA_NUM];
-#endif
-
-// Enable clock count
+//Enable clock count
 static unsigned int g_u4EnableClockCount;
 
 #ifdef GET_PDA_TIME
 // Get PDA process time
-struct timespec64 time_end;
-struct timespec64 total_time_begin, total_time_end;
-struct timespec64 pda1_done_b, pda1_done_e;
-struct timespec64 pda2_done_b, pda2_done_e;
+struct timeval time_begin, time_end;
+struct timeval Config_time_begin, Config_time_end;
+struct timeval total_time_begin, total_time_end;
+struct timeval pda_done_time_end;
 #endif
 
-// calculate 1024 roi data
+//calculate 1024 roi data
 unsigned int g_rgn_x_buf[PDA_MAXROI_PER_ROUND];
 unsigned int g_rgn_y_buf[PDA_MAXROI_PER_ROUND];
 unsigned int g_rgn_h_buf[PDA_MAXROI_PER_ROUND];
@@ -170,176 +123,11 @@ unsigned long g_Address_RT;
 static unsigned long g_OutputBufferAddr;
 static unsigned long g_OutputBufferOffset;
 
-#ifdef FOR_DEBUG
-// buffer address
-unsigned int *g_buf_LI_va;
-unsigned int *g_buf_RI_va;
-unsigned int *g_buf_LT_va;
-unsigned int *g_buf_RT_va;
-unsigned int *g_buf_Out_va;
-#endif
-
 // current Process ROI number
 unsigned int g_CurrentProcRoiNum[PDA_MAX_QUANTITY];
 
-#ifdef PDA_MMQOS
-static void pda_mmqos_init(void)
-{
-	int i = 0;
-
-	// get interconnect path for MMQOS
-	for (i = 0; i < PDA_MMQOS_RDMA_NUM; ++i) {
-		LOG_INF("rdma index: %d, mmqos name: %s\n", i, mmqos_names_rdma[i]);
-		icc_path_pda_rdma[i] = of_mtk_icc_get(g_dev1, mmqos_names_rdma[i]);
-	}
-
-	// get interconnect path for MMQOS
-	for (i = 0; i < PDA_MMQOS_WDMA_NUM; ++i) {
-		LOG_INF("wdma index: %d, mmqos name: %s\n", i, mmqos_names_wdma[i]);
-		icc_path_pda_wdma[i] = of_mtk_icc_get(g_dev1, mmqos_names_wdma[i]);
-	}
-}
-
-static void pda_mmqos_bw_set(void)
-{
-	int i = 0;
-	// int Inter_ROI_Max_Width = 1024;
-	// int Inter_ROI_Max_Height = 96;
-	int Inter_Frame_Size_Width = 2048;
-	int Inter_Frame_Size_Height = 192;
-
-	int Mach_ROI_Max_Width = 2048;
-	int Mach_ROI_Max_Height = 96;
-	int Mach_Frame_Size_Width = 4096;
-	int Mach_Frame_Size_Height = 192;
-
-	double Freqency = 360.0;
-	int FOV = 100;
-	int ROI_Number = 45;
-	int Frame_Rate = 30;
-	// int Expected_HW_Compute_time = 15;
-	int Search_Range = 40;
-
-	// Intermediate data
-	double Operation_Margin = 1.2;
-	int Inter_Frame_Size = Inter_Frame_Size_Width * Inter_Frame_Size_Height;
-	int Mach_Frame_Size = Mach_Frame_Size_Width * Mach_Frame_Size_Height;
-	// int Inter_Factor = 8;
-	int Inter_Frame_Size_FOV = Inter_Frame_Size * FOV / 100;
-	int Mach_Frame_Size_FOV = Mach_Frame_Size * FOV / 100;
-	int Inter_Input_Total_pixel_Itar = Inter_Frame_Size_FOV;
-	int Inter_Input_Total_pixel_Iref = Inter_Frame_Size_FOV;
-	int Mach_Input_Total_pixel_Itar =
-		(ROI_Number*Search_Range*Mach_ROI_Max_Height) +
-		Mach_Frame_Size_FOV +
-		(1*Mach_ROI_Max_Width);
-	// int Mach_Input_Total_pixel_Iref = Mach_Frame_Size_FOV;
-	int Required_Operation_Cycle =
-		(int)(Mach_Input_Total_pixel_Itar *
-		Operation_Margin *
-		(Search_Range+1)) /
-		Search_Range + 1;
-	int WDMA_Data = OUT_BYTE_PER_ROI*ROI_Number;
-	int temp = Inter_Input_Total_pixel_Itar+Inter_Input_Total_pixel_Iref;
-	int RDMA_Data = temp*20/8;
-
-	double OperationTime = (double)Required_Operation_Cycle / Freqency / 1000.0;
-
-	// WDMA BW estimate
-	double WDMA_PEAK_BW = (double)WDMA_Data / (double)OperationTime / 1000.0;
-	double WDMA_AVG_BW = (double)WDMA_Data * Frame_Rate * (1.33) / 1000000.0;
-
-	// RDMA BW estimate
-	double RDMA_PEAK_BW = (double)RDMA_Data / (double)OperationTime / 1000.0;
-	double RDMA_AVG_BW = (double)RDMA_Data / (1000000.0/(double)Frame_Rate);
-
-	// Left/Right RDMA BW
-	double IMAGE_TABLE_RDMA_PEAK_BW = RDMA_PEAK_BW / 2;
-	double IMAGE_TABLE_RDMA_AVG_BW = RDMA_AVG_BW * (1.33) / 2;
-
-	// pda is not HRT engine, no need to set HRT bw
-	IMAGE_TABLE_RDMA_PEAK_BW = 0;
-	WDMA_PEAK_BW = 0;
-
-	LOG_INF("RDMA_BW AVG/PEAK: %d/%d, WDMA_BW AVG/PEAK: %d/%d\n",
-		(int)MBps_to_icc(IMAGE_TABLE_RDMA_AVG_BW),
-		(int)MBps_to_icc(IMAGE_TABLE_RDMA_PEAK_BW),
-		(int)MBps_to_icc(WDMA_AVG_BW),
-		(int)MBps_to_icc(WDMA_PEAK_BW));
-
-	// MMQOS set bw
-	for (i = 0; i < PDA_MMQOS_RDMA_NUM; ++i) {
-		if (icc_path_pda_rdma[i]) {
-			mtk_icc_set_bw(icc_path_pda_rdma[i],
-				(int)MBps_to_icc(IMAGE_TABLE_RDMA_AVG_BW),
-				(int)MBps_to_icc(IMAGE_TABLE_RDMA_PEAK_BW));
-		}
-	}
-
-	for (i = 0; i < PDA_MMQOS_WDMA_NUM; ++i) {
-		if (icc_path_pda_wdma[i]) {
-			mtk_icc_set_bw(icc_path_pda_wdma[i],
-				(int)MBps_to_icc(WDMA_AVG_BW),
-				(int)MBps_to_icc(WDMA_PEAK_BW));
-		}
-	}
-}
-
-static void pda_mmqos_bw_reset(void)
-{
-	int i = 0;
-
-#ifdef FOR_DEBUG
-	LOG_INF("mmqos reset\n");
-#endif
-
-	// MMQOS set bw
-	for (i = 0; i < PDA_MMQOS_RDMA_NUM; ++i) {
-		if (icc_path_pda_rdma[i])
-			mtk_icc_set_bw(icc_path_pda_rdma[i], 0, 0);
-	}
-	for (i = 0; i < PDA_MMQOS_WDMA_NUM; ++i) {
-		if (icc_path_pda_wdma[i])
-			mtk_icc_set_bw(icc_path_pda_wdma[i], 0, 0);
-	}
-}
-#endif
-
-struct device *pda_init_larb(struct platform_device *pdev, int idx)
-{
-	struct device_node *node;
-	struct platform_device *larb_pdev;
-	struct device_link *link;
-
-	/* get larb node from dts */
-	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", idx);
-	if (!node) {
-		LOG_INF("fail to parse mediatek,larb\n");
-		return NULL;
-	}
-
-	larb_pdev = of_find_device_by_node(node);
-	if (WARN_ON(!larb_pdev)) {
-		of_node_put(node);
-		LOG_INF("no larb for idx %d\n", idx);
-		return NULL;
-	}
-	of_node_put(node);
-
-	link = device_link_add(&pdev->dev, &larb_pdev->dev,
-					DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
-	if (!link)
-		LOG_INF("unable to link smi larb%d\n", idx);
-
-	LOG_INF("pdev %p idx %d\n", pdev, idx);
-
-	return &larb_pdev->dev;
-}
-
 static inline void PDA_Prepare_Enable_ccf_clock(void)
 {
-	int ret, i;
-
 #if IS_ENABLED(CONFIG_OF)
 	/* consumer device starting work*/
 	if (g_PDA_quantity > 0)
@@ -351,29 +139,12 @@ static inline void PDA_Prepare_Enable_ccf_clock(void)
 #endif
 #endif
 
-	for (i = 0; i < PDA_CLK_NUM; i++) {
-		ret = clk_prepare_enable(pda_clk[i].CG_PDA_TOP_MUX);
-		if (ret)
-			LOG_INF("cannot enable clock (%s)\n", clk_names[i]);
-#ifdef FOR_DEBUG
-		LOG_INF("clk_prepare_enable (%s) done", clk_names[i]);
-#endif
-	}
-#ifdef FOR_DEBUG
-	LOG_INF("clk_prepare_enable done");
-#endif
+	pda_clk_prepare_enable();
 }
 
 static inline void PDA_Disable_Unprepare_ccf_clock(void)
 {
-	int i;
-
-	for (i = 0; i < PDA_CLK_NUM; i++) {
-		clk_disable_unprepare(pda_clk[i].CG_PDA_TOP_MUX);
-#ifdef FOR_DEBUG
-		LOG_INF("clk_disable_unprepare (%s) done\n", clk_names[i]);
-#endif
-	}
+	pda_clk_disable_unprepare();
 
 #if IS_ENABLED(CONFIG_OF)
 	if (g_PDA_quantity > 1)
@@ -385,7 +156,6 @@ static inline void PDA_Disable_Unprepare_ccf_clock(void)
 #endif
 #endif
 }
-
 /**************************************************************
  *
  **************************************************************/
@@ -393,7 +163,7 @@ static void EnableClock(bool En)
 {
 	if (En) {			/* Enable clock. */
 
-		// Enable clock count
+		//Enable clock count
 		switch (g_u4EnableClockCount) {
 		case 0:
 			g_u4EnableClockCount++;
@@ -416,7 +186,7 @@ static void EnableClock(bool En)
 		}
 	} else {			/* Disable clock. */
 
-		// Enable clock count
+		//Enable clock count
 		g_u4EnableClockCount--;
 		switch (g_u4EnableClockCount) {
 		case 0:
@@ -498,10 +268,8 @@ static void pda_nontransaction_reset(int PDA_Index)
 
 	//MRAW PDA reset
 	MRAW_reset_value = PDA_RD32(REG_CAMSYS_SW_RST);
-	if (PDA_Index == 0)
-		Reset_Bitmask = BIT(12) | BIT(13);
-	else if (PDA_Index == 1)
-		Reset_Bitmask = BIT(14) | BIT(15);
+
+	Reset_Bitmask = GetResetBitMask(PDA_Index);
 
 	// LOG_INF("before, MRAW_reset_value: %x\n", MRAW_reset_value);
 	MRAW_reset_value |= Reset_Bitmask;
@@ -567,7 +335,7 @@ static void pda_put_dma_buffer(struct pda_mmu *mmu)
 	}
 }
 
-static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t_v2 *pda_PdaConfig)
+static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 {
 	int ret = 0;
 	int i = 0;
@@ -661,7 +429,7 @@ static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t_v2 *pda_PdaConfig)
 	return ret;
 }
 
-static int Get_Output_Addr_From_DMABUF(struct PDA_Data_t_v2 *pda_PdaConfig)
+static int Get_Output_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 {
 	int ret = 0;
 	int i = 0;
@@ -693,12 +461,12 @@ static int Get_Output_Addr_From_DMABUF(struct PDA_Data_t_v2 *pda_PdaConfig)
 	return ret;
 }
 
-static void HWDMASettings(struct PDA_Data_t_v2 *pda_PdaConfig)
+static void HWDMASettings(struct PDA_Data_t *pda_PdaConfig)
 {
 	int i;
 
 	for (i = 0; i < g_PDA_quantity; i++) {
-		// --------- Frame setting part -----------
+		//--------- Frame setting part -----------
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_0_REG,
 			pda_PdaConfig->PDA_FrameSetting.PDA_CFG_0.Raw);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_1_REG,
@@ -729,7 +497,8 @@ static void HWDMASettings(struct PDA_Data_t_v2 *pda_PdaConfig)
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_13_REG,
 			pda_PdaConfig->PDA_FrameSetting.PDA_CFG_13.Raw);
 
-		// --------- Input buffer address -------------
+
+	//--------- Input buffer address -------------
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_REG,
 			pda_PdaConfig->PDA_PDAI_P1_BASE_ADDR);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_REG,
@@ -739,35 +508,35 @@ static void HWDMASettings(struct PDA_Data_t_v2 *pda_PdaConfig)
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_REG,
 			pda_PdaConfig->PDA_PDATI_P2_BASE_ADDR);
 
-		// --------- DMA Secure part -------------
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_SECURE_REG, 0x9daf851f);
+		//--------- DMA Secure part -------------
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_SECURE_REG, 0x00000000);
 
 		// --------- config setting hard code part --------------
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_STRIDE_REG, 0x580);
 
 		// Left image
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_CON0_REG, 0x10000134);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_CON0_REG, 0x80000134);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_CON1_REG, 0x104d004d);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_CON2_REG, 0x009a009a);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_CON3_REG, 0x00e700e7);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_CON4_REG, 0x009a009a);
 
 		// Left table
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_CON0_REG, 0x1000004c);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_CON0_REG, 0x8000004c);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_CON1_REG, 0x10130013);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_CON2_REG, 0x00260026);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_CON3_REG, 0x00390039);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_CON4_REG, 0x00260026);
 
 		// Right image
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_CON0_REG, 0x10000134);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_CON0_REG, 0x80000134);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_CON1_REG, 0x104d004d);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_CON2_REG, 0x009a009a);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_CON3_REG, 0x00e700e7);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_CON4_REG, 0x009a009a);
 
 		// Right table
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_CON0_REG, 0x1000004c);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_CON0_REG, 0x8000004c);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_CON1_REG, 0x10130013);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_CON2_REG, 0x00260026);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_CON3_REG, 0x00390039);
@@ -776,7 +545,7 @@ static void HWDMASettings(struct PDA_Data_t_v2 *pda_PdaConfig)
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_XSIZE_REG, 0x0000057f);
 
 		// Output
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_CON0_REG, 0x10000040);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_CON0_REG, 0x80000040);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_CON1_REG, 0x10100010);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_CON2_REG, 0x00200020);
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_CON3_REG, 0x00300030);
@@ -821,7 +590,7 @@ static void HWDMASettings(struct PDA_Data_t_v2 *pda_PdaConfig)
 	}
 }
 
-static int ProcessROIData(struct PDA_Data_t_v2 *pda_data,
+static int ProcessROIData(struct PDA_Data_t *pda_data,
 				unsigned int RoiProcNum,
 				unsigned int ROIIndex,
 				unsigned int isFixROI,
@@ -959,7 +728,7 @@ CALDONE:
 	return 0;
 }
 
-static int CheckDesignLimitation(struct PDA_Data_t_v2 *PDA_Data,
+static int CheckDesignLimitation(struct PDA_Data_t *PDA_Data,
 				unsigned int RoiProcNum,
 				unsigned int ROIIndex)
 {
@@ -1179,7 +948,7 @@ static int CheckDesignLimitation(struct PDA_Data_t_v2 *PDA_Data,
 	return 0;
 }
 
-static void FillRegSettings(struct PDA_Data_t_v2 *pda_PdaConfig,
+static void FillRegSettings(struct PDA_Data_t *pda_PdaConfig,
 				unsigned int RoiProcNum,
 				unsigned long OuputAddr,
 				int PDA_Index)
@@ -1397,99 +1166,6 @@ static void TimeoutHandler(int hw_trigger_num)
 	}
 }
 
-#ifdef PDA_TF_DUMP_71_1
-int pda_tfault_callback(int port,
-	dma_addr_t mva, void *data)
-{
-	int i = 0;
-
-	LOG_INF("User:PDA_PDAI_P1_BASE_ADDR: 0x%lx\n", g_Address_LI);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("PDA%d:I_P1_MSB/I_P1: 0x%x/0x%x\n", i,
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_MSB_REG),
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_REG));
-	}
-
-	LOG_INF("User:PDA_PDATI_P1_BASE_ADDR: 0x%lx\n", g_Address_LT);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("PDA%d:TI_P1_MSB/TI_P1: 0x%x/0x%x\n", i,
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_MSB_REG),
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_REG));
-	}
-
-	LOG_INF("User:PDA_PDAI_P2_BASE_ADDR: 0x%lx\n", g_Address_RI);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("PDA%d:I_P2_MSB/I_P2: 0x%x/0x%x\n", i,
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_MSB_REG),
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_REG));
-	}
-
-	LOG_INF("User:PDA_PDATI_P2_BASE_ADDR: 0x%lx\n", g_Address_RT);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("PDA%d:TI_P2_MSB/TI_P2: 0x%x/0x%x\n", i,
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_MSB_REG),
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_REG));
-	}
-
-	LOG_INF("User:PDA_PDAO_P1_BASE_ADDR: 0x%lx\n", g_OutputBufferAddr);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("PDA%d:O_P1_MSB/O_P1: 0x%x/0x%x\n", i,
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_MSB_REG),
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_REG));
-	}
-
-	LOG_INF("ImageSize/TableSize/OutputSize/ROInumber: %d/%d/%d/%d\n",
-		g_pda_Pdadata.ImageSize,
-		g_pda_Pdadata.TableSize,
-		g_pda_Pdadata.OutputSize,
-		g_pda_Pdadata.ROInumber);
-
-	LOG_INF("FD_L_Img/R_Img/L_Tbl/R_Tbl/Out: %d/%d/%d/%d/%d\n",
-		g_pda_Pdadata.FD_L_Image,
-		g_pda_Pdadata.FD_R_Image,
-		g_pda_Pdadata.FD_L_Table,
-		g_pda_Pdadata.FD_R_Table,
-		g_pda_Pdadata.FD_Output);
-
-	LOG_INF("Status/Timeout/nNumerousROI: %d/%d/%d\n",
-		g_pda_Pdadata.Status,
-		g_pda_Pdadata.Timeout,
-		g_pda_Pdadata.nNumerousROI);
-
-	LOG_INF("PDA_CFG_0/1/2/3/4/5/6: 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_0,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_1,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_2,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_3,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_4,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_5,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_6);
-
-	LOG_INF("PDA_CFG_7/8/9/10/11/12/13: 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_7,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_8,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_9,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_10,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_11,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_12,
-		g_pda_Pdadata.PDA_FrameSetting.PDA_CFG_13);
-
-	for (i = 0; i < g_pda_Pdadata.ROInumber; ++i) {
-		LOG_INF("rgn_x/y/h/w/iw[%d]: 0x%x/0x%x/0x%x/0x%x/0x%x\n", i,
-			g_pda_Pdadata.rgn_x[i],
-			g_pda_Pdadata.rgn_y[i],
-			g_pda_Pdadata.rgn_h[i],
-			g_pda_Pdadata.rgn_w[i],
-			g_pda_Pdadata.rgn_iw[i]);
-	}
-
-	// dump data
-	TF_dump_log(g_PDA_quantity);
-
-	return 1;
-}
-#endif
-
 static void pda_execute(int hw_trigger_num)
 {
 	int i;
@@ -1547,7 +1223,7 @@ static inline unsigned int pda_ms_to_jiffies(unsigned int ms)
 	return ((ms * HZ + 512) >> 10);
 }
 
-static signed int pda_wait_irq(struct PDA_Data_t_v2 *pda_data, int hw_trigger_num)
+static signed int pda_wait_irq(struct PDA_Data_t *pda_data, int hw_trigger_num)
 {
 	int ret = 0, i = 0;
 
@@ -1609,11 +1285,9 @@ static irqreturn_t pda_irqhandle(signed int Irq, void *DeviceId)
 {
 	unsigned int nPdaStatus = 0;
 
-	if (g_u4EnableClockCount > 0) {
-		// read pda status
-		nPdaStatus = PDA_RD32(PDA_devs[0].m_pda_base + PDA_PDA_ERR_STAT_REG) &
-			PDA_STATUS_REG;
-	}
+	// read pda status
+	nPdaStatus = PDA_RD32(PDA_devs[0].m_pda_base + PDA_PDA_ERR_STAT_REG) &
+		PDA_STATUS_REG;
 
 #ifdef FOR_DEBUG
 	LOG_INF("PDA0 PDA_PDA_ERR_STAT_REG = 0x%x", nPdaStatus);
@@ -1645,11 +1319,9 @@ static irqreturn_t pda2_irqhandle(signed int Irq, void *DeviceId)
 {
 	unsigned int nPdaStatus = 0;
 
-	if (g_u4EnableClockCount > 0) {
-		// read pda status
-		nPdaStatus = PDA_RD32(PDA_devs[1].m_pda_base + PDA_PDA_ERR_STAT_REG) &
-			PDA_STATUS_REG;
-	}
+	// read pda status
+	nPdaStatus = PDA_RD32(PDA_devs[1].m_pda_base + PDA_PDA_ERR_STAT_REG) &
+		PDA_STATUS_REG;
 
 #ifdef FOR_DEBUG
 	LOG_INF("PDA1 PDA_PDA_ERR_STAT_REG = 0x%x", nPdaStatus);
@@ -1937,7 +1609,7 @@ static long PDA_Ioctl(struct file *a_pstFile,
 		}
 
 		break;
-	case PDA_ENQUE_WAITIRQ_V2:
+	case PDA_ENQUE_WAITIRQ:
 
 #ifdef GET_PDA_TIME
 		ktime_get_real_ts64(&total_time_begin);
@@ -1966,7 +1638,7 @@ static long PDA_Ioctl(struct file *a_pstFile,
 
 		if (copy_from_user(&g_pda_Pdadata,
 				   (void *)a_u4Param,
-				   sizeof(struct PDA_Data_t_v2)) != 0) {
+				   sizeof(struct PDA_Data_t)) != 0) {
 			LOG_INF("PDA_ENQUE_WAITIRQ copy_from_user failed\n");
 			nRet = -EFAULT;
 			break;
@@ -2134,7 +1806,7 @@ EXIT_WITHOUT_FREE_IOVA:
 
 		if (copy_to_user((void *)a_u4Param,
 		    &g_pda_Pdadata,
-		    sizeof(struct PDA_Data_t_v2)) != 0) {
+		    sizeof(struct PDA_Data_t)) != 0) {
 			LOG_INF("copy_to_user failed\n");
 			nRet = -EFAULT;
 		}
@@ -2198,9 +1870,9 @@ static int PDA_Release(struct inode *a_pstInode, struct file *a_pstFile)
 	return 0;
 }
 
-/*****************************************************************************
+/*******************************************************************************
  *
- ****************************************************************************/
+ ******************************************************************************/
 
 static dev_t g_PDA_devno;
 static struct cdev *g_pPDA_CharDrv;
@@ -2256,7 +1928,7 @@ static inline int PDA_RegCharDev(void)
 		int ret = PTR_ERR(actuator_class);
 
 		LOG_INF("Unable to create class, err = %d\n", ret);
-		// unregister_chrdev_region(g_PDA_devno, 1);
+		//unregister_chrdev_region(g_PDA_devno, 1);
 		return ret;
 	}
 
@@ -2267,7 +1939,7 @@ static inline int PDA_RegCharDev(void)
 		int ret = PTR_ERR(lens_device);
 
 		LOG_INF("create dev err: /dev/%s, err = %d\n", PDA_DEV_NAME, ret);
-		// unregister_chrdev_region(g_PDA_devno, 1);
+		//unregister_chrdev_region(g_PDA_devno, 1);
 		return ret;
 	}
 
@@ -2291,22 +1963,14 @@ static inline void PDA_UnRegCharDev(void)
 	LOG_INF("UnRegCharDev End\n");
 }
 
-/*****************************************************************************
+/*******************************************************************************
  *
- ****************************************************************************/
+ ******************************************************************************/
 static int PDA_probe(struct platform_device *pdev)
 {
 	int nRet = 0;
 	unsigned int irq_info[3];	/* Record interrupts info from device tree */
 	struct device_node *node;
-	int i;
-	int larbs;
-
-	struct device_node *mraw_node;
-
-#ifdef FPGA_UT
-	struct device_node *camsys_node;
-#endif
 
 	LOG_INF("probe Start\n");
 
@@ -2328,7 +1992,7 @@ static int PDA_probe(struct platform_device *pdev)
 	init_waitqueue_head(&g_wait_queue_head);
 	LOG_INF("init_waitqueue_head done\n");
 
-	// get PDA node
+	//PDA node
 	node = of_find_compatible_node(NULL, NULL, "mediatek,camera-pda");
 	if (!node) {
 		LOG_INF("find camera-pda node failed\n");
@@ -2337,11 +2001,7 @@ static int PDA_probe(struct platform_device *pdev)
 	LOG_INF("find camera-pda node done\n");
 
 	// must porting in dts
-	larbs = of_count_phandle_with_args(
-				pdev->dev.of_node, "mediatek,larbs", NULL);
-	LOG_INF("larb_num:%d\n", larbs);
-	for (i = 0; i < larbs; i++)
-		larb1 = pda_init_larb(pdev, i);
+	pda_init_larb(pdev);
 
 #if IS_ENABLED(CONFIG_OF)
 	g_dev1 = &pdev->dev;
@@ -2355,15 +2015,8 @@ static int PDA_probe(struct platform_device *pdev)
 	LOG_INF("pm_runtime_enable pda1 done\n");
 #endif
 
-	for (i = 0; i < PDA_CLK_NUM; ++i) {
-		// CCF: Grab clock pointer (struct clk*)
-		LOG_INF("index: %d, clock name: %s\n", i, clk_names[i]);
-		pda_clk[i].CG_PDA_TOP_MUX = devm_clk_get(&pdev->dev, clk_names[i]);
-		if (IS_ERR(pda_clk[i].CG_PDA_TOP_MUX)) {
-			LOG_INF("cannot get %s clock\n", clk_names[i]);
-			return PTR_ERR(pda_clk[i].CG_PDA_TOP_MUX);
-		}
-	}
+	if (pda_devm_clk_get(pdev))
+		return -1;
 
 	// get PDA address, and PDA quantity
 	PDA_devs[0].m_pda_base = of_iomap(node, 0);
@@ -2378,35 +2031,11 @@ static int PDA_probe(struct platform_device *pdev)
 		g_PDA_quantity++;
 	LOG_INF("PDA quantity: %d\n", g_PDA_quantity);
 
-#ifdef FPGA_UT
-	// camsys node
-	camsys_node = of_find_compatible_node(NULL, NULL, "mediatek,isp_unit_test");
-	if (!camsys_node) {
-		LOG_INF("find camsys_config node failed\n");
-		return -1;
-	}
-	LOG_INF("find camsys_config node done\n");
-
-	CAMSYS_CONFIG_BASE = of_iomap(camsys_node, 2);
+	CAMSYS_CONFIG_BASE = pda_get_camsys_address();
 	if (!CAMSYS_CONFIG_BASE)
 		LOG_INF("base CAMSYS_CONFIG_BASE failed\n");
 	LOG_INF("of_iomap CAMSYS_CONFIG_BASE done (0x%x)\n", CAMSYS_CONFIG_BASE);
-#endif
 
-	// mraw node
-	mraw_node = of_find_compatible_node(NULL, NULL, "mediatek,mt6983-camsys_mraw");
-	if (!mraw_node) {
-		LOG_INF("find mraw_node failed\n");
-		return -1;
-	}
-	LOG_INF("find mraw_node done\n");
-
-	MRAW_BASE = of_iomap(mraw_node, 0);
-	if (!MRAW_BASE)
-		LOG_INF("base MRAW_BASE failed\n");
-	LOG_INF("of_iomap MRAW_BASE done (0x%x)\n", MRAW_BASE);
-
-	// ======================== here need to be modified =====================
 	if (PDA_devs[0].irq > 0) {
 		if (PDA_devs[0].irq > 0 && g_PDA_quantity > 0) {
 			// Get IRQ Flag from device node
@@ -2434,7 +2063,7 @@ static int PDA_probe(struct platform_device *pdev)
 	}
 
 #ifdef PDA_MMQOS
-	pda_mmqos_init();
+	pda_mmqos_init(g_dev1);
 #endif
 
 	LOG_INF("Attached!!\n");
@@ -2465,7 +2094,6 @@ static int PDA2_probe(struct platform_device *pdev)
 	int nRet = 0;
 	struct device_node *node;
 	unsigned int irq_info[3];
-	int i, larbs;
 
 	LOG_INF("PDA2 probe Start\n");
 
@@ -2478,11 +2106,7 @@ static int PDA2_probe(struct platform_device *pdev)
 	LOG_INF("find camera-pda node done\n");
 
 	// must porting in dts
-	larbs = of_count_phandle_with_args(
-				pdev->dev.of_node, "mediatek,larbs", NULL);
-	LOG_INF("larb_num:%d\n", larbs);
-	for (i = 0; i < larbs; i++)
-		larb2 = pda_init_larb(pdev, i);
+	pda_init_larb(pdev);
 
 #if IS_ENABLED(CONFIG_OF)
 	g_dev2 = &pdev->dev;
@@ -2606,30 +2230,6 @@ static int __init camera_pda_init(void)
 		return ret;
 	}
 
-#ifdef PDA_TF_DUMP_71_1
-	// PDA 0
-	mtk_iommu_register_fault_callback(M4U_PORT_L25_CAM_PDAI_A0,
-			(mtk_iommu_fault_callback_t)pda_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L25_CAM_PDAI_A1,
-			(mtk_iommu_fault_callback_t)pda_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L25_CAM_PDAO_A,
-			(mtk_iommu_fault_callback_t)pda_tfault_callback,
-			NULL, false);
-
-	// PDA 1
-	mtk_iommu_register_fault_callback(M4U_PORT_L26_CAM_PDAI_B0,
-			(mtk_iommu_fault_callback_t)pda_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L26_CAM_PDAI_B1,
-			(mtk_iommu_fault_callback_t)pda_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L26_CAM_PDAO_B,
-			(mtk_iommu_fault_callback_t)pda_tfault_callback,
-			NULL, false);
-#endif
-
 	return ret;
 }
 
@@ -2638,9 +2238,9 @@ static void __exit camera_pda_exit(void)
 	platform_driver_unregister(&PDADriver);
 	platform_driver_unregister(&PDA2Driver);
 }
-/****************************************************************************
+/******************************************************************************
  *
- ****************************************************************************/
+ ******************************************************************************/
 module_init(camera_pda_init);
 module_exit(camera_pda_exit);
 MODULE_DESCRIPTION("Camera PDA driver");
