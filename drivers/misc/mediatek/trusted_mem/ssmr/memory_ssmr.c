@@ -36,7 +36,6 @@
 #define SVP_FEATURES_DT_UNAME "SecureVideoPath"
 #define SVP_ON_MTEE_DT_UNAME "MTEE"
 #define SVP_STATIC_RESERVED_DT_UNAME "mediatek,reserve-memory-svp"
-#define GRANULARITY_SIZE 0x200000
 
 static struct device *ssmr_dev;
 
@@ -268,8 +267,7 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 	}
 
 	/* Determine alloc size by feature */
-	/* s2-map and s2-unamp must be 2MB alignment, so size add 2MB */
-	alloc_size = feature->req_size + GRANULARITY_SIZE;
+	alloc_size = feature->req_size;
 
 	feature->alloc_size = alloc_size;
 
@@ -282,9 +280,10 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 	of_reserved_mem_device_init_by_idx(ssmr_dev, ssmr_dev->of_node, 0);
 
 	do {
-		feature->virt_addr = dma_alloc_attrs(ssmr_dev, alloc_size,
-					     &feature->phy_addr, GFP_KERNEL,
-					     DMA_ATTR_NO_KERNEL_MAPPING);
+		/* s2-map and s2-unamp must be 2MB alignment */
+		feature->cma_page = cma_alloc(ssmr_dev->cma_area, alloc_size >> PAGE_SHIFT,
+					get_order(SZ_2M), GFP_KERNEL);
+		feature->phy_addr =  page_to_phys(feature->cma_page);
 
 #if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 		if (!feature->phy_addr) {
@@ -310,27 +309,11 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 		return -1;
 	}
 
-	if (pa) {
+	if (pa)
 		*pa = dma_to_phys(ssmr_dev, feature->phy_addr);
-
-		/* s2-map and s2-unamp must be 2MB alignment */
-		if (feature->must_2MB_alignment && (feature->phy_addr % GRANULARITY_SIZE)) {
-			/* pa add 1MB, then pa is 2MB alignment */
-			*pa = *pa + GRANULARITY_SIZE/2;
-			pr_info("%s: feature: %s, adjust 2MB alignment: pa=0x%lx, retry = %d\n",
-				__func__, feature->feat_name, *pa, offline_retry);
-		}
-	}
 
 	if (size)
 		*size = feature->req_size;
-
-	/* check pa must be 2MB alignment */
-	if (feature->must_2MB_alignment && (*pa % GRANULARITY_SIZE)) {
-		pr_info("%s: feature: %s, pa=%pad is not 2MB alignment\n",
-				__func__, feature->feat_name, *pa);
-		return -1;
-	}
 
 	return 0;
 }
@@ -404,8 +387,7 @@ static int memory_region_online(struct SSMR_Feature *feature)
 	alloc_size = feature->alloc_size;
 
 	if (feature->phy_addr) {
-		dma_free_attrs(ssmr_dev, alloc_size, feature->virt_addr,
-			       feature->phy_addr, DMA_ATTR_NO_KERNEL_MAPPING);
+		cma_release(ssmr_dev->cma_area, feature->cma_page, alloc_size >> PAGE_SHIFT);
 		feature->alloc_size = 0;
 		feature->phy_addr = 0;
 	}
