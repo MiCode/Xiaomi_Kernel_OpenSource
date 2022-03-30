@@ -551,6 +551,8 @@ static void scp_A_notify_ws(struct work_struct *ws)
 
 	if (scp_dvfs_feature_enable()) {
 		sync_ulposc_cali_data_to_scp();
+		/* release pll clock after scp ulposc calibration */
+		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 
 		/*
 		 * Calling sync_ulposc_cali_data_to_scp() will resets the frequency request
@@ -564,9 +566,6 @@ static void scp_A_notify_ws(struct work_struct *ws)
 				WARN_ON(1);
 			}
 		}
-
-		/* release pll clock after scp ulposc calibration */
-		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 	}
 
 		scp_dvfs_cali_ready = 1;
