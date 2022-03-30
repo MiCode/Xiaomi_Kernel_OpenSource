@@ -1334,6 +1334,8 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	struct mtk_cam_request *req;
 	struct mtk_raw_device *raw_dev = NULL;
 	unsigned int time_after_sof = 0;
+	unsigned int sof_count_before_set = 0;
+	unsigned int sof_count_after_set = 0;
 	int sv_i;
 	int is_mstream_last_exposure = 0;
 
@@ -1361,12 +1363,21 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	cam = ctx->cam;
 	req = mtk_cam_s_data_get_req(s_data);
 
+	if (ctx->used_raw_num) {
+		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+
+		/* read sof count before sensor set */
+		if (raw_dev)
+			sof_count_before_set = raw_dev->sof_count;
+	}
+
 	/* Update ctx->sensor for switch sensor cases */
 	if (s_data->seninf_new)
 		mtk_cam_update_sensor(ctx, s_data->sensor);
 
-	dev_dbg(cam->dev, "%s:%s:ctx(%d) req(%d):sensor try set start\n",
-		__func__, req->req.debug_str, ctx->stream_id, s_data->frame_seq_no);
+	dev_dbg(cam->dev, "%s:%s:ctx(%d) req(%d):sensor try set start sof_cnt(%d)\n",
+		__func__, req->req.debug_str, ctx->stream_id, s_data->frame_seq_no,
+		sof_count_before_set);
 
 	if (ctx->used_raw_num) {
 		MTK_CAM_TRACE_BEGIN(BASIC, "frame_sync_start");
@@ -1379,6 +1390,8 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	if (mtk_cam_is_mstream(ctx)) {
 		is_mstream_last_exposure =
 			mtk_cam_set_sensor_mstream_exposure(ctx, s_data);
+		if (raw_dev)
+			sof_count_after_set = raw_dev->sof_count;
 		if (is_mstream_last_exposure && ctx->sensor_ctrl.sof_time > 0)
 			time_after_sof =
 				ktime_get_boottime_ns() / 1000000 - ctx->sensor_ctrl.sof_time;
@@ -1393,15 +1406,17 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 		if (s_data->flags & MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_EN) {
 			v4l2_ctrl_request_setup(&req->req,
 						s_data->sensor->ctrl_handler);
+			if (raw_dev)
+				sof_count_after_set = raw_dev->sof_count;
 			if (ctx->sensor_ctrl.sof_time > 0)
 				time_after_sof =
 					ktime_get_boottime_ns() / 1000000 -
 					ctx->sensor_ctrl.sof_time;
 
 			dev_dbg(cam->dev,
-				"[SOF+%dms] Sensor request:%d[ctx:%d] setup\n",
+				"[SOF+%dms] Sensor request:%d[ctx:%d] setup sof_cnt(%d)\n",
 				time_after_sof, s_data->frame_seq_no,
-				ctx->stream_id);
+				ctx->stream_id, sof_count_after_set);
 
 			/* update request scheduler timer while sensor fps changes */
 			if (s_data->frame_seq_no ==
@@ -1425,7 +1440,8 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 		E_STATE_READY, E_STATE_SENSOR);
 
 	if (mtk_cam_is_mstream(ctx)) {
-		if (time_after_sof > SENSOR_DELAY_GUARD_TIME_60FPS) {
+		if (time_after_sof >= SENSOR_DELAY_GUARD_TIME_60FPS ||
+				sof_count_after_set != sof_count_before_set) {
 			s_data->flags |=
 				MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED;
 			pr_debug("[SOF+%dms] sensor delay req:%d[ctx:%d]\n",
@@ -1443,7 +1459,6 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 	}
 
 	if (ctx->used_raw_num) {
-		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 		if (atomic_read(&raw_dev->vf_en) == 0 &&
 			ctx->sensor_ctrl.initial_cq_done == 1 &&
 			s_data->frame_seq_no == 1) {
