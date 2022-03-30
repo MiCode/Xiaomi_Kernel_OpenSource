@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2020 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  */
 
 #define pr_fmt(fmt) "[test_app1] " fmt
@@ -10,6 +10,11 @@
 #include <linux/kobject.h>
 
 #include "hf_manager.h"
+
+enum {
+	CUST_CMD_TEST,
+	MAX_CUST_CMD,
+};
 
 #define test_app_attr(_name) \
 static struct kobj_attribute _name##_attr = {	\
@@ -85,7 +90,9 @@ static ssize_t test_app1_cust(char *buf, int sensor_type,
 		goto out;
 	}
 	memset(&cmd, 0, sizeof(cmd));
-	cmd.data[0] = action;
+	cmd.command = action;
+	cmd.tx_len = 0;
+	cmd.rx_len = 48;
 	ret = hf_client_custom_cmd(client, sensor_type, &cmd);
 	if (ret >= 0)
 		ret = sprintf(buf, "[%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d]\n",
@@ -120,7 +127,7 @@ static ssize_t acc_cust_show(struct kobject *kobj,
 		char *buf)
 {
 	return test_app1_cust(buf, SENSOR_TYPE_ACCELEROMETER,
-			CUST_CMD_CALI);
+			CUST_CMD_TEST);
 }
 
 
@@ -147,7 +154,7 @@ static ssize_t gyro_cust_show(struct kobject *kobj,
 		char *buf)
 {
 	return test_app1_cust(buf, SENSOR_TYPE_GYROSCOPE,
-			CUST_CMD_CALI);
+			CUST_CMD_TEST);
 }
 
 static ssize_t gyro_selftest_show(struct kobject *kobj,

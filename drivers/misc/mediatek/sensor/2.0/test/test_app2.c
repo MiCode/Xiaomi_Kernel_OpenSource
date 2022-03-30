@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2020 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  */
 
 #define pr_fmt(fmt) "[test_app2] " fmt
@@ -67,6 +67,7 @@ static ssize_t control_store(struct kobject *kobj,
 	int ret = 0;
 	int sensor_type = 0, val1 = 0, val2 = 0;
 	struct hf_manager_cmd cmd;
+	struct hf_manager_batch *batch = NULL;
 
 	ret = sscanf(buf, "%u,%u,%u", &sensor_type, &val1, &val2);
 	if (ret != 3) {
@@ -99,8 +100,9 @@ static ssize_t control_store(struct kobject *kobj,
 		memset(&cmd, 0, sizeof(cmd));
 		cmd.sensor_type = sensor_type;
 		cmd.action = val1;
-		cmd.delay = val2;
-		cmd.latency = 0;
+		batch = (struct hf_manager_batch *)cmd.data;
+		batch->delay = val2;
+		batch->latency = 0;
 		ret = hf_client_control_sensor(test_app.client, &cmd);
 		if (ret < 0) {
 			pr_err("hf_client_control_sensor %u fail\n",
@@ -158,3 +160,4 @@ module_init(test_app_init);
 MODULE_DESCRIPTION("high frequency manager test");
 MODULE_AUTHOR("Hongxu Zhao <hongxu.zhao@mediatek.com>");
 MODULE_LICENSE("GPL v2");
+

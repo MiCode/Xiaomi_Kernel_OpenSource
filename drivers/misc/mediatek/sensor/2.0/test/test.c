@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2020 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  */
 
 #include <linux/kernel.h>
@@ -98,13 +98,12 @@ static int tests_init(void)
 	test_driver1.hf_dev.enable = test_enable;
 	test_driver1.hf_dev.batch = test_batch;
 	test_driver1.hf_dev.sample = test_sample;
-
-	err = hf_manager_create(&test_driver1.hf_dev);
+	hf_device_set_private_data(&test_driver1.hf_dev, &test_driver1);
+	err = hf_device_register_manager_create(&test_driver1.hf_dev);
 	if (err < 0) {
 		pr_err("%s hf_manager_create fail\n", __func__);
 		goto out1;
 	}
-	hf_device_set_private_data(&test_driver1.hf_dev, &test_driver1);
 
 	test_driver2.hf_dev.dev_name = "test_driver2";
 	test_driver2.hf_dev.device_poll = HF_DEVICE_IO_POLLING;
@@ -114,13 +113,12 @@ static int tests_init(void)
 	test_driver2.hf_dev.enable = test_enable;
 	test_driver2.hf_dev.batch = test_batch;
 	test_driver2.hf_dev.sample = test_sample;
-
-	err = hf_manager_create(&test_driver2.hf_dev);
+	hf_device_set_private_data(&test_driver2.hf_dev, &test_driver2);
+	err = hf_device_register_manager_create(&test_driver2.hf_dev);
 	if (err < 0) {
 		pr_err("%s hf_manager_create fail\n", __func__);
 		goto out2;
 	}
-	hf_device_set_private_data(&test_driver2.hf_dev, &test_driver2);
 
 	test_driver3.hf_dev.dev_name = "test_driver3";
 	test_driver3.hf_dev.device_poll = HF_DEVICE_IO_POLLING;
@@ -130,13 +128,12 @@ static int tests_init(void)
 	test_driver3.hf_dev.enable = test_enable;
 	test_driver3.hf_dev.batch = test_batch;
 	test_driver3.hf_dev.sample = test_sample;
-
-	err = hf_manager_create(&test_driver3.hf_dev);
+	hf_device_set_private_data(&test_driver3.hf_dev, &test_driver3);
+	err = hf_device_register_manager_create(&test_driver3.hf_dev);
 	if (err < 0) {
 		pr_err("%s hf_manager_create fail\n", __func__);
 		goto out3;
 	}
-	hf_device_set_private_data(&test_driver3.hf_dev, &test_driver3);
 
 	test_driver4.hf_dev.dev_name = "test_driver4";
 	test_driver4.hf_dev.device_poll = HF_DEVICE_IO_POLLING;
@@ -146,21 +143,20 @@ static int tests_init(void)
 	test_driver4.hf_dev.enable = test_enable;
 	test_driver4.hf_dev.batch = test_batch;
 	test_driver4.hf_dev.sample = test_sample;
-
-	err = hf_manager_create(&test_driver4.hf_dev);
+	hf_device_set_private_data(&test_driver4.hf_dev, &test_driver4);
+	err = hf_device_register_manager_create(&test_driver4.hf_dev);
 	if (err < 0) {
 		pr_err("%s hf_manager_create fail\n", __func__);
 		goto out4;
 	}
-	hf_device_set_private_data(&test_driver4.hf_dev, &test_driver4);
 	return 0;
 
 out4:
-	hf_manager_destroy(test_driver3.hf_dev.manager);
+	hf_device_unregister_manager_destroy(test_driver3.hf_dev.manager);
 out3:
-	hf_manager_destroy(test_driver2.hf_dev.manager);
+	hf_device_unregister_manager_destroy(test_driver2.hf_dev.manager);
 out2:
-	hf_manager_destroy(test_driver1.hf_dev.manager);
+	hf_device_unregister_manager_destroy(test_driver1.hf_dev.manager);
 out1:
 	return -EINVAL;
 }

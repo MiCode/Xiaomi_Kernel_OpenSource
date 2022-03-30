@@ -5,4 +5,3 @@ config MTK_HF_TEST_CASE
 	  If this option is set,
 	  it will support
 	  high frequency manager test demo.
-
