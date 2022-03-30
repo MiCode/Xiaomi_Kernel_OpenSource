@@ -14,14 +14,11 @@
 #include "mcupm_ipi_table.h"
 #include "mcupm_timesync.h"
 
-#ifdef EMI_MPU
-#include <soc/mediatek/emi.h>
-#include "mcupm_emi_mpu.h"
-#endif
-
 #ifdef CONFIG_OF_RESERVED_MEM
 #include <linux/of_reserved_mem.h>
 #define MCUPM_MEM_RESERVED_KEY "mediatek,reserve-memory-mcupm_share"
+bool has_reserved_memory;
+bool skip_logger;
 #endif
 
 /* Todo implement mcupm driver pdata*/
@@ -86,16 +83,10 @@ static int mtk_ipi_init(struct platform_device *pdev)
 	}
 	return 0;
 }
-
 /* MCUPM RESERVED MEM */
 static phys_addr_t mcupm_mem_base_phys;
 static phys_addr_t mcupm_mem_base_virt;
 static phys_addr_t mcupm_mem_size;
-
-#ifdef EMI_MPU
-static unsigned long long mcupm_start;
-static unsigned long long mcupm_end;
-#endif
 
 #ifdef CONFIG_OF_RESERVED_MEM
 static struct mcupm_reserve_mblock mcupm_reserve_mblock[NUMS_MCUPM_MEM_ID] = {
@@ -151,49 +142,6 @@ phys_addr_t mcupm_reserve_mem_get_size(unsigned int id)
 EXPORT_SYMBOL_GPL(mcupm_reserve_mem_get_size);
 
 #if defined(MODULE)
-//Todo add struct platform_device *pdev in parameter
-static int mcupm_map_memory_region(void)
-{
-	struct device_node *rmem_node;
-	struct reserved_mem *rmem;
-
-	/* Get reserved memory */
-	rmem_node = of_find_compatible_node(NULL, NULL, MCUPM_MEM_RESERVED_KEY);
-	if (!rmem_node) {
-		pr_info("[MCUPM] no node for reserved memory\n");
-		return -EINVAL;
-	}
-
-	rmem = of_reserved_mem_lookup(rmem_node);
-	if (!rmem) {
-		pr_info("[MCUPM] cannot lookup reserved memory\n");
-		return -EINVAL;
-	}
-
-	mcupm_mem_base_phys = (phys_addr_t) rmem->base;
-	mcupm_mem_size = (phys_addr_t) rmem->size;
-
-	WARN_ON(!(mcupm_mem_base_phys && mcupm_mem_size));
-
-    /* Mapping the MCUPM's SRAM address /
-     * DMEM (Data Extended Memory) memory address /
-     * Working buffer memory address to
-     * kernel virtual address.
-     */
-	mcupm_mem_base_virt = (phys_addr_t)(uintptr_t)
-		ioremap_wc(mcupm_mem_base_phys, mcupm_mem_size);
-
-	if (!mcupm_mem_base_virt)
-		return -ENOMEM;
-
-	pr_info("[MCUPM]reserve mem: virt:0x%llx - 0x%llx (0x%llx)\n",
-		 (unsigned long long)mcupm_mem_base_virt,
-		 (unsigned long long)mcupm_mem_base_virt +
-		 (unsigned long long)mcupm_mem_size,
-		 (unsigned long long)mcupm_mem_size);
-
-	return 0;
-}
 static int mcupm_assign_memory_block(void)
 {
 	int ret = 0;
@@ -234,6 +182,62 @@ static int mcupm_assign_memory_block(void)
 #endif
 
 	return ret;
+}
+static int mcupm_map_memory_region(void)
+{
+	struct device_node *rmem_node;
+	struct reserved_mem *rmem;
+	unsigned int id;
+
+	/* Get reserved memory */
+	rmem_node = of_find_compatible_node(NULL, NULL, MCUPM_MEM_RESERVED_KEY);
+	if (!rmem_node) {
+		pr_info("[MCUPM] no node for reserved memory\n");
+		has_reserved_memory = false;
+		skip_logger = true;
+		for (id = 0; id < NUMS_MCUPM_MEM_ID; id++) {
+			mcupm_reserve_mblock[id].start_phys = 0x0;
+			mcupm_reserve_mblock[id].start_virt = 0x0;
+		}
+		return 0;
+	}
+
+	has_reserved_memory = true;
+
+	rmem = of_reserved_mem_lookup(rmem_node);
+	if (!rmem) {
+		pr_info("[MCUPM] cannot lookup reserved memory\n");
+		return -EINVAL;
+	}
+
+	mcupm_mem_base_phys = (phys_addr_t) rmem->base;
+	mcupm_mem_size = (phys_addr_t) rmem->size;
+
+	WARN_ON(!(mcupm_mem_base_phys && mcupm_mem_size));
+
+    /* Mapping the MCUPM's SRAM address /
+     * DMEM (Data Extended Memory) memory address /
+     * Working buffer memory address to
+     * kernel virtual address.
+     */
+	mcupm_mem_base_virt = (phys_addr_t)(uintptr_t)
+		ioremap_wc(mcupm_mem_base_phys, mcupm_mem_size);
+
+	if (!mcupm_mem_base_virt)
+		return -ENOMEM;
+
+	pr_info("[MCUPM]reserve mem: virt:0x%llx - 0x%llx (0x%llx)\n",
+		 (unsigned long long)mcupm_mem_base_virt,
+		 (unsigned long long)mcupm_mem_base_virt +
+		 (unsigned long long)mcupm_mem_size,
+		 (unsigned long long)mcupm_mem_size);
+
+	if (mcupm_assign_memory_block()) {
+		pr_info("[MCUPM] assign phys, virt address and size Failed\n");
+		return -ENOMEM;
+	}
+
+	return 0;
 }
 #else
 static int __init mcupm_reserve_mem_of_init(struct reserved_mem *rmem)
@@ -336,7 +340,6 @@ static int mcupm_reserve_memory_init(void)
 #endif
 #endif
 
-
 /* MCUPM HELPER. User is apmcu_sspm_mailbox_read/write*/
 int mcupm_mbox_read(unsigned int mbox, unsigned int slot, void *buf,
 			unsigned int len)
@@ -390,56 +393,24 @@ void *get_mcupm_ipidev(void)
 }
 EXPORT_SYMBOL_GPL(get_mcupm_ipidev);
 
-#ifdef EMI_MPU
-static void mcupm_set_emi_mpu(phys_addr_t base, phys_addr_t size)
-{
-	mcupm_start = base;
-	mcupm_end = base + size - 1;
-}
-
-static void mcupm_lock_emi_mpu(void)
-{
-	if (mcupm_mem_size > 0)
-		mcupm_set_emi_mpu(mcupm_mem_base_phys, mcupm_mem_size);
-}
-
-static int mcupm_init_emi_mpu(void)
-{
-	struct emimpu_region_t rg_info;
-
-	mtk_emimpu_init_region(&rg_info, MUCPM_MPU_REGION_ID);
-
-	mtk_emimpu_set_addr(&rg_info, mcupm_start, mcupm_end);
-
-	mtk_emimpu_set_apc(&rg_info, 0, MTK_EMIMPU_NO_PROTECTION);
-
-	mtk_emimpu_set_apc(&rg_info, MUCPM_MPU_DOMAIN_ID,
-						MTK_EMIMPU_NO_PROTECTION);
-
-	mtk_emimpu_set_protection(&rg_info);
-
-	mtk_emimpu_free_region(&rg_info);
-
-	return 0;
-}
-#endif
-
 static int mcupm_device_probe(struct platform_device *pdev)
 {
 	int i, ret;
+	struct device *dev = &pdev->dev;
 
 	mcupm_pdev = pdev;
 
 	pr_debug("[MCUPM] mbox probe\n");
 
+	if (of_property_read_bool(dev->of_node, "skip-logger"))
+		skip_logger = true;
+	else
+		skip_logger = false;
+
 #ifdef CONFIG_OF_RESERVED_MEM
 #if defined(MODULE)
 	if (mcupm_map_memory_region()) {
 		pr_info("[MCUPM] Reserved Memory Failed\n");
-		return -ENOMEM;
-	}
-	if (mcupm_assign_memory_block()) {
-		pr_info("[MCUPM] assign phys, virt address and size Failed\n");
 		return -ENOMEM;
 	}
 #else
@@ -448,11 +419,6 @@ static int mcupm_device_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 #endif
-#endif
-
-#ifdef EMI_MPU
-	mcupm_lock_emi_mpu();
-	mcupm_init_emi_mpu();
 #endif
 
 	ret = mtk_ipi_init(pdev);

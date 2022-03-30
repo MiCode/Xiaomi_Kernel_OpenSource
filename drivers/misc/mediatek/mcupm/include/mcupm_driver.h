@@ -14,9 +14,6 @@
 #define MCUPM_LOGGER_SUPPORT		(1)
 #define MCUPM_COREDUMP_SUPPORT		(1)
 #define MCUPM_ALIVE_THREAD		(0)
-#if IS_ENABLED(CONFIG_MTK_EMI)
-#define EMI_MPU                         (1)
-#endif
 
 #define MCUPM_MBOX_NO_SUSPEND		4
 
@@ -105,6 +102,8 @@ struct mcupm_ipi_data_s {
 		} ts;
 	} u;
 };
+extern bool has_reserved_memory;
+extern bool skip_logger;
 
 extern ssize_t mcupm_log_read(char __user *data, size_t len);
 extern unsigned int mcupm_log_poll(void);
