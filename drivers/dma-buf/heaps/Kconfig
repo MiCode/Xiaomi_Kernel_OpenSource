@@ -5,6 +5,15 @@ config DMABUF_HEAPS_SYSTEM
 	  Choose this option to enable the system dmabuf heap. The system heap
 	  is backed by pages from the buddy allocator. If in doubt, say Y.
 
+config DMABUF_HEAPS_DEBUG
+	tristate "DMA-BUF debug Heap"
+	depends on DMABUF_HEAPS_SYSTEM
+	help
+	  Choose this option to enable the mtk debug heap.
+	  This debug tool can be use to dump dmabuf usage for users
+	  If you want use it, say Y if you are not using GKI
+	  say m and add ko into your system for GKI.
+
 config DMABUF_HEAPS_CMA
 	tristate "DMA-BUF CMA Heap"
 	depends on DMABUF_HEAPS && DMA_CMA
