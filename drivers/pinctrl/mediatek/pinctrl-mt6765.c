@@ -1052,11 +1052,6 @@ static const struct mtk_pin_reg_calc mt6765_reg_cals[PINCTRL_PIN_REG_MAX] = {
 	[PINCTRL_PIN_REG_IES] = MTK_RANGE(mt6765_pin_ies_range),
 };
 
-static const char * const mt6765_pinctrl_register_base_names[] = {
-	"iocfg0", "iocfg1", "iocfg2", "iocfg3", "iocfg4", "iocfg5",
-	"iocfg6", "iocfg7",
-};
-
 static const struct mtk_eint_hw mt6765_eint_hw = {
 	.port_mask = 7,
 	.ports     = 6,
@@ -1072,12 +1067,10 @@ static const struct mtk_pin_soc mt6765_data = {
 	.eint_hw = &mt6765_eint_hw,
 	.nfuncs = 8,
 	.gpio_m = 0,
-	.base_names = mt6765_pinctrl_register_base_names,
-	.nbase_names = ARRAY_SIZE(mt6765_pinctrl_register_base_names),
+	.capability_flags = FLAG_RACE_FREE_ACCESS
+				| FLAG_DRIVE_SET_RAW,
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
-	.drive_set = mtk_pinconf_drive_set_raw,
-	.drive_get = mtk_pinconf_drive_get_raw,
 	.adv_pull_get = mtk_pinconf_adv_pull_get,
 	.adv_pull_set = mtk_pinconf_adv_pull_set,
 };

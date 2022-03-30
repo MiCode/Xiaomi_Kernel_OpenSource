@@ -20,6 +20,7 @@
 
 #define EINT_NA	U16_MAX
 #define NO_EINT_SUPPORT	EINT_NA
+#define EINT_NO_GPIO   9999
 
 #define PIN_FIELD_CALC(_s_pin, _e_pin, _i_base, _s_addr, _x_addrs,      \
 		       _s_bit, _x_bits, _sz_reg, _fixed) {		\
@@ -68,6 +69,7 @@ enum {
 	PINCTRL_PIN_REG_DRV_E0,
 	PINCTRL_PIN_REG_DRV_E1,
 	PINCTRL_PIN_REG_DRV_ADV,
+	PINCTRL_PIN_REG_RSEL,
 	PINCTRL_PIN_REG_MAX,
 };
 
@@ -201,6 +203,10 @@ struct mtk_pinctrl_group {
 
 struct mtk_pinctrl;
 
+#define FLAG_RACE_FREE_ACCESS	0x00000001
+#define FLAG_DRIVE_SET_RAW	0x00000002
+#define FLAG_GPIO_START_IDX_1   0x00000004
+
 /* struct mtk_pin_soc - the structure that holds SoC-specific data */
 struct mtk_pin_soc {
 	const struct mtk_pin_reg_calc	*reg_cal;
@@ -216,9 +222,10 @@ struct mtk_pin_soc {
 	/* Specific parameters per SoC */
 	u8				gpio_m;
 	bool				ies_present;
-	bool				race_free_access;
+	u32				capability_flags;
 	const char * const		*base_names;
 	unsigned int			nbase_names;
+	const unsigned int		*pull_type;
 	const struct mtk_eh_pin_pinmux  *eh_pin_pinmux;
 	unsigned int			neh_pins;
 

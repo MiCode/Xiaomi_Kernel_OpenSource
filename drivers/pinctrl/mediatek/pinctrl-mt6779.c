@@ -727,32 +727,16 @@ static const struct mtk_pin_reg_calc mt6779_reg_cals[PINCTRL_PIN_REG_MAX] = {
 	[PINCTRL_PIN_REG_R1] = MTK_RANGE(mt6779_pin_r1_range),
 };
 
-static const char * const mt6779_pinctrl_register_base_names[] = {
-	"gpio", "iocfg_rm", "iocfg_br", "iocfg_lm", "iocfg_lb",
-	"iocfg_rt", "iocfg_lt", "iocfg_tl",
-};
-
-static const struct mtk_eint_hw mt6779_eint_hw = {
-	.port_mask = 7,
-	.ports     = 6,
-	.ap_num    = 195,
-	.db_cnt    = 13,
-};
-
 static const struct mtk_pin_soc mt6779_data = {
 	.reg_cal = mt6779_reg_cals,
 	.pins = mtk_pins_mt6779,
 	.npins = ARRAY_SIZE(mtk_pins_mt6779),
 	.ngrps = ARRAY_SIZE(mtk_pins_mt6779),
-	.eint_hw = &mt6779_eint_hw,
 	.gpio_m = 0,
-	.ies_present = true,
-	.base_names = mt6779_pinctrl_register_base_names,
-	.nbase_names = ARRAY_SIZE(mt6779_pinctrl_register_base_names),
+	.capability_flags = FLAG_RACE_FREE_ACCESS
+				| FLAG_DRIVE_SET_RAW,
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
-	.drive_set = mtk_pinconf_drive_set_raw,
-	.drive_get = mtk_pinconf_drive_get_raw,
 	.adv_pull_get = mtk_pinconf_adv_pull_get,
 	.adv_pull_set = mtk_pinconf_adv_pull_set,
 };

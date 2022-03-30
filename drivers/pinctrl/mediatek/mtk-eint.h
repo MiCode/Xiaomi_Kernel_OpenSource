@@ -11,6 +11,9 @@
 
 #include <linux/irqdomain.h>
 
+#define MAX_PIN 256
+//#define MTK_EINT_DEBUG
+
 struct mtk_eint_regs {
 	unsigned int	stat;
 	unsigned int	ack;
@@ -30,13 +33,33 @@ struct mtk_eint_regs {
 	unsigned int	dbnc_ctrl;
 	unsigned int	dbnc_set;
 	unsigned int	dbnc_clr;
+	unsigned int	raw_stat;
 };
 
-struct mtk_eint_hw {
-	u8		port_mask;
-	u8		ports;
-	unsigned int	ap_num;
-	unsigned int	db_cnt;
+struct mtk_eint_ops {
+	void (*ack)(struct irq_data *d);
+};
+
+struct mtk_eint_compatible {
+	struct mtk_eint_ops ops;
+	const struct mtk_eint_regs *regs;
+};
+
+struct mtk_eint_pin {
+	bool enabled;
+	u8 instance;
+	u8 index;
+	bool debounce;
+	bool dual_edge;
+};
+
+struct mtk_eint_instance {
+	const char *name;
+	void __iomem *base;
+	unsigned int number;
+	u8 pin_list[MAX_PIN];
+	unsigned int *wake_mask;
+	unsigned int *cur_mask;
 };
 
 struct mtk_eint;
@@ -51,17 +74,17 @@ struct mtk_eint_xt {
 
 struct mtk_eint {
 	struct device *dev;
-	void __iomem *base;
 	struct irq_domain *domain;
 	int irq;
 
-	int *dual_edge;
-	u32 *wake_mask;
-	u32 *cur_mask;
-
-	/* Used to fit into various EINT device */
-	const struct mtk_eint_hw *hw;
-	const struct mtk_eint_regs *regs;
+	/* An array to record the coordinate, index by global EINT ID */
+	struct mtk_eint_pin *pins;
+	/* An array to record the global EINT ID, index by coordinate*/
+	struct mtk_eint_instance *instances;
+	unsigned int total_pin_number;
+	unsigned int instance_number;
+	unsigned int dump_target_eint;
+	const struct mtk_eint_compatible *comp;
 
 	/* Used to fit into various pinctrl device */
 	void *pctl;
@@ -75,6 +98,7 @@ int mtk_eint_do_resume(struct mtk_eint *eint);
 int mtk_eint_set_debounce(struct mtk_eint *eint, unsigned long eint_n,
 			  unsigned int debounce);
 int mtk_eint_find_irq(struct mtk_eint *eint, unsigned long eint_n);
+int dump_eint_pin_status(unsigned int eint_num, char *buf, unsigned int buf_size);
 
 #else
 static inline int mtk_eint_do_init(struct mtk_eint *eint)
@@ -99,6 +123,11 @@ static inline int mtk_eint_set_debounce(struct mtk_eint *eint, unsigned long ein
 }
 
 static inline int mtk_eint_find_irq(struct mtk_eint *eint, unsigned long eint_n)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline void dump_eint_pin_status(unsigned int eint_num)
 {
 	return -EOPNOTSUPP;
 }
