@@ -67,14 +67,18 @@ struct lbat_user {
 	unsigned int lv_deb_times;
 	struct timer_list deb_timer;
 	struct work_struct deb_work;
+	struct list_head thd_list;
 };
 
 struct reg_t {
 	unsigned int addr;
 	unsigned int mask;
+	size_t size;
 };
 
 struct lbat_regs_t {
+	const char *regmap_source;
+	const char *r_ratio_node_name;
 	struct reg_t en;
 	struct reg_t debt_max;
 	struct reg_t debt_min;
@@ -84,18 +88,44 @@ struct lbat_regs_t {
 	struct reg_t min_en;
 	struct reg_t volt_min;
 	struct reg_t adc_out;
+	int volt_full;
 };
 
 struct lbat_regs_t mt6359p_lbat_regs = {
-	.en = {MT6359P_AUXADC_LBAT0, 0x1},
-	.debt_max = {MT6359P_AUXADC_LBAT1, 0xC},
-	.debt_min = {MT6359P_AUXADC_LBAT1, 0x30},
-	.det_prd = {MT6359P_AUXADC_LBAT1, 0x3},
-	.max_en = {MT6359P_AUXADC_LBAT2, 0x3000},
-	.volt_max = {MT6359P_AUXADC_LBAT2, 0xFFF},
-	.min_en = {MT6359P_AUXADC_LBAT3, 0x3000},
-	.volt_min = {MT6359P_AUXADC_LBAT3, 0xFFF},
-	.adc_out = {MT6359P_AUXADC_LBAT7, 0xFFF},
+	.regmap_source = "parent_drvdata",
+	.en = {MT6359P_AUXADC_LBAT0, 0x1, 1},
+	.debt_max = {MT6359P_AUXADC_LBAT1, 0xC, 1},
+	.debt_min = {MT6359P_AUXADC_LBAT1, 0x30, 1},
+	.det_prd = {MT6359P_AUXADC_LBAT1, 0x3, 1},
+	.max_en = {MT6359P_AUXADC_LBAT2, 0x3000, 1},
+	.volt_max = {MT6359P_AUXADC_LBAT2, 0xFFF, 1},
+	.min_en = {MT6359P_AUXADC_LBAT3, 0x3000, 1},
+	.volt_min = {MT6359P_AUXADC_LBAT3, 0xFFF, 1},
+	.adc_out = {MT6359P_AUXADC_LBAT7, 0xFFF, 1},
+	.volt_full = 1800,
+};
+
+#define MT6375_AUXADC_LBAT0		0x4AD
+#define MT6375_AUXADC_LBAT1		0x4AE
+#define MT6375_AUXADC_LBAT2		0x4AF
+#define MT6375_AUXADC_LBAT3		0x4B0
+#define MT6375_AUXADC_LBAT5		0x4B2
+#define MT6375_AUXADC_LBAT6		0x4B3
+#define MT6375_AUXADC_ADC_OUT_LBAT	0x41E
+
+static struct lbat_regs_t mt6375_lbat_regs = {
+	.regmap_source = "dev_get_regmap",
+	.en = { MT6375_AUXADC_LBAT0, BIT(0), 1 },
+	.debt_max = { MT6375_AUXADC_LBAT1, GENMASK(3, 2), 1 },
+	.debt_min = { MT6375_AUXADC_LBAT1, GENMASK(5, 4), 1 },
+	.det_prd = { MT6375_AUXADC_LBAT1, GENMASK(1, 0), 1 },
+	.max_en = { MT6375_AUXADC_LBAT2, GENMASK(1, 0), 1 },
+	.volt_max = { MT6375_AUXADC_LBAT3, GENMASK(11, 0), 2 },
+	.min_en = { MT6375_AUXADC_LBAT5, GENMASK(1, 0), 1 },
+	.volt_min = { MT6375_AUXADC_LBAT6, GENMASK(11, 0), 2 },
+	.adc_out = { MT6375_AUXADC_ADC_OUT_LBAT, GENMASK(11, 0), 2 },
+	.r_ratio_node_name = "lbat_service",
+	.volt_full = 1840,
 };
 
 static DEFINE_MUTEX(lbat_mutex);
@@ -113,9 +143,42 @@ static struct lbat_user *lbat_user_table[USER_SIZE];
 static unsigned int user_count;
 static unsigned int r_ratio[2];
 
+static int __regmap_update_bits(struct regmap *regmap, const struct reg_t *reg,
+				unsigned int val)
+{
+	if (reg->size == 1)
+		return regmap_update_bits(regmap, reg->addr, reg->mask, val);
+	/*
+	 * here we assume those register addresses are continuous and
+	 * there is one and only one function in them.
+	 * please take care of the endian if it is necessary.
+	 * this is not a good assumption but we do this here for compatibility.
+	 * please abstract the register control if there is a chance to refactor
+	 * this file.
+	 */
+	val &= reg->mask;
+	return regmap_bulk_write(regmap, reg->addr, &val, reg->size);
+}
+
+static int __regmap_write(struct regmap *regmap, const struct reg_t *reg,
+			  unsigned int val)
+{
+	if (reg->size == 1)
+		return regmap_write(regmap, reg->addr, val);
+	return regmap_bulk_write(regmap, reg->addr, &val, reg->size);
+}
+
+static int __regmap_read(struct regmap *regmap, const struct reg_t *reg,
+			 unsigned int *val)
+{
+	if (reg->size == 1)
+		return regmap_read(regmap, reg->addr, val);
+	return regmap_bulk_read(regmap, reg->addr, val, reg->size);
+}
+
 static unsigned int VOLT_TO_RAW(unsigned int volt)
 {
-	return (volt << LBAT_RES) / (VOLT_FULL * r_ratio[0] / r_ratio[1]);
+	return (volt << LBAT_RES) / (lbat_regs->volt_full * r_ratio[0] / r_ratio[1]);
 }
 
 static void lbat_max_en_setting(bool en)
@@ -123,8 +186,7 @@ static void lbat_max_en_setting(bool en)
 	unsigned int val;
 
 	val = en ? lbat_regs->max_en.mask : 0;
-	regmap_update_bits(regmap, lbat_regs->max_en.addr,
-			   lbat_regs->max_en.mask, val);
+	__regmap_update_bits(regmap, &lbat_regs->max_en, val);
 }
 
 static void lbat_min_en_setting(bool en)
@@ -132,8 +194,7 @@ static void lbat_min_en_setting(bool en)
 	unsigned int val;
 
 	val = en ? lbat_regs->min_en.mask : 0;
-	regmap_update_bits(regmap, lbat_regs->min_en.addr,
-			   lbat_regs->min_en.mask, val);
+	__regmap_update_bits(regmap, &lbat_regs->min_en, val);
 }
 
 static void lbat_irq_enable(void)
@@ -142,18 +203,17 @@ static void lbat_irq_enable(void)
 		lbat_max_en_setting(true);
 	if (cur_lv_ptr != NULL)
 		lbat_min_en_setting(true);
-	regmap_write(regmap, lbat_regs->en.addr, 1);
+	__regmap_write(regmap, &lbat_regs->en, 1);
 }
 
 static void lbat_irq_disable(void)
 {
-	regmap_write(regmap, lbat_regs->en.addr, 0);
+	__regmap_write(regmap, &lbat_regs->en, 0);
 	lbat_max_en_setting(false);
 	lbat_min_en_setting(false);
 }
 
-static int hv_list_cmp(void *priv, const struct list_head *a,
-		const struct list_head *b)
+static int hv_list_cmp(void *priv, const struct list_head *a, const struct list_head *b)
 {
 	struct lbat_thd_t *thd_a, *thd_b;
 
@@ -163,8 +223,7 @@ static int hv_list_cmp(void *priv, const struct list_head *a,
 	return thd_a->thd_volt - thd_b->thd_volt;
 }
 
-static int lv_list_cmp(void *priv, const struct list_head *a,
-		const struct list_head *b)
+static int lv_list_cmp(void *priv, const struct list_head *a, const struct list_head *b)
 {
 	struct lbat_thd_t *thd_a, *thd_b;
 
@@ -178,27 +237,23 @@ static void modify_lbat_list(enum lbat_thd_type type, struct lbat_thd_t *thd)
 {
 	switch (type) {
 	case LBAT_HV:
-		list_add(&thd->list, &lbat_hv_list);
+		list_move(&thd->list, &lbat_hv_list);
 		list_sort(NULL, &lbat_hv_list, hv_list_cmp);
 		thd = list_first_entry(&lbat_hv_list, struct lbat_thd_t, list);
 		if (cur_hv_ptr != thd) {
 			cur_hv_ptr = thd;
-			regmap_update_bits(regmap,
-					   lbat_regs->volt_max.addr,
-					   lbat_regs->volt_max.mask,
-					   VOLT_TO_RAW(cur_hv_ptr->thd_volt));
+			__regmap_update_bits(regmap, &lbat_regs->volt_max,
+					     VOLT_TO_RAW(cur_hv_ptr->thd_volt));
 		}
 		break;
 	case LBAT_LV:
-		list_add(&thd->list, &lbat_lv_list);
+		list_move(&thd->list, &lbat_lv_list);
 		list_sort(NULL, &lbat_lv_list, lv_list_cmp);
 		thd = list_first_entry(&lbat_lv_list, struct lbat_thd_t, list);
 		if (cur_lv_ptr != thd) {
 			cur_lv_ptr = thd;
-			regmap_update_bits(regmap,
-					   lbat_regs->volt_min.addr,
-					   lbat_regs->volt_min.mask,
-					   VOLT_TO_RAW(cur_lv_ptr->thd_volt));
+			__regmap_update_bits(regmap, &lbat_regs->volt_min,
+					     VOLT_TO_RAW(cur_lv_ptr->thd_volt));
 		}
 		break;
 	}
@@ -207,6 +262,30 @@ static void modify_lbat_list(enum lbat_thd_type type, struct lbat_thd_t *thd)
 /*
  * After execute lbat_user's callback, set next thd node to wait event
  */
+static void lbat_hv_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
+{
+	/* restore user->thd_list */
+	list_move(&thd->list, &user->thd_list);
+	list_sort(NULL, &user->thd_list, lv_list_cmp);
+	/* HV is triggered */
+	if (!list_is_first(&thd->list, &user->thd_list)) /* Not first */
+		modify_lbat_list(LBAT_HV, list_prev_entry(thd, list));
+	if (!list_is_last(&thd->list, &user->thd_list)) /* Not last */
+		modify_lbat_list(LBAT_LV, list_next_entry(thd, list));
+}
+
+static void lbat_lv_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
+{
+	/* restore user->thd_list */
+	list_move(&thd->list, &user->thd_list);
+	list_sort(NULL, &user->thd_list, lv_list_cmp);
+	/* LV is triggered */
+	if (!list_is_first(&thd->list, &user->thd_list)) /* Not first */
+		modify_lbat_list(LBAT_HV, list_prev_entry(thd, list));
+	if (!list_is_last(&thd->list, &user->thd_list)) /* Not last */
+		modify_lbat_list(LBAT_LV, list_next_entry(thd, list));
+}
+
 static void lbat_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
 {
 	if (thd == user->hv_thd) {
@@ -310,11 +389,19 @@ static void lbat_user_init_timer(struct lbat_user *user)
 
 static int lbat_user_update(struct lbat_user *user)
 {
+	struct lbat_thd_t *thd;
 	/*
 	 * add lv_thd to lbat_lv_list
 	 * and assign first entry of lv_list to cur_lv_ptr
 	 */
-	modify_lbat_list(LBAT_LV, user->lv1_thd);
+	if (list_empty(&user->thd_list))
+		thd = user->lv1_thd;
+	else {
+		thd = list_first_entry(&user->thd_list,
+				       struct lbat_thd_t, list);
+		thd = list_next_entry(thd, list);
+	}
+	modify_lbat_list(LBAT_LV, thd);
 	if (user_count == 0)
 		lbat_irq_enable();
 	lbat_user_table[user_count++] = user;
@@ -337,6 +424,54 @@ static struct lbat_thd_t *lbat_thd_init(unsigned int thd_volt,
 	INIT_LIST_HEAD(&thd->list);
 	return thd;
 }
+
+struct lbat_user *lbat_user_register_ext(const char *name, unsigned int *thd_volt_arr,
+					 unsigned int thd_volt_size,
+					 void (*callback)(unsigned int thd_volt))
+{
+	int i, ret;
+	struct lbat_user *user;
+	struct lbat_thd_t *thd;
+
+	if (!regmap)
+		return ERR_PTR(-EPROBE_DEFER);
+	mutex_lock(&lbat_mutex);
+	user = kzalloc(sizeof(*user), GFP_KERNEL);
+	if (user == NULL) {
+		ret = -ENOMEM;
+		goto out;
+	}
+	strncpy(user->name, name, USER_NAME_MAXLEN - 1);
+	if (thd_volt_arr[0] >= 5400 || thd_volt_arr[thd_volt_size - 1] <= 2000) {
+		ret = -EINVAL;
+		goto out;
+	} else if (callback == NULL) {
+		ret = -EINVAL;
+		goto out;
+	}
+	INIT_LIST_HEAD(&user->thd_list);
+	thd = lbat_thd_init(thd_volt_arr[0], user);
+	for (i = 0; i < thd_volt_size; i++) {
+		thd = lbat_thd_init(thd_volt_arr[i], user);
+		list_add_tail(&thd->list, &user->thd_list);
+	}
+	user->callback = callback;
+	lbat_user_init_timer(user);
+	INIT_WORK(&user->deb_work, lbat_deb_handler);
+	pr_info("[%s] name=%s, thd_volt_max=%d, thd_volt_min=%d\n", __func__,
+		user->name, thd_volt_arr[0], thd_volt_arr[thd_volt_size - 1]);
+	ret = lbat_user_update(user);
+out:
+	if (ret) {
+		pr_notice("[%s] error ret=%d\n", __func__, ret);
+		if (ret == -EINVAL)
+			kfree(user);
+		return ERR_PTR(ret);
+	}
+	mutex_unlock(&lbat_mutex);
+	return user;
+}
+EXPORT_SYMBOL(lbat_user_register_ext);
 
 struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 				     unsigned int lv1_thd_volt,
@@ -365,6 +500,7 @@ struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 		ret = -EINVAL;
 		goto out;
 	}
+	INIT_LIST_HEAD(&user->thd_list);
 	user->hv_thd = lbat_thd_init(hv_thd_volt, user);
 	user->lv1_thd = lbat_thd_init(lv1_thd_volt, user);
 	user->lv2_thd = lbat_thd_init(lv2_thd_volt, user);
@@ -375,8 +511,8 @@ struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 	user->callback = callback;
 	lbat_user_init_timer(user);
 	INIT_WORK(&user->deb_work, lbat_deb_handler);
-	pr_info("[%s] hv=%d, lv1=%d, lv2=%d\n",
-		__func__, hv_thd_volt, lv1_thd_volt, lv2_thd_volt);
+	pr_info("[%s] name=%s, hv=%d, lv1=%d, lv2=%d\n",
+		__func__, name, hv_thd_volt, lv1_thd_volt, lv2_thd_volt);
 	ret = lbat_user_update(user);
 out:
 	if (ret) {
@@ -410,7 +546,7 @@ unsigned int lbat_read_raw(void)
 
 	if (!regmap)
 		return 0;
-	regmap_read(regmap, lbat_regs->adc_out.addr, &adc_out);
+	__regmap_read(regmap, &lbat_regs->adc_out, &adc_out);
 	adc_out &= lbat_regs->adc_out.mask;
 	return adc_out;
 }
@@ -420,7 +556,7 @@ unsigned int lbat_read_volt(void)
 {
 	unsigned int raw_data = lbat_read_raw();
 
-	return (raw_data * VOLT_FULL * r_ratio[0] / r_ratio[1]) >> LBAT_RES;
+	return (raw_data * lbat_regs->volt_full * r_ratio[0] / r_ratio[1]) >> LBAT_RES;
 }
 EXPORT_SYMBOL(lbat_read_volt);
 
@@ -444,7 +580,10 @@ static irqreturn_t bat_h_int_handler(int irq, void *data)
 			jiffies + msecs_to_jiffies(user->hv_deb_prd));
 	} else {
 		user->callback(cur_hv_ptr->thd_volt);
-		lbat_set_next_thd(user, cur_hv_ptr);
+		if (list_empty(&user->thd_list))
+			lbat_set_next_thd(user, cur_hv_ptr);
+		else
+			lbat_hv_set_next_thd(user, cur_hv_ptr);
 	}
 
 	/* Since cur_hv_ptr is removed, assign new thd for cur_hv_ptr */
@@ -453,9 +592,8 @@ static irqreturn_t bat_h_int_handler(int irq, void *data)
 		goto out;
 	}
 	cur_hv_ptr = list_first_entry(&lbat_hv_list, struct lbat_thd_t, list);
-	regmap_update_bits(regmap, lbat_regs->volt_max.addr,
-			   lbat_regs->volt_max.mask,
-			   VOLT_TO_RAW(cur_hv_ptr->thd_volt));
+	__regmap_update_bits(regmap, &lbat_regs->volt_max,
+			     VOLT_TO_RAW(cur_hv_ptr->thd_volt));
 out:
 	lbat_irq_disable();
 	udelay(200);
@@ -484,7 +622,10 @@ static irqreturn_t bat_l_int_handler(int irq, void *data)
 			  jiffies + msecs_to_jiffies(user->lv_deb_prd));
 	} else {
 		user->callback(cur_lv_ptr->thd_volt);
-		lbat_set_next_thd(user, cur_lv_ptr);
+		if (list_empty(&user->thd_list))
+			lbat_set_next_thd(user, cur_lv_ptr);
+		else
+			lbat_lv_set_next_thd(user, cur_lv_ptr);
 	}
 
 	/* Since cur_lv_ptr is removed, assign new thd for cur_lv_ptr */
@@ -493,9 +634,8 @@ static irqreturn_t bat_l_int_handler(int irq, void *data)
 		goto out;
 	}
 	cur_lv_ptr = list_first_entry(&lbat_lv_list, struct lbat_thd_t, list);
-	regmap_update_bits(regmap, lbat_regs->volt_min.addr,
-			   lbat_regs->volt_min.mask,
-			   VOLT_TO_RAW(cur_lv_ptr->thd_volt));
+	__regmap_update_bits(regmap, &lbat_regs->volt_min,
+			     VOLT_TO_RAW(cur_lv_ptr->thd_volt));
 out:
 	lbat_irq_disable();
 	udelay(200);
@@ -510,22 +650,23 @@ static int pmic_lbat_service_probe(struct platform_device *pdev)
 	unsigned int val;
 	struct device_node *np;
 	struct mt6397_chip *chip;
+	const char *r_ratio_node_name;
 
-	chip = dev_get_drvdata(pdev->dev.parent);
-	regmap = chip->regmap;
 	lbat_regs = of_device_get_match_data(&pdev->dev);
+	if (!strcmp(lbat_regs->regmap_source, "parent_drvdata")) {
+		chip = dev_get_drvdata(pdev->dev.parent);
+		regmap = chip->regmap;
+	} else
+		regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	/* Selects debounce as 8 */
 	val = DEF_DEBT_MAX_SEL << (ffs(lbat_regs->debt_max.mask) - 1);
-	regmap_update_bits(regmap, lbat_regs->debt_max.addr,
-			   lbat_regs->debt_max.mask, val);
+	__regmap_update_bits(regmap, &lbat_regs->debt_max, val);
 	/* Selects debounce as 1 */
 	val = DEF_DEBT_MIN_SEL << (ffs(lbat_regs->debt_min.mask) - 1);
-	regmap_update_bits(regmap, lbat_regs->debt_min.addr,
-			   lbat_regs->debt_min.mask, val);
+	__regmap_update_bits(regmap, &lbat_regs->debt_min, val);
 	/* Set LBAT_PRD as 15ms */
 	val = DEF_DET_PRD_SEL << (ffs(lbat_regs->det_prd.mask) - 1);
-	regmap_update_bits(regmap, lbat_regs->det_prd.addr,
-			   lbat_regs->det_prd.mask, val);
+	__regmap_update_bits(regmap, &lbat_regs->det_prd, val);
 
 	irq = platform_get_irq_byname(pdev, "bat_h");
 	if (irq < 0) {
@@ -534,7 +675,7 @@ static int pmic_lbat_service_probe(struct platform_device *pdev)
 		return irq;
 	}
 	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
-					bat_h_int_handler, IRQF_TRIGGER_NONE,
+					bat_h_int_handler, IRQF_ONESHOT,
 					"bat_h", NULL);
 	if (ret < 0)
 		dev_notice(&pdev->dev, "request bat_h irq fail\n");
@@ -545,7 +686,7 @@ static int pmic_lbat_service_probe(struct platform_device *pdev)
 		return irq;
 	}
 	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
-					bat_l_int_handler, IRQF_TRIGGER_NONE,
+					bat_l_int_handler, IRQF_ONESHOT,
 					"bat_l", NULL);
 	if (ret < 0)
 		dev_notice(&pdev->dev, "request bat_l irq fail\n");
@@ -553,9 +694,10 @@ static int pmic_lbat_service_probe(struct platform_device *pdev)
 	lbat_wq = create_singlethread_workqueue("lbat_service");
 
 	/* get LBAT r_ratio */
-	np = of_find_node_by_name(pdev->dev.parent->of_node, "batadc");
+	r_ratio_node_name = lbat_regs->r_ratio_node_name ? lbat_regs->r_ratio_node_name : "batadc";
+	np = of_find_node_by_name(pdev->dev.parent->of_node, r_ratio_node_name);
 	if (!np) {
-		dev_notice(&pdev->dev, "get batadc node fail\n");
+		dev_notice(&pdev->dev, "get %s node fail\n", r_ratio_node_name);
 		r_ratio[0] = DEF_R_RATIO_0;
 		r_ratio[1] = DEF_R_RATIO_1;
 		return 0;
@@ -585,6 +727,9 @@ static const struct of_device_id lbat_service_of_match[] = {
 	{
 		.compatible = "mediatek,mt6359p-lbat_service",
 		.data = &mt6359p_lbat_regs,
+	}, {
+		.compatible = "mediatek,mt6375-lbat-service",
+		.data = &mt6375_lbat_regs,
 	}, {
 		/* sentinel */
 	}

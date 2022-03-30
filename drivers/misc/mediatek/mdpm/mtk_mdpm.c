@@ -6,20 +6,26 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_device.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #include "mtk_pbm.h"
 #include "mtk_mdpm.h"
 #include "mtk_mdpm_platform.h"
 #include "mtk_mdpm_platform_data.h"
+#include "mtk_mdpm_platform_table.h"
 #include "mtk_ccci_common.h"
 
 static u32 cnted_share_mem[SHARE_MEM_SIZE];
 static u32 rfhw_sel;
 static int mt_mdpm_debug;
-static u32 *dbm_share_mem;
 
 static struct md_power_status mdpm_power_sta;
 
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
+static u32 *dbm_share_mem;
 static bool md1_ccci_ready;
 #endif
 
@@ -29,281 +35,16 @@ static int section_shift[DBM_SECTION_NUM] = {
 	DBM_SECTION_7,  DBM_SECTION_8,  DBM_SECTION_9,
 	DBM_SECTION_10, DBM_SECTION_11, DBM_SECTION_12};
 
-static struct tx_power mdpm_tx_pwr[TX_DBM_NUM] = {
-	[TX_2G_DBM] = {
-		.dbm_name = "2G",
-		.shm_dbm_idx = {M_2G_DBM_TABLE, M_2G_DBM_1_TABLE},
-		.shm_sec_idx = {M_2G_SECTION_LEVEL, M_2G_SECTION_1_LEVEL},
-		.rfhw = &rfhw0[TX_2G_DBM],
-	},
-
-	[TX_3G_DBM] = {
-		.dbm_name = "3G",
-		.shm_dbm_idx = {M_3G_DBM_TABLE, M_3G_DBM_1_TABLE},
-		.shm_sec_idx = {M_3G_SECTION_LEVEL, M_3G_SECTION_1_LEVEL},
-		.rfhw = &rfhw0[TX_3G_DBM],
-	},
-
-	[TX_3GTDD_DBM] = {
-		.dbm_name = "3GTDD",
-		.shm_dbm_idx = {M_TDD_DBM_TABLE, M_TDD_DBM_1_TABLE},
-		.shm_sec_idx = {M_TDD_SECTION_LEVEL, M_TDD_SECTION_1_LEVEL},
-		.rfhw = &rfhw0[TX_3GTDD_DBM],
-	},
-
-	[TX_4G_CC0_DBM] = {
-		.dbm_name = "4G_CC0",
-		.shm_dbm_idx = {M_4G_DBM_TABLE, M_4G_DBM_2_TABLE},
-		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
-		.rfhw = &rfhw0[TX_4G_CC0_DBM],
-	},
-
-	[TX_4G_CC1_DBM] = {
-		.dbm_name = "4G_CC1",
-		.shm_dbm_idx = {M_4G_DBM_1_TABLE, M_4G_DBM_3_TABLE},
-		.shm_sec_idx = {M_4G_SECTION_LEVEL, M_4G_SECTION_9_LEVEL},
-		.rfhw = &rfhw0[TX_4G_CC1_DBM],
-	},
-
-	[TX_C2K_DBM] = {
-		.dbm_name = "C2K",
-		.shm_dbm_idx = {M_C2K_DBM_1_TABLE, M_C2K_DBM_2_TABLE},
-		.shm_sec_idx = {M_C2K_SECTION_1_LEVEL, M_C2K_SECTION_2_LEVEL},
-		.rfhw = &rfhw0[TX_C2K_DBM],
-	},
-
-	[TX_NR_CC0_DBM] = {
-		.dbm_name = "NR_CC0",
-		.shm_dbm_idx = {M_NR_DBM_TABLE, M_NR_DBM_1_TABLE},
-		.shm_sec_idx = {M_NR_SECTION_LEVEL, M_NR_SECTION_1_LEVEL},
-		.rfhw = &rfhw0[TX_NR_CC0_DBM],
-	},
-
-	[TX_NR_CC1_DBM] = {
-		.dbm_name = "NR_CC1",
-		.shm_dbm_idx = {M_NR_DBM_2_TABLE, M_NR_DBM_3_TABLE},
-		.shm_sec_idx = {M_NR_SECTION_2_LEVEL, M_NR_SECTION_3_LEVEL},
-		.rfhw = &rfhw0[TX_NR_CC1_DBM],
-	}
-};
-
-static struct mdpm_scenario mdpm_scen[SCENARIO_NUM] = {
-	[S_STANDBY] = {
-		.scenario_reg = 0,
-		.scenario_name = "S_STANDBY",
-		.scenario_power = &md_scen_power[S_STANDBY],
-		.tx_power_rat = {0, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_2G_IDLE] = {
-		.scenario_reg = 1 << 2,
-		.scenario_name = "S_2G_IDLE",
-		.scenario_power = &md_scen_power[S_2G_IDLE],
-		.tx_power_rat = {RAT_2G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_2G_NON_IDLE] = {
-		.scenario_reg = 1 << 3,
-		.scenario_name = "S_2G_NON_IDLE",
-		.scenario_power = &md_scen_power[S_2G_NON_IDLE],
-		.tx_power_rat = {RAT_2G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_C2K_DATALINK] = {
-		.scenario_reg = 1 << 5,
-		.scenario_name = "S_C2K_DATALINK",
-		.scenario_power = &md_scen_power[S_C2K_DATALINK],
-		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_C2K_SHDR] = {
-		.scenario_reg = 1 << 6,
-		.scenario_name = "S_C2K_SHDR",
-		.scenario_power = &md_scen_power[S_C2K_SHDR],
-		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_C2K_1X_TRAFFIC] = {
-		.scenario_reg = 1 << 4,
-		.scenario_name = "S_C2K_1X_TRAFFIC",
-		.scenario_power = &md_scen_power[S_C2K_1X_TRAFFIC],
-		.tx_power_rat = {RAT_C2K, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_3G_TDD_PAGING] = {
-		.scenario_reg = 1 << 7,
-		.scenario_name = "S_3G_TDD_PAGING",
-		.scenario_power = &md_scen_power[S_3G_TDD_PAGING],
-		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_3G_TDD_TALKING] = {
-		.scenario_reg = 1 << 8,
-		.scenario_name = "S_3G_TDD_TALKING",
-		.scenario_power = &md_scen_power[S_3G_TDD_TALKING],
-		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_3G_TDD_DATALINK] = {
-		.scenario_reg = 1 << 9,
-		.scenario_name = "S_3G_TDD_DATALINK",
-		.scenario_power = &md_scen_power[S_3G_TDD_DATALINK],
-		.tx_power_rat = {RAT_3GTDD, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_3G_IDLE] = {
-		.scenario_reg = 1 << 1,
-		.scenario_name = "S_3G_IDLE",
-		.scenario_power = &md_scen_power[S_3G_IDLE],
-		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_3G_WCDMA_TALKING] = {
-		.scenario_reg = 1 << 10,
-		.scenario_name = "S_3G_WCDMA_TALKING",
-		.scenario_power = &md_scen_power[S_3G_WCDMA_TALKING],
-		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_3G_1C] = {
-		.scenario_reg = 1 << 11,
-		.scenario_name = "S_3G_1C",
-		.scenario_power = &md_scen_power[S_3G_1C],
-		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_3G_2C] = {
-		.scenario_reg = 1 << 12,
-		.scenario_name = "S_3G_2C",
-		.scenario_power = &md_scen_power[S_3G_2C],
-		.tx_power_rat = {RAT_3G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_4G_0D0U] = {
-		.scenario_reg = 1 << 13,
-		.scenario_name = "S_4G_0D0U",
-		.scenario_power = &md_scen_power[S_4G_0D0U],
-		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_4G_1CC] = {
-		.scenario_reg = 1 << 14,
-		.scenario_name = "S_4G_1CC",
-		.scenario_power = &md_scen_power[S_4G_1CC],
-		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_4G_2CC] = {
-		.scenario_reg = 1 << 15,
-		.scenario_name = "S_4G_2CC",
-		.scenario_power = &md_scen_power[S_4G_2CC],
-		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_4G_3CC] = {
-		.scenario_reg = 1 << 16,
-		.scenario_name = "S_4G_3CC",
-		.scenario_power = &md_scen_power[S_4G_3CC],
-		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_4G_4CC] = {
-		.scenario_reg = 1 << 17,
-		.scenario_name = "S_4G_4CC",
-		.scenario_power = &md_scen_power[S_4G_4CC],
-		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_4G_5CC] = {
-		.scenario_reg = 1 << 18,
-		.scenario_name = "S_4G_5CC",
-		.scenario_power = &md_scen_power[S_4G_5CC],
-		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_5G_1CC_2CC] = {
-		.scenario_reg = 1 << 21,
-		.scenario_name = "S_5G_1CC_2CC",
-		.scenario_power = &md_scen_power[S_5G_1CC_2CC],
-		.tx_power_rat = {RAT_5G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	},
-
-	[S_5G_1CC_2CC_4G_4CC] = {
-		.scenario_reg = 1 << 21 | 1 << 17,
-		.scenario_name = "S_5G_1CC_2CC_4G_4CC",
-		.scenario_power = &md_scen_power[S_5G_1CC_2CC_4G_4CC],
-		.tx_power_rat = {RAT_5G, RAT_4G, 0, 0, 0},
-		.tx_power_rat_sum = true,
-	},
-
-	[S_5G_1CC_2CC_4G_1CC] = {
-		.scenario_reg = 1 << 21 | 1 << 14,
-		.scenario_name = "S_5G_1CC_2CC_4G_1CC",
-		.scenario_power = &md_scen_power[S_5G_1CC_2CC_4G_1CC],
-		.tx_power_rat = {RAT_5G, RAT_4G, 0, 0, 0},
-		.tx_power_rat_sum = true,
-	},
-
-
-	[S_4G_POS_URGENT] = {
-		.scenario_reg = 1 << 31,
-		.scenario_name = "S_4G_POS_URGENT",
-		.scenario_power = &md_scen_power[S_4G_POS_URGENT],
-		.tx_power_rat = {RAT_4G, 0, 0, 0, 0},
-		.tx_power_rat_sum = false,
-	}
-};
-
-#ifdef GET_MD_SCEANRIO_BY_SHARE_MEMORY
-static int scen_priority[SCENARIO_NUM] = {
-	S_5G_1CC_2CC_4G_4CC,
-	S_5G_1CC_2CC_4G_1CC,
-	S_5G_1CC_2CC,
-	S_4G_5CC,
-	S_4G_4CC,
-	S_4G_3CC,
-	S_4G_2CC,
-	S_4G_1CC,
-	S_3G_2C,
-	S_3G_1C,
-	S_3G_WCDMA_TALKING,
-	S_C2K_SHDR,
-	S_3G_TDD_DATALINK,
-	S_3G_TDD_TALKING,
-	S_C2K_DATALINK,
-	S_C2K_1X_TRAFFIC,
-	S_2G_NON_IDLE,
-	S_4G_0D0U,
-	S_3G_TDD_PAGING,
-	S_3G_IDLE,
-	S_2G_IDLE,
-	S_STANDBY,
-	S_4G_POS_URGENT
-};
-#endif
+static struct tx_power *mdpm_tx_pwr;
+static struct mdpm_scenario *mdpm_scen;
+static int *scen_priority;
 
 void init_md_section_level(enum pbm_kicker kicker, u32 *share_mem)
 {
+	if (!mdpm_tx_pwr || !mdpm_scen || !scen_priority) {
+		pr_notice("MD power table is empty\n");
+		return;
+	}
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 	if (share_mem == NULL) {
 		pr_info_ratelimited("can't get dbm share memory\n");
@@ -331,6 +72,11 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 	u32 share_reg;
 	enum md_scenario scenario;
 	int scenario_power, tx_power;
+
+	if (!mdpm_tx_pwr || !mdpm_scen || !scen_priority) {
+		pr_notice("[md1_power] MD power table is empty\n");
+		return 0;
+	}
 
 	if (power_type >= POWER_TYPE_NUM ||
 		power_type < 0) {
@@ -374,6 +120,120 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 #endif /* CONFIG_MTK_ECCCI_DRIVER */
 }
 EXPORT_SYMBOL(get_md1_power);
+
+static int mt_mdpm_debug_proc_show(struct seq_file *m, void *v)
+{
+	if (mt_mdpm_debug)
+		seq_printf(m, "mdpm debug enabled mt_mdpm_debug=%d\n",
+			mt_mdpm_debug);
+	else
+		seq_puts(m, "mdpm debug disabled\n");
+
+	return 0;
+}
+
+/*
+ * enable debug message
+ */
+static ssize_t mt_mdpm_debug_proc_write
+(struct file *file, const char __user *buffer, size_t count, loff_t *data)
+{
+	char desc[32];
+	int len = 0;
+	int debug = 0;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return 0;
+
+	len = (len < 0) ? 0 : len;
+	desc[len] = '\0';
+
+	/* if (sscanf(desc, "%d", &debug) == 1) { */
+	if (kstrtoint(desc, 10, &debug) == 0) {
+		if (debug >= 0 && debug <= 2)
+			mt_mdpm_debug = debug;
+		else
+			pr_notice("should be [0:disable, 1,2:enable level]\n");
+	} else
+		pr_notice("should be [0:disable, 1,2:enable level]\n");
+
+	return count;
+}
+
+static int mt_mdpm_power_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "MAX power: scenario=%dmW dbm=%dmW total=%dmW\n scenario name=%s(%d) section=%d, rat=%d, power_type=%d\n",
+		mdpm_power_sta.scanario_power, mdpm_power_sta.tx_power,
+		mdpm_power_sta.total_power,
+		mdpm_power_sta.scenario_name, mdpm_power_sta.scenario_id,
+		mdpm_power_sta.dbm_section, mdpm_power_sta.rat,
+		mdpm_power_sta.power_type);
+
+	return 0;
+}
+
+#define PROC_FOPS_RW(name)						\
+static int mt_ ## name ## _proc_open(struct inode *inode, struct file *file)\
+{									\
+	return single_open(file, mt_ ## name ## _proc_show, PDE_DATA(inode));\
+}									\
+static const struct proc_ops mt_ ## name ## _proc_fops = {	\
+	.proc_open		= mt_ ## name ## _proc_open,			\
+	.proc_read		= seq_read,					\
+	.proc_lseek		= seq_lseek,					\
+	.proc_release		= single_release,				\
+	.proc_write		= mt_ ## name ## _proc_write,			\
+}
+
+#define PROC_FOPS_RO(name)						\
+static int mt_ ## name ## _proc_open(struct inode *inode, struct file *file)\
+{									\
+	return single_open(file, mt_ ## name ## _proc_show, PDE_DATA(inode));\
+}									\
+static const struct proc_ops mt_ ## name ## _proc_fops = {	\
+	.proc_open		= mt_ ## name ## _proc_open,		\
+	.proc_read		= seq_read,				\
+	.proc_lseek		= seq_lseek,				\
+	.proc_release	= single_release,			\
+}
+
+#define PROC_ENTRY(name)	{__stringify(name), &mt_ ## name ## _proc_fops}
+
+PROC_FOPS_RW(mdpm_debug);
+PROC_FOPS_RO(mdpm_power);
+
+static int mt_mdpm_create_procfs(void)
+{
+	struct proc_dir_entry *dir = NULL;
+	int i;
+
+	struct pentry {
+		const char *name;
+		const struct proc_ops *fops;
+	};
+
+	const struct pentry entries[] = {
+		PROC_ENTRY(mdpm_debug),
+		PROC_ENTRY(mdpm_power),
+	};
+
+	dir = proc_mkdir("mdpm", NULL);
+
+	if (!dir) {
+		pr_notice("fail to create /proc/mdpm @ %s()\n", __func__);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(entries); i++) {
+		if (!proc_create
+		    (entries[i].name, 0660, dir, entries[i].fops))
+			pr_notice("@%s: create /proc/mdpm/%s failed\n", __func__,
+				    entries[i].name);
+	}
+
+	return 0;
+}
 
 static int get_md1_scenario_internal(u32 share_reg)
 {
@@ -434,8 +294,10 @@ static int get_shm_idx(enum tx_power_table tx_dbm, int sec_shift, bool get_dbm)
 	} else {
 		/* get section index */
 		mem_idx = mdpm_tx_pwr[tx_dbm].shm_sec_idx[idx];
-		if (mem_idx > SECTION_LEVEL_END
-			|| mem_idx < SECTION_LEVEL_START) {
+		if (!(mem_idx <= SECTION_LEVEL_END
+					&& mem_idx >= SECTION_LEVEL_START)
+				&& !(mem_idx <= SECTION_LEVEL_2_END
+					&& mem_idx >= SECTION_LEVEL_2_START)) {
 			pr_notice("[%s] ERROR, not in section level %d %d %d\n",
 				__func__, idx, tx_dbm, mem_idx);
 				WARN_ON_ONCE(1);
@@ -548,6 +410,8 @@ void init_md1_section_level(u32 *share_mem)
 
 	for (i = 0; i < DBM_SECTION_NUM; i++) {
 		for (j = 0; j < TX_DBM_NUM; j++) {
+			if (!mdpm_tx_pwr[j].rfhw)
+				continue;
 			if (mdpm_tx_pwr[j].rfhw->section[i] >
 				DBM_SECTION_MASK) {
 				pr_notice("[%s] md1_section_level too large i:%d s:%d !\n",
@@ -563,6 +427,9 @@ void init_md1_section_level(u32 *share_mem)
 
 	memcpy(&share_mem[SECTION_LEVEL_START], &mem[SECTION_LEVEL_START],
 		sizeof(u32) * (SECTION_LEVEL_END - SECTION_LEVEL_START + 1));
+
+	memcpy(&share_mem[SECTION_LEVEL_2_START], &mem[SECTION_LEVEL_2_START],
+		sizeof(u32) * (SECTION_LEVEL_2_END - SECTION_LEVEL_2_START + 1));
 
 	pr_info("AP2MD1 section, 2G: 0x%08x%08x(0x%08x%08x), 3G: 0x%08x%08x(0x%08x %08x)\n",
 		mem[M_2G_SECTION_LEVEL], mem[M_2G_SECTION_1_LEVEL],
@@ -590,6 +457,12 @@ void init_md1_section_level(u32 *share_mem)
 		mem[M_NR_SECTION_2_LEVEL], mem[M_NR_SECTION_3_LEVEL],
 		share_mem[M_NR_SECTION_2_LEVEL],
 		share_mem[M_NR_SECTION_3_LEVEL]);
+	pr_info("MMW_TX1:0x%08x%08x(0x%08x%08x),MMW_TX2:0x%08x%08x(0x%08x%08x)\n",
+		mem[M_MMW_SECTION_LEVEL], mem[M_MMW_SECTION_1_LEVEL],
+		share_mem[M_MMW_SECTION_LEVEL], share_mem[M_MMW_SECTION_1_LEVEL],
+		mem[M_MMW_SECTION_2_LEVEL], mem[M_MMW_SECTION_3_LEVEL],
+		share_mem[M_MMW_SECTION_2_LEVEL],
+		share_mem[M_MMW_SECTION_3_LEVEL]);
 }
 
 #ifdef GET_MD_SCEANRIO_BY_SHARE_MEMORY
@@ -650,8 +523,8 @@ int get_md1_scenario_power(enum md_scenario scenario,
 		break;
 	}
 	mdpm_pwr_sta->scenario_id = scenario;
-	sprintf(mdpm_pwr_sta->scenario_name, "%s",
-		mdpm_scen[scenario].scenario_name);
+	snprintf(mdpm_pwr_sta->scenario_name, sizeof(mdpm_pwr_sta->scenario_name),
+			"%s", mdpm_scen[scenario].scenario_name);
 	mdpm_pwr_sta->scanario_power = s_power;
 	mdpm_pwr_sta->power_type = power_type;
 
@@ -799,6 +672,18 @@ static int get_md1_tx_power_by_rat(u32 *dbm_mem, u32 *old_dbm_mem,
 			old_dbm_mem, tx_pwr, TX_NR_CC1_DBM, rat, power_type,
 			section_shift, md_power_s);
 		break;
+	case RAT_MMW:
+		tx_pwr = &mdpm_tx_pwr[TX_MMW_TX2_DBM];
+		power = get_md1_tx_power_by_table(dbm_mem,
+			old_dbm_mem, tx_pwr, TX_MMW_TX2_DBM, rat, power_type,
+			section_shift, md_power_s);
+		if (!power) {
+			tx_pwr = &mdpm_tx_pwr[TX_MMW_TX1_DBM];
+			power = get_md1_tx_power_by_table(dbm_mem,
+				old_dbm_mem, tx_pwr, TX_MMW_TX1_DBM, rat, power_type,
+				section_shift, md_power_s);
+		}
+		break;
 	case RAT_C2K:
 		tx_pwr = &mdpm_tx_pwr[TX_C2K_DBM];
 		power = get_md1_tx_power_by_table(dbm_mem,
@@ -841,40 +726,19 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 	else
 		return 0;
 
-	if (rfhw_sel != rf_ret) {
-		switch (rf_ret) {
-		case 0:
-			for (i = 0; i < TX_DBM_NUM; i++)
-				mdpm_tx_pwr[i].rfhw = &rfhw0[i];
-
-			rfhw_sel = rf_ret;
-			break;
-
-		case 1:
-			for (i = 0; i < TX_DBM_NUM; i++)
-				mdpm_tx_pwr[i].rfhw = &rfhw1[i];
-
-			rfhw_sel = rf_ret;
-			break;
-
-		default:
-			pr_notice("wrong rf_ret %d\n", rf_ret);
-			break;
-		}
-	}
-
 	if (mt_mdpm_debug == 2)
 		for (i = 0; i < SHARE_MEM_SIZE; i++) {
 			usedBytes += sprintf(log_buffer + usedBytes, "0x%x ",
 				share_mem[i]);
 
-			if ((i + 1) % 10 == 0) {
+			if ((i + 1) % 10 == 0 || (i + 1) == SHARE_MEM_SIZE) {
 				usedBytes = 0;
 				pr_info("%s\n", log_buffer);
 			}
 		}
 
 	memset((void *)&mdpm_power_s_tmp, 0, sizeof(struct md_power_status));
+	tx_power_max = 0;
 
 	for (i = 0; i < MAX_DBM_FUNC_NUM; i++) {
 		rat = mdpm_scen[scenario].tx_power_rat[i];
@@ -923,17 +787,110 @@ int get_md1_tx_power(enum md_scenario scenario, u32 *share_mem,
 	return tx_power_max;
 }
 
-static int __init mdpm_module_init(void)
+static int mdpm_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
+	struct mdpm_data *mdpm_data;
+
+	mdpm_data = (struct mdpm_data *) of_device_get_match_data(dev);
+
+	if (!mdpm_data) {
+		dev_notice(dev, "Error: Failed to get mdpm platform data\n");
+		return -ENODATA;
+	}
+
+	mdpm_data->dev = &pdev->dev;
+
+	platform_set_drvdata(pdev, mdpm_data);
+
+	mdpm_tx_pwr = mdpm_data->tx_power_t;
+	mdpm_scen = mdpm_data->scenario_power_t;
+	scen_priority = mdpm_data->prority_t;
+
+	mt_mdpm_create_procfs();
+
 	return 0;
 }
 
-static void __exit mdpm_module_exit(void)
-{
-}
+enum mdpm_platform {
+	MT6873_MDPM_DATA,
+	MT6893_MDPM_DATA,
+	MT6983_MDPM_DATA,
+	MT6879_MDPM_DATA,
+	MT6895_MDPM_DATA
+};
 
-module_init(mdpm_module_init);
-module_exit(mdpm_module_exit);
+static struct mdpm_data mt6873_mdpm_data = {
+	.platform = MT6873_MDPM_DATA,
+	.scenario_power_t = mt6873_mdpm_scen,
+	.tx_power_t = mt6873_mdpm_tx_pwr,
+	.prority_t = (void *)&mt6873_scen_priority
+};
+
+static struct mdpm_data mt6893_mdpm_data = {
+	.platform = MT6893_MDPM_DATA,
+	.scenario_power_t = mt6893_mdpm_scen,
+	.tx_power_t = mt6893_mdpm_tx_pwr,
+	.prority_t = (void *)&mt6893_scen_priority
+};
+
+static struct mdpm_data mt6983_mdpm_data = {
+	.platform = MT6983_MDPM_DATA,
+	.scenario_power_t = mt6983_mdpm_scen,
+	.tx_power_t = mt6983_mdpm_tx_pwr,
+	.prority_t = (void *)&mt6983_scen_priority
+};
+
+static struct mdpm_data mt6879_mdpm_data = {
+	.platform = MT6879_MDPM_DATA,
+	.scenario_power_t = mt6879_mdpm_scen,
+	.tx_power_t = mt6879_mdpm_tx_pwr,
+	.prority_t = (void *)&mt6879_scen_priority
+};
+
+static struct mdpm_data mt6895_mdpm_data = {
+	.platform = MT6895_MDPM_DATA,
+	.scenario_power_t = mt6895_mdpm_scen,
+	.tx_power_t = mt6895_mdpm_tx_pwr,
+	.prority_t = (void *)&mt6895_scen_priority
+};
+
+static const struct of_device_id mdpm_of_match[] = {
+	{
+		.compatible = "mediatek,mt6873-mdpm",
+		.data = (void *)&mt6873_mdpm_data,
+	},
+	{
+		.compatible = "mediatek,mt6893-mdpm",
+		.data = (void *)&mt6893_mdpm_data,
+	},
+	{
+		.compatible = "mediatek,mt6983-mdpm",
+		.data = (void *)&mt6983_mdpm_data,
+	},
+	{
+		.compatible = "mediatek,mt6879-mdpm",
+		.data = (void *)&mt6879_mdpm_data,
+	},
+	{
+		.compatible = "mediatek,mt6895-mdpm",
+		.data = (void *)&mt6895_mdpm_data,
+	},
+	{
+	},
+};
+
+MODULE_DEVICE_TABLE(of, mdpm_of_match);
+
+static struct platform_driver mdpm_driver = {
+	.driver = {
+		.name = "mtk-modem_power_meter",
+		.of_match_table = mdpm_of_match,
+	},
+	.probe = mdpm_probe,
+};
+
+module_platform_driver(mdpm_driver);
 
 MODULE_AUTHOR("Samuel Hsieh");
 MODULE_DESCRIPTION("MTK modem power meter driver");
