@@ -175,6 +175,9 @@ static void mdw_mem_pool_release(struct kref *ref)
 
 	/* release all allocated memories */
 	list_for_each_entry_safe(m, tmp, &pool->m_list, d_node) {
+		if (!m)
+			break;
+
 		/* This should not happen, when m_ref is zero */
 		list_del(&m->d_node);
 		mdw_mem_debug("free mem: pool: 0x%llx, mem: 0x%llx",
@@ -188,6 +191,8 @@ static void mdw_mem_pool_release(struct kref *ref)
 
 	/* release all chunks */
 	list_for_each_entry_safe(m, tmp, &pool->m_chunks, p_chunk) {
+		if (!m)
+			break;
 		mdw_mem_pool_chunk_del(m);
 	}
 

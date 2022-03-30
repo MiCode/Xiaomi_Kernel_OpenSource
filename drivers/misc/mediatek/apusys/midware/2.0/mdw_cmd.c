@@ -167,7 +167,7 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 		}
 
 		ret = mdw_dev_validation(mpriv, ksubcmd->info->type,
-			acbs, ksubcmd->info->num_cmdbufs);
+			c, acbs, ksubcmd->info->num_cmdbufs);
 		kfree(acbs);
 		acbs = NULL;
 		if (ret)
@@ -386,6 +386,54 @@ static int mdw_fence_init(struct mdw_cmd *c)
 	return ret;
 }
 
+static void mdw_cmd_unvoke_map(struct mdw_cmd *c)
+{
+	struct mdw_cmd_map_invoke *cm_invoke = NULL, *tmp = NULL;
+
+	list_for_each_entry_safe(cm_invoke, tmp, &c->map_invokes, c_node) {
+		if (!cm_invoke)
+			break;
+
+		list_del(&cm_invoke->c_node);
+		mdw_cmd_debug("s(0x%llx)c(0x%llx) unvoke m(0x%llx/%u)\n",
+			(uint64_t)c->mpriv, (uint64_t)c,
+			cm_invoke->map->m->device_va,
+			cm_invoke->map->m->dva_size);
+		cm_invoke->map->put(cm_invoke->map);
+		kfree(cm_invoke);
+	}
+}
+
+int mdw_cmd_invoke_map(struct mdw_cmd *c, struct mdw_mem_map *map)
+{
+	struct mdw_cmd_map_invoke *cm_invoke = NULL;
+
+	if (map == NULL)
+		return -EINVAL;
+
+	/* query */
+	list_for_each_entry(cm_invoke, &c->map_invokes, c_node) {
+		if (!cm_invoke)
+			break;
+
+		/* already invoked */
+		if (cm_invoke->map == map)
+			return 0;
+	}
+
+	cm_invoke = kzalloc(sizeof(*cm_invoke), GFP_KERNEL);
+	if (cm_invoke == NULL)
+		return -ENOMEM;
+
+	map->get(map);
+	cm_invoke->map = map;
+	list_add_tail(&cm_invoke->c_node, &c->map_invokes);
+	mdw_cmd_debug("s(0x%llx)c(0x%llx) invoke m(0x%llx/%u)\n",
+		(uint64_t)c->mpriv, (uint64_t)c, map->m->device_va, map->m->dva_size);
+
+	return 0;
+}
+
 static int mdw_cmd_sanity_check(struct mdw_cmd *c)
 {
 	if (c->priority >= MDW_PRIORITY_MAX ||
@@ -512,6 +560,7 @@ static void mdw_cmd_delete(struct mdw_cmd *c)
 	mdw_cmd_show(c, mdw_drv_debug);
 
 	mutex_lock(&mpriv->mtx);
+	mdw_cmd_unvoke_map(c);
 	mdw_cmd_delete_infos(c->mpriv, c);
 	list_del(&c->u_item);
 	mdw_cmd_mpriv_release(c->mpriv);
@@ -632,6 +681,8 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	if (!c)
 		goto out;
 
+	mutex_init(&c->mtx);
+	INIT_LIST_HEAD(&c->map_invokes);
 	c->mpriv = mpriv;
 
 	/* setup cmd info */
@@ -722,7 +773,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 		mdw_drv_err("cmd init fence fail\n");
 		goto delete_infos;
 	}
-	mutex_init(&c->mtx);
+
 	c->mpriv->get(c->mpriv);
 	c->complete = mdw_cmd_complete;
 	INIT_WORK(&c->t_wk, &mdw_cmd_trigger_func);

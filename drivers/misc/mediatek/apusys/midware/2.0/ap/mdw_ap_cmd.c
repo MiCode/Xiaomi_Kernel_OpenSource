@@ -223,7 +223,6 @@ int mdw_ap_cmd_exec(struct mdw_cmd *c)
 	struct mdw_ap_sc *sc = NULL;
 	int ret = 0;
 
-	mutex_lock(&c->mtx);
 	ac = mdw_ap_cmd_create(c);
 	if (!ac) {
 		ret = -ENOMEM;
@@ -243,7 +242,6 @@ int mdw_ap_cmd_exec(struct mdw_cmd *c)
 	mdw_flw_debug("cmd(0x%llx) parse done\n", ac->c->kid);
 
 out:
-	mutex_unlock(&c->mtx);
 	return ret;
 }
 

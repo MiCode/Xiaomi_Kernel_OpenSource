@@ -45,6 +45,9 @@ struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 
 	mutex_lock(&mdev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdev->m_list, d_node) {
+		if (!m)
+			break;
+
 		if (m->dbuf == dbuf) {
 			mutex_unlock(&mdev->m_mtx);
 			return m;
@@ -60,13 +63,13 @@ struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle)
 
 void mdw_mem_all_print(struct mdw_fpriv *mpriv)
 {
-	struct list_head *tmp = NULL, *list_ptr = NULL;
-	struct mdw_mem *m = NULL;
+	struct mdw_mem *m = NULL, *tmp = NULL;
 
 	mdw_mem_debug("---list--\n");
 	mutex_lock(&mpriv->mtx);
-	list_for_each_safe(list_ptr, tmp, &mpriv->mems) {
-		m = list_entry(list_ptr, struct mdw_mem, u_item);
+	list_for_each_entry_safe(m, tmp, &mpriv->mems, u_item) {
+		if (!m)
+			break;
 		mdw_mem_show(m);
 	}
 	mutex_unlock(&mpriv->mtx);
@@ -309,7 +312,8 @@ static void mdw_mem_map_get(struct mdw_mem_map *map)
 static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 {
 	struct mdw_mem_map *map = NULL;
-	int ret = 0;
+	struct scatterlist *sg = NULL;
+	int ret = 0, i = 0;
 
 	mutex_lock(&m->mtx);
 	get_dma_buf(m->dbuf);
@@ -334,6 +338,10 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 		goto out;
 	}
 
+	map->get = mdw_mem_map_get;
+	map->put = mdw_mem_map_put;
+
+	/* attach device */
 	mdw_trace_begin("map create: attach|size(%u) align(%u)",
 		m->size, m->align);
 	map->attach = dma_buf_attach(m->dbuf, m->mdev);
@@ -347,6 +355,7 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	mdw_trace_end("map create: attach|size(%u) align(%u)",
 		m->size, m->align);
 
+	/* map device va */
 	mdw_trace_begin("map create: map|size(%u) align(%u)",
 		m->size, m->align);
 	map->sgt = dma_buf_map_attachment(map->attach,
@@ -361,8 +370,15 @@ static int mdw_mem_map_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 	mdw_trace_end("map create: map|size(%u) align(%u)",
 		m->size, m->align);
 
+	/* get start addr and size */
 	m->device_va = sg_dma_address(map->sgt->sgl);
-	m->dva_size = sg_dma_len(map->sgt->sgl);
+	for_each_sgtable_dma_sg(map->sgt, sg, i) {
+		if (!sg)
+			break;
+		m->dva_size += sg_dma_len(sg);
+	}
+
+	/* check dva and size */
 	if (!m->device_va || !m->dva_size) {
 		mdw_drv_err("can't get mem(0x%llx) dva(0x%llx/%u)\n",
 			(uint64_t)m, m->device_va, m->dva_size);
@@ -409,7 +425,7 @@ static void mdw_mem_invoke_release(struct kref *ref)
 		m->unbind(m_invoke->invoker, m_invoke->m);
 	list_del(&m_invoke->u_node);
 	kfree(m_invoke);
-	mdw_mem_map_put(map);
+	map->put(map);
 	dma_buf_put(dbuf);
 }
 
@@ -419,6 +435,9 @@ static struct mdw_mem_invoke *mdw_mem_invoke_find(struct mdw_fpriv *mpriv,
 	struct mdw_mem_invoke *m_invoke = NULL;
 
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
+		if (!m_invoke)
+			break;
+
 		if (m_invoke->m == m) {
 			mdw_flw_debug("s(0x%llx) find invoke(0x%llx) to mem(0x%llx)\n",
 				(uint64_t)mpriv, (uint64_t)m_invoke,
@@ -457,7 +476,7 @@ static int mdw_mem_invoke_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 		return -ENOMEM;
 
 	get_dma_buf(m->dbuf);
-	mdw_mem_map_get(map);
+	map->get(map);
 	mdw_mem_show(m);
 	m_invoke->m = m;
 	m_invoke->invoker = mpriv;
@@ -478,7 +497,7 @@ static int mdw_mem_invoke_create(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 
 delete_invoke:
 	list_del(&m_invoke->u_node);
-	mdw_mem_map_put(map);
+	map->put(map);
 	dma_buf_put(m->dbuf);
 	kfree(m_invoke);
 out:
@@ -515,7 +534,7 @@ int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m)
 					(uint64_t)m, ret);
 		}
 
-		mdw_mem_map_put(m->map);
+		m->map->put(m->map);
 		goto out;
 	}
 
@@ -608,6 +627,9 @@ void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv)
 	struct mdw_mem_invoke *m_invoke = NULL, *tmp = NULL;
 
 	list_for_each_entry_safe(m_invoke, tmp, &mpriv->invokes, u_node) {
+		if (!m_invoke)
+			break;
+
 		if (m_invoke->m->handle >= 0) {
 			mdw_mem_show(m_invoke->m);
 			mdw_mem_invoke_release(&m_invoke->ref);
@@ -791,6 +813,9 @@ struct mdw_mem *mdw_mem_query_mem(uint64_t kva)
 
 	mutex_lock(&mdw_dev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdw_dev->m_list, d_node) {
+		if (!m)
+			break;
+
 		if (kva >= (uint64_t)m->vaddr &&
 			kva < (uint64_t)m->vaddr + m->size) {
 
@@ -805,20 +830,72 @@ struct mdw_mem *mdw_mem_query_mem(uint64_t kva)
 	return m;
 }
 
-int apusys_mem_get_by_iova(void *session, uint64_t iova)
+int apusys_mem_validate_by_cmd(void *session, void *cmd, uint64_t iova, uint32_t size)
 {
 	struct mdw_fpriv *mpriv = (struct mdw_fpriv *)session;
+	struct mdw_cmd *c = (struct mdw_cmd *)cmd;
+	struct mdw_device *mdev = mpriv->mdev;
 	struct mdw_mem_invoke *m_invoke = NULL;
 	struct mdw_mem *m = NULL;
+	int ret = 0;
 
+	mdw_vld_debug("target: s(0x%llx) c(0x%llx) iova(0x%llx/%u)\n",
+		(uint64_t)mpriv, (uint64_t)c, iova, size);
+
+	if (c) {
+		/* check c/s match */
+		if (c->mpriv != session) {
+			mdw_drv_err("session(0x%llx) cmd(0x%llx) not match\n",
+				(uint64_t)mpriv, (uint64_t)c);
+			return -EINVAL;
+		}
+	}
+
+	/* query from mpriv invoke list */
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
+		if (!m_invoke) {
+			mdw_vld_debug("s(0x%llx) no mem invokes\n",
+				(uint64_t)mpriv);
+			break;
+		}
+
 		m = m_invoke->m;
-		if (iova >= m->device_va &&
-			iova < m->device_va + m->dva_size)
+		mdw_vld_debug("check mem invoke list: va(0x%llx/%u) iova(0x%llx/%u)...\n",
+			(uint64_t)m->vaddr, m->size, m->device_va, m->dva_size);
+		if (iova < m->device_va || iova + size > m->device_va + m->dva_size)
+			continue;
+		mdw_vld_debug("check mem invoke list: va(0x%llx/%u) iova(0x%llx/%u) match\n",
+			(uint64_t)m->vaddr, m->size, m->device_va, m->dva_size);
+		if (c) {
+			ret = mdw_cmd_invoke_map(c, m->map);
+			if (ret) {
+				mdw_drv_err("s(0x%llx)c(0x%llx)m(0x%llx/%u)get map fail(%d)\n",
+					(uint64_t)session, (uint64_t)cmd,
+					iova, size, ret);
+			}
+		}
+		return ret;
+	}
+
+	/* check vlm */
+	if (test_bit(MDW_MEM_TYPE_VLM, mdev->mem_mask) &&
+		size &&
+		iova >= mdev->minfos[MDW_MEM_TYPE_VLM].device_va &&
+		iova + size <= mdev->minfos[MDW_MEM_TYPE_VLM].device_va +
+		mdev->minfos[MDW_MEM_TYPE_VLM].dva_size) {
+		mdw_vld_debug("m(0x%llx/%u) in vlm range(0x%llx/%u)\n",
+			iova, size,
+			mdev->minfos[MDW_MEM_TYPE_VLM].device_va,
+			mdev->minfos[MDW_MEM_TYPE_VLM].dva_size);
 			return 0;
 	}
 
 	return -EINVAL;
+}
+
+int apusys_mem_get_by_iova(void *session, uint64_t iova)
+{
+	return 0;
 }
 
 void *apusys_mem_query_kva_by_sess(void *session, uint64_t iova)
@@ -828,6 +905,9 @@ void *apusys_mem_query_kva_by_sess(void *session, uint64_t iova)
 	struct mdw_mem *m = NULL;
 
 	list_for_each_entry(m_invoke, &mpriv->invokes, u_node) {
+		if (!m_invoke)
+			break;
+
 		m = m_invoke->m;
 		if (iova >= m->device_va &&
 			iova < m->device_va + m->dva_size &&
@@ -883,6 +963,9 @@ uint64_t apusys_mem_query_kva(uint64_t iova)
 
 	mutex_lock(&mdw_dev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdw_dev->m_list, d_node) {
+		if (!m)
+			break;
+
 		if (iova >= m->device_va &&
 			iova < m->device_va + m->size) {
 			if (m->vaddr == NULL)
@@ -905,6 +988,9 @@ uint64_t apusys_mem_query_iova(uint64_t kva)
 
 	mutex_lock(&mdw_dev->m_mtx);
 	list_for_each_entry_safe(m, tmp, &mdw_dev->m_list, d_node) {
+		if (!m)
+			break;
+
 		if (kva >= (uint64_t)m->vaddr &&
 			kva < (uint64_t)m->vaddr + m->size) {
 			if (!m->device_va)
