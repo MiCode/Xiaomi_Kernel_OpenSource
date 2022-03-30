@@ -408,6 +408,32 @@ static char __log_buf[__LOG_BUF_LEN] __aligned(LOG_ALIGN);
 static char *log_buf = __log_buf;
 static u32 log_buf_len = __LOG_BUF_LEN;
 
+/* console duration detect */
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+int printk_uart_status;
+struct __conwrite_stat_struct {
+	struct console *con; /* current console */
+	u64 time_before_conwrite; /* the last record before write */
+	u64 time_after_conwrite; /* the last record after write */
+	char con_write_statbuf[512]; /* con write status buf*/
+};
+u64 time_con_write_ttyS;
+u64 len_con_write_ttyS;
+static struct __conwrite_stat_struct conwrite_stat_struct = {
+	.con = NULL,
+	.time_before_conwrite = 0,
+	.time_after_conwrite = 0
+};
+unsigned long rem_nsec_con_write_ttyS;
+bool console_status_detected;
+
+void set_printk_uart_status(int value)
+{
+	printk_uart_status = value;
+}
+EXPORT_SYMBOL_GPL(set_printk_uart_status);
+#endif
+
 /*
  * Define the average message size. This only affects the number of
  * descriptors that will be available. Underestimating is better than
@@ -1716,7 +1742,11 @@ int do_syslog(int type, char __user *buf, int len, int source)
 			 * for pending data, not the size; return the count of
 			 * records, not the length.
 			 */
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+			error = prb_next_seq_id(prb, syslog_seq) - syslog_seq;
+#else
 			error = prb_next_seq(prb) - syslog_seq;
+#endif
 		} else {
 			bool time = syslog_partial ? syslog_time : printk_time;
 			unsigned int line_count;
@@ -1901,6 +1931,9 @@ static void call_console_drivers(const char *ext_text, size_t ext_len,
 	size_t dropped_len = 0;
 	struct console *con;
 
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	unsigned long interval_con_write = 0;
+#endif
 	trace_console_rcuidle(text, len);
 
 	if (!console_drivers)
@@ -1928,9 +1961,37 @@ static void call_console_drivers(const char *ext_text, size_t ext_len,
 		else {
 			if (dropped_len)
 				con->write(con, dropped_text, dropped_len);
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+			/* print the uart status next time enter the console_unlock */
+			if (console_status_detected) {
+				con->write(con, conwrite_stat_struct.con_write_statbuf,
+					strlen(conwrite_stat_struct.con_write_statbuf));
+			}
+
+			if (!strcmp(con->name, "ttyS")) {
+				conwrite_stat_struct.con = con;
+				conwrite_stat_struct.time_before_conwrite
+					= local_clock();
+			}
 			con->write(con, text, len);
-		}
+			if (!strcmp(con->name, "ttyS")) {
+				conwrite_stat_struct.time_after_conwrite
+					= local_clock();
+				interval_con_write =
+					conwrite_stat_struct.time_after_conwrite -
+					conwrite_stat_struct.time_before_conwrite;
+				time_con_write_ttyS += interval_con_write;
+				len_con_write_ttyS += len;
+			}
+#else
+			con->write(con, text, len);
+#endif
+			}
 	}
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	if (console_status_detected)
+		console_status_detected = false;
+#endif
 }
 
 /*
@@ -2019,8 +2080,15 @@ static inline void printk_delay(void)
 
 static inline u32 printk_caller_id(void)
 {
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+#define CPU_INDEX (100000)
+#define UART_INDEX (1000000)
+	return (in_task() ? 0 : 0x80000000) + printk_uart_status * UART_INDEX
+		+ raw_smp_processor_id() * CPU_INDEX + task_pid_nr(current);
+#else
 	return in_task() ? task_pid_nr(current) :
 		0x80000000 + raw_smp_processor_id();
+#endif
 }
 
 /**
@@ -2067,7 +2135,45 @@ u16 printk_parse_prefix(const char *text, int *level,
 
 	return prefix_len;
 }
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+static u16 printk_sprint(char *text, u16 size, int facility,
+			 enum printk_info_flags *flags, const char *fmt,
+			 va_list args)
+{
+	u16 text_len = 0;
+	static char textbuf[LOG_LINE_MAX];
+	char *mtk_text = textbuf;
+	u16  mtk_prefix_len = 0;
 
+
+	text_len = vscnprintf(mtk_text, sizeof(textbuf), fmt, args);
+
+	/* Mark and strip a trailing newline. */
+	if (text_len && mtk_text[text_len - 1] == '\n') {
+		text_len--;
+		*flags |= LOG_NEWLINE;
+	}
+
+	/* Strip log level and control flags. */
+	if (facility == 0) {
+		u16 prefix_len;
+
+		prefix_len = printk_parse_prefix(mtk_text, NULL, flags);
+		if (prefix_len) {
+			text_len -= prefix_len;
+			memmove(mtk_text, mtk_text + prefix_len, text_len);
+		}
+	}
+
+	if (!(*flags & LOG_CONT)) {
+		mtk_prefix_len = scnprintf(text, size, "%s: ", current->comm);
+		text_len += mtk_prefix_len;
+	}
+	memmove(text + mtk_prefix_len, mtk_text, size - mtk_prefix_len);
+
+	return text_len;
+}
+#else
 static u16 printk_sprint(char *text, u16 size, int facility,
 			 enum printk_info_flags *flags, const char *fmt,
 			 va_list args)
@@ -2095,6 +2201,7 @@ static u16 printk_sprint(char *text, u16 size, int facility,
 
 	return text_len;
 }
+#endif
 
 __printf(4, 0)
 int vprintk_store(int facility, int level,
@@ -2173,6 +2280,11 @@ int vprintk_store(int facility, int level,
 	 * prb_reserve_in_last() and prb_reserve() purposely invalidate the
 	 * structure when they fail.
 	 */
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	reserve_size += strlen(current->comm) + 3;
+	if (reserve_size > LOG_LINE_MAX)
+		reserve_size = LOG_LINE_MAX;
+#endif
 	prb_rec_init_wr(&r, reserve_size);
 	if (!prb_reserve(&e, prb, &r)) {
 		/* truncate the message if it is too long for empty buffer */
@@ -2616,6 +2728,15 @@ void console_unlock(void)
 	struct printk_record r;
 	u64 __maybe_unused next_seq;
 
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	u64 con_dura_time = local_clock();
+	u64 current_time;
+
+	len_con_write_ttyS = 0;
+	time_con_write_ttyS = 0;
+	rem_nsec_con_write_ttyS = 0;
+#endif
+
 	if (console_suspended) {
 		up_console_sem();
 		return;
@@ -2661,6 +2782,42 @@ skip:
 		if (!prb_read_valid(prb, console_seq, &r))
 			break;
 
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+		/* console_unlock block time over 2 seconds */
+		current_time = local_clock();
+		if ((current_time - con_dura_time) > 2000000000ULL) {
+			unsigned long tmp_rem_nsec_start = 0,
+				tmp_rem_nsec_end = 0;
+			console_status_detected = true;
+
+			rem_nsec_con_write_ttyS = do_div
+				(time_con_write_ttyS, 1000000000);
+			tmp_rem_nsec_start = do_div(con_dura_time, 1000000000);
+			tmp_rem_nsec_end = do_div(current_time, 1000000000);
+			memset(conwrite_stat_struct.con_write_statbuf, 0x0,
+				sizeof(conwrite_stat_struct.con_write_statbuf)
+				- 1);
+			if (snprintf(conwrite_stat_struct.con_write_statbuf,
+				sizeof(conwrite_stat_struct.con_write_statbuf)
+				- 1,
+"cpu%d [%lu.%06lu]--[%lu.%06lu] 'ttyS' %lubytes %lu.%06lus, uart dump:%s\n",
+				smp_processor_id(),
+				(unsigned long)con_dura_time,
+				tmp_rem_nsec_start/1000,
+				(unsigned long)current_time,
+				tmp_rem_nsec_end/1000,
+				(unsigned long)len_con_write_ttyS,
+				(unsigned long)time_con_write_ttyS,
+				rem_nsec_con_write_ttyS/1000,
+				"") < 0) {
+				conwrite_stat_struct.con_write_statbuf[0] = 'N';
+				conwrite_stat_struct.con_write_statbuf[1] = 'A';
+				conwrite_stat_struct.con_write_statbuf[2] = '\0';
+			}
+			con_dura_time = local_clock();
+			break;
+		}
+#endif
 		if (console_seq != r.info->seq) {
 			console_dropped += r.info->seq - console_seq;
 			console_seq = r.info->seq;
@@ -3048,6 +3205,10 @@ void register_console(struct console *newcon)
 	console_unlock();
 	console_sysfs_notify();
 
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	if (!strncmp(newcon->name, "ttyS", 4))
+		printk_uart_status = 1;
+#endif
 	/*
 	 * By unregistering the bootconsoles after we enable the real console
 	 * we get the "console xxx enabled" message on all the consoles -
@@ -3075,6 +3236,10 @@ int unregister_console(struct console *console)
 {
 	struct console *con;
 	int res;
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	if (!strncmp(console->name, "ttyS", 4))
+		printk_uart_status = 0;
+#endif
 
 	pr_info("%sconsole [%s%d] disabled\n",
 		(console->flags & CON_BOOT) ? "boot" : "" ,
@@ -3219,18 +3384,53 @@ late_initcall(printk_late_init);
 
 static DEFINE_PER_CPU(int, printk_pending);
 
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+unsigned long long printk_irq_t0;
+unsigned long long printk_irq_t1;
+int wake_up_type;
+
+int get_printk_wake_up_time(unsigned long long *t0, unsigned long long *t1)
+{
+	*t0 = printk_irq_t0;
+	*t1 = printk_irq_t1;
+	printk_irq_t0 = 0;
+	printk_irq_t1 = 0;
+	return wake_up_type;
+}
+EXPORT_SYMBOL_GPL(get_printk_wake_up_time);
+#endif
+
 static void wake_up_klogd_work_func(struct irq_work *irq_work)
 {
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	unsigned long long t0;
+	unsigned long long t1;
+	unsigned long long t2;
+#endif
 	int pending = __this_cpu_xchg(printk_pending, 0);
 
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	t0 = local_clock();
+#endif
 	if (pending & PRINTK_PENDING_OUTPUT) {
 		/* If trylock fails, someone else is doing the printing */
 		if (console_trylock())
 			console_unlock();
 	}
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	t1 = local_clock();
+#endif
 
 	if (pending & PRINTK_PENDING_WAKEUP)
 		wake_up_interruptible(&log_wait);
+#ifdef CONFIG_MTK_PRINTK_DEBUG
+	t2 = local_clock();
+	if (t2 - t0 > 1000000) {
+		printk_irq_t0 = t1 - t0;
+		printk_irq_t1 = t2 - t1;
+		wake_up_type = pending;
+	}
+#endif
 }
 
 static DEFINE_PER_CPU(struct irq_work, wake_up_klogd_work) =

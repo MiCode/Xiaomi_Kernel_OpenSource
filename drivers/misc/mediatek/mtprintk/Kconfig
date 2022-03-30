@@ -1,0 +1,45 @@
+config MTK_PRINTK
+	tristate "mtk printk enhance"
+	help
+	  mtk printk enhance feature, it include
+	  uart console control and kernel log
+	  much detect. It can build in or insmode.
+	  kernel log much detect only enable in eng load.
+
+config MTK_PRINTK_UART_CONSOLE
+	bool "MTK printk UART controller"
+	help
+	  MTK_PRINTK_UART_CONSOLE which is used to control whether to
+	  control printk to uart console.  when boot up finish
+	  uart console do not output printk log.
+	  also RD can set the setting by command.
+
+config LOG_TOO_MUCH_WARNING
+	bool "printk too much warning"
+	help
+	  LOG_TOO_MUCH_WARNING which is used to control whether to
+	  detect printk too much issue. kernel log too much will detect and
+	  create a exception when printk log large than
+	  LOG_TOO_MUCH_DETECT_COUNT in one second.
+
+config LOG_TOO_MUCH_DETECT_COUNT
+	hex "printk too much detect count"
+	default 0xC8
+	depends on LOG_TOO_MUCH_WARNING
+
+config LOG_TOO_MUCH_DETECT_GAP
+	hex "detect log too much delay time"
+	default 30
+	depends on LOG_TOO_MUCH_WARNING
+
+config MTK_PRINTK_DEBUG
+	bool "Just for MTK to debug info"
+	help
+	  MTK_PRINTK_DEBUG is used for debugging instead of gki.
+	  First, it adds process name in log info.
+
+	  Second, when one cpu exec console_unlock and log is too much,
+	  it may be writing to console for long time.
+	  This may Trigger HWT.
+	  We should better detect the duration in console.
+	  When the duration is over criteria, it will Report DB.
