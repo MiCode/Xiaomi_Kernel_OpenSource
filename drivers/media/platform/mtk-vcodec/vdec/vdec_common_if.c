@@ -216,6 +216,21 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 			inst->vsi->general_buf_size = 0;
 			mtk_vcodec_debug(inst, "no general buf dmabuf");
 		}
+
+		if (fb->dma_meta_buf != 0) {
+			inst->vsi->meta_buf_fd = fb->meta_buf_fd;
+			inst->vsi->meta_buf_size = fb->dma_meta_buf->size;
+			inst->vsi->meta_buf_dma = fb->dma_meta_addr;
+			mtk_vcodec_debug(inst, "meta_buf_dma dma_buf=%p fd=%d dma=%llx size=%lu",
+			    fb->dma_meta_buf, inst->vsi->meta_buf_fd,
+			    inst->vsi->meta_buf_dma,
+			    fb->dma_meta_buf->size);
+		} else {
+			fb->meta_buf_fd = -1;
+			inst->vsi->meta_buf_fd = -1;
+			inst->vsi->meta_buf_size = 0;
+			mtk_vcodec_debug(inst, "no meta buf dmabuf");
+		}
 	}
 
 	inst->vsi->dec.queued_frame_buf_count =

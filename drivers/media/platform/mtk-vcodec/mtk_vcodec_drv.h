@@ -27,6 +27,12 @@
 #include "mtk_dma_contig.h"
 #include "slbc_ops.h"
 
+#define ENABLE_FENCE 0
+#define ENABLE_META_BUF 0
+#if ENABLE_FENCE
+#include "mtk_sync.h"
+#endif
+
 #define MTK_VCODEC_DRV_NAME     "mtk_vcodec_drv"
 #define MTK_VCODEC_DEC_NAME     "mtk-vcodec-dec"
 #define MTK_VCODEC_ENC_NAME     "mtk-vcodec-enc"
@@ -43,6 +49,9 @@
 #define MTK_VDEC_PORT_NUM	64
 #define MTK_VENC_PORT_NUM	64
 #define MTK_MAX_METADATA_NUM    8
+
+#define MAX_GEN_BUF_CNT		32
+#define MAX_META_BUF_CNT		32
 
 #define DEBUG_GKI 1
 
@@ -390,6 +399,21 @@ struct venc_frm_buf {
 	dma_addr_t metabuffer_addr;
 };
 
+struct dma_gen_buf {
+	void  *va;
+	struct dma_buf *dmabuf;
+	dma_addr_t dma_general_addr;
+	struct dma_buf_attachment *buf_att;
+	struct sg_table *sgt;
+};
+
+struct dma_meta_buf {
+	struct dma_buf *dmabuf;
+	dma_addr_t dma_meta_addr;
+	struct dma_buf_attachment *buf_att;
+	struct sg_table *sgt;
+};
+
 enum metadata_type {
 	METADATA_HDR               = 0,
 	METADATA_QPMAP             = 1
@@ -519,6 +543,14 @@ struct mtk_vcodec_ctx {
 	struct mutex q_mutex;
 	int use_slbc;
 	unsigned int slbc_addr;
+#if ENABLE_FENCE
+	struct sync_timeline *p_timeline_obj;
+#endif
+	bool use_fence;
+	int fence_idx;
+	struct dma_gen_buf dma_buf_list[MAX_GEN_BUF_CNT];
+	struct dma_meta_buf dma_meta_list[MAX_META_BUF_CNT];
+	struct mutex gen_buf_va_lock;
 };
 
 /*

@@ -27,9 +27,10 @@ struct vdec_fb {
 	unsigned int    index;
 	int             general_buf_fd;
 	struct  dma_buf *dma_general_buf;
-	struct dma_buf_attachment *buf_att;
-	struct sg_table *sgt;
 	dma_addr_t dma_general_addr;
+	int             meta_buf_fd;
+	struct          dma_buf *dma_meta_buf;
+	dma_addr_t dma_meta_addr;
 };
 
 /**
@@ -62,6 +63,10 @@ struct mtk_video_dec_buf {
 	struct vdec_fb  frame_buffer;
 	int     flags;
 	int     general_user_fd;
+	void     *general_dma_va;
+	struct  dma_buf *dma_general_buf;
+	int     meta_user_fd;
+	struct  dma_buf *dma_meta_buf;
 	int vpeek;
 };
 

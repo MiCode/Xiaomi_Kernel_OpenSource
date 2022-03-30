@@ -98,6 +98,7 @@ static int fops_vcodec_open(struct file *file)
 	mutex_init(&ctx->worker_lock);
 	mutex_init(&ctx->hw_status);
 	mutex_init(&ctx->q_mutex);
+	mutex_init(&ctx->gen_buf_va_lock);
 
 	ctx->type = MTK_INST_DECODER;
 	ret = mtk_vcodec_dec_ctrls_setup(ctx);
@@ -149,6 +150,20 @@ static int fops_vcodec_open(struct file *file)
 	mutex_unlock(&dev->dev_mutex);
 	mtk_v4l2_debug(0, "%s decoder [%d]", dev_name(&dev->plat_dev->dev),
 				   ctx->id);
+
+#if ENABLE_FENCE
+	ctx->p_timeline_obj = timeline_create("Vdec-timeline");
+#endif
+	ctx->use_fence = false;
+#if ENABLE_FENCE
+	if (ctx->p_timeline_obj != NULL)
+		ctx->fence_idx = ctx->p_timeline_obj->value + 1;
+#endif
+	memset(ctx->dma_buf_list, 0,
+		sizeof(struct dma_gen_buf) * MAX_GEN_BUF_CNT);
+	memset(ctx->dma_meta_list, 0,
+		sizeof(struct dma_gen_buf) * MAX_META_BUF_CNT);
+
 	return ret;
 
 	/* Deinit when failure occurred */
@@ -174,6 +189,7 @@ static int fops_vcodec_release(struct file *file)
 {
 	struct mtk_vcodec_dev *dev = video_drvdata(file);
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(file->private_data);
+	int i;
 
 	mtk_v4l2_debug(0, "[%d] decoder", ctx->id);
 	mutex_lock(&dev->dev_mutex);
@@ -194,6 +210,42 @@ static int fops_vcodec_release(struct file *file)
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
+#if ENABLE_FENCE
+	if (ctx->p_timeline_obj)
+		timeline_destroy(ctx->p_timeline_obj);
+#endif
+	for (i = 0; i < MAX_GEN_BUF_CNT; ++i) {
+		if (ctx->dma_buf_list[i].va && ctx->dma_buf_list[i].dmabuf) {
+			struct dma_buf_map map =
+				DMA_BUF_MAP_INIT_VADDR(ctx->dma_buf_list[i].va);
+			struct dma_buf *dmabuf = ctx->dma_buf_list[i].dmabuf;
+			struct dma_buf_attachment *buf_att = ctx->dma_buf_list[i].buf_att;
+			struct sg_table *sgt = ctx->dma_buf_list[i].sgt;
+
+			dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
+			dma_buf_detach(dmabuf, buf_att);
+			dma_buf_vunmap(dmabuf, &map);
+			dma_buf_end_cpu_access(dmabuf,
+				DMA_TO_DEVICE);
+			dma_buf_put(dmabuf);
+		}
+	}
+	memset(ctx->dma_buf_list, 0,
+		sizeof(struct dma_gen_buf) * MAX_GEN_BUF_CNT);
+
+	for (i = 0; i < MAX_META_BUF_CNT; ++i) {
+		if (ctx->dma_meta_list[i].dmabuf) {
+			struct dma_buf *dmabuf = ctx->dma_meta_list[i].dmabuf;
+			struct dma_buf_attachment *buf_att = ctx->dma_meta_list[i].buf_att;
+			struct sg_table *sgt = ctx->dma_meta_list[i].sgt;
+
+			dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
+			dma_buf_detach(dmabuf, buf_att);
+			dma_buf_put(dmabuf);
+		}
+	}
+	memset(ctx->dma_meta_list, 0,
+		sizeof(struct dma_meta_buf) * MAX_META_BUF_CNT);
 
 	kfree(ctx->dec_flush_buf);
 	kfree(ctx);

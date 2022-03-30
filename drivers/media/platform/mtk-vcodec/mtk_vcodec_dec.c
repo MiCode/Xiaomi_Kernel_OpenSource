@@ -505,6 +505,234 @@ static void clean_free_fm_buffer(struct mtk_vcodec_ctx *ctx)
 	} while (framptr);
 }
 
+static dma_addr_t create_meta_buffer_info(struct mtk_vcodec_ctx *ctx, int fd)
+{
+	int i = 0;
+	struct dma_buf *dmabuf = NULL;
+	struct dma_buf_attachment *buf_att = NULL;
+	struct sg_table *sgt = NULL;
+	dma_addr_t dma_meta_addr = 0;
+
+	dmabuf = dma_buf_get(fd);
+	mtk_v4l2_debug(5, "%s, dmabuf:%p", __func__, dmabuf);
+
+	buf_att = dma_buf_attach(
+		dmabuf,
+		ctx->m2m_ctx->out_q_ctx.q.dev);
+	sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
+	dma_meta_addr  = sg_dma_address(sgt->sgl);
+
+	mtk_v4l2_debug(4, "map new, dmabuf:%p, dma_addr:%p",
+		dmabuf, dma_meta_addr);
+	//save va and dmabuf
+	if (dma_meta_addr) {
+		for (i = 0; i < MAX_META_BUF_CNT; ++i) {
+			if (ctx->dma_meta_list[i].dma_meta_addr == 0) {
+				ctx->dma_meta_list[i].dmabuf = dmabuf;
+				ctx->dma_meta_list[i].dma_meta_addr = dma_meta_addr;
+				ctx->dma_meta_list[i].buf_att = buf_att;
+				ctx->dma_meta_list[i].sgt = sgt;
+				mtk_v4l2_debug(2, "save meta buf dmabuf %p  addr:%p at %d",
+					dmabuf, dma_meta_addr, i);
+				break;
+			}
+		}
+		if (i == MAX_META_BUF_CNT)
+			mtk_v4l2_err("dma_buf_list is overflow!\n");
+	}
+
+	return dma_meta_addr;
+}
+
+static dma_addr_t get_meta_buffer_dma_addr(struct mtk_vcodec_ctx *ctx, int fd)
+{
+	dma_addr_t dma_addr = 0;
+	int i = 0;
+	struct dma_buf *dmabuf = NULL;
+
+	dmabuf = dma_buf_get(fd);
+	mtk_v4l2_debug(5, "%s, dmabuf:%p", __func__, dmabuf);
+
+	if (dmabuf) {
+		for (i = 0; i < MAX_META_BUF_CNT; ++i) {
+			if (dmabuf == ctx->dma_meta_list[i].dmabuf) {
+				dma_addr = ctx->dma_meta_list[i].dma_meta_addr;
+				mtk_v4l2_debug(4, "reuse dma_addr %p at %d", dma_addr, i);
+				break;
+			}
+		}
+	}
+
+	if (dma_addr == 0) {
+		dma_addr = create_meta_buffer_info(ctx, fd);
+		for (i = 0; i < MAX_META_BUF_CNT; ++i) {
+			if (dmabuf == ctx->dma_meta_list[i].dmabuf) {
+				dma_addr = ctx->dma_meta_list[i].dma_meta_addr;
+				mtk_v4l2_debug(4, "reuse dma_addr %p at %d", dma_addr, i);
+				break;
+			}
+		}
+	}
+
+	if (dmabuf)
+		dma_buf_put(dmabuf);
+
+	return dma_addr;
+}
+static void *create_general_buffer_info(struct mtk_vcodec_ctx *ctx, int fd)
+{
+	struct dma_buf_map map;
+	void *va = NULL;
+	int i = 0;
+	struct dma_buf *dmabuf = NULL;
+	struct dma_buf_attachment *buf_att = NULL;
+	struct sg_table *sgt = NULL;
+	dma_addr_t dma_general_addr = 0;
+	int ret;
+
+	dmabuf = dma_buf_get(fd);
+	mtk_v4l2_debug(5, "%s, dmabuf:%p", __func__, dmabuf);
+
+	dma_buf_begin_cpu_access(dmabuf, DMA_TO_DEVICE);
+	ret = dma_buf_vmap(dmabuf, &map);
+	va = ret ? NULL : map.vaddr;
+
+	buf_att = dma_buf_attach(
+		dmabuf,
+		ctx->m2m_ctx->out_q_ctx.q.dev);
+	sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
+	dma_general_addr  = sg_dma_address(sgt->sgl);
+
+	mtk_v4l2_debug(4, "map new va %p, dmabuf:%p, dma_addr:%p",
+		va, dmabuf, dma_general_addr);
+	//save va and dmabuf
+	if (va) {
+		for (i = 0; i < MAX_GEN_BUF_CNT; ++i) {
+			if (ctx->dma_buf_list[i].va == NULL) {
+				ctx->dma_buf_list[i].va = va;
+				ctx->dma_buf_list[i].dmabuf = dmabuf;
+				ctx->dma_buf_list[i].dma_general_addr = dma_general_addr;
+				ctx->dma_buf_list[i].buf_att = buf_att;
+				ctx->dma_buf_list[i].sgt = sgt;
+				mtk_v4l2_debug(4, "save general buf va %p dmabuf %p  addr:%p at %d",
+					va, dmabuf, dma_general_addr, i);
+				break;
+			}
+		}
+		if (i == MAX_GEN_BUF_CNT)
+			mtk_v4l2_err("dma_buf_list is overflow!\n");
+	}
+
+	return va;
+}
+
+static void *get_general_buffer_va(struct mtk_vcodec_ctx *ctx, int fd)
+{
+	void *va = NULL;
+	int i = 0;
+	struct dma_buf *dmabuf = NULL;
+
+	dmabuf = dma_buf_get(fd);
+	mtk_v4l2_debug(5, "%s, dmabuf:%p", __func__, dmabuf);
+
+	if (dmabuf) {
+		for (i = 0; i < MAX_GEN_BUF_CNT; ++i) {
+			if (dmabuf == ctx->dma_buf_list[i].dmabuf) {
+				va = ctx->dma_buf_list[i].va;
+				mtk_v4l2_debug(4, "reuse va %p at %d", va, i);
+				break;
+			}
+		}
+	}
+
+	if (va == NULL)
+		va = create_general_buffer_info(ctx, fd);
+
+	if (dmabuf)
+		dma_buf_put(dmabuf);
+
+	return va;
+}
+
+static dma_addr_t get_general_buffer_dma_addr(struct mtk_vcodec_ctx *ctx, int fd)
+{
+	dma_addr_t dma_addr = 0;
+	int i = 0;
+	struct dma_buf *dmabuf = NULL;
+
+	dmabuf = dma_buf_get(fd);
+	mtk_v4l2_debug(5, "%s, dmabuf:%p", __func__, dmabuf);
+
+	if (dmabuf) {
+		for (i = 0; i < MAX_GEN_BUF_CNT; ++i) {
+			if (dmabuf == ctx->dma_buf_list[i].dmabuf) {
+				dma_addr = ctx->dma_buf_list[i].dma_general_addr;
+				mtk_v4l2_debug(4, "reuse dma_addr %p at %d", dma_addr, i);
+				break;
+			}
+		}
+	}
+
+	if (dma_addr == 0) {
+		create_general_buffer_info(ctx, fd);
+		for (i = 0; i < MAX_GEN_BUF_CNT; ++i) {
+			if (dmabuf == ctx->dma_buf_list[i].dmabuf) {
+				dma_addr = ctx->dma_buf_list[i].dma_general_addr;
+				mtk_v4l2_debug(4, "reuse dma_addr %p at %d", dma_addr, i);
+				break;
+			}
+		}
+	}
+
+	if (dmabuf)
+		dma_buf_put(dmabuf);
+
+	return dma_addr;
+}
+
+static int flush_dma_buffer(const struct sg_table *sgt,
+	const struct mtk_vcodec_ctx *ctx, unsigned int size,
+	enum dma_data_direction direction)
+{
+	struct sg_table *sgt_tmp;
+	struct scatterlist *s_sgl, *d_sgl;
+	unsigned int contig_size = 0;
+	int ret, i;
+
+	sgt_tmp = kzalloc(sizeof(*sgt_tmp), GFP_KERNEL);
+	if (!sgt_tmp)
+		return -1;
+
+	ret = sg_alloc_table(sgt_tmp, sgt->orig_nents, GFP_KERNEL);
+	if (ret) {
+		mtk_v4l2_debug(0, "%s sg alloc table failed %d.\n",
+			__func__, ret);
+		kfree(sgt_tmp);
+		return -1;
+	}
+	sgt_tmp->nents = 0;
+	d_sgl = sgt_tmp->sgl;
+
+	for_each_sg(sgt->sgl, s_sgl, sgt->orig_nents, i) {
+		mtk_v4l2_debug(4, "%d contig_size %d bytesused %d.\n",
+			i, contig_size, size);
+		if (contig_size >= size)
+			break;
+		memcpy(d_sgl, s_sgl, sizeof(*s_sgl));
+		contig_size += s_sgl->length;
+		d_sgl = sg_next(d_sgl);
+		sgt_tmp->nents++;
+	}
+	dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
+		sgt_tmp->sgl,
+		sgt_tmp->nents,
+		direction);
+	mtk_v4l2_debug(4, "flush nents %d total nents %d\n",
+		sgt_tmp->nents, sgt->orig_nents);
+	sg_free_table(sgt_tmp);
+	kfree(sgt_tmp);
+	return 0;
+}
 static void mtk_vdec_queue_res_chg_event(struct mtk_vcodec_ctx *ctx)
 {
 	static const struct v4l2_event ev_src_ch = {
@@ -560,9 +788,44 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 	struct mtk_video_dec_buf *dstbuf, *srcbuf;
 	struct vb2_queue *dstq, *srcq;
 
+	mutex_lock(&ctx->gen_buf_va_lock);
 	ctx->state = MTK_STATE_FLUSH;
 	if (ctx->input_driven == INPUT_DRIVEN_CB_FRM)
 		wake_up(&ctx->fm_wq);
+
+	for (i = 0; i < MAX_GEN_BUF_CNT; ++i) {
+		if (ctx->dma_buf_list[i].va && ctx->dma_buf_list[i].dmabuf) {
+			struct dma_buf_map map =
+				DMA_BUF_MAP_INIT_VADDR(ctx->dma_buf_list[i].va);
+			struct dma_buf *dmabuf = ctx->dma_buf_list[i].dmabuf;
+			struct dma_buf_attachment *buf_att = ctx->dma_buf_list[i].buf_att;
+			struct sg_table *sgt = ctx->dma_buf_list[i].sgt;
+
+			dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
+			dma_buf_detach(dmabuf, buf_att);
+			dma_buf_vunmap(dmabuf, &map);
+			dma_buf_end_cpu_access(dmabuf,
+				DMA_TO_DEVICE);
+			dma_buf_put(dmabuf);
+		}
+	}
+	memset(ctx->dma_buf_list, 0,
+		sizeof(struct dma_gen_buf) * MAX_GEN_BUF_CNT);
+
+	for (i = 0; i < MAX_META_BUF_CNT; ++i) {
+		if (ctx->dma_meta_list[i].dmabuf) {
+			struct dma_buf *dmabuf = ctx->dma_meta_list[i].dmabuf;
+			struct dma_buf_attachment *buf_att = ctx->dma_meta_list[i].buf_att;
+			struct sg_table *sgt = ctx->dma_meta_list[i].sgt;
+
+			dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
+			dma_buf_detach(dmabuf, buf_att);
+			dma_buf_put(dmabuf);
+		}
+	}
+	memset(ctx->dma_meta_list, 0,
+		sizeof(struct dma_meta_buf) * MAX_META_BUF_CNT);
+	mutex_unlock(&ctx->gen_buf_va_lock);
 
 	if (is_drain) {
 		memset(&drain_fb, 0, sizeof(struct vdec_fb));
@@ -1409,6 +1672,11 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 	struct vb2_buffer *vb;
 	struct mtk_video_dec_buf *mtkbuf;
 	struct vb2_v4l2_buffer  *vb2_v4l2;
+#if ENABLE_META_BUF
+	void *general_buf_va = NULL;
+	int *pFenceFd;
+	int metaBufferfd = -1;
+#endif
 
 	if (ctx->state == MTK_STATE_ABORT) {
 		mtk_v4l2_err("[%d] Call on QBUF after unrecoverable error",
@@ -1464,6 +1732,40 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 				ctx->id, buf->index,
 				buf->length, mtkbuf,
 				buf->reserved, mtkbuf->general_user_fd);
+
+		if (mtkbuf->general_user_fd != -1)
+			get_general_buffer_va(ctx, mtkbuf->general_user_fd);
+#if ENABLE_META_BUF
+		mutex_lock(&ctx->gen_buf_va_lock);
+		mtkbuf->general_dma_va = NULL;
+		if (mtkbuf->general_user_fd != -1) {
+			// NOTE: all codec should use a common struct
+			//to save dma_va, fencefd should be
+			//the 1st member in struct of general buffer
+			general_buf_va = get_general_buffer_va(ctx,
+				mtkbuf->general_user_fd);
+			pFenceFd = (int *)general_buf_va;
+			if (general_buf_va != NULL && *pFenceFd == 1 &&
+				ctx->dec_params.svp_mode == 0) {
+				ctx->use_fence = true;
+				mtkbuf->general_dma_va = general_buf_va;
+			} else if (general_buf_va != NULL)
+				*pFenceFd = -1;
+		}
+		mtkbuf->meta_user_fd = -1; //default value is -1
+		if (mtkbuf->general_user_fd != -1 && general_buf_va != NULL) {
+			// metaBufferfd should be
+			//the 2st member in struct of general buffer
+			metaBufferfd = *((int *)general_buf_va + 1);
+			if (metaBufferfd > 0)
+				mtkbuf->meta_user_fd = metaBufferfd;
+			mtk_v4l2_debug(1, "[%d] id=%d FB (%d) general_buf_va=%p, metaBufferfd=%d, meta_user_fd = %d",
+				ctx->id, buf->index,
+				buf->length, general_buf_va,
+				metaBufferfd, mtkbuf->meta_user_fd);
+		}
+		mutex_unlock(&ctx->gen_buf_va_lock);
+#endif
 	}
 
 	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN) {
@@ -1525,6 +1827,39 @@ static int vidioc_vdec_dqbuf(struct file *file, void *priv,
 			"dqbuf index %d mtkbuf->general_buf_fd = %d, flags 0x%x(0x%x)",
 			buf->index, mtkbuf->general_user_fd,
 			buf->flags, mtkbuf->flags);
+
+		if (ctx->use_fence && mtkbuf->ready_to_display
+			&& mtkbuf->general_dma_va) {
+#if ENABLE_FENCE
+			int *dma_va = mtkbuf->general_dma_va;
+			//create fence
+			struct mtk_sync_create_fence_data f_data = {0};
+
+			mutex_lock(&ctx->gen_buf_va_lock);
+			if (ctx->state == MTK_STATE_FLUSH) {
+				mutex_unlock(&ctx->gen_buf_va_lock);
+				mtk_v4l2_debug(2, "invalid dma_va %p!\n",
+					dma_va);
+				return ret;
+			}
+
+			f_data.value = ctx->fence_idx;
+			sprintf(f_data.name, "vdec_fence%d",
+				f_data.value);
+			ret = fence_create(ctx->p_timeline_obj,
+				&f_data);
+			mtk_v4l2_debug(2, "fence_create id %d ret %d",
+				ctx->fence_idx, ret);
+			if (ret == 0) {
+				*dma_va = f_data.fence;
+				mtk_v4l2_debug(2, "save fence fd %d  %d at %p disp %d used %d",
+					f_data.fence, f_data.value, dma_va,
+					mtkbuf->ready_to_display, mtkbuf->used);
+				++ctx->fence_idx;
+			}
+			mutex_unlock(&ctx->gen_buf_va_lock);
+#endif
+		}
 	}
 
 	return ret;
@@ -2091,8 +2426,6 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 {
 	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
 	struct mtk_q_data *q_data;
-	struct dma_buf_attachment *buf_att;
-	struct sg_table *sgt;
 	unsigned int plane = 0;
 	unsigned int i;
 	struct mtk_video_dec_buf *mtkbuf;
@@ -2118,63 +2451,43 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 		if (mtkbuf->general_user_fd > -1) {
 			mtkbuf->frame_buffer.dma_general_buf =
 				dma_buf_get(mtkbuf->general_user_fd);
-
-			if (IS_ERR(mtkbuf->frame_buffer.dma_general_buf)) {
-				mtk_v4l2_err("%s dma_general_buf is err 0x%p.\n",
-					__func__,
-					mtkbuf->frame_buffer.dma_general_buf);
-
-				mtk_vdec_queue_error_event(ctx);
-				return -EINVAL;
-			}
-
-			mtkbuf->frame_buffer.buf_att = dma_buf_attach(
-				mtkbuf->frame_buffer.dma_general_buf,
-				ctx->m2m_ctx->out_q_ctx.q.dev);
-				/* use  vcp & vcu compatible access device */
-			mtkbuf->frame_buffer.sgt =
-				dma_buf_map_attachment(mtkbuf->frame_buffer.buf_att, DMA_TO_DEVICE);
-			if (IS_ERR_OR_NULL(mtkbuf->frame_buffer.sgt)) {
-				mtk_v4l2_err("dma_buf_map_attachment fail %d.\n",
-					mtkbuf->frame_buffer.sgt);
-				dma_buf_detach(mtkbuf->frame_buffer.dma_general_buf,
-					mtkbuf->frame_buffer.buf_att);
-				return -EINVAL;
-			}
 			mtkbuf->frame_buffer.dma_general_addr =
-				sg_dma_address(mtkbuf->frame_buffer.sgt->sgl);
+				get_general_buffer_dma_addr(ctx, mtkbuf->general_user_fd);
 		} else
 			mtkbuf->frame_buffer.dma_general_buf = 0;
+
 		mtk_v4l2_debug(4,
-			"dma_buf_get general_buf fd=%d, dma_buf=%p, DMA=%lx",
+			"general_buf fd=%d, dma_buf=%p, DMA=%lx",
 			mtkbuf->general_user_fd,
 			mtkbuf->frame_buffer.dma_general_buf,
 			(unsigned long)mtkbuf->frame_buffer.dma_general_addr);
+
+		if (mtkbuf->meta_user_fd > 0) {
+			mtkbuf->frame_buffer.dma_meta_buf =
+				dma_buf_get(mtkbuf->meta_user_fd);
+			mtkbuf->frame_buffer.dma_meta_addr =
+				get_meta_buffer_dma_addr(ctx, mtkbuf->meta_user_fd);
+		} else
+			mtkbuf->frame_buffer.dma_meta_buf = 0;
+		mtk_v4l2_debug(4,
+			"meta_buf fd=%d, dma_buf=%p, DMA=%lx",
+			mtkbuf->meta_user_fd,
+			mtkbuf->frame_buffer.dma_meta_buf,
+			(unsigned long)mtkbuf->frame_buffer.dma_meta_addr);
 	}
 	if (vb->vb2_queue->memory == VB2_MEMORY_DMABUF &&
 		!(mtkbuf->flags & NO_CAHCE_CLEAN) &&
 		!(ctx->dec_params.svp_mode)) {
 		if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			struct mtk_vcodec_mem src_mem;
-
+			struct vb2_dc_buf *dc_buf = vb->planes[0].mem_priv;
 			mtk_v4l2_debug(4, "[%d] Cache sync+", ctx->id);
 
-			buf_att = dma_buf_attach(vb->planes[0].dbuf,
-				&ctx->dev->plat_dev->dev);
-
-			sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
-			if (IS_ERR_OR_NULL(sgt)) {
-				mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", sgt);
-				dma_buf_detach(vb->planes[0].dbuf, buf_att);
-				return -EINVAL;
-			}
-			mtk_dma_sync_sg_range(sgt, &ctx->dev->plat_dev->dev,
-				vb->planes[0].bytesused, DMA_TO_DEVICE);
-			dma_buf_unmap_attachment(buf_att, sgt, DMA_TO_DEVICE);
+			flush_dma_buffer(dc_buf->dma_sgt, ctx, vb->planes[0].bytesused,
+				DMA_TO_DEVICE);
 
 			src_mem.dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
 			src_mem.size = (size_t)vb->planes[0].bytesused;
-			dma_buf_detach(vb->planes[0].dbuf, buf_att);
 
 			mtk_v4l2_debug(4,
 			   "[%d] Cache sync- TD for %lx sz=%d dev %p",
@@ -2185,32 +2498,18 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 		} else {
 			for (plane = 0; plane < vb->num_planes; plane++) {
 				struct vdec_fb dst_mem;
-
+				struct vb2_dc_buf *dc_buf = vb->planes[plane].mem_priv;
 				mtk_v4l2_debug(4, "[%d] Cache sync+", ctx->id);
 
-				buf_att = dma_buf_attach(vb->planes[plane].dbuf,
-					&ctx->dev->plat_dev->dev);
-				sgt = dma_buf_map_attachment(buf_att,
-					DMA_TO_DEVICE);
-				if (IS_ERR_OR_NULL(sgt)) {
-					mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", sgt);
-					dma_buf_detach(vb->planes[plane].dbuf, buf_att);
-					return -EINVAL;
-				}
 				dma_sync_sg_for_device(&ctx->dev->plat_dev->dev,
-					sgt->sgl,
-					sgt->orig_nents,
+					dc_buf->dma_sgt->sgl,
+					dc_buf->dma_sgt->orig_nents,
 					DMA_TO_DEVICE);
-				dma_buf_unmap_attachment(buf_att,
-					sgt, DMA_TO_DEVICE);
-
 				dst_mem.fb_base[plane].dma_addr =
 					vb2_dma_contig_plane_dma_addr(vb,
 					plane);
 				dst_mem.fb_base[plane].size =
 					ctx->picinfo.fb_sz[plane];
-				dma_buf_detach(vb->planes[plane].dbuf, buf_att);
-
 				mtk_v4l2_debug(4,
 				 "[%d] Cache sync- TD for %lx sz=%d dev %p",
 				 ctx->id,
@@ -2548,17 +2847,22 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 
 	if (mtkbuf->frame_buffer.dma_general_buf != 0) {
-		dma_buf_unmap_attachment(mtkbuf->frame_buffer.buf_att,
-			mtkbuf->frame_buffer.sgt, DMA_TO_DEVICE);
-		dma_buf_detach(mtkbuf->frame_buffer.dma_general_buf,
-			mtkbuf->frame_buffer.buf_att);
 		dma_buf_put(mtkbuf->frame_buffer.dma_general_buf);
 		mtkbuf->frame_buffer.dma_general_buf = 0;
 		mtk_v4l2_debug(4,
-			"dma_buf_put general_buf fd=%d, dma_buf=%p, DMA=%lx",
-			mtkbuf->general_user_fd,
-			mtkbuf->frame_buffer.dma_general_buf,
-			(unsigned long)mtkbuf->frame_buffer.dma_general_addr);
+		"dma_buf_put general_buf fd=%d, dma_buf=%p, DMA=%lx",
+		mtkbuf->general_user_fd,
+		mtkbuf->frame_buffer.dma_general_buf,
+		(unsigned long)mtkbuf->frame_buffer.dma_general_addr);
+	}
+	if (mtkbuf->frame_buffer.dma_meta_buf != 0) {
+		dma_buf_put(mtkbuf->frame_buffer.dma_meta_buf);
+		mtkbuf->frame_buffer.dma_meta_buf = 0;
+		mtk_v4l2_debug(4,
+		"dma_buf_put meta_buf fd=%d, dma_buf=%p, DMA=%lx",
+		mtkbuf->meta_user_fd,
+		mtkbuf->frame_buffer.dma_meta_buf,
+		(unsigned long)mtkbuf->frame_buffer.dma_meta_addr);
 	}
 
 	if (vb->vb2_queue->memory == VB2_MEMORY_DMABUF &&
@@ -2566,27 +2870,15 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 		!(ctx->dec_params.svp_mode)) {
 		for (plane = 0; plane < buf->frame_buffer.num_planes; plane++) {
 			struct vdec_fb dst_mem;
-			struct dma_buf_attachment *buf_att;
-			struct sg_table *sgt;
+			struct vb2_dc_buf *dc_buf = vb->planes[plane].mem_priv;
 
 			mtk_v4l2_debug(4, "[%d] Cache sync+", ctx->id);
 
-			buf_att = dma_buf_attach(vb->planes[plane].dbuf,
-				&ctx->dev->plat_dev->dev);
-			sgt = dma_buf_map_attachment(buf_att, DMA_FROM_DEVICE);
-			if (IS_ERR_OR_NULL(sgt)) {
-				mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", sgt);
-				dma_buf_detach(vb->planes[plane].dbuf, buf_att);
-				return;
-			}
-			dma_sync_sg_for_cpu(&ctx->dev->plat_dev->dev, sgt->sgl,
-				sgt->orig_nents, DMA_FROM_DEVICE);
-			dma_buf_unmap_attachment(buf_att, sgt, DMA_FROM_DEVICE);
-
+			dma_sync_sg_for_cpu(&ctx->dev->plat_dev->dev, dc_buf->dma_sgt->sgl,
+				dc_buf->dma_sgt->orig_nents, DMA_FROM_DEVICE);
 			dst_mem.fb_base[plane].dma_addr =
 				vb2_dma_contig_plane_dma_addr(vb, plane);
 			dst_mem.fb_base[plane].size = ctx->picinfo.fb_sz[plane];
-			dma_buf_detach(vb->planes[plane].dbuf, buf_att);
 
 			mtk_v4l2_debug(4,
 				"[%d] Cache sync- FD for %lx sz=%d dev %p pfb %p",
