@@ -17,6 +17,8 @@
 #include <linux/iopoll.h>
 #include <linux/io.h>
 #include <linux/iio/iio.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 #include <linux/nvmem-consumer.h>
 
 /* Register definitions */
@@ -397,6 +399,62 @@ static int __maybe_unused mt6577_auxadc_suspend(struct device *dev)
 	return 0;
 }
 
+static int auxadc_utilization_show(struct seq_file *m, void *v)
+{
+	int raw, raw_cali;
+
+	seq_puts(m, "********** Auxadc status dump **********\n");
+
+	seq_printf(m, "ADC_CALI_EN_MASK:0x%x ADC_CALI_EN_SHIFT:%d\n",
+		ADC_GE_OE_EN_MASK, adc_cali.efuse_en_bs);
+	seq_printf(m, "ADC_GE_MASK:0x%x ADC_GE_SHIFT:%d\n",
+		ADC_GE_OE_MASK, adc_cali.efuse_ge_bs);
+	seq_printf(m, "ADC_OE_MASK:0x%x ADC_OE_SHIFT:%d\n",
+		ADC_GE_OE_MASK, adc_cali.efuse_oe_bs);
+
+	seq_printf(m, "reg_value=0x%x efuse_en=%d, efuse_ge=%d, efuse_oe=%d\n",
+		adc_cali.efuse_reg_value, adc_cali.efuse_en,
+		adc_cali.efuse_ge, adc_cali.efuse_oe);
+
+	seq_printf(m, "cali_ge:%d cali_oe:%d\n",
+		adc_cali.cali_ge, adc_cali.cali_oe);
+
+	for (raw = 100; raw <= 4096; raw = raw + 100) {
+		raw_cali = mt_auxadc_get_cali_data(raw, true);
+
+		seq_printf(m, "raw without cali : %d, with cali : %d\n",
+			raw, raw_cali);
+	}
+
+	return 0;
+}
+
+static int auxadc_utilization_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, auxadc_utilization_show, NULL);
+}
+
+static const struct file_operations auxadc_debugfs_fops = {
+	.open = auxadc_utilization_open,
+	.read = seq_read,
+};
+
+static void adc_debug_init(struct device *dev)
+{
+	struct dentry *auxadc_droot;
+
+	auxadc_droot = debugfs_create_dir("auxadc", NULL);
+	if (IS_ERR(auxadc_droot)) {
+		dev_notice(dev, "fail to create debugfs root\n");
+		auxadc_droot = NULL;
+		return;
+	}
+	debugfs_create_file("status", 0400, auxadc_droot,
+		(void *)0, &auxadc_debugfs_fops);
+
+	dev_info(dev, "debugfs_create auxadc_debugfs_fops\n");
+}
+
 static int mt6577_auxadc_probe(struct platform_device *pdev)
 {
 	struct mt6577_auxadc_device *adc_dev;
@@ -461,6 +519,8 @@ static int mt6577_auxadc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to register iio device\n");
 		goto err_power_off;
 	}
+
+	adc_debug_init(&pdev->dev);
 
 	dev_info(&pdev->dev, "%s done\n", __func__);
 
