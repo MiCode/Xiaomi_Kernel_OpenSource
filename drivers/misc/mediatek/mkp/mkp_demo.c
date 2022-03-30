@@ -694,6 +694,11 @@ int __init mkp_demo_init(void)
 			MKP_DEBUG("mkp_policy: %x\n", mkp_policy);
 		else
 			MKP_WARN("mkp,policy cannot be found, use default\n");
+
+		if (of_property_read_bool(node, "mkp_panic_on"))
+			enable_action_panic();
+		else
+			pr_info("%s: no mkp_panic_on\n", __func__);
 	} else
 		MKP_WARN("chosen node cannot be found, use default\n");
 

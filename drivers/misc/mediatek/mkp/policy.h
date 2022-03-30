@@ -113,5 +113,6 @@ extern int policy_ctrl[MKP_POLICY_NR];
 extern uint32_t mkp_policy_action[MKP_POLICY_NR];
 void __init set_policy(u32 policy);
 int __init set_ext_policy(uint32_t policy);
+void __init enable_action_panic(void);
 void handle_mkp_err_action(uint32_t policy);
 #endif
