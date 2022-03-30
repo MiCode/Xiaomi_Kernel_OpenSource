@@ -925,6 +925,6 @@ void isp_composer_destroy_session(struct mtk_cam_ctx *ctx);
 int PipeIDtoTGIDX(int pipe_id);
 void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 				struct mtk_cam_request *req, int pipe_id,
-				int previous_feature);
+				int prev_feature);
 
 #endif /*__MTK_CAM_H*/

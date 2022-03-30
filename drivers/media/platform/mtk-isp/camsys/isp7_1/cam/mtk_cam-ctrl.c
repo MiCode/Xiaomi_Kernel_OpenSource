@@ -3508,7 +3508,8 @@ static void mtk_camsys_raw_m2m_trigger(struct mtk_raw_device *raw_dev,
 					s_data_idx, s_data_num,
 					req_stream_data->frame_seq_no);
 			if (req_stream_data->frame_seq_no == frame_seq_no_outer) {
-				if (mtk_cam_is_mstream_m2m(ctx)) {
+				if (mtk_cam_feature_is_mstream_m2m(
+						req_stream_data->feature.raw_feature)) {
 					if (s_data_idx == 0) {
 						toggle_db(raw_dev);
 						trigger_rawi(raw_dev, ctx,

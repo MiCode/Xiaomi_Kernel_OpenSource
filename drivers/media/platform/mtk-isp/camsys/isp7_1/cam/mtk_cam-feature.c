@@ -145,8 +145,15 @@ int mtk_cam_get_feature_switch(struct mtk_raw_pipeline *raw_pipe,
 	if (cur == prev)
 		return EXPOSURE_CHANGE_NONE;
 	if (cur & MTK_CAM_FEATURE_HDR_MASK || prev & MTK_CAM_FEATURE_HDR_MASK) {
-		if (mtk_cam_feature_is_mstream(cur) || mtk_cam_feature_is_mstream(prev)) {
-			if (prev == 0 && mtk_cam_feature_is_mstream(cur))
+		if (mtk_cam_feature_is_mstream(cur) ||
+				mtk_cam_feature_is_mstream(prev) ||
+				mtk_cam_feature_is_mstream_m2m(cur) ||
+				mtk_cam_feature_is_mstream_m2m(prev)) {
+			/* mask out m2m before comparison */
+			cur &= MTK_CAM_FEATURE_HDR_MASK;
+			prev &= MTK_CAM_FEATURE_HDR_MASK;
+
+			if (prev == 0  && mtk_cam_feature_is_mstream(cur))
 				res = EXPOSURE_CHANGE_1_to_2 |
 						MSTREAM_EXPOSURE_CHANGE;
 			else if (cur == 0 && mtk_cam_feature_is_mstream(prev))
@@ -182,7 +189,8 @@ int mtk_cam_get_feature_switch(struct mtk_raw_pipeline *raw_pipe,
 				res = EXPOSURE_CHANGE_2_to_1;
 		}
 	}
-	dev_dbg(raw_pipe->subdev.dev, "[%s] res:%d\n", __func__, res);
+	dev_dbg(raw_pipe->subdev.dev, "[%s] res:%d cur:0x%x prev:0x%x\n",
+			__func__, res, cur, prev);
 
 	return res;
 }

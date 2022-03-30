@@ -3963,7 +3963,7 @@ EXIT:
 
 void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 				struct mtk_cam_request *req, int pipe_id,
-				int previous_feature)
+				int prev_feature)
 {
 	struct mtk_cam_request_stream_data *req_stream_data =
 		mtk_cam_req_get_s_data_no_chk(req, pipe_id, 0);
@@ -3975,7 +3975,8 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 		&req_stream_data_mstream->frame_params;
 	int in_node = MTKCAM_IPI_RAW_RAWI_2;
 	int desc_id = MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SOURCE_BEGIN;
-	int current_feature = ctx->pipe->feature_pending;
+	int current_feature = ctx->pipe->feature_pending & MTK_CAM_FEATURE_HDR_MASK;
+	int previous_feature = prev_feature & MTK_CAM_FEATURE_HDR_MASK;
 	struct mtk_cam_video_device *vdev;
 	int main_stream_size;
 	__u64 iova;
@@ -3993,7 +3994,8 @@ void mstream_seamless_buf_update(struct mtk_cam_ctx *ctx,
 	ccd_fd = frame_param->img_outs[desc_id].buf[0][0].ccd_fd;
 	imgo_path_sel = frame_param->raw_param.imgo_path_sel;
 
-	if (mtk_cam_feature_is_mstream(current_feature)) {
+	if (mtk_cam_feature_is_mstream(current_feature) ||
+			mtk_cam_feature_is_mstream_m2m(current_feature)) {
 		/* for 1->2, 2->2 */
 		/* init stream data for mstream */
 		mtk_cam_req_p_data_extend_init(req, pipe_id, 2);
