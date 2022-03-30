@@ -709,6 +709,7 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 //	int ret;
 	u64 data[4];
 	u32 len;
+	union feature_para para;
 
 	adaptor_sensor_init(ctx);
 
@@ -722,6 +723,11 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 #endif
 
 	data[0] = 0; // shutter
+	para.u8[0] = 0;
+	//Make sure close test pattern
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_SET_TEST_PATTERN,
+		para.u8, &len);
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_STREAMING_RESUME,
 		(u8 *)data, &len);
@@ -1284,6 +1290,11 @@ static int imgsensor_probe(struct i2c_client *client)
 	if (ret)
 		dev_info(dev, "failed to create sysfs debug_i2c_ops\n");
 
+	ctx->sensor_ws = wakeup_source_register(dev, ctx->sd.name);
+
+	if (!ctx->sensor_ws)
+		dev_info(dev, "failed to wakeup_source_register\n");
+
 	return 0;
 
 free_entity:
@@ -1306,6 +1317,10 @@ static int imgsensor_remove(struct i2c_client *client)
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
 
 	notify_fsync_mgr(ctx, 0);
+
+	if (!ctx->sensor_ws)
+		wakeup_source_unregister(ctx->sensor_ws);
+	ctx->sensor_ws = NULL;
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 	pm_runtime_disable(&client->dev);

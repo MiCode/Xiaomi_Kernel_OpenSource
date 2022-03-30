@@ -628,10 +628,10 @@ static void write_shutter(kal_uint32 shutter, kal_bool gph)
 	shutter = round_up(shutter, 4);
 
 	spin_lock(&imgsensor_drv_lock);
-	if (shutter > imgsensor.min_frame_length - imgsensor_info.margin)
-		imgsensor.frame_length = shutter + imgsensor_info.margin;
-	else
-		imgsensor.frame_length = imgsensor.min_frame_length;
+	// if (shutter > imgsensor.min_frame_length - imgsensor_info.margin)
+		// imgsensor.frame_length = shutter + imgsensor_info.margin;
+	// else
+	imgsensor.frame_length = imgsensor.min_frame_length;
 	if (imgsensor.frame_length > imgsensor_info.max_frame_length)
 		imgsensor.frame_length = imgsensor_info.max_frame_length;
 	spin_unlock(&imgsensor_drv_lock);
@@ -669,7 +669,7 @@ static void write_shutter(kal_uint32 shutter, kal_bool gph)
 			l_shift = MAX_CIT_LSHIFT;
 		}
 		shutter = shutter >> l_shift;
-		imgsensor.frame_length = shutter + imgsensor_info.margin;
+		// imgsensor.frame_length = shutter + imgsensor_info.margin;
 		LOG_INF("enter long exposure mode, time is %d", l_shift);
 		write_cmos_sensor_8(0x3100,
 			read_cmos_sensor(0x3100) | (l_shift & 0x7));
@@ -679,7 +679,7 @@ static void write_shutter(kal_uint32 shutter, kal_bool gph)
 		imgsensor.current_ae_effective_frame = 2;
 	} else {
 		write_cmos_sensor_8(0x3100, read_cmos_sensor(0x3100) & 0xf8);
-		write_frame_len(imgsensor.frame_length);
+		// write_frame_len(imgsensor.frame_length);
 		imgsensor.current_ae_effective_frame = 2;
 		LOG_INF("set frame_length\n");
 	}
@@ -756,8 +756,8 @@ static void set_shutter_frame_length(
 	imgsensor.frame_length = imgsensor.frame_length + dummy_line;
 
 	/*  */
-	if (shutter > imgsensor.frame_length - imgsensor_info.margin)
-		imgsensor.frame_length = shutter + imgsensor_info.margin;
+	// if (shutter > imgsensor.frame_length - imgsensor_info.margin)
+		// imgsensor.frame_length = shutter + imgsensor_info.margin;
 
 	if (imgsensor.frame_length > imgsensor_info.max_frame_length)
 		imgsensor.frame_length = imgsensor_info.max_frame_length;
@@ -779,14 +779,9 @@ static void set_shutter_frame_length(
 			set_max_framerate(296, 0);
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(146, 0);
-		else {
-			/* Extend frame length */
-			write_frame_len(imgsensor.frame_length);
-		}
-	} else {
-		/* Extend frame length */
-		write_frame_len(imgsensor.frame_length);
 	}
+	/* Extend frame length */
+	write_frame_len(imgsensor.frame_length);
 
 	/* Update Shutter */
 	if (auto_extend_en)
@@ -3229,10 +3224,8 @@ static void hdr_write_tri_shutter_w_gph(kal_uint16 le, kal_uint16 me, kal_uint16
 			set_max_framerate(296, 0);
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(146, 0);
-		else
-			write_frame_len(imgsensor.frame_length);
-	} else
-		write_frame_len(imgsensor.frame_length);
+	}
+	// write_frame_len(imgsensor.frame_length);
 
 	/* Long exposure */
 	write_cmos_sensor_8(0x0202, (le >> 8) & 0xFF);
@@ -3353,6 +3346,8 @@ static kal_uint32 seamless_switch(enum MSDK_SCENARIO_ID_ENUM scenario_id, uint32
 	{
 		kal_uint16 changed_reg_setting[] = {
 			PHASE_PIX_OUT_EN, 0x01,
+			FRAME_LEN_UPPER, 0x09,
+			FRAME_LEN_LOWER, 0x74,
 			DOL_EN, 0x00,
 			DOL_MODE, 0x00
 		};
@@ -3385,6 +3380,8 @@ static kal_uint32 seamless_switch(enum MSDK_SCENARIO_ID_ENUM scenario_id, uint32
 	{
 		kal_uint16 changed_reg_setting[] = {
 			PHASE_PIX_OUT_EN, 0x03,
+			FRAME_LEN_UPPER, 0x09,
+			FRAME_LEN_LOWER, 0x74,
 			DOL_EN, 0x01,
 			DOL_MODE, 0x00
 		};
@@ -3427,6 +3424,8 @@ static kal_uint32 seamless_switch(enum MSDK_SCENARIO_ID_ENUM scenario_id, uint32
 	{
 		kal_uint16 changed_reg_setting[] = {
 			PHASE_PIX_OUT_EN, 0x07,
+			FRAME_LEN_UPPER, 0x06,
+			FRAME_LEN_LOWER, 0x4C,
 			DOL_EN, 0x01,
 			DOL_MODE, 0x01
 		};
@@ -3469,6 +3468,8 @@ static kal_uint32 seamless_switch(enum MSDK_SCENARIO_ID_ENUM scenario_id, uint32
 	{
 		kal_uint16 changed_reg_setting[] = {
 			PHASE_PIX_OUT_EN, 0x01,
+			FRAME_LEN_UPPER, 0x12,
+			FRAME_LEN_LOWER, 0xEC,
 			DOL_EN, 0x00,
 			DOL_MODE, 0x00
 		};

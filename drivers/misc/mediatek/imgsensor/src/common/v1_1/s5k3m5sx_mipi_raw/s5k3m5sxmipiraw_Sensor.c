@@ -38,6 +38,7 @@
 #include "kd_imgsensor_errcode.h"
 
 #include "s5k3m5sxmipiraw_Sensor.h"
+#include "platform_common.h"
 
 
 #undef VENDOR_EDIT
@@ -55,6 +56,7 @@
 	#define I2C_BUFFER_LEN 1020 /* trans# max is 255, each 4 bytes */
 #endif
 
+static unsigned int g_platform_id;
 
 #ifdef VENDOR_EDIT
 #define MODULE_ID_OFFSET 0x0000
@@ -1741,7 +1743,7 @@ static struct imgsensor_struct imgsensor = {
 	.dummy_line = 0,	/* current dummyline */
 	.current_fps = 300,
 	.autoflicker_en = KAL_FALSE,
-	.test_pattern = KAL_FALSE,
+	.test_pattern = 0,
 	.current_scenario_id = MSDK_SCENARIO_ID_CAMERA_PREVIEW,
 	.ihdr_mode = 0, /* sensor need support LE, SE with HDR feature */
 	.i2c_write_id = 0x34, /* record current sensor's i2c write id */
@@ -1883,17 +1885,35 @@ static kal_uint16 gain2reg(const kal_uint16 gain)
 
 
 
-static kal_uint32 set_test_pattern_mode(kal_bool enable)
+static kal_uint32 set_test_pattern_mode(kal_uint32 modes,
+	struct SET_SENSOR_PATTERN_SOLID_COLOR *pdata)
 {
-	LOG_INF("enable: %d\n", enable);
+	kal_uint16 Color_R, Color_Gr, Color_Gb, Color_B;
 
-	if (enable)
-		write_cmos_sensor(0x0600, 0x0003); /*100% Color bar*/
-	else
+	LOG_INF("set_test_pattern enum: %d\n", modes);
+	if (modes) {
+		write_cmos_sensor(0x0600, modes);
+		if (modes == 1 && (pdata != NULL)) { //Solid Color
+			pr_debug("R=0x%x,Gr=0x%x,B=0x%x,Gb=0x%x",
+				pdata->COLOR_R, pdata->COLOR_Gr, pdata->COLOR_B, pdata->COLOR_Gb);
+			Color_R = (pdata->COLOR_R >> 22) & 0x3FF; //10bits depth color
+			Color_Gr = (pdata->COLOR_Gr >> 22) & 0x3FF;
+			Color_B = (pdata->COLOR_B >> 22) & 0x3FF;
+			Color_Gb = (pdata->COLOR_Gb >> 22) & 0x3FF;
+			//write_cmos_sensor(0x0603, (Color_R >> 8) & 0x3);
+			write_cmos_sensor(0x0602, Color_R & 0x3FF);
+			//write_cmos_sensor(0x0605, (Color_Gr >> 8) & 0x3);
+			write_cmos_sensor(0x0604, Color_Gr & 0x3FF);
+			//write_cmos_sensor(0x0607, (Color_B >> 8) & 0x3);
+			write_cmos_sensor(0x0606, Color_B & 0x3FF);
+			//write_cmos_sensor(0x0609, (Color_Gb >> 8) & 0x3);
+			write_cmos_sensor(0x0608, Color_Gb & 0x3FF);
+		}
+	} else
 		write_cmos_sensor(0x0600, 0x0000); /*No pattern*/
 
 	spin_lock(&imgsensor_drv_lock);
-	imgsensor.test_pattern = enable;
+	imgsensor.test_pattern = modes;
 	spin_unlock(&imgsensor_drv_lock);
 	return ERROR_NONE;
 }
@@ -2432,7 +2452,7 @@ static kal_uint32 open(void)
 	imgsensor.dummy_pixel = 0;
 	imgsensor.dummy_line = 0;
 	imgsensor.ihdr_mode = 0;
-	imgsensor.test_pattern = KAL_FALSE;
+	imgsensor.test_pattern = 0;
 	imgsensor.current_fps = imgsensor_info.pre.max_framerate;
 	spin_unlock(&imgsensor_drv_lock);
 
@@ -3066,7 +3086,7 @@ static kal_uint32 set_max_framerate_by_scenario(
 				+ imgsensor.dummy_line;
 			imgsensor.min_frame_length = imgsensor.frame_length;
 			spin_unlock(&imgsensor_drv_lock);
-	}
+		}
 
 		if (imgsensor.frame_length > imgsensor.shutter)
 			set_dummy();
@@ -3382,7 +3402,8 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		}
 		break;
 	case SENSOR_FEATURE_GET_OFFSET_TO_START_OF_EXPOSURE:
-		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 3000000;
+		if (IS_MT6893(g_platform_id) || IS_MT6885(g_platform_id))
+			*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 3000000;
 		break;
 	case SENSOR_FEATURE_GET_PERIOD:
 		*feature_return_para_16++ = imgsensor.line_length;
@@ -3456,7 +3477,8 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		// #endif
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
-		set_test_pattern_mode((BOOL)*feature_data);
+		set_test_pattern_mode((UINT32)*feature_data,
+		(struct SET_SENSOR_PATTERN_SOLID_COLOR *)(uintptr_t)(*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
 		/* for factory mode auto testing */
@@ -3671,8 +3693,6 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		switch (*(feature_data + 1)) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
 		case MSDK_SCENARIO_ID_CUSTOM1:
-			*feature_return_para_32 = 1; /*BINNING_NONE*/
-			break;
 		case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		case MSDK_SCENARIO_ID_VIDEO_PREVIEW:
 		case MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO:
@@ -3682,7 +3702,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		case MSDK_SCENARIO_ID_CUSTOM4:
 		case MSDK_SCENARIO_ID_CUSTOM5:
 		default:
-			*feature_return_para_32 = 2; /*BINNING_AVERAGED*/
+			*feature_return_para_32 = 1; /*BINNING_AVERAGED*/
 			break;
 		}
 		pr_debug("SENSOR_FEATURE_GET_BINNING_TYPE AE_binning_type:%d,\n",
@@ -3774,13 +3794,20 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	return ERROR_NONE;
 } /* feature_control() */
 
+static void set_platform_info(unsigned int platform_id)
+{
+	g_platform_id = platform_id;
+	pr_info("%s id:%x\n", __func__, g_platform_id);
+}
+
 static struct SENSOR_FUNCTION_STRUCT sensor_func = {
 	open,
 	get_info,
 	get_resolution,
 	feature_control,
 	control,
-	close
+	close,
+	set_platform_info
 };
 
 

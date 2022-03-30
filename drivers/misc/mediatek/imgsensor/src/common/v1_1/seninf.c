@@ -16,6 +16,7 @@
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
 #include <linux/clk.h>
+#include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 
 #include <linux/of_platform.h>
@@ -146,6 +147,45 @@ static irqreturn_t seninf_irq(MINT32 Irq, void *DeviceId)
 
 	return IRQ_HANDLED;
 }
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && SENINF_CLK_CONTROL
+static int seninf_pm_runtime_get_sync(struct SENINF *seninf)
+{
+	int i;
+
+	if (seninf->pm_domain_cnt == 1)
+		pm_runtime_get_sync(seninf->dev);
+	else {
+		if (!seninf->pm_domain_devs)
+			return -EINVAL;
+
+		for (i = 0; i < seninf->pm_domain_cnt; i++) {
+			if (seninf->pm_domain_devs[i])
+				pm_runtime_get_sync(seninf->pm_domain_devs[i]);
+		}
+	}
+
+	return 0;
+}
+
+static int seninf_pm_runtime_put_sync(struct SENINF *seninf)
+{
+	int i;
+
+	if (seninf->pm_domain_cnt == 1)
+		pm_runtime_put_sync(seninf->dev);
+	else {
+		if (!seninf->pm_domain_devs && seninf->pm_domain_cnt < 1)
+			return -EINVAL;
+
+		for (i = seninf->pm_domain_cnt - 1; i >= 0; i--) {
+			if (seninf->pm_domain_devs[i])
+				pm_runtime_put_sync(seninf->pm_domain_devs[i]);
+		}
+	}
+
+	return 0;
+}
+#endif
 
 static MINT32 seninf_open(struct inode *pInode, struct file *pFile)
 {
@@ -153,7 +193,10 @@ static MINT32 seninf_open(struct inode *pInode, struct file *pFile)
 	struct SENINF *pseninf = &gseninf;
 
 #ifdef SENINF_USE_RPM
-	pm_runtime_get_sync(pseninf->dev);
+	if (IS_MT6855(pseninf->clk.g_platform_id))
+		seninf_pm_runtime_get_sync(pseninf);
+	else
+		pm_runtime_get_sync(pseninf->dev);
 #endif
 
 	mutex_lock(&pseninf->seninf_mutex);
@@ -188,7 +231,10 @@ static MINT32 seninf_release(struct inode *pInode, struct file *pFile)
 	mutex_unlock(&pseninf->seninf_mutex);
 
 #ifdef SENINF_USE_RPM
-	pm_runtime_put_sync(pseninf->dev);
+	if (IS_MT6855(pseninf->clk.g_platform_id))
+		seninf_pm_runtime_put_sync(pseninf);
+	else
+		pm_runtime_put_sync(pseninf->dev);
 #endif
 #endif
 
@@ -474,6 +520,57 @@ EXIT:
 	return ret;
 }
 
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && SENINF_CLK_CONTROL
+static int seninf_pm_runtime_enable(struct SENINF *seninf)
+{
+	int i;
+
+	seninf->pm_domain_cnt = of_count_phandle_with_args(seninf->dev->of_node,
+				"power-domains",
+				"#power-domain-cells");
+	if (seninf->pm_domain_cnt == 1)
+		pm_runtime_enable(seninf->dev);
+	else {
+		seninf->pm_domain_devs = devm_kcalloc(seninf->dev, seninf->pm_domain_cnt,
+				sizeof(*seninf->pm_domain_devs), GFP_KERNEL);
+		if (!seninf->pm_domain_devs)
+			return -ENOMEM;
+
+		for (i = 0; i < seninf->pm_domain_cnt; i++) {
+			seninf->pm_domain_devs[i] =
+				dev_pm_domain_attach_by_id(seninf->dev, i);
+
+			if (IS_ERR_OR_NULL(seninf->pm_domain_devs[i])) {
+				dev_info(seninf->dev, "%s: fail to probe pm id %d\n",
+					__func__, i);
+				seninf->pm_domain_devs[i] = NULL;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int seninf_pm_runtime_disable(struct SENINF *seninf)
+{
+	int i;
+
+	if (seninf->pm_domain_cnt == 1)
+		pm_runtime_disable(seninf->dev);
+	else {
+		if (!seninf->pm_domain_devs)
+			return -EINVAL;
+
+		for (i = 0; i < seninf->pm_domain_cnt; i++) {
+			if (seninf->pm_domain_devs[i])
+				dev_pm_domain_detach(seninf->pm_domain_devs[i], 1);
+			}
+		}
+
+	return 0;
+}
+#endif
+
 static MINT32 seninf_probe(struct platform_device *pDev)
 {
 	struct SENINF *pseninf = &gseninf;
@@ -494,8 +591,11 @@ static MINT32 seninf_probe(struct platform_device *pDev)
 	pseninf->clk.g_platform_id = GET_PLATFORM_ID("mediatek,seninf_top");
 	PK_DBG("get seninf platform id: %x\n", pseninf->clk.g_platform_id);
 
-#ifdef SENINF_USE_RPM
-	pm_runtime_enable(pseninf->dev);
+#if SENINF_USE_RPM && SENINF_CLK_CONTROL
+	if (IS_MT6855(pseninf->clk.g_platform_id))
+		seninf_pm_runtime_enable(pseninf);
+	else
+		pm_runtime_enable(pseninf->dev);
 #endif
 
 #if SENINF_CLK_CONTROL
@@ -545,6 +645,11 @@ static MINT32 seninf_remove(struct platform_device *pDev)
 	struct SENINF *pseninf = &gseninf;
 
 	PK_DBG("- E.");
+
+#if SENINF_USE_RPM && SENINF_CLK_CONTROL
+	if (IS_MT6855(pseninf->clk.g_platform_id))
+		seninf_pm_runtime_disable(pseninf);
+#endif
 
 #ifdef DFS_CTRL_BY_OPP
 	seninf_dfs_exit(&pseninf->dfs_ctx);

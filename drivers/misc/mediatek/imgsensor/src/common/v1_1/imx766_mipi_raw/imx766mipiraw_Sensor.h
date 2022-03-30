@@ -133,6 +133,12 @@ struct imgsensor_info_struct {
 	kal_uint8 i2c_addr_table[5];
 };
 
+/* SENSOR READ/WRITE ID */
+/* #define IMGSENSOR_WRITE_ID_1 (0x6c) */
+/* #define IMGSENSOR_READ_ID_1  (0x6d) */
+/* #define IMGSENSOR_WRITE_ID_2 (0x20) */
+/* #define IMGSENSOR_READ_ID_2  (0x21) */
+
 extern int iReadRegI2C(u8 *a_pSendData, u16 a_sizeSendData,
 	u8 *a_pRecvData, u16 a_sizeRecvData,
 		       u16 i2cId);

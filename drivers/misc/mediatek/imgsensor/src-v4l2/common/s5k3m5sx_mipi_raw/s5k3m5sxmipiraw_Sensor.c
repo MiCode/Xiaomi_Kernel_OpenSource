@@ -2092,7 +2092,7 @@ static kal_uint16 capture_setting_array[] = {
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
 	0x0804, 0x0200,
-	0x0810, 0x0011,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 normal_video_setting_array[] = {
@@ -2207,6 +2207,8 @@ static kal_uint16 hs_video_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 slim_video_setting_array[] = {
@@ -2263,6 +2265,8 @@ static kal_uint16 slim_video_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 custom1_setting_array[] = {
@@ -2319,6 +2323,8 @@ static kal_uint16 custom1_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 custom2_setting_array[] = {
@@ -2375,6 +2381,8 @@ static kal_uint16 custom2_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 custom3_setting_array[] = {
@@ -2431,6 +2439,8 @@ static kal_uint16 custom3_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 custom4_setting_array[] = {
@@ -2487,6 +2497,8 @@ static kal_uint16 custom4_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 custom5_setting_array[] = {
@@ -2543,6 +2555,8 @@ static kal_uint16 custom5_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 /* VC2 for PDAF */
@@ -2678,16 +2692,35 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx, const kal_uint16 gain)
 	return (kal_uint16) reg_gain;
 }
 
-static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_bool enable)
+static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	DEBUG_LOG(ctx, "enable: %d\n", enable);
+	DEBUG_LOG(ctx, "mode: %d\n", mode);
 
-	if (enable)
-		write_cmos_sensor(ctx, 0x0600, 0x0002); /*100% Color bar*/
-	else
+	if (mode)
+		write_cmos_sensor(ctx, 0x0600, mode); /*100% Color bar*/
+	else if (ctx->test_pattern)
 		write_cmos_sensor(ctx, 0x0600, 0x0000); /*No pattern*/
 
-	ctx->test_pattern = enable;
+	ctx->test_pattern = mode;
+	return ERROR_NONE;
+}
+
+static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_pattern_data *data)
+{
+
+	pr_debug("test_patterndata mode = %d  R = %x, Gr = %x,Gb = %x,B = %x\n", ctx->test_pattern,
+		data->Channel_R >> 22, data->Channel_Gr >> 22,
+		data->Channel_Gb >> 22, data->Channel_B >> 22);
+
+	set_cmos_sensor(ctx, 0x0602, (data->Channel_R >> 22) & 0x3ff);
+	//set_cmos_sensor(ctx, 0x0603, (data->Channel_R >> 22) & 0xff);
+	set_cmos_sensor(ctx, 0x0604, (data->Channel_Gr >> 22) & 0x3ff);
+	//set_cmos_sensor(ctx, 0x0605, (data->Channel_Gr >> 22) & 0xff);
+	set_cmos_sensor(ctx, 0x0606, (data->Channel_B >> 22) & 0x3ff);
+	//set_cmos_sensor(ctx, 0x0607, (data->Channel_B >> 22) & 0xff);
+	set_cmos_sensor(ctx, 0x0608, (data->Channel_Gb >> 22) & 0x3ff);
+	//set_cmos_sensor(ctx, 0x0609, (data->Channel_Gb >> 22) & 0xff);
+	commit_write_sensor(ctx);
 	return ERROR_NONE;
 }
 
@@ -3074,6 +3107,8 @@ static void sensor_init(struct subdrv_ctx *ctx)
 
 	/* set pdaf DT to 0x2B */
 	write_cmos_sensor_8(ctx, 0x0116, 0x2B);
+	/* set MIPI auto ctrl */
+	write_cmos_sensor(ctx, 0x0804, 0x0000);
 }
 
 static void preview_setting(struct subdrv_ctx *ctx)
@@ -3288,7 +3323,7 @@ static int open(struct subdrv_ctx *ctx)
 	ctx->dummy_pixel = 0;
 	ctx->dummy_line = 0;
 	ctx->ihdr_mode = 0;
-	ctx->test_pattern = KAL_FALSE;
+	ctx->test_pattern = 0;
 	ctx->current_fps = imgsensor_info.pre.max_framerate;
 
 	return ERROR_NONE;
@@ -4229,7 +4264,10 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		// LOG_INF("SENSOR_FEATURE_GET_PDAF_DATA\n");
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
-		set_test_pattern_mode(ctx, (BOOL)*feature_data);
+		set_test_pattern_mode(ctx, (UINT32)*feature_data);
+		break;
+	case SENSOR_FEATURE_SET_TEST_PATTERN_DATA:
+		set_test_pattern_data(ctx, (struct mtk_test_pattern_data *)feature_data);
 		break;
 	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
 		/* for factory mode auto testing */
@@ -4749,7 +4787,7 @@ static const struct subdrv_ctx defctx = {
 	.dummy_line = 0,	/* current dummyline */
 	.current_fps = 300,
 	.autoflicker_en = KAL_FALSE,
-	.test_pattern = KAL_FALSE,
+	.test_pattern = 0,
 	.current_scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW,
 	.ihdr_mode = 0, /* sensor need support LE, SE with HDR feature */
 	.i2c_write_id = 0x20, /* record current sensor's i2c write id */
@@ -4776,16 +4814,10 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
-	switch (scenario_id) {
-	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
-	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
-	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-		csi_param->dphy_trail = 0x1;
-		break;
-	default:
-		csi_param->dphy_trail = 0;
-		break;
-	}
+	csi_param->legacy_phy = 0;
+	csi_param->not_fixed_trail_settle = 0;
+	csi_param->dphy_trail = 0;
+
 	return 0;
 }
 

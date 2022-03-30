@@ -244,6 +244,7 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[6] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x600},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x500, 0x180},
+			//{VC_PDAF_STATS_PIX_2, 0x00, 0x31, 0x500, 0x180},
 		},
 		1
 	},
@@ -252,14 +253,23 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[6] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x600},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x500, 0x180},
+			//{VC_PDAF_STATS_PIX_2, 0x00, 0x31, 0x500, 0x180},
 		},
 		1
 	},
+//	{
+//		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00, //capture, full size, waiting for setting
+//		{
+//			{VC_STAGGER_NE, 0x00, 0x2b, 0x1000, 0xC00},
+//		},
+//		1
+//	},
 	{
 		0x01, 0x0a, 0x00, 0x08, 0x40, 0x00,//video
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x600},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x500, 0x180},
+			//{VC_PDAF_STATS_PIX_2, 0x00, 0x31, 0x500, 0x180},
 		},
 		1
 	},
@@ -268,6 +278,7 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[6] = {
 		{
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x600},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x500, 0x180},
+			//{VC_PDAF_STATS_PIX_2, 0x00, 0x31, 0x500, 0x180},
 		},
 		1
 	},
@@ -277,7 +288,9 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[6] = {
 			{VC_STAGGER_NE, 0x00, 0x2b, 0x800, 0x600},
 			{VC_STAGGER_ME, 0x01, 0x2b, 0x800, 0x600},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x500, 0x180},
+			//{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0x500, 0x180},
 			{VC_PDAF_STATS_ME_PIX_1, 0x01, 0x30, 0x500, 0x180},
+			//{VC_PDAF_STATS_SE_PIX_2, 0x01, 0x31, 0x500, 0x180},
 		},
 		1
 	},
@@ -288,8 +301,11 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[6] = {
 			{VC_STAGGER_ME, 0x01, 0x2b, 0x800, 0x600},
 			{VC_STAGGER_SE, 0x02, 0x2b, 0x800, 0x600},
 			{VC_PDAF_STATS_NE_PIX_1, 0x00, 0x30, 0x500, 0x180},
+			//{VC_PDAF_STATS_NE_PIX_2, 0x00, 0x31, 0x500, 0x180},
 			{VC_PDAF_STATS_ME_PIX_1, 0x01, 0x30, 0x500, 0x180},
+			//{VC_PDAF_STATS_ME_PIX_2, 0x01, 0x31, 0x500, 0x180},
 			{VC_PDAF_STATS_SE_PIX_1, 0x02, 0x30, 0x500, 0x180},
+			//{VC_PDAF_STATS_SE_PIX_2, 0x02, 0x31, 0x500, 0x180},
 		},
 		1
 	},
@@ -628,10 +644,10 @@ static void write_shutter(kal_uint32 shutter, kal_bool gph)
 	shutter = round_up(shutter, 4);
 
 	spin_lock(&imgsensor_drv_lock);
-	if (shutter > imgsensor.min_frame_length - imgsensor_info.margin)
-		imgsensor.frame_length = shutter + imgsensor_info.margin;
-	else
-		imgsensor.frame_length = imgsensor.min_frame_length;
+	// if (shutter > imgsensor.min_frame_length - imgsensor_info.margin)
+		// imgsensor.frame_length = shutter + imgsensor_info.margin;
+	// else
+	imgsensor.frame_length = imgsensor.min_frame_length;
 	if (imgsensor.frame_length > imgsensor_info.max_frame_length)
 		imgsensor.frame_length = imgsensor_info.max_frame_length;
 	spin_unlock(&imgsensor_drv_lock);
@@ -679,7 +695,7 @@ static void write_shutter(kal_uint32 shutter, kal_bool gph)
 		imgsensor.current_ae_effective_frame = 2;
 	} else {
 		write_cmos_sensor_8(0x3100, read_cmos_sensor(0x3100) & 0xf8);
-		write_frame_len(imgsensor.frame_length);
+		// write_frame_len(imgsensor.frame_length);
 		imgsensor.current_ae_effective_frame = 2;
 		LOG_INF("set frame_length\n");
 	}
@@ -737,6 +753,7 @@ static void set_shutter_frame_length(
 	spin_lock_irqsave(&imgsensor_drv_lock, flags);
 	imgsensor.shutter = shutter;
 	spin_unlock_irqrestore(&imgsensor_drv_lock, flags);
+	/* LOG_INF("shutter =%d, frame_time =%d\n", shutter, frame_time); */
 
 	/* 0x3500, 0x3501, 0x3502 will increase VBLANK to get exposure larger
 	 * than frame exposure
@@ -756,8 +773,8 @@ static void set_shutter_frame_length(
 	imgsensor.frame_length = imgsensor.frame_length + dummy_line;
 
 	/*  */
-	if (shutter > imgsensor.frame_length - imgsensor_info.margin)
-		imgsensor.frame_length = shutter + imgsensor_info.margin;
+	// if (shutter > imgsensor.frame_length - imgsensor_info.margin)
+		// imgsensor.frame_length = shutter + imgsensor_info.margin;
 
 	if (imgsensor.frame_length > imgsensor_info.max_frame_length)
 		imgsensor.frame_length = imgsensor_info.max_frame_length;
@@ -779,14 +796,9 @@ static void set_shutter_frame_length(
 			set_max_framerate(296, 0);
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(146, 0);
-		else {
-			/* Extend frame length */
-			write_frame_len(imgsensor.frame_length);
-		}
-	} else {
-		/* Extend frame length */
-		write_frame_len(imgsensor.frame_length);
 	}
+	/* Extend frame length */
+	write_frame_len(imgsensor.frame_length);
 
 	/* Update Shutter */
 	if (auto_extend_en)
@@ -3229,10 +3241,8 @@ static void hdr_write_tri_shutter_w_gph(kal_uint16 le, kal_uint16 me, kal_uint16
 			set_max_framerate(296, 0);
 		else if (realtime_fps >= 147 && realtime_fps <= 150)
 			set_max_framerate(146, 0);
-		else
-			write_frame_len(imgsensor.frame_length);
-	} else
-		write_frame_len(imgsensor.frame_length);
+	}
+	// write_frame_len(imgsensor.frame_length);
 
 	/* Long exposure */
 	write_cmos_sensor_8(0x0202, (le >> 8) & 0xFF);
@@ -3353,6 +3363,8 @@ static kal_uint32 seamless_switch(enum MSDK_SCENARIO_ID_ENUM scenario_id, uint32
 	{
 		kal_uint16 changed_reg_setting[] = {
 			PHASE_PIX_OUT_EN, 0x01,
+			FRAME_LEN_UPPER, 0x09,
+			FRAME_LEN_LOWER, 0x74,
 			DOL_EN, 0x00,
 			DOL_MODE, 0x00
 		};
@@ -3385,6 +3397,8 @@ static kal_uint32 seamless_switch(enum MSDK_SCENARIO_ID_ENUM scenario_id, uint32
 	{
 		kal_uint16 changed_reg_setting[] = {
 			PHASE_PIX_OUT_EN, 0x03,
+			FRAME_LEN_UPPER, 0x09,
+			FRAME_LEN_LOWER, 0x74,
 			DOL_EN, 0x01,
 			DOL_MODE, 0x00
 		};
@@ -3427,6 +3441,8 @@ static kal_uint32 seamless_switch(enum MSDK_SCENARIO_ID_ENUM scenario_id, uint32
 	{
 		kal_uint16 changed_reg_setting[] = {
 			PHASE_PIX_OUT_EN, 0x07,
+			FRAME_LEN_UPPER, 0x06,
+			FRAME_LEN_LOWER, 0x4C,
 			DOL_EN, 0x01,
 			DOL_MODE, 0x01
 		};
@@ -3469,6 +3485,8 @@ static kal_uint32 seamless_switch(enum MSDK_SCENARIO_ID_ENUM scenario_id, uint32
 	{
 		kal_uint16 changed_reg_setting[] = {
 			PHASE_PIX_OUT_EN, 0x01,
+			FRAME_LEN_UPPER, 0x12,
+			FRAME_LEN_LOWER, 0xEC,
 			DOL_EN, 0x00,
 			DOL_MODE, 0x00
 		};
@@ -5458,6 +5476,8 @@ static kal_int32 get_sensor_temperature(void)
 	else
 		temperature_convert = (INT8)temperature | 0xFFFFFF0;
 
+/* LOG_INF("temp_c(%d), read_reg(%d)\n", temperature_convert, temperature); */
+
 	return temperature_convert;
 }
 static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
@@ -5479,6 +5499,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	MSDK_SENSOR_REG_INFO_STRUCT *sensor_reg_data
 		= (MSDK_SENSOR_REG_INFO_STRUCT *) feature_para;
 
+	/*LOG_INF("feature_id = %d\n", feature_id);*/
 	switch (feature_id) {
 	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
 		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
@@ -5832,6 +5853,17 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			*feature_data, *pScenarios);
 		break;
 	case SENSOR_FEATURE_GET_SENSOR_HDR_CAPACITY:
+		/*
+		 * HDR_NONE = 0,
+		 * HDR_RAW = 1,
+		 * HDR_CAMSV = 2,
+		 * HDR_RAW_ZHDR = 9,
+		 * HDR_MultiCAMSV = 10,
+		 * HDR_RAW_STAGGER_2EXP = 0xB,
+		 * HDR_RAW_STAGGER_MIN = HDR_RAW_STAGGER_2EXP,
+		 * HDR_RAW_STAGGER_3EXP = 0xC,
+		 * HDR_RAW_STAGGER_MAX = HDR_RAW_STAGGER_3EXP,
+		 */
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CUSTOM2:
 			*(MUINT32 *) (uintptr_t) (*(feature_data + 1)) = 0xB;

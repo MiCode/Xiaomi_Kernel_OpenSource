@@ -470,7 +470,7 @@ static void frm_dump_measurement_data(
 
 
 	if (p_fmeas->idx == 0) {
-		LOG_MUST(
+		LOG_PF_INF(
 			"[%u] ID:%#x (sidx:%u), tg:%d, vsync:%u, pred/act fl:(curr:%u,*0:%u(%u)/%u, 1:%u(%u)/%u, 2:%u(%u)/%u, 3:%u(%u)/%u), ts_tg_%u:(%u/%u/%u/%u), query_vts_at:%u (SOF + %u)\n",
 			idx,
 			frm_inst.f_info[idx].sensor_id,
@@ -498,7 +498,7 @@ static void frm_dump_measurement_data(
 			query_vts_at,
 			time_after_sof);
 	} else if (p_fmeas->idx == 1) {
-		LOG_MUST(
+		LOG_PF_INF(
 			"[%u] ID:%#x (sidx:%u), tg:%d, vsync:%u, pred/act fl:(curr:%u, 0:%u(%u)/%u,*1:%u(%u)/%u, 2:%u(%u)/%u, 3:%u(%u)/%u), ts_tg_%u:(%u/%u/%u/%u), query_vts_at:%u (SOF + %u)\n",
 			idx,
 			frm_inst.f_info[idx].sensor_id,
@@ -526,7 +526,7 @@ static void frm_dump_measurement_data(
 			query_vts_at,
 			time_after_sof);
 	} else if (p_fmeas->idx == 2) {
-		LOG_MUST(
+		LOG_PF_INF(
 			"[%u] ID:%#x (sidx:%u), tg:%d, vsync:%u, pred/act fl:(curr:%u, 0:%u(%u)/%u, 1:%u(%u)/%u,*2:%u(%u)/%u, 3:%u(%u)/%u), ts_tg_%u:(%u/%u/%u/%u), query_vts_at:%u (SOF + %u)\n",
 			idx,
 			frm_inst.f_info[idx].sensor_id,
@@ -554,7 +554,7 @@ static void frm_dump_measurement_data(
 			query_vts_at,
 			time_after_sof);
 	} else if (p_fmeas->idx == 3) {
-		LOG_MUST(
+		LOG_PF_INF(
 			"[%u] ID:%#x (sidx:%u), tg:%d, vsync:%u, pred/act fl:(curr:%u, 0:%u(%u)/%u, 1:%u(%u)/%u, 2:%u(%u)/%u,*3:%u(%u)/%u), ts_tg_%u:(%u/%u/%u/%u), query_vts_at:%u (SOF + %u)\n",
 			idx,
 			frm_inst.f_info[idx].sensor_id,
@@ -776,7 +776,7 @@ void frm_power_on_ccu(unsigned int flag)
  * this function will be called at streaming on / off
  * uses ccu_rproc_ipc_send function send command data to ccu
  */
-void frm_reset_ccu_vsync_timestamp(unsigned int idx)
+void frm_reset_ccu_vsync_timestamp(unsigned int idx, unsigned int en)
 {
 	unsigned int tg = 0;
 	uint32_t selbits = 0;
@@ -798,16 +798,20 @@ void frm_reset_ccu_vsync_timestamp(unsigned int idx)
 	ret = mtk_ccu_rproc_ipc_send(
 		frm_inst.ccu_pdev,
 		MTK_CCU_FEATURE_FMCTRL,
-		MSG_TO_CCU_RESET_VSYNC_TIMESTAMP,
+		(en)
+			? MSG_TO_CCU_RESET_VSYNC_TIMESTAMP
+			: MSG_TO_CCU_CLEAR_VSYNC_TIMESTAMP,
 		(void *)&selbits, sizeof(selbits));
 #endif
 
 	if (ret != 0)
-		LOG_PR_ERR("ERROR: call CCU reset tg:%u (selbits:%u) vsync data\n",
-			tg, selbits);
+		LOG_PR_ERR(
+			"ERROR: call CCU reset(1)/clear(0):%u, tg:%u (selbits:%u) vsync data, ret:%u\n",
+			en, tg, selbits, ret);
 	else
-		LOG_MUST("called CCU reset tg:%u (selbits:%u) vsync data\n",
-			tg, selbits);
+		LOG_MUST(
+			"called CCU reset(1)/clear(0):%u, tg:%u (selbits:%u) vsync data, ret:%u\n",
+			en, tg, selbits, ret);
 }
 
 
@@ -850,7 +854,7 @@ void frm_init_frame_info_st_data(
 
 #ifdef USING_CCU
 #ifndef DELAY_CCU_OP
-	frm_reset_ccu_vsync_timestamp(idx);
+	frm_reset_ccu_vsync_timestamp(idx, 1);
 #endif
 #endif
 
@@ -1239,7 +1243,7 @@ int frm_timestamp_checker(unsigned int m_tg, unsigned int s_tg)
 
 timestamp_checker_log:
 
-	LOG_MUST(
+	LOG_PF_INF(
 		"sync:%d, diff:%u, cnt:%u, ts_idx(m:%u/s:%u), ts_tg_%u(%u):(0:%u/1:%u/2:%u/3:%u, %u)/ts_tg_%u(%u):(0:%u/1:%u/2:%u/3:%u, %u)\n",
 		result,
 		min_diff,

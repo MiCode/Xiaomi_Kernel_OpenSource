@@ -213,6 +213,12 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 	const struct subdrv_pw_seq_entry *ent;
 	struct adaptor_hw_ops *op;
 
+	if (ctx->sensor_ws)
+		__pm_stay_awake(ctx->sensor_ws);
+	else
+		dev_dbg(ctx->dev, "%s fail to __pm_stay_awake\n",
+			__func__);
+
 	/* may be released for mipi switch */
 	if (!ctx->pinctrl)
 		reinit_pinctrl(ctx);
@@ -288,8 +294,13 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 		ctx->pinctrl = NULL;
 	}
 
-	// dev_dbg(ctx->dev, "%s\n", __func__);
+	if (ctx->sensor_ws)
+		__pm_relax(ctx->sensor_ws);
+	else
+		dev_dbg(ctx->dev, "%s fail to __pm_relax\n",
+			__func__);
 
+	// dev_dbg(ctx->dev, "%s\n", __func__);
 	return 0;
 }
 int adaptor_hw_power_off(struct adaptor_ctx *ctx)
