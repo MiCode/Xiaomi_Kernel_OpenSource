@@ -1,0 +1,33 @@
+#include <dt-bindings/thermal/thermal_qti.h>
+
+&thermal_zones {
+	pm8150_tz {
+		cooling-maps {
+			pm8150_cpu0_freq {
+				trip = <&pm8150_trip0>;
+				cooling-device = <&CPU0 6 THERMAL_NO_LIMIT>;
+			};
+
+			pm8150_cpu1_pause {
+				trip = <&pm8150_trip0>;
+				cooling-device = <&cpu1_pause 1 1>;
+			};
+
+			pm8150_cpu2_pause {
+				trip = <&pm8150_trip0>;
+				cooling-device = <&cpu2_pause 1 1>;
+			};
+
+			pm8150_cpu3_pause {
+				trip = <&pm8150_trip0>;
+				cooling-device = <&cpu3_pause 1 1>;
+			};
+
+			pm8150_gpu {
+				trip = <&pm8150_trip0>;
+				cooling-device = <&msm_gpu THERMAL_NO_LIMIT
+									THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+};
