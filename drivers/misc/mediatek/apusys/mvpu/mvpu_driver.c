@@ -567,6 +567,7 @@ int mvpu_init(void)
 void mvpu_exit(void)
 {
 	pr_info("%s +\n", __func__);
-	//mvpu_sysfs_exit();
+	mvpu_ipi_deinit();
+	mvpu_sysfs_exit();
 	mvpu_drv_exit();
 }

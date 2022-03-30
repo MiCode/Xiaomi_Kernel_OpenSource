@@ -128,5 +128,5 @@ int mvpu_sysfs_init(void)
 
 void mvpu_sysfs_exit(void)
 {
-	kobject_put(root_dir);
+	kobject_del(root_dir);
 }
