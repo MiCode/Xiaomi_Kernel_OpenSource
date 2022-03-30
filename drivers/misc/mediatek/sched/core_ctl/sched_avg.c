@@ -58,7 +58,6 @@ static int global_task_cpu;
 static DEFINE_SPINLOCK(global_max_util_lock);
 
 /* pelt.h */
-#define UTIL_AVG_UNCHANGED		0x1
 #define OVER_THRES_SIZE			2
 #define MAX_CLUSTER_NR			3
 #define MAX_UTIL_TRACKER_PERIODIC_MS	8
@@ -188,7 +187,7 @@ static inline unsigned long _task_util_est(struct task_struct *p)
 {
 	struct util_est ue = READ_ONCE(p->se.avg.util_est);
 
-	return (max(ue.ewma, ue.enqueued) | UTIL_AVG_UNCHANGED);
+	return max(ue.ewma, (ue.enqueued & ~UTIL_AVG_UNCHANGED));
 }
 
 static inline unsigned long task_util_est(struct task_struct *p)
@@ -436,7 +435,7 @@ static void over_thresh_chg_notify(void)
 			continue;
 		}
 
-		raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
+		raw_spin_lock_irqsave(&cpu_rq(cpu)->__lock, flags);
 		spin_lock(&per_cpu(nr_over_thres_lock, cpu));
 
 		/* update threshold */
@@ -461,7 +460,7 @@ static void over_thresh_chg_notify(void)
 		/* pick next cpu if not online */
 		if (!cpu_online(cpu)) {
 			spin_unlock(&per_cpu(nr_over_thres_lock, cpu));
-			raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
+			raw_spin_unlock_irqrestore(&cpu_rq(cpu)->__lock, flags);
 			continue;
 		}
 
@@ -493,7 +492,7 @@ static void over_thresh_chg_notify(void)
 		cpu_over_thres->dn_last_update_time = curr_time;
 
 		spin_unlock(&per_cpu(nr_over_thres_lock, cpu));
-		raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
+		raw_spin_unlock_irqrestore(&cpu_rq(cpu)->__lock, flags);
 	}
 }
 
@@ -558,20 +557,6 @@ void sched_update_nr_over_thres_prod(struct task_struct *p, int cpu, int over_th
 	}
 	spin_unlock_irqrestore(&per_cpu(nr_over_thres_lock, cpu), flags);
 }
-
-#if IS_ENABLED(CONFIG_FAIR_GROUP_SCHED)
-static inline struct task_struct *task_of(struct sched_entity *se)
-{
-	SCHED_WARN_ON(!entity_is_task(se));
-	return container_of(se, struct task_struct, se);
-}
-#else /* !CONFIG_FAIR_GROUP_SCHED */
-
-static inline struct task_struct *task_of(struct sched_entity *se)
-{
-	return container_of(se, struct task_struct, se);
-}
-#endif
 
 #if IS_ENABLED(CONFIG_SMP)
 /*
@@ -892,7 +877,7 @@ int init_sched_avg(void)
 		ret_error_line = __LINE__;
 		goto failed_deprobe_enqueue_task_fair;
 	}
-
+/*
 	ret = register_trace_android_vh_finish_update_load_avg_se(
 			inc_nr_over_thres_running_by_se, NULL);
 	if (ret) {
@@ -906,12 +891,13 @@ int init_sched_avg(void)
 		ret_error_line = __LINE__;
 		goto failed_deprobe_finish_update_load_avg_se;
 	}
-
+*/
 	ret = register_trace_sched_update_nr_running_tp(
 			sched_update_nr_running_cb, NULL);
 	if (ret) {
 		ret_error_line = __LINE__;
-		goto failed_deprobe_prepare_update_load_avg_se;
+		//goto failed_deprobe_prepare_update_load_avg_se;
+		goto failed_deprobe_dequeue_task_fair;
 	}
 
 	ret = register_trace_android_vh_scheduler_tick(
@@ -931,12 +917,14 @@ int init_sched_avg(void)
 failed_deprob_eched_update_nr_running_tp:
 	unregister_trace_sched_update_nr_running_tp(
 			sched_update_nr_running_cb, NULL);
+/*
 failed_deprobe_prepare_update_load_avg_se:
 	unregister_trace_android_vh_prepare_update_load_avg_se(
 			dec_nr_over_thres_running_by_se, NULL);
 failed_deprobe_finish_update_load_avg_se:
 	unregister_trace_android_vh_finish_update_load_avg_se(
 			inc_nr_over_thres_running_by_se, NULL);
+*/
 failed_deprobe_dequeue_task_fair:
 failed_deprobe_enqueue_task_fair:
 	/* restrict vendor hook can't unregister */
@@ -949,10 +937,12 @@ failed:
 
 void exit_sched_avg(void)
 {
+/*
 	unregister_trace_android_vh_finish_update_load_avg_se(
 				inc_nr_over_thres_running_by_se, NULL);
 	unregister_trace_android_vh_prepare_update_load_avg_se(
 				dec_nr_over_thres_running_by_se, NULL);
+*/
 	unregister_trace_sched_update_nr_running_tp(sched_update_nr_running_cb, NULL);
 	unregister_trace_android_vh_scheduler_tick(sched_max_util_task_tracking, NULL);
 }

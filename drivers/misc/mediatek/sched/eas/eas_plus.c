@@ -18,6 +18,34 @@ MODULE_LICENSE("GPL");
 #define IB_SAME_CLUSTER		(0x01)
 #define IB_OVERUTILIZATION	(0x04)
 
+DEFINE_PER_CPU(struct update_util_data __rcu *, cpufreq_update_util_data);
+DEFINE_PER_CPU(__u32, active_softirqs);
+
+#ifdef CONFIG_RT_SOFTINT_OPTIMIZATION
+/*
+ * Return whether the task on the given cpu is currently non-preemptible
+ * while handling a potentially long softint, or if the task is likely
+ * to block preemptions soon because it is a ksoftirq thread that is
+ * handling slow softints.
+ */
+bool task_may_not_preempt(struct task_struct *task, int cpu)
+{
+	__u32 softirqs = per_cpu(active_softirqs, cpu) |
+			local_softirq_pending();
+
+	struct task_struct *cpu_ksoftirqd = per_cpu(ksoftirqd, cpu);
+
+	return ((softirqs & LONG_SOFTIRQ_MASK) &&
+		(task == cpu_ksoftirqd ||
+		 task_thread_info(task)->preempt_count & SOFTIRQ_MASK));
+}
+#else
+bool task_may_not_preempt(struct task_struct *task, int cpu)
+{
+	return false;
+}
+#endif /* CONFIG_RT_SOFTINT_OPTIMIZATION */
+
 static struct perf_domain *find_pd(struct perf_domain *pd, int cpu)
 {
 	while (pd) {
@@ -141,10 +169,12 @@ static void update_thermal_headroom(int this_cpu)
 {
 	int cpu;
 
-	if (time_before(jiffies, next_update_thermal))
-		return;
-
 	if (spin_trylock(&thermal_headroom_lock)) {
+		if (time_before(jiffies, next_update_thermal)) {
+			spin_unlock(&thermal_headroom_lock);
+			return;
+		}
+
 		next_update_thermal = jiffies + thermal_headroom_interval_tick;
 		for_each_cpu(cpu, cpu_possible_mask) {
 			thermal_headroom[cpu] = get_thermal_headroom(cpu);
@@ -511,13 +541,13 @@ void check_for_migration(struct task_struct *p)
 	struct rq *rq = cpu_rq(cpu);
 
 	if (rq->misfit_task_load) {
-		if (rq->curr->state != TASK_RUNNING ||
+		if (rq->curr->__state != TASK_RUNNING ||
 			rq->curr->nr_cpus_allowed == 1)
 			return;
 
 		raw_spin_lock(&migration_lock);
 		rcu_read_lock();
-		new_cpu = p->sched_class->select_task_rq(p, cpu, SD_BALANCE_WAKE, 0);
+		new_cpu = p->sched_class->select_task_rq(p, cpu, 0);
 		rcu_read_unlock();
 
 		if ((new_cpu < 0) ||

@@ -20,21 +20,6 @@
 
 MODULE_LICENSE("GPL");
 
-#ifdef CONFIG_SMP
-#ifdef CONFIG_FAIR_GROUP_SCHED
-static inline struct task_struct *task_of(struct sched_entity *se)
-{
-	SCHED_WARN_ON(!entity_is_task(se));
-	return container_of(se, struct task_struct, se);
-}
-#else
-static inline struct task_struct *task_of(struct sched_entity *se)
-{
-	return container_of(se, struct task_struct, se);
-}
-#endif
-#endif
-
 /*
  * Unsigned subtract and clamp on underflow.
  *
@@ -73,7 +58,7 @@ static inline unsigned long _task_util_est(struct task_struct *p)
 {
 	struct util_est ue = READ_ONCE(p->se.avg.util_est);
 
-	return (max(ue.ewma, ue.enqueued) | UTIL_AVG_UNCHANGED);
+	return max(ue.ewma, (ue.enqueued & ~UTIL_AVG_UNCHANGED));
 }
 
 static inline unsigned long task_util_est(struct task_struct *p)
@@ -369,7 +354,7 @@ EXPORT_SYMBOL_GPL(get_uclamp_min_ls);
  */
 static void attach_task(struct rq *rq, struct task_struct *p)
 {
-	lockdep_assert_held(&rq->lock);
+	lockdep_assert_held(&rq->__lock);
 
 	BUG_ON(task_rq(p) != rq);
 	activate_task(rq, p, ENQUEUE_NOCLOCK);
@@ -606,7 +591,7 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 	unsigned int task_util;
 	bool latency_sensitive = false;
 
-	lockdep_assert_held(&src_rq->lock);
+	lockdep_assert_held(&src_rq->__lock);
 
 	rcu_read_lock();
 	dst_capacity = capacity_orig_of(dst_cpu);
@@ -716,15 +701,15 @@ int migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target,
 	int active_balance = false;
 	unsigned long flags;
 
-	raw_spin_lock_irqsave(&target->lock, flags);
+	raw_spin_lock_irqsave(&target->__lock, flags);
 	if (!target->active_balance &&
-		(task_rq(p) == target) && p->state != TASK_DEAD) {
+		(task_rq(p) == target) && p->__state != TASK_DEAD) {
 		target->active_balance = 1;
 		target->push_cpu = this_cpu;
 		active_balance = true;
 		get_task_struct(p);
 	}
-	raw_spin_unlock_irqrestore(&target->lock, flags);
+	raw_spin_unlock_irqrestore(&target->__lock, flags);
 	if (active_balance) {
 		trace_sched_force_migrate(p, this_cpu, reason);
 		stop_one_cpu_nowait(cpu_of(target),
@@ -777,7 +762,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	 * re-start the picking loop.
 	 */
 	rq_unpin_lock(this_rq, rf);
-	raw_spin_unlock(&this_rq->lock);
+	raw_spin_unlock(&this_rq->__lock);
 
 	this_cpu = this_rq->cpu;
 	for_each_cpu(cpu, cpu_online_mask) {
@@ -831,7 +816,7 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 					misfit_task_rq, MIGR_IDLE_PULL_MISFIT_RUNNING);
 	if (best_running_task)
 		put_task_struct(best_running_task);
-	raw_spin_lock(&this_rq->lock);
+	raw_spin_lock(&this_rq->__lock);
 	/*
 	 * While browsing the domains, we released the rq lock, a task could
 	 * have been enqueued in the meantime. Since we're not going idle,
