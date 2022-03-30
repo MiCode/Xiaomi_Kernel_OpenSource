@@ -764,100 +764,36 @@ static void mtk_cam_mraw_set_interleving_fmt(
 }
 
 static void mtk_cam_mraw_set_mraw_dmao_info(
-	struct device *dev, struct mtk_cam_mraw_resource_config *res_config,
+	struct mtk_cam_device *cam, unsigned int pipe_id,
 	struct mtk_cam_mraw_dmao_info *mraw_dmao_info)
 {
-	unsigned int tg_width_mqe = res_config->width;
-	unsigned int tg_height_mqe = res_config->height;
-	unsigned int tg_width_temp;
-	unsigned int tg_height_temp;
+	unsigned int width_mbn = 0, height_mbn = 0;
+	unsigned int width_cpi = 0, height_cpi = 0;
 	int i;
 
-	if (res_config->mqe_en) {
-		switch (res_config->mqe_mode) {
-		case UL_MODE:
-		case UR_MODE:
-		case DL_MODE:
-		case DR_MODE:
-			tg_width_mqe /= 2;
-			tg_height_mqe /= 2;
-			break;
-		case PD_L_MODE:
-		case PD_R_MODE:
-		case PD_M_MODE:
-		case PD_B01_MODE:
-		case PD_B02_MODE:
-			tg_width_mqe /= 2;
-			break;
-		default:
-			dev_info(dev, "%s:MQE-Mode %d %s fail\n",
-				__func__, res_config->mqe_mode, "unknown idx");
-			return;
-		}
-	}
+	mtk_cam_mraw_get_mbn_size(cam, pipe_id, &width_mbn, &height_mbn);
+	mtk_cam_mraw_get_cpi_size(cam, pipe_id, &width_cpi, &height_cpi);
 
-	/* cal. for IMGO */
-	tg_width_temp = tg_width_mqe;
-	tg_height_temp = tg_height_mqe;
-	switch (res_config->mbn_dir) {
-	case MBN_POW_VERTICAL:
-	case MBN_POW_HORIZONTAL:
-		mtk_cam_mraw_set_dense_fmt(dev, &tg_width_temp,
-			&tg_height_temp, res_config, IMGO);
-		break;
-	case MBN_POW_SPARSE_CONCATENATION:
-		mtk_cam_mraw_set_concatenation_fmt(
-			dev, &tg_width_temp, &tg_height_temp, res_config, IMGO);
-		break;
-	case MBN_POW_SPARSE_INTERLEVING:
-		mtk_cam_mraw_set_interleving_fmt(&tg_width_temp, &tg_height_temp, IMGO);
-		break;
-	default:
-		dev_info(dev, "%s:MBN's dir %d %s fail",
-			__func__, res_config->mbn_dir, "unknown idx");
-		return;
-	}
-
+	/* IMGO */
 	mraw_dmao_info->dmao_width[IMGO] =
-		mtk_cam_mraw_xsize_cal(tg_width_temp);
-	mraw_dmao_info->dmao_height[IMGO] = tg_height_temp;
+		mtk_cam_mraw_xsize_cal(width_mbn);
+	mraw_dmao_info->dmao_height[IMGO] = height_mbn;
 	mraw_dmao_info->dmao_stride[IMGO] = mraw_dmao_info->dmao_width[IMGO];
 
-	/* IMGBO's w/h is the same as IMGO */
-	mraw_dmao_info->dmao_width[IMGBO]
-		= mtk_cam_mraw_xsize_cal(tg_width_temp);
-	mraw_dmao_info->dmao_height[IMGBO] = tg_height_temp;
+	/* IMGBO */
+	mraw_dmao_info->dmao_width[IMGBO] =
+		mtk_cam_mraw_xsize_cal(width_mbn);
+	mraw_dmao_info->dmao_height[IMGBO] = height_mbn;
 	mraw_dmao_info->dmao_stride[IMGBO] = mraw_dmao_info->dmao_width[IMGBO];
 
-	/* cal. for CPIO */
-	tg_width_temp = tg_width_mqe;
-	tg_height_temp = tg_height_mqe;
-	switch (res_config->cpi_dir) {
-	case CPI_POW_VERTICAL:
-	case CPI_POW_HORIZONTAL:
-		mtk_cam_mraw_set_dense_fmt(dev, &tg_width_temp,
-			&tg_height_temp, res_config, CPIO);
-		break;
-	case CPI_POW_SPARSE_CONCATENATION:
-		mtk_cam_mraw_set_concatenation_fmt(dev, &tg_width_temp,
-			&tg_height_temp, res_config, CPIO);
-		break;
-	case CPI_POW_SPARSE_INTERLEVING:
-		mtk_cam_mraw_set_interleving_fmt(&tg_width_temp, &tg_height_temp, CPIO);
-		break;
-	default:
-		dev_info(dev, "%s:CPI's dir %d %s fail",
-			__func__, res_config->cpi_dir, "unknown idx");
-		return;
-	}
-
+	/* CPIO */
 	mraw_dmao_info->dmao_width[CPIO] =
-		mtk_cam_mraw_xsize_cal_cpio(tg_width_temp);
-	mraw_dmao_info->dmao_height[CPIO] = tg_height_temp;
+		mtk_cam_mraw_xsize_cal_cpio(width_cpi);
+	mraw_dmao_info->dmao_height[CPIO] = height_cpi;
 	mraw_dmao_info->dmao_stride[CPIO] = mraw_dmao_info->dmao_width[CPIO];
 
 	for (i = DMAO_ID_BEGIN; i < DMAO_ID_MAX; i++) {
-		dev_dbg(dev, "dma_id:%d, w:%d s:%d stride:%d\n",
+		dev_dbg(cam->dev, "dma_id:%d, w:%d s:%d stride:%d\n",
 			i, mraw_dmao_info->dmao_width[i],
 			mraw_dmao_info->dmao_height[i],
 			mraw_dmao_info->dmao_stride[i]);
@@ -1058,10 +994,10 @@ int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 
 	s_data->frame_params.mraw_param[0].is_config = is_config;
 
-	mtk_cam_mraw_set_mraw_dmao_info(cam->dev,
-		&pipe->res_config, &mraw_dmao_info);
+	mtk_cam_mraw_set_mraw_dmao_info(cam,
+		pipe_id, &mraw_dmao_info);
 	mtk_cam_mraw_set_frame_param_dmao(cam->dev, &s_data->frame_params,
-		mraw_dmao_info, pipe->id,
+		mraw_dmao_info, pipe_id,
 		pipe->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_0
 			- MTKCAM_IPI_MRAW_ID_START]);
 	mtk_cam_mraw_set_meta_stats_info(
@@ -1069,6 +1005,98 @@ int mtk_cam_mraw_cal_cfg_info(struct mtk_cam_device *cam,
 			- MTKCAM_IPI_MRAW_ID_START], &mraw_dmao_info);
 
 	return 0;
+}
+
+void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
+	unsigned int *width, unsigned int *height)
+{
+	struct mtk_mraw_pipeline *pipe =
+		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
+	struct mtk_cam_mraw_resource_config *res_config = &pipe->res_config;
+
+	*width = res_config->width;
+	*height = res_config->height;
+
+	if (res_config->mqe_en) {
+		switch (res_config->mqe_mode) {
+		case UL_MODE:
+		case UR_MODE:
+		case DL_MODE:
+		case DR_MODE:
+			*width /= 2;
+			*height /= 2;
+			break;
+		case PD_L_MODE:
+		case PD_R_MODE:
+		case PD_M_MODE:
+		case PD_B01_MODE:
+		case PD_B02_MODE:
+			*width /= 2;
+			break;
+		default:
+			dev_info(cam->dev, "%s:MQE-Mode %d %s fail\n",
+				__func__, res_config->mqe_mode, "unknown idx");
+			return;
+		}
+	}
+}
+
+void mtk_cam_mraw_get_mbn_size(struct mtk_cam_device *cam, unsigned int pipe_id,
+	unsigned int *width, unsigned int *height)
+{
+	struct mtk_mraw_pipeline *pipe =
+		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
+	struct mtk_cam_mraw_resource_config *res_config = &pipe->res_config;
+
+	mtk_cam_mraw_get_mqe_size(cam, pipe_id, width, height);
+
+	switch (res_config->mbn_dir) {
+	case MBN_POW_VERTICAL:
+	case MBN_POW_HORIZONTAL:
+		mtk_cam_mraw_set_dense_fmt(cam->dev, width,
+			height, res_config, IMGO);
+		break;
+	case MBN_POW_SPARSE_CONCATENATION:
+		mtk_cam_mraw_set_concatenation_fmt(cam->dev, width,
+			height, res_config, IMGO);
+		break;
+	case MBN_POW_SPARSE_INTERLEVING:
+		mtk_cam_mraw_set_interleving_fmt(width, height, IMGO);
+		break;
+	default:
+		dev_info(cam->dev, "%s:MBN's dir %d %s fail",
+			__func__, res_config->mbn_dir, "unknown idx");
+		return;
+	}
+}
+
+void mtk_cam_mraw_get_cpi_size(struct mtk_cam_device *cam, unsigned int pipe_id,
+	unsigned int *width, unsigned int *height)
+{
+	struct mtk_mraw_pipeline *pipe =
+		&cam->mraw.pipelines[pipe_id - MTKCAM_SUBDEV_MRAW_START];
+	struct mtk_cam_mraw_resource_config *res_config = &pipe->res_config;
+
+	mtk_cam_mraw_get_mqe_size(cam, pipe_id, width, height);
+
+	switch (res_config->cpi_dir) {
+	case CPI_POW_VERTICAL:
+	case CPI_POW_HORIZONTAL:
+		mtk_cam_mraw_set_dense_fmt(cam->dev, width,
+			height, res_config, CPIO);
+		break;
+	case CPI_POW_SPARSE_CONCATENATION:
+		mtk_cam_mraw_set_concatenation_fmt(cam->dev, width,
+			height, res_config, CPIO);
+		break;
+	case CPI_POW_SPARSE_INTERLEVING:
+		mtk_cam_mraw_set_interleving_fmt(width, height, CPIO);
+		break;
+	default:
+		dev_info(cam->dev, "%s:CPI's dir %d %s fail",
+			__func__, res_config->cpi_dir, "unknown idx");
+		return;
+	}
 }
 
 void mtk_cam_mraw_update_param(struct mtkcam_ipi_frame_param *frame_param,
