@@ -15,7 +15,7 @@ obj-$(CONFIG_IMX_REMOTEPROC)		+= imx_rproc.o
 obj-$(CONFIG_INGENIC_VPU_RPROC)		+= ingenic_rproc.o
 obj-$(CONFIG_MTK_SCP)			+= mtk_scp.o mtk_scp_ipi.o
 obj-$(CONFIG_OMAP_REMOTEPROC)		+= omap_remoteproc.o
-obj-$(CONFIG_MTK_CCD_REMOTEPROC)	+= mtk_ccd.o mtk_ccd_mem.o
+#obj-$(CONFIG_MTK_CCD_REMOTEPROC)	+= mtk_ccd.o mtk_ccd_mem.o
 obj-$(CONFIG_WKUP_M3_RPROC)		+= wkup_m3_rproc.o
 obj-$(CONFIG_DA8XX_REMOTEPROC)		+= da8xx_remoteproc.o
 obj-$(CONFIG_KEYSTONE_REMOTEPROC)	+= keystone_remoteproc.o
@@ -40,3 +40,5 @@ obj-$(CONFIG_MTK_CCU_RPROC)		+= mtk_ccu.o
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/ \
 			 -I$(srctree)/drivers/misc/mediatek/include
 mtk_ccu-objs += mtk_ccu_isp71.o mtk_ccu_common.o mtk_ccu_ipi.o
+mtk_ccd_remoteproc-objs := mtk_ccd.o mtk_ccd_mem.o
+obj-$(CONFIG_MTK_CCD_REMOTEPROC) += mtk_ccd_remoteproc.o
