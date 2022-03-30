@@ -199,7 +199,7 @@ static struct mtk_ddp_comp *_handle_phy_top_plane(struct mtk_drm_crtc *mtk_crtc)
 }
 
 #ifndef DRM_CMDQ_DISABLE
-#ifndef MTK_DRM_FB_LEAK
+#ifndef MTK_DRM_ASYNC_HANDLE
 static void mtk_drm_cmdq_done(struct cmdq_cb_data data)
 {
 	struct cmdq_pkt *cmdq_handle = data.data;
@@ -358,7 +358,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 
 	plane_state->base.crtc = NULL;
 
-#ifdef MTK_DRM_FB_LEAK
+#ifdef MTK_DRM_ASYNC_HANDLE
 	mtk_crtc_gce_flush(crtc, NULL, cmdq_handle, cmdq_handle);
 	cmdq_pkt_wait_complete(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);

@@ -117,6 +117,9 @@ static DEFINE_SPINLOCK(dprec_dump_logger_spinlock);
 /* redundant spin lock prevent exception condition */
 static DEFINE_SPINLOCK(dprec_status_logger_spinlock);
 
+static struct list_head cb_data_list[MAX_CRTC];
+static DEFINE_SPINLOCK(cb_data_clock_lock);
+
 static char **err_buffer;
 static char **fence_buffer;
 static char **dbg_buffer;
@@ -1923,6 +1926,70 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 	return ret;
 }
 
+int mtk_drm_add_cb_data(struct cb_data_store *cb_data, int crtc_id)
+{
+	struct cb_data_store *tmp_cb_data = NULL;
+	int search = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&cb_data_clock_lock, flags);
+	list_for_each_entry(tmp_cb_data, &cb_data_list[crtc_id], link) {
+		if (!memcmp(&tmp_cb_data->data, &cb_data->data,
+				sizeof(struct cb_data_store))) {
+			search = 1;
+			break;
+		}
+	}
+	if (search) {
+		spin_unlock_irqrestore(&cb_data_clock_lock, flags);
+		return -1;
+	}
+
+	DDPINFO("%s id %d data0x%08x\n", __func__, crtc_id, cb_data->data.data);
+	list_add_tail(&cb_data->link, &cb_data_list[crtc_id]);
+	spin_unlock_irqrestore(&cb_data_clock_lock, flags);
+
+	return 0;
+}
+
+struct cb_data_store *mtk_drm_get_cb_data(int crtc_id)
+{
+	struct cb_data_store *tmp_cb_data = NULL;
+	unsigned long flags;
+
+	spin_lock_irqsave(&cb_data_clock_lock, flags);
+
+	if (!list_empty(&cb_data_list[crtc_id]))
+		tmp_cb_data = list_first_entry(&cb_data_list[crtc_id],
+			struct cb_data_store, link);
+	spin_unlock_irqrestore(&cb_data_clock_lock, flags);
+
+	return tmp_cb_data;
+}
+
+void mtk_drm_del_cb_data(struct cmdq_cb_data data, int crtc_id)
+{
+	struct cb_data_store *tmp_cb_data = NULL;
+	unsigned long flags;
+
+	if (!data.data) {
+		DDPMSG("%s, data==NULL\n", __func__);
+		return;
+	}
+
+	spin_lock_irqsave(&cb_data_clock_lock, flags);
+	list_for_each_entry(tmp_cb_data, &cb_data_list[crtc_id], link) {
+		if (!memcmp(&tmp_cb_data->data, &data,
+				sizeof(struct cmdq_cb_data))) {
+			DDPINFO("%s id %d data0x%08x\n", __func__, crtc_id, data.data);
+			list_del_init(&tmp_cb_data->link);
+			break;
+		}
+	}
+	kfree(tmp_cb_data);
+	spin_unlock_irqrestore(&cb_data_clock_lock, flags);
+}
+
 static void process_dbg_opt(const char *opt)
 {
 	DDPINFO("display_debug cmd %s\n", opt);
@@ -3513,8 +3580,12 @@ out:
 
 void disp_dbg_init(struct drm_device *dev)
 {
+	int i;
 	drm_dev = dev;
 	init_completion(&cwb_cmp);
+
+	for (i = 0; i < MAX_CRTC; ++i)
+		INIT_LIST_HEAD(&cb_data_list[i]);
 }
 
 void disp_dbg_deinit(void)

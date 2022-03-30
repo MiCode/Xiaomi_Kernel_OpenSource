@@ -52,6 +52,10 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 
 extern int mtk_disp_hrt_bw_dbg(void);
 
+struct cb_data_store {
+	struct cmdq_cb_data data;
+	struct list_head link;
+};
 #ifdef _DRM_P_H_
 struct disp_rect {
 	u32 x;
@@ -77,6 +81,9 @@ unsigned int mtk_dbg_get_lfr_update_value(void);
 unsigned int mtk_dbg_get_lfr_vse_dis_value(void);
 unsigned int mtk_dbg_get_lfr_skip_num_value(void);
 unsigned int mtk_dbg_get_lfr_dbg_value(void);
+int mtk_drm_add_cb_data(struct cb_data_store *cb_data, int crtc_id);
+struct cb_data_store *mtk_drm_get_cb_data(int crtc_id);
+void mtk_drm_del_cb_data(struct cmdq_cb_data data, int crtc_id);
 int hrt_lp_switch_get(void);
 #endif
 

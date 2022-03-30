@@ -30,6 +30,7 @@
 #define CONFIG_MTK_DISPLAY_CMDQ
 #define MTK_FILL_MIPI_IMPEDANCE
 #endif
+#define MTK_DRM_ASYNC_HANDLE
 
 struct device;
 struct device_node;

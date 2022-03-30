@@ -4181,10 +4181,12 @@ static ktime_t mtk_check_preset_fence_timestamp(struct drm_crtc *crtc)
 	return cur_time;
 }
 #ifdef MTK_DRM_CMDQ_ASYNC
-#ifdef MTK_DRM_FB_LEAK
+#ifdef MTK_DRM_ASYNC_HANDLE
 static void mtk_disp_signal_fence_worker_signal(struct drm_crtc *crtc, struct cmdq_cb_data data)
 {
 	struct mtk_drm_crtc *mtk_crtc = NULL;
+	struct cb_data_store *cb_data_s;
+	int ret;
 
 	if (IS_ERR_OR_NULL(crtc))
 		return;
@@ -4196,7 +4198,16 @@ static void mtk_disp_signal_fence_worker_signal(struct drm_crtc *crtc, struct cm
 		return;
 	}
 
-	mtk_crtc->cb_data = data;
+	cb_data_s = kzalloc(sizeof(struct cb_data_store), GFP_ATOMIC);
+	if (!cb_data_s)
+		DDPMSG("create cb_data_s fail\n");
+	else {
+		cb_data_s->data = data;
+		INIT_LIST_HEAD(&cb_data_s->link);
+		ret = mtk_drm_add_cb_data(cb_data_s, drm_crtc_index(crtc));
+		if (ret != 0)
+			kfree(cb_data_s);
+	}
 	atomic_set(&mtk_crtc->cmdq_done, 1);
 	wake_up_interruptible(&mtk_crtc->signal_fence_task_wq);
 }
@@ -4353,8 +4364,9 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		wake_up_interruptible(&(mtk_crtc->signal_mml_last_job_is_flushed_wq));
 	}
 
-#ifdef MTK_DRM_FB_LEAK
+#ifdef MTK_DRM_ASYNC_HANDLE
 	cmdq_pkt_wait_complete(cb_data->cmdq_handle);
+	mtk_drm_del_cb_data(data, id);
 #endif
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
 	kfree(cb_data);
@@ -4362,12 +4374,14 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	CRTC_MMP_EVENT_END(id, frame_cfg, 0, 0);
 }
 
-#ifdef MTK_DRM_FB_LEAK
+#ifdef MTK_DRM_ASYNC_HANDLE
 static int mtk_drm_signal_fence_worker_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
 	int ret = 0;
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)data;
+	struct cb_data_store *store_data;
+	int crtc_id = drm_crtc_index(&mtk_crtc->base);
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
@@ -4376,7 +4390,10 @@ static int mtk_drm_signal_fence_worker_kthread(void *data)
 			mtk_crtc->signal_fence_task_wq
 			, atomic_read(&mtk_crtc->cmdq_done));
 			atomic_set(&mtk_crtc->cmdq_done, 0);
-		_ddp_cmdq_cb(mtk_crtc->cb_data);
+		while (mtk_drm_get_cb_data(crtc_id)) {
+			store_data = mtk_drm_get_cb_data(crtc_id);
+			_ddp_cmdq_cb(store_data->data);
+		}
 	}
 	return 0;
 }
@@ -8335,7 +8352,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	}
 
 #ifdef MTK_DRM_CMDQ_ASYNC
-#ifdef MTK_DRM_FB_LEAK
+#ifdef MTK_DRM_ASYNC_HANDLE
 	if (cmdq_pkt_flush_async(cmdq_handle,
 		gce_cb, cb_data) < 0)
 #else
@@ -10015,9 +10032,11 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 
 #ifndef DRM_CMDQ_DISABLE
 #ifdef MTK_DRM_CMDQ_ASYNC
-#ifdef MTK_DRM_FB_LEAK
+#ifdef MTK_DRM_ASYNC_HANDLE
 	mtk_crtc->signal_present_fece_task = kthread_create(
 		mtk_drm_signal_fence_worker_kthread, mtk_crtc, "signal_fence");
+	cpumask_xor(&cpumask, cpu_all_mask, cpumask_of(0));
+	kthread_bind_mask(mtk_crtc->signal_present_fece_task, &cpumask);
 	init_waitqueue_head(&mtk_crtc->signal_fence_task_wq);
 	atomic_set(&mtk_crtc->cmdq_done, 0);
 	wake_up_process(mtk_crtc->signal_present_fece_task);
