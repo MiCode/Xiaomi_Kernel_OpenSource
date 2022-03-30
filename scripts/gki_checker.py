@@ -31,7 +31,7 @@ g_file_pass = True
 options = None
 wiki = "https://wiki.mediatek.inc/display/KernelStandardization/GKI+checker"
 checker_version = "v2.0"
-default_google_sha = "f79e49085d1d"
+default_google_sha = "4345c3db8492caa9b2"
 
 def create_compare_file(target, input_file, output_file_name):
     if target == "Config":
@@ -225,13 +225,22 @@ def get_sha(vmlinux):
             break
     # Get MTK commit tag from git commit message
     try:
-        tag_re = re.compile('^.* ACK: Merge (.*) \w* into .*$')
-        content = subprocess.check_output("git show :/" + sha + " | grep \"ACK:\"", shell=True).decode("utf-8")
+        tag_re = re.compile('^.* ACK: Merge (.*)( \w*|-\w*) into .*$')
+        content = subprocess.check_output("git log --grep=" + sha + " | grep \"ACK: Merge\"", shell=True).decode("utf-8")
         for ctx in content.split("\n"):
             tag_info = tag_re.search(ctx)
             if tag_info:
                 tag = tag_info.group(1)
-                subprocess.check_output("git remote add ack --no-tags --mirror=fetch https://gerrit.mediatek.inc/kernel/common && git fetch ack " + tag, shell=True).decode("utf-8")
+                try:
+                    subprocess.check_output("git remote remove ack", shell=True).decode("utf-8")
+                except subprocess.CalledProcessError as warn:
+                    print("No Need to remote remove ack!")
+                    #print(warn)
+                try:
+                    subprocess.check_output("git remote add ack --no-tags --mirror=fetch https://gerrit.mediatek.inc/kernel/common && git fetch ack " + tag, shell=True).decode("utf-8")
+                except subprocess.CalledProcessError as warn:
+                    print("No Need to fetch ack info!")
+                    #print(warn)
                 break
     except subprocess.CalledProcessError as warn:
         print("Not MP stage")
@@ -547,6 +556,7 @@ if __name__ == "__main__":
     curr_path = os.path.dirname(os.path.abspath(__file__))
     options = getExecuteOptions(sys.argv[1:])
     options.checker_out = os.path.abspath(options.checker_out)+'/'
+    #options.ACK_SHA = get_sha(options.google_vmlinux)
 
     if options.opt == "update":
         os.makedirs(options.checker_out+"file/google/", exist_ok=True)
