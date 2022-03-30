@@ -5,8 +5,6 @@
 #ifndef __SOC_MEDIATEK_SCPSYS_H
 #define __SOC_MEDIATEK_SCPSYS_H
 
-#define MAX_STEPS	5
-
 #define _BUS_PROT(_type, _set_ofs, _clr_ofs,			\
 		_en_ofs, _sta_ofs, _mask, _ignore_clr_ack) {	\
 		.type = _type,					\
@@ -127,6 +125,8 @@ enum regmap_type {
 	INVALID_TYPE = 0,
 	IFR_TYPE,
 	SMI_TYPE,
+	VLP_TYPE,
+	MFGRPC_TYPE,
 };
 
 struct bus_prot {

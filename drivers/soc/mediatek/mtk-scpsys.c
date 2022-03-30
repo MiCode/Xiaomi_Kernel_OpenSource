@@ -15,7 +15,6 @@
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
-#include <linux/soc/mediatek/infracfg.h>
 
 #include "scpsys.h"
 #include "mtk-scpsys.h"
@@ -30,16 +29,12 @@
 #include <dt-bindings/power/mt8173-power.h>
 #include <dt-bindings/power/mt8192-power.h>
 
-#define MTK_POLL_DELAY_US   10
-#define MTK_POLL_TIMEOUT    USEC_PER_SEC
-
-#define MTK_SCPD_ACTIVE_WAKEUP		BIT(0)
-#define MTK_SCPD_FWAIT_SRAM		BIT(1)
-#define MTK_SCPD_SRAM_ISO		BIT(2)
-#define MTK_SCPD_MD_OPS			BIT(3)
-#define MTK_SCPD_ALWAYS_ON		BIT(4)
-#define MTK_SCPD_APU_OPS		BIT(5)
-#define MTK_SCPD_SRAM_SLP		BIT(6)
+#define MTK_POLL_DELAY_US		10
+#define MTK_POLL_TIMEOUT		USEC_PER_SEC
+#define MTK_POLL_IRQ_DELAY_US		3
+#define MTK_POLL_IRQ_TIMEOUT		USEC_PER_SEC
+#define MTK_POLL_HWV_PREPARE_CNT	100
+#define MTK_POLL_HWV_PREPARE_US		2
 
 #define MTK_SCPD_CAPS(_scpd, _x)	((_scpd)->data->caps & (_x))
 
@@ -96,79 +91,6 @@
 #define PWR_STATUS_HIF1			BIT(26)	/* MT7622 */
 #define PWR_STATUS_WB			BIT(27)	/* MT7622 */
 
-#define MAX_CLKS	3
-#define MAX_SUBSYS_CLKS 10
-
-/**
- * struct scp_domain_data - scp domain data for power on/off flow
- * @name: The domain name.
- * @sta_mask: The mask for power on/off status bit.
- * @ctl_offs: The offset for main power control register.
- * @sram_pdn_bits: The mask for sram power control bits.
- * @sram_pdn_ack_bits: The mask for sram power control acked bits.
- * @sram_slp_bits: The mask for sram sleep control bits.
- * @sram_slp_ack_bits: The mask for sram sleep control acked bits.
- * @basic_clk_name: The basic clocks required by this power domain.
- * @subsys_clk_prefix: The prefix name of the clocks need to be enabled
- *                     before releasing bus protection.
- * @caps: The flag for active wake-up action.
- * @bp_table: The mask table for multiple step bus protection.
- */
-struct scp_domain_data {
-	const char *name;
-	u32 sta_mask;
-	int ctl_offs;
-	u32 sram_pdn_bits;
-	u32 sram_pdn_ack_bits;
-	u32 sram_slp_bits;
-	u32 sram_slp_ack_bits;
-	int extb_iso_offs;
-	u32 extb_iso_bits;
-	const char *basic_clk_name[MAX_CLKS];
-	const char *subsys_clk_prefix;
-	u8 caps;
-	struct bus_prot bp_table[MAX_STEPS];
-};
-
-struct scp;
-
-struct scp_domain {
-	struct generic_pm_domain genpd;
-	struct scp *scp;
-	struct clk *clk[MAX_CLKS];
-	struct clk *subsys_clk[MAX_SUBSYS_CLKS];
-	const struct scp_domain_data *data;
-	struct regulator *supply;
-};
-
-struct scp_ctrl_reg {
-	int pwr_sta_offs;
-	int pwr_sta2nd_offs;
-};
-
-struct scp {
-	struct scp_domain *domains;
-	struct genpd_onecell_data pd_data;
-	struct device *dev;
-	void __iomem *base;
-	struct regmap *infracfg;
-	struct regmap *smi_common;
-	struct scp_ctrl_reg ctrl_reg;
-};
-
-struct scp_subdomain {
-	int origin;
-	int subdomain;
-};
-
-struct scp_soc_data {
-	const struct scp_domain_data *domains;
-	int num_domains;
-	const struct scp_subdomain *subdomains;
-	int num_subdomains;
-	const struct scp_ctrl_reg regs;
-};
-
 static BLOCKING_NOTIFIER_HEAD(scpsys_notifier_list);
 
 int register_scpsys_notifier(struct notifier_block *nb)
@@ -213,6 +135,25 @@ static int scpsys_domain_is_on(struct scp_domain *scpd)
 	return -EINVAL;
 }
 
+static int scpsys_pwr_con_is_on(struct scp_domain *scpd)
+{
+	struct scp *scp = scpd->scp;
+	void __iomem *ctl_addr = scp->base + scpd->data->ctl_offs;
+	u32 status = readl(ctl_addr) & scpd->data->sta_mask;
+
+	/*
+	 * A power domain is on when status mask are all set. If only one is set
+	 * return an error. This happens while powering up a domain
+	 */
+
+	if (status == scpd->data->sta_mask)
+		return true;
+	if (!status)
+		return false;
+
+	return -EINVAL;
+}
+
 static int scpsys_md_domain_is_on(struct scp_domain *scpd)
 {
 	struct scp *scp = scpd->scp;
@@ -225,6 +166,14 @@ static int scpsys_md_domain_is_on(struct scp_domain *scpd)
 	if (status)
 		return true;
 	return false;
+}
+
+static int scpsys_regulator_is_enabled(struct scp_domain *scpd)
+{
+	if (!scpd->supply)
+		return 0;
+
+	return regulator_is_enabled(scpd->supply);
 }
 
 static int scpsys_regulator_enable(struct scp_domain *scpd)
@@ -266,15 +215,23 @@ static int scpsys_clk_enable(struct clk *clk[], int max_num)
 	return ret;
 }
 
-static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
+static int scpsys_sram_on(struct scp_domain *scpd, void __iomem *ctl_addr,
+			u32 set_bits, u32 ack_bits, bool wait_ack)
 {
+	u32 ack_mask, ack_sta;
 	u32 val;
 	int tmp;
+	int ret = 0;
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP))
-		val = readl(ctl_addr) | scpd->data->sram_slp_bits;
-	else
-		val = readl(ctl_addr) & ~scpd->data->sram_pdn_bits;
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP)) {
+		ack_mask = ack_bits;
+		ack_sta = ack_mask;
+		val = readl(ctl_addr) | set_bits;
+	} else {
+		ack_mask = ack_bits;
+		ack_sta = 0;
+		val = readl(ctl_addr) & ~set_bits;
+	}
 
 	writel(val, ctl_addr);
 
@@ -288,22 +245,57 @@ static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
 		usleep_range(12000, 12100);
 	} else {
 		/* Either wait until SRAM_PDN_ACK all 1 or 0 */
-		int ret;
-		u32 ack_mask, ack_sta;
-
-		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP)) {
-			ack_mask = scpd->data->sram_slp_ack_bits;
-			ack_sta = ack_mask;
-		} else {
-			ack_mask = scpd->data->sram_pdn_ack_bits;
-			ack_sta = 0;
+		if (wait_ack) {
+			ret = readl_poll_timeout_atomic(ctl_addr, tmp,
+				(tmp & ack_mask) == ack_sta,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+			if (ret < 0)
+				return ret;
 		}
-		ret = readl_poll_timeout(ctl_addr, tmp,
-			(tmp & ack_mask) == ack_sta,
-			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
-		if (ret < 0)
-			return ret;
 	}
+
+	return ret;
+}
+
+static int scpsys_sram_off(struct scp_domain *scpd, void __iomem *ctl_addr,
+			u32 set_bits, u32 ack_bits, bool wait_ack)
+{
+	u32 val;
+	u32 ack_mask, ack_sta;
+	int tmp;
+	int ret = 0;
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP)) {
+		ack_mask = ack_bits;
+		ack_sta = 0;
+		val = readl(ctl_addr) & ~set_bits;
+	} else {
+		ack_mask = ack_bits;
+		ack_sta = ack_mask;
+		val = readl(ctl_addr) | set_bits;
+	}
+	writel(val, ctl_addr);
+
+	/* Either wait until SRAM_PDN_ACK all 1 or 0 */
+	if (wait_ack)
+		ret = readl_poll_timeout_atomic(ctl_addr, tmp,
+				(tmp & ack_mask) == ack_sta,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+
+	return ret;
+}
+
+static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
+{
+	u32 val;
+	int ret = 0;
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP))
+		ret = scpsys_sram_on(scpd, ctl_addr, scpd->data->sram_slp_bits,
+				scpd->data->sram_slp_ack_bits, true);
+	else
+		ret = scpsys_sram_on(scpd, ctl_addr, scpd->data->sram_pdn_bits,
+				scpd->data->sram_pdn_ack_bits, true);
 
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO)) {
 		val = readl(ctl_addr) | PWR_SRAM_ISOINT_B_BIT;
@@ -313,14 +305,13 @@ static int scpsys_sram_enable(struct scp_domain *scpd, void __iomem *ctl_addr)
 		writel(val, ctl_addr);
 	}
 
-	return 0;
+	return ret;
 }
 
 static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr)
 {
 	u32 val;
-	u32 ack_mask, ack_sta;
-	int tmp;
+	int ret = 0;
 
 	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_ISO)) {
 		val = readl(ctl_addr) | PWR_SRAM_CLKISO_BIT;
@@ -330,21 +321,56 @@ static int scpsys_sram_disable(struct scp_domain *scpd, void __iomem *ctl_addr)
 		udelay(1);
 	}
 
-	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP)) {
-		ack_mask = scpd->data->sram_slp_ack_bits;
-		ack_sta = 0;
-		val = readl(ctl_addr) & ~scpd->data->sram_slp_bits;
-	} else {
-		ack_mask = scpd->data->sram_pdn_ack_bits;
-		ack_sta = ack_mask;
-		val = readl(ctl_addr) | scpd->data->sram_pdn_bits;
-	}
-	writel(val, ctl_addr);
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_SRAM_SLP))
+		ret = scpsys_sram_off(scpd, ctl_addr, scpd->data->sram_slp_bits,
+				scpd->data->sram_slp_ack_bits, true);
+	else
+		ret = scpsys_sram_off(scpd, ctl_addr, scpd->data->sram_pdn_bits,
+				scpd->data->sram_pdn_ack_bits, true);
 
-	/* Either wait until SRAM_PDN_ACK all 1 or 0 */
-	return readl_poll_timeout(ctl_addr, tmp,
-		(tmp & ack_mask) == ack_sta,
-		MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	return ret;
+}
+
+static int scpsys_sram_table_enable(struct scp_domain *scpd)
+{
+	const struct sram_ctl *sram_table = scpd->data->sram_table;
+	struct scp *scp = scpd->scp;
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < MAX_SRAM_STEPS; i++) {
+		if (sram_table[i].offs) {
+			void __iomem *ctl_addr = scp->base + sram_table[i].offs;
+
+			ret = scpsys_sram_on(scpd, ctl_addr, sram_table[i].msk,
+					sram_table[i].ack_msk, sram_table[i].wait_ack);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return ret;
+}
+
+static int scpsys_sram_table_disable(struct scp_domain *scpd)
+{
+	const struct sram_ctl *sram_table = scpd->data->sram_table;
+	struct scp *scp = scpd->scp;
+	int ret = 0;
+	int i;
+
+	for (i = 0; i < MAX_SRAM_STEPS; i++) {
+		if (sram_table[i].offs) {
+			void __iomem *ctl_addr = scp->base + sram_table[i].offs;
+
+			ret = scpsys_sram_off(scpd, ctl_addr, sram_table[i].msk,
+					sram_table[i].ack_msk, sram_table[i].wait_ack);
+			if (ret)
+				return ret;
+		}
+	}
+
+	return ret;
 }
 
 static int set_bus_protection(struct regmap *map, struct bus_prot *bp)
@@ -354,22 +380,22 @@ static int set_bus_protection(struct regmap *map, struct bus_prot *bp)
 	u32 en_ofs = bp->en_ofs;
 	u32 sta_ofs = bp->sta_ofs;
 	u32 mask = bp->mask;
-	int ret;
+	int ret = 0;
 
 	if (set_ofs)
 		regmap_write(map, set_ofs, mask);
 	else
 		regmap_update_bits(map, en_ofs, mask, mask);
 
-	ret = regmap_read_poll_timeout(map, sta_ofs,
+	ret = regmap_read_poll_timeout_atomic(map, sta_ofs,
 			val, (val & mask) == mask,
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 
 	if (ret < 0) {
-		pr_notice("%s val=%x, mask=%x, (val & mask)=%x\n",
+		pr_err("%s val=0x%x, mask=0x%x, (val & mask)=0x%x\n",
 			__func__, val, mask, (val & mask));
 	}
-	return 0;
+	return ret;
 }
 
 static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
@@ -380,7 +406,7 @@ static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
 	u32 sta_ofs = bp->sta_ofs;
 	u32 mask = bp->mask;
 	bool ignore_ack = bp->ignore_clr_ack;
-	int ret;
+	int ret = 0;
 
 	if (clr_ofs)
 		regmap_write(map, clr_ofs, mask);
@@ -390,14 +416,61 @@ static int clear_bus_protection(struct regmap *map, struct bus_prot *bp)
 	if (ignore_ack)
 		return 0;
 
-	ret = regmap_read_poll_timeout(map, sta_ofs,
+	ret = regmap_read_poll_timeout_atomic(map, sta_ofs,
 			val, !(val & mask),
 			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 
 	if (ret < 0) {
-		pr_notice("%s val=%x, mask=%x, (val & mask)=%x\n",
+		pr_err("%s val=0x%x, mask=0x%x, (val & mask)=0x%x\n",
 			__func__, val, mask, (val & mask));
 	}
+	return ret;
+}
+
+static int scpsys_bus_protect_disable(struct scp_domain *scpd, unsigned int index)
+{
+	struct scp *scp = scpd->scp;
+	const struct bus_prot *bp_table = scpd->data->bp_table;
+	struct regmap *infracfg = scp->infracfg;
+	struct regmap *smi_common = scp->smi_common;
+	struct regmap *vlpcfg = scp->vlpcfg;
+	struct regmap *mfgrpc = scp->mfgrpc;
+	int i;
+
+	for (i = index; i >= 0; i--) {
+		struct regmap *map = NULL;
+		int ret;
+		struct bus_prot bp = bp_table[i];
+
+		if (bp.type == IFR_TYPE)
+			map = infracfg;
+		else if (bp.type == SMI_TYPE)
+			map = smi_common;
+		else if (bp.type == VLP_TYPE)
+			map = vlpcfg;
+		else if (bp.type == MFGRPC_TYPE)
+			map = mfgrpc;
+		else
+			continue;
+
+		if (index != (MAX_STEPS - 1)) {
+			unsigned int val, val2;
+
+			/* reserve bus register status */
+			regmap_read(map, bp.en_ofs, &val);
+			regmap_read(map, bp.sta_ofs, &val2);
+			pr_notice("[%d] bus en: 0x08%x, sta: 0x08%x before restore\n",
+					i, val, val2);
+			/* restore bus protect setting */
+			clear_bus_protection(map, &bp);
+		} else {
+			ret = clear_bus_protection(map, &bp);
+
+			if (ret)
+				return ret;
+		}
+	}
+
 	return 0;
 }
 
@@ -407,6 +480,8 @@ static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 	const struct bus_prot *bp_table = scpd->data->bp_table;
 	struct regmap *infracfg = scp->infracfg;
 	struct regmap *smi_common = scp->smi_common;
+	struct regmap *vlpcfg = scp->vlpcfg;
+	struct regmap *mfgrpc = scp->mfgrpc;
 	int i;
 
 	for (i = 0; i < MAX_STEPS; i++) {
@@ -418,42 +493,19 @@ static int scpsys_bus_protect_enable(struct scp_domain *scpd)
 			map = infracfg;
 		else if (bp.type == SMI_TYPE)
 			map = smi_common;
+		else if (bp.type == VLP_TYPE)
+			map = vlpcfg;
+		else if (bp.type == MFGRPC_TYPE)
+			map = mfgrpc;
 		else
 			break;
 
 		ret = set_bus_protection(map, &bp);
 
-		if (ret)
+		if (ret) {
+			scpsys_bus_protect_disable(scpd, i);
 			return ret;
-	}
-
-	return 0;
-}
-
-static int scpsys_bus_protect_disable(struct scp_domain *scpd)
-{
-	struct scp *scp = scpd->scp;
-	const struct bus_prot *bp_table = scpd->data->bp_table;
-	struct regmap *infracfg = scp->infracfg;
-	struct regmap *smi_common = scp->smi_common;
-	int i;
-
-	for (i = MAX_STEPS - 1; i >= 0; i--) {
-		struct regmap *map = NULL;
-		int ret;
-		struct bus_prot bp = bp_table[i];
-
-		if (bp.type == IFR_TYPE)
-			map = infracfg;
-		else if (bp.type == SMI_TYPE)
-			map = smi_common;
-		else
-			continue;
-
-		ret = clear_bus_protection(map, &bp);
-
-		if (ret)
-			return ret;
+		}
 	}
 
 	return 0;
@@ -499,11 +551,15 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 
 	ret = scpsys_regulator_enable(scpd);
 	if (ret < 0)
-		return ret;
+		goto err_regulator;
 
 	ret = scpsys_clk_enable(scpd->clk, MAX_CLKS);
 	if (ret)
 		goto err_clk;
+
+	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
+	if (ret)
+		goto err_lp_clk;
 
 	/* subsys power on */
 	val = readl(ctl_addr);
@@ -513,8 +569,12 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 1 */
-	ret = readx_poll_timeout(scpsys_domain_is_on, scpd, tmp, tmp > 0,
-				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_IS_PWR_CON_ON))
+		ret = readx_poll_timeout_atomic(scpsys_pwr_con_is_on, scpd, tmp, tmp > 0,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	else
+		ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp > 0,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto err_pwr_ack;
 
@@ -527,28 +587,47 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	val |= PWR_RST_B_BIT;
 	writel(val, ctl_addr);
 
-	ret = scpsys_clk_enable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
-	if (ret < 0)
-		goto err_pwr_ack;
+	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_CLK)) {
+		ret = scpsys_clk_enable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+		if (ret < 0)
+			goto err_pwr_ack;
+
+		ret = scpsys_clk_enable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+		if (ret < 0)
+			goto err_pwr_ack;
+	}
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2TCM_SRAM)) {
+		ret = scpsys_sram_table_enable(scpd);
+		if (ret < 0)
+			goto err_sram;
+	}
 
 	ret = scpsys_sram_enable(scpd, ctl_addr);
 	if (ret < 0)
 		goto err_sram;
 
-	ret = scpsys_bus_protect_disable(scpd);
+	ret = scpsys_bus_protect_disable(scpd, MAX_STEPS - 1);
 	if (ret < 0)
 		goto err_sram;
+
+	scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 
 	return 0;
 
 err_sram:
-	scpsys_clk_disable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+	dev_err(scp->dev, "Failed to power on sram/bus %s(%d)\n", genpd->name, ret);
 err_pwr_ack:
-	scpsys_clk_disable(scpd->clk, MAX_CLKS);
+	dev_err(scp->dev, "Failed to power on mtcmos %s(%d)\n", genpd->name, ret);
+err_lp_clk:
+	dev_err(scp->dev, "Failed to enable lp_clk %s(%d)\n", genpd->name, ret);
 err_clk:
-	scpsys_regulator_disable(scpd);
-
-	dev_err(scp->dev, "Failed to power on domain %s\n", genpd->name);
+	val = scpsys_regulator_is_enabled(scpd);
+	dev_err(scp->dev, "Failed to enable clk %s(%d %d)\n", genpd->name, ret, val);
+err_regulator:
+	dev_err(scp->dev, "Failed to power on regulator %s(%d)\n", genpd->name, ret);
 
 	return ret;
 }
@@ -561,15 +640,32 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	u32 val;
 	int ret, tmp;
 
+	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
+	if (ret)
+		goto err_lp_clk;
+
+	ret = scpsys_clk_enable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+	if (ret < 0)
+		goto err_subsys_lp_clk;
+
 	ret = scpsys_bus_protect_enable(scpd);
 	if (ret < 0)
 		goto out;
+
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_L2TCM_SRAM)) {
+		ret = scpsys_sram_table_disable(scpd);
+		if (ret < 0)
+			goto out;
+	}
 
 	ret = scpsys_sram_disable(scpd, ctl_addr);
 	if (ret < 0)
 		goto out;
 
-	scpsys_clk_disable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+	if (!MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_CLK)) {
+		scpsys_clk_disable(scpd->subsys_clk, MAX_SUBSYS_CLKS);
+		scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+	}
 
 	/* subsys power off */
 	val = readl(ctl_addr);
@@ -589,12 +685,18 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 0 */
-	ret = readx_poll_timeout(scpsys_domain_is_on, scpd, tmp, tmp == 0,
-				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	if (MTK_SCPD_CAPS(scpd, MTK_SCPD_IS_PWR_CON_ON))
+		ret = readx_poll_timeout_atomic(scpsys_pwr_con_is_on, scpd, tmp, tmp == 0,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	else
+		ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp == 0,
+				MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto out;
 
 	scpsys_clk_disable(scpd->clk, MAX_CLKS);
+
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 
 	ret = scpsys_regulator_disable(scpd);
 	if (ret < 0)
@@ -602,8 +704,13 @@ static int scpsys_power_off(struct generic_pm_domain *genpd)
 
 	return 0;
 
+err_subsys_lp_clk:
+	scpsys_clk_disable(scpd->subsys_lp_clk, MAX_SUBSYS_CLKS);
+err_lp_clk:
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 out:
-	dev_err(scp->dev, "Failed to power off domain %s\n", genpd->name);
+	val = scpsys_regulator_is_enabled(scpd);
+	dev_err(scp->dev, "Failed to power off domain %s(%d %d)\n", genpd->name, ret, val);
 
 	return ret;
 }
@@ -636,7 +743,7 @@ static int scpsys_md_power_on(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 1 */
-	ret = readx_poll_timeout(scpsys_md_domain_is_on, scpd, tmp, tmp > 0,
+	ret = readx_poll_timeout_atomic(scpsys_md_domain_is_on, scpd, tmp, tmp > 0,
 				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto err_pwr_ack;
@@ -649,7 +756,7 @@ static int scpsys_md_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_sram;
 
-	ret = scpsys_bus_protect_disable(scpd);
+	ret = scpsys_bus_protect_disable(scpd, MAX_STEPS - 1);
 	if (ret < 0)
 		goto err_sram;
 
@@ -691,7 +798,7 @@ static int scpsys_md_power_off(struct generic_pm_domain *genpd)
 	writel(val, ctl_addr);
 
 	/* wait until PWR_ACK = 0 */
-	ret = readx_poll_timeout(scpsys_md_domain_is_on, scpd, tmp, tmp == 0,
+	ret = readx_poll_timeout_atomic(scpsys_md_domain_is_on, scpd, tmp, tmp == 0,
 				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
 	if (ret < 0)
 		goto out;
@@ -745,6 +852,184 @@ static int scpsys_apu_power_off(struct generic_pm_domain *genpd)
 				"Failed to power off domain %s\n", genpd->name);
 		}
 	}
+	return ret;
+}
+
+static int mtk_hwv_is_done(struct scp_domain *scpd)
+{
+	struct scp *scp = scpd->scp;
+	u32 val = 0;
+
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
+
+	return (val & BIT(scpd->data->hwv_shift));
+}
+
+static int mtk_hwv_is_enable_done(struct scp_domain *scpd)
+{
+	struct scp *scp = scpd->scp;
+	u32 val = 0, val2 = 0, val3 = 0;
+
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_en_ofs, &val2);
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_set_sta_ofs, &val3);
+
+	if ((val & BIT(scpd->data->hwv_shift)) && (val2 & BIT(scpd->data->hwv_shift))
+			&& ((val3 & BIT(scpd->data->hwv_shift)) == 0x0))
+		return 1;
+
+	return 0;
+}
+
+static int mtk_hwv_is_disable_done(struct scp_domain *scpd)
+{
+	struct scp *scp = scpd->scp;
+	u32 val = 0, val2 = 0;
+
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_clr_sta_ofs, &val2);
+
+	if ((val & BIT(scpd->data->hwv_shift)) && ((val2 & BIT(scpd->data->hwv_shift)) == 0x0))
+		return 1;
+
+	return 0;
+}
+
+static int scpsys_hwv_power_on(struct generic_pm_domain *genpd)
+{
+	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
+	struct scp *scp = scpd->scp;
+	u32 val = 0;
+	int ret = 0;
+	int tmp;
+	int i = 0;
+
+	ret = scpsys_regulator_enable(scpd);
+	if (ret < 0)
+		goto err_regulator;
+
+	ret = scpsys_clk_enable(scpd->clk, MAX_CLKS);
+	if (ret)
+		goto err_clk;
+
+	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
+	if (ret)
+		goto err_lp_clk;
+
+	/* wait for irq status idle */
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, scpd, tmp, tmp > 0,
+			MTK_POLL_DELAY_US, MTK_POLL_IRQ_TIMEOUT);
+	if (ret < 0)
+		goto err_hwv_prepare;
+
+	val = BIT(scpd->data->hwv_shift);
+	regmap_write(scp->hwv_regmap, scpd->data->hwv_set_ofs, val);
+	do {
+		regmap_read(scp->hwv_regmap, scpd->data->hwv_set_ofs, &val);
+		if ((val & BIT(scpd->data->hwv_shift)) != 0)
+			break;
+
+		if (i > MTK_POLL_HWV_PREPARE_CNT)
+			goto err_hwv_vote;
+
+		udelay(MTK_POLL_HWV_PREPARE_US);
+		i++;
+	} while (1);
+
+	/* wait until VOTER_ACK = 1 */
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_enable_done, scpd, tmp, tmp > 0,
+			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	if (ret < 0)
+		goto err_hwv_done;
+
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+
+	return 0;
+
+err_hwv_done:
+	dev_err(scp->dev, "Failed to hwv done timeout %s(%d)\n", genpd->name, ret);
+err_hwv_vote:
+	dev_err(scp->dev, "Failed to hwv vote timeout %s(%d %x)\n", genpd->name, ret, val);
+err_hwv_prepare:
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
+	dev_err(scp->dev, "Failed to hwv prepare timeout %s(%d %x)\n", genpd->name, ret, val);
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+err_lp_clk:
+	dev_err(scp->dev, "Failed to enable lp clk %s(%d)\n", genpd->name, ret);
+	scpsys_clk_disable(scpd->clk, MAX_CLKS);
+err_clk:
+	dev_err(scp->dev, "Failed to enable clk %s(%d)\n", genpd->name, ret);
+	scpsys_regulator_disable(scpd);
+err_regulator:
+	dev_err(scp->dev, "Failed to power on domain %s(%d)\n", genpd->name, ret);
+
+	return ret;
+}
+
+static int scpsys_hwv_power_off(struct generic_pm_domain *genpd)
+{
+	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
+	struct scp *scp = scpd->scp;
+	u32 val = 0;
+	int ret = 0;
+	int tmp;
+	int i = 0;
+
+	ret = scpsys_clk_enable(scpd->lp_clk, MAX_CLKS);
+	if (ret)
+		goto err_lp_clk;
+
+	/* wait for irq status idle */
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_done, scpd, tmp, tmp > 0,
+			MTK_POLL_DELAY_US, MTK_POLL_IRQ_TIMEOUT);
+	if (ret < 0)
+		goto err_hwv_prepare;
+
+	val = BIT(scpd->data->hwv_shift);
+	regmap_write(scp->hwv_regmap, scpd->data->hwv_clr_ofs, val);
+	do {
+		regmap_read(scp->hwv_regmap, scpd->data->hwv_clr_ofs, &val);
+		if ((val & BIT(scpd->data->hwv_shift)) == 0)
+			break;
+
+		if (i > MTK_POLL_HWV_PREPARE_CNT)
+			goto err_hwv_vote;
+		i++;
+		udelay(MTK_POLL_HWV_PREPARE_US);
+	} while (1);
+
+	/* delay 100us for stable status */
+	udelay(100);
+
+	/* wait until VOTER_ACK = 0 */
+	ret = readx_poll_timeout_atomic(mtk_hwv_is_disable_done, scpd, tmp, tmp > 0,
+			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
+	if (ret < 0)
+		goto err_hwv_done;
+
+	scpsys_clk_disable(scpd->clk, MAX_CLKS);
+
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+
+	ret = scpsys_regulator_disable(scpd);
+	if (ret < 0)
+		goto err_regulator;
+
+	return 0;
+
+err_regulator:
+	dev_err(scp->dev, "Failed to regulator disable %s(%d)\n", genpd->name, ret);
+err_hwv_done:
+	dev_err(scp->dev, "Failed to hwv done timeout %s(%d)\n", genpd->name, ret);
+err_hwv_vote:
+	dev_err(scp->dev, "Failed to hwv vote timeout %s(%d %x)\n", genpd->name, ret, val);
+err_hwv_prepare:
+	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
+	dev_err(scp->dev, "Failed to hwv prepare timeout %s(%d %x)\n", genpd->name, ret, val);
+	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
+err_lp_clk:
+	dev_err(scp->dev, "Failed to power off domain %s(%d)\n", genpd->name, ret);
+
 	return ret;
 }
 
@@ -844,7 +1129,7 @@ static unsigned int mtk_pd_get_performance(struct generic_pm_domain *genpd,
 	return dev_pm_opp_get_level(opp);
 }
 
-static struct scp *init_scp(struct platform_device *pdev,
+struct scp *init_scp(struct platform_device *pdev,
 			const struct scp_domain_data *scp_domain_data, int num,
 			const struct scp_ctrl_reg *scp_ctrl_reg)
 {
@@ -898,6 +1183,36 @@ static struct scp *init_scp(struct platform_device *pdev,
 		return ERR_CAST(scp->smi_common);
 	}
 
+	scp->vlpcfg = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"vlpcfg");
+	if (scp->vlpcfg == ERR_PTR(-ENODEV)) {
+		scp->vlpcfg = NULL;
+	} else if (IS_ERR(scp->vlpcfg)) {
+		dev_err(&pdev->dev, "Cannot find infracfg controller: %ld\n",
+				PTR_ERR(scp->vlpcfg));
+		return ERR_CAST(scp->vlpcfg);
+	}
+
+	scp->mfgrpc = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"mfgrpc");
+	if (scp->mfgrpc == ERR_PTR(-ENODEV)) {
+		scp->mfgrpc = NULL;
+	} else if (IS_ERR(scp->mfgrpc)) {
+		dev_notice(&pdev->dev, "Cannot find mfgrpc controller: %ld\n",
+				PTR_ERR(scp->mfgrpc));
+		return ERR_CAST(scp->mfgrpc);
+	}
+
+	scp->hwv_regmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+			"hw-voter-regmap");
+	if (scp->hwv_regmap == ERR_PTR(-ENODEV)) {
+		scp->hwv_regmap = NULL;
+	} else if (IS_ERR(scp->hwv_regmap)) {
+		dev_notice(&pdev->dev, "Cannot find hw voter controller: %ld\n",
+				PTR_ERR(scp->hwv_regmap));
+		return ERR_CAST(scp->hwv_regmap);
+	}
+
 	for (i = 0; i < num; i++) {
 		struct scp_domain *scpd = &scp->domains[i];
 		const struct scp_domain_data *data = &scp_domain_data[i];
@@ -926,11 +1241,26 @@ static struct scp *init_scp(struct platform_device *pdev,
 		ret = init_basic_clks(pdev, scpd->clk, data->basic_clk_name);
 		if (ret)
 			return ERR_PTR(ret);
+		ret = init_basic_clks(pdev, scpd->lp_clk, data->basic_lp_clk_name);
+		if (ret)
+			return ERR_PTR(ret);
 
 		if (data->subsys_clk_prefix) {
 			ret = init_subsys_clks(pdev,
 					data->subsys_clk_prefix,
 					scpd->subsys_clk);
+			if (ret < 0) {
+				dev_notice(&pdev->dev,
+					"%s: subsys clk unavailable\n",
+					data->name);
+				return ERR_PTR(ret);
+			}
+		}
+
+		if (data->subsys_lp_clk_prefix) {
+			ret = init_subsys_clks(pdev,
+					data->subsys_lp_clk_prefix,
+					scpd->subsys_lp_clk);
 			if (ret < 0) {
 				dev_notice(&pdev->dev,
 					"%s: subsys clk unavailable\n",
@@ -946,10 +1276,14 @@ static struct scp *init_scp(struct platform_device *pdev,
 		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_APU_OPS)) {
 			genpd->power_on = scpsys_apu_power_on;
 			genpd->power_off = scpsys_apu_power_off;
+		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_HWV_OPS)) {
+			genpd->power_on = scpsys_hwv_power_on;
+			genpd->power_off = scpsys_hwv_power_off;
 		} else {
 			genpd->power_off = scpsys_power_off;
 			genpd->power_on = scpsys_power_on;
 		}
+
 		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_ACTIVE_WAKEUP))
 			genpd->flags |= GENPD_FLAG_ACTIVE_WAKEUP;
 		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_ALWAYS_ON))
@@ -966,8 +1300,9 @@ static struct scp *init_scp(struct platform_device *pdev,
 
 	return scp;
 }
+EXPORT_SYMBOL(init_scp);
 
-static void mtk_register_power_domains(struct platform_device *pdev,
+void mtk_register_power_domains(struct platform_device *pdev,
 				struct scp *scp, int num)
 {
 	struct genpd_onecell_data *pd_data;
@@ -984,7 +1319,10 @@ static void mtk_register_power_domains(struct platform_device *pdev,
 		 * software.  The unused domains will be switched off during
 		 * late_init time.
 		 */
-		on = !WARN_ON(genpd->power_on(genpd) < 0);
+		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_BYPASS_INIT_ON))
+			on = false;
+		else
+			on = !WARN_ON(genpd->power_on(genpd) < 0);
 
 		pm_genpd_init(genpd, NULL, !on);
 	}
@@ -1001,6 +1339,7 @@ static void mtk_register_power_domains(struct platform_device *pdev,
 	if (ret)
 		dev_err(&pdev->dev, "Failed to add OF provider: %d\n", ret);
 }
+EXPORT_SYMBOL(mtk_register_power_domains);
 
 /*
  * MT2701 power domain support
@@ -1289,9 +1628,9 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.extb_iso_offs = 0x398,
 		.extb_iso_bits = 0x3,
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6853_TOP_AXI_PROT_EN_MD),
-			BUS_PROT(IFR_TYPE, 0x0B84, 0x0B88, 0x0B80, 0x0B90,
+			BUS_PROT_IGN(IFR_TYPE, 0x0B84, 0x0B88, 0x0B80, 0x0B90,
 				MT6853_TOP_AXI_PROT_EN_VDNR_MD),
 		},
 	},
@@ -1300,11 +1639,11 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.sta_mask = BIT(1),
 		.ctl_offs = 0x304,
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6853_TOP_AXI_PROT_EN_CONN),
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6853_TOP_AXI_PROT_EN_CONN_2ND),
-			BUS_PROT(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
 				MT6853_TOP_AXI_PROT_EN_1_CONN),
 		},
 	},
@@ -1323,13 +1662,13 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
 				MT6853_TOP_AXI_PROT_EN_1_MFG1),
-			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6853_TOP_AXI_PROT_EN_2_MFG1),
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6853_TOP_AXI_PROT_EN_MFG1),
-			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6853_TOP_AXI_PROT_EN_2_MFG1_2ND),
 		},
 	},
@@ -1363,9 +1702,9 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.basic_clk_name = {"isp"},
 		.subsys_clk_prefix = "isp",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6853_TOP_AXI_PROT_EN_MM_2_ISP),
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6853_TOP_AXI_PROT_EN_MM_2_ISP_2ND),
 		},
 	},
@@ -1387,9 +1726,9 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.basic_clk_name = {"ipe"},
 		.subsys_clk_prefix = "ipe",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6853_TOP_AXI_PROT_EN_MM_IPE),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6853_TOP_AXI_PROT_EN_MM_IPE_2ND),
 		},
 	},
@@ -1402,9 +1741,9 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.basic_clk_name = {"vdec"},
 		.subsys_clk_prefix = "vdec",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6853_TOP_AXI_PROT_EN_MM_VDEC),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6853_TOP_AXI_PROT_EN_MM_VDEC_2ND),
 		},
 	},
@@ -1417,9 +1756,9 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.basic_clk_name = {"venc"},
 		.subsys_clk_prefix = "venc",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6853_TOP_AXI_PROT_EN_MM_VENC),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6853_TOP_AXI_PROT_EN_MM_VENC_2ND),
 		},
 	},
@@ -1432,15 +1771,15 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.basic_clk_name = {"disp", "mdp"},
 		.subsys_clk_prefix = "disp",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6853_TOP_AXI_PROT_EN_MM_DISP),
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6853_TOP_AXI_PROT_EN_MM_2_DISP),
-			BUS_PROT(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6853_TOP_AXI_PROT_EN_DISP),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6853_TOP_AXI_PROT_EN_MM_DISP_2ND),
-			BUS_PROT(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
+			BUS_PROT_IGN(IFR_TYPE, 0x0DCC, 0x0DD0, 0x0DC8, 0x0DD8,
 				MT6853_TOP_AXI_PROT_EN_MM_2_DISP_2ND),
 		},
 	},
@@ -1453,7 +1792,7 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.basic_clk_name = {"audio"},
 		.subsys_clk_prefix = "audio",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6853_TOP_AXI_PROT_EN_2_AUDIO),
 		},
 	},
@@ -1465,7 +1804,7 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.sram_slp_ack_bits = GENMASK(13, 13),
 		.basic_clk_name = {"adsp"},
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6853_TOP_AXI_PROT_EN_2_ADSP_DORMANT),
 		},
 		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
@@ -1479,15 +1818,15 @@ static const struct scp_domain_data scp_domain_data_mt6853[] = {
 		.basic_clk_name = {"cam"},
 		.subsys_clk_prefix = "cam",
 		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
+			BUS_PROT_IGN(IFR_TYPE, 0x0714, 0x0718, 0x0710, 0x0724,
 				MT6853_TOP_AXI_PROT_EN_2_CAM),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6853_TOP_AXI_PROT_EN_MM_CAM),
-			BUS_PROT(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
+			BUS_PROT_IGN(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
 				MT6853_TOP_AXI_PROT_EN_1_CAM),
-			BUS_PROT(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
+			BUS_PROT_IGN(IFR_TYPE, 0x02D4, 0x02D8, 0x02D0, 0x02EC,
 				MT6853_TOP_AXI_PROT_EN_MM_CAM_2ND),
-			BUS_PROT(IFR_TYPE, 0x0B84, 0x0B88, 0x0B80, 0x0B90,
+			BUS_PROT_IGN(IFR_TYPE, 0x0B84, 0x0B88, 0x0B80, 0x0B90,
 				MT6853_TOP_AXI_PROT_EN_VDNR_CAM),
 		},
 	},
@@ -1983,19 +2322,6 @@ static const struct scp_domain_data scp_domain_data_mt8192[] = {
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.subsys_clk_prefix = "cam_rawc",
-	},
-	[MT6873_POWER_DOMAIN_ADSP] = {
-		.name = "adsp",
-		.sta_mask = BIT(22),
-		.ctl_offs = 0x0358,
-		.sram_slp_bits = GENMASK(9, 9),
-		.sram_slp_ack_bits = GENMASK(13, 13),
-		.basic_clk_name = {"adsp"},
-		.bp_table = {
-			BUS_PROT(IFR_TYPE, 0x714, 0x718, 0x710, 0x724,
-				MT8192_TOP_AXI_PROT_EN_2_ADSP),
-		},
-		.caps = MTK_SCPD_SRAM_ISO | MTK_SCPD_SRAM_SLP,
 	},
 	/*
 	 * MT6873 shares most of MT8192's HW IP except modem.

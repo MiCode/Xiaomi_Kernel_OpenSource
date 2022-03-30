@@ -4,6 +4,7 @@
  * Author: James Liao <jamesjj.liao@mediatek.com>
  */
 
+#include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/err.h>
@@ -18,6 +19,39 @@
 
 #include "clk-mtk.h"
 #include "clk-gate.h"
+
+static ATOMIC_NOTIFIER_HEAD(mtk_clk_notifier_list);
+
+int register_mtk_clk_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&mtk_clk_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(register_mtk_clk_notifier);
+
+int unregister_mtk_clk_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&mtk_clk_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(unregister_mtk_clk_notifier);
+
+int mtk_clk_notify(struct regmap *regmap, struct regmap *hwv_regmap,
+		const char *name, u32 ofs, u32 id, u32 shift, int event_type)
+{
+	struct clk_event_data clke;
+
+	clke.event_type = event_type;
+	clke.regmap = regmap;
+	clke.hwv_regmap = hwv_regmap;
+	clke.name = name;
+	clke.ofs = ofs;
+	clke.id = id;
+	clke.shift = shift;
+
+	atomic_notifier_call_chain(&mtk_clk_notifier_list, 0, &clke);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_clk_notify);
 
 struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num)
 {
@@ -106,17 +140,21 @@ int mtk_clk_register_gates_with_dev(struct device_node *node,
 {
 	int i;
 	struct clk *clk;
-	struct regmap *regmap;
+	struct regmap *regmap, *hw_voter_regmap;
 
 	if (!clk_data)
 		return -ENOMEM;
 
-	regmap = device_node_to_regmap(node);
+	regmap = syscon_node_to_regmap(node);
 	if (IS_ERR(regmap)) {
 		pr_err("Cannot find regmap for %pOF: %ld\n", node,
 				PTR_ERR(regmap));
 		return PTR_ERR(regmap);
 	}
+
+	hw_voter_regmap = syscon_regmap_lookup_by_phandle(node, "hw-voter-regmap");
+	if (IS_ERR(hw_voter_regmap))
+		hw_voter_regmap = NULL;
 
 	for (i = 0; i < num; i++) {
 		const struct mtk_gate *gate = &clks[i];
@@ -124,12 +162,24 @@ int mtk_clk_register_gates_with_dev(struct device_node *node,
 		if (!IS_ERR_OR_NULL(clk_data->clks[gate->id]))
 			continue;
 
-		clk = mtk_clk_register_gate(gate->name, gate->parent_name,
-				regmap,
-				gate->regs->set_ofs,
-				gate->regs->clr_ofs,
-				gate->regs->sta_ofs,
-				gate->shift, gate->ops, gate->flags, dev);
+		if (hw_voter_regmap && gate->flags & CLK_USE_HW_VOTER)
+			clk = mtk_clk_register_gate_hwv(gate->name, gate->parent_name,
+					regmap,
+					hw_voter_regmap,
+					gate->regs->set_ofs,
+					gate->regs->clr_ofs,
+					gate->regs->sta_ofs,
+					gate->hwv_regs->set_ofs,
+					gate->hwv_regs->clr_ofs,
+					gate->hwv_regs->sta_ofs,
+					gate->shift, gate->ops, gate->flags, dev);
+		else
+			clk = mtk_clk_register_gate(gate->name, gate->parent_name,
+					regmap,
+					gate->regs->set_ofs,
+					gate->regs->clr_ofs,
+					gate->regs->sta_ofs,
+					gate->shift, gate->ops, gate->flags, dev);
 
 		if (IS_ERR(clk)) {
 			pr_err("Failed to register clk %s: %ld\n",

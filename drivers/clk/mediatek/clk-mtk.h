@@ -12,6 +12,17 @@
 #include <linux/clk-provider.h>
 #include <linux/platform_device.h>
 
+/* hw voter timeout configures */
+#define MTK_WAIT_HWV_PREPARE_CNT	100
+#define MTK_WAIT_HWV_PREPARE_US		2
+#define MTK_WAIT_HWV_DONE_CNT		100
+#define MTK_WAIT_HWV_DONE_US		5
+#define MTK_WAIT_HWV_STA_CNT		20
+#define MTK_HWV_ID_OFS			(0x8)
+#define MTK_HWV_PREPARE_TMROUT		(200000)
+#define MTK_HWV_DONE_TMROUT		(500000)
+#define MTK_HWV_STA_TMROUT		(100000)
+
 struct clk;
 struct clk_onecell_data;
 
@@ -19,6 +30,24 @@ struct clk_onecell_data;
 #define INVALID_MUX_GATE_BIT	(MAX_MUX_GATE_BIT + 1)
 
 #define MHZ (1000 * 1000)
+
+enum clk_evt_type {
+	CLK_EVT_HWV_CG_TIMEOUT = 0,
+	CLK_EVT_HWV_CG_CHK_PWR = 1,
+	CLK_EVT_LONG_BUS_LATENCY = 2,
+	CLK_EVT_HWV_PLL_TIMEOUT = 3,
+	CLK_EVT_NUM,
+};
+
+struct clk_event_data {
+	struct regmap *regmap;
+	struct regmap *hwv_regmap;
+	int event_type;
+	const char *name;
+	u32 ofs;
+	u32 id;
+	u32 shift;
+};
 
 struct mtk_fixed_clk {
 	int id;
@@ -126,7 +155,7 @@ struct mtk_composite {
 		.divider_shift = -1,					\
 		.parent_names = _parents,				\
 		.num_parents = ARRAY_SIZE(_parents),			\
-		.flags = _flags,				\
+		.flags = _flags,					\
 	}
 
 #define DIV_GATE(_id, _name, _parent, _gate_reg, _gate_shift, _div_reg,	\
@@ -161,6 +190,7 @@ struct mtk_gate {
 	const char *name;
 	const char *parent_name;
 	const struct mtk_gate_regs *regs;
+	const struct mtk_gate_regs *hwv_regs;
 	int shift;
 	const struct clk_ops *ops;
 	unsigned long flags;
@@ -205,6 +235,8 @@ struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num);
 
 #define HAVE_RST_BAR	BIT(0)
 #define PLL_AO		BIT(1)
+#define CLK_USE_HW_VOTER	BIT(2)
+#define HWV_CHK_FULL_STA	BIT(3)
 
 struct mtk_pll_div_table {
 	u32 div;
@@ -214,13 +246,21 @@ struct mtk_pll_div_table {
 struct mtk_pll_data {
 	int id;
 	const char *name;
-	u32 reg;
-	u32 pwr_reg;
-	u32 en_mask;
-	u32 pd_reg;
-	u32 tuner_reg;
-	u32 tuner_en_reg;
-	u8 tuner_en_bit;
+	uint32_t reg;
+	uint32_t pwr_reg;
+	uint32_t en_reg;
+	uint32_t en_mask;
+	uint32_t hwv_set_ofs;
+	uint32_t hwv_clr_ofs;
+	uint32_t hwv_sta_ofs;
+	uint32_t hwv_done_ofs;
+	uint32_t hwv_set_sta_ofs;
+	uint32_t hwv_clr_sta_ofs;
+	int hwv_shift;
+	uint32_t pd_reg;
+	uint32_t tuner_reg;
+	uint32_t tuner_en_reg;
+	uint8_t tuner_en_bit;
 	int pd_shift;
 	unsigned int flags;
 	const struct clk_ops *ops;
@@ -229,13 +269,12 @@ struct mtk_pll_data {
 	unsigned long fmax;
 	int pcwbits;
 	int pcwibits;
-	u32 pcw_reg;
+	uint32_t pcw_reg;
 	int pcw_shift;
-	u32 pcw_chg_reg;
+	uint32_t pcw_chg_reg;
 	const struct mtk_pll_div_table *div_table;
 	const char *parent_name;
-	u32 en_reg;
-	u8 pll_en_bit; /* Assume 0, indicates BIT(0) by default */
+	uint8_t pll_en_bit;
 };
 
 void mtk_clk_register_plls(struct device_node *node,
@@ -259,5 +298,9 @@ struct mtk_clk_desc {
 };
 
 int mtk_clk_simple_probe(struct platform_device *pdev);
+extern int register_mtk_clk_notifier(struct notifier_block *nb);
+extern int unregister_mtk_clk_notifier(struct notifier_block *nb);
+extern int mtk_clk_notify(struct regmap *regmap, struct regmap *hwv_regmap,
+		const char *name, u32 ofs, u32 id, u32 shift, int event_type);
 
 #endif /* __DRV_CLK_MTK_H */

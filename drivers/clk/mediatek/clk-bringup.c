@@ -10,13 +10,7 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 
-static const struct of_device_id bring_up_id_table[] = {
-	{ .compatible = "mediatek,clk-bring-up",},
-	{ },
-};
-MODULE_DEVICE_TABLE(of, bring_up_id_table);
-
-static int bring_up_probe(struct platform_device *pdev)
+static int __bring_up_enable(struct platform_device *pdev)
 {
 	struct clk *clk;
 	int clk_con, i;
@@ -42,6 +36,56 @@ static int bring_up_probe(struct platform_device *pdev)
 	}
 
 	return 0;
+}
+
+static int clk_bring_up_probe(struct platform_device *pdev)
+{
+	return __bring_up_enable(pdev);
+}
+
+static int clk_post_ao_probe(struct platform_device *pdev)
+{
+	struct device_node *node = pdev->dev.of_node;
+	u32 enabled;
+
+	of_property_read_u32(node, "mediatek,post_ao", &enabled);
+
+	if (enabled != 1) {
+		pr_notice("btypass_clk_post_ao\n");
+		return 0;
+	}
+
+	return __bring_up_enable(pdev);
+}
+
+static const struct of_device_id bring_up_id_table[] = {
+	{
+		.compatible = "mediatek,clk-bring-up",
+		.data = clk_bring_up_probe,
+	}, {
+		.compatible = "mediatek,clk-post-ao",
+		.data = clk_post_ao_probe,
+	}, {
+		/* sentinel */
+	}
+};
+
+static int bring_up_probe(struct platform_device *pdev)
+{
+	int (*clk_probe)(struct platform_device *pd);
+	int r;
+
+	clk_probe = of_device_get_match_data(&pdev->dev);
+	if (!clk_probe)
+		return -EINVAL;
+
+	r = clk_probe(pdev);
+	if (r)
+		dev_err(&pdev->dev,
+			"could not register clock provider: %s: %d\n",
+			pdev->name, r);
+
+	return r;
 }
 
 static int bring_up_remove(struct platform_device *pdev)

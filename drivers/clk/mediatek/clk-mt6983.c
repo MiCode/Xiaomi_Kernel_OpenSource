@@ -2974,7 +2974,7 @@ static int clk_mt6983_apmixedsys_probe(struct platform_device *pdev)
 	}
 
 	clk_data = mtk_alloc_clk_data(CLK_APMIXEDSYS_NR_CLK);
-#if 0 // Fixme
+
 	mtk_clk_register_plls(node, apmixedsys_plls,
 			ARRAY_SIZE(apmixedsys_plls), clk_data);
 
@@ -2983,7 +2983,7 @@ static int clk_mt6983_apmixedsys_probe(struct platform_device *pdev)
 	if (ret)
 		pr_notice("%s(): could not register clock provider: %d\n",
 				__func__, ret);
-#endif
+
 #if MT_CCF_BRINGUP
 	pr_notice("%s init end\n", __func__);
 #endif /* MT_CCF_BRINGUP */
@@ -3225,12 +3225,12 @@ static int clk_mt6983_top_probe(struct platform_device *pdev)
 	mtk_clk_register_composites(top_composites,
 			ARRAY_SIZE(top_composites),
 			base, &mtk_clk_lock, clk_data);
-#if 0 //Fixme: bringup only
+
 	mtk_clk_register_gates(node, top_clks,
 			ARRAY_SIZE(top_clks), clk_data);
 
 	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-#endif
+
 	if (ret)
 		pr_notice("%s(): could not register clock provider: %d\n",
 				__func__, ret);
