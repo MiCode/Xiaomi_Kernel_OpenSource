@@ -36,6 +36,7 @@ struct mtk_cam_vb2_buf {
 
 	/* DMABUF related */
 	struct dma_buf_attachment	*db_attach;
+	struct dma_buf_map map;
 };
 
 /*********************************************/
@@ -72,17 +73,17 @@ static void *mtk_cam_vb2_cookie(struct vb2_buffer *vb, void *buf_priv)
 static void *mtk_cam_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 {
 	struct mtk_cam_vb2_buf *buf = buf_priv;
-	struct dma_buf_map map;
 	int ret;
 
 	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 
 	if (!buf->vaddr && buf->db_attach)
-		ret = dma_buf_vmap(buf->db_attach->dmabuf, &map);
+		ret = dma_buf_vmap(buf->db_attach->dmabuf, &buf->map);
+
+	buf->vaddr = buf->map.vaddr;
 
 	MTK_CAM_TRACE_END(BUFFER);
-	return (void *)map.vaddr;
-	//return buf->vaddr;
+	return buf->vaddr;
 }
 
 static unsigned int mtk_cam_vb2_num_users(void *buf_priv)
@@ -178,7 +179,8 @@ static void mtk_cam_vb2_unmap_dmabuf(void *mem_priv)
 	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 
 	if (buf->vaddr) {
-		dma_buf_vunmap(buf->db_attach->dmabuf, buf->vaddr);
+		//dma_buf_vunmap(buf->db_attach->dmabuf, buf->vaddr);
+		dma_buf_vunmap(buf->db_attach->dmabuf, &buf->map);
 		buf->vaddr = NULL;
 	}
 	dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);

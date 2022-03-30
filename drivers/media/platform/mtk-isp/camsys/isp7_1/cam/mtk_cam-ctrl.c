@@ -3512,11 +3512,12 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 			 __func__, ctx->stream_id);
 		return;
 	}
-
+#ifdef SUPPORT_AFO_MEMCPY
 	MTK_CAM_TRACE_BEGIN(BASIC, "meta_copy");
 	memcpy(vaddr, s_data->working_buf->meta_buffer.va,
 	       s_data->working_buf->meta_buffer.size);
 	MTK_CAM_TRACE_END(BASIC);
+#endif
 
 	/* Update the timestamp for the buffer*/
 	mtk_cam_s_data_update_timestamp(buf, s_data_ctx);

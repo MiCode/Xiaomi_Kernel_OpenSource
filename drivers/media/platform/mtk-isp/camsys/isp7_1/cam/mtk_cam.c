@@ -4417,8 +4417,8 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtk_cam_device *cam;
 	struct mtk_cam_working_buf_entry *buf_entry;
 	struct mtk_mraw_working_buf_entry *mraw_buf_entry;
-	struct mtkcam_ipi_meta_output *meta_1_out;
-	struct mtk_cam_buffer *meta1_buf;
+	//struct mtkcam_ipi_meta_output *meta_1_out;
+	//struct mtk_cam_buffer *meta1_buf;
 	struct mtk_mraw_device *mraw_dev;
 	struct mtk_cam_resource *res_user;
 	int i;
@@ -4495,6 +4495,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	spin_unlock(&ctx->using_buffer_list.lock);
 
 	/* Prepare MTKCAM_IPI_RAW_META_STATS_1 params */
+#ifdef SUPPORT_AFO_MEMCPY
 	meta1_buf = mtk_cam_s_data_get_vbuf(req_stream_data, MTK_RAW_META_OUT_1);
 	if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT &&
 	    meta1_buf) {
@@ -4510,6 +4511,7 @@ static void isp_tx_frame_worker(struct work_struct *work)
 					    buf_entry->meta_buffer.va,
 					    NULL);
 	}
+#endif
 
 	for (i = 0; i < ctx->used_mraw_num; i++) {
 		req->p_data[ctx->mraw_pipe[i]->id].s_data_num =
