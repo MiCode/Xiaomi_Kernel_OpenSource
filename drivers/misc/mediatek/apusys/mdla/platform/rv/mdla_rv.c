@@ -82,6 +82,7 @@ DEFINE_IPI_DBGFS_ATTRIBUTE(force_pwr_on,   MDLA_IPI_FORCE_PWR_ON,   0, "%d\n");
 DEFINE_IPI_DBGFS_ATTRIBUTE(profiling,      MDLA_IPI_PROFILE_EN,     0, "%d\n");
 DEFINE_IPI_DBGFS_ATTRIBUTE(dump_cmdbuf_en, MDLA_IPI_DUMP_CMDBUF_EN, 0, "%d\n");
 DEFINE_IPI_DBGFS_ATTRIBUTE(info,           MDLA_IPI_INFO,           0, "%d\n");
+DEFINE_IPI_DBGFS_ATTRIBUTE(dbg_brk,        MDLA_IPI_HALT_STA,       0, "0x%llx\n");
 
 struct mdla_dbgfs_ipi_file {
 	int type0;
@@ -98,7 +99,7 @@ static struct mdla_dbgfs_ipi_file ipi_dbgfs_file[] = {
 	{MDLA_IPI_TIMEOUT,        0, 0xC, 0660,        "timeout",        &timeout_fops, 0},
 	{MDLA_IPI_ULOG,           0, 0xC, 0660,           "ulog",           &ulog_fops, 0},
 	{MDLA_IPI_CMD_CHECK,      0, 0x4, 0660,      "cmd_check",      &cmd_check_fops, 0},
-	{MDLA_IPI_TRACE_ENABLE,   0, 0x4, 0660,      "pmu_trace",      &pmu_trace_fops, 0},
+	{MDLA_IPI_TRACE_ENABLE,   0, 0xC, 0660,      "pmu_trace",      &pmu_trace_fops, 0},
 	{MDLA_IPI_PMU_COUNT,      1, 0x4, 0660,             "c1",             &C1_fops, 0},
 	{MDLA_IPI_PMU_COUNT,      2, 0x4, 0660,             "c2",             &C2_fops, 0},
 	{MDLA_IPI_PMU_COUNT,      3, 0x4, 0660,             "c3",             &C3_fops, 0},
@@ -119,6 +120,7 @@ static struct mdla_dbgfs_ipi_file ipi_dbgfs_file[] = {
 	{MDLA_IPI_PROFILE_EN,     0, 0x8, 0660,      "profiling",      &profiling_fops, 0},
 	{MDLA_IPI_DUMP_CMDBUF_EN, 0, 0xC, 0660, "dump_cmdbuf_en", &dump_cmdbuf_en_fops, 0},
 	{MDLA_IPI_INFO,           0, 0xC, 0660,           "info",           &info_fops, 0},
+	{MDLA_IPI_HALT_STA,       0, 0x8, 0660,        "dbg_brk",        &dbg_brk_fops, 0},
 	{NF_MDLA_IPI_TYPE_0,      0,   0,    0,             NULL,                 NULL, 0}
 };
 

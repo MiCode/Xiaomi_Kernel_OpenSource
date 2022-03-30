@@ -28,6 +28,9 @@ enum MDLA_IPI_TYPE_0 {
 	/* platform message */
 	MDLA_IPI_PLAT,
 
+	/* sw halt */
+	MDLA_IPI_HALT_STA,
+
 	NF_MDLA_IPI_TYPE_0
 };
 
