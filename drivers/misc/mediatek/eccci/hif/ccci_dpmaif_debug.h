@@ -16,16 +16,17 @@
 #include <mt-plat/mtk_ccci_common.h>
 #include <linux/ip.h>
 
-#include "ccci_config.h"
-#include "ccci_bm.h"
 
+#define ENABLE_DPMAIF_ISR_LOG
+//#define ENABLE_DPMAIF_DEBUG_LOG
 
 #define DEBUG_TYPE_RX_DONE 1
 #define DEBUG_TYPE_RX_SKB  2
 #define DEBUG_TYPE_TX_SEND 20
 #define DEBUG_TYPE_TX_RELS 21
 #define DEBUG_TYPE_BAT_REORDER 30
-
+#define DEBUG_TYPE_RX_FLUSH 31
+#define DEBUG_TYPE_RX_TO_CCMNI 32
 
 #define DEBUG_VERION_V2 2
 #define DEBUG_VERION_V3 3
@@ -51,11 +52,12 @@ struct dpmaif_debug_header {
 /* < (1024 * 1024 * 200 = 209715200 = 200MB) */
 #define DL_SPEED_THRESHOLD  (209715200LL)
 
+void ccci_dpmaif_debug_init(void);
+
+#ifdef ENABLE_DPMAIF_DEBUG_LOG
+void ccci_dpmaif_debug_late_init(wait_queue_head_t *rx_wq);
 
 void dpmaif_debug_update_rx_chn_idx(int chn_idx);
-
-void dpmaif_debug_init(void);
-void dpmaif_debug_late_init(wait_queue_head_t *rx_wq);
 
 void dpmaif_debug_add(struct dpmaif_debug_header *hdr, void *data);
 
@@ -79,5 +81,19 @@ do { \
 
 
 extern void ccci_set_dpmaif_debug_cb(void (*dpmaif_debug_cb)(void));
+int ccci_get_debug_skb_cnt(void);
+struct sk_buff *ccci_dequeue_debug_skb(void);
+#endif
+
+#ifdef ENABLE_DPMAIF_ISR_LOG
+void ccci_dpmaif_print_irq_log(void);
+int ccci_dpmaif_record_isr_cnt(unsigned long long ts,
+		unsigned int L2TISAR0, unsigned int L2RISAR0);
+
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+extern int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
+	unsigned long size, const char *name);
+#endif
+#endif
 
 #endif /* __MODEM_DPMA_DEBUG_H__ */

@@ -92,7 +92,7 @@ static int port_char_init(struct port_t *port)
 				port->minor_base + port->minor);
 		port->flags |= PORT_F_ADJUST_HEADER;
 	}
-#ifndef DPMAIF_DEBUG_LOG
+
 	if (port->rx_ch == CCCI_UART2_RX ||
 		port->rx_ch == CCCI_C2K_AT ||
 		port->rx_ch == CCCI_C2K_AT2 ||
@@ -105,7 +105,7 @@ static int port_char_init(struct port_t *port)
 		port->flags |= PORT_F_CH_TRAFFIC;
 	else if (port->rx_ch == CCCI_FS_RX)
 		port->flags |= (PORT_F_CH_TRAFFIC | PORT_F_DUMP_RAW_DATA);
-#endif
+
 	return ret;
 }
 

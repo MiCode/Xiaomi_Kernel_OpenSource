@@ -146,13 +146,11 @@ _free_sk:
 	if (!fifo)
 		return;
 
-	fifo->dp_cnt++;
-	if ((fifo->dp_cnt == 1) || ((fifo->dp_cnt & 0xFF) == 0)) {
-		CCCI_ERROR_LOG(0, TAG,
-			"[%s] qno: %u; dp_cnt: %u\n",
+	if ((fifo->dp_cnt & 0xFF) == 0)
+		CCCI_ERROR_LOG(0, TAG, "[%s] qno: %u; dp_cnt: %u\n",
 			__func__, qno, fifo->dp_cnt);
-		fifo->dp_cnt = 0;
-	}
+
+	fifo->dp_cnt++;
 }
 
 inline void *ccci_dl_dequeue(u32 qno)

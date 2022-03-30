@@ -38,27 +38,9 @@
 #endif
 /*#define ENABLE_EMI_PROTECTION*/
 
-#define HW_CHECK_SUM_ENABLE
-#define HW_FRG_FEATURE_ENABLE
-#ifdef HW_FRG_FEATURE_ENABLE
-/* #define FRG_FEATURE_TEST */
-#ifdef FRG_FEATURE_TEST
-/* 1024 + 2432 = 3456 */
-#define DPMAIF_PKT_SIZE      (128*8) /* == 1024 */
-#define DPMAIF_FRG_SIZE      (128*19) /* 2432 */
-#else
-/* 1664 + 1920 = 3584 (> 3* 1024)+8 */
-#define DPMAIF_PKT_SIZE      (128*13) /* == 1664 */
-#define DPMAIF_FRG_SIZE      (128*15) /* 1920  */
-#endif
-#else
-#define DPMAIF_PKT_SIZE      (128*28) /* 3584 ==SKB_4K */
-#define DPMAIF_FRG_SIZE      (128) /* =_=, no used */
-#endif
 
 /*#define CCCI_LOG_LEVEL     1*/
 
-/*#define DPMAIF_DEBUG_LOG*/
 #define DEBUG_FOR_CCB
 
 

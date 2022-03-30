@@ -432,27 +432,36 @@ int mtk_ccci_net_spd_cfg(int toggle)
 
 void mtk_ccci_register_speed_1s_callback(total_spd_fun func)
 {
-	if ((s_spd_dl_cb_num_1s < MAX_CALL_BACK_FUNC_NUM) && func) {
+	if (!func)
+		return;
+
+	if (s_spd_dl_cb_num_1s < MAX_CALL_BACK_FUNC_NUM) {
 		s_spd_dl_func_1s[s_spd_dl_cb_num_1s] = func;
 		s_spd_dl_cb_num_1s++;
 
 	} else
-		pr_info("[ccci][spd]1s dl callback tbl full\n");
+		pr_info("[ccci][spd] error: 1s dl callback tbl is full.\n");
 }
 
 void mtk_ccci_register_speed_callback(spd_fun func_1s, spd_fun func_500ms)
 {
-	if ((s_spd_cb_num_1s < MAX_CALL_BACK_FUNC_NUM) && func_1s) {
-		s_spd_func_1s[s_spd_cb_num_1s] = func_1s;
-		s_spd_cb_num_1s++;
-	} else
-		pr_info("[ccci][spd]1s callback tbl full\n");
+	if (func_1s) {
+		if (s_spd_cb_num_1s < MAX_CALL_BACK_FUNC_NUM) {
+			s_spd_func_1s[s_spd_cb_num_1s] = func_1s;
+			s_spd_cb_num_1s++;
 
-	if ((s_spd_cb_num_500ms < MAX_CALL_BACK_FUNC_NUM) && func_500ms) {
-		s_spd_func_500ms[s_spd_cb_num_500ms] = func_500ms;
-		s_spd_cb_num_500ms++;
-	} else
-		pr_info("[ccci][spd]500ms callback ptr full\n");
+		} else
+			pr_info("[ccci][spd] error: 1s callback tbl is full.\n");
+	}
+
+	if (func_500ms) {
+		if (s_spd_cb_num_500ms < MAX_CALL_BACK_FUNC_NUM) {
+			s_spd_func_500ms[s_spd_cb_num_500ms] = func_500ms;
+			s_spd_cb_num_500ms++;
+
+		} else
+			pr_info("[ccci][spd] error: 500ms callback tbl is full.\n");
+	}
 }
 
 int mtk_ccci_net_speed_init(void)

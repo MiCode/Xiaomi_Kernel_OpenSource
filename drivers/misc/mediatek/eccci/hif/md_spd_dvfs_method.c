@@ -76,7 +76,7 @@ static const struct dvfs_ref s_dl_dvfs_tbl_v3[] = { /* 4:3:1 */
 
 static const struct dvfs_ref s_dl_dvfs_tbl_v4[] = { /* 4:3:1 */
 	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps, bat, tx_done*/
-	{2000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0x10, 0x20, 0x40, {0x0D, 0x0D, 0x0D, 0x0D}},
+	{3000000000LL, {-1, -1, -1, -1}, -1, 0x02, 0x10, 0x20, 0x40, {0x0D, 0x0D, 0x0D, 0x0D}},
 	{1000000000LL, {-1, -1, -1, -1}, -1, 0x40, 0x10, 0x20, 0x70, {0x70, 0x70, 0x70, 0x70}},
 	/* normal */
 	{0LL,          {-1, -1, -1, -1}, -1, 0x02, 0xFF, 0x7F, 0xFF, {-1, -1, -1, -1}},
