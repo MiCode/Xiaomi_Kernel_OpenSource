@@ -252,9 +252,6 @@ enum MTK_TINYSYS_SCP_KERNEL_OP {
 	MTK_TINYSYS_SCP_KERNEL_OP_WDT_SET,
 	MTK_TINYSYS_SCP_KERNEL_OP_HALT_SET,
 	MTK_TINYSYS_SCP_KERNEL_OP_WDT_CLEAR,
-	MTK_TINYSYS_SCP_KERNEL_OP_DUMP_TBUF,
-	MTK_TINYSYS_SCP_KERNEL_OP_DUMP_L2TCM,
-	MTK_TINYSYS_SCP_KERNEL_OP_DUMP_REG,
 	MTK_TINYSYS_SCP_KERNEL_OP_NUM,
 };
 
@@ -346,36 +343,6 @@ static inline uint64_t scp_do_wdt_clear(uint64_t coreid)
 	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
 			MTK_TINYSYS_SCP_KERNEL_OP_WDT_CLEAR,
 			coreid, 0, 0, 0, 0, 0, &res);
-	return res.a0;
-}
-
-static inline unsigned long scp_do_tbuf_dump(void)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
-			MTK_TINYSYS_SCP_KERNEL_OP_DUMP_TBUF,
-			0, 0, 0, 0, 0, 0, &res);
-	return res.a0;
-}
-
-static inline unsigned long scp_do_l2tcm_dump(void)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
-			MTK_TINYSYS_SCP_KERNEL_OP_DUMP_L2TCM,
-			0, 0, 0, 0, 0, 0, &res);
-	return res.a0;
-}
-
-static inline unsigned long scp_do_reg_dump(void)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(MTK_SIP_TINYSYS_SCP_CONTROL,
-			MTK_TINYSYS_SCP_KERNEL_OP_DUMP_REG,
-			0, 0, 0, 0, 0, 0, &res);
 	return res.a0;
 }
 #endif
