@@ -10,6 +10,11 @@
 #include <linux/videodev2.h>
 #include <linux/v4l2-controls.h>
 
+#ifdef VIDEO_MAX_FRAME
+#undef VIDEO_MAX_FRAME
+#define VIDEO_MAX_FRAME 64
+#endif
+
 #define AP_IPIMSG_VDEC_SEND_BASE 0xA000
 #define VCU_IPIMSG_VDEC_ACK_BASE 0xB000
 #define VCU_IPIMSG_VDEC_SEND_BASE 0xC000
