@@ -1037,6 +1037,21 @@ int mtk_cam_sv_top_config(
 			CAMSV_DCIF_SET, ENABLE_OUTPUT_CQ_START_SIGNAL, 0);
 	}
 
+	/* vf en chain */
+	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MISC, CAMSV_MISC, VF_SRC, 0);
+	if ((dev->pipeline->hw_scen &
+		(1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)) ||
+		(dev->pipeline->hw_scen &
+		(1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER))) {
+		if (dev->id == 8 || dev->id == 9) {
+			if (dev->pipeline->exp_order == 2)
+				CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MISC,
+					CAMSV_MISC, VF_SRC, 1);
+		}
+	}
+	dev_dbg(dev->dev, "misc:0x%x\n",
+		CAMSV_READ_REG(dev->base + REG_CAMSV_MISC));
+
 	/* fmt sel */
 	CAMSV_WRITE_REG(dev->base + REG_CAMSV_FMT_SEL, cfg_in_param->fmt);
 
