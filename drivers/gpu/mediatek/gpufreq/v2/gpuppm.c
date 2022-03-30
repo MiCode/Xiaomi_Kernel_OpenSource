@@ -103,6 +103,7 @@ static void __gpuppm_sort_limit(void)
 {
 	struct gpuppm_limit_info *limit_table = NULL;
 	int cur_ceiling = 0, cur_floor = 0;
+	int max_oppidx = 0, min_oppidx = 0;
 	unsigned int cur_c_limiter = LIMIT_NUM;
 	unsigned int cur_f_limiter = LIMIT_NUM;
 	unsigned int cur_c_priority = GPUPPM_PRIO_NONE;
@@ -112,29 +113,52 @@ static void __gpuppm_sort_limit(void)
 	limit_table = g_limit_table;
 	cur_ceiling = -1;
 	cur_floor = g_ppm.opp_num;
+	max_oppidx = 0;
+	min_oppidx = g_ppm.opp_num - 1;
 
-	/* find the largest ceiling */
-	for (i = 0; i < LIMIT_NUM; i++) {
-		/* skip default value */
+	/* sort ceiling among valid limiters except SEGMENT  */
+	for (i = 1; i < LIMIT_NUM; i++) {
+		/* skip default value and check enable */
 		if (limit_table[i].ceiling != GPUPPM_DEFAULT_IDX &&
-			limit_table[i].c_enable == LIMIT_ENABLE &&
-			limit_table[i].ceiling > cur_ceiling) {
-			cur_ceiling = limit_table[i].ceiling;
-			cur_c_limiter = limit_table[i].limiter;
-			cur_c_priority = limit_table[i].priority;
+			limit_table[i].ceiling != max_oppidx &&
+			limit_table[i].c_enable == LIMIT_ENABLE) {
+			/* use the largest ceiling with its limiter */
+			if (limit_table[i].ceiling > cur_ceiling) {
+				cur_ceiling = limit_table[i].ceiling;
+				cur_c_limiter = limit_table[i].limiter;
+			}
+			/* use the largest priority to cover all valid limiters */
+			if (limit_table[i].priority > cur_c_priority)
+				cur_c_priority = limit_table[i].priority;
+		}
+	}
+	/* sort floor among valid limiters except SEGMENT  */
+	for (i = 1; i < LIMIT_NUM; i++) {
+		/* skip default value and check enable */
+		if (limit_table[i].floor != GPUPPM_DEFAULT_IDX &&
+			limit_table[i].floor != min_oppidx &&
+			limit_table[i].f_enable == LIMIT_ENABLE) {
+			/* use the smallest floor with its limiter */
+			if (limit_table[i].floor < cur_floor) {
+				cur_floor = limit_table[i].floor;
+				cur_f_limiter = limit_table[i].limiter;
+			}
+			/* use the largest priority to cover all valid limiters */
+			if (limit_table[i].priority > cur_f_priority)
+				cur_f_priority = limit_table[i].priority;
 		}
 	}
 
-	/* find the smallest floor */
-	for (i = 0; i < LIMIT_NUM; i++) {
-		/* skip default value */
-		if (limit_table[i].floor != GPUPPM_DEFAULT_IDX &&
-			limit_table[i].f_enable == LIMIT_ENABLE &&
-			limit_table[i].floor < cur_floor) {
-			cur_floor = limit_table[i].floor;
-			cur_f_limiter = limit_table[i].limiter;
-			cur_f_priority = limit_table[i].priority;
-		}
+	/* if no valid limitation, use SEGMENT */
+	if (cur_ceiling == -1) {
+		cur_ceiling = limit_table[LIMIT_SEGMENT].ceiling;
+		cur_c_limiter = limit_table[LIMIT_SEGMENT].limiter;
+		cur_c_priority = limit_table[LIMIT_SEGMENT].priority;
+	}
+	if (cur_floor == g_ppm.opp_num) {
+		cur_floor = limit_table[LIMIT_SEGMENT].floor;
+		cur_f_limiter = limit_table[LIMIT_SEGMENT].limiter;
+		cur_f_priority = limit_table[LIMIT_SEGMENT].priority;
 	}
 
 	/* if limit interval with intersection */
@@ -198,99 +222,95 @@ static int __gpuppm_convert_limit_to_idx(enum gpufreq_target target, enum gpuppm
 {
 	int ret = GPUFREQ_SUCCESS;
 
-	switch (limiter)
-	{
-		case LIMIT_SEGMENT:
-			/* limit info: OPP index */
-			*ceiling_idx = ceiling_info;
-			*floor_idx = floor_info;
-			break;
-		case LIMIT_DEBUG:
-			/* limit info: OPP index */
-			*ceiling_idx = ceiling_info;
-			*floor_idx = floor_info;
-			break;
-		case LIMIT_THERMAL_AP:
-			/* limit info: freq */
-			if (ceiling_info > 0)
-				if (target == TARGET_STACK)
-					*ceiling_idx = __gpufreq_get_idx_by_fstack(
-						(unsigned int)ceiling_info);
-				else
-					*ceiling_idx = __gpufreq_get_idx_by_fgpu(
-						(unsigned int)ceiling_info);
+	switch (limiter) {
+	case LIMIT_SEGMENT:
+		/* limit info: OPP index */
+		*ceiling_idx = ceiling_info;
+		*floor_idx = floor_info;
+		break;
+	case LIMIT_DEBUG:
+		/* limit info: OPP index */
+		*ceiling_idx = ceiling_info;
+		*floor_idx = floor_info;
+		break;
+	case LIMIT_THERMAL_AP:
+		/* limit info: freq */
+		if (ceiling_info > 0) {
+			if (target == TARGET_STACK)
+				*ceiling_idx = __gpufreq_get_idx_by_fstack(
+					(unsigned int)ceiling_info);
 			else
-				*ceiling_idx = GPUPPM_RESET_IDX;
-			*floor_idx = GPUPPM_KEEP_IDX;
-			break;
-		case LIMIT_THERMAL_EB:
-			/* limit info: power */
-			if (ceiling_info > 0)
-				if (target == TARGET_STACK)
-					*ceiling_idx = __gpufreq_get_idx_by_pstack(
-						(unsigned int)ceiling_info);
-				else
-					*ceiling_idx = __gpufreq_get_idx_by_pgpu(
-						(unsigned int)ceiling_info);
+				*ceiling_idx = __gpufreq_get_idx_by_fgpu(
+					(unsigned int)ceiling_info);
+		} else
+			*ceiling_idx = GPUPPM_RESET_IDX;
+		*floor_idx = GPUPPM_KEEP_IDX;
+		break;
+	case LIMIT_THERMAL_EB:
+		/* limit info: OPP index */
+		*ceiling_idx = ceiling_info;
+		*floor_idx = GPUPPM_KEEP_IDX;
+		break;
+	case LIMIT_TEMPER_COMP:
+		/* limit info: OPP index */
+		*ceiling_idx = GPUPPM_KEEP_IDX;
+		*floor_idx = floor_info;
+		break;
+	case LIMIT_SRAMRC:
+		/* limit info: volt */
+		*ceiling_idx = GPUPPM_KEEP_IDX;
+		if (floor_info > 0) {
+			if (target == TARGET_STACK)
+				*floor_idx = __gpufreq_get_idx_by_vstack(
+					(unsigned int)floor_info);
 			else
-				*ceiling_idx = GPUPPM_RESET_IDX;
-			*floor_idx = GPUPPM_KEEP_IDX;
-			break;
-		case LIMIT_SRAMRC:
-			/* limit info: volt */
-			*ceiling_idx = GPUPPM_KEEP_IDX;
-			if (floor_info > 0)
-				if (target == TARGET_STACK)
-					*floor_idx = __gpufreq_get_idx_by_vstack(
-						(unsigned int)floor_info);
-				else
-					*floor_idx = __gpufreq_get_idx_by_vgpu(
-						(unsigned int)floor_info);
+				*floor_idx = __gpufreq_get_idx_by_vgpu(
+					(unsigned int)floor_info);
+		} else
+			*floor_idx = GPUPPM_RESET_IDX;
+		break;
+	case LIMIT_BATT_OC:
+		/* limit info: batt_oc_level */
+		*ceiling_idx = __gpufreq_get_batt_oc_idx(ceiling_info);
+		*floor_idx = GPUPPM_KEEP_IDX;
+		break;
+	case LIMIT_BATT_PERCENT:
+		/* limit info: batt_percent_level */
+		*ceiling_idx = __gpufreq_get_batt_percent_idx(ceiling_info);
+		*floor_idx = GPUPPM_KEEP_IDX;
+		break;
+	case LIMIT_LOW_BATT:
+		/* limit info: low_batt_level */
+		*ceiling_idx = __gpufreq_get_low_batt_idx(ceiling_info);
+		*floor_idx = GPUPPM_KEEP_IDX;
+		break;
+	case LIMIT_PBM:
+		/* limit info: power */
+		if (ceiling_info > 0) {
+			if (target == TARGET_STACK)
+				*ceiling_idx = __gpufreq_get_idx_by_pstack(
+					(unsigned int)ceiling_info);
 			else
-				*floor_idx = GPUPPM_RESET_IDX;
-			break;
-		case LIMIT_BATT_OC:
-			/* limit info: batt_oc_level */
-			*ceiling_idx = __gpufreq_get_batt_oc_idx(ceiling_info);
-			*floor_idx = GPUPPM_KEEP_IDX;
-			break;
-		case LIMIT_BATT_PERCENT:
-			/* limit info: batt_percent_level */
-			*ceiling_idx = __gpufreq_get_batt_percent_idx(ceiling_info);
-			*floor_idx = GPUPPM_KEEP_IDX;
-			break;
-		case LIMIT_LOW_BATT:
-			/* limit info: low_batt_level */
-			*ceiling_idx = __gpufreq_get_low_batt_idx(ceiling_info);
-			*floor_idx = GPUPPM_KEEP_IDX;
-			break;
-		case LIMIT_PBM:
-			/* limit info: power */
-			if (ceiling_info > 0)
-				if (target == TARGET_STACK)
-					*ceiling_idx = __gpufreq_get_idx_by_pstack(
-						(unsigned int)ceiling_info);
-				else
-					*ceiling_idx = __gpufreq_get_idx_by_pgpu(
-						(unsigned int)ceiling_info);
-			else
-				*ceiling_idx = GPUPPM_RESET_IDX;
-			*floor_idx = GPUPPM_KEEP_IDX;
-			break;
-		case LIMIT_APIBOOST:
-			/* limit info: OPP index */
-			*ceiling_idx = ceiling_info;
-			*floor_idx = floor_info;
-			break;
-		case LIMIT_FPSGO:
-			/* limit info: OPP index */
-			*ceiling_idx = ceiling_info;
-			*floor_idx = floor_info;
-			break;
-		default:
-			GPUFREQ_LOGE("invalid limiter: %d (EINVAL)", limiter);
-			ret = GPUFREQ_EINVAL;
-			break;
+				*ceiling_idx = __gpufreq_get_idx_by_pgpu(
+					(unsigned int)ceiling_info);
+		} else
+			*ceiling_idx = GPUPPM_RESET_IDX;
+		*floor_idx = GPUPPM_KEEP_IDX;
+		break;
+	case LIMIT_APIBOOST:
+		/* limit info: OPP index */
+		*ceiling_idx = ceiling_info;
+		*floor_idx = floor_info;
+		break;
+	case LIMIT_FPSGO:
+		/* limit info: OPP index */
+		*ceiling_idx = ceiling_info;
+		*floor_idx = floor_info;
+		break;
+	default:
+		GPUFREQ_LOGE("invalid limiter: %d (EINVAL)", limiter);
+		ret = GPUFREQ_EINVAL;
+		break;
 	}
 
 	GPUFREQ_LOGD("[%s limiter: %d] ceiling_info: %d (idx: %d), floor_info: %d, (idx: %d)",

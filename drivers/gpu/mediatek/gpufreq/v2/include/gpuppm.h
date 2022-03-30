@@ -51,7 +51,7 @@ struct gpuppm_status {
 	int floor;
 	unsigned int f_limiter;
 	unsigned int f_priority;
-	unsigned int opp_num;
+	int opp_num;
 };
 
 /**************************************************
