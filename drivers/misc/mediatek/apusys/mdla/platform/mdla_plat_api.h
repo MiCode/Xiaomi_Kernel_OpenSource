@@ -38,4 +38,6 @@ const struct of_device_id *mdla_plat_get_device(void);
 int mdla_plat_init(struct platform_device *pdev);
 void mdla_plat_deinit(struct platform_device *pdev);
 
+void mdla_plat_up_init(void);
+
 #endif /* __MDLA_PLAT_API_H__ */

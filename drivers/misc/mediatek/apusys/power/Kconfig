@@ -1,0 +1,7 @@
+config MTK_APUSYS_SUPPORT
+	tristate "APUSYS Power Driver"
+	help
+	  Enable Mediatek APU_TOP mtcmos control.
+	  Support APU_TOP generic power domain multi-user use.
+	  APU RPC HW for power on/off flow control and
+	  execution in low level driver.

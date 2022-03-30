@@ -13,7 +13,6 @@
 #include <linux/debugfs.h>
 #include <linux/devfreq.h>
 #include <linux/of_address.h>
-#include <linux/io.h>
 
 #include "apu_io.h"
 #include "apu_dbg.h"
@@ -29,7 +28,7 @@
 DECLARE_DELAYED_WORK(pw_info_work, apupw_dbg_power_info);
 static char buffer[__LOG_BUF_LEN];
 static struct apu_dbg apupw_dbg = {
-	.log_lvl = VERBOSE_LVL,
+	.log_lvl = NO_LVL,
 };
 
 static inline void _apupw_separte(struct seq_file *s, char *separate)
@@ -130,33 +129,60 @@ INVALID:
 	return false;
 }
 
-static void _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
+static int _apupw_set_freq_range(struct apu_dev *ad, ulong min, ulong max)
 {
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
-	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
-#endif
+	int ret = 0;
 
-	pr_info("[%s] [%s] max/min %dMhz/%dMhz\n",
-		apu_dev_name(ad->dev), __func__, TOMHZ(max), TOMHZ(min));
-	mutex_lock_nested(&ad->df->lock, gov_data->depth);
-	dev_pm_qos_update_request(&ad->df->user_max_freq_req, max);
-	dev_pm_qos_update_request(&ad->df->user_min_freq_req, min);
-	mutex_unlock(&ad->df->lock);
+	/*
+	 * Protect against theoretical sysfs writes between
+	 * device_add and dev_pm_qos_add_request
+	 */
+	if (!dev_pm_qos_request_active(&ad->df->user_max_freq_req))
+		return -EINVAL;
+	if (!dev_pm_qos_request_active(&ad->df->user_min_freq_req))
+		return -EAGAIN;
+
+	/* Change qos min freq to fix freq */
+	ret = dev_pm_qos_update_request(&ad->df->user_min_freq_req, min);
+	if (ret < 0)
+		return ret;
+
+	/* Change qos max freq to fix freq and input min/mas are Khz already */
+	ret = dev_pm_qos_update_request(&ad->df->user_max_freq_req, max);
+	pr_info("[%s] [%s] max/min %luMhz/%luMhz, ret = %d\n",
+		apu_dev_name(ad->dev), __func__, TOKHZ(max), TOKHZ(min), ret);
+
+	return ret;
 }
 
-static void _apupw_default_freq_range(struct apu_dev *ad)
+static int _apupw_default_freq_range(struct apu_dev *ad)
 {
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
-	struct apu_gov_data *gov_data = (struct apu_gov_data *)ad->df->data;
-#endif
+	int ret = 0;
 
-	pr_info("[%s] [%s]\n", apu_dev_name(ad->dev), __func__);
-	mutex_lock_nested(&ad->df->lock, gov_data->depth);
-	dev_pm_qos_update_request(&ad->df->user_max_freq_req,
-			ad->df->scaling_max_freq);
-	dev_pm_qos_update_request(&ad->df->user_min_freq_req,
-			ad->df->scaling_min_freq);
-	mutex_unlock(&ad->df->lock);
+	/*
+	 * Protect against theoretical sysfs writes between
+	 * device_add and dev_pm_qos_add_request
+	 */
+	if (!dev_pm_qos_request_active(&ad->df->user_max_freq_req))
+		return -EINVAL;
+	if (!dev_pm_qos_request_active(&ad->df->user_min_freq_req))
+		return -EAGAIN;
+
+	/* Change qos min freq to fix freq */
+	ret = dev_pm_qos_update_request(&ad->df->user_min_freq_req,
+					TOKHZ(ad->df->scaling_min_freq));
+	if (ret < 0)
+		return ret;
+
+	/* Change qos max freq to fix freq */
+	ret = dev_pm_qos_update_request(&ad->df->user_max_freq_req,
+					TOKHZ(ad->df->scaling_max_freq));
+	pr_info("[%s] [%s] restore default max/min %luMhz/%luMhz, ret = %d\n",
+		apu_dev_name(ad->dev), __func__,
+		TOMHZ(ad->df->scaling_max_freq),
+		TOMHZ(ad->df->scaling_min_freq), ret);
+
+	return ret;
 }
 
 enum LOG_LEVEL apupw_dbg_get_loglvl(void)
@@ -188,6 +214,9 @@ void apupw_dbg_power_info(struct work_struct *work)
 
 	memset(buffer, 0, sizeof(buffer));
 	n_pos = snprintf(buffer, LOG_LEN, "APUPWR v[");
+	if (n_pos <= 0)
+		goto out;
+
 	list_for_each_entry_reverse(dbg_reg, &apupw_dbg.reg_list, node)
 		n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
 				"%u,", TOMV(regulator_get_voltage(dbg_reg->reg)));
@@ -200,7 +229,7 @@ void apupw_dbg_power_info(struct work_struct *work)
 				"%u,", TOMHZ(clk_get_rate(dbg_clk->clk)));
 
 	n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
-			"]r[%x,%x,", apu_spm_wakeup_value(), apu_rpc_rdy_value());
+			"]r[%lx,%lx,", apu_spm_wakeup_value(), apu_rpc_rdy_value());
 
 	list_for_each_entry_reverse(dbg_cg, &apupw_dbg.cg_list, node)
 		n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos),
@@ -209,6 +238,7 @@ void apupw_dbg_power_info(struct work_struct *work)
 	n_pos += snprintf((buffer + n_pos), (LOG_LEN - n_pos), "]");
 
 	pr_info("%s", buffer);
+out:
 	if (apupw_dbg.poll_interval)
 		queue_delayed_work(pm_wq, &pw_info_work,
 			msecs_to_jiffies(apupw_dbg.poll_interval));
@@ -399,6 +429,7 @@ static int apupw_dbg_power_stress(int type, int device, int opp)
 			for (id = 0 ; id < APUSYS_POWER_USER_NUM ; id++) {
 				if (IS_ERR_OR_NULL(apu_find_device(id)) || id == APUCB)
 					continue;
+
 				/*
 				 * if vcore adopt user devine governor,
 				 * it may not activate update_devfreq
@@ -495,6 +526,7 @@ static int apupw_dbg_dvfs(u8 param, int argc, int *args)
 {
 	enum DVFS_USER user;
 	struct apu_dev *ad = NULL;
+	int ret = 0;
 
 	pr_info("[%s] @@test%d lock opp=%d\n", __func__, argc, (int)(args[0]));
 	for (user = MDLA; user < APUSYS_POWER_USER_NUM; user++) {
@@ -502,13 +534,17 @@ static int apupw_dbg_dvfs(u8 param, int argc, int *args)
 		if (!ad)
 			continue;
 		if (args[0] >= 0)
-			_apupw_set_freq_range(ad, apu_opp2freq(ad, args[0]),
-				apu_opp2freq(ad, args[0]));
+			ret = _apupw_set_freq_range(ad, TOKHZ(apu_opp2freq(ad, args[0])),
+						    TOKHZ(apu_opp2freq(ad, args[0])));
 		else
-			_apupw_default_freq_range(ad);
+			ret = _apupw_default_freq_range(ad);
 	}
 
-	return 0;
+	/* only ret < 0 is fail, since dev_pm_qos_update_request will return 1 when pass */
+	if (ret < 0)
+		pr_info("[%s] @@test%d lock opp=%d fail, ret %d\n",
+			__func__, argc, (int)(args[0]), ret);
+	return ret;
 }
 
 static int apupw_dbg_dump_table(struct seq_file *s)
@@ -543,7 +579,7 @@ static int apupw_dbg_dump_table(struct seq_file *s)
 			volt = dev_pm_opp_get_voltage(opp);
 			dev_pm_opp_put(opp);
 			len += snprintf((info + len), (sizeof(info) - len),
-					"%3dMhz(%3dmv) [%d/%3d]|", TOMHZ(freq), TOMV(volt),
+					"%3luMhz(%3lumv) [%d/%3d]|", TOMHZ(freq), TOMV(volt),
 					apu_freq2opp(ad, freq), apu_freq2boost(ad, freq));
 			freq += 1;
 		} while (1);
@@ -572,12 +608,12 @@ static int apupw_dbg_dump_stat(struct seq_file *s)
 
 	seq_printf(s, "[%5lu.%06lu]\n|curr|", (ulong)time, rem_nsec / 1000);
 	list_for_each_entry_reverse(dbg_clk, &apupw_dbg.clk_list, node)
-		seq_printf(s, "%*s|", 5, dbg_clk->name);
+		seq_printf(s, "%s|", 5, dbg_clk->name);
 	seq_puts(s, "\n");
 
 	seq_puts(s, "|freq|");
 	list_for_each_entry_reverse(dbg_clk, &apupw_dbg.clk_list, node)
-		seq_printf(s, "%*d|", 5, TOMHZ(clk_get_rate(dbg_clk->clk)));
+		seq_printf(s, "%lu|", 5, TOMHZ(clk_get_rate(dbg_clk->clk)));
 	seq_puts(s, "\n");
 
 	seq_puts(s, "|clk |");
@@ -586,9 +622,9 @@ static int apupw_dbg_dump_stat(struct seq_file *s)
 	seq_puts(s, "\n(unit: MHz)\n\n");
 
 	list_for_each_entry_reverse(dbg_reg, &apupw_dbg.reg_list, node)
-		seq_printf(s, "%s:%d(mV), ", dbg_reg->name,
+		seq_printf(s, "%s:%lu(mV), ", dbg_reg->name,
 			   TOMV(regulator_get_voltage(dbg_reg->reg)));
-	seq_printf(s, "\n\nrpc_intf_rdy:0x%x, spm_wakeup:0x%x\n",
+	seq_printf(s, "\n\nrpc_intf_rdy:0x%lx, spm_wakeup:0x%lx\n",
 		   apu_rpc_rdy_value(), apu_spm_wakeup_value());
 	list_for_each_entry_reverse(dbg_cg, &apupw_dbg.cg_list, node)
 		seq_printf(s, "%s:0x%x, ", dbg_cg->name, apu_readl(dbg_cg->reg));
@@ -654,11 +690,11 @@ static int apupw_dbg_set_parameter(u8 param, int argc, int *args)
 			goto out;
 		}
 		if (param == POWER_PARAM_SET_POWER_HAL_OPP)
-			_apupw_set_freq_range(ad, apu_opp2freq(ad, args[2]),
-				apu_opp2freq(ad, args[1]));
+			ret = _apupw_set_freq_range(ad, apu_opp2freq(ad, args[2]),
+						    apu_opp2freq(ad, args[1]));
 		else if (param == POWER_HAL_CTL)
-			_apupw_set_freq_range(ad, apu_boost2freq(ad, args[2]),
-				apu_boost2freq(ad, args[1]));
+			ret = _apupw_set_freq_range(ad, apu_boost2freq(ad, args[2]),
+						    apu_boost2freq(ad, args[1]));
 		break;
 	case POWER_PARAM_POWER_STRESS:
 		/*
@@ -684,13 +720,12 @@ out:
 	return ret;
 }
 
-#define MAX_ARG 5
 static ssize_t apupw_dbg_write(struct file *flip, const char __user *buffer,
 			       size_t count, loff_t *f_pos)
 {
+#define MAX_ARG 5
 	char *tmp, *token, *cursor;
 	int ret, i, param;
-	const int max_arg = MAX_ARG;
 	unsigned int args[MAX_ARG];
 
 	tmp = kzalloc(count + 1, GFP_KERNEL);
@@ -730,7 +765,7 @@ static ssize_t apupw_dbg_write(struct file *flip, const char __user *buffer,
 	}
 
 	/* parse arguments */
-	for (i = 0; i < max_arg && (token = strsep(&cursor, " ")); i++) {
+	for (i = 0; i < MAX_ARG && (token = strsep(&cursor, " ")); i++) {
 		ret = kstrtoint(token, 10, &args[i]);
 		if (ret) {
 			pr_info("fail to parse args[%d](%s)", i, token);
@@ -773,7 +808,7 @@ int apupw_dbg_register_nodes(struct device *dev)
 		reg = regulator_get_optional(dev, name);
 		if (IS_ERR_OR_NULL(reg)) {
 			ret = PTR_ERR(reg);
-			apower_err(dev, "[%s] voltage fail, ret = %d\n", ret);
+			apower_err(dev, "Get [%s] voltage node fail, ret = %d\n", name, ret);
 			goto out;
 		}
 
@@ -787,7 +822,7 @@ int apupw_dbg_register_nodes(struct device *dev)
 		clk = clk_get(dev, name);
 		if (IS_ERR_OR_NULL(clk)) {
 			ret = PTR_ERR(clk);
-			apower_err(dev, "[%s] clock fail, ret = %d\n", ret);
+			apower_err(dev, "Get [%s] clock node fail, ret = %d\n", name, ret);
 			goto out;
 		}
 
@@ -802,7 +837,7 @@ int apupw_dbg_register_nodes(struct device *dev)
 		paddr = of_get_property(dev->of_node, "cgs", &psize);
 		if (!paddr) {
 			ret = -EINVAL;
-			apower_err(dev, "[%s] cg fail, ret = %d\n", ret);
+			apower_err(dev, "Get [%s] cg node fail, ret = %d\n", name, ret);
 			goto out;
 		}
 		psize /= 4;
@@ -835,7 +870,7 @@ void apupw_dbg_release_nodes(void)
 }
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
-int apu_power_drv_init(struct apusys_core_info *info)
+int apupw_dbg_init(struct apusys_core_info *info)
 {
 	/* creating apupw directory */
 	apupw_dbg.dir = debugfs_create_dir("apupwr", info->dbg_root);
@@ -862,16 +897,14 @@ out:
 	return 0;
 }
 
-void apu_power_drv_exit(void)
+void apupw_dbg_exit(void)
 {
 	debugfs_remove(apupw_dbg.sym_link);
 	debugfs_remove(apupw_dbg.file);
 	debugfs_remove(apupw_dbg.dir);
 }
 #else
-int apu_power_drv_init(struct apusys_core_info *info) { return 0; }
-void apu_power_drv_exit(void) {}
+int apupw_dbg_init(struct apusys_core_info *info) { return 0; }
+void apupw_dbg_exit(void) {}
 #endif
-EXPORT_SYMBOL(apu_power_drv_init);
-EXPORT_SYMBOL(apu_power_drv_exit);
 

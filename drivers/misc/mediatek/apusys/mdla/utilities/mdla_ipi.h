@@ -8,6 +8,7 @@
 #include <linux/types.h>
 
 enum MDLA_IPI_TYPE_0 {
+	/* kernel to uP */
 	MDLA_IPI_PWR_TIME,
 	MDLA_IPI_TIMEOUT,
 	MDLA_IPI_ULOG,
@@ -15,41 +16,57 @@ enum MDLA_IPI_TYPE_0 {
 	MDLA_IPI_CMD_CHECK,
 	MDLA_IPI_PREEMPT_CNT,
 	MDLA_IPI_PMU_COUNT,
-	MDLA_IPI_FW_ADDR,
-	MDLA_IPI_PROFILE_ENABLE,
-	MDLA_IPI_RSV,
+	MDLA_IPI_ADDR,
+	MDLA_IPI_PROFILE_EN,
+	MDLA_IPI_FORCE_PWR_ON,
+	MDLA_IPI_DUMP_CMDBUF_EN,
+	MDLA_IPI_INFO,
+
+	/* uP to kernel */
+	MDLA_IPI_MICROP_MSG,
+
+	/* platform message */
+	MDLA_IPI_PLAT,
 
 	NF_MDLA_IPI_TYPE_0
 };
 
 
-#define DEFINE_IPI_DBGFS_ATTRIBUTE(name, TYPE_0, TYPE_1, fmt)		\
-static int name ## _set(void *data, u64 val)				\
-{									\
-	mdla_ipi_send(TYPE_0, TYPE_1, val);				\
-	*(u64 *)data = val;						\
-	return 0;							\
-}									\
-static int name ## _get(void *data, u64 *val)				\
-{									\
-	mdla_ipi_recv(TYPE_0, TYPE_1, val);				\
-	*(u64 *)data = *val;						\
-	return 0;							\
-}									\
-static int name ## _open(struct inode *i, struct file *f)		\
-{									\
-	__simple_attr_check_format(fmt, 0ull);				\
-	return simple_attr_open(i, f, name ## _get, name ## _set, fmt);	\
-}									\
-static const struct file_operations name ## _fops = {			\
-	.owner	 = THIS_MODULE,						\
-	.open	 = name ## _open,					\
-	.release = simple_attr_release,					\
-	.read	 = debugfs_attr_read,					\
-	.write	 = debugfs_attr_write,					\
-	.llseek  = no_llseek,						\
-}
+enum MDLA_IPI_ADDR_TYPE_1 {
+	MDLA_IPI_ADDR_BOOT,
+	MDLA_IPI_ADDR_MAIN,
+	MDLA_IPI_ADDR_DBG_DATA,
+	MDLA_IPI_ADDR_BACKUP_DATA,
 
+	MDLA_IPI_ADDR_BOOT_SZ,
+	MDLA_IPI_ADDR_MAIN_SZ,
+	MDLA_IPI_ADDR_DBG_DATA_SZ,
+	MDLA_IPI_ADDR_BACKUP_DATA_SZ,
+
+	NF_MDLA_IPI_ADDR_TYPE_1
+};
+
+
+enum MDLA_IPI_INFO_TYPE_1 {
+	MDLA_IPI_INFO_PWR,
+	MDLA_IPI_INFO_REG,
+	MDLA_IPI_INFO_CMDBUF,
+	MDLA_IPI_INFO_PROF,
+
+	NF_MDLA_IPI_INFO_TYPE_1
+};
+
+enum MDLA_IPI_MICROP_MSG_TYPE_1 {
+	MDLA_IPI_MICROP_MSG_TIMEOUT,
+	MDLA_IPI_MICROP_MSG_DBG_INFO,
+
+	NF_MDLA_IPI_MICROP_MSG_TYPE_1
+};
+
+enum MDLA_IPI_DIR_TYPE {
+	MDLA_IPI_READ,
+	MDLA_IPI_WRITE,
+};
 
 
 int mdla_ipi_send(int type_0, int type_1, u64 val);

@@ -468,7 +468,7 @@ static uint32_t vpu_init_dev_algo_preload_entry(
 	}
 
 	/* add new algo to the list */
-	addr = info->pAddr & 0xFFF00000; /* static alloc iova */
+	addr = info->start_addr & 0xFFFF0000; /* static alloc iova */
 	if (info->info)
 		size = info->info;  // already aligned at packing stage
 
@@ -481,8 +481,9 @@ static uint32_t vpu_init_dev_algo_preload_entry(
 
 	if (info->flag & 0x1 /* EXE_SEG */) {
 		vi = &alg->prog;
-		alg->a.entry_off = info->pAddr & 0xFFFF;
+		alg->a.entry_off = info->pAddr - addr;
 	} else {
+		size = 0;
 		vi = &dummy_iova;
 		pr_info("%s: vpu%d: unexpected segment: flags: %x\n",
 			__func__, vd->id, info->flag);
@@ -491,8 +492,10 @@ static uint32_t vpu_init_dev_algo_preload_entry(
 	mva = preload_iova_alloc(vd, vi, addr, size, info->off);
 	alg->a.mva = mva;
 
-	if (!alg->a.mva)
+	if (!alg->a.mva) {
+		vpu_alg_free(alg);
 		goto out;
+	}
 
 	alg->builtin = true;
 	list_add_tail(&alg->list, &al->a);
@@ -1024,6 +1027,8 @@ int vpu_init_dev_hw(struct platform_device *pdev, struct vpu_device *vd)
 	if (ret) {
 		pr_info("%s: %s: fail to init commands: %d\n",
 			__func__, vd->name, ret);
+		vpu_cmd_exit(vd);
+		free_irq(vd->irq_num, vd);
 		goto out;
 	}
 

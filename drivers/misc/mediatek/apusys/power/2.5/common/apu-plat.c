@@ -245,7 +245,7 @@ static void apu_regulator_uninit(struct apu_dev *ad)
 static int apu_devfreq_init(struct apu_dev *ad, struct devfreq_dev_profile *pf, void *data)
 {
 	struct apu_gov_data *pgov_data;
-	const char *gov_name;
+	const char *gov_name = NULL;
 	int err = 0;
 
 	pgov_data = apu_gov_init(ad->dev, pf, &gov_name);
@@ -255,7 +255,7 @@ static int apu_devfreq_init(struct apu_dev *ad, struct devfreq_dev_profile *pf, 
 	}
 
 	ad->df = devm_devfreq_add_device(ad->dev, pf, gov_name, pgov_data);
-	if (IS_ERR(ad->df)) {
+	if (IS_ERR_OR_NULL(ad->df)) {
 		err = PTR_ERR(ad->df);
 		goto out;
 	}
@@ -294,7 +294,7 @@ static int apu_misc_init(struct apu_dev *ad)
 		apu_get_recommend_freq_volt(ad->dev, &freq, &volt, 0);
 		opp = apu_freq2opp(ad, freq);
 		boost = apu_opp2boost(ad, opp);
-		aprobe_info(ad->dev, "[%s] opp/boost/freq/volt %d/%d/%u/%u\n",
+		aprobe_info(ad->dev, "[%s] opp/boost/freq/volt %d/%d/%lu/%lu\n",
 			    __func__, opp, boost, freq, volt);
 
 		if (opp != apu_volt2opp(ad, volt))
@@ -344,7 +344,7 @@ struct apu_plat_ops *apu_plat_get_ops(struct apu_dev *ad, const char *name)
 			return &apu_plat_driver[i];
 	}
 
-	aprobe_err(ad->dev, "[%s] not found platform ops \"%s\"\n", __func__);
+	aprobe_err(ad->dev, "[%s] not found platform ops \"%s\"\n", __func__, name);
 
 out:
 	return ERR_PTR(-ENOENT);

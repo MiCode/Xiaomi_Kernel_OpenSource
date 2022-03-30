@@ -47,7 +47,6 @@ void get_datas(struct apu_gov_data *gov_data, struct apu_gov_data **pgov_data,
 	if (dev)
 		*dev = pdev;
 }
-
 int apu_cmp(void *priv, const struct list_head *a, const struct list_head *b)
 {
 	struct apu_req *ta, *tb;
@@ -68,7 +67,6 @@ struct apu_gov_data *apu_gov_init(struct device *dev,
 		return ERR_PTR(-ENOMEM);
 
 	pgov_data->parent = devfreq_get_devfreq_by_phandle(dev, "devfreq", 0);
-
 	if (of_property_read_u32(dev->of_node, "depth", &pgov_data->depth))
 		goto free_passdata;
 	if (of_property_read_string(dev->of_node, "gov", gov_name))
@@ -119,11 +117,12 @@ void apu_dump_pe_gov(struct apu_dev *ad, struct list_head *head)
 
 	if (apupw_dbg_get_loglvl() >= VERBOSE_LVL) {
 		n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
-				   "[%s][pe_gov] head:", ad->name);
-		list_for_each_entry(ptr, head, list)
+			"[%s][pe_gov] head:", ad->name);
+		list_for_each_entry(ptr, head, list) {
 			n_pos += scnprintf(buffer + n_pos, (sizeof(buffer) - n_pos),
-					   "->%s[%d]",
-					   apu_dev_name(ptr->dev), ptr->value);
+					"->%s[%d]",
+					apu_dev_name(ptr->dev), ptr->value);
+		}
 		pr_info("%s", buffer);
 	}
 }

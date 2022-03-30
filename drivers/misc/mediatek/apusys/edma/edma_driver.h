@@ -9,6 +9,7 @@
 
 #include "apusys_device.h"
 #include <linux/cdev.h>
+#include "apusys_core.h"
 
 #define DEBUG
 
@@ -36,6 +37,7 @@ struct edma_sub {
 	struct apusys_device adev;
 	u32 sub;
 	struct edma_device *edma_device;
+	spinlock_t reg_lock;
 
 	void __iomem *base_addr;
 
@@ -52,6 +54,7 @@ struct edma_sub {
 
 	u8 sub_name[EDMA_SUB_NAME_SIZE];
 	uint32_t ip_time;
+	unsigned int dbg_portID;
 };
 
 struct edma_device {
@@ -170,5 +173,7 @@ struct edma_ext {
 
 //long edma_ioctl(struct file *flip, unsigned int cmd, unsigned long arg);
 int edma_initialize(struct edma_device *edma_device);
+
+int edma_rv_setup(struct apusys_core_info *info);
 
 #endif /* __EDMA_DRIVER_H__ */

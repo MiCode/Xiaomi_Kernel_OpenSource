@@ -459,7 +459,6 @@ static struct apu_regulator mt688xvsram = {
 		.settling_time = 8,
 		.settling_time_up = 10000,
 		.settling_time_down = 5000,
-		.always_on = 1,
 	},
 	.def_volt = 750000,
 	.shut_volt = 750000,
@@ -494,7 +493,6 @@ static struct apu_regulator mt688xvvpu = {
 		.settling_time = 8,
 		.settling_time_up = 10000,
 		.settling_time_down = 5000,
-		.always_on = 1,
 	},
 };
 

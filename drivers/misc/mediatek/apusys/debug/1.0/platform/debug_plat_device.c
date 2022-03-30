@@ -9,9 +9,6 @@
 #include "debug_platform.h"
 
 static struct debug_plat_drv mt6853_drv = {
-	.reg_dump  = reg_dump_implement,
-	.dump_show = dump_show_implement,
-
 	.platform_idx = 0,
 	.apusys_base			= APUSYS_BASE,
 	.apusys_reg_size		= APUSYS_REG_SIZE,
@@ -19,9 +16,6 @@ static struct debug_plat_drv mt6853_drv = {
 };
 
 static struct debug_plat_drv mt6873_drv = {
-	.reg_dump  = reg_dump_implement,
-	.dump_show = dump_show_implement,
-
 	.platform_idx = 1,
 	.apusys_base			= APUSYS_BASE,
 	.apusys_reg_size		= APUSYS_REG_SIZE,
@@ -29,9 +23,6 @@ static struct debug_plat_drv mt6873_drv = {
 };
 
 static struct debug_plat_drv mt6885_drv = {
-	.reg_dump  = reg_dump_implement,
-	.dump_show = dump_show_implement,
-
 	.platform_idx = 2,
 	.apusys_base			= APUSYS_BASE,
 	.apusys_reg_size		= APUSYS_REG_SIZE,

@@ -119,7 +119,7 @@ struct ioctl_run_cmd_sync {
 };
 
 struct ioctl_perf {
-	int32_t handle;
+	uint32_t handle;
 	uint32_t interface;
 	uint32_t event;
 	uint32_t counter;

@@ -6,6 +6,7 @@
 #define __APUSYS_MNOC_DRV_H__
 
 #include "mnoc_plat_internal.h"
+#include "apusys_core.h"
 
 
 /* struct for put mnoc relate information, such as qos, pmu, register, etc.
@@ -67,6 +68,8 @@ extern bool mnoc_reg_valid;
 extern int mnoc_log_level;
 
 extern struct mnoc_plat_drv mnoc_drv;
+
+int mnoc_rv_setup(struct apusys_core_info *info);
 
 
 #endif

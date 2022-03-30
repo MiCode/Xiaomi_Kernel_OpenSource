@@ -22,8 +22,7 @@
 
 static void vpu_iova_free(struct device *dev, struct vpu_iova *i);
 
-static int vpu_iova_cmp(void *priv, const struct list_head *a,
-		const struct list_head *b)
+static int vpu_iova_cmp(void *priv, const struct list_head *a, const struct list_head *b)
 {
 	struct vpu_iova *ia, *ib;
 
@@ -157,7 +156,7 @@ vpu_mem_alloc(struct device *dev,
 {
 	int ret = 0;
 	void *kva;
-	dma_addr_t iova;
+	dma_addr_t iova = 0;
 	struct vpu_config *cfg = vpu_drv->vp->cfg;
 	struct vpu_mem_ops *mops = vpu_drv->vp->mops;
 
@@ -196,6 +195,7 @@ vpu_mem_alloc(struct device *dev,
 
 	goto out;
 error:
+	i->iova = iova;
 	kvfree(kva);
 out:
 	return ret;
@@ -431,6 +431,7 @@ static dma_addr_t vpu_iova_alloc(struct device *dev,
 	i->m.va = 0;
 	i->m.pa = 0;
 	i->m.length = 0;
+	INIT_LIST_HEAD(&i->list);
 
 	/* allocate kvm and map */
 	if (i->bin == VPU_MEM_ALLOC) {
@@ -451,6 +452,12 @@ static dma_addr_t vpu_iova_alloc(struct device *dev,
 
 	vpu_mem_debug("%s: %s: iova: 0x%llx, size: %x\n",
 		__func__, vd->name, i->iova, i->size);
+
+	if (!iova) {
+		i->iova = (uint64_t)iova;
+		goto out;
+	}
+
 	mutex_lock(&vpu_drv->vi_lock);
 	i->time = sched_clock();
 	list_add_tail(&i->list, &vpu_drv->vi);
@@ -505,7 +512,7 @@ static void vpu_iova_free(struct device *dev, struct vpu_iova *i)
 	/* skip, if already deleted by .exit() */
 	if (i->time) {
 		mutex_lock(&vpu_drv->vi_lock);
-		list_del(&i->list);
+		list_del_init(&i->list);
 		i->time = 0;
 		mutex_unlock(&vpu_drv->vi_lock);
 	}

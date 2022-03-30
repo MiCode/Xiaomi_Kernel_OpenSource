@@ -19,6 +19,7 @@ struct vpu_device;
 
 /* Command */
 #define VPU_CMD_SIZE  (0x2000)
+#define VPU_CMD_BUF_NUM (1)
 
 /* Image Layout */
 #define VPU_IMG_LEGACY  (0)

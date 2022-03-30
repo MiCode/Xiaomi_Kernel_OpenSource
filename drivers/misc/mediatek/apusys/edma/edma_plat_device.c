@@ -15,12 +15,25 @@ static struct edma_plat_drv edma_v20_drv = {
 	.edma_isr         = edma_isr_handler,
 	.cmd_timeout_ms     = 3000,
 	.delay_power_off_ms   = 2000,
+	.version           = 20,
+};
+
+
+static struct edma_plat_drv edma_v30_drv = {
+	.exe_sub           = edma_exe_v30,
+	.prt_error		   = printV30_error_status,
+	.edma_isr         = edmaV30_isr_handler,
+	.cmd_timeout_ms     = 3000,
+	.delay_power_off_ms   = 2000,
+	.version           = 35,
 };
 
 
 
 static const struct of_device_id mtk_edma_sub_of_ids[] = {
+	{.compatible = "mtk,edma-sub", .data = &edma_v20_drv},
 	{.compatible = "mtk,edma-sub-v20", .data = &edma_v20_drv},
+	{.compatible = "mtk,edma-sub-v30", .data = &edma_v30_drv},
 	{}
 };
 

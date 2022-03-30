@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-1.0
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -174,6 +174,15 @@ static int mdla_plat_post_cmd_handle(u32 core_id, struct command_entry *ce)
 
 	return 0;
 }
+
+static int mdla_plat_post_cmd_handle_sched(u32 core_id, struct command_entry *ce)
+{
+	ce->req_start_t = mdla_prof_get_ts(core_id, TS_HW_FIRST_TRIGGER);
+	ce->req_end_t = mdla_prof_get_ts(core_id, TS_HW_LAST_INTR);
+
+	return 0;
+}
+
 
 static int mdla_plat_wait_cmd_handle(u32 core_id, struct command_entry *ce)
 {
@@ -656,8 +665,6 @@ static void mdla_v2_0_reset(u32 core_id, const char *str)
 	io->cmde.write(core_id, MREG_TOP_ENG0, mdla_dbg_read_u32(FS_CFG_ENG0));
 	io->cmde.write(core_id, MREG_TOP_ENG1, mdla_dbg_read_u32(FS_CFG_ENG1));
 	io->cmde.write(core_id, MREG_TOP_ENG2, mdla_dbg_read_u32(FS_CFG_ENG2));
-
-	/* TODO, 0x0 after verification */
 	io->cmde.write(core_id, MREG_TOP_ENG11, mdla_dbg_read_u32(FS_CFG_ENG11));
 
 	if (mdla_plat_iommu_enable()) {
@@ -711,11 +718,18 @@ int mdla_v2_0_init(struct platform_device *pdev)
 
 	if (mdla_plat_sw_preemption_support()) {
 		cmd_cb->pre_cmd_handle          = mdla_plat_pre_cmd_handle_sw_sched;
+		cmd_cb->post_cmd_handle         = mdla_plat_post_cmd_handle_sched;
 		cmd_cb->wait_cmd_handle         = mdla_plat_wait_cmd_handle;
 		cmd_cb->process_command         = mdla_plat_process_command_in_batch;
 		cmd_cb->process_command_no_lock = mdla_plat_process_command_in_batch_no_lock;
+	} else if (mdla_plat_hw_preemption_support()) {
+		cmd_cb->pre_cmd_handle          = mdla_plat_pre_cmd_handle;
+		cmd_cb->post_cmd_handle         = mdla_plat_post_cmd_handle_sched;
+		cmd_cb->process_command         = mdla_plat_process_command;
+		cmd_cb->process_command_no_lock = mdla_plat_process_command_no_lock;
 	} else {
 		cmd_cb->pre_cmd_handle          = mdla_plat_pre_cmd_handle;
+		cmd_cb->post_cmd_handle         = mdla_plat_post_cmd_handle;
 		cmd_cb->process_command         = mdla_plat_process_command;
 		cmd_cb->process_command_no_lock = mdla_plat_process_command_no_lock;
 	}

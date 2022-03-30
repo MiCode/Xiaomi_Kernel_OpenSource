@@ -44,8 +44,7 @@ static int update_parent(struct apu_gov_data *gov_data)
 	int ret = 0;
 	struct apu_dev *ad = NULL;
 	struct apu_gov_data *parent_gov = NULL;
-	struct apu_req *req = NULL;
-	struct apu_req *req_parent = NULL;
+	struct apu_req *req = NULL, *req_parent = NULL;
 
 	get_datas(gov_data, &parent_gov, &ad, NULL);
 

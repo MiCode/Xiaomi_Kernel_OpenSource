@@ -109,173 +109,102 @@ void vpu_seq_time(struct seq_file *s, uint64_t t)
 		(unsigned long)nsec/1000);
 }
 
-static int vpu_debug_algo_entry(struct seq_file *s,
-	struct vpu_algo_list *al, struct __vpu_algo *alg)
+int vpu_debug_state_seq(struct seq_file *s, uint32_t vs, uint32_t ds, int b)
 {
-	if (!alg)
-		return -ENOENT;
-
-	if (!al || !al->ops || !al->ops->get || !al->ops->put)
-		goto out;
-
-	al->ops->get(al, NULL, alg);
-	seq_printf(s, "[%s: prog: 0x%llx/0x%x, iram: 0x%llx/0x%x, entry: 0x%x, ref: %d, builtin: %d]\n",
-		alg->a.name, alg->a.mva, alg->a.len,
-		alg->a.iram_mva, alg->a.iram_len, alg->a.entry_off,
-		kref_read(&alg->ref), alg->builtin);
-	al->ops->put(alg);
-out:
-	return 0;
-}
-
-static int vpu_debug_algo_list(struct seq_file *s, struct vpu_algo_list *al)
-{
-	struct __vpu_algo *alg;
-	int ret;
-	struct list_head *ptr, *tmp;
-
-	if (!al)
-		return -ENOENT;
-
-	seq_printf(s, "\n<%s Algorithms>\n", al->name);
-	list_for_each_safe(ptr, tmp, &al->a) {
-		alg = list_entry(ptr, struct __vpu_algo, list);
-		ret = vpu_debug_algo_entry(s, al, alg);
-		if (ret)
-			break;
-	}
-	return ret;
-}
-
-static int vpu_debug_algo(struct seq_file *s)
-{
-	struct vpu_device *vd;
+	int i, j;
 
 	if (!s)
 		return -ENOENT;
 
-	vd = (struct vpu_device *) s->private;
-	if (!vd)
-		return -ENODEV;
+	for (i = 0; vs_str[i].n && (vs != vs_str[i].t); i++)
+		;
+	seq_printf(s, "driver state: %d (%s)\n", vs,
+		vs_str[i].n ? vs_str[i].n : "unknown");
 
-	vpu_debug_algo_list(s, &vd->aln);
-
-	if (bin_type(vd) == VPU_IMG_PRELOAD)
-		vpu_debug_algo_list(s, &vd->alp);
-
-	return 0;
-}
-
-static void *vpu_mesg_pa_to_va(struct vpu_mem *work_buf, unsigned int phys_addr)
-{
-	unsigned long ret = 0;
-	int offset = 0;
-
-	if (!phys_addr)
-		return NULL;
-
-	offset = phys_addr - work_buf->pa;
-	ret = work_buf->va + offset;
-
-	return (void *)(ret);
-}
-
-static void vpu_mesg_clr(struct vpu_device *vd)
-{
-	char *data = NULL;
-	struct vpu_message_ctrl *msg = vpu_mesg(vd);
-
-	if (!msg)
-		return;
-
-	data = (char *)vpu_mesg_pa_to_va(&vd->iova_work.m, msg->data);
-
-	msg->head = 0;
-	msg->tail = 0;
-
-	if (data)
-		memset(data, 0,
-		       vd->wb_log_data - sizeof(struct vpu_message_ctrl));
-}
-
-static int vpu_mesg_level_set(void *data, u64 val)
-{
-	struct vpu_message_ctrl *msg = NULL;
-	struct vpu_device *vd = data;
-	int level = (int)val;
-
-	if (!vd)
-		return -ENOENT;
-
-	if (!level) {
-		vpu_mesg_clr(vd);
-		return 0;
+	seq_printf(s, "device state: %xh: ", ds);
+	for (i = 0, j = 0; ds_str[i].n; i++) {
+		if (ds & ds_str[i].t)
+			seq_printf(s, "%s%s", j++ ? "," : "", ds_str[i].n);
 	}
-
-	if (level < -1 || level >= VPU_DBG_MSG_LEVEL_TOTAL) {
-		pr_info("val: %d\n", level);
-		return -ENOENT;
-	}
-
-	msg = vpu_mesg(vd);
-	if (!msg)
-		return -ENOENT;
-
-	if (level != -1)
-		msg->level_mask ^= (1 << level);
-	else
-		msg->level_mask = 0;
+	seq_puts(s, "\n");
+	seq_puts(s, "boost: ");
+	vpu_seq_boost(s, b);
+	seq_puts(s, "\n");
 	return 0;
 }
 
-static int vpu_mesg_level_get(void *data, u64 *val)
+static inline
+int vpu_debug_state_dev(struct seq_file *s, struct vpu_device *vd)
 {
-	struct vpu_message_ctrl *msg = vpu_mesg(data);
-
-	if (!msg)
-		return -ENOENT;
-	*val = msg->level_mask;
-	return 0;
+	return vpu_debug_state_seq(s, vd->state, vd->dev_state,
+		atomic_read(&vd->pw_boost));
 }
 
-int vpu_mesg_seq(struct seq_file *s, struct vpu_device *vd)
+/**
+ * vpu_debug_cmd_entry_seq -Show command control of given priority
+ *
+ * @s: pointer to seq_file
+ * @c: pointer to command control
+ * @prio: priority
+ *
+ * Returns the execution count of given priority.
+ */
+static uint64_t
+vpu_debug_cmd_entry_seq(struct seq_file *s, struct vpu_cmd_ctl *c, int prio)
 {
-	int i, wrap = false;
-	char *data = NULL;
-	struct vpu_message_ctrl *msg = vpu_mesg(vd);
+	unsigned int i;
 
-	if (!s || !msg)
-		return -ENOENT;
-
-	vd_mops(vd)->sync_for_cpu(vd->dev, &vd->iova_work);
-	data = (char *)vpu_mesg_pa_to_va(&vd->iova_work.m, msg->data);
-	i = msg->head;
-	do {
-		if (msg->head == msg->tail || i == msg->tail)
-			seq_printf(s, "%s", "<empty log>\n");
-		while (i != msg->tail && data) {
-			if (i > msg->tail && wrap)
-				break;
-
-			seq_printf(s, "%s", data + i);
-			i += strlen(data + i) + 1;
-
-			if (i >= msg->buf_size) {
-				i = 0;
-				wrap = true;
-			}
+	seq_printf(s, "priority %d: #%llu: ", prio, c->exe_cnt);
+	for (i = 0; vc_str[i].n; i++) {
+		if (c->cmd == vc_str[i].t) {
+			seq_printf(s, "%s: ", vc_str[i].n);
+			goto algo;
 		}
-	} while (0);
+	}
+	seq_printf(s, "(unknown cmd 0x%x): ", c->cmd);
+algo:
+	seq_printf(s, "algorithm: %s, boost: ",
+		c->alg ? c->alg->a.name : "(none)");
+	vpu_seq_boost(s, c->boost);
+	seq_puts(s, ", start: ");
+	vpu_seq_time(s, c->start_t);
+	seq_puts(s, ", end: ");
+	vpu_seq_time(s, c->end_t);
+	seq_printf(s, ", done: %d, result: 0x%x\n", c->done, c->result);
+
+	return c->exe_cnt;
+}
+
+int vpu_debug_cmd_seq(struct seq_file *s, struct vpu_device *vd, int prio,
+	int prio_max, int active, struct vpu_cmd_ctl *c, uint64_t timeout)
+{
+	int i;
+	uint64_t exe_cnt;
+	uint64_t preempt_cnt = 0;
+
+	seq_printf(s, "priority: current: %d (highest: %d)\n",
+		prio, prio_max - 1);
+	seq_printf(s, "timeout setting: %llu ms\n", timeout);
+	seq_printf(s, "number of active commands: %d\n", active);
+
+	if (prio_max > VPU_MAX_PRIORITY)
+		prio_max = VPU_MAX_PRIORITY;
+
+	for (i = 0; i < prio_max; i++) {
+		exe_cnt = vpu_debug_cmd_entry_seq(s, &c[i], i);
+		preempt_cnt += (i) ? exe_cnt : 0;
+	}
+	seq_printf(s, "preemption count: %llu\n", preempt_cnt);
 
 	return 0;
 }
 
-static int vpu_debug_mesg(struct seq_file *s)
+static inline
+int vpu_debug_cmd_dev(struct seq_file *s, struct vpu_device *vd)
 {
-	if (!s)
-		return -ENOENT;
-
-	return vpu_mesg_seq(s, (struct vpu_device *)s->private);
+	return vpu_debug_cmd_seq(s, vd, atomic_read(&vd->cmd_prio),
+		vd->cmd_prio_max, atomic_read(&vd->cmd_active),
+		vd->cmd, vd->cmd_timeout);
 }
 
 static int vpu_debug_reg_dev(struct seq_file *s, struct vpu_device *vd)
@@ -396,6 +325,86 @@ out:
 	return 0;
 }
 
+static char *vpu_debug_simple_write(const char __user *buffer, size_t count)
+{
+	char *buf;
+	int ret;
+
+	buf = kzalloc(count + 1, GFP_KERNEL);
+	if (!buf)
+		goto out;
+
+	ret = copy_from_user(buf, buffer, count);
+	if (ret) {
+		pr_info("%s: copy_from_user: ret=%d\n", __func__, ret);
+		kfree(buf);
+		buf = NULL;
+		goto out;
+	}
+
+	buf[count] = '\0';
+out:
+	return buf;
+}
+
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
+static int vpu_debug_algo_entry(struct seq_file *s,
+	struct vpu_algo_list *al, struct __vpu_algo *alg)
+{
+	if (!alg)
+		return -ENOENT;
+
+	if (!al || !al->ops || !al->ops->get || !al->ops->put)
+		goto out;
+
+	al->ops->get(al, NULL, alg);
+	seq_printf(s, "[%s: prog: 0x%llx/0x%x, iram: 0x%llx/0x%x, entry: 0x%x, ref: %d, builtin: %d]\n",
+		alg->a.name, alg->a.mva, alg->a.len,
+		alg->a.iram_mva, alg->a.iram_len, alg->a.entry_off,
+		kref_read(&alg->ref), alg->builtin);
+	al->ops->put(alg);
+out:
+	return 0;
+}
+
+static int vpu_debug_algo_list(struct seq_file *s, struct vpu_algo_list *al)
+{
+	struct __vpu_algo *alg;
+	int ret;
+	struct list_head *ptr, *tmp;
+
+	if (!al)
+		return -ENOENT;
+
+	seq_printf(s, "\n<%s Algorithms>\n", al->name);
+	list_for_each_safe(ptr, tmp, &al->a) {
+		alg = list_entry(ptr, struct __vpu_algo, list);
+		ret = vpu_debug_algo_entry(s, al, alg);
+		if (ret)
+			break;
+	}
+	return ret;
+}
+
+static int vpu_debug_algo(struct seq_file *s)
+{
+	struct vpu_device *vd;
+
+	if (!s)
+		return -ENOENT;
+
+	vd = (struct vpu_device *) s->private;
+	if (!vd)
+		return -ENODEV;
+
+	vpu_debug_algo_list(s, &vd->aln);
+
+	if (bin_type(vd) == VPU_IMG_PRELOAD)
+		vpu_debug_algo_list(s, &vd->alp);
+
+	return 0;
+}
+
 static int vpu_debug_reg(struct seq_file *s)
 {
 	if (!s)
@@ -449,59 +458,6 @@ static int vpu_debug_jtag_get(void *data, u64 *val)
 	return 0;
 }
 
-static char *vpu_debug_simple_write(const char __user *buffer, size_t count)
-{
-	char *buf;
-	int ret;
-
-	buf = kzalloc(count + 1, GFP_KERNEL);
-	if (!buf)
-		goto out;
-
-	ret = copy_from_user(buf, buffer, count);
-	if (ret) {
-		pr_info("%s: copy_from_user: ret=%d\n", __func__, ret);
-		kfree(buf);
-		buf = NULL;
-		goto out;
-	}
-
-	buf[count] = '\0';
-out:
-	return buf;
-}
-
-static int vpu_debug_vpu_memory(struct seq_file *s)
-{
-	vpu_debug_info(s);
-	seq_puts(s, "======== Tags ========\n");
-	apu_tags_seq(vpu_drv->tags, s);
-	vpu_dmp_seq(s);
-	return 0;
-}
-
-static ssize_t vpu_debug_vpu_memory_write(struct file *filp,
-	const char __user *buffer, size_t count, loff_t *f_pos)
-{
-	char *buf, *cmd, *cur;
-
-	pr_info("%s:\n", __func__);
-
-	buf = vpu_debug_simple_write(buffer, count);
-
-	if (!buf)
-		goto out;
-
-	cur = buf;
-	cmd = strsep(&cur, " \t\n");
-	if (!strcmp(cmd, "free"))
-		vpu_dmp_free_all();
-
-	kfree(buf);
-out:
-	return count;
-}
-
 static int vpu_debug_dump(struct seq_file *s)
 {
 	struct vpu_device *vd;
@@ -546,71 +502,202 @@ out:
 	return count;
 }
 
+static int vpu_debug_cmd(struct seq_file *s)
+{
+	if (!s || !s->private)
+		return -ENOENT;
+
+	return vpu_debug_cmd_dev(s, s->private);
+}
+
+static int vpu_debug_state(struct seq_file *s)
+{
+	if (!s || !s->private)
+		return -ENOENT;
+
+	return vpu_debug_state_dev(s, s->private);
+}
+#endif
+/* end of CONFIG_MTK_APUSYS_VPU_DEBUG */
+
+static void *vpu_mesg_pa_to_va(struct vpu_mem *work_buf, unsigned int phys_addr)
+{
+	unsigned long ret = 0;
+	int offset = 0;
+
+	if (!phys_addr)
+		return NULL;
+
+	offset = phys_addr - work_buf->pa;
+	ret = work_buf->va + offset;
+
+	return (void *)(ret);
+}
+
+static void vpu_mesg_clr(struct vpu_device *vd)
+{
+	char *data = NULL;
+	struct vpu_message_ctrl *msg = vpu_mesg(vd);
+
+	if (!msg)
+		return;
+
+	data = (char *)vpu_mesg_pa_to_va(&vd->iova_work.m, msg->data);
+
+	msg->head = 0;
+	msg->tail = 0;
+
+	if (data)
+		memset(data, 0,
+		       vd->wb_log_data - sizeof(struct vpu_message_ctrl));
+}
+
+int vpu_mesg_seq(struct seq_file *s, struct vpu_device *vd)
+{
+	int i, wrap = false;
+	char *data = NULL;
+	struct vpu_message_ctrl *msg = vpu_mesg(vd);
+
+	if (!s || !msg)
+		return -ENOENT;
+
+	vd_mops(vd)->sync_for_cpu(vd->dev, &vd->iova_work);
+	data = (char *)vpu_mesg_pa_to_va(&vd->iova_work.m, msg->data);
+	i = msg->head;
+	do {
+		if (msg->head == msg->tail || i == msg->tail)
+			seq_printf(s, "%s", "<empty log>\n");
+		while (i != msg->tail && data) {
+			if (i > msg->tail && wrap)
+				break;
+
+			seq_printf(s, "%s", data + i);
+			i += strlen(data + i) + 1;
+
+			if (i >= msg->buf_size) {
+				i = 0;
+				wrap = true;
+			}
+		}
+	} while (0);
+
+	return 0;
+}
+
+static int vpu_proc_vpu_memory(struct seq_file *s)
+{
+	vpu_debug_info(s);
+	seq_puts(s, "======== Tags ========\n");
+	apu_tags_seq(vpu_drv->tags, s);
+	vpu_dmp_seq(s);
+	return 0;
+}
+
+static ssize_t vpu_proc_vpu_memory_write(struct file *filp,
+	const char __user *buffer, size_t count, loff_t *f_pos)
+{
+	char *buf, *cmd, *cur;
+
+	pr_info("%s:\n", __func__);
+
+	buf = vpu_debug_simple_write(buffer, count);
+	if (!buf)
+		goto out;
+
+	cur = buf;
+	cmd = strsep(&cur, " \t\n");
+	if (!strcmp(cmd, "free"))
+		vpu_dmp_free_all();
+
+	kfree(buf);
+out:
+	return count;
+}
+
+static int vpu_proc_mesg(struct seq_file *s)
+{
+	if (!s)
+		return -ENOENT;
+
+	return vpu_mesg_seq(s, (struct vpu_device *)s->private);
+}
+
+static ssize_t vpu_proc_mesg_level_write(struct file *filp,
+	const char __user *buffer, size_t count, loff_t *f_pos)
+{
+	char *buf, *cmd, *cur;
+	struct vpu_device *vd;
+	struct vpu_message_ctrl *msg = NULL;
+	int level = 0;
+	int ret = 0;
+
+	if (!filp || !filp->f_inode)
+		goto out;
+
+	vd = (struct vpu_device *) PDE_DATA(filp->f_inode);
+	if (!vd)
+		goto out;
+
+	buf = vpu_debug_simple_write(buffer, count);
+	if (!buf)
+		goto out;
+
+	cur = buf;
+	cmd = strsep(&cur, " \t\n");
+	ret = kstrtoint(cmd, 10, &level);
+	if (ret)
+		goto free_buf;
+
+	if (!level) {
+		vpu_mesg_clr(vd);
+		goto free_buf;
+	}
+
+	if (level < -1 || level >= VPU_DBG_MSG_LEVEL_TOTAL) {
+		pr_info("val: %d\n", level);
+		goto free_buf;
+	}
+
+	msg = vpu_mesg(vd);
+	if (!msg)
+		goto free_buf;
+
+	if (level != -1)
+		msg->level_mask ^= (1 << level);
+	else
+		msg->level_mask = 0;
+
+free_buf:
+	kfree(buf);
+out:
+	return count;
+}
+
+static int vpu_proc_mesg_level(struct seq_file *s)
+{
+	struct vpu_device *vd;
+	struct vpu_message_ctrl *msg;
+
+	if (!s)
+		return -ENOENT;
+
+	vd = (struct vpu_device *) s->private;
+
+	msg = vpu_mesg(vd);
+	if (!msg)
+		return -ENOENT;
+
+	seq_printf(s, "%u\n", msg->level_mask);
+
+	return 0;
+}
+
 void vpu_seq_boost(struct seq_file *s, int boost)
 {
 	if (boost == VPU_PWR_NO_BOOST)
 		seq_puts(s, "unset");
 	else
 		seq_printf(s, "%d", boost);
-}
-
-/**
- * vpu_debug_cmd_entry_seq -Show command control of given priority
- *
- * @s: pointer to seq_file
- * @c: pointer to command control
- * @prio: priority
- *
- * Returns the execution count of given priority.
- */
-static uint64_t
-vpu_debug_cmd_entry_seq(struct seq_file *s, struct vpu_cmd_ctl *c, int prio)
-{
-	unsigned int i;
-
-	seq_printf(s, "priority %d: #%llu: ", prio, c->exe_cnt);
-	for (i = 0; vc_str[i].n; i++) {
-		if (c->cmd == vc_str[i].t) {
-			seq_printf(s, "%s: ", vc_str[i].n);
-			goto algo;
-		}
-	}
-	seq_printf(s, "(unknown cmd 0x%x): ", c->cmd);
-algo:
-	seq_printf(s, "algorithm: %s, boost: ",
-		c->alg ? c->alg->a.name : "(none)");
-	vpu_seq_boost(s, c->boost);
-	seq_puts(s, ", start: ");
-	vpu_seq_time(s, c->start_t);
-	seq_puts(s, ", end: ");
-	vpu_seq_time(s, c->end_t);
-	seq_printf(s, ", done: %d, result: 0x%x\n", c->done, c->result);
-
-	return c->exe_cnt;
-}
-
-int vpu_debug_cmd_seq(struct seq_file *s, struct vpu_device *vd, int prio,
-	int prio_max, int active, struct vpu_cmd_ctl *c, uint64_t timeout)
-{
-	int i;
-	uint64_t exe_cnt;
-	uint64_t preempt_cnt = 0;
-
-	seq_printf(s, "priority: current: %d (highest: %d)\n",
-		prio, prio_max - 1);
-	seq_printf(s, "timeout setting: %llu ms\n", timeout);
-	seq_printf(s, "number of active commands: %d\n", active);
-
-	if (prio_max > VPU_MAX_PRIORITY)
-		prio_max = VPU_MAX_PRIORITY;
-
-	for (i = 0; i < prio_max; i++) {
-		exe_cnt = vpu_debug_cmd_entry_seq(s, &c[i], i);
-		preempt_cnt += (i) ? exe_cnt : 0;
-	}
-	seq_printf(s, "preemption count: %llu\n", preempt_cnt);
-
-	return 0;
 }
 
 const char *vpu_debug_cmd_str(int cmd)
@@ -622,62 +709,6 @@ const char *vpu_debug_cmd_str(int cmd)
 			return vc_str[i].n;
 	}
 	return "(unknown)";
-}
-
-static inline
-int vpu_debug_cmd_dev(struct seq_file *s, struct vpu_device *vd)
-{
-	return vpu_debug_cmd_seq(s, vd, atomic_read(&vd->cmd_prio),
-		vd->cmd_prio_max, atomic_read(&vd->cmd_active),
-		vd->cmd, vd->cmd_timeout);
-}
-
-
-static int vpu_debug_cmd(struct seq_file *s)
-{
-	if (!s || !s->private)
-		return -ENOENT;
-
-	return vpu_debug_cmd_dev(s, s->private);
-}
-
-int vpu_debug_state_seq(struct seq_file *s, uint32_t vs, uint32_t ds, int b)
-{
-	int i, j;
-
-	if (!s)
-		return -ENOENT;
-
-	for (i = 0; vs_str[i].n && (vs != vs_str[i].t); i++)
-		;
-	seq_printf(s, "driver state: %d (%s)\n", vs,
-		vs_str[i].n ? vs_str[i].n : "unknown");
-
-	seq_printf(s, "device state: %xh: ", ds);
-	for (i = 0, j = 0; ds_str[i].n; i++) {
-		if (ds & ds_str[i].t)
-			seq_printf(s, "%s%s", j++ ? "," : "", ds_str[i].n);
-	}
-	seq_puts(s, "\n");
-	seq_puts(s, "boost: ");
-	vpu_seq_boost(s, b);
-	seq_puts(s, "\n");
-	return 0;
-}
-
-static inline
-int vpu_debug_state_dev(struct seq_file *s, struct vpu_device *vd)
-{
-	return vpu_debug_state_seq(s, vd->state, vd->dev_state,
-		atomic_read(&vd->pw_boost));
-}
-
-static int vpu_debug_state(struct seq_file *s)
-{
-	if (!s || !s->private)
-		return -ENOENT;
-
-	return vpu_debug_state_dev(s, s->private);
 }
 
 static int vpu_debug_iova_seq(struct seq_file *s,
@@ -789,6 +820,8 @@ static int vpu_debug_info(struct seq_file *s)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
+
 #define VPU_DEBUGFS_FOP_DEF(name) \
 static struct dentry *vpu_d##name; \
 static int vpu_debug_## name ##_show(struct seq_file *s, void *unused) \
@@ -823,9 +856,7 @@ static const struct file_operations vpu_debug_ ## name ## _fops = { \
 
 VPU_DEBUGFS_DEF(algo);
 VPU_DEBUGFS_RW_DEF(dump);
-VPU_DEBUGFS_DEF(mesg);
 VPU_DEBUGFS_DEF(reg);
-VPU_DEBUGFS_RW_DEF(vpu_memory);
 VPU_DEBUGFS_DEF(state);
 VPU_DEBUGFS_DEF(cmd);
 VPU_DEBUGFS_DEF(info);
@@ -835,10 +866,6 @@ VPU_DEBUGFS_DEF(info);
 static struct dentry *vpu_djtag;
 DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_jtag_fops, vpu_debug_jtag_get,
 			vpu_debug_jtag_set, "%lld\n");
-
-static struct dentry *vpu_dmesg_level;
-DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_mesg_level_fops, vpu_mesg_level_get,
-			vpu_mesg_level_set, "%lld\n");
 
 #define VPU_DEBUGFS_MDOE		0644
 
@@ -856,14 +883,101 @@ DEFINE_SIMPLE_ATTRIBUTE(vpu_debug_mesg_level_fops, vpu_mesg_level_get,
 	vpu_d##name->d_inode->i_private = vd; \
 }
 
+#endif
+/* end of CONFIG_MTK_APUSYS_VPU_DEBUG */
+
+#define VPU_PROCFS_FOP_DEF(name) \
+static struct proc_dir_entry *vpu_proc_entry_##name; \
+static int vpu_proc_## name ##_show(struct seq_file *s, void *unused) \
+{ \
+	vpu_proc_## name(s); \
+	return 0; \
+} \
+static int vpu_proc_## name ##_open(struct inode *inode, struct file *file) \
+{ \
+	return single_open(file, vpu_proc_ ## name ## _show, \
+		PDE_DATA(inode)); \
+} \
+
+#define VPU_PROCFS_DEF(name) \
+	VPU_PROCFS_FOP_DEF(name) \
+static const struct proc_ops vpu_proc_ ## name ## _ops = { \
+	.proc_open = vpu_proc_ ## name ## _open, \
+	.proc_read = seq_read, \
+	.proc_lseek = seq_lseek, \
+	.proc_release = single_release, \
+}
+
+#define VPU_PROCFS_RW_DEF(name) \
+	VPU_PROCFS_FOP_DEF(name) \
+static const struct proc_ops vpu_proc_ ## name ## _ops = { \
+	.proc_open = vpu_proc_ ## name ## _open, \
+	.proc_read = seq_read, \
+	.proc_write = vpu_proc_ ## name ## _write, \
+	.proc_lseek = seq_lseek, \
+	.proc_release = single_release, \
+}
+
+VPU_PROCFS_RW_DEF(vpu_memory);
+VPU_PROCFS_DEF(mesg);
+VPU_PROCFS_RW_DEF(mesg_level);
+
+#undef VPU_PROCFS_DEF
+#undef VPU_PROCFS_RW_DEF
+
+#define VPU_PROCFS_CREATE(name) \
+{ \
+	vpu_proc_entry_##name = proc_create_data(#name, 0440, \
+		proc_root, &vpu_proc_ ## name ## _ops, vd); \
+	if (IS_ERR_OR_NULL(vpu_proc_entry_##name)) { \
+		ret = PTR_ERR(vpu_proc_entry_##name); \
+		pr_info("%s: vpu%d: " #name "): %d\n", \
+			__func__, (vd) ? (vd->id) : 0, ret); \
+		goto out; \
+	} \
+}
+
+#define VPU_PROCFS_CREATE_RW(name) \
+{ \
+	vpu_proc_entry_##name = proc_create_data(#name, 0640, \
+		proc_root, &vpu_proc_ ## name ## _ops, vd); \
+	if (IS_ERR_OR_NULL(vpu_proc_entry_##name)) { \
+		ret = PTR_ERR(vpu_proc_entry_##name); \
+		pr_info("%s: vpu%d: " #name "): %d\n", \
+			__func__, (vd) ? (vd->id) : 0, ret); \
+		goto out; \
+	} \
+}
+
 int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 {
 	int ret = 0;
+	struct proc_dir_entry *proc_root;
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
 	struct dentry *droot;
+#endif
 
-	vd->droot = NULL;
+	vd->proc_root = NULL;
 	vpu_mesg_init(vd);
 	vpu_dmp_init(vd);
+
+	if (!vpu_drv->proc_root)
+		return -ENODEV;
+
+	proc_root = proc_mkdir(vd->name, vpu_drv->proc_root);
+	if (IS_ERR_OR_NULL(proc_root)) {
+		ret = PTR_ERR(proc_root);
+		pr_info("%s: failed to create procfs node: vpu/%s: %d\n",
+			__func__, vd->name, ret);
+		goto out;
+	}
+
+	vd->proc_root = proc_root;
+	VPU_PROCFS_CREATE(mesg);
+	VPU_PROCFS_CREATE_RW(mesg_level);
+
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
+	vd->droot = NULL;
 
 	if (!vpu_drv->droot)
 		return -ENODEV;
@@ -883,12 +997,11 @@ int vpu_init_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 
 	VPU_DEBUGFS_CREATE(algo);
 	VPU_DEBUGFS_CREATE(dump);
-	VPU_DEBUGFS_CREATE(mesg);
 	VPU_DEBUGFS_CREATE(reg);
 	VPU_DEBUGFS_CREATE(jtag);
-	VPU_DEBUGFS_CREATE(mesg_level);
 	VPU_DEBUGFS_CREATE(state);
 	VPU_DEBUGFS_CREATE(cmd);
+#endif
 
 out:
 	return ret;
@@ -896,20 +1009,45 @@ out:
 
 void vpu_exit_dev_debug(struct platform_device *pdev, struct vpu_device *vd)
 {
-	if (!vd || IS_ERR_OR_NULL(vd->droot))
+	if (!vd)
 		return;
 
-	debugfs_remove_recursive(vd->droot);
-	vd->droot = NULL;
+	if (!IS_ERR_OR_NULL(vd->proc_root)) {
+		remove_proc_subtree(vd->name, NULL);
+		vd->proc_root = NULL;
+	}
+
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
+	if (!IS_ERR_OR_NULL(vd->droot)) {
+		debugfs_remove_recursive(vd->droot);
+		vd->droot = NULL;
+	}
+#endif
+
 	vpu_dmp_exit(vd);
 }
 
 int vpu_init_debug(void)
 {
 	int ret = 0;
-	struct dentry *droot;
+	struct proc_dir_entry *proc_root;
 	struct vpu_device *vd = NULL;
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
+	struct dentry *droot;
+#endif
 
+	proc_root = proc_mkdir("vpu", NULL);
+	if (IS_ERR_OR_NULL(proc_root)) {
+		ret = PTR_ERR(proc_root);
+		pr_info("%s: fail to create procfs node: %d\n",
+			__func__, ret);
+		goto out;
+	}
+
+	vpu_drv->proc_root = proc_root;
+	VPU_PROCFS_CREATE_RW(vpu_memory);
+
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
 	droot = debugfs_create_dir("vpu", NULL);
 
 	if (IS_ERR_OR_NULL(droot)) {
@@ -923,20 +1061,31 @@ int vpu_init_debug(void)
 	vpu_klog = VPU_DBG_DRV;
 	debugfs_create_u32("klog", 0660, droot, &vpu_klog);
 
-	VPU_DEBUGFS_CREATE(vpu_memory);
 	VPU_DEBUGFS_CREATE(info);
+#endif
+
 out:
 	return ret;
 }
 
 #undef VPU_DEBUGFS_CREATE
+#undef VPU_PROCFS_CREATE
+#undef VPU_PROCFS_CREATE_RW
 
 void vpu_exit_debug(void)
 {
-	if (!vpu_drv || IS_ERR_OR_NULL(vpu_drv->droot))
+	if (!vpu_drv)
 		return;
 
-	debugfs_remove_recursive(vpu_drv->droot);
-	vpu_drv->droot = NULL;
-}
+	if (!IS_ERR_OR_NULL(vpu_drv->proc_root)) {
+		remove_proc_subtree("vpu", NULL);
+		vpu_drv->proc_root = NULL;
+	}
 
+#if IS_ENABLED(CONFIG_MTK_APUSYS_VPU_DEBUG)
+	if (!IS_ERR_OR_NULL(vpu_drv->droot)) {
+		debugfs_remove_recursive(vpu_drv->droot);
+		vpu_drv->droot = NULL;
+	}
+#endif
+}

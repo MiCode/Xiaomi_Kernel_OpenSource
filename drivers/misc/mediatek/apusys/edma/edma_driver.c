@@ -16,12 +16,12 @@
 #include <linux/cdev.h>
 #include <linux/kthread.h>
 #include <linux/timer.h>
+#include <linux/rpmsg.h>
 
 #include "edma_dbgfs.h"
 #include "edma_driver.h"
 #include "edma_cmd_hnd.h"
 #include "apusys_power.h"
-#include "apusys_core.h"
 #include "edma_plat_internal.h"
 
 #define EDMA_DEV_NAME		"edma"
@@ -129,25 +129,43 @@ int edma_send_cmd(int cmd, void *hnd, struct apusys_device *adev)
 	case APUSYS_CMD_SUSPEND:
 		return edma_power_off(edma_sub, 1);
 	case APUSYS_CMD_EXECUTE:{
-			struct apusys_cmd_hnd *cmd_hnd;
-			struct edma_ext *edma_ext;
+		struct apusys_cmd_handle *cmd_hnd;
+		struct edma_ext *edma_ext;
 
-			if (hnd == NULL)
-				break;
+		if (hnd == NULL)
+			break;
 
-			cmd_hnd = (struct apusys_cmd_hnd *)hnd;
-			if (cmd_hnd->kva == 0 ||
-				cmd_hnd->size != sizeof(struct edma_ext))
-				break;
-
-			edma_ext = (struct edma_ext *)cmd_hnd->kva;
-
-			result = edma_execute(edma_sub, edma_ext);
-
-			cmd_hnd->ip_time =  edma_sub->ip_time;
-
-			return result;
+		cmd_hnd = (struct apusys_cmd_handle *)hnd;
+		if (cmd_hnd->cmdbufs == 0) {
+			LOG_ERR("%s cmd_hnd->cmdbufs == 0 error\n", __func__);
+			break;
 		}
+
+		if (cmd_hnd->num_cmdbufs < 2) {
+			LOG_ERR("%s num_cmdbufs = %d error\n",
+				__func__, cmd_hnd->num_cmdbufs);
+			break;
+		}
+
+		if (cmd_hnd->cmdbufs[0].size != sizeof(struct edma_ext)) {
+			LOG_ERR("%s cmdHnd->cmdbufs[0].size = %d error\n",
+				__func__, cmd_hnd->cmdbufs[0].size);
+			break;
+		}
+		edma_ext = (struct edma_ext *)cmd_hnd->cmdbufs[0].kva;
+
+		edma_ext->reg_addr = (u32)apusys_mem_query_iova((uint64_t)cmd_hnd->cmdbufs[1].kva);
+
+		LOG_INF("%s cmdbufs[1].kva = 0x%x\n", __func__, cmd_hnd->cmdbufs[1].kva);
+
+		LOG_INF("%s edma_ext.reg_addr = 0x%x\n", __func__, edma_ext->reg_addr);
+
+		result = edma_execute(edma_sub, edma_ext);
+
+		cmd_hnd->ip_time =  edma_sub->ip_time;
+
+		return result;
+	}
 	case APUSYS_CMD_PREEMPT:
 		return result;
 	default:
@@ -177,6 +195,8 @@ static int mtk_edma_sub_probe(struct platform_device *pdev)
 	}
 
 	edma_sub->plat_drv = of_device_get_match_data(&pdev->dev);
+	spin_lock_init(&edma_sub->reg_lock);
+	edma_sub->dbg_portID = 5;
 
 	if (edma_sub->plat_drv == NULL) {
 		dev_notice(dev, "cannot get plat_drv\n");
@@ -187,7 +207,6 @@ static int mtk_edma_sub_probe(struct platform_device *pdev)
 
 	/* interrupt resource */
 	irq = platform_get_irq(pdev, 0);
-
 	if (irq < 0)
 		return irq;
 
@@ -227,6 +246,8 @@ static int edma_setup_resource(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct device_node *sub_node;
 	struct platform_device *sub_pdev;
+	struct edma_plat_drv *drv;
+
 	int i, ret;
 
 	ret = of_property_read_u32(dev->of_node, "sub_nr",
@@ -271,6 +292,13 @@ static int edma_setup_resource(struct platform_device *pdev,
 		edma_sub->adev.private = edma_sub;
 		edma_sub->adev.send_cmd = edma_send_cmd;
 		edma_sub->adev.idx = i;
+
+		drv = (struct edma_plat_drv *)edma_sub->plat_drv;
+		if (drv != NULL) {
+			edma_sub->adev.meta_data[0] = drv->version;
+			dev_notice(dev, "drv->version = %d\n",
+						drv->version);
+		}
 		ret = apusys_register_device(&edma_sub->adev);
 		if (ret) {
 			dev_notice(dev,
@@ -382,6 +410,8 @@ int edma_init(struct apusys_core_info *info)
 	int ret = 0;
 
 	pr_info("%s in\n", __func__);
+
+	edma_rv_setup(info);
 
 	if (!apusys_power_check()) {
 		pr_info("%s: edma is disabled by apusys\n", __func__);
