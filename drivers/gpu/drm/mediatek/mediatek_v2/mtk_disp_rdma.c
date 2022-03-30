@@ -903,10 +903,11 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 		mtk_rdma_write_mem_start_addr_cmdq(comp, 0, handle);
 	}
 
-	if (cfg->source_bpc == 10)
-		mtk_ddp_write_mask(comp, RDMA_RG_PIXEL_10_BIT,
-				   DISP_REG_RDMA_GLOBAL_CON, RDMA_RG_PIXEL_10_BIT,
-				   handle);
+	/* always set disp RDMA 10bit, no by panel(8bit/10bit) */
+	/* dither setting will set by panel */
+	mtk_ddp_write_mask(comp, RDMA_RG_PIXEL_10_BIT,
+			   DISP_REG_RDMA_GLOBAL_CON, RDMA_RG_PIXEL_10_BIT,
+			   handle);
 
 #ifdef IF_ZERO
 	/*
