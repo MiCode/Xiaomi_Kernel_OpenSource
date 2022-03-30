@@ -450,14 +450,24 @@ int mmc_mtk_biolog_init(struct mmc_host *mmc)
 {
 	struct mtk_blocktag *btag;
 	struct mmc_mtk_bio_context *ctx;
+	struct device_node *np;
+	struct device_node *boot_node = NULL;
+	struct tag_bootmode *tag = NULL;
 
 	if (!mmc)
 		return -EINVAL;
 
-	if (mmc_mtk_btag_vops.boot_device[BTAG_STORAGE_MMC])
-		return 0;
+	np = mmc->class_dev.of_node;
+	boot_node = of_parse_phandle(np, "bootmode", 0);
 
-	mmc_mtk_btag_vops.boot_device[BTAG_STORAGE_MMC] = true;
+	if (boot_node) {
+		tag = (struct tag_bootmode *)of_get_property(boot_node,
+							"atag,boot", NULL);
+		if (tag) {
+			if (tag->boottype == 1)
+				mmc_mtk_btag_vops.boot_device = true;
+		}
+	}
 
 	btag = mtk_btag_alloc("mmc",
 	MMC_BIOLOG_RINGBUF_MAX,

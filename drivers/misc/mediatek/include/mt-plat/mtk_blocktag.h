@@ -207,7 +207,7 @@ struct mtk_btag_vops {
 			    struct seq_file *seq);
 	void    (*mictx_eval_wqd)(struct mtk_btag_mictx_struct *mctx,
 				  u64 t_cur);
-	bool	boot_device[STORAGE_BOOT_DEV_NUM];
+	bool	boot_device;
 	bool	earaio_enabled;
 };
 

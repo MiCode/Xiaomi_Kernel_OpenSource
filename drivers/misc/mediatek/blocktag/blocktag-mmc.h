@@ -39,6 +39,13 @@ struct mmc_mtk_bio_context_task {
 	uint64_t t[tsk_max];
 };
 
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
+
 /* Context of Request Queue */
 struct mmc_mtk_bio_context {
 	int id;

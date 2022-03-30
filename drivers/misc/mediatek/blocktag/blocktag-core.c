@@ -1614,8 +1614,7 @@ static void mtk_btag_mictx_init(const char *name,
 				struct mtk_blocktag *btag,
 				struct mtk_btag_vops *vops)
 {
-	if (!vops->boot_device[BTAG_STORAGE_UFS] &&
-		!vops->boot_device[BTAG_STORAGE_MMC])
+	if (!vops->boot_device)
 		return;
 
 	btag_bootdev = btag;
