@@ -701,8 +701,24 @@ struct hfi_context_rule_cmd {
 	u32 status;
 } __packed;
 
+struct fault_info {
+	u32 ctxt_id;
+	u32 policy;
+	u32 ts;
+} __packed;
+
 /* F2H */
 struct hfi_context_bad_cmd {
+	u32 hdr;
+	u32 version;
+	struct fault_info gc;
+	struct fault_info lpac;
+	u32 error;
+	u32 payload[];
+} __packed;
+
+/* F2H */
+struct hfi_context_bad_cmd_legacy {
 	u32 hdr;
 	u32 ctxt_id;
 	u32 policy;

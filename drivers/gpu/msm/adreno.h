@@ -883,6 +883,10 @@ struct adreno_gpudev {
 	 */
 	int (*send_recurring_cmdobj)(struct adreno_device *adreno_dev,
 		struct kgsl_drawobj_cmd *cmdobj);
+	/**
+	 * @reset_and_snapshot - Target specific function to do reset and snapshot
+	 */
+	void (*reset_and_snapshot)(struct adreno_device *adreno_dev, int fault);
 };
 
 /**
@@ -958,7 +962,7 @@ int adreno_set_constraint(struct kgsl_device *device,
 
 void adreno_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
-		struct kgsl_context *context);
+		struct kgsl_context *context, struct kgsl_context *context_lpac);
 
 int adreno_reset(struct kgsl_device *device, int fault);
 

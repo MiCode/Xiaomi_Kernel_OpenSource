@@ -95,4 +95,13 @@ int gen7_hwsched_add_to_minidump(struct adreno_device *adreno_dev);
  */
 int gen7_hwsched_send_recurring_cmdobj(struct adreno_device *adreno_dev,
 		struct kgsl_drawobj_cmd *cmdobj);
+/**
+ * gen7_hwsched_reset_and_snapshot - Take a snapshot and reset GPU on fault
+ * @adreno_dev: A handle to adreno device
+ * @fault: The error which triggered the reset and snapshot
+ *
+ * Reset and snapshot on a GC or LPAC fault
+ */
+void gen7_hwsched_reset_and_snapshot(struct adreno_device *adreno_dev,
+		int fault);
 #endif

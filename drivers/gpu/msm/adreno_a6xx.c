@@ -979,7 +979,7 @@ void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 
 	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
 
-	kgsl_device_snapshot(device, NULL, false);
+	kgsl_device_snapshot(device, NULL, NULL, false);
 
 }
 
@@ -2729,6 +2729,7 @@ const struct a6xx_gpudev adreno_a6xx_hwsched_gpudev = {
 		.add_to_va_minidump = a6xx_hwsched_add_to_minidump,
 		.gx_is_on = a6xx_gmu_gx_is_on,
 		.send_recurring_cmdobj = a6xx_hwsched_send_recurring_cmdobj,
+		.reset_and_snapshot = a6xx_hwsched_reset_and_snapshot,
 	},
 	.hfi_probe = a6xx_hwsched_hfi_probe,
 	.hfi_remove = a6xx_hwsched_hfi_remove,
