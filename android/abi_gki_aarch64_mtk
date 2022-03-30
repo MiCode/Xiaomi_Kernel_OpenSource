@@ -906,6 +906,8 @@
   clockevents_unbind_device
   clocks_calc_mult_shift
   clocksource_change_rating
+  clocksource_mmio_init
+  clocksource_mmio_readl_up
   __clocksource_register_scale
   clocksource_unregister
   __clocksource_update_freq_scale
@@ -9094,6 +9096,7 @@
   scatterwalk_ffwd
   scatterwalk_map_and_copy
   sched_clock
+  sched_clock_register
   sched_feat_keys
   sched_feat_names
   sched_setattr
@@ -11121,6 +11124,7 @@
   timecounter_cyc2time
   timecounter_init
   timecounter_read
+  timer_of_init
   timerqueue_add
   timerqueue_del
   timerqueue_iterate_next
