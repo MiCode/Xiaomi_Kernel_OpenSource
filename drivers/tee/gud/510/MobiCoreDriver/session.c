@@ -165,7 +165,12 @@ static int hash_path_and_data(struct task_struct *task, u8 *hash,
 	if (!buf)
 		return -ENOMEM;
 
-	exe_file = get_task_exe_file(task);
+	/*
+	 * TODO: To fix get_task_exe_file gki violation
+	 * The change is to fix get_task_exe_file gki violation temporarily.
+	 * Will remove this change after fix gki violation with google.
+	 */
+	/* exe_file = get_task_exe_file(task); */
 	if (!exe_file) {
 		ret = -ENOENT;
 		goto end;
