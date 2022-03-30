@@ -346,6 +346,8 @@ int ssusb_host_init(struct ssusb_mtk *ssusb, struct device_node *parent_dn)
 
 	dev_info(parent_dev, "xHCI platform device register success...\n");
 
+	ssusb_set_noise_still_tr(ssusb);
+
 	ssusb_get_platform_driver(ssusb);
 
 	return 0;

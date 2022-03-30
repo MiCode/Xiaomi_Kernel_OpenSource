@@ -250,6 +250,7 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
 		/* register host driver */
 		ssusb_host_register(ssusb, true);
+		ssusb_set_noise_still_tr(ssusb);
 		ssusb_set_vbus(otg_sx, 1);
 		ssusb->is_host = true;
 		break;

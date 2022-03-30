@@ -18,6 +18,17 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
+void ssusb_set_noise_still_tr(struct ssusb_mtk *ssusb)
+{
+	/* set noise still transfer */
+	if (ssusb->noise_still_tr) {
+		mtu3_setbits(ssusb->mac_base, U3D_USB_BUS_PERFORMANCE,
+			NOISE_STILL_TRANSFER);
+		mtu3_setbits(ssusb->ippc_base, U3D_SSUSB_IP_SPARE0,
+			SSUSB_SOF_KEEP);
+	}
+}
+
 void ssusb_set_force_vbus(struct ssusb_mtk *ssusb, bool vbus_on)
 {
 	u32 u2ctl;
@@ -305,6 +316,8 @@ get_phy:
 
 	ssusb->force_vbus = of_property_read_bool(node, "mediatek,force-vbus");
 	ssusb->clk_mgr = of_property_read_bool(node, "mediatek,clk-mgr");
+	ssusb->noise_still_tr =
+		of_property_read_bool(node, "mediatek,noise-still-tr");
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN)

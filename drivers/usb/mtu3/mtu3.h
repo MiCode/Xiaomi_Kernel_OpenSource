@@ -304,6 +304,7 @@ struct ssusb_mtk {
 	u32 uwk_reg_base;
 	u32 uwk_vers;
 	bool clk_mgr;
+	bool noise_still_tr;
 	/* fpga */
 	enum mtu3_plat_type plat_type;
 	enum mtu3_fpga_phy fpga_phy;
@@ -467,6 +468,7 @@ void ssusb_phy_set_mode(struct ssusb_mtk *ssusb, enum phy_mode mode);
 int ssusb_clks_enable(struct ssusb_mtk *ssusb);
 void ssusb_clks_disable(struct ssusb_mtk *ssusb);
 void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);
+void ssusb_set_noise_still_tr(struct ssusb_mtk *ssusb);
 struct usb_request *mtu3_alloc_request(struct usb_ep *ep, gfp_t gfp_flags);
 void mtu3_free_request(struct usb_ep *ep, struct usb_request *req);
 void mtu3_req_complete(struct mtu3_ep *mep,
