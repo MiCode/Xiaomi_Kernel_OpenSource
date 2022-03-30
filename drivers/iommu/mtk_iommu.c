@@ -233,7 +233,7 @@
 #define MTK_IOMMU_HAS_FLAG(pdata, _x) \
 		((((pdata)->flags) & (_x)) == (_x))
 
-#define MTK_IOMMU_ISR_COUNT_MAX			5
+#define MTK_IOMMU_ISR_COUNT_MAX			2
 #define MTK_IOMMU_ISR_DISABLE_TIME		10
 #define MTK_IOMMU_TF_IOVA_DUMP_NUM		5
 
@@ -1082,89 +1082,6 @@ static irqreturn_t mtk_iommu_isr_sec(int irq, struct mtk_iommu_data *data)
 	return IRQ_NONE;
 }
 #endif
-
-static void peri_iommu_read_data(void __iomem *base, enum peri_iommu iommu_id)
-{
-	u32 int_state0, int_state1, fault_id, va34_32, pa34_32, regval;
-	u64 fault_iova, fault_pa;
-	bool layer, write;
-	char *port;
-
-	pr_info("%s start, iommu_id:%d, test_data:0x%x\n", __func__, iommu_id,
-		readl_relaxed(base + REG_MMU_TBW_ID));
-
-	int_state0 = readl_relaxed(base + REG_MMU_FAULT_ST0);
-	int_state1 = readl_relaxed(base + REG_MMU_FAULT_ST1);
-	if (!int_state0 && !int_state1) {
-		pr_info("%s, peri_iommu_%d no error\n", __func__, iommu_id);
-		return;
-	}
-
-	if (int_state0 & F_INT_TBW_FAULT) {
-		regval = readl_relaxed(base + REG_MMU_TBWALK_FAULT_VA);
-		pr_err("%s err, peri_iommu_%d table walk fault, reg:0x%x\n",
-		       __func__, iommu_id, regval);
-		return;
-	}
-
-	if (int_state1 & F_REG_MMU0_INV_PA_MASK)
-		pr_info("%s err, peri_iommu_%d invalid pa\n", __func__, iommu_id);
-
-	if (int_state1 & F_REG_MMU0_TF_MASK)
-		pr_info("%s err, peri_iommu_%d translation fault\n", __func__, iommu_id);
-
-	fault_id = readl_relaxed(base + REG_MMU0_INT_ID);
-	fault_iova = readl_relaxed(base + REG_MMU0_FAULT_VA);
-	fault_pa = readl_relaxed(base + REG_MMU0_INVLD_PA);
-	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
-	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
-
-	va34_32 = FIELD_GET(F_MMU_INVAL_VA_34_32_MASK, fault_iova);
-	fault_iova = fault_iova & F_MMU_INVAL_VA_31_12_MASK;
-	fault_iova |= (u64)va34_32 << 32;
-
-	pa34_32 = FIELD_GET(F_MMU_INVAL_PA_34_32_MASK, fault_iova);
-	fault_pa |= (u64)pa34_32 << 32;
-
-	pr_info("%s on-going, iommu_id:%d, fault_id:0x%x\n", __func__, iommu_id, fault_id);
-	port = peri_tf_analyse(iommu_id, fault_id);
-	if (!port) {
-		pr_err("%s err, peri_tf_analyse is not support\n", __func__);
-		return;
-	}
-	pr_info("%s done, peri_iommu:%d, port:%s, iova:0x%lx, pa:0x%lx, layer:%d, write:%d\n",
-	       __func__, iommu_id, port, fault_iova, fault_pa, layer, write);
-
-	if (int_state1 & F_REG_MMU0_MAU_INT_MASK)
-		pr_info("%s err, peri_iommu_%d MAU monitor\n", __func__, iommu_id);
-
-	regval = readl_relaxed(base + REG_MMU_INT_CONTROL0);
-	regval |= F_INT_CLR_BIT;
-	writel_relaxed(regval, base + REG_MMU_INT_CONTROL0);
-}
-
-void mtk_peri_iommu_isr(struct mtk_iommu_data *data, u32 bus_id)
-{
-	struct list_head *head = data->hw_list;
-	enum peri_iommu id = get_peri_iommu_id(bus_id);
-
-	if (id >= PERI_IOMMU_NUM) {
-		pr_info("%s, it is not iommu port:%d\n", __func__,  id);
-		return;
-	}
-	for_each_m4u(data, head) {
-		if (data->plat_data->iommu_type == PERI_IOMMU &&
-		    data->plat_data->iommu_id == id) {
-			peri_iommu_read_data(data->base, id);
-			break;
-		}
-	}
-
-	pr_info("%s done type:%d, id:%d\n", __func__,
-		data->plat_data->iommu_type, data->plat_data->iommu_id);
-	mtk_iommu_tlb_flush_all(data);
-	mtk_iommu_isr_record(data);
-}
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 static void mtk_iommu_mau_init(struct mtk_iommu_data *data);
@@ -2602,7 +2519,6 @@ out:
 		goto skip_smi;
 	}
 
-	/* PERI_IOMMU + APU_IOMMU */
 	if (data->plat_data->iommu_type != MM_IOMMU ||
 	    MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_EN_PRE)) {
 		dev_info(dev, "skip smi\n");
@@ -2976,7 +2892,7 @@ static int mtk_dump_rs_sta_info(const struct mtk_iommu_data *data, int mmu)
 static void mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
 {
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
-	int cnt, ret, i;
+	int cnt, ret, i, dump_count = 1;
 #endif
 	void __iomem *base = data->base;
 
@@ -3014,7 +2930,7 @@ static void mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
 		return;
 	}
 
-	for (cnt = 0; cnt < 3; cnt++) {
+	for (cnt = 0; cnt < dump_count; cnt++) {
 		pr_info("===== the %d time: REG_MMU_STA(0x008) = 0x%x =====\n",
 			cnt, readl_relaxed(base + REG_MMU_STA));
 		mtk_dump_debug_reg_info(data);
