@@ -209,13 +209,12 @@ static int mtk_set_hw_brightness(struct mt_led_data *led_dat,
 				int brightness)
 {
 
-	pr_debug("set hw brightness: %d -> %d", led_dat->hw_brightness, brightness);
+	//pr_debug("set hw brightness: %d -> %d", led_dat->hw_brightness, brightness);
 
 	if (brightness != 0) {
 		brightness = min(brightness, led_dat->conf.limit_hw_brightness);
 		brightness = max(brightness, led_dat->conf.min_hw_brightness);
 	}
-	pr_info("set hw brightness: %d -> %d", led_dat->hw_brightness, brightness);
 
 	if (brightness == led_dat->hw_brightness)
 		return 0;
@@ -226,7 +225,7 @@ static int mtk_set_hw_brightness(struct mt_led_data *led_dat,
 		mt_leds_notify_brightness_hw_changed(&led_dat->conf, brightness);
 #endif
 	} else {
-		pr_info("set hw brightness: %d -> %d failed!", led_dat->hw_brightness, brightness);
+		pr_debug("set hw brightness: %d -> %d failed!", led_dat->hw_brightness, brightness);
 	}
 
 	return 0;
@@ -247,7 +246,7 @@ int mtk_leds_brightness_set(char *name, int level)
 
 	mutex_lock(&led_dat->led_access);
 	if (!led_dat->conf.aal_enable) {
-		pr_notice("aal not enable, set %s %d return", name, level);
+		//pr_debug("aal not enable, set %s %d return", name, level);
 	} else {
 		mtk_set_hw_brightness(led_dat, level);
 		led_dat->last_hw_brightness = level;
