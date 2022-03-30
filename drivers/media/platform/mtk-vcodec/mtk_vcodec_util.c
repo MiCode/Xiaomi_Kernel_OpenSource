@@ -652,7 +652,7 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
 	enum mtk_vcodec_log_index log_index)
 {
 	int i, argc = 0;
-	char argv[MAX_SUPPORTED_LOG_PARAMS_COUNT * 2][LOG_PARAM_INFO_SIZE] = {0};
+	char *argv[MAX_SUPPORTED_LOG_PARAMS_COUNT * 2];
 	char *temp = NULL;
 	char *token = NULL;
 	long temp_val = 0;
@@ -661,6 +661,9 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
 	if (val == NULL || strlen(val) == 0)
 		return;
 
+	for (i = 0; i < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2; i++)
+		argv[i] = kzalloc(LOG_PARAM_INFO_SIZE, GFP_KERNEL);
+
 	mtk_v4l2_debug(0, "val: %s, log_index: %d", val, log_index);
 
 	strncpy(log, val, LOG_PROPERTY_SIZE - 1);
@@ -668,7 +671,7 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
 	for (token = strsep(&temp, "\n\r ");
 	     token != NULL && argc < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2;
 	     token = strsep(&temp, "\n\r ")) {
-		if (strlen(token) == 0)
+		if (argv[argc] == NULL || strlen(token) == 0)
 			continue;
 		strncpy(argv[argc], token, LOG_PARAM_INFO_SIZE);
 		argv[argc][LOG_PARAM_INFO_SIZE - 1] = '\0';
@@ -691,6 +694,9 @@ void mtk_vcodec_set_log(struct mtk_vcodec_dev *dev, const char *val,
 			mtk_vcodec_sync_log(dev, argv[i], argv[i+1], log_index);
 		}
 	}
+
+	for (i = 0; i < MAX_SUPPORTED_LOG_PARAMS_COUNT * 2; i++)
+		kfree(argv[i]);
 
 	mtk_vcodec_build_log_string(dev, log_index);
 
