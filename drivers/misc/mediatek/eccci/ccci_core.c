@@ -50,35 +50,14 @@ int ccci_register_dev_node(const char *name, int major_id, int minor)
 
 	return ret;
 }
-EXPORT_SYMBOL(ccci_register_dev_node);
+//EXPORT_SYMBOL(ccci_register_dev_node);
 
 #ifndef CCCI_KMODULE_ENABLE
-#ifdef FEATURE_SCP_CCCI_SUPPORT
-static int apsync_event(struct notifier_block *this,
-	unsigned long event, void *ptr)
-{
-	switch (event) {
-	case SCP_EVENT_READY:
-		fsm_scp_init0();
-		break;
-	}
-
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block apsync_notifier = {
-	.notifier_call = apsync_event,
-};
-#endif
-
 static int __init ccci_init(void)
 {
 	CCCI_INIT_LOG(-1, CORE, "ccci core init\n");
 	dev_class = class_create(THIS_MODULE, "ccci_node");
 	ccci_subsys_bm_init();
-#ifdef FEATURE_SCP_CCCI_SUPPORT
-	scp_A_register_notify(&apsync_notifier);
-#endif
 	return 0;
 }
 

@@ -6,7 +6,42 @@
 #ifndef __MD_SYS1_PLATFORM_H__
 #define __MD_SYS1_PLATFORM_H__
 
+#include <linux/io.h>
 #include <linux/skbuff.h>
+
+#define ccci_write32(b, a, v)  \
+do { \
+	writel(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_write16(b, a, v)  \
+do { \
+	writew(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_write8(b, a, v)  \
+do { \
+	writeb(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_read32(b, a)               ioread32((void __iomem *)((b)+(a)))
+#define ccci_read16(b, a)               ioread16((void __iomem *)((b)+(a)))
+#define ccci_read8(b, a)                ioread8((void __iomem *)((b)+(a)))
+
+extern struct regmap *syscon_regmap_lookup_by_phandle(
+		struct device_node *np, const char *property);
+extern int regmap_write(struct regmap *map,
+		unsigned int reg, unsigned int val);
+extern int regmap_read(struct regmap *map,
+		unsigned int reg, unsigned int *val);
+
+struct ccci_modem;
 
 struct  ccci_plat_val {
 	struct regmap *infra_ao_base;
@@ -25,14 +60,7 @@ struct ccci_clk_node {
 	unsigned char *clk_name;
 };
 
-struct md_pll_reg {
-	void __iomem *md_top_clkSW;
-
-	void __iomem *md_boot_stats_select;
-	void __iomem *md_boot_stats;
-};
 struct ccci_plat_ops {
-	void (*init)(struct ccci_modem *md);
 	void (*md_dump_reg)(unsigned int md_index);
 	//void (*cldma_hw_rst)(unsigned char md_id);
 	void (*set_clk_cg)(struct ccci_modem *md, unsigned int on);
@@ -53,10 +81,6 @@ struct ccci_plat_ops {
 
 struct md_hw_info {
 	/* HW info - Register Address */
-	unsigned long md_rgu_base;
-	unsigned long md_boot_slave_Vector;
-	unsigned long md_boot_slave_Key;
-	unsigned long md_boot_slave_En;
 	unsigned int sram_size;
 
 	/* HW info - Interrutpt ID */
@@ -74,13 +98,6 @@ struct md_hw_info {
 	struct ccci_plat_val *plat_val;
 };
 
-struct cldma_hw_info {
-	unsigned long cldma_ap_ao_base;
-	unsigned long cldma_ap_pdn_base;
-	unsigned int cldma_irq_id;
-	unsigned long cldma_irq_flags;
-};
-
 enum {
 	SRCCLKENA_SETTING_BIT,
 	SRCLKEN_O1_BIT,
@@ -94,7 +111,11 @@ int ccci_modem_syssuspend(void);
 void ccci_modem_sysresume(void);
 void md_dump_register_6873(unsigned int md_index);
 
-extern void ccci_mem_dump(int md_id, void *start_addr, int len);
-extern void dump_emi_outstanding(void);
+#if IS_ENABLED(CONFIG_MTK_EMI)
 extern void mtk_emidbg_dump(void);
+#endif
+int Is_MD_EMI_voilation(void);
+
+#define MD_IN_DEBUG(md) (0)
+
 #endif				/* __MD_SYS1_PLATFORM_H__ */

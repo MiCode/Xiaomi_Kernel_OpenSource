@@ -31,6 +31,11 @@
 #define RX_BUGDET 16
 #define NET_RX_QUEUE_MASK 0x4
 
+struct ccci_clk_node {
+	struct clk *clk_ref;
+	unsigned char *clk_name;
+};
+
 struct ccif_flow_control {
 	unsigned int head_magic;
 	unsigned int ap_busy_queue;

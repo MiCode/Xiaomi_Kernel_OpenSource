@@ -19,23 +19,14 @@
 #else
 #include <dt-bindings/clock/mt6779-clk.h>
 #endif
-#ifdef CONFIG_MTK_EMI_BWL
-#include <emi_mbw.h>
-#endif
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
 #include <mach/mt6605.h>
 #endif
 
-#ifdef CONFIG_MTK_QOS_SUPPORT
-#include <linux/pm_qos.h>
-#include <helio-dvfsrc-opp.h>
-#endif
-
 #include <linux/regulator/consumer.h> /* for MD PMIC */
 
 #include "ccci_core.h"
-#include "ccci_platform.h"
 #include "modem_sys.h"
 
 #include "md_sys1_platform.h"
@@ -83,7 +74,7 @@ void md1_subsys_debug_dump(enum subsys_id sys)
 		return;
 		/* add debug dump */
 
-	CCCI_NORMAL_LOG(0, TAG, "%s\n", __func__);
+	CCCI_NORMAL_LOG(0, TAG, "%s started\n", __func__);
 	md = ccci_md_get_modem_by_id(0);
 	if (md != NULL) {
 		CCCI_NORMAL_LOG(0, TAG, "%s dump start\n", __func__);
@@ -93,7 +84,7 @@ void md1_subsys_debug_dump(enum subsys_id sys)
 		mdelay(1000);
 		md->ops->dump_info(md, DUMP_FLAG_REG, NULL, 0);
 	}
-	CCCI_NORMAL_LOG(0, TAG, "%s exit\n", __func__);
+	CCCI_NORMAL_LOG(0, TAG, "%s finished\n", __func__);
 }
 
 
@@ -115,28 +106,6 @@ static void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 
 static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 {
-	struct md_pll_reg *md_reg;
-	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
-
-	md_info->md_boot_slave_En =
-	 ioremap_wc(md->hw_info->md_boot_slave_En, 0x4);
-	md_info->md_rgu_base =
-	 ioremap_wc(md->hw_info->md_rgu_base, 0x300);
-
-	md_reg = kzalloc(sizeof(struct md_pll_reg), GFP_KERNEL);
-	if (md_reg == NULL) {
-		CCCI_ERROR_LOG(-1, TAG,
-		 "md_sw_init:alloc md reg map mem fail\n");
-		return -1;
-	}
-
-	md_reg->md_boot_stats_select =
-		ioremap_wc(MD1_BOOT_STATS_SELECT, 4);
-	md_reg->md_boot_stats = ioremap_wc(MD1_CFG_BOOT_STATS, 4);
-	/*just for dump end*/
-
-	md_info->md_pll_base = md_reg;
-
 #ifdef MD_PEER_WAKEUP
 	md_info->md_peer_wakeup = ioremap_wc(MD_PEER_WAKEUP, 0x4);
 #endif
@@ -1078,7 +1047,6 @@ static int md_cd_let_md_go(struct ccci_modem *md)
 }
 
 static struct ccci_plat_ops md_cd_plat_ptr = {
-	.init = &ccci_platform_init_6873,
 	.md_dump_reg = &md_dump_register_6873,
 	//.cldma_hw_rst = &md_cldma_hw_reset,
 	.set_clk_cg = &ccci_set_clk_cg,
@@ -1164,8 +1132,6 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	hw_info->md_wdt_irq_flags = IRQF_TRIGGER_NONE;
 
 	hw_info->sram_size = CCIF_SRAM_SIZE;
-	hw_info->md_rgu_base = MD_RGU_BASE;
-	hw_info->md_boot_slave_En = MD_BOOT_VECTOR_EN;
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
 		"mediatek,md_generation", &md_cd_plat_val_ptr.md_gen);
 	if (ret < 0) {
@@ -1301,7 +1267,7 @@ static int ccci_modem_suspend(struct platform_device *dev, pm_message_t state)
 {
 	struct ccci_modem *md = (struct ccci_modem *)dev->dev.platform_data;
 
-	CCCI_DEBUG_LOG(md->index, TAG, "%s\n", __func__);
+	CCCI_DEBUG_LOG(md->index, TAG, "%s empty now\n", __func__);
 	return 0;
 }
 
@@ -1309,7 +1275,7 @@ static int ccci_modem_resume(struct platform_device *dev)
 {
 	struct ccci_modem *md = (struct ccci_modem *)dev->dev.platform_data;
 
-	CCCI_DEBUG_LOG(md->index, TAG, "%s\n", __func__);
+	CCCI_DEBUG_LOG(md->index, TAG, "%s empty now\n", __func__);
 	return 0;
 }
 
@@ -1395,7 +1361,7 @@ static const struct dev_pm_ops ccci_modem_pm_ops = {
 	.restore_noirq = ccci_modem_pm_restore_noirq,
 };
 
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id ccci_modem_of_ids[] = {
 	{.compatible = "mediatek,mddriver",},
 	{}
@@ -1406,11 +1372,11 @@ static struct platform_driver ccci_modem_driver = {
 
 	.driver = {
 		   .name = "driver_modem",
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 		   .of_match_table = ccci_modem_of_ids,
 #endif
 
-#ifdef CONFIG_PM
+#if IS_ENABLED(CONFIG_PM)
 		   .pm = &ccci_modem_pm_ops,
 #endif
 		   },
@@ -1428,7 +1394,7 @@ static int __init modem_cd_init(void)
 	ret = platform_driver_register(&ccci_modem_driver);
 	if (ret) {
 		CCCI_ERROR_LOG(-1, TAG,
-			"clmda modem platform driver register fail(%d)\n",
+			"modem platform driver register fail(%d)\n",
 			ret);
 		return ret;
 	}

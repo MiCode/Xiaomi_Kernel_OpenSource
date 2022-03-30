@@ -7,6 +7,7 @@
 #define __MDEE_DUMPER_V5_H__
 #include "ccci_fsm_internal.h"
 
+#define MD_L2SRAM_SIZE (0x1800)
 #define MD_HS1_FAIL_DUMP_SIZE  (2048)/*(512)*/
 
 #define EE_BUF_LEN_UMOLY		(0x700)

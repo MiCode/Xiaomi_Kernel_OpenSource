@@ -97,7 +97,6 @@ struct md_sys1_info {
 		unsigned int ap_ccif_irq_id;
 		unsigned long ap_ccif_irq_flags;
 
-		void __iomem *md_rgu_base;
 		void __iomem *md_global_con0;
 
 #ifdef MD_PEER_WAKEUP
@@ -111,17 +110,6 @@ struct md_sys1_info {
 		void __iomem *md_topsm_status;
 		void __iomem *md_ost_status;
 		void __iomem *md_pll;
-		struct md_pll_reg *md_pll_base;
-
-		void __iomem *md_boot_slave_Vector;
-		void __iomem *md_boot_slave_Key;
-		void __iomem *md_boot_slave_En;
-};
-
-struct md_sys3_info {
-		void __iomem *md_rgu_base;
-		void __iomem *ccirq_base[4];
-		void __iomem *c2k_cgbr1_addr;
 };
 
 struct ccci_modem {
@@ -236,12 +224,14 @@ extern u32 mt_irq_get_pending(unsigned int irq);
 extern int gf_port_list_reg[GF_PORT_LIST_MAX];
 extern int gf_port_list_unreg[GF_PORT_LIST_MAX];
 extern int ccci_ipc_set_garbage_filter(struct ccci_modem *md, int reg);
-void ccci_md_config_layout_6293(struct ccci_modem *md);
 
 extern int ccci_modem_init_common(struct platform_device *plat_dev,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *md_hw);
 
 extern int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
 	unsigned long size, const char *name);
+#if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
+extern void mt_irq_dump_status(unsigned int irq);
+#endif
 
 #endif	/* __CCCI_MODEM_H__ */

@@ -37,21 +37,8 @@
 #include <linux/tcp.h>
 #include <linux/udp.h>
 
-#ifndef CCCI_KMODULE_ENABLE
-#include "ccci_core.h"
-#include "modem_sys.h"
-#include "ccci_bm.h"
-#include "ccci_platform.h"
-#include "ccci_hif_dpmaif.h"
-#include "md_sys1_platform.h"
-#include "dpmaif_drv.h"
-#include "modem_reg_base.h"
-#include "ccci_fsm.h"
-#include "ccci_port.h"
-#else
 #include "ccci_hif_dpmaif.h"
 #include "dpmaif_drv.h"
-#endif
 #ifdef MT6297
 #include "dpmaif_reg_v2.h"
 #else

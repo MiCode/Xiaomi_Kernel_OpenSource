@@ -141,15 +141,6 @@ long port_ipc_ioctl(struct file *file, unsigned int cmd,
 		#endif
 		break;
 
-	case CCCI_IPC_WAIT_TIME_UPDATE:
-		CCCI_DEBUG_LOG(port->md_id, IPC,
-			"CCCI_IPC_WAIT_TIME_UPDATE\n");
-		ret = wait_time_update_notify();
-		CCCI_DEBUG_LOG(port->md_id, IPC,
-			"CCCI_IPC_WAIT_TIME_UPDATE wakeup\n");
-		break;
-
-
 	case CCCI_IPC_UPDATE_TIMEZONE:
 		CCCI_REPEAT_LOG(port->md_id, IPC,
 			"CCCI_IPC_UPDATE_TIMEZONE keep 0x%x\n",

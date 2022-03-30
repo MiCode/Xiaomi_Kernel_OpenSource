@@ -31,9 +31,6 @@
 #define NET_ACK_TXQ_INDEX(p) ((p)->txq_exp_index&0x0F)
 #define GET_CCMNI_IDX(p) ((p)->minor - CCCI_NET_MINOR_BASE)
 
-/* now we only support MBIM Tx/Rx in CCMNI_U context */
-static atomic_t mbim_ccmni_index[MAX_MD_NUM];
-
 int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 {
 	int ret = 0;
@@ -329,36 +326,6 @@ struct ccmni_ccci_ops eccci_cc3mni_ops = {
 	.get_ccmni_ch = ccci_get_ccmni_channel,
 };
 
-int ccmni_send_mbim_skb(int md_id, struct sk_buff *skb)
-{
-	int mbim_ccmni_current;
-	int is_ack = 0;
-
-	if (md_id < 0 || md_id >= MAX_MD_NUM) {
-		CCCI_ERROR_LOG(md_id, NET, "invalid MD id=%d\n", md_id);
-		return -EINVAL;
-	}
-
-	mbim_ccmni_current = atomic_read(&mbim_ccmni_index[md_id]);
-	if (mbim_ccmni_current == -1)
-		return -EPERM;
-
-	is_ack = ccmni_ops.is_ack_skb(md_id, skb);
-
-	return ccmni_send_pkt(md_id, mbim_ccmni_current, skb, is_ack);
-}
-
-void ccmni_update_mbim_interface(int md_id, int id)
-{
-	if (md_id < 0 || md_id >= MAX_MD_NUM) {
-		CCCI_ERROR_LOG(md_id, NET, "invalid MD id=%d\n", md_id);
-		return;
-	}
-
-	atomic_set(&mbim_ccmni_index[md_id], id);
-	CCCI_NORMAL_LOG(md_id, NET, "MBIM interface id=%d\n", id);
-}
-
 static int port_net_init(struct port_t *port)
 {
 	int md_id = port->md_id;
@@ -370,8 +337,6 @@ static int port_net_init(struct port_t *port)
 	}
 	port->minor += CCCI_NET_MINOR_BASE;
 	if (port->rx_ch == CCCI_CCMNI1_RX) {
-		atomic_set(&mbim_ccmni_index[port->md_id], -1);
-
 		eccci_ccmni_ops.md_ability |= per_md_data->md_capability;
 #if defined CONFIG_MTK_MD3_SUPPORT
 		CCCI_INIT_LOG(port->md_id, NET,
@@ -385,14 +350,6 @@ static int port_net_init(struct port_t *port)
 	}
 	return 0;
 }
-
-#ifdef CCCI_KMODULE_ENABLE
-int mbim_start_xmit(struct sk_buff *skb, int ifid)
-{
-	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
-	return 0;
-}
-#endif
 
 static void recv_from_port_list(struct port_t *port)
 {
@@ -461,7 +418,6 @@ static int port_net_recv_skb(struct port_t *port, struct sk_buff *skb)
 {
 	struct lhif_header *lhif_h = (struct lhif_header *)skb->data;
 
-	int mbim_ccmni_current = 0;
 #ifdef CCCI_SKB_TRACE
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(port->md_id);
 	unsigned long long *netif_rx_profile = per_md_data->netif_rx_profile;
@@ -488,12 +444,6 @@ static int port_net_recv_skb(struct port_t *port, struct sk_buff *skb)
 			port->name,
 			ccci_h->data[0], ccci_h->data[1], ccci_h->channel,
 			ccci_h->reserved);
-	}
-
-	mbim_ccmni_current = atomic_read(&mbim_ccmni_index[port->md_id]);
-	if (mbim_ccmni_current == GET_CCMNI_IDX(port)) {
-		mbim_start_xmit(skb, mbim_ccmni_current);
-		return 0;
 	}
 
 #ifdef PORT_NET_TRACE

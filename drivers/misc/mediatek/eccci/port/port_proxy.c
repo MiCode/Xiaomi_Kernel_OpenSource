@@ -2371,3 +2371,155 @@ EXPORT_SYMBOL(ccci_c2k_buffer_push);
 
 #endif
 
+static void receive_wakeup_src_notify(int md_id, char *buf, unsigned int len)
+{
+	int tmp_data = 0;
+
+	if (len == 0) {
+		/* before spm add MD_WAKEUP_SOURCE parameter. */
+		if (md_id == MD_SYS1) {
+			ccci_hif_set_wakeup_src(MD1_NET_HIF, 1);
+			ccci_hif_set_wakeup_src(CCIF_HIF_ID, 1);
+		}
+		if (md_id == MD_SYS3)
+			ccci_hif_set_wakeup_src(CCIF_HIF_ID, 1);
+		return;
+	}
+
+	/* after spm add MD_WAKEUP_SOURCE parameter. */
+	if (len > sizeof(tmp_data))
+		len = sizeof(tmp_data);
+	memcpy((void *)&tmp_data, buf, len);
+	switch (tmp_data) {
+	case WAKE_SRC_HIF_CCIF0:
+		ccci_hif_set_wakeup_src(CCIF_HIF_ID, 1);
+		break;
+	case WAKE_SRC_HIF_CLDMA:
+	case WAKE_SRC_HIF_DPMAIF:
+		ccci_hif_set_wakeup_src(MD1_NET_HIF, 1);
+		break;
+	default:
+		break;
+	};
+}
+
+int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
+	unsigned int len)
+{
+	int ret = 0;
+	int tmp_data;
+
+	if (!get_modem_is_enabled(md_id)) {
+		CCCI_ERROR_LOG(md_id, CORE,
+			"wrong MD ID from %ps for %d\n",
+			__builtin_return_address(0), id);
+		return -CCCI_ERR_MD_INDEX_NOT_FOUND;
+	}
+
+	CCCI_DEBUG_LOG(md_id, CORE, "%ps execute function %d\n",
+		__builtin_return_address(0), id);
+	switch (id) {
+	case ID_GET_MD_WAKEUP_SRC:
+		receive_wakeup_src_notify(md_id, buf, len);
+		break;
+	case ID_FORCE_MD_ASSERT:
+		CCCI_NORMAL_LOG(md_id, CORE, "Force MD assert called by %s\n",
+			current->comm);
+		ret = ccci_md_force_assert(md_id,
+			MD_FORCE_ASSERT_BY_USER_TRIGGER,
+			NULL, 0);
+		break;
+	case ID_MD_MPU_ASSERT:
+		if (md_id == MD_SYS1) {
+			if (buf != NULL && strlen(buf)) {
+				CCCI_NORMAL_LOG(md_id, CORE,
+					"Force MD assert(MPU) called by %s\n",
+					current->comm);
+				ret = ccci_md_force_assert(md_id,
+					MD_FORCE_ASSERT_BY_AP_MPU,
+					buf, len);
+			} else {
+				CCCI_NORMAL_LOG(md_id, CORE,
+					"ACK (MPU violation) called by %s\n",
+					current->comm);
+				ret = ccci_port_send_msg_to_md(md_id,
+					CCCI_SYSTEM_TX,
+					MD_AP_MPU_ACK_MD, 0, 0);
+			}
+		} else
+			CCCI_NORMAL_LOG(md_id, CORE,
+				"MD%d MPU API called by %s\n",
+				md_id, current->comm);
+		break;
+	case ID_PAUSE_LTE:
+		/*
+		 * MD booting/flight mode/exception mode: return >0 to DVFS.
+		 * MD ready: return 0 if message delivered,
+		 * return <0 if get error.
+		 * DVFS will call this API with IRQ disabled.
+		 */
+		if (ccci_fsm_get_md_state(md_id) != READY)
+			ret = 1;
+		else {
+			ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
+					MD_PAUSE_LTE, *((int *)buf), 1);
+			if (ret == -CCCI_ERR_MD_NOT_READY ||
+				ret == -CCCI_ERR_HIF_NOT_POWER_ON)
+				ret = 1;
+		}
+		break;
+	case ID_GET_MD_STATE:
+		ret = ccci_fsm_get_md_state_for_user(md_id);
+		break;
+		/* used for throttling feature - start */
+	case ID_THROTTLING_CFG:
+		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
+				MD_THROTTLING,
+				*((int *)buf), 1);
+		break;
+		/* used for throttling feature - end */
+	case ID_UPDATE_TX_POWER:
+		{
+			unsigned int msg_id = (md_id == 0) ?
+				MD_SW_MD1_TX_POWER :
+				MD_SW_MD2_TX_POWER;
+			unsigned int mode = *((unsigned int *)buf);
+
+			ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
+				msg_id, mode, 0);
+		}
+		break;
+	case ID_DUMP_MD_SLEEP_MODE:
+		ccci_md_dump_info(md_id, DUMP_FLAG_SMEM_MDSLP, NULL, 0);
+		break;
+	case ID_PMIC_INTR:
+		ret = ccci_port_send_msg_to_md(md_id,
+				CCCI_SYSTEM_TX, PMIC_INTR_MODEM_BUCK_OC,
+				*((int *)buf), 1);
+		break;
+	case ID_LWA_CONTROL_MSG:
+		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
+			LWA_CONTROL_MSG, *((int *)buf), 1);
+		break;
+	case MD_TX_POWER:
+	case MD_RF_MAX_TEMPERATURE_SUB6:
+	case MD_RF_ALL_TEMPERATURE_MMW:
+		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
+				id, 0, 0);
+		break;
+	case MD_DISPLAY_DYNAMIC_MIPI:
+		fallthrough;
+	case MD_NR_BAND_ACTIVATE_INFO:
+		tmp_data = 0;
+		memcpy((void *)&tmp_data, buf, len);
+		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
+			id, tmp_data, 0);
+		break;
+	default:
+		ret = -CCCI_ERR_FUNC_ID_ERROR;
+		break;
+	};
+	return ret;
+}
+EXPORT_SYMBOL(exec_ccci_kern_func_by_md_id);
+

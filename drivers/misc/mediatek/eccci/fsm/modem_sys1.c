@@ -38,14 +38,12 @@
 #include "ccci_core.h"
 #include "ccci_modem.h"
 #include "ccci_bm.h"
-#include "ccci_platform.h"
 #include "md_sys1_platform.h"
-#include "modem_reg_base.h"
 #include "modem_secure_base.h"
 
 #include "ccci_debug.h"
 #include "hif/ccci_hif_cldma.h"
-#include "hif/ccci_hif_ccif.h"
+//#include "hif/ccci_hif_ccif.h"
 #include "modem_sys.h"
 
 #define TAG "mcd"
@@ -359,7 +357,6 @@ static int md_cd_start(struct ccci_modem *md)
 		/* init security, as security depends on dummy_char,
 		 * which is ready very late.
 		 */
-		ccci_init_security();
 		ccci_md_clear_smem(md->index, 1);
 		if (md->hw_info->plat_ptr->start_platform) {
 			ret = md->hw_info->plat_ptr->start_platform(md);
@@ -892,7 +889,6 @@ static int md_cd_force_assert(struct ccci_modem *md, enum MD_COMM_TYPE type)
 static int md_cd_dump_info(struct ccci_modem *md,
 	enum MODEM_DUMP_FLAG flag, void *buff, int length)
 {
-
 	if (flag & DUMP_FLAG_CCIF_REG) {
 		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump CCIF REG\n");
 		ccci_hif_dump_status(CCIF_HIF_ID, DUMP_FLAG_CCIF_REG,
@@ -1041,8 +1037,8 @@ static int md_cd_dump_info(struct ccci_modem *md,
 				SMEM_USER_RAW_DBM);
 
 		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD SLP registers\n");
-		ccci_cmpt_mem_dump(md->index, low_pwr->base_ap_view_vir,
-			low_pwr->size);
+		ccci_util_cmpt_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
+			low_pwr->base_ap_view_vir, low_pwr->size);
 	}
 	if (flag & DUMP_FLAG_MD_WDT) {
 		CCCI_MEM_LOG_TAG(md->index, TAG,
@@ -1051,6 +1047,9 @@ static int md_cd_dump_info(struct ccci_modem *md,
 		CCCI_NORMAL_LOG(md->index, TAG, "Dump md WDT IRQ status\n");
 		mt_irq_dump_status(md->md_wdt_irq_id);
 #endif
+		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD RGU registers\n");
+		CCCI_MEM_LOG_TAG(md->index, TAG, "wdt_enabled=%d\n",
+			atomic_read(&md->wdt_enabled));
 	}
 
 	if ((flag & DUMP_MD_BOOTUP_STATUS) &&
@@ -1100,6 +1099,133 @@ static struct ccci_modem_ops md_cd_ops = {
 	.ee_callback = &md_cd_ee_callback,
 	.send_ccb_tx_notify = &md_cd_send_ccb_tx_notify,
 };
+int ccci_md_pre_stop(unsigned char md_id, unsigned int stop_type)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	return md->ops->pre_stop(md, stop_type);
+}
+
+int ccci_md_stop(unsigned char md_id, unsigned int stop_type)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	return md->ops->stop(md, stop_type);
+}
+
+int __weak md_cd_vcore_config(unsigned int md_id, unsigned int hold_req)
+{
+	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
+	return 0;
+}
+
+int ccci_md_pre_start(unsigned char md_id)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	if (md->hw_info->plat_ptr->vcore_config)
+		return md->hw_info->plat_ptr->vcore_config(md_id, 1);
+	return -1;
+}
+int ccci_md_start(unsigned char md_id)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	return md->ops->start(md);
+}
+int ccci_md_post_start(unsigned char md_id)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	if (md->hw_info->plat_ptr->vcore_config)
+		return md->hw_info->plat_ptr->vcore_config(md_id, 0);
+	return -1;
+}
+int ccci_md_soft_stop(unsigned char md_id, unsigned int sim_mode)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	if (md->ops->soft_stop)
+		return md->ops->soft_stop(md, sim_mode);
+	return -1;
+}
+int ccci_md_soft_start(unsigned char md_id, unsigned int sim_mode)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	if (md->ops->soft_start)
+		return md->ops->soft_start(md, sim_mode);
+	return -1;
+}
+
+int ccci_md_send_runtime_data(unsigned char md_id)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	return md->ops->send_runtime_data(md, CCCI_CONTROL_TX, 0, 0);
+}
+
+void ccci_md_dump_info(unsigned char md_id, enum MODEM_DUMP_FLAG flag,
+	void *buff, int length)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	if (md)
+		md->ops->dump_info(md, flag, buff, length);
+	else
+		CCCI_ERROR_LOG(md_id, TAG, "invalid md_id %d!!\n", md_id);
+}
+EXPORT_SYMBOL(ccci_md_dump_info);
+
+void ccci_md_exception_handshake(unsigned char md_id, int timeout)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	md->ops->ee_handshake(md, timeout);
+}
+
+int ccci_md_send_ccb_tx_notify(unsigned char md_id, int core_id)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	return md->ops->send_ccb_tx_notify(md, core_id);
+}
+
+int ccci_md_force_assert(unsigned char md_id, enum MD_FORCE_ASSERT_TYPE type,
+	char *param, int len)
+{
+	int ret = 0;
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_force_assert_shm_fmt *ccci_fa_smem_ptr = NULL;
+	struct ccci_smem_region *force_assert =
+		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_FORCE_ASSERT);
+
+	if (md->is_force_asserted != 0)
+		return ret;
+	mdee_set_ex_time_str(md_id, type, param);
+	if (type == MD_FORCE_ASSERT_BY_AP_MPU) {
+		ret = md->ops->force_assert(md, CCIF_MPU_INTR);
+	} else {
+		ccci_fa_smem_ptr = (struct ccci_force_assert_shm_fmt *)
+			force_assert->base_ap_view_vir;
+		if (ccci_fa_smem_ptr) {
+			ccci_fa_smem_ptr->error_code = type;
+			if (param != NULL && len > 0) {
+				if (len > force_assert->size -
+				sizeof(struct ccci_force_assert_shm_fmt))
+					len = force_assert->size -
+					sizeof(
+					struct ccci_force_assert_shm_fmt);
+				memcpy_toio(ccci_fa_smem_ptr->param,
+					param, len);
+			}
+		}
+		ret = md->ops->force_assert(md, CCIF_INTERRUPT);
+	}
+	md->is_force_asserted = 1;
+	return ret;
+}
+EXPORT_SYMBOL(ccci_md_force_assert);
 
 static ssize_t md_cd_debug_show(struct ccci_modem *md, char *buf)
 {
@@ -1260,7 +1386,7 @@ int ccci_modem_syssuspend(void)
 {
 	struct ccci_modem *md;
 
-	CCCI_DEBUG_LOG(0, TAG, "%s\n", __func__);
+	CCCI_DEBUG_LOG(0, TAG, "%s only for MD\n", __func__);
 	md = ccci_md_get_modem_by_id(0);
 	if (md != NULL)
 		ccci_hif_suspend(md->index, md->hif_flag);
@@ -1271,7 +1397,7 @@ void ccci_modem_sysresume(void)
 {
 	struct ccci_modem *md;
 
-	CCCI_DEBUG_LOG(0, TAG, "%s\n", __func__);
+	CCCI_DEBUG_LOG(0, TAG, "%s should be no used\n", __func__);
 	md = ccci_md_get_modem_by_id(0);
 	if (md != NULL)
 		ccci_modem_restore_reg(md);
@@ -1372,12 +1498,6 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 	return 0;
 }
 EXPORT_SYMBOL(ccci_modem_init_common);
-
-void ccci_platform_common_init(struct ccci_modem *md)
-{
-	if (md->hw_info->plat_ptr->init)
-		md->hw_info->plat_ptr->init(md);
-}
 
 int Is_MD_EMI_voilation(void)
 {

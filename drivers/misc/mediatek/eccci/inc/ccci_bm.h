@@ -84,7 +84,5 @@ void ccci_skb_queue_init(struct ccci_skb_queue *queue,
 	unsigned int skb_size, unsigned int max_len, char fill_now);
 void ccci_dump_skb_pool_usage(int md_id);
 void ccci_error_dump(int md_id, void *start_addr, int len);
-void ccci_mem_dump(int md_id, void *start_addr, int len);
-void ccci_cmpt_mem_dump(int md_id, void *start_addr, int len);
 
 #endif /* __CCCI_BM_H__ */

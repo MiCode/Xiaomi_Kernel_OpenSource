@@ -39,11 +39,9 @@
 #include "ccci_core.h"
 #include "modem_sys.h"
 #include "ccci_bm.h"
-#include "ccci_platform.h"
 #include "ccci_hif_dpmaif_v3.h"
 #include "md_sys1_platform.h"
 #include "dpmaif_drv_v3.h"
-#include "modem_reg_base.h"
 #include "ccci_fsm.h"
 #include "ccci_port.h"
 #else

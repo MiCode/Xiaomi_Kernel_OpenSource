@@ -82,6 +82,49 @@ static void enable_watchpoint(void *address)
 #endif
 
 #ifdef CCCI_MEM_BM_DEBUG
+void ccci_mem_dump(int md_id, void *start_addr, int len)
+{
+	unsigned int *curr_p = (unsigned int *)start_addr;
+	unsigned char *curr_ch_p = NULL;
+	int _16_fix_num = len / 16;
+	int tail_num = len % 16;
+	char buf[16];
+	int i, j;
+
+	if (curr_p == NULL) {
+		CCCI_NORMAL_LOG(md_id, BM, "NULL point to dump!\n");
+		return;
+	}
+	if (len == 0) {
+		CCCI_NORMAL_LOG(md_id, BM, "Not need to dump\n");
+		return;
+	}
+
+	CCCI_NORMAL_LOG(md_id, BM, "Base: %p\n", start_addr);
+	/* Fix section */
+	for (i = 0; i < _16_fix_num; i++) {
+		CCCI_NORMAL_LOG(md_id, BM, "%03X: %08X %08X %08X %08X\n",
+			i * 16, *curr_p, *(curr_p + 1),
+			*(curr_p + 2), *(curr_p + 3));
+		curr_p += 4;
+	}
+
+	/* Tail section */
+	if (tail_num > 0) {
+		curr_ch_p = (unsigned char *)curr_p;
+		for (j = 0; j < tail_num; j++) {
+			buf[j] = *curr_ch_p;
+			curr_ch_p++;
+		}
+		for (; j < 16; j++)
+			buf[j] = 0;
+		curr_p = (unsigned int *)buf;
+		CCCI_NORMAL_LOG(md_id, BM, "%03X: %08X %08X %08X %08X\n",
+			i * 16, *curr_p, *(curr_p + 1),
+			*(curr_p + 2), *(curr_p + 3));
+	}
+}
+
 static int is_in_ccci_skb_pool(struct sk_buff *skb)
 {
 	struct sk_buff *skb_p = NULL;
@@ -500,108 +543,6 @@ static void __16_reload_work(struct work_struct *work)
  * then used again, the poor guy who is waiting for it may never see
  * the state transition (FLYING->IDLE/COMPLETE->FLYING) and wait forever.
  */
-
-void ccci_mem_dump(int md_id, void *start_addr, int len)
-{
-	unsigned int *curr_p = (unsigned int *)start_addr;
-	unsigned char *curr_ch_p = NULL;
-	int _16_fix_num = len / 16;
-	int tail_num = len % 16;
-	char buf[16];
-	int i, j;
-
-	if (curr_p == NULL) {
-		CCCI_NORMAL_LOG(md_id, BM, "NULL point to dump!\n");
-		return;
-	}
-	if (len == 0) {
-		CCCI_NORMAL_LOG(md_id, BM, "Not need to dump\n");
-		return;
-	}
-
-	CCCI_NORMAL_LOG(md_id, BM, "Base: %p\n", start_addr);
-	/* Fix section */
-	for (i = 0; i < _16_fix_num; i++) {
-		CCCI_NORMAL_LOG(md_id, BM, "%03X: %08X %08X %08X %08X\n",
-			i * 16, *curr_p, *(curr_p + 1),
-			*(curr_p + 2), *(curr_p + 3));
-		curr_p += 4;
-	}
-
-	/* Tail section */
-	if (tail_num > 0) {
-		curr_ch_p = (unsigned char *)curr_p;
-		for (j = 0; j < tail_num; j++) {
-			buf[j] = *curr_ch_p;
-			curr_ch_p++;
-		}
-		for (; j < 16; j++)
-			buf[j] = 0;
-		curr_p = (unsigned int *)buf;
-		CCCI_NORMAL_LOG(md_id, BM, "%03X: %08X %08X %08X %08X\n",
-			i * 16, *curr_p, *(curr_p + 1),
-			*(curr_p + 2), *(curr_p + 3));
-	}
-}
-
-void ccci_cmpt_mem_dump(int md_id, void *start_addr, int len)
-{
-	unsigned int *curr_p = (unsigned int *)start_addr;
-	unsigned char *curr_ch_p = NULL;
-	int _64_fix_num = len / 64;
-	int tail_num = len % 64;
-	char buf[64];
-	int i, j;
-
-	if (curr_p == NULL) {
-		CCCI_NORMAL_LOG(md_id, BM, "NULL point to dump!\n");
-		return;
-	}
-	if (len == 0) {
-		CCCI_NORMAL_LOG(md_id, BM, "Not need to dump\n");
-		return;
-	}
-
-	/* Fix section */
-	for (i = 0; i < _64_fix_num; i++) {
-		CCCI_MEM_LOG(md_id, BM,
-			"%03X: %X %X %X %X %X %X %X %X %X %X %X %X %X %X %X %X\n",
-			i * 64,
-			*curr_p, *(curr_p + 1), *(curr_p + 2),
-			*(curr_p + 3), *(curr_p + 4), *(curr_p + 5),
-			*(curr_p + 6), *(curr_p + 7), *(curr_p + 8),
-			*(curr_p + 9), *(curr_p + 10), *(curr_p + 11),
-			*(curr_p + 12), *(curr_p + 13), *(curr_p + 14),
-			*(curr_p + 15));
-		curr_p += 64/4;
-	}
-
-	/* Tail section */
-	if (tail_num > 0) {
-		curr_ch_p = (unsigned char *)curr_p;
-		for (j = 0; j < tail_num; j++) {
-			buf[j] = *curr_ch_p;
-			curr_ch_p++;
-		}
-		for (; j < 64; j++)
-			buf[j] = 0;
-		curr_p = (unsigned int *)buf;
-		CCCI_MEM_LOG(md_id, BM,
-			"%03X: %X %X %X %X %X %X %X %X %X %X %X %X %X %X %X %X\n",
-			i * 64,
-			*curr_p, *(curr_p + 1), *(curr_p + 2),
-			*(curr_p + 3), *(curr_p + 4), *(curr_p + 5),
-			*(curr_p + 6), *(curr_p + 7), *(curr_p + 8),
-			*(curr_p + 9), *(curr_p + 10), *(curr_p + 11),
-			*(curr_p + 12), *(curr_p + 13), *(curr_p + 14),
-			*(curr_p + 15));
-	}
-}
-
-void ccci_dump_skb(struct sk_buff *skb)
-{
-	ccci_mem_dump(-1, skb->data, skb->len > 32 ? 32 : skb->len);
-}
 
 int ccci_subsys_bm_init(void)
 {

@@ -42,9 +42,7 @@
 #include "ccci_bm.h"
 
 #include "ccci_hif_cldma.h"
-#include "md_sys1_platform.h"
 #include "cldma_reg.h"
-#include "modem_reg_base.h"
 #include "ccci_fsm.h"
 #include "ccci_port.h"
 #include "ccci_cldma_plat.h"

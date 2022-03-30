@@ -23,7 +23,7 @@
 #include <linux/memblock.h>
 //#include <asm/memblock.h>
 
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #endif

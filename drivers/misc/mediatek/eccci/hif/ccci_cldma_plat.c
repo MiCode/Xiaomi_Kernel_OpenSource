@@ -40,11 +40,9 @@
 #include "ccci_hif_cldma.h"
 //#include "md_sys1_platform.h"
 #include "cldma_reg.h"
-#include "modem_reg_base.h"
 #include "ccci_fsm.h"
 #include "ccci_port.h"
 #include "ccci_cldma_plat.h"
-#include "ccci_platform.h"
 #include "ccci_hif_cldma.h"
 
 #define TAG "cldma"
@@ -267,7 +265,7 @@ void cldma_plat_resume(unsigned char md_id)
 		cldma_ctrl->txq_started = 0;
 		cldma_ctrl->txq_active |= CLDMA_BM_ALL_QUEUE;
 
-		ccci_write32(cldma_ctrl->cldma_ap_pdn_base, CLDMA_AP_L2TIMCR0,
+		cldma_write32(cldma_ctrl->cldma_ap_pdn_base, CLDMA_AP_L2TIMCR0,
 			CLDMA_TX_INT_DONE |
 			CLDMA_TX_INT_QUEUE_EMPTY |
 			CLDMA_TX_INT_ERROR);

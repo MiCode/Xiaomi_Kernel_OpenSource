@@ -388,8 +388,6 @@ enum {
 	MD_FLIGHT_MODE_LEAVE = 2
 };/* FLIGHT_STAGE */
 
-extern unsigned int is_cdma2000_enable(int md_id);
-
 struct ccci_mem_layout *ccci_md_get_mem(int md_id);
 struct ccci_smem_region *ccci_md_get_smem_by_user_id(int md_id,
 	enum SMEM_USER_ID user_id);
@@ -397,7 +395,6 @@ void ccci_md_clear_smem(int md_id, int first_boot);
 int ccci_md_start(unsigned char md_id);
 int ccci_md_soft_start(unsigned char md_id, unsigned int sim_mode);
 int ccci_md_send_runtime_data(unsigned char md_id);
-int ccci_md_reset_pccif(unsigned char md_id);
 void ccci_md_dump_info(unsigned char md_id, enum MODEM_DUMP_FLAG flag,
 	void *buff, int length);
 int ccci_md_pre_stop(unsigned char md_id, unsigned int stop_type);
@@ -405,11 +402,8 @@ int ccci_md_stop(unsigned char md_id, unsigned int stop_type);
 int ccci_md_soft_stop(unsigned char md_id, unsigned int sim_mode);
 int ccci_md_force_assert(unsigned char md_id, enum MD_FORCE_ASSERT_TYPE type,
 	char *param, int len);
-int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
-	int length);
 void ccci_md_exception_handshake(unsigned char md_id, int timeout);
 int ccci_md_send_ccb_tx_notify(unsigned char md_id, int core_id);
-int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len);
 int ccci_md_pre_start(unsigned char md_id);
 int ccci_md_post_start(unsigned char md_id);
 unsigned int get_boot_mode_from_dts(void);
@@ -458,11 +452,6 @@ static inline int ccci_md_get_cap_by_id(int md_id)
 	return per_md_data->md_capability;
 }
 
-struct ccci_runtime_feature *ccci_md_get_rt_feature_by_id(unsigned char md_id,
-	u8 feature_id, u8 ap_query_md);
-
-int ccci_md_parse_rt_feature(unsigned char md_id,
-	struct ccci_runtime_feature *rt_feature, void *data, u32 data_len);
 extern int ccci_register_dev_node(const char *name, int major_id, int minor);
 
 #endif

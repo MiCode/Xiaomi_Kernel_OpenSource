@@ -209,8 +209,6 @@ extern struct ccci_ccb_config ccb_configs[];
 #define CCCI_IOC_SEND_SIGNAL_TO_USER		\
 	_IOW(CCCI_IOC_MAGIC, 43, unsigned int)
 /* md_init */
-#define CCCI_IOC_RESET_MD1_MD3_PCCIF		\
-	_IO(CCCI_IOC_MAGIC, 45)
 #define CCCI_IOC_SIM_LOCK_RANDOM_PATTERN \
 	_IOW(CCCI_IOC_MAGIC, 46, unsigned int)
 /* md_init */

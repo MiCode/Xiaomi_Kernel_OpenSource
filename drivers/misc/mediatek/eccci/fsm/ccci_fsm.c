@@ -10,7 +10,7 @@
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
@@ -19,9 +19,9 @@
 #include <soc/mediatek/emi.h>
 
 #include "ccci_fsm_internal.h"
-#include "ccci_platform.h"
 #include "md_sys1_platform.h"
 #include "modem_sys.h"
+#include "ccci_auxadc.h"
 
 static struct ccci_fsm_ctl *ccci_fsm_entries[MAX_MD_NUM];
 
@@ -318,6 +318,832 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		fsm_finish_command(ctl, cmd, 1);
 }
 
+static void append_runtime_feature(char **p_rt_data,
+	struct ccci_runtime_feature *rt_feature, void *data)
+{
+	CCCI_DEBUG_LOG(-1, FSM,
+		"append rt_data %p, feature %u len %u\n",
+		*p_rt_data, rt_feature->feature_id,
+		rt_feature->data_len);
+	memcpy_toio(*p_rt_data, rt_feature,
+		sizeof(struct ccci_runtime_feature));
+	*p_rt_data += sizeof(struct ccci_runtime_feature);
+	if (data != NULL) {
+		memcpy_toio(*p_rt_data, data, rt_feature->data_len);
+		*p_rt_data += rt_feature->data_len;
+	}
+}
+
+/*
+ *booting_start_id bit mapping:
+ * |31---------16|15-----------8|7---------0|
+ * | mdwait_time | logging_mode | boot_mode |
+ * mdwait_time: getting from property at user space
+ * logging_mode: usb/sd/idl mode, setting at user space
+ * boot_mode: factory/meta/normal mode
+ */
+static unsigned int get_booting_start_id(struct ccci_modem *md)
+{
+	enum LOGGING_MODE mdlog_flag = MODE_IDLE;
+	u32 booting_start_id;
+
+	mdlog_flag = md->mdlg_mode & 0x0000ffff;
+	booting_start_id = (((char)mdlog_flag << 8)
+				| get_boot_mode_from_dts());
+	booting_start_id |= md->mdlg_mode & 0xffff0000;
+
+	CCCI_BOOTUP_LOG(md->index, FSM,
+		"%s 0x%x\n", __func__, booting_start_id);
+	return booting_start_id;
+}
+
+static void config_ap_side_feature(struct ccci_modem *md,
+	struct md_query_ap_feature *md_feature)
+{
+	unsigned int udc_noncache_size = 0, udc_cache_size = 0;
+#if (MD_GENERATION >= 6297)
+	struct ccci_smem_region *region;
+#endif
+
+	md->runtime_version = AP_MD_HS_V2;
+	md_feature->feature_set[BOOT_INFO].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[EXCEPTION_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[CCIF_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+
+#ifdef FEATURE_SCP_CCCI_SUPPORT
+	md_feature->feature_set[CCISM_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+#else
+	md_feature->feature_set[CCISM_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_NOT_SUPPORT;
+#endif
+
+	md_feature->feature_set[CCISM_SHARE_MEMORY_EXP].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	if ((md->index == MD_SYS1) && ((get_md_resv_phy_cap_size(MD_SYS1) > 0)
+		|| (get_md_resv_sib_size(MD_SYS1) > 0)))
+		md_feature->feature_set[MD_PHY_CAPTURE].support_mask
+			= CCCI_FEATURE_MUST_SUPPORT;
+	else
+		md_feature->feature_set[MD_PHY_CAPTURE].support_mask
+			= CCCI_FEATURE_NOT_SUPPORT;
+	md_feature->feature_set[MD_CONSYS_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[MD1MD3_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_NOT_SUPPORT;
+
+#if (MD_GENERATION >= 6297)
+	region =	ccci_md_get_smem_by_user_id(MD_SYS1,
+		SMEM_USER_RAW_UDC_DESCTAB);
+	if (region)
+		udc_cache_size = region->size;
+	else
+		udc_cache_size = 0;
+
+	region = ccci_md_get_smem_by_user_id(MD_SYS1, SMEM_USER_RAW_UDC_DATA);
+	if (region)
+		udc_noncache_size = region->size;
+	else
+		udc_noncache_size = 0;
+	if (udc_noncache_size > 0 && udc_cache_size > 0)
+		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
+			= CCCI_FEATURE_MUST_SUPPORT;
+	else
+		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
+			= CCCI_FEATURE_NOT_SUPPORT;
+#else
+	get_md_resv_udc_info(md->index, &udc_noncache_size, &udc_cache_size);
+	if (udc_noncache_size > 0 && udc_cache_size > 0)
+		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
+			= CCCI_FEATURE_MUST_SUPPORT;
+	else
+		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
+			= CCCI_FEATURE_NOT_SUPPORT;
+#endif
+	if ((md->index == MD_SYS1) && (get_smem_amms_pos_size(MD_SYS1) > 0))
+		md_feature->feature_set[MD_POS_SHARE_MEMORY].support_mask =
+			CCCI_FEATURE_MUST_SUPPORT;
+	else
+		md_feature->feature_set[MD_POS_SHARE_MEMORY].support_mask =
+			CCCI_FEATURE_NOT_SUPPORT;
+
+	/* notice: CCB_SHARE_MEMORY should be set to support
+	 * when at least one CCB region exists
+	 */
+	md_feature->feature_set[CCB_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[DHL_RAW_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[LWA_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[DT_NETD_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[DT_USB_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[AUDIO_RAW_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+
+	md_feature->feature_set[MISC_INFO_HIF_DMA_REMAP].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[MULTI_MD_MPU].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+
+	/* default always support MISC_INFO_RTC_32K_LESS */
+	CCCI_DEBUG_LOG(md->index, FSM, "MISC_32K_LESS support\n");
+	md_feature->feature_set[MISC_INFO_RTC_32K_LESS].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+
+	md_feature->feature_set[MISC_INFO_RANDOM_SEED_NUM].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[MISC_INFO_GPS_COCLOCK].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[MISC_INFO_SBP_ID].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[MISC_INFO_CCCI].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[MISC_INFO_CLIB_TIME].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[MISC_INFO_C2K].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[MD_IMAGE_START_MEMORY].support_mask
+		= CCCI_FEATURE_OPTIONAL_SUPPORT;
+	md_feature->feature_set[EE_AFTER_EPOF].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+	md_feature->feature_set[AP_CCMNI_MTU].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+
+#ifdef ENABLE_FAST_HEADER
+	md_feature->feature_set[CCCI_FAST_HEADER].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+#endif
+
+	/* tire1 features */
+#ifdef FEATURE_TC1_CUSTOMER_VAL
+	md_feature->feature_set[MISC_INFO_CUSTOMER_VAL].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+#else
+	md_feature->feature_set[MISC_INFO_CUSTOMER_VAL].support_mask
+		= CCCI_FEATURE_NOT_SUPPORT;
+#endif
+#ifdef FEATURE_SYNC_C2K_MEID
+	md_feature->feature_set[MISC_INFO_C2K_MEID].support_mask
+		= CCCI_FEATURE_MUST_SUPPORT;
+#else
+	md_feature->feature_set[MISC_INFO_C2K_MEID].support_mask
+		= CCCI_FEATURE_NOT_SUPPORT;
+#endif
+	md_feature->feature_set[SMART_LOGGING_SHARE_MEMORY].support_mask
+		= CCCI_FEATURE_NOT_SUPPORT;
+
+
+	if (md->hw_info->plat_val->md_gen >= 6295)
+		md_feature->feature_set[MD_USIP_SHARE_MEMORY].support_mask =
+			CCCI_FEATURE_OPTIONAL_SUPPORT;
+	else
+		md_feature->feature_set[MD_USIP_SHARE_MEMORY].support_mask =
+			CCCI_FEATURE_NOT_SUPPORT;
+
+	md_feature->feature_set[MD_MTEE_SHARE_MEMORY_ENABLE].support_mask
+		= CCCI_FEATURE_OPTIONAL_SUPPORT;
+
+#if (MD_GENERATION >= 6297)
+	md_feature->feature_set[MD_WIFI_PROXY_SHARE_MEMORY].support_mask =
+		CCCI_FEATURE_OPTIONAL_SUPPORT;
+#else
+	md_feature->feature_set[MD_WIFI_PROXY_SHARE_MEMORY].support_mask =
+		CCCI_FEATURE_NOT_SUPPORT;
+#endif
+
+
+#if (MD_GENERATION >= 6297)
+	md_feature->feature_set[NVRAM_CACHE_SHARE_MEMORY].support_mask =
+		CCCI_FEATURE_MUST_SUPPORT;
+#else
+	md_feature->feature_set[NVRAM_CACHE_SHARE_MEMORY].support_mask =
+		CCCI_FEATURE_NOT_SUPPORT;
+#endif
+#ifdef CCCI_SUPPORT_AP_MD_SECURE_FEATURE
+	md_feature->feature_set[SECURITY_SHARE_MEMORY].support_mask =
+		CCCI_FEATURE_MUST_SUPPORT;
+#else
+	/* This item is reserved */
+	md_feature->feature_set[SECURITY_SHARE_MEMORY].support_mask =
+		CCCI_FEATURE_NOT_SUPPORT;
+#endif
+#if (MD_GENERATION >= 6297)
+		md_feature->feature_set[AMMS_DRDI_COPY].support_mask =
+			CCCI_FEATURE_MUST_SUPPORT;
+#else
+		md_feature->feature_set[AMMS_DRDI_COPY].support_mask =
+			CCCI_FEATURE_NOT_SUPPORT;
+#endif
+
+#if (MD_GENERATION >= 6297)
+	md_feature->feature_set[MD_MEM_AP_VIEW_INF].support_mask =
+		CCCI_FEATURE_OPTIONAL_SUPPORT;
+#endif
+}
+
+#if (MD_GENERATION >= 6297)
+static void ccci_sib_region_set_runtime(struct ccci_runtime_feature *rt_feature,
+	struct ccci_runtime_share_memory *rt_shm)
+{
+	phys_addr_t md_sib_mem_addr;
+	unsigned int md_sib_mem_size;
+
+	get_md_sib_mem_info(&md_sib_mem_addr, &md_sib_mem_size);
+	rt_feature->data_len =
+		sizeof(struct ccci_runtime_share_memory);
+	rt_shm->addr = 0;
+	if (md_sib_mem_addr)
+		rt_shm->size = md_sib_mem_size;
+	else
+		rt_shm->size = 0;
+}
+
+static void ccci_md_mem_inf_prepare(int md_id,
+		struct ccci_runtime_feature *rt_ft,
+		struct ccci_runtime_md_mem_ap_addr *tbl, unsigned int num)
+{
+	unsigned int add_num = 0;
+	phys_addr_t ro_rw_base, ncrw_base, crw_base;
+	u32 ro_rw_size, ncrw_size, crw_size;
+	int ret;
+
+	ret = get_md_resv_mem_info(md_id, &ro_rw_base, &ro_rw_size,
+					&ncrw_base, &ncrw_size);
+	if (ret < 0) {
+		CCCI_REPEAT_LOG(md_id, FSM, "%s get mdrorw and srw fail\n",
+			__func__);
+		return;
+	}
+	ret = get_md_resv_csmem_info(md_id, &crw_base, &crw_size);
+	if (ret < 0) {
+		CCCI_REPEAT_LOG(md_id, FSM, "%s get cache smem info fail\n",
+			__func__);
+		return;
+	}
+
+	/* Add bank 0 and bank 1 */
+	if (add_num < num) {
+		tbl[add_num].md_view_phy = 0;
+		tbl[add_num].size = ro_rw_size;
+		tbl[add_num].ap_view_phy_lo32 = (u32)ro_rw_base;
+		tbl[add_num].ap_view_phy_hi32 = (u32)(ro_rw_base >> 32);
+		add_num++;
+	} else
+		CCCI_REPEAT_LOG(md_id, FSM, "%s add bank0/1 fail(%d)\n",
+			__func__, add_num);
+
+	if (add_num < num) {
+		tbl[add_num].md_view_phy = 0x40000000;
+		tbl[add_num].size = ncrw_size;
+		tbl[add_num].ap_view_phy_lo32 = (u32)ncrw_base;
+		tbl[add_num].ap_view_phy_hi32 = (u32)(ncrw_base >> 32);
+		add_num++;
+	} else
+		CCCI_REPEAT_LOG(md_id, FSM, "%s add bank4 nc fail(%d)\n",
+			__func__, add_num);
+
+	if (add_num < num) {
+		tbl[add_num].md_view_phy = 0x40000000 +
+				get_md_smem_cachable_offset(md_id);
+		tbl[add_num].size = crw_size;
+		tbl[add_num].ap_view_phy_lo32 = (u32)crw_base;
+		tbl[add_num].ap_view_phy_hi32 = (u32)(crw_base >> 32);
+		add_num++;
+	} else
+		CCCI_REPEAT_LOG(md_id, FSM, "%s add bank4 c fail(%d)\n",
+			__func__, add_num);
+	rt_ft->feature_id = MD_MEM_AP_VIEW_INF;
+	rt_ft->data_len =
+		(sizeof(struct ccci_runtime_md_mem_ap_addr)) * add_num;
+}
+#endif
+
+static void ccci_smem_region_set_runtime(unsigned char md_id, unsigned int id,
+	struct ccci_runtime_feature *rt_feature,
+	struct ccci_runtime_share_memory *rt_shm)
+{
+	struct ccci_smem_region *region = ccci_md_get_smem_by_user_id(md_id,
+		id);
+
+	if (region) {
+		rt_feature->data_len =
+			sizeof(struct ccci_runtime_share_memory);
+		rt_shm->addr = region->base_md_view_phy;
+		rt_shm->size = region->size;
+	} else {
+		rt_feature->data_len =
+			sizeof(struct ccci_runtime_share_memory);
+		rt_shm->addr = 0;
+		rt_shm->size = 0;
+	}
+}
+
+int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
+	int length)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	u8 i = 0;
+	u32 total_len;
+	int j;
+	/*runtime data buffer */
+	struct ccci_smem_region *region;
+	struct ccci_smem_region *rt_data_region =
+		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_RUNTIME_DATA);
+	char *rt_data = (char *)rt_data_region->base_ap_view_vir;
+
+	struct ccci_runtime_feature rt_feature;
+	/*runtime feature type */
+	struct ccci_runtime_share_memory rt_shm;
+	struct ccci_misc_info_element rt_f_element;
+	struct ccci_runtime_md_mem_ap_addr rt_mem_view[4];
+
+	struct md_query_ap_feature *md_feature = NULL;
+	struct md_query_ap_feature md_feature_ap;
+	struct ccci_runtime_boot_info boot_info;
+	unsigned int random_seed = 0;
+	struct timespec64 t;
+	unsigned int c2k_flags = 0;
+	int adc_val = 0;
+
+	CCCI_BOOTUP_LOG(md->index, FSM,
+		"prepare_runtime_data  AP total %u features\n",
+		MD_RUNTIME_FEATURE_ID_MAX);
+
+	memset(&md_feature_ap, 0, sizeof(struct md_query_ap_feature));
+	config_ap_side_feature(md, &md_feature_ap);
+
+	md_feature = (struct md_query_ap_feature *)(data +
+				sizeof(struct ccci_header));
+
+	if (md_feature->head_pattern != MD_FEATURE_QUERY_PATTERN ||
+	    md_feature->tail_pattern != MD_FEATURE_QUERY_PATTERN) {
+		CCCI_BOOTUP_LOG(md->index, FSM,
+			"md_feature pattern is wrong: head 0x%x, tail 0x%x\n",
+			md_feature->head_pattern, md_feature->tail_pattern);
+		if (md->index == MD_SYS3)
+			md->ops->dump_info(md, DUMP_FLAG_CCIF, NULL, 0);
+		return -1;
+	}
+
+	for (i = BOOT_INFO; i < FEATURE_COUNT; i++) {
+		memset(&rt_feature, 0, sizeof(struct ccci_runtime_feature));
+		memset(&rt_shm, 0, sizeof(struct ccci_runtime_share_memory));
+		memset(&rt_f_element, 0, sizeof(struct ccci_misc_info_element));
+		rt_feature.feature_id = i;
+		if (md_feature->feature_set[i].support_mask ==
+			CCCI_FEATURE_MUST_SUPPORT &&
+		    md_feature_ap.feature_set[i].support_mask <
+			CCCI_FEATURE_MUST_SUPPORT) {
+			CCCI_BOOTUP_LOG(md->index, FSM,
+				"feature %u not support for AP\n",
+				rt_feature.feature_id);
+			return -1;
+		}
+
+		CCCI_DEBUG_LOG(md->index, FSM,
+			"ftr %u mask %u, ver %u\n",
+			rt_feature.feature_id,
+			md_feature->feature_set[i].support_mask,
+			md_feature->feature_set[i].version);
+
+		if (md_feature->feature_set[i].support_mask ==
+			CCCI_FEATURE_NOT_EXIST) {
+			rt_feature.support_info =
+				md_feature->feature_set[i];
+		} else if (md_feature->feature_set[i].support_mask ==
+			CCCI_FEATURE_MUST_SUPPORT) {
+			rt_feature.support_info =
+				md_feature->feature_set[i];
+		} else if (md_feature->feature_set[i].support_mask ==
+			CCCI_FEATURE_OPTIONAL_SUPPORT) {
+			if (md_feature->feature_set[i].version ==
+			md_feature_ap.feature_set[i].version &&
+			md_feature_ap.feature_set[i].support_mask >=
+			CCCI_FEATURE_MUST_SUPPORT) {
+				rt_feature.support_info.support_mask =
+					CCCI_FEATURE_MUST_SUPPORT;
+				rt_feature.support_info.version =
+					md_feature_ap.feature_set[i].version;
+			} else {
+				rt_feature.support_info.support_mask =
+					CCCI_FEATURE_NOT_SUPPORT;
+				rt_feature.support_info.version =
+					md_feature_ap.feature_set[i].version;
+			}
+		} else if (md_feature->feature_set[i].support_mask ==
+			CCCI_FEATURE_SUPPORT_BACKWARD_COMPAT) {
+			if (md_feature->feature_set[i].version >=
+				md_feature_ap.feature_set[i].version) {
+				rt_feature.support_info.support_mask =
+					CCCI_FEATURE_MUST_SUPPORT;
+				rt_feature.support_info.version =
+					md_feature_ap.feature_set[i].version;
+			} else {
+				rt_feature.support_info.support_mask =
+					CCCI_FEATURE_NOT_SUPPORT;
+				rt_feature.support_info.version =
+					md_feature_ap.feature_set[i].version;
+			}
+		}
+
+		if (rt_feature.support_info.support_mask ==
+		CCCI_FEATURE_MUST_SUPPORT) {
+			switch (rt_feature.feature_id) {
+			case BOOT_INFO:
+				memset(&boot_info, 0, sizeof(boot_info));
+				rt_feature.data_len = sizeof(boot_info);
+				boot_info.boot_channel = CCCI_CONTROL_RX;
+				boot_info.booting_start_id =
+					get_booting_start_id(md);
+				adc_val = ccci_get_adc_mV();
+				/* 0V ~ 0.1V is EVB */
+				if (adc_val >= 100) {
+					CCCI_BOOTUP_LOG(md->index, FSM,
+					"ADC val:%d, Phone\n", adc_val);
+					/* bit 1: 0: EVB 1: Phone */
+					boot_info.boot_attributes |= (1 << 1);
+				} else
+					CCCI_BOOTUP_LOG(md->index, FSM,
+					"ADC val:%d, EVB\n", adc_val);
+				append_runtime_feature(&rt_data,
+					&rt_feature, &boot_info);
+				break;
+			case EXCEPTION_SHARE_MEMORY:
+				region = ccci_md_get_smem_by_user_id(md_id,
+					SMEM_USER_RAW_MDCCCI_DBG);
+				rt_feature.data_len =
+				sizeof(struct ccci_runtime_share_memory);
+				rt_shm.addr = region->base_md_view_phy;
+				rt_shm.size = CCCI_EE_SMEM_TOTAL_SIZE;
+				append_runtime_feature(&rt_data,
+					&rt_feature, &rt_shm);
+				break;
+			case CCIF_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_CCISM_MCU,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data,
+					&rt_feature, &rt_shm);
+				break;
+			case CCISM_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_CCISM_SCP,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data,
+					&rt_feature, &rt_shm);
+				break;
+			case CCB_SHARE_MEMORY:
+				/* notice: we should add up
+				 * all CCB region size here
+				 */
+				/* ctrl control first */
+				region = ccci_md_get_smem_by_user_id(md_id,
+					SMEM_USER_RAW_CCB_CTRL);
+				if (region) {
+					rt_feature.data_len =
+					sizeof(struct ccci_misc_info_element);
+					rt_f_element.feature[0] =
+					region->base_md_view_phy;
+					rt_f_element.feature[1] =
+					region->size;
+				}
+				/* ccb data second */
+				for (j = SMEM_USER_CCB_START;
+					j <= SMEM_USER_CCB_END; j++) {
+					region = ccci_md_get_smem_by_user_id(
+						md_id, j);
+					if (j == SMEM_USER_CCB_START
+						&& region) {
+						rt_f_element.feature[2] =
+						region->base_md_view_phy;
+						rt_f_element.feature[3] = 0;
+					} else if (j == SMEM_USER_CCB_START
+							&& region == NULL)
+						break;
+					if (region)
+						rt_f_element.feature[3] +=
+						region->size;
+				}
+				CCCI_BOOTUP_LOG(md->index, FSM,
+					"ccb data size (include dsp raw): %X\n",
+					rt_f_element.feature[3]);
+
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_f_element);
+				break;
+			case DHL_RAW_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_RAW_DHL,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data,
+					&rt_feature, &rt_shm);
+				break;
+			case LWA_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_RAW_LWA,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_shm);
+				break;
+			case MULTI_MD_MPU:
+				CCCI_BOOTUP_LOG(md->index, FSM,
+				"new version md use multi-MPU.\n");
+				md->multi_md_mpu_support = 1;
+				rt_feature.data_len = 0;
+				append_runtime_feature(&rt_data,
+				&rt_feature, NULL);
+				break;
+			case DT_NETD_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_RAW_NETD,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_shm);
+				break;
+			case DT_USB_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_RAW_USB,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_shm);
+				break;
+			case SMART_LOGGING_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_SMART_LOGGING,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_shm);
+				break;
+			case MD1MD3_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_RAW_MD2MD,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_shm);
+				break;
+
+			case MISC_INFO_HIF_DMA_REMAP:
+				rt_feature.data_len =
+				sizeof(struct ccci_misc_info_element);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_f_element);
+				break;
+			case MISC_INFO_RTC_32K_LESS:
+				rt_feature.data_len =
+				sizeof(struct ccci_misc_info_element);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_f_element);
+				break;
+			case MISC_INFO_RANDOM_SEED_NUM:
+				rt_feature.data_len =
+				sizeof(struct ccci_misc_info_element);
+				get_random_bytes(&random_seed, sizeof(int));
+				rt_f_element.feature[0] = random_seed;
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_f_element);
+				break;
+			case MISC_INFO_GPS_COCLOCK:
+				rt_feature.data_len =
+				sizeof(struct ccci_misc_info_element);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_f_element);
+				break;
+			case MISC_INFO_SBP_ID:
+				rt_feature.data_len =
+				sizeof(struct ccci_misc_info_element);
+				rt_f_element.feature[0] = md->sbp_code;
+				rt_f_element.feature[1] =
+						get_soc_md_rt_rat(MD_SYS1);
+				CCCI_BOOTUP_LOG(md->index, FSM,
+					"sbp=0x%x,wmid[0x%x]\n",
+					rt_f_element.feature[0],
+					rt_f_element.feature[1]);
+				CCCI_NORMAL_LOG(md->index, FSM,
+					"sbp=0x%x,wmid[0x%x]\n",
+					rt_f_element.feature[0],
+					rt_f_element.feature[1]);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_f_element);
+				break;
+			case MISC_INFO_CCCI:
+				rt_feature.data_len =
+				sizeof(struct ccci_misc_info_element);
+				/* sequence check */
+				rt_f_element.feature[0] |= (1 << 0);
+				/* polling MD status */
+				rt_f_element.feature[0] |= (1 << 1);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_f_element);
+				break;
+			case MISC_INFO_CLIB_TIME:
+				rt_feature.data_len =
+				sizeof(struct ccci_misc_info_element);
+				ktime_get_real_ts64(&t);
+				/*set seconds information */
+				rt_f_element.feature[0] =
+				((unsigned int *)&t.tv_sec)[0];
+				rt_f_element.feature[1] =
+				((unsigned int *)&t.tv_sec)[1];
+				/*sys_tz.tz_minuteswest; */
+				rt_f_element.feature[2] = current_time_zone;
+				/*not used for now */
+				rt_f_element.feature[3] = sys_tz.tz_dsttime;
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_f_element);
+				break;
+			case MISC_INFO_C2K:
+				rt_feature.data_len =
+				sizeof(struct ccci_misc_info_element);
+				c2k_flags = 0;
+
+				if (check_rat_at_rt_setting(MD_SYS1, "C"))
+					c2k_flags |= (1 << 2);
+				CCCI_NORMAL_LOG(md_id, FSM,
+					"c2k_flags 0x%X; MD_GENERATION: %d\n",
+					c2k_flags, MD_GENERATION);
+
+				rt_f_element.feature[0] = c2k_flags;
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_f_element);
+				break;
+			case MD_IMAGE_START_MEMORY:
+				rt_feature.data_len =
+				sizeof(struct ccci_runtime_share_memory);
+				rt_shm.addr =
+				md->per_md_data.img_info[IMG_MD].address;
+				rt_shm.size =
+				md->per_md_data.img_info[IMG_MD].size;
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_shm);
+				break;
+			case EE_AFTER_EPOF:
+				rt_feature.data_len =
+				sizeof(struct ccci_misc_info_element);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_f_element);
+				break;
+			case AP_CCMNI_MTU:
+				rt_feature.data_len =
+				sizeof(unsigned int);
+				random_seed =
+				NET_RX_BUF - sizeof(struct ccci_header);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &random_seed);
+				break;
+			case CCCI_FAST_HEADER:
+				rt_feature.data_len = sizeof(unsigned int);
+				random_seed = 1;
+				append_runtime_feature(&rt_data,
+				&rt_feature, &random_seed);
+				break;
+			case AUDIO_RAW_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_RAW_AUDIO,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data,
+				&rt_feature, &rt_shm);
+				break;
+			case CCISM_SHARE_MEMORY_EXP:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_CCISM_MCU_EXP,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
+				break;
+			case MD_PHY_CAPTURE:
+#if (MD_GENERATION >= 6297)
+				ccci_sib_region_set_runtime(&rt_feature,
+					&rt_shm);
+#else
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_RAW_PHY_CAP,
+					&rt_feature, &rt_shm);
+#endif
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
+				break;
+			case UDC_RAW_SHARE_MEMORY:
+				region = ccci_md_get_smem_by_user_id(md_id,
+					SMEM_USER_RAW_UDC_DATA);
+				if (region) {
+					rt_feature.data_len = sizeof(
+						struct ccci_misc_info_element);
+					rt_f_element.feature[0] =
+						region->base_md_view_phy;
+					rt_f_element.feature[1] =
+						region->size;
+				} else {
+					rt_feature.data_len = sizeof(
+						struct ccci_misc_info_element);
+					rt_f_element.feature[0] = 0;
+					rt_f_element.feature[1] = 0;
+				}
+				region = ccci_md_get_smem_by_user_id(md_id,
+					SMEM_USER_RAW_UDC_DESCTAB);
+				if (region) {
+					rt_feature.data_len = sizeof(
+						struct ccci_misc_info_element);
+					rt_f_element.feature[2] =
+						region->base_md_view_phy;
+					rt_f_element.feature[3] =
+						region->size;
+				} else {
+					rt_feature.data_len = sizeof(
+						struct ccci_misc_info_element);
+					rt_f_element.feature[2] = 0;
+					rt_f_element.feature[3] = 0;
+				}
+				append_runtime_feature(&rt_data,
+					&rt_feature, &rt_f_element);
+				break;
+			case MD_CONSYS_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_RAW_MD_CONSYS,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
+				break;
+			case MD_USIP_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_RAW_USIP,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
+				break;
+			case MD_MTEE_SHARE_MEMORY_ENABLE:
+				rt_feature.data_len = sizeof(unsigned int);
+				/* use the random_seed as temp_u32 value */
+				random_seed = get_mtee_is_enabled();
+				append_runtime_feature(&rt_data, &rt_feature,
+				&random_seed);
+				break;
+			case MD_POS_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_RAW_AMMS_POS,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+					&rt_shm);
+				break;
+			case MD_WIFI_PROXY_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_MD_WIFI_PROXY,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
+				break;
+			case NVRAM_CACHE_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_MD_NVRAM_CACHE,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
+				break;
+			case MD_MEM_AP_VIEW_INF:
+				ccci_md_mem_inf_prepare(md_id, &rt_feature,
+					rt_mem_view, 4);
+				append_runtime_feature(&rt_data, &rt_feature,
+				rt_mem_view);
+				break;
+#ifdef CCCI_SUPPORT_AP_MD_SECURE_FEATURE
+			case SECURITY_SHARE_MEMORY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_SECURITY_SMEM,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
+				break;
+#endif
+			case AMMS_DRDI_COPY:
+				ccci_smem_region_set_runtime(md_id,
+					SMEM_USER_MD_DRDI,
+					&rt_feature, &rt_shm);
+				append_runtime_feature(&rt_data, &rt_feature,
+				&rt_shm);
+				break;
+			default:
+				break;
+			};
+		} else {
+			rt_feature.data_len = 0;
+			append_runtime_feature(&rt_data, &rt_feature, NULL);
+		}
+
+	}
+
+	total_len = rt_data - (char *)rt_data_region->base_ap_view_vir;
+	CCCI_BOOTUP_DUMP_LOG(md->index, FSM, "AP runtime data\n");
+	ccci_util_mem_dump(md->index, CCCI_DUMP_BOOTUP,
+		rt_data_region->base_ap_view_vir, total_len);
+
+	return 0;
+}
+
 static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd)
 {
@@ -567,7 +1393,7 @@ static int ccci_md_epon_set(int md_id)
 		break;
 	case MD_SYS3:
 		ret = *((int *)(mdss_dbg->base_ap_view_vir
-			+ CCCI_EE_OFFSET_EPON_MD3))
+			+ 0x464)) //#define CCCI_EE_OFFSET_EPON_MD3 (0x464)
 				== 0xBAEBAE10;
 		break;
 	}

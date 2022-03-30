@@ -13,7 +13,6 @@
 #include "ccci_config.h"
 #include "ccci_common_config.h"
 #include "ccci_fsm_sys.h"
-#include "ccci_platform.h"
 #include "md_sys1_platform.h"
 #include "modem_sys.h"
 

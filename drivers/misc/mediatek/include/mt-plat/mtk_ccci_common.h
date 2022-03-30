@@ -601,7 +601,6 @@ int ccci_get_fo_setting(char item[], unsigned int *val);
 void ccci_md_mem_reserve(void);
 unsigned int get_modem_is_enabled(int md_id);
 unsigned int ccci_get_modem_nr(void);
-int ccci_init_security(void);
 int ccci_sysfs_add_modem(int md_id, void *kobj, void *ktype,
 	get_status_func_t get_sta_func, boot_md_func_t boot_func);
 int get_modem_support_cap(int md_id); /* Export by ccci util */
@@ -691,8 +690,6 @@ int ccci_log_write(const char *fmt, ...);
 int ccci_log_write_raw(unsigned int flags, const char *fmt, ...);
 int ccci_event_log_cpy(char buf[], int size);
 int ccci_event_log(const char *fmt, ...);
-int ccmni_send_mbim_skb(int md_id, struct sk_buff *skb);
-void ccmni_update_mbim_interface(int md_id, int id);
 
 /* MPU setting */
 struct _mpu_cfg {

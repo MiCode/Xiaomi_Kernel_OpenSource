@@ -32,12 +32,10 @@
 #include "ccci_core.h"
 #include "ccci_modem.h"
 #include "ccci_bm.h"
-#include "ccci_platform.h"
 #include "ccci_hif_ccif.h"
-#include "md_sys1_platform.h"
 #include "modem_secure_base.h"
 
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>

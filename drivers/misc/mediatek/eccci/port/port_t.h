@@ -32,6 +32,7 @@
 #define PORT_F_CLEAN            (1<<9)
 /*Dump pkt of ccmni*/
 #define PORT_F_NET_DUMP         (1<<10)
+#define PORT_F_CLOSE_NO_DROP_PKT   (1<<11)
 enum {
 	PORT_DBG_DUMP_RILD = 0,
 	PORT_DBG_DUMP_AUDIO,

@@ -7,16 +7,18 @@
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #endif
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
+#endif
 
 #include "ccci_auxadc.h"
 #include "ccci_fsm_internal.h"
-#include "ccci_platform.h"
 #include "modem_sys.h"
 #include "md_sys1_platform.h"
 
@@ -39,6 +41,129 @@ unsigned int get_sim_switch_type(void)
 	return 0;
 }
 #endif
+
+struct ccci_runtime_feature *ccci_md_get_rt_feature_by_id(unsigned char md_id,
+	u8 feature_id, u8 ap_query_md)
+{
+	struct ccci_runtime_feature *rt_feature = NULL;
+	u8 i = 0;
+	u8 max_id = 0;
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_smem_region *rt_data_region =
+		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_RUNTIME_DATA);
+
+	if (ap_query_md) {
+		rt_feature = (struct ccci_runtime_feature *)
+		(rt_data_region->base_ap_view_vir +
+			CCCI_SMEM_SIZE_RUNTIME_AP);
+		max_id = AP_RUNTIME_FEATURE_ID_MAX;
+	} else {
+		rt_feature = (struct ccci_runtime_feature *)
+		(rt_data_region->base_ap_view_vir);
+		max_id = MD_RUNTIME_FEATURE_ID_MAX;
+	}
+	while (i < max_id) {
+		if (feature_id == rt_feature->feature_id)
+			return rt_feature;
+		if (rt_feature->data_len >
+			sizeof(struct ccci_misc_info_element)) {
+			CCCI_ERROR_LOG(md->index, FSM,
+				"get invalid feature, id %u\n", i);
+			return NULL;
+		}
+		rt_feature = (struct ccci_runtime_feature *)
+		((char *)rt_feature->data + rt_feature->data_len);
+		i++;
+	}
+
+	return NULL;
+}
+
+int ccci_md_parse_rt_feature(unsigned char md_id,
+	struct ccci_runtime_feature *rt_feature, void *data, u32 data_len)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	if (unlikely(!rt_feature)) {
+		CCCI_ERROR_LOG(md->index, FSM,
+			"parse_md_rt_feature: rt_feature == NULL\n");
+		return -EFAULT;
+	}
+	if (unlikely(rt_feature->data_len > data_len ||
+		rt_feature->data_len == 0)) {
+		CCCI_ERROR_LOG(md->index, FSM,
+			"rt_feature %u data_len = %u, expected data_len %u\n",
+			rt_feature->feature_id, rt_feature->data_len, data_len);
+		return -EFAULT;
+	}
+
+	memcpy(data, (const void *)((char *)rt_feature->data),
+		rt_feature->data_len);
+
+	return 0;
+}
+
+int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len)
+{
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	unsigned int rat_flag;
+	unsigned int rat_str_int[MD_CFG_RAT_STR5 - MD_CFG_RAT_STR0 + 1];
+	unsigned int wm_idx;
+	char *rat_str;
+	int i, ret;
+
+	if (len < 0 || data == NULL)
+		return -1;
+
+	md->mdlg_mode = data[MD_CFG_MDLOG_MODE];
+	md->sbp_code  = data[MD_CFG_SBP_CODE];
+	md->per_md_data.md_dbg_dump_flag =
+		data[MD_CFG_DUMP_FLAG] == MD_DBG_DUMP_INVALID ?
+		md->per_md_data.md_dbg_dump_flag : data[MD_CFG_DUMP_FLAG];
+
+	rat_flag = data[MD_CFG_RAT_CHK_FLAG];
+	if (rat_flag) {
+		if (check_rat_at_md_img(md_id, "C") == 0) {
+			char aee_info[32];
+
+			i = scnprintf(aee_info, sizeof(aee_info),
+				"C2K DEP check fail(0x%x)",
+				get_md_bin_capability(md_id));
+			if (i >= (sizeof(aee_info) - 1))
+				CCCI_ERROR_LOG(md_id, FSM, "buf not enough\n");
+			CCCI_ERROR_LOG(md_id, FSM, "C2K DEP check fail\n");
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+			aed_md_exception_api(NULL, 0, NULL,
+				0, aee_info, DB_OPT_DEFAULT);
+#endif
+			return -1;
+		}
+	}
+
+	for (i = 0; i < (MD_CFG_RAT_STR5 - MD_CFG_RAT_STR0 + 1); i++)
+		rat_str_int[i] = data[MD_CFG_RAT_STR0 + i];
+	rat_str = (char *)rat_str_int;
+	rat_str[sizeof(rat_str_int) - 1] = 0;
+
+	wm_idx = data[MD_CFG_WM_IDX];
+	if (set_soc_md_rt_rat_by_idx(md_id, wm_idx) == 0) {
+		CCCI_NORMAL_LOG(-1, FSM, "Using WM IDX: %u\n", wm_idx);
+		return 0;
+	}
+
+	ret = set_soc_md_rt_rat_str(md_id, rat_str);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(md_id, FSM,
+			"Current setting has mistake!!\n");
+		return -1;
+	}
+
+	if (ret == 1)
+		CCCI_ERROR_LOG(md_id, FSM,
+			"runtime rat setting abnormal, using default!!\n");
+
+	return 0;
+}
 
 static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 {
@@ -71,7 +196,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 		break;
-	case CCCI_IOC_SEND_BATTERY_INFO:
+	case CCCI_IOC_SEND_BATTERY_INFO: //mtk09077: maybe can be removed.
 		data = (int)battery_get_bat_voltage();
 		CCCI_NORMAL_LOG(md_id, FSM, "get bat voltage %d\n", data);
 		ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
@@ -371,7 +496,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 			ret = -EFAULT;
 		}
 		break;
-	case CCCI_IOC_GET_AT_CH_NUM:
+	case CCCI_IOC_GET_AT_CH_NUM: //mtk09077: maybe can be removed.
 		{
 			unsigned int at_ch_num = 4; /*default value*/
 			struct ccci_runtime_feature *rt_feature = NULL;
@@ -578,9 +703,6 @@ long ccci_fsm_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 		CCCI_NORMAL_LOG(md_id, FSM,
 		"MD logger dump done ioctl called by %s\n", current->comm);
 		ctl->ee_ctl.mdlog_dump_done = 1;
-		break;
-	case CCCI_IOC_RESET_MD1_MD3_PCCIF:
-		ccci_md_reset_pccif(md_id);
 		break;
 	case CCCI_IOC_GET_MD_EX_TYPE:
 		ret = put_user((unsigned int)ctl->ee_ctl.ex_type,

@@ -21,7 +21,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/of.h>
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 #include <linux/of_fdt.h>
 #endif
 #include <asm/setup.h>
@@ -1101,18 +1101,6 @@ int ccci_load_firmware(int md_id, void *img_inf,
 
 	return ret;
 }
-
-int ccci_init_security(void)
-{
-	int ret = 0;
-#ifdef ENABLE_MD_IMG_SECURITY_FEATURE
-	CCCI_UTIL_INF_MSG("security is on!\n");
-#else
-	CCCI_UTIL_INF_MSG("security is off!\n");
-#endif
-	return ret;
-}
-EXPORT_SYMBOL(ccci_init_security);
 
 #define IMG_MAGIC		0x58881688
 #define EXT_MAGIC		0x58891689

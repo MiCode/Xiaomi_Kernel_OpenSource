@@ -4,11 +4,9 @@
  */
 
 #include "ccci_core.h"
-#include "ccci_platform.h"
 
 #include "md_sys1_platform.h"
 #include "cldma_reg.h"
-#include "modem_reg_base.h"
 #include "modem_secure_base.h"
 #include "ap_md_reg_dump.h"
 

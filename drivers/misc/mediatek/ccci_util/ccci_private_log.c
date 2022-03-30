@@ -1065,6 +1065,7 @@ void ccci_util_cmpt_mem_dump(int md_id, int buf_type,
 			*(curr_p + 14), *(curr_p + 15));
 	}
 }
+EXPORT_SYMBOL(ccci_util_cmpt_mem_dump);
 
 /******************************************************************************/
 /* Ring buffer part, this type log is block read, used for temp debug purpose */

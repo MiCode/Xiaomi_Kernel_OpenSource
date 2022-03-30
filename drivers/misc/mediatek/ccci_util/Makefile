@@ -44,7 +44,6 @@ ccci_util_lib-$(CCCI_OBJ) := ccci_util_lib_fo.o \
 			ccci_util_lib_load_img.o \
 			ccci_util_lib_sys.o \
 			ccci_private_log.o \
-			ccci_util_lib_time.o \
 			ccci_util_lib_main.o \
 			ccci_util_ld_md_errno.o \
 			ccci_util_broadcast.o \

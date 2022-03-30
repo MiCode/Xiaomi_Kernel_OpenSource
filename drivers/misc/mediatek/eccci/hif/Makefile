@@ -11,6 +11,37 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
+ifeq ($(CONFIG_MTK_ECCCI_DRIVER), m)
+ccflags-y += -DCCCI_KMODULE_ENABLE
+
+#ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/inc
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/platform
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mt6873
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
+#ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+
+# ccci_ccif.ko
+
+ccci_ccif-y := ccci_ringbuf.o ccci_hif_ccif.o
+obj-$(CONFIG_MTK_ECCCI_DRIVER) += ccci_ccif.o
+
+# ccci_dpmaif.ko
+
+ccci_dpmaif-y := ccci_hif_dpmaif.o dpmaif_drv.o \
+	ccci_hif_dpmaif_comm.o ccci_hif_dpmaif_v3.o dpmaif_drv_v3.o \
+	dpmaif_bat.o dpmaif_bat_v3.o dpmaif_debug.o net_speed.o \
+	net_pool.o md_spd_dvfs_fn.o md_spd_dvfs_method.o
+
+obj-$(CONFIG_MTK_ECCCI_DRIVER) += ccci_dpmaif.o
+
+# ccci_cldma.ko
+ccci_cldma-y := ccci_cldma_plat.o ccci_hif_cldma.o
+obj-$(CONFIG_MTK_ECCCI_DRIVER) += ccci_cldma.o
+
+endif
+
+
 ifeq ($(CONFIG_MTK_ECCCI_DRIVER), y)
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/inc

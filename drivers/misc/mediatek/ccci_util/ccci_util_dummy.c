@@ -98,9 +98,4 @@ int __weak rawbulk_push_upstream_buffer(int transfer_id, const void *buffer,
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
 	return 0;
 }
-int __weak mbim_start_xmit(struct sk_buff *skb, int ifid)
-{
-	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
-	return 0;
-}
 
