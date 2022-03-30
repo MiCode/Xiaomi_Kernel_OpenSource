@@ -124,6 +124,7 @@ struct CRTC_MMP_Events {
 	mmp_event aal_sof_thread;
 	mmp_event aal_dre30_rw;
 	mmp_event aal_dre20_rh;
+	mmp_event max_hrt_layers;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);

@@ -118,6 +118,7 @@ struct hrt_sort_entry {
 	struct drm_mtk_layer_config *layer_info;
 	int key;
 	int overlap_w;
+	int idx;
 };
 
 struct layering_rule_info_t {
