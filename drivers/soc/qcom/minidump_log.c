@@ -173,7 +173,7 @@ static int register_stack_entry(struct md_region *ksp_entry, u64 sp, u64 size)
 
 	entry = msm_minidump_add_region(ksp_entry);
 	if (entry < 0)
-		pr_err("Failed to add stack of entry %s in Minidump\n",
+		printk_deferred("Failed to add stack of entry %s in Minidump\n",
 				ksp_entry->name);
 	return entry;
 }
@@ -315,8 +315,7 @@ static void update_stack_entry(struct md_region *ksp_entry, u64 sp,
 		ksp_entry->phys_addr = virt_to_phys((uintptr_t *)sp);
 	}
 	if (msm_minidump_update_region(mdno, ksp_entry) < 0) {
-		pr_err_ratelimited(
-			"Failed to update stack entry %s in minidump\n",
+		printk_deferred("Failed to update stack entry %s in minidump\n",
 			ksp_entry->name);
 	}
 }
