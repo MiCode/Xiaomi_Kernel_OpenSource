@@ -154,20 +154,27 @@ RESEND_IPI:
 					  &ipi_data,
 					  PIN_OUT_SIZE_AUDIO_VOW_1,
 					  0);
-		if (ipi_result == IPI_ACTION_DONE)
+		if (ipi_result == IPI_ACTION_DONE) {
+			if (retry_cnt != 0) {
+				VOWDRV_DEBUG("%s(), ipi_id(%d) succeed after retry cnt =%d\n",
+						 __func__,
+						 msg_id,
+						 retry_cnt);
+			}
 			break;
-
-		/* send error, print it */
-		VOWDRV_DEBUG("%s(), ipi_id(%d) fail=%d\n",
-			     __func__,
-			     msg_id,
-			     ipi_result);
-
+		} else {
+			if (retry_cnt == retry_time) { // already retry max times
+				VOWDRV_DEBUG("%s() ERROR, ipi_id(%d) Fail %d after retry cnt =%d\n",
+						 __func__,
+						 msg_id,
+						 ipi_result,
+						 retry_cnt);
+			}
+		}
 		if (vow_service_GetScpRecoverStatus() == true) {
 			VOWDRV_DEBUG("scp is recovering, then break\n");
 			break;
 		}
-		VOW_ASSERT(retry_cnt != retry_time);
 		msleep(VOW_WAITCHECK_INTERVAL_MS);
 	}
 
