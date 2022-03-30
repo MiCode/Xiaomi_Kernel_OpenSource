@@ -1870,10 +1870,8 @@ void _mtk_crtc_wb_addon_module_disconnect(
 	union mtk_addon_config addon_config;
 	int index = drm_crtc_index(crtc);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 
-	if (index != 0 || mtk_crtc_is_dc_mode(crtc) ||
-		state->prop_val[CRTC_PROP_OUTPUT_ENABLE])
+	if (index != 0 || mtk_crtc_is_dc_mode(crtc))
 		return;
 
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
@@ -8362,6 +8360,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		wb_cb_data->wb_fb =
 			mtk_drm_framebuffer_lookup(crtc->dev,
 			state->prop_val[CRTC_PROP_OUTPUT_FB_ID]);
+		CRTC_MMP_MARK(crtc_index, wbBmpDump, (unsigned long)handle, 0);
 		cmdq_pkt_flush_threaded(handle, mtk_drm_wb_cb, wb_cb_data);
 	}
 
