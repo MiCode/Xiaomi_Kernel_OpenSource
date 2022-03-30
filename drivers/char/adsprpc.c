@@ -4909,7 +4909,7 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 			ramdump_segments_rh.da = match->phys;
 			ramdump_segments_rh.va = (void *)page_address((struct page *)match->va);
 			ramdump_segments_rh.size = match->size;
-			if (me->dev && dump_enabled()) {
+			if (me->dev && dump_enabled() && me->enable_ramdump) {
 				ret = fastrpc_ramdump(me->dev, &ramdump_segments_rh, true);
 				if (ret < 0)
 					pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
