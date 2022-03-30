@@ -40,7 +40,7 @@
 #include <linux/dma-direct.h>
 #include "debug.h"
 
-#define KV		kimage_vaddr
+#define KV		(kimage_vaddr+64*1024)
 #define S_MAX		SZ_128M
 #define SM_SIZE		28
 #define TT_SIZE		256

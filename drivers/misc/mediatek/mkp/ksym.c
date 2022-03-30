@@ -44,12 +44,12 @@ void __init *mkp_abt_addr(void *ssa)
 			MKP_ERR("fail at: 0x%lx @ 0x%lx\n", (unsigned long)ssa, s_left);
 			return NULL;
 		}
-		s_left = KV + S_MAX - (unsigned long)pos;
 
 		if (!memcmp(pos, (const void *)abt, sizeof(abt)))
 			return pos;
 
-		pos += 1;
+		pos = (char *)pos + 1;
+		s_left = KV + S_MAX - (unsigned long)pos;
 	}
 
 	MKP_ERR("fail at end: 0x%lx @ 0x%lx\n", (unsigned long)ssa, s_left);
@@ -72,9 +72,19 @@ unsigned long __init *mkp_krb_addr(void)
 		abt_addr = (void *)round_up((unsigned long)abt_addr, 8);
 		for (pos = (unsigned long *)abt_addr;
 			(u64)pos > (u64)ssa ; pos--) {
-			if ((u64)pos == (u64)&kimage_vaddr)
+			/*
+			 * When kallsyms_relative_base scan at _stext, we
+			 * need to break. Because we already hit the start
+			 * of kernel image.
+			 */
+			if ((u64)pos == (u64)KV)
 				break;
-			if (*pos == KV)
+			/*
+			 * kallsyms_relative_base store the _text value.
+			 * _text is equal to kimage_vaddr. If we find the
+			 * value, this position is krb addr.
+			 */
+			if (*pos == kimage_vaddr)
 				return pos;
 		}
 		ssa = abt_addr + 1;
