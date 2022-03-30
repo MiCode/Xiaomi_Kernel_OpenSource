@@ -58,7 +58,8 @@ static unsigned int gpueb_enable;
 struct kobject *ssc_kobj;
 EXPORT_SYMBOL_GPL(ssc_kobj);
 
-static unsigned int ssc_disable;
+unsigned int ssc_enable;
+EXPORT_SYMBOL_GPL(ssc_enable);
 
 static BLOCKING_NOTIFIER_HEAD(vlogic_bound_chain);
 static struct regulator *ssc_vcore_voter;
@@ -335,6 +336,7 @@ static int __init ssc_init(void)
 
 	ssc_node = of_find_compatible_node(NULL, NULL, MTK_SSC_DTS_COMPATIBLE);
 
+	ssc_enable = 0;
 
 	if (ssc_node) {
 		ret = of_property_read_u32(ssc_node,
@@ -347,16 +349,18 @@ static int __init ssc_init(void)
 			safe_vlogic_uV = 0xFFFFFFFF;
 
 		ret = of_property_read_u32(ssc_node,
-				"ssc_disable",
-				&ssc_disable);
-
-		if (!ret && ssc_disable == 1) {
-			spin_unlock_irqrestore(&ssc_locker, flags);
-			pr_info("[SSC] disabled\n");
-			return 0;
-		}
+				"ssc_enable",
+				&ssc_enable);
+		if (ret)
+			ssc_enable = 0;
 
 		of_node_put(ssc_node);
+	}
+
+	if (ssc_enable == 0) {
+		spin_unlock_irqrestore(&ssc_locker, flags);
+		pr_info("[SSC] disabled\n");
+		return 0;
 	}
 
 	/* set gpu vlogic bound 0.6V if gpueb not ready */
@@ -422,7 +426,7 @@ SKIP_SCMI:
 }
 static void __exit ssc_deinit(void)
 {
-	if (ssc_disable == 1)
+	if (ssc_enable == 0)
 		return;
 
 #ifdef SSC_SYSFS_VLOGIC_BOUND_SUPPORT

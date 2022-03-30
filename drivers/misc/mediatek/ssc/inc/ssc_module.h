@@ -12,6 +12,7 @@
 #include <linux/kobject.h>
 
 extern struct kobject *ssc_kobj;
+extern unsigned int ssc_enable;
 
 #define ssc_smc_impl(p1, p2, p3, p4, p5, res) \
 			arm_smccc_smc(p1, p2, p3, p4\

@@ -123,6 +123,9 @@ static int __init ssc_v1_init(void)
 {
 	int ret;
 
+	if (ssc_enable == 0)
+		return 0;
+
 	ret = sysfs_create_file(ssc_kobj, __ATTR_OF(ssc_ctrl));
 	ret = sysfs_create_file(ssc_kobj, __ATTR_OF(ssc_sw_req));
 
@@ -130,6 +133,9 @@ static int __init ssc_v1_init(void)
 }
 static void __exit ssc_v1_exit(void)
 {
+	if (ssc_enable == 0)
+		return;
+
 	sysfs_remove_file(ssc_kobj, __ATTR_OF(ssc_ctrl));
 	sysfs_remove_file(ssc_kobj, __ATTR_OF(ssc_sw_req));
 }
