@@ -280,6 +280,11 @@ MEM_ALLOCATE_DONE:
 		 substream->runtime->dma_area,
 		 substream->runtime->dma_bytes);
 
+	substream->dma_buffer.area = substream->runtime->dma_area;
+	substream->dma_buffer.addr = substream->runtime->dma_addr;
+	substream->dma_buffer.bytes = substream->runtime->dma_bytes;
+	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
+
 	memset_io(substream->runtime->dma_area, 0,
 		  substream->runtime->dma_bytes);
 
@@ -368,6 +373,7 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 
 		return snd_pcm_lib_free_pages(substream);
 	}
+	snd_pcm_set_runtime_buffer(substream, NULL);
 }
 EXPORT_SYMBOL_GPL(mtk_afe_fe_hw_free);
 
