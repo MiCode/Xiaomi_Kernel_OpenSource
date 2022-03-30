@@ -39,6 +39,7 @@ static u32 last_boot_phase;
 #define LOG_BLOCK_SIZE (512)
 #define EXPDB_LOG_SIZE (2*1024*1024)
 
+/*
 #if IS_ENABLED(CONFIG_MTK_PMIC_COMMON)
 u32 set_pmic_boot_phase(u32 boot_phase)
 {
@@ -62,6 +63,7 @@ u32 get_pmic_boot_phase(void)
 	return value;
 }
 #endif
+*/
 
 /* set the flag whether store log to emmc in next boot phase in pl */
 void store_log_to_emmc_enable(bool value)
@@ -91,7 +93,7 @@ void set_boot_phase(u32 step)
 	struct file *filp;
 	int file_size = 0;
 	struct log_emmc_header pEmmc;
-
+/*
 #if IS_ENABLED(CONFIG_MTK_PMIC_COMMON)
 	if (sram_header->reserve[SRAM_PMIC_BOOT_PHASE] == FLAG_ENABLE) {
 		set_pmic_boot_phase(step);
@@ -99,7 +101,7 @@ void set_boot_phase(u32 step)
 			get_pmic_boot_phase();
 	}
 #endif
-
+*/
 	if ((sram_dram_buff->flag & NEED_SAVE_TO_EMMC) == NEED_SAVE_TO_EMMC) {
 		pr_notice("log_store: set boot phase, last boot phase is %d.\n",
 		last_boot_phase);
