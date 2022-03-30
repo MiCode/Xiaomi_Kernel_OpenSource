@@ -1,0 +1,26 @@
+config MTK_SSC_MODULE
+	tristate "Enable Shared S-RAM Control"
+	help
+	  SSC (Shared S-RAM Control) that designed by Mediatek is an resource
+	  control mechanism with respect to S-RAM. It coordinate S-RAM voltage
+	  requests from other modules(such as GPU and ISP) and configure S-RAM
+	  voltage.
+
+config MTK_SSC_DBG_V1
+	tristate "Enable Shared S-RAM Control debug module v1"
+	depends on MTK_SSC_MODULE
+	help
+	  This option adds an debug kernel module for additional interface to
+	  manipulate SSC module.
+	  Set Y to select this feature for SSC v1 debugging.
+	  If unsure, set N to disable.
+
+
+config MTK_SSC_DBG_V2
+	tristate "Enable Shared S-RAM Control debug module v2"
+	depends on MTK_SSC_MODULE
+	help
+	  This option adds an debug kernel module for additional interface to
+	  manipulate SSC module.
+	  Set Y to select this feature for SSC v2 debugging.
+	  If unsure, set N to disable.
