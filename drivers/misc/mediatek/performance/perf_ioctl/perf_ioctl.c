@@ -372,6 +372,17 @@ static long eas_ioctl_impl(struct file *filp,
 		if (perfctl_copy_to_user((void *)arg, &val, sizeof(unsigned int)))
 			return -1;
 		break;
+#else
+	case EAS_SYNC_SET:
+	case EAS_SYNC_GET:
+	case EAS_PERTASK_LS_SET:
+	case EAS_PERTASK_LS_GET:
+	case EAS_ACTIVE_MASK_GET:
+	case EAS_NEWLY_IDLE_BALANCE_INTERVAL_SET:
+	case EAS_NEWLY_IDLE_BALANCE_INTERVAL_GET:
+	case EAS_GET_THERMAL_HEADROOM_INTERVAL_SET:
+	case EAS_GET_THERMAL_HEADROOM_INTERVAL_GET:
+		break;
 #endif
 	case CORE_CTL_FORCE_PAUSE_CPU:
 		if (perfctl_copy_from_user(&msgKM, ubuf, sizeof(struct _CORE_CTL_PACKAGE)))
@@ -425,6 +436,14 @@ static long eas_ioctl_impl(struct file *filp,
 		val = msgKM.enable_policy;
 		ret = core_ctl_enable_policy(val);
 		break;
+#else
+	case CORE_CTL_SET_OFFLINE_THROTTLE_MS:
+	case CORE_CTL_SET_LIMIT_CPUS:
+	case CORE_CTL_SET_NOT_PREFERRED:
+	case CORE_CTL_SET_BOOST:
+	case CORE_CTL_SET_UP_THRES:
+	case CORE_CTL_ENABLE_POLICY:
+		break;
 #endif
 #if IS_ENABLED(CONFIG_MTK_CPUQOS_V3)
 	case CPUQOS_V3_SET_CPUQOS_MODE:
@@ -447,6 +466,11 @@ static long eas_ioctl_impl(struct file *filp,
 			return -1;
 
 		ret = set_ct_group(msgKM_cpuqos.group_id, msgKM_cpuqos.set_group);
+		break;
+#else
+	case CPUQOS_V3_SET_CPUQOS_MODE:
+	case CPUQOS_V3_SET_CT_TASK:
+	case CPUQOS_V3_SET_CT_GROUP:
 		break;
 #endif
 	default:
