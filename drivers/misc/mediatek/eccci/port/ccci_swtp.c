@@ -41,6 +41,7 @@ static const char irq_name[][16] = {
 
 #define SWTP_MAX_SUPPORT_MD 1
 struct swtp_t swtp_data[SWTP_MAX_SUPPORT_MD];
+static const char rf_name[] = "RF_cable";
 #define MAX_RETRY_CNT 30
 
 static int swtp_send_tx_power(struct swtp_t *swtp)
@@ -111,6 +112,7 @@ static int swtp_switch_state(int irq, struct swtp_t *swtp)
 		}
 	}
 
+	inject_pin_status_event(swtp->curr_mode, rf_name);
 	spin_unlock_irqrestore(&swtp->spinlock, flags);
 
 	return swtp->tx_power_mode;
