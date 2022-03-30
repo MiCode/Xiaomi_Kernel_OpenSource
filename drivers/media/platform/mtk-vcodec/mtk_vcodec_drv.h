@@ -44,6 +44,7 @@
 #define SUSPEND_TIMEOUT_CNT     5000
 #define MTK_MAX_CTRLS_HINT      64
 #define V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED 0x02000000
+#define MTK_INVALID_TIMESTAMP   ((u64)-1)
 
 #define MAX_CODEC_FREQ_STEP	10
 #define MTK_VDEC_PORT_NUM	64
@@ -184,6 +185,13 @@ enum mtk_q_type {
 	MTK_Q_DATA_DST = 1,
 };
 
+/** * enum mtk_ts_mode - Mode of timestamp */
+enum mtk_ts_mode {
+	MTK_TS_MODE_PTS = 0,
+	MTK_TS_MODE_DTS = 1,
+	MTK_TS_MODE_DETECTING = 2,
+};
+
 /**
  * enum input_driven_mode  - decoder different input driven mode
  * @NON_INPUT_DRIVEN     : non input driven, bs/frm pairwise trigger ipi
@@ -244,6 +252,16 @@ struct mtk_dec_params {
 	unsigned int	queued_frame_buf_count;
 	int		priority;
 	int vpeek;
+	bool		enable_detect_ts;
+};
+
+struct mtk_detect_ts_param {
+	enum mtk_ts_mode mode;
+	struct mutex lock;
+	u64 first_disp_ts;
+	u64 record[VB2_MAX_FRAME];
+	int read_idx;
+	int recorded_size;
 };
 
 /**
@@ -501,6 +519,7 @@ struct mtk_vcodec_ctx {
 	int last_is_hdr;
 	unsigned int errormap_info[VB2_MAX_FRAME];
 	s64 input_max_ts;
+	struct mtk_detect_ts_param detect_ts_param;
 
 	bool is_flushing;
 	unsigned int eos_type;
@@ -924,6 +943,8 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 	(V4L2_CID_CODEC_MTK_BASE+48)
 #define V4L2_CID_MPEG_MTK_VCP_PROP \
 	(V4L2_CID_CODEC_MTK_BASE+49)
+#define V4L2_CID_VDEC_DETECT_TIMESTAMP \
+	(V4L2_CID_CODEC_MTK_BASE + 50)
 
 #define V4L2_CID_MPEG_MTK_ENCODE_MULTI_REF \
 	(V4L2_CID_CODEC_MTK_BASE+50)

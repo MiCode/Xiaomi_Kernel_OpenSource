@@ -214,6 +214,169 @@ static struct mtk_q_data *mtk_vdec_get_q_data(struct mtk_vcodec_ctx *ctx,
 	return &ctx->q_data[MTK_Q_DATA_DST];
 }
 
+static bool mtk_vdec_is_ts_valid(u64 timestamp)
+{
+	struct timespec64 ts;
+	u64 timestamp_us;
+
+	ts = ns_to_timespec64(timestamp);
+	timestamp_us = ts.tv_sec * USEC_PER_SEC + ts.tv_nsec / NSEC_PER_USEC;
+
+	return timestamp_us != MTK_INVALID_TIMESTAMP;
+}
+
+static void mtk_vdec_ts_reset(struct mtk_vcodec_ctx *ctx)
+{
+	struct mtk_detect_ts_param *param = &ctx->detect_ts_param;
+
+	mutex_lock(&param->lock);
+	if (ctx->dec_params.enable_detect_ts)
+		param->mode = MTK_TS_MODE_DETECTING;
+	else
+		param->mode = MTK_TS_MODE_PTS;
+	param->read_idx = 0;
+	param->recorded_size = 0;
+	param->first_disp_ts = MTK_INVALID_TIMESTAMP;
+	mtk_v4l2_debug(2, "[%d] reset to mode %d", ctx->id, param->mode);
+	mutex_unlock(&param->lock);
+}
+
+static void mtk_vdec_ts_insert(struct mtk_vcodec_ctx *ctx, u64 timestamp)
+{
+	struct mtk_detect_ts_param *param = &ctx->detect_ts_param;
+	int write_idx;
+
+	mutex_lock(&param->lock);
+	if (param->mode == MTK_TS_MODE_PTS) {
+		mutex_unlock(&param->lock);
+		return;
+	}
+
+	if (param->recorded_size) {
+		int last_write_idx;
+		u64 last_timestamp;
+
+		last_write_idx = (param->read_idx + param->recorded_size - 1) % VB2_MAX_FRAME;
+		last_timestamp = param->record[last_write_idx];
+		if (last_timestamp >= timestamp) {
+			mtk_v4l2_debug(2, "[%d] not increasing ts %lld -> %lld, choose pts mode",
+				ctx->id, last_timestamp, timestamp);
+			param->mode = MTK_TS_MODE_PTS;
+			mutex_unlock(&param->lock);
+			return;
+		}
+	}
+
+	write_idx = (param->read_idx + param->recorded_size) % VB2_MAX_FRAME;
+	param->record[write_idx] = timestamp;
+	param->recorded_size++;
+	mtk_v4l2_debug(2, "record ts %lld at index %d size %d",
+		timestamp, write_idx, param->recorded_size);
+	if (param->recorded_size > VB2_MAX_FRAME) {
+		mtk_v4l2_err("[%d] ts record size is too large", ctx->id);
+		param->recorded_size = VB2_MAX_FRAME;
+	}
+	mutex_unlock(&param->lock);
+}
+
+static void mtk_vdec_ts_remove_last(struct mtk_vcodec_ctx *ctx)
+{
+	struct mtk_detect_ts_param *param = &ctx->detect_ts_param;
+	int remove_idx;
+
+	mutex_lock(&param->lock);
+	if (param->mode == MTK_TS_MODE_PTS) {
+		mutex_unlock(&param->lock);
+		return;
+	}
+
+	// in case bitstream is skipped before the first src_chg
+	if (param->recorded_size == 0) {
+		mtk_v4l2_debug(2, "[%d] skip due to ts record size is 0", ctx->id);
+		mutex_unlock(&param->lock);
+		return;
+	}
+
+	remove_idx = (param->read_idx + param->recorded_size - 1) % VB2_MAX_FRAME;
+	mtk_v4l2_debug(2, "remove last ts %lld at index %d size %d",
+		param->record[remove_idx], remove_idx, param->recorded_size);
+	param->recorded_size--;
+	mutex_unlock(&param->lock);
+}
+
+static u64 mtk_vdec_ts_update_mode_and_timestamp(struct mtk_vcodec_ctx *ctx, u64 pts)
+{
+	struct mtk_detect_ts_param *param = &ctx->detect_ts_param;
+	u64 dts, timestamp;
+
+	mutex_lock(&param->lock);
+
+	if (param->mode == MTK_TS_MODE_PTS) {
+		mutex_unlock(&param->lock);
+		return pts;
+	}
+
+	/* DTV case, we may have invalid output timestamp even if all valid input timestamp */
+	if (!mtk_vdec_is_ts_valid(pts)) {
+		mtk_v4l2_debug(2, "[%d] got invalid pts, choose pts mode", ctx->id);
+		param->mode = MTK_TS_MODE_PTS;
+		mutex_unlock(&param->lock);
+		return pts;
+	}
+
+	if (param->recorded_size == 0) {
+		mtk_v4l2_err("[%d] ts record size is 0", ctx->id);
+		mutex_unlock(&param->lock);
+		return pts;
+	}
+
+	dts = param->record[param->read_idx];
+	param->read_idx++;
+	if (param->read_idx == VB2_MAX_FRAME)
+		param->read_idx = 0;
+
+	param->recorded_size--;
+
+	do {
+		if (param->mode != MTK_TS_MODE_DETECTING)
+			break;
+
+		if (!mtk_vdec_is_ts_valid(param->first_disp_ts)) {
+			WARN_ON(!mtk_vdec_is_ts_valid(pts));
+			param->first_disp_ts = pts;
+			/* for DTS mode, there should be no reorder, so the first disp frame
+			 * must be the first decode frame which means pts == dts
+			 */
+			if (pts != dts) {
+				param->mode = MTK_TS_MODE_PTS;
+				mtk_v4l2_debug(2, "[%d] first pts %lld != dts %lld. choose pts mode",
+					ctx->id, pts, dts);
+				break;
+			}
+		}
+
+		if (pts < dts) {
+			param->mode = MTK_TS_MODE_PTS;
+			mtk_v4l2_debug(2, "[%d] pts %lld < dts %lld. choose pts mode",
+				ctx->id, pts, dts);
+		} else if (dts < pts) {
+			param->mode = MTK_TS_MODE_DTS;
+			mtk_v4l2_debug(2, "[%d] dts %lld < pts %lld. choose dts mode",
+				ctx->id, dts, pts);
+		}
+	} while (0);
+
+	if (param->mode == MTK_TS_MODE_DTS) {
+		timestamp = dts;
+		mtk_v4l2_debug(2, "use dts %lld instead of pts %lld", dts, pts);
+	} else
+		timestamp = pts;
+
+	mutex_unlock(&param->lock);
+
+	return timestamp;
+}
+
 /*
  * This function tries to clean all display buffers, the buffers will return
  * in display order.
@@ -268,6 +431,9 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
 
 		dstbuf->vb.vb2_buf.timestamp =
 			disp_frame_buffer->timestamp;
+
+		dstbuf->vb.vb2_buf.timestamp =
+			mtk_vdec_ts_update_mode_and_timestamp(ctx, dstbuf->vb.vb2_buf.timestamp);
 
 		if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM)
 			max_ts = ctx->early_eos_ts;
@@ -471,8 +637,12 @@ static struct vb2_buffer *get_free_bs_buffer(struct mtk_vcodec_ctx *ctx,
 		ctx->id, free_bs_buffer->length, free_bs_buffer->size,
 		srcbuf->vb.vb2_buf.index,
 		srcbuf->queued_in_vb2);
-
-	v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
+	if (srcbuf->vb.flags & V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED) {
+		mtk_vdec_ts_remove_last(ctx);
+		v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_ERROR);
+	} else {
+		v4l2_m2m_buf_done(&srcbuf->vb, VB2_BUF_STATE_DONE);
+	}
 	return &srcbuf->vb.vb2_buf;
 }
 
@@ -1308,6 +1478,9 @@ static void mtk_vdec_worker(struct work_struct *work)
 		dst_buf_info->vb.timecode
 			= src_buf_info->vb.timecode;
 	}
+
+	if (src_buf_info->used == false)
+		mtk_vdec_ts_insert(ctx, ctx->dec_params.timestamp);
 	src_buf_info->used = true;
 	mtk_vdec_do_gettimeofday(&worktvstart1);
 	ret = vdec_if_decode(ctx, buf, pfb, &src_chg);
@@ -2685,9 +2858,9 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	/*
 	 * check if this buffer is ready to be used after decode
 	 */
+	vb2_v4l2 = to_vb2_v4l2_buffer(vb);
+	buf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 	if (vb->vb2_queue->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		vb2_v4l2 = to_vb2_v4l2_buffer(vb);
-		buf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 		mutex_lock(&ctx->buf_lock);
 		if (buf->used == false) {
 			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, vb2_v4l2);
@@ -2740,6 +2913,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		return;
 	}
 
+	buf->used = false;
 	v4l2_m2m_buf_queue_check(ctx->m2m_ctx, to_vb2_v4l2_buffer(vb));
 
 	if (ctx->state != MTK_STATE_INIT) {
@@ -3087,6 +3261,8 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		mtk_vdec_pmqos_begin_inst(ctx);
 		mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 
+	} else if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		mtk_vdec_ts_reset(ctx);
 	}
 
 	mtk_vdec_set_param(ctx);
@@ -3381,6 +3557,9 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_MTK_VCP_PROP:
 		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_PROP);
 		break;
+	case V4L2_CID_VDEC_DETECT_TIMESTAMP:
+		ctx->dec_params.enable_detect_ts = ctrl->val;
+		break;
 	default:
 		mtk_v4l2_debug(4, "ctrl-id=%x not support!", ctrl->id);
 		return -EINVAL;
@@ -3663,6 +3842,18 @@ int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.name = "Video VCP Property";
 	cfg.min = 0;
 	cfg.max = 255;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_dec_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_VDEC_DETECT_TIMESTAMP;
+	cfg.type = V4L2_CTRL_TYPE_BOOLEAN;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "VDEC detect timestamp mode";
+	cfg.min = 0;
+	cfg.max = 1;
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
