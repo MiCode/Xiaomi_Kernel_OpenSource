@@ -211,16 +211,28 @@ struct seninf_vc *mtk_cam_seninf_get_vc_by_pad(struct seninf_ctx *ctx, int idx)
 	return NULL;
 }
 
-unsigned int mtk_cam_seninf_get_vc_feature(struct v4l2_subdev *sd, unsigned int pad)
+int mtk_cam_seninf_get_pad_data_info(struct v4l2_subdev *sd,
+				unsigned int pad,
+				struct mtk_seninf_pad_data_info *result)
 {
 	struct seninf_vc *pvc = NULL;
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 
-	pvc = mtk_cam_seninf_get_vc_by_pad(ctx, pad);
-	if (pvc)
-		return pvc->feature;
+	if (!result)
+		return -1;
 
-	return VC_NONE;
+	memset(result, 0, sizeof(*result));
+	pvc = mtk_cam_seninf_get_vc_by_pad(ctx, pad);
+	if (pvc) {
+		result->feature = pvc->feature;
+		result->mux = pvc->mux;
+		result->exp_hsize = pvc->exp_hsize;
+		result->exp_vsize = pvc->exp_vsize;
+
+		return 0;
+	}
+
+	return -1;
 }
 
 static int get_mbus_format_by_dt(int dt)
@@ -350,11 +362,13 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	ctrl->p_new.p = csi_param;
 
 	ret = get_ctrl(ctrl);
-	dev_info(ctx->dev, "%s get_ctrl ret:%d 0x%x|0x%x|0x%x|0x%x\n", __func__,
+	dev_info(ctx->dev, "%s get_ctrl ret:%d 0x%x|0x%x|0x%x|0x%x|%d|%d\n", __func__,
 		ret, csi_param->cphy_settle,
 		csi_param->dphy_clk_settle,
 		csi_param->dphy_data_settle,
-		csi_param->dphy_trail);
+		csi_param->dphy_trail,
+		csi_param->not_fixed_trail_settle,
+		csi_param->legacy_phy);
 
 	return 0;
 }
@@ -443,16 +457,44 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			vc->out_pad = PAD_SRC_PDAF6;
 			break;
 		case VC_YUV_Y:
+			if (raw_cnt >= 3) {
+				dev_info(ctx->dev,
+					 "too much raw data\n");
+				continue;
+			}
 			vc->feature = VC_RAW_DATA;
 			vc->out_pad = PAD_SRC_RAW0;
+
+			++raw_cnt;
+			vc->group = grp++;
 			break;
 		case VC_YUV_UV:
+			if (raw_cnt >= 3) {
+				dev_info(ctx->dev,
+					 "too much raw data\n");
+				continue;
+			}
 			vc->feature = VC_RAW_DATA;
 			vc->out_pad = PAD_SRC_RAW1;
+
+			++raw_cnt;
+			vc->group = grp++;
 			break;
 		case VC_GENERAL_EMBEDDED:
 			vc->feature = VC_GENERAL_EMBEDDED;
 			vc->out_pad = PAD_SRC_GENERAL0;
+			break;
+		case VC_RAW_PROCESSED_DATA:
+			vc->feature = VC_RAW_DATA;
+			vc->out_pad = PAD_SRC_RAW_EXT0;
+
+			vc->group = grp++;
+			break;
+		case VC_RAW_W_DATA:
+			vc->feature = VC_RAW_DATA;
+			vc->out_pad = PAD_SRC_RAW_W0;
+
+			vc->group = grp++;
 			break;
 		default:
 			if (vc->dt == 0x2a || vc->dt == 0x2b ||
@@ -472,12 +514,6 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 					break;
 				case VC_STAGGER_SE:
 					vc->out_pad = PAD_SRC_RAW2;
-					break;
-				case VC_RAW_W_DATA:
-					vc->out_pad = PAD_SRC_RAW_W0;
-					break;
-				case VC_RAW_PROCESSED_DATA:
-					vc->out_pad = PAD_SRC_RAW_EXT0;
 					break;
 				default:
 					vc->out_pad = PAD_SRC_RAW0 + raw_cnt;
@@ -502,6 +538,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			case VC_PDAF_STATS_ME_PIX_2:
 			case VC_PDAF_STATS_SE_PIX_1:
 			case VC_PDAF_STATS_SE_PIX_2:
+			case VC_GENERAL_EMBEDDED:
 				vc->group = grp++;
 				break;
 			default:
@@ -514,6 +551,44 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 
 		vc->exp_hsize = fd.entry[i].bus.csi2.hsize;
 		vc->exp_vsize = fd.entry[i].bus.csi2.vsize;
+
+		switch (vc->dt) {
+		case 0x28:
+			vc->bit_depth = 6;
+			break;
+		case 0x29:
+			vc->bit_depth = 7;
+			break;
+		case 0x2A:
+		case 0x1E:
+		case 0x1C:
+		case 0x1A:
+		case 0x18:
+			vc->bit_depth = 8;
+			break;
+		case 0x2B:
+		case 0x1F:
+		case 0x19:
+		case 0x1D:
+			vc->bit_depth = 10;
+			break;
+		case 0x2C:
+			vc->bit_depth = 12;
+			break;
+		case 0x2D:
+			vc->bit_depth = 14;
+			break;
+		case 0x2E:
+			vc->bit_depth = 16;
+			break;
+		case 0x2F:
+			vc->bit_depth = 20;
+			break;
+		default:
+			vc->bit_depth = 8;
+			break;
+		}
+
 
 		/* update pad fotmat */
 		if (vc->exp_hsize && vc->exp_vsize) {
@@ -708,11 +783,13 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 
 	return 0;
 }
-int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, bool disable_last)
+int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd,
+					int pad_id, int camtg, bool from_set_camtg)
 {
 	int vc_en, old_camtg;
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct seninf_vc *vc;
+	bool disable_last = from_set_camtg;
 
 	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT)
 		return -EINVAL;
@@ -720,6 +797,11 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, boo
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
 	if (!vc)
 		return -EINVAL;
+
+	if (!from_set_camtg && !ctx->streaming) {
+		dev_info(ctx->dev, "%s !from_set_camtg && !ctx->streaming\n", __func__);
+		return -EINVAL;
+	}
 
 	ctx->pad2cam[pad_id] = camtg;
 
@@ -737,7 +819,8 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, boo
 								!!vc->dt, !!vc->dt);
 			g_seninf_ops->_set_cammux_src(ctx, vc->mux, vc->cam,
 								vc->exp_hsize,
-								vc->exp_vsize);
+								vc->exp_vsize,
+								vc->dt);
 			g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 								vc->cam,
 								vc->pixel_mode);
@@ -775,7 +858,8 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, boo
 									!!vc->dt, !!vc->dt);
 				g_seninf_ops->_set_cammux_src(ctx, vc->mux, vc->cam,
 									vc->exp_hsize,
-									vc->exp_vsize);
+									vc->exp_vsize,
+									vc->dt);
 				g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 									vc->cam,
 									vc->pixel_mode);
@@ -840,12 +924,16 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 	struct seninf_ctx *ctx;
 	int index = 0;
 
+
 	if (param != NULL && param->num == 1) {
 		sd = param->settings[0].seninf;
 		pad_id = param->settings[0].source;
 		camtg = param->settings[0].camtg;
-
-		_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, true);
+		ctx = container_of(sd, struct seninf_ctx, subdev);
+		//_mtk_cam_seninf_set_camtg(sd, pad_id, camtg, true);
+		dev_info(ctx->dev,
+			"%s error, should use mtk_cam_seninf_set_camtg directly!!!\n"
+			, __func__);
 
 	} else if (param != NULL && param->num > 1) {
 		sd = param->settings[0].seninf;

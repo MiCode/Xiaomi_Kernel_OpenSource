@@ -941,7 +941,7 @@ static int config_hw(struct seninf_ctx *ctx)
 			g_seninf_ops->_set_cammux_vc(ctx, vc->cam,
 						     vc_sel, dt_sel, dt_en, dt_en);
 			g_seninf_ops->_set_cammux_src(ctx, vc->mux, vc->cam,
-						      vc->exp_hsize, vc->exp_vsize);
+						      vc->exp_hsize, vc->exp_vsize, vc->dt);
 			g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 								 vc->cam,
 								 vc->pixel_mode);
@@ -1125,8 +1125,14 @@ int update_isp_clk(struct seninf_ctx *ctx)
 
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 	if (!vc) {
-		dev_info(ctx->dev, "failed to get vc\n");
-		return -1;
+		dev_info(ctx->dev, "failed to get vc SRC_RAW0, try EXT0\n");
+
+		vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+		if (!vc) {
+			dev_info(ctx->dev, "failed to get vc SRC_RAW_EXT0\n");
+
+			return -1;
+		}
 	}
 	dev_info(ctx->dev,
 		"%s dfs->cnt %d pixel mode %d customized_pixel_rate %lld, buffered_pixel_rate %lld mipi_pixel_rate %lld\n",
@@ -1280,6 +1286,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		mtk_cam_seninf_release_mux(ctx);
 		seninf_dfs_set(ctx, 0);
 		g_seninf_ops->_poweroff(ctx);
+		ctx->dbg_last_dump_req = 0;
 		pm_runtime_put_sync(ctx->dev);
 	}
 
@@ -1354,7 +1361,8 @@ static int seninf_notifier_bound(struct v4l2_async_notifier *notifier,
 	dev_info(ctx->dev, "%s bounded\n", sd->entity.name);
 
 	ret = media_create_pad_link(&sd->entity, 0,
-				    &ctx->subdev.entity, 0, 0);
+				    &ctx->subdev.entity, 0,
+				    MEDIA_LNK_FL_DYNAMIC);
 	if (ret) {
 		dev_info(ctx->dev,
 			"failed to create link for %s\n",
@@ -1973,6 +1981,23 @@ int mtk_cam_seninf_check_timeout(struct v4l2_subdev *sd, u64 time_after_sof)
 		SOF_TIMEOUT_RATIO,
 		val);
 	return ret;
+}
+
+u64 mtk_cam_seninf_get_frame_time(struct v4l2_subdev *sd, u32 seq_id)
+{
+	u64 tmp = 33000;
+	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+	int val = 0;
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
+	if (ctrl) {
+		val = v4l2_ctrl_g_ctrl(ctrl);
+		if (val > 0)
+			tmp = val;
+	}
+	return tmp * 1000;
 }
 
 

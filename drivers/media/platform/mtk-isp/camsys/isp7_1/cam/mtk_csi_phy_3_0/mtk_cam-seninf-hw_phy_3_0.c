@@ -18,12 +18,17 @@
 #include "mtk_csi_phy_3_0/mtk_cam-seninf-csi0-cphy.h"
 #include "mtk_csi_phy_3_0/mtk_cam-seninf-csi0-dphy.h"
 
+#include "mtk_cam-seninf-route.h"
 #include "imgsensor-user.h"
 #define __SMT 0
 #define SENINF_CK 273000000
 #define CYCLE_MARGIN 1
 #define RESYNC_DMY_CNT 4
 #define FIX_DPHY_SETTLE 1
+#define DPHY_SETTLE 0x1C
+#define CPHY_SETTLE 0x16 //60~80ns
+#define DPHY_TRAIL_SPEC 224
+
 #define DEBUG_CAM_MUX_SWITCH 0
 //#define SCAN_SETTLE
 #define LOG_MORE 0
@@ -270,14 +275,14 @@ static int mtk_cam_seninf_cammux(struct seninf_ctx *ctx, int cam_mux)
 			 (1 << RO_SENINF_CAM_MUX_PCSR_HSIZE_ERR_IRQ_SHIFT) |
 			 (1 << RO_SENINF_CAM_MUX_PCSR_VSIZE_ERR_IRQ_SHIFT) |
 			 (1 << RO_SENINF_CAM_MUX_PCSR_VSYNC_IRQ_SHIFT));//clr irq
-
+#if LOG_MORE
 	dev_info(ctx->dev, " %s cam_mux %d EN 0x%x IRQ_EN 0x%x IRQ_STATUS 0x%x\n",
 		__func__,
 		cam_mux,
 		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL),
 		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_EN),
 		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
-
+#endif
 	return 0;
 }
 
@@ -295,7 +300,19 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[cam_mux];
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr,
+			SENINF_CAM_MUX_PCSR_CTRL, CAM_MUX_PCSR_NEXT_SRC_SEL, 0x1f);
+
+	SENINF_BITS(pSeninf_cam_mux_pcsr,
+			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_SRC_SEL, 0x1f);
+
+	SENINF_BITS(pSeninf_cam_mux_pcsr,
 			SENINF_CAM_MUX_PCSR_CTRL, RG_SENINF_CAM_MUX_PCSR_EN, 0);
+
+	SENINF_WRITE_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_STATUS,
+			 (1 << RO_SENINF_CAM_MUX_PCSR_HSIZE_ERR_IRQ_SHIFT) |
+			 (1 << RO_SENINF_CAM_MUX_PCSR_VSIZE_ERR_IRQ_SHIFT) |
+			 (1 << RO_SENINF_CAM_MUX_PCSR_VSYNC_IRQ_SHIFT));//clr irq
+
 #if LOG_MORE
 	dev_info(ctx->dev, "%s cam_mux %d EN 0x%x IRQ_EN 0x%x IRQ_STATUS 0x%x\n",
 	__func__,
@@ -309,11 +326,13 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 
 static int mtk_cam_seninf_disable_all_cammux(struct seninf_ctx *ctx)
 {
+	int i = 0;
 	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
 
-	SENINF_WRITE_REG(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_MUX_EN, 0);
+	for (i = SENINF_CAM_MUX0; i < _seninf_ops->cam_mux_num; i++)
+		mtk_cam_seninf_disable_cammux(ctx, i);
 
-	dev_info(ctx->dev, "%s all cam_mux %d EN 0x%x\n",
+	dev_info(ctx->dev, "%s all SENINF_CAM_MUX_GCSR_MUX_EN 0x%x\n",
 	__func__,
 	SENINF_READ_REG(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_MUX_EN));
 
@@ -675,14 +694,34 @@ static int mtk_cam_seninf_set_cammux_next_ctrl(struct seninf_ctx *ctx, int src, 
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL,
 					CAM_MUX_PCSR_NEXT_SRC_SEL, src);
 
+	if (src != 0x1f) {
+		u32 in_ctrl, in_opt, out_ctrl, out_opt;
+
+		mtk_cam_seninf_switch_to_cammux_inner_page(ctx, true);
+		in_ctrl = SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL);
+		in_opt = SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_OPT);
+		mtk_cam_seninf_switch_to_cammux_inner_page(ctx, false);
+		out_ctrl = SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL);
+		out_opt = SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_OPT);
+		mtk_cam_seninf_switch_to_cammux_inner_page(ctx, true);
+		dev_info(ctx->dev,
+			" %s cam_mux %d in|out SENINF_CAM_MUX_PCSR_CTRL 0x%x|0x%x SENINF_CAM_MUX_PCSR_OPT 0x%x|0x%x\n",
+			__func__,
+			target,
+			in_ctrl,
+			out_ctrl,
+			in_opt,
+			out_opt);
+	}
+
 	return 0;
 }
 
 
 static int mtk_cam_seninf_set_cammux_src(struct seninf_ctx *ctx, int src, int target,
-				  int exp_hsize, int exp_vsize)
+				  int exp_hsize, int exp_vsize, int dt)
 {
-
+	int exp_dt_hsize = exp_hsize;
 	void *pSeninf_cam_mux_pcsr = NULL;
 
 	if (target >= _seninf_ops->cam_mux_num) {
@@ -694,15 +733,19 @@ static int mtk_cam_seninf_set_cammux_src(struct seninf_ctx *ctx, int src, int ta
 	}
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[target];
 
-#if	DEBUG_CAM_MUX_SWITCH
+	/* two times width size when yuv422 */
+	if (dt == 0x1f)
+		exp_dt_hsize = exp_hsize << 1;
 
-	dev_info(ctx->dev, "%s cam_mux %d src %d exp_hsize %d, exp_hsize %d\n",
-		__func__, target, src, exp_hsize, exp_vsize);
+#if	DEBUG_CAM_MUX_SWITCH
+	dev_info(ctx->dev, "%s cam_mux %d src %d exp_hsize %d / %d, exp_vsize %d, dt 0x%x\n",
+		__func__, target, src, exp_hsize, exp_dt_hsize, exp_vsize, dt);
 #endif
+
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL,
 					RG_SENINF_CAM_MUX_PCSR_SRC_SEL, src);
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CHK_CTL,
-					RG_SENINF_CAM_MUX_PCSR_EXP_HSIZE, exp_hsize);
+					RG_SENINF_CAM_MUX_PCSR_EXP_HSIZE, exp_dt_hsize);
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CHK_CTL,
 					RG_SENINF_CAM_MUX_PCSR_EXP_VSIZE, exp_vsize);
 	return 0;
@@ -959,7 +1002,7 @@ static int mtk_cam_seninf_set_test_model(struct seninf_ctx *ctx,
 	mtk_cam_seninf_set_top_mux_ctrl(ctx, mux, intf);
 
 	mtk_cam_seninf_set_cammux_vc(ctx, cam_mux, 0, 0, 0, 0);
-	mtk_cam_seninf_set_cammux_src(ctx, mux, cam_mux, 0, 0);
+	mtk_cam_seninf_set_cammux_src(ctx, mux, cam_mux, 0, 0, 0);
 	mtk_cam_seninf_set_cammux_chk_pixel_mode(ctx, cam_mux, pixel_mode);
 	mtk_cam_seninf_cammux(ctx, cam_mux);
 
@@ -1282,29 +1325,75 @@ static int set_settle(struct seninf_ctx *ctx, u16 settle, bool hs_trail_en)
 static int csirx_dphy_init(struct seninf_ctx *ctx)
 {
 	void *base = ctx->reg_ana_dphy_top[ctx->port];
-	int settle_delay_dt, settle_delay_ck, hs_trail, hs_trail_en;
-	int bit_per_pixel;
-	u64 data_rate;
+	u64 settle_delay_dt, settle_delay_ck, hs_trail, hs_trail_en;
+	int bit_per_pixel = 10;
+	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+	u64 data_rate = 0;
 
-
+	if (vc)
+		bit_per_pixel = vc->bit_depth;
+	else if (vc1)
+		bit_per_pixel = vc1->bit_depth;
 	if (ctx->is_cphy) {
-		settle_delay_dt = ctx->csi_param.cphy_settle
-			? ctx->csi_param.cphy_settle
-			: ctx->cphy_settle_delay_dt;
+		if (ctx->csi_param.not_fixed_trail_settle) {
+			settle_delay_dt = ctx->csi_param.cphy_settle
+					? ctx->csi_param.cphy_settle
+					: ctx->cphy_settle_delay_dt;
+		} else {
+			settle_delay_dt = ctx->csi_param.cphy_settle;
+			if (settle_delay_dt == 0)
+				settle_delay_dt = CPHY_SETTLE;
+			else {
+				u64 temp = SENINF_CK * settle_delay_dt;
+
+				if (temp % 1000000000)
+					settle_delay_dt = 1 + (temp / 1000000000);
+				else
+					settle_delay_dt = (temp / 1000000000);
+			}
+		}
 		settle_delay_ck = settle_delay_dt;
 	} else {
 
 #if FIX_DPHY_SETTLE
-		settle_delay_dt = settle_delay_ck = 0x1c;
+		settle_delay_dt = settle_delay_ck = DPHY_SETTLE;
 			// 0x1c = 100ns/(1/csi_ck)
 #else
 
-		settle_delay_dt = ctx->csi_param.dphy_data_settle
-			? ctx->csi_param.dphy_data_settle
-			: ctx->dphy_settle_delay_dt;
-		settle_delay_ck = ctx->csi_param.dphy_clk_settle
-				? ctx->csi_param.dphy_clk_settle
-				: ctx->settle_delay_ck;
+		if (ctx->csi_param.not_fixed_trail_settle) {
+			settle_delay_dt = ctx->csi_param.dphy_data_settle
+				? ctx->csi_param.dphy_data_settle
+				: ctx->dphy_settle_delay_dt;
+			settle_delay_ck = ctx->csi_param.dphy_clk_settle
+					? ctx->csi_param.dphy_clk_settle
+					: ctx->settle_delay_ck;
+
+		} else {
+			settle_delay_dt = ctx->csi_param.dphy_data_settle;
+			if (settle_delay_dt == 0)
+				settle_delay_dt = DPHY_SETTLE;
+			else {
+				u64 temp = SENINF_CK * settle_delay_dt;
+
+				if (temp % 1000000000)
+					settle_delay_dt = 1 + (temp / 1000000000);
+				else
+					settle_delay_dt = (temp / 1000000000);
+			}
+			settle_delay_ck = ctx->csi_param.dphy_clk_settle;
+			if (settle_delay_ck == 0)
+				settle_delay_ck = DPHY_SETTLE;
+			else {
+				u64 temp = SENINF_CK * settle_delay_ck;
+
+				if (temp % 1000000000)
+					settle_delay_ck = 1 + (temp / 1000000000);
+				else
+					settle_delay_ck = (temp / 1000000000);
+			}
+		}
+
 #endif
 	}
 
@@ -1349,11 +1438,34 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 		    RG_CDPHY_RX_LD3_TRIO3_HS_PREPARE_PARAMETER, 0);
 #endif
-	hs_trail = ctx->hs_trail_parameter;
-
-	hs_trail =  ctx->csi_param.dphy_trail
+	if (ctx->csi_param.not_fixed_trail_settle) {
+		hs_trail = ctx->hs_trail_parameter;
+		hs_trail =	ctx->csi_param.dphy_trail
 				? ctx->csi_param.dphy_trail
 				: ctx->hs_trail_parameter;
+	} else {
+		u64 temp = 0;
+		u64 ui_224 = 0;
+
+		hs_trail = 0;
+		data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
+		do_div(data_rate, ctx->num_data_lanes);
+		ui_224 = (DPHY_TRAIL_SPEC * 1000) / (data_rate / 1000000);
+
+		if (ctx->csi_param.dphy_trail == 0 ||
+			ctx->csi_param.dphy_trail > ui_224)
+			hs_trail = 0;
+		else {
+
+			temp = ui_224 - ctx->csi_param.dphy_trail;
+			temp *= SENINF_CK;
+
+			if (temp % 1000000000)
+				hs_trail = 1 + (temp / 1000000000);
+			else
+				hs_trail = (temp / 1000000000);
+		}
+	}
 
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 		    RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER, hs_trail);
@@ -1365,14 +1477,22 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		    RG_DPHY_RX_LD3_HS_TRAIL_PARAMETER, hs_trail);
 
 	if (!ctx->is_cphy) {
-		/* TODO */
-		bit_per_pixel = 10;
-		data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
-		do_div(data_rate, ctx->num_data_lanes);
-		hs_trail_en = data_rate < SENINF_HS_TRAIL_EN_CONDITION;
-		if (ctx->csi_param.dphy_trail != 0) {
-			hs_trail_en = 1;
-			dev_info(ctx->dev, "hs_trail = %d\n", hs_trail);
+
+		if (ctx->csi_param.not_fixed_trail_settle) {
+			data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
+			do_div(data_rate, ctx->num_data_lanes);
+			hs_trail_en = data_rate < SENINF_HS_TRAIL_EN_CONDITION;
+			if (ctx->csi_param.dphy_trail != 0) {
+				hs_trail_en = 1;
+				dev_info(ctx->dev, "hs_trail = %d\n", hs_trail);
+			}
+		} else {
+			if (ctx->csi_param.dphy_trail != 0 &&
+				hs_trail != 0) {
+				hs_trail_en = 1;
+				dev_info(ctx->dev, "hs_trail = %d\n", hs_trail);
+			} else
+				hs_trail_en = 0;
 		}
 		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 			    RG_DPHY_RX_LD0_HS_TRAIL_EN, hs_trail_en);
@@ -1382,6 +1502,15 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 			    RG_DPHY_RX_LD2_HS_TRAIL_EN, hs_trail_en);
 		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 			    RG_DPHY_RX_LD3_HS_TRAIL_EN, hs_trail_en);
+	} else {
+		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
+			    RG_DPHY_RX_LD0_HS_TRAIL_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
+			    RG_DPHY_RX_LD1_HS_TRAIL_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE2_HS_PARAMETER,
+			    RG_DPHY_RX_LD2_HS_TRAIL_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
+			    RG_DPHY_RX_LD3_HS_TRAIL_EN, 0);
 	}
 
 	return 0;
@@ -1413,6 +1542,15 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 {
 	void *pSeninf_csi2 = ctx->reg_if_csi2[ctx->seninfIdx];
 	int csi_en;
+	int bit_per_pixel = 10;
+	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+
+	if (vc)
+		bit_per_pixel = vc->bit_depth;
+	else if (vc1)
+		bit_per_pixel = vc1->bit_depth;
+
 
 	SENINF_BITS(pSeninf_csi2, SENINF_CSI2_DBG_CTRL,
 		    RG_CSI2_DBG_PACKET_CNT_EN, 1);
@@ -1424,7 +1562,7 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 	csi_en = (1 << ctx->num_data_lanes) - 1;
 
 	if (!ctx->is_cphy) { //Dphy
-		int bit_per_pixel = 10;
+
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 		u64 cycles = 64;
 
@@ -1433,9 +1571,10 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 		do_div(cycles, data_rate);
 		cycles += CYCLE_MARGIN;
 
-		//dev_info(ctx->dev,
-		//"%s data_rate %lld bps cycles %lld\n",
-		//__func__, data_rate, cycles);
+
+		dev_info(ctx->dev,
+		"%s data_rate %lld bps cycles %lld\n",
+		__func__, data_rate, cycles);
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_OPT,
 			    RG_CSI2_CPHY_SEL, 0);
 		SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_EN, csi_en);
@@ -1448,15 +1587,36 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 #if __SMT == 0
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
 				RG_CSI2_RESYNC_DMY_CYCLE, cycles);
+
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
 				RG_CSI2_RESYNC_DMY_CNT,
 				RESYNC_DMY_CNT);
+		if (!ctx->csi_param.legacy_phy) {
+			SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_DMY_CNT,
+				3);
+			if (ctx->num_data_lanes == 2) {
+				SENINF_BITS(pSeninf_csi2,
+					SENINF_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_DMY_EN, 0x3);
+			} else {
+				SENINF_BITS(pSeninf_csi2,
+					SENINF_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_DMY_EN, 0xf);
+			}
+		} else {
+			SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_DMY_CNT,
+				4);
+			SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_DMY_EN,
+				0xF);
+		}
 
 #endif
 	} else { //Cphy
 		u8 map_hdr_len[] = {0, 1, 2, 4, 5};
 		u64 cycles = 64;
-		int bit_per_pixel = 10;
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 
 		cycles *= SENINF_CK;
@@ -1464,9 +1624,9 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 		do_div(data_rate, ctx->num_data_lanes*16);
 		do_div(cycles, data_rate);
 		cycles += CYCLE_MARGIN;
-		//dev_info(ctx->dev,
-		//"%s data_rate %lld pps cycles %lld\n",
-		//__func__, data_rate, cycles);
+		dev_info(ctx->dev,
+		"%s data_rate %lld pps cycles %lld\n",
+		__func__, data_rate, cycles);
 
 		SENINF_WRITE_REG(pSeninf_csi2, SENINF_CSI2_EN, csi_en);
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_OPT,
@@ -1485,6 +1645,28 @@ static int csirx_seninf_csi2_setting(struct seninf_ctx *ctx)
 		SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
 				RG_CSI2_RESYNC_DMY_CNT,
 				RESYNC_DMY_CNT);
+		if (!ctx->csi_param.legacy_phy) {
+			SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_DMY_CNT,
+				3);
+			if (ctx->num_data_lanes == 3) {
+				SENINF_BITS(pSeninf_csi2,
+					SENINF_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_DMY_EN, 0x7);
+			} else {
+				SENINF_BITS(pSeninf_csi2,
+					SENINF_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_DMY_EN, 0x3);
+			}
+		} else {
+			SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_DMY_CNT,
+				4);
+			SENINF_BITS(pSeninf_csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_DMY_EN,
+				0x7);
+		}
+
 
 #endif
 	}
@@ -1934,22 +2116,47 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 static int csirx_phyA_setting(struct seninf_ctx *ctx)
 {
 	void *base, *baseA, *baseB;
+	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+	int bit_per_pixel = 10;
+
+	if (vc)
+		bit_per_pixel = vc->bit_depth;
+	else if (vc1)
+		bit_per_pixel = vc1->bit_depth;
 
 	base = ctx->reg_ana_csi_rx[ctx->port];
 	baseA = ctx->reg_ana_csi_rx[ctx->portA];
 	baseB = ctx->reg_ana_csi_rx[ctx->portB];
 
+
 	//dev_info(ctx->dev, "port %d A %d B %d\n", ctx->port, ctx->portA, ctx->portB);
 
 	if (!ctx->is_cphy) { //Dphy
-		int bit_per_pixel = 10;
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 
 		do_div(data_rate, ctx->num_data_lanes);
 		//dev_info(ctx->dev, "data_rate %llu bps\n", data_rate);
 
-		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+		if (!ctx->csi_param.legacy_phy) {
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+			    RG_AFIFO_DUMMY_VALID_EN, 0x1);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
 			    RG_CSI0_ASYNC_OPTION, 0x5);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+			    RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x4);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				RG_AFIFO_DUMMY_VALID_NUM, 0x1);
+		} else {
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+			    RG_AFIFO_DUMMY_VALID_EN, 0x0);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+			    RG_CSI0_ASYNC_OPTION, 0x5);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+			    RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x3);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				RG_AFIFO_DUMMY_VALID_NUM, 0x5);
+		}
 		if (ctx->is_4d1c) {
 			SENINF_BITS(baseA, CDPHY_RX_ANA_0,
 				    RG_CSI0_CPHY_EN, 0);
@@ -2181,7 +2388,6 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 
 		}
 	} else { //Cphy
-		int bit_per_pixel = 10;
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 
 		data_rate *= 7;
@@ -2236,14 +2442,37 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
 #else
-			SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_5, 0x157);
-			SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_5, 0x157);
+			if (data_rate < 2500000000) {
+				SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_5, 0x55);
+				SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_5, 0x55);
+			} else {
+				SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_5, 0x157);
+				SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_5, 0x157);
+			}
 			SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_SETTING_0, 0x322);
 			SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_SETTING_0, 0x322);
 #endif
 
-			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-			    RG_CSI0_ASYNC_OPTION, 0xC);
+			if (!ctx->csi_param.legacy_phy) {
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_AFIFO_DUMMY_VALID_EN, 0x1);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_CSI0_ASYNC_OPTION, 0xC);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x2);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+					RG_AFIFO_DUMMY_VALID_NUM, 0x1);
+			} else {
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_AFIFO_DUMMY_VALID_EN, 0x0);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_CSI0_ASYNC_OPTION, 0xC);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x3);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+					RG_AFIFO_DUMMY_VALID_NUM, 0x5);
+			}
+
 
 			SENINF_BITS(baseA, CDPHY_RX_ANA_3,
 				    RG_CSI0_EQ_DES_VREF_SEL, 0x2E);
@@ -2322,11 +2551,35 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			SENINF_BITS(base, CDPHY_RX_ANA_5,
 				    RG_CSI0_CDPHY_EQ_SR1, 0x0);
 #else
-			SENINF_WRITE_REG(base, CDPHY_RX_ANA_5, 0x157);
+			if (data_rate < 2500000000)
+				SENINF_WRITE_REG(base, CDPHY_RX_ANA_5, 0x55);
+			else
+				SENINF_WRITE_REG(base, CDPHY_RX_ANA_5, 0x157);
+
 			SENINF_WRITE_REG(base, CDPHY_RX_ANA_SETTING_0, 0x322);
 #endif
-			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-				RG_CSI0_ASYNC_OPTION, 0xC);
+
+
+			if (!ctx->csi_param.legacy_phy) {
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_AFIFO_DUMMY_VALID_EN, 0x1);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_CSI0_ASYNC_OPTION, 0xC);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x2);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+					RG_AFIFO_DUMMY_VALID_NUM, 0x1);
+			} else {
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_AFIFO_DUMMY_VALID_EN, 0x0);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_CSI0_ASYNC_OPTION, 0xC);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				    RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x3);
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+					RG_AFIFO_DUMMY_VALID_NUM, 0x5);
+			}
+
 			/*baseA works for both A & B*/
 
 			SENINF_BITS(base, CDPHY_RX_ANA_3,
@@ -2404,6 +2657,10 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 	}
 
 	SENINF_BITS(base, DPHY_RX_LANE_SELECT, DPHY_RX_CK_DATA_MUX_EN, 1);
+	if (!ctx->csi_param.legacy_phy)
+		SENINF_WRITE_REG(base, DPHY_RX_SPARE0, 0xf1);
+	else
+		SENINF_WRITE_REG(base, DPHY_RX_SPARE0, 0xf0);
 
 	return 0;
 }
@@ -2411,6 +2668,7 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 static int csirx_cphy_setting(struct seninf_ctx *ctx)
 {
 	void *base = ctx->reg_ana_cphy_top[ctx->port];
+	void *dphy_base = ctx->reg_ana_dphy_top[ctx->port];
 
 	switch (ctx->port) {
 	case CSI_PORT_0:
@@ -2454,6 +2712,10 @@ static int csirx_cphy_setting(struct seninf_ctx *ctx)
 	default:
 		break;
 	}
+	if (!ctx->csi_param.legacy_phy)
+		SENINF_WRITE_REG(dphy_base, DPHY_RX_SPARE0, 0xf1);
+	else
+		SENINF_WRITE_REG(dphy_base, DPHY_RX_SPARE0, 0xf0);
 
 	return 0;
 }
@@ -2546,11 +2808,12 @@ static int mtk_cam_seninf_set_idle(struct seninf_ctx *ctx)
 		if (vc->enable) {
 			mtk_cam_seninf_disable_mux(ctx, vc->mux);
 			mtk_cam_seninf_disable_cammux(ctx, vc->cam);
-			ctx->pad2cam[vc->out_pad] = 0xff;
 		}
 	}
+	for (i = 0; i < PAD_MAXCNT; i++)
+		ctx->pad2cam[i] = 0xff;
 #if LOG_MORE != 1
-	dev_info(ctx->dev, "%s	rlease all mux & cam mux\n", __func__);
+	dev_info(ctx->dev, "%s	rlease all mux & cam mux set all pd2cam to 0xff\n", __func__);
 #endif
 
 	return 0;
@@ -2633,7 +2896,7 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 	struct media_link *link;
 	struct media_pad *pad;
 	struct mtk_cam_seninf_mux_meter meter;
-	void *csi2, *rx, *pmux, *pcammux;
+	void *csi2, *rx, *pmux, *pcammux, *base_ana;
 
 	core = dev_get_drvdata(dev);
 	len = 0;
@@ -2664,6 +2927,7 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 
 		csi2 = ctx->reg_if_csi2[ctx->seninfIdx];
 		rx = ctx->reg_ana_dphy_top[ctx->port];
+		base_ana = ctx->reg_ana_csi_rx[ctx->port];
 		SHOW(buf, len, "csi2 irq_stat 0x%08x\n",
 		     SENINF_READ_REG(csi2, SENINF_CSI2_IRQ_STATUS));
 		SHOW(buf, len, "csi2 line_frame_num 0x%08x\n",
@@ -2683,19 +2947,21 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 				      RG_DPHY_RX_LD0_HS_TRAIL_EN),
 		     SENINF_READ_BITS(rx, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 				      RG_DPHY_RX_LD0_HS_TRAIL_PARAMETER));
-		SHOW(buf, len, "resync cycle 0x%04x\n",
-		     SENINF_READ_BITS(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL,
-				      RG_CSI2_RESYNC_DMY_CYCLE));
+		SHOW(buf, len,
+			"SENINF_CSI2_RESYNC_MERGE_CTRL 0x%08x CDPHY_RX_ANA_SETTING_1 0x%08x DPHY_RX_SPARE0 0x%08x\n",
+			SENINF_READ_REG(csi2, SENINF_CSI2_RESYNC_MERGE_CTRL),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_SETTING_1),
+			SENINF_READ_REG(rx, DPHY_RX_SPARE0));
 
-		SHOW(buf, len, "data_not_enough_cnt : <%d>",
+		SHOW(buf, len, "data_not_enough_cnt : <%d>\n",
 			ctx->data_not_enough_cnt);
-		SHOW(buf, len, "\terr_lane_resync_cnt : <%d>",
+		SHOW(buf, len, "err_lane_resync_cnt : <%d>\n",
 			ctx->err_lane_resync_cnt);
-		SHOW(buf, len, "\tcrc_err_cnt : <%d>",
+		SHOW(buf, len, "crc_err_cnt : <%d>\n",
 			ctx->crc_err_flag);
-		SHOW(buf, len, "\tecc_err_double_cnt : <%d>",
+		SHOW(buf, len, "ecc_err_double_cnt : <%d>\n",
 			ctx->ecc_err_double_cnt);
-		SHOW(buf, len, "\tecc_err_corrected_cnt : <%d>\n",
+		SHOW(buf, len, "ecc_err_corrected_cnt : <%d>\n",
 			ctx->ecc_err_corrected_cnt);
 
 		if (SENINF_READ_REG(csi2, SENINF_CSI2_IRQ_STATUS) & ~(0x324)) {
@@ -2708,7 +2974,10 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 		for (i = 0; i < ctx->vcinfo.cnt; i++) {
 			vc = &ctx->vcinfo.vc[i];
 			pmux = ctx->reg_if_mux[vc->mux];
-			pcammux = ctx->reg_if_cam_mux_pcsr[vc->cam];
+			if (vc->cam < _seninf_ops->cam_mux_num)
+				pcammux = ctx->reg_if_cam_mux_pcsr[vc->cam];
+			else
+				pcammux = NULL;
 			SHOW(buf, len,
 			     "[%d] vc 0x%x dt 0x%x mux %d cam %d\n",
 				i, vc->vc, vc->dt, vc->mux, vc->cam);
@@ -2720,15 +2989,17 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 				SENINF_READ_REG(pmux, SENINF_MUX_IRQ_STATUS));
 			SHOW(buf, len, "\t\tfifo_overrun_cnt : <%d>\n",
 				ctx->fifo_overrun_cnt);
-			SHOW(buf, len,
-			     "\tcam[%d] en %d src %d exp 0x%x res 0x%x err 0x%x irq_stat 0x%x\n",
-				vc->cam,
-				_seninf_ops->_is_cammux_used(ctx, vc->cam),
-				_seninf_ops->_get_cammux_ctrl(ctx, vc->cam),
-				mtk_cam_seninf_get_cammux_exp(ctx, vc->cam),
-				mtk_cam_seninf_get_cammux_res(ctx, vc->cam),
-				mtk_cam_seninf_get_cammux_err(ctx, vc->cam),
-				SENINF_READ_REG(pcammux, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
+			if (pcammux) {
+				SHOW(buf, len,
+				     "\tcam[%d] en %d src %d exp 0x%x res 0x%x err 0x%x irq_stat 0x%x\n",
+				     vc->cam,
+				     _seninf_ops->_is_cammux_used(ctx, vc->cam),
+				     _seninf_ops->_get_cammux_ctrl(ctx, vc->cam),
+				     mtk_cam_seninf_get_cammux_exp(ctx, vc->cam),
+				     mtk_cam_seninf_get_cammux_res(ctx, vc->cam),
+				     mtk_cam_seninf_get_cammux_err(ctx, vc->cam),
+				     SENINF_READ_REG(pcammux, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
+			}
 			SHOW(buf, len, "\t\tsize_err_cnt : <%d>\n",
 				ctx->size_err_cnt);
 
@@ -2770,6 +3041,8 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 #define SENINF_DRV_DEBUG_MAX_DELAY 400
 #endif
 
+#define FT_30_FPS 33
+#define PKT_CNT_CHK_MARGIN 110
 
 static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 {
@@ -2779,23 +3052,36 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	unsigned int mipi_packet_cnt = 0;
 	unsigned int tmp_mipi_packet_cnt = 0;
 	unsigned long total_delay = 0;
-	int irq_status_h = 0;
-	int irq_status_v = 0;
 	int enabled = 0;
 	int ret = 0;
 	int j, i;
-	unsigned long debug_ft = 33 * SCAN_TIME ;//FIXME
-	unsigned long debug_vb = 1 * SCAN_TIME;//FIXME
+	unsigned long debug_ft = FT_30_FPS * SCAN_TIME ;//FIXME
+	unsigned long debug_vb = 3 * SCAN_TIME;//FIXME
+
+	if (ctx->dbg_timeout != 0)
+		debug_ft = ctx->dbg_timeout / 1000;
+	if (debug_ft > FT_30_FPS)
+		debug_vb = debug_ft / 10;
+
 
 	for (j = CSI_PORT_0A; j <= CSI_PORT_5B; j++) {
+		if (j != ctx->portA &&
+			j != ctx->portB)
+			continue;
+
 		base_ana = ctx->reg_ana_csi_rx[j];
 		dev_info(ctx->dev,
-			"MipiRx_ANA%d: CDPHY_RX_ANA_0(0x%x) ANA_2(0x%x) ANA_4(0x%x) ANA_5(0x%x) ANA_8(0x%x)\n",
+			"MipiRx_ANA%d: CDPHY_RX_ANA_SETTING_1(0x%08x) CDPHY_RX_ANA_0(0x%08x) ANA_1(0x%08x) ANA_2(0x%08x) ANA_3(0x%08x) ANA_4(0x%08x) ANA_5(0x%08x) ANA_6(0x%08x) ANA_7(0x%08x) ANA_8(0x%08x)\n",
 			j - CSI_PORT_0A,
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_SETTING_1),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_0),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_1),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_2),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_3),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_4),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_5),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_6),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_7),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_8));
 		dev_info(ctx->dev,
 			"MipiRx_ANA%d: CDPHY_RX_ANA_AD_0(0x%x) AD_HS_0(0x%x) AD_HS_1(0x%x)\n",
@@ -2806,14 +3092,20 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	}
 
 	for (j = CSI_PORT_0; j <= CSI_PORT_5; j++) {
+		if (j != ctx->port)
+			continue;
+
 		base_cphy = ctx->reg_ana_cphy_top[j];
 		base_dphy = ctx->reg_ana_dphy_top[j];
-
 		dev_info(ctx->dev,
-			"Csi%d_Dphy_Top: LANE_EN(0x%x) LANE_SELECT(0x%x) DATA_LANE0_HS(0x%x) DATA_LANE1_HS(0x%x) DATA_LANE2_HS(0x%x) DATA_LANE3_HS(0x%x)\n",
+			"Csi%d_Dphy_Top: LANE_EN(0x%x) LANE_SELECT(0x%x) CLK_LANE0_HS(0x%x) CLK_LANE1_HS(0x%x) DATA_LANE0_HS(0x%x) DATA_LANE1_HS(0x%x) DATA_LANE2_HS(0x%x) DATA_LANE3_HS(0x%x) DPHY_RX_SPARE0(0x%x)\n",
 			j,
 			SENINF_READ_REG(base_dphy, DPHY_RX_LANE_EN),
 			SENINF_READ_REG(base_dphy, DPHY_RX_LANE_SELECT),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_CLOCK_LANE0_HS_PARAMETER),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_CLOCK_LANE1_HS_PARAMETER),
 			SENINF_READ_REG(base_dphy,
 					DPHY_RX_DATA_LANE0_HS_PARAMETER),
 			SENINF_READ_REG(base_dphy,
@@ -2821,7 +3113,22 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 			SENINF_READ_REG(base_dphy,
 					DPHY_RX_DATA_LANE2_HS_PARAMETER),
 			SENINF_READ_REG(base_dphy,
-					DPHY_RX_DATA_LANE3_HS_PARAMETER));
+					DPHY_RX_DATA_LANE3_HS_PARAMETER),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_SPARE0));
+			dev_info(ctx->dev,
+			"Csi%d_Dphy_Top: DPHY_RX_DESKEW_CTRL(0x%08x) DPHY_RX_DESKEW_TIMING_CTRL(0x%08x) DPHY_RX_DESKEW_LANE0_CTRL(0x%08x) DPHY_RX_DESKEW_LANE1_CTRL(0x%08x) DPHY_RX_DESKEW_LANE2_CTRL(0x%08x) DPHY_RX_DESKEW_LANE3_CTRL(0x%08x)\n",
+			j,
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_CTRL),
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_TIMING_CTRL),
+				SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE0_CTRL),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE1_CTRL),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE2_CTRL),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE3_CTRL));
 
 		dev_info(ctx->dev,
 			"Csi%d_Cphy_Top: CPHY_RX_CTRL(0x%x) CPHY_RX_DETECT_CTRL_POST(0x%x)\n",
@@ -2832,13 +3139,14 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 
 	dev_info(ctx->dev,
-		"TOP_MUX_CTRL_0(0x%x) TOP_MUX_CTRL_1(0x%x) TOP_MUX_CTRL_2(0x%x) TOP_MUX_CTRL_3(0x%x) TOP_MUX_CTRL_4(0x%x) TOP_MUX_CTRL_5(0x%x)\n",
+		"TOP_MUX_CTRL_0(0x%x) TOP_MUX_CTRL_1(0x%x) TOP_MUX_CTRL_2(0x%x) TOP_MUX_CTRL_3(0x%x) TOP_MUX_CTRL_4(0x%x) TOP_MUX_CTRL_5(0x%x) debug_vb %d debug_ft %d\n",
 		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_0),
 		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_1),
 		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_2),
 		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_3),
 		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_4),
-		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_5));
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_5),
+		debug_vb, debug_ft);
 
 
 	enabled = SENINF_READ_REG(ctx->reg_if_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_MUX_EN);
@@ -2868,20 +3176,21 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	}
 
 	/* Seninf_csi status IRQ */
-	for (j = SENINF_1; j < _seninf_ops->seninf_num; j++) {
-		base_csi = ctx->reg_if_csi2[j];
-		temp = SENINF_READ_REG(base_csi, SENINF_CSI2_IRQ_STATUS);
-		if (temp & ~(0x324)) {
-			SENINF_WRITE_REG(base_csi, SENINF_CSI2_IRQ_STATUS,
-					 0xffffffff);
-		}
-		dev_info(ctx->dev,
-			"SENINF%d_CSI2_EN(0x%x) SENINF_CSI2_OPT(0x%x) SENINF_CSI2_IRQ_STATUS(0x%x)\n",
-			j,
-			SENINF_READ_REG(base_csi, SENINF_CSI2_EN),
-			SENINF_READ_REG(base_csi, SENINF_CSI2_OPT),
-			temp);
+
+	base_csi = ctx->reg_if_csi2[(uint32_t)ctx->seninfIdx];
+	temp = SENINF_READ_REG(base_csi, SENINF_CSI2_IRQ_STATUS);
+	if (temp & ~(0x324)) {
+		SENINF_WRITE_REG(base_csi, SENINF_CSI2_IRQ_STATUS,
+				 0xffffffff);
 	}
+	dev_info(ctx->dev,
+		"SENINF%d_CSI2_EN(0x%x) SENINF_CSI2_OPT(0x%x) SENINF_CSI2_IRQ_STATUS(0x%x), SENINF_CSI2_RESYNC_MERGE_CTRL(0x%x)\n",
+		(uint32_t)ctx->seninfIdx,
+		SENINF_READ_REG(base_csi, SENINF_CSI2_EN),
+		SENINF_READ_REG(base_csi, SENINF_CSI2_OPT),
+		temp,
+		SENINF_READ_REG(base_csi, SENINF_CSI2_RESYNC_MERGE_CTRL));
+
 
 	/* Seninf_csi packet count */
 	pkg_cnt_changed = 0;
@@ -2895,7 +3204,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 			"total_delay %d SENINF%d_PkCnt(0x%x)\n",
 			total_delay, ctx->seninfIdx, mipi_packet_cnt);
 
-		while (total_delay <= debug_ft) {
+		while (total_delay <= ((debug_ft * PKT_CNT_CHK_MARGIN) / 100)) {
 			tmp_mipi_packet_cnt = mipi_packet_cnt & 0xFFFF;
 			mdelay(debug_vb);
 			total_delay += debug_vb;
@@ -2918,15 +3227,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		mdelay(debug_ft - total_delay);
 		total_delay = debug_ft;
 	}
-	temp = SENINF_READ_REG(base_csi, SENINF_CSI2_IRQ_STATUS);
-	dev_info(ctx->dev,
-		"SENINF%d_CSI2_IRQ_STATUS(0x%x)\n", ctx->seninfIdx, temp);
-	if (total_delay < SENINF_DRV_DEBUG_MAX_DELAY) {
-		if (total_delay + debug_ft < SENINF_DRV_DEBUG_MAX_DELAY)
-			mdelay(debug_ft);
-		else
-			mdelay(SENINF_DRV_DEBUG_MAX_DELAY - total_delay);
-	}
+
 	temp = SENINF_READ_REG(base_csi, SENINF_CSI2_IRQ_STATUS);
 	dev_info(ctx->dev,
 		"SENINF%d_CSI2_IRQ_STATUS(0x%x)\n", ctx->seninfIdx, temp);
@@ -2936,47 +3237,35 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	/* SENINF_MUX */
 	for (j = SENINF_MUX1; j < _seninf_ops->mux_num; j++) {
 		base_mux = ctx->reg_if_mux[j];
-		dev_info(ctx->dev,
-			"SENINF%d_MUX_CTRL0(0x%x) SENINF%d_MUX_CTRL1(0x%x) SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x) SENINF_MUX_ERR_SIZE(0x%x) SENINF_MUX_EXP_SIZE(0x%x)\n",
-			j,
-			SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0),
-			j,
-			SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_1),
-			SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS),
-			j,
-			SENINF_READ_REG(base_mux, SENINF_MUX_SIZE),
-			SENINF_READ_REG(base_mux, SENINF_MUX_ERR_SIZE),
-			SENINF_READ_REG(base_mux, SENINF_MUX_IMG_SIZE));
-
-		if (SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS) & 0x1) {
-			SENINF_WRITE_REG(base_mux, SENINF_MUX_IRQ_STATUS,
-					 0xffffffff);
-			mdelay(debug_ft);
+		if (SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0) & 0x1) {
 			dev_info(ctx->dev,
-				"after reset overrun, SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x)\n",
-				SENINF_READ_REG(base_mux,
-						SENINF_MUX_IRQ_STATUS),
+				"SENINF%d_MUX_CTRL0(0x%x) SENINF%d_MUX_CTRL1(0x%x) SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x) SENINF_MUX_ERR_SIZE(0x%x) SENINF_MUX_EXP_SIZE(0x%x)\n",
 				j,
-				SENINF_READ_REG(base_mux, SENINF_MUX_SIZE));
+				SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0),
+				j,
+				SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_1),
+				SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS),
+				j,
+				SENINF_READ_REG(base_mux, SENINF_MUX_SIZE),
+				SENINF_READ_REG(base_mux, SENINF_MUX_ERR_SIZE),
+				SENINF_READ_REG(base_mux, SENINF_MUX_IMG_SIZE));
+
+			if (SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS) & 0x1) {
+				SENINF_WRITE_REG(base_mux, SENINF_MUX_IRQ_STATUS,
+						 0xffffffff);
+				if (debug_ft > FT_30_FPS)
+					mdelay(FT_30_FPS);
+				else
+					mdelay(debug_ft);
+				dev_info(ctx->dev,
+					"after reset overrun, SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x)\n",
+					SENINF_READ_REG(base_mux,
+							SENINF_MUX_IRQ_STATUS),
+					j,
+					SENINF_READ_REG(base_mux, SENINF_MUX_SIZE));
+			}
 		}
 	}
-
-	irq_status_h = SENINF_READ_REG(ctx->reg_if_cam_mux_gcsr,
-				     SENINF_CAM_MUX_GCSR_HSIZE_ERR_IRQ_STS);
-	irq_status_v = SENINF_READ_REG(ctx->reg_if_cam_mux_gcsr,
-				     SENINF_CAM_MUX_GCSR_VSIZE_ERR_IRQ_STS);
-
-	dev_info(ctx->dev,
-		"SENINF_CAM_MUX_GCSR_MUX_EN 0x%x SENINF_CAM_MUX_GCSR_HSIZE_ERR_IRQ_STS 0x%x SENINF_CAM_MUX_GCSR_VSIZE_ERR_IRQ_STS 0x%x\n",
-		enabled,
-		irq_status_h,
-		irq_status_v);
-	dev_info(ctx->dev,
-		"SENINF_CAM_MUX_GCSR_HSIZE_ERR_IRQ_EN 0x%x SENINF_CAM_MUX_GCSR_VSIZE_ERR_IRQ_EN 0x%x\n",
-		SENINF_READ_REG(ctx->reg_if_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_HSIZE_ERR_IRQ_EN),
-		SENINF_READ_REG(ctx->reg_if_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_VSIZE_ERR_IRQ_EN));
-
-
 
 	/* check SENINF_CAM_MUX size */
 	for (j = 0; j < ctx->vcinfo.cnt; j++) {
@@ -2985,38 +3274,24 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 				unsigned int used_cammux = ctx->vcinfo.vc[j].cam;
 
 				if ((used_cammux == i) && (enabled & (1<<i))) {
-					int recSize = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_CHK_RES);
-					int expSize = SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_CHK_CTL);
-					if (recSize != expSize) {
-						dev_info(ctx->dev,
-							"cam mux%u size mismatch!, recSize = 0x%x, expSize = 0x%x",
-							i, recSize, expSize);
-						ret = -3;
-					}
-					if ((irq_status_h & (1 << i)) ||
-						(irq_status_v & (1 << i))) {
-						dev_info(ctx->dev,
-							"cam mux%u size mismatch!, irq_status_h = 0x%x irq_status_v = 0x%x",
-							i, irq_status_h, irq_status_v);
-						ret = -3;
-					}
+					dev_info(ctx->dev,
+					"cam_mux_%d CTRL(0x%x) RES(0x%x) EXP(0x%x) ERR(0x%x) OPT(0x%x) IRQ(0x%x)\n",
+					i,
+					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_CTRL),
+					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_CHK_RES),
+					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_CHK_CTL),
+					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_CHK_ERR_RES),
+					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_OPT),
+					SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_IRQ_STATUS));
 				}
 			}
 		}
-	}
-
-	for (i = 0; i < _seninf_ops->cam_mux_num; i++) {
-		dev_info(ctx->dev,
-		"cam_mux_%d CTRL(0x%x) RES(0x%x) EXP(0x%x) ERR(0x%x) OPT(0x%x) IRQ(0x%x)\n",
-		i,
-		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i], SENINF_CAM_MUX_PCSR_CTRL),
-		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i], SENINF_CAM_MUX_PCSR_CHK_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i], SENINF_CAM_MUX_PCSR_CHK_CTL),
-		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i], SENINF_CAM_MUX_PCSR_CHK_ERR_RES),
-		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i], SENINF_CAM_MUX_PCSR_OPT),
-		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i], SENINF_CAM_MUX_PCSR_IRQ_STATUS));
 	}
 
 	dev_info(ctx->dev, "ret = %d", ret);

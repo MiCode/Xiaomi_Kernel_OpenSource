@@ -43,6 +43,7 @@ struct seninf_vc {
 	u8 enable;
 	u16 exp_hsize;
 	u16 exp_vsize;
+	u8 bit_depth;
 };
 
 struct seninf_vcinfo {
@@ -199,6 +200,8 @@ struct seninf_ctx {
 	unsigned int ecc_err_corrected_flag;
 	unsigned int fifo_overrun_flag;
 	unsigned int size_err_flag;
+	unsigned int dbg_timeout;
+	unsigned int dbg_last_dump_req;
 };
 
 #endif
