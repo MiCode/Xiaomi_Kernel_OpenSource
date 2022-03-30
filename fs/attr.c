@@ -35,7 +35,7 @@ static bool chown_ok(struct user_namespace *mnt_userns,
 		     kuid_t uid)
 {
 	kuid_t kuid = i_uid_into_mnt(mnt_userns, inode);
-	if (uid_eq(current_fsuid(), kuid) && uid_eq(uid, kuid))
+	if (uid_eq(current_fsuid(), kuid) && uid_eq(uid, inode->i_uid))
 		return true;
 	if (capable_wrt_inode_uidgid(mnt_userns, inode, CAP_CHOWN))
 		return true;
@@ -62,7 +62,7 @@ static bool chgrp_ok(struct user_namespace *mnt_userns,
 {
 	kgid_t kgid = i_gid_into_mnt(mnt_userns, inode);
 	if (uid_eq(current_fsuid(), i_uid_into_mnt(mnt_userns, inode)) &&
-	    (in_group_p(gid) || gid_eq(gid, kgid)))
+	    (in_group_p(gid) || gid_eq(gid, inode->i_gid)))
 		return true;
 	if (capable_wrt_inode_uidgid(mnt_userns, inode, CAP_CHOWN))
 		return true;
@@ -342,7 +342,7 @@ int notify_change(struct user_namespace *mnt_userns, struct dentry *dentry,
 		attr->ia_mtime = timestamp_truncate(attr->ia_mtime, inode);
 
 	if (ia_valid & ATTR_KILL_PRIV) {
-		error = security_inode_need_killpriv(mnt_userns, dentry);
+		error = security_inode_need_killpriv(dentry);
 		if (error < 0)
 			return error;
 		if (error == 0)

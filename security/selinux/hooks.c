@@ -490,7 +490,7 @@ static int selinux_is_sblabel_mnt(struct super_block *sb)
 	}
 }
 
-static int sb_check_xattr_support(struct user_namespace *mnt_userns, struct super_block *sb)
+static int sb_check_xattr_support(struct super_block *sb)
 {
 	struct superblock_security_struct *sbsec = sb->s_security;
 	struct dentry *root = sb->s_root;
@@ -511,8 +511,7 @@ static int sb_check_xattr_support(struct user_namespace *mnt_userns, struct supe
 		goto fallback;
 	}
 
-	rc = __vfs_getxattr(mnt_userns, root, root_inode, XATTR_NAME_SELINUX, NULL, 0,
-			    XATTR_NOSECURITY);
+	rc = __vfs_getxattr(root, root_inode, XATTR_NAME_SELINUX, NULL, 0);
 	if (rc < 0 && rc != -ENODATA) {
 		if (rc == -EOPNOTSUPP) {
 			pr_warn("SELinux: (dev %s, type %s) has no security xattr handler\n",
@@ -548,7 +547,7 @@ static int sb_finish_set_opts(struct super_block *sb)
 	int rc = 0;
 
 	if (sbsec->behavior == SECURITY_FS_USE_XATTR) {
-		rc = sb_check_xattr_support(sb->s_user_ns, sb);
+		rc = sb_check_xattr_support(sb);
 		if (rc)
 			return rc;
 	}
@@ -612,10 +611,11 @@ static int bad_option(struct superblock_security_struct *sbsec, char flag,
 	return 0;
 }
 
-static int parse_sid(struct super_block *sb, const char *s, u32 *sid)
+static int parse_sid(struct super_block *sb, const char *s, u32 *sid,
+		     gfp_t gfp)
 {
 	int rc = security_context_str_to_sid(&selinux_state, s,
-					     sid, GFP_KERNEL);
+					     sid, gfp);
 	if (rc)
 		pr_warn("SELinux: security_context_str_to_sid"
 		       "(%s) failed for (dev %s, type %s) errno=%d\n",
@@ -686,7 +686,8 @@ static int selinux_set_mnt_opts(struct super_block *sb,
 	 */
 	if (opts) {
 		if (opts->fscontext) {
-			rc = parse_sid(sb, opts->fscontext, &fscontext_sid);
+			rc = parse_sid(sb, opts->fscontext, &fscontext_sid,
+					GFP_KERNEL);
 			if (rc)
 				goto out;
 			if (bad_option(sbsec, FSCONTEXT_MNT, sbsec->sid,
@@ -695,7 +696,8 @@ static int selinux_set_mnt_opts(struct super_block *sb,
 			sbsec->flags |= FSCONTEXT_MNT;
 		}
 		if (opts->context) {
-			rc = parse_sid(sb, opts->context, &context_sid);
+			rc = parse_sid(sb, opts->context, &context_sid,
+					GFP_KERNEL);
 			if (rc)
 				goto out;
 			if (bad_option(sbsec, CONTEXT_MNT, sbsec->mntpoint_sid,
@@ -704,7 +706,8 @@ static int selinux_set_mnt_opts(struct super_block *sb,
 			sbsec->flags |= CONTEXT_MNT;
 		}
 		if (opts->rootcontext) {
-			rc = parse_sid(sb, opts->rootcontext, &rootcontext_sid);
+			rc = parse_sid(sb, opts->rootcontext, &rootcontext_sid,
+					GFP_KERNEL);
 			if (rc)
 				goto out;
 			if (bad_option(sbsec, ROOTCONTEXT_MNT, root_isec->sid,
@@ -713,7 +716,8 @@ static int selinux_set_mnt_opts(struct super_block *sb,
 			sbsec->flags |= ROOTCONTEXT_MNT;
 		}
 		if (opts->defcontext) {
-			rc = parse_sid(sb, opts->defcontext, &defcontext_sid);
+			rc = parse_sid(sb, opts->defcontext, &defcontext_sid,
+					GFP_KERNEL);
 			if (rc)
 				goto out;
 			if (bad_option(sbsec, DEFCONTEXT_MNT, sbsec->def_sid,
@@ -1371,15 +1375,12 @@ static int inode_doinit_use_xattr(struct inode *inode, struct dentry *dentry,
 		return -ENOMEM;
 
 	context[len] = '\0';
-	rc = __vfs_getxattr(&init_user_ns, dentry, inode, XATTR_NAME_SELINUX,
-			    context, len, XATTR_NOSECURITY);
+	rc = __vfs_getxattr(dentry, inode, XATTR_NAME_SELINUX, context, len);
 	if (rc == -ERANGE) {
 		kfree(context);
 
 		/* Need a larger buffer.  Query for the right size. */
-		rc = __vfs_getxattr(&init_user_ns, dentry, inode,
-				    XATTR_NAME_SELINUX, NULL, 0,
-				    XATTR_NOSECURITY);
+		rc = __vfs_getxattr(dentry, inode, XATTR_NAME_SELINUX, NULL, 0);
 		if (rc < 0)
 			return rc;
 
@@ -1389,9 +1390,8 @@ static int inode_doinit_use_xattr(struct inode *inode, struct dentry *dentry,
 			return -ENOMEM;
 
 		context[len] = '\0';
-		rc = __vfs_getxattr(&init_user_ns, dentry, inode,
-				    XATTR_NAME_SELINUX, context, len,
-				    XATTR_NOSECURITY);
+		rc = __vfs_getxattr(dentry, inode, XATTR_NAME_SELINUX,
+				    context, len);
 	}
 	if (rc < 0) {
 		kfree(context);
@@ -2706,14 +2706,14 @@ static int selinux_sb_mnt_opts_compat(struct super_block *sb, void *mnt_opts)
 		return (sbsec->flags & SE_MNTMASK) ? 1 : 0;
 
 	if (opts->fscontext) {
-		rc = parse_sid(sb, opts->fscontext, &sid);
+		rc = parse_sid(sb, opts->fscontext, &sid, GFP_NOWAIT);
 		if (rc)
 			return 1;
 		if (bad_option(sbsec, FSCONTEXT_MNT, sbsec->sid, sid))
 			return 1;
 	}
 	if (opts->context) {
-		rc = parse_sid(sb, opts->context, &sid);
+		rc = parse_sid(sb, opts->context, &sid, GFP_NOWAIT);
 		if (rc)
 			return 1;
 		if (bad_option(sbsec, CONTEXT_MNT, sbsec->mntpoint_sid, sid))
@@ -2723,14 +2723,14 @@ static int selinux_sb_mnt_opts_compat(struct super_block *sb, void *mnt_opts)
 		struct inode_security_struct *root_isec;
 
 		root_isec = backing_inode_security(sb->s_root);
-		rc = parse_sid(sb, opts->rootcontext, &sid);
+		rc = parse_sid(sb, opts->rootcontext, &sid, GFP_NOWAIT);
 		if (rc)
 			return 1;
 		if (bad_option(sbsec, ROOTCONTEXT_MNT, root_isec->sid, sid))
 			return 1;
 	}
 	if (opts->defcontext) {
-		rc = parse_sid(sb, opts->defcontext, &sid);
+		rc = parse_sid(sb, opts->defcontext, &sid, GFP_NOWAIT);
 		if (rc)
 			return 1;
 		if (bad_option(sbsec, DEFCONTEXT_MNT, sbsec->def_sid, sid))
@@ -2753,14 +2753,14 @@ static int selinux_sb_remount(struct super_block *sb, void *mnt_opts)
 		return 0;
 
 	if (opts->fscontext) {
-		rc = parse_sid(sb, opts->fscontext, &sid);
+		rc = parse_sid(sb, opts->fscontext, &sid, GFP_KERNEL);
 		if (rc)
 			return rc;
 		if (bad_option(sbsec, FSCONTEXT_MNT, sbsec->sid, sid))
 			goto out_bad_option;
 	}
 	if (opts->context) {
-		rc = parse_sid(sb, opts->context, &sid);
+		rc = parse_sid(sb, opts->context, &sid, GFP_KERNEL);
 		if (rc)
 			return rc;
 		if (bad_option(sbsec, CONTEXT_MNT, sbsec->mntpoint_sid, sid))
@@ -2769,14 +2769,14 @@ static int selinux_sb_remount(struct super_block *sb, void *mnt_opts)
 	if (opts->rootcontext) {
 		struct inode_security_struct *root_isec;
 		root_isec = backing_inode_security(sb->s_root);
-		rc = parse_sid(sb, opts->rootcontext, &sid);
+		rc = parse_sid(sb, opts->rootcontext, &sid, GFP_KERNEL);
 		if (rc)
 			return rc;
 		if (bad_option(sbsec, ROOTCONTEXT_MNT, root_isec->sid, sid))
 			goto out_bad_option;
 	}
 	if (opts->defcontext) {
-		rc = parse_sid(sb, opts->defcontext, &sid);
+		rc = parse_sid(sb, opts->defcontext, &sid, GFP_KERNEL);
 		if (rc)
 			return rc;
 		if (bad_option(sbsec, DEFCONTEXT_MNT, sbsec->def_sid, sid))

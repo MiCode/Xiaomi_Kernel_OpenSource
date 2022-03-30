@@ -808,10 +808,14 @@ retry:
 			goto retry;
 		}
 
-		work = ovl_create_real(dir, work, OVL_CATTR(attr.ia_mode));
-		err = PTR_ERR(work);
-		if (IS_ERR(work))
-			goto out_err;
+		err = ovl_mkdir_real(dir, &work, attr.ia_mode);
+		if (err)
+			goto out_dput;
+
+		/* Weird filesystem returning with hashed negative (kernfs)? */
+		err = -EINVAL;
+		if (d_really_is_negative(work))
+			goto out_dput;
 
 		/*
 		 * Try to remove POSIX ACL xattrs from workdir.  We are good if:
@@ -1021,9 +1025,9 @@ static unsigned int ovl_split_lowerdirs(char *str)
 static int __maybe_unused
 ovl_posix_acl_xattr_get(const struct xattr_handler *handler,
 			struct dentry *dentry, struct inode *inode,
-			const char *name, void *buffer, size_t size, int flags)
+			const char *name, void *buffer, size_t size)
 {
-	return ovl_xattr_get(dentry, inode, handler->name, buffer, size, flags);
+	return ovl_xattr_get(dentry, inode, handler->name, buffer, size);
 }
 
 static int __maybe_unused
@@ -1084,8 +1088,7 @@ out_acl_release:
 
 static int ovl_own_xattr_get(const struct xattr_handler *handler,
 			     struct dentry *dentry, struct inode *inode,
-			     const char *name, void *buffer, size_t size,
-			     int flags)
+			     const char *name, void *buffer, size_t size)
 {
 	return -EOPNOTSUPP;
 }
@@ -1101,10 +1104,9 @@ static int ovl_own_xattr_set(const struct xattr_handler *handler,
 
 static int ovl_other_xattr_get(const struct xattr_handler *handler,
 			       struct dentry *dentry, struct inode *inode,
-			       const char *name, void *buffer, size_t size,
-			       int flags)
+			       const char *name, void *buffer, size_t size)
 {
-	return ovl_xattr_get(dentry, inode, name, buffer, size, flags);
+	return ovl_xattr_get(dentry, inode, name, buffer, size);
 }
 
 static int ovl_other_xattr_set(const struct xattr_handler *handler,

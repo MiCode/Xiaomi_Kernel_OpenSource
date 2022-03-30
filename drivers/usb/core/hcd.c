@@ -3103,8 +3103,6 @@ EXPORT_SYMBOL_GPL(usb_hcd_setup_local_mem);
 
 /*-------------------------------------------------------------------------*/
 
-#if IS_ENABLED(CONFIG_USB_MON)
-
 const struct usb_mon_operations *mon_ops;
 
 /*
@@ -3138,5 +3136,3 @@ void usb_mon_deregister (void)
 	mb();
 }
 EXPORT_SYMBOL_GPL (usb_mon_deregister);
-
-#endif /* CONFIG_USB_MON || CONFIG_USB_MON_MODULE */

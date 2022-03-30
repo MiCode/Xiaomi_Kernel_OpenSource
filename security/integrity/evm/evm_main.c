@@ -145,8 +145,7 @@ static int evm_find_protected_xattrs(struct dentry *dentry)
 		return -EOPNOTSUPP;
 
 	list_for_each_entry_lockless(xattr, &evm_config_xattrnames, list) {
-		error = __vfs_getxattr(&init_user_ns, dentry, inode,
-				       xattr->name, NULL, 0, XATTR_NOSECURITY);
+		error = __vfs_getxattr(dentry, inode, xattr->name, NULL, 0);
 		if (error < 0) {
 			if (error == -ENODATA)
 				continue;
@@ -344,9 +343,8 @@ int evm_read_protected_xattrs(struct dentry *dentry, u8 *buffer,
 	int rc, size, total_size = 0;
 
 	list_for_each_entry_lockless(xattr, &evm_config_xattrnames, list) {
-		rc = __vfs_getxattr(&init_user_ns, dentry,
-				    d_backing_inode(dentry), xattr->name, NULL,
-				    0, XATTR_NOSECURITY);
+		rc = __vfs_getxattr(dentry, d_backing_inode(dentry),
+				    xattr->name, NULL, 0);
 		if (rc < 0 && rc == -ENODATA)
 			continue;
 		else if (rc < 0)
@@ -374,11 +372,10 @@ int evm_read_protected_xattrs(struct dentry *dentry, u8 *buffer,
 		case 'v':
 			size = rc;
 			if (buffer) {
-				rc = __vfs_getxattr(&init_user_ns, dentry,
+				rc = __vfs_getxattr(dentry,
 					d_backing_inode(dentry), xattr->name,
 					buffer + total_size,
-					buffer_size - total_size,
-					XATTR_NOSECURITY);
+					buffer_size - total_size);
 				if (rc < 0)
 					return rc;
 			}

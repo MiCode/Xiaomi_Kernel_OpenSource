@@ -275,9 +275,8 @@ static int smk_bu_credfile(const struct cred *cred, struct file *file,
  * Returns a pointer to the master list entry for the Smack label,
  * NULL if there was no label to fetch, or an error code.
  */
-static struct smack_known *smk_fetch(struct user_namespace *mnt_userns,
-				     const char *name, struct inode *ip,
-				     struct dentry *dp)
+static struct smack_known *smk_fetch(const char *name, struct inode *ip,
+					struct dentry *dp)
 {
 	int rc;
 	char *buffer;
@@ -290,8 +289,7 @@ static struct smack_known *smk_fetch(struct user_namespace *mnt_userns,
 	if (buffer == NULL)
 		return ERR_PTR(-ENOMEM);
 
-	rc = __vfs_getxattr(mnt_userns, dp, ip, name, buffer, SMK_LONGLABEL,
-			    XATTR_NOSECURITY);
+	rc = __vfs_getxattr(dp, ip, name, buffer, SMK_LONGLABEL);
 	if (rc < 0)
 		skp = ERR_PTR(rc);
 	else if (rc == 0)
@@ -3407,7 +3405,7 @@ static void smack_d_instantiate(struct dentry *opt_dentry, struct inode *inode)
 		 * Get the dentry for xattr.
 		 */
 		dp = dget(opt_dentry);
-		skp = smk_fetch(&init_user_ns, XATTR_NAME_SMACK, inode, dp);
+		skp = smk_fetch(XATTR_NAME_SMACK, inode, dp);
 		if (!IS_ERR_OR_NULL(skp))
 			final = skp;
 
@@ -3431,9 +3429,9 @@ static void smack_d_instantiate(struct dentry *opt_dentry, struct inode *inode)
 					TRANS_TRUE, TRANS_TRUE_SIZE,
 					0);
 			} else {
-				rc = __vfs_getxattr(&init_user_ns, dp, inode,
+				rc = __vfs_getxattr(dp, inode,
 					XATTR_NAME_SMACKTRANSMUTE, trattr,
-					TRANS_TRUE_SIZE, XATTR_NOSECURITY);
+					TRANS_TRUE_SIZE);
 				if (rc >= 0 && strncmp(trattr, TRANS_TRUE,
 						       TRANS_TRUE_SIZE) != 0)
 					rc = -EINVAL;
@@ -3444,13 +3442,13 @@ static void smack_d_instantiate(struct dentry *opt_dentry, struct inode *inode)
 		/*
 		 * Don't let the exec or mmap label be "*" or "@".
 		 */
-		skp = smk_fetch(&init_user_ns, XATTR_NAME_SMACKEXEC, inode, dp);
+		skp = smk_fetch(XATTR_NAME_SMACKEXEC, inode, dp);
 		if (IS_ERR(skp) || skp == &smack_known_star ||
 		    skp == &smack_known_web)
 			skp = NULL;
 		isp->smk_task = skp;
 
-		skp = smk_fetch(&init_user_ns, XATTR_NAME_SMACKMMAP, inode, dp);
+		skp = smk_fetch(XATTR_NAME_SMACKMMAP, inode, dp);
 		if (IS_ERR(skp) || skp == &smack_known_star ||
 		    skp == &smack_known_web)
 			skp = NULL;

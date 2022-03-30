@@ -178,7 +178,7 @@ DECLARE_RESTRICTED_HOOK(android_rvh_account_irq,
 
 struct sched_entity;
 DECLARE_RESTRICTED_HOOK(android_rvh_place_entity,
-	TP_PROTO(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial, u64 vruntime),
+	TP_PROTO(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial, u64 *vruntime),
 	TP_ARGS(cfs_rq, se, initial, vruntime), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_build_perf_domains,
@@ -275,6 +275,10 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_cpus_allowed_ptr_locked,
 	TP_PROTO(const struct cpumask *cpu_valid_mask, const struct cpumask *new_mask,
 		 unsigned int *dest_cpu),
 	TP_ARGS(cpu_valid_mask, new_mask, dest_cpu), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_do_sched_yield,
+	TP_PROTO(struct rq *rq),
+	TP_ARGS(rq), 1);
 
 DECLARE_HOOK(android_vh_free_task,
 	TP_PROTO(struct task_struct *p),
