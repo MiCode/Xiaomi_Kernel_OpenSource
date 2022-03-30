@@ -624,6 +624,7 @@
   ieee80211_scan_completed
   ieee80211_stop_queues
   ieee80211_stop_tx_ba_cb_irqsafe
+  ieee80211_tx_prepare_skb
   ieee80211_tx_status_irqsafe
   ieee80211_unregister_hw
   ieee80211_wake_queues

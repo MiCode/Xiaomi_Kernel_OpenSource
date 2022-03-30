@@ -96,6 +96,7 @@ struct iova_domain {
 	atomic_t fq_timer_on;			/* 1 when timer is active, 0
 						   when not */
 	struct hlist_node	cpuhp_dead;
+	bool best_fit;
 };
 
 static inline unsigned long iova_size(struct iova *iova)

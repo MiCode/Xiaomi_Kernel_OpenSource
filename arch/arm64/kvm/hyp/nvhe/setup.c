@@ -29,6 +29,7 @@ phys_addr_t pvmfw_size;
 			 (unsigned long)__per_cpu_start)
 
 static void *vmemmap_base;
+static void *shadow_table_base;
 static void *hyp_pgt_base;
 static void *host_s2_pgt_base;
 static void *ffa_proxy_pages;
@@ -47,8 +48,8 @@ static int divide_memory_pool(void *virt, unsigned long size)
 		return -ENOMEM;
 
 	nr_pages = hyp_shadow_table_pages(sizeof(struct kvm_shadow_vm));
-	shadow_table = hyp_early_alloc_contig(nr_pages);
-	if (!shadow_table)
+	shadow_table_base = hyp_early_alloc_contig(nr_pages);
+	if (!shadow_table_base)
 		return -ENOMEM;
 
 	nr_pages = hyp_s1_pgtable_pages();
@@ -98,6 +99,10 @@ static int recreate_hyp_mappings(phys_addr_t phys, unsigned long size,
 		return ret;
 
 	ret = pkvm_create_mappings(__hyp_text_start, __hyp_text_end, PAGE_HYP_EXEC);
+	if (ret)
+		return ret;
+
+	ret = pkvm_create_mappings(__hyp_data_start, __hyp_data_end, PAGE_HYP);
 	if (ret)
 		return ret;
 
@@ -275,22 +280,6 @@ static int fix_hyp_pgtable_refcnt(void)
 				&walker);
 }
 
-static int select_iommu_ops(enum kvm_iommu_driver driver)
-{
-	switch (driver) {
-	case KVM_IOMMU_DRIVER_NONE:
-		return 0;
-	case KVM_IOMMU_DRIVER_S2MPU:
-		if (IS_ENABLED(CONFIG_KVM_S2MPU)) {
-			kvm_iommu_ops = kvm_s2mpu_ops;
-			return 0;
-		}
-		break;
-	}
-
-	return -EINVAL;
-}
-
 void __noreturn __pkvm_init_finalise(void)
 {
 	struct kvm_host_data *host_data = this_cpu_ptr(&kvm_host_data);
@@ -320,12 +309,6 @@ void __noreturn __pkvm_init_finalise(void)
 	};
 	pkvm_pgtable.mm_ops = &pkvm_pgtable_mm_ops;
 
-	if (kvm_iommu_ops.init) {
-		ret = kvm_iommu_ops.init();
-		if (ret)
-			goto out;
-	}
-
 	ret = fix_host_ownership();
 	if (ret)
 		goto out;
@@ -341,6 +324,8 @@ void __noreturn __pkvm_init_finalise(void)
 	ret = hyp_ffa_init(ffa_proxy_pages);
 	if (ret)
 		goto out;
+
+	hyp_shadow_table_init(shadow_table_base);
 out:
 	/*
 	 * We tail-called to here from handle___pkvm_init() and will not return,
@@ -352,8 +337,7 @@ out:
 }
 
 int __pkvm_init(phys_addr_t phys, unsigned long size, unsigned long nr_cpus,
-		unsigned long *per_cpu_base, u32 hyp_va_bits,
-		enum kvm_iommu_driver iommu_driver)
+		unsigned long *per_cpu_base, u32 hyp_va_bits)
 {
 	struct kvm_nvhe_init_params *params;
 	void *virt = hyp_phys_to_virt(phys);
@@ -373,10 +357,6 @@ int __pkvm_init(phys_addr_t phys, unsigned long size, unsigned long nr_cpus,
 		return ret;
 
 	ret = recreate_hyp_mappings(phys, size, per_cpu_base, hyp_va_bits);
-	if (ret)
-		return ret;
-
-	ret = select_iommu_ops(iommu_driver);
 	if (ret)
 		return ret;
 
