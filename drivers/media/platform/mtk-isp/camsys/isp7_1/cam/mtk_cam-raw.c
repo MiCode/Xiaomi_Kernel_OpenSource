@@ -2293,7 +2293,8 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 
 static void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 				       int dequeued_frame_seq_no);
-static void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev);
+static void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev,
+				       int dequeued_frame_seq_no);
 static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 					  int dequeued_frame_seq_no);
 
@@ -2311,7 +2312,7 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 		 *                              raw_dev->base, raw_dev->yuv_base);
 		 */
 
-		raw_irq_handle_dma_err(raw_dev);
+		raw_irq_handle_dma_err(raw_dev, frame_idx_inner);
 
 		/*
 		 * mtk_cam_dump_req_rdy_status(raw_dev->dev, raw_dev->base,
@@ -2593,8 +2594,11 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 
 }
 
-void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev)
+void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev, int dequeued_frame_seq_no)
 {
+	dev_info(raw_dev->dev,
+			 "%s: dequeued_frame_seq_no %d\n",
+			 __func__, dequeued_frame_seq_no);
 	mtk_cam_raw_dump_dma_err_st(raw_dev->dev, raw_dev->base);
 	mtk_cam_yuv_dump_dma_err_st(raw_dev->dev, raw_dev->yuv_base);
 

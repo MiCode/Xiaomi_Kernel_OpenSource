@@ -7374,9 +7374,12 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 			 __func__, ctx->stream_id);
 	} else {
 		if (timeout) {
-			dev_info(ctx->cam->dev, "%s:ctx(%d): timeout, VF(%d) vsync count(%d) sof count(%d) start dump (%dx100ms)\n",
+			dev_info(ctx->cam->dev,
+				"%s:ctx(%d): timeout, VF(%d) vsync count(%d) sof count(%d) overrun_debug_dump_cnt(%d) start dump (%dx100ms)\n",
 				__func__, ctx->stream_id, atomic_read(&raw->vf_en),
-				raw->vsync_count, raw->sof_count, watchdog_cnt);
+				raw->vsync_count, raw->sof_count, raw->overrun_debug_dump_cnt,
+				watchdog_cnt);
+
 			if (is_abnormal_vsync)
 				dev_info(ctx->cam->dev, "%s:abnormal vsync\n");
 			atomic_set(&ctx->watchdog_dumped, 1); // fixme
@@ -7418,7 +7421,8 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 						__FILE__, __LINE__, DB_OPT_DEFAULT,
 						"Camsys: VF timeout", "watchdog timeout");
 
-				} else if (atomic_read(&raw->vf_en) == 1) {
+				} else if (atomic_read(&raw->vf_en) == 1 &&
+					raw->overrun_debug_dump_cnt == 0) {
 					dev_info(ctx->cam->dev,
 						"[Outer] TG PATHCFG/SENMODE/DCIF_CTL:0x%x/0x%x/0x%x\n",
 						readl_relaxed(raw->base + REG_TG_PATH_CFG),
