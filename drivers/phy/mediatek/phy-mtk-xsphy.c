@@ -14,6 +14,7 @@
 #include <linux/iopoll.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/phy/phy.h>
@@ -51,8 +52,6 @@
 #define P2A0_RG_INTR_EN	BIT(5)
 
 #define XSP_USBPHYACR1		((SSUSB_SIFSLV_U2PHY_COM) + 0x04)
-#define P2A1_RG_INTR_CAL		GENMASK(23, 19)
-#define P2A1_RG_INTR_CAL_VAL(x)	((0x1f & (x)) << 19)
 #define P2A1_RG_VRT_SEL			GENMASK(14, 12)
 #define P2A1_RG_VRT_SEL_VAL(x)	((0x7 & (x)) << 12)
 #define P2A1_RG_TERM_SEL		GENMASK(10, 8)
@@ -82,6 +81,14 @@
 #define P2A4_RG_USB20_GPIO_CTL		BIT(9)
 #define P2A4_USB20_GPIO_MODE		BIT(8)
 #define P2A4_U2_GPIO_CTR_MSK (P2A4_RG_USB20_GPIO_CTL | P2A4_USB20_GPIO_MODE)
+
+#define XSP_USBPHYA_RESERVE	((SSUSB_SIFSLV_U2PHY_COM) + 0x030)
+#define P2AR_RG_INTR_CAL		GENMASK(29, 24)
+#define P2AR_RG_INTR_CAL_VAL(x)		((0x3f & (x)) << 24)
+
+#define XSP_USBPHYA_RESERVEA	((SSUSB_SIFSLV_U2PHY_COM) + 0x034)
+#define P2ARA_RG_TERM_CAL		GENMASK(11, 8)
+#define P2ARA_RG_TERM_CAL_VAL(x)	((0xf & (x)) << 8)
 
 #define XSP_U2PHYDTM0		((SSUSB_SIFSLV_U2PHY_COM) + 0x068)
 #define P2D_FORCE_UART_EN		BIT(26)
@@ -127,10 +134,6 @@
 #define RG_XTP_GLB_BIAS_INTR_CTRL		GENMASK(21, 16)
 #define RG_XTP_GLB_BIAS_INTR_CTRL_VAL(x)	((0x3f & (x)) << 16)
 
-#define SSPXTP_PHYA_LN_04	((SSPXTP_SIFSLV_PHYA_LN) + 0x04)
-#define RG_XTP_LN0_TX_IMPSEL		GENMASK(4, 0)
-#define RG_XTP_LN0_TX_IMPSEL_VAL(x)	(0x1f & (x))
-
 #define SSPXTP_DAIG_LN_DAIF_04	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x04)
 #define RG_XTP0_DAIF_FRC_LN_RX_AEQ_ATT		BIT(17)
 
@@ -145,6 +148,10 @@
 #define SSPXTP_DAIG_LN_DAIF_2C	((SSPXTP_SIFSLV_DIG_LN_DAIF) + 0x02C)
 #define RG_XTP0_DAIF_LN_G2_RX_SGDT_HF		GENMASK(23, 22)
 #define RG_XTP0_DAIF_LN_G2_RX_SGDT_HF_VAL(x)	((0x3 & (x)) << 22)
+
+#define SSPXTP_PHYA_LN_04	((SSPXTP_SIFSLV_PHYA_LN) + 0x04)
+#define RG_XTP_LN0_TX_IMPSEL		GENMASK(4, 0)
+#define RG_XTP_LN0_TX_IMPSEL_VAL(x)	(0x1f & (x))
 
 #define SSPXTP_PHYA_LN_08	((SSPXTP_SIFSLV_PHYA_LN) + 0x08)
 #define RG_XTP_LN0_TX_RXDET_HZ		BIT(13)
@@ -184,6 +191,22 @@ enum mtk_xsphy_jtag_version {
 	XSP_JTAG_V2,
 };
 
+enum mtk_phy_efuse {
+	INTR_CAL = 0,
+	TERM_CAL,
+	IEXT_INTR_CTRL,
+	RX_IMPSEL,
+	TX_IMPSEL,
+};
+
+static char *efuse_name[5] = {
+	"intr_cal",
+	"term_cal",
+	"iext_intr_ctrl",
+	"rx_impsel",
+	"tx_impsel",
+};
+
 struct xsphy_instance {
 	struct phy *phy;
 	void __iomem *port_base;
@@ -192,6 +215,7 @@ struct xsphy_instance {
 	u32 type;
 	/* only for HQA test */
 	int efuse_intr;
+	int efuse_term_cal;
 	int efuse_tx_imp;
 	int efuse_rx_imp;
 	/* u2 eye diagram */
@@ -580,6 +604,73 @@ static void u2_phy_instance_set_mode(struct mtk_xsphy *xsphy,
 	}
 }
 
+static u32 phy_get_efuse_value(struct xsphy_instance *inst,
+			     enum mtk_phy_efuse type)
+{
+	struct device *dev = &inst->phy->dev;
+	struct device_node *np = dev->of_node;
+	u32 val, mask;
+	int index = 0, ret = 0;
+
+	index = of_property_match_string(np,
+			"nvmem-cell-names", efuse_name[type]);
+	if (index < 0)
+		goto no_efuse;
+
+	ret = of_property_read_u32_index(np, "nvmem-cell-masks",
+			index, &mask);
+	if (ret)
+		goto no_efuse;
+
+	ret = nvmem_cell_read_u32(dev, efuse_name[type], &val);
+	if (ret)
+		goto no_efuse;
+
+	if (!val || !mask)
+		goto no_efuse;
+
+	val = (val & mask) >> (ffs(mask) - 1);
+	dev_dbg(dev, "%s, %s=0x%x\n", __func__, efuse_name[type], val);
+
+	return val;
+
+no_efuse:
+	return 0;
+}
+
+static void phy_parse_efuse_property(struct mtk_xsphy *xsphy,
+			     struct xsphy_instance *inst)
+{
+	u32 val = 0;
+
+	switch (inst->type) {
+	case PHY_TYPE_USB2:
+		val = phy_get_efuse_value(inst, INTR_CAL);
+		if (val)
+			inst->efuse_intr = val;
+
+		val = phy_get_efuse_value(inst, TERM_CAL);
+		if (val)
+			inst->efuse_term_cal = val;
+		break;
+	case PHY_TYPE_USB3:
+		val = phy_get_efuse_value(inst, IEXT_INTR_CTRL);
+		if (val)
+			inst->efuse_intr = val;
+
+		val = phy_get_efuse_value(inst, RX_IMPSEL);
+		if (val)
+			inst->efuse_rx_imp = val;
+
+		val = phy_get_efuse_value(inst, TX_IMPSEL);
+		if (val)
+			inst->efuse_tx_imp = val;
+		break;
+	default:
+		return;
+	}
+}
+
 static void phy_parse_property(struct mtk_xsphy *xsphy,
 				struct xsphy_instance *inst)
 {
@@ -589,6 +680,8 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 	case PHY_TYPE_USB2:
 		device_property_read_u32(dev, "mediatek,efuse-intr",
 					 &inst->efuse_intr);
+		device_property_read_u32(dev, "mediatek,efuse-term",
+					 &inst->efuse_term_cal);
 		device_property_read_u32(dev, "mediatek,eye-src",
 					 &inst->eye_src);
 		device_property_read_u32(dev, "mediatek,eye-vrt",
@@ -623,11 +716,19 @@ static void u2_phy_props_set(struct mtk_xsphy *xsphy,
 	u32 tmp;
 
 	if (inst->efuse_intr) {
-		tmp = readl(pbase + XSP_USBPHYACR1);
-		tmp &= ~P2A1_RG_INTR_CAL;
-		tmp |= P2A1_RG_INTR_CAL_VAL(inst->efuse_intr);
-		writel(tmp, pbase + XSP_USBPHYACR1);
+		tmp = readl(pbase + XSP_USBPHYA_RESERVE);
+		tmp &= ~P2AR_RG_INTR_CAL;
+		tmp |= P2AR_RG_INTR_CAL_VAL(inst->efuse_intr);
+		writel(tmp, pbase + XSP_USBPHYA_RESERVE);
 	}
+
+	if (inst->efuse_term_cal) {
+		tmp = readl(pbase + XSP_USBPHYA_RESERVEA);
+		tmp &= ~P2ARA_RG_TERM_CAL;
+		tmp |= P2ARA_RG_TERM_CAL_VAL(inst->efuse_term_cal);
+		writel(tmp, pbase + XSP_USBPHYA_RESERVEA);
+	}
+
 
 	if (inst->eye_src) {
 		tmp = readl(pbase + XSP_USBPHYACR5);
@@ -931,6 +1032,7 @@ static struct phy *mtk_phy_xlate(struct device *dev,
 	}
 
 	phy_parse_property(xsphy, inst);
+	phy_parse_efuse_property(xsphy, inst);
 
 	return inst->phy;
 }
