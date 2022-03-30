@@ -25,6 +25,8 @@ int parse_lcm_ops_dbi(struct device_node *np,
 		return -EINVAL;
 
 	memset(ops, 0, sizeof(struct mtk_lcm_ops_dbi));
+	mtk_lcm_dts_read_u32(np, "dbi_flag_length",
+			&ops->flag_len);
 	return 0;
 }
 EXPORT_SYMBOL(parse_lcm_ops_dbi);

@@ -238,8 +238,11 @@ static int parse_lcm_ops_func_util(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 }
 
 static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
-		unsigned int len)
+		unsigned int len, unsigned int flag_len)
 {
+	unsigned int i = 0;
+	unsigned int flag_off = MTK_LCM_DATA_OFFSET + flag_len;
+
 	if (IS_ERR_OR_NULL(lcm_op) ||
 	    IS_ERR_OR_NULL(dts)) {
 		DDPMSG("%s,%d: invalid parameters\n",
@@ -249,44 +252,64 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 
 	switch (lcm_op->type) {
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
-		/* type size data0 data1 ... */
-		LCM_KZALLOC(lcm_op->param.buffer_data, lcm_op->size + 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.buffer_data)) {
+		/* type size flag3 flag2 flag1 flag0 data0 data1 ... */
+		for (i = 0; i < flag_len; i++)
+			lcm_op->param.buf_data.flag |=
+					(dts[MTK_LCM_DATA_OFFSET + i] <<
+						((flag_len - i - 1) * 8));
+		lcm_op->param.buf_data.data_len = lcm_op->size -
+				flag_len;
+		LCM_KZALLOC(lcm_op->param.buf_data.data,
+				lcm_op->param.buf_data.data_len + 1, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(lcm_op->param.buf_data.data)) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
 		}
-
-		memcpy(lcm_op->param.buffer_data,
-			dts + MTK_LCM_DATA_OFFSET, lcm_op->size);
-		*(lcm_op->param.buffer_data + lcm_op->size) = '\0';
+		memcpy(lcm_op->param.buf_data.data,
+			dts + flag_off, lcm_op->param.buf_data.data_len);
+		*(lcm_op->param.buf_data.data + lcm_op->param.buf_data.data_len) = '\0';
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
-		/* type size condition_name condition data0 data1 ... */
-		LCM_KZALLOC(lcm_op->param.buf_con_data.data, lcm_op->size - 1, GFP_KERNEL);
+		/* type size flag3 flag2 flag1 flag0 condition_name condition data0 data1 ... */
+		for (i = 0; i < flag_len; i++)
+			lcm_op->param.buf_con_data.flag |=
+					(dts[MTK_LCM_DATA_OFFSET + i] <<
+						((flag_len - i - 1) * 8));
+		lcm_op->param.buf_con_data.name = dts[flag_off];
+		lcm_op->param.buf_con_data.condition = dts[flag_off + 1];
+		lcm_op->param.buf_con_data.data_len = lcm_op->size -
+				flag_len - 2;
+		LCM_KZALLOC(lcm_op->param.buf_con_data.data,
+				lcm_op->param.buf_con_data.data_len + 1, GFP_KERNEL);
 		if (IS_ERR_OR_NULL(lcm_op->param.buf_con_data.data)) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
 		}
-
-		lcm_op->param.buf_con_data.name = dts[MTK_LCM_DATA_OFFSET];
-		lcm_op->param.buf_con_data.condition = dts[MTK_LCM_DATA_OFFSET + 1];
-		lcm_op->param.buf_con_data.data_len = lcm_op->size - 2;
 		memcpy(lcm_op->param.buf_con_data.data,
-			dts + MTK_LCM_DATA_OFFSET + 2,
+			dts + flag_off + 2,
 			lcm_op->param.buf_con_data.data_len);
 		*(lcm_op->param.buf_con_data.data +
 			lcm_op->param.buf_con_data.data_len) = '\0';
-		DDPMSG("%s, condition, %u, %u, %u\n", __func__,
+#if MTK_LCM_DEBUG_DUMP
+		DDPMSG("%s, condition:%u-%u,data:%u,flag:0x%x\n", __func__,
 			lcm_op->param.buf_con_data.name,
 			lcm_op->param.buf_con_data.condition,
-			(unsigned int)lcm_op->param.buf_con_data.data_len);
+			(unsigned int)lcm_op->param.buf_con_data.data_len,
+			lcm_op->param.buf_con_data.flag);
+#endif
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
-		/* type size input_name id_count id0, id1 ... data_count data0 data1 ... */
-		lcm_op->param.buf_runtime_data.name = dts[MTK_LCM_DATA_OFFSET];
-		lcm_op->param.buf_runtime_data.id_len = dts[MTK_LCM_DATA_OFFSET + 1];
+		/* type size flag3 flag2 flag1 flag0 input_name
+		 * id_count id0, id1 ... data_count data0 data1 ...
+		 */
+		for (i = 0; i < flag_len; i++)
+			lcm_op->param.buf_runtime_data.flag |=
+					(dts[MTK_LCM_DATA_OFFSET + i] <<
+						((flag_len - i - 1) * 8));
+		lcm_op->param.buf_runtime_data.name = dts[flag_off];
+		lcm_op->param.buf_runtime_data.id_len = dts[flag_off + 1];
 		LCM_KZALLOC(lcm_op->param.buf_runtime_data.id,
 			lcm_op->param.buf_runtime_data.id_len + 1, GFP_KERNEL);
 		if (IS_ERR_OR_NULL(lcm_op->param.buf_runtime_data.id)) {
@@ -294,13 +317,14 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 				__func__, __LINE__, lcm_op->param.buf_runtime_data.id_len);
 			return -ENOMEM;
 		}
+
 		memcpy(lcm_op->param.buf_runtime_data.id,
-			dts + MTK_LCM_DATA_OFFSET + 2,
+			dts + flag_off + 2,
 			lcm_op->param.buf_runtime_data.id_len);
 		*(lcm_op->param.buf_runtime_data.id +
 				lcm_op->param.buf_runtime_data.id_len) = '\0';
 
-		lcm_op->param.buf_runtime_data.data_len = dts[MTK_LCM_DATA_OFFSET +
+		lcm_op->param.buf_runtime_data.data_len = dts[flag_off +
 			lcm_op->param.buf_runtime_data.id_len + 2];
 		LCM_KZALLOC(lcm_op->param.buf_runtime_data.data,
 			lcm_op->param.buf_runtime_data.data_len + 1, GFP_KERNEL);
@@ -310,55 +334,67 @@ static int parse_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 			return -ENOMEM;
 		}
 		memcpy(lcm_op->param.buf_runtime_data.data,
-			dts + MTK_LCM_DATA_OFFSET +
+			dts + flag_off +
 			lcm_op->param.buf_runtime_data.id_len + 3,
 			lcm_op->param.buf_runtime_data.data_len);
 		*(lcm_op->param.buf_runtime_data.data +
 				lcm_op->param.buf_runtime_data.data_len) = '\0';
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_CMD:
-		/* type size cmd data0 data1 ... */
-		LCM_KZALLOC(lcm_op->param.cmd_data.data, lcm_op->size, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.data)) {
+		/* type size flag3 flag2 flag1 flag0 cmd data0 data1 ... */
+		for (i = 0; i < flag_len; i++)
+			lcm_op->param.cmd_data.flag |=
+					(dts[MTK_LCM_DATA_OFFSET + i] <<
+						((flag_len - i - 1) * 8));
+		lcm_op->param.cmd_data.cmd = dts[flag_off];
+		lcm_op->param.cmd_data.tx_len = lcm_op->size - flag_len - 1;
+		LCM_KZALLOC(lcm_op->param.cmd_data.tx_data,
+				lcm_op->param.cmd_data.tx_len + 1, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.tx_data)) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
 		}
-
-		lcm_op->param.cmd_data.cmd = dts[MTK_LCM_DATA_OFFSET];
-		lcm_op->param.cmd_data.data_len = lcm_op->size - 1;
-		memcpy(lcm_op->param.cmd_data.data,
-			dts + MTK_LCM_DATA_OFFSET + 1,
-			lcm_op->size - 1);
-		*(lcm_op->param.cmd_data.data + lcm_op->size - 1) = '\0';
+		memcpy(lcm_op->param.cmd_data.tx_data,
+			dts + flag_off + 1,
+			lcm_op->param.cmd_data.tx_len);
+		*(lcm_op->param.cmd_data.tx_data +
+				lcm_op->param.cmd_data.tx_len) = '\0';
 		break;
 	case MTK_LCM_CMD_TYPE_READ_BUFFER:
-		/* type size start_id, data_len, data0 data1 ... */
-		LCM_KZALLOC(lcm_op->param.cmd_data.data, lcm_op->size - 1, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.data)) {
+		/* type size flag3 flag2 flag1 flag0 rx_off rx_len data0 data1 ... */
+		for (i = 0; i < flag_len; i++)
+			lcm_op->param.cmd_data.flag |=
+					(dts[MTK_LCM_DATA_OFFSET + i] <<
+						((flag_len - i - 1) * 8));
+		lcm_op->param.cmd_data.rx_off = dts[flag_off];
+		lcm_op->param.cmd_data.rx_len = dts[flag_off + 1];
+		lcm_op->param.cmd_data.tx_len =
+				lcm_op->size - flag_len - 2;
+		LCM_KZALLOC(lcm_op->param.cmd_data.tx_data,
+				lcm_op->param.cmd_data.tx_len + 1, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.tx_data)) {
 			DDPPR_ERR("%s,%d: failed to allocate data\n",
 				__func__, __LINE__);
 			return -ENOMEM;
 		}
-		lcm_op->param.cmd_data.start_id = dts[MTK_LCM_DATA_OFFSET];
-		lcm_op->param.cmd_data.data_len = dts[MTK_LCM_DATA_OFFSET + 1];
-		memcpy(lcm_op->param.cmd_data.data,
-			dts + MTK_LCM_DATA_OFFSET + 2,
-			lcm_op->size - 2);
-		*(lcm_op->param.cmd_data.data + lcm_op->size - 2) = '\0';
+		memcpy(lcm_op->param.cmd_data.tx_data,
+			dts + flag_off + 2,
+			lcm_op->param.cmd_data.tx_len);
+		*(lcm_op->param.cmd_data.tx_data +
+				lcm_op->param.cmd_data.tx_len) = '\0';
 		break;
 	case MTK_LCM_CMD_TYPE_READ_CMD:
-		/* type size start_id data_len cmd */
-		LCM_KZALLOC(lcm_op->param.cmd_data.data, lcm_op->size - 2, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.data)) {
-			DDPPR_ERR("%s,%d: failed to allocate data\n",
-				__func__, __LINE__);
-			return -ENOMEM;
-		}
-		lcm_op->param.cmd_data.start_id = dts[MTK_LCM_DATA_OFFSET];
-		lcm_op->param.cmd_data.data_len = dts[MTK_LCM_DATA_OFFSET + 1];
-		lcm_op->param.cmd_data.cmd = dts[MTK_LCM_DATA_OFFSET + 2];
-		*(lcm_op->param.cmd_data.data) = '\0';
+		/* type size flag3 flag2 flag1 flag0 rx_off rx_len cmd */
+		for (i = 0; i < flag_len; i++)
+			lcm_op->param.cmd_data.flag |=
+					(dts[MTK_LCM_DATA_OFFSET + i] <<
+						((flag_len - i - 1) * 8));
+		lcm_op->param.cmd_data.rx_off = dts[flag_off];
+		lcm_op->param.cmd_data.rx_len = dts[flag_off + 1];
+		lcm_op->param.cmd_data.cmd = dts[flag_off + 2];
+		lcm_op->param.cmd_data.tx_len = 0;
+		lcm_op->param.cmd_data.tx_data = NULL;
 		break;
 	default:
 		DDPPR_ERR("%s %d: invalid type:%d\n",
@@ -417,7 +453,8 @@ static int parse_lcm_ops_func_cust(struct mtk_lcm_ops_data *lcm_op,
 }
 
 static int parse_lcm_ops_basic(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
-		struct mtk_panel_cust *cust, unsigned int len)
+		struct mtk_panel_cust *cust,
+		unsigned int len, unsigned int flag_len)
 {
 	int ret = 0;
 
@@ -437,10 +474,10 @@ static int parse_lcm_ops_basic(struct mtk_lcm_ops_data *lcm_op, u8 *dts,
 		ret = parse_lcm_ops_func_util(lcm_op, dts, len);
 	else if (lcm_op->type > MTK_LCM_CMD_TYPE_START &&
 	    lcm_op->type < MTK_LCM_CMD_TYPE_END)
-		ret = parse_lcm_ops_func_cmd(lcm_op, dts, len);
+		ret = parse_lcm_ops_func_cmd(lcm_op, dts, len, flag_len);
 	else if (lcm_op->type > MTK_LCM_LK_TYPE_START &&
 	    lcm_op->type < MTK_LCM_LK_TYPE_END)
-		ret = parse_lcm_ops_func_cmd(lcm_op, dts, len);
+		ret = parse_lcm_ops_func_cmd(lcm_op, dts, len, flag_len);
 	else if (lcm_op->type > MTK_LCM_GPIO_TYPE_START &&
 	    lcm_op->type < MTK_LCM_GPIO_TYPE_END)
 		ret = parse_lcm_ops_func_gpio(lcm_op, dts, len);
@@ -499,7 +536,7 @@ int parse_lcm_ops_check(struct mtk_lcm_ops_data *ops, u8 *dts,
 u8 table_dts_buf[MTK_PANEL_TABLE_OPS_COUNT * 1024];
 int parse_lcm_ops_func(struct device_node *np,
 		struct mtk_lcm_ops_table *table, char *func,
-		unsigned int panel_type,
+		unsigned int flag_len, unsigned int panel_type,
 		struct mtk_panel_cust *cust, unsigned int phase)
 {
 	unsigned int i = 0, skip_count = 0;
@@ -563,7 +600,7 @@ int parse_lcm_ops_func(struct device_node *np,
 		if (phase_skip_flag == 0 &&
 		    op->type != MTK_LCM_PHASE_TYPE_START &&
 		    op->type != MTK_LCM_PHASE_TYPE_END) {
-			ret = parse_lcm_ops_basic(op, tmp, cust, len);
+			ret = parse_lcm_ops_basic(op, tmp, cust, len, flag_len);
 #if MTK_LCM_DEBUG_DUMP
 			DDPMSG(
 				"[%s+%d] >>>func:%u,type:%u,size:%u,dts:%u,op:%u,ret:%d,phase:0x%x,skip:%d\n",
@@ -572,9 +609,10 @@ int parse_lcm_ops_func(struct device_node *np,
 				phase, phase_skip_flag);
 #endif
 			if (ret < 0) {
-				DDPMSG("[%s+%d] >>>func:%u,type:%u,size:%u,dts:%u,fail:%d\n",
+				DDPMSG(
+					"[%s+%d] >>>func:%u,type:%u,size:%u,dts:%u,fail:%d,flag:%u\n",
 					func, i, op->func, op->type,
-					op->size, len, ret);
+					op->size, len, ret, flag_len);
 				LCM_KFREE(op, sizeof(struct mtk_lcm_ops_data));
 				return ret;
 			}
@@ -938,26 +976,26 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 	mtk_get_type_name(lcm_op->type, &type_name[0]);
 	switch (lcm_op->type) {
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
-		DDPDUMP("[%s-%u]: func:%s, type:%s, dts_size:%u, para_count:%u\n",
-			owner, id, func_name, type_name,
-			lcm_op->size,
-			lcm_op->size);
+		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cnt:%u,flag:0x%x\n",
+			owner, id, func_name, type_name, lcm_op->size,
+			(unsigned int)lcm_op->param.buf_data.data_len,
+			lcm_op->param.buf_data.flag);
 		for (i = 0; i < lcm_op->size; i += 4) {
 			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
 				owner, id, i, i + 3,
-				lcm_op->param.buffer_data[i],
-				lcm_op->param.buffer_data[i + 1],
-				lcm_op->param.buffer_data[i + 2],
-				lcm_op->param.buffer_data[i + 3]);
+				lcm_op->param.buf_data.data[i],
+				lcm_op->param.buf_data.data[i + 1],
+				lcm_op->param.buf_data.data[i + 2],
+				lcm_op->param.buf_data.data[i + 3]);
 		}
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
-		DDPDUMP("[%s-%u]:%s,%s,name:0x%x,con:0x%x,dts_size:%u,para_count:%u\n",
-			owner, id, func_name, type_name,
+		DDPDUMP("[%s-%u]:%s,%s,dts:%u,name:0x%x,con:0x%x,cnt:%u,flag:0x%x\n",
+			owner, id, func_name, type_name, lcm_op->size,
 			lcm_op->param.buf_con_data.name,
 			lcm_op->param.buf_con_data.condition,
-			lcm_op->size,
-			(unsigned int)lcm_op->param.buf_con_data.data_len);
+			(unsigned int)lcm_op->param.buf_con_data.data_len,
+			lcm_op->param.buf_con_data.flag);
 		for (i = 0; i < (unsigned int)lcm_op->param.buf_con_data.data_len; i += 4) {
 			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
 				owner, id, i, i + 3,
@@ -968,10 +1006,11 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 		}
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT:
-		DDPDUMP("[%s-%u]: func:%s, type:%s, dts_size:%u, id_count:%u, data_count:%u\n",
+		DDPDUMP("[%s-%u]:%s,%s, dts:%u,id_cnt:%u,data_cnt:%u,flag:0x%x\n",
 			owner, id, func_name, type_name,
 			lcm_op->size, lcm_op->param.buf_runtime_data.id_len,
-			lcm_op->param.buf_runtime_data.data_len);
+			(unsigned int)lcm_op->param.buf_runtime_data.data_len,
+			lcm_op->param.buf_runtime_data.flag);
 		for (i = 0; i < roundup(lcm_op->param.buf_runtime_data.id_len, 4); i += 4) {
 			DDPDUMP("[%s-%u][input_id%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
 				owner, id, i, i + 3,
@@ -990,40 +1029,43 @@ static void dump_lcm_ops_func_cmd(struct mtk_lcm_ops_data *lcm_op,
 		}
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_CMD:
-		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cmd:0x%x,data_len:%u,startid:%u\n",
+		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cmd:0x%x,cnt:%u,flag:0x%x\n",
 			owner, id, func_name, type_name, lcm_op->size,
 			lcm_op->param.cmd_data.cmd,
-			(unsigned int)lcm_op->param.cmd_data.data_len,
-			lcm_op->param.cmd_data.start_id);
-		for (i = 0; i < (unsigned int)lcm_op->param.cmd_data.data_len; i += 4) {
+			(unsigned int)lcm_op->param.cmd_data.tx_len,
+			lcm_op->param.cmd_data.flag);
+		for (i = 0; i < (unsigned int)lcm_op->param.cmd_data.tx_len; i += 4) {
 			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
 				owner, id, i, i + 3,
-				lcm_op->param.cmd_data.data[i],
-				lcm_op->param.cmd_data.data[i + 1],
-				lcm_op->param.cmd_data.data[i + 2],
-				lcm_op->param.cmd_data.data[i + 3]);
+				lcm_op->param.cmd_data.tx_data[i],
+				lcm_op->param.cmd_data.tx_data[i + 1],
+				lcm_op->param.cmd_data.tx_data[i + 2],
+				lcm_op->param.cmd_data.tx_data[i + 3]);
 		}
 		break;
 	case MTK_LCM_CMD_TYPE_READ_BUFFER:
-		DDPDUMP("[%s-%u]:%s,%s,dts:%u,data_len:%u,startid:%u\n",
+		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cnt:%u,startid:%u,rx:%u,flag:0x%x\n",
 			owner, id, func_name, type_name, lcm_op->size,
-			(unsigned int)lcm_op->param.cmd_data.data_len,
-			lcm_op->param.cmd_data.start_id);
-		for (i = 0; i < (unsigned int)lcm_op->param.cmd_data.data_len; i += 4) {
+			(unsigned int)lcm_op->param.cmd_data.tx_len,
+			lcm_op->param.cmd_data.rx_off,
+			lcm_op->param.cmd_data.rx_len,
+			lcm_op->param.cmd_data.flag);
+		for (i = 0; i < (unsigned int)lcm_op->param.cmd_data.tx_len; i += 4) {
 			DDPDUMP("[%s-%u][data%u~%u]>>> 0x%x 0x%x 0x%x 0x%x\n",
 				owner, id, i, i + 3,
-				lcm_op->param.cmd_data.data[i],
-				lcm_op->param.cmd_data.data[i + 1],
-				lcm_op->param.cmd_data.data[i + 2],
-				lcm_op->param.cmd_data.data[i + 3]);
+				lcm_op->param.cmd_data.tx_data[i],
+				lcm_op->param.cmd_data.tx_data[i + 1],
+				lcm_op->param.cmd_data.tx_data[i + 2],
+				lcm_op->param.cmd_data.tx_data[i + 3]);
 		}
 		break;
 	case MTK_LCM_CMD_TYPE_READ_CMD:
-		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cmd:0x%x,data_len:%u,startid:%u\n",
+		DDPDUMP("[%s-%u]:%s,%s,dts:%u,cmd:0x%x,cnt:%u,startid:%u,flag:0x%x\n",
 			owner, id, func_name, type_name, lcm_op->size,
 			lcm_op->param.cmd_data.cmd,
-			(unsigned int)lcm_op->param.cmd_data.data_len,
-			lcm_op->param.cmd_data.start_id);
+			(unsigned int)lcm_op->param.cmd_data.rx_len,
+			lcm_op->param.cmd_data.rx_off,
+			lcm_op->param.cmd_data.flag);
 		break;
 	default:
 		DDPDUMP("%s: [%s-%u]: invalid type:%u\n",
@@ -1326,13 +1368,14 @@ static int mtk_lcm_create_operation_group(struct mtk_panel_para_table *group,
 	list_for_each_entry(op, &table->list, node) {
 		switch (op->type) {
 		case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
-			if (IS_ERR_OR_NULL(op->param.buffer_data) ||
-			    op->size <= 0 ||
-			    op->size > ARRAY_SIZE(group[id].para_list))
+			if (IS_ERR_OR_NULL(op->param.buf_data.data) ||
+			    op->param.buf_data.data_len <= 0 ||
+			    op->param.buf_data.data_len >
+			    ARRAY_SIZE(group[id].para_list))
 				return -EINVAL;
 			group[id].count = size;
-			memcpy(group[id].para_list, op->param.buffer_data,
-				op->size);
+			memcpy(group[id].para_list, op->param.buf_data.data,
+				op->param.buf_data.data_len);
 			break;
 		case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
 			if (IS_ERR_OR_NULL(op->param.buf_con_data.data) ||
@@ -1422,13 +1465,13 @@ int mtk_panel_execute_callback(void *dsi, dcs_write_gce cb,
 	list_for_each_entry(op, &table->list, node) {
 		switch (op->type) {
 		case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
-			if (IS_ERR_OR_NULL(op->param.buffer_data) ||
-			    op->size <= 0) {
+			if (IS_ERR_OR_NULL(op->param.buf_data.data) ||
+			    op->param.buf_data.data_len <= 0) {
 				ret = -EINVAL;
 				goto out;
 			}
-			cb(dsi, handle, op->param.buffer_data,
-				op->size);
+			cb(dsi, handle, op->param.buf_data.data,
+				op->param.buf_data.data_len);
 			break;
 		case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
 			if (IS_ERR_OR_NULL(op->param.buf_con_data.data) ||
@@ -1548,7 +1591,7 @@ out:
 EXPORT_SYMBOL(mtk_panel_execute_callback_group);
 
 static int mtk_lcm_init_ddic_msg(struct mipi_dsi_msg *msg, unsigned int cmd,
-		unsigned int channel)
+		unsigned int flag, unsigned int channel)
 {
 	int ret = 0;
 
@@ -1615,7 +1658,8 @@ static int mtk_lcm_init_ddic_msg(struct mipi_dsi_msg *msg, unsigned int cmd,
 	}
 
 	msg->channel = channel;
-	msg->flags |= MIPI_DSI_MSG_USE_LPM;
+	if ((flag & MTK_LCM_DDIC_FLAG_HIGH_SPEED) == 0)
+		msg->flags |= MIPI_DSI_MSG_USE_LPM;
 
 	return ret;
 }
@@ -1657,8 +1701,8 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 		switch (op->type) {
 		case MTK_LCM_CMD_TYPE_READ_BUFFER:
 		{
-			unsigned int offset = op->param.cmd_data.start_id;
-			unsigned int len = op->param.cmd_data.data_len;
+			unsigned int offset = op->param.cmd_data.rx_off;
+			unsigned int len = op->param.cmd_data.rx_len;
 
 			if (cmd_size > 0 &&
 			    (prop & MTK_LCM_DSI_CMD_PROP_PACK) != 0) {
@@ -1691,19 +1735,20 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 				break;
 			}
 
-			cmd->msg.tx_len = op->size - 2;
-			cmd->msg.tx_buf = op->param.cmd_data.data;
+			cmd->msg.tx_len = op->param.cmd_data.tx_len;
+			cmd->msg.tx_buf = op->param.cmd_data.tx_data;
 			cmd->msg.rx_len = len;
 			cmd->msg.rx_buf = &input->data[index].data[offset];
-			ret = mtk_lcm_init_ddic_msg(&cmd->msg,
-					op->type, packet->channel);
+			ret = mtk_lcm_init_ddic_msg(&cmd->msg, op->type,
+					op->param.cmd_data.flag, packet->channel);
+
 			packet->prop &= ~MTK_LCM_DSI_CMD_PROP_PACK;
 			break;
 		}
 		case MTK_LCM_CMD_TYPE_READ_CMD:
 		{
-			unsigned int offset = op->param.cmd_data.start_id;
-			unsigned int len = op->param.cmd_data.data_len;
+			unsigned int offset = op->param.cmd_data.rx_off;
+			unsigned int len = op->param.cmd_data.rx_len;
 
 			if (cmd_size > 0 &&
 			    (prop & MTK_LCM_DSI_CMD_PROP_PACK) != 0) {
@@ -1750,20 +1795,20 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 			cmd->msg.rx_len = len;
 			cmd->msg.rx_buf = &input->data[index].data[offset];
 			cmd->tx_free = true;
-			ret = mtk_lcm_init_ddic_msg(&cmd->msg,
-					op->type, packet->channel);
+			ret = mtk_lcm_init_ddic_msg(&cmd->msg, op->type,
+					op->param.cmd_data.flag, packet->channel);
 			packet->prop &= ~MTK_LCM_DSI_CMD_PROP_PACK;
 			break;
 		}
 		case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
-			cmd->msg.tx_len = op->size;
-			cmd->msg.tx_buf = op->param.buffer_data;
-			ret = mtk_lcm_init_ddic_msg(&cmd->msg,
-					op->type, packet->channel);
+			cmd->msg.tx_len = op->param.buf_data.data_len;
+			cmd->msg.tx_buf = op->param.buf_data.data;
+			ret = mtk_lcm_init_ddic_msg(&cmd->msg, op->type,
+					op->param.buf_data.flag, packet->channel);
 			break;
 		case MTK_LCM_CMD_TYPE_WRITE_CMD:
 		{
-			cmd->msg.tx_len = op->param.cmd_data.data_len + 1;
+			cmd->msg.tx_len = op->param.cmd_data.tx_len + 1;
 			LCM_KZALLOC(buf, cmd->msg.tx_len, GFP_KERNEL);
 			if (IS_ERR_OR_NULL(buf)) {
 				DDPPR_ERR("%s,%d: failed to allocate buf\n",
@@ -1773,12 +1818,12 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 			}
 
 			buf[0] = op->param.cmd_data.cmd;
-			memcpy(&buf[1], op->param.cmd_data.data,
-					op->param.cmd_data.data_len);
+			memcpy(&buf[1], op->param.cmd_data.tx_data,
+					op->param.cmd_data.tx_len);
 			cmd->msg.tx_buf = buf;
 			cmd->tx_free = true;
-			ret = mtk_lcm_init_ddic_msg(&cmd->msg,
-					op->type, packet->channel);
+			ret = mtk_lcm_init_ddic_msg(&cmd->msg, op->type,
+					op->param.buf_data.flag, packet->channel);
 			break;
 		}
 		case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
@@ -1807,8 +1852,8 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 					*(u8 *)input->condition[index].data);
 				cmd->msg.tx_len = op->param.buf_con_data.data_len;
 				cmd->msg.tx_buf = op->param.buf_con_data.data;
-				ret = mtk_lcm_init_ddic_msg(&cmd->msg,
-						op->type, packet->channel);
+				ret = mtk_lcm_init_ddic_msg(&cmd->msg, op->type,
+						op->param.buf_con_data.flag, packet->channel);
 			}
 			break;
 		}
@@ -1835,8 +1880,8 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 			cmd->msg.tx_len = len;
 			cmd->msg.tx_buf = buf;
 			cmd->tx_free = true;
-			ret = mtk_lcm_init_ddic_msg(&cmd->msg,
-					op->type, packet->channel);
+			ret = mtk_lcm_init_ddic_msg(&cmd->msg, op->type,
+					op->param.buf_runtime_data.flag, packet->channel);
 			break;
 		}
 		default:
@@ -1856,7 +1901,7 @@ static int mtk_lcm_init_ddic_packet(struct mtk_lcm_dsi_cmd_packet *packet,
 		if ((cmd->msg.tx_len == 0 &&
 		    cmd->msg.rx_len == 0) || ret < 0 ||
 		    cmdq_size_cur > (128 - cmdq_size)) {
-			DDPDUMP("%s, %d, stop package, tx:%u, rx:%u, ret:%d, size:%u, cmdq:%u\n",
+			DDPDUMP("%s, %d, stop packet tx:%u,rx:%u,ret:%d,sz:%u,cmdqsz:%u\n",
 				__func__, __LINE__, cmd->msg.tx_len,
 				cmd->msg.rx_len, ret, cmd_size, cmdq_size);
 			LCM_KFREE(cmd, sizeof(struct mtk_lcm_dsi_cmd));
@@ -1986,13 +2031,13 @@ int mtk_execute_func_ddic_cmd(void *dev,
 
 	switch (lcm_op->type) {
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
-		if (IS_ERR_OR_NULL(lcm_op->param.buffer_data) ||
-		    lcm_op->size <= 0)
+		if (IS_ERR_OR_NULL(lcm_op->param.buf_data.data) ||
+		    lcm_op->param.buf_data.data_len <= 0)
 			return -EINVAL;
 		ret = mtk_panel_dsi_dcs_write_buffer(
 					(struct mipi_dsi_device *)dev,
-					lcm_op->param.buffer_data,
-					lcm_op->size);
+					lcm_op->param.buf_data.data,
+					lcm_op->param.buf_data.data_len);
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
 		if (IS_ERR_OR_NULL(lcm_op->param.buf_con_data.data) ||
@@ -2042,8 +2087,8 @@ int mtk_execute_func_ddic_cmd(void *dev,
 		break;
 	case MTK_LCM_CMD_TYPE_READ_BUFFER:
 	{
-		unsigned int offset = lcm_op->param.cmd_data.start_id;
-		unsigned int len = lcm_op->param.cmd_data.data_len;
+		unsigned int offset = lcm_op->param.cmd_data.rx_off;
+		unsigned int len = lcm_op->param.cmd_data.rx_len;
 
 		if (IS_ERR_OR_NULL(input) ||
 		    IS_ERR_OR_NULL(input->data)) {
@@ -2065,26 +2110,26 @@ int mtk_execute_func_ddic_cmd(void *dev,
 		}
 		ret = mtk_panel_dsi_dcs_read_buffer(
 					(struct mipi_dsi_device *)dev,
-					lcm_op->param.cmd_data.data,
-					lcm_op->size,
+					lcm_op->param.cmd_data.tx_data,
+					lcm_op->param.cmd_data.tx_len,
 					&input->data[index].data[offset],
 					len);
 		break;
 	}
 	case MTK_LCM_CMD_TYPE_WRITE_CMD:
-		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.data) ||
-		    lcm_op->param.cmd_data.data_len <= 0)
+		if (IS_ERR_OR_NULL(lcm_op->param.cmd_data.tx_data) ||
+		    lcm_op->param.cmd_data.tx_len <= 0)
 			return -EINVAL;
 		ret = mtk_panel_dsi_dcs_write(
 					(struct mipi_dsi_device *)dev,
 					lcm_op->param.cmd_data.cmd,
-					lcm_op->param.cmd_data.data,
-					lcm_op->param.cmd_data.data_len);
+					lcm_op->param.cmd_data.tx_data,
+					lcm_op->param.cmd_data.tx_len);
 		break;
 	case MTK_LCM_CMD_TYPE_READ_CMD:
 	{
-		unsigned int offset = lcm_op->param.cmd_data.start_id;
-		unsigned int len = lcm_op->param.cmd_data.data_len;
+		unsigned int offset = lcm_op->param.cmd_data.rx_off;
+		unsigned int len = lcm_op->param.cmd_data.rx_len;
 
 		if (IS_ERR_OR_NULL(input) ||
 		    IS_ERR_OR_NULL(input->data)) {
@@ -2108,8 +2153,8 @@ int mtk_execute_func_ddic_cmd(void *dev,
 		ret = mtk_panel_dsi_dcs_read(
 					(struct mipi_dsi_device *)dev,
 					lcm_op->param.cmd_data.cmd,
-					&input->data[index].data[lcm_op->param.cmd_data.start_id],
-					lcm_op->param.cmd_data.data_len);
+					&input->data[index].data[lcm_op->param.cmd_data.rx_off],
+					len);
 		break;
 	}
 	default:
@@ -2438,11 +2483,11 @@ static void free_lcm_ops_data(struct mtk_lcm_ops_data *lcm_op)
 
 	switch (lcm_op->type) {
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER:
-		if (lcm_op->param.buffer_data != NULL &&
-			lcm_op->size > 0) {
-			LCM_KFREE(lcm_op->param.buffer_data,
-				lcm_op->size + 1);
-			lcm_op->size = 0;
+		if (lcm_op->param.buf_data.data != NULL &&
+			lcm_op->param.buf_data.data_len > 0) {
+			LCM_KFREE(lcm_op->param.buf_data.data,
+				lcm_op->param.buf_data.data_len + 1);
+			lcm_op->param.buf_data.data_len = 0;
 		}
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION:
@@ -2468,20 +2513,19 @@ static void free_lcm_ops_data(struct mtk_lcm_ops_data *lcm_op)
 		}
 		break;
 	case MTK_LCM_CMD_TYPE_WRITE_CMD:
-		if (lcm_op->param.cmd_data.data != NULL &&
+		if (lcm_op->param.cmd_data.tx_data != NULL &&
 			lcm_op->size > 0) {
-			LCM_KFREE(lcm_op->param.cmd_data.data,
-				lcm_op->size);
+			LCM_KFREE(lcm_op->param.cmd_data.tx_data,
+				lcm_op->param.cmd_data.tx_len + 1);
 			lcm_op->size = 0;
 		}
 		break;
 	case MTK_LCM_CMD_TYPE_READ_BUFFER:
 	case MTK_LCM_CMD_TYPE_READ_CMD:
-		if (lcm_op->param.cmd_data.data != NULL &&
-		    lcm_op->param.cmd_data.data_len > 0) {
-			LCM_KFREE(lcm_op->param.cmd_data.data,
-				lcm_op->param.cmd_data.data_len + 1);
-			lcm_op->param.cmd_data.data_len = 0;
+		if (lcm_op->param.cmd_data.tx_data != NULL) {
+			LCM_KFREE(lcm_op->param.cmd_data.tx_data,
+				lcm_op->param.cmd_data.tx_len + 1);
+			lcm_op->param.cmd_data.tx_len = 0;
 		}
 		break;
 	default:

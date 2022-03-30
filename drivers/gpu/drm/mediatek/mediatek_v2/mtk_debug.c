@@ -2219,6 +2219,28 @@ static void process_dbg_opt(const char *opt)
 				MTK_DRM_OPT_MMQOS_SUPPORT))
 			mtk_disp_hrt_bw_dbg();
 		DDPINFO("HRT test-\n");
+	} else if (strncmp(opt, "lcm_dump", 8) == 0) {
+		struct mtk_ddp_comp *comp;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		comp = mtk_ddp_comp_request_output(mtk_crtc);
+		if (!comp) {
+			DDPINFO("cannot find output component\n");
+			return;
+		}
+		mtk_ddp_comp_io_cmd(comp, NULL,
+			DSI_DUMP_LCM_INFO, NULL);
+		DDPMSG("%s, finished lcm dump\n", __func__);
 	} else if (strncmp(opt, "lcm0_reset", 10) == 0) {
 		struct mtk_ddp_comp *comp;
 		struct drm_crtc *crtc;

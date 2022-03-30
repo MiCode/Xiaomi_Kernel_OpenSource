@@ -1021,9 +1021,12 @@ int parse_lcm_ops_dsi(struct device_node *np,
 		return -EINVAL;
 	}
 	memset(ops, 0, sizeof(struct mtk_lcm_ops_dsi));
+	mtk_lcm_dts_read_u32(np, "dsi_flag_length",
+			&ops->flag_len);
 
 	ret = parse_lcm_ops_func(np,
 				&ops->prepare, "prepare_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1034,6 +1037,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 
 	ret = parse_lcm_ops_func(np,
 				&ops->unprepare, "unprepare_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1060,6 +1064,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 
 		ret = parse_lcm_ops_func(np,
 					&ops->compare_id, "compare_id_table",
+					ops->flag_len,
 					MTK_LCM_FUNC_DSI,  cust,
 					MTK_LCM_PHASE_KERNEL);
 		if (ret < 0) {
@@ -1079,6 +1084,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	ret = parse_lcm_ops_func(np,
 				&ops->set_backlight_cmdq,
 				"set_backlight_cmdq_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI,  cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1104,6 +1110,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 
 		ret = parse_lcm_ops_func(np,
 					&ops->ata_check, "ata_check_table",
+					ops->flag_len,
 					MTK_LCM_FUNC_DSI, cust,
 					MTK_LCM_PHASE_KERNEL);
 		if (ret < 0) {
@@ -1122,6 +1129,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	ret = parse_lcm_ops_func(np,
 				&ops->set_aod_light,
 				"set_aod_light_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1133,6 +1141,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	ret = parse_lcm_ops_func(np,
 				&ops->doze_enable,
 				"doze_enable_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1144,6 +1153,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	ret = parse_lcm_ops_func(np,
 				&ops->doze_disable,
 				"doze_disable_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1155,6 +1165,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	ret = parse_lcm_ops_func(np,
 				&ops->doze_enable_start,
 				"doze_enable_start_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1165,6 +1176,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 
 	ret = parse_lcm_ops_func(np,
 				&ops->doze_area, "doze_area_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1176,6 +1188,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 	ret = parse_lcm_ops_func(np,
 				&ops->doze_post_disp_on,
 				"doze_post_disp_on_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1190,6 +1203,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 				&ops->hbm_set_cmdq_switch_off);
 	ret = parse_lcm_ops_func(np,
 				&ops->hbm_set_cmdq, "hbm_set_cmdq_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1200,6 +1214,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 
 	ret = parse_lcm_ops_func(np,
 				&ops->msync_set_min_fps, "msync_set_min_fps_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1210,6 +1225,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 
 	ret = parse_lcm_ops_func(np,
 				&ops->msync_close_mte, "msync_close_mte_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1220,6 +1236,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 
 	ret = parse_lcm_ops_func(np,
 				&ops->msync_default_mte, "msync_default_mte_table",
+				ops->flag_len,
 				MTK_LCM_FUNC_DSI, cust,
 				MTK_LCM_PHASE_KERNEL);
 	if (ret < 0) {
@@ -1247,6 +1264,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 #endif
 				ret = parse_lcm_ops_func(mode_np,
 						&mode_node->fps_switch_bfoff, mode_name,
+						ops->flag_len,
 						MTK_LCM_FUNC_DSI, cust,
 						MTK_LCM_PHASE_KERNEL);
 				if (ret < 0) {
@@ -1275,6 +1293,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 #endif
 				ret = parse_lcm_ops_func(mode_np,
 						&mode_node->fps_switch_afon, mode_name,
+						ops->flag_len,
 						MTK_LCM_FUNC_DSI, cust,
 						MTK_LCM_PHASE_KERNEL);
 				if (ret < 0) {
@@ -1306,6 +1325,7 @@ int parse_lcm_ops_dsi(struct device_node *np,
 #endif
 				ret = parse_lcm_ops_func(mode_np,
 						&mode_node->msync_switch_mte, mode_name,
+						ops->flag_len,
 						MTK_LCM_FUNC_DSI, cust,
 						MTK_LCM_PHASE_KERNEL);
 				if (ret < 0) {
@@ -1584,7 +1604,7 @@ void dump_lcm_params_dsi(struct mtk_lcm_params_dsi *params,
 		return;
 	}
 	DDPDUMP("=========== LCM DSI DUMP ==============\n");
-	DDPDUMP("phy:%u, lanes:%u, density:%u, format:%u\n",
+	DDPDUMP("phy:%u,lanes:%u,density:%u,format:%u\n",
 		params->phy_type, params->lanes,
 		params->density, params->format);
 	DDPDUMP("default_flag:0x%lx, doze_on_flag:0x%lx, doze_off_flag:0x%lx\n",
@@ -1624,8 +1644,9 @@ void dump_lcm_ops_dsi(struct mtk_lcm_ops_dsi *ops,
 		return;
 	}
 
-	DDPDUMP("=========== LCM DUMP of DSI ops:0x%lx-0x%lx ==============\n",
-		(unsigned long)ops, (unsigned long)params);
+	DDPDUMP("=========== LCM DUMP of DSI ops:0x%lx-0x%lx flag_len:%u ==============\n",
+		(unsigned long)ops, (unsigned long)params,
+		ops->flag_len);
 	dump_lcm_ops_table(&ops->prepare, cust, "prepare");
 	dump_lcm_ops_table(&ops->unprepare, cust, "unprepare");
 	dump_lcm_ops_table(&ops->enable, cust, "enable");

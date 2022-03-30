@@ -1110,6 +1110,7 @@ static void mtk_panel_dump(struct drm_panel *panel, enum MTK_LCM_DUMP_FLAG flag)
 	struct mtk_panel_context *ctx_dsi = panel_to_lcm(panel);
 	struct mtk_panel_resource *resource = ctx_dsi->panel_resource;
 
+	DDPMSG("%s, %d, flag:%d\n", __func__, __LINE__, flag);
 	switch (flag) {
 	case MTK_DRM_PANEL_DUMP_PARAMS:
 		dump_lcm_params_basic(&resource->params);

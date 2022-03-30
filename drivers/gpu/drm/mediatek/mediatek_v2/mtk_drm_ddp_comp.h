@@ -402,6 +402,7 @@ enum mtk_ddp_io_cmd {
 	DUAL_TE_INIT,
 	OVL_GET_SOURCE_BPC,
 	DSI_GET_CMD_MODE_LINE_TIME,
+	DSI_DUMP_LCM_INFO,
 };
 
 struct golden_setting_context {

@@ -3276,6 +3276,21 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 	return 0;
 }
 
+void mtk_dsi_dump_lcm(struct mtk_ddp_comp *comp)
+{
+	struct mtk_dsi *dsi = NULL;
+
+	if (IS_ERR_OR_NULL(comp))
+		return;
+
+	dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		if (dsi && dsi->ext && dsi->ext->funcs &&
+		    dsi->ext->funcs->lcm_dump)
+			dsi->ext->funcs->lcm_dump(dsi->panel, MTK_DRM_PANEL_DUMP_ALL);
+	}
+}
+
 unsigned int mtk_dsi_mode_change_index(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, struct drm_crtc_state *old_state)
 {
@@ -3441,7 +3456,9 @@ static const char *mtk_dsi_mode_spy(enum DSI_MODE_CON mode)
 
 int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+#endif
 	void __iomem *baddr = comp->regs;
 	unsigned int reg_val;
 
@@ -3502,12 +3519,6 @@ int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_MODE, reg_val),
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_TYPE, reg_val),
 		REG_FLD_VAL_GET(LFR_CON_FLD_REG_LFR_SKIP_NUM, reg_val));
-
-	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
-		if (dsi->ext && dsi->ext->funcs &&
-		    dsi->ext->funcs->lcm_dump)
-			dsi->ext->funcs->lcm_dump(dsi->panel, MTK_DRM_PANEL_DUMP_PARAMS);
-	}
 
 	return 0;
 }
@@ -5043,22 +5054,24 @@ static int _mtk_mipi_dsi_grp_write_gce(struct mtk_dsi *dsi,
 	if (msg->tx_len > 2) {
 		cmdq_size = 1 + ((msg->tx_len + 3) / 4);
 		cmdq_mask = CONFIG | DATA_ID | DATA_0 | DATA_1;
-		cmdq_page = start_off / (4 * 128);
 		cmdq_off = start_off % (4 * 128);
+		cmdq_page = start_off / (4 * 128);
 
-		if (cmdq_page > 3) {
-			DDPPR_ERR("%s, %d, id:%u out of range, start:%u,off:%u,page:%u\n",
-				__func__, __LINE__, idx, start_off, cmdq_off, cmdq_page);
-			return -EFAULT;
+		if (cmdq_off == 0) {
+			if (cmdq_page > 3) {
+				DDPPR_ERR("%s, %d, id:%u out of range, start:%u,off:%u,page:%u\n",
+					__func__, __LINE__, idx, start_off, cmdq_off, cmdq_page);
+				return -EFAULT;
+			}
+			mtk_ddp_write_mask(&dsi->ddp_comp, cmdq_page,
+					DSI_CMDQ_SIZE, CMDQ_PAGE, handle);
 		}
-		mtk_ddp_write_mask(&dsi->ddp_comp, cmdq_page,
-				DSI_CMDQ_SIZE, CMDQ_PAGE, handle);
 		reg_val = (msg->tx_len << 16) | (type << 8) | config;
 		base_addr = reg_cmdq_ofs + cmdq_off;
 		mtk_ddp_write_relaxed(comp, reg_val,
 				base_addr, handle);
-		DDPDBG("set cmdq addr %x, val:%x, page:%u\n",
-				base_addr, reg_val, cmdq_page);
+		DDPDBG("%s-%d: set cmdq addr %x, val:%x, page:%u\n",
+				__func__, __LINE__, base_addr, reg_val, cmdq_page);
 
 		reg_val = 0;
 		for (i = 0; i < msg->tx_len; i++) {
@@ -5068,9 +5081,9 @@ static int _mtk_mipi_dsi_grp_write_gce(struct mtk_dsi *dsi,
 			if (((i & 0x3) == 0x3) ||
 				(i == (msg->tx_len - 1))) {
 				cmdq_off = (start_off + 4 + ((i / 4) * 4)) % (4 * 128);
+				cmdq_page = (start_off + 4 + ((i / 4) * 4)) / (4 * 128);
 
 				if (cmdq_off == 0) {
-					cmdq_page = (start_off + 4 + ((i / 4) * 4)) / (4 * 128);
 					if (cmdq_page > 3) {
 						DDPPR_ERR("%s-%d,id:%u+%u out,st:%u,off:%u,pg:%u\n",
 							__func__, __LINE__, idx, i,
@@ -5084,17 +5097,18 @@ static int _mtk_mipi_dsi_grp_write_gce(struct mtk_dsi *dsi,
 				mtk_ddp_write_relaxed(comp,
 					reg_val, base_addr,	handle);
 
-				DDPDBG("set cmdq addr %x,val:%x,page:%u,off:0x%x\n",
-					base_addr, reg_val, cmdq_page, cmdq_off);
+				DDPDBG("%s-%d: set cmdq addr %x,val:%x,page:%u,off:0x%x\n",
+					__func__, __LINE__, base_addr,
+					reg_val, cmdq_page, cmdq_off);
 				reg_val = 0;
 			}
 		}
 	} else {
 		cmdq_size = 1;
 		cmdq_off = start_off % (4 * 128);
+		cmdq_page = start_off / (4 * 128);
 
 		if (cmdq_off == 0) {
-			cmdq_page = start_off / (4 * 128);
 			if (cmdq_page > 3) {
 				DDPPR_ERR("%s, %d, id:%u out of range, start:%u,off:%u,page:%u\n",
 					__func__, __LINE__, idx, start_off, cmdq_off, cmdq_page);
@@ -5108,8 +5122,8 @@ static int _mtk_mipi_dsi_grp_write_gce(struct mtk_dsi *dsi,
 		mtk_ddp_write_relaxed(comp,
 			reg_val, base_addr,	handle);
 
-		DDPDBG("set cmdq addr %x, val:%x,page:%u,off:0x%x\n",
-			base_addr, reg_val, cmdq_page, cmdq_off);
+		DDPDBG("%s-%d: set cmdq addr %x, val:%x,page:%u,off:0x%x\n",
+			__func__, __LINE__, base_addr, reg_val, cmdq_page, cmdq_off);
 	}
 
 	return cmdq_size;
@@ -5127,8 +5141,17 @@ static int mtk_dsi_ddic_handler_grp_write_by_gce(struct mtk_dsi *dsi,
 	struct mipi_dsi_msg *msg = NULL;
 	int ret = 0;
 
-	if (dsi_mode != 0) //vdo mode
-		mtk_dsi_stop_vdo_mode(dsi, handle);
+	if (dsi_mode != 0) {//vdo mode
+		//mtk_dsi_stop_vdo_mode(dsi, handle);
+		_mtk_dsi_set_mode(comp, handle, CMD_MODE);
+		if (dsi->slave_dsi)
+			_mtk_dsi_set_mode(&dsi->slave_dsi->ddp_comp, handle, CMD_MODE);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DSI_START, 0, ~0);
+		mtk_dsi_cmdq_poll(comp, handle,
+				  comp->regs_pa + DSI_INTSTA, 0,
+				  DSI_BUSY);
+	}
 
 	if (dsi->slave_dsi) {
 		cmdq_pkt_write(handle, dsi->slave_dsi->ddp_comp.cmdq_base,
@@ -5185,14 +5208,14 @@ static int mtk_dsi_ddic_handler_grp_write_by_gce(struct mtk_dsi *dsi,
 		mtk_dsi_poll_for_idle(dsi, handle);
 	}
 
+	mtk_ddp_write_mask(comp, 0, DSI_TXRX_CTRL, DIS_EOT,
+			handle);
 	if (dsi->slave_dsi) {
 		cmdq_pkt_write(handle, dsi->slave_dsi->ddp_comp.cmdq_base,
 				dsi->slave_dsi->ddp_comp.regs_pa + DSI_CON_CTRL,
 				DSI_DUAL_EN, DSI_DUAL_EN);
 	}
 
-	mtk_ddp_write_mask(comp, 0, DSI_TXRX_CTRL, DIS_EOT,
-			handle);
 	if (dsi_mode != 0) {//vdo mode
 		mtk_dsi_start_vdo_mode(comp, handle);
 		mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
@@ -7825,6 +7848,11 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		unsigned int *line_time = (unsigned int *)params;
 
 		*line_time = mtk_dsi_get_cmd_mode_line_time(&crtc->base);
+	}
+		break;
+	case DSI_DUMP_LCM_INFO:
+	{
+		mtk_dsi_dump_lcm(comp);
 	}
 		break;
 	default:

@@ -97,18 +97,34 @@ struct mtk_lcm_params {
 	struct mtk_lcm_params_dsi dsi_params;
 };
 
+/* mtk_lcm_buf_data
+ * used to MTK_LCM_CMD_TYPE_WRITE_BUFFER
+ * data: the write data buffer
+ * data_len: the data buffer length for write
+ * flag: write operation customization flag
+ */
+struct mtk_lcm_buf_data {
+	u8 *data;
+	size_t data_len;
+	u32 flag;
+};
+
 /* mtk_lcm_dcs_cmd_data
- * used to MTK_LCM_CMD_TYPE_WRITE_BUFFER, MTK_LCM_CMD_TYPE_READ_BUFFER
+ * used to MTK_LCM_CMD_TYPE_WRITE_CMD, MTK_LCM_CMD_TYPE_READ_BUFFER/CMD
  * cmd: the read/write command or address
  * data: the write data buffer, or returned read buffer
- * data_len: the data buffer length for write, the readback buffer length for read
+ * data_len: the data buffer length of tx
+ * rx_len: the data buffer length of rx
  * start_id: for read command the returned data will be saved at which index of out buffer
+ * flag: read/write operation customization flag
  */
 struct mtk_lcm_dcs_cmd_data {
 	u8 cmd;
-	u8 *data;
-	size_t data_len;
-	unsigned int start_id;
+	u8 *tx_data;
+	size_t tx_len;
+	size_t rx_len;
+	unsigned int rx_off;
+	u32 flag;
 };
 
 /* mtk_lcm_gpio_data
@@ -127,12 +143,14 @@ struct mtk_lcm_gpio_data {
  * name: the input data name
  * data: the ddic command data
  * data_len: the ddic command data count
+ * flag: write operation customization flag
  */
 struct mtk_lcm_buf_con_data {
 	u8 name;
 	u8 condition;
 	u8 *data;
 	size_t data_len;
+	u32 flag;
 };
 
 /* mtk_lcm_buf_runtime_data
@@ -142,6 +160,7 @@ struct mtk_lcm_buf_con_data {
  * name: the input data name
  * data: the ddic command data
  * data_len: the ddic command data count
+ * flag: write operation customization flag
  */
 struct mtk_lcm_buf_runtime_data {
 	u8 name;
@@ -149,14 +168,15 @@ struct mtk_lcm_buf_runtime_data {
 	size_t id_len;
 	u8 *data;
 	size_t data_len;
+	u32 flag;
 };
 
 /* the union of lcm operation data*/
 union mtk_lcm_ops_data_params {
-	u8 *buffer_data;
 	unsigned int util_data;
-	struct mtk_lcm_dcs_cmd_data cmd_data;
 	struct mtk_lcm_gpio_data gpio_data;
+	struct mtk_lcm_dcs_cmd_data cmd_data;
+	struct mtk_lcm_buf_data buf_data;
 	struct mtk_lcm_buf_con_data buf_con_data;
 	struct mtk_lcm_buf_runtime_data buf_runtime_data;
 	void *cust_data;
@@ -181,6 +201,7 @@ struct mtk_lcm_ops_data {
  * used to save the dbi operation list
  */
 struct mtk_lcm_ops_dbi {
+	unsigned int flag_len;
 	unsigned int dbi_private_data;
 };
 
@@ -188,6 +209,7 @@ struct mtk_lcm_ops_dbi {
  * used to save the dpi operation list
  */
 struct mtk_lcm_ops_dpi {
+	unsigned int flag_len;
 	unsigned int dpi_private_data;
 };
 
@@ -196,6 +218,7 @@ struct mtk_lcm_ops_dpi {
  * xx: the operation data list of xx function
  */
 struct mtk_lcm_ops_dsi {
+	unsigned int flag_len;
 	/* panel init & deinit */
 	struct mtk_lcm_ops_table prepare;
 	struct mtk_lcm_ops_table unprepare;
@@ -301,7 +324,7 @@ int load_panel_resource_from_dts(struct device_node *lcm_np,
 
 int parse_lcm_ops_func(struct device_node *np,
 		struct mtk_lcm_ops_table *table, char *func,
-		unsigned int panel_type,
+		unsigned int flag_len, unsigned int panel_type,
 		struct mtk_panel_cust *cust, unsigned int phase);
 
 /* function: execute lcm operations
