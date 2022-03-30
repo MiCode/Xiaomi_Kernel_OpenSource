@@ -579,6 +579,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 		res_user->raw_res.bin = res_cfg->bin_enable;
 	else
 		res_user->raw_res.bin = res_cfg->bin_limit;
+	res_user->sensor_res.driver_buffered_pixel_rate = prate;
 
 	dev_info(dev,
 		 "%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/pixelmode(%d)/strategy(%d)/buffered_prate(%lld)/hw_mode(%d)\n",

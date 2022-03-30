@@ -154,6 +154,7 @@ struct mtk_cam_resource_sensor {
 	__u32 vblank;
 	__u64 pixel_rate;
 	__u64 cust_pixel_rate;
+	__u64 driver_buffered_pixel_rate;
 };
 
 /*
