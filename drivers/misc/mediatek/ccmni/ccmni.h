@@ -34,37 +34,34 @@
 /* #define ENABLE_NAPI_GRO */
 #define ENABLE_WQ_GRO
 
-#define  CCMNI_MTU              1500
-#define  CCMNI_TX_QUEUE         1000
-#define  CCMNI_NETDEV_WDT_TO    (1*HZ)
+#define  CCMNI_MTU		1500
+#define  CCMNI_TX_QUEUE		1000
+#define  CCMNI_NETDEV_WDT_TO	(1*HZ)
 
-#define  IPV4_VERSION           0x40
-#define  IPV6_VERSION           0x60
+#define  IPV4_VERSION		0x40
+#define  IPV6_VERSION		0x60
 
 /* stop/start tx queue */
-#define  SIOCSTXQSTATE          (SIOCDEVPRIVATE + 0)
+#define  SIOCSTXQSTATE		(SIOCDEVPRIVATE + 0)
 /* configure ccmni/md remapping */
-#define  SIOCCCMNICFG           (SIOCDEVPRIVATE + 1)
+#define  SIOCCCMNICFG		(SIOCDEVPRIVATE + 1)
 /* forward filter for ccmni tx packet */
-#define  SIOCFWDFILTER          (SIOCDEVPRIVATE + 2)
+#define  SIOCFWDFILTER		(SIOCDEVPRIVATE + 2)
 /* disable ack first mechanism */
-#define  SIOCACKPRIO          (SIOCDEVPRIVATE + 3)
+#define  SIOCACKPRIO		(SIOCDEVPRIVATE + 3)
 /* push the queued packet to stack */
-#define  SIOPUSHPENDING       (SIOCDEVPRIVATE + 4)
+#define  SIOPUSHPENDING		(SIOCDEVPRIVATE + 4)
 
 
-
-#define  IS_CCMNI_LAN(dev)      \
-	(strncmp(dev->name, "ccmni-lan", 9) == 0)
 #define  CCMNI_TX_PRINT_F	(0x1 << 0)
-#define MDT_TAG_PATTERN         0x46464646
-#define  CCMNI_FLT_NUM          32
+#define MDT_TAG_PATTERN		0x46464646
+#define  CCMNI_FLT_NUM		32
 
 /* #define CCMNI_MET_DEBUG */
 #if defined(CCMNI_MET_DEBUG)
-#define MET_LOG_TIMER           20 /*20ms*/
-#define CCMNI_RX_MET_ID         0xF0000
-#define CCMNI_TX_MET_ID         0xF1000
+#define MET_LOG_TIMER		20 /*20ms*/
+#define CCMNI_RX_MET_ID		0xF0000
+#define CCMNI_TX_MET_ID		0xF1000
 #endif
 
 

@@ -207,14 +207,6 @@ int ccci_get_ccmni_channel(int md_id, int ccmni_idx, struct ccmni_ch *channel)
 		channel->dl_ack = CCCI_CCMNI21_TX;
 		channel->multiq = md_id == MD_SYS1 ? 1 : 0;
 		break;
-	case 21: /* CCMIN-LAN should always be the last one*/
-		channel->rx = CCCI_CCMNILAN_RX;
-		channel->rx_ack = 0xFF;
-		channel->tx = CCCI_CCMNILAN_TX;
-		channel->tx_ack = 0xFF;
-		channel->dl_ack = CCCI_CCMNILAN_DLACK_RX;
-		channel->multiq = 0;
-		break;
 	default:
 		CCCI_ERROR_LOG(md_id, NET,
 			"invalid ccmni index=%d\n", ccmni_idx);
@@ -315,8 +307,7 @@ struct ccmni_ccci_ops eccci_ccmni_ops = {
 	.ccmni_ver = CCMNI_DRV_V0,
 	.ccmni_num = 21,
 	.name = "ccmni",
-	.md_ability = MODEM_CAP_DATA_ACK_DVD | MODEM_CAP_CCMNI_MQ
-		| MODEM_CAP_DIRECT_TETHERING, /* CCCI_KMODULE_ENABLE: todo */
+	.md_ability = MODEM_CAP_DATA_ACK_DVD | MODEM_CAP_CCMNI_MQ,
 	.irat_md_id = -1,
 	.napi_poll_weigh = NAPI_POLL_WEIGHT,
 	.send_pkt = ccmni_send_pkt,

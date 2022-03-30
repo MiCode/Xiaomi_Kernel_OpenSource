@@ -90,12 +90,7 @@ static struct port_t md1_ccci_ports[] = {
 	{CCCI_CCMNI21_TX, CCCI_CCMNI21_RX, DATA1_TX_Q, DATA2_RX_Q,
 		0xF0 | DATA_TX_ACK_Q, 0xFF, MD1_NET_HIF, 0,
 		&net_port_ops, 20, "ccmni20",},
-	/*ccmni-lan port minor id should be same as ccmni_idx
-	 * in ccci_get_ccmni_channel() function
-	 */
-	{CCCI_CCMNILAN_TX, CCCI_CCMNILAN_RX, DATA_MDT_Q, DATA_MDT_Q,
-		0xF0 | DATA_MDT_Q, 0xFF, MD1_NET_HIF, 0,
-		&net_port_ops, 21, "ccmni-lan",},
+
 	/* char port, notes ccci_monitor must be first
 	 * for get_port_by_minor() implement
 	 */

@@ -178,78 +178,6 @@ static inline int is_ack_skb(int md_id, struct sk_buff *skb)
 	return ret;
 }
 
-static inline int arp_reply(int md_id, struct net_device *dev,
-	struct ethhdr *eth, struct sk_buff *skb)
-{
-	struct arphdr_in *request, *reply;
-	struct sk_buff *new_skb;
-	struct ethhdr *new_eth;
-	static unsigned char fake_sha[6] = {
-		0x06, 0x16, 0x26, 0x36, 0x46, 0x56 };
-
-	request = (struct arphdr_in *)(skb->data + skb_network_offset(skb));
-	if (htons(request->ar_hrd) != ARPHRD_ETHER ||
-		htons(request->ar_pro) != ETH_P_IP ||
-		request->ar_hln != ETH_ALEN || request->ar_pln != 4 ||
-		htons(request->ar_op) != ARPOP_REQUEST) {
-		CCMNI_DBG_MSG(md_id,
-			"arp_reply: %s not_arp_req, ar_hrd=0x%x, ar_pro=0x%x, ar_hln=%d, ar_pln=%d=, ar_op=0x%x\n",
-			dev->name, htons(request->ar_hrd),
-			htons(request->ar_pro), request->ar_hln,
-			request->ar_pln, htons(request->ar_op));
-		goto not_arp_req;
-	}
-
-	new_skb = netdev_alloc_skb_ip_align(dev, arp_hdr_len(dev));
-	if (!new_skb) {
-		CCMNI_DBG_MSG(md_id,
-			"arp_reply: %s can't alloc new skb\n",
-			dev->name);
-		goto alloc_skb_fail;
-	}
-
-	reply = (struct arphdr_in *)new_skb->data;
-	reply->ar_hrd = htons(ARPHRD_ETHER);
-	reply->ar_pro = htons(ETH_P_IP);
-	reply->ar_hln = ETH_ALEN;
-	reply->ar_pln = 4;
-	reply->ar_op = htons(ARPOP_REPLY);
-
-	ether_addr_copy(reply->ar_sha, fake_sha);
-	memcpy(reply->ar_sip, request->ar_tip, 4);
-	ether_addr_copy(reply->ar_tha, request->ar_sha);
-	memcpy(reply->ar_tip, request->ar_sip, 4);
-
-	new_eth = (struct ethhdr *)(new_skb->data - 14);
-	ether_addr_copy(new_eth->h_dest, eth->h_source);
-	ether_addr_copy(new_eth->h_source, reply->ar_sha);
-	new_eth->h_proto = htons(ETH_P_ARP);
-
-	new_skb->len = 28;
-	new_skb->mac_len = 14;
-	skb_set_mac_header(new_skb, -ETH_HLEN);
-	skb_reset_network_header(new_skb);
-	new_skb->protocol = htons(ETH_P_ARP);
-
-	if (!in_interrupt())
-		netif_rx_ni(new_skb);
-	else
-		netif_rx(new_skb);
-
-	dev->stats.tx_packets++;
-	dev->stats.tx_bytes += skb->len;
-	dev_kfree_skb(skb);
-	return 0;
-
- alloc_skb_fail:
-	dev->stats.tx_dropped++;
-	dev_kfree_skb(skb);
-	return 0;
-
- not_arp_req:
-	return 1;
-}
-
 #ifdef ENABLE_WQ_GRO
 static int is_skb_gro(struct sk_buff *skb)
 {
@@ -560,11 +488,8 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		(struct ccmni_instance *)netdev_priv(dev);
 	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[ccmni->md_id];
 	unsigned int is_ack = 0;
-	int mac_len = 0;
 	struct md_tag_packet *tag = NULL;
 	unsigned int count = 0;
-	struct ethhdr *eth;
-	__be16 type;
 	struct iphdr *iph;
 
 #if defined(CCMNI_MET_DEBUG)
@@ -574,33 +499,6 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	if (ccmni_forward_rx(ccmni, skb) == NETDEV_TX_OK)
 		return NETDEV_TX_OK;
-
-	/* if data_len=1500 with mac_header for ccmni-lan,
-	 * skb->len>MTU,so it must before MTU judgement
-	 */
-	if (IS_CCMNI_LAN(dev)) {
-		if (skb_network_offset(skb) > 0) {
-			eth = (struct ethhdr *)skb_mac_header(skb);
-			type = eth->h_proto;
-
-			if (htons(ETH_P_ARP) == type)
-				if (!arp_reply(ccmni->md_id, dev, eth, skb))
-					return NETDEV_TX_OK;
-
-			mac_len = skb_network_offset(skb);
-			skb_pull(skb, skb_network_offset(skb));
-			skb_pop_mac_header(skb);
-		} else {
-			iph = (struct iphdr *)skb_network_header(skb);
-			CCMNI_DBG_MSG(ccmni->md_id,
-			"ccmni-lan send wrong pkt with eth_len=0, ip_id=%04X\n",
-			iph->id);
-			dump_stack();
-			dev_kfree_skb(skb);
-			dev->stats.tx_dropped++;
-			return NETDEV_TX_OK;
-		}
-	}
 
 	/* dev->mtu is changed  if dev->mtu is changed by upper layer */
 	if (unlikely(skb->len > dev->mtu)) {
@@ -695,12 +593,6 @@ tx_busy:
 		ccmni->tx_busy_cnt[is_ack]++;
 	}
 
-	if (IS_CCMNI_LAN(dev)) {
-		skb_push(skb, mac_len);
-		skb_reset_mac_header(skb);
-		if (skb->len > skb_len)
-			skb->len = skb_len;
-	}
 	return NETDEV_TX_BUSY;
 }
 
@@ -1155,7 +1047,7 @@ static inline void ccmni_dev_init(int md_id, struct net_device *dev)
 {
 	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[md_id];
 
-	dev->header_ops = NULL;
+	dev->header_ops = NULL; /* No Header */
 	dev->mtu = CCMNI_MTU;
 	dev->tx_queue_len = CCMNI_TX_QUEUE;
 	dev->watchdog_timeo = CCMNI_NETDEV_WDT_TO;
@@ -1365,52 +1257,6 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 		}
 	}
 
-	if (ctlb->ccci_ops->md_ability & MODEM_CAP_DIRECT_TETHERING) {
-		if (ctlb->ccci_ops->md_ability & MODEM_CAP_CCMNI_MQ)
-			/*alloc multiple tx queue, 2 txq and 1 rxq */
-			dev = alloc_etherdev_mqs(
-					sizeof(struct ccmni_instance),
-					2,
-					1);
-		else
-			dev = alloc_etherdev(sizeof(struct ccmni_instance));
-		if (unlikely(dev == NULL)) {
-			CCMNI_PR_DBG(md_id, "alloc netdev fail\n");
-			ret = -ENOMEM;
-			goto alloc_netdev_fail;
-		}
-		/*init net device */
-		ccmni_dev_init(md_id, dev);
-		/*ccmni-lan packet displays correct in netlog */
-#ifndef CCCI_CCMNI_MODULE
-		/* just for KO: build pass; ccmni-lan closed in ccci. */
-		dev->header_ops = &eth_header_ops;
-#else
-		dev->header_ops = &ccmni_eth_header_ops;
-#endif
-		/*ccmni-lan need handle ARP packet */
-		dev->flags = IFF_BROADCAST | IFF_MULTICAST;
-		sprintf(dev->name, "ccmni-lan");
-
-		/*init private structure of netdev */
-		ccmni = netdev_priv(dev);
-		ccmni->index = i;
-		ret = ccmni_inst_init(md_id, ccmni, dev);
-		if (ret)
-			goto alloc_netdev_fail;
-
-		ctlb->ccmni_inst[i] = ccmni;
-
-		/*register net device */
-		ret = register_netdev(dev);
-		if (ret) {
-			CCMNI_PR_DBG(md_id,
-				"CCMNI%d register netdev fail: %d\n",
-				i,
-				ret);
-			goto alloc_netdev_fail;
-		}
-	}
 	snprintf(ctlb->wakelock_name, sizeof(ctlb->wakelock_name),
 			"ccmni_md%d", (md_id + 1));
 	ctlb->ccmni_wakelock = wakeup_source_register(NULL,
@@ -1735,16 +1581,6 @@ static void ccmni_md_state_callback(int md_id, int ccmni_idx,
 			ccmni_idx, state, atomic_read(&ccmni->usage));
 	switch (state) {
 	case READY:
-		/* Only do carrier on for ccmni-lan.
-		 * don't carrire on other interface,
-		 * MD data link may be not ready.
-		 * carrirer on it in ccmni_open
-		 */
-		if (IS_CCMNI_LAN(ccmni->dev)) {
-			netif_tx_start_all_queues(ccmni->dev);
-			netif_carrier_on(ccmni->dev);
-		}
-
 		for (i = 0; i < 2; i++) {
 			ccmni->tx_seq_num[i] = 0;
 			ccmni->tx_full_cnt[i] = 0;
