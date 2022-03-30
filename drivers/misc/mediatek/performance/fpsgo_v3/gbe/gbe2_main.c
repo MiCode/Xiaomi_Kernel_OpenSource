@@ -648,7 +648,7 @@ static ssize_t gbe_boost_list2_show(struct kobject *kobj,
 			length =
 				scnprintf(temp + pos,
 				GBE_SYSFS_MAX_BUFF_SIZE - pos,
-				"%d ", iter->dep[i].pid);
+				"%d(%d) ", iter->dep[i].pid, iter->dep[i].loading);
 			pos += length;
 		}
 		length = scnprintf(temp + pos, GBE_SYSFS_MAX_BUFF_SIZE - pos,

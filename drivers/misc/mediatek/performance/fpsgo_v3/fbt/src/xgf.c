@@ -3377,6 +3377,31 @@ static ssize_t deplist_show(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
+static ssize_t runtime_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	struct xgf_render *r_iter;
+	struct hlist_node *r_tmp;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	int pos = 0;
+	int length;
+
+	xgf_lock(__func__);
+
+	hlist_for_each_entry_safe(r_iter, r_tmp, &xgf_renders, hlist) {
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"rtid:%d bid:0x%llx cpu_runtime:%d\n",
+			r_iter->render, r_iter->bufID,
+			r_iter->ema_runtime);
+		pos += length;
+	}
+
+	xgf_unlock(__func__);
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+}
+
 struct xgf_trace_event *xgf_event_data;
 EXPORT_SYMBOL(xgf_event_data);
 
@@ -4003,6 +4028,7 @@ int __init init_xgf_ko(void)
 }
 
 static KOBJ_ATTR_RO(deplist);
+static KOBJ_ATTR_RO(runtime);
 
 int __init init_xgf(void)
 {
@@ -4010,6 +4036,7 @@ int __init init_xgf(void)
 
 	if (!fpsgo_sysfs_create_dir(NULL, "xgf", &xgf_kobj)) {
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_deplist);
+		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_runtime);
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_spid_list);
 		fpsgo_sysfs_create_file(xgf_kobj,
 			&kobj_attr_xgf_trace_enable);
