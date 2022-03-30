@@ -58,6 +58,7 @@
 #include <linux/soc/qcom/qmi.h>
 #include <linux/mem-buf.h>
 #include <linux/dma-iommu.h>
+#include <asm/arch_timer.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
@@ -372,11 +373,13 @@ struct fastrpc_tx_msg {
 	struct smq_msg msg; /* Msg sent to remote subsystem */
 	int rpmsg_send_err; /* rpmsg error */
 	int64_t ns;         /* Timestamp (in ns) of msg */
+	uint64_t xo_time_in_us;
 };
 
 struct fastrpc_rx_msg {
 	struct smq_invoke_rspv2 rsp;  /* Response from remote subsystem */
 	int64_t ns;   /* Timestamp (in ns) of response */
+	uint64_t xo_time_in_us;
 };
 
 struct fastrpc_rpmsg_log {
@@ -779,7 +782,7 @@ static int fastrpc_mem_map_to_dsp(struct fastrpc_file *fl, int fd, int offset,
 				size_t size, uintptr_t *raddr);
 static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 	uint64_t ctx, int retval, uint32_t rsp_flags,
-	uint32_t early_wake_time, uint32_t ver, int64_t ns);
+	uint32_t early_wake_time, uint32_t ver, int64_t ns, uint64_t xo_time_in_us);
 
 /**
  * fastrpc_device_create - Create device for the fastrpc process file
@@ -848,7 +851,8 @@ static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t 
 			/* Update DSP response history */
 			fastrpc_update_rxmsg_buf(&gfa.channel[ctx->fl->cid],
 				ctx->msg.invoke.header.ctx, 0, POLL_MODE, 0,
-				FASTRPC_RSP_VERSION2, get_timestamp_in_ns());
+				FASTRPC_RSP_VERSION2, get_timestamp_in_ns(),
+				__arch_counter_get_cntvct() * 10ull / 192ull);
 			break;
 		}
 		if (jj == FASTRPC_POLL_TIME_MEM_UPDATE) {
@@ -867,11 +871,12 @@ static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t 
  * @msg            : Pointer to RPC message to remote subsystem
  * @rpmsg_send_err : Error from rpmsg
  * @ns             : Timestamp (in ns) of sent message
+ * @xo_time_in_us  : XO Timestamp (in us) of sent message
  *
  * Returns none
  */
 static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
-	struct smq_msg *msg, int rpmsg_send_err, int64_t ns)
+	struct smq_msg *msg, int rpmsg_send_err, int64_t ns, uint64_t xo_time_in_us)
 {
 	unsigned long flags = 0;
 	unsigned int tx_index = 0;
@@ -885,6 +890,7 @@ static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
 	memcpy(&tx_msg->msg, msg, sizeof(struct smq_msg));
 	tx_msg->rpmsg_send_err = rpmsg_send_err;
 	tx_msg->ns = ns;
+	tx_msg->xo_time_in_us = xo_time_in_us;
 
 	tx_index++;
 	chan->gmsg_log.tx_index =
@@ -902,12 +908,13 @@ static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
  * @early_wake_time : Poll time for early wakeup
  * @ver             : Version of response
  * @ns              : Timestamp (in ns) of response
+ * @xo_time_in_us   : XO Timestamp (in us) of response
  *
  * Returns none
  */
 static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 	uint64_t ctx, int retval, uint32_t rsp_flags,
-	uint32_t early_wake_time, uint32_t ver, int64_t ns)
+	uint32_t early_wake_time, uint32_t ver, int64_t ns, uint64_t xo_time_in_us)
 {
 	unsigned long flags = 0;
 	unsigned int rx_index = 0;
@@ -926,6 +933,7 @@ static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 	rsp->early_wake_time = early_wake_time;
 	rsp->version = ver;
 	rx_msg->ns = ns;
+	rx_msg->xo_time_in_us = xo_time_in_us;
 
 	rx_index++;
 	chan->gmsg_log.rx_index =
@@ -3079,6 +3087,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	int err = 0, cid = -1;
 	uint32_t sc = ctx->sc;
 	int64_t ns = 0;
+	uint64_t xo_time_in_us = 0;
 
 	if (!fl) {
 		err = -EBADF;
@@ -3119,12 +3128,13 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 		mutex_unlock(&channel_ctx->rpmsg_mutex);
 		goto bail;
 	}
+	xo_time_in_us = __arch_counter_get_cntvct() * 10ull / 192ull;
 	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
 	mutex_unlock(&channel_ctx->rpmsg_mutex);
 	trace_fastrpc_rpmsg_send(cid, (uint64_t)ctx, msg->invoke.header.ctx,
 		handle, sc, msg->invoke.page.addr, msg->invoke.page.size);
 	ns = get_timestamp_in_ns();
-	fastrpc_update_txmsg_buf(channel_ctx, msg, err, ns);
+	fastrpc_update_txmsg_buf(channel_ctx, msg, err, ns, xo_time_in_us);
  bail:
 	return err;
 }
@@ -5420,7 +5430,9 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
 	int64_t ns = 0;
+	uint64_t xo_time_in_us = 0;
 
+	xo_time_in_us =  __arch_counter_get_cntvct() * 10ull / 192ull;
 	trace_fastrpc_msg("rpmsg_callback: begin");
 	cid = get_cid_from_rpdev(rpdev);
 	VERIFY(err, VALID_FASTRPC_CID(cid));
@@ -5457,7 +5469,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		rsp->retval, rsp_flags, early_wake_time);
 	ns = get_timestamp_in_ns();
 	fastrpc_update_rxmsg_buf(chan, rsp->ctx, rsp->retval,
-		rsp_flags, early_wake_time, ver, ns);
+		rsp_flags, early_wake_time, ver, ns, xo_time_in_us);
 
 	index = (uint32_t)GET_TABLE_IDX_FROM_CTXID(rsp->ctx);
 	VERIFY(err, index < FASTRPC_CTX_MAX);
