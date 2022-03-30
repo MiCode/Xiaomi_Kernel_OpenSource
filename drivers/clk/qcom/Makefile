@@ -101,6 +101,7 @@ obj-$(CONFIG_SM_GCC_HOLI) += gcc-holi.o
 obj-$(CONFIG_SM_GCC_PARROT) += gcc-parrot.o
 obj-$(CONFIG_SM_GCC_SHIMA) += gcc-shima.o
 obj-$(CONFIG_SM_GCC_8250) += gcc-sm8250.o
+obj-$(CONFIG_SXR_GCC_ANORAK) += gcc-anorak.o
 obj-$(CONFIG_SXR_GCC_NEO) += gcc-neo.o
 obj-$(CONFIG_MSM_GCC_WAIPIO) += gcc-waipio.o
 obj-$(CONFIG_MSM_VIDEOCC_WAIPIO) += videocc-waipio.o
