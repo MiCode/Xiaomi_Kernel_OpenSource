@@ -52,7 +52,7 @@ static int devinfo_parse_dt(struct mtk_devinfo_priv *priv, struct device *dev)
 		if (!priv->devinfo_data)
 			return -ENOMEM;
 
-		WARN_ON(size > 300); /* for size integer too big protection */
+		WARN_ON(size > 400); /* for size integer too big protection */
 
 		memcpy(priv->devinfo_data, tags->data,
 				(size * sizeof(unsigned int)));
