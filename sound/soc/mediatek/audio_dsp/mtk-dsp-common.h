@@ -108,6 +108,7 @@ struct mtk_base_afe *get_afe_base(void);
 int mtk_dsp_register_feature(int id);
 int mtk_dsp_deregister_feature(int id);
 
+int wait_dsp_ready(void);
 int mtk_audio_register_notify(void);
 
 int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size);

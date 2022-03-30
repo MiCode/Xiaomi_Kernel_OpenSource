@@ -26,6 +26,7 @@
 #include "mtk-sp-spk-amp.h"
 
 static int adsp_standby_flag;
+static struct wait_queue_head waitq;
 
 /* don't use this directly if not necessary */
 static struct mtk_base_dsp *local_base_dsp;
@@ -453,6 +454,16 @@ int mtk_dsp_deregister_feature(int id)
 	return adsp_deregister_feature(id);
 }
 
+int wait_dsp_ready(void)
+{
+	/* should not call this in atomic or interrupt level */
+	if (!wait_event_timeout(waitq, adsp_standby_flag == 0,
+				msecs_to_jiffies(200)))
+		return -EBUSY;
+
+	return 0;
+}
+
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 static int mtk_audio_dsp_event_receive(
 	struct notifier_block *this,
@@ -466,6 +477,7 @@ static int mtk_audio_dsp_event_receive(
 	case ADSP_EVENT_READY:
 		mtk_reinit_adsp();
 		adsp_standby_flag = 0;
+		wake_up(&waitq);
 		break;
 	default:
 		pr_info("event %lu err", event);
@@ -484,6 +496,7 @@ int mtk_audio_register_notify(void)
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 	adsp_register_notify(&mtk_audio_dsp_notifier);
 #endif
+	init_waitqueue_head(&waitq);
 	return 0;
 }
 
