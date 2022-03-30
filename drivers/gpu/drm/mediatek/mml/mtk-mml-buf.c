@@ -144,7 +144,7 @@ void mml_buf_put(struct mml_file_buf *buf)
 		if (!buf->dma[i].dmabuf)
 			continue;
 		if (buf->dma[i].va) {
-			map = DMA_BUF_MAP_INIT_VADDR(buf->dma[i].va);
+			map.vaddr = buf->dma[i].va;
 			dma_buf_vunmap(buf->dma[i].dmabuf, &map);
 		}
 		if (buf->dma[i].attach)
