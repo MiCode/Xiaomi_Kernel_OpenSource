@@ -31,6 +31,7 @@
 #include "mkp_demo.h"
 
 #include "mkp.h"
+#include "trace_mkp.h"
 #define CREATE_TRACE_POINTS
 #include "trace_mtk_mkp.h"
 
@@ -87,6 +88,14 @@ static void *p_stext;
 static void *p_etext;
 static void *p__init_begin;
 #endif
+
+int mkp_hook_trace_on;
+module_param(mkp_hook_trace_on, int, 0600);
+
+bool mkp_hook_trace_enabled(void)
+{
+	return !!mkp_hook_trace_on;
+}
 
 static void probe_android_vh_set_memory_rw(void *ignore, unsigned long addr,
 		int nr_pages)
@@ -241,6 +250,8 @@ static void probe_android_rvh_commit_creds(void *ignore, const struct task_struc
 	if (g_ro_cred_handle == 0)
 		return;
 
+	MKP_HOOK_BEGIN(__func__);
+
 	c.csc.uid.val = new->uid.val;
 	c.csc.gid.val = new->gid.val;
 	c.csc.euid.val = new->euid.val;
@@ -251,6 +262,8 @@ static void probe_android_rvh_commit_creds(void *ignore, const struct task_struc
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
 		(unsigned long)task->pid,
 		c.args[0], c.args[1], c.args[2], c.args[3]);
+
+	MKP_HOOK_END(__func__);
 }
 
 static void probe_android_rvh_exit_creds(void *ignore, const struct task_struct *task,
@@ -261,8 +274,12 @@ static void probe_android_rvh_exit_creds(void *ignore, const struct task_struct 
 	if (g_ro_cred_handle == 0)
 		return;
 
+	MKP_HOOK_BEGIN(__func__);
+
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
 		(unsigned long)task->pid, 0, 0, 0, 0);
+
+	MKP_HOOK_END(__func__);
 }
 
 static void probe_android_rvh_override_creds(void *ignore, const struct task_struct *task,
@@ -274,6 +291,8 @@ static void probe_android_rvh_override_creds(void *ignore, const struct task_str
 	if (g_ro_cred_handle == 0)
 		return;
 
+	MKP_HOOK_BEGIN(__func__);
+
 	c.csc.uid.val = new->uid.val;
 	c.csc.gid.val = new->gid.val;
 	c.csc.euid.val = new->euid.val;
@@ -284,6 +303,8 @@ static void probe_android_rvh_override_creds(void *ignore, const struct task_str
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
 		(unsigned long)task->pid,
 		c.args[0], c.args[1], c.args[2], c.args[3]);
+
+	MKP_HOOK_END(__func__);
 }
 
 static void probe_android_rvh_revert_creds(void *ignore, const struct task_struct *task,
@@ -295,6 +316,8 @@ static void probe_android_rvh_revert_creds(void *ignore, const struct task_struc
 	if (g_ro_cred_handle == 0)
 		return;
 
+	MKP_HOOK_BEGIN(__func__);
+
 	c.csc.uid.val = old->uid.val;
 	c.csc.gid.val = old->gid.val;
 	c.csc.euid.val = old->euid.val;
@@ -305,6 +328,8 @@ static void probe_android_rvh_revert_creds(void *ignore, const struct task_struc
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
 		(unsigned long)task->pid,
 		c.args[0], c.args[1], c.args[2], c.args[3]);
+
+	MKP_HOOK_END(__func__);
 }
 
 
@@ -316,10 +341,15 @@ static void probe_android_rvh_selinux_avc_insert(void *ignore, const struct avc_
 
 	if (g_ro_avc_handle == 0)
 		return;
+
+	MKP_HOOK_BEGIN(__func__);
+
 	temp_node = (struct mkp_avc_node *)node;
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_SELINUX_AVC, g_ro_avc_handle,
 		(unsigned long)temp_node, temp_node->ae.ssid,
 		temp_node->ae.tsid, temp_node->ae.tclass, temp_node->ae.avd.allowed);
+
+	MKP_HOOK_END(__func__);
 }
 
 static void probe_android_rvh_selinux_avc_node_delete(void *ignore,
@@ -329,8 +359,13 @@ static void probe_android_rvh_selinux_avc_node_delete(void *ignore,
 
 	if (g_ro_avc_handle == 0)
 		return;
+
+	MKP_HOOK_BEGIN(__func__);
+
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_SELINUX_AVC, g_ro_avc_handle,
 		(unsigned long)node, 0, 0, 0, 0);
+
+	MKP_HOOK_END(__func__);
 }
 
 static void probe_android_rvh_selinux_avc_node_replace(void *ignore,
@@ -341,12 +376,17 @@ static void probe_android_rvh_selinux_avc_node_replace(void *ignore,
 
 	if (g_ro_avc_handle == 0)
 		return;
+
+	MKP_HOOK_BEGIN(__func__);
+
 	temp_node = (struct mkp_avc_node *)new;
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_SELINUX_AVC, g_ro_avc_handle,
 		(unsigned long)old, 0, 0, 0, 0);
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_SELINUX_AVC, g_ro_avc_handle,
 		(unsigned long)temp_node, temp_node->ae.ssid,
 		temp_node->ae.tsid, temp_node->ae.tclass, temp_node->ae.avd.allowed);
+
+	MKP_HOOK_END(__func__);
 }
 
 static void probe_android_rvh_selinux_avc_lookup(void *ignore,
@@ -363,6 +403,9 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 
 	ratelimit_set_flags(&rs_avc, RATELIMIT_MSG_ON_RELEASE);
 	if (__ratelimit(&rs_avc)) {
+
+		MKP_HOOK_BEGIN(__func__);
+
 		temp_node = (struct mkp_avc_node *)node;
 		va = page_address(avc_pages);
 		ro_avc_sharebuf_ptr = (struct avc_sbuf_content *)va;
@@ -389,10 +432,13 @@ static void probe_android_rvh_selinux_avc_lookup(void *ignore,
 #endif
 					handle_mkp_err_action(MKP_POLICY_SELINUX_AVC);
 				} else {
+					MKP_HOOK_END(__func__);
 					return; // pass
 				}
 			}
 		}
+
+		MKP_HOOK_END(__func__);
 	}
 }
 
@@ -563,16 +609,24 @@ static void probe_android_vh_check_mmap_file(void *ignore,
 {
 	static DEFINE_RATELIMIT_STATE(rs_mmap, 1*HZ, 10);
 
+	MKP_HOOK_BEGIN(__func__);
+
 	check_cred(&rs_mmap);
 	check_selinux_state(&rs_mmap);
+
+	MKP_HOOK_END(__func__);
 }
 
 static void probe_android_vh_check_file_open(void *ignore, const struct file *file)
 {
 	static DEFINE_RATELIMIT_STATE(rs_open, 1*HZ, 10);
 
+	MKP_HOOK_BEGIN(__func__);
+
 	check_cred(&rs_open);
 	check_selinux_state(&rs_open);
+
+	MKP_HOOK_END(__func__);
 }
 
 static void probe_android_vh_check_bpf_syscall(void *ignore,
@@ -580,8 +634,12 @@ static void probe_android_vh_check_bpf_syscall(void *ignore,
 {
 	static DEFINE_RATELIMIT_STATE(rs_bpf, 1*HZ, 10);
 
+	MKP_HOOK_BEGIN(__func__);
+
 	check_cred(&rs_bpf);
 	check_selinux_state(&rs_bpf);
+
+	MKP_HOOK_END(__func__);
 }
 
 static int __init protect_mkp_self(void)
@@ -619,6 +677,8 @@ static void mkp_task_newtask(void *ignore, struct task_struct *task, unsigned lo
 	if (g_ro_cred_handle == 0)
 		return;
 
+	MKP_HOOK_BEGIN(__func__);
+
 	c.csc.uid.val = task->cred->uid.val;
 	c.csc.gid.val = task->cred->gid.val;
 	c.csc.euid.val = task->cred->euid.val;
@@ -629,6 +689,8 @@ static void mkp_task_newtask(void *ignore, struct task_struct *task, unsigned lo
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
 			(unsigned long)task->pid,
 			c.args[0], c.args[1], c.args[2], c.args[3]);
+
+	MKP_HOOK_END(__func__);
 }
 
 static struct tracepoints_table mkp_tracepoints[] = {
