@@ -138,7 +138,7 @@ static void init_hmp_domains(void);
 static void hmp_cpu_mask_setup(void);
 static int arch_get_nr_clusters(void);
 static void arch_get_cluster_cpus(struct cpumask *cpus, int package_id);
-static int hmp_compare(void *priv, struct list_head *a, struct list_head *b);
+static int hmp_compare(void *priv, const struct list_head *a, const struct list_head *b);
 static inline void fillin_cluster(struct cluster_info *cinfo,
 		struct hmp_domain *hmpd);
 static void sys_set_turbo_task(struct task_struct *p);
@@ -1209,7 +1209,8 @@ static inline void fillin_cluster(struct cluster_info *cinfo,
 				TAG, cpumask_bits(&hmpd->possible_cpus)[0]);
 }
 
-int hmp_compare(void *priv, struct list_head *a, struct list_head *b)
+int hmp_compare(void *priv, const struct list_head *a,
+		      const struct list_head *b)
 {
 	struct cluster_info ca;
 	struct cluster_info cb;

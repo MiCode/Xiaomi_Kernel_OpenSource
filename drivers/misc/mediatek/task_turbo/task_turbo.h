@@ -7,7 +7,7 @@
 
 #include <linux/list.h>
 #include <linux/smp.h>
-
+#include <linux/list_sort.h>
 #define get_task_turbo_t(p)	\
 	((struct task_turbo_t *)&(p)->android_vendor_data1)
 #define get_inherit_task(parent)	\
@@ -73,10 +73,6 @@ struct cluster_info {
 	unsigned long cpu_perf;
 	int cpu;
 };
-
-extern void list_sort(void *priv, struct list_head *head,
-		int (*cmp)(void *priv, struct list_head *a,
-			struct list_head *b));
 
 /*
  * Nice levels are multiplicative, with a gentle 10% change for every
