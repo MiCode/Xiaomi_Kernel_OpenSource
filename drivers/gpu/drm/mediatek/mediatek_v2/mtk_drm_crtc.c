@@ -2896,8 +2896,8 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 	unsigned int max_fps = 0;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
-	DDPINFO("%s bw=%d, last_hrt_req=%d\n",
-			__func__, bw, mtk_crtc->qos_ctx->last_hrt_req);
+	DDPINFO("%s bw=%d, last_hrt_req=%d, overlap=%d\n",
+			__func__, bw, mtk_crtc->qos_ctx->last_hrt_req, frame_weight);
 
 	if (priv->data->has_smi_limitation && lyeblob_ids) {
 		output_comp = mtk_ddp_comp_request_output(mtk_crtc);
