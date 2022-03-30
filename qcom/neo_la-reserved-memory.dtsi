@@ -1,0 +1,35 @@
+&reserved_memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	/delete-node/ wlan_msa_moselle_region@82a00000;
+	/delete-node/ wpss_wlan_moselle_region@85600000;
+	/delete-node/ ipa_fw_region@8a300000;
+	/delete-node/ ipa_gsi_region@8a310000;
+};
+
+&video_mem {
+	no-map;
+	reg = <0x0 0x85600000 0x0 0x500000>;
+};
+
+&adsp_mem {
+	no-map;
+	reg = <0x0 0x85b00000 0x0 0x1900000>;
+};
+
+&cdsp_mem {
+	no-map;
+	reg = <0x0 0x87400000 0x0 0xa00000>;
+};
+
+&gpu_microcode_mem {
+	no-map;
+	reg = <0x0 0x87e1a000 0x0 0x2000>;
+};
+
+&cvp_mem {
+	no-map;
+	reg = <0x0 0x87e1c000 0x0 0x700000>;
+};

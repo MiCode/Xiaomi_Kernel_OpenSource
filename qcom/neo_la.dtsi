@@ -402,3 +402,5 @@
 		};
 	};
 };
+
+#include "neo_la-reserved-memory.dtsi"
