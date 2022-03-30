@@ -27,7 +27,9 @@
 #include <linux/spinlock.h>
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 #include <mt-plat/mrdump.h>
+#endif
 
 #include "apusys_core.h"
 #include "hw_logger.h"
@@ -160,7 +162,17 @@ static int hw_logger_buf_alloc(struct device *dev)
 		goto out;
 	}
 
-	/* TODO, mrdump */
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	(void)mrdump_mini_add_extra_file(
+		(unsigned long)local_log_buf,
+		__pa_nodebug(local_log_buf),
+		LOCAL_LOG_SIZE, "APUSYS_LOG");
+
+	(void)mrdump_mini_add_extra_file(
+		(unsigned long)hw_log_buf,
+		__pa_nodebug(hw_log_buf),
+		HWLOGR_LOG_SIZE, "APUSYS_HW_LOG");
+#endif
 
 	HWLOGR_INFO("local_log_buf = 0x%llx\n", (unsigned long long)local_log_buf);
 	HWLOGR_INFO("hw_log_buf = 0x%llx, hw_log_buf_addr = 0x%llx\n",

@@ -10,7 +10,9 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 #include <mt-plat/mrdump.h>
+#endif
 
 #include "apu.h"
 #include "apu_regdump.h"
@@ -121,6 +123,7 @@ static const struct proc_ops regdump_file_ops = {
 	.proc_release	= single_release
 };
 
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 static void apu_mrdump_register(struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;
@@ -141,9 +144,10 @@ static void apu_mrdump_register(struct mtk_apu *apu)
 		base_va = (unsigned long) apu->coredump_buf;
 		size = sizeof(struct apu_coredump);
 	}
-	/* TODO, mrdump */
+	ret = mrdump_mini_add_extra_file(base_va, base_pa, size,
+		"APUSYS_COREDUMP");
 	if (ret)
-		dev_info(dev, "%s: APUSYS_RV_COREDUMP add fail(%d)\n",
+		dev_info(dev, "%s: APUSYS_COREDUMP add fail(%d)\n",
 			__func__, ret);
 	coredump_len = (size_t) size;
 	coredump_base = (void *) base_va;
@@ -160,7 +164,8 @@ static void apu_mrdump_register(struct mtk_apu *apu)
 			size = apu->apusys_aee_coredump_info->up_xfile_sz;
 			dev_info(dev, "%s: up_xfile_sz = 0x%x\n", __func__, size);
 		}
-		/* TODO, mrdump */
+		ret = mrdump_mini_add_extra_file(base_va, base_pa, size,
+			"APUSYS_RV_XFILE");
 		if (ret)
 			dev_info(dev, "%s: APUSYS_RV_XFILE add fail(%d)\n",
 				__func__, ret);
@@ -176,12 +181,18 @@ static void apu_mrdump_register(struct mtk_apu *apu)
 	size = apu->apusys_aee_coredump_info->regdump_sz;
 
 	if (info != NULL) {
-		/* TODO, mrdump */
+		ret = mrdump_mini_add_extra_file(base_va, base_pa, size,
+			"APUSYS_REGDUMP");
 		if (ret)
 			dev_info(dev, "%s: APUSYS_REGDUMP add fail(%d)\n",
 				__func__, ret);
 	}
 }
+#else
+static void apu_mrdump_register(struct mtk_apu *apu)
+{
+}
+#endif
 
 int apu_procfs_init(struct platform_device *pdev)
 {

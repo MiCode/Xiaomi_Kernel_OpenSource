@@ -28,6 +28,7 @@
 #include "apu_excep.h"
 #include "apu_config.h"
 #include "apusys_core.h"
+#include "apu_regdump.h"
 
 
 struct mtk_apu *g_apu_struct;
@@ -79,8 +80,13 @@ static int __apu_run(struct rproc *rproc)
 
 	if (ret == 0) {
 		dev_info(dev, "APU initialization timeout!!\n");
-		ret = -ETIME;
-		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_BOOT_TIMEOUT");
+		/*
+		 * don't return error here ret = -ETIME;
+		 * and use APUSYS_RV_TIMEOUT instead of
+		 * APUSYS_RV_BOOT_TIMEOUT to dump more info *
+		 */
+		apu_regdump();
+		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_TIMEOUT");
 		goto stop;
 	}
 	if (ret == -ERESTARTSYS)
