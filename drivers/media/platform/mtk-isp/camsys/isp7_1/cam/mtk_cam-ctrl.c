@@ -3645,11 +3645,13 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 		s_data_mstream = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
 
 		unreliable |= (s_data->flags &
-			MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED);
+			(MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED |
+			MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE));
 
 		if (s_data_mstream) {
 			unreliable |= (s_data_mstream->flags &
-				MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED);
+				(MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED |
+				MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE));
 		}
 	}
 
@@ -3700,10 +3702,14 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 	mtk_cam_s_data_reset_vbuf(s_data, MTK_RAW_META_OUT_1);
 
 	/* Let user get the buffer */
-	if (unreliable)
+	if (unreliable) {
 		vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_ERROR);
-	else
+		s_data->flags = 0;
+		if (s_data_mstream)
+			s_data_mstream->flags = 0;
+	} else {
 		vb2_buffer_done(&buf->vbb.vb2_buf, VB2_BUF_STATE_DONE);
+	}
 
 	dev_dbg(ctx->cam->dev, "%s:%s: req(%d) done\n",
 		 __func__, req->req.debug_str, s_data->frame_seq_no);
@@ -4455,8 +4461,7 @@ void mtk_cam_mstream_initial_sensor_setup(struct mtk_cam_request *initial_req,
 	mtk_cam_set_sensor_full(req_stream_data, &ctx->sensor_ctrl);
 	dev_info(ctx->cam->dev, "[mstream] Initial sensor timer setup, seq_no(%d)\n",
 				req_stream_data->frame_seq_no);
-	if (mtk_cam_is_mstream_m2m(ctx))
-		mtk_cam_initial_sensor_setup(initial_req, ctx);
+	mtk_cam_initial_sensor_setup(initial_req, ctx);
 }
 
 void mtk_cam_initial_sensor_setup(struct mtk_cam_request *initial_req,
@@ -4474,6 +4479,45 @@ void mtk_cam_initial_sensor_setup(struct mtk_cam_request *initial_req,
 			E_STATE_READY, E_STATE_SUBSPL_READY);
 	dev_info(ctx->cam->dev, "Directly setup sensor req:%d\n",
 		req_stream_data->frame_seq_no);
+}
+
+void mtk_cam_mstream_mark_incomplete_frame(struct mtk_cam_ctx *ctx,
+					struct mtk_cam_request_stream_data *incomplete_s_data)
+{
+	int i;
+	struct mtk_cam_request *req;
+	struct mtk_cam_request_stream_data *s_data_mstream;
+
+	if (!mtk_cam_feature_is_mstream(incomplete_s_data->feature.raw_feature))
+		return;
+
+	req = mtk_cam_s_data_get_req(incomplete_s_data);
+	s_data_mstream = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
+
+	s_data_mstream->flags |=
+			MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE;
+
+	/**
+	 * mark all no_frame_done requests as unreliable
+	 * (current frame_seq_no + (no_frame_done_cnt - 1))
+	 */
+	for (i = 1; i < incomplete_s_data->no_frame_done_cnt; i++) {
+		struct mtk_cam_request_stream_data *req_stream_data;
+
+		req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
+				incomplete_s_data->frame_seq_no + i);
+		req = mtk_cam_s_data_get_req(req_stream_data);
+
+		if (mtk_cam_feature_is_mstream(req_stream_data->feature.raw_feature)) {
+			s_data_mstream = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
+			s_data_mstream->flags |=
+					MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE;
+		} else {
+			// seamless switch to 1-exp
+			req_stream_data->flags |=
+					MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE;
+		}
+	}
 }
 
 static void mtk_cam_complete_hdl(struct mtk_cam_request_stream_data *s_data,

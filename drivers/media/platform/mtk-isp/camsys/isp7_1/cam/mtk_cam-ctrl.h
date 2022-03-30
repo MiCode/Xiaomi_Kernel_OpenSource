@@ -160,6 +160,8 @@ void mtk_cam_initial_sensor_setup(struct mtk_cam_request *req,
 					struct mtk_cam_ctx *ctx);
 void mtk_cam_mstream_initial_sensor_setup(struct mtk_cam_request *req,
 					struct mtk_cam_ctx *ctx);
+void mtk_cam_mstream_mark_incomplete_frame(struct mtk_cam_ctx *ctx,
+			struct mtk_cam_request_stream_data *incomplete_s_data);
 void mtk_cam_req_ctrl_setup(struct mtk_raw_pipeline *raw_pipe,
 			    struct mtk_cam_request *req);
 int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx); /* ctx_stream_on */

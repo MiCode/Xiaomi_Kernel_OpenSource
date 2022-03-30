@@ -1066,13 +1066,16 @@ mtk_cam_debug_detect_dequeue_failed(struct mtk_cam_request_stream_data *s_data,
 	    s_data->state.estate == E_STATE_OUTER_HW_DELAY ||
 	    s_data->state.estate == E_STATE_INNER_HW_DELAY) {
 		s_data->no_frame_done_cnt++;
-		if (s_data->no_frame_done_cnt > 1)
+		if (s_data->no_frame_done_cnt > 1) {
+			mtk_cam_mstream_mark_incomplete_frame(ctx, s_data);
+
 			dev_info(ctx->cam->dev,
 			 "%s:SOF[ctx:%d-#%d] no p1 done for %d sofs, FBC_CNT %d dump req(%d) state(%d) ts(%lu)\n",
 			 req->req.debug_str, ctx->stream_id,
 			 ctx->dequeued_frame_seq_no,
 			 s_data->no_frame_done_cnt, irq_info->fbc_cnt,
 			 s_data->frame_seq_no, s_data->state.estate, irq_info->ts_ns / 1000);
+		}
 	}
 	if (s_data->no_frame_done_cnt >= NO_P1_DONE_DEBUG_START) {
 		dev_info(raw_dev->dev,

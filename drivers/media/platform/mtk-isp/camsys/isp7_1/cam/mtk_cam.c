@@ -868,11 +868,13 @@ STOP_SCAN:
 
 		if (mtk_cam_feature_is_mstream(feature)) {
 			unreliable |= (s_data->flags &
-						   MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED);
+					(MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED |
+					MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE));
 
 			if (s_data_mstream) {
 				unreliable |= (s_data_mstream->flags &
-					MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED);
+						(MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED |
+						MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE));
 			}
 		}
 
