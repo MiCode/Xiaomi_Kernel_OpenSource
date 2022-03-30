@@ -2922,8 +2922,11 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		//			    DISP_BW_FBDC_MODE);
 
 		/* process normal */
+		if (comp->last_qos_bw == comp->qos_bw)
+			break;
 		__mtk_disp_set_module_bw(comp->qos_req, comp->id, comp->qos_bw,
 					    DISP_BW_NORMAL_MODE);
+		comp->last_qos_bw = comp->qos_bw;
 
 		DDPDBG("update ovl fbdc_bw to %u, qos bw to %u\n",
 			comp->fbdc_bw, comp->qos_bw);

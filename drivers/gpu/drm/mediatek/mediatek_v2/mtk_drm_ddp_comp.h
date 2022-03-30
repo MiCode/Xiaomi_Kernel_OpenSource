@@ -481,6 +481,7 @@ struct mtk_ddp_comp {
 	struct icc_path *hrt_qos_req;
 	bool blank_mode;
 	u32 qos_bw;
+	u32 last_qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;
 };
