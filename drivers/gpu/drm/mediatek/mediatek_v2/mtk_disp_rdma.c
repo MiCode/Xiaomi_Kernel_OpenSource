@@ -44,6 +44,7 @@ int disp_met_set(void *data, u64 val);
 #define RDMA_ENGINE_EN BIT(0)
 #define RDMA_SOFT_RESET BIT(4)
 #define RDMA_MODE_MEMORY BIT(1)
+#define RDMA_RG_PIXEL_10_BIT BIT(3)
 #define DISP_REG_RDMA_SIZE_CON_0 0x0014
 #define RDMA_MATRIX_ENABLE BIT(17)
 #define RDMA_MATRIX_INT_MTX_SEL (7UL << 20)
@@ -173,6 +174,7 @@ int disp_met_set(void *data, u64 val);
 
 #define GLOBAL_CON_FLD_ENGINE_EN REG_FLD_MSB_LSB(0, 0)
 #define GLOBAL_CON_FLD_MODE_SEL REG_FLD_MSB_LSB(1, 1)
+#define GLOBAL_CON_FLD_PIXEL_10_BIT REG_FLD_MSB_LSB(3, 3)
 #define GLOBAL_CON_FLD_SMI_BUSY REG_FLD_MSB_LSB(12, 12)
 #define RDMA_BG_CON_0_LEFT REG_FLD_MSB_LSB(12, 0)
 #define RDMA_BG_CON_0_RIGHT REG_FLD_MSB_LSB(28, 16)
@@ -901,6 +903,11 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 		mtk_rdma_write_mem_start_addr_cmdq(comp, 0, handle);
 	}
 
+	if (cfg->source_bpc == 10)
+		mtk_ddp_write_mask(comp, RDMA_RG_PIXEL_10_BIT,
+				   DISP_REG_RDMA_GLOBAL_CON, RDMA_RG_PIXEL_10_BIT,
+				   handle);
+
 #ifdef IF_ZERO
 	/*
 	 * Enable FIFO underflow since DSI and DPI can't be blocked.
@@ -1288,11 +1295,12 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 
 	global_ctrl = readl(DISP_REG_RDMA_GLOBAL_CON + baddr);
 	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
-	DDPDUMP("en=%d,mode:%s,smi_busy:%d\n",
+	DDPDUMP("en=%d,mode:%s,smi_busy:%d,10bit:%d\n",
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_ENGINE_EN, global_ctrl),
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_MODE_SEL, global_ctrl)
 				? "mem" : "DL",
-		REG_FLD_VAL_GET(GLOBAL_CON_FLD_SMI_BUSY, global_ctrl));
+		REG_FLD_VAL_GET(GLOBAL_CON_FLD_SMI_BUSY, global_ctrl),
+		REG_FLD_VAL_GET(GLOBAL_CON_FLD_PIXEL_10_BIT, global_ctrl));
 
 	DDPDUMP("wh(%dx%d),pitch=%d,addr=0x%x\n",
 		readl(DISP_REG_RDMA_SIZE_CON_0 + baddr) & 0xfff,
