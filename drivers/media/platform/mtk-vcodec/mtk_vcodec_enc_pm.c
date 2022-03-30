@@ -1,131 +1,391 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
-* Copyright (c) 2016 MediaTek Inc.
-* Author: Tiffany Lin <tiffany.lin@mediatek.com>
-*/
+ * Copyright (c) 2016 MediaTek Inc.
+ * Author: Tiffany Lin <tiffany.lin@mediatek.com>
+ */
 
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
+#include <linux/delay.h>
 #include <soc/mediatek/smi.h>
 
 #include "mtk_vcodec_enc_pm.h"
+#include "mtk_vcodec_enc_pm_plat.h"
 #include "mtk_vcodec_util.h"
+#include "mtk_vcu.h"
+//#include "smi_public.h"
+
+#include <mtk_iommu.h>
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+#include <mach/mt_iommu.h>
+#include "mach/pseudo_m4u.h"
+#include "smi_port.h"
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+#include "iommu_debug.h"
+#endif
+
+void mtk_venc_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
+{
+	ctx->sram_data.uid = UID_MM_VENC;
+	ctx->sram_data.type = TP_BUFFER;
+	ctx->sram_data.size = 0;
+	ctx->sram_data.flag = FG_POWER;
+
+	if (slbc_request(&ctx->sram_data) >= 0) {
+		ctx->use_slbc = 1;
+		ctx->slbc_addr = (unsigned int)(unsigned long)ctx->sram_data.paddr;
+	} else {
+		pr_info("slbc_request fail\n");
+		ctx->use_slbc = 0;
+	}
+	if (ctx->slbc_addr % 256 != 0 || ctx->slbc_addr == 0) {
+		pr_info("slbc_addr error 0x%x\n", ctx->slbc_addr);
+		ctx->use_slbc = 0;
+	}
+
+	pr_info("slbc_request %d, 0x%x, 0x%llx\n",
+	ctx->use_slbc, ctx->slbc_addr, ctx->sram_data.paddr);
+}
 
 int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 {
+	int ret = 0;
+#ifndef FPGA_PWRCLK_API_DISABLE
 	struct device_node *node;
 	struct platform_device *pdev;
-	struct mtk_vcodec_pm *pm;
-	struct mtk_vcodec_clk *enc_clk;
-	struct mtk_vcodec_clk_info *clk_info;
-	int ret = 0, i = 0;
 	struct device *dev;
+	struct mtk_vcodec_pm *pm;
+	int larb_index;
+	int clk_id = 0;
+	const char *clk_name;
+	struct mtk_venc_clks_data *clks_data;
 
 	pdev = mtkdev->plat_dev;
 	pm = &mtkdev->pm;
 	memset(pm, 0, sizeof(struct mtk_vcodec_pm));
 	pm->mtkdev = mtkdev;
 	pm->dev = &pdev->dev;
+	clks_data = &pm->venc_clks_data;
 	dev = &pdev->dev;
-	enc_clk = &pm->venc_clk;
 
-	node = of_parse_phandle(dev->of_node, "mediatek,larb", 0);
+	node = of_parse_phandle(dev->of_node, "mediatek,larbs", 0);
 	if (!node) {
 		mtk_v4l2_err("no mediatek,larb found");
-		return -ENODEV;
+		return -1;
 	}
-	pdev = of_find_device_by_node(node);
-	of_node_put(node);
-	if (!pdev) {
-		mtk_v4l2_err("no mediatek,larb device found");
-		return -ENODEV;
-	}
-	pm->larbvenc = &pdev->dev;
-	pdev = mtkdev->plat_dev;
-	pm->dev = &pdev->dev;
+	for (larb_index = 0; larb_index < MTK_VENC_MAX_LARB_COUNT; larb_index++) {
+		node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", larb_index);
+		if (!node)
+			break;
 
-	enc_clk->clk_num = of_property_count_strings(pdev->dev.of_node,
-		"clock-names");
-	if (enc_clk->clk_num > 0) {
-		enc_clk->clk_info = devm_kcalloc(&pdev->dev,
-			enc_clk->clk_num, sizeof(*clk_info),
-			GFP_KERNEL);
-		if (!enc_clk->clk_info) {
-			ret = -ENOMEM;
-			goto put_larbvenc;
+		pdev = of_find_device_by_node(node);
+		if (WARN_ON(!pdev)) {
+			of_node_put(node);
+			return -1;
 		}
-	} else {
-		mtk_v4l2_err("Failed to get venc clock count");
-		ret = -EINVAL;
-		goto put_larbvenc;
+		pm->larbvencs[larb_index] = &pdev->dev;
+		mtk_v4l2_debug(8, "larbvencs[%d] = %p", larb_index, pm->larbvencs[larb_index]);
+		pdev = mtkdev->plat_dev;
 	}
 
-	for (i = 0; i < enc_clk->clk_num; i++) {
-		clk_info = &enc_clk->clk_info[i];
-		ret = of_property_read_string_index(pdev->dev.of_node,
-			"clock-names", i, &clk_info->clk_name);
-		if (ret) {
-			mtk_v4l2_err("venc failed to get clk name %d", i);
-			goto put_larbvenc;
+	memset(clks_data, 0x00, sizeof(struct mtk_venc_clks_data));
+	while (!of_property_read_string_index(
+			pdev->dev.of_node, "clock-names", clk_id, &clk_name)) {
+		mtk_v4l2_debug(8, "init clock, id: %d, name: %s", clk_id, clk_name);
+		pm->venc_clks[clk_id] = devm_clk_get(&pdev->dev, clk_name);
+		if (IS_ERR(pm->venc_clks[clk_id])) {
+			mtk_v4l2_err(
+				"[VCODEC][ERROR] Unable to devm_clk_get id: %d, name: %s\n",
+				clk_id, clk_name);
+			return PTR_ERR(pm->venc_clks[clk_id]);
 		}
-		clk_info->vcodec_clk = devm_clk_get(&pdev->dev,
-			clk_info->clk_name);
-		if (IS_ERR(clk_info->vcodec_clk)) {
-			mtk_v4l2_err("venc devm_clk_get (%d)%s fail", i,
-				clk_info->clk_name);
-			ret = PTR_ERR(clk_info->vcodec_clk);
-			goto put_larbvenc;
-		}
+		clks_data->core_clks[clks_data->core_clks_len].clk_id = clk_id;
+		clks_data->core_clks[clks_data->core_clks_len].clk_name = clk_name;
+		clks_data->core_clks_len++;
+		clk_id++;
 	}
 
-	return 0;
-
-put_larbvenc:
-	put_device(pm->larbvenc);
+	pm_runtime_enable(&pdev->dev);
+#endif
 	return ret;
 }
 
 void mtk_vcodec_release_enc_pm(struct mtk_vcodec_dev *mtkdev)
 {
+#if ENC_EMI_BW
+	/* do nothing */
+#endif
 	pm_runtime_disable(mtkdev->pm.dev);
-	put_device(mtkdev->pm.larbvenc);
 }
 
-
-void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm)
+void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
-	struct mtk_vcodec_clk *enc_clk = &pm->venc_clk;
-	int ret, i = 0;
+	if (ctx->use_slbc == 1) {
+		pr_debug("slbc_release, %p\n", &ctx->sram_data);
+		slbc_release(&ctx->sram_data);
+	}
+}
 
-	for (i = 0; i < enc_clk->clk_num; i++) {
-		ret = clk_prepare_enable(enc_clk->clk_info[i].vcodec_clk);
-		if (ret) {
-			mtk_v4l2_err("venc clk_prepare_enable %d %s fail %d", i,
-				enc_clk->clk_info[i].clk_name, ret);
-			goto clkerr;
+void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
+{
+	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
+	int ret;
+	int i, larb_port_num, larb_id;
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	struct M4U_PORT_STRUCT port;
+#endif
+	int larb_index;
+	int j, clk_id;
+	struct mtk_venc_clks_data *clks_data;
+	struct mtk_vcodec_dev *dev = NULL;
+	unsigned long flags;
+
+	dev = ctx->dev;
+
+#ifndef FPGA_PWRCLK_API_DISABLE
+	time_check_start(MTK_FMT_ENC, core_id);
+
+	clks_data = &pm->venc_clks_data;
+
+	for (larb_index = 0; larb_index < MTK_VENC_MAX_LARB_COUNT; larb_index++) {
+		if (pm->larbvencs[larb_index]) {
+			ret = mtk_smi_larb_get(pm->larbvencs[larb_index]);
+			if (ret)
+				mtk_v4l2_err("Failed to get venc larb. index: %d, core_id: %d",
+					larb_index, core_id);
 		}
 	}
 
-	ret = mtk_smi_larb_get(pm->larbvenc);
-	if (ret) {
-		mtk_v4l2_err("mtk_smi_larb_get larb3 fail %d", ret);
-		goto clkerr;
-	}
-	return;
 
-clkerr:
-	for (i -= 1; i >= 0; i--)
-		clk_disable_unprepare(enc_clk->clk_info[i].vcodec_clk);
+	if (core_id == MTK_VENC_CORE_0 ||
+		core_id == MTK_VENC_CORE_1) {
+			// enable core clocks
+		for (j = 0; j < clks_data->core_clks_len; j++) {
+			clk_id = clks_data->core_clks[j].clk_id;
+			ret = clk_prepare_enable(pm->venc_clks[clk_id]);
+			if (ret) {
+				mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
+					clk_id, clks_data->core_clks[j].clk_name, ret);
+			}
+		}
+	} else {
+		mtk_v4l2_err("invalid core_id %d", core_id);
+		time_check_end(MTK_FMT_ENC, core_id, 50);
+		return;
+	}
+	time_check_end(MTK_FMT_ENC, core_id, 50);
+#endif
+
+	spin_lock_irqsave(&dev->enc_power_lock[core_id], flags);
+	dev->enc_is_power_on[core_id] = true;
+	spin_unlock_irqrestore(&dev->enc_power_lock[core_id], flags);
+
+	if (ctx->use_slbc == 1) {
+		time_check_start(MTK_FMT_ENC, core_id);
+		ret = slbc_power_on(&ctx->sram_data);
+		time_check_end(MTK_FMT_ENC, core_id, 50);
+	}
+
+	time_check_start(MTK_FMT_ENC, core_id);
+	if (core_id == MTK_VENC_CORE_0) {
+		larb_port_num = dev->venc_ports[0].total_port_num;
+		larb_id = 7;
+	} else {
+		larb_port_num = dev->venc_ports[1].total_port_num;
+		larb_id = 8;
+	}
+
+	//enable slbc port configs
+	if (pm->larbvencs[core_id] && ctx->use_slbc == 1) {
+		for (i = 0; i < larb_port_num; i++) {
+			if (dev->venc_ports[core_id].ram_type[i] == 1) {
+				ret = smi_sysram_enable(pm->larbvencs[core_id],
+					MTK_M4U_ID(larb_id, i), true, "LARB_VENC");
+
+				if (ret)
+					mtk_v4l2_err("%#x smi_sysram_enable err: %#x\n",
+						i, ret);
+
+			}
+		}
+	}
+
+	time_check_end(MTK_FMT_ENC, core_id, 50);
+
+#ifdef CONFIG_MTK_PSEUDO_M4U
+	time_check_start(MTK_FMT_ENC, core_id);
+	if (core_id == MTK_VENC_CORE_0) {
+		larb_port_num = SMI_LARB7_PORT_NUM;
+		larb_id = 7;
+	}
+
+	//enable 34bits port configs
+	for (i = 0; i < larb_port_num; i++) {
+		port.ePortID = MTK_M4U_ID(larb_id, i);
+		port.Direction = 0;
+		port.Distance = 1;
+		port.domain = 0;
+		port.Security = 0;
+		port.Virtuality = 1;
+		m4u_config_port(&port);
+	}
+	time_check_end(MTK_FMT_ENC, core_id, 50);
+#endif
 }
 
-void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm)
+void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 {
-	struct mtk_vcodec_clk *enc_clk = &pm->venc_clk;
-	int i = 0;
+	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
+	int i, clk_id;
+	int larb_index;
+	struct mtk_venc_clks_data *clks_data;
+	struct mtk_vcodec_dev *dev = NULL;
+	unsigned long flags;
 
-	mtk_smi_larb_put(pm->larbvenc);
-	for (i = enc_clk->clk_num - 1; i >= 0; i--)
-		clk_disable_unprepare(enc_clk->clk_info[i].vcodec_clk);
+	dev = ctx->dev;
+
+	if (ctx->use_slbc == 1)
+		slbc_power_off(&ctx->sram_data);
+
+#ifndef FPGA_PWRCLK_API_DISABLE
+	/* avoid translation fault callback dump reg not done */
+	spin_lock_irqsave(&dev->enc_power_lock[core_id], flags);
+	dev->enc_is_power_on[core_id] = false;
+	spin_unlock_irqrestore(&dev->enc_power_lock[core_id], flags);
+
+	clks_data = &pm->venc_clks_data;
+
+	if (core_id == MTK_VENC_CORE_0 ||
+		core_id == MTK_VENC_CORE_1) {
+		if (clks_data->core_clks_len > 0) {
+			for (i = clks_data->core_clks_len - 1; i >= 0; i--) {
+				clk_id = clks_data->core_clks[i].clk_id;
+				clk_disable_unprepare(pm->venc_clks[clk_id]);
+			}
+		}
+	} else
+		mtk_v4l2_err("invalid core_id %d", core_id);
+	for (larb_index = 0; larb_index < MTK_VENC_MAX_LARB_COUNT; larb_index++) {
+		if (pm->larbvencs[larb_index])
+			mtk_smi_larb_put(pm->larbvencs[larb_index]);
+	}
+#endif
+}
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+static int mtk_venc_translation_fault_callback(
+	int port, dma_addr_t mva, void *data)
+{
+	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)data;
+	int larb_id = port >> 5;
+	void __iomem *reg_base = NULL;
+	int hw_id = 0;
+	unsigned long flags;
+
+	mtk_v4l2_err("larb port %d of m4u port %d", larb_id, port & 0x1F);
+
+	if (larb_id == 7) {
+		reg_base = dev->enc_reg_base[VENC_SYS];
+		hw_id = MTK_VENC_CORE_0;
+	} else if (larb_id == 8) {
+		reg_base = dev->enc_reg_base[VENC_C1_SYS];
+		hw_id = MTK_VENC_CORE_1;
+	}
+
+	spin_lock_irqsave(&dev->enc_power_lock[hw_id], flags);
+	if (dev->enc_is_power_on[hw_id] == false) {
+		mtk_v4l2_err("hw %d power is off !!", hw_id);
+		spin_unlock_irqrestore(&dev->enc_power_lock[hw_id], flags);
+		return -1;
+	}
+
+	if (reg_base != NULL) {
+		mtk_v4l2_err("venc tf callback =>");
+		mtk_v4l2_err("0x0: 0x%x, 0x14: 0x%x, 0x24: 0x%x, 0x28: 0x%x, 0x2C: 0x%x, 0x64: 0x%x, 0x6C: 0x%x",
+			readl(reg_base), readl(reg_base + 0x14), readl(reg_base + 0x24),
+			readl(reg_base + 0x28), readl(reg_base + 0x2C),
+			readl(reg_base + 0x64), readl(reg_base + 0x6C));
+		mtk_v4l2_err("0x70: 0x%x, 0x74: 0x%x, 0x78: 0x%x, 0x7C: 0x%x, 0x80: 0x%x, 0x84: 0x%x",
+			readl(reg_base + 0x70), readl(reg_base + 0x74),
+			readl(reg_base + 0x78), readl(reg_base + 0x7C),
+			readl(reg_base + 0x80), readl(reg_base + 0x84));
+		mtk_v4l2_err("0x88: 0x%x, 0x8C: 0x%x, 0x90: 0x%x, 0x94: 0x%x",
+			readl(reg_base + 0x88), readl(reg_base + 0x8C),
+			readl(reg_base + 0x90), readl(reg_base + 0x94));
+		mtk_v4l2_err("0x108: 0x%x",
+			readl(reg_base + 0x108));
+		mtk_v4l2_err("0x200: 0x%x 0x204: 0x%x, 0x208: 0x%x, 0x20C: 0x%x, 0x210: 0x%x, 0x214: 0x%x, 0x218: 0x%x, 0x21C: 0x%x, 0x220: 0x%x",
+			readl(reg_base + 0x200), readl(reg_base + 0x204),
+			readl(reg_base + 0x208), readl(reg_base + 0x20C),
+			readl(reg_base + 0x210), readl(reg_base + 0x214),
+			readl(reg_base + 0x218), readl(reg_base + 0x21C),
+			readl(reg_base + 0x220));
+		mtk_v4l2_err("0xE0: 0x%x, 0x1B0: 0x%x, 0x1B4: 0x%x, 0x1170: 0x%x",
+			readl(reg_base + 0xE0), readl(reg_base + 0x1B0),
+			readl(reg_base + 0x1B4), readl(reg_base + 0x1170));
+		mtk_v4l2_err("0x11B8: 0x%x 0x11BC: 0x%x, 0x1280: 0x%x, 0x1284: 0x%x, 0x1288: 0x%x",
+			readl(reg_base + 0x11B8), readl(reg_base + 0x11BC),
+			readl(reg_base + 0x1280), readl(reg_base + 0x1284),
+			readl(reg_base + 0x1288));
+		mtk_v4l2_err("0x132C: 0x%x 0x1330: 0x%x, 0x1334: 0x%x, 0x1338: 0x%x, 0x133C: 0x%x, 0x1340: 0x%x, 0x1344: 0x%x, 0x1348: 0x%x",
+			readl(reg_base + 0x132C), readl(reg_base + 0x1330),
+			readl(reg_base + 0x1334), readl(reg_base + 0x1338),
+			readl(reg_base + 0x133C), readl(reg_base + 0x1340),
+			readl(reg_base + 0x1344), readl(reg_base + 0x1348));
+		mtk_v4l2_err("0x1420: 0x%x, 0x1424: 0x%x", readl(reg_base + 0x1420),
+			readl(reg_base + 0x1424));
+		mtk_v4l2_err("0x13c: 0x%x, 0x484: 0x%x, 0x568: 0x%x",
+			readl(reg_base + 0x13c), readl(reg_base + 0x484), readl(reg_base + 0x568));
+
+		//soc base address as VENC_SYS
+		if (larb_id == 7) {
+			mtk_v4l2_err("0x4064: 0x%x, 0x406c : 0x%x, 0x4074: 0x%x, 0x52c0: 0x%x",
+				readl(reg_base + 0x4064), readl(reg_base + 0x406c),
+				readl(reg_base + 0x4074), readl(reg_base + 0x52c0));
+		} else if (larb_id == 8) {
+			reg_base = dev->enc_reg_base[VENC_SYS];
+			spin_lock_irqsave(&dev->enc_power_lock[MTK_VENC_CORE_0], flags);
+			if (dev->enc_is_power_on[MTK_VENC_CORE_0] == false) {
+				mtk_v4l2_err("hw %d power is off !!", MTK_VENC_CORE_0);
+				spin_unlock_irqrestore(&dev->enc_power_lock[MTK_VENC_CORE_0],
+					flags);
+				spin_unlock_irqrestore(&dev->enc_power_lock[hw_id], flags);
+				return -1;
+			}
+			if (reg_base != NULL) {
+				mtk_v4l2_err("0x4064: 0x%x, 0x406c : 0x%x, 0x4074: 0x%x, 0x52c0: 0x%x",
+					readl(reg_base + 0x4064), readl(reg_base + 0x406c),
+					readl(reg_base + 0x4074), readl(reg_base + 0x52c0));
+			}
+			spin_unlock_irqrestore(&dev->enc_power_lock[MTK_VENC_CORE_0], flags);
+		}
+	}
+
+	spin_unlock_irqrestore(&dev->enc_power_lock[hw_id], flags);
+
+	return 0;
+}
+#endif
+
+void mtk_venc_translation_fault_callback_setting(
+	struct mtk_vcodec_dev *dev)
+{
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	int i;
+
+	for (i = 0; i < dev->venc_ports[0].total_port_num; i++) {
+		mtk_iommu_register_fault_callback(MTK_M4U_ID(7, i),
+			mtk_venc_translation_fault_callback, (void *)dev, false);
+	}
+	for (i = 0; i < dev->venc_ports[1].total_port_num; i++) {
+		mtk_iommu_register_fault_callback(MTK_M4U_ID(8, i),
+			mtk_venc_translation_fault_callback, (void *)dev, false);
+	}
+#endif
 }

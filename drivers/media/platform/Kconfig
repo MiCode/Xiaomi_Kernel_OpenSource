@@ -301,19 +301,24 @@ config VIDEO_MEDIATEK_MDP
 	    To compile this driver as a module, choose M here: the
 	    module will be called mtk-mdp.
 
+source "drivers/media/platform/mtk-vcodec/Kconfig"
+
 config VIDEO_MEDIATEK_VCODEC
 	tristate "Mediatek Video Codec driver"
 	depends on MTK_IOMMU || COMPILE_TEST
 	depends on VIDEO_DEV && VIDEO_V4L2
 	depends on ARCH_MEDIATEK || COMPILE_TEST
-	depends on VIDEO_MEDIATEK_VPU || MTK_SCP
+	depends on VIDEO_MEDIATEK_VPU || MTK_SCP || MTK_TINYSYS_VCP_SUPPORT
 	# The two following lines ensure we have the same state ("m" or "y") as
 	# our dependencies, to avoid missing symbols during link.
 	depends on VIDEO_MEDIATEK_VPU || !VIDEO_MEDIATEK_VPU
 	depends on MTK_SCP || !MTK_SCP
+	depends on MTK_TINYSYS_VCP_SUPPORT || !MTK_TINYSYS_VCP_SUPPORT
+	select VIDEO_MEDIATEK_VCU
 	depends on MTK_SMI || (COMPILE_TEST && MTK_SMI=n)
 	select VIDEOBUF2_DMA_CONTIG
 	select V4L2_MEM2MEM_DEV
+	select VB2_MEDIATEK_DMA_CONTIG
 	select VIDEO_MEDIATEK_VCODEC_VPU if VIDEO_MEDIATEK_VPU
 	select VIDEO_MEDIATEK_VCODEC_SCP if MTK_SCP
 	help
@@ -326,6 +331,28 @@ config VIDEO_MEDIATEK_VCODEC
 
 	  To compile this driver as modules, choose M here: the
 	  modules will be called mtk-vcodec-dec and mtk-vcodec-enc.
+
+config VIDEO_MEDIATEK_VCU
+	tristate "Mediatek VCU driver"
+	help
+	  Mediatek video kernel driver for user space vpud.
+
+	  The driver support communicate with user space video driver vpud
+	  and allocate, free memory, etc.
+
+	  To compile this driver as modules, choose M here: the
+	  modules will be called mtk-vcu.
+
+config MTK_TINYSYS_VCP_SUPPORT
+	tristate "Mediatek VCP driver"
+	help
+	  Mediatek video kernel driver for micro-P.
+
+	  The driver support control and communicate vcp and allocate,
+	  free memory, etc.
+
+	  To compile this driver as modules, choose M here: the
+	  modules will be called vcp and vcp_status.
 
 config VIDEO_MEDIATEK_VCODEC_VPU
 	bool

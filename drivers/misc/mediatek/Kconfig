@@ -55,6 +55,7 @@ endmenu # Security
 menu "Tinysys"
 source "drivers/misc/mediatek/sspm/Kconfig"
 source "drivers/misc/mediatek/tinysys_scmi/Kconfig"
+source "drivers/misc/mediatek/vcp/Kconfig"
 endmenu # Tinysys
 
 menu "APU"

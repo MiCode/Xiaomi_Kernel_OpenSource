@@ -1,0 +1,15 @@
+config MTK_TINYSYS_VCP_SUPPORT
+	tristate "Specify Interface Support VCP"
+	help
+	  VCP is a MediaTek in-house DSP which can receive
+	  command from IPI interface.
+	  Set Y to enable this feature.
+	  If unsure,
+	  Set N to stay with legancy feature.
+
+config MTK_TINYSYS_VCP_VERSION
+	string "Support MTK VCP Driver Version"
+	depends on MTK_TINYSYS_VCP_SUPPORT
+	default ""
+	help
+	  MTK_TINYSYS_VCP_VERSION define which vcp version will be used
