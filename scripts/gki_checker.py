@@ -18,6 +18,7 @@ import string
 import sys
 import subprocess
 
+from collections import OrderedDict
 from optparse import OptionParser
 from pprint import pprint
 
@@ -44,6 +45,7 @@ def create_compare_file(target, input_file, output_file_name):
         # print "create " + input_file + " symbol list"
         # get System.map from vmlinux
         cmd = options.tool_chain + "llvm-nm -n --print-size " + input_file + " | grep -v '\( [aNUw] \)\|\(__crc_\)\|\( \$[adt]\)\|\( \.L\)' > " + output_file_name
+        #print(cmd)
         os.system(cmd)
 
 def write_dict_file(dict_cont, with_size, filename):
@@ -55,6 +57,11 @@ def write_dict_file(dict_cont, with_size, filename):
         else:
             for x in dict_cont.keys():
                 f.write(x +'\n')
+
+def write_list_file(list_cont, filename):
+    with open(options.checker_out + filename, "w") as f:
+        for x in list_cont:
+            f.write(x +'\n')
 
 def compare_config(g_config_file, m_config_file):
     global g_config_pass
@@ -130,15 +137,21 @@ def compare_config(g_config_file, m_config_file):
         write_dict_file(m_config, True, "config/mtk_cfg.txt")
 
 def get_gki_denyfile():
+    key_str = "out_krn/kernel-5.15"
     # remove old denyfiles.txt
     cmd = "rm -f " + options.checker_out + "file/tmp/gki_denyfiles.txt"
-    print(cmd)
+    #print(cmd)
     os.system(cmd)
     # get redount strings in file path ex. out_abi/android12-5.10/common and replace "/" as "\/" cause sed
     cmd = options.tool_chain + "llvm-dwarfdump --debug-info "+ options.google_vmlinux + " | grep -m 1 \"DW_AT_comp_dir\" | awk 'BEGIN {FS=\"\\\"\"} {print $2}'"
     #print(cmd)
     output = os.popen(cmd)
-    restr = output.read().splitlines()[0].replace("/","\/")
+    restr = output.read().splitlines()[0]
+    #print(restr)
+    if key_str in restr:
+        restr = restr.replace("out_krn/kernel-5.15", "common")
+    restr = restr.replace("/","\/")
+    #print(restr)
     output.close()
     # get denyfile
     cmd = options.tool_chain + "llvm-dwarfdump --debug-info "+ options.google_vmlinux \
@@ -213,10 +226,11 @@ def verify_violation(diff_cont):
 def get_sha(vmlinux):
     sha_default = True
     sha = default_google_sha
-    sha_re = re.compile('^Linux version.*-g(\w*)-.*$')
+    sha_re = re.compile('^Linux version.*-g(\w*)?(-\w*|) .*$')
     # Get Goolge commit sha from google vmlinux
     g_content = subprocess.check_output(options.tool_chain+"llvm-strings "+(vmlinux)+" | grep \"Linux version\"", shell=True).decode("utf-8")
     for ctx in g_content.split("\n"):
+        #print(ctx)
         sha_info = sha_re.search(ctx)
         if sha_info:
             sha_default = False
@@ -393,13 +407,21 @@ def compare_System_map(g_sysmap, m_sysmap):
     global g_symbol_pass
     g_ns_symbols, g_symbols = parsing_System_map(g_sysmap)
     m_ns_symbols, m_symbols = parsing_System_map(m_sysmap)
-    g_symbols.sort(key=lambda x: x[0])
-    m_symbols.sort(key=lambda x: x[0])
-    g_ns_symbols.sort(key=lambda x: x[0])
-    m_ns_symbols.sort(key=lambda x: x[0])
+    os.makedirs(options.checker_out+"symbol/google/", exist_ok=True)
+    os.makedirs(options.checker_out+"symbol/mtk/", exist_ok=True)
+    g_symbols = sorted(list(set(g_symbols)))
+    m_symbols = sorted(list(set(m_symbols)))
+    g_ns_symbols = sorted(list(set(g_ns_symbols)))
+    m_ns_symbols = sorted(list(set(m_ns_symbols)))
+    #write_list_file(g_symbols, "symbol/google/symbols.txt")
+    #write_list_file(m_symbols, "symbol/mtk/symbols.txt")
+    #write_list_file(g_ns_symbols, "symbol/google/ns_symbols.txt")
+    #write_list_file(m_ns_symbols, "symbol/mtk/ns_symbols.txt")
     # Compare two System.map symbols
     #print("Compare symbols")
-    g_s_report, m_s_report = compare_symbols(g_symbols, m_symbols, True)
+    g_s_unsort_report, m_s_unsort_report = compare_symbols(g_symbols, m_symbols, True)
+    g_s_report = OrderedDict(sorted(g_s_unsort_report.items()))
+    m_s_report = OrderedDict(sorted(m_s_unsort_report.items()))
     if g_s_report:
         print("Error: Symbol size different\n{ ", end="")
         g_symbol_pass = False
@@ -413,8 +435,9 @@ def compare_System_map(g_sysmap, m_sysmap):
         write_dict_file(m_s_report, True, "symbol/mtk_size_diff.txt")
 
     # print("Remove symbols with different size but same name ")
-    g_ns_report, m_ns_report = compare_symbols(g_ns_symbols, m_ns_symbols, False)
-
+    g_ns_unsort_report, m_ns_unsort_report = compare_symbols(g_ns_symbols, m_ns_symbols, False)
+    g_ns_report = OrderedDict(sorted(g_ns_unsort_report.items()))
+    m_ns_report = OrderedDict(sorted(m_ns_unsort_report.items()))
     if g_ns_report:
         print("Error: Addition Google Symbols:\n{ ", end="")
         g_symbol_pass = False
@@ -471,6 +494,9 @@ def update_white_list(filename):
     sbl=[]
     fil=[]
     curr_path = os.path.dirname(os.path.abspath(__file__))
+    cmd = "rm -f " + options.white_list
+    print(cmd)
+    os.system(cmd)
     if os.path.exists(options.checker_out + "file/summary.log"):
         os.remove(options.checker_out + "file/summary.log")
     if os.path.exists(options.checker_out + "symbol/gki_size_diff.txt"):
@@ -496,30 +522,39 @@ def update_white_list(filename):
     if os.path.exists(options.checker_out + "symbol/gki_size_diff.txt"):
         with open(options.checker_out + "symbol/gki_size_diff.txt","r") as f:
             for line in f.readlines():
-                sbl.append(line.split()[0]+'\n')
+                sbl.append(line.split()[0])
+    if os.path.exists(options.checker_out + "symbol/mtk_size_diff.txt"):
+        with open(options.checker_out + "symbol/mtk_size_diff.txt","r") as f:
+            for line in f.readlines():
+                sbl.append(line.split()[0])
     if os.path.exists(options.checker_out + "symbol/gki_panic.txt"):
         with open(options.checker_out + "symbol/gki_panic.txt","r") as f:
             for line in f.readlines():
-                sbl.append(line.split()[0]+'\n')
+                sbl.append(line.split()[0])
     if os.path.exists(options.checker_out + "symbol/mtk_panic.txt"):
         with open(options.checker_out + "symbol/mtk_panic.txt","r") as f:
             for line in f.readlines():
-                sbl.append(line.split()[0]+'\n')
+                sbl.append(line.split()[0])
     print("Update Config white list")
     create_compare_file("Config", options.google_vmlinux, options.checker_out + "config/tmp/google_kconfig")
     create_compare_file("Config", options.mtk_vmlinux, options.checker_out + "config/tmp/mtk_kconfig")
     compare_config(options.checker_out + "config/tmp/google_kconfig", options.checker_out + "config/tmp/mtk_kconfig")
+    if os.path.exists(options.checker_out + "config/gki_cfg.txt"):
+        with open(options.checker_out + "config/gki_cfg.txt","r") as f:
+            for line in f.readlines():
+                cfg.append(line.split()[0])
     if os.path.exists(options.checker_out + "config/mtk_cfg.txt"):
         with open(options.checker_out + "config/mtk_cfg.txt","r") as f:
             for line in f.readlines():
-                cfg.append(line.split()[0]+'\n')
+                if line.split()[0] not in cfg:
+                    cfg.append(line.split()[0])
     with open(filename, "w") as w:
         for f in fil:
             w.write("f " + f)
         for s in sbl:
-            w.write("s " + s)
+            w.write("s " + s + '\n')
         for c in cfg:
-            w.write("c " + c)
+            w.write("c " + c + '\n')
 
 def getExecuteOptions(self, args=[]):
     parser = OptionParser()
@@ -533,7 +568,7 @@ def getExecuteOptions(self, args=[]):
                       help="Checker output folder")
     parser.add_option("-k", "--kpath", nargs=1, dest="kernel_path", default=croot+"/kernel-5.15/",
                       help="Kernel path")
-    parser.add_option("-t", "--tcpath", nargs=1, dest="tool_chain", default=croot+"/kernel/prebuilts-master/clang/host/linux-x86/clang-r437112b/bin/",
+    parser.add_option("-t", "--tcpath", nargs=1, dest="tool_chain", default=croot+"/kernel/prebuilts-master/clang/host/linux-x86/clang-r445002/bin/",
                       help="Extract tool chain")
     parser.add_option("-c", "--ct", nargs=1, dest="config_tool", default=croot+"/kernel-5.15/scripts/extract-ikconfig",
                       help="Config extract script")
