@@ -4489,7 +4489,6 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	drm->mode_config.max_width = 4096;
 	drm->mode_config.max_height = 4096;
 	drm->mode_config.funcs = &mtk_drm_mode_config_funcs;
-	drm->mode_config.allow_fb_modifiers = true;
 
 	ret = component_bind_all(drm->dev, drm);
 	if (ret)
@@ -4517,6 +4516,11 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 		if (ret < 0)
 			goto err_component_unbind;
 	}
+	/* TODO: allow_fb_modifiers = 1 and format_modifiers = null make drm_warn_on.
+	 * so we set allow_fb_modifiers = 1 after mtk_plane_init
+	 */
+	drm->mode_config.allow_fb_modifiers = true;
+
 
 	/* Use OVL device for all DMA memory allocations */
 	np = private->comp_node[private->data->main_path_data
