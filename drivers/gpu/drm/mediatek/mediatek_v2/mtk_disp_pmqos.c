@@ -22,6 +22,7 @@ static struct drm_crtc *dev_crtc;
 static struct regulator *mm_freq_request;
 static u32 *g_freq_steps;
 static int g_freq_level[CRTC_NUM] = {-1};
+static long g_freq;
 static int step_size = 1;
 
 void mtk_disp_pmqos_get_icc_path_name(char *buf, int buf_len,
@@ -337,6 +338,8 @@ void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
 	int i;
 	unsigned long freq = pixclk * 1000000;
 
+	g_freq = freq;
+
 	if (freq > g_freq_steps[step_size - 1]) {
 		DDPMSG("%s:error:pixleclk (%d) is to big for mmclk (%llu)\n",
 			caller, freq, g_freq_steps[step_size - 1]);
@@ -355,5 +358,28 @@ void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
 		if (i == 0)
 			mtk_drm_set_mmclk(crtc, 0, caller);
 	}
+}
+
+unsigned long mtk_drm_get_freq(struct drm_crtc *crtc, const char *caller)
+{
+	return g_freq;
+}
+
+unsigned long mtk_drm_get_mmclk(struct drm_crtc *crtc, const char *caller)
+{
+	int idx;
+	unsigned long freq;
+
+	idx = drm_crtc_index(crtc);
+
+	if (g_freq_level[idx] >= 0)
+		freq = g_freq_steps[g_freq_level[idx]];
+	else
+		freq = g_freq_steps[0];
+
+	DDPINFO("%s[%d]g_freq_level[idx=%d]: %d (freq=%d)\n",
+		__func__, __LINE__, idx, g_freq_level[idx], freq);
+
+	return freq;
 }
 

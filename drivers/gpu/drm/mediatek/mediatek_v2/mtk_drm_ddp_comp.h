@@ -380,6 +380,7 @@ enum mtk_ddp_io_cmd {
 	/*Msync 2.0 cmd end*/
 	DUAL_TE_INIT,
 	OVL_GET_SOURCE_BPC,
+	DSI_GET_CMD_MODE_LINE_TIME,
 };
 
 struct golden_setting_context {

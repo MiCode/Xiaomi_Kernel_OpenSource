@@ -1174,9 +1174,14 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 	struct mml_submit *submit_user = NULL;
 	struct mml_drm_ctx *mml_ctx = NULL;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(mtk_plane_state->crtc);
-	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(mtk_plane_state->crtc->state);
+	struct mtk_crtc_state *crtc_state =
+						to_mtk_crtc_state(mtk_plane_state->crtc->state);
 	int i = 0, j = 0;
 	int ret = 0;
+	unsigned int fps = drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
+	unsigned int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+	unsigned int line_time = 0;
+	struct mtk_ddp_comp *comp;
 
 	submit_user = (struct mml_submit *)
 		(mtk_plane_state->prop_val[PLANE_PROP_MML_SUBMIT]);
@@ -1243,6 +1248,25 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 		}
 
 		mml_drm_split_info(submit_kernel, submit_pq);
+
+		// calculate line time, unit:ns
+		if (!mtk_crtc_is_frame_trigger_mode(mtk_plane_state->crtc)) {
+			// vdo mode
+			line_time = (1000000000 / fps) / vtotal;
+		} else {
+			// cmd mode
+			comp = mtk_ddp_comp_request_output(mtk_crtc);
+			if (comp)
+				mtk_ddp_comp_io_cmd(comp, NULL,
+							DSI_GET_CMD_MODE_LINE_TIME, &line_time);
+		}
+		// calculate act time
+		submit_kernel->info.act_time = line_time * submit_pq->info.dest[0].data.height;
+		DDPINFO("%s fps=%d vtotal=%d line_time=%d dest_height=%d act_time=%d\n", __func__,
+				fps, vtotal, line_time, submit_pq->info.dest[0].data.height,
+				submit_kernel->info.act_time);
+
+		DDPINFO("%s mml act_time=%d\n", __func__, submit_kernel->info.act_time);
 
 		if (mml_ctx != NULL) {
 			ret = mml_drm_submit(mml_ctx, submit_kernel, &(mtk_crtc->mml_cb));

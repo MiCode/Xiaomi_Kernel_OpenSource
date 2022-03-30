@@ -2682,6 +2682,8 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 	enum MTK_LAYERING_CAPS ret = MTK_MML_DISP_NOT_SUPPORT;
 	struct drm_crtc *crtc = NULL;
 	struct mtk_drm_crtc *mtk_crtc = NULL;
+	unsigned int ratio = 0;
+	unsigned long mmclk = 0;
 
 	if (!priv || !mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY))
 		return MTK_MML_DISP_NOT_SUPPORT;
@@ -2702,6 +2704,23 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 				print_mml_frame_info(*mml_info);
 				DDPINFO("%s:%d\n", __func__, __LINE__);
 			}
+
+			// mode set to mml decouple mode if mmclk level need to be increased
+			ratio = (mml_info->src.width * mml_info->src.height) * 100 /
+				(mml_info->dest[0].data.width * mml_info->dest[0].data.height);
+
+			mmclk = ratio * mtk_drm_get_freq(&mtk_crtc->base, __func__) / 100;
+
+			if (mmclk > mtk_drm_get_mmclk(&mtk_crtc->base, __func__))
+				mml_info->mode = MML_MODE_MML_DECOUPLE;
+
+			DDPDBG("%s src_width=%d src_height=%d dst_width=%d dst_height=%d\n",
+			__func__, mml_info->src.width, mml_info->src.height,
+			mml_info->dest[0].data.width, mml_info->dest[0].data.height);
+			DDPDBG("%s ratio=%d get_freq=%d mmclk=%d cur_mmclk=%d, mode=%d\n",
+			__func__, ratio, mtk_drm_get_freq(&mtk_crtc->base, __func__),
+			mmclk, mtk_drm_get_mmclk(&mtk_crtc->base, __func__), mml_info->mode);
+
 			mode = mml_drm_query_cap(mtk_drm_get_mml_drm_ctx(dev, crtc), mml_info);
 			DDPDBG("%s, mml_drm_query_cap mode:%d\n", __func__, mode);
 

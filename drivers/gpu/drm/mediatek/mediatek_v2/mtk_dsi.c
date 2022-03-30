@@ -6219,6 +6219,84 @@ static void dual_te_init(struct drm_crtc *crtc)
 	d_te->en = true;
 }
 
+static unsigned int mtk_dsi_get_cmd_mode_line_time(struct drm_crtc *crtc)
+{
+	struct mtk_dsi *dsi = NULL;
+	struct mtk_ddp_comp *output_comp = NULL;
+	struct mtk_panel_ext *ext = NULL;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	u32 dsi_val = 0;
+	u32 ps_wc = 0, lpx = 0, hs_prpr = 0;
+	u32 hs_zero = 0, hs_trail = 0, da_hs_exit = 0;
+	unsigned int line_time, line_time_ns;
+	unsigned int data_rate, dsi_clk;
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		DDPMSG("%s: invalid output comp\n", __func__);
+		return 0;
+	}
+
+	dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
+	if (unlikely(!dsi) || unlikely(!dsi->ext)) {
+		DDPMSG("DSI or DSI panel ext is NULL\n");
+		return 0;
+	}
+
+	if (dsi->clk_refcnt <= 0) {
+		DDPMSG("DSI is poweroff state\n");
+		return 0;
+	}
+
+	ext = dsi->ext;
+	data_rate = dsi->data_rate;
+	dsi_val = readl(dsi->regs + DSI_PHY_TIMECON0);
+	lpx = (dsi_val & LPX) >> 0;
+	hs_prpr = (dsi_val & HS_PREP) >> 8;
+	hs_zero = (dsi_val & HS_ZERO) >> 16;
+	hs_trail = (dsi_val & HS_TRAIL) >> 24;
+	dsi_val = readl(dsi->regs + DSI_PHY_TIMECON1);
+	da_hs_exit = (dsi_val & DA_HS_EXIT) >> 24;
+	ps_wc = (readl(dsi->regs + DSI_PSCTRL)) & 0x7FFF;
+
+	if (ext->params->is_cphy) {
+		/* CPHY */
+		dsi_clk = data_rate / 7;
+		if (ext->params->lp_perline_en) {
+			/* LP per line */
+			line_time = lpx + hs_prpr + hs_zero + 2 + 1 +
+				DIV_ROUND_UP(((dsi->lanes * 3) + 3 + 3 +
+				(CEILING(1 + ps_wc + 2, 2) / 2)), dsi->lanes) +
+				hs_trail + 1 + da_hs_exit + 1;
+		} else {
+			/* Keep HS */
+			line_time = DIV_ROUND_UP(((dsi->lanes * 3) + 3 + 3 +
+				(CEILING(1 + ps_wc + 2, 2) / 2)), dsi->lanes);
+		}
+	} else {
+		/* DPHY */
+		dsi_clk = data_rate / 8;
+		if (ext->params->lp_perline_en) {
+			/* LP per line */
+			line_time = lpx + hs_prpr + hs_zero + 1 +
+				DIV_ROUND_UP((5 + ps_wc + 6), dsi->lanes) +
+				hs_trail + 1 + da_hs_exit + 1;
+		} else {
+			/* Keep HS */
+			line_time = DIV_ROUND_UP((5 + ps_wc + 2), dsi->lanes);
+		}
+	}
+
+	line_time_ns = DIV_ROUND_UP(line_time * 1000, dsi_clk);
+	DDPMSG/*DDPINFO*/(
+		"%s, ps_wc=%d, lpx=%d, hs_prpr=%d, hs_zero=%d, hs_trail=%d, da_hs_exit=%d\n",
+		__func__, ps_wc, lpx, hs_prpr, hs_zero, hs_trail, da_hs_exit);
+	DDPMSG/*DDPINFO*/("%s, dsi_clk=%d, line_time=%d, line_time_ns=%d\n",
+		__func__, dsi_clk, line_time, line_time_ns);
+
+	return line_time_ns;
+}
+
 static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd cmd, void *params)
 {
@@ -6930,6 +7008,14 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case DUAL_TE_INIT:
 	{
 		dual_te_init((struct drm_crtc *)params);
+	}
+		break;
+	case DSI_GET_CMD_MODE_LINE_TIME:
+	{
+		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
+		unsigned int *line_time = (unsigned int *)params;
+
+		*line_time = mtk_dsi_get_cmd_mode_line_time(&crtc->base);
 	}
 		break;
 	default:
