@@ -129,6 +129,11 @@ static struct logger_buffer dprec_logger_buffer[DPREC_LOGGER_PR_NUM] = {
 };
 static bool is_buffer_init;
 static char *debug_buffer;
+#if IS_ENABLED(CONFIG_MTK_DISP_LOGGER)
+static bool logger_enable = 1;
+#else
+static bool logger_enable;
+#endif
 
 static int draw_RGBA8888_buffer(char *va, int w, int h,
 		       char r, char g, char b, char a)
@@ -217,6 +222,9 @@ static char *_logger_pr_type_spy(enum DPREC_LOGGER_PR_TYPE type)
 
 static void init_log_buffer(void)
 {
+	unsigned long va;
+	unsigned long pa;
+	unsigned long size;
 	int i, buf_size, buf_idx;
 	char *temp_buf;
 
@@ -279,6 +287,13 @@ static void init_log_buffer(void)
 	dprec_logger_buffer[4].buffer_ptr = status_buffer;
 
 	is_buffer_init = true;
+
+	va = (unsigned long)err_buffer[0];
+	pa = __pa_nodebug(va);
+	size = (DEBUG_BUFFER_SIZE - 4096);
+
+	mrdump_mini_add_extra_file(va, pa, size, "DISPLAY");
+
 	DDPINFO("[DISP]%s success\n", __func__);
 	return;
 err:
@@ -313,6 +328,9 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...)
 	char **buf_arr;
 	char *buf = NULL;
 	int len = 0;
+
+	if (!logger_enable)
+		return -1;
 
 	if (type >= DPREC_LOGGER_PR_NUM)
 		return -1;
@@ -1969,6 +1987,13 @@ static void process_dbg_opt(const char *opt)
 			g_trace_log = 1;
 		else if (strncmp(opt + 6, "off", 3) == 0)
 			g_trace_log = 0;
+	} else if (strncmp(opt, "logger:", 7) == 0) {
+		if (strncmp(opt + 7, "on", 2) == 0) {
+			init_log_buffer();
+			logger_enable = 1;
+		} else if (strncmp(opt + 7, "off", 3) == 0) {
+			logger_enable = 0;
+		}
 	} else if (strncmp(opt, "diagnose", 8) == 0) {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
@@ -3368,15 +3393,8 @@ void disp_dbg_probe(void)
 		d_file = debugfs_create_file("disp_lfr_params",
 			S_IFREG | 0644,	d_folder, NULL, &disp_lfr_params_fops);
 	}
-	init_log_buffer();
-	if (is_buffer_init) {
-		/* display wait for sync(DWFS)*/
-		/*/kernel-5.10/drivers/misc/mediatek/aee/mrdump/mrdump_mini.c*/
-		//unsigned long va = (unsigned long)err_buffer[0];
-		//unsigned long size = (DEBUG_BUFFER_SIZE - 4096);
-
-		//_mrdump_mini_add_extra_file_(va, size, "DISPLAY");
-	}
+	if (logger_enable)
+		init_log_buffer();
 
 	drm_mmp_init();
 #endif
@@ -3482,7 +3500,8 @@ void disp_dbg_deinit(void)
 void get_disp_dbg_buffer(unsigned long *addr, unsigned long *size,
 	unsigned long *start)
 {
-	init_log_buffer();
+	if (logger_enable)
+		init_log_buffer();
 	if (is_buffer_init) {
 		*addr = (unsigned long)err_buffer[0];
 		*size = (DEBUG_BUFFER_SIZE - 4096);

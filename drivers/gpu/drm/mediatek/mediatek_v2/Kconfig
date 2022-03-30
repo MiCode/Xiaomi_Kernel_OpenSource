@@ -28,3 +28,13 @@ config MTK_DRE30_SUPPORT
 	  Decide whether to support ambient-light adaptive luma and
 	  display visual enhancement ver.3.
 	  This feature requires the cowork of AAL user-space algorithm process.
+
+config MTK_DISP_LOGGER
+	bool "Default enable display logger function"
+	help
+	  Display logger would record display-related event
+	  for debug purpose.
+	  If this value is Y, display driver would
+	  initial display loggger during driver probe
+	  stage, but can still manual disable this function
+	  through debugfs or procfs.
