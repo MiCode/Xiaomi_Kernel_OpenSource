@@ -416,7 +416,6 @@ static int hf_manager_distinguish_event(struct hf_client *client,
 		struct hf_manager_event *event)
 {
 	int err = 0;
-	unsigned long flags;
 	struct sensor_state *request = &client->request[event->sensor_type];
 
 	switch (event->action) {
@@ -428,31 +427,14 @@ static int hf_manager_distinguish_event(struct hf_client *client,
 			err = hf_manager_report_event(client, event);
 		break;
 	case FLUSH_ACTION:
-		/*
-		 * flush relay on flush count client requested,
-		 * must not relay on enable status.
-		 * flush may report both by looper thread and disable thread.
-		 * spinlock prevent flush count report more than request.
-		 * sequence:
-		 * flush = 1
-		 * looper thread flush > 0
-		 *    looper thread hf_manager_report_event
-		 *        disable thread flush > 0
-		 *            disable thread hf_manager_report_event
-		 * flush complete report 2 times but request is 1.
-		 */
-		spin_lock_irqsave(&client->request_lock, flags);
+		/* must relay on flush count client requested */
 		if (atomic_read(&request->flush) > 0) {
 			err = hf_manager_report_event(client, event);
 			/* return < 0, don't decrease flush count */
-			if (err < 0) {
-				spin_unlock_irqrestore(&client->request_lock,
-					flags);
+			if (err < 0)
 				return err;
-			}
 			atomic_dec_if_positive(&request->flush);
 		}
-		spin_unlock_irqrestore(&client->request_lock, flags);
 		break;
 	case BIAS_ACTION:
 		/* relay on status client requested, don't check return */
