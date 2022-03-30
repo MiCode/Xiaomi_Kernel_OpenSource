@@ -605,7 +605,11 @@ int get_temp_tsens_valid(const struct tsens_sensor *s, int *temp)
 
 	if (s->cached_temp != INT_MIN)
 		*temp = s->cached_temp;
-	TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
+
+	if (s->tzd)
+		TSENS_DBG(priv, "Sensor_id: %d name:%s temp: %d", hw_id, s->tzd->type, *temp);
+	else
+		TSENS_DBG(priv, "Sensor_id: %d temp: %d", hw_id, *temp);
 
 	return 0;
 }
