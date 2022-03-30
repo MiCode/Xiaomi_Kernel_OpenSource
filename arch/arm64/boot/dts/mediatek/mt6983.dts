@@ -3662,6 +3662,7 @@
 		mediatek,enable;
 
 		pmif = <&spmi 0>;
+		pmif_version = <2>;
 		srclken_rc = <&srclken_rc>;
 		consys = <&consys>;
 		pcie = <&pcie_ckm_xtal_ck>;
