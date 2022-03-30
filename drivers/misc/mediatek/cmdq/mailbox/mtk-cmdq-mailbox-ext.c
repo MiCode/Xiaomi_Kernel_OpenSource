@@ -126,6 +126,9 @@ EXPORT_SYMBOL(skip_poll_sleep);
 bool gce_in_vcp;
 EXPORT_SYMBOL(gce_in_vcp);
 
+bool append_by_event;
+EXPORT_SYMBOL(append_by_event);
+
 /* CMDQ log flag */
 int mtk_cmdq_log;
 EXPORT_SYMBOL(mtk_cmdq_log);
@@ -531,7 +534,6 @@ static bool cmdq_task_is_current_run(dma_addr_t pa, struct cmdq_pkt *pkt)
 	return false;
 }
 
-
 static void cmdq_task_insert_into_thread(dma_addr_t curr_pa,
 	struct cmdq_task *task, struct list_head **insert_pos)
 {
@@ -560,8 +562,6 @@ static void cmdq_task_insert_into_thread(dma_addr_t curr_pa,
 			next_task->pkt, next_task->pkt->priority, &curr_pa);
 		cmdq_task_connect_buffer(task, next_task);
 	}
-
-	cmdq_thread_invalidate_fetched_data(thread);
 }
 
 static void cmdq_task_callback(struct cmdq_pkt *pkt, s32 err)
@@ -649,6 +649,8 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 	dma_addr_t curr_pa, pkt_end_pa, end_pa, dma_handle;
 	struct list_head *insert_pos;
 	struct cmdq_pkt_buffer *buf;
+	size_t offset = 0;
+	bool thrd_suspend = false;
 
 	cmdq = dev_get_drvdata(thread->chan->mbox->dev);
 
@@ -719,14 +721,21 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 			thread->base + CMDQ_THR_INST_CYCLES);
 		writel(thread->priority & CMDQ_THR_PRIORITY,
 			thread->base + CMDQ_THR_CFG);
-		cmdq_thread_set_end(thread, cmdq_task_get_end_pa(pkt));
+		cmdq_thread_set_end(thread, cmdq_task_get_end_pa(pkt)
+			- (pkt->loop ? 0 : CMDQ_INST_SIZE));
 		cmdq_thread_set_pc(thread, task->pa_base);
+
+		if (append_by_event)
+			cmdq_set_event(thread->chan, CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+
 		writel(CMDQ_THR_IRQ_EN, thread->base + CMDQ_THR_IRQ_ENABLE);
 		writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
+
 #if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
 		mmprofile_log_ex(cmdq_mmp.thread_en, MMPROFILE_FLAG_PULSE,
 			MMP_THD(thread, cmdq), CMDQ_THR_ENABLED);
 #endif
+
 		pkt_end_pa = cmdq_task_get_end_pa(pkt);
 		cmdq_log("set pc:%pa end:%pa pkt:0x%p",
 			&task->pa_base,
@@ -741,15 +750,44 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		list_move_tail(&task->list_entry, &thread->task_busy_list);
 	} else {
 		/* no warn on here to prevent slow down cpu */
-		cmdq_thread_suspend(cmdq, thread);
+
+		if (append_by_event) {
+			/* replace suspend thrd */
+			cmdq_clear_event(thread->chan, CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
+			/* reorder case */
+			last_task = list_last_entry(&thread->task_busy_list,
+				typeof(*task), list_entry);
+			if (last_task->pkt->priority < task->pkt->priority) {
+				cmdq_thread_suspend(cmdq, thread);
+				thrd_suspend = true;
+			}
+		} else {
+			cmdq_thread_suspend(cmdq, thread);
+				thrd_suspend = true;
+		}
+
 		curr_pa = cmdq_thread_get_pc(thread);
 		end_pa = cmdq_thread_get_end(thread);
+
+		if (!thrd_suspend) {
+			offset = cmdq_task_current_offset(curr_pa, last_task->pkt);
+			if (offset >= last_task->pkt->pause_offset) {
+				cmdq_thread_suspend(cmdq, thread);
+				thrd_suspend = true;
+				curr_pa = cmdq_thread_get_pc(thread);
+				end_pa = cmdq_thread_get_end(thread);
+			}
+		}
+
+		task->pkt->append.suspend = thrd_suspend;
+		task->pkt->append.pc[0] = curr_pa;
+		task->pkt->append.end = end_pa;
 
 		cmdq_log("curr task %pa~%pa thread->base:0x%p thread:%u",
 			&curr_pa, &end_pa, thread->base, thread->idx);
 
 		/* check boundary */
-		if (curr_pa == end_pa - CMDQ_INST_SIZE || curr_pa == end_pa) {
+		if (curr_pa == end_pa) {
 			/* set to this task directly */
 			cmdq_thread_set_pc(thread, task->pa_base);
 			last_task = list_last_entry(&thread->task_busy_list,
@@ -760,24 +798,34 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		} else {
 			cmdq_task_insert_into_thread(curr_pa, task,
 				&insert_pos);
+			if (thrd_suspend)
+				cmdq_thread_invalidate_fetched_data(thread);
 			smp_mb(); /* modify jump before enable thread */
 		}
 		list_add(&task->list_entry, insert_pos);
 		last_task = list_last_entry(&thread->task_busy_list,
 			typeof(*task), list_entry);
 		cmdq_thread_set_end(thread,
-			cmdq_task_get_end_pa(last_task->pkt));
+			cmdq_task_get_end_pa(last_task->pkt)
+			- (pkt->loop ? 0 : CMDQ_INST_SIZE));
 		pkt_end_pa = cmdq_task_get_end_pa(last_task->pkt);
 		cmdq_log("set end:%pa pkt:0x%p",
 			&pkt_end_pa,
 			last_task->pkt);
+
+		curr_pa = cmdq_thread_get_pc(thread);
+		task->pkt->append.pc[1] = curr_pa;
+
+		if (append_by_event)
+			cmdq_set_event(thread->chan, CMDQ_TOKEN_PAUSE_TASK_0 + thread->idx);
 
 		if (thread->dirty) {
 			cmdq_err("new task during error on thread:%u",
 				thread->idx);
 		} else {
 			/* safe to go */
-			cmdq_thread_resume(thread);
+			if (thrd_suspend)
+				cmdq_thread_resume(thread);
 		}
 	}
 
@@ -919,6 +967,9 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 			cmdq_err("iova:%pa iommu pa:%pa", &curr_pa, &pa);
 		} else
 			cmdq_err("cannot get dev:%p domain", cmdq->mbox.dev);
+
+		if (append_by_event)
+			cmdq_thread_dump_pkt_by_pc(thread, curr_pa, true);
 
 		set_bit(thread->idx, &cmdq->err_irq_idx);
 		wake_up_interruptible(&cmdq->err_irq_wq);
@@ -2139,6 +2190,9 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	if (!of_property_read_bool(dev->of_node, "cmdq-log-perf-off"))
 		cmdq_util_log_feature_set(NULL, CMDQ_LOG_FEAT_PERF);
+
+	if (of_property_read_bool(dev->of_node, "append-by-event"))
+		append_by_event = true;
 
 	dev_notice(dev,
 		"cmdq thread:%u shift:%u mminfra:%#x base:0x%lx pa:0x%lx\n",

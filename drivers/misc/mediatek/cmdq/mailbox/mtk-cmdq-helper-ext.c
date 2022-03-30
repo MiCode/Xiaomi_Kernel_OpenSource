@@ -1418,6 +1418,7 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 		}
 	}
 
+	dst->pause_offset = src->pause_offset;
 	dst->avail_buf_size = src->avail_buf_size + reduce_size;
 	dst->cmd_buf_size = src->cmd_buf_size - reduce_size;
 	dst->buf_size = src->buf_size;
@@ -2028,6 +2029,7 @@ EXPORT_SYMBOL(cmdq_pkt_wfe);
 int cmdq_pkt_wait_no_clear(struct cmdq_pkt *pkt, u16 event)
 {
 	u32 arg_b;
+	int ret;
 
 	if (event >= CMDQ_EVENT_MAX)
 		return -EINVAL;
@@ -2040,9 +2042,13 @@ int cmdq_pkt_wait_no_clear(struct cmdq_pkt *pkt, u16 event)
 	 * bit 31: 1 - update, 0 - no update
 	 */
 	arg_b = CMDQ_WFE_WAIT | CMDQ_WFE_WAIT_VALUE;
-	return cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(arg_b),
+	ret = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(arg_b),
 		CMDQ_GET_ARG_B(arg_b), event,
 		0, 0, 0, 0, CMDQ_CODE_WFE);
+	if (event == CMDQ_TOKEN_PAUSE_TASK_32)
+		pkt->pause_offset = pkt->cmd_buf_size;
+
+	return ret;
 }
 EXPORT_SYMBOL(cmdq_pkt_wait_no_clear);
 
@@ -2130,6 +2136,16 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 #endif
 #endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
 
+	if (append_by_event && !pkt->sec_data) {
+		err = cmdq_pkt_wait_no_clear(pkt, CMDQ_TOKEN_PAUSE_TASK_32);
+		if (err < 0)
+			return err;
+
+		/* JUMP to EOC */
+		err = cmdq_pkt_jump(pkt, CMDQ_JUMP_PASS);
+		if (err < 0)
+			return err;
+	}
 	/* insert EOC and generate IRQ for each command iteration */
 	err = cmdq_pkt_eoc(pkt, true);
 	if (err < 0)
@@ -2532,6 +2548,18 @@ s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 	err = cmdq_pkt_finalize(pkt);
 	if (err < 0)
 		return err;
+
+	if (append_by_event && pkt->pause_offset) {
+		struct cmdq_instruction *cmdq_inst;
+
+		cmdq_inst = (void *)cmdq_pkt_get_va_by_offset(pkt,
+			pkt->pause_offset - CMDQ_INST_SIZE);
+		if (cmdq_inst->op == CMDQ_CODE_WFE)
+			cmdq_inst->arg_a = CMDQ_TOKEN_PAUSE_TASK_0
+			+ cmdq_mbox_chan_id(client->chan);
+		else
+			cmdq_err("wrong pause inst:%#018llx", *((u64 *)cmdq_inst));
+	}
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	item->cb = cb;
@@ -3208,6 +3236,10 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 			pkt->rec_submit, pkt->rec_trigger,
 			pkt->rec_wait, pkt->rec_irq);
 #endif
+		cmdq_util_user_msg(client->chan,
+			"append info pc:%pa -> %pa end:%pa suspend:%d",
+			&pkt->append.pc[0], &pkt->append.pc[1],
+			&pkt->append.end, pkt->append.suspend);
 	}
 
 	if (dump_ist)

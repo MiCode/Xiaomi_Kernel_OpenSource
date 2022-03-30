@@ -96,6 +96,7 @@ extern int gce_shift_bit;
 extern int gce_mminfra;
 extern bool gce_in_vcp;
 extern bool skip_poll_sleep;
+extern bool append_by_event;
 
 #define CMDQ_REG_SHIFT_ADDR(addr) (((addr) + gce_mminfra) >> gce_shift_bit)
 #define CMDQ_REG_REVERT_ADDR(addr) (((addr) << gce_shift_bit) - gce_mminfra)
@@ -173,6 +174,9 @@ enum gce_event {
 
 	CMDQ_TOKEN_DISP_VA_START = 692,
 	CMDQ_TOKEN_DISP_VA_END = 693,
+
+	CMDQ_TOKEN_PAUSE_TASK_0 = 800,
+	CMDQ_TOKEN_PAUSE_TASK_32 = 832,
 
 	/* GPR timer token, 994 to 1009 (for gpr r0 to r15) */
 	CMDQ_EVENT_GPR_TIMER = 994,
