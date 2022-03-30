@@ -162,3 +162,14 @@ config EXT_MODULES
 	  The value must be kernel module repo list, such as
 	  "vendor/mediatek/kernel_modules/connectivity/common vendor/mediatek/kernel_modules/connectivity/gps"
 endmenu # Config
+
+menu "Misc configs"
+config FPGA_EARLY_PORTING
+	bool "MTK FPGA EARLY PORTING"
+	help
+	  Used for FPGA early porting to separate code segments between FPGA
+	  platform and non-FPGA platform.
+	  Say Y here if you are doing FPGA early porting.
+	  If unsure, say N
+endmenu # Misc
+
