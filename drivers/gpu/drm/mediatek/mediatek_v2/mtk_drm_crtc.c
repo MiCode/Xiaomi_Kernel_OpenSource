@@ -2433,7 +2433,8 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 				if (cur_is_mml)
 					mtk_crtc_alloc_sram(mtk_crtc);
 				else if (prev_is_mml) {
-					mtk_crtc->leave_mml_scn = true;
+					DDPMSG("Leave MML scenario, free sram\n");
+					mtk_crtc_free_sram(mtk_crtc);
 					// release previous mml_cfg
 					if (mtk_crtc->mml_cfg) {
 						mtk_free_mml_submit(mtk_crtc->mml_cfg);
@@ -4165,9 +4166,6 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		mtk_crtc->wb_enable = false;
 		drm_writeback_signal_completion(&mtk_crtc->wb_connector, 0);
 	}
-
-	if (cb_data->leave_mml_scn)
-		mtk_crtc_free_sram(mtk_crtc);
 
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
@@ -8469,8 +8467,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	cb_data->misc = mtk_crtc->ddp_mode;
 	cb_data->msync2_enable = 0;
 	cb_data->is_mml = mtk_crtc->is_mml;
-	cb_data->leave_mml_scn = mtk_crtc->leave_mml_scn;
-	mtk_crtc->leave_mml_scn = false;
 	if (mtk_crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1)
 		cb_data->pres_fence_idx = mtk_crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX];
 
