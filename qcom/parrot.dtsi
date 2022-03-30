@@ -1402,6 +1402,8 @@
 		reg = <0x088e0000 0x2000>,
 			<0x088e2000 0x1000>;
 		reg-names = "eud_base", "eud_mode_mgr2";
+		clocks = <&gcc GCC_EUSB3_0_CLKREF_EN>;
+		clock-names = "eud_clkref_clk";
 		qcom,secure-eud-en;
 		status = "ok";
 	};
