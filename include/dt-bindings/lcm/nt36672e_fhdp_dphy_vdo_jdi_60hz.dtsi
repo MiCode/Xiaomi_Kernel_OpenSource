@@ -1,0 +1,915 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device Tree defines for LCM settings
+ * Copyright (c) 2021 MediaTek Inc.
+ */
+
+#include "mtk_lcm_settings.h"
+
+&pio {
+	nt36672e_fhdp_dphy_vdo_jdi_60hz: nt36672e_fhdp_dphy_vdo_jdi_60hz {
+		compatible = "mediatek,nt36672e_fhdp_dphy_vdo_jdi_60hz";
+		lcm-version = <0>;
+
+		lcm-params{
+			compatible = "mediatek,lcm-params";
+			lcm-params-name = "nt36672e_fhdp_dphy_vdo_jdi_60hz";
+			lcm-params-types = <MTK_LCM_FUNC_DSI>;
+			lcm-params-resolution = <1080 2400>;
+			lcm-params-physical_width;
+			lcm-params-physical_height;
+
+			/* lk support */
+			lcm-params-lk {
+				compatible = "mediatek,lcm-params-lk";
+				lcm-params-lk_ctrl;
+				lcm-params-lk_lcm_if;
+				lcm-params-lk_lcm_cmd_if;
+				lcm-params-lk_io_select_mode;
+				lcm-params-lk_lcm_x;
+				lcm-params-lk_lcm_y;
+				lcm-params-lk_virtual_resolution = <0 0>;
+				lcm-params-lk_od_table_size;
+				lcm-params-lk_od_table;
+			};
+
+			lcm-params-lk-round-corner {
+				compatible = "mediatek,lcm-params-lk-round-corner";
+				lcm-params-lk-rc_round_corner_en = <0>;
+				lcm-params-lk-rc_is_notch;
+				lcm-params-lk-rc_full_content = <0>;
+				lcm-params-lk-rc_width;
+				lcm-params-lk-rc_height;
+				lcm-params-lk-rc_width_bot;
+				lcm-params-lk-rc_height_bot;
+				lcm-params-lk-rc_top_size;
+				lcm-params-lk-rc_top_size_left;
+				lcm-params-lk-rc_top_size_right;
+				lcm-params-lk-rc_bottom_size;
+				lcm-params-lk-rc_pattern_name;
+			};
+
+			lcm-params-dbi {
+				compatible = "mediatek,lcm-params-dbi";
+				/* future reserved for dbi interfaces */
+			};
+
+			lcm-params-dpi {
+				compatible = "mediatek,lcm-params-dpi";
+				/* future reserved for dpi interfaces */
+			};
+
+			lcm-params-dsi {
+				compatible = "mediatek,lcm-params-dsi";
+				lcm-params-dsi-density = <480>;
+				lcm-params-dsi-lanes = <4>;
+				lcm-params-dsi-format = <MTK_MIPI_DSI_FMT_RGB888>;
+				lcm-params-dsi-phy_type = <MTK_LCM_MIPI_DPHY>;
+				lcm-params-dsi-mode_flags = <MTK_MIPI_DSI_MODE_VIDEO>,
+						<MTK_MIPI_DSI_MODE_VIDEO_SYNC_PULSE>,
+						<MTK_MIPI_DSI_MODE_LPM>,
+						<MTK_MIPI_DSI_MODE_EOT_PACKET>,
+						<MTK_MIPI_DSI_CLOCK_NON_CONTINUOUS>;
+				lcm-params-dsi-mode_flags_doze_on;
+				lcm-params-dsi-mode_flags_doze_off;
+
+				lcm-params-dsi-need_fake_resolution;
+				lcm-params-dsi-fake_resolution = <1080 2400>;
+
+				lcm_gpio_list = <&pio 42 0>, /* gpio list*/
+					<&pio 28 0>,
+					<&pio 29 0>;
+				pinctrl-names = "gpio1", "gpio2", "gpio3";
+				pinctrl-0;
+				pinctrl-1;
+				pinctrl-2;
+				status = "okay";
+
+				lcm-params-dsi-default_mode = <0>;
+				lcm-params-dsi-mode_count = <1>;
+				lcm-params-dsi-mode_list =
+					<0 1080 2400 60>;
+
+				lcm-params-dsi-fps-0-1080-2400-60 {
+					compatible = "mediatek,lcm-dsi-fps-0-1080-2400-60";
+					lcm-params-dsi-voltage;
+
+					/* drm_display_mode */
+					lcm-params-dsi-vrefresh = <60>;
+					lcm-params-dsi-vertical_sync_active = <10>;
+					lcm-params-dsi-vertical_backporch = <10>;
+					lcm-params-dsi-vertical_frontporch = <54>;
+					lcm-params-dsi-vertical_active_line = <2400>;
+					lcm-params-dsi-horizontal_sync_active = <12>;
+					lcm-params-dsi-horizontal_backporch = <60>;
+					lcm-params-dsi-horizontal_frontporch = <76>;
+					lcm-params-dsi-horizontal_active_pixel = <1080>;
+					lcm-params-dsi-pixel_clock = <182284>;
+					lcm-params-dsi-hskew;
+					lcm-params-dsi-vscan;
+
+					/* mtk_panel_params */
+					lcm-params-dsi-pll_clock = <625>;
+					lcm-params-dsi-data_rate = <1250>;
+					lcm-params-dsi-vfp_for_low_power = <4180>;
+					lcm-params-dsi-ssc_disable;
+					lcm-params-dsi-ssc_range;
+					lcm-params-dsi-lcm_color_mode;
+					lcm-params-dsi-min_luminance;
+					lcm-params-dsi-average_luminance;
+					lcm-params-dsi-max_luminance;
+					lcm-params-dsi-round_corner_en = <0>;
+					lcm-params-dsi-corner_pattern_height;
+					lcm-params-dsi-corner_pattern_height_bot;
+					lcm-params-dsi-corner_pattern_tp_size;
+					lcm-params-dsi-corner_pattern_tp_size_left;
+					lcm-params-dsi-corner_pattern_tp_size_right;
+					lcm-params-dsi-corner_pattern_name;
+					lcm-params-dsi-physical_width_um;
+					lcm-params-dsi-physical_height_um;
+					lcm-params-dsi-output_mode;
+					lcm-params-dsi-lcm_cmd_if;
+					lcm-params-dsi-hbm_en_time;
+					lcm-params-dsi-hbm_dis_time;
+					lcm-params-dsi-lcm_index;
+					lcm-params-dsi-wait_sof_before_dec_vfp;
+					lcm-params-dsi-doze_delay;
+					lcm-params-dsi-lfr_enable;
+					lcm-params-dsi-lfr_minimum_fps;
+					lcm-params-dsi-msync2_enable;
+					lcm-params-dsi-max_vfp_for_msync;
+
+					/* lane swap */
+					lcm-params-dsi-lane_swap_en = <1>;
+					lcm-params-dsi-lane_swap0 =
+						<LCM_LANE_0 LCM_LANE_1 LCM_LANE_3 LCM_LANE_2>,
+						<LCM_LANE_CK LCM_LANE_0>;
+					lcm-params-dsi-lane_swap1 =
+						<LCM_LANE_0 LCM_LANE_1 LCM_LANE_3 LCM_LANE_2>,
+						<LCM_LANE_CK LCM_LANE_0>;
+
+					/* esd check table */
+					lcm-params-dsi-cust_esd_check = <0>;
+					lcm-params-dsi-esd_check_enable = <1>;
+					lcm-params-dsi-lcm_esd_check_table0 = <0x0A 0x01 0x9C>;
+					lcm-params-dsi-lcm_esd_check_table1;
+					lcm-params-dsi-lcm_esd_check_table2;
+
+					/* fpga support */
+					lcm-params-dsi-fpga-params-0-1080-2400-60 {
+						compatible = "mediatek,lcm-dsi-fpga-params";
+
+						lcm-params-dsi-lk_pll_div = <0 0>;
+						lcm-params-dsi-lk_fbk_div = <1>;
+					};
+
+					/* lk support */
+					lcm-params-dsi-lk-params-0-1080-2400-60 {
+						compatible = "mediatek,lcm-dsi-lk-params";
+						lcm-params-dsi-lk_mode =
+							<MTK_LK_SYNC_PULSE_VDO_MODE>;
+						lcm-params-dsi-lk_switch_mode = <MTK_LK_CMD_MODE>;
+						lcm-params-dsi-lk_switch_mode_enable = <0>;
+						lcm-params-dsi-lk_dsi_wmem_conti;
+						lcm-params-dsi-lk_dsi_rmem_conti;
+						lcm-params-dsi-lk_vc_num;
+						lcm-params-dsi-lk_data_format =
+							<MTK_LCM_COLOR_ORDER_RGB>,
+							<MTK_LCM_DSI_TRANS_SEQ_MSB_FIRST>,
+							<MTK_LCM_DSI_PADDING_ON_LSB>,
+							<MTK_LCM_DSI_FORMAT_RGB888>;
+						lcm-params-dsi-lk_intermediat_buffer_num;
+						lcm-params-dsi-lk_ps =
+							<MTK_LCM_PACKED_PS_24BIT_RGB888>;
+						lcm-params-dsi-lk_word_count;
+						lcm-params-dsi-lk_packet_size = <256>;
+
+						lcm-params-dsi-lk_horizontal_blanking_pixel;
+						lcm-params-dsi-lk_bllp;
+						lcm-params-dsi-lk_line_byte;
+						lcm-params-dsi-lk_horizontal_sync_active_byte;
+						lcm-params-dsi-lk_horizontal_backporch_byte;
+						lcm-params-dsi-lk_horizontal_frontporch_byte;
+						lcm-params-dsi-lk_rgb_byte;
+						lcm-params-dsi-lk_horizontal_sync_active_word_count;
+						lcm-params-dsi-lk_horizontal_backporch_word_count;
+						lcm-params-dsi-lk_horizontal_frontporch_word_count;
+						lcm-params-dsi-lk_pll_select;
+						lcm-params-dsi-lk_pll_div;
+						lcm-params-dsi-lk_fbk_div;
+						lcm-params-dsi-lk_fbk_sel;
+						lcm-params-dsi-lk_rg = <0 0 0>;
+						lcm-params-dsi-lk_dsi_clock;
+						lcm-params-dsi-lk_ssc_disable = <1>;
+						lcm-params-dsi-lk_ssc_range;
+						lcm-params-dsi-lk_compatibility_for_nvk;
+						lcm-params-dsi-lk_cont_clock;
+						lcm-params-dsi-lk_ufoe_enable;
+						lcm-params-dsi-lk_ufoe_params = <0 0 0 0>;
+						lcm-params-dsi-lk_edp_panel;
+						lcm-params-dsi-lk_lcm_int_te_monitor;
+						lcm-params-dsi-lk_lcm_int_te_period;
+						lcm-params-dsi-lk_lcm_ext_te_monitor;
+						lcm-params-dsi-lk_lcm_ext_te_period;
+						lcm-params-dsi-lk_noncont_clock;
+						lcm-params-dsi-lk_noncont_clock_period;
+						lcm-params-dsi-lk_clk_lp_per_line_enable = <0>;
+						lcm-params-dsi-lk_dual_dsi_type;
+						lcm-params-dsi-lk_mixmode_enable;
+						lcm-params-dsi-lk_mixmode_mipi_clock;
+						lcm-params-dsi-lk_pwm_fps;
+						lcm-params-dsi-lk_pll_clock_lp;
+						lcm-params-dsi-lk_ulps_sw_enable;
+						lcm-params-dsi-lk_null_packet_en;
+						lcm-params-dsi-lk_vact_fps = <120>;
+						lcm-params-dsi-lk_send_frame_enable;
+						lcm-params-dsi-lk_lfr_enable;
+						lcm-params-dsi-lk_lfr_mode;
+						lcm-params-dsi-lk_lfr_type;
+						lcm-params-dsi-lk_lfr_skip_num;
+						lcm-params-dsi-lk_ext_te_edge;
+						lcm-params-dsi-lk_eint_disable;
+						lcm-params-dsi-lk_phy_sel = <0 0 0 0>;
+					};
+
+					lcm-params-dsi-dsc-params-0-1080-2400-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-dsc-params";
+						lcm-params-dsi-dsc_enable = <0>;
+						lcm-params-dsi-dsc_enable_lk = <0>;
+						lcm-params-dsi-dsc_ver;
+						lcm-params-dsi-dsc_slice_mode;
+						lcm-params-dsi-dsc_rgb_swap;
+						lcm-params-dsi-dsc_cfg;
+						lcm-params-dsi-dsc_rct_on;
+						lcm-params-dsi-dsc_bit_per_channel;
+						lcm-params-dsi-dsc_line_buf_depth;
+						lcm-params-dsi-dsc_bp_enable;
+						lcm-params-dsi-dsc_bit_per_pixel;
+						lcm-params-dsi-dsc_pic_height;
+						lcm-params-dsi-dsc_pic_width;
+						lcm-params-dsi-dsc_slice_height;
+						lcm-params-dsi-dsc_slice_width;
+						lcm-params-dsi-dsc_chunk_size;
+						lcm-params-dsi-dsc_xmit_delay;
+						lcm-params-dsi-dsc_dec_delay;
+						lcm-params-dsi-dsc_scale_value;
+						lcm-params-dsi-dsc_increment_interval;
+						lcm-params-dsi-dsc_decrement_interval;
+						lcm-params-dsi-dsc_line_bpg_offset;
+						lcm-params-dsi-dsc_nfl_bpg_offset;
+						lcm-params-dsi-dsc_slice_bpg_offset;
+						lcm-params-dsi-dsc_initial_offset;
+						lcm-params-dsi-dsc_final_offset;
+						lcm-params-dsi-dsc_flatness_minqp;
+						lcm-params-dsi-dsc_flatness_maxqp;
+						lcm-params-dsi-dsc_rc_model_size;
+						lcm-params-dsi-dsc_rc_edge_factor;
+						lcm-params-dsi-dsc_rc_quant_incr_limit0;
+						lcm-params-dsi-dsc_rc_quant_incr_limit1;
+						lcm-params-dsi-dsc_rc_tgt_offset_hi;
+						lcm-params-dsi-dsc_rc_tgt_offset_lo;
+					};
+
+					lcm-params-dsi-phy-timcon-params-0-1080-2400-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-phy-timcon";
+						lcm-params-dsi-phy_timcon_hs_trail;
+						lcm-params-dsi-phy_timcon_hs_prpr;
+						lcm-params-dsi-phy_timcon_hs_zero;
+						lcm-params-dsi-phy_timcon_lpx;
+						lcm-params-dsi-phy_timcon_ta_get;
+						lcm-params-dsi-phy_timcon_ta_sure;
+						lcm-params-dsi-phy_timcon_ta_go;
+						lcm-params-dsi-phy_timcon_da_hs_exit;
+						lcm-params-dsi-phy_timcon_clk_trail;
+						lcm-params-dsi-phy_timcon_cont_det;
+						lcm-params-dsi-phy_timcon_da_hs_sync;
+						lcm-params-dsi-phy_timcon_clk_zero;
+						lcm-params-dsi-phy_timcon_clk_prpr;
+						lcm-params-dsi-phy_timcon_clk_exit;
+						lcm-params-dsi-phy_timcon_clk_post;
+
+						/* lk support */
+						lcm-params-dsi-phy_timcon_lk_hs_trail;
+						lcm-params-dsi-phy_timcon_lk_hs_zero;
+						lcm-params-dsi-phy_timcon_lk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_lpx;
+						lcm-params-dsi-phy_timcon_lk_ta_sack;
+						lcm-params-dsi-phy_timcon_lk_ta_get;
+						lcm-params-dsi-phy_timcon_lk_ta_sure;
+						lcm-params-dsi-phy_timcon_lk_ta_go;
+						lcm-params-dsi-phy_timcon_lk_clk_trail;
+						lcm-params-dsi-phy_timcon_lk_clk_zero;
+						lcm-params-dsi-phy_timcon_lk_lpx_wait;
+						lcm-params-dsi-phy_timcon_lk_cont_det;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_prpr;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_post;
+						lcm-params-dsi-phy_timcon_lk_da_hs_exit;
+						lcm-params-dsi-phy_timcon_lk_clk_hs_exit;
+					};
+
+					lcm-params-dsi-dyn-params-0-1080-2400-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn";
+						lcm-params-dsi-dyn_switch_en;
+						lcm-params-dsi-dyn_pll_clk;
+						lcm-params-dsi-dyn_data_rate;
+						lcm-params-dsi-dyn_vsa;
+						lcm-params-dsi-dyn_vbp;
+						lcm-params-dsi-dyn_vfp;
+						lcm-params-dsi-dyn_vfp_lp_dyn;
+						lcm-params-dsi-dyn_vac;
+						lcm-params-dsi-dyn_hsa;
+						lcm-params-dsi-dyn_hbp;
+						lcm-params-dsi-dyn_hfp;
+						lcm-params-dsi-dyn_hac;
+						lcm-params-dsi-dyn_max_vfp_for_msync_dyn;
+					};
+
+					lcm-params-dsi-dyn-fps-params-0-1080-2400-60 {
+						compatible =
+							"mediatek,lcm-params-dsi-dyn-fps";
+						lcm-params-dsi-dyn_fps_switch_en;
+						lcm-params-dsi-dyn_fps_vact_timing_fps;
+						lcm-params-dsi-dyn_fps_data_rate;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table0;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table1;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table2;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table3;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table4;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table5;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table6;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table7;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table8;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table9;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table10;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table11;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table12;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table13;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table14;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table15;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table16;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table17;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table18;
+						lcm-params-dsi-dyn_fps_dfps_cmd_table19;
+					};
+				};
+			};
+		};
+
+		lcm-ops {
+			compatible = "mediatek,lcm-ops";
+			lcm-ops-dbi {
+				compatible = "mediatek,lcm-ops-dbi";
+				/* future reserved for dbi interfaces*/
+			};
+
+			lcm-ops-dpi {
+				compatible = "mediatek,lcm-ops-dpi";
+				/* future reserved for dpi interfaces*/
+			};
+
+			lcm-ops-dsi {
+				compatible = "mediatek,lcm-ops-dsi";
+				prepare_table = <MTK_LCM_UTIL_TYPE_RESET 1 1>,
+					<MTK_LCM_UTIL_TYPE_MDELAY 1 15>,
+					<MTK_LCM_UTIL_TYPE_RESET 1 0>,
+					<MTK_LCM_UTIL_TYPE_MDELAY 1 20>,
+					<MTK_LCM_UTIL_TYPE_RESET 1 1>,
+					<MTK_LCM_UTIL_TYPE_MDELAY 1 15>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x10>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xB0 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xC0 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 3 0xC2 0x1B 0xA0>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x20>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x01 0x66>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x06 0x40>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x07 0x38>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x18 0x66>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x1B 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x2F 0x83>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x5C 0x90>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x5E 0xAA>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x69 0x91>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x95 0xD1>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x96 0xD1>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xF2 0x65>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xF3 0x64>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xF4 0x65>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xF5 0x64>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xF6 0x65>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xF7 0x64>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xF8 0x65>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xF9 0x64>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x89 0x15>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8A 0x15>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8D 0x15>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8E 0x15>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8F 0x15>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x91 0x15>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x24>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x01 0x0F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x03 0x0C>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x05 0x1D>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x08 0x2F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x09 0x2E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x0A 0x2D>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x0B 0x2C>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x11 0x17>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x12 0x13>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x13 0x15>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x15 0x14>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x16 0x16>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x17 0x18>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x1B 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x1D 0x1D>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x20 0x2F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x21 0x2E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x22 0x2D>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x23 0x2C>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x29 0x17>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x2A 0x13>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x2B 0x15>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x2F 0x14>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x30 0x16>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x31 0x18>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x32 0x04>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x34 0x10>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x35 0x1F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x36 0x1F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x37 0x20>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x4D 0x1B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x4E 0x4B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x4F 0x4B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x53 0x4B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x71 0x30>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x79 0x11>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7A 0x82>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7B 0x96>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7D 0x04>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x80 0x04>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x81 0x04>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x82 0x13>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x84 0x31>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x85 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x86 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x87 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x90 0x13>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x92 0x31>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x93 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x94 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x95 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9C 0xF4>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9D 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA0 0x16>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA2 0x16>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA3 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA4 0x04>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA5 0x04>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xC6 0xC0>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xC9 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD9 0x80>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE9 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x25>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x0F 0x1B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x18 0x21>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x19 0xE4>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x21 0x40>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x66 0xD8>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x68 0x50>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x69 0x10>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6B 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6D 0x0D>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6E 0x48>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x72 0x41>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x73 0x4A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x74 0xD0>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x77 0x62>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x79 0x77>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7D 0x40>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7E 0x1D>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7F 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x80 0x04>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x84 0x0D>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xCF 0x80>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD6 0x80>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD7 0x80>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xEF 0x20>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xF0 0x84>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x26>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x15 0x04>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x81 0x16>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x83 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x84 0x03>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x85 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x86 0x03>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x87 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x88 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8A 0x1A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8B 0x11>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8C 0x24>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8E 0x42>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8F 0x11>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x90 0x11>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x91 0x11>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9A 0x80>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9B 0x04>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9C 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9D 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9E 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x27>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x01 0x60>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x20 0x81>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x21 0xE7>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x25 0x82>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x26 0x1F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6E 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6F 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x70 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x71 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x72 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x75 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x76 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x77 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7D 0x09>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7E 0x5F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x80 0x23>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x82 0x09>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x83 0x5F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x88 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x89 0x10>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA5 0x10>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA6 0x23>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA7 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xB6 0x40>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE3 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE4 0xDA>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE5 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE6 0x6D>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE9 0x03>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xEA 0x2F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xEB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xEC 0x98>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x2A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x00 0x91>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x03 0x20>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x07 0x52>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x0A 0x70>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x0D 0x40>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x0E 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x11 0xF0>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x15 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x16 0xB6>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x19 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x1A 0x8A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x1B 0x14>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x1D 0x36>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x1E 0x4F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x1F 0x51>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x20 0x4F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x28 0xEC>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x29 0x0C>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x2A 0x05>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x2D 0x06>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x2F 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x30 0x4A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x33 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x34 0xEE>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x35 0x30>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x36 0x06>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x37 0xE9>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x38 0x34>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x39 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x3A 0x4A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x45 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x46 0x40>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x47 0x03>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x4A 0xA0>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x4E 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x4F 0xB6>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x52 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x53 0x8A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x54 0x14>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x56 0x36>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x57 0x76>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x58 0x76>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x59 0x76>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x60 0x80>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x61 0xA0>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x62 0x04>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x63 0x33>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x65 0x04>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x66 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x67 0x05>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x68 0x40>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6A 0x4C>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6B 0xA2>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6C 0x21>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6D 0xBB>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6E 0x9F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6F 0x23>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x70 0xB9>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x71 0x05>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7A 0x07>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7B 0x40>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7D 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7F 0x2C>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x83 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x84 0xB6>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x87 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x88 0x8A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x89 0x14>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8B 0x36>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8C 0x3A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8D 0x3A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x8E 0x3A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x95 0x80>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x96 0xFD>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x97 0x14>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x98 0x17>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x99 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9A 0x08>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9B 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9C 0x4C>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9D 0xAF>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9F 0x6B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA0 0xFF>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA2 0x40>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA3 0x6F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA4 0xF9>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA5 0x45>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA6 0x6A>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xA7 0x4C>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x2C>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x00 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x01 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x02 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x03 0x16>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x04 0x16>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x05 0x16>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x0D 0x1F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x0E 0x1F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x16 0x1B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x17 0x4B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x18 0x4B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x19 0x4B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x2A 0x03>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x4D 0x16>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x4E 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x4F 0x27>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x53 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x54 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x55 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x56 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x58 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x59 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x61 0x1F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x62 0x1F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6A 0x14>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6B 0x34>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6C 0x34>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x6D 0x34>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x7E 0x03>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9D 0x0E>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9E 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9F 0x03>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x20>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb0 0x00 0x00 0x00 0x15 0x00 0x3F 0x00 0x5F 0x00>,
+						<0X7E 0x00 0x97 0x00 0xAF 0x00 0xc3>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb1 0x00 0xd7 0x01 0x0A 0x01 0x32 0x01 0x6F 0x01>,
+						<0X9E 0x01 0xE5 0x02 0x1d 0x02 0x1e>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb2 0x02 0x56 0x02 0x94 0x02 0xBC 0x02 0xF1 0x03>,
+						<0X13 0x03 0x41 0x03 0x4F 0x03 0x5F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 15>,
+						<0xb3 0x03 0x71 0x03 0x84 0x03 0x99 0x03 0xB0 0x03>,
+						<0XCA 0x03 0xD7 0x00 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb4 0x00 0x00 0x00 0x17 0x00 0x46 0x00 0x69 0x00>,
+						<0X8C 0x00 0xa5 0x00 0xbE 0x00 0xd1>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb5 0x00 0xe4 0x01 0x18 0x01 0x40 0x01 0x7C 0x01>,
+						<0xAA 0x01 0xf0 0x02 0x27 0x02 0x28>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb6 0x02 0x5E 0x02 0x9B 0x02 0xC3 0x02 0xF6 0x03>,
+						<0X18 0x03 0x45 0x03 0x54 0x03 0x63>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 15>,
+						<0xb7 0x03 0x75 0x03 0x87 0x03 0x9C 0x03 0xB2 0x03>,
+						<0XCA 0x03 0xD7 0x00 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb8 0x00 0x00 0x00 0x18 0x00 0x49 0x00 0x6B 0x00>,
+						<0X8E 0x00 0xa8 0x00 0xC1 0x00 0xd3>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb9 0x00 0xe5 0x01 0x18 0x01 0x3F 0x01 0x7B 0x01>,
+						<0Xa8 0x01 0xEC 0x02 0x24 0x02 0x26>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xba 0x02 0x5A 0x02 0x97 0x02 0xc0 0x02 0xF4 0x03>,
+						<0X15 0x03 0x43 0x03 0x51 0x03 0x61>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 15>,
+						<0xbb 0x03 0x72 0x03 0x85 0x03 0x9A 0x03 0xB1 0x03>,
+						<0XCA 0x03 0xD7 0x00 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xC6 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xC7 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xC8 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xC9 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xCA 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xCB 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xCC 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xCD 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xCE 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xCF 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD0 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD1 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD2 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD3 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD4 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD5 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD6 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD7 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD8 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD9 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xDA 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xDB 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xDC 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xDD 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xDE 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xDF 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE0 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE1 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE2 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE3 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE4 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE5 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE6 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE7 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE8 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xE9 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x21>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xfb 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb0 0x00 0x00 0x00 0x15 0x00 0x3F 0x00 0x5F 0x00>,
+						<0x7E 0x00 0x97 0x00 0xAF 0x00 0xc3>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb1 0x00 0xd7 0x01 0x0A 0x01 0x32 0x01 0x6F 0x01>,
+						<0x9E 0x01 0xE5 0x02 0x1d 0x02 0x1e>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb2 0x02 0x56 0x02 0x94 0x02 0xBC 0x02 0xF1 0x03>,
+						<0x13 0x03 0x41 0x03 0x4F 0x03 0x5F>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 15>,
+						<0xb3 0x03 0x71 0x03 0x84 0x03 0x99 0x03 0xB0 0x03>,
+						<0xCA 0x03 0xD7 0x00 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb4 0x00 0x00 0x00 0x17 0x00 0x46 0x00 0x69 0x00>,
+						<0x8C 0x00 0xa5 0x00 0xbE 0x00 0xd1>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb5 0x00 0xe4 0x01 0x18 0x01 0x40 0x01 0x7C 0x01>,
+						<0xAA 0x01 0xf0 0x02 0x27 0x02 0x28>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb6 0x02 0x5E 0x02 0x9B 0x02 0xC3 0x02 0xF6 0x03>,
+						<0x18 0x03 0x45 0x03 0x54 0x03 0x63>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 15>,
+						<0xb7 0x03 0x75 0x03 0x87 0x03 0x9C 0x03 0xB2 0x03>,
+						<0xCA 0x03 0xD7 0x00 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb8 0x00 0x00 0x00 0x18 0x00 0x49 0x00 0x6B 0x00>,
+						<0x8E 0x00 0xa8 0x00 0xC1 0x00 0xd3>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xb9 0x00 0xe5 0x01 0x18 0x01 0x3F 0x01 0x7B 0x01>,
+						<0xa8 0x01 0xEC 0x02 0x24 0x02 0x26>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 17>,
+						<0xba 0x02 0x5A 0x02 0x97 0x02 0xc0 0x02 0xF4 0x03>,
+						<0x15 0x03 0x43 0x03 0x51 0x03 0x61>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 15>,
+						<0xbb 0x03 0x72 0x03 0x85 0x03 0x9A 0x03 0xB1 0x03>,
+						<0xCA 0x03 0xD7 0x00 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0xE0>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x35 0x82>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0xF0>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x1C 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x33 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x5A 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xD2 0x52>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0xD0>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x53 0x22>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x54 0x02>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0xC0>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9C 0x11>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x9D 0x11>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x2B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xB7 0x08>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xB8 0x0B>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFF 0x10>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0xFB 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x35 0x01>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x51 0xFF>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x53 0x0C>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 2 0x55 0x00>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x11>,
+					<MTK_LCM_PHASE_TYPE_START 2>,
+						<MTK_LCM_PHASE_LK>,
+						<MTK_LCM_PHASE_KERNEL>,
+					<MTK_LCM_UTIL_TYPE_MDELAY 1 120>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x29>,
+					<MTK_LCM_PHASE_TYPE_END 2>,
+						<MTK_LCM_PHASE_LK>,
+						<MTK_LCM_PHASE_KERNEL>,
+					<MTK_LCM_PHASE_TYPE_START 1 MTK_LCM_PHASE_KERNEL>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT 4>,
+						<MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT 1 0x51 0xFF>,
+					<MTK_LCM_PHASE_TYPE_END 1 MTK_LCM_PHASE_KERNEL>,
+					<MTK_LCM_TYPE_END>;
+
+				unprepare_table =
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x28>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x10>,
+					<MTK_LCM_UTIL_TYPE_MDELAY 1 200>,
+					<MTK_LCM_TYPE_END>;
+
+				set_display_on_table =
+					<MTK_LCM_PHASE_TYPE_START 2>,
+						<MTK_LCM_PHASE_LK>,
+						<MTK_LCM_PHASE_LK_DISPLAY_ON_DELAY>,
+					<MTK_LCM_UTIL_TYPE_TDELAY 1 120>,
+					<MTK_LCM_CMD_TYPE_WRITE_BUFFER 1 0x29>,
+					<MTK_LCM_PHASE_TYPE_END 2>,
+						<MTK_LCM_PHASE_LK>,
+						<MTK_LCM_PHASE_LK_DISPLAY_ON_DELAY>,
+					<MTK_LCM_TYPE_END>;
+
+				lcm_update_table;
+
+				set_backlight_mask = <0xff>;
+				set_backlight_cmdq_table =
+					<MTK_LCM_CB_TYPE_RUNTIME_INPUT 3 1 0x51 0xFF>,
+					<MTK_LCM_TYPE_END>;
+
+				set_aod_light_mask = <0xff>;
+				set_aod_light_table;
+
+				ata_id_value_length = <0>;
+				ata_id_value_data;
+				ata_check_table;
+
+				compare_id_value_length = <1>;
+				compare_id_value_data = <0x0>;
+				compare_id_table = <MTK_LCM_UTIL_TYPE_RESET 1 1>,
+					<MTK_LCM_UTIL_TYPE_MDELAY 1 10>,
+					<MTK_LCM_UTIL_TYPE_RESET 1 0>,
+					<MTK_LCM_UTIL_TYPE_MDELAY 1 10>,
+					<MTK_LCM_UTIL_TYPE_RESET 1 1>,
+					<MTK_LCM_UTIL_TYPE_MDELAY 1 10>,
+					<MTK_LCM_LK_TYPE_PREPARE_PARAM_COUNT 1 1>,
+					<MTK_LCM_LK_TYPE_PREPARE_PARAM 5 0 0x00 0x01 0x37 0x00>,
+					<MTK_LCM_LK_TYPE_WRITE_PARAM 0>,
+					<MTK_LCM_CMD_TYPE_READ_BUFFER 3 0 1 0xDA>,
+					<MTK_LCM_TYPE_END>;
+
+				doze_enable_start_table;
+
+				doze_enable_table;
+
+				doze_disable_table;
+
+				doze_area_table;
+
+				doze_post_disp_on_table;
+
+				hbm_set_cmdq_switch_id;
+				hbm_set_cmdq_switch_on;
+				hbm_set_cmdq_switch_off;
+				hbm_set_cmdq_table;
+
+				/* fps switch cmd for high frame rate feature */
+				lcm-ops-dsi-fps-switch-after-poweron {
+					compatible =
+						"mediatek,lcm-ops-dsi-fps-switch-after-poweron";
+					fps-switch-0-1080-2400-60_table;
+				};
+
+				lcm-ops-dsi-fps-switch-before-powerdown {
+					compatible =
+						"mediatek,lcm-ops-dsi-fps-switch-before-powerdown";
+					fps-switch-0-1080-2400-60_table;
+				};
+			};
+		};
+	};
+};
+
