@@ -1,0 +1,124 @@
+config MTK_SWPM_MODULE
+	tristate "Meditaek Software Power Model Module"
+	help
+	  For MediaTek Software Power Model Module,
+	  modling SoC likes CPU, GPU and DRAM power.
+	  Select "y" if you want to enable SWPM features.
+	  Select "n" if unsure.
+
+config MTK_SWPM_DBG_COMMON
+	tristate "Meditaek Software Power Model common debug Module"
+	help
+	  Select MTK_SWPM_DBG_COMMON then Mediatek Software Power Model
+	  common debug feature will be enabled. The common debug
+	  feature will support basic debug control and show the
+	  information to console and ftrace.
+
+config MTK_SWPM_PERF_ARMV8_PMU
+	tristate "Meditaek Software Power Model uses ARMV8 and L3-cache PMU"
+	help
+	   Select MTK_SWPM_PERF_ARMV8_PMU then Mediatek Software Power Model
+	   common debug feature will reserve ARM related PMU.
+	   Mediatek Software Power Model will register ARM PMUs and L3 cache
+	   performance monitor unit (PMU) by perf framework.
+
+config MTK_SWPM_MT6789
+	tristate "Specify Mediatek SWPM Platform is MT6789"
+	depends on MTK_SWPM_MODULE
+	select MTK_SWPM_DBG_COMMON
+	help
+	  Select MediaTek Software Power Model Platform is MT6789
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6789.
+	  If unsure, set N to disable.
+
+config MTK_SWPM_MT6853
+	tristate "Specify Mediatek SWPM Platform is MT6853"
+	depends on MTK_SWPM_MODULE
+	select MTK_SWPM_DBG_COMMON
+	help
+	  Select MediaTek Software Power Model Platform is MT6853
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6853.
+	  If unsure, set N to disable.
+
+config MTK_SWPM_MT6855
+	tristate "Specify Mediatek SWPM Platform is MT6855"
+	depends on MTK_SWPM_MODULE
+	select MTK_SWPM_DBG_COMMON
+	help
+	  Select MediaTek Software Power Model Platform is MT6855
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6855.
+	  If unsure, set N to disable.
+
+config MTK_SWPM_MT6873
+	tristate "Specify Mediatek SWPM Platform is MT6873"
+	depends on MTK_SWPM_MODULE
+	select MTK_SWPM_DBG_COMMON
+	help
+	  Select MediaTek Software Power Model Platform is MT6873
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6873.
+	  If unsure, set N to disable.
+
+config MTK_SWPM_MT6879
+	tristate "Specify Mediatek SWPM Platform is MT6879"
+	depends on MTK_SWPM_MODULE
+	select MTK_SWPM_DBG_COMMON
+	help
+	  Select MediaTek Software Power Model Platform is MT6879
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6879.
+	  If unsure, set N to disable.
+
+config MTK_SWPM_MT6885
+	tristate "Specify Mediatek SWPM Platform is MT6885"
+	depends on MTK_SWPM_MODULE
+	select MTK_SWPM_DBG_COMMON
+	help
+	  Select MediaTek Software Power Model Platform is MT6885
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6885.
+	  If unsure, set N to disable.
+
+config MTK_SWPM_MT6895
+	tristate "Specify Mediatek SWPM Platform is MT6895"
+	depends on MTK_SWPM_MODULE
+	select MTK_SWPM_DBG_COMMON
+	help
+	  Select MediaTek Software Power Model Platform is MT6895
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6895.
+	  If unsure, set N to disable.
+
+config MTK_SWPM_MT6893
+	tristate "Specify Mediatek SWPM Platform is MT6893"
+	depends on MTK_SWPM_MODULE
+	select MTK_SWPM_DBG_COMMON
+	help
+	  Select MediaTek Software Power Model Platform is MT6893
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6893.
+	  If unsure, set N to disable.
+
+config MTK_SWPM_MT6983
+	tristate "Specify Mediatek SWPM Platform is MT6983"
+	depends on MTK_SWPM_MODULE
+	select MTK_SWPM_DBG_COMMON
+	help
+	  Select MediaTek Software Power Model Platform is MT6983
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6983.
+	  If unsure, set N to disable.
+
+config MTK_SWPM_MT6985
+	tristate "Specify Mediatek SWPM Platform is MT6985"
+	depends on MTK_SWPM_MODULE
+	select MTK_SWPM_DBG_COMMON
+	help
+	  Select MediaTek Software Power Model Platform is MT6985
+	  for power management.
+	  Set Y to select this feature for specific platform-mt6985.
+	  If unsure, set N to disable.
+
