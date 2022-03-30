@@ -9702,7 +9702,6 @@
 		interrupt-names = "ipc";
 		sspm_res_ram_start = <0x0>;
 		sspm_res_ram_size = <0x510000>; /* 5M + 64K */
-		mediatek,fake_sspm = <1>;
 	};
 
 	teeperf {
@@ -9736,7 +9735,7 @@
 		ranges = <0 0x0 0x1C350000 0x80>;
 
 		scmi_tx_shmem: tiny_mbox@0 {
-			compatible = "arm,scmi-tx-shmem";
+			compatible = "arm,scmi-shmem";
 			reg = <0x0 0x80>;
 		};
 	};
@@ -9750,7 +9749,7 @@
 		ranges = <0 0x0 0x1C360000 0x80>;
 
 		scmi_rx_shmem: tiny_mbox@1 {
-			compatible = "arm,scmi-rx-shmem";
+			compatible = "arm,scmi-shmem";
 			reg = <0x0 0x80>;
 		};
 	};
