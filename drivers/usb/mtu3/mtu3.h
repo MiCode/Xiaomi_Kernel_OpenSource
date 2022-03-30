@@ -146,6 +146,19 @@ enum mtu3_dr_operation_mode {
 	MTU3_DR_OPERATION_DEVICE,
 };
 
+enum mtu3_plat_type {
+	PLAT_ASIC = 0,
+	PLAT_FPGA = 1,
+};
+
+enum mtu3_fpga_phy {
+	GENERIC_USB_PHY = 0,
+	A60930_USB_PHY = 1,
+	A60979_USB_PHY = 2,
+	A60931_USB_PHY = 3,
+	A60862_USB_PHY = 4,
+};
+
 /**
  * @base: the base address of fifo
  * @limit: the bitmap size in bits
@@ -284,6 +297,9 @@ struct ssusb_mtk {
 	u32 uwk_reg_base;
 	u32 uwk_vers;
 	bool clk_mgr;
+	/* fpga */
+	enum mtu3_plat_type plat_type;
+	enum mtu3_fpga_phy fpga_phy;
 };
 
 /**
