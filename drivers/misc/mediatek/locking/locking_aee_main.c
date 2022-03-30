@@ -95,7 +95,7 @@ static int locking_aee_thread(void *data)
 	u32 val_warned = 0;
 
 	for (;;) {
-		msleep(3000);
+		msleep(2000);
 
 		/* is lockdep disabled? */
 		if (likely(debug_locks))
@@ -128,11 +128,10 @@ static int __init locking_aee_init(void)
 	int ret;
 
 	ret = register_kretprobe(&debug_locks_off_kretprobe);
-	if (ret < 0) {
+	if (ret < 0)
 		pr_info("register debug_locks_off kretprobe failed, returned %d\n", ret);
-		return -1;
-	}
-	pr_info("register debug_locks_off kretprobe succeeded.\n");
+	else
+		pr_info("register debug_locks_off kretprobe succeeded.\n");
 
 	kthread_run(locking_aee_thread, NULL, "locking_aee");
 	lockdep_test_init();
