@@ -834,60 +834,6 @@ void mtk_btag_klog(struct mtk_blocktag *btag, struct mtk_btag_trace *tr)
 }
 EXPORT_SYMBOL_GPL(mtk_btag_klog);
 
-static int mtk_btag_pr_time(char *out, int size, const char *str, __u64 t)
-{
-	uint32_t nsec;
-	int ret;
-
-	nsec = do_div(t, 1000000000);
-	ret = snprintf(out, size, ",%s=[%lu.%06lu]", str, (unsigned long)t,
-		(unsigned long)nsec/1000);
-	return ret;
-}
-
-static const char *mtk_btag_pr_speed(char *out, int size, __u64 usage,
-	__u32 bytes)
-{
-	__u32 speed;
-
-	if (!usage || !bytes)
-		return "";
-
-	do_div(usage, 1000); /* convert ns to us */
-	speed = 1000 * bytes / (__u32)usage;  /* bytes/ms */
-	speed = (speed*1000) >> 10; /* KB/s */
-
-	snprintf(out, size, ",%u KB/s", speed);
-	return out;
-}
-
-void mtk_btag_task_timetag(char *buf, unsigned int len, unsigned int stage,
-	unsigned int max, const char *name[], uint64_t *t, __u32 bytes)
-{
-	__u64 busy_time = 0;
-	int i;
-	int ret;
-
-	if (!buf || !len)
-		return;
-
-	for (i = 0; i <= stage; i++) {
-		ret = mtk_btag_pr_time(buf, len, name[i], t[i]);
-		buf += ret;
-		len -= ret;
-	}
-
-	if (stage == max-1) {
-		busy_time = t[stage] - t[0];
-		ret = mtk_btag_pr_time(buf, len, "busy", busy_time);
-		buf += ret;
-		len -= ret;
-		mtk_btag_pr_speed(buf, len, busy_time, bytes);
-	}
-}
-EXPORT_SYMBOL_GPL(mtk_btag_task_timetag);
-
-
 void mtk_btag_seq_time(char **buff, unsigned long *size,
 	struct seq_file *seq, uint64_t time)
 {

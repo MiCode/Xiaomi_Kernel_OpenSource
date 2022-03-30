@@ -80,30 +80,6 @@ int mtk_btag_pidlog_add_mmc(struct request_queue *q, short pid,
 }
 EXPORT_SYMBOL_GPL(mtk_btag_pidlog_add_mmc);
 
-static const char *task_name[tsk_max] = {
-	"send_cmd", "req_compl"};
-
-static void mmc_mtk_pr_tsk(struct mmc_mtk_bio_context_task *tsk,
-	unsigned int stage)
-{
-	const char *rw = "?";
-	int klogen = BTAG_KLOGEN(mmc_mtk_btag);
-	char buf[256];
-	__u32 bytes;
-
-	if (!((klogen == 2 && stage == tsk_req_compl) || (klogen == 3)))
-		return;
-
-	if (tsk->dir)
-		rw = "r";
-	else
-		rw = "w";
-
-	bytes = ((__u32)tsk->len) << SECTOR_SHIFT;
-	mtk_btag_task_timetag(buf, 256, stage, tsk_max, task_name, tsk->t,
-		bytes);
-}
-
 void mmc_mtk_biolog_send_command(unsigned int task_id,
 				 struct mmc_request *mrq)
 {
@@ -172,8 +148,6 @@ void mmc_mtk_biolog_send_command(unsigned int task_id,
 	mtk_btag_mictx_update(mmc_mtk_btag, ctx->q_depth);
 
 	spin_unlock_irqrestore(&ctx->lock, flags);
-
-	mmc_mtk_pr_tsk(tsk, tsk_send_cmd);
 }
 EXPORT_SYMBOL_GPL(mmc_mtk_biolog_send_command);
 
@@ -262,12 +236,6 @@ void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
 	tsk->t[tsk_send_cmd] = tsk->t[tsk_req_compl] = 0;
 
 	spin_unlock_irqrestore(&ctx->lock, flags);
-
-	/*
-	 * FIXME: tsk->t is cleared before so this would output
-	 * wrongly.
-	 */
-	mmc_mtk_pr_tsk(tsk, tsk_req_compl);
 }
 EXPORT_SYMBOL_GPL(mmc_mtk_biolog_transfer_req_compl);
 

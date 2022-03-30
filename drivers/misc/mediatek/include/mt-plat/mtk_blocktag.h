@@ -267,8 +267,6 @@ void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
 void mtk_btag_throughput_eval(struct mtk_btag_throughput *tp);
 void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm);
 
-void mtk_btag_task_timetag(char *buf, unsigned int len, unsigned int stage,
-	unsigned int max, const char *name[], uint64_t *t, __u32 bytes);
 void mtk_btag_klog(struct mtk_blocktag *btag, struct mtk_btag_trace *tr);
 
 void mtk_btag_pidlog_map_sg(struct request_queue *q, struct bio *bio,
