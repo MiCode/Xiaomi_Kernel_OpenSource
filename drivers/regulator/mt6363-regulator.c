@@ -15,6 +15,9 @@
 
 #define SET_OFFSET	0x1
 #define CLR_OFFSET	0x2
+#define OP_CFG_OFFSET	0x5
+#define NORMAL_OP_CFG	0x10
+#define NORMAL_OP_EN	0x800000
 
 #define MT6363_REGULATOR_MODE_NORMAL	0
 #define MT6363_REGULATOR_MODE_FCCM	1
@@ -35,10 +38,14 @@
  * @desc: standard fields of regulator description.
  * @lp_mode_reg: for operating NORMAL/IDLE mode register.
  * @lp_mode_mask: MASK for operating lp_mode register.
+ * @hw_lp_mode_reg: hardware NORMAL/IDLE mode status register.
+ * @hw_lp_mode_mask: MASK for hardware NORMAL/IDLE mode status register.
  * @modeset_reg: for operating AUTO/PWM mode register.
  * @modeset_mask: MASK for operating modeset register.
- * @modeset_reg: Calibrates output voltage register.
- * @modeset_mask: MASK of Calibrates output voltage register.
+ * @vocal_reg: Calibrates output voltage register.
+ * @vocal_mask: MASK of Calibrates output voltage register.
+ * @lp_imax_uA: Maximum load current in Low power mode.
+ * @op_en_reg: for HW control operating mode register.
  */
 struct mt6363_regulator_info {
 	int irq;
@@ -47,10 +54,16 @@ struct mt6363_regulator_info {
 	struct regulator_desc desc;
 	u32 lp_mode_reg;
 	u32 lp_mode_mask;
+	u32 hw_lp_mode_reg;
+	u32 hw_lp_mode_mask;
 	u32 modeset_reg;
 	u32 modeset_mask;
 	u32 vocal_reg;
 	u32 vocal_mask;
+	int lp_imax_uA;
+	u32 op_en_reg;
+	u32 orig_op_en;
+	u32 orig_op_cfg;
 };
 
 #define MT6363_BUCK(_name, min, max, step, volt_ranges,		\
@@ -78,8 +91,12 @@ struct mt6363_regulator_info {
 	},							\
 	.lp_mode_reg = _lp_mode_reg,				\
 	.lp_mode_mask = BIT(lp_bit),				\
+	.hw_lp_mode_reg = MT6363_BUCK_##_name##_HW_LP_MODE,	\
+	.hw_lp_mode_mask = 0xc,					\
 	.modeset_reg = _modeset_reg,				\
 	.modeset_mask = BIT(modeset_bit),			\
+	.lp_imax_uA = 100000,					\
+	.op_en_reg = MT6363_BUCK_##_name##_OP_EN_0,		\
 }
 
 #define MT6363_LDO_LINEAR1(_name, min, max, step, volt_ranges,	\
@@ -106,6 +123,8 @@ struct mt6363_regulator_info {
 	},							\
 	.lp_mode_reg = _lp_mode_reg,				\
 	.lp_mode_mask = BIT(lp_bit),				\
+	.hw_lp_mode_reg = MT6363_LDO_##_name##_HW_LP_MODE,	\
+	.hw_lp_mode_mask = 0x4,					\
 }
 
 #define MT6363_LDO_LINEAR2(_name, min, max, step, volt_ranges,	\
@@ -132,6 +151,8 @@ struct mt6363_regulator_info {
 	},							\
 	.lp_mode_reg = _lp_mode_reg,				\
 	.lp_mode_mask = BIT(lp_bit),				\
+	.hw_lp_mode_reg = MT6363_LDO_##_name##_HW_LP_MODE,	\
+	.hw_lp_mode_mask = 0x4,					\
 }
 
 #define MT6363_LDO(_name, _volt_table, _enable_reg, en_bit,	\
@@ -159,6 +180,10 @@ struct mt6363_regulator_info {
 	.vocal_mask = _vocal_mask,				\
 	.lp_mode_reg = _lp_mode_reg,				\
 	.lp_mode_mask = BIT(lp_bit),				\
+	.hw_lp_mode_reg = MT6363_LDO_##_name##_HW_LP_MODE,	\
+	.hw_lp_mode_mask = 0x4,					\
+	.lp_imax_uA = 10000,					\
+	.op_en_reg = MT6363_LDO_##_name##_OP_EN0,		\
 }
 
 #define MT6363_LDO_OPS(_name, _ops, _volt_table, _enable_reg, en_bit,	\
@@ -186,6 +211,10 @@ struct mt6363_regulator_info {
 	.vocal_mask = _vocal_mask,				\
 	.lp_mode_reg = _lp_mode_reg,				\
 	.lp_mode_mask = BIT(lp_bit),				\
+	.hw_lp_mode_reg = MT6363_LDO_##_name##_HW_LP_MODE,	\
+	.hw_lp_mode_mask = 0x4,					\
+	.lp_imax_uA = 10000,					\
+	.op_en_reg = MT6363_LDO_##_name##_OP_EN0,		\
 }
 
 static const struct linear_range mt_volt_range0[] = {
@@ -275,14 +304,20 @@ static unsigned int mt6363_regulator_get_mode(struct regulator_dev *rdev)
 	if (val & info->modeset_mask)
 		return REGULATOR_MODE_FAST;
 
-	ret = regmap_read(rdev->regmap, info->lp_mode_reg, &val);
+	if (info->hw_lp_mode_reg) {
+		ret = regmap_read(rdev->regmap, info->hw_lp_mode_reg, &val);
+		val &= info->hw_lp_mode_mask;
+	} else {
+		ret = regmap_read(rdev->regmap, info->lp_mode_reg, &val);
+		val &= info->lp_mode_mask;
+	}
 	if (ret) {
 		dev_err(&rdev->dev,
 			"Failed to get mt6363 lp mode: %d\n", ret);
 		return ret;
 	}
 
-	if (val & info->lp_mode_mask)
+	if (val)
 		return REGULATOR_MODE_IDLE;
 	else
 		return REGULATOR_MODE_NORMAL;
@@ -347,6 +382,36 @@ static int mt6363_regulator_set_mode(struct regulator_dev *rdev,
 		dev_err(&rdev->dev,
 			"Failed to set mt6363 mode(%d): %d\n", mode, ret);
 	}
+	return ret;
+}
+
+static int mt6363_regulator_set_load(struct regulator_dev *rdev, int load_uA)
+{
+	int i, ret;
+	struct mt6363_regulator_info *info = rdev_get_drvdata(rdev);
+
+	/* not support */
+	if (!info->lp_imax_uA)
+		return 0;
+
+	if (load_uA >= info->lp_imax_uA) {
+		ret = mt6363_regulator_set_mode(rdev, REGULATOR_MODE_NORMAL);
+		if (ret)
+			return ret;
+		ret = regmap_write(rdev->regmap, info->op_en_reg + OP_CFG_OFFSET, NORMAL_OP_CFG);
+		for (i = 0; i < 3; i++) {
+			ret |= regmap_write(rdev->regmap, info->op_en_reg + i,
+					    (NORMAL_OP_EN >> (i * 8)) & 0xff);
+		}
+	} else {
+		ret = regmap_write(rdev->regmap, info->op_en_reg + OP_CFG_OFFSET,
+				   info->orig_op_cfg);
+		for (i = 0; i < 3; i++) {
+			ret |= regmap_write(rdev->regmap, info->op_en_reg + i,
+					    (info->orig_op_en >> (i * 8)) & 0xff);
+		}
+	}
+
 	return ret;
 }
 
@@ -426,6 +491,7 @@ static const struct regulator_ops mt6363_buck_ops = {
 	.is_enabled = regulator_is_enabled_regmap,
 	.set_mode = mt6363_regulator_set_mode,
 	.get_mode = mt6363_regulator_get_mode,
+	.set_load = mt6363_regulator_set_load,
 };
 
 static const struct regulator_ops mt6363_volt_range_ops = {
@@ -452,6 +518,7 @@ static const struct regulator_ops mt6363_volt_table_ops = {
 	.is_enabled = regulator_is_enabled_regmap,
 	.set_mode = mt6363_regulator_set_mode,
 	.get_mode = mt6363_regulator_get_mode,
+	.set_load = mt6363_regulator_set_load,
 };
 
 static const struct regulator_ops mt6363_vemc_ops = {
@@ -465,6 +532,7 @@ static const struct regulator_ops mt6363_vemc_ops = {
 	.is_enabled = regulator_is_enabled_regmap,
 	.set_mode = mt6363_regulator_set_mode,
 	.get_mode = mt6363_regulator_get_mode,
+	.set_load = mt6363_regulator_set_load,
 };
 
 static int _isink_load_control(struct regulator_dev *rdev, bool enable)
@@ -878,6 +946,22 @@ static int mt6363_of_parse_cb(struct device_node *np,
 	return 0;
 }
 
+static int mt6363_backup_op_setting(struct regmap *map, struct mt6363_regulator_info *info)
+{
+	int i, ret;
+	u32 val = 0;
+
+	ret = regmap_read(map, info->op_en_reg + OP_CFG_OFFSET, &info->orig_op_cfg);
+	for (i = 0; i < 3; i++) {
+		ret |= regmap_read(map, info->op_en_reg + i, &val);
+		info->orig_op_en |= val << (i * 8);
+	}
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static int mt6363_regulator_probe(struct platform_device *pdev)
 {
 	struct regulator_config config = {};
@@ -898,6 +982,14 @@ static int mt6363_regulator_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "failed to register %s, ret=%d\n",
 				info->desc.name, ret);
 			continue;
+		}
+		if (info->lp_imax_uA) {
+			ret = mt6363_backup_op_setting(config.regmap, info);
+			if (ret) {
+				dev_notice(&pdev->dev, "failed to backup op_setting (%s)\n",
+					   info->desc.name);
+				info->lp_imax_uA = 0;
+			}
 		}
 
 		if (info->irq <= 0)
