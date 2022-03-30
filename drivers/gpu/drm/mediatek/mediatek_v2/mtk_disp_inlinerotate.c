@@ -42,6 +42,9 @@ static void mtk_inlinerotate_addon_config(struct mtk_ddp_comp *comp,
 				 union mtk_addon_config *addon_config,
 				 struct cmdq_pkt *handle)
 {
+	if (addon_config && addon_config->config_type.type == ADDON_DISCONNECT)
+		return;
+
 	DDPINFO("%s+ handle:0x%x, comp->regs_pa:0x%x\n",
 		__func__, handle, comp->regs_pa);
 

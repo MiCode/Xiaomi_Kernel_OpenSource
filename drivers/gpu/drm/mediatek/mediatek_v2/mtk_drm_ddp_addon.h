@@ -20,6 +20,8 @@
 #include "../mml/mtk-mml.h"
 #include "../mml/mtk-mml-drm.h"
 
+#define DISP_PIPE_NUM 2
+
 enum addon_scenario {
 	NONE,
 	ONE_SCALING,
@@ -48,6 +50,7 @@ enum addon_module {
 	MML_RSZ_v2,
 	DMDP_PQ_WITH_RDMA,
 	DISP_INLINE_ROTATE,
+	DISP_INLINE_ROTATE_1,
 	DISP_INLINE_ROTATE_SRAM_ONLY,
 	DISP_INLINE_ROTATE_SRAM_ONLY_1,
 	ADDON_MODULE_NUM,
@@ -123,8 +126,8 @@ struct mtk_addon_mml_config {
 	struct mml_submit submit;	/* [IN] mml_drm_split_info submit_pq */
 	bool dual;			/* [IN] set true if display uses dual pipe */
 	struct mml_task *task;		/* [OUT] task and config for mml */
-	struct mtk_rect mml_src_roi;	/* [OUT] roi for source OVL */
-	struct mtk_rect mml_dst_roi;	/* for display to calc 2nd OVL ROI */
+	struct mtk_rect mml_src_roi[DISP_PIPE_NUM];	/* [OUT] src roi for OVL */
+	struct mtk_rect mml_dst_roi[DISP_PIPE_NUM];	/* [OUT] dst roi for OVL */
 };
 
 union mtk_addon_config {

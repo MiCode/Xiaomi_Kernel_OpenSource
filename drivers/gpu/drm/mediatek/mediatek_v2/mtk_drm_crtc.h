@@ -818,6 +818,7 @@ struct mtk_crtc_state {
 	struct mtk_lye_ddp_state lye_state;
 	struct mtk_rect rsz_src_roi;
 	struct mtk_rect rsz_dst_roi;
+	struct mtk_rect mml_src_roi[2];
 	struct mtk_rect mml_dst_roi;
 	struct mtk_rsz_param rsz_param[2];
 	atomic_t plane_enabled_num;
