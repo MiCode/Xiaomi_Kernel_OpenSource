@@ -36,6 +36,12 @@ uint32_t devapc_vio_check(void);
 void dump_dbg_info(void);
 void register_devapc_vio_callback(struct devapc_vio_callbacks *viocb);
 void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size);
+int mmup_enable_count(void);
+bool is_adsp_feature_in_active(void);
+
+void __weak register_devapc_vio_callback(struct devapc_vio_callbacks *viocb)
+{
+}
 
 #endif  /* __DEVAPC_PUBLIC_H__ */
 
