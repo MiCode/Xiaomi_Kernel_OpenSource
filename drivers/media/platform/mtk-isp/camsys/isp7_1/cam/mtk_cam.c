@@ -3019,6 +3019,12 @@ mtk_cam_camsv_update_fparam(struct mtk_cam_request_stream_data *s_data,
 	if (s_data->vdev_fmt_update && cfg_fmt) {
 		mtk_cam_sv_cal_cfg_info(
 			ctx, cfg_fmt, &s_data->sv_frame_params);
+		mtk_cam_set_sv_meta_stats_info(
+			node->desc.dma_port,
+			mtk_cam_get_vbuf_va(ctx, s_data, node->desc.id),
+			(s_data->sv_frame_params.cfg_info.grab_pxl >> 16),
+			(s_data->sv_frame_params.cfg_info.grab_lin >> 16),
+			s_data->sv_frame_params.cfg_info.imgo_stride);
 	}
 
 	return 0;
@@ -4850,7 +4856,8 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 		ctx->sv_using_buffer_list[i].cnt++;
 		spin_unlock(&ctx->sv_using_buffer_list[i].lock);
 	}
-	if (ctx_stream_data->frame_seq_no == 1) {
+	if (ctx_stream_data->frame_seq_no == 1 &&
+		!mtk_cam_is_immediate_switch_req(req, ctx->stream_id)) {
 		mtk_cam_sv_update_all_buffer_ts(ctx, ktime_get_boottime_ns());
 		mtk_cam_sv_apply_all_buffers(ctx);
 		if (ctx->stream_id >= MTKCAM_SUBDEV_CAMSV_START &&
