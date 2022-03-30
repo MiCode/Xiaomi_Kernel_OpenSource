@@ -6,9 +6,7 @@
 #ifndef _DTS_IOMMU_PORT_MT8195_H_
 #define _DTS_IOMMU_PORT_MT8195_H_
 
-#include <dt-bindings/memory/mtk-memory-port.h>
-#define MTK_M4U_DOM_ID(dom, larb, port)	((dom & 0x7) << 16 |\
-					((larb & 0x1f) << 5) | (port & 0x1f))
+#include <dt-bindings/memory/mtk-smi-larb-port.h>
 
 #define MTK_IOMMU_LARB_NR 32
 /*
