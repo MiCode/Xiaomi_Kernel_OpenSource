@@ -18,3 +18,33 @@ config MTK_IOMMU_MISC_DBG
 	  use dma_buf information to monitor iova, but if user use
 	  "dma_alloc_attrs" to allocate buffer, we can not monitor iova.
 	  So we can use list to save all iova node and dump it.
+
+config MTK_IOMMU_MISC_SECURE
+	tristate "Enable Mediatek IOMMU secure feature"
+	depends on MTK_IOMMU_MISC
+	help
+	  Choose this option to enable mediatek iommu secure driver. IOMMU
+	  also can support transaction besides supporting normal transaction.
+	  In iommu secure driver, we can implement IOMMU secure driver
+	  initialization for MTEE and other requirements for secure mapping.
+	  In addition, we also run iommu protected banks(bank1~bank3) probe
+	  and link with mtk_iommu.
+
+config MTK_IOMMU_MISC_TEST
+	tristate "Enable Mediatek IOMMU test feature"
+	depends on MTK_IOMMU_MISC
+	help
+	  Choose this option to enable mediatek iommu test driver.
+	  The feature tests mtk iommu driver software flow whether it is
+	  normal work. For example, reserve iova region test, create page
+	  table test, allocation iova by iommu framework test, allocation
+	  iova by dma-buf framework test and so on. We can need to ensure
+	  MTK iommu driver is available before iommu's masters use it by
+	  iommu test.
+
+config MTK_IOMMU_DEBUG
+	bool "Debugging log for Mediatek IOMMU"
+	help
+	  Select this to see the detailed log message that shows what
+	  happens in the IOMMU driver.
+	  If unsure, say N.
