@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0
 
-mtk-aie-y += mtk_aie_52.o
-mtk-aie-y += mtk_aie_drv.o
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
+ccflags-y += -I$(srctree)/drivers/dma-buf/heaps/
+ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/imgsys/
 
-obj-$(CONFIG_VIDEO_MTK_AIE) += mtk-aie.o
+mtk_aie-objs := \
+mtk_aie_53.o\
+mtk_aie_drv.o
+
+obj-$(CONFIG_MTK_CAMERA_FD_ISP7S) += mtk_aie.o
