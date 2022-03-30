@@ -586,7 +586,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 	int md_id = port->md_id;
 	int md_val = -1;
 
-	CCCI_NORMAL_LOG(md_id, RPC, "%s++ %d\n", __func__,
+	CCCI_DEBUG_LOG(md_id, RPC, "%s++ %d\n", __func__,
 		p_rpc_buf->para_num);
 	tmp_data[0] = 0;
 	switch (p_rpc_buf->op_id) {
@@ -1181,7 +1181,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 	}
 
 	p_rpc_buf->para_num = pkt_num;
-	CCCI_NORMAL_LOG(md_id, RPC, "%s-- %d\n", __func__,
+	CCCI_DEBUG_LOG(md_id, RPC, "%s-- %d\n", __func__,
 		p_rpc_buf->para_num);
 }
 
@@ -1306,10 +1306,6 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 	ccci_free_skb(skb);
 }
 
-/*
- * define character device operation for rpc_u
- */
- #define BANK4_DRDI_SMEM_SIZE (512*1024)
 static int port_rpc_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 {
 	struct port_t *port = fp->private_data;

@@ -30,4 +30,7 @@
 
 //#define CCCI_LOG_LEVEL  CCCI_LOG_ALL_UART
 #define USING_PM_RUNTIME
+
+/* AMMS DRDI bank4 share memory size */
+#define BANK4_DRDI_SMEM_SIZE (64*1024)
 #endif
