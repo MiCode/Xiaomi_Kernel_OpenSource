@@ -226,6 +226,8 @@
 #define IOMMU_MAU_EN			BIT(21)
 #define PM_OPS_SKIP			BIT(22)
 #define SHARE_PGTABLE			BIT(23)
+/* For IOMMU EP/bring up phase: SMCCC not ready */
+#define IOMMU_NO_SMCCC			BIT(24)
 
 #define POWER_ON_STA		1
 #define POWER_OFF_STA		0
@@ -634,6 +636,9 @@ static int iova_secure_map(struct mtk_iommu_data *data, unsigned long iova,
 			   size_t size, bool mapped)
 {
 	int ret;
+
+	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_NO_SMCCC))
+		return 0;
 
 	ret = iova_is_secure(data, iova, size);
 	if (!ret)
@@ -1421,7 +1426,8 @@ static int mtk_iommu_domain_finalise(struct mtk_iommu_domain *dom,
 	else
 		dom->cfg.oas = 35;
 
-	if (mtee_hypmmu_type2_enabled()) {
+	if (!MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_NO_SMCCC) &&
+	    mtee_hypmmu_type2_enabled()) {
 		pr_info("hyp-mmu type2 enabled. turn on coherent_walk\n");
 		dom->cfg.coherent_walk = true;
 		register_share_region(data->plat_data);
