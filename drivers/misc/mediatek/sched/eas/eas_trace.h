@@ -234,28 +234,25 @@ TRACE_EVENT(sched_queue_task,
 );
 
 TRACE_EVENT(sched_task_util,
-	TP_PROTO(int pid, char *comm,
+	TP_PROTO(int pid,
 		unsigned long util,
 		unsigned int util_enqueued, unsigned int util_ewma),
-	TP_ARGS(pid, comm, util, util_enqueued, util_ewma),
+	TP_ARGS(pid, util, util_enqueued, util_ewma),
 	TP_STRUCT__entry(
 		__field(int, pid)
-		__field(char *, comm)
 		__field(unsigned long, util)
 		__field(unsigned int, util_enqueued)
 		__field(unsigned int, util_ewma)
 	),
 	TP_fast_assign(
 		__entry->pid = pid;
-		__entry->comm = comm;
 		__entry->util = util;
 		__entry->util_enqueued = util_enqueued;
 		__entry->util_ewma = util_ewma;
 	),
 	TP_printk(
-		"pid=%d comm=%s util=%lu util_enqueued=%u util_ewma=%u",
+		"pid=%d util=%lu util_enqueued=%u util_ewma=%u",
 		__entry->pid,
-		__entry->comm,
 		__entry->util,
 		__entry->util_enqueued,
 		__entry->util_ewma)
@@ -306,6 +303,30 @@ TRACE_EVENT(sched_task_uclamp,
 		__entry->max_req)
 );
 
+#ifdef CREATE_TRACE_POINTS
+int sched_cgroup_state_rt(struct task_struct *p, int subsys_id)
+{
+#ifdef CONFIG_CGROUPS
+	int cgrp_id = -1;
+	struct cgroup_subsys_state *css;
+
+	rcu_read_lock();
+	css = task_css(p, subsys_id);
+	if (!css)
+		goto out;
+
+	cgrp_id = css->id;
+
+out:
+		rcu_read_unlock();
+
+	return cgrp_id;
+#else
+	return -1;
+#endif
+}
+#endif
+
 TRACE_EVENT(sched_select_task_rq_rt,
 	TP_PROTO(struct task_struct *tsk, int policy,
 		int target_cpu,
@@ -320,6 +341,10 @@ TRACE_EVENT(sched_select_task_rq_rt,
 		__field(unsigned long, uclamp_max)
 		__field(int, sd_flag)
 		__field(bool, sync)
+		__field(long, task_mask)
+		__field(int, cpuctl_grp_id)
+		__field(int, cpuset_grp_id)
+		__field(long, act_mask)
 	),
 	TP_fast_assign(
 		__entry->pid = tsk->pid;
@@ -329,16 +354,24 @@ TRACE_EVENT(sched_select_task_rq_rt,
 		__entry->uclamp_max = uclamp_eff_value(tsk, UCLAMP_MAX);
 		__entry->sd_flag = sd_flag;
 		__entry->sync = sync;
+		__entry->task_mask = tsk->cpus_ptr->bits[0];
+		__entry->cpuctl_grp_id = sched_cgroup_state_rt(tsk, cpu_cgrp_id);
+		__entry->cpuset_grp_id = sched_cgroup_state_rt(tsk, cpuset_cgrp_id);
+		__entry->act_mask = cpu_active_mask->bits[0];
 	),
 	TP_printk(
-		"pid=%4d policy=0x%08x target=%d uclamp_min=%lu uclamp_max=%lu sd_flag=%d sync=%d",
+		"pid=%4d policy=0x%08x target=%d uclamp_min=%lu uclamp_max=%lu sd_flag=%d sync=%d mask=0x%lx cpuctl=%d cpuset=%d act_mask=0x%lx",
 		__entry->pid,
 		__entry->policy,
 		__entry->target_cpu,
 		__entry->uclamp_min,
 		__entry->uclamp_max,
 		__entry->sd_flag,
-		__entry->sync)
+		__entry->sync,
+		__entry->task_mask,
+		__entry->cpuctl_grp_id,
+		__entry->cpuset_grp_id,
+		__entry->act_mask)
 );
 
 TRACE_EVENT(sched_next_update_thermal_headroom,

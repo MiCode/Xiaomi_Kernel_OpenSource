@@ -49,7 +49,7 @@ int sched_pause_cpu(int cpu)
 
 	err = pause_cpus(&cpu_pause_mask);
 	if (err) {
-		pr_info("[Core Pause]Pause fail: cpu=%d, pause=0x%lx, active=0x%lx, online=0x%lx, err=%d\n",
+		pr_info_ratelimited("[Core Pause]Pause fail: cpu=%d, pause=0x%lx, active=0x%lx, online=0x%lx, err=%d\n",
 			cpu, cpu_pause_mask.bits[0], cpu_active_mask->bits[0],
 			cpu_online_mask->bits[0], err);
 	} else {
@@ -87,7 +87,7 @@ int sched_resume_cpu(int cpu)
 	cpumask_set_cpu(cpu, &cpu_resume_mask);
 	err = resume_cpus(&cpu_resume_mask);
 	if (err) {
-		pr_info("[Core Pause]Resume fail: cpu=%d, resume=0x%lx, active=0x%lx, online=0x%lx, err=%d\n",
+		pr_info_ratelimited("[Core Pause]Resume fail: cpu=%d, resume=0x%lx, active=0x%lx, online=0x%lx, err=%d\n",
 				cpu, cpu_resume_mask.bits[0], cpu_active_mask->bits[0],
 				cpu_online_mask->bits[0], err);
 	} else {

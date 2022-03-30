@@ -541,8 +541,29 @@ void check_for_migration(struct task_struct *p)
 	struct rq *rq = cpu_rq(cpu);
 
 	if (rq->misfit_task_load) {
+		struct em_perf_domain *pd;
+		struct cpufreq_policy *policy;
+		int opp_curr = 0, thre = 0, thre_idx = 0;
+
 		if (rq->curr->__state != TASK_RUNNING ||
 			rq->curr->nr_cpus_allowed == 1)
+			return;
+
+		pd = em_cpu_get(cpu);
+		if (!pd)
+			return;
+
+		thre_idx = (pd->nr_perf_states >> 3) - 1;
+		if (thre_idx >= 0)
+			thre = pd->table[thre_idx].frequency;
+
+		policy = cpufreq_cpu_get(cpu);
+		if (policy) {
+			opp_curr = policy->cur;
+			cpufreq_cpu_put(policy);
+		}
+
+		if (opp_curr <= thre)
 			return;
 
 		raw_spin_lock(&migration_lock);
@@ -566,7 +587,15 @@ void check_for_migration(struct task_struct *p)
 			migrate_running_task(new_cpu, p, rq, MIGR_TICK_PULL_MISFIT_RUNNING);
 		} else {
 #if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
-			task_check_for_rotation(rq);
+			int thre_rot = 0, thre_rot_idx = 0;
+
+			thre_rot_idx = (pd->nr_perf_states >> 1) - 1;
+			if (thre_rot_idx >= 0)
+				thre_rot = pd->table[thre_rot_idx].frequency;
+
+			if (opp_curr > thre_rot)
+				task_check_for_rotation(rq);
+
 #endif
 			raw_spin_unlock(&migration_lock);
 		}
