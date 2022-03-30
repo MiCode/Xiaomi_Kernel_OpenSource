@@ -1469,6 +1469,12 @@
 				0x17840060 0x17850060 0x17860060 0x17870060>;
 	};
 
+	qcom,mpm2-sleep-counter@c221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xc221000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	qcom,msm-imem@146aa000 {
 		compatible = "qcom,msm-imem";
 		ranges = <0x0 0x146aa000 0x1000>;
