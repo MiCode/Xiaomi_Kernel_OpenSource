@@ -56,7 +56,7 @@ unsigned long pd_get_util_pwr_eff(int cpu, int util)
 	}
 
 	/* Should NOT reach here */
-	return 0;
+	return ULONG_MAX;
 }
 EXPORT_SYMBOL_GPL(pd_get_util_pwr_eff);
 
