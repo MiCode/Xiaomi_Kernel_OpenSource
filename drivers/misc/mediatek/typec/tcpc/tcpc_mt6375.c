@@ -2353,6 +2353,7 @@ static void mt6375_irq_work_handler(struct kthread_work *work)
 			break;
 	} while (1);
 
+	atomic_dec_if_positive(&ddata->tcpc->suspend_pending);
 	tcpci_unlock_typec(ddata->tcpc);
 	complete(&ddata->tcpc->alert_done);
 	enable_irq(ddata->irq);
@@ -2365,6 +2366,7 @@ static irqreturn_t mt6375_pd_evt_handler(int irq, void *data)
 	struct mt6375_tcpc_data *ddata = data;
 
 	MT6375_DBGINFO("++\n");
+	atomic_inc(&ddata->tcpc->suspend_pending);
 	pm_stay_awake(ddata->dev);
 	disable_irq_nosync(ddata->irq);
 	kthread_queue_work(&ddata->irq_worker, &ddata->irq_work);
@@ -2683,6 +2685,7 @@ static int mt6375_tcpc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	device_init_wakeup(ddata->dev, true);
 	dev_info(ddata->dev, "%s successfully!\n", __func__);
 	return 0;
 err:
@@ -2707,6 +2710,23 @@ static void mt6375_shutdown(struct platform_device *pdev)
 	tcpm_shutdown(ddata->tcpc);
 }
 
+static int tcpc_mt6375_prepare(struct device *dev)
+{
+	struct mt6375_tcpc_data *ddata = dev_get_drvdata(dev);
+
+	dev_info(dev, "%s: suspend_pending: %d, pending_event: %d\n", __func__,
+		 atomic_read(&ddata->tcpc->suspend_pending),
+		 atomic_read(&ddata->tcpc->pending_event));
+	if (atomic_read(&ddata->tcpc->suspend_pending) > 0 ||
+	    atomic_read(&ddata->tcpc->pending_event) > 0)
+		return -EBUSY;
+	return 0;
+}
+
+static const struct dev_pm_ops tcpc_mt6375_pm_ops = {
+	.prepare = tcpc_mt6375_prepare,
+};
+
 static const struct of_device_id __maybe_unused mt6375_tcpc_of_match[] = {
 	{ .compatible = "mediatek,mt6375-tcpc", },
 	{ }
@@ -2718,6 +2738,7 @@ static struct platform_driver mt6375_tcpc_driver = {
 	.shutdown = mt6375_shutdown,
 	.driver = {
 		.name = "mt6375-tcpc",
+		.pm = &tcpc_mt6375_pm_ops,
 		.of_match_table = of_match_ptr(mt6375_tcpc_of_match),
 	},
 };
