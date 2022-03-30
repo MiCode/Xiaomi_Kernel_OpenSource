@@ -3114,7 +3114,7 @@ int mtk_cam_s_data_raw_select(struct mtk_cam_request_stream_data *s_data,
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
 	struct mtk_raw_pipeline *pipe;
-	int raw_status = 0;
+	int raw_used = 0;
 	bool selected = false;
 	int feature;
 
@@ -3123,11 +3123,13 @@ int mtk_cam_s_data_raw_select(struct mtk_cam_request_stream_data *s_data,
 	cam = ctx->cam;
 	pipe = ctx->pipe;
 
-	raw_status = mtk_raw_available_resource(pipe->raw);
-	raw_status &= ~pipe->enabled_raw;
+	if (pipe->enabled_raw & MTKCAM_SUBDEV_RAW_MASK)
+		raw_used = MTKCAM_SUBDEV_RAW_MASK & ~pipe->enabled_raw;
+	else
+		raw_used = mtk_raw_available_resource(pipe->raw);
 
 	if (mtk_cam_feature_is_stagger(feature))
-		selected = mtk_cam_s_data_raw_stagger_select(s_data, raw_status);
+		selected = mtk_cam_s_data_raw_stagger_select(s_data, raw_used);
 
 	mtk_raw_available_resource(pipe->raw);
 
