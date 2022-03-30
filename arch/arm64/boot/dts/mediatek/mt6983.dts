@@ -398,7 +398,7 @@
 		bootargs = "console=tty0 root=/dev/ram \
 			rcupdate.rcu_expedited=1 \
 			swiotlb=noforce \
-			initcall_debug=1 cma=64M \
+			initcall_debug=1 cma=64M transparent_hugepage=never \
 			allow_mismatched_32bit_el0 \
 			firmware_class.path=/vendor/firmware pelt=8";
 			kaslr-seed = <0 0>;
