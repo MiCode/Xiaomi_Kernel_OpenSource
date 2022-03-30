@@ -1,0 +1,7 @@
+config MTK_JPEG
+	tristate "enable JPEG Dec driver extension"
+	help
+		Mediatek jpeg codec driver provides HW capability
+		to decode jpeg image.
+		To compile this driver as modules, choose M here:
+		the modules will be called jpeg-driver.
