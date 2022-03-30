@@ -18,6 +18,8 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
+#define PHY_MODE_DPPULLUP_SET 5
+#define PHY_MODE_DPPULLUP_CLR 6
 
 void ssusb_set_txdeemph(struct ssusb_mtk *ssusb)
 {
@@ -115,6 +117,23 @@ static int wait_for_ip_sleep(struct ssusb_mtk *ssusb)
 	}
 
 	return ret;
+}
+
+static void ssusb_dp_pullup_work(struct work_struct *w)
+{
+	struct ssusb_mtk *ssusb = container_of(w, struct ssusb_mtk, dp_work);
+
+	phy_set_mode_ext(ssusb->phys[0], PHY_MODE_USB_DEVICE,
+		PHY_MODE_DPPULLUP_SET);
+	mdelay(50);
+	phy_set_mode_ext(ssusb->phys[0], PHY_MODE_USB_DEVICE,
+		PHY_MODE_DPPULLUP_CLR);
+}
+
+void ssusb_phy_dp_pullup(struct ssusb_mtk *ssusb)
+{
+	dev_info(ssusb->dev, "d+ pull high\n");
+	queue_work(system_power_efficient_wq, &ssusb->dp_work);
 }
 
 static int ssusb_phy_init(struct ssusb_mtk *ssusb)
@@ -481,6 +500,8 @@ static int mtu3_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto comm_exit;
 	}
+
+	INIT_WORK(&ssusb->dp_work, ssusb_dp_pullup_work);
 
 	device_enable_async_suspend(dev);
 	pm_runtime_mark_last_busy(dev);

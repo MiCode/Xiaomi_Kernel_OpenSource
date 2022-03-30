@@ -311,6 +311,8 @@ struct ssusb_mtk {
 	enum mtu3_fpga_phy fpga_phy;
 	/* xhci */
 	struct platform_driver *xhci_pdrv;
+	/* u2 cdp */
+	struct work_struct dp_work;
 };
 
 /**
@@ -466,6 +468,7 @@ void ssusb_set_force_vbus(struct ssusb_mtk *ssusb, bool vbus_on);
 int ssusb_phy_power_on(struct ssusb_mtk *ssusb);
 void ssusb_phy_power_off(struct ssusb_mtk *ssusb);
 void ssusb_phy_set_mode(struct ssusb_mtk *ssusb, enum phy_mode mode);
+void ssusb_phy_dp_pullup(struct ssusb_mtk *ssusb);
 int ssusb_clks_enable(struct ssusb_mtk *ssusb);
 void ssusb_clks_disable(struct ssusb_mtk *ssusb);
 void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);
