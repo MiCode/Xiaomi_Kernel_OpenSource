@@ -3,6 +3,7 @@
 
 #include "parrot-pm7250b.dtsi"
 #include "parrot-pmic-overlay.dtsi"
+#include "parrot-thermal-overlay.dtsi"
 
 &soc {
 	gpio_keys {

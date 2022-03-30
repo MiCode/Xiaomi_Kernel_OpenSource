@@ -168,6 +168,123 @@
 };
 
 &thermal_zones {
+	socd {
+		cooling-maps {
+			socd_apc1 {
+				trip = <&socd_trip>;
+				cooling-device = <&APC1_pause 1 1>;
+			};
+
+			socd_cdsp1 {
+				trip = <&socd_trip>;
+				cooling-device = <&cdsp_sw 4 4>;
+			};
+
+			socd_gpu0 {
+				trip = <&socd_trip>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pm7250b-ibat-lvl0 {
+		trips {
+			ibat-lvl0 {
+				temperature = <6000>;
+			};
+		};
+	};
+
+	pm7250b-ibat-lvl1 {
+		trips {
+			ibat-lvl1 {
+				temperature = <7500>;
+			};
+		};
+	};
+
+	pm7250b-bcl-lvl0 {
+		cooling-maps {
+			vbat_lte0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&modem_lte_dsc 8 8>;
+			};
+
+			vbat_nr0_scg {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&modem_nr_scg_dsc 3 3>;
+			};
+
+			vbat_nr0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&modem_nr_dsc 6 6>;
+			};
+
+			vbat_cdsp0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cdsp_sw 2 2>;
+			};
+
+			vbat_cpu_5 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&cpu5_pause 1 1>;
+			};
+
+			vbat_gpu0 {
+				trip = <&b_bcl_lvl0>;
+				cooling-device = <&msm_gpu 1 1>;
+			};
+		};
+	};
+
+	pm7250b-bcl-lvl1 {
+		cooling-maps {
+			vbat_lte1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&modem_lte_dsc 10 10>;
+			};
+
+			vbat_nr1_scg {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&modem_nr_scg_dsc 10 10>;
+			};
+
+			vbat_nr1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&modem_nr_dsc 9 9>;
+			};
+
+			vbat_cdsp1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cdsp_sw 4 4>;
+			};
+
+			vbat_cpu_6_7 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&cpu_6_7_pause 1 1>;
+			};
+
+			vbat_gpu1 {
+				trip = <&b_bcl_lvl1>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pm7250b-bcl-lvl2 {
+		cooling-maps {
+			vbat_cdsp2 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+
+			vbat_gpu2 {
+				trip = <&b_bcl_lvl2>;
+				cooling-device = <&msm_gpu 3 THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
 	sys-therm-6 {
 		polling-delay-passive = <0>;
 		polling-delay = <0>;
