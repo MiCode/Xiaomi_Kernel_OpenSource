@@ -13,19 +13,19 @@
 #include "mtk_jpeg_enc_hw.h"
 
 static const struct mtk_jpeg_enc_qlt mtk_jpeg_enc_quality[] = {
+	{.quality_param = 24, .hardware_value = JPEG_ENC_QUALITY_Q24},
+	{.quality_param = 30, .hardware_value = JPEG_ENC_QUALITY_Q30},
 	{.quality_param = 34, .hardware_value = JPEG_ENC_QUALITY_Q34},
-	{.quality_param = 39, .hardware_value = JPEG_ENC_QUALITY_Q39},
-	{.quality_param = 48, .hardware_value = JPEG_ENC_QUALITY_Q48},
+	{.quality_param = 38, .hardware_value = JPEG_ENC_QUALITY_Q38},
+	{.quality_param = 44, .hardware_value = JPEG_ENC_QUALITY_Q44},
+	{.quality_param = 52, .hardware_value = JPEG_ENC_QUALITY_Q52},
 	{.quality_param = 60, .hardware_value = JPEG_ENC_QUALITY_Q60},
-	{.quality_param = 64, .hardware_value = JPEG_ENC_QUALITY_Q64},
-	{.quality_param = 68, .hardware_value = JPEG_ENC_QUALITY_Q68},
-	{.quality_param = 74, .hardware_value = JPEG_ENC_QUALITY_Q74},
-	{.quality_param = 80, .hardware_value = JPEG_ENC_QUALITY_Q80},
+	{.quality_param = 66, .hardware_value = JPEG_ENC_QUALITY_Q66},
+	{.quality_param = 72, .hardware_value = JPEG_ENC_QUALITY_Q72},
+	{.quality_param = 78, .hardware_value = JPEG_ENC_QUALITY_Q78},
 	{.quality_param = 82, .hardware_value = JPEG_ENC_QUALITY_Q82},
-	{.quality_param = 84, .hardware_value = JPEG_ENC_QUALITY_Q84},
-	{.quality_param = 87, .hardware_value = JPEG_ENC_QUALITY_Q87},
+	{.quality_param = 85, .hardware_value = JPEG_ENC_QUALITY_Q85},
 	{.quality_param = 90, .hardware_value = JPEG_ENC_QUALITY_Q90},
-	{.quality_param = 92, .hardware_value = JPEG_ENC_QUALITY_Q92},
 	{.quality_param = 95, .hardware_value = JPEG_ENC_QUALITY_Q95},
 	{.quality_param = 97, .hardware_value = JPEG_ENC_QUALITY_Q97},
 };
@@ -39,7 +39,7 @@ void mtk_jpeg_enc_reset(void __iomem *base)
 
 u32 mtk_jpeg_enc_get_file_size(void __iomem *base)
 {
-	return readl(base + JPEG_ENC_DMA_ADDR0) -
+	return readl(base + JPEG_ENC_DMA_ADDR0)*4 -
 	       readl(base + JPEG_ENC_DST_ADDR0);
 }
 
@@ -61,10 +61,15 @@ void mtk_jpeg_set_enc_src(struct mtk_jpeg_ctx *ctx,  void __iomem *base,
 	for (i = 0; i < src_buf->num_planes; i++) {
 		dma_addr = vb2_dma_contig_plane_dma_addr(src_buf, i) +
 			   src_buf->planes[i].data_offset;
-		if (!i)
+		if (!i) {
+			pr_info("%s %d dma_addr %llx", __func__, __LINE__, dma_addr);
 			writel(dma_addr, base + JPEG_ENC_SRC_LUMA_ADDR);
-		else
+			writel(dma_addr >> 32, base + JPEG_ENC_SRC_LUMA_ADDR_EXT);
+		} else {
+			pr_info("%s %d dma_addr %llx", __func__, __LINE__, dma_addr);
 			writel(dma_addr, base + JPEG_ENC_SRC_CHROMA_ADDR);
+			writel(dma_addr >> 32, base + JPEG_ENC_SRC_CHROMA_ADDR_EXT);
+		}
 	}
 }
 
@@ -77,14 +82,17 @@ void mtk_jpeg_set_enc_dst(struct mtk_jpeg_ctx *ctx, void __iomem *base,
 	u32 dma_addr_offsetmask;
 
 	dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
-	dma_addr_offset = ctx->enable_exif ? MTK_JPEG_MAX_EXIF_SIZE : 0;
+	dma_addr += ctx->dst_offset;
+	dma_addr_offset = 0;
 	dma_addr_offsetmask = dma_addr & JPEG_ENC_DST_ADDR_OFFSET_MASK;
 	size = vb2_plane_size(dst_buf, 0);
 
 	writel(dma_addr_offset & ~0xf, base + JPEG_ENC_OFFSET_ADDR);
 	writel(dma_addr_offsetmask & 0xf, base + JPEG_ENC_BYTE_OFFSET_MASK);
 	writel(dma_addr & ~0xf, base + JPEG_ENC_DST_ADDR0);
+	writel(dma_addr >> 32, base + JPEG_ENC_DEST_ADDR0_EXT);
 	writel((dma_addr + size) & ~0xf, base + JPEG_ENC_STALL_ADDR0);
+	writel(((dma_addr + size)>>32), base + JPEG_ENC_STALL_ADDR0_EXT);
 }
 
 void mtk_jpeg_set_enc_params(struct mtk_jpeg_ctx *ctx,  void __iomem *base)
@@ -128,9 +136,9 @@ void mtk_jpeg_set_enc_params(struct mtk_jpeg_ctx *ctx,  void __iomem *base)
 	writel(img_stride, base + JPEG_ENC_IMG_STRIDE);
 	writel(mem_stride, base + JPEG_ENC_STRIDE);
 
-	enc_quality = mtk_jpeg_enc_quality[0].hardware_value;
-	for (i = 0; i < ARRAY_SIZE(mtk_jpeg_enc_quality); i++) {
-		if (ctx->enc_quality <= mtk_jpeg_enc_quality[i].quality_param) {
+	enc_quality = JPEG_ENC_QUALITY_Q24;
+	for (i = ARRAY_SIZE(mtk_jpeg_enc_quality)-1; i >= 0; i--) {
+		if (ctx->enc_quality >= mtk_jpeg_enc_quality[i].quality_param) {
 			enc_quality = mtk_jpeg_enc_quality[i].hardware_value;
 			break;
 		}
@@ -151,4 +159,11 @@ void mtk_jpeg_set_enc_params(struct mtk_jpeg_ctx *ctx,  void __iomem *base)
 	writel(value, base + JPEG_ENC_CTRL);
 
 	writel(ctx->restart_interval, base + JPEG_ENC_RST_MCU_NUM);
+
+
+	pr_info("fmt %d, w,h %d,%d, enable_exif %d, enc_quality %d, restart_interval %d,img_stride %d, mem_stride %d\n",
+		enc_format, width, height,
+		ctx->enable_exif, enc_quality, ctx->restart_interval,
+		img_stride, mem_stride);
+
 }
