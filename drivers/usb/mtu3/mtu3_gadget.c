@@ -104,15 +104,29 @@ static int mtu3_ep_enable(struct mtu3_ep *mep)
 		break; /*others are ignored */
 	}
 
-	dev_dbg(mtu->dev, "%s maxp:%d, interval:%d, burst:%d, mult:%d\n",
-		__func__, mep->maxp, interval, burst, mult);
-
 	mep->ep.maxpacket = mep->maxp;
 	mep->ep.desc = desc;
 	mep->ep.comp_desc = comp_desc;
 
 	/* slot mainly affects bulk/isoc transfer, so ignore int */
 	mep->slot = usb_endpoint_xfer_int(desc) ? 0 : mtu->slot;
+
+	/* reserve ep slot for super speed */
+	if (mep->slot && mtu->g.speed >= MTU3_SPEED_SUPER) {
+		switch (mtu->ep_slot_mode) {
+		case MTU3_EP_SLOT_MAX:
+			mep->slot = MTU3_U3_IP_SLOT_MAX;
+			break;
+		case MTU3_EP_SLOT_MIN:
+			mep->slot = 0;
+			break;
+		default:
+			break;
+		}
+	}
+
+	dev_info(mtu->dev, "%s %s maxp:%d interval:%d burst:%d slot:%d\n",
+		__func__, mep->name, mep->maxp,	interval, burst, mep->slot);
 
 	ret = mtu3_config_ep(mtu, mep, interval, burst, mult);
 	if (ret < 0)

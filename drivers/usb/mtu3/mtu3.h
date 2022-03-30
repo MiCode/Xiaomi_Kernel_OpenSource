@@ -62,6 +62,7 @@ struct mtu3_request;
 #define MTU3_EP_BUSY		BIT(3)
 
 #define MTU3_U3_IP_SLOT_DEFAULT 2
+#define MTU3_U3_IP_SLOT_MAX 4
 #define MTU3_U2_IP_SLOT_DEFAULT 1
 
 /**
@@ -144,6 +145,12 @@ enum mtu3_dr_operation_mode {
 	MTU3_DR_OPERATION_DUAL,
 	MTU3_DR_OPERATION_HOST,
 	MTU3_DR_OPERATION_DEVICE,
+};
+
+enum mtu3_ep_slot_mode {
+	MTU3_EP_SLOT_DEFAULT = 0,
+	MTU3_EP_SLOT_MIN,
+	MTU3_EP_SLOT_MAX,
 };
 
 enum mtu3_plat_type {
@@ -400,6 +407,7 @@ struct mtu3 {
 
 	unsigned is_gadget_ready:1;
 	unsigned async_callbacks:1;
+	int ep_slot_mode;
 };
 
 static inline struct mtu3 *gadget_to_mtu3(struct usb_gadget *g)
