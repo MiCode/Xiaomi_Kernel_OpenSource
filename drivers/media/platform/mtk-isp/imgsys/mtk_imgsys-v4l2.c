@@ -21,6 +21,7 @@
 #include <media/v4l2-event.h>
 #include <linux/dma-iommu.h>
 #include <linux/dma-mapping.h>
+#include "mtk_imgsys_v4l2.h"
 #include "mtk_imgsys-dev.h"
 #include "mtk_imgsys-hw.h"
 #include "mtk-hcp.h"
@@ -28,6 +29,7 @@
 #include "mtk_imgsys-cmdq.h"
 
 #include "mtk_imgsys-data.h"
+#include "mtk_imgsys-probe.h"
 
 #define CLK_READY
 
@@ -2036,7 +2038,16 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 	mutex_init(&node->dev_q.lock);
 
 	vdev->device_caps = node->desc->cap;
-	vdev->ioctl_ops = node->desc->ops;
+	if (vdev->device_caps & V4L2_CAP_VIDEO_OUTPUT_MPLANE)
+		vdev->ioctl_ops = &mtk_imgsys_v4l2_video_out_ioctl_ops;
+	else if (vdev->device_caps & V4L2_CAP_VIDEO_CAPTURE_MPLANE)
+		vdev->ioctl_ops = &mtk_imgsys_v4l2_video_cap_ioctl_ops;
+	else if (vdev->device_caps & V4L2_CAP_META_OUTPUT)
+		vdev->ioctl_ops = &mtk_imgsys_v4l2_meta_out_ioctl_ops;
+	else
+		dev_info(pipe->imgsys_dev->dev, "%s unsupported cap %x\n",
+						__func__, vdev->device_caps);
+
 	node->vdev_fmt.type = node->desc->buf_type;
 	mtk_imgsys_pipe_load_default_fmt(pipe, node, &node->vdev_fmt);
 
@@ -2052,7 +2063,14 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 
 	vbq->type = node->vdev_fmt.type;
 	vbq->io_modes = VB2_MMAP | VB2_DMABUF;
-	vbq->ops = node->desc->vb2_ops;
+	if (vbq->type & V4L2_BUF_TYPE_META_OUTPUT)
+		vbq->ops = &mtk_imgsys_vb2_meta_ops;
+	else if (vbq->type & V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		vbq->ops = &mtk_imgsys_vb2_video_ops;
+	else
+		dev_info(pipe->imgsys_dev->dev, "%s unsupported buf_type %x\n",
+						__func__, vdev->device_caps);
+
 	vbq->mem_ops = &vb2_dma_contig_memops;
 	vbq->supports_requests = true;
 	vbq->buf_struct_size = sizeof(struct mtk_imgsys_dev_buffer);
@@ -2510,7 +2528,7 @@ static void mtk_imgsys_res_release(struct mtk_imgsys_dev *imgsys_dev)
 	mutex_destroy(&imgsys_dev->imgsys_users.user_lock);
 }
 
-static int __maybe_unused mtk_imgsys_pm_suspend(struct device *dev)
+int __maybe_unused mtk_imgsys_pm_suspend(struct device *dev)
 {
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(dev);
 	int ret, num;
@@ -2543,7 +2561,7 @@ static int __maybe_unused mtk_imgsys_pm_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused mtk_imgsys_pm_resume(struct device *dev)
+int __maybe_unused mtk_imgsys_pm_resume(struct device *dev)
 {
 #ifdef NEED_PM
 	int ret;
@@ -2600,7 +2618,7 @@ static struct notifier_block imgsys_notifier_block = {
 #endif
 
 
-static int mtk_imgsys_probe(struct platform_device *pdev)
+int mtk_imgsys_probe(struct platform_device *pdev)
 {
 	struct mtk_imgsys_dev *imgsys_dev;
 	const struct cust_data *data;
@@ -2775,8 +2793,9 @@ err_release_working_buf_pool:
 	mtk_imgsys_hw_working_buf_pool_release(imgsys_dev);
 	return ret;
 }
+EXPORT_SYMBOL(mtk_imgsys_probe);
 
-static int mtk_imgsys_remove(struct platform_device *pdev)
+int mtk_imgsys_remove(struct platform_device *pdev)
 {
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(&pdev->dev);
 
@@ -2793,8 +2812,9 @@ static int mtk_imgsys_remove(struct platform_device *pdev)
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_imgsys_remove);
 
-static int __maybe_unused mtk_imgsys_runtime_suspend(struct device *dev)
+int mtk_imgsys_runtime_suspend(struct device *dev)
 {
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(dev);
 
@@ -2809,8 +2829,9 @@ static int __maybe_unused mtk_imgsys_runtime_suspend(struct device *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_imgsys_runtime_suspend);
 
-static int __maybe_unused mtk_imgsys_runtime_resume(struct device *dev)
+int mtk_imgsys_runtime_resume(struct device *dev)
 {
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(dev);
 	int ret;
@@ -2846,6 +2867,7 @@ static int __maybe_unused mtk_imgsys_runtime_resume(struct device *dev)
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_imgsys_runtime_resume);
 
 static const struct dev_pm_ops mtk_imgsys_pm_ops = {
 	SET_RUNTIME_PM_OPS(mtk_imgsys_runtime_suspend,

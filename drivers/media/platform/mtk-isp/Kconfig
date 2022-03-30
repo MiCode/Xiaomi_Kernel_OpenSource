@@ -66,3 +66,11 @@ config VIDEO_MTK_ISP_IPESYS
 	    which process the images to generate useful statistics
 	    for isp pipeline image computation such
 	    as motion estimation.
+
+config VIDEO_MTK_ISP_IMGSYS_7S
+	tristate "Mediatek imgsys processing function"
+	help
+	    imgsys driver controls post-processing on the streaming images
+	    and/or statistics for better image qualities
+	    such as noise reduction, edge enhencement,
+	    and motion estimation, etc.
