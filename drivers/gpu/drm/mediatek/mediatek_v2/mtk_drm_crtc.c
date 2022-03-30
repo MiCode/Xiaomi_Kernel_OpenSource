@@ -3645,10 +3645,8 @@ static void mtk_crtc_exec_atf_prebuilt_instr(struct mtk_drm_crtc *mtk_crtc,
 	cmdq_pkt_wfe(handle,
 		mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_DISP_VA_END]);
 
-#ifdef CMDQ_SMC_SUPPORT
 	//SMC Call
 	cmdq_util_enable_disp_va();
-#endif
 }
 #endif
 
