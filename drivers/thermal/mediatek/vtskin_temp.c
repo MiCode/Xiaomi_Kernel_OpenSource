@@ -57,13 +57,13 @@ static int vtskin_get_temp(void *data, int *temp)
 		}
 
 		tzd = thermal_zone_get_zone_by_name(sensor_name);
-		if (IS_ERR(tzd)) {
+		if (IS_ERR_OR_NULL(tzd) || !tzd->ops->get_temp) {
 			dev_err(skin_data->dev, "get %s temp fail\n", sensor_name);
 			*temp = THERMAL_TEMP_INVALID;
 			return -EINVAL;
 		}
 
-		thermal_zone_get_temp(tzd, &tz_temp);
+		tzd->ops->get_temp(tzd, &tz_temp);
 		coef = skin_param[skin_tz->id].vtskin_ref[i].sensor_coef;
 		vtskin += tz_temp * coef;
 	}
