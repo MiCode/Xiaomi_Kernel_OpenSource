@@ -121,6 +121,7 @@ struct mtk_addon_mml_config {
 	struct mtk_addon_config_type config_type;
 	struct mml_mutex_ctl mutex;	/* [IN] display mode and output port */
 	struct mml_submit submit;	/* [IN] mml_drm_split_info submit_pq */
+	bool dual;			/* [IN] set true if display uses dual pipe */
 	struct mml_task *task;		/* [OUT] task and config for mml */
 	struct mtk_rect mml_src_roi;	/* [OUT] roi for source OVL */
 	struct mtk_rect mml_dst_roi;	/* for display to calc 2nd OVL ROI */
