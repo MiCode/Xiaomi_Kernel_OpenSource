@@ -1286,8 +1286,7 @@ static void md_ccif_handle_exception(struct md_ccif_ctrl *md_ctrl)
 		clear_bit(AP_MD_SEQ_ERROR, &md_ctrl->channel_id);
 		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
 			"MD check seq fail\n");
-		ccci_md_dump_info(md_ctrl->md_id,
-			DUMP_FLAG_CCIF, NULL, 0);
+		md_ccif_op_dump_status(CCIF_HIF_ID, DUMP_FLAG_CCIF, NULL, 0);
 	}
 	if (md_ctrl->channel_id & (1 << (D2H_SRAM))) {
 		clear_bit(D2H_SRAM, &md_ctrl->channel_id);

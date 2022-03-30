@@ -71,6 +71,5 @@ struct ccci_emi_info {
 
 /* export API */
 int ccci_ipc_send_ilm(int md_id, struct ipc_ilm *in_ilm);
-int ccci_get_emi_info(int md_id, struct ccci_emi_info *emi_info);
 
 #endif				/* __PORT_IPC_H__ */

@@ -2490,7 +2490,16 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
 		}
 		break;
 	case ID_DUMP_MD_SLEEP_MODE:
-		ccci_md_dump_info(md_id, DUMP_FLAG_SMEM_MDSLP, NULL, 0);
+		{
+			struct ccci_smem_region *low_pwr =
+				ccci_md_get_smem_by_user_id(md_id,
+					SMEM_USER_RAW_DBM);
+
+			CCCI_MEM_LOG_TAG(md_id, TAG, "Dump MD SLP registers\n");
+			ccci_util_cmpt_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+				low_pwr->base_ap_view_vir, low_pwr->size);
+		}
+		//ccci_md_dump_info(md_id, DUMP_FLAG_SMEM_MDSLP, NULL, 0);
 		break;
 	case ID_PMIC_INTR:
 		ret = ccci_port_send_msg_to_md(md_id,

@@ -193,37 +193,15 @@ static inline int ccci_md_recv_skb(unsigned char md_id,
 	return ccci_port_recv_skb(md_id, hif_id, skb, flag);
 }
 
-/****************************************************************************/
-/* API Region called by port_proxy class */
-/****************************************************************************/
-struct ccci_modem *ccci_md_get_another(int md_id);
-void ccci_md_set_reload_type(struct ccci_modem *md, int type);
-
-int ccci_md_check_ee_done(struct ccci_modem *md, int timeout);
-int ccci_md_store_load_type(struct ccci_modem *md, int type);
-int ccci_md_get_ex_type(struct ccci_modem *md);
-
 /***************************************************************************/
 /* API Region called by ccci modem object */
 /***************************************************************************/
 
-#if defined(FEATURE_SYNC_C2K_MEID)
-extern unsigned char tc1_read_meid_syncform(unsigned char *meid, int leng);
-#endif
-
-#if defined(FEATURE_TC1_CUSTOMER_VAL)
-extern int get_md_customer_val(unsigned char *value, unsigned int len);
-#endif
 extern bool spm_is_md1_sleep(void);
 
 //extern unsigned int trace_sample_time;
 
 extern u32 mt_irq_get_pending(unsigned int irq);
-
-#define GF_PORT_LIST_MAX 128
-extern int gf_port_list_reg[GF_PORT_LIST_MAX];
-extern int gf_port_list_unreg[GF_PORT_LIST_MAX];
-extern int ccci_ipc_set_garbage_filter(struct ccci_modem *md, int reg);
 
 extern int ccci_modem_init_common(struct platform_device *plat_dev,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *md_hw);
@@ -233,5 +211,20 @@ extern int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
 #if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
 extern void mt_irq_dump_status(unsigned int irq);
 #endif
+
+int ccci_md_start(unsigned char md_id);
+int ccci_md_soft_start(unsigned char md_id, unsigned int sim_mode);
+int ccci_md_send_runtime_data(unsigned char md_id);
+void ccci_md_dump_info(unsigned char md_id, enum MODEM_DUMP_FLAG flag,
+	void *buff, int length);
+int ccci_md_pre_stop(unsigned char md_id, unsigned int stop_type);
+int ccci_md_stop(unsigned char md_id, unsigned int stop_type);
+int ccci_md_soft_stop(unsigned char md_id, unsigned int sim_mode);
+//int ccci_md_force_assert(unsigned char md_id, enum MD_FORCE_ASSERT_TYPE type,
+//	char *param, int len);
+void ccci_md_exception_handshake(unsigned char md_id, int timeout);
+//int ccci_md_send_ccb_tx_notify(unsigned char md_id, int core_id);
+int ccci_md_pre_start(unsigned char md_id);
+int ccci_md_post_start(unsigned char md_id);
 
 #endif	/* __CCCI_MODEM_H__ */

@@ -17,11 +17,20 @@
 #include "ccci_modem.h"
 #include "ccci_port.h"
 #include "ccci_hif.h"
-#ifndef CCCI_KMODULE_ENABLE
-#ifdef FEATURE_SCP_CCCI_SUPPORT
-#include "scp_ipi.h"
+#if IS_ENABLED(CONFIG_OF)
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
 #endif
-#endif
+
+struct ccci_tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
+
 static void *dev_class;
 /*
  * for debug log:
@@ -35,6 +44,55 @@ static void *dev_class;
 //#define CCCI_LOG_LEVEL CCCI_LOG_ALL_UART
 
 unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
+
+unsigned int get_boot_mode_from_dts(void)
+{
+	struct device_node *np_chosen = NULL;
+	struct ccci_tag_bootmode *tag = NULL;
+	u32 bootmode = NORMAL_BOOT_ID;
+	static int ap_boot_mode = -1;
+
+	if (ap_boot_mode >= 0) {
+		CCCI_NORMAL_LOG(-1, CORE,
+			"[%s] bootmode: 0x%x\n", __func__, ap_boot_mode);
+		return ap_boot_mode;
+	}
+
+	np_chosen = of_find_node_by_path("/chosen");
+	if (!np_chosen) {
+		CCCI_ERROR_LOG(-1, CORE, "warning: not find node: '/chosen'\n");
+
+		np_chosen = of_find_node_by_path("/chosen@0");
+		if (!np_chosen) {
+			CCCI_ERROR_LOG(-1, CORE,
+				"[%s] error: not find node: '/chosen@0'\n",
+				__func__);
+			return NORMAL_BOOT_ID;
+		}
+	}
+
+	tag = (struct ccci_tag_bootmode *)
+			of_get_property(np_chosen, "atag,boot", NULL);
+	if (!tag) {
+		CCCI_ERROR_LOG(-1, CORE,
+			"[%s] error: not find tag: 'atag,boot';\n", __func__);
+		return NORMAL_BOOT_ID;
+	}
+
+	if (tag->bootmode == META_BOOT || tag->bootmode == ADVMETA_BOOT)
+		bootmode = META_BOOT_ID;
+
+	else if (tag->bootmode == FACTORY_BOOT ||
+			tag->bootmode == ATE_FACTORY_BOOT)
+		bootmode = FACTORY_BOOT_ID;
+
+	CCCI_NORMAL_LOG(-1, CORE,
+		"[%s] bootmode: 0x%x boottype: 0x%x; return: 0x%x\n",
+		__func__, tag->bootmode, tag->boottype, bootmode);
+	ap_boot_mode = bootmode;
+
+	return bootmode;
+}
 
 int ccci_register_dev_node(const char *name, int major_id, int minor)
 {

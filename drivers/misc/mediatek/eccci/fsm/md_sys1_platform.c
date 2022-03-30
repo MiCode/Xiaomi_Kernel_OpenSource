@@ -99,16 +99,8 @@ void ccci_dump(void)
 EXPORT_SYMBOL(ccci_dump);
 #endif
 
-/* md1 sys_clk_cg no need set in this API*/
-static void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
-{
-}
-
 static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 {
-#ifdef MD_PEER_WAKEUP
-	md_info->md_peer_wakeup = ioremap_wc(MD_PEER_WAKEUP, 0x4);
-#endif
 	return 0;
 }
 
@@ -1044,7 +1036,7 @@ static int md_cd_let_md_go(struct ccci_modem *md)
 static struct ccci_plat_ops md_cd_plat_ptr = {
 	.md_dump_reg = &md_dump_register_6873,
 	//.cldma_hw_rst = &md_cldma_hw_reset,
-	.set_clk_cg = &ccci_set_clk_cg,
+	//.set_clk_cg = &ccci_set_clk_cg,
 	.remap_md_reg = &md_cd_io_remap_md_side_register,
 	.lock_modem_clock_src = &md_cd_lock_modem_clock_src,
 	.get_md_bootup_status = &md_cd_get_md_bootup_status,

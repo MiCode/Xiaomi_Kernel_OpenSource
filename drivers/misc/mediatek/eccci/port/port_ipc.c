@@ -494,25 +494,3 @@ int send_new_time_to_md(int md_id, int tz)
 }
 #endif
 
-int ccci_get_emi_info(int md_id, struct ccci_emi_info *emi_info)
-{
-	struct ccci_mem_layout *mem_layout = NULL;
-
-	if (md_id < 0 || md_id > MAX_MD_NUM || !emi_info)
-		return -EINVAL;
-	mem_layout = ccci_md_get_mem(md_id);
-	if (mem_layout == NULL) {
-		CCCI_ERROR_LOG(md_id, IPC, "mem_layout get fail\n");
-		return -1;
-	}
-
-	emi_info->ap_domain_id = 0;
-	emi_info->md_domain_id = 1;
-	emi_info->ap_view_bank0_base = mem_layout->md_bank0.base_ap_view_phy;
-	emi_info->bank0_size = mem_layout->md_bank0.size;
-	emi_info->ap_view_bank4_base =
-		mem_layout->md_bank4_noncacheable_total.base_md_view_phy;
-	emi_info->bank4_size = mem_layout->md_bank4_noncacheable_total.size;
-	return 0;
-}
-

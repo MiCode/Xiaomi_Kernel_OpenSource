@@ -618,9 +618,28 @@ enum md_bc_event {
 /* common API */
 /* ========================================================================= */
 
-#ifdef FEATURE_SCP_CCCI_SUPPORT
-extern void fsm_scp_init0(void);
-#endif
+#define NORMAL_BOOT_ID 0
+#define META_BOOT_ID 1
+#define FACTORY_BOOT_ID	2
+
+/* boot type definitions */
+enum boot_mode_t {
+	NORMAL_BOOT = 0,
+	META_BOOT = 1,
+	RECOVERY_BOOT = 2,
+	SW_REBOOT = 3,
+	FACTORY_BOOT = 4,
+	ADVMETA_BOOT = 5,
+	ATE_FACTORY_BOOT = 6,
+	ALARM_BOOT = 7,
+	KERNEL_POWER_OFF_CHARGING_BOOT = 8,
+	LOW_POWER_OFF_CHARGING_BOOT = 9,
+	DONGLE_BOOT = 10,
+	UNKNOWN_BOOT
+};
+
+unsigned int get_boot_mode_from_dts(void);
+extern int ccci_register_dev_node(const char *name, int major_id, int minor);
 #ifdef CCCI_KMODULE_ENABLE
 int ccci_init(void);
 #endif

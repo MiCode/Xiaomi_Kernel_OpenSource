@@ -224,7 +224,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 			;
 		ret = 0;
 		break;
-	case CCCI_IOC_SET_MD_BOOT_MODE:
+	case CCCI_IOC_SET_MD_BOOT_MODE: /* set by META */
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(unsigned int))) {
 			CCCI_ERROR_LOG(md_id, FSM,
@@ -238,7 +238,7 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 				other_per_md_data->md_boot_mode = data;
 		}
 		break;
-	case CCCI_IOC_GET_MD_BOOT_MODE:
+	case CCCI_IOC_GET_MD_BOOT_MODE: /* mdinit for deciding start/stop other services */
 		ret = put_user((unsigned int)per_md_data->md_boot_mode,
 				(unsigned int __user *)arg);
 		break;

@@ -11,6 +11,7 @@
 #include <mt-plat/aee.h>
 #endif
 #include "mdee_dumper_v1.h"
+#include "modem_sys.h"
 
 #ifndef DB_OPT_DEFAULT
 #define DB_OPT_DEFAULT    (0)	/* Dummy macro define to avoid build error */

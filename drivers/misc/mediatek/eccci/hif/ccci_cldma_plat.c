@@ -51,7 +51,6 @@ void cldma_plat_hw_reset(unsigned char md_id)
 {
 	unsigned int reg_value = 0;
 	int ret;
-	//struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
 
 	CCCI_NORMAL_LOG(md_id, TAG, "%s:rst cldma\n", __func__);
 

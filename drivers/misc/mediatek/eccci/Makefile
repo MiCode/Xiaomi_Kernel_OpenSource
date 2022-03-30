@@ -78,7 +78,8 @@ ccci_md_all-$(CCCI_OBJ) += fsm/ccci_fsm.o \
 			fsm/mdee_dumper_v5.o \
 			fsm/modem_sys1.o \
 			fsm/md_sys1_platform.o \
-			fsm/ap_md_reg_dump.o
+			fsm/ap_md_reg_dump.o \
+			fsm/ap_md_mem.o
 
 # fsm end
 
@@ -87,10 +88,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek
 # security objects
 MASP_CORE_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/drivers/masp
-
-ifeq ($(CONFIG_MTK_QOS_SUPPORT), y)
-ccflags-y += -I$(srctree)/drivers/devfreq/
-endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/fsm
 obj-$(CCCI_OBJ)	+= fsm/

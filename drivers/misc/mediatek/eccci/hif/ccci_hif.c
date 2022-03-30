@@ -385,24 +385,6 @@ void ccci_md_dump_log_history(unsigned char md_id,
 }
 EXPORT_SYMBOL(ccci_md_dump_log_history);
 
-void ccci_hif_md_exception(unsigned int hif_flag, unsigned char stage)
-{
-	switch (stage) {
-	case HIF_EX_INIT:
-		/* eg. stop tx */
-		break;
-	case HIF_EX_CLEARQ_DONE:
-		/* eg. stop rx. */
-		break;
-	case HIF_EX_ALLQ_RESET:
-		/* maybe no used for dpmaif, for no used on exception mode. */
-		break;
-	default:
-		break;
-	};
-
-}
-
 int ccci_hif_stop(unsigned char hif_id)
 {
 	int ret = 0;
@@ -426,6 +408,58 @@ int ccci_hif_start(unsigned char hif_id)
 	//	ret |= ccci_hif_op[DPMAIF_HIF_ID]->start(DPMAIF_HIF_ID);
 
 	return ret;
+}
+
+void ccci_hif_md_exception(unsigned int hif_flag, unsigned char stage)
+{
+	switch (stage) {
+	case HIF_EX_INIT:
+		/* eg. stop tx */
+		ccci_hif_dump_status(1 << CCIF_HIF_ID, DUMP_FLAG_CCIF |
+			DUMP_FLAG_IRQ_STATUS, NULL, 0);
+
+		if (hif_flag & (1<<CLDMA_HIF_ID))  {
+			CCCI_ERROR_LOG(0, TAG,
+				"dump cldma on ccif hs0\n");
+			ccci_hif_dump_status(1 << CLDMA_HIF_ID,
+				DUMP_FLAG_CLDMA, NULL, -1);
+			/* disable CLDMA except un-stop queues */
+			ccci_hif_stop_for_ee(1 << CLDMA_HIF_ID);
+			/* purge Tx queue */
+			ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, OUT);
+		}
+		break;
+	case HIF_EX_CLEARQ_DONE:
+		/* eg. stop rx. */
+		if (hif_flag & (1<<CLDMA_HIF_ID))  {
+			/* stop CLDMA, we don't want to get CLDMA IRQ when MD is
+			 * resetting CLDMA after it got cleaq_ack
+			 */
+			ccci_hif_stop(CLDMA_HIF_ID);
+			CCCI_NORMAL_LOG(0, TAG,
+				"%s: stop cldma done\n", __func__);
+			/*dump rxq after cldma stop to avoid race condition*/
+			ccci_hif_dump_status(1 << CLDMA_HIF_ID, DUMP_FLAG_QUEUE_0_1,
+				NULL, 1 << IN);
+			CCCI_NORMAL_LOG(0, TAG,
+				"%s: dump queue0-1 done\n", __func__);
+
+			ccci_hif_hw_reset(1 << CLDMA_HIF_ID, 0);
+			CCCI_NORMAL_LOG(0, TAG,
+				"%s: hw reset done\n", __func__);
+			ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, IN);
+		}
+
+		break;
+	case HIF_EX_ALLQ_RESET:
+		/* maybe no used for dpmaif, for no used on exception mode. */
+		if (hif_flag & (1<<CLDMA_HIF_ID))
+			ccci_hif_all_q_reset(1 << CLDMA_HIF_ID);
+		break;
+	default:
+		break;
+	};
+
 }
 
 int ccci_hif_state_notification(int md_id, unsigned char state)
@@ -467,6 +501,13 @@ int ccci_hif_state_notification(int md_id, unsigned char state)
 			ccci_hif_dump_status(1 << DPMAIF_HIF_ID,
 				DUMP_FLAG_REG, NULL, -1);
 			ret |= ccci_hif_op[DPMAIF_HIF_ID]->stop(DPMAIF_HIF_ID);
+		}
+		if (ccci_hif[CLDMA_HIF_ID] &&
+			ccci_hif_op[CLDMA_HIF_ID]->stop) {
+			ccci_hif_clear(1 << CLDMA_HIF_ID);
+			ccci_hif_stop(CLDMA_HIF_ID);
+			ccci_hif_hw_reset(1 << CLDMA_HIF_ID, md_id);
+			ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, md_id, 0);
 		}
 		break;
 	default:

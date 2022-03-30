@@ -121,6 +121,8 @@ static enum hrtimer_restart smem_tx_timer_func(struct hrtimer *timer)
 
 	ccci_md_send_ccb_tx_notify(smem_port->port->md_id,
 		smem_port->core_id);
+	//if (smem_port->core_id = P_CORE)
+	//maybe we can use ccci_hif_send_data(CCIF_HIF_ID, AP_MD_CCB_WAKEUP);
 	return HRTIMER_NORESTART;
 }
 

@@ -48,7 +48,7 @@
 
 #define TAG "mcd"
 
-static void debug_in_flight_mode(struct ccci_modem *md);
+struct ccci_modem *modem_sys[MAX_MD_NUM];
 
 #ifdef CCCI_KMODULE_ENABLE
 bool spm_is_md1_sleep(void)
@@ -122,28 +122,6 @@ static irqreturn_t md_cd_wdt_isr(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static void md_cd_ccif_delayed_work(struct ccci_modem *md)
-{
-	if (md->hif_flag & (1<<CLDMA_HIF_ID))  {
-		/* stop CLDMA, we don't want to get CLDMA IRQ when MD is
-		 * resetting CLDMA after it got cleaq_ack
-		 */
-		ccci_hif_stop(CLDMA_HIF_ID);
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"%s: stop cldma done\n", __func__);
-		/*dump rxq after cldma stop to avoid race condition*/
-		ccci_hif_dump_status(1 << CLDMA_HIF_ID, DUMP_FLAG_QUEUE_0_1,
-			NULL, 1 << IN);
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"%s: dump queue0-1 done\n", __func__);
-
-		ccci_hif_hw_reset(1 << CLDMA_HIF_ID, md->index);
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"%s: hw reset done\n", __func__);
-		ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, IN);
-	}
-}
-
 static void md_cd_exception(struct ccci_modem *md, enum HIF_EX_STAGE stage)
 {
 	struct ccci_smem_region *mdccci_dbg =
@@ -157,22 +135,10 @@ static void md_cd_exception(struct ccci_modem *md, enum HIF_EX_STAGE stage)
 	 */
 	switch (stage) {
 	case HIF_EX_INIT:
-		ccci_hif_dump_status(1 << CCIF_HIF_ID, DUMP_FLAG_CCIF |
-			DUMP_FLAG_IRQ_STATUS, NULL, 0);
 		if (*((int *)(mdccci_dbg->base_ap_view_vir +
 			CCCI_SMEM_OFFSET_SEQERR)) != 0) {
 			CCCI_ERROR_LOG(md->index, TAG,
 				"MD found wrong sequence number\n");
-		}
-		if (md->hif_flag & (1<<CLDMA_HIF_ID))  {
-			CCCI_ERROR_LOG(md->index, TAG,
-				"dump cldma on ccif hs0\n");
-			ccci_hif_dump_status(1 << CLDMA_HIF_ID,
-				DUMP_FLAG_CLDMA, NULL, -1);
-			/* disable CLDMA except un-stop queues */
-			ccci_hif_stop_for_ee(1 << CLDMA_HIF_ID);
-			/* purge Tx queue */
-			ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, OUT);
 		}
 		ccci_hif_md_exception(md->hif_flag, stage);
 		/* Rx dispatch does NOT depend on queue index
@@ -185,7 +151,6 @@ static void md_cd_exception(struct ccci_modem *md, enum HIF_EX_STAGE stage)
 	case HIF_EX_CLEARQ_DONE:
 		/* give DHL some time to flush data */
 		msleep(2000);
-		md_cd_ccif_delayed_work(md);
 		ccci_hif_md_exception(md->hif_flag, stage);
 		/* tell MD to reset CLDMA */
 		ccci_hif_send_data(CCIF_HIF_ID, H2D_EXCEPTION_CLEARQ_ACK);
@@ -193,8 +158,6 @@ static void md_cd_exception(struct ccci_modem *md, enum HIF_EX_STAGE stage)
 		break;
 	case HIF_EX_ALLQ_RESET:
 		md->per_md_data.is_in_ee_dump = 1;
-		if (md->hif_flag & (1<<CLDMA_HIF_ID))
-			ccci_hif_all_q_reset(1 << CLDMA_HIF_ID);
 		ccci_hif_md_exception(md->hif_flag, stage);
 		break;
 	default:
@@ -315,8 +278,8 @@ static int ccci_md_hif_start(struct ccci_modem *md, int stage)
 	switch (stage) {
 	case 1:
 		/*enable clk: cldma*/
-		if (md->hw_info->plat_ptr->set_clk_cg)
-			md->hw_info->plat_ptr->set_clk_cg(md, 1);
+		//if (md->hw_info->plat_ptr->set_clk_cg)
+		//	md->hw_info->plat_ptr->set_clk_cg(md, 1);
 
 		//ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, md->index, 1);
 
@@ -357,7 +320,6 @@ static int md_cd_start(struct ccci_modem *md)
 		/* init security, as security depends on dummy_char,
 		 * which is ready very late.
 		 */
-		ccci_md_clear_smem(md->index, 1);
 		if (md->hw_info->plat_ptr->start_platform) {
 			ret = md->hw_info->plat_ptr->start_platform(md);
 			if (ret) {
@@ -367,8 +329,7 @@ static int md_cd_start(struct ccci_modem *md)
 			}
 		}
 		md->per_md_data.config.setting &= ~MD_SETTING_FIRST_BOOT;
-	} else
-		ccci_md_clear_smem(md->index, 0);
+	}
 
 	CCCI_BOOTUP_LOG(md->index, TAG, "modem is starting\n");
 	/* 1. load modem image */
@@ -386,9 +347,6 @@ static int md_cd_start(struct ccci_modem *md)
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"partition read success\n");
 
-#ifdef FEATURE_BSI_BPI_SRAM_CFG
-	ccci_set_bsi_bpi_SRAM_cfg(md, 1, MD_FLIGHT_MODE_NONE);
-#endif
 	ccci_md_hif_start(md, 1);
 	/* 4. power on modem, do NOT touch MD register before this */
 	if (md->hw_info->plat_ptr->power_on) {
@@ -467,6 +425,58 @@ void __weak md1_sleep_timeout_proc(void)
 	CCCI_DEBUG_LOG(-1, TAG, "No %s\n", __func__);
 }
 
+static void debug_in_flight_mode(struct ccci_modem *md)
+{
+	int count = 0;
+	int en_power_check = check_power_off_en(md);
+	struct ccci_smem_region *mdccci_dbg =
+		ccci_md_get_smem_by_user_id(md->index,
+			SMEM_USER_RAW_MDCCCI_DBG);
+	struct ccci_smem_region *mdss_dbg =
+		ccci_md_get_smem_by_user_id(md->index,
+			SMEM_USER_RAW_MDSS_DBG);
+	struct ccci_per_md *per_md_data =
+		ccci_get_per_md_data(md->index);
+	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
+
+	count = 5;
+	while (spm_is_md1_sleep() == 0) {
+		count--;
+		if (count == 0) {
+			if (en_power_check) {
+				CCCI_NORMAL_LOG(md->index, TAG,
+				"MD is not in sleep mode, dump md status!\n");
+				CCCI_MEM_LOG_TAG(md->index, TAG,
+				"Dump MD EX log\n");
+				if (md_dbg_dump_flag &
+					(1 << MD_DBG_DUMP_SMEM)) {
+					ccci_util_mem_dump(md->index,
+					CCCI_DUMP_MEM_DUMP,
+					mdccci_dbg->base_ap_view_vir,
+					mdccci_dbg->size);
+					ccci_util_mem_dump(md->index,
+					CCCI_DUMP_MEM_DUMP,
+					mdss_dbg->base_ap_view_vir,
+					mdss_dbg->size);
+				}
+				if (md->hw_info->plat_ptr->debug_reg)
+					md->hw_info->plat_ptr->debug_reg(md);
+	/* cldma_dump_register(CLDMA_HIF_ID);*/
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+				aed_md_exception_api(
+				mdss_dbg->base_ap_view_vir,
+				mdss_dbg->size, NULL, 0,
+				"After AP send EPOF, MD didn't go to sleep in 4 seconds.",
+				DB_OPT_DEFAULT);
+#endif
+			} else
+				md1_sleep_timeout_proc();
+			break;
+		}
+		msleep(1000);
+	}
+}
+
 static int md_cd_pre_stop(struct ccci_modem *md, unsigned int stop_type)
 {
 	u32 pending;
@@ -527,57 +537,7 @@ static int md_cd_pre_stop(struct ccci_modem *md, unsigned int stop_type)
 			ccci_fsm_get_md_state(md->index));
 	return 0;
 }
-static void debug_in_flight_mode(struct ccci_modem *md)
-{
-	int count = 0;
-	int en_power_check = check_power_off_en(md);
-	struct ccci_smem_region *mdccci_dbg =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_MDCCCI_DBG);
-	struct ccci_smem_region *mdss_dbg =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_MDSS_DBG);
-	struct ccci_per_md *per_md_data =
-		ccci_get_per_md_data(md->index);
-	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
-	count = 5;
-	while (spm_is_md1_sleep() == 0) {
-		count--;
-		if (count == 0) {
-			if (en_power_check) {
-				CCCI_NORMAL_LOG(md->index, TAG,
-				"MD is not in sleep mode, dump md status!\n");
-				CCCI_MEM_LOG_TAG(md->index, TAG,
-				"Dump MD EX log\n");
-				if (md_dbg_dump_flag &
-					(1 << MD_DBG_DUMP_SMEM)) {
-					ccci_util_mem_dump(md->index,
-					CCCI_DUMP_MEM_DUMP,
-					mdccci_dbg->base_ap_view_vir,
-					mdccci_dbg->size);
-					ccci_util_mem_dump(md->index,
-					CCCI_DUMP_MEM_DUMP,
-					mdss_dbg->base_ap_view_vir,
-					mdss_dbg->size);
-				}
-				if (md->hw_info->plat_ptr->debug_reg)
-					md->hw_info->plat_ptr->debug_reg(md);
-	/* cldma_dump_register(CLDMA_HIF_ID);*/
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-				aed_md_exception_api(
-				mdss_dbg->base_ap_view_vir,
-				mdss_dbg->size, NULL, 0,
-				"After AP send EPOF, MD didn't go to sleep in 4 seconds.",
-				DB_OPT_DEFAULT);
-#endif
-			} else
-				md1_sleep_timeout_proc();
-			break;
-		}
-		msleep(1000);
-	}
-}
 static int md_cd_stop(struct ccci_modem *md, unsigned int stop_type)
 {
 	int ret = 0;
@@ -595,24 +555,9 @@ static int md_cd_stop(struct ccci_modem *md, unsigned int stop_type)
 			stop_type == MD_FLIGHT_MODE_ENTER ? 100 : 0);
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"modem is power off done, %d\n", ret);
-
-	if (md->hif_flag & (1<<CLDMA_HIF_ID)) {
-		ccci_hif_clear(1 << CLDMA_HIF_ID);
-		ccci_hif_stop(CLDMA_HIF_ID);
-		ccci_hif_hw_reset(1 << CLDMA_HIF_ID, md->index);
-		ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, md->index, 0);
-	}
 	/* Check EMI after */
 	if (md->hw_info->plat_ptr->check_emi_state)
 		md->hw_info->plat_ptr->check_emi_state(md, 0);
-
-	/*disable cldma & ccif clk*/
-	if (md->hw_info->plat_ptr->set_clk_cg)
-		md->hw_info->plat_ptr->set_clk_cg(md, 0);
-
-#ifdef FEATURE_BSI_BPI_SRAM_CFG
-	ccci_set_bsi_bpi_SRAM_cfg(md, 0, stop_type);
-#endif
 
 	return 0;
 }
@@ -1030,16 +975,6 @@ static int md_cd_dump_info(struct ccci_modem *md,
 		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
 			&md->mem_layout, sizeof(struct ccci_mem_layout));
 	}
-
-	if (flag & DUMP_FLAG_SMEM_MDSLP) {
-		struct ccci_smem_region *low_pwr =
-			ccci_md_get_smem_by_user_id(md->index,
-				SMEM_USER_RAW_DBM);
-
-		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD SLP registers\n");
-		ccci_util_cmpt_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
-			low_pwr->base_ap_view_vir, low_pwr->size);
-	}
 	if (flag & DUMP_FLAG_MD_WDT) {
 		CCCI_MEM_LOG_TAG(md->index, TAG,
 			"wdt_enabled=%d\n", atomic_read(&md->wdt_enabled));
@@ -1175,7 +1110,7 @@ void ccci_md_dump_info(unsigned char md_id, enum MODEM_DUMP_FLAG flag,
 	else
 		CCCI_ERROR_LOG(md_id, TAG, "invalid md_id %d!!\n", md_id);
 }
-EXPORT_SYMBOL(ccci_md_dump_info);
+//EXPORT_SYMBOL(ccci_md_dump_info);
 
 void ccci_md_exception_handshake(unsigned char md_id, int timeout)
 {
@@ -1288,8 +1223,16 @@ static ssize_t md_cd_dump_store(struct ccci_modem *md,
 			md->ops->dump_info(md, DUMP_FLAG_PCCIF_REG, NULL, 0);
 		if (strncmp(buf, "layout", count - 1) == 0)
 			md->ops->dump_info(md, DUMP_FLAG_LAYOUT, NULL, 0);
-		if (strncmp(buf, "mdslp", count - 1) == 0)
-			md->ops->dump_info(md, DUMP_FLAG_SMEM_MDSLP, NULL, 0);
+		if (strncmp(buf, "mdslp", count - 1) == 0) {
+			struct ccci_smem_region *low_pwr =
+				ccci_md_get_smem_by_user_id(md->index,
+					SMEM_USER_RAW_DBM);
+
+			CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD SLP registers\n");
+			ccci_util_cmpt_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
+				low_pwr->base_ap_view_vir, low_pwr->size);
+		}
+		//md->ops->dump_info(md, DUMP_FLAG_SMEM_MDSLP, NULL, 0);
 		if (strncmp(buf, "dpmaif", count - 1) == 0)
 			ccci_hif_dump_status(1<<DPMAIF_HIF_ID,
 				DUMP_FLAG_REG, NULL, -1);
@@ -1409,6 +1352,135 @@ static struct syscore_ops ccci_modem_sysops = {
 	.resume = ccci_modem_sysresume,
 };
 
+/* setup function is only for data structure initialization */
+struct ccci_modem *ccci_md_alloc(int private_size)
+{
+	struct ccci_modem *md = kzalloc(sizeof(struct ccci_modem), GFP_KERNEL);
+
+	if (!md) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"fail to allocate memory for modem structure\n");
+		goto out;
+	}
+	if (private_size > 0)
+		md->private_data = kzalloc(private_size, GFP_KERNEL);
+	else
+		md->private_data = NULL;
+	md->per_md_data.config.setting |= MD_SETTING_FIRST_BOOT;
+	md->per_md_data.is_in_ee_dump = 0;
+	md->is_force_asserted = 0;
+	md->per_md_data.md_dbg_dump_flag = MD_DBG_DUMP_AP_REG;
+
+ out:
+	return md;
+}
+
+void ccci_md_config(struct ccci_modem *md)
+{
+	/* setup config */
+	md->per_md_data.config.load_type = get_md_img_type(md->index);
+	if (get_modem_is_enabled(md->index))
+		md->per_md_data.config.setting |= MD_SETTING_ENABLE;
+	else
+		md->per_md_data.config.setting &= ~MD_SETTING_ENABLE;
+
+
+	ap_md_mem_init(md->index, &md->mem_layout);
+
+	/* updae image info */
+	md->per_md_data.img_info[IMG_MD].type = IMG_MD;
+	md->per_md_data.img_info[IMG_MD].address =
+		md->mem_layout.md_bank0.base_ap_view_phy;
+	md->per_md_data.img_info[IMG_DSP].type = IMG_DSP;
+	md->per_md_data.img_info[IMG_ARMV7].type = IMG_ARMV7;
+}
+
+int boot_md_show(int md_id, char *buf, int size)
+{
+	int curr = 0;
+
+	if (get_modem_is_enabled(md_id))
+		curr += snprintf(&buf[curr], size, "md%d:%d",
+			md_id + 1, ccci_fsm_get_md_state(md_id));
+	return curr;
+}
+
+int boot_md_store(int md_id)
+{
+	return -EACCES;
+}
+
+static void ccci_md_obj_release(struct kobject *kobj)
+{
+	CCCI_ERROR_LOG(-1, CORE, "md kobject release\n");
+}
+
+static ssize_t ccci_md_attr_show(struct kobject *kobj, struct attribute *attr,
+	char *buf)
+{
+	ssize_t len = 0;
+	struct ccci_md_attribute *a = container_of(attr,
+		struct ccci_md_attribute, attr);
+
+	if (a->show)
+		len = a->show(a->modem, buf);
+
+	return len;
+}
+
+static ssize_t ccci_md_attr_store(struct kobject *kobj, struct attribute *attr,
+	const char *buf, size_t count)
+{
+	ssize_t len = 0;
+	struct ccci_md_attribute *a = container_of(attr,
+		struct ccci_md_attribute, attr);
+
+	if (a->store)
+		len = a->store(a->modem, buf, count);
+
+	return len;
+}
+
+static const struct sysfs_ops ccci_md_sysfs_ops = {
+	.show = ccci_md_attr_show,
+	.store = ccci_md_attr_store
+};
+
+static struct attribute *ccci_md_default_attrs[] = {
+	NULL
+};
+
+static struct kobj_type ccci_md_ktype = {
+	.release = ccci_md_obj_release,
+	.sysfs_ops = &ccci_md_sysfs_ops,
+	.default_attrs = ccci_md_default_attrs
+};
+
+void ccci_sysfs_add_md(int md_id, void *kobj)
+{
+	ccci_sysfs_add_modem(md_id, (void *)kobj, (void *)&ccci_md_ktype,
+		boot_md_show, boot_md_store);
+}
+
+int ccci_md_register(struct ccci_modem *md)
+{
+	int ret;
+
+	/* init per-modem sub-system */
+	CCCI_INIT_LOG(md->index, TAG, "register modem\n");
+	/* init modem */
+	ret = md->ops->init(md);
+	if (ret < 0)
+		return ret;
+	ccci_md_config(md);
+
+	modem_sys[md->index] = md;
+	ccci_sysfs_add_md(md->index, (void *)&md->kobj);
+	ccci_fsm_init(md->index);
+	ccci_port_init(md->index);
+	return 0;
+}
+
 static u64 cldma_dmamask = DMA_BIT_MASK(36);
 
 int ccci_modem_init_common(struct platform_device *plat_dev,
@@ -1480,13 +1552,6 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 	if (ret != 0)
 		md->hif_flag = (1 << MD1_NET_HIF | 1 << MD1_NORMAL_HIF);
 
-	//ret = ccci_hif_init(md->index, md->hif_flag);
-	//if (ret < 0) {
-	//	CCCI_ERROR_LOG(md->index, TAG,
-	//		"[%s] error: ccci_hif_init() failed(%d)\n",
-	//		__func__, ret);
-	//	return ret;
-	//}
 	/* register SYS CORE suspend resume call back */
 	register_syscore_ops(&ccci_modem_sysops);
 

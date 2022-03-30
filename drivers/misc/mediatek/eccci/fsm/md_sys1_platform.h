@@ -63,7 +63,7 @@ struct ccci_clk_node {
 struct ccci_plat_ops {
 	void (*md_dump_reg)(unsigned int md_index);
 	//void (*cldma_hw_rst)(unsigned char md_id);
-	void (*set_clk_cg)(struct ccci_modem *md, unsigned int on);
+	//void (*set_clk_cg)(struct ccci_modem *md, unsigned int on);
 	int (*remap_md_reg)(struct ccci_modem *md);
 	void (*lock_modem_clock_src)(int locked);
 	void (*get_md_bootup_status)(unsigned int *buff, int length);
