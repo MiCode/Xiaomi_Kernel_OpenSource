@@ -899,51 +899,47 @@ static struct md_ee_ops mdee_ops_v5 = {
 	.dump_ee_info = &mdee_dumper_v5_dump_ee_info,
 	.set_ee_pkg = &mdee_dumper_v5_set_ee_pkg,
 };
-#ifdef EMI_FIX_MTK25478
-#if IS_ENABLED(CONFIG_MTK_EMI)
-//fixme emi mtk25478 use k5.4
-static void mdee_dumper_v5_emimpu_callback(
-	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng)
-{
-	int i, s;
-	int c = 0;
-	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(0);
 
-	if (!dump) {
+#if IS_ENABLED(CONFIG_MTK_EMI)
+static void mdee_dumper_v5_emimpu_callback(
+		const char *vio_msg)
+{
+	int has_write = 0;
+	int md_state;
+	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(0);
+	struct ccci_modem *md = ccci_md_get_modem_by_id(0);
+
+	if (vio_msg)
+		CCCI_NORMAL_LOG(0, FSM,
+			"%s: %s\n", __func__, vio_msg);
+	else {
 		CCCI_ERROR_LOG(0, FSM,
-			"%s: warning: dump is NULL.\n",
-			__func__);
+			"%s: msg is null\n", __func__);
 		return;
 	}
 
-	if (ctl) {
-		s = snprintf(&ctl->ee_ctl.ex_mpu_string[0],
-				MD_EX_MPU_STR_LEN, "<emimpu.c>\n");
-		if (s <= 0)
-			return;
-
-		c += s;
-		for (i = 0; i < leng; i++) {
-			if ((MD_EX_MPU_STR_LEN - c) <= 1) {
-				CCCI_ERROR_LOG(0, FSM,
-					"%s: ex_mpu_string is not enough.\n",
-					__func__);
-				return;
-			}
-
-			s = snprintf(&ctl->ee_ctl.ex_mpu_string[c],
-					MD_EX_MPU_STR_LEN - c,
-					"emi(%d),off(%x),val(%x);\n",
-					emi_id, dump->offset, dump->value);
-			if (s <= 0)
-				return;
-
-			c += s;
-			dump++;
+	if (md) {
+		md_state = ccci_fsm_get_md_state(md->index);
+		if (md_state != INVALID && md_state != GATED &&
+			md_state != WAITING_TO_STOP) {
+			if (md->ops->dump_info)
+				md->ops->dump_info(md, DUMP_FLAG_REG, NULL, 0);
 		}
 	}
+
+	if (ctl) {
+		memset(ctl->ee_ctl.ex_mpu_string, 0x0,
+			sizeof(ctl->ee_ctl.ex_mpu_string));
+		has_write = snprintf(&ctl->ee_ctl.ex_mpu_string[0],
+			MD_EX_MPU_STR_LEN,
+			"%s\n", vio_msg);
+		if (has_write <= 0)
+			return;
+	}
+
+	return;
 }
-#endif
+
 #endif
 
 int mdee_dumper_v5_alloc(struct ccci_fsm_ee *mdee)
@@ -951,14 +947,12 @@ int mdee_dumper_v5_alloc(struct ccci_fsm_ee *mdee)
 	struct mdee_dumper_v5 *dumper = NULL;
 	int md_id = mdee->md_id;
 
-#ifdef EMI_FIX_MTK25478
 #if IS_ENABLED(CONFIG_MTK_EMI)
 	if (mtk_emimpu_md_handling_register(
 			&mdee_dumper_v5_emimpu_callback))
 		CCCI_ERROR_LOG(md_id, FSM,
 			"%s: mtk_emimpu_md_handling_register fail\n",
 			__func__);
-#endif
 #endif
 	/* Allocate port_proxy obj and set all member zero */
 	dumper = kzalloc(sizeof(struct mdee_dumper_v5), GFP_KERNEL);

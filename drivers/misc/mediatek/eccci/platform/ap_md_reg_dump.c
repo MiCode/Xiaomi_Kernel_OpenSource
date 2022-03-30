@@ -770,7 +770,7 @@ static int md_dump_mem_once(unsigned int md_id, const void *buff_src,
 
 	for (i = 0; i < dump_len;) {
 		dump_limit = ((dump_len - i) < 128) ? (dump_len - i) : 128;
-		memcpy(temp_buf, (buff_src + i), dump_limit);
+		memcpy_fromio(temp_buf, (buff_src + i), dump_limit);
 		temp_buf[dump_limit] = 0;
 		tmp_idx = 0;
 
@@ -824,6 +824,12 @@ void md_dump_reg(unsigned int md_index)
 	CCCI_NORMAL_LOG(-1, TAG,
 		"[%s][MD_REG_DUMP_START] flag_1=0x%llx, flag_2=0x%llx, flag_3=0x%llx, flag_4=0x%llx\n",
 		__func__, res.a0, res.a1, res.a2, res.a3);
+	/* go kernel debug red dump,fix me,we need make it more compatible later */
+	if ((res.a0 & 0xffff0000) != 0) {
+		CCCI_NORMAL_LOG(-1, TAG, "[%s] go kernel md reg dump\n", __func__);
+		internal_md_dump_debug_register(md_index);
+		return;
+	}
 	if (buf_addr <= 0 || buf_size <= 0)
 		return;
 	/* get read buffer, remap */

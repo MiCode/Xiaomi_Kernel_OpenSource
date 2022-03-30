@@ -168,7 +168,7 @@ void exec_ccci_sys_call_back(int md_id, int cb_id, int data)
 			"exec_sys_cb fail: func id(0x%x) not register!\n",
 			cb_id);
 }
-/*
+
 static int battery_get_bat_voltage(void)
 {
 	union power_supply_propval prop;
@@ -191,13 +191,12 @@ static int battery_get_bat_voltage(void)
 
 	return prop.intval;
 }
-*/
 
 static int sys_msg_send_battery(struct port_t *port)
 {
-	int data = 3500;
+	int data;
 
-//	data = battery_get_bat_voltage();
+	data = battery_get_bat_voltage();
 	CCCI_REPEAT_LOG(port->md_id, SYS, "get bat voltage %d\n", data);
 	port_send_msg_to_md(port, MD_GET_BATTERY_INFO, data, 1);
 	return 0;
