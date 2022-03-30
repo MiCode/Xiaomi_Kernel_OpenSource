@@ -97,14 +97,14 @@ struct clk_bulk_data ipesys_isp7_aie_clks[] = {
 	{ .id = "IPE_TOP" },
 	{ .id = "IPE_SMI_LARB12" },
 };
-
+#if CHECK_SERVICE_0
 static struct mtk_aie_qos_path aie_qos_path[AIE_QOS_MAX] = {
 	{NULL, "l12_fdvt_rda", 0},
 	{NULL, "l12_fdvt_rdb", 0},
 	{NULL, "l12_fdvt_wra", 0},
 	{NULL, "l12_fdvt_wrb", 0}
 };
-
+#endif
 static int mtk_aie_suspend(struct device *dev)
 {
 	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
@@ -294,7 +294,7 @@ static void mtk_aie_mmdvfs_set(struct mtk_aie_dev *fd,
 		dvfs_info->cur_volt = volt;
 	}
 }
-#endif
+
 
 static void mtk_aie_mmqos_init(struct mtk_aie_dev *fd)
 {
@@ -413,7 +413,7 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 	}
 }
 
-#if CHECK_SERVICE_0
+
 static void mtk_aie_fill_init_param(struct mtk_aie_dev *fd,
 				    struct user_init *user_init,
 				    struct v4l2_ctrl_handler *hdl)
@@ -548,7 +548,7 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 		if (ret)
 			return -EINVAL;
 		//mtk_aie_mmdvfs_set(fd, 1, 0);
-		mtk_aie_mmqos_set(fd, 1);
+		//mtk_aie_mmqos_set(fd, 1);
 
 		fd->map_count = 0;
 	}
@@ -559,8 +559,8 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 {
 	if (g_user_param.is_secure == 1 & fd->fd_stream_count == 1) {
-		aie_disable_secure_domain(fd);
-		cmdq_sec_mbox_stop(fd->fdvt_secure_clt);
+		//aie_disable_secure_domain(fd);
+		//cmdq_sec_mbox_stop(fd->fdvt_secure_clt);
 	}
 	//mtk_aie_ccf_disable(fd->dev);
 	pm_runtime_put_sync(fd->dev);
@@ -569,11 +569,11 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 			fd->fd_stream_count, fd->map_count);
 	fd->fd_stream_count--;
 	if (fd->fd_stream_count == 0) { //have hw_connect
-		mtk_aie_mmqos_set(fd, 0);
+		//mtk_aie_mmqos_set(fd, 0);
 		cmdq_mbox_disable(fd->fdvt_clt->chan);
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
 		if (fd->map_count == 1) { //have qbuf + map memory
-			dma_buf_vunmap(fd->dmabuf, (void *)fd->kva);
+			dma_buf_vunmap(fd->dmabuf, &fd->map);
 			dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_put(fd->dmabuf);
 			fd->map_count--;
@@ -1323,23 +1323,22 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				  struct v4l2_buffer *buf)
 {
 	struct mtk_aie_dev *fd = video_drvdata(file);
-	struct dma_buf_map map;
-	int ret = 0;
-	/* dev_info(fd->dev, "[%s] start!:%x %x\n", __func__, buf->length, fd->map_count); */
 
-	if (buf->length) {
+	int ret = 0;
+
+	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) { /*IMG & data*/
 		if (!fd->map_count) {
 
 			fd->dmabuf = dma_buf_get(buf->m.planes[buf->length-1].m.fd);
 			dma_buf_begin_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
 
-			ret = (u64)dma_buf_vmap(fd->dmabuf, &map);
+			ret = (u64)dma_buf_vmap(fd->dmabuf, &fd->map);
 			if (ret) {
 				dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
 				ret = -ENOMEM;
 				goto ERROR;
 			}
-			fd->kva = (unsigned long long)map.vaddr;
+			fd->kva = (unsigned long long)fd->map.vaddr;
 
 			memcpy((char *)&g_user_param, (char *)fd->kva, sizeof(g_user_param));
 			fd->base_para->rpn_anchor_thrd = (signed short)
@@ -1357,12 +1356,10 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 			fd->base_para->max_pyramid_height = (signed short)
 						(g_user_param.pyramid_height & 0x0000FFFF);
 
-			dev_info(fd->dev, "AIE QBUF!: %d\n", g_user_param.is_secure);
-
 			if (g_user_param.is_secure) {
 				dev_info(fd->dev, "AIE SECURE MODE INIT!\n");
-				config_aie_cmdq_secure_init(fd);
-				aie_enable_secure_domain(fd);
+				//config_aie_cmdq_secure_init(fd);
+				//aie_enable_secure_domain(fd);
 			}
 
 			ret = aie_alloc_aie_buf(fd);
@@ -1372,6 +1369,7 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 		} else {
 			memcpy((char *)&g_user_param, (char *)fd->kva, sizeof(g_user_param));
 		}
+
 	}
 
 	return v4l2_m2m_ioctl_qbuf(file, priv, buf);
@@ -1381,7 +1379,6 @@ ERROR:
 	dma_buf_put(fd->dmabuf);
 
 	return ret;
-
 }
 
 static const struct vb2_ops mtk_aie_vb2_ops = {
@@ -1576,8 +1573,8 @@ static int mtk_vfd_open(struct file *filp)
 	return 0;
 
 err_free_ctrl_handler:
-	v4l2_ctrl_handler_free(&ctx->hdl);
 #if CHECK_SERVICE_0 //Remove CID
+	v4l2_ctrl_handler_free(&ctx->hdl);
 err_fh_exit:
 #endif
 	v4l2_fh_exit(&ctx->fh);
@@ -1593,7 +1590,6 @@ static int mtk_vfd_release(struct file *filp)
 
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 
-	v4l2_ctrl_handler_free(&ctx->hdl);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 
@@ -1725,9 +1721,6 @@ static void mtk_aie_device_run(void *priv)
 
 	/* mmdvfs */
 	//mtk_aie_mmdvfs_set(fd, 1, fd->aie_cfg->freq_level);
-
-	/* Complete request controls if any */
-	v4l2_ctrl_request_complete(src_buf->vb2_buf.req_obj.req, &ctx->hdl);
 
 	atomic_inc(&fd->num_composing);
 
@@ -1936,6 +1929,19 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		dev_info(dev, "%s: No suitable DMA available\n", __func__);
 
+	if (!dev->dma_parms) {
+		dev->dma_parms =
+			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+		if (!dev->dma_parms)
+			return -ENOMEM;
+	}
+
+	if (dev->dma_parms) {
+		ret = dma_set_max_seg_size(dev, UINT_MAX);
+		if (ret)
+			dev_info(dev, "Failed to set DMA segment size\n");
+	}
+
 	dev_set_drvdata(dev, fd);
 	fd->dev = dev;
 #if CHECK_SERVICE_0
@@ -2026,13 +2032,14 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	}
 #endif
 
+/*
 	fd->fdvt_secure_clt = cmdq_mbox_create(dev, 1);
 
 	if (!fd->fdvt_secure_clt)
 		dev_info(dev, "cmdq mbox create fail\n");
 	else
 		dev_info(dev, "cmdq mbox create done\n");
-
+*/
 	of_property_read_u32(pdev->dev.of_node, "fdvt_frame_done", &(fd->fdvt_event_id));
 	dev_info(dev, "fdvt event id is %d\n", fd->fdvt_event_id);
 
@@ -2062,7 +2069,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	fd->req_work.fd_dev = fd;
 
 	//mtk_aie_mmdvfs_init(fd);
-	mtk_aie_mmqos_init(fd);
+	//mtk_aie_mmqos_init(fd);
 	pm_runtime_enable(dev);
 	ret = mtk_aie_dev_v4l2_init(fd);
 	if (ret) {
@@ -2101,7 +2108,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 err_destroy_mutex:
 	pm_runtime_disable(fd->dev);
 	//mtk_aie_mmdvfs_uninit(fd);
-	mtk_aie_mmqos_uninit(fd);
+	//mtk_aie_mmqos_uninit(fd);
 	destroy_workqueue(fd->frame_done_wq);
 	mutex_destroy(&fd->vfd_lock);
 
@@ -2115,7 +2122,7 @@ static int mtk_aie_remove(struct platform_device *pdev)
 	mtk_aie_dev_v4l2_release(fd);
 	pm_runtime_disable(&pdev->dev);
 	//mtk_aie_mmdvfs_uninit(fd);
-	mtk_aie_mmqos_uninit(fd);
+	//mtk_aie_mmqos_uninit(fd);
 	destroy_workqueue(fd->frame_done_wq);
 	fd->frame_done_wq = NULL;
 	mutex_destroy(&fd->vfd_lock);

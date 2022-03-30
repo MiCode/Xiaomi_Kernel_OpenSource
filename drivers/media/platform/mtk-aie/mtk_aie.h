@@ -1078,6 +1078,7 @@ struct aie_fd_dma_para {
 struct imem_buf_info {
 	void *va;
 	dma_addr_t pa;
+	struct dma_buf_map map;
 	unsigned int size;
 	struct dma_buf *dmabuf;
 	struct dma_buf_attachment *attach;
@@ -1244,6 +1245,7 @@ struct mtk_aie_dev {
 	/*DMA Buffer*/
 	struct dma_buf *dmabuf;
 	unsigned long long kva;
+	struct dma_buf_map map;
 	int map_count;
 
 	struct aie_para *base_para;
@@ -1285,15 +1287,15 @@ void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_execute_pose(struct mtk_aie_dev *fd);
 void aie_irqhandle(struct mtk_aie_dev *fd);
 void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
-void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd);
-void aie_enable_secure_domain(struct mtk_aie_dev *fd);
-void aie_disable_secure_domain(struct mtk_aie_dev *fd);
+//void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd);
+//void aie_enable_secure_domain(struct mtk_aie_dev *fd);
+//void aie_disable_secure_domain(struct mtk_aie_dev *fd);
 void aie_get_fd_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_get_attr_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 void aie_get_fld_result(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg);
 struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd, u32 size, bool IsSecure);
 unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf,
 					struct imem_buf_info *bufinfo);
-void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf);
+void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf, struct imem_buf_info *bufinfo);
 
 #endif /*__MTK_AIE_H__*/

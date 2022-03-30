@@ -396,7 +396,7 @@ static void aie_free_iova(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 static void aie_free_va(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 {
 	if (bufinfo->va) {
-		dma_buf_vunmap(bufinfo->dmabuf, bufinfo->va);
+		dma_buf_vunmap(bufinfo->dmabuf, &bufinfo->map);
 		bufinfo->va = NULL;
 	}
 }
@@ -454,19 +454,19 @@ unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_d
 	return iova;
 }
 
-void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf)
+void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf,
+			  struct imem_buf_info *bufinfo)
 {
-	struct dma_buf_map map;
 	void *buf_ptr = NULL;
 	int ret = 0;
 
-	ret = dma_buf_vmap(my_dma_buf, &map);
+	ret = dma_buf_vmap(my_dma_buf, &bufinfo->map);
 	if (ret) {
 		dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
 		return NULL;
 	}
 
-	buf_ptr = map.vaddr;
+	buf_ptr = bufinfo->map.vaddr;
 
 	if (!buf_ptr) {
 		dev_info(fd->dev, "map failed\n");
@@ -820,7 +820,7 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->rs_cfg_data.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->rs_cfg_data);
 	if (!va)
 		return -1;
 
@@ -850,7 +850,7 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fd_cfg_data.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fd_cfg_data);
 	if (!va)
 		return -1;
 
@@ -894,7 +894,7 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->yuv2rgb_cfg_data.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->yuv2rgb_cfg_data);
 	if (!va)
 		return -1;
 
@@ -964,7 +964,7 @@ static int aie_alloc_output_buf(struct mtk_aie_dev *fd)
 			return -1;
 
 		fd->rs_output_hw.pa = iova;
-		va = aie_get_va(fd, ret_buf);
+		va = aie_get_va(fd, ret_buf, &fd->rs_output_hw);
 		if (!va)
 			return -1;
 
@@ -1033,7 +1033,7 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fd_dma_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fd_dma_hw);
 	if (!va)
 		return -1;
 
@@ -1053,7 +1053,7 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fd_kernel_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fd_kernel_hw);
 	if (!va)
 		return -1;
 
@@ -1073,7 +1073,7 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fd_attr_dma_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fd_attr_dma_hw);
 	if (!va)
 		return -1;
 
@@ -1092,7 +1092,7 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fd_dma_result_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fd_dma_result_hw);
 	if (!va)
 		return -1;
 
@@ -1124,7 +1124,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fld_blink_weight_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fld_blink_weight_hw);
 	if (!va)
 		return -1;
 
@@ -1148,7 +1148,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fld_fp_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fld_fp_hw);
 	if (!va)
 		return -1;
 
@@ -1167,7 +1167,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fld_cv_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fld_cv_hw);
 	if (!va)
 		return -1;
 
@@ -1187,7 +1187,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fld_leafnode_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fld_leafnode_hw);
 	if (!va)
 		return -1;
 
@@ -1207,7 +1207,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fld_tree_02_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fld_tree_02_hw);
 	if (!va)
 		return -1;
 
@@ -1225,7 +1225,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fld_tree_13_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fld_tree_13_hw);
 	if (!va)
 		return -1;
 
@@ -1244,7 +1244,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fld_output_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf);
+	va = aie_get_va(fd, ret_buf, &fd->fld_output_hw);
 	if (!va)
 		return -1;
 
@@ -4363,13 +4363,14 @@ static void AIECmdqCB(struct cmdq_cb_data data)
 
 	queue_work(fd->frame_done_wq, &fd->req_work.work);
 }
-
+#if CHECK_SERVICE_IF_0
 static void AIECmdqSecCB(struct cmdq_cb_data data)
 {
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data.data;
 
 	dev_info(fd->dev, "AIE SEC CMDQ CB\n");
 }
+
 
 static void AieSecPktCB(struct cmdq_cb_data data)
 {
@@ -4413,7 +4414,7 @@ void aie_disable_secure_domain(struct mtk_aie_dev *fd)
 	cmdq_pkt_wait_complete(pkt);
 	cmdq_pkt_destroy(pkt);
 }
-
+#endif
 void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	struct cmdq_pkt *pkt = NULL;
