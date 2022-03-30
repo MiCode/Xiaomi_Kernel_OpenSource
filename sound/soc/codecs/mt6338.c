@@ -9978,7 +9978,6 @@ static int get_hp_current_calibrate_val(struct mt6338_priv *priv)
 #endif
 }
 
-#if defined(BYPASS_FOR_K515_BRINGUP)
 static int set_idac_trim_val(struct mt6338_priv *priv)
 {
 #if IS_ENABLED(CONFIG_MT6338_EFUSE)
@@ -10018,7 +10017,6 @@ static int set_idac_trim_val(struct mt6338_priv *priv)
 	return 0;
 #endif
 }
-#endif
 
 /* vow control */
 static void *get_vow_coeff_by_name(struct mt6338_priv *priv,

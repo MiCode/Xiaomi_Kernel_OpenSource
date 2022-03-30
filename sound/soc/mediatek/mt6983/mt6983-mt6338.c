@@ -352,7 +352,7 @@ static int mt6983_mt6338_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* disable ext amp connection */
 	snd_soc_dapm_disable_pin(dapm, EXT_SPK_AMP_W_NAME);
-#if IS_ENABLED(CONFIG_SND_SOC_MT6338_ACCDET) && defined(BYPASS_FOR_515_BRINGUP)
+#if IS_ENABLED(CONFIG_SND_SOC_MT6338_ACCDET)
 	mt6338_accdet_init(codec_component, rtd->card);
 #endif
 	return 0;
