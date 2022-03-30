@@ -4258,6 +4258,17 @@ static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 
 	ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 
+	/* check if the ctx is streaming */
+	spin_lock(&ctx->streaming_lock);
+	if (!ctx->streaming) {
+		dev_info(cam->dev,
+			 "%s: skip handing composer ack for stream off ctx:%d, frame_no:%d\n",
+			 __func__, ctx->stream_id, ipi_msg->cookie.frame_no);
+		spin_unlock(&ctx->streaming_lock);
+		return 0;
+	}
+	spin_unlock(&ctx->streaming_lock);
+
 	if (mtk_cam_is_m2m(ctx)) {
 		if (ipi_msg->cookie.frame_no > 1) {
 			dev_dbg(dev, "[M2M] wait_for_completion +\n");
