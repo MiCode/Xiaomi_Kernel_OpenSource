@@ -746,94 +746,6 @@ void mtk_btag_throughput_eval(struct mtk_btag_throughput *tp)
 }
 EXPORT_SYMBOL_GPL(mtk_btag_throughput_eval);
 
-/* print trace to kerne log */
-static void mtk_btag_klog_entry(char **ptr, int *len, struct mtk_btag_trace *tr)
-{
-	int i, n;
-
-#define boundary_check() { *len -= n; *ptr += n; }
-
-	if (tr->throughput.r.usage) {
-		n = snprintf(*ptr, *len, biolog_fmt_rt,
-			tr->throughput.r.speed,
-			tr->throughput.r.size,
-			tr->throughput.r.usage);
-		boundary_check();
-		if (*len < 0)
-			return;
-	}
-
-	if (tr->throughput.w.usage) {
-		n = snprintf(*ptr, *len, biolog_fmt_wt,
-			tr->throughput.w.speed,
-			tr->throughput.w.size,
-			tr->throughput.w.usage);
-		boundary_check();
-		if (*len < 0)
-			return;
-	}
-
-	n = snprintf(*ptr, *len, biolog_fmt,
-		tr->workload.percent,
-		tr->workload.usage,
-		tr->workload.period,
-		tr->workload.count,
-		tr->vmstat.file_pages,
-		tr->vmstat.file_dirty,
-		tr->vmstat.dirtied,
-		tr->vmstat.writeback,
-		tr->vmstat.written,
-		tr->vmstat.fmflt,
-		tr->cpu.user,
-		tr->cpu.nice,
-		tr->cpu.system,
-		tr->cpu.idle,
-		tr->cpu.iowait,
-		tr->cpu.irq,
-		tr->cpu.softirq,
-		tr->pid);
-	boundary_check();
-	if (*len < 0)
-		return;
-
-	for (i = 0; i < BLOCKTAG_PIDLOG_ENTRIES; i++) {
-		struct mtk_btag_pidlogger_entry *pe;
-
-		pe = &tr->pidlog.info[i];
-
-		if (pe->pid == 0)
-			break;
-
-		n = snprintf(*ptr, *len, pidlog_fmt,
-			pe->pid,
-			pe->w.count,
-			pe->w.length,
-			pe->r.count,
-			pe->r.length);
-		boundary_check();
-		if (*len < 0)
-			return;
-	}
-}
-
-void mtk_btag_klog(struct mtk_blocktag *btag, struct mtk_btag_trace *tr)
-{
-	int len;
-	char *ptr;
-	unsigned long flags;
-
-	if (!btag || !btag->klog_enable || !tr)
-		return;
-
-	len = BLOCKTAG_PRINT_LEN-1;
-	ptr = &btag->prbuf.buf[0];
-
-	spin_lock_irqsave(&btag->prbuf.lock, flags);
-	mtk_btag_klog_entry(&ptr, &len, tr);
-	spin_unlock_irqrestore(&btag->prbuf.lock, flags);
-}
-EXPORT_SYMBOL_GPL(mtk_btag_klog);
-
 void mtk_btag_seq_time(char **buff, unsigned long *size,
 	struct seq_file *seq, uint64_t time)
 {
@@ -1641,7 +1553,6 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 
 	mtk_btag_mictx_init(name, btag, vops);
 out:
-	spin_lock_init(&btag->prbuf.lock);
 	list_add(&btag->list, &mtk_btag_list);
 
 	return btag;

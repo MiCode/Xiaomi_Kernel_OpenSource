@@ -32,7 +32,6 @@
 
 #define BTAG_RT(btag)     (btag ? &btag->rt : NULL)
 #define BTAG_CTX(btag)    (btag ? btag->ctx.priv : NULL)
-#define BTAG_KLOGEN(btag) (btag ? btag->klog_enable : 0)
 
 struct page_pid_logger {
 	short pid;
@@ -217,12 +216,6 @@ struct mtk_blocktag {
 	struct mtk_btag_mictx_struct mictx;
 	struct mtk_btag_ringtrace rt;
 
-	struct prbuf_t {
-		spinlock_t lock;
-		char buf[BLOCKTAG_PRINT_LEN];
-	} prbuf;
-
-	/* lock order: ctx.priv->lock => prbuf.lock */
 	struct context_t {
 		int count;
 		int size;
@@ -237,8 +230,6 @@ struct mtk_blocktag {
 	} dentry;
 
 	struct mtk_btag_vops *vops;
-
-	unsigned int klog_enable;
 
 	struct list_head list;
 };
@@ -266,8 +257,6 @@ void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
 	struct mtk_btag_pidlogger *ctx_pl);
 void mtk_btag_throughput_eval(struct mtk_btag_throughput *tp);
 void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm);
-
-void mtk_btag_klog(struct mtk_blocktag *btag, struct mtk_btag_trace *tr);
 
 void mtk_btag_pidlog_map_sg(struct request_queue *q, struct bio *bio,
 	struct bio_vec *bvec);

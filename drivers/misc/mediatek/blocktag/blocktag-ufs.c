@@ -355,8 +355,6 @@ void ufs_mtk_biolog_check(unsigned long req_mask)
 		memset(&ctx->workload, 0, sizeof(struct mtk_btag_workload));
 	}
 	spin_unlock_irqrestore(&ctx->lock, flags);
-
-	mtk_btag_klog(ufs_mtk_btag, tr);
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_biolog_check);
 

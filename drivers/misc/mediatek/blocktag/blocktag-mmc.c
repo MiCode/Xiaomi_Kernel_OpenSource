@@ -347,8 +347,6 @@ void mmc_mtk_biolog_check(struct mmc_host *mmc, unsigned long req_mask)
 		memset(&ctx->workload, 0, sizeof(struct mtk_btag_workload));
 	}
 	spin_unlock_irqrestore(&ctx->lock, flags);
-
-	mtk_btag_klog(mmc_mtk_btag, tr);
 }
 EXPORT_SYMBOL_GPL(mmc_mtk_biolog_check);
 
