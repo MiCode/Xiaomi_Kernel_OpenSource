@@ -604,8 +604,7 @@ static int therm_jatm_probe(struct platform_device *pdev)
 
 	j_info.mode = STOP_DEADLINE;
 
-	//TODO: enable it after FPSGO porting
-	//jatm_notify_fp = jatm_notify_fp_cb;
+	jatm_notify_fp = jatm_notify_fp_cb;
 
 	return 0;
 }
