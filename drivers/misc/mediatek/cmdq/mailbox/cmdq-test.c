@@ -1367,7 +1367,7 @@ static void cmdq_test_mbox_tzmp(struct cmdq_test *test, const s32 secure,
 		CMDQ_GPR_R32(test->gce.va, CMDQ_GPR_DEBUG_DUMMY);
 	unsigned long	pa =
 		CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
-	const u32	ans = 0xbeafdead, event = 678;
+	const u32	ans = 0xbeafdead, event = 657;
 	struct cmdq_client	*clt = test->clt, *sec = test->sec;
 	struct cmdq_pkt		*pkt, *pkt2;
 	s32			val, i;
