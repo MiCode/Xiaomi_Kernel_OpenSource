@@ -13,12 +13,15 @@
 #include <linux/io.h>
 #include "mtk-sram-manager.h"
 #include "audio_ultra_msg_id.h"
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 #include "scp.h"
+#endif
 #include "mtk-scp-ultra.h"
 
 
 int mtk_scp_ultra_reserved_dram_init(void)
 {
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 	struct mtk_base_scp_ultra *scp_ultra = get_scp_ultra_base();
 	struct audio_ultra_dram *ultra_resv_mem = &scp_ultra->ultra_reserve_dram;
 	struct audio_ultra_dram *dump_resv_mem =
@@ -83,6 +86,9 @@ int mtk_scp_ultra_reserved_dram_init(void)
 		 dump_resv_mem->size);
 
 	memset_io((void *)dump_resv_mem->vir_addr, 0, dump_resv_mem->size);
+#else
+	pr_info("%s(), scp not support, ignore reserve dram\n", __func__);
+#endif
 
 	return 0;
 }

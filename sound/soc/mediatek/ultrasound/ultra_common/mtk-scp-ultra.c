@@ -9,9 +9,6 @@
 #include "mtk-scp-ultra.h"
 #include "mtk-afe-fe-dai.h"
 #include "mtk-afe-external.h"
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
-#include "scp.h"
-#endif
 
 static struct mtk_base_scp_ultra *local_base_scp_ultra;
 
@@ -46,7 +43,9 @@ int mtk_scp_ultra_allocate_mem(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	int id = asoc_rtd_to_cpu(rtd, 0)->id;
 	struct mtk_base_scp_ultra *scp_ultra = get_scp_ultra_base();
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 	struct audio_ultra_dram *ultra_resv_mem = &scp_ultra->ultra_reserve_dram;
+#endif
 	int buf_offset;
 
 	if (id == scp_ultra->scp_ultra_dl_memif_id) {
@@ -63,7 +62,7 @@ int mtk_scp_ultra_allocate_mem(struct snd_pcm_substream *substream,
 	dma_buf->private_data = NULL;
 	dma_buf->bytes = size;
 
-#if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 	dma_buf->addr =
 		ultra_resv_mem->phy_addr + buf_offset;
 	dma_buf->area =
@@ -71,8 +70,8 @@ int mtk_scp_ultra_allocate_mem(struct snd_pcm_substream *substream,
 	*phys_addr = dma_buf->addr;
 	*virt_addr = dma_buf->area;
 #else
-	pr_debug("%s(), error, id %d, set addr, ret %d\n",
-			__func__, id, ret);
+	pr_debug("%s(), error, id %d, set addr\n",
+			__func__, id);
 	return -EINVAL;
 #endif
 

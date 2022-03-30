@@ -12,8 +12,11 @@
  *****************************************************************************/
 #include <linux/delay.h>
 #include "ultra_ipi.h"
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 #include "scp.h"
+#endif
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 static int ultra_ipi_recv_handler(unsigned int id,
 				 void *prdata,
 				 void *data,
@@ -26,6 +29,8 @@ static int ultra_ipi_ack_handler(unsigned int id,
 static unsigned int ipi_ack_return;
 static unsigned int ipi_ack_id;
 static unsigned int ipi_ack_data;
+#endif
+
 
 static bool scp_recovering;
 
@@ -61,16 +66,19 @@ void ultra_SetScpRecoverStatus(bool recovering)
 void ultra_ipi_register(void (*ipi_rx_call)(unsigned int, void *),
 			bool (*ipi_tx_ack_call)(unsigned int, unsigned int))
 {
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 	mtk_ipi_register(&scp_ipidev, IPI_IN_AUDIO_ULTRA_SND_0,
 			(mbox_pin_cb_t)ultra_ipi_recv_handler, NULL,
 			 &ultra_ipi_receive);
 	mtk_ipi_register(&scp_ipidev, IPI_IN_AUDIO_ULTRA_SND_ACK_0,
 			(mbox_pin_cb_t)ultra_ipi_ack_handler, NULL,
 			&ultra_ipi_send_ack);
+#endif
 	ultra_ipi_rx_handle = ipi_rx_call;
 	ultra_ipi_tx_ack_handle = ipi_tx_ack_call;
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 static int ultra_ipi_recv_handler(unsigned int id,
 				 void *prdata,
 				 void *data,
@@ -99,6 +107,7 @@ static int ultra_ipi_ack_handler(unsigned int id,
 		__func__, ipi_ack_return, ipi_ack_id);
 	return 0;
 }
+#endif
 
 bool ultra_ipi_send(unsigned int msg_id,
 		    bool polling_mode,

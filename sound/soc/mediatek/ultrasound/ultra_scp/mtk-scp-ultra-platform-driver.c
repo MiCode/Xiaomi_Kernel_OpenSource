@@ -25,7 +25,9 @@
 #endif
 #include <linux/pm_wakeup.h>
 #include "mtk-scp-ultra.h"
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 #include "scp.h"
+#endif
 
 //static DEFINE_SPINLOCK(scp_ultra_ringbuf_lock);
 
@@ -320,7 +322,9 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 		scp_ultra_memif_ul_id);
 	switch (scp_ultra->usnd_state) {
 	case SCP_ULTRA_STATE_ON:
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 		scp_register_feature(ULTRA_FEATURE_ID);
+#endif
 		aud_wake_lock(ultra_suspend_lock);
 		afe->memif[scp_ultra_memif_dl_id].scp_ultra_enable = true;
 		afe->memif[scp_ultra_memif_ul_id].scp_ultra_enable = true;
@@ -344,7 +348,9 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 				false;
 			afe->memif[scp_ultra_memif_ul_id].scp_ultra_enable =
 				false;
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 			scp_deregister_feature(ULTRA_FEATURE_ID);
+#endif
 			aud_wake_unlock(ultra_suspend_lock);
 			return -1;
 		}
@@ -358,7 +364,9 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 			       0,
 			       NULL,
 			       ULTRA_IPI_NEED_ACK);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 		scp_deregister_feature(ULTRA_FEATURE_ID);
+#endif
 		aud_wake_unlock(ultra_suspend_lock);
 		return 0;
 	case SCP_ULTRA_STATE_START:
@@ -398,7 +406,9 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 			       0,
 			       NULL,
 			       ULTRA_IPI_NEED_ACK);
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 		scp_deregister_feature(ULTRA_FEATURE_ID);
+#endif
 		aud_wake_unlock(ultra_suspend_lock);
 		return 0;
 	default:

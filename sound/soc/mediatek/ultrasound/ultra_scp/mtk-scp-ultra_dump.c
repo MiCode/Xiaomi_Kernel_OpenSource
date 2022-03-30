@@ -36,7 +36,7 @@
 #include "audio_ultra_msg_id.h"
 #include "mtk-scp-ultra_dump.h"
 #include "mtk-scp-ultra-common.h"
-#include "scp.h"
+#include "mtk-scp-ultra.h"
 
 
 #define DUMP_ULTRA_PCM_DATA_PATH "/data/vendor/audiohal/audio_dump"
@@ -429,8 +429,11 @@ static int ultra_dump_kthread(void *data)
 
 void audio_ipi_client_ultra_init(void)
 {
-	ultra_dump_mem.start_virt =
-		(char *)scp_get_reserve_mem_virt(ULTRA_MEM_ID);
+	struct mtk_base_scp_ultra *scp_ultra = get_scp_ultra_base();
+	struct audio_ultra_dram *dump_resv_mem =
+		&scp_ultra->ultra_dump.dump_resv_mem;
+	ultra_dump_mem.start_virt = dump_resv_mem->vir_addr;
+	ultra_dump_mem.size = dump_resv_mem->size;
 
 	pr_info("%s()", __func__);
 	 if (NULL == ultra_dump_mem.start_virt) {
