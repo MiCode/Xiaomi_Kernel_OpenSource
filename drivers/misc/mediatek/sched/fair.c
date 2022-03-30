@@ -200,7 +200,6 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 	unsigned long cpu_cap = arch_scale_cpu_capacity(cpumask_first(pd_mask));
 	unsigned long max_util_base = 0, max_util_cur = 0;
 	unsigned long cpu_energy_util, sum_util_base = 0, sum_util_cur = 0;
-	unsigned long util_cfs_base, util_cfs_cur;
 	unsigned long _cpu_cap = cpu_cap;
 	unsigned long energy_base = 0, energy_cur = 0, energy_delta = 0;
 	int cpu;
@@ -220,6 +219,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 	 */
 	for_each_cpu_and(cpu, pd_mask, cpu_online_mask) {
 		unsigned long cpu_util_base, cpu_util_cur;
+		unsigned long util_freq_base, util_freq_cur, util_running_base, util_running_cur;
 		struct task_struct *tsk = cpu == dst_cpu ? p : NULL;
 		struct cfs_rq *cfs_rq = &cpu_rq(cpu)->cfs;
 		unsigned long util_est = 0, util_freq = READ_ONCE(cfs_rq->avg.util_avg);
@@ -227,7 +227,8 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		if (sched_feat(UTIL_EST))
 			util_est = READ_ONCE(cfs_rq->avg.util_est.enqueued);
 
-		util_cfs_base = mtk_cpu_util_next(cpu, p, -1, util_freq, util_est);
+		util_freq_base = mtk_cpu_util_next(cpu, p, -1, util_freq, util_est);
+		util_running_base = util_freq_base;
 		/*
 		 * Busy time computation: utilization clamping is not
 		 * required since the ratio (sum_util / cpu_capacity)
@@ -235,10 +236,10 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		 * consumption at the (eventually clamped) cpu_capacity.
 		 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-		cpu_energy_util = mtk_cpu_util(cpu, util_cfs_base, cpu_cap,
+		cpu_energy_util = mtk_cpu_util(cpu, util_running_base, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #else
-		cpu_energy_util = schedutil_cpu_util(cpu, util_cfs_base, cpu_cap,
+		cpu_energy_util = schedutil_cpu_util(cpu, util_running_base, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #endif
 		sum_util_base += min(cpu_energy_util, _cpu_cap);
@@ -251,15 +252,26 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		 * FREQUENCY_UTIL's utilization can be max OPP.
 		 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-		cpu_util_base = mtk_cpu_util(cpu, util_cfs_base, cpu_cap,
+		cpu_util_base = mtk_cpu_util(cpu, util_freq_base, cpu_cap,
 					      FREQUENCY_UTIL, NULL);
 #else
-		cpu_util_base = schedutil_cpu_util(cpu, util_cfs_base, cpu_cap,
+		cpu_util_base = schedutil_cpu_util(cpu, util_freq_base, cpu_cap,
 					      FREQUENCY_UTIL, NULL);
 #endif
-
+		/*
+		 * When @p is placed on @cpu:
+		 *
+		 * util_running = max(cpu_util, cpu_util_est) +
+		 *		  max(task_util, _task_util_est)
+		 *
+		 * while cpu_util_next is: max(cpu_util + task_util,
+		 *			       cpu_util_est + _task_util_est)
+		 */
 		if (cpu == dst_cpu) {
-			util_cfs_cur = mtk_cpu_util_next(cpu, p, dst_cpu, util_freq, util_est);
+			util_freq_cur = mtk_cpu_util_next(cpu, p, dst_cpu, util_freq, util_est);
+			util_running_cur =
+				mtk_cpu_util_next(cpu, p, -1, util_freq, util_est)
+				+ task_util_est(p);
 			/*
 			 * Busy time computation: utilization clamping is not
 			 * required since the ratio (sum_util / cpu_capacity)
@@ -267,10 +279,10 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 			 * consumption at the (eventually clamped) cpu_capacity.
 			 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-			cpu_energy_util = mtk_cpu_util(cpu, util_cfs_cur, cpu_cap,
+			cpu_energy_util = mtk_cpu_util(cpu, util_running_cur, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #else
-			cpu_energy_util = schedutil_cpu_util(cpu, util_cfs_cur, cpu_cap,
+			cpu_energy_util = schedutil_cpu_util(cpu, util_running_cur, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #endif
 			sum_util_cur += min(cpu_energy_util, _cpu_cap);
@@ -283,16 +295,16 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 			 * FREQUENCY_UTIL's utilization can be max OPP.
 			 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-			cpu_util_cur = mtk_cpu_util(cpu, util_cfs_cur, cpu_cap,
+			cpu_util_cur = mtk_cpu_util(cpu, util_freq_cur, cpu_cap,
 					      FREQUENCY_UTIL, tsk);
 #else
-			cpu_util_cur = schedutil_cpu_util(cpu, util_cfs_cur, cpu_cap,
+			cpu_util_cur = schedutil_cpu_util(cpu, util_freq_cur, cpu_cap,
 					      FREQUENCY_UTIL, tsk);
 #endif
 		} else {
 
-			util_cfs_cur = util_cfs_base;
-			util_cfs_cur = util_cfs_base;
+			util_running_cur = util_running_base;
+			util_freq_cur = util_freq_base;
 			sum_util_cur += cpu_energy_util;
 			cpu_util_cur = cpu_util_base;
 		}
@@ -300,10 +312,10 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		max_util_base = max(max_util_base, min(cpu_util_base, _cpu_cap));
 		max_util_cur = max(max_util_cur, min(cpu_util_base, _cpu_cap));
 
-		trace_sched_energy_util(-1, max_util_base, sum_util_base, cpu, util_cfs_base,
-				util_cfs_base, cpu_util_base);
-		trace_sched_energy_util(dst_cpu, max_util_cur, sum_util_cur, cpu, util_cfs_cur,
-				util_cfs_cur, cpu_util_cur);
+		trace_sched_energy_util(-1, max_util_base, sum_util_base, cpu, util_freq_base,
+				util_running_base, cpu_util_base);
+		trace_sched_energy_util(dst_cpu, max_util_cur, sum_util_cur, cpu, util_freq_cur,
+				util_running_cur, cpu_util_cur);
 
 		/* get temperature for each cpu*/
 		cpu_temp[cpu] = get_cpu_temp(cpu);
