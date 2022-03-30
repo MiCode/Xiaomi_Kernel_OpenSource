@@ -8,12 +8,16 @@
 #include <linux/cpu.h>
 #include <linux/delay.h>
 #include <linux/energy_model.h>
-#include <linux/of.h>
-#include <linux/slab.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
+#include <linux/of_platform.h>
+#include <linux/platform_device.h>
+#include <linux/slab.h>
 #include <trace/hooks/sched.h>
 
 #include <perf_tracker_internal.h>
+
+#define TAG	"mtk_perf_common"
 
 static u64 checked_timestamp;
 static bool long_trace_check_flag;
@@ -43,7 +47,7 @@ static int init_cpu_cluster_info(void)
 
 		em_pd = em_cpu_get(i);
 		if (!em_pd) {
-			pr_info("%s: no EM found for CPU%d\n", __func__, i);
+			pr_info("%s: no EM found for CPU%d\n", TAG, i);
 			return -EINVAL;
 		}
 
@@ -77,7 +81,7 @@ static int init_cpufreq_table(void)
 
 		policy = cpufreq_cpu_get(first_cpu_in_cluster[i]);
 		if (!policy) {
-			pr_info("%s: policy %d is null", __func__, i);
+			pr_info("%s: policy %d is null", TAG, i);
 			continue;
 		}
 		/* get CPU OPP number */
@@ -89,7 +93,7 @@ static int init_cpufreq_table(void)
 				GFP_KERNEL);
 		if (!cluster_ppm_info[i].dvfs_tbl) {
 			ret = -ENOMEM;
-			pr_info("Failed to allocate dvfs table for cid %d", i);
+			pr_info("%s: Failed to allocate dvfs table for cid %d", TAG, i);
 			cpufreq_cpu_put(policy);
 			goto alloc_table_oom;
 		}
@@ -227,6 +231,8 @@ static int __init init_perf_common(void)
 {
 	int ret = 0;
 	struct device_node *dn = NULL;
+	struct platform_device *pdev = NULL;
+	struct resource *csram_res = NULL;
 
 	ret = init_perf_common_sysfs();
 	if (ret)
@@ -241,23 +247,39 @@ static int __init init_perf_common(void)
 		goto out;
 
 	/* get cpufreq driver base address */
-	dn = of_find_compatible_node(NULL, NULL, "mediatek,mt6873-mcupm-dvfs");
+	dn = of_find_node_by_name(NULL, "cpuhvfs");
 	if (!dn) {
-		pr_info("find mcupm-dvfsp node failed\n");
+		ret = -ENOMEM;
+		pr_info("%s: find cpuhvfs node failed\n", TAG);
 		goto get_base_failed;
 	}
 
-	csram_base = of_iomap(dn, 0);
+	pdev = of_find_device_by_node(dn);
 	of_node_put(dn);
+	if (!pdev) {
+		ret = -ENODEV;
+		pr_info("%s: cpuhvfs is not ready\n", TAG);
+		goto get_base_failed;
+	}
+
+	csram_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!csram_res) {
+		ret = -ENODEV;
+		pr_info("%s: cpuhvfs resource is not found\n", TAG);
+		goto get_base_failed;
+	}
+
+	csram_base = ioremap(csram_res->start, resource_size(csram_res));
 	if (IS_ERR_OR_NULL((void *)csram_base)) {
-		pr_info("find mcupm-dvfsp node failed\n");
+		ret = -ENOMEM;
+		pr_info("%s: find csram base failed\n", TAG);
 		goto get_base_failed;
 	}
 
 	/* register tracepoint of scheduler_tick */
 	ret = register_trace_android_vh_scheduler_tick(perf_common, NULL);
 	if (ret) {
-		pr_info("perf_comm: register hooks failed, returned %d\n", ret);
+		pr_info("%s: register hooks failed, returned %d\n", TAG, ret);
 		goto register_failed;
 	}
 	perf_common_init = 1;
