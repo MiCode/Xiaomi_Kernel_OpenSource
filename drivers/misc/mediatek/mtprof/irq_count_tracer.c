@@ -43,7 +43,11 @@ struct irq_count_period_setting {
 	{"usb0", 16666}, /* 60000 irqs per sec*/
 	{"ufshcd", 10000}, /* 100000 irqs per sec*/
 	{"arch_timer", 50000}, /* 20000 irqs per sec*/
-	{"musb-hdrc", 16666} /* 60000 irqs per sec*/
+	{"musb-hdrc", 16666}, /* 60000 irqs per sec*/
+	{"11201000.usb0", 16666}, /* 60000 irqs per sec*/
+	{"wlan0", 12500}, /* 80000 irqs per sec*/
+	{"DPMAIF_AP", 1837}, /* 544125 irqs per sec */ /* data tput */
+	{"CCIF_AP_DATA", 50000}, /* 20000 irqs per sec */ /* MD EE */
 };
 
 const char *irq_to_name(int irq)
@@ -51,14 +55,70 @@ const char *irq_to_name(int irq)
 	return NULL;
 }
 
+const void *irq_to_handler(int irq)
+{
+	struct irq_desc *desc;
+
+	desc = irq_to_desc(irq);
+
+	if (desc && desc->action && desc->action->handler)
+		return (void *)desc->action->handler;
+	return NULL;
+}
+
+const int irq_to_ipi_type(int irq)
+{
+	struct irq_desc **ipi_desc = ipi_desc_get();
+	struct irq_desc *desc = irq_to_desc(irq);
+	int nr_ipi = nr_ipi_get();
+	int i = 0;
+
+	for (i = 0; i < nr_ipi; i++)
+		if (ipi_desc[i] == desc)
+			return i;
+	return -1;
+}
+
+/*
+ * return true: not in debounce (will do aee) and update time if update is true
+ * return false: in debounce period (not do aee) and do not update time.
+ */
+bool irq_mon_aee_debounce_check(bool update)
+{
+	static unsigned long long irq_mon_aee_debounce = 5000000000; /* 5s */
+	static unsigned long long t_prev_aee;
+	static int in_debounce_check;
+	unsigned long long t_check = 0;
+	bool ret = true;
+
+	/*
+	 * if in_debounce_check = 0, set to 1 and return 0 (continue checking)
+	 * if in_debounce_check = 1, return 1 (return false to caller)
+	 */
+	if (cmpxchg(&in_debounce_check, 0, 1))
+		return false;
+
+	t_check = sched_clock();
+
+	if (t_prev_aee && irq_mon_aee_debounce &&
+	    (t_check - t_prev_aee) < irq_mon_aee_debounce)
+		ret = false;
+	else if (update)
+		t_prev_aee = t_check;
+
+	xchg(&in_debounce_check, 0);
+
+	return ret;
+}
+
 #ifdef MODULE
 // workaround for kstat_irqs_cpu & kstat_irqs
-const unsigned int irq_mon_irqs(unsigned int irq)
+static unsigned int irq_mon_irqs(unsigned int irq)
 {
 	return 0;
 }
 
-const unsigned int irq_mon_irqs_cpu(unsigned int irq, int cpu)
+static unsigned int irq_mon_irqs_cpu(unsigned int irq, int cpu)
 {
 	return 0;
 }
@@ -76,7 +136,8 @@ struct irq_count_stat {
 	unsigned int count[MAX_IRQ_NUM];
 };
 
-DEFINE_PER_CPU(struct irq_count_stat, irq_count_data);
+static struct irq_count_stat __percpu *irq_count_data;
+static struct hrtimer __percpu *irq_count_tracer_hrtimer;
 
 struct irq_count_all {
 	spinlock_t lock; /* protect this struct */
@@ -91,7 +152,7 @@ struct irq_count_all {
 static struct irq_count_all irq_cpus[REC_NUM];
 static unsigned int rec_indx;
 
-static void __show_irq_count_info(int output)
+static void __show_irq_count_info(unsigned int output)
 {
 	int cpu;
 
@@ -101,7 +162,7 @@ static void __show_irq_count_info(int output)
 		struct irq_count_stat *irq_cnt;
 		int irq;
 
-		irq_cnt = per_cpu_ptr(&irq_count_data, cpu);
+		irq_cnt = per_cpu_ptr(irq_count_data, cpu);
 
 		irq_mon_msg(output, "CPU: %d", cpu);
 		irq_mon_msg(output, "from %lld.%06lu to %lld.%06lu, %lld ms",
@@ -125,23 +186,29 @@ static void __show_irq_count_info(int output)
 	}
 }
 
-void show_irq_count_info(int output)
+void show_irq_count_info(unsigned int output)
 {
 	if (irq_count_tracer)
 		__show_irq_count_info(output);
 }
 
-DEFINE_PER_CPU(struct hrtimer, irq_count_tracer_hrtimer);
-
-static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
+enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 {
-	struct irq_count_stat *irq_cnt = this_cpu_ptr(&irq_count_data);
+	struct irq_count_stat *irq_cnt = this_cpu_ptr(irq_count_data);
 	int cpu = smp_processor_id();
 	int irq, irq_num, i, skip;
 	unsigned int count;
 	unsigned long long t_avg, t_diff, t_diff_ms;
-	char msg[128];
+	char aee_msg[MAX_MSG_LEN];
 	int list_num = ARRAY_SIZE(irq_count_plist);
+
+	if (!irq_count_tracer)
+		return HRTIMER_NORESTART;
+
+	hrtimer_forward_now(hrtimer, ms_to_ktime(1000));
+	/* skip checking if more than one work is blocked in queue */
+	if (sched_clock() - irq_cnt->t_end < 500000000ULL)
+		return HRTIMER_RESTART;
 
 	/* check irq count on all cpu */
 	if (cpu == 0) {
@@ -171,12 +238,17 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 
 	}
 
-	hrtimer_forward_now(hrtimer, ms_to_ktime(1000));
 	irq_cnt->t_start = irq_cnt->t_end;
 	irq_cnt->t_end = sched_clock();
 	t_diff = irq_cnt->t_end - irq_cnt->t_start;
 
 	for (irq = 0; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
+		const char *tmp_irq_name = NULL;
+		char irq_name[64];
+		char irq_handler_addr[20];
+		char irq_handler_name[64];
+		const void *irq_handler = NULL;
+
 		irq_num = irq_mon_irqs_cpu(irq, cpu);
 		count = irq_num - irq_cnt->count[irq];
 
@@ -194,26 +266,34 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 		if (t_avg > irq_period_th1_ns)
 			continue;
 
-		if (!irq_to_name(irq))
+		tmp_irq_name = irq_to_name(irq);
+		if (!tmp_irq_name)
 			continue;
 
 		for (i = 0, skip = 0; i < list_num && !skip; i++) {
-			if (!strcmp(irq_to_name(irq), irq_count_plist[i].name))
+			if (!strcmp(tmp_irq_name, irq_count_plist[i].name))
 				if (t_avg > irq_count_plist[i].period)
 					skip = 1;
 		}
+
 		if (skip)
 			continue;
 
-		snprintf(msg, sizeof(msg),
-			 "irq:%d %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on CPU:%d",
-			 irq, irq_to_name(irq), count, t_diff_ms,
-			 sec_high(irq_cnt->t_start), sec_low(irq_cnt->t_start),
-			 sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
-			 raw_smp_processor_id());
-		irq_mon_msg(TO_BOTH, msg);
+		if (!strcmp(tmp_irq_name, "IPI")) {
+			scnprintf(irq_name, sizeof(irq_name), "%s%d",
+				  tmp_irq_name, irq_to_ipi_type(irq));
+			skip = 1;
+		} else {
+			scnprintf(irq_name, sizeof(irq_name), "%s", tmp_irq_name);
+		}
+
+		irq_handler = irq_to_handler(irq);
+		scnprintf(irq_handler_addr, sizeof(irq_handler_addr), "%px", irq_handler);
+		scnprintf(irq_handler_name, sizeof(irq_handler_name), "%pS", irq_handler);
 
 		for (i = 0; i < REC_NUM; i++) {
+			char msg[MAX_MSG_LEN];
+
 			spin_lock(&irq_cpus[i].lock);
 
 			if (irq_cpus[i].warn[irq] || !irq_cpus[i].diff[irq]) {
@@ -225,35 +305,68 @@ static enum hrtimer_restart irq_count_tracer_hrtimer_fn(struct hrtimer *hrtimer)
 			t_diff_ms = irq_cpus[i].te - irq_cpus[i].ts;
 			do_div(t_diff_ms, 1000000);
 
-			snprintf(msg, sizeof(msg),
-				 "irq:%d %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on all CPU",
-				 irq, irq_to_name(irq),
-				 irq_cpus[i].diff[irq], t_diff_ms,
-				 sec_high(irq_cpus[i].ts),
-				 sec_low(irq_cpus[i].ts),
-				 sec_high(irq_cpus[i].te),
-				 sec_low(irq_cpus[i].te));
-			irq_mon_msg(TO_BOTH, msg);
+			scnprintf(msg, sizeof(msg),
+				  "irq: %d [<%s>]%s, %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on all CPU",
+				  irq, irq_handler_addr, irq_handler_name, irq_name,
+				  irq_cpus[i].diff[irq], t_diff_ms,
+				  sec_high(irq_cpus[i].ts),
+				  sec_low(irq_cpus[i].ts),
+				  sec_high(irq_cpus[i].te),
+				  sec_low(irq_cpus[i].te));
+
+			if (irq_period_th2_ns && t_avg < irq_period_th2_ns &&
+			    irq_count_aee_limit && !skip)
+				/* aee threshold and aee limit meet */
+				if (!irq_mon_aee_debounce_check(false))
+					/* in debounce period, to FTRACE only */
+					irq_mon_msg(TO_FTRACE, msg);
+				else
+					/* will do aee and kernel log */
+					irq_mon_msg(TO_BOTH, msg);
+			else
+				/* no aee, just logging (to FTRACE) */
+				irq_mon_msg(TO_FTRACE, msg);
 
 			spin_unlock(&irq_cpus[i].lock);
 		}
 
-		if (irq_period_th2_ns && irq_count_aee_limit &&
-		    t_avg < irq_period_th2_ns) {
-			//irq_count_aee_limit--;
-			aee_kernel_warning_api(__FILE__, __LINE__,
-					DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
-					"BURST IRQ", "Burst IRQ\n");
-		}
-	}
+		scnprintf(aee_msg, sizeof(aee_msg),
+			  "irq: %d [<%s>]%s, %s count +%d in %lld ms, from %lld.%06lu to %lld.%06lu on CPU:%d",
+			  irq, irq_handler_addr, irq_handler_name, irq_name,
+			  count, t_diff_ms,
+			  sec_high(irq_cnt->t_start), sec_low(irq_cnt->t_start),
+			  sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
+			  raw_smp_processor_id());
 
+		if (irq_period_th2_ns && t_avg < irq_period_th2_ns &&
+		    irq_count_aee_limit && !skip)
+			/* aee threshold and aee limit meet */
+			if (!irq_mon_aee_debounce_check(true)) {
+				/* in debounce period, to FTRACE only */
+				irq_mon_msg(TO_FTRACE, aee_msg);
+			} else {
+				char module[100];
+				/* do aee and kernel log */
+				irq_mon_msg(TO_BOTH, aee_msg);
+				scnprintf(module, sizeof(module),
+					  "BURST IRQ:%d, %s %s +%d in %lldms",
+					  irq, irq_handler_name, irq_name,
+					  count, t_diff_ms);
+				aee_kernel_warning_api(__FILE__, __LINE__,
+						       DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
+						       module, aee_msg);
+			}
+		else
+			/* no aee, just logging (to FTRACE) */
+			irq_mon_msg(TO_FTRACE, aee_msg);
+	}
 
 	return HRTIMER_RESTART;
 }
 
 static void irq_count_tracer_start(int cpu)
 {
-	struct hrtimer *hrtimer = this_cpu_ptr(&irq_count_tracer_hrtimer);
+	struct hrtimer *hrtimer = this_cpu_ptr(irq_count_tracer_hrtimer);
 
 	hrtimer_init(hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_HARD);
 	hrtimer->function = irq_count_tracer_hrtimer_fn;
@@ -264,20 +377,20 @@ static int irq_count_tracer_start_fn(void *ignore)
 {
 	int cpu = smp_processor_id();
 
-	per_cpu_ptr(&irq_count_data, cpu)->enabled = 1;
+	per_cpu_ptr(irq_count_data, cpu)->enabled = 1;
 	barrier();
 	irq_count_tracer_start(cpu);
 	return 0;
 }
 
-static int irq_count_tracer_kthread(void *data)
+static void irq_count_tracer_work(struct work_struct *work)
 {
 	int cpu, done;
 
 	do {
 		done = 1;
 		for_each_possible_cpu(cpu) {
-			if (per_cpu_ptr(&irq_count_data, cpu)->enabled)
+			if (per_cpu_ptr(irq_count_data, cpu)->enabled)
 				continue;
 
 			if (cpu_online(cpu))
@@ -288,16 +401,82 @@ static int irq_count_tracer_kthread(void *data)
 		if (!done)
 			msleep(500);
 	} while (!done);
-
-	return 0;
 }
 
-void irq_count_tracer_init(void)
+extern bool b_count_tracer_default_enabled;
+static DECLARE_WORK(tracer_work, irq_count_tracer_work);
+int irq_count_tracer_init(void)
 {
 	int i;
+
+	irq_count_data = alloc_percpu(struct irq_count_stat);
+	irq_count_tracer_hrtimer = alloc_percpu(struct hrtimer);
+	if (!irq_count_data) {
+		pr_info("Failed to alloc irq_count_data\n");
+		return -ENOMEM;
+	}
 
 	for (i = 0; i < REC_NUM; i++)
 		spin_lock_init(&irq_cpus[i].lock);
 
-	kthread_run(irq_count_tracer_kthread, NULL, "irqcnt_tracer");
+	if (b_count_tracer_default_enabled) {
+		irq_count_tracer = 1;
+		schedule_work(&tracer_work);
+	}
+	return 0;
+}
+
+void irq_count_tracer_exit(void)
+{
+	free_percpu(irq_count_data);
+	free_percpu(irq_count_tracer_hrtimer);
+}
+
+/* Must holding lock*/
+void irq_count_tracer_set(bool val)
+{
+	int cpu;
+
+	if (irq_count_tracer == val)
+		return;
+
+	if (val) {
+		/* restart irq_count_tracer */
+		irq_count_tracer = 1;
+		schedule_work(&tracer_work);
+	} else {
+		flush_scheduled_work();
+		irq_count_tracer = 0;
+		for_each_possible_cpu(cpu) {
+			struct hrtimer *hrtimer =
+				per_cpu_ptr(irq_count_tracer_hrtimer, cpu);
+
+			per_cpu_ptr(irq_count_data, cpu)->enabled = 0;
+			hrtimer_cancel(hrtimer);
+		}
+	}
+}
+
+const struct proc_ops irq_mon_count_pops = {
+	.proc_open = irq_mon_bool_open,
+	.proc_write = irq_mon_count_set,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+void irq_count_tracer_proc_init(struct proc_dir_entry *parent)
+{
+	struct proc_dir_entry *dir;
+
+	dir = proc_mkdir("irq_count_tracer", parent);
+	if (!dir)
+		return;
+
+	proc_create_data("irq_count_tracer", 0644,
+			 dir, &irq_mon_count_pops, (void *)&irq_count_tracer);
+	IRQ_MON_TRACER_PROC_ENTRY(irq_period_th1_ns, 0644, uint, dir, &irq_period_th1_ns);
+	IRQ_MON_TRACER_PROC_ENTRY(irq_period_th2_ns, 0644, uint, dir, &irq_period_th2_ns);
+	IRQ_MON_TRACER_PROC_ENTRY(irq_count_aee_limit, 0644, uint, dir, &irq_count_aee_limit);
+	return;
 }
