@@ -1672,8 +1672,7 @@ static void mtk_crtc_cwb_set_sec(struct drm_crtc *crtc)
 
 static void calc_mml_config(struct drm_crtc *crtc,
 	union mtk_addon_config *addon_config,
-	struct mtk_crtc_state *crtc_state,
-	struct cmdq_pkt *cmdq_handle)
+	struct mtk_crtc_state *crtc_state)
 {
 	struct mtk_ddp_comp *comp = NULL;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
@@ -1714,7 +1713,7 @@ static void calc_mml_config(struct drm_crtc *crtc,
 	}
 
 	comp = priv->ddp_comp[DDP_COMPONENT_MML_MML0];
-	mtk_ddp_comp_mml_calc_cfg(comp, addon_config, cmdq_handle);
+	mtk_ddp_comp_mml_calc_cfg(comp, addon_config);
 
 	if (mtk_crtc->is_dual_pipe)
 		addon_config->addon_mml_config.mml_dst_roi[1].x -= mid_line;
@@ -1731,6 +1730,8 @@ static void mml_addon_module_connect(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
 	int i = 0;
+	struct mml_job _job;
+	struct mml_pq_param _pq_param[MML_MAX_OUTPUTS];
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (!mtk_crtc->is_mml || (mtk_crtc->mml_cfg_pq == NULL)) {
@@ -1745,19 +1746,17 @@ static void mml_addon_module_connect(struct drm_crtc *crtc,
 	addon_config->addon_mml_config.mutex.is_cmd_mode =
 		mtk_crtc_is_frame_trigger_mode(crtc);
 
-	addon_config->addon_mml_config.submit.job =
-		kzalloc(sizeof(struct mml_job), GFP_KERNEL);
-	for (i = 0; i < MML_MAX_OUTPUTS; ++i) {
-		addon_config->addon_mml_config.submit.pq_param[i] =
-			kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
-	}
+	addon_config->addon_mml_config.submit.job = &_job;
+	for (i = 0; i < MML_MAX_OUTPUTS; ++i)
+		addon_config->addon_mml_config.submit.pq_param[i] = &_pq_param[i];
+
 	copy_mml_submit(mtk_crtc->mml_cfg_pq,
 		&(addon_config->addon_mml_config.submit));
 	addon_config->addon_mml_config.dual = mtk_crtc->is_dual_pipe;
 
 	// Tell MML the info of dst, and MML return the SRC roi which MML
 	// need to calc RSZ.
-	calc_mml_config(crtc, addon_config, crtc_state, cmdq_handle);
+	calc_mml_config(crtc, addon_config, crtc_state);
 
 	crtc_state->mml_src_roi[0] = addon_config->addon_mml_config.mml_src_roi[0];
 	DDPINFO("%s:%d dual:src[0](%d,%d,%d,%d), dst[0](%d,%d,%d,%d)\n",
@@ -1792,14 +1791,6 @@ static void mml_addon_module_connect(struct drm_crtc *crtc,
 		addon_config->addon_mml_config.config_type.module = DISP_INLINE_ROTATE_1;
 		mtk_addon_connect_between(crtc, ddp_mode, addon_module_dual,
 					addon_config, cmdq_handle);
-	}
-
-	if (mtk_crtc->mml_cfg_pq) {
-		int i = 0;
-
-		kfree(addon_config->addon_mml_config.submit.job);
-		for (i = 0; i < MML_MAX_OUTPUTS; ++i)
-			kfree(addon_config->addon_mml_config.submit.pq_param[i]);
 	}
 }
 

@@ -617,12 +617,11 @@ mtk_ddp_comp_addon_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 
 static inline void
 mtk_ddp_comp_mml_calc_cfg(struct mtk_ddp_comp *comp,
-			  union mtk_addon_config *addon_config,
-			  struct cmdq_pkt *handle)
+			  union mtk_addon_config *addon_config)
 {
 	if (comp && comp->funcs && comp->funcs->addon_config &&
 		!comp->blank_mode)
-		comp->funcs->mml_calc_cfg(comp, addon_config, handle);
+		comp->funcs->mml_calc_cfg(comp, addon_config, NULL);
 }
 
 static inline void
