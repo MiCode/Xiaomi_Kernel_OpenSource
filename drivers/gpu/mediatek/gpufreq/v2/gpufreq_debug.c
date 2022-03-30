@@ -165,11 +165,12 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		g_stress_test_enable ? "Enable" : "Disable",
 		gpu_opp_info.gpm_enable ? "Enable" : "Disable");
 	seq_printf(m,
-		"%-15s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x, Temp_Compensate: %s\n",
+		"%-15s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x, Temp_Compensate: %s (%d'C)\n",
 		"[Common-Status]",
 		gpu_opp_info.sb_version,
 		gpu_opp_info.ptp_version,
-		gpu_opp_info.temp_compensate ? "Enable" : "Disable");
+		gpu_opp_info.temp_compensate ? "Enable" : "Disable",
+		gpu_opp_info.temperature);
 
 	mutex_unlock(&gpufreq_debug_lock);
 
@@ -278,13 +279,18 @@ static int gpu_signed_opp_table_proc_show(struct seq_file *m, void *v)
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	opp_table = gpufreq_get_signed_table(TARGET_GPU);
+	if (g_test_mode) {
+		opp_num = g_debug_gpu.signed_opp_num;
+		opp_table = gpufreq_get_signed_table(TARGET_GPU);
+	} else {
+		opp_num = g_debug_gpu.opp_num;
+		opp_table = gpufreq_get_working_table(TARGET_GPU);
+	}
 	if (!opp_table) {
 		GPUFREQ_LOGE("fail to get GPU signed OPP table (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
-	opp_num = g_debug_gpu.signed_opp_num;
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
@@ -309,16 +315,18 @@ static int stack_signed_opp_table_proc_show(struct seq_file *m, void *v)
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	opp_table = gpufreq_get_signed_table(TARGET_STACK);
+	if (g_test_mode) {
+		opp_num = g_debug_stack.signed_opp_num;
+		opp_table = gpufreq_get_signed_table(TARGET_STACK);
+	} else {
+		opp_num = g_debug_stack.opp_num;
+		opp_table = gpufreq_get_working_table(TARGET_STACK);
+	}
 	if (!opp_table) {
 		GPUFREQ_LOGE("fail to get STACK signed OPP table (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
-	if (g_test_mode)
-		opp_num = g_debug_stack.signed_opp_num;
-	else
-		opp_num = g_debug_stack.opp_num;
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,

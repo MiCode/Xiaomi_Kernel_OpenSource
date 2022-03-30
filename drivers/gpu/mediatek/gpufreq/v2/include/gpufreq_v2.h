@@ -16,7 +16,6 @@
 #define GPUFREQ_TRACE_ENABLE            (0)
 #define GPUFERQ_TAG                     "[GPU/FREQ]"
 #define GPUFREQ_TRACE_TAG               "[GPU/TRACE]"
-#define GPUFREQ_STATUS_MEM_SZ           (0x400) // 1KB
 #define GPUFREQ_FORCE_WDT_ENABLE        (1)
 
 /**************************************************
@@ -131,11 +130,6 @@ struct gpufreq_core_mask_info {
 	unsigned int mask;
 };
 
-struct gpufreq_sb_info {
-	int up;
-	int down;
-};
-
 struct gpuppm_limit_info {
 	unsigned int limiter;
 	char name[20];
@@ -156,6 +150,7 @@ struct gpufreq_platform_fp {
 	unsigned int (*get_power_state)(void);
 	unsigned int (*get_dvfs_state)(void);
 	unsigned int (*get_shader_present)(void);
+	unsigned int (*get_segment_id)(void);
 	int (*power_control)(enum gpufreq_power_state power);
 	void (*set_timestamp)(void);
 	void (*check_bus_idle)(void);

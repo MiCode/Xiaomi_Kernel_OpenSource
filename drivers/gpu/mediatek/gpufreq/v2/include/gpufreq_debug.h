@@ -88,6 +88,7 @@ struct gpufreq_debug_opp_info {
 	unsigned int gpm_enable;
 	unsigned int sb_version;
 	unsigned int ptp_version;
+	unsigned int temperature;
 	unsigned int temp_compensate;
 };
 

@@ -18,6 +18,7 @@
 	(sizeof(struct gpufreq_ipi_data) / sizeof(unsigned int))
 #define GPUFREQ_SHARED_STATUS_SIZE \
 	sizeof(struct gpufreq_shared_status)
+#define GPUFREQ_MAX_OPP_NUM             (50)
 
 /**************************************************
  * IPI Command ID
@@ -35,17 +36,14 @@ static char *gpufreq_ipi_cmd_name[] = {
 	/* Debug */
 	"CMD_GET_DEBUG_OPP_INFO",     // 8
 	"CMD_GET_DEBUG_LIMIT_INFO",   // 9
-	"CMD_GET_WORKING_TABLE",      // 10
-	"CMD_GET_SIGNED_TABLE",       // 11
-	"CMD_GET_LIMIT_TABLE",        // 12
-	"CMD_SWITCH_LIMIT",           // 13
-	"CMD_FIX_TARGET_OPPIDX",      // 14
-	"CMD_FIX_CUSTOM_FREQ_VOLT",   // 15
-	"CMD_SET_STRESS_TEST",        // 16
-	"CMD_SET_AGING_MODE",         // 17
-	"CMD_SET_GPM_MODE",           // 18
-	"CMD_SET_TEST_MODE",          // 19
-	"CMD_NUM",                    // 20
+	"CMD_SWITCH_LIMIT",           // 10
+	"CMD_FIX_TARGET_OPPIDX",      // 11
+	"CMD_FIX_CUSTOM_FREQ_VOLT",   // 12
+	"CMD_SET_STRESS_TEST",        // 13
+	"CMD_SET_AGING_MODE",         // 14
+	"CMD_SET_GPM_MODE",           // 15
+	"CMD_SET_TEST_MODE",          // 16
+	"CMD_NUM",                    // 17
 };
 
 enum gpufreq_ipi_cmd {
@@ -61,17 +59,14 @@ enum gpufreq_ipi_cmd {
 	/* Debug */
 	CMD_GET_DEBUG_OPP_INFO        = 8,
 	CMD_GET_DEBUG_LIMIT_INFO      = 9,
-	CMD_GET_WORKING_TABLE         = 10,
-	CMD_GET_SIGNED_TABLE          = 11,
-	CMD_GET_LIMIT_TABLE           = 12,
-	CMD_SWITCH_LIMIT              = 13,
-	CMD_FIX_TARGET_OPPIDX         = 14,
-	CMD_FIX_CUSTOM_FREQ_VOLT      = 15,
-	CMD_SET_STRESS_TEST           = 16,
-	CMD_SET_AGING_MODE            = 17,
-	CMD_SET_GPM_MODE              = 18,
-	CMD_SET_TEST_MODE             = 19,
-	CMD_NUM                       = 20,
+	CMD_SWITCH_LIMIT              = 10,
+	CMD_FIX_TARGET_OPPIDX         = 11,
+	CMD_FIX_CUSTOM_FREQ_VOLT      = 12,
+	CMD_SET_STRESS_TEST           = 13,
+	CMD_SET_AGING_MODE            = 14,
+	CMD_SET_GPM_MODE              = 15,
+	CMD_SET_TEST_MODE             = 16,
+	CMD_NUM                       = 17,
 };
 
 /**************************************************
@@ -89,11 +84,9 @@ struct gpufreq_ipi_data {
 		unsigned int power_state;
 		unsigned int mode;
 		struct {
-			unsigned long long status_base;
-			unsigned long long debug_base;
-			unsigned int status_size;
-			unsigned int debug_size;
-		} addr;
+			unsigned long long base;
+			unsigned int size;
+		} shared_mem;
 		struct {
 			unsigned int freq;
 			unsigned int volt;
@@ -111,6 +104,9 @@ struct gpufreq_shared_status {
 	int cur_oppidx_stack;
 	int opp_num_gpu;
 	int opp_num_stack;
+	int signed_opp_num_gpu;
+	int signed_opp_num_stack;
+	int power_count;
 	unsigned int cur_fgpu;
 	unsigned int cur_fstack;
 	unsigned int cur_vgpu;
@@ -131,17 +127,28 @@ struct gpufreq_shared_status {
 	unsigned int cur_f_limiter_gpu;
 	unsigned int cur_c_limiter_stack;
 	unsigned int cur_f_limiter_stack;
+	unsigned int temperature;
+	unsigned int temp_compensate;
 	unsigned int power_control;
 	unsigned int dvfs_state;
 	unsigned int shader_present;
-	int power_count;
 	unsigned int aging_enable;
 	unsigned int avs_enable;
 	unsigned int sb_version;
 	unsigned int ptp_version;
+	unsigned int aging_load;
+	unsigned int dual_buck;
+	unsigned int segment_id;
+	unsigned int power_time_h;
+	unsigned int power_time_l;
 	struct gpufreq_debug_opp_info opp_info;
 	struct gpufreq_debug_limit_info limit_info;
 	struct gpufreq_asensor_info asensor_info;
+	struct gpufreq_opp_info working_table_gpu[GPUFREQ_MAX_OPP_NUM];
+	struct gpufreq_opp_info working_table_stack[GPUFREQ_MAX_OPP_NUM];
+	struct gpufreq_opp_info signed_table_gpu[GPUFREQ_MAX_OPP_NUM];
+	struct gpufreq_opp_info signed_table_stack[GPUFREQ_MAX_OPP_NUM];
+	struct gpuppm_limit_info limit_table[LIMIT_NUM];
 };
 
 #endif /* __GPUFREQ_IPI_H__ */
