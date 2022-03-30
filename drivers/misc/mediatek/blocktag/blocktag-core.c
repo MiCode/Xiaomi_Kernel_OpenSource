@@ -102,6 +102,7 @@ static bool mtk_btag_mictx_data_dump;
 
 /* blocktag */
 static LIST_HEAD(mtk_btag_list);
+spinlock_t list_lock;
 
 /* memory block for PIDLogger */
 phys_addr_t dram_start_addr;
@@ -114,23 +115,18 @@ u32 pwd_width_ms = 250;
 static struct mtk_blocktag *mtk_btag_find(const char *name)
 {
 	struct mtk_blocktag *btag, *n;
+	unsigned long flags;
 
+	spin_lock_irqsave(&list_lock, flags);
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list) {
-		if (!strncmp(btag->name, name, BLOCKTAG_NAME_LEN-1))
+		if (!strncmp(btag->name, name, BLOCKTAG_NAME_LEN-1)) {
+			spin_unlock_irqrestore(&list_lock, flags);
 			return btag;
+		}
 	}
+	spin_unlock_irqrestore(&list_lock, flags);
+
 	return NULL;
-}
-
-static struct mtk_blocktag *mtk_btag_find_locked(const char *name)
-{
-	struct mtk_blocktag *btag;
-
-	/* TODO:
-	 * If anyone needs to register btag at runtime, a list lock is needed.
-	 */
-	btag = mtk_btag_find(name);
-	return btag;
 }
 
 /* pid logger: page loger*/
@@ -920,12 +916,13 @@ static ssize_t mtk_btag_main_write(struct file *file, const char __user *ubuf,
 	size_t count, loff_t *ppos)
 {
 	struct mtk_blocktag *btag, *n;
+	unsigned long flags;
 
-	/* TODO:
-	 * If anyone needs to register btag at runtime, a list lock is needed.
-	 */
+	spin_lock_irqsave(&list_lock, flags);
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
 		mtk_btag_clear_trace(&btag->rt);
+	spin_unlock_irqrestore(&list_lock, flags);
+
 	return count;
 }
 
@@ -1008,8 +1005,7 @@ static int mtk_btag_sub_open(struct inode *inode, struct file *file)
 			pr_notice("[BLOCK_TAG] %s: %s/%s\n", __func__,
 				entry->d_parent->d_name.name,
 				entry->d_name.name);
-			m->private =
-		mtk_btag_find_locked(entry->d_parent->d_name.name);
+			m->private = mtk_btag_find(entry->d_parent->d_name.name);
 		}
 	}
 	return rc;
@@ -1122,10 +1118,15 @@ static const struct proc_ops mtk_btag_mictx_sub_fops = {
 
 void mtk_btag_free(struct mtk_blocktag *btag)
 {
+	unsigned long flags;
+
 	if (!btag)
 		return;
 
+	spin_lock_irqsave(&list_lock, flags);
 	list_del(&btag->list);
+	spin_unlock_irqrestore(&list_lock, flags);
+
 	kfree(btag->ctx.priv);
 	kfree(btag->rt.trace);
 	proc_remove(btag->dentry.droot);
@@ -1160,23 +1161,23 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 {
 	size_t used_mem = 0;
 	struct mtk_blocktag *btag, *n;
+	unsigned long flags;
 
-	/* TODO:
-	 * If anyone needs to register btag at runtime, a list lock is needed.
-	 * also be careful that we cannot sleep here because this function will
-	 * be used when the KE happen, i.e., mutex is not allowed.
-	 */
 	SPREAD_PRINTF(buff, size, seq, "[Trace]\n");
+	spin_lock_irqsave(&list_lock, flags);
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
 		mtk_btag_seq_debug_show_ringtrace(buff, size, seq, btag);
+	spin_unlock_irqrestore(&list_lock, flags);
 
 	SPREAD_PRINTF(buff, size, seq, "[Info]\n");
+	spin_lock_irqsave(&list_lock, flags);
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
 		if (btag->vops->seq_show) {
 			SPREAD_PRINTF(buff, size, seq, "<%s: context info>\n",
 					btag->name);
 			btag->vops->seq_show(buff, size, seq);
 		}
+	spin_unlock_irqrestore(&list_lock, flags);
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
 	SPREAD_PRINTF(buff, size, seq, "[BLK_PM]\n");
@@ -1498,6 +1499,7 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 	struct mtk_btag_vops *vops)
 {
 	struct mtk_blocktag *btag;
+	unsigned long flags;
 
 	if (!name || !ringtrace_count || !ctx_size || !ctx_count)
 		return NULL;
@@ -1555,7 +1557,9 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 
 	mtk_btag_mictx_init(name, btag, vops);
 out:
+	spin_lock_irqsave(&list_lock, flags);
 	list_add(&btag->list, &mtk_btag_list);
+	spin_unlock_irqrestore(&list_lock, flags);
 
 	return btag;
 }
@@ -1779,6 +1783,8 @@ static int mtk_btag_install_tracepoints(void)
 
 static int __init mtk_btag_init(void)
 {
+	spin_lock_init(&list_lock);
+
 	mtk_btag_init_memory();
 	mtk_btag_init_pidlogger();
 	mtk_btag_init_procfs();
