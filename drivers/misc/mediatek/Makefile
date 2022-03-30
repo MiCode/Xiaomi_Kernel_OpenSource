@@ -75,3 +75,4 @@ obj-$(CONFIG_MTK_SENSOR_SUPPORT) += sensor/
 obj-$(CONFIG_MTK_DRAM_LOG_STORE) += log_store/
 obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
 obj-$(CONFIG_INTERCONNECT_MTK_EXTENSION) += mtk-interconnect/
+obj-$(CONFIG_MTK_SMI) += smi/
