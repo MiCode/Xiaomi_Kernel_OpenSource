@@ -45,6 +45,7 @@
 #define MML_CT_DL_OUT		4
 
 /* MML SYS registers */
+#define MMLSYS_MISC		0x0f0
 #define CG_CON0			0x100
 #define CG_SET0			0x104
 #define CG_CLR0			0x108
