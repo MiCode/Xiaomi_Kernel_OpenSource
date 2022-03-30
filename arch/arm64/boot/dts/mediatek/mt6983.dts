@@ -407,7 +407,7 @@
 			swiotlb=noforce \
 			initcall_debug=1 cma=64M transparent_hugepage=never \
 			allow_mismatched_32bit_el0 \
-			firmware_class.path=/vendor/firmware pelt=8";
+			firmware_class.path=/vendor/firmware";
 			kaslr-seed = <0 0>;
 			atag,videolfb-fb_base_l = <0x7e605000>;
 			atag,videolfb-fb_base_h = <0x0>;
