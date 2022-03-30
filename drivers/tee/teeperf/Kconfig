@@ -1,0 +1,10 @@
+#
+# TEE perf configuration
+#
+config TEE_PERF_SUPPORT
+	tristate "Enable TEE Perf Support"
+	help
+	  Enable TEE Perf Support.
+	  This option enables TEE perf driver which is used to
+	  improve TEE performance. The TEE perf driver provides
+	  user interface to boost cpu for user application.
