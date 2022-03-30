@@ -166,6 +166,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_RT1019
 	imply SND_SOC_RT1305
 	imply SND_SOC_RT1308
+	imply SND_SOC_RT5512
 	imply SND_SOC_RT5514
 	imply SND_SOC_RT5616
 	imply SND_SOC_RT5631
@@ -1170,6 +1171,15 @@ config SND_SOC_RT1316_SDW
 	tristate "Realtek RT1316 Codec - SDW"
 	depends on SOUNDWIRE
 	select REGMAP_SOUNDWIRE
+
+config SND_SOC_RT5512
+	tristate "Mediatek RT5512 speaker amplifier"
+	depends on I2C
+	help
+	  Config of RT5512. It is a Smart power
+	  amplifier which contain speaker protection,
+	  multi-band DRC, equalizer function. It would
+	  be set to yes if device with RT5512 on it.
 
 config SND_SOC_RT5514
 	tristate
