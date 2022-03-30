@@ -86,3 +86,5 @@ obj-$(CONFIG_MTK_MMINFRA) += mminfra/
 obj-$(CONFIG_MTK_SMI) += smi/
 obj-$(CONFIG_INTERCONNECT_MTK_MMQOS_COMMON) += mmqos/
 obj-$(CONFIG_MTK_GATE_IC) += gate_ic/
+obj-$(CONFIG_USB) += usb/
+
