@@ -18,14 +18,14 @@ struct conap_scp_shm_config g_adp_shm_mt6893 = {
 #endif
 #if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6983)
 struct conap_scp_shm_config g_adp_shm_mt6983 = {
-	.conap_scp_shm_offset = 0x7E0000,
+	.conap_scp_shm_offset = 0x2100000,
 	.conap_scp_shm_size = 0x20000,
 	.conap_scp_ipi_mbox_size = 64,
 };
 #endif
 #if IS_ENABLED(CONFIG_MTK_COMBO_CHIP_CONSYS_6895)
 struct conap_scp_shm_config g_adp_shm_mt6895 = {
-	.conap_scp_shm_offset = 0x7E0000,
+	.conap_scp_shm_offset = 0x2100000,
 	.conap_scp_shm_size = 0x20000,
 	.conap_scp_ipi_mbox_size = 64,
 };
