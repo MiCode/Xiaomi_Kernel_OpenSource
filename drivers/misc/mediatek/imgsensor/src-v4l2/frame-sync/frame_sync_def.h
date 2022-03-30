@@ -58,6 +58,12 @@
 #define SUPPORT_AUTO_EN_SA_MODE
 
 #define FORCE_USING_SA_MODE
+
+/*
+ * force adjust smaller diff one for MW-frame no. matching
+ */
+#define FORCE_ADJUST_SMALLER_DIFF
+
 #endif // SUPPORT_FS_NEW_METHOD
 
 #if defined(SUPPORT_FS_NEW_METHOD) || defined(ALL_USING_ATOMIC)

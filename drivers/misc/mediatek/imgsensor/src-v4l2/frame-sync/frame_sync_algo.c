@@ -961,7 +961,7 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), #%u, out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, tg:%u, ts(%u/+%u(%u)/%u), [frec(0:%u/%u)(fl_lc/shut_lc), fmeas:%u(pr:%u(%u)/act:%u), fmeas_ts(%u/%u/%u/%u), fs_inst_ts(%u/%u/%u/%u ,%u/+%u(%u)/%u)]\n",
+		"[%u] ID:%#x(sidx:%u), #%u, out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, tg:%u, ts(%u/+%u(%u)/%u), [frec(0:%u/%u)(fl_lc/shut_lc), fmeas:%u(pr:%u(%u)/act:%u), fmeas_ts(%u/%u/%u/%u), fs_inst_ts(%u/%u/%u/%u, %u/+%u(%u)/%u)]\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -1535,9 +1535,15 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 
 
 	/* check situation for changing master and adjusting this diff or not */
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
 	if ((adjust_diff_s > FS_TOLERANCE) && (adjust_diff_m > 0)
 		&& (sync_delay_m < sync_delay_s))
 		request_switch_master = 1;
+#else
+	if ((adjust_diff_s > FS_TOLERANCE) && (adjust_diff_m > 0)
+		&& (adjust_diff_m < adjust_diff_s))
+		request_switch_master = 1;
+#endif // FORCE_ADJUST_SMALLER_DIFF
 
 	if ((adjust_diff_s > FS_TOLERANCE)
 		&& (adjust_diff_m > 0) && (adjust_diff_m < FS_TOLERANCE))
@@ -3034,8 +3040,11 @@ static void do_fps_sync_sa(
 	for (i = 0; i < SENSOR_MAX_NUM; ++i) {
 		/* select sensor that valid (streaming + set sync) for sync */
 		if (((valid_sync_bits >> i) & 1UL) == 1) {
+
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
 			if (fs_inst[idx].fl_active_delay
 				>= fs_inst[i].fl_active_delay) {
+#endif // FORCE_ADJUST_SMALLER_DIFF
 
 				/* find maximum min_fl */
 				if (min_fl_us_buf[i] > min_fl_us)
@@ -3046,7 +3055,11 @@ static void do_fps_sync_sa(
 				if (target_min_fl_us_buf[i] > target_min_fl_us)
 					target_min_fl_us =
 						target_min_fl_us_buf[i];
+
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
 			}
+#endif // FORCE_ADJUST_SMALLER_DIFF
+
 		}
 	}
 
