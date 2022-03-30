@@ -22,15 +22,12 @@ static int perf_common_init;
 static atomic_t perf_in_progress;
 
 void __iomem *csram_base;
-struct ppm_data ppm_main_info;
 struct em_perf_domain *em_pd;
 
-#define MAX_CLUSTER_NR	3
 static int first_cpu_in_cluster[MAX_CLUSTER_NR] = {0};
-// module_param_array(first_cpu_in_cluster, int, NULL, 0600);
+struct ppm_data cluster_ppm_info[MAX_CLUSTER_NR];
 
 int cluster_nr = -1;
-// module_param(cluster_nr, int, 0600);
 
 static int init_cpu_cluster_info(void)
 {
@@ -75,46 +72,42 @@ static int init_cpufreq_table(void)
 	struct cpufreq_policy *policy;
 	int ret = 0, i;
 
-	ppm_main_info.cluster_info = kcalloc(cluster_nr,
-			sizeof(*ppm_main_info.cluster_info), GFP_KERNEL);
-	if (!ppm_main_info.cluster_info) {
-		ret = -ENOMEM;
-		pr_info("%s: fail to allocate memory for cluster info", __func__);
-		goto out_cluster_oom;
-	}
-
 	for (i = 0; i < cluster_nr; i++) {
 		int opp_ids, opp_nr;
 
 		policy = cpufreq_cpu_get(first_cpu_in_cluster[i]);
 		if (!policy) {
-			pr_info("%s: policy is null", __func__);
-			return -EINVAL;
+			pr_info("%s: policy %d is null", __func__, i);
+			continue;
 		}
 		/* get CPU OPP number */
 		opp_nr = get_opp_count(policy);
 
-		ppm_main_info.cluster_info[i].dvfs_tbl =
+		cluster_ppm_info[i].dvfs_tbl =
 			kcalloc(opp_nr,
-			       sizeof(*ppm_main_info.cluster_info[i].dvfs_tbl),
-			       GFP_KERNEL);
-		if (!ppm_main_info.cluster_info[i].dvfs_tbl) {
+				sizeof(*cluster_ppm_info[i].dvfs_tbl),
+				GFP_KERNEL);
+		if (!cluster_ppm_info[i].dvfs_tbl) {
 			ret = -ENOMEM;
-			pr_info("Failed to allocate memory for dvfs table");
-			goto out_tbl_oom;
+			pr_info("Failed to allocate dvfs table for cid %d", i);
+			goto alloc_table_oom;
 		}
 
+		cluster_ppm_info[i].opp_nr = opp_nr;
 		for (opp_ids = 0; opp_ids < opp_nr; opp_ids++)
-			ppm_main_info.cluster_info[i].dvfs_tbl[opp_ids] =
+			cluster_ppm_info[i].dvfs_tbl[opp_ids] =
 				policy->freq_table[opp_ids];
+
+		cluster_ppm_info[i].init = 1;
 	}
 	return ret;
 
-out_tbl_oom:
-	while (--i >= 0)
-		kfree(ppm_main_info.cluster_info[i].dvfs_tbl);
-	kfree(ppm_main_info.cluster_info);
-out_cluster_oom:
+alloc_table_oom:
+	/* release dvfs table of previous cluster */
+	while (--i >= 0) {
+		kfree(cluster_ppm_info[i].dvfs_tbl);
+		cluster_ppm_info[i].init = 0;
+	}
 	return ret;
 }
 
@@ -122,9 +115,10 @@ void exit_cpufreq_table(void)
 {
 	int i;
 
-	for (i = 0; i < cluster_nr; i++)
-		kfree(ppm_main_info.cluster_info[i].dvfs_tbl);
-	kfree(ppm_main_info.cluster_info);
+	for (i = 0; i < cluster_nr; i++) {
+		kfree(cluster_ppm_info[i].dvfs_tbl);
+		cluster_ppm_info[i].init = 0;
+	}
 }
 
 static inline bool perf_do_check(u64 wallclock)
