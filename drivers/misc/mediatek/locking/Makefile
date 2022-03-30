@@ -13,7 +13,6 @@
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/include/trace/events
-LINUXINCLUDE += -include $(srctree)/kernel/sched/sched.h
 
 obj-$(CONFIG_MTK_LOCKING_AEE) = locking_aee.o
 locking_aee-y += locking_aee_main.o lockdep_test.o
