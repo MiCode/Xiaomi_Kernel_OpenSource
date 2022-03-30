@@ -120,7 +120,7 @@ int mml_buf_va_get(struct mml_file_buf *buf)
 		ret = dma_buf_vmap(buf->dma[i].dmabuf, &map);
 		if (ret)
 			return -ENOMEM;
-		buf->dma[i].va = (uint64_t)map.vaddr;
+		buf->dma[i].va = map.vaddr;
 	}
 
 	return 0;
