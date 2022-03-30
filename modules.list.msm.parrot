@@ -28,6 +28,7 @@ mem-offline.ko
 memory_dump_v2.ko
 msm_dma_iommu_mapping.ko
 msm_geni_serial.ko
+msm_rtb.ko
 ns.ko
 phy-generic.ko
 pinctrl-msm.ko
