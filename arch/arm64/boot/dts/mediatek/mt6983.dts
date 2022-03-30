@@ -513,9 +513,6 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <339>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&clusteroff_l &mcusysoff
-						&system_mem &system_pll &system_bus
-						&s2idle>;
 		};
 
 		cpu1: cpu@001 {
@@ -527,9 +524,6 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <339>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&clusteroff_l &mcusysoff
-						&system_mem &system_pll &system_bus
-						&s2idle>;
 		};
 
 		cpu2: cpu@002 {
@@ -541,9 +535,6 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <339>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&clusteroff_l &mcusysoff
-						&system_mem &system_pll &system_bus
-						&s2idle>;
 		};
 
 		cpu3: cpu@003 {
@@ -555,9 +546,6 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <339>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&clusteroff_l &mcusysoff
-						&system_mem &system_pll &system_bus
-						&s2idle>;
 		};
 
 		cpu4: cpu@100 {
@@ -569,9 +557,6 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <897>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&clusteroff_m &mcusysoff
-						&system_mem &system_pll &system_bus
-						&s2idle>;
 		};
 
 		cpu5: cpu@101 {
@@ -583,9 +568,6 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <897>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&clusteroff_m &mcusysoff
-						&system_mem &system_pll &system_bus
-						&s2idle>;
 		};
 
 		cpu6: cpu@102 {
@@ -597,9 +579,6 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <897>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&clusteroff_m &mcusysoff
-						&system_mem &system_pll &system_bus
-						&s2idle>;
 		};
 
 		cpu7: cpu@200 {
@@ -611,9 +590,6 @@
 			clock-frequency = <2000000000>;
 			capacity-dmips-mhz = <1024>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff
-						&system_mem &system_pll &system_bus
-						&s2idle>;
 		};
 
 		cpu-map {
@@ -13542,14 +13518,15 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		#size-cells = <2>;
 		ranges;
 		lpm-kernel-suspend = <0>;
-		suspend-method = "enable";
+		suspend-method = "disable";
 
 		logger-enable-states = "mcusysoff", "system_mem",
 					"system_pll", "system_bus";
 
 		irq-remain = <&edge_keypad>,
 				<&level_btif_tx &level_btif_rx &level_bt>,
-				<&level_usb_host>;
+				<&level_usb_host>,
+				<&level_apusys_rv>;
 
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
@@ -13599,52 +13576,56 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				target = <&usb_host>;
 				value = <0 0 0 0>;
 			};
+			level_apusys_rv: level_apusys_rv {
+				target = <&apusys_rv>;
+				value = <0 1 0 0>;
+			};
 		};
 		resource-ctrl-list {
 			bus26m: bus26m {
 				id = <0x00000000>;
-				value = <0>;
+				value = <1>;
 			};
 			infra: infra {
 				id = <0x00000001>;
-				value = <0>;
+				value = <1>;
 			};
 			syspll: syspll {
 				id = <0x00000002>;
-				value = <0>;
+				value = <1>;
 			};
 			dram_s0: dram_s0 {
 				id = <0x00000003>;
-				value = <0>;
+				value = <1>;
 			};
 			dram_s1: dram_s1 {
 				id = <0x00000004>;
-				value = <0>;
+				value = <1>;
 			};
 		};
 		constraint-list {
 			rc_bus26m: rc_bus26m {
 				rc-name = "bus26m";
 				id = <0x00000000>;
-				value = <1>;
+				value = <0>;
 				cond-info = <1>;
 			};
 			rc_syspll: rc_syspll {
 				rc-name = "syspll";
 				id = <0x00000001>;
-				value = <1>;
+				value = <0>;
 				cond-info = <1>;
 			};
 			rc_dram: rc_dram {
 				rc-name = "dram";
 				id = <0x00000002>;
-				value = <1>;
+				value = <0>;
 				cond-info = <1>;
 			};
 			rc_cpu_buck_ldo: rc_cpu_buck_ldo{
 				rc-name = "cpu-buck-ldo";
 				id = <0x00000003>;
-				value = <1>;
+				value = <0>;
 				cond-info = <0>;
 			};
 		};
