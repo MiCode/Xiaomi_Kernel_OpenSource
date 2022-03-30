@@ -510,7 +510,20 @@ static void mtk_plane_atomic_disable(struct drm_plane *plane,
 #endif
 }
 
+static int dummy_helper_prepare_fb(struct drm_plane *plane,
+				      struct drm_plane_state *new_state)
+{
+	return 0;
+}
+
+static void dummy_plane_helper_cleanup_fb(struct drm_plane *plane,
+				       struct drm_plane_state *old_state)
+{
+}
+
 static const struct drm_plane_helper_funcs mtk_plane_helper_funcs = {
+	.prepare_fb = dummy_helper_prepare_fb,
+	.cleanup_fb = dummy_plane_helper_cleanup_fb,
 	.atomic_check = mtk_plane_atomic_check,
 	.atomic_update = mtk_plane_atomic_update,
 	.atomic_disable = mtk_plane_atomic_disable,
