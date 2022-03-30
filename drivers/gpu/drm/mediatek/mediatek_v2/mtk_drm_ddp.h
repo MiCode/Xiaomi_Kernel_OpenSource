@@ -34,8 +34,40 @@ struct dummy_mapping {
 	unsigned int offset;
 };
 
+struct mtk_disp_mutex {
+	int id;
+	bool claimed;
+};
+
+struct mtk_disp_ddp_data {
+	const unsigned int *mutex_mod;
+	const unsigned int *mutex_sof;
+	unsigned int mutex_mod_reg;
+	unsigned int mutex_sof_reg;
+	const unsigned int *dispsys_map;
+};
+
+struct mtk_ddp {
+	struct device *dev;
+	struct clk *clk;
+	void __iomem *regs;
+	resource_size_t regs_pa;
+
+	unsigned int dispsys_num;
+	struct clk *side_clk;
+	void __iomem *side_regs;
+	resource_size_t side_regs_pa;
+	struct mtk_disp_mutex mutex[10];
+	const struct mtk_disp_ddp_data *data;
+	struct cmdq_base *cmdq_base;
+};
+
 #define MT6983_DUMMY_REG_CNT 56
 extern struct dummy_mapping mt6983_dispsys_dummy_register[MT6983_DUMMY_REG_CNT];
+
+#define MT6879_DUMMY_REG_CNT 48
+extern struct dummy_mapping mt6879_dispsys_dummy_register[MT6879_DUMMY_REG_CNT];
+
 
 const struct mtk_mmsys_reg_data *
 mtk_ddp_get_mmsys_reg_data(enum mtk_mmsys_id mmsys_id);

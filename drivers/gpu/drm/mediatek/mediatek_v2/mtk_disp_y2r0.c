@@ -49,14 +49,16 @@ static void mtk_y2r_addon_config(struct mtk_ddp_comp *comp,
 {
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 
-	DDPINFO("%s\n", __func__);
+	if (!mtk_crtc->is_force_mml_scen)
+		return;
+
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 			mtk_crtc->config_regs_pa
 			+ DISP_REG_DISP_Y2R0_EN, 0x1, ~0);
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 			mtk_crtc->config_regs_pa
 			+ DISP_REG_DISP_Y2R0_CON0,
-			DISP_REG_DISP_Y2R0_MATRIX_SEL_FULL_RANGE_BT709_RGB, ~0);
+			DISP_REG_DISP_Y2R0_MATRIX_SEL_FULL_RANGE_BT601_RGB, ~0);
 }
 
 void mtk_y2r_dump(struct mtk_ddp_comp *comp)
@@ -64,8 +66,7 @@ void mtk_y2r_dump(struct mtk_ddp_comp *comp)
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	void __iomem *baddr = mtk_crtc->config_regs;
 
-	DDPINFO("%s\n", __func__);
-	DDPDUMP("== DISP %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== DISP %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), mtk_crtc->config_regs_pa);
 	DDPDUMP("0x250: 0x%08x 0x%08x 0x%08x\n", readl(baddr + 0x250),
 		readl(baddr + 0x254), readl(baddr + 0x258));
 }

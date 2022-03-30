@@ -239,6 +239,10 @@ void mtk_drm_gem_free_object(struct drm_gem_object *obj)
 {
 	struct mtk_drm_gem_obj *mtk_gem = to_mtk_gem_obj(obj);
 	struct mtk_drm_private *priv = obj->dev->dev_private;
+	DRM_MMP_MARK(ion_import_free,
+		(unsigned long)mtk_gem->dma_addr,
+		(unsigned long)((unsigned long long)(mtk_gem->dma_addr >> 4 & 0x030000000ul)
+		| mtk_gem->size));
 
 	if (mtk_gem->sg)
 		drm_prime_gem_destroy(obj, mtk_gem->sg);
@@ -491,6 +495,10 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 	mtk_gem->dma_addr = sg_dma_address(sg->sgl);
 	mtk_gem->size = attach->dmabuf->size;
 	mtk_gem->sg = sg;
+	DRM_MMP_MARK(ion_import_dma,
+		(unsigned long)mtk_gem->dma_addr,
+		(unsigned long)((unsigned long long)(mtk_gem->dma_addr >> 4 & 0x030000000ul)
+		| mtk_gem->size));
 
 	DDPDBG("%s:%d sec:%d, addr:0x%llx, size:%ld, sg:0x%p -\n",
 			__func__, __LINE__,

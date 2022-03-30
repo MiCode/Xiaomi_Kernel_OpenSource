@@ -133,17 +133,17 @@ static irqreturn_t mtk_dsc_irq_handler(int irq, void *dev_id)
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
-	if (mtk_drm_top_clk_isr_get("dsc_irq") == false) {
-		DDPIRQ("%s, top clk off\n", __func__);
-		return IRQ_NONE;
-	}
-
 	if (IS_ERR_OR_NULL(priv))
 		return IRQ_NONE;
 
 	dsc = &priv->ddp_comp;
 	if (IS_ERR_OR_NULL(dsc))
 		return IRQ_NONE;
+
+	if (mtk_drm_top_clk_isr_get("dsc_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
 
 	val = readl(dsc->regs + DISP_REG_DSC_INTSTA);
 	if (!val) {
@@ -318,7 +318,6 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	struct mtk_panel_dsc_params *dsc_params;
 	struct mtk_panel_spr_params *spr_params;
 
-	DDPFUNC();
 	if (!comp->mtk_crtc || (!comp->mtk_crtc->panel_ext
 				&& !comp->mtk_crtc->is_dual_pipe))
 		return;
@@ -331,7 +330,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
 
 	if (dsc_params->enable == 1) {
-		DDPMSG("%s, w:%d, h:%d, slice_mode:%d,slice(%d,%d),bpp:%d\n",
+		DDPINFO("%s, w:%d, h:%d, slice_mode:%d,slice(%d,%d),bpp:%d\n",
 			mtk_dump_comp_str(comp), cfg->w, cfg->h,
 			dsc_params->slice_mode,	dsc_params->slice_width,
 			dsc_params->slice_height, dsc_params->bit_per_pixel);
@@ -538,7 +537,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_relaxed(comp,	reg_val,
 			DISP_REG_DSC_PPS6, handle);
 
-		DDPMSG("%s, bit_per_channel:%d\n",
+		DDPINFO("%s, bit_per_channel:%d\n",
 			mtk_dump_comp_str(comp), dsc_params->bit_per_channel);
 		if (dsc_params->bit_per_channel == 10) {
 			//10bpc_to_8bpp_20_slice_h
@@ -631,7 +630,7 @@ void mtk_dsc_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i;
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 
 	DDPDUMP("(0x000)DSC_START=0x%x\n", readl(baddr + DISP_REG_DSC_CON));
 	DDPDUMP("(0x020)DSC_SLICE_WIDTH=0x%x\n",
@@ -654,7 +653,7 @@ int mtk_dsc_analysis(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
-	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs);
 	DDPDUMP("en=%d, pic_w=%d, pic_h=%d, slice_w=%d, bypass=%d\n",
 		 DISP_REG_GET_FIELD(CON_FLD_DSC_EN,
 				baddr + DISP_REG_DSC_CON),
@@ -811,7 +810,7 @@ static const struct mtk_disp_dsc_data mt6853_dsc_driver_data = {
 static const struct mtk_disp_dsc_data mt6879_dsc_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
-	.dsi_buffer = false,
+	.dsi_buffer = true,
 };
 
 static const struct mtk_disp_dsc_data mt6855_dsc_driver_data = {

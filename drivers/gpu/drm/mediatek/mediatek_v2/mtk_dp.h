@@ -85,10 +85,6 @@ enum DPTx_FEC_ERROR_COUNT_TYPE {
 	FEC_PARITY_BLOCK_ERROR_COUNT           = 0x4,
 	FEC_PARITY_BIT_ERROR_COUNT             = 0x5,
 };
-enum DPTx_CAPABILITY {
-	DP_CAPS_DSC             = BIT(0),
-	DP_CAPS_YUV422          = BIT(1),
-};
 
 struct DP_CTS_AUTO_REQ {
 	unsigned int test_link_training;
@@ -176,19 +172,20 @@ enum DPTx_PREEMPHASIS_NUM {
 
 //SINK_WIDTH_HIGHT_FPS
 enum DP_VIDEO_TIMING_TYPE {
-	SINK_640_480        = 0,
-	SINK_800_600        = 1,
-	SINK_1280_720       = 2,
-	SINK_1280_960       = 3,
-	SINK_1280_1024      = 4,
-	SINK_1920_1080      = 5,
-	SINK_1080_2460      = 6,
-	SINK_1920_1200      = 7,
-	SINK_1920_1440      = 8,
-	SINK_2560_1600      = 9,
-	SINK_3840_2160_30   = 10,//4K30
-	SINK_3840_2160      = 11,//4k60
-	SINK_7680_4320      = 12,
+	SINK_640_480 = 0,
+	SINK_800_600,
+	SINK_1280_720,
+	SINK_1280_960,
+	SINK_1280_1024,
+	SINK_1920_1080,
+	SINK_1080_2460,
+	SINK_1920_1200,
+	SINK_1920_1440,
+	SINK_2560_1440,
+	SINK_2560_1600,
+	SINK_3840_2160_30,
+	SINK_3840_2160,
+	SINK_7680_4320,
 	SINK_MAX,
 };
 
@@ -239,11 +236,8 @@ enum DPTX_VIDEO_MODE {
 #define DP_CAPABILITY_BITWIDTH_MASK             0x07
 #define DP_CAPABILITY_BITWIDTH_SFT              16
 
-bool mtk_drm_dp_is_dsc(void);
 void mtk_dp_poweroff(void);
 void mtk_dp_poweron(void);
-bool mtk_dp_is_yuv422(void);
-bool mtk_dp_is_dsc(void);
 void mtk_dp_video_trigger(int res);
 struct edid *mtk_dp_handle_edid(struct mtk_dp *mtk_dp);
 int mdrv_DPTx_SetTrainingStart(struct mtk_dp *mtk_dp);
@@ -282,9 +276,12 @@ int mtk_dp_hdcp_getInfo(char *buffer, int size);
 int mtk_dp_phy_getInfo(char *buffer, int size);
 void mdrv_DPTx_reAuthentication(struct mtk_dp *mtk_dp);
 void mdrv_DPTx_PatternSet(bool enable, int resolution);
-void mdrv_DPTx_FmmCgSet(bool enable);
 void mdrv_DPTx_set_maxlinkrate(bool enable, int maxlinkrate);
 void mtk_dp_SWInterruptSet(int bstatus);
 void mtk_dp_aux_swap_enable(bool enable);
 extern void mhal_DPTx_VideoClock(bool enable, int resolution);
+void mtk_dp_clock_debug(unsigned int clksrc, unsigned int con1);
+unsigned int mtk_de_get_clk_debug(void);
+unsigned int mtk_de_get_clksrc(void);
+unsigned int mtk_de_get_con1(void);
 #endif //__MTK_DP__H__

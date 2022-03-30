@@ -92,8 +92,7 @@ enum DISP_PMQOS_SLOT {
 	(DISP_SLOT_PRESENT_FENCE(MAX_CRTC))
 #define DISP_SLOT_SUBTRACTOR_WHEN_FREE(n)                                      \
 	(DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE + (0x4 * (n)))
-#define DISP_SLOT_RDMA_FB_IDX_BASE (DISP_SLOT_SUBTRACTOR_WHEN_FREE(MAX_PLANE_NR))
-#define DISP_SLOT_RDMA_FB_IDX (DISP_SLOT_RDMA_FB_IDX_BASE + 0x4)
+#define DISP_SLOT_RDMA_FB_IDX (DISP_SLOT_SUBTRACTOR_WHEN_FREE(MAX_PLANE_NR))
 #define DISP_SLOT_RDMA_FB_ID (DISP_SLOT_RDMA_FB_IDX + 0x4)
 #define DISP_SLOT_CUR_HRT_IDX (DISP_SLOT_RDMA_FB_ID + 0x4)
 #define DISP_SLOT_CUR_HRT_LEVEL (DISP_SLOT_CUR_HRT_IDX + 0x4)
@@ -712,11 +711,9 @@ struct mtk_drm_crtc {
 	wait_queue_head_t crtc_status_wq;
 	struct mtk_panel_ext *panel_ext;
 	struct mtk_drm_esd_ctx *esd_ctx;
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	struct mtk_drm_gem_obj *round_corner_gem;
 	struct mtk_drm_gem_obj *round_corner_gem_l;
 	struct mtk_drm_gem_obj *round_corner_gem_r;
-#endif
 	struct mtk_drm_qos_ctx *qos_ctx;
 	bool sec_on;
 	struct task_struct *vblank_enable_task;
@@ -777,8 +774,8 @@ struct mtk_drm_crtc {
 	wait_queue_head_t cwb_wq;
 	atomic_t cwb_task_active;
 
-	ktime_t eof_time;
-	ktime_t prev_eof_time;
+	ktime_t pf_time;
+	ktime_t prev_pf_time;
 	struct task_struct *signal_present_fece_task;
 	struct cmdq_cb_data cb_data;
 	atomic_t cmdq_done;
@@ -792,6 +789,7 @@ struct mtk_drm_crtc {
 	// MML inline rotate SRAM
 	struct slbc_data *mml_ir_sram;
 	struct mml_submit *mml_cfg;
+	struct mml_submit *mml_cfg_pq;
 	struct mtk_mml_cb_para mml_cb;
 
 	atomic_t mml_last_job_is_flushed;
@@ -799,7 +797,10 @@ struct mtk_drm_crtc {
 	bool is_mml;
 	bool last_is_mml;
 	bool is_mml_debug;
+	bool is_force_mml_scen;
 	bool need_stop_last_mml_job;
+	bool mml_cmd_ir;
+	bool leave_mml_scn;
 
 	atomic_t signal_irq_for_pre_fence;
 	wait_queue_head_t signal_irq_for_pre_fence_wq;
@@ -817,6 +818,7 @@ struct mtk_crtc_state {
 	struct mtk_lye_ddp_state lye_state;
 	struct mtk_rect rsz_src_roi;
 	struct mtk_rect rsz_dst_roi;
+	struct mtk_rect mml_dst_roi;
 	struct mtk_rsz_param rsz_param[2];
 	atomic_t plane_enabled_num;
 
@@ -836,6 +838,7 @@ struct mtk_cmdq_cb_data {
 	void __iomem *disp_mutex_reg_va;
 	void __iomem *mmlsys_reg_va;
 	bool is_mml;
+	bool leave_mml_scn;
 	unsigned int pres_fence_idx;
 };
 
@@ -910,7 +913,8 @@ int mtk_drm_get_msync_params_ioctl(struct drm_device *dev, void *data,
 				struct drm_file *file_priv);
 struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 						struct drm_crtc_state *old_crtc_state,
-						struct mtk_crtc_state *crtc_state);
+						struct mtk_crtc_state *crtc_state,
+						bool need_sync_mml);
 void mtk_crtc_pkt_create(struct cmdq_pkt **cmdq_handle,
 	struct drm_crtc *crtc, struct cmdq_client *cl);
 int mtk_crtc_get_mutex_id(struct drm_crtc *crtc, unsigned int ddp_mode,
@@ -1001,6 +1005,7 @@ dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 			unsigned int slot_index);
 
 unsigned int mtk_get_plane_slot_idx(struct mtk_drm_crtc *mtk_crtc, unsigned int idx);
+void mtk_gce_backup_slot_init(struct mtk_drm_crtc *mtk_crtc);
 
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);
@@ -1023,4 +1028,5 @@ int mtk_drm_ioctl_get_pq_caps(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 int mtk_drm_ioctl_set_pq_caps(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
+void mtk_crtc_prepare_instr(struct drm_crtc *crtc);
 #endif /* MTK_DRM_CRTC_H */

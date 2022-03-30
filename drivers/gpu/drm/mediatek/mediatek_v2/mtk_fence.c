@@ -11,6 +11,7 @@
 #include <linux/wait.h>
 #include <linux/file.h>
 #include <linux/sched/clock.h>
+#include <linux/sync_file.h>
 
 #include <drm/mediatek_drm.h>
 
@@ -773,6 +774,7 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	struct fence_data data;
 	struct mtk_fence_info *layer_info = NULL;
 	struct mtk_fence_session_sync_info *session_info = NULL;
+	struct dma_fence *fence = NULL;
 
 	if (buf == NULL) {
 		DDPPR_ERR("Prepare Buffer, buf is NULL!!\n");
@@ -802,8 +804,6 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	data.value = ++(layer_info->fence_idx);
 	mutex_unlock(&(layer_info->sync_lock));
 
-	snprintf(data.name, sizeof(data.name), "disp-S%x-L%d-%d", session_id,
-		 timeline_id, data.value);
 	ret = mtk_sync_fence_create(layer_info->timeline, &data);
 	if (ret != 0) {
 		/* Does this really happened? */
@@ -828,16 +828,21 @@ struct mtk_fence_buf_info *mtk_fence_prepare_buf(struct drm_device *dev,
 	list_add_tail(&buf_info->list, &layer_info->buf_list);
 	mutex_unlock(&layer_info->sync_lock);
 
+	fence = sync_file_get_fence(buf_info->fence);
 	if (buf_info->buf_hnd)
-		DDPFENCE("P+/%s%d/L%d/id%d/fd%d/hnd0x%8p\n",
+		DDPFENCE("P+/%s%d/L%d/id%d/fd%d/hnd0x%8p/pt0x%lx\n",
 			 mtk_fence_session_mode_spy(session_id),
 			 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
-			 buf_info->fence, buf_info->buf_hnd);
+			 buf_info->fence, buf_info->buf_hnd,
+			 IS_ERR_OR_NULL(fence) ? 0x0 : (unsigned long)fence);
 	else
-		DDPFENCE("P+/%s%d/L%d/id%d/fd%d\n",
+		DDPFENCE("P+/%s%d/L%d/id%d/fd%d/pt0x%lx\n",
 			 mtk_fence_session_mode_spy(session_id),
 			 MTK_SESSION_DEV(session_id), timeline_id, buf_info->idx,
-			 buf_info->fence);
+			 buf_info->fence,
+			 IS_ERR_OR_NULL(fence) ? 0x0 : (unsigned long)fence);
+	if (!IS_ERR_OR_NULL(fence))
+		dma_fence_put(fence);
 
 	return buf_info;
 }

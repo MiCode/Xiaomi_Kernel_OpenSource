@@ -57,11 +57,30 @@ static const int disp_wdma2_path[] = {
 	DDP_COMPONENT_WDMA2,
 };
 
+static const int mml_rsz_path[] = {
+	DDP_COMPONENT_MML_MML0, DDP_COMPONENT_MML_MUTEX0,
+	DDP_COMPONENT_MML_DLI0,
+	DDP_COMPONENT_MML_HDR0, DDP_COMPONENT_MML_AAL0, DDP_COMPONENT_MML_RSZ0,
+	DDP_COMPONENT_MML_TDSHP0, DDP_COMPONENT_MML_COLOR0,
+	DDP_COMPONENT_MML_DLO0,
+};
+
+static const int mml_rsz_path_v2[] = {
+	DDP_COMPONENT_MML_DLI1,
+	DDP_COMPONENT_MML_HDR1, DDP_COMPONENT_MML_AAL1, DDP_COMPONENT_MML_RSZ1,
+	DDP_COMPONENT_MML_TDSHP1, DDP_COMPONENT_MML_COLOR1,
+	DDP_COMPONENT_MML_DLO1,
+};
+
 static const int disp_mml_path[] = {
 	DDP_COMPONENT_OVL0_2L_VIRTUAL0,
-	DDP_COMPONENT_INLINE_ROTATE0,
 	DDP_COMPONENT_DLO_ASYNC,
-	DDP_COMPONENT_MMLSYS_BYPASS,
+	DDP_COMPONENT_MML_MML0, DDP_COMPONENT_MML_MUTEX0,
+	DDP_COMPONENT_MML_DLI0,
+	DDP_COMPONENT_MML_HDR0, DDP_COMPONENT_MML_AAL0, DDP_COMPONENT_MML_RSZ0,
+	DDP_COMPONENT_MML_TDSHP0, DDP_COMPONENT_MML_COLOR0,
+	DDP_COMPONENT_MML_DLO0,
+	DDP_COMPONENT_INLINE_ROTATE0,
 	DDP_COMPONENT_DLI_ASYNC,
 	DDP_COMPONENT_Y2R0,
 	DDP_COMPONENT_Y2R0_VIRTUAL0
@@ -116,6 +135,14 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 				.path = disp_wdma2_path,
 				.path_len = ARRAY_SIZE(disp_wdma2_path),
 			},
+		[MML_RSZ] = {
+				.path = mml_rsz_path,
+				.path_len = ARRAY_SIZE(mml_rsz_path),
+			},
+		[MML_RSZ_v2] = {
+				.path = mml_rsz_path_v2,
+				.path_len = ARRAY_SIZE(mml_rsz_path_v2),
+			},
 		[DISP_INLINE_ROTATE] = {
 				.path = disp_mml_path,
 				.path_len = ARRAY_SIZE(disp_mml_path),
@@ -168,8 +195,6 @@ mtk_addon_get_scenario_data_dual(const char *source, struct drm_crtc *crtc,
 	if (mtk_crtc->path_data && mtk_crtc->path_data->addon_data_dual)
 		return &mtk_crtc->path_data->addon_data_dual[scn];
 
-	DDPPR_ERR("[%s] crtc%d cannot get addon data\n", source,
-		  drm_crtc_index(crtc));
 	return NULL;
 }
 
@@ -217,6 +242,31 @@ static void mtk_addon_path_stop(struct drm_crtc *crtc,
 
 		add_comp = priv->ddp_comp[path_data->path[i]];
 		mtk_ddp_comp_stop(add_comp, cmdq_handle);
+	}
+}
+
+void mtk_addon_path_config(struct drm_crtc *crtc,
+			const struct mtk_addon_module_data *module_data,
+			union mtk_addon_config *addon_config,
+			struct cmdq_pkt *cmdq_handle)
+{
+	int i;
+	struct mtk_ddp_comp *add_comp = NULL;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	enum mtk_ddp_comp_id prev_comp_id = -1, next_comp_id = -1;
+	const struct mtk_addon_path_data *path_data =
+		mtk_addon_module_get_path(module_data->module);
+
+	for (i = 0; i < path_data->path_len; i++) {
+		if (mtk_ddp_comp_get_type(path_data->path[i])
+			== MTK_DISP_VIRTUAL)
+			continue;
+
+		add_comp = priv->ddp_comp[path_data->path[i]];
+		prev_comp_id = (i > 0) ? path_data->path[(i - 1)] : -1;
+		next_comp_id = (i < path_data->path_len - 1) ? path_data->path[(i + 1)] : -1;
+		mtk_ddp_comp_addon_config(add_comp, prev_comp_id, next_comp_id,
+					  addon_config, cmdq_handle);
 	}
 }
 
@@ -749,3 +799,58 @@ void mtk_addon_disconnect_after(
 	mtk_ddp_comp_addon_config(comp, prev_comp_id, next_comp_id,
 				  addon_config, cmdq_handle);
 }
+
+
+void mtk_addon_connect_external(struct drm_crtc *crtc, unsigned int ddp_mode,
+			      const struct mtk_addon_module_data *module_data,
+			      union mtk_addon_config *addon_config,
+			      struct cmdq_pkt *cmdq_handle)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp = NULL;
+	const struct mtk_addon_path_data *path_data =
+		mtk_addon_module_get_path(module_data->module);
+
+	DDPINFO("%s+\n", __func__);
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+	/* 0. attach subpath to crtc*/
+	/* some comp need crtc info in addon_config or irq */
+	mtk_crtc_attach_addon_path_comp(crtc, module_data, true);
+
+	/* 1. connect subpath and add mutex*/
+
+	addon_config->addon_mml_config.config_type.type = ADDON_CONNECT;
+	addon_config->addon_mml_config.mutex.sof_src = (int)output_comp->id;
+	addon_config->addon_mml_config.mutex.eof_src = (int)output_comp->id;
+	addon_config->addon_mml_config.mutex.is_cmd_mode = mtk_crtc_is_frame_trigger_mode(crtc);
+
+	mtk_addon_path_config(crtc, module_data, addon_config, cmdq_handle);
+
+	/* 4. start addon module */
+	mtk_addon_path_start(crtc, path_data, cmdq_handle);
+}
+
+void mtk_addon_disconnect_external(
+	struct drm_crtc *crtc, unsigned int ddp_mode,
+	const struct mtk_addon_module_data *module_data,
+	union mtk_addon_config *addon_config, struct cmdq_pkt *cmdq_handle)
+{
+	const struct mtk_addon_path_data *path_data =
+		mtk_addon_module_get_path(module_data->module);
+
+	DDPINFO("%s+\n", __func__);
+
+	addon_config->addon_mml_config.config_type.type = ADDON_DISCONNECT;
+
+	mtk_addon_path_config(crtc, module_data, addon_config, cmdq_handle);
+
+	/* 0. attach subpath to crtc*/
+	/* some comp need crtc info in stop*/
+	mtk_crtc_attach_addon_path_comp(crtc, module_data, true);
+
+	/* 1. stop addon module*/
+	mtk_addon_path_stop(crtc, path_data, cmdq_handle);
+
+}
+

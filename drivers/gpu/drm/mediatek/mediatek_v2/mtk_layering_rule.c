@@ -81,8 +81,8 @@ static uint16_t ovl_mapping_tb_vds_switch[HRT_TB_NUM] = {
 #define GET_SYS_STATE(sys_state)                                               \
 	((l_rule_info.hrt_sys_state >> sys_state) & 0x1)
 
-static void layering_rule_scenario_decision(unsigned int scn_decision_flag,
-					   unsigned int scale_num)
+static void layering_rule_scenario_decision(struct drm_device *dev,
+	unsigned int scn_decision_flag, unsigned int scale_num)
 {
 /*TODO: need MMP support*/
 #ifdef IF_ZERO
@@ -95,9 +95,11 @@ static void layering_rule_scenario_decision(unsigned int scn_decision_flag,
 
 	if (scn_decision_flag & SCN_MML_SRAM_ONLY)
 		l_rule_info.addon_scn[HRT_PRIMARY] = MML_SRAM_ONLY;
-	else if (scn_decision_flag & SCN_MML)
+	else if (scn_decision_flag & SCN_MML) {
 		l_rule_info.addon_scn[HRT_PRIMARY] = MML;
-	else if (scn_decision_flag & SCN_NEED_GAME_PQ)
+		DDPMSG("%s:%d + addon_scn:%d\n",
+			__func__, __LINE__, l_rule_info.addon_scn[HRT_PRIMARY]);
+	} else if (scn_decision_flag & SCN_NEED_GAME_PQ)
 		l_rule_info.addon_scn[HRT_PRIMARY] = GAME_PQ;
 	else if (scn_decision_flag & SCN_NEED_VP_PQ)
 		l_rule_info.addon_scn[HRT_PRIMARY] = VP_PQ;

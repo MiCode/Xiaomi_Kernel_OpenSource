@@ -27,6 +27,7 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_gem.h"
+#include "mtk_drm_mmp.h"
 #include "mtk_dump.h"
 
 #define MTK_SMI_CLK_CTRL
@@ -70,6 +71,7 @@
 #define DITHER_ADD_LSHIFT_G(x) (((x)&0x7) << 4)
 #define DITHER_ADD_RSHIFT_G(x) (((x)&0x7) << 0)
 
+#define MMSYS_MISC                                0xF0
 #define MMSYS_SODI_REQ_MASK                       0xF4
 
 #define SODI_HRT_FIFO_SEL                         REG_FLD_MSB_LSB(3, 0)
@@ -160,6 +162,14 @@
 
 #define SMI_LARB_NON_SEC_CON 0x0380
 #define MMSYS_DUMMY0 0x0400
+
+#define DISP_REG_CONFIG_MMSYS_MISC                0x0F0
+#define MT6895_FLD_OVL0_RDMA_ULTRA_SEL            REG_FLD_MSB_LSB(5, 2)
+#define MT6895_FLD_OVL0_2L_RDMA_ULTRA_SEL         REG_FLD_MSB_LSB(9, 6)
+#define MT6895_FLD_OVL1_2L_RDMA_ULTRA_SEL         REG_FLD_MSB_LSB(13, 10)
+#define MT6879_FLD_OVL0_RDMA_ULTRA_SEL            REG_FLD_MSB_LSB(5, 2)
+#define MT6879_FLD_OVL0_2L_RDMA_ULTRA_SEL         REG_FLD_MSB_LSB(9, 6)
+#define MT6879_FLD_OVL0_2L_NWCG_RDMA_ULTRA_SEL    REG_FLD_MSB_LSB(17, 14)
 
 #define MTK_DDP_COMP_USER "DISP"
 
@@ -333,6 +343,14 @@ static const char *const mtk_ddp_comp_stem[MTK_DDP_COMP_TYPE_MAX] = {
 	[MTK_DISP_DLI_ASYNC] = "dli_async",
 	[MTK_DISP_INLINE_ROTATE] = "inlinerotate",
 	[MTK_MMLSYS_BYPASS] = "mmlsys_bypass",
+	[MTK_MML_RSZ] = "mml_rsz",
+	[MTK_MML_HDR] = "mml_hdr",
+	[MTK_MML_AAL] = "mml_aal",
+	[MTK_MML_TDSHP] = "mml_tdshp",
+	[MTK_MML_COLOR] = "mml_color",
+	[MTK_MML_MML] = "mml_mml",
+	[MTK_MML_MUTEX] = "mml_mutex",
+	[MTK_MML_WROT] = "mml_wrot",
 };
 
 struct mtk_ddp_comp_match {
@@ -482,6 +500,24 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_MAIN_OVL_DISP1_WDMA_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_SUB_OVL_DISP0_PQ0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
 	{DDP_COMPONENT_SUB_OVL_DISP1_PQ0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_MML_RSZ0, MTK_MML_RSZ, 0, NULL, 0},
+	{DDP_COMPONENT_MML_RSZ1, MTK_MML_RSZ, 1, NULL, 0},
+	{DDP_COMPONENT_MML_RSZ2, MTK_MML_RSZ, 2, NULL, 0},
+	{DDP_COMPONENT_MML_RSZ3, MTK_MML_RSZ, 3, NULL, 0},
+	{DDP_COMPONENT_MML_HDR0, MTK_MML_HDR, 0, NULL, 0},
+	{DDP_COMPONENT_MML_HDR1, MTK_MML_HDR, 1, NULL, 0},
+	{DDP_COMPONENT_MML_AAL0, MTK_MML_AAL, 0, NULL, 0},
+	{DDP_COMPONENT_MML_AAL1, MTK_MML_AAL, 1, NULL, 0},
+	{DDP_COMPONENT_MML_TDSHP0, MTK_MML_TDSHP, 0, NULL, 0},
+	{DDP_COMPONENT_MML_TDSHP1, MTK_MML_TDSHP, 1, NULL, 0},
+	{DDP_COMPONENT_MML_COLOR0, MTK_MML_COLOR, 0, NULL, 0},
+	{DDP_COMPONENT_MML_COLOR1, MTK_MML_COLOR, 1, NULL, 0},
+	{DDP_COMPONENT_MML_MML0, MTK_MML_MML, 0, NULL, 0},
+	{DDP_COMPONENT_MML_MUTEX0, MTK_MML_MUTEX, 0, NULL, 0},
+	{DDP_COMPONENT_MML_WROT0, MTK_MML_WROT, 0, NULL, 0},
+	{DDP_COMPONENT_MML_WROT1, MTK_MML_WROT, 1, NULL, 0},
+	{DDP_COMPONENT_MML_WROT2, MTK_MML_WROT, 2, NULL, 0},
+	{DDP_COMPONENT_MML_WROT3, MTK_MML_WROT, 3, NULL, 0},
 };
 
 bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
@@ -648,6 +684,75 @@ unsigned int mtk_drm_find_possible_crtc_by_comp(struct drm_device *drm,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+static int mtk_ddp_iommu_callback(int port, dma_addr_t mva, void *data)
+{
+	struct mtk_ddp_comp *comp = (struct mtk_ddp_comp *)data;
+
+	DDPPR_ERR("fault call port=0x%x, mva=0x%lx, data=0x%p\n", port,
+		  (unsigned long)mva, data);
+	if (mva == 0x0) {
+		/*
+		 * when ovl underflow, ovl maybe send 0x0 header address to iommu, can cause
+		 * translation fault
+		 * please check :1)ovl header address != 0
+		 *				2)ovl fifo underflow
+		 *				3)mva == 0
+		 * ignore the translation fault, just resolve the ovl underflow issue
+		 */
+		DDPPR_ERR(
+			"When had translation fault & mva = 0, check the code comment:[%s] line (%d)\n"
+			, __func__, __LINE__);
+	}
+	DRM_MMP_EVENT_START(iova_tf, port, mva);
+	if (comp) {
+#ifdef CONFIG_MTK_IOMMU_MISC_DBG_DETAIL
+		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+		struct drm_crtc *crtc = NULL;
+
+		if (mtk_crtc == NULL) {
+			mtk_dump_analysis(comp);
+			mtk_dump_reg(comp);
+		} else {
+			crtc = &mtk_crtc->base;
+			mtk_drm_crtc_analysis(crtc);
+			mtk_drm_crtc_dump(crtc);
+		}
+#else
+		mtk_dump_analysis(comp);
+		mtk_dump_reg(comp);
+#endif
+		DRM_MMP_EVENT_END(iova_tf, comp->id, comp->regs_pa);
+	} else
+		DRM_MMP_EVENT_END(iova_tf, 0, 0);
+
+	return 0;
+}
+
+static void mtk_ddp_comp_iommu_register(struct mtk_ddp_comp *comp)
+{
+	int port = 0, index = 0, ret = 0;
+
+	if (!comp || !comp->dev)
+		return;
+
+	while (1) {
+		ret = of_property_read_u32_index(comp->dev->of_node,
+				"iommus", index * 2 + 1, &port);
+		if (ret < 0)
+			break;
+		if (disp_helper_get_stage() ==
+			DISP_HELPER_STAGE_NORMAL)
+			mtk_iommu_register_fault_callback(
+						port, mtk_ddp_iommu_callback,
+						comp, false);
+		DDPINFO("%s, comp:%u, register the %d port:0x%x\n",
+			__func__, comp->id, index, port);
+		index++;
+	}
+}
+#endif
+
 int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
 		      struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id comp_id,
 		      const struct mtk_ddp_comp_funcs *funcs)
@@ -718,6 +823,10 @@ int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
 	/* handle larb resources */
 	mtk_ddp_comp_set_larb(dev, node, comp);
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	mtk_ddp_comp_iommu_register(comp);
+#endif
+
 	DDPINFO("%s-\n", __func__);
 
 	return 0;
@@ -758,6 +867,7 @@ void mtk_ddp_comp_pm_disable(struct mtk_ddp_comp *comp)
 
 void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 {
+	unsigned int index = 0;
 	int ret;
 
 	if (comp == NULL)
@@ -776,10 +886,16 @@ void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp)
 			DDPPR_ERR("clk prepare enable failed:%s\n",
 				mtk_dump_comp_str(comp));
 	}
+
+	if (comp->mtk_crtc)
+		index = drm_crtc_index(&comp->mtk_crtc->base);
+	CRTC_MMP_MARK(index, ddp_clk, comp->id, 1);
 }
 
 void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 {
+	unsigned int index = 0;
+
 	if (comp == NULL)
 		return;
 
@@ -793,24 +909,11 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 #else
 		pm_runtime_put_sync(comp->dev);
 #endif
+
+	if (comp->mtk_crtc)
+		index = drm_crtc_index(&comp->mtk_crtc->base);
+	CRTC_MMP_MARK(index, ddp_clk, comp->id, 0);
 }
-
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-static int mtk_ddp_m4u_callback(int port, dma_addr_t mva, void *data)
-{
-	struct mtk_ddp_comp *comp = (struct mtk_ddp_comp *)data;
-
-	DDPPR_ERR("fault call port=0x%x, mva=0x%lx, data=0x%p\n", port,
-		  (unsigned long)mva, data);
-
-	if (comp) {
-		mtk_dump_analysis(comp);
-		mtk_dump_reg(comp);
-	}
-
-	return 0;
-}
-#endif
 
 #define GET_M4U_PORT 0x1F
 void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
@@ -831,14 +934,6 @@ void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 				"iommus", index * 2 + 1, &port);
 		if (ret < 0)
 			break;
-
-#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-			if (disp_helper_get_stage() ==
-					DISP_HELPER_STAGE_NORMAL)
-				mtk_iommu_register_fault_callback(
-					port, mtk_ddp_m4u_callback,
-					comp, false);
-#endif
 
 		port &= (unsigned int)GET_M4U_PORT;
 		if (of_address_to_resource(comp->larb_dev->of_node, 0, &res) !=
@@ -1080,6 +1175,7 @@ void mt6879_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	struct mtk_drm_private *priv = drm->dev_private;
 	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
 	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	unsigned int ultra_ovl_val = 0, ultra_ovl_mask = 0;
 	bool en = *((bool *)data);
 
 	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
@@ -1108,17 +1204,22 @@ void mt6879_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		SET_VAL_MASK(emi_req_val, emi_req_mask,
 					0, MT6879_HRT_URGENT_CTL_VAL_ALL);
 	} else if (id == DDP_COMPONENT_RDMA0) {
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
+		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!(unsigned int)en),
 					SODI_REQ_SEL_RDMA0_CG_MODE);
 		SET_VAL_MASK(sodi_req_val, sodi_req_mask, en,
 					MT6879_DVFS_HALT_MASK_SEL_RDMA0);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					MT6879_HRT_URGENT_CTL_SEL_DSI0);
 	} else if (id == DDP_COMPONENT_WDMA0) {
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
 					MT6879_HRT_URGENT_CTL_SEL_WDMA0);
 		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
 					MT6879_DVFS_HALT_MASK_SEL_WDMA0);
+	} else if (id == DDP_COMPONENT_WDMA1) {
+		SET_VAL_MASK(emi_req_val, emi_req_mask, (!(unsigned int)en),
+					MT6879_HRT_URGENT_CTL_SEL_WDMA1);
+		SET_VAL_MASK(emi_req_val, emi_req_mask, en,
+					MT6879_DVFS_HALT_MASK_SEL_WDMA1);
 	} else
 		return;
 
@@ -1134,11 +1235,34 @@ void mt6879_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			& (~emi_req_mask));
 		v += (emi_req_val & emi_req_mask);
 		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
+
+		/* enable ultra signal from rdma to ovl0 and ovl0_2l */
+		v = readl(priv->config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+			0, MT6879_FLD_OVL0_RDMA_ULTRA_SEL);
+		v = (v & ~ultra_ovl_mask) | (ultra_ovl_val & ultra_ovl_mask);
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+			0, MT6879_FLD_OVL0_2L_RDMA_ULTRA_SEL);
+		v = (v & ~ultra_ovl_mask) | (ultra_ovl_val & ultra_ovl_mask);
+		writel_relaxed(v, priv->config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
+
 	} else {
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+
+		/* enable ultra signal from rdma to ovl0 */
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+			0, MT6879_FLD_OVL0_RDMA_ULTRA_SEL);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			DISP_REG_CONFIG_MMSYS_MISC, ultra_ovl_val, ultra_ovl_mask);
+
+		/* enable ultra signal from rdma to ovl1_2l */
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+			0, MT6879_FLD_OVL0_2L_RDMA_ULTRA_SEL);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			DISP_REG_CONFIG_MMSYS_MISC, ultra_ovl_val, ultra_ovl_mask);
 	}
 }
 
@@ -1470,6 +1594,14 @@ void mt6983_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
 		if (priv->side_config_regs)
 			writel_relaxed(v, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
+		v = (readl(priv->config_regs + MMSYS_MISC)
+			& (~0x3FFFFC));
+		writel_relaxed(v, priv->config_regs + MMSYS_MISC);
+		if (priv->side_config_regs) {
+			v = (readl(priv->side_config_regs + MMSYS_MISC)
+				& (~0x3FFFFC));
+			writel_relaxed(v, priv->side_config_regs + MMSYS_MISC);
+		}
 	} else {
 		/* TODO: HARD CODE for RDMA0 scenario */
 		// cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
@@ -1480,6 +1612,8 @@ void mt6983_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			MMSYS_DUMMY0, 0x7, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_EMI_REQ_CTL, 0xdf, ~0);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_MISC, 0x0, 0x3FFFFC);
 		if (priv->side_config_regs_pa) {
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_SODI_REQ_MASK, 0xf500, ~0);
@@ -1487,6 +1621,8 @@ void mt6983_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 				MMSYS_DUMMY0, 0x7, ~0);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_EMI_REQ_CTL, 0xdf, ~0);
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				MMSYS_MISC, 0x0, 0x3FFFFC);
 		}
 	}
 }
@@ -1497,6 +1633,7 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	struct mtk_drm_private *priv = drm->dev_private;
 	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
 	unsigned int emi_req_val = 0, emi_req_mask = 0;
+	unsigned int ultra_ovl_val = 0, ultra_ovl_mask = 0;
 	bool en = *((bool *)data);
 
 	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
@@ -1557,9 +1694,7 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	if (handle == NULL) {
 		unsigned int v;
 
-		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
-			& (~sodi_req_mask));
-		v += (sodi_req_val & sodi_req_mask);
+		v = 0xF500;
 		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
 		writel_relaxed(0x7, priv->config_regs + MMSYS_DUMMY0);
 		if (priv->side_config_regs) {
@@ -1567,26 +1702,55 @@ void mt6895_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			writel_relaxed(0x7, priv->side_config_regs + MMSYS_DUMMY0);
 		}
 
-		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
-			& (~emi_req_mask));
-		v += (emi_req_val & emi_req_mask);
-		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
+		/* enable urgent signal from mmsys0 dsi buffer*/
+		writel_relaxed(0xdf, priv->config_regs +  MMSYS_EMI_REQ_CTL);
 		if (priv->side_config_regs)
-			writel_relaxed(v, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
+			writel_relaxed(0xff, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
+
+		/* enable ultra signal from rdma to ovl0 and ovl1_2l */
+		v = readl(priv->config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+				0, MT6895_FLD_OVL0_RDMA_ULTRA_SEL);
+		v = (v & ~ultra_ovl_mask) | (ultra_ovl_val & ultra_ovl_mask);
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+				0, MT6895_FLD_OVL1_2L_RDMA_ULTRA_SEL);
+		v = (v & ~ultra_ovl_mask) | (ultra_ovl_val & ultra_ovl_mask);
+		writel_relaxed(v, priv->config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
+		if (priv->side_config_regs)
+			writel_relaxed(v, priv->side_config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
 	} else {
+		/* enable ultra signal from rdma to ovl0 */
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+				0, MT6895_FLD_OVL0_RDMA_ULTRA_SEL);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+			DISP_REG_CONFIG_MMSYS_MISC, ultra_ovl_val, ultra_ovl_mask);
+		if (priv->side_config_regs_pa)
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				DISP_REG_CONFIG_MMSYS_MISC, ultra_ovl_val, ultra_ovl_mask);
+
+		/* enable ultra signal from rdma to ovl1_2l */
+		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
+				0, MT6895_FLD_OVL1_2L_RDMA_ULTRA_SEL);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			DISP_REG_CONFIG_MMSYS_MISC, ultra_ovl_val, ultra_ovl_mask);
+		if (priv->side_config_regs_pa)
+			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
+				DISP_REG_CONFIG_MMSYS_MISC, ultra_ovl_val, ultra_ovl_mask);
+
+		/* enable urgent signal from mmsys0 dsi buffer*/
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_SODI_REQ_MASK, 0xf500, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			MMSYS_DUMMY0, 0x7, ~0);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+			MMSYS_EMI_REQ_CTL, 0xdf, ~0);
 		if (priv->side_config_regs_pa) {
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
+				MMSYS_SODI_REQ_MASK, 0xf500, ~0);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
 				MMSYS_DUMMY0, 0x7, ~0);
 			cmdq_pkt_write(handle, NULL, priv->side_config_regs_pa +
-				MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
+				MMSYS_EMI_REQ_CTL, 0xff, ~0);
 		}
 	}
 }

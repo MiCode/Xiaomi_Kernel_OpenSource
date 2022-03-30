@@ -367,7 +367,7 @@ int mtk_rsz_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i = 0;
 
-	DDPDUMP("== DISP %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== DISP %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	for (i = 0; i < 3; i++) {
 		DDPDUMP("0x%03X: 0x%08x 0x%08x 0x%08x 0x%08x\n", i * 0x10,
 			readl(baddr + i * 0x10), readl(baddr + i * 0x10 + 0x4),
@@ -404,7 +404,7 @@ int mtk_rsz_analysis(struct mtk_ddp_comp *comp)
 	in_pos = readl(baddr + DISP_REG_RSZ_DEBUG);
 	shadow = readl(baddr + DISP_REG_RSZ_SHADOW_CTRL);
 
-	DDPDUMP("== DISP %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== DISP %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 
 	writel(0x3, baddr + DISP_REG_RSZ_DEBUG_SEL);
 	n = snprintf(msg, LEN,
@@ -610,7 +610,7 @@ static const struct mtk_disp_rsz_data mt6879_rsz_driver_data = {
 };
 
 static const struct mtk_disp_rsz_data mt6855_rsz_driver_data = {
-	.tile_length = 1088, .in_max_height = 4096,
+	.tile_length = 1668, .in_max_height = 4096,
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 };

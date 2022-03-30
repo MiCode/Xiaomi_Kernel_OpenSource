@@ -171,7 +171,19 @@ void mtk_dp_debug(const char *opt)
 		DPTXMSG("set max link rate:enable = %d, maxlinkrate =%d\n",
 			enable, maxlinkrate);
 		mdrv_DPTx_set_maxlinkrate(enable, maxlinkrate);
-	}
+		} else if (strncmp(opt, "video_clock:", 12) == 0) {
+			int ret = 0;
+			unsigned int clksrc;
+			unsigned int con1;
+
+			ret = sscanf(opt, "video_clock:%d,%d\n", &clksrc, &con1);
+			if (ret != 2) {
+				DPTXERR("ret = %s\n", ret);
+				return;
+			}
+			mtk_dp_clock_debug(clksrc, con1);
+		}
+
 }
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)

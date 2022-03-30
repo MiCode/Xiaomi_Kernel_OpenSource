@@ -36,9 +36,6 @@ static void mtk_dlo_async_addon_config(struct mtk_ddp_comp *comp,
 				 struct cmdq_pkt *handle)
 {
 	DDPINFO("%s\n", __func__);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + 0x0F0,
-		0x80000000, ~0);
 }
 
 void mtk_dlo_async_dump(struct mtk_ddp_comp *comp)
@@ -46,8 +43,9 @@ void mtk_dlo_async_dump(struct mtk_ddp_comp *comp)
 	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	void __iomem *baddr = mtk_crtc->config_regs;
 
-	DDPINFO("%s\n comp:0x%x", __func__, comp);
-	DDPDUMP("== DISP %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== DISP %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), mtk_crtc->config_regs_pa);
+	DDPDUMP("0x0F0: 0x%08x\n", readl(baddr + 0x0F0));
+	DDPDUMP("0x27C: 0x%08x\n", readl(baddr + 0x27C));
 	DDPDUMP("0x2A8: 0x%08x 0x%08x\n", readl(baddr + 0x2A8),
 		readl(baddr + 0x2AC));
 }

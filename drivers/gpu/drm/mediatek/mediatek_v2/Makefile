@@ -80,6 +80,8 @@ obj-$(CONFIG_DRM_MEDIATEK) += mtk_panel_ext.o
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_disp_notify.o
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_aod_scp.o
 
+obj-$(CONFIG_DRM_MEDIATEK) += mtk_disp_sec.o
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/smi/			\
@@ -99,6 +101,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/gpu/drm/mediatek \
              -I$(srctree)/drivers/misc/mediatek/slbc/ \
              -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/ \
+             -I$(srctree)/drivers/misc/mediatek/clkbuf/v1/inc/ \
 
 ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox
 

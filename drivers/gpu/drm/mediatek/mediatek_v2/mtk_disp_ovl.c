@@ -110,6 +110,8 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define L_CON_FLD_CLRFMT_MAN REG_FLD_MSB_LSB(23, 23)
 #define L_CON_FLD_BTSW REG_FLD_MSB_LSB(24, 24)
 #define L_CON_FLD_RGB_SWAP REG_FLD_MSB_LSB(25, 25)
+#define L_CON_FLD_MTX_AUTO_DIS REG_FLD_MSB_LSB(26, 26)
+#define L_CON_FLD_MTX_EN REG_FLD_MSB_LSB(27, 27)
 #define L_CON_FLD_LSRC REG_FLD_MSB_LSB(29, 28)
 #define L_CON_FLD_SKEN REG_FLD_MSB_LSB(30, 30)
 #define L_CON_FLD_DKEN REG_FLD_MSB_LSB(31, 31)
@@ -344,6 +346,10 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define MT6895_OVL0_2L_AID_SEL	(0xB04UL)
 #define MT6895_OVL1_2L_AID_SEL	(0xB08UL)
 
+#define MT6879_OVL0_AID_SEL	(0xB00UL)
+#define MT6879_OVL0_2L_AID_SEL	(0xB04UL)
+#define MT6879_OVL0_2L_NWCG_AID_SEL (0xB0CUL)
+
 #define SMI_LARB_NON_SEC_CON        0x380
 
 #define MML_SRAM_SHIFT (512*1024)
@@ -530,6 +536,21 @@ resource_size_t mtk_ovl_mmsys_mapping_MT6895(struct mtk_ddp_comp *comp)
 	}
 }
 
+resource_size_t mtk_ovl_mmsys_mapping_MT6879(struct mtk_ddp_comp *comp)
+{
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0:
+	case DDP_COMPONENT_OVL0_2L:
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+		return priv->config_regs_pa;
+	default:
+		DDPPR_ERR("%s invalid ovl module=%d\n", __func__, comp->id);
+		return 0;
+	}
+}
+
 unsigned int mtk_ovl_aid_sel_MT6983(struct mtk_ddp_comp *comp)
 {
 	switch (comp->id) {
@@ -564,6 +585,21 @@ unsigned int mtk_ovl_aid_sel_MT6895(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_OVL1_2L:
 	case DDP_COMPONENT_OVL3_2L:
 		return MT6895_OVL1_2L_AID_SEL;
+	default:
+		DDPPR_ERR("%s invalid ovl module=%d\n", __func__, comp->id);
+		return 0;
+	}
+}
+
+unsigned int mtk_ovl_aid_sel_MT6879(struct mtk_ddp_comp *comp)
+{
+	switch (comp->id) {
+	case DDP_COMPONENT_OVL0:
+		return MT6879_OVL0_AID_SEL;
+	case DDP_COMPONENT_OVL0_2L:
+		return MT6879_OVL0_2L_AID_SEL;
+	case DDP_COMPONENT_OVL0_2L_NWCG:
+		return MT6879_OVL0_2L_NWCG_AID_SEL;
 	default:
 		DDPPR_ERR("%s invalid ovl module=%d\n", __func__, comp->id);
 		return 0;
@@ -691,11 +727,6 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
-	if (mtk_drm_top_clk_isr_get("ovl_irq") == false) {
-		DDPIRQ("%s, top clk off\n", __func__);
-		return IRQ_NONE;
-	}
-
 	if (IS_ERR_OR_NULL(priv))
 		return IRQ_NONE;
 
@@ -703,12 +734,17 @@ static irqreturn_t mtk_disp_ovl_irq_handler(int irq, void *dev_id)
 	if (IS_ERR_OR_NULL(ovl))
 		return IRQ_NONE;
 
+	if (mtk_drm_top_clk_isr_get("ovl_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
 	val = readl(ovl->regs + DISP_REG_OVL_INTSTA);
 	if (!val) {
 		ret = IRQ_NONE;
 		goto out;
 	}
-	DRM_MMP_MARK(IRQ, irq, val);
+	DRM_MMP_MARK(IRQ, ovl->regs_pa, val);
 
 	mtk_crtc = ovl->mtk_crtc;
 
@@ -881,10 +917,9 @@ static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 {
 	unsigned int width;
 
-	if (comp->mtk_crtc->is_dual_pipe) {
+	if (comp->mtk_crtc->is_dual_pipe)
 		width = cfg->w / 2;
-		DDPMSG("\n");
-	} else
+	else
 		width = cfg->w;
 
 	if (cfg->w != 0 && cfg->h != 0) {
@@ -972,19 +1007,20 @@ static void mtk_ovl_layer_off(struct mtk_ddp_comp *comp, unsigned int idx,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_SRC_CON, 0,
 			       BIT(idx));
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			       comp->regs_pa + DISP_REG_OVL_RDMA_CTRL(idx), 0,
-			       ~0);
+		/* TODO: only disable RDMA with valid lye_blob information */
+		//cmdq_pkt_write(handle, comp->cmdq_base,
+		//	       comp->regs_pa + DISP_REG_OVL_RDMA_CTRL(idx), 0,
+		//	       ~0);
 	}
 }
 
 static unsigned int ovl_fmt_convert(struct mtk_disp_ovl *ovl, unsigned int fmt,
-				    uint64_t modifier)
+				    uint64_t modifier, unsigned int compress)
 {
 	switch (fmt) {
 	default:
 	case DRM_FORMAT_RGB565:
-		return OVL_CON_CLRFMT_RGB565(ovl);
+		return OVL_CON_CLRFMT_RGB565(ovl) | (compress ? OVL_CON_BYTE_SWAP : 0UL);
 	case DRM_FORMAT_BGR565:
 		return (unsigned int)OVL_CON_CLRFMT_RGB565(ovl) |
 		       OVL_CON_BYTE_SWAP;
@@ -1085,10 +1121,10 @@ static enum mtk_ovl_transfer mtk_ovl_map_transfer(enum mtk_drm_dataspace ds)
 		break;
 	case MTK_DRM_DATASPACE_TRANSFER_GAMMA2_6:
 	case MTK_DRM_DATASPACE_TRANSFER_GAMMA2_8:
-		DDPPR_ERR("%s: ovl does not support gamma 2.6/2.8\n", __func__);
+		DDPINFO("%s: ovl does not support gamma 2.6/2.8, use gamma 2.2\n", __func__);
 	case MTK_DRM_DATASPACE_TRANSFER_ST2084:
 	case MTK_DRM_DATASPACE_TRANSFER_HLG:
-		DDPPR_ERR("%s: HDR transfer\n", __func__);
+		DDPINFO("%s: HDR transfer\n", __func__);
 	default:
 		xfr = OVL_GAMMA2_2;
 		break;
@@ -1504,7 +1540,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					BIT(sec_bit), BIT(sec_bit));
 			else
 				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + aid_sel_offset,
+					mmsys_reg + aid_sel_offset,
 					0, BIT(sec_bit));
 		}
 
@@ -1632,9 +1668,6 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		DDPINFO("%s: DRM_FORMAT_RGB332 not support, so skip it\n", __func__);
 	}
 
-	DDPINFO("%s+ idx:%d, enable:%d, fmt:0x%x\n", __func__, idx,
-		pending->enable, pending->format);
-
 	if (!pending->enable)
 		mtk_ovl_layer_off(comp, lye_idx, ext_lye_idx, handle);
 
@@ -1647,7 +1680,8 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	     fmt == DRM_FORMAT_XRGB8888 || fmt == DRM_FORMAT_XBGR8888))
 		alpha_con = 0;
 
-	con = ovl_fmt_convert(ovl, fmt, state->pending.modifier);
+	con = ovl_fmt_convert(ovl, fmt, state->pending.modifier,
+			pending->prop_val[PLANE_PROP_COMPRESS]);
 	con |= (alpha_con << 8) | alpha;
 
 	if (fmt == DRM_FORMAT_UYVY || fmt == DRM_FORMAT_YUYV) {
@@ -1682,6 +1716,14 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		fmt_ex = 1;
 	else if (fmt == DRM_FORMAT_ABGR16161616F)
 		fmt_ex = 3;
+
+	if (pending->mml_mode == MML_MODE_RACING &&
+		(comp->id == DDP_COMPONENT_OVL0_2L ||
+		 comp->id == DDP_COMPONENT_OVL1_2L) &&
+		 comp->mtk_crtc->is_force_mml_scen) {
+		con |= REG_FLD_VAL(L_CON_FLD_MTX_AUTO_DIS, 1);
+		con |= REG_FLD_VAL(L_CON_FLD_MTX_EN, 0);
+	}
 
 	if (ext_lye_idx != LYE_NORMAL) {
 		unsigned int id = ext_lye_idx - 1;
@@ -1761,6 +1803,12 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		 */
 		temp_bw = (unsigned long long)pending->width * pending->height;
 		temp_bw *= mtk_get_format_bpp(fmt);
+
+		/* COMPRESS ratio */
+		if (pending->prop_val[PLANE_PROP_COMPRESS]) {
+			temp_bw *= 7;
+			do_div(temp_bw, 10);
+		}
 		do_div(temp_bw, 1000);
 		temp_bw *= ratio_tmp;
 		do_div(temp_bw, 100);
@@ -1779,9 +1827,6 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		/* so far only report one qos BW, no need to separate FBDC or normal BW */
 		comp->qos_bw += temp_bw;
 #endif
-
-		mtk_dprec_mmp_dump_ovl_layer(state);
-
 	}
 }
 
@@ -1849,6 +1894,22 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 			       comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
 			       lx_fbdc_en << (lye_idx + 4), BIT(lye_idx + 4));
 
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_REG_OVL_SYSRAM_CFG(lye_idx), 0,
+		~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF0_ADDR(lye_idx),
+		0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF1_ADDR(lye_idx),
+		0, ~0);
+
+	if (comp->id == DDP_COMPONENT_OVL0_2L || comp->id == DDP_COMPONENT_OVL1_2L) {
+		// setting SMI for read SRAM
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
+			0x00000000, GENMASK(19, 16));
+	}
 	/* if no compress, do common config and return */
 	if (compress == 0) {
 		_ovl_common_config(comp, idx, state, handle);
@@ -2096,7 +2157,7 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF1_ADDR(lye_idx),
 		0, ~0);
 
-	if (comp->id == DDP_COMPONENT_OVL0_2L) {
+	if (comp->id == DDP_COMPONENT_OVL0_2L || comp->id == DDP_COMPONENT_OVL1_2L) {
 		// setting SMI for read SRAM
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
@@ -2169,8 +2230,12 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 	lx_hdr_pitch = pitch / tile_w / Bpp *
 	    AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
 
-	/* 5. calculate OVL_LX_SRC_SIZE */
-	lx_src_size = (src_h_half_align << 16) | src_w_align;
+	/* 5. calculate OVL_LX_SRC_SIZE, RGB565 use layout 4, src_h needs align to tile_h*/
+	if (fmt != DRM_FORMAT_RGB565 && fmt != DRM_FORMAT_BGR565) {
+		src_h_align = src_h_half_align;
+		src_y_align = src_y_half_align;
+	}
+	lx_src_size = (src_h_align << 16) | src_w_align;
 
 	/* 6. calculate OVL_LX_CLIP */
 	lx_clip = 0;
@@ -2181,12 +2246,12 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		if (src_x + src_w < src_x_align + src_w_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_LEFT,
 				src_x_align + src_w_align - src_x - src_w);
-		if (src_y > src_y_half_align)
+		if (src_y > src_y_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_BOTTOM,
-				src_y - src_y_half_align);
-		if (src_y + src_h < src_y_half_align + src_h_half_align)
+				src_y - src_y_align);
+		if (src_y + src_h < src_y_align + src_h_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_TOP,
-				src_y_half_align + src_h_half_align -
+				src_y_align + src_h_align -
 				src_y - src_h);
 	} else {
 		if (src_x > src_x_align)
@@ -2195,12 +2260,12 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		if (src_x + src_w < src_x_align + src_w_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_RIGHT,
 				src_x_align + src_w_align - src_x - src_w);
-		if (src_y > src_y_half_align)
+		if (src_y > src_y_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_TOP,
-				src_y - src_y_half_align);
-		if (src_y + src_h < src_y_half_align + src_h_half_align)
+				src_y - src_y_align);
+		if (src_y + src_h < src_y_align + src_h_align)
 			lx_clip |= REG_FLD_VAL(OVL_L_CLIP_FLD_BOTTOM,
-				src_y_half_align + src_h_half_align -
+				src_y_align + src_h_align -
 				src_y - src_h);
 	}
 
@@ -2313,7 +2378,8 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			 struct mtk_rect rsz_dst_roi, struct cmdq_pkt *handle)
 {
 	if (prev == DDP_COMPONENT_RSZ0 ||
-		prev == DDP_COMPONENT_RSZ1) {
+		prev == DDP_COMPONENT_RSZ1 ||
+		prev == DDP_COMPONENT_Y2R0) {
 		int lc_x = rsz_dst_roi.x, lc_y = rsz_dst_roi.y;
 		int lc_w = rsz_dst_roi.width, lc_h = rsz_dst_roi.height;
 
@@ -2374,6 +2440,17 @@ static void mtk_ovl_addon_config(struct mtk_ddp_comp *comp,
 
 		mtk_ovl_addon_rsz_config(comp, prev, next, config->rsz_src_roi,
 					 config->rsz_dst_roi, handle);
+	}
+
+	if (addon_config->config_type.module == DISP_INLINE_ROTATE &&
+		(addon_config->config_type.type == ADDON_CONNECT ||
+		addon_config->config_type.type == ADDON_DISCONNECT)) {
+		struct mtk_addon_mml_config *config =
+			&addon_config->addon_mml_config;
+
+		/* this rsz means enlarge/narrow, not component */
+		mtk_ovl_addon_rsz_config(comp, prev, next, config->mml_src_roi,
+			config->mml_dst_roi, handle);
 	}
 }
 
@@ -2738,6 +2815,9 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1) |
 			REG_FLD_VAL(INTEN_FLD_START_INTEN, 1);
 		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_INTSTA, 0,
+			       ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_INTEN, inten,
 			       ~0);
 		break;
@@ -2746,6 +2826,9 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		unsigned int inten;
 
 		inten = REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_OVL_INTSTA, 0,
+			       ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_INTEN, inten,
 			       ~0);
@@ -3014,7 +3097,7 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 	if (comp->blank_mode)
 		return 0;
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
 		unsigned int i = 0;
@@ -3289,7 +3372,7 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 	ext_con = readl(DISP_REG_OVL_DATAPATH_EXT_CON + baddr);
 	addcon = readl(DISP_REG_OVL_ADDCON_DBG + baddr);
 
-	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("ovl_en=%d,layer_en(%d,%d,%d,%d),bg(%dx%d)\n",
 		readl(DISP_REG_OVL_EN + baddr) & 0x1, src_con & 0x1,
 		(src_con >> 1) & 0x1, (src_con >> 2) & 0x1,
@@ -3571,7 +3654,6 @@ static int mtk_disp_ovl_probe(struct platform_device *pdev)
 	int irq;
 	int ret, len;
 	const __be32 *ranges = NULL;
-	unsigned int inten = 0;
 
 	DDPINFO("%s+\n", __func__);
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -3608,8 +3690,8 @@ static int mtk_disp_ovl_probe(struct platform_device *pdev)
 	if (ranges && priv->data && priv->data->is_support_34bits)
 		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
 
-	inten = REG_FLD_VAL(INTEN_FLD_FME_UND_INTEN, 1);
-	writel(inten, priv->ddp_comp.regs + DISP_REG_OVL_INTEN);
+	writel(0, priv->ddp_comp.regs + DISP_REG_OVL_INTSTA);
+	writel(0, priv->ddp_comp.regs + DISP_REG_OVL_INTEN);
 	ret = devm_request_irq(dev, irq, mtk_disp_ovl_irq_handler,
 			       IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev),
 			       priv);
@@ -3845,7 +3927,6 @@ static const struct mtk_disp_ovl_data mt6879_ovl_driver_data = {
 	.el_hdr_addr = 0xfb4,
 	.el_hdr_addr_offset = 0x10,
 	.fmt_rgb565_is_0 = true,
-	.fmt_rgb565_is_0 = true,
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6879,
@@ -3859,6 +3940,8 @@ static const struct mtk_disp_ovl_data mt6879_ovl_driver_data = {
 	.issue_req_th_urg_dc = 31,
 	.greq_num_dl = 0xbbbb,
 	.is_support_34bits = true,
+	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6879,
+	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6879,
 };
 
 static const struct compress_info compr_info_mt6855  = {

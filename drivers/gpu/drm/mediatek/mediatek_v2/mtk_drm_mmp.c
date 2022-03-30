@@ -4,6 +4,7 @@
  */
 
 #include <drm/drm_crtc.h>
+#include <linux/dma-buf.h>
 #include "mtk_drm_drv.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_crtc.h"
@@ -49,6 +50,10 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA0");
 	g_DRM_MMP_Events.rdma1 =
 		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA1");
+	g_DRM_MMP_Events.rdma2 =
+		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA2");
+	g_DRM_MMP_Events.rdma3 =
+		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA3");
 	g_DRM_MMP_Events.rdma4 =
 		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA4");
 	g_DRM_MMP_Events.rdma5 =
@@ -63,6 +68,12 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.dsi, "DSI0");
 	g_DRM_MMP_Events.dsi1 =
 		mmprofile_register_event(g_DRM_MMP_Events.dsi, "DSI1");
+	g_DRM_MMP_Events.aal =
+		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "AAL");
+	g_DRM_MMP_Events.aal0 =
+		mmprofile_register_event(g_DRM_MMP_Events.aal, "AAL0");
+	g_DRM_MMP_Events.aal1 =
+		mmprofile_register_event(g_DRM_MMP_Events.aal, "AAL1");
 	g_DRM_MMP_Events.pmqos =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "PMQOS");
 	g_DRM_MMP_Events.hrt_bw =
@@ -71,6 +82,8 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "LOCK");
 	g_DRM_MMP_Events.layering =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "HRT");
+	g_DRM_MMP_Events.layering_blob =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "HRT_BLOB");
 	g_DRM_MMP_Events.dma_alloc =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "D_ALLOC");
 	g_DRM_MMP_Events.dma_free =
@@ -87,6 +100,8 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "I_FREE");
 	g_DRM_MMP_Events.set_mode =
 		mmprofile_register_event(g_DRM_MMP_Events.drm, "SET_MODE");
+	g_DRM_MMP_Events.top_clk =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "TOP_CLK");
 	g_DRM_MMP_Events.ddp =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "MUTEX");
 	for (i = 0; i < DISP_MUTEX_DDP_COUNT; i++) {
@@ -103,8 +118,12 @@ void init_drm_mmp_event(void)
 		g_DRM_MMP_Events.postmask, "POSTMASK0");
 	g_DRM_MMP_Events.abnormal_irq =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "ABNORMAL_IRQ");
+	g_DRM_MMP_Events.iova_tf =
+		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "IOVA_TF");
 	g_DRM_MMP_Events.dp_intf0 =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "dp_intf0");
+	g_DRM_MMP_Events.mml_sram =
+		mmprofile_register_event(g_DRM_MMP_Events.drm, "MML_SRAM");
 }
 
 /* need to update if add new mmp_event in CRTC_MMP_Events */
@@ -259,6 +278,15 @@ void init_crtc_mmp_event(void)
 		/*Msync 2.0 mmp end*/
 		g_CRTC_MMP_Events[i].mode_switch = mmprofile_register_event(
 			crtc_mmp_root, "mode_switch");
+		g_CRTC_MMP_Events[i].ddp_clk = mmprofile_register_event(
+			crtc_mmp_root, "ddp_clk");
+		/*AAL MMP MARK*/
+		g_CRTC_MMP_Events[i].aal_sof_thread = mmprofile_register_event(
+			crtc_mmp_root, "aal_sof_thread");
+		g_CRTC_MMP_Events[i].aal_dre30_rw = mmprofile_register_event(
+			crtc_mmp_root, "aal_dre30_rw");
+		g_CRTC_MMP_Events[i].aal_dre20_rh = mmprofile_register_event(
+			crtc_mmp_root, "aal_dre20_rh");
 	}
 }
 void drm_mmp_init(void)
@@ -316,8 +344,56 @@ int crtc_mva_unmap_kernel(unsigned int mva, unsigned int size,
 	return 0;
 }
 
+void *mtk_drm_buffer_map_kernel(struct mtk_plane_state *state)
+{
+	struct drm_framebuffer *fb = state->base.fb;
+	struct drm_gem_object *gem_obj = NULL;
+	struct dma_buf *dmabuf = NULL;
+	void *dma_va = NULL;
+	int ret;
+
+	if (!fb) {
+		DDPINFO("%s, [MMP]fb is null\n", __func__);
+		return 0;
+	}
+
+	gem_obj = mtk_fb_get_gem_obj(fb);
+	if (!gem_obj) {
+		DDPINFO("%s, [MMP]gem is null\n", __func__);
+		return 0;
+	}
+
+	dmabuf = gem_obj->import_attach->dmabuf;
+	if (!dmabuf) {
+		DDPINFO("%s, [MMP]dmabuf is null\n", __func__);
+		return 0;
+	}
+
+	ret = dma_buf_vmap(dmabuf, dma_va);
+	if (ret) {
+		DDPINFO("%s, [MMP]get dma_va fail\n", __func__);
+		return 0;
+	}
+
+	return dma_va;
+}
+
+int mtk_drm_buffer_unmap_kernel(struct mtk_plane_state *state, void *dma_va)
+{
+	struct drm_framebuffer *fb = state->base.fb;
+	struct drm_gem_object *gem_obj;
+	struct dma_buf *dmabuf;
+
+	gem_obj = mtk_fb_get_gem_obj(fb);
+	dmabuf = gem_obj->import_attach->dmabuf;
+
+	dma_buf_vunmap(dmabuf, dma_va);
+
+	return 0;
+}
+
 int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
-			  u32 downSampleX, u32 downSampleY)
+			  u32 downSampleX, u32 downSampleY, int global_lye_num)
 {
 	struct mtk_plane_pending_state *pending = &state->pending;
 	struct drm_crtc *crtc = state->crtc;
@@ -328,6 +404,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 	unsigned int fmt = pending->format;
 	int raw = 0;
 	int yuv = 0;
+	void *dma_va;
 
 	if (!mtk_drm_helper_get_opt(private->helper_opt,
 				MTK_DRM_OPT_USE_M4U)) {
@@ -342,6 +419,11 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 
 	if (pending->prop_val[PLANE_PROP_COMPRESS]) {
 		DDPINFO("[MMP]layer is compress\n");
+		return -1;
+	}
+
+	if (global_lye_num > 5) {
+		DDPINFO("[MMP]not support layer over 6\n");
 		return -1;
 	}
 
@@ -400,38 +482,37 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 	}
 
 	CRTC_MMP_EVENT_START(crtc_idx, layerBmpDump,
-			     state->comp_state.lye_id, pending->enable);
+			     global_lye_num, pending->enable);
 	if (!raw) {
 		mmp_event *event_base = NULL;
-
+		bitmap.data1 = state->comp_state.comp_id;
 		bitmap.pitch = pending->pitch;
 		bitmap.start_pos = 0;
 		bitmap.data_size = bitmap.pitch * bitmap.height;
 		bitmap.down_sample_x = downSampleX;
 		bitmap.down_sample_y = downSampleY;
 
-		if (!pending->addr || crtc_mva_map_kernel(pending->addr, bitmap.data_size,
-					(unsigned long *)&bitmap.p_data,
-					&bitmap.data_size) != 0) {
-			DDPINFO("%s,fail to dump rgb\n", __func__);
+		dma_va = mtk_drm_buffer_map_kernel(state);
+		if (!dma_va) {
+			DDPINFO("[MMP]dma_va is null\n", __func__);
 			goto end;
 		}
+		bitmap.p_data = dma_va;
 
 		event_base = g_CRTC_MMP_Events[crtc_idx].layer_dump;
 		if (event_base) {
 			if (!yuv)
 				mmprofile_log_meta_bitmap(
-				event_base[state->comp_state.lye_id],
+				event_base[global_lye_num],
 				MMPROFILE_FLAG_PULSE,
 				&bitmap);
 			else
 				mmprofile_log_meta_yuv_bitmap(
-				event_base[state->comp_state.lye_id],
+				event_base[global_lye_num],
 				MMPROFILE_FLAG_PULSE,
 				&bitmap);
 		}
-		crtc_mva_unmap_kernel(pending->addr, bitmap.data_size,
-				      (unsigned long)bitmap.p_data);
+		mtk_drm_buffer_unmap_kernel(state, dma_va);
 	} else {
 		mmp_event *event_base = NULL;
 

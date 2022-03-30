@@ -347,7 +347,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
 	/* set DAL config and trigger display */
-	cmdq_handle = mtk_crtc_gce_commit_begin(crtc, NULL, NULL);
+	cmdq_handle = mtk_crtc_gce_commit_begin(crtc, NULL, NULL, false);
 
 	disable_attached_layer(crtc, ovl_comp, layer_id, cmdq_handle);
 
@@ -355,6 +355,8 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 		mtk_crtc_dual_layer_config(mtk_crtc, ovl_comp, layer_id, plane_state, cmdq_handle);
 	else
 		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
+
+	plane_state->base.crtc = NULL;
 
 #ifdef MTK_DRM_FB_LEAK
 	mtk_crtc_gce_flush(crtc, NULL, cmdq_handle, cmdq_handle);
@@ -398,6 +400,7 @@ void drm_set_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 	else
 		mtk_ddp_comp_layer_config(ovl_comp, layer_id, plane_state, cmdq_handle);
 
+	plane_state->base.crtc = NULL;
 }
 
 void drm_update_dal(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)

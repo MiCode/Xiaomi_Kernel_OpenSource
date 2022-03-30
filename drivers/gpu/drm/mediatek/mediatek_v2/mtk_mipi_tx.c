@@ -128,6 +128,7 @@
 #define MIPITX_LANE_CON_MT6983 (0x0004UL)
 #define MIPITX_VOLTAGE_SEL_MT6983 (0x0008UL)
 #define FLD_RG_DSI_PRD_REF_SEL (0x3f << 0)
+#define FLD_RG_DSI_V2I_REF_SEL (0xf << 10)
 #define MIPITX_PRESERVED_MT6983 (0x000CUL)
 
 #define RG_DSI_PLL_SDM_PCW_CHG_MT6983 BIT(2)
@@ -409,7 +410,7 @@ int mtk_mipi_tx_dump(struct phy *phy)
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	int k;
 
-	DDPDUMP("== MIPI REGS ==\n");
+	DDPDUMP("== MIPI REGS:0x%x ==\n", mipi_tx->regs_pa);
 	for (k = 0; k < 0x6A0; k += 16) {
 		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
 			readl(mipi_tx->regs + k),
@@ -931,25 +932,42 @@ int mtk_mipi_tx_dphy_lane_config_mt6983(struct phy *phy,
 int mtk_mipi_tx_ssc_en(struct phy *phy, struct mtk_panel_ext *mtk_panel)
 {
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
-	unsigned int data_Rate;
+	unsigned int data_rate;
 	u16 pdelta1, ssc_prd;
-	u8 txdiv;
+	u8 txdiv, div3;
 
 	DDPINFO("%s+\n", __func__);
 	if (mtk_panel->params->ssc_enable) {
 
-		data_Rate = mtk_panel->params->data_rate;
+		data_rate = mtk_panel->params->data_rate;
 
-		if (data_Rate >= 1500)
+		if (data_rate >= 6000) {
+			txdiv = 1;
+			div3  = 1;
+		} else if (data_rate >= 3000) {
+			txdiv = 2;
+			div3  = 1;
+		} else if (data_rate >= 2000) {
+			txdiv = 1;
+			div3  = 3;
+		} else if (data_rate >= 1500) {
 			txdiv = 4;
-		else if (data_Rate >= 750)
+			div3  = 1;
+		} else if (data_rate >= 1000) {
+			txdiv = 2;
+			div3  = 3;
+		} else if (data_rate >= 750) {
 			txdiv = 8;
-		else if (data_Rate >= 430)
-			txdiv = 16;
-		else
+			div3  = 1;
+		} else if (data_rate >= 510) {
+			txdiv = 4;
+			div3  = 3;
+		} else {
+			DDPPR_ERR("data rate is too low\n");
 			return -EINVAL;
+		}
 
-		pdelta1 = data_Rate * txdiv * 5 / 26 * 262144 / 1000 / 433;
+		pdelta1 = data_rate / 2 * txdiv * div3 * 5 / 26 * 262144 / 1000 / 433;
 
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3_MT6983,
 						FLD_RG_DSI_PLL_SDM_SSC_DELTA1_MT6983, pdelta1);
@@ -1139,12 +1157,12 @@ static unsigned int _dsi_get_pcw_mt6983(unsigned long data_rate,
 		div3 = 3;
 	else if (data_rate >= 750)
 		div3 = 1;
-	else if (data_rate >= 500)
+	else if (data_rate >= 510)
 		div3 = 3;
-	else if (data_rate >= 375)
-		div3 = 1;
-	else
+	else {
 		DDPPR_ERR("invalid data rate %u\n");
+		return -EINVAL;
+	}
 
 	data_rate = data_rate >> 1;
 	fbksel = (data_rate * pcw_ratio) >= 3800 ? 2 : 1;
@@ -1423,19 +1441,14 @@ static int mtk_mipi_tx_pll_prepare_mt6983(struct clk_hw *hw)
 		txdiv1 = 0;
 		div3 = 1;
 		div3_en = 0;
-	} else if (rate >= 500) {
+	} else if (rate >= 510) {
 		txdiv = 4;
 		txdiv0 = 2;
 		txdiv1 = 0;
 		div3 = 3;
 		div3_en = 1;
-	} else if (rate >= 375) {
-		txdiv = 16;
-		txdiv0 = 4;
-		txdiv1 = 0;
-		div3 = 1;
-		div3_en = 0;
 	} else {
+		DDPPR_ERR("data rate is too low\n");
 		return -EINVAL;
 	}
 	if (rate < 2500)
@@ -1444,6 +1457,16 @@ static int mtk_mipi_tx_pll_prepare_mt6983(struct clk_hw *hw)
 	else
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
 			FLD_RG_DSI_PRD_REF_SEL, 0x4);
+
+	if (rate > 2000)
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_V2I_REF_SEL, 0x4);
+	else if (rate > 1200)
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_V2I_REF_SEL, 0x2);
+	else
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_V2I_REF_SEL, 0x0);
 
 	writel(0x0, mipi_tx->regs + MIPITX_PRESERVED_MT6983);
 	writel(0x00FF12E0, mipi_tx->regs + MIPITX_PLL_CON4);
@@ -1641,13 +1664,14 @@ static int mtk_mipi_tx_pll_cphy_prepare_mt6983(struct clk_hw *hw)
 		txdiv1 = 0;
 		div3 = 3;
 		div3_en = 1;
-	} else if (rate >= 375) {
+	} else if (rate >= 450) {
 		txdiv = 16;
 		txdiv0 = 4;
 		txdiv1 = 0;
 		div3 = 1;
 		div3_en = 0;
 	} else {
+		DDPPR_ERR("data rate is too low\n");
 		return -EINVAL;
 	}
 	/*set volate: cphy need 500mV*/

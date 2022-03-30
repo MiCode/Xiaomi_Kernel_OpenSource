@@ -41,6 +41,7 @@
 extern unsigned int g_mml_mode;
 
 static struct drm_mtk_layering_info layering_info;
+static bool g_hrt_valid;
 #ifdef HRT_UT_DEBUG
 static int debug_resolution_level;
 #endif
@@ -1588,7 +1589,8 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 				 ovl_mapping_tb -
 				 HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
 			 layer_map_idx) {
-			if (priv->data->mmsys_id == MMSYS_MT6895)
+			if ((priv->data->mmsys_id == MMSYS_MT6895) ||
+				(priv->data->mmsys_id == MMSYS_MT6855))
 				return DDP_COMPONENT_OVL1_2L;
 			else
 				return DDP_COMPONENT_OVL0_2L;
@@ -1646,7 +1648,7 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 		int g_head = disp_info->gles_head[di];
 		int top = -1;
 
-		if (disp_info->layer_num[di] <= 0)
+		if (disp_info->layer_num[di] <= 1)
 			continue;
 		if (g_head == -1)
 			continue;
@@ -1677,13 +1679,18 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 		else
 			c->layer_caps |= MTK_DISP_CLIENT_CLEAR_LAYER;
 
+/* Clear layer with RPO should check more condition since dual pipe enable */
+#ifdef IF_ZERO
 		if ((c->src_width < c->dst_width &&
 		     c->src_height < c->dst_height) &&
 		     get_layering_opt(LYE_OPT_RPO) &&
-		    top < disp_info->gles_tail[di]) {
+		    top < disp_info->gles_tail[di] &&
+		    di == HRT_PRIMARY) {
 			c->layer_caps |= MTK_DISP_RSZ_LAYER;
 			l_rule_info->addon_scn[di] = ONE_SCALING;
-		} else {
+		} else
+#endif
+		{
 			c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
 			l_rule_info->addon_scn[di] = NONE;
 
@@ -1691,6 +1698,7 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 			     c->src_height != c->dst_height) &&
 			    !mtk_has_layer_cap(c, MTK_MDP_RSZ_LAYER)) {
 				c->layer_caps &= ~MTK_DISP_CLIENT_CLEAR_LAYER;
+				mtk_rollback_layer_to_GPU(disp_info, di, top);
 				DDPMSG("%s:remove clear(rsz), caps:0x%08x\n",
 				       __func__, c->layer_caps);
 			}
@@ -2057,14 +2065,20 @@ _copy_layer_info_from_disp(struct drm_mtk_layering_info *disp_info_user,
 
 	layer_num = l_info->layer_num[disp_idx];
 	layer_size = sizeof(struct drm_mtk_layer_config) * layer_num;
-	l_info->input_config[disp_idx] = kzalloc(layer_size, GFP_KERNEL);
-	mml_cfg_size = sizeof(struct mml_frame_info) * layer_num;
-	l_info->mml_cfg[disp_idx] = kzalloc(mml_cfg_size, GFP_KERNEL);
-
+	l_info->input_config[disp_idx] = vzalloc(layer_size);
 	if (l_info->input_config[disp_idx] == NULL) {
 		DDPPR_ERR("%s:%d invalid input_config[%d]:0x%p\n",
 			__func__, __LINE__,
 			disp_idx, l_info->input_config[disp_idx]);
+		return -ENOMEM;
+	}
+
+	mml_cfg_size = sizeof(struct mml_frame_info) * layer_num;
+	l_info->mml_cfg[disp_idx] = vzalloc(mml_cfg_size);
+	if (l_info->mml_cfg[disp_idx] == NULL) {
+		DDPPR_ERR("%s:%d invalid mml_cfg[%d]:0x%p\n",
+			__func__, __LINE__,
+			disp_idx, l_info->mml_cfg[disp_idx]);
 		return -ENOMEM;
 	}
 
@@ -2143,8 +2157,8 @@ _copy_layer_info_by_disp(struct drm_mtk_layering_info *disp_info_user,
 				__LINE__);
 			ret = -EFAULT;
 		}
-		kfree(l_info->input_config[disp_idx]);
-		kfree(l_info->mml_cfg[disp_idx]);
+		vfree(l_info->input_config[disp_idx]);
+		vfree(l_info->mml_cfg[disp_idx]);
 	}
 
 	return ret;
@@ -2236,9 +2250,11 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	lyeblob_ids->ref_cnt = crtc_num;
 	lyeblob_ids->ref_cnt_mask = crtc_mask;
 	lyeblob_ids->free_cnt_mask = crtc_mask;
+	lyeblob_ids->hrt_valid = g_hrt_valid;
 	INIT_LIST_HEAD(&lyeblob_ids->list);
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	list_add_tail(&lyeblob_ids->list, &mtk_drm->lyeblob_head);
+	DRM_MMP_MARK(layering_blob, lyeblob_ids->lye_idx, lyeblob_ids->frame_weight);
 	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
 }
 
@@ -2575,7 +2591,8 @@ static unsigned int resizing_rule(struct drm_device *dev,
 }
 
 static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
-	struct mtk_drm_private *priv, struct mml_frame_info *mml_info)
+	struct mtk_drm_private *priv, struct mml_frame_info *mml_info,
+	uint32_t l_count)
 {
 	enum mml_mode mode = MML_MODE_UNKNOWN;
 	enum MTK_LAYERING_CAPS ret = MTK_MML_DISP_NOT_SUPPORT;
@@ -2603,6 +2620,17 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 			}
 			mode = mml_drm_query_cap(mtk_drm_get_mml_drm_ctx(dev, crtc), mml_info);
 			DDPDBG("%s, mml_drm_query_cap mode:%d\n", __func__, mode);
+
+			// temp patch for CMD mode not in MML IR
+			if (mode == MML_MODE_RACING) {
+				if ((l_count >= 2))
+					mode = MML_MODE_MDP_DECOUPLE;
+				else if ((mtk_crtc_is_frame_trigger_mode(crtc) &&
+					!mtk_crtc->mml_cmd_ir))
+					mode = MML_MODE_MML_DECOUPLE;
+			}
+
+			DDPDBG("%s, final mml mode:%d\n", __func__, mode);
 		} else
 			DDPMSG("%s, mml_info is null\n", __func__);
 	}
@@ -2632,6 +2660,22 @@ static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
 	return ret;
 }
 
+static bool is_force_mml_scen(struct drm_device *dev)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+
+	drm_for_each_crtc(crtc, dev)
+		if (drm_crtc_index(crtc) == 0)
+			break;
+	mtk_crtc = to_mtk_crtc(crtc);
+
+	if (crtc && mtk_crtc && mtk_crtc->is_force_mml_scen)
+		return true;
+
+	return false;
+}
+
 static void check_is_mml_layer(const int disp_idx,
 	struct drm_mtk_layering_info *disp_info, struct drm_device *dev,
 	unsigned int *scn_decision_flag)
@@ -2639,12 +2683,20 @@ static void check_is_mml_layer(const int disp_idx,
 	int i = 0;
 	struct drm_mtk_layer_config *c = NULL;
 	struct mml_frame_info *mml_info = NULL;
+	uint32_t l_count = 0;
+
+	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
+		c = &disp_info->input_config[disp_idx][i];
+		mml_info = &(disp_info->mml_cfg[disp_idx][i]);
+		if (MTK_MML_OVL_LAYER & c->layer_caps)
+			l_count++;
+	}
 
 	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
 		c = &disp_info->input_config[disp_idx][i];
 		mml_info = &(disp_info->mml_cfg[disp_idx][i]);
 		if (MTK_MML_OVL_LAYER & c->layer_caps) {
-			c->layer_caps |= query_MML(dev, dev->dev_private, mml_info);
+			c->layer_caps |= query_MML(dev, dev->dev_private, mml_info, l_count);
 			if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
 				if (i >= DISP_MML_LAYER_LIMIT) {
 					c->layer_caps &= ~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
@@ -2656,7 +2708,11 @@ static void check_is_mml_layer(const int disp_idx,
 				// if layer can use MML direct link or inline rotate handle,
 				// we don't use DISP RSZ
 				c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
-				*scn_decision_flag |= SCN_MML_SRAM_ONLY;
+
+				if (is_force_mml_scen(dev))
+					*scn_decision_flag |= SCN_MML;
+				else
+					*scn_decision_flag |= SCN_MML_SRAM_ONLY;
 			} else if (MTK_MML_DISP_NOT_SUPPORT & c->layer_caps) {
 				if (disp_info->gles_head[disp_idx] == -1 ||
 					disp_info->gles_head[disp_idx] > i)
@@ -2795,6 +2851,14 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	dump_disp_info(&layering_info, DISP_DEBUG_LEVEL_INFO);
 #endif
 
+	/* fix the hrt bandwidth before the 1st valid input layers
+	 * else hrt bandwidth will be 0 at boot logo scenario
+	 * and underflow/underrun issue may happened
+	 */
+	if (g_hrt_valid == false &&
+	    layering_info.layer_num[HRT_PRIMARY] > 0)
+		g_hrt_valid = true;
+
 	l_rule_info->hrt_idx++;
 	if (l_rule_info->hrt_idx == 0xffffffff)
 		l_rule_info->hrt_idx = 0;
@@ -2841,7 +2905,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		l_rule_ops->fbdc_pre_calculate(&layering_info);
 
 	/* Initial HRT conditions */
-	l_rule_ops->scenario_decision(scn_decision_flag, scale_num);
+	l_rule_ops->scenario_decision(dev, scn_decision_flag, scale_num);
 
 	/* Layer Grouping */
 	if (l_rule_ops->fbdc_adjust_layout)
@@ -2901,7 +2965,7 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 
 	/* adjust scenario after dispatch gles range */
 	scale_num = get_scale_cnt(&layering_info);
-	l_rule_ops->scenario_decision(scn_decision_flag, scale_num);
+	l_rule_ops->scenario_decision(dev, scn_decision_flag, scale_num);
 	ret = dispatch_ovl_id(&layering_info, lyeblob_ids, dev);
 
 	check_layering_result(&layering_info);
@@ -3095,7 +3159,7 @@ static int load_hrt_test_data(struct drm_mtk_layering_info *disp_info,
 					sizeof(struct drm_mtk_layer_config) *
 					layer_num;
 				disp_info->input_config[disp_id] =
-					kzalloc(layer_size, GFP_KERNEL);
+					vzalloc(layer_size);
 			}
 			disp_info->layer_num[disp_id] = layer_num;
 
@@ -3118,8 +3182,8 @@ static int load_hrt_test_data(struct drm_mtk_layering_info *disp_info,
 			layering_rule_start(disp_info, 1, dev);
 			is_test_pass = true;
 		} else if (strncmp(line_buf, "[test_end]", 10) == 0) {
-			kfree(disp_info->input_config[0]);
-			kfree(disp_info->input_config[1]);
+			vfree(disp_info->input_config[0]);
+			vfree(disp_info->input_config[1]);
 			memset(disp_info, 0x0,
 			       sizeof(struct drm_mtk_layering_info));
 			is_end = true;
@@ -3299,7 +3363,7 @@ static int gen_hrt_pattern(struct drm_device *dev)
 	disp_info.gles_head[0] = 3;
 	disp_info.gles_tail[0] = 5;
 	disp_info.input_config[0] =
-		kzalloc(sizeof(struct drm_mtk_layer_config) * 5, GFP_KERNEL);
+		vzalloc(sizeof(struct drm_mtk_layer_config) * 5);
 	layer_info = disp_info.input_config[0];
 	for (i = 0; i < disp_info.layer_num[0]; i++)
 		layer_info[i].src_fmt = DRM_FORMAT_ARGB8888;
@@ -3333,7 +3397,7 @@ static int gen_hrt_pattern(struct drm_device *dev)
 	disp_info.gles_tail[1] = -1;
 
 	DDPMSG("free test pattern\n");
-	kfree(disp_info.input_config[0]);
+	vfree(disp_info.input_config[0]);
 	msleep(50);
 #endif
 	return 0;

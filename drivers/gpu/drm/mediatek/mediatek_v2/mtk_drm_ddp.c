@@ -27,7 +27,6 @@
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
 #endif
-#include "mtk_dp.h"
 
 #define DISP_REG_OVL0_MOUT_EN(data) (data->ovl0_mout_en)
 #define DISP_REG_DPI0_SEL_IN(data) (data->dpi0_sel_in)
@@ -778,8 +777,8 @@
 #define DISP_CHIST0_FROM_DITHER0   4
 #define DISP_CHIST1_FROM_DITHER0   5
 /*customer*/
-#define MT6983_CHIST_PATH_CONNECT (BIT(DISP_CHIST0_FROM_RDMA0_POS) | \
-	BIT(DISP_CHIST1_FROM_DITHER0))
+#define MT6983_CHIST_PATH_CONNECT (BIT(DISP_CHIST0_FROM_DITHER0) | \
+	BIT(DISP_CHIST1_FROM_RDMA0_POS))
 #define MT6879_CHIST_PATH_CONNECT (BIT(DISP_CHIST0_FROM_RDMA0_POS))
 
 
@@ -1198,10 +1197,6 @@
 #define MT6873_DISP_REG_CONFIG_SMI_LARB0_GREQ 0x8dc
 #define MT6873_DISP_REG_CONFIG_SMI_LARB1_GREQ 0x8e0
 
-struct mtk_disp_mutex {
-	int id;
-	bool claimed;
-};
 
 /*For MT6853*/
 #define MT6853_DISP_OVL0_MOUT_EN 0xf04
@@ -1840,29 +1835,6 @@ enum mtk_ddp_mutex_sof_id {
 	DDP_MUTEX_SOF_MAX,
 };
 
-struct mtk_disp_ddp_data {
-	const unsigned int *mutex_mod;
-	const unsigned int *mutex_sof;
-	unsigned int mutex_mod_reg;
-	unsigned int mutex_sof_reg;
-	const unsigned int *dispsys_map;
-};
-
-struct mtk_ddp {
-	struct device *dev;
-	struct clk *clk;
-	void __iomem *regs;
-	resource_size_t regs_pa;
-
-	unsigned int dispsys_num;
-	struct clk *side_clk;
-	void __iomem *side_regs;
-	resource_size_t side_regs_pa;
-	struct mtk_disp_mutex mutex[10];
-	const struct mtk_disp_ddp_data *data;
-	struct cmdq_base *cmdq_base;
-};
-
 struct mtk_mmsys_reg_data {
 	unsigned int ovl0_mout_en;
 	unsigned int rdma0_sout_sel_in;
@@ -1946,6 +1918,82 @@ struct dummy_mapping mt6983_dispsys_dummy_register[MT6983_DUMMY_REG_CNT] = {
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x654},//[0:5]
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x34},//[0:14]
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x38},//[0:6]
+};
+
+struct dummy_mapping mt6879_dispsys_dummy_register[MT6879_DUMMY_REG_CNT] = {
+	//DISP_SLOT_CUR_CONFIG_FENCE(0 ~ 15)
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x170},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x174},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x190},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x194},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1B0},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1B4},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1D0},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1D4},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1F0},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x1F4},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x210},
+	{0, NULL, DDP_COMPONENT_ID_MAX, 0x214},
+	{0, NULL, DDP_COMPONENT_OVL0, 0x200},
+	{0, NULL, DDP_COMPONENT_OVL0_2L, 0x200},
+	{0, NULL, DDP_COMPONENT_OVL0_2L_NWCG, 0x200},
+	{0, NULL, DDP_COMPONENT_RDMA0, 0x090},
+
+	//DISP_SLOT_PRESENT_FENCE(0 ~ 2)
+	{0, NULL, DDP_COMPONENT_RDMA1, 0x090},
+	{0, NULL, DDP_COMPONENT_WDMA0, 0x100},
+	{0, NULL, DDP_COMPONENT_WDMA1, 0x100},
+
+	//DISP_SLOT_SUBTRACTOR_WHEN_FREE(0 ~ 15)
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x334},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x344},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x354},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x374},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x384},
+	{0, NULL, DDP_COMPONENT_C3D0, 0x028},
+	{0, NULL, DDP_COMPONENT_CCORR0, 0x0C0},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x338},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x33C},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x340},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x358},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x368},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x36C},
+	{0, NULL, DDP_COMPONENT_TDSHP0, 0x388},
+	{0, NULL, DDP_COMPONENT_RSZ0, 0x228},
+	{0, NULL, DDP_COMPONENT_RSZ0, 0x20c},
+
+	//DISP_SLOT_RDMA_FB_IDX
+	{0, NULL, DDP_COMPONENT_AAL0, 0x0C0},
+
+	//DISP_SLOT_RDMA_FB_ID
+	{0, NULL, DDP_COMPONENT_CCORR1, 0x0C0},
+
+	//DISP_SLOT_CUR_HRT_IDX
+	{0, NULL, DDP_COMPONENT_CM0, 0x0C0},
+
+	//DISP_SLOT_CUR_HRT_LEVEL
+	{0, NULL, DDP_COMPONENT_SPR0, 0x038},
+
+	//DISP_SLOT_CUR_OUTPUT_FENCE
+	{0, NULL, DDP_COMPONENT_DSI0, 0x0F4},
+
+	//DISP_SLOT_CUR_INTERFACE_FENCE
+	{0, NULL, DDP_COMPONENT_RSZ0, 0x208},
+
+	//DISP_SLOT_OVL_STATUS
+	{0, NULL, DDP_COMPONENT_DITHER0, 0x0C0},
+
+	//DISP_SLOT_READ_DDIC_BASE(0 ~ 3)
+	{0, NULL, DDP_COMPONENT_RSZ0, 0x214},
+	{0, NULL, DDP_COMPONENT_RSZ0, 0x224},
+	{0, NULL, DDP_COMPONENT_DSC0, 0x220},
+	{0, NULL, DDP_COMPONENT_DSC0, 0x620},
+
+	//DISP_SLOT_OVL_DSI_SEQ
+	{0, NULL, DDP_COMPONENT_SPR0, 0x030},
+
+	//DISP_SLOT_OVL_WDMA_SEQ
+	{0, NULL, DDP_COMPONENT_SPR0, 0x030},
 };
 
 static const unsigned int mt2701_mutex_mod[DDP_COMPONENT_ID_MAX] = {
@@ -7896,7 +7944,7 @@ static int mtk_ddp_mout_en_MT6983(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6983_MMSYS_OVL_CON;
 		value = DISP_OVL0_2L_TO_DISP_OVL0_2L_BLEND_MOUT;
 	} else if (cur == DDP_COMPONENT_OVL0_2L_VIRTUAL0 &&
-		next == DDP_COMPONENT_INLINE_ROTATE0) {
+		next == DDP_COMPONENT_DLO_ASYNC) {
 		*addr = MT6983_DISP_OVL0_2L_BLEND_MOUT_EN;
 		value = DISP_OVL0_2L_BLEND_MOUT_EN_TO_DISP_MAIN_OVL_DMDP_SEL;
 	} else if (cur == DDP_COMPONENT_Y2R0 &&
@@ -8041,7 +8089,7 @@ static int mtk_ddp_sel_in_MT6983(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6983_DISP_OVL0_UFDO_SEL_IN;
 		value = DISP_OVL0_UFDO_SEL_IN_FROM_DISP_RSZ0_MAIN_OVL_SOUT_SEL;
 	} else if (cur == DDP_COMPONENT_OVL0_2L_VIRTUAL0 &&
-		next == DDP_COMPONENT_INLINE_ROTATE0) {
+		next == DDP_COMPONENT_DLO_ASYNC) {
 		*addr = MT6983_DISP_MAIN_OVL_DMDP_SEL_IN;
 		value = DISP_OVL0_2L_BLEND_MOUT_TO_DISP_MAIN_OVL_DMDP_SEL;
 	} else if (cur == DDP_COMPONENT_Y2R0_VIRTUAL0 &&
@@ -11441,9 +11489,9 @@ void mtk_ddp_dual_pipe_dump(struct mtk_drm_crtc *mtk_crtc)
 void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_disp_mutex *mutex)
 {
-	DDPFUNC();
 	if (drm_crtc_index(&mtk_crtc->base) == 1) {
-		if (mtk_dp_is_dsc())
+		//to do: dp in 6983 4k60 can use merge, only 8k30 must use dsc
+		if (drm_mode_vrefresh(&(&mtk_crtc->base)->state->adjusted_mode) == 60)
 			mtk_ddp_ext_dual_pipe_dsc(mtk_crtc, mutex);
 		else
 			mtk_ddp_ext_insert_dual_pipe(mtk_crtc, mutex);
@@ -11453,13 +11501,11 @@ void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
 		struct mtk_ddp_comp **ddp_comp;
 		enum mtk_ddp_comp_id prev_id, next_id;
 
-		DDPMSG("connect dual pipe path\n");
 		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
 			if (j >= mtk_crtc->dual_pipe_ddp_ctx.ddp_comp_nr[i]) {
 				DDPINFO("exceed comp nr\n");
 				continue;
 			}
-			DDPINFO("%d %d\n", i, j);
 			ddp_comp = mtk_crtc->dual_pipe_ddp_ctx.ddp_comp[i];
 			prev_id = (j == 0 ? DDP_COMPONENT_ID_MAX :
 				ddp_comp[j - 1]->id);
@@ -11472,7 +11518,6 @@ void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
 
 			mtk_ddp_add_comp_to_path(mtk_crtc, ddp_comp[j], prev_id,
 						 next_id);
-			DDPINFO("con %u %u-\n", prev_id, next_id);
 		}
 	}
 }
@@ -11648,7 +11693,7 @@ void mtk_disp_mutex_src_set(struct mtk_drm_crtc *mtk_crtc, bool is_cmd_mode)
 	else if (id == DDP_COMPONENT_DPI1)
 		val = DDP_MUTEX_SOF_DPI1;
 
-	DDPMSG("%s, id:%d, val:0x%x\n", __func__, id,
+	DDPINFO("%s, id:%d, val:0x%x\n", __func__, id,
 	       ddp->data->mutex_sof[val]);
 
 	writel_relaxed(ddp->data->mutex_sof[val],
@@ -11663,7 +11708,7 @@ void mtk_disp_mutex_src_set(struct mtk_drm_crtc *mtk_crtc, bool is_cmd_mode)
 		else if (val == DDP_MUTEX_SOF_DPI1)
 			val = DDP_MUTEX_SOF_DPI0;
 
-		DDPMSG("%s, disp1 id:%d, val:0x%x\n", __func__, id,
+		DDPINFO("%s, disp1 id:%d, val:0x%x\n", __func__, id,
 			ddp->data->mutex_sof[val]);
 		writel_relaxed(
 			ddp->data->mutex_sof[val],
@@ -12018,6 +12063,7 @@ void mtk_disp_mutex_acquire(struct mtk_disp_mutex *mutex)
 
 	writel(1, ddp->regs + DISP_REG_MUTEX_EN(mutex->id));
 	writel(1, ddp->regs + DISP_REG_MUTEX(mutex->id));
+
 	if (readl_poll_timeout_atomic(ddp->regs + DISP_REG_MUTEX(mutex->id),
 				      tmp, tmp & INT_MUTEX, 1, 10000))
 		DDPPR_ERR("could not acquire mutex %d\n", mutex->id);
@@ -12067,8 +12113,6 @@ void mtk_disp_mutex_submit_sof(struct mtk_disp_mutex *mutex)
 				+ DISP_REG_MUTEX_SOF(ddp->data, mutex->id)) & 0XFFDF;
 		writel(reg, ddp->side_regs + DISP_REG_MUTEX_SOF(ddp->data, mutex->id));
 	}
-
-	DDPFUNC();
 }
 
 static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
@@ -12077,6 +12121,10 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 	unsigned int val = 0;
 	unsigned int m_id = 0;
 	int ret = 0;
+	unsigned long long irq_debug[8] = {0};
+	static DEFINE_RATELIMIT_STATE(irq_ratelimit, 5 * HZ, 1);
+
+	irq_debug[0] = sched_clock();
 
 	if (mtk_drm_top_clk_isr_get("mutex_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
@@ -12084,13 +12132,13 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 	}
 
 	val = readl(ddp->regs + DISP_REG_MUTEX_INTSTA) & DISP_MUTEX_INT_MSK;
+
 	if (!val) {
 		ret = IRQ_NONE;
 		goto out;
 	}
 
-	DRM_MMP_MARK(IRQ, irq, val);
-
+	DRM_MMP_MARK(IRQ, ddp->regs_pa, val);
 	DDPIRQ("MM_MUTEX irq, val:0x%x\n", val);
 
 	writel(~val, ddp->regs + DISP_REG_MUTEX_INTSTA);
@@ -12100,22 +12148,42 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 			DDPIRQ("[IRQ] mutex%d eof!\n", m_id);
 			DRM_MMP_MARK(mutex[m_id], val, 1);
 #ifndef DRM_BYPASS_PQ
+			irq_debug[1] = sched_clock();
 			disp_c3d_on_end_of_frame_mutex();
+			irq_debug[2] = sched_clock();
 #endif
 		}
 		if (val & (0x1 << m_id)) {
 			DDPIRQ("[IRQ] mutex%d sof!\n", m_id);
 			DRM_MMP_MARK(mutex[m_id], val, 0);
 
-			if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+			if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+				irq_debug[3] = sched_clock();
 				mtk_drm_cwb_backup_copy_size();
+				irq_debug[4] = sched_clock();
+			}
 
 #ifndef DRM_BYPASS_PQ
+			irq_debug[5] = sched_clock();
 			disp_aal_on_start_of_frame();
+			irq_debug[6] = sched_clock();
 			disp_c3d_on_start_of_frame();
+			irq_debug[7] = sched_clock();
 #endif
 		}
 	}
+
+	if (((sched_clock() - irq_debug[0]) > 850000) &&
+			__ratelimit(&irq_ratelimit)) {
+		DDPMSG("%s > 850 us, %llu %llu %llu %llu\n",
+			__func__,
+			(irq_debug[2] - irq_debug[1]),
+			(irq_debug[4] - irq_debug[3]),
+			(irq_debug[6] - irq_debug[5]),
+			(irq_debug[7] - irq_debug[6])
+			);
+	}
+
 	ret = IRQ_HANDLED;
 
 out:
@@ -12216,7 +12284,7 @@ void mutex_dump_reg_mt6895(struct mtk_disp_mutex *mutex)
 	int cnt = 0;
 
 REDUMP:
-	DDPDUMP("== DISP%d MUTEX REGS ==\n", cnt);
+	DDPDUMP("== DISP%d MUTEX REGS:0x%x ==\n", cnt, ddp->regs_pa);
 	DDPDUMP("0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x 0x%03x=0x%08x\n",
 		0x0, readl_relaxed(module_base + 0x0), 0x4,
 		readl_relaxed(module_base + 0x4), 0x8,
@@ -12477,7 +12545,7 @@ void mutex_dump_analysis_mt6895(struct mtk_disp_mutex *mutex)
 	unsigned int val;
 
 REDUMP:
-	DDPDUMP("== DISP%d Mutex Analysis ==\n", cnt);
+	DDPDUMP("== DISP%d Mutex Analysis:0x%x ==\n", cnt, ddp->regs_pa);
 	for (i = 0; i < 5; i++) {
 		unsigned int mod0, mod1;
 
@@ -12719,7 +12787,7 @@ void mutex_dump_analysis_mt6879(struct mtk_disp_mutex *mutex)
 		}
 
 		mod1 = readl_relaxed(ddp->regs +
-			DISP_REG_MUTEX_MOD(ddp->data, i));
+			DISP_REG_MUTEX_MOD2(mutex->id));
 		for (j = 0; j < 32; j++) {
 			if ((mod1 & (1 << j))) {
 				len = sprintf(p, "%s,",
@@ -13380,15 +13448,6 @@ void mmsys_config_dump_analysis_mt6895(void __iomem *config_regs)
 	}
 
 	DDPDUMP("%s\n", clock_on);
-
-#ifdef CONFIG_MTK_SMI_EXT
-	if (greq0 || greq1) {
-		if (!in_interrupt())
-			smi_debug_bus_hang_detect(false, "DISP");
-		else
-			DDPDUMP("%s, Can't smi dump in IRQ\n", __func__);
-	}
-#endif
 }
 
 void mmsys_config_dump_analysis_mt6873(void __iomem *config_regs)
@@ -14187,6 +14246,7 @@ static int mtk_ddp_probe(struct platform_device *pdev)
 	ddp->dispsys_num = dispsys_num;
 
 	irq = platform_get_irq(pdev, 0);
+
 	if (irq < 0)
 		return irq;
 

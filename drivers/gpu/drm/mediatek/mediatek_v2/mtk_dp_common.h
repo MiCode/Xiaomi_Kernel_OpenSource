@@ -208,6 +208,9 @@ struct DPTX_INFO {
 	unsigned int audio_caps;
 	unsigned int audio_config;
 	struct DPTX_TIMING_PARAMETER DPTX_OUTBL;
+	unsigned int clk_debug;
+	unsigned int clksrc;
+	unsigned int con1;
 
 	bool bPatternGen : 1;
 	bool bSinkSSC_En : 1;
@@ -262,16 +265,14 @@ struct mtk_dp {
 	void __iomem *regs;
 	struct clk *dp_tx_clk;
 
-	u32 capability;
+	u32 bUeventToHwc;
 	int disp_status;  //for DDP
-	bool bUeventToHwc;
 	bool bPowerOn;
 	bool audio_enable;
 	bool video_enable;
 	bool dp_ready;
-	bool sink_support_dsc;
-	bool sink_support_fec;
-	bool sink_support_yuv422;
+	bool has_dsc;
+	bool has_fec;
 	bool dsc_enable;
 	struct mtk_drm_private *priv;
 	//phy_params[10] = {L0P0,L0P1,L0P2,L0P3,L1P0,L1P1,L1P2,L2P0,L2P1,L3P0};

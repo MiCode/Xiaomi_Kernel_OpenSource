@@ -29,6 +29,8 @@ struct DRM_MMP_Events {
 	mmp_event rdma;
 	mmp_event rdma0;
 	mmp_event rdma1;
+	mmp_event rdma2;
+	mmp_event rdma3;
 	mmp_event rdma4;
 	mmp_event rdma5;
 	mmp_event wdma;
@@ -36,16 +38,21 @@ struct DRM_MMP_Events {
 	mmp_event dsi;
 	mmp_event dsi0;
 	mmp_event dsi1;
+	mmp_event aal;
+	mmp_event aal0;
+	mmp_event aal1;
 	mmp_event dp_intf0;
 	mmp_event ddp;
 	mmp_event mutex[DISP_MUTEX_DDP_COUNT];
 	mmp_event postmask;
 	mmp_event postmask0;
 	mmp_event abnormal_irq;
+	mmp_event iova_tf;
 	mmp_event pmqos;
 	mmp_event hrt_bw;
 	mmp_event mutex_lock;
 	mmp_event layering;
+	mmp_event layering_blob;
 	mmp_event dma_alloc;
 	mmp_event dma_free;
 	mmp_event dma_get;
@@ -54,6 +61,8 @@ struct DRM_MMP_Events {
 	mmp_event ion_import_fd;
 	mmp_event ion_import_free;
 	mmp_event set_mode;
+	mmp_event top_clk;
+	mmp_event mml_sram;
 };
 
 /* if changed, need to update init_crtc_mmp_event() */
@@ -108,13 +117,18 @@ struct CRTC_MMP_Events {
 	mmp_event msync_enable;
 	/*Msync 2.0 mmp end*/
 	mmp_event mode_switch;
+	mmp_event ddp_clk;
+	/*AAL mmp mark*/
+	mmp_event aal_sof_thread;
+	mmp_event aal_dre30_rw;
+	mmp_event aal_dre20_rh;
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);
 struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id);
 void drm_mmp_init(void);
 int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
-			  u32 downSampleX, u32 downSampleY);
+			  u32 downSampleX, u32 downSampleY, int global_lye_num);
 int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 	struct mtk_cwb_info *cwb_info,
 	void *buffer, unsigned int buf_idx);

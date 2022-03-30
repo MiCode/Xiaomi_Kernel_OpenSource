@@ -62,6 +62,16 @@ static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 
 static void mtk_drm_cmd_mode_enter_idle(struct drm_crtc *crtc)
 {
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	// Temp code. This flow will only enter by debug command
+	// (CMD mode will enter MML IR by debug command), we don't
+	// have to worry about it will effect the original flow.
+	if (mtk_crtc && mtk_crtc->is_mml && mtk_crtc->mml_cfg &&
+		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		return;
+	}
+
 	mtk_drm_idlemgr_disable_crtc(crtc);
 	lcm_fps_ctx_reset(crtc);
 }
@@ -98,6 +108,16 @@ static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
 
 static void mtk_drm_cmd_mode_leave_idle(struct drm_crtc *crtc)
 {
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	// Temp code. This flow will only enter by debug command
+	// (CMD mode will enter MML IR by debug command), we don't
+	// have to worry about it will effect the original flow.
+	if (mtk_crtc && mtk_crtc->is_mml && mtk_crtc->mml_cfg &&
+		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
+		return;
+	}
+
 	mtk_drm_idlemgr_enable_crtc(crtc);
 	lcm_fps_ctx_reset(crtc);
 }
@@ -179,9 +199,6 @@ void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 	if (need_lock)
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
-	/* update kick timestamp */
-	idlemgr_ctx->idlemgr_last_kick_time = sched_clock();
-
 	if (idlemgr_ctx->is_idle) {
 		DDPINFO("[LP] kick idle from [%s]\n", source);
 		if (mtk_crtc->esd_ctx)
@@ -192,6 +209,9 @@ void mtk_drm_idlemgr_kick(const char *source, struct drm_crtc *crtc,
 		/* wake up idlemgr process to monitor next idle state */
 		wake_up_interruptible(&idlemgr->idlemgr_wq);
 	}
+
+	/* update kick timestamp */
+	idlemgr_ctx->idlemgr_last_kick_time = sched_clock();
 
 	if (need_lock)
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
@@ -307,7 +327,6 @@ static bool mtk_planes_is_yuv_fmt(struct drm_crtc *crtc)
 static int mtk_drm_idlemgr_monitor_thread(void *data)
 {
 	int ret = 0;
-	long long t_to_check = 0;
 	unsigned long long t_idle;
 	struct drm_crtc *crtc = (struct drm_crtc *)data;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -317,7 +336,6 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 	struct mtk_crtc_state *mtk_state = NULL;
 	struct drm_vblank_crtc *vblank = NULL;
 	int crtc_id = drm_crtc_index(crtc);
-	static unsigned long long idlemgr_vblank_check_internal;
 
 	msleep(16000);
 	while (1) {
@@ -325,21 +343,7 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			idlemgr->idlemgr_wq,
 			atomic_read(&idlemgr->idlemgr_task_active));
 
-		t_idle = local_clock() - idlemgr_ctx->idlemgr_last_kick_time;
-		if (idlemgr_vblank_check_internal)
-			t_to_check = idlemgr_vblank_check_internal *
-				1000 * 1000 - t_idle;
-		else
-			t_to_check = idlemgr_ctx->idle_check_interval *
-				1000 * 1000 - t_idle;
-		do_div(t_to_check, 1000000);
-
-		t_to_check = min(t_to_check, 1000LL);
-		/* when starting up before the first time kick */
-		if (idlemgr_ctx->idlemgr_last_kick_time == 0)
-			msleep_interruptible(idlemgr_ctx->idle_check_interval);
-		else if (t_to_check > 0)
-			msleep_interruptible(t_to_check);
+		msleep_interruptible(idlemgr_ctx->idle_check_interval);
 
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
@@ -381,29 +385,24 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 		}
 
 		t_idle = local_clock() - idlemgr_ctx->idlemgr_last_kick_time;
-		if ((idlemgr_vblank_check_internal &&
-		    t_idle < idlemgr_vblank_check_internal * 1000 * 1000) ||
-		    (!idlemgr_vblank_check_internal &&
-		    t_idle < idlemgr_ctx->idle_check_interval * 1000 * 1000)) {
+		if (t_idle < idlemgr_ctx->idle_check_interval * 1000 * 1000) {
 			/* kicked in idle_check_interval msec, it's not idle */
 			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 			continue;
 		}
 		/* double check if dynamic switch on/off */
 		if (atomic_read(&idlemgr->idlemgr_task_active)) {
-			DDPINFO("[LP] enter idle\n");
 			crtc_id = drm_crtc_index(crtc);
 			vblank = &crtc->dev->vblank[crtc_id];
 
 			/* enter idle state */
 			if (!vblank || atomic_read(&vblank->refcount) == 0) {
+				DDPINFO("[LP] enter idle\n");
 				mtk_drm_idlemgr_enter_idle_nolock(crtc);
 				idlemgr_ctx->is_idle = 1;
-				idlemgr_vblank_check_internal = 0;
 			} else {
 				idlemgr_ctx->idlemgr_last_kick_time =
 					sched_clock();
-				idlemgr_vblank_check_internal = 50;
 			}
 		}
 
@@ -559,6 +558,13 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	/* 2. prepare modules would be used in this CRTC */
 	mtk_drm_idlemgr_enable_connector(crtc);
 	mtk_crtc_ddp_prepare(mtk_crtc);
+
+	mtk_gce_backup_slot_init(mtk_crtc);
+
+#ifndef DRM_CMDQ_DISABLE
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+		mtk_crtc_prepare_instr(crtc);
+#endif
 
 	/* 3. start trigger loop first to keep gce alive */
 	if (crtc_id == 0) {

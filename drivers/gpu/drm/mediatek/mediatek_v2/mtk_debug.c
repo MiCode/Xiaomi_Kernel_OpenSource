@@ -71,8 +71,10 @@ bool g_mobile_log;
 EXPORT_SYMBOL(g_mobile_log);
 bool g_fence_log;
 bool g_detail_log;
+EXPORT_SYMBOL(g_detail_log);
 bool g_msync_debug;
 EXPORT_SYMBOL(g_msync_debug);
+bool g_profile_log;
 
 bool g_irq_log;
 bool g_trace_log;
@@ -92,6 +94,7 @@ int gCaptureOVLEn;
 int gCaptureWDMAEn;
 int gCapturePriLayerDownX = 20;
 int gCapturePriLayerDownY = 20;
+int gCaptureAssignLayer;
 u64 vfp_backup;
 
 static struct completion cwb_cmp;
@@ -1353,14 +1356,34 @@ done:
 
 int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state)
 {
-	if (gCaptureOVLEn) {
-		mtk_drm_mmp_ovl_layer(plane_state, gCapturePriLayerDownX,
-			gCapturePriLayerDownY);
-		return 0;
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_crtc_ddp_ctx *ddp_ctx;
+	struct mtk_ddp_comp *comp;
+	int global_lye_num;
+
+	if (!gCaptureOVLEn)
+		return -1;
+
+	crtc = plane_state->crtc;
+	mtk_crtc = to_mtk_crtc(crtc);
+	ddp_ctx = mtk_crtc->ddp_ctx;
+	comp = ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[0][0];
+	global_lye_num = plane_state->comp_state.lye_id;
+	if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_OVL) {
+		if (plane_state->comp_state.comp_id != comp->id)
+			global_lye_num += mtk_ovl_layer_num(comp);
 	}
+
+	if ((gCaptureAssignLayer != global_lye_num) && (gCaptureAssignLayer != -1))
+		return -1;
+
+	mtk_drm_mmp_ovl_layer(plane_state, gCapturePriLayerDownX,
+			gCapturePriLayerDownY, global_lye_num);
+
 	DDPINFO("%s, gCapturePriLayerEnable is %d\n",
 		__func__, gCaptureOVLEn);
-	return -1;
+	return 0;
 }
 
 int mtk_dprec_mmp_dump_cwb_buffer(struct drm_crtc *crtc,
@@ -1935,6 +1958,11 @@ static void process_dbg_opt(const char *opt)
 			g_detail_log = 1;
 		else if (strncmp(opt + 7, "off", 3) == 0)
 			g_detail_log = 0;
+	} else if (strncmp(opt, "profile:", 8) == 0) {
+		if (strncmp(opt + 8, "on", 2) == 0)
+			g_profile_log = 1;
+		else if (strncmp(opt + 8, "off", 3) == 0)
+			g_profile_log = 0;
 	} else if (strncmp(opt, "trace:", 6) == 0) {
 		if (strncmp(opt + 6, "on", 2) == 0)
 			g_trace_log = 1;
@@ -2404,11 +2432,12 @@ static void process_dbg_opt(const char *opt)
 		int ret;
 		unsigned int dump_en;
 		unsigned int downSampleX, downSampleY;
+		int layer_id;
 
 		DDPMSG("get dump\n");
-		ret = sscanf(opt, "dump_layer:%d,%d,%d\n", &dump_en,
-			     &downSampleX, &downSampleY);
-		if (ret != 3) {
+		ret = sscanf(opt, "dump_layer:%d,%d,%d,%d\n", &dump_en,
+			     &downSampleX, &downSampleY, &layer_id);
+		if (ret != 4) {
 			DDPMSG("error to parse cmd\n");
 			return;
 		}
@@ -2417,7 +2446,10 @@ static void process_dbg_opt(const char *opt)
 			gCapturePriLayerDownX = downSampleX;
 		if (downSampleY)
 			gCapturePriLayerDownY = downSampleY;
+		gCaptureAssignLayer = layer_id;
 		gCaptureOVLEn = dump_en;
+		DDPMSG("dump params (%d,%d,%d,%d)\n", gCaptureOVLEn,
+			gCapturePriLayerDownX, gCapturePriLayerDownY, gCaptureAssignLayer);
 	} else if (strncmp(opt, "dump_user_buffer:", 17) == 0) {
 		int ret;
 		unsigned int dump_en;
@@ -2687,7 +2719,7 @@ static void process_dbg_opt(const char *opt)
 					typeof(*crtc), head);
 
 		if (!crtc) {
-			pr_info("find crtc fail\n");
+			DDPPR_ERR("find crtc fail\n");
 			return;
 		}
 
@@ -2731,6 +2763,54 @@ static void process_dbg_opt(const char *opt)
 		else if (strncmp(opt + 16, "-1", 2) == 0)
 			g_mml_mode = MML_MODE_NOT_SUPPORT;
 		DDPMSG("mml_mode:%d", g_mml_mode);
+	} else if (strncmp(opt, "force_mml:", 10) == 0) {
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		int force_mml_scen = 0;
+
+		if (strncmp(opt + 10, "1", 1) == 0)
+			force_mml_scen = 1;
+		else if (strncmp(opt + 10, "0", 1) == 0)
+			force_mml_scen = 0;
+		DDPMSG("disp_mml:%d", force_mml_scen);
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		if (mtk_crtc)
+			mtk_crtc->is_force_mml_scen = force_mml_scen;
+	} else if (strncmp(opt, "mml_cmd_ir:", 11) == 0) {
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		bool mml_cmd_ir = false;
+
+		if (strncmp(opt + 11, "1", 1) == 0)
+			mml_cmd_ir = true;
+		else if (strncmp(opt + 11, "0", 1) == 0)
+			mml_cmd_ir = false;
+		DDPMSG("mml_cmd_ir:%d", mml_cmd_ir);
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+
+		if (!crtc) {
+			pr_info("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+
+		if (mtk_crtc)
+			mtk_crtc->mml_cmd_ir = mml_cmd_ir;
 	}
 }
 

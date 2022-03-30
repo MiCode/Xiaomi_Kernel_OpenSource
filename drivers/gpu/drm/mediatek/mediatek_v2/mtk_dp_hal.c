@@ -831,6 +831,34 @@ void mhal_DPTx_Audio_Setting(struct mtk_dp *mtk_dp, BYTE Channel, BYTE bEnable)
 	}
 }
 
+void mhal_DPTx_audio_sample_arrange(struct mtk_dp *mtk_dp, BYTE bEnable)
+{
+	uint32_t value = 0;
+
+	// 0x3374 [12] = enable
+	// 0x3374 [11:0] = hblank * link_rate(MHZ) / pix_clk(MHZ) / 4 * 0.8
+	value = (mtk_dp->info.DPTX_OUTBL.Htt - mtk_dp->info.DPTX_OUTBL.Hde) *
+		mtk_dp->training_info.ubLinkRate * 27 * 200 /
+		mtk_dp->info.DPTX_OUTBL.PixRateKhz;
+
+	if (bEnable) {
+		msWrite4ByteMask(mtk_dp,
+			REG_3370_DP_ENCODER1_P0 + 4, BIT12, BIT12);
+		msWrite4ByteMask(mtk_dp,
+			REG_3370_DP_ENCODER1_P0 + 4, (uint16_t)value, BITMASK(11:0));
+	} else {
+		msWrite4ByteMask(mtk_dp,
+			REG_3370_DP_ENCODER1_P0 + 4, 0, BIT12);
+		msWrite4ByteMask(mtk_dp,
+			REG_3370_DP_ENCODER1_P0 + 4, 0, BITMASK(11:0));
+	}
+	DPTXMSG("Htt=%d, Hde=%d, ubLinkRate=%d, PixRateKhz=%d\n",
+		mtk_dp->info.DPTX_OUTBL.Htt, mtk_dp->info.DPTX_OUTBL.Hde,
+		mtk_dp->training_info.ubLinkRate, mtk_dp->info.DPTX_OUTBL.PixRateKhz);
+
+	DPTXMSG("Audio arrange patch enable = %d, value = 0x%x\n", bEnable, value);
+}
+
 void mhal_DPTx_Audio_PG_EN(struct mtk_dp *mtk_dp, BYTE Channel,
 	BYTE Fs, BYTE bEnable)
 {
@@ -944,6 +972,9 @@ void mhal_DPTx_Audio_PG_EN(struct mtk_dp *mtk_dp, BYTE Channel,
 
 	//enable audio reset
 	msWriteByteMask(mtk_dp, REG_33F4_DP_ENCODER1_P0, BIT(0), BIT(0));
+
+	// enable audio sample arrange
+	mhal_DPTx_audio_sample_arrange(mtk_dp, TRUE);
 }
 
 #if (DPTX_AutoTest_ENABLE == 0x1) && (DPTX_PHY_TEST_PATTERN_EN == 0x1)
@@ -2020,8 +2051,8 @@ void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp)
 		| ((mtk_dp->phy_params[1].CP1 & mask) << 8)
 		| ((mtk_dp->phy_params[2].CP1 & mask) << 16)
 		| ((mtk_dp->phy_params[3].CP1 & mask) << 24);
-	msWrite4Byte(mtk_dp, 0x1144, 0x10080400);//0x10080400
-	msWrite4Byte(mtk_dp, 0x1244, 0x10080400);
+	msWrite4Byte(mtk_dp, 0x1144, value);//0x10080400
+	msWrite4Byte(mtk_dp, 0x1244, value);
 	DPTXDBG("0x44:%#010x, 0x44:%#010x", value, msRead4Byte(mtk_dp, 0x1144));
 
 	value = (mtk_dp->phy_params[4].CP1 & mask)
@@ -2039,20 +2070,6 @@ void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp)
 	DPTXDBG("0x4C:%#010x, 0x4C:%#010x", value, msRead4Byte(mtk_dp, 0x114C));
 
 //PORTING FROM CTP
-	msWrite4Byte(mtk_dp, 0x1138, 0x20181410);
-	msWrite4Byte(mtk_dp, 0x113C, 0x20241e18);
-	msWrite4Byte(mtk_dp, 0x1140, 0x00003028);
-	msWrite4Byte(mtk_dp, 0x1144, 0x10080400);
-	msWrite4Byte(mtk_dp, 0x1148, 0x000c0600);
-	msWrite4Byte(mtk_dp, 0x114C, 0x00000008);
-
-	msWrite4Byte(mtk_dp, 0x1238, 0x20181410);
-	msWrite4Byte(mtk_dp, 0x123C, 0x20241e18);
-	msWrite4Byte(mtk_dp, 0x1240, 0x00003028);
-	msWrite4Byte(mtk_dp, 0x1244, 0x10080400);
-	msWrite4Byte(mtk_dp, 0x1248, 0x000c0600);
-	msWrite4Byte(mtk_dp, 0x124C, 0x00000008);
-
 	msWrite4ByteMask(mtk_dp, 0x003C, 0x004 << 24, BITMASK(28:24));
 	msWrite4ByteMask(mtk_dp, 0x0008, 0x7 << 3, BITMASK(6:3));
 	msWrite4ByteMask(mtk_dp, 0x003C, BIT23, BIT23);
@@ -2065,15 +2082,35 @@ void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp)
 
 void mhal_DPTx_SSCOnOffSetting(struct mtk_dp *mtk_dp, bool bENABLE)
 {
-	DPTXMSG("SSC enable = %d\n", bENABLE);
+	DPTXMSG("SSC_enable = %d\n", bENABLE);
 
-	msWrite4ByteMask(mtk_dp, 0x2000, BIT(0), BITMASK(0:1));
+	msWrite4ByteMask(mtk_dp, 0x2000, BIT(0), BITMASK(1:0));
+
+	msWrite4ByteMask(mtk_dp, 0x1014, 0x0, BIT(3));
+
+	//delta1 = 0.05% and delta=0.05%
+	// HBR3 8.1G
+	msWrite4ByteMask(mtk_dp, 0x10D4, 79 << 16, BITMASK(31:16)); //delta1
+	msWrite4ByteMask(mtk_dp, 0x10DC, 49 << 16, BITMASK(31:16)); //delta
+
+	// HBR2 5.4G
+	msWrite4ByteMask(mtk_dp, 0x10D4, 105, BITMASK(15:0)); //delta1
+	msWrite4ByteMask(mtk_dp, 0x10DC, 65, BITMASK(15:0)); //delta
+
+	// HBR 2.7G
+	msWrite4ByteMask(mtk_dp, 0x10D0, 105 << 16, BITMASK(31:16)); //delta1
+	msWrite4ByteMask(mtk_dp, 0x10D8, 65 << 16, BITMASK(31:16)); //delta
+
+	// RBR 1.62G
+	msWrite4ByteMask(mtk_dp, 0x10D0, 63, BITMASK(15:0)); //delta1
+	msWrite4ByteMask(mtk_dp, 0x10D8, 39, BITMASK(15:0)); //delta
+
 	if (bENABLE)
 		msWrite4ByteMask(mtk_dp, 0x1014, BIT(3), BIT(3));
 	else
 		msWrite4ByteMask(mtk_dp, 0x1014, 0x0, BIT(3));
 
-	msWrite4ByteMask(mtk_dp, 0x2000, BIT(0)|BIT(1), BITMASK(0:1));
+	msWrite4ByteMask(mtk_dp, 0x2000, BIT(0)|BIT(1), BITMASK(1:0));
 
 	udelay(50);
 }

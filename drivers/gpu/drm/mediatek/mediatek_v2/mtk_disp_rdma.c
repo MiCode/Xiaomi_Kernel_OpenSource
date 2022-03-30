@@ -11,7 +11,6 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
-#include <linux/dma-mapping.h>
 
 #ifndef DRM_CMDQ_DISABLE
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -141,6 +140,10 @@ int disp_met_set(void *data, u64 val);
 #define DISP_REG_RDMA_DBG_OUT3 0x0114
 #define DISP_REG_RDMA_DBG_OUT4 0x0118
 #define DISP_REG_RDMA_DBG_OUT5 0x011c
+
+#define DISP_REG_RDMA_ULTRA_SRC_SEL     0x01a0
+#define FLD_RG_PREULTRA_RDMA_SEL        REG_FLD_MSB_LSB(7, 6)
+#define FLD_RG_ULTRA_RDMA_SEL           REG_FLD_MSB_LSB(15, 14)
 
 #define DISP_REG_RDMA_GREQ_URG_NUM_SEL 0x01a8
 #define FLD_RG_LAYER_SMI_ID_EN REG_FLD_MSB_LSB(29, 29)
@@ -275,11 +278,6 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
-	if (mtk_drm_top_clk_isr_get("rdma_irq") == false) {
-		DDPIRQ("%s, top clk off\n", __func__);
-		return IRQ_NONE;
-	}
-
 	if (IS_ERR_OR_NULL(priv))
 		return IRQ_NONE;
 
@@ -287,20 +285,31 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	if (IS_ERR_OR_NULL(rdma))
 		return IRQ_NONE;
 
+	if (mtk_drm_top_clk_isr_get("rdma_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
 	val = readl(rdma->regs + DISP_REG_RDMA_INT_STATUS);
 	if (!val) {
 		ret = IRQ_NONE;
 		goto out;
 	}
-	DRM_MMP_MARK(IRQ, irq, val);
+	DRM_MMP_MARK(IRQ, rdma->regs_pa, val);
 
 	mtk_crtc = rdma->mtk_crtc;
 
 	if (rdma->id == DDP_COMPONENT_RDMA0)
 		DRM_MMP_MARK(rdma0, val, 0);
-	if (rdma->id == DDP_COMPONENT_RDMA4)
+	else if (rdma->id == DDP_COMPONENT_RDMA1)
+		DRM_MMP_MARK(rdma1, val, 0);
+	else if (rdma->id == DDP_COMPONENT_RDMA2)
+		DRM_MMP_MARK(rdma2, val, 0);
+	else if (rdma->id == DDP_COMPONENT_RDMA3)
+		DRM_MMP_MARK(rdma3, val, 0);
+	else if (rdma->id == DDP_COMPONENT_RDMA4)
 		DRM_MMP_MARK(rdma4, val, 0);
-	if (rdma->id == DDP_COMPONENT_RDMA5)
+	else if (rdma->id == DDP_COMPONENT_RDMA5)
 		DRM_MMP_MARK(rdma5, val, 0);
 
 	if (val & 0x18)
@@ -330,7 +339,13 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 				lcm_fps_ctx_update(rdma_end_time,
 						   mtk_crtc->base.index, 1);
 			}
-			mtk_crtc->eof_time = ktime_get();
+			if (!mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base) &&
+				(rdma->id == DDP_COMPONENT_RDMA0 ||
+					rdma->id == DDP_COMPONENT_RDMA3)) {
+				mtk_crtc->pf_time = ktime_get();
+				atomic_set(&mtk_crtc->signal_irq_for_pre_fence, 1);
+				wake_up_interruptible(&(mtk_crtc->signal_irq_for_pre_fence_wq));
+			}
 		}
 		mtk_drm_refresh_tag_end(&priv->ddp_comp);
 	}
@@ -344,8 +359,10 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 
 		if (mtk_crtc &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-			atomic_set(&mtk_crtc->pf_event, 1);
-			wake_up_interruptible(&mtk_crtc->present_fence_wq);
+			if (rdma->id == DDP_COMPONENT_RDMA0) {
+				atomic_set(&mtk_crtc->pf_event, 1);
+				wake_up_interruptible(&mtk_crtc->present_fence_wq);
+			}
 		}
 	}
 
@@ -453,9 +470,34 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ddp_write_mask(comp, RDMA_ENGINE_EN, DISP_REG_RDMA_GLOBAL_CON,
 			   RDMA_ENGINE_EN, handle);
 
-	if (priv->data->mmsys_id == MMSYS_MT6879) {
-		mtk_ddp_write_relaxed(comp, 0x01, DISP_REG_RDMA_MEM_GMC_S4,
-			handle);
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6879:
+		if ((rdma->data->dsi_buffer == true) &&
+		    (comp->id == DDP_COMPONENT_RDMA0)) {
+			mtk_ddp_write_relaxed(comp, 0x01,
+				DISP_REG_RDMA_MEM_GMC_S4,
+				handle);
+			mtk_ddp_write_mask(comp, 0x00,
+				DISP_REG_RDMA_ULTRA_SRC_SEL,
+				FLD_RG_PREULTRA_RDMA_SEL,
+				handle);
+			mtk_ddp_write_mask(comp, 0x00,
+				DISP_REG_RDMA_ULTRA_SRC_SEL,
+				FLD_RG_ULTRA_RDMA_SEL,
+				handle);
+		}
+		break;
+	case MMSYS_MT6895:
+		/* mmsys0 consider dsi ultra signal if dsi buffer is enabled
+		 * mmsys1 ignore dsi ultra signal since HW unconnected
+		 */
+		if ((rdma->data->dsi_buffer == true) &&
+		    (comp->id == DDP_COMPONENT_RDMA0))
+			mtk_ddp_write_relaxed(comp, 0x1,
+					DISP_REG_RDMA_MEM_GMC_S4, handle);
+		break;
+	default:
+		break;
 	}
 
 	if (data && data->sodi_config)
@@ -475,9 +517,30 @@ static void mtk_rdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mtk_ddp_write(comp, 0x0, DISP_REG_RDMA_GLOBAL_CON, handle);
 	mtk_ddp_write(comp, 0x0, DISP_REG_RDMA_INT_STATUS, handle);
 
-	if (priv->data->mmsys_id == MMSYS_MT6879) {
-		mtk_ddp_write_relaxed(comp, 0x00, DISP_REG_RDMA_MEM_GMC_S4,
-			handle);
+	switch (priv->data->mmsys_id) {
+	case MMSYS_MT6879:
+		if ((rdma->data->dsi_buffer == true) &&
+		    (comp->id == DDP_COMPONENT_RDMA0)) {
+			mtk_ddp_write_relaxed(comp, 0x0,
+				DISP_REG_RDMA_MEM_GMC_S4,
+				handle);
+			mtk_ddp_write_mask(comp, 0x01,
+				DISP_REG_RDMA_ULTRA_SRC_SEL,
+				FLD_RG_PREULTRA_RDMA_SEL, handle);
+			mtk_ddp_write_mask(comp, 0x02,
+				DISP_REG_RDMA_ULTRA_SRC_SEL,
+				FLD_RG_ULTRA_RDMA_SEL, handle);
+		}
+		break;
+	case MMSYS_MT6895:
+		/*consider dsi ultra signal if dsi buffer is enabled*/
+		if ((rdma->data->dsi_buffer == true) &&
+		    (comp->id == DDP_COMPONENT_RDMA0))
+			mtk_ddp_write_relaxed(comp, 0x0,
+					DISP_REG_RDMA_MEM_GMC_S4, handle);
+		break;
+	default:
+		break;
 	}
 
 	if (data && data->sodi_config)
@@ -585,8 +648,19 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = 0;
 	else
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
-	gs[GS_RDMA_FIFO_SIZE] = fifo_size;
-	gs[GS_RDMA_FIFO_UNDERFLOW_EN] = 0;
+
+	if (rdma->data->dsi_buffer) {
+		struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+
+		if (priv->data->mmsys_id == MMSYS_MT6879)
+			gs[GS_RDMA_FIFO_SIZE] = 0x20;
+		else
+			gs[GS_RDMA_FIFO_SIZE] = fifo_size;
+		gs[GS_RDMA_FIFO_UNDERFLOW_EN] = 0;
+	} else {
+		gs[GS_RDMA_FIFO_SIZE] = fifo_size;
+		gs[GS_RDMA_FIFO_UNDERFLOW_EN] = 1;
+	}
 
 	/* DISP_RDMA_MEM_GMC_SETTING_2 */
 	/* do not min this value with 256 to avoid hrt fail in
@@ -796,10 +870,9 @@ static void mtk_rdma_config(struct mtk_ddp_comp *comp,
 	bool *rdma_memory_mode = comp->comp_mode;
 
 	//for dual pipe one layer
-	if (comp->mtk_crtc->is_dual_pipe) {
+	if (comp->mtk_crtc->is_dual_pipe)
 		w = cfg->w / 2;
-		DDPFUNC();
-	} else
+	else
 		w = cfg->w;
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_RDMA_SIZE_CON_0, w,
@@ -900,6 +973,9 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			RDMA_EOF_ABNORMAL_INT | RDMA_FIFO_UNDERFLOW_INT |
 			RDMA_TARGET_LINE_INT;
 		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_RDMA_INT_STATUS, 0,
+			       ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_RDMA_INT_ENABLE, inten,
 			       inten);
 		break;
@@ -910,6 +986,9 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		inten = RDMA_FRAME_START_INT | RDMA_FRAME_END_INT |
 			RDMA_FIFO_UNDERFLOW_INT | RDMA_TARGET_LINE_INT;
 		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_RDMA_INT_STATUS, 0,
+			       ~0);
+		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_RDMA_INT_ENABLE, inten,
 			       inten);
 		break;
@@ -919,6 +998,9 @@ static int mtk_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		inten = RDMA_REG_UPDATE_INT | RDMA_FRAME_START_INT |
 			RDMA_FRAME_END_INT | RDMA_TARGET_LINE_INT;
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DISP_REG_RDMA_INT_STATUS, 0,
+			       ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_RDMA_INT_ENABLE, 0,
 			       inten);
@@ -1075,7 +1157,7 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
 		unsigned int i = 0;
@@ -1174,12 +1256,20 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_RDMA_OUT_P_CNT + baddr));
 		DDPDUMP("(0x0fc)R_OUT_LINE_CNT=0x%x\n",
 			readl(DISP_REG_RDMA_OUT_LINE_CNT + baddr));
-		DDPDUMP("(0x100)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT + baddr));
-		DDPDUMP("(0x10c)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT1 + baddr));
-		DDPDUMP("(0x110)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT2 + baddr));
-		DDPDUMP("(0x114)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT3 + baddr));
-		DDPDUMP("(0x118)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT4 + baddr));
-		DDPDUMP("(0x11c)0x%x\n", readl(DISP_REG_RDMA_DBG_OUT5 + baddr));
+		DDPDUMP("(0x100)DISP_REG_RDMA_DBG_OUT=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT + baddr));
+		DDPDUMP("(0x10c)DISP_REG_RDMA_DBG_OUT1=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT1 + baddr));
+		DDPDUMP("(0x110)DISP_REG_RDMA_DBG_OUT2=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT2 + baddr));
+		DDPDUMP("(0x114)DISP_REG_RDMA_DBG_OUT3=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT3 + baddr));
+		DDPDUMP("(0x118)DISP_REG_RDMA_DBG_OUT4=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT4 + baddr));
+		DDPDUMP("(0x11c)DISP_REG_RDMA_DBG_OUT5=0x%x\n",
+			readl(DISP_REG_RDMA_DBG_OUT5 + baddr));
+		DDPDUMP("(0x1a0)DISP_REG_RDMA_ULTRA_SRC_SEL=0x%x\n",
+			readl(DISP_REG_RDMA_ULTRA_SRC_SEL + baddr));
 	}
 
 	mtk_rdma_dump_golden_setting(comp);
@@ -1197,7 +1287,7 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 	unsigned int fifo = readl(baddr + DISP_REG_RDMA_FIFO_CON);
 
 	global_ctrl = readl(DISP_REG_RDMA_GLOBAL_CON + baddr);
-	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("en=%d,mode:%s,smi_busy:%d\n",
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_ENGINE_EN, global_ctrl),
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_MODE_SEL, global_ctrl)
@@ -1412,8 +1502,7 @@ static int mtk_disp_rdma_probe(struct platform_device *pdev)
 	struct mtk_disp_rdma *priv;
 	enum mtk_ddp_comp_id comp_id;
 	int irq;
-	int ret, len;
-	const __be32 *ranges = NULL;
+	int ret;
 
 	DDPINFO("%s+\n", __func__);
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -1438,8 +1527,8 @@ static int mtk_disp_rdma_probe(struct platform_device *pdev)
 	}
 
 	/* Disable and clear pending interrupts */
-	writel(0x0, priv->ddp_comp.regs + DISP_REG_RDMA_INT_ENABLE);
 	writel(0x0, priv->ddp_comp.regs + DISP_REG_RDMA_INT_STATUS);
+	writel(0x0, priv->ddp_comp.regs + DISP_REG_RDMA_INT_ENABLE);
 
 	ret = devm_request_irq(dev, irq, mtk_disp_rdma_irq_handler,
 			       IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev),
@@ -1454,10 +1543,6 @@ static int mtk_disp_rdma_probe(struct platform_device *pdev)
 	priv->data = of_device_get_match_data(dev);
 
 	platform_set_drvdata(pdev, priv);
-
-	ranges = of_get_property(dev->of_node, "dma-ranges", &len);
-	if (ranges && priv->data && priv->data->is_support_34bits)
-		dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34));
 
 	mtk_ddp_comp_pm_enable(&priv->ddp_comp);
 
@@ -1620,7 +1705,8 @@ static const struct mtk_disp_rdma_data mt6879_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.has_greq_urg_num = true,
-	.dsi_buffer = false,
+	.is_support_34bits = true,
+	.dsi_buffer = true,
 };
 
 static const struct mtk_disp_rdma_data mt6855_rdma_driver_data = {
