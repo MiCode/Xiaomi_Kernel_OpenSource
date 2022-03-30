@@ -1119,6 +1119,60 @@ static int dmaheap_sec_pa_probe(struct platform_device *pdev)
 }
 
 /******************************************************************************/
+static const size_t IOVA_SIZES[] = {
+	(SZ_1K),
+	(SZ_4K),
+	(SZ_1K * 10),
+	(SZ_1K * 40),
+	(SZ_64K),
+	(SZ_512K),
+	(PAGE_SIZE),
+	(SZ_1M),
+	(SZ_1M + PAGE_SIZE),
+	(SZ_2M + PAGE_SIZE * 2),
+	(SZ_1M * 6 + PAGE_SIZE * 3),
+	(SZ_16M),
+	(SZ_16M + SZ_4K),
+	(SZ_16M + SZ_1M),
+	(SZ_16M + SZ_1M + PAGE_SIZE),
+	(SZ_32M + SZ_1M),
+	(SZ_64M + SZ_4K),
+	(SZ_128M + SZ_1M * 3),
+	(SZ_256M + SZ_4K),
+	(SZ_512M + SZ_4K)
+};
+
+static int iommu_test(struct platform_device *pdev)
+{
+	#define TEST_NUM	20
+	int i;
+	void *cpu_addr[TEST_NUM];
+	dma_addr_t dma_addr[TEST_NUM];
+
+	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+	for (i = 0; i < TEST_NUM; i++) {
+		cpu_addr[i] = dma_alloc_attrs(&pdev->dev, IOVA_SIZES[i], &dma_addr[i],
+					      GFP_KERNEL, DMA_ATTR_WRITE_COMBINE);
+		if (!cpu_addr[i] || !dma_addr[i]) {
+			pr_info("dev:%s:%d, alloc iova fail, size:0x%zx\n",
+				dev_name(&pdev->dev), i, IOVA_SIZES[i]);
+			return -EINVAL;
+		}
+		pr_info("dev:%s:%d, alloc iova success, iova:%pa, size:0x%zx\n",
+			dev_name(&pdev->dev), i, &dma_addr[i], IOVA_SIZES[i]);
+	}
+	for (i = 0; i < TEST_NUM; i++) {
+		dma_free_attrs(&pdev->dev, IOVA_SIZES[i], cpu_addr[i], dma_addr[i],
+				DMA_ATTR_WRITE_COMBINE);
+		pr_info("dev:%s:%d, free iova success, iova:%pa, size:0x%zx\n",
+			dev_name(&pdev->dev), i, &dma_addr[i], IOVA_SIZES[i]);
+	}
+	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
+
+	return 0;
+}
+
 static int dmabuf_test(struct platform_device *pdev)
 {
 	size_t size = SZ_1M;
@@ -1174,27 +1228,12 @@ static int dmabuf_test(struct platform_device *pdev)
 
 static int iommu_test_dom_probe(struct platform_device *pdev)
 {
-	#define TEST_NUM	3
-	int i, ret;
-	void *cpu_addr[TEST_NUM];
-	dma_addr_t dma_addr[TEST_NUM];
-	size_t size = (6 * SZ_1M + PAGE_SIZE * 3);
+	int ret;
 
-	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
-	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
-	for (i = 0; i < TEST_NUM; i++) {
-		cpu_addr[i] = dma_alloc_attrs(&pdev->dev, size, &dma_addr[i],
-					      GFP_KERNEL, DMA_ATTR_WRITE_COMBINE);
-		pr_info("dev:%s, alloc iova success, iova:%pa, size:0x%zx\n",
-			dev_name(&pdev->dev), &dma_addr[i], size);
-	}
-	for (i = 0; i < TEST_NUM; i++) {
-		dma_free_attrs(&pdev->dev, size, cpu_addr[i], dma_addr[i],
-				DMA_ATTR_WRITE_COMBINE);
-		pr_info("dev:%s, free iova success, iova:%pa, size:0x%zx\n",
-			dev_name(&pdev->dev), &dma_addr[i], size);
-	}
-	pr_info("%s done, dev:%s\n", __func__, dev_name(&pdev->dev));
+	ret = iommu_test(pdev);
+	if (ret)
+		pr_info("%s failed, iommu_test fail, dev:%s\n",
+			__func__, dev_name(&pdev->dev));
 
 	ret = dmabuf_test(pdev);
 	if (ret)
@@ -1309,13 +1348,13 @@ static struct platform_driver iommu_test_driver_dom = {
 };
 
 static struct platform_driver *const iommu_test_drivers[] = {
+	&iommu_test_driver_dom,
 	&iommu_test_dmaheap_normal,
 	&iommu_test_dmaheap_sec_normal,
 	&iommu_test_dmaheap_sec_ccu0,
 	&iommu_test_dmaheap_sec_up,
 	&iommu_test_dmaheap_sec_vdec,
 	&iommu_test_dmaheap_sec_pa,
-	&iommu_test_driver_dom,
 };
 
 static int __init iommu_test_init(void)
