@@ -453,7 +453,7 @@ static const struct v4l2_subdev_video_ops mtk_camsv_subdev_video_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops mtk_camsv_subdev_pad_ops = {
-	.link_validate = mtk_cam_link_validate,
+	.link_validate = mtk_cam_sv_link_validate,
 	.init_cfg = mtk_camsv_init_cfg,
 	.set_fmt = mtk_camsv_set_fmt,
 	.get_fmt = mtk_camsv_get_fmt,

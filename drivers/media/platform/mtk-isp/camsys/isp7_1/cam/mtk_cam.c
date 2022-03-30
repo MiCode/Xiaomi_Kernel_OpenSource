@@ -7650,7 +7650,8 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 static int mtk_cam_v4l2_subdev_link_validate(struct v4l2_subdev *sd,
 				      struct media_link *link,
 				      struct v4l2_subdev_format *source_fmt,
-				      struct v4l2_subdev_format *sink_fmt)
+				      struct v4l2_subdev_format *sink_fmt,
+				      bool bypass_size_check)
 {
 	bool pass = true;
 
@@ -7660,7 +7661,7 @@ static int mtk_cam_v4l2_subdev_link_validate(struct v4l2_subdev *sd,
 			"%s: width does not match (source %u, sink %u)\n",
 			__func__,
 			source_fmt->format.width, sink_fmt->format.width);
-		pass = false;
+		pass = (bypass_size_check) ? true : false;
 	}
 
 	if (source_fmt->format.height != sink_fmt->format.height) {
@@ -7668,7 +7669,7 @@ static int mtk_cam_v4l2_subdev_link_validate(struct v4l2_subdev *sd,
 			"%s: height does not match (source %u, sink %u)\n",
 			__func__,
 			source_fmt->format.height, sink_fmt->format.height);
-		pass = false;
+		pass = (bypass_size_check) ? true : false;
 	}
 
 	if (source_fmt->format.code != sink_fmt->format.code) {
@@ -7699,7 +7700,70 @@ int mtk_cam_link_validate(struct v4l2_subdev *sd,
 
 	dev = sd->v4l2_dev->dev;
 
-	ret = mtk_cam_v4l2_subdev_link_validate(sd, link, source_fmt, sink_fmt);
+	ret = mtk_cam_v4l2_subdev_link_validate(sd, link, source_fmt, sink_fmt, false);
+	if (ret)
+		dev_info(dev, "%s: link validate failed pad/code/w/h: SRC(%d/0x%x/%d/%d), SINK(%d:0x%x/%d/%d)\n",
+			 sd->name, source_fmt->pad, source_fmt->format.code,
+			 source_fmt->format.width, source_fmt->format.height,
+			 sink_fmt->pad, sink_fmt->format.code,
+			 sink_fmt->format.width, sink_fmt->format.height);
+
+	return ret;
+}
+
+int mtk_cam_seninf_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt)
+{
+	struct device *dev;
+	int ret = 0;
+
+	dev = sd->v4l2_dev->dev;
+
+	ret = mtk_cam_v4l2_subdev_link_validate(sd, link, source_fmt, sink_fmt, true);
+	if (ret)
+		dev_info(dev, "%s: link validate failed pad/code/w/h: SRC(%d/0x%x/%d/%d), SINK(%d:0x%x/%d/%d)\n",
+			 sd->name, source_fmt->pad, source_fmt->format.code,
+			 source_fmt->format.width, source_fmt->format.height,
+			 sink_fmt->pad, sink_fmt->format.code,
+			 sink_fmt->format.width, sink_fmt->format.height);
+
+	return ret;
+}
+
+int mtk_cam_sv_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt)
+{
+	struct device *dev;
+	int ret = 0;
+
+	dev = sd->v4l2_dev->dev;
+
+	ret = mtk_cam_v4l2_subdev_link_validate(sd, link, source_fmt, sink_fmt, true);
+	if (ret)
+		dev_info(dev, "%s: link validate failed pad/code/w/h: SRC(%d/0x%x/%d/%d), SINK(%d:0x%x/%d/%d)\n",
+			 sd->name, source_fmt->pad, source_fmt->format.code,
+			 source_fmt->format.width, source_fmt->format.height,
+			 sink_fmt->pad, sink_fmt->format.code,
+			 sink_fmt->format.width, sink_fmt->format.height);
+
+	return ret;
+}
+
+int mtk_cam_mraw_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt)
+{
+	struct device *dev;
+	int ret = 0;
+
+	dev = sd->v4l2_dev->dev;
+
+	ret = mtk_cam_v4l2_subdev_link_validate(sd, link, source_fmt, sink_fmt, true);
 	if (ret)
 		dev_info(dev, "%s: link validate failed pad/code/w/h: SRC(%d/0x%x/%d/%d), SINK(%d:0x%x/%d/%d)\n",
 			 sd->name, source_fmt->pad, source_fmt->format.code,

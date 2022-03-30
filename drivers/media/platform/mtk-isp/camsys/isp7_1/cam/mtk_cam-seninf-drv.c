@@ -1295,7 +1295,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 }
 
 static const struct v4l2_subdev_pad_ops seninf_subdev_pad_ops = {
-	.link_validate = mtk_cam_link_validate,
+	.link_validate = mtk_cam_seninf_link_validate,
 	.init_cfg = mtk_cam_seninf_init_cfg,
 	.set_fmt = mtk_cam_seninf_set_fmt,
 	.get_fmt = mtk_cam_seninf_get_fmt,
