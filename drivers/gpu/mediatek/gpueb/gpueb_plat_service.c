@@ -70,7 +70,7 @@ int gpueb_plat_service_init(struct platform_device *pdev)
 		channel_id, // Send channel
 		0, // 0: wait, 1: polling
 		(void *)&plat_send_data, // Send data
-		4, // 4 slots message = 4 * 4 = 16 bytes
+		1, // 1 slots message = 1 * 4 = 4 bytes
 		IPI_TIMEOUT_MS); // Timeout value in milisecond
 	if (ret != IPI_ACTION_DONE) {
 		gpueb_pr_info("%s: IPI fail ret=%d\n", __func__, ret);
