@@ -1950,11 +1950,11 @@
 				"mfg_cpe_control",
 				"mfg_cpe_sensor";
 			_vcore-supply = <&mt6363_vbuck2>;
-			_dvfsrc-supply = <&dvfsrc_vcore>;
+			/*_dvfsrc-supply = <&dvfsrc_vcore>;*/
 			_vstack-supply = <&mt6373_vbuck2>;
 			_vsram-supply = <&mt6363_vbuck4>;
 			gpufreq_wrapper-supply = <&gpufreq_wrapper>;
-			fhctl-supply = <&fhctl>;
+			/*fhctl-supply = <&fhctl>;*/
 		};
 
 		gpufreq_wrapper: gpufreq_wrapper {
