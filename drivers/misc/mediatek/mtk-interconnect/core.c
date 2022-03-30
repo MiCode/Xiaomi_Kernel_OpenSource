@@ -336,7 +336,7 @@ struct icc_path *of_mtk_icc_get(struct device *dev, const char *name)
 	}
 
 	ret = of_parse_phandle_with_args(np, "interconnects",
-					 "#interconnect-cells", idx * 2,
+					 "#mtk-interconnect-cells", idx * 2,
 					 &src_args);
 	if (ret)
 		return ERR_PTR(ret);
@@ -344,7 +344,7 @@ struct icc_path *of_mtk_icc_get(struct device *dev, const char *name)
 	of_node_put(src_args.np);
 
 	ret = of_parse_phandle_with_args(np, "interconnects",
-					 "#interconnect-cells", idx * 2 + 1,
+					 "#mtk-interconnect-cells", idx * 2 + 1,
 					 &dst_args);
 	if (ret)
 		return ERR_PTR(ret);
@@ -416,6 +416,34 @@ void mtk_icc_set_tag(struct icc_path *path, u32 tag)
 }
 EXPORT_SYMBOL_GPL(mtk_icc_set_tag);
 
+
+int mtk_icc_set_bw_not_update(struct icc_path *path, u32 avg_bw, u32 peak_bw)
+{
+	struct icc_node *node;
+	size_t i;
+
+	if (IS_ERR_OR_NULL(path) || !path->num_nodes) {
+		pr_notice("wrong path setting\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&icc_lock);
+	for (i = 0; i < path->num_nodes; i++) {
+		node = path->reqs[i].node;
+
+		/* update the consumer request for this path */
+		path->reqs[i].avg_bw = avg_bw;
+		path->reqs[i].peak_bw = peak_bw;
+
+		/* aggregate requests for this node */
+		aggregate_requests(node);
+	}
+	mutex_unlock(&icc_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_icc_set_bw_not_update);
+
 /**
  * icc_set_bw() - set bandwidth constraints on an interconnect path
  * @path: reference to the path returned by icc_get()
@@ -438,7 +466,7 @@ int mtk_icc_set_bw(struct icc_path *path, u32 avg_bw, u32 peak_bw)
 	size_t i;
 	int ret;
 
-	if (!path || !path->num_nodes)
+	if (IS_ERR_OR_NULL(path) || !path->num_nodes)
 		return 0;
 
 	mutex_lock(&icc_lock);

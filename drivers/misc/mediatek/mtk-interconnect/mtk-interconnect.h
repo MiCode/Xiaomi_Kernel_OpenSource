@@ -29,6 +29,7 @@ struct icc_path *mtk_icc_get(struct device *dev, const int src_id,
 struct icc_path *of_mtk_icc_get(struct device *dev, const char *name);
 void mtk_icc_put(struct icc_path *path);
 int mtk_icc_set_bw(struct icc_path *path, u32 avg_bw, u32 peak_bw);
+int mtk_icc_set_bw_not_update(struct icc_path *path, u32 avg_bw, u32 peak_bw);
 void mtk_icc_set_tag(struct icc_path *path, u32 tag);
 
 #else
@@ -50,6 +51,11 @@ static inline void mtk_icc_put(struct icc_path *path)
 }
 
 static inline int mtk_icc_set_bw(struct icc_path *path, u32 avg_bw, u32 peak_bw)
+{
+	return 0;
+}
+
+static inline int mtk_icc_set_bw_not_update(struct icc_path *path, u32 avg_bw, u32 peak_bw)
 {
 	return 0;
 }
