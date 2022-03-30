@@ -1,0 +1,210 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (c) 2020 MediaTek Inc.
+ */
+/* Connsys FEM Start */
+&connfem {
+	/* PINCTRL States*/
+	pinctrl-names = "wlan7207h_wlan7205c",		/* pinctrl-0 */
+			"wlan7207h_wlan7205c_laa",	/* pinctrl-1 */
+			"qm42195_qm45197",		/* pinctrl-2 */
+			"qm42195_qm45197_laa";		/* pinctrl-3 */
+
+	pinctrl-0 = <&wlan7207h_wf0>, <&wlan7207h_wf1>,
+		<&wlan7205c_wf0>, <&wlan7205c_wf1>;
+
+	pinctrl-1 = <&wlan7207h_wf0>, <&wlan7207h_wf1>,
+		<&wlan7205c_wf0_laa>, <&wlan7205c_wf1_laa>;
+
+	pinctrl-2 = <&qm42195_wf0>, <&qm42195_wf1>,
+		<&qm45197_wf0>, <&qm45197_wf1>;
+
+	pinctrl-3 = <&qm42195_wf0>, <&qm42195_wf1>,
+		<&qm45197_wf0_laa>, <&qm45197_wf1_laa>;
+
+	/* FEM ID */
+	nofem: nofem {
+		vid = <0>;
+		pid = <0>;
+	};
+	wlan7207h: wlan7207h {
+		vid = <2>;
+		pid = <4>;
+	};
+	wlan7205c: wlan7205c {
+		vid = <2>;
+		pid = <5>;
+	};
+	wlan7205c_laa: wlan7205c_laa {
+		vid = <2>;
+		pid = <5>;
+	};
+	qm42195: qm42195 {
+		vid = <3>;
+		pid = <1>;
+	};
+	qm45197: qm45197 {
+		vid = <3>;
+		pid = <2>;
+	};
+	qm45197_laa: qm45197_laa {
+		vid = <3>;
+		pid = <2>;
+	};
+};
+
+/* ANTSEL PINMUX and FEM Func Mapping */
+&pio {
+	wlan7207h_wf0: wlan7207h_wf0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO222__FUNC_ANT_SEL0>,
+				<PINMUX_GPIO223__FUNC_ANT_SEL1>,
+				<PINMUX_GPIO224__FUNC_ANT_SEL2>,
+				<PINMUX_GPIO225__FUNC_ANT_SEL3>;
+			mapping = <0 3 0>,	/* ANTSEL 0 <-> PIN #3: C0 */
+				<1 2 0>,	/* ANTSEL 1 <-> PIN #2: C1 */
+				<2 4 0>,	/* ANTSEL 2 <-> PIN #4: C2 */
+				<3 11 0>;	/* ANTSEL 3 <-> VCTRL */
+		};
+	};
+
+	wlan7207h_wf1: wlan7207h_wf1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO230__FUNC_ANT_SEL8>,
+				<PINMUX_GPIO231__FUNC_ANT_SEL9>,
+				<PINMUX_GPIO38__FUNC_ANT_SEL10>;
+			mapping = <8 0x83 0>,	/* ANTSEL  8 <-> PIN #3: C0 */
+				<9 0x82 0>,	/* ANTSEL  9 <-> PIN #2: C1 */
+				<10 0x84 0>;	/* ANTSEL 10 <-> PIN #4: C2 */
+		};
+	};
+
+	wlan7205c_wf0: wlan7205c_wf0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO226__FUNC_ANT_SEL4>,
+				<PINMUX_GPIO123__FUNC_ANT_SEL20>,
+				<PINMUX_GPIO228__FUNC_ANT_SEL6>,
+				<PINMUX_GPIO229__FUNC_ANT_SEL7>;
+			mapping = <4 0x4C 0>,	/* ANTSEL  4 <-> PIN #12: C0 */
+				<20 0x4D 0>,	/* ANTSEL 20 <-> PIN #13: C1 */
+				<6 0x4E 0>,	/* ANTSEL  6 <-> PIN #14: C2 */
+				<7 0x4B 0>;	/* ANTSEL  7 <-> PIN #11: C3 */
+		};
+	};
+
+	wlan7205c_wf1: wlan7205c_wf1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO39__FUNC_ANT_SEL11>,
+				<PINMUX_GPIO124__FUNC_ANT_SEL21>,
+				<PINMUX_GPIO40__FUNC_ANT_SEL12>,
+				<PINMUX_GPIO227__FUNC_ANT_SEL5>;
+			mapping = <11 0xCC 0>,	/* ANTSEL 11 <-> PIN #12: C0 */
+				<21 0xCD 0>,	/* ANTSEL 21 <-> PIN #13: C1 */
+				<12 0xCE 0>,	/* ANTSEL 12 <-> PIN #14: C2 */
+				<5 0xCB 0>;	/* ANTSEL  5 <-> PIN #11: C3 */
+		};
+	};
+
+	wlan7205c_wf0_laa: wlan7205c_wf0_laa {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO226__FUNC_ANT_SEL4>,
+				<PINMUX_GPIO123__FUNC_BPI_BUS20_ANT3>,
+				<PINMUX_GPIO228__FUNC_ANT_SEL6>,
+				<PINMUX_GPIO229__FUNC_ANT_SEL7>;
+			mapping = <4 0x4C 0>,	/* ANTSEL  4 <-> PIN #12: C0 */
+				<20 0x4D 0>,	/* ANTSEL 20 <-> PIN #13: C1 */
+				<6 0x4E 0>,	/* ANTSEL  6 <-> PIN #14: C2 */
+				<7 0x4B 0>;	/* ANTSEL  7 <-> PIN #11: C3 */
+			laa-pinmux = <PINMUX_GPIO123__FUNC_ANT_SEL20>,
+				<PINMUX_GPIO123__FUNC_BPI_BUS20_ANT3>;
+		};
+	};
+
+	wlan7205c_wf1_laa: wlan7205c_wf1_laa {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO39__FUNC_ANT_SEL11>,
+				<PINMUX_GPIO124__FUNC_BPI_BUS21_ANT4>,
+				<PINMUX_GPIO40__FUNC_ANT_SEL12>,
+				<PINMUX_GPIO227__FUNC_ANT_SEL5>;
+			mapping = <11 0xCC 0>,	/* ANTSEL 11 <-> PIN #12: C0 */
+				<21 0xCD 0>,	/* ANTSEL 21 <-> PIN #13: C1 */
+				<12 0xCE 0>,	/* ANTSEL 12 <-> PIN #14: C2 */
+				<5 0xCB 0>;	/* ANTSEL  5 <-> PIN #11: C3 */
+			laa-pinmux = <PINMUX_GPIO124__FUNC_ANT_SEL21>,
+				<PINMUX_GPIO124__FUNC_BPI_BUS21_ANT4>;
+		};
+	};
+
+	qm42195_wf0: qm42195_wf0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO222__FUNC_ANT_SEL0>,
+				<PINMUX_GPIO223__FUNC_ANT_SEL1>,
+				<PINMUX_GPIO224__FUNC_ANT_SEL2>,
+				<PINMUX_GPIO225__FUNC_ANT_SEL3>;
+			mapping = <0 3 0>,	/* ANTSEL 0 <-> PIN #3: PAEN */
+				<1 2 0>,	/* ANTSEL 1 <-> PIN #2: LNAEN */
+				<2 4 0>,	/* ANTSEL 2 <-> PIN #4: BTEN */
+				<3 11 0>;	/* ANTSEL 3 <-> VCTRL */
+		};
+	};
+
+	qm42195_wf1: qm42195_wf1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO230__FUNC_ANT_SEL8>,
+				<PINMUX_GPIO231__FUNC_ANT_SEL9>,
+				<PINMUX_GPIO38__FUNC_ANT_SEL10>;
+			mapping = <8 0x83 0>,	/* ANTSEL  8 <-> PIN #3: PAEN */
+				<9 0x82 0>,	/* ANTSEL  9 <-> PIN #2: LNAEN */
+				<10 0x84 0>;	/* ANTSEL 10 <-> PIN #4: BTEN */
+		};
+	};
+
+	qm45197_wf0: qm45197_wf0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO226__FUNC_ANT_SEL4>,
+				<PINMUX_GPIO123__FUNC_ANT_SEL20>,
+				<PINMUX_GPIO228__FUNC_ANT_SEL6>;
+			mapping = <4 0x4A 0>,	/* ANTSEL  4 <-> PIN #10: PAEN */
+				<20 0x4B 0>,	/* ANTSEL 20 <-> PIN #11: LNAEN */
+				<6 0x4C 0>;	/* ANTSEL  6 <-> PIN #12: SEL3 */
+		};
+	};
+
+	qm45197_wf1: qm45197_wf1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO39__FUNC_ANT_SEL11>,
+				<PINMUX_GPIO124__FUNC_ANT_SEL21>,
+				<PINMUX_GPIO40__FUNC_ANT_SEL12>;
+			mapping = <11 0xCA 0>,	/* ANTSEL 11 <-> PIN #10: PAEN */
+				<21 0xCB 0>,	/* ANTSEL 21 <-> PIN #11: LNAEN */
+				<12 0xCC 0>;	/* ANTSEL 12 <-> PIN #12: SEL3 */
+		};
+	};
+
+	qm45197_wf0_laa: qm45197_wf0_laa {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO226__FUNC_ANT_SEL4>,
+				<PINMUX_GPIO123__FUNC_BPI_BUS20_ANT3>,
+				<PINMUX_GPIO228__FUNC_ANT_SEL6>;
+			mapping = <4 0x4A 0>,	/* ANTSEL  4 <-> PIN #10: PAEN */
+				<20 0x4B 0>,	/* ANTSEL 20 <-> PIN #11: LNAEN */
+				<6 0x4C 0>;	/* ANTSEL  6 <-> PIN #12: SEL3 */
+			laa-pinmux = <PINMUX_GPIO123__FUNC_ANT_SEL20>,
+				<PINMUX_GPIO123__FUNC_BPI_BUS20_ANT3>;
+		};
+	};
+
+	qm45197_wf1_laa: qm45197_wf1_laa {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO39__FUNC_ANT_SEL11>,
+				<PINMUX_GPIO124__FUNC_BPI_BUS21_ANT4>,
+				<PINMUX_GPIO40__FUNC_ANT_SEL12>;
+			mapping = <11 0xCA 0>,	/* ANTSEL 11 <-> PIN #10: PAEN */
+				<21 0xCB 0>,	/* ANTSEL 21 <-> PIN #11: LNAEN */
+				<12 0xCC 0>;	/* ANTSEL 12 <-> PIN #12: SEL3 */
+			laa-pinmux = <PINMUX_GPIO124__FUNC_ANT_SEL21>,
+				<PINMUX_GPIO124__FUNC_BPI_BUS21_ANT4>;
+		};
+	};
+};
+/* Connsys FEM End */

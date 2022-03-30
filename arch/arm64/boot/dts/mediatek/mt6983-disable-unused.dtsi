@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2021 MediaTek Inc.
+ * Author: Owen Chen <owen.chen@mediatek.com>
+ */
+
+&disable_unused {
+	status = "okay";
+
+	disable-unused-clk-topckgen {
+		compatible = "mediatek,clk-disable-unused";
+		clocks =
+			<&topckgen_clk CLK_TOPCKGEN_DSP_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP1_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP2_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP3_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP4_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP5_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP6_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_DSP7_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_IPU_IF_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_UFS_SEL>,
+			<&topckgen_clk CLK_TOPCKGEN_CAMTM_SEL>;
+	};
+
+	disable-unused-clk-apmixedsys {
+		compatible = "mediatek,clk-disable-unused";
+		clocks =
+			<&apmixedsys_clk CLK_APMIXEDSYS_MAINPLL>,
+			<&apmixedsys_clk CLK_APMIXEDSYS_UNIVPLL>,
+			<&apmixedsys_clk CLK_APMIXEDSYS_MSDCPLL>,
+			<&apmixedsys_clk CLK_APMIXEDSYS_MMPLL>,
+			<&apmixedsys_clk CLK_APMIXEDSYS_ADSPPLL>,
+			<&apmixedsys_clk CLK_APMIXEDSYS_TVDPLL>,
+			<&apmixedsys_clk CLK_APMIXEDSYS_APLL1>,
+			<&apmixedsys_clk CLK_APMIXEDSYS_APLL2>,
+			<&apmixedsys_clk CLK_APMIXEDSYS_MPLL>,
+			<&apmixedsys_clk CLK_APMIXEDSYS_IMGPLL>;
+	};
+};

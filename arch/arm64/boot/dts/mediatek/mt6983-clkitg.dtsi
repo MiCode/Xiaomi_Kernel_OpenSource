@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ * Author: Wendell Lin <wendell.lin@mediatek.com>
+ */
+
+&clkitg {
+	status = "okay";
+	bring-up {
+		compatible = "mediatek,clk-bring-up";
+		clocks = <&clk26m>,
+			<&vlp_cksys_clk CLK_VLP_CKSYS_APXGPT66M_BCLK_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CKSYS_DXCC_VLP_SEL>,
+			<&topckgen_clk CLK_TOP_PERI_HD_FAXI_SEL>,
+			<&topckgen_clk CLK_TOP_UFS_HD_HAXI_SEL>,
+			<&topckgen_clk CLK_TOP_BUS_AXIMEM_SEL>,
+			<&topckgen_clk CLK_TOP_AXI_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CKSYS_DVFSRC_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CKSYS_AXI_VLP_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CKSYS_DBGAO_26M_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CKSYS_SYSTIMER_26M_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CKSYS_SSPM_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CKSYS_SSPM_F26M_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CKSYS_APEINT_66M_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CKSYS_SRCK_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CKSYS_SRAMRC_SEL>,
+			<&topckgen_clk CLK_TOP_PWRAP_ULPOSC_SEL>,
+			<&topckgen_clk CLK_TOP_DISP_PWM_SEL>,
+			<&topckgen_clk CLK_TOP_SPMI_P_MST_SEL>,
+			<&topckgen_clk CLK_TOP_SPMI_M_MST_SEL>,
+			<&topckgen_clk CLK_TOP_MEM_SUB_SEL>,
+			<&topckgen_clk CLK_TOP_PERI_HF_FMEM_SEL>,
+			<&topckgen_clk CLK_TOP_UFS_HF_FMEM_SEL>,
+			<&topckgen_clk CLK_TOP_MCU_ACP_SEL>;
+	};
+
+};
