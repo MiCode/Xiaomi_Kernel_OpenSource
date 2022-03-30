@@ -617,42 +617,67 @@ void mtk_hook_after_enqueue_task(void *data, struct rq *rq,
  * Note that uclamp_min will be clamped to uclamp_max if uclamp_min
  * > uclamp_max.
  */
-static inline bool rt_task_fits_capacity(struct task_struct *p, int cpu)
+static inline bool mtk_rt_task_fits_capacity(struct task_struct *p, int cpu)
 {
 	unsigned int min_cap;
 	unsigned int max_cap;
 	unsigned int cpu_cap;
+	unsigned long util;
+	struct rq *rq;
 
 	/* Only heterogeneous systems can benefit from this check */
 	if (!likely(mtk_sched_asym_cpucapacity))
 		return true;
 
+	rq = cpu_rq(cpu);
 	min_cap = uclamp_eff_value(p, UCLAMP_MIN);
 	max_cap = uclamp_eff_value(p, UCLAMP_MAX);
-
+	/* refer code from sched.h: effective_cpu_util -> cpu_util_rt */
+	util = cpu_util_rt(rq);
+	util = uclamp_rq_util_with(rq, util, p);
 	cpu_cap = capacity_orig_of(cpu);
 
-	return cpu_cap >= min(min_cap, max_cap);
+	return cpu_cap >= clamp_val(util, min_cap, max_cap);
 }
 #else
-static inline bool rt_task_fits_capacity(struct task_struct *p, int cpu)
+static inline bool mtk_rt_task_fits_capacity(struct task_struct *p, int cpu)
 {
 	return true;
 }
 #endif
+
+static inline unsigned int mtk_task_cap(struct task_struct *p, int cpu)
+{
+	unsigned int min_cap;
+	unsigned int max_cap;
+	unsigned long util;
+	struct rq *rq;
+
+	rq = cpu_rq(cpu);
+	min_cap = uclamp_eff_value(p, UCLAMP_MIN);
+	max_cap = uclamp_eff_value(p, UCLAMP_MAX);
+	util = cpu_util_rt(rq);
+	util = uclamp_rq_util_with(rq, util, p);
+
+	return clamp_val(util, min_cap, max_cap);
+}
 
 void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 				int sd_flag, int flags, int *target_cpu)
 {
 	struct task_struct *curr;
 	struct rq *rq;
-	struct rq *this_cpu_rq;
 	int lowest_cpu = -1;
 	int lowest_prio = 0;
 	int cpu;
 	int select_reason = -1;
 	bool sync = !!(flags & WF_SYNC);
-	int this_cpu;
+	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+	struct perf_domain *pd;
+	unsigned int task_util;
+	int best_idle_cpu = -1;
+	unsigned long pwr_eff = ULONG_MAX;
+	unsigned long this_pwr_eff = ULONG_MAX;
 
 	*target_cpu = -1;
 	/* For anything but wake ups, just return the task_cpu */
@@ -662,35 +687,58 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 	}
 
 	rcu_read_lock();
-	this_cpu = smp_processor_id();
-	this_cpu_rq = cpu_rq(this_cpu);
-	/*
-	 * Respect the sync flag as long as the task can run on this CPU.
-	 */
 
-	for_each_cpu_and(cpu, p->cpus_ptr,
-			cpu_active_mask) {
-		if (idle_cpu(cpu) && rt_task_fits_capacity(p, cpu)) {
-			*target_cpu = cpu;
-			select_reason = LB_RT_IDLE;
-			break;
-		}
-		rq = cpu_rq(cpu);
-		curr = rq->curr;
-		if (curr && (curr->policy == SCHED_NORMAL)
-				&& (curr->prio > lowest_prio)
-				&& (!task_may_not_preempt(curr, cpu))
-				&& (rt_task_fits_capacity(p, cpu))) {
-			lowest_prio = curr->prio;
-			lowest_cpu = cpu;
+	/*
+	 * Select one CPU from each cluster and
+	 * compare its power / capacity.
+	 */
+	pd = rcu_dereference(rd->pd);
+	if (!pd) {
+		select_reason = LB_RT_FAIL;
+		goto unlock;
+	}
+
+	for (; pd; pd = pd->next) {
+		for_each_cpu_and(cpu, perf_domain_span(pd), cpu_active_mask) {
+			if (!cpumask_test_cpu(cpu, p->cpus_ptr))
+				continue;
+
+			if (!mtk_rt_task_fits_capacity(p, cpu))
+				continue;
+
+			if (idle_cpu(cpu)) {
+				task_util = mtk_task_cap(p, cpu);
+				task_util += (task_util >> 2);
+				this_pwr_eff = pd_get_util_pwr_eff(cpu, task_util);
+
+				trace_sched_aware_energy_rt(cpu, this_pwr_eff, pwr_eff, task_util);
+
+				if (this_pwr_eff < pwr_eff) {
+					pwr_eff = this_pwr_eff;
+					best_idle_cpu = cpu;
+				}
+				break;
+			}
+			rq = cpu_rq(cpu);
+			curr = rq->curr;
+			if (curr && (curr->policy == SCHED_NORMAL)
+					&& (curr->prio > lowest_prio)
+					&& (!task_may_not_preempt(curr, cpu))) {
+				lowest_prio = curr->prio;
+				lowest_cpu = cpu;
+			}
 		}
 	}
+
+	*target_cpu = best_idle_cpu;
+	select_reason = LB_RT_IDLE;
 
 	if (-1 == *target_cpu) {
 		*target_cpu =  lowest_cpu;
 		select_reason = LB_RT_LOWEST_PRIO;
 	}
 
+unlock:
 	rcu_read_unlock();
 out:
 

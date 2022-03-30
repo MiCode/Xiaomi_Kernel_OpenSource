@@ -39,6 +39,27 @@ unsigned long pd_get_opp_capacity(int cpu, int opp)
 }
 EXPORT_SYMBOL_GPL(pd_get_opp_capacity);
 
+unsigned long pd_get_util_pwr_eff(int cpu, int util)
+{
+	int i;
+	struct pd_capacity_info *pd_info;
+
+	for (i = 0; i < pd_count; i++) {
+		pd_info = &pd_capacity_tbl[i];
+
+		if (!cpumask_test_cpu(cpu, &pd_info->cpus))
+			continue;
+
+		util = clamp_val(util, 0, pd_info->caps[0]);
+
+		return pd_info->pwr_eff[util];
+	}
+
+	/* Should NOT reach here */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(pd_get_util_pwr_eff);
+
 static void free_capacity_table(void)
 {
 	int i;
@@ -50,6 +71,7 @@ static void free_capacity_table(void)
 		kfree(pd_capacity_tbl[i].caps);
 		kfree(pd_capacity_tbl[i].util_opp);
 		kfree(pd_capacity_tbl[i].util_freq);
+		kfree(pd_capacity_tbl[i].pwr_eff);
 	}
 	kfree(pd_capacity_tbl);
 	pd_capacity_tbl = NULL;
@@ -66,6 +88,8 @@ static int init_capacity_table(void)
 	long next_cap, k;
 	struct pd_capacity_info *pd_info;
 	struct em_perf_domain *pd;
+	struct em_perf_state *ps;
+	unsigned int pwr_div_cap;
 
 	for (i = 0; i < pd_count; i++) {
 		pd_info = &pd_capacity_tbl[i];
@@ -95,13 +119,24 @@ static int init_capacity_table(void)
 					goto nomem;
 			}
 
+			if (!pd_info->pwr_eff) {
+				pd_info->pwr_eff = kcalloc(cap + 1, sizeof(unsigned int),
+										GFP_KERNEL);
+				if (!pd_info->pwr_eff)
+					goto nomem;
+			}
+
 			if (j == pd_info->nr_caps - 1)
 				next_cap = -1;
+
+			ps = &pd->table[pd_info->nr_caps - j - 1];
+			pwr_div_cap = (ps->power << SCHED_CAPACITY_SHIFT) / pd_info->caps[j];
 
 			for (k = cap; k > next_cap; k--) {
 				pd_info->util_opp[k] = j;
 				pd_info->util_freq[k] =
 					pd->table[pd->nr_perf_states - j - 1].frequency;
+				pd_info->pwr_eff[k] = pwr_div_cap;
 			}
 
 			count += 1;
@@ -172,6 +207,7 @@ static int alloc_capacity_table(void)
 
 		pd_capacity_tbl[cur_tbl].util_opp = NULL;
 		pd_capacity_tbl[cur_tbl].util_freq = NULL;
+		pd_capacity_tbl[cur_tbl].pwr_eff = NULL;
 
 		entry_count += nr_caps;
 

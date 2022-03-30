@@ -374,6 +374,29 @@ TRACE_EVENT(sched_select_task_rq_rt,
 		__entry->act_mask)
 );
 
+TRACE_EVENT(sched_aware_energy_rt,
+	TP_PROTO(int target_cpu, unsigned long this_pwr_eff, unsigned long pwr_eff,
+			unsigned int task_util),
+	TP_ARGS(target_cpu, this_pwr_eff, pwr_eff, task_util),
+	TP_STRUCT__entry(
+		__field(int, target_cpu)
+		__field(unsigned long, this_pwr_eff)
+		__field(unsigned long, pwr_eff)
+		__field(unsigned int, task_util)
+	),
+	TP_fast_assign(
+		__entry->target_cpu	= target_cpu;
+		__entry->this_pwr_eff	= this_pwr_eff;
+		__entry->pwr_eff		= pwr_eff;
+		__entry->task_util		= task_util;
+	),
+	TP_printk("target=%d this_pwr_eff=%lu pwr_eff=%lu util=%u ",
+		__entry->target_cpu,
+		__entry->this_pwr_eff,
+		__entry->pwr_eff,
+		__entry->task_util)
+);
+
 TRACE_EVENT(sched_next_update_thermal_headroom,
 	TP_PROTO(unsigned long now, unsigned long next_update_thermal),
 	TP_ARGS(now, next_update_thermal),
