@@ -4584,6 +4584,11 @@ void mtk_cam_mstream_mark_incomplete_frame(struct mtk_cam_ctx *ctx,
 
 		req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
 				incomplete_s_data->frame_seq_no + i);
+		if (!req_stream_data) {
+			pr_info("%s null s_data:%d bypass\n", __func__,
+				incomplete_s_data->frame_seq_no + i);
+			continue;
+		}
 		req = mtk_cam_s_data_get_req(req_stream_data);
 
 		if (mtk_cam_feature_is_mstream(req_stream_data->feature.raw_feature)) {
