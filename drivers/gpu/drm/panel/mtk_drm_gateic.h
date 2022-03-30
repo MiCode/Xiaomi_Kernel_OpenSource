@@ -25,7 +25,7 @@
 do { \
 	buf = kzalloc(roundup(size, 4), flag); \
 	if (buf != NULL) \
-		mtk_lcm_total_size += size; \
+		mtk_lcm_total_size += roundup(size, 4); \
 	if (debug == 1 && buf != NULL) \
 		pr_notice("%s, %d, buf:0x%lx, size:%u, align:%u, flag:0x%x\n", \
 			__func__, __LINE__, (unsigned long)buf, \

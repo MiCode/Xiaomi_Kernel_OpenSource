@@ -344,8 +344,6 @@ static void __exit mtk_drm_gateic_exit(void)
 		platform_driver_unregister(mtk_drm_gateic_drivers[i]);
 
 	i2c_del_driver(&mtk_panel_i2c_driver);
-#else
-	return 0;
 #endif
 }
 module_init(mtk_drm_gateic_init);
