@@ -1163,10 +1163,7 @@ static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa,
 			  unsigned long hva)
 {
 	struct mm_struct *mm = current->mm;
-	unsigned int flags = FOLL_FORCE |
-			     FOLL_HWPOISON |
-			     FOLL_LONGTERM |
-			     FOLL_WRITE;
+	unsigned int flags = FOLL_HWPOISON | FOLL_LONGTERM | FOLL_WRITE;
 	struct kvm_pinned_page *ppage;
 	struct kvm *kvm = vcpu->kvm;
 	struct page *page;
