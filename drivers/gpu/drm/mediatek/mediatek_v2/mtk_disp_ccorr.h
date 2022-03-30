@@ -8,6 +8,12 @@
 
 #include <drm/mediatek_drm.h>
 
+struct mtk_disp_ccorr_data {
+	bool support_shadow;
+	bool need_bypass_shadow;
+	int single_pipe_ccorr_num;
+};
+
 void ccorr_test(const char *cmd, char *debug_output);
 int ccorr_interface_for_color(unsigned int ccorr_idx,
 	unsigned int ccorr_coef[3][3], void *handle);

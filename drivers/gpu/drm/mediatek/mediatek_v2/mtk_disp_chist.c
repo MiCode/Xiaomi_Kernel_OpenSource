@@ -146,8 +146,8 @@ int mtk_drm_ioctl_get_chist_caps(struct drm_device *dev, void *data,
 	int i = 0, index = 0;
 
 	DDPINFO("%s chist id:%d\n", __func__, caps_info->device_id);
-	// just call from pqservice
-	if (comp_to_chist(comp)->data->module_count > 1)
+	// just call from pqservice, device_id:low 16bit=module_id, high 16bit=panel_id
+	if (comp_to_chist(comp)->data->module_count > 1 && (caps_info->device_id & 0xffff))
 		index = 1;
 
 	caps_info->support_color = DISP_CHIST_COLOR_FORMAT;
@@ -174,7 +174,8 @@ int mtk_drm_ioctl_set_chist_config(struct drm_device *dev, void *data,
 	int i = 0;
 
 	if (comp_to_chist(comp)->data->module_count > 1
-		&& config->caller == MTK_DRM_CHIST_CALLER_PQ)
+		&& config->caller == MTK_DRM_CHIST_CALLER_PQ
+		&& (config->device_id & 0xffff))
 		comp = private->ddp_comp[DDP_COMPONENT_CHIST1];
 
 	DDPINFO("%s  chist id:%d, caller:%d, config count:%d\n", __func__,
@@ -188,6 +189,12 @@ int mtk_drm_ioctl_set_chist_config(struct drm_device *dev, void *data,
 			config->chist_config[i].channel_id = channel_id;
 			channel_id++;
 		}
+	} else {
+#ifndef DEBUG_UT_TEST
+		if (index_of_chist(comp->id) == 0
+			&& config->config_channel_count > DISP_CHIST_HWC_CHANNEL_INDEX)
+			config->config_channel_count = DISP_CHIST_HWC_CHANNEL_INDEX;
+#endif
 	}
 
 	need_restore = 1;
@@ -216,7 +223,8 @@ static int disp_chist_copy_hist_to_user(struct drm_device *dev,
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_CHIST0];
 
 	if (comp_to_chist(comp)->data->module_count > 1
-		&& hist->caller == MTK_DRM_CHIST_CALLER_PQ)
+		&& hist->caller == MTK_DRM_CHIST_CALLER_PQ
+		&& (hist->device_id & 0xffff))
 		comp = private->ddp_comp[DDP_COMPONENT_CHIST1];
 
 	index = index_of_chist(comp->id);
@@ -281,7 +289,7 @@ void mtk_chist_dump_impl(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i = 0;
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 
 	mtk_cust_dump_reg(baddr, DISP_CHIST_EN, DISP_CHIST_CFG,
 		DISP_CHIST_SIZE, DISP_CHIST_INTEN);
@@ -661,8 +669,8 @@ static int mtk_chist_user_cmd(struct mtk_ddp_comp *comp,
 static void mtk_chist_prepare(struct mtk_ddp_comp *comp)
 {
 	unsigned long flags;
-
 	DDPINFO("%s\n", __func__);
+
 	mtk_ddp_comp_clk_prepare(comp);
 	spin_lock_irqsave(&g_chist_clock_lock, flags);
 	atomic_set(&g_chist_is_clock_on[index_of_chist(comp->id)], 1);
@@ -672,8 +680,8 @@ static void mtk_chist_prepare(struct mtk_ddp_comp *comp)
 static void mtk_chist_unprepare(struct mtk_ddp_comp *comp)
 {
 	unsigned long flags;
-
 	DDPINFO("%s\n", __func__);
+
 	spin_lock_irqsave(&g_chist_clock_lock, flags);
 	atomic_set(&g_chist_is_clock_on[index_of_chist(comp->id)], 0);
 	spin_unlock_irqrestore(&g_chist_clock_lock, flags);
@@ -789,8 +797,8 @@ static void mtk_disp_chist_unbind(struct device *dev, struct device *master,
 {
 	struct mtk_disp_chist *priv = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = data;
-
 	DDPINFO("%s\n", __func__);
+
 	mtk_ddp_comp_unregister(drm_dev, &priv->ddp_comp);
 }
 
@@ -892,8 +900,9 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 			}
 		}
 	}
-	present_fence[index] = atomic_read(&priv->crtc_present[0]);
 	spin_unlock_irqrestore(&g_chist_global_lock, flags);
+	present_fence[index] = *(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
+				DISP_SLOT_PRESENT_FENCE(0))) - 1;
 }
 
 static int mtk_chist_read_kthread(void *data)

@@ -26,7 +26,7 @@
 #include "mtk_drm_helper.h"
 
 #ifdef CONFIG_LEDS_MTK_MODULE
-#define LEDS_BRIGHTNESS_CHANGED
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
 #include <linux/leds-mtk.h>
 #else
 #define mtk_leds_brightness_set(x, y) do { } while (0)
@@ -145,6 +145,7 @@ static int g_rgb_matrix[DISP_CCORR_TOTAL][3][3] = {
 	} };
 static struct DRM_DISP_CCORR_COEF_T g_multiply_matrix_coef;
 static int g_disp_ccorr_without_gamma;
+static int g_disp_ccorr_temp_linear;
 
 static DECLARE_WAIT_QUEUE_HEAD(g_ccorr_get_irq_wq);
 //static DEFINE_SPINLOCK(g_ccorr_get_irq_lock);
@@ -160,7 +161,7 @@ static atomic_t g_ccorr_is_init_valid = ATOMIC_INIT(0);
 
 static DEFINE_MUTEX(g_ccorr_global_lock);
 // For color conversion bug fix
-static bool need_offset;
+//static bool need_offset;
 #define OFFSET_VALUE (1024)
 
 /* TODO */
@@ -178,12 +179,6 @@ enum CCORR_IOCTL_CMD {
 	SET_CCORR = 0,
 	SET_INTERRUPT,
 	BYPASS_CCORR
-};
-
-struct mtk_disp_ccorr_data {
-	bool support_shadow;
-	bool need_bypass_shadow;
-	int single_pipe_ccorr_num;
 };
 
 struct mtk_disp_ccorr {
@@ -312,7 +307,8 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 		mutex_lock(&g_ccorr_global_lock);
 
 	ccorr = g_disp_ccorr_coef[id];
-	DDPINFO("%s:ccorr id:%d,aosp ccorr:%d\n", __func__, id, disp_aosp_ccorr);
+	DDPINFO("%s:ccorr id:%d,aosp ccorr:%d,nonlinear:%d\n", __func__, id,
+		disp_aosp_ccorr, g_disp_ccorr_without_gamma);
 	if (ccorr == NULL) {
 		DDPINFO("%s: [%d] is not initialized\n", __func__, id);
 		ret = -EFAULT;
@@ -323,10 +319,10 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 		multiply_matrix = &g_multiply_matrix_coef;
 		if (disp_aosp_ccorr) {
 			disp_ccorr_multiply_3x3(ccorr->coef, g_ccorr_color_matrix[id],
-				multiply_matrix->coef);
+				multiply_matrix->coef);//AOSP multiply
 		} else {
 			disp_ccorr_multiply_3x3(ccorr->coef, g_rgb_matrix[id],
-				multiply_matrix->coef);
+				multiply_matrix->coef);//PQ service multiply
 		}
 		ccorr = multiply_matrix;
 
@@ -349,19 +345,19 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 			     (g_disp_ccorr_without_gamma << 2) |
 				(g_ccorr_8bit_switch[id] << 10);
 		writel(cfg_val, comp->regs + DISP_REG_CCORR_CFG);
-		writel(((ccorr->coef[0][0] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[0][1] & ccorr_fullbit_mask),
+		writel(((ccorr->coef[0][0] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[0][1] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(0));
-		writel(((ccorr->coef[0][2] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[1][0] & ccorr_fullbit_mask),
+		writel(((ccorr->coef[0][2] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][0] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(1));
-		writel(((ccorr->coef[1][1] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[1][2] & ccorr_fullbit_mask),
+		writel(((ccorr->coef[1][1] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][2] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(2));
-		writel(((ccorr->coef[2][0] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[2][1] & ccorr_fullbit_mask),
+		writel(((ccorr->coef[2][0] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[2][1] & CCORR_13BIT_MASK),
 			comp->regs + CCORR_REG(3));
-		writel(((ccorr->coef[2][2] & ccorr_fullbit_mask) << 16),
+		writel(((ccorr->coef[2][2] & CCORR_13BIT_MASK) << 16),
 			comp->regs + CCORR_REG(4));
 		/* Ccorr Offset */
 		writel(((ccorr->offset[0] & CCORR_COLOR_OFFSET_MASK) |
@@ -383,23 +379,23 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(0),
-			((ccorr->coef[0][0] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[0][1] & ccorr_fullbit_mask), ~0);
+			((ccorr->coef[0][0] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[0][1] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(1),
-			((ccorr->coef[0][2] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[1][0] & ccorr_fullbit_mask), ~0);
+			((ccorr->coef[0][2] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][0] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(2),
-			((ccorr->coef[1][1] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[1][2] & ccorr_fullbit_mask), ~0);
+			((ccorr->coef[1][1] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[1][2] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(3),
-			((ccorr->coef[2][0] & ccorr_fullbit_mask) << 16) |
-			(ccorr->coef[2][1] & ccorr_fullbit_mask), ~0);
+			((ccorr->coef[2][0] & CCORR_13BIT_MASK) << 16) |
+			(ccorr->coef[2][1] & CCORR_13BIT_MASK), ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + CCORR_REG(4),
-			((ccorr->coef[2][2] & ccorr_fullbit_mask) << 16), ~0);
+			((ccorr->coef[2][2] & CCORR_13BIT_MASK) << 16), ~0);
 		/* Ccorr Offset */
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_CCORR_COLOR_OFFSET_0,
@@ -651,7 +647,7 @@ static int disp_ccorr_set_coef(
 
 			old_ccorr = g_disp_ccorr_coef[id];
 			g_disp_ccorr_coef[id] = ccorr;
-			if ((g_disp_ccorr_coef[id]->offset[0] == 0) &&
+			/* if ((g_disp_ccorr_coef[id]->offset[0] == 0) &&
 				(g_disp_ccorr_coef[id]->offset[1] == 0) &&
 				(g_disp_ccorr_coef[id]->offset[2] == 0) &&
 				need_offset) {
@@ -663,6 +659,7 @@ static int disp_ccorr_set_coef(
 				g_disp_ccorr_coef[id]->offset[2] =
 						(ccorr_offset_base << 1) << ccorr_offset_mask;
 			}
+			*/
 			DDPINFO("%s: Set module(%d) coef", __func__, id);
 			if (disp_aosp_ccorr)
 				disp_aosp_ccorr = false;
@@ -800,14 +797,16 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 		}
 	} else {
 		if (id == 0) {
-			if (bypass_color0 == false) {
+			if ((bypass_color0 == false) && (disp_ccorr_number == 1)
+				&& (!(disp_ccorr_linear & 0x01))) {
 				struct mtk_ddp_comp *comp_color0 =
 					priv->ddp_comp[DDP_COMPONENT_COLOR0];
 				ddp_color_bypass_color(comp_color0, true, handle);
 				bypass_color0 = true;
 			}
 		} else if (id == 1 || id == 2) {
-			if (bypass_color1 == false) {
+			if ((bypass_color1 == false) && (disp_ccorr_number == 1)
+				&& (!(disp_ccorr_linear & 0x01))) {
 				struct mtk_ddp_comp *comp_color1 =
 					priv->ddp_comp[DDP_COMPONENT_COLOR1];
 				ddp_color_bypass_color(comp_color1, true, handle);
@@ -819,10 +818,11 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 	}
 
 	// offset part
-	if ((matrix[12] != 0) || (matrix[13] != 0) || (matrix[14] != 0))
+/*	if ((matrix[12] != 0) || (matrix[13] != 0) || (matrix[14] != 0))
 		need_offset = true;
 	else
 		need_offset = false;
+*/
 
 	g_disp_ccorr_coef[id]->offset[0] = (matrix[12] << 1) << ccorr_offset_mask;
 	g_disp_ccorr_coef[id]->offset[1] = (matrix[13] << 1) << ccorr_offset_mask;
@@ -848,6 +848,7 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp,
 		g_disp_ccorr_coef[id]->offset[2], hint);
 
 	g_disp_ccorr_without_gamma = ccorr_without_gamma;
+	g_disp_ccorr_temp_linear = g_disp_ccorr_without_gamma;
 
 	disp_aosp_ccorr = true;
 	disp_ccorr_write_coef_reg(comp, handle, 0);
@@ -917,9 +918,7 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 	} else if (disp_ccorr_linear&0x01) {
 		g_disp_ccorr_without_gamma = CCORR_INVERSE_GAMMA;
 	} else {
-		DDPPR_ERR("%s: no available ccorr", __func__);
-		ret = -1;
-		return ret;
+		g_disp_ccorr_without_gamma = CCORR_BYASS_GAMMA;
 	}
 
 	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS]) {
@@ -943,7 +942,7 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 	}
 }
 
-#ifdef LEDS_BRIGHTNESS_CHANGED
+#ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 int led_brightness_changed_event_to_pq(struct notifier_block *nb, unsigned long event,
 	void *v)
 {
@@ -1102,6 +1101,27 @@ static void mtk_ccorr_config(struct mtk_ddp_comp *comp,
 static void mtk_ccorr_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 {
 	DDPINFO("%s\n", __func__);
+
+	disp_aosp_ccorr = false;
+	g_disp_ccorr_without_gamma = CCORR_INVERSE_GAMMA;
+
+	if (disp_ccorr_number == 2) {
+		if (comp->id == DDP_COMPONENT_CCORR0) {
+			disp_aosp_ccorr = true;
+			g_disp_ccorr_without_gamma = g_disp_ccorr_temp_linear;
+		}
+
+		if ((comp->mtk_crtc->is_dual_pipe) &&
+			(comp->id == DDP_COMPONENT_CCORR2)) {
+			disp_aosp_ccorr = true;
+			g_disp_ccorr_without_gamma = g_disp_ccorr_temp_linear;
+		}
+
+	} else if (!(disp_ccorr_linear & 0x01)) {
+		disp_aosp_ccorr = true;
+		g_disp_ccorr_without_gamma = g_disp_ccorr_temp_linear;
+	}
+
 	disp_ccorr_write_coef_reg(comp, handle, 1);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1137,7 +1157,6 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR1];
-
 			if (ccorr->data->single_pipe_ccorr_num == 2)
 				comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR3];
 
@@ -1160,7 +1179,6 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 			struct drm_crtc *crtc = &mtk_crtc->base;
 			struct mtk_drm_private *priv = crtc->dev->dev_private;
 			struct mtk_ddp_comp *comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR1];
-
 			if (ccorr->data->single_pipe_ccorr_num == 2)
 				comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR2];
 
@@ -1172,19 +1190,31 @@ static int mtk_ccorr_user_cmd(struct mtk_ddp_comp *comp,
 	case BYPASS_CCORR:
 	{
 		int *value = data;
+		int i, ccorr_num = 1;
+		struct mtk_ddp_comp *comp_ccorr[4] = { NULL };
+
 		struct mtk_disp_ccorr *ccorr = comp_to_ccorr(comp);
+		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+		struct drm_crtc *crtc = &mtk_crtc->base;
+		struct mtk_drm_private *priv = crtc->dev->dev_private;
 
-		mtk_ccorr_bypass(comp, *value, handle);
-		if (comp->mtk_crtc->is_dual_pipe) {
-			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-			struct drm_crtc *crtc = &mtk_crtc->base;
-			struct mtk_drm_private *priv = crtc->dev->dev_private;
-			struct mtk_ddp_comp *comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR1];
+		comp_ccorr[0] = comp;
 
-			if (ccorr->data->single_pipe_ccorr_num == 2)
-				comp_ccorr1 = priv->ddp_comp[DDP_COMPONENT_CCORR2];
+		if ((ccorr->data->single_pipe_ccorr_num == 2) &&
+			comp->mtk_crtc->is_dual_pipe) {
+			ccorr_num = 4;
+			comp_ccorr[1] = priv->ddp_comp[DDP_COMPONENT_CCORR1];
+			comp_ccorr[2] = priv->ddp_comp[DDP_COMPONENT_CCORR2];
+			comp_ccorr[3] = priv->ddp_comp[DDP_COMPONENT_CCORR3];
+		} else if ((ccorr->data->single_pipe_ccorr_num == 2) ||
+			comp->mtk_crtc->is_dual_pipe) {
+			ccorr_num = 2;
+			comp_ccorr[1] = priv->ddp_comp[DDP_COMPONENT_CCORR1];
+		}
 
-			mtk_ccorr_bypass(comp_ccorr1, *value, handle);
+		for (i = 0; i < ccorr_num; i++) {
+			if (comp_ccorr[i] != NULL)
+				mtk_ccorr_bypass(comp_ccorr[i], *value, handle);
 		}
 	}
 	break;
@@ -1295,7 +1325,7 @@ void mtk_ccorr_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	mtk_cust_dump_reg(baddr, 0x0, 0x20, 0x30, -1);
 	mtk_cust_dump_reg(baddr, 0x24, 0x28, -1, -1);
 }
@@ -1412,7 +1442,7 @@ static int mtk_disp_ccorr_probe(struct platform_device *pdev)
 		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
 
-#ifdef LEDS_BRIGHTNESS_CHANGED
+#ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 	if (comp_id == DDP_COMPONENT_CCORR0)
 		mtk_leds_register_notifier(&leds_init_notifier);
 #endif
@@ -1428,7 +1458,7 @@ static int mtk_disp_ccorr_remove(struct platform_device *pdev)
 	component_del(&pdev->dev, &mtk_disp_ccorr_component_ops);
 	mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 
-#ifdef LEDS_BRIGHTNESS_CHANGED
+#ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 	if (priv->ddp_comp.id == DDP_COMPONENT_CCORR0)
 		mtk_leds_unregister_notifier(&leds_init_notifier);
 #endif
@@ -1486,7 +1516,7 @@ static const struct mtk_disp_ccorr_data mt6879_ccorr_driver_data = {
 static const struct mtk_disp_ccorr_data mt6855_ccorr_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = true,
-	.single_pipe_ccorr_num = 2,
+	.single_pipe_ccorr_num = 1,
 };
 
 static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {

@@ -23,7 +23,7 @@
 #include "mtk_dump.h"
 
 #ifdef CONFIG_LEDS_MTK_MODULE
-#define LEDS_BRIGHTNESS_CHANGED
+#define CONFIG_LEDS_BRIGHTNESS_CHANGED
 #include <linux/leds-mtk.h>
 #else
 #define mtk_leds_brightness_set(x, y) do { } while (0)
@@ -522,7 +522,8 @@ static void calculateGamma12bitLut(struct DISP_GAMMA_12BIT_LUT_T *data)
 	}
 }
 
-static struct DISP_GAMMA_12BIT_LUT_T data;
+static struct DISP_GAMMA_LUT_T lut_8bit_data;
+static struct DISP_GAMMA_12BIT_LUT_T lut_12bit_data;
 void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 	unsigned int gain[3], unsigned int bl)
 {
@@ -535,18 +536,16 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 		g_sb_param.gain[gain_b] = gain[gain_b];
 
 		if (g_gamma_data_mode == HW_8BIT) {
-			struct DISP_GAMMA_LUT_T data;
-
-			calculateGammaLut(&data);
+			calculateGammaLut(&lut_8bit_data);
 			mtk_crtc_user_cmd(crtc, default_comp,
-				SET_GAMMALUT, (void *)&data);
+				SET_GAMMALUT, (void *)&lut_8bit_data);
 		}
 
 		if (g_gamma_data_mode == HW_12BIT_MODE_8BIT ||
 			g_gamma_data_mode == HW_12BIT_MODE_12BIT) {
-			calculateGamma12bitLut(&data);
+			calculateGamma12bitLut(&lut_12bit_data);
 			mtk_crtc_user_cmd(crtc, default_comp,
-				SET_12BIT_GAMMALUT, (void *)&data);
+				SET_12BIT_GAMMALUT, (void *)&lut_12bit_data);
 		}
 
 		mtk_leds_brightness_set("lcd-backlight", bl);
@@ -718,7 +717,7 @@ void mtk_gamma_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	mtk_cust_dump_reg(baddr, 0x0, 0x20, 0x24, 0x28);
 }
 

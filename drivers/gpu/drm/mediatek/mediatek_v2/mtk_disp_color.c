@@ -55,6 +55,10 @@ static int g_color_bypass[DISP_COLOR_TOTAL];
 static DEFINE_MUTEX(g_color_reg_lock);
 static struct DISPLAY_COLOR_REG g_color_reg;
 static int g_color_reg_valid;
+//for DISP_COLOR_TUNING
+static unsigned int g_width;
+
+bool g_legacy_color_cust;
 
 #define C1_OFFSET (0)
 #define color_get_offset(module) (0)
@@ -66,28 +70,6 @@ enum COLOR_IOCTL_CMD {
 	WRITE_REG,
 	BYPASS_COLOR,
 	PQ_SET_WINDOW
-};
-
-enum PQ_REG_TABLE_IDX {
-	TUNING_DISP_COLOR = 0,
-	TUNING_DISP_CCORR,	// 1
-	TUNING_DISP_AAL,	// 2
-	TUNING_DISP_GAMMA,	// 3
-	TUNING_DISP_DITHER,	// 4
-	TUNING_DISP_CCORR1,	// 5
-	TUNING_DISP_TDSHP,	// 6
-	TUNING_DISP_C3D,	// 7
-	TUNING_REG_MAX
-};
-
-struct mtk_disp_color_data {
-	unsigned int color_offset;
-	bool support_color21;
-	bool support_color30;
-	unsigned long reg_table[TUNING_REG_MAX];
-	unsigned int color_window;
-	bool support_shadow;
-	bool need_bypass_shadow;
 };
 
 static struct MDP_COLOR_CAP mdp_color_cap;
@@ -1215,6 +1197,7 @@ struct DISP_PQ_PARAM *get_Color_config(int id)
 
 struct DISPLAY_PQ_T *get_Color_index(void)
 {
+	g_legacy_color_cust = true;
 	return &g_Color_Index;
 }
 
@@ -1303,16 +1286,16 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			/* to keep the wide-gamut range */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x03);
+				0x03, 0x03);
 		} else {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x01);
+				0x03, 0x03);
 		}
 
 		/* also set no rounding on Y2R */
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x11, 0x11);
+			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x01, 0x01);
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
@@ -1333,10 +1316,10 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_COLOR_G_PIC_ADJ_MAIN_1,
 		(g_Color_Index.BRIGHTNESS[pq_param_p->u4Brightness] << 16) |
-		g_Color_Index.CONTRAST[pq_param_p->u4Contrast], 0x07FF01FF);
+		g_Color_Index.CONTRAST[pq_param_p->u4Contrast], 0x07FF03FF);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_COLOR_G_PIC_ADJ_MAIN_2,
-		g_Color_Index.GLOBAL_SAT[pq_param_p->u4SatGain], 0x000001FF);
+		g_Color_Index.GLOBAL_SAT[pq_param_p->u4SatGain], 0x000003FF);
 
 	/* Partial Y Function */
 	for (index = 0; index < 8; index++) {
@@ -1701,13 +1684,22 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 
 	if (g_color_bypass[id] == 0) {
 		if (color->data->support_color21 == true) {
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(1 << 21)
-				| (g_Color_Index.LSP_EN << 20)
-				| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
-				| (wide_gamut_en << 8)
-				| (0 << 7), 0x003081FF);
+			if (g_legacy_color_cust)
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DISP_COLOR_CFG_MAIN,
+					(1 << 21)
+					| (g_Color_Index.LSP_EN << 20)
+					| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
+					| (wide_gamut_en << 8)
+					| (0 << 7), 0x003081FF);
+			else
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DISP_COLOR_CFG_MAIN,
+					(1 << 21)
+					| (color_reg->LSP_EN << 20)
+					| (color_reg->S_GAIN_BY_Y_EN << 15)
+					| (wide_gamut_en << 8)
+					| (0 << 7), 0x003081FF);
 		} else {
 			/* disable wide_gamut */
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1726,16 +1718,16 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 			/* to keep the wide-gamut range */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x03);
+				0x03, 0x03);
 		} else {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x01);
+				0x03, 0x03);
 		}
 
 		/* also set no rounding on Y2R */
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x11, 0x11);
+			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x01, 0x01);
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
@@ -1756,10 +1748,10 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_COLOR_G_PIC_ADJ_MAIN_1,
 		(color_reg->BRIGHTNESS << 16) | color_reg->CONTRAST,
-		0x07FF01FF);
+		0x07FF03FF);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_COLOR_G_PIC_ADJ_MAIN_2,
-		color_reg->GLOBAL_SAT, 0x000001FF);
+		color_reg->GLOBAL_SAT, 0x000003FF);
 
 	/* Partial Y Function */
 	for (index = 0; index < 8; index++) {
@@ -1994,13 +1986,22 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 		reg_index = 0;
 		for (i = 0; i < S_GAIN_BY_Y_CONTROL_CNT; i++) {
 			for (j = 0; j < S_GAIN_BY_Y_HUE_PHASE_CNT; j += 4) {
-				u4Temp = (g_Color_Index.S_GAIN_BY_Y[i][j]) +
-					(g_Color_Index.S_GAIN_BY_Y[i][j + 1]
-					<< 8) +
-					(g_Color_Index.S_GAIN_BY_Y[i][j + 2]
-					<< 16) +
-					(g_Color_Index.S_GAIN_BY_Y[i][j + 3]
-					<< 24);
+				if (g_legacy_color_cust)
+					u4Temp = (g_Color_Index.S_GAIN_BY_Y[i][j]) +
+						(g_Color_Index.S_GAIN_BY_Y[i][j + 1]
+						<< 8) +
+						(g_Color_Index.S_GAIN_BY_Y[i][j + 2]
+						<< 16) +
+						(g_Color_Index.S_GAIN_BY_Y[i][j + 3]
+						<< 24);
+				else
+					u4Temp = (color_reg->S_GAIN_BY_Y[i][j]) +
+						(color_reg->S_GAIN_BY_Y[i][j + 1]
+						<< 8) +
+						(color_reg->S_GAIN_BY_Y[i][j + 2]
+						<< 16) +
+						(color_reg->S_GAIN_BY_Y[i][j + 3]
+						<< 24);
 
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa +
@@ -2110,8 +2111,10 @@ static void mtk_color_config(struct mtk_ddp_comp *comp,
 	int id = index_of_color(comp->id);
 	unsigned int width;
 
-	if (comp->mtk_crtc->is_dual_pipe)
+	if (comp->mtk_crtc->is_dual_pipe) {
 		width = cfg->w / 2;
+		g_width = width;
+	}
 	else
 		width = cfg->w;
 
@@ -2178,7 +2181,7 @@ static bool color_get_MML_TDSHP0_REG(struct resource *res)
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6983-mml_tdshp");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_tdshp");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
@@ -2275,7 +2278,7 @@ static bool color_get_MML_COLOR0_REG(struct resource *res)
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6983-mml_color");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_color");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
@@ -2695,6 +2698,8 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 	struct mtk_ddp_comp *ccorr_comp =
 		private->ddp_comp[DDP_COMPONENT_CCORR0];
 #endif
+	struct mtk_ddp_comp *disp_tdshp_comp =
+		private->ddp_comp[DDP_COMPONENT_TDSHP0];
 	unsigned int ret = 0;
 	unsigned int reg_id = rParams->reg;
 	struct resource res;
@@ -2739,6 +2744,11 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 			break;
 		}
 #endif
+	case SWREG_DISP_TDSHP_BASE_ADDRESS:
+		{
+			ret = disp_tdshp_comp->regs_pa;
+			break;
+		}
 	case SWREG_MML_TDSHP_BASE_ADDRESS:
 		{
 			if (color_get_MML_TDSHP0_REG(&res))
@@ -3146,6 +3156,41 @@ static void mtk_color_bypass(struct mtk_ddp_comp *comp, int bypass,
 	 */
 }
 
+void disp_color_write_pos_main_for_dual_pipe(struct mtk_ddp_comp *comp,
+	struct cmdq_pkt *handle, struct DISP_WRITE_REG *wParams,
+	unsigned int pa, unsigned int pa1)
+{
+	unsigned int pos_x, pos_y, val, val1, mask;
+
+	val = wParams->val;
+	mask = wParams->mask;
+	pos_x = (wParams->val & 0xffff);
+	pos_y = ((wParams->val & (0xffff0000)) >> 16);
+	DDPINFO("write POS_MAIN: pos_x[%d] pos_y[%d]\n",
+		pos_x, pos_y);
+	if (pos_x < g_width) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			pa, val, mask);
+		DDPINFO("dual pipe write pa:0x%x(va:0) = 0x%x (0x%x)\n"
+			, pa, val, mask);
+		val1 = ((pos_x + g_width) | ((pos_y << 16)));
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			pa1, val1, mask);
+		DDPINFO("dual pipe write pa1:0x%x(va:0) = 0x%x (0x%x)\n"
+			, pa1, val1, mask);
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			pa, val, mask);
+		DDPINFO("dual pipe write pa:0x%x(va:0) = 0x%x (0x%x)\n"
+			, pa, val, mask);
+		val1 = ((pos_x - g_width) | ((pos_y << 16)));
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			pa1, val1, mask);
+		DDPINFO("dual pipe write pa1:0x%x(va:0) = 0x%x (0x%x)\n"
+			, pa1, val1, mask);
+	}
+}
+
 static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, unsigned int cmd, void *data)
 {
@@ -3199,52 +3244,67 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 		void __iomem *va = 0;
 		unsigned int pa = (unsigned int)wParams->reg;
 
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			pa, wParams->val, wParams->mask);
-
-		DDPINFO("write pa:0x%x(va:0x%lx) = 0x%x (0x%x)\n", pa, (long)va,
-			wParams->val, wParams->mask);
 		if (comp->mtk_crtc->is_dual_pipe) {
 			int tablet_index = -1;
 			unsigned int offset = 0;
 			struct resource res;
+			unsigned int pa1 = 0;
 
 			tablet_index = get_tuning_reg_table_idx_and_offset(comp, pa, &offset);
+			do {
+				if (tablet_index == TUNING_DISP_COLOR) {
+					if (color_get_DISP_COLOR1_REG(&res))
+						pa1 =  res.start + offset;
+					if (offset == DISP_COLOR_POS_MAIN) {
+						disp_color_write_pos_main_for_dual_pipe(comp,
+							handle, wParams, pa, pa1);
+						break;
+					}
+				} else if (tablet_index == TUNING_DISP_CCORR) {
+					if (color_get_DISP_CCORR2_REG(&res))
+						pa1 = res.start + offset;
+					else if (color_get_DISP_CCORR1_REG(&res))
+						pa1 =  res.start + offset;
 
-			if (tablet_index == TUNING_DISP_COLOR) {
-				if (color_get_DISP_COLOR1_REG(&res))
-					pa =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_AAL) {
+					if (color_get_DISP_AAL1_REG(&res))
+						pa1 =  res.start + offset;
 
-			} else if (tablet_index == TUNING_DISP_CCORR) {
-				if (color_get_DISP_CCORR2_REG(&res))
-					pa = res.start + offset;
-				else if (color_get_DISP_CCORR1_REG(&res))
-					pa =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_GAMMA) {
+					if (color_get_DISP_GAMMA1_REG(&res))
+						pa1 =  res.start + offset;
 
-			} else if (tablet_index == TUNING_DISP_AAL) {
-				if (color_get_DISP_AAL1_REG(&res))
-					pa =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_DITHER) {
+					if (color_get_DISP_DITHER1_REG(&res))
+						pa1 =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_TDSHP) {
+					if (color_get_DISP_TDSHP1_REG(&res))
+						pa1 =  res.start + offset;
 
-			} else if (tablet_index == TUNING_DISP_GAMMA) {
-				if (color_get_DISP_GAMMA1_REG(&res))
-					pa =  res.start + offset;
-
-			} else if (tablet_index == TUNING_DISP_DITHER) {
-				if (color_get_DISP_DITHER1_REG(&res))
-					pa =  res.start + offset;
-			} else if (tablet_index == TUNING_DISP_TDSHP) {
-				if (color_get_DISP_TDSHP1_REG(&res))
-					pa =  res.start + offset;
-
-			} else if (tablet_index == TUNING_DISP_C3D) {
-				if (color_get_DISP_C3D1_REG(&res))
-					pa =  res.start + offset;
+				} else if (tablet_index == TUNING_DISP_C3D) {
+					if (color_get_DISP_C3D1_REG(&res))
+						pa1 =  res.start + offset;
+				}
+				if (pa) {
+					cmdq_pkt_write(handle, comp->cmdq_base,
+						pa, wParams->val, wParams->mask);
+				}
+				DDPINFO("dual pipe write pa:0x%x(va:0x%lx) = 0x%x (0x%x)\n",
+					pa, (long)va, wParams->val, wParams->mask);
+				if (pa1) {
+					cmdq_pkt_write(handle, comp->cmdq_base,
+						pa1, wParams->val, wParams->mask);
+				}
+				DDPINFO("dual pipe write pa1:0x%x(va:0x%lx) = 0x%x (0x%x)\n",
+					pa1, (long)va, wParams->val, wParams->mask);
+			} while (0);
+		} else {
+			if (pa) {
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					pa, wParams->val, wParams->mask);
 			}
-
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				pa, wParams->val, wParams->mask);
-			DDPINFO("dual pipe pa:0x%x(va:0x%lx) = 0x%x (0x%x) comp->regs_pa:(0x%x)\n",
-					pa, (long)va, wParams->val, wParams->mask, comp->regs_pa);
+			DDPINFO("single pipe write pa:0x%x(va:0x%lx) = 0x%x (0x%x)\n",
+				pa, (long)va, wParams->val, wParams->mask);
 		}
 	}
 	break;
@@ -3345,7 +3405,7 @@ void mtk_color_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	mtk_serial_dump_reg(baddr, 0x400, 3);
 	mtk_serial_dump_reg(baddr, 0xC50, 2);
 }
@@ -3420,6 +3480,8 @@ static int mtk_disp_color_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
+
+	g_legacy_color_cust = false;
 	DDPINFO("%s-\n", __func__);
 
 	return ret;
@@ -3544,7 +3606,7 @@ static const struct mtk_disp_color_data mt6879_color_driver_data = {
 static const struct mtk_disp_color_data mt6855_color_driver_data = {
 	.color_offset = DISP_COLOR_START_MT6873,
 	.support_color21 = true,
-	.support_color30 = false,
+	.support_color30 = true,
 	.reg_table = {0x14009000, 0x1400A000, 0x1400D000,
 			0x1400E000, 0x14010000, -1UL, 0x14007000, -1UL},
 	.color_window = 0x40185E57,

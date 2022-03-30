@@ -45,6 +45,28 @@ enum LUT_REG {
 	LUT_REG_TOTAL
 };
 
+enum PQ_REG_TABLE_IDX {
+	TUNING_DISP_COLOR = 0,
+	TUNING_DISP_CCORR,	// 1
+	TUNING_DISP_AAL,	// 2
+	TUNING_DISP_GAMMA,	// 3
+	TUNING_DISP_DITHER,	// 4
+	TUNING_DISP_CCORR1,	// 5
+	TUNING_DISP_TDSHP,	// 6
+	TUNING_DISP_C3D,	// 7
+	TUNING_REG_MAX
+};
+
+struct mtk_disp_color_data {
+	unsigned int color_offset;
+	bool support_color21;
+	bool support_color30;
+	unsigned long reg_table[TUNING_REG_MAX];
+	unsigned int color_window;
+	bool support_shadow;
+	bool need_bypass_shadow;
+};
+
 #define SG1 0
 #define SG2 1
 #define SG3 2
@@ -70,6 +92,7 @@ enum LUT_REG {
 #define DISP_COLOR_LUMA_ADJ			0x430
 #define DISP_COLOR_G_PIC_ADJ_MAIN_1	0x434
 #define DISP_COLOR_G_PIC_ADJ_MAIN_2	0x438
+#define DISP_COLOR_POS_MAIN			0x484
 #define DISP_COLOR_CAP_IN_DATA_MAIN 0x490
 #define DISP_COLOR_CAP_IN_DATA_MAIN_CR 0x494
 #define DISP_COLOR_CAP_OUT_DATA_MAIN 0x498
@@ -261,6 +284,7 @@ int mtk_drm_ioctl_write_sw_reg(struct drm_device *dev, void *data,
 #define SWREG_MDP_HDR_BASE_ADDRESS      (DISP_COLOR_SWREG_COLOR_BASE + 0x000D)
 #define SWREG_MML_COLOR_BASE_ADDRESS    (DISP_COLOR_SWREG_COLOR_BASE + 0x000E)
 #define SWREG_MML_TDSHP_BASE_ADDRESS    (DISP_COLOR_SWREG_COLOR_BASE + 0x000F)
+#define SWREG_DISP_TDSHP_BASE_ADDRESS   (DISP_COLOR_SWREG_COLOR_BASE + 0x0010)
 
 #define SWREG_TDSHP_TUNING_MODE         (DISP_COLOR_SWREG_TDSHP_BASE + 0x0000)
 #define SWREG_TDSHP_GAIN_MID	        (DISP_COLOR_SWREG_TDSHP_BASE + 0x0001)

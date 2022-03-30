@@ -20,6 +20,7 @@
 #include "mtk_drm_drv.h"
 #include "mtk_log.h"
 #include "mtk_dump.h"
+#include "mtk_disp_dither.h"
 
 #define DISP_DITHER_EN 0x0
 #define DISP_DITHER_INTEN 0x08
@@ -80,12 +81,6 @@ enum PURE_CLR_RGB_ENUM {
 	R_VALUE = 0,
 	B_VALUE,
 	G_VALUE,
-};
-
-
-struct mtk_disp_dither_data {
-	bool support_shadow;
-	bool need_bypass_shadow;
 };
 
 struct mtk_disp_dither {
@@ -716,7 +711,7 @@ void mtk_dither_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
-	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	mtk_cust_dump_reg(baddr, 0x0, 0x20, 0x30, -1);
 	mtk_cust_dump_reg(baddr, 0x24, 0x28, -1, -1);
 }
