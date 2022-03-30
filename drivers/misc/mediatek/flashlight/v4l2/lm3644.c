@@ -824,9 +824,9 @@ static int lm3644_cooling_set_cur_state(struct thermal_cooling_device *cdev,
 		flash->need_cooler = 0;
 		flash->target_current = LM3644_FLASH_BRT_MAX;
 		ret = lm3644_torch_brt_ctrl(flash, LM3644_LED0,
-						flash->ori_current);
+					LM3644_TORCH_BRT_MAX);
 		ret = lm3644_torch_brt_ctrl(flash, LM3644_LED1,
-						flash->ori_current);
+					LM3644_TORCH_BRT_MAX);
 	} else {
 		flash->need_cooler = 1;
 		flash->target_current =
@@ -958,7 +958,7 @@ static int lm3644_probe(struct i2c_client *client,
 	flash->target_state = 0;
 	flash->need_cooler = 0;
 	flash->target_current = LM3644_FLASH_BRT_MAX;
-	flash->ori_current = 0;
+	flash->ori_current = LM3644_TORCH_BRT_MAX;
 	flash->cdev = thermal_of_cooling_device_register(client->dev.of_node,
 			"flashlight_cooler", flash, &lm3644_cooling_ops);
 	if (IS_ERR(flash->cdev))
