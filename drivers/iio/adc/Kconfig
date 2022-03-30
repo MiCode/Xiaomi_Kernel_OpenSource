@@ -751,6 +751,16 @@ config MEDIATEK_MT6577_AUXADC
 	  This driver can also be built as a module. If so, the module will be
 	  called mt6577_auxadc.
 
+config MEDIATEK_SPMI_PMIC_ADC
+	tristate "MediaTek SPMI PMIC ADC Support"
+	depends on MFD_MTK_SPMI_PMIC
+	help
+	  Say yes here to enable support for MediaTek SPMI PMIC ADC.
+	  The driver supports multiple channels read.
+
+	  This driver can also be built as a module. If so, the module will be
+	  called mtk-spmi-pmic-adc.
+
 config MEN_Z188_ADC
 	tristate "MEN 16z188 ADC IP Core support"
 	depends on MCB

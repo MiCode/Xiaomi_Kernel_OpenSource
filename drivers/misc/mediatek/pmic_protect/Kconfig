@@ -1,0 +1,7 @@
+config MTK_PMIC_PROTECT
+	tristate "MTK PMIC protection"
+	help
+	  For MediaTek PMIC protection. It is used to prevent from PMIC
+	  damage.
+	  Select "y" if you want to enable.
+	  Select "n" if unsure.

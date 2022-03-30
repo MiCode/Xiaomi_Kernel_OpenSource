@@ -518,6 +518,75 @@ static const struct regulator_ops mt6359p_vemc_ops = {
 	.get_status = mt6359p_get_status,
 };
 
+static int _isink_load_control(struct regulator_dev *rdev, bool enable)
+{
+	const struct {
+		unsigned int reg;
+		unsigned int mask;
+		unsigned int val;
+	} en_settings[] = {
+		{ MT6359P_ISINK0_CON1, 0x7000, 0x7000 },
+		{ MT6359P_ISINK1_CON1, 0x7000, 0x7000 },
+		{ MT6359P_ISINK_EN_CTRL_SMPL, 0x300, 0x300 },
+		{ MT6359P_ISINK_EN_CTRL_SMPL, 0x3, 0x3 }
+	}, dis_settings[] = {
+		{ MT6359P_ISINK_EN_CTRL_SMPL, 0x3, 0 },
+		{ MT6359P_ISINK_EN_CTRL_SMPL, 0x300, 0 }
+	}, *settings;
+	int i, setting_size, ret;
+
+	if (enable) {
+		settings = en_settings;
+		setting_size = ARRAY_SIZE(en_settings);
+	} else {
+		settings = dis_settings;
+		setting_size = ARRAY_SIZE(dis_settings);
+	}
+
+	for (i = 0; i < setting_size; i++) {
+		ret = regmap_update_bits(rdev->regmap, settings[i].reg, settings[i].mask,
+					 settings[i].val);
+		if (ret) {
+			dev_err(&rdev->dev,
+				"Failed to %s isink settings[%d], ret=%d\n",
+				enable ? "enable" : "disable",
+				i, ret);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static int isink_load_enable(struct regulator_dev *rdev)
+{
+	return _isink_load_control(rdev, true);
+}
+
+static int isink_load_disable(struct regulator_dev *rdev)
+{
+	return _isink_load_control(rdev, false);
+}
+
+static int isink_load_is_enabled(struct regulator_dev *rdev)
+{
+	unsigned int regval;
+	int ret;
+
+	ret = regmap_read(rdev->regmap, MT6359P_ISINK_EN_CTRL_SMPL, &regval);
+	if (ret)
+		return ret;
+	regval &= 0x3;
+
+	return regval != 0;
+}
+
+static const struct regulator_ops isink_load_regulator_ops = {
+	.enable = isink_load_enable,
+	.disable = isink_load_disable,
+	.is_enabled = isink_load_is_enabled,
+};
+
 /* The array is indexed by id(MT6359P_ID_XXX) */
 static struct mt6359p_regulator_info mt6359p_regulators[] = {
 	MT6359P_BUCK("buck_vs1", VS1, 800000, 2200000, 12500, 0,
@@ -795,6 +864,16 @@ static struct mt6359p_regulator_info mt6359p_regulators[] = {
 			   MT6359P_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_ADDR,
 			   MT6359P_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_MASK <<
 			   MT6359P_RG_LDO_VSRAM_OTHERS_SSHUB_VOSEL_SHIFT),
+	[MT6359P_ID_ISINK_LOAD] = {
+		.desc = {
+			.name = "isink_load",
+			.of_match = of_match_ptr("isink_load"),
+			.id = MT6359P_ID_ISINK_LOAD,
+			.type = REGULATOR_CURRENT,
+			.ops = &isink_load_regulator_ops,
+			.owner = THIS_MODULE,
+		},
+	}
 };
 
 static int mt6359p_regulator_probe(struct platform_device *pdev)

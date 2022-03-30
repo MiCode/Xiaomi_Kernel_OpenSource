@@ -48,6 +48,7 @@ obj-$(CONFIG_MTK_AEE_FEATURE) += aee/
 obj-$(CONFIG_MTK_CLK_BUFFER) += clkbuf/
 obj-$(CONFIG_MTK_SRCLKEN_RC) += srclken_rc/
 obj-$(CONFIG_MTK_POWER_THROTTLING_COMMON) += power_throttling/
+obj-$(CONFIG_MTK_PMIC_PROTECT) += pmic_protect/
 obj-$(CONFIG_MTK_MDPM) += mdpm/
 obj-$(CONFIG_MTK_PBM) += pbm/
 obj-$(CONFIG_MTK_CCU) += ccu/src/
