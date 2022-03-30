@@ -18,6 +18,20 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
+
+void ssusb_set_txdeemph(struct ssusb_mtk *ssusb)
+{
+	u32 txdeemph;
+
+	if (!ssusb->gen1_txdeemph)
+		return;
+
+	txdeemph = mtu3_readl(ssusb->mac_base, U3D_TXDEEMPH);
+	txdeemph &= ~PIPE_TXDEEMPH_MASK;
+	txdeemph |= PIPE_TXDEEMPH(0x1);
+	mtu3_writel(ssusb->mac_base, U3D_TXDEEMPH, txdeemph);
+}
+
 void ssusb_set_noise_still_tr(struct ssusb_mtk *ssusb)
 {
 	/* set noise still transfer */
@@ -318,6 +332,8 @@ get_phy:
 	ssusb->clk_mgr = of_property_read_bool(node, "mediatek,clk-mgr");
 	ssusb->noise_still_tr =
 		of_property_read_bool(node, "mediatek,noise-still-tr");
+	ssusb->gen1_txdeemph =
+		of_property_read_bool(node, "mediatek,gen1-txdeemph");
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN)

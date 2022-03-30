@@ -134,6 +134,7 @@ int ssusb_host_enable(struct ssusb_mtk *ssusb)
 	u32 check_clk;
 	u32 value;
 	int i;
+	int ret;
 
 	/* power on host ip */
 	mtu3_clrbits(ibase, U3D_SSUSB_IP_PW_CTRL1, SSUSB_IP_HOST_PDN);
@@ -167,7 +168,12 @@ int ssusb_host_enable(struct ssusb_mtk *ssusb)
 	if (num_u3p > u3_ports_disabled)
 		check_clk = SSUSB_U3_MAC_RST_B_STS;
 
-	return ssusb_check_clocks(ssusb, check_clk);
+	ret =  ssusb_check_clocks(ssusb, check_clk);
+
+	/* update txdeemph */
+	ssusb_set_txdeemph(ssusb);
+
+	return ret;
 }
 
 int ssusb_host_disable(struct ssusb_mtk *ssusb)

@@ -376,6 +376,9 @@ static void mtu3_regs_init(struct mtu3 *mtu)
 	/* use new QMU format when HW version >= 0x1003 */
 	if (mtu->gen2cp)
 		mtu3_writel(mbase, U3D_QFCR, ~0x0);
+
+	/* update txdeemph */
+	ssusb_set_txdeemph(mtu->ssusb);
 }
 
 void mtu3_start(struct mtu3 *mtu)
