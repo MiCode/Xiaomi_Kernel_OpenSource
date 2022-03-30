@@ -15,6 +15,7 @@
 #define LOG_EMMC_SIG (0x785690ef)
 #define FLAG_DISABLE 0X44495341 // acsii-DISA
 #define FLAG_ENABLE 0X454E454E // acsii-ENEN
+#define FLAG_INVALID 0xdeaddead
 #define KEDUMP_ENABLE (1)
 #define KEDUMP_DISABLE (0)
 
@@ -78,10 +79,15 @@ struct sram_log_header {
 	u32 gz_log_addr;
 	u32 gz_log_len;
 	u32 reserve[41];        // reserve 41 * 4 char size	u32 reserve[37];
+	/* reserve[0] sram_log record log size */
+	/* reserve[1] save block size for kernel use */
+	/* reserve[2] pmic save boot phase enable/disable */
+	/* reserve[3] save history boot phase */
 } __packed;
 #define SRAM_RECORD_LOG_SIZE 0X00
 #define SRAM_BLOCK_SIZE 0x01
 #define SRAM_PMIC_BOOT_PHASE 0x02
+#define SRAM_HISTORY_BOOT_PHASE 0x03
 
 
 /* emmc last block struct */
@@ -134,6 +140,8 @@ struct emmc_log {
 #define BOOT_PHASE_PL_COLD_REBOOT 0X05
 #define BOOT_PHASE_SUSPEND 0x06
 #define BOOT_PHASE_RESUME 0X07
+#define BOOT_PHASE_PRE_SUSPEND 0x08
+#define BOOT_PHASE_EXIT_RESUME 0X09
 
 #if IS_ENABLED(CONFIG_MTK_DRAM_LOG_STORE)
 void log_store_bootup(void);

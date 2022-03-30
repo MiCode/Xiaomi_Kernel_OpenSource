@@ -3,6 +3,7 @@
  * Copyright (C) 2019 MediaTek Inc.
  */
 
+#include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
 #include <linux/vmalloc.h>
@@ -13,14 +14,17 @@
 #include <linux/seq_file.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
+#include <linux/of_platform.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/uaccess.h>
 #include <linux/syscalls.h>
+#include <linux/regmap.h>
 #include <asm/memory.h>
 #include <linux/of_fdt.h>
 #include <linux/kmsg_dump.h>
-
+#include <linux/suspend.h>
+#include <linux/platform_device.h>
 #include "log_store_kernel.h"
 
 static struct sram_log_header *sram_header;
@@ -30,40 +34,90 @@ static char *pbuff;
 static struct pl_lk_log *dram_curlog_header;
 static struct dram_buf_header *sram_dram_buff;
 static bool early_log_disable;
-struct proc_dir_entry *entry;
-static u32 last_boot_phase;
+static struct proc_dir_entry *entry;
+static u32 last_boot_phase = FLAG_INVALID;
+static struct regmap *map;
+static u32 pmic_addr;
 
-
-#define EXPDB_PATH "/dev/block/by-name/expdb"
 
 #define LOG_BLOCK_SIZE (512)
 #define EXPDB_LOG_SIZE (2*1024*1024)
 
-/*
-#if IS_ENABLED(CONFIG_MTK_PMIC_COMMON)
+
+static bool get_pmic_interface(void)
+{
+	struct device_node *np;
+	struct platform_device *pmic_pdev = NULL;
+	unsigned int reg_val = 0;
+
+	if (pmic_addr == 0)
+		return false;
+
+	np = of_find_node_by_name(NULL, "pmic");
+	if (!np) {
+		pr_err("log_store: pmic node not found.\n");
+		return false;
+	}
+
+	pmic_pdev = of_find_device_by_node(np->child);
+	if (!pmic_pdev) {
+		pr_err("log_store: pmic child device not found.\n");
+		return false;
+	}
+
+	/* get regmap */
+
+	map = dev_get_regmap(pmic_pdev->dev.parent, NULL);
+	if (!map) {
+		pr_err("log_store:pmic regmap not found.\n");
+		return false;
+	}
+	regmap_read(map, pmic_addr, &reg_val);
+	pr_info("log_store:read pmic register value 0x%x.\n", reg_val);
+	return true;
+
+}
+
 u32 set_pmic_boot_phase(u32 boot_phase)
 {
-	u32 ret;
+	unsigned int reg_val = 0, ret;
 
+	if (!map) {
+		if (get_pmic_interface() == false)
+			return -1;
+	}
 	boot_phase = boot_phase & BOOT_PHASE_MASK;
-	ret = pmic_config_interface(0xA0E, boot_phase, BOOT_PHASE_MASK,
-		PMIC_BOOT_PHASE_SHIFT);
+	ret = regmap_read(map, pmic_addr, &reg_val);
+	if (ret == 0) {
+		reg_val = reg_val & (BOOT_PHASE_MASK << LAST_BOOT_PHASE_SHIFT);
+		reg_val |= boot_phase;
+		ret = regmap_write(map, pmic_addr, reg_val);
+		pr_info("log_store: write pmic value 0x%x, ret 0x%x.\n", reg_val, ret);
+	}
+
 	return ret;
 }
 
 
 u32 get_pmic_boot_phase(void)
 {
-	u32 value = 0, ret;
+	unsigned int reg_val = 0, ret;
 
-	ret = pmic_read_interface(0xA0E, &value, BOOT_PHASE_MASK,
-		PMIC_LAST_BOOT_PHASE_SHIFT);
-	if (ret == 0)
-		last_boot_phase = value;
-	return value;
+	if (!map) {
+		if (get_pmic_interface() == false)
+			return -1;
+	}
+
+	ret = regmap_read(map, pmic_addr, &reg_val);
+
+	if (ret == 0) {
+		reg_val = (reg_val >> LAST_BOOT_PHASE_SHIFT) & BOOT_PHASE_MASK;
+		last_boot_phase = reg_val;
+		return reg_val;
+	}
+
+	return -1;
 }
-#endif
-*/
 
 /* set the flag whether store log to emmc in next boot phase in pl */
 void store_log_to_emmc_enable(bool value)
@@ -90,59 +144,15 @@ void store_log_to_emmc_enable(bool value)
 
 void set_boot_phase(u32 step)
 {
-	struct file *filp;
-	int file_size = 0;
-	struct log_emmc_header pEmmc;
-/*
-#if IS_ENABLED(CONFIG_MTK_PMIC_COMMON)
+
 	if (sram_header->reserve[SRAM_PMIC_BOOT_PHASE] == FLAG_ENABLE) {
 		set_pmic_boot_phase(step);
 		if (last_boot_phase == 0)
 			get_pmic_boot_phase();
 	}
-#endif
-*/
-	if ((sram_dram_buff->flag & NEED_SAVE_TO_EMMC) == NEED_SAVE_TO_EMMC) {
-		pr_notice("log_store: set boot phase, last boot phase is %d.\n",
-		last_boot_phase);
-		pr_notice("log_store: not boot up, don't store log to expdb  ");
-		return;
-	}
 
-	filp = filp_open(EXPDB_PATH, O_RDWR, 0);
-	if (IS_ERR(filp)) {
-		pr_notice("log_store can't open expdb file: %s.\n", EXPDB_PATH);
-		return;
-	}
-
-	if (!filp->f_op) {
-		pr_notice("log_store File Operation Method Error!!\n");
-		return;
-	}
-
-	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
-	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	if (pEmmc.sig != LOG_EMMC_SIG) {
-		pr_notice("log_store emmc header error, format it.\n");
-		memset(&pEmmc, 0, sizeof(struct log_emmc_header));
-		pEmmc.sig = LOG_EMMC_SIG;
-	} else if (last_boot_phase == 0)
-		// get last boot phase
-		last_boot_phase = (pEmmc.reserve_flag[BOOT_STEP] >>
-			LAST_BOOT_PHASE_SHIFT) & BOOT_PHASE_MASK;
-
-	// clear now boot phase
-	pEmmc.reserve_flag[BOOT_STEP] &= (BOOT_PHASE_MASK <<
-		LAST_BOOT_PHASE_SHIFT);
-	// set boot phase
-	pEmmc.reserve_flag[BOOT_STEP] |= (step << NOW_BOOT_PHASE_SHIFT);
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	filp_close(filp, NULL);
-	pr_notice("log_store: set boot phase, last boot phase is %d.\n",
-		last_boot_phase);
+	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] &= ~BOOT_PHASE_MASK;
+	sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] |= step;
 }
 
 u32 get_last_boot_phase(void)
@@ -157,186 +167,22 @@ void log_store_bootup(void)
 	set_boot_phase(BOOT_PHASE_ANDROID);
 }
 
-#ifndef MODULE
-void log_store_to_emmc(void)
-{
-	struct file *filp;
-	mm_segment_t fs;
-	char buff[LOG_BLOCK_SIZE];
-	struct log_emmc_header pEmmc;
-	struct kmsg_dumper dumper = { .active = true };
-	size_t len = 0;
-	int file_size, size = 0;
-	struct emmc_log kernel_log_config;
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	filp = filp_open(EXPDB_PATH, O_RDWR, 0);
-	if (IS_ERR(filp)) {
-		pr_notice("log_store can't open expdb file: %d.\n", filp);
-		set_fs(fs);
-		return;
-	}
-
-	if (!filp->f_op) {
-		pr_notice("log_store File Operation Method Error!!\n");
-		set_fs(fs);
-		return;
-	}
-
-	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
-	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	if (pEmmc.sig != LOG_EMMC_SIG) {
-		pr_notice("log_store emmc header error, format it.\n");
-		memset(&pEmmc, 0, sizeof(struct log_emmc_header));
-		pEmmc.sig = LOG_EMMC_SIG;
-	}
-	kernel_log_config.start = pEmmc.offset;
-
-	kmsg_dump_rewind_nolock(&dumper);
-	memset(buff, 0, LOG_BLOCK_SIZE);
-	while (kmsg_dump_get_line_nolock(&dumper, true, buff,
-					 LOG_BLOCK_SIZE, &len)) {
-		if (pEmmc.offset + len + LOG_BLOCK_SIZE > EXPDB_LOG_SIZE)
-			pEmmc.offset = 0;
-		filp->f_op->llseek(filp, file_size - EXPDB_LOG_SIZE + pEmmc.offset, SEEK_SET);
-		size = filp->f_op->write(filp, buff, len, &filp->f_pos);
-		if (size < 0)
-			pr_notice_once("write expdb failed:%d.\n", size);
-		else
-			pEmmc.offset += size;
-		memset(buff, 0, LOG_BLOCK_SIZE);
-	}
-
-	kernel_log_config.end = pEmmc.offset;
-	kernel_log_config.type = LOG_LAST_KERNEL;
-	size = file_size - sram_header->reserve[1] +
-		sizeof(struct log_emmc_header) +
-		pEmmc.reserve_flag[LOG_INDEX] * sizeof(struct emmc_log);
-	filp->f_op->llseek(filp, size, SEEK_SET);
-	filp->f_op->write(filp, (char *)&kernel_log_config, sizeof(struct emmc_log), &filp->f_pos);
-	pEmmc.reserve_flag[LOG_INDEX] += 1;
-	pEmmc.reserve_flag[LOG_INDEX] = pEmmc.reserve_flag[LOG_INDEX] %
-		HEADER_INDEX_MAX;
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	filp_close(filp, NULL);
-	set_fs(fs);
-	pr_notice("log_store write expdb done!\n");
-}
-
-int set_emmc_config(int type, int value)
-{
-	struct file *filp;
-	mm_segment_t fs;
-	struct log_emmc_header pEmmc;
-	int file_size;
-
-	if (type >= EMMC_STORE_FLAG_TYPE_NR || type < 0) {
-		pr_notice("invalid config type: %d.\n", type);
-		return -1;
-	}
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	filp = filp_open(EXPDB_PATH, O_RDWR, 0);
-	if (IS_ERR(filp)) {
-		pr_notice("log_store can't open expdb file: %d.\n", filp);
-		set_fs(fs);
-		return -1;
-	}
-
-	if (!filp->f_op) {
-		pr_notice("log_store File Operation Method Error!!\n");
-		set_fs(fs);
-		return -1;
-	}
-
-	memset(&pEmmc, 0, sizeof(struct log_emmc_header));
-	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->read(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	if (pEmmc.sig != LOG_EMMC_SIG) {
-		pr_notice("log_store emmc header error.\n");
-		filp_close(filp, NULL);
-		set_fs(fs);
-		return -1;
-	}
-
-	if (type == UART_LOG || type == PRINTK_RATELIMIT ||
-		type == KEDUMP_CTL) {
-		if (value)
-			pEmmc.reserve_flag[type] = FLAG_ENABLE;
-		else
-			pEmmc.reserve_flag[type] = FLAG_DISABLE;
-	} else {
-		pEmmc.reserve_flag[type] = value;
-	}
-	filp->f_op->llseek(filp, file_size - LOG_BLOCK_SIZE, SEEK_SET);
-	filp->f_op->write(filp, (char *)&pEmmc, sizeof(struct log_emmc_header), &filp->f_pos);
-	filp_close(filp, NULL);
-	set_fs(fs);
-	pr_notice("type:%d, value:%d.\n", type, value);
-	return 0;
-}
-
-int read_emmc_config(struct log_emmc_header *log_header)
-{
-	struct file *filp;
-	mm_segment_t fs;
-	int file_size;
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	filp = filp_open(EXPDB_PATH, O_RDWR, 0);
-	if (IS_ERR(filp)) {
-		pr_notice("log_store can't open expdb file: %d.\n", filp);
-		set_fs(fs);
-		return -1;
-	}
-
-	if (!filp->f_op) {
-		pr_notice("log_store File Operation Method Error!!\n");
-		set_fs(fs);
-		return -1;
-	}
-
-	file_size  = filp->f_op->llseek(filp, 0, SEEK_END);
-	filp->f_op->llseek(filp, file_size - sram_header->reserve[1], SEEK_SET);
-	filp->f_op->read(filp, (char *)log_header, sizeof(struct log_emmc_header), &filp->f_pos);
-	if (log_header->sig != LOG_EMMC_SIG) {
-		pr_notice("log_store emmc header error.\n");
-		filp_close(filp, NULL);
-		set_fs(fs);
-		return -1;
-	}
-	filp_close(filp, NULL);
-	set_fs(fs);
-	return 0;
-}
-
-#endif
-
 static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 {
 	struct page **pages;
 	phys_addr_t page_start;
 	unsigned int page_count;
-	pgprot_t prot;
+	pgprot_t prot = PAGE_KERNEL;
 	unsigned int i;
 	void *vaddr;
+
 
 	page_start = start - offset_in_page(start);
 	page_count = DIV_ROUND_UP(size + offset_in_page(start), PAGE_SIZE);
 
 	prot = pgprot_writecombine(PAGE_KERNEL);
-
 	pages = kmalloc_array(page_count, sizeof(struct page *), GFP_KERNEL);
+
 	if (!pages)
 		return NULL;
 
@@ -351,7 +197,6 @@ static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 		pr_notice("%s: Failed to map %u pages\n", __func__, page_count);
 		return NULL;
 	}
-
 	return vaddr + offset_in_page(start);
 }
 
@@ -364,15 +209,16 @@ static int pl_lk_log_show(struct seq_file *m, void *v)
 
 	seq_printf(m, "show buff sig 0x%x, size 0x%x,pl size 0x%x, lk size 0x%x, last_boot step 0x%x!\n",
 			dram_curlog_header->sig, dram_curlog_header->buff_size,
-			dram_curlog_header->sz_pl, dram_curlog_header->sz_lk, last_boot_phase);
+			dram_curlog_header->sz_pl, dram_curlog_header->sz_lk,
+			sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] ?
+			sram_header->reserve[SRAM_HISTORY_BOOT_PHASE] : last_boot_phase);
 
 	if (dram_log_store_status == BUFF_READY)
 		if (dram_curlog_header->buff_size >= (dram_curlog_header->off_pl
 		+ dram_curlog_header->sz_pl
 		+ dram_curlog_header->sz_lk))
-			seq_write(m, pbuff+dram_curlog_header->off_pl,
-				dram_curlog_header->sz_lk
-				+ dram_curlog_header->sz_pl);
+			seq_write(m, pbuff, dram_curlog_header->off_pl +
+				dram_curlog_header->sz_lk + dram_curlog_header->sz_pl);
 
 	return 0;
 }
@@ -397,7 +243,6 @@ static ssize_t pl_lk_file_write(struct file *filp,
 		return -EFAULT;
 
 	buf[cnt] = 0;
-
 	ret = kstrtoul(buf, 10, (unsigned long *)&val);
 
 	if (ret < 0)
@@ -411,9 +256,28 @@ static ssize_t pl_lk_file_write(struct file *filp,
 	default:
 		break;
 	}
+
 	return cnt;
 }
 
+static int logstore_pm_notify(struct notifier_block *notify_block,
+	unsigned long mode, void *unused)
+{
+	switch (mode) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+	case PM_RESTORE_PREPARE:
+		set_boot_phase(BOOT_PHASE_PRE_SUSPEND);
+		break;
+
+	case PM_POST_SUSPEND:
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+		set_boot_phase(BOOT_PHASE_EXIT_RESUME);
+		break;
+	}
+	return 0;
+}
 static const struct proc_ops pl_lk_file_ops = {
 	.proc_open = pl_lk_file_open,
 	.proc_write = pl_lk_file_write,
@@ -422,15 +286,58 @@ static const struct proc_ops pl_lk_file_ops = {
 	.proc_release = single_release,
 };
 
+struct logstore_tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
+#define NORMAL_BOOT_MODE 0
+
+unsigned int get_boot_mode_from_dts(void)
+{
+	struct device_node *np_chosen = NULL;
+	struct logstore_tag_bootmode *tag = NULL;
+
+	np_chosen = of_find_node_by_path("/chosen");
+	if (!np_chosen) {
+		pr_notice("log_store: warning: not find node: '/chosen'\n");
+
+		np_chosen = of_find_node_by_path("/chosen@0");
+		if (!np_chosen) {
+			pr_notice("log_store: warning: not find node: '/chosen@0'\n");
+			return NORMAL_BOOT_MODE;
+		}
+	}
+
+	tag = (struct logstore_tag_bootmode *)
+			of_get_property(np_chosen, "atag,boot", NULL);
+	if (!tag) {
+		pr_notice("log_store: error: not find tag: 'atag,boot';\n");
+		return NORMAL_BOOT_MODE;
+	}
+
+	pr_notice("log_store: bootmode: 0x%x boottype: 0x%x.\n",
+		tag->bootmode, tag->boottype);
+
+	return tag->bootmode;
+}
 
 static int __init log_store_late_init(void)
 {
+	static struct notifier_block logstore_pm_nb;
+
+	logstore_pm_nb.notifier_call = logstore_pm_notify;
+	register_pm_notifier(&logstore_pm_nb);
 	set_boot_phase(BOOT_PHASE_KERNEL);
 	if (sram_dram_buff == NULL) {
 		pr_notice("log_store: sram header DRAM buff is null.\n");
 		dram_log_store_status = BUFF_ALLOC_ERROR;
 		return -1;
 	}
+
+	if (get_boot_mode_from_dts() != NORMAL_BOOT_MODE)
+		store_log_to_emmc_enable(false);
 
 	if (!sram_dram_buff->buf_addr || !sram_dram_buff->buf_size) {
 		pr_notice("log_store: DRAM buff is null.\n");
@@ -478,10 +385,11 @@ static int __init log_store_late_init(void)
 	return 0;
 }
 
-#ifndef MODULE
+
 /* need mapping virtual address to phy address */
 static void store_printk_buff(void)
 {
+/*
 	phys_addr_t log_buf;
 	char *buff;
 	int size;
@@ -490,10 +398,14 @@ static void store_printk_buff(void)
 		pr_notice("log_store: sram_dram_buff is null.\n");
 		return;
 	}
+
 	buff = log_buf_addr_get();
-	log_buf = __pa_symbol(buff);
+	log_buf = __virt_to_phys_nodebug(buff);
 	size = log_buf_len_get();
+*/
+
 	/* support 32/64 bits */
+/*
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
 	if ((log_buf >> 32) == 0)
 		sram_dram_buff->klog_addr = (u32)(log_buf & 0xffffffff);
@@ -509,8 +421,9 @@ static void store_printk_buff(void)
 		sram_dram_buff->klog_addr,
 		sram_dram_buff->klog_size,
 		sram_dram_buff->flag);
+*/
 }
-#endif
+
 
 void disable_early_log(void)
 {
@@ -532,7 +445,15 @@ struct mem_desc_ls {
 static int __init dt_get_log_store(struct mem_desc_ls *data)
 {
 	struct mem_desc_ls *sram_ls;
-	struct device_node *np_chosen;
+	struct device_node *np_chosen, *np_logstore;
+
+	np_logstore = of_find_node_by_name(NULL, "logstore");
+	if (np_logstore) {
+		of_property_read_u32(np_logstore, "pmic_register", &pmic_addr);
+		pr_notice("log_store: get address 0x%x.\n", pmic_addr);
+	} else {
+		pr_err("log_store: can't get pmic address.\n");
+	}
 
 	np_chosen = of_find_node_by_path("/chosen");
 	if (!np_chosen)
@@ -586,10 +507,10 @@ static int __init log_store_early_init(void)
 		return -1;
 	}
 
-#ifndef MODULE
+
 	/* store printk log buff information to DRAM */
 	store_printk_buff();
-#endif
+
 	if (sram_header->reserve[1] == 0 ||
 		sram_header->reserve[1] > EXPDB_LOG_SIZE)
 		sram_header->reserve[1] = LOG_BLOCK_SIZE;
@@ -609,8 +530,13 @@ static int __init log_store_early_init(void)
 #ifdef MODULE
 static void __exit log_store_exit(void)
 {
+	static struct notifier_block logstore_pm_nb;
+
 	if (entry)
 		proc_remove(entry);
+
+	logstore_pm_nb.notifier_call = logstore_pm_notify;
+	unregister_pm_notifier(&logstore_pm_nb);
 }
 
 module_init(log_store_early_init);
