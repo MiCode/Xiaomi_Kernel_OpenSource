@@ -40,9 +40,6 @@ struct cmdq_util_controller_fp *cmdq_util_controller;
 #define cmdq_util_err(f, args...) cmdq_dump(f, ##args)
 #endif
 
-cmdq_mminfra_power mminfra_power_cb;
-cmdq_mminfra_gce_cg mminfra_gce_cg;
-
 /* ddp main/sub, mdp path 0/1/2/3, general(misc) */
 #define CMDQ_OP_CODE_MASK		(0xff << CMDQ_OP_CODE_SHIFT)
 #define CMDQ_IRQ_MASK			GENMASK(CMDQ_THR_MAX_COUNT - 1, 0)
@@ -195,11 +192,7 @@ struct cmdq {
 	struct clk		*clock_timer;
 	bool			suspended;
 	atomic_t		usage;
-	atomic_t		mbox_usage;
-	struct mutex		mbox_mutex;
 	struct workqueue_struct *timeout_wq;
-	struct wakeup_source	*wake_lock;
-	bool			wake_locked;
 	spinlock_t		lock;
 	u32			token_cnt;
 	u16			*tokens;
@@ -211,7 +204,6 @@ struct cmdq {
 	bool			sw_ddr_en;
 	bool			outpin_en;
 	bool			prebuilt_enable;
-	bool			unprepare_in_idle;
 	struct cmdq_client	*prebuilt_clt;
 };
 
@@ -227,31 +219,29 @@ struct gce_plat {
 #define MMP_THD(t, c)	((t)->idx | ((c)->hwid << 5))
 #endif
 
-void cmdq_get_mminfra_cb(cmdq_mminfra_power cb)
-{
-	mminfra_power_cb = cb;
-}
-EXPORT_SYMBOL(cmdq_get_mminfra_cb);
-
-void cmdq_get_mminfra_gce_cg_cb(cmdq_mminfra_gce_cg cb)
-{
-	mminfra_gce_cg = cb;
-}
-EXPORT_SYMBOL(cmdq_get_mminfra_gce_cg_cb);
-
 static struct cmdq *g_cmdq[2];
 
 void cmdq_dump_usage(void)
 {
-	s32 i;
+	s32 i, j, usage[CMDQ_THR_MAX_COUNT];
 
-	for (i = 0; i < 2; i++)
-		cmdq_msg(
-			"%s: hwid:%d suspend:%d usage:%d mbox_usage:%d wake_lock:%d",
+	for (i = 0; i < 2; i++) {
+		cmdq_msg("%s: hwid:%d suspend:%d usage:%d",
 			__func__, g_cmdq[i]->hwid, g_cmdq[i]->suspended,
-			atomic_read(&g_cmdq[i]->usage),
-			atomic_read(&g_cmdq[i]->mbox_usage),
-			g_cmdq[i]->wake_locked);
+			atomic_read(&g_cmdq[i]->usage));
+
+		for (j = 0; j < ARRAY_SIZE(g_cmdq[i]->thread); j++)
+			usage[j] = atomic_read(&g_cmdq[i]->thread[j].usage);
+
+		cmdq_msg(
+			"%s: usage:%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
+			__func__,
+			usage[0], usage[1], usage[2], usage[3], usage[4],
+			usage[5], usage[6], usage[7], usage[8], usage[9],
+			usage[10], usage[11], usage[12], usage[13], usage[14],
+			usage[15], usage[16], usage[17], usage[18], usage[19],
+			usage[20], usage[21], usage[22], usage[23]);
+	}
 }
 EXPORT_SYMBOL(cmdq_dump_usage);
 
@@ -303,139 +293,6 @@ static inline void cmdq_mmp_init(void)
 	mmprofile_enable_event_recursive(cmdq_mmp.cmdq, 1);
 	mmprofile_start(1);
 #endif
-}
-
-static void cmdq_lock_wake_lock(struct cmdq *cmdq, bool lock)
-{
-	cmdq_trace_ex_begin("%s", __func__);
-
-	if (lock) {
-		if (!cmdq->wake_locked) {
-			__pm_stay_awake(cmdq->wake_lock);
-			cmdq->wake_locked = true;
-		} else  {
-			/* should not reach here */
-			cmdq_err("try lock twice cmdq:%lx",
-				(unsigned long)cmdq);
-			dump_stack();
-		}
-	} else {
-		if (cmdq->wake_locked) {
-			__pm_relax(cmdq->wake_lock);
-			cmdq->wake_locked = false;
-		} else {
-			/* should not reach here */
-			cmdq_err("try unlock twice cmdq:%lx",
-				(unsigned long)cmdq);
-			dump_stack();
-		}
-
-	}
-
-	cmdq_trace_ex_end();
-}
-
-static int cmdq_ultra_en(struct cmdq *cmdq)
-{
-	cmdq_log("%s hwid:%d", __func__, cmdq->hwid);
-
-	writel(CMDQ_ULTRA_EN, cmdq->base + GCE_BUS_GCTL);
-	return 0;
-}
-
-static s32 cmdq_clk_enable(struct cmdq *cmdq)
-{
-	s32 usage, err, err_timer;
-	unsigned long flags;
-	u32 id;
-
-	cmdq_trace_ex_begin("%s", __func__);
-
-	spin_lock_irqsave(&cmdq->lock, flags);
-
-	usage = atomic_inc_return(&cmdq->usage);
-	err = clk_enable(cmdq->clock);
-	if (usage <= 0 || err < 0)
-		cmdq_err("ref count error after inc:%d err:%d suspend:%s",
-			usage, err, cmdq->suspended ? "true" : "false");
-	else if (usage == 1) {
-		cmdq_log("cmdq begin mbox");
-		id = cmdq_util_get_hw_id((u32)cmdq->base_pa);
-
-		if (mminfra_gce_cg && !mminfra_gce_cg(id)) {
-			cmdq_err("gce cg is off,cmdq:%pa id:%u usage:%d",
-			&cmdq->base_pa, cmdq->hwid, atomic_read(&cmdq->usage));
-			dump_stack();
-		}
-
-		if (cmdq->prefetch)
-			writel(cmdq->prefetch,
-				cmdq->base + CMDQ_PREFETCH_GSIZE);
-		writel(CMDQ_TPR_EN, cmdq->base + CMDQ_TPR_MASK);
-		if (cmdq->sw_ddr_en) {
-			writel((0x7 << 16) + 0x7, cmdq->base + GCE_GCTL_VALUE);
-			writel(0, cmdq->base + GCE_DEBUG_START_ADDR);
-		}
-		writel(cmdq->outpin_en ? 0x3 : 0x0,
-			cmdq->base + GCE_OUTPIN_EVENT);
-		/* make sure pm not suspend */
-		cmdq_lock_wake_lock(cmdq, true);
-		if (gce_mminfra)
-			cmdq_ultra_en(cmdq);
-		if (cmdq->prebuilt_enable) {
-			cmdq_init_cpu(cmdq);
-			cmdq_util_prebuilt_enable(cmdq->hwid);
-		} else
-			cmdq_init(cmdq);
-	}
-
-	err_timer = clk_enable(cmdq->clock_timer);
-	if (err_timer < 0)
-		cmdq_err("timer clk fail:%d", err_timer);
-
-	spin_unlock_irqrestore(&cmdq->lock, flags);
-
-	cmdq_trace_ex_end();
-
-	return err;
-}
-
-static void cmdq_clk_disable(struct cmdq *cmdq)
-{
-	s32 usage;
-	unsigned long flags;
-
-	cmdq_trace_ex_begin("%s", __func__);
-
-	spin_lock_irqsave(&cmdq->lock, flags);
-
-	usage = atomic_dec_return(&cmdq->usage);
-
-	if (usage == -1)
-		cmdq_util_aee("CMDQ", "%s cmdq:%pa suspend:%d usage:%d",
-			__func__, &cmdq->base_pa, cmdq->suspended, usage);
-	else if (usage < 0) {
-		/* print error but still try close */
-		cmdq_err("ref count error after dec:%d suspend:%s",
-			usage, cmdq->suspended ? "true" : "false");
-	} else if (usage == 0) {
-		cmdq_log("cmdq shutdown mbox");
-		/* clear tpr mask */
-		writel(0, cmdq->base + CMDQ_TPR_MASK);
-		if (cmdq->sw_ddr_en)
-			writel(0x7, cmdq->base + GCE_GCTL_VALUE);
-		if (cmdq->prebuilt_enable)
-			cmdq_util_prebuilt_disable(cmdq->hwid);
-		/* now allow pm suspend */
-		cmdq_lock_wake_lock(cmdq, false);
-	}
-
-	clk_disable(cmdq->clock_timer);
-	clk_disable(cmdq->clock);
-
-	spin_unlock_irqrestore(&cmdq->lock, flags);
-
-	cmdq_trace_ex_end();
 }
 
 dma_addr_t cmdq_thread_get_pc(struct cmdq_thread *thread)
@@ -581,6 +438,15 @@ static void cmdq_thread_disable(struct cmdq *cmdq, struct cmdq_thread *thread)
 	mmprofile_log_ex(cmdq_mmp.thread_en, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), CMDQ_THR_DISABLED);
 #endif
+	// power
+	if (mminfra_power_cb && !mminfra_power_cb())
+		cmdq_err("hwid:%hu idx:%u mminfra power not enable",
+			cmdq->hwid, thread->idx);
+	// clock
+	if (mminfra_gce_cg && !mminfra_gce_cg(cmdq->hwid))
+		cmdq_err("hwid:%hu idx:%u gce clock not enable",
+			cmdq->hwid, thread->idx);
+
 	cmdq_thread_reset(cmdq, thread);
 	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
@@ -817,18 +683,23 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 	task->exec_time = sched_clock();
 
 	if (list_empty(&thread->task_busy_list)) {
-		if (mminfra_power_cb && !mminfra_power_cb()) {
-			cmdq_err("task running when mminfra power off,cmdq:%pa id:%u usage:%d",
-			&cmdq->base_pa, cmdq->hwid, atomic_read(&cmdq->usage));
-			dump_stack();
-		}
+		// power
+		if (mminfra_power_cb && !mminfra_power_cb())
+			cmdq_err("hwid:%hu idx:%u mminfra power not enable",
+				cmdq->hwid, thread->idx);
+		// clock
+		if (mminfra_gce_cg && !mminfra_gce_cg(cmdq->hwid))
+			cmdq_err("hwid:%hu idx:%u gce clock not enable",
+				cmdq->hwid, thread->idx);
 
-		WARN_ON(cmdq_clk_enable(cmdq) < 0);
 		WARN_ON(cmdq_thread_reset(cmdq, thread) < 0);
 
-		cmdq_log("task pa:%pa iova:%pa size:%zu thread->base=0x%p thread:%u",
-			&buf->pa_base, &buf->iova_base, pkt->cmd_buf_size, thread->base,
-			thread->idx);
+		cmdq_log(
+			"%s: pa:%pa iova:%pa size:%zu hwid:%hu usage:%d idx:%u usage:%d",
+			__func__,
+			&buf->pa_base, &buf->iova_base, pkt->cmd_buf_size,
+			cmdq->hwid, atomic_read(&cmdq->usage),
+			thread->idx, atomic_read(&thread->usage));
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 		if (cmdq->sw_ddr_en &&
@@ -1140,8 +1011,6 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		struct cmdq_task, list_entry);
 	if (!task) {
 		cmdq_thread_disable(cmdq, thread);
-		cmdq_clk_disable(cmdq);
-
 		cmdq_log("empty task thread:%u", thread->idx);
 	} else {
 		mod_timer(&thread->timeout, jiffies +
@@ -1181,10 +1050,13 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 			atomic_read(&cmdq->usage));
 
 	if (atomic_read(&cmdq->usage) <= 0) {
-		cmdq_err("%s irq:%d cmdq:%pa suspend:%d usage:%d",
-			__func__, irq, &cmdq->base_pa, cmdq->suspended,
-			atomic_read(&cmdq->usage));
-
+		for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
+			if (!list_empty(&cmdq->thread[i].task_busy_list))
+				cmdq_err(
+					"hwid:%hu suspend:%d usage:%d idx:%d usage:%d still has tasks",
+					cmdq->hwid, cmdq->suspended,
+					atomic_read(&cmdq->usage), i,
+					atomic_read(&cmdq->thread[i].usage));
 		return IRQ_HANDLED;
 	}
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
@@ -1450,7 +1322,6 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 	} else {
 		cmdq_thread_resume(thread);
 		cmdq_thread_disable(cmdq, thread);
-		cmdq_clk_disable(cmdq);
 	}
 
 unlock_free_done:
@@ -1857,7 +1728,6 @@ void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 	if (list_empty(&thread->task_busy_list)) {
 		cmdq_thread_resume(thread);
 		cmdq_thread_disable(cmdq, thread);
-		cmdq_clk_disable(cmdq);
 		spin_unlock_irqrestore(&thread->chan->lock, flags);
 		return;
 	}
@@ -1945,10 +1815,9 @@ static void cmdq_mbox_thread_stop(struct cmdq_thread *thread)
 		kfree(task);
 	}
 
-	if (list_empty(&thread->task_busy_list)) {
+	if (list_empty(&thread->task_busy_list))
 		cmdq_thread_disable(cmdq, thread);
-		cmdq_clk_disable(cmdq);
-	}
+
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
 
 	list_for_each_entry_safe(task, tmp, &removes, list_entry) {
@@ -1966,40 +1835,44 @@ EXPORT_SYMBOL(cmdq_mbox_channel_stop);
 static int cmdq_suspend(struct device *dev)
 {
 	struct cmdq *cmdq = dev_get_drvdata(dev);
-	struct cmdq_thread *thread;
-	int i;
-	bool task_running = false;
+	s32 usage, i;
+
+	usage = atomic_read(&cmdq->usage);
+	if (cmdq->suspended)
+		cmdq_err("hwid:%hu usage:%d suspended:%d not enable",
+			cmdq->hwid, usage, cmdq->suspended);
+
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
+		if (atomic_read(&cmdq->thread[i].usage))
+			cmdq_err("hwid:%hu usage:%d idx:%d usage:%d not zero",
+				cmdq->hwid, usage,
+				i, atomic_read(&cmdq->thread[i].usage));
 
 	cmdq->suspended = true;
-
-	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
-		thread = &cmdq->thread[i];
-		if (!list_empty(&thread->task_busy_list)) {
-			cmdq_mbox_thread_stop(thread);
-			task_running = true;
-			cmdq_err("thread %d running", i);
-		}
-	}
-
-	if (task_running) {
-		dev_notice(dev, "exist running task(s) in suspend\n");
-		schedule();
-	}
-	if (!cmdq->unprepare_in_idle) {
-		clk_unprepare(cmdq->clock);
-		clk_unprepare(cmdq->clock_timer);
-	}
+	cmdq_log("%s: hwid:%hu usage:%d suspended:%d",
+		__func__, cmdq->hwid, usage, cmdq->suspended);
 	return 0;
 }
 
 static int cmdq_resume(struct device *dev)
 {
 	struct cmdq *cmdq = dev_get_drvdata(dev);
-	if (!cmdq->unprepare_in_idle) {
-		WARN_ON(clk_prepare(cmdq->clock) < 0);
-		WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
-	}
+	s32 usage, i;
+
+	usage = atomic_read(&cmdq->usage);
+	if (!cmdq->suspended)
+		cmdq_err("hwid:%hu usage:%d suspended:%d not disable",
+			cmdq->hwid, usage, cmdq->suspended);
+
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
+		if (atomic_read(&cmdq->thread[i].usage))
+			cmdq_err("hwid:%hu usage:%d idx:%d usage:%d not zero",
+				cmdq->hwid, usage,
+				i, atomic_read(&cmdq->thread[i].usage));
+
 	cmdq->suspended = false;
+	cmdq_log("%s: hwid:%hu usage:%d suspended:%d",
+		__func__, cmdq->hwid, usage, cmdq->suspended);
 	return 0;
 }
 
@@ -2007,14 +1880,8 @@ static int cmdq_remove(struct platform_device *pdev)
 {
 	struct cmdq *cmdq = platform_get_drvdata(pdev);
 
-	wakeup_source_unregister(cmdq->wake_lock);
 	destroy_workqueue(cmdq->buf_dump_wq);
 	mbox_controller_unregister(&cmdq->mbox);
-	if (!cmdq->unprepare_in_idle) {
-		clk_unprepare(cmdq->clock);
-		clk_unprepare(cmdq->clock_timer);
-	}
-
 	return 0;
 }
 
@@ -2319,8 +2186,6 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq->hwid = hwid++;
 	cmdq->prebuilt_enable =
 		of_property_read_bool(dev->of_node, "prebuilt-enable");
-	cmdq->unprepare_in_idle =
-		of_property_read_bool(dev->of_node, "unprepare_in_idle");
 
 	cmdq->mbox.dev = dev;
 	cmdq->mbox.chans = devm_kcalloc(dev, CMDQ_THR_MAX_COUNT,
@@ -2335,7 +2200,6 @@ static int cmdq_probe(struct platform_device *pdev)
 	/* make use of TXDONE_BY_ACK */
 	cmdq->mbox.txdone_irq = false;
 	cmdq->mbox.txdone_poll = false;
-	mutex_init(&cmdq->mbox_mutex);
 
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
 		cmdq->thread[i].base = cmdq->base + CMDQ_THR_BASE +
@@ -2367,12 +2231,6 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 	platform_set_drvdata(pdev, cmdq);
-	if (!cmdq->unprepare_in_idle) {
-		WARN_ON(clk_prepare(cmdq->clock) < 0);
-		WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
-	}
-
-	cmdq->wake_lock = wakeup_source_register(dev, "cmdq_pm_lock");
 
 	spin_lock_init(&cmdq->lock);
 
@@ -2457,27 +2315,83 @@ void cmdq_mbox_enable(void *chan)
 {
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
-	s32 mbox_usage;
+	s32 usage, i, ret;
 
-	WARN_ON(cmdq->suspended);
+	usage = atomic_read(&cmdq->usage);
 	if (cmdq->suspended) {
-		cmdq_err("cmdq:%pa id:%u suspend:%d cannot enable usage:%d",
-			&cmdq->base_pa, cmdq->hwid, cmdq->suspended,
-			atomic_read(&cmdq->usage));
+		cmdq_err("hwid:%u usage:%d suspended:%d not enable",
+			cmdq->hwid, usage, cmdq->suspended);
+		WARN_ON(1);
 		return;
 	}
-	pm_runtime_get_sync(cmdq->mbox.dev);
-	mutex_lock(&cmdq->mbox_mutex);
-	mbox_usage = atomic_inc_return(&cmdq->mbox_usage);
-	if (cmdq->unprepare_in_idle) {
-		if (mbox_usage == 1) {
-			WARN_ON(clk_prepare(cmdq->clock) < 0);
-			WARN_ON(clk_prepare(cmdq->clock_timer) < 0);
-		}
-	}
-	mutex_unlock(&cmdq->mbox_mutex);
 
-	cmdq_clk_enable(cmdq);
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
+		if (cmdq->thread[i].chan == chan)
+			break;
+
+	if (i == ARRAY_SIZE(cmdq->thread)) {
+		cmdq_err("hwid:%u usage:%d idx:%d wrong chan:%p",
+			cmdq->hwid, usage, i, chan);
+		WARN_ON(1);
+		return;
+	}
+	cmdq_log("%s: hwid:%hu usage:%d idx:%d usage:%d", __func__,
+		cmdq->hwid, usage, i, atomic_read(&cmdq->thread[i].usage));
+
+	usage = atomic_inc_return(&cmdq->usage);
+	atomic_inc(&cmdq->thread[i].usage);
+	if (usage == 1) {
+		unsigned long flags;
+
+		cmdq_log("%s: hwid:%hu usage:%d idx:%d usage:%d",
+			__func__, cmdq->hwid, usage, i,
+			atomic_read(&cmdq->thread[i].usage));
+
+		// power
+		pm_runtime_get_sync(cmdq->mbox.dev);
+		if (mminfra_power_cb && !mminfra_power_cb())
+			cmdq_err("hwid:%hu usage:%d mminfra power not enable",
+				cmdq->hwid, usage);
+
+		// clock
+		ret = clk_prepare_enable(cmdq->clock);
+		if (ret)
+			cmdq_err("hwid:%hu usage:%d clock cannot enable:%d",
+				cmdq->hwid, usage, ret);
+
+		ret = clk_prepare_enable(cmdq->clock_timer);
+		if (ret)
+			cmdq_err(
+				"hwid:%hu usage:%d clock_timer cannot enable:%d",
+				cmdq->hwid, usage, ret);
+
+		if (mminfra_gce_cg && !mminfra_gce_cg(cmdq->hwid))
+			cmdq_err("hwid:%hu usage:%d gce clock not enable",
+				cmdq->hwid, usage);
+
+		// core
+		spin_lock_irqsave(&cmdq->lock, flags);
+		if (gce_mminfra)
+			writel(CMDQ_ULTRA_EN, cmdq->base + GCE_BUS_GCTL);
+		if (cmdq->sw_ddr_en) {
+			writel((0x7 << 16) + 0x7, cmdq->base + GCE_GCTL_VALUE);
+			writel(0, cmdq->base + GCE_DEBUG_START_ADDR);
+		}
+		if (cmdq->outpin_en)
+			writel(0x3, cmdq->base + GCE_OUTPIN_EVENT);
+		if (cmdq->prefetch)
+			writel(cmdq->prefetch,
+				cmdq->base + CMDQ_PREFETCH_GSIZE);
+		writel(CMDQ_TPR_EN, cmdq->base + CMDQ_TPR_MASK);
+		spin_unlock_irqrestore(&cmdq->lock, flags);
+
+		// thread
+		if (cmdq->prebuilt_enable) {
+			cmdq_init_cpu(cmdq);
+			cmdq_util_prebuilt_enable(cmdq->hwid);
+		} else
+			cmdq_init(cmdq);
+	}
 }
 EXPORT_SYMBOL(cmdq_mbox_enable);
 
@@ -2485,38 +2399,77 @@ void cmdq_mbox_disable(void *chan)
 {
 	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
 		typeof(*cmdq), mbox);
-	s32 mbox_usage;
+	s32 usage, i;
 
-	WARN_ON(cmdq->suspended);
+	usage = atomic_read(&cmdq->usage);
 	if (cmdq->suspended) {
-		cmdq_err("cmdq:%pa id:%u suspend:%d cannot disable usage:%d",
-			&cmdq->base_pa, cmdq->hwid, cmdq->suspended,
-			atomic_read(&cmdq->usage));
+		cmdq_err("hwid:%u usage:%d suspended:%d not enable",
+			cmdq->hwid, usage, cmdq->suspended);
+		WARN_ON(1);
 		return;
 	}
-	cmdq_clk_disable(cmdq);
 
-	mutex_lock(&cmdq->mbox_mutex);
-	mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
-	if (cmdq->unprepare_in_idle) {
-		if (mbox_usage == 0) {
-			clk_unprepare(cmdq->clock_timer);
-			clk_unprepare(cmdq->clock);
-		} else if (mbox_usage < 0) {
-			cmdq_err("mbox_usage:%d", mbox_usage);
-			dump_stack();
-		}
+	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
+		if (cmdq->thread[i].chan == chan)
+			break;
+
+	if (i == ARRAY_SIZE(cmdq->thread)) {
+		cmdq_err("hwid:%u usage:%d idx:%d wrong chan:%p",
+			cmdq->hwid, usage, i, chan);
+		WARN_ON(1);
+		return;
 	}
-	mutex_unlock(&cmdq->mbox_mutex);
-	if ((mbox_usage == 0) && (atomic_read(&cmdq->usage) > 0))
-		cmdq_err("mbox_disable when task running,cmdq:%pa id:%u usage:%d",
-		&cmdq->base_pa, cmdq->hwid, atomic_read(&cmdq->usage));
-	if (mminfra_power_cb && !mminfra_power_cb()) {
-		cmdq_err("mminfra power off when task running,cmdq:%pa id:%u usage:%d",
-		&cmdq->base_pa, cmdq->hwid, atomic_read(&cmdq->usage));
-		dump_stack();
+	cmdq_msg("%s: hwid:%hu usage:%d idx:%d usage:%d", __func__,
+		cmdq->hwid, usage, i, atomic_read(&cmdq->thread[i].usage));
+
+	usage = atomic_dec_return(&cmdq->thread[i].usage);
+	if (usage < 0) {
+		cmdq_err("hwid:%u idx:%d usage:%d cannot below zero",
+			cmdq->hwid, i, usage);
+		WARN_ON(1);
+	} else if (!usage && !list_empty(&cmdq->thread[i].task_busy_list))
+		cmdq_err("hwid:%hu idx:%d usage:%d still has tasks",
+			cmdq->hwid, i, usage);
+
+	usage = atomic_dec_return(&cmdq->usage);
+	if (usage < 0) {
+		cmdq_err("hwid:%u usage:%d cannot below zero",
+			cmdq->hwid, usage);
+		WARN_ON(1);
+	} else if (!usage) {
+		unsigned long flags;
+
+		cmdq_log("%s: hwid:%hu usage:%d idx:%d usage:%d",
+			__func__, cmdq->hwid, usage, i,
+			atomic_read(&cmdq->thread[i].usage));
+
+		// thread
+		if (cmdq->prebuilt_enable)
+			cmdq_util_prebuilt_disable(cmdq->hwid);
+
+		for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
+			if (!list_empty(&cmdq->thread[i].task_busy_list))
+				cmdq_err(
+					"hwid:%hu usage:%d idx:%d still has tasks",
+					cmdq->hwid, usage, i);
+
+		// core
+		spin_lock_irqsave(&cmdq->lock, flags);
+		writel(0, cmdq->base + CMDQ_TPR_MASK);
+		if (cmdq->sw_ddr_en)
+			writel(0x7, cmdq->base + GCE_GCTL_VALUE);
+		spin_unlock_irqrestore(&cmdq->lock, flags);
+
+		// clock : no need to check
+		clk_disable_unprepare(cmdq->clock_timer);
+		clk_disable_unprepare(cmdq->clock);
+
+		// power
+		if (mminfra_power_cb && !mminfra_power_cb())
+			cmdq_err("hwid:%hu usage:%d mminfra power not enable",
+				cmdq->hwid, usage);
+		pm_runtime_put_sync(cmdq->mbox.dev);
 	}
-	pm_runtime_put_sync(cmdq->mbox.dev);
 }
 EXPORT_SYMBOL(cmdq_mbox_disable);
 

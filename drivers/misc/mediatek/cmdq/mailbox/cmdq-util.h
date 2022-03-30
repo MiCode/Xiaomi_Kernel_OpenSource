@@ -134,6 +134,9 @@ enum {
 
 struct cmdq_pkt;
 
+extern cmdq_mminfra_power mminfra_power_cb;
+extern cmdq_mminfra_gce_cg mminfra_gce_cg;
+
 typedef const char *(*platform_thread_module_dispatch)(phys_addr_t gce_pa, s32 thread);
 typedef const char *(*platform_event_module_dispatch)(phys_addr_t gce_pa, const u16 event,
 	s32 thread);

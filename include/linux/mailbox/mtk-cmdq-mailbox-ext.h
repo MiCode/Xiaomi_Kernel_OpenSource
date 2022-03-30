@@ -188,6 +188,7 @@ struct cmdq_thread {
 	u32			idx;
 	bool			occupied;
 	bool			dirty;
+	atomic_t		usage;
 	u64			timer_mod;
 	u64			lock_time;
 	u64			irq_time;

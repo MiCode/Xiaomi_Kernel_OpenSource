@@ -117,6 +117,24 @@ struct cmdq_util_helper_fp helper_fp = {
 	.track = cmdq_util_track,
 };
 
+cmdq_mminfra_power mminfra_power_cb;
+EXPORT_SYMBOL(mminfra_power_cb);
+
+void cmdq_get_mminfra_cb(cmdq_mminfra_power cb)
+{
+	mminfra_power_cb = cb;
+}
+EXPORT_SYMBOL(cmdq_get_mminfra_cb);
+
+cmdq_mminfra_gce_cg mminfra_gce_cg;
+EXPORT_SYMBOL(mminfra_gce_cg);
+
+void cmdq_get_mminfra_gce_cg_cb(cmdq_mminfra_gce_cg cb)
+{
+	mminfra_gce_cg = cb;
+}
+EXPORT_SYMBOL(cmdq_get_mminfra_gce_cg_cb);
+
 struct cmdq_util_platform_fp *cmdq_platform;
 
 void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform)
