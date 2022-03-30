@@ -575,6 +575,8 @@ static int mtu3_probe(struct platform_device *pdev)
 
 	INIT_WORK(&ssusb->dp_work, ssusb_dp_pullup_work);
 
+	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
+
 	device_enable_async_suspend(dev);
 	pm_runtime_mark_last_busy(dev);
 	pm_runtime_put_autosuspend(dev);
@@ -601,6 +603,8 @@ static int mtu3_remove(struct platform_device *pdev)
 	struct ssusb_mtk *ssusb = platform_get_drvdata(pdev);
 
 	pm_runtime_get_sync(&pdev->dev);
+
+	ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
 
 	switch (ssusb->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
@@ -654,7 +658,13 @@ static int mtu3_suspend_common(struct device *dev, pm_message_t msg)
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
 	int ret = 0;
 
-	dev_dbg(dev, "%s\n", __func__);
+	dev_info(ssusb->dev, "%s event %d\n", __func__, msg.event);
+
+	/* workaround for pm runtime*/
+	if (ssusb->clk_mgr && !ssusb->is_host)
+		return 0;
+
+	ssusb_set_power_state(ssusb, MTU3_STATE_SUSPEND);
 
 	switch (ssusb->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
@@ -698,7 +708,11 @@ static int mtu3_resume_common(struct device *dev, pm_message_t msg)
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
 	int ret;
 
-	dev_dbg(dev, "%s\n", __func__);
+	dev_info(ssusb->dev, "%s event %d\n", __func__, msg.event);
+
+	/* workaround for pm runtime*/
+	if (ssusb->clk_mgr && !ssusb->is_host)
+		return 0;
 
 	ssusb_wakeup_set(ssusb, false);
 	ret = clk_bulk_prepare_enable(BULK_CLKS_CNT, ssusb->clks);
@@ -709,8 +723,11 @@ static int mtu3_resume_common(struct device *dev, pm_message_t msg)
 	if (ret)
 		goto phy_err;
 
-	return resume_ip_and_ports(ssusb, msg);
+	ret = resume_ip_and_ports(ssusb, msg);
 
+	ssusb_set_power_state(ssusb, MTU3_STATE_RESUME);
+
+	return ret;
 phy_err:
 	clk_bulk_disable_unprepare(BULK_CLKS_CNT, ssusb->clks);
 clks_err:

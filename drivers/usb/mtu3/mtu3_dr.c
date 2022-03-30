@@ -211,9 +211,11 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 	if (current_role == desired_role)
 		return;
 
-	dev_info(ssusb->dev, "set role : %s, current role : %s\n",
-		usb_role_string(desired_role), usb_role_string(current_role));
+	dev_info(ssusb->dev, "%s: %s to %s\n", __func__,
+		 usb_role_string(current_role), usb_role_string(desired_role));
 	mtu3_dbg_trace(ssusb->dev, "set role : %s", usb_role_string(desired_role));
+
+	pm_runtime_get_sync(ssusb->dev);
 
 	/* switch port to off first */
 	switch (current_role) {
@@ -222,6 +224,7 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		ssusb_set_vbus(otg_sx, 0);
 		/* unregister host driver */
 		ssusb_host_register(ssusb, false);
+		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
 		ssusb_host_disable(ssusb);
 		switch_port_to_off(ssusb);
 		break;
@@ -232,6 +235,7 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		if (mtu->g.speed != USB_SPEED_UNKNOWN)
 			mtu3_gadget_disconnect(mtu);
 		spin_unlock_irqrestore(&mtu->lock, flags);
+		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_OFF);
 		mtu3_device_disable(mtu);
 		switch_port_to_off(ssusb);
 		pm_relax(ssusb->dev);
@@ -247,6 +251,7 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 	case USB_ROLE_HOST:
 		switch_port_to_on(ssusb, PHY_MODE_USB_HOST);
 		ssusb_host_enable(ssusb);
+		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
 		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
 		/* register host driver */
 		ssusb_host_register(ssusb, true);
@@ -259,6 +264,7 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		pm_stay_awake(ssusb->dev);
 		switch_port_to_on(ssusb, PHY_MODE_USB_DEVICE);
 		mtu3_device_enable(mtu);
+		ssusb_set_power_state(ssusb, MTU3_STATE_POWER_ON);
 		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_DEVICE);
 		mtu3_start(mtu);
 		break;
@@ -269,6 +275,8 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 	}
 
 	otg_sx->current_role = desired_role;
+
+	pm_runtime_put(ssusb->dev);
 }
 
 static void ssusb_mode_sw_work(struct work_struct *work)
@@ -323,7 +331,7 @@ static void ssusb_set_mode(struct otg_switch_mtk *otg_sx, enum usb_role role)
 {
 	struct ssusb_mtk *ssusb = otg_sx_to_ssusb(otg_sx);
 
-	dev_info(ssusb->dev, "%s role %d\n", __func__, role);
+	dev_info(ssusb->dev, "%s %s\n", __func__, usb_role_string(role));
 
 	otg_sx->latest_role = role;
 
