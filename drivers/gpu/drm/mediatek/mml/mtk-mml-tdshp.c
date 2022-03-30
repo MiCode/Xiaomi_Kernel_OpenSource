@@ -354,6 +354,8 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const phys_addr_t base_pa = comp->base_pa;
 	struct mml_pq_comp_config_result *result;
 	s32 ret;
+	s32 i;
+	struct mml_pq_reg *regs = NULL;
 
 	if (MML_FMT_10BIT(src->format) || MML_FMT_10BIT(dest->data.format))
 		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 0, 0x00000004);
@@ -373,33 +375,39 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 	}
 	tdshp_relay(pkt, base_pa, 0x0);
 
-	ret = mml_pq_get_comp_config_result(task, TDSHP_WAIT_TIMEOUT_MS);
-	if (!ret) {
-		result = get_tdshp_comp_config_result(task);
-		if (result) {
-			s32 i;
-			struct mml_pq_reg *regs = result->ds_regs;
-
-			/* TODO: use different regs */
-			mml_pq_msg("%s:config ds regs, count: %d", __func__, result->ds_reg_cnt);
-			tdshp_frm->config_success = true;
-			for (i = 0; i < result->ds_reg_cnt; i++) {
-				mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
-					regs[i].mask, reuse, cache,
-					&tdshp_frm->labels[i]);
-				mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
-					regs[i].offset, regs[i].value, regs[i].mask);
-			}
-		} else {
-			mml_pq_err("%s: not get result from user lib", __func__);
+	do {
+		ret = mml_pq_get_comp_config_result(task, TDSHP_WAIT_TIMEOUT_MS);
+		if (ret) {
+			mml_pq_comp_config_clear(task);
+			tdshp_frm->config_success = false;
+			mml_pq_err("get ds param timeout: %d in %dms",
+				ret, TDSHP_WAIT_TIMEOUT_MS);
+			ret = -ETIMEDOUT;
+			goto exit;
 		}
-	} else {
-		mml_pq_comp_config_clear(task);
-		tdshp_frm->config_success = false;
-		mml_pq_err("get ds param timeout: %d in %dms",
-			ret, TDSHP_WAIT_TIMEOUT_MS);
+
+		result = get_tdshp_comp_config_result(task);
+		if (!result) {
+			mml_pq_err("%s: not get result from user lib", __func__);
+			ret = -EBUSY;
+			goto exit;
+		}
+	} while ((mml_pq_debug_mode & MML_PQ_SET_TEST) && result->is_set_test);
+
+	regs = result->ds_regs;
+
+	/* TODO: use different regs */
+	mml_pq_msg("%s:config ds regs, count: %d", __func__, result->ds_reg_cnt);
+	tdshp_frm->config_success = true;
+	for (i = 0; i < result->ds_reg_cnt; i++) {
+		mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
+			regs[i].mask, reuse, cache,
+			&tdshp_frm->labels[i]);
+		mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
+			regs[i].offset, regs[i].value, regs[i].mask);
 	}
 
+exit:
 	return ret;
 }
 
@@ -471,31 +479,41 @@ static s32 tdshp_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 	struct mml_pq_comp_config_result *result = NULL;
 	s32 ret = 0;
+	s32 i;
+	struct mml_pq_reg *regs = NULL;
 
 	if (!dest->pq_config.en_sharp && !dest->pq_config.en_dc)
 		return ret;
 
-	ret = mml_pq_get_comp_config_result(task, TDSHP_WAIT_TIMEOUT_MS);
-	if (!ret) {
-		result = get_tdshp_comp_config_result(task);
-		if (result && tdshp_frm->config_success) {
-			s32 i;
-			struct mml_pq_reg *regs = result->ds_regs;
-			//TODO: use different regs
-			mml_pq_msg("%s:config ds regs, count: %d", __func__, result->ds_reg_cnt);
-			for (i = 0; i < result->ds_reg_cnt; i++) {
-				mml_update(reuse, tdshp_frm->labels[i], regs[i].value);
-				mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
-					regs[i].offset, regs[i].value, regs[i].mask);
-			}
-		} else {
-			mml_pq_err("%s: not get result from user lib", __func__);
+	do {
+		ret = mml_pq_get_comp_config_result(task, TDSHP_WAIT_TIMEOUT_MS);
+		if (ret) {
+			mml_pq_comp_config_clear(task);
+			mml_pq_err("get tdshp param timeout: %d in %dms",
+				ret, TDSHP_WAIT_TIMEOUT_MS);
+			ret = -ETIMEDOUT;
+			goto exit;
 		}
-	} else {
-		mml_pq_err("get ds param timeout: %d in %dms",
-			ret, TDSHP_WAIT_TIMEOUT_MS);
+
+		result = get_tdshp_comp_config_result(task);
+		if (!result || !tdshp_frm->config_success) {
+			mml_pq_err("%s: not get result from user lib", __func__);
+			ret = -EBUSY;
+			goto exit;
+		}
+	} while ((mml_pq_debug_mode & MML_PQ_SET_TEST) && result->is_set_test);
+
+	regs = result->ds_regs;
+	//TODO: use different regs
+	mml_pq_msg("%s:config ds regs, count: %d is_set_test[%d]", __func__, result->ds_reg_cnt,
+		result->is_set_test);
+	for (i = 0; i < result->ds_reg_cnt; i++) {
+		mml_update(reuse, tdshp_frm->labels[i], regs[i].value);
+		mml_pq_msg("[ds][config][%x] = %#x mask(%#x)",
+			regs[i].offset, regs[i].value, regs[i].mask);
 	}
 
+exit:
 	return ret;
 }
 

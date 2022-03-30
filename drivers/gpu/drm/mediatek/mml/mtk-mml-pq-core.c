@@ -25,6 +25,12 @@ module_param(mml_pq_trace, int, 0644);
 int mml_pq_rb_msg;
 module_param(mml_pq_rb_msg, int, 0644);
 
+int mml_pq_set_msg;
+module_param(mml_pq_set_msg, int, 0644);
+
+int mml_pq_debug_mode;
+module_param(mml_pq_debug_mode, int, 0644);
+
 struct mml_pq_chan {
 	struct wait_queue_head msg_wq;
 	atomic_t msg_cnt;
@@ -443,6 +449,54 @@ static struct mml_pq_task *from_rsz_callback(struct mml_pq_sub_task *sub_task)
 {
 	return container_of(sub_task,
 		struct mml_pq_task, rsz_callback);
+}
+
+static void dump_sub_task(struct mml_pq_sub_task *sub_task, int new_job_id,
+	bool is_dual, u32 cut_pos_x, u32 readback_size)
+{
+	if (!sub_task)
+		return;
+
+	mml_pq_set_msg("%s new_job_id[%d]", __func__, new_job_id);
+
+	mml_pq_set_msg("%s src.width[%d] src.secure[%d] layer_id[%d]",
+		__func__,
+		sub_task->frame_data.info.src.width,
+		sub_task->frame_data.info.src.secure,
+		sub_task->frame_data.info.layer_id);
+
+	mml_pq_set_msg("%s out0 width[%d] height[%d], out1 width[%d] height[%d]",
+		__func__,
+		sub_task->frame_data.frame_out[0].width,
+		sub_task->frame_data.frame_out[0].height,
+		sub_task->frame_data.frame_out[1].width,
+		sub_task->frame_data.frame_out[1].height);
+
+	mml_pq_set_msg("%s pq_param0 enable[%d] user_info[%d]",
+		__func__, sub_task->frame_data.pq_param[0].enable,
+		sub_task->frame_data.pq_param[0].user_info);
+
+	mml_pq_set_msg("%s pq_param1 enable[%d] user_info[%d]",
+		__func__, sub_task->frame_data.pq_param[1].enable,
+		sub_task->frame_data.pq_param[1].user_info);
+
+	if (readback_size)
+		mml_pq_set_msg("%s pipe0_hist[0][%u] pipe0_hist[%d][%u]",
+			__func__,
+			sub_task->readback_data.pipe0_hist[0],
+			readback_size-1,
+			sub_task->readback_data.pipe0_hist[readback_size-1]);
+
+	mml_pq_set_msg("%s cut_pos_x:%d is_dual:%d",
+		__func__, cut_pos_x, is_dual);
+
+	if (readback_size && is_dual)
+		mml_pq_set_msg("%s pipe1_hist[0][%u] pipe1_hist[%d][%u]",
+			__func__,
+			sub_task->readback_data.pipe1_hist[0],
+			readback_size-1,
+			sub_task->readback_data.pipe1_hist[readback_size-1]);
+
 }
 
 static void dump_pq_param(struct mml_pq_param *pq_param)
@@ -1058,6 +1112,7 @@ static int mml_pq_tile_init_ioctl(unsigned long data)
 		mml_pq_err("err: fail to copy to user pq param: %d", ret);
 		goto wake_up_tile_init_task;
 	}
+	dump_sub_task(new_sub_task, new_job_id, 0, 0, 0);
 	mml_pq_msg("%s end", __func__);
 	mml_pq_trace_ex_end();
 	return 0;
@@ -1314,6 +1369,7 @@ static int mml_pq_comp_config_ioctl(unsigned long data)
 		mml_pq_err("err: fail to copy to user pq param: %d", ret);
 		goto wake_up_comp_config_task;
 	}
+	dump_sub_task(new_sub_task, new_job_id, 0, 0, 0);
 	mml_pq_msg("%s end", __func__);
 	mml_pq_trace_ex_end();
 	return 0;
@@ -1442,6 +1498,8 @@ static int mml_pq_aal_readback_ioctl(unsigned long data)
 	atomic_dec_if_positive(&new_sub_task->queued);
 	remove_sub_task(chan, new_sub_task->job_id);
 
+	dump_sub_task(new_sub_task, new_job_id, readback->is_dual, readback->cut_pos_x,
+		AAL_HIST_NUM + AAL_DUAL_INFO_NUM);
 	mml_pq_msg("%s end job_id[%d]\n", __func__, job->new_job_id);
 	kfree(job);
 	kfree(readback);
@@ -1529,6 +1587,8 @@ static int mml_pq_hdr_readback_ioctl(unsigned long data)
 
 	readback->is_dual = new_sub_task->readback_data.is_dual;
 	readback->cut_pos_x = new_sub_task->frame_data.info.src.width / 2; //fix me
+	mml_pq_msg("%s is_dual[%d] cut_pos_x[%d]", __func__,
+		readback->is_dual, readback->cut_pos_x);
 
 	ret = copy_to_user(&job->result->is_dual, &readback->is_dual, sizeof(bool));
 	if (unlikely(ret)) {
@@ -1571,6 +1631,8 @@ static int mml_pq_hdr_readback_ioctl(unsigned long data)
 	atomic_dec_if_positive(&new_sub_task->queued);
 	remove_sub_task(chan, new_sub_task->job_id);
 
+	dump_sub_task(new_sub_task, new_job_id, readback->is_dual, readback->cut_pos_x,
+		HDR_HIST_NUM);
 	mml_pq_msg("%s end job_id[%d]\n", __func__, job->new_job_id);
 	kfree(job);
 	kfree(readback);

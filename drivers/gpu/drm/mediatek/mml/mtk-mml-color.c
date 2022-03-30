@@ -289,6 +289,8 @@ static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
 	s32 ret = 0;
+	s32 i;
+	struct mml_pq_reg *regs = NULL;
 
 	if (!dest->pq_config.en_color) {
 		cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 0x3, U32_MAX);
@@ -297,33 +299,40 @@ static s32 color_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	cmdq_pkt_write(pkt, NULL, base_pa + COLOR_START, 0x1, U32_MAX);
 
-	ret = mml_pq_get_comp_config_result(task, COLOR_WAIT_TIMEOUT_MS);
-	if (!ret) {
-		result = get_color_comp_config_result(task);
-		if (result) {
-			s32 i;
-			struct mml_pq_reg *regs = result->color_regs;
-
-			/* TODO: use different regs */
-			mml_pq_msg("%s:config color regs, count: %d", __func__,
-				result->color_reg_cnt);
-			color_frm->config_success = true;
-			for (i = 0; i < result->color_reg_cnt; i++) {
-				mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
-					regs[i].mask, reuse, cache,
-					&color_frm->labels[i]);
-				mml_pq_msg("[color][config][%x] = %#x mask(%#x)",
-					regs[i].offset, regs[i].value, regs[i].mask);
-			}
-		} else {
-			mml_pq_err("%s: not get result from user lib", __func__);
+	do {
+		ret = mml_pq_get_comp_config_result(task, COLOR_WAIT_TIMEOUT_MS);
+		if (ret) {
+			mml_pq_comp_config_clear(task);
+			color_frm->config_success = false;
+			mml_pq_err("get color param timeout: %d in %dms",
+				ret, COLOR_WAIT_TIMEOUT_MS);
+			ret = -ETIMEDOUT;
+			goto exit;
 		}
-	} else {
-		mml_pq_comp_config_clear(task);
-		color_frm->config_success = false;
-		mml_pq_err("get color param timeout: %d in %dms",
-			ret, COLOR_WAIT_TIMEOUT_MS);
+
+		result = get_color_comp_config_result(task);
+		if (!result) {
+			mml_pq_err("%s: not get result from user lib", __func__);
+			ret = -EBUSY;
+			goto exit;
+		}
+	} while ((mml_pq_debug_mode & MML_PQ_SET_TEST) && result->is_set_test);
+
+	regs = result->color_regs;
+
+	/* TODO: use different regs */
+	mml_pq_msg("%s:config color regs, count: %d", __func__,
+		result->color_reg_cnt);
+	color_frm->config_success = true;
+	for (i = 0; i < result->color_reg_cnt; i++) {
+		mml_write(pkt, base_pa + regs[i].offset, regs[i].value,
+			regs[i].mask, reuse, cache,
+			&color_frm->labels[i]);
+		mml_pq_msg("[color][config][%x] = %#x mask(%#x)",
+			regs[i].offset, regs[i].value, regs[i].mask);
 	}
+
+exit:
 	return ret;
 }
 
@@ -364,32 +373,44 @@ static s32 color_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	struct mml_pq_comp_config_result *result = NULL;
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	s32 ret = 0;
+s32 i;
+	struct mml_pq_reg *regs = NULL;
 
 	if (!dest->pq_config.en_color)
 		return ret;
 
-	ret = mml_pq_get_comp_config_result(task, COLOR_WAIT_TIMEOUT_MS);
-	if (!ret) {
-		result = get_color_comp_config_result(task);
-		if (result && color_frm->config_success) {
-			s32 i;
-			struct mml_pq_reg *regs = result->color_regs;
+	do {
+		ret = mml_pq_get_comp_config_result(task, COLOR_WAIT_TIMEOUT_MS);
 
-			/* TODO: use different regs */
-			mml_pq_msg("%s:config color regs, count: %d", __func__,
-				result->color_reg_cnt);
-			for (i = 0; i < result->color_reg_cnt; i++) {
-				mml_update(reuse, color_frm->labels[i], regs[i].value);
-				mml_pq_msg("[color][config][%x] = %#x mask(%#x)",
-					regs[i].offset, regs[i].value, regs[i].mask);
-			}
-		} else {
-			mml_pq_err("%s: not get result from user lib", __func__);
+		if (ret) {
+			mml_pq_comp_config_clear(task);
+			mml_pq_err("get color param timeout: %d in %dms",
+				ret, COLOR_WAIT_TIMEOUT_MS);
+			ret = -ETIMEDOUT;
+			goto exit;
 		}
-	} else {
-		mml_pq_err("get color param timeout: %d in %dms",
-			ret, COLOR_WAIT_TIMEOUT_MS);
+
+		result = get_color_comp_config_result(task);
+		if (!result || !color_frm->config_success) {
+			mml_pq_err("%s: not get result from user lib", __func__);
+			ret = -EBUSY;
+			goto exit;
+		}
+
+	} while ((mml_pq_debug_mode & MML_PQ_SET_TEST) && result->is_set_test);
+
+	regs = result->color_regs;
+
+	/* TODO: use different regs */
+	mml_pq_msg("%s:config color regs, count: %d", __func__,
+		result->color_reg_cnt);
+	for (i = 0; i < result->color_reg_cnt; i++) {
+		mml_update(reuse, color_frm->labels[i], regs[i].value);
+		mml_pq_msg("[color][config][%x] = %#x mask(%#x)",
+			regs[i].offset, regs[i].value, regs[i].mask);
 	}
+
+exit:
 	return ret;
 }
 

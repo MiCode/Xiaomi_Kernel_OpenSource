@@ -39,6 +39,7 @@ struct mml_pq_tile_init_result {
 	struct mml_pq_rsz_tile_init_param rsz_param[MML_MAX_OUTPUTS];
 	uint32_t rsz_reg_cnt[MML_MAX_OUTPUTS];
 	struct mml_pq_reg *rsz_regs[MML_MAX_OUTPUTS];
+	bool is_set_test;
 };
 
 struct mml_pq_tile_init_job {
@@ -73,6 +74,7 @@ struct mml_pq_comp_config_result {
 	struct mml_pq_reg *ds_regs;
 	u32 color_reg_cnt;
 	struct mml_pq_reg *color_regs;
+	bool is_set_test;
 };
 
 struct mml_pq_comp_config_job {

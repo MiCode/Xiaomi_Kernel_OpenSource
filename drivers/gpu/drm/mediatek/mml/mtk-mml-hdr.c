@@ -386,21 +386,23 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 	}
 	hdr_relay(pkt, base_pa, 0x0);
 
-	ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
-	if (ret) {
-		mml_pq_comp_config_clear(task);
-		mml_pq_err("get hdr param timeout: %d in %dms",
-			ret, HDR_WAIT_TIMEOUT_MS);
-		ret = -ETIMEDOUT;
-		goto err;
-	}
+	do {
+		ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
+		if (ret) {
+			mml_pq_comp_config_clear(task);
+			mml_pq_err("get hdr param timeout: %d in %dms",
+				ret, HDR_WAIT_TIMEOUT_MS);
+			ret = -ETIMEDOUT;
+			goto exit;
+		}
 
-	result = get_hdr_comp_config_result(task);
-	if (!result) {
-		mml_pq_err("%s: not get result from user lib", __func__);
-		ret = -EBUSY;
-		goto err;
-	}
+		result = get_hdr_comp_config_result(task);
+		if (!result) {
+			mml_pq_err("%s: not get result from user lib", __func__);
+			ret = -EBUSY;
+			goto exit;
+		}
+	} while ((mml_pq_debug_mode & MML_PQ_SET_TEST) && result->is_set_test);
 
 	regs = result->hdr_regs;
 	curve = result->hdr_curve;
@@ -432,7 +434,7 @@ static s32 hdr_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	return 0;
 
-err:
+exit:
 	return ret;
 }
 
@@ -733,21 +735,23 @@ static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_hdr)
 		return 0;
 
-	ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
-	if (ret) {
-		mml_pq_comp_config_clear(task);
-		mml_pq_err("get hdr param timeout: %d in %dms",
-			ret, HDR_WAIT_TIMEOUT_MS);
-		ret = -ETIMEDOUT;
-		goto err;
-	}
+	do {
+		ret = mml_pq_get_comp_config_result(task, HDR_WAIT_TIMEOUT_MS);
+		if (ret) {
+			mml_pq_comp_config_clear(task);
+			mml_pq_err("get hdr param timeout: %d in %dms",
+				ret, HDR_WAIT_TIMEOUT_MS);
+			ret = -ETIMEDOUT;
+			goto exit;
+		}
 
-	result = get_hdr_comp_config_result(task);
-	if (!result || !hdr_frm->config_success) {
-		mml_pq_err("%s: not get result from user lib", __func__);
-		ret = -EBUSY;
-		goto err;
-	}
+		result = get_hdr_comp_config_result(task);
+		if (!result || !hdr_frm->config_success) {
+			mml_pq_err("%s: not get result from user lib", __func__);
+			ret = -EBUSY;
+			goto exit;
+		}
+	} while ((mml_pq_debug_mode & MML_PQ_SET_TEST) && result->is_set_test);
 
 	regs = result->hdr_regs;
 	curve = result->hdr_curve;
@@ -769,7 +773,7 @@ static s32 hdr_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 
 	return 0;
 
-err:
+exit:
 	return ret;
 }
 

@@ -425,22 +425,24 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 		cmdq_pkt_write(pkt, NULL, base_pa + AAL_CFG_MAIN,
 			1 << 7, 0x00000080);
 
-	ret = mml_pq_get_comp_config_result(task, AAL_WAIT_TIMEOUT_MS);
-	if (ret) {
-		mml_pq_comp_config_clear(task);
-		aal_frm->config_success = false;
-		mml_pq_err("get aal param timeout: %d in %dms",
-			ret, AAL_WAIT_TIMEOUT_MS);
-		ret = -ETIMEDOUT;
-		goto exit;
-	}
+	do {
+		ret = mml_pq_get_comp_config_result(task, AAL_WAIT_TIMEOUT_MS);
+		if (ret) {
+			mml_pq_comp_config_clear(task);
+			aal_frm->config_success = false;
+			mml_pq_err("get aal param timeout: %d in %dms",
+				ret, AAL_WAIT_TIMEOUT_MS);
+			ret = -ETIMEDOUT;
+			goto exit;
+		}
 
-	result = get_aal_comp_config_result(task);
-	if (!result) {
-		mml_pq_err("%s: not get result from user lib", __func__);
-		ret = -EBUSY;
-		goto exit;
-	}
+		result = get_aal_comp_config_result(task);
+		if (!result) {
+			mml_pq_err("%s: not get result from user lib", __func__);
+			ret = -EBUSY;
+			goto exit;
+		}
+	} while ((mml_pq_debug_mode & MML_PQ_SET_TEST) && result->is_set_test);
 
 	regs = result->aal_regs;
 	curve = result->aal_curve;
@@ -904,21 +906,23 @@ static s32 aal_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	if (!dest->pq_config.en_dre)
 		goto exit;
 
-	ret = mml_pq_get_comp_config_result(task, AAL_WAIT_TIMEOUT_MS);
-	if (ret) {
-		mml_pq_comp_config_clear(task);
-		mml_pq_err("get aal param timeout: %d in %dms",
-			ret, AAL_WAIT_TIMEOUT_MS);
-		ret = -ETIMEDOUT;
-		goto exit;
-	}
+	do {
+		ret = mml_pq_get_comp_config_result(task, AAL_WAIT_TIMEOUT_MS);
+		if (ret) {
+			mml_pq_comp_config_clear(task);
+			mml_pq_err("get aal param timeout: %d in %dms",
+				ret, AAL_WAIT_TIMEOUT_MS);
+			ret = -ETIMEDOUT;
+			goto exit;
+		}
 
-	result = get_aal_comp_config_result(task);
-	if (!result || !aal_frm->config_success) {
-		mml_pq_err("%s: not get result from user lib", __func__);
-		ret = -EBUSY;
-		goto exit;
-	}
+		result = get_aal_comp_config_result(task);
+		if (!result || !aal_frm->config_success) {
+			mml_pq_err("%s: not get result from user lib", __func__);
+			ret = -EBUSY;
+			goto exit;
+		}
+	} while ((mml_pq_debug_mode & MML_PQ_SET_TEST) && result->is_set_test);
 
 
 	curve = result->aal_curve;

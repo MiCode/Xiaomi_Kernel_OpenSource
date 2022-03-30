@@ -57,6 +57,13 @@ do { \
 		pr_notice("[rb_flow]" fmt "\n", ##args); \
 } while (0)
 
+extern int mml_pq_set_msg;
+
+#define mml_pq_set_msg(fmt, args...) \
+do { \
+	if (mml_pq_set_msg) \
+		pr_notice("[set_dump]" fmt "\n", ##args); \
+} while (0)
 
 /* mml pq ftrace */
 extern int mml_pq_trace;
@@ -71,7 +78,14 @@ extern int mml_pq_trace;
 		mml_trace_end(); \
 } while (0)
 
+extern int mml_pq_debug_mode;
+
 struct mml_task;
+
+enum mml_pq_debug_mode {
+	MML_PQ_DEBUG_OFF = 0,
+	MML_PQ_SET_TEST = 1 << 1,
+};
 
 enum mml_pq_vcp_engine {
 	MML_PQ_HDR0 = 0,
