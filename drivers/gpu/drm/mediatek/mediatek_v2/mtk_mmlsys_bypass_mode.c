@@ -53,7 +53,7 @@ static void mtk_mmlsys_bypass_addon_config(struct mtk_ddp_comp *comp,
 				 struct cmdq_pkt *handle)
 {
 	DDPINFO("%s +\n", __func__);
-	cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
+	//cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + MDPSYS_CG_SET0,
 		0x00000000, ~0);

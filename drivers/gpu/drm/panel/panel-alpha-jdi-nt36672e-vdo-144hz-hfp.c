@@ -1345,7 +1345,7 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKETMIPI_DSI_MODE_NO_EOT_PACKET |
+			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET |
 			MIPI_DSI_CLOCK_NON_CONTINUOUS;
 
 	ret = of_property_read_u32(dev->of_node, "gate-ic", &value);

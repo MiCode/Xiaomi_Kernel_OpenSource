@@ -3236,11 +3236,12 @@ void disp_dbg_probe(void)
 	}
 	init_log_buffer();
 	if (is_buffer_init) {
-		unsigned long va = (unsigned long)err_buffer[0];
-		unsigned long pa = __pa_nodebug(va);
-		unsigned long size = (DEBUG_BUFFER_SIZE - 4096);
+		/* display wait for sync(DWFS)*/
+		/*/kernel-5.10/drivers/misc/mediatek/aee/mrdump/mrdump_mini.c*/
+		//unsigned long va = (unsigned long)err_buffer[0];
+		//unsigned long size = (DEBUG_BUFFER_SIZE - 4096);
 
-		mrdump_mini_add_extra_file(va, pa, size, "DISPLAY");
+		//_mrdump_mini_add_extra_file_(va, size, "DISPLAY");
 	}
 
 	drm_mmp_init();

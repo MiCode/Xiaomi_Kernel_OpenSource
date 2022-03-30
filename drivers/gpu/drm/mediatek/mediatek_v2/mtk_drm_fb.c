@@ -152,7 +152,7 @@ int mtk_fb_wait(struct drm_framebuffer *fb)
 {
 	struct drm_gem_object *gem;
 	struct dma_resv *resv;
-	long ret;
+	//long ret;
 
 	if (!fb)
 		return 0;
@@ -162,16 +162,21 @@ int mtk_fb_wait(struct drm_framebuffer *fb)
 		return 0;
 
 	resv = gem->dma_buf->resv;
+	/* display wait for sync(DWFS), /kernel-5.15/drivers/dma-buf/dma-resv.c */
+	/*
 	ret = dma_resv_wait_timeout_rcu(resv, false, true,
 					MAX_SCHEDULE_TIMEOUT);
+	*/
+
 	/* MAX_SCHEDULE_TIMEOUT on success, -ERESTARTSYS if interrupted */
+	/*
 	if (ret < 0) {
 		DDPAEE("%s:%d, invalid ret:%ld\n",
 			__func__, __LINE__,
 			ret);
 		return ret;
 	}
-
+	*/
 	return 0;
 }
 

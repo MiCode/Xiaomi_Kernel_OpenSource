@@ -2125,7 +2125,7 @@ static void mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc)
 	sram = mtk_crtc->mml_ir_sram;
 	sram->type = TP_BUFFER;
 	sram->size = 0;
-	sram->uid = UID_DISP;
+	sram->uid = 0;
 	sram->flag = 0;
 	if (slbc_request(sram) >= 0) {
 		ret = slbc_power_on(sram);
@@ -3645,8 +3645,10 @@ static void mtk_crtc_exec_atf_prebuilt_instr(struct mtk_drm_crtc *mtk_crtc,
 	cmdq_pkt_wfe(handle,
 		mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_DISP_VA_END]);
 
+#ifdef CMDQ_SMC_SUPPORT
 	//SMC Call
 	cmdq_util_enable_disp_va();
+#endif
 }
 #endif
 
@@ -4279,8 +4281,8 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 	cmdq_handle = mtk_crtc->trig_loop_cmdq_handle;
 	if (priv->data->mmsys_id == MMSYS_MT6879) {
 		//workaround for gce can't wait dsi te event done
-		cmdq_set_outpin_event(mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP],
-				true);
+		//cmdq_set_outpin_event(mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP],
+		//		true);
 	}
 
 	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
@@ -5616,7 +5618,7 @@ unsigned int mtk_drm_dump_wk_lock(
 }
 
 void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
-				struct drm_crtc_state *old_crtc_state)
+				struct drm_atomic_state *atomic_state)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int index = drm_crtc_index(crtc);
@@ -6892,10 +6894,13 @@ static void mtk_crtc_msync2_send_cmds_bef_cfg(struct drm_crtc *crtc, unsigned in
 /******************Msync 2.0 function end**********************/
 
 static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
-				      struct drm_crtc_state *old_crtc_state)
+				      struct drm_atomic_state *atomic_state)
 {
-	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
+	struct mtk_crtc_state *mtk_crtc_state = to_mtk_crtc_state(crtc->state);
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct drm_crtc_state *old_crtc_state =
+		drm_atomic_get_old_crtc_state(atomic_state, crtc);
+
 	int index = drm_crtc_index(crtc);
 	struct mtk_ddp_comp *comp;
 	int i, j;
@@ -6928,8 +6933,8 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	CRTC_MMP_EVENT_START(index, atomic_begin,
 			(unsigned long)mtk_crtc->event,
-			(unsigned long)state->base.event);
-	if (mtk_crtc->event && state->base.event)
+			(unsigned long)mtk_crtc_state->base.event);
+	if (mtk_crtc->event && mtk_crtc_state->base.event)
 		DRM_ERROR("new event while there is still a pending event\n");
 
 	if (mtk_crtc->ddp_mode == DDP_NO_USE) {
@@ -6939,33 +6944,34 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
-	if (state->base.event) {
-		state->base.event->pipe = index;
+	if (mtk_crtc_state->base.event) {
+		mtk_crtc_state->base.event->pipe = index;
 		if (drm_crtc_vblank_get(crtc) != 0)
 			DDPAEE("%s:%d, invalid vblank:%d, crtc:%p\n",
 				__func__, __LINE__,
 				drm_crtc_vblank_get(crtc), crtc);
-		mtk_crtc->event = state->base.event;
-		state->base.event = NULL;
+		mtk_crtc->event = mtk_crtc_state->base.event;
+		mtk_crtc_state->base.event = NULL;
 	}
 
 	/*Msync 2.0: add Msync trace info*/
 	mtk_drm_trace_begin("mtk_drm_crtc_atomic:%d-%d-%d-%d",
-				crtc_idx, state->prop_val[CRTC_PROP_PRES_FENCE_IDX],
-				state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE],
+				crtc_idx, mtk_crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX],
+				mtk_crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE],
 				mtk_crtc->msync2.msync_disabled);
 
-	state->cmdq_handle = mtk_crtc_gce_commit_begin(crtc, old_crtc_state, state);
+	mtk_crtc_state->cmdq_handle =
+		mtk_crtc_gce_commit_begin(crtc, old_crtc_state, mtk_crtc_state);
 
 	/*Msync 2.0: add cmds to cfg thread*/
 	if (!mtk_crtc_is_frame_trigger_mode(crtc) &&
 		msync_is_on(priv, params, crtc_id,
-			state, old_mtk_state)) {
-		mtk_crtc_msync2_add_cmds_bef_cfg(crtc, old_mtk_state, state,
-				state->cmdq_handle);
+			mtk_crtc_state, old_mtk_state)) {
+		mtk_crtc_msync2_add_cmds_bef_cfg(crtc, old_mtk_state, mtk_crtc_state,
+				mtk_crtc_state->cmdq_handle);
 	} else if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 			msync_is_on(priv, params, crtc_id,
-				state, old_mtk_state) && (index == 0)) {
+				mtk_crtc_state, old_mtk_state) && (index == 0)) {
 
 		/* Get target fps for msync2.0 */
 		atomic_fps = mtk_drm_get_atomic_fps();
@@ -6994,7 +7000,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		msync_may_close = 1;
 	} else if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 			!msync_is_on(priv, params, crtc_id,
-				state, old_mtk_state) && (index == 0)) {
+				mtk_crtc_state, old_mtk_state) && (index == 0)) {
 		if ((msync_may_close == 1) && (g_msync_debug == 0)) {
 			mtk_crtc_msync2_send_cmds_bef_cfg(crtc, 0xFFFF);
 			msync_may_close = 0;
@@ -7002,8 +7008,8 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	}
 
 #ifdef MTK_DRM_ADVANCE
-	mtk_crtc_update_ddp_state(crtc, old_crtc_state, state,
-				  state->cmdq_handle);
+	mtk_crtc_update_ddp_state(crtc, old_crtc_state, mtk_crtc_state,
+				  mtk_crtc_state->cmdq_handle);
 #endif
 
 	/* reset BW */
@@ -7024,7 +7030,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 end:
 	CRTC_MMP_EVENT_END(index, atomic_begin,
 			(unsigned long)mtk_crtc->event,
-			(unsigned long)state->base.event);
+			(unsigned long)mtk_crtc_state->base.event);
 }
 
 void mtk_drm_layer_dispatch_to_dual_pipe(
@@ -7866,7 +7872,7 @@ static void sf_cmdq_cb(struct cmdq_cb_data data)
 #endif
 
 static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
-				      struct drm_crtc_state *old_crtc_state)
+				      struct drm_atomic_state *atomic_state)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
@@ -7877,8 +7883,10 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	unsigned int ret = 0;
 #endif
 	struct drm_crtc_state *crtc_state = crtc->state;
-	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
-	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
+	struct mtk_crtc_state *mtk_crtc_state = to_mtk_crtc_state(crtc_state);
+	struct drm_crtc_state *old_crtc_state =
+		drm_atomic_get_old_crtc_state(atomic_state, crtc);
+	struct cmdq_pkt *cmdq_handle = mtk_crtc_state->cmdq_handle;
 	struct mtk_cmdq_cb_data *cb_data;
 	struct mtk_ddp_comp *comp;
 	struct mtk_drm_crtc *mtk_crtc0 = to_mtk_crtc(priv->crtc[0]);
@@ -7924,15 +7932,15 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_HBM)) {
 		bool hbm_en = false;
 
-		hbm_en = (bool)state->prop_val[CRTC_PROP_HBM_ENABLE];
+		hbm_en = (bool)mtk_crtc_state->prop_val[CRTC_PROP_HBM_ENABLE];
 		mtk_drm_crtc_set_panel_hbm(crtc, hbm_en);
 		mtk_drm_crtc_hbm_wait(crtc, hbm_en);
 
-		if (!state->prop_val[CRTC_PROP_DOZE_ACTIVE])
+		if (!mtk_crtc_state->prop_val[CRTC_PROP_DOZE_ACTIVE])
 			mtk_atomic_hbm_bypass_pq(crtc, cmdq_handle, hbm_en);
 	}
 
-	hdr_en = (bool)state->prop_val[CRTC_PROP_HDR_ENABLE];
+	hdr_en = (bool)mtk_crtc_state->prop_val[CRTC_PROP_HDR_ENABLE];
 
 	if (mtk_crtc->fake_layer.fake_layer_mask)
 		mtk_drm_crtc_enable_fake_layer(crtc, old_crtc_state);
@@ -7968,16 +7976,16 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	/* backup present fence */
-	if (state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1) {
+	if (mtk_crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1) {
 		dma_addr_t addr =
 			mtk_get_gce_backup_slot_pa(mtk_crtc,
 			DISP_SLOT_PRESENT_FENCE(index));
 
 		cmdq_pkt_write(cmdq_handle,
 			mtk_crtc->gce_obj.base, addr,
-			state->prop_val[CRTC_PROP_PRES_FENCE_IDX], ~0);
+			mtk_crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX], ~0);
 		CRTC_MMP_MARK(index, update_present_fence, 0,
-			state->prop_val[CRTC_PROP_PRES_FENCE_IDX]);
+			mtk_crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX]);
 	}
 
 	/* for wfd latency debug */
@@ -7988,15 +7996,15 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 
 		cmdq_pkt_write(cmdq_handle,
 			mtk_crtc->gce_obj.base, addr,
-			state->prop_val[CRTC_PROP_OVL_DSI_SEQ], ~0);
+			mtk_crtc_state->prop_val[CRTC_PROP_OVL_DSI_SEQ], ~0);
 
-		if (state->prop_val[CRTC_PROP_OVL_DSI_SEQ]) {
+		if (mtk_crtc_state->prop_val[CRTC_PROP_OVL_DSI_SEQ]) {
 			if (index == 0)
 				mtk_drm_trace_async_begin("OVL0-DSI|%d",
-					state->prop_val[CRTC_PROP_OVL_DSI_SEQ]);
+					mtk_crtc_state->prop_val[CRTC_PROP_OVL_DSI_SEQ]);
 			else if (index == 2)
 				mtk_drm_trace_async_begin("OVL2-WDMA|%d",
-			state->prop_val[CRTC_PROP_OVL_DSI_SEQ]);
+			mtk_crtc_state->prop_val[CRTC_PROP_OVL_DSI_SEQ]);
 		}
 	}
 
@@ -8006,14 +8014,14 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	cb_data->misc = mtk_crtc->ddp_mode;
 	cb_data->msync2_enable = 0;
 	cb_data->is_mml = mtk_crtc->is_mml;
-	if (state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1)
-		cb_data->pres_fence_idx = state->prop_val[CRTC_PROP_PRES_FENCE_IDX];
+	if (mtk_crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1)
+		cb_data->pres_fence_idx = mtk_crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX];
 
 	/* This refcnt would be release in ddp_cmdq_cb */
 	drm_atomic_state_get(old_crtc_state->state);
 	mtk_drm_crtc_lfr_update(crtc, cmdq_handle);
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SF_PF) &&
-	   (state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX] != (unsigned int)-1)) {
+	   (mtk_crtc_state->prop_val[CRTC_PROP_SF_PRES_FENCE_IDX] != (unsigned int)-1)) {
 		if (index == 0)
 			cmdq_pkt_clear_event(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
@@ -8022,7 +8030,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	/*Msync 2.0*/
 	if (!mtk_crtc_is_frame_trigger_mode(crtc) &&
 			msync_is_on(priv, params, index,
-				state, old_mtk_state) &&
+				mtk_crtc_state, old_mtk_state) &&
 			!mtk_crtc->msync2.msync_disabled) {
 		/*VFP early stop 0->1*/
 		struct mtk_ddp_comp *output_comp;
@@ -8088,7 +8096,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	/*Msync 2.0*/
 	if (!mtk_crtc_is_frame_trigger_mode(crtc) &&
 			msync_is_on(priv, params, index,
-				state, old_mtk_state) &&
+				mtk_crtc_state, old_mtk_state) &&
 			!mtk_crtc->msync2.msync_disabled) {
 		struct cmdq_pkt *cmdq_handle;
 		struct mtk_cmdq_cb_data *msync_cb_data;
@@ -8106,10 +8114,10 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		/*add wait SOF cmd*/
 		cmdq_pkt_wait_no_clear(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
-		if (state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0)
+		if (mtk_crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] != 0)
 			need_disable = msync_need_disable(mtk_crtc);
 		/* if 1->0 or msync_need_disable*/
-		if (state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] == 0 ||
+		if (mtk_crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] == 0 ||
 				need_disable) {
 			/* disable msync and enable LFR*/
 			if (output_comp) {
@@ -8122,7 +8130,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 				DDPINFO("[Msync] msync_disabled = true\n");
 			}
 			if (mtk_crtc->msync2.LFR_disabled &&
-					state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] == 0) {
+					mtk_crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE] == 0) {
 				int en = 1;
 
 				mtk_drm_helper_set_opt_by_name(priv->helper_opt,
@@ -8183,7 +8191,6 @@ static const struct drm_crtc_funcs mtk_crtc_funcs = {
 	.atomic_destroy_state = mtk_drm_crtc_destroy_state,
 	.atomic_set_property = mtk_drm_crtc_set_property,
 	.atomic_get_property = mtk_drm_crtc_get_property,
-	.gamma_set = drm_atomic_helper_legacy_gamma_set,
 	.enable_vblank = mtk_drm_crtc_enable_vblank,
 	.disable_vblank = mtk_drm_crtc_disable_vblank,
 	.get_vblank_timestamp = mtk_crtc_get_vblank_timestamp,

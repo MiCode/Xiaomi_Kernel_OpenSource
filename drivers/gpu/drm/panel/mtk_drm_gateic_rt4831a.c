@@ -14,6 +14,8 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include "mtk_drm_gateic.h"
+#include <dt-bindings/lcm/mtk_lcm_settings.h>
+
 
 #define ADDR_BACKLIGHT_CONFIG1			(0x02)
 #define ADDR_BACKLIGHT_CONFIG2			(0x03)

@@ -14,19 +14,20 @@ struct aod_scp_ipi_receive_info {
 	unsigned int aod_id;
 };
 
-static struct aod_scp_ipi_receive_info aod_scp_msg;
+//static struct aod_scp_ipi_receive_info aod_scp_msg;
 
 int mtk_aod_scp_ipi_send(int value)
 {
 	unsigned int retry_cnt = 0;
-	unsigned int aod_scp_send_data = 1;
-	int ret;
+	//unsigned int aod_scp_send_data = 1;
+	int ret = 0;
 
 	DDPMSG("%s+\n", __func__);
 
 	for (retry_cnt = 0; retry_cnt <= 10; retry_cnt++) {
-		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_AOD,
-					0, &aod_scp_send_data, 1, 0);
+		/* display wait for sync(DWFS)*/
+		//ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCP_AOD,
+		//			0, &aod_scp_send_data, 1, 0);
 
 		if (ret == IPI_ACTION_DONE) {
 			DDPMSG("%s ipi send msg done\n", __func__);
@@ -44,12 +45,12 @@ int mtk_aod_scp_ipi_send(int value)
 
 static int mtk_aod_scp_ipi_register(void)
 {
-	int ret;
+	int ret = 0;
 
 	DDPMSG("%s+\n", __func__);
-
-	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_AOD,
-			(void *)mtk_aod_scp_recv_handler, NULL, &aod_scp_msg);
+	/* display wait for sync(DWFS)*/
+	//ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_AOD,
+	//		(void *)mtk_aod_scp_recv_handler, NULL, &aod_scp_msg);
 
 	if (ret != IPI_ACTION_DONE)
 		DDPMSG("%s resigter ipi fail: %d\n", __func__, ret);

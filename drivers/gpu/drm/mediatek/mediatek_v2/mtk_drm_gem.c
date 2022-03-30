@@ -8,6 +8,7 @@
 #include <linux/dma-mapping.h>
 #include <drm/mediatek_drm.h>
 #include <linux/iommu.h>
+#include <drm/drm_gem_cma_helper.h>
 #include <drm/drm_prime.h>
 #include <linux/kmemleak.h>
 
@@ -28,6 +29,10 @@
 #include <linux/of_platform.h>
 
 extern bool g_mml_debug;
+static const struct drm_gem_object_funcs mtk_drm_gem_object_funcs = {
+	.free = mtk_drm_gem_free_object,
+	.get_sg_table = mtk_gem_prime_get_sg_table,
+};
 
 static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 						unsigned long size)
@@ -40,6 +45,8 @@ static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 	mtk_gem_obj = kzalloc(sizeof(*mtk_gem_obj), GFP_KERNEL);
 	if (!mtk_gem_obj)
 		return ERR_PTR(-ENOMEM);
+
+	mtk_gem_obj->base.funcs = &mtk_drm_gem_object_funcs;
 
 	ret = drm_gem_object_init(dev, &mtk_gem_obj->base, size);
 	if (ret != 0) {
@@ -753,10 +760,12 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	memcpy(submit_kernel, submit_user, sizeof(struct mml_submit));
 	submit_kernel->job = kzalloc(sizeof(struct mml_job), GFP_KERNEL);
 
-	if (submit_user->job)
-		copy_from_user(submit_kernel->job, submit_user->job, sizeof(struct mml_job));
-	else
-		DDPMSG("%s submit_user->job is null\n", __func__);
+	if (submit_user->job) {
+		ret = copy_from_user(submit_kernel->job, submit_user->job, sizeof(struct mml_job));
+		if (ret)
+			DDPMSG("[%s][%d][%d] copy_from_user fail\n", __func__, __LINE__, ret);
+	} else
+		DDPMSG("[%s] submit_user->job is null\n", __func__);
 
 	for (i = 0; i < MML_MAX_OUTPUTS; i++) {
 		if (submit_user->pq_param[i]) {
@@ -764,6 +773,9 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 				kzalloc(sizeof(struct mml_pq_param), GFP_KERNEL);
 			ret = copy_from_user(submit_kernel->pq_param[i], submit_user->pq_param[i],
 				sizeof(struct mml_pq_param));
+			if (ret)
+				DDPMSG("[%s][%d][%d] copy_from_user fail\n",
+				__func__, __LINE__, ret);
 			//copy_from_user(submit_kernel->pq_param[i]->gralloc_extra_handle,
 			//	submit_user->pq_param[i]->gralloc_extra_handle, sizeof(void *));
 		} else {
@@ -791,8 +803,11 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 			DDPMSG("submit failed: %d\n", ret);
 	}
 
-	if (submit_user && submit_user->job)
-		copy_to_user(submit_user->job, submit_kernel->job, sizeof(struct mml_job));
+	if (submit_user && submit_user->job) {
+		ret = copy_to_user(submit_user->job, submit_kernel->job, sizeof(struct mml_job));
+		if (ret)
+			DDPMSG("[%s][%d][%d] copy_to_user fail\n", __func__, __LINE__, ret);
+	}
 
 	for (i = 0; i < MML_MAX_OUTPUTS; i++) {
 		if (submit_user->pq_param[i])

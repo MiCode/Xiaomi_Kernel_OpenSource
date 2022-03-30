@@ -4,6 +4,7 @@
  */
 
 #include "mtk_drm_gateic.h"
+#include <dt-bindings/lcm/mtk_lcm_settings.h>
 
 static struct list_head dbi_gateic_list;
 static struct list_head dpi_gateic_list;

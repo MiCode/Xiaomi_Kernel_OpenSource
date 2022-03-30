@@ -277,9 +277,11 @@ static const struct drm_plane_funcs mtk_plane_funcs = {
 };
 
 static int mtk_plane_atomic_check(struct drm_plane *plane,
-				  struct drm_plane_state *state)
+				  struct drm_atomic_state *state)
 {
-	struct drm_framebuffer *fb = state->fb;
+	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state,
+										 plane);
+	struct drm_framebuffer *fb = new_plane_state->fb;
 	struct drm_crtc_state *crtc_state;
 	struct mtk_drm_private *private = plane->dev->dev_private;
 
@@ -291,20 +293,20 @@ static int mtk_plane_atomic_check(struct drm_plane *plane,
 		return -EFAULT;
 	}
 
-	if (!state->crtc)
+	if (!new_plane_state->crtc)
 		return 0;
 
-	crtc_state = drm_atomic_get_crtc_state(state->state, state->crtc);
+	crtc_state = drm_atomic_get_crtc_state(new_plane_state->state, new_plane_state->crtc);
 	if (IS_ERR(crtc_state))
 		return PTR_ERR(crtc_state);
 
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_RPO))
 		return drm_atomic_helper_check_plane_state(
-			state, crtc_state, MTK_DRM_PLANE_SCALING_MIN,
+			new_plane_state, crtc_state, MTK_DRM_PLANE_SCALING_MIN,
 			MTK_DRM_PLANE_SCALING_MAX, true, true);
 	else
 		return drm_atomic_helper_check_plane_state(
-			state, crtc_state, DRM_PLANE_HELPER_NO_SCALING,
+			new_plane_state, crtc_state, DRM_PLANE_HELPER_NO_SCALING,
 			DRM_PLANE_HELPER_NO_SCALING, true, true);
 }
 
@@ -359,9 +361,9 @@ void mtk_plane_get_comp_state(struct drm_plane *plane,
 #endif
 
 static void mtk_plane_atomic_update(struct drm_plane *plane,
-				    struct drm_plane_state *old_state)
+				    struct drm_atomic_state *state)
 {
-	struct mtk_plane_state *state = to_mtk_plane_state(plane->state);
+	struct mtk_plane_state *mtk_plane_state = to_mtk_plane_state(plane->state);
 	struct drm_crtc *crtc = plane->state->crtc;
 	struct mtk_crtc_state *crtc_state;
 	struct drm_framebuffer *fb = plane->state->fb;
@@ -397,110 +399,114 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 		dst_h = src_h;
 	}
 
-	state->pending.mml_mode = state->mml_mode;
-	state->pending.mml_cfg = state->mml_cfg;
+	mtk_plane_state->pending.mml_mode = mtk_plane_state->mml_mode;
+	mtk_plane_state->pending.mml_cfg = mtk_plane_state->mml_cfg;
 
-	if (state->pending.mml_mode == MML_MODE_RACING && mtk_crtc->is_mml) {
-		struct mml_submit *cfg = state->pending.mml_cfg;
+	if (mtk_plane_state->pending.mml_mode == MML_MODE_RACING && mtk_crtc->is_mml) {
+		struct mml_submit *cfg = mtk_plane_state->pending.mml_cfg;
 		uint32_t width, height, pitch;
 
 		width = cfg->info.src.width;
 		height = cfg->info.src.height;
 		pitch = cfg->info.src.y_stride;
 
-		state->pending.enable = plane->state->visible;
-		state->pending.pitch = pitch;
-		state->pending.format = fb->format->format;
-		state->pending.addr = (mtk_crtc->mml_ir_sram) ?
+		mtk_plane_state->pending.enable = plane->state->visible;
+		mtk_plane_state->pending.pitch = pitch;
+		mtk_plane_state->pending.format = fb->format->format;
+		mtk_plane_state->pending.addr = (mtk_crtc->mml_ir_sram) ?
 			(dma_addr_t)(mtk_crtc->mml_ir_sram->paddr) : (dma_addr_t)(0);
-		state->pending.modifier = MTK_FMT_NONE;
-		state->pending.size = pitch  * height;
-		state->pending.src_x = 0;
-		state->pending.src_y = 0;
-		state->pending.dst_x = dst_x;
-		state->pending.dst_y = dst_y;
-		state->pending.width = width;
-		state->pending.height = height;
+		mtk_plane_state->pending.modifier = MTK_FMT_NONE;
+		mtk_plane_state->pending.size = pitch  * height;
+		mtk_plane_state->pending.src_x = 0;
+		mtk_plane_state->pending.src_y = 0;
+		mtk_plane_state->pending.dst_x = dst_x;
+		mtk_plane_state->pending.dst_y = dst_y;
+		mtk_plane_state->pending.width = width;
+		mtk_plane_state->pending.height = height;
 	} else {
-		state->pending.enable = plane->state->visible;
-		state->pending.pitch = fb->pitches[0];
-		state->pending.format = fb->format->format;
-		state->pending.modifier = fb->modifier;
-		state->pending.addr = mtk_fb_get_dma(fb);
-		state->pending.size = mtk_fb_get_size(fb);
-		state->pending.src_x = (plane->state->src.x1 >> 16);
-		state->pending.src_y = (plane->state->src.y1 >> 16);
-		state->pending.dst_x = dst_x;
-		state->pending.dst_y = dst_y;
-		state->pending.width = dst_w;
-		state->pending.height = dst_h;
+		mtk_plane_state->pending.enable = plane->state->visible;
+		mtk_plane_state->pending.pitch = fb->pitches[0];
+		mtk_plane_state->pending.format = fb->format->format;
+		mtk_plane_state->pending.modifier = fb->modifier;
+		mtk_plane_state->pending.addr = mtk_fb_get_dma(fb);
+		mtk_plane_state->pending.size = mtk_fb_get_size(fb);
+		mtk_plane_state->pending.src_x = (plane->state->src.x1 >> 16);
+		mtk_plane_state->pending.src_y = (plane->state->src.y1 >> 16);
+		mtk_plane_state->pending.dst_x = dst_x;
+		mtk_plane_state->pending.dst_y = dst_y;
+		mtk_plane_state->pending.width = dst_w;
+		mtk_plane_state->pending.height = dst_h;
 	}
 
 	if (mtk_drm_fb_is_secure(fb))
-		state->pending.is_sec = true;
+		mtk_plane_state->pending.is_sec = true;
 	else
-		state->pending.is_sec = false;
+		mtk_plane_state->pending.is_sec = false;
 	for (i = 0; i < PLANE_PROP_MAX; i++)
-		state->pending.prop_val[i] = state->prop_val[i];
+		mtk_plane_state->pending.prop_val[i] = mtk_plane_state->prop_val[i];
 
 	wmb(); /* Make sure the above parameters are set before update */
-	state->pending.dirty = true;
+	mtk_plane_state->pending.dirty = true;
 
 	DDPINFO("%s:%d enable%d,pitch%d,format%d\n",
-		__func__, __LINE__, (unsigned int)state->pending.enable,
-		state->pending.pitch, state->pending.format);
+		__func__, __LINE__, (unsigned int)mtk_plane_state->pending.enable,
+		mtk_plane_state->pending.pitch, mtk_plane_state->pending.format);
 	DDPINFO("addr0x%lx,x%d,y%d,width%d,height%d\n",
-		(unsigned long)state->pending.addr, state->pending.dst_x,
-		state->pending.dst_y, state->pending.width,
-		state->pending.height);
+		(unsigned long)mtk_plane_state->pending.addr, mtk_plane_state->pending.dst_x,
+		mtk_plane_state->pending.dst_y, mtk_plane_state->pending.width,
+		mtk_plane_state->pending.height);
 
 	for (i = 0; i < PLANE_PROP_MAX; i++) {
 		DDPINFO("prop_val[%d]:%d ", i,
-			(unsigned int)state->pending.prop_val[i]);
+			(unsigned int)mtk_plane_state->pending.prop_val[i]);
 	}
 	DDPINFO("\n");
 
 	DDPFENCE("S+/%sL%d/e%d/id%d/mva0x%08llx/size0x%08lx/S%d\n",
 		mtk_crtc_index_spy(crtc_index),
 		plane_index,
-		state->pending.enable,
-		(unsigned int)state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX],
-		state->pending.addr,
-		state->pending.size,
-		state->pending.is_sec);
+		mtk_plane_state->pending.enable,
+		(unsigned int)mtk_plane_state->pending.prop_val[PLANE_PROP_NEXT_BUFF_IDX],
+		mtk_plane_state->pending.addr,
+		mtk_plane_state->pending.size,
+		mtk_plane_state->pending.is_sec);
 
-	if (!mtk_crtc->sec_on && state->pending.is_sec) {
+	if (!mtk_crtc->sec_on && mtk_plane_state->pending.is_sec) {
 		DDPMSG("receive sec buffer in non-sec mode\n");
 		return;
 	}
 
-	if (state->pending.enable)
+	if (mtk_plane_state->pending.enable)
 		atomic_set(&mtk_crtc->already_config, 1);
 
-	if (state->pending.format == DRM_FORMAT_RGB332)
+	if (mtk_plane_state->pending.format == DRM_FORMAT_RGB332)
 		skip_update = 1;
 	/* workaround for skip plane update when hwc set crtc */
 	if (skip_update == 0)
-		mtk_drm_crtc_plane_update(crtc, plane, state);
+		mtk_drm_crtc_plane_update(crtc, plane, mtk_plane_state);
 
 }
 
-static void mtk_plane_atomic_disable(struct drm_plane *plane,
-				     struct drm_plane_state *old_state)
-{
-	struct mtk_plane_state *state = to_mtk_plane_state(plane->state);
 
-	state->pending.enable = false;
+static void mtk_plane_atomic_disable(struct drm_plane *plane,
+					struct drm_atomic_state *state)
+{
+	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state,
+									   plane);
+	struct mtk_plane_state *mtk_plane_state = to_mtk_plane_state(new_state);
+	struct mtk_plane_state *old_state = to_mtk_plane_state(plane->state);
+
+	mtk_plane_state->pending.enable = false;
 	wmb(); /* Make sure the above parameter is set before update */
-	state->pending.dirty = true;
+	mtk_plane_state->pending.dirty = true;
 
 #ifdef MTK_DRM_ADVANCE
-	if (!state->crtc) {
+	if (!mtk_plane_state->crtc) {
 		DDPPR_ERR("%s, empty crtc state\n", __func__);
 		if (old_state && old_state->crtc)
-			mtk_drm_crtc_plane_disable(old_state->crtc, plane, state);
+			mtk_drm_crtc_plane_disable(old_state->crtc, plane, mtk_plane_state);
 	} else
-		mtk_drm_crtc_plane_disable(state->crtc, plane, state);
+		mtk_drm_crtc_plane_disable(mtk_plane_state->crtc, plane, mtk_plane_state);
 #endif
 }
 

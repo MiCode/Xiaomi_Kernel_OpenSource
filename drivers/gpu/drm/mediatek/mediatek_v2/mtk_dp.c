@@ -1709,7 +1709,7 @@ int mdrv_DPTx_TrainingFlow(struct mtk_dp *mtk_dp, u8 ubLaneRate, u8 ubLaneCount)
 			drm_dp_dpcd_write(&mtk_dp->aux, DPCD_00103,
 				ubDPCP_Buffer1, ubTargetLaneCount);
 
-			drm_dp_link_train_clock_recovery_delay(mtk_dp->rx_cap);
+			drm_dp_link_train_clock_recovery_delay(&mtk_dp->aux, mtk_dp->rx_cap);
 			drm_dp_dpcd_read(&mtk_dp->aux, DPCD_00202,
 				ubTempValue, 0x6);
 
@@ -1784,7 +1784,7 @@ int mdrv_DPTx_TrainingFlow(struct mtk_dp *mtk_dp, u8 ubLaneRate, u8 ubLaneCount)
 
 			drm_dp_dpcd_write(&mtk_dp->aux, DPCD_00103,
 				ubDPCP_Buffer1, ubTargetLaneCount);
-			drm_dp_link_train_channel_eq_delay(mtk_dp->rx_cap);
+			drm_dp_link_train_channel_eq_delay(&mtk_dp->aux, mtk_dp->rx_cap);
 
 			drm_dp_dpcd_read(&mtk_dp->aux, DPCD_00202,
 				ubTempValue, 0x6);
