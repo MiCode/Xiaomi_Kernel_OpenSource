@@ -2529,6 +2529,9 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 			mtk_icc_set_bw(port_path,
 				MBps_to_icc(mdp_curr_bandwidth), 0);
+			CMDQ_LOG_PMQOS(
+				"[%d]begin task qos update mdp bandwidth:%u, port:%u\n",
+				thread_id, mdp_curr_bandwidth, target_pmqos->qos2_mdp_port[i]);
 		}
 	}
 
