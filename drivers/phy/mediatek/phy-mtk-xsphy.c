@@ -72,6 +72,10 @@
 #define P2A6_RG_U2_PHY_REV1		BIT(25)
 #define P2A6_RG_BC11_SW_EN	BIT(23)
 #define P2A6_RG_OTG_VBUSCMP_EN	BIT(20)
+#define P2A6_RG_U2_DISCTH		GENMASK(7, 4)
+#define P2A6_RG_U2_DISCTH_VAL(x)	((0xf & (x)) << 4)
+#define P2A6_RG_U2_DISCTH_MASK	(0xf)
+#define P2A6_RG_U2_DISCTH_OFET	(4)
 
 #define XSP_USBPHYACR3		((SSUSB_SIFSLV_U2PHY_COM) + 0x01c)
 #define P2A3_RG_USB20_PUPD_BIST_EN	BIT(12)
@@ -222,6 +226,13 @@ struct xsphy_instance {
 	int eye_src;
 	int eye_vrt;
 	int eye_term;
+	int discth;
+	int rev6;
+	/* u2 eye diagram for host */
+	int eye_src_host;
+	int eye_vrt_host;
+	int eye_term_host;
+	int rev6_host;
 };
 
 struct mtk_xsphy {
@@ -232,6 +243,13 @@ struct mtk_xsphy {
 	int src_ref_clk; /* MHZ, reference clock for slew rate calibrate */
 	int src_coef;    /* coefficient for slew rate calibrate */
 };
+
+static void u2_phy_props_set(struct mtk_xsphy *xsphy,
+		struct xsphy_instance *inst);
+static void u2_phy_host_props_set(struct mtk_xsphy *xsphy,
+		struct xsphy_instance *inst);
+static void u3_phy_props_set(struct mtk_xsphy *xsphy,
+		struct xsphy_instance *inst);
 
 static void u3_phy_instance_power_on(struct mtk_xsphy *xsphy,
 				     struct xsphy_instance *inst)
@@ -535,9 +553,11 @@ static void u2_phy_instance_set_mode(struct mtk_xsphy *xsphy,
 		tmp = readl(inst->port_base + XSP_U2PHYDTM1);
 		switch (mode) {
 		case PHY_MODE_USB_DEVICE:
+			u2_phy_props_set(xsphy, inst);
 			tmp |= P2D_FORCE_IDDIG | P2D_RG_IDDIG;
 			break;
 		case PHY_MODE_USB_HOST:
+			u2_phy_host_props_set(xsphy, inst);
 			tmp |= P2D_FORCE_IDDIG;
 			tmp &= ~P2D_RG_IDDIG;
 			break;
@@ -688,9 +708,27 @@ static void phy_parse_property(struct mtk_xsphy *xsphy,
 					 &inst->eye_vrt);
 		device_property_read_u32(dev, "mediatek,eye-term",
 					 &inst->eye_term);
-		dev_dbg(dev, "intr:%d, src:%d, vrt:%d, term:%d\n",
-			inst->efuse_intr, inst->eye_src,
+		device_property_read_u32(dev, "mediatek,discth",
+				 &inst->discth);
+		device_property_read_u32(dev, "mediatek,rev6",
+				 &inst->rev6);
+		device_property_read_u32(dev, "mediatek,eye-src-host",
+					 &inst->eye_src_host);
+		device_property_read_u32(dev, "mediatek,eye-vrt-host",
+					 &inst->eye_vrt_host);
+		device_property_read_u32(dev, "mediatek,eye-term-host",
+					 &inst->eye_term_host);
+		device_property_read_u32(dev, "mediatek,rev6-host",
+				 &inst->rev6_host);
+		dev_dbg(dev, "intr:%d, term_cal, src:%d, vrt:%d, term:%d\n",
+			inst->efuse_intr, inst->efuse_term_cal, inst->eye_src,
 			inst->eye_vrt, inst->eye_term);
+		dev_dbg(dev, "src_host:%d, vrt_host:%d, term_host:%d\n",
+			inst->eye_src_host, inst->eye_vrt_host,
+			inst->eye_term_host);
+		dev_dbg(dev, "discth:%d, rev6:%d, rev6_host:%d\n",
+			inst->discth, inst->rev6, inst->rev6_host);
+
 		break;
 	case PHY_TYPE_USB3:
 		device_property_read_u32(dev, "mediatek,efuse-intr",
@@ -750,6 +788,55 @@ static void u2_phy_props_set(struct mtk_xsphy *xsphy,
 		tmp |= P2A1_RG_TERM_SEL_VAL(inst->eye_term);
 		writel(tmp, pbase + XSP_USBPHYACR1);
 	}
+
+	if (inst->discth) {
+		tmp = readl(pbase + XSP_USBPHYACR6);
+		tmp &= ~P2A6_RG_U2_DISCTH;
+		tmp |= P2A6_RG_U2_DISCTH_VAL(inst->discth);
+		writel(tmp, pbase + XSP_USBPHYACR6);
+	}
+
+	if (inst->rev6) {
+		tmp = readl(pbase + XSP_USBPHYACR6);
+		tmp &= ~P2A6_RG_U2_PHY_REV6;
+		tmp |= P2A6_RG_U2_PHY_REV6_VAL(inst->rev6);
+		writel(tmp, pbase + XSP_USBPHYACR6);
+	}
+}
+
+static void u2_phy_host_props_set(struct mtk_xsphy *xsphy,
+			     struct xsphy_instance *inst)
+{
+	void __iomem *pbase = inst->port_base;
+	u32 tmp;
+
+	if (inst->eye_src_host) {
+		tmp = readl(pbase + XSP_USBPHYACR5);
+		tmp &= ~P2A5_RG_HSTX_SRCTRL;
+		tmp |= P2A5_RG_HSTX_SRCTRL_VAL(inst->eye_src_host);
+		writel(tmp, pbase + XSP_USBPHYACR5);
+	}
+
+	if (inst->eye_vrt_host) {
+		tmp = readl(pbase + XSP_USBPHYACR1);
+		tmp &= ~P2A1_RG_VRT_SEL;
+		tmp |= P2A1_RG_VRT_SEL_VAL(inst->eye_vrt_host);
+		writel(tmp, pbase + XSP_USBPHYACR1);
+	}
+
+	if (inst->eye_term_host) {
+		tmp = readl(pbase + XSP_USBPHYACR1);
+		tmp &= ~P2A1_RG_TERM_SEL;
+		tmp |= P2A1_RG_TERM_SEL_VAL(inst->eye_term_host);
+		writel(tmp, pbase + XSP_USBPHYACR1);
+	}
+
+	if (inst->rev6_host) {
+		tmp = readl(pbase + XSP_USBPHYACR6);
+		tmp &= ~P2A6_RG_U2_PHY_REV6;
+		tmp |= P2A6_RG_U2_PHY_REV6_VAL(inst->rev6_host);
+		writel(tmp, pbase + XSP_USBPHYACR6);
+	}
 }
 
 static void u3_phy_props_set(struct mtk_xsphy *xsphy,
@@ -796,9 +883,22 @@ static int mtk_phy_init(struct phy *phy)
 	case PHY_TYPE_USB2:
 		u2_phy_instance_init(xsphy, inst);
 		u2_phy_props_set(xsphy, inst);
+		/* show default u2 driving setting */
+		dev_info(xsphy->dev, "device src:%d vrt:%d term:%d rev6:%d\n",
+			inst->eye_src, inst->eye_vrt,
+			inst->eye_term, inst->rev6);
+		dev_info(xsphy->dev, "host src:%d vrt:%d term:%d rev6:%d\n",
+			inst->eye_src_host, inst->eye_vrt_host,
+			inst->eye_term_host, inst->rev6_host);
+		dev_info(xsphy->dev, "u2_intr:%d term_cal:%d discth:%d\n",
+			inst->efuse_intr, inst->efuse_term_cal, inst->discth);
 		break;
 	case PHY_TYPE_USB3:
 		u3_phy_props_set(xsphy, inst);
+		/* show default u3 driving setting */
+		dev_info(xsphy->dev, "u3_intr:%d, tx-imp:%d, rx-imp:%d\n",
+			inst->efuse_intr, inst->efuse_tx_imp,
+			inst->efuse_rx_imp);
 		break;
 	default:
 		dev_err(xsphy->dev, "incompatible phy type\n");
@@ -817,8 +917,10 @@ static int mtk_phy_power_on(struct phy *phy)
 	if (inst->type == PHY_TYPE_USB2) {
 		u2_phy_instance_power_on(xsphy, inst);
 		u2_phy_slew_rate_calibrate(xsphy, inst);
+		u2_phy_props_set(xsphy, inst);
 	} else if (inst->type == PHY_TYPE_USB3) {
 		u3_phy_instance_power_on(xsphy, inst);
+		u3_phy_props_set(xsphy, inst);
 	}
 
 	return 0;
