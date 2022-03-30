@@ -4,7 +4,7 @@ config MTK_IMGSENSOR
 	  This is a driver for the MediaTek
 	  image sensors.
 	  To compile this driver as a module, choose M here: the
-	  module will be called imgsensor.
+	  module will be called imgsensor_isp6s.
 
 config CUSTOM_KERNEL_IMGSENSOR
 	string "Custom image sensor driver"
@@ -13,6 +13,30 @@ config CUSTOM_KERNEL_IMGSENSOR
 	  sensors .The value is combination of CUSTOM_KERNEL_MAIN_IMGSENSOR,
 	  CUSTOM_KERNEL_MAIN_BACKUP_IMGSENSOR, CUSTOM_KERNEL_SUB_IMGSENSOR,
 	  and CUSTOM_KERNEL_SUB_BACKUP_IMGSENSOR
+
+config MTK_IMGSENSOR_PLATFORM_SUPPORT
+	bool "MTK PLATFORM for ALL PLATFORM"
+	help
+	  This is a config for the MediaTek
+	  image sensors with layer decoupling 2.0.
+	  To compare to legacy config, this new option type is boolean.
+	  To compile all platform driver as modules, choose y here.
+
+config MTK_IMGSENSOR_MT6853
+	tristate "MTK PLATFORM for MT6853"
+	help
+	  This is a driver for the MediaTek
+	  image sensors.
+	  To compile this driver as a module, choose M here: the
+	  module will be called imgsensor_mt6853.
+
+config MTK_IMGSENSOR_MT6893
+	tristate "MTK PLATFORM for MT6893"
+	help
+	  This is a driver for the MediaTek
+	  image sensors.
+	  To compile this driver as a module, choose M here: the
+	  module will be called imgsensor_mt6893.
 
 config MTK_IMGSENSOR_PLATFORM
 	string "set imgsensor platform name"
@@ -25,7 +49,6 @@ config MTK_IMGSENSOR_PLATFORM
 
 config MTK_V4L2_IMGSENSOR
 	tristate "MediaTek v4l2 image sensor support"
-	depends on CUSTOM_KERNEL_IMGSENSOR != ""
 	select VIDEO_V4L2_SUBDEV_API
 	select MEDIA_CONTROLLER
 	select V4L2_FWNODE

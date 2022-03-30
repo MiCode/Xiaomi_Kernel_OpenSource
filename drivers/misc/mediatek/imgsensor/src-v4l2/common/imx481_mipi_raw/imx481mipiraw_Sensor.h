@@ -72,7 +72,7 @@ struct imgsensor_struct {
 	kal_uint8 sensor_mode;	/* record IMGSENSOR_MODE enum value */
 
 	kal_uint32 shutter;	/* current shutter */
-	kal_uint16 gain;	/* current gain */
+	kal_uint32 gain;	/* current gain */
 
 	kal_uint32 pclk;	/* current pclk */
 
@@ -156,6 +156,7 @@ struct imgsensor_info_struct {
 	kal_uint32 min_gain_iso;
 	kal_uint32 gain_step;
 	kal_uint32 gain_type;
+	kal_uint32 exp_step;
 
 	/* max framelength by sensor register's limitation */
 	kal_uint32 max_frame_length;
@@ -179,6 +180,9 @@ struct imgsensor_info_struct {
 	 * only supprt 4must end with 0xff
 	 */
 	kal_uint8 i2c_addr_table[5];
+
+	struct v4l2_subdev *sd;
+	struct adaptor_ctx *adaptor_ctx_;
 };
 
 extern int iReadRegI2C(

@@ -6,55 +6,34 @@
 
 #include <linux/videodev2.h>
 
-#include "kd_imgsensor_define.h"
+#include "kd_imgsensor_define_v4l2.h"
+#include "mtk_camera-v4l2-controls.h"
+#include "mtk_camera-videodev2.h"
 
-#define V4L2_CID_MTK_IMGSENSOR_BASE \
-	(V4L2_CID_USER_BASE | 0xf000)
+#define DEFAULT_WIDTH 1600
+#define DEFAULT_HEIGHT 1200
 
-#define V4L2_CID_MTK_TEMPERATURE \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 1)
-
-#define V4L2_CID_MTK_ANTI_FLICKER \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 2)
-
-#define V4L2_CID_MTK_AWB_GAIN \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 3)
-
-#define V4L2_CID_MTK_SHUTTER_GAIN_SYNC \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 4)
-
-#define V4L2_CID_MTK_DUAL_GAIN \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 5)
-
-#define V4L2_CID_MTK_IHDR_SHUTTER_GAIN \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 6)
-
-#define V4L2_CID_MTK_HDR_SHUTTER \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 7)
-
-#define V4L2_CID_MTK_SHUTTER_FRAME_LENGTH \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 8)
-
-#define V4L2_CID_MTK_PDFOCUS_AREA \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 9)
-
-#define V4L2_CID_MTK_HDR_ATR \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 10)
-
-#define V4L2_CID_MTK_HDR_TRI_SHUTTER \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 11)
-
-#define V4L2_CID_MTK_HDR_TRI_GAIN \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 12)
-
-#define V4L2_CID_MTK_FRAME_SYNC \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 13)
-
-#define V4L2_CID_MTK_MAX_FPS \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 14)
-
-#define V4L2_CID_MTK_DEBUG_CMD \
-	(V4L2_CID_MTK_IMGSENSOR_BASE + 20)
+enum {
+	PAD_SINK = 0,
+	PAD_SRC_RAW0,
+	PAD_SRC_RAW1,
+	PAD_SRC_RAW2,
+	PAD_SRC_RAW_W0,
+	PAD_SRC_RAW_EXT0,
+	PAD_SRC_PDAF0,
+	PAD_SRC_PDAF1,
+	PAD_SRC_PDAF2,
+	PAD_SRC_PDAF3,
+	PAD_SRC_PDAF4,
+	PAD_SRC_PDAF5,
+	PAD_SRC_PDAF6,
+	PAD_SRC_HDR0,
+	PAD_SRC_HDR1,
+	PAD_SRC_HDR2,
+	PAD_SRC_GENERAL0,
+	PAD_MAXCNT,
+	PAD_ERR = 0xffff,
+};
 
 struct mtk_awb_gain {
 	__u32 abs_gain_gr;
@@ -78,6 +57,12 @@ struct mtk_ihdr_shutter_gain {
 	__u32 se_shutter;
 	__u32 gain;
 };
+
+struct mtk_pixel_mode {
+	__u32 pixel_mode;
+	__u32 pad_id;
+};
+
 
 struct mtk_hdr_shutter {
 	__u32 le_shutter;
@@ -115,6 +100,7 @@ struct mtk_gain_range_by_scenario {
 struct mtk_min_shutter_by_scenario {
 	__u32 scenario_id;
 	__u32 min_shutter;
+	__u32 shutter_step;
 };
 
 struct mtk_base_gain_iso_n_step {
@@ -187,16 +173,47 @@ struct mtk_hdr_atr {
 	__u32 post_gain;
 };
 
-struct mtk_hdr_tri_shutter {
-	__u32 le_shutter;
-	__u32 me_shutter;
-	__u32 se_shutter;
+struct mtk_hdr_exposure {
+	union {
+		struct {
+			__u32 le_exposure;
+			__u32 me_exposure;
+			__u32 se_exposure;
+			__u32 sse_exposure;
+			__u32 ssse_exposure;
+		};
+
+		__u32 arr[IMGSENSOR_STAGGER_EXPOSURE_CNT];
+	};
+
 };
 
-struct mtk_hdr_tri_gain {
-	__u32 le_gain;
-	__u32 me_gain;
-	__u32 se_gain;
+struct mtk_hdr_gain {
+	union {
+		struct {
+			__u32 le_gain;
+			__u32 me_gain;
+			__u32 se_gain;
+			__u32 sse_gain;
+			__u32 ssse_gain;
+		};
+
+		__u32 arr[IMGSENSOR_STAGGER_EXPOSURE_CNT];
+	};
+
+};
+
+struct mtk_hdr_ae {
+	struct mtk_hdr_exposure exposure;
+	struct mtk_hdr_gain gain;
+	__u32 actions;
+	__u32 subsample_tags;
+};
+
+struct mtk_seamless_switch_param {
+	struct mtk_hdr_ae ae_ctrl[2];
+	__u32 frame_length[2];
+	__u32 target_scenario_id;
 };
 
 /* struct mtk_regs
@@ -262,6 +279,116 @@ struct mtk_sensor_control {
 	int scenario_id;
 	struct ACDK_SENSOR_EXPOSURE_WINDOW_STRUCT *p_window;
 	struct ACDK_SENSOR_CONFIG_STRUCT *p_config;
+};
+
+struct mtk_stagger_info {
+	__u32 scenario_id;
+	__u32 count;
+	int order[IMGSENSOR_STAGGER_EXPOSURE_CNT];
+};
+
+struct mtk_stagger_target_scenario {
+	__u32 scenario_id;
+	__u32 exposure_num;
+	__u32 target_scenario_id;
+};
+
+struct mtk_seamless_target_scenarios {
+	__u32 scenario_id;
+	__u32 count;
+	__u32 *target_scenario_ids;
+};
+
+struct mtk_stagger_max_exp_time {
+	__u32 scenario_id;
+	__u32 exposure;
+	__u32 max_exp_time;
+};
+
+struct mtk_max_exp_line {
+	__u32 scenario_id;
+	__u32 exposure;
+	__u32 max_exp_line;
+};
+
+struct mtk_exp_margin {
+	__u32 scenario_id;
+	__u32 margin;
+};
+
+struct mtk_sensor_value {
+	__u32 scenario_id;
+	__u32 value;
+};
+
+struct mtk_sensor_static_param {
+	__u32 scenario_id;
+	__u32 fps;
+	__u32 vblank;
+	__u32 hblank;
+	__u32 pixelrate;
+	__u32 cust_pixelrate;
+};
+struct mtk_mbus_frame_desc_entry_csi2 {
+	u8 channel;
+	u8 data_type;
+	u8 enable;
+	u16 hsize;
+	u16 vsize;
+	u16 user_data_desc;
+};
+
+
+struct mtk_mbus_frame_desc_entry {
+	//enum v4l2_mbus_frame_desc_flags flags;
+	//u32 pixelcode;
+	//u32 length;
+	union {
+		struct mtk_mbus_frame_desc_entry_csi2 csi2;
+	} bus;
+};
+#define MTK_FRAME_DESC_ENTRY_MAX 8
+
+
+enum mtk_mbus_frame_desc_type {
+	MTK_MBUS_FRAME_DESC_TYPE_PLATFORM,
+	MTK_MBUS_FRAME_DESC_TYPE_PARALLEL,
+	MTK_MBUS_FRAME_DESC_TYPE_CCP2,
+	MTK_MBUS_FRAME_DESC_TYPE_CSI2,
+};
+
+
+
+struct mtk_mbus_frame_desc {
+	enum mtk_mbus_frame_desc_type type;
+	struct mtk_mbus_frame_desc_entry entry[MTK_FRAME_DESC_ENTRY_MAX];
+	unsigned short num_entries;
+};
+
+struct mtk_csi_param {
+	__u8 dphy_trail;
+	__u8 dphy_data_settle;
+	__u8 dphy_clk_settle;
+	__u8 cphy_settle;
+};
+
+
+struct mtk_n_1_mode {
+	__u32 n;
+	__u8 en;
+};
+
+struct mtk_test_pattern_data {
+	__u32 Channel_R;
+	__u32 Channel_Gr;
+	__u32 Channel_Gb;
+	__u32 Channel_B;
+};
+
+
+struct mtk_fine_integ_line {
+	__u32 scenario_id;
+	__u32 fine_integ_line;
 };
 
 /* GET */
@@ -349,6 +476,33 @@ struct mtk_sensor_control {
 
 #define VIDIOC_MTK_G_SENSOR_INFO \
 	_IOR('M', BASE_VIDIOC_PRIVATE + 30, struct mtk_sensor_info)
+
+#define VIDIOC_MTK_G_EXPOSURE_MARGIN_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 31, struct mtk_exp_margin)
+
+#define VIDIOC_MTK_G_SEAMLESS_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 32, struct mtk_seamless_target_scenarios)
+
+#define VIDIOC_MTK_G_CUSTOM_READOUT_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 33, struct mtk_sensor_value)
+
+#define VIDIOC_MTK_G_STAGGER_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 34, struct mtk_stagger_target_scenario)
+
+#define VIDIOC_MTK_G_MAX_EXPOSURE \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 35, struct mtk_stagger_max_exp_time)
+
+#define VIDIOC_MTK_G_PRELOAD_EEPROM_DATA \
+	_IOR('M', BASE_VIDIOC_PRIVATE + 36, unsigned int)
+
+#define VIDIOC_MTK_G_OUTPUT_FORMAT_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 37, struct mtk_sensor_value)
+
+#define VIDIOC_MTK_G_FINE_INTEG_LINE_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 38, struct mtk_fine_integ_line)
+
+#define VIDIOC_MTK_G_MAX_EXPOSURE_LINE \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 39, struct mtk_max_exp_line)
 
 /* SET */
 

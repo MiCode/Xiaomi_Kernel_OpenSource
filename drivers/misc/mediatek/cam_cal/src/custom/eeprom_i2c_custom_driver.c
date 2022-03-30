@@ -26,6 +26,8 @@
 #include <linux/compat.h>
 #endif
 
+#include "eeprom_utils.h"
+
 #define EEPROM_I2C_MSG_SIZE_READ 2
 
 /************************************************************
@@ -58,7 +60,7 @@ static int iReadRegI2C(struct i2c_client *client,
 				EEPROM_I2C_MSG_SIZE_READ);
 
 	if (i4RetValue != EEPROM_I2C_MSG_SIZE_READ) {
-		pr_debug("I2C read failed!!\n");
+		must_log("I2C read failed!!\n");
 		return -1;
 	}
 	return 0;
@@ -79,7 +81,7 @@ static int custom_read_region(struct i2c_client *client,
 
 		if (iReadRegI2C(client, &offset, 1, (u8 *)Buff, 1,
 			i2c_id + (page << 1)) < 0) {
-			pr_debug("fail addr=0x%x 0x%x, P=%d, offset=0x%x",
+			must_log("fail addr=0x%x 0x%x, P=%d, offset=0x%x",
 				addr, *Buff, page, offset);
 			break;
 		}
@@ -88,7 +90,7 @@ static int custom_read_region(struct i2c_client *client,
 		size_to_read--;
 		ret++;
 	}
-	pr_debug("addr =%x size %d data read = %d\n", addr, size, ret);
+	must_log("addr =%x size %d data read = %d\n", addr, size, ret);
 	return ret;
 }
 

@@ -1,5 +1,0 @@
-# SPDX-License-Identifier: GPL-2.0
-
-
-obj-y				+= seninf_clk.o
-obj-y				+= seninf_irq.o

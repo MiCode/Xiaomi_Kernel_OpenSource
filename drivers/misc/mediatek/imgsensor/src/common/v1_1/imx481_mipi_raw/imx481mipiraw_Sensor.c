@@ -620,6 +620,29 @@ static kal_uint16 set_gain(kal_uint16 gain)
 	return gain;
 } /* set_gain */
 
+/*
+ * static void set_mirror_flip(kal_uint8 image_mirror)
+ * {
+ *	switch (image_mirror) {
+ *	case IMAGE_NORMAL:
+ *		write_cmos_sensor(0x0101, image_mirror);
+ *		break;
+ *
+ *	case IMAGE_V_MIRROR:
+ *		write_cmos_sensor(0x0101, image_mirror);
+ *		break;
+ *
+ *	case IMAGE_H_MIRROR:
+ *		write_cmos_sensor(0x0101, image_mirror);
+ *		break;
+ *
+ *	case IMAGE_HV_MIRROR:
+ *		write_cmos_sensor(0x0101, image_mirror);
+ *		break;
+ *	}
+ * }
+ */
+
 /************************************************************************
  * FUNCTION
  *    night_mode
@@ -1324,8 +1347,8 @@ static kal_uint32 get_imgsensor_id(UINT32 *sensor_id)
 		do {
 			*sensor_id = return_lot_id_from_otp();
 			if (*sensor_id == imgsensor_info.sensor_id) {
-				pr_debug("i2c write id: 0x%x, sensor id: 0x%x\n",
-					imgsensor.i2c_write_id, *sensor_id);
+				pr_info("[%s] i2c write id: 0x%x, sensor id: 0x%x\n",
+					__func__, imgsensor.i2c_write_id, *sensor_id);
 				return ERROR_NONE;
 			}
 			pr_debug(
@@ -2090,12 +2113,31 @@ static kal_uint32 get_sensor_temperature(void)
 	return temperature_convert;
 }
 
+static void check_stream_is_on(void)
+{
+	int i = 0;
+	UINT32 framecnt;
+	int timeout = (10000/imgsensor.current_fps)+1;
+
+	for (i = 0; i < timeout; i++) {
+
+		framecnt = read_cmos_sensor(0x0005);
+		if (framecnt != 0xFF) {
+			pr_debug("IMX481 stream is on, %d \\n", framecnt);
+			break;
+		}
+		pr_debug("IMX481 stream is not on %d \\n", framecnt);
+		mdelay(1);
+	}
+}
+
 static kal_uint32 streaming_control(kal_bool enable)
 {
 	pr_debug("streaming_enable(0=Sw Standby,1=streaming): %d\n", enable);
-	if (enable)
+	if (enable) {
 		write_cmos_sensor(0x0100, 0X01);
-	else
+		check_stream_is_on();
+	} else
 		write_cmos_sensor(0x0100, 0x00);
 	return ERROR_NONE;
 }
@@ -2268,6 +2310,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		spin_unlock(&imgsensor_drv_lock);
 		break;
 	case SENSOR_FEATURE_GET_CROP_INFO:
+	// #if 0
+		// pr_debug("SENSOR_FEATURE_GET_CROP_INFO scenarioId:%d\n",
+			// (UINT32) *feature_data);
+	// #endif
+
 		wininfo =
 	(struct SENSOR_WINSIZE_INFO_STRUCT *) (uintptr_t) (*(feature_data + 1));
 
@@ -2379,7 +2426,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		*(feature_data + 2) = imgsensor_info.margin;
 		break;
 	case SENSOR_FEATURE_GET_VC_INFO:
-		pr_info("SENSOR_FEATURE_GET_VC_INFO %d\n",
+		pr_debug("SENSOR_FEATURE_GET_VC_INFO %d\n",
 			(UINT16) (*feature_data));
 
 		pvcinfo =

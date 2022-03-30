@@ -18,11 +18,21 @@ static const struct i2c_device_id gi2c_dev_id[] = {
 	{IMGSENSOR_I2C_DRV_NAME_0, 0},
 	{IMGSENSOR_I2C_DRV_NAME_1, 0},
 	{IMGSENSOR_I2C_DRV_NAME_2, 0},
+#ifdef IMGSENSOR_I2C_DRV_NAME_3
 	{IMGSENSOR_I2C_DRV_NAME_3, 0},
+#endif
+#ifdef IMGSENSOR_I2C_DRV_NAME_4
 	{IMGSENSOR_I2C_DRV_NAME_4, 0},
+#endif
+#ifdef IMGSENSOR_I2C_DRV_NAME_5
 	{IMGSENSOR_I2C_DRV_NAME_5, 0},
+#endif
+#ifdef IMGSENSOR_I2C_DRV_NAME_6
 	{IMGSENSOR_I2C_DRV_NAME_6, 0},
+#endif
+#ifdef IMGSENSOR_I2C_DRV_NAME_7
 	{IMGSENSOR_I2C_DRV_NAME_7, 0},
+#endif
 	{}
 };
 
@@ -42,30 +52,40 @@ static const struct of_device_id gof_device_id_2[] = {
 	{}
 };
 
+#ifdef IMGSENSOR_I2C_OF_DRV_NAME_3
 static const struct of_device_id gof_device_id_3[] = {
 	{.compatible = IMGSENSOR_I2C_OF_DRV_NAME_3,},
 	{}
 };
+#endif
 
+#ifdef IMGSENSOR_I2C_OF_DRV_NAME_4
 static const struct of_device_id gof_device_id_4[] = {
 	{.compatible = IMGSENSOR_I2C_OF_DRV_NAME_4,},
 	{}
 };
+#endif
 
+#ifdef IMGSENSOR_I2C_OF_DRV_NAME_5
 static const struct of_device_id gof_device_id_5[] = {
 	{.compatible = IMGSENSOR_I2C_OF_DRV_NAME_5,},
 	{}
 };
+#endif
 
+#ifdef IMGSENSOR_I2C_OF_DRV_NAME_6
 static const struct of_device_id gof_device_id_6[] = {
 	{.compatible = IMGSENSOR_I2C_OF_DRV_NAME_6,},
 	{}
 };
+#endif
 
+#ifdef IMGSENSOR_I2C_OF_DRV_NAME_7
 static const struct of_device_id gof_device_id_7[] = {
 	{.compatible = IMGSENSOR_I2C_OF_DRV_NAME_7,},
 	{}
 };
+#endif
 
 #endif
 
@@ -121,6 +141,7 @@ static int imgsensor_i2c_probe_2(struct i2c_client *client,
 	return 0;
 }
 
+#ifdef IMGSENSOR_I2C_DRV_NAME_3
 static int imgsensor_i2c_probe_3(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -129,7 +150,9 @@ static int imgsensor_i2c_probe_3(struct i2c_client *client,
 		(void *)DUAL_CAMERA_SUB_2_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
+#endif
 
+#ifdef IMGSENSOR_I2C_DRV_NAME_4
 static int imgsensor_i2c_probe_4(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -138,7 +161,9 @@ static int imgsensor_i2c_probe_4(struct i2c_client *client,
 		(void *)DUAL_CAMERA_MAIN_3_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
+#endif
 
+#ifdef IMGSENSOR_I2C_DRV_NAME_5
 static int imgsensor_i2c_probe_5(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -147,7 +172,9 @@ static int imgsensor_i2c_probe_5(struct i2c_client *client,
 		(void *)DUAL_CAMERA_SUB_3_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
+#endif
 
+#ifdef IMGSENSOR_I2C_DRV_NAME_6
 static int imgsensor_i2c_probe_6(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -156,7 +183,9 @@ static int imgsensor_i2c_probe_6(struct i2c_client *client,
 		(void *)DUAL_CAMERA_MAIN_4_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
+#endif
 
+#ifdef IMGSENSOR_I2C_DRV_NAME_7
 static int imgsensor_i2c_probe_7(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -165,6 +194,7 @@ static int imgsensor_i2c_probe_7(struct i2c_client *client,
 		(void *)DUAL_CAMERA_SUB_4_SENSOR, &imgsensor_tz_ops);
 	return 0;
 }
+#endif
 
 static int imgsensor_i2c_remove(struct i2c_client *client)
 {
@@ -208,6 +238,7 @@ static struct i2c_driver gi2c_driver[IMGSENSOR_I2C_DEV_MAX_NUM] = {
 		},
 		.id_table = gi2c_dev_id,
 	},
+#ifdef IMGSENSOR_I2C_DRV_NAME_3
 	{
 		.probe = imgsensor_i2c_probe_3,
 		.remove = imgsensor_i2c_remove,
@@ -220,6 +251,8 @@ static struct i2c_driver gi2c_driver[IMGSENSOR_I2C_DEV_MAX_NUM] = {
 		},
 		.id_table = gi2c_dev_id,
 	},
+#endif
+#ifdef IMGSENSOR_I2C_DRV_NAME_4
 	{
 		.probe = imgsensor_i2c_probe_4,
 		.remove = imgsensor_i2c_remove,
@@ -232,6 +265,8 @@ static struct i2c_driver gi2c_driver[IMGSENSOR_I2C_DEV_MAX_NUM] = {
 		},
 		.id_table = gi2c_dev_id,
 	},
+#endif
+#ifdef IMGSENSOR_I2C_DRV_NAME_5
 	{
 		.probe = imgsensor_i2c_probe_5,
 		.remove = imgsensor_i2c_remove,
@@ -244,6 +279,8 @@ static struct i2c_driver gi2c_driver[IMGSENSOR_I2C_DEV_MAX_NUM] = {
 		},
 		.id_table = gi2c_dev_id,
 	},
+#endif
+#ifdef IMGSENSOR_I2C_DRV_NAME_6
 	{
 		.probe = imgsensor_i2c_probe_6,
 		.remove = imgsensor_i2c_remove,
@@ -256,6 +293,8 @@ static struct i2c_driver gi2c_driver[IMGSENSOR_I2C_DEV_MAX_NUM] = {
 		},
 		.id_table = gi2c_dev_id,
 	},
+#endif
+#ifdef IMGSENSOR_I2C_DRV_NAME_7
 	{
 		.probe = imgsensor_i2c_probe_7,
 		.remove = imgsensor_i2c_remove,
@@ -268,6 +307,7 @@ static struct i2c_driver gi2c_driver[IMGSENSOR_I2C_DEV_MAX_NUM] = {
 		},
 		.id_table = gi2c_dev_id,
 	}
+#endif
 };
 
 enum IMGSENSOR_RETURN imgsensor_i2c_create(void)
@@ -320,7 +360,7 @@ enum IMGSENSOR_RETURN imgsensor_i2c_buffer_mode(int enable)
 	PK_DBG("i2c_buf_mode_en %d\n", enable);
 
 	if (pinst->pi2c_client == NULL) {
-		PK_PR_ERR("pi2c_client is NULL!\n");
+		PK_DBG("NOTICE: pi2c_client is NULL!\n");
 		return IMGSENSOR_RETURN_ERROR;
 	}
 
@@ -352,7 +392,7 @@ enum IMGSENSOR_RETURN imgsensor_i2c_read(
 	int i2c_ret = 0;
 
 	if (pinst->pi2c_client == NULL) {
-		PK_PR_ERR("pi2c_client is NULL!\n");
+		PK_DBG("NOTICE: pi2c_client is NULL!\n");
 		return IMGSENSOR_RETURN_ERROR;
 	}
 
@@ -380,9 +420,8 @@ enum IMGSENSOR_RETURN imgsensor_i2c_read(
 		static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 30);
 
 		if (__ratelimit(&ratelimit))
-			PK_PR_ERR(
-			"I2C read failed (%d)! speed(0=%d) (0x%x)\n",
-			i2c_ret, speed, *pwrite_data);
+			PK_PR_ERR("NOTICE: I2C read failed (%d)! speed(%d) (0x%x)\n",
+				i2c_ret, speed, *pwrite_data);
 		ret = IMGSENSOR_RETURN_ERROR;
 	}
 
@@ -408,7 +447,7 @@ enum IMGSENSOR_RETURN imgsensor_i2c_write(
 	int i2c_ret = 0;
 
 	if (pinst->pi2c_client == NULL) {
-		PK_PR_ERR("pi2c_client is NULL!\n");
+		PK_DBG("NOTICE: pi2c_client is NULL!\n");
 		return IMGSENSOR_RETURN_ERROR;
 	}
 
@@ -437,8 +476,7 @@ enum IMGSENSOR_RETURN imgsensor_i2c_write(
 		static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 30);
 
 		if (__ratelimit(&ratelimit))
-			PK_PR_ERR(
-				"I2C write failed (%d)! speed(0=%d) (0x%x)\n",
+			PK_PR_ERR("NOTICE: I2C write failed (%d)! speed(%d) (0x%x)\n",
 				i2c_ret, speed, *pwrite_data);
 		ret = IMGSENSOR_RETURN_ERROR;
 	}

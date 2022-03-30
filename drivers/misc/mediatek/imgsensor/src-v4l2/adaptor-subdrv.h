@@ -6,17 +6,25 @@
 
 #include <media/v4l2-subdev.h>
 
-#include "kd_imgsensor_define.h"
+//#include "kd_imgsensor_define_v4l2.h"
+#include "imgsensor-user.h"
 
-#ifdef V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA
+#define DEBUG_LOG(ctx, ...) do {\
+	imgsensor_info.sd = i2c_get_clientdata(ctx->i2c_client); \
+	imgsensor_info.adaptor_ctx_ = to_ctx(imgsensor_info.sd);\
+	if (unlikely(*((imgsensor_info.adaptor_ctx_)->sensor_debug_flag)))\
+		LOG_INF(__VA_ARGS__);\
+	} while (0)
+
+/* def V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA */
 #define IMGSENSOR_VC_ROUTING
-#endif
 
 enum {
 	HW_ID_AVDD = 0,
 	HW_ID_DVDD,
 	HW_ID_DOVDD,
 	HW_ID_AFVDD,
+	HW_ID_AVDD1,
 	HW_ID_PDN,
 	HW_ID_RST,
 	HW_ID_MCLK,
@@ -70,23 +78,34 @@ struct subdrv_ctx {
 	u8 mirror; /* mirrorflip information */
 	u8 sensor_mode; /* record IMGSENSOR_MODE enum value */
 	u32 shutter; /* current shutter */
-	u16 gain; /* current gain */
+	u32 gain; /* current gain */
 	u32 pclk; /* current pclk */
 	u32 frame_length; /* current framelength */
 	u32 line_length; /* current linelength */
 	u32 min_frame_length;
+	u8 margin; /* current (mode's) exp margin */
+	u8 frame_time_delay_frame; /* EX: sony => 3 ; non-sony => 2 */
 	u16 dummy_pixel; /* current dummypixel */
 	u16 dummy_line; /* current dummline */
 	u16 current_fps; /* current max fps */
 	u8 autoflicker_en; /* record autoflicker enable or disable */
 	u8 test_pattern; /* record test pattern mode or not */
-	enum MSDK_SCENARIO_ID_ENUM current_scenario_id;
+	enum SENSOR_SCENARIO_ID_ENUM current_scenario_id;
 	u8 ihdr_mode; /* ihdr enable or disable */
 	u8 pdaf_mode; /* ihdr enable or disable */
 	u8 hdr_mode; /* HDR mode : 0: disable HDR, 1:IHDR, 2:HDR, 9:ZHDR */
 	struct IMGSENSOR_AE_FRM_MODE ae_frm_mode;
 	u8 current_ae_effective_frame;
 	u8 i2c_write_id;
+	u32 readout_length; /* the current mode's readout line length */
+	u8 read_margin; /* the read margin */
+
+	u8 extend_frame_length_en;
+	u8 fast_mode_on;
+	u8 ae_ctrl_gph_en;
+	u32 is_read_preload_eeprom;
+	u32 is_read_four_cell;
+	bool is_streaming;
 };
 
 struct subdrv_ops {
@@ -111,8 +130,15 @@ struct subdrv_ops {
 	int (*close)(struct subdrv_ctx *ctx);
 	int (*get_frame_desc)(struct subdrv_ctx *ctx,
 			int scenario_id,
-			struct v4l2_mbus_frame_desc *fd);
+			struct mtk_mbus_frame_desc *fd);
 	int (*get_temp)(struct subdrv_ctx *ctx, int *temp);
+	int (*vsync_notify)(struct subdrv_ctx *ctx, unsigned int sof_cnt);
+	int (*get_csi_param)(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+		struct mtk_csi_param *csi_param);
+
+	int (*power_on)(struct subdrv_ctx *ctx, void *data);
+	int (*power_off)(struct subdrv_ctx *ctx, void *data);
 };
 
 struct subdrv_entry {
@@ -168,6 +194,10 @@ struct subdrv_entry {
 	adaptor_i2c_wr_p16(subctx->i2c_client, \
 		subctx->i2c_write_id >> 1, reg, p_vals, n_vals)
 
+#define subdrv_i2c_wr_seq_p8(subctx, reg, p_vals, n_vals) \
+	adaptor_i2c_wr_seq_p8(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, reg, p_vals, n_vals)
+
 #define subdrv_i2c_wr_regs_u8(subctx, list, len) \
 	adaptor_i2c_wr_regs_u8(subctx->i2c_client, \
 		subctx->i2c_write_id >> 1, list, len)
@@ -175,5 +205,12 @@ struct subdrv_entry {
 #define subdrv_i2c_wr_regs_u16(subctx, list, len) \
 	adaptor_i2c_wr_regs_u16(subctx->i2c_client, \
 		subctx->i2c_write_id >> 1, list, len)
+
+#define FINE_INTEG_CONVERT(_shutter, _fine_integ) \
+( \
+	((_fine_integ) <= 0) ? \
+	(_shutter) : \
+	(((_shutter) > (_fine_integ)) ? (((_shutter) - (_fine_integ)) / 1000) : 0) \
+)
 
 #endif

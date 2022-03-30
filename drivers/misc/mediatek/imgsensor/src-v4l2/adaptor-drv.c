@@ -11,29 +11,36 @@
 #include <linux/of_graph.h>
 #include <linux/thermal.h>
 
-#include "kd_imgsensor_define.h"
+#include "kd_imgsensor_define_v4l2.h"
 
 #include "adaptor.h"
 #include "adaptor-hw.h"
 #include "adaptor-i2c.h"
 #include "adaptor-ctrls.h"
 #include "adaptor-ioctl.h"
-
-#define to_ctx(__sd) container_of(__sd, struct adaptor_ctx, sd)
+#include "imgsensor-glue/imgsensor-glue.h"
+#include "virt-sensor/virt-sensor-entry.h"
 
 #undef E
 #define E(__x__) (__x__##_entry)
 #define EXTERN_IMGSENSOR_SUBDRVS extern struct subdrv_entry \
 	IMGSENSOR_SUBDRVS
+#ifdef IMGSENSOR_SUBDRVS
 EXTERN_IMGSENSOR_SUBDRVS;
+#endif
 
 #undef E
 #define E(__x__) (&__x__##_entry)
 static struct subdrv_entry *imgsensor_subdrvs[] = {
+#ifdef IMGSENSOR_SUBDRVS
 	IMGSENSOR_SUBDRVS
+#endif
 };
 
-static get_outfmt_code(struct adaptor_ctx *ctx)
+module_param(sensor_debug, uint, 0644);
+MODULE_PARM_DESC(sensor_debug, "imgsensor_debug");
+
+static int get_outfmt_code(struct adaptor_ctx *ctx)
 {
 	int outfmt = ctx->sensor_info.SensorOutputDataFormat;
 
@@ -70,6 +77,25 @@ static get_outfmt_code(struct adaptor_ctx *ctx)
 	case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R:
 		pr_warn("unsupported 4cell output_format %d\n", outfmt);
 		return MEDIA_BUS_FMT_SRGGB10_1X10;
+
+	case SENSOR_OUTPUT_FORMAT_RAW8_MONO:
+	case SENSOR_OUTPUT_FORMAT_RAW8_B:
+		return MEDIA_BUS_FMT_SBGGR8_1X8;
+	case SENSOR_OUTPUT_FORMAT_RAW8_Gb:
+		return MEDIA_BUS_FMT_SGBRG8_1X8;
+	case SENSOR_OUTPUT_FORMAT_RAW8_Gr:
+		return MEDIA_BUS_FMT_SGRBG8_1X8;
+	case SENSOR_OUTPUT_FORMAT_RAW8_R:
+		return MEDIA_BUS_FMT_SRGGB8_1X8;
+
+	case SENSOR_OUTPUT_FORMAT_RAW12_B:
+		return MEDIA_BUS_FMT_SBGGR12_1X12;
+	case SENSOR_OUTPUT_FORMAT_RAW12_Gb:
+		return MEDIA_BUS_FMT_SGBRG12_1X12;
+	case SENSOR_OUTPUT_FORMAT_RAW12_Gr:
+		return MEDIA_BUS_FMT_SGRBG12_1X12;
+	case SENSOR_OUTPUT_FORMAT_RAW12_R:
+		return MEDIA_BUS_FMT_SRGGB12_1X12;
 	}
 
 	pr_warn("unknown output format %d\n", outfmt);
@@ -81,7 +107,7 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 		int id, int width, int height)
 {
 	union feature_para para;
-	u32 idx, val, len;
+	u32 idx, val, len, llp_readout;
 	struct sensor_mode *mode;
 
 	idx = ctx->mode_cnt;
@@ -99,6 +125,14 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	para.u64[0] = id;
 	para.u64[1] = (u64)&val;
 
+	para.u64[2] = SENSOR_GET_LINELENGTH_FOR_READOUT;
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO,
+		para.u8, &len);
+	llp_readout = val & 0xffff;
+	para.u64[2] = 0;
+
+	val = 0;
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO,
 		para.u8, &len);
@@ -109,36 +143,66 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	if (!mode->llp || !mode->fll)
 		return;
 
+	val = 0;
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_MIPI_PIXEL_RATE,
 		para.u8, &len);
 
 	mode->mipi_pixel_rate = val;
 
+	val = 0;
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_CUST_PIXEL_RATE,
+		para.u8, &len);
+
+	mode->cust_pixel_rate = val;
+
+	val = 0;
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_DEFAULT_FRAME_RATE_BY_SCENARIO,
 		para.u8, &len);
 
 	mode->max_framerate = val;
 
+	val = 0;
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO,
 		para.u8, &len);
 
 	mode->pclk = val;
 
+	val = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_FINE_INTEG_LINE_BY_SCENARIO,
+		para.u8, &len);
+	mode->fine_intg_line = val;
+
+
 	if (!mode->mipi_pixel_rate || !mode->max_framerate || !mode->pclk)
 		return;
+
+	subdrv_call(ctx, get_csi_param, mode->id, &mode->csi_param);
 
 	/* update linetime_in_ns */
 	mode->linetime_in_ns = (u64)mode->llp * 1000000 +
 		(mode->pclk / 1000 - 1);
 	do_div(mode->linetime_in_ns, mode->pclk / 1000);
 
-	dev_info(ctx->dev, "[%d] id %d %dx%d %dx%d px %d fps %d\n",
+
+	mode->linetime_in_ns_readout = (u64)llp_readout * 1000000 +
+		(mode->pclk / 1000 - 1);
+	do_div(mode->linetime_in_ns_readout, mode->pclk / 1000);
+
+
+	dev_dbg(ctx->dev, "%s [%d] id %d %dx%d %dx%d px %d fps %d tLine %lld|%lld fintl %u\n",
+		__func__,
 		idx, id, width, height,
 		mode->llp, mode->fll,
-		mode->mipi_pixel_rate, mode->max_framerate);
+		mode->mipi_pixel_rate, mode->max_framerate,
+		mode->linetime_in_ns,
+		mode->linetime_in_ns_readout,
+		mode->fine_intg_line);
 
 	ctx->mode_cnt++;
 }
@@ -146,90 +210,19 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 static int init_sensor_mode(struct adaptor_ctx *ctx)
 {
 	MSDK_SENSOR_RESOLUTION_INFO_STRUCT res;
+	unsigned int i = 0;
 
 	memset(&res, 0, sizeof(res));
 	subdrv_call(ctx, get_resolution, &res);
+	for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
+		ctx->seamless_scenarios[i] = SENSOR_SCENARIO_ID_NONE;
 
-	// preview
-	if (res.SensorPreviewWidth && res.SensorPreviewHeight) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CAMERA_PREVIEW,
-			res.SensorPreviewWidth,
-			res.SensorPreviewHeight);
+		if (res.SensorWidth[i] > 0 && res.SensorHeight[i] > 0)
+			add_sensor_mode(ctx,
+			i,
+			res.SensorWidth[i],
+			res.SensorHeight[i]);
 	}
-
-	// capture
-	if (res.SensorFullWidth && res.SensorFullHeight) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG,
-			res.SensorFullWidth,
-			res.SensorFullHeight);
-	}
-
-	// video
-	if (res.SensorVideoWidth && res.SensorVideoHeight) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_VIDEO_PREVIEW,
-			res.SensorVideoWidth,
-			res.SensorVideoHeight);
-	}
-
-	// high-speed video
-	if (res.SensorHighSpeedVideoWidth && res.SensorHighSpeedVideoHeight) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO,
-			res.SensorHighSpeedVideoWidth,
-			res.SensorHighSpeedVideoHeight);
-	}
-
-	// slim video
-	if (res.SensorSlimVideoWidth && res.SensorSlimVideoHeight) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_SLIM_VIDEO,
-			res.SensorSlimVideoWidth,
-			res.SensorSlimVideoHeight);
-	}
-
-	// custom1
-	if (res.SensorCustom1Width && res.SensorCustom1Height) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CUSTOM1,
-			res.SensorCustom1Width,
-			res.SensorCustom1Height);
-	}
-
-	// custom2
-	if (res.SensorCustom2Width && res.SensorCustom2Height) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CUSTOM2,
-			res.SensorCustom2Width,
-			res.SensorCustom2Height);
-	}
-
-	// custom3
-	if (res.SensorCustom3Width && res.SensorCustom3Height) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CUSTOM3,
-			res.SensorCustom3Width,
-			res.SensorCustom3Height);
-	}
-
-	// custom4
-	if (res.SensorCustom4Width && res.SensorCustom4Height) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CUSTOM4,
-			res.SensorCustom4Width,
-			res.SensorCustom4Height);
-	}
-
-	// custom5
-	if (res.SensorCustom5Width && res.SensorCustom5Height) {
-		add_sensor_mode(ctx,
-			MSDK_SCENARIO_ID_CUSTOM5,
-			res.SensorCustom5Width,
-			res.SensorCustom5Height);
-	}
-
 	return 0;
 }
 
@@ -238,14 +231,14 @@ static void control_sensor(struct adaptor_ctx *ctx)
 	MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT image_window;
 	MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
 
-	if (!ctx->is_sensor_scenario_inited) {
+	if (!ctx->is_sensor_scenario_inited && !ctx->is_streaming) {
 		subdrv_call(ctx, control,
 				ctx->cur_mode->id,
 				&image_window,
 				&sensor_config_data);
 		ctx->is_sensor_scenario_inited = 1;
 	}
-
+	restore_ae_ctrl(ctx);
 }
 
 static int set_sensor_mode(struct adaptor_ctx *ctx,
@@ -280,7 +273,6 @@ static int set_sensor_mode(struct adaptor_ctx *ctx,
 		min = def = mode->fll - mode->height;
 		max = ctx->subctx.max_frame_length - mode->height;
 		__v4l2_ctrl_modify_range(ctx->vblank, min, max, 1, def);
-		__v4l2_ctrl_s_ctrl(ctx->vblank, def);
 
 		/* max fps */
 		max = def = mode->max_framerate;
@@ -290,7 +282,7 @@ static int set_sensor_mode(struct adaptor_ctx *ctx,
 		control_sensor(ctx);
 	}
 
-	dev_info(ctx->dev, "select %dx%d@%d %dx%d px %d\n",
+	dev_dbg(ctx->dev, "select %dx%d@%d %dx%d px %d\n",
 		mode->width, mode->height, mode->max_framerate,
 		mode->llp, mode->fll, mode->mipi_pixel_rate);
 
@@ -301,6 +293,7 @@ static int init_sensor_info(struct adaptor_ctx *ctx)
 {
 	init_sensor_mode(ctx);
 	set_sensor_mode(ctx, &ctx->mode[0], 0);
+	ctx->try_format_mode = &ctx->mode[0];
 	ctx->fmt_code = get_outfmt_code(ctx);
 	return 0;
 }
@@ -311,9 +304,19 @@ static int search_sensor(struct adaptor_ctx *ctx)
 	struct subdrv_entry **subdrvs, *subdrv;
 	struct subdrv_entry *of_subdrvs[OF_SENSOR_NAMES_MAXCNT];
 	const char *of_sensor_names[OF_SENSOR_NAMES_MAXCNT];
+	int subdrv_name_ret;
+	const char *of_subdrv_name;
 
 	of_sensor_names_cnt = of_property_read_string_array(ctx->dev->of_node,
 		"sensor-names", of_sensor_names, ARRAY_SIZE(of_sensor_names));
+
+	subdrv_name_ret = of_property_read_string(ctx->dev->of_node,
+						  "subdrv-name", &of_subdrv_name);
+
+	dev_info(ctx->dev, "subdrv_name_ret %d\n", subdrv_name_ret);
+
+	if (!subdrv_name_ret)
+		dev_info(ctx->dev, "subdrv name %s found\n", of_subdrv_name);
 
 	/* try to load custom list from DT */
 	if (of_sensor_names_cnt > 0) {
@@ -332,6 +335,15 @@ static int search_sensor(struct adaptor_ctx *ctx)
 				dev_warn(ctx->dev, "%s not found\n",
 					of_sensor_names[i]);
 			}
+		}
+	} else if (!subdrv_name_ret) {
+		subdrvs_cnt = 0;
+		of_subdrvs[0] = vs_query_subdrv_entry(of_subdrv_name);
+
+		if (of_subdrvs[0]) {
+			subdrvs_cnt = 1;
+			subdrvs = of_subdrvs;
+			dev_info(ctx->dev, "subdrv name %s found\n", of_subdrv_name);
 		}
 	} else {
 		subdrvs = imgsensor_subdrvs;
@@ -362,9 +374,11 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
 	struct v4l2_mbus_framefmt *try_fmt =
-		v4l2_subdev_get_try_format(sd, fh->pad, 0);
+		v4l2_subdev_get_try_format(sd, fh->state, 0);
 
 	mutex_lock(&ctx->mutex);
+
+	ctx->open_refcnt++;
 
 	/* Initialize try_fmt */
 	try_fmt->width = ctx->cur_mode->width;
@@ -381,10 +395,7 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	adaptor_hw_power_on(ctx);
 #endif
 
-	if (!ctx->is_sensor_inited) {
-		subdrv_call(ctx, open);
-		ctx->is_sensor_inited = 1;
-	}
+	adaptor_sensor_init(ctx);
 #endif
 
 	mutex_unlock(&ctx->mutex);
@@ -395,6 +406,7 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
+	int i;
 
 	mutex_lock(&ctx->mutex);
 
@@ -408,13 +420,20 @@ static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 #endif
 #endif
 
+	ctx->open_refcnt--;
+	if (ctx->open_refcnt <= 0) {
+		for (i = 0; ctx->power_refcnt; i++)
+			adaptor_hw_power_off(ctx);
+		ctx->open_refcnt = 0;
+	}
+
 	mutex_unlock(&ctx->mutex);
 
 	return 0;
 }
 
 static int imgsensor_enum_mbus_code(struct v4l2_subdev *sd,
-				  struct v4l2_subdev_pad_config *cfg,
+				  struct v4l2_subdev_state *state,
 				  struct v4l2_subdev_mbus_code_enum *code)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
@@ -423,13 +442,13 @@ static int imgsensor_enum_mbus_code(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	code->code = to_mtk_ext_fmt_code(ctx->fmt_code, ctx->mode[code->index].id);
-	dev_info(ctx->dev, "enum mbus fmt code = 0x%x\n", code->code);
+	// dev_info(ctx->dev, "enum mbus fmt code = 0x%x\n", code->code);
 
 	return 0;
 }
 
 static int imgsensor_enum_frame_size(struct v4l2_subdev *sd,
-				  struct v4l2_subdev_pad_config *cfg,
+				  struct v4l2_subdev_state *state,
 				  struct v4l2_subdev_frame_size_enum *fse)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
@@ -446,7 +465,7 @@ static int imgsensor_enum_frame_size(struct v4l2_subdev *sd,
 }
 
 static int imgsensor_enum_frame_interval(struct v4l2_subdev *sd,
-		struct v4l2_subdev_pad_config *cfg,
+		struct v4l2_subdev_state *state,
 		struct v4l2_subdev_frame_interval_enum *fie)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
@@ -469,7 +488,7 @@ static int imgsensor_enum_frame_interval(struct v4l2_subdev *sd,
 }
 
 static int imgsensor_get_selection(struct v4l2_subdev *sd,
-		struct v4l2_subdev_pad_config *cfg,
+		struct v4l2_subdev_state *state,
 		struct v4l2_subdev_selection *sel)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
@@ -502,11 +521,11 @@ static void update_pad_format(struct adaptor_ctx *ctx,
 }
 
 static int __imgsensor_get_pad_format(struct adaptor_ctx *ctx,
-				   struct v4l2_subdev_pad_config *cfg,
+				   struct v4l2_subdev_state *state,
 				   struct v4l2_subdev_format *fmt)
 {
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
-		fmt->format = *v4l2_subdev_get_try_format(&ctx->sd, cfg,
+		fmt->format = *v4l2_subdev_get_try_format(&ctx->sd, state,
 							  fmt->pad);
 	else
 		update_pad_format(ctx, ctx->cur_mode, fmt);
@@ -515,21 +534,21 @@ static int __imgsensor_get_pad_format(struct adaptor_ctx *ctx,
 }
 
 static int imgsensor_get_pad_format(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_pad_config *cfg,
+				 struct v4l2_subdev_state *state,
 				 struct v4l2_subdev_format *fmt)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
 	int ret;
 
 	mutex_lock(&ctx->mutex);
-	ret = __imgsensor_get_pad_format(ctx, cfg, fmt);
+	ret = __imgsensor_get_pad_format(ctx, state, fmt);
 	mutex_unlock(&ctx->mutex);
 
 	return ret;
 }
 
 static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_pad_config *cfg,
+				 struct v4l2_subdev_state *state,
 				 struct v4l2_subdev_format *fmt)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
@@ -542,7 +561,6 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	/* Only one raw bayer order is supported */
 	set_std_parts_fmt_code(fmt->format.code, ctx->fmt_code);
 
-	dev_info(ctx->dev, "set fmt code = 0x%x\n", fmt->format.code);
 
 	mode = v4l2_find_nearest_size(ctx->mode,
 		ctx->mode_cnt, width, height,
@@ -554,18 +572,88 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 		if (sensor_mode_id >= 0 && sensor_mode_id < ctx->mode_cnt)
 			mode = &ctx->mode[sensor_mode_id];
 	}
-	dev_info(ctx->dev, "sensor_mode_id = %u\n", mode->id);
+	dev_info(ctx->dev, "set fmt code = 0x%x, which %d sensor_mode_id = %u\n",
+			fmt->format.code, fmt->which, mode->id);
 
 	update_pad_format(ctx, mode, fmt);
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-		framefmt = v4l2_subdev_get_try_format(sd, cfg, fmt->pad);
+		framefmt = v4l2_subdev_get_try_format(sd, state, fmt->pad);
 		*framefmt = fmt->format;
-	} // else // FIXME: should not set sensor mode while TRY FMT
-		set_sensor_mode(ctx, mode, 1);
 
+		ctx->try_format_mode = mode;
+	} else {
+#ifndef POWERON_ONCE_OPENED
+		adaptor_sensor_init(ctx);
+#endif
+		set_sensor_mode(ctx, mode, 1);
+	}
 	mutex_unlock(&ctx->mutex);
 
 	return 0;
+}
+
+static u32 get_sensor_sync_mode(struct adaptor_ctx *ctx)
+{
+	u32 sync_mode = 0;
+	union feature_para para;
+	u32 len;
+
+	para.u32[0] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_SENSOR_SYNC_MODE,
+		para.u8, &len);
+
+	sync_mode = para.u32[0];
+
+	dev_info(ctx->dev, "sync mode = %u\n", sync_mode);
+
+	return sync_mode;
+}
+
+/* notify frame-sync streaming ON/OFF and set sensor info to frame-sync */
+static void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx,
+				unsigned int flag)
+{
+	unsigned int ret = 0;
+	struct fs_streaming_st streaming_sensor_info = {0};
+
+	streaming_sensor_info.sensor_id = ctx->subdrv->id;
+	streaming_sensor_info.sensor_idx = ctx->idx;
+
+	/* fsync_map_id is cam_mux no */
+	streaming_sensor_info.tg = ctx->fsync_map_id->val + 1;
+	streaming_sensor_info.fl_active_delay =
+				ctx->subctx.frame_time_delay_frame;
+
+
+	/* using ctx->subctx.frame_length instead of ctx->cur_mode->fll */
+	/*     for any settings before streaming on */
+	streaming_sensor_info.def_fl_lc = ctx->subctx.frame_length;
+	streaming_sensor_info.max_fl_lc = ctx->subctx.max_frame_length;
+
+	/* frame sync sensor operate mode. none/master/slave */
+	streaming_sensor_info.sync_mode = get_sensor_sync_mode(ctx);
+
+
+	/* using ctx->subctx.shutter instead of ctx->subctx.exposure_def */
+	/*     for any settings before streaming on */
+	streaming_sensor_info.def_shutter_lc = ctx->subctx.shutter;
+
+
+	/* callback data */
+	streaming_sensor_info.func_ptr = cb_fsync_mgr_set_framelength;
+	streaming_sensor_info.p_ctx = ctx;
+
+
+	/* call frame-sync streaming ON/OFF */
+	if (ctx->fsync_mgr != NULL) {
+		ret = ctx->fsync_mgr->fs_streaming(flag, &streaming_sensor_info);
+
+		if (ret != 0)
+			dev_info(ctx->dev, "frame-sync streaming ERROR!\n");
+	} else
+		dev_info(ctx->dev, "frame-sync is not init!\n");
 }
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
@@ -595,20 +683,20 @@ static int imgsensor_runtime_suspend(struct device *dev)
 static int imgsensor_set_power(struct v4l2_subdev *sd, int on)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
-	int ret = 0;
+	int ret;
 
 	mutex_lock(&ctx->mutex);
 	if (on)
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 		ret = pm_runtime_get_sync(ctx->dev);
 #else
-	adaptor_hw_power_on(ctx);
+	ret = adaptor_hw_power_on(ctx);
 #endif
 	else
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 		ret = pm_runtime_put(ctx->dev);
 #else
-	adaptor_hw_power_off(ctx);
+	ret = adaptor_hw_power_off(ctx);
 #endif
 	mutex_unlock(&ctx->mutex);
 
@@ -622,10 +710,7 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 	u64 data[4];
 	u32 len;
 
-	if (!ctx->is_sensor_inited) {
-		subdrv_call(ctx, open);
-		ctx->is_sensor_inited = 1;
-	}
+	adaptor_sensor_init(ctx);
 
 	control_sensor(ctx);
 
@@ -641,6 +726,9 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 		SENSOR_FEATURE_SET_STREAMING_RESUME,
 		(u8 *)data, &len);
 
+	/* notify frame-sync streaming ON */
+	notify_fsync_mgr_streaming(ctx, 1);
+
 	return 0;
 }
 
@@ -654,6 +742,11 @@ static int imgsensor_stop_streaming(struct adaptor_ctx *ctx)
 		SENSOR_FEATURE_SET_STREAMING_SUSPEND,
 		(u8 *)data, &len);
 
+	/* notify frame-sync streaming OFF */
+	notify_fsync_mgr_streaming(ctx, 0);
+
+	memset(&ctx->ae_memento, 0, sizeof(ctx->ae_memento));
+
 	return 0;
 }
 
@@ -664,7 +757,12 @@ static int imgsensor_get_frame_interval(struct v4l2_subdev *sd,
 
 	mutex_lock(&ctx->mutex);
 	fi->interval.numerator = 10;
-	fi->interval.denominator = ctx->cur_mode->max_framerate;
+
+	if (fi->reserved[0] == V4L2_SUBDEV_FORMAT_TRY)
+		fi->interval.denominator = ctx->try_format_mode->max_framerate;
+	else
+		fi->interval.denominator = ctx->cur_mode->max_framerate;
+
 	mutex_unlock(&ctx->mutex);
 
 	return 0;
@@ -717,7 +815,8 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 	ctx->is_streaming = enable;
 	mutex_unlock(&ctx->mutex);
 
-	dev_info(ctx->dev, "%s: en %d\n", __func__, enable);
+	dev_info(ctx->dev, "%s: en %d, cammux usage %d\n",
+		__func__, enable, ctx->fsync_map_id->val);
 
 	return 0;
 
@@ -731,84 +830,88 @@ err_unlock:
 	return ret;
 }
 
-static int imgsensor_g_mbus_config(struct v4l2_subdev *sd,
-		struct v4l2_mbus_config *cfg)
+static int imgsensor_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad,
+		struct v4l2_mbus_config *config)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
 
-	cfg->type = ctx->sensor_info.MIPIsensorType == MIPI_CPHY ?
+	config->type = ctx->sensor_info.MIPIsensorType == MIPI_CPHY ?
 		V4L2_MBUS_CSI2_CPHY : V4L2_MBUS_CSI2_DPHY;
 
 	switch (ctx->sensor_info.SensorMIPILaneNumber) {
 	case SENSOR_MIPI_1_LANE:
-		cfg->flags = V4L2_MBUS_CSI2_1_LANE;
+		config->flags = V4L2_MBUS_CSI2_1_LANE;
 		break;
 	case SENSOR_MIPI_2_LANE:
-		cfg->flags = V4L2_MBUS_CSI2_2_LANE;
+		config->flags = V4L2_MBUS_CSI2_2_LANE;
 		break;
 	case SENSOR_MIPI_3_LANE:
-		cfg->flags = V4L2_MBUS_CSI2_3_LANE;
+		config->flags = V4L2_MBUS_CSI2_3_LANE;
 		break;
 	case SENSOR_MIPI_4_LANE:
-		cfg->flags = V4L2_MBUS_CSI2_4_LANE;
+		config->flags = V4L2_MBUS_CSI2_4_LANE;
 		break;
 	}
 
 	return 0;
 }
 
-#ifdef IMGSENSOR_VC_ROUTING
-static int imgsensor_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
-		struct v4l2_mbus_frame_desc *fd)
-{
-	int ret;
-	struct adaptor_ctx *ctx = to_ctx(sd);
+//def IMGSENSOR_VC_ROUTING
+// static int imgsensor_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+		// struct mtk_mbus_frame_desc *fd)
+// {
+	// int ret;
+	// struct adaptor_ctx *ctx = to_ctx(sd);
+	// u64 desc_visited = 0x0;
+	// int write_to = 0, i = -1, j = 0;
 
-	ret = subdrv_call(ctx, get_frame_desc,
-			ctx->cur_mode->id,
-			fd);
+	// while (i < SENSOR_SCENARIO_ID_MAX) {
+		// struct mtk_mbus_frame_desc fd_tmp;
+		// u32 scenario_id = (-1 == i) ? ctx->cur_mode->id : ctx->seamless_scenarios[i];
 
-	if (ret) {
-		dev_warn(ctx->dev, "get_frame_desc ret %d (scenario_id %d)\n",
-			ret, ctx->cur_mode->id);
-	}
+		// if (scenario_id == SENSOR_SCENARIO_ID_NONE)
+			// break;
 
-	return ret;
-}
+		// ret = subdrv_call(ctx, get_frame_desc, scenario_id, &fd_tmp);
 
-#define IS_3HDR(udesc) (udesc == V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_Y_HIST \
-		|| udesc == V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_AE_HIST \
-		|| udesc == V4L2_MBUS_CSI2_USER_DEFINED_DATA_DESC_FLICKER)
+		// if (!ret) {
+			// for (j = 0;
+				// write_to < V4L2_FRAME_DESC_ENTRY_MAX && j < fd_tmp.num_entries;
+				// ++j) {
+				// if (desc_visited &
+					// (0x1 << fd_tmp.entry[j].bus.csi2.user_data_desc))
+					// continue;
 
-static int imgsensor_set_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
-		struct v4l2_mbus_frame_desc *fd)
-{
-	int i, b3HDR = 0;
-	struct adaptor_ctx *ctx = to_ctx(sd);
-	struct v4l2_mbus_frame_desc_entry_csi2 *desc;
-	union feature_para para;
-	u32 len;
+				// dev_info(ctx->dev, "[%s] scenario %u desc %d\n", __func__,
+						// scenario_id,
+						// fd_tmp.entry[j].bus.csi2.user_data_desc);
+				// memcpy(&fd->entry[write_to++], &fd_tmp.entry[j],
+					//    sizeof(struct mtk_mbus_frame_desc_entry));
 
-	for (i = 0; i < fd->num_entries; i++) {
-		desc = &fd->entry[i].bus.csi2;
-		if (!desc->enable)
-			continue;
-		if (V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA(desc->data_type)) {
-			if (IS_3HDR(desc->user_data_desc))
-				b3HDR = 1;
-		}
-	}
+				// desc_visited |= (0x1 << fd_tmp.entry[j].bus.csi2.user_data_desc);
+			// }
+		// }
 
-	if (b3HDR) {
-		para.u32[0] = 1;
-		subdrv_call(ctx, feature_control,
-			SENSOR_FEATURE_SET_HDR,
-			para.u8, &len);
-	}
+		// ++i;
+	// }
 
-	return 0;
-}
-#endif
+	// fd->num_entries = write_to;
+	// fd->type = MTK_MBUS_FRAME_DESC_TYPE_CSI2;
+
+	// return ret;
+// }
+
+// #define IS_3HDR(udesc) (udesc == VC_3HDR_Y \
+		// || udesc == VC_3HDR_AE \
+		// || udesc == VC_3HDR_FLICKER)
+
+// static int imgsensor_set_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+		// struct mtk_mbus_frame_desc *fd)
+// {
+	// return 0;
+
+// }
+
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 static int __maybe_unused imgsensor_suspend(struct device *dev)
@@ -864,7 +967,6 @@ static const struct v4l2_subdev_video_ops imgsensor_video_ops = {
 	.g_frame_interval = imgsensor_get_frame_interval,
 	.s_frame_interval = imgsensor_set_frame_interval,
 	.s_stream = imgsensor_set_stream,
-	.g_mbus_config = imgsensor_g_mbus_config,
 };
 
 static const struct v4l2_subdev_pad_ops imgsensor_pad_ops = {
@@ -874,9 +976,10 @@ static const struct v4l2_subdev_pad_ops imgsensor_pad_ops = {
 	.enum_frame_size = imgsensor_enum_frame_size,
 	.enum_frame_interval = imgsensor_enum_frame_interval,
 	.get_selection = imgsensor_get_selection,
+	.get_mbus_config = imgsensor_g_mbus_config,
 #ifdef IMGSENSOR_VC_ROUTING
-	.get_frame_desc = imgsensor_get_frame_desc,
-	.set_frame_desc = imgsensor_set_frame_desc,
+	//.get_frame_desc = imgsensor_get_frame_desc,
+	//.set_frame_desc = imgsensor_set_frame_desc,
 #endif
 };
 
@@ -903,8 +1006,10 @@ static int imgsensor_get_temp(void *data, int *temperature)
 #else
 	*temperature = 0;
 #endif
-
-	subdrv_call(ctx, get_temp, temperature);
+	if (ctx->is_streaming)
+		subdrv_call(ctx, get_temp, temperature);
+	else
+		*temperature = THERMAL_TEMP_INVALID;
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 	pm_runtime_put(ctx->dev);
@@ -917,13 +1022,19 @@ static const struct thermal_zone_of_device_ops imgsensor_tz_ops = {
 	.get_temp = imgsensor_get_temp,
 };
 
-static int notify_fsync_mgr(struct adaptor_ctx *ctx)
+static int notify_fsync_mgr(struct adaptor_ctx *ctx, int on)
 {
 	int ret, seninf_idx = 0;
 	const char *seninf_port = NULL;
 	char c_ab;
 	struct device_node *seninf_np;
 	struct device *dev = ctx->dev;
+
+	if (!on) {
+		/* imgsensor remove => for remove sysfs file */
+		FrameSyncUnInit(ctx->dev);
+		return 0;
+	}
 
 	seninf_np = of_graph_get_remote_node(dev->of_node, 0, 0);
 	if (!seninf_np) {
@@ -948,11 +1059,118 @@ static int notify_fsync_mgr(struct adaptor_ctx *ctx)
 	dev_info(dev, "sensor_idx %d seninf_port %s seninf_idx %d\n",
 		ctx->idx, seninf_port, seninf_idx);
 
+	/* frame-sync init */
+	ret = FrameSyncInit(&ctx->fsync_mgr, ctx->dev);
+	if (ret != 0) {
+		dev_info(ctx->dev, "frame-sync init failed !\n");
+		ctx->fsync_mgr = NULL;
+	} else
+		dev_info(dev, "frame-sync init done, ret:%d", ret);
+
 	/* notify frame-sync mgr of sensor-idx and seninf-idx */
 	//TODO
 
 	return 0;
 }
+
+
+#define SHOW(buf, len, fmt, ...) { \
+	len += snprintf(buf + len, PAGE_SIZE - len, fmt, ##__VA_ARGS__); \
+}
+
+static ssize_t debug_i2c_ops_show(struct device *dev,
+			   struct device_attribute *attr, char *buf)
+{
+	int len = 0;
+	struct adaptor_ctx *ctx = to_ctx(dev_get_drvdata(dev));
+
+
+	SHOW(buf, len, "%s i2c read 0x%08x = 0x%08x\n",
+			ctx->subdrv->name,
+			ctx->sensorReg.RegAddr,
+			ctx->sensorReg.RegData);
+	return len;
+}
+
+enum DBG_ARG_IDX {
+	DBG_ARG_IDX_I2C_ADDR,
+	DBG_ARG_IDX_I2C_DATA,
+	DBG_ARG_IDX_MAX_NUM,
+};
+
+static ssize_t debug_i2c_ops_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	char delim[] = " ";
+	char *token = NULL;
+	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
+	char *s = sbuf;
+	int ret, num_para = 0;
+	char *arg[DBG_ARG_IDX_MAX_NUM];
+	struct adaptor_ctx *ctx = to_ctx(dev_get_drvdata(dev));
+	u32 val;
+	u32 reg;
+
+	ctx->sensorReg.RegAddr = 0;
+	ctx->sensorReg.RegData = 0;
+
+	if (!sbuf)
+		goto ERR_DEBUG_OPS_STORE;
+
+	memcpy(sbuf, buf, count);
+
+	token = strsep(&s, delim);
+	while (token != NULL && num_para < DBG_ARG_IDX_MAX_NUM) {
+		if (strlen(token)) {
+			arg[num_para] = token;
+			num_para++;
+		}
+
+		token = strsep(&s, delim);
+	}
+
+	if (num_para > DBG_ARG_IDX_MAX_NUM) {
+		dev_info(dev, "Wrong command parameter number %d\n", num_para);
+		goto ERR_DEBUG_OPS_STORE;
+	}
+	ret = kstrtouint(arg[DBG_ARG_IDX_I2C_ADDR], 0, &reg);
+	if (ret)
+		goto ERR_DEBUG_OPS_STORE;
+	ctx->sensorReg.RegAddr = reg;
+
+	if (num_para == DBG_ARG_IDX_MAX_NUM) {
+		ret = kstrtouint(arg[DBG_ARG_IDX_I2C_DATA], 0, &val);
+		if (ret)
+			goto ERR_DEBUG_OPS_STORE;
+		ctx->sensorReg.RegData = val;
+
+		ret = subdrv_call(ctx, feature_control, SENSOR_FEATURE_SET_REGISTER,
+					(MUINT8 *) &ctx->sensorReg,
+					(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		dev_info(dev, "%s i2c write 0x%08x = 0x%08x ret = %d\n",
+			__func__,
+			ctx->sensorReg.RegAddr, ctx->sensorReg.RegData, ret);
+	}
+
+	ret = subdrv_call(ctx, feature_control, SENSOR_FEATURE_GET_REGISTER,
+				(MUINT8 *) &ctx->sensorReg,
+				(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
+		dev_info(dev, "%s i2c read 0x%08x = 0x%08x  ret = %d\n",
+			__func__,
+			ctx->sensorReg.RegAddr, ctx->sensorReg.RegData, ret);
+
+
+ERR_DEBUG_OPS_STORE:
+
+	kfree(sbuf);
+	dev_dbg(dev, "exit %s\n", __func__);
+
+	return count;
+}
+
+
+static DEVICE_ATTR_RW(debug_i2c_ops);
 
 static int imgsensor_probe(struct i2c_client *client)
 {
@@ -966,10 +1184,12 @@ static int imgsensor_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	mutex_init(&ctx->mutex);
+	ctx->open_refcnt = 0;
 	ctx->power_refcnt = 0;
 
 	ctx->i2c_client = client;
 	ctx->dev = dev;
+	ctx->sensor_debug_flag = &sensor_debug;
 
 	endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
 	if (!endpoint) {
@@ -1014,6 +1234,7 @@ static int imgsensor_probe(struct i2c_client *client)
 	ctx->sd.dev = &client->dev;
 	ctx->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 
+
 	/* init subdev name */
 	snprintf(ctx->sd.name, V4L2_SUBDEV_NAME_SIZE, "%s",
 		dev->of_node->name);
@@ -1057,7 +1278,11 @@ static int imgsensor_probe(struct i2c_client *client)
 			dev_info(dev, "failed to register thermal zone\n");
 	}
 
-	notify_fsync_mgr(ctx);
+	notify_fsync_mgr(ctx, 1);
+
+	ret = device_create_file(dev, &dev_attr_debug_i2c_ops);
+	if (ret)
+		dev_info(dev, "failed to create sysfs debug_i2c_ops\n");
 
 	return 0;
 
@@ -1080,11 +1305,14 @@ static int imgsensor_remove(struct i2c_client *client)
 	media_entity_cleanup(&sd->entity);
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
 
+	notify_fsync_mgr(ctx, 0);
+
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 	pm_runtime_disable(&client->dev);
 #else
 	// TODO
 #endif
+	device_remove_file(ctx->dev, &dev_attr_debug_i2c_ops);
 
 	mutex_destroy(&ctx->mutex);
 
@@ -1127,6 +1355,7 @@ static struct i2c_driver imgsensor_i2c_driver = {
 static int __init adaptor_drv_init(void)
 {
 	i2c_add_driver(&imgsensor_i2c_driver);
+
 	return 0;
 }
 

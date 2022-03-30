@@ -17,8 +17,15 @@
 
 #include "adaptor-def.h"
 #include "adaptor-subdrv.h"
+#include "imgsensor-user.h"
+
+/* frame-sync */
+#include "frame_sync.h"
+
+#define to_ctx(__sd) container_of(__sd, struct adaptor_ctx, sd)
 
 struct adaptor_ctx;
+static unsigned int sensor_debug;
 
 union feature_para {
 	u64 u64[4];
@@ -34,9 +41,13 @@ struct sensor_mode {
 	u32 width;
 	u32 height;
 	u32 mipi_pixel_rate;
+	u32 cust_pixel_rate;
 	u32 max_framerate;
 	u32 pclk;
 	u64 linetime_in_ns;
+	u64 linetime_in_ns_readout;
+	u64 fine_intg_line;
+	struct mtk_csi_param csi_param;
 };
 
 struct adaptor_hw_ops {
@@ -64,20 +75,24 @@ struct adaptor_ctx {
 	struct v4l2_ctrl *vflip;
 	struct v4l2_ctrl *pd_pixel_region;
 	struct v4l2_ctrl *max_fps;
+	struct v4l2_ctrl *test_pattern;
 
 	/* custom v4l2 ctrls */
 	struct v4l2_ctrl *anti_flicker;
 	struct v4l2_ctrl *frame_sync;
+	struct v4l2_ctrl *analogue_gain;
 	struct v4l2_ctrl *awb_gain;
 	struct v4l2_ctrl *shutter_gain_sync;
-	struct v4l2_ctrl *dual_gain;
 	struct v4l2_ctrl *ihdr_shutter_gain;
+	struct v4l2_ctrl *dual_gain;
 	struct v4l2_ctrl *hdr_shutter;
 	struct v4l2_ctrl *shutter_frame_length;
 	struct v4l2_ctrl *pdfocus_area;
 	struct v4l2_ctrl *hdr_atr;
 	struct v4l2_ctrl *hdr_tri_shutter;
 	struct v4l2_ctrl *hdr_tri_gain;
+	struct v4l2_ctrl *fsync_map_id;
+	struct v4l2_ctrl *hdr_ae_ctrl;
 
 	/* hw handles */
 	struct clk *clk[CLK_MAXCNT];
@@ -91,22 +106,36 @@ struct adaptor_ctx {
 	struct subdrv_ctx subctx;
 	struct sensor_mode mode[MODE_MAXCNT];
 	struct sensor_mode *cur_mode;
+	struct sensor_mode *try_format_mode;
 	int mode_cnt;
 	MSDK_SENSOR_INFO_STRUCT sensor_info;
 	MSDK_SENSOR_CONFIG_STRUCT sensor_cfg;
 	int fmt_code;
 	int idx; /* requireed by frame-sync modules */
+	struct mtk_hdr_ae ae_memento;
+
+	u32 seamless_scenarios[SENSOR_SCENARIO_ID_MAX];
 
 	/* sensor property */
 	u32 location;
 	u32 rotation;
+
+	/* frame-sync */
+	struct FrameSync *fsync_mgr;
+	unsigned int fsync_out_fl;
 
 	/* flags */
 	unsigned int is_streaming:1;
 	unsigned int is_sensor_inited:1;
 	unsigned int is_sensor_scenario_inited:1;
 
+	int open_refcnt;
 	int power_refcnt;
+	/*debug var*/
+	MSDK_SENSOR_REG_INFO_STRUCT sensorReg;
+
+	unsigned int *sensor_debug_flag;
+	u32 shutter_for_timeout;
 };
 
 #endif

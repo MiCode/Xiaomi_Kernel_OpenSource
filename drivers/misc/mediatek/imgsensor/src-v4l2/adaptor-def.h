@@ -4,19 +4,20 @@
 #ifndef __ADAPTOR_DEF_H__
 #define __ADAPTOR_DEF_H__
 
-#define MODE_MAXCNT 16
-#define OF_SENSOR_NAMES_MAXCNT 16
-#define POWERON_ONCE_OPENED
+#define MODE_MAXCNT 20
+#define OF_SENSOR_NAMES_MAXCNT 20
+//#define POWERON_ONCE_OPENED
 #define IMGSENSOR_DEBUG
 #define OF_SENSOR_NAME_PREFIX "sensor"
+
 
 enum {
 	CLK_6M = 0,
 	CLK_12M,
 	CLK_13M,
+	CLK_19_2M,
 	CLK_24M,
 	CLK_26M,
-	CLK_48M,
 	CLK_52M,
 	CLK_MCLK,
 	CLK_MAXCNT,
@@ -26,9 +27,9 @@ enum {
 	"6", \
 	"12", \
 	"13", \
+	"19.2", \
 	"24", \
 	"26", \
-	"48", \
 	"52", \
 	"mclk", \
 
@@ -52,6 +53,8 @@ enum {
 	STATE_DOVDD_ON,
 	STATE_AFVDD_OFF,
 	STATE_AFVDD_ON,
+	STATE_AVDD1_OFF,
+	STATE_AVDD1_ON,
 	STATE_MAXCNT,
 };
 
@@ -75,12 +78,15 @@ enum {
 	"dovdd_on", \
 	"afvdd_off", \
 	"afvdd_on", \
+	"avdd1_off", \
+	"avdd1_on", \
 
 enum {
 	REGULATOR_AVDD = 0,
 	REGULATOR_DVDD,
 	REGULATOR_DOVDD,
 	REGULATOR_AFVDD,
+	REGULATOR_AVDD1,
 	REGULATOR_MAXCNT,
 };
 
@@ -89,6 +95,7 @@ enum {
 	"dvdd", \
 	"dovdd", \
 	"afvdd", \
+	"avdd1", \
 
 /* Format code util */
 
@@ -96,7 +103,7 @@ enum {
 	((code) & 0xFFFF)
 
 #define to_mtk_ext_fmt_code(stdcode, mode) \
-	(0x10000000 | (((mode) & 0xF) << 16) | to_std_fmt_code(stdcode))
+	(0x10000000 | (((mode) & 0xFF) << 16) | to_std_fmt_code(stdcode))
 
 #define set_std_parts_fmt_code(code, stdcode) \
 { \
@@ -109,7 +116,7 @@ enum {
 #define get_sensor_mode_from_fmt_code(code) \
 ({ \
 	int __val = 0; \
-	__val = ((code) >> 16) & 0xF; \
+	__val = ((code) >> 16) & 0xFF; \
 	__val; \
 })
 

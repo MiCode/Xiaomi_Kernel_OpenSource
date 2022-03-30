@@ -7,5 +7,7 @@
 int adaptor_hw_power_on(struct adaptor_ctx *ctx);
 int adaptor_hw_power_off(struct adaptor_ctx *ctx);
 int adaptor_hw_init(struct adaptor_ctx *ctx);
+int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx);
+
 
 #endif

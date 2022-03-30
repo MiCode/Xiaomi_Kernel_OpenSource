@@ -62,7 +62,7 @@ struct imgsensor_struct {
 	kal_uint8 sensor_mode; /* record IMGSENSOR_MODE enum value */
 
 	kal_uint32 shutter; /* current shutter */
-	kal_uint16 gain; /* current gain */
+	kal_uint32 gain; /* current gain */
 
 	kal_uint32 pclk; /* current pclk */
 
@@ -144,6 +144,9 @@ struct imgsensor_info_struct {
 	kal_uint32 i2c_speed; /* i2c speed */
 	kal_uint8 mipi_lane_num; /* mipi lane num */
 	kal_uint8 i2c_addr_table[5];
+
+	struct v4l2_subdev *sd;
+	struct adaptor_ctx *adaptor_ctx_;
 };
 
 struct imgsensor_sensor_reg {

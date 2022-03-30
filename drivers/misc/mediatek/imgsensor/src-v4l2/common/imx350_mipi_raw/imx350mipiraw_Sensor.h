@@ -67,7 +67,7 @@ struct imgsensor_struct {
 	kal_uint8 sensor_mode;	/* record IMGSENSOR_MODE enum value */
 
 	kal_uint32 shutter;	/* current shutter */
-	kal_uint16 gain;	/* current gain */
+	kal_uint32 gain;	/* current gain */
 
 	kal_uint32 pclk;	/* current pclk */
 

@@ -12,7 +12,7 @@
 #include <linux/types.h>
 #include <linux/videodev2.h>
 
-#include "kd_imgsensor_define.h"
+#include "kd_imgsensor_define_v4l2.h"
 #include "imgsensor-user.h"
 
 #define ARRAY_SIZE(arr)	\
@@ -601,9 +601,9 @@ struct scenario_entry {
 };
 
 static const struct scenario_entry scenario_list[] = {
-	{MSDK_SCENARIO_ID_CAMERA_PREVIEW, "preview"},
-	{MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG, "capture"},
-	{MSDK_SCENARIO_ID_VIDEO_PREVIEW, "video"},
+	{SENSOR_SCENARIO_ID_NORMAL_PREVIEW, "preview"},
+	{SENSOR_SCENARIO_ID_NORMAL_CAPTURE, "capture"},
+	{SENSOR_SCENARIO_ID_NORMAL_VIDEO, "video"},
 };
 
 int main(int argc, char *argv[])
