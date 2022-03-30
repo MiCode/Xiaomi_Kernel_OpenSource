@@ -329,6 +329,8 @@ struct mtk_sensor_static_param {
 	__u32 hblank;
 	__u32 pixelrate;
 	__u32 cust_pixelrate;
+	__u32 grab_w;
+	__u32 grab_h;
 };
 struct mtk_mbus_frame_desc_entry_csi2 {
 	u8 channel;
