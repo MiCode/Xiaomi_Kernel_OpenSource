@@ -573,12 +573,16 @@ const struct mtk_apu_platdata mt6895_platdata;
 #ifndef MT6983_APUSYS_RV_PLAT_DATA
 const struct mtk_apu_platdata mt6983_platdata;
 #endif
+#ifndef MT6985_APUSYS_RV_PLAT_DATA
+const struct mtk_apu_platdata mt6985_platdata;
+#endif
 
 static const struct of_device_id mtk_apu_of_match[] = {
 	{ .compatible = "mediatek,mt6879-apusys_rv", .data = &mt6879_platdata},
 	{ .compatible = "mediatek,mt6893-apusys_rv", .data = &mt6893_platdata},
 	{ .compatible = "mediatek,mt6895-apusys_rv", .data = &mt6895_platdata},
 	{ .compatible = "mediatek,mt6983-apusys_rv", .data = &mt6983_platdata},
+	{ .compatible = "mediatek,mt6985-apusys_rv", .data = &mt6985_platdata},
 	{},
 };
 
