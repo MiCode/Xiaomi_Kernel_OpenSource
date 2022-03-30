@@ -1,0 +1,10 @@
+config MTK_CPUQOS_V3
+	tristate "MTK CPUQoS V3 feature"
+	depends on CGROUP_SCHED
+	help
+	  MTK CPUQoS V3 feature.
+	  These features include:
+		L3$ management feature:
+		It can improve performance to use L3$.
+		User can control performance mode and set
+		critical tasks.

@@ -8,7 +8,7 @@ config MTK_SCHEDULER
 
 config MTK_OPP_CAP_INFO
 	bool "Per-opp capacity information"
-	depends on MTK_SCHEDULER
+	depends on MTK_CPUFREQ_SUGOV_EXT
 	help
 	  Choose this option to provide per-opp capacity API.
 	  Scheduler module will get per-opp capacity from sram and
@@ -24,3 +24,86 @@ config NONLINEAR_FREQ_CTL
 	  freuqency to evaluated by benchmark. This makes capacity
 	  more accurate and will let scheduler/schedutil use more
 	  suitable frequency.
+
+config MTK_EAS
+	bool "MTK EAS enhancement"
+	depends on MTK_SCHEDULER
+	help
+	  MTK EAS enhancement features.
+	  These featues include
+	   1. load balance in the same frequency domain
+	   2. hint aware in idle balance
+	   3. Notify thermal ceiling to scheduler by reading thermal
+		ceiling in SRAM and updating thermal pressure.
+
+config MTK_THERMAL_AWARE_SCHEDULING
+	bool "thermal aware scheduling"
+	depends on MTK_EAS && MTK_THERMAL_INTERFACE
+	help
+	  CPU leakage optimization by temperature balance in the
+	  same frequency domain.
+	  Task placement consider temperature for leakage.
+	  Use current Per-core temperature (per-10'c, per-die).
+	  Favor tasks to CPU with lowest thermal pressure.
+
+config MTK_LEAKAGE_AWARE_TEMP
+	bool "MTK leakage aware temperature"
+	depends on MTK_EAS &&  MTK_THERMAL_INTERFACE
+	help
+	  Compute energy will consider CPU leakage and
+	  CPU leakage will aware per-CPU temperature.
+	  Favor to put tasks into CPU with lowest temperature and
+	  to save power.
+
+config MTK_NEWIDLE_BALANCE
+	bool "new idle balance for hint task"
+	depends on MTK_EAS
+	help
+	  When a CPU is newly IDLE, pull the runnable task
+	  with Latency-sensitive hint in other CPUs to this IDLE CPU.
+	  This feature enhances the latency of the task with
+	  latency-sensitive hint.
+
+config MTK_CORE_PAUSE
+	bool "core pause driver"
+	depends on MTK_SCHEDULER
+	help
+	   Choose this option to provide core pause related API.
+	   core pause intends to have a way to force a CPU to go idle
+	   and to resume as quickly as possible, with as little
+	   disruption as possible on the system.
+
+config MTK_SCHED_BIG_TASK_ROTATE
+	bool "scheduling big task rotate"
+	depends on MTK_SCHEDULER
+	help
+	   Swap two misfit tasks between big cores and little core,
+	   equally distributed runtime for each misfit task.
+	   It can use for parallel thread at multi-core to reduce
+	   execution time.
+
+config MTK_CPUFREQ_SUGOV_EXT
+	tristate "mediatek sugov governor"
+	depends on CPU_FREQ && SMP
+	help
+	   Choose this option to provide vendor cpufreq governor build
+	   by mediatek. This governor support non-linear freq control and
+	   vary optimizations. This config should be enable when
+	   you want full mtk solution.
+
+config MTK_OPP_MIN
+	bool "mediatek sugov governor"
+	depends on MTK_CPUFREQ_SUGOV_EXT && MTK_THERMAL_INTERFACE
+	help
+	   To improve critical task performance under same power budget
+	   On-time deliver critical task frequency boost hint to thermal.
+
+config MTK_CORE_CTL
+	tristate "MTK Core Control with CPU Isolation"
+	depends on MTK_CORE_PAUSE
+	help
+	  This config is for the core control policy with CPU isolation.
+	  The core control online and offline CPU cores based on task
+	  utilizations from scheduler information automatically.
+	  If you are not sure about whether to enable it or not,
+	  please set n.
