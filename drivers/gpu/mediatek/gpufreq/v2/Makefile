@@ -35,51 +35,12 @@ mtk_gpufreq_wrapper-y := \
 	gpufreq_debug.o \
 	gpu_misc.o
 
-mtk_gpufreq_mt6855-y := \
-	gpuppm.o \
-	gpufreq_mt6855.o \
-	gpudfd_mt6855.o
-
-mtk_gpufreq_mt6879-y := \
-	gpuppm.o \
-	gpufreq_mt6879.o \
-	gpudfd_mt6879.o
-
-mtk_gpufreq_mt6893-y := \
-	gpuppm.o \
-	gpufreq_mt6893.o \
-	gpudfd_mt6893.o
-
-mtk_gpufreq_mt6895-y := \
-	gpuppm.o \
-	gpufreq_mt6895.o
-
 mtk_gpufreq_mt6983-y := \
 	gpuppm.o \
 	gpufreq_mt6983.o \
 	gpudfd_mt6983.o
 
 obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_wrapper.o
-ifneq ($(wildcard $(srctree)/$(src)/gpufreq_mt6855.c),)
-ifneq ($(wildcard $(srctree)/$(src)/gpudfd_mt6855.c),)
-obj-$(CONFIG_MTK_GPU_MT6855_SUPPORT) += mtk_gpufreq_mt6855.o
-endif
-endif
-ifneq ($(wildcard $(srctree)/$(src)/gpufreq_mt6879.c),)
-ifneq ($(wildcard $(srctree)/$(src)/gpudfd_mt6879.c),)
-obj-$(CONFIG_MTK_GPU_MT6879_SUPPORT) += mtk_gpufreq_mt6879.o
-endif
-endif
-ifneq ($(wildcard $(srctree)/$(src)/gpufreq_mt6893.c),)
-ifneq ($(wildcard $(srctree)/$(src)/gpudfd_mt6893.c),)
-obj-$(CONFIG_MTK_GPU_MT6893_SUPPORT) += mtk_gpufreq_mt6893.o
-endif
-endif
-ifneq ($(wildcard $(srctree)/$(src)/gpufreq_mt6895.c),)
-ifneq ($(wildcard $(srctree)/$(src)/gpudfd_mt6895.c),)
-obj-$(CONFIG_MTK_GPU_MT6895_SUPPORT) += mtk_gpufreq_mt6895.o
-endif
-endif
 ifneq ($(wildcard $(srctree)/$(src)/gpufreq_mt6983.c),)
 ifneq ($(wildcard $(srctree)/$(src)/gpudfd_mt6983.c),)
 obj-$(CONFIG_MTK_GPU_MT6983_SUPPORT) += mtk_gpufreq_mt6983.o
