@@ -11,7 +11,6 @@
 
 #define CLK_26M				(26)
 
-#define GPIO_ELEM_CNT			(3)
 #define CALI_CONFIG_ELEM_CNT		(3)
 #define OPP_ELEM_CNT			(7)
 
@@ -54,7 +53,6 @@ enum scp_dvfs_err_enum {
 	ESCP_DVFS_PMIC_REGULATOR_FAILED,
 	ESCP_DVFS_IPI_FAILED,
 	ESCP_DVFS_CALI_FAILED,
-	ESCP_DVFS_GPIO_CONFIG_FAILED,
 	ESCP_DVFS_NO_CALI_CONFIG_FOUND,
 	ESCP_DVFS_NO_CALI_HW_FOUND,
 	ESCP_DVFS_DATA_RE_INIT,
@@ -237,7 +235,6 @@ struct dvfs_opp {
 struct scp_dvfs_hw {
 	struct dvfs_opp *opp;
 	struct regmap *pmic_regmap;
-	struct regmap *gpio_regmap;
 	struct scp_pmic_regs *pmic_regs;
 	struct ulposc_cali_hw ulposc_hw;
 	struct scp_clk_hw *clk_hw;
@@ -250,7 +247,7 @@ struct scp_dvfs_hw {
 	bool pmic_sshub_en;
 	bool sleep_init_done;
 	bool pre_mux_en;
-	int scp_opp_nums;
+	u32 scp_opp_nums;
 	int vow_lp_en_gear;
 	int cur_dbg_core;
 	u32 core_nums;
@@ -260,13 +257,12 @@ extern int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel);
 extern int scp_request_freq(void);
 extern int scp_resource_req(unsigned int req);
 extern uint32_t scp_get_freq(void);
-extern unsigned int scp_get_dvfs_opp(void);
 extern void scp_init_vcore_request(void);
-extern void scp_pll_mux_set(unsigned int pll_ctrl_flag);
 extern void wait_scp_dvfs_init_done(void);
 extern void sync_ulposc_cali_data_to_scp(void);
 extern int __init scp_dvfs_init(void);
 extern void scp_dvfs_exit(void);
+extern int scp_dvfs_feature_enable(void);
 
 /* scp dvfs variable*/
 extern unsigned int last_scp_expected_freq;
