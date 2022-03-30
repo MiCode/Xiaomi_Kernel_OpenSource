@@ -1561,7 +1561,7 @@ static int devapc_hre_init(void)
 	size_t size;
 
 	for (slave_type = 0; slave_type < slave_type_num; slave_type++) {
-		size = vio_info->vio_mask_sta_num[slave_type];
+		size = vio_info->vio_mask_sta_num[slave_type] * sizeof(uint32_t);
 
 		mtk_devapc_ctx->pd_reg[slave_type].pd_vio_mask_reg = kzalloc(size, GFP_KERNEL);
 		if (!mtk_devapc_ctx->pd_reg[slave_type].pd_vio_mask_reg) {
