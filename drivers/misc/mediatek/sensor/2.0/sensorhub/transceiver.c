@@ -253,11 +253,6 @@ static void transceiver_report(struct transceiver_device *dev,
 			/*
 			 * NOTE: only for flush ret = 0 we decrease
 			 * ret must reset to 0 for each loop
-			 * sequence:
-			 *  report thread flush fail ret < 0 then retry
-			 *   disable thread report flush success
-			 *    report thread try flush = 0 no need send
-			 *     report thread while loop because ret < 0
 			 */
 			ret = 0;
 			mutex_lock(&dev->flush_lock);
@@ -551,6 +546,11 @@ static int transceiver_enable(struct hf_device *hf_dev,
 		state->batch.delay = S64_MAX;
 		state->batch.latency = S64_MAX;
 		state->enable = false;
+		/*
+		 * NOTE: different from nanohub architecture(change: 2464846),
+		 * disable no need send flush, due to sensorhub architecture
+		 * can send flush when sensor disabled.
+		 */
 	}
 	mutex_unlock(&dev->enable_lock);
 	return ret;
