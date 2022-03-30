@@ -152,7 +152,8 @@ static void wsm_free(struct tee_session *session, struct tee_wsm *wsm)
 static int hash_path_and_data(struct task_struct *task, u8 *hash,
 			      const void *data, unsigned int data_len)
 {
-	struct file *exe_file = NULL;
+	struct mm_struct *mm;
+	struct file *exe_file;
 	struct crypto_shash *tfm;
 	struct shash_desc *desc;
 	size_t desc_size;
@@ -165,12 +166,14 @@ static int hash_path_and_data(struct task_struct *task, u8 *hash,
 	if (!buf)
 		return -ENOMEM;
 
-	/*
-	 * TODO: To fix get_task_exe_file gki violation
-	 * The change is to fix get_task_exe_file gki violation temporarily.
-	 * Will remove this change after fix gki violation with google.
-	 */
-	/* exe_file = get_task_exe_file(task); */
+	mm = get_task_mm(task);
+	if (!mm) {
+		mc_dev_err(-EPERM, "can't get mm");
+		ret = -EPERM;
+		goto end;
+	}
+
+	exe_file = mm->exe_file;
 	if (!exe_file) {
 		ret = -ENOENT;
 		goto end;
