@@ -457,6 +457,7 @@ struct mtk_cam_ctx {
 	atomic_t watchdog_cnt;
 	atomic_t watchdog_dumped;
 	atomic_t watchdog_dump_cnt;
+	u64 watchdog_time_diff_ns;
 	struct timer_list watchdog_timer;
 	struct work_struct watchdog_work;
 

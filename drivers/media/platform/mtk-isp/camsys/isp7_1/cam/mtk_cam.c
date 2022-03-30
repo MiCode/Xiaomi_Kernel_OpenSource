@@ -7364,7 +7364,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 	raw = get_master_raw_dev(ctx->cam, ctx->pipe);
 	watchdog_cnt = atomic_read(&ctx->watchdog_cnt);
 	timeout = mtk_cam_seninf_check_timeout(seninf,
-		watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL * 1000000);
+					       ctx->watchdog_time_diff_ns);
 	if (last_vsync_count == raw->vsync_count)
 		is_abnormal_vsync = true;
 	last_vsync_count = raw->vsync_count;
@@ -7379,20 +7379,20 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 	} else {
 		if (timeout) {
 			dev_info(ctx->cam->dev,
-				"%s:ctx(%d): timeout, VF(%d) vsync count(%d) sof count(%d) overrun_debug_dump_cnt(%d) start dump (%dx100ms)\n",
+				"%s:ctx(%d): timeout, VF(%d) vsync count(%d) sof count(%d) overrun_debug_dump_cnt(%d) watchdog count(%d) start dump (+%lldms)\n",
 				__func__, ctx->stream_id, atomic_read(&raw->vf_en),
 				raw->vsync_count, raw->sof_count, raw->overrun_debug_dump_cnt,
-				watchdog_cnt);
+				watchdog_cnt, ctx->watchdog_time_diff_ns/1000000);
 
 			if (is_abnormal_vsync)
-				dev_info(ctx->cam->dev, "%s:abnormal vsync\n");
+				dev_info(ctx->cam->dev, "abnormal vsync\n");
 			atomic_set(&ctx->watchdog_dumped, 1); // fixme
 			atomic_set(&ctx->watchdog_cnt, 0);
 			mtk_cam_seninf_dump(seninf);
 			atomic_set(&ctx->watchdog_cnt, 0);
 			atomic_inc(&ctx->watchdog_dump_cnt);
 			atomic_set(&ctx->watchdog_dumped, 0);
-	#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 			watchdog_dump_cnt = atomic_read(&ctx->watchdog_dump_cnt);
 			watchdog_timeout_cnt = atomic_read(&ctx->watchdog_timeout_cnt);
 			if (watchdog_dump_cnt == watchdog_timeout_cnt) {
@@ -7463,10 +7463,12 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 						"Camsys: SOF timeout", "watchdog timeout");
 				}
 			}
-	#endif
+#endif
 		} else {
-			dev_info(ctx->cam->dev, "%s:ctx(%d): not timeout, for long exp (%dx100ms)\n",
-				__func__, ctx->stream_id, watchdog_cnt);
+			dev_info(ctx->cam->dev,
+				"%s:ctx(%d): not timeout, for long exp watchdog count(%d) (+%lldms)\n",
+				__func__, ctx->stream_id, watchdog_cnt,
+				ctx->watchdog_time_diff_ns/1000000);
 		}
 	}
 }
@@ -7477,6 +7479,7 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 	struct mtk_raw_device *raw;
 	int watchdog_cnt;
 	int watchdog_dump_cnt;
+	u64 current_time_ns = ktime_get_boottime_ns();
 
 	if (!ctx->streaming)
 		return;
@@ -7491,7 +7494,12 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 
 	watchdog_cnt = atomic_inc_return(&ctx->watchdog_cnt);
 	watchdog_dump_cnt = atomic_read(&ctx->watchdog_dump_cnt);
+	ctx->watchdog_time_diff_ns = current_time_ns - raw->last_sof_time_ns;
 
+	/** FIXME:
+	 * redundant check watchdog_dump in worker
+	 * the timeout of same period doesn't need to be dump again
+	 */
 	if (atomic_read(&ctx->watchdog_dumped)) {
 		dev_dbg(ctx->cam->dev,
 			 "%s:ctx(%d):skip watchdog worker ctx:%d (worker is ongoing)\n",
@@ -7502,16 +7510,16 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 		 * Nth time of running the watchdog timer.
 		 */
 		if (watchdog_dump_cnt < 4) {
-			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): timeout! VF(%d) vsync count(%d) sof count(%d) watcgdog_cnt(%d)(+%dms)\n",
+			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): timeout! VF(%d) vsync count(%d) sof count(%d) watcgdog_cnt(%d)(+%llddms)\n",
 				__func__, ctx->stream_id, atomic_read(&raw->vf_en),
 				raw->vsync_count, raw->sof_count, watchdog_cnt,
-				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
+				ctx->watchdog_time_diff_ns/1000000);
 
 			schedule_work(&ctx->watchdog_work);
 		} else {
-			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): dump > 3! watchdog_dump_cnt(%d)(+%dms)\n",
+			dev_info_ratelimited(ctx->cam->dev, "%s:ctx(%d): dump > 3! watchdog_dump_cnt(%d)(+%lldms)\n",
 				__func__, ctx->stream_id, watchdog_dump_cnt,
-				watchdog_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL);
+				ctx->watchdog_time_diff_ns/1000000);
 		}
 	}
 

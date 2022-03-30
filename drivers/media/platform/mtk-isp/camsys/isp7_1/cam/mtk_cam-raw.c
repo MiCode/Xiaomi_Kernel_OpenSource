@@ -2419,9 +2419,9 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	if (irq_status & SOF_INT_ST || irq_status & DCIF_SUB_SOF_INT_EN) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
 
-		raw_dev->cur_vsync_idx = 0;
 		raw_dev->sof_count++;
-
+		raw_dev->cur_vsync_idx = 0;
+		raw_dev->last_sof_time_ns = irq_info.ts_ns;
 		irq_info.write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		irq_info.fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 16;
 	}
