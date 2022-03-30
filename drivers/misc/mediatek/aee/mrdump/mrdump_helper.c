@@ -5,14 +5,13 @@
 
 #include <linux/delay.h>
 #include <linux/init.h>
-#include <linux/memblock.h>
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/of_fdt.h>
 #include <linux/percpu.h>
 #include <linux/sched/signal.h>
 #include <linux/string.h>
-#include "../../../../kernel/sched/sched.h"
+#include <linux/workqueue.h>
 
 #include <asm/memory.h>
 #include <asm/pgtable.h>
@@ -21,141 +20,116 @@
 #include <asm/stacktrace.h>
 #include <asm/system_misc.h>
 
+#include <debug_kinfo.h>
 #include <mt-plat/aee.h>
 #include <mt-plat/mboot_params.h>
+#include <sched/sched.h>
 #include "mrdump_private.h"
 
 #ifdef MODULE
 
-#define KV		kimage_vaddr
-#define S_MAX		SZ_64M
-#define S_START_OFFSET	SZ_2M
-#define SM_SIZE		28
-#define TT_SIZE		256
 #define NAME_LEN	128
 
 static unsigned long *mrdump_ka;
 static int *mrdump_ko;
-static unsigned long *mrdump_krb;
-static unsigned int *mrdump_kns;
+static unsigned long _mrdump_krb;
+static unsigned int _mrdump_kns;
 static u8 *mrdump_kn;
 static unsigned int *mrdump_km;
 static u8 *mrdump_ktt;
 static u16 *mrdump_kti;
 
-static void *mrdump_abt_addr(void *ssa)
+#if IS_ENABLED(CONFIG_64BIT)
+#define KALLS_ALGN	8
+#else
+#define KALLS_ALGN	4
+#endif
+
+#if IS_ENABLED(CONFIG_KALLSYMS_BASE_RELATIVE)
+unsigned long aee_get_kn_off(void)
 {
-	void *pos;
-	u8 abt[SM_SIZE];
-	int i;
-	unsigned long s_left;
+	if (!_mrdump_kns)
+		return 0;
 
-	for (i = 0; i < SM_SIZE; i++) {
-		if (i % 2)
-			abt[i] = 0;
-		else
-			abt[i] = 0x61 + i / 2;
-	}
-
-	if ((unsigned long)ssa >= KV + S_MAX) {
-		pr_info("out of range: 0x%lx\n", ssa);
-		return NULL;
-	}
-
-	pos = ssa;
-	s_left = KV + S_MAX - (unsigned long)ssa;
-	while ((u64)pos < (u64)(KV + S_MAX)) {
-		pos = memchr(pos, 'a', s_left);
-
-		if (!pos) {
-			pr_info("fail at: 0x%lx @ 0x%x\n", ssa, s_left);
-			return NULL;
-		}
-		s_left = KV + S_MAX - (unsigned long)pos;
-
-		if (!memcmp(pos, (const void *)abt, sizeof(abt)))
-			return pos;
-
-		pos += 1;
-	}
-
-	pr_info("fail at end: 0x%lx @ 0x%lx\n", ssa, s_left);
-	return NULL;
+	return (unsigned long)mrdump_kn - (unsigned long)mrdump_ko;
 }
 
-static unsigned long *mrdump_krb_addr(void)
+unsigned long aee_get_kns_off(void)
 {
-	void *abt_addr = (void *)KV;
-	void *ssa = (void *)KV + S_START_OFFSET;
-	unsigned long *pos;
+	if (!_mrdump_kns)
+		return 0;
 
-	while ((u64)ssa < KV + S_MAX) {
-		abt_addr = mrdump_abt_addr(ssa);
-		if (!abt_addr) {
-			pr_info("krb not found: 0x%lx\n", ssa);
-			return NULL;
-		}
-
-		abt_addr = (void *)round_up((unsigned long)abt_addr, 8);
-		for (pos = (unsigned long *)abt_addr;
-		     (u64)pos > (u64)ssa ; pos--) {
-			if ((u64)pos == (u64)&kimage_vaddr)
-				break;
-			if (*pos == KV)
-				return pos;
-		}
-		ssa = abt_addr + 1;
-	}
-
-	pr_info("krb not found: 0x%lx\n", ssa);
-	return NULL;
+	return aee_get_kn_off() - KALLS_ALGN;
 }
 
-static unsigned int *mrdump_km_addr(void)
+unsigned long aee_get_km_off(void)
 {
-	const u8 *name = mrdump_kn;
-	unsigned int loop = *mrdump_kns;
+	if (!_mrdump_kns)
+		return 0;
 
-	while (loop--)
-		name = name + (*name) + 1;
-
-	return (unsigned int *)round_up((unsigned long)name, 8);
+	return (unsigned long)mrdump_km - (unsigned long)mrdump_ko;
 }
 
-static u16 *mrdump_kti_addr(void)
+unsigned long aee_get_ktt_off(void)
 {
-	const u8 *pch = mrdump_ktt;
-	int loop = TT_SIZE;
+	if (!_mrdump_kns)
+		return 0;
 
-	while (loop--) {
-		for (; *pch; pch++)
-			;
-		pch++;
-	}
-
-	return (u16 *)round_up((unsigned long)pch, 8);
+	return (unsigned long)mrdump_ktt - (unsigned long)mrdump_ko;
 }
 
+unsigned long aee_get_kti_off(void)
+{
+	if (!_mrdump_kns)
+		return 0;
+
+	return (unsigned long)mrdump_kti - (unsigned long)mrdump_ko;
+}
+#endif
+
+static int retry_nm = 100;
+
+static void *kinfo_vaddr;
+
+static void mrdump_ka_work_func(struct work_struct *work);
 static void aee_base_addrs_init(void);
-int mrdump_ka_init(void)
+
+static DECLARE_DELAYED_WORK(ka_work, mrdump_ka_work_func);
+
+int mrdump_ka_init(void *vaddr)
 {
-	unsigned int kns;
-
-	mrdump_krb = mrdump_krb_addr();
-	if (!mrdump_krb)
-		return -EINVAL;
-
-	mrdump_kns = (unsigned int *)(mrdump_krb + 1);
-	mrdump_kn = (u8 *)(mrdump_krb + 2);
-	kns = *mrdump_kns;
-	mrdump_ko = (int *)(mrdump_krb - (round_up(kns, 2) / 2));
-	mrdump_km = mrdump_km_addr();
-	mrdump_ktt = (u8 *)round_up((unsigned long)(mrdump_km +
-				    (round_up(kns, 256) / 256)), 8);
-	mrdump_kti = mrdump_kti_addr();
-
-	aee_base_addrs_init();
+	kinfo_vaddr = vaddr;
+	schedule_delayed_work(&ka_work, 0);
 	return 0;
+}
+
+static void mrdump_ka_work_func(struct work_struct *work)
+{
+	struct kernel_all_info *dbg_kinfo;
+	struct kernel_info *kinfo;
+
+	dbg_kinfo = (struct kernel_all_info *)kinfo_vaddr;
+	kinfo = &(dbg_kinfo->info);
+	if (dbg_kinfo->magic_number == DEBUG_KINFO_MAGIC) {
+		_mrdump_kns = kinfo->num_syms;
+		_mrdump_krb = kinfo->_relative_pa + kimage_voffset;
+		mrdump_ko = (void *)(kinfo->_offsets_pa + kimage_voffset);
+		mrdump_kn = (void *)(kinfo->_names_pa + kimage_voffset);
+		mrdump_ktt = (void *)(kinfo->_token_table_pa + kimage_voffset);
+		mrdump_kti = (void *)(kinfo->_token_index_pa + kimage_voffset);
+		mrdump_km = (void *)(kinfo->_markers_pa + kimage_voffset);
+		aee_base_addrs_init();
+		mrdump_cblock_late_init();
+		init_ko_addr_list_late();
+		mrdump_mini_add_klog();
+		mrdump_mini_add_kallsyms();
+	} else {
+		pr_info("%s: retry in 0.1 second", __func__);
+		if (--retry_nm >= 0)
+			schedule_delayed_work(&ka_work, HZ / 10);
+		else
+			pr_info("%s failed\n", __func__);
+	}
 }
 
 static unsigned int mrdump_checking_names(unsigned int off,
@@ -200,12 +174,12 @@ static unsigned long mrdump_idx2addr(int idx)
 		return *(mrdump_ka + idx);
 
 	if (!IS_ENABLED(CONFIG_KALLSYMS_ABSOLUTE_PERCPU))
-		return *mrdump_krb + (u32)(*(mrdump_ko + idx));
+		return _mrdump_krb + (u32)(*(mrdump_ko + idx));
 
 	if (*(mrdump_ko + idx) >= 0)
 		return *(mrdump_ko + idx);
 
-	return *mrdump_krb - 1 - *(mrdump_ko + idx);
+	return _mrdump_krb - 1 - *(mrdump_ko + idx);
 }
 
 static unsigned long aee_addr_find(const char *name)
@@ -214,7 +188,10 @@ static unsigned long aee_addr_find(const char *name)
 	unsigned long i;
 	unsigned int off;
 
-	for (i = 0, off = 0; i < *mrdump_kns; i++) {
+	if (!_mrdump_kns)
+		return 0;
+
+	for (i = 0, off = 0; i < _mrdump_kns; i++) {
 		off = mrdump_checking_names(off, strbuf, ARRAY_SIZE(strbuf));
 
 		if (strcmp(strbuf, name) == 0)
@@ -258,6 +235,37 @@ static void print_pstate(struct pt_regs *regs)
 	}
 }
 
+#define MEM_FMT "%04lx: %08x %08x %08x %08x %08x %08x %08x %08x\n"
+#define MEM_RANGE (128)
+static void show_data(unsigned long addr, int nbytes, const char *name)
+{
+	int i, j, invalid, nlines;
+	u32 *p, data[8] = {0};
+
+	if (addr < (UL(0xffffffffffffffff) - (UL(1) << VA_BITS) + 1) ||
+			addr > UL(0xFFFFFFFFFFFFF000))
+		return;
+
+	pr_info("%s: %#lx:\n", name, addr);
+	addr -= MEM_RANGE;
+	p = (u32 *)(addr & (~0xfUL));
+	nbytes += (addr & 0xf);
+	nlines = (nbytes + 31) / 32;
+	for (i = 0; i < nlines; i++, p += 8) {
+		for (j = invalid = 0; j < 8; j++) {
+			if (copy_from_kernel_nofault(&data[j], &p[j],
+						     sizeof(data[0]))) {
+				data[j] = 0x12345678;
+				invalid++;
+			}
+		}
+		if (invalid != 8)
+			pr_info(MEM_FMT, (unsigned long)p & 0xffff,
+				data[0], data[1], data[2], data[3],
+				data[4], data[5], data[6], data[7]);
+	}
+}
+
 void aee_show_regs(struct pt_regs *regs)
 {
 	int i, top_reg;
@@ -276,8 +284,8 @@ void aee_show_regs(struct pt_regs *regs)
 	print_pstate(regs);
 
 	if (!user_mode(regs)) {
-		pr_info("pc : %pS\n", (void *)regs->pc);
-		pr_info("lr : %pS\n", (void *)lr);
+		pr_info("pc : [0x%lx] %pS\n", regs->pc, (void *)regs->pc);
+		pr_info("lr : [0x%lx] %pS\n", lr, (void *)lr);
 	} else {
 		pr_info("pc : %016llx\n", regs->pc);
 		pr_info("lr : %016llx\n", lr);
@@ -290,17 +298,33 @@ void aee_show_regs(struct pt_regs *regs)
 
 	i = top_reg;
 
-	while (i >= 0) {
-		pr_info("x%-2d: %016llx ", i, regs->regs[i]);
-		i--;
-
-		if (i % 2 == 0) {
-			pr_cont("x%-2d: %016llx ", i, regs->regs[i]);
-			i--;
-		}
-
-		pr_cont("\n");
+	while (i >= 1) {
+		pr_info("x%-2d: %016llx x%-2d: %016llx\n",
+			i, regs->regs[i], i - 1, regs->regs[i - 1]);
+		i -= 2;
 	}
+	if (!user_mode(regs)) {
+		unsigned int i;
+#if IS_ENABLED(CONFIG_SET_FS)
+		mm_segment_t fs;
+
+		fs = get_fs();
+		set_fs(KERNEL_DS);
+#endif
+		show_data(regs->pc, MEM_RANGE * 2, "PC");
+		show_data(regs->regs[30], MEM_RANGE * 2, "LR");
+		show_data(regs->sp, MEM_RANGE * 2, "SP");
+		for (i = 0; i < 30; i++) {
+			char name[4];
+
+			if (snprintf(name, sizeof(name), "X%u", i) > 0)
+				show_data(regs->regs[i], MEM_RANGE * 2, name);
+		}
+#if IS_ENABLED(CONFIG_SET_FS)
+		set_fs(fs);
+#endif
+	}
+	pr_info("\n");
 }
 #else
 void aee_show_regs(struct pt_regs *regs)
@@ -362,77 +386,6 @@ unsigned long aee_get_text(void)
 	return p_text;
 }
 
-/* _sdata, _edata is in *ABS* section and kallsyms API can not find it */
-unsigned long aee_get_sdata(void)
-{
-	return 0;
-}
-
-unsigned long aee_get_edata(void)
-{
-	return 0;
-}
-
-#ifdef CONFIG_SYSFS
-static struct kset **p_module_kset;
-struct kset *aee_get_module_kset(void)
-{
-	if (p_module_kset)
-		return *p_module_kset;
-
-	p_module_kset = (void *)(aee_addr_find("module_kset"));
-
-	if (!p_module_kset) {
-		pr_info("%s failed", __func__);
-		return NULL;
-	}
-	return *p_module_kset;
-}
-#endif
-
-static struct memblock *p_memblock;
-static struct memblock *aee_memblock(void)
-{
-	if (p_memblock)
-		return p_memblock;
-
-	p_memblock = (void *)(aee_addr_find("memblock"));
-
-	if (!p_memblock) {
-		pr_info("%s failed", __func__);
-		return NULL;
-	}
-	return p_memblock;
-}
-
-phys_addr_t aee_memblock_start_of_DRAM(void)
-{
-	struct memblock *memblockp = aee_memblock();
-
-	if (!memblockp) {
-		pr_info("%s failed", __func__);
-		return 0;
-	}
-
-	return memblockp->memory.regions[0].base;
-}
-
-phys_addr_t aee_memblock_end_of_DRAM(void)
-{
-	struct memblock *memblockp = aee_memblock();
-	int idx;
-
-	if (!memblockp) {
-		pr_info("%s failed", __func__);
-		return 0;
-	}
-
-	idx = memblockp->memory.cnt - 1;
-
-	return (memblockp->memory.regions[idx].base +
-		memblockp->memory.regions[idx].size);
-}
-
 #ifdef CONFIG_MODULES
 static struct list_head *p_modules;
 struct list_head *aee_get_modules(void)
@@ -452,55 +405,19 @@ struct list_head *aee_get_modules(void)
 }
 #endif
 
-u32 aee_log_buf_len_get(void)
+static void *p_log_ptr;
+void *aee_log_buf_addr_get(void)
 {
-	u32 log_buf_len = 1 << CONFIG_LOG_BUF_SHIFT;
+	if (p_log_ptr)
+		return p_log_ptr;
 
-	if (log_buf_len > 0 && log_buf_len <= (1 << 25))
-		return log_buf_len;
+	p_log_ptr = (void *)(aee_addr_find("prb"));
 
-	return 0;
-}
-
-static char *p__log_buf;
-char *aee_log_buf_addr_get(void)
-{
-	if (p__log_buf)
-		return p__log_buf;
-
-	p__log_buf = (void *)(aee_addr_find("__log_buf"));
-
-	if (p__log_buf)
-		return p__log_buf;
+	if (p_log_ptr)
+		return p_log_ptr;
 
 	pr_info("%s failed", __func__);
 	return NULL;
-}
-EXPORT_SYMBOL(aee_log_buf_addr_get);
-
-static struct mm_struct *p_init_mm;
-static struct mm_struct *aee_init_mm(void)
-{
-	if (p_init_mm)
-		return p_init_mm;
-
-	p_init_mm = (void *)(aee_addr_find("init_mm"));
-
-	if (!p_init_mm) {
-		pr_info("%s failed", __func__);
-		return NULL;
-	}
-
-	return p_init_mm;
-}
-
-pgd_t *aee_pgd_offset_k(unsigned long addr)
-{
-	struct mm_struct *pim = aee_init_mm();
-
-	if (!pim)
-		return NULL;
-	return (pgd_t *)pgd_offset(pim, addr);
 }
 
 unsigned long aee_get_kallsyms_addresses(void)
@@ -513,37 +430,6 @@ unsigned long aee_get_kallsyms_addresses(void)
 unsigned long aee_get_kti_addresses(void)
 {
 	return (unsigned long)mrdump_kti;
-}
-
-raw_spinlock_t *p_logbuf_lock;
-struct semaphore *p_console_sem;
-void aee_zap_locks(void)
-{
-	if (!p_logbuf_lock) {
-		p_logbuf_lock =
-			(void *)(aee_addr_find("logbuf_lock"));
-
-		if (!p_logbuf_lock) {
-			aee_sram_printk("%s failed to get logbuf lock\n",
-					__func__);
-			return;
-		}
-	}
-	if (!p_console_sem) {
-		p_console_sem =
-			(void *)(aee_addr_find("console_sem"));
-
-		if (!p_console_sem) {
-			aee_sram_printk("%s failed to get console_sem\n",
-					__func__);
-			return;
-		}
-	}
-	debug_locks_off();
-	/* If a crash is occurring, make sure we can't deadlock */
-	raw_spin_lock_init(p_logbuf_lock);
-	/* And make sure that we print immediately */
-	sema_init(p_console_sem, 1);
 }
 
 static raw_spinlock_t *p_die_lock;
@@ -606,27 +492,17 @@ static void aee_base_addrs_init(void)
 	char strbuf[NAME_LEN];
 	unsigned long i;
 	unsigned int off;
-	unsigned int search_num = 8;
+	unsigned int search_num = 5;
 
-#ifndef CONFIG_SYSFS
-	search_num--;
-#endif
 #ifndef CONFIG_MODULES
 	search_num--;
 #endif
 
-	for (i = 0, off = 0; i < *mrdump_kns; i++) {
+	for (i = 0, off = 0; i < _mrdump_kns; i++) {
 		if (!search_num)
 			return;
 		off = mrdump_checking_names(off, strbuf, ARRAY_SIZE(strbuf));
 
-#ifdef CONFIG_SYSFS
-		if (!p_module_kset && strcmp(strbuf, "module_kset") == 0) {
-			p_module_kset = (void *)mrdump_idx2addr(i);
-			search_num--;
-			continue;
-		}
-#endif
 #ifdef CONFIG_MODULES
 		if (!p_modules && strcmp(strbuf, "modules") == 0) {
 			p_modules = (void *)mrdump_idx2addr(i);
@@ -634,11 +510,6 @@ static void aee_base_addrs_init(void)
 			continue;
 		}
 #endif
-		if (!p_memblock && strcmp(strbuf, "memblock") == 0) {
-			p_memblock = (void *)mrdump_idx2addr(i);
-			search_num--;
-			continue;
-		}
 
 		if (!p_etext && strcmp(strbuf, "_etext") == 0) {
 			p_etext = mrdump_idx2addr(i);
@@ -658,14 +529,8 @@ static void aee_base_addrs_init(void)
 			continue;
 		}
 
-		if (!p_init_mm && strcmp(strbuf, "init_mm") == 0) {
-			p_init_mm = (void *)mrdump_idx2addr(i);
-			search_num--;
-			continue;
-		}
-
-		if (!p__log_buf && strcmp(strbuf, "__log_buf") == 0) {
-			p__log_buf = (void *)mrdump_idx2addr(i);
+		if (!p_log_ptr && strcmp(strbuf, "prb") == 0) {
+			p_log_ptr = (void *)mrdump_idx2addr(i);
 			search_num--;
 			continue;
 		}
@@ -673,7 +538,6 @@ static void aee_base_addrs_init(void)
 	if (search_num)
 		pr_info("mrdump addr init incomplete %d\n", search_num);
 }
-
 #else /* #ifdef MODULE*/
 /* for mrdump.ko */
 void aee_show_regs(struct pt_regs *regs)
@@ -696,33 +560,6 @@ unsigned long aee_get_text(void)
 	return (unsigned long)_text;
 }
 
-unsigned long aee_get_sdata(void)
-{
-	return (unsigned long)_sdata;
-}
-
-unsigned long aee_get_edata(void)
-{
-	return (unsigned long)_edata;
-}
-
-#ifdef CONFIG_SYSFS
-struct kset *aee_get_module_kset(void)
-{
-	return module_kset;
-}
-#endif
-
-phys_addr_t aee_memblock_start_of_DRAM(void)
-{
-	return memblock_start_of_DRAM();
-}
-
-phys_addr_t aee_memblock_end_of_DRAM(void)
-{
-	return memblock_end_of_DRAM();
-}
-
 #ifdef CONFIG_MODULES
 static struct list_head *p_modules;
 struct list_head *aee_get_modules(void)
@@ -742,19 +579,19 @@ struct list_head *aee_get_modules(void)
 }
 #endif
 
-u32 aee_log_buf_len_get(void)
+static void *p_log_ptr;
+void *aee_log_buf_addr_get(void)
 {
-	return log_buf_len_get();
-}
+	if (p_log_ptr)
+		return p_log_ptr;
 
-char *aee_log_buf_addr_get(void)
-{
-	return log_buf_addr_get();
-}
+	p_log_ptr = (void *)(kallsyms_lookup_name("prb"));
 
-pgd_t *aee_pgd_offset_k(unsigned long addr)
-{
-	return (pgd_t *)pgd_offset_k(addr);
+	if (p_log_ptr)
+		return p_log_ptr;
+
+	pr_info("%s failed", __func__);
+	return NULL;
 }
 
 unsigned long aee_get_kallsyms_addresses(void)
@@ -768,35 +605,6 @@ unsigned long aee_get_kti_addresses(void)
 {
 	return (unsigned long)kallsyms_token_index;
 }
-
-raw_spinlock_t *p_logbuf_lock;
-struct semaphore *p_console_sem;
-void aee_zap_locks(void)
-{
-	if (!p_logbuf_lock) {
-		p_logbuf_lock = (void *)kallsyms_lookup_name("logbuf_lock");
-		if (!p_logbuf_lock) {
-			aee_sram_printk("%s failed to get logbuf lock\n",
-					__func__);
-			return;
-		}
-	}
-	if (!p_console_sem) {
-		p_console_sem = (void *)kallsyms_lookup_name("console_sem");
-		if (!p_console_sem) {
-			aee_sram_printk("%s failed to get console_sem\n",
-					__func__);
-			return;
-		}
-	}
-
-	debug_locks_off();
-	/* If a crash is occurring, make sure we can't deadlock */
-	raw_spin_lock_init(p_logbuf_lock);
-	/* And make sure that we print immediately */
-	sema_init(p_console_sem, 1);
-}
-
 
 static raw_spinlock_t *p_die_lock;
 void aee_reinit_die_lock(void)
@@ -853,7 +661,7 @@ static unsigned long nsec_low(unsigned long long nsec)
 
 #define SPLIT_NS(x) nsec_high(x), nsec_low(x)
 
-#ifdef CONFIG_CGROUP_SCHED
+#if IS_ENABLED(CONFIG_CGROUP_SCHED)
 static char group_path[PATH_MAX];
 
 static char *task_group_path(struct task_group *tg)
@@ -886,9 +694,9 @@ do {						\
 static void
 print_task_at_AEE(struct seq_file *m, struct rq *rq, struct task_struct *p)
 {
-#ifdef CONFIG_SCHEDSTATS
+#if IS_ENABLED(CONFIG_SCHEDSTATS)
 	if (rq->curr == p) {
-#ifdef CONFIG_CGROUP_SCHED
+#if IS_ENABLED(CONFIG_CGROUP_SCHED)
 		SEQ_printf_at_AEE(m, "R%15s %5d %9lld.%06ld %9lld ",
 			p->comm,
 			task_pid_nr(p),
@@ -918,12 +726,12 @@ print_task_at_AEE(struct seq_file *m, struct rq *rq, struct task_struct *p)
 			SPLIT_NS(p->se.sum_exec_runtime),
 			SPLIT_NS(p->se.statistics.sum_sleep_runtime));
 #endif
-#ifdef CONFIG_NUMA_BALANCING
+#if IS_ENABLED(CONFIG_NUMA_BALANCING)
 		SEQ_printf_at_AEE(m, " %d %d",
 			task_node(p), task_numa_group_id(p));
 #endif
 	} else {
-#ifdef CONFIG_CGROUP_SCHED
+#if IS_ENABLED(CONFIG_CGROUP_SCHED)
 		SEQ_printf_at_AEE(m, " %15s %5d %9lld.%06ld %9lld ",
 			p->comm,
 			task_pid_nr(p),
@@ -951,7 +759,7 @@ print_task_at_AEE(struct seq_file *m, struct rq *rq, struct task_struct *p)
 			SPLIT_NS(p->se.sum_exec_runtime),
 			SPLIT_NS(p->se.statistics.sum_sleep_runtime));
 #endif
-#ifdef CONFIG_NUMA_BALANCING
+#if IS_ENABLED(CONFIG_NUMA_BALANCING)
 		SEQ_printf_at_AEE(m, " %d %d",
 			task_node(p), task_numa_group_id(p));
 #endif
@@ -985,20 +793,20 @@ int read_trylock_n_irqsave(rwlock_t *lock,
 	} while ((!locked) && (trylock_cnt < TRYLOCK_NUM));
 
 	if (!locked) {
-#ifdef CONFIG_DEBUG_SPINLOCK
+#if IS_ENABLED(CONFIG_DEBUG_SPINLOCK)
 		struct task_struct *owner = NULL;
 #endif
 		SEQ_printf_at_AEE(m, "Warning: fail to get lock in %s\n", msg);
-#ifdef CONFIG_DEBUG_SPINLOCK
+#if IS_ENABLED(CONFIG_DEBUG_SPINLOCK)
 		if (lock->owner && lock->owner != SPINLOCK_OWNER_INIT)
 			owner = lock->owner;
-#ifdef CONFIG_SMP
+#if IS_ENABLED(CONFIG_SMP)
 		SEQ_printf_at_AEE(m, " lock: %p, .magic: %08x, .owner: %s/%d",
 				lock, lock->magic,
 				owner ? owner->comm : "<<none>>",
 				owner ? task_pid_nr(owner) : -1);
 
-#ifdef CONFIG_ARM64
+#if IS_ENABLED(CONFIG_ARM64)
 		SEQ_printf_at_AEE(m, ".owner_cpu: %d, value: %d\n",
 			lock->owner_cpu, lock->raw_lock.wait_lock.locked);
 #else
@@ -1030,15 +838,15 @@ int raw_spin_trylock_n_irqsave(raw_spinlock_t *lock,
 	} while ((!locked) && (trylock_cnt < TRYLOCK_NUM));
 
 	if (!locked) {
-#ifdef CONFIG_DEBUG_SPINLOCK
+#if IS_ENABLED(CONFIG_DEBUG_SPINLOCK)
 		struct task_struct *owner = NULL;
 #endif
 		SEQ_printf_at_AEE(m, "Warning: fail to get lock in %s\n", msg);
-#ifdef CONFIG_DEBUG_SPINLOCK
+#if IS_ENABLED(CONFIG_DEBUG_SPINLOCK)
 		if (lock->owner && lock->owner != SPINLOCK_OWNER_INIT)
 			owner = lock->owner;
-#ifdef CONFIG_ARM64
-#ifdef CONFIG_SMP
+#if IS_ENABLED(CONFIG_ARM64)
+#if IS_ENABLED(CONFIG_SMP)
 		SEQ_printf_at_AEE(m, " lock: %lx, .magic: %08x, .owner: %s/%d",
 			   (long)lock, lock->magic,
 			   owner ? owner->comm : "<<none>>",
@@ -1080,16 +888,16 @@ int spin_trylock_n_irqsave(spinlock_t *lock,
 	} while ((!locked) && (trylock_cnt < TRYLOCK_NUM));
 
 	if (!locked) {
-#ifdef CONFIG_DEBUG_SPINLOCK
+#if IS_ENABLED(CONFIG_DEBUG_SPINLOCK)
 		raw_spinlock_t rlock = lock->rlock;
 		struct task_struct *owner = NULL;
 #endif
 		SEQ_printf_at_AEE(m, "Warning: fail to get lock in %s\n", msg);
-#ifdef CONFIG_DEBUG_SPINLOCK
+#if IS_ENABLED(CONFIG_DEBUG_SPINLOCK)
 		if (rlock.owner && rlock.owner != SPINLOCK_OWNER_INIT)
 			owner = rlock.owner;
-#ifdef CONFIG_ARM64
-#ifdef CONFIG_SMP
+#if IS_ENABLED(CONFIG_ARM64)
+#if IS_ENABLED(CONFIG_SMP)
 		SEQ_printf_at_AEE(m, " lock: %lx, .magic: %08x, .owner: %s/%d",
 			   (long)&rlock, rlock.magic,
 			   owner ? owner->comm : "<<none>>",
@@ -1143,7 +951,7 @@ static void print_rq_at_AEE(struct seq_file *m, struct rq *rq, int rq_cpu)
 	rcu_read_unlock();
 }
 
-#ifdef CONFIG_FAIR_GROUP_SCHED
+#if IS_ENABLED(CONFIG_FAIR_GROUP_SCHED)
 static void print_cfs_group_stats_at_AEE(struct seq_file *m,
 		int cpu, struct task_group *tg)
 {
@@ -1178,7 +986,7 @@ static void print_cfs_group_stats_at_AEE(struct seq_file *m,
 #endif
 	P(se->load.weight);
 	P(se->runnable_weight);
-#ifdef CONFIG_SMP
+#if IS_ENABLED(CONFIG_SMP)
 	P(se->avg.load_avg);
 	P(se->avg.util_avg);
 #endif
@@ -1198,7 +1006,7 @@ void print_cfs_rq_at_AEE(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 	int locked;
 #endif
 
-#ifdef CONFIG_FAIR_GROUP_SCHED
+#if IS_ENABLED(CONFIG_FAIR_GROUP_SCHED)
 	SEQ_printf_at_AEE(m, "\n");
 	SEQ_printf_at_AEE(m, "cfs_rq[%d]:%s\n", cpu, task_group_path(cfs_rq->tg));
 #else
@@ -1241,7 +1049,7 @@ void print_cfs_rq_at_AEE(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 	SEQ_printf_at_AEE(m, "  .%-30s: %d\n",
 			"nr_running", cfs_rq->nr_running);
 	SEQ_printf_at_AEE(m, "  .%-30s: %ld\n", "load", cfs_rq->load.weight);
-#ifdef CONFIG_SMP
+#if IS_ENABLED(CONFIG_SMP)
 	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "load_avg",
 			cfs_rq->avg.load_avg);
 	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "util_avg",
@@ -1255,21 +1063,21 @@ void print_cfs_rq_at_AEE(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 	SEQ_printf_at_AEE(m, "  .%-30s: %ld\n", "removed.runnable_avg",
 			cfs_rq->removed.runnable_avg);
 
-#ifdef CONFIG_FAIR_GROUP_SCHED
+#if IS_ENABLED(CONFIG_FAIR_GROUP_SCHED)
 	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", "tg_load_avg_contrib",
 			cfs_rq->tg_load_avg_contrib);
 	SEQ_printf_at_AEE(m, "  .%-30s: %ld\n", "tg_load_avg",
 			atomic_long_read(&cfs_rq->tg->load_avg));
 #endif
 #endif
-#ifdef CONFIG_CFS_BANDWIDTH
+#if IS_ENABLED(CONFIG_CFS_BANDWIDTH)
 	SEQ_printf_at_AEE(m, "  .%-30s: %d\n", "throttled",
 			cfs_rq->throttled);
 	SEQ_printf_at_AEE(m, "  .%-30s: %d\n", "throttle_count",
 			cfs_rq->throttle_count);
 #endif
 
-#ifdef CONFIG_FAIR_GROUP_SCHED
+#if IS_ENABLED(CONFIG_FAIR_GROUP_SCHED)
 	print_cfs_group_stats_at_AEE(m, cpu, cfs_rq->tg);
 #endif
 }
@@ -1291,7 +1099,7 @@ void print_cfs_stats_at_AEE(struct seq_file *m, int cpu)
 
 void print_rt_rq_at_AEE(struct seq_file *m, int cpu, struct rt_rq *rt_rq)
 {
-#ifdef CONFIG_RT_GROUP_SCHED
+#if IS_ENABLED(CONFIG_RT_GROUP_SCHED)
 	SEQ_printf_at_AEE(m, "\n");
 	SEQ_printf_at_AEE(m, "rt_rq[%d]:%s\n", cpu, task_group_path(rt_rq->tg));
 #else
@@ -1308,7 +1116,7 @@ void print_rt_rq_at_AEE(struct seq_file *m, int cpu, struct rt_rq *rt_rq)
 	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", #x, SPLIT_NS(rt_rq->x))
 
 	P(rt_nr_running);
-#ifdef CONFIG_SMP
+#if IS_ENABLED(CONFIG_SMP)
 	PU(rt_nr_migratory);
 #endif
 
@@ -1322,7 +1130,7 @@ void print_rt_rq_at_AEE(struct seq_file *m, int cpu, struct rt_rq *rt_rq)
 }
 
 
-#ifdef CONFIG_RT_GROUP_SCHED
+#if IS_ENABLED(CONFIG_RT_GROUP_SCHED)
 
 static inline struct task_group *next_task_group(struct task_group *tg)
 {
@@ -1372,7 +1180,7 @@ void print_dl_rq_at_AEE(struct seq_file *m, int cpu, struct dl_rq *dl_rq)
 	SEQ_printf_at_AEE(m, "  .%-30s: %lu\n", #x, (unsigned long)(dl_rq->x))
 
 	PU(dl_nr_running);
-#ifdef CONFIG_SMP
+#if IS_ENABLED(CONFIG_SMP)
 	PU(dl_nr_migratory);
 	dl_bw = &cpu_rq(cpu)->rd->dl_bw;
 #else
@@ -1395,7 +1203,7 @@ static void print_cpu_at_AEE(struct seq_file *m, int cpu)
 	unsigned long flags;
 	int locked;
 
-#ifdef CONFIG_X86
+#if IS_ENABLED(CONFIG_X86)
 	{
 		unsigned int freq = cpu_khz ? : 1;
 
@@ -1432,7 +1240,7 @@ do { \
 #undef P
 #undef PN
 
-#ifdef CONFIG_SMP
+#if IS_ENABLED(CONFIG_SMP)
 #define P64(n) SEQ_printf_at_AEE(m, "  .%-30s: %lld\n", #n, rq->n)
 	P64(avg_idle);
 	P64(max_idle_balance_cost);
@@ -1490,7 +1298,7 @@ static void sched_debug_header_at_AEE(struct seq_file *m)
 	PN(sched_clk);
 	PN(cpu_clk);
 	P(jiffies);
-#ifdef CONFIG_HAVE_UNSTABLE_SCHED_CLOCK
+#if IS_ENABLED(CONFIG_HAVE_UNSTABLE_SCHED_CLOCK)
 	P(sched_clock_stable());
 #endif
 #undef PN

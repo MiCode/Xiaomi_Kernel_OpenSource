@@ -20,30 +20,38 @@
 #include <asm/memory.h>
 #include <asm/stacktrace.h>
 #include <asm/system_misc.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/of_fdt.h>
+#include <linux/of_reserved_mem.h>
 
+#include <debug_kinfo.h>
 #include <mrdump.h>
 #include <mt-plat/mboot_params.h>
+#include <mt-plat/mtk_system_reset.h>
 #include "mrdump_mini.h"
 #include "mrdump_private.h"
 
 /* for arm_smccc_smc */
 #include <linux/arm-smccc.h>
-#include <uapi/linux/psci.h>
 
 static struct pt_regs saved_regs;
 
-/* no export symbol to aee_exception_reboot, only used in exception flow */
-/* PSCI v1.1 extended power state encoding for SYSTEM_RESET2 function */
-#define PSCI_1_1_RESET2_TYPE_VENDOR_SHIFT   31
-#define PSCI_1_1_RESET2_TYPE_VENDOR     \
-	(1 << PSCI_1_1_RESET2_TYPE_VENDOR_SHIFT)
-
-static void aee_exception_reboot(void)
+static void aee_exception_reboot(int reboot_reason)
 {
 	struct arm_smccc_res res;
-	int opt1 = 1, opt2 = 0;
+	int opt1 = 0, opt2 = 0;
 
-	arm_smccc_smc(PSCI_1_1_FN_SYSTEM_RESET2,
+	if (reboot_reason == AEE_REBOOT_MODE_HANG_DETECT)
+		opt1 |= ((unsigned char)AEE_EXP_TYPE_HANG_DETECT) << RESET2_TYPE_DOMAIN_USAGE_SHIFT;
+	else if (reboot_reason == AEE_REBOOT_MODE_WDT)
+		opt1 |= ((unsigned char)AEE_EXP_TYPE_HWT) << RESET2_TYPE_DOMAIN_USAGE_SHIFT;
+	else
+		opt1 |= ((unsigned char)AEE_EXP_TYPE_KE) << RESET2_TYPE_DOMAIN_USAGE_SHIFT;
+
+	opt1 |= (unsigned char)MTK_DOMAIN_AEE;
+	arm_smccc_smc(PSCI_FN_NATIVE(1_1, SYSTEM_RESET2),
 		PSCI_1_1_RESET2_TYPE_VENDOR | opt1,
 		opt2, 0, 0, 0, 0, 0, &res);
 }
@@ -120,6 +128,8 @@ static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 	case AEE_REBOOT_MODE_HANG_DETECT:
 		aee_rr_rec_exp_type(AEE_EXP_TYPE_HANG_DETECT);
 		break;
+	case AEE_REBOOT_MODE_WDT:
+		aee_rr_rec_exp_type(AEE_EXP_TYPE_HWT);
 	default:
 		/* Don't print anything */
 		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
@@ -162,14 +172,39 @@ static void mrdump_cblock_update(enum AEE_REBOOT_MODE reboot_mode,
 	}
 }
 
+static void (*p_show_task_backtrace)(void);
+void mrdump_regist_hang_bt(void (*fn)(void))
+{
+	p_show_task_backtrace = fn;
+}
+EXPORT_SYMBOL_GPL(mrdump_regist_hang_bt);
+
 static int num_die;
+atomic_t first_cpu = ATOMIC_INIT(-1);
 int mrdump_common_die(int reboot_reason, const char *msg,
 		      struct pt_regs *regs)
 {
 	int last_step;
 	int next_step;
+	int cpu_tmp;
+
+	if (!aee_is_enable()) {
+		pr_notice("%s: ipanic: mrdump is disable\n", __func__);
+		panic(msg);
+		return 0;
+	}
 
 	num_die++;
+
+	cpu_tmp = raw_smp_processor_id();
+	if (atomic_read(&first_cpu) == -1) {
+		atomic_set(&first_cpu, cpu_tmp);
+	} else if (atomic_read(&first_cpu) != cpu_tmp) {
+		pr_info("mrdump: first crash cpu %d, second crash cpu %d\n",
+			atomic_read(&first_cpu), cpu_tmp);
+		while (1)
+			cpu_relax();
+	}
 
 	last_step = aee_rr_curr_fiq_step();
 	if (num_die > 1) {
@@ -190,12 +225,10 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_START);
 		mrdump_cblock_update(reboot_reason, regs, msg);
 		mrdump_mini_ke_cpu_regs(regs);
-		check_last_ko();
 	case AEE_FIQ_STEP_COMMON_DIE_LOCK:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_LOCK);
-		/* release locks after stopping other cpus */
+		/* release locks after set up cblock */
 		aee_reinit_die_lock();
-		aee_zap_locks();
 	case AEE_FIQ_STEP_COMMON_DIE_KASLR:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_KASLR);
 		show_kaslr();
@@ -221,15 +254,15 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 	case AEE_FIQ_STEP_COMMON_DIE_EMISC:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_EMISC);
 		mrdump_mini_add_extra_misc();
+		check_last_ko();
 	case AEE_FIQ_STEP_COMMON_DIE_CS:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_CS);
-		console_unlock();
 	case AEE_FIQ_STEP_COMMON_DIE_DONE:
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_DONE);
 	default:
 		aee_nested_printf("num_die-%d, last_step-%d, next_step-%d\n",
 				  num_die, last_step, next_step);
-		aee_exception_reboot();
+		aee_exception_reboot(reboot_reason);
 		break;
 	}
 
@@ -321,30 +354,60 @@ static struct notifier_block mrdump_module_nb = {
 static int __init mrdump_panic_init(void)
 {
 	struct mrdump_params mparams = {};
+	struct device_node *rmem_node;
+	struct reserved_mem *rmem;
+	void *kinfo_vaddr;
 
-#ifdef MODULE
-	if (mrdump_ka_init()) {
-		pr_notice("%s: mrdump helper not available\n", __func__);
+	if (!aee_is_enable()) {
+		pr_notice("%s: ipanic: mrdump is disable\n", __func__);
+		return 0;
+	}
+
+	/* Get reserved memory */
+	rmem_node = of_find_compatible_node(NULL, NULL, DEBUG_COMPATIBLE);
+	if (!rmem_node) {
+		pr_info("[mrdump] no node for reserved memory\n");
 		return -EINVAL;
 	}
-#endif
+
+	rmem = of_reserved_mem_lookup(rmem_node);
+	if (!rmem) {
+		pr_info("[mrdump] cannot lookup reserved memory\n");
+		return -EINVAL;
+	}
+
+	pr_info("[mrdump] phys:0x%llx - 0x%llx (0x%llx)\n",
+		(unsigned long long)rmem->base,
+		(unsigned long long)rmem->base + (unsigned long long)rmem->size,
+		(unsigned long long)rmem->size);
+
+	kinfo_vaddr = memremap(rmem->base, rmem->size, MEMREMAP_WB);
+	if (!kinfo_vaddr) {
+		pr_info("[mrdump] failed to map debug-kinfo\n");
+		return -ENOMEM;
+	}
+
+	memset(kinfo_vaddr, 0, sizeof(struct kernel_all_info));
+	rmem->priv = kinfo_vaddr;
+	pr_info("[mrdump] rmem->priv = %llx\n", rmem->priv);
+
+
 	mrdump_parse_chosen(&mparams);
 #ifdef MODULE
 	mrdump_module_init_mboot_params();
 #endif
-	mrdump_cblock_init(mparams.cb_addr, mparams.cb_size);
+	mrdump_cblock_init(&mparams);
 	if (mrdump_cblock == NULL) {
 		pr_notice("%s: MT-RAMDUMP no control block\n", __func__);
 		return -EINVAL;
 	}
 	mrdump_mini_init(&mparams);
 
-	if (strcmp(mparams.lk_version, MRDUMP_GO_DUMP) == 0) {
-		mrdump_full_init();
-	} else {
-		pr_notice("%s: Full ramdump disabled, version %s not matched.\n",
-			  __func__, mparams.lk_version);
-	}
+#ifdef MODULE
+	mrdump_mini_add_misc_pa((unsigned long)rmem->priv, rmem->base,
+			rmem->size, 0, MRDUMP_MINI_MISC_LOAD);
+	mrdump_ka_init(rmem->priv);
+#endif
 
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	register_die_notifier(&die_blk);

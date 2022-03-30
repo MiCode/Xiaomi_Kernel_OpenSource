@@ -43,10 +43,8 @@ void aee_rr_proc_init(struct proc_dir_entry *aed_proc_dir)
 	if (!aee_rr_file)
 		pr_notice("%s: Can't create rr proc entry\n", __func__);
 }
-EXPORT_SYMBOL(aee_rr_proc_init);
 
 void aee_rr_proc_done(struct proc_dir_entry *aed_proc_dir)
 {
 	remove_proc_entry(RR_PROC_NAME, aed_proc_dir);
 }
-EXPORT_SYMBOL(aee_rr_proc_done);

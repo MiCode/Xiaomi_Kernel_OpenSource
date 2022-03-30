@@ -16,13 +16,15 @@ GCOV_PROFILE := y
 endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtprof/
+subdir-ccflags-y += -I$(srctree)/kernel/
+subdir-ccflags-y += -I$(srctree)/drivers/staging/android/
+
 ccflags-y += -DTEXT_OFFSET=$(TEXT_OFFSET)
 obj-$(CONFIG_MTK_AEE_IPANIC)	+= mrdump.o
 
 mrdump-y := \
 	mboot_params.o \
 	mrdump_control.o \
-	mrdump_full.o \
 	mrdump_mini.o \
 	mrdump_panic.o \
 	mrdump_helper.o

@@ -30,6 +30,7 @@
 #include <mt-plat/aee.h>
 #include "mboot_params_internal.h"
 #include "mrdump_helper.h"
+#include "mrdump_mini.h"
 #include "mrdump_private.h"
 
 #define MBOOT_PARAMS_HEADER_STR_LEN 1024
@@ -59,8 +60,13 @@ struct last_reboot_reason {
 	uint32_t fiq_step;
 	/* 0xaeedeadX: X=1 (HWT), X=2 (KE), X=3 (nested panic) */
 	uint32_t exp_type;
+	uint32_t kick;
+	uint32_t check;
 	uint64_t kaslr_offset;
 	uint64_t oops_in_progress_addr;
+
+	uint64_t wdk_ktime;
+	uint64_t wdk_systimer_cnt;
 
 	uint32_t last_irq_enter[AEE_MTK_CPU_NUMS];
 	uint64_t jiffies_last_irq_enter[AEE_MTK_CPU_NUMS];
@@ -294,11 +300,13 @@ void get_mbootlog_buffer(unsigned long *addr,
 	if (mbootlog_size >= mbootlog_buf_len)
 		*start = (unsigned long)&mbootlog_first_idx;
 }
-EXPORT_SYMBOL(get_mbootlog_buffer);
 
 void sram_log_save(const char *msg, int count)
 {
 	int rem;
+
+	if (!mbootlog_buf)
+		return;
 
 	/* count >= buffer_size, full the buffer */
 	if (count >= mbootlog_buf_len) {
@@ -335,6 +343,9 @@ void aee_sram_fiq_log(const char *msg)
 	unsigned int count = strlen(msg);
 	int delay = 100;
 
+	if (!mbootlog_buf)
+		return;
+
 	if (FIQ_log_size + count > mbootlog_buf_len)
 		return;
 
@@ -354,6 +365,9 @@ static void mboot_params_write(struct console *console, const char *s,
 		unsigned int count)
 {
 	unsigned long flags;
+
+	if (!mbootlog_buf)
+		return;
 
 	if (atomic_read(&mp_in_fiq))
 		return;
@@ -380,6 +394,9 @@ void aee_sram_printk(const char *fmt, ...)
 	int r, tlen;
 	char sram_printk_buf[256];
 
+	if (!mbootlog_buf)
+		return;
+
 	va_start(args, fmt);
 
 	preempt_disable();
@@ -387,6 +404,10 @@ void aee_sram_printk(const char *fmt, ...)
 	nanosec_rem = do_div(t, 1000000000);
 	tlen = sprintf(sram_printk_buf, ">%5lu.%06lu< ", (unsigned long)t,
 			nanosec_rem / 1000);
+	if (tlen < 0) {
+		preempt_enable();
+		return;
+	}
 
 	r = vscnprintf(sram_printk_buf + tlen, sizeof(sram_printk_buf) - tlen,
 			fmt, args);
@@ -396,6 +417,29 @@ void aee_sram_printk(const char *fmt, ...)
 	va_end(args);
 }
 EXPORT_SYMBOL(aee_sram_printk);
+
+int aee_is_enable(void)
+{
+	struct device_node *node;
+	const char *aee_enable;
+	int ret = 0;
+
+	node = of_find_node_by_path("/chosen");
+	if (node) {
+		if (of_property_read_string(node, "aee,enable", &aee_enable) == 0) {
+			if (strnstr(aee_enable, "mini", 4))
+				ret = 1;
+			else if (strnstr(aee_enable, "full", 4))
+				ret = 2;
+		}
+		of_node_put(node);
+	} else {
+		pr_notice("%s: Can't find chosen node\n", __func__);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(aee_is_enable);
 
 void mboot_params_enable_console(int enabled)
 {
@@ -553,7 +597,26 @@ static void mboot_params_fatal(const char *str)
 	pr_info("mboot_params: FATAL:%s\n", str);
 }
 
-extern void mrdump_mini_set_addr_size(unsigned int addr, unsigned int size);
+static phys_addr_t mboot_params_reserve_memory(void)
+{
+	struct device_node *rmem_node;
+	struct reserved_mem *rmem;
+
+	/* Get reserved memory */
+	rmem_node = of_find_compatible_node(NULL, NULL, DEBUG_COMPATIBLE);
+	if (!rmem_node) {
+		pr_info("[mboot_params] no node for reserved memory\n");
+		return -EINVAL;
+	}
+
+	rmem = of_reserved_mem_lookup(rmem_node);
+	if (!rmem) {
+		pr_info("[mboot_params] cannot lookup reserved memory\n");
+		return -EINVAL;
+	}
+
+	return rmem->base + MBOOT_PARAMS_DRAM_OFF;
+}
 
 static void mboot_params_parse_memory_info(struct mem_desc_t *sram,
 		struct mboot_params_memory_info *p_memory_info)
@@ -620,6 +683,12 @@ static int __init mboot_params_early_init(void)
 			start = sram.start;
 			size  = sram.size;
 			bufp = ioremap_wc(sram.start, sram.size);
+		} else if (sram.def_type == MBOOT_PARAMS_DEF_DRAM) {
+			start = mboot_params_reserve_memory();
+			size = MBOOT_PARAMS_DRAM_SIZE;
+			pr_info("mboot_params: using dram:0x%llx(0x%llx)\n",
+				start, size);
+			bufp = remap_lowmem(start, size);
 		} else {
 			pr_info("mboot_params: unknown def type:%d\n",
 					sram.def_type);
@@ -725,7 +794,6 @@ void aee_rr_rec_exp_type(unsigned int type)
 	if (!LAST_RR_VAL(exp_type) && type < 16)
 		LAST_RR_SET(exp_type, MBOOT_PARAMS_EXP_TYPE_MAGIC | type);
 }
-EXPORT_SYMBOL(aee_rr_rec_exp_type);
 
 unsigned int aee_rr_curr_exp_type(void)
 {
@@ -733,7 +801,22 @@ unsigned int aee_rr_curr_exp_type(void)
 
 	return MBOOT_PARAMS_EXP_TYPE_DEC(exp_type);
 }
-EXPORT_SYMBOL(aee_rr_curr_exp_type);
+
+void aee_rr_rec_kick(uint32_t kick_bit)
+{
+	if (!mboot_params_init_done || !mboot_params_buffer)
+		return;
+	LAST_RR_SET(kick, kick_bit);
+}
+EXPORT_SYMBOL(aee_rr_rec_kick);
+
+void aee_rr_rec_check(uint32_t check_bit)
+{
+	if (!mboot_params_init_done || !mboot_params_buffer)
+		return;
+	LAST_RR_SET(check, check_bit);
+}
+EXPORT_SYMBOL(aee_rr_rec_check);
 
 void aee_rr_rec_kaslr_offset(uint64_t offset)
 {
@@ -741,6 +824,22 @@ void aee_rr_rec_kaslr_offset(uint64_t offset)
 		return;
 	LAST_RR_SET(kaslr_offset, offset);
 }
+
+void aee_rr_rec_wdk_ktime(u64 val)
+{
+	if (!mboot_params_init_done || !mboot_params_buffer)
+		return;
+	LAST_RR_SET(wdk_ktime, val);
+}
+EXPORT_SYMBOL(aee_rr_rec_wdk_ktime);
+
+void aee_rr_rec_wdk_systimer_cnt(u64 val)
+{
+	if (!mboot_params_init_done || !mboot_params_buffer)
+		return;
+	LAST_RR_SET(wdk_systimer_cnt, val);
+}
+EXPORT_SYMBOL(aee_rr_rec_wdk_systimer_cnt);
 
 /* composite api */
 void aee_rr_rec_last_irq_enter(int cpu, int irq, u64 jiffies)
@@ -2115,7 +2214,6 @@ void aee_rr_rec_scp(void)
 	aee_rr_rec_scp_pc(pc);
 	aee_rr_rec_scp_lr(lr);
 }
-EXPORT_SYMBOL(aee_rr_rec_scp);
 
 void aee_rr_rec_last_init_func(unsigned long val)
 {
@@ -2233,6 +2331,14 @@ void aee_rr_show_exp_type(struct seq_file *m)
 		   MBOOT_PARAMS_EXP_TYPE_DEC(exp_type));
 }
 
+void aee_rr_show_kick_check(struct seq_file *m)
+{
+	uint32_t kick_bit = LAST_RRR_VAL(kick);
+	uint32_t check_bit = LAST_RRR_VAL(check);
+
+	seq_printf(m, "kick=0x%x,check=0x%x\n", kick_bit, check_bit);
+}
+
 void aee_rr_show_kaslr_offset(struct seq_file *m)
 {
 	uint64_t kaslr_offset = LAST_RRR_VAL(kaslr_offset);
@@ -2247,6 +2353,20 @@ void aee_rr_show_oops_in_progress_addr(struct seq_file *m)
 	oops_in_progress_addr = LAST_RRR_VAL(oops_in_progress_addr);
 	seq_printf(m, "&oops_in_progress: 0x%llx\n",
 		       oops_in_progress_addr);
+}
+
+void aee_rr_show_wdk_ktime(struct seq_file *m)
+{
+	uint64_t ktime = LAST_RRR_VAL(wdk_ktime);
+
+	seq_printf(m, "wdk_ktime=%lld\n", ktime);
+}
+
+void aee_rr_show_wdk_systimer_cnt(struct seq_file *m)
+{
+	uint64_t systimer_cnt = LAST_RRR_VAL(wdk_systimer_cnt);
+
+	seq_printf(m, "wdk_systimer_cnt=%lld\n", systimer_cnt);
 }
 
 void aee_rr_show_last_irq_enter(struct seq_file *m, int cpu)
@@ -3159,8 +3279,11 @@ last_rr_show_t aee_rr_show[] = {
 	aee_rr_show_wdt_status,
 	aee_rr_show_fiq_step,
 	aee_rr_show_exp_type,
+	aee_rr_show_kick_check,
 	aee_rr_show_kaslr_offset,
 	aee_rr_show_oops_in_progress_addr,
+	aee_rr_show_wdk_ktime,
+	aee_rr_show_wdk_systimer_cnt,
 	aee_rr_show_last_pc,
 	aee_rr_show_last_bus,
 	aee_rr_show_mcdi,

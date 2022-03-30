@@ -27,9 +27,7 @@
 
 #define MRDUMP_CPU_MAX 12
 
-#define MRDUMP_ENABLE_COOKIE 0x590d2ba3
-
-#define MRDUMP_GO_DUMP "MRDUMP10"
+#define MRDUMP_GO_DUMP "MRDUMP11"
 
 #define KSYM_32        1
 #define KSYM_64        2
@@ -45,9 +43,9 @@ struct arm32_ctrl_regs {
 };
 
 struct aarch64_ctrl_regs {
-	uint32_t sctlr_el1;
-	uint32_t sctlr_el2;
-	uint32_t sctlr_el3;
+	uint64_t sctlr_el1;
+	uint64_t sctlr_el2;
+	uint64_t sctlr_el3;
 
 	uint64_t tcr_el1;
 	uint64_t tcr_el2;
@@ -85,6 +83,11 @@ struct mrdump_crash_record {
 	} cpu_reg[0];
 };
 
+/* mrdump_ksyms_param->flag */
+#define MKP_BIT_SHIFT_ARCH64		0
+#define MKP_BIT_SHIFT_ABS_PERCPU	1
+#define MKP_BIT_SHIFT_RELATIVE		31
+
 struct mrdump_ksyms_param {
 	char     tag[4];
 	uint32_t flag;
@@ -103,17 +106,17 @@ struct mrdump_machdesc {
 	uint32_t nr_cpus;
 
 	uint64_t page_offset;
-	uint64_t high_memory;
+	uint64_t tcr_el1_t1sz;
 
 	uint64_t kimage_vaddr;
-	uint64_t dram_start;
-	uint64_t dram_end;
+	uint64_t dram_start; /* deprecated */
+	uint64_t dram_end; /* deprecated */
 	uint64_t kimage_stext;
 	uint64_t kimage_etext;
 	uint64_t kimage_stext_real;
 	uint64_t kimage_voffset;
-	uint64_t kimage_sdata;
-	uint64_t kimage_edata;
+	uint64_t kernel_pac_mask;
+	uint64_t unused1;
 
 	uint64_t vmalloc_start;
 	uint64_t vmalloc_end;
@@ -139,7 +142,7 @@ struct mrdump_control_block {
 	struct mrdump_machdesc machdesc;
 	uint32_t machdesc_crc;
 
-	uint32_t enabled;
+	uint32_t unused0;
 	uint32_t output_fs_lbaooo;
 
 	struct mrdump_crash_record crash_record;
@@ -210,6 +213,14 @@ struct mrdump_mini_elf_header {
 	(MRDUMP_MINI_NR_SECTION * MRDUMP_MINI_SECTION_SIZE)
 #define MRDUMP_MINI_BUF_SIZE (MRDUMP_MINI_HEADER_SIZE + MRDUMP_MINI_DATA_SIZE)
 
+enum AEE_EXTRA_FILE_ID {
+	AEE_EXTRA_FILE_UFS,
+	AEE_EXTRA_FILE_MMC,
+	AEE_EXTRA_FILE_BLOCKIO,
+	AEE_EXTRA_FILE_ADSP,
+	AEE_EXTRA_FILE_NUM
+};
+
 int mrdump_init(void);
 void mrdump_save_ctrlreg(int cpu);
 void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs);
@@ -217,8 +228,23 @@ void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs);
 int mrdump_common_die(int reboot_reason, const char *msg, struct pt_regs *regs);
 void mrdump_mini_add_hang_raw(unsigned long vaddr, unsigned long size);
 void mrdump_mini_add_extra_misc(void);
-int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long size,
-	const char *name);
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
+	unsigned long size, const char *name);
+extern void mrdump_set_extra_dump(enum AEE_EXTRA_FILE_ID id,
+		void (*fn)(unsigned long *vaddr, unsigned long *size));
+#else
+static inline int mrdump_mini_add_extra_file(unsigned long vaddr,
+	unsigned long paddr, unsigned long size, const char *name)
+{
+	return -1;
+}
+
+static inline void mrdump_set_extra_dump(enum AEE_EXTRA_FILE_ID id,
+		void (*fn)(unsigned long *vaddr, unsigned long *size))
+{
+}
+#endif
 extern void mlog_get_buffer(char **ptr, int *size)__attribute__((weak));
 extern void get_msdc_aee_buffer(unsigned long *buff,
 	unsigned long *size)__attribute__((weak));
@@ -226,3 +252,4 @@ extern void get_msdc_aee_buffer(unsigned long *buff,
 extern void kwdt_regist_irq_info(void (*fn)(void));
 #endif
 #endif
+

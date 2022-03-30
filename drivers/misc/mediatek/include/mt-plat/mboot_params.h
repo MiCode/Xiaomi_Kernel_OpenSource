@@ -26,6 +26,11 @@ enum AEE_EXP_TYPE_NUM {
 	AEE_EXP_TYPE_NESTED_PANIC = 3,
 	AEE_EXP_TYPE_SMART_RESET = 4,
 	AEE_EXP_TYPE_HANG_DETECT = 5,
+	AEE_EXP_TYPE_BL33_CRASH = 6,
+	AEE_EXP_TYPE_BL2_EXT_CRASH = 7,
+	AEE_EXP_TYPE_AEE_LK_CRASH = 8,
+	AEE_EXP_TYPE_TFA_CRASH = 9,
+	AEE_EXP_TYPE_MAX_NUM = 16,
 };
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
@@ -34,6 +39,8 @@ extern int aee_rr_reboot_reason_show(struct seq_file *m, void *v);
 extern int aee_rr_last_fiq_step(void);
 extern void aee_rr_rec_exp_type(unsigned int type);
 extern unsigned int aee_rr_curr_exp_type(void);
+extern void aee_rr_rec_kick(uint32_t kick_bit);
+extern void aee_rr_rec_check(uint32_t check_bit);
 extern void aee_rr_rec_scp(void);
 extern void aee_rr_rec_kaslr_offset(u64 value64);
 extern void aee_rr_rec_cpu_dvfs_vproc_big(u8 val);
@@ -206,6 +213,8 @@ extern void aee_rr_rec_cpu_dying_ktime(u64 val);
 extern void aee_rr_rec_cpu_dead_ktime(u64 val);
 extern void aee_rr_rec_cpu_post_dead_ktime(u64 val);
 extern void aee_sram_fiq_log(const char *msg);
+extern void aee_rr_rec_wdk_ktime(u64 val);
+extern void aee_rr_rec_wdk_systimer_cnt(u64 val);
 
 #else
 static inline void aee_rr_rec_clk(int id, u32 val)
@@ -229,6 +238,14 @@ static inline void aee_rr_rec_exp_type(unsigned int type)
 static inline unsigned int aee_rr_curr_exp_type(void)
 {
 	return 0;
+}
+
+static inline void aee_rr_rec_kick(uint32_t kick_bit)
+{
+}
+
+static inline void aee_rr_rec_check(uint32_t check_bit)
+{
 }
 
 static inline void aee_rr_rec_scp(void)
@@ -985,6 +1002,14 @@ static inline void aee_rr_rec_cpu_post_dead_ktime(u64 val)
 }
 
 static inline void aee_sram_fiq_log(const char *msg)
+{
+}
+
+static inline void aee_rr_rec_wdk_ktime(u64 val)
+{
+}
+
+static inline void aee_rr_rec_wdk_systimer_cnt(u64 val)
 {
 }
 

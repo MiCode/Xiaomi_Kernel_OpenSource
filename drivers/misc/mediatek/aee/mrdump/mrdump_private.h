@@ -19,6 +19,11 @@
 
 #include "mrdump_helper.h"
 
+#define DEBUG_COMPATIBLE "mediatek,aee_debug_kinfo"
+
+#define MBOOT_PARAMS_DRAM_OFF	0x1000
+#define MBOOT_PARAMS_DRAM_SIZE	0x1000
+
 extern int kernel_addr_valid(unsigned long addr);
 #define mrdump_virt_addr_valid(kaddr) \
 	kernel_addr_valid((unsigned long)kaddr)
@@ -46,14 +51,14 @@ __attribute__((weak, section(".rodata")));
 #ifdef MODULE
 int mrdump_module_init_mboot_params(void);
 #endif
-void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size);
-int mrdump_full_init(void);
+void mrdump_cblock_init(const struct mrdump_params *mparams);
+void mrdump_cblock_late_init(void);
+int mrdump_full_init(const char *version);
 int mrdump_mini_init(const struct mrdump_params *mparams);
 
 uint64_t mrdump_get_mpt(void);
 void mrdump_save_control_register(void *creg);
 
-extern void mrdump_mini_ke_cpu_regs(struct pt_regs *regs);
 
 #if defined(__arm__)
 static inline void crash_setup_regs(struct pt_regs *newregs,
