@@ -163,7 +163,9 @@ enum vdec_set_param_type {
 	SET_PARAM_TOTAL_FRAME_BUFQ_COUNT,
 	SET_PARAM_FRAME_BUFFER,
 	SET_PARAM_VDEC_PROPERTY,
-	SET_PARAM_VDEC_VCP_LOG_INFO
+	SET_PARAM_VDEC_VCP_LOG_INFO,
+	SET_PARAM_SET_DOBLY_VISION,
+	SET_PARAM_PUT_FB
 };
 
 /**
@@ -270,7 +272,7 @@ struct vdec_ap_ipi_dec_start {
 	__u32 msg_id;
 	__u32 ctx_id;
 	__u32 vcu_inst_addr;
-	__u32 data[3];
+	__u32 data[6];
 	__u32 reserved;
 };
 
@@ -432,6 +434,9 @@ struct vdec_vsi {
 	__s32 general_buf_fd;
 	__u64 general_buf_dma;
 	__u32 general_buf_size;
+	__s32 meta_buf_fd;
+	__u64 meta_buf_dma;
+	__u32 meta_buf_size;
 	__u32 interlacing_fieldseq;
 };
 

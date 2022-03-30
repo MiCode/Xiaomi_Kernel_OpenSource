@@ -81,6 +81,7 @@ struct mtk_color_desc {
 	__u32	max_pic_light_level;
 	__u32   is_hdr;
 	__u32   full_range;
+	__u32	reserved;
 };
 
 struct mtk_venc_multi_ref {
@@ -169,6 +170,7 @@ struct vdec_dec_info {
 	__u32 error_map;
 	__u64 timestamp;
 	__u32 queued_frame_buf_count;
+	__u32 vpeek;
 };
 
 enum vcodec_mem_type {

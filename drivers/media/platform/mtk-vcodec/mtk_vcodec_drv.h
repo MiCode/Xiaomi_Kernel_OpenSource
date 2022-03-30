@@ -40,7 +40,7 @@
 #define V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED 0x02000000
 
 #define MAX_CODEC_FREQ_STEP	10
-#define MTK_VDEC_PORT_NUM	32
+#define MTK_VDEC_PORT_NUM	64
 #define MTK_VENC_PORT_NUM	64
 #define MTK_MAX_METADATA_NUM    8
 
@@ -212,7 +212,8 @@ enum mtk_dec_param {
 	MTK_DEC_PARAM_NAL_SIZE_LENGTH = (1 << 6),
 	MTK_DEC_PARAM_FIXED_MAX_OUTPUT_BUFFER = (1 << 7),
 	MTK_DEC_PARAM_SEC_DECODE = (1 << 8),
-	MTK_DEC_PARAM_OPERATING_RATE = (1 << 9)
+	MTK_DEC_PARAM_OPERATING_RATE = (1 << 9),
+	MTK_DEC_PARAM_DOBLY_VISION = (1 << 10)
 };
 
 struct mtk_dec_params {
@@ -232,6 +233,7 @@ struct mtk_dec_params {
 	unsigned int	total_frame_bufq_count;
 	unsigned int	queued_frame_buf_count;
 	int		priority;
+	int vpeek;
 };
 
 /**

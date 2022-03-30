@@ -62,6 +62,7 @@ struct mtk_video_dec_buf {
 	struct vdec_fb  frame_buffer;
 	int     flags;
 	int     general_user_fd;
+	int vpeek;
 };
 
 extern const struct v4l2_ioctl_ops mtk_vdec_ioctl_ops;
