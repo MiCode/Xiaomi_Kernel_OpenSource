@@ -130,10 +130,8 @@ ifeq ($(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_MCUPM),y)
 fhctl-y += clk-fhctl-mcupm.o
 ccflags-y += -DUSE_FHCTL_MCUPM
 endif
-ifeq ($(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_GPUEB),y)
 fhctl-y += clk-fhctl-gpueb.o
 ccflags-y += -DUSE_FHCTL_GPUEB
-endif
 fhctl-$(CONFIG_DEBUG_FS) += clk-fhctl-debug.o
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/include/linux/soc/mediatek/
