@@ -6,6 +6,7 @@
 #define _TASK_TURBO_H_
 
 #include <linux/list.h>
+#include <linux/smp.h>
 
 #define get_task_turbo_t(p)	\
 	((struct task_turbo_t *)&(p)->android_vendor_data1)
@@ -45,6 +46,8 @@ struct rwsem_waiter {
 	struct list_head list;
 	struct task_struct *task;
 	enum rwsem_waiter_type type;
+	unsigned long timeout;
+	unsigned long last_rowner;
 };
 
 struct futex_q {

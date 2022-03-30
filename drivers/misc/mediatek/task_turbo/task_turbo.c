@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/printk.h>
 #include <uapi/linux/sched/types.h>
+#include <uapi/linux/prctl.h>
 #include <linux/futex.h>
 #include <linux/plist.h>
 #include <linux/percpu-defs.h>
@@ -17,14 +18,12 @@
 #include <trace/hooks/vendor_hooks.h>
 #include <trace/hooks/sched.h>
 #include <trace/hooks/dtask.h>
-#include <trace/hooks/net.h>
 #include <trace/hooks/binder.h>
 #include <trace/hooks/rwsem.h>
 #include <trace/hooks/futex.h>
 #include <trace/hooks/fpsimd.h>
 #include <trace/hooks/topology.h>
 #include <trace/hooks/debug.h>
-#include <trace/hooks/minidump.h>
 #include <trace/hooks/wqlockup.h>
 #include <trace/hooks/sysrqcrash.h>
 #include <trace/hooks/cgroup.h>
@@ -46,27 +45,59 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 
 #undef SCHED_FEAT
 
-#define TOP_APP_GROUP_ID	4
+/*TODO: find the magic bias number */
+#define TOP_APP_GROUP_ID	(4-1)*9
 #define TURBO_PID_COUNT		8
 #define RENDER_THREAD_NAME	"RenderThread"
+#define TAG			"Task-Turbo"
 #define TURBO_ENABLE		1
 #define TURBO_DISABLE		0
 #define INHERIT_THRESHOLD	4
-#define UTIL_AVG_UNCHANGED	0x1
-#define RWSEM_ANONYMOUSLY_OWNED	(1UL << 0)
-#define RWSEM_READER_OWNED	((struct task_struct *)RWSEM_ANONYMOUSLY_OWNED)
 #define type_offset(type)		 (type * 4)
 #define task_turbo_nice(nice) (nice == 0xbeef || nice == 0xbeee)
+#define task_restore_nice(nice) (nice == 0xbeee)
 #define type_number(type)		 (1U << type_offset(type))
 #define get_value_with_type(value, type)				\
 	(value & ((unsigned int)(0x0000000f) << (type_offset(type))))
 #define for_each_hmp_domain_L_first(hmpd) \
 		list_for_each_entry_reverse(hmpd, &hmp_domains, hmp_domains)
 #define hmp_cpu_domain(cpu)     (per_cpu(hmp_cpu_domain, (cpu)))
-#define lsub_positive(_ptr, _val) do {			\
-	typeof(_ptr) ptr = (_ptr);			\
-	*ptr -= min_t(typeof(*ptr), *ptr, _val);	\
+
+/*
+ * Unsigned subtract and clamp on underflow.
+ *
+ * Explicitly do a load-store to ensure the intermediate value never hits
+ * memory. This allows lockless observations without ever seeing the negative
+ * values.
+ */
+#define sub_positive(_ptr, _val) do {				\
+	typeof(_ptr) ptr = (_ptr);				\
+	typeof(*ptr) val = (_val);				\
+	typeof(*ptr) res, var = READ_ONCE(*ptr);		\
+	res = var - val;					\
+	if (res > var)						\
+		res = 0;					\
+	WRITE_ONCE(*ptr, res);					\
 } while (0)
+
+/*
+ * Remove and clamp on negative, from a local variable.
+ *
+ * A variant of sub_positive(), which does not use explicit load-store
+ * and is thus optimized for local variable updates.
+ */
+#define lsub_positive(_ptr, _val) do {				\
+	typeof(_ptr) ptr = (_ptr);				\
+	*ptr -= min_t(typeof(*ptr), *ptr, _val);		\
+} while (0)
+
+#define RWSEM_READER_OWNED	(1UL << 0)
+#define RWSEM_RD_NONSPINNABLE	(1UL << 1)
+#define RWSEM_WR_NONSPINNABLE	(1UL << 2)
+#define RWSEM_NONSPINNABLE	(RWSEM_RD_NONSPINNABLE | RWSEM_WR_NONSPINNABLE)
+#define RWSEM_OWNER_FLAGS_MASK	(RWSEM_READER_OWNED | RWSEM_NONSPINNABLE)
+#define RWSEM_WRITER_LOCKED	(1UL << 0)
+#define RWSEM_WRITER_MASK	RWSEM_WRITER_LOCKED
 
 DEFINE_PER_CPU(struct hmp_domain *, hmp_cpu_domain);
 DEFINE_PER_CPU(unsigned long, cpu_scale) = SCHED_CAPACITY_SCALE;
@@ -75,24 +106,26 @@ static uint32_t latency_turbo = SUB_FEAT_LOCK | SUB_FEAT_BINDER |
 				SUB_FEAT_SCHED;
 static uint32_t launch_turbo =  SUB_FEAT_LOCK | SUB_FEAT_BINDER |
 				SUB_FEAT_SCHED | SUB_FEAT_FLAVOR_BIGCORE;
-static DEFINE_MUTEX(TURBO_MUTEX_LOCK);
+static DEFINE_SPINLOCK(TURBO_SPIN_LOCK);
 static pid_t turbo_pid[TURBO_PID_COUNT] = {0};
 static unsigned int task_turbo_feats;
 
 static bool is_turbo_task(struct task_struct *p);
-static void set_load_weight_turbo(struct task_struct *p);
+static void set_load_weight(struct task_struct *p, bool update_load);
 static void rwsem_stop_turbo_inherit(struct rw_semaphore *sem);
 static void rwsem_list_add(struct task_struct *task, struct list_head *entry,
 				struct list_head *head);
 static bool binder_start_turbo_inherit(struct task_struct *from,
 					struct task_struct *to);
 static void binder_stop_turbo_inherit(struct task_struct *p);
+static inline struct task_struct *rwsem_owner(struct rw_semaphore *sem);
+static inline bool rwsem_test_oflags(struct rw_semaphore *sem, long flags);
+static inline bool is_rwsem_reader_owned(struct rw_semaphore *sem);
 static void rwsem_start_turbo_inherit(struct rw_semaphore *sem);
 static bool sub_feat_enable(int type);
 static bool start_turbo_inherit(struct task_struct *task, int type, int cnt);
 static bool stop_turbo_inherit(struct task_struct *task, int type);
 static inline bool should_set_inherit_turbo(struct task_struct *task);
-static inline bool rwsem_owner_is_writer(struct task_struct *owner);
 static inline void add_inherit_types(struct task_struct *task, int type);
 static inline void sub_inherit_types(struct task_struct *task, int type);
 static inline void set_scheduler_tuning(struct task_struct *task);
@@ -101,7 +134,6 @@ static bool is_inherit_turbo(struct task_struct *task, int type);
 static bool test_turbo_cnt(struct task_struct *task);
 static int select_turbo_cpu(struct task_struct *p);
 static int find_best_turbo_cpu(struct task_struct *p);
-static void get_fastest_cpus(struct cpumask *cpus);
 static void init_hmp_domains(void);
 static void hmp_cpu_mask_setup(void);
 static int arch_get_nr_clusters(void);
@@ -111,13 +143,11 @@ static inline void fillin_cluster(struct cluster_info *cinfo,
 		struct hmp_domain *hmpd);
 static void sys_set_turbo_task(struct task_struct *p);
 static unsigned long capacity_of(int cpu);
-static unsigned long cpu_runnable_load(struct rq *rq);
-static unsigned long cpu_util_without(int cpu, struct task_struct *p);
 static void init_turbo_attr(struct task_struct *p);
-static inline unsigned long cfs_rq_runnable_load_avg(struct cfs_rq *cfs_rq);
 static inline unsigned long cpu_util(int cpu);
 static inline unsigned long task_util(struct task_struct *p);
 static inline unsigned long _task_util_est(struct task_struct *p);
+
 
 static void probe_android_rvh_prepare_prio_fork(void *ignore, struct task_struct *p)
 {
@@ -126,7 +156,14 @@ static void probe_android_rvh_prepare_prio_fork(void *ignore, struct task_struct
 	init_turbo_attr(p);
 	if (unlikely(is_turbo_task(current))) {
 		turbo_data = get_task_turbo_t(current);
-		set_user_nice(p, turbo_data->nice_backup);
+		if (task_has_dl_policy(p) || task_has_rt_policy(p))
+			p->static_prio = NICE_TO_PRIO(turbo_data->nice_backup);
+		else {
+			p->static_prio = NICE_TO_PRIO(turbo_data->nice_backup);
+			p->prio = p->normal_prio = p->static_prio;
+			set_load_weight(p, false);
+		}
+		trace_turbo_prepare_prio_fork(turbo_data, p);
 	}
 }
 
@@ -144,6 +181,10 @@ static void probe_android_rvh_finish_prio_fork(void *ignore, struct task_struct 
 static void probe_android_rvh_rtmutex_prepare_setprio(void *ignore, struct task_struct *p,
 						struct task_struct *pi_task)
 {
+	int queued, running;
+	struct rq_flags rf;
+	struct rq *rq;
+
 	/* if rt boost, recover prio with backup */
 	if (unlikely(is_turbo_task(p))) {
 		if (!dl_prio(p->prio) && !rt_prio(p->prio)) {
@@ -154,31 +195,56 @@ static void probe_android_rvh_rtmutex_prepare_setprio(void *ignore, struct task_
 			backup = turbo_data->nice_backup;
 
 			if (backup >= MIN_NICE && backup <= MAX_NICE) {
+				rq = __task_rq_lock(p, &rf);
+				update_rq_clock(rq);
+
+				queued = task_on_rq_queued(p);
+				running = task_current(rq, p);
+				if (queued)
+					deactivate_task(rq, p,
+						DEQUEUE_SAVE | DEQUEUE_NOCLOCK);
+				if (running)
+					put_prev_task(rq, p);
+
 				p->static_prio = NICE_TO_PRIO(backup);
 				p->prio = p->normal_prio = p->static_prio;
-				set_load_weight_turbo(p);
+				set_load_weight(p, false);
+
+				if (queued)
+					activate_task(rq, p,
+						ENQUEUE_RESTORE | ENQUEUE_NOCLOCK);
+				if (running)
+					set_next_task(rq, p);
+
+				trace_turbo_rtmutex_prepare_setprio(turbo_data, p);
+				__task_rq_unlock(rq, &rf);
 			}
 		}
 	}
 }
 
-static void probe_android_rvh_set_user_nice(void *ignore, struct task_struct *p, long *nice)
+static void probe_android_rvh_set_user_nice(void *ignore, struct task_struct *p,
+						long *nice, bool *allowed)
 {
 	struct task_turbo_t *turbo_data;
 
-	if ((*nice < MIN_NICE || *nice > MAX_NICE) && !task_turbo_nice(*nice))
+	if ((*nice < MIN_NICE || *nice > MAX_NICE) && !task_turbo_nice(*nice)) {
+		*allowed = false;
 		return;
+	} else
+		*allowed = true;
+
 
 	turbo_data = get_task_turbo_t(p);
 	/* for general use, backup it */
 	if (!task_turbo_nice(*nice))
 		turbo_data->nice_backup = *nice;
 
-	if (is_turbo_task(p)) {
+	if (is_turbo_task(p) && !task_restore_nice(*nice)) {
 		*nice = rlimit_to_nice(task_rlimit(p, RLIMIT_NICE));
 		if (unlikely(*nice > MAX_NICE)) {
-			pr_warning("{name:task-turbo&]pid=%d RLIMIT_NICE=%ld is not set\n",
-				p->pid, *nice);
+			pr_warn("%s: pid=%d RLIMIT_NICE=%ld is not set\n",
+				TAG, p->pid, *nice);
 			*nice = turbo_data->nice_backup;
 		}
 	} else
@@ -255,6 +321,8 @@ static void probe_android_vh_alter_futex_plist_add(void *ignore, struct plist_no
 	struct futex_q *this, *next;
 	struct plist_node *current_node = q_list;
 	struct plist_node *this_node;
+	int prev_pid = 0;
+	bool prev_turbo = 1;
 
 	if (!sub_feat_enable(SUB_FEAT_LOCK) &&
 	    !is_turbo_task(current)) {
@@ -265,11 +333,15 @@ static void probe_android_vh_alter_futex_plist_add(void *ignore, struct plist_no
 	plist_for_each_entry_safe(this, next, hb_chain, list) {
 		if ((!this->pi_state || !this->rt_waiter) && !is_turbo_task(this->task)) {
 			this_node = &this->list;
+			trace_turbo_futex_plist_add(prev_pid, prev_turbo,
+					this->task->pid, is_turbo_task(this->task));
 			list_add(&current_node->node_list,
 				 this_node->node_list.prev);
 			*already_on_hb = true;
 			return;
 		}
+		prev_pid = this->task->pid;
+		prev_turbo = is_turbo_task(this->task);
 	}
 
 	*already_on_hb = false;
@@ -282,14 +354,29 @@ static void probe_android_rvh_select_task_rq_fair(void *ignore, struct task_stru
 	*target_cpu = select_turbo_cpu(p);
 }
 
-static unsigned long cpu_runnable_load(struct rq *rq)
+static inline struct task_struct *rwsem_owner(struct rw_semaphore *sem)
 {
-	return cfs_rq_runnable_load_avg(&rq->cfs);
+	return (struct task_struct *)
+		(atomic_long_read(&sem->owner) & ~RWSEM_OWNER_FLAGS_MASK);
 }
 
-static inline unsigned long cfs_rq_runnable_load_avg(struct cfs_rq *cfs_rq)
+static inline bool rwsem_test_oflags(struct rw_semaphore *sem, long flags)
 {
-	return cfs_rq->avg.runnable_load_avg;
+	return atomic_long_read(&sem->owner) & flags;
+}
+
+static inline bool is_rwsem_reader_owned(struct rw_semaphore *sem)
+{
+#if IS_ENABLED(CONFIG_DEBUG_RWSEMS)
+	/*
+	 * Check the count to see if it is write-locked.
+	 */
+	long count = atomic_long_read(&sem->count);
+
+	if (count & RWSEM_WRITER_MASK)
+		return false;
+#endif
+	return rwsem_test_oflags(sem, RWSEM_READER_OWNED);
 }
 
 static unsigned long capacity_of(int cpu)
@@ -297,6 +384,19 @@ static unsigned long capacity_of(int cpu)
 	return cpu_rq(cpu)->cpu_capacity;
 }
 
+/*
+ * cpu_util_without: compute cpu utilization without any contributions from *p
+ * @cpu: the CPU which utilization is requested
+ * @p: the task which utilization should be discounted
+ *
+ * The utilization of a CPU is defined by the utilization of tasks currently
+ * enqueued on that CPU as well as tasks which are currently sleeping after an
+ * execution on that CPU.
+ *
+ * This method returns the utilization of the specified CPU by discounting the
+ * utilization of the specified task, whenever the task is currently
+ * contributing to the CPU utilization.
+ */
 static unsigned long cpu_util_without(int cpu, struct task_struct *p)
 {
 	struct cfs_rq *cfs_rq;
@@ -312,15 +412,64 @@ static unsigned long cpu_util_without(int cpu, struct task_struct *p)
 	/* Discount task's util from CPU's util */
 	lsub_positive(&util, task_util(p));
 
+	/*
+	 * Covered cases:
+	 *
+	 * a) if *p is the only task sleeping on this CPU, then:
+	 *      cpu_util (== task_util) > util_est (== 0)
+	 *    and thus we return:
+	 *      cpu_util_without = (cpu_util - task_util) = 0
+	 *
+	 * b) if other tasks are SLEEPING on this CPU, which is now exiting
+	 *    IDLE, then:
+	 *      cpu_util >= task_util
+	 *      cpu_util > util_est (== 0)
+	 *    and thus we discount *p's blocked utilization to return:
+	 *      cpu_util_without = (cpu_util - task_util) >= 0
+	 *
+	 * c) if other tasks are RUNNABLE on that CPU and
+	 *      util_est > cpu_util
+	 *    then we use util_est since it returns a more restrictive
+	 *    estimation of the spare capacity on that CPU, by just
+	 *    considering the expected utilization of tasks already
+	 *    runnable on that CPU.
+	 *
+	 * Cases a) and b) are covered by the above code, while case c) is
+	 * covered by the following code when estimated utilization is
+	 * enabled.
+	 */
 	if (sched_feat(UTIL_EST)) {
 		unsigned int estimated =
 			READ_ONCE(cfs_rq->avg.util_est.enqueued);
+
+		/*
+		 * Despite the following checks we still have a small window
+		 * for a possible race, when an execl's select_task_rq_fair()
+		 * races with LB's detach_task():
+		 *
+		 *   detach_task()
+		 *     p->on_rq = TASK_ON_RQ_MIGRATING;
+		 *     ---------------------------------- A
+		 *     deactivate_task()                   \
+		 *       dequeue_task()                     + RaceTime
+		 *         util_est_dequeue()              /
+		 *     ---------------------------------- B
+		 *
+		 * The additional check on "current == p" it's required to
+		 * properly fix the execl regression and it helps in further
+		 * reducing the chances for the above race.
+		 */
 		if (unlikely(task_on_rq_queued(p) || current == p))
 			lsub_positive(&estimated, _task_util_est(p));
 
 		util = max(util, estimated);
 	}
 
+	/*
+	 * Utilization (estimated) can exceed the CPU capacity, thus let's
+	 * clamp to the maximum CPU capacity to ensure consistency with
+	 * the cpu_util call.
+	 */
 	return min_t(unsigned long, util, capacity_orig_of(cpu));
 }
 
@@ -350,58 +499,57 @@ static inline unsigned long _task_util_est(struct task_struct *p)
 	return (max(ue.ewma, ue.enqueued) | UTIL_AVG_UNCHANGED);
 }
 
-static void get_fastest_cpus(struct cpumask *cpus)
-{
-	struct list_head *pos;
-	struct hmp_domain *domain;
-
-	pos = hmp_domains.next;
-	domain = list_entry(pos, struct hmp_domain, hmp_domains);
-	cpumask_copy(cpus, &domain->possible_cpus);
-}
-
 int find_best_turbo_cpu(struct task_struct *p)
 {
+	struct hmp_domain *domain;
+	struct hmp_domain *tmp_domain[5] = {0, 0, 0, 0, 0};
+	int i, domain_cnt = 0;
 	int iter_cpu;
-	int best_cpu = -1;
+	unsigned long spare_cap, max_spare_cap = 0;
 	const struct cpumask *tsk_cpus_ptr = p->cpus_ptr;
-	struct cpumask fast_cpu_mask;
-	unsigned long min_load = ULONG_MAX;
+	int max_spare_cpu = -1;
+	int new_cpu = -1;
 
-	cpumask_clear(&fast_cpu_mask);
-	/* only choose big-core cluster */
-	get_fastest_cpus(&fast_cpu_mask);
-	//cpumask_and(&fast_cpu_mask, &fast_cpu_mask, tsk_cpus_ptr);
-	cpumask_andnot(&fast_cpu_mask, tsk_cpus_ptr, &fast_cpu_mask);
+	/* The order is B, BL, LL cluster */
+	for_each_hmp_domain_L_first(domain) {
+		tmp_domain[domain_cnt] = domain;
+		domain_cnt++;
+	}
 
-	/* task is not allowed in big core */
-	if (cpumask_empty(&fast_cpu_mask))
-		return -1;
-
-	for_each_cpu(iter_cpu, &fast_cpu_mask) {
-		if (!cpu_online(iter_cpu))
-			continue;
-
-#if IS_ENABLED(CONFIG_MTK_SCHED_INTEROP)
-		if (cpu_rq(iter_cpu)->rt.rt_nr_running &&
-			likely(!is_rt_throttle(iter_cpu)))
-			continue;
-#endif
-		/* If utils of fastest cpu is over 90% */
-		if (capacity_of(iter_cpu) * 1024 < (cpu_util_without(iter_cpu, p) * 1138))
-			continue;
-
-		if (idle_cpu(iter_cpu)) {
-			best_cpu = iter_cpu;
+	for (i = 0; i < domain_cnt; i++) {
+		domain = tmp_domain[i];
+		/* check fastest domain for turbo task */
+		if (i != 0)
 			break;
-		}
+		for_each_cpu(iter_cpu, &domain->possible_cpus) {
 
-		if (cpu_runnable_load(cpu_rq(iter_cpu)) < min_load) {
-			min_load = cpu_runnable_load(cpu_rq(iter_cpu));
-			best_cpu = iter_cpu;
+			if (!cpu_online(iter_cpu) ||
+			    !cpumask_test_cpu(iter_cpu, tsk_cpus_ptr) ||
+			    !cpu_active(iter_cpu))
+				continue;
+
+			/*
+			 * favor tasks that prefer idle cpus
+			 * to improve latency
+			 */
+			if (idle_cpu(iter_cpu)) {
+				new_cpu = iter_cpu;
+				goto out;
+			}
+
+			spare_cap =
+			     max_t(long, capacity_of(iter_cpu) - cpu_util_without(iter_cpu, p), 0);
+			if (spare_cap > max_spare_cap) {
+				max_spare_cap = spare_cap;
+				max_spare_cpu = iter_cpu;
+			}
 		}
 	}
-	return best_cpu;
+	if (max_spare_cpu > 0)
+		new_cpu = max_spare_cpu;
+out:
+	trace_select_turbo_cpu(new_cpu, p, max_spare_cap, max_spare_cpu);
+	return new_cpu;
 }
 
 int select_turbo_cpu(struct task_struct *p)
@@ -411,13 +559,16 @@ int select_turbo_cpu(struct task_struct *p)
 	if (!is_turbo_task(p))
 		return -1;
 
+	if (!sub_feat_enable(SUB_FEAT_FLAVOR_BIGCORE))
+		return -1;
+
 	target_cpu = find_best_turbo_cpu(p);
-	trace_select_turbo_cpu(target_cpu);
 
 	return target_cpu;
 }
 
-static void set_load_weight_turbo(struct task_struct *p)
+/* copy from sched/core.c */
+static void set_load_weight(struct task_struct *p, bool update_load)
 {
 	int prio = p->static_prio - MAX_RT_PRIO;
 	struct load_weight *load = &p->se.load;
@@ -425,16 +576,22 @@ static void set_load_weight_turbo(struct task_struct *p)
 	/*
 	 * SCHED_IDLE tasks get minimal weight:
 	 */
-	if (idle_policy(p->policy)) {
+	if (task_has_idle_policy(p)) {
 		load->weight = scale_load(WEIGHT_IDLEPRIO);
 		load->inv_weight = WMULT_IDLEPRIO;
-		p->se.runnable_weight = load->weight;
 		return;
 	}
 
-	load->weight = scale_load(sched_prio_to_weight[prio]);
-	load->inv_weight = sched_prio_to_wmult[prio];
-	p->se.runnable_weight = load->weight;
+	/*
+	 * SCHED_OTHER tasks have to update their load when changing their
+	 * weight
+	 */
+	if (update_load && p->sched_class == &fair_sched_class) {
+		reweight_task(p, prio);
+	} else {
+		load->weight = scale_load(sched_prio_to_weight[prio]);
+		load->inv_weight = sched_prio_to_wmult[prio];
+	}
 }
 
 int idle_cpu(int cpu)
@@ -448,11 +605,11 @@ int idle_cpu(int cpu)
 		return 0;
 
 #if IS_ENABLED(CONFIG_SMP)
-	if (!llist_empty(&rq->wake_list))
+	if (rq->ttwu_pending)
 		return 0;
 #endif
 
-	return -1;
+	return 1;
 }
 
 static void rwsem_stop_turbo_inherit(struct rw_semaphore *sem)
@@ -498,35 +655,27 @@ static void rwsem_list_add(struct task_struct *task,
 static void rwsem_start_turbo_inherit(struct rw_semaphore *sem)
 {
 	bool should_inherit;
-	struct task_struct *owner, *turbo_owner;
-	struct task_struct *cur = current;
+	struct task_struct *owner, *inherited_owner;
 	struct task_turbo_t *turbo_data;
-	unsigned long read_owner;
 
 	if (!sub_feat_enable(SUB_FEAT_LOCK))
 		return;
 
-	read_owner = atomic_long_read(&sem->owner);
-	should_inherit = should_set_inherit_turbo(cur);
+	owner = rwsem_owner(sem);
+	should_inherit = should_set_inherit_turbo(current);
 	if (should_inherit) {
-		turbo_owner = get_inherit_task(sem);
-		turbo_data = get_task_turbo_t(cur);
-		owner = (struct task_struct *)read_owner;
-		if (rwsem_owner_is_writer(owner) &&
-				!is_turbo_task(owner) &&
-				!turbo_owner) {
+		inherited_owner = get_inherit_task(sem);
+		turbo_data = get_task_turbo_t(current);
+		if (!is_rwsem_reader_owned(sem) &&
+		    !is_turbo_task(owner) &&
+		    !inherited_owner) {
 			start_turbo_inherit(owner,
 					    RWSEM_INHERIT,
 					    turbo_data->inherit_cnt);
-			sem->android_vendor_data1 = read_owner;
-			trace_turbo_inherit_start(cur, owner);
+			sem->android_vendor_data1 = (u64)owner;
+			trace_turbo_inherit_start(current, owner);
 		}
 	}
-}
-
-static inline bool rwsem_owner_is_writer(struct task_struct *owner)
-{
-	return owner && owner != RWSEM_READER_OWNED;
 }
 
 static bool start_turbo_inherit(struct task_struct *task,
@@ -535,7 +684,7 @@ static bool start_turbo_inherit(struct task_struct *task,
 {
 	struct task_turbo_t *turbo_data;
 
-	if (type <= START_INHERIT && type >= END_INHERIT)
+	if (type <= START_INHERIT || type >= END_INHERIT)
 		return false;
 
 	add_inherit_types(task, type);
@@ -555,7 +704,7 @@ static bool stop_turbo_inherit(struct task_struct *task,
 	bool ret = false;
 	struct task_turbo_t *turbo_data;
 
-	if (type <= START_INHERIT && type >= END_INHERIT)
+	if (type <= START_INHERIT || type >= END_INHERIT)
 		goto done;
 
 	turbo_data = get_task_turbo_t(task);
@@ -781,7 +930,7 @@ static int set_task_turbo_feats(const char *buf,
 	ret = kstrtouint(buf, 0, &val);
 
 
-	mutex_lock(&TURBO_MUTEX_LOCK);
+	spin_lock(&TURBO_SPIN_LOCK);
 	if (val == latency_turbo ||
 	    val == launch_turbo  || val == 0)
 		ret = param_set_uint(buf, kp);
@@ -789,7 +938,7 @@ static int set_task_turbo_feats(const char *buf,
 		ret = -EINVAL;
 
 	/* if disable turbo, remove all turbo tasks */
-	/* mutex_lock(&TURBO_MUTEX_LOCK); */
+	/* spin_lock(&TURBO_SPIN_LOCK); */
 	if (val == 0) {
 		for (i = 0; i < TURBO_PID_COUNT; i++) {
 			if (turbo_pid[i]) {
@@ -798,11 +947,11 @@ static int set_task_turbo_feats(const char *buf,
 			}
 		}
 	}
-	mutex_unlock(&TURBO_MUTEX_LOCK);
+	spin_unlock(&TURBO_SPIN_LOCK);
 
 	if (!ret)
-		pr_info("task_turbo_feats is change to %d successfully",
-				task_turbo_feats);
+		pr_info("%s: task_turbo_feats is change to %d successfully",
+				TAG, task_turbo_feats);
 	return ret;
 }
 
@@ -831,13 +980,13 @@ static int add_turbo_list_by_pid(pid_t pid)
 	if (pid < 0 || pid > PID_MAX_DEFAULT)
 		return retval;
 
-	mutex_lock(&TURBO_MUTEX_LOCK);
+	spin_lock(&TURBO_SPIN_LOCK);
 	if (!add_turbo_list_locked(pid))
 		goto unlock;
 
 	retval = set_turbo_task(pid, TURBO_ENABLE);
 unlock:
-	mutex_unlock(&TURBO_MUTEX_LOCK);
+	spin_unlock(&TURBO_SPIN_LOCK);
 	return retval;
 }
 
@@ -875,10 +1024,10 @@ static int unset_turbo_list_by_pid(pid_t pid)
 	if (pid < 0 || pid > PID_MAX_DEFAULT)
 		return retval;
 
-	mutex_lock(&TURBO_MUTEX_LOCK);
+	spin_lock(&TURBO_SPIN_LOCK);
 	remove_turbo_list_locked(pid);
 	retval = unset_turbo_task(pid);
-	mutex_unlock(&TURBO_MUTEX_LOCK);
+	spin_unlock(&TURBO_SPIN_LOCK);
 	return retval;
 }
 
@@ -919,7 +1068,7 @@ static inline int get_st_group_id(struct task_struct *task)
 	rcu_read_lock();
 	grp = task_cgroup(task, subsys_id);
 	rcu_read_unlock();
-	return grp->id;
+	return grp->kn->id;
 #else
 	return 0;
 #endif
@@ -976,7 +1125,7 @@ static void add_turbo_list(struct task_struct *p)
 {
 	struct task_turbo_t *turbo_data;
 
-	mutex_lock(&TURBO_MUTEX_LOCK);
+	spin_lock(&TURBO_SPIN_LOCK);
 	if (add_turbo_list_locked(p->pid)) {
 		turbo_data = get_task_turbo_t(p);
 		turbo_data->turbo = TURBO_ENABLE;
@@ -984,7 +1133,7 @@ static void add_turbo_list(struct task_struct *p)
 		set_scheduler_tuning(p);
 		trace_turbo_set(p);
 	}
-	mutex_unlock(&TURBO_MUTEX_LOCK);
+	spin_unlock(&TURBO_SPIN_LOCK);
 }
 
 /*
@@ -1006,13 +1155,13 @@ static void remove_turbo_list(struct task_struct *p)
 {
 	struct task_turbo_t *turbo_data;
 
-	mutex_lock(&TURBO_MUTEX_LOCK);
+	spin_lock(&TURBO_SPIN_LOCK);
 	turbo_data = get_task_turbo_t(p);
 	remove_turbo_list_locked(p->pid);
 	turbo_data->turbo = TURBO_DISABLE;
 	unset_scheduler_tuning(p);
 	trace_turbo_set(p);
-	mutex_unlock(&TURBO_MUTEX_LOCK);
+	spin_unlock(&TURBO_SPIN_LOCK);
 }
 
 static void probe_android_vh_cgroup_set_task(void *ignore, int ret, struct task_struct *p)
@@ -1033,17 +1182,10 @@ static void probe_android_vh_cgroup_set_task(void *ignore, int ret, struct task_
 	}
 }
 
-static void probe_android_vh_sys_set_task(void *ignore, struct task_struct *p)
+static void probe_android_vh_syscall_prctl_finished(void *ignore, int option, struct task_struct *p)
 {
-	sys_set_turbo_task(p);
-}
-
-static void probe_android_vh_nice_check(void *ignore, long *nice, bool *allowed)
-{
-	if ((*nice < MIN_NICE || *nice > MAX_NICE) && !task_turbo_nice(*nice))
-		*allowed = false;
-	else
-		*allowed = true;
+	if (option == PR_SET_NAME)
+		sys_set_turbo_task(p);
 }
 
 static inline void fillin_cluster(struct cluster_info *cinfo,
@@ -1063,8 +1205,8 @@ static inline void fillin_cluster(struct cluster_info *cinfo,
 	cinfo->cpu_perf = cpu_perf;
 
 	if (cpu_perf == 0)
-		pr_info("Uninitialized CPU performance (CPU mask: %lx)",
-				cpumask_bits(&hmpd->possible_cpus)[0]);
+		pr_info("%s: Uninitialized CPU performance (CPU mask: %lx)",
+				TAG, cpumask_bits(&hmpd->possible_cpus)[0]);
 }
 
 int hmp_compare(void *priv, struct list_head *a, struct list_head *b)
@@ -1297,15 +1439,8 @@ static int __init init_task_turbo(void)
 		goto failed;
 	}
 
-	ret = register_trace_android_vh_sys_set_task(
-			probe_android_vh_sys_set_task, NULL);
-	if (ret) {
-		ret_erri_line = __LINE__;
-		goto failed;
-	}
-
-	ret = register_trace_android_vh_nice_check(
-			probe_android_vh_nice_check, NULL);
+	ret = register_trace_android_vh_syscall_prctl_finished(
+			probe_android_vh_syscall_prctl_finished, NULL);
 	if (ret) {
 		ret_erri_line = __LINE__;
 		goto failed;

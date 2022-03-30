@@ -164,18 +164,87 @@ TRACE_EVENT(sched_set_user_nice,
 )
 
 TRACE_EVENT(select_turbo_cpu,
-	TP_PROTO(int target_cpu),
-	TP_ARGS(target_cpu),
+	TP_PROTO(int target_cpu, struct task_struct *task, int max_spare_cap, int max_spare_cpu),
+	TP_ARGS(target_cpu, task, max_spare_cap, max_spare_cpu),
 	TP_STRUCT__entry(
 		__field(int, target_cpu)
+		__field(int, pid)
+		__field(int, max_spare_cap)
+		__field(int, max_spare_cpu)
 	),
 
 	TP_fast_assign(
 		__entry->target_cpu = target_cpu;
+		__entry->pid = task->pid;
+		__entry->max_spare_cap = max_spare_cap;
+		__entry->max_spare_cpu = max_spare_cpu;
 	),
 
-	TP_printk("target_cpu=%d",
-		__entry->target_cpu)
+	TP_printk("target_cpu=%d pid=%d max_spare_cap=%d max_spare_cpu=%d",
+		__entry->target_cpu,
+		__entry->pid,
+		__entry->max_spare_cap,
+		__entry->max_spare_cpu)
+);
+
+TRACE_EVENT(turbo_futex_plist_add,
+	TP_PROTO(int prev_pid, bool prev_turbo, int next_pid, bool next_turbo),
+	TP_ARGS(prev_pid, prev_turbo, next_pid, next_turbo),
+	TP_STRUCT__entry(
+		__field(int, prev_pid)
+		__field(bool, prev_turbo)
+		__field(int, next_pid)
+		__field(bool, next_turbo)
+	),
+
+	TP_fast_assign(
+		__entry->prev_pid = prev_pid;
+		__entry->prev_turbo = prev_turbo;
+		__entry->next_pid = next_pid;
+		__entry->next_turbo = next_turbo;
+	),
+
+	TP_printk("prev_pid=%d prev_turbo=%d next_pid=%d next_turbo=%d",
+		__entry->prev_pid,
+		__entry->prev_turbo,
+		__entry->next_pid,
+		__entry->next_turbo)
+);
+
+TRACE_EVENT(turbo_prepare_prio_fork,
+	TP_PROTO(struct task_turbo_t *turbo_data, struct task_struct *p),
+	TP_ARGS(turbo_data, p),
+	TP_STRUCT__entry(
+		__field(int, parent_prio)
+		__field(int, child_prio)
+	),
+
+	TP_fast_assign(
+		__entry->parent_prio = turbo_data->nice_backup + 120;
+		__entry->child_prio = p->static_prio;
+	),
+
+	TP_printk("parent_prio=%d child_prio=%d",
+		__entry->parent_prio,
+		__entry->child_prio)
+);
+
+TRACE_EVENT(turbo_rtmutex_prepare_setprio,
+	TP_PROTO(struct task_turbo_t *turbo_data, struct task_struct *p),
+	TP_ARGS(turbo_data, p),
+	TP_STRUCT__entry(
+		__field(int, original_prio)
+		__field(int, prio)
+	),
+
+	TP_fast_assign(
+		__entry->original_prio = turbo_data->nice_backup + 120;
+		__entry->prio = p->static_prio;
+	),
+
+	TP_printk("original_prio=%d prio=%d",
+		__entry->original_prio,
+		__entry->prio)
 );
 
 #endif /*_TRACE_TASK_TURBO_H */
