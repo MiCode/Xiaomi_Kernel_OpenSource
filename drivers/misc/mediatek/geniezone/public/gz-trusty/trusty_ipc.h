@@ -45,7 +45,11 @@ struct tipc_dn_chan {
 	u32 session;
 	struct mutex sess_lock;
 	enum tee_id_t tee_id;
+	int port_id;
+	int32_t cpumask;
 };
+
+int tipc_set_default_cpumask(uint32_t cpumask);
 
 struct tipc_chan *tipc_create_channel(struct device *dev,
 				      const struct tipc_chan_ops *ops,

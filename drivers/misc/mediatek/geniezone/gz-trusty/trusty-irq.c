@@ -212,7 +212,7 @@ irqreturn_t trusty_irq_handler(int irq, void *data)
 	}
 	spin_unlock(&is->normal_irqs_lock);
 
-	trusty_enqueue_nop(is->trusty_dev, NULL);
+	trusty_enqueue_nop(is->trusty_dev, NULL, smp_processor_id());
 
 #ifdef IRQ_DEBUG_LOG_EN
 	dev_dbg(is->dev, "%s: irq %d done\n", __func__, irq);

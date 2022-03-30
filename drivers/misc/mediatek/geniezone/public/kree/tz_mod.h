@@ -39,21 +39,14 @@
 	_IOWR(MTEE_IOC_MAGIC, 3, struct kree_tee_service_cmd_param)
 #define MTEE_CMD_SHM_REG                                                       \
 	_IOWR(MTEE_IOC_MAGIC, 4, struct kree_tee_service_cmd_param)
-#define MTEE_CMD_SHM_UNREG                                                     \
-	_IOWR(MTEE_IOC_MAGIC, 5, struct kree_tee_service_cmd_param)
-#define MTEE_CMD_SC_TEST_CP_CHM2SHM                                            \
-	_IOWR(MTEE_IOC_MAGIC, 6, struct kree_user_sc_param)
-#define MTEE_CMD_SC_TEST_UPT_CHMDATA                                           \
-	_IOWR(MTEE_IOC_MAGIC, 7, struct kree_user_sc_param)
-#define MTEE_CMD_SC_CHMEM_HANDLE                                               \
-	_IOWR(MTEE_IOC_MAGIC, 14, struct kree_user_sc_param)
 #define MTEE_CMD_FOD_TEE_SHM_ON                                                \
 	_IO(MTEE_IOC_MAGIC, 16)
 #define MTEE_CMD_FOD_TEE_SHM_OFF                                               \
 	_IO(MTEE_IOC_MAGIC, 17)
 #define MTEE_CMD_ADJUST_WQ_ATTR                                                \
 	_IOW(MTEE_IOC_MAGIC, 21, char *)
-
+#define MTEE_CMD_GET_CHM_HANDLE                                               \
+	_IOWR(MTEE_IOC_MAGIC, 22, struct user_chm_fd_to_hd_param)
 
 #define DEV_IOC_MAXNR (10)
 
@@ -71,6 +64,7 @@ struct kree_tee_service_cmd_param {
 	uint32_t command;
 	uint32_t paramTypes;
 	uint64_t param;
+	int32_t cpumask;
 };
 
 /* param for shared memory */
@@ -110,5 +104,9 @@ struct kree_user_sc_param {
 	struct kree_user_test_chm_param chmp;
 };
 
+struct user_chm_fd_to_hd_param {
+	uint32_t secm_handle;
+	int buf_fd;
+};
 
 #endif /* end of DEVFINO_H */

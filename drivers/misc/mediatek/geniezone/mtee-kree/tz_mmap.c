@@ -115,6 +115,7 @@ out_free:
 	kfree(pages);
 	return res;
 }
+EXPORT_SYMBOL(_map_user_pages);
 
 #if debugFg
 static void _unmap_user_pages(struct MTIOMMU_PIN_RANGE_T *pinRange)
