@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 # UFSHCD makefile
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/blocktag/
 
 # The link order is important here. ufshcd-core must initialize
@@ -24,5 +24,6 @@ obj-$(CONFIG_SCSI_UFSHCD_PCI) += ufshcd-pci.o
 obj-$(CONFIG_SCSI_UFSHCD_PLATFORM) += ufshcd-pltfrm.o
 obj-$(CONFIG_SCSI_UFS_HISI) += ufs-hisi.o
 obj-$(CONFIG_SCSI_UFS_MEDIATEK) += vendor/
+obj-$(CONFIG_SCSI_UFS_MEDIATEK_DBG) += ufs-mediatek-dbg.o
 obj-$(CONFIG_SCSI_UFS_TI_J721E) += ti-j721e-ufs.o
 ufshcd-core-$(CONFIG_SCSI_UFS_CRYPTO) += ufshcd-crypto.o

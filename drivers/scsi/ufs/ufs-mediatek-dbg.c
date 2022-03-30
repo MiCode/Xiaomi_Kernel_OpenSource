@@ -14,7 +14,9 @@
 #include <linux/spinlock.h>
 #include <linux/sysfs.h>
 #include <linux/tracepoint.h>
-#include <mrdump.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#include <mt-plat/mrdump.h>
+#endif
 #include "ufshcd.h"
 #include "ufs-mediatek.h"
 #include "ufs-mediatek-dbg.h"
@@ -215,7 +217,7 @@ static void cmd_hist_init_common_info(int ptr)
 }
 
 static void probe_android_vh_ufs_send_tm_command(void *data, struct ufs_hba *hba,
-						 unsigned int tag, const char *str)
+						 unsigned int tag, enum ufs_trace_str_t str_t)
 {
 	u8 tm_func;
 	int ptr, lun, task_tag;
@@ -223,18 +225,24 @@ static void probe_android_vh_ufs_send_tm_command(void *data, struct ufs_hba *hba
 	enum cmd_hist_event event;
 	struct utp_task_req_desc *d = &hba->utmrdl_base_addr[tag];
 
-	lun = (be32_to_cpu(d->req_header.dword_0) >> 8) & 0xFF;
-	task_tag = be32_to_cpu(d->req_header.dword_0) & 0xFF;
-	tm_func = (be32_to_cpu(d->req_header.dword_1) >> 16) & 0xFFFF;
+	lun = (be32_to_cpu(d->header.dword_0) >> 8) & 0xFF;
+	task_tag = be32_to_cpu(d->header.dword_0) & 0xFF;
+	tm_func = (be32_to_cpu(d->header.dword_1) >> 16) & 0xFFFF;
 
-	if (!strcmp(str, "tm_send"))
+	switch (str_t){
+	case UFS_TM_SEND:
 		event = CMD_TM_SEND;
-	else if (!strcmp(str, "tm_complete"))
+		break;
+	case UFS_TM_COMP:
 		event = CMD_TM_COMPLETED;
-	else if (!strcmp(str, "tm_complete_err"))
+		break;
+	case UFS_TM_ERR:
 		event = CMD_TM_COMPLETED_ERR;
-	else
-		return;
+		break;
+	default:
+		pr_notice("%s: undefined TM command (0x%x)", __func__, str_t);
+		break;
+	}
 
 	spin_lock_irqsave(&cmd_hist_lock, flags);
 
@@ -259,7 +267,7 @@ out_unlock:
 
 
 static void probe_ufshcd_command(void *data, const char *dev_name,
-				 const char *str, unsigned int tag,
+				 enum ufs_trace_str_t str_t, unsigned int tag,
 				 u32 doorbell, int transfer_len,
 				 u32 intr, u64 lba, u8 opcode, u8 group_id)
 {
@@ -274,16 +282,20 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 
 	ptr = cmd_hist_advance_ptr();
 
-	if (!strcmp(str, "send"))
+	switch (str_t){
+	case UFS_CMD_SEND:
 		event = CMD_SEND;
-	else if (!strcmp(str, "complete"))
+		break;
+	case UFS_CMD_COMP:
 		event = CMD_COMPLETED;
-	else if (!strcmp(str, "dev_complete"))
+		break;
+	case UFS_DEV_COMP:
 		event = CMD_DEV_COMPLETED;
-	else if (!strcmp(str, "abort"))
-		event = CMD_ABORTING;
-	else
+		break;
+	default:
 		event = CMD_GENERIC;
+		break;
+	}
 
 	cmd_hist_init_common_info(ptr);
 	cmd_hist[ptr].event = event;
@@ -321,7 +333,7 @@ out_unlock:
 }
 
 static void probe_ufshcd_uic_command(void *data, const char *dev_name,
-				     const char *str, u32 cmd,
+				     enum ufs_trace_str_t str_t, u32 cmd,
 				     u32 arg1, u32 arg2, u32 arg3)
 {
 	int ptr;
@@ -335,7 +347,7 @@ static void probe_ufshcd_uic_command(void *data, const char *dev_name,
 
 	ptr = cmd_hist_advance_ptr();
 
-	if (!strcmp(str, "send"))
+	if (str_t == UFS_CMD_SEND)
 		event = CMD_UIC_SEND;
 	else
 		event = CMD_UIC_CMPL_GENERAL;
@@ -427,7 +439,7 @@ static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
 	}
 }
 
-int cmd_hist_enable(void)
+int ufs_mtk_dbg_cmd_hist_enable(void)
 {
 	unsigned long flags;
 
@@ -443,9 +455,9 @@ int cmd_hist_enable(void)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(cmd_hist_enable);
+EXPORT_SYMBOL_GPL(ufs_mtk_dbg_cmd_hist_enable);
 
-int cmd_hist_disable(void)
+int ufs_mtk_dbg_cmd_hist_disable(void)
 {
 	unsigned long flags;
 
@@ -455,11 +467,11 @@ int cmd_hist_disable(void)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(cmd_hist_disable);
+EXPORT_SYMBOL_GPL(ufs_mtk_dbg_cmd_hist_disable);
 
-static void cmd_hist_cleanup(void)
+static void _cmd_hist_cleanup(void)
 {
-	cmd_hist_disable();
+	ufs_mtk_dbg_cmd_hist_disable();
 	vfree(cmd_hist);
 }
 
@@ -669,7 +681,7 @@ void ufs_mtk_dbg_get_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	*vaddr = (unsigned long)ufs_aee_buffer;
 	*size = UFS_AEE_BUFFER_SIZE - free_size;
 
-	cmd_hist_enable();
+	ufs_mtk_dbg_cmd_hist_enable();
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_dbg_get_aee_buffer);
 
@@ -701,10 +713,10 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 		dev_info(hba->dev, "debug info and cmd history dump\n");
 		ufs_mtk_dbg_dump(MAX_CMD_HIST_ENTRY_CNT);
 	} else if (op == UFSDBG_CMD_LIST_ENABLE) {
-		cmd_hist_enable();
+		ufs_mtk_dbg_cmd_hist_enable();
 		dev_info(hba->dev, "cmd history on\n");
 	} else if (op == UFSDBG_CMD_LIST_DISABLE) {
-		cmd_hist_disable();
+		ufs_mtk_dbg_cmd_hist_disable();
 		dev_info(hba->dev, "cmd history off\n");
 	} else if (op == UFSDBG_CMD_QOS_ON) {
 		if (host && host->qos_allowed) {
@@ -775,7 +787,7 @@ static void ufs_mtk_dbg_cleanup(void)
 		}
 	}
 
-	cmd_hist_cleanup();
+	_cmd_hist_cleanup();
 }
 
 int ufs_mtk_dbg_register(struct ufs_hba *hba)
@@ -815,7 +827,7 @@ int ufs_mtk_dbg_register(struct ufs_hba *hba)
 
 	/* Enable command history feature by default */
 	if (!ret)
-		cmd_hist_enable();
+		ufs_mtk_dbg_cmd_hist_enable();
 	else
 		ufs_mtk_dbg_cleanup();
 
@@ -825,7 +837,9 @@ EXPORT_SYMBOL_GPL(ufs_mtk_dbg_register);
 
 static void __exit ufs_mtk_dbg_exit(void)
 {
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 	mrdump_set_extra_dump(AEE_EXTRA_FILE_UFS, NULL);
+#endif
 	kfree(cmd_hist);
 }
 
@@ -834,7 +848,9 @@ static int __init ufs_mtk_dbg_init(void)
 	cmd_hist = kcalloc(MAX_CMD_HIST_ENTRY_CNT,
 			   sizeof(struct cmd_hist_struct),
 			   GFP_KERNEL);
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 	mrdump_set_extra_dump(AEE_EXTRA_FILE_UFS, ufs_mtk_dbg_get_aee_buffer);
+#endif
 	return 0;
 }
 

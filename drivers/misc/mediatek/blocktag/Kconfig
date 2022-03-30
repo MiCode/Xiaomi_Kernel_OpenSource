@@ -14,3 +14,7 @@ config MTK_BLOCK_IO_TRACER
 	  utility functions to MMC/UFS Block IO log, such as throughput
 	  calculation, log printing, and ring trace handling.
 
+config MTK_FSCMD_TRACER
+	tristate "filesystem Syscall Tracer"
+	help
+	  If enable, record the syscall start and end timestamp.

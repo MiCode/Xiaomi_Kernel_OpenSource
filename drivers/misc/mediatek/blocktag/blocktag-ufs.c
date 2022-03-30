@@ -89,7 +89,7 @@ static struct ufs_mtk_bio_context_task *ufs_mtk_bio_curr_task(
 	return ufs_mtk_bio_get_task(ctx, task_id);
 }
 
-int mtk_btag_pidlog_add_ufs(struct request_queue *q, pid_t pid,
+int mtk_btag_pidlog_add_ufs(struct request_queue *q, short pid,
 	__u32 len, int rw)
 {
 	unsigned long flags;
@@ -100,12 +100,14 @@ int mtk_btag_pidlog_add_ufs(struct request_queue *q, pid_t pid,
 		return 0;
 
 	spin_lock_irqsave(&ctx->lock, flags);
-	mtk_btag_pidlog_insert(&ctx->pidlog, pid, len, rw);
-	mtk_btag_mictx_eval_req(rw, 1, len);
+	mtk_btag_pidlog_insert(&ctx->pidlog, abs(pid), len, rw);
+	mtk_btag_mictx_eval_req(ufs_mtk_btag, rw, len >> 12, len,
+				pid < 0 ? true : false);
 	spin_unlock_irqrestore(&ctx->lock, flags);
 
 	return 1;
 }
+EXPORT_SYMBOL_GPL(mtk_btag_pidlog_add_ufs);
 
 static const char *task_name[tsk_max] = {
 	"send_cmd", "req_compl"};
@@ -131,13 +133,19 @@ static void ufs_mtk_pr_tsk(struct ufs_mtk_bio_context_task *tsk,
 		bytes);
 }
 
+void ufs_mtk_biolog_clk_gating(bool clk_on)
+{
+	if (!clk_on)
+		mtk_btag_earaio_boost(clk_on);
+}
+EXPORT_SYMBOL_GPL(ufs_mtk_biolog_clk_gating);
+
 void ufs_mtk_biolog_send_command(unsigned int task_id,
 				 struct scsi_cmnd *cmd)
 {
 	unsigned long flags;
 	struct ufs_mtk_bio_context *ctx;
 	struct ufs_mtk_bio_context_task *tsk;
-	int i;
 
 	if (!cmd)
 		return;
@@ -146,29 +154,76 @@ void ufs_mtk_biolog_send_command(unsigned int task_id,
 	if (!tsk)
 		return;
 
+	if (scsi_cmd_to_rq(cmd))
+		mtk_btag_commit_req(scsi_cmd_to_rq(cmd), false);
+
 	tsk->lba = scsi_cmnd_lba(cmd);
 	tsk->len = scsi_cmnd_len(cmd);
 	tsk->cmd = scsi_cmnd_cmd(cmd);
 
-	tsk->t[tsk_send_cmd] = sched_clock();
-	for (i = tsk_send_cmd + 1; i < tsk_max; i++)
-		tsk->t[i] = 0;
-
 	spin_lock_irqsave(&ctx->lock, flags);
+
+	tsk->t[tsk_send_cmd] = sched_clock();
+	tsk->t[tsk_req_compl] = 0;
+
 	if (!ctx->period_start_t)
 		ctx->period_start_t = tsk->t[tsk_send_cmd];
 
 	ctx->q_depth++;
-	mtk_btag_mictx_update_ctx(ctx->q_depth);
+	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth);
 
 	spin_unlock_irqrestore(&ctx->lock, flags);
 
 	ufs_mtk_pr_tsk(tsk, tsk_send_cmd);
-
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_biolog_send_command);
 
-void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id)
+static void ufs_mtk_bio_mictx_cnt_signle_wqd(
+				struct ufs_mtk_bio_context_task *tsk,
+				struct mtk_btag_mictx_struct *mictx,
+				u64 t_cur)
+{
+	u64 t, t_begin;
+
+	if (!mictx->enabled)
+		return;
+
+	t_begin = max_t(u64, mictx->window_begin,
+			tsk->t[tsk_send_cmd]);
+
+	if (tsk->t[tsk_req_compl])
+		t = tsk->t[tsk_req_compl] - t_begin;
+	else
+		t = t_cur - t_begin;
+
+	mictx->weighted_qd += t;
+}
+
+void ufs_mtk_bio_mictx_eval_wqd(struct mtk_btag_mictx_struct *mictx,
+				u64 t_cur)
+{
+	struct ufs_mtk_bio_context_task *tsk;
+	struct ufs_mtk_bio_context *ctx;
+	int i;
+
+	if (!mictx->enabled)
+		return;
+
+	ctx = ufs_mtk_bio_curr_ctx();
+	if (!ctx)
+		return;
+
+	for (i = 0; i < UFS_BIOLOG_CONTEXT_TASKS; i++) {
+		tsk = &ctx->task[i];
+		if (tsk->t[tsk_send_cmd]) {
+			ufs_mtk_bio_mictx_cnt_signle_wqd(tsk, mictx,
+							 t_cur);
+		}
+	}
+}
+
+void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id,
+				       unsigned long req_mask)
 {
 	struct ufs_mtk_bio_context *ctx;
 	struct ufs_mtk_bio_context_task *tsk;
@@ -182,13 +237,13 @@ void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id)
 	if (!tsk)
 		return;
 
-	tsk->t[tsk_req_compl] = sched_clock();
-
 	/* return if there's no on-going request  */
 	if (!tsk->t[tsk_send_cmd])
 		return;
 
 	spin_lock_irqsave(&ctx->lock, flags);
+
+	tsk->t[tsk_req_compl] = sched_clock();
 
 	if (tsk->cmd == 0x28) {
 		rw = 0; /* READ */
@@ -208,14 +263,26 @@ void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id)
 		size = tsk->len << SECTOR_SHIFT;
 		tp->usage += busy_time;
 		tp->size += size;
-		mtk_btag_mictx_eval_tp(rw, busy_time, size);
+		mtk_btag_mictx_eval_tp(ufs_mtk_btag, rw, busy_time,
+				       size);
 	}
 
-	ctx->q_depth--;
-	mtk_btag_mictx_update_ctx(ctx->q_depth);
+	if (!req_mask)
+		ctx->q_depth = 0;
+	else
+		ctx->q_depth--;
+	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth);
+	ufs_mtk_bio_mictx_cnt_signle_wqd(tsk, &ufs_mtk_btag->mictx, 0);
+
+	/* clear this task */
+	tsk->t[tsk_send_cmd] = tsk->t[tsk_req_compl] = 0;
 
 	spin_unlock_irqrestore(&ctx->lock, flags);
 
+	/*
+	 * FIXME: tsk->t is cleared before so this would output
+	 * wrongly.
+	 */
 	ufs_mtk_pr_tsk(tsk, tsk_req_compl);
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_biolog_transfer_req_compl);
@@ -297,9 +364,9 @@ void ufs_mtk_biolog_check(unsigned long req_mask)
 	if (!ctx)
 		return;
 
-	spin_lock_irqsave(&ctx->lock, flags);
-
 	end_time = sched_clock();
+
+	spin_lock_irqsave(&ctx->lock, flags);
 
 	if (ctx->busy_start_t)
 		ufs_mtk_bio_ctx_count_usage(ctx, ctx->busy_start_t, end_time);
@@ -378,15 +445,26 @@ static void ufs_mtk_bio_init_ctx(struct ufs_mtk_bio_context *ctx)
 	ctx->period_start_t = sched_clock();
 }
 
-int ufs_mtk_biolog_init(void)
+static struct mtk_btag_vops ufs_mtk_btag_vops = {
+	.seq_show       = ufs_mtk_bio_seq_debug_show_info,
+	.mictx_eval_wqd = ufs_mtk_bio_mictx_eval_wqd,
+};
+
+int ufs_mtk_biolog_init(bool qos_allowed, bool boot_device)
 {
 	struct mtk_blocktag *btag;
+
+	if (qos_allowed)
+		ufs_mtk_btag_vops.earaio_enabled = true;
+
+	if (boot_device)
+		ufs_mtk_btag_vops.boot_device[BTAG_STORAGE_UFS] = true;
 
 	btag = mtk_btag_alloc("ufs",
 		UFS_BIOLOG_RINGBUF_MAX,
 		sizeof(struct ufs_mtk_bio_context),
 		UFS_BIOLOG_CONTEXTS,
-		ufs_mtk_bio_seq_debug_show_info);
+		&ufs_mtk_btag_vops);
 
 	if (btag) {
 		struct ufs_mtk_bio_context *ctx;

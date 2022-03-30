@@ -11,9 +11,13 @@
 # GNU General Public License for more details.
 #
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/mrdump/
 ccflags-y += -I$(srctree)/drivers/scsi/ufs/
+ccflags-y += -I$(srctree)/drivers/mmc/core
 
 obj-$(CONFIG_MTK_BLOCK_IO_TRACER)	+= blocktag.o
-blocktag-y				+= blocktag-core.o blocktag-ufs.o
+blocktag-y				+= blocktag-core.o blocktag-index.o blocktag-ufs.o blocktag-mmc.o
+blocktag-$(CONFIG_MTK_BLOCK_IO_PM_DEBUG)+= blocktag-pm-trace.o
+blocktag-$(CONFIG_MTK_FSCMD_TRACER)+= fscmd-trace.o
 
