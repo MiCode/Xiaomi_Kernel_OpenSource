@@ -14,9 +14,13 @@
 #define TG_INT2_ST						(1L << 2)
 #define EXPDON_ST						(1L << 5)
 #define SOF_INT_ST						(1L << 8)
+#define TG_VS_INT_ORG_ST				(1L << 11)
 #define HW_PASS1_DON_ST					(1L << 20)
 #define SW_PASS1_DON_ST					(1L << 22)
-#define TG_VS_INT_ORG_ST				(1L << 11)
+#define DCIF_SUB_SOF_INT_EN				(1L << 24)
+#define DCIF_SOF_INT_EN					(1L << 25)
+#define P1_DONE_OVER_SOF_INT_ST			(1L << 28)
+#define P1_SKIP_FRAME_INT_ST			(1L << 29)
 
 /* YUV siganl */
 #define YUV_SW_PASS1_DON_ST				(1L << 0)
@@ -73,6 +77,10 @@
 #define REG_HALT4_EN					0x035c
 #define REG_HALT5_EN					0x0360
 #define REG_HALT6_EN					0x0364
+#define REG_HALT7_EN					0x0368
+#define REG_HALT8_EN					0x036c
+#define REG_HALT9_EN					0x03b0
+#define REG_HALT10_EN					0x03b4
 
 #define REG_FLASH					0x03A0
 #define REG_ULTRA_HALT1_EN				0x03c0
@@ -81,12 +89,28 @@
 #define REG_ULTRA_HALT4_EN				0x03cc
 #define REG_ULTRA_HALT5_EN				0x03d0
 #define REG_ULTRA_HALT6_EN				0x03d4
+#define REG_ULTRA_HALT7_EN				0x03d8
+#define REG_ULTRA_HALT8_EN				0x03dc
+#define REG_ULTRA_HALT9_EN				0x03e0
+#define REG_ULTRA_HALT10_EN				0x03e4
+
 #define REG_PREULTRA_HALT1_EN			0x03f0
 #define REG_PREULTRA_HALT2_EN			0x03f4
 #define REG_PREULTRA_HALT3_EN			0x03f8
 #define REG_PREULTRA_HALT4_EN			0x03fc
 #define REG_PREULTRA_HALT5_EN			0x0400
 #define REG_PREULTRA_HALT6_EN			0x0404
+#define REG_PREULTRA_HALT7_EN			0x0408
+#define REG_PREULTRA_HALT8_EN			0x040c
+#define REG_PREULTRA_HALT9_EN			0x0410
+#define REG_PREULTRA_HALT10_EN			0x0414
+
+#define CAMSV_1_WDMA_PORT		0x3FF03C
+#define CAMSV_2_WDMA_PORT		0x3FF3F
+#define RAW_WDMA_PORT			0x1E001
+#define RAW_RDMA_PORT			0x1FFE
+#define YUV_WDMA_PORT			0x7F
+#define YUV_RDMA_PORT			0x0
 
 /* Status check */
 #define REG_CTL_EN						0x0000

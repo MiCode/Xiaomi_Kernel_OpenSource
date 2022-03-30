@@ -2220,7 +2220,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	if (err_status) {
 		struct mtk_camsys_irq_info err_info;
 
-		err_info.irq_type = CAMSYS_IRQ_ERROR;
+		err_info.irq_type = 1 << CAMSYS_IRQ_ERROR;
 		err_info.ts_ns = irq_info.ts_ns;
 		err_info.frame_idx = irq_info.frame_idx;
 		err_info.frame_idx_inner = irq_info.frame_idx_inner;
@@ -2247,7 +2247,7 @@ static irqreturn_t mtk_thread_irq_mraw(int irq, void *data)
 		WARN_ON(len != sizeof(irq_info));
 
 		/* error case */
-		if (unlikely(irq_info.irq_type == CAMSYS_IRQ_ERROR)) {
+		if (unlikely(irq_info.irq_type == (1 << CAMSYS_IRQ_ERROR))) {
 			mraw_handle_error(mraw_dev, &irq_info);
 			continue;
 		}

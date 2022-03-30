@@ -890,6 +890,7 @@ struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 					 struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
+struct mtk_yuv_device *get_yuv_dev(struct mtk_raw_device *raw_dev);
 struct mtk_camsv_device *get_camsv_dev(struct mtk_cam_device *cam,
 					struct mtk_camsv_pipeline *pipe);
 struct mtk_mraw_device *get_mraw_dev(struct mtk_cam_device *cam,

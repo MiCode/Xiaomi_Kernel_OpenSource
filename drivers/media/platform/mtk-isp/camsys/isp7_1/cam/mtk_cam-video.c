@@ -46,7 +46,6 @@ int mtk_cam_yuv_dma_bus_size(int bpp, int pixel_mode_shift)
 	return bus_size / 8; /* in bytes */
 }
 
-static inline
 int mtk_cam_dmao_xsize(int w, unsigned int ipi_fmt, int pixel_mode_shift)
 {
 	const int is_fg		= mtk_cam_is_fullg(ipi_fmt);

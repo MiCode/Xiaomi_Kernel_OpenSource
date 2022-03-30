@@ -186,3 +186,36 @@ int mtk_cam_get_feature_switch(struct mtk_raw_pipeline *raw_pipe,
 
 	return res;
 }
+
+bool mtk_cam_hw_is_otf(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx->used_raw_num)
+		return false;
+
+	return mtk_cam_hw_mode_is_otf(ctx->pipe->hw_mode_pending);
+}
+
+bool mtk_cam_hw_is_dc(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx->used_raw_num)
+		return false;
+
+	return mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode_pending);
+}
+
+bool mtk_cam_hw_is_offline(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx->used_raw_num)
+		return false;
+
+	return mtk_cam_hw_mode_is_offline(ctx->pipe->hw_mode_pending);
+}
+
+bool mtk_cam_hw_is_m2m(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx->used_raw_num)
+		return false;
+
+	return mtk_cam_hw_mode_is_m2m(ctx->pipe->hw_mode_pending);
+}
+

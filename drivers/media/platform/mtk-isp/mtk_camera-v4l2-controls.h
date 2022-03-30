@@ -197,6 +197,7 @@ struct mtk_cam_resource_raw {
 	__u8	path_sel;
 	__u8	pixel_mode;
 	__u64	throughput;
+	__s64	hw_mode;
 };
 
 /*

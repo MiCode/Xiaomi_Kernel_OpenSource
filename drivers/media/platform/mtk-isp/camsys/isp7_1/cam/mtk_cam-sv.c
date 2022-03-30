@@ -1358,13 +1358,16 @@ int mtk_cam_sv_enquehwbuf(
 
 int mtk_cam_sv_write_rcnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id)
 {
+	struct device *dev_sv;
+	dev_sv = ctx->cam->sv.devs[pipe_id - MTKCAM_SUBDEV_CAMSV_START];
+
+	return mtk_cam_sv_write_rcnt_sv_dev(dev_get_drvdata(dev_sv));
+}
+
+int mtk_cam_sv_write_rcnt_sv_dev(struct mtk_camsv_device *camsv_dev)
+{
 	int ret = 0;
 	union CAMSV_TOP_FBC_CNT_SET reg;
-	struct device *dev_sv;
-	struct mtk_camsv_device *camsv_dev;
-
-	dev_sv = ctx->cam->sv.devs[pipe_id - MTKCAM_SUBDEV_CAMSV_START];
-	camsv_dev = dev_get_drvdata(dev_sv);
 
 	reg.Raw = 0;
 	reg.Bits.RCNT_INC1 = 1;
@@ -1446,6 +1449,19 @@ int mtk_cam_sv_setup_cfg_info(struct mtk_camsv_device *dev,
 	}
 
 	return ret;
+}
+
+int mtk_cam_sv_frame_no_inner(struct mtk_camsv_device *dev)
+{
+	return readl_relaxed(dev->base_inner + REG_CAMSV_FRAME_SEQ_NO);
+}
+
+int mtk_cam_sv_fbc(struct mtk_camsv_device *dev)
+{
+	unsigned int fbc_imgo_ctl2 =
+		CAMSV_READ_REG(dev->base + REG_CAMSV_FBC_IMGO_CTL2);
+
+	return (fbc_imgo_ctl2 & 0x1FF0000) >> 16;
 }
 
 int mtk_cam_find_sv_dev_index(
@@ -1681,6 +1697,7 @@ int mtk_cam_sv_dev_config(
 	struct device *dev_sv;
 	struct mtk_camsv_device *camsv_dev;
 	struct v4l2_format *img_fmt;
+	struct v4l2_format *size_img_fmt;
 	unsigned int i;
 	int ret, pad_idx, pixel_mode = 0;
 
@@ -1688,17 +1705,28 @@ int mtk_cam_sv_dev_config(
 		if (hw_scen & (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW)) {
 			img_fmt = &ctx->pipe->vdev_nodes[
 				MTK_RAW_MAIN_STREAM_SV_1_OUT - MTK_RAW_SINK_NUM].active_fmt;
+			size_img_fmt = img_fmt;
 			pad_idx = PAD_SRC_RAW_W0;
+			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
+		} else if (hw_scen & (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER)) {
+			// config camsv with sensor(raw sink)
+			img_fmt = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
+				.active_fmt;
+			size_img_fmt = &ctx->pipe->vdev_nodes[MTK_RAW_SINK - MTK_RAW_SINK_BEGIN]
+				.sink_fmt_for_dc_rawi;
+			pad_idx = PAD_SRC_RAW0;
 			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
 		} else {
 			img_fmt = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
 				.active_fmt;
+			size_img_fmt = img_fmt;
 			pad_idx = PAD_SRC_RAW0;
 			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
 		}
 	} else {
 		img_fmt = &ctx->sv_pipe[idx]
 			->vdev_nodes[MTK_CAMSV_MAIN_STREAM_OUT-MTK_CAMSV_SINK_NUM].active_fmt;
+		size_img_fmt = img_fmt;
 		pad_idx = ctx->sv_pipe[idx]->seninf_padidx;
 		mf = &ctx->sv_pipe[idx]->cfg[MTK_CAMSV_SINK].mbus_fmt;
 	}
@@ -1709,10 +1737,11 @@ int mtk_cam_sv_dev_config(
 	cfg_in_param.data_pattern = 0x0;
 	cfg_in_param.in_crop.p.x = 0;
 	cfg_in_param.in_crop.p.y = 0;
-	cfg_in_param.in_crop.s.w = img_fmt->fmt.pix_mp.width;
-	cfg_in_param.in_crop.s.h = img_fmt->fmt.pix_mp.height;
-	dev_info(dev, "sink pad code:0x%x raw's imgo stride:%d\n", mf->code,
-		img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline);
+	cfg_in_param.in_crop.s.w = size_img_fmt->fmt.pix_mp.width;
+	cfg_in_param.in_crop.s.h = size_img_fmt->fmt.pix_mp.height;
+	dev_info(dev, "sink pad code:0x%x raw's imgo wxh: %dx%d stride:%d\n",
+		mf->code, cfg_in_param.in_crop.s.w, cfg_in_param.in_crop.s.h,
+		size_img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline);
 	cfg_in_param.raw_pixel_id = mtk_cam_get_sensor_pixel_id(mf->code);
 	cfg_in_param.subsample = 0;
 	cfg_in_param.fmt = mtk_cam_sv_format_sel(img_fmt->fmt.pix_mp.pixelformat);
@@ -1764,7 +1793,7 @@ int mtk_cam_sv_dev_config(
 	mtk_cam_sv_tg_config(camsv_dev, &cfg_in_param);
 	mtk_cam_sv_top_config(camsv_dev, &cfg_in_param);
 	mtk_cam_sv_dmao_config(camsv_dev, &cfg_in_param,
-				hw_scen, img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline);
+				hw_scen, size_img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline);
 	mtk_cam_sv_fbc_config(camsv_dev, &cfg_in_param);
 	mtk_cam_sv_tg_enable(camsv_dev, &cfg_in_param);
 	mtk_cam_sv_dmao_enable(camsv_dev, &cfg_in_param);
@@ -2206,7 +2235,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	if (err_status) {
 		struct mtk_camsys_irq_info err_info;
 
-		err_info.irq_type = CAMSYS_IRQ_ERROR;
+		err_info.irq_type = 1 << CAMSYS_IRQ_ERROR;
 		err_info.ts_ns = irq_info.ts_ns;
 		err_info.frame_idx = irq_info.frame_idx;
 		err_info.frame_idx_inner = irq_info.frame_idx_inner;
@@ -2233,7 +2262,7 @@ static irqreturn_t mtk_thread_irq_camsv(int irq, void *data)
 		WARN_ON(len != sizeof(irq_info));
 
 		/* error case */
-		if (unlikely(irq_info.irq_type == CAMSYS_IRQ_ERROR)) {
+		if (unlikely(irq_info.irq_type == (1 << CAMSYS_IRQ_ERROR))) {
 			camsv_handle_err(camsv_dev, &irq_info);
 			continue;
 		}

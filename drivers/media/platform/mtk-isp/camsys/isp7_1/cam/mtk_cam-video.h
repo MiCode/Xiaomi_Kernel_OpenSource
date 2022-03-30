@@ -125,6 +125,7 @@ struct mtk_cam_video_device {
 	/* use first 4 elements of reserved field of v4l2_pix_format_mplane as request fd */
 	struct v4l2_format pending_fmt;
 	/* use first elements of reserved field of v4l2_selection as request fd*/
+	struct v4l2_format sink_fmt_for_dc_rawi;
 	struct v4l2_selection pending_crop;
 	/* Serializes vb2 queue and video device operations */
 	struct mutex q_lock;
@@ -147,6 +148,7 @@ struct mtk_format_info {
 	u8 bit_r_den;
 };
 
+int mtk_cam_dmao_xsize(int w, unsigned int ipi_fmt, int pixel_mode_shift);
 int mtk_cam_fmt_get_raw_feature(struct v4l2_pix_format_mplane *fmt_mp);
 void mtk_cam_fmt_set_raw_feature(struct v4l2_pix_format_mplane *fmt_mp, int raw_feature);
 int mtk_cam_fmt_get_request(struct v4l2_pix_format_mplane *fmt_mp);
