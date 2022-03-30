@@ -965,6 +965,230 @@ static void cmdq_test_mbox_reuse_buf_va(struct cmdq_test *test)
 		cmdq_msg("val:%#x equals to ans:%#x", val, ans);
 }
 
+struct cmdq_test_mbox_routine {
+	struct cmdq_pkt *pkt;
+	u16 mod;
+	u16 pipe;
+	u32 pa;
+	u32 pas;
+	u16 spr;
+	const u32 *reg;
+	size_t sz;
+	const u32 *ext_reg;
+	size_t ext_sz;
+	u64 *inst;
+	s32 mark;
+	u32 aid_sel;
+	bool secure;
+};
+
+static void cmdq_test_mbox_prebuilt_routine(struct cmdq_test_mbox_routine r)
+{
+	s32 i;
+
+	if (r.inst)
+		*r.inst |= CMDQ_REG_SHIFT_ADDR(
+			(s32)r.pkt->cmd_buf_size - r.mark - CMDQ_INST_SIZE);
+
+	cmdq_pkt_write_value_addr(r.pkt, r.pa + 0x000, 0x1, 0x00000001);
+	if (r.mod == CMDQ_PREBUILT_MML)
+		cmdq_pkt_write_value_addr(r.pkt, r.pa + 0x024, 0x1, UINT_MAX);
+	for (i = 0; i < r.sz; i++)
+		cmdq_pkt_write_reg_addr(r.pkt, r.pa + r.reg[i],
+			CMDQ_CPR_PREBUILT(r.mod, r.pipe, i), UINT_MAX);
+	for (i = 0; i < r.ext_sz; i++) {
+		if (r.ext_reg[i] == 0x000 || r.ext_reg[i] == 0x024)
+			continue;
+		cmdq_pkt_write_reg_addr(r.pkt, r.pa + r.ext_reg[i],
+			CMDQ_CPR_PREBUILT_EXT(r.mod, r.pipe, i), UINT_MAX);
+	}
+	cmdq_pkt_write_value_addr(r.pkt, r.pa + 0x038,
+				  r.secure ? (1 << 18) : 0, 1 << 18);
+	cmdq_pkt_write_value_addr(r.pkt, r.pas + 0xfa8,
+				  r.secure ? r.aid_sel : 0, r.aid_sel);
+}
+
+static void cmdq_test_mbox_prebuilt_instr_ext_table(struct cmdq_test *test,
+	struct cmdq_test_mbox_routine r, const u16 event,
+	const u32 pa0, const u32 pa1, const u32 pas, const bool secure)
+{
+	struct cmdq_pkt *pkt;
+	struct cmdq_pkt_buffer *buf;
+	struct cmdq_operand lop, rop;
+	u64 *inst[6];
+	s32 mark[6], i;
+
+	cmdq_msg("%s: mod:%hu event:%hu pa0:%#lx pa1:%#lx pas:%#lx",
+		__func__, r.mod, event, pa0, pa1, pas);
+
+	pkt = cmdq_pkt_create(test->clt);
+	cmdq_pkt_wfe(pkt, event);
+
+	/* conditional jumps */
+	lop.reg = true;
+	lop.idx = CMDQ_CPR_PREBUILT_PIPE(r.mod);
+	rop.reg = false;
+	if (pa0 && pa1) {
+		rop.value = 1;
+		mark[0] = pkt->cmd_buf_size;
+		inst[0] = cmdq_pkt_get_curr_buf_va(pkt);
+		cmdq_pkt_assign_command(pkt, r.spr, 0);
+		cmdq_pkt_cond_jump(pkt, r.spr, &lop, &rop, CMDQ_EQUAL);
+	}
+	if (pa0 && secure) {
+		rop.value = 2;
+		mark[1] = pkt->cmd_buf_size;
+		inst[1] = cmdq_pkt_get_curr_buf_va(pkt);
+		cmdq_pkt_assign_command(pkt, r.spr, 0);
+		cmdq_pkt_cond_jump(pkt, r.spr, &lop, &rop, CMDQ_EQUAL);
+	}
+	if (pa1 && secure) {
+		rop.value = 3;
+		mark[2] = pkt->cmd_buf_size;
+		inst[2] = cmdq_pkt_get_curr_buf_va(pkt);
+		cmdq_pkt_assign_command(pkt, r.spr, 0);
+		cmdq_pkt_cond_jump(pkt, r.spr, &lop, &rop, CMDQ_EQUAL);
+	}
+
+	/* routines */
+	r.pkt = pkt;
+	r.pas = pas;
+	if (pa0) {
+		/* case 0: normal pipe 0 */
+		r.pa = pa0;
+		r.aid_sel = 0x15;
+		cmdq_test_mbox_prebuilt_routine(r);
+
+		if (pa1 || secure) {
+			mark[3] = pkt->cmd_buf_size;
+			inst[3] = cmdq_pkt_get_curr_buf_va(pkt);
+			cmdq_pkt_jump(pkt, 0);
+		}
+	}
+	if (pa1) {
+		/* case 1: normal pipe 1 */
+		r.pipe = 1;
+		r.pa = pa1;
+		r.inst = inst[0];
+		r.mark = mark[0];
+		r.aid_sel = 0x2a;
+		cmdq_test_mbox_prebuilt_routine(r);
+
+		if (secure) {
+			mark[4] = pkt->cmd_buf_size;
+			inst[4] = cmdq_pkt_get_curr_buf_va(pkt);
+			cmdq_pkt_jump(pkt, 0);
+		}
+	}
+	if (pa1 && secure) {
+		/* case 3: secure pipe 1 */
+		r.inst = inst[2];
+		r.mark = mark[2];
+		r.secure = true;
+		cmdq_test_mbox_prebuilt_routine(r);
+
+		if (pa0) {
+			mark[5] = pkt->cmd_buf_size;
+			inst[5] = cmdq_pkt_get_curr_buf_va(pkt);
+			cmdq_pkt_jump(pkt, 0);
+		}
+	}
+	if (pa0 && secure) {
+		/* case 2: secure pipe 0 */
+		r.pipe = 0;
+		r.pa = pa0;
+		r.inst = inst[1];
+		r.mark = mark[1];
+		r.aid_sel = 0x15;
+		r.secure = true;
+		cmdq_test_mbox_prebuilt_routine(r);
+	}
+
+	if (inst[3])
+		*inst[3] |= CMDQ_REG_SHIFT_ADDR((s32)pkt->cmd_buf_size - mark[3]);
+	if (inst[4])
+		*inst[4] |= CMDQ_REG_SHIFT_ADDR((s32)pkt->cmd_buf_size - mark[4]);
+	if (inst[5])
+		*inst[5] |= CMDQ_REG_SHIFT_ADDR((s32)pkt->cmd_buf_size - mark[5]);
+	cmdq_pkt_set_event(pkt, event + 1);
+	cmdq_pkt_finalize_loop(pkt);
+	cmdq_dump_pkt(pkt, 0, true);
+
+	buf = list_first_entry_or_null(&pkt->buf, typeof(*buf), list_entry);
+	if (!buf) {
+		cmdq_pkt_destroy(pkt);
+		return;
+	}
+
+	cmdq_msg("%s: pkt:%p pa:%#lx cmd_buf_size:%#lx pc:%#lx end:%#lx",
+		__func__, pkt, (unsigned long)buf->pa_base, pkt->cmd_buf_size,
+		CMDQ_REG_SHIFT_ADDR((unsigned long)buf->pa_base),
+		CMDQ_REG_SHIFT_ADDR((unsigned long)buf->pa_base +
+			pkt->cmd_buf_size));
+
+	for (i = 0; i < pkt->cmd_buf_size / CMDQ_INST_SIZE; i++)
+		cmdq_msg(",%d,%#llx,", i, *((u64 *)buf->va_base + i));
+
+	cmdq_pkt_destroy(pkt);
+}
+
+static void cmdq_test_mbox_prebuilt_instr_ext(struct cmdq_test *test,
+	const u16 mod, const u16 event)
+{
+	/* configure */
+	const u16 spr = CMDQ_THR_SPR_IDX3;
+	static const u32 reg[] = {
+		0x118, 0x120, 0x128, 0x148, 0x150, 0x200,
+		0xf00, 0xf08, 0xf10, 0xf20, 0xf28, 0xf30, 0xf34,
+		0xf38, 0xf3c, 0xf40, 0xf44, 0xf48, 0xf4c, 0xf50};
+	static const u32 mdp_reg[] = {
+		0x000, 0x020, 0x024, 0x028, 0x030, 0x038,
+		0x060, 0x068, 0x070, 0x078, 0x080, 0x090, 0x098,
+		0x240, 0x244, 0x248, 0x250, 0x254, 0x258, 0x260, 0x264,
+		0x268, 0x270, 0x274, 0x278, 0x280, 0x284, 0x288, 0x290, 0x2a0};
+	static const u32 mml_reg[] = {
+		0x020, 0x028, 0x030, 0x038,
+		0x060, 0x068, 0x070, 0x078, 0x080, 0x090, 0x098,
+		0x240, 0x244, 0x248, 0x250, 0x254, 0x258, 0x260, 0x264,
+		0x268, 0x270, 0x274, 0x278, 0x280, 0x284, 0x288, 0x290, 0x2a0};
+	struct cmdq_test_mbox_routine r = {0};
+
+	r.mod = mod;
+	r.spr = spr;
+	r.reg = reg;
+	r.sz = ARRAY_SIZE(reg);
+
+	if (mod == CMDQ_PREBUILT_MDP) {
+		r.ext_reg = mdp_reg;
+		r.ext_sz = ARRAY_SIZE(mdp_reg);
+
+		cmdq_test_mbox_prebuilt_instr_ext_table(test, r, event,
+			0x1f003000,
+			0x1f004000,
+			0x1f000000, true);
+		cmdq_test_mbox_prebuilt_instr_ext_table(test, r, event,
+			0,
+			0x1f004000,
+			0x1f000000, true);
+		cmdq_test_mbox_prebuilt_instr_ext_table(test, r, event,
+			0x1f003000,
+			0,
+			0x1f000000, false);
+	} else if (mod == CMDQ_PREBUILT_MML) {
+		r.ext_reg = mml_reg;
+		r.ext_sz = ARRAY_SIZE(mml_reg);
+
+		cmdq_test_mbox_prebuilt_instr_ext_table(test, r, event,
+			0x1f803000,
+			0x1f804000,
+			0x1f800000, true);
+		cmdq_test_mbox_prebuilt_instr_ext_table(test, r, event,
+			0x1f003000,
+			0,
+			0x1f000000, true);
+	}
+}
+
 static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
 	const u16 mod, const u16 event)
 {
@@ -975,7 +1199,7 @@ static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
 	s32 mark, mark2, i;
 	/* configure */
 	const u16 spr = CMDQ_THR_SPR_IDX3;
-	unsigned long pa0, pa1, reg[20] = {
+	unsigned long pa0, pa1, reg[] = {
 		0x118, 0x120, 0x128, 0x148, 0x150, 0x200,
 		0xf00, 0xf08, 0xf10, 0xf20, 0xf28, 0xf30, 0xf34,
 		0xf38, 0xf3c, 0xf40, 0xf44, 0xf48, 0xf4c, 0xf50};
@@ -992,8 +1216,7 @@ static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
 	} else {
 		pa0 = CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_TIMER);
 		pa1 = CMDQ_GPR_R32(test->gce.pa, CMDQ_GPR_DEBUG_DUMMY);
-		for (i = 0; i < 20; i++)
-			reg[i] = 0;
+		memset(reg, 0, sizeof(reg));
 	}
 	cmdq_msg("%s: mod:%hu event:%hu pa0:%#lx pa1:%#lx",
 		__func__, mod, event, pa0, pa1);
@@ -1013,7 +1236,7 @@ static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
 	cmdq_pkt_cond_jump(pkt, spr, &lop, &rop, CMDQ_EQUAL);
 
 	/* pipe 0 */
-	for (i = 0; i < 20; i++)
+	for (i = 0; i < ARRAY_SIZE(reg); i++)
 		cmdq_pkt_write_reg_addr(pkt, pa0 + reg[i],
 			CMDQ_CPR_PREBUILT(mod, 0, i), UINT_MAX);
 
@@ -1024,7 +1247,7 @@ static void cmdq_test_mbox_prebuilt_instr(struct cmdq_test *test,
 	/* pipe 1 */
 	*inst |= CMDQ_REG_SHIFT_ADDR(
 		(s32)pkt->cmd_buf_size - mark - CMDQ_INST_SIZE);
-	for (i = 0; i < 20; i++)
+	for (i = 0; i < ARRAY_SIZE(reg); i++)
 		cmdq_pkt_write_reg_addr(pkt, pa1 + reg[i],
 			CMDQ_CPR_PREBUILT(mod, 1, i), UINT_MAX);
 
@@ -1325,10 +1548,12 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_reuse_buf_va(test);
 		break;
 	case 18:
-		cmdq_test_mbox_prebuilt_instr(test,
+		cmdq_test_mbox_prebuilt_instr_ext(test,
 			CMDQ_PREBUILT_MDP, CMDQ_TOKEN_PREBUILT_MDP_WAIT);
-		cmdq_test_mbox_prebuilt_instr(test,
+		cmdq_test_mbox_prebuilt_instr_ext(test,
 			CMDQ_PREBUILT_MML, CMDQ_TOKEN_PREBUILT_MML_WAIT);
+		cmdq_test_mbox_prebuilt_instr(test,
+			CMDQ_PREBUILT_VFMT, CMDQ_TOKEN_PREBUILT_VFMT_WAIT);
 		break;
 	case 19:
 		cmdq_test_mbox_prebuilt(test, CMDQ_PREBUILT_DISP, 0, false);
