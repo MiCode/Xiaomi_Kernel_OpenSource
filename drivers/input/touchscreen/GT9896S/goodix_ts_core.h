@@ -41,9 +41,6 @@
 #include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
 #endif
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif
 
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 #include "mtk_disp_notify.h"
@@ -140,6 +137,7 @@ struct gt9896s_ts_board_data {
 	unsigned int panel_key_map[GOODIX_MAX_TP_KEY];
 	unsigned int x2x;
 	unsigned int y2y;
+	unsigned int fake_status;
 	bool pen_enable;
 	unsigned int tp_key_num;
 	/*add end*/
@@ -471,8 +469,6 @@ struct gt9896s_ts_core {
 
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	struct notifier_block disp_notifier;
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	struct early_suspend early_suspend;
 #endif
 };
 

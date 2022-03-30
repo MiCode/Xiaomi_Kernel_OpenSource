@@ -432,15 +432,21 @@ get_default_pkg:
 static int gt9896s_read_cfg_bin(struct device *dev, struct gt9896s_cfg_bin *cfg_bin)
 {
 	const struct firmware *firmware = NULL;
-	char cfg_bin_name[32] = {0x00};
+	char cfg_bin_name[128] = {0x00};
 	int i = 0, r;
 
 	/*get cfg_bin_name*/
-	r = snprintf(cfg_bin_name, sizeof(cfg_bin_name), "%s%s.bin",
-		TS_DEFAULT_CFG_BIN, gt9896s_config_buf);
-	if (r >= sizeof(cfg_bin_name)) {
-		ts_err("get cfg_bin name FAILED!!!");
-		goto exit;
+	if (gt9896s_find_touch_node == 1) {
+		strncat(panel_config_buf, ".bin", 4);
+		strncpy(cfg_bin_name, panel_config_buf, sizeof(cfg_bin_name));
+	} else {
+		r = snprintf(cfg_bin_name, sizeof(cfg_bin_name), "%s%s.bin",
+			TS_DEFAULT_CFG_BIN, gt9896s_config_buf);
+
+		if (r >= sizeof(cfg_bin_name)) {
+			ts_err("get cfg_bin name FAILED!!!");
+			goto exit;
+		}
 	}
 
 	ts_info("cfg_bin_name:%s", cfg_bin_name);

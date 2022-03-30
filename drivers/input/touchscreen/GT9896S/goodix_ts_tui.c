@@ -35,7 +35,7 @@ int tpd_enter_tui(void)
 
 	gt9896s_ts_irq_enable(ts_core_for_tui, false);
 
-//	mt_spi_enable_master_clk(ts_core_for_tui->ts_dev->spi_dev);
+	mt_spi_enable_master_clk(ts_core_for_tui->ts_dev->spi_dev);
 
 	atomic_set(&gt9896s_tui_flag, true);
 
@@ -49,7 +49,7 @@ int tpd_exit_tui(void)
 
 	ts_info("[%s] exit TUI", __func__);
 
-//	mt_spi_disable_master_clk(ts_core_for_tui->ts_dev->spi_dev);
+	mt_spi_disable_master_clk(ts_core_for_tui->ts_dev->spi_dev);
 
 	gt9896s_ts_irq_enable(ts_core_for_tui, false);
 
