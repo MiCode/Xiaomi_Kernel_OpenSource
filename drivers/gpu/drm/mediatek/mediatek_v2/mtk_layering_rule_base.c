@@ -77,7 +77,6 @@ struct debug_info_layer {
 
 struct debug_info_disp {
 	unsigned int max_bw_layers;
-	struct debug_info_layer layer[PRIMARY_SESSION_INPUT_LAYER_COUNT];
 };
 
 static struct debug_info_disp g_debug_info[HRT_DISP_TYPE_NUM];
@@ -408,8 +407,8 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 #define _HRT_FMT \
 	"HRT hrt_num:0x%x/mod:%d/dal:%d/addon_scn:(%d, %d, %d)/bd_tb:%d/i:%d\n"
 #define _L_FMT \
-	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x/u_cap0x%x" \
-	"/compr%d/secure%d/hrt_w:%d\n"
+	"L%d->%d/(%d,%d,%d,%d)/(%d,%d,%d,%d)/f0x%x/ds%d/e%d/cap0x%x" \
+	"/compr%d/secure%d\n"
 
 	if (debug_level < DISP_DEBUG_LEVEL_INFO) {
 		DDPMSG(_HRT_FMT,
@@ -446,10 +445,8 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 				       layer_info->dataspace,
 				       layer_info->ext_sel_layer,
 				       layer_info->layer_caps,
-				       g_debug_info[i].layer[j].user_cap,
 				       layer_info->compress,
-				       layer_info->secure,
-				       g_debug_info[i].layer[j].hrt_calc_bw);
+				       layer_info->secure);
 			}
 		}
 	} else {
@@ -487,10 +484,8 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 					layer_info->dataspace,
 					layer_info->ext_sel_layer,
 					layer_info->layer_caps,
-					g_debug_info[i].layer[j].user_cap,
 					layer_info->compress,
-					layer_info->secure,
-					g_debug_info[i].layer[j].hrt_calc_bw);
+					layer_info->secure);
 			}
 		}
 	}
@@ -567,20 +562,6 @@ print_disp_info_to_log_buffer(struct drm_mtk_layering_info *disp_info)
 	n += snprintf(status_buf + n, LOGGER_BUFFER_SIZE - n,
 		"Last hrt query data[end]\n");
 #endif
-}
-
-static void record_user_info(struct drm_mtk_layering_info *disp_info)
-{
-	int i = 0, j = 0;
-
-	for (i = 0; i < HRT_DISP_TYPE_NUM; i++) {
-		for (j = 0; j < disp_info->layer_num[i]; j++) {
-			struct drm_mtk_layer_config *layer_info;
-
-			layer_info = &disp_info->input_config[i][j];
-			g_debug_info[i].layer[j].user_cap = layer_info->layer_caps;
-		}
-	}
 }
 
 static void mmp_layering_rule_result(void)
@@ -1414,7 +1395,6 @@ static int _calc_hrt_num(struct drm_device *dev,
 
 			sum_overlap_w += overlap_w;
 			add_layer_entry(layer_info, true, overlap_w, i);
-			g_debug_info[disp].layer[i].hrt_calc_bw = overlap_w;
 			g_debug_info[disp].max_bw_layers |= 1 << i;
 		} else if (i == disp_info->gles_head[disp]) {
 			/* Add GLES layer */
@@ -2952,7 +2932,6 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		return -EFAULT;
 	}
 
-	record_user_info(&layering_info);
 	print_disp_info_to_log_buffer(&layering_info);
 #ifdef HRT_DEBUG_LEVEL1
 	DDPMSG("[Input data]\n");
