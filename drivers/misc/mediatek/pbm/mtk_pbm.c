@@ -43,7 +43,7 @@ static bool mt_pbm_debug;
 #define DLPTCB_MAX_NUM 16
 static struct pbm_callback_table pbmcb_tb[DLPTCB_MAX_NUM] = { {0} };
 #if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
-static struct pbm_gpu_callback_table pbm_gpu_cb = {0, 0, 0, 0, 0, 0};
+static struct pbm_gpu_callback_table pbm_gpu_cb = {0, 0, 0, 0, 0};
 #endif
 
 struct hpf hpf_ctrl = {
