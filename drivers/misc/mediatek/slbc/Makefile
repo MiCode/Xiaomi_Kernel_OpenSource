@@ -26,7 +26,6 @@ obj-${CONFIG_MTK_SLBC} += mtk_slbc.o
 mtk_slbc-y += slbc.o
 endif
 
-ifneq ($(CONFIG_MTK_SLBC_MMSRAM),)
-mtk_slbc-y += mmsram.o
-endif
+obj-${CONFIG_MTK_SLBC_MMSRAM} += mmsram.o
+
 

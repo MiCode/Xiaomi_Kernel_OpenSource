@@ -12,10 +12,11 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <mt-plat/aee.h>
-#include <mt-plat/mtk_secure_api.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include "mmsram.h"
 
 #define MMSYSRAM_INTEN0		(0x000)
@@ -71,6 +72,7 @@
 #define MAX_CLK_NUM	(8)
 
 struct mmsram_dev {
+	struct device *dev;
 	void __iomem *ctrl_base;
 	void __iomem *sram_paddr;
 	void __iomem *sram_vaddr;
@@ -86,7 +88,9 @@ enum smc_mmsram_request {
 static struct work_struct dump_reg_work;
 
 static struct mmsram_dev *mmsram;
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 static atomic_t clk_ref = ATOMIC_INIT(0);
+#endif
 static bool is_secure_on;
 static bool debug_enable;
 
@@ -99,6 +103,7 @@ static int set_clk_enable(bool is_enable)
 	int i, j;
 
 	if (is_enable) {
+		pm_runtime_get_sync(mmsram->dev);
 		for (i = 0; i < MAX_CLK_NUM; i++) {
 			if (mmsram->clk[i])
 				ret = clk_prepare_enable(mmsram->clk[i]);
@@ -117,6 +122,7 @@ static int set_clk_enable(bool is_enable)
 		for (i = MAX_CLK_NUM - 1; i >= 0; i--)
 			if (mmsram->clk[i])
 				clk_disable_unprepare(mmsram->clk[i]);
+		pm_runtime_put_sync(mmsram->dev);
 		atomic_dec(&clk_ref);
 	}
 #endif
@@ -165,6 +171,7 @@ void mmsram_set_secure(bool secure_on)
 		writel(0, mmsram->ctrl_base + MMSYSRAM_SEC_CTRL0);
 	after_reg_rw();
 }
+EXPORT_SYMBOL_GPL(mmsram_set_secure);
 
 static void init_mmsram_reg(void)
 {
@@ -310,6 +317,8 @@ static int mmsram_probe(struct platform_device *pdev)
 	if (!mmsram)
 		return -ENOMEM;
 
+	mmsram->dev = &pdev->dev;
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_notice(&pdev->dev, "could not get resource for ctrl\n");
@@ -369,6 +378,7 @@ static int mmsram_probe(struct platform_device *pdev)
 			"failed to register ISR %d (%d)", irq, err);
 		return err;
 	}
+	pm_runtime_enable(&pdev->dev);
 
 	INIT_WORK(&dump_reg_work, dump_reg_func);
 
