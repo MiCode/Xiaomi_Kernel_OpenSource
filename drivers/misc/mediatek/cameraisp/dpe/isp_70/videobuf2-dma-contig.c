@@ -60,14 +60,14 @@ static unsigned long vb2_dc_get_contiguous_size(struct sg_table *sgt)
 /*         callbacks for all buffers         */
 /*********************************************/
 
-static void *vb2_dc_cookie(void *buf_priv)
+static void *vb2_dc_cookie(struct vb2_buffer *vb, void *buf_priv)
 {
 	struct vb2_dc_buf *buf = buf_priv;
 
 	return &buf->dma_addr;
 }
 
-static void *vb2_dc_vaddr(void *buf_priv)
+static void *vb2_dc_vaddr(struct vb2_buffer *vb, void *buf_priv)
 {
 	struct vb2_dc_buf *buf = buf_priv;
 	struct dma_buf_map map;
@@ -135,9 +135,7 @@ void vb2_dc_put(void *buf_priv)
 	kfree(buf);
 }
 
-void *vb2_dc_alloc(struct device *dev, unsigned long attrs,
-			  unsigned long size, enum dma_data_direction dma_dir,
-			  gfp_t gfp_flags)
+void *vb2_dc_alloc(struct vb2_buffer *vb, struct device *dev, unsigned long size)
 {
 	struct vb2_dc_buf *buf;
 
@@ -148,10 +146,10 @@ void *vb2_dc_alloc(struct device *dev, unsigned long attrs,
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
-	if (attrs)
-		buf->attrs = attrs;
+	//if (attrs)
+	//	buf->attrs = attrs;
 	buf->cookie = dma_alloc_attrs(dev, size, &buf->dma_addr,
-					GFP_KERNEL | gfp_flags, buf->attrs);
+					GFP_KERNEL, buf->attrs);
 	if (!buf->cookie) {
 		dev_info(dev, "dma_alloc_coherent of size %ld failed\n", size);
 		kfree(buf);
@@ -164,7 +162,7 @@ void *vb2_dc_alloc(struct device *dev, unsigned long attrs,
 	/* Prevent the device from being released while the buffer is used */
 	buf->dev = get_device(dev);
 	buf->size = size;
-	buf->dma_dir = dma_dir;
+	//buf->dma_dir = dma_dir;
 
 	buf->handler.refcount = &buf->refcount;
 	buf->handler.put = vb2_dc_put;
@@ -383,7 +381,7 @@ static struct sg_table *vb2_dc_get_base_sgt(struct vb2_dc_buf *buf)
 	return sgt;
 }
 
-struct dma_buf *vb2_dc_get_dmabuf(void *buf_priv, unsigned long flags)
+struct dma_buf *vb2_dc_get_dmabuf(struct vb2_buffer *vb, void *buf_priv, unsigned long flags)
 {
 	struct vb2_dc_buf *buf = buf_priv;
 	struct dma_buf *dbuf;
@@ -681,9 +679,8 @@ void vb2_dc_detach_dmabuf(void *mem_priv)
 	dma_buf_detach(buf->db_attach->dmabuf, buf->db_attach);
 	kfree(buf);
 }
-
-void *vb2_dc_attach_dmabuf(struct device *dev, struct dma_buf *dbuf,
-	unsigned long size, enum dma_data_direction dma_dir)
+void *vb2_dc_attach_dmabuf(struct vb2_buffer *vb, struct device *dev, struct dma_buf *dbuf,
+       unsigned long size)
 {
 	struct vb2_dc_buf *buf;
 	struct dma_buf_attachment *dba;
@@ -707,7 +704,7 @@ void *vb2_dc_attach_dmabuf(struct device *dev, struct dma_buf *dbuf,
 		return dba;
 	}
 
-	buf->dma_dir = dma_dir;
+	//buf->dma_dir = dma_dir;
 	buf->size = size;
 	buf->db_attach = dba;
 

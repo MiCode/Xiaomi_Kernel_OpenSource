@@ -6137,12 +6137,13 @@ if (DPE_dev->irq > 0) {
 		//LOG_INF("%s: No suitable DMA available\n", __func__);
 
 	kernel_dpebuf =
-	vb2_dc_alloc(gdev, DMA_ATTR_WRITE_COMBINE, WB_TOTAL_SIZE,
-	DMA_FROM_DEVICE, 0);
-	dbuf = vb2_dc_get_dmabuf(kernel_dpebuf, O_RDWR);
+	//vb2_dc_alloc(gdev, DMA_ATTR_WRITE_COMBINE, WB_TOTAL_SIZE,
+	//DMA_FROM_DEVICE, 0);
+	vb2_dc_alloc(NULL, gdev, WB_TOTAL_SIZE);
+	dbuf = vb2_dc_get_dmabuf(NULL, kernel_dpebuf, O_RDWR);
 	refcount_dec(&kernel_dpebuf->refcount);
 	dpebuf =
-	vb2_dc_attach_dmabuf(gdev, dbuf, WB_TOTAL_SIZE, DMA_FROM_DEVICE);
+	vb2_dc_attach_dmabuf(NULL, gdev, dbuf, WB_TOTAL_SIZE);
 	if (vb2_dc_map_dmabuf(dpebuf) != 0)
 		LOG_INF("Allocate Buffer Fail!");
 	g_dpewb_dvme_int_Buffer_pa = (dma_addr_t *)dpebuf->dma_addr;

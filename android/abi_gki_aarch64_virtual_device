@@ -23,6 +23,9 @@
   blk_queue_physical_block_size
   bpf_trace_run2
   bpf_trace_run3
+  bt_err
+  bt_info
+  bt_warn
   cancel_delayed_work_sync
   cancel_work_sync
   __cfi_slowpath_diag
@@ -60,6 +63,7 @@
   device_add_disk
   device_create
   device_create_file
+  device_init_wakeup
   device_release_driver
   device_remove_file
   device_unregister
@@ -102,6 +106,14 @@
   get_random_bytes
   get_unused_fd_flags
   gic_nonsecure_priorities
+  gpiod_put
+  hci_alloc_dev_priv
+  __hci_cmd_sync
+  __hci_cmd_sync_ev
+  hci_free_dev
+  hci_recv_frame
+  hci_register_dev
+  hci_unregister_dev
   ida_alloc_range
   ida_free
   init_pseudo
@@ -148,6 +160,8 @@
   ktime_get_real_ts64
   ktime_get_ts64
   ktime_get_with_offset
+  kvfree
+  kvmalloc_node
   __list_add_valid
   __list_del_entry_valid
   __local_bh_enable_ip
@@ -216,12 +230,14 @@
   platform_get_irq
   platform_get_resource
   pm_runtime_allow
+  pm_runtime_forbid
   pm_runtime_force_resume
   pm_runtime_force_suspend
   __pm_runtime_resume
   pm_runtime_set_autosuspend_delay
   __pm_runtime_suspend
   __pm_runtime_use_autosuspend
+  pm_wakeup_dev_event
   preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait_event
@@ -255,7 +271,9 @@
   __regmap_init
   regmap_read
   regmap_write
+  release_firmware
   remap_pfn_range
+  request_firmware
   request_threaded_irq
   rtnl_link_register
   rtnl_link_unregister
@@ -285,6 +303,7 @@
   skb_add_rx_frag
   skb_clone
   skb_dequeue
+  skb_pull
   skb_push
   skb_put
   skb_queue_tail
@@ -338,6 +357,15 @@
   unregister_shrinker
   unregister_virtio_device
   unregister_virtio_driver
+  usb_alloc_urb
+  usb_anchor_urb
+  usb_control_msg
+  usb_deregister
+  usb_free_urb
+  usb_kill_anchored_urbs
+  usb_register_driver
+  usb_submit_urb
+  usb_unanchor_urb
   usleep_range
   vabits_actual
   vfree
@@ -388,7 +416,6 @@
   gpiod_direction_input
   gpiod_get
   gpiod_get_value
-  gpiod_put
   gpiod_set_value
   mmc_add_host
   mmc_alloc_host
@@ -414,6 +441,45 @@
   regulator_enable
   reset_control_assert
   reset_control_deassert
+
+# required by btintel.ko
+  bit_wait_timeout
+  bt_to_errno
+  firmware_request_nowarn
+  hci_cmd_sync
+  out_of_line_wait_on_bit_timeout
+  request_firmware_direct
+  wake_up_bit
+
+# required by btusb.ko
+  btbcm_set_bdaddr
+  btbcm_setup_apple
+  btbcm_setup_patchram
+  device_set_wakeup_capable
+  disable_irq
+  disable_irq_nosync
+  enable_irq
+  gpiod_get_optional
+  gpiod_set_value_cansleep
+  hci_recv_diag
+  irq_modify_status
+  irq_set_irq_wake
+  of_irq_get_byname
+  of_match_device
+  of_property_read_variable_u16_array
+  pm_system_wakeup
+  usb_autopm_get_interface
+  usb_autopm_put_interface
+  usb_bulk_msg
+  usb_driver_claim_interface
+  usb_driver_release_interface
+  usb_enable_autosuspend
+  usb_get_from_anchor
+  usb_ifnum_to_if
+  usb_match_id
+  usb_queue_reset_device
+  usb_scuttle_anchored_urbs
+  usb_set_interface
 
 # required by clk-vexpress-osc.ko
   clk_hw_set_rate_range
@@ -488,27 +554,11 @@
   register_candev
   unregister_candev
   usb_alloc_coherent
-  usb_alloc_urb
-  usb_anchor_urb
-  usb_control_msg
-  usb_deregister
   usb_free_coherent
-  usb_free_urb
-  usb_kill_anchored_urbs
-  usb_register_driver
-  usb_submit_urb
-  usb_unanchor_urb
 
 # required by hci_vhci.ko
-  bt_err
   _copy_from_iter
-  hci_alloc_dev_priv
-  hci_free_dev
-  hci_recv_frame
-  hci_register_dev
-  hci_unregister_dev
   iov_iter_revert
-  skb_pull
   skb_queue_head
   skb_queue_purge
 
@@ -628,7 +678,6 @@
   input_set_capability
   kstrtobool
   kstrtou8
-  pm_wakeup_dev_event
   ps2_begin_command
   ps2_cmd_aborted
   ps2_command
@@ -657,7 +706,6 @@
 
 # required by rtc-test.ko
   add_timer
-  device_init_wakeup
   devm_rtc_allocate_device
   __devm_rtc_register_device
   ktime_get_real_seconds
@@ -693,7 +741,6 @@
   ns_to_timespec64
   __pm_runtime_disable
   pm_runtime_enable
-  pm_runtime_forbid
   __printk_ratelimit
   regcache_mark_dirty
   __request_module
@@ -941,8 +988,6 @@
   iomem_resource
   is_vmalloc_addr
   kmalloc_order_trace
-  kvfree
-  kvmalloc_node
   memdup_user
   noop_llseek
   seq_puts

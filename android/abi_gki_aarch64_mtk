@@ -6216,6 +6216,7 @@
   migrate_page_move_mapping
   migrate_page_states
   migrate_swap
+  __migrate_task
   mii_check_gmii_support
   mii_check_link
   mii_check_media
@@ -7939,6 +7940,7 @@
   phy_write_mmd
   phy_write_paged
   pick_highest_pushable_task
+  pick_migrate_task
   pid_nr_ns
   pid_task
   pid_vnr
@@ -9176,6 +9178,7 @@
   __SCK__tp_func_android_rvh_replace_next_task_fair
   __SCK__tp_func_android_rvh_revert_creds
   __SCK__tp_func_android_rvh_rtmutex_prepare_setprio
+  __SCK__tp_func_android_rvh_rto_next_cpu
   __SCK__tp_func_android_rvh_sched_balance_rt
   __SCK__tp_func_android_rvh_sched_cpu_dying
   __SCK__tp_func_android_rvh_sched_cpu_starting
@@ -9196,6 +9199,7 @@
   __SCK__tp_func_android_rvh_selinux_avc_node_replace
   __SCK__tp_func_android_rvh_selinux_is_initialized
   __SCK__tp_func_android_rvh_set_balance_anon_file_reclaim
+  __SCK__tp_func_android_rvh_set_cpus_allowed_ptr_locked
   __SCK__tp_func_android_rvh_set_gfp_zone_flags
   __SCK__tp_func_android_rvh_set_iowait
   __SCK__tp_func_android_rvh_set_readahead_gfp_mask
@@ -9233,6 +9237,7 @@
   __SCK__tp_func_android_vh_cpuidle_psci_exit
   __SCK__tp_func_android_vh_dump_throttled_rt_tasks
   __SCK__tp_func_android_vh_em_cpu_energy
+  __SCK__tp_func_android_vh_em_dev_register_pd
   __SCK__tp_func_android_vh_free_task
   __SCK__tp_func_android_vh_freq_table_limits
   __SCK__tp_func_android_vh_ftrace_dump_buffer
@@ -9309,11 +9314,14 @@
   __SCK__tp_func_fdb_delete
   __SCK__tp_func_fib6_table_lookup
   __SCK__tp_func_gpu_mem_total
+  __SCK__tp_func_hrtimer_expire_entry
+  __SCK__tp_func_hrtimer_expire_exit
   __SCK__tp_func_io_page_fault
   __SCK__tp_func_ipi_entry
   __SCK__tp_func_ipi_exit
   __SCK__tp_func_ipi_raise
   __SCK__tp_func_irq_handler_entry
+  __SCK__tp_func_irq_handler_exit
   __SCK__tp_func_kfree
   __SCK__tp_func_kfree_skb
   __SCK__tp_func_kmalloc
@@ -9368,6 +9376,8 @@
   __SCK__tp_func_vb2_v4l2_dqbuf
   __SCK__tp_func_vb2_v4l2_qbuf
   __SCK__tp_func_wbc_writepage
+  __SCK__tp_func_workqueue_execute_end
+  __SCK__tp_func_workqueue_execute_start
   __SCK__tp_func_xdp_bulk_tx
   __SCK__tp_func_xdp_exception
   __SCK__tp_func_xhci_dbg_quirks
@@ -9643,6 +9653,7 @@
   security_tun_dev_open
   security_unix_may_send
   security_unix_stream_connect
+  select_fallback_rq
   send_sig
   send_sig_info
   send_sig_mceerr
@@ -10703,6 +10714,7 @@
   stack_trace_snprint
   __starget_for_each_device
   starget_for_each_device
+  start_backtrace
   start_poll_synchronize_rcu
   start_poll_synchronize_srcu
   start_tty
@@ -10717,6 +10729,7 @@
   __static_key_slow_dec_deferred
   static_key_slow_inc
   stop_machine
+  stop_one_cpu
   stop_one_cpu_nowait
   stop_tty
   store_cdrom_address
@@ -11229,6 +11242,7 @@
   __traceiter_android_rvh_replace_next_task_fair
   __traceiter_android_rvh_revert_creds
   __traceiter_android_rvh_rtmutex_prepare_setprio
+  __traceiter_android_rvh_rto_next_cpu
   __traceiter_android_rvh_sched_balance_rt
   __traceiter_android_rvh_sched_cpu_dying
   __traceiter_android_rvh_sched_cpu_starting
@@ -11249,6 +11263,7 @@
   __traceiter_android_rvh_selinux_avc_node_replace
   __traceiter_android_rvh_selinux_is_initialized
   __traceiter_android_rvh_set_balance_anon_file_reclaim
+  __traceiter_android_rvh_set_cpus_allowed_ptr_locked
   __traceiter_android_rvh_set_gfp_zone_flags
   __traceiter_android_rvh_set_iowait
   __traceiter_android_rvh_set_readahead_gfp_mask
@@ -11286,6 +11301,7 @@
   __traceiter_android_vh_cpuidle_psci_exit
   __traceiter_android_vh_dump_throttled_rt_tasks
   __traceiter_android_vh_em_cpu_energy
+  __traceiter_android_vh_em_dev_register_pd
   __traceiter_android_vh_free_task
   __traceiter_android_vh_freq_table_limits
   __traceiter_android_vh_ftrace_dump_buffer
@@ -11362,11 +11378,14 @@
   __traceiter_fdb_delete
   __traceiter_fib6_table_lookup
   __traceiter_gpu_mem_total
+  __traceiter_hrtimer_expire_entry
+  __traceiter_hrtimer_expire_exit
   __traceiter_io_page_fault
   __traceiter_ipi_entry
   __traceiter_ipi_exit
   __traceiter_ipi_raise
   __traceiter_irq_handler_entry
+  __traceiter_irq_handler_exit
   __traceiter_kfree
   __traceiter_kfree_skb
   __traceiter_kmalloc
@@ -11421,6 +11440,8 @@
   __traceiter_vb2_v4l2_dqbuf
   __traceiter_vb2_v4l2_qbuf
   __traceiter_wbc_writepage
+  __traceiter_workqueue_execute_end
+  __traceiter_workqueue_execute_start
   __traceiter_xdp_bulk_tx
   __traceiter_xdp_exception
   __traceiter_xhci_dbg_quirks
@@ -11471,6 +11492,7 @@
   __tracepoint_android_rvh_replace_next_task_fair
   __tracepoint_android_rvh_revert_creds
   __tracepoint_android_rvh_rtmutex_prepare_setprio
+  __tracepoint_android_rvh_rto_next_cpu
   __tracepoint_android_rvh_sched_balance_rt
   __tracepoint_android_rvh_sched_cpu_dying
   __tracepoint_android_rvh_sched_cpu_starting
@@ -11491,6 +11513,7 @@
   __tracepoint_android_rvh_selinux_avc_node_replace
   __tracepoint_android_rvh_selinux_is_initialized
   __tracepoint_android_rvh_set_balance_anon_file_reclaim
+  __tracepoint_android_rvh_set_cpus_allowed_ptr_locked
   __tracepoint_android_rvh_set_gfp_zone_flags
   __tracepoint_android_rvh_set_iowait
   __tracepoint_android_rvh_set_readahead_gfp_mask
@@ -11528,6 +11551,7 @@
   __tracepoint_android_vh_cpuidle_psci_exit
   __tracepoint_android_vh_dump_throttled_rt_tasks
   __tracepoint_android_vh_em_cpu_energy
+  __tracepoint_android_vh_em_dev_register_pd
   __tracepoint_android_vh_free_task
   __tracepoint_android_vh_freq_table_limits
   __tracepoint_android_vh_ftrace_dump_buffer
@@ -11604,11 +11628,14 @@
   __tracepoint_fdb_delete
   __tracepoint_fib6_table_lookup
   __tracepoint_gpu_mem_total
+  __tracepoint_hrtimer_expire_entry
+  __tracepoint_hrtimer_expire_exit
   __tracepoint_io_page_fault
   __tracepoint_ipi_entry
   __tracepoint_ipi_exit
   __tracepoint_ipi_raise
   __tracepoint_irq_handler_entry
+  __tracepoint_irq_handler_exit
   __tracepoint_kfree
   __tracepoint_kfree_skb
   __tracepoint_kmalloc
@@ -11668,6 +11695,8 @@
   __tracepoint_vb2_v4l2_dqbuf
   __tracepoint_vb2_v4l2_qbuf
   __tracepoint_wbc_writepage
+  __tracepoint_workqueue_execute_end
+  __tracepoint_workqueue_execute_start
   __tracepoint_xdp_bulk_tx
   __tracepoint_xdp_exception
   __tracepoint_xhci_dbg_quirks

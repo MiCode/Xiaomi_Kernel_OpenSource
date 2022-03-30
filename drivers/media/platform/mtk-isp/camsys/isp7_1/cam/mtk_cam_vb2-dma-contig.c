@@ -62,14 +62,14 @@ static unsigned long mtk_cam_vb2_get_contiguous_size(struct sg_table *sgt)
 /*         callbacks for all buffers         */
 /*********************************************/
 
-static void *mtk_cam_vb2_cookie(void *buf_priv)
+static void *mtk_cam_vb2_cookie(struct vb2_buffer *vb, void *buf_priv)
 {
 	struct mtk_cam_vb2_buf *buf = buf_priv;
 
 	return &buf->dma_addr;
 }
 
-static void *mtk_cam_vb2_vaddr(void *buf_priv)
+static void *mtk_cam_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 {
 	struct mtk_cam_vb2_buf *buf = buf_priv;
 	struct dma_buf_map map;
@@ -202,8 +202,8 @@ static void mtk_cam_vb2_detach_dmabuf(void *mem_priv)
 	kfree(buf);
 }
 
-static void *mtk_cam_vb2_attach_dmabuf(struct device *dev, struct dma_buf *dbuf,
-	unsigned long size, enum dma_data_direction dma_dir)
+static void *mtk_cam_vb2_attach_dmabuf(struct vb2_buffer *vb, struct device *dev, struct dma_buf *dbuf,
+	unsigned long size)
 {
 	struct mtk_cam_vb2_buf *buf;
 	struct dma_buf_attachment *dba;
@@ -230,7 +230,7 @@ static void *mtk_cam_vb2_attach_dmabuf(struct device *dev, struct dma_buf *dbuf,
 	/* always skip cache operations, we handle it manually */
 	dba->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
-	buf->dma_dir = dma_dir;
+	//buf->dma_dir = dma_dir;
 	buf->size = size;
 	buf->db_attach = dba;
 
