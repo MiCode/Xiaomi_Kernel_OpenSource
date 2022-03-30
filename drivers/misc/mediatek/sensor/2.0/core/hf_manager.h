@@ -27,16 +27,19 @@
 #define HF_CLIENT_FIFO_SIZE 128
 
 struct sensor_state {
-	bool enable;
-	bool bias;
-	bool cali;
-	bool temp;
-	bool test;
-	bool raw;
+	uint8_t enable : 1;
+	uint8_t bias : 1;
+	uint8_t cali : 1;
+	uint8_t temp : 1;
+	uint8_t test : 1;
+	uint8_t raw : 1;
+	uint8_t down_sample : 1;
+	uint8_t flush;
+	uint8_t down_sample_cnt;
+	uint8_t down_sample_div;
 	int64_t delay;
 	int64_t latency;
-	atomic_t flush;
-	atomic64_t start_time;
+	int64_t start_time;
 };
 
 struct hf_core {

@@ -38,7 +38,8 @@ struct hf_manager_batch {
 
 struct hf_manager_cmd {
 	uint8_t sensor_type;
-	uint8_t action;
+	uint8_t action : 4;
+	uint8_t down_sample : 1;
 	uint8_t length;
 	uint8_t padding[1];
 	int8_t data[48] __aligned(4);
