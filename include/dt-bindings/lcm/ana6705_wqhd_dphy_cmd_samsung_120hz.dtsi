@@ -528,20 +528,19 @@
 				set_backlight_mask = <0x7ff>;
 				set_backlight_cmdq_table =
 					/* runtime input count, data id*/
-					[MTK_LCM_CB_TYPE_HEX_RUNTIME_INPUT_MULTIPLE 07 02 01 02],
-						[03 51 07 FF],/*data count, data mask or value*/
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 08],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 02 01 02],
+						[03 51 07 ff],
 					[MTK_LCM_TYPE_HEX_END];
 
 				set_aod_light_mask = <0xff>;
 				set_aod_light_table;
 
-				ata_id_value_length = <3>;
 				ata_id_value_data = [00 80 00];
 				ata_check_table =
 					[MTK_LCM_CMD_TYPE_HEX_READ_CMD 03 00 03 04],
 					[MTK_LCM_TYPE_HEX_END];
 
-				compare_id_value_length = <2>;
 				compare_id_value_data = [c5 a7];
 				compare_id_table = [MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
 					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0a],
@@ -556,24 +555,24 @@
 					[MTK_LCM_TYPE_HEX_END];
 
 				doze_enable_start_table =
-					[MTK_LCM_CB_TYPE_HEX_RUNTIME 03],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
 							[f0 5a 5a],
-					[MTK_LCM_CB_TYPE_HEX_RUNTIME 02],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
 							[53 24],
-					[MTK_LCM_CB_TYPE_HEX_RUNTIME 03],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
 							[f0 a5 a5],
 					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 50],
-					[MTK_LCM_CB_TYPE_HEX_RUNTIME 01 29],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 01 29],
 					[MTK_LCM_TYPE_HEX_END];
 
 				doze_enable_table;
 
 				doze_disable_table =
-					[MTK_LCM_CB_TYPE_HEX_RUNTIME 03],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
 							[f0 5a 5a],
-					[MTK_LCM_CB_TYPE_HEX_RUNTIME 02],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 02],
 							[53 28],
-					[MTK_LCM_CB_TYPE_HEX_RUNTIME 03],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER 03],
 							[f0 a5 a5],
 					[MTK_LCM_TYPE_HEX_END];
 

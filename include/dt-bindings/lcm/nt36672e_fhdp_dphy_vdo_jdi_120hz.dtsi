@@ -1255,8 +1255,9 @@
 						[MTK_LCM_PHASE_HEX_LK],
 						[MTK_LCM_PHASE_HEX_KERNEL],
 					[MTK_LCM_PHASE_TYPE_HEX_START 01 MTK_LCM_PHASE_HEX_KERNEL],
-					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 04],
-						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 01 51 FF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 06],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 01 01],
+						[02 51 FF],
 					[MTK_LCM_PHASE_TYPE_HEX_END 01 MTK_LCM_PHASE_HEX_KERNEL],
 					[MTK_LCM_TYPE_HEX_END];
 
@@ -1281,17 +1282,19 @@
 
 				set_backlight_mask = <0xff>;
 				set_backlight_cmdq_table =
-					[MTK_LCM_CB_TYPE_HEX_RUNTIME_INPUT 03 01 51 FF],
+					[MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT 06],
+						[MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT 01 01],
+						[02 51 FF],
 					[MTK_LCM_TYPE_HEX_END];
 
 				set_aod_light_mask = <0xff>;
 				set_aod_light_table;
 
-				ata_id_value_length = <0>;
-				ata_id_value_data;
-				ata_check_table;
+				ata_id_value_data = [00 80 00];
+				ata_check_table =
+					[MTK_LCM_CMD_TYPE_HEX_READ_CMD 03 00 03 04],
+					[MTK_LCM_TYPE_HEX_END];
 
-				compare_id_value_length = <1>;
 				compare_id_value_data = [00];
 				compare_id_table = [MTK_LCM_UTIL_TYPE_HEX_RESET 01 01],
 					[MTK_LCM_UTIL_TYPE_HEX_MDELAY 01 0a],
