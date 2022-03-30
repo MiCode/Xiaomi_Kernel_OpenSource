@@ -1460,7 +1460,7 @@
 		shared-buffer = <&trust_ui_vm_qrtr>;
 	};
 
-	 qcom,chd {
+	qcom,chd {
 		compatible = "qcom,core-hang-detect";
 		label = "core";
 		qcom,threshold-arr = <0x17800058 0x17810058 0x17820058 0x17830058
@@ -1518,6 +1518,11 @@
 
 	dload_mode {
 		compatible = "qcom,dload-mode";
+	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
 	};
 
 	cpu_pmu: cpu-pmu {
