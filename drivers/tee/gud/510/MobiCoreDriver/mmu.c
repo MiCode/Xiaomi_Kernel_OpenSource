@@ -155,10 +155,7 @@ static inline long gup_local(struct mm_struct *mm, uintptr_t start,
 {
 	unsigned int gup_flags = 0;
 
-	/* Remove FOLL_LONGTERM flag temporarily to fix get user pages
-	 * fail issue.
-	 */
-	// gup_flags |= FOLL_LONGTERM;
+	gup_flags |= FOLL_LONGTERM;
 	if (write)
 		gup_flags |= FOLL_WRITE;
 
