@@ -43,16 +43,17 @@ static struct cpumask abort_cpumask;
 static DEFINE_SPINLOCK(lpm_abort_locker);
 static struct pm_qos_request lpm_qos_request;
 
-long long before_md_sleep_time;
-long long after_md_sleep_time;
-
 #define S2IDLE_STATE_NAME "s2idle"
 
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
-#define MD_SLEEP_INFO_SMEM_OFFEST (4)
 u32 *share_mem;
 struct md_sleep_status before_md_sleep_status;
 struct md_sleep_status after_md_sleep_status;
+#define MD_GUARD_NUMBER 0x536C702E
+#define GET_RECORD_CNT1(n) ((n >> 32) & 0xFFFFFFFF)
+#define GET_RECORD_CNT2(n) (n & 0xFFFFFFFF)
+#define GET_GUARD_L(n) (n & 0xFFFFFFFF)
+#define GET_GUARD_H(n) ((n >> 32) & 0xFFFFFFFF)
 #endif
 
 static void get_md_sleep_time_addr(void)
@@ -83,8 +84,6 @@ static void get_md_sleep_time_addr(void)
 			 __func__, __LINE__);
 		return;
 	}
-
-	share_mem = share_mem + MD_SLEEP_INFO_SMEM_OFFEST;
 #endif
 }
 
@@ -105,12 +104,40 @@ static void get_md_sleep_time(struct md_sleep_status *md_data)
 }
 #endif
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
+static int is_md_sleep_info_valid(struct md_sleep_status *md_data)
+{
+	u32 guard_l = GET_GUARD_L(md_data->guard_sleep_cnt1);
+	u32 guard_h = GET_GUARD_H(md_data->guard_sleep_cnt2);
+	u32 cnt1 = GET_RECORD_CNT1(md_data->guard_sleep_cnt1);
+	u32 cnt2 = GET_RECORD_CNT2(md_data->guard_sleep_cnt2);
+
+	if ((guard_l != MD_GUARD_NUMBER) || (guard_h != MD_GUARD_NUMBER))
+		return 0;
+
+	if (cnt1 != cnt2)
+		return 0;
+
+	return 1;
+}
+
 static void log_md_sleep_info(void)
 {
 
 #define LOG_BUF_SIZE	256
 	char log_buf[LOG_BUF_SIZE] = { 0 };
 	int log_size = 0;
+
+	if (!is_md_sleep_info_valid(&before_md_sleep_status)
+		|| !is_md_sleep_info_valid(&after_md_sleep_status)) {
+		pr_info("[name:spm&][SPM] MD sleep info. is not valid");
+		return;
+	}
+
+	if (GET_RECORD_CNT1(after_md_sleep_status.guard_sleep_cnt1)
+		== GET_RECORD_CNT1(before_md_sleep_status.guard_sleep_cnt1)) {
+		pr_info("[name:spm&][SPM] MD sleep info. is not updated");
+		return;
+	}
 
 	if (after_md_sleep_status.sleep_time >= before_md_sleep_status.sleep_time) {
 		pr_info("[name:spm&][SPM] md_slp_duration = %llu (32k)\n",
@@ -248,11 +275,6 @@ void lpm_suspend_s2idle_reflect(int cpu,
 	pr_info("[name:spm&][%s:%d] - resume\n",
 			__func__, __LINE__);
 
-	if ((after_md_sleep_time >= 0) && (after_md_sleep_time >= before_md_sleep_time))
-		pr_info("[name:spm&][SPM] md_slp_duration = %lld",
-			after_md_sleep_time - before_md_sleep_time);
-	else
-		pr_info("[name:spm&][SPM] md share memory is NULL");
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 	/* show md sleep status */
 	get_md_sleep_time(&after_md_sleep_status);
@@ -451,6 +473,7 @@ static int lpm_s2idle_barrier(void)
 
 	return 0;
 }
+
 int __init lpm_model_suspend_init(void)
 {
 	int ret;
