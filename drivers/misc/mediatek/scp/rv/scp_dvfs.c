@@ -1406,10 +1406,7 @@ static unsigned int __init _get_ulposc_clk_by_fmeter_wrapper(void)
 {
 	unsigned int result;
 
-	/* TODO: comment first for passing build, needs correct!! */
-	/* result = mt_get_fmeter_freq(dvfs.ccf_fmeter_id, dvfs.ccf_fmeter_type); */
-	result = 0;
-
+	result = mt_get_fmeter_freq(dvfs.ccf_fmeter_id, dvfs.ccf_fmeter_type);
 	if (result == 0) {
 		pr_notice("[%s]: mt_get_fmeter_freq() return %d, pls check CCF configs\n",
 			__func__, result);
@@ -2508,11 +2505,7 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 			dvfs.ccf_fmeter_type = ABIST;
 
 		/* enum FMETER_ID */
-
-		/* TODO: comment first for passing build, needs correct!! */
-		/* ret = mt_get_fmeter_id(FID_ULPOSC2); */
-		ret = -1;
-
+		ret = mt_get_fmeter_id(FID_ULPOSC2);
 		dvfs.ccf_fmeter_id = ret;
 		pr_notice("[%s]: init ccf fmeter api, id: %d, type: %d\n",
 			__func__, dvfs.ccf_fmeter_id, dvfs.ccf_fmeter_type);
