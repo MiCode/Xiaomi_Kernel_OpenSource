@@ -332,9 +332,9 @@ void fgr_construct_battery_profile(struct mtk_battery *gm, int table_idx)
 		temp_profile_p[i].resistance =
 		interpolation(low_temp, low_profile_p[i].resistance,
 		high_temp, high_profile_p[i].resistance, temperature);
-		temp_profile_p[i].resistance2 =
-		interpolation(low_temp, low_profile_p[i].resistance2,
-		high_temp, high_profile_p[i].resistance2, temperature);
+		temp_profile_p[i].charge_r.rdc[0] =
+		interpolation(low_temp, low_profile_p[i].charge_r.rdc[0],
+		high_temp, high_profile_p[i].charge_r.rdc[0], temperature);
 
 	}
 
@@ -1394,7 +1394,12 @@ void fgr_int_end_flow(struct mtk_battery *gm, unsigned int intr_no)
 
 	algo->car = gauge_get_int_property(GAUGE_PROP_COULOMB);
 	get_hw_info();
-	vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+
+	if (gm->disableGM30)
+		vbat = 4000;
+	else
+		vbat = gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE);
+
 	curr_temp = force_get_tbat(gm, true);
 
 	set_kernel_soc(gm, algo->soc);

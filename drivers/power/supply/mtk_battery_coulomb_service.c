@@ -11,6 +11,7 @@
 #include <linux/irqreturn.h>
 #include <linux/kthread.h>
 #include <linux/platform_device.h>
+#include <linux/suspend.h>
 #include "mtk_battery.h"
 
 static void wake_up_gauge_coulomb(struct mtk_battery *gm)
@@ -399,10 +400,19 @@ static int gauge_coulomb_thread(void *arg)
 	struct mtk_coulomb_service *cs = (struct mtk_coulomb_service *)arg;
 	unsigned long flags = 0;
 	ktime_t start, end, duraction;
+	int ret = 0;
 
 	bm_debug("[%s]=>\n", __func__);
 	while (1) {
-		wait_event(cs->wait_que, (cs->coulomb_thread_timeout == true));
+		ret = wait_event_interruptible(cs->wait_que,
+			cs->coulomb_thread_timeout == true &&
+			!atomic_read(&cs->in_sleep));
+
+		if (atomic_read(&cs->in_sleep)) {
+			__pm_relax(cs->wlock);
+			continue;
+		}
+
 		cs->coulomb_thread_timeout = false;
 		start = ktime_get_boottime();
 
@@ -435,6 +445,35 @@ static irqreturn_t coulomb_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int system_pm_notify(struct notifier_block *nb,
+			    unsigned long mode, void *_unused)
+{
+	struct mtk_coulomb_service *cs =
+			container_of(nb, struct mtk_coulomb_service, pm_nb);
+
+	switch (mode) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_RESTORE_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		if (!mutex_trylock(&cs->coulomb_lock))
+			return NOTIFY_BAD;
+		atomic_set(&cs->in_sleep, 1);
+		mutex_unlock(&cs->coulomb_lock);
+		break;
+	case PM_POST_HIBERNATION:
+	case PM_POST_RESTORE:
+	case PM_POST_SUSPEND:
+		atomic_set(&cs->in_sleep, 0);
+		if (cs->init)
+			wake_up(&cs->wait_que);
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
 void gauge_coulomb_service_init(struct mtk_battery *gm)
 {
 	int val;
@@ -452,7 +491,13 @@ void gauge_coulomb_service_init(struct mtk_battery *gm)
 	spin_lock_init(&cs->slock);
 	cs->wlock = wakeup_source_register(NULL, "gauge coulomb wakelock");
 	init_waitqueue_head(&cs->wait_que);
+	atomic_set(&cs->in_sleep, 0);
 	kthread_run(gauge_coulomb_thread, cs, "gauge_coulomb_thread");
+
+	cs->pm_nb.notifier_call = system_pm_notify;
+	ret = register_pm_notifier(&cs->pm_nb);
+	if (ret)
+		bm_err("failed to register system pm notify\n");
 
 	ret = devm_request_threaded_irq(&gm->gauge->pdev->dev,
 	gm->gauge->irq_no[COULOMB_H_IRQ],

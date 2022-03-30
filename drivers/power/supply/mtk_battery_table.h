@@ -18,6 +18,7 @@
 #define MTK_CHR_EXIST			1
 #define KEEP_100_PERCENT		1
 #define R_FG_VALUE				5	/* mOhm */
+#define UNIT_MULTIPLE			1
 #define EMBEDDED_SEL			0
 #define PMIC_SHUTDOWN_CURRENT	20	/* 0.01 mA */
 #define FG_METER_RESISTANCE		100
@@ -73,9 +74,9 @@
 #define DIFFERENCE_FULL_CV		1000 /*0.01%*/
 #define PSEUDO1_EN				1
 #define PSEUDO100_EN			1
-#define PSEUDO100_EN_DIS		1
+#define PSEUDO100_EN_DIS		0
 
-#define DIFF_SOC_SETTING				100	/* 0.01% */
+#define DIFF_SOC_SETTING				50	/* 0.01% */
 #define DIFF_BAT_TEMP_SETTING			1
 #define DIFF_BAT_TEMP_SETTING_C			10
 #define DISCHARGE_TRACKING_TIME			10
@@ -93,8 +94,11 @@
 #define VBAT2_DET_VOLTAGE3	35000
 
 /* PCB setting */
-#define CALIBRATE_CAR_TUNE_VALUE_BY_META_TOOL
 #define CALI_CAR_TUNE_AVG_NUM	60
+
+/* Dynamic CV */
+#define DYNAMIC_CV_FACTOR      100     /* mV */
+#define CHARGER_IEOC           150     /* mA */
 
 /* Aging Compensation 1*/
 #define AGING_FACTOR_MIN			90
@@ -128,7 +132,7 @@
 #define HWOCV_SWOCV_DIFF			300
 #define HWOCV_SWOCV_DIFF_LT			1500
 #define HWOCV_SWOCV_DIFF_LT_TEMP	5
-#define HWOCV_OLDOCV_DIFF			300
+#define HWOCV_OLDOCV_DIFF			400
 #define HWOCV_OLDOCV_DIFF_CHR		800
 #define SWOCV_OLDOCV_DIFF			300
 #define SWOCV_OLDOCV_DIFF_CHR		800
@@ -168,8 +172,9 @@
 #define DIFF_IAVG_TH				3000
 
 /* ZCV INTR */
-#define ZCV_SUSPEND_TIME			3
+#define ZCV_SUSPEND_TIME			7
 #define SLEEP_CURRENT_AVG			200 /*0.1mA*/
+#define ZCV_COM_VOL_LIMIT 50	/* 50mv */
 #define ZCV_CAR_GAP_PERCENTAGE		5
 
 /* Additional battery table */
@@ -182,7 +187,7 @@
 #define BAT_PAR_I					4000
 #define PSEUDO1_SEL					2
 
-#define FG_TRACKING_CURRENT				30000
+#define FG_TRACKING_CURRENT				40000
 #define FG_TRACKING_CURRENT_IBOOT_EN	0
 #define UI_FAST_TRACKING_EN				0
 #define UI_FAST_TRACKING_GAP			300
@@ -238,6 +243,21 @@
 
 #define UI_FULL_LIMIT_TIME	99999
 
+
+#define UI_FULL_LIMIT_FC_SOC0	9900
+#define UI_FULL_LIMIT_FC_ITH0	3000
+
+#define UI_FULL_LIMIT_FC_SOC1	9900
+#define UI_FULL_LIMIT_FC_ITH1	3100
+
+#define UI_FULL_LIMIT_FC_SOC2	9900
+#define UI_FULL_LIMIT_FC_ITH2	3200
+
+#define UI_FULL_LIMIT_FC_SOC3	9900
+#define UI_FULL_LIMIT_FC_ITH3	3300
+
+#define UI_FULL_LIMIT_FC_SOC4	9900
+#define UI_FULL_LIMIT_FC_ITH4	3400
 
 /* using voltage to limit uisoc in 1% case */
 /* UI_LOW_LIMIT_VTH0=36000 means 3.6v */
