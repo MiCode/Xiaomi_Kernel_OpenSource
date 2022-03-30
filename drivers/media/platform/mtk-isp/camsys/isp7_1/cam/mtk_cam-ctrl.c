@@ -1214,7 +1214,15 @@ void mtk_cam_subspl_req_prepare(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 	struct mtk_cam_request_stream_data *req_stream_data;
 	int sensor_seq_no_next =
 			atomic_read(&ctx->sensor_ctrl.isp_enq_seq_no) + 1;
-
+	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
+		sensor_seq_no_next - 1);
+	if (req_stream_data) {
+		if (req_stream_data->state.estate < E_STATE_SUBSPL_SENSOR) {
+			dev_info(cam->dev, "[%s:pass] sensor_no:%d state:0x%x\n", __func__,
+					sensor_seq_no_next - 1, req_stream_data->state.estate);
+			return;
+		}
+	}
 	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, sensor_seq_no_next);
 	if (req_stream_data) {
 		if (req_stream_data->state.estate == E_STATE_READY) {
@@ -1763,6 +1771,8 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 	struct mtk_cam_request *req;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	int frame_idx_inner = irq_info->frame_idx_inner;
+	int sensor_seq_no =
+		atomic_read(&sensor_ctrl->sensor_request_seq_no);
 	int stateidx;
 	int que_cnt = 0;
 	u64 time_boot = ktime_get_boottime_ns();
@@ -1799,6 +1809,12 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 		que_cnt++;
 	}
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
+	/* check if last sensor setting triggered */
+	if (sensor_seq_no < frame_idx_inner) {
+		dev_info(raw_dev->dev, "[%s:pass] sen_no:%d inner:%d\n",
+			__func__, sensor_seq_no, frame_idx_inner);
+		return STATE_RESULT_PASS_CQ_SW_DELAY;
+	}
 	/* HW imcomplete case */
 	if (que_cnt >= STATE_NUM_AT_SOF)
 		dev_dbg(raw_dev->dev, "[SOF-subsample] HW_DELAY state\n");
@@ -1827,7 +1843,9 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 				if (state_outer->estate == E_STATE_SUBSPL_OUTER) {
 					mtk_cam_submit_kwork_in_sensorctrl(
 						sensor_ctrl->sensorsetting_wq, sensor_ctrl);
-					dev_dbg(raw_dev->dev, "sensor delay to SOF\n");
+					dev_info(raw_dev->dev, "sensor delay to SOF, pass next CQ (in:%d)\n",
+						frame_idx_inner);
+					return STATE_RESULT_PASS_CQ_SW_DELAY;
 				}
 				state_transition(state_outer, E_STATE_SUBSPL_SENSOR,
 						 E_STATE_SUBSPL_INNER);
@@ -4006,6 +4024,19 @@ void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 	int state_found = 0;
 
 	if (ctx->sensor) {
+		if (mtk_cam_is_subsample(ctx)) {
+			s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+			if (s_data->state.estate <= E_STATE_SUBSPL_SENSOR) {
+				atomic_set(&sensor_ctrl->isp_request_seq_no,
+					s_data->frame_seq_no);
+				atomic_set(&sensor_ctrl->sensor_request_seq_no,
+					s_data->frame_seq_no);
+				media_request_object_complete(s_data->sensor_hdl_obj);
+				dev_info(ctx->cam->dev,
+					"[%s:subsample] frame_seq_no:%d, state:0x%x\n", __func__,
+					s_data->frame_seq_no, s_data->state.estate);
+			}
+		}
 		spin_lock(&sensor_ctrl->camsys_state_lock);
 		list_for_each_entry_safe(state_entry, state_entry_prev,
 				&sensor_ctrl->camsys_state_list,
