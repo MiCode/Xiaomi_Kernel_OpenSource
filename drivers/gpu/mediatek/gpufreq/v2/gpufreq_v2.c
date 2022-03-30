@@ -906,9 +906,12 @@ int gpufreq_power_control(enum gpufreq_power_state power)
 	}
 
 	/* implement on AP */
-	if (gpufreq_fp && gpufreq_fp->power_control)
+	if (gpufreq_fp && gpufreq_fp->power_control) {
 		ret = gpufreq_fp->power_control(power);
-	else {
+		/* resume DVFS state after first power on */
+		if (power == POWER_ON && ret == 1)
+			gpufreq_commit(TARGET_DEFAULT, gpufreq_get_cur_oppidx(TARGET_DEFAULT));
+	} else {
 		ret = GPUFREQ_ENOENT;
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 	}
