@@ -93,7 +93,7 @@ static void *mtk_ccd_buf_get_vaddr(struct mtk_ccd_buf *buf)
 	if (!buf->vaddr && buf->db_attach)
 		ret = dma_buf_vmap(buf->db_attach->dmabuf, &map);
 
-	return (void *)map.vaddr;
+	return buf->vaddr;
 }
 
 static void mtk_ccd_buf_put(struct mtk_ccd_buf *buf)
