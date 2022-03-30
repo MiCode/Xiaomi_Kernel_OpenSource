@@ -2293,7 +2293,7 @@ void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 
 	if (i >= 2) {
-		pr_info("mstream buffer plane over 2\n");
+		pr_debug("mstream buffer plane over 2\n");
 		return;
 	}
 
