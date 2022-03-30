@@ -13,7 +13,7 @@
 #include <linux/string.h>
 #include <linux/compat.h>
 
-#define SHARE_BUF_SIZE 80
+#define SHARE_BUF_SIZE 64
 #define LOG_INFO_SIZE 1024
 #define VCODEC_CMDQ_CMD_MAX           (2048)
 
@@ -203,6 +203,8 @@ enum gce_event_id {
 #define VCU_GET_DISP_WDMA_Y_ADDR	_IOWR('v', 16, struct disp_iova_obj)
 #define VCU_UBE_MVA_ALLOCATION	_IOWR('v', 17, struct mem_obj)
 #define VCU_UBE_MVA_FREE	_IOWR('v', 18, struct mem_obj)
+#define VCU_GET_SEC_HANDLE	_IOWR('v', 19, struct sec_handle_obj)
+
 
 #define COMPAT_VCU_SET_OBJECT		_IOW('v', 0, struct share_obj)
 #define COMPAT_VCU_MVA_ALLOCATION	_IOWR('v', 1, struct compat_mem_obj)
@@ -241,5 +243,20 @@ struct log_test_nofuse {
 	char log_info[LOG_INFO_SIZE];
 };
 
+/**
+ * struct sec_handle_obj - sec handle allocated in kernel
+ *
+ * @fd:	fd of buffer, IN
+ * @iova:	iova of buffer, sec_handle, OUT
+ * @len:	buffer length
+ * @pa:	physical address
+ * @va: kernel virtual address
+ */
+struct sec_handle_obj {
+	uint32_t fd;
+	uint64_t iova;
+	uint32_t len;
+	int is_sec;
+};
 #endif
 

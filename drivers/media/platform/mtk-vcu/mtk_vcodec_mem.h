@@ -179,5 +179,18 @@ int vcu_buffer_flush_all(struct device *dev, struct mtk_vcu_queue *vcu_queue);
 int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
 	dma_addr_t dma_addr, size_t size, int op);
 
+/**
+ * mtk_vcu_get_dma_addr - get dma_addr for user, used only for secure buffer
+ *
+ * @dev:            vcu device.
+ * @vcu_queue:  the queue to store allocated buffer.
+ * @share_fd:    dma-buf share fd.
+ * @dma_addr: dma address for normal buffer or secure handler for security buffer.
+ * @is_sec:        0 (NOR_DMA_BUF) for normal buffer or 1 (SEC_DMA_BUF) for security buffer.
+ *
+ * Return:      Return 0 if it is ok, otherwise failed
+ **/
+int mtk_vcu_get_dma_addr(struct device *dev, struct mtk_vcu_queue *vcu_queue,
+				   int share_fd, dma_addr_t *dma_addr, int *is_sec);
 #endif
 

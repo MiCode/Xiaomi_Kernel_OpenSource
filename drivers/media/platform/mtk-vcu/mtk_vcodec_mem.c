@@ -473,3 +473,70 @@ int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
 	return -1;
 }
 
+static int vcu_dmabuf_get_dma_addr(struct device *dev,
+					   struct mtk_vcu_queue *vcu_queue,
+					   int share_fd, dma_addr_t *dma_addr, int *is_sec,
+					   int add_fcnt)
+{
+	struct dma_buf *buf = dma_buf_get(share_fd);		/* f_cnt +1 */
+	struct dma_buf_attachment *attach;
+	struct sg_table *table;
+	int ret = 0, sec;
+	const char *reason;
+
+	if (IS_ERR(buf)) {
+		reason = "buf_get";
+		ret = (int)PTR_ERR(buf);
+		goto out;
+	}
+	attach = dma_buf_attach(buf, dev);
+	if (IS_ERR(attach)) {
+		reason = "buf_attach";
+		ret = (int)PTR_ERR(attach);
+		goto put_buf;
+	}
+	table = dma_buf_map_attachment(attach, 0);
+	if (IS_ERR(table)) {
+		reason = "buf_map";
+		ret = (int)PTR_ERR(table);
+		goto detach_buf;
+	}
+
+	*dma_addr = sg_dma_address(table->sgl);
+	sec = sg_page(table->sgl) ? 0 : 1;
+	if (is_sec)
+		*is_sec = sec;
+
+	if (add_fcnt) {
+		pr_info("%s: %s, share_id %d, f_cnt +1\n", __func__,
+			 dev_name(dev), share_fd);
+		get_dma_buf(buf);
+	}
+
+	dma_buf_unmap_attachment(attach, table, 0);
+detach_buf:
+	dma_buf_detach(buf, attach);
+put_buf:
+	dma_buf_put(buf);
+
+out:
+	if (ret)
+		pr_info("%s: %s fail(%s:%d) share_id %d\n", __func__,
+		       dev_name(dev), reason, ret, share_fd);
+	else
+		pr_debug("%s: %s, share_id %d, dma_addr 0x%lx(sec %d, add_cnt %d)\n",
+			 __func__, dev_name(dev),
+			 share_fd, (unsigned long)(*dma_addr),
+			 sec, add_fcnt);
+	return ret;
+}
+
+int mtk_vcu_get_dma_addr(struct device *dev, struct mtk_vcu_queue *vcu_queue,
+				   int share_fd, dma_addr_t *dma_addr, int *is_sec)
+{
+	if (!dma_addr)
+		return -EINVAL;
+	return vcu_dmabuf_get_dma_addr(dev, vcu_queue, share_fd, dma_addr, is_sec,
+					       0);
+}
+

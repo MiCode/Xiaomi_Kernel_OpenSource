@@ -716,6 +716,34 @@ static int vcu_log_get(struct mtk_vcu *vcu, unsigned long arg)
 	return ret;
 }
 
+static int vcu_sec_handle_get(struct mtk_vcu *vcu,
+	struct mtk_vcu_queue *vcu_queue, unsigned long arg)
+{
+	int ret;
+	unsigned char *user_data_addr = NULL;
+	struct sec_handle_obj sec_handle_data;
+
+	user_data_addr = (unsigned char *)arg;
+	ret = (long)copy_from_user(&sec_handle_data, user_data_addr,
+		(unsigned long)sizeof(struct sec_handle_obj));
+	if (ret != 0L) {
+		pr_info("[VCU] %s(%d) Copy data from user failed!\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+	mtk_vcu_get_dma_addr(vcu->dev, vcu_queue, sec_handle_data.fd,
+		(dma_addr_t *)(&sec_handle_data.iova), &sec_handle_data.is_sec);
+
+	ret = (long)copy_to_user(user_data_addr, &sec_handle_data,
+		(unsigned long)sizeof(struct sec_handle_obj));
+	if (ret != 0) {
+		pr_info("[VCU] %s(%d) Copy data to user failed!\n",
+			__func__, __LINE__);
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
 static int vcu_gce_set_inst_id(void *ctx, u64 gce_handle)
 {
 	int i;
@@ -2085,6 +2113,9 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 	case VCU_GET_DISP_WDMA_Y_ADDR:
 		ret = vcu_get_disp_wdma_y_addr(vcu_dev, arg);
 		break;
+	case VCU_GET_SEC_HANDLE:
+		ret = vcu_sec_handle_get(vcu_dev, vcu_queue, arg);
+		break;
 	default:
 		dev_info(dev, "[VCU] Unknown cmd\n");
 		break;
@@ -2133,6 +2164,7 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 {
 	long ret = -1, alloc_ret;
 	struct share_obj __user *share_data32;
+	struct sec_handle_obj __user *sec_handle_data;
 	struct mem_obj mem_buff_data;
 	struct mtk_vcu_queue *vcu_queue =
 		(struct mtk_vcu_queue *)file->private_data;
@@ -2210,6 +2242,11 @@ static long mtk_vcu_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 		ret = compat_put_vpud_allocation_data(cmd, arg, &mem_buff_data);
 		if (ret != 0L)
 			return ret;
+		break;
+	case VCU_GET_SEC_HANDLE:
+		sec_handle_data = compat_ptr((uint32_t)arg);
+		ret = file->f_op->unlocked_ioctl(file,
+			cmd, (unsigned long)sec_handle_data);
 		break;
 	default:
 		pr_info("[VCU] Invalid cmd_number 0x%x.\n", cmd);
