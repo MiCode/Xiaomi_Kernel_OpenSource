@@ -19,8 +19,8 @@ TCORE_MEMORY_LEAK_DETECTION_SUPPORT := n
 # Feature Dependency Auto Changes
 #==========================================================================
 # Force enable option for ENG build only
-ifeq ($(CONFIG_TEST_MTK_TRUSTED_MEMORY),y)
-TCORE_PROFILING_SUPPORT := y
+ifeq ($(CONFIG_TEST_MTK_TRUSTED_MEMORY),m)
+TCORE_PROFILING_SUPPORT := n
 TCORE_PROFILING_AUTO_DUMP := n
 TCORE_MEMORY_LEAK_DETECTION_SUPPORT := y
 endif

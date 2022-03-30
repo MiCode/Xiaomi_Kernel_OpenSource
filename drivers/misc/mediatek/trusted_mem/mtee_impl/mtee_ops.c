@@ -35,6 +35,7 @@
 #include "public/mtee_regions.h"
 /* clang-format off */
 #include "mtee_impl/mtee_ops.h"
+#include "mtee_impl/tmem_carveout_heap.h"
 /* clang-format on */
 #include "tee_impl/tee_invoke.h"
 
@@ -66,7 +67,7 @@ mtee_create_session_data(enum TRUSTED_MEM_TYPE mem_type)
 
 	sess_data = mld_kmalloc(sizeof(struct MTEE_SESSION_DATA), GFP_KERNEL);
 	if (INVALID(sess_data)) {
-		pr_err("%s:%d %d:out of memory!\n", __func__, __LINE__,
+		pr_info("%s:%d %d:out of memory!\n", __func__, __LINE__,
 		       mem_type);
 		return NULL;
 	}
@@ -85,7 +86,7 @@ static void mtee_destroy_session_data(struct MTEE_SESSION_DATA *sess_data)
 
 static int mtee_session_open(void **peer_data, void *dev_desc)
 {
-	int ret;
+	int ret = 0;
 	struct MTEE_SESSION_DATA *sess_data;
 	struct tmem_device_description *mtee_dev_desc =
 		(struct tmem_device_description *)dev_desc;
@@ -95,7 +96,7 @@ static int mtee_session_open(void **peer_data, void *dev_desc)
 
 	sess_data = mtee_create_session_data(mtee_dev_desc->kern_tmem_type);
 	if (INVALID(sess_data)) {
-		pr_err("[%d] Create session data failed: out of memory!\n",
+		pr_info("[%d] Create session data failed: out of memory!\n",
 		       mtee_dev_desc->kern_tmem_type);
 		return TMEM_MTEE_CREATE_SESSION_FAILED;
 	}
@@ -109,7 +110,7 @@ static int mtee_session_open(void **peer_data, void *dev_desc)
 		ret = KREE_CreateSession(mem_srv_name,
 					 &sess_data->session_handle);
 	if (ret != 0) {
-		pr_err("[%d] MTEE open session failed:%d (srv=%s)\n",
+		pr_info("[%d] MTEE open session failed:%d (srv=%s)\n",
 		       mtee_dev_desc->kern_tmem_type, ret,
 		       (ops_data->service_name ? ops_data->service_name
 					       : mem_srv_name));
@@ -136,7 +137,7 @@ static int mtee_session_close(void *peer_data, void *dev_desc)
 
 	ret = KREE_CloseSession(sess_data->session_handle);
 	if (ret != 0) {
-		pr_err("[%d] MTEE close session failed:%d\n",
+		pr_info("[%d] MTEE close session failed:%d\n",
 		       mtee_dev_desc->kern_tmem_type, ret);
 		MTEE_SESSION_UNLOCK();
 		return TMEM_MTEE_CLOSE_SESSION_FAILED;
@@ -158,28 +159,46 @@ static int mtee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
 		(struct tmem_device_description *)dev_desc;
 	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 
-	UNUSED(ops_data);
-	MTEE_SESSION_LOCK();
-
-	if (clean) {
-		ret = KREE_ION_ZallocChunkmem(sess_data->session_handle,
-					      sess_data->append_mem_handle,
-					      sec_handle, alignment, size);
+	if (IS_ENABLED(CONFIG_TMEM_MEMORY_POOL_ALLOCATOR)) {
+		ret = tmem_carveout_heap_alloc(mtee_dev_desc->mtee_chunks_id, size, sec_handle);
+		if (*sec_handle == 0) {
+			pr_info("tmem_carveout_heap_alloc,  out of memory, ret=%d!\n",  ret);
+			return -ENOMEM;
+		} else if (ret != 0) {
+			pr_info("[%d] tmem_carveout_heap_alloc failed:%d\n",
+			       mtee_dev_desc->kern_tmem_type, ret);
+			return TMEM_KPOOL_ALLOC_CHUNK_FAILED;
+		}
+		*refcount = 1;
 	} else {
-		ret = KREE_ION_AllocChunkmem(sess_data->session_handle,
-					     sess_data->append_mem_handle,
-					     sec_handle, alignment, size);
-	}
+		UNUSED(ops_data);
+		MTEE_SESSION_LOCK();
 
-	if (ret != 0) {
-		pr_err("[%d] MTEE alloc chunk memory failed:%d\n",
-		       mtee_dev_desc->kern_tmem_type, ret);
+		if (clean) {
+			ret = KREE_ION_ZallocChunkmem(sess_data->session_handle,
+						      sess_data->append_mem_handle,
+						      sec_handle, alignment, size);
+		} else {
+			ret = KREE_ION_AllocChunkmem(sess_data->session_handle,
+						     sess_data->append_mem_handle,
+						     sec_handle, alignment, size);
+		}
+
+		if (*sec_handle == 0) {
+			pr_info("%s:%d out of memory, ret=%d!\n", __func__, __LINE__, ret);
+			MTEE_SESSION_UNLOCK();
+			return -ENOMEM;
+		} else if (ret != 0) {
+			pr_info("[%d] MTEE alloc chunk memory failed:%d\n",
+			       mtee_dev_desc->kern_tmem_type, ret);
+			MTEE_SESSION_UNLOCK();
+			return TMEM_MTEE_ALLOC_CHUNK_FAILED;
+		}
+
+		*refcount = 1;
 		MTEE_SESSION_UNLOCK();
-		return TMEM_MTEE_ALLOC_CHUNK_FAILED;
 	}
 
-	*refcount = 1;
-	MTEE_SESSION_UNLOCK();
 	return TMEM_OK;
 }
 
@@ -193,19 +212,29 @@ static int mtee_free(u32 sec_handle, u8 *owner, u32 id, void *peer_data,
 		(struct tmem_device_description *)dev_desc;
 	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 
-	UNUSED(ops_data);
-	MTEE_SESSION_LOCK();
+	if (IS_ENABLED(CONFIG_TMEM_MEMORY_POOL_ALLOCATOR)) {
+		ret = tmem_carveout_heap_free(mtee_dev_desc->mtee_chunks_id, sec_handle);
+		if (ret != 0) {
+			pr_info("[%d] tmem_carveout_heap_free failed:%d\n",
+			       mtee_dev_desc->kern_tmem_type, ret);
+			return TMEM_KPOOL_ALLOC_CHUNK_FAILED;
+		}
+	} else {
+		UNUSED(ops_data);
+		MTEE_SESSION_LOCK();
 
-	ret = KREE_ION_UnreferenceChunkmem(sess_data->session_handle,
-					   sec_handle);
-	if (ret != 0) {
-		pr_err("[%d] MTEE free chunk memory failed:%d\n",
-		       mtee_dev_desc->kern_tmem_type, ret);
+		ret = KREE_ION_UnreferenceChunkmem(sess_data->session_handle,
+						   sec_handle);
+		if (ret != 0) {
+			pr_info("[%d] MTEE free chunk memory failed:%d\n",
+			       mtee_dev_desc->kern_tmem_type, ret);
+			MTEE_SESSION_UNLOCK();
+			return TMEM_MTEE_FREE_CHUNK_FAILED;
+		}
+
 		MTEE_SESSION_UNLOCK();
-		return TMEM_MTEE_FREE_CHUNK_FAILED;
 	}
 
-	MTEE_SESSION_UNLOCK();
 	return TMEM_OK;
 }
 
@@ -219,17 +248,7 @@ static int mtee_mem_reg_add(u64 pa, u32 size, void *peer_data, void *dev_desc)
 	struct mtee_peer_ops_data *ops_data = &mtee_dev_desc->u_ops_data.mtee;
 	KREE_SHAREDMEM_PARAM mem_param;
 
-	if (sizeof(u64) == sizeof(void *)) {
-		mem_param.buffer = (void *)pa;
-	} else {
-		if (pa >= (SZ_2G * 2)) {
-			pr_err("[%d] PA out of range:0x%llx\n",
-			       mtee_dev_desc->kern_tmem_type, pa);
-			return TMEM_MTEE_PHYSICAL_ADDR_OUT_OF_SUPPORT_RANGE;
-		}
-		mem_param.buffer = (void *)(pa & 0xFFFFFFFF);
-	}
-
+	mem_param.buffer = (void *)pa;
 	mem_param.size = size;
 	mem_param.mapAry = NULL;
 	mem_param.region_id = mtee_dev_desc->mtee_chunks_id;
@@ -241,24 +260,41 @@ static int mtee_mem_reg_add(u64 pa, u32 size, void *peer_data, void *dev_desc)
 					     &sess_data->append_mem_handle,
 					     &mem_param);
 	if (ret != 0) {
-		pr_err("[%d] MTEE append reg mem failed:%d\n",
+		pr_info("[%d] MTEE append reg mem failed:%d\n",
 		       mtee_dev_desc->kern_tmem_type, ret);
 		MTEE_SESSION_UNLOCK();
 		return TMEM_MTEE_APPEND_MEMORY_FAILED;
 	}
 
+	pr_info("[%d] MTEE append reg mem PASS: PA=0x%lx, size=0x%lx\n",
+				mtee_dev_desc->kern_tmem_type, pa, size);
+
 	if (mtee_dev_desc->notify_remote && mtee_dev_desc->notify_remote_fn) {
 		ret = mtee_dev_desc->notify_remote_fn(
 			pa, size, mtee_dev_desc->tee_smem_type);
 		if (ret != 0) {
-			pr_err("[%d] MTEE notify reg mem add to TEE failed:%d\n",
+			pr_info("[%d] MTEE notify reg mem add to TEE failed:%d\n",
 			       mtee_dev_desc->tee_smem_type, ret);
-			MTEE_SESSION_UNLOCK();
-			return TMEM_MTEE_NOTIFY_MEM_ADD_CFG_TO_TEE_FAILED;
+//			MTEE_SESSION_UNLOCK();
+//			return TMEM_MTEE_NOTIFY_MEM_ADD_CFG_TO_TEE_FAILED;
 		}
 	}
 
 	MTEE_SESSION_UNLOCK();
+
+	if (IS_ENABLED(CONFIG_TMEM_MEMORY_POOL_ALLOCATOR)) {
+		ret = tmem_carveout_create(mtee_dev_desc->mtee_chunks_id, pa, size);
+		if (ret != 0) {
+			pr_info("[%d] tmem_carveout_create failed:%d\n",
+			       mtee_dev_desc->kern_tmem_type, ret);
+			return TMEM_KPOOL_APPEND_MEMORY_FAILED;
+		}
+
+		pr_info("[%d] tmem_carveout_heap[%d] created PASS: PA=0x%lx, size=0x%lx\n",
+				mtee_dev_desc->kern_tmem_type, mtee_dev_desc->mtee_chunks_id,
+				pa, size);
+	}
+
 	return TMEM_OK;
 }
 
@@ -277,7 +313,7 @@ static int mtee_mem_reg_remove(void *peer_data, void *dev_desc)
 	ret = KREE_ReleaseSecureMultichunkmem(sess_data->session_handle,
 					      sess_data->append_mem_handle);
 	if (ret != 0) {
-		pr_err("[%d] MTEE release reg mem failed:%d\n",
+		pr_info("[%d] MTEE release reg mem failed:%d\n",
 		       mtee_dev_desc->kern_tmem_type, ret);
 		MTEE_SESSION_UNLOCK();
 		return TMEM_MTEE_RELEASE_MEMORY_FAILED;
@@ -287,14 +323,27 @@ static int mtee_mem_reg_remove(void *peer_data, void *dev_desc)
 		ret = mtee_dev_desc->notify_remote_fn(
 			0x0ULL, 0x0, mtee_dev_desc->tee_smem_type);
 		if (ret != 0) {
-			pr_err("[%d] MTEE notify reg mem remove to TEE failed:%d\n",
+			pr_info("[%d] MTEE notify reg mem remove to TEE failed:%d\n",
 			       mtee_dev_desc->tee_smem_type, ret);
-			MTEE_SESSION_UNLOCK();
-			return TMEM_MTEE_NOTIFY_MEM_REMOVE_CFG_TO_TEE_FAILED;
+//			MTEE_SESSION_UNLOCK();
+//			return TMEM_MTEE_NOTIFY_MEM_REMOVE_CFG_TO_TEE_FAILED;
 		}
 	}
 
 	MTEE_SESSION_UNLOCK();
+
+	if (IS_ENABLED(CONFIG_TMEM_MEMORY_POOL_ALLOCATOR)) {
+		ret = tmem_carveout_destroy(mtee_dev_desc->mtee_chunks_id);
+		if (ret != 0) {
+			pr_info("[%d] tmem_carveout_destroy failed:%d\n",
+			       mtee_dev_desc->kern_tmem_type, ret);
+			return TMEM_KPOOL_APPEND_MEMORY_FAILED;
+		}
+
+		pr_info("[%d] tmem_carveout_heap[%d] destroy PASS\n",
+				mtee_dev_desc->kern_tmem_type, mtee_dev_desc->mtee_chunks_id);
+	}
+
 	return TMEM_OK;
 }
 
@@ -323,7 +372,7 @@ static int mtee_mem_srv_execute(KREE_SESSION_HANDLE session_handle, u32 cmd,
 			drv_params->param2);
 		break;
 	default:
-		pr_err("%s:%d operation is not implemented yet!\n", __func__,
+		pr_info("%s:%d operation is not implemented yet!\n", __func__,
 		       __LINE__);
 		ret = TMEM_OPERATION_NOT_IMPLEMENTED;
 		break;
@@ -355,7 +404,7 @@ static int mtee_invoke_command(struct trusted_driver_cmd_params *invoke_params,
 		ret = mtee_drv_execute(sess_data->session_handle,
 				       invoke_params->cmd, &drv_params);
 		if (ret) {
-			pr_err("%s:%d invoke failed! cmd:%d, ret:0x%x\n",
+			pr_info("%s:%d invoke failed! cmd:%d, ret:0x%x\n",
 			       __func__, __LINE__, invoke_params->cmd, ret);
 			return TMEM_MTEE_INVOKE_COMMAND_FAILED;
 		}
@@ -363,7 +412,7 @@ static int mtee_invoke_command(struct trusted_driver_cmd_params *invoke_params,
 		ret = mtee_mem_srv_execute(sess_data->session_handle,
 					   invoke_params->cmd, &drv_params);
 		if (ret) {
-			pr_err("%s:%d invoke failed! cmd:%d, ret:0x%x\n",
+			pr_info("%s:%d invoke failed! cmd:%d, ret:0x%x\n",
 			       __func__, __LINE__, invoke_params->cmd, ret);
 			return TMEM_MTEE_INVOKE_COMMAND_FAILED;
 		}
@@ -389,6 +438,6 @@ static struct trusted_driver_operations mtee_peer_ops = {
 
 void get_mtee_peer_ops(struct trusted_driver_operations **ops)
 {
-	pr_info("MTEE_PEER_OPS\n");
+	pr_info("MTEE_OPS set\n");
 	*ops = &mtee_peer_ops;
 }

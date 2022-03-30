@@ -18,6 +18,8 @@
 #include <linux/moduleparam.h>
 #include <linux/sizes.h>
 #include <linux/mod_devicetable.h>
+#include <linux/of.h>
+#include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-direct.h>
@@ -30,8 +32,11 @@
 
 #include "private/ut_cmd.h"
 #include "tee_impl/tee_invoke.h"
+#include "public/mtee_regions.h"
+#include "mtee_impl/tmem_carveout_heap.h"
 
 #include "memory_ssmr.h"
+#include "memory_ssheap.h"
 
 static int tmem_open(struct inode *inode, struct file *file)
 {
@@ -42,9 +47,9 @@ static int tmem_open(struct inode *inode, struct file *file)
 	return TMEM_OK;
 }
 
-static int tmem_release(struct inode *inode, struct file *file)
+static int tmem_release(struct inode *ino, struct file *file)
 {
-	UNUSED(inode);
+	UNUSED(ino);
 	UNUSED(file);
 
 	pr_info("%s:%d\n", __func__, __LINE__);
@@ -163,8 +168,8 @@ static void trusted_mem_manual_cmd_invoke(u64 cmd, u64 param1, u64 param2,
 #endif
 		break;
 	case TMEM_SECMEM_FR_DUMP_INFO:
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
-	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 		secmem_fr_dump_info();
 #endif
 		break;
@@ -236,7 +241,7 @@ static void trusted_mem_create_proc_entry(void)
 	proc_create("tmem0", 0664, NULL, &tmem_fops);
 }
 
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 #define UT_MULTITHREAD_TEST_DEFAULT_WAIT_COMPLETION_TIMEOUT_MS (900000)
 #define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SZ_8M)
 
@@ -269,11 +274,16 @@ static int trusted_mem_init(struct platform_device *pdev)
 {
 	pr_info("%s:%d\n", __func__, __LINE__);
 
-	ssmr_probe(pdev);
+#if WITH_SSHEAP_PROC
+	if (strncmp(dev_name(&pdev->dev), "ssheap", 6) == 0)
+		return ssheap_init(pdev);
+#endif
+
+	ssmr_init(pdev);
 
 	trusted_mem_subsys_init();
 
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 	tmem_ut_server_init();
 	tmem_ut_cases_init();
 #endif
@@ -286,6 +296,9 @@ static int trusted_mem_init(struct platform_device *pdev)
 	mtee_mchunks_init();
 #endif
 
+	if (IS_ENABLED(CONFIG_TMEM_MEMORY_POOL_ALLOCATOR))
+		tmem_carveout_init();
+
 	trusted_mem_create_proc_entry();
 
 	pr_info("%s:%d (end)\n", __func__, __LINE__);
@@ -294,6 +307,11 @@ static int trusted_mem_init(struct platform_device *pdev)
 
 static int trusted_mem_exit(struct platform_device *pdev)
 {
+#if WITH_SSHEAP_PROC
+	if (strncmp(dev_name(&pdev->dev), "ssheap", 6) == 0)
+		return ssheap_exit(pdev);
+#endif
+
 #ifdef MTEE_DEVICES_SUPPORT
 	mtee_mchunks_exit();
 #endif
@@ -302,7 +320,7 @@ static int trusted_mem_exit(struct platform_device *pdev)
 	tee_smem_devs_exit();
 #endif
 
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 	tmem_ut_cases_exit();
 	tmem_ut_server_exit();
 #endif
@@ -314,6 +332,7 @@ static int trusted_mem_exit(struct platform_device *pdev)
 
 static const struct of_device_id tm_of_match_table[] = {
 	{ .compatible = "mediatek,trusted_mem"},
+	{ .compatible = "mediatek,trusted_mem_ssheap"},
 	{},
 };
 

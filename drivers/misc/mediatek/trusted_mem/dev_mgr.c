@@ -32,7 +32,7 @@
 #include "private/tmem_priv.h"
 #include "private/tmem_utils.h"
 
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 #include "tests/ut_api.h"
 #endif
 
@@ -50,7 +50,7 @@ static inline void run_ut_with_memory_leak_check(u64 cmd, u64 param1,
 	size_t start_size = mld_stamp();
 #endif
 
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 	invoke_ut_cases(cmd, param1, param2, param3);
 #else
 	pr_err("TCORE_UT_TESTS_SUPPORT option is not enabled\n");
@@ -69,11 +69,13 @@ void trusted_mem_ut_cmd_invoke(u64 cmd, u64 param1, u64 param2, u64 param3)
 	run_ut_with_memory_leak_check(cmd, param1, param2, param3);
 }
 
-#define VALID_MEM_TYPE(type) (type != TRUSTED_MEM_INVALID)
+#define VALID_MEM_TYPE(type)                                                   \
+	((type >= TRUSTED_MEM_START) && (type < TRUSTED_MEM_MAX))
 struct trusted_mem_device *
 get_trusted_mem_device(enum TRUSTED_MEM_TYPE mem_type)
 {
-	if (VALID_MEM_TYPE(tmem_dev[mem_type].mem_type)
+	if (VALID_MEM_TYPE(mem_type)
+	    && VALID_MEM_TYPE(tmem_dev[mem_type].mem_type)
 	    && VALID(tmem_dev[mem_type].device))
 		return tmem_dev[mem_type].device;
 

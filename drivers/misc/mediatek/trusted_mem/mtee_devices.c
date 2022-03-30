@@ -43,15 +43,34 @@ static struct trusted_mem_configs mchunk_general_configs = {
 };
 
 static struct tmem_device_description mtee_mchunks[] = {
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
+	{
+		.kern_tmem_type = TRUSTED_MEM_SVP_REGION,
+		.tee_smem_type = TEE_SMEM_SVP,
+		.mtee_chunks_id = MTEE_MCHUNKS_SVP,
+		.ssmr_feature_id = SSMR_FEAT_SVP_REGION,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_SVP_REGION},
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+		.notify_remote = true,
+		.notify_remote_fn = secmem_fr_set_svp_region,
+#else
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+#endif
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_SVP",
+	},
+#endif
 #if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 	{
-		.kern_tmem_type = TRUSTED_MEM_PROT,
+		.kern_tmem_type = TRUSTED_MEM_PROT_REGION,
 		.tee_smem_type = TEE_SMEM_PROT,
 		.mtee_chunks_id = MTEE_MCHUNKS_PROT,
-		.ssmr_feature_id = SSMR_FEAT_PROT_SHAREDMEM,
-		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_PROT},
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
-	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+		.ssmr_feature_id = SSMR_FEAT_PROT_REGION,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_PROT_REGION},
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 		.notify_remote = true,
 		.notify_remote_fn = secmem_fr_set_prot_shared_region,
 #else
@@ -59,7 +78,27 @@ static struct tmem_device_description mtee_mchunks[] = {
 		.notify_remote_fn = NULL,
 #endif
 		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "PMEM",
+		.dev_name = "MTEE_PROT",
+	},
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT)
+	{
+		.kern_tmem_type = TRUSTED_MEM_WFD_REGION,
+		.tee_smem_type = TEE_SMEM_WFD,
+		.mtee_chunks_id = MTEE_MCHUNKS_WFD,
+		.ssmr_feature_id = SSMR_FEAT_WFD_REGION,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_WFD_REGION},
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+		.notify_remote = true,
+		.notify_remote_fn = secmem_fr_set_wfd_region,
+#else
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+#endif
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_WFD",
 	},
 #endif
 
@@ -98,13 +137,13 @@ static struct tmem_device_description mtee_mchunks[] = {
 		.notify_remote = true,
 		.notify_remote_fn = secmem_set_mchunks_region,
 		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "SDSP",
+		.dev_name = "MTEE_SDSP",
 	},
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                             \
-	&& (IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                   \
-	    || IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT) && \
+	(IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE) || \
+	 IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
 	{
 		.kern_tmem_type = TRUSTED_MEM_SDSP_SHARED,
 		.tee_smem_type = TEE_SMEM_SDSP_SHARED,
@@ -120,9 +159,31 @@ static struct tmem_device_description mtee_mchunks[] = {
 		.notify_remote = true,
 		.notify_remote_fn = secmem_set_mchunks_region,
 		.mem_cfg = &mchunk_general_configs,
-		.dev_name = "SDSP_SHARED",
+		.dev_name = "MTEE_SDSP_SHARED",
 	},
 #endif
+	{
+		.kern_tmem_type = TRUSTED_MEM_SAPU_DATA_SHM,
+		.tee_smem_type = TEE_SMEM_INVALID,
+		.mtee_chunks_id = MTEE_MCHUNKS_SAPU_DATA_SHM,
+		.ssmr_feature_id = SSMR_FEAT_SAPU_DATA_SHM,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_SAPU_DATA_SHM},
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_SAPU_DATA_SHM",
+	},
+	{
+		.kern_tmem_type = TRUSTED_MEM_SAPU_ENGINE_SHM,
+		.tee_smem_type = TEE_SMEM_INVALID,
+		.mtee_chunks_id = MTEE_MCHUNKS_SAPU_ENGINE_SHM,
+		.ssmr_feature_id = SSMR_FEAT_SAPU_ENGINE_SHM,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_SAPU_ENGINE_SHM},
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_SAPU_ENGINE_SHM",
+	},
 };
 
 #define MTEE_MCHUNKS_DEVICE_COUNT ARRAY_SIZE(mtee_mchunks)
@@ -135,6 +196,16 @@ create_mtee_mchunk_device(enum TRUSTED_MEM_TYPE mem_type,
 {
 	int ret = TMEM_OK;
 	struct trusted_mem_device *t_device;
+
+	/* skip svp and wfd when disable svp */
+	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD_REGION) &&
+		!is_svp_enabled())
+		return NULL;
+
+	/* skip svp or wfd on TEE */
+	if ((mem_type == TRUSTED_MEM_SVP_REGION || mem_type == TRUSTED_MEM_WFD_REGION) &&
+		!is_svp_on_mtee())
+		return NULL;
 
 	t_device = create_trusted_mem_device(mem_type, cfg);
 	if (INVALID(t_device)) {
@@ -174,10 +245,9 @@ int mtee_mchunks_init(void)
 			mtee_mchunks[idx].ssmr_feature_id,
 			mtee_mchunks[idx].dev_name);
 		if (INVALID(t_device)) {
-			pr_err("create mchunk device failed: %d:%s\n",
+			pr_info("don't create MTEE tmem device: %d:%s\n",
 			       mtee_mchunks[idx].kern_tmem_type,
 			       mtee_mchunks[idx].dev_name);
-			return TMEM_CREATE_DEVICE_FAILED;
 		}
 	}
 

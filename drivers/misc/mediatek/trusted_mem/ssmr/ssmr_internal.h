@@ -43,6 +43,8 @@
  *  enable :           show feature status
  */
 struct SSMR_Feature {
+	bool must_2MB_alignment;
+	bool is_page_based;
 	bool is_unmapping;
 	bool use_cache_memory;
 	char dt_prop_name[NAME_LEN];
@@ -83,7 +85,19 @@ enum ssmr_scheme_state {
 };
 
 /* clang-format off */
-extern const char *const ssmr_state_text[NR_STATES];
+const char *const ssmr_state_text[NR_STATES] = {
+	[SSMR_STATE_DISABLED]   = "[DISABLED]",
+	[SSMR_STATE_ONING_WAIT] = "[ONING_WAIT]",
+	[SSMR_STATE_ONING]      = "[ONING]",
+	[SSMR_STATE_ON]         = "[ON]",
+	[SSMR_STATE_OFFING]     = "[OFFING]",
+	[SSMR_STATE_OFF]        = "[OFF]",
+};
+
+struct page_change_data {
+	pgprot_t set_mask;
+	pgprot_t clear_mask;
+};
 /* clang-format on */
 
 struct SSMR_Scheme {
@@ -115,6 +129,214 @@ static struct SSMR_Scheme _ssmrscheme[__MAX_NR_SCHEME] = {
 		.flags = TUI_FLAGS
 	}
 };
+
+static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
+	[SSMR_FEAT_SVP_REGION] = {
+		.dt_prop_name = "svp-region-based-size",
+		.feat_name = "svp_region_based",
+		.cmd_online = "svp_region=on",
+		.cmd_offline = "svp_region=off",
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = SVP_FLAGS,
+		.req_size = 0,
+		.is_page_based = false,
+		.must_2MB_alignment = true
+	},
+	[SSMR_FEAT_PROT_REGION] = {
+		.dt_prop_name = "prot-region-based-size",
+		.feat_name = "prot_region_based",
+		.cmd_online = "prot_region=on",
+		.cmd_offline = "prot_region=off",
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS | SVP_FLAGS,
+		.req_size = 0,
+		.is_page_based = false,
+		.must_2MB_alignment = true
+	},
+	[SSMR_FEAT_WFD_REGION] = {
+		.dt_prop_name = "wfd-region-based-size",
+		.feat_name = "wfd_region_based",
+		.cmd_online = "wfd_region=on",
+		.cmd_offline = "wfd_region=off",
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = SVP_FLAGS,
+		.is_page_based = false,
+		.must_2MB_alignment = true
+	},
+	[SSMR_FEAT_TA_ELF] = {
+		.dt_prop_name = "ta-elf-size",
+		.feat_name = "ta-elf",
+		.cmd_online = "ta_elf=on",
+		.cmd_offline = "ta_elf=off",
+#if IS_ENABLED(CONFIG_MTK_HAPP_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
+	},
+	[SSMR_FEAT_TA_STACK_HEAP] = {
+		.dt_prop_name = "ta-stack-heap-size",
+		.feat_name = "ta-stack-heap",
+		.cmd_online = "ta_stack_heap=on",
+		.cmd_offline = "ta_stack_heap=off",
+#if IS_ENABLED(CONFIG_MTK_HAPP_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS,
+		.is_page_based = false
+	},
+	[SSMR_FEAT_SDSP_TEE_SHAREDMEM] = {
+		.dt_prop_name = "sdsp-tee-sharedmem-size",
+		.feat_name = "sdsp-tee-sharedmem",
+		.cmd_online = "sdsp_tee_sharedmem=on",
+		.cmd_offline = "sdsp_tee_sharedmem=off",
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
+	},
+	[SSMR_FEAT_SDSP_FIRMWARE] = {
+		.dt_prop_name = "sdsp-firmware-size",
+		.feat_name = "sdsp-firmware",
+		.cmd_online = "sdsp_firmware=on",
+		.cmd_offline = "sdsp_firmware=off",
+#if IS_ENABLED(CONFIG_MTK_SDSP_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
+	},
+	[SSMR_FEAT_2D_FR] = {
+		.dt_prop_name = "2d_fr-size",
+		.feat_name = "2d_fr",
+		.cmd_online = "2d_fr=on",
+		.cmd_offline = "2d_fr=off",
+		.enable = "off",
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false
+	},
+	[SSMR_FEAT_TUI] = {
+		.dt_prop_name = "tui-size",
+		.feat_name = "tui",
+		.cmd_online = "tui=on",
+		.cmd_offline = "tui=off",
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI) ||\
+	IS_ENABLED(CONFIG_BLOWFISH_TUI_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = TUI_FLAGS,
+		.req_size = 0,
+		.is_page_based = false,
+		.must_2MB_alignment = false
+	},
+	[SSMR_FEAT_SVP_PAGE] = {
+		.dt_prop_name = "svp-page-based-size",
+		.feat_name = "svp_page_based",
+		.cmd_online = "svp_page=on",
+		.cmd_offline = "svp_page=off",
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = SVP_FLAGS,
+		.req_size = 0,
+		.is_page_based = true
+	},
+	[SSMR_FEAT_PROT_PAGE] = {
+		.dt_prop_name = "prot-page-based-size",
+		.feat_name = "prot_page_based",
+		.cmd_online = "prot_page=on",
+		.cmd_offline = "prot_page=off",
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS | SVP_FLAGS,
+		.req_size = 0,
+		.is_page_based = true
+	},
+	[SSMR_FEAT_WFD_PAGE] = {
+		.dt_prop_name = "wfd-page-based-size",
+		.feat_name = "wfd_page_based",
+		.cmd_online = "wfd_page=on",
+		.cmd_offline = "wfd_page=off",
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+		.enable = "on",
+#else
+		.enable = "off",
+#endif
+		.scheme_flag = SVP_FLAGS,
+		.req_size = 0,
+		.is_page_based = true
+	},
+	[SSMR_FEAT_SAPU_DATA_SHM] = {
+		.dt_prop_name = "sapu-data-shm-size",
+		.feat_name = "sapu-data-shm",
+		.cmd_online = "sapu_data_shm=on",
+		.cmd_offline = "sapu_data_shm=off",
+		.enable = "on",
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false,
+		.must_2MB_alignment = true
+	},
+	[SSMR_FEAT_SAPU_ENGINE_SHM] = {
+		.dt_prop_name = "sapu-engine-shm-size",
+		.feat_name = "sapu-engine-shm",
+		.cmd_online = "sapu_engine_shm=on",
+		.cmd_offline = "sapu_engine_shm=off",
+		.enable = "on",
+		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
+				FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false,
+		.must_2MB_alignment = true
+	},
+};
 /* clang-format on */
 
 extern void show_pte(struct mm_struct *mm, unsigned long addr);
@@ -123,7 +345,5 @@ struct SSMR_HEAP_INFO {
 	unsigned int heap_id;
 	char heap_name[NAME_SIZE];
 };
-
-struct SSMR_HEAP_INFO _ssmr_heap_info[__MAX_NR_SSMR_FEATURES];
 
 #endif

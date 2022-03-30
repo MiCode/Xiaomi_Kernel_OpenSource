@@ -330,10 +330,13 @@ int tee_mem_reg_add(u64 pa, u32 size, void *tee_data, void *dev_desc)
 			pa, size, tee_dev_desc->mtee_chunks_id);
 		if (ret != 0) {
 			pr_err("[%d] TEE notify reg mem add to MTEE failed:%d\n",
-			       tee_dev_desc->mtee_chunks_id, ret);
+			       tee_dev_desc->kern_tmem_type, ret);
 			return TMEM_TEE_NOTIFY_MEM_ADD_CFG_TO_MTEE_FAILED;
 		}
 	}
+
+	pr_info("[%d] TEE append reg mem PASS: PA=0x%lx, size=0x%lx\n",
+				tee_dev_desc->kern_tmem_type, pa, size);
 
 	return TMEM_OK;
 }
@@ -425,6 +428,6 @@ static struct trusted_driver_operations tee_gp_peer_ops = {
 
 void get_tee_peer_ops(struct trusted_driver_operations **ops)
 {
-	pr_info("SECMEM_TEE_GP_OPS\n");
+	pr_info("TEE_OPS set\n");
 	*ops = &tee_gp_peer_ops;
 }

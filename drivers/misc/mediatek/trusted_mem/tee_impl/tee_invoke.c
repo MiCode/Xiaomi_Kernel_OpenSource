@@ -21,11 +21,12 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 
+#include "memory_ssmr.h"
 #include "private/mld_helper.h"
 #include "private/tmem_device.h"
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 #include "tests/ut_common.h"
 #endif
 #include "tee_impl/tee_ops.h"
@@ -36,6 +37,9 @@
 #define TEE_CMD_UNLOCK() mutex_unlock(&tee_lock)
 
 static DEFINE_MUTEX(tee_lock);
+
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 static struct trusted_driver_operations *tee_ops;
 static void *tee_session_data;
 
@@ -46,6 +50,9 @@ tee_directly_invoke_cmd_locked(struct trusted_driver_cmd_params *invoke_params)
 
 	if (unlikely(INVALID(invoke_params)))
 		return TMEM_PARAMETER_ERROR;
+
+	if (unlikely(INVALID(tee_ops)))
+		get_tee_peer_ops(&tee_ops);
 
 	if (tee_ops->session_open(&tee_session_data, NULL)) {
 		pr_err("%s:%d tee open session failed!\n", __func__, __LINE__);
@@ -59,10 +66,21 @@ tee_directly_invoke_cmd_locked(struct trusted_driver_cmd_params *invoke_params)
 
 	return ret;
 }
+#else
+static inline int
+tee_directly_invoke_cmd_locked(struct trusted_driver_cmd_params *invoke_params)
+{
+	return 0;
+}
+#endif
 
 int tee_directly_invoke_cmd(struct trusted_driver_cmd_params *invoke_params)
 {
 	int ret = TMEM_OK;
+
+	/* if SVP enable, then TEE will be enabled */
+	if (!is_svp_enabled())
+		return TMEM_OK;
 
 	TEE_CMD_LOCK();
 	ret = tee_directly_invoke_cmd_locked(invoke_params);
@@ -71,8 +89,52 @@ int tee_directly_invoke_cmd(struct trusted_driver_cmd_params *invoke_params)
 	return ret;
 }
 
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
-	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+int secmem_fr_set_svp_region(u64 pa, u32 size, int remote_region_type)
+{
+	struct trusted_driver_cmd_params cmd_params = {0};
+
+	cmd_params.cmd = CMD_SEC_MEM_SET_SVP_REGION;
+	cmd_params.param0 = pa;
+	cmd_params.param1 = size;
+	cmd_params.param2 = remote_region_type;
+
+	if (pa == 0 && size == 0)
+		return TMEM_OK;
+
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
+	if (is_multi_type_alloc_multithread_test_locked()) {
+		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
+		return TMEM_OK;
+	}
+#endif
+
+	return tee_directly_invoke_cmd(&cmd_params);
+}
+
+int secmem_fr_set_wfd_region(u64 pa, u32 size, int remote_region_type)
+{
+	struct trusted_driver_cmd_params cmd_params = {0};
+
+	cmd_params.cmd = CMD_SEC_MEM_SET_WFD_REGION;
+	cmd_params.param0 = pa;
+	cmd_params.param1 = size;
+	cmd_params.param2 = remote_region_type;
+
+	if (pa == 0 && size == 0)
+		return TMEM_OK;
+
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
+	if (is_multi_type_alloc_multithread_test_locked()) {
+		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
+		return TMEM_OK;
+	}
+#endif
+
+	return tee_directly_invoke_cmd(&cmd_params);
+}
+
 int secmem_fr_set_prot_shared_region(u64 pa, u32 size, int remote_region_type)
 {
 	struct trusted_driver_cmd_params cmd_params = {0};
@@ -82,7 +144,10 @@ int secmem_fr_set_prot_shared_region(u64 pa, u32 size, int remote_region_type)
 	cmd_params.param1 = size;
 	cmd_params.param2 = remote_region_type;
 
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+	if (pa == 0 && size == 0)
+		return TMEM_OK;
+
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 	if (is_multi_type_alloc_multithread_test_locked()) {
 		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
 		return TMEM_OK;
@@ -111,7 +176,7 @@ int secmem_set_mchunks_region(u64 pa, u32 size, int remote_region_type)
 	cmd_params.param1 = size;
 	cmd_params.param2 = remote_region_type;
 
-#ifdef CONFIG_TEST_MTK_TRUSTED_MEMORY
+#if IS_ENABLED(CONFIG_TEST_MTK_TRUSTED_MEMORY)
 	if (is_multi_type_alloc_multithread_test_locked()) {
 		pr_debug("%s:%d return for UT purpose!\n", __func__, __LINE__);
 		return TMEM_OK;

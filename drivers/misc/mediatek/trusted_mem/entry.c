@@ -27,12 +27,26 @@
 #include <linux/unistd.h>
 #include <linux/version.h>
 #include <linux/sizes.h>
+#include <linux/sched/clock.h>
+#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
+#include <tz_cross/ta_mem.h>
+#include <tz_cross/trustzone.h>
+#include <kree/mem.h>
+#include <kree/system.h>
 
+#define TZ_TA_SECMEM_UUID   "com.mediatek.geniezone.srv.mem"
+
+#endif
+#include "memory_ssmr.h"
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
 #include "private/tmem_device.h"
 #include "private/tmem_priv.h"
 #include "private/tmem_cfg.h"
+#include "private/ssheap_priv.h"
+#include "public/trusted_mem_api.h"
+
+#define HYP_PMM_MASTER_SIDE_PROTECT (1)
 
 static bool is_invalid_hooks(struct trusted_mem_device *mem_device)
 {
@@ -228,6 +242,7 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 	struct trusted_mem_device *mem_device =
 		get_trusted_mem_device(mem_type);
 	struct trusted_mem_configs *mem_cfg;
+	struct region_mgr_desc *mgr_desc = mem_device->reg_mgr;
 
 	if (unlikely(is_invalid_hooks(mem_device))) {
 		pr_err("%s:%d %d:mem device may not be registered!\n", __func__,
@@ -243,7 +258,11 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 	pr_debug("[%d] alloc sz req is %d (0x%x), align 0x%x, clean: %d\n",
 		 mem_type, size, size, alignment, clean);
 
-	if (likely(do_alignment_check)) {
+	/*
+	 * IOMMU need to map 1MB alignment space, TMEM need to provide it.
+	 * When alignment is equal 1MB, then TMEM don't adjust alignment.
+	 */
+	if (likely(do_alignment_check && alignment != SZ_1M)) {
 		mem_cfg = &mem_device->configs;
 		ret = parameter_checks_with_alignment_adjust(
 			mem_type, &alignment, &size, mem_cfg);
@@ -260,14 +279,91 @@ static int tmem_core_alloc_chunk_internal(enum TRUSTED_MEM_TYPE mem_type,
 		mem_device->peer_ops, &mem_device->peer_mgr->peer_mgr_data,
 		mem_device->dev_desc);
 	if (unlikely(ret)) {
-		pr_err("[%d] alloc chunk failed:%d, sz:0x%x, align:0x%x\n",
-		       mem_type, ret, size, alignment);
+		pr_info("[%d] alloc handle failed:%d, sz:0x%x, inuse_count=%d\n",
+		       mem_type, ret, size, mgr_desc->valid_ref_count);
 		regmgr_offline(mem_device->reg_mgr);
 		return ret;
 	}
 
-	pr_debug("[%d] allocated handle is 0x%x\n", mem_type, *sec_handle);
 	regmgr_region_ref_inc(mem_device->reg_mgr, mem_device->mem_type);
+
+	pr_info("[%d] alloc handle = 0x%x, size = 0x%x, inuse_count=%d\n",
+			mem_type, *sec_handle, size, mgr_desc->valid_ref_count);
+
+	return TMEM_OK;
+}
+
+int tmem_core_alloc_page(enum TRUSTED_MEM_TYPE mem_type, u32 size,
+			  struct ssheap_buf_info **buf_info)
+{
+	struct ssheap_buf_info *info = NULL;
+	unsigned long long start, end;
+#if HYP_PMM_MASTER_SIDE_PROTECT
+	unsigned long smc_ret;
+#endif
+
+	if (!buf_info)
+		return TMEM_PARAMETER_ERROR;
+
+	start = sched_clock();
+	info = ssheap_alloc_non_contig(size, 0, mem_type);
+	if (!info) {
+		*buf_info = NULL;
+		pr_err("[%d] alloc non contig failed! sz:0x%x\n", mem_type, size);
+		return TMEM_GENERAL_ERROR;
+	}
+	end = sched_clock();
+	if (end - start > 10000000ULL) {/* unit is ns */
+		pr_info("%s alloc_non_contig len: 0x%lx time: %lld ns\n",
+			__func__, size, end - start);
+	}
+
+#if HYP_PMM_MASTER_SIDE_PROTECT
+	start = sched_clock();
+	smc_ret = mtee_assign_buffer(info, mem_type);
+	if (smc_ret) {
+		pr_err("smc_ret:%x assign buffer failed!\n", smc_ret);
+		ssheap_free_non_contig(info);
+		return TMEM_GENERAL_ERROR;
+	}
+	end = sched_clock();
+	if (end - start > 10000000ULL) {/* unit is ns */
+		pr_info("%s mtee assign buffer len: 0x%lx time: %lld ns\n",
+			__func__, size, end - start);
+	}
+#endif
+
+	*buf_info = info;
+	return TMEM_OK;
+}
+
+int tmem_core_unref_page(enum TRUSTED_MEM_TYPE mem_type,
+			  struct ssheap_buf_info *buf_info)
+{
+	int ret;
+#if HYP_PMM_MASTER_SIDE_PROTECT
+	unsigned long smc_ret;
+#endif
+
+	if (!buf_info)
+		return TMEM_PARAMETER_ERROR;
+
+	if (buf_info->mem_type != mem_type) {
+		pr_err("mem_type mismatch buf:%x free:%x\n", buf_info->mem_type, mem_type);
+		return TMEM_GENERAL_ERROR;
+	}
+
+#if HYP_PMM_MASTER_SIDE_PROTECT
+	smc_ret = mtee_unassign_buffer(buf_info, mem_type);
+	if (smc_ret)
+		return TMEM_GENERAL_ERROR;
+#endif
+
+	ret = ssheap_free_non_contig(buf_info);
+	if (ret) {
+		pr_err("[%d] free non contig failed:%d\n", mem_type, ret);
+		return TMEM_GENERAL_ERROR;
+	}
 	return TMEM_OK;
 }
 
@@ -276,8 +372,7 @@ int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			  u32 id, u32 clean)
 {
 	return tmem_core_alloc_chunk_internal(mem_type, alignment, size,
-					      refcount, sec_handle, owner, id,
-					      clean, true);
+				refcount, sec_handle, owner, id, clean, true);
 }
 
 int tmem_core_alloc_chunk_priv(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
@@ -285,8 +380,7 @@ int tmem_core_alloc_chunk_priv(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			       u8 *owner, u32 id, u32 clean)
 {
 	return tmem_core_alloc_chunk_internal(mem_type, alignment, size,
-					      refcount, sec_handle, owner, id,
-					      clean, false);
+				refcount, sec_handle, owner, id, clean, false);
 }
 
 int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
@@ -295,6 +389,7 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 	int ret = TMEM_OK;
 	struct trusted_mem_device *mem_device =
 		get_trusted_mem_device(mem_type);
+	struct region_mgr_desc *mgr_desc = mem_device->reg_mgr;
 
 	if (unlikely(is_invalid_hooks(mem_device))) {
 		pr_err("%s:%d %d:mem device may not be registered!\n", __func__,
@@ -302,10 +397,8 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 		return TMEM_OPERATION_NOT_REGISTERED;
 	}
 
-	pr_debug("[%d] free handle is 0x%x\n", mem_type, sec_handle);
-
 	if (unlikely(!is_regmgr_region_on(mem_device->reg_mgr))) {
-		pr_err("[%d] regmgr region is still not online!\n", mem_type);
+		pr_info("[%d] regmgr region is still not online!\n", mem_type);
 		return TMEM_REGION_IS_NOT_READY_BEFORE_MEM_FREE_OPERATION;
 	}
 
@@ -313,12 +406,16 @@ int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 		sec_handle, owner, id, mem_device->peer_ops,
 		&mem_device->peer_mgr->peer_mgr_data, mem_device->dev_desc);
 	if (unlikely(ret)) {
-		pr_err("[%d] free chunk failed!\n", mem_type);
+		pr_info("[%d] free chunk failed!\n", mem_type);
 		return ret;
 	}
 
 	regmgr_region_ref_dec(mem_device->reg_mgr);
 	regmgr_offline(mem_device->reg_mgr);
+
+	pr_info("[%d] free handle = 0x%x, inuse_count=%d\n",
+			mem_type, sec_handle, mgr_desc->valid_ref_count);
+
 	return TMEM_OK;
 }
 
@@ -335,7 +432,7 @@ bool tmem_core_is_regmgr_region_on(enum TRUSTED_MEM_TYPE mem_type)
 	is_phy_region_on = is_regmgr_region_on(mem_device->reg_mgr);
 	is_dev_busy = get_device_busy_status(mem_device);
 
-	pr_debug("device:%d is %s(%d) (phys state:%d, active mem:%d)\n",
+	pr_info("device:%d is %s(%d) (phys state:%d, active mem:%d)\n",
 		 mem_type, is_dev_busy ? "busy" : "not busy", is_dev_busy,
 		 is_phy_region_on, mem_device->reg_mgr->active_mem_type);
 	return is_dev_busy;
@@ -410,11 +507,17 @@ u32 tmem_core_get_min_chunk_size(enum TRUSTED_MEM_TYPE mem_type)
 static int get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type)
 {
 	switch (mem_type) {
-	case TRUSTED_MEM_SVP:
+	case TRUSTED_MEM_SVP_REGION:
 		return SZ_256M;
-	case TRUSTED_MEM_PROT:
+	case TRUSTED_MEM_SVP_PAGE:
+		return SZ_256M;
+	case TRUSTED_MEM_PROT_REGION:
 		return SZ_128M;
-	case TRUSTED_MEM_WFD:
+	case TRUSTED_MEM_PROT_PAGE:
+		return SZ_128M;
+	case TRUSTED_MEM_WFD_REGION:
+		return SZ_64M;
+	case TRUSTED_MEM_WFD_PAGE:
 		return SZ_64M;
 	case TRUSTED_MEM_2D_FR:
 		return SZ_16M;
@@ -465,14 +568,20 @@ bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u64 *pa,
 bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
 {
 	switch (mem_type) {
-	case TRUSTED_MEM_PROT:
+	case TRUSTED_MEM_SVP_REGION:
+		return is_svp_on_mtee();
+	case TRUSTED_MEM_WFD_REGION:
+		return is_svp_on_mtee();
+	case TRUSTED_MEM_PROT_REGION:
 	case TRUSTED_MEM_HAPP:
 	case TRUSTED_MEM_HAPP_EXTRA:
 	case TRUSTED_MEM_SDSP:
+	case TRUSTED_MEM_SAPU_DATA_SHM:
+	case TRUSTED_MEM_SAPU_ENGINE_SHM:
 		return true;
 	case TRUSTED_MEM_SDSP_SHARED:
-#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                             \
-	&& (IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                   \
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT) \
+	&& (IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE) \
 	    || IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
 		return true;
 #else
@@ -481,4 +590,83 @@ bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
 	default:
 		return false;
 	}
+}
+
+#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
+#define SECMEM_64BIT_PHYS_SHIFT (6)
+int tmem_query_gz_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
+			u32 size, u32 *refcount, u32 *gz_handle,
+			u8 *owner, u32 id, u32 clean, uint64_t *phy_addr)
+{
+	int ret = TMEM_OK;
+	union MTEEC_PARAM p[4];
+	KREE_SESSION_HANDLE session = 0;
+
+	if (!gz_handle) {
+		pr_info("[%s] Fail.invalid parameters\n", __func__);
+		return TMEM_GENERAL_ERROR;
+	}
+
+	ret = KREE_CreateSession(TZ_TA_SECMEM_UUID, &session);
+	if (ret != TZ_RESULT_SUCCESS) {
+		pr_info("KREE_CreateSession error, ret = %x\n", ret);
+		return ret;
+	}
+
+	p[0].value.a = *gz_handle;
+
+	ret = KREE_TeeServiceCall(session, TZCMD_MEM_Query_SECUREMEM_INFO,
+			TZ_ParamTypes2(TZPT_VALUE_INPUT, TZPT_VALUE_OUTPUT), p);
+	if (ret != TZ_RESULT_SUCCESS) {
+		pr_info("[%s] KREE_TeeServiceCall query pa Fail(0x%x)\n", __func__, ret);
+		return TMEM_MTEE_QUERY_PA_FAIL;
+	}
+
+	*phy_addr = (uint64_t)p[1].value.a << SECMEM_64BIT_PHYS_SHIFT;
+	pr_info("[%s] handle=0x%x, ok(pa=0x%lx)\n", __func__, *gz_handle, *phy_addr);
+
+	KREE_CloseSession(session);
+
+	return ret;
+}
+#endif
+
+#define SECMEM_PATTERN (0x3C2D37A4)
+#define SECMEM_64BIT_PHYS_SHIFT (6)
+#define SECMEM_HANDLE_TO_PA(handle) \
+	((((u64)handle) ^ SECMEM_PATTERN) << SECMEM_64BIT_PHYS_SHIFT)
+
+#define SECMEM_HANDLE_TO_PA_NO_XOR(handle) \
+	((((u64)handle)) << SECMEM_64BIT_PHYS_SHIFT)
+
+#define PMEM_PATTERN (0xD1C05A97)
+#define PMEM_64BIT_PHYS_SHIFT (10)
+#define PMEM_HANDLE_TO_PA(handle) \
+	(((((u64)handle) ^ PMEM_PATTERN) << PMEM_64BIT_PHYS_SHIFT) \
+	& ~((1 << PMEM_64BIT_PHYS_SHIFT) - 1))
+
+#define PMEM_HANDLE_TO_PA_NO_XOR(handle) \
+	(((((u64)handle)) << PMEM_64BIT_PHYS_SHIFT) \
+	& ~((1 << PMEM_64BIT_PHYS_SHIFT) - 1))
+
+static u64 get_phy_addr_by_handle(enum TRUSTED_MEM_TYPE mem_type,
+		u32 sec_handle)
+{
+	if (IS_ZERO(sec_handle))
+		return 0;
+
+	if (is_mtee_mchunks(mem_type))
+		return PMEM_HANDLE_TO_PA(sec_handle);
+	return SECMEM_HANDLE_TO_PA(sec_handle);
+}
+
+int tmem_query_sec_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
+		u32 size, u32 *refcount, u32 *sec_handle,
+		u8 *owner, u32 id, u32 clean, uint64_t *phy_addr)
+{
+	int rc = 0;
+
+	if (!rc && VALID(phy_addr))
+		*phy_addr = get_phy_addr_by_handle(mem_type, *sec_handle);
+	return rc;
 }

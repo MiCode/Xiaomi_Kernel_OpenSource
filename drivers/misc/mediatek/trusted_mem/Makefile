@@ -24,8 +24,10 @@ trusted_mem-y += region_mgr.o
 trusted_mem-y += ssmr_mgr.o
 trusted_mem-y += peer_mgr.o
 trusted_mem-y += proc.o
+trusted_mem-y += ssheap_proc.o
 trusted_mem-y += alloc_api.o
-trusted_mem-y += ssmr/memory_ssmr_module.o
+trusted_mem-y += ssmr/memory_ssmr.o
+trusted_mem-y += ssheap/ssheap_lib.o
 
 ifeq ($(TCORE_PROFILING_SUPPORT),y)
 trusted_mem-y += profiler.o
@@ -40,36 +42,44 @@ trusted_mem-y += mld_helper.o
 ccflags-y += -DTCORE_MEMORY_LEAK_DETECTION_SUPPORT
 endif # !TCORE_KERN_MEMORY_LEAK_DETECTION_SUPPORT
 
-ifeq ($(CONFIG_TEST_MTK_TRUSTED_MEMORY),y)
+ifeq ($(CONFIG_TEST_MTK_TRUSTED_MEMORY),m)
 trusted_mem-y += tests/ut_common.o
 trusted_mem-y += tests/ut_server.o
 trusted_mem-y += tests/ut_cases.o
+trusted_mem-y += tests/ut_ssheap.o
 endif # !CONFIG_TEST_MTK_TRUSTED_MEMORY
 
 ifneq ($(filter y m,$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)),)
 #==========================================================================
 # TEE Seecure Memory Devices & Trustzone Peer Driver
 #==========================================================================
-ifneq ($(filter y m,$(CONFIG_MTK_SECURE_MEM_SUPPORT) \
-		  $(CONFIG_MTK_WFD_SMEM_SUPPORT) \
-		  $(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)),)
+ifneq ($(filter y m,$(CONFIG_MTK_SECURE_MEM_SUPPORT)\
+				  $(CONFIG_MTK_WFD_SMEM_SUPPORT)\
+				  $(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)),)
 trusted_mem-y += tee_devices.o
 ccflags-y += -DTEE_DEVICES_SUPPORT
 trusted_mem-y += tee_impl/tee_invoke.o
+
+ifneq ($(filter y m,$(CONFIG_MICROTRUST_TEE_SUPPORT)\
+				  $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
+trusted_mem-y += tee_impl/tee_ops.o
+endif
 
 endif
 
 #==========================================================================
 # MTEE Multiple Chunk Devices & Geniezone Peer Driver
 #==========================================================================
-ifneq ($(filter y m,$(CONFIG_MTK_PROT_MEM_SUPPORT) \
-		  $(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)),)
+ifneq ($(filter y m,$(CONFIG_MTK_PROT_MEM_SUPPORT)\
+					$(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)\
+					$(CONFIG_MTK_SECURE_MEM_SUPPORT)),)
 trusted_mem-y += mtee_devices.o
 ccflags-y += -DMTEE_DEVICES_SUPPORT
 endif
 ifneq ($(filter y m,$(CONFIG_MTK_GZ_KREE)),)
 trusted_mem-y += mtee_impl/mtee_ops.o
 trusted_mem-y += mtee_impl/mtee_invoke.o
+trusted_mem-y += mtee_impl/tmem_carveout_heap.o
 endif
 endif # !CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
 
@@ -79,6 +89,7 @@ endif # !CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/ssmr
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/ssheap
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 
 #==========================================================================
@@ -88,10 +99,6 @@ ifneq ($(filter y m,$(CONFIG_MTK_GZ_KREE)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/gz/
 endif # !CONFIG_MTK_GZ_KREE
-
-ifneq ($(filter y m,$(CONFIG_MTK_SVP)),)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssvp/
-endif # !CONFIG_MTK_SVP
 
 ifneq ($(filter y m,$(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public

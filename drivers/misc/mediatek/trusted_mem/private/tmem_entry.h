@@ -7,6 +7,7 @@
 #define TMEM_ENTRY_H
 
 #include "private/tmem_device.h"
+#include "public/trusted_mem_api.h"
 
 int tmem_core_session_open(enum TRUSTED_MEM_TYPE mem_type);
 int tmem_core_session_close(enum TRUSTED_MEM_TYPE mem_type);
@@ -20,6 +21,10 @@ int tmem_core_alloc_chunk_priv(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 			       u8 *owner, u32 id, u32 clean);
 int tmem_core_unref_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 sec_handle,
 			  u8 *owner, u32 id);
+int tmem_core_alloc_page(enum TRUSTED_MEM_TYPE mem_type, u32 size,
+			  struct ssheap_buf_info **buf_info);
+int tmem_core_unref_page(enum TRUSTED_MEM_TYPE mem_type,
+			  struct ssheap_buf_info *buf_info);
 
 bool tmem_core_is_regmgr_region_on(enum TRUSTED_MEM_TYPE mem_type);
 u64 tmem_core_get_regmgr_region_online_cnt(enum TRUSTED_MEM_TYPE mem_type);
@@ -32,5 +37,11 @@ u32 tmem_core_get_min_chunk_size(enum TRUSTED_MEM_TYPE mem_type);
 u32 tmem_core_get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type);
 bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u64 *pa,
 			       u32 *size);
+int tmem_query_gz_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
+			u32 size, u32 *refcount, u32 *gz_handle,
+			u8 *owner, u32 id, u32 clean, uint64_t *phy_addr);
 
+int tmem_query_sec_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
+			u32 size, u32 *refcount, u32 *sec_handle,
+			u8 *owner, u32 id, u32 clean, uint64_t *phy_addr);
 #endif /* end of TMEM_ENTRY_H */
