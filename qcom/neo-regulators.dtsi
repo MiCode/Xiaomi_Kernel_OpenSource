@@ -363,22 +363,6 @@
 		};
 	};
 
-	rpmh-regulator-gfxlvl {
-		compatible = "qcom,rpmh-arc-regulator";
-		qcom,resource-name = "gfx.lvl";
-		VDD_GFX_LEVEL: S2A_LEVEL:
-		pm8150_s2_level: regulator-pm8150-s2-level {
-			regulator-name = "pm8150_s2_level";
-			qcom,set = <RPMH_REGULATOR_SET_ALL>;
-			regulator-min-microvolt =
-				<RPMH_REGULATOR_LEVEL_RETENTION>;
-			regulator-max-microvolt =
-				<RPMH_REGULATOR_LEVEL_MAX>;
-			qcom,init-voltage-level =
-				<RPMH_REGULATOR_LEVEL_RETENTION>;
-		};
-	};
-
 	rpmh-regulator-nsplvl {
 		compatible = "qcom,rpmh-arc-regulator";
 		qcom,resource-name = "nsp.lvl";
@@ -398,8 +382,8 @@
 	rpmh-regulator-smpa4 {
 		compatible = "qcom,rpmh-vrm-regulator";
 		qcom,resource-name = "smpa4";
-		S4A: pmxr1230_a_s4: regulator-pmxr1230_a-s4 {
-			regulator-name = "pmxr1230_a_s4";
+		S4A: pm8150_s4: regulator-pm8150-s4 {
+			regulator-name = "pm8150_s4";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <470000>;
 			regulator-max-microvolt = <1170000>;
