@@ -220,9 +220,13 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 	unsigned long max_util_base = 0, max_util_cur = 0;
 	unsigned long cpu_energy_util, sum_util_base = 0, sum_util_cur = 0;
 	unsigned long util_cfs_base, util_cfs_cur, util_cfs_energy_base, util_cfs_energy_cur;
+	unsigned long _cpu_cap = cpu_cap;
 	unsigned long energy_base = 0, energy_cur = 0, energy_delta = 0;
 	int cpu;
 	int cpu_temp[NR_CPUS];
+
+	_cpu_cap -= arch_scale_thermal_pressure(cpumask_first(pd_mask));
+
 
 	/*
 	 * The capacity state of CPUs of the current rd can be driven by CPUs
@@ -257,7 +261,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		cpu_energy_util = schedutil_cpu_util(cpu, util_cfs_energy_base, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #endif
-		sum_util_base += cpu_energy_util;
+		sum_util_base += min(cpu_energy_util, _cpu_cap);
 
 		/*
 		 * Performance domain frequency: utilization clamping
@@ -284,12 +288,14 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 			 * consumption at the (eventually clamped) cpu_capacity.
 			 */
 #if IS_ENABLED(CONFIG_MTK_CPUFREQ_SUGOV_EXT)
-			sum_util_cur += mtk_cpu_util(cpu, util_cfs_energy_cur, cpu_cap,
+			cpu_energy_util = mtk_cpu_util(cpu, util_cfs_energy_cur, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #else
-			sum_util_cur += schedutil_cpu_util(cpu, util_cfs_energy_cur, cpu_cap,
+			cpu_energy_util = schedutil_cpu_util(cpu, util_cfs_energy_cur, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #endif
+			sum_util_cur += min(cpu_energy_util, _cpu_cap);
+
 			/*
 			 * Performance domain frequency: utilization clamping
 			 * must be considered since it affects the selection
@@ -312,8 +318,8 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 			cpu_util_cur = cpu_util_base;
 		}
 
-		max_util_base = max(max_util_base, cpu_util_base);
-		max_util_cur = max(max_util_cur, cpu_util_cur);
+		max_util_base = max(max_util_base, min(cpu_util_base, _cpu_cap));
+		max_util_cur = max(max_util_cur, min(cpu_util_base, _cpu_cap));
 
 		trace_sched_energy_util(-1, max_util_base, sum_util_base, cpu, util_cfs_base,
 				util_cfs_energy_base, cpu_util_base);
@@ -325,8 +331,10 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		cpu_temp[cpu] /= 1000;
 	}
 
-	energy_base = mtk_em_cpu_energy(pd->em_pd, max_util_base, sum_util_base, cpu_temp);
-	energy_cur = mtk_em_cpu_energy(pd->em_pd, max_util_cur, sum_util_cur, cpu_temp);
+	energy_base = mtk_em_cpu_energy(pd->em_pd, max_util_base, sum_util_base,
+		_cpu_cap, cpu_temp);
+	energy_cur = mtk_em_cpu_energy(pd->em_pd, max_util_cur, sum_util_cur,
+		_cpu_cap, cpu_temp);
 	energy_delta = energy_cur - energy_base;
 
 	trace_sched_compute_energy(-1, pd_mask, energy_base, max_util_base, sum_util_base);

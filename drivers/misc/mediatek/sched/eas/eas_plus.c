@@ -239,7 +239,8 @@ int sort_thermal_headroom(struct cpumask *cpus, int *cpu_order)
  * a capacity state satisfying the max utilization of the domain.
  */
 unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
-		unsigned long max_util, unsigned long sum_util, unsigned int *cpu_temp)
+		unsigned long max_util, unsigned long sum_util,
+		unsigned long allowed_cpu_cap, unsigned int *cpu_temp)
 {
 	unsigned long freq, scale_cpu;
 	struct em_perf_state *ps;
@@ -261,7 +262,7 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
 	mtk_map_util_freq(NULL, max_util, ps->frequency, to_cpumask(pd->cpus), &freq);
 #else
-	freq = map_util_freq(max_util, ps->frequency, scale_cpu);
+	freq = map_util_freq(min(max_util, allowed_cpu_cap), ps->frequency, scale_cpu);
 #endif
 	freq = max(freq, per_cpu(min_freq, cpu));
 
