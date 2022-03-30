@@ -50,6 +50,9 @@
 #include "mmpath.h"
 #endif	/* MDP_MMPATH */
 
+
+#include <cmdq-util.h>
+
 /* mmdvfs with regulator */
 struct regulator *mdp_mmdvfs_reg;
 struct regulator *isp_mmdvfs_reg;
@@ -82,6 +85,8 @@ do {									\
 		duration = 1;						\
 	else								\
 		duration = (s32)div_u64(time2 - time1, 1000);		\
+	if (duration == 0)						\
+		duration = 1;						\
 } while (0)
 
 #define DP_BANDWIDTH(data, pixel, throughput, bandwidth)		\
@@ -104,7 +109,6 @@ struct mdp_task {
 };
 static struct mdp_task mdp_tasks[MDP_MAX_TASK_NUM];
 static int mdp_tasks_idx;
-static struct cmdqMDPFuncStruct mdp_funcs;
 static long cmdq_mmsys_base;
 
 #define MDP_THREAD_COUNT ( \
@@ -162,7 +166,6 @@ struct EngineStruct *cmdq_mdp_get_engines(void)
 {
 	return mdp_ctx.engine;
 }
-EXPORT_SYMBOL(cmdq_mdp_get_engines);
 
 static void cmdq_mdp_reset_engine_struct(void)
 {
@@ -240,7 +243,6 @@ void cmdq_mdp_fix_command_scenario_for_user_space(
 		command->scenario = CMDQ_SCENARIO_USER_SPACE;
 	}
 }
-EXPORT_SYMBOL(cmdq_mdp_fix_command_scenario_for_user_space);
 
 bool cmdq_mdp_is_request_from_user_space(
 	const enum CMDQ_SCENARIO_ENUM scenario)
@@ -270,30 +272,29 @@ s32 cmdq_mdp_query_usage(s32 *counters)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_mdp_query_usage);
 
 s32 cmdq_mdp_get_smi_usage(void)
 {
 	return atomic_read(&mdp_ctx.mdp_smi_usage);
 }
 
-static void cmdq_mdp_common_clock_enable(void)
+static void cmdq_mdp_common_clock_enable(u64 engine_flag)
 {
 	s32 smi_ref = atomic_inc_return(&mdp_ctx.mdp_smi_usage);
 
 	CMDQ_MSG("[CLOCK]MDP SMI clock enable %d\n", smi_ref);
-	cmdq_mdp_get_func()->mdpEnableCommonClock(true);
+	cmdq_mdp_get_func()->mdpEnableCommonClock(true, engine_flag);
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_smi,
 		MMPROFILE_FLAG_PULSE, smi_ref, 1);
 }
 
-static void cmdq_mdp_common_clock_disable(void)
+static void cmdq_mdp_common_clock_disable(u64 engine_flag)
 {
 	s32 smi_ref = atomic_dec_return(&mdp_ctx.mdp_smi_usage);
 
 	CMDQ_MSG("[CLOCK]MDP SMI clock disable %d\n", smi_ref);
-	cmdq_mdp_get_func()->mdpEnableCommonClock(false);
+	cmdq_mdp_get_func()->mdpEnableCommonClock(false, engine_flag);
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_smi,
 		MMPROFILE_FLAG_PULSE, smi_ref, 0);
@@ -355,7 +356,6 @@ void cmdq_mdp_reset_resource(void)
 		mutex_unlock(&mdp_resource_mutex);
 	}
 }
-EXPORT_SYMBOL(cmdq_mdp_reset_resource);
 
 /* Use CMDQ as Resource Manager */
 void cmdq_mdp_unlock_resource(struct work_struct *workItem)
@@ -439,7 +439,6 @@ void cmdq_mdp_enable_res(u64 engine_flag, bool enable)
 
 	mutex_unlock(&mdp_clock_mutex);
 }
-EXPORT_SYMBOL(cmdq_mdp_enable_res);
 
 static void cmdq_mdp_lock_res_impl(struct ResourceUnitStruct *res,
 	u64 engine_flag, bool from_notify)
@@ -500,7 +499,6 @@ void cmdq_mdp_lock_resource(u64 engine_flag, bool from_notify)
 			cmdq_mdp_lock_res_impl(res, engine_flag, from_notify);
 	}
 }
-EXPORT_SYMBOL(cmdq_mdp_lock_resource);
 
 bool cmdq_mdp_acquire_resource(enum cmdq_event res_event,
 	u64 *engine_flag_out)
@@ -528,7 +526,6 @@ bool cmdq_mdp_acquire_resource(enum cmdq_event res_event,
 	}
 	return result;
 }
-EXPORT_SYMBOL(cmdq_mdp_acquire_resource);
 
 void cmdq_mdp_release_resource(enum cmdq_event res_event,
 	u64 *engine_flag_out)
@@ -550,7 +547,6 @@ void cmdq_mdp_release_resource(enum cmdq_event res_event,
 		break;
 	}
 }
-EXPORT_SYMBOL(cmdq_mdp_release_resource);
 
 void cmdq_mdp_set_resource_callback(enum cmdq_event res_event,
 	CmdqResourceAvailableCB res_available,
@@ -611,7 +607,7 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 	 */
 	CMDQ_MSG("%s handle:0x%p pkt:0x%p engine:0x%016llx\n",
 		__func__, handle, handle->pkt, handle->engineFlag);
-	cmdq_mdp_common_clock_enable();
+	cmdq_mdp_common_clock_enable(handle->engineFlag);
 
 	CMDQ_PROF_START(current->pid, __func__);
 
@@ -624,6 +620,7 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 
 	/* assign client since mdp acquire thread after create pkt */
 	handle->pkt->cl = cmdq_helper_mbox_client(thread);
+	cmdq_mbox_enable(((struct cmdq_client *)handle->pkt->cl)->chan);
 
 	CMDQ_PROF_END(current->pid, __func__);
 }
@@ -683,7 +680,6 @@ void cmdq_mdp_unlock_thread(struct cmdqRecStruct *handle)
 
 	mutex_unlock(&mdp_thread_mutex);
 }
-EXPORT_SYMBOL(cmdq_mdp_unlock_thread);
 
 static void cmdq_mdp_handle_prepare(struct cmdqRecStruct *handle)
 {
@@ -718,7 +714,8 @@ static void cmdq_mdp_handle_stop(struct cmdqRecStruct *handle)
 
 	/* make sure smi clock off at last */
 	mutex_lock(&mdp_thread_mutex);
-	cmdq_mdp_common_clock_disable();
+	cmdq_mdp_common_clock_disable(handle->engineFlag);
+	cmdq_mbox_disable(((struct cmdq_client *)handle->pkt->cl)->chan);
 	mutex_unlock(&mdp_thread_mutex);
 }
 
@@ -959,8 +956,8 @@ static s32 cmdq_mdp_consume_handle(void)
 		err = cmdq_pkt_flush_async_ex(handle, 0, 0, false);
 		if (err < 0) {
 			/* change state so waiting thread may release it */
-			CMDQ_ERR("fail to flush handle:0x%p thread:%d\n",
-				handle, handle->thread);
+			CMDQ_ERR("fail to flush handle:0x%p\n",
+				handle);
 			continue;
 		}
 
@@ -1202,7 +1199,6 @@ s32 cmdq_mdp_handle_create(struct cmdqRecStruct **handle_out)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_mdp_handle_create);
 
 s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 			struct cmdqRecStruct *handle)
@@ -1211,9 +1207,9 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	u64 dapc, port;
 	enum cmdq_sec_meta_type meta_type = CMDQ_METAEX_NONE;
 	void *user_addr_meta = CMDQ_U32_PTR(secData->addrMetadatas);
-	void *addr_meta;
+	void *addr_meta = NULL;
 	u32 addr_meta_size;
-	struct cmdq_client *cl;
+	struct cmdq_client *cl = NULL;
 
 	/* set secure data */
 	handle->secStatus = NULL;
@@ -1294,14 +1290,13 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	return 0;
 #endif
 }
-EXPORT_SYMBOL(cmdq_mdp_handle_sec_setup);
 
 s32 cmdq_mdp_update_sec_addr_index(struct cmdqRecStruct *handle,
 	u32 sec_handle, u32 index, u32 instr_index)
 {
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	struct cmdq_sec_data *data = handle->pkt->sec_data;
-	struct iwcCmdqAddrMetadata_t *addr;
+	struct iwcCmdqAddrMetadata_t *addr = NULL;
 
 	if (!data) {
 		CMDQ_ERR("%s invalid index %d, pkt no sec\n", __func__, index);
@@ -1320,13 +1315,11 @@ s32 cmdq_mdp_update_sec_addr_index(struct cmdqRecStruct *handle,
 #endif
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_mdp_update_sec_addr_index);
 
 u32 cmdq_mdp_handle_get_instr_count(struct cmdqRecStruct *handle)
 {
 	return handle->pkt->cmd_buf_size / CMDQ_INST_SIZE;
 }
-EXPORT_SYMBOL(cmdq_mdp_handle_get_instr_count);
 
 s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 {
@@ -1334,16 +1327,6 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 
 	CMDQ_TRACE_FORCE_BEGIN("%s %llx\n", __func__, handle->engineFlag);
 	CMDQ_MSG("%s %llx\n", __func__, handle->engineFlag);
-	if (handle->profile_exec)
-		cmdq_pkt_perf_end(handle->pkt);
-
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	if (handle->secData.is_secure) {
-		/* insert backup cookie cmd */
-		cmdq_sec_insert_backup_cookie(handle->pkt);
-		handle->thread = CMDQ_INVALID_THREAD;
-	}
-#endif
 
 	/* finalize it */
 	CMDQ_MSG("%s finalize\n", __func__);
@@ -1359,7 +1342,6 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 	CMDQ_TRACE_FORCE_END();
 	return status;
 }
-EXPORT_SYMBOL(cmdq_mdp_handle_flush);
 
 void cmdq_mdp_op_readback(struct cmdqRecStruct *handle, u16 engine,
 	dma_addr_t addr, u32 param)
@@ -1438,9 +1420,6 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 			goto flush_err_end;
 	}
 
-	if (handle->profile_exec)
-		cmdq_pkt_perf_end(handle->pkt);
-
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	if (handle->secData.is_secure) {
 		/* insert backup cookie cmd */
@@ -1479,7 +1458,6 @@ flush_err_end:
 
 	return err;
 }
-EXPORT_SYMBOL(cmdq_mdp_flush_async);
 
 s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 {
@@ -1538,7 +1516,6 @@ struct cmdqRecStruct *cmdq_mdp_get_valid_handle(unsigned long job)
 
 	return handle;
 }
-EXPORT_SYMBOL(cmdq_mdp_get_valid_handle);
 
 s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 	struct cmdqRegValueStruct *results)
@@ -1618,7 +1595,6 @@ s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_mdp_wait);
 
 s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space)
 {
@@ -1639,7 +1615,6 @@ s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space)
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_mdp_flush);
 
 static void cmdq_mdp_pool_create(void)
 {
@@ -1648,7 +1623,7 @@ static void cmdq_mdp_pool_create(void)
 		return;
 	}
 
-	mdp_pool.pool = dma_pool_create("mdp", cmdq_dev_get(),
+	mdp_pool.pool = dma_pool_create("mdp", cmdq_mbox_dev_get(),
 		CMDQ_BUF_ALLOC_SIZE, 0, 0);
 	atomic_set(mdp_pool.cnt, 0);
 }
@@ -1688,7 +1663,6 @@ void cmdq_mdp_resume(void)
 	 */
 	cmdq_mdp_add_consume_item();
 }
-EXPORT_SYMBOL(cmdq_mdp_resume);
 
 void cmdq_mdp_release_task_by_file_node(void *file_node)
 {
@@ -1729,7 +1703,6 @@ void cmdq_mdp_release_task_by_file_node(void *file_node)
 
 	mutex_unlock(&mdp_task_mutex);
 }
-EXPORT_SYMBOL(cmdq_mdp_release_task_by_file_node);
 
 void cmdq_mdp_dump_thread_usage(void)
 {
@@ -1775,7 +1748,6 @@ void cmdq_mdp_dump_resource(u32 event)
 	}
 	mutex_unlock(&mdp_resource_mutex);
 }
-EXPORT_SYMBOL(cmdq_mdp_dump_resource);
 
 static s32 cmdq_mdp_dump_common(u64 engineFlag, int level)
 {
@@ -1856,13 +1828,13 @@ static void mdp_parse_opp(struct platform_device *pdev, const char *ref,
 
 		/* available freq is stored in speeds[index] */
 		of_property_read_u64(child_np, "opp-hz", &freq);
-		speeds[index] = freq;
+		speeds[index] = freq/1000000;
 
 		/* available voltage is stored in volts[i]*/
 		of_property_read_u32(child_np, "opp-microvolt", &volt);
 		volts[index] = volt;
 
-		CMDQ_LOG("%s %u: %llu %d\n", ref, index, freq, volt);
+		CMDQ_LOG("%s %u: %llu(Mhz) %d\n", ref, index, speeds[index], volts[index]);
 
 		index++;
 	} while (index < opp_num);
@@ -1895,11 +1867,10 @@ static void cmdq_mdp_init_pmqos(struct platform_device *pdev)
 	mdp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "mdp-dvfsrc-vcore");
 	isp_mmdvfs_reg = devm_regulator_get(&pdev->dev, "isp-dvfsrc-vcore");
 	/* number of available opp */
-	mdp_pmqos_opp_num = regulator_count_voltages(mdp_mmdvfs_reg);
+	mdp_pmqos_opp_num = dev_pm_opp_get_opp_count(&pdev->dev);
+
 	CMDQ_LOG("%s opp count:%d\n", __func__, mdp_pmqos_opp_num);
 	if (mdp_pmqos_opp_num > 0) {
-		mdp_volts = kcalloc(mdp_pmqos_opp_num, sizeof(int), GFP_KERNEL);
-
 		mdp_parse_opp(pdev, "mdp-opp", mdp_pmqos_opp_num,
 			&mdp_pmqos_freq, &mdp_volts);
 		mdp_parse_opp(pdev, "isp-opp", mdp_pmqos_opp_num,
@@ -1922,6 +1893,7 @@ static int cmdq_mdp_init_larb(struct platform_device *pdev)
 	larb_pdev = of_find_device_by_node(node);
 	if (WARN_ON(!larb_pdev)) {
 		of_node_put(node);
+		CMDQ_ERR("%s no larb support\n", __func__);
 		return -EINVAL;
 	}
 	of_node_put(node);
@@ -1940,6 +1912,8 @@ void cmdq_mdp_init(struct platform_device *pdev)
 	struct cmdqMDPFuncStruct *mdp_func = cmdq_mdp_get_func();
 
 	CMDQ_LOG("%s\n", __func__);
+
+	CMDQ_LOG("[MDP] %s ++\n", __func__);
 
 	/* Register MDP callback */
 	cmdqCoreRegisterCB(mdp_func->getGroupMdp(), cmdq_mdp_clock_enable,
@@ -1978,7 +1952,7 @@ void cmdq_mdp_init(struct platform_device *pdev)
 	cmdq_dev_init_resource(cmdq_mdp_init_resource);
 
 	/* MDP initialization setting */
-	cmdq_mdp_get_func()->mdpInitialSet();
+	cmdq_mdp_get_func()->mdpInitialSet(pdev);
 	cmdq_mdp_init_pmqos(pdev);
 
 	mdp_pool.limit = &mdp_pool_limit;
@@ -1991,9 +1965,10 @@ void cmdq_mdp_init(struct platform_device *pdev)
 	CMDQ_LOG("dre hist sram start:%u\n", dre30_hist_sram_start);
 
 	cmdq_mdp_pool_create();
-	cmdq_mdp_init_larb(pdev);
+
+	CMDQ_LOG("[MDP] %s --\n", __func__);
+
 }
-EXPORT_SYMBOL(cmdq_mdp_init);
 
 void cmdq_mdp_deinit(void)
 {
@@ -2151,9 +2126,10 @@ static bool mdp_check_handle_dummy(struct cmdqRecStruct *handle)
 }
 
 /* MDP Initialization setting */
-void cmdqMdpInitialSetting_virtual(void)
+void cmdqMdpInitialSetting_virtual(struct platform_device *pdev)
 {
-	/* Do Nothing */
+	/* common larb init only support 1 larb */
+	cmdq_mdp_init_larb(pdev);
 }
 
 /* test MDP clock function */
@@ -2227,7 +2203,7 @@ long cmdq_mdp_get_module_base_VA_MMSYS_CONFIG(void)
 	return cmdq_mmsys_base;
 }
 
-static void cmdq_mdp_enable_common_clock_virtual(bool enable)
+static void cmdq_mdp_enable_common_clock_virtual(bool enable, u64 engine_flag)
 {
 #ifdef CMDQ_PWR_AWARE
 #if IS_ENABLED(CONFIG_MTK_SMI)
@@ -2256,13 +2232,11 @@ void cmdq_mdp_map_mmsys_VA(void)
 {
 	cmdq_mmsys_base = cmdq_dev_alloc_reference_VA_by_name("mmsys_config");
 }
-EXPORT_SYMBOL(cmdq_mdp_map_mmsys_VA);
 
 void cmdq_mdp_unmap_mmsys_VA(void)
 {
 	cmdq_dev_free_module_base_VA(cmdq_mmsys_base);
 }
-EXPORT_SYMBOL(cmdq_mdp_unmap_mmsys_VA);
 
 static void mdp_request_voltage(unsigned long frequency, bool is_mdp)
 {
@@ -2347,15 +2321,22 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 	CMDQ_SYSTRACE_BEGIN("%s %u\n", __func__, size);
 
+	if (unlikely(!handle_list))
+		goto done;
+
 	/* check engine status */
 	cmdq_mdp_get_func()->CheckHwStatus(handle);
 
 	if (!handle->prop_addr)
 		goto done;
 
-	if (!mdp_pmqos_freq || !isp_pmqos_freq) {
-		CMDQ_LOG("%s freq not available %p and %p\n",
-			__func__, mdp_pmqos_freq, isp_pmqos_freq);
+	if (cmdq_mdp_get_func()->mdpIsCaminSupport() && !isp_pmqos_freq) {
+		CMDQ_ERR("%s isp_pmqos_freq not available\n", __func__);
+		goto done;
+	}
+
+	if (!mdp_pmqos_freq) {
+		CMDQ_ERR("%s mdp_pmqos_freq not available\n", __func__);
 		goto done;
 	}
 
@@ -2492,11 +2473,14 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 		total_pixel,
 		mdp_t((unsigned long long)(max_throughput)),
 		mdp_curr_bandwidth);
-	DP_BANDWIDTH(
-		target_pmqos->isp_total_datasize,
-		total_pixel,
-		isp_t((unsigned long long)(max_throughput)),
-		isp_curr_bandwidth);
+
+	if (cmdq_mdp_get_func()->mdpIsIspCamin(handle) && isp_pmqos_freq) {
+		DP_BANDWIDTH(
+			target_pmqos->isp_total_datasize,
+			total_pixel,
+			isp_t((unsigned long long)(max_throughput)),
+			isp_curr_bandwidth);
+	}
 
 	CMDQ_LOG_PMQOS(
 		"[MDP][%d]mdp_curr_bandwidth %d, isp_curr_bandwidth %d, max_throughput %d\n",
@@ -2506,7 +2490,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	if (cmdq_mdp_get_func()->mdpIsIspCamin(handle) && isp_pmqos_freq) {
 		u32 isp_throughput = isp_t((unsigned long long)(max_throughput));
 
-		/*update bandwidth*/
+		/* update bandwidth */
 		for (i = 0; i < PMQOS_ISP_PORT_NUM &&
 			target_pmqos->qos2_isp_count > i &&
 			target_pmqos->qos2_isp_port[i]; i++) {
@@ -2525,13 +2509,13 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 		mdp_update_voltage(thread_id, isp_throughput, false);
 	}
 
-	/*update bandwidth*/
+	/* update bandwidth */
 	if (target_pmqos->mdp_total_datasize) {
 		u32 mdp_throughput = mdp_t((unsigned long long)(max_throughput));
 
 		for (i = 0; i < PMQOS_MDP_PORT_NUM
 			&& target_pmqos->qos2_mdp_count > i
-			&& target_pmqos->qos2_mdp_port[i] != 0; i++) {
+			&& target_pmqos->qos2_mdp_port[i] >= 0; i++) {
 			u32 port = cmdq_mdp_get_func()->qosTransPort(
 					target_pmqos->qos2_mdp_port[i]);
 			struct icc_path *port_path =
@@ -2542,6 +2526,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 				target_pmqos->mdp_total_pixel,
 				mdp_throughput,
 				mdp_curr_bandwidth);
+
 			mtk_icc_set_bw(port_path,
 				MBps_to_icc(mdp_curr_bandwidth), 0);
 		}
@@ -2631,9 +2616,13 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	if (!handle->prop_addr)
 		return;
 
-	if (!mdp_pmqos_freq || !isp_pmqos_freq) {
-		CMDQ_LOG("%s freq not available %p and %p\n",
-			__func__, mdp_pmqos_freq, isp_pmqos_freq);
+	if (cmdq_mdp_get_func()->mdpIsCaminSupport() && !isp_pmqos_freq) {
+		CMDQ_ERR("%s isp_pmqos_freq not available\n", __func__);
+		return;
+	}
+
+	if (!mdp_pmqos_freq) {
+		CMDQ_ERR("%s mdp_pmqos_freq not available\n", __func__);
 		return;
 	}
 
@@ -2759,11 +2748,14 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		curr_pixel_size,
 		mdp_t((unsigned long long)(max_throughput)),
 		mdp_curr_bandwidth);
-	DP_BANDWIDTH(
-		isp_data_size,
-		curr_pixel_size,
-		isp_t((unsigned long long)(max_throughput)),
-		isp_curr_bandwidth);
+
+	if (cmdq_mdp_get_func()->mdpIsIspCamin(handle) && isp_pmqos_freq) {
+		DP_BANDWIDTH(
+			isp_data_size,
+			curr_pixel_size,
+			isp_t((unsigned long long)(max_throughput)),
+			isp_curr_bandwidth);
+	}
 
 	CMDQ_LOG_PMQOS(
 		"[MDP][%d]mdp_curr_bandwidth %d isp_curr_bandwidth %d max_throughput %d %s\n",
@@ -2781,10 +2773,11 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 
 	if (update_isp_bandwidth) {
 		u32 isp_throughput = isp_t((unsigned long long)(max_throughput));
-		/*update bandwidth*/
+
+		/* update bandwidth */
 		for (i = 0; i < PMQOS_ISP_PORT_NUM &&
 			target_pmqos->qos2_isp_count > i &&
-			target_pmqos->qos2_isp_port[i] != 0; i++) {
+			target_pmqos->qos2_isp_port[i] >= 0; i++) {
 			struct icc_path *port_path =
 				cmdq_mdp_get_func()->qosGetPath(
 				thread_id, target_pmqos->qos2_isp_port[i]);
@@ -2801,12 +2794,32 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 		cmdq_mdp_get_func()->qosClearAllIsp(thread_id);
 	}
 
-	if (target_pmqos && target_pmqos->mdp_total_datasize) {
+	if (mdp_curr_pmqos->mdp_total_datasize) {
+		u32 mdp_throughput = mdp_t((unsigned long long)(max_throughput));
+
+		for (i = 0; i < PMQOS_MDP_PORT_NUM
+			&& mdp_curr_pmqos->qos2_mdp_count > i
+			&& mdp_curr_pmqos->qos2_mdp_port[i] >= 0; i++) {
+			u32 port = cmdq_mdp_get_func()->qosTransPort(
+				mdp_curr_pmqos->qos2_mdp_port[i]);
+			struct icc_path *port_path =
+				cmdq_mdp_get_func()->qosGetPath(
+				thread_id, port);
+
+			DP_BANDWIDTH(mdp_curr_pmqos->qos2_mdp_bandwidth[i],
+				mdp_curr_pmqos->mdp_total_pixel,
+				mdp_throughput,
+				mdp_curr_bandwidth);
+
+			mtk_icc_set_bw(port_path,
+				MBps_to_icc(mdp_curr_bandwidth), 0);
+		}
+	} else if (target_pmqos && target_pmqos->mdp_total_datasize) {
 		u32 mdp_throughput = mdp_t((unsigned long long)(max_throughput));
 
 		for (i = 0; i < PMQOS_MDP_PORT_NUM &&
 			target_pmqos->qos2_mdp_count > i &&
-			target_pmqos->qos2_mdp_port[i] != 0; i++) {
+			target_pmqos->qos2_mdp_port[i] >= 0; i++) {
 			u32 port = cmdq_mdp_get_func()->qosTransPort(
 				target_pmqos->qos2_mdp_port[i]);
 			struct icc_path *port_path =
@@ -2824,9 +2837,6 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 			mtk_icc_set_bw(port_path,
 				MBps_to_icc(mdp_curr_bandwidth), 0);
 		}
-	} else if (mdp_curr_pmqos->mdp_total_datasize) {
-		/* update bandwidth */
-		cmdq_mdp_get_func()->qosClearAll(thread_id);
 	}
 
 	/* update clock */
@@ -2913,13 +2923,13 @@ static u32 mdp_get_dummy_mdp(void)
 
 static u32 mdp_get_dummy_isp(void)
 {
-	CMDQ_ERR("%s not support dummy group\n", __func__);
-	return 0;
+	CMDQ_MSG("%s not support dummy group\n", __func__);
+	return U32_MAX;
 }
 
 static u32 mdp_get_dummy_wpe(void)
 {
-	CMDQ_ERR("%s not support dummy group\n", __func__);
+	CMDQ_MSG("%s not support dummy group\n", __func__);
 	return 0;
 }
 
@@ -2960,25 +2970,37 @@ void cmdq_mdp_compose_readback_virtual(struct cmdqRecStruct *handle,
 #define MDP_AAL_MULTIPLE_BITS(_param)	((_param >> 4) & 1)
 
 static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
-	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param)
+	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param, u32 pipe)
 {
 	struct mdp_readback_engine *rb =
 		&handle->readback_engs[handle->readback_cnt];
 	struct cmdq_pkt *pkt = handle->pkt;
 	u32 dre = MDP_AAL_DRE_BITS(param);
 	u32 multiple = MDP_AAL_MULTIPLE_BITS(param);
-	u32 offset, begin_pa, condi_offset;
+	dma_addr_t begin_pa;
+	u32 offset, condi_offset;
 	u32 *condi_inst;
-	const uint16_t idx_addr = CMDQ_THR_SPR_IDX1;
-	const u16 idx_gpr_out = CMDQ_GPR_P4;
-	const u16 idx_gpr_poll = CMDQ_GPR_R05;
-	const u16 idx_gpr_val = CMDQ_GPR_R05;
-	const u16 idx_out_low = CMDQ_GPR_CNT_ID + CMDQ_GPR_R08;
+
+	const u16 idx_addr = CMDQ_THR_SPR_IDX1;
+	const u16 idx_val = CMDQ_THR_SPR_IDX2;
+	const u16 idx_out_spr = CMDQ_THR_SPR_IDX3;
+
+	/* pipe 0: P6 (R12+R13)
+	 * pipe 1: P7 (R14+R15)
+	 */
+	u16 idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_R12;
+	u16 idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_P6;
+
 	struct cmdq_operand lop, rop;
 	struct cmdq_pkt_buffer *buf;
 
 	CMDQ_MSG("%s buffer:%lx engine:%hu dre:%u\n",
 		__func__, (unsigned long)pa, engine, dre);
+
+	if (pipe == 1) {
+		idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_R14;
+		idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_P7;
+	}
 
 	rb->start = pa;
 	rb->count = 768;
@@ -3005,15 +3027,13 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_write_value_addr(pkt, base + MDP_AAL_SRAM_CFG,
 		(dre << 6) | (dre << 5) | BIT(4), GENMASK(6, 4));
 
-	/* for gpr r5 and p4, sharpness */
-	cmdq_pkt_wfe(pkt, CMDQ_SYNC_TOKEN_GPR_SET_1);
-
 	/* init sprs
 	 * spr1 = AAL_SRAM_START
 	 * gpr_p4 = out_pa
 	 */
 	cmdq_pkt_assign_command(pkt, idx_addr, dre30_hist_sram_start);
-	cmdq_pkt_move(pkt, idx_gpr_out, pa);
+	cmdq_pkt_assign_command(pkt, idx_out_spr, (u32)pa);
+	cmdq_pkt_assign_command(pkt, idx_out + 1, (u32)(pa >> 32));
 
 	/* loop again here */
 	begin_pa = cmdq_pkt_get_curr_buf_pa(pkt);
@@ -3021,14 +3041,20 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	/* config aal sram addr and poll */
 	cmdq_pkt_write_reg_addr(pkt, base + MDP_AAL_SRAM_RW_IF_2,
 		idx_addr, U32_MAX);
+	/* use gpr low as poll gpr */
 	cmdq_pkt_poll_addr(pkt, MDP_AAL_SRAM_STATUS_BIT,
 		base + MDP_AAL_SRAM_STATUS,
-		MDP_AAL_SRAM_STATUS_BIT, idx_gpr_poll);
+		MDP_AAL_SRAM_STATUS_BIT, idx_out - CMDQ_GPR_CNT_ID);
 	/* read to value gpr */
-	cmdq_pkt_read_addr(pkt, base + MDP_AAL_SRAM_RW_IF_3,
-		CMDQ_GPR_CNT_ID + idx_gpr_val);
-	/* write value gpr to dst gpr */
-	cmdq_pkt_store64_value_reg(pkt, idx_gpr_out, idx_gpr_val);
+	cmdq_pkt_read_addr(pkt, base + MDP_AAL_SRAM_RW_IF_3, idx_val);
+	/* and now assign addr low 32bit from spr to idx_out gpr */
+	lop.reg = true;
+	lop.idx = idx_out_spr;
+	rop.reg = false;
+	rop.value = 0;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out, &lop, &rop);
+	/* write value src spr to dst gpr */
+	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 	/* jump forward end if sram is last one
 	 * if spr1 >= 4096 + 4 * 767
@@ -3050,10 +3076,10 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_addr, &lop, &rop);
 	/* inc outut pa */
 	lop.reg = true;
-	lop.idx = idx_out_low;
+	lop.idx = idx_out_spr;
 	rop.reg = false;
 	rop.value = 4;
-	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_spr, &lop, &rop);
 
 	cmdq_pkt_jump_addr(pkt, begin_pa);
 
@@ -3091,33 +3117,41 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 			offset += 4;
 		}
 	}
-
-	cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_1);
 }
 
-#define MDP_HDR_HIST_DATA 0x0D8
-#define MDP_HDR_LBOX_DET_4 0x0FC
-#define HDR_TONE_MAP_S14 0x0C8
-#define HDR_GAIN_TABLE_2 0x0E8
+#define MDP_HDR_HIST_DATA 0x0E0
+#define MDP_HDR_LBOX_DET_4 0x104
+#define HDR_TONE_MAP_S14 0x0D0
+#define HDR_GAIN_TABLE_2 0x0F0
 #define MDP_HDR_HIST_CNT 57
 
 static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
-	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param)
+	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param, u32 pipe)
 {
 	struct mdp_readback_engine *rb =
 		&handle->readback_engs[handle->readback_cnt];
 	struct cmdq_pkt *pkt = handle->pkt;
-	u32 begin_pa, condi_offset;
+	dma_addr_t begin_pa;
+	u32 condi_offset;
 	u32 *condi_inst;
-	const uint16_t idx_counter = CMDQ_THR_SPR_IDX1;
-	const u16 idx_gpr_out = CMDQ_GPR_P4;
-	const u16 idx_gpr_val = CMDQ_GPR_R05;
-	const u16 idx_out_low = CMDQ_GPR_CNT_ID + CMDQ_GPR_R08;
+
+	const u16 idx_counter = CMDQ_THR_SPR_IDX1;
+	const u16 idx_val = CMDQ_THR_SPR_IDX2;
+	/* pipe 0: P6 (R12+R13)
+	 * pipe 1: P7 (R14+R15)
+	 */
+	u16 idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_R12;
+	u16 idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_P6;
 	struct cmdq_operand lop, rop;
 	struct cmdq_pkt_buffer *buf;
 
 	CMDQ_MSG("%s buffer:%lx engine:%hu\n",
 		__func__, (unsigned long)pa, engine);
+
+	if (pipe == 1) {
+		idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_R14;
+		idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_P7;
+	}
 
 	rb->start = pa;
 	rb->count = 58;
@@ -3136,11 +3170,8 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 
 	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
 
-	/* for gpr r5 and p4, sharpness */
-	cmdq_pkt_wfe(pkt, CMDQ_SYNC_TOKEN_GPR_SET_1);
-
 	/* readback to this pa */
-	cmdq_pkt_move(pkt, idx_gpr_out, pa);
+	cmdq_pkt_move(pkt, idx_out64 - CMDQ_GPR_CNT_ID, pa);
 
 	/* counter init to 0 */
 	cmdq_pkt_assign_command(pkt, idx_counter, 0);
@@ -3149,10 +3180,9 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	begin_pa = cmdq_pkt_get_curr_buf_pa(pkt);
 
 	/* read to value gpr */
-	cmdq_pkt_read_addr(pkt, base + MDP_HDR_HIST_DATA,
-		CMDQ_GPR_CNT_ID + idx_gpr_val);
-	/* write value gpr to dst gpr */
-	cmdq_pkt_store64_value_reg(pkt, idx_gpr_out, idx_gpr_val);
+	cmdq_pkt_read_addr(pkt, base + MDP_HDR_HIST_DATA, idx_val);
+	/* write value src spr to dst gpr */
+	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 	/* jump forward end if match
 	 * if spr1 >= 57 - 1
@@ -3174,10 +3204,10 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_counter, &lop, &rop);
 	/* inc outut pa */
 	lop.reg = true;
-	lop.idx = idx_out_low;
+	lop.idx = idx_out;
 	rop.reg = false;
 	rop.value = 4;
-	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out_low, &lop, &rop);
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, idx_out, &lop, &rop);
 
 	cmdq_pkt_jump_addr(pkt, begin_pa);
 	condi_inst = (u32 *)cmdq_pkt_get_va_by_offset(pkt, condi_offset);
@@ -3199,8 +3229,34 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	pa = pa + MDP_HDR_HIST_CNT * 4;
 	cmdq_pkt_mem_move(pkt, NULL, base + MDP_HDR_LBOX_DET_4, pa,
 		CMDQ_THR_SPR_IDX3);
+}
 
-	cmdq_pkt_set_event(pkt, CMDQ_SYNC_TOKEN_GPR_SET_1);
+static s32 mdp_get_rdma_idx_virtual(u32 eng_base)
+{
+	CMDQ_ERR("%s no support\n", __func__);
+	return -1;
+}
+
+static u16 mdp_get_reg_msb_offset_virtual(u32 eng_base, u16 offset)
+{
+	CMDQ_ERR("%s no support\n", __func__);
+	return 0;
+}
+
+static bool mdp_check_camin_support_virtual(void)
+{
+	return true;
+}
+
+static bool mdp_vcp_pq_readback_support_virtual(void)
+{
+	return false;
+}
+
+void mdp_vcp_pq_readback_virtual(struct cmdqRecStruct *handle,
+	u16 engine, u32 vcp_offset, u32 count)
+{
+	CMDQ_ERR("%s no support\n", __func__);
 }
 
 void cmdq_mdp_virtual_function_setting(void)
@@ -3273,14 +3329,18 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->getEngineBaseCount = mdp_get_engine_base_count_dummy;
 	pFunc->mdpReadbackAal = mdp_readback_aal_virtual;
 	pFunc->mdpReadbackHdr = mdp_readback_hdr_virtual;
+	pFunc->getRDMAIndex = mdp_get_rdma_idx_virtual;
+	pFunc->getRegMSBOffset = mdp_get_reg_msb_offset_virtual;
+	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
+	pFunc->mdpVcpPQReadbackSupport = mdp_vcp_pq_readback_support_virtual;
+	pFunc->mdpVcpPQReadback = mdp_vcp_pq_readback_virtual;
+
 }
-EXPORT_SYMBOL(cmdq_mdp_virtual_function_setting);
 
 struct cmdqMDPFuncStruct *cmdq_mdp_get_func(void)
 {
 	return &mdp_funcs;
 }
-EXPORT_SYMBOL(cmdq_mdp_get_func);
 
 void cmdq_mdp_enable(u64 engineFlag, u32 engine)
 {
@@ -3455,9 +3515,15 @@ const char *cmdq_mdp_get_rdma_state(u32 state)
 
 void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 {
-	u32 value[45] = { 0 };
+	u32 value[44] = { 0 };
 	u32 state = 0;
 	u32 grep = 0;
+
+
+	if (gCmdqRdmaPrebuiltSupport) {
+		CMDQ_LOG("========== [CMDQ] %s use cmdq_util_prebuilt_dump ==========\n", label);
+		cmdq_util_prebuilt_dump(0, CMDQ_TOKEN_PREBUILT_MDP_WAIT);
+	}
 
 	value[0] = CMDQ_REG_GET32(base + 0x030);
 	value[1] = CMDQ_REG_GET32(base +
@@ -3503,8 +3569,7 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 	value[40] = CMDQ_REG_GET32(base + 0x098);
 	value[41] = CMDQ_REG_GET32(base + 0x148);
 	value[42] = CMDQ_REG_GET32(base + 0x150);
-	value[43] = CMDQ_REG_GET32(base + 0x8); //RDMA_RESET
-	value[44] = CMDQ_REG_GET32(base + 0x0);
+	value[43] = CMDQ_REG_GET32(base + 0x0);
 
 	CMDQ_ERR(
 		"=============== [CMDQ] %s Status ====================================\n",
@@ -3554,8 +3619,7 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 	CMDQ_ERR(
 		"MDP_RDMA_SRC_OFFSET_WP: 0x%08x, MDP_RDMA_SRC_OFFSET_HP: 0x%08x\n",
 		value[41], value[42]);
-	CMDQ_ERR("MDP_RDMA_RESET: 0x%08x\n", value[43]);
-	CMDQ_ERR("RDMA_EN: 0x%08x\n", value[44]);
+	CMDQ_ERR("RDMA_EN: 0x%08x\n", value[43]);
 
 	/* parse state */
 	CMDQ_ERR("RDMA ack:%d req:%d ufo:%d\n", (value[9] >> 11) & 0x1,
@@ -4045,7 +4109,6 @@ const char *cmdq_mdp_parse_handle_error_module_by_hwflag(
 {
 	return cmdq_mdp_get_func()->parseErrModByEngFlag(handle);
 }
-EXPORT_SYMBOL(cmdq_mdp_parse_handle_error_module_by_hwflag);
 
 u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 {
@@ -4073,9 +4136,41 @@ u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset)
 			__func__, base, offset);
 		return 0;
 	}
+
 	return mdp_base[base] + offset;
 }
-EXPORT_SYMBOL(cmdq_mdp_get_hw_reg);
+
+u32 cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset)
+{
+	static u32 count;
+	static u32 *mdp_base;
+	u16 reg_msb_offset;
+
+	if (!count && !mdp_base) {
+		count = cmdq_mdp_get_func()->getEngineBaseCount();
+		mdp_base = cmdq_mdp_get_func()->getEngineBase();
+	}
+
+	if (!count || !mdp_base) {
+		CMDQ_ERR("%s count:%u base:%p\n", __func__, count, mdp_base);
+		return 0;
+	}
+
+	if (base >= count) {
+		CMDQ_ERR("%s: invalid engine:%u, offset:%#x\n", __func__, base, offset);
+		return 0;
+	}
+
+	if (offset > 0x1000) {
+		CMDQ_ERR("%s: invalid offset:%#x\n", __func__, offset);
+		return 0;
+	}
+
+	reg_msb_offset = cmdq_mdp_get_func()->getRegMSBOffset(base, offset);
+
+	return (mdp_base[base] + reg_msb_offset);
+}
+
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 u32 cmdq_mdp_get_hw_port(u32 base)
@@ -4088,18 +4183,32 @@ u32 cmdq_mdp_get_hw_port(u32 base)
 }
 #endif
 
+s32 cmdq_mdp_get_rdma_idx(u32 base)
+{
+	return cmdq_mdp_get_func()->getRDMAIndex(base);
+}
+
+u32 cmdq_mdp_vcp_pq_readback_support(void)
+{
+	return cmdq_mdp_get_func()->mdpVcpPQReadbackSupport();
+}
+
+void cmdq_mdp_vcp_pq_readback(struct cmdqRecStruct *handle, u16 engine,
+	u32 vcp_offset, u32 count)
+{
+	cmdq_mdp_get_func()->mdpVcpPQReadback(handle, engine, vcp_offset, count);
+}
+
 #ifdef MDP_COMMON_ENG_SUPPORT
 void cmdq_mdp_platform_function_setting(void)
 {
 }
-EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
 #endif
 
 struct device *mdp_larb_dev_get(void)
 {
 	return mdp_ctx.larb;
 }
-
 
 static int mdp_loglevel_set(const char *val, const struct kernel_param *kp)
 {
@@ -4176,31 +4285,5 @@ static struct kernel_param_ops mdp_profile_ops = {
 };
 
 module_param_cb(profile, &mdp_profile_ops, NULL, 0644);
-
-
-static u32 mdp_record_block_no;
-
-static int mdp_record_set(const char *val, const struct kernel_param *kp)
-{
-	int n = 0, ret;
-
-	ret = kstrtoint(val, 10, &n);
-	if (ret != 0 || n >= 8)
-		return -EINVAL;
-
-	return param_set_int(val, kp);
-}
-
-static int mdp_record_get(char *buf, const struct kernel_param *kp)
-{
-	return cmdq_core_dump_record(buf, mdp_record_block_no);
-}
-
-static struct kernel_param_ops mdp_record_ops = {
-	.set = mdp_record_set,
-	.get = mdp_record_get,
-};
-
-module_param_cb(record, &mdp_record_ops, &mdp_record_block_no, 0644);
 
 MODULE_LICENSE("GPL v2");

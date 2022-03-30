@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (c) 2021 MediaTek Inc.
  */
+
+#include <linux/of_address.h>
+#include <linux/of_platform.h>
 
 #include "cmdq_reg.h"
 #include "mdp_common.h"
@@ -9,46 +12,48 @@
 #include <linux/met_drv.h>
 #endif
 #include <linux/slab.h>
-#IS_ENABLED(CONFIG_MTK_IOMMU_V2)
-#include "mtk_iommu_ext.h"
-#elif defined(COFNIG_MTK_IOMMU)
-#include "mtk_iommu.h"
-#elif defined(CONFIG_MTK_M4U)
-#include "m4u.h"
+#define MDP_IOMMU_DEBUG 1
+#ifdef MDP_IOMMU_DEBUG
+#include "iommu_debug.h"
 #endif
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 #include <cmdq-sec-iwc-common.h>
 #endif
 
-#include <dt-bindings/memory/mt6873-larb-port.h>
+#undef MTK_M4U_ID
+#include <dt-bindings/memory/mt6983-larb-port.h>
 //#include <linux/interconnect-provider.h>
 #include "mtk-interconnect.h"
 #include <soc/mediatek/smi.h>
 
-#include "mdp_engine_mt6873.h"
-#include "mdp_base_mt6873.h"
+#include "mdp_engine_mt6983.h"
+#include "mdp_base_mt6983.h"
+#include <cmdq-util.h>
+
+/* iommu larbs */
+struct device *larb2;
 
 /* support RDMA prebuilt access */
-int gCmdqRdmaPrebuiltSupport;
+int gCmdqRdmaPrebuiltSupport = 1;
 /* support register MSB */
-int gMdpRegMSBSupport;
+int gMdpRegMSBSupport = 1;
+/* support vcp pq readback */
+static int gVcpPQReadbackSupport;
 
 /* use to generate [CMDQ_ENGINE_ENUM_id and name] mapping for status print */
 #define CMDQ_FOREACH_MODULE_PRINT(ACTION)\
 {		\
-ACTION(CMDQ_ENG_ISP_IMGI,   ISP_IMGI)	\
 ACTION(CMDQ_ENG_MDP_RDMA0,  MDP_RDMA0)	\
 ACTION(CMDQ_ENG_MDP_RDMA1,  MDP_RDMA1)	\
 ACTION(CMDQ_ENG_MDP_RSZ0,   MDP_RSZ0)	\
 ACTION(CMDQ_ENG_MDP_RSZ1,   MDP_RSZ1)	\
-ACTION(CMDQ_ENG_MDP_RSZ2,   MDP_RSZ2)	\
 ACTION(CMDQ_ENG_MDP_TDSHP0, MDP_TDSHP0)	\
 ACTION(CMDQ_ENG_MDP_TDSHP1, MDP_TDSHP1)	\
 ACTION(CMDQ_ENG_MDP_COLOR0, MDP_COLOR0) \
+ACTION(CMDQ_ENG_MDP_COLOR1, MDP_COLOR1) \
 ACTION(CMDQ_ENG_MDP_WROT0,  MDP_WROT0)	\
 ACTION(CMDQ_ENG_MDP_WROT1,  MDP_WROT1)	\
-ACTION(CMDQ_ENG_MDP_WDMA,   MDP_WDMA)	\
 }
 
 /* mdp */
@@ -56,58 +61,13 @@ static struct icc_path *path_mdp_rdma0[MDP_TOTAL_THREAD];
 static struct icc_path *path_mdp_rdma1[MDP_TOTAL_THREAD];
 static struct icc_path *path_mdp_wrot0[MDP_TOTAL_THREAD];
 static struct icc_path *path_mdp_wrot1[MDP_TOTAL_THREAD];
-/* isp */
-static struct icc_path *path_l9_img_imgi_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_imgbi_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_dmgi_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_depi_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_ice_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_smti_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_smto_d2[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_smto_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_crzo_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_img3o_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_vipi_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_smti_d5[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_timgo_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_ufbc_w0[MDP_TOTAL_THREAD];
-static struct icc_path *path_l9_img_ufbc_r0[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_imgi_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_imgbi_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_dmgi_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_depi_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_ice_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_smti_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_smto_d2[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_smto_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_crzo_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_img3o_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_vipi_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_smti_d5[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_timgo_d1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_ufbc_w0[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_ufbc_r0[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_wpe_rdma1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_wpe_rdma0[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_wpe_wdma[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_mfb_rdma0[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_mfb_rdma1[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_mfb_rdma2[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_mfb_rdma3[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_mfb_rdma4[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_mfb_rdma5[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_mfb_wdma0[MDP_TOTAL_THREAD];
-static struct icc_path *path_l11_img_mfb_wdma1[MDP_TOTAL_THREAD];
-
-#IS_ENABLED(CONFIG_MTK_IOMMU_V2)
-#include <mach/mt_iommu.h>
-#include "mach/pseudo_m4u.h"
-#endif
 
 #include "cmdq_device.h"
 struct CmdqMdpModuleBaseVA {
 	long MDP_RDMA0;
 	long MDP_RDMA1;
+	long MDP_FG0;
+	long MDP_FG1;
 	long MDP_HDR0;
 	long MDP_HDR1;
 	long MDP_COLOR0;
@@ -120,11 +80,11 @@ struct CmdqMdpModuleBaseVA {
 	long MDP_TDSHP1;
 	long MDP_WROT0;
 	long MDP_WROT1;
-	long VENC;
 	long MM_MUTEX;
 };
 static struct CmdqMdpModuleBaseVA gCmdqMdpModuleBaseVA;
 
+/* FIXME: mt6873 only? */
 struct mdp_base_pa {
 	u32 aal0;
 	u32 aal1;
@@ -135,13 +95,12 @@ static struct mdp_base_pa mdp_module_pa;
 
 struct CmdqMdpModuleClock {
 	struct clk *clk_APB;
+	struct clk *clk_APMCU_GALS;
 	struct clk *clk_MDP_MUTEX0;
-	struct clk *clk_IMG_DL_ASYNC0;
-	struct clk *clk_IMG_DL_ASYNC1;
-	struct clk *clk_IMG0_IMG_DL_ASYNC0;
-	struct clk *clk_IMG0_IMG_DL_ASYNC1;
 	struct clk *clk_MDP_RDMA0;
 	struct clk *clk_MDP_RDMA1;
+	struct clk *clk_MDP_FG0;
+	struct clk *clk_MDP_FG1;
 	struct clk *clk_MDP_HDR0;
 	struct clk *clk_MDP_HDR1;
 	struct clk *clk_MDP_COLOR0;
@@ -170,15 +129,14 @@ bool cmdq_mdp_clock_is_enable_##FN_NAME(void)	\
 }
 
 IMP_ENABLE_MDP_HW_CLOCK(APB, APB);
+IMP_ENABLE_MDP_HW_CLOCK(APMCU_GALS, APMCU_GALS);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_MUTEX0, MDP_MUTEX0);
-IMP_ENABLE_MDP_HW_CLOCK(IMG_DL_ASYNC0, IMG_DL_ASYNC0);
-IMP_ENABLE_MDP_HW_CLOCK(IMG_DL_ASYNC1, IMG_DL_ASYNC1);
-IMP_ENABLE_MDP_HW_CLOCK(IMG0_IMG_DL_ASYNC0, IMG0_IMG_DL_ASYNC0);
-IMP_ENABLE_MDP_HW_CLOCK(IMG0_IMG_DL_ASYNC1, IMG0_IMG_DL_ASYNC1);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_RDMA0, MDP_RDMA0);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_RDMA1, MDP_RDMA1);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_RSZ0, MDP_RSZ0);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_RSZ1, MDP_RSZ1);
+IMP_ENABLE_MDP_HW_CLOCK(MDP_FG0, MDP_FG0);
+IMP_ENABLE_MDP_HW_CLOCK(MDP_FG1, MDP_FG1);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_HDR0, MDP_HDR0);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_HDR1, MDP_HDR1);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_COLOR0, MDP_COLOR0);
@@ -190,17 +148,16 @@ IMP_ENABLE_MDP_HW_CLOCK(MDP_TDSHP1, MDP_TDSHP1);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_AAL0, MDP_AAL0);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_AAL1, MDP_AAL1);
 IMP_MDP_HW_CLOCK_IS_ENABLE(APB, APB);
+IMP_MDP_HW_CLOCK_IS_ENABLE(APMCU_GALS, APMCU_GALS);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_MUTEX0, MDP_MUTEX0);
-IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_ASYNC0, IMG_DL_ASYNC0);
-IMP_MDP_HW_CLOCK_IS_ENABLE(IMG_DL_ASYNC1, IMG_DL_ASYNC1);
-IMP_MDP_HW_CLOCK_IS_ENABLE(IMG0_IMG_DL_ASYNC0, IMG0_IMG_DL_ASYNC0);
-IMP_MDP_HW_CLOCK_IS_ENABLE(IMG0_IMG_DL_ASYNC1, IMG0_IMG_DL_ASYNC1);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_RDMA0, MDP_RDMA0);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_RDMA1, MDP_RDMA1);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_RSZ0, MDP_RSZ0);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_RSZ1, MDP_RSZ1);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_HDR0, MDP_HDR0);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_HDR1, MDP_HDR1);
+IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_FG0, MDP_FG0);
+IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_FG1, MDP_FG1);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_COLOR0, MDP_COLOR0);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_COLOR1, MDP_COLOR1);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_WROT0, MDP_WROT0);
@@ -213,18 +170,8 @@ IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_AAL1, MDP_AAL1);
 #undef IMP_MDP_HW_CLOCK_IS_ENABLE
 
 static const uint64_t gCmdqEngineGroupBits[CMDQ_MAX_GROUP_COUNT] = {
-	CMDQ_ENG_ISP_GROUP_BITS,
-	CMDQ_ENG_MDP_GROUP_BITS,
-	CMDQ_ENG_DPE_GROUP_BITS,
-	CMDQ_ENG_RSC_GROUP_BITS,
-	CMDQ_ENG_GEPF_GROUP_BITS,
-	CMDQ_ENG_WPE_GROUP_BITS,
-	CMDQ_ENG_EAF_GROUP_BITS,
-	CMDQ_ENG_OWE_GROUP_BITS,
-	CMDQ_ENG_MFB_GROUP_BITS,
-	CMDQ_ENG_FDVT_GROUP_BITS,
+	CMDQ_ENG_MDP_GROUP_BITS
 };
-
 
 long cmdq_mdp_get_module_base_VA_MDP_RDMA0(void)
 {
@@ -255,7 +202,6 @@ long cmdq_mdp_get_module_base_VA_MDP_TDSHP1(void)
 {
 	return gCmdqMdpModuleBaseVA.MDP_TDSHP1;
 }
-
 
 long cmdq_mdp_get_module_base_VA_MDP_COLOR0(void)
 {
@@ -297,9 +243,14 @@ long cmdq_mdp_get_module_base_VA_MDP_HDR1(void)
 	return gCmdqMdpModuleBaseVA.MDP_HDR1;
 }
 
-long cmdq_mdp_get_module_base_VA_VENC(void)
+long cmdq_mdp_get_module_base_VA_MDP_FG0(void)
 {
-	return gCmdqMdpModuleBaseVA.VENC;
+	return gCmdqMdpModuleBaseVA.MDP_FG0;
+}
+
+long cmdq_mdp_get_module_base_VA_MDP_FG1(void)
+{
+	return gCmdqMdpModuleBaseVA.MDP_FG1;
 }
 
 long cmdq_mdp_get_module_base_VA_MM_MUTEX(void)
@@ -322,20 +273,25 @@ long cmdq_mdp_get_module_base_VA_MM_MUTEX(void)
 #define MDP_COLOR1_BASE		cmdq_mdp_get_module_base_VA_MDP_COLOR1()
 #define MDP_WROT0_BASE		cmdq_mdp_get_module_base_VA_MDP_WROT0()
 #define MDP_WROT1_BASE		cmdq_mdp_get_module_base_VA_MDP_WROT1()
-#define VENC_BASE		cmdq_mdp_get_module_base_VA_VENC()
 #define MM_MUTEX_BASE		cmdq_mdp_get_module_base_VA_MM_MUTEX()
+#define MDP_FG0_BASE		cmdq_mdp_get_module_base_VA_MDP_FG0()
+#define MDP_FG1_BASE		cmdq_mdp_get_module_base_VA_MDP_FG1()
 
 struct RegDef {
 	int offset;
 	const char *name;
 };
 
-void cmdq_mdp_dump_mmsys_config(const struct cmdqRecStruct *handle)
+static void cmdq_core_dump_mmsys_config(void)
 {
 	int i = 0;
 	uint32_t value = 0;
 
 	static const struct RegDef configRegisters[] = {
+		{0x000, "MDPSYS_INTEN"},
+		{0x004, "MDPSYS_INTSTA"},
+		{0x0F0, "MMSYS_MISC"},
+		{0x0F4, "MDPSYS_MODULE_DBG"},
 		{0x100,	"MDPSYS_CG_CON0"},
 		{0x104,	"MDPSYS_CG_SET0"},
 		{0x108,	"MDPSYS_CG_CLR0"},
@@ -352,57 +308,68 @@ void cmdq_mdp_dump_mmsys_config(const struct cmdqRecStruct *handle)
 		{0x144,	"MDPSYS_CG_SET4"},
 		{0x148,	"MDPSYS_CG_CLR4"},
 		{0x1f4,	"MDPSYS_PROC_TRACK_EMI_BUSY_CON"},
-		{0x240,	"MDPSYS_APMCU_GALS_ctrl"},
-		{0x300,	"MDPSYS_DEBUG_OUT_SEL"},
+		{0x220, "MDP_DL_IN_RELAY0_SIZE"},
+		{0x224, "MDP_DL_IN_RELAY1_SIZE"},
+		{0x228, "MDP_DL_OUT_RELAY0_SIZE"},
+		{0x22c, "MDP_DL_OUT_RELAY1_SIZE"},
+		{0x230, "MDP_DLO_ASYNC0_STATUS0"},
+		{0x234, "MDP_DLO_ASYNC0_STATUS1"},
+		{0x238, "MDP_DLO_ASYNC1_STATUS0"},
+		{0x23C, "MDP_DLO_ASYNC1_STATUS1"},
+		{0x240, "MDP_DLI_ASYNC0_STATUS0"},
+		{0x244, "MDP_DLI_ASYNC0_STATUS1"},
+		{0x248, "MDP_DLI_ASYNC1_STATUS0"},
+		{0x24C, "MDP_DLI_ASYNC1_STATUS1"},
+		{0x250, "MDPSYS_APMCU_GALS_ctrl"},
+		{0x300, "MDPSYS_DEBUG_OUT_SEL"},
+		{0x700,	"MDPSYS_SW0_RST_B"},
+		{0x704,	"MDPSYS_SW1_RST_B"},
+		{0x708,	"MDPSYS_SW2_RST_B"},
+		{0x70C,	"MDPSYS_SW3_RST_B"},
+		{0x710,	"MDPSYS_SW4_RST_B"},
 		{0x804,	"MDPSYS_SMI_BIST"},
 		{0x808,	"MDPSYS_SMI_TX_IDLE"},
 		{0x8DC,	"MDPSYS_SMI_LARB_GREQ"},
 		{0x8F0,	"MDPSYS_HRT_WEIGHT_READ"},
 		{0x900,	"MDPSYS_PWR_METER_CTL0"},
 		{0x904,	"MDPSYS_PWR_METER_CTL1"},
-		{0x920,	"MDP_DL_RELAY0_CFG_WD"},
-		{0x924,	"MDP_DL_RELAY1_CFG_WD"},
-		{0x928,	"MDP_DL_RELAY2_CFG_WD"},
-		{0x92c,	"MDP_DL_RELAY3_CFG_WD"},
-		{0x930,	"MDP_DL_RELAY0_CFG_RD"},
-		{0x934,	"MDP_DL_RELAY1_CFG_RD"},
-		{0x938,	"MDP_DL_RELAY2_CFG_RD"},
-		{0x93C,	"MDP_DL_RELAY3_CFG_RD"},
-		{0x940, "MDP_DL_ASYNC_CFG_RD0"},
-		{0x948,	"MDP_DL_ASYNC_CFG_RD1"},
-		{0x950,	"MDP_DL_ASYNC1_CFG_RD0"},
-		{0x954,	"MDP_DL_ASYNC1_CFG_RD1"},
-		{0x960,	"MDP_DL_ASYNC2_CFG_RD0"},
-		{0x964,	"MDP_DL_ASYNC2_CFG_RD1"},
-		{0x970,	"MDP_DL_ASYNC3_CFG_RD0"},
-		{0x974,	"MDP_DL_ASYNC3_CFG_RD1"},
 		{0xE00,	"MDPSYS_BUF_UNDERRUN"},
 		{0xE04,	"MDPSYS_BUF_UNDERRUN_ID"},
-		{0xF10,	"ISP0_MOUT_EN"},
-		{0xF14,	"ISP1_MOUT_EN"},
+		{0xF00,	"BYPASS_MUX_SHADOW"},
+		{0xF04,	"MDPSYS_MOUT_RST"},
+		{0xF10,	"MDPSYS_SECURITY_DISABLE"},
+		{0xF14,	"MDP_DLI0_SEL_IN"},
+		{0xF18,	"MDP_DLI1_SEL_IN"},
 		{0xF20,	"MDP_RDMA0_MOUT_EN"},
 		{0xF24,	"MDP_RDMA1_MOUT_EN"},
 		{0xF30,	"MDP_PQ0_SEL_IN"},
 		{0xF34,	"MDP_PQ1_SEL_IN"},
 		{0xF70,	"MDP_WROT0_SEL_IN"},
 		{0xF74,	"MDP_WROT1_SEL_IN"},
-		{0xFD0,	"MDPSYS_MOUT_MASK0"},
-		{0xFD4,	"MDPSYS_MOUT_MASK1"},
-		{0xFD8,	"MDPSYS_MOUT_MASK2"},
-		{0xFE0,	"MDPSYS_DL_VALID0"},
-		{0xFE4,	"MDPSYS_DL_VALID1"},
-		{0xFE8,	"MDPSYS_DL_VALID2"},
-		{0xFF0,	"MDPSYS_DL_READY0"},
-		{0xFF4,	"MDPSYS_DL_READY1"},
-		{0xFF8,	"MDPSYS_DL_READY2"},
-		{0x0F0, "MMSYS_MISC"},
-		{0x0F4,	"MDPSYS_MODULE_DBG"}
+		{0xF80,	"MDP_PQ0_SOUT_SEL"},
+		{0xF84,	"MDP_PQ1_SOUT_SEL"},
+		{0xF88, "MDP_DLO0_SOUT_SEL"},
+		{0xF8C, "MDP_DLO1_SOUT_SEL"},
+		{0xF90,	"MDP_BYP0_MOUT_EN"},
+		{0xF94,	"MDP_BYP1_MOUT_EN"},
+		{0xF98,	"MDP_BYP0_SEL_IN"},
+		{0xF9C,	"MDP_BYP1_SEL_IN"},
+		{0xFA0, "MDP_RSZ2_SEL_IN"},
+		{0xFA4, "MDP_RSZ3_SEL_IN"},
+		{0xFA8, "MDP_AID_SEL"},
+		{0xFAC, "MDP_AID_SEL_MODE"},
+		{0xFD0, "MDPSYS_MOUT_MASK0"},
+		{0xFD4, "MDPSYS_MOUT_MASK1"},
+		{0xFD8, "MDPSYS_MOUT_MASK2"},
+		{0xFE0, "MDPSYS_DL_VALID0"},
+		{0xFE4, "MDPSYS_DL_VALID1"},
+		{0xFE8, "MDPSYS_DL_VALID2"},
+		{0xFF0, "MDPSYS_DL_READY0"},
+		{0xFF4, "MDPSYS_DL_READY1"},
+		{0xFF8, "MDPSYS_DL_READY2"},
 	};
 
-	if (!(handle->engineFlag & CMDQ_ENG_MDP_GROUP_BITS))
-		return;
-
-	CMDQ_ERR("============ [CMDQ] MMSYS_CONFIG ============\n");
+	CMDQ_ERR("============ [MDP] MMSYS_CONFIG ============\n");
 
 	if (!MMSYS_CONFIG_BASE) {
 		CMDQ_ERR("mmsys not porting\n");
@@ -416,66 +383,87 @@ void cmdq_mdp_dump_mmsys_config(const struct cmdqRecStruct *handle)
 	}
 
 	/*DISP_MUTEX MOD*/
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x030);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX0_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x034);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX0_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x050);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX1_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x054);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX1_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x070);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX2_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x074);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX2_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x090);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX3_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x094);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX3_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0B0);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX4_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0B4);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX4_MOD1", value);
 	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0D0);
-	CMDQ_ERR("%s: 0x%08x\n", "DISP_MUTEX5_MOD0", value);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX5_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0D4);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX5_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0F0);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX6_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x0F4);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX6_MOD1", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x110);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX7_MOD0", value);
+	value = CMDQ_REG_GET32(MM_MUTEX_BASE + 0x114);
+	CMDQ_ERR("%s: 0x%08x\n", "MDP_MUTEX7_MOD1", value);
+
+}
+
+void cmdq_mdp_dump_mmsys_config(const struct cmdqRecStruct *handle)
+{
+	if (!(handle->engineFlag & CMDQ_ENG_MDP_GROUP_BITS))
+		return;
+
+	cmdq_core_dump_mmsys_config();
 }
 
 int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 {
 	long MMSYS_SW0_RST_B_REG = MMSYS_CONFIG_BASE + (0x700);
-	long MMSYS_SW1_RST_B_REG = MMSYS_CONFIG_BASE + (0x704);
 	int i = 0;
 	uint64_t reset_bits0 = 0ULL;
-	uint64_t reset_bits1 = 0ULL;
-	int engineResetBit[48] = {
-		CMDQ_ENG_MDP_RDMA0,	/* bit  0 : MDP_RDMA0 */
-		CMDQ_ENG_MDP_TDSHP0,	/* bit  1 : MDP_TDSHP0 */
-		CMDQ_ENG_MDP_CAMIN,	/* bit  2 : img_dl_async0  */
-		CMDQ_ENG_MDP_CAMIN2,	/* bit  3 : img_dl_async1  */
-		CMDQ_ENG_MDP_RDMA1,	/* bit  4 : MDP_RDMA1 */
-		CMDQ_ENG_MDP_TDSHP1,	/* bit  5 : MDP_TDSHP1 */
-		-1,	/* bit  6 : smi0 */
-		-1,	/* bit  7 : apb_bus */
-		CMDQ_ENG_MDP_WROT0,	/* bit  8 : MDP_WROT0 */
-		CMDQ_ENG_MDP_RSZ0,	/* bit  9 : MDP_RSZ0  */
-		CMDQ_ENG_MDP_HDR0,	/* bit 10 : MDP_HDR0 */
-		-1,	/* bit 11 : mdp_mutex0 */
-		CMDQ_ENG_MDP_WROT1,	/* bit 12 : MDP_WROT1 */
-		CMDQ_ENG_MDP_RSZ1,	/* bit 13 : MDP_RSZ1 */
-		CMDQ_ENG_MDP_HDR1,	/* bit 14 : MDP_HDR1 */
-		-1,			/* bit 15 : mdp_fake_eng0*/
-		CMDQ_ENG_MDP_AAL0,	/* bit 16 : MDP_AAL0 */
-		CMDQ_ENG_MDP_AAL1,	/* bit 17 : MDP_AAL1 */
-		CMDQ_ENG_MDP_COLOR0,	/* bit 18 : MDP_COLOR0  */
-		CMDQ_ENG_MDP_COLOR1,	/* bit 19 : MDP_COLOR1  */
-		-1,			/* bit 20 : empty20 */
-		-1,			/* bit 21 : empty21 */
-		-1,			/* bit 22 : empty22 */
-		-1,			/* bit 23 : empty23 */
-		-1,			/* bit 24 : empty24 */
-		-1,			/* bit 25 : empty25  */
-		-1,			/* bit 26 : empty26 */
-		-1,			/* bit 27 : empty27 */
-		-1,			/* bit 28 : empty28 */
-		-1,			/* bit 29 : empty29 */
-		-1,			/* bit 30 : empty30 */
-		-1,			/* bit 31 : empty31 */
-		-1,			/* bit 32 : empty32 */
-		-1,			/* bit 33 : empty33 */
-		-1,			/* bit 34 : empty34 */
-		-1,			/* bit 35 : empty35 */
-		-1,			/* bit 36 : empty36 */
-		-1,			/* bit 37 : empty37 */
-		-1,			/* bit 38 : empty38 */
-		-1,			/* bit 39 : empty39 */
-		-1,			/* bit 40 : empty40 */
-		-1,			/* bit 41 : empty41 */
-		-1,			/* bit 42 : empty42 */
-		-1,			/* bit 43 : empty43 */
-		-1,			/* bit 44 : empty44 */
-		-1,			/* bit 45 : empty45 */
-		-1,			/* bit 46 : empty46 */
-		-1,			/* bit 47 : empty47 */
+	int engineResetBit[32] = {
+		-1,			/* bit  0 : mdp_mutex0 */
+		-1,			/* bit  1 : apb_bus */
+		-1,			/* bit  2 : smi0 */
+		CMDQ_ENG_MDP_RDMA0,	/* bit	3 : mdp_rdma0 */
+		CMDQ_ENG_MDP_FG0,	/* bit  4 : mdp_fg0 */
+		CMDQ_ENG_MDP_HDR0,	/* bit  5 : mdp_hdr0  */
+		CMDQ_ENG_MDP_AAL0,	/* bit  6 : mdp_aal0  */
+		CMDQ_ENG_MDP_RSZ0,	/* bit  7 : mdp_rsz0 */
+		CMDQ_ENG_MDP_TDSHP0,	/* bit  8 : mdp_tdshp0 */
+		CMDQ_ENG_MDP_COLOR0,	/* bit  9 : mdp_color0 */
+		CMDQ_ENG_MDP_WROT0,	/* bit 10 : mdp_wrot0 */
+		-1,			/* bit 11 : mdp_fake_eng0 */
+		-1,			/* bit 12 : img_dl_relay0 */
+		-1,			/* bit 13 : img_dl_relay1 */
+		-1,			/* bit 14 : empty */
+		CMDQ_ENG_MDP_RDMA1,	/* bit 15 : mdp_rdma1 */
+		CMDQ_ENG_MDP_FG1,	/* bit 16 : mdp_fg1 */
+		CMDQ_ENG_MDP_HDR1,	/* bit 17 : mdp_hdr1  */
+		CMDQ_ENG_MDP_AAL1,	/* bit 18 : mdp_aal1  */
+		CMDQ_ENG_MDP_RSZ1,	/* bit 19 : mdp_rsz1 */
+		CMDQ_ENG_MDP_TDSHP1,	/* bit 20 : mdp_tdshp1 */
+		CMDQ_ENG_MDP_COLOR1,	/* bit 21 : mdp_color1 */
+		CMDQ_ENG_MDP_WROT1,	/* bit 22 : mdp_wrot1 */
+		-1,			/* bit 23 : empty */
+		-1,			/* bit 24 : mdp_rsz2 */
+		-1,			/* bit 25 : mdp_wrot2 */
+		-1,			/* bit 26 : mdp_dlo_async0 */
+		-1,			/* bit 27 : empty_27 */
+		-1,			/* bit 28 : mdp_rsz3 */
+		-1,			/* bit 29 : mdp_wrot3 */
+		-1,			/* bit 30 : mdp_dlo_async1 */
+		-1,			/* bit 31 : hre_top_mdpsys */
 	};
 
 	for (i = 0; i < 32; ++i) {
@@ -484,13 +472,6 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 
 		if (engineToResetAgain & (1LL << engineResetBit[i]))
 			reset_bits0 |= (1 << i);
-	}
-	for (i = 32; i < 48; ++i) {
-		if (engineResetBit[i] < 0)
-			continue;
-
-		if (engineToResetAgain & (1LL << engineResetBit[i]))
-			reset_bits1 |= (1ULL << i);
 	}
 
 	if (reset_bits0 != 0) {
@@ -503,42 +484,34 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 		CMDQ_REG_SET32(MMSYS_SW0_RST_B_REG, ~0);
 		/* This takes effect immediately, no need to poll state */
 	}
-	if (reset_bits1 != 0) {
-		/* 0: reset */
-		/* 1: not reset */
-		/* so we need to reverse the bits */
-		reset_bits1 = ~reset_bits1;
-
-		CMDQ_REG_SET32(MMSYS_SW1_RST_B_REG, reset_bits1);
-		CMDQ_REG_SET32(MMSYS_SW1_RST_B_REG, ~0);
-		/* This takes effect immediately, no need to poll state */
-	}
 
 	return 0;
 }
 
-#IS_ENABLED(CONFIG_MTK_IOMMU_V2)
-enum mtk_iommu_callback_ret_t cmdq_TranslationFault_callback(
-	int port, unsigned long mva, void *data)
+#ifdef MDP_IOMMU_DEBUG
+int cmdq_TranslationFault_callback(
+	int port, dma_addr_t mva, void *data)
 {
 	char dispatchModel[MDP_DISPATCH_KEY_STR_LEN] = "MDP";
 
 	CMDQ_ERR("================= [MDP M4U] Dump Begin ================\n");
-	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=0x%lx", port, mva);
+	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=%pa", port, &mva);
 
 	cmdq_core_dump_tasks_info();
+
+	cmdq_core_dump_mmsys_config();
 
 	switch (port) {
 	case M4U_PORT_L2_MDP_RDMA0:
 		cmdq_mdp_dump_rdma(MDP_RDMA0_BASE, "RDMA0");
 		break;
-	case M4U_PORT_L2_MDP_RDMA1:
+	case M4U_PORT_L2_MDP_RDMA2:
 		cmdq_mdp_dump_rdma(MDP_RDMA1_BASE, "RDMA1");
 		break;
 	case M4U_PORT_L2_MDP_WROT0:
 		cmdq_mdp_dump_rot(MDP_WROT0_BASE, "WROT0");
 		break;
-	case M4U_PORT_L2_MDP_WROT1:
+	case M4U_PORT_L2_MDP_WROT2:
 		cmdq_mdp_dump_rot(MDP_WROT1_BASE, "WROT1");
 		break;
 	default:
@@ -547,96 +520,14 @@ enum mtk_iommu_callback_ret_t cmdq_TranslationFault_callback(
 	}
 
 	CMDQ_ERR(
-		"=============== [MDP] Frame Information Begin ====================================\n");
+		"=============== [MDP] Frame Information Begin ===============================\n");
 	/* find dispatch module and assign dispatch key */
 	cmdq_mdp_check_TF_address(mva, dispatchModel);
-	memcpy(data, dispatchModel, sizeof(dispatchModel));
 	CMDQ_ERR(
-		"=============== [MDP] Frame Information End ====================================\n");
+		"=============== [MDP] Frame Information End =================================\n");
 	CMDQ_ERR("================= [MDP M4U] Dump End ================\n");
 
-	return MTK_IOMMU_CALLBACK_HANDLED;
-}
-#elif defined(COFNIG_MTK_IOMMU)
-mtk_iommu_callback_ret_t cmdq_TranslationFault_callback(
-	int port, unsigned int mva, void *data)
-{
-	char dispatchModel[MDP_DISPATCH_KEY_STR_LEN] = "MDP";
-
-	CMDQ_ERR("================= [MDP M4U] Dump Begin ================\n");
-	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=0x%x", port, mva);
-
-	cmdq_core_dump_tasks_info();
-
-	switch (port) {
-	case M4U_PORT_MDP_RDMA0:
-		cmdq_mdp_dump_rdma(MDP_RDMA0_BASE, "RDMA0");
-		break;
-	case M4U_PORT_MDP_RDMA1:
-		cmdq_mdp_dump_rdma(MDP_RDMA1_BASE, "RDMA1");
-		break;
-	case M4U_PORT_MDP_WROT0:
-		cmdq_mdp_dump_rot(MDP_WROT0_BASE, "WROT0");
-		break;
-	case M4U_PORT_MDP_WROT1:
-		cmdq_mdp_dump_rot(MDP_WROT1_BASE, "WROT1");
-		break;
-	default:
-		CMDQ_ERR("[MDP M4U]fault callback function");
-		break;
-	}
-
-	CMDQ_ERR(
-		"=============== [MDP] Frame Information Begin ====================================\n");
-	/* find dispatch module and assign dispatch key */
-	cmdq_mdp_check_TF_address(mva, dispatchModel);
-	memcpy(data, dispatchModel, sizeof(dispatchModel));
-	CMDQ_ERR(
-		"=============== [MDP] Frame Information End ====================================\n");
-	CMDQ_ERR("================= [MDP M4U] Dump End ================\n");
-
-	return MTK_IOMMU_CALLBACK_HANDLED;
-}
-#elif defined(CONFIG_MTK_M4U)
-enum m4u_callback_ret_t cmdq_TranslationFault_callback(
-	int port, unsigned int mva, void *data)
-{
-	char dispatchModel[MDP_DISPATCH_KEY_STR_LEN] = "MDP";
-
-	CMDQ_ERR("================= [MDP M4U] Dump Begin ================\n");
-	CMDQ_ERR("[MDP M4U]fault call port=%d, mva=0x%x", port, mva);
-
-	cmdq_core_dump_tasks_info();
-
-	switch (port) {
-	case M4U_PORT_MDP_RDMA0:
-		cmdq_mdp_dump_rdma(MDP_RDMA0_BASE, "RDMA0");
-		break;
-	case M4U_PORT_MDP_RDMA1:
-		cmdq_mdp_dump_rdma(MDP_RDMA1_BASE, "RDMA1");
-		break;
-	case M4U_PORT_MDP_WROT0:
-		cmdq_mdp_dump_rot(MDP_WROT0_BASE, "WROT0");
-		break;
-	case M4U_PORT_MDP_WROT1:
-		cmdq_mdp_dump_rot(MDP_WROT1_BASE, "WROT1");
-		break;
-	default:
-		CMDQ_ERR("[MDP M4U]fault callback function");
-		break;
-	}
-
-	CMDQ_ERR(
-		"=============== [MDP] Frame Information Begin ====================================\n");
-	/* find dispatch module and assign dispatch key */
-	cmdq_mdp_check_TF_address(mva, dispatchModel);
-	memcpy(data, dispatchModel, sizeof(dispatchModel));
-	CMDQ_ERR(
-		"=============== [MDP] Frame Information End ====================================\n");
-	CMDQ_ERR(
-		"================= [MDP M4U] Dump End ================\n");
-
-	return M4U_CALLBACK_HANDLED;
+	return 0;
 }
 #endif
 
@@ -662,10 +553,10 @@ void cmdq_mdp_init_module_base_VA(void)
 		cmdq_dev_alloc_reference_VA_by_name("mdp_tdshp1");
 	gCmdqMdpModuleBaseVA.MDP_AAL0 =
 		cmdq_dev_alloc_reference_by_name("mdp_aal0",
-		&mdp_module_pa.aal0);
+			&mdp_module_pa.aal0);
 	gCmdqMdpModuleBaseVA.MDP_AAL1 =
 		cmdq_dev_alloc_reference_by_name("mdp_aal1",
-		&mdp_module_pa.aal1);
+			&mdp_module_pa.aal1);
 	gCmdqMdpModuleBaseVA.MDP_COLOR0 =
 		cmdq_dev_alloc_reference_VA_by_name("mdp_color0");
 	gCmdqMdpModuleBaseVA.MDP_COLOR1 =
@@ -676,8 +567,10 @@ void cmdq_mdp_init_module_base_VA(void)
 	gCmdqMdpModuleBaseVA.MDP_HDR1 =
 		cmdq_dev_alloc_reference_by_name("mdp_hdr1",
 		&mdp_module_pa.hdr1);
-	gCmdqMdpModuleBaseVA.VENC =
-		cmdq_dev_alloc_reference_VA_by_name("venc");
+	gCmdqMdpModuleBaseVA.MDP_FG0 =
+		cmdq_dev_alloc_reference_VA_by_name("mdp_fg0");
+	gCmdqMdpModuleBaseVA.MDP_FG1 =
+		cmdq_dev_alloc_reference_VA_by_name("mdp_fg1");
 	gCmdqMdpModuleBaseVA.MM_MUTEX =
 		cmdq_dev_alloc_reference_VA_by_name("mm_mutex");
 }
@@ -696,9 +589,10 @@ void cmdq_mdp_deinit_module_base_VA(void)
 	cmdq_dev_free_module_base_VA(cmdq_mdp_get_module_base_VA_MDP_COLOR1());
 	cmdq_dev_free_module_base_VA(cmdq_mdp_get_module_base_VA_MDP_HDR0());
 	cmdq_dev_free_module_base_VA(cmdq_mdp_get_module_base_VA_MDP_HDR1());
+	cmdq_dev_free_module_base_VA(cmdq_mdp_get_module_base_VA_MDP_FG0());
+	cmdq_dev_free_module_base_VA(cmdq_mdp_get_module_base_VA_MDP_FG1());
 	cmdq_dev_free_module_base_VA(cmdq_mdp_get_module_base_VA_MDP_AAL0());
 	cmdq_dev_free_module_base_VA(cmdq_mdp_get_module_base_VA_MDP_AAL1());
-	cmdq_dev_free_module_base_VA(cmdq_mdp_get_module_base_VA_VENC());
 
 	memset(&gCmdqMdpModuleBaseVA, 0, sizeof(struct CmdqMdpModuleBaseVA));
 }
@@ -706,12 +600,6 @@ void cmdq_mdp_deinit_module_base_VA(void)
 bool cmdq_mdp_clock_is_on(u32 engine)
 {
 	switch (engine) {
-	case CMDQ_ENG_MDP_CAMIN:
-		return cmdq_mdp_clock_is_enable_IMG_DL_ASYNC0() &&
-				cmdq_mdp_clock_is_enable_IMG0_IMG_DL_ASYNC0();
-	case CMDQ_ENG_MDP_CAMIN2:
-		return cmdq_mdp_clock_is_enable_IMG_DL_ASYNC1() &&
-				cmdq_mdp_clock_is_enable_IMG0_IMG_DL_ASYNC1();
 	case CMDQ_ENG_MDP_RDMA0:
 		return cmdq_mdp_clock_is_enable_MDP_RDMA0();
 	case CMDQ_ENG_MDP_RDMA1:
@@ -740,63 +628,24 @@ bool cmdq_mdp_clock_is_on(u32 engine)
 		return cmdq_mdp_clock_is_enable_MDP_HDR0();
 	case CMDQ_ENG_MDP_HDR1:
 		return cmdq_mdp_clock_is_enable_MDP_HDR1();
+	case CMDQ_ENG_MDP_FG0:
+		return cmdq_mdp_clock_is_enable_MDP_FG0();
+	case CMDQ_ENG_MDP_FG1:
+		return cmdq_mdp_clock_is_enable_MDP_FG1();
 	default:
 		CMDQ_ERR("try to query unknown mdp clock");
 		return false;
 	}
 }
 
-static void config_port_34bit(enum CMDQ_ENG_ENUM engine)
-{
-#IS_ENABLED(CONFIG_MTK_IOMMU_V2)
-	struct M4U_PORT_STRUCT sPort;
-	int ret = 0;
-
-	switch (engine) {
-	case CMDQ_ENG_MDP_RDMA0:
-		sPort.ePortID = M4U_PORT_L2_MDP_RDMA0;
-		break;
-	case CMDQ_ENG_MDP_RDMA1:
-		sPort.ePortID = M4U_PORT_L2_MDP_RDMA1;
-		break;
-	case CMDQ_ENG_MDP_WROT0:
-		sPort.ePortID = M4U_PORT_L2_MDP_WROT0;
-		break;
-	case CMDQ_ENG_MDP_WROT1:
-		sPort.ePortID = M4U_PORT_L2_MDP_WROT1;
-		break;
-	default:
-		sPort.ePortID = M4U_PORT_L2_MDP_RDMA0;
-	}
-	/* 1 for IOVA, 0 for PA */
-	sPort.Virtuality = 1;
-	ret = m4u_config_port(&sPort);
-	if (ret < 0)
-		CMDQ_MSG("m4u config port fail! %d\n", engine);
-#endif
-
-}
-
 void cmdq_mdp_enable_clock(bool enable, u32 engine)
 {
 	switch (engine) {
-	case CMDQ_ENG_MDP_CAMIN:
-		cmdq_mdp_enable_clock_IMG_DL_ASYNC0(enable);
-		cmdq_mdp_enable_clock_IMG0_IMG_DL_ASYNC0(enable);
-		break;
-	case CMDQ_ENG_MDP_CAMIN2:
-		cmdq_mdp_enable_clock_IMG_DL_ASYNC1(enable);
-		cmdq_mdp_enable_clock_IMG0_IMG_DL_ASYNC1(enable);
-		break;
 	case CMDQ_ENG_MDP_RDMA0:
 		cmdq_mdp_enable_clock_MDP_RDMA0(enable);
-		if (enable)
-			config_port_34bit(CMDQ_ENG_MDP_RDMA0);
 		break;
 	case CMDQ_ENG_MDP_RDMA1:
 		cmdq_mdp_enable_clock_MDP_RDMA1(enable);
-		if (enable)
-			config_port_34bit(CMDQ_ENG_MDP_RDMA1);
 		break;
 	case CMDQ_ENG_MDP_RSZ0:
 		cmdq_mdp_enable_clock_MDP_RSZ0(enable);
@@ -806,13 +655,9 @@ void cmdq_mdp_enable_clock(bool enable, u32 engine)
 		break;
 	case CMDQ_ENG_MDP_WROT0:
 		cmdq_mdp_enable_clock_MDP_WROT0(enable);
-		if (enable)
-			config_port_34bit(CMDQ_ENG_MDP_WROT0);
 		break;
 	case CMDQ_ENG_MDP_WROT1:
 		cmdq_mdp_enable_clock_MDP_WROT1(enable);
-		if (enable)
-			config_port_34bit(CMDQ_ENG_MDP_WROT1);
 		break;
 	case CMDQ_ENG_MDP_TDSHP0:
 		cmdq_mdp_enable_clock_MDP_TDSHP0(enable);
@@ -838,6 +683,12 @@ void cmdq_mdp_enable_clock(bool enable, u32 engine)
 	case CMDQ_ENG_MDP_AAL1:
 		cmdq_mdp_enable_clock_MDP_AAL1(enable);
 		break;
+	case CMDQ_ENG_MDP_FG0:
+		cmdq_mdp_enable_clock_MDP_FG0(enable);
+		break;
+	case CMDQ_ENG_MDP_FG1:
+		cmdq_mdp_enable_clock_MDP_FG1(enable);
+		break;
 	default:
 		CMDQ_ERR("try to enable unknown mdp clock");
 		break;
@@ -851,16 +702,6 @@ void cmdq_mdp_init_module_clk(void)
 		&gCmdqMdpModuleClock.clk_APB);
 	cmdq_dev_get_module_clock_by_name("mm_mutex", "MDP_MUTEX0",
 		&gCmdqMdpModuleClock.clk_MDP_MUTEX0);
-	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_IMG_DL_ASYNC0",
-		&gCmdqMdpModuleClock.clk_IMG_DL_ASYNC0);
-	cmdq_dev_get_module_clock_by_name("mmsys_config", "MDP_IMG_DL_ASYNC1",
-		&gCmdqMdpModuleClock.clk_IMG_DL_ASYNC1);
-	cmdq_dev_get_module_clock_by_name("mmsys_config",
-		"MDP_IMG0_IMG_DL_ASYNC0",
-		&gCmdqMdpModuleClock.clk_IMG0_IMG_DL_ASYNC0);
-	cmdq_dev_get_module_clock_by_name("mmsys_config",
-		"MDP_IMG0_IMG_DL_ASYNC1",
-		&gCmdqMdpModuleClock.clk_IMG0_IMG_DL_ASYNC1);
 	cmdq_dev_get_module_clock_by_name("mdp_rdma0", "MDP_RDMA0",
 		&gCmdqMdpModuleClock.clk_MDP_RDMA0);
 	cmdq_dev_get_module_clock_by_name("mdp_rdma1", "MDP_RDMA1",
@@ -889,8 +730,13 @@ void cmdq_mdp_init_module_clk(void)
 		&gCmdqMdpModuleClock.clk_MDP_HDR0);
 	cmdq_dev_get_module_clock_by_name("mdp_hdr1", "MDP_HDR1",
 		&gCmdqMdpModuleClock.clk_MDP_HDR1);
+	cmdq_dev_get_module_clock_by_name("mdp_fg0", "MDP_FG0",
+		&gCmdqMdpModuleClock.clk_MDP_FG0);
+	cmdq_dev_get_module_clock_by_name("mdp_fg1", "MDP_FG1",
+		&gCmdqMdpModuleClock.clk_MDP_FG1);
 
 }
+
 /* MDP engine dump */
 void cmdq_mdp_dump_rsz(const unsigned long base, const char *label)
 {
@@ -1014,6 +860,7 @@ void cmdq_mdp_dump_rsz(const unsigned long base, const char *label)
 		request[3], request[2], request[1], request[0],
 		cmdq_mdp_get_rsz_state(state));
 }
+
 void cmdq_mdp_dump_tdshp(const unsigned long base, const char *label)
 {
 	uint32_t value[10] = { 0 };
@@ -1040,6 +887,7 @@ void cmdq_mdp_dump_tdshp(const unsigned long base, const char *label)
 	CMDQ_ERR("TDSHP OUTPUT_OFFSET: 0x%08x, BLANK_WIDTH: 0x%08x\n",
 		value[7], value[9]);
 }
+
 void cmdq_mdp_dump_aal(const unsigned long base, const char *label)
 {
 	uint32_t value[9] = { 0 };
@@ -1066,6 +914,7 @@ void cmdq_mdp_dump_aal(const unsigned long base, const char *label)
 	CMDQ_ERR("AAL_TILE_00: 0x%08x, AAL_TILE_01: 0x%08x\n",
 		value[7], value[8]);
 }
+
 void cmdq_mdp_dump_hdr(const unsigned long base, const char *label)
 {
 	uint32_t value[15] = { 0 };
@@ -1079,12 +928,12 @@ void cmdq_mdp_dump_hdr(const unsigned long base, const char *label)
 	value[6] = CMDQ_REG_GET32(base + 0x014);    /* MDP_HDR_SIZE_0         */
 	value[7] = CMDQ_REG_GET32(base + 0x018);    /* MDP_HDR_SIZE_1         */
 	value[8] = CMDQ_REG_GET32(base + 0x01C);    /* MDP_HDR_SIZE_2         */
-	value[9] = CMDQ_REG_GET32(base + 0x0EC);    /* MDP_HDR_CURSOR_CTRL    */
-	value[10] = CMDQ_REG_GET32(base + 0x0F0);   /* MDP_HDR_CURSOR_POS     */
-	value[11] = CMDQ_REG_GET32(base + 0x0F4);   /* MDP_HDR_CURSOR_COLOR   */
-	value[12] = CMDQ_REG_GET32(base + 0x0F8);   /* MDP_HDR_TILE_POS       */
-	value[13] = CMDQ_REG_GET32(base + 0x0FC);   /* MDP_HDR_CURSOR_BUF0    */
-	value[14] = CMDQ_REG_GET32(base + 0x100);   /* MDP_HDR_CURSOR_BUF1    */
+	value[9] = CMDQ_REG_GET32(base + 0x10C);    /* MDP_HDR_CURSOR_CTRL    */
+	value[10] = CMDQ_REG_GET32(base + 0x110);   /* MDP_HDR_CURSOR_POS     */
+	value[11] = CMDQ_REG_GET32(base + 0x114);   /* MDP_HDR_CURSOR_COLOR   */
+	value[12] = CMDQ_REG_GET32(base + 0x118);   /* MDP_HDR_TILE_POS       */
+	value[13] = CMDQ_REG_GET32(base + 0x11C);   /* MDP_HDR_CURSOR_BUF0    */
+	value[14] = CMDQ_REG_GET32(base + 0x120);   /* MDP_HDR_CURSOR_BUF1    */
 	CMDQ_ERR(
 		"=============== [CMDQ] %s Status ====================================\n",
 		label);
@@ -1103,12 +952,53 @@ void cmdq_mdp_dump_hdr(const unsigned long base, const char *label)
 		value[12], value[13], value[14]);
 }
 
+void cmdq_mdp_dump_fg(const unsigned long base, const char *label)
+{
+	uint32_t value[16] = { 0 };
+
+	value[0] = CMDQ_REG_GET32(base + 0x000);    /* MDP_FG_TRIGGER   */
+	value[1] = CMDQ_REG_GET32(base + 0x004);    /* MDP_FG_STATUS    */
+	value[2] = CMDQ_REG_GET32(base + 0x020);    /* MDP_FG_FG_CTRL_0 */
+	value[3] = CMDQ_REG_GET32(base + 0x024);    /* MDP_FG_FG_CK_EN  */
+	value[4] = CMDQ_REG_GET32(base + 0x02C);    /* MDP_FG_BACK_DOOR_0*/
+	value[5] = CMDQ_REG_GET32(base + 0x400);    /* MDP_FG_PIC_INFO_0*/
+	value[6] = CMDQ_REG_GET32(base + 0x404);    /* MDP_FG_PIC_INFO_1*/
+	value[7] = CMDQ_REG_GET32(base + 0x418);    /* MDP_FG_TILE_INFO_0*/
+	value[8] = CMDQ_REG_GET32(base + 0x41C);    /* MDP_FG_TILE_INFO_1*/
+	value[9] = CMDQ_REG_GET32(base + 0x500);    /* MDP_FG_DEBUG_0   */
+	value[10] = CMDQ_REG_GET32(base + 0x504);   /* MDP_FG_DEBUG_1   */
+	value[11] = CMDQ_REG_GET32(base + 0x508);   /* MDP_FG_DEBUG_2   */
+	value[12] = CMDQ_REG_GET32(base + 0x50C);   /* MDP_FG_DEBUG_3   */
+	value[13] = CMDQ_REG_GET32(base + 0x510);   /* MDP_FG_DEBUG_4   */
+	value[14] = CMDQ_REG_GET32(base + 0x514);   /* MDP_FG_DEBUG_5   */
+	value[15] = CMDQ_REG_GET32(base + 0x518);   /* MDP_FG_DEBUG_6   */
+
+	CMDQ_ERR(
+		"=============== [CMDQ] %s Status ====================================\n",
+		label);
+	CMDQ_ERR(
+		"MDP_FG_TRIGGER 0x%08x, MDP_FG_STATUS 0x%08x, MDP_FG_FG_CTRL_0 0x%08x\n",
+		value[0], value[1], value[2]);
+	CMDQ_ERR(
+		"MDP_FG_FG_CK_EN 0x%08x, MDP_FG_BACK_DOOR_0 0x%08x, MDP_FG_PIC_INFO_0 0x%08x\n",
+		value[3], value[4], value[5]);
+	CMDQ_ERR(
+		"MDP_FG_PIC_INFO_1 0x%08x, MDP_FG_TILE_INFO_0 0x%08x, MDP_FG_TILE_INFO_1 0x%08x\n",
+		value[6], value[7], value[8]);
+	CMDQ_ERR(
+		"MDP_FG_DEBUG_0x%08x, MDP_FG_DEBUG_1 0x%08x, MDP_FG_DEBUG_2 0x%08x\n",
+		value[9], value[10], value[11]);
+	CMDQ_ERR(
+		"MDP_FG_DEBUG_3 0x%08x, MDP_FG_DEBUG_4 0x%08x, MDP_FG_DEBUG_5 0x%08x\n",
+		value[12], value[13], value[14]);
+	CMDQ_ERR("MDP_FG_DEBUG_6 0x%08x\n",
+		value[15]);
+}
+
 int32_t cmdqMdpClockOn(uint64_t engineFlag)
 {
-	CMDQ_MSG("Enable MDP(0x%llx) clock begin\n", engineFlag);
+	CMDQ_MSG("%s: Enable MDP(0x%llx) clock begin\n", __func__, engineFlag);
 #ifdef CMDQ_PWR_AWARE
-	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_CAMIN);
-	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_CAMIN2);
 	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_RDMA0);
 	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_RDMA1);
 	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_RSZ0);
@@ -1121,6 +1011,8 @@ int32_t cmdqMdpClockOn(uint64_t engineFlag)
 	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_COLOR1);
 	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_HDR0);
 	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_HDR1);
+	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_FG0);
+	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_FG1);
 	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_WROT0);
 	cmdq_mdp_enable(engineFlag, CMDQ_ENG_MDP_WROT1);
 #else
@@ -1132,7 +1024,14 @@ int32_t cmdqMdpClockOn(uint64_t engineFlag)
 
 #endif				/* #ifdef CMDQ_PWR_AWARE */
 
-	CMDQ_MSG("Enable MDP(0x%llx) clock end\n", engineFlag);
+	CMDQ_MSG("%s: cmdq_util_prebuilt_init(0)\n", __func__);
+	cmdq_util_prebuilt_init(0);
+
+	CMDQ_MSG("%s: set BYPASS_MUX_SHADOW bit0 as 0x1\n", __func__);
+	CMDQ_REG_SET32(MMSYS_CONFIG_BASE + 0xF00, 0x1);
+
+
+	CMDQ_MSG("%s: Enable MDP(0x%llx) clock end\n", __func__, engineFlag);
 	return 0;
 }
 
@@ -1153,6 +1052,12 @@ int32_t cmdqMdpDumpInfo(uint64_t engineFlag, int logLevel)
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA1))
 		cmdq_mdp_dump_rdma(MDP_RDMA1_BASE, "RDMA1");
 
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_FG0))
+		cmdq_mdp_dump_fg(MDP_FG0_BASE, "FG0");
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_FG1))
+		cmdq_mdp_dump_fg(MDP_FG1_BASE, "FG1");
+
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_RSZ0))
 		cmdq_mdp_get_func()->mdpDumpRsz(MDP_RSZ0_BASE, "RSZ0");
 
@@ -1164,7 +1069,6 @@ int32_t cmdqMdpDumpInfo(uint64_t engineFlag, int logLevel)
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP1))
 		cmdq_mdp_get_func()->mdpDumpTdshp(MDP_TDSHP1_BASE, "TDSHP1");
-
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_COLOR0))
 		cmdq_mdp_dump_color(MDP_COLOR0_BASE, "COLOR0");
@@ -1204,6 +1108,8 @@ int32_t cmdqMdpDumpInfo(uint64_t engineFlag, int logLevel)
 			DEFINE_MODULE(CMDQ_ENG_MDP_TDSHP1, MDP_TDSHP1_BASE),
 			DEFINE_MODULE(CMDQ_ENG_MDP_COLOR0, MDP_COLOR0_BASE),
 			DEFINE_MODULE(CMDQ_ENG_MDP_COLOR1, MDP_COLOR1_BASE),
+			DEFINE_MODULE(CMDQ_ENG_MDP_FG0, MDP_FG0_BASE),
+			DEFINE_MODULE(CMDQ_ENG_MDP_FG1, MDP_FG1_BASE),
 			DEFINE_MODULE(CMDQ_ENG_MDP_HDR0, MDP_HDR0_BASE),
 			DEFINE_MODULE(CMDQ_ENG_MDP_HDR1, MDP_HDR1_BASE),
 			DEFINE_MODULE(CMDQ_ENG_MDP_WROT0, MDP_WROT0_BASE),
@@ -1228,11 +1134,12 @@ int32_t cmdqMdpDumpInfo(uint64_t engineFlag, int logLevel)
 	return 0;
 }
 
+
 enum MOUT_BITS {
-	MOUT_BITS_ISP_MDP0  =  0,  /* bit  0: ISP_MDP0 multiple outupt reset */
-	MOUT_BITS_ISP_MDP1  =  1,  /* bit  1: ISP_MDP1 multiple outupt reset */
-	MOUT_BITS_MDP_RDMA0 =  2,  /* bit  2: MDP_RDMA0 multiple outupt reset */
-	MOUT_BITS_MDP_RDMA1 =  3,  /* bit  3: MDP_RDMA1 multiple outupt reset */
+	MOUT_BITS_MDP_BYP0	=  0,  /* bit  0: mdp_byp0_mout multiple outupt reset */
+	MOUT_BITS_MDP_BYP1	=  1,  /* bit  1: mdp_byp1_mout multiple outupt reset */
+	MOUT_BITS_MDP_RDMA0	=  2,  /* bit  2: mdp_rdma0_mout multiple outupt reset */
+	MOUT_BITS_MDP_RDMA1	=  3,  /* bit  3: mdp_rdma1_mout multiple outupt reset */
 };
 
 int32_t cmdqMdpResetEng(uint64_t engineFlag)
@@ -1245,18 +1152,24 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 	uint32_t mout_bits_old = 0L;
 	uint32_t mout_bits = 0L;
 
-	long MMSYS_MOUT_RST_REG = MMSYS_CONFIG_BASE + (0xF00);
+	long MMSYS_MOUT_RST_REG = MMSYS_CONFIG_BASE + (0xF04);
 
 	CMDQ_PROF_START(0, "MDP_Rst");
-	CMDQ_VERBOSE("Reset MDP(0x%llx) begin\n", engineFlag);
+	CMDQ_VERBOSE("Reset MDP(engineFlag: 0x%llx) begin\n", engineFlag);
 
 	/* After resetting each component, */
 	/* we need also reset corresponding MOUT config. */
 	mout_bits_old = CMDQ_REG_GET32(MMSYS_MOUT_RST_REG);
 	mout_bits = 0;
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA0)) {
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_DLI0_SEL))
 		mout_bits |= (1 << MOUT_BITS_MDP_RDMA0);
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_DLI1_SEL))
+		mout_bits |= (1 << MOUT_BITS_MDP_RDMA1);
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA0)) {
+		mout_bits |= (1 << MOUT_BITS_MDP_BYP0);
 
 		status = cmdq_mdp_loop_reset(CMDQ_ENG_MDP_RDMA0,
 			MDP_RDMA0_BASE + 0x8, MDP_RDMA0_BASE + 0x408,
@@ -1266,7 +1179,7 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA1)) {
-		mout_bits |= (1 << MOUT_BITS_MDP_RDMA1);
+		mout_bits |= (1 << MOUT_BITS_MDP_BYP1);
 
 		status = cmdq_mdp_loop_reset(CMDQ_ENG_MDP_RDMA1,
 			MDP_RDMA1_BASE + 0x8, MDP_RDMA1_BASE + 0x408,
@@ -1307,19 +1220,7 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 			engineToResetAgain |= (1LL << CMDQ_ENG_MDP_WROT1);
 	}
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_CAMIN)) {
-		/* MDP_CAMIN can only reset by mmsys, */
-		/* so this is not a "error" */
-		cmdq_mdp_reset_with_mmsys((1LL << CMDQ_ENG_MDP_CAMIN));
-	}
-
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_CAMIN2)) {
-		/* MDP_CAMIN2 can only reset by mmsys, */
-		/* so this is not a "error" */
-		cmdq_mdp_reset_with_mmsys((1LL << CMDQ_ENG_MDP_CAMIN2));
-	}
-
-// TODO:
+//TODO:
 // AAL HDR TCC FG
 	/*
 	 * when MDP engines fail to reset,
@@ -1367,9 +1268,11 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 
 int32_t cmdqMdpClockOff(uint64_t engineFlag)
 {
+	CMDQ_MSG("%s, engineFlag: 0x%llx\n", __func__, engineFlag);
+
 #ifdef CMDQ_PWR_AWARE
 
-	CMDQ_MSG("Disable MDP(0x%llx) clock begin\n", engineFlag);
+	CMDQ_MSG("%s: Disable MDP(0x%llx) clock begin\n", __func__, engineFlag);
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_WROT0)) {
 		cmdq_mdp_loop_off(CMDQ_ENG_MDP_WROT0,
 			MDP_WROT0_BASE + 0X010, MDP_WROT0_BASE + 0X014,
@@ -1440,24 +1343,6 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 			MDP_RDMA1_BASE + 0x408, 0x7FF00, 0x100, false);
 	}
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_CAMIN)) {
-		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_CAMIN)) {
-			cmdq_mdp_reset_with_mmsys((1LL << CMDQ_ENG_MDP_CAMIN));
-			CMDQ_MSG("Disable MDP_CAMIN clock\n");
-			cmdq_mdp_get_func()->enableMdpClock(false,
-				CMDQ_ENG_MDP_CAMIN);
-		}
-	}
-
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_CAMIN2)) {
-		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_CAMIN2)) {
-			cmdq_mdp_reset_with_mmsys((1LL << CMDQ_ENG_MDP_CAMIN2));
-			CMDQ_MSG("Disable MDP_CAMIN2 clock\n");
-			cmdq_mdp_get_func()->enableMdpClock(false,
-				CMDQ_ENG_MDP_CAMIN2);
-		}
-	}
-
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_COLOR0)) {
 		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_COLOR0)) {
 			CMDQ_MSG("Disable MDP_COLOR0 clock\n");
@@ -1508,7 +1393,23 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 		}
 	}
 
-	CMDQ_MSG("Disable MDP(0x%llx) clock end\n", engineFlag);
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_FG0)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_FG0)) {
+			CMDQ_MSG("Disable MDP_FG0 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_FG0);
+		}
+	}
+
+	if (engineFlag & (1LL << CMDQ_ENG_MDP_FG1)) {
+		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_FG1)) {
+			CMDQ_MSG("Disable MDP_FG1 clock\n");
+			cmdq_mdp_get_func()->enableMdpClock(false,
+				CMDQ_ENG_MDP_FG1);
+		}
+	}
+
+	CMDQ_MSG("%s: Disable MDP(0x%llx) clock end\n", __func__, engineFlag);
 #endif				/* #ifdef CMDQ_PWR_AWARE */
 
 	return 0;
@@ -1521,7 +1422,6 @@ static s32 mdp_is_mod_suspend(struct EngineStruct *engine_list)
 	enum CMDQ_ENG_ENUM e = 0;
 
 	u32 non_suspend_engine[] = {
-		CMDQ_ENG_ISP_IMGI,
 		CMDQ_ENG_MDP_RDMA0,
 		CMDQ_ENG_MDP_RDMA1,
 		CMDQ_ENG_MDP_RSZ0,
@@ -1581,65 +1481,53 @@ static bool mdp_is_mtee(struct cmdqRecStruct *handle)
 #endif
 }
 
-static bool mdp_is_isp_img(struct cmdqRecStruct *handle)
+struct device *mdp_init_larb(struct platform_device *pdev, u8 idx)
 {
-	return ((handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI) &&
-		handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O)) ||
-		(handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMGI2) &&
-		 handle->engineFlag & (1LL << CMDQ_ENG_ISP_IMG2O2)));
-}
+	struct device_node *node;
+	struct platform_device *larb_pdev;
 
-static bool mdp_is_isp_camin(struct cmdqRecStruct *handle)
-{
-	return (handle->engineFlag &
-		((1LL << CMDQ_ENG_MDP_CAMIN) | CMDQ_ENG_ISP_GROUP_BITS));
+	/* get larb node from dts */
+	node = of_parse_phandle(pdev->dev.of_node, "mediatek,larb", idx);
+	if (!node) {
+		CMDQ_ERR("%s fail to parse mediatek,larb\n", __func__);
+		return NULL;
+	}
+
+	larb_pdev = of_find_device_by_node(node);
+	if (WARN_ON(!larb_pdev)) {
+		of_node_put(node);
+		CMDQ_ERR("%s no larb for idx %hhu\n", __func__, idx);
+		return NULL;
+	}
+	of_node_put(node);
+
+	CMDQ_LOG("%s pdev %p idx %hhu\n", __func__, pdev, idx);
+
+	return &larb_pdev->dev;
 }
 
 void cmdqMdpInitialSetting(struct platform_device *pdev)
 {
-#IS_ENABLED(CONFIG_MTK_IOMMU_V2)
-	char *data = kzalloc(MDP_DISPATCH_KEY_STR_LEN, GFP_KERNEL);
+#ifdef MDP_IOMMU_DEBUG
+	CMDQ_LOG("[MDP] %s\n", __func__);
 
 	/* Register ION Translation Fault function */
 	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_RDMA0,
-		(mtk_iommu_fault_callback_t)cmdq_TranslationFault_callback,
-		(void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_RDMA1,
-		(mtk_iommu_fault_callback_t)cmdq_TranslationFault_callback,
-		(void *)data);
+		cmdq_TranslationFault_callback, (void *)pdev, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_RDMA2,
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_WROT0,
-		(mtk_iommu_fault_callback_t)cmdq_TranslationFault_callback,
-		(void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_WROT1,
-		(mtk_iommu_fault_callback_t)cmdq_TranslationFault_callback,
-		(void *)data);
-#elif defined(COFNIG_MTK_IOMMU)
-	char *data = kzalloc(MDP_DISPATCH_KEY_STR_LEN, GFP_KERNEL);
-
-	/* Register ION Translation Fault function */
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_RDMA0,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_RDMA1,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_WDMA0,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_WROT0,
-		cmdq_TranslationFault_callback, (void *)data);
-	mtk_iommu_register_fault_callback(M4U_PORT_MDP_WROT1,
-		cmdq_TranslationFault_callback, (void *)data);
-#elif defined(CONFIG_MTK_M4U)
-	char *data = kzalloc(MDP_DISPATCH_KEY_STR_LEN, GFP_KERNEL);
-
-	/* Register M4U Translation Fault function */
-	m4u_register_fault_callback(M4U_PORT_MDP_RDMA0,
-		cmdq_TranslationFault_callback, (void *)data);
-	m4u_register_fault_callback(M4U_PORT_MDP_RDMA1,
-		cmdq_TranslationFault_callback, (void *)data);
-	m4u_register_fault_callback(M4U_PORT_MDP_WROT0,
-		cmdq_TranslationFault_callback, (void *)data);
-	m4u_register_fault_callback(M4U_PORT_MDP_WROT1,
-		cmdq_TranslationFault_callback, (void *)data);
+		cmdq_TranslationFault_callback, (void *)pdev, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L2_MDP_WROT2,
+		cmdq_TranslationFault_callback, (void *)pdev, false);
 #endif
+
+	/* must porting in dts */
+	larb2 = mdp_init_larb(pdev, 0);
+
+	/* Query vcp pq readback setting in dts */
+	gVcpPQReadbackSupport = of_property_read_bool(pdev->dev.of_node, "vcp_pq_readback");
+
 }
 
 uint32_t cmdq_mdp_rdma_get_reg_offset_src_addr(void)
@@ -1660,15 +1548,8 @@ uint32_t cmdq_mdp_wdma_get_reg_offset_dst_addr(void)
 const char *cmdq_mdp_parse_error_module(const struct cmdqRecStruct *task)
 {
 	const char *module = NULL;
-	const u64 ISP_ONLY[2] = {
-		((1LL << CMDQ_ENG_ISP_IMGI) | (1LL << CMDQ_ENG_ISP_IMG2O))
-	};
 
 	/* common part for both normal and secure path */
-	/* for JPEG scenario, use HW flag is sufficient */
-	if ((ISP_ONLY[0] == task->engineFlag) ||
-		(ISP_ONLY[1] == task->engineFlag))
-		module = "DIP_ONLY";
 
 	/* for secure path, use HW flag is sufficient */
 	do {
@@ -1680,27 +1561,6 @@ const char *cmdq_mdp_parse_error_module(const struct cmdqRecStruct *task)
 			 * need parse current running instruciton
 			 * for more detail
 			 */
-			break;
-		} else if (CMDQ_ENG_DPE_GROUP_FLAG(task->engineFlag)) {
-			module = "DPE";
-			break;
-		} else if (CMDQ_ENG_RSC_GROUP_FLAG(task->engineFlag)) {
-			module = "RSC";
-			break;
-		} else if (CMDQ_ENG_GEPF_GROUP_FLAG(task->engineFlag)) {
-			module = "GEPF";
-			break;
-		} else if (CMDQ_ENG_EAF_GROUP_FLAG(task->engineFlag)) {
-			module = "EAF";
-			break;
-		} else if (CMDQ_ENG_OWE_GROUP_FLAG(task->engineFlag)) {
-			module = "OWE";
-			break;
-		} else if (CMDQ_ENG_MFB_GROUP_FLAG(task->engineFlag)) {
-			module = "MFB";
-			break;
-		} else if (CMDQ_ENG_FDVT_GROUP_FLAG(task->engineFlag)) {
-			module = "FDVT";
 			break;
 		} else if (CMDQ_ENG_MDP_GROUP_FLAG(task->engineFlag)) {
 			module = "MDP";
@@ -1718,12 +1578,9 @@ u64 cmdq_mdp_get_engine_group_bits(u32 engine_group)
 	return gCmdqEngineGroupBits[engine_group];
 }
 
-static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
+static void mdp_enable_larb(bool enable, struct device *larb)
 {
 #if IS_ENABLED(CONFIG_MTK_SMI)
-	struct device *larb = mdp_larb_dev_get();
-
-
 	if (!larb) {
 		CMDQ_ERR("%s smi larb not support\n", __func__);
 		return;
@@ -1731,6 +1588,7 @@ static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
 
 	if (enable) {
 		int ret = mtk_smi_larb_get(larb);
+
 		cmdq_mdp_enable_clock_APB(enable);
 		cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
 
@@ -1738,13 +1596,28 @@ static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
 			CMDQ_ERR("%s enable fail ret:%d\n",
 				__func__, ret);
 	} else {
+		/* disable, reverse the sequence */
 		cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
 		cmdq_mdp_enable_clock_APB(enable);
 		mtk_smi_larb_put(larb);
 	}
+
+
+	if (gVcpPQReadbackSupport) {
+		if (enable)
+			cmdq_vcp_enable(true);
+		else
+			cmdq_vcp_enable(false);
+	}
+
 #endif
 }
 
+static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
+{
+	if (engine_flag & MDP_ENG_LARB2)
+		mdp_enable_larb(enable, larb2);
+}
 
 static void cmdq_mdp_check_hw_status(struct cmdqRecStruct *handle)
 {
@@ -1764,26 +1637,8 @@ u64 cmdq_mdp_get_secure_engine(u64 engine_flags)
 	/* MDP engines */
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA0);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA1);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WDMA);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT0);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT1);
-
-	/* ISP */
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMGI);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_VIPI);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_LCEI);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMG2O);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMG3O);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_SMXIO);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_DMGI_DEPI);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMGCI);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_TIMGO);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DPE);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, OWE);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEI);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEO);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEI2);
-	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, WPEO2);
 
 	return sec_eng_flag;
 }
@@ -1795,16 +1650,13 @@ static u32 cmdq_mdp_qos_translate_port(u32 engine_id)
 	case CMDQ_ENG_MDP_RDMA0:
 		return M4U_PORT_L2_MDP_RDMA0;
 	case CMDQ_ENG_MDP_RDMA1:
-		return M4U_PORT_L2_MDP_RDMA1;
+		return M4U_PORT_L2_MDP_RDMA2;
 	case CMDQ_ENG_MDP_WROT0:
 		return M4U_PORT_L2_MDP_WROT0;
 	case CMDQ_ENG_MDP_WROT1:
-		return M4U_PORT_L2_MDP_WROT1;
+		return M4U_PORT_L2_MDP_WROT2;
 	}
 
-	if (engine_id != CMDQ_ENG_MDP_CAMIN &&
-		engine_id != CMDQ_ENG_MDP_CAMIN2)
-		CMDQ_ERR("pmqos invalid engineId %d\n", engine_id);
 	return 0;
 }
 
@@ -1824,49 +1676,6 @@ static void mdp_qos_init(struct platform_device *pdev, u32 thread_id)
 	MDP_ICC_GET(mdp_rdma1);
 	MDP_ICC_GET(mdp_wrot0);
 	MDP_ICC_GET(mdp_wrot1);
-
-	/* for isp L9 and L11 */
-	MDP_ICC_GET(l9_img_imgi_d1);
-	MDP_ICC_GET(l9_img_imgbi_d1);
-	MDP_ICC_GET(l9_img_dmgi_d1);
-	MDP_ICC_GET(l9_img_depi_d1);
-	MDP_ICC_GET(l9_img_ice_d1);
-	MDP_ICC_GET(l9_img_smti_d1);
-	MDP_ICC_GET(l9_img_smto_d2);
-	MDP_ICC_GET(l9_img_smto_d1);
-	MDP_ICC_GET(l9_img_crzo_d1);
-	MDP_ICC_GET(l9_img_img3o_d1);
-	MDP_ICC_GET(l9_img_vipi_d1);
-	MDP_ICC_GET(l9_img_smti_d5);
-	MDP_ICC_GET(l9_img_timgo_d1);
-	MDP_ICC_GET(l9_img_ufbc_w0);
-	MDP_ICC_GET(l9_img_ufbc_r0);
-	MDP_ICC_GET(l11_img_imgi_d1);
-	MDP_ICC_GET(l11_img_imgbi_d1);
-	MDP_ICC_GET(l11_img_dmgi_d1);
-	MDP_ICC_GET(l11_img_depi_d1);
-	MDP_ICC_GET(l11_img_ice_d1);
-	MDP_ICC_GET(l11_img_smti_d1);
-	MDP_ICC_GET(l11_img_smto_d2);
-	MDP_ICC_GET(l11_img_smto_d1);
-	MDP_ICC_GET(l11_img_crzo_d1);
-	MDP_ICC_GET(l11_img_img3o_d1);
-	MDP_ICC_GET(l11_img_vipi_d1);
-	MDP_ICC_GET(l11_img_smti_d5);
-	MDP_ICC_GET(l11_img_timgo_d1);
-	MDP_ICC_GET(l11_img_ufbc_w0);
-	MDP_ICC_GET(l11_img_ufbc_r0);
-	MDP_ICC_GET(l11_img_wpe_rdma1);
-	MDP_ICC_GET(l11_img_wpe_rdma0);
-	MDP_ICC_GET(l11_img_wpe_wdma);
-	MDP_ICC_GET(l11_img_mfb_rdma0);
-	MDP_ICC_GET(l11_img_mfb_rdma1);
-	MDP_ICC_GET(l11_img_mfb_rdma2);
-	MDP_ICC_GET(l11_img_mfb_rdma3);
-	MDP_ICC_GET(l11_img_mfb_rdma4);
-	MDP_ICC_GET(l11_img_mfb_rdma5);
-	MDP_ICC_GET(l11_img_mfb_wdma0);
-	MDP_ICC_GET(l11_img_mfb_wdma1);
 }
 
 static void *mdp_qos_get_path(u32 thread_id, u32 port)
@@ -1878,104 +1687,12 @@ static void *mdp_qos_get_path(u32 thread_id, u32 port)
 	/* mdp part */
 	case M4U_PORT_L2_MDP_RDMA0:
 		return path_mdp_rdma0[thread_id];
-	case M4U_PORT_L2_MDP_RDMA1:
+	case M4U_PORT_L2_MDP_RDMA2:
 		return path_mdp_rdma1[thread_id];
 	case M4U_PORT_L2_MDP_WROT0:
 		return path_mdp_wrot0[thread_id];
-	case M4U_PORT_L2_MDP_WROT1:
+	case M4U_PORT_L2_MDP_WROT2:
 		return path_mdp_wrot1[thread_id];
-	}
-
-	/* workaround: m4u port def in kernel-5.4 also define domain id
-	 * but not update user space port def, thus ports value must add
-	 * domain bits to match new def.
-	 */
-	port = port | (2 << 16);
-
-	/* isp part */
-	switch (port) {
-	case M4U_PORT_L9_IMG_IMGI_D1:
-		return path_l9_img_imgi_d1[thread_id];
-	case M4U_PORT_L9_IMG_IMGBI_D1:
-		return path_l9_img_imgbi_d1[thread_id];
-	case M4U_PORT_L9_IMG_DMGI_D1:
-		return path_l9_img_dmgi_d1[thread_id];
-	case M4U_PORT_L9_IMG_DEPI_D1:
-		return path_l9_img_depi_d1[thread_id];
-	case M4U_PORT_L9_IMG_ICE_D1:
-		return path_l9_img_ice_d1[thread_id];
-	case M4U_PORT_L9_IMG_SMTI_D1:
-		return path_l9_img_smti_d1[thread_id];
-	case M4U_PORT_L9_IMG_SMTO_D2:
-		return path_l9_img_smto_d2[thread_id];
-	case M4U_PORT_L9_IMG_SMTO_D1:
-		return path_l9_img_smto_d1[thread_id];
-	case M4U_PORT_L9_IMG_CRZO_D1:
-		return path_l9_img_crzo_d1[thread_id];
-	case M4U_PORT_L9_IMG_IMG3O_D1:
-		return path_l9_img_img3o_d1[thread_id];
-	case M4U_PORT_L9_IMG_VIPI_D1:
-		return path_l9_img_vipi_d1[thread_id];
-	case M4U_PORT_L9_IMG_SMTI_D5:
-		return path_l9_img_smti_d5[thread_id];
-	case M4U_PORT_L9_IMG_TIMGO_D1:
-		return path_l9_img_timgo_d1[thread_id];
-	case M4U_PORT_L9_IMG_UFBC_W0:
-		return path_l9_img_ufbc_w0[thread_id];
-	case M4U_PORT_L9_IMG_UFBC_R0:
-		return path_l9_img_ufbc_r0[thread_id];
-	case M4U_PORT_L11_IMG_IMGI_D1:
-		return path_l11_img_imgi_d1[thread_id];
-	case M4U_PORT_L11_IMG_IMGBI_D1:
-		return path_l11_img_imgbi_d1[thread_id];
-	case M4U_PORT_L11_IMG_DMGI_D1:
-		return path_l11_img_dmgi_d1[thread_id];
-	case M4U_PORT_L11_IMG_DEPI_D1:
-		return path_l11_img_depi_d1[thread_id];
-	case M4U_PORT_L11_IMG_ICE_D1:
-		return path_l11_img_ice_d1[thread_id];
-	case M4U_PORT_L11_IMG_SMTI_D1:
-		return path_l11_img_smti_d1[thread_id];
-	case M4U_PORT_L11_IMG_SMTO_D2:
-		return path_l11_img_smto_d2[thread_id];
-	case M4U_PORT_L11_IMG_SMTO_D1:
-		return path_l11_img_smto_d1[thread_id];
-	case M4U_PORT_L11_IMG_CRZO_D1:
-		return path_l11_img_crzo_d1[thread_id];
-	case M4U_PORT_L11_IMG_IMG3O_D1:
-		return path_l11_img_img3o_d1[thread_id];
-	case M4U_PORT_L11_IMG_VIPI_D1:
-		return path_l11_img_vipi_d1[thread_id];
-	case M4U_PORT_L11_IMG_SMTI_D5:
-		return path_l11_img_smti_d5[thread_id];
-	case M4U_PORT_L11_IMG_TIMGO_D1:
-		return path_l11_img_timgo_d1[thread_id];
-	case M4U_PORT_L11_IMG_UFBC_W0:
-		return path_l11_img_ufbc_w0[thread_id];
-	case M4U_PORT_L11_IMG_UFBC_R0:
-		return path_l11_img_ufbc_r0[thread_id];
-	case M4U_PORT_L11_IMG_WPE_RDMA1:
-		return path_l11_img_wpe_rdma1[thread_id];
-	case M4U_PORT_L11_IMG_WPE_RDMA0:
-		return path_l11_img_wpe_rdma0[thread_id];
-	case M4U_PORT_L11_IMG_WPE_WDMA:
-		return path_l11_img_wpe_wdma[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA0:
-		return path_l11_img_mfb_rdma0[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA1:
-		return path_l11_img_mfb_rdma1[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA2:
-		return path_l11_img_mfb_rdma2[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA3:
-		return path_l11_img_mfb_rdma3[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA4:
-		return path_l11_img_mfb_rdma4[thread_id];
-	case M4U_PORT_L11_IMG_MFB_RDMA5:
-		return path_l11_img_mfb_rdma5[thread_id];
-	case M4U_PORT_L11_IMG_MFB_WDMA0:
-		return path_l11_img_mfb_wdma0[thread_id];
-	case M4U_PORT_L11_IMG_MFB_WDMA1:
-		return path_l11_img_mfb_wdma1[thread_id];
 	}
 
 	CMDQ_ERR("%s pmqos invalid port %d\n", __func__, port);
@@ -1990,69 +1707,14 @@ static void mdp_qos_clear_all(u32 thread_id)
 	mtk_icc_set_bw(path_mdp_wrot1[thread_id], 0, 0);
 }
 
-static void mdp_qos_clear_all_isp(u32 thread_id)
-{
-	mtk_icc_set_bw(path_l9_img_imgi_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_imgbi_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_dmgi_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_depi_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_ice_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_smti_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_smto_d2[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_smto_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_crzo_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_img3o_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_vipi_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_smti_d5[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_timgo_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_ufbc_w0[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l9_img_ufbc_r0[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_imgi_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_imgbi_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_dmgi_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_depi_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_ice_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_smti_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_smto_d2[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_smto_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_crzo_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_img3o_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_vipi_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_smti_d5[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_timgo_d1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_ufbc_w0[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_ufbc_r0[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_wpe_rdma1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_wpe_rdma0[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_wpe_wdma[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_mfb_rdma0[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_mfb_rdma1[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_mfb_rdma2[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_mfb_rdma3[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_mfb_rdma4[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_mfb_rdma5[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_mfb_wdma0[thread_id], 0, 0);
-	mtk_icc_set_bw(path_l11_img_mfb_wdma1[thread_id], 0, 0);
-}
-
 static u32 mdp_get_group_max(void)
 {
 	return CMDQ_MAX_GROUP_COUNT;
 }
 
-static u32 mdp_get_group_isp_plat(void)
-{
-	return CMDQ_GROUP_ISP;
-}
-
 static u32 mdp_get_group_mdp(void)
 {
 	return CMDQ_GROUP_MDP;
-}
-
-static u32 mdp_get_group_wpe_plat(void)
-{
-	return CMDQ_GROUP_WPE;
 }
 
 static const char *const mdp_get_engine_group_name(void)
@@ -2138,6 +1800,101 @@ void cmdq_mdp_compose_readback(struct cmdqRecStruct *handle,
 	}
 }
 
+static s32 mdp_get_rdma_idx(u32 eng_base)
+{
+	s32 rdma_idx = -1;
+
+	switch (eng_base) {
+	case ENGBASE_MDP_RDMA0:
+		rdma_idx = 0;
+		break;
+	case ENGBASE_MDP_RDMA1:
+		rdma_idx = 1;
+		break;
+	default:
+		CMDQ_ERR("%s engine not support:%d\n", __func__, eng_base);
+		break;
+	}
+
+	return rdma_idx;
+}
+
+static u16 mdp_get_reg_msb_offset(u32 eng_base, u16 offset)
+{
+	u16 reg_msb_offset = 0x0;
+
+	if ((eng_base == ENGBASE_MDP_RDMA0) || (eng_base == ENGBASE_MDP_RDMA1)) {
+		if (offset == 0xF00)
+			reg_msb_offset = 0xF30;
+		else if (offset == 0xF08)
+			reg_msb_offset = 0xF34;
+		else if (offset == 0xF10)
+			reg_msb_offset = 0xF38;
+		else if (offset == 0xF20)
+			reg_msb_offset = 0xF3C;
+		else if (offset == 0xF28)
+			reg_msb_offset = 0xF40;
+		else
+			CMDQ_ERR("%s offset not support:0x%x\n", __func__, offset);
+
+	} else if ((eng_base == ENGBASE_MDP_WROT0) || (eng_base == ENGBASE_MDP_WROT1)) {
+		if (offset == 0xF00)
+			reg_msb_offset = 0xF34;
+		else if (offset == 0xF04)
+			reg_msb_offset = 0xF38;
+		else if (offset == 0xF08)
+			reg_msb_offset = 0xF3C;
+		else
+			CMDQ_ERR("%s offset not support:0x%x\n", __func__, offset);
+	} else {
+		CMDQ_ERR("%s engine not support:%d\n", __func__, eng_base);
+	}
+
+	CMDQ_MSG("%s enginet:%d, reg_msb_offset:0x%x\n", __func__, eng_base, reg_msb_offset);
+
+	return reg_msb_offset;
+}
+
+static bool mdp_check_camin_support_virtual(void)
+{
+	return false;
+}
+
+
+static bool mdp_vcp_pq_readback_support(void)
+{
+	return gVcpPQReadbackSupport;
+}
+
+void mdp_vcp_pq_readback_impl(struct cmdqRecStruct *handle,
+	u16 engine, u32 vcp_offset, u32 count)
+{
+	u64 *reuse_va;
+
+	switch (engine) {
+	case CMDQ_ENG_MDP_AAL0:
+		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_AAL0,
+			vcp_offset, count, CMDQ_GPR_R12, &reuse_va);
+		break;
+	case CMDQ_ENG_MDP_AAL1:
+		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_AAL1,
+			vcp_offset, count, CMDQ_GPR_R14, &reuse_va);
+		break;
+	case CMDQ_ENG_MDP_HDR0:
+		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_HDR0,
+			vcp_offset, count, CMDQ_GPR_R12, &reuse_va);
+		break;
+	case CMDQ_ENG_MDP_HDR1:
+		cmdq_pkt_readback(handle->pkt, CMDQ_VCP_ENG_MDP_HDR1,
+			vcp_offset, count, CMDQ_GPR_R14, &reuse_va);
+		break;
+	default:
+		CMDQ_ERR("%s engine not support:%hu\n", __func__, engine);
+		break;
+	}
+
+}
+
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
@@ -2160,34 +1917,37 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->mdpDumpEngineUsage = mdp_dump_engine_usage;
 
 	pFunc->mdpIsMtee = mdp_is_mtee;
-	pFunc->mdpIsIspImg = mdp_is_isp_img;
-	pFunc->mdpIsIspCamin = mdp_is_isp_camin;
 	pFunc->mdpInitialSet = cmdqMdpInitialSetting;
 
 	pFunc->rdmaGetRegOffsetSrcAddr = cmdq_mdp_rdma_get_reg_offset_src_addr;
 	pFunc->wrotGetRegOffsetDstAddr = cmdq_mdp_wrot_get_reg_offset_dst_addr;
 	pFunc->wdmaGetRegOffsetDstAddr = cmdq_mdp_wdma_get_reg_offset_dst_addr;
 	pFunc->parseErrModByEngFlag = cmdq_mdp_parse_error_module;
+	// pFunc->parseHandleErrModByEngFlag = cmdq_mdp_parse_handle_error_module;
 	pFunc->getEngineGroupBits = cmdq_mdp_get_engine_group_bits;
 	pFunc->mdpEnableCommonClock = cmdq_mdp_enable_common_clock;
 	pFunc->CheckHwStatus = cmdq_mdp_check_hw_status;
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine;
 #endif
-
+	// pFunc->resolve_token = cmdq_mdp_resolve_token;
 	pFunc->qosTransPort = cmdq_mdp_qos_translate_port;
 	pFunc->qosInit = mdp_qos_init;
 	pFunc->qosGetPath = mdp_qos_get_path;
 	pFunc->qosClearAll = mdp_qos_clear_all;
-	pFunc->qosClearAllIsp = mdp_qos_clear_all_isp;
 	pFunc->getGroupMax = mdp_get_group_max;
-	pFunc->getGroupIsp = mdp_get_group_isp_plat;
 	pFunc->getGroupMdp = mdp_get_group_mdp;
-	pFunc->getGroupWpe = mdp_get_group_wpe_plat;
 	pFunc->getEngineBase = mdp_engine_base_get;
 	pFunc->getEngineBaseCount = mdp_engine_base_count;
 	pFunc->getEngineGroupName = mdp_get_engine_group_name;
 	pFunc->mdpComposeReadback = cmdq_mdp_compose_readback;
+	pFunc->getRDMAIndex = mdp_get_rdma_idx;
+	pFunc->getRegMSBOffset = mdp_get_reg_msb_offset;
+	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
+	pFunc->mdpVcpPQReadbackSupport = mdp_vcp_pq_readback_support;
+	pFunc->mdpVcpPQReadback = mdp_vcp_pq_readback_impl;
+
 }
-EXPORT_SYMBOL(cmdq_mdp_platform_function_setting);
+
+MODULE_LICENSE("GPL");
 

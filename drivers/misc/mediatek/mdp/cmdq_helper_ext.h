@@ -46,10 +46,23 @@ enum TASK_STATE_ENUM {
 
 /* max count of input */
 #define CMDQ_MAX_COMMAND_SIZE		(0x80000000)
+#define CMDQ_MAX_SIMULATE_COMMAND_SIZE		(0x80000)
 #define CMDQ_MAX_DUMP_REG_COUNT		(4096)
 #define CMDQ_MAX_WRITE_ADDR_COUNT	(PAGE_SIZE / sizeof(u32))
 #define CMDQ_MAX_DBG_STR_LEN		(1024)
 #define CMDQ_MAX_USER_PROP_SIZE		(1024)
+
+extern struct cmdq_client *cmdq_clients[CMDQ_MAX_THREAD_COUNT];
+extern struct ContextStruct cmdq_ctx; /* cmdq driver context */
+extern struct CmdqCBkStruct *cmdq_group_cb;
+extern struct CmdqDebugCBkStruct cmdq_debug_cb;
+
+#define CMDQ_LOG_PQ(string, args...) \
+do { \
+	if (cmdq_core_should_pqrb_log()) { \
+		pr_notice("[MDP][PQ]"string, ##args); \
+	} \
+} while (0)
 
 #define CMDQ_LOG(string, args...) \
 do {			\
@@ -315,6 +328,7 @@ enum CMDQ_LOG_LEVEL_ENUM {
 	CMDQ_LOG_LEVEL_EXTENSION = 3,
 	CMDQ_LOG_LEVEL_PMQOS = 4,
 	CMDQ_LOG_LEVEL_SECURE = 5,
+	CMDQ_LOG_LEVEL_PQ_READBACK = 6,
 
 	CMDQ_LOG_LEVEL_MAX	/* ALWAYS keep at the end */
 };
@@ -794,6 +808,7 @@ bool cmdq_core_should_print_msg(void);
 bool cmdq_core_should_full_error(void);
 bool cmdq_core_should_pmqos_log(void);
 bool cmdq_core_should_secure_log(void);
+bool cmdq_core_should_pqrb_log(void);
 bool cmdq_core_aee_enable(void);
 void cmdq_core_set_aee(bool enable);
 
@@ -834,10 +849,17 @@ s32 cmdq_core_free_pool_buf(struct cmdq_pkt_buffer *buf);
 void cmdq_delay_dump_thread(bool dump_sram);
 u32 cmdq_core_get_delay_start_cpr(void);
 s32 cmdq_delay_get_id_by_scenario(enum CMDQ_SCENARIO_ENUM scenario);
+
+int cmdqCoreWriteAddressVcpAlloc(u32 count, dma_addr_t *vcp_paStart,
+	enum CMDQ_CLT_ENUM clt, void *fp,
+	dma_addr_t vcp_iova_base, void *vcp_va_base, u32 rb_slot_index);
+int cmdqCoreWriteAddressVcpFree(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt);
+int cmdqCoreWriteAddressVcpFreeByNode(void *fp, enum CMDQ_CLT_ENUM clt);
+
 int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
 	enum CMDQ_CLT_ENUM clt, void *fp);
 u32 cmdqCoreReadWriteAddress(dma_addr_t pa);
-void cmdqCoreReadWriteAddressBatch(u32 *addrs, u32 count, u32 *val_out);
+void cmdqCoreReadWriteAddressBatch(dma_addr_t *addrs, u32 count, u32 *val_out);
 u32 cmdqCoreWriteWriteAddress(dma_addr_t pa, u32 value);
 int cmdqCoreFreeWriteAddress(dma_addr_t paStart, enum CMDQ_CLT_ENUM clt);
 int cmdqCoreFreeWriteAddressByNode(void *fp, enum CMDQ_CLT_ENUM clt);
@@ -877,7 +899,6 @@ ssize_t cmdq_core_print_profile_enable(struct device *dev,
 	struct device_attribute *attr, char *buf);
 ssize_t cmdq_core_write_profile_enable(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size);
-s32 cmdq_core_dump_record(char *buf, int record_block_no);
 
 void cmdq_core_dump_tasks_info(void);
 struct cmdqRecStruct *cmdq_core_get_valid_handle(unsigned long job);
@@ -900,6 +921,7 @@ u64 cmdq_core_get_gpr64(const enum cmdq_gpr_reg regID);
 void cmdq_core_set_gpr64(const enum cmdq_gpr_reg regID, const u64 value);
 
 void cmdq_core_release_handle_by_file_node(void *file_node);
+s32 cmdq_core_remove(void);
 s32 cmdq_core_suspend(void);
 s32 cmdq_core_resume(void);
 s32 cmdq_core_resume_notifier(void);
@@ -962,7 +984,7 @@ s32 cmdq_pkt_flush_async_ex(struct cmdqRecStruct *handle,
 s32 cmdq_pkt_stop(struct cmdqRecStruct *handle);
 
 /* mailbox helper functions */
-
+struct device *cmdq_mbox_dev_get(void);
 s32 cmdq_helper_mbox_register(struct device *dev);
 struct cmdq_client *cmdq_helper_mbox_client(u32 idx);
 struct cmdq_base *cmdq_helper_mbox_base(void);
@@ -976,4 +998,5 @@ void cmdq_helper_ext_deinit(void);
 struct cmdqSecSharedMemoryStruct *cmdq_core_get_secure_shared_memory(void);
 void cmdq_core_attach_error_handle(const struct cmdqRecStruct *handle,
 	s32 thread);
+
 #endif

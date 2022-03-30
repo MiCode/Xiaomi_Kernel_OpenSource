@@ -487,7 +487,7 @@ s32 cmdq_task_duplicate(struct cmdqRecStruct *handle,
 		if (last_buf) {
 			va = (u32 *)(last_buf->va_base + CMDQ_CMD_BUFFER_SIZE -
 				CMDQ_INST_SIZE);
-			va[0] = CMDQ_REG_SHIFT_ADDR(new_buf->pa_base);
+			va[0] = CMDQ_REG_SHIFT_ADDR(CMDQ_BUF_ADDR(new_buf));
 		}
 		last_buf = new_buf;
 	}
@@ -1142,7 +1142,7 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 
 	/* assign cmdq dev to pkt which may use in dma alloc */
 	if (!handle->pkt->dev)
-		handle->pkt->dev = cmdq_dev_get();
+		handle->pkt->dev = cmdq_mbox_dev_get();
 
 	/* assign handle to pkt */
 	handle->pkt->user_data = (void *)handle;
@@ -1154,14 +1154,6 @@ s32 cmdq_task_reset(struct cmdqRecStruct *handle)
 		cmdq_task_set_secure(handle, false);
 		handle->secData.enginesNeedDAPC = 0LL;
 		handle->secData.enginesNeedPortSecurity = 0LL;
-	}
-
-	/* performance debug begin */
-	if (cmdq_core_profile_exec_enabled()) {
-		cmdq_pkt_write(handle->pkt, NULL, CMDQ_TPR_MASK_PA,
-			0xffffffff, 0x8000000);
-		cmdq_pkt_perf_begin(handle->pkt);
-		handle->profile_exec = true;
 	}
 
 	return 0;
@@ -1309,7 +1301,6 @@ s32 cmdq_op_poll(struct cmdqRecStruct *handle, u32 addr, u32 value, u32 mask)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_op_poll);
 
 static s32 cmdq_get_event_op_id(enum cmdq_event event)
 {
@@ -1339,7 +1330,6 @@ s32 cmdq_op_wait(struct cmdqRecStruct *handle, enum cmdq_event event)
 
 	return cmdq_pkt_wfe(handle->pkt, arg_a);
 }
-EXPORT_SYMBOL(cmdq_op_wait);
 
 s32 cmdq_op_wait_no_clear(struct cmdqRecStruct *handle,
 	enum cmdq_event event)
@@ -1362,7 +1352,6 @@ s32 cmdq_op_clear_event(struct cmdqRecStruct *handle,
 
 	return cmdq_pkt_clear_event(handle->pkt, arg_a);
 }
-EXPORT_SYMBOL(cmdq_op_clear_event);
 
 s32 cmdq_op_set_event(struct cmdqRecStruct *handle, enum cmdq_event event)
 {
@@ -1373,7 +1362,6 @@ s32 cmdq_op_set_event(struct cmdqRecStruct *handle, enum cmdq_event event)
 
 	return cmdq_pkt_set_event(handle->pkt, arg_a);
 }
-EXPORT_SYMBOL(cmdq_op_set_event);
 
 s32 cmdq_op_replace_overwrite_cpr(struct cmdqRecStruct *handle, u32 index,
 	s32 new_arg_a, s32 new_arg_b, s32 new_arg_c)
@@ -1570,6 +1558,16 @@ s32 cmdq_op_poll_ex(struct cmdqRecStruct *handle,
 
 	CMDQ_CHECK_ERR(err);
 	return err;
+}
+
+s32 cmdq_op_assign_reg_idx_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, u16 reg_idx, CMDQ_VARIABLE value)
+{
+	return cmdq_instr_encoder(handle, cmd_buf,
+		CMDQ_GET_ARG_C(value), CMDQ_GET_ARG_B(value), reg_idx,
+		CMDQ_LOGIC_ASSIGN,
+		CMDQ_IMMEDIATE_VALUE, CMDQ_IMMEDIATE_VALUE, CMDQ_REG_TYPE,
+		CMDQ_CODE_LOGIC);
 }
 
 s32 cmdq_op_read_reg_to_mem_ex(struct cmdqRecStruct *handle,
@@ -1778,19 +1776,16 @@ s32 cmdq_alloc_write_addr(u32 count, dma_addr_t *paStart, u32 clt, void *fp)
 {
 	return cmdqCoreAllocWriteAddress(count, paStart, clt, fp);
 }
-EXPORT_SYMBOL(cmdq_alloc_write_addr);
 
 s32 cmdq_free_write_addr(dma_addr_t paStart, u32 clt)
 {
 	return cmdqCoreFreeWriteAddress(paStart, clt);
 }
-EXPORT_SYMBOL(cmdq_free_write_addr);
 
 s32 cmdq_free_write_addr_by_node(u32 clt, void *fp)
 {
 	return cmdqCoreFreeWriteAddressByNode(fp, clt);
 }
-EXPORT_SYMBOL(cmdq_free_write_addr_by_node);
 
 /* Allocate 32-bit register backup slot */
 s32 cmdq_alloc_mem(cmdqBackupSlotHandle *p_h_backup_slot, u32 slotCount)
@@ -1902,7 +1897,6 @@ s32 cmdq_op_read_reg_to_mem(struct cmdqRecStruct *handle,
 
 	return status;
 }
-EXPORT_SYMBOL(cmdq_op_read_reg_to_mem);
 
 s32 cmdq_op_read_mem_to_reg(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 addr)
@@ -2348,7 +2342,6 @@ s32 cmdq_task_destroy(struct cmdqRecStruct *handle)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_task_destroy);
 
 s32 cmdq_op_set_nop(struct cmdqRecStruct *handle, u32 index)
 {
@@ -3415,7 +3408,6 @@ s32 cmdqRecWaitNoClear(struct cmdqRecStruct *handle,
 {
 	return cmdq_op_wait_no_clear(handle, event);
 }
-EXPORT_SYMBOL(cmdq_op_wait_no_clear);
 
 s32 cmdqRecClearEventToken(struct cmdqRecStruct *handle,
 	enum cmdq_event event)

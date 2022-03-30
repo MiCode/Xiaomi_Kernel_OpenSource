@@ -111,7 +111,7 @@ static int cmdq_release(struct inode *pInode, struct file *pFile)
 	struct cmdqFileNodeStruct *pNode;
 	unsigned long flags;
 
-	CMDQ_VERBOSE("CMDQ driver release fd=%p begin\n", pFile);
+	CMDQ_LOG("CMDQ driver release fd=%p begin\n", pFile);
 
 	pNode = (struct cmdqFileNodeStruct *)pFile->private_data;
 
@@ -129,6 +129,9 @@ static int cmdq_release(struct inode *pInode, struct file *pFile)
 
 	spin_unlock_irqrestore(&pNode->nodeLock, flags);
 
+	/* release by mapping job */
+	mdp_ioctl_free_job_by_node(pNode);
+
 	/* scan through tasks that created by
 	 * this file node and release them
 	 */
@@ -138,9 +141,13 @@ static int cmdq_release(struct inode *pInode, struct file *pFile)
 	pFile->private_data = NULL;
 
 	mdp_ioctl_free_readback_slots_by_node(pFile);
-	cmdqCoreFreeWriteAddressByNode(pFile, CMDQ_CLT_MDP);
 
-	CMDQ_VERBOSE("CMDQ driver release end\n");
+	if (!cmdq_mdp_vcp_pq_readback_support())
+		cmdqCoreFreeWriteAddressByNode(pFile, CMDQ_CLT_MDP);
+	else
+		cmdqCoreWriteAddressVcpFreeByNode(pFile, CMDQ_CLT_MDP);
+
+	CMDQ_LOG("CMDQ driver release end\n");
 
 	return 0;
 }
@@ -218,7 +225,7 @@ static int cmdq_driver_create_reg_address_buffer(
 	return 0;
 }
 
-void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values)
+void cmdq_driver_dump_readback(dma_addr_t *addrs, u32 count, u32 *values)
 {
 	u32 i, n, len, cur;
 	char buf[72];
@@ -231,7 +238,7 @@ void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values)
 
 	i = 0;
 	while (i < count) {
-		len = snprintf(buf, sizeof(buf), "%#x:", addrs[i]);
+		len = snprintf(buf, sizeof(buf), "%#lx:", addrs[i]);
 		cur = addrs[i] & 0xFFFFFFF0;
 
 		/* limit max num 4 in line */
@@ -247,13 +254,12 @@ void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values)
 
 	CMDQ_LOG("read back dump end\n");
 }
-EXPORT_SYMBOL(cmdq_driver_dump_readback);
 
 static void cmdq_driver_process_read_address_request(
 	struct cmdqReadAddressStruct *req_user)
 {
 	/* create kernel-space buffer for working */
-	u32 *addrs = NULL;
+	dma_addr_t *addrs = NULL;
 	u32 *values = NULL;
 	void *dma_addr;
 	void *values_addr;
@@ -276,7 +282,7 @@ static void cmdq_driver_process_read_address_request(
 			break;
 		}
 
-		addrs = kcalloc(req_user->count, sizeof(u32), GFP_KERNEL);
+		addrs = kcalloc(req_user->count, sizeof(dma_addr_t), GFP_KERNEL);
 		if (!addrs) {
 			CMDQ_ERR("[READ_PA] fail to alloc addr buf\n");
 			break;
@@ -290,9 +296,9 @@ static void cmdq_driver_process_read_address_request(
 
 		/* copy from user */
 		if (copy_from_user(addrs, dma_addr,
-			req_user->count * sizeof(u32))) {
+			req_user->count * sizeof(dma_addr_t))) {
 			CMDQ_ERR(
-				"[READ_PA] fail to copy user dma addr:0x%p\n",
+				"[READ_PA] fail to copy user dma addr:0x%pa\n",
 				dma_addr);
 			break;
 		}
@@ -682,7 +688,6 @@ s32 cmdq_driver_ioctl_query_usage(struct file *pf, unsigned long param)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_driver_ioctl_query_usage);
 
 s32 cmdq_driver_ioctl_async_job_exec(struct file *pf,
 	unsigned long param)
@@ -981,7 +986,6 @@ s32 cmdq_driver_ioctl_query_cap_bits(unsigned long param)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_driver_ioctl_query_cap_bits);
 
 s32 cmdq_driver_ioctl_query_dts(unsigned long param)
 {
@@ -996,7 +1000,6 @@ s32 cmdq_driver_ioctl_query_dts(unsigned long param)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_driver_ioctl_query_dts);
 
 s32 cmdq_driver_ioctl_notify_engine(unsigned long param)
 {
@@ -1010,7 +1013,6 @@ s32 cmdq_driver_ioctl_notify_engine(unsigned long param)
 
 	return 0;
 }
-EXPORT_SYMBOL(cmdq_driver_ioctl_notify_engine);
 
 static long cmdq_ioctl(struct file *pf, unsigned int code,
 	unsigned long param)
@@ -1052,6 +1054,12 @@ static long cmdq_ioctl(struct file *pf, unsigned int code,
 		CMDQ_MSG("ioctl CMDQ_IOCTL_READ_READBACK_SLOTS\n");
 		status = mdp_ioctl_read_readback_slots(param);
 		break;
+#ifdef MDP_COMMAND_SIMULATE
+	case CMDQ_IOCTL_SIMULATE:
+		CMDQ_LOG("ioctl CMDQ_IOCTL_SIMULATE\n");
+		status = mdp_ioctl_simulate(param);
+		break;
+#endif
 	default:
 		CMDQ_ERR("unrecognized ioctl 0x%08x\n", code);
 		return -ENOIOCTLCMD;
@@ -1083,6 +1091,7 @@ static long cmdq_ioctl_compat(struct file *pFile, unsigned int code,
 	case CMDQ_IOCTL_ALLOC_READBACK_SLOTS:
 	case CMDQ_IOCTL_FREE_READBACK_SLOTS:
 	case CMDQ_IOCTL_READ_READBACK_SLOTS:
+	case CMDQ_IOCTL_SIMULATE:
 		/* All ioctl structures should be the same size in
 		 * 32-bit and 64-bit linux.
 		 */
@@ -1163,7 +1172,7 @@ static int cmdq_probe(struct platform_device *pDevice)
 	int status;
 	struct device *object;
 
-	CMDQ_LOG("MDP driver probe begin\n");
+	CMDQ_LOG("[MDP] MDP driver probe begin\n");
 
 	/* Function link */
 	cmdq_virtual_function_setting();
@@ -1212,9 +1221,11 @@ static int cmdq_probe(struct platform_device *pDevice)
 		cmdq_mdp_get_func()->beginTask,
 		cmdq_mdp_get_func()->endTask);
 
-	cmdq_core_register_task_cycle_cb(cmdq_mdp_get_func()->getGroupIsp(),
-		cmdq_mdp_get_func()->beginISPTask,
-		cmdq_mdp_get_func()->endISPTask);
+	if (cmdq_mdp_get_func()->mdpIsCaminSupport()) {
+		cmdq_core_register_task_cycle_cb(cmdq_mdp_get_func()->getGroupIsp(),
+			cmdq_mdp_get_func()->beginISPTask,
+			cmdq_mdp_get_func()->endISPTask);
+	}
 
 	CMDQ_LOG("MDP driver probe end\n");
 
@@ -1224,6 +1235,7 @@ static int cmdq_probe(struct platform_device *pDevice)
 
 static int cmdq_remove(struct platform_device *pDevice)
 {
+	cmdq_core_remove();
 	disable_irq(cmdq_dev_get_irq_id());
 	return 0;
 }

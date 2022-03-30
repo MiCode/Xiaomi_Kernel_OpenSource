@@ -11,6 +11,9 @@
 #include "cmdq_helper_ext.h"
 #include <linux/types.h>
 
+extern struct cmdqMDPFuncStruct mdp_funcs;
+extern int gCmdqRdmaPrebuiltSupport;
+
 #ifdef CONFIG_MTK_SMI_EXT
 
 /* get request */
@@ -56,7 +59,7 @@ typedef s32(*MdpEngineFunc) (struct EngineStruct *engine_list);
 typedef bool(*MdpCheckHandleFunc) (struct cmdqRecStruct *handle);
 
 /* MDP Initialization setting */
-typedef void(*CmdqMdpInitialSet) (void);
+typedef void(*CmdqMdpInitialSet) (struct platform_device *pdev);
 
 /* Initialization & de-initialization MDP base VA */
 typedef void (*CmdqMdpInitModuleBaseVA) (void);
@@ -86,7 +89,7 @@ typedef const char *(*CmdqPraseErrorModByEngFlag) (
 
 typedef u64 (*CmdqMdpGetEngineGroupBits) (u32 engine_group);
 
-typedef void (*CmdqMdpEnableCommonClock) (bool enable);
+typedef void (*CmdqMdpEnableCommonClock) (bool enable, u64 engine_flag);
 
 typedef void (*CmdqCheckHwStatus) (struct cmdqRecStruct *handle);
 
@@ -118,7 +121,18 @@ typedef void (*CmdqMdpComposeReadback) (struct cmdqRecStruct *handle,
 	u16 engine, dma_addr_t dma, u32 param);
 
 typedef void (*CmdqMdpReadbackEngine) (struct cmdqRecStruct *handle,
-	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param);
+	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param, u32 pipe);
+
+typedef s32 (*MdpGetRDMAIndex) (u32);
+
+typedef u16 (*MdpGetRegMSBOffset) (u32, u16);
+
+typedef bool (*MdpCheckIsCaminSupport) (void);
+
+typedef bool (*MdpVcpPQReadbackSupport) (void);
+
+typedef void (*MdpVcpPQReadback) (struct cmdqRecStruct *handle,
+	u16 engine, u32 vcp_offset, u32 count);
 
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
@@ -178,6 +192,12 @@ struct cmdqMDPFuncStruct {
 	CmdqMdpComposeReadback mdpComposeReadback;
 	CmdqMdpReadbackEngine mdpReadbackAal;
 	CmdqMdpReadbackEngine mdpReadbackHdr;
+	MdpGetRDMAIndex getRDMAIndex;
+	MdpGetRegMSBOffset getRegMSBOffset;
+	MdpCheckIsCaminSupport mdpIsCaminSupport;
+	MdpVcpPQReadbackSupport mdpVcpPQReadbackSupport;
+	MdpVcpPQReadback mdpVcpPQReadback;
+
 };
 
 struct mdp_pmqos_record {
@@ -302,7 +322,12 @@ u32 cmdq_mdp_wdma_get_reg_offset_dst_addr(void);
 void testcase_clkmgr_mdp(void);
 
 u32 cmdq_mdp_get_hw_reg(u32 base, u16 offset);
+u32 cmdq_mdp_get_hw_reg_msb(u32 base, u16 offset);
 u32 cmdq_mdp_get_hw_port(u32 base);
+s32 cmdq_mdp_get_rdma_idx(u32 base);
+u32 cmdq_mdp_vcp_pq_readback_support(void);
+void cmdq_mdp_vcp_pq_readback(struct cmdqRecStruct *handle, u16 engine,
+	u32 vcp_offset, u32 count);
 
 struct device *mdp_larb_dev_get(void);
 

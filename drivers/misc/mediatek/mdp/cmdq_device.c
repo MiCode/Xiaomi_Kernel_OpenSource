@@ -48,13 +48,11 @@ struct device *cmdq_dev_get(void)
 {
 	return gCmdqDev.pDev;
 }
-EXPORT_SYMBOL(cmdq_dev_get);
 
 u32 cmdq_dev_get_irq_id(void)
 {
 	return gCmdqDev.irqId;
 }
-EXPORT_SYMBOL(cmdq_dev_get_irq_id);
 
 u32 cmdq_dev_get_irq_secure_id(void)
 {
@@ -591,7 +589,6 @@ void cmdq_dev_init(struct platform_device *pDevice)
 	/* init load HW information from device tree */
 	cmdq_dev_init_device_tree(node);
 }
-EXPORT_SYMBOL(cmdq_dev_init);
 
 void cmdq_dev_deinit(void)
 {
@@ -606,4 +603,3 @@ void cmdq_dev_deinit(void)
 		gCmdqDev.regBaseVA = 0;
 	} while (0);
 }
-EXPORT_SYMBOL(cmdq_dev_deinit);
