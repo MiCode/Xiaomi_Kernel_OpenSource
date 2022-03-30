@@ -18,6 +18,7 @@ f kernel/signal.c
 f kernel/trace/trace.c
 f kernel/trace/trace_events.c
 f lib/dynamic_debug.c
+f net/core/rtnetlink.c
 f security/selinux/avc.c
 f security/selinux/include/avc.h
 s __asix_mdio_write
