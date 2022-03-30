@@ -23,7 +23,7 @@ struct typec_mux_switch {
 	struct typec_switch *sw;
 	struct typec_mux *mux;
 	int orientation;
-	int state;
+	struct typec_mux_state state;
 };
 
 /* struct mtk_typec_switch */
@@ -105,10 +105,7 @@ static int mtk_typec_mux_set(struct typec_mux *mux, struct typec_mux_state *stat
 	int ret = 0;
 
 	dev_info(mux_sw->dev, "%s %d %d\n", __func__,
-		 mux_sw->state, state);
-
-	if (mux_sw->state == state->mode)
-		return ret;
+		 mux_sw->state.mode, state->mode);
 
 	mutex_lock(&mux_lock);
 
@@ -117,7 +114,9 @@ static int mtk_typec_mux_set(struct typec_mux *mux, struct typec_mux_state *stat
 			typec_mux->mux->set(typec_mux->mux, state);
 	}
 
-	mux_sw->state = state->mode;
+	mux_sw->state.alt = state->alt;
+	mux_sw->state.mode = state->mode;
+	mux_sw->state.data = state->data;
 
 	mutex_unlock(&mux_lock);
 
@@ -131,14 +130,14 @@ static ssize_t mux_store(struct device *dev,
 	struct typec_mux_switch *mux_sw =
 		(struct typec_mux_switch *)dev->driver_data;
 	u32 tmp;
-	struct typec_mux_state state = { 0 };
+	struct typec_mux_state state = {};
 
 	if (kstrtouint(buf, 0, &tmp))
 		return -EINVAL;
 
 	if (tmp > 2) {
 		dev_info(mux_sw->dev, "%s %d, INVALID: %d\n", __func__,
-			 mux_sw->state, tmp);
+			 mux_sw->state.mode, tmp);
 		return count;
 	}
 
@@ -154,7 +153,7 @@ static ssize_t mux_show(struct device *dev,
 	struct typec_mux_switch *mux_sw =
 		(struct typec_mux_switch *)dev->driver_data;
 
-	return sprintf(buf, "%d\n", mux_sw->state);
+	return sprintf(buf, "%d\n", mux_sw->state.mode);
 }
 static DEVICE_ATTR_RW(mux);
 
