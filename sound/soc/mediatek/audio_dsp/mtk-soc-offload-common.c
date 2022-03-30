@@ -597,6 +597,15 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 		offloadservice_releasewriteblocked();
 		pr_info("%s decode_error\n", __func__);
 		break;
+	case OFFLOAD_CODEC_INFO:
+		if (ipi_msg->param1) {
+			afe_offload_codec_info.codec_bitrate =  ipi_msg->param1;
+			pr_info("%s update bir_rate[%u]\n", __func__, ipi_msg->param1);
+		}
+		if (ipi_msg->param2) {
+			afe_offload_codec_info.codec_samplerate = ipi_msg->param2;
+			pr_info("%s sample_rate[%u]\n", __func__, ipi_msg->param2);
+		}
 	default:
 		break;
 	}
@@ -786,7 +795,10 @@ static int mtk_compr_offload_pointer(struct snd_soc_component *component,
 		tstamp->copied_total =
 			afe_offload_block.transferred;
 	}
-	tstamp->sampling_rate = afe_offload_block.samplerate;
+	if (afe_offload_block.samplerate != afe_offload_codec_info.codec_samplerate)
+		tstamp->sampling_rate = afe_offload_codec_info.codec_samplerate;
+	else
+		tstamp->sampling_rate = afe_offload_block.samplerate;
 	// check for if pcm_delay should < 100ms
 	if (afe_offload_block.state == OFFLOAD_STATE_DRAIN ||
 	    afe_offload_block.state == OFFLOAD_STATE_RUNNING) {
