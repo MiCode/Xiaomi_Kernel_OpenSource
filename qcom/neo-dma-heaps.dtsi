@@ -4,5 +4,28 @@
 	qcom,dma-heaps {
 		compatible = "qcom,dma-heaps";
 
+		qcom,lsr_lefteye {
+			qcom,dma-heap-name = "qcom,lsr_lefteye";
+			qcom,dma-heap-type = <HEAP_TYPE_CARVEOUT>;
+			memory-region = <&lsr_lefteye_mem_heap>;
+		};
+
+		qcom,lsr_righteye {
+			qcom,dma-heap-name = "qcom,lsr_righteye";
+			qcom,dma-heap-type = <HEAP_TYPE_CARVEOUT>;
+			memory-region = <&lsr_righteye_mem_heap>;
+		};
+
+		qcom,lsr_depth {
+			qcom,dma-heap-name = "qcom,lsr_depth";
+			qcom,dma-heap-type = <HEAP_TYPE_CARVEOUT>;
+			memory-region = <&lsr_depth_mem_heap>;
+		};
+
+		qcom,lsr_misc {
+			qcom,dma-heap-name = "qcom,lsr_misc";
+			qcom,dma-heap-type = <HEAP_TYPE_CARVEOUT>;
+			memory-region = <&lsr_misc_mem_heap>;
+		};
 	};
 };
