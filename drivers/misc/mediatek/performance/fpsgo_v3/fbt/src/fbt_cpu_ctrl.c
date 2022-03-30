@@ -14,7 +14,7 @@
 #include <linux/pm_qos.h>
 #include <linux/module.h>
 #include <linux/cpufreq.h>
-
+#include <mt-plat/fpsgo_common.h>
 #include "fpsgo_base.h"
 #include "fpsgo_cpu_policy.h"
 #include "fbt_cpu_ctrl.h"
@@ -35,6 +35,13 @@ struct cpu_info {
 	u64 time;
 };
 
+struct cfp_req {
+	int enabled;
+	cfp_notifier_fn_t cb;
+};
+
+struct cfp_req cfp_req_tbl[CFP_KIR_MAX_NUM];
+
 /* Configurable */
 struct workqueue_struct *g_psFbtCpuCtrlWorkQueue;
 
@@ -47,6 +54,7 @@ static unsigned int **fbt_opp_tbl;
 static unsigned int *fbt_min_freq;
 static unsigned int *fbt_max_freq;
 static int *fbt_cur_ceiling;
+static int *fbt_last_ceiling;
 static int *fbt_final_ceiling;
 static int *fbt_cur_floor;
 
@@ -85,37 +93,6 @@ static struct cpu_info *cur_wall_time, *cur_idle_time,
 
 /*--------------------INIT------------------------*/
 /* local function */
-static noinline int tracing_mark_write(const char *buf)
-{
-	trace_printk(buf);
-	return 0;
-}
-
-static void __cpu_ctrl_systrace(int val, const char *fmt, ...)
-{
-	char log[256];
-	va_list args;
-	int len;
-	char buf2[256];
-
-	memset(log, ' ', sizeof(log));
-	va_start(args, fmt);
-	len = vsnprintf(log, sizeof(log), fmt, args);
-	va_end(args);
-
-	if (unlikely(len < 0))
-		return;
-	else if (unlikely(len == 256))
-		log[255] = '\0';
-
-	len = snprintf(buf2, sizeof(buf2), "C|%d|%s|%d\n", powerhal_tid, log, val);
-	if (unlikely(len < 0))
-		return;
-	else if (unlikely(len == 256))
-		buf2[255] = '\0';
-	tracing_mark_write(buf2);
-}
-
 static void __cpu_ctrl_freq_systrace(int policy, int freq)
 {
 	if (policy == 0)
@@ -197,8 +174,10 @@ static int update_cpu_loading_locked(void)
 		cur_idle_time[i].time = get_cpu_idle_time(i,
 				&cur_wall_time[i].time, 1);
 
-		wall_time += cur_wall_time[i].time - prev_wall_time[i].time;
-		idle_time += cur_idle_time[i].time - prev_idle_time[i].time;
+		if (cpu_active(i)) {
+			wall_time += cur_wall_time[i].time - prev_wall_time[i].time;
+			idle_time += cur_idle_time[i].time - prev_idle_time[i].time;
+		}
 	}
 
 	if (wall_time > 0 && wall_time > idle_time)
@@ -214,6 +193,15 @@ static int update_cpu_loading_locked(void)
 	return 0;
 }
 
+static void handle_cfp_callback(int heavy)
+{
+	int i;
+
+	for (i = 0; i < CFP_KIR_MAX_NUM; i++)
+		if (cfp_req_tbl[i].enabled && cfp_req_tbl[i].cb)
+			cfp_req_tbl[i].cb(heavy);
+}
+
 static void update_cfp_policy_locked(void)
 {
 	if (cfp_cur_loading >= cfp_up_loading) {
@@ -225,7 +213,7 @@ static void update_cfp_policy_locked(void)
 			if (!cfp_ceil_rel) {
 				cfp_ceil_rel = 1;
 				__cpu_ctrl_systrace(1, "cfp_ceil_rel");
-				__update_cpu_freq_locked();
+				handle_cfp_callback(1);
 			}
 		}
 
@@ -238,7 +226,7 @@ static void update_cfp_policy_locked(void)
 			if (cfp_ceil_rel) {
 				cfp_ceil_rel = 0;
 				__cpu_ctrl_systrace(0, "cfp_ceil_rel");
-				__update_cpu_freq_locked();
+				handle_cfp_callback(0);
 			}
 		}
 	} else {
@@ -258,6 +246,66 @@ static void notify_cpu_loading_timeout(struct work_struct *work)
 	update_cfp_policy_locked();
 	mutex_unlock(&cpu_ctrl_lock);
 	enable_cpu_loading_timer();
+}
+
+static void update_cfp_ctrl_locked(int kicker)
+{
+	int i, action = 0;
+
+	for (i = 0; i < CFP_KIR_MAX_NUM; i++) {
+		if (cfp_req_tbl[i].enabled) {
+			action = 1;
+			break;
+		}
+	}
+
+	if (cfp_enable == action)
+		return;
+
+	cfp_enable = action;
+
+	if (action)
+		enable_cpu_loading_timer();
+	else
+		disable_cpu_loading_timer();
+}
+
+int cfp_mon_enable(int kicker, cfp_notifier_fn_t cb)
+{
+	if (kicker < 0 || kicker >= CFP_KIR_MAX_NUM)
+		return -EFAULT;
+
+	mutex_lock(&cpu_ctrl_lock);
+
+	if (cfp_req_tbl[kicker].enabled)
+		goto ERR_EXIT;
+
+	cfp_req_tbl[kicker].enabled = 1;
+	cfp_req_tbl[kicker].cb = cb;
+	update_cfp_ctrl_locked(kicker);
+
+ERR_EXIT:
+	mutex_unlock(&cpu_ctrl_lock);
+	return 0;
+}
+
+int cfp_mon_disable(int kicker)
+{
+	if (kicker < 0 || kicker >= CFP_KIR_MAX_NUM)
+		return -EFAULT;
+
+	mutex_lock(&cpu_ctrl_lock);
+
+	if (cfp_req_tbl[kicker].enabled == 0)
+		goto ERR_EXIT;
+
+	cfp_req_tbl[kicker].enabled = 0;
+	cfp_req_tbl[kicker].cb = NULL;
+	update_cfp_ctrl_locked(kicker);
+
+ERR_EXIT:
+	mutex_unlock(&cpu_ctrl_lock);
+	return 0;
 }
 
 static void fbt_cpu_ctrl_notifier_wq_cb(struct work_struct *psWork)
@@ -368,18 +416,10 @@ static int fbt_cpu_topo_info(void)
 
 	fbt_cpu_policy = kcalloc(policy_num,
 		sizeof(struct cpufreq_policy *), GFP_KERNEL);
-	if (!fbt_cpu_policy)
-		return -ENOMEM;
-
 	fbt_cpu_rq = kcalloc(policy_num,
 		sizeof(struct freq_qos_request), GFP_KERNEL);
-	if (!fbt_cpu_policy)
-		return -ENOMEM;
 
 	fbt_freq_min_notifier = kcalloc(policy_num, sizeof(struct notifier_block), GFP_KERNEL);
-
-	if (!fbt_freq_min_notifier)
-		return -ENOMEM;
 
 	num = 0;
 
@@ -392,9 +432,6 @@ static int fbt_cpu_topo_info(void)
 			continue;
 
 		fbt_cpu_policy[num] = policy;
-
-		if (!policy)
-			continue;
 #if DEBUG_LOG
 		pr_info("%s, policy[%d]: first:%d", __func__, num, cpu);
 #endif
@@ -408,15 +445,21 @@ static int fbt_cpu_topo_info(void)
 
 		num++;
 		cpu = cpumask_last(policy->related_cpus);
+		cpufreq_cpu_put(policy);
 	}
 
 	return 0;
 }
 
+static void fbt_cfp_notifier(int heavy)
+{
+	__update_cpu_freq_locked();
+}
 
 int fbt_set_cpu_freq_ceiling(int num, int *freq)
 {
 	int i, need_cfp = 0;
+	int need_update = 0;
 
 	mutex_lock(&cpu_ctrl_lock);
 
@@ -424,6 +467,10 @@ int fbt_set_cpu_freq_ceiling(int num, int *freq)
 #if DEBUG_LOG
 		pr_info("%s i:%d, freq:%d\n", __func__, i, freq[i]);
 #endif
+		if (fbt_last_ceiling[i] != freq[i]) {
+			need_update = 1;
+			fbt_last_ceiling[i] = freq[i];
+		}
 
 		if (freq[i] == -1)
 			fbt_cur_ceiling[i] = fbt_max_freq[i];
@@ -438,22 +485,47 @@ int fbt_set_cpu_freq_ceiling(int num, int *freq)
 				fbt_cur_ceiling[i] = freq[i];
 		}
 	}
-	__update_cpu_freq_locked();
+
+	if (need_update)
+		__update_cpu_freq_locked();
+	mutex_unlock(&cpu_ctrl_lock);
 
 	/* enable / disable CFP */
-	if (need_cfp) {
-		if (!cfp_enable) {
-			cfp_enable = 1;
-			enable_cpu_loading_timer();
-		}
-	} else {
-		if (cfp_enable) {
-			cfp_enable = 0;
-			disable_cpu_loading_timer();
-		}
-	}
-	mutex_unlock(&cpu_ctrl_lock);
+	if (need_cfp)
+		cfp_mon_enable(CFP_KIR_FPSGO, fbt_cfp_notifier);
+	else
+		cfp_mon_disable(CFP_KIR_FPSGO);
+
 	return 0;
+}
+
+void update_userlimit_cpu_freq(int kicker, int cluster_num, struct cpu_ctrl_data *pld)
+{
+	int *freq;
+	int i;
+
+	freq = kcalloc(policy_num,
+		sizeof(struct cpufreq_policy *), GFP_KERNEL);
+	for (i = 0; i < cluster_num; i++)
+		freq[i] = pld[i].max;
+
+	fbt_set_cpu_freq_ceiling(cluster_num, freq);
+
+	kfree(freq);
+
+}
+
+int fbt_cpu_ctrl_get_ceil(void)
+{
+	int ceiled = 1;
+
+	mutex_lock(&cpu_ctrl_lock);
+	if (cfp_ceil_rel == 1 && cfp_onoff == 1)
+		ceiled = 0;
+
+	mutex_unlock(&cpu_ctrl_lock);
+
+	return ceiled;
 }
 
 int fbt_cpu_ctrl_init(void)
@@ -483,6 +555,8 @@ int fbt_cpu_ctrl_init(void)
 
 	fbt_cur_ceiling = kcalloc(policy_num,
 		sizeof(struct cpufreq_policy *), GFP_KERNEL);
+	fbt_last_ceiling = kcalloc(policy_num,
+		sizeof(struct cpufreq_policy *), GFP_KERNEL);
 	fbt_final_ceiling = kcalloc(policy_num,
 		sizeof(struct freq_qos_request), GFP_KERNEL);
 	fbt_cur_floor = kcalloc(policy_num,
@@ -490,6 +564,7 @@ int fbt_cpu_ctrl_init(void)
 
 	for (i = 0; i < policy_num; i++) {
 		fbt_cur_ceiling[i] = fbt_max_freq[i];
+		fbt_last_ceiling[i] = -1;
 		fbt_final_ceiling[i] = fbt_max_freq[i];
 		fbt_cur_floor[i] = fbt_min_freq[i];
 	}
@@ -517,6 +592,11 @@ int fbt_cpu_ctrl_init(void)
 	cfp_up_loading   = 90;
 	cfp_down_loading = 80;
 
+	/* cfp request */
+	for (i = 0; i < CFP_KIR_MAX_NUM; i++) {
+		cfp_req_tbl[i].enabled = 0;
+		cfp_req_tbl[i].cb = NULL;
+	}
 
 	pr_info("%s done\n", __func__);
 	return 0;
@@ -531,6 +611,7 @@ int fbt_cpu_ctrl_exit(void)
 	kfree(fbt_freq_min_notifier);
 
 	kfree(fbt_cur_ceiling);
+	kfree(fbt_last_ceiling);
 	kfree(fbt_final_ceiling);
 	kfree(fbt_cur_floor);
 	kfree(cur_wall_time);

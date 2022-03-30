@@ -2,7 +2,8 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
-#include <linux/workqueue.h>
+#include <linux/kthread.h>
+#include <sched/sched.h>
 #include <linux/unistd.h>
 #include <linux/module.h>
 #include <linux/sched.h>
@@ -24,10 +25,10 @@
 #include "fps_composer.h"
 #include "xgf.h"
 #include "mtk_drm_arr.h"
-#include "utch.h"
+#include "uboost.h"
+#include "gbe_common.h"
 
 #define CREATE_TRACE_POINTS
-
 
 #define TARGET_UNLIMITED_FPS 240
 
@@ -37,10 +38,9 @@ enum FPSGO_NOTIFIER_PUSH_TYPE {
 	FPSGO_NOTIFIER_CONNECT				= 0x02,
 	FPSGO_NOTIFIER_DFRC_FPS				= 0x03,
 	FPSGO_NOTIFIER_BQID				= 0x04,
-	FPSGO_NOTIFIER_NN_JOB_BEGIN			= 0x05,
-	FPSGO_NOTIFIER_NN_JOB_END			= 0x06,
-	FPSGO_NOTIFIER_GPU_BLOCK			= 0x07,
-	FPSGO_NOTIFIER_VSYNC				= 0x08,
+	FPSGO_NOTIFIER_VSYNC				= 0x05,
+	FPSGO_NOTIFIER_SWAP_BUFFER          = 0x06,
+	FPSGO_NOTIFIER_SBE_RESCUE           = 0x07,
 };
 
 /* TODO: use union*/
@@ -63,25 +63,20 @@ struct FPSGO_NOTIFIER_PUSH_TAG {
 
 	int dfrc_fps;
 
-	int num_step;
-	__s32 *device;
-	__s32 *boost;
-	__u64 *exec_time;
+	int enhance;
 
-
-	int tid;
-	int start;
-
-	struct work_struct sWork;
+	struct list_head queue_list;
 };
 
 static struct mutex notify_lock;
-struct workqueue_struct *g_psNotifyWorkQueue;
+static struct task_struct *kfpsgo_tsk;
 static int fpsgo_enable;
 static int fpsgo_force_onoff;
 static int gpu_boost_enable_perf;
 static int gpu_boost_enable_camera;
 static int perfserv_ta;
+
+int powerhal_tid;
 
 void (*rsu_cpufreq_notifier_fp)(int cluster_id, unsigned long freq);
 
@@ -106,6 +101,25 @@ static void fpsgo_notifier_wq_cb_vsync(unsigned long long ts)
 		return;
 
 	fpsgo_ctrl2fbt_vsync(ts);
+	fpsgo_uboost_traverse(ts);
+}
+
+static void fpsgo_notifier_wq_cb_swap_buffer(int pid)
+{
+	FPSGO_LOGI("[FPSGO_CB] swap_buffer: %d\n", pid);
+
+	if (!fpsgo_is_enable())
+		return;
+
+	fpsgo_update_swap_buffer(pid);
+}
+
+static void fpsgo_notifier_wq_cb_sbe_rescue(int pid, int start, int enhance)
+{
+	FPSGO_LOGI("[FPSGO_CB] sbe_rescue: %d\n", pid);
+	if (!fpsgo_is_enable())
+		return;
+	fpsgo_sbe_rescue_traverse(pid, start, enhance);
 }
 
 static void fpsgo_notifier_wq_cb_dfrc_fps(int dfrc_fps)
@@ -113,6 +127,7 @@ static void fpsgo_notifier_wq_cb_dfrc_fps(int dfrc_fps)
 	FPSGO_LOGI("[FPSGO_CB] dfrc_fps %d\n", dfrc_fps);
 
 	fpsgo_ctrl2fstb_dfrc_fps(dfrc_fps);
+	fpsgo_ctrl2xgf_set_display_rate(dfrc_fps);
 	fpsgo_ctrl2fbt_dfrc_fps(dfrc_fps);
 }
 
@@ -213,19 +228,39 @@ static void fpsgo_notifier_wq_cb_enable(int enable)
 	mutex_unlock(&notify_lock);
 }
 
-static void fpsgo_notifier_wq_cb(struct work_struct *psWork)
+static LIST_HEAD(head);
+static int condition_notifier_wq;
+static DEFINE_MUTEX(notifier_wq_lock);
+static DECLARE_WAIT_QUEUE_HEAD(notifier_wq_queue);
+static void fpsgo_queue_work(struct FPSGO_NOTIFIER_PUSH_TAG *vpPush)
 {
-	struct FPSGO_NOTIFIER_PUSH_TAG *vpPush =
-		FPSGO_CONTAINER_OF(psWork,
-				struct FPSGO_NOTIFIER_PUSH_TAG, sWork);
+	mutex_lock(&notifier_wq_lock);
+	list_add_tail(&vpPush->queue_list, &head);
+	condition_notifier_wq = 1;
+	mutex_unlock(&notifier_wq_lock);
 
-	if (!vpPush) {
-		FPSGO_LOGE("[FPSGO_CTRL] ERROR\n");
+	wake_up_interruptible(&notifier_wq_queue);
+}
+
+static void fpsgo_notifier_wq_cb(void)
+{
+	struct FPSGO_NOTIFIER_PUSH_TAG *vpPush;
+
+	wait_event_interruptible(notifier_wq_queue, condition_notifier_wq);
+	mutex_lock(&notifier_wq_lock);
+
+	if (!list_empty(&head)) {
+		vpPush = list_first_entry(&head,
+			struct FPSGO_NOTIFIER_PUSH_TAG, queue_list);
+		list_del(&vpPush->queue_list);
+		if (list_empty(&head))
+			condition_notifier_wq = 0;
+		mutex_unlock(&notifier_wq_lock);
+	} else {
+		condition_notifier_wq = 0;
+		mutex_unlock(&notifier_wq_lock);
 		return;
 	}
-
-	FPSGO_LOGI("[FPSGO_CTRL] push type = %d\n",
-			vpPush->ePushType);
 
 	switch (vpPush->ePushType) {
 	case FPSGO_NOTIFIER_SWITCH_FPSGO:
@@ -250,15 +285,42 @@ static void fpsgo_notifier_wq_cb(struct work_struct *psWork)
 	case FPSGO_NOTIFIER_VSYNC:
 		fpsgo_notifier_wq_cb_vsync(vpPush->cur_ts);
 		break;
+	case FPSGO_NOTIFIER_SWAP_BUFFER:
+		fpsgo_notifier_wq_cb_swap_buffer(vpPush->pid);
+		break;
+	case FPSGO_NOTIFIER_SBE_RESCUE:
+		fpsgo_notifier_wq_cb_sbe_rescue(vpPush->pid, vpPush->enable, vpPush->enhance);
+		break;
 	default:
 		FPSGO_LOGE("[FPSGO_CTRL] unhandled push type = %d\n",
 				vpPush->ePushType);
 		break;
 	}
-
 	fpsgo_free(vpPush, sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
+
 }
 
+static int kfpsgo(void *arg)
+{
+	struct sched_attr attr = {};
+
+	attr.sched_policy = -1;
+	attr.sched_flags =
+		SCHED_FLAG_KEEP_ALL |
+		SCHED_FLAG_UTIL_CLAMP |
+		SCHED_FLAG_RESET_ON_FORK;
+	attr.sched_util_min = 1;
+	attr.sched_util_max = 1024;
+	if (sched_setattr_nocheck(current, &attr) != 0)
+		FPSGO_LOGE("[FPSGO_CTRL] %s set uclamp fail\n", __func__);
+
+	set_user_nice(current, -20);
+
+	while (!kthread_should_stop())
+		fpsgo_notifier_wq_cb();
+
+	return 0;
+}
 void fpsgo_notify_qudeq(int qudeq,
 		unsigned int startend,
 		int pid, unsigned long long id)
@@ -280,7 +342,7 @@ void fpsgo_notify_qudeq(int qudeq,
 		return;
 	}
 
-	if (!g_psNotifyWorkQueue) {
+	if (!kfpsgo_tsk) {
 		FPSGO_LOGE("[FPSGO_CTRL] NULL WorkQueue\n");
 		fpsgo_free(vpPush, sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
 		return;
@@ -295,8 +357,7 @@ void fpsgo_notify_qudeq(int qudeq,
 	vpPush->queue_arg = startend;
 	vpPush->identifier = id;
 
-	INIT_WORK(&vpPush->sWork, fpsgo_notifier_wq_cb);
-	queue_work(g_psNotifyWorkQueue, &vpPush->sWork);
+	fpsgo_queue_work(vpPush);
 }
 void fpsgo_notify_connect(int pid,
 		int connectedAPI, unsigned long long id)
@@ -316,7 +377,7 @@ void fpsgo_notify_connect(int pid,
 		return;
 	}
 
-	if (!g_psNotifyWorkQueue) {
+	if (!kfpsgo_tsk) {
 		FPSGO_LOGE("[FPSGO_CTRL] NULL WorkQueue\n");
 		fpsgo_free(vpPush, sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
 		return;
@@ -327,8 +388,7 @@ void fpsgo_notify_connect(int pid,
 	vpPush->connectedAPI = connectedAPI;
 	vpPush->identifier = id;
 
-	INIT_WORK(&vpPush->sWork, fpsgo_notifier_wq_cb);
-	queue_work(g_psNotifyWorkQueue, &vpPush->sWork);
+	fpsgo_queue_work(vpPush);
 }
 
 void fpsgo_notify_bqid(int pid, unsigned long long bufID,
@@ -347,7 +407,7 @@ void fpsgo_notify_bqid(int pid, unsigned long long bufID,
 		return;
 	}
 
-	if (!g_psNotifyWorkQueue) {
+	if (!kfpsgo_tsk) {
 		FPSGO_LOGE("[FPSGO_CTRL] NULL WorkQueue\n");
 		fpsgo_free(vpPush, sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
 		return;
@@ -360,8 +420,7 @@ void fpsgo_notify_bqid(int pid, unsigned long long bufID,
 	vpPush->identifier = id;
 	vpPush->create = create;
 
-	INIT_WORK(&vpPush->sWork, fpsgo_notifier_wq_cb);
-	queue_work(g_psNotifyWorkQueue, &vpPush->sWork);
+	fpsgo_queue_work(vpPush);
 }
 
 int fpsgo_perfserv_ta_value(void)
@@ -401,7 +460,7 @@ void fpsgo_notify_vsync(void)
 		return;
 	}
 
-	if (!g_psNotifyWorkQueue) {
+	if (!kfpsgo_tsk) {
 		FPSGO_LOGE("[FPSGO_CTRL] NULL WorkQueue\n");
 		fpsgo_free(vpPush, sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
 		return;
@@ -410,10 +469,105 @@ void fpsgo_notify_vsync(void)
 	vpPush->ePushType = FPSGO_NOTIFIER_VSYNC;
 	vpPush->cur_ts = fpsgo_get_time();
 
-	INIT_WORK(&vpPush->sWork, fpsgo_notifier_wq_cb);
-	queue_work(g_psNotifyWorkQueue, &vpPush->sWork);
+	fpsgo_queue_work(vpPush);
 }
 
+void fpsgo_notify_swap_buffer(int pid)
+{
+	struct FPSGO_NOTIFIER_PUSH_TAG *vpPush;
+
+	FPSGO_LOGI("[FPSGO_CTRL] swap_buffer\n");
+
+	if (!fpsgo_is_enable())
+		return;
+
+	vpPush = (struct FPSGO_NOTIFIER_PUSH_TAG *)
+		fpsgo_alloc_atomic(sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
+
+	if (!vpPush) {
+		FPSGO_LOGE("[FPSGO_CTRL] OOM\n");
+		return;
+	}
+
+	if (!kfpsgo_tsk) {
+		FPSGO_LOGE("[FPSGO_CTRL] NULL WorkQueue\n");
+		fpsgo_free(vpPush, sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
+		return;
+	}
+
+	vpPush->ePushType = FPSGO_NOTIFIER_SWAP_BUFFER;
+	vpPush->pid = pid;
+
+	fpsgo_queue_work(vpPush);
+}
+
+void fpsgo_notify_sbe_rescue(int pid, int start, int enhance)
+{
+	struct FPSGO_NOTIFIER_PUSH_TAG *vpPush;
+
+	FPSGO_LOGI("[FPSGO_CTRL] sbe_rescue\n");
+
+	if (!fpsgo_is_enable())
+		return;
+
+	vpPush = (struct FPSGO_NOTIFIER_PUSH_TAG *)
+		fpsgo_alloc_atomic(sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
+
+	if (!vpPush) {
+		FPSGO_LOGE("[FPSGO_CTRL] OOM\n");
+		return;
+	}
+
+	if (!kfpsgo_tsk) {
+		FPSGO_LOGE("[FPSGO_CTRL] NULL WorkQueue\n");
+		fpsgo_free(vpPush, sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
+		return;
+	}
+
+	vpPush->ePushType = FPSGO_NOTIFIER_SBE_RESCUE;
+	vpPush->pid = pid;
+	vpPush->enable = start;
+	vpPush->enhance = enhance;
+
+	fpsgo_queue_work(vpPush);
+}
+
+void fpsgo_get_fps(int *pid, int *fps)
+{
+	//int pid = -1, fps = -1;
+	if (unlikely(powerhal_tid == 0))
+		powerhal_tid = current->pid;
+
+	fpsgo_ctrl2fstb_get_fps(pid, fps);
+
+	FPSGO_LOGI("[FPSGO_CTRL] get_fps %d %d\n", *pid, *fps);
+
+	//return fps;
+}
+
+void fpsgo_get_cmd(int *cmd, int *value1, int *value2)
+{
+	int _cmd = -1, _value1 = -1, _value2 = -1;
+
+	fpsgo_ctrl2base_get_pwr_cmd(&_cmd, &_value1, &_value2);
+
+
+	FPSGO_LOGI("[FPSGO_CTRL] get_cmd %d %d %d\n", _cmd, _value1, _value2);
+	*cmd = _cmd;
+	*value1 = _value1;
+	*value2 = _value2;
+
+}
+
+int fpsgo_get_fstb_active(long long time_diff)
+{
+	return is_fstb_active(time_diff);
+}
+
+int fpsgo_wait_fstb_active(void)
+{
+	return fpsgo_ctrl2fstb_wait_fstb_active();
+}
 
 void fpsgo_notify_cpufreq(int cid, unsigned long freq)
 {
@@ -447,7 +601,7 @@ void dfrc_fps_limit_cb(unsigned int fps_limit)
 		return;
 	}
 
-	if (!g_psNotifyWorkQueue) {
+	if (!kfpsgo_tsk) {
 		FPSGO_LOGE("[FPSGO_CTRL] NULL WorkQueue\n");
 		fpsgo_free(vpPush, sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
 		return;
@@ -456,8 +610,7 @@ void dfrc_fps_limit_cb(unsigned int fps_limit)
 	vpPush->ePushType = FPSGO_NOTIFIER_DFRC_FPS;
 	vpPush->dfrc_fps = vTmp;
 
-	INIT_WORK(&vpPush->sWork, fpsgo_notifier_wq_cb);
-	queue_work(g_psNotifyWorkQueue, &vpPush->sWork);
+	fpsgo_queue_work(vpPush);
 }
 
 /* FPSGO control */
@@ -465,7 +618,7 @@ void fpsgo_switch_enable(int enable)
 {
 	struct FPSGO_NOTIFIER_PUSH_TAG *vpPush = NULL;
 
-	if (!g_psNotifyWorkQueue) {
+	if (!kfpsgo_tsk) {
 		FPSGO_LOGE("[FPSGO_CTRL] NULL WorkQueue\n");
 		return;
 	}
@@ -489,8 +642,7 @@ void fpsgo_switch_enable(int enable)
 	vpPush->ePushType = FPSGO_NOTIFIER_SWITCH_FPSGO;
 	vpPush->enable = enable;
 
-	INIT_WORK(&vpPush->sWork, fpsgo_notifier_wq_cb);
-	queue_work(g_psNotifyWorkQueue, &vpPush->sWork);
+	fpsgo_queue_work(vpPush);
 }
 
 int fpsgo_is_force_enable(void)
@@ -572,8 +724,11 @@ static void fpsgo_cpu_frequency_tracer(void *ignore, unsigned int frequency, uns
 	policy = cpufreq_cpu_get(cpu_id);
 	if (!policy)
 		return;
-	if (cpu_id != cpumask_first(policy->related_cpus))
+	if (cpu_id != cpumask_first(policy->related_cpus)) {
+		cpufreq_cpu_put(policy);
 		return;
+	}
+	cpufreq_cpu_put(policy);
 
 	for_each_possible_cpu(cpu) {
 		policy = cpufreq_cpu_get(cpu);
@@ -584,10 +739,13 @@ static void fpsgo_cpu_frequency_tracer(void *ignore, unsigned int frequency, uns
 			break;
 		cpu = cpumask_last(policy->related_cpus);
 		cluster++;
+		cpufreq_cpu_put(policy);
 	}
 
-	if (policy)
+	if (policy) {
 		fpsgo_notify_cpufreq(cluster, frequency);
+		cpufreq_cpu_put(policy);
+	}
 }
 
 struct tracepoints_table fpsgo_tracepoints[] = {
@@ -626,21 +784,20 @@ static void __exit fpsgo_exit(void)
 {
 	fpsgo_notifier_wq_cb_enable(0);
 
-	if (g_psNotifyWorkQueue) {
-		flush_workqueue(g_psNotifyWorkQueue);
-		destroy_workqueue(g_psNotifyWorkQueue);
-		g_psNotifyWorkQueue = NULL;
-	}
+	if (kfpsgo_tsk)
+		kthread_stop(kfpsgo_tsk);
+
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	drm_unregister_fps_chg_callback(dfrc_fps_limit_cb);
 #endif
+	fpsgo_uboost_exit();
 	fbt_cpu_exit();
 	mtk_fstb_exit();
 	fpsgo_composer_exit();
 	fpsgo_sysfs_exit();
 
-	/* touch boost */
-	exit_utch_mod();
+	/* game boost engine */
+	exit_gbe_common();
 }
 
 static int __init fpsgo_init(void)
@@ -654,11 +811,11 @@ static int __init fpsgo_init(void)
 
 	fpsgo_sysfs_init();
 
-	g_psNotifyWorkQueue =
-		create_singlethread_workqueue("fpsgo_notifier_wq");
 
-	if (g_psNotifyWorkQueue == NULL)
+	kfpsgo_tsk = kthread_create(kfpsgo, NULL, "kfps");
+	if (kfpsgo_tsk == NULL)
 		return -EFAULT;
+	wake_up_process(kfpsgo_tsk);
 
 	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
 
@@ -688,17 +845,27 @@ fail_reg_cpu_frequency_entry:
 	fbt_cpu_init();
 	mtk_fstb_init();
 	fpsgo_composer_init();
+	fpsgo_uboost_init();
 
-	/* touch boost */
-	init_utch_mod();
+	/* game boost engine*/
+	init_gbe_common();
 
-	fpsgo_switch_enable(1);
+	if (fpsgo_arch_nr_clusters() > 0)
+		fpsgo_switch_enable(1);
 
 	fpsgo_notify_vsync_fp = fpsgo_notify_vsync;
 
 	fpsgo_notify_qudeq_fp = fpsgo_notify_qudeq;
 	fpsgo_notify_connect_fp = fpsgo_notify_connect;
 	fpsgo_notify_bqid_fp = fpsgo_notify_bqid;
+
+	fpsgo_notify_swap_buffer_fp = fpsgo_notify_swap_buffer;
+	fpsgo_notify_sbe_rescue_fp = fpsgo_notify_sbe_rescue;
+
+	fpsgo_get_fps_fp = fpsgo_get_fps;
+	fpsgo_get_cmd_fp = fpsgo_get_cmd;
+	fpsgo_get_fstb_active_fp = fpsgo_get_fstb_active;
+	fpsgo_wait_fstb_active_fp = fpsgo_wait_fstb_active;
 
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	drm_register_fps_chg_callback(dfrc_fps_limit_cb);

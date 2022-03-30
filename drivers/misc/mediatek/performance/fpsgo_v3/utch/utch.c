@@ -469,6 +469,7 @@ int init_utch_mod(void)
 
 			num++;
 			cpu = cpumask_last(policy->related_cpus);
+			cpufreq_cpu_put(policy);
 		}
 	}
 
@@ -533,6 +534,7 @@ int init_utch_mod(void)
 
 		num++;
 		cpu = cpumask_last(policy->related_cpus);
+		cpufreq_cpu_put(policy);
 	}
 
 	/* init procfs */
