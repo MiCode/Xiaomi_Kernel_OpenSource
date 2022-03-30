@@ -412,7 +412,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 	pd = rcu_dereference(rd->pd);
 	if (!pd || READ_ONCE(rd->overutilized)) {
 		select_reason = LB_FAIL;
-		goto fail;
+		goto unlock;
 	}
 
 	cpu = smp_processor_id();
@@ -541,7 +541,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 			}
 		}
 	}
-unlock:
+
 	rcu_read_unlock();
 
 	if (latency_sensitive) {
@@ -574,7 +574,7 @@ unlock:
 	goto done;
 
 
-fail:
+unlock:
 	rcu_read_unlock();
 
 	*new_cpu = -1;
