@@ -137,6 +137,7 @@ struct mtk_camsv_working_buf_entry {
 	struct list_head list_entry;
 	u64 ts_raw;
 	u64 ts_sv;
+	atomic_t is_apply;
 };
 
 struct mtk_camsv_working_buf_list {
@@ -161,6 +162,7 @@ struct mtk_mraw_working_buf_entry {
 	struct mtk_cam_ctx *ctx;
 	u64 ts_raw;
 	u64 ts_mraw;
+	atomic_t is_apply;
 };
 
 struct mtk_mraw_working_buf_list {
