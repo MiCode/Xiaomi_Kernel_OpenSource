@@ -175,7 +175,7 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 	if (current_role == desired_role)
 		return;
 
-	otg_sx->current_role = current_role;
+	otg_sx->current_role = desired_role;
 
 	dev_dbg(ssusb->dev, "set role : %s\n", usb_role_string(desired_role));
 	mtu3_dbg_trace(ssusb->dev, "set role : %s", usb_role_string(desired_role));
@@ -217,6 +217,7 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 			pm_relax(ssusb->dev);
 		}
 		switch_port_to_on(ssusb, false);
+		break;
 	default:
 		dev_err(ssusb->dev, "invalid role\n");
 	}
@@ -398,6 +399,9 @@ static int ssusb_role_sw_register(struct otg_switch_mtk *otg_sx)
 	else
 		otg_sx->default_role = USB_ROLE_HOST;
 
+	if (ssusb->clk_mgr)
+		otg_sx->default_role = USB_ROLE_NONE;
+
 	role_sx_desc.set = ssusb_role_sw_set;
 	role_sx_desc.get = ssusb_role_sw_get;
 	role_sx_desc.fwnode = dev_fwnode(dev);
@@ -527,6 +531,8 @@ int ssusb_otg_switch_init(struct ssusb_mtk *ssusb)
 
 	/* initial operation mode */
 	otg_sx->op_mode = MTU3_DR_OPERATION_DUAL;
+	otg_sx->current_role = ssusb->is_host ?
+		USB_ROLE_HOST : USB_ROLE_DEVICE;
 
 	ret = sysfs_create_group(&ssusb->dev->kobj, &ssusb_dr_group);
 	if (ret)
