@@ -113,8 +113,8 @@ void fmt_prepare_dvfs_emi_bw(struct mtk_vdec_fmt *fmt)
 
 	i = 0;
 	fmt->fmt_qos_req[i++] = of_mtk_icc_get(fmt->dev, "path_mini_mdp_r0");
-	fmt->fmt_qos_req[i++] = of_mtk_icc_get(fmt->dev, "path_mini_mdp_w0");
 	fmt->fmt_qos_req[i++] = of_mtk_icc_get(fmt->dev, "path_mini_mdp_r1");
+	fmt->fmt_qos_req[i++] = of_mtk_icc_get(fmt->dev, "path_mini_mdp_w0");
 	fmt->fmt_qos_req[i++] = of_mtk_icc_get(fmt->dev, "path_mini_mdp_w1");
 
 }
@@ -175,7 +175,7 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 			request_freq);
 
 	FMT_BANDWIDTH(pmqos_param.rdma_datasize, pmqos_param.pixel_size, request_freq, bandwidth);
-	if (fmt->fmt_qos_req[2*id] != 0) {
+	if (fmt->fmt_qos_req[id] != 0) {
 		mtk_icc_set_bw(fmt->fmt_qos_req[id],
 			MBps_to_icc(bandwidth), 0);
 	}
@@ -185,7 +185,7 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 			pmqos_param.pixel_size,
 			request_freq);
 	FMT_BANDWIDTH(pmqos_param.wdma_datasize, pmqos_param.pixel_size, request_freq, bandwidth);
-	if (fmt->fmt_qos_req[2*id+1] != 0) {
+	if (fmt->fmt_qos_req[id+2] != 0) {
 		mtk_icc_set_bw(fmt->fmt_qos_req[id+2],
 			MBps_to_icc(bandwidth), 0);
 	}
