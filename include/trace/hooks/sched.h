@@ -93,6 +93,10 @@ DECLARE_RESTRICTED_HOOK(android_rvh_sched_nohz_balancer_kick,
 	TP_PROTO(struct rq *rq, unsigned int *flags, int *done),
 	TP_ARGS(rq, flags, done), 1);
 
+DECLARE_RESTRICTED_HOOK(android_rvh_sched_rebalance_domains,
+	TP_PROTO(struct rq *rq, int *continue_balancing),
+	TP_ARGS(rq, continue_balancing), 1);
+
 DECLARE_RESTRICTED_HOOK(android_rvh_find_busiest_queue,
 	TP_PROTO(int dst_cpu, struct sched_group *group,
 		 struct cpumask *env_cpus, struct rq **busiest,
@@ -318,6 +322,14 @@ DECLARE_RESTRICTED_HOOK(android_rvh_dequeue_task_fair,
 DECLARE_HOOK(android_vh_em_dev_register_pd,
 	TP_PROTO(bool *cond),
 	TP_ARGS(cond));
+
+DECLARE_RESTRICTED_HOOK(android_rvh_post_init_entity_util_avg,
+	TP_PROTO(struct sched_entity *se),
+	TP_ARGS(se), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_find_new_ilb,
+	TP_PROTO(struct cpumask *nohz_idle_cpus_mask, int *ilb),
+	TP_ARGS(nohz_idle_cpus_mask, ilb), 1);
 
 #endif /* _TRACE_HOOK_SCHED_H */
 /* This part must be outside protection */

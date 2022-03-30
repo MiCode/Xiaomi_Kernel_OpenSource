@@ -2062,6 +2062,10 @@
   dma_buf_map_attachment
   dma_buf_mmap
   dma_buf_move_notify
+  dmabuf_page_pool_alloc
+  dmabuf_page_pool_create
+  dmabuf_page_pool_destroy
+  dmabuf_page_pool_free
   dma_buf_pin
   dma_buf_put
   dma_buf_unmap_attachment
@@ -9179,6 +9183,7 @@
   __SCK__tp_func_android_rvh_find_busiest_queue
   __SCK__tp_func_android_rvh_find_energy_efficient_cpu
   __SCK__tp_func_android_rvh_find_lowest_rq
+  __SCK__tp_func_android_rvh_find_new_ilb
   __SCK__tp_func_android_rvh_finish_prio_fork
   __SCK__tp_func_android_rvh_flush_task
   __SCK__tp_func_android_rvh_irqs_disable
@@ -9188,6 +9193,7 @@
   __SCK__tp_func_android_rvh_override_creds
   __SCK__tp_func_android_rvh_pick_next_entity
   __SCK__tp_func_android_rvh_place_entity
+  __SCK__tp_func_android_rvh_post_init_entity_util_avg
   __SCK__tp_func_android_rvh_preempt_disable
   __SCK__tp_func_android_rvh_preempt_enable
   __SCK__tp_func_android_rvh_prepare_prio_fork
@@ -9203,6 +9209,7 @@
   __SCK__tp_func_android_rvh_sched_fork_init
   __SCK__tp_func_android_rvh_sched_newidle_balance
   __SCK__tp_func_android_rvh_sched_nohz_balancer_kick
+  __SCK__tp_func_android_rvh_sched_rebalance_domains
   __SCK__tp_func_android_rvh_sched_setaffinity
   __SCK__tp_func_android_rvh_schedule
   __SCK__tp_func_android_rvh_schedule_bug
@@ -10939,6 +10946,7 @@
   task_may_not_preempt
   __task_pid_nr_ns
   __task_rq_lock
+  task_rq_lock
   task_user_regset_view
   tc_cleanup_flow_action
   tc_dwc_g210_config_20_bit
@@ -11242,6 +11250,7 @@
   __traceiter_android_rvh_find_busiest_queue
   __traceiter_android_rvh_find_energy_efficient_cpu
   __traceiter_android_rvh_find_lowest_rq
+  __traceiter_android_rvh_find_new_ilb
   __traceiter_android_rvh_finish_prio_fork
   __traceiter_android_rvh_flush_task
   __traceiter_android_rvh_irqs_disable
@@ -11251,6 +11260,7 @@
   __traceiter_android_rvh_override_creds
   __traceiter_android_rvh_pick_next_entity
   __traceiter_android_rvh_place_entity
+  __traceiter_android_rvh_post_init_entity_util_avg
   __traceiter_android_rvh_preempt_disable
   __traceiter_android_rvh_preempt_enable
   __traceiter_android_rvh_prepare_prio_fork
@@ -11266,6 +11276,7 @@
   __traceiter_android_rvh_sched_fork_init
   __traceiter_android_rvh_sched_newidle_balance
   __traceiter_android_rvh_sched_nohz_balancer_kick
+  __traceiter_android_rvh_sched_rebalance_domains
   __traceiter_android_rvh_sched_setaffinity
   __traceiter_android_rvh_schedule
   __traceiter_android_rvh_schedule_bug
@@ -11489,6 +11500,7 @@
   __tracepoint_android_rvh_find_busiest_queue
   __tracepoint_android_rvh_find_energy_efficient_cpu
   __tracepoint_android_rvh_find_lowest_rq
+  __tracepoint_android_rvh_find_new_ilb
   __tracepoint_android_rvh_finish_prio_fork
   __tracepoint_android_rvh_flush_task
   __tracepoint_android_rvh_irqs_disable
@@ -11498,6 +11510,7 @@
   __tracepoint_android_rvh_override_creds
   __tracepoint_android_rvh_pick_next_entity
   __tracepoint_android_rvh_place_entity
+  __tracepoint_android_rvh_post_init_entity_util_avg
   __tracepoint_android_rvh_preempt_disable
   __tracepoint_android_rvh_preempt_enable
   __tracepoint_android_rvh_prepare_prio_fork
@@ -11513,6 +11526,7 @@
   __tracepoint_android_rvh_sched_fork_init
   __tracepoint_android_rvh_sched_newidle_balance
   __tracepoint_android_rvh_sched_nohz_balancer_kick
+  __tracepoint_android_rvh_sched_rebalance_domains
   __tracepoint_android_rvh_sched_setaffinity
   __tracepoint_android_rvh_schedule
   __tracepoint_android_rvh_schedule_bug

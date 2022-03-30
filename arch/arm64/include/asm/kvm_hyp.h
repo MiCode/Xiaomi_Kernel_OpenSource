@@ -110,7 +110,8 @@ void __noreturn __hyp_do_panic(struct kvm_cpu_context *host_ctxt, u64 spsr,
 void __pkvm_init_switch_pgd(phys_addr_t phys, unsigned long size,
 			    phys_addr_t pgd, void *sp, void *cont_fn);
 int __pkvm_init(phys_addr_t phys, unsigned long size, unsigned long nr_cpus,
-		unsigned long *per_cpu_base, u32 hyp_va_bits);
+		unsigned long *per_cpu_base, u32 hyp_va_bits,
+		enum kvm_iommu_driver iommu_driver);
 void __noreturn __host_enter(struct kvm_cpu_context *host_ctxt);
 #endif
 
@@ -121,5 +122,19 @@ extern u64 kvm_nvhe_sym(id_aa64isar1_el1_sys_val);
 extern u64 kvm_nvhe_sym(id_aa64mmfr0_el1_sys_val);
 extern u64 kvm_nvhe_sym(id_aa64mmfr1_el1_sys_val);
 extern u64 kvm_nvhe_sym(id_aa64mmfr2_el1_sys_val);
+
+struct kvm_iommu_ops {
+	int (*init)(void);
+	bool (*host_smc_handler)(struct kvm_cpu_context *host_ctxt);
+	bool (*host_mmio_dabt_handler)(struct kvm_cpu_context *host_ctxt,
+				       phys_addr_t fault_pa, unsigned int len,
+				       bool is_write, int rd);
+	void (*host_stage2_set_owner)(phys_addr_t addr, size_t size, u8 owner_id);
+	int (*host_stage2_adjust_mmio_range)(phys_addr_t addr, phys_addr_t *start,
+					     phys_addr_t *end);
+};
+
+extern struct kvm_iommu_ops kvm_iommu_ops;
+extern const struct kvm_iommu_ops kvm_s2mpu_ops;
 
 #endif /* __ARM64_KVM_HYP_H__ */

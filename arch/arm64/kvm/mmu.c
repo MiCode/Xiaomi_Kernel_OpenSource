@@ -353,7 +353,7 @@ static int unshare_pfn_hyp(u64 pfn)
 	mutex_lock(&hyp_shared_pfns_lock);
 	this = find_shared_pfn(pfn, &node, &parent);
 	if (WARN_ON(!this)) {
-		ret = -EINVAL;
+		ret = -ENOENT;
 		goto unlock;
 	}
 
@@ -384,7 +384,7 @@ int kvm_share_hyp(void *from, void *to)
 	 * VA space, so we can only share physically contiguous data-structures
 	 * for now.
 	 */
-	if (is_vmalloc_addr(from) || is_vmalloc_addr(to))
+	if (is_vmalloc_or_module_addr(from) || is_vmalloc_or_module_addr(to))
 		return -EINVAL;
 
 	if (kvm_host_owns_hyp_mappings())
@@ -637,7 +637,8 @@ int kvm_init_stage2_mmu(struct kvm *kvm, struct kvm_s2_mmu *mmu)
 	if (!pgt)
 		return -ENOMEM;
 
-	err = kvm_pgtable_stage2_init(pgt, &kvm->arch, &kvm_s2_mm_ops);
+	mmu->arch = &kvm->arch;
+	err = kvm_pgtable_stage2_init(pgt, mmu, &kvm_s2_mm_ops);
 	if (err)
 		goto out_free_pgtable;
 
@@ -650,7 +651,6 @@ int kvm_init_stage2_mmu(struct kvm *kvm, struct kvm_s2_mmu *mmu)
 	for_each_possible_cpu(cpu)
 		*per_cpu_ptr(mmu->last_vcpu_ran, cpu) = -1;
 
-	mmu->arch = &kvm->arch;
 	mmu->pgt = pgt;
 	mmu->pgd_phys = __pa(pgt->pgd);
 	WRITE_ONCE(mmu->vmid.vmid_gen, 0);

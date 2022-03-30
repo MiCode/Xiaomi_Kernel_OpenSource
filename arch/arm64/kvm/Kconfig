@@ -54,4 +54,19 @@ config NVHE_EL2_DEBUG
 
 	  If unsure, say N.
 
+config KVM_S2MPU
+	bool "Stage-2 Memory Protection Unit support"
+	depends on KVM
+	help
+	  Support for the Stage-2 Memory Protection Unit (S2MPU) and Stream
+	  Security Mapping Table (SSMT) devices in KVM. This allows the
+	  hypervisor to restrict DMA access to its memory and the memory of
+	  protected guests.
+
+config TEST_KVM_S2MPU
+	tristate "Test kernel module for S2MPU"
+	depends on KVM_S2MPU
+	help
+	  Kernel module for kselftests that exercises the KVM S2MPU driver.
+
 endif # VIRTUALIZATION

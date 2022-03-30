@@ -8,7 +8,7 @@ ccflags-y += -I $(srctree)/$(src)
 KVM=../../../virt/kvm
 
 obj-$(CONFIG_KVM) += kvm.o
-obj-$(CONFIG_KVM) += hyp/
+obj-$(CONFIG_KVM) += hyp/ iommu/
 
 kvm-y := $(KVM)/kvm_main.o $(KVM)/coalesced_mmio.o $(KVM)/eventfd.o \
 	 $(KVM)/vfio.o $(KVM)/irqchip.o $(KVM)/binary_stats.o \

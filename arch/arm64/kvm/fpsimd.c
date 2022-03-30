@@ -47,7 +47,7 @@ int kvm_arch_vcpu_run_map_fp(struct kvm_vcpu *vcpu)
 	/* Make sure the host task fpsimd state is visible to hyp: */
 	ret = kvm_share_hyp(fpsimd, fpsimd + 1);
 	if (ret)
-		goto error;
+		return ret;
 
 	vcpu->arch.host_fpsimd_state = kern_hyp_va(fpsimd);
 
@@ -61,8 +61,8 @@ int kvm_arch_vcpu_run_map_fp(struct kvm_vcpu *vcpu)
 		get_task_struct(current);
 		vcpu->arch.parent_task = current;
 	}
-error:
-	return ret;
+
+	return 0;
 }
 
 /*

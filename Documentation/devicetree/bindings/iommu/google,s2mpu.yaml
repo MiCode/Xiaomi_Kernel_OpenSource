@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iommu/google,s2mpu.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: S2MPU device tree bindings
+
+maintainers:
+  - David Brazdil <dbrazdil@google.com>
+
+properties:
+  reg:
+    maxItems: 1
+
+  compatible:
+    contains:
+      const: google,s2mpu
+
+  power-domain-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      ID of the power domain that the S2MPU belongs to. If not specified,
+      the device is assumed to be always powered.
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: true

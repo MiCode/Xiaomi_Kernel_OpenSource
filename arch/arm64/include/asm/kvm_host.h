@@ -271,6 +271,17 @@ extern s64 kvm_nvhe_sym(hyp_physvirt_offset);
 extern u64 kvm_nvhe_sym(hyp_cpu_logical_map)[NR_CPUS];
 #define hyp_cpu_logical_map CHOOSE_NVHE_SYM(hyp_cpu_logical_map)
 
+enum kvm_iommu_driver {
+	KVM_IOMMU_DRIVER_NONE,
+	KVM_IOMMU_DRIVER_S2MPU,
+};
+
+#ifdef CONFIG_KVM_S2MPU
+int kvm_s2mpu_init(void);
+#else
+static inline int kvm_s2mpu_init(void) { return -ENODEV; }
+#endif
+
 struct vcpu_reset_state {
 	unsigned long	pc;
 	unsigned long	r0;
@@ -296,9 +307,6 @@ struct kvm_vcpu_arch {
 
 	/* Exception Information */
 	struct kvm_vcpu_fault_info fault;
-
-	/* State of various workarounds, see kvm_asm.h for bit assignment */
-	u64 workaround_flags;
 
 	/* Miscellaneous vcpu state flags */
 	u64 flags;
