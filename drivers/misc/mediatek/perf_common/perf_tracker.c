@@ -266,6 +266,11 @@ static ssize_t store_perf_enable(struct kobject *kobj,
 			is_gpu_pmu_worked = 0;
 		}
 #endif
+		// freq_qos hook
+		if (perf_tracker_on)
+			insert_freq_qos_hook();
+		else
+			remove_freq_qos_hook();
 	}
 
 	mutex_unlock(&perf_ctl_mutex);

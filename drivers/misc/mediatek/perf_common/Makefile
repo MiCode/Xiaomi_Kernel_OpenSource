@@ -10,3 +10,5 @@ obj-$(CONFIG_MTK_PERF_COMMON) += mtk_perf_common.o
 mtk_perf_common-y += perf_common.o
 # a tracker for performance index
 mtk_perf_common-$(CONFIG_MTK_PERF_TRACKER)+= perf_tracker.o
+# a tracker for freq hook
+mtk_perf_common-$(CONFIG_MTK_PERF_TRACKER)+= perf_freq_tracker.o

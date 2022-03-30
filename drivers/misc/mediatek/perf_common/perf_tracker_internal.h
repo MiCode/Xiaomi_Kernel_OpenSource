@@ -58,8 +58,11 @@ extern struct kobj_attribute perf_gpu_pmu_period_attr;
 extern void mtk_ltr_gpu_pmu_start(unsigned int interval_ns);
 extern void mtk_ltr_gpu_pmu_stop(void);
 #endif
-
-
+/* perf_freq_tracker hook */
+extern int insert_freq_qos_hook(void);
+extern void remove_freq_qos_hook(void);
+extern void init_perf_freq_tracker(void);
+extern void exit_perf_freq_tracker(void);
 
 #else
 static inline void perf_tracker(u64 wallclock,
