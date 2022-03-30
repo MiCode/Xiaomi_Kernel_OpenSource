@@ -89,6 +89,7 @@ const char *gt9896s_firmware_buf;
 const char *gt9896s_config_buf;
 const char *gt9896s_lcm_buf;
 int gt9896s_find_touch_node;
+int gt9896s_cfg_flag;
 char panel_firmware_buf[128];
 char panel_config_buf[128];
 
@@ -111,6 +112,7 @@ static int gt9896s_parse_dt_display(struct gt9896s_ts_board_data *board_data)
 			return 0;
 		}
 		ts_info("find touch panel node!");
+		gt9896s_cfg_flag = 0;
 		r = of_property_read_u32(node, "lcm-width",
 				 &board_data->panel_max_x);
 		if (r)

@@ -437,7 +437,10 @@ static int gt9896s_read_cfg_bin(struct device *dev, struct gt9896s_cfg_bin *cfg_
 
 	/*get cfg_bin_name*/
 	if (gt9896s_find_touch_node == 1) {
-		strncat(panel_config_buf, ".bin", 4);
+		if (gt9896s_cfg_flag == 0) {
+			strncat(panel_config_buf, ".bin", 4);
+			gt9896s_cfg_flag = 1;
+		}
 		strncpy(cfg_bin_name, panel_config_buf, sizeof(cfg_bin_name));
 	} else {
 		r = snprintf(cfg_bin_name, sizeof(cfg_bin_name), "%s%s.bin",
