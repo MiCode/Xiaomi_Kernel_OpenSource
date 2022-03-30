@@ -174,24 +174,24 @@ static int __init mtk_scheduler_init(void)
 	if (ret)
 		pr_info("register android_rvh_find_energy_efficient_cpu failed\n");
 
-/*
+
 	ret = register_trace_android_rvh_cpu_overutilized(
 			mtk_cpu_overutilized, NULL);
 	if (ret)
 		pr_info("register trace_android_rvh_cpu_overutilized failed\n");
-*/
+
 
 	ret = register_trace_android_rvh_tick_entry(
 			mtk_tick_entry, NULL);
 	if (ret)
 		pr_info("register android_rvh_tick_entry failed\n");
 
-/*
+
 	ret = register_trace_android_vh_set_wake_flags(
 			mtk_set_wake_flags, NULL);
 	if (ret)
 		pr_info("register android_vh_set_wake_flags failed\n");
-*/
+
 
 	ret = register_trace_android_rvh_update_cpu_capacity(
 			mtk_update_cpu_capacity, NULL);
