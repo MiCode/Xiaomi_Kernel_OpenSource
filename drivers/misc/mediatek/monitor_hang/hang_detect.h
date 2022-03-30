@@ -33,8 +33,9 @@ struct name_list {
 #define HANG_ADD_WHITE_LIST _IOR('p', 0x13, char [TASK_COMM_LEN])
 #define HANG_DEL_WHITE_LIST _IOR('p', 0x14, char [TASK_COMM_LEN])
 
-extern void show_task_mem(void);
-extern void mtk_dump_gpu_memory_usage(void);
+extern int register_hang_callback(void (*function_addr)(void));
+extern int unregister_hang_callback(void (*function_addr)(void));
+extern void mrdump_regist_hang_bt(void (*fn)(void));
 
 #ifdef CONFIG_MTK_HANG_DETECT_LOG
 #define hang_log pr_info

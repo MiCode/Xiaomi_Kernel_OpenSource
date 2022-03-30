@@ -4,6 +4,7 @@
  */
 
 #include <linux/cdev.h>
+#include <linux/debug_locks.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -15,13 +16,17 @@
 #include <linux/module.h>
 #include <linux/pid.h>
 #include <linux/poll.h>
+#include <linux/proc_fs.h>
 #include <linux/ptrace.h>
 #include <linux/sched.h>
 #include <linux/sched/clock.h>
 #include <linux/sched/debug.h>
+#include <linux/sched/mm.h>
 #include <linux/sched/rt.h>
+#include <linux/sched/signal.h>
 #include <linux/sched/task.h>
 #include <linux/semaphore.h>
+#include <linux/seq_file.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/vmalloc.h>
@@ -62,26 +67,49 @@ static bool watchdog_thread_exist;
 static bool system_server_exist;
 #endif
 
-static bool Hang_Detect_first;
+static bool Hang_first_done;
 static bool hd_detect_enabled;
+static bool hd_zygote_stopped;
 static int hd_timeout = 0x7fffffff;
 static int hang_detect_counter = 0x7fffffff;
 static int dump_bt_done;
 static bool reboot_flag;
 static struct name_list *white_list;
 
+struct hang_callback {
+	struct list_head hc_entry;
+	void (*fn)(void);
+};
 
+struct list_hang_callback {
+	struct list_head list;
+	struct rw_semaphore rwsem;
+};
+static struct list_hang_callback hc_list;
+
+#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
+static struct proc_dir_entry *pe;
+#endif
 
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_start_wait);
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_done_wait);
 DEFINE_RAW_SPINLOCK(white_list_lock);
+DEFINE_RAW_SPINLOCK(callback_list_lock);
 
 static void show_status(int flag);
 static void monitor_hang_kick(int lParam);
+static void show_bt_by_pid(int task_pid);
+
+static void (*p_ldt_disable_aee)(void);
+void monitor_hang_regist_ldt(void (*fn)(void))
+{
+	p_ldt_disable_aee = fn;
+}
+EXPORT_SYMBOL_GPL(monitor_hang_regist_ldt);
 
 static void reset_hang_info(void)
 {
-	Hang_Detect_first = false;
+	Hang_first_done = false;
 }
 
 int add_white_list(char *name)
@@ -160,6 +188,106 @@ int del_white_list(char *name)
 	return 0;
 }
 
+int register_hang_callback(void (*function_addr)(void))
+{
+	struct hang_callback *new_callback;
+
+	new_callback = kzalloc(sizeof(struct hang_callback), GFP_KERNEL);
+	if (!new_callback)
+		return -1;
+
+	new_callback->fn = function_addr;
+
+	down_write(&hc_list.rwsem);
+	list_add_tail(&new_callback->hc_entry, &hc_list.list);
+	up_write(&hc_list.rwsem);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(register_hang_callback);
+
+int unregister_hang_callback(void (*function_addr)(void))
+{
+	struct hang_callback *hc_cb, *n;
+
+	down_write(&hc_list.rwsem);
+	list_for_each_entry_safe(hc_cb, n, &hc_list.list, hc_entry) {
+		if (hc_cb->fn == function_addr) {
+			list_del(&hc_cb->hc_entry);
+			kfree(hc_cb);
+			break;
+		}
+	}
+	up_write(&hc_list.rwsem);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(unregister_hang_callback);
+
+#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
+#define SEQ_printf(m, x...) \
+do {                \
+	if (m)          \
+		seq_printf(m, x);   \
+	else            \
+		pr_debug(x);        \
+} while (0)
+
+static int monitor_hang_show(struct seq_file *m, void *v)
+{
+	SEQ_printf(m, "show hang_detect_raw");
+	SEQ_printf(m, "%s", Hang_Info);
+	return 0;
+}
+
+static int monitor_hang_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, monitor_hang_show, inode->i_private);
+}
+
+
+static ssize_t monitor_hang_proc_write(struct file *filp, const char *ubuf,
+		size_t cnt, loff_t *data)
+{
+	char buf[64];
+	long val;
+	int ret;
+
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+
+	buf[cnt] = 0;
+
+	ret = kstrtoul(buf, 10, (unsigned long *)&val);
+
+	if (ret < 0)
+		return ret;
+
+	if (val == 2) {
+		reset_hang_info();
+		show_status(0);
+	} else if (val == 3) {
+		reset_hang_info();
+		show_status(1);
+	} else if (val > 10) {
+		show_bt_by_pid((int)val);
+	}
+
+	return cnt;
+}
+
+static const struct proc_ops monitor_hang_fops = {
+	.proc_open = monitor_hang_proc_open,
+	.proc_write = monitor_hang_proc_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+#endif
+
 /******************************************************************************
  * hang detect File operations
  *****************************************************************************/
@@ -188,7 +316,43 @@ static ssize_t monitor_hang_read(struct file *filp, char __user *buf,
 static ssize_t monitor_hang_write(struct file *filp, const char __user *buf,
 		size_t count, loff_t *f_pos)
 {
-	return 0;
+	char msg[8] = {0};
+
+	if (count >= 2) {
+		pr_info("hang_detect: invalid input\n");
+		return -EINVAL;
+	}
+
+	if (!buf) {
+		pr_info("hang_detect: invalid user buf\n");
+		return -EINVAL;
+	}
+
+	if (copy_from_user(msg, buf, count)) {
+		pr_info("hang_detect: failed to copy from user\n");
+		return -EFAULT;
+	}
+
+	if (strncmp(current->comm, "init", 4))
+		return  -EINVAL;
+
+	if (msg[0] == '0') {
+		hd_detect_enabled = false;
+		hd_zygote_stopped = true;
+		pr_info("hang_detect: disable by stop cmd\n");
+	} else if (msg[0] == '1') {
+		if (hd_zygote_stopped) {
+			hd_detect_enabled = true;
+			hd_zygote_stopped = false;
+			pr_info("hang_detect: enable by start cmd\n");
+		} else {
+			pr_info("hang_detect: zygote running\n");
+		}
+	} else {
+		pr_info("hang_detect: invalid control msg\n");
+	}
+
+	return count;
 }
 
 static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
@@ -197,7 +361,7 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 	int ret = 0;
 	static long long monitor_status;
 	void __user *argp = (void __user *)arg;
-	char name[TASK_COMM_LEN];
+	char name[TASK_COMM_LEN] = {0};
 
 	if (cmd == HANG_KICK) {
 		pr_info("hang_detect HANG_KICK ( %d)\n", (int)arg);
@@ -220,8 +384,8 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	if (cmd == HANG_SET_REBOOT) {
 		reboot_flag = true;
-		hang_detect_counter = 2;
-		hd_timeout = 3;
+		hang_detect_counter = 5;
+		hd_timeout = 5;
 		hd_detect_enabled = true;
 		pr_info("hang_detect: %s set reboot command.\n", current->comm);
 		return ret;
@@ -229,7 +393,7 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 #endif
 
 	if (cmd == HANG_ADD_WHITE_LIST) {
-		if (copy_from_user(name, argp, TASK_COMM_LEN))
+		if (copy_from_user(name, argp, TASK_COMM_LEN - 1))
 			ret = -EFAULT;
 		ret = add_white_list(name);
 		pr_info("hang_detect: add white list %s status %d.\n",
@@ -238,7 +402,7 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 	}
 
 	if (cmd == HANG_DEL_WHITE_LIST) {
-		if (copy_from_user(name, argp, TASK_COMM_LEN))
+		if (copy_from_user(name, argp, TASK_COMM_LEN - 1))
 			ret = -EFAULT;
 		ret = del_white_list(name);
 		pr_info("hang_detect: del white list %s status %d.\n",
@@ -370,14 +534,11 @@ void trigger_hang_db(void)
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
-		mrdump_mini_add_hang_raw((unsigned long)Hang_Info,
-			MaxHangInfoSize);
-		mrdump_mini_add_extra_misc();
+		mrdump_regist_hang_bt(NULL);
 		mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT,
 		"	Hang Detect", NULL);
 #else
-		mrdump_common_die(AEE_REBOOT_MODE_HANG_DETECT,
-			"Hang Detect", NULL);
+		panic("hang_detect: system blocked");
 #endif
 
 }
@@ -425,6 +586,30 @@ static unsigned long nsec_low(unsigned long long nsec)
 		nsec = -nsec;
 
 	return do_div(nsec, 1000000);
+}
+
+void store_task_info(struct task_struct *p)
+{
+	unsigned int state;
+	unsigned int p_state;
+	char stat_nam[] = TASK_STATE_TO_CHAR_STR;
+
+	p_state = READ_ONCE(p->__state);
+	state = p_state ? __ffs(p_state) + 1 : 0;
+
+	log_hang_info("%-15.15s %c ", p->comm,
+		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
+	log_hang_info("%lld.%06ld %d %lu %lu 0x%x 0x%lx %d %d %d ",
+		nsec_high(p->se.sum_exec_runtime),
+		nsec_low(p->se.sum_exec_runtime),
+		task_pid_nr(p), p->nvcsw, p->nivcsw, p->flags,
+		(unsigned long)task_thread_info(p)->flags,
+		p->tgid,  task_pid_nr(rcu_dereference(p->real_parent)),
+		task_pid_nr(rcu_dereference(p->parent)));
+#if IS_ENABLED(CONFIG_SCHED_INFO)
+	log_hang_info("%llu", p->sched_info.last_arrival);
+#endif
+	log_hang_info("\n");
 }
 
 void show_thread_info(struct task_struct *p, bool dump_bt)
@@ -501,7 +686,7 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 		return -1;
 	}
 
-	if (!current_task->mm) {
+	if (!get_task_mm(current_task)) {
 		pr_info(" %s,%d:%s: current_task->mm == NULL", __func__, pid,
 				current_task->comm);
 		return -1;
@@ -537,7 +722,7 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 					pgoff, path_p);
 			}
 		} else {
-			const char *name = aee_arch_vma_name(vma);
+			const char *name = hang_arch_vma_name(vma);
 
 			mm = vma->vm_mm;
 			if (!name) {
@@ -574,6 +759,9 @@ static int dump_native_maps(pid_t pid, struct task_struct *current_task)
 		vma = vma->vm_next;
 		mapcount++;
 	}
+	++oops_in_progress; /* sleeping function warn */
+	mmput(current_task->mm);
+	--oops_in_progress;
 
 	return 0;
 }
@@ -664,10 +852,12 @@ static int dump_native_info_by_tid(pid_t tid,
 		hang_log("UserSP_start:%08x,Length:%08x,End:%08x\n",
 				SPStart, length, SPEnd);
 		while (SPStart < SPEnd) {
+			++oops_in_progress; /* sleeping function warn */
 			copied =
 			    access_process_vm(current_task, SPStart,
 					&tempSpContent, sizeof(tempSpContent),
 					0);
+			--oops_in_progress;
 			if (copied != sizeof(tempSpContent)) {
 				pr_info("access_process_vm  SPStart error,sizeof(tempSpContent)=%x\n",
 				  (unsigned int)sizeof(tempSpContent));
@@ -766,9 +956,11 @@ static int dump_native_info_by_tid(pid_t tid,
 			hang_log("UserSP_start:%lx,Length:%lx,End:%lx\n",
 				SPStart, length, SPEnd);
 			while (SPStart < SPEnd) {
+				++oops_in_progress; /* sleeping function warn */
 				copied = access_process_vm(current_task,
 						SPStart, &tempSpContent,
 						sizeof(tempSpContent), 0);
+				--oops_in_progress;
 				if (copied != sizeof(tempSpContent)) {
 					pr_info(
 					  "access_process_vm  SPStart error,sizeof(tempSpContent)=%x\n",
@@ -825,18 +1017,22 @@ static int dump_native_info_by_tid(pid_t tid,
 			frames = 2;
 			while (tmpfp < userstack_end &&
 					tmpfp > userstack_start) {
+				++oops_in_progress; /* sleeping function warn */
 				copied =
 				    access_process_vm(current_task,
 						    (unsigned long)tmpfp, &tmp,
 						      sizeof(tmp), 0);
+				--oops_in_progress;
 				if (copied != sizeof(tmp)) {
 					pr_info("access_process_vm  fp error\n");
 					return -EIO;
 				}
+				++oops_in_progress; /* sleeping function warn */
 				copied =
 				    access_process_vm(current_task,
 						    (unsigned long)tmpfp + 0x08,
 						      &tmpLR, sizeof(tmpLR), 0);
+				--oops_in_progress;
 				if (copied != sizeof(tmpLR)) {
 					pr_info("access_process_vm  pc error\n");
 					return -EIO;
@@ -863,6 +1059,14 @@ static int dump_native_info_by_tid(pid_t tid,
 	return 0;
 }
 
+static void hang_put_task_stack(struct task_struct *p)
+{
+#if IS_ENABLED(CONFIG_THREAD_INFO_IN_TASK)
+	if (refcount_dec_and_test(&p->stack_refcount))
+		pr_info("hang_detect: task %d dead\n", p->pid);
+#endif
+}
+
 static void show_bt_by_pid(int task_pid)
 {
 	struct task_struct *t, *p;
@@ -870,7 +1074,7 @@ static void show_bt_by_pid(int task_pid)
 #ifdef __aarch64__
 	struct pt_regs *user_ret;
 #endif
-	int count = 0, dump_native = 0;
+	int dump_native = 0;
 	unsigned int state = 0;
 	unsigned int p_state;
 	char stat_nam[] = TASK_STATE_TO_CHAR_STR;
@@ -910,7 +1114,7 @@ static void show_bt_by_pid(int task_pid)
 			if (dump_native == 1)
 				/* catch maps to Userthread_maps */
 				dump_native_maps(task_pid, p);
-			put_task_struct(p);
+			hang_put_task_stack(p);
 		} else {
 			p_state = READ_ONCE(t->__state);
 			state = p_state ? __ffs(p_state) + 1 : 0;
@@ -922,10 +1126,13 @@ static void show_bt_by_pid(int task_pid)
 				stat_nam[state] : '?', t->flags);
 		}
 		do {
-			if (t && try_get_task_stack(t)) {
+			if (!t)
+				break;
+
+			get_task_struct(t);
+			if (try_get_task_stack(t)) {
 				pid_t tid = 0;
 
-				get_task_struct(t);
 				tid = task_pid_vnr(t);
 
 				p_state = READ_ONCE(t->__state);
@@ -940,12 +1147,14 @@ static void show_bt_by_pid(int task_pid)
 
 				if (dump_native == 1)
 					dump_native_info_by_tid(tid, t);
-				put_task_struct(t);
+
+				hang_put_task_stack(t);
 			}
-			if ((++count) % 5 == 4)
-				msleep(20);
+			put_task_struct(t);
 			log_hang_info("-\n");
 		} while_each_thread(p, t);
+
+		put_task_struct(p);  /* pairing get_pid_task */
 	}
 	put_pid(pid);
 }
@@ -972,11 +1181,34 @@ static int show_white_list_bt(struct task_struct *p)
 	return -1;
 }
 
+static int run_callback(void)
+{
+	struct hang_callback *hc_cb, *n;
+
+	down_read(&hc_list.rwsem);
+	list_for_each_entry_safe(hc_cb, n, &hc_list.list, hc_entry)
+		hc_cb->fn();
+	up_read(&hc_list.rwsem);
+
+	return 0;
+}
+
+static void show_task_info(void)
+{
+	struct task_struct *p, *t;
+
+	rcu_read_lock();
+	for_each_process_thread(p, t)
+		store_task_info(t);
+	rcu_read_unlock();
+}
+
 static void show_task_backtrace(void)
 {
 	struct task_struct *p, *t, *system_server_task = NULL;
 	struct task_struct *monkey_task = NULL;
 	struct task_struct *aee_aed_task = NULL;
+	bool first_dump_blocked = false;
 
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	watchdog_thread_exist = false;
@@ -984,10 +1216,21 @@ static void show_task_backtrace(void)
 #endif
 	log_hang_info("dump backtrace start: %llu\n", local_clock());
 
+	if (!strcmp(current->comm, "hang_detect2")) {
+		pr_info("hang_detect first dump was blocked\n");
+		first_dump_blocked = true;
+	}
+#if IS_ENABLED(CONFIG_PROVE_LOCKING)
+	if (debug_locks && p_ldt_disable_aee) {
+		p_ldt_disable_aee();
+		pr_info("hang_detect debug locks off here\n");
+		debug_locks_off();
+	}
+#endif
 	rcu_read_lock();
 	for_each_process(p) {
 		get_task_struct(p);
-		if (Hang_Detect_first == false) {
+		if (Hang_first_done == false) {
 			if (!strcmp(p->comm, "system_server"))
 				system_server_task = p;
 			if (strstr(p->comm, "monkey"))
@@ -996,15 +1239,12 @@ static void show_task_backtrace(void)
 				aee_aed_task = p;
 		}
 		/* specify process, need dump maps file and native backtrace */
-		if (!strcmp(p->comm, "surfaceflinger") ||
-			!strcmp(p->comm, "init") ||
+		if (!first_dump_blocked &&
+			(!strcmp(p->comm, "init") ||
+			!strcmp(p->comm, "zygote") ||
 			!strcmp(p->comm, "system_server") ||
-			!strcmp(p->comm, "mmcqd/0")  ||
-			!strcmp(p->comm, "debuggerd64") ||
-			!strcmp(p->comm, "mmcqd/1") ||
 			!strcmp(p->comm, "vold") ||
-			!strcmp(p->comm, "vdc") ||
-			!strcmp(p->comm, "debuggerd")) {
+			!strcmp(p->comm, "vdc"))) {
 			show_bt_by_pid(p->pid);
 			put_task_struct(p);
 			continue;
@@ -1014,9 +1254,12 @@ static void show_task_backtrace(void)
 			continue;
 		}
 		for_each_thread(p, t) {
-			if (try_get_task_stack(t)) {
+			if (t) {
 				get_task_struct(t);
-				show_thread_info(t, false);
+				if (try_get_task_stack(t)) {
+					show_thread_info(t, false);
+					hang_put_task_stack(t);
+				}
 				put_task_struct(t);
 			}
 		}
@@ -1024,16 +1267,13 @@ static void show_task_backtrace(void)
 	}
 	rcu_read_unlock();
 	log_hang_info("dump backtrace end: %llu\n", local_clock());
-	if (Hang_Detect_first == false) {
+	if (Hang_first_done == false) {
 		if (aee_aed_task)
-			send_sig_info(SIGUSR1, SEND_SIG_PRIV,
-				aee_aed_task);
+			send_sig(SIGUSR1, aee_aed_task, 1);
 		if (system_server_task)
-			send_sig_info(SIGQUIT, SEND_SIG_PRIV,
-				system_server_task);
+			send_sig(SIGQUIT, system_server_task, 1);
 		if (monkey_task)
-			send_sig_info(SIGQUIT, SEND_SIG_PRIV,
-				monkey_task);
+			send_sig(SIGQUIT, monkey_task, 1);
 	}
 }
 
@@ -1042,7 +1282,7 @@ static void show_status(int flag)
 
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 #ifndef MODULE
-	if (Hang_Detect_first)	{ /* the last dump */
+	if (Hang_first_done)	{ /* the last dump */
 		dump_mem_info();
 		dump_msdc_hang_info();
 	}
@@ -1051,20 +1291,13 @@ static void show_status(int flag)
 
 	show_task_backtrace();
 
-	if (Hang_Detect_first)	{ /* the last dump */
+	if (Hang_first_done)	{ /* the last dump */
 		/* debug_locks = 1; */
 		debug_show_all_locks();
 #ifndef MODULE
 		show_free_areas(0, NULL);
-		if (show_task_mem)
-			show_task_mem();
 #endif
-#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
-		mtk_dump_gpu_memory_usage();
-#endif
-#if IS_ENABLED(CONFIG_MTK_WQ_DEBUG)
-		wq_debug_dump();
-#endif
+		run_callback();
 
 	}
 }
@@ -1164,16 +1397,16 @@ static int hang_detect_thread(void *arg)
 		{
 
 			if (hang_detect_counter <= 0) {
-				log_hang_info(
-					"[Hang_detect]Dump the %d time process bt.\n",
-					Hang_Detect_first ? 2 : 1);
 #ifdef CONFIG_MTK_HANG_DETECT_DB
-				if (!Hang_Detect_first) {
+				if (!Hang_first_done) {
 					memset(Hang_Info, 0, MaxHangInfoSize);
 					Hang_Info_Size = 0;
 				}
 #endif
-				if (Hang_Detect_first == true
+				log_hang_info(
+					"[Hang_detect]Dump the %d time process bt.\n",
+					Hang_first_done ? 2 : 1);
+				if (Hang_first_done == true
 					&& dump_bt_done != 1) {
 		/* some time dump thread will block in dumping native bt */
 		/* so create new thread to dump enough kernel bt */
@@ -1191,14 +1424,14 @@ static int hang_detect_thread(void *arg)
 					wake_up_dump();
 
 
-				if (Hang_Detect_first == true) {
+				if (Hang_first_done == true) {
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 					trigger_hang_db();
 #else
 					BUG();
 #endif
 				} else
-					Hang_Detect_first = true;
+					Hang_first_done = true;
 			}
 			hang_detect_counter--;
 		}
@@ -1271,6 +1504,10 @@ static int __init monitor_hang_init(void)
 	Hang_Info = kmalloc(MAX_HANG_INFO_SIZE, GFP_KERNEL);
 	if (Hang_Info == NULL)
 		return 1;
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+	mrdump_mini_add_hang_raw((unsigned long)Hang_Info,
+			MaxHangInfoSize);
+#endif
 #endif
 
 	err = misc_register(&Hang_Monitor_dev);
@@ -1278,12 +1515,27 @@ static int __init monitor_hang_init(void)
 		pr_notice("failed to register Hang_Monitor_dev device!\n");
 		return err;
 	}
+
+	init_rwsem(&hc_list.rwsem);
+	init_rwsem(&hc_list.rwsem);
+	INIT_LIST_HEAD(&hc_list.list);
+	INIT_LIST_HEAD(&hc_list.list);
+
 	hang_detect_init();
+	mrdump_regist_hang_bt(show_task_info);
+
+#if IS_ENABLED(CONFIG_MTK_HANG_PROC)
+	pe = proc_create("monitor_hang", 0660, NULL, &monitor_hang_fops);
+	if (!pe)
+		return -ENOMEM;
+#endif
+
 	return err;
 }
 
 static void __exit monitor_hang_exit(void)
 {
+	mrdump_regist_hang_bt(NULL);
 	misc_deregister(&Hang_Monitor_dev);
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	/* kfree(NULL) is safe */
