@@ -50,6 +50,11 @@ enum slbc_uid {
 	UID_TEST_CACHE,
 	UID_TEST_ACP,
 	UID_DISP,
+	UID_AOV_DC,
+	UID_AOV_APU,
+	UID_AISR_APU,
+	UID_AISR_MML,
+	UID_SH_P1,
 	UID_MAX,
 };
 

@@ -69,6 +69,14 @@
 #define SLBC_ACK_C                      0x94
 #define SLBC_ACK_G                      0x98
 #define CPUQOS_MODE                     0x9C
+#define SLBC_DEBUG_8                    0xA0
+#define SLBC_DEBUG_9                    0xA4
+#define SLBC_DEBUG_10                   0xA8
+#define SLBC_DEBUG_11                   0xAC
+#define SLBC_DEBUG_12                   0xB0
+#define SLBC_DEBUG_13                   0xB4
+#define SLBC_DEBUG_14                   0xB8
+#define SLBC_DEBUG_15                   0xBC
 
 /* SLBC_UID_USED */
 #define SLBC_UID_USED_STA_LSB           SLBC_BIT(0)
@@ -257,5 +265,37 @@
 #define POWER_CPUQOS_MODE_LSB           SLBC_BIT(0)
 #define POWER_CPUQOS_MODE_SHIFT         0
 #define POWER_CPUQOS_MODE_MASK          SLBC_BITMASK(3:0)
+/* SLBC_DEBUG_8 */
+#define SLBC_DEBUG_8_STA_LSB            SLBC_BIT(0)
+#define SLBC_DEBUG_8_STA_SHIFT          0
+#define SLBC_DEBUG_8_STA_MASK           SLBC_BITMASK(31:0)
+/* SLBC_DEBUG_9 */
+#define SLBC_DEBUG_9_STA_LSB            SLBC_BIT(0)
+#define SLBC_DEBUG_9_STA_SHIFT          0
+#define SLBC_DEBUG_9_STA_MASK           SLBC_BITMASK(31:0)
+/* SLBC_DEBUG_10 */
+#define SLBC_DEBUG_10_STA_LSB           SLBC_BIT(0)
+#define SLBC_DEBUG_10_STA_SHIFT         0
+#define SLBC_DEBUG_10_STA_MASK          SLBC_BITMASK(31:0)
+/* SLBC_DEBUG_11 */
+#define SLBC_DEBUG_11_STA_LSB           SLBC_BIT(0)
+#define SLBC_DEBUG_11_STA_SHIFT         0
+#define SLBC_DEBUG_11_STA_MASK          SLBC_BITMASK(31:0)
+/* SLBC_DEBUG_12 */
+#define SLBC_DEBUG_12_STA_LSB           SLBC_BIT(0)
+#define SLBC_DEBUG_12_STA_SHIFT         0
+#define SLBC_DEBUG_12_STA_MASK          SLBC_BITMASK(31:0)
+/* SLBC_DEBUG_13 */
+#define SLBC_DEBUG_13_STA_LSB           SLBC_BIT(0)
+#define SLBC_DEBUG_13_STA_SHIFT         0
+#define SLBC_DEBUG_13_STA_MASK          SLBC_BITMASK(31:0)
+/* SLBC_DEBUG_14 */
+#define SLBC_DEBUG_14_STA_LSB           SLBC_BIT(0)
+#define SLBC_DEBUG_14_STA_SHIFT         0
+#define SLBC_DEBUG_14_STA_MASK          SLBC_BITMASK(31:0)
+/* SLBC_DEBUG_15 */
+#define SLBC_DEBUG_15_STA_LSB           SLBC_BIT(0)
+#define SLBC_DEBUG_15_STA_SHIFT         0
+#define SLBC_DEBUG_15_STA_MASK          SLBC_BITMASK(31:0)
 
 #endif
