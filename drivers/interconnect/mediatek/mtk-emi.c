@@ -13,6 +13,12 @@
 #include <dt-bindings/interconnect/mtk,mt8183-emi.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+#define CREATE_TRACE_POINTS
+#include "../internal.h"
+#include "mtk-dvfsrc-icc-trace.h"
+#endif
+
 enum mtk_icc_name {
 	SLAVE_DDR_EMI,
 	MASTER_MCUSYS,
@@ -188,9 +194,30 @@ static const struct of_device_id emi_icc_of_match[] = {
 	{ .compatible = "mediatek,mt6893-dvfsrc", .data = &mt6873_icc },
 	{ .compatible = "mediatek,mt6833-dvfsrc", .data = &mt6873_icc },
 	{ .compatible = "mediatek,mt6877-dvfsrc", .data = &mt6873_icc },
+	{ .compatible = "mediatek,mt6983-dvfsrc", .data = &mt6873_icc },
+	{ .compatible = "mediatek,mt6895-dvfsrc", .data = &mt6873_icc },
+	{ .compatible = "mediatek,mt6879-dvfsrc", .data = &mt6873_icc },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, emi_icc_of_match);
+
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+static void emi_icc_trace_bw_consumers(struct icc_node *n, bool is_hrt)
+{
+	struct icc_req *r;
+
+	hlist_for_each_entry(r, &n->req_list, req_node) {
+		if (!r->dev)
+			continue;
+		if (is_hrt)
+			trace_mtk_pm_qos_update_request(150, r->avg_bw / 1000, dev_name(r->dev));
+		else {
+			trace_mtk_pm_qos_update_request(130, r->avg_bw / 1000, dev_name(r->dev));
+			trace_mtk_pm_qos_update_request(140, r->peak_bw / 1000, dev_name(r->dev));
+		}
+	}
+}
+#endif
 
 static int emi_icc_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
 			     u32 peak_bw, u32 *agg_avg, u32 *agg_peak)
@@ -222,13 +249,31 @@ static int emi_icc_set(struct icc_node *src, struct icc_node *dst)
 		mtk_dvfsrc_send_request(src->provider->dev,
 					MTK_DVFSRC_CMD_BW_REQUEST,
 					node->sum_avg);
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+		trace_mtk_pm_qos_update_request(30, src->avg_bw / 1000, src->name);
+		trace_mtk_pm_qos_update_request(40, src->peak_bw / 1000, src->name);
+		if (strcmp(src->name, "dbgif") == 0)
+			emi_icc_trace_bw_consumers(dst, false);
+#endif
 	} else if (node->ep == 2) {
 		mtk_dvfsrc_send_request(src->provider->dev,
 					MTK_DVFSRC_CMD_HRTBW_REQUEST,
 					node->sum_avg);
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+		trace_mtk_pm_qos_update_request(50, src->avg_bw / 1000, src->name);
+		if (strcmp(src->name, "hrt_dbgif") == 0)
+			emi_icc_trace_bw_consumers(dst, true);
+#endif
 	}
 
 	return ret;
+}
+
+static int emi_icc_get_bw(struct icc_node *node, u32 *avg, u32 *peak)
+{
+	*avg = 0;
+	*peak = 0;
+	return 0;
 }
 
 static int emi_icc_remove(struct platform_device *pdev);
@@ -271,6 +316,7 @@ static int emi_icc_probe(struct platform_device *pdev)
 	provider->xlate = of_icc_xlate_onecell;
 	INIT_LIST_HEAD(&provider->nodes);
 	provider->data = data;
+	provider->get_bw = emi_icc_get_bw;
 
 	ret = icc_provider_add(provider);
 	if (ret) {
@@ -328,6 +374,7 @@ static struct platform_driver emi_icc_driver = {
 	.remove = emi_icc_remove,
 	.driver = {
 		.name = "mediatek-emi-icc",
+		.sync_state = icc_sync_state,
 	},
 };
 
