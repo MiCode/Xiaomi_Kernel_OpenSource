@@ -30,7 +30,7 @@ extern int tcpc_typec_handle_timeout(
 
 extern int tcpc_typec_handle_vsafe0v(struct tcpc_device *tcpc);
 
-extern int tcpc_typec_set_rp_level(struct tcpc_device *tcpc, uint8_t res);
+extern int tcpc_typec_set_rp_level(struct tcpc_device *tcpc, uint8_t rp_lvl);
 
 extern int tcpc_typec_error_recovery(struct tcpc_device *tcpc);
 
@@ -52,11 +52,11 @@ extern int tcpc_typec_swap_role(struct tcpc_device *tcpc);
 extern int tcpc_typec_handle_wd(struct tcpc_device *tcpc, bool wd);
 #endif /* CONFIG_WATER_DETECTION */
 
-extern int tcpc_typec_handle_fod(struct tcpc_device *tcpc_dev,
+extern int tcpc_typec_handle_fod(struct tcpc_device *tcpc,
 					enum tcpc_fod_status);
-extern bool tcpc_typec_ignore_fod(struct tcpc_device *tcpc_dev);
+extern bool tcpc_typec_ignore_fod(struct tcpc_device *tcpc);
 
-extern int tcpc_typec_handle_otp(struct tcpc_device *tcpc_dev, bool otp);
+extern int tcpc_typec_handle_otp(struct tcpc_device *tcpc, bool otp);
 
 #if CONFIG_CABLE_TYPE_DETECTION
 extern int tcpc_typec_handle_ctd(struct tcpc_device *tcpc,
@@ -70,5 +70,5 @@ extern int tcpc_typec_handle_ctd(struct tcpc_device *tcpc,
 #define typec_get_cc_res()	\
 	(tcpc->typec_polarity ? typec_get_cc2() : typec_get_cc1())
 
-extern bool tcpc_typec_is_cc_attach(struct tcpc_device *tcpc_dev);
+extern bool tcpc_typec_is_cc_attach(struct tcpc_device *tcpc);
 #endif /* #ifndef __LINUX_TCPCI_TYPEC_H */

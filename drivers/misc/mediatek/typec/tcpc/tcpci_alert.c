@@ -588,7 +588,7 @@ static inline int tcpci_report_usb_port_attached(struct tcpc_device *tcpc)
 
 static inline int tcpci_report_usb_port_detached(struct tcpc_device *tcpc)
 {
-	TCPC_INFO("usb_port_detached\r\n");
+	TCPC_INFO("usb_port_detached\n");
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	/* MTK Only */

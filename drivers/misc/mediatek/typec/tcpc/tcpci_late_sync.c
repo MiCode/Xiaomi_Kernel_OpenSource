@@ -27,11 +27,11 @@ static int fg_bat_notifier_call(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
 	struct pd_port *pd_port = container_of(nb, struct pd_port, fg_bat_nb);
-	struct tcpc_device *tcpc_dev = pd_port->tcpc_dev;
+	struct tcpc_device *tcpc = pd_port->tcpc;
 
 	switch (event) {
 	case EVT_INT_BAT_PLUGOUT:
-		dev_info(&tcpc_dev->dev, "%s: fg battery absent\n", __func__);
+		dev_info(&tcpc->dev, "%s: fg battery absent\n", __func__);
 		schedule_work(&pd_port->fg_bat_work);
 		break;
 	default:

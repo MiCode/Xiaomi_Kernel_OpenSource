@@ -258,12 +258,11 @@ EXPORT_SYMBOL(tcpci_get_cc);
 
 int tcpci_set_cc(struct tcpc_device *tcpc, int pull)
 {
-	PD_BUG_ON(tcpc->ops->set_cc == NULL);
-
-#if CONFIG_USB_PD_DBG_ALWAYS_LOCAL_RP
-	if (pull == TYPEC_CC_RP)
-		pull = tcpc->typec_local_rp_level;
-#endif /* CONFIG_USB_PD_DBG_ALWAYS_LOCAL_RP */
+#if CONFIG_TYPEC_CHECK_LEGACY_CABLE
+#if CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP
+	uint8_t rp_lvl = TYPEC_RP_DFT, res = TYPEC_CC_DRP;
+#endif /* CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP */
+#endif /* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
 
 #if CONFIG_TYPEC_CHECK_LEGACY_CABLE
 	if (pull == TYPEC_CC_DRP && tcpc->typec_legacy_cable) {
@@ -276,17 +275,16 @@ int tcpci_set_cc(struct tcpc_device *tcpc, int pull)
 #endif	/* CONFIG_TYPEC_CHECK_LEGACY_CABLE2 */
 			pull = TYPEC_CC_RP_1_5;
 		TCPC_DBG2("LC->Toggling (%d)\n", pull);
+	} else if (!tcpc->typec_legacy_cable) {
+#if CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP
+		rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
+		res = TYPEC_CC_PULL_GET_RES(pull);
+		pull = TYPEC_CC_PULL(rp_lvl == TYPEC_RP_DFT ?
+			tcpc->typec_local_rp_level : rp_lvl, res);
+#endif /* CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP */
 	}
 #endif /* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
-
-	if (pull & TYPEC_CC_DRP) {
-		tcpc->typec_remote_cc[0] =
-		tcpc->typec_remote_cc[1] =
-			TYPEC_CC_DRP_TOGGLING;
-	}
-
-	tcpc->typec_local_cc = pull;
-	return tcpc->ops->set_cc(tcpc, pull);
+	return __tcpci_set_cc(tcpc, pull);
 }
 EXPORT_SYMBOL(tcpci_set_cc);
 
@@ -474,6 +472,18 @@ int tcpci_set_cc_hidet(struct tcpc_device *tcpc, bool en)
 	return rv;
 }
 EXPORT_SYMBOL(tcpci_set_cc_hidet);
+
+int tcpci_notify_wd0_state(struct tcpc_device *tcpc, bool wd0_state)
+{
+	struct tcp_notify tcp_noti;
+
+	tcp_noti.wd0_state.wd0 = wd0_state;
+
+	TCPC_DBG("wd0: %d\n", wd0_state);
+	return tcpc_check_notify_time(tcpc, &tcp_noti, TCP_NOTIFY_IDX_MISC,
+				      TCP_NOTIFY_WD0_STATE);
+}
+EXPORT_SYMBOL(tcpci_notify_wd0_state);
 
 int tcpci_notify_plug_out(struct tcpc_device *tcpc)
 {
@@ -678,14 +688,14 @@ int tcpci_source_vbus(
 	if (ma < 0) {
 		if (mv != 0) {
 			switch (tcpc->typec_local_rp_level) {
-			case TYPEC_CC_RP_1_5:
-				ma = 1500;
-				break;
-			case TYPEC_CC_RP_3_0:
+			case TYPEC_RP_3_0:
 				ma = 3000;
 				break;
+			case TYPEC_RP_1_5:
+				ma = 1500;
+				break;
+			case TYPEC_RP_DFT:
 			default:
-			case TYPEC_CC_RP_DFT:
 				ma = CONFIG_TYPEC_SRC_CURR_DFT;
 				break;
 			}

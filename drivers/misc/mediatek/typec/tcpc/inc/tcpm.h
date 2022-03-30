@@ -140,7 +140,8 @@ enum {
 	TCP_NOTIFY_CABLE_TYPE,
 	TCP_NOTIFY_TYPEC_OTP,
 	TCP_NOTIFY_PLUG_OUT,
-	TCP_NOTIFY_MISC_END = TCP_NOTIFY_CABLE_TYPE,
+	TCP_NOTIFY_WD0_STATE,
+	TCP_NOTIFY_MISC_END = TCP_NOTIFY_WD0_STATE,
 };
 
 struct tcp_ny_pd_state {
@@ -317,6 +318,10 @@ struct tcp_ny_typec_otp {
 	bool otp;
 };
 
+struct tcp_ny_wd0_state {
+	bool wd0;
+};
+
 struct tcp_notify {
 	union {
 		struct tcp_ny_enable_state en_state;
@@ -337,6 +342,7 @@ struct tcp_notify {
 		struct tcp_ny_fod_status fod_status;
 		struct tcp_ny_cable_type cable_type;
 		struct tcp_ny_typec_otp typec_otp;
+		struct tcp_ny_wd0_state wd0_state;
 	};
 };
 
