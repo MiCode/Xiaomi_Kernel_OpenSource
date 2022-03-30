@@ -42,3 +42,27 @@ config VIDEO_MTK_ISP_CAMSYS
 	    Choose y if you want to use Mediatek SoCs to create image
 	    capture application such as video recording and still image
 	    capture.
+
+config VIDEO_MTK_ISP_HCP
+	tristate "Mediatek hcp processing function"
+	help
+	    HCP driver acts a message protocol between imgsys driver and
+	    userspace daemon. messages can include enqueue event, dequeue
+	    events, and other notification events that are needed for a
+	    working camera session.
+
+config VIDEO_MTK_ISP_IMGSYS
+	tristate "Mediatek imgsys processing function"
+	help
+	    imgsys driver controls post-processing on the streaming images
+	    and/or statistics for better image qualities
+	    such as noise reduction, edge enhencement,
+	    and motion estimation, etc.
+
+config VIDEO_MTK_ISP_IPESYS
+	tristate "Mediatek ipesys processing function"
+	help
+	    ipesys driver is a varaint of imgsys driver
+	    which process the images to generate useful statistics
+	    for isp pipeline image computation such
+	    as motion estimation.
