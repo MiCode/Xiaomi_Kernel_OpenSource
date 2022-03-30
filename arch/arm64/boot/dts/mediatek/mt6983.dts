@@ -10669,10 +10669,10 @@
 		/* as mml device */
 		comp-count = <MML_ENGINE_TOTAL>;
 		topology = "mt6983";
-		mboxes = <&gce 16 0 CMDQ_THR_PRIO_1>,
-			<&gce 17 0 CMDQ_THR_PRIO_1>,
-			<&gce 18 0 CMDQ_THR_PRIO_1>,
-			<&gce 19 0 CMDQ_THR_PRIO_1>;
+		mboxes = <&gce 16 400 CMDQ_THR_PRIO_1>,
+			<&gce 17 500 CMDQ_THR_PRIO_1>,
+			<&gce 18 400 CMDQ_THR_PRIO_1>,
+			<&gce 19 500 CMDQ_THR_PRIO_1>;
 		/* as mmlsys */
 		comp-ids = <MML_MMLSYS>,
 			<MML_DLI0>, <MML_DLI1>,
@@ -10745,7 +10745,7 @@
 			1 MML_RDMA0     MML_RSZ2      MML_MUX_SLIN RSZ2_SEL_IN
 			0 MML_DLI1_SEL  MML_RSZ3      MML_MUX_SLIN RSZ3_SEL_IN
 			1 MML_RDMA1     MML_RSZ3      MML_MUX_SLIN RSZ3_SEL_IN>;
-		dbg-reg-names = "CG_CON0", "CG_SET0", "CG_CLR0",
+		dbg-reg-names = "MMLSYS_MISC", "CG_CON0", "CG_SET0", "CG_CLR0",
 			"SW0_RST_B", "MOUT_RST", "EVENT_GCED_EN",
 			"IN_LINE_READY_SEL", "SMI_LARB_GREQ", "BYPASS_MUX_SHADOW",
 			"DLI0_SEL_IN", "DLI1_SEL_IN",
@@ -10765,7 +10765,7 @@
 			"DLO_ASYNC0_STATUS0", "DLO_ASYNC0_STATUS1",
 			"DLO_ASYNC1_STATUS0", "DLO_ASYNC1_STATUS1",
 			"DL_VALID0", "DL_VALID1", "DL_READY0", "DL_READY1";
-		dbg-reg-offsets = <CG_CON0>, <CG_SET0>, <CG_CLR0>,
+		dbg-reg-offsets = <MMLSYS_MISC>, <CG_CON0>, <CG_SET0>, <CG_CLR0>,
 			<SW0_RST_B>, <MOUT_RST>, <EVENT_GCED_EN>,
 			<IN_LINE_READY_SEL>, <SMI_LARB_GREQ>, <BYPASS_MUX_SHADOW>,
 			<DLI0_SEL_IN>, <DLI1_SEL_IN>,
@@ -10785,6 +10785,7 @@
 			<DLO_ASYNC0_STATUS0>, <DLO_ASYNC0_STATUS1>,
 			<DLO_ASYNC1_STATUS0>, <DLO_ASYNC1_STATUS1>,
 			<DL_VALID0>, <DL_VALID1>, <DL_READY0>, <DL_READY1>;
+		aid-sel-reg = <AID_SEL>;
 		aid-sel = <
 			MML_RDMA0 0
 			MML_RDMA1 1
@@ -10795,6 +10796,7 @@
 		event_ir_mml_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_MML_READY>;
 		event_ir_disp_ready = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_IR_DISP_READY>;
 		event_ir_mml_stop = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_MML_STOP>;
+		event_ir_eof = /bits/ 16 <CMDQ_EVENT_MMSYS_DISP_RDMA0_TARGET_LINE_ENG_EVENT>;
 		event_racing_pipe0 = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE0>;
 		event_racing_pipe1 = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE1>;
 		event_racing_pipe1_next = /bits/ 16 <CMDQ_SYNC_TOKEN_MML_PIPE1_NEXT>;
@@ -10805,6 +10807,7 @@
 		dli1-dl-relay = /bits/ 16 <DL_IN_RELAY1_SIZE>;
 		dlo0-dl-relay = /bits/ 16 <DL_OUT_RELAY0_SIZE>;
 		dlo1-dl-relay = /bits/ 16 <DL_OUT_RELAY1_SIZE>;
+		mediatek,larb = <&smi_larb3 MTK_M4U_TO_PORT(M4U_PORT_L3_MDP_DISP_FAKE1)>;
 	};
 
 	mml_mutex0@1f801000 {
