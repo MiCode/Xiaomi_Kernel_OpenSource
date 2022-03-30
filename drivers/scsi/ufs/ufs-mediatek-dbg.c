@@ -168,8 +168,11 @@ void ufs_mtk_dbg_print_info(char **buff, unsigned long *size,
 	ufs_mtk_dbg_print_err_hist(buff, size, m,
 			      UFS_EVT_RESUME_ERR, "resume_fail");
 	ufs_mtk_dbg_print_err_hist(buff, size, m,
-			      UFS_EVT_SUSPEND_ERR,
-			      "suspend_fail");
+			      UFS_EVT_SUSPEND_ERR, "suspend_fail");
+	ufs_mtk_dbg_print_err_hist(buff, size, m,
+			      UFS_EVT_WL_RES_ERR, "wlun resume_fail");
+	ufs_mtk_dbg_print_err_hist(buff, size, m,
+			      UFS_EVT_WL_SUSP_ERR, "wlun suspend_fail");
 	ufs_mtk_dbg_print_err_hist(buff, size, m,
 			      UFS_EVT_DEV_RESET, "dev_reset");
 	ufs_mtk_dbg_print_err_hist(buff, size, m,
@@ -404,6 +407,68 @@ out_unlock:
 	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 }
 
+static void probe_ufshcd_pm(void *data, const char *dev_name,
+			    int err, s64 time_us,
+			    int pwr_mode, int link_state,
+			    enum ufsdbg_pm_state state)
+{
+	int ptr;
+	unsigned long flags;
+
+	spin_lock_irqsave(&cmd_hist_lock, flags);
+
+	if (!cmd_hist_enabled)
+		goto out_unlock;
+
+	ptr = cmd_hist_advance_ptr();
+
+	cmd_hist_init_common_info(ptr);
+	cmd_hist[ptr].event = CMD_PM;
+	cmd_hist[ptr].cmd.pm.state = state;
+	cmd_hist[ptr].cmd.pm.err = err;
+	cmd_hist[ptr].cmd.pm.time_us = time_us;
+	cmd_hist[ptr].cmd.pm.pwr_mode = pwr_mode;
+	cmd_hist[ptr].cmd.pm.link_state = link_state;
+
+	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
+		cmd_hist_cnt++;
+
+out_unlock:
+	spin_unlock_irqrestore(&cmd_hist_lock, flags);
+}
+
+static void probe_ufshcd_runtime_suspend(void *data, const char *dev_name,
+			    int err, s64 time_us,
+			    int pwr_mode, int link_state)
+{
+	probe_ufshcd_pm(data, dev_name, err, time_us, pwr_mode, link_state,
+			UFSDBG_RUNTIME_SUSPEND);
+}
+
+static void probe_ufshcd_runtime_resume(void *data, const char *dev_name,
+			    int err, s64 time_us,
+			    int pwr_mode, int link_state)
+{
+	probe_ufshcd_pm(data, dev_name, err, time_us, pwr_mode, link_state,
+			UFSDBG_RUNTIME_RESUME);
+}
+
+static void probe_ufshcd_system_suspend(void *data, const char *dev_name,
+			    int err, s64 time_us,
+			    int pwr_mode, int link_state)
+{
+	probe_ufshcd_pm(data, dev_name, err, time_us, pwr_mode, link_state,
+			UFSDBG_SYSTEM_SUSPEND);
+}
+
+static void probe_ufshcd_system_resume(void *data, const char *dev_name,
+			    int err, s64 time_us,
+			    int pwr_mode, int link_state)
+{
+	probe_ufshcd_pm(data, dev_name, err, time_us, pwr_mode, link_state,
+			UFSDBG_SYSTEM_SUSPEND);
+}
+
 /**
  * Data structures to store tracepoints information
  */
@@ -419,6 +484,10 @@ static struct tracepoints_table interests[] = {
 	{.name = "ufshcd_uic_command", .func = probe_ufshcd_uic_command},
 	{.name = "ufshcd_clk_gating", .func = probe_ufshcd_clk_gating},
 	{.name = "android_vh_ufs_send_tm_command", .func = probe_android_vh_ufs_send_tm_command},
+	{.name = "ufshcd_wl_runtime_suspend", .func = probe_ufshcd_runtime_suspend},
+	{.name = "ufshcd_wl_runtime_resume", .func = probe_ufshcd_runtime_resume},
+	{.name = "ufshcd_wl_suspend", .func = probe_ufshcd_system_suspend},
+	{.name = "ufshcd_wl_resume", .func = probe_ufshcd_system_resume},
 };
 
 #define FOR_EACH_INTEREST(i) \
@@ -504,6 +573,42 @@ static void ufs_mtk_dbg_print_clk_gating_event(char **buff,
 		cmd_hist[ptr].pid,
 		cmd_hist[ptr].event,
 		clk_gating_state_str[idx]
+		);
+}
+
+#define UFSDBG_PM_STATE_MAX (4)
+static char *ufsdbg_pm_state_str[UFSDBG_PM_STATE_MAX + 1] = {
+	"rs",
+	"rr",
+	"ss",
+	"sr",
+	"unknown"
+};
+
+static void ufs_mtk_dbg_print_pm_event(char **buff,
+					unsigned long *size,
+					struct seq_file *m, int ptr)
+{
+	struct timespec64 dur;
+	int idx = cmd_hist[ptr].cmd.pm.state;
+	int err = cmd_hist[ptr].cmd.pm.err;
+	unsigned long time_us = cmd_hist[ptr].cmd.pm.time_us;
+	int pwr_mode = cmd_hist[ptr].cmd.pm.pwr_mode;
+	int link_state = cmd_hist[ptr].cmd.pm.link_state;
+
+	dur = ns_to_timespec64(cmd_hist[ptr].time);
+	SPREAD_PRINTF(buff, size, m,
+		"%3d-c(%d),%6llu.%lu,%5d,%2d,%3s, ret=%d, time_us=%8d, pwr_mode=%d, link_status=%d\n",
+		ptr,
+		cmd_hist[ptr].cpu,
+		dur.tv_sec, dur.tv_nsec,
+		cmd_hist[ptr].pid,
+		cmd_hist[ptr].event,
+		ufsdbg_pm_state_str[idx],
+		err,
+		time_us,
+		pwr_mode,
+		link_state
 		);
 }
 
@@ -632,8 +737,9 @@ static void ufs_mtk_dbg_print_cmd_hist(char **buff, unsigned long *size,
 		else if (cmd_hist[ptr].event < CMD_REG_TOGGLE)
 			ufs_mtk_dbg_print_uic_event(buff, size, m, ptr);
 		else if (cmd_hist[ptr].event == CMD_CLK_GATING)
-			ufs_mtk_dbg_print_clk_gating_event(buff, size,
-							   m, ptr);
+			ufs_mtk_dbg_print_clk_gating_event(buff, size, m, ptr);
+		else if (cmd_hist[ptr].event == CMD_PM)
+			ufs_mtk_dbg_print_pm_event(buff, size, m, ptr);
 		else if (cmd_hist[ptr].event == CMD_ABORTING)
 			ufs_mtk_dbg_print_utp_event(buff, size, m, ptr);
 		else if (cmd_hist[ptr].event == CMD_DEVICE_RESET)

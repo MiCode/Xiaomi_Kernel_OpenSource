@@ -46,6 +46,13 @@ enum ufsdbg_cmd_type {
 	UFSDBG_UNKNOWN
 };
 
+enum ufsdbg_pm_state {
+	UFSDBG_RUNTIME_SUSPEND,
+	UFSDBG_RUNTIME_RESUME,
+	UFSDBG_SYSTEM_SUSPEND,
+	UFSDBG_SYSTEM_RESUME
+};
+
 enum cmd_hist_event {
 	CMD_SEND,
 	CMD_COMPLETED,
@@ -65,6 +72,7 @@ enum cmd_hist_event {
 	CMD_DEBUG_PROC,
 	CMD_GENERIC,
 	CMD_CLK_GATING,
+	CMD_PM,
 };
 
 struct tm_cmd_struct {
@@ -96,6 +104,14 @@ struct clk_gating_event_struct {
 	u8 state;
 };
 
+struct ufs_pm_struct {
+	u8 state;
+	int err;
+	s64 time_us;
+	int pwr_mode;
+	int link_state;
+};
+
 struct cmd_hist_struct {
 	u8 cpu;
 	enum cmd_hist_event event;
@@ -107,6 +123,7 @@ struct cmd_hist_struct {
 		struct utp_cmd_struct utp;
 		struct uic_cmd_struct uic;
 		struct clk_gating_event_struct clk_gating;
+		struct ufs_pm_struct pm;
 	} cmd;
 };
 
