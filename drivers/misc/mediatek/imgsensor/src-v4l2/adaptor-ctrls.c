@@ -418,7 +418,9 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		ae_ctrl->exposure.arr[exp_count] != 0)
 		exp_count++;
 	dev_info(ctx->dev,
-			"exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d, sub_tag:%u\n",
+			"sensor_idx %d, req id %d, exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d, sub_tag:%u\n",
+			ctx->idx,
+			ae_ctrl->req_id,
 			ae_ctrl->exposure.le_exposure,
 			ae_ctrl->exposure.me_exposure,
 			ae_ctrl->exposure.se_exposure,

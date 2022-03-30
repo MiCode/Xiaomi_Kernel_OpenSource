@@ -3116,23 +3116,28 @@ static kal_uint32 get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	DEBUG_LOG(ctx, "mode: %d\n", mode);
-	//1:Solid Color 2:Color bar
-	if (mode)
+	if (mode != ctx->test_pattern)
+		pr_debug("mode %d -> %d\n", ctx->test_pattern, mode);
+	//1:Solid Color 2:Color bar 5:Black
+	if (mode == 5)
+		write_cmos_sensor_8(ctx, 0x020E, 0x00);//Dgain = 0
+	else if (mode)
 		write_cmos_sensor_8(ctx, 0x0601, mode);
-	else if (ctx->test_pattern)
-		write_cmos_sensor_8(ctx, 0x0601, 0x0000); /*No pattern*/
 
+	if ((ctx->test_pattern) && (mode != ctx->test_pattern)) {
+		if (ctx->test_pattern == 5)
+			write_cmos_sensor_8(ctx, 0x020E, 0x01);
+		else if (mode == 0)
+			write_cmos_sensor_8(ctx, 0x0601, 0x00); /*No pattern*/
+	}
 	ctx->test_pattern = mode;
 	return ERROR_NONE;
 }
 
 static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_pattern_data *data)
 {
-	pr_debug("test_patterndata mode = %d  R = %x, Gr = %x,Gb = %x,B = %x\n", ctx->test_pattern,
-		data->Channel_R >> 22, data->Channel_Gr >> 22,
-		data->Channel_Gb >> 22, data->Channel_B >> 22);
-
+	DEBUG_LOG(ctx, "IMX766 Only could support black");
+	/*
 	set_cmos_sensor_8(ctx, 0x0602, (data->Channel_R >> 30) & 0x3);
 	set_cmos_sensor_8(ctx, 0x0603, (data->Channel_R >> 22) & 0xff);
 	set_cmos_sensor_8(ctx, 0x0604, (data->Channel_Gr >> 30) & 0x3);
@@ -3142,6 +3147,7 @@ static kal_uint32 set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_
 	set_cmos_sensor_8(ctx, 0x0608, (data->Channel_Gb >> 30) & 0x3);
 	set_cmos_sensor_8(ctx, 0x0609, (data->Channel_Gb >> 22) & 0xff);
 	commit_write_sensor(ctx);
+	*/
 	return ERROR_NONE;
 }
 

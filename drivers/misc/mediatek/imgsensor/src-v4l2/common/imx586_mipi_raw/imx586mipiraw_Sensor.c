@@ -4690,7 +4690,8 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
-	pr_debug("test_pattern mode: %d\n", mode);
+	if (mode != ctx->test_pattern)
+		pr_debug("test_pattern mode: %d\n", mode);
 	/*Clear data if not solid color*/
 	if (mode != 1) {
 		memset(_i2c_data, 0x0, sizeof(_i2c_data));

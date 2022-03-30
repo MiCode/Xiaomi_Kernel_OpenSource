@@ -2124,7 +2124,8 @@ static kal_uint32 get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 
 static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 modes)
 {
-	DEBUG_LOG(ctx, "Test_Pattern modes: %d\n", modes);
+	if (modes != ctx->test_pattern)
+		pr_debug("Test_Pattern modes: %d -> %d\n", ctx->test_pattern, modes);
 	memset(_i2c_data, 0x0, sizeof(_i2c_data));
 	_size_to_write = 0;
 	if (modes == 2) {
@@ -2171,7 +2172,6 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 modes
 			_i2c_data,
 			_size_to_write);
 	}
-	DEBUG_LOG(ctx, "Test_Pattern modes: %d -> %d\n", ctx->test_pattern, modes);
 	ctx->test_pattern = modes;
 	return ERROR_NONE;
 }
