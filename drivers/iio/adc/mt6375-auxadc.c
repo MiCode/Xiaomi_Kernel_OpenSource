@@ -134,17 +134,18 @@ static const struct iio_chan_spec auxadc_channels[] = {
 
 static int auxadc_get_chg_vbat(struct mt6375_priv *priv, int *chg_vbat)
 {
-	static struct iio_channel *vbat_adc_chan;
+	static struct iio_channel *chg_vbat_chan;
 	int ret = 0, vbat;
 
-	if (!vbat_adc_chan)
-		vbat_adc_chan = devm_iio_channel_get(priv->dev, "chg_vbat");
-	if (vbat_adc_chan) {
-		ret = iio_read_channel_processed(vbat_adc_chan, &vbat);
-		if (ret < 0)
-			return ret;
-		*chg_vbat = vbat / 1000;
-	}
+	if (IS_ERR_OR_NULL(chg_vbat_chan))
+		chg_vbat_chan = devm_iio_channel_get(priv->dev, "chg_vbat");
+	if (IS_ERR(chg_vbat_chan))
+		return PTR_ERR(chg_vbat_chan);
+
+	ret = iio_read_channel_processed(chg_vbat_chan, &vbat);
+	if (ret < 0)
+		return ret;
+	*chg_vbat = vbat / 1000;
 	return ret;
 }
 
@@ -409,29 +410,30 @@ static int auxadc_vbat_is_valid(struct mt6375_priv *priv, bool *valid)
 	static struct iio_channel *auxadc_vbat_chan;
 	int ret = 0, chg_vbat = 0, auxadc_vbat = 0;
 
-	if (!auxadc_vbat_chan)
+	if (IS_ERR_OR_NULL(auxadc_vbat_chan))
 		auxadc_vbat_chan = devm_iio_channel_get(priv->dev, "auxadc_vbat");
-	if (auxadc_vbat_chan) {
-		ret = auxadc_get_chg_vbat(priv, &chg_vbat);
-		dev_info(priv->dev, "%s: chg_vbat = %d(%d)\n", __func__,
-			 chg_vbat, ret);
+	if (IS_ERR(auxadc_vbat_chan))
+		return PTR_ERR(auxadc_vbat_chan);
 
-		ret |= iio_read_channel_processed(auxadc_vbat_chan, &auxadc_vbat);
-		dev_info(priv->dev, "%s: auxadc_vbat = %d(%d)\n", __func__,
-			 auxadc_vbat, ret);
+	ret = auxadc_get_chg_vbat(priv, &chg_vbat);
+	dev_info(priv->dev, "%s: chg_vbat = %d(%d)\n", __func__,
+		 chg_vbat, ret);
 
-		if (!ret && abs(chg_vbat - auxadc_vbat) > 1000) {
-			dev_info(priv->dev, "%s: unexpected vbat cell!!\n", __func__);
-			*valid = false;
-		} else
-			*valid = true;
-	}
+	ret |= iio_read_channel_processed(auxadc_vbat_chan, &auxadc_vbat);
+	dev_info(priv->dev, "%s: auxadc_vbat = %d(%d)\n", __func__,
+		 auxadc_vbat, ret);
+
+	if (!ret && abs(chg_vbat - auxadc_vbat) > 1000) {
+		dev_info(priv->dev, "%s: unexpected vbat cell!!\n", __func__);
+		*valid = false;
+	} else
+		*valid = true;
 	return ret;
 }
 
 static int auxadc_handle_vbat0(struct mt6375_priv *priv, bool is_vbat0)
 {
-	static struct power_supply *chg_psy;
+	struct power_supply *chg_psy;
 	union power_supply_propval val;
 	int i, ret;
 
@@ -443,14 +445,14 @@ static int auxadc_handle_vbat0(struct mt6375_priv *priv, bool is_vbat0)
 		return ret;
 	}
 	/* notify gauge & charger */
-	if (!chg_psy)
-		chg_psy = devm_power_supply_get_by_phandle(priv->dev, "charger");
-	if (chg_psy) {
-		val.intval = is_vbat0 ? true : false;
-		ret = power_supply_set_property(chg_psy,
-					POWER_SUPPLY_PROP_ENERGY_EMPTY, &val);
-		power_supply_changed(chg_psy);
-	}
+	chg_psy = devm_power_supply_get_by_phandle(priv->dev, "charger");
+	if (IS_ERR_OR_NULL(chg_psy))
+		return PTR_ERR(chg_psy);
+
+	val.intval = is_vbat0 ? true : false;
+	ret = power_supply_set_property(chg_psy, POWER_SUPPLY_PROP_ENERGY_EMPTY,
+					&val);
+	power_supply_changed(chg_psy);
 
 	/* mask/unmask irq & disable function */
 	for (i = 0; i < ARRAY_SIZE(vbat_event); i++) {
