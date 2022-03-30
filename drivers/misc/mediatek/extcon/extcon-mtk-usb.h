@@ -15,11 +15,16 @@ struct mtk_extcon_info {
 	bool vbus_on;
 	struct power_supply *usb_psy;
 	struct notifier_block psy_nb;
+	struct delayed_work wq_psy;
 #if IS_ENABLED(CONFIG_TCPC_CLASS)
 	struct tcpc_device *tcpc_dev;
 	struct notifier_block tcpc_nb;
 #endif
 	bool bypss_typec_sink;
+	/* id gpio */
+	struct gpio_desc *id_gpiod;
+	unsigned int id_irq;
+	struct delayed_work wq_detcable;
 };
 
 struct usb_role_info {
@@ -38,10 +43,4 @@ enum {
 	DUAL_PROP_PR_SRC = 0,
 	DUAL_PROP_PR_SNK,
 	DUAL_PROP_PR_NONE,
-};
-
-enum {
-	DUAL_PROP_DR_HOST = 0,
-	DUAL_PROP_DR_DEVICE,
-	DUAL_PROP_DR_NONE,
 };
