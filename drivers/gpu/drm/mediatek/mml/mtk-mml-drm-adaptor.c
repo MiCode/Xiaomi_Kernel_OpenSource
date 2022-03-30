@@ -537,10 +537,14 @@ static void task_buf_put(struct mml_task *task)
 		mml_msg("[drm]release dest %hhu iova %#011llx",
 			i, task->buf.dest[i].dma[0].iova);
 		mml_buf_put(&task->buf.dest[i]);
+		if (task->buf.dest[i].fence)
+			dma_fence_put(task->buf.dest[i].fence);
 	}
 	mml_msg("[drm]release src iova %#011llx",
 		task->buf.src.dma[0].iova);
 	mml_buf_put(&task->buf.src);
+	if (task->buf.src.fence)
+		dma_fence_put(task->buf.src.fence);
 	mml_trace_ex_end();
 }
 
