@@ -30,26 +30,50 @@
 
 /* need to modify slbc_uid_str  */
 enum slbc_uid {
-	UID_MM_VENC = 1,
+	UID_ZERO = 0,
+	UID_MM_VENC,
 	UID_MM_DISP,
 	UID_MM_MDP,
 	UID_MM_VDEC,
-	UID_MD_DPMAIF,
 	UID_AI_MDLA,
 	UID_AI_ISP,
 	UID_GPU,
 	UID_HIFI3,
 	UID_CPU,
-	UID_TEST,
+	UID_AOV,
+	UID_SH_P2,
+	UID_SH_APU,
+	UID_MML,
+	UID_DSC_IDLE,
+	UID_AINR,
+	UID_TEST_BUFFER,
+	UID_TEST_CACHE,
+	UID_TEST_ACP,
+	UID_DISP,
 	UID_MAX,
 };
 
 #define UID_MM_BITS_1 (BIT(UID_MM_DISP) | BIT(UID_MM_MDP))
 #define BIT_IN_MM_BITS_1(x) ((x) & UID_MM_BITS_1)
 
+#define UID_MM_BITS_2 (BIT(UID_SH_P2) | BIT(UID_SH_APU))
+#define BIT_IN_MM_BITS_2(x) ((x) & UID_MM_BITS_2)
+
+#define UID_MM_BITS_3 (BIT(UID_MML) | BIT(UID_DISP))
+#define BIT_IN_MM_BITS_3(x) ((x) & UID_MM_BITS_3)
+
 enum slbc_type {
 	TP_BUFFER = 0,
 	TP_CACHE,
+	TP_ACP,
+};
+
+enum slbc_force {
+	FR_DIS = 0,
+	FR_CPU,
+	FR_GPU,
+	FR_APU,
+	FR_MAX,
 };
 
 #define ACP_ONLY_BIT	2
@@ -69,18 +93,32 @@ enum slbc_flag {
 
 struct slbc_data {
 	unsigned int uid;
-	int type;
+	unsigned int type;
 	ssize_t size;
-	int flag;
+	unsigned int flag;
+	int ret;
 	/* below used by slbc driver */
 	void __iomem *paddr;
 	void __iomem *vaddr;
 	unsigned int sid;
-	int slot_used;
+	unsigned int slot_used;
 	void *config;
 	int ref;
 	int pwr_ref;
+	struct slbc_data *private;
 };
+
+#define ui_to_slbc_data(d, ui) \
+	do { \
+		(d)->uid = ((ui) >> 24 & 0xff); \
+		(d)->type = ((ui) >> 16 & 0xff); \
+		(d)->flag = ((ui) >> 8 & 0xff); \
+	} while (0)
+
+#define slbc_data_to_ui(d) \
+	((((d)->uid) & 0xff) << 24 | \
+	(((d)->type) & 0xff) << 16 | \
+	(((d)->flag) & 0xff) << 8)
 
 struct slbc_ops {
 	struct list_head node;
@@ -89,56 +127,50 @@ struct slbc_ops {
 	void (*deactivate)(struct slbc_data *data);
 };
 
+extern int slbc_enable;
+extern char *slbc_uid_str[UID_MAX];
+extern int popcount(unsigned int x);
+
 #if IS_ENABLED(CONFIG_MTK_SLBC)
-extern int register_slbc_ops(struct slbc_ops *ops);
-extern int unregister_slbc_ops(struct slbc_ops *ops);
-extern int slbc_request(struct slbc_data *data);
-extern int slbc_release(struct slbc_data *data);
-extern int slbc_power_on(struct slbc_data *data);
-extern int slbc_power_off(struct slbc_data *data);
-extern int slbc_secure_on(struct slbc_data *data);
-extern int slbc_secure_off(struct slbc_data *data);
+extern int slbc_request(struct slbc_data *d);
+extern int slbc_release(struct slbc_data *d);
+extern int slbc_power_on(struct slbc_data *d);
+extern int slbc_power_off(struct slbc_data *d);
+extern int slbc_secure_on(struct slbc_data *d);
+extern int slbc_secure_off(struct slbc_data *d);
+extern void slbc_update_mm_bw(unsigned int bw);
+extern void slbc_update_mic_num(unsigned int num);
+extern void slbc_update_inner(unsigned int inner);
+extern void slbc_update_outer(unsigned int outer);
 #else
-__attribute__ ((weak))
-int register_slbc_ops(struct slbc_ops *ops)
+__weak int slbc_request(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int unregister_slbc_ops(struct slbc_ops *ops)
+__weak int slbc_release(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int slbc_request(struct slbc_data *data)
+__weak int slbc_power_on(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int slbc_release(struct slbc_data *data)
+__weak int slbc_power_off(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int slbc_power_on(struct slbc_data *data)
+__weak int slbc_secure_on(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int slbc_power_off(struct slbc_data *data)
+__weak int slbc_secure_off(struct slbc_data *d)
 {
 	return -EDISABLED;
 };
-__attribute__ ((weak))
-int slbc_secure_on(struct slbc_data *data)
-{
-	return -EDISABLED;
-};
-__attribute__ ((weak))
-int slbc_secure_off(struct slbc_data *data)
-{
-	return -EDISABLED;
-};
+__weak void slbc_update_mm_bw(unsigned int bw) {}
+__weak void slbc_update_mic_num(unsigned int num) {}
+__weak void slbc_update_inner(unsigned int inner) {}
+__weak void slbc_update_outer(unsigned int outer) {}
 #endif /* CONFIG_MTK_SLBC */
 
 #endif /* _SLBC_OPS_H_ */
