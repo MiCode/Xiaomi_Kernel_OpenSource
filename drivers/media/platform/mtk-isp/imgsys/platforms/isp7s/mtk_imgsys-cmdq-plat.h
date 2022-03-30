@@ -13,7 +13,7 @@
 #define IMGSYS_QOS_ENABLE      (1)
 #define IMGSYS_QOS_SET_REAL    (0)
 
-#define IMGSYS_SECURE_ENABLE   (1)
+#define IMGSYS_SECURE_ENABLE   (0)
 
 /* Record info definitions */
 #define GCE_REC_MAX_FRAME_BLOCK     (40)

@@ -1113,7 +1113,9 @@ void imgsys_cmdq_sec_task_cb(struct cmdq_cb_data data)
 int imgsys_cmdq_sec_sendtask(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct cmdq_client *clt_sec = NULL;
+	#if IMGSYS_SECURE_ENABLE
 	struct cmdq_pkt *pkt_sec = NULL;
+	#endif
 	int ret = 0;
 
 	clt_sec = imgsys_sec_clt[0];
