@@ -1081,6 +1081,7 @@
 			required-opps = <&dvfsrc_freq_opp0>,
 					<&dvfsrc_freq_opp1>;
 			net_spd_ver = <4>;
+			dpmaif-infracfg = <&infracfg_ao_clk>;
 		};
 
 		ccifdriver:ccifdriver@10209000 {
