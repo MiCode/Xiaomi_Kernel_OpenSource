@@ -109,11 +109,12 @@ static int ultra_ipi_ack_handler(unsigned int id,
 }
 #endif
 
-bool ultra_ipi_send(unsigned int msg_id,
+bool ultra_ipi_send_msg(unsigned int msg_id,
 		    bool polling_mode,
 		    unsigned int payload_len,
 		    int *payload,
-		    unsigned int need_ack)
+		    unsigned int need_ack,
+		    unsigned int param)
 {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 	bool ret = false;
@@ -146,7 +147,7 @@ bool ultra_ipi_send(unsigned int msg_id,
 	ipi_data.msg_id = msg_id;
 	ipi_data.msg_need_ack = msg_need_ack;
 	ipi_data.param1 = 0;
-	ipi_data.param2 = 0;
+	ipi_data.param2 = param;
 	ipi_data.msg_length = payload_len;
 
 	if (payload > 0) {

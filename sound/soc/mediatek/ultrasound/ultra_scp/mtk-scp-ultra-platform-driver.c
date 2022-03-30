@@ -38,6 +38,8 @@
 	})
 #define ultra_IPIMSG_TIMEOUT (50)
 #define ultra_WAITCHECK_INTERVAL_MS (2)
+#define ultra_ipi_send(msg_id, polling_mode, payload_len, payload, need_ack) \
+	ultra_ipi_send_msg(msg_id, polling_mode, payload_len, payload, need_ack, 0)
 static bool ultra_ipi_wait;
 static struct wakeup_source *ultra_suspend_lock;
 static bool pcm_dump_switch;
@@ -336,11 +338,12 @@ static int mtk_scp_ultra_engine_state_set(struct snd_kcontrol *kcontrol,
 		payload[4] = param_config.channel_in;
 		payload[5] = param_config.period_in_size;
 		payload[6] = param_config.target_out_channel;
-		ret_val = ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_ON,
-					false,
-					7,
-					&payload[0],
-					ULTRA_IPI_NEED_ACK);
+		ret_val = ultra_ipi_send_msg(AUDIO_TASK_USND_MSG_ID_ON,
+						false,
+						7,
+						&payload[0],
+						ULTRA_IPI_NEED_ACK,
+						param_config.format_out);
 		if (ret_val == 0) {
 			pr_info("%s() set state on failed\n", __func__);
 			scp_ultra->usnd_state = SCP_ULTRA_STATE_IDLE;

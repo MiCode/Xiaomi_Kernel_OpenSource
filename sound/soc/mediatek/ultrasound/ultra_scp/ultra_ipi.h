@@ -63,11 +63,12 @@ unsigned int ultra_check_scp_status(void);
 void ultra_ipi_register(void (*ipi_rx_call)(unsigned int, void *),
 			bool (*ipi_tx_ack_call)(unsigned int, unsigned int));
 
-bool ultra_ipi_send(unsigned int msg_id,
+bool ultra_ipi_send_msg(unsigned int msg_id,
 		    bool polling_mode,
 		    unsigned int payload_len,
 		    int *payload,
-		    unsigned int need_ack);
+		    unsigned int need_ack,
+		    unsigned int param);
 
 bool ultra_GetScpRecoverStatus(void);
 
