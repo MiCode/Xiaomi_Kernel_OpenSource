@@ -15,7 +15,6 @@
 
 #include <lpm.h>
 
-#include <lpm_plat_reg.h>
 #include <lpm_plat_apmcu.h>
 #include <lpm_module.h>
 
@@ -179,7 +178,7 @@ bool lpm_plat_is_mcusys_off(void)
 
 bool lpm_plat_is_cluster_off(int cpu)
 {
-	if (unlikely(cpu >= nr_cpu_ids || !lp_dev_cpu[cpu].parent))
+	if (unlikely(cpu < 0 || cpu >= nr_cpu_ids || !lp_dev_cpu[cpu].parent))
 		return false;
 
 	return !lp_dev_cpu[cpu].parent->pwr_on.cluster;

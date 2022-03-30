@@ -2,9 +2,16 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
-#include <lpm_plat_reg.h>
 #include <mtk_cpuidle_sysfs.h>
 #include <lpm_dbg_fs_common.h>
+
+#if IS_ENABLED(CONFIG_MTK_LPM_MT6983)
+#include <lpm_dbg_cpc_v5.h>
+#else
+#include <lpm_dbg_cpc_v3.h>
+#endif
+
+#include <lpm_dbg_syssram_v1.h>
 
 #include "mtk_cpupm_dbg.h"
 #include "mtk_cpuidle_status.h"
@@ -68,7 +75,8 @@ static ssize_t cpuidle_enable_read(char *ToUserBuf, size_t sz, void *priv)
 		return -EINVAL;
 
 	if (en == 0) {
-		mtk_dbg_cpuidle_log("MCDI: Disable\n");
+		mtk_dbg_cpuidle_log("MCDI: Disable, %llu ms\n",
+			   mtk_cpuidle_state_last_dis_ms());
 	} else {
 		mtk_dbg_cpuidle_log("MCDI: Enable\n");
 		mtk_dbg_cpuidle_log(
@@ -122,8 +130,10 @@ int lpm_cpuidle_fs_init(void)
 
 	return 0;
 }
+EXPORT_SYMBOL(lpm_cpuidle_fs_init);
 
 int lpm_cpuidle_fs_deinit(void)
 {
 	return 0;
 }
+EXPORT_SYMBOL(lpm_cpuidle_fs_deinit);

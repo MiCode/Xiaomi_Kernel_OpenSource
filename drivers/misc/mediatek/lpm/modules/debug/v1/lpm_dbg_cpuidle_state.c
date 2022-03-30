@@ -31,7 +31,7 @@ enum LPM_CPUIDLE_STATE_NODE_TYPE {
 
 struct LPM_CPUIDLE_STATE_NODE {
 	const char *name;
-	int type;
+	enum idle_param type;
 	struct mtk_lp_sysfs_handle handle;
 	struct mtk_lp_sysfs_op op;
 };
@@ -92,7 +92,8 @@ static long lpm_per_cpuidle_drv_param(void *pData)
 		for (i = 0; i < drv->state_count; i++) {
 			mtk_dbg_cpuidle_log("%12ld ",
 				mtk_cpuidle_get_param(drv, i, info->param));
-	}
+		}
+
 		mtk_dbg_cpuidle_log("\n");
 	} else if (info->type == MTK_CPUIDLE_DRIVE_STATE_SET) {
 		mtk_cpuidle_set_param(drv, info->state_idx, info->param,
@@ -186,7 +187,7 @@ static int idle_proc_state_param_setting(char *cmd, size_t *sz, int param)
 }
 
 static void idle_proc_state_uasge_print(char **ToUserBuf, size_t *size,
-						int type)
+						enum idle_param type)
 {
 	char *p = *ToUserBuf;
 	size_t sz = *size;

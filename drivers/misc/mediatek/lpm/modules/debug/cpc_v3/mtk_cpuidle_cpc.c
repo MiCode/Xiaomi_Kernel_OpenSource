@@ -6,7 +6,13 @@
 #include <linux/notifier.h>
 
 #include <lpm.h>
-#include <lpm_plat_reg.h>
+
+#if IS_ENABLED(CONFIG_MTK_LPM_MT6983)
+#include <lpm_dbg_cpc_v5.h>
+#else
+#include <lpm_dbg_cpc_v3.h>
+#endif
+
 #include <mtk_cpuidle_sysfs.h>
 
 #include "mtk_cpupm_dbg.h"
@@ -255,7 +261,7 @@ struct notifier_block mtk_cpc_nb = {
 	.notifier_call = mtk_cpc_notify,
 };
 
-int __init mtk_cpc_init(void)
+int mtk_cpc_init(void)
 {
 	cpc.prof_en = false;
 
@@ -268,7 +274,7 @@ int __init mtk_cpc_init(void)
 	return 0;
 }
 
-void __exit mtk_cpc_exit(void)
+void mtk_cpc_exit(void)
 {
 	lpm_notifier_unregister(&mtk_cpc_nb);
 }

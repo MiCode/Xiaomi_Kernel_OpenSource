@@ -329,19 +329,19 @@ static int lpm_cpuidle_prepare(struct cpuidle_driver *drv, int index)
 	if (lpm && lpm->op.prompt)
 		prompt = lpm->op.prompt(cpuid, nb_data.issuer);
 
-	if (!unlikely(flags & LPM_REQ_NOBROADCAST)) {
+	if (!unlikely(model_flags & LPM_REQ_NOBROADCAST)) {
 		prompt = lpm_notify_var(LPM_NB_AFTER_PROMPT, prompt);
 		lpm_pm_notify(prompt, &nb_data);
 	}
 
 	spin_unlock_irqrestore(&lpm_mod_locker, flags);
 
-	rcu_idle_enter();
-
 	if (lpm && lpm->op.prepare_enter)
 		lpm->op.prepare_enter(prompt, cpuid, nb_data.issuer);
 
 	lpm_pm_notify(LPM_NB_PREPARE, &nb_data);
+
+	rcu_idle_enter();
 
 	return 0;
 }
@@ -371,16 +371,16 @@ static void lpm_cpuidle_resume(struct cpuidle_driver *drv, int index, int ret)
 
 	model_flags = (lpm) ? lpm->flag : 0;
 
+	rcu_idle_exit();
+
 	lpm_pm_notify(LPM_NB_RESUME, &nb_data);
 
 	if (lpm && lpm->op.prepare_resume)
 		lpm->op.prepare_resume(cpuid, nb_data.issuer);
 
-	rcu_idle_exit();
-
 	spin_lock_irqsave(&lpm_mod_locker, flags);
 
-	if (!unlikely(flags & LPM_REQ_NOBROADCAST))
+	if (!unlikely(model_flags & LPM_REQ_NOBROADCAST))
 		lpm_pm_notify(LPM_NB_BEFORE_REFLECT, &nb_data);
 
 	if (lpm && lpm->op.reflect)

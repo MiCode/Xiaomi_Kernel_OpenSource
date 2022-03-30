@@ -230,7 +230,7 @@ int spm_common_dbg_dump(void)
 }
 
 
-void __exit lpm_dbg_common_fs_exit(void)
+void  lpm_dbg_common_fs_exit(void)
 {
 	/* restore suspend console */
 	console_suspend_enabled = lpm_system_console_suspend;
@@ -238,8 +238,9 @@ void __exit lpm_dbg_common_fs_exit(void)
 	/* wakeup source deinit */
 	wakeup_source_unregister(mtk_suspend_lock);
 }
+EXPORT_SYMBOL(lpm_dbg_common_fs_exit);
 
-int __init lpm_dbg_common_fs_init(void)
+int  lpm_dbg_common_fs_init(void)
 {
 	/* wakeup source init for suspend enable and disable */
 	mtk_suspend_lock = wakeup_source_register(NULL, "mtk_suspend_wakelock");
@@ -254,6 +255,7 @@ int __init lpm_dbg_common_fs_init(void)
 	suspend_dbg_fs_init();
 	spm_dbg_fs_init();
 
-	pr_info("%s %d: finish", __func__, __LINE__);
 	return 0;
 }
+EXPORT_SYMBOL(lpm_dbg_common_fs_init);
+MODULE_LICENSE("GPL");

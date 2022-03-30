@@ -14,7 +14,14 @@
 #include <linux/timer.h>
 
 #include <lpm.h>
-#include <lpm_plat_reg.h>
+
+#if IS_ENABLED(CONFIG_MTK_LPM_MT6983)
+#include <lpm_dbg_cpc_v5.h>
+#else
+#include <lpm_dbg_cpc_v3.h>
+#endif
+
+#include <lpm_dbg_syssram_v1.h>
 #include <mtk_cpuidle_sysfs.h>
 
 #include "mtk_cpupm_dbg.h"
@@ -23,6 +30,7 @@
 
 #define DUMP_INTERVAL       sec_to_ns(5)
 static u64 last_dump_ns;
+static unsigned long long mtk_lpm_last_cpuidle_dis;
 
 /* stress test */
 static unsigned int timer_interval = 10 * 1000;
@@ -301,16 +309,22 @@ struct MTK_CSTATE_INFO {
 	long val;
 };
 
-static long mtk_per_cpuidle_state_param(void *pData)
+static struct MTK_CSTATE_INFO state_info;
+
+static int mtk_per_cpuidle_state_param(void *pData)
 {
 	int i;
 	struct cpuidle_driver *drv = cpuidle_get_driver();
 	struct MTK_CSTATE_INFO *info = (struct MTK_CSTATE_INFO *)pData;
+	int suspend_type = lpm_suspend_type_get();
 
 	if (!drv || !info)
 		return 0;
 
 	for (i = drv->state_count - 1; i > 0; i--) {
+		if ((suspend_type == LPM_SUSPEND_S2IDLE) &&
+			!strcmp(drv->states[i].name, S2IDLE_STATE_NAME))
+			continue;
 		if (info->type == MTK_CPUIDLE_STATE_EN_SET) {
 			mtk_cpuidle_set_param(drv, i, IDLE_PARAM_EN,
 					      !!info->val);
@@ -320,37 +334,62 @@ static long mtk_per_cpuidle_state_param(void *pData)
 		else
 			break;
 	}
+
+	do_exit(0);
 	return 0;
 }
-
 void mtk_cpuidle_state_enable(bool en)
 {
 	int cpu;
-	struct MTK_CSTATE_INFO state_info = {
-		.type = MTK_CPUIDLE_STATE_EN_SET,
-		.val = (long)en,
-	};
+	struct task_struct *task;
 
-	mtk_cpupm_block();
+	state_info.type = MTK_CPUIDLE_STATE_EN_SET;
+	state_info.val = (long)en;
+
+	cpuidle_pause_and_lock();
+
 	for_each_possible_cpu(cpu) {
-		work_on_cpu(cpu, mtk_per_cpuidle_state_param,
-			    &state_info);
+		task = kthread_create(mtk_per_cpuidle_state_param,
+				&state_info, "mtk_cpuidle_state_enable");
+		if (IS_ERR(task)) {
+			pr_info("[name:mtk_lpm][P] mtk_cpuidle_state_enable failed\n");
+			return;
+		}
+		kthread_bind(task, cpu);
+		wake_up_process(task);
 	}
-	mtk_cpupm_allow();
+
+	if (!en)
+		mtk_lpm_last_cpuidle_dis = sched_clock();
+
+	cpuidle_resume_and_unlock();
+}
+
+unsigned long long mtk_cpuidle_state_last_dis_ms(void)
+{
+	return (mtk_lpm_last_cpuidle_dis / 1000000);
 }
 
 long mtk_cpuidle_state_enabled(void)
 {
 	int cpu;
-	struct MTK_CSTATE_INFO state_info = {
-		.type = MTK_CPUIDLE_STATE_EN_GET,
-		.val = 0,
-	};
+	long ret;
+	struct task_struct *task;
 
+	state_info.type = MTK_CPUIDLE_STATE_EN_GET;
+	state_info.val = 0;
 	for_each_possible_cpu(cpu) {
-		work_on_cpu(cpu, mtk_per_cpuidle_state_param,
-			    &state_info);
+		task = kthread_create(mtk_per_cpuidle_state_param,
+			(void *)&state_info, "mtk_cpuidle_state_enabled");
+		if (IS_ERR(task)) {
+			pr_info("[name:mtk_lpm][P] mtk_cpuidle_state_enabled failed\n");
+			ret = (long)PTR_ERR(task);
+			return ret;
+		}
+		kthread_bind(task, cpu);
+		wake_up_process(task);
 	}
+
 	return state_info.val;
 }
 
@@ -520,12 +559,6 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 		if (mtk_cpuidle_need_dump(nb_data->index))
 			mtk_cpuidle_dump_info();
 
-	} else if (action & LPM_NB_AFTER_PROMPT) {
-
-		/* prevent race conditions by mtk_lp_mod_locker */
-		if (mtk_cpuidle_ctrl.prof_en)
-			mtk_cpuidle_set_last_off_ts(nb_data->index);
-
 	} else if (action & LPM_NB_RESUME) {
 		mtk_idle = &per_cpu(mtk_cpuidle_dev, nb_data->cpu);
 		mtk_idle->info.idle_index = -1;
@@ -571,7 +604,7 @@ static void mtk_cpuidle_init_per_cpu(void *info)
 	mtk_idle->state_count = mtk_cpupm_get_idle_state_count(cpu);
 }
 
-int __init mtk_cpuidle_status_init(void)
+int mtk_cpuidle_status_init(void)
 {
 	mtk_cpuidle_ctrl.prof_en = false;
 	mtk_cpuidle_ctrl.log_en = true;
@@ -584,9 +617,10 @@ int __init mtk_cpuidle_status_init(void)
 	lpm_notifier_register(&mtk_cpuidle_status_nb);
 	return 0;
 }
+EXPORT_SYMBOL(mtk_cpuidle_status_init);
 
-void __exit mtk_cpuidle_status_exit(void)
+void mtk_cpuidle_status_exit(void)
 {
 	lpm_notifier_unregister(&mtk_cpuidle_status_nb);
 }
-
+EXPORT_SYMBOL(mtk_cpuidle_status_exit);

@@ -50,12 +50,12 @@ static LIST_HEAD(lpm_irqremain);
 #if !IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
 static inline unsigned int virq_to_hwirq(unsigned int virq)
 {
-	struct irq_data	*irq_data;
+	struct irq_desc *desc;
 	unsigned int hwirq;
 
-	irq_data = irq_get_irq_data(virq);
-	WARN_ON(!irq_data);
-	hwirq = irq_data ? irq_data->hwirq : 0;
+	desc = irq_to_desc(virq);
+	WARN_ON(!desc);
+	hwirq = desc ? desc->irq_data.hwirq : 0;
 	return hwirq;
 }
 #endif

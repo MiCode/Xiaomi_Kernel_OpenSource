@@ -104,7 +104,7 @@ int mtk_cpupm_get_idle_state_count(int cpu)
 	return state_count;
 }
 
-static void __init mtk_cpupm_node_init(void)
+static void  mtk_cpupm_node_init(void)
 {
 	struct device_node *node = NULL;
 
@@ -126,7 +126,7 @@ static void __init mtk_cpupm_node_init(void)
 	}
 }
 
-int __init mtk_cpupm_dbg_init(void)
+int mtk_cpupm_dbg_init(void)
 {
 	cpu_latency_qos_add_request(&cpuidle_dbg_qos_req,
 		PM_QOS_DEFAULT_VALUE);
@@ -139,11 +139,13 @@ int __init mtk_cpupm_dbg_init(void)
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_cpupm_dbg_init);
 
-void __exit mtk_cpupm_dbg_exit(void)
+void mtk_cpupm_dbg_exit(void)
 {
 	mtk_cpuidle_status_exit();
 	mtk_cpc_exit();
 
 	cpu_latency_qos_remove_request(&cpuidle_dbg_qos_req);
 }
+EXPORT_SYMBOL(mtk_cpupm_dbg_exit);

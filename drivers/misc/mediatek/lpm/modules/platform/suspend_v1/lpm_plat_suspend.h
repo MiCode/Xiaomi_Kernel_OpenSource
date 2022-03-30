@@ -6,12 +6,6 @@
 #ifndef __LPM_PLAT_SUSPEND_H__
 #define __LPM_PLAT_SUSPEND_H__
 
-struct mtk_lpm_abort_control {
-	struct task_struct *ts;
-	struct hrtimer wakeup_timer;
-	struct completion suspend_completion;
-};
-
 int lpm_model_suspend_init(void);
 
 extern void gpio_dump_regs(void);

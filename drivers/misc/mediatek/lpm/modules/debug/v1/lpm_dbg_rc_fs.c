@@ -553,6 +553,7 @@ int spm_cond_init(void)
 			if (ret != 0 || rc_id == -1 || rc_name == NULL) {
 				pr_info("[%s:%d] - abnormal rc\n",
 					__func__, __LINE__);
+				idx++;
 				continue;
 			}
 
@@ -744,6 +745,7 @@ int lpm_rc_fs_init(void)
 
 	return 0;
 }
+EXPORT_SYMBOL(lpm_rc_fs_init);
 
 int lpm_rc_fs_deinit(void)
 {
@@ -763,3 +765,4 @@ int lpm_rc_fs_deinit(void)
 	return 0;
 
 }
+EXPORT_SYMBOL(lpm_rc_fs_deinit);

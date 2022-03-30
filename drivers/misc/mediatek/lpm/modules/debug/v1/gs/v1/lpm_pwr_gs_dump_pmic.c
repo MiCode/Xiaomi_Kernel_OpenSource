@@ -90,7 +90,7 @@ void generic_dump_pmic(const char *pmic_name, int pmic_num,
 			p += snprintf(p, sizeof(buf) - (p - buf),
 				"%s - %s-%d - 0x%08x - 0x%08x\n",
 				user->name, pmic_name, pmic_num,
-					user->array[i], val0);
+					user->array[i], 0);
 			if (dump_cnt && ((dump_cnt % PER_LINE_TO_PRINT) == 0)) {
 				pr_info("%s", buf);
 				p = buf;
@@ -181,6 +181,22 @@ RETRY:
 	of_node_put(lpm);
 	return NULL;
 }
+static struct regmap *pmic_get_regmap(const char *name)
+{
+	struct device_node *np;
+	struct platform_device *pdev;
+
+	np = of_find_node_by_name(NULL, name);
+	if (!np)
+		return NULL;
+
+	pdev = of_find_device_by_node(np->child);
+	if (!pdev)
+		return NULL;
+
+	return dev_get_regmap(pdev->dev.parent, NULL);
+}
+
 int lpm_gs_pmic_cmp(int user)
 {
 	int i = 0;
@@ -189,9 +205,16 @@ int lpm_gs_pmic_cmp(int user)
 	struct regmap *regmap;
 
 	for (i = 0, _pmic = _info->pmic; *_pmic ; i++, _pmic++) {
-		regmap = lpm_gs_get_regmap(*_pmic);
-		if (IS_ERR(regmap))
+		regmap = NULL;
+		if (!strcmp((*_pmic)->pwr_domain, "6363"))
+			regmap = pmic_get_regmap("pmic");
+		else if (!strcmp((*_pmic)->pwr_domain, "6368") ||
+			 !strcmp((*_pmic)->pwr_domain, "6373"))
+			regmap = pmic_get_regmap("second_pmic");
+
+		if (IS_ERR(regmap) || !regmap)
 			continue;
+
 		generic_dump_pmic((*_pmic)->pwr_domain, i,
 				  &((*_pmic)->user[user]), regmap);
 	}
