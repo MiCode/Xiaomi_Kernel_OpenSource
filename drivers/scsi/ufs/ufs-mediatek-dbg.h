@@ -41,6 +41,8 @@ enum ufsdbg_cmd_type {
 	UFSDBG_HEALTH_DUMP      = 2,
 	UFSDBG_CMD_LIST_ENABLE  = 3,
 	UFSDBG_CMD_LIST_DISABLE = 4,
+	UFSDBG_CMD_QOS_ON       = 5,
+	UFSDBG_CMD_QOS_OFF      = 6,
 	UFSDBG_UNKNOWN
 };
 
@@ -51,6 +53,7 @@ enum cmd_hist_event {
 	CMD_DEV_COMPLETED,
 	CMD_TM_SEND,
 	CMD_TM_COMPLETED,
+	CMD_TM_COMPLETED_ERR,
 	CMD_UIC_SEND,
 	CMD_UIC_CMPL_GENERAL,
 	CMD_UIC_CMPL_PWR_CTRL,
@@ -62,6 +65,13 @@ enum cmd_hist_event {
 	CMD_DEBUG_PROC,
 	CMD_GENERIC,
 	CMD_CLK_GATING,
+};
+
+struct tm_cmd_struct {
+	u8 lun;
+	u8 tag;
+	u8 task_tag;
+	u16 tm_func;
 };
 
 struct utp_cmd_struct {
@@ -93,6 +103,7 @@ struct cmd_hist_struct {
 	u64 time;
 	u64 duration;
 	union {
+		struct tm_cmd_struct tm;
 		struct utp_cmd_struct utp;
 		struct uic_cmd_struct uic;
 		struct clk_gating_event_struct clk_gating;
@@ -100,6 +111,9 @@ struct cmd_hist_struct {
 };
 
 int ufs_mtk_dbg_register(struct ufs_hba *hba);
+void ufs_mtk_dbg_dump(u32 latest_cnt);
+int cmd_hist_enable(void);
+int cmd_hist_disable(void);
 
 #else
 
