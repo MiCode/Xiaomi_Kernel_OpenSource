@@ -137,6 +137,24 @@ static void switch_port_to_device(struct ssusb_mtk *ssusb)
 	ssusb_check_clocks(ssusb, check_clk);
 }
 
+static void ssusb_host_register(struct ssusb_mtk *ssusb, bool on)
+{
+	int ret;
+
+	dev_info(ssusb->dev, "%s %d\n", __func__, on);
+
+	if (!ssusb->xhci_pdrv)
+		return;
+
+	if (on) {
+		ret = platform_driver_register(ssusb->xhci_pdrv);
+		if (ret)
+			dev_info(ssusb->dev, "register host driver fail\n");
+	} else {
+		platform_driver_unregister(ssusb->xhci_pdrv);
+	}
+}
+
 int ssusb_set_vbus(struct otg_switch_mtk *otg_sx, int is_on)
 {
 	struct ssusb_mtk *ssusb = otg_sx_to_ssusb(otg_sx);
@@ -187,8 +205,7 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
 		switch_port_to_host(ssusb);
 		/* register host driver */
-		of_platform_populate(ssusb->dev->of_node,
-				NULL, NULL, ssusb->dev);
+		ssusb_host_register(ssusb, true);
 		ssusb_set_vbus(otg_sx, 1);
 		ssusb->is_host = true;
 		break;
@@ -203,7 +220,7 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 	case USB_ROLE_NONE:
 		if (ssusb->is_host) {
 			/* unregister host driver */
-			of_platform_depopulate(ssusb->dev);
+			ssusb_host_register(ssusb, false);
 			ssusb_host_suspend(ssusb);
 			ssusb_set_vbus(otg_sx, 0);
 			ssusb->is_host = false;

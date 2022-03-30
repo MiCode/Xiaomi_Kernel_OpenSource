@@ -305,6 +305,25 @@ static void ssusb_host_cleanup(struct ssusb_mtk *ssusb)
 	ssusb_host_disable(ssusb);
 }
 
+static void ssusb_get_platform_driver(struct ssusb_mtk *ssusb)
+{
+	struct device_node *parent_dn = ssusb->dev->of_node;
+	struct device_node *child;
+	struct platform_device *pdev;
+
+	for_each_child_of_node(parent_dn, child) {
+		if (of_device_is_compatible(child, "mediatek,mtk-xhci") ||
+		    of_device_is_compatible(child, "mediatek,mtk-xhci-p1")) {
+			pdev = of_find_device_by_node(child);
+			if (pdev) {
+				ssusb->xhci_pdrv =
+					to_platform_driver(pdev->dev.driver);
+				break;
+			}
+		}
+	}
+}
+
 /*
  * If host supports multiple ports, the VBUSes(5V) of ports except port0
  * which supports OTG are better to be enabled by default in DTS.
@@ -326,6 +345,8 @@ int ssusb_host_init(struct ssusb_mtk *ssusb, struct device_node *parent_dn)
 	}
 
 	dev_info(parent_dev, "xHCI platform device register success...\n");
+
+	ssusb_get_platform_driver(ssusb);
 
 	return 0;
 }
