@@ -4321,12 +4321,13 @@ static void mtk_iova_dbg_alloc(struct device *dev,
 {
 	struct iova_info *iova_buf;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	u32 tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
 
 	if (!iova) {
 		pr_info("%s fail! dev:%s, size:0x%zx\n",
 			__func__, dev_name(dev), size);
 
-		if (fwspec && MTK_M4U_TO_TAB(fwspec->ids[0]) == APU_TABLE)
+		if (tab_id == APU_TABLE)
 			mtk_iommu_iova_alloc_dump(NULL, dev);
 
 		return mtk_iommu_iova_alloc_dump_top(NULL, dev);
@@ -4336,7 +4337,7 @@ static void mtk_iova_dbg_alloc(struct device *dev,
 	if (!iova_buf)
 		return;
 
-	iova_buf->tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
+	iova_buf->tab_id = tab_id;
 	iova_buf->dom_id = MTK_M4U_TO_DOM(fwspec->ids[0]);
 	iova_buf->dev = dev;
 	iova_buf->iovad = iovad;
@@ -4346,7 +4347,7 @@ static void mtk_iova_dbg_alloc(struct device *dev,
 	list_add(&iova_buf->list_node, &iova_list.head);
 	spin_unlock(&iova_list.lock);
 
-	mtk_iommu_iova_trace(IOMMU_ALLOC, iova, size, iova_buf->tab_id, dev);
+	mtk_iommu_iova_trace(IOMMU_ALLOC, iova, size, tab_id, dev);
 }
 
 static void mtk_iova_dbg_free(
