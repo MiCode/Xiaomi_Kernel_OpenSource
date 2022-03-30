@@ -2551,17 +2551,97 @@ void mtk_crtc_cwb_path_disconnect(struct drm_crtc *crtc)
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 }
 
+bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc, unsigned int hrt_idx)
+{
+	int ret = 0;
+	struct slbc_data *sram = NULL;
+	struct mtk_drm_sram_list *sram_acquired;
+
+	if (!mtk_crtc)
+		return false;
+
+	mutex_lock(&mtk_crtc->mml_ir_sram.lock);
+
+	if (kref_read(&mtk_crtc->mml_ir_sram.ref) < 1) {
+
+		sram = kzalloc(sizeof(struct slbc_data), GFP_KERNEL);
+		sram->type = TP_BUFFER;
+		sram->uid = UID_DISP;
+
+		ret = slbc_request(sram);
+		if (ret < 0) {
+			DDPMSG("%s slbc_request fail %d", __func__, ret);
+			goto fail;
+		}
+		ret = slbc_power_on(sram);
+		if (ret < 0) {
+			DDPMSG("%s slbc_power_on fail %d", __func__, ret);
+			goto fail;
+		}
+
+		DRM_MMP_MARK(sram_alloc, (unsigned long)sram->paddr, sram->size);
+		DDPMSG("%s success - ret:%d address:0x%lx size:0x%lx\n", __func__, ret,
+		       (unsigned long)sram->paddr, sram->size);
+
+		mtk_crtc->mml_ir_sram.data = sram;
+		kref_init(&mtk_crtc->mml_ir_sram.ref);
+	} else {
+		kref_get(&mtk_crtc->mml_ir_sram.ref);
+	}
+
+	sram_acquired = kzalloc(sizeof(struct mtk_drm_sram_list), GFP_KERNEL);
+	sram_acquired->hrt_idx = hrt_idx;
+	list_add_tail(&sram_acquired->head, &mtk_crtc->mml_ir_sram.list.head);
+
+	goto done;
+
+fail:
+	kfree(sram);
+
+done:
+	mutex_unlock(&mtk_crtc->mml_ir_sram.lock);
+	return (ret == 0 ? true : false);
+}
+
 static void mtk_crtc_free_sram(struct mtk_drm_crtc *mtk_crtc)
 {
-	if (mtk_crtc->mml_ir_sram == NULL)
+	struct slbc_data *sram = NULL;
+
+	if (!mtk_crtc)
 		return;
-	DDPINFO("%s address:0x%lx size:0x%lx\n", __func__,
-		mtk_crtc->mml_ir_sram->paddr, mtk_crtc->mml_ir_sram->size);
-	DRM_MMP_MARK(sram_free, (unsigned long)mtk_crtc->mml_ir_sram->paddr,
-		mtk_crtc->mml_ir_sram->size);
-	slbc_power_off(mtk_crtc->mml_ir_sram);
-	slbc_release(mtk_crtc->mml_ir_sram);
-	mtk_crtc->mml_ir_sram = NULL;
+
+	sram = mtk_crtc->mml_ir_sram.data;
+
+	if (!sram)
+		return;
+
+	DDPMSG("%s address:0x%lx size:0x%lx\n", __func__, sram->paddr, sram->size);
+	slbc_power_off(sram);
+	slbc_release(sram);
+	mtk_crtc->mml_ir_sram.data = NULL;
+	DRM_MMP_MARK(sram_free, (unsigned long)sram->paddr, sram->size);
+}
+
+static void mtk_crtc_mml_clean(struct kref *kref)
+{
+	struct mtk_drm_sram *s = container_of(kref, typeof(*s), ref);
+	struct mtk_drm_crtc *mtk_crtc = container_of(s, typeof(*mtk_crtc), mml_ir_sram);
+
+	if (!mtk_crtc)
+		return;
+
+	DDPMSG("%s: sram_list is empty, free sram\n", __func__);
+	mtk_crtc_free_sram(mtk_crtc);
+
+	if (mtk_crtc->mml_cfg) {
+		mtk_free_mml_submit(mtk_crtc->mml_cfg);
+		mtk_crtc->mml_cfg = NULL;
+	}
+
+	if (mtk_crtc->mml_cfg_pq) {
+		mtk_free_mml_submit(mtk_crtc->mml_cfg_pq);
+		mtk_crtc->mml_cfg_pq = NULL;
+	}
 }
 
 static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
@@ -2602,27 +2682,6 @@ static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
 					mtk_crtc->ddp_mode,
 					lye_state,
 					cmdq_handle);
-		}
-		if (lye_state) {
-			bool cur_is_mml = (lye_state->scn[drm_crtc_index(crtc)] == MML ||
-				lye_state->scn[drm_crtc_index(crtc)] == MML_SRAM_ONLY);
-			bool prev_is_mml = (state->lye_state.scn[drm_crtc_index(crtc)] == MML ||
-				state->lye_state.scn[drm_crtc_index(crtc)] == MML_SRAM_ONLY);
-
-			if (cur_is_mml != prev_is_mml) {
-				if (cur_is_mml)
-					mtk_crtc_alloc_sram(mtk_crtc);
-				else if (prev_is_mml) {
-					DDPMSG("Leave MML scenario, free sram\n");
-					mtk_crtc_free_sram(mtk_crtc);
-					// release previous mml_cfg
-					if (mtk_crtc->mml_cfg) {
-						mtk_free_mml_submit(mtk_crtc->mml_cfg);
-						mtk_crtc->mml_cfg = NULL;
-						mtk_crtc->mml_cfg_pq = NULL;
-					}
-				}
-			}
 		}
 
 		state->lye_state = *lye_state;
@@ -4357,6 +4416,20 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		mtk_crtc->wb_enable = false;
 		drm_writeback_signal_completion(&mtk_crtc->wb_connector, 0);
 	}
+
+	{
+		struct mtk_drm_sram_list *entry, *tmp;
+
+		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
+		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
+			if (cb_data->hrt_idx > entry->hrt_idx) {
+				list_del_init(&entry->head);
+				kref_put(&mtk_crtc->mml_ir_sram.ref, mtk_crtc_mml_clean);
+			}
+		}
+		mutex_unlock(&mtk_crtc->mml_ir_sram.lock);
+	}
+
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (cb_data->is_mml) {
@@ -5862,8 +5935,17 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	if (!need_wait)
 		goto skip;
 
-	if (mtk_crtc->mml_cfg)
+	{
+		struct mtk_drm_sram_list *entry, *tmp;
+
+		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
+		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
+			list_del_init(&entry->head);
+		}
 		mtk_crtc_free_sram(mtk_crtc);
+		refcount_set(&mtk_crtc->mml_ir_sram.ref.refcount, 0);
+		mutex_unlock(&mtk_crtc->mml_ir_sram.lock);
+	}
 
 	if (crtc_id == 2) {
 		int gce_event =
@@ -6119,8 +6201,8 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	mtk_crtc_set_status(crtc, true);
 
 	/* 15. alloc sram if last is MML */
-	if (mtk_crtc->mml_cfg)
-		mtk_crtc_alloc_sram(mtk_crtc);
+	if (mtk_crtc->is_mml)
+		mtk_crtc_alloc_sram(mtk_crtc, mtk_state->prop_val[CRTC_PROP_LYE_IDX]);
 end:
 	CRTC_MMP_EVENT_END(crtc_id, enable,
 			mtk_crtc->enabled, 0);
@@ -8711,6 +8793,10 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	cb_data->misc = mtk_crtc->ddp_mode;
 	cb_data->msync2_enable = 0;
 	cb_data->is_mml = mtk_crtc->is_mml;
+
+	if (mtk_crtc_state->prop_val[CRTC_PROP_LYE_IDX] != (unsigned int)-1)
+		cb_data->hrt_idx = mtk_crtc_state->prop_val[CRTC_PROP_LYE_IDX];
+
 	if (mtk_crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX] != (unsigned int)-1)
 		cb_data->pres_fence_idx = mtk_crtc_state->prop_val[CRTC_PROP_PRES_FENCE_IDX];
 
@@ -9763,6 +9849,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 
 	mutex_init(&mtk_crtc->lock);
 	mutex_init(&mtk_crtc->cwb_lock);
+	mutex_init(&mtk_crtc->mml_ir_sram.lock);
 	mtk_crtc->config_regs = priv->config_regs;
 	mtk_crtc->config_regs_pa = priv->config_regs_pa;
 	mtk_crtc->dispsys_num = priv->dispsys_num;
@@ -9771,7 +9858,8 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	mtk_crtc->mmsys_reg_data = priv->reg_data;
 	mtk_crtc->path_data = path_data;
 	mtk_crtc->is_dual_pipe = false;
-	mtk_crtc->mml_ir_sram = NULL;
+
+	INIT_LIST_HEAD(&mtk_crtc->mml_ir_sram.list.head);
 
 	for (i = 0; i < DDP_MODE_NR; i++) {
 		for (j = 0; j < DDP_PATH_NR; j++) {

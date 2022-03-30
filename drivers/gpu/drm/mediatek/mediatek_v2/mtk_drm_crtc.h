@@ -657,6 +657,18 @@ struct mtk_mml_cb_para {
 	wait_queue_head_t mml_job_submit_wq;
 };
 
+struct mtk_drm_sram_list {
+	struct list_head head;
+	unsigned int hrt_idx;
+};
+
+struct mtk_drm_sram {
+	struct slbc_data *data;
+	struct mutex lock;
+	struct kref ref;
+	struct mtk_drm_sram_list list;
+};
+
 /**
  * struct mtk_drm_crtc - MediaTek specific crtc structure.
  * @base: crtc object.
@@ -787,7 +799,7 @@ struct mtk_drm_crtc {
 	struct dual_te d_te;
 
 	// MML inline rotate SRAM
-	struct slbc_data *mml_ir_sram;
+	struct mtk_drm_sram mml_ir_sram;
 	struct mml_submit *mml_cfg;
 	struct mml_submit *mml_cfg_pq;
 	struct mtk_mml_cb_para mml_cb;
@@ -840,6 +852,7 @@ struct mtk_cmdq_cb_data {
 	bool is_mml;
 	unsigned int pres_fence_idx;
 	struct drm_framebuffer *wb_fb;
+	unsigned int hrt_idx;
 };
 
 extern unsigned int disp_spr_bypass;
@@ -1009,6 +1022,8 @@ void mtk_gce_backup_slot_init(struct mtk_drm_crtc *mtk_crtc);
 
 void mtk_crtc_mml_racing_resubmit(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_handle);
 void mtk_crtc_mml_racing_stop_sync(struct drm_crtc *crtc, struct cmdq_pkt *_cmdq_handle);
+
+bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc, unsigned int hrt_idx);
 
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);

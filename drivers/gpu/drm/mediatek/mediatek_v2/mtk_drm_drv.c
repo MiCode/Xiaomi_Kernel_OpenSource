@@ -129,43 +129,6 @@ void **mtk_drm_disp_sec_cb_init(void)
 }
 EXPORT_SYMBOL(mtk_drm_disp_sec_cb_init);
 
-bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc)
-{
-	int ret = 0;
-	bool val = false;
-	int ret_slbc = 0;
-	struct slbc_data *sram = NULL;
-
-	if (!mtk_crtc)
-		return val;
-
-	if (mtk_crtc->mml_ir_sram)
-		return val;
-
-	mtk_crtc->mml_ir_sram = kzalloc(sizeof(struct slbc_data), GFP_KERNEL);
-	sram = mtk_crtc->mml_ir_sram;
-	sram->type = TP_BUFFER;
-	sram->size = 0;
-	sram->uid = 0;
-	sram->flag = 0;
-
-	ret_slbc = slbc_request(sram);
-	if (ret_slbc >= 0) {
-		ret = slbc_power_on(sram);
-		DDPINFO("%s success - ret:%d address:0x%lx size:0x%lx\n", __func__,
-			ret, (unsigned long)sram->paddr, sram->size);
-		DRM_MMP_MARK(sram_alloc, (unsigned long)sram->paddr, sram->size);
-		DRM_MMP_MARK(mml_sram, 1, 0);
-		val = true;
-	} else {
-		DDPMSG("%s fail ret:%d\n", __func__, ret_slbc);
-		kfree(mtk_crtc->mml_ir_sram);
-		mtk_crtc->mml_ir_sram = NULL;
-		val = false;
-	}
-	return val;
-}
-
 int mtk_atoi(const char *str)
 {
 	int len = strlen(str);
