@@ -2680,10 +2680,6 @@ static struct lvts_data mt6893_lvts_data = {
 #define COF_A_COUNT_R_GLD 12052
 #define COF_A_CONST_OFS 280000
 #define COF_A_OFS (COF_A_T_SLP_GLD - COF_A_CONST_OFS)
-#define COF_A_T_SLP_GLD_ADCT 228040
-#define COF_A_COUNT_R_GLD_ADCT 13353
-#define COF_A_CONST_OFS_ADCT 280000
-#define COF_A_OFS_ADCT (COF_A_T_SLP_GLD_ADCT - COF_A_CONST_OFS_ADCT)
 #define COF_A_T_SLP_GLD_HT 254410
 #define COF_A_COUNT_R_GLD_HT 15380
 #define COF_A_CONST_OFS_HT 170000
@@ -2854,10 +2850,6 @@ enum mt6983_lvts_sensor_enum {
 	MT6983_TS3_1,
 	MT6983_TS3_2,
 	MT6983_TS3_3,
-	MT6983_TS4_0,
-	MT6983_TS4_1,
-	MT6983_TS4_2,
-	MT6983_TS4_3,
 	MT6983_TS5_0,
 	MT6983_TS5_1,
 	MT6983_TS6_0,
@@ -2881,7 +2873,6 @@ enum mt6983_lvts_controller_enum {
 	MT6983_LVTS_MCU_CTRL0,
 	MT6983_LVTS_MCU_CTRL1,
 	MT6983_LVTS_MCU_CTRL2,
-	MT6983_LVTS_MCU_CTRL3,
 	MT6983_LVTS_AP_CTRL0,
 	MT6983_LVTS_AP_CTRL1,
 	MT6983_LVTS_AP_CTRL2,
@@ -2957,11 +2948,6 @@ static void mt6983_efuse_to_cal_data(struct lvts_data *lvts_data)
 	cal_data->count_r[MT6983_TS3_2] = GET_CAL_DATA_BITMASK(6, 15, 0);
 	cal_data->count_r[MT6983_TS3_3] = GET_CAL_DATA_BITMASK(6, 31, 16);
 
-	cal_data->count_r[MT6983_TS4_0] = GET_CAL_DATA_BITMASK(7, 15, 0);
-	cal_data->count_r[MT6983_TS4_1] = GET_CAL_DATA_BITMASK(7, 31, 16);
-	cal_data->count_r[MT6983_TS4_2] = GET_CAL_DATA_BITMASK(8, 15, 0);
-	cal_data->count_r[MT6983_TS4_3] = GET_CAL_DATA_BITMASK(8, 31, 16);
-
 	cal_data->count_r[MT6983_TS5_0] = GET_CAL_DATA_BITMASK(9, 15, 0);
 	cal_data->count_r[MT6983_TS5_1] = GET_CAL_DATA_BITMASK(9, 31, 16);
 
@@ -2985,7 +2971,6 @@ static void mt6983_efuse_to_cal_data(struct lvts_data *lvts_data)
 	cal_data->count_rc[MT6983_LVTS_MCU_CTRL0] = GET_CAL_DATA_BITMASK(18, 23, 0);
 	cal_data->count_rc[MT6983_LVTS_MCU_CTRL1] = GET_CAL_DATA_BITMASK(19, 23, 0);
 	cal_data->count_rc[MT6983_LVTS_MCU_CTRL2] = GET_CAL_DATA_BITMASK(20, 23, 0);
-	cal_data->count_rc[MT6983_LVTS_MCU_CTRL3] = GET_CAL_DATA_BITMASK(21, 23, 0);
 	cal_data->count_rc[MT6983_LVTS_AP_CTRL0] = GET_CAL_DATA_BITMASK(22, 23, 0);
 	cal_data->count_rc[MT6983_LVTS_AP_CTRL1] = GET_CAL_DATA_BITMASK(23, 23, 0);
 	cal_data->count_rc[MT6983_LVTS_AP_CTRL2] = GET_CAL_DATA_BITMASK(24, 23, 0);
@@ -3041,22 +3026,12 @@ static void mt6983_update_coef_data(struct lvts_data *lvts_data)
 	for (i = 0; i < lvts_data->num_tc; i++) {
 		for  (j = 0; j < tc[i].num_sensor; j++) {
 			s_index = tc[i].sensor_map[j];
-			if (tc[i].coeff.cali_mode == CALI_HT) {
+			if (tc[i].coeff.cali_mode == CALI_HT)
 				tc[i].coeff.a[j] = COF_A_OFS_HT + (COF_A_CONST_OFS_HT *
 					cal_data->count_r[s_index] / COF_A_COUNT_R_GLD_HT);
-			} else if (i == MT6983_LVTS_MCU_CTRL3) {
-				tc[i].coeff.a[j] = COF_A_OFS_ADCT + (COF_A_CONST_OFS_ADCT *
-					cal_data->count_r[s_index] / COF_A_COUNT_R_GLD_ADCT);
-				pr_info("%s: tc=%d tc[%d].coeff.a[%d]=%d cal_data->count_r[%d]=%d ADCT~~~\n",
-					__func__, i, i, j, tc[i].coeff.a[j], s_index,
-					cal_data->count_r[s_index]);
-			} else {
+			else
 				tc[i].coeff.a[j] = COF_A_OFS + (COF_A_CONST_OFS *
 					cal_data->count_r[s_index] / COF_A_COUNT_R_GLD);
-				pr_info("%s: tc=%d tc[%d].coeff.a[%d]=%d cal_data->count_r[%d]=%d~~~\n",
-					__func__, i, i, j, tc[i].coeff.a[j], s_index,
-					cal_data->count_r[s_index]);
-			}
 		}
 	}
 }
@@ -3100,20 +3075,6 @@ static struct tc_settings mt6983_tc_settings[] = {
 		.dominator_sensing_point = SENSING_POINT3,
 		.hw_reboot_trip_point = 116500,
 		.irq_bit = BIT(3),
-		.coeff = {
-			.cali_mode = CALI_NT,
-		},
-	},
-	[MT6983_LVTS_MCU_CTRL3] = {
-		.domain_index = MT6983_MCU_DOMAIN,
-		.addr_offset = 0x300,
-		.num_sensor = 4,
-		.sensor_map = {MT6983_TS4_0, MT6983_TS4_1, MT6983_TS4_2, MT6983_TS4_3},
-		.tc_speed = SET_TC_SPEED_IN_US(118, 118, 118, 118),
-		.hw_filter = LVTS_FILTER_1,
-		.dominator_sensing_point = SENSING_POINT2,
-		.hw_reboot_trip_point = 116500,
-		.irq_bit = BIT(4),
 		.coeff = {
 			.cali_mode = CALI_NT,
 		},
