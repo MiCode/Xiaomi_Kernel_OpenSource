@@ -406,8 +406,8 @@ static int lookup_reserved_memory(void)
 		info.debug_buf_paddr, info.total_size);
 		return -EINVAL;
 	}
-	/* remap reserved memory as cacheale */
-	info.vaddr = ioremap_cache(info.debug_buf_paddr, info.total_size);
+	/* remap reserved memory as non-cacheable */
+	info.vaddr = ioremap(info.debug_buf_paddr, info.total_size);
 	if (IS_ERR(info.vaddr)) {
 		pr_notice("Fail to remap debug buf vaddr:%d\n",
 			PTR_ERR(info.vaddr));
