@@ -1511,9 +1511,8 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 		//if (pre_bl != cur_bl)
 		AALAPI_LOG("gian = %d, backlight = %d",
 			g_aal_param.silky_bright_gain[0], backlight_value);
-		/* DWFS */
-		//mtk_trans_gain_to_gamma(crtc, &g_aal_param.silky_bright_gain[0],
-		//	backlight_value);
+		mtk_trans_gain_to_gamma(crtc, &g_aal_param.silky_bright_gain[0],
+			backlight_value);
 	} else {
 		AALAPI_LOG("%d", backlight_value);
 		mtk_leds_brightness_set("lcd-backlight", backlight_value);

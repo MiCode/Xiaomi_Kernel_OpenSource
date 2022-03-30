@@ -485,8 +485,7 @@ static void mtk_gamma_set(struct mtk_ddp_comp *comp,
 		DDPINFO("Incremental LUT\n");
 	}
 }
-/* DWFS */
-/*
+
 static void calculateGammaLut(struct DISP_GAMMA_LUT_T *data)
 {
 	int i;
@@ -523,6 +522,7 @@ static void calculateGamma12bitLut(struct DISP_GAMMA_12BIT_LUT_T *data)
 	}
 }
 
+static struct DISP_GAMMA_12BIT_LUT_T data;
 void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 	unsigned int gain[3], unsigned int bl)
 {
@@ -544,8 +544,6 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 
 		if (g_gamma_data_mode == HW_12BIT_MODE_8BIT ||
 			g_gamma_data_mode == HW_12BIT_MODE_12BIT) {
-			struct DISP_GAMMA_12BIT_LUT_T data;
-
 			calculateGamma12bitLut(&data);
 			mtk_crtc_user_cmd(crtc, default_comp,
 				SET_12BIT_GAMMALUT, (void *)&data);
@@ -563,7 +561,7 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 		}
 	}
 }
-*/
+
 static int mtk_gamma_user_cmd(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, unsigned int cmd, void *data)
 {
