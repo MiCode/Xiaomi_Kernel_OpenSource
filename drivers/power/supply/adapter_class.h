@@ -27,6 +27,24 @@ struct adapter_power_cap {
 	int info[ADAPTER_CAP_MAX_NR];
 };
 
+struct adapter_auth_data {
+	int vcap_min;
+	int vcap_max;
+	int icap_min;
+	int vta_min;
+	int vta_max;
+	int ita_max;
+	int ita_min;
+	bool pwr_lmt;
+	u8 pdp;
+	bool support_meas_cap;
+	bool support_status;
+	bool support_cc;
+	u32 vta_step;
+	u32 ita_step;
+	u32 ita_gap_per_vstep;
+};
+
 enum adapter_type {
 	MTK_PD_ADAPTER,
 };

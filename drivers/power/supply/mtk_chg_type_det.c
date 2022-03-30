@@ -11,7 +11,9 @@
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/reboot.h>
-
+#include <linux/suspend.h>
+#include <linux/mutex.h>
+#include <linux/delay.h>
 #include <tcpm.h>
 
 #define MTK_CTD_DRV_VERSION	"1.0.0_MTK"
@@ -31,6 +33,10 @@ struct mtk_ctd_info {
 	struct mutex attach_lock;
 	bool typec_attach;
 	bool tcpc_kpoc;
+	/* suspend notify */
+	struct notifier_block pm_nb;
+	bool is_suspend;
+	bool ignore_usb;
 };
 
 enum {
@@ -63,29 +69,62 @@ static int typec_attach_thread(void *data)
 {
 	struct mtk_ctd_info *mci = data;
 	int ret = 0;
-	bool attach;
+	bool attach, ignore_usb;
 	union power_supply_propval val;
 
 	pr_info("%s: ++\n", __func__);
 	while (!kthread_should_stop()) {
-		wait_event(mci->attach_wq,
+		ret = wait_event_interruptible(mci->attach_wq,
 			   atomic_read(&mci->chrdet_start) > 0 ||
 							 kthread_should_stop());
+		if (ret < 0) {
+			pr_notice("%s: wait event been interrupted(%d)\n", __func__, ret);
+			continue;
+		}
 		if (kthread_should_stop())
 			break;
 		mutex_lock(&mci->attach_lock);
 		attach = mci->typec_attach;
+		ignore_usb = mci->ignore_usb;
 		atomic_set(&mci->chrdet_start, 0);
 		mutex_unlock(&mci->attach_lock);
 		val.intval = attach;
 		pr_notice("%s bc12_sel:%d, attach:%d\n",
 			  __func__, mci->bc12_sel, attach);
 		if (mci->bc12_sel == MTK_CTD_BY_SUBPMIC) {
-			ret = power_supply_set_property(mci->bc12_psy,
+			if (ignore_usb) {
+				ret = power_supply_set_property(mci->bc12_psy,
+						POWER_SUPPLY_PROP_POWER_NOW, &val);
+				if (ret < 0)
+					dev_info(mci->dev, "%s: set power_now fail(%d)\n",
+						 __func__, ret);
+
+				if (tcpm_inquire_typec_attach_state(mci->tcpc_dev) ==
+							   TYPEC_ATTACHED_AUDIO)
+					val.intval = attach ? POWER_SUPPLY_USB_TYPE_DCP :
+					POWER_SUPPLY_USB_TYPE_UNKNOWN;
+				else /* Source to Sink */
+					val.intval = attach ? POWER_SUPPLY_USB_TYPE_SDP :
+					POWER_SUPPLY_USB_TYPE_UNKNOWN;
+				ret = power_supply_set_property(mci->bc12_psy,
+						POWER_SUPPLY_PROP_USB_TYPE, &val);
+				if (ret < 0)
+					dev_info(mci->dev, "%s: set charge type fail(%d)\n",
+						 __func__, ret);
+				val.intval = POWER_SUPPLY_TYPE_USB;
+				ret = power_supply_set_property(mci->bc12_psy,
+						POWER_SUPPLY_PROP_TYPE, &val);
+				if (ret < 0)
+					dev_info(mci->dev, "%s: set psy type fail(%d)\n",
+						 __func__, ret);
+				power_supply_changed(mci->bc12_psy);
+			} else {
+				ret = power_supply_set_property(mci->bc12_psy,
 						POWER_SUPPLY_PROP_ONLINE, &val);
-			if (ret < 0)
-				dev_info(mci->dev, "%s: set online fail(%d)\n",
-					__func__, ret);
+				if (ret < 0)
+					dev_info(mci->dev, "%s: set online fail(%d)\n",
+						 __func__, ret);
+			}
 		} else
 			mtk_ext_get_charger_type(mci, attach);
 	}
@@ -93,12 +132,13 @@ static int typec_attach_thread(void *data)
 }
 
 static void handle_typec_attach(struct mtk_ctd_info *mci,
-				bool en)
+				bool en, bool ignore_usb)
 {
 	mutex_lock(&mci->attach_lock);
 	mci->typec_attach = en;
+	mci->ignore_usb = ignore_usb;
 	atomic_inc(&mci->chrdet_start);
-	wake_up(&mci->attach_wq);
+	wake_up_interruptible(&mci->attach_wq);
 	mutex_unlock(&mci->attach_lock);
 }
 
@@ -110,6 +150,12 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 						    struct mtk_ctd_info, pd_nb);
 
 	switch (event) {
+	case TCP_NOTIFY_SINK_VBUS:
+		if (tcpm_inquire_typec_attach_state(mci->tcpc_dev) == TYPEC_ATTACHED_AUDIO) {
+			pr_info("%s: TCP sink_vbus\n", __func__);
+			handle_typec_attach(mci, !!noti->vbus_state.mv, true);
+		}
+		break;
 	case TCP_NOTIFY_TYPEC_STATE:
 		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
 		    (noti->typec_state.new_state == TYPEC_ATTACHED_SNK ||
@@ -117,32 +163,64 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		    noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC)) {
 			pr_info("%s USB Plug in, pol = %d\n", __func__,
 					noti->typec_state.polarity);
-			handle_typec_attach(mci, true);
+			handle_typec_attach(mci, true, false);
 		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
 		    noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
-			noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC)
+		    noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC ||
+		    noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO)
 			&& noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			pr_info("%s USB Plug out\n", __func__);
 			if (mci->tcpc_kpoc) {
 				pr_info("%s: typec unattached, power off\n",
 					__func__);
-				kernel_power_off();
+				while (1) {
+					if (mci->is_suspend == false) {
+						pr_info("%s, not in suspend, shutdown\n", __func__);
+						kernel_power_off();
+					} else {
+						pr_info("%s, suspend, cannot shutdown\n", __func__);
+						msleep(20);
+					}
+				}
 			}
-			handle_typec_attach(mci, false);
+			handle_typec_attach(mci, false, false);
 		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_SRC &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
 			pr_info("%s Source_to_Sink\n", __func__);
-			handle_typec_attach(mci, true);
+			handle_typec_attach(mci, true, true);
 		}  else if (noti->typec_state.old_state == TYPEC_ATTACHED_SNK &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
 			pr_info("%s Sink_to_Source\n", __func__);
-			handle_typec_attach(mci, false);
+			handle_typec_attach(mci, false, true);
 		}
 		break;
 	default:
 		break;
 	};
 	return NOTIFY_OK;
+}
+
+static int chg_type_det_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	struct mtk_ctd_info *info;
+
+	info = (struct mtk_ctd_info *)container_of(notifier,
+		struct mtk_ctd_info, pm_nb);
+
+	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		info->is_suspend = true;
+		pr_info("%s: enter PM_SUSPEND_PREPARE\n", __func__);
+		break;
+	case PM_POST_SUSPEND:
+		info->is_suspend = false;
+		pr_info("%s: enter PM_POST_SUSPEND\n", __func__);
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_DONE;
 }
 
 static void mtk_ctd_parse_dt(struct mtk_ctd_info *mci)
@@ -192,7 +270,13 @@ static int mtk_ctd_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	mci->pm_nb.notifier_call = chg_type_det_pm_event;
 	mci->pd_nb.notifier_call = pd_tcp_notifier_call;
+
+	ret = register_pm_notifier(&mci->pm_nb);
+	if (ret < 0)
+		pr_notice("%s: register pm failed\n", __func__);
+
 	ret = register_tcp_dev_notifier(mci->tcpc_dev, &mci->pd_nb,
 					TCP_NOTIFY_TYPE_ALL);
 	if (ret < 0) {

@@ -831,6 +831,26 @@ config CHARGER_MT6362
 	  The driver can also be build as a module.
 	  If so, the module will be called mt6362_chg
 
+config CHARGER_MT6375
+	tristate "MT6375 charger driver"
+	depends on MFD_MT6375
+	help
+	  Say Y to enable support for the MT6375 charger.
+	  The driver supports controlling switching charger and OTG
+	  with high-accuracy current and voltage regulation.
+	  The device is compliant with the USB Battery Charging Specification
+	  Revision 1.2.
+
+config GAUGE_MT6375
+	tristate "MT6375 fuel gauge driver"
+	depends on MFD_MT6375
+	help
+	  Say Y to enable support for the MT6375 gauge.
+	  This adds support for battery fuel gauge in Mediatek MT6375 PMIC.
+	  The fuelgauge calculates and determines the battery state of charge
+	  according to battery open circuit voltage.
+	  Say N to disable.
+
 config MTK_CHARGER_TYPE_DETECT
 	tristate "Mediatek Charger Type Detect Driver"
 	depends on TCPC_CLASS
