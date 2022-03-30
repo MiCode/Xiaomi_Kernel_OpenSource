@@ -9858,6 +9858,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	mtk_crtc->mmsys_reg_data = priv->reg_data;
 	mtk_crtc->path_data = path_data;
 	mtk_crtc->is_dual_pipe = false;
+	mtk_crtc->is_force_mml_scen = mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PQ);
 
 	INIT_LIST_HEAD(&mtk_crtc->mml_ir_sram.list.head);
 

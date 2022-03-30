@@ -2023,6 +2023,22 @@ static void process_dbg_opt(const char *opt)
 		helper_opt =
 			mtk_drm_helper_name_to_opt(priv->helper_opt, option);
 		mtk_update_layering_opt_by_disp_opt(helper_opt, value);
+
+		if (helper_opt == MTK_DRM_OPT_MML_PQ) {
+			struct drm_crtc *crtc;
+			struct mtk_drm_crtc *mtk_crtc;
+
+			/* this debug cmd only for crtc0 */
+			crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list, typeof(*crtc),
+						head);
+			if (!crtc) {
+				DDPMSG("find crtc fail\n");
+				return;
+			}
+			mtk_crtc = to_mtk_crtc(crtc);
+			if (mtk_crtc)
+				mtk_crtc->is_force_mml_scen = !!value;
+		}
 	} else if (strncmp(opt, "mobile:", 7) == 0) {
 		if (strncmp(opt + 7, "on", 2) == 0)
 			g_mobile_log = 1;
