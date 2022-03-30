@@ -75,8 +75,10 @@ static unsigned int cpudvfs_get_cur_freq(int cluster_id, bool is_mcupm)
 	return 0;
 }
 
-#define DSU_VOLT	0x51c
-#define DSU_FREQ	0x11ec
+#define DSU_VOLT_2_CLUSTER	0x514
+#define DSU_FREQ_2_CLUSTER	0x11e8
+#define DSU_VOLT_3_CLUSTER	0x51c
+#define DSU_FREQ_3_CLUSTER	0x11ec
 
 unsigned int csram_read(unsigned int offs)
 {
@@ -171,8 +173,13 @@ void perf_tracker(u64 wallclock,
 	}
 #endif
 	/* dsu */
-	dsu_v = csram_read(DSU_VOLT);
-	dsu_f = csram_read(DSU_FREQ);
+	if (cluster_nr == 2) {
+		dsu_v = csram_read(DSU_VOLT_2_CLUSTER);
+		dsu_f = csram_read(DSU_FREQ_2_CLUSTER);
+	} else if (cluster_nr == 3) {
+		dsu_v = csram_read(DSU_VOLT_3_CLUSTER);
+		dsu_f = csram_read(DSU_FREQ_3_CLUSTER);
+	}
 	sbin_data[bw_record_nums] = dsu_v;
 	sbin_data[bw_record_nums+1] = dsu_f;
 	/* trace for short bin */
