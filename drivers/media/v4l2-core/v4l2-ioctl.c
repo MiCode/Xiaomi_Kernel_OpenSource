@@ -80,18 +80,16 @@ static const struct std_descr standards[] = {
 	{ 0,			"Unknown"   }
 };
 
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
 static void clear_reserved(struct v4l2_format *p)
 {
-#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
 	int ret = 0;
 
 	trace_android_vh_clear_reserved_fmt_fields(p, &ret);
 	if (!ret)
 		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
-#else
-	CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
-#endif
 }
+#endif
 
 /* video4linux standard ID conversion to standard name
  */
@@ -1673,7 +1671,11 @@ static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		if (unlikely(!ops->vidioc_s_fmt_vid_cap_mplane))
 			break;
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
 		clear_reserved(p);
+#else
+		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
+#endif
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
@@ -1704,7 +1706,11 @@ static int v4l_s_fmt(const struct v4l2_ioctl_ops *ops,
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		if (unlikely(!ops->vidioc_s_fmt_vid_out_mplane))
 			break;
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
 		clear_reserved(p);
+#else
+		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
+#endif
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
@@ -1775,7 +1781,11 @@ static int v4l_try_fmt(const struct v4l2_ioctl_ops *ops,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		if (unlikely(!ops->vidioc_try_fmt_vid_cap_mplane))
 			break;
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
 		clear_reserved(p);
+#else
+		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
+#endif
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
@@ -1806,7 +1816,11 @@ static int v4l_try_fmt(const struct v4l2_ioctl_ops *ops,
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		if (unlikely(!ops->vidioc_try_fmt_vid_out_mplane))
 			break;
+#if IS_ENABLED(CONFIG_MTK_CAMSYS_VEND_HOOK)
 		clear_reserved(p);
+#else
+		CLEAR_AFTER_FIELD(p, fmt.pix_mp.xfer_func);
+#endif
 		for (i = 0; i < p->fmt.pix_mp.num_planes; i++)
 			CLEAR_AFTER_FIELD(&p->fmt.pix_mp.plane_fmt[i],
 					  bytesperline);
