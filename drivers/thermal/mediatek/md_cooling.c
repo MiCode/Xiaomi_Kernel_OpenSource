@@ -30,11 +30,8 @@ static unsigned int default_tx_pwr[MAX_NUM_TX_PWR_STATE] = {
 	DEFAULT_THROTTLE_TX_PWR_LV3,
 };
 static DEFINE_MUTEX(md_cdev_list_lock);
-/* Purpose:
- *	1. protect mdc->status which will be required by get_md_cooling_status()
- *	2. avoid send tmc msg concurrently by cooler and user input from debugfs
- */
-static DEFINE_MUTEX(md_cooling_lock);
+static DEFINE_MUTEX(mdc_data_lock);
+static DEFINE_MUTEX(send_tmc_msg_lock);
 static LIST_HEAD(md_cdev_list);
 
 /*==================================================
@@ -54,9 +51,9 @@ enum md_cooling_status get_md_cooling_status(void)
 		pr_warn("Invalid MD state(%d)!\n", md_state);
 		cur_status = MD_OFF;
 	} else {
-		mutex_lock(&md_cooling_lock);
+		mutex_lock(&mdc_data_lock);
 		cur_status = mdc->status;
-		mutex_unlock(&md_cooling_lock);
+		mutex_unlock(&mdc_data_lock);
 	}
 
 	return cur_status;
@@ -66,9 +63,9 @@ int send_throttle_msg(unsigned int msg)
 {
 	int ret;
 
-	mutex_lock(&md_cooling_lock);
+	mutex_lock(&send_tmc_msg_lock);
 	ret = exec_ccci_kern_func_by_md_id(MD_SYS1, ID_THROTTLING_CFG, (char *)&msg, 4);
-	mutex_unlock(&md_cooling_lock);
+	mutex_unlock(&send_tmc_msg_lock);
 
 	if (ret)
 		pr_err("send tmc msg 0x%x failed, ret:%d\n", msg, ret);
@@ -126,10 +123,6 @@ static unsigned long find_max_mutt_state(void)
 	int i;
 
 	for (i = 0; i < mdc->pa_num; i++) {
-		md_cdev = get_md_cdev(MD_COOLING_TYPE_NO_IMS, i);
-		if (md_cdev && md_cdev->target_state)
-			return mdc->pdata->max_lv;
-
 		md_cdev = get_md_cdev(MD_COOLING_TYPE_MUTT, i);
 		if (md_cdev)
 			final_state = max(final_state, md_cdev->target_state);
@@ -175,9 +168,12 @@ static int mutt_throttle(struct md_cooling_device *md_cdev, unsigned long state)
 		return 0;
 	}
 
+	mutex_lock(&mdc_data_lock);
+
 	if (is_md_off(status)) {
 		md_cdev->target_state = MD_COOLING_UNLIMITED_STATE;
 		mdc->mutt_state = MD_COOLING_UNLIMITED_STATE;
+		mutex_unlock(&mdc_data_lock);
 		trace_md_mutt_limit(md_cdev, status);
 		return 0;
 	}
@@ -185,6 +181,7 @@ static int mutt_throttle(struct md_cooling_device *md_cdev, unsigned long state)
 	md_cdev->target_state = state;
 	final_state = find_max_mutt_state();
 	if (final_state == mdc->mutt_state) {
+		mutex_unlock(&mdc_data_lock);
 		dev_info(dev, "%s: ignore set state %ld due to final_state(%ld) is not changed\n",
 				md_cdev->name, state, final_state);
 		return 0;
@@ -194,14 +191,16 @@ static int mutt_throttle(struct md_cooling_device *md_cdev, unsigned long state)
 		? TMC_COOLER_LV_DISABLE_MSG
 		: mutt_lv_to_tmc_msg(md_cdev->pa_id, mdc->pdata->state_to_mutt_lv(final_state));
 	ret = send_throttle_msg(msg);
-	if (ret)
+	if (ret) {
+		mutex_unlock(&mdc_data_lock);
 		return ret;
+	}
 
 	new_status = state_to_md_cooling_status(final_state);
-	mutex_lock(&md_cooling_lock);
 	mdc->status = new_status;
-	mutex_unlock(&md_cooling_lock);
 	mdc->mutt_state = final_state;
+
+	mutex_unlock(&mdc_data_lock);
 
 	dev_info(dev, "%s: set lv = %ld done\n", md_cdev->name, state);
 	trace_md_mutt_limit(md_cdev, new_status);
@@ -217,16 +216,15 @@ static int tx_pwr_throttle(struct md_cooling_device *md_cdev, unsigned long stat
 	int ret;
 
 	status = get_md_cooling_status();
-	if (is_md_inactive(status)) {
-		dev_info(dev, "skip tx pwr control due to MD is inactive\n");
+	if (is_md_off(status)) {
+		dev_info(dev, "skip tx pwr control due to MD is off\n");
 		/*
 		 * TX power throttle will be cleared when MD is reset. Clear target
-		 * LV to avoid sending unnecessary SCG on command to MD
+		 * LV to avoid sending unnecessary command to MD
 		 */
-		if (is_md_off(status))
-			md_cdev->target_state = MD_COOLING_UNLIMITED_STATE;
+		md_cdev->target_state = MD_COOLING_UNLIMITED_STATE;
 		trace_md_tx_pwr_limit(md_cdev, status);
-		return -EPERM;
+		return 0;
 	}
 
 	if (state == MD_COOLING_UNLIMITED_STATE) {
@@ -257,14 +255,6 @@ static int scg_off_throttle(struct md_cooling_device *md_cdev, unsigned long sta
 
 	status = get_md_cooling_status();
 	/*
-	 * Ignore when MUTT is activated because SCG off is the one of MUTT cooling levels
-	 */
-	if (is_mutt_enabled(status)) {
-		dev_info(dev, "skip SCG control due to MUTT is enabled\n");
-		return 0;
-	}
-
-	/*
 	 * SCG will be turned on again when MD is reset. Clear target
 	 * LV to avoid sending unnecessary SCG on command to MD
 	 */
@@ -274,14 +264,22 @@ static int scg_off_throttle(struct md_cooling_device *md_cdev, unsigned long sta
 		return 0;
 	}
 
+	/*
+	 * Ignore when MUTT is activated because SCG off is the one of MUTT cooling levels
+	 */
+	if (is_mutt_enabled(status)) {
+		dev_info(dev, "skip SCG control due to MUTT is enabled\n");
+		return 0;
+	}
+
 	msg = (state == MD_COOLING_UNLIMITED_STATE)
 		? scg_off_to_tmc_msg(0) : scg_off_to_tmc_msg(1);
 	ret = send_throttle_msg(msg);
 	if (!ret) {
 		md_cdev->target_state = state;
-		mutex_lock(&md_cooling_lock);
+		mutex_lock(&mdc_data_lock);
 		mdc->status = (state) ? MD_SCG_OFF : MD_LV_THROTTLE_DISABLED;
-		mutex_unlock(&md_cooling_lock);
+		mutex_unlock(&mdc_data_lock);
 	}
 
 	dev_info(dev, "%s: set lv = %ld done\n", md_cdev->name, state);
@@ -314,7 +312,7 @@ static int md_cooling_set_cur_state(struct thermal_cooling_device *cdev, unsigne
 	int ret;
 
 	/* Request state should be less than max_state */
-	if (WARN_ON(state > md_cdev->max_state || !md_cdev->throttle))
+	if (state > md_cdev->max_state || !md_cdev->throttle)
 		return -EINVAL;
 
 	if (md_cdev->target_state == state)
@@ -329,37 +327,19 @@ static int md_cooling_set_cur_state(struct thermal_cooling_device *cdev, unsigne
  * platform data and platform driver callbacks
  *==================================================
  */
-/*
- * For MT6295, throttle LV start from LV 1
- * For MT6297, throttle LV start from LV 0
- */
-static unsigned long mt6295_cooling_state_to_mutt_lv(unsigned long state)
-{
-	return state;
-}
-static unsigned long mt6297_cooling_state_to_mutt_lv(unsigned long state)
+static unsigned long md_cooling_state_to_mutt_lv(unsigned long state)
 {
 	return (state > 0) ? (state - 1) : 0;
 }
 
-static const struct md_cooling_platform_data mt6295_pdata = {
-	.state_to_mutt_lv = mt6295_cooling_state_to_mutt_lv,
-	.max_lv = 5,
-};
-static const struct md_cooling_platform_data mt6297_pdata = {
-	.state_to_mutt_lv = mt6297_cooling_state_to_mutt_lv,
+static const struct md_cooling_platform_data md_cooling_pdata = {
+	.state_to_mutt_lv = md_cooling_state_to_mutt_lv,
 	.max_lv = 9,
 };
 
 static const struct of_device_id md_cooling_of_match[] = {
-	{
-		.compatible = "mediatek,mt6295-md-cooler",
-		.data = (void *)&mt6295_pdata,
-	},
-	{
-		.compatible = "mediatek,mt6297-md-cooler",
-		.data = (void *)&mt6297_pdata,
-	},
+	{ .compatible = "mediatek,mt6297-md-cooler", },
+	{ .compatible = "mediatek,mt6298-md-cooler", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, md_cooling_of_match);
@@ -370,8 +350,7 @@ static struct thermal_cooling_device_ops md_cooling_ops = {
 	.set_cur_state		= md_cooling_set_cur_state,
 };
 
-static int init_md_cooling_device(
-	struct device *dev, struct device_node *np, int id, enum md_cooling_type type)
+static int init_md_cooling_device(struct device *dev, struct device_node *np, int id)
 {
 	struct thermal_cooling_device *cdev;
 	struct md_cooling_device *md_cdev;
@@ -382,29 +361,22 @@ static int init_md_cooling_device(
 
 	strncpy(md_cdev->name, np->name, strlen(np->name));
 	md_cdev->pa_id = id;
-	md_cdev->type = type;
 	md_cdev->target_state = MD_COOLING_UNLIMITED_STATE;
 	md_cdev->dev = dev;
 
-	switch (type) {
-	case MD_COOLING_TYPE_MUTT:
-		md_cdev->max_state = mdc->pdata->max_lv - 1;
+	if (strstr(np->name, "mutt") != NULL) {
+		md_cdev->type = MD_COOLING_TYPE_MUTT;
+		md_cdev->max_state = mdc->pdata->max_lv;
 		md_cdev->throttle = mutt_throttle;
-		break;
-	case MD_COOLING_TYPE_NO_IMS:
-		md_cdev->max_state = MAX_NUM_NO_IMS_STATE;
-		md_cdev->throttle = mutt_throttle;
-		break;
-	case MD_COOLING_TYPE_TX_PWR:
+	} else if (strstr(np->name, "tx-pwr") != NULL) {
+		md_cdev->type = MD_COOLING_TYPE_TX_PWR;
 		md_cdev->max_state = MAX_NUM_TX_PWR_STATE;
 		md_cdev->throttle = tx_pwr_throttle;
-		break;
-	case MD_COOLING_TYPE_SCG_OFF:
+	} else if (strstr(np->name, "scg-off") != NULL) {
+		md_cdev->type = MD_COOLING_TYPE_SCG_OFF;
 		md_cdev->max_state = MAX_NUM_SCG_OFF_STATE;
 		md_cdev->throttle = scg_off_throttle;
-		break;
-	default:
-		dev_err(dev, "invalid md cooling type %d\n", type);
+	} else {
 		goto init_fail;
 	}
 
@@ -431,7 +403,7 @@ static int parse_dt(struct platform_device *pdev)
 	struct device_node *child, *gchild;
 	struct device_node *np = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
-	int id = 0, type, count, ret;
+	int id = 0, count, ret;
 
 	count = of_get_child_count(np);
 	if (!count) {
@@ -442,15 +414,13 @@ static int parse_dt(struct platform_device *pdev)
 	mdc->pa_num = count;
 
 	for_each_child_of_node(np, child) {
-		type = 0;
 		for_each_child_of_node(child, gchild) {
-			ret = init_md_cooling_device(dev, gchild, id, (enum md_cooling_type)type);
+			ret = init_md_cooling_device(dev, gchild, id);
 			of_node_put(gchild);
 			if (ret) {
 				of_node_put(child);
 				return ret;
 			}
-			type++;
 		}
 		of_node_put(child);
 		id++;
@@ -469,7 +439,7 @@ static int md_cooling_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mdc->mutt_state = MD_COOLING_UNLIMITED_STATE;
-	mdc->pdata = of_device_get_match_data(dev);
+	mdc->pdata = &md_cooling_pdata;
 
 	ret = parse_dt(pdev);
 	if (ret) {
@@ -500,7 +470,6 @@ static int md_cooling_remove(struct platform_device *pdev)
 		md_cdev = list_entry(pos, struct md_cooling_device, node);
 		thermal_cooling_device_unregister(md_cdev->cdev);
 		list_del(&md_cdev->node);
-		kfree(md_cdev);
 	}
 	mutex_unlock(&md_cdev_list_lock);
 

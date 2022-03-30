@@ -15,6 +15,21 @@
 #include <linux/types.h>
 #include "charger_cooling.h"
 
+struct charger_cooler_info {
+	int num_state;
+	int cur_current;
+	int cur_state;
+};
+
+static struct charger_cooler_info charger_cl_data;
+/* < -1 is unlimit, unit is uA. */
+static const int master_charger_state_to_current_limit[CHARGER_STATE_NUM] = {
+	-1, 2600000, 2200000, 1800000, 1400000, 1000000, 700000, 500000, 0
+};
+static const int slave_charger_state_to_current_limit[CHARGER_STATE_NUM] = {
+	-1, 1800000, 1600000, 1400000, 1200000, 1000000, 700000, 500000, 0
+};
+
 /*==================================================
  * cooler callback functions
  *==================================================
@@ -25,6 +40,8 @@ static int charger_throttle(struct charger_cooling_device *charger_cdev, unsigne
 
 	charger_cdev->target_state = state;
 	charger_cdev->pdata->state_to_charger_limit(charger_cdev);
+	charger_cl_data.cur_state = state;
+	charger_cl_data.cur_current = master_charger_state_to_current_limit[state];
 	dev_info(dev, "%s: set lv = %ld done\n", charger_cdev->name, state);
 	return 0;
 }
@@ -67,16 +84,8 @@ static int charger_cooling_set_cur_state(struct thermal_cooling_device *cdev, un
  * platform data and platform driver callbacks
  *==================================================
  */
-/* < -1 is unlimit, unit is uA. */
-static const int master_charger_state_to_current_limit[CHARGER_STATE_NUM] = {
-	-1, 2600000, 2200000, 1800000, 1400000, 1000000, 700000, 500000, 0
-};
-static const int slave_charger_state_to_current_limit[CHARGER_STATE_NUM] = {
-	-1, 1800000, 1600000, 1400000, 1200000, 1000000, 700000, 500000, 0
-};
 
-
-static int mt6360_cooling_state_to_charger_limit(struct charger_cooling_device *chg)
+static int cooling_state_to_charger_limit_v1(struct charger_cooling_device *chg)
 {
 	union power_supply_propval prop_bat_chr;
 	union power_supply_propval prop_input;
@@ -129,7 +138,7 @@ static int mt6360_cooling_state_to_charger_limit(struct charger_cooling_device *
 		return ret;
 	}
 
-	pr_notice("chr limit state %d, chr %d, input %d, vbus %d\n",
+	pr_notice("chr limit state %lu, chr %d, input %d, vbus %d\n",
 		chg->target_state, prop_bat_chr.intval, prop_input.intval, prop_vbus.intval);
 
 	power_supply_changed(chg->chg_psy);
@@ -156,13 +165,21 @@ static int mt6360_cooling_state_to_charger_limit(struct charger_cooling_device *
 
 
 static const struct charger_cooling_platform_data mt6360_pdata = {
-	.state_to_charger_limit = mt6360_cooling_state_to_charger_limit,
+	.state_to_charger_limit = cooling_state_to_charger_limit_v1,
+};
+
+static const struct charger_cooling_platform_data mt6375_pdata = {
+	.state_to_charger_limit = cooling_state_to_charger_limit_v1,
 };
 
 static const struct of_device_id charger_cooling_of_match[] = {
 	{
 		.compatible = "mediatek,mt6360-charger-cooler",
 		.data = (void *)&mt6360_pdata,
+	},
+	{
+		.compatible = "mediatek,mt6375-charger-cooler",
+		.data = (void *)&mt6375_pdata,
 	},
 	{},
 };
@@ -188,6 +205,49 @@ static int get_charger_type(void)
 	else
 		return val;
 }
+static ssize_t charger_curr_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n",
+				charger_cl_data.cur_current);
+	return len;
+}
+
+static ssize_t charger_table_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int i;
+	int len = 0;
+
+	for (i = 0; i < CHARGER_STATE_NUM; i++) {
+		if (i == 0)
+			len += snprintf(buf + len, PAGE_SIZE - len, "[%d,",
+				-1);
+		else if (i == CHARGER_STATE_NUM - 1)
+			len += snprintf(buf + len, PAGE_SIZE - len, "%d]\n",
+				master_charger_state_to_current_limit[i]/1000);
+		else
+			len += snprintf(buf + len, PAGE_SIZE - len, "%d,",
+				master_charger_state_to_current_limit[i]/1000);
+	}
+
+	return len;
+}
+
+static struct kobj_attribute charger_curr_attr = __ATTR_RO(charger_curr);
+static struct kobj_attribute charger_table_attr = __ATTR_RO(charger_table);
+
+static struct attribute *charger_cooler_attrs[] = {
+	&charger_curr_attr.attr,
+	&charger_table_attr.attr,
+	NULL
+};
+static struct attribute_group charger_cooler_attr_group = {
+	.name	= "charger_cooler",
+	.attrs	= charger_cooler_attrs,
+};
 
 static int charger_cooling_probe(struct platform_device *pdev)
 {
@@ -195,6 +255,7 @@ static int charger_cooling_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct thermal_cooling_device *cdev;
 	struct charger_cooling_device *charger_cdev;
+	int ret;
 
 	charger_cdev = devm_kzalloc(dev, sizeof(*charger_cdev), GFP_KERNEL);
 	if (!charger_cdev)
@@ -208,33 +269,39 @@ static int charger_cooling_probe(struct platform_device *pdev)
 	charger_cdev->max_state = CHARGER_STATE_NUM - 1;
 	charger_cdev->throttle = charger_throttle;
 	charger_cdev->pdata = of_device_get_match_data(dev);
-
-	cdev = thermal_of_cooling_device_register(np, charger_cdev->name,
-		charger_cdev, &charger_cooling_ops);
-	if (IS_ERR(cdev))
-		goto init_fail;
-	charger_cdev->cdev = cdev;
-	dev_info(dev, "register %s done, id=%d\n", charger_cdev->name);
-
 	charger_cdev->type = get_charger_type();
 	charger_cdev->chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (charger_cdev->chg_psy == NULL || IS_ERR(charger_cdev->chg_psy)) {
 		pr_info("Couldn't get chg_psy\n");
-		goto init_fail;
+		return -EINVAL;
 	}
 	if (charger_cdev->type == DUAL_CHARGER) {
 		charger_cdev->s_chg_psy = power_supply_get_by_name("mtk-slave-charger");
 		if (charger_cdev->s_chg_psy == NULL || IS_ERR(charger_cdev->s_chg_psy)) {
 			pr_info("Couldn't get s_chg_psy\n");
-			goto init_fail;
+			return -EINVAL;
 		}
 	}
+
+	ret = sysfs_create_group(kernel_kobj, &charger_cooler_attr_group);
+	if (ret) {
+		dev_info(&pdev->dev, "failed to create charger cooler sysfs, ret=%d!\n", ret);
+		return ret;
+	}
+	charger_cl_data.cur_state = 0;
+	charger_cl_data.cur_current = -1;
+	charger_cl_data.num_state = CHARGER_STATE_NUM;
+
+	cdev = thermal_of_cooling_device_register(np, charger_cdev->name,
+		charger_cdev, &charger_cooling_ops);
+	if (IS_ERR(cdev))
+		return -EINVAL;
+	charger_cdev->cdev = cdev;
+
 	platform_set_drvdata(pdev, charger_cdev);
+	dev_info(dev, "register %s done, id=%d\n", charger_cdev->name);
 
 	return 0;
-init_fail:
-	kfree(charger_cdev);
-	return -EINVAL;
 }
 
 static int charger_cooling_remove(struct platform_device *pdev)

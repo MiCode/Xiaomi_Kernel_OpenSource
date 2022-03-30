@@ -9,6 +9,8 @@
  * Definition or macro function
  *==================================================
  */
+#define LK_LVTS_MAGIC (0x0000555)
+
 #define DISABLE_THERMAL_HW_REBOOT (-274000)
 
 #define CLOCK_26MHZ_CYCLE_NS	(38)
@@ -99,6 +101,13 @@ enum lvts_sensing_point {
 	SENSING_POINT3,
 	ALL_SENSING_POINTS
 };
+
+enum calibration_mode {
+	CALI_NT,
+	CALI_HT,
+	ALL_CALI_MODES
+};
+
 /*==================================================
  * Data structure
  *==================================================
@@ -112,11 +121,18 @@ struct speed_settings {
 	unsigned int sensor_interval_delay;
 };
 
+struct formula_coeff {
+	int a[ALL_SENSING_POINTS];
+	unsigned int golden_temp;
+	enum calibration_mode cali_mode;
+};
+
 struct tc_settings {
 	unsigned int domain_index;
 	unsigned int addr_offset;
 	unsigned int num_sensor;
 	unsigned int sensor_map[ALL_SENSING_POINTS]; /* In sensor ID */
+	unsigned int device_id[ALL_SENSING_POINTS]; /* In LVTS Device ID */
 	struct speed_settings tc_speed;
 	/* HW filter setting
 	 * 000: Get one sample
@@ -134,33 +150,37 @@ struct tc_settings {
 	int dominator_sensing_point;
 	int hw_reboot_trip_point; /* -274000: Disable HW reboot */
 	unsigned int irq_bit;
-};
-
-struct formula_coeff {
-	int a;
-	int b;
-	unsigned int golden_temp;
+	struct formula_coeff coeff;
 };
 
 struct sensor_cal_data {
 	int use_fake_efuse;	/* 1: Use fake efuse, 0: Use real efuse */
 	unsigned int golden_temp;
+	unsigned int golden_temp_ht;
+	unsigned int cali_mode;
 	unsigned int *count_r;
 	unsigned int *count_rc;
 	unsigned int *count_rc_now;
+	unsigned int *efuse_data;
 
 	unsigned int default_golden_temp;
+	unsigned int default_golden_temp_ht;
 	unsigned int default_count_r;
 	unsigned int default_count_rc;
 };
 
 struct platform_ops {
+	void (*device_identification)(struct lvts_data *lvts_data);
 	void (*efuse_to_cal_data)(struct lvts_data *lvts_data);
 	void (*device_enable_and_init)(struct lvts_data *lvts_data);
 	void (*device_enable_auto_rck)(struct lvts_data *lvts_data);
 	int (*device_read_count_rc_n)(struct lvts_data *lvts_data);
 	void (*set_cal_data)(struct lvts_data *lvts_data);
 	void (*init_controller)(struct lvts_data *lvts_data);
+	int (*lvts_raw_to_temp)(struct formula_coeff *co, unsigned int id, unsigned int msr_raw);
+	unsigned int (*lvts_temp_to_raw)(struct formula_coeff *co, unsigned int id, int temp);
+	void (*check_cal_data)(struct lvts_data *lvts_data);
+	void (*update_coef_data)(struct lvts_data *lvts_data);
 };
 
 struct power_domain {
@@ -186,6 +206,7 @@ struct lvts_data {
 
 	int num_sensor;			/* Number of sensors in this platform */
 	struct sensor_data *sen_data;
+	struct thermal_zone_device *tz_dev; /* tz_dev of id 0 for HW reboot trip point update */
 
 	struct platform_ops ops;
 	int feature_bitmap;		/* Show what features are enabled */
@@ -194,7 +215,8 @@ struct lvts_data {
 	unsigned int *efuse;
 	unsigned int num_efuse_block;	/* Number of contiguous efuse indexes */
 	struct sensor_cal_data cal_data;
-	struct formula_coeff coeff;
+	bool init_done; /*lvts driver init finish*/
+	unsigned int *irq_bitmap;
 };
 
 struct soc_temp_tz {
@@ -218,6 +240,7 @@ struct lvts_id {
 	unsigned int hw_version;
 	char	chip[32];
 };
+
 /*==================================================
  * LVTS device register
  *==================================================
@@ -272,6 +295,22 @@ struct lvts_id {
 #define LVTSMONCTL2_0	0x008
 #define LVTSMONINT_0	0x00C
 #define STAGE3_INT_EN	(1 << 31)
+
+#define HIGH_OFFSET3_INT_EN	(1 << 25)
+#define HIGH_OFFSET2_INT_EN	(1 << 13)
+#define HIGH_OFFSET1_INT_EN	(1 << 8)
+#define HIGH_OFFSET0_INT_EN	(1 << 3)
+
+#define LOW_OFFSET3_INT_EN	(1 << 24)
+#define LOW_OFFSET2_INT_EN	(1 << 12)
+#define LOW_OFFSET1_INT_EN	(1 << 7)
+#define LOW_OFFSET0_INT_EN	(1 << 2)
+
+#define HOT_INT3_EN		(1 << 23)
+#define HOT_INT2_EN		(1 << 11)
+#define HOT_INT1_EN		(1 << 6)
+#define HOT_INT0_EN		(1 << 1)
+
 #define LVTSMONINTSTS_0	0x010
 #define LVTSMONIDET0_0	0x014
 #define LVTSMONIDET1_0	0x018
@@ -297,12 +336,15 @@ struct lvts_id {
 #define DEVICE_SENSING_STATUS	(1 << 25)
 #define DEVICE_ACCESS_STARTUS	(1 << 24)
 #define WRITE_ACCESS		(1 << 16)
-#define DEVICE_WRITE		(1 << 31 | CK26M_ACTIVE | DEVICE_ACCESS_STARTUS \
+
+#define DEVICE_WRITE		(1 << 31 | 1 << 30 | DEVICE_ACCESS_STARTUS \
 				| 1 << 17 | WRITE_ACCESS)
-#define DEVICE_READ		(1 << 31 | CK26M_ACTIVE | DEVICE_ACCESS_STARTUS \
+
+
+#define DEVICE_READ		(1 << 31 | 1 << 30 | DEVICE_ACCESS_STARTUS \
 				| 1 << 17)
 #define RESET_ALL_DEVICES	(DEVICE_WRITE | RG_TSFM_RST << 8 | 0xFF)
-#define READ_BACK_DEVICE_ID	(1 << 31 | CK26M_ACTIVE | BROADCAST_ID_UPDATE	\
+#define READ_BACK_DEVICE_ID	(1 << 31 | 1 << 30 | BROADCAST_ID_UPDATE	\
 				| DEVICE_ACCESS_STARTUS | 1 << 17	\
 				| RG_DID_LVTS << 8)
 #define READ_DEVICE_REG(reg_idx)	(DEVICE_READ | reg_idx << 8 | 0x00)

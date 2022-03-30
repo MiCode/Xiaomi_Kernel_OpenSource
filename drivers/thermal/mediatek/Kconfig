@@ -31,6 +31,17 @@ config MTK_SOC_THERMAL_LVTS
           configures LVTS thermal controllers to collect temperatures
           via ASIF interface.
 
+config MTK_BOARD_THERMAL
+	tristate "On-board NTC thermistor driver for Mediatek SoCs"
+	help
+	  Enable this option if you want to get PCB temperature
+	  via on-board NTC for Mediatek platforms.
+	  This driver reads the voltage value from TIA hardware
+	  which is responsible for reading all PMIC AUXADC channels
+	  sequentially. The address of TIA register for each channel
+	  and temperature convert table should be specified in
+	  device tree.
+
 config MTK_PMIC_THERMAL
 	tristate "PMIC thermal sensor driver for Mediatek SoCs"
 	depends on MT635X_EFUSE
@@ -59,6 +70,15 @@ config MTK_CHARGER_THERMAL
 	  This option depends on MTK_CHARGER which is
 	  MTK charger driver.
 
+config MTK_BACKLIGHT_THERMAL
+	tristate "Mediatek backlight cooling framework"
+	depends on LEDS_MTK_PWM || LEDS_MTK_DISP
+	help
+	  Enable this option to turn on backlight throttle mechanisms
+	  for Mediatek platforms.
+	  This option depends on LEDS_MTK which is
+	  MTK leds driver.
+
 config MTK_THERMAL_TRACE
 	tristate "Mediatek thermal ftrace driver"
 	depends on FTRACE
@@ -77,5 +97,23 @@ config MTK_THERMAL_IPI
 	  with tinysys microprocessors for Mediatek platforms.
 	  This driver defines thermal ipi commands and provides an
 	  API to send a ipi command to tinysys microprocessors.
+
+config MTK_THERMAL_INTERFACE
+	tristate "Mediatek thermal interface driver"
+	help
+	  This driver provides the interface to get:
+	  1.CPU/GPU/xPU headroom from uP.
+	  2.thermal setting or policy from userspace daemon(ex:thermal policy and TTJ)
+	  This driver also offer API to get cpu theraml headroom for other kernel module.
+
+config MTK_THERMAL_JATM
+	tristate "Mediatek jank aware thermal management driver"
+	depends on MTK_THERMAL_INTERFACE
+	help
+	  This driver provides a algorithm to fine tune:
+	  1. TTJ
+	  2. CPU freq
+	  to optimize game UX under a proper Tskin control.
+	  It will take care of both better user experience and Tskin control.
 
 endif
