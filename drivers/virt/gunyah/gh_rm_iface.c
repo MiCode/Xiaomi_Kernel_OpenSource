@@ -8,7 +8,6 @@
 #include <linux/limits.h>
 #include <linux/module.h>
 
-#include <linux/gunyah/gh_vm.h>
 #include <linux/gunyah/gh_msgq.h>
 #include <linux/gunyah/gh_common.h>
 #include <linux/mm.h>
