@@ -1807,6 +1807,8 @@ static void __exit mtk_btag_exit(void)
 	mrdump_set_extra_dump(AEE_EXTRA_FILE_BLOCKIO, NULL);
 	proc_remove(btag_proc_root);
 	mtk_btag_uninstall_tracepoints();
+	kfree(blockio_aee_buffer);
+	vfree(mtk_btag_pagelogger);
 }
 
 fs_initcall(mtk_btag_init);
