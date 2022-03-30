@@ -239,7 +239,6 @@ struct mtk_blocktag {
 	struct mtk_btag_vops *vops;
 
 	unsigned int klog_enable;
-	unsigned int used_mem;
 
 	struct list_head list;
 };

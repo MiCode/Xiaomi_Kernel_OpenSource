@@ -1052,10 +1052,6 @@ static size_t mtk_btag_seq_sub_show_usedmem(char **buff, unsigned long *size,
 		used_mem += size_l;
 	}
 
-	SPREAD_PRINTF(buff, size, seq, "%s aee buffer: %d bytes\n", btag->name,
-			BLOCKIO_AEE_BUFFER_SIZE);
-	used_mem += BLOCKIO_AEE_BUFFER_SIZE;
-
 	SPREAD_PRINTF(buff, size, seq,
 		"%s sub-total: %zu KB\n", btag->name, used_mem >> 10);
 	return used_mem;
@@ -1337,6 +1333,10 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 
 	SPREAD_PRINTF(buff, size, seq, "<blocktag core>\n");
 	used_mem += mtk_btag_seq_pidlog_usedmem(buff, size, seq);
+
+	SPREAD_PRINTF(buff, size, seq, "aee buffer: %d bytes\n",
+			BLOCKIO_AEE_BUFFER_SIZE);
+	used_mem += BLOCKIO_AEE_BUFFER_SIZE;
 
 	SPREAD_PRINTF(buff, size, seq, "--------------------------------\n");
 	SPREAD_PRINTF(buff, size, seq, "Total: %zu KB\n", used_mem >> 10);
@@ -1647,9 +1647,6 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 		return NULL;
 
 	memset(btag, 0, sizeof(struct mtk_blocktag));
-	btag->used_mem = sizeof(struct mtk_blocktag) +
-		(sizeof(struct mtk_btag_trace) * ringtrace_count) +
-		(ctx_count * ctx_size);
 
 	/* ringtrace */
 	btag->rt.index = 0;
