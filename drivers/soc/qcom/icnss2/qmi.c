@@ -2972,6 +2972,7 @@ int icnss_register_fw_service(struct icnss_priv *priv)
 
 void icnss_unregister_fw_service(struct icnss_priv *priv)
 {
+	set_bit(ICNSS_DEL_SERVER, &priv->state);
 	qmi_handle_release(&priv->qmi);
 }
 
