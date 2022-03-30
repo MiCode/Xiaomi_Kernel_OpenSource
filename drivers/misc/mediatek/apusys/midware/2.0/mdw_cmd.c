@@ -202,11 +202,10 @@ static unsigned int mdw_cmd_create_infos(struct mdw_fpriv *mpriv,
 	if (!c->einfos) {
 		mdw_drv_err("invalid exec info addr\n");
 		return -EINVAL;
+	} else {
+		/* clear run infos for return */
+		memset(c->exec_infos->vaddr, 0, c->exec_infos->size);
 	}
-
-	/* clear run infos for return */
-	memset(c->exec_infos->vaddr, 0, c->exec_infos->size);
-
 	sc_einfo = &c->einfos->sc;
 
 	for (i = 0; i < c->num_subcmds; i++) {
@@ -323,6 +322,15 @@ static void mdw_cmd_delete_infos(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	}
 }
 
+void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv)
+{
+	if (!atomic_read(&mpriv->active) &&
+		list_empty_careful(&mpriv->cmds)) {
+		mdw_flw_debug("s(0x%llx) release mem\n", (uint64_t)mpriv);
+		mdw_mem_mpriv_release(mpriv);
+	}
+}
+
 //--------------------------------------------
 static const char *mdw_fence_get_driver_name(struct dma_fence *fence)
 {
@@ -381,10 +389,11 @@ static int mdw_fence_init(struct mdw_cmd *c)
 static int mdw_cmd_sanity_check(struct mdw_cmd *c)
 {
 	if (c->priority >= MDW_PRIORITY_MAX ||
-		c->num_subcmds > MDW_SUBCMD_MAX) {
-		mdw_drv_err("s(0x%llx)cmd invalid(0x%llx/0x%llx)(%u/%u)\n",
+		c->num_subcmds > MDW_SUBCMD_MAX ||
+		c->num_links > c->num_subcmds) {
+		mdw_drv_err("s(0x%llx)cmd invalid(0x%llx/0x%llx)(%u/%u/%u)\n",
 			(uint64_t)c->mpriv, c->uid, c->kid,
-			c->priority, c->num_subcmds);
+			c->priority, c->num_subcmds, c->num_links);
 		return -EINVAL;
 	}
 
@@ -425,6 +434,27 @@ static int mdw_cmd_adj_check(struct mdw_cmd *c)
 		}
 	}
 
+	return 0;
+}
+
+static int mdw_cmd_link_check(struct mdw_cmd *c)
+{
+	uint32_t i = 0;
+
+	for (i = 0; i < c->num_links; i++) {
+		if (c->links[i].producer_idx > c->num_subcmds ||
+			c->links[i].consumer_idx > c->num_subcmds ||
+			!c->links[i].x || !c->links[i].y ||
+			!c->links[i].va) {
+			mdw_drv_err("link(%u) invalid(%u/%u)(%u/%u)(0x%llx)\n",
+				c->links[i].producer_idx,
+				c->links[i].consumer_idx,
+				c->links[i].x,
+				c->links[i].y,
+				c->links[i].va);
+			return -EINVAL;
+		}
+	}
 	return 0;
 }
 
@@ -484,6 +514,7 @@ static void mdw_cmd_delete(struct mdw_cmd *c)
 	mutex_lock(&mpriv->mtx);
 	mdw_cmd_delete_infos(c->mpriv, c);
 	list_del(&c->u_item);
+	mdw_cmd_mpriv_release(c->mpriv);
 	mutex_unlock(&mpriv->mtx);
 	mdw_mem_put(c->mpriv, c->exec_infos);
 	dma_fence_signal(f);
@@ -608,7 +639,6 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	c->tgid = current->tgid;
 	c->kid = (uint64_t)c;
 	c->uid = in->exec.uid;
-	c->usr_id = in->exec.usr_id;
 	c->priority = in->exec.priority;
 	c->hardlimit = in->exec.hardlimit;
 	c->softlimit = in->exec.softlimit;
@@ -617,6 +647,7 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	c->power_dtime = in->exec.power_dtime;
 	c->app_type = in->exec.app_type;
 	c->num_subcmds = in->exec.num_subcmds;
+	c->num_links = in->exec.num_links;
 	c->exec_infos = mdw_mem_get(mpriv, in->exec.exec_infos);
 	if (!c->exec_infos) {
 		mdw_drv_err("get exec info fail\n");
@@ -666,10 +697,24 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 	if (mdw_cmd_adj_check(c))
 		goto free_adj;
 
+	/* link */
+	if (c->num_links) {
+		c->links = kcalloc(c->num_links, sizeof(*c->links), GFP_KERNEL);
+		if (!c->links)
+			goto free_adj;
+		if (copy_from_user(c->links, (void __user *)in->exec.links,
+			c->num_links * sizeof(*c->links))) {
+			mdw_drv_err("copy links fail\n");
+			goto free_link;
+		}
+	}
+	if (mdw_cmd_link_check(c))
+		goto free_link;
+
 	/* create infos */
 	if (mdw_cmd_create_infos(mpriv, c)) {
 		mdw_drv_err("create cmd info fail\n");
-		goto free_adj;
+		goto free_link;
 	}
 
 	/* init fence */
@@ -688,6 +733,8 @@ static struct mdw_cmd *mdw_cmd_create(struct mdw_fpriv *mpriv,
 
 delete_infos:
 	mdw_cmd_delete_infos(mpriv, c);
+free_link:
+	kfree(c->links);
 free_adj:
 	kfree(c->adj_matrix);
 free_ksubcmds:

@@ -228,6 +228,7 @@ struct mdw_fpriv {
 	struct mdw_mem_pool cmd_buf_pool;
 
 	/* ref count for cmd/mem */
+	atomic_t active;
 	struct kref ref;
 	void (*get)(struct mdw_fpriv *mpriv);
 	void (*put)(struct mdw_fpriv *mpriv);
@@ -259,7 +260,6 @@ struct mdw_cmd {
 	pid_t tgid;
 	uint64_t kid;
 	uint64_t uid;
-	uint64_t usr_id;
 	uint64_t rvid;
 	uint32_t priority;
 	uint32_t hardlimit;
@@ -269,6 +269,7 @@ struct mdw_cmd {
 	uint32_t power_dtime;
 	uint32_t app_type;
 	uint32_t num_subcmds;
+	uint32_t num_links;
 	struct mdw_subcmd_info *subcmds; //from usr
 	struct mdw_subcmd_kinfo *ksubcmds;
 	uint32_t num_cmdbufs;
@@ -277,6 +278,7 @@ struct mdw_cmd {
 	struct mdw_mem *exec_infos;
 	struct mdw_exec_info *einfos;
 	uint8_t *adj_matrix;
+	struct mdw_subcmd_link_v1 *links;
 
 	struct mutex mtx;
 	struct list_head u_item;
@@ -336,6 +338,7 @@ int mdw_mem_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_cmd_ioctl(struct mdw_fpriv *mpriv, void *data);
 int mdw_util_ioctl(struct mdw_fpriv *mpriv, void *data);
 
+void mdw_cmd_mpriv_release(struct mdw_fpriv *mpriv);
 void mdw_mem_mpriv_release(struct mdw_fpriv *mpriv);
 
 void mdw_mem_all_print(struct mdw_fpriv *mpriv);
@@ -345,6 +348,7 @@ struct mdw_mem *mdw_mem_get(struct mdw_fpriv *mpriv, int handle);
 struct mdw_mem *mdw_mem_alloc(struct mdw_fpriv *mpriv, enum mdw_mem_type type,
 	uint32_t size, uint32_t align, uint64_t flags, bool need_handle);
 void mdw_mem_free(struct mdw_fpriv *mpriv, struct mdw_mem *m);
+long mdw_mem_set_name(struct mdw_mem *m, const char *buf);
 int mdw_mem_map(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 int mdw_mem_unmap(struct mdw_fpriv *mpriv, struct mdw_mem *m);
 int mdw_mem_flush(struct mdw_fpriv *mpriv, struct mdw_mem *m);

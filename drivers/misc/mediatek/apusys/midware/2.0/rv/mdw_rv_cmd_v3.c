@@ -63,6 +63,14 @@ struct mdw_rv_msg_cb {
 	uint32_t size;
 } __packed;
 
+struct mdw_rv_sc_link {
+	uint32_t producer_idx;
+	uint32_t consumer_idx;
+	uint32_t vid;
+	uint64_t va;
+	uint64_t x;
+	uint64_t y;
+} __packed;
 
 static void mdw_rv_cmd_print(struct mdw_rv_msg_cmd *rc)
 {
@@ -82,6 +90,8 @@ static void mdw_rv_cmd_print(struct mdw_rv_msg_cmd *rc)
 	mdw_cmd_debug(" cmdbuf_infos_offset = 0x%x\n", rc->cmdbuf_infos_offset);
 	mdw_cmd_debug(" adj_matrix_offset = 0x%x\n", rc->adj_matrix_offset);
 	mdw_cmd_debug(" exec_infos_offset = 0x%x\n", rc->exec_infos_offset);
+	mdw_cmd_debug(" num_links = %u\n", rc->num_links);
+	mdw_cmd_debug(" link_offset = 0x%x\n", rc->link_offset);
 	mdw_cmd_debug("-------------------------\n");
 }
 
@@ -117,6 +127,7 @@ static void mdw_rv_sc_print(struct mdw_rv_msg_sc *rsc,
 	mdw_cmd_debug(" driver_time = %u\n", rsc->driver_time);
 	mdw_cmd_debug(" ip_time = %u\n", rsc->ip_time);
 	mdw_cmd_debug(" pack_id = %u\n", rsc->pack_id);
+	mdw_cmd_debug(" affinity = 0x%x\n", rsc->affinity);
 	mdw_cmd_debug(" cmdbuf_start_idx = %u\n", rsc->cmdbuf_start_idx);
 	mdw_cmd_debug(" num_cmdbufs = %u\n", rsc->num_cmdbufs);
 	mdw_cmd_debug("-------------------------\n");
@@ -128,10 +139,11 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	struct mdw_rv_cmd *rc = NULL;
 	uint32_t cb_size = 0, acc_cb = 0, i = 0, j = 0;
 	uint32_t subcmds_ofs = 0, cmdbuf_infos_ofs = 0, adj_matrix_ofs = 0;
-	uint32_t exec_infos_ofs = 0;
+	uint32_t exec_infos_ofs = 0, link_ofs = 0;
 	struct mdw_rv_msg_cmd *rmc = NULL;
 	struct mdw_rv_msg_sc *rmsc = NULL;
 	struct mdw_rv_msg_cb *rmcb = NULL;
+	struct mdw_rv_sc_link *rl = NULL;
 
 	mdw_trace_begin("%s|cmd(0x%llx/0x%llx)", __func__, c->uid, c->kid);
 	mutex_lock(&mpriv->mtx);
@@ -167,6 +179,10 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	cb_size += (c->num_cmdbufs * sizeof(struct mdw_rv_msg_cb));
 	exec_infos_ofs = cb_size;
 	cb_size += c->exec_infos->size;
+	if (c->num_links) {
+		link_ofs = cb_size;
+		cb_size += (c->num_links * sizeof(struct mdw_rv_sc_link));
+	}
 
 	/* allocate communicate buffer */
 	rc->cb = mdw_mem_pool_alloc(&mpriv->cmd_buf_pool, cb_size,
@@ -196,11 +212,24 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	rmc->cmdbuf_infos_offset = cmdbuf_infos_ofs;
 	rmc->adj_matrix_offset = adj_matrix_ofs;
 	rmc->exec_infos_offset = exec_infos_ofs;
+	rmc->num_links = c->num_links;
+	rmc->link_offset = link_ofs;
 	mdw_rv_cmd_print(rmc);
 
 	/* copy adj matrix */
 	memcpy((void *)rmc + rmc->adj_matrix_offset, c->adj_matrix,
 		c->num_subcmds * c->num_subcmds * sizeof(uint8_t));
+
+	/* copy links */
+	rl = (void *)rmc + rmc->link_offset;
+	for (i = 0; i < c->num_links; i++) {
+		rl[i].producer_idx = c->links[i].producer_idx;
+		rl[i].consumer_idx = c->links[i].consumer_idx;
+		rl[i].vid = c->links[i].vid;
+		rl[i].va = c->links[i].va;
+		rl[i].x = c->links[i].x;
+		rl[i].y = c->links[i].y;
+	}
 
 	/* assign subcmds info */
 	rmsc = (void *)rmc + rmc->subcmds_offset;
@@ -220,6 +249,7 @@ static struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 		rmsc[i].max_boost = c->subcmds[i].max_boost;
 		rmsc[i].hse_en = c->subcmds[i].hse_en;
 		rmsc[i].pack_id = c->subcmds[i].pack_id;
+		rmsc[i].affinity = c->subcmds[i].affinity;
 		rmsc[i].num_cmdbufs = c->subcmds[i].num_cmdbufs;
 		rmsc[i].cmdbuf_start_idx = acc_cb;
 		mdw_rv_sc_print(&rmsc[i], rmc->cmd_id, i);
@@ -305,8 +335,8 @@ static void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret)
 	c->complete(c, ret);
 }
 
-/* kernel-tinysys version <= v2 */
-const struct mdw_rv_cmd_func mdw_rv_cmd_func_v2 = {
+/* kernel-tinysys version v3 */
+const struct mdw_rv_cmd_func mdw_rv_cmd_func_v3 = {
 	.create = mdw_rv_cmd_create,
 	.delete = mdw_rv_cmd_delete,
 	.done = mdw_rv_cmd_done,

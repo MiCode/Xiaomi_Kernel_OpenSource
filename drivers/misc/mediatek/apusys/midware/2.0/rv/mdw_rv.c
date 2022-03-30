@@ -154,5 +154,5 @@ static const struct mdw_dev_func mdw_rv_func = {
 void mdw_rv_set_func(struct mdw_device *mdev)
 {
 	mdev->dev_funcs = &mdw_rv_func;
-	mdev->uapi_ver = 2;
+	mdev->uapi_ver = 3;
 }

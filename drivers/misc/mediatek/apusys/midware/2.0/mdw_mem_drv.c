@@ -48,6 +48,16 @@ static int apumem_probe(struct platform_device *pdev)
 
 	pr_info("%s dma_set_mask 0x%llx type %u\n", __func__, mask, type);
 
+	if (!pdev->dev.dma_parms) {
+		pdev->dev.dma_parms =
+			devm_kzalloc(dev, sizeof(*pdev->dev.dma_parms), GFP_KERNEL);
+	}
+	if (pdev->dev.dma_parms) {
+		ret = dma_set_max_seg_size(dev, mask);
+		if (ret)
+			dev_info(dev, "Failed to set DMA segment size\n");
+	}
+
 	mdw_mem_rsc_register(&pdev->dev, type);
 
 	pr_info("%s +\n", __func__);

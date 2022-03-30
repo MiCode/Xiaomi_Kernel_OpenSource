@@ -209,17 +209,27 @@ struct mdw_subcmd_info {
 	uint32_t driver_time;
 	uint32_t ip_time;
 	uint32_t bw;
+	uint32_t affinity;
 
 	/* cmdbufs */
 	uint32_t num_cmdbufs;
 	uint64_t cmdbufs;
 };
 
+struct mdw_subcmd_link_v1 {
+	uint32_t producer_idx;
+	uint32_t consumer_idx;
+	uint32_t vid;
+	uint64_t va;
+	uint64_t x;
+	uint64_t y;
+};
+
 struct mdw_cmd_in {
-	uint32_t op; //enum mdw_cmd_ioctl_op
+	uint32_t op;
+	uint64_t reserve;
 	union {
 		struct {
-			uint64_t usr_id;
 			uint64_t uid;
 			uint32_t priority;
 			uint32_t hardlimit;
@@ -234,6 +244,8 @@ struct mdw_cmd_in {
 			uint64_t adj_matrix;
 			uint64_t fence;
 			uint64_t exec_infos;
+			uint32_t num_links;
+			uint64_t links;
 		} exec;
 	};
 };

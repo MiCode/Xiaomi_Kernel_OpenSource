@@ -177,6 +177,7 @@ static void mdw_rv_ipi_cmplt_cmd(struct mdw_ipi_msg_sync *s_msg)
 	struct mdw_rv_cmd *rc =
 		container_of(s_msg, struct mdw_rv_cmd, s_msg);
 	struct mdw_cmd *c = rc->c;
+	struct mdw_rv_dev *mrdev = (struct mdw_rv_dev *)c->mpriv->mdev->dev_specific;
 
 	switch (s_msg->msg.ret) {
 	case MDW_IPI_MSG_STATUS_BUSY:
@@ -201,7 +202,7 @@ static void mdw_rv_ipi_cmplt_cmd(struct mdw_ipi_msg_sync *s_msg)
 			c->einfos->c.total_us, c->pid, c->tgid);
 
 	mdw_rv_dev_trace(rc, true);
-	mdw_rv_cmd_done(rc, ret);
+	mrdev->cmd_funcs->done(rc, ret);
 }
 
 static int mdw_rv_dev_send_cmd(struct mdw_rv_dev *mrdev, struct mdw_rv_cmd *rc)
@@ -238,7 +239,7 @@ int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 
 	mdw_trace_begin("%s|cmd(0x%llx/0x%llx)", __func__, kid, uid);
 
-	rc = mdw_rv_cmd_create(mpriv, c);
+	rc = mrdev->cmd_funcs->create(mpriv, c);
 	if (!rc) {
 		ret = -EINVAL;
 		goto out;
@@ -248,7 +249,7 @@ int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 	mutex_lock(&mrdev->mtx);
 	ret = mdw_rv_dev_send_cmd(mrdev, rc);
 	if (ret)
-		mdw_rv_cmd_delete(rc);
+		mrdev->cmd_funcs->delete(rc);
 	mutex_unlock(&mrdev->mtx);
 
 out:
@@ -448,6 +449,11 @@ static void mdw_rv_dev_init_func(struct work_struct *wk)
 		return;
 	}
 
+	if (mrdev->rv_version < 2)
+		mrdev->cmd_funcs = &mdw_rv_cmd_func_v2;
+	else
+		mrdev->cmd_funcs = &mdw_rv_cmd_func_v3;
+
 	memcpy(mdev->dev_mask, mrdev->dev_mask, sizeof(mrdev->dev_mask));
 	mdev->inited = true;
 	mdw_drv_info("late init done\n");
@@ -486,7 +492,6 @@ int mdw_rv_dev_init(struct mdw_device *mdev)
 	}
 
 	/* Allocate stat buffer */
-
 	dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
 	mrdev->stat = dma_alloc_coherent(dev, sizeof(struct mdw_stat),
 			&mrdev->stat_iova, GFP_KERNEL);

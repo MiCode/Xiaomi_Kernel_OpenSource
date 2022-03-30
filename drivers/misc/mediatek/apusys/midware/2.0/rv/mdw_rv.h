@@ -9,6 +9,23 @@
 #include "mdw.h"
 #include "mdw_rv_msg.h"
 
+struct mdw_rv_dev;
+
+struct mdw_rv_cmd {
+	struct mdw_cmd *c;
+	struct mdw_mem *cb;
+	struct list_head u_item; // to usr list
+	struct mdw_ipi_msg_sync s_msg; // for ipi
+	uint64_t start_ts_ns; // create time at ap
+};
+
+struct mdw_rv_cmd_func {
+	struct mdw_rv_cmd *(*create)(struct mdw_fpriv *mpriv,
+		struct mdw_cmd *c);
+	int (*delete)(struct mdw_rv_cmd *rc);
+	void (*done)(struct mdw_rv_cmd *rc, int ret);
+};
+
 struct mdw_rv_dev {
 	struct rpmsg_device *rpdev;
 	struct rpmsg_endpoint *ept;
@@ -22,6 +39,8 @@ struct mdw_rv_dev {
 
 	struct work_struct init_wk; // init wq to avoid ipi conflict
 
+	const struct mdw_rv_cmd_func *cmd_funcs;
+
 	/* rv information */
 	uint32_t rv_version;
 	unsigned long dev_mask[BITS_TO_LONGS(MDW_DEV_MAX)];
@@ -33,71 +52,14 @@ struct mdw_rv_dev {
 	uint64_t stat_iova;
 };
 
-struct mdw_rv_cmd {
-	struct mdw_cmd *c;
-	struct mdw_mem *cb;
-	struct list_head u_item; // to usr list
-	struct mdw_ipi_msg_sync s_msg; // for ipi
-	uint64_t start_ts_ns; // create time at ap
-};
-
-struct mdw_rv_msg_cmd {
-	/* ids */
-	uint64_t session_id;
-	uint64_t cmd_id;
-	uint32_t pid;
-	uint32_t tgid;
-	/* params */
-	uint32_t priority;
-	uint32_t hardlimit;
-	uint32_t softlimit;
-	uint32_t power_save;
-	uint32_t power_plcy;
-	uint32_t power_dtime;
-	uint32_t app_type;
-	uint32_t num_subcmds;
-	uint32_t subcmds_offset;
-	uint32_t num_cmdbufs;
-	uint32_t cmdbuf_infos_offset;
-	uint32_t adj_matrix_offset;
-	uint32_t exec_infos_offset;
-} __packed;
-
-struct mdw_rv_msg_sc {
-	/* params */
-	uint32_t type;
-	uint32_t suggest_time;
-	uint32_t vlm_usage;
-	uint32_t vlm_ctx_id;
-	uint32_t vlm_force;
-	uint32_t boost;
-	uint32_t turbo_boost;
-	uint32_t min_boost;
-	uint32_t max_boost;
-	uint32_t hse_en;
-	uint32_t driver_time;
-	uint32_t ip_time;
-	uint32_t bw;
-	uint32_t pack_id;
-	/* cmdbufs info */
-	uint32_t cmdbuf_start_idx;
-	uint32_t num_cmdbufs;
-} __packed;
-
-struct mdw_rv_msg_cb {
-	uint64_t device_va;
-	uint32_t size;
-} __packed;
-
 int mdw_rv_dev_init(struct mdw_device *mdev);
 void mdw_rv_dev_deinit(struct mdw_device *mdev);
 int mdw_rv_dev_run_cmd(struct mdw_fpriv *mpriv, struct mdw_cmd *c);
 int mdw_rv_dev_set_param(struct mdw_rv_dev *mrdev, uint32_t idx, uint32_t val);
 int mdw_rv_dev_get_param(struct mdw_rv_dev *mrdev, uint32_t idx, uint32_t *val);
 
-struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
-	struct mdw_cmd *c);
-int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc);
-void mdw_rv_cmd_done(struct mdw_rv_cmd *rc, int ret);
+/* rv cmd functions */
+extern const struct mdw_rv_cmd_func mdw_rv_cmd_func_v2;
+extern const struct mdw_rv_cmd_func mdw_rv_cmd_func_v3;
 
 #endif

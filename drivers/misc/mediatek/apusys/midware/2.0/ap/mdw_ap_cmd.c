@@ -414,5 +414,4 @@ struct mdw_parser mdw_ap_parser = {
 	.get_ctx = mdw_ap_cmd_get_ctx,
 	.put_ctx = mdw_ap_cmd_put_ctx,
 	.is_deadline = mdw_ap_cmd_is_deadline,
-
 };

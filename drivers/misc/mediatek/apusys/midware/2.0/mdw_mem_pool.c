@@ -6,6 +6,7 @@
 #include <linux/genalloc.h>
 #include <linux/log2.h>
 #include <linux/kernel.h>
+#include <uapi/linux/dma-buf.h>
 #include "mdw.h"
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
@@ -26,6 +27,7 @@ static int mdw_mem_pool_chunk_add(struct mdw_mem_pool *pool, uint32_t size)
 {
 	int ret = 0;
 	struct mdw_mem *m;
+	char buf_name[DMA_BUF_NAME_LEN];
 
 	mdw_trace_begin("%s|size(%u)", __func__, size);
 
@@ -36,6 +38,14 @@ static int mdw_mem_pool_chunk_add(struct mdw_mem_pool *pool, uint32_t size)
 			(uint64_t) pool->mpriv, size);
 		ret = -ENOMEM;
 		goto out;
+	}
+
+	memset(buf_name, 0, sizeof(buf_name));
+	snprintf(buf_name, sizeof(buf_name)-1, "APU_CMDBUF_POOL:%u/%u",
+		current->pid, current->tgid);
+	if (mdw_mem_set_name(m, buf_name)) {
+		mdw_drv_err("s(0x%llx) m(0x%llx) set name fail, size: %d\n",
+			(uint64_t)pool->mpriv, (uint64_t)m);
 	}
 
 	ret = mdw_mem_map(pool->mpriv, m);
@@ -80,13 +90,15 @@ out:
 /* removes a memory chunk from pool, and free it */
 static void mdw_mem_pool_chunk_del(struct mdw_mem *m)
 {
-	mdw_trace_begin("%s|size(%u)", __func__, m->size);
+	uint32_t size = m->size;
+
+	mdw_trace_begin("%s|size(%u)", __func__, size);
 	list_del(&m->p_chunk);
 	mdw_mem_debug("free chunk: pool: 0x%llx, mem: 0x%llx",
 		(uint64_t)m->pool, (uint64_t)m);
 	mdw_mem_unmap(m->mpriv, m);
 	mdw_mem_free(m->mpriv, m);
-	mdw_trace_end("%s|size(%u)", __func__, m->size);
+	mdw_trace_end("%s|size(%u)", __func__, size);
 }
 
 /* create memory pool */
@@ -306,6 +318,7 @@ out:
 void mdw_mem_pool_free(struct mdw_mem *m)
 {
 	struct mdw_mem_pool *pool;
+	uint32_t size = 0, align = 0;
 
 	if (!m)
 		return;
@@ -315,8 +328,11 @@ void mdw_mem_pool_free(struct mdw_mem *m)
 	if (!pool || !pool->gp)
 		return;
 
+	size = m->size;
+	align = m->align;
+
 	mdw_trace_begin("%s|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		__func__, size, align);
 
 	mdw_mem_debug("pool: 0x%llx, mem: 0x%llx, size: %d, kva: 0x%llx, iova: 0x%llx",
 		(uint64_t)pool, (uint64_t)m, m->size,
@@ -332,7 +348,7 @@ void mdw_mem_pool_free(struct mdw_mem *m)
 	m->release(m);
 
 	mdw_trace_end("%s|size(%u) align(%u)",
-		__func__, m->size, m->align);
+		__func__, size, align);
 }
 
 /* flush a memory, do nothing, if it's non-cacheable */
