@@ -439,7 +439,9 @@ struct mtk_cam_ctx {
 	/* mstream */
 	unsigned int enqueued_request_cnt;
 	unsigned int next_sof_mask_frame_seq_no;
+	unsigned int next_sof_frame_seq_no;
 	unsigned int working_request_seq;
+	bool trigger_next_drain;
 
 	unsigned int sv_dequeued_frame_seq_no[MAX_SV_PIPES_PER_STREAM];
 

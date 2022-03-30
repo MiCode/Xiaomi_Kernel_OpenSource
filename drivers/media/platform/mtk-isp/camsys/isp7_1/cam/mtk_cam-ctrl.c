@@ -118,10 +118,16 @@ static bool mtk_cam_request_drained(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 	if (mtk_cam_is_subsample(ctx))
 		sensor_seq_no_next = atomic_read(&ctx->sensor_ctrl.isp_enq_seq_no) + 1;
 
-	if (mtk_cam_is_mstream(ctx))
+	if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) {
 		sensor_seq_no_next = atomic_read(&ctx->sensor_ctrl.isp_enq_seq_no) + 1;
-	if (sensor_seq_no_next <= atomic_read(&ctx->enqueued_frame_seq_no))
-		res = 1;
+		if (sensor_seq_no_next <= atomic_read(&ctx->enqueued_frame_seq_no) ||
+				!ctx->trigger_next_drain)
+			res = 1;
+	} else {
+		if (sensor_seq_no_next <= atomic_read(&ctx->enqueued_frame_seq_no))
+			res = 1;
+	}
+
 	/* Send V4L2_EVENT_REQUEST_DRAINED event */
 	if (res == 0) {
 		mtk_cam_event_request_drained(ctx->pipe);
@@ -2326,47 +2332,93 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 	req = mtk_cam_get_req(ctx, dequeued_frame_seq_no);
 	if (req) {
 		struct mtk_cam_request_stream_data *s_data =
-			mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+				mtk_cam_get_req_s_data(ctx, ctx->stream_id,
+				dequeued_frame_seq_no);
 
+		ctx->trigger_next_drain = false;
+
+		/* whether 1exp or 2exp, s_data[0] always holds raw_feature */
 		if (mtk_cam_feature_is_mstream(s_data->feature.raw_feature) ||
 				mtk_cam_feature_is_mstream_m2m(s_data->feature.raw_feature)) {
-			/* report on first exp */
-			s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 1);
-			if (dequeued_frame_seq_no == s_data->frame_seq_no) {
+			/* get next report s_data */
+			s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id,
+					dequeued_frame_seq_no);
+
+			if (dequeued_frame_seq_no == ctx->next_sof_frame_seq_no) {
 				dev_dbg(raw_dev->dev,
-					"%s mstream [SOF] with-req frame:%d sof:%d enque_req_cnt:%d\n",
+					"%s mstream [SOF] with-req frame:%d sof:%d enque_req_cnt:%d next sof frame: %d\n",
 					__func__, dequeued_frame_seq_no,
 					req->p_data[ctx->stream_id].req_seq,
-					ctx->enqueued_request_cnt);
+					ctx->enqueued_request_cnt,
+					ctx->next_sof_frame_seq_no);
+				/* mask out next sof for supsampling */
 				ctx->next_sof_mask_frame_seq_no =
 					dequeued_frame_seq_no + 1;
+				ctx->next_sof_frame_seq_no =
+					ctx->next_sof_mask_frame_seq_no + 1;
 				ctx->working_request_seq =
 					req->p_data[ctx->stream_id].req_seq;
 				mtk_cam_event_frame_sync(ctx->pipe,
 					req->p_data[ctx->stream_id].req_seq);
+				ctx->trigger_next_drain = true;
 			} else if (dequeued_frame_seq_no ==
-				ctx->next_sof_mask_frame_seq_no) {
+					ctx->next_sof_mask_frame_seq_no) {
 				dev_dbg(raw_dev->dev, "mstream [SOF-mask] with-req frame:%d working_seq:%d, sof_cnt:%d\n",
 					dequeued_frame_seq_no, ctx->working_request_seq,
 					raw_dev->sof_count);
+				/* after mask out, reset mask frame seq */
 				ctx->next_sof_mask_frame_seq_no = 1;
+			} else if (s_data && s_data->no_frame_done_cnt) {
+				/* bypass if sof just sent */
+				if (s_data->frame_seq_no != ctx->next_sof_mask_frame_seq_no - 1) {
+					dev_dbg(raw_dev->dev, "mstream [SOF] p1done delay frame idx:%d with-req frame:%d\n",
+							dequeued_frame_seq_no,
+					ctx->working_request_seq);
+					ctx->next_sof_mask_frame_seq_no =
+							dequeued_frame_seq_no + 1;
+					ctx->next_sof_frame_seq_no =
+							ctx->next_sof_mask_frame_seq_no + 1;
+					ctx->working_request_seq =
+							req->p_data[ctx->stream_id].req_seq;
+					mtk_cam_event_frame_sync(ctx->pipe,
+							ctx->working_request_seq);
+					ctx->trigger_next_drain = true;
+				} else {
+					ctx->next_sof_frame_seq_no =
+							ctx->next_sof_mask_frame_seq_no;
+					ctx->next_sof_mask_frame_seq_no =
+							ctx->next_sof_frame_seq_no + 1;
+					ctx->working_request_seq =
+							req->p_data[ctx->stream_id].req_seq;
+				}
 			} else {
-				dev_dbg(raw_dev->dev, "mstream [SOF] with-req frame:%d\n",
+				dev_dbg(raw_dev->dev, "mstream [SOF] dup deq frame idx:%d with-req frame:%d\n",
+					dequeued_frame_seq_no,
 					ctx->working_request_seq);
-				mtk_cam_event_frame_sync(ctx->pipe,
-					ctx->working_request_seq);
+				if (mtk_cam_is_mstream_m2m(ctx))
+					mtk_cam_event_frame_sync(ctx->pipe,
+						dequeued_frame_seq_no);
+				else
+					mtk_cam_event_frame_sync(ctx->pipe,
+						ctx->working_request_seq);
+
+				ctx->trigger_next_drain = true;
 			}
 		} else {
 			/* mstream 1exp case */
-			dev_dbg(raw_dev->dev,
-					"%s mstream 1-exp [SOF] with-req frame:%d sof:%d enque_req_cnt:%d\n",
-					__func__, dequeued_frame_seq_no,
-					req->p_data[ctx->stream_id].req_seq,
-					ctx->enqueued_request_cnt);
 			ctx->working_request_seq =
 				req->p_data[ctx->stream_id].req_seq;
 			mtk_cam_event_frame_sync(ctx->pipe,
 				req->p_data[ctx->stream_id].req_seq);
+			ctx->trigger_next_drain = true;
+			ctx->next_sof_frame_seq_no =
+					dequeued_frame_seq_no + 1;
+			dev_dbg(raw_dev->dev,
+					"%s mstream 1-exp [SOF] with-req frame:%d sof:%d enque_req_cnt:%d next sof frame:%d\n",
+					__func__, dequeued_frame_seq_no,
+					req->p_data[ctx->stream_id].req_seq,
+					ctx->enqueued_request_cnt,
+					ctx->next_sof_frame_seq_no);
 		}
 	} else if (dequeued_frame_seq_no ==
 			ctx->next_sof_mask_frame_seq_no) {
@@ -2376,11 +2428,32 @@ static void mtk_cam_mstream_frame_sync(struct mtk_raw_device *raw_dev,
 			raw_dev->sof_count);
 		ctx->next_sof_mask_frame_seq_no = 1;
 	} else {
-		/* except: keep report current working request sequence */
-		dev_dbg(raw_dev->dev, "mstream [SOF] req-gone frame:%d\n",
-			ctx->working_request_seq);
-		mtk_cam_event_frame_sync(ctx->pipe,
-				ctx->working_request_seq);
+		if (mtk_cam_is_mstream(ctx) || mtk_cam_is_mstream_m2m(ctx)) {
+			/* bypass if sof just sent */
+			if (dequeued_frame_seq_no != ctx->next_sof_frame_seq_no - 2) {
+				dev_dbg(raw_dev->dev, "mstream [SOF] req-gone frame:%d\n",
+						ctx->working_request_seq);
+				mtk_cam_event_frame_sync(ctx->pipe,
+						ctx->working_request_seq);
+				ctx->next_sof_mask_frame_seq_no =
+						dequeued_frame_seq_no + 1;
+				ctx->next_sof_frame_seq_no =
+						ctx->next_sof_mask_frame_seq_no + 1;
+				ctx->trigger_next_drain = true;
+			} else {
+				ctx->next_sof_frame_seq_no =
+						dequeued_frame_seq_no + 1;
+				ctx->next_sof_mask_frame_seq_no =
+						ctx->next_sof_frame_seq_no + 1;
+			}
+		} else {
+			/* except: keep report current working request sequence */
+			dev_dbg(raw_dev->dev, "mstream [SOF] req-gone frame:%d\n",
+					ctx->working_request_seq);
+			mtk_cam_event_frame_sync(ctx->pipe,
+					ctx->working_request_seq);
+			ctx->trigger_next_drain = true;
+		}
 	}
 }
 
@@ -2602,7 +2675,8 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 	if (!mtk_cam_is_stagger(ctx))
 		ctx->dequeued_frame_seq_no = dequeued_frame_seq_no;
 	/* Send V4L2_EVENT_FRAME_SYNC event */
-	if (mtk_cam_is_mstream(ctx) || ctx->next_sof_mask_frame_seq_no != 0) {
+	if ((mtk_cam_is_mstream(ctx) || ctx->next_sof_mask_frame_seq_no != 0)
+			&& !mtk_cam_is_mstream_m2m(ctx)) {
 		mtk_cam_mstream_frame_sync(raw_dev, ctx, dequeued_frame_seq_no);
 	} else {
 		/* normal */
@@ -4231,9 +4305,13 @@ static int mtk_camsys_event_handle_raw(struct mtk_cam_device *cam,
 		if (mtk_cam_is_m2m(ctx)) {
 			mtk_camsys_m2m_frame_done(ctx, irq_info->frame_idx_inner,
 						  ctx->stream_id);
-		} else
+		} else if (mtk_cam_is_mstream(ctx)) {
+			mtk_camsys_frame_done(ctx, irq_info->frame_idx_inner,
+					      ctx->stream_id);
+		} else {
 			mtk_camsys_frame_done(ctx, ctx->dequeued_frame_seq_no,
 					      ctx->stream_id);
+		}
 	}
 
 	/* raw's DCIF stagger main SOF(first exposure) */
