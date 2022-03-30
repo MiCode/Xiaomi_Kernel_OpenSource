@@ -14,6 +14,11 @@ struct mtk_base_afe;
 struct mtk_base_afe_memif;
 struct mtk_base_irq_data;
 
+int mtk_regmap_update_bits(struct regmap *map, int reg,
+		       unsigned int mask,
+		       unsigned int val, int shift);
+int mtk_regmap_write(struct regmap *map, int reg,
+		       unsigned int val);
 int mtk_afe_fe_startup(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai);
 void mtk_afe_fe_shutdown(struct snd_pcm_substream *substream,
@@ -35,8 +40,7 @@ int mtk_dynamic_irq_release(struct mtk_base_afe *afe, int irq_id);
 int mtk_afe_suspend(struct snd_soc_component *component);
 int mtk_afe_resume(struct snd_soc_component *component);
 
-int mtk_memif_set_enable(struct mtk_base_afe *afe, int id);
-int mtk_memif_set_disable(struct mtk_base_afe *afe, int id);
+unsigned int is_afe_need_triggered(struct mtk_base_afe_memif *memif);
 int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
 		       unsigned char *dma_area,
 		       dma_addr_t dma_addr,
@@ -52,12 +56,13 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 int mtk_memif_set_pbuf_size(struct mtk_base_afe *afe,
 			    int id, int pbuf_size);
 
-#if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
-/* using 3 way samephore to ensure ap/dsp sync */
-int mtk_dsp_memif_set_enable(struct mtk_base_afe *afe, int id);
-int mtk_dsp_memif_set_disable(struct mtk_base_afe *afe, int id);
-int mtk_dsp_irq_set_enable(struct mtk_base_afe *afe, const struct mtk_base_irq_data *irq_data);
-int mtk_dsp_irq_set_disable(struct mtk_base_afe *afe, const struct mtk_base_irq_data *irq_data);
-#endif
-
+/* using samephore to ensure ap/dsp sync */
+int mtk_memif_set_enable(struct mtk_base_afe *afe, int id);
+int mtk_memif_set_disable(struct mtk_base_afe *afe, int id);
+int mtk_irq_set_enable(struct mtk_base_afe *afe,
+		       const struct mtk_base_irq_data *irq_data,
+		       int afe_id);
+int mtk_irq_set_disable(struct mtk_base_afe *afe,
+			const struct mtk_base_irq_data *irq_data,
+			int afe_id);
 #endif

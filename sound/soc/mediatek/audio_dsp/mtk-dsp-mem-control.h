@@ -28,8 +28,6 @@ struct mtk_base_dsp_mem;
 enum {
 	ADSP_TASK_ATOD_MSG_MEM,
 	ADSP_TASK_DTOA_MSG_MEM,
-	ADSP_TASK_RINGBUF_MEM,
-	ADSP_TASK_HWBUF_MEM,
 	ADSP_TASK_SHAREMEM_NUM
 };
 
@@ -53,8 +51,7 @@ void mtk_dump_sndbuffer(struct snd_dma_buffer *dma_audio_buffer);
 int wrap_dspdram_sndbuffer(struct snd_dma_buffer *dma_audio_buffer,
 			   struct audio_dsp_dram *dsp_dram_buffer);
 
-int dsp_daiid_to_scp_reservedid(int task_dai_id);
-int get_taskid_by_afe_daiid(int task_dai_id);
+int get_taskid_by_afe_daiid(int afe_dai_id);
 int get_afememdl_by_afe_taskid(int task_dai_id);
 int get_afememul_by_afe_taskid(int task_dai_id);
 int get_afememref_by_afe_taskid(int task_dai_id);

@@ -28,6 +28,14 @@ enum {
 	TASK_SCENE_FAST                 = 15,
 	TASK_SCENE_KTV                  = 16,
 	TASK_SCENE_CAPTURE_RAW          = 17,
+	TASK_SCENE_FM_ADSP              = 18,
+	TASK_SCENE_PHONE_CALL_SUB       = 19,
+	TASK_SCENE_BLEDL                = 20,
+	TASK_SCENE_BLEUL                = 21,
+	TASK_SCENE_BLEDEC               = 22,
+	TASK_SCENE_BLEENC               = 23,
+	TASK_SCENE_BLECALLDL            = 24,
+	TASK_SCENE_BLECALLUL            = 25,
 
 	/* control for driver */
 	TASK_SCENE_AUDIO_CONTROLLER_HIFI3_A,

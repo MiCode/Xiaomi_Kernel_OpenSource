@@ -14,7 +14,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/include
 
 ### for adsp
 #ifeq ($(CONFIG_MTK_AUDIODSP_SUPPORT),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/hifi3_v2
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/include
 #endif
 
 ### for CM4

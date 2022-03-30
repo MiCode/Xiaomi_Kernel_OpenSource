@@ -31,7 +31,6 @@
 #include <dvfs.h>
 #endif
 
-#include <adsp_ipi.h>
 #include <audio_ipi_dma.h>
 
 #define AUDIO_BUF_ALIGNEMNT (8)
@@ -45,6 +44,7 @@ unsigned int RingBuf_getDataCount(const struct RingBuf *RingBuf1)
 {
 	return RingBuf1->datacount;
 }
+EXPORT_SYMBOL(RingBuf_getDataCount);
 
 /*
  *
@@ -56,6 +56,7 @@ unsigned int RingBuf_getFreeSpace(const struct RingBuf *RingBuf1)
 {
 	return RingBuf1->bufLen - RingBuf1->datacount;
 }
+EXPORT_SYMBOL(RingBuf_getFreeSpace);
 
 /**
  * copy count number bytes from ring buffer to buf
@@ -303,13 +304,16 @@ void RingBuf_update_writeptr(struct RingBuf *RingBuf1, unsigned int count)
 
 	Ringbuf_Check(RingBuf1);
 }
+EXPORT_SYMBOL(RingBuf_update_writeptr);
 
 void RingBuf_update_readptr(struct RingBuf *RingBuf1, unsigned int count)
 {
 	if (count == 0 || count > RingBuf1->bufLen) {
+#ifdef RINGBUF_COUNT_CHECK
 		AUD_LOG_W("%s count[%u] datacount[%d] Len[%d]\n",
 			  __func__, count,
 			  RingBuf1->datacount, RingBuf1->bufLen);
+#endif
 		return;
 	}
 
@@ -333,10 +337,11 @@ void RingBuf_update_readptr(struct RingBuf *RingBuf1, unsigned int count)
 
 	/* handle buffer underflow*/
 	if (count > RingBuf1->datacount) {
+#ifdef RINGBUF_COUNT_CHECK
 		AUD_LOG_W("%s underflow count %u datacount %d Len %d\n",
 			   __func__, count,
 			   RingBuf1->datacount, RingBuf1->bufLen);
-
+#endif
 		if (RingBuf1->pWrite >= RingBuf1->pRead)
 			RingBuf1->datacount =
 			RingBuf1->pWrite - RingBuf1->pRead;
@@ -381,6 +386,7 @@ void RingBuf_Bridge_update_writeptr(struct ringbuf_bridge *RingBuf1,
 	}
 	Ringbuf_Bridge_Check(RingBuf1);
 }
+EXPORT_SYMBOL(RingBuf_Bridge_update_writeptr);
 
 void RingBuf_Bridge_update_readptr(struct ringbuf_bridge *RingBuf1,
 				   const unsigned int count)
@@ -415,6 +421,7 @@ void dump_audio_dsp_dram(struct audio_dsp_dram *dsp_dram)
 		__func__, dsp_dram->vir_addr, dsp_dram->va_addr,
 		dsp_dram->phy_addr, dsp_dram->size);
 }
+EXPORT_SYMBOL(dump_audio_dsp_dram);
 
 #if defined(__linux__)
 
@@ -604,7 +611,7 @@ void RingBuf_copyFromUserLinear(struct RingBuf *RingBuf1, void __user *buf,
 	}
 	RingBuf1->datacount += count;
 }
-
+EXPORT_SYMBOL(RingBuf_copyFromUserLinear);
 
 void ringbuf_copyto_user_linear(void __user *buf, struct RingBuf *RingBuf1,
 			  unsigned int count)
@@ -731,6 +738,40 @@ int RingBuf_Bridge_Clear(struct ringbuf_bridge *RingBuf1)
 	return 0;
 }
 
+bool is_ringbuf_clear(struct RingBuf *ring_buf)
+{
+	if (ring_buf == NULL) {
+		AUD_LOG_W("%s() ring_buf NULL\n", __func__);
+		return false;
+	}
+
+	if (ring_buf->pBufBase == 0 ||
+	    ring_buf->pBufEnd == 0 ||
+	    ring_buf->pWrite == 0 ||
+	    ring_buf->pRead == 0 ||
+	    ring_buf->bufLen == 0)
+		return true;
+
+	return false;
+}
+
+bool is_ringbuf_bridge_clear(struct ringbuf_bridge *ring_buf)
+{
+	if (ring_buf == NULL) {
+		AUD_LOG_W("%s() ring_buf bridge NULL\n", __func__);
+		return false;
+	}
+
+	if (ring_buf->pBufBase == 0 ||
+	    ring_buf->pBufEnd == 0 ||
+	    ring_buf->pWrite == 0 ||
+	    ring_buf->pRead == 0 ||
+	    ring_buf->bufLen == 0)
+		return true;
+
+	return false;
+}
+
 /* check if ringbur read write pointer*/
 void Ringbuf_Bridge_Check(struct ringbuf_bridge *buf_bridge)
 {
@@ -837,6 +878,7 @@ void RingBuf_Reset(struct RingBuf *RingBuf1)
 	RingBuf1->pWrite = RingBuf1->pBufBase;
 	RingBuf1->datacount = 0;
 }
+EXPORT_SYMBOL(RingBuf_Reset);
 
 int RingBuf_Clear(struct RingBuf *RingBuf1)
 {
@@ -856,6 +898,7 @@ int RingBuf_Clear(struct RingBuf *RingBuf1)
 	}
 	return 0;
 }
+EXPORT_SYMBOL(RingBuf_Clear);
 
 int clear_audiobuffer_hw(struct audio_hw_buffer *audio_hwbuf)
 {
@@ -870,6 +913,7 @@ int clear_audiobuffer_hw(struct audio_hw_buffer *audio_hwbuf)
 
 	return ret;
 }
+EXPORT_SYMBOL(clear_audiobuffer_hw);
 
 int reset_audiobuffer(struct audio_buffer *audio_buf)
 {
@@ -918,6 +962,7 @@ int set_audiobuffer_hw(struct audio_hw_buffer *audio_hwbuf, int hw_buffer)
 	audio_hwbuf->hw_buffer = hw_buffer;
 	return ret;
 }
+EXPORT_SYMBOL(set_audiobuffer_hw);
 
 int set_audiobuffer_memorytype(struct audio_hw_buffer *audio_hwbuf,
 				       int memory_type)
@@ -932,6 +977,7 @@ int set_audiobuffer_memorytype(struct audio_hw_buffer *audio_hwbuf,
 	audio_hwbuf->memory_type = memory_type;
 	return ret;
 }
+EXPORT_SYMBOL(set_audiobuffer_memorytype);
 
 int set_audiobuffer_audio_memiftype(struct audio_hw_buffer *audio_hwbuf,
 				    int audio_memiftype)
@@ -975,6 +1021,18 @@ int sync_ringbuf_readidx(struct RingBuf *task_ring_buf,
 		return -1;
 	}
 
+	if (is_ringbuf_clear(task_ring_buf)) {
+		dump_rbuf_s("sync ringbuf readidx, rbuf is clear",
+			    task_ring_buf);
+		return -1;
+	}
+
+	if (is_ringbuf_bridge_clear(buf_bridge)) {
+		dump_rbuf_bridge_s("sync ringbuf readidx, rbuf_bridge is clear",
+				   buf_bridge);
+		return -1;
+	}
+
 	/* buffer empty */
 	if (task_ring_buf->pRead == task_ring_buf->pWrite &&
 	    task_ring_buf->datacount == 0) {
@@ -991,17 +1049,19 @@ int sync_ringbuf_readidx(struct RingBuf *task_ring_buf,
 		datacount = task_ring_buf->bufLen -
 			    (task_ring_buf->pRead - readidx);
 
+#ifdef RINGBUF_COUNT_CHECK
 	if (datacount == 0 || datacount == task_ring_buf->bufLen) {
 		dump_rbuf_s(__func__, task_ring_buf);
 		dump_rbuf_bridge_s(__func__, buf_bridge);
 	}
-
+#endif
 	RingBuf_update_readptr(task_ring_buf, datacount);
 
 	Ringbuf_Check(task_ring_buf);
 	Ringbuf_Bridge_Check(buf_bridge);
 	return 0;
 }
+EXPORT_SYMBOL(sync_ringbuf_readidx);
 
 int sync_ringbuf_writeidx(struct RingBuf *task_ring_buf,
 			  struct ringbuf_bridge *buf_bridge)
@@ -1017,10 +1077,23 @@ int sync_ringbuf_writeidx(struct RingBuf *task_ring_buf,
 		return -1;
 	}
 
+	if (is_ringbuf_clear(task_ring_buf)) {
+		dump_rbuf_s("sync ringbuf writeidx, rbuf is clear",
+			    task_ring_buf);
+		return -1;
+	}
+
+	if (is_ringbuf_bridge_clear(buf_bridge)) {
+		dump_rbuf_bridge_s("sync ringbuf writeidx, rbuf_bridge is clear",
+				   buf_bridge);
+		return -1;
+	}
+
 	/* buffer full */
 	if (task_ring_buf->pRead == task_ring_buf->pWrite &&
 		task_ring_buf->datacount == task_ring_buf->bufLen) {
-		AUD_LOG_D("%s task_ring_buf full", __func__);
+		AUD_LOG_D("%s task_ring_buf full datacount[%d]\n",
+			  __func__, task_ring_buf->datacount);
 	}
 
 	writeidx = task_ring_buf->pBufBase +
@@ -1114,19 +1187,19 @@ void dump_rbuf_bridge(struct ringbuf_bridge *ring_buffer_bridge)
 }
 
 void dump_rbuf_bridge_s(const char *appendingstring,
-				    struct ringbuf_bridge *ring_buffer_bridge)
+			struct ringbuf_bridge *ring_buffer_bridge)
 {
 	if (ring_buffer_bridge == NULL)
 		return;
 #if defined(__linux__)
-	pr_info("%s %s pBufBase = 0x%llx pBufEnd = 0x%llx pRead = 0x%llx pWrite = 0x%llx bufLen=%llu readidx = 0x%llx writeidx = 0x%llx\n",
+	pr_info("%s %s pBufBase = 0x%llx pBufEnd = 0x%llx pRead = 0x%llx pWrite = 0x%llx bufLen=%llu readidx = 0x%llx writeidx = 0x%llx datacount= %llu\n",
 		appendingstring, __func__, ring_buffer_bridge->pBufBase,
 		ring_buffer_bridge->pBufEnd, ring_buffer_bridge->pRead,
 		ring_buffer_bridge->pWrite, ring_buffer_bridge->bufLen,
 		(ring_buffer_bridge->pRead - ring_buffer_bridge->pBufBase),
-		(ring_buffer_bridge->pWrite - ring_buffer_bridge->pBufBase)
+		(ring_buffer_bridge->pWrite - ring_buffer_bridge->pBufBase),
+		ring_buffer_bridge->datacount
 		);
-
 #else
 	AUD_LOG_D("%s %s Base = 0x%llx End = 0x%llx bufLen=%llu\n",
 		  appendingstring, __func__, ring_buffer_bridge->pBufBase,
@@ -1148,7 +1221,7 @@ void dump_rbuf(struct RingBuf *ring_buffer)
 	if (ring_buffer == NULL)
 		return;
 #if defined(__linux__)
-	pr_info("%s Base[%p] End[%p] R[%p] w[%p] Len[%d] count[%d]\n",
+	pr_info("%s Base[%px] End[%px] R[%px] w[%px] Len[%d] count[%d]\n",
 		__func__,
 		ring_buffer->pBufBase,
 		ring_buffer->pBufEnd,
@@ -1173,7 +1246,7 @@ void dump_rbuf_s(const char *appendingstring, struct RingBuf *ring_buffer)
 	if (ring_buffer == NULL)
 		return;
 #if defined(__linux__)
-	pr_info("%s %s Base[%p] End[%p] R[%p] w[%p] Len[%d] count[%d]\n",
+	pr_info("%s %s Base[%px] End[%px] R[%px] w[%px] Len[%d] count[%d]\n",
 		appendingstring, __func__,
 		ring_buffer->pBufBase,
 		ring_buffer->pBufEnd,
@@ -1192,7 +1265,7 @@ void dump_rbuf_s(const char *appendingstring, struct RingBuf *ring_buffer)
 		  ring_buffer->datacount);
 #endif
 }
-
+EXPORT_SYMBOL(dump_rbuf_s);
 
 void dump_buf_attr(struct buf_attr bufattr)
 {
@@ -1240,12 +1313,13 @@ void dump_audio_hwbuffer(struct audio_hw_buffer *audio_hwbuf)
 #endif
 	dump_audio_buffer(&audio_hwbuf->aud_buffer);
 }
+EXPORT_SYMBOL(dump_audio_hwbuffer);
 
 void dump_ring_bufinfo(struct RingBuf *buf)
 {
 #if defined(__linux__)
 	pr_info(
-		"pBufBase = %p pBufEnd = %p  pread = %p p write = %p DataCount = %u freespace = %u\n",
+		"pBufBase = %px pBufEnd = %px  pread = %px write = %px DataCount = %u freespace = %u\n",
 		buf->pBufBase, buf->pBufEnd, buf->pRead, buf->pWrite,
 		RingBuf_getDataCount(buf), RingBuf_getFreeSpace(buf));
 #else

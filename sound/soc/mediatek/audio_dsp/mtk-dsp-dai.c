@@ -20,7 +20,7 @@
 
 static int mtk_dai_stub_compress_new(struct snd_soc_pcm_runtime *rtd, int num)
 {
-#ifdef CONFIG_SND_SOC_COMPRESS
+#if IS_ENABLED(CONFIG_SND_SOC_COMPRESS)
 	snd_soc_new_compress(rtd, num);
 #endif
 	return 0;
@@ -107,6 +107,17 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 			},
 	},
 	{
+		.name = "audio_task_bledl_dai",
+		.id = AUDIO_TASK_BLEDL_ID,
+		.playback = {
+				.stream_name = "DSP_Playback_BLEDL",
+				.channels_min = 1,
+				.channels_max = 2,
+				.rates = MTK_I2S_RATES,
+				.formats = MTK_I2S_FORMATS,
+			},
+	},
+	{
 		.name = "audio_task_call_final_dai",
 		.id = AUDIO_TASK_CALL_FINAL_ID,
 		.playback = {
@@ -144,6 +155,28 @@ static struct snd_soc_dai_driver mtk_dai_dsp_driver[] = {
 		.id = AUDIO_TASK_CAPTURE_RAW_ID,
 		.capture = {
 				.stream_name = "DSP_Capture_Raw",
+				.channels_min = 1,
+				.channels_max = 4,
+				.rates = MTK_I2S_RATES,
+				.formats = MTK_I2S_FORMATS,
+			},
+	},
+	{
+		.name = "audio_task_fm_adsp_dai",
+		.id = AUDIO_TASK_FM_ADSP_ID,
+		.playback = {
+				.stream_name = "DSP_Playback_Fm_Adsp",
+				.channels_min = 1,
+				.channels_max = 2,
+				.rates = MTK_I2S_RATES,
+				.formats = MTK_I2S_FORMATS,
+			},
+	},
+	{
+		.name = "audio_task_bleul_dai",
+		.id = AUDIO_TASK_BLEUL_ID,
+		.capture = {
+				.stream_name = "DSP_Capture_BLE",
 				.channels_min = 1,
 				.channels_max = 4,
 				.rates = MTK_I2S_RATES,

@@ -8,13 +8,12 @@
 #include <linux/notifier.h>
 
 /* ipi message related*/
-#include <audio_ipi_dma.h>
-#include <audio_ipi_platform.h>
-#include <audio_messenger_ipi.h>
-#include <audio_task_manager.h>
-#include <audio_task.h>
-#include <mtk-base-afe.h>
-
+#include "audio_ipi_dma.h"
+#include "audio_ipi_platform.h"
+#include "audio_messenger_ipi.h"
+#include "audio_task_manager.h"
+#include "audio_task.h"
+#include "mtk-base-afe.h"
 #include "mtk-dsp-mem-control.h"
 #include "mtk-base-dsp.h"
 #include "mtk-dsp-common.h"
@@ -24,9 +23,51 @@
 #endif
 //#define DEBUG_VERBOSE
 
+#include "mtk-sp-spk-amp.h"
+
+static int adsp_standby_flag;
+
 /* don't use this directly if not necessary */
 static struct mtk_base_dsp *local_base_dsp;
 static struct mtk_base_afe *local_dsp_afe;
+
+static char *dsp_task_name[AUDIO_TASK_DAI_NUM] = {
+	[AUDIO_TASK_VOIP_ID]         = "voip",
+	[AUDIO_TASK_PRIMARY_ID]      = "primary",
+	[AUDIO_TASK_OFFLOAD_ID]      = "offload",
+	[AUDIO_TASK_DEEPBUFFER_ID]   = "deep",
+	[AUDIO_TASK_PLAYBACK_ID]     = "playback",
+	[AUDIO_TASK_MUSIC_ID]        = "music",
+	[AUDIO_TASK_CAPTURE_RAW_ID]  = "captureraw",
+	[AUDIO_TASK_CAPTURE_UL1_ID]  = "capture",
+	[AUDIO_TASK_A2DP_ID]         = "a2dp",
+	[AUDIO_TASK_BLEDL_ID]        = "bledl",
+	[AUDIO_TASK_BLEUL_ID]        = "bleul",
+	[AUDIO_TASK_DATAPROVIDER_ID] = "dataprovider",
+	[AUDIO_TASK_CALL_FINAL_ID]   = "call_final",
+	[AUDIO_TASK_FAST_ID]         = "fast",
+	[AUDIO_TASK_KTV_ID]          = "ktv",
+	[AUDIO_TASK_FM_ADSP_ID]      = "fm",
+};
+
+static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
+	[AUDIO_TASK_VOIP_ID]        = TASK_SCENE_VOIP,
+	[AUDIO_TASK_PRIMARY_ID]     = TASK_SCENE_PRIMARY,
+	[AUDIO_TASK_OFFLOAD_ID]     = TASK_SCENE_PLAYBACK_MP3,
+	[AUDIO_TASK_DEEPBUFFER_ID]  = TASK_SCENE_DEEPBUFFER,
+	[AUDIO_TASK_PLAYBACK_ID]    = TASK_SCENE_AUDPLAYBACK,
+	[AUDIO_TASK_MUSIC_ID]       = TASK_SCENE_MUSIC,
+	[AUDIO_TASK_CAPTURE_RAW_ID] = TASK_SCENE_CAPTURE_RAW,
+	[AUDIO_TASK_CAPTURE_UL1_ID] = TASK_SCENE_CAPTURE_UL1,
+	[AUDIO_TASK_A2DP_ID]        = TASK_SCENE_A2DP,
+	[AUDIO_TASK_BLEDL_ID]       = TASK_SCENE_BLEDL,
+	[AUDIO_TASK_BLEUL_ID]       = TASK_SCENE_BLEUL,
+	[AUDIO_TASK_DATAPROVIDER_ID] = TASK_SCENE_DATAPROVIDER,
+	[AUDIO_TASK_CALL_FINAL_ID]  = TASK_SCENE_CALL_FINAL,
+	[AUDIO_TASK_FAST_ID]        = TASK_SCENE_FAST,
+	[AUDIO_TASK_KTV_ID]         = TASK_SCENE_KTV,
+	[AUDIO_TASK_FM_ADSP_ID]     = TASK_SCENE_FM_ADSP,
+};
 
 int audio_set_dsp_afe(struct mtk_base_afe *afe)
 {
@@ -58,12 +99,14 @@ void *get_dsp_base(void)
 		pr_warn("%s local_base_dsp == NULL", __func__);
 	return local_base_dsp;
 }
+EXPORT_SYMBOL(get_dsp_base);
 
 static void *ipi_recv_private;
 void *get_ipi_recv_private(void)
 {
 	return ipi_recv_private;
 }
+EXPORT_SYMBOL(get_ipi_recv_private);
 
 void set_ipi_recv_private(void *priv)
 {
@@ -98,16 +141,14 @@ int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 
 	if (!is_audio_task_dsp_ready(task_scene)) {
 		pr_info("%s(), is_adsp_ready send false\n", __func__);
-		send_result = -1;
-		return send_result;
+		return -1;
 	}
 
 	if (get_task_attr(get_dspdaiid_by_dspscene(task_scene),
-			  ADSP_TASK_ATTR_DEFAULT) == 0) {
+			  ADSP_TASK_ATTR_DEFAULT) <= 0) {
 		pr_info("%s() task_scene[%d] not enable\n",
 			__func__, task_scene);
-		send_result = -1;
-		return send_result;
+		return -1;
 	}
 
 	send_result = audio_send_ipi_msg(
@@ -115,86 +156,49 @@ int mtk_scp_ipi_send(int task_scene, int data_type, int ack_type,
 		AUDIO_IPI_LAYER_TO_DSP, data_type,
 		ack_type, msg_id, param1, param2,
 		(char *)payload);
-
 	if (send_result)
-		pr_info("%s(),scp_ipi send fail\n",
-			__func__);
+		pr_info("%s(),scp_ipi send fail\n", __func__);
 
 	return send_result;
 }
+EXPORT_SYMBOL(mtk_scp_ipi_send);
 
 /* dsp scene ==> od mapping */
 int get_dspscene_by_dspdaiid(int id)
 {
-	switch (id) {
-	case AUDIO_TASK_VOIP_ID:
-		return TASK_SCENE_VOIP;
-	case AUDIO_TASK_PRIMARY_ID:
-		return TASK_SCENE_PRIMARY;
-	case AUDIO_TASK_OFFLOAD_ID:
-		return TASK_SCENE_PLAYBACK_MP3;
-	case AUDIO_TASK_DEEPBUFFER_ID:
-		return TASK_SCENE_DEEPBUFFER;
-	case AUDIO_TASK_PLAYBACK_ID:
-		return TASK_SCENE_AUDPLAYBACK;
-	case AUDIO_TASK_CAPTURE_UL1_ID:
-		return TASK_SCENE_CAPTURE_UL1;
-	case AUDIO_TASK_A2DP_ID:
-		return TASK_SCENE_A2DP;
-	case AUDIO_TASK_DATAPROVIDER_ID:
-		return TASK_SCENE_DATAPROVIDER;
-	case AUDIO_TASK_CALL_FINAL_ID:
-		return TASK_SCENE_CALL_FINAL;
-	case AUDIO_TASK_FAST_ID:
-		return TASK_SCENE_FAST;
-	case AUDIO_TASK_MUSIC_ID:
-		return TASK_SCENE_MUSIC;
-	case AUDIO_TASK_KTV_ID:
-		return TASK_SCENE_KTV;
-	case AUDIO_TASK_CAPTURE_RAW_ID:
-		return TASK_SCENE_CAPTURE_RAW;
-	default:
-		pr_warn("%s() err\n", __func__);
+	if (id < 0 || id >= AUDIO_TASK_DAI_NUM) {
+		pr_info("%s(), id err: %d\n", __func__, id);
 		return -1;
 	}
-	return 0;
+
+	return dsp_task_scence[id];
 }
+EXPORT_SYMBOL(get_dspscene_by_dspdaiid);
 
 int get_dspdaiid_by_dspscene(int dspscene)
 {
-	switch (dspscene) {
-	case TASK_SCENE_VOIP:
-		return AUDIO_TASK_VOIP_ID;
-	case TASK_SCENE_PRIMARY:
-		return AUDIO_TASK_PRIMARY_ID;
-	case TASK_SCENE_PLAYBACK_MP3:
-		return AUDIO_TASK_OFFLOAD_ID;
-	case TASK_SCENE_DEEPBUFFER:
-		return AUDIO_TASK_DEEPBUFFER_ID;
-	case TASK_SCENE_AUDPLAYBACK:
-		return AUDIO_TASK_PLAYBACK_ID;
-	case TASK_SCENE_CAPTURE_UL1:
-		return AUDIO_TASK_CAPTURE_UL1_ID;
-	case TASK_SCENE_A2DP:
-		return AUDIO_TASK_A2DP_ID;
-	case TASK_SCENE_DATAPROVIDER:
-		return AUDIO_TASK_DATAPROVIDER_ID;
-	case TASK_SCENE_FAST:
-		return AUDIO_TASK_FAST_ID;
-	case TASK_SCENE_MUSIC:
-		return AUDIO_TASK_MUSIC_ID;
-	case TASK_SCENE_CALL_FINAL:
-		return AUDIO_TASK_CALL_FINAL_ID;
-	case TASK_SCENE_KTV:
-		return AUDIO_TASK_KTV_ID;
-	case TASK_SCENE_CAPTURE_RAW:
-		return AUDIO_TASK_CAPTURE_RAW_ID;
-	default:
-		pr_info("%s() err dspscene=%d\n", __func__, dspscene);
+	int id;
+	int ret = -1;
+
+	if (dspscene < 0) {
+		pr_info("%s() dspscene err: %d\n", __func__, dspscene);
 		return -1;
 	}
-	return 0;
+
+	for (id = 0; id < AUDIO_TASK_DAI_NUM; id++) {
+		if (dsp_task_scence[id] == dspscene) {
+			ret = id;
+			break;
+		}
+	}
+
+	if (ret < 0)
+		pr_info("%s() dspscene is not in dsp_task_scence[id]\n",
+			__func__);
+
+	return ret;
 }
+EXPORT_SYMBOL(get_dspdaiid_by_dspscene);
 
 /* todo:: refine for check mechanism.*/
 int get_audio_memery_type(struct snd_pcm_substream *substream)
@@ -241,32 +245,31 @@ EXPORT_SYMBOL_GPL(get_dsp_task_attr);
 int get_dsp_task_id_from_str(const char *task_name)
 {
 	int ret = -1;
+	int id;
 
-	if (strstr(task_name, "primary"))
-		ret = AUDIO_TASK_PRIMARY_ID;
-	else if (strstr(task_name, "deepbuffer"))
-		ret = AUDIO_TASK_DEEPBUFFER_ID;
-	else if (strstr(task_name, "voip"))
-		ret = AUDIO_TASK_VOIP_ID;
-	else if (strstr(task_name, "playback"))
-		ret = AUDIO_TASK_PLAYBACK_ID;
-	else if (strstr(task_name, "call_final"))
-		ret = AUDIO_TASK_CALL_FINAL_ID;
-	else if (strstr(task_name, "ktv"))
-		ret = AUDIO_TASK_KTV_ID;
-	else if (strstr(task_name, "offload"))
-		ret = AUDIO_TASK_OFFLOAD_ID;
-	else if (strstr(task_name, "capture"))
-		ret = AUDIO_TASK_CAPTURE_UL1_ID;
-	else if (strstr(task_name, "fast"))
-		ret = AUDIO_TASK_FAST_ID;
-	else
+	for (id = 0; id < AUDIO_TASK_DAI_NUM; id++) {
+		if (strstr(task_name, dsp_task_name[id]))
+			ret = id;
+	}
+
+	if (ret < 0)
 		pr_info("%s(), %s has no task id, ret %d",
 			__func__, task_name, ret);
 
 	return ret;
 }
 EXPORT_SYMBOL_GPL(get_dsp_task_id_from_str);
+
+const char *get_str_by_dsp_dai_id(const int task_id)
+{
+	if (task_id < 0 || task_id >= AUDIO_TASK_DAI_NUM) {
+		pr_info("%s(), task_id err: %d\n", __func__, task_id);
+		return NULL;
+	}
+
+	return dsp_task_name[task_id];
+}
+EXPORT_SYMBOL_GPL(get_str_by_dsp_dai_id);
 
 static int set_aud_buf_attr(struct audio_hw_buffer *audio_hwbuf,
 			    struct snd_pcm_substream *substream,
@@ -344,57 +347,30 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai,
 		       struct mtk_base_afe *afe)
 {
-	int task_id = 0, ret = 0;
+	int ret = 0;
 	struct mtk_base_dsp *dsp = (struct mtk_base_dsp *)local_base_dsp;
 	void *ipi_audio_buf; /* dsp <-> audio data struct*/
 	struct mtk_base_dsp_mem *dsp_memif;
 	struct mtk_base_afe_memif *memif = &afe->memif[dai->id];
+	int task_id = get_taskid_by_afe_daiid(dai->id);
+	const char *task_name;
 
-	task_id = get_taskid_by_afe_daiid(dai->id);
 	if (task_id < 0 || task_id >= AUDIO_TASK_DAI_NUM)
 		return -1;
 
-	if (get_task_attr(task_id, ADSP_TASK_ATTR_RUMTIME) <= 0 ||
+	if (get_task_attr(task_id, ADSP_TASK_ATTR_RUNTIME) <= 0 ||
 	    get_task_attr(task_id, ADSP_TASK_ATTR_DEFAULT) <= 0)
 		return -1;
 
-	pr_info("%s(), command 0x%x\n", __func__, command);
+	task_name = get_str_by_dsp_dai_id(task_id);
+
+	pr_info("%s(), %s send cmd 0x%x\n", __func__, task_name, command);
 
 	dsp_memif = (struct mtk_base_dsp_mem *)&dsp->dsp_mem[task_id];
 
-	/* send msg by task , unsing common function*/
+	/* send msg by task by unsing common function */
 	switch (command) {
 	case AUDIO_DSP_TASK_PCM_HWPARAM:
-		set_aud_buf_attr(&dsp_memif->audio_afepcm_buf,
-				 substream,
-				 params,
-				 memif->irq_usage,
-				 dai);
-
-		/* send audio_afepcm_buf to SCP side*/
-		ipi_audio_buf = (void *)
-				 dsp_memif->msg_atod_share_buf.va_addr;
-		memcpy((void *)ipi_audio_buf,
-		       (void *)&dsp_memif->audio_afepcm_buf,
-		       sizeof(struct audio_hw_buffer));
-
-#ifdef DEBUG_VERBOSE
-		dump_audio_hwbuffer(ipi_audio_buf);
-#endif
-
-		/* send to task with hw_param information ,
-		 * buffer and pcm attribute
-		 */
-		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(task_id),
-				       AUDIO_IPI_PAYLOAD,
-				 AUDIO_IPI_MSG_NEED_ACK,
-				 AUDIO_DSP_TASK_PCM_HWPARAM,
-				 sizeof(unsigned int),
-				 (unsigned int)
-				 dsp_memif->msg_atod_share_buf.phy_addr,
-				 (char *)
-				 &dsp_memif->msg_atod_share_buf.phy_addr);
-		break;
 	case AUDIO_DSP_TASK_PCM_PREPARE:
 		set_aud_buf_attr(&dsp_memif->audio_afepcm_buf,
 				 substream,
@@ -402,7 +378,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 				 memif->irq_usage,
 				 dai);
 
-		/* send audio_afepcm_buf to SCP side*/
+		/* send audio_afepcm_buf to SCP side */
 		ipi_audio_buf =
 			(void *)dsp_memif->msg_atod_share_buf.va_addr;
 		memcpy((void *)ipi_audio_buf,
@@ -413,11 +389,13 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		dump_audio_hwbuffer(ipi_audio_buf);
 #endif
 
-		/* send to task with prepare status*/
+		/* send to task with hw_param information, buffer and pcm attribute
+		 * or send to task with prepare status
+		 */
 		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(task_id),
 				       AUDIO_IPI_PAYLOAD,
 				       AUDIO_IPI_MSG_NEED_ACK,
-				       AUDIO_DSP_TASK_PCM_PREPARE,
+				       command,
 				       sizeof(unsigned int),
 				       (unsigned int)
 				       dsp_memif->msg_atod_share_buf.phy_addr,
@@ -430,7 +408,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 				 params,
 				 memif->irq_usage,
 				 dai);
-		/* send to task with prepare status*/
+		/* send to task with prepare status */
 		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(task_id),
 				       AUDIO_IPI_MSG_ONLY,
 				       AUDIO_IPI_MSG_NEED_ACK,
@@ -484,9 +462,11 @@ static int mtk_audio_dsp_event_receive(
 {
 	switch (event) {
 	case ADSP_EVENT_STOP:
+		adsp_standby_flag = 1;
 		break;
 	case ADSP_EVENT_READY:
 		mtk_reinit_adsp();
+		adsp_standby_flag = 0;
 		break;
 	default:
 		pr_info("event %lu err", event);
@@ -507,4 +487,70 @@ int mtk_audio_register_notify(void)
 #endif
 	return 0;
 }
+
+int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size)
+{
+	int result = -1;
+	struct ipi_msg_t ipi_msg;
+	int task_scene;
+
+	if (adsp_standby_flag)
+		return result;
+
+	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
+
+	if (get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
+			  ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_CALL_FINAL;
+	else if (get_task_attr(AUDIO_TASK_PLAYBACK_ID,
+			       ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_AUDPLAYBACK;
+	else {
+		pr_info("%s(), callfinal and playback are not enable\n",
+			__func__);
+		return result;
+	}
+
+	result = audio_send_ipi_buf_to_dsp(&ipi_msg, task_scene,
+					   AUDIO_DSP_TASK_AURISYS_SET_BUF,
+					   mtk_spk_get_type(),
+					   data_buffer, data_size);
+
+	return result;
+}
+EXPORT_SYMBOL(mtk_spk_send_ipi_buf_to_dsp);
+
+int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
+				  int16_t size,
+				  uint32_t *buf_len)
+{
+	int result = -1;
+	struct ipi_msg_t ipi_msg;
+	int task_scene;
+
+	if (adsp_standby_flag)
+		return result;
+
+	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
+
+	if (get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
+			  ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_CALL_FINAL;
+	else if (get_task_attr(AUDIO_TASK_PLAYBACK_ID,
+			       ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_AUDPLAYBACK;
+	else {
+		pr_info("%s(), callfinal and playback are not enable\n",
+			__func__);
+		return result;
+	}
+
+	result = audio_recv_ipi_buf_from_dsp(&ipi_msg,
+					     task_scene,
+					     AUDIO_DSP_TASK_AURISYS_GET_BUF,
+					     mtk_spk_get_type(),
+					     buffer, size, buf_len);
+	return result;
+}
+EXPORT_SYMBOL(mtk_spk_recv_ipi_buf_from_dsp);
 

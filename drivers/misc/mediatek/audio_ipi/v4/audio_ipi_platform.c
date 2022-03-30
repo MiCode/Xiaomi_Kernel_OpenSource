@@ -9,7 +9,7 @@
 
 #include <audio_task.h>
 
-
+#include <adsp_helper.h>
 
 /*
  * =============================================================================
@@ -45,23 +45,41 @@ uint32_t audio_get_dsp_id(const uint8_t task)
 	case TASK_SCENE_DEEPBUFFER:
 	case TASK_SCENE_AUDPLAYBACK:
 	case TASK_SCENE_A2DP:
+	case TASK_SCENE_BLEDL:
+	case TASK_SCENE_BLEENC:
 	case TASK_SCENE_DATAPROVIDER:
 	case TASK_SCENE_AUD_DAEMON_A:
 	case TASK_SCENE_AUDIO_CONTROLLER_HIFI3_A:
 	case TASK_SCENE_CALL_FINAL:
 	case TASK_SCENE_MUSIC:
 	case TASK_SCENE_FAST:
+	case TASK_SCENE_FM_ADSP:
+	case TASK_SCENE_PHONE_CALL_SUB:
+	case TASK_SCENE_BLECALLDL:
+	case TASK_SCENE_VOIP:
 		dsp_id = AUDIO_OPENDSP_USE_HIFI3_A;
 		break;
 	case TASK_SCENE_PHONE_CALL:
 	case TASK_SCENE_RECORD:
-	case TASK_SCENE_VOIP:
 	case TASK_SCENE_CAPTURE_UL1:
 	case TASK_SCENE_AUD_DAEMON_B:
-	case TASK_SCENE_AUDIO_CONTROLLER_HIFI3_B:
 	case TASK_SCENE_KTV:
 	case TASK_SCENE_CAPTURE_RAW:
-		dsp_id = AUDIO_OPENDSP_USE_HIFI3_B;
+	case TASK_SCENE_BLEUL:
+	case TASK_SCENE_BLEDEC:
+	case TASK_SCENE_BLECALLUL:
+		if (get_adsp_core_total() > 1)
+			dsp_id = AUDIO_OPENDSP_USE_HIFI3_B;
+		else
+			dsp_id = AUDIO_OPENDSP_USE_HIFI3_A;
+		break;
+	case TASK_SCENE_AUDIO_CONTROLLER_HIFI3_B:
+		if (get_adsp_core_total() > 1)
+			dsp_id = AUDIO_OPENDSP_USE_HIFI3_B;
+		else {
+			pr_notice("task %d not support!!", task);
+			dsp_id = AUDIO_OPENDSP_ID_INVALID;
+		}
 		break;
 	default:
 		pr_notice("task %d not support!!", task);

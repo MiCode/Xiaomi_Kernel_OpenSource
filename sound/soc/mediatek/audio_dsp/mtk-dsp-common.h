@@ -9,8 +9,6 @@
 #ifndef AUDIO_DSP_COMMON_H
 #define AUDIO_DSP_COMMON_H
 
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <sound/pcm.h>
@@ -90,11 +88,8 @@ int set_dsp_base(struct mtk_base_dsp *pdsp);
 void *get_dsp_base(void);
 
 int mtk_adsp_allocate_mem(struct snd_pcm_substream *substream,
-			  unsigned int size,
-			  int id);
-int mtk_adsp_free_mem(struct snd_pcm_substream *substream,
-		      unsigned int size,
-		      int id);
+			  unsigned int size);
+int mtk_adsp_free_mem(struct snd_pcm_substream *substream);
 
 int mtk_adsp_genpool_allocate_memory(unsigned char **vaddr,
 				     dma_addr_t *paddr,
@@ -105,6 +100,7 @@ int mtk_adsp_genpool_free_memory(unsigned char **vaddr,
 int afe_get_pcmdir(int dir, struct audio_hw_buffer buf);
 int get_dsp_task_attr(int dsp_id, int task_attr);
 int get_dsp_task_id_from_str(const char *task_name);
+const char *get_str_by_dsp_dai_id(const int task_id);
 
 int audio_set_dsp_afe(struct mtk_base_afe *afe);
 struct mtk_base_afe *get_afe_base(void);
@@ -114,5 +110,9 @@ int mtk_dsp_deregister_feature(int id);
 
 int mtk_audio_register_notify(void);
 
-#endif
+int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size);
+int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
+				  int16_t size,
+				  uint32_t *buf_len);
+
 #endif

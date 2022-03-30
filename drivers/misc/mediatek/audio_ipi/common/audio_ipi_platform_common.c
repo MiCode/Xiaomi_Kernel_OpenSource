@@ -16,7 +16,6 @@
 
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 #include <adsp_helper.h>
-#include <adsp_reserved_mem.h>
 #endif
 
 #include <audio_task.h>
@@ -74,7 +73,6 @@ uint32_t ipi_dsp_id_to_adsp_cid(const uint32_t dsp_id)
 #else
 	if (dsp_id < AUDIO_OPENDSP_USE_HIFI3_A ||
 	    dsp_id > AUDIO_OPENDSP_USE_HIFI3_B) {
-		pr_notice("invalid dsp_id %u", dsp_id);
 		return 0xFFFFFFFF;
 	}
 
@@ -142,7 +140,6 @@ uint32_t ipi_dsp_id_to_scp_cid(const uint32_t dsp_id)
 #else
 	if (dsp_id < AUDIO_OPENDSP_USE_CM4_A ||
 	    dsp_id > AUDIO_OPENDSP_USE_CM4_B) {
-		pr_notice("invalid dsp_id %u", dsp_id);
 		return 0xFFFFFFFF;
 	}
 

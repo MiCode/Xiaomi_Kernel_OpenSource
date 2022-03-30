@@ -6,28 +6,14 @@
 #ifndef AUDIO_ASSERT_H
 #define AUDIO_ASSERT_H
 
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-#include <mt-plat/aee.h>
-
-#define AUD_ASSERT(exp) \
-	do { \
-		if (!(exp)) { \
-			aee_kernel_exception_api(__FILE__, \
-						 __LINE__, \
-						 DB_OPT_DEFAULT, \
-						 "[Audio]", \
-						 "ASSERT("#exp") fail!!"); \
-		} \
-	} while (0)
-#else
 #define AUD_ASSERT(exp) \
 	do { \
 		if (!(exp)) { \
 			pr_notice("ASSERT("#exp")!! \""  __FILE__ "\", %uL\n", \
 				  __LINE__); \
+			WARN_ON(1); \
 		} \
 	} while (0)
-#endif
 
 #define AUD_WARNING(string) \
 	do { \

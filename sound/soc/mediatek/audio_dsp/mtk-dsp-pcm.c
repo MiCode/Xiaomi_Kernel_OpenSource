@@ -53,11 +53,14 @@ static char *dsp_task_dsp_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_MUSIC_ID]       = "mtk_dsp_music",
 	[AUDIO_TASK_CAPTURE_UL1_ID] = "mtk_dsp_capture1",
 	[AUDIO_TASK_A2DP_ID]        = "mtk_dsp_a2dp",
+	[AUDIO_TASK_BLEDL_ID]       = "mtk_dsp_bledl",
+	[AUDIO_TASK_BLEUL_ID]       = "mtk_dsp_bleul",
 	[AUDIO_TASK_DATAPROVIDER_ID] = "mtk_dsp_dataprovider",
 	[AUDIO_TASK_CALL_FINAL_ID]  = "mtk_dsp_call_final",
 	[AUDIO_TASK_FAST_ID]        = "mtk_dsp_fast",
 	[AUDIO_TASK_KTV_ID]         = "mtk_dsp_ktv",
 	[AUDIO_TASK_CAPTURE_RAW_ID] = "mtk_dsp_capture_raw",
+	[AUDIO_TASK_FM_ADSP_ID]     = "mtk_dsp_fm",
 };
 
 static int dsp_pcm_taskattr_init(struct platform_device *pdev)
@@ -112,14 +115,6 @@ static int dsp_pcm_taskattr_init(struct platform_device *pdev)
 
 		set_task_attr(AUDIO_TASK_PLAYBACK_ID, ADSP_TASK_ATTR_SMARTPA,
 			      task_attr.spk_protect_in_dsp);
-
-		ret = of_property_read_u32(pdev->dev.of_node,
-					   "is_shared_dram_mpu",
-					   &dsp->is_shared_dram_mpu);
-		if (ret) {
-			pr_err("%s is_shared_dram_mpu error: %d\n", ret);
-			dsp->is_shared_dram_mpu = 0;
-		}
 	}
 	return 0;
 }
@@ -160,7 +155,7 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 					 dsp->dai_drivers,
 					 dsp->num_dai_drivers);
 	if (ret) {
-		dev_warn(&pdev->dev, "err_platform\n");
+		dev_info(&pdev->dev, "%s() err_platform: %d\n", __func__, ret);
 		goto err_platform;
 	}
 
@@ -170,7 +165,8 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 
 	ret = init_mtk_adsp_dram_segment();
 	if (ret) {
-		pr_info("init_mtk_adsp_dram_segment fail\n");
+		pr_info("%s(), init_mtk_adsp_dram_segment fail: %d\n",
+			__func__, ret);
 		goto err_platform;
 	}
 	dump_all_adsp_dram();
@@ -181,8 +177,8 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 		goto err_platform;
 	}
 
-	/* set mpu with adsp common memory*/
-	if (dsp->is_shared_dram_mpu)
+	/* set adsp shared memory cacheable by using ADSP MPU */
+	if (dsp->dsp_ver)
 		ret = set_mtk_adsp_mpu_sharedram(AUDIO_DSP_AFE_SHARE_MEM_ID);
 	if (ret)
 		pr_info("set_mtk_adsp_mpu_sharedram fail\n");
@@ -195,13 +191,8 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 
 	mtk_audio_register_notify();
 
-	return 0;
-
 err_platform:
-	pr_err("%s\n", __func__);
-	snd_soc_unregister_component(&pdev->dev);
-
-	return ret;
+	return 0;
 }
 
 static const struct of_device_id dsp_pcm_dt_match[] = {

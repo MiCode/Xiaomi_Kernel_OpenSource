@@ -25,9 +25,7 @@
 #include <audio_ipi_platform.h>
 
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
-#include <adsp_ipi.h>
 #include <adsp_helper.h>
-#include <adsp_platform.h>
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_AUDIO_CM4_SUPPORT)
@@ -557,11 +555,6 @@ int dsp_dispatch_ipi_hanlder_to_queue(
 	int retval = 0;
 	unsigned long flags = 0;
 
-	ktime_t start_time = ktime_get();
-	s64 push_time = 0;
-	s64 wake_time = 0;
-	s64 stop_time = 0;
-
 	ipi_dbg("in, dsp_id: %u, ipi_id: %u, buf: %p, len: %u, ipi_handler: %p",
 		dsp_id, ipi_id, buf, len, ipi_handler);
 
@@ -595,7 +588,6 @@ int dsp_dispatch_ipi_hanlder_to_queue(
 			      false,
 			      &idx_msg,
 			      &queue_counter);
-	push_time = ktime_us_delta(ktime_get(), start_time);
 	spin_unlock_irqrestore(&msg_queue->queue_lock, flags);
 	if (retval != 0) {
 		pr_info("dsp_id: %u, push fail!!", dsp_id);
@@ -605,19 +597,6 @@ int dsp_dispatch_ipi_hanlder_to_queue(
 	/* notify queue thread to process it */
 	dsb(SY);
 	wake_up_interruptible(&msg_queue->queue_wq);
-	wake_time = ktime_us_delta(ktime_get(), start_time);
-
-	ipi_dbg("out, dsp_id: %u, ipi_id: %u, buf: %p, len: %u, ipi_handler: %p",
-		dsp_id, ipi_id, buf, len, ipi_handler);
-
-	stop_time = ktime_us_delta(ktime_get(), start_time);
-	if (stop_time > 1000) { /* 1 ms */
-		pr_notice("IPI Q push %lld us too long!! push %lld wake %lld, ktime api %lld",
-			  stop_time,
-			  push_time,
-			  wake_time - push_time,
-			  stop_time - wake_time);
-	}
 
 	return 0;
 }
@@ -709,7 +688,6 @@ static int dsp_push_msg(
 		if (dump_queue_flag == false) {
 			dump_queue_flag = true;
 			dsp_dump_msg_in_queue(msg_queue);
-			AUD_ASSERT(0);
 		}
 		return -EOVERFLOW;
 	}

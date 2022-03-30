@@ -271,7 +271,10 @@ int flush_ipi_queue_handler(struct ipi_queue_handler_t *handler)
 	msg_queue = (struct msg_queue_t *)handler->msg_queue;
 
 	spin_lock_irqsave(&msg_queue->rw_lock, flags);
-	if (check_queue_empty(msg_queue) == false) {
+	if (msg_queue->idx_r >= MAX_IPI_MSG_QUEUE_SIZE) {
+		pr_info("idx_r %d >= %d(%d)!!", msg_queue->idx_r,
+			MAX_IPI_MSG_QUEUE_SIZE, msg_queue->k_element_size);
+	} else if (check_queue_empty(msg_queue) == false) {
 		p_ipi_msg = msg_queue->element[msg_queue->idx_r].msg;
 
 		if (p_ipi_msg->ack_type == AUDIO_IPI_MSG_NEED_ACK) {
@@ -365,7 +368,6 @@ int send_message(
 			memset(&msg_queue->ipi_msg_ack,
 			       0,
 			       sizeof(struct ipi_msg_t));
-			AUD_ASSERT(0);
 		}
 		retval = process_message_in_queue(
 				 msg_queue, p_ipi_msg, idx_msg);
@@ -469,7 +471,6 @@ int send_message_ack(
 	if (msg_queue->ipi_msg_ack.magic != 0) {
 		DUMP_IPI_MSG("previous ack not clean", &msg_queue->ipi_msg_ack);
 		DUMP_IPI_MSG("new ack", p_ipi_msg_ack);
-		AUD_ASSERT(0);
 	}
 
 	memcpy(&msg_queue->ipi_msg_ack,
@@ -614,7 +615,6 @@ static int process_message_in_queue(
 		if (retval == -ETIMEDOUT) {
 			DUMP_IPI_MSG("timeout!! msg", p_ipi_msg);
 			DUMP_IPI_MSG("timeout!! ack", p_ack);
-			AUD_ASSERT(0);
 			break;
 		}
 
@@ -626,7 +626,6 @@ static int process_message_in_queue(
 			memset(p_ack, 0, sizeof(struct ipi_msg_t));
 			retval = -1;
 			spin_unlock_irqrestore(&msg_queue->ack_lock, flags);
-			AUD_ASSERT(0);
 			break;
 		}
 
@@ -747,8 +746,9 @@ inline int push_msg(struct msg_queue_t *msg_queue, struct ipi_msg_t *p_ipi_msg)
 	msg_queue->element[msg_queue->idx_w].msg = p_ipi_msg;
 	idx_msg = msg_queue->idx_w;
 	msg_queue->idx_w++;
-	if (msg_queue->idx_w == msg_queue->k_element_size)
-		msg_queue->idx_w = 0;
+	if (msg_queue->idx_w >= msg_queue->k_element_size &&
+	    msg_queue->k_element_size != 0)
+		msg_queue->idx_w %= msg_queue->k_element_size;
 
 	AUD_LOG_V(
 		"task %d, push msg: 0x%x, idx_msg = %d, idx_r = %d, idx_w = %d",
@@ -787,8 +787,9 @@ inline int pop_msg(struct msg_queue_t *msg_queue, struct ipi_msg_t **pp_ipi_msg)
 	/* pop */
 	*pp_ipi_msg = msg_queue->element[msg_queue->idx_r].msg;
 	msg_queue->idx_r++;
-	if (msg_queue->idx_r == msg_queue->k_element_size)
-		msg_queue->idx_r = 0;
+	if (msg_queue->idx_r >= msg_queue->k_element_size &&
+	    msg_queue->k_element_size != 0)
+		msg_queue->idx_r %= msg_queue->k_element_size;
 
 
 	if (*pp_ipi_msg == NULL) {

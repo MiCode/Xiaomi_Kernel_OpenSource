@@ -25,7 +25,7 @@ struct gen_pool;
 #include <audio_messenger_ipi.h>
 #include "audio_task.h"
 #include "mtk-dsp-common.h"
-#include <adsp_platform.h>
+#include "adsp_helper.h"
 
 #define MAX_PAYLOAD_SIZE (32) /* 32bytes */
 
@@ -48,6 +48,7 @@ struct mtk_base_dsp_mem {
 	unsigned char ipi_payload_buf[MAX_PAYLOAD_SIZE];
 	unsigned int dsp_feature_counter;
 	int underflowed;
+	spinlock_t ringbuf_lock;
 };
 
 struct audio_core_flag {
@@ -93,8 +94,6 @@ struct mtk_base_dsp {
 	 * aud_playback task get data from source and write to AFE HW
 	 */
 	int dsp_ver;
-
-	int is_shared_dram_mpu;
 };
 
 struct mtk_adsp_task_attr {
