@@ -530,6 +530,7 @@ int devres_release_all(struct device *dev)
 	release_nodes(dev, &todo);
 	return cnt;
 }
+EXPORT_SYMBOL_GPL(devres_release_all);
 
 /**
  * devres_open_group - Open a new devres group
