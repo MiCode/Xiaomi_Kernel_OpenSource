@@ -170,12 +170,48 @@ static int lvts_read_all_tc_temperature(struct lvts_data *lvts_data)
 			else if (current_temp > max_temp)
 				max_temp = current_temp;
 
+			mutex_lock(&lvts_data->sen_data_lock);
 			lvts_data->sen_data[s_index].msr_raw = msr_raw;
-			WRITE_ONCE(lvts_data->sen_data[s_index].temp, current_temp);
+			lvts_data->sen_data[s_index].temp = current_temp;
+			mutex_unlock(&lvts_data->sen_data_lock);
 		}
 	}
 
 	return max_temp;
+}
+
+static int lvts_read_tc_temperature(struct lvts_data *lvts_data, unsigned int tz_id)
+{
+	struct tc_settings *tc = lvts_data->tc;
+	unsigned int i, j, msr_raw;
+	unsigned int s_index = tz_id - 1;
+	int current_temp;
+	void __iomem *base;
+	struct platform_ops *ops = &lvts_data->ops;
+
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+		for (j = 0; j < tc[i].num_sensor; j++) {
+			if (s_index != tc[i].sensor_map[j])
+				continue;
+
+			msr_raw = lvts_read_tc_msr_raw(LVTSMSR0_0 + base + 0x4 * j);
+
+			if (msr_raw == 0)
+				current_temp = THERMAL_TEMP_INVALID;
+			else
+				current_temp = ops->lvts_raw_to_temp(&(tc[i].coeff), j, msr_raw);
+
+			mutex_lock(&lvts_data->sen_data_lock);
+			lvts_data->sen_data[s_index].msr_raw = msr_raw;
+			lvts_data->sen_data[s_index].temp = current_temp;
+			mutex_unlock(&lvts_data->sen_data_lock);
+
+			return current_temp;
+		}
+	}
+
+	return THERMAL_TEMP_INVALID;
 }
 
 static int soc_temp_lvts_read_temp(void *data, int *temperature)
@@ -186,7 +222,7 @@ static int soc_temp_lvts_read_temp(void *data, int *temperature)
 	if (lvts_tz->id == 0)
 		*temperature = lvts_read_all_tc_temperature(lvts_data);
 	else if (lvts_tz->id - 1 < lvts_data->num_sensor)
-		*temperature = READ_ONCE(lvts_data->sen_data[lvts_tz->id - 1].temp);
+		*temperature = lvts_read_tc_temperature(lvts_data, lvts_tz->id);
 	else
 		return -EINVAL;
 
@@ -1442,6 +1478,8 @@ static int lvts_probe(struct platform_device *pdev)
 	ret = lvts_register_irq_handler(lvts_data);
 	if (ret)
 		return ret;
+
+	mutex_init(&lvts_data->sen_data_lock);
 
 	ret = lvts_register_thermal_zones(lvts_data);
 	if (ret)
