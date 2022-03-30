@@ -141,5 +141,3 @@ void mtk_register_reset_controller_set_clr(struct device_node *np,
 EXPORT_SYMBOL(mtk_register_reset_controller_set_clr);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek MTK");
-MODULE_AUTHOR("MediaTek Inc.");

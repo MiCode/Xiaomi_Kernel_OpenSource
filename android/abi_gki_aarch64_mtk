@@ -1423,6 +1423,7 @@
   default_llseek
   default_qdisc_ops
   default_wake_function
+  deferred_free
   __delay
   delayed_work_timer_fn
   delete_from_page_cache
@@ -3484,6 +3485,7 @@
   fill_inquiry_response
   filp_close
   filp_open
+  filp_open_block
   filter_irq_stacks
   filter_match_preds
   finalize_exec
@@ -6141,6 +6143,7 @@
   media_request_put
   memalloc_socks_key
   memblock_end_of_DRAM
+  memblock_free
   __memcat_p
   memcg_kmem_enabled_key
   mem_cgroup_from_task

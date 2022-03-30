@@ -8,6 +8,7 @@
 #include <linux/of_address.h>
 #include <linux/io.h>
 #include <linux/mfd/syscon.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/clkdev.h>
 #include <linux/delay.h>
@@ -605,8 +606,6 @@ void mtk_clk_register_plls(struct device_node *node,
 		}
 	}
 }
-EXPORT_SYMBOL(mtk_clk_register_plls);
+EXPORT_SYMBOL_GPL(mtk_clk_register_plls);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek PLL");
-MODULE_AUTHOR("MediaTek Inc.");

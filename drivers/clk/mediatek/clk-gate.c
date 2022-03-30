@@ -340,7 +340,7 @@ const struct clk_ops mtk_clk_gate_ops_setclr = {
 	.disable	= mtk_cg_disable,
 	.disable_unused = mtk_cg_disable_unused,
 };
-EXPORT_SYMBOL(mtk_clk_gate_ops_setclr);
+EXPORT_SYMBOL_GPL(mtk_clk_gate_ops_setclr);
 
 const struct clk_ops mtk_clk_gate_ops_setclr_inv = {
 	.is_enabled	= mtk_cg_bit_is_set,
@@ -348,7 +348,7 @@ const struct clk_ops mtk_clk_gate_ops_setclr_inv = {
 	.disable	= mtk_cg_disable_inv,
 	.disable_unused = mtk_cg_disable_unused_inv,
 };
-EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_inv);
+EXPORT_SYMBOL_GPL(mtk_clk_gate_ops_setclr_inv);
 
 const struct clk_ops mtk_clk_gate_ops_hwv = {
 	.is_enabled	= mtk_cg_is_set_hwv,
@@ -356,7 +356,7 @@ const struct clk_ops mtk_clk_gate_ops_hwv = {
 	.disable	= mtk_cg_disable_hwv,
 	.disable_unused = mtk_cg_disable_unused_hwv,
 };
-EXPORT_SYMBOL(mtk_clk_gate_ops_hwv);
+EXPORT_SYMBOL_GPL(mtk_clk_gate_ops_hwv);
 
 const struct clk_ops mtk_clk_gate_ops_no_setclr = {
 	.is_enabled	= mtk_cg_bit_is_cleared,
@@ -364,7 +364,7 @@ const struct clk_ops mtk_clk_gate_ops_no_setclr = {
 	.disable	= mtk_cg_disable_no_setclr,
 	.disable_unused = mtk_cg_disable_unused_no_setclr,
 };
-EXPORT_SYMBOL(mtk_clk_gate_ops_no_setclr);
+EXPORT_SYMBOL_GPL(mtk_clk_gate_ops_no_setclr);
 
 const struct clk_ops mtk_clk_gate_ops_no_setclr_inv = {
 	.is_enabled	= mtk_cg_bit_is_set,
@@ -372,7 +372,7 @@ const struct clk_ops mtk_clk_gate_ops_no_setclr_inv = {
 	.disable	= mtk_cg_disable_inv_no_setclr,
 	.disable_unused = mtk_cg_disable_unused_inv_no_setclr,
 };
-EXPORT_SYMBOL(mtk_clk_gate_ops_no_setclr_inv);
+EXPORT_SYMBOL_GPL(mtk_clk_gate_ops_no_setclr_inv);
 
 struct clk *mtk_clk_register_gate_hwv(
 		const char *name,
@@ -422,7 +422,7 @@ struct clk *mtk_clk_register_gate_hwv(
 
 	return clk;
 }
-EXPORT_SYMBOL(mtk_clk_register_gate_hwv);
+EXPORT_SYMBOL_GPL(mtk_clk_register_gate_hwv);
 
 struct clk *mtk_clk_register_gate(
 		const char *name,
@@ -464,8 +464,6 @@ struct clk *mtk_clk_register_gate(
 
 	return clk;
 }
-EXPORT_SYMBOL(mtk_clk_register_gate);
+EXPORT_SYMBOL_GPL(mtk_clk_register_gate);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek GATE");
-MODULE_AUTHOR("MediaTek Inc.");

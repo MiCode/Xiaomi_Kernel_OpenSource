@@ -109,5 +109,3 @@ int mtk_clk_register_cpumuxes(struct device_node *node,
 }
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek MTK");
-MODULE_AUTHOR("MediaTek Inc.");

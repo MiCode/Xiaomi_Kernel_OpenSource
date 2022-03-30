@@ -100,5 +100,3 @@ struct clk * __init mtk_clk_register_ref2usb_tx(const char *name,
 }
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek MTK");
-MODULE_AUTHOR("MediaTek Inc.");
