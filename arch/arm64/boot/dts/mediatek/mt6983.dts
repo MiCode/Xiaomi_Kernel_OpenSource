@@ -10118,7 +10118,7 @@
 			/* con0		con1	con2 */
 			<0x071292c0	0x2400	0xC>;
 		clk-dbg-ver = "v2";
-		/* ccf-fmeter-support; */
+		ccf-fmeter-support;
 	};
 
 	gce: gce@1e980000 {
