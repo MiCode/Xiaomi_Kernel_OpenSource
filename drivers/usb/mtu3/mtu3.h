@@ -463,6 +463,7 @@ int ssusb_check_clocks(struct ssusb_mtk *ssusb, u32 ex_clks);
 void ssusb_set_force_vbus(struct ssusb_mtk *ssusb, bool vbus_on);
 int ssusb_phy_power_on(struct ssusb_mtk *ssusb);
 void ssusb_phy_power_off(struct ssusb_mtk *ssusb);
+void ssusb_phy_set_mode(struct ssusb_mtk *ssusb, enum phy_mode mode);
 int ssusb_clks_enable(struct ssusb_mtk *ssusb);
 void ssusb_clks_disable(struct ssusb_mtk *ssusb);
 void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);
@@ -485,6 +486,9 @@ void mtu3_gadget_reset(struct mtu3 *mtu);
 void mtu3_gadget_suspend(struct mtu3 *mtu);
 void mtu3_gadget_resume(struct mtu3 *mtu);
 void mtu3_gadget_disconnect(struct mtu3 *mtu);
+
+int mtu3_device_enable(struct mtu3 *mtu);
+void mtu3_device_disable(struct mtu3 *mtu);
 
 irqreturn_t mtu3_ep0_isr(struct mtu3 *mtu);
 extern const struct usb_ep_ops mtu3_ep0_ops;

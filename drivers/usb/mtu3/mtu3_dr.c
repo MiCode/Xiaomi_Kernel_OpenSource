@@ -9,6 +9,7 @@
 
 #include <linux/usb/role.h>
 #include <linux/of_platform.h>
+#include <linux/iopoll.h>
 
 #include "mtu3.h"
 #include "mtu3_dr.h"
@@ -72,34 +73,51 @@ static int ssusb_port0_switch(struct ssusb_mtk *ssusb,
 static void ssusb_ip_sleep(struct ssusb_mtk *ssusb)
 {
 	void __iomem *ibase = ssusb->ippc_base;
+	u32 value;
+	int ret;
 
-	mtu3_setbits(ibase, SSUSB_U2_CTRL(0),
-		SSUSB_U2_PORT_DIS | SSUSB_U2_PORT_PDN);
-	mtu3_clrbits(ibase, SSUSB_U2_CTRL(0), SSUSB_U2_PORT_OTG_SEL);
-	mtu3_setbits(ibase, SSUSB_U3_CTRL(0),
-		(SSUSB_U3_PORT_DIS | SSUSB_U3_PORT_PDN));
+	/* power down and disable all u3 ports */
+	value = mtu3_readl(ibase, SSUSB_U3_CTRL(0));
+	value |= SSUSB_U3_PORT_PDN | SSUSB_U3_PORT_DIS;
+	mtu3_writel(ibase, SSUSB_U3_CTRL(0), value);
 	mtu3_clrbits(ibase, SSUSB_U3_CTRL(0), SSUSB_U3_PORT_DUAL_MODE);
-	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL1, SSUSB_IP_HOST_PDN);
+
+	/* power down and disable all u2 ports */
+	value = mtu3_readl(ibase, SSUSB_U2_CTRL(0));
+	value |= SSUSB_U2_PORT_PDN | SSUSB_U2_PORT_DIS;
+	mtu3_writel(ibase, SSUSB_U2_CTRL(0), value);
+	mtu3_clrbits(ibase, SSUSB_U2_CTRL(0), SSUSB_U2_PORT_OTG_SEL);
+
+	/* power down device ip */
 	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
-	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
+	/* power down host ip */
+	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL1, SSUSB_IP_HOST_PDN);
+
+	/* wait for ip to sleep */
+	ret = readl_poll_timeout(ibase + U3D_SSUSB_IP_PW_STS1, value,
+			  (value & SSUSB_IP_SLEEP_STS), 100, 100000);
+	if (ret)
+		dev_info(ssusb->dev, "ip sleep failed!!!\n");
 }
 
-static void switch_port_to_on(struct ssusb_mtk *ssusb, bool is_on)
+static void switch_port_to_on(struct ssusb_mtk *ssusb, enum phy_mode mode)
 {
-	if (!ssusb->clk_mgr)
-		return;
 
-	dev_info(ssusb->dev, "%s (%s)\n", __func__, is_on ? "on" : "off");
+	dev_info(ssusb->dev, "port on (%d)\n", mode);
 
-	if (is_on) {
-		ssusb_clks_enable(ssusb);
-		ssusb_phy_power_on(ssusb);
-		ssusb_ip_sw_reset(ssusb);
-	} else {
-		ssusb_ip_sleep(ssusb);
-		ssusb_phy_power_off(ssusb);
-		ssusb_clks_disable(ssusb);
-	}
+	ssusb_clks_enable(ssusb);
+	ssusb_phy_power_on(ssusb);
+	ssusb_phy_set_mode(ssusb, mode);
+	ssusb_ip_sw_reset(ssusb);
+}
+
+static void switch_port_to_off(struct ssusb_mtk *ssusb)
+{
+	dev_info(ssusb->dev, "port off\n");
+
+	ssusb_ip_sleep(ssusb);
+	ssusb_phy_power_off(ssusb);
+	ssusb_clks_disable(ssusb);
 }
 
 static void switch_port_to_host(struct ssusb_mtk *ssusb)
@@ -193,51 +211,63 @@ static void ssusb_mode_sw_work_v2(struct work_struct *work)
 	if (current_role == desired_role)
 		return;
 
-	otg_sx->current_role = desired_role;
-
-	dev_dbg(ssusb->dev, "set role : %s\n", usb_role_string(desired_role));
+	dev_info(ssusb->dev, "set role : %s, current role : %s\n",
+		usb_role_string(desired_role), usb_role_string(current_role));
 	mtu3_dbg_trace(ssusb->dev, "set role : %s", usb_role_string(desired_role));
 
+	/* switch port to off first */
+	switch (current_role) {
+	case USB_ROLE_HOST:
+		ssusb->is_host = false;
+		ssusb_set_vbus(otg_sx, 0);
+		/* unregister host driver */
+		ssusb_host_register(ssusb, false);
+		ssusb_host_disable(ssusb);
+		switch_port_to_off(ssusb);
+		break;
+	case USB_ROLE_DEVICE:
+		spin_lock_irqsave(&mtu->lock, flags);
+		mtu3_stop(mtu);
+		/* report disconnect */
+		if (mtu->g.speed != USB_SPEED_UNKNOWN)
+			mtu3_gadget_disconnect(mtu);
+		spin_unlock_irqrestore(&mtu->lock, flags);
+		mtu3_device_disable(mtu);
+		switch_port_to_off(ssusb);
+		pm_relax(ssusb->dev);
+		break;
+	case USB_ROLE_NONE:
+		break;
+	default:
+		dev_info(ssusb->dev, "invalid role\n");
+	}
+
+	/* switch port to on again */
 	switch (desired_role) {
 	case USB_ROLE_HOST:
-		switch_port_to_on(ssusb, true);
-		ssusb_host_resume(ssusb, false);
+		switch_port_to_on(ssusb, PHY_MODE_USB_HOST);
+		ssusb_host_enable(ssusb);
 		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
-		switch_port_to_host(ssusb);
 		/* register host driver */
 		ssusb_host_register(ssusb, true);
 		ssusb_set_vbus(otg_sx, 1);
 		ssusb->is_host = true;
 		break;
 	case USB_ROLE_DEVICE:
-		switch_port_to_on(ssusb, true);
-		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_DEVICE);
-		switch_port_to_device(ssusb);
 		/* avoid suspend when works as device */
 		pm_stay_awake(ssusb->dev);
+		switch_port_to_on(ssusb, PHY_MODE_USB_DEVICE);
+		mtu3_device_enable(mtu);
+		ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_DEVICE);
 		mtu3_start(mtu);
 		break;
 	case USB_ROLE_NONE:
-		if (ssusb->is_host) {
-			/* unregister host driver */
-			ssusb_host_register(ssusb, false);
-			ssusb_host_suspend(ssusb);
-			ssusb_set_vbus(otg_sx, 0);
-			ssusb->is_host = false;
-		} else {
-			spin_lock_irqsave(&mtu->lock, flags);
-			mtu3_stop(mtu);
-			/* report disconnect */
-			if (mtu->g.speed != USB_SPEED_UNKNOWN)
-			mtu3_gadget_disconnect(mtu);
-			spin_unlock_irqrestore(&mtu->lock, flags);
-			pm_relax(ssusb->dev);
-		}
-		switch_port_to_on(ssusb, false);
 		break;
 	default:
-		dev_err(ssusb->dev, "invalid role\n");
+		dev_info(ssusb->dev, "invalid role\n");
 	}
+
+	otg_sx->current_role = desired_role;
 }
 
 static void ssusb_mode_sw_work(struct work_struct *work)
@@ -387,6 +417,10 @@ static int ssusb_role_sw_set(struct usb_role_switch *sw, enum usb_role role)
 {
 	struct ssusb_mtk *ssusb = usb_role_switch_get_drvdata(sw);
 	struct otg_switch_mtk *otg_sx = &ssusb->otg_switch;
+
+	/* wait for host device remove done, e.g. usb audio */
+	if (otg_sx->current_role == USB_ROLE_HOST)
+		mdelay(100);
 
 	ssusb_set_mode(otg_sx, role);
 

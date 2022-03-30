@@ -16,6 +16,8 @@ int ssusb_host_init(struct ssusb_mtk *ssusb, struct device_node *parent_dn);
 void ssusb_host_exit(struct ssusb_mtk *ssusb);
 int ssusb_wakeup_of_property_parse(struct ssusb_mtk *ssusb,
 				struct device_node *dn);
+int ssusb_host_enable(struct ssusb_mtk *ssusb);
+int ssusb_host_disable(struct ssusb_mtk *ssusb);
 int ssusb_host_resume(struct ssusb_mtk *ssusb, bool p0_skipped);
 int ssusb_host_suspend(struct ssusb_mtk *ssusb);
 void ssusb_wakeup_set(struct ssusb_mtk *ssusb, bool enable);
@@ -34,6 +36,16 @@ static inline void ssusb_host_exit(struct ssusb_mtk *ssusb)
 
 static inline int ssusb_wakeup_of_property_parse(
 	struct ssusb_mtk *ssusb, struct device_node *dn)
+{
+	return 0;
+}
+
+static inline int ssusb_host_enable(struct ssusb_mtk *ssusb)
+{
+	return 0;
+}
+
+static inline int ssusb_host_disable(struct ssusb_mtk *ssusb)
 {
 	return 0;
 }

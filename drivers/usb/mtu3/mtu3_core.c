@@ -101,7 +101,7 @@ static inline void mtu3_hs_softconn_set(struct mtu3 *mtu, bool enable)
 }
 
 /* only port0 of U2/U3 supports device mode */
-static int mtu3_device_enable(struct mtu3 *mtu)
+int mtu3_device_enable(struct mtu3 *mtu)
 {
 	void __iomem *ibase = mtu->ippc_base;
 	u32 check_clk = 0;
@@ -128,7 +128,7 @@ static int mtu3_device_enable(struct mtu3 *mtu)
 	return ssusb_check_clocks(mtu->ssusb, check_clk);
 }
 
-static void mtu3_device_disable(struct mtu3 *mtu)
+void mtu3_device_disable(struct mtu3 *mtu)
 {
 	void __iomem *ibase = mtu->ippc_base;
 
