@@ -459,7 +459,6 @@ static const struct rdma_data mt6895_rdma1_data = {
 static const struct rdma_data mt6985_rdma_data = {
 	.tile_width = 1760,
 	.rb_swap = 2,
-	.write_sec_reg = true,
 	.golden = {
 		[GOLDEN_FMT_ARGB] = {
 			.cnt = ARRAY_SIZE(th_argb_mt6983),

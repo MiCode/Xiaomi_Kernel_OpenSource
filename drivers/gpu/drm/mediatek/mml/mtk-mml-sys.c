@@ -28,6 +28,7 @@
 #define MML_MAX_SYS_MUX_PINS	88
 #define MML_MAX_SYS_DL_RELAYS	4
 #define MML_MAX_SYS_DBG_REGS	60
+#define MML_MAX_AID_COMPS	8
 
 int mml_ir_loop = 1;
 module_param(mml_ir_loop, int, 0644);
@@ -50,7 +51,10 @@ struct mml_data {
 	int (*comp_inits[MML_COMP_TYPE_TOTAL])(struct device *dev,
 		struct mml_sys *sys, struct mml_comp *comp);
 	const struct mtk_ddp_comp_funcs *ddp_comp_funcs[MML_COMP_TYPE_TOTAL];
+	void (*aid_sel)(struct mml_comp *comp, struct mml_task *task,
+		struct mml_comp_config *ccfg);
 	u8 gpr[MML_PIPE_CNT];
+	bool use_aidsel_engine;
 };
 
 enum mml_mux_type {
@@ -121,7 +125,7 @@ struct mml_sys {
 	u32 dbg_reg_cnt;
 
 	/* store the bit to enable aid_sel for specific component */
-	u32 aid_sel_reg;
+	u16 aid_sel_regs[MML_MAX_AID_COMPS];
 	u8 aid_sel[MML_MAX_COMPONENTS];
 
 	/* register for racing mode select ready signal */
@@ -240,11 +244,7 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 {
 	struct mml_sys *sys = comp_to_sys(comp);
 	struct mml_frame_config *cfg = task->config;
-	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
 	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
-	u32 aid_sel = 0, mask = 0;
-	u32 in_engine_id = path->nodes[path->tile_engines[0]].comp->id;
-	u32 i;
 
 	if (cfg->info.mode == MML_MODE_RACING) {
 		sys_config_frame_racing(comp, task, ccfg);
@@ -252,6 +252,23 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 		/* use hw reset flow */
 		cmdq_pkt_write(pkt, NULL, comp->base_pa + SYS_MISC_REG, 0, 0x80000000);
 	}
+
+	/* config aid sel by platform */
+	sys->data->aid_sel(comp, task, ccfg);
+
+	return 0;
+}
+
+static void sys_config_aid_sel(struct mml_comp *comp, struct mml_task *task,
+			       struct mml_comp_config *ccfg)
+{
+	struct mml_sys *sys = comp_to_sys(comp);
+	struct mml_frame_config *cfg = task->config;
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
+	u32 aid_sel = 0, mask = 0;
+	u32 in_engine_id = path->nodes[path->tile_engines[0]].comp->id;
+	u32 i;
 
 	if (cfg->info.src.secure)
 		aid_sel |= 1 << sys->aid_sel[in_engine_id];
@@ -263,9 +280,32 @@ static s32 sys_config_frame(struct mml_comp *comp, struct mml_task *task,
 			aid_sel |= 1 << sys->aid_sel[path->out_engine_ids[i]];
 		mask |= 1 << sys->aid_sel[path->out_engine_ids[i]];
 	}
-	cmdq_pkt_write(pkt, NULL, sys->aid_sel_reg, aid_sel, mask);
+	cmdq_pkt_write(pkt, NULL, comp->base_pa + SYS_AID_SEL, aid_sel, mask);
+}
 
-	return 0;
+static void sys_config_aid_sel_engine(struct mml_comp *comp, struct mml_task *task,
+				      struct mml_comp_config *ccfg)
+{
+	struct mml_sys *sys = comp_to_sys(comp);
+	struct mml_frame_config *cfg = task->config;
+	struct cmdq_pkt *pkt = task->pkts[ccfg->pipe];
+	const struct mml_topology_path *path = cfg->path[ccfg->pipe];
+	u32 in_engine_id = path->nodes[path->tile_engines[0]].comp->id;
+	u32 i, ca_idx;
+
+	ca_idx = sys->aid_sel[in_engine_id];
+	cmdq_pkt_write(pkt, NULL, comp->base_pa + sys->aid_sel_regs[ca_idx],
+		cfg->info.src.secure, U32_MAX);
+
+	for (i = 0; i < cfg->info.dest_cnt; i++) {
+		/* comp to aid sel idx */
+		ca_idx = sys->aid_sel[path->out_engine_ids[i]];
+		/* Note here write all 32bits since bit 31:1 are ignore,
+		 * and mask costs more time and instruction.
+		 */
+		cmdq_pkt_write(pkt, NULL, comp->base_pa + sys->aid_sel_regs[ca_idx],
+			cfg->info.dest[i].data.secure, U32_MAX);
+	}
 }
 
 static void config_mux(struct mml_sys *sys, struct cmdq_pkt *pkt,
@@ -657,22 +697,36 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 		i++;
 	}
 
-	of_property_read_u32(dev->of_node, "aid-sel-reg", &sys->aid_sel_reg);
-	if (sys->aid_sel_reg)
-		sys->aid_sel_reg += comp->base_pa;
-	else
-		sys->aid_sel_reg = comp->base_pa + SYS_AID_SEL;
-
-	cnt = of_property_count_u32_elems(node, "aid-sel");
-	for (i = 0; i + 1 < cnt; i += 2) {
-		of_property_read_u32_index(node, "aid-sel", i, &comp_id);
-		of_property_read_u32_index(node, "aid-sel", i + 1, &value);
-		if (comp_id >= MML_MAX_COMPONENTS) {
-			dev_err(dev, "component id %u is larger than max:%d\n",
-				comp_id, MML_MAX_COMPONENTS);
-			return -EINVAL;
+	if (sys->data->use_aidsel_engine) {
+		cnt = of_property_count_u32_elems(node, "aid-sel-engine");
+		if (cnt / 2 > MML_MAX_AID_COMPS) {
+			mml_err("count of aid-sel-engine %u more max aid comps",
+				cnt);
+			cnt = MML_MAX_AID_COMPS * 2;
 		}
-		sys->aid_sel[comp_id] = (u8)value;
+		for (i = 0; i + 1 < cnt; i += 2) {
+			of_property_read_u32_index(node, "aid-sel-engine", i, &comp_id);
+			of_property_read_u32_index(node, "aid-sel-engine", i + 1, &value);
+			if (comp_id >= MML_MAX_COMPONENTS) {
+				dev_err(dev, "component id %u is larger than max:%d\n",
+					comp_id, MML_MAX_COMPONENTS);
+				return -EINVAL;
+			}
+			sys->aid_sel[comp_id] = (u8)i / 2;
+			sys->aid_sel_regs[i / 2] = (u16)value;
+		}
+	} else {
+		cnt = of_property_count_u32_elems(node, "aid-sel");
+		for (i = 0; i + 1 < cnt; i += 2) {
+			of_property_read_u32_index(node, "aid-sel", i, &comp_id);
+			of_property_read_u32_index(node, "aid-sel", i + 1, &value);
+			if (comp_id >= MML_MAX_COMPONENTS) {
+				dev_err(dev, "component id %u is larger than max:%d\n",
+					comp_id, MML_MAX_COMPONENTS);
+				return -EINVAL;
+			}
+			sys->aid_sel[comp_id] = (u8)value;
+		}
 	}
 
 	of_property_read_u16(dev->of_node, "ready-sel", &sys->inline_ready_sel);
@@ -1502,6 +1556,7 @@ static const struct mml_data mt6893_mml_data = {
 		[MML_CT_SYS] = &sys_comp_init,
 		[MML_CT_DL_IN] = &dl_comp_init,
 	},
+	.aid_sel = sys_config_aid_sel,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 };
 
@@ -1516,6 +1571,7 @@ static const struct mml_data mt6983_mml_data = {
 		[MML_CT_DL_IN] = &dl_ddp_funcs,
 		[MML_CT_DL_OUT] = &dl_ddp_funcs,
 	},
+	.aid_sel = sys_config_aid_sel,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 };
 
@@ -1525,6 +1581,7 @@ static const struct mml_data mt6879_mml_data = {
 		[MML_CT_DL_IN] = &dli_comp_init,
 		[MML_CT_DL_OUT] = &dlo_comp_init,
 	},
+	.aid_sel = sys_config_aid_sel,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 };
 
@@ -1534,7 +1591,24 @@ static const struct mml_data mt6895_mml_data = {
 		[MML_CT_DL_IN] = &dli_comp_init,
 		[MML_CT_DL_OUT] = &dlo_comp_init,
 	},
+	.aid_sel = sys_config_aid_sel,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+};
+
+static const struct mml_data mt6985_mml_data = {
+	.comp_inits = {
+		[MML_CT_SYS] = &sys_comp_init,
+		[MML_CT_DL_IN] = &dli_comp_init,
+		[MML_CT_DL_OUT] = &dlo_comp_init,
+	},
+	.ddp_comp_funcs = {
+		[MML_CT_SYS] = &sys_ddp_funcs,
+		[MML_CT_DL_IN] = &dl_ddp_funcs,
+		[MML_CT_DL_OUT] = &dl_ddp_funcs,
+	},
+	.aid_sel = sys_config_aid_sel_engine,
+	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
+	.use_aidsel_engine = true,
 };
 
 const struct of_device_id mtk_mml_of_ids[] = {
