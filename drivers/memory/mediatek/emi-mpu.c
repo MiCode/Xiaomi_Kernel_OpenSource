@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <emi_mpu.h>
 #include <linux/arm-smccc.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
@@ -19,50 +20,13 @@
 #include <mt-plat/aee.h>
 #include <soc/mediatek/emi.h>
 
-struct emi_mpu {
-	unsigned long long dram_start;
-	unsigned long long dram_end;
-	unsigned int region_cnt;
-	unsigned int domain_cnt;
-	unsigned int addr_align;
-	unsigned int ctrl_intf;
-
-	unsigned int dump_cnt;
-	struct reg_info_t *dump_reg;
-
-	unsigned int clear_reg_cnt;
-	struct reg_info_t *clear_reg;
-
-	struct reg_info_t *clear_md_reg;
-	unsigned int clear_md_reg_cnt;
-
-	unsigned int emi_cen_cnt;
-	void __iomem **emi_cen_base;
-	void __iomem **emi_mpu_base;
-
-	struct emimpu_region_t *ap_rg_info;
-
-	/* interrupt id */
-	unsigned int irq;
-
-	/* hook functions in ISR */
-	emimpu_pre_handler pre_handler;
-	emimpu_post_clear post_clear;
-	emimpu_md_handler md_handler;
-
-	/* debugging log for EMI MPU violation */
-	char *vio_msg;
-	bool in_msg_dump;
-
-	/* hook functions in worker thread */
-	struct emimpu_dbg_cb *dbg_cb_list;
-};
-
 /* global pointer for exported functions */
-static struct emi_mpu *global_emi_mpu;
+struct emi_mpu *global_emi_mpu;
+EXPORT_SYMBOL_GPL(global_emi_mpu);
 
-static void set_regs(struct reg_info_t *reg_list, unsigned int reg_cnt,
-			void __iomem *emi_cen_base)
+static void set_regs(
+	struct reg_info_t *reg_list, unsigned int reg_cnt,
+	void __iomem *emi_cen_base)
 {
 	unsigned int i, j;
 
@@ -70,9 +34,17 @@ static void set_regs(struct reg_info_t *reg_list, unsigned int reg_cnt,
 		for (j = 0; j < reg_list[i].leng; j++)
 			writel(reg_list[i].value, emi_cen_base +
 				reg_list[i].offset + 4 * j);
+
+	/*
+	 * Use the memory barrier to make sure the interrupt signal is
+	 * de-asserted (by programming registers) before exiting the
+	 * ISR and re-enabling the interrupt.
+	 */
+	mb();
 }
 
-static void clear_violation(struct emi_mpu *mpu, unsigned int emi_id)
+static void clear_violation(
+	struct emi_mpu *mpu, unsigned int emi_id)
 {
 	void __iomem *emi_cen_base;
 
@@ -97,65 +69,73 @@ static void emimpu_vio_dump(struct work_struct *work)
 	for (curr_dbg_cb = mpu->dbg_cb_list; curr_dbg_cb;
 		curr_dbg_cb = curr_dbg_cb->next_dbg_cb)
 		curr_dbg_cb->func();
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+
 	if (mpu->vio_msg)
 		aee_kernel_exception("EMIMPU", mpu->vio_msg);
-#endif
-	mpu->in_msg_dump = false;
+
+	mpu->in_msg_dump = 0;
 }
 static DECLARE_WORK(emimpu_work, emimpu_vio_dump);
-
-static bool had_mpu_vio(void __iomem *base, struct reg_info_t *dump, int cnt)
-{
-	int dump_idx;
-	unsigned int val;
-
-	for (dump_idx = 0; dump_idx < cnt; dump_idx++) {
-		val = readl(base + dump[dump_idx].offset);
-		if (val)
-			return true;
-	}
-
-	return false;
-}
 
 static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 {
 	struct emi_mpu *mpu = (struct emi_mpu *)dev_id;
-	struct reg_info_t *dump = mpu->dump_reg;
-	void __iomem *reg_base;
-	unsigned int emi_idx, dump_idx;
-	int ret, len;
-	bool report;
+	struct reg_info_t *dump_reg = mpu->dump_reg;
+	void __iomem *emi_cen_base;
+	unsigned int emi_id, i;
+	ssize_t msg_len;
+	int n, nr_vio;
+	bool violation;
+	char md_str[MTK_EMI_MAX_CMD_LEN + 10] = {'\0'};
 
-	len = 0;
-	for (emi_idx = 0; emi_idx < mpu->emi_cen_cnt; emi_idx++) {
-		reg_base = mpu->emi_cen_base[emi_idx];
-		if (!had_mpu_vio(reg_base, dump, mpu->dump_cnt))
-			continue;
+	if (mpu->in_msg_dump)
+		goto ignore_violation;
 
-		report = true;
-		for (dump_idx = 0; dump_idx < mpu->dump_cnt; dump_idx++) {
-			dump[dump_idx].value =
-				readl(reg_base + dump[dump_idx].offset);
-			pr_info("%s: emi(%d),offset(%x),value(%x)\n",
-					__func__,
-					emi_idx,
-					dump[dump_idx].offset,
-					dump[dump_idx].value);
+	n = snprintf(mpu->vio_msg, MTK_EMI_MAX_CMD_LEN, "violation\n");
+	msg_len = (n < 0) ? 0 : (ssize_t)n;
+
+	nr_vio = 0;
+	for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++) {
+		violation = false;
+		emi_cen_base = mpu->emi_cen_base[emi_id];
+
+		for (i = 0; i < mpu->dump_cnt; i++) {
+			dump_reg[i].value = readl(
+				emi_cen_base + dump_reg[i].offset);
+
+			if (msg_len < MTK_EMI_MAX_CMD_LEN) {
+				n = snprintf(mpu->vio_msg + msg_len,
+					MTK_EMI_MAX_CMD_LEN - msg_len,
+					"%s(%d),%s(%x),%s(%x);\n",
+					"emi", emi_id,
+					"off", dump_reg[i].offset,
+					"val", dump_reg[i].value);
+				msg_len += (n < 0) ? 0 : (ssize_t)n;
+			}
+
+			if (dump_reg[i].value)
+				violation = true;
 		}
+
+		if (!violation)
+			continue;
 
 		/*
 		 * The DEVAPC module used the EMI MPU interrupt on some
 		 * old smart-phone SoC. For these SoC, the DEVAPC driver
 		 * will register a handler for processing its interrupt.
 		 * If the handler has processed DEVAPC interrupt (and
-		 * returns IRQ_HANDLED), there is no need to trigger an
-		 * error report.
+		 * returns IRQ_HANDLED), just skip dumping and exit.
 		 */
-		if (mpu->pre_handler &&
-		(mpu->pre_handler(emi_idx, dump, mpu->dump_cnt) == IRQ_HANDLED))
-			report = false;
+		if (mpu->pre_handler)
+			if (mpu->pre_handler(emi_id, dump_reg,
+					mpu->dump_cnt) == IRQ_HANDLED) {
+				clear_violation(mpu, emi_id);
+				mtk_clear_md_violation();
+				continue;
+			}
+
+		nr_vio++;
 
 		/*
 		 * Whenever there is an EMI MPU violation, the Modem
@@ -168,55 +148,22 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 		 * Have a hook function in the EMI MPU ISR for this
 		 * purpose.
 		 */
-		if (mpu->md_handler)
-			mpu->md_handler(emi_idx, dump, mpu->dump_cnt);
-
-		if (!report)
-			goto violation_irq_clear;
-
-		/*
-		 * When we get here, the violation is not handled by any hook
-		 * function. Need to trigger an error report via the debugger
-		 * AEE. Write logging messages in the vio_msg buffer which will
-		 * be used by the work task later.
-		 */
-
-		/*
-		 * The global buffer vio_msg is writable if and only if
-		 * the work task is not running.
-		 */
-		if (mpu->in_msg_dump)
-			goto violation_irq_clear;
-
-		if (!len) {
-			ret = snprintf(mpu->vio_msg, MTK_EMI_MAX_CMD_LEN,
-				"violation\n");
-			len = (ret < 0) ? 0 : ret;
+		if (mpu->md_handler) {
+			strncpy(md_str, "emi-mpu.c", 10);
+			strncat(md_str, mpu->vio_msg, sizeof(md_str) - strlen(md_str) - 1);
+			mpu->md_handler(md_str);
 		}
-		for (dump_idx = 0; dump_idx < mpu->dump_cnt; dump_idx++) {
-			if (len >= MTK_EMI_MAX_CMD_LEN)
-				break;
-			ret = snprintf(mpu->vio_msg + len,
-					MTK_EMI_MAX_CMD_LEN - len,
-					"emi(%d),off(%x),val(%x)\n",
-					emi_idx,
-					dump[dump_idx].offset,
-					dump[dump_idx].value);
-			len += (ret < 0) ? 0 : ret;
-		}
-
-violation_irq_clear:
-		clear_violation(mpu, emi_idx);
 	}
 
-	if (len) {
-		pr_info("%s: To report the violation\n", __func__);
-		mpu->in_msg_dump = true;
+	if (nr_vio) {
+		pr_info("%s: %s", __func__, mpu->vio_msg);
+		mpu->in_msg_dump = 1;
 		schedule_work(&emimpu_work);
 	}
 
-	/* Ensure the violation is cleared on exist */
-	dsb(sy);
+ignore_violation:
+	for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++)
+		clear_violation(mpu, emi_id);
 
 	return IRQ_HANDLED;
 }
@@ -539,6 +486,8 @@ int mtk_emimpu_md_handling_register(emimpu_md_handler md_handling_func)
 
 	mpu->md_handler = md_handling_func;
 
+	pr_info("%s: md_handling_func registered!!\n", __func__);
+
 	return 0;
 }
 EXPORT_SYMBOL(mtk_emimpu_md_handling_register);
@@ -553,20 +502,29 @@ void mtk_clear_md_violation(void)
 	struct emi_mpu *mpu;
 	void __iomem *emi_cen_base;
 	unsigned int emi_id;
+	struct arm_smccc_res smc_res;
 
 	mpu = global_emi_mpu;
 	if (!mpu)
 		return;
+	if (mpu->version == EMIMPUVER2) {
+		arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_CLEAR_MD,
+			0, 0, 0, 0, 0, 0, &smc_res);
+		if (smc_res.a0) {
+			pr_info("%s:%d failed to clear md violation, ret=0x%lx\n",
+				__func__, __LINE__, smc_res.a0);
+			return;
+		}
+	} else {
+		for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++) {
+			emi_cen_base = mpu->emi_cen_base[emi_id];
 
-	for (emi_id = 0; emi_id < mpu->emi_cen_cnt; emi_id++) {
-		emi_cen_base = mpu->emi_cen_base[emi_id];
-
-		set_regs(mpu->clear_md_reg,
-			mpu->clear_md_reg_cnt, emi_cen_base);
+			set_regs(mpu->clear_md_reg,
+				mpu->clear_md_reg_cnt, emi_cen_base);
+		}
 	}
 
-	/* Ensure the IRQ is cleared on exist */
-	dsb(sy);
+	pr_info("%s:version %d\n", __func__, mpu->version);
 }
 EXPORT_SYMBOL(mtk_clear_md_violation);
 
@@ -861,6 +819,8 @@ static int emimpu_probe(struct platform_device *pdev)
 				goto free_ap_rg_info;
 			}
 		}
+
+	mpu->version = EMIMPUVER1;
 
 	devm_kfree(&pdev->dev, ap_apc);
 	devm_kfree(&pdev->dev, dump_list);

@@ -25,13 +25,19 @@
 #define MTK_EMIMPU_SLVERR		3
 #define MTK_EMIDBG_DUMP			4
 #define MTK_EMIDBG_MSG			5
+#define MTK_EMIMPU_CLEAR_MD             7
 
 #define MTK_EMIMPU_READ_SA		0
 #define MTK_EMIMPU_READ_EA		1
 #define MTK_EMIMPU_READ_APC		2
+#define MTK_EMIMPU_READ_ENABLE		3
+#define MTK_EMIMPU_READ_AID		4
 
 #define MTK_EMI_MAX_TOKEN		4
 #define MTK_EMI_MAX_CMD_LEN		4096
+
+#define EMIMPUVER1			1
+#define EMIMPUVER2			2
 
 struct emi_addr_map {
 	int emi;
@@ -59,7 +65,8 @@ struct emimpu_region_t {
 typedef irqreturn_t (*emimpu_pre_handler)(
 	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
 typedef void (*emimpu_post_clear)(unsigned int emi_id);
-typedef void (*emimpu_md_handler)(
+typedef void (*emimpu_md_handler)(const char *vio_msg);
+typedef void (*emimpu_iommu_handler)(
 	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
 typedef void (*emimpu_debug_dump)(void);
 
@@ -93,6 +100,7 @@ int mtk_emimpu_prehandle_register(emimpu_pre_handler bypass_func);
 int mtk_emimpu_postclear_register(emimpu_post_clear clear_func);
 int mtk_emimpu_md_handling_register(emimpu_md_handler md_handling_func);
 int mtk_emimpu_debugdump_register(emimpu_debug_dump debug_func);
+int mtk_emimpu_iommu_handling_register(emimpu_iommu_handler iommu_handling_func);
 void mtk_clear_md_violation(void);
 
 #endif /* __EMI_H__ */
