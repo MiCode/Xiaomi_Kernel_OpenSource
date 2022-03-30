@@ -396,9 +396,8 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 				       AUDIO_IPI_PAYLOAD,
 				       AUDIO_IPI_MSG_NEED_ACK,
 				       command,
-				       sizeof(unsigned int),
-				       (unsigned int)
-				       dsp_memif->msg_atod_share_buf.phy_addr,
+				       sizeof(dsp_memif->msg_atod_share_buf.phy_addr),
+				       0,
 				       (char *)
 				       &dsp_memif->msg_atod_share_buf.phy_addr);
 		break;
