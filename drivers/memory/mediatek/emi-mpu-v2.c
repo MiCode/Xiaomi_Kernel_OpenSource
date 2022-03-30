@@ -19,6 +19,7 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <mt-plat/aee.h>
 #include <soc/mediatek/emi.h>
+#include <linux/ratelimit.h>
 
 static void set_regs(
 	struct reg_info_t *reg_list, unsigned int reg_cnt,
@@ -146,6 +147,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	irqreturn_t irqret;
 	const unsigned int hp_mask = 0x600000;
 	char md_str[MTK_EMI_MAX_CMD_LEN + 13] = {'\0'};
+	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 3);
 
 	nr_vio = 0;
 	msg_len = 0;
@@ -185,8 +187,11 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 					violation = true;
 			}
 
-			if (!violation)
-				continue;
+			if (!violation) {
+				if (__ratelimit(&ratelimit))
+					pr_info("%s: emi:%d smpu = 0", __func__, emi_id);
+				goto clear_violation;
+			}
 		}
 
 		/*
