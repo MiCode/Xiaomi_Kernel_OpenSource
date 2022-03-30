@@ -2381,7 +2381,6 @@ static void mtk_crtc_free_sram(struct mtk_drm_crtc *mtk_crtc)
 	slbc_power_off(mtk_crtc->mml_ir_sram);
 	slbc_release(mtk_crtc->mml_ir_sram);
 	mtk_crtc->mml_ir_sram = NULL;
-	DRM_MMP_MARK(mml_sram, 2, 0);
 }
 
 static void mtk_crtc_atmoic_ddp_config(struct drm_crtc *crtc,
@@ -4166,7 +4165,6 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 		mtk_crtc->wb_enable = false;
 		drm_writeback_signal_completion(&mtk_crtc->wb_connector, 0);
 	}
-
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 	if (cb_data->is_mml) {

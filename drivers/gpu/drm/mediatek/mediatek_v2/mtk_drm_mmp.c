@@ -126,8 +126,6 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "IOVA_TF");
 	g_DRM_MMP_Events.dp_intf0 =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "dp_intf0");
-	g_DRM_MMP_Events.mml_sram =
-		mmprofile_register_event(g_DRM_MMP_Events.drm, "MML_SRAM");
 }
 
 /* need to update if add new mmp_event in CRTC_MMP_Events */
