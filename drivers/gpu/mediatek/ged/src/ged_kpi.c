@@ -235,7 +235,8 @@ struct GED_KPI_MEOW_DVFS_FREQ_PRED {
 
 static struct GED_KPI_MEOW_DVFS_FREQ_PRED *g_psGIFT;
 
-static int g_target_fps_default = GED_KPI_MAX_FPS;
+int g_target_fps_default = GED_KPI_MAX_FPS;
+int g_target_time_default = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
 
 #define GED_KPI_TOTAL_ITEMS 256
 #define GED_KPI_UID(pid, wnd) (pid | ((unsigned long)wnd))
@@ -757,10 +758,16 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 		psHead->target_fps_margin = target_fps_margin;
 		psHead->eara_fps_margin = eara_fps_margin;
 		psHead->t_cpu_fpsgo = cpu_time;
-		if (target_fps > 0)
+
+		/* use default refresh as target when FPSGo disabled */
+		if (target_fps > 0 && target_fps <= GED_KPI_FPS_LIMIT) {
 			psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/target_fps);
-		else
-			psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/GED_KPI_FPS_LIMIT);
+			psHead->target_fps = target_fps;
+		} else {
+			psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/g_target_fps_default);
+			psHead->target_fps = -1;
+		}
+
 		psHead->t_gpu_target = psHead->t_cpu_target;
 		psHead->frc_client = client;
 		ret = GED_TRUE;
@@ -1253,6 +1260,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						g_eb_coef = mtk_gpueb_dvfs_set_feedback_info(
 							psKPI->gpu_done_interval, util_ex,
 							ged_kpi_get_cur_fps());
+						ged_log_perf_trace_counter("eb_coef",
+							(long long)g_eb_coef, 5566, 0, 0);
 					}
 				} else {
 					psKPI->t_gpu
@@ -1288,6 +1297,12 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					if (ged_is_fdvfs_support())
 						mtk_gpueb_dvfs_set_frame_base_dvfs(0);
 				}
+			}
+
+			if (main_head == psHead || psHead->target_fps == -1) {
+				psKPI->t_gpu_target = g_target_time_default;
+				ged_log_perf_trace_counter("target_fps_fb",
+					psHead->target_fps, 5566, 0, 0);
 			}
 
 			if (main_head == psHead)
@@ -1527,6 +1542,9 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				eara_fps_margin,
 				GED_KPI_FRC_DEFAULT_MODE, -1);
 		}
+
+		ged_log_perf_trace_counter("target_fps_fpsgo",
+				(target_FPS&0x000000ff), 5566, 0, 0);
 #ifdef GED_KPI_DEBUG
 		else
 			GED_LOGD("@%s: no such renderer for BQ_ID: %llu\n",
@@ -1938,12 +1956,13 @@ void ged_dfrc_fps_limit_cb(unsigned int target_fps)
 	g_target_fps_default =
 		(target_fps > 0 && target_fps <= GED_KPI_FPS_LIMIT) ?
 		target_fps : g_target_fps_default;
+	g_target_time_default = GED_KPI_SEC_DIVIDER / g_target_fps_default;
 #ifdef GED_KPI_DEBUG
-	GED_LOGI("[GED_KPI] dfrc_fps %d\n", g_target_fps_default);
+	GED_LOGI("[GED_KPI] dfrc_fps:%d, dfrc_time %u\n",
+		g_target_fps_default, g_target_time_default);
 #endif /* GED_KPI_DEBUG */
 
 	idle_fw_set_flag = g_idle_set_prepare;
-
 }
 /* ------------------------------------------------------------------- */
 GED_ERROR ged_kpi_system_init(void)

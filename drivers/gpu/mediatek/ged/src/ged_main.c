@@ -131,6 +131,7 @@ static const struct proc_ops ged_proc_fops = {
 unsigned int g_ged_gpueb_support;
 unsigned int g_ged_fdvfs_support;
 unsigned int g_fastdvfs_mode;
+unsigned int g_fastdvfs_margin;
 #define GED_TARGET_UNLIMITED_FPS 240
 unsigned int vGed_Tmp;
 
@@ -491,6 +492,7 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 	g_ged_gpueb_support = 0;
 	g_ged_fdvfs_support = 0;
 	g_fastdvfs_mode		= 0;
+	g_fastdvfs_margin   = 0;
 	err = check_eb_config();
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to check ged config!\n");
