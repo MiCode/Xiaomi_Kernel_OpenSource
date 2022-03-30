@@ -71,12 +71,8 @@ void mt6338_Keyunlock(struct mt6338_pmic_info *mpi)
 	regmap_write(mpi->regmap, MT6338_TOP_DIG_WPK_H, 0x63);
 	regmap_write(mpi->regmap, MT6338_TOP_TMA_KEY, 0xc7);
 	regmap_write(mpi->regmap, MT6338_TOP_TMA_KEY_H, 0x9c);
-	regmap_write(mpi->regmap, MT6338_PSC_WPK_L, 0x29);
-	regmap_write(mpi->regmap, MT6338_PSC_WPK_H, 0x47);
-	regmap_write(mpi->regmap, MT6338_HK_TOP_WKEY_L, 0x38);
-	regmap_write(mpi->regmap, MT6338_HK_TOP_WKEY_H, 0x63);
-	regmap_write(mpi->regmap, MT6338_PLT_CON0, 0x3a);
-	regmap_write(mpi->regmap, MT6338_PLT_CON1, 0x0c);
+	regmap_write(mpi->regmap, MT6338_TOP2_ELR2, 0x2a);
+	regmap_write(mpi->regmap, MT6338_TOP2_ELR3, 0x2a);
 }
 
 void mt6338_Keylock(struct mt6338_pmic_info *mpi)
@@ -131,9 +127,6 @@ void mt6338_LP_Setting(struct mt6338_pmic_info *mpi)
 
 void mt6338_Suspend_Setting(struct mt6338_pmic_info *mpi)
 {
-	regmap_write(mpi->regmap, MT6338_TOP_DIG_WPK_H, 0x63);
-	regmap_write(mpi->regmap, MT6338_TOP_DIG_WPK, 0x38);
-
 	regmap_write(mpi->regmap, MT6338_MTC_CTL0, 0x10);
 	regmap_write(mpi->regmap, MT6338_MTC_CTL0, 0x11);
 	regmap_write(mpi->regmap, MT6338_MTC_CTL0, 0x13);
@@ -151,76 +144,30 @@ void mt6338_Suspend_Setting(struct mt6338_pmic_info *mpi)
 
 void mt6338_InitSetting(struct mt6338_pmic_info *mpi)
 {
-	regmap_update_bits(mpi->regmap,
-				MT6338_TOP_CON,
-				RG_SRCLKEN_IN_HW_MODE_MASK_SFT,
-				0x1 << RG_SRCLKEN_IN_HW_MODE_SFT);
-	regmap_update_bits(mpi->regmap,
-				MT6338_SMT_CON0,
-				RG_RSV_SCL_SPMI_CLK_MASK_SFT,
-				0x1 << RG_RSV_SCL_SPMI_CLK_SFT);
+
+	regmap_write(mpi->regmap, MT6338_TOP_CON, 0x7);
 	regmap_write(mpi->regmap, MT6338_TEST_CON0, 0x1f);
+	regmap_write(mpi->regmap, MT6338_SMT_CON0, 0x3);
 	regmap_write(mpi->regmap, MT6338_GPIO_PULLEN0, 0xf9);
 	regmap_write(mpi->regmap, MT6338_GPIO_PULLEN1, 0x1f);
-	regmap_update_bits(mpi->regmap,
-				MT6338_TOP_CKPDN_CON0,
-				RG_SPMI_CK_PDN_MASK_SFT,
-				0x1 << RG_SPMI_CK_PDN_SFT);
-	regmap_update_bits(mpi->regmap,
-				MT6338_TOP_CKPDN_CON0,
-				RG_TRIM_26M_CK_PDN_MASK_SFT,
-				0x1 << RG_TRIM_26M_CK_PDN_SFT);
-	regmap_update_bits(mpi->regmap,
-				MT6338_TOP_CKPDN_CON0,
-				RG_TRIM_75K_CK_PDN_MASK_SFT,
-				0x1 << RG_TRIM_75K_CK_PDN_SFT);
+	regmap_write(mpi->regmap, MT6338_TOP_CKPDN_CON0, 0x5b);
 	regmap_write(mpi->regmap, MT6338_HK_TOP_CLK_CON0, 0x15);
-	regmap_update_bits(mpi->regmap,
-				MT6338_AUXADC_CON0,
-				AUXADC_CK_AON_MASK_SFT,
-				0x0 << AUXADC_CK_AON_SFT);
-	regmap_update_bits(mpi->regmap,
-				MT6338_AUXADC_TRIM_SEL2,
-				AUXADC_TRIM_CH13_SEL_MASK_SFT,
-				0x1 << AUXADC_TRIM_CH13_SEL_SFT);
+
+	regmap_write(mpi->regmap, MT6338_DA_INTF_STTING3, 0x0c);
+	regmap_write(mpi->regmap, MT6338_MTC_CTL0, 0x13);
+	regmap_write(mpi->regmap, MT6338_PLT_CON0, 0x0);
+	regmap_write(mpi->regmap, MT6338_PLT_CON1, 0x0);
+
+	regmap_write(mpi->regmap, MT6338_HK_TOP_CLK_CON0, 0x15);
+	regmap_write(mpi->regmap, MT6338_AUXADC_CON0, 0x0);
+	regmap_write(mpi->regmap, MT6338_AUXADC_TRIM_SEL2, 0x40);
+
 	regmap_write(mpi->regmap, MT6338_TOP_TOP_CKHWEN_CON0, 0x0f);
 	regmap_write(mpi->regmap, MT6338_LDO_TOP_CLK_DCM_CON0, 0x01);
 	regmap_write(mpi->regmap, MT6338_LDO_TOP_VR_CLK_CON0, 0x00);
-	regmap_update_bits(mpi->regmap,
-				MT6338_LDO_VAUD18_CON2,
-				RG_LDO_VAUD18_CK_SW_MODE_MASK_SFT,
-				0x0 << RG_LDO_VAUD18_CK_SW_MODE_SFT);
-	regmap_write(mpi->regmap, MT6338_TSBG_PMU_CON0, 0x30);
-	regmap_write(mpi->regmap, MT6338_STRUP_ELR_0, 0x36);
-	/* turn on CLKSQ_PMU_CON0 */
-	regmap_write(mpi->regmap, MT6338_CLKSQ_PMU_CON0, 0xe);
-	/* turn on audio sram*/
-	regmap_write(mpi->regmap, MT6338_AUD_TOP_SRAM_CON, 0x0);
-	regmap_update_bits(mpi->regmap,
-				MT6338_VPLL18_PMU_CON0,
-				RG_VPLL18_LDO_VOWPLL_EN_VA18_MASK_SFT,
-				0x1 << RG_VPLL18_LDO_VOWPLL_EN_VA18_SFT);
-	regmap_update_bits(mpi->regmap,
-				MT6338_VPLL18_PMU_CON0,
-				RG_VPLL18_LDO_PLL208M_EN_VA18_MASK_SFT,
-				0x1 << RG_VPLL18_LDO_PLL208M_EN_VA18_SFT);
-
-	// 208M PLL
-	regmap_write(mpi->regmap, MT6338_VPLL18_PMU_CON0, 0xc1);
-	regmap_write(mpi->regmap, MT6338_VPLL18_PMU_CON1, 0x0);
-	regmap_write(mpi->regmap, MT6338_VPLL18_PMU_CON2, 0x0);
-	regmap_write(mpi->regmap, MT6338_STRUP_PMU_CON0, 0x10);
-	regmap_write(mpi->regmap, MT6338_PLL208M_PMU_CON0, 0x1);
-	regmap_write(mpi->regmap, MT6338_PLL208M_PMU_CON1, 0x0);
-	regmap_write(mpi->regmap, MT6338_PLL208M_PMU_CON2, 0x0);
-	regmap_write(mpi->regmap, MT6338_PLL208M_PMU_CON3, 0x80);
-	regmap_write(mpi->regmap, MT6338_PLL208M_PMU_CON4, 0x17);
-	regmap_write(mpi->regmap, MT6338_PLL208M_PMU_CON5, 0x2);
-	regmap_write(mpi->regmap, MT6338_TOP_CKTST_CON0, 0x0);
-	regmap_write(mpi->regmap, MT6338_TOP_CKPDN_CON1, 0x0);
-	regmap_write(mpi->regmap, MT6338_TEST_CON0, 0x0);
-	regmap_write(mpi->regmap, MT6338_TEST_CON1, 0x3);
-	regmap_write(mpi->regmap, MT6338_GPIO_MODE3, 0x17);
+	regmap_write(mpi->regmap, MT6338_LDO_VAUD18_CON2, 0x1c);
+	regmap_write(mpi->regmap, MT6338_PLT_CON0, 0x3a);
+	regmap_write(mpi->regmap, MT6338_PLT_CON1, 0x0c);
 }
 
 static const unsigned short mt6338_slave_addr = MT6338_PMIC_SLAVEID;
