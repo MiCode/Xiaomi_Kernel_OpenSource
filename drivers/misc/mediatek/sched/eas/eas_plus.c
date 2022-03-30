@@ -676,7 +676,7 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 
 	*target_cpu = -1;
 	/* For anything but wake ups, just return the task_cpu */
-	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK) {
+	if (!(flags & (WF_TTWU | WF_FORK))) {
 		select_reason = LB_RT_FAIL;
 		goto out;
 	}
