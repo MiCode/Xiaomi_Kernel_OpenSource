@@ -32,7 +32,6 @@ int srclken_rc_hw_init(struct platform_device *pdev);
 int srclken_rc_get_subsys_req_mode(u8 idx, u32 *val);
 int srclken_rc_get_subsys_sw_req(u8 idx, u32 *val);
 int srclken_rc_get_cfg_val(const char *name, u32 *val);
-u8 srclken_rc_get_subsys_count(void);
 const char *srclken_rc_get_subsys_name(u8 idx);
 void srclken_rc_init_done_callback(int rc_init_done);
 void __srclken_rc_xo_buf_callback_init(struct xo_buf_ctl_t *xo_buf_ctl);
@@ -46,5 +45,12 @@ int srclken_rc_dump_trace(u8 idx, char *buf, u32 buf_size);
 u8 rc_get_trace_num(void);
 int srclken_rc_dump_subsys_sta(u8 idx, char *buf);
 int srclken_rc_dump_sta(const char *name, char *buf);
+
+extern struct srclken_rc_hw rc_hw;
+
+static inline u8 srclken_rc_get_subsys_count(void)
+{
+	return rc_hw.subsys_num;
+}
 
 #endif /* SRCLKEN_RC_HW_H */

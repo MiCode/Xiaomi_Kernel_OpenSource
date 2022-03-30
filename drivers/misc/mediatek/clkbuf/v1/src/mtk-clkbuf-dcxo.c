@@ -15,8 +15,9 @@
 #include <linux/slab.h>
 
 #include "mtk-clkbuf-dcxo.h"
-#include "mtk-clkbuf-dcxo-6359p.h"
-#include "mtk-clkbuf-dcxo-6685.h"
+
+struct dcxo_hw *dcxo;
+EXPORT_SYMBOL(dcxo);
 
 #define CLKBUF_PMIC_CENTRAL_BASE	"mediatek,clkbuf-pmic-central-base"
 #define CLKBUF_XO_MODE_NUM		"mediatek,xo-mode-num"
@@ -35,7 +36,6 @@
 #define DCXO_DRV_CURR_SUPPORT		"mediatek,dcxo-drv-curr-support"
 #define DCXO_SPMI_RW			"mediatek,dcxo-spmi-rw"
 #define DCXO_PMRC_EN_SUPPORT		"mediatek,pmrc-en-support"
-#define CLKBUF_PMRC_EN_ADDR		"mediatek,pmrc-en-addr"
 
 /* for old project init for dct tool at kernel */
 #define CLKBUF_DCT_XO_QUANTITY		"mediatek,clkbuf-quantity"
@@ -43,13 +43,6 @@
 #define CLKBUF_DCT_XO_IMPEDANCE		"mediatek,clkbuf-output-impedance"
 #define CLKBUF_DCT_XO_DESNSE		"medaitek,clkbuf-controls-for-desense"
 #define CLKBUF_DCT_XO_DRVCURR		"mediatek,clkbuf-driving-current"
-
-static struct dcxo_hw *dcxo;
-
-static struct dcxo_hw *dcxos[CLKBUF_PMIC_ID_MAX] = {
-	[MT6685] = &mt6685_dcxo,
-	[MT6359P] = &mt6359p_dcxo,
-};
 
 int clkbuf_xo_sanity_check(u8 xo_idx)
 {
@@ -128,11 +121,6 @@ int clkbuf_dcxo_register_op(u8 idx, struct xo_buf_ctl_t *xo_buf_ctl)
 	return ret;
 }
 
-int clkbuf_dcxo_get_xo_num(void)
-{
-	return dcxo->xo_num;
-}
-
 const char *clkbuf_dcxo_get_xo_name(u8 idx)
 {
 	int ret = 0;
@@ -153,11 +141,6 @@ int clkbuf_dcxo_get_xo_id_by_name(const char *xo_name)
 			return i;
 
 	return -EINVAL;
-}
-
-bool clkbuf_dcxo_is_bblpm_support(void)
-{
-	return dcxo->bblpm_support;
 }
 
 static int set_xo_en(u8 xo_idx, bool onoff)
@@ -186,10 +169,8 @@ static int set_xo_en(u8 xo_idx, bool onoff)
 	if (!no_lock)
 		mutex_unlock(&dcxo->lock);
 
-	if (ret) {
+	if (ret)
 		pr_notice("set xo en failed\n");
-		return ret;
-	}
 
 	return ret;
 }
@@ -225,10 +206,8 @@ static int set_xo_mode(u8 xo_idx, u8 xo_mode)
 	if (!no_lock)
 		mutex_unlock(&dcxo->lock);
 
-	if (ret) {
+	if (ret)
 		pr_notice("set xo mode failed\n");
-		return ret;
-	}
 
 	return ret;
 }
@@ -255,11 +234,9 @@ static int set_xo_impedance(u8 xo_idx, u32 impedance)
 	if (!no_lock)
 		mutex_unlock(&dcxo->lock);
 
-	if (ret) {
+	if (ret)
 		pr_notice("set xo_buf%d impedance failed: %d\n",
 			xo_idx, ret);
-		return ret;
-	}
 
 	return ret;
 }
@@ -286,11 +263,9 @@ static int set_xo_desense(u8 xo_idx, u32 desense)
 	if (!no_lock)
 		mutex_unlock(&dcxo->lock);
 
-	if (ret) {
+	if (ret)
 		pr_notice("set xo_bufs%d desense failed: %d\n",
 			xo_idx, ret);
-		return ret;
-	}
 
 	return ret;
 }
@@ -317,53 +292,28 @@ static int set_xo_drvcurr(u8 xo_idx, u32 drvcurr)
 	if (!no_lock)
 		mutex_unlock(&dcxo->lock);
 
-	if (ret) {
+	if (ret)
 		pr_notice("set xo_bufs%u drv_curr failed: %d\n",
 			xo_idx, ret);
-		return ret;
-	}
 
 	return ret;
 }
 
-int clkbuf_dcxo_set_xo_sw_en(u8 xo_idx, u8 en)
+bool clkbuf_dcxo_get_xo_en_m(u8 xo_idx)
 {
-	short no_lock = 0;
 	int ret = 0;
+	u32 val = 0;
 
 	ret = clkbuf_xo_sanity_check(xo_idx);
 	if (ret)
 		return ret;
-
-	if (!clkbuf_dcxo_get_xo_controllable(xo_idx)) {
-		pr_notice("xo_buf: %u not controllable\n", xo_idx);
-		return -EINVAL;
+	ret = clk_buf_read(&dcxo->hw, &dcxo->xo_bufs[xo_idx]._xo_en, &val);
+	if (ret) {
+		pr_notice("clkbuf read init xo en_m failed\n");
+		return ret;
 	}
 
-	if (preempt_count() > 0 || irqs_disabled()
-		|| system_state != SYSTEM_RUNNING || oops_in_progress)
-		no_lock = 1;
-
-	if (!no_lock)
-		mutex_lock(&dcxo->lock);
-
-	dcxo->xo_bufs[xo_idx].sw_status = (en ? 1 : 0);
-
-	if (!no_lock)
-		mutex_unlock(&dcxo->lock);
-
-	return ret;
-}
-
-bool clkbuf_dcxo_get_xo_sw_en(u8 xo_idx)
-{
-	int ret = 0;
-
-	ret = clkbuf_xo_sanity_check(xo_idx);
-	if (ret)
-		return ret;
-
-	return dcxo->xo_bufs[xo_idx].sw_status;
+	return val;
 }
 
 static int clkbuf_dcxo_get_auxout(u32 auxout_sel, struct reg_t *out_reg,
@@ -414,19 +364,15 @@ int clkbuf_dcxo_get_xo_en(u8 idx, u32 *en)
 
 	ret = clkbuf_dcxo_get_auxout(dcxo->xo_bufs[idx].xo_en_auxout_sel,
 			&dcxo->xo_bufs[idx]._xo_en_auxout, en);
-	if (ret) {
+	if (ret)
 		pr_notice("get xo_buf%u en failed with err: %d\n", idx, ret);
-		return ret;
-	}
+
 	return ret;
 }
 
 bool clkbuf_dcxo_get_xo_support(u8 idx)
 {
-	int ret = 0;
-
-	ret = clkbuf_xo_sanity_check(idx);
-	if (ret)
+	if (clkbuf_xo_sanity_check(idx))
 		return 0;
 
 	return dcxo->xo_bufs[idx].support && dcxo->xo_bufs[idx].in_use;
@@ -434,10 +380,7 @@ bool clkbuf_dcxo_get_xo_support(u8 idx)
 
 bool clkbuf_dcxo_get_xo_controllable(u8 idx)
 {
-	int ret = 0;
-
-	ret = clkbuf_xo_sanity_check(idx);
-	if (ret)
+	if (clkbuf_xo_sanity_check(idx))
 		return 0;
 
 	return dcxo->xo_bufs[idx].controllable && dcxo->xo_bufs[idx].in_use;
@@ -445,10 +388,7 @@ bool clkbuf_dcxo_get_xo_controllable(u8 idx)
 
 bool clkbuf_dcxo_is_xo_in_use(u8 idx)
 {
-	int ret = 0;
-
-	ret = clkbuf_xo_sanity_check(idx);
-	if (ret)
+	if (clkbuf_xo_sanity_check(idx))
 		return 0;
 
 	return dcxo->xo_bufs[idx].in_use;
@@ -601,7 +541,11 @@ int clkbuf_dcxo_dump_misc_log(char *buf)
 	int ret = 0;
 	u8 i;
 
-	len += dcxo->ops.dcxo_dump_misc_log(buf + len);
+	if (dcxo->ops.dcxo_dump_misc_log == NULL)
+		len += snprintf(buf + len, PAGE_SIZE - len,
+				"DCXO dump misc function not implemented!!\n");
+	else
+		len += dcxo->ops.dcxo_dump_misc_log(buf + len);
 
 	/* dump current impedance setting */
 	if (!dcxo->impedance_support)
@@ -648,7 +592,10 @@ DUMP_MISC_FAILED:
 
 int clkbuf_dcxo_dump_reg_log(char *buf)
 {
-	return dcxo->ops.dcxo_dump_reg_log(buf);
+	if (dcxo->ops.dcxo_dump_reg_log != NULL)
+		return dcxo->ops.dcxo_dump_reg_log(buf);
+	else
+		return snprintf(buf, PAGE_SIZE, "DCXO dump reg function not implemented!!\n");
 }
 
 int clkbuf_dcxo_dump_dws(char *buf)
@@ -808,14 +755,68 @@ static int clkbuf_dcxo_voter_store(u8 xo_idx, const char *arg1)
 	return 0;
 }
 
+int dcxo_pmic_store(const u8 xo_id, const char *cmd)
+{
+	struct xo_buf_ctl_cmd_t xo_cmd;
+	int ret = 0;
+	const char * const *match_cmd = dcxo->valid_dcxo_cmd;
+
+	xo_cmd.hw_id = CLKBUF_DCXO;
+
+	while (*match_cmd) {
+		if (!strcmp(*match_cmd, cmd))
+			break;
+		match_cmd += 1;
+	}
+	if (*match_cmd == NULL) {
+		pr_notice("unknown DCXO command %s for xo id: %u!\n",
+			cmd, xo_id);
+		return -EPERM;
+	}
+
+	if (xo_id >= dcxo->xo_num) {
+		pr_notice("xo_id out of range: %u in %u\n",
+			 xo_id, dcxo->xo_num);
+		return -EPERM;
+	}
+
+	if (!strcmp(cmd, "ON")) {
+		xo_cmd.cmd = CLKBUF_CMD_ON;
+	} else if (!strcmp(cmd, "OFF")) {
+		xo_cmd.cmd = CLKBUF_CMD_OFF;
+	} else if (!strcmp(cmd, "EN_BB")) {
+		xo_cmd.cmd = CLKBUF_CMD_HW;
+		xo_cmd.mode = DCXO_HW1_MODE;
+	} else if (!strcmp(cmd, "SIG")) {
+		xo_cmd.cmd = CLKBUF_CMD_HW;
+		xo_cmd.mode = DCXO_HW2_MODE;
+	} else if (!strcmp(cmd, "CO_BUF")) {
+		xo_cmd.cmd = CLKBUF_CMD_HW;
+		xo_cmd.mode = DCXO_CO_BUF_MODE;
+	} else if (!strcmp(cmd, "INIT")) {
+		xo_cmd.cmd = CLKBUF_CMD_INIT;
+	}
+
+	ret = clkbuf_dcxo_notify(xo_id, &xo_cmd);
+	if (ret)
+		pr_notice("clkbuf dcxo cmd failed\n");
+
+	return ret;
+}
+
 int clkbuf_dcxo_pmic_store(const char *cmd, const char *arg1, const char *arg2)
 {
 	u32 val = 0;
 	int ret = 0;
 	int xo_id;
 
-	if (!strcmp(cmd, "misc"))
-		ret = dcxo->ops.dcxo_misc_store(arg1, arg2);
+	if (!strcmp(cmd, "misc")) {
+		if (dcxo->ops.dcxo_misc_store != NULL)
+			ret = dcxo->ops.dcxo_misc_store(arg1, arg2);
+		else
+			pr_info("DCXO misc store function not implemented!!\n");
+		return ret;
+	}
 
 	if (ret)
 		return ret;
@@ -851,7 +852,7 @@ int clkbuf_dcxo_pmic_store(const char *cmd, const char *arg1, const char *arg2)
 			return -EPERM;
 		return set_xo_drvcurr(xo_id, val);
 	} else if (!strcmp(cmd, "DCXO")) {
-		return dcxo->ops.dcxo_pmic_store(xo_id, arg2);
+		return dcxo_pmic_store(xo_id, arg2);
 	} else if (!strcmp(cmd, "XO_VOTER")) {
 		return clkbuf_dcxo_voter_store(xo_id, arg2);
 	}
@@ -989,83 +990,6 @@ int clkbuf_dcxo_post_init(void)
 	ret = clkbuf_dcxo_bblpm_init();
 	if (ret)
 		pr_notice("bblpm init failed\n");
-
-	return ret;
-}
-
-static int clkbuf_dcxo_dts_pmrc_en_init(struct device_node *ctl_node)
-{
-	struct platform_device *pmic_dev = NULL;
-	struct device_node *pmic_node = NULL;
-	int ret = 0;
-	u8 i = 0;
-
-	ret = of_property_count_u32_elems(ctl_node, CLKBUF_PMRC_EN_ADDR);
-	if (ret <= 0) {
-		pr_notice("no pmrc_en addr specified.\n");
-		return 0;
-	}
-	if (ret % 2) {
-		pr_notice("pmic node/pmrc_en addr does not paired!\n");
-		return ret;
-	}
-	dcxo->pmrc_en_num = ret / 2;
-	pr_notice("pmrc_en_num: %u\n", dcxo->pmrc_en_num);
-
-	if (!dcxo->pmrc_en_num)
-		return 0;
-
-	dcxo->pmrc_en = kcalloc(dcxo->pmrc_en_num,
-				sizeof(struct pmic_pmrc_en),
-				GFP_KERNEL);
-	if (!dcxo->pmrc_en)
-		return -ENOMEM;
-
-	for (i = 0; i < dcxo->pmrc_en_num; i++) {
-		pr_notice("initializing pmrc_en id: %u\n", i);
-		pmic_node = of_parse_phandle(ctl_node,
-					CLKBUF_PMRC_EN_ADDR,
-					2 * i);
-		if (!pmic_node) {
-			pr_notice("pmic node not found id: %u\n", 2 * i);
-			return -ENODEV;
-		}
-
-		pmic_dev = of_find_device_by_node(pmic_node);
-		if (!pmic_dev) {
-			pr_notice("pmic dev not found id: %u\n", 2 * i);
-			return -ENODEV;
-		}
-
-		dcxo->pmrc_en[i].hw.base.map = dev_get_regmap(
-							&pmic_dev->dev,
-							NULL);
-		if (!dcxo->pmrc_en[i].hw.base.map) {
-			pr_notice("get regmap failed!!\n");
-			if (of_device_is_compatible(pmic_dev->dev.of_node,
-						"mediatek,mt6359p"))
-				pr_notice("pmic is mt6359p\n");
-		}
-
-		ret = of_property_read_u32_index(ctl_node,
-				CLKBUF_PMRC_EN_ADDR,
-				2 * i + 1,
-				&dcxo->pmrc_en[i]._pmrc_en.ofs);
-		if (ret) {
-			pr_notice("read pmrc_en addr failed id: %u\n",
-					2 * i + 1);
-			return ret;
-		}
-
-		if (dcxo->spmi_rw)
-			dcxo->pmrc_en[i]._pmrc_en.mask = 0xFF;
-		else
-			dcxo->pmrc_en[i]._pmrc_en.mask = 0xFFFF;
-		dcxo->pmrc_en[i]._pmrc_en.shift = 0;
-
-		dcxo->pmrc_en[i].hw.is_pmic = true;
-		dcxo->pmrc_en[i].hw.enable = true;
-	}
 
 	return ret;
 }
@@ -1341,12 +1265,6 @@ static int clkbuf_dcxo_dts_init(struct platform_device *pdev)
 			return ret;
 	}
 
-	if (dcxo->pmrc_en_support) {
-		ret = clkbuf_dcxo_dts_pmrc_en_init(ctl_node);
-		if (ret)
-			return ret;
-	}
-
 	of_node_put(ctl_node);
 
 	return ret;
@@ -1491,21 +1409,19 @@ static int clkbuf_set_xo_voter(u8 xo_idx, u32 mask)
 		mutex_lock(&dcxo->lock);
 
 	ret = clk_buf_write(&dcxo->hw, &dcxo->xo_bufs[xo_idx]._rc_voter, mask);
-	if (ret) {
-		pr_notice("set xo voter failed: %d\n", ret);
-		goto SET_XO_VOTER_DONE;
-	}
 
 	/* if pmic is spmi type rw, read 1 more reg to fit 16bits */
 	if (dcxo->spmi_rw) {
-		ret = clk_buf_write_with_ofs(&dcxo->hw,
+		mask >>= 8;
+		ret |= clk_buf_write_with_ofs(&dcxo->hw,
 				&dcxo->xo_bufs[xo_idx]._rc_voter,
 				mask,
 				1);
-		if (ret) {
-			pr_notice("set xo voter failed: %d\n", ret);
-			goto SET_XO_VOTER_DONE;
-		}
+	}
+
+	if (ret) {
+		pr_notice("set xo voter failed: %d\n", ret);
+		goto SET_XO_VOTER_DONE;
 	}
 
 SET_XO_VOTER_DONE:
@@ -1615,36 +1531,21 @@ static void clkbuf_dcxo_init_xo_op(struct xo_buf_t *xo_buf)
 	xo_buf->xo_voter_ctrl_op.clk_buf_show_ctrl = clkbuf_xo_voter_show_ctrl;
 }
 
-static int clkbuf_dcxo_hw_init(struct platform_device *clkbuf_pdev)
-{
-	int ret = 0;
-
-	ret = clk_buf_get_pmic_id(clkbuf_pdev);
-	if (ret < 0) {
-		pr_notice("clkbuf can not get any pmic id: %d\n", ret);
-		return ret;
-	}
-
-	dcxo = dcxos[ret];
-
-	return 0;
-}
-
 int clkbuf_dcxo_init(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
 	int ret = 0;
 	int i;
 
-	if (dcxo)
-		return -EHW_ALREADY_INIT;
+	if (!dcxo) {
+		pr_notice("clkbuf dcxo structure not inited!!\n");
+		return -EGET_BASE_FAILED;
+	}
 
 	if (!of_property_read_bool(node, ENABLE_PROP_NAME)) {
 		pr_notice("clkbuf dcxo does not enabled by dts\n");
 		return -EHW_NOT_SUPPORT;
 	}
-
-	ret = clkbuf_dcxo_hw_init(pdev);
 
 	ret = clkbuf_dcxo_base_init(pdev);
 	if (ret)

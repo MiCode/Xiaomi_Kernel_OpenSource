@@ -4,22 +4,7 @@
  * Author: ren-ting.wang <ren-ting.wang@mediatek.com>
  */
 #include <linux/of.h>
-
 #include "mtk_clkbuf_common.h"
-
-static const char *chip_name[CLKBUF_CHIP_ID_MAX] __initconst = {
-	[MT6983] = "mediatek,mt6983",
-	[MT6879] = "mediatek,mt6879",
-	[MT6893] = "mediatek,mt6893",
-	[MT6895] = "mediatek,mt6895",
-	[MT6873] = "mediatek,mt6873",
-	[MT6855] = "mediatek,mt6855",
-};
-
-static const char *pmic_name[CLKBUF_PMIC_ID_MAX] __initconst = {
-	[MT6685] = "mediatek,mt6685",
-	[MT6359P] = "mediatek,mt6359p",
-};
 
 int clk_buf_read_with_ofs(struct base_hw *hw, struct reg_t *reg,
 	u32 *val, u32 ofs)
@@ -48,6 +33,7 @@ int clk_buf_read_with_ofs(struct base_hw *hw, struct reg_t *reg,
 
 	return ret;
 }
+EXPORT_SYMBOL(clk_buf_read_with_ofs);
 
 int clk_buf_write_with_ofs(struct base_hw *hw, struct reg_t *reg,
 	u32 val, u32 ofs)
@@ -77,26 +63,4 @@ int clk_buf_write_with_ofs(struct base_hw *hw, struct reg_t *reg,
 
 	return ret;
 }
-
-enum CLKBUF_CHIP_ID clk_buf_get_chip_id(void)
-{
-	u32 i;
-
-	for (i = 0; i < CLKBUF_CHIP_ID_MAX; i++)
-		if (of_machine_is_compatible(chip_name[i]))
-			return i;
-
-	return -ECHIP_NOT_FOUND;
-}
-
-enum CLKBUF_PMIC_ID clk_buf_get_pmic_id(struct platform_device *clkbuf_pdev)
-{
-	u32 i;
-	struct device_node *pmic_node = clkbuf_pdev->dev.of_node->parent;
-
-	for (i = 0; i < CLKBUF_PMIC_ID_MAX; i++)
-		if (of_device_is_compatible(pmic_node, pmic_name[i]))
-			return i;
-
-	return -ECHIP_NOT_FOUND;
-}
+EXPORT_SYMBOL(clk_buf_write_with_ofs);

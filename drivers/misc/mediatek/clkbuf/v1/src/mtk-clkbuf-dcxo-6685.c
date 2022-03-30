@@ -6,14 +6,22 @@
 
 #include <linux/mfd/syscon.h>
 
-#include "mtk-clkbuf-dcxo.h"
 #include "mtk-clkbuf-dcxo-6685.h"
-#include "mtk_clkbuf_common.h"
+#include "mtk_clkbuf_ctl.h"
 
 #define MT6685_SET_REG_BY_NAME(reg, name)			\
 	SET_REG_BY_NAME(reg, MT6685_ ## name)
 
 #define XO_NUM				13
+
+static const char * const valid_cmd_type[] = {
+	"ON",
+	"OFF",
+	"EN_BB",
+	"SIG",
+	"INIT",
+	NULL,
+};
 
 struct mt6685_ldo_regs {
 	struct reg_t _vrfck1_en;
@@ -58,7 +66,6 @@ static struct mt6685_debug_regs debug_reg = {
 static int mt6685_dcxo_dump_reg_log(char *buf);
 static int mt6685_dcxo_dump_misc_log(char *buf);
 static int mt6685_dcxo_misc_store(const char *obj, const char *arg);
-static int mt6685_dcxo_pmic_store(const u8 xo_id, const char *cmd);
 
 static struct xo_buf_t xo_bufs[XO_NUM] = {
 	[0] = {
@@ -206,9 +213,10 @@ struct dcxo_hw mt6685_dcxo = {
 		.dcxo_dump_reg_log = mt6685_dcxo_dump_reg_log,
 		.dcxo_dump_misc_log = mt6685_dcxo_dump_misc_log,
 		.dcxo_misc_store = mt6685_dcxo_misc_store,
-		.dcxo_pmic_store = mt6685_dcxo_pmic_store,
 	},
+	.valid_dcxo_cmd = valid_cmd_type,
 };
+EXPORT_SYMBOL(mt6685_dcxo);
 
 static int mt6685_dcxo_dump_reg_log(char *buf)
 {
@@ -362,36 +370,33 @@ static int mt6685_dcxo_misc_store(const char *obj, const char *arg)
 	return ret;
 }
 
-static int mt6685_dcxo_pmic_store(const u8 xo_id, const char *cmd)
+static int mt6685_clkbuf_probe(struct platform_device *pdev)
 {
-	struct xo_buf_ctl_cmd_t xo_cmd;
-	int ret = 0;
-
-	xo_cmd.hw_id = CLKBUF_DCXO;
-
-	if (!strcmp(cmd, "ON")) {
-		xo_cmd.cmd = CLKBUF_CMD_ON;
-	} else if (!strcmp(cmd, "OFF")) {
-		xo_cmd.cmd = CLKBUF_CMD_OFF;
-	} else if (!strcmp(cmd, "EN_BB")) {
-		xo_cmd.cmd = CLKBUF_CMD_HW;
-		xo_cmd.mode = DCXO_HW1_MODE;
-	} else if (!strcmp(cmd, "SIG")) {
-		xo_cmd.cmd = CLKBUF_CMD_HW;
-		xo_cmd.mode = DCXO_HW2_MODE;
-	} else if (!strcmp(cmd, "INIT")) {
-		xo_cmd.cmd = CLKBUF_CMD_INIT;
-	} else {
-		pr_notice("unknown command: %s for xo id: %u\n",
-			cmd, xo_id);
-		return -EPERM;
-	}
-
-	ret = clkbuf_dcxo_notify(xo_id, &xo_cmd);
-	if (ret) {
-		pr_notice("clkbuf dcxo cmd failed\n");
-		return ret;
-	}
-
-	return ret;
+	// Init clkbuf driver
+	pr_notice("clkbuf init with mt6685_dcxo\n");
+	dcxo = &mt6685_dcxo;
+	return clkbuf_init(pdev);
 }
+
+static const struct of_device_id mt6685_clkbuf_of_match[] = {
+	{
+		.compatible = "mediatek,clock_buffer",
+	},
+	{ /* sentinel */ },
+};
+MODULE_DEVICE_TABLE(of, mt6685_clkbuf_of_match);
+
+//extern clk_buf_suspend_ops
+static struct platform_driver mt6685_clkbuf_driver = {
+	.driver = {
+		.name = "mtk-clock-buffer",
+		.of_match_table = of_match_ptr(mt6685_clkbuf_of_match),
+		.pm = &clk_buf_suspend_ops,
+	},
+	.probe = mt6685_clkbuf_probe,
+};
+
+module_platform_driver(mt6685_clkbuf_driver);
+MODULE_AUTHOR("Ren-Ting Wang <ren-ting.wang@mediatek.com>");
+MODULE_DESCRIPTION("SOC Driver for MediaTek Clock Buffer");
+MODULE_LICENSE("GPL v2");

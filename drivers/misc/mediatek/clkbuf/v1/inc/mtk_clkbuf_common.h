@@ -10,7 +10,10 @@
 #include <linux/device.h>
 #include <linux/errno.h>
 #include <linux/io.h>
+#include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/list.h>
@@ -93,22 +96,6 @@ static struct kobj_attribute _name##_attr = {			\
 #define __ATTR_OF(_name)	(&_name##_attr.attr)
 #endif /* CONFIG_PM */
 
-enum CLKBUF_CHIP_ID {
-	MT6983,
-	MT6879,
-	MT6893,
-	MT6895,
-	MT6873,
-	MT6855,
-	CLKBUF_CHIP_ID_MAX,
-};
-
-enum CLKBUF_PMIC_ID {
-	MT6685,
-	MT6359P,
-	CLKBUF_PMIC_ID_MAX,
-};
-
 enum DCXO_MODE {
 	DCXO_SW_MODE,
 	DCXO_HW1_MODE,
@@ -122,6 +109,7 @@ enum SRCLKEN_RC_REQ {
 	RC_BBLPM_REQ,
 	RC_FPM_REQ,
 	RC_LPM_REQ,
+	RC_LPM_VOTE_REQ,
 	RC_MAX_REQ,
 };
 
@@ -191,8 +179,5 @@ int clk_buf_register_xo_ctl_op(const char *xo_name,
 
 extern const char *clk_buf_get_xo_name(u8 idx);
 extern u8 clk_buf_get_xo_num(void);
-
-enum CLKBUF_CHIP_ID clk_buf_get_chip_id(void);
-enum CLKBUF_PMIC_ID clk_buf_get_pmic_id(struct platform_device *clkbuf_pdev);
 
 #endif /* CLKBUF_COMMON_H */

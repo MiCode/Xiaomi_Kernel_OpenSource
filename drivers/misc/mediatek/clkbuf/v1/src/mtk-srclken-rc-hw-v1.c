@@ -550,6 +550,7 @@ int __srclken_rc_subsys_ctrl(struct srclken_rc_subsys *subsys,
 		enum CLKBUF_CTL_CMD cmd, enum SRCLKEN_RC_REQ rc_req)
 {
 	u32 val = 0;
+	u32 cfg6_val = 0;
 	int ret = 0;
 
 	ret = clk_buf_read_with_ofs(&rc_cfg.hw, &rc_cfg._m00_cfg,
@@ -558,6 +559,15 @@ int __srclken_rc_subsys_ctrl(struct srclken_rc_subsys *subsys,
 		pr_notice("read srclken_rc subsys cfg failed\n");
 		return ret;
 	}
+
+	ret = clk_buf_read_with_ofs(&rc_cfg.hw, &rc_cfg._central_cfg6,
+			&cfg6_val, 0);
+	if (ret) {
+		pr_notice("read srclken_rc cfg6 failed\n");
+		return ret;
+	}
+	/* Reset previous CFG6 setting (Force subsys vote LPM) */
+	cfg6_val &= (~(1 << subsys->idx));
 
 	if (cmd <= CLKBUF_CMD_SW) {
 		val &= (~(SW_SRCLKEN_RC_EN_MASK << SW_SRCLKEN_RC_EN_SHIFT));
@@ -568,6 +578,10 @@ int __srclken_rc_subsys_ctrl(struct srclken_rc_subsys *subsys,
 		} else if (rc_req == RC_FPM_REQ) {
 			val &= (~(SW_RC_REQ_MASK << SW_RC_REQ_SHIFT));
 			val |= (SW_FPM_EN_MASK << SW_FPM_EN_SHIFT);
+		} else if (rc_req == RC_LPM_VOTE_REQ) {
+			val &= (~(SW_RC_REQ_MASK << SW_RC_REQ_SHIFT));
+			val |= (SW_FPM_EN_MASK << SW_FPM_EN_SHIFT);
+			cfg6_val |= (1 << subsys->idx);
 		} else if (rc_req == RC_LPM_REQ) {
 			val &= (~(SW_RC_REQ_MASK << SW_RC_REQ_SHIFT));
 		}
@@ -581,6 +595,11 @@ int __srclken_rc_subsys_ctrl(struct srclken_rc_subsys *subsys,
 		val |= (subsys->init_mode << SW_SRCLKEN_RC_EN_SHIFT);
 	}
 
+	ret = clk_buf_write_with_ofs(&rc_cfg.hw, &rc_cfg._central_cfg6,
+			cfg6_val, 0);
+	if (ret)
+		pr_notice("write srclken_rc cfg6 failed\n");
+
 	ret = clk_buf_write_with_ofs(&rc_cfg.hw, &rc_cfg._m00_cfg,
 			val, subsys->idx * 4);
 	if (ret)
@@ -589,58 +608,7 @@ int __srclken_rc_subsys_ctrl(struct srclken_rc_subsys *subsys,
 	return ret;
 }
 
-static int rc_xo_ctl_on(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
-		struct xo_buf_ctl_t *xo_buf_ctl)
-{
-	struct srclken_rc_subsys *subsys = NULL;
-	int ret = 0;
-
-	if (ctl_cmd->hw_id != CLKBUF_RC_SUBSYS
-			&& ctl_cmd->hw_id != CLKBUF_HW_ALL)
-		return 0;
-
-	subsys = container_of(xo_buf_ctl, struct srclken_rc_subsys, xo_buf_ctl);
-
-	ret = __srclken_rc_subsys_ctrl(subsys, ctl_cmd->cmd, ctl_cmd->rc_req);
-
-	return ret;
-}
-
-static int rc_xo_ctl_off(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
-		struct xo_buf_ctl_t *xo_buf_ctl)
-{
-	struct srclken_rc_subsys *subsys = NULL;
-	int ret = 0;
-
-	if (ctl_cmd->hw_id != CLKBUF_RC_SUBSYS
-			&& ctl_cmd->hw_id != CLKBUF_HW_ALL)
-		return 0;
-
-	subsys = container_of(xo_buf_ctl, struct srclken_rc_subsys, xo_buf_ctl);
-
-	ret = __srclken_rc_subsys_ctrl(subsys, ctl_cmd->cmd, ctl_cmd->rc_req);
-
-	return ret;
-}
-
-static int rc_xo_ctl_hw(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
-		struct xo_buf_ctl_t *xo_buf_ctl)
-{
-	struct srclken_rc_subsys *subsys = NULL;
-	int ret = 0;
-
-	if (ctl_cmd->hw_id != CLKBUF_RC_SUBSYS
-			&& ctl_cmd->hw_id != CLKBUF_HW_ALL)
-		return 0;
-
-	subsys = container_of(xo_buf_ctl, struct srclken_rc_subsys, xo_buf_ctl);
-
-	ret = __srclken_rc_subsys_ctrl(subsys, ctl_cmd->cmd, ctl_cmd->rc_req);
-
-	return ret;
-}
-
-static int rc_xo_ctl_init(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
+static int rc_xo_ctl(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
 		struct xo_buf_ctl_t *xo_buf_ctl)
 {
 	struct srclken_rc_subsys *subsys = NULL;
@@ -690,11 +658,11 @@ static int rc_xo_ctl_show(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd,
 
 void __srclken_rc_xo_buf_callback_init(struct xo_buf_ctl_t *xo_buf_ctl)
 {
-	xo_buf_ctl->clk_buf_on_ctrl = rc_xo_ctl_on;
-	xo_buf_ctl->clk_buf_off_ctrl = rc_xo_ctl_off;
-	xo_buf_ctl->clk_buf_sw_ctrl = rc_xo_ctl_on;
-	xo_buf_ctl->clk_buf_hw_ctrl = rc_xo_ctl_hw;
-	xo_buf_ctl->clk_buf_init_ctrl = rc_xo_ctl_init;
+	xo_buf_ctl->clk_buf_on_ctrl = rc_xo_ctl;
+	xo_buf_ctl->clk_buf_off_ctrl = rc_xo_ctl;
+	xo_buf_ctl->clk_buf_sw_ctrl = rc_xo_ctl;
+	xo_buf_ctl->clk_buf_hw_ctrl = rc_xo_ctl;
+	xo_buf_ctl->clk_buf_init_ctrl = rc_xo_ctl;
 	xo_buf_ctl->clk_buf_show_ctrl = rc_xo_ctl_show;
 }
 

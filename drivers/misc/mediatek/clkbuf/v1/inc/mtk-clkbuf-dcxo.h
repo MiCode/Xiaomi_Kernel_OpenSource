@@ -8,8 +8,6 @@
 
 #include "mtk_clkbuf_common.h"
 
-struct platform_device;
-
 struct xo_buf_t {
 	const char *xo_name;
 	struct list_head xo_buf_ctl_head;
@@ -78,6 +76,7 @@ struct dcxo_hw {
 	struct reg_t _dcxo_pmrc_en;
 	struct pmic_pmrc_en *pmrc_en;
 	struct dcxo_op ops;
+	const char * const *valid_dcxo_cmd;
 };
 
 int clkbuf_dcxo_init(struct platform_device *pdev);
@@ -87,11 +86,9 @@ int clkbuf_dcxo_get_xo_en(u8 idx, u32 *en);
 bool clkbuf_dcxo_get_xo_support(u8 idx);
 bool clkbuf_dcxo_get_xo_controllable(u8 idx);
 bool clkbuf_dcxo_is_xo_in_use(u8 idx);
-int clkbuf_dcxo_set_xo_sw_en(u8 idx, u8 en);
-bool clkbuf_dcxo_get_xo_sw_en(u8 idx);
+bool clkbuf_dcxo_get_xo_en_m(u8 xo_idx);
 int clkbuf_dcxo_register_op(u8 idx, struct xo_buf_ctl_t *xo_buf_ctl);
 int clkbuf_dcxo_notify(u8 xo_idx, struct xo_buf_ctl_cmd_t *ctl_cmd);
-int clkbuf_dcxo_get_xo_num(void);
 const char *clkbuf_dcxo_get_xo_name(u8 idx);
 int clkbuf_dcxo_get_xo_id_by_name(const char *xo_name);
 int clkbuf_dcxo_pmic_store(const char *cmd, const char *arg1, const char *arg2);
@@ -107,6 +104,17 @@ int clkbuf_dcxo_dump_reg_log(char *buf);
 int clkbuf_dcxo_dump_misc_log(char *buf);
 int clkbuf_dcxo_dump_dws(char *buf);
 int clkbuf_dcxo_dump_pmrc_en(char *buf);
-bool clkbuf_dcxo_is_bblpm_support(void);
+
+extern struct dcxo_hw *dcxo;
+
+static inline bool clkbuf_dcxo_is_bblpm_support(void)
+{
+	return dcxo->bblpm_support;
+}
+
+static inline int clkbuf_dcxo_get_xo_num(void)
+{
+	return dcxo->xo_num;
+}
 
 #endif /* CLKBUF_DCXO_H */

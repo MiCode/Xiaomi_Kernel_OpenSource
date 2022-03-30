@@ -3,13 +3,7 @@
  * Copyright (c) 2020 MediaTek Inc.
  * Author: ren-ting.wang <ren-ting.wang@mediatek.com>
  */
-
-#include <linux/device.h>
-#include <linux/module.h>
 #include <linux/notifier.h>
-#include <linux/of.h>
-#include <linux/of_device.h>
-#include <linux/platform_device.h>
 #include <linux/timer.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
@@ -36,25 +30,10 @@ static int rc_init_done;
 /* called when srclken_rc probe done */
 void srclken_rc_init_done_callback(int rc_done)
 {
-	if (rc_init_done)
-		return;
-	rc_init_done = rc_done;
+	rc_init_done = rc_init_done ? rc_init_done : rc_done;
+	return;
 }
 #endif /* defined(SRCLKEN_RC_SUPPORT) */
-
-int clk_buf_ctrl(const char *xo_name, bool onoff)
-{
-	int id;
-
-	id = clkbuf_dcxo_get_xo_id_by_name(xo_name);
-	if (id < 0) {
-		pr_notice("xo name: %s not found, err: %d\n", xo_name, id);
-		return id;
-	}
-
-	return clkbuf_dcxo_set_xo_sw_en(id, onoff);
-}
-EXPORT_SYMBOL(clk_buf_ctrl);
 
 int clk_buf_hw_ctrl(const char *xo_name, bool onoff)
 {
@@ -79,18 +58,51 @@ int clk_buf_hw_ctrl(const char *xo_name, bool onoff)
 }
 EXPORT_SYMBOL(clk_buf_hw_ctrl);
 
-static bool clk_buf_get_flightmode(void)
+#if defined(SRCLKEN_RC_SUPPORT)
+int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req)
 {
-	return clkbuf_ctl.flightmode;
-}
+	if (!clkbuf_ctl.init_done) {
+		pr_notice("clkbuf HW not init yet\n");
+		return -ENODEV;
+	}
 
-int clk_buf_set_by_flightmode(bool onoff)
+	if (rc_req > MAX_RC_REQ_NUM) {
+		pr_notice("rc_req exceeds MAX_RC_REQ_NUM!\n");
+		return -EINVAL;
+	}
+
+	return srclken_rc_subsys_ctrl(subsys_id, rc_req_list[rc_req]);
+}
+EXPORT_SYMBOL(clk_buf_voter_ctrl_by_id);
+
+int clk_buf_set_voter_by_name(const char *xo_name, const char *voter)
 {
-	clkbuf_ctl.flightmode = onoff;
+	int id, ret = 0;
 
-	return 0;
+	if (!clkbuf_ctl.init_done) {
+		pr_notice("clkbuf HW not init yet\n");
+		return -ENODEV;
+	}
+
+	id = clkbuf_dcxo_get_xo_id_by_name(xo_name);
+	if (id < 0) {
+		pr_notice("xo name: %s not found, err: %d\n", xo_name, id);
+		return id;
+	}
+
+	if (id == 0) {
+		pr_notice("xo %s is invalid for control!!\n", xo_name);
+		return id;
+	}
+
+	ret = clkbuf_dcxo_pmic_store("DCXO", xo_name, "EN_BB");
+
+	ret |= clkbuf_dcxo_pmic_store("XO_VOTER", xo_name, voter);
+
+	return ret;
 }
-EXPORT_SYMBOL(clk_buf_set_by_flightmode);
+EXPORT_SYMBOL(clk_buf_set_voter_by_name);
+#endif /* defined(SRCLKEN_RC_SUPPORT) */
 
 int clk_buf_control_bblpm(bool onoff)
 {
@@ -133,10 +145,10 @@ static ssize_t __clk_buf_dump_xo_en_sta(char *buf)
 		}
 
 		len += snprintf(buf + len, PAGE_SIZE - len,
-			"%s   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
+			"%s    MODE: %d, EN_M: %d, RS: %u\n",
 			clkbuf_dcxo_get_xo_name(i),
 			mode,
-			clkbuf_dcxo_get_xo_sw_en(i),
+			clkbuf_dcxo_get_xo_en_m(i),
 			val);
 	}
 
@@ -185,13 +197,10 @@ static ssize_t __clk_buf_dump_pmif_log(char *buf)
 	}
 
 	ret = clkbuf_pmif_get_inf_en(PMIF_RC_INF, &inf_en);
-	if (ret) {
-		len = (len > 2) ? len : (len - 2);
-		len += snprintf(buf + len, PAGE_SIZE - len, "\n");
-		return len;
+	if (!ret) {
+		len += snprintf(buf + len, PAGE_SIZE - len,
+			"RC_INF_EN: 0x%x\n", inf_en);
 	}
-	len += snprintf(buf + len, PAGE_SIZE - len,
-		"RC_INF_EN: 0x%x\n", inf_en);
 
 	for (i = 0; i < clkbuf_pmif_get_pmif_cnt(); i++) {
 		ret = clkbuf_pmif_get_misc_reg(&mode_ctl, &sleep_ctl, i);
@@ -209,9 +218,6 @@ static ssize_t __clk_buf_dump_bblpm_info(char *buf)
 {
 	u32 val = 0;
 	int len = 0;
-
-	len += snprintf(buf + len, PAGE_SIZE - len,
-			"flight mode (sw): %d\n", clk_buf_get_flightmode());
 
 	if (clkbuf_dcxo_get_bblpm_en(&val))
 		return len;
@@ -461,8 +467,10 @@ static int __rc_dump_trace(char *buf, u32 buf_size)
 	int len = 0;
 	u8 i;
 
-	for (i = 0; i < rc_get_trace_num() && i < rc_trace_dump_num; i++)
+	for (i = 0; i < rc_get_trace_num() && i < rc_trace_dump_num; i++) {
 		len += srclken_rc_dump_trace(i, buf + len, buf_size - len);
+		len += srclken_rc_dump_time(i, buf + len, buf_size - len);
+	}
 
 	return len;
 }
@@ -670,7 +678,7 @@ static ssize_t clk_buf_ctrl_show(struct kobject *kobj,
 static ssize_t clk_buf_debug_store(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	char cmd[11] = {0};
+	char cmd[21] = {0};
 	u32 val = 0;
 
 	if (!clkbuf_ctl.init_done) {
@@ -678,7 +686,7 @@ static ssize_t clk_buf_debug_store(struct kobject *kobj,
 		return -ENODEV;
 	}
 
-	if (sscanf(buf, "%20s %x", cmd, &val) != 2)
+	if (sscanf(buf, "%20s %u", cmd, &val) != 2)
 		return -EPERM;
 
 	if (!strcmp(cmd, "DEBUG")) {
@@ -733,7 +741,7 @@ static ssize_t clk_buf_debug_show(struct kobject *kobj,
 			clkbuf_ctl.pmrc_en_debug);
 
 	len += snprintf(buf + len, PAGE_SIZE - len,
-			"available control: DEBUG, MISC_DEBUG, DWS_DEBUG, PMRC_EN_DEBUG\n");
+			"available control: DEBUG, MISC_DEBUG, DWS_DEBUG, REG_DEBUG, PMRC_EN_DEBUG\n");
 
 	return len;
 }
@@ -1254,6 +1262,7 @@ static int clkbuf_post_init(void)
 		return ret;
 	}
 #endif /* defined(SRCLKEN_RC_SUPPORT) */
+
 	ret = clkbuf_pmif_post_init();
 	if (ret) {
 		pr_notice("clkbuf pmif init failed: %d\n", ret);
@@ -1269,23 +1278,22 @@ static int clkbuf_post_init(void)
 #endif /* IS_ENABLED(CONFIG_PM) */
 
 	clkbuf_ctl.init_done = true;
-
 	return ret;
 }
 
-static int clkbuf_init(struct platform_device *pdev)
+int clkbuf_init(struct platform_device *pdev)
 {
 	int ret = 0;
+
+	if (clkbuf_ctl.init_done) {
+		pr_notice("clkbuf_ctl hw already init\n");
+		return -EHW_ALREADY_INIT;
+	}
 
 	ret = clkbuf_dts_init(pdev);
 	if (ret) {
 		pr_notice("clkbuf_ctl dts init failed with err: %d\n", ret);
 		return ret;
-	}
-
-	if (clkbuf_ctl.init_done) {
-		pr_notice("clkbuf_ctl hw already init\n");
-		return -EHW_ALREADY_INIT;
 	}
 
 	ret = clkbuf_dcxo_init(pdev);
@@ -1294,14 +1302,13 @@ static int clkbuf_init(struct platform_device *pdev)
 		return ret;
 	}
 
-#if defined(SRCLKEN_RC_SUPPORT)
-	ret = srclken_rc_init();
-	if (ret) {
-		pr_notice("srclken_rc init failed\n");
-		return ret;
-	}
-
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
+	#if defined(SRCLKEN_RC_SUPPORT)
+		ret = srclken_rc_init();
+		if (ret) {
+			pr_notice("srclken_rc init failed\n");
+			return ret;
+		}
+	#endif /* defined(SRCLKEN_RC_SUPPORT) */
 
 	ret = clkbuf_pmif_hw_init(pdev);
 	if (ret) {
@@ -1309,8 +1316,17 @@ static int clkbuf_init(struct platform_device *pdev)
 		return ret;
 	}
 
+	// Do post init
+	ret = clkbuf_post_init();
+	if (ret) {
+		pr_notice("clkbuf post init failed: %d\n", ret);
+		return ret;
+	}
+
+	pr_notice("clkbuf init done\n");
 	return ret;
 }
+EXPORT_SYMBOL(clkbuf_init);
 
 static int __clk_buf_dev_pm_dump(void)
 {
@@ -1370,70 +1386,8 @@ static int clk_buf_dev_pm_resume(struct device *dev)
 	return __clk_buf_dev_pm_dump();
 }
 
-static const struct dev_pm_ops clk_buf_suspend_ops = {
+const struct dev_pm_ops clk_buf_suspend_ops = {
 	.suspend_noirq = clk_buf_dev_pm_suspend,
 	.resume_noirq = clk_buf_dev_pm_resume,
 };
-
-static int mtk_clkbuf_ctl_probe(struct platform_device *pdev)
-{
-	int ret = 0;
-
-	ret = clkbuf_init(pdev);
-	if (ret) {
-		pr_notice("clkbuf hw init failed with err: %d\n", ret);
-		return ret;
-	}
-
-	ret = clkbuf_post_init();
-	if (ret)
-		pr_notice("clkbuf post init failed: %d\n", ret);
-
-	pr_notice("clkbuf init done\n");
-
-	return ret;
-}
-
-static const struct platform_device_id mtk_clkbuf_ids[] = {
-	{"mtk-clock-buffer", 0},
-	{ /*sentinel */ },
-};
-MODULE_DEVICE_TABLE(platform, mtk_clkbuf_ids);
-
-static const struct of_device_id mtk_clkbuf_of_match[] = {
-	{
-		.compatible = "mediatek,clock_buffer",
-	},
-	{ /* sentinel */ },
-};
-MODULE_DEVICE_TABLE(of, mtk_clkbuf_of_match);
-
-static struct platform_driver mtk_clkbuf_driver = {
-	.driver = {
-		.name = "mtk-clock-buffer",
-		.of_match_table = of_match_ptr(mtk_clkbuf_of_match),
-		.pm = &clk_buf_suspend_ops,
-	},
-	.probe = mtk_clkbuf_ctl_probe,
-	.id_table = mtk_clkbuf_ids,
-};
-
-static int __init mtk_clkbuf_init(void)
-{
-	return platform_driver_register(&mtk_clkbuf_driver);
-}
-
-static void __exit mtk_clkbuf_exit(void)
-{
-#if defined(SRCLKEN_RC_SUPPORT)
-	srclken_rc_exit();
-#endif /* defined(SRCLKEN_RC_SUPPORT) */
-
-	platform_driver_unregister(&mtk_clkbuf_driver);
-}
-
-module_init(mtk_clkbuf_init);
-module_exit(mtk_clkbuf_exit);
-MODULE_AUTHOR("Ren-Ting Wang <ren-ting.wang@mediatek.com");
-MODULE_DESCRIPTION("SOC Driver for MediaTek Clock Buffer");
-MODULE_LICENSE("GPL v2");
+EXPORT_SYMBOL(clk_buf_suspend_ops);

@@ -12,39 +12,13 @@
 #include "mtk-clkbuf-pmif.h"
 
 #define PMIF_PHANDLE_NAME		"pmif"
+#define PMIF_VERSION_NAME		"pmif_version"
 #define PMIF_PHANDLE_PAIR		2
 #define SRCLKEN_RC_PHANDLE_NAME		"srclken_rc"
 #define CLKBUF_CONN_INF_TARGET		"mediatek,clkbuf-conn-inf-target"
 #define CLKBUF_NFC_INF_TARGET		"mediatek,clkbuf-nfc-inf-target"
 
 #define MAX_PMIF_NUM			2
-
-const u32 pmif_chip_to_hw_ver[CLKBUF_CHIP_ID_MAX][MAX_PMIF_NUM] = {
-	[MT6983] = {
-		CLKBUF_PMIF_VERSION_2,
-		CLKBUF_PMIF_VERSION_2,
-	},
-	[MT6879] = {
-		CLKBUF_PMIF_VERSION_2,
-		CLKBUF_PMIF_VERSION_2,
-	},
-	[MT6895] = {
-		CLKBUF_PMIF_VERSION_2,
-		CLKBUF_PMIF_VERSION_2,
-	},
-	[MT6893] = {
-		CLKBUF_PMIF_VERSION_1,
-		CLKBUF_PMIF_VERSION_1,
-	},
-	[MT6873] = {
-		CLKBUF_PMIF_VERSION_1,
-		CLKBUF_PMIF_VERSION_1,
-	},
-	[MT6855] = {
-		CLKBUF_PMIF_VERSION_2,
-		CLKBUF_PMIF_VERSION_2,
-	},
-};
 
 static struct pmif_hw pmif_hws[CLKBUF_PMIF_VER_MAX] = {
 	[CLKBUF_PMIF_VERSION_1] = {
@@ -402,20 +376,30 @@ static int clkbuf_pmif_dts_base_init(struct platform_device *pdev)
 	return ret;
 }
 
-static int clkbuf_pmif_reg_init(struct pmif_hw **pmif, u32 pmif_idx)
+static int clkbuf_pmif_reg_init(struct pmif_hw **pmif, struct platform_device *pdev, u32 pmif_idx)
 {
-	int chip = clk_buf_get_chip_id();
+	int version, ret;
+	struct device_node *node;
 
-	if (chip < 0)
-		return chip;
+	node = of_parse_phandle(pdev->dev.of_node, CLKBUF_CTL_PHANDLE_NAME, 0);
+	if (!node) {
+		pr_notice("find clock_buffer_ctrl node failed\n");
+		return -EFIND_DTS_ERR;
+	}
 
-	if (pmif_chip_to_hw_ver[chip][pmif_idx] <= CLKBUF_PMIF_NONE
-		|| pmif_chip_to_hw_ver[chip][pmif_idx] >= CLKBUF_PMIF_VER_MAX) {
+	ret = of_property_read_u32_index(node, PMIF_VERSION_NAME,
+		pmif_idx, &version);
+	if (ret) {
+		pr_notice("clkbuf get pmif no.%d version failed: %d\n", ret);
+		return ret;
+	}
+
+	if (version <= CLKBUF_PMIF_NONE || version >= CLKBUF_PMIF_VER_MAX) {
 		pr_notice("no pmif hw version found, can not init\n");
 		return -ECHIP_NOT_FOUND;
 	}
 
-	(*pmif) = &pmif_hws[pmif_chip_to_hw_ver[chip][pmif_idx]];
+	(*pmif) = &pmif_hws[version];
 
 	return 0;
 }
@@ -529,7 +513,7 @@ int clkbuf_pmif_hw_init(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < clkbuf_pmif.pmif_num; i++) {
-		ret = clkbuf_pmif_reg_init(&clkbuf_pmif.pmif[i], i);
+		ret = clkbuf_pmif_reg_init(&clkbuf_pmif.pmif[i], pdev, i);
 		if (ret) {
 			pr_notice("clkbuf pmif hw reg init failed: %d\n", ret);
 			return ret;
