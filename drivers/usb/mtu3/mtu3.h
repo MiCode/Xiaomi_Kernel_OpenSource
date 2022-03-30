@@ -153,6 +153,13 @@ enum mtu3_ep_slot_mode {
 	MTU3_EP_SLOT_MAX,
 };
 
+enum mtu3_power_state {
+	MTU3_STATE_POWER_OFF = 0,
+	MTU3_STATE_POWER_ON,
+	MTU3_STATE_SUSPEND,
+	MTU3_STATE_RESUME,
+};
+
 enum mtu3_plat_type {
 	PLAT_ASIC = 0,
 	PLAT_FPGA = 1,
@@ -313,6 +320,7 @@ struct ssusb_mtk {
 	struct platform_driver *xhci_pdrv;
 	/* u2 cdp */
 	struct work_struct dp_work;
+	u32 hwrscs_vers;
 };
 
 /**
@@ -472,6 +480,7 @@ void ssusb_phy_dp_pullup(struct ssusb_mtk *ssusb);
 int ssusb_clks_enable(struct ssusb_mtk *ssusb);
 void ssusb_clks_disable(struct ssusb_mtk *ssusb);
 void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);
+void ssusb_set_power_state(struct ssusb_mtk *ssusb, enum mtu3_power_state);
 void ssusb_set_txdeemph(struct ssusb_mtk *ssusb);
 void ssusb_set_noise_still_tr(struct ssusb_mtk *ssusb);
 struct usb_request *mtu3_alloc_request(struct usb_ep *ep, gfp_t gfp_flags);

@@ -5,6 +5,7 @@
  * Author: Chunfeng Yun <chunfeng.yun@mediatek.com>
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/dma-mapping.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
@@ -13,6 +14,7 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/pm_wakeirq.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include "mtu3.h"
 #include "mtu3_dr.h"
@@ -20,6 +22,69 @@
 
 #define PHY_MODE_DPPULLUP_SET 5
 #define PHY_MODE_DPPULLUP_CLR 6
+
+enum ssusb_smc_request {
+	SSUSB_SMC_HWRECS_REQUEST = 0,
+	SSUSB_SMC_HWRECS_RELEASE,
+	SSUSB_SMC_HWRECS_RESUME,
+	SSUSB_SMC_HWRECS_SUSPEND,
+	SSUSB_SMC_HWRECS_NUM,
+};
+
+enum ssusb_hwrscs_vers {
+	SSUSB_HWRECS_V1 = 1,
+};
+
+static void ssusb_hwrscs_req(struct ssusb_mtk *ssusb,
+	enum mtu3_power_state state)
+{
+	struct arm_smccc_res res;
+	u32 spm_ctrl;
+	u32 smc_req = -1;
+
+
+	dev_info(ssusb->dev, "%s state = %d\n", __func__, state);
+
+	spm_ctrl = mtu3_readl(ssusb->ippc_base, U3D_SSUSB_SPM_CTRL);
+
+	switch (state) {
+	case MTU3_STATE_POWER_OFF:
+		spm_ctrl &= ~SSUSB_SPM_REQ_MSK;
+		break;
+	case MTU3_STATE_POWER_ON:
+		spm_ctrl |= SSUSB_SPM_REQ_MSK;
+		break;
+	case MTU3_STATE_RESUME:
+		spm_ctrl |= SSUSB_SPM_REQ_MSK;
+		smc_req = SSUSB_SMC_HWRECS_RESUME;
+		break;
+	case MTU3_STATE_SUSPEND:
+		spm_ctrl &= ~SSUSB_SPM_REQ_MSK;
+		smc_req = SSUSB_SMC_HWRECS_SUSPEND;
+		break;
+	default:
+		return;
+	}
+
+	/* write spm_ctrl */
+	mtu3_writel(ssusb->ippc_base, U3D_SSUSB_SPM_CTRL, spm_ctrl);
+	/* wait 2ms */
+	mdelay(2);
+	/* send smc request */
+	if (smc_req != -1)
+		arm_smccc_smc(MTK_SIP_KERNEL_USB_CONTROL,
+			smc_req, 0, 0, 0, 0, 0, 0, &res);
+}
+
+void ssusb_set_power_state(struct ssusb_mtk *ssusb,
+	enum mtu3_power_state state)
+{
+	if (ssusb->plat_type == PLAT_FPGA || !ssusb->clk_mgr)
+		return;
+
+	if (ssusb->hwrscs_vers == SSUSB_HWRECS_V1)
+		ssusb_hwrscs_req(ssusb, state);
+}
 
 void ssusb_set_txdeemph(struct ssusb_mtk *ssusb)
 {
@@ -353,6 +418,13 @@ get_phy:
 		of_property_read_bool(node, "mediatek,noise-still-tr");
 	ssusb->gen1_txdeemph =
 		of_property_read_bool(node, "mediatek,gen1-txdeemph");
+	if (of_property_read_u32(node, "mediatek,hwrscs-vers",
+			     &ssusb->hwrscs_vers)) {
+		/* compatible to devie tree setting */
+		if (of_property_read_bool(node, "mediatek,hw-req-ctrl"))
+			ssusb->hwrscs_vers = SSUSB_HWRECS_V1;
+	}
+
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN)
