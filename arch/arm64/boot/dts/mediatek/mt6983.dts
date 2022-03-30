@@ -1229,7 +1229,7 @@
 			reg = <0 0x11201000 0 0x2e00>,
 				<0 0x11203e00 0 0x0100>;
 			reg-names = "mac", "ippc";
-			vusb33-supply = <&mt6373_vusb>;
+			/* vusb33-supply = <&mt6373_vusb>; */
 			interrupts = <GIC_SPI 160 IRQ_TYPE_LEVEL_HIGH 0>;
 			phy-cells = <1>;
 			phys = <&u2port0 PHY_TYPE_USB2>,
@@ -1240,7 +1240,7 @@
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;
-			dr_mode = "otg";
+			dr_mode = "peripheral";
 			maximum-speed = "high-speed";
 			mediatek,force-vbus;
 			mediatek,clk-mgr;
