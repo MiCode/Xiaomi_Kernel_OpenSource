@@ -2087,8 +2087,8 @@ static const struct charger_ops mt6375_chg_ops = {
 	.enable_hz = mt6375_enable_hz,
 	/* event */
 	.event = mt6375_do_event,
-	/* TODO : 6pin battery */
-	//.enable_6pin_battery_charging = mt6375_enable_6pin_battery_charging,
+	/* 6pin battery */
+	.enable_6pin_battery_charging = mt6375_enable_6pin_battery_charging,
 };
 
 static irqreturn_t mt6375_fl_wdt_handler(int irq, void *data)
@@ -2176,8 +2176,7 @@ static irqreturn_t mt6375_fl_batpro_done_handler(int irq, void *data)
 
 	mt_dbg(ddata->dev, "++\n");
 	ret = mt6375_enable_6pin_battery_charging(ddata->chgdev, false);
-	/* TODO */
-	//charger_dev_notify(ddata->chgdev, CHARGER_DEV_NOTIFY_BATPRO_DONE);
+	charger_dev_notify(ddata->chgdev, CHARGER_DEV_NOTIFY_BATPRO_DONE);
 	return ret < 0 ? ret : IRQ_HANDLED;
 }
 

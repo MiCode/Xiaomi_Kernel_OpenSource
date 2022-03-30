@@ -712,12 +712,11 @@ static struct adapter_ops adapter_ops = {
 	.get_output = pd_get_output,
 	.get_property = pd_get_property,
 	.get_cap = pd_get_cap,
-	/* TODO */
-	//.authentication = pd_authentication,
-	//.is_cc = pd_is_cc,
-	//.set_wdt = pd_set_wdt,
-	//.enable_wdt = pd_enable_wdt,
-	//.send_hardreset = pd_send_hardreset,
+	.authentication = pd_authentication,
+	.is_cc = pd_is_cc,
+	.set_wdt = pd_set_wdt,
+	.enable_wdt = pd_enable_wdt,
+	.send_hardreset = pd_send_hardreset,
 };
 
 static int adapter_parse_dt(struct mtk_pd_adapter_info *info,

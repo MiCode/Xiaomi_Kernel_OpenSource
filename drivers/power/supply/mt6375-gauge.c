@@ -3455,33 +3455,31 @@ static struct mtk_gauge_sysfs_field_info mt6375_sysfs_field_tbl[] = {
 	GAUGE_SYSFS_INFO_FIELD_RW(vbat2_detect_time, GAUGE_PROP_VBAT2_DETECT_TIME),
 	GAUGE_SYSFS_INFO_FIELD_RW(vbat2_detect_counter, GAUGE_PROP_VBAT2_DETECT_COUNTER),
 	GAUGE_SYSFS_FIELD_WO(bat_temp_froze_en_set, GAUGE_PROP_BAT_TEMP_FROZE_EN),
-	/* TODO */
-	//GAUGE_SYSFS_FIELD_RO(battery_voltage_cali, GAUGE_PROP_BAT_EOC)
+	GAUGE_SYSFS_FIELD_RO(battery_voltage_cali, GAUGE_PROP_BAT_EOC)
 };
 
-/* TODO */
-//static struct attribute *mt6375_sysfs_attrs[GAUGE_PROP_MAX + 1];
+static struct attribute *mt6375_sysfs_attrs[GAUGE_PROP_MAX + 1];
 
-//static const struct attribute_group mt6375_sysfs_attr_group = {
-//	.attrs = mt6375_sysfs_attrs,
-//};
+static const struct attribute_group mt6375_sysfs_attr_group = {
+	.attrs = mt6375_sysfs_attrs,
+};
 
-//static void mt6375_sysfs_init_attrs(void)
-//{
-//	int i, limit = ARRAY_SIZE(mt6375_sysfs_field_tbl);
+static void mt6375_sysfs_init_attrs(void)
+{
+	int i, limit = ARRAY_SIZE(mt6375_sysfs_field_tbl);
 
-//	for (i = 0; i < limit; i++)
-//		mt6375_sysfs_attrs[i] = &mt6375_sysfs_field_tbl[i].attr.attr;
+	for (i = 0; i < limit; i++)
+		mt6375_sysfs_attrs[i] = &mt6375_sysfs_field_tbl[i].attr.attr;
 
-//	mt6375_sysfs_attrs[limit] = NULL; /* Has additional entry for this */
-//}
+	mt6375_sysfs_attrs[limit] = NULL; /* Has additional entry for this */
+}
 
-//static int mt6375_sysfs_create_group(struct mtk_gauge *gauge)
-//{
-	//mt6375_sysfs_init_attrs();
+static int mt6375_sysfs_create_group(struct mtk_gauge *gauge)
+{
+	mt6375_sysfs_init_attrs();
 
-	//return sysfs_create_group(&gauge->psy->dev.kobj, &mt6375_sysfs_attr_group);
-//}
+	return sysfs_create_group(&gauge->psy->dev.kobj, &mt6375_sysfs_attr_group);
+}
 
 signed int battery_meter_meta_tool_cali_car_tune(struct mtk_battery *gm,
 	int meta_current)
@@ -3837,13 +3835,12 @@ static int psy_gauge_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN:
 		gm = gauge->gm;
 		if (gm != NULL && val->intval != 0) {
-			/* TODO */
-			//gm->imix = val->intval;
-			//if (gm->imix > 5500) {
-			//	gm->imix = 5500;
-			//	pr_notice("imix check limit 5500:%d\n",
-			//		val->intval);
-			//}
+			gm->imix = val->intval;
+			if (gm->imix > 5500) {
+				gm->imix = 5500;
+				pr_notice("imix check limit 5500:%d\n",
+					val->intval);
+			}
 		}
 		break;
 	default:
@@ -3890,8 +3887,7 @@ static int mtk_gauge_proprietary_init(struct mt6375_priv *priv)
 	if (IS_ERR(gauge->psy))
 		return PTR_ERR(gauge->psy);
 
-	/* TODO */
-	//mt6375_sysfs_create_group(gauge);
+	mt6375_sysfs_create_group(gauge);
 	bat_create_netlink(gauge->pdev);
 	initial_set(gauge, 0, 0);
 	battery_init(gauge->pdev);
@@ -3902,8 +3898,7 @@ static int mtk_gauge_proprietary_init(struct mt6375_priv *priv)
 
 static void mt6375_gauge_refactor_unit(struct mt6375_priv *priv)
 {
-	/* TODO */
-	//struct fuel_gauge_custom_data fg_cust_data = priv->gauge.gm->fg_cust_data;
+	struct fuel_gauge_custom_data fg_cust_data = priv->gauge.gm->fg_cust_data;
 
 	priv->unit_fgcurrent = UNIT_FGCURRENT;
 	priv->unit_charge = UNIT_CHARGE;
@@ -3912,19 +3907,17 @@ static void mt6375_gauge_refactor_unit(struct mt6375_priv *priv)
 
 	if (priv->gauge.hw_status.r_fg_value == 20)
 		priv->default_r_fg = 20;
-	/* TODO */
-	//if (fg_cust_data.curr_measure_20a) {
-	//	priv->default_r_fg = 10;
-	//	priv->unit_fgcurrent *= fg_cust_data.unit_multiple;
-	//	priv->unit_charge *= fg_cust_data.unit_multiple;
-	//	priv->unit_fg_iavg *= fg_cust_data.unit_multiple;
-	//	priv->unit_fgcar_zcv *= fg_cust_data.unit_multiple;
-	//}
+	if (fg_cust_data.curr_measure_20a) {
+		priv->default_r_fg = 10;
+		priv->unit_fgcurrent *= fg_cust_data.unit_multiple;
+		priv->unit_charge *= fg_cust_data.unit_multiple;
+		priv->unit_fg_iavg *= fg_cust_data.unit_multiple;
+		priv->unit_fgcar_zcv *= fg_cust_data.unit_multiple;
+	}
 
 	pr_notice("%s:20A:%d,r_fg:%d,unit_fg_current:%d,unit_charge:%d,unit_fg_iavg:%d,unit_fgcar_zcv:%d\n",
 		  __func__,
-		  /* TODO */
-		  //priv->gauge.gm->fg_cust_data.curr_measure_20a,
+		  priv->gauge.gm->fg_cust_data.curr_measure_20a,
 		  priv->default_r_fg,
 		  priv->unit_fgcurrent,
 		  priv->unit_charge,
