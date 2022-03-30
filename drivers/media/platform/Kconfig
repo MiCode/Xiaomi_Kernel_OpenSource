@@ -647,3 +647,10 @@ config VIDEO_RCAR_DRIF
 	  will be called rcar_drif.
 
 endif # SDR_PLATFORM_DRIVERS
+
+config MTK_CAMSYS_VEND_HOOK
+	bool "Support Mediatek CAMSYS vnedor hook"
+	depends on VIDEO_V4L2
+	help
+	  If it is enabled, CAMSYS will have vendor hook
+
