@@ -243,6 +243,15 @@ config SND_SOC_MTK_BTCVSD
 	  Select Y if you have such device.
 	  If unsure select "N".
 
+config SND_SOC_MTK_OFFLOAD
+	tristate "Audio DSP MP3/AAC offload support"
+	help
+	  This add compress offload driver. This enable
+	  the function for offloading MP3/AAC playback
+	  to audiodsp.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
 config SND_SOC_MTK_AUDIO_DSP
 	tristate "ASoC support for Mediatek audiodsp chip"
 	depends on MTK_AUDIODSP_SUPPORT

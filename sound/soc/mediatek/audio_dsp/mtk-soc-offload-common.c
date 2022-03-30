@@ -19,7 +19,6 @@
 #include <audio_ipi_dma.h>
 
 #include <trace/hooks/vendor_hooks.h>
-#include <trace/hooks/snd_compr.h>
 
 /*
  * Variable Definition
@@ -265,6 +264,7 @@ static int mtk_compr_offload_open(struct snd_soc_component *component,
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(true);
 #endif
+	snd_compr_use_pause_in_draining(stream);
 
 	mtk_scp_ipi_send(TASK_SCENE_PLAYBACK_MP3,
 			 AUDIO_IPI_MSG_ONLY,
@@ -282,29 +282,15 @@ static int mtk_compr_offload_open(struct snd_soc_component *component,
 	return 0;
 }
 
-static void mtk_compr_use_pause_in_drain(void *ignore, bool *use_pause_in_drain,
-					 bool *leave_draining_state)
-{
-	*use_pause_in_drain = true;
-	*leave_draining_state = true;
-	pr_info("%s\n", __func__);
-}
-
 static int mtk_afe_dloffload_probe(struct snd_soc_component *component)
 {
 	int ret = 0;
-	int ret_vh = 0;
 
 	ret = snd_soc_add_component_controls(component,
 					     Audio_snd_dloffload_controls,
 					     ARRAY_SIZE(Audio_snd_dloffload_controls));
 	if (ret)
 		pr_info("%s add_component err ret = %d\n", __func__, ret);
-
-	ret_vh = register_trace_android_vh_snd_compr_use_pause_in_drain(
-				mtk_compr_use_pause_in_drain, NULL);
-	if (ret_vh)
-		pr_info("%s register vh err %d\n", __func__, ret_vh);
 
 	return ret;
 }
