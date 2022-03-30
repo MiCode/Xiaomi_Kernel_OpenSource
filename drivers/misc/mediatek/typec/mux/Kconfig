@@ -25,3 +25,39 @@ config TYPEC_MUX_PTN36241G
 	  Say Y or M if your system has a NXP PTN36241G USB3.0 Redriver.
 	  Works with Type-C Port Controller Manager.
 
+config TYPEC_MUX_PS5169
+	tristate "Parade PS5169 USB Type-C Linear Redriver"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a PS5169 USB Type-C
+	  Linear Redriver. Support Type-c USB SSRX1/SSTX1/SSRX2/SSTX2
+	  signal driving control. Works with Type-C Port
+	  Controller Manager.
+
+config TYPEC_MUX_PS5170
+	tristate "Parade PS5170 USB Type-C Linear Redriver"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a PS5170 USB Type-C
+	  Linear Redriver. Support Type-c USB SSRX1/SSTX1/SSRX2/SSTX2
+	  and DP signal driving control. Works with Type-C Port
+	  Controller Manager.
+
+config TYPEC_MUX_DP_SELECTOR
+	tristate "USB DP SIGNAL SELECTOR"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Say Y or M if your system has a integrate USB/DP selector.
+	  Support USB/DP channel switch.
+	  Works with Type-C Port Controller Manager.
+	  If unsure, say N.
+
+config TYPEC_MUX_PI3DPX1205A
+	tristate "DIODES USB TYPE-C DP Linear Redriver"
+	depends on MTK_USB_TYPEC_MUX
+	help
+	  Enables to support USB DP mux in usb-c.
+	  To support TYPE-C USB DP must have a MUX to switch
+	  SSRX1/SSTX1/SSRX2/SSTX2 pins.
+	  Say Y to enable TYPEC DP Mux
+	  If unsure, say N.
