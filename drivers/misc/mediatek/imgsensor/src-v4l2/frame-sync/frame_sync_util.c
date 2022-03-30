@@ -66,6 +66,30 @@ inline unsigned int convert2LineCount(
 }
 
 
+inline unsigned int convert_timestamp_2_tick(
+	const unsigned int timestamp, const unsigned int tick_factor)
+{
+	return (tick_factor) ? (timestamp * tick_factor) : timestamp;
+}
+
+
+inline unsigned int convert_tick_2_timestamp(
+	const unsigned int tick, const unsigned int tick_factor)
+{
+	return (tick_factor) ? (tick / tick_factor) : tick;
+}
+
+
+inline unsigned int calc_time_after_sof(
+	const unsigned int timestamp,
+	const unsigned int tick, const unsigned int tick_factor)
+{
+	return (tick_factor != 0)
+		? ((tick - convert_timestamp_2_tick(timestamp, tick_factor))
+			/ tick_factor) : 0;
+}
+
+
 /**
  * return:
  * @1: tick_b is after tick_a (assuming the interval is a short period)

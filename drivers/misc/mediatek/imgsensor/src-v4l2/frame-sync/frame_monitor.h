@@ -91,6 +91,12 @@ void frm_set_frame_measurement(
 	unsigned int next_fl_us, unsigned int next_fl_lc);
 
 
+void frm_get_curr_frame_mesurement_and_ts_data(
+	const unsigned int idx, unsigned int *p_fmeas_idx,
+	unsigned int *p_pr_fl_us, unsigned int *p_pr_fl_lc,
+	unsigned int *p_act_fl_us, unsigned int *p_ts_arr);
+
+
 int frm_timestamp_checker(unsigned int m_tg, unsigned int s_tg);
 
 
