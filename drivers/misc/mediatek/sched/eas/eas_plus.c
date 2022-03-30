@@ -546,9 +546,9 @@ void check_for_migration(struct task_struct *p)
 			return;
 
 		raw_spin_lock(&migration_lock);
-		rcu_read_lock();
+		raw_spin_lock(&p->pi_lock);
 		new_cpu = p->sched_class->select_task_rq(p, cpu, 0);
-		rcu_read_unlock();
+		raw_spin_unlock(&p->pi_lock);
 
 		if ((new_cpu < 0) ||
 			(capacity_orig_of(new_cpu) <= capacity_orig_of(cpu)))
