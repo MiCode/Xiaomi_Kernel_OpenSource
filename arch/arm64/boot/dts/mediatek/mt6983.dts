@@ -14174,6 +14174,15 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 #include "mediatek/mt6373.dtsi"
 #include "mediatek/cust_mt6983_connfem.dtsi"
 
+/* UFS PMICs */
+&mt6363_vemc {
+	regulator-always-on;
+};
+
+&mt6373_vbuck4 {
+	regulator-always-on;
+};
+
 &mt6363_vbuck1 {
 	regulator-always-on;
 };
