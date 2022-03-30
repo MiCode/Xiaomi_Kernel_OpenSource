@@ -8,23 +8,6 @@
 
 #include "mtk-hcp.h"
 
-enum isp71_rsv_mem_id_t {
-	DIP_MEM_FOR_HW_ID,
-	IMG_MEM_FOR_HW_ID = DIP_MEM_FOR_HW_ID, /*shared buffer for ipi_param*/
-	/*need replace DIP_MEM_FOR_HW_ID & DIP_MEM_FOR_SW_ID*/
-	WPE_MEM_C_ID,	/*module cq buffer*/
-	WPE_MEM_T_ID,	/*module tdr buffer*/
-	TRAW_MEM_C_ID,	/*module cq buffer*/
-	TRAW_MEM_T_ID,	/*module tdr buffer*/
-	DIP_MEM_C_ID,	/*module cq buffer*/
-	DIP_MEM_T_ID,	/*module tdr buffer*/
-	PQDIP_MEM_C_ID,	/*module cq buffer*/
-	PQDIP_MEM_T_ID,	/*module tdr buffer*/
-	ADL_MEM_C_ID,	/*module cq buffer*/
-	ADL_MEM_T_ID,	/*module tdr buffer*/
-	IMG_MEM_G_ID,	/*gce cmd buffer*/
-	NUMS_MEM_ID,
-};
 
 int isp71_release_working_buffer(struct mtk_hcp *hcp_dev);
 int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode);

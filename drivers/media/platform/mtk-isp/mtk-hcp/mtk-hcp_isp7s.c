@@ -7,11 +7,11 @@
 #ifdef DMA_DEBUG_NAME
 #include "mtk_heap.h"
 #endif
-#include "mtk-hcp_isp71.h"
+#include "mtk-hcp_isp7s.h"
 
 static struct mtk_hcp_reserve_mblock *mb;
 
-enum isp71_rsv_mem_id_t {
+enum isp7s_rsv_mem_id_t {
 	DIP_MEM_FOR_HW_ID,
 	IMG_MEM_FOR_HW_ID = DIP_MEM_FOR_HW_ID, /*shared buffer for ipi_param*/
 	/*need replace DIP_MEM_FOR_HW_ID & DIP_MEM_FOR_SW_ID*/
@@ -29,7 +29,7 @@ enum isp71_rsv_mem_id_t {
 	NUMS_MEM_ID,
 };
 
-static struct mtk_hcp_reserve_mblock isp71_smvr_mblock[] = {
+static struct mtk_hcp_reserve_mblock isp7s_smvr_mblock[] = {
 	{
 		/*share buffer for frame setting, to be sw usage*/
 		.name = "IMG_MEM_FOR_HW_ID",
@@ -222,7 +222,7 @@ static struct mtk_hcp_reserve_mblock isp71_smvr_mblock[] = {
 };
 
 
-struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
+struct mtk_hcp_reserve_mblock isp7s_reserve_mblock[] = {
 	{
 		/*share buffer for frame setting, to be sw usage*/
 		.name = "IMG_MEM_FOR_HW_ID",
@@ -414,7 +414,7 @@ struct mtk_hcp_reserve_mblock isp71_reserve_mblock[] = {
 	},
 };
 
-phys_addr_t isp71_get_reserve_mem_phys(unsigned int id)
+phys_addr_t isp7s_get_reserve_mem_phys(unsigned int id)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID)) {
 		pr_info("[HCP] no reserve memory for %d", id);
@@ -423,9 +423,9 @@ phys_addr_t isp71_get_reserve_mem_phys(unsigned int id)
 		return mb[id].start_phys;
 	}
 }
-EXPORT_SYMBOL(isp71_get_reserve_mem_phys);
+EXPORT_SYMBOL(isp7s_get_reserve_mem_phys);
 
-void *isp71_get_reserve_mem_virt(unsigned int id)
+void *isp7s_get_reserve_mem_virt(unsigned int id)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID)) {
 		pr_info("[HCP] no reserve memory for %d", id);
@@ -433,9 +433,9 @@ void *isp71_get_reserve_mem_virt(unsigned int id)
 	} else
 		return mb[id].start_virt;
 }
-EXPORT_SYMBOL(isp71_get_reserve_mem_virt);
+EXPORT_SYMBOL(isp7s_get_reserve_mem_virt);
 
-phys_addr_t isp71_get_reserve_mem_dma(unsigned int id)
+phys_addr_t isp7s_get_reserve_mem_dma(unsigned int id)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID)) {
 		pr_info("[HCP] no reserve memory for %d", id);
@@ -444,9 +444,9 @@ phys_addr_t isp71_get_reserve_mem_dma(unsigned int id)
 		return mb[id].start_dma;
 	}
 }
-EXPORT_SYMBOL(isp71_get_reserve_mem_dma);
+EXPORT_SYMBOL(isp7s_get_reserve_mem_dma);
 
-phys_addr_t isp71_get_reserve_mem_size(unsigned int id)
+phys_addr_t isp7s_get_reserve_mem_size(unsigned int id)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID)) {
 		pr_info("[HCP] no reserve memory for %d", id);
@@ -455,9 +455,9 @@ phys_addr_t isp71_get_reserve_mem_size(unsigned int id)
 		return mb[id].size;
 	}
 }
-EXPORT_SYMBOL(isp71_get_reserve_mem_size);
+EXPORT_SYMBOL(isp7s_get_reserve_mem_size);
 
-uint32_t isp71_get_reserve_mem_fd(unsigned int id)
+uint32_t isp7s_get_reserve_mem_fd(unsigned int id)
 {
 	if ((id < 0) || (id >= NUMS_MEM_ID)) {
 		pr_info("[HCP] no reserve memory for %d", id);
@@ -465,24 +465,24 @@ uint32_t isp71_get_reserve_mem_fd(unsigned int id)
 	} else
 		return mb[id].fd;
 }
-EXPORT_SYMBOL(isp71_get_reserve_mem_fd);
+EXPORT_SYMBOL(isp7s_get_reserve_mem_fd);
 
-void *isp71_get_gce_virt(void)
+void *isp7s_get_gce_virt(void)
 {
 	return mb[IMG_MEM_G_ID].start_virt;
 }
-EXPORT_SYMBOL(isp71_get_gce_virt);
+EXPORT_SYMBOL(isp7s_get_gce_virt);
 
-void *isp71_get_hwid_virt(void)
+void *isp7s_get_hwid_virt(void)
 {
 	return mb[DIP_MEM_FOR_HW_ID].start_virt;
 }
-EXPORT_SYMBOL(isp71_get_hwid_virt);
+EXPORT_SYMBOL(isp7s_get_hwid_virt);
 
 
-int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
+int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 {
-	enum isp71_rsv_mem_id_t id;
+	enum isp7s_rsv_mem_id_t id;
 	struct mtk_hcp_reserve_mblock *mblock;
 	unsigned int block_num;
 	struct sg_table *sgt;
@@ -558,12 +558,12 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				dma_buf_begin_cpu_access(mblock[id].d_buf, DMA_BIDIRECTIONAL);
 				kref_init(&mblock[id].kref);
 				pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%llx\n",
-					__func__, mblock[id].name, isp71_get_reserve_mem_phys(id),
-					isp71_get_reserve_mem_virt(id),
-					isp71_get_reserve_mem_dma(id),
-					isp71_get_reserve_mem_size(id),
+					__func__, mblock[id].name, isp7s_get_reserve_mem_phys(id),
+					isp7s_get_reserve_mem_virt(id),
+					isp7s_get_reserve_mem_dma(id),
+					isp7s_get_reserve_mem_size(id),
 					mblock[id].is_dma_buf,
-					isp71_get_reserve_mem_fd(id),
+					isp7s_get_reserve_mem_fd(id),
 					mblock[id].d_buf);
 				break;
 			default:
@@ -629,18 +629,18 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 		}
 		pr_debug(
 			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%llx\n",
-			__func__, id, isp71_get_reserve_mem_phys(id),
-			isp71_get_reserve_mem_virt(id),
-			isp71_get_reserve_mem_dma(id),
-			isp71_get_reserve_mem_size(id),
+			__func__, id, isp7s_get_reserve_mem_phys(id),
+			isp7s_get_reserve_mem_virt(id),
+			isp7s_get_reserve_mem_dma(id),
+			isp7s_get_reserve_mem_size(id),
 			mblock[id].is_dma_buf,
-			isp71_get_reserve_mem_fd(id),
+			isp7s_get_reserve_mem_fd(id),
 			mblock[id].d_buf);
 	}
 
 	return 0;
 }
-EXPORT_SYMBOL(isp71_allocate_working_buffer);
+EXPORT_SYMBOL(isp7s_allocate_working_buffer);
 
 static void gce_release(struct kref *ref)
 {
@@ -654,12 +654,12 @@ static void gce_release(struct kref *ref)
 	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
 	dma_buf_put(mblock->d_buf);
 	pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%llx\n",
-		__func__, mblock->name, isp71_get_reserve_mem_phys(IMG_MEM_G_ID),
-		isp71_get_reserve_mem_virt(IMG_MEM_G_ID),
-		isp71_get_reserve_mem_dma(IMG_MEM_G_ID),
-		isp71_get_reserve_mem_size(IMG_MEM_G_ID),
+		__func__, mblock->name, isp7s_get_reserve_mem_phys(IMG_MEM_G_ID),
+		isp7s_get_reserve_mem_virt(IMG_MEM_G_ID),
+		isp7s_get_reserve_mem_dma(IMG_MEM_G_ID),
+		isp7s_get_reserve_mem_size(IMG_MEM_G_ID),
 		mblock->is_dma_buf,
-		isp71_get_reserve_mem_fd(IMG_MEM_G_ID),
+		isp7s_get_reserve_mem_fd(IMG_MEM_G_ID),
 		mblock->d_buf);
 	// close fd in user space driver, you can't close fd in kernel site
 	// dma_heap_buffer_free(mblock[id].d_buf);
@@ -678,9 +678,9 @@ static void gce_release(struct kref *ref)
 }
 
 
-int isp71_release_working_buffer(struct mtk_hcp *hcp_dev)
+int isp7s_release_working_buffer(struct mtk_hcp *hcp_dev)
 {
-	enum isp71_rsv_mem_id_t id;
+	enum isp7s_rsv_mem_id_t id;
 	struct mtk_hcp_reserve_mblock *mblock;
 	unsigned int block_num;
 
@@ -732,19 +732,19 @@ int isp71_release_working_buffer(struct mtk_hcp *hcp_dev)
 		}
 		pr_debug(
 			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%llx, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
-			__func__, id, isp71_get_reserve_mem_phys(id),
-			isp71_get_reserve_mem_virt(id),
-			isp71_get_reserve_mem_dma(id),
-			isp71_get_reserve_mem_size(id),
+			__func__, id, isp7s_get_reserve_mem_phys(id),
+			isp7s_get_reserve_mem_virt(id),
+			isp7s_get_reserve_mem_dma(id),
+			isp7s_get_reserve_mem_size(id),
 			mblock[id].is_dma_buf,
-			isp71_get_reserve_mem_fd(id));
+			isp7s_get_reserve_mem_fd(id));
 	}
 
 	return 0;
 }
-EXPORT_SYMBOL(isp71_release_working_buffer);
+EXPORT_SYMBOL(isp7s_release_working_buffer);
 
-int isp71_get_init_info(struct img_init_info *info)
+int isp7s_get_init_info(struct img_init_info *info)
 {
 
 	if (!info) {
@@ -752,128 +752,128 @@ int isp71_get_init_info(struct img_init_info *info)
 		return -1;
 	}
 
-	info->hw_buf = isp71_get_reserve_mem_phys(DIP_MEM_FOR_HW_ID);
+	info->hw_buf = isp7s_get_reserve_mem_phys(DIP_MEM_FOR_HW_ID);
 	/*WPE:0, ADL:1, TRAW:2, DIP:3, PQDIP:4 */
 	info->module_info[0].c_wbuf =
-				isp71_get_reserve_mem_phys(WPE_MEM_C_ID);
+				isp7s_get_reserve_mem_phys(WPE_MEM_C_ID);
 	info->module_info[0].c_wbuf_dma =
-				isp71_get_reserve_mem_dma(WPE_MEM_C_ID);
+				isp7s_get_reserve_mem_dma(WPE_MEM_C_ID);
 	info->module_info[0].c_wbuf_sz =
-				isp71_get_reserve_mem_size(WPE_MEM_C_ID);
+				isp7s_get_reserve_mem_size(WPE_MEM_C_ID);
 	info->module_info[0].c_wbuf_fd =
-				isp71_get_reserve_mem_fd(WPE_MEM_C_ID);
+				isp7s_get_reserve_mem_fd(WPE_MEM_C_ID);
 	info->module_info[0].t_wbuf =
-				isp71_get_reserve_mem_phys(WPE_MEM_T_ID);
+				isp7s_get_reserve_mem_phys(WPE_MEM_T_ID);
 	info->module_info[0].t_wbuf_dma =
-				isp71_get_reserve_mem_dma(WPE_MEM_T_ID);
+				isp7s_get_reserve_mem_dma(WPE_MEM_T_ID);
 	info->module_info[0].t_wbuf_sz =
-				isp71_get_reserve_mem_size(WPE_MEM_T_ID);
+				isp7s_get_reserve_mem_size(WPE_MEM_T_ID);
 	info->module_info[0].t_wbuf_fd =
-				isp71_get_reserve_mem_fd(WPE_MEM_T_ID);
+				isp7s_get_reserve_mem_fd(WPE_MEM_T_ID);
 
   // ADL
 	info->module_info[1].c_wbuf =
-				isp71_get_reserve_mem_phys(ADL_MEM_C_ID);
+				isp7s_get_reserve_mem_phys(ADL_MEM_C_ID);
 	info->module_info[1].c_wbuf_dma =
-				isp71_get_reserve_mem_dma(ADL_MEM_C_ID);
+				isp7s_get_reserve_mem_dma(ADL_MEM_C_ID);
 	info->module_info[1].c_wbuf_sz =
-				isp71_get_reserve_mem_size(ADL_MEM_C_ID);
+				isp7s_get_reserve_mem_size(ADL_MEM_C_ID);
 	info->module_info[1].c_wbuf_fd =
-				isp71_get_reserve_mem_fd(ADL_MEM_C_ID);
+				isp7s_get_reserve_mem_fd(ADL_MEM_C_ID);
 	info->module_info[1].t_wbuf =
-				isp71_get_reserve_mem_phys(ADL_MEM_T_ID);
+				isp7s_get_reserve_mem_phys(ADL_MEM_T_ID);
 	info->module_info[1].t_wbuf_dma =
-				isp71_get_reserve_mem_dma(ADL_MEM_T_ID);
+				isp7s_get_reserve_mem_dma(ADL_MEM_T_ID);
 	info->module_info[1].t_wbuf_sz =
-				isp71_get_reserve_mem_size(ADL_MEM_T_ID);
+				isp7s_get_reserve_mem_size(ADL_MEM_T_ID);
 	info->module_info[1].t_wbuf_fd =
-				isp71_get_reserve_mem_fd(ADL_MEM_T_ID);
+				isp7s_get_reserve_mem_fd(ADL_MEM_T_ID);
 
 	// TRAW
 	info->module_info[2].c_wbuf =
-				isp71_get_reserve_mem_phys(TRAW_MEM_C_ID);
+				isp7s_get_reserve_mem_phys(TRAW_MEM_C_ID);
 	info->module_info[2].c_wbuf_dma =
-				isp71_get_reserve_mem_dma(TRAW_MEM_C_ID);
+				isp7s_get_reserve_mem_dma(TRAW_MEM_C_ID);
 	info->module_info[2].c_wbuf_sz =
-				isp71_get_reserve_mem_size(TRAW_MEM_C_ID);
+				isp7s_get_reserve_mem_size(TRAW_MEM_C_ID);
 	info->module_info[2].c_wbuf_fd =
-				isp71_get_reserve_mem_fd(TRAW_MEM_C_ID);
+				isp7s_get_reserve_mem_fd(TRAW_MEM_C_ID);
 	info->module_info[2].t_wbuf =
-				isp71_get_reserve_mem_phys(TRAW_MEM_T_ID);
+				isp7s_get_reserve_mem_phys(TRAW_MEM_T_ID);
 	info->module_info[2].t_wbuf_dma =
-				isp71_get_reserve_mem_dma(TRAW_MEM_T_ID);
+				isp7s_get_reserve_mem_dma(TRAW_MEM_T_ID);
 	info->module_info[2].t_wbuf_sz =
-				isp71_get_reserve_mem_size(TRAW_MEM_T_ID);
+				isp7s_get_reserve_mem_size(TRAW_MEM_T_ID);
 	info->module_info[2].t_wbuf_fd =
-				isp71_get_reserve_mem_fd(TRAW_MEM_T_ID);
+				isp7s_get_reserve_mem_fd(TRAW_MEM_T_ID);
 
 		// DIP
 	info->module_info[3].c_wbuf =
-				isp71_get_reserve_mem_phys(DIP_MEM_C_ID);
+				isp7s_get_reserve_mem_phys(DIP_MEM_C_ID);
 	info->module_info[3].c_wbuf_dma =
-				isp71_get_reserve_mem_dma(DIP_MEM_C_ID);
+				isp7s_get_reserve_mem_dma(DIP_MEM_C_ID);
 	info->module_info[3].c_wbuf_sz =
-				isp71_get_reserve_mem_size(DIP_MEM_C_ID);
+				isp7s_get_reserve_mem_size(DIP_MEM_C_ID);
 	info->module_info[3].c_wbuf_fd =
-				isp71_get_reserve_mem_fd(DIP_MEM_C_ID);
+				isp7s_get_reserve_mem_fd(DIP_MEM_C_ID);
 	info->module_info[3].t_wbuf =
-				isp71_get_reserve_mem_phys(DIP_MEM_T_ID);
+				isp7s_get_reserve_mem_phys(DIP_MEM_T_ID);
 	info->module_info[3].t_wbuf_dma =
-				isp71_get_reserve_mem_dma(DIP_MEM_T_ID);
+				isp7s_get_reserve_mem_dma(DIP_MEM_T_ID);
 	info->module_info[3].t_wbuf_sz =
-				isp71_get_reserve_mem_size(DIP_MEM_T_ID);
+				isp7s_get_reserve_mem_size(DIP_MEM_T_ID);
 	info->module_info[3].t_wbuf_fd =
-				isp71_get_reserve_mem_fd(DIP_MEM_T_ID);
+				isp7s_get_reserve_mem_fd(DIP_MEM_T_ID);
 
 	// PQDIP
 	info->module_info[4].c_wbuf =
-				isp71_get_reserve_mem_phys(PQDIP_MEM_C_ID);
+				isp7s_get_reserve_mem_phys(PQDIP_MEM_C_ID);
 	info->module_info[4].c_wbuf_dma =
-				isp71_get_reserve_mem_dma(PQDIP_MEM_C_ID);
+				isp7s_get_reserve_mem_dma(PQDIP_MEM_C_ID);
 	info->module_info[4].c_wbuf_sz =
-				isp71_get_reserve_mem_size(PQDIP_MEM_C_ID);
+				isp7s_get_reserve_mem_size(PQDIP_MEM_C_ID);
 	info->module_info[4].c_wbuf_fd =
-			isp71_get_reserve_mem_fd(PQDIP_MEM_C_ID);
+			isp7s_get_reserve_mem_fd(PQDIP_MEM_C_ID);
 	info->module_info[4].t_wbuf =
-				isp71_get_reserve_mem_phys(PQDIP_MEM_T_ID);
+				isp7s_get_reserve_mem_phys(PQDIP_MEM_T_ID);
 	info->module_info[4].t_wbuf_dma =
-				isp71_get_reserve_mem_dma(PQDIP_MEM_T_ID);
+				isp7s_get_reserve_mem_dma(PQDIP_MEM_T_ID);
 	info->module_info[4].t_wbuf_sz =
-				isp71_get_reserve_mem_size(PQDIP_MEM_T_ID);
+				isp7s_get_reserve_mem_size(PQDIP_MEM_T_ID);
 	info->module_info[4].t_wbuf_fd =
-				isp71_get_reserve_mem_fd(PQDIP_MEM_T_ID);
+				isp7s_get_reserve_mem_fd(PQDIP_MEM_T_ID);
 
 	/*common*/
-	/* info->g_wbuf_fd = isp71_get_reserve_mem_fd(IMG_MEM_G_ID); */
-	info->g_wbuf_fd = isp71_get_reserve_mem_fd(IMG_MEM_G_ID);
-	info->g_wbuf = isp71_get_reserve_mem_phys(IMG_MEM_G_ID);
-	/*info->g_wbuf_sw = isp71_get_reserve_mem_virt(IMG_MEM_G_ID);*/
-	info->g_wbuf_sz = isp71_get_reserve_mem_size(IMG_MEM_G_ID);
+	/* info->g_wbuf_fd = isp7s_get_reserve_mem_fd(IMG_MEM_G_ID); */
+	info->g_wbuf_fd = isp7s_get_reserve_mem_fd(IMG_MEM_G_ID);
+	info->g_wbuf = isp7s_get_reserve_mem_phys(IMG_MEM_G_ID);
+	/*info->g_wbuf_sw = isp7s_get_reserve_mem_virt(IMG_MEM_G_ID);*/
+	info->g_wbuf_sz = isp7s_get_reserve_mem_size(IMG_MEM_G_ID);
 
 	return 0;
 }
 
-static int isp71_put_gce(void)
+static int isp7s_put_gce(void)
 {
 	kref_put(&mb[IMG_MEM_G_ID].kref, gce_release);
 	return 0;
 }
 
-static int isp71_get_gce(void)
+static int isp7s_get_gce(void)
 {
 	kref_get(&mb[IMG_MEM_G_ID].kref);
 	return 0;
 }
 
-struct mtk_hcp_data isp71_hcp_data = {
-	.mblock = isp71_reserve_mblock,
-	.block_num = ARRAY_SIZE(isp71_reserve_mblock),
-	.smblock = isp71_smvr_mblock,
-	.allocate = isp71_allocate_working_buffer,
-	.release = isp71_release_working_buffer,
-	.get_init_info = isp71_get_init_info,
-	.get_gce_virt = isp71_get_gce_virt,
-	.get_gce = isp71_get_gce,
-	.put_gce = isp71_put_gce,
-	.get_hwid_virt = isp71_get_hwid_virt,
+struct mtk_hcp_data isp7s_hcp_data = {
+	.mblock = isp7s_reserve_mblock,
+	.block_num = ARRAY_SIZE(isp7s_reserve_mblock),
+	.smblock = isp7s_smvr_mblock,
+	.allocate = isp7s_allocate_working_buffer,
+	.release = isp7s_release_working_buffer,
+	.get_init_info = isp7s_get_init_info,
+	.get_gce_virt = isp7s_get_gce_virt,
+	.get_gce = isp7s_get_gce,
+	.put_gce = isp7s_put_gce,
+	.get_hwid_virt = isp7s_get_hwid_virt,
 };

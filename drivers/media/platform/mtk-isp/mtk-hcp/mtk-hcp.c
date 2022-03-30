@@ -34,6 +34,7 @@
 #include "mtk-hcp.h"
 #include "mtk-hcp-support.h"
 #include "mtk-hcp_isp71.h"
+#include "mtk-hcp_isp7s.h"
 
 
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -636,6 +637,12 @@ phys_addr_t mtk_hcp_mem_base_phys;
 phys_addr_t mtk_hcp_mem_base_virt;
 phys_addr_t mtk_hcp_mem_size;
 
+/* Use isp generation files */
+#define ISP_GEN_TBL
+#ifdef ISP_GEN_TBL
+#define NUMS_MEM_ID (0)
+struct mtk_hcp_reserve_mblock mtk_hcp_reserve_mblock[10];
+#else
 /*static */struct mtk_hcp_reserve_mblock mtk_hcp_reserve_mblock[] = {
 	/* NEED_LEGACY_MEM not defined */
 	#ifdef NEED_LEGACY_MEM
@@ -895,6 +902,7 @@ phys_addr_t mtk_hcp_mem_size;
 		.sgt = NULL
 	},
 };
+#endif
 
 #ifdef NEED_LEGACY_MEM
 int mtk_hcp_reserve_mem_of_init(struct reserved_mem *rmem)
@@ -1224,6 +1232,7 @@ static int mtk_hcp_mmap(struct file *file, struct vm_area_struct *vma)
 			pgprot_writecombine(vma->vm_page_prot);
 
 			switch (reserved_memory_id) {
+#ifndef ISP_GEN_TBL
 			case IMG_MEM_FOR_HW_ID:
 				vma->vm_pgoff = (unsigned long)
 	(mtk_hcp_reserve_mblock[reserved_memory_id].start_phys >> PAGE_SHIFT);
@@ -1231,6 +1240,7 @@ static int mtk_hcp_mmap(struct file *file, struct vm_area_struct *vma)
 						pgprot_writecombine(vma->vm_page_prot);
 				break;
 			case IMG_MEM_G_ID:
+#endif
 			default:
 		hcp_dev->mem_ops->mmap(mtk_hcp_reserve_mblock[reserved_memory_id].mem_priv,
 					vma);
@@ -1505,6 +1515,7 @@ int allocate_working_buffer_helper(struct platform_device *pdev)
 	for (id = 0; id < block_num; id++) {
 		if (mblock[id].is_dma_buf) {
 			switch (id) {
+#ifndef ISP_GEN_TBL
 			case IMG_MEM_FOR_HW_ID:
 				/*allocated at probe via dts*/
 				break;
@@ -1560,6 +1571,7 @@ int allocate_working_buffer_helper(struct platform_device *pdev)
 				O_RDWR | O_CLOEXEC);
 				dma_buf_get(mblock[id].fd);
 				break;
+#endif
 			default:
 
 				/* all supported heap name you can find with cmd */
@@ -1646,9 +1658,11 @@ int release_working_buffer_helper(struct platform_device *pdev)
 	for (id = 0; id < block_num; id++) {
 		if (mblock[id].is_dma_buf) {
 			switch (id) {
+#ifndef ISP_GEN_TBL
 			case IMG_MEM_FOR_HW_ID:
 				/*allocated at probe via dts*/
 				break;
+#endif
 			default:
 				/* free va */
 				dma_buf_vunmap(mblock[id].d_buf,
@@ -1877,9 +1891,9 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	/* mtk_hcp_reserve_mblock[IMG_MEM_FOR_HW_ID].start_dma = */
 	/* (phys_addr_t)rmem_base_phys; */
 	/* mtk_hcp_reserve_mblock[IMG_MEM_FOR_HW_ID].size = rmem_size; */
-
+#ifndef ISP_GEN_TBL
 	mtk_hcp_reserve_mblock[IMG_MEM_FOR_HW_ID].size = rmem_size;
-
+#endif
 #endif
 	return 0;
 
@@ -1905,6 +1919,7 @@ err_alloc:
 
 static const struct of_device_id mtk_hcp_match[] = {
 	{.compatible = "mediatek,hcp", .data = (void *)&isp71_hcp_data},
+	{.compatible = "mediatek,hcp7s", .data = (void *)&isp7s_hcp_data},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_hcp_match);
