@@ -635,7 +635,47 @@ static inline void hf_manager_dec_flush(struct hf_client *client,
 	spin_unlock_irqrestore(&client->core->client_lock, flags);
 }
 
-static inline void hf_manager_update_rawdata(struct hf_client *client,
+static inline void hf_manager_update_bias(struct hf_client *client,
+		uint8_t sensor_type, bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	client->request[sensor_type].bias = enable;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_update_cali(struct hf_client *client,
+		uint8_t sensor_type, bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	client->request[sensor_type].cali = enable;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_update_temp(struct hf_client *client,
+		uint8_t sensor_type, bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	client->request[sensor_type].temp = enable;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_update_test(struct hf_client *client,
+		uint8_t sensor_type, bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->core->client_lock, flags);
+	client->request[sensor_type].test = enable;
+	spin_unlock_irqrestore(&client->core->client_lock, flags);
+}
+
+static inline void hf_manager_update_raw(struct hf_client *client,
 		uint8_t sensor_type, bool enable)
 {
 	unsigned long flags;
@@ -645,7 +685,7 @@ static inline void hf_manager_update_rawdata(struct hf_client *client,
 	spin_unlock_irqrestore(&client->core->client_lock, flags);
 }
 
-static inline void hf_manager_clear_rawdata(struct hf_client *client,
+static inline void hf_manager_clear_raw(struct hf_client *client,
 		uint8_t sensor_type)
 {
 	unsigned long flags;
@@ -1043,10 +1083,10 @@ static int hf_manager_drive_device(struct hf_client *client,
 		err = hf_manager_device_selftest(device, sensor_type);
 		break;
 	case HF_MANAGER_SENSOR_RAWDATA:
-		hf_manager_update_rawdata(client, sensor_type, cmd->data[0]);
+		hf_manager_update_raw(client, sensor_type, cmd->data[0]);
 		err = hf_manager_device_rawdata(device, sensor_type);
 		if (err < 0)
-			hf_manager_clear_rawdata(client, sensor_type);
+			hf_manager_clear_raw(client, sensor_type);
 		break;
 	default:
 		pr_err("Unknown action %u\n", cmd->action);
@@ -1158,16 +1198,16 @@ int hf_client_request_sensor_cali(struct hf_client *client,
 		return -EINVAL;
 	switch (cmd) {
 	case HF_MANAGER_REQUEST_BIAS_DATA:
-		client->request[sensor_type].bias = status;
+		hf_manager_update_bias(client, sensor_type, status);
 		break;
 	case HF_MANAGER_REQUEST_CALI_DATA:
-		client->request[sensor_type].cali = status;
+		hf_manager_update_cali(client, sensor_type, status);
 		break;
 	case HF_MANAGER_REQUEST_TEMP_DATA:
-		client->request[sensor_type].temp = status;
+		hf_manager_update_temp(client, sensor_type, status);
 		break;
 	case HF_MANAGER_REQUEST_TEST_DATA:
-		client->request[sensor_type].test = status;
+		hf_manager_update_test(client, sensor_type, status);
 		break;
 	default:
 		pr_err("Unknown command %u\n", cmd);
@@ -1358,16 +1398,16 @@ static long hf_manager_ioctl(struct file *filp,
 			return -EFAULT;
 		break;
 	case HF_MANAGER_REQUEST_BIAS_DATA:
-		client->request[sensor_type].bias = packet.status;
+		hf_manager_update_bias(client, sensor_type, packet.status);
 		break;
 	case HF_MANAGER_REQUEST_CALI_DATA:
-		client->request[sensor_type].cali = packet.status;
+		hf_manager_update_cali(client, sensor_type, packet.status);
 		break;
 	case HF_MANAGER_REQUEST_TEMP_DATA:
-		client->request[sensor_type].temp = packet.status;
+		hf_manager_update_temp(client, sensor_type, packet.status);
 		break;
 	case HF_MANAGER_REQUEST_TEST_DATA:
-		client->request[sensor_type].test = packet.status;
+		hf_manager_update_test(client, sensor_type, packet.status);
 		break;
 	case HF_MANAGER_REQUEST_SENSOR_INFO:
 		if (!test_bit(sensor_type, sensor_list_bitmap))
