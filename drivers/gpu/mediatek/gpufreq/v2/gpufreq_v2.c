@@ -80,6 +80,7 @@ static struct platform_driver g_gpufreq_wrapper_pdrv = {
 static int g_ipi_channel;
 static unsigned int g_dual_buck;
 static unsigned int g_gpueb_support;
+static unsigned int g_segment_id;
 static phys_addr_t g_status_shared_mem_va;
 static phys_addr_t g_debug_shared_mem_va;
 static struct gpufreq_platform_fp *gpufreq_fp;
@@ -233,6 +234,21 @@ unsigned int gpufreq_get_shader_present(void)
 	return shader_present;
 }
 EXPORT_SYMBOL(gpufreq_get_shader_present);
+
+/***********************************************************************************
+ * Function Name      : gpufreq_get_segment_id
+ * Inputs             : -
+ * Outputs            : -
+ * Returns            : segment_id - Current segment_id
+ * Description        : Get GPU segment_id
+ *                      read efuse data from gpufreq_get_debug_opp_info
+ ***********************************************************************************/
+unsigned int gpufreq_get_segment_id(void)
+{
+	return g_segment_id;
+}
+EXPORT_SYMBOL(gpufreq_get_segment_id);
+
 
 /***********************************************************************************
  * Function Name      : gpufreq_set_timestamp
@@ -1236,6 +1252,9 @@ struct gpufreq_debug_opp_info gpufreq_get_debug_opp_info(enum gpufreq_target tar
 
 		if (!gpufreq_ipi_to_gpueb(send_msg) && shared_status)
 			opp_info = shared_status->opp_info;
+
+		/* Get GPU segment_id */
+		g_segment_id = opp_info.segment_id;
 		goto done;
 	}
 
@@ -1246,7 +1265,8 @@ struct gpufreq_debug_opp_info gpufreq_get_debug_opp_info(enum gpufreq_target tar
 		opp_info = gpufreq_fp->get_debug_opp_info_gpu();
 	else
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
-
+	/* Get GPU segment_id */
+	g_segment_id = opp_info.segment_id;
 done:
 	return opp_info;
 }

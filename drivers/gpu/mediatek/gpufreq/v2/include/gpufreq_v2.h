@@ -247,6 +247,7 @@ unsigned int gpufreq_power_ctrl_enable(void);
 unsigned int gpufreq_get_power_state(void);
 unsigned int gpufreq_get_dvfs_state(void);
 unsigned int gpufreq_get_shader_present(void);
+unsigned int gpufreq_get_segment_id(void);
 void gpufreq_set_timestamp(void);
 void gpufreq_check_bus_idle(void);
 void gpufreq_dump_infra_status(void);
