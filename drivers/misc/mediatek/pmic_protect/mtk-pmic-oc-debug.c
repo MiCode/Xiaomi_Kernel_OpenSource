@@ -159,14 +159,18 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 		  oc_dbg->name, oc_dbg->times);
 	len += snprintf(oc_str, 30, "PMIC OC:%s", oc_dbg->name);
 	if (oc_dbg->is_md_reg) {
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_warning(oc_str,
 				   "\nCRDISPATCH_KEY:MD OC\nOC Interrupt: %s",
 				   oc_dbg->name);
+#endif
 		md_oc_notify(oc_dbg);
 	} else if (oc_dbg->times == NOTIFY_TIMES_MAX) {
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_warning(oc_str,
 				   "\nCRDISPATCH_KEY:PMIC OC\nOC Interrupt: %s",
 				   oc_dbg->name);
+#endif
 	}
 	return NOTIFY_OK;
 }

@@ -97,10 +97,10 @@ static void emimpu_vio_dump(struct work_struct *work)
 	for (curr_dbg_cb = mpu->dbg_cb_list; curr_dbg_cb;
 		curr_dbg_cb = curr_dbg_cb->next_dbg_cb)
 		curr_dbg_cb->func();
-
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	if (mpu->vio_msg)
 		aee_kernel_exception("EMIMPU", mpu->vio_msg);
-
+#endif
 	mpu->in_msg_dump = false;
 }
 static DECLARE_WORK(emimpu_work, emimpu_vio_dump);

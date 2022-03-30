@@ -297,8 +297,9 @@ static void dump_reg_func(struct work_struct *work)
 	writel(0x0, ctrl_base + MMSYSRAM_INSTA1);
 
 	after_reg_rw();
-
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_kernel_warning("MMSRAM", "MMSRAM Violation.");
+#endif
 }
 
 static irqreturn_t mmsram_irq_handler(int irq, void *data)

@@ -79,12 +79,15 @@ struct cache_parity {
 	u64 timestampe;
 	union err_record *record;
 };
-
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define ECC_LOG(fmt, ...) \
 	do { \
 		pr_notice(fmt, __VA_ARGS__); \
 		aee_sram_printk(fmt, __VA_ARGS__); \
 	} while (0)
+#else
+#define ECC_LOG(fmt, ...)
+#endif
 
 static struct cache_parity cache_parity;
 static struct parity_irq_record_t *parity_irq_record;
@@ -182,8 +185,11 @@ static void cache_parity_irq_work(struct work_struct *w)
 	}
 
 call_aee:
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_kernel_exception("cache parity", buf,
 				"CRDISPATCH_KEY:Cache Parity Issue");
+#endif
+	pr_debug("CRDISPATCH_KEY:Cache Parity Issue");
 }
 
 #ifdef CONFIG_ARM64

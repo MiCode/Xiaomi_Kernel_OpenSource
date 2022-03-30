@@ -911,11 +911,12 @@ static void devapc_extra_handler(int slave_type, const char *vio_master,
 
 	} else if (dbg_stat->enable_AEE) {
 		/* call mtk aee_kernel_exception */
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_exception("[DEVAPC]",
 			"%s%s\n",
 			"CRDISPATCH_KEY:Device APC Violation Issue/",
 			dispatch_key);
-
+#endif
 	} else if (dbg_stat->enable_WARN) {
 		WARN(1, "Device APC Violation Issue/%s", dispatch_key);
 	}

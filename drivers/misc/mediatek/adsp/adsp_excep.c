@@ -50,7 +50,6 @@ static u32 copy_from_buffer(void *dest, size_t destsize, const void *src,
 	return request;
 }
 
-#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 static inline u32 copy_from_adsp_shared_memory(void *buf, u32 offset,
 					size_t size, int id)
 {
@@ -63,6 +62,7 @@ static inline u32 copy_from_adsp_shared_memory(void *buf, u32 offset,
 	return copy_from_buffer(buf, -1, mem_addr, mem_size, offset, size);
 }
 
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 static inline u32 dump_adsp_shared_memory(void *buf, size_t size, int id)
 {
 	void *mem_addr = adsp_get_reserve_mem_virt(id);

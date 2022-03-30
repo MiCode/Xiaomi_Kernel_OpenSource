@@ -66,12 +66,15 @@ struct bus_parity {
 	unsigned int irq;
 	char *dump;
 };
-
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define BPR_LOG(fmt, ...) \
 	do { \
 		pr_notice(fmt, __VA_ARGS__); \
 		aee_sram_printk(fmt, __VA_ARGS__); \
 	} while (0)
+#else
+#define BPR_LOG(fmt, ...)
+#endif
 
 static struct bus_parity mcu_bp, infra_bp;
 static DEFINE_SPINLOCK(mcu_bp_isr_lock);
@@ -118,9 +121,9 @@ static void mcu_bp_irq_work(struct work_struct *w)
 		else
 			continue;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_kernel_exception("MCU Bus Parity", mcu_bp.dump);
-
+#endif
 	if (mcu_bp.nr_err < MCU_BP_IRQ_TRIGGER_THRESHOLD)
 		enable_irq(mcu_bp.irq);
 	else
@@ -145,9 +148,9 @@ static void infra_bp_irq_work(struct work_struct *w)
 		else
 			continue;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_kernel_exception("Infra Bus Parity", infra_bp.dump);
-
+#endif
 	if (infra_bp.nr_err < INFRA_BP_IRQ_TRIGGER_THRESHOLD)
 		enable_irq(infra_bp.irq);
 	else
