@@ -3168,7 +3168,7 @@ char *cmdq_pkt_parse_buf(struct cmdq_pkt *pkt, u32 *size_out)
 {
 	u32 buf_size = CMDQ_NUM_CMD(pkt->cmd_buf_size) * CMDQ_INST_STR_SIZE + 1;
 	char *insts = kmalloc(buf_size, GFP_KERNEL);
-	u32 cur_buf = 0, cur_inst = 0, size;
+	u32 cur_buf = 0, size;
 	int len;
 	struct cmdq_pkt_buffer *buf;
 
@@ -3181,21 +3181,20 @@ char *cmdq_pkt_parse_buf(struct cmdq_pkt *pkt, u32 *size_out)
 	}
 
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
+		u32 cur_inst = 0;
+
 		if (list_is_last(&buf->list_entry, &pkt->buf))
 			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 		else
 			size = CMDQ_CMD_BUFFER_SIZE - CMDQ_INST_SIZE;
 
-		if (buf == list_first_entry(&pkt->buf, typeof(*buf), list_entry)) {
-			cur_inst = 0;
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-			if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
-				cur_inst = 2;
+		if (buf == list_first_entry(&pkt->buf, typeof(*buf), list_entry) &&
+			cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+			cur_inst = 2;
 #endif
-		}
 
-		for (; cur_inst < CMDQ_NUM_CMD(size) && cur_buf < buf_size;
-			cur_inst++) {
+		for (; cur_inst < CMDQ_NUM_CMD(size) && cur_buf < buf_size; cur_inst++) {
 			len = snprintf(insts + cur_buf, buf_size - cur_buf,
 				"%#018llx,\n", *((u64 *)buf->va_base + cur_inst));
 			if (len > 0)
