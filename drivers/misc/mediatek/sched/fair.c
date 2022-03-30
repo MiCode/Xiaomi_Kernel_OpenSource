@@ -166,7 +166,7 @@ static unsigned long mtk_cpu_util_next(int cpu, struct task_struct *p, int dst_c
 	 * util_avg should already be correct.
 	 */
 	if (task_cpu(p) == cpu && dst_cpu != cpu)
-		sub_positive(&util_freq, task_util(p));
+		lsub_positive(&util_freq, task_util(p));
 	else if (task_cpu(p) != cpu && dst_cpu == cpu)
 		util_freq += task_util(p);
 
