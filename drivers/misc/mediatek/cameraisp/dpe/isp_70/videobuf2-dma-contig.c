@@ -146,10 +146,11 @@ void *vb2_dc_alloc(struct vb2_buffer *vb, struct device *dev, unsigned long size
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 
-	//if (attrs)
-	//	buf->attrs = attrs;
+	buf->attrs = DMA_ATTR_WRITE_COMBINE;
 	buf->cookie = dma_alloc_attrs(dev, size, &buf->dma_addr,
-					GFP_KERNEL, buf->attrs);
+					GFP_KERNEL | 0,
+					buf->attrs);
+
 	if (!buf->cookie) {
 		dev_info(dev, "dma_alloc_coherent of size %ld failed\n", size);
 		kfree(buf);
@@ -162,7 +163,7 @@ void *vb2_dc_alloc(struct vb2_buffer *vb, struct device *dev, unsigned long size
 	/* Prevent the device from being released while the buffer is used */
 	buf->dev = get_device(dev);
 	buf->size = size;
-	//buf->dma_dir = dma_dir;
+	buf->dma_dir = DMA_FROM_DEVICE;
 
 	buf->handler.refcount = &buf->refcount;
 	buf->handler.put = vb2_dc_put;
@@ -704,7 +705,7 @@ void *vb2_dc_attach_dmabuf(struct vb2_buffer *vb, struct device *dev, struct dma
 		return dba;
 	}
 
-	//buf->dma_dir = dma_dir;
+	buf->dma_dir = DMA_FROM_DEVICE;
 	buf->size = size;
 	buf->db_attach = dba;
 
