@@ -15,13 +15,17 @@
 #define CAPACITY_TBL_SIZE 0x100
 #define CAPACITY_ENTRY_SIZE 0x2
 
+struct util_map {
+	unsigned int opp;
+	unsigned int freq;
+	unsigned int pwr_eff;
+};
+
 struct pd_capacity_info {
 	int nr_caps;
-	unsigned int *util_opp;
-	unsigned int *util_freq;
-	unsigned int *pwr_eff;
 	unsigned long *caps;
 	struct cpumask cpus;
+	struct util_map *util_to;
 };
 
 struct sugov_tunables {

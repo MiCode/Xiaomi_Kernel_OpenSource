@@ -52,7 +52,7 @@ unsigned long pd_get_util_pwr_eff(int cpu, int util)
 
 		util = clamp_val(util, 0, pd_info->caps[0]);
 
-		return pd_info->pwr_eff[util];
+		return pd_info->util_to[util].pwr_eff;
 	}
 
 	/* Should NOT reach here */
@@ -69,9 +69,7 @@ static void free_capacity_table(void)
 
 	for (i = 0; i < pd_count; i++) {
 		kfree(pd_capacity_tbl[i].caps);
-		kfree(pd_capacity_tbl[i].util_opp);
-		kfree(pd_capacity_tbl[i].util_freq);
-		kfree(pd_capacity_tbl[i].pwr_eff);
+		kfree(pd_capacity_tbl[i].util_to);
 	}
 	kfree(pd_capacity_tbl);
 	pd_capacity_tbl = NULL;
@@ -97,6 +95,15 @@ static int init_capacity_table(void)
 		pd = em_cpu_get(cpu);
 		if (!pd)
 			goto err;
+
+		cap = ioread16(base + offset);
+		if (!pd_info->util_to) {
+			pd_info->util_to = kcalloc(cap + 1, sizeof(struct util_map),
+									GFP_KERNEL);
+			if (!pd_info->util_to)
+				goto nomem;
+		}
+
 		for (j = 0; j < pd_info->nr_caps; j++) {
 			cap = ioread16(base + offset);
 			next_cap = ioread16(base + offset + CAPACITY_ENTRY_SIZE);
@@ -105,27 +112,6 @@ static int init_capacity_table(void)
 
 			pd_info->caps[j] = cap;
 
-			if (!pd_info->util_opp) {
-				pd_info->util_opp = kcalloc(cap + 1, sizeof(unsigned int),
-										GFP_KERNEL);
-				if (!pd_info->util_opp)
-					goto nomem;
-			}
-
-			if (!pd_info->util_freq) {
-				pd_info->util_freq = kcalloc(cap + 1, sizeof(unsigned int),
-										GFP_KERNEL);
-				if (!pd_info->util_freq)
-					goto nomem;
-			}
-
-			if (!pd_info->pwr_eff) {
-				pd_info->pwr_eff = kcalloc(cap + 1, sizeof(unsigned int),
-										GFP_KERNEL);
-				if (!pd_info->pwr_eff)
-					goto nomem;
-			}
-
 			if (j == pd_info->nr_caps - 1)
 				next_cap = -1;
 
@@ -133,10 +119,10 @@ static int init_capacity_table(void)
 			pwr_div_cap = (ps->power << SCHED_CAPACITY_SHIFT) / pd_info->caps[j];
 
 			for (k = cap; k > next_cap; k--) {
-				pd_info->util_opp[k] = j;
-				pd_info->util_freq[k] =
+				pd_info->util_to[k].opp = j;
+				pd_info->util_to[k].freq =
 					pd->table[pd->nr_perf_states - j - 1].frequency;
-				pd_info->pwr_eff[k] = pwr_div_cap;
+				pd_info->util_to[k].pwr_eff = pwr_div_cap;
 			}
 
 			count += 1;
@@ -205,9 +191,7 @@ static int alloc_capacity_table(void)
 		if (!pd_capacity_tbl[cur_tbl].caps)
 			goto nomem;
 
-		pd_capacity_tbl[cur_tbl].util_opp = NULL;
-		pd_capacity_tbl[cur_tbl].util_freq = NULL;
-		pd_capacity_tbl[cur_tbl].pwr_eff = NULL;
+		pd_capacity_tbl[cur_tbl].util_to = NULL;
 
 		entry_count += nr_caps;
 
@@ -361,8 +345,8 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 			continue;
 		cap = info->caps[0];
 		util = min(util, info->caps[0]);
-		j = info->util_opp[util];
-		*next_freq = info->util_freq[util];
+		j = info->util_to[util].opp;
+		*next_freq = info->util_to[util].freq;
 		break;
 	}
 
