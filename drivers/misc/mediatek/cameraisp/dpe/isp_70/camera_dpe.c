@@ -10,7 +10,6 @@
  *
  **************************************************************/
 
-
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
@@ -45,8 +44,7 @@
 #include <linux/dma-direction.h>
 #include <linux/dma-buf.h>
 #endif
-/*#include <linux/xlog.h>		 For xlog_printk(). */
-/*  */
+
 /*#include <mach/hardware.h>*/
 /* #include <mach/mt6593_pll.h> */
 #include "camera_dpe.h"
@@ -5685,8 +5683,8 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
 	struct DPE_Request ureq;
 	struct DPE_Request kreq;
-	/* size of cfgs = 3 owing to call stact limitation*/
-	struct DPE_Config cfgs[3];//[MAX_FRAMES_PER_REQUEST];
+	/* size of cfgs = 2 owing to call stact limitation*/
+	struct DPE_Config cfgs[MAX_FRAMES_VIDIOC_REQUEST];//[MAX_FRAMES_PER_REQUEST];
 	struct DPE_Config *pcfgs;
 	//unsigned long flags;
 	unsigned int m_real_ReqNum, f;
@@ -5703,8 +5701,8 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	ret = copy_from_user(&ureq, (void __user *)p->m.userptr, sizeof(ureq));
 	if (ret != 0)
 		goto EXIT;
-	//if (ureq.m_ReqNum > MAX_FRAMES_PER_REQUEST)
-	if (ureq.m_ReqNum > 3)
+
+	if (ureq.m_ReqNum > MAX_FRAMES_VIDIOC_REQUEST)
 		goto EXIT;
 	//LOG_INF("[%s]This request has %d configs.\n", __func__, ureq.m_ReqNum);
 	if (ureq.m_pDpeConfig == NULL)
@@ -5785,8 +5783,8 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	signed int Ret = 0;
 	struct DPE_Request ureq;
 	struct DPE_Request kreq;
-	/* size of cfgs = 3 owing to call stact limitation*/
-	struct DPE_Config cfgs[3];//[MAX_FRAMES_PER_REQUEST];
+	/* size of cfgs = 2 owing to call stact limitation*/
+	struct DPE_Config cfgs[MAX_FRAMES_VIDIOC_REQUEST];
 	//unsigned long flags;
 	//unsigned int m_real_ReqNum;
 
