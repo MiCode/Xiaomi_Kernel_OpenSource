@@ -5,8 +5,11 @@ obj-$(CONFIG_MTK_DVFSRC) += mtk-dvfsrc.o mtk-dvfsrc-start.o
 obj-$(CONFIG_MTK_IPI) += mtk_tinysys_ipi.o
 obj-$(CONFIG_MTK_MBOX) += mtk-mbox.o
 obj-$(CONFIG_MTK_DEVAPC) += mtk-devapc.o
-obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys.o mtk-scpsys-mt6983.o
 obj-$(CONFIG_MTK_PMIC_WRAP) += mtk-pmic-wrap.o
+obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys.o mtk-pm-domain-disable-unused.o
+ifneq ($(wildcard $(srctree)/$(src)/mtk-scpsys-mt6983.c),)
+obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys-mt6983.o mtk-scpsys-bringup.o
+endif
 obj-$(CONFIG_MTK_MMSYS) += mtk-mmsys.o
 obj-$(CONFIG_MTK_DEVAPC) += devapc/
 obj-$(CONFIG_MTK_DEVMPU) += devmpu/
