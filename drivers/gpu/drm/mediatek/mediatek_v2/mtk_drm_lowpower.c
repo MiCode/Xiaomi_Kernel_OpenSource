@@ -57,7 +57,6 @@ static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 	}
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
-	drm_crtc_vblank_off(crtc);
 }
 
 static void mtk_drm_cmd_mode_enter_idle(struct drm_crtc *crtc)
@@ -103,7 +102,6 @@ static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
 
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
-	drm_crtc_vblank_on(crtc);
 }
 
 static void mtk_drm_cmd_mode_leave_idle(struct drm_crtc *crtc)
