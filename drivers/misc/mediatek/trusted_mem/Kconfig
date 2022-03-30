@@ -123,6 +123,10 @@ config MTK_MTEE_MULTI_CHUNK_SUPPORT
 config MTK_TRUSTED_MEMORY_SUBSYSTEM
 	tristate "MTK Trusted Memory Subsystem Support"
 	default n
+	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT || \
+			   MTK_MTEE_MULTI_CHUNK_SUPPORT || MTK_GZ_KREE
+	select CMA
+	select DMA_CMA
 	help
 	  Enable the support of MediaTek trusted memory subsystem driver.
 	  This driver provide a general subsystem layer for trusted peer memory
