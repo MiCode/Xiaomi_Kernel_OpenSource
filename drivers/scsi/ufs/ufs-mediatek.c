@@ -2371,13 +2371,18 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 int ufs_mtk_system_suspend(struct device *dev)
 {
 	int ret = 0;
-#if defined(CONFIG_UFSFEATURE)
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+#if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 
 	if (ufsf->hba)
 		ufsf_suspend(ufsf);
 #endif
+
+	/* Check if shutting down */
+	if (!ufshcd_is_user_access_allowed(hba))
+		return -EBUSY;
 
 	ret = ufshcd_system_suspend(dev);
 
