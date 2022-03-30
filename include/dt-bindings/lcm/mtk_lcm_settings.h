@@ -122,15 +122,6 @@
 #define MTK_LCM_CMD_TYPE_HEX_WRITE_BUFFER_RUNTIME_INPUT		16
 #define MTK_LCM_CMD_TYPE_HEX_END				1f
 
-#define MTK_LCM_CB_TYPE_HEX_START				20
-/*runtime executed in callback*/
-#define MTK_LCM_CB_TYPE_HEX_RUNTIME				21
-/*runtime executed with single input*/
-#define MTK_LCM_CB_TYPE_HEX_RUNTIME_INPUT			22
-/*runtime executed with multiple input*/
-#define MTK_LCM_CB_TYPE_HEX_RUNTIME_INPUT_MULTIPLE		23
-#define MTK_LCM_CB_TYPE_HEX_END					2f
-
 #define MTK_LCM_GPIO_TYPE_HEX_START				30
 #define MTK_LCM_GPIO_TYPE_HEX_MODE				31
 #define MTK_LCM_GPIO_TYPE_HEX_DIR_OUTPUT			32
@@ -179,6 +170,8 @@
 #define MTK_LCM_INPUT_TYPE_HEX_READBACK				01
 #define MTK_LCM_INPUT_TYPE_HEX_CURRENT_FPS			02
 #define MTK_LCM_INPUT_TYPE_HEX_CURRENT_BACKLIGHT		03
+#define MTK_LCM_INPUT_TYPE_HEX_MISC				04
+#define MTK_LCM_INPUT_TYPE_HEX_LOCATE				05
 
 /* 0~127: used for common panel operation
  * customer is forbidden to use common panel operation
@@ -202,12 +195,6 @@
 #define MTK_LCM_CMD_TYPE_WRITE_BUFFER_CONDITION			0x15
 #define MTK_LCM_CMD_TYPE_WRITE_BUFFER_RUNTIME_INPUT		0x16
 #define MTK_LCM_CMD_TYPE_END					0x1f
-
-#define MTK_LCM_CB_TYPE_START					0x20
-#define MTK_LCM_CB_TYPE_RUNTIME					0x21
-#define MTK_LCM_CB_TYPE_RUNTIME_INPUT				0x22
-#define MTK_LCM_CB_TYPE_RUNTIME_INPUT_MULTIPLE			0x23
-#define MTK_LCM_CB_TYPE_END					0x2f
 
 #define MTK_LCM_GPIO_TYPE_START					0x30
 #define MTK_LCM_GPIO_TYPE_MODE					0x31
@@ -250,5 +237,7 @@
 #define MTK_LCM_INPUT_TYPE_READBACK				0x01
 #define MTK_LCM_INPUT_TYPE_CURRENT_FPS				0x02
 #define MTK_LCM_INPUT_TYPE_CURRENT_BACKLIGHT			0x03
+#define MTK_LCM_INPUT_TYPE_MISC					0x04
+#define MTK_LCM_INPUT_TYPE_LOCATE				0x05
 
 #endif
