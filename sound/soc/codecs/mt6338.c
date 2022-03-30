@@ -2465,17 +2465,6 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 			RG_D2A_SIGNAL_SW_DEBUG_MODE_LCH_MASK_SFT,
 			0x0 << RG_D2A_SIGNAL_SW_DEBUG_MODE_LCH_SFT);
 	}
-	regmap_write(priv->regmap, MT6338_AFE_SINEGEN_CON0,
-		0x4);
-	regmap_write(priv->regmap, MT6338_AFE_SINEGEN_CON1,
-		0xaa);
-	regmap_write(priv->regmap, MT6338_AFE_SINEGEN_CON2,
-		0x13);
-	regmap_write(priv->regmap, MT6338_AFE_SINEGEN_CON3,
-		0xe1);
-	regmap_write(priv->regmap, MT6338_AFE_SINEGEN_CON4,
-		0xe1);
-	dev_info(priv->dev, "%s() Patrick turn on PMIC Sgen\n", __func__);
 }
 
 static void mtk_hp_disable(struct mt6338_priv *priv)
@@ -9989,7 +9978,7 @@ static int get_hp_current_calibrate_val(struct mt6338_priv *priv)
 #endif
 }
 
-#if IS_ENABLED(CONFIG_NOT_ENABLED)
+#if defined(BYPASS_FOR_K515_BRINGUP)
 static int set_idac_trim_val(struct mt6338_priv *priv)
 {
 #if IS_ENABLED(CONFIG_MT6338_EFUSE)
