@@ -28,8 +28,6 @@ struct wmt_platform_bridge {
 	wmt_bridge_thermal_query_cb thermal_query_cb;
 	wmt_bridge_trigger_assert_cb trigger_assert_cb;
 	wmt_bridge_connsys_clock_fail_dump_cb clock_fail_dump_cb;
-	wmt_bridge_debug_write_cb debug_write_cb;
-	wmt_bridge_debug_read_cb debug_read_cb;
 
 	/* for CONNAC 2 */
 	wmt_bridge_conninfra_reg_readable conninfra_reg_readable_cb;
@@ -39,6 +37,13 @@ struct wmt_platform_bridge {
 void wmt_export_platform_bridge_register(struct wmt_platform_bridge *cb);
 void wmt_export_platform_bridge_unregister(void);
 
+struct wmt_platform_dbg_bridge {
+	ssize_t (*write_cb)(struct file *filep, const char __user *buffer, size_t count,
+						loff_t *f_pos);
+	ssize_t (*read_cb)(struct file *filep, char __user *buffer, size_t count, loff_t *f_pos);
+};
+void wmt_export_platform_dbg_bridge_register(const struct wmt_platform_dbg_bridge *cb);
+void wmt_export_platform_dbg_bridge_unregister(void);
 
 /*******************************************************************************
  * SDIO integration with platform MMC driver

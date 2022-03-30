@@ -78,12 +78,13 @@ static struct cdev gConnDbgdev;
  * Bridging from platform -> wmt_drv.ko
  ******************************************************************************/
 static struct wmt_platform_bridge bridge;
+static struct wmt_platform_dbg_bridge g_dbg_bridge;
 
 ssize_t conn_dbg_dev_write(struct file *filp, const char __user *buffer,
 				size_t count, loff_t *f_pos)
 {
-	if (bridge.debug_write_cb)
-		return bridge.debug_write_cb(filp, buffer, count, f_pos);
+	if (g_dbg_bridge.write_cb)
+		return g_dbg_bridge.write_cb(filp, buffer, count, f_pos);
 
 	return 0;
 }
@@ -91,11 +92,12 @@ ssize_t conn_dbg_dev_write(struct file *filp, const char __user *buffer,
 ssize_t conn_dbg_dev_read(struct file *filp, char __user *buffer,
 				size_t count, loff_t *f_pos)
 {
-	if (bridge.debug_read_cb)
-		return bridge.debug_read_cb(filp, buffer, count, f_pos);
+	if (g_dbg_bridge.read_cb)
+		return g_dbg_bridge.read_cb(filp, buffer, count, f_pos);
 
 	return 0;
 }
+
 static const struct file_operations gConnDbgDevFops = {
 	.read = conn_dbg_dev_read,
 	.write = conn_dbg_dev_write,
@@ -182,24 +184,34 @@ void wmt_export_platform_bridge_register(struct wmt_platform_bridge *cb)
 	bridge.conninfra_reg_readable_cb = cb->conninfra_reg_readable_cb;
 	bridge.conninfra_reg_is_bus_hang_cb = cb->conninfra_reg_is_bus_hang_cb;
 
-	if (cb->debug_write_cb != NULL && cb->debug_read_cb != NULL) {
-		bridge.debug_write_cb = cb->debug_write_cb;
-		bridge.debug_read_cb = cb->debug_read_cb;
-		conn_dbg_dev_init();
-	}
-
 	CONNADP_INFO_FUNC("\n");
 }
 EXPORT_SYMBOL(wmt_export_platform_bridge_register);
 
 void wmt_export_platform_bridge_unregister(void)
 {
-	if (bridge.debug_write_cb && bridge.debug_read_cb)
-		conn_dbg_dev_deinit();
 	memset(&bridge, 0, sizeof(struct wmt_platform_bridge));
 	CONNADP_INFO_FUNC("\n");
 }
 EXPORT_SYMBOL(wmt_export_platform_bridge_unregister);
+
+void wmt_export_platform_dbg_bridge_register(const struct wmt_platform_dbg_bridge *cb)
+{
+	if (cb->write_cb != NULL && cb->read_cb != NULL) {
+		g_dbg_bridge.write_cb = cb->write_cb;
+		g_dbg_bridge.read_cb = cb->read_cb;
+		conn_dbg_dev_init();
+	}
+}
+EXPORT_SYMBOL(wmt_export_platform_dbg_bridge_register);
+
+void wmt_export_platform_dbg_bridge_unregister(void)
+{
+	if (g_dbg_bridge.write_cb && g_dbg_bridge.read_cb)
+		conn_dbg_dev_deinit();
+	memset(&bridge, 0, sizeof(struct wmt_platform_dbg_bridge));
+}
+EXPORT_SYMBOL(wmt_export_platform_dbg_bridge_unregister);
 
 int mtk_wcn_cmb_stub_query_ctrl(void)
 {
