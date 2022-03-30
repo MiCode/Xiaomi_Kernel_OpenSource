@@ -18,6 +18,8 @@ f kernel/trace/trace_events.c
 f lib/dynamic_debug.c
 f security/selinux/avc.c
 f ./security/selinux/include/avc.h
+f fs/coredump.c
+f kernel/signal.c
 s splice_direct_to_actor
 s __cfg80211_port_authorized
 s sugov_update_shared
@@ -28952,6 +28954,7 @@ c CONFIG_AS_VERSION
 c CONFIG_IOMMU_IO_PGTABLE_ARMV7S
 c CONFIG_LEDS_MT_BRIGHTNESS_HW_CHANGED
 c CONFIG_ZRAM_DEF_COMP
+c CONFIG_MTK_AVOID_TRUNCATE_COREDUMP
 c CONFIG_ZRAM_DEF_COMP_LZORLE
 c CONFIG_USB_NET_AX8817X
 c CONFIG_CLANG_VERSION
