@@ -4,7 +4,6 @@
  */
 
 #include "mkp_api.h"
-#include "mkp_hvc.h"
 
 void __init mkp_set_policy(u32 policy)
 {
@@ -16,67 +15,6 @@ int __init mkp_set_ext_policy(uint32_t policy)
 {
 	// set extended policy
 	return set_ext_policy(policy);
-}
-int mkp_set_mapping_ro(uint32_t policy, uint32_t handle)
-{
-	int ret = -1;
-
-	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
-		return ret;
-
-	// hvc call to set memory type
-	ret = mkp_set_mapping_ro_hvc_call(policy, handle);
-
-	return ret;
-}
-
-int mkp_set_mapping_rw(uint32_t policy, uint32_t handle)
-{
-	int ret = -1;
-
-	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
-		return ret;
-
-	// hvc call to set memory type
-	ret = mkp_set_mapping_rw_hvc_call(policy, handle);
-
-	return ret;
-}
-
-int mkp_set_mapping_nx(uint32_t policy, uint32_t handle)
-{
-	int ret = -1;
-
-	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
-		return ret;
-
-	// hvc call to set memory type
-	ret = mkp_set_mapping_nx_hvc_call(policy, handle);
-
-	return ret;
-}
-
-int mkp_set_mapping_x(uint32_t policy, uint32_t handle)
-{
-	int ret = -1;
-
-	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
-		return ret;
-
-	// hvc call to set memory type
-	ret = mkp_set_mapping_x_hvc_call(policy, handle);
-
-	return ret;
-}
-int mkp_clear_mapping(uint32_t policy, uint32_t handle)
-{
-	int ret = -1;
-
-	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
-		return ret;
-
-	ret = mkp_clear_mapping_hvc_call(policy, handle);
-	return ret;
 }
 
 int mkp_lookup_mapping_entry(uint32_t policy, uint32_t handle,
@@ -175,7 +113,7 @@ uint32_t mkp_create_ro_sharebuf(uint32_t policy, unsigned long size, struct page
 		return 0;
 	}
 
-	ret = mkp_set_mapping_ro_hvc_call(policy, handle);
+	ret = do_secure_ops(policy, handle, mkp_set_mapping_ro_hvc_call);
 	if (ret == -1) {
 		ret = mkp_destroy_handle(policy, handle);
 		__free_pages(l_pages, order);
@@ -207,7 +145,7 @@ uint32_t mkp_create_wo_sharebuf(uint32_t policy, unsigned long size, struct page
 		return 0;
 	}
 
-	ret = mkp_set_mapping_rw_hvc_call(policy, handle);
+	ret = do_secure_ops(policy, handle, mkp_set_mapping_rw_hvc_call);
 	if (ret == -1) {
 		ret = mkp_destroy_handle(policy, handle);
 		__free_pages(l_pages, order);

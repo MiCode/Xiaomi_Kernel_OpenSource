@@ -41,14 +41,56 @@
 #include <linux/cred.h>
 
 #include "policy.h"
+#include "mkp_hvc.h"
+
+static __always_inline int do_secure_ops(uint32_t policy, uint32_t handle,
+		int (*set_memory_hvc)(uint32_t policy, uint32_t handle))
+{
+	return set_memory_hvc(policy, handle);
+}
+
+static __always_inline int mkp_set_mapping_ro(uint32_t policy, uint32_t handle)
+{
+	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
+		return -1;
+
+	return do_secure_ops(policy, handle, mkp_set_mapping_ro_hvc_call);
+}
+
+static __always_inline int mkp_set_mapping_rw(uint32_t policy, uint32_t handle)
+{
+	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
+		return -1;
+
+	return do_secure_ops(policy, handle, mkp_set_mapping_rw_hvc_call);
+}
+
+static __always_inline int mkp_set_mapping_nx(uint32_t policy, uint32_t handle)
+{
+	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
+		return -1;
+
+	return do_secure_ops(policy, handle, mkp_set_mapping_nx_hvc_call);
+}
+
+static __always_inline int mkp_set_mapping_x(uint32_t policy, uint32_t handle)
+{
+	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
+		return -1;
+
+	return do_secure_ops(policy, handle, mkp_set_mapping_x_hvc_call);
+}
+
+static __always_inline int mkp_clear_mapping(uint32_t policy, uint32_t handle)
+{
+	if (policy >= MKP_POLICY_NR || policy_ctrl[policy] == 0)
+		return -1;
+
+	return do_secure_ops(policy, handle, mkp_clear_mapping_hvc_call);
+}
 
 void __init mkp_set_policy(u32);
 int __init mkp_set_ext_policy(uint32_t policy);
-int mkp_set_mapping_ro(uint32_t policy, uint32_t handle);
-int mkp_set_mapping_rw(uint32_t policy, uint32_t handle);
-int mkp_set_mapping_nx(uint32_t policy, uint32_t handle);
-int mkp_set_mapping_x(uint32_t policy, uint32_t handle);
-int mkp_clear_mapping(uint32_t policy, uint32_t handle);
 int mkp_lookup_mapping_entry(uint32_t policy, uint32_t handle,
 	unsigned long *entry_size, unsigned long *permission);
 int mkp_request_new_policy(unsigned long policy_char);
