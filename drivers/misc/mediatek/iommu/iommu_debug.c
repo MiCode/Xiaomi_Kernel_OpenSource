@@ -47,6 +47,12 @@ enum mtk_iova_space {
 	MTK_IOVA_SPACE_NUM
 };
 
+enum port_type {
+	NORMAL,
+	CCU_FAKE,
+	GCE_VIDEOUP_FAKE
+};
+
 static struct iova_buf_list iova_list = {.init_flag = ATOMIC_INIT(0)};
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE) && !IOMMU_BRING_UP
 #define m4u_aee_print(string, args...) do {\
@@ -68,6 +74,12 @@ static struct iova_buf_list iova_list = {.init_flag = ATOMIC_INIT(0)};
 
 #define MM_IOMMU_PORT_INIT(name, m4u_id, larb_id, tf_larb, port_id)  {\
 	name, m4u_id, larb_id, port_id, (((tf_larb)<<7)|((port_id)<<2)), 1\
+}
+
+#define MM_IOMMU_FAKE_PORT_INIT( \
+		name, m4u_id, larb_id, tf_larb, port_id, port_type)  { \
+	name, m4u_id, larb_id, port_id, (((tf_larb)<<7)|((port_id)<<2)), 1, \
+		port_type \
 }
 
 #define APU_IOMMU_PORT_INIT(name, m4u_id, larb_id, port_id, tf_id) {\
@@ -97,6 +109,7 @@ struct mtk_iommu_port {
 	unsigned port_id: 8;
 	unsigned tf_id: 14;     /* 14 bits */
 	bool enable_tf;
+	unsigned int port_type;
 };
 
 struct mtk_iommu_cb {
@@ -118,6 +131,7 @@ struct mtk_m4u_plat_data {
 	u32				port_nr[TYPE_NUM];
 	const struct mau_config_info	*mau_config;
 	u32				mau_config_nr;
+	u32				mm_tf_ccu_support;
 	int (*mm_tf_is_gce_videoup)(u32 port_tf, u32 vld_tf);
 	char *(*peri_tf_analyse)(enum peri_iommu bus_id, u32 id);
 };
@@ -302,8 +316,8 @@ static const struct mtk_iommu_port iommu_port_mt6779[] = {
 	MM_IOMMU_PORT_INIT("CAM_LTMSO_R1_B", 0, 10, 25, 29),
 	MM_IOMMU_PORT_INIT("CAM_RSSO_R1_B", 0, 10, 25, 30),
 	/* CCU */
-	MM_IOMMU_PORT_INIT("CCU0", 0, 9, 24, 0),
-	MM_IOMMU_PORT_INIT("CCU1", 0, 9, 24, 1),
+	MM_IOMMU_FAKE_PORT_INIT("CCU0", 0, 9, 24, 0, CCU_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("CCU1", 0, 9, 24, 1, CCU_FAKE),
 
 	MM_IOMMU_PORT_INIT("UNKNOWN", 0, 0, 0, 0)
 };
@@ -516,9 +530,9 @@ static const struct mtk_iommu_port mm_port_mt6873[] = {
 	MM_IOMMU_PORT_INIT("L20_IPE_RSC_RDMA0", 0, 20, 0x17, 4),
 	MM_IOMMU_PORT_INIT("L20_IPE_RSC_WDMA", 0, 20, 0x17, 5),
 	/*Larb22 -- 1(191) */
-	MM_IOMMU_PORT_INIT("L22_CCU0", 0, 22, 0x1c, 0),
+	MM_IOMMU_FAKE_PORT_INIT("L22_CCU0", 0, 22, 0x1c, 0, CCU_FAKE),
 	/*Larb23  -- 1(192) */
-	MM_IOMMU_PORT_INIT("L23_CCU1", 0, 23, 0x18, 0),
+	MM_IOMMU_FAKE_PORT_INIT("L23_CCU1", 0, 23, 0x18, 0, CCU_FAKE),
 
 	MM_IOMMU_PORT_INIT("MM_UNKNOWN", 0, 0, 0, 0)
 };
@@ -718,9 +732,12 @@ static const struct mtk_iommu_port mm_port_mt6855[] = {
 	MM_IOMMU_PORT_INIT("LARB20_PORT5", DISP_IOMMU, 20, 0x19, 5),
 
 	/* Larb32 -- 3 */
-	MM_IOMMU_PORT_INIT("VIDEO_uP", DISP_IOMMU, 32, 0x8, 0),
-	MM_IOMMU_PORT_INIT("GCE_D_M", DISP_IOMMU, 32, 0x8, 1),
-	MM_IOMMU_PORT_INIT("GCE_M_M", DISP_IOMMU, 32, 0x8, 2),
+	MM_IOMMU_FAKE_PORT_INIT("VIDEO_uP", DISP_IOMMU, 32, 0x8, 0,
+				GCE_VIDEOUP_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("GCE_D_M", DISP_IOMMU, 32, 0x8, 1,
+				GCE_VIDEOUP_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("GCE_M_M", DISP_IOMMU, 32, 0x8, 2,
+				GCE_VIDEOUP_FAKE),
 
 	MM_IOMMU_PORT_INIT("MM_UNKNOWN", 0, 0, 0, 0)
 };
@@ -931,9 +948,9 @@ static const struct mtk_iommu_port mm_port_mt6853[] = {
 	MM_IOMMU_PORT_INIT("L20_IPE_RSC_RDMA0", 0, 20, 0x17, 4),
 	MM_IOMMU_PORT_INIT("L20_IPE_RSC_WDMA", 0, 20, 0x17, 5),
 	/*Larb22 -- 1(191) */
-	MM_IOMMU_PORT_INIT("L22_CCU0", 0, 22, 0x1c, 0),
+	MM_IOMMU_FAKE_PORT_INIT("L22_CCU0", 0, 22, 0x1c, 0, CCU_FAKE),
 	/*Larb23  -- 1(192) */
-	MM_IOMMU_PORT_INIT("L23_CCU1", 0, 23, 0x18, 0),
+	MM_IOMMU_FAKE_PORT_INIT("L23_CCU1", 0, 23, 0x18, 0, CCU_FAKE),
 
 	MM_IOMMU_PORT_INIT("MM_UNKNOWN", 0, 0, 0, 0)
 };
@@ -1471,11 +1488,11 @@ static const struct mtk_iommu_port mm_port_mt6893[] = {
 	MM_IOMMU_PORT_INIT("L20_IPE_RSC_WDMA_DISP", 0,
 		20, 0x15, 5),
 	/*Larb22 */
-	MM_IOMMU_PORT_INIT("L22_CCU_DISP", 0,
-		22, 0x18, 0),
+	MM_IOMMU_FAKE_PORT_INIT("L22_CCU_DISP", 0,
+		22, 0x18, 0, CCU_FAKE),
 	/*Larb23 */
-	MM_IOMMU_PORT_INIT("L23_CCU_MDP", 1,
-		23, 0x18, 0),
+	MM_IOMMU_FAKE_PORT_INIT("L23_CCU_MDP", 1,
+		23, 0x18, 0, CCU_FAKE),
 
 	MM_IOMMU_PORT_INIT("UNKNOWN", 0, 0, 0, 0)
 };
@@ -2034,13 +2051,16 @@ static const struct mtk_iommu_port mm_port_mt6983[] = {
 	MM_IOMMU_PORT_INIT("L30_CAM3_TNCSO_R1", DISP_IOMMU, 30, 0x34, 6),
 
 	/* Larb31 -- 2 */
-	MM_IOMMU_PORT_INIT("CCU0", MDP_IOMMU, 31, 0x36, 0),
-	MM_IOMMU_PORT_INIT("CCU1", MDP_IOMMU, 31, 0x37, 1),
+	MM_IOMMU_FAKE_PORT_INIT("CCU0", MDP_IOMMU, 31, 0x36, 0, CCU_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("CCU1", MDP_IOMMU, 31, 0x37, 1, CCU_FAKE),
 
 	/* Larb32 -- 2 */
-	MM_IOMMU_PORT_INIT("VIDEO_uP", MDP_IOMMU, 32, 0x7, 0),
-	MM_IOMMU_PORT_INIT("GCE_D_M", MDP_IOMMU, 32, 0x7, 1),
-	MM_IOMMU_PORT_INIT("GCE_M_M", MDP_IOMMU, 32, 0x7, 2),
+	MM_IOMMU_FAKE_PORT_INIT("VIDEO_uP", MDP_IOMMU, 32, 0x7, 0,
+				GCE_VIDEOUP_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("GCE_D_M", MDP_IOMMU, 32, 0x7, 1,
+				GCE_VIDEOUP_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("GCE_M_M", MDP_IOMMU, 32, 0x7, 2,
+				GCE_VIDEOUP_FAKE),
 
 	MM_IOMMU_PORT_INIT("MM_UNKNOWN", 0, 0, 0, 0)
 };
@@ -2522,13 +2542,16 @@ static const struct mtk_iommu_port mm_port_mt6879[] = {
 	MM_IOMMU_PORT_INIT("LARB30_PORT6", DISP_IOMMU, 30, 0x34, 6),
 
 	/* Larb31 -- 2 */
-	MM_IOMMU_PORT_INIT("CCU0", DISP_IOMMU, 31, 0x3e, 0),
-	MM_IOMMU_PORT_INIT("CCU1", DISP_IOMMU, 31, 0x3f, 1),
+	MM_IOMMU_FAKE_PORT_INIT("CCU0", DISP_IOMMU, 31, 0x3e, 0, CCU_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("CCU1", DISP_IOMMU, 31, 0x3f, 1, CCU_FAKE),
 
 	/* Larb32 -- 3 */
-	MM_IOMMU_PORT_INIT("VIDEO_uP", DISP_IOMMU, 32, 0x4, 0),
-	MM_IOMMU_PORT_INIT("GCE_D_M", DISP_IOMMU, 32, 0x4, 1),
-	MM_IOMMU_PORT_INIT("GCE_M_M", DISP_IOMMU, 32, 0x4, 2),
+	MM_IOMMU_FAKE_PORT_INIT("VIDEO_uP", DISP_IOMMU, 32, 0x4, 0,
+				GCE_VIDEOUP_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("GCE_D_M", DISP_IOMMU, 32, 0x4, 1,
+				GCE_VIDEOUP_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("GCE_M_M", DISP_IOMMU, 32, 0x4, 2,
+				GCE_VIDEOUP_FAKE),
 
 	MM_IOMMU_PORT_INIT("MM_UNKNOWN", 0, 0, 0, 0)
 };
@@ -3110,13 +3133,16 @@ static const struct mtk_iommu_port mm_port_mt6895[] = {
 	MM_IOMMU_PORT_INIT("LARB30_PORT6", DISP_IOMMU, 30, 0x34, 6),
 
 	/* larb31--fake */
-	MM_IOMMU_PORT_INIT("CCU0", MDP_IOMMU, 31, 0x36, 0),
-	MM_IOMMU_PORT_INIT("CCU1", MDP_IOMMU, 31, 0x37, 1),
+	MM_IOMMU_FAKE_PORT_INIT("CCU0", MDP_IOMMU, 31, 0x36, 0, CCU_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("CCU1", MDP_IOMMU, 31, 0x37, 1, CCU_FAKE),
 
 	/* larb32--fake */
-	MM_IOMMU_PORT_INIT("VIDEO_uP", MDP_IOMMU, 32, 0x7, 0),
-	MM_IOMMU_PORT_INIT("GCE_D_M", MDP_IOMMU, 32, 0x7, 1),
-	MM_IOMMU_PORT_INIT("GCE_M_M", MDP_IOMMU, 32, 0x7, 2),
+	MM_IOMMU_FAKE_PORT_INIT("VIDEO_uP", MDP_IOMMU, 32, 0x7, 0,
+				GCE_VIDEOUP_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("GCE_D_M", MDP_IOMMU, 32, 0x7, 1,
+				GCE_VIDEOUP_FAKE),
+	MM_IOMMU_FAKE_PORT_INIT("GCE_M_M", MDP_IOMMU, 32, 0x7, 2,
+				GCE_VIDEOUP_FAKE),
 
 	MM_IOMMU_PORT_INIT("MM_UNKNOWN", 0, 0, 0, 0)
 };
@@ -3506,22 +3532,28 @@ static int mtk_iommu_get_tf_port_idx(int tf_id,
 	port_list = m4u_data->plat_data->port_list[type];
 	/* check (larb | port) for smi_larb or apu_bus */
 	for (i = 0; i < port_nr; i++) {
-		if (port_list[i].tf_id == vld_id &&
+		if (port_list[i].port_type == NORMAL &&
+		    port_list[i].tf_id == vld_id &&
 		    port_list[i].m4u_id == id)
 			return i;
 	}
 	/* check larb for smi_common */
-	for (i = 0; i < port_nr; i++) {
-		if ((port_list[i].tf_id & F_MMU_INT_TF_CCU_MSK) == (vld_id &
-		    F_MMU_INT_TF_CCU_MSK) && port_list[i].m4u_id == id)
-			return i;
+	if (type == MM_IOMMU && m4u_data->plat_data->mm_tf_ccu_support) {
+		for (i = 0; i < port_nr; i++) {
+			if (port_list[i].port_type == CCU_FAKE &&
+			    (port_list[i].tf_id & F_MMU_INT_TF_CCU_MSK) ==
+			    (vld_id & F_MMU_INT_TF_CCU_MSK) &&
+			    port_list[i].m4u_id == id)
+				return i;
+		}
 	}
 
 	/* check gce/video_uP */
 	mm_tf_is_gce_videoup = m4u_data->plat_data->mm_tf_is_gce_videoup;
-	if (mm_tf_is_gce_videoup) {
+	if (type == MM_IOMMU && mm_tf_is_gce_videoup) {
 		for (i = 0; i < port_nr; i++) {
-			if (mm_tf_is_gce_videoup(port_list[i].tf_id, tf_id) &&
+			if (port_list[i].port_type == GCE_VIDEOUP_FAKE &&
+			    mm_tf_is_gce_videoup(port_list[i].tf_id, tf_id) &&
 			    port_list[i].m4u_id == id)
 				return i;
 		}
@@ -4454,6 +4486,7 @@ static int mt6983_tf_is_gce_videoup(u32 port_tf, u32 vld_tf)
 static const struct mtk_m4u_plat_data mt6779_data = {
 	.port_list[MM_IOMMU] = iommu_port_mt6779,
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(iommu_port_mt6779),
+	.mm_tf_ccu_support   = 1,
 };
 
 static const struct mtk_m4u_plat_data mt6873_data = {
@@ -4461,6 +4494,7 @@ static const struct mtk_m4u_plat_data mt6873_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6873),
 	.port_list[APU_IOMMU] = apu_port_mt6873,
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6873),
+	.mm_tf_ccu_support = 1,
 };
 
 static const struct mtk_m4u_plat_data mt6853_data = {
@@ -4468,12 +4502,14 @@ static const struct mtk_m4u_plat_data mt6853_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6853),
 	.port_list[APU_IOMMU] = apu_port_mt6853,
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6853),
+	.mm_tf_ccu_support = 1,
 };
 
 static const struct mtk_m4u_plat_data mt6855_data = {
 	.port_list[MM_IOMMU] = mm_port_mt6855,
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6855),
 	.mm_tf_is_gce_videoup = mt6855_tf_is_gce_videoup,
+	.mm_tf_ccu_support = 0,
 };
 
 static const struct mtk_m4u_plat_data mt6893_data = {
@@ -4481,6 +4517,7 @@ static const struct mtk_m4u_plat_data mt6893_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6893),
 	.port_list[APU_IOMMU] = apu_port_mt6893,
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6893),
+	.mm_tf_ccu_support = 1,
 };
 
 static const struct mtk_m4u_plat_data mt6983_data = {
@@ -4488,6 +4525,7 @@ static const struct mtk_m4u_plat_data mt6983_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6983),
 	.port_list[APU_IOMMU] = apu_port_mt6983,
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6983),
+	.mm_tf_ccu_support = 1,
 	.mm_tf_is_gce_videoup = mt6983_tf_is_gce_videoup,
 	.peri_data	= mt6983_peri_iommu_data,
 	.peri_tf_analyse = mt6983_peri_tf,
@@ -4502,6 +4540,7 @@ static const struct mtk_m4u_plat_data mt6879_data = {
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6879),
 	.port_list[PERI_IOMMU] = peri_port_mt6879,
 	.port_nr[PERI_IOMMU]   = ARRAY_SIZE(peri_port_mt6879),
+	.mm_tf_ccu_support = 1,
 	.mm_tf_is_gce_videoup = mt6879_tf_is_gce_videoup,
 	.mau_config	= mau_config_default,
 	.mau_config_nr = ARRAY_SIZE(mau_config_default),
@@ -4512,6 +4551,7 @@ static const struct mtk_m4u_plat_data mt6895_data = {
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(mm_port_mt6895),
 	.port_list[APU_IOMMU] = apu_port_mt6895,
 	.port_nr[APU_IOMMU]   = ARRAY_SIZE(apu_port_mt6895),
+	.mm_tf_ccu_support = 1,
 	.mm_tf_is_gce_videoup = mt6983_tf_is_gce_videoup,
 	.peri_data	= mt6983_peri_iommu_data,
 	.peri_tf_analyse = mt6983_peri_tf,
