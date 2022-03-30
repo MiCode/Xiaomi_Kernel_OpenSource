@@ -109,6 +109,5 @@ void drv3_dpmaif_hw_init_done(void);
 
 void drv3_dpmaif_set_axi_out_gated(void);
 void drv3_dpmaif_clr_axi_out_gated(void);
-extern struct hif_dpmaif_ctrl *dpmaif_ctrl_v3;
 
 #endif

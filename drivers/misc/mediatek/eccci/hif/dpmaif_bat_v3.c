@@ -32,7 +32,7 @@
 #include "ccci_hif_dpmaif_v3.h"
 #include "dpmaif_drv_v3.h"
 #include "dpmaif_bat_v3.h"
-
+#include "dpmaif_debug.h"
 
 #define MAX_ALLOC_BAT_CNT (100000)
 
@@ -335,27 +335,27 @@ static int dpmaif_bat_init(struct dpmaif_bat_request *bat_req,
 	int sw_buf_size = is_frag ? sizeof(struct dpmaif_bat_page_t) :
 		sizeof(struct dpmaif_bat_skb_t);
 
-	bat_req->bat_size_cnt = DPMAIF_DL_BAT_ENTRY_SIZE;
+	bat_req->bat_size_cnt = dpmaif_ctrl->dl_bat_entry_size;
 	bat_req->skb_pkt_cnt = bat_req->bat_size_cnt;
 	bat_req->pkt_buf_sz = is_frag ? DPMAIF_BUF_FRAG_SIZE :
 							DPMAIF_BUF_PKT_SIZE;
 
 	/* alloc buffer for HW && AP SW */
-#if (DPMAIF_DL_BAT_SIZE > PAGE_SIZE)
-	 bat_req->bat_base = dma_alloc_coherent(
-		ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-		(bat_req->bat_size_cnt * sizeof(struct dpmaif_bat_t)),
-		&bat_req->bat_phy_addr, GFP_KERNEL);
+	if (dpmaif_ctrl->dl_bat_size > PAGE_SIZE) {
+		bat_req->bat_base = dma_alloc_coherent(
+			ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
+			(bat_req->bat_size_cnt * sizeof(struct dpmaif_bat_t)),
+			&bat_req->bat_phy_addr, GFP_KERNEL);
 #ifdef DPMAIF_DEBUG_LOG
-	CCCI_HISTORY_LOG(-1, TAG, "bat dma_alloc_coherent\n");
+		CCCI_HISTORY_LOG(-1, TAG, "bat dma_alloc_coherent\n");
 #endif
-#else
-	bat_req->bat_base = dma_pool_alloc(dpmaif_ctrl->rx_bat_dmapool,
-		GFP_KERNEL, &bat_req->bat_phy_addr);
+	} else {
+		bat_req->bat_base = dma_pool_alloc(dpmaif_ctrl->rx_bat_dmapool,
+			GFP_KERNEL, &bat_req->bat_phy_addr);
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "bat dma_pool_alloc\n");
 #endif
-#endif
+	}
 	/* alloc buffer for AP SW to record skb information */
 
 	bat_req->bat_skb_ptr = kzalloc((bat_req->skb_pkt_cnt *
@@ -399,6 +399,33 @@ static inline int alloc_bat_skb(
 	cur_bat->p_buffer_addr = (unsigned int)(data_base_addr & 0xFFFFFFFF);
 
 	return 0;
+}
+
+static inline void dpmaif_calc_bat_reorder(
+		struct dpmaif_bat_request *bat, u16 alloc_cnt, int is_frag)
+{
+	u16 reorder_cnt = 0;
+
+	if (bat->bat_rd_idx > bat->bat_wr_idx)
+		reorder_cnt = bat->bat_rd_idx - bat->bat_wr_idx - 1;
+	else
+		reorder_cnt = bat->bat_size_cnt - bat->bat_wr_idx
+					+ bat->bat_rd_idx;
+
+	if (reorder_cnt > 8000) {
+		if (dpmaif_ctrl->enable_pit_debug > 0)
+			DPMAIF_DEBUG_ADD(DEBUG_TYPE_BAT_REORDER,
+			DEBUG_VERION_V3, is_frag, alloc_cnt,
+			bat->bat_rd_idx, bat->bat_wr_idx,
+			0, reorder_cnt,
+			(unsigned int)(local_clock() / 1000000),
+			NULL);
+
+		CCCI_BUF_LOG_TAG(0, CCCI_DUMP_DPMAIF, TAG,
+			"Bat-REQ: [%llu] is_frag:%d; all_cnt:%u; rd:%u; wr:%u; reorder:%u\n",
+			local_clock(), is_frag, alloc_cnt, bat->bat_rd_idx,
+			bat->bat_wr_idx, reorder_cnt);
+	}
 }
 
 static int dpmaif_alloc_bat_req(int update_bat_cnt,
@@ -472,6 +499,9 @@ alloc_end:
 		if (update_bat_cnt)
 			ccci_dpmaif_skb_wakeup_thread();
 	}
+
+	if (update_bat_cnt)
+		dpmaif_calc_bat_reorder(bat_req, (u16)count, 0);
 
 	return ret;
 }
@@ -577,6 +607,9 @@ alloc_end:
 		if (update_bat_cnt)
 			ccci_dpmaif_skb_wakeup_thread();
 	}
+
+	if (update_bat_cnt)
+		dpmaif_calc_bat_reorder(bat_req, (u16)count, 1);
 
 	return ret;
 }
@@ -983,19 +1016,19 @@ int ccci_dpmaif_bat_sw_init_v3(void)
 	if (!dpmaif_ctrl->bat_frag)
 		return LOW_MEMORY_BAT;
 
-#if !(DPMAIF_DL_BAT_SIZE > PAGE_SIZE)
-	dpmaif_ctrl->rx_bat_dmapool = dma_pool_create("dpmaif_bat_req_DMA",
-		ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
-		(DPMAIF_DL_BAT_ENTRY_SIZE*sizeof(struct dpmaif_bat_t)), 64, 0);
+	if (dpmaif_ctrl->dl_bat_size <= PAGE_SIZE) {
+		dpmaif_ctrl->rx_bat_dmapool = dma_pool_create("dpmaif_bat_req_DMA",
+			ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
+			(dpmaif_ctrl->dl_bat_entry_size*sizeof(struct dpmaif_bat_t)), 64, 0);
 
-	if (!dpmaif_ctrl->rx_bat_dmapool) {
-		CCCI_ERROR_LOG(-1, TAG, "dma poll create fail.\n");
-		return LOW_MEMORY_BAT;
-	}
+		if (!dpmaif_ctrl->rx_bat_dmapool) {
+			CCCI_ERROR_LOG(-1, TAG, "dma poll create fail.\n");
+			return LOW_MEMORY_BAT;
+		}
 #ifdef DPMAIF_DEBUG_LOG
-	CCCI_HISTORY_LOG(0, TAG, "bat dma pool\n");
+		CCCI_HISTORY_LOG(0, TAG, "bat dma pool\n");
 #endif
-#endif
+	}
 
 	ret = dpmaif_bat_init(dpmaif_ctrl->bat_req, 0);
 	if (ret)

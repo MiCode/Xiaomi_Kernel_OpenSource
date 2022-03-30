@@ -47,6 +47,32 @@
 #define TAG "cif"
 /* struct md_ccif_ctrl *ccif_ctrl; */
 unsigned int devapc_check_flag;
+spinlock_t devapc_flag_lock;
+
+int ccif_read32(void *b, unsigned long a)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	spin_lock_irqsave(&devapc_flag_lock, flags);
+	ret = ((devapc_check_flag == 1) ?
+			ioread32((void __iomem *)((b)+(a))) : 0);
+	spin_unlock_irqrestore(&devapc_flag_lock, flags);
+
+	return ret;
+}
+
+void ccif_write32(void *b, unsigned long a, unsigned int v)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&devapc_flag_lock, flags);
+	if (devapc_check_flag == 1) {
+		writel(v, (b) + (a));
+		mb(); /* make sure register access in order */
+	}
+	spin_unlock_irqrestore(&devapc_flag_lock, flags);
+}
 
 /* this table maybe can be set array when multi, or else. */
 static struct ccci_clk_node ccif_clk_table[] = {
@@ -1785,10 +1811,20 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 {
 	int i;
 	struct ccci_smem_region *region;
+	int reset_bit = -1;
 
-	{
-		int reset_bit = -1;
+	CCCI_NORMAL_LOG(md_id, TAG, "%s, ccif_hw_reset_ver = %d\n",
+			__func__, md_ctrl->ccif_hw_reset_ver);
 
+	if (md_ctrl->ccif_hw_reset_ver == 1) {
+		reset_bit = 26;
+
+		/* set ccif0 reset bit */
+		ccci_write32(md_ctrl->infracfg_base, 0xF50, 1 << reset_bit);
+
+		/* set ccif0 reset bit */
+		ccci_write32(md_ctrl->infracfg_base, 0xF54, 1 << reset_bit);
+	} else {
 		switch (ccif_id) {
 		case AP_MD1_CCIF:
 			reset_bit = 8;
@@ -1892,7 +1928,7 @@ static int ccif_late_init(unsigned char hif_id)
 	 * request_irq will get a unbalance warning
 	 */
 	ret = request_irq(ccif_ctrl->ap_ccif_irq1_id, md_cd_ccif_isr,
-			ccif_ctrl->ap_ccif_irq1_flags, "CCIF_AP_DATA",
+			ccif_ctrl->ap_ccif_irq1_flags, "CCIF_AP_DATA1",
 			ccif_ctrl);
 	if (ret) {
 		CCCI_ERROR_LOG(ccif_ctrl->md_id, TAG,
@@ -1916,6 +1952,7 @@ static void ccif_set_clk_on(unsigned char hif_id)
 	struct md_ccif_ctrl *ccif_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 	int idx, ret = 0;
+	unsigned long flags;
 
 	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s at the begin...\n", __func__);
 
@@ -1927,7 +1964,9 @@ static void ccif_set_clk_on(unsigned char hif_id)
 			CCCI_ERROR_LOG(ccif_ctrl->md_id, TAG,
 				"%s,ret=%d\n",
 				__func__, ret);
+		spin_lock_irqsave(&devapc_flag_lock, flags);
 		devapc_check_flag = 1;
+		spin_unlock_irqrestore(&devapc_flag_lock, flags);
 	}
 
 	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s at the end...\n", __func__);
@@ -1943,10 +1982,24 @@ static void ccif_set_clk_off(unsigned char hif_id)
 	struct md_ccif_ctrl *ccif_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 	int idx;
+	unsigned long flags;
 
 	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s at the begin...\n", __func__);
 
-	if (ccif_ctrl->plat_val.md_gen <= 6297) {
+	if ((ccif_ctrl->plat_val.md_gen >= 6298) ||
+	    (ccif_ctrl->ccif_hw_reset_ver == 1)) {
+		/* write 1 clear register */
+		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
+			0xBF0, 0xF7FF);
+		spin_lock_irqsave(&devapc_flag_lock, flags);
+		devapc_check_flag = 0;
+		spin_unlock_irqrestore(&devapc_flag_lock, flags);
+		for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
+			if (ccif_clk_table[idx].clk_ref == NULL)
+				continue;
+			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
+		}
+	} else if (ccif_ctrl->plat_val.md_gen <= 6297) {
 		/* Clean MD_PCCIF4_SW_READY and MD_PCCIF4_PWR_ON */
 		if (!IS_ERR(ccif_ctrl->pericfg_base)) {
 			CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s:pericfg_base:0x%p\n",
@@ -1979,17 +2032,9 @@ static void ccif_set_clk_off(unsigned char hif_id)
 				ccci_write32(ccif_ctrl->md_ccif5_base, 0x14,
 					0xFF); /* special use ccci_write32 */
 			}
+			spin_lock_irqsave(&devapc_flag_lock, flags);
 			devapc_check_flag = 0;
-			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
-		}
-	} else if (ccif_ctrl->plat_val.md_gen >= 6298) {
-		/* write 1 clear register */
-		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
-			0xBF0, 0xF7FF);
-		devapc_check_flag = 0;
-		for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
-			if (ccif_clk_table[idx].clk_ref == NULL)
-				continue;
+			spin_unlock_irqrestore(&devapc_flag_lock, flags);
 			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
 		}
 	}
@@ -2199,7 +2244,7 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 	CCCI_DEBUG_LOG(-1, TAG, "ccif_irq0:%d,ccif_irq1:%d\n",
 		md_ctrl->ap_ccif_irq0_id, md_ctrl->ap_ccif_irq1_id);
 	ret = request_irq(md_ctrl->ap_ccif_irq0_id, md_ccif_isr,
-			md_ctrl->ap_ccif_irq0_flags, "CCIF_AP_DATA", md_ctrl);
+			md_ctrl->ap_ccif_irq0_flags, "CCIF_AP_DATA0", md_ctrl);
 	if (ret) {
 		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
 			"request CCIF_AP_DATA IRQ0(%d) error %d\n",
@@ -2211,6 +2256,31 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
 			"irq_set_irq_wake ccif ap_ccif_irq0_id(%d) error %d\n",
 			md_ctrl->ap_ccif_irq0_id, ret);
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,ccif_hw_reset_ver",
+			&md_ctrl->ccif_hw_reset_ver);
+	if (ret < 0)
+		md_ctrl->ccif_hw_reset_ver = 0;
+
+	if (md_ctrl->ccif_hw_reset_ver == 1) {
+		node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg");
+
+		if (!node) {
+			CCCI_ERROR_LOG(-1, TAG,
+				       "[%s] error: infracfg node is not exist\n",
+				       __func__);
+			return -8;
+		}
+
+		md_ctrl->infracfg_base = of_iomap(node, 0);
+		if (!md_ctrl->infracfg_base) {
+			CCCI_ERROR_LOG(-1, TAG,
+				       "[%s] error: infracfg_base fail\n",
+				       __func__);
+			return -8;
+		}
+	}
+
 	return 0;
 
 }
@@ -2221,6 +2291,8 @@ int ccci_ccif_hif_init(struct platform_device *pdev,
 	int i, ret;
 	struct device_node *node_md;
 	struct md_ccif_ctrl *md_ctrl;
+
+	spin_lock_init(&devapc_flag_lock);
 
 	md_ctrl = kzalloc(sizeof(struct md_ccif_ctrl), GFP_KERNEL);
 	if (!md_ctrl) {

@@ -38,6 +38,15 @@ static int s_devapc_dump_counter;
 static void (*s_md_state_cb)(enum MD_STATE old_state,
 				enum MD_STATE new_state);
 
+static void (*s_dpmaif_debug_push_data_to_stack)(void);
+
+void ccci_set_dpmaif_debug_cb(void (*dpmaif_debug_cb)(void))
+{
+	s_dpmaif_debug_push_data_to_stack = dpmaif_debug_cb;
+}
+EXPORT_SYMBOL(ccci_set_dpmaif_debug_cb);
+
+
 int mtk_ccci_register_md_state_cb(
 		void (*md_state_cb)(
 			enum MD_STATE old_state,
@@ -247,6 +256,9 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		fsm_md_wdt_handler(&ctl->ee_ctl);
 		break;
 	case EXCEPTION_EE:
+		if (s_dpmaif_debug_push_data_to_stack)
+			s_dpmaif_debug_push_data_to_stack();
+
 		fsm_broadcast_state(ctl, EXCEPTION);
 		/* no need to implement another
 		 * event polling in EE_CTRL,

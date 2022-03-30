@@ -47,18 +47,14 @@
 #define DPMAIF_HW_CHK_PIT_NUM      (DPMAIF_HW_CHK_BAT_NUM*2)
 #define DPMAIF_HW_CHK_RB_PIT_NUM   64
 
-#define DPMAIF_DL_BAT_ENTRY_SIZE  16384 /* <- 1024 <- 128 */
 
 /* 2048*/ /* 256, 100pkts*2*10ms=2000*12B=>24k */
-#define DPMAIF_DL_PIT_ENTRY_SIZE  (DPMAIF_DL_BAT_ENTRY_SIZE * 2)
 #define DPMAIF_UL_DRB_ENTRY_SIZE  2048 /* from 512 */
 
 #define DPMAIF_DL_PIT_BYTE_SIZE   16
 #define DPMAIF_DL_BAT_BYTE_SIZE   8
 #define DPMAIF_UL_DRB_BYTE_SIZE  8
 
-#define DPMAIF_DL_PIT_SIZE (DPMAIF_DL_PIT_ENTRY_SIZE*DPMAIF_DL_PIT_BYTE_SIZE)
-#define DPMAIF_DL_BAT_SIZE (DPMAIF_DL_BAT_ENTRY_SIZE*DPMAIF_DL_BAT_BYTE_SIZE)
 #define DPMAIF_UL_DRB_SIZE (DPMAIF_UL_DRB_ENTRY_SIZE*DPMAIF_UL_DRB_BYTE_SIZE)
 
 
@@ -234,8 +230,6 @@ struct dpmaif_rx_queue {
 	unsigned int pit_dp;
 
 	struct dpmaif_rx_lro_info lro_info;
-
-	struct dpmaif_debug_data_t dbg_data;
 };
 
 /****************************************************************************
@@ -398,6 +392,16 @@ struct hif_dpmaif_ctrl {
 	int bat_alloc_running;
 
 	int enable_pit_debug;
+
+	int hw_reset_ver;
+	void __iomem *dpmaif_reset_pd_base;
+
+	unsigned int dl_bat_entry_size;
+	unsigned int dl_pit_entry_size;
+	unsigned int dl_bat_size;
+	unsigned int dl_pit_size;
+	/* gro_config:0 disable;1 enable */
+	unsigned int gro_config;
 };
 
 #ifndef CCCI_KMODULE_ENABLE
@@ -506,5 +510,16 @@ extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
 	const char *property);
 extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
 extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
+extern void mt_irq_dump_status(unsigned int irq);
+#endif
+
+extern void ccmni_set_cur_speed(u64 cur_dl_speed);
+
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+extern int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
+	unsigned long size, const char *name);
+#endif
 
 #endif				/* __MODEM_DPMA_H__ */

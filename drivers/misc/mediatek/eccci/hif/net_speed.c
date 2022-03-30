@@ -73,7 +73,7 @@ static void actions_per_1s(void)
 	u64 dl_speed[DL_QUE_NUM];
 	u64 ul_speed[UL_QUE_NUM];
 	struct speed_t *ctl;
-	int i, dl_speed_total = 0;
+	int i, ul_speed_total = 0, dl_speed_total = 0;
 
 	if (s_spd_cb_num_1s || s_spd_dl_cb_num_1s) {
 		/* Copy speed info */
@@ -92,6 +92,8 @@ static void actions_per_1s(void)
 				ul_speed[i] = ctl->m_speed;
 			else
 				ul_speed[i] = 0;
+
+			ul_speed_total += ul_speed[i];
 		}
 		/* Trigger call back function */
 		for (i = 0; i < s_spd_cb_num_1s; i++)
@@ -99,7 +101,7 @@ static void actions_per_1s(void)
 					ul_speed, UL_QUE_NUM);
 
 		for (i = 0; i < s_spd_dl_cb_num_1s; i++)
-			s_spd_dl_func_1s[i](dl_speed_total);
+			s_spd_dl_func_1s[i](ul_speed_total, dl_speed_total);
 
 	}
 }
@@ -428,7 +430,7 @@ int mtk_ccci_net_spd_cfg(int toggle)
 	return s_show;
 }
 
-void mtk_ccci_register_dl_speed_1s_callback(total_spd_fun func)
+void mtk_ccci_register_speed_1s_callback(total_spd_fun func)
 {
 	if ((s_spd_dl_cb_num_1s < MAX_CALL_BACK_FUNC_NUM) && func) {
 		s_spd_dl_func_1s[s_spd_dl_cb_num_1s] = func;

@@ -62,6 +62,8 @@ long gro_flush_timer;
 
 static unsigned long timeout_flush_num, clear_flush_num;
 
+static u64 g_cur_dl_speed;
+
 /*
  * Register the sysctl to set tcp_pacing_shift.
  */
@@ -110,6 +112,13 @@ void set_ccmni_rps(unsigned long value)
 		set_rps_map(ctlb->ccmni_inst[i]->dev->_rx, value);
 }
 EXPORT_SYMBOL(set_ccmni_rps);
+
+
+void ccmni_set_cur_speed(u64 cur_dl_speed)
+{
+	g_cur_dl_speed = cur_dl_speed;
+}
+EXPORT_SYMBOL(ccmni_set_cur_speed);
 
 
 /********************internal function*********************/
@@ -182,18 +191,23 @@ static inline int is_ack_skb(int md_id, struct sk_buff *skb)
 static int is_skb_gro(struct sk_buff *skb)
 {
 	u32 packet_type;
+	u32 protocol = 0xFFFFFFFF;
 
 	packet_type = skb->data[0] & 0xF0;
-	if (packet_type == IPV4_VERSION &&
-		(ip_hdr(skb)->protocol == IPPROTO_TCP ||
-		ip_hdr(skb)->protocol == IPPROTO_UDP))
+
+	if (packet_type == IPV4_VERSION)
+		protocol = ip_hdr(skb)->protocol;
+	else if (packet_type == IPV6_VERSION)
+		protocol = ipv6_hdr(skb)->nexthdr;
+
+	if (protocol == IPPROTO_TCP) {
 		return 1;
-	else if (packet_type == IPV6_VERSION &&
-		(ipv6_hdr(skb)->nexthdr == IPPROTO_TCP ||
-		ipv6_hdr(skb)->nexthdr == IPPROTO_UDP))
-		return 1;
-	else
-		return 0;
+	} else if (protocol == IPPROTO_UDP) {
+		if (g_cur_dl_speed > 500000000LL) //>500M
+			return 1;
+	}
+
+	return 0;
 }
 
 void ccmni_clr_flush_timer(void)
@@ -431,7 +445,7 @@ static int ccmni_open(struct net_device *dev)
 		dev->features, gro_flush_timer, ccmni->flt_cnt);
 
 	if (s_call_times == 0)
-		set_ccmni_rps(0x08);
+		set_ccmni_rps(0x70);
 	s_call_times++;
 
 	return 0;
@@ -1096,18 +1110,6 @@ const struct header_ops ccmni_eth_header_ops ____cacheline_aligned = {
 };
 #endif
 
-/* vendor hook callback function
- *used to disable auto generate ipv6 link-local address for ccmni device
-
-void mtk_dis_ipv6_lla(void *ignore, struct net_device *dev, bool *ret)
-{
-	if (!strncmp(dev->name, "ccmni", 5))
-		*ret = true;
-	else
-		*ret = false;
-}
-*/
-
 static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 {
 	int i = 0, j = 0, ret = 0;
@@ -1152,13 +1154,13 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 	ccmni_ctl_blk[md_id] = ctlb;
 
 	memcpy(ctlb->ccci_ops, ccci_info, sizeof(struct ccmni_ccci_ops));
-/*
- *	ret = register_trace_android_vh_ipv6_gen_linklocal_addr(mtk_dis_ipv6_lla, NULL);
-	if (ret) {
-		pr_debug("register mtk_dis_ipv6_lla failed, ret: %d\n", ret);
-		goto alloc_mem_fail;
-	}
-*/
+
+/*	ret = register_trace_android_vh_ipv6_gen_linklocal_addr(mtk_dis_ipv6_lla, NULL);
+ *	if (ret) {
+ *		pr_debug("register mtk_dis_ipv6_lla failed, ret: %d\n", ret);
+ *		goto alloc_mem_fail;
+ *	}
+ */
 	for (i = 0; i < ctlb->ccci_ops->ccmni_num; i++) {
 		/* allocate netdev */
 		if (ctlb->ccci_ops->md_ability & MODEM_CAP_CCMNI_MQ)
