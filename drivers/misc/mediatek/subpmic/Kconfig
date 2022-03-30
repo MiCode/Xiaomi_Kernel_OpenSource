@@ -21,3 +21,13 @@ config MT6360_DBG
 	depends on MFD_MT6360
 	help
 	  Say Y here to enable MT6360 Debug support.
+
+config MT6375_DBG
+	tristate "Mediatek MT6375 Debug core"
+	depends on MTK_SUBPMIC_MISC
+	depends on MFD_MT6375
+	help
+	  Say Y here to enable MT6375 Debug support.
+	  Say N here to disable.
+	  Provide Read/Write interface by debugfs ext_dev_io.
+	  Also support multiple size condition.
