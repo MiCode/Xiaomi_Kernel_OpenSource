@@ -108,25 +108,27 @@ static int btif_tx_thr_set(struct _MTK_BTIF_INFO_STR_ *p_btif,
 			   unsigned int thr_count);
 #endif
 
-static int btif_dump_array(const char *string, const char *p_buf, int len)
+int btif_dump_array(const char *string, const char *p_buf, int len)
 {
+#define BTIF_LENGTH_PER_LINE 32
 	unsigned int idx = 0;
-	unsigned char str[60];
+	unsigned char str[BTIF_LENGTH_PER_LINE * 3 + 2];
 	unsigned char *p_str = NULL;
 
 	pr_info("========dump %s start <length:%d>========\n", string, len);
 	p_str = &str[0];
 	for (idx = 0; idx < len; idx++, p_buf++) {
-		sprintf(p_str, "%02x ", *p_buf);
+		if (sprintf(p_str, "%02x ", *p_buf) < 0)
+			return -1;
 		p_str += 3;
-		if (15 == (idx % 16)) {
+		if ((BTIF_LENGTH_PER_LINE - 1) == (idx % BTIF_LENGTH_PER_LINE)) {
 			*p_str++ = '\n';
 			*p_str = '\0';
 			pr_info("%s", str);
 			p_str = &str[0];
 		}
 	}
-	if (len % 16) {
+	if (len % BTIF_LENGTH_PER_LINE) {
 		*p_str++ = '\n';
 		*p_str = '\0';
 		pr_info("%s", str);

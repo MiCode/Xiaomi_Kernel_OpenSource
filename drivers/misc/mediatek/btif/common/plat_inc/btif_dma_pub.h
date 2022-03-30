@@ -186,6 +186,7 @@ int hal_rx_dma_irq_handler(struct _MTK_DMA_INFO_STR_ *p_dma_info,
  *****************************************************************************/
 int hal_dma_dump_reg(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 		     enum _ENUM_BTIF_REG_ID_ flag);
+void hal_dma_dump_vfifo(struct _MTK_DMA_INFO_STR_ *p_dma_info);
 
 int hal_dma_pm_ops(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 		   enum _MTK_BTIF_PM_OPID_ opid);
@@ -194,4 +195,7 @@ int hal_dma_tx_has_pending(struct _MTK_DMA_INFO_STR_ *p_dma_info);
 int hal_dma_rx_has_pending(struct _MTK_DMA_INFO_STR_ *p_dma_info);
 int hal_rx_dma_lock(bool enable);
 
+int hal_btif_dma_check_status(struct _MTK_DMA_INFO_STR_ *p_dma_info);
+
+void hal_dma_dump_clk_reg(void);
 #endif /*__HAL_BTIFD_DMA_PUB_H_*/
