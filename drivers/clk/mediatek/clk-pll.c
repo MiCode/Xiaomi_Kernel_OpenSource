@@ -38,6 +38,8 @@
 #define MTK_WAIT_HWV_PLL_DONE_US		10
 
 static bool hwv_pll_prepared = true;
+static bool is_registered;
+
 /*
  * MediaTek PLLs are configured through their pcw value. The pcw value describes
  * a divider in the PLL feedback loop which consists of 7 bits for the integer
@@ -70,6 +72,9 @@ static inline struct mtk_clk_pll *to_mtk_clk_pll(struct clk_hw *hw)
 static int mtk_pll_is_prepared(struct clk_hw *hw)
 {
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
+
+	if (!is_registered)
+		return 0;
 
 	return (readl(pll->en_addr) & BIT(pll->data->pll_en_bit)) != 0;
 }
@@ -580,6 +585,8 @@ void mtk_clk_register_plls(struct device_node *node,
 	struct clk *clk;
 	struct regmap *hw_voter_regmap;
 
+	is_registered = false;
+
 	base = of_iomap(node, 0);
 	if (!base) {
 		pr_err("%s(): ioremap failed\n", __func__);
@@ -605,6 +612,8 @@ void mtk_clk_register_plls(struct device_node *node,
 			clk_data->clks[pll->id] = clk;
 		}
 	}
+
+	is_registered = true;
 }
 EXPORT_SYMBOL_GPL(mtk_clk_register_plls);
 

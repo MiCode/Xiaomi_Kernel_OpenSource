@@ -17,6 +17,7 @@
 #include "clk-mux.h"
 
 static unsigned long long profile_time[4];
+static bool is_registered;
 
 static inline struct mtk_clk_mux *to_mtk_clk_mux(struct clk_hw *hw)
 {
@@ -82,6 +83,9 @@ static int mtk_clk_mux_is_enabled(struct clk_hw *hw)
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	u32 val = 0;
 
+	if (!is_registered)
+		return 0;
+
 	regmap_read(mux->regmap, mux->data->mux_ofs, &val);
 
 	return (val & BIT(mux->data->gate_shift)) == 0;
@@ -91,6 +95,9 @@ static int mtk_clk_hwv_mux_is_enabled(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	u32 val = 0;
+
+	if (!is_registered)
+		return 0;
 
 	regmap_read(mux->hwv_regmap, mux->data->hwv_set_ofs, &val);
 
@@ -372,6 +379,8 @@ int mtk_clk_register_muxes(const struct mtk_mux *muxes,
 	struct clk *clk;
 	int i;
 
+	is_registered = false;
+
 	regmap = syscon_node_to_regmap(node);
 	if (IS_ERR(regmap)) {
 		pr_err("Cannot find regmap for %pOF: %ld\n", node,
@@ -398,6 +407,8 @@ int mtk_clk_register_muxes(const struct mtk_mux *muxes,
 			clk_data->clks[mux->id] = clk;
 		}
 	}
+
+	is_registered = true;
 
 	return 0;
 }
