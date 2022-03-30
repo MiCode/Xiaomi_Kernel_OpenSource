@@ -36,7 +36,7 @@
 #if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
 //#include "linux/bootprof.h"
 #else
-#include "bootprof.h
+#include "bootprof.h"
 #endif /* KERNEL_VERSION */
 #endif /* CONFIG_MTPROF */
 

@@ -21,6 +21,7 @@
 #include <linux/mman.h>
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
+#include <tee_drv.h>
 
 #include "tee_private.h"
 #include "tee.h"
@@ -105,20 +106,6 @@ exit:
 	kfree(file);
 
 	return ERR_PTR(err);
-}
-
-static int teec_shm_alloc(struct file *fd, size_t size, int *id)
-{
-	int shm_fd;
-	struct tee_ioctl_shm_alloc_data data;
-
-	memset(&data, 0, sizeof(data));
-	data.size = size;
-	shm_fd = ioctl(fd, TEE_IOC_SHM_ALLOC, &data);
-	if (shm_fd < 0)
-		return -1;
-	*id = data.id;
-	return shm_fd;
 }
 
 TEEC_Result TEEC_InitializeContext(const char *name, struct TEEC_Context *ctx)
@@ -645,10 +632,9 @@ EXPORT_SYMBOL(TEEC_RequestCancellation);
 TEEC_Result TEEC_RegisterSharedMemory(struct TEEC_Context *ctx,
 					struct TEEC_SharedMemory *shm)
 {
-	int fd;
 	size_t s;
-	struct dma_buf *dma_buf;
 	struct tee_shm *tee_shm;
+	struct tee_context *tee_ctx;
 
 	if (!ctx || !shm)
 		return TEEC_ERROR_BAD_PARAMETERS;
@@ -660,23 +646,25 @@ TEEC_Result TEEC_RegisterSharedMemory(struct TEEC_Context *ctx,
 	if (!s)
 		s = 8;
 
-	fd = teec_shm_alloc(ctx->fd, s, &shm->id);
-	if (fd < 0)
-		return TEEC_ERROR_OUT_OF_MEMORY;
-	dma_buf = dma_buf_get(fd);
-	close(fd);
+	tee_ctx = ctx->fd->private_data;
 
-	if (!dma_buf) {
-		shm->id = -1;
-		return TEEC_ERROR_OUT_OF_MEMORY;
+	mutex_lock(&tee_ctx->mutex);
+
+	tee_shm = isee_shm_kalloc(tee_ctx, s, TEE_SHM_DMA_KERN_BUF | TEE_SHM_MAPPED);
+	if (IS_ERR(tee_shm)) {
+		IMSG_ERROR("%s:%d Failed to get tee_shm!\n", __func__, __LINE__);
+		mutex_unlock(&tee_ctx->mutex);
+		return TEEC_ERROR_GENERIC;
 	}
 
-	tee_shm = dma_buf->priv;
-
-	shm->priv = dma_buf;
+	shm->id = tee_shm->id;
+	shm->priv = tee_shm;
 	shm->shadow_buffer = tee_shm->kaddr;
 	shm->alloced_size = s;
 	shm->registered_fd = -1;
+
+	mutex_unlock(&tee_ctx->mutex);
+
 	return TEEC_SUCCESS;
 }
 EXPORT_SYMBOL(TEEC_RegisterSharedMemory);
@@ -713,10 +701,9 @@ EXPORT_SYMBOL(TEEC_RegisterSharedMemoryFileDescriptor);
 TEEC_Result TEEC_AllocateSharedMemory(struct TEEC_Context *ctx,
 					struct TEEC_SharedMemory *shm)
 {
-	int fd;
 	size_t s;
-	struct dma_buf *dma_buf;
 	struct tee_shm *tee_shm;
+	struct tee_context *tee_ctx;
 
 	if (!ctx || !shm)
 		return TEEC_ERROR_BAD_PARAMETERS;
@@ -728,41 +715,44 @@ TEEC_Result TEEC_AllocateSharedMemory(struct TEEC_Context *ctx,
 	if (!s)
 		s = 8;
 
-	fd = teec_shm_alloc(ctx->fd, s, &shm->id);
-	if (fd < 0)
-		return TEEC_ERROR_OUT_OF_MEMORY;
-	dma_buf = dma_buf_get(fd);
-	close(fd);
+	tee_ctx = ctx->fd->private_data;
 
-	if (!dma_buf) {
-		shm->id = -1;
-		return TEEC_ERROR_OUT_OF_MEMORY;
+	mutex_lock(&tee_ctx->mutex);
+
+	tee_shm = isee_shm_kalloc(tee_ctx, s, TEE_SHM_DMA_KERN_BUF | TEE_SHM_MAPPED);
+	if (IS_ERR(tee_shm)) {
+		IMSG_ERROR("%s:%d Failed to get tee_shm!\n", __func__, __LINE__);
+		mutex_unlock(&tee_ctx->mutex);
+		return TEEC_ERROR_GENERIC;
 	}
 
-	tee_shm = dma_buf->priv;
-
-	shm->priv = dma_buf;
+	shm->id = tee_shm->id;
+	shm->priv = tee_shm;
 	shm->buffer = tee_shm->kaddr;
 	shm->shadow_buffer = NULL;
 	shm->alloced_size = s;
 	shm->registered_fd = -1;
+
+	mutex_unlock(&tee_ctx->mutex);
+
 	return TEEC_SUCCESS;
 }
 EXPORT_SYMBOL(TEEC_AllocateSharedMemory);
 
 void TEEC_ReleaseSharedMemory(struct TEEC_SharedMemory *shm)
 {
+	struct tee_context *tee_ctx;
+	struct tee_shm *tee_shm;
+
 	if (!shm || shm->id == -1)
 		return;
 
-	if (shm->priv) {
-		struct dma_buf *dma_buf = shm->priv;
+	tee_shm = shm->priv;
+	tee_ctx = tee_shm->ctx;
 
-		dma_buf_put(dma_buf);
-	}
+	mutex_lock(&tee_ctx->mutex);
 
-	if (shm->registered_fd >= 0)
-		close(shm->registered_fd);
+	isee_shm_kfree(tee_shm);
 
 	shm->id = -1;
 	shm->priv = NULL;
@@ -770,5 +760,7 @@ void TEEC_ReleaseSharedMemory(struct TEEC_SharedMemory *shm)
 		shm->buffer = NULL;
 	shm->shadow_buffer = NULL;
 	shm->registered_fd = -1;
+
+	mutex_unlock(&tee_ctx->mutex);
 }
 EXPORT_SYMBOL(TEEC_ReleaseSharedMemory);
