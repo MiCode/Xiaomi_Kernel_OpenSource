@@ -750,6 +750,13 @@ void mtk_sched_newidle_balance(void *data, struct rq *this_rq, struct rq_flags *
 	u64 now_ns;
 
 	/*
+	 * There is a task waiting to run. No need to search for one.
+	 * Return 0; the task will be enqueued when switching to idle.
+	 */
+	if (this_rq->ttwu_pending)
+		return;
+
+	/*
 	 * We must set idle_stamp _before_ calling idle_balance(), such that we
 	 * measure the duration of idle_balance() as idle time.
 	 */
