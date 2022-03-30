@@ -1984,6 +1984,7 @@ static bool typec_is_cc_open_state(struct tcpc_device *tcpc)
 	if (tcpc->typec_state == typec_disabled)
 		return true;
 
+
 #if CONFIG_WATER_DETECTION
 	if ((tcpc->tcpc_flags & TCPC_FLAGS_WATER_DETECTION) &&
 	    (tcpc->typec_state == typec_water_protection_wait ||
@@ -2075,6 +2076,10 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc)
 		if (tcpc->typec_lpm && !tcpc->typec_cable_only)
 			typec_enter_low_power_mode(tcpc);
 		if (typec_is_drp_toggling())
+			return 0;
+		if (tcpc->tcpc_flags & TCPC_FLAGS_FLOATING_GROUND &&
+		   (tcpc->typec_state == typec_unattached_snk ||
+		    tcpc->typec_state == typec_unattached_src))
 			return 0;
 	}
 
