@@ -66,7 +66,7 @@
 #define SEMAPHORE_3WAY_TIMEOUT 5000
 /* vcp ready timeout definition */
 #define VCP_30MHZ 30000
-#define VCP_READY_TIMEOUT (3 * HZ) /* 3 seconds*/
+#define VCP_READY_TIMEOUT (4 * HZ) /* 4 seconds*/
 #define VCP_A_TIMER 0
 
 /* vcp ipi message buffer */
@@ -158,7 +158,6 @@ static unsigned int vcp_timeout_times;
 
 #endif
 
-static bool is_suspending;
 static DEFINE_MUTEX(vcp_pw_clk_mutex);
 static DEFINE_MUTEX(vcp_A_notify_mutex);
 static DEFINE_MUTEX(vcp_feature_mutex);
@@ -258,6 +257,9 @@ static int vcp_ipi_dbg_resume_noirq(struct device *dev)
 	int i = 0;
 	int ret = 0;
 	bool state = false;
+
+	if (mmup_enable_count() == 0)
+		return -1;
 
 	for (i = 0; i < IRQ_NUMBER; i++) {
 		ret = irq_get_irqchip_state(vcp_ipi_irqs[i].irq_no,
@@ -628,10 +630,9 @@ static void vcp_err_info_handler(int id, void *prdata, void *data,
  */
 void trigger_vcp_halt(enum vcp_core_id id)
 {
-	if (vcp_ready[id]) {
+	if (mmup_enable_count() && vcp_ready[id]) {
 		/* trigger halt isr, force vcp enter wfi */
 		writel(B_GIPC4_SETCLR_0, R_GIPC_IN_SET);
-		wait_vcp_wdt_irq_done();
 	}
 }
 EXPORT_SYMBOL_GPL(trigger_vcp_halt);
@@ -820,6 +821,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 		mutex_lock(&vcp_pw_clk_mutex);
 		pr_notice("[VCP] PM_SUSPEND_PREPARE entered %d %d\n", pwclkcnt, is_suspending);
 		if ((!is_suspending) && pwclkcnt) {
+			is_suspending = true;
 #if VCP_RECOVERY_SUPPORT
 			/* make sure all reset done */
 			flush_workqueue(vcp_reset_workqueue);
@@ -957,11 +959,6 @@ int reset_vcp(int reset)
 {
 	struct arm_smccc_res res;
 
-	mutex_lock(&vcp_A_notify_mutex);
-	blocking_notifier_call_chain(&vcp_A_notifier_list, VCP_EVENT_STOP,
-		NULL);
-	mutex_unlock(&vcp_A_notify_mutex);
-
 	if (reset & 0x0f) { /* do reset */
 		/* make sure vcp is in idle state */
 		vcp_wait_core_stop_timeout(mmup_enable_count());
@@ -974,6 +971,10 @@ int reset_vcp(int reset)
 		writel((unsigned int)vcp_mem_size, DRAM_RESV_SIZE_REG);
 		vcp_set_clk();
 
+#if VCP_BOOT_TIME_OUT_MONITOR
+		vcp_ready_timer[VCP_A_ID].tl.expires = jiffies + VCP_READY_TIMEOUT;
+		add_timer(&vcp_ready_timer[VCP_A_ID].tl);
+#endif
 		if (reset == VCP_ALL_SUSPEND) {
 			arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
 				MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
@@ -991,11 +992,6 @@ int reset_vcp(int reset)
 			mt_get_fmeter_freq(vcpreg.femter_ck, CKGEN));
 #endif
 
-		dsb(SY); /* may take lot of time */
-#if VCP_BOOT_TIME_OUT_MONITOR
-		vcp_ready_timer[VCP_A_ID].tl.expires = jiffies + VCP_READY_TIMEOUT;
-		add_timer(&vcp_ready_timer[VCP_A_ID].tl);
-#endif
 	}
 	pr_debug("[VCP] %s: done\n", __func__);
 
@@ -2438,14 +2434,30 @@ static int vcp_device_probe(struct platform_device *pdev)
 		return ret;
 	}
 #endif
-	/* device link to SMI for iommu */
+	/* device link to SMI for Dram iommu */
 	smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", 0);
 	psmi_com_dev = of_find_device_by_node(smi_node);
 	if (psmi_com_dev) {
 		link = device_link_add(dev, &psmi_com_dev->dev,
 				DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
+		pr_info("[VCP] device link to %s\n", dev_name(&psmi_com_dev->dev));
 		if (!link) {
-			dev_info(dev, "Unable to link %s.\n",
+			dev_info(dev, "Unable to link Dram %s.\n",
+				dev_name(&psmi_com_dev->dev));
+			ret = -EINVAL;
+			return ret;
+		}
+	}
+
+	/* device link to SMI for SLB/Infra */
+	smi_node = of_parse_phandle(dev->of_node, "mediatek,smi", 1);
+	psmi_com_dev = of_find_device_by_node(smi_node);
+	if (psmi_com_dev) {
+		link = device_link_add(dev, &psmi_com_dev->dev,
+				DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
+		pr_info("[VCP] device link to %s\n", dev_name(&psmi_com_dev->dev));
+		if (!link) {
+			dev_info(dev, "Unable to link SLB/Infra %s.\n",
 				dev_name(&psmi_com_dev->dev));
 			ret = -EINVAL;
 			return ret;
