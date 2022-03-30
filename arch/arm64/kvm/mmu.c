@@ -1189,27 +1189,27 @@ static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa,
 	ret = pin_user_pages(hva, 1, flags, &page, NULL);
 	mmap_read_unlock(mm);
 
-	/*
-	 * We really can't deal with page-cache pages returned by GUP
-	 * because (a) we may trigger writeback of a page for which we
-	 * no longer have access and (b) page_mkclean() won't find the
-	 * stage-2 mapping in the rmap so we can get out-of-whack with
-	 * the filesystem when marking the page dirty during unpinning.
-	 *
-	 * Ideally we'd just restrict ourselves to anonymous pages, but
-	 * we also want to allow memfd (i.e. shmem) pages, so check for
-	 * pages backed by swap in the knowledge that the GUP pin will
-	 * prevent try_to_unmap() from succeeding.
-	 */
-	if (!PageSwapBacked(page)) {
-		ret = -EIO;
-		goto dec_account;
-	} else if (ret == -EHWPOISON) {
+	if (ret == -EHWPOISON) {
 		kvm_send_hwpoison_signal(hva, PAGE_SHIFT);
 		ret = 0;
 		goto dec_account;
 	} else if (ret != 1) {
 		ret = -EFAULT;
+		goto dec_account;
+	} else if (!PageSwapBacked(page)) {
+		/*
+		 * We really can't deal with page-cache pages returned by GUP
+		 * because (a) we may trigger writeback of a page for which we
+		 * no longer have access and (b) page_mkclean() won't find the
+		 * stage-2 mapping in the rmap so we can get out-of-whack with
+		 * the filesystem when marking the page dirty during unpinning.
+		 *
+		 * Ideally we'd just restrict ourselves to anonymous pages, but
+		 * we also want to allow memfd (i.e. shmem) pages, so check for
+		 * pages backed by swap in the knowledge that the GUP pin will
+		 * prevent try_to_unmap() from succeeding.
+		 */
+		ret = -EIO;
 		goto dec_account;
 	}
 
