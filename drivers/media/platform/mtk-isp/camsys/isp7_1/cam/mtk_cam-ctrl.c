@@ -4024,7 +4024,8 @@ void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 	struct mtk_camsys_ctrl_state *req_state;
 	int state_found = 0;
 
-	if (ctx->sensor) {
+	if (ctx->sensor ||
+			(!ctx->sensor && mtk_cam_is_pure_m2m(ctx))) {
 		if (mtk_cam_is_subsample(ctx)) {
 			s_data = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
 			if (s_data->state.estate <= E_STATE_SUBSPL_SENSOR) {
