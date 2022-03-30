@@ -46,7 +46,7 @@ struct static_key sched_feat_keys[__SCHED_FEAT_NR] = {
 #undef SCHED_FEAT
 
 /*TODO: find the magic bias number */
-#define TOP_APP_GROUP_ID	(4-1)*9
+#define TOP_APP_GROUP_ID	((4-1)*10)
 #define TURBO_PID_COUNT		8
 #define RENDER_THREAD_NAME	"RenderThread"
 #define TAG			"Task-Turbo"
