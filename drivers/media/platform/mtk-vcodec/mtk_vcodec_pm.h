@@ -12,12 +12,13 @@
 
 #define MTK_PLATFORM_STR        "platform:mt6873" //TODO: remove when venc ready
 #define MTK_VDEC_RACING_INFO_OFFSET  0x100
-#define MTK_VDEC_RACING_INFO_SIZE 68
-#define MTK_VDEC_MAX_LARB_COUNT 2
+#define DEC_MAX_UBE_INDEX         32
+#define MTK_VDEC_RACING_INFO_SIZE (DEC_MAX_UBE_INDEX*4)
+#define MTK_VDEC_MAX_LARB_COUNT 4
 
 #define MTK_MAX_VDEC_CLK_COUNT 10
 #define MTK_MAX_VDEC_CLK_SOC_COUNT 3
-#define MTK_MAX_VDEC_CLK_CORE_COUNT 3
+#define MTK_MAX_VDEC_CLK_CORE_COUNT 5
 #define MTK_MAX_VDEC_CLK_LAT_COUNT 3
 #define MTK_MAX_VDEC_CLK_MAIN_COUNT 4
 #define MTK_MAX_VDEC_CLK_PARENT_SET_COUNT 4
@@ -76,6 +77,7 @@ struct mtk_vcodec_pm {
 	struct clk      *univpll_d2;
 	struct clk      *clk_cci400_sel;
 	struct clk      *vdecpll;
+	struct clk      *vdecpll_ck;
 	struct clk      *vdec_sel;
 	struct clk      *vencpll_d2;
 	struct clk      *venc_sel;

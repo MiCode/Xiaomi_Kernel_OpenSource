@@ -56,6 +56,15 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 		return -ENODEV;
 	}
 
+	pm->vdecpll_ck = devm_clk_get(&pdev->dev, "vdecpll_ck");
+	if (IS_ERR(pm->vdecpll_ck)) {
+		mtk_v4l2_debug(2, "[VCODEC] Unable to found vdecpll_ck\n");
+	} else {
+		ret = clk_set_rate(pm->vdecpll_ck, 680 * 1000 * 1000);
+		if (ret)
+			mtk_v4l2_err("set vdecpll_ck  fail, ret:%d\n", ret);
+	}
+
 	// parse "mediatek,larbs"
 	for (larb_index = 0; larb_index < MTK_VDEC_MAX_LARB_COUNT; larb_index++) {
 		node = of_parse_phandle(pdev->dev.of_node, "mediatek,larbs", larb_index);
