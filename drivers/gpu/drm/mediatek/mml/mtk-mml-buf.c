@@ -111,13 +111,16 @@ int mml_buf_iova_get(struct device *dev, struct mml_file_buf *buf)
 int mml_buf_va_get(struct mml_file_buf *buf)
 {
 	u32 i;
+	struct dma_buf_map map;
+	int ret = 0;
 
 	for (i = 0; i < buf->cnt; i++) {
 		if (!buf->dma[i].dmabuf || buf->dma[i].va)
 			continue;
-		buf->dma[i].va = dma_buf_vmap(buf->dma[i].dmabuf);
-		if (!buf->dma[i].va)
+		ret = dma_buf_vmap(buf->dma[i].dmabuf, &map);
+		if (ret)
 			return -ENOMEM;
+		buf->dma[i].va = (uint64_t)map.vaddr;
 	}
 
 	return 0;
@@ -135,12 +138,15 @@ inline static void dmabuf_iova_free(struct mml_dma_buf *dma)
 void mml_buf_put(struct mml_file_buf *buf)
 {
 	u8 i;
+	struct dma_buf_map map;
 
 	for (i = 0; i < buf->cnt; i++) {
 		if (!buf->dma[i].dmabuf)
 			continue;
-		if (buf->dma[i].va)
-			dma_buf_vunmap(buf->dma[i].dmabuf, buf->dma[i].va);
+		if (buf->dma[i].va) {
+			map = DMA_BUF_MAP_INIT_VADDR(buf->dma[i].va);
+			dma_buf_vunmap(buf->dma[i].dmabuf, &map);
+		}
 		if (buf->dma[i].attach)
 			dmabuf_iova_free(&buf->dma[i]);
 		dma_buf_put(buf->dma[i].dmabuf);
