@@ -222,6 +222,7 @@ struct mtk_dec_params {
 	unsigned int    frame_size_height;
 	unsigned int    fixed_max_frame_size_width;
 	unsigned int    fixed_max_frame_size_height;
+	unsigned int    fixed_max_frame_buffer_mode;
 	char            *crc_path;
 	char            *golden_path;
 	unsigned int    fb_num_planes;

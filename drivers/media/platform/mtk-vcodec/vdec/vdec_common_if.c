@@ -155,7 +155,7 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	struct vdec_inst *inst = (struct vdec_inst *)h_vdec;
 	struct vdec_vcu_inst *vcu = &inst->vcu;
 	int ret = 0;
-	unsigned int data[3];
+	unsigned int data[6];
 	uint64_t vdec_fb_va;
 	uint64_t fb_dma[VIDEO_MAX_PLANES] = { 0 };
 	uint32_t num_planes;
@@ -232,7 +232,13 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	data[0] = (unsigned int)bs->size;
 	data[1] = (unsigned int)bs->length;
 	data[2] = (unsigned int)bs->flags;
-	ret = vcu_dec_start(vcu, data, 3, bs, fb);
+	data[3] =
+		inst->ctx->dec_params.fixed_max_frame_size_width;
+	data[4] =
+		inst->ctx->dec_params.fixed_max_frame_size_height;
+	data[5] =
+		inst->ctx->dec_params.fixed_max_frame_buffer_mode;
+	ret = vcu_dec_start(vcu, data, 6, bs, fb);
 
 	*src_chg = inst->vsi->dec.vdec_changed_info;
 	*(errormap_info + bs->index % VB2_MAX_FRAME) =
@@ -555,8 +561,10 @@ static int vdec_set_param(unsigned long h_vdec,
 		vcu_dec_set_frame_buffer(&inst->vcu, in);
 		break;
 	case SET_PARAM_FRAME_SIZE:
-	case SET_PARAM_SET_FIXED_MAX_OUTPUT_BUFFER:
 		vcu_dec_set_param(&inst->vcu, (unsigned int)type, in, 2U);
+		break;
+	case SET_PARAM_SET_FIXED_MAX_OUTPUT_BUFFER:
+		vcu_dec_set_param(&inst->vcu, (unsigned int)type, in, 3U);
 		break;
 	case SET_PARAM_DECODE_MODE:
 	case SET_PARAM_NAL_SIZE_LENGTH:

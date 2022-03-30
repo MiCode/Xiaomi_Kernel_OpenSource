@@ -1332,6 +1332,7 @@ static int mtk_vdec_set_param(struct mtk_vcodec_ctx *ctx)
 		MTK_DEC_PARAM_FIXED_MAX_FRAME_SIZE) {
 		in[0] = ctx->dec_params.fixed_max_frame_size_width;
 		in[1] = ctx->dec_params.fixed_max_frame_size_height;
+		in[2] = ctx->dec_params.fixed_max_frame_buffer_mode;
 		if (in[0] != 0 && in[1] != 0) {
 			if (vdec_if_set_param(ctx,
 				SET_PARAM_SET_FIXED_MAX_OUTPUT_BUFFER,
@@ -2934,6 +2935,8 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 			ctx->dec_params.frame_size_width = ctrl->val;
 		else if (ctx->dec_params.frame_size_height == 0)
 			ctx->dec_params.frame_size_height = ctrl->val;
+		else if (ctx->dec_params.fixed_max_frame_buffer_mode == 0)
+			ctx->dec_params.fixed_max_frame_buffer_mode = ctrl->val;
 		ctx->dec_param_change |= MTK_DEC_PARAM_FRAME_SIZE;
 		break;
 	case V4L2_CID_MPEG_MTK_FIXED_MAX_FRAME_BUFFER:
