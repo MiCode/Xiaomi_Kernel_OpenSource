@@ -100,29 +100,31 @@ struct gpufreq_debug_limit_info {
 };
 
 struct gpufreq_asensor_info {
-	unsigned int aging_table_idx_choosed;
-	unsigned int aging_table_idx_most_agrresive;
-	unsigned int efuse_val1;
-	unsigned int efuse_val2;
-	unsigned int efuse_val3;
-	unsigned int efuse_val4;
-	unsigned int efuse_val1_addr;
-	unsigned int efuse_val2_addr;
-	unsigned int efuse_val3_addr;
-	unsigned int efuse_val4_addr;
-	unsigned int a_t0_lvt_rt;
-	unsigned int a_t0_ulvt_rt;
-	unsigned int a_t0_ulvtll_rt;
-	unsigned int a_tn_lvt_cnt;
-	unsigned int a_tn_ulvt_cnt;
-	unsigned int a_tn_ulvtll_cnt;
-	unsigned int lvts5_0_y_temperature;
-	int tj1;
-	int tj2;
-	int adiff1;
-	int adiff2;
-	int adiff3;
+	unsigned int efuse1;
+	unsigned int efuse2;
+	unsigned int efuse3;
+	unsigned int efuse4;
+	unsigned int efuse1_addr;
+	unsigned int efuse2_addr;
+	unsigned int efuse3_addr;
+	unsigned int efuse4_addr;
+	unsigned int a_t0_efuse1;
+	unsigned int a_t0_efuse2;
+	unsigned int a_t0_efuse3;
+	unsigned int a_t0_efuse4;
+	unsigned int a_tn_sensor1;
+	unsigned int a_tn_sensor2;
+	unsigned int a_tn_sensor3;
+	unsigned int a_tn_sensor4;
+	int a_diff1;
+	int a_diff2;
+	int a_diff3;
+	int a_diff4;
+	int tj_max;
+	unsigned int aging_table_idx;
+	unsigned int aging_table_idx_agrresive;
 	unsigned int leakage_power;
+	unsigned int lvts5_0_y_temperature;
 };
 
 /**************************************************
