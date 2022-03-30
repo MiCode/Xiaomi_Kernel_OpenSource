@@ -116,4 +116,12 @@ config MTK_THERMAL_JATM
 	  to optimize game UX under a proper Tskin control.
 	  It will take care of both better user experience and Tskin control.
 
+config MTK_VTSKIN_THERMAL
+	tristate "virtual tskin driver for Mediatek SoCs"
+	help
+	  Enable this option if you want to get virtual tskin temperature
+	  via vitrual tskin for Mediatek platforms.
+	  This driver collects other sensor temperature with coefficient to calculate
+	  virtual skin temperatrure.
+
 endif
