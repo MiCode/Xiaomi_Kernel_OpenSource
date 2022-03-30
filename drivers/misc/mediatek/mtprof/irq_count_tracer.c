@@ -52,6 +52,12 @@ struct irq_count_period_setting {
 
 const char *irq_to_name(int irq)
 {
+	struct irq_desc *desc;
+
+	desc = irq_to_desc(irq);
+
+	if (desc && desc->action && desc->action->name)
+		return desc->action->name;
 	return NULL;
 }
 
@@ -115,12 +121,24 @@ bool irq_mon_aee_debounce_check(bool update)
 // workaround for kstat_irqs_cpu & kstat_irqs
 static unsigned int irq_mon_irqs(unsigned int irq)
 {
-	return 0;
+	struct irq_desc *desc = irq_to_desc(irq);
+	unsigned int sum = 0;
+	int cpu;
+
+	if (!desc || !desc->kstat_irqs)
+		return 0;
+
+	for_each_possible_cpu(cpu)
+		sum += *per_cpu_ptr(desc->kstat_irqs, cpu);
+	return sum;
 }
 
 static unsigned int irq_mon_irqs_cpu(unsigned int irq, int cpu)
 {
-	return 0;
+	struct irq_desc *desc = irq_to_desc(irq);
+
+	return desc && desc->kstat_irqs ?
+			*per_cpu_ptr(desc->kstat_irqs, cpu) : 0;
 }
 #else
 #define irq_mon_irqs(irq) kstat_irqs(irq)
