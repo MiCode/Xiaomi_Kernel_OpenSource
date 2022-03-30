@@ -6891,7 +6891,12 @@
 		};
 	};
 
+	mmqos_wrapper {
+			compatible = "mediatek,mt6983-mmqos-wrapper";
+	};
+
 	mmqos: interconnect {
+			compatible = "mediatek,mt6983-mmqos";
 			#mtk-interconnect-cells = <1>;
 			mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2
 							  &smi_larb3 &smi_larb4 &smi_larb5
@@ -6928,6 +6933,7 @@
 	};
 
 	mmdvfs-debug {
+		compatible = "mediatek,mmdvfs-debug";
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		disp-dev = <&dispsys_config>;
 		force-step0 = <1>;
