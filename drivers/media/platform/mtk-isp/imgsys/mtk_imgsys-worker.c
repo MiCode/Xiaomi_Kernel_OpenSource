@@ -117,7 +117,7 @@ int imgsys_queue_disable(struct imgsys_queue *que)
 {
 	int ret;
 
-	if ((!que) || (!que->task))
+	if ((!que) || IS_ERR(que->task))
 		return -1;
 
 	ret = wait_event_interruptible_timeout(que->dis_wq, !atomic_read(&que->nr),

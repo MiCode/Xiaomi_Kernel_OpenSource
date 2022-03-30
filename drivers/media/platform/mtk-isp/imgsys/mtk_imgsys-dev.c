@@ -258,8 +258,8 @@ void mtk_imgsys_pipe_job_finish(struct mtk_imgsys_request *req,
 	}
 #endif
 	if (req->req.state != MEDIA_REQUEST_STATE_QUEUED) {
-		dev_info(pipe->imgsys_dev->dev, "%s: req %d flushed", __func__,
-					req->tstate.req_fd);
+		dev_info(pipe->imgsys_dev->dev, "%s: req %d 0x%lx flushed in state(%d)", __func__,
+					req->tstate.req_fd, &req->req, req->req.state);
 		goto done;
 	}
 
