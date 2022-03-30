@@ -1,102 +1,137 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
- * Author: Pierre Lee <pierre.lee@mediatek.com>
+ * Copyright (c) 2020 MediaTek Inc.
+ * Author: Yu-Chang Wang <Yu-Chang.Wang@mediatek.com>
  */
-
-#include <linux/clk.h>
-#include <linux/clk-provider.h>
-#include <linux/debugfs.h>
-#include <linux/delay.h>
-#include <linux/init.h>
-#include <linux/kernel.h>
+#include <linux/device.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <linux/proc_fs.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/string.h>
+#include <linux/debugfs.h>
 #include <linux/seq_file.h>
+#include <linux/slab.h>
 #include <linux/uaccess.h>
 
 #include "clk-fhctl.h"
-#include "clk-mtk.h"
-
+#include "clk-fhctl-pll.h"
+#include "clk-fhctl-util.h"
 
 enum FH_DEBUG_CMD_ID {
-	FH_DBG_CMD_ID = 0x1000,
-	FH_DBG_CMD_DVFS = 0x1001,
 	FH_DBG_CMD_DVFS_API = 0x1002,
-	FH_DBG_CMD_DVFS_SSC_ENABLE = 0x1003,
 	FH_DBG_CMD_SSC_ENABLE = 0x1004,
 	FH_DBG_CMD_SSC_DISABLE = 0x1005,
-
-	FH_DBG_CMD_MAX
 };
 
-void mt_fhctl_exit_debugfs(struct mtk_fhctl *fhctl)
-{
-	debugfs_remove_recursive(fhctl->debugfs_root);
-}
-
-
-static int __fh_ctrl_cmd_handler(struct clk_mt_fhctl *fh,
+static bool has_perms;
+static int __fh_ctrl_cmd_hdlr(struct pll_dts *array,
 			unsigned int cmd,
-			int pll_id,
-			unsigned int p1)
-
+			char *pll_name,
+			unsigned int arg)
 {
-	int ret;
+	int i;
+	struct fh_hdlr *hdlr = NULL;
+	int num_pll = array->num_pll;
 
-	pr_info("pll_id:0x%x cmd: %x p1:%x", pll_id, cmd, p1);
-
-	if (fh == NULL) {
-		pr_info("Error: fh is null!");
-		return 0;
+	/* pll_name to pll_id */
+	for (i = 0; i < num_pll; i++, array++) {
+		FHDBG("<%s,%s>\n", pll_name, array->pll_name);
+		if (strcmp(pll_name,
+					array->pll_name) == 0) {
+			hdlr = array->hdlr;
+			FHDBG("hdlr<%x>\n", hdlr);
+			break;
+		}
 	}
 
+	if (!hdlr) {
+		FHDBG("\n");
+		return -1;
+	}
+
+	FHDBG("perms<%x,%x,%x>\n",
+			array->perms, PERM_DBG_HOP, PERM_DBG_SSC);
 	switch (cmd) {
+	case FH_DBG_CMD_DVFS_API:
+		if (array->perms & PERM_DBG_HOP)
+			hdlr->ops->hopping(hdlr->data,
+					array->domain,
+					array->fh_id,
+					arg, 0);
+		break;
 	case FH_DBG_CMD_SSC_ENABLE:
-		ret = fh->hal_ops->pll_ssc_enable(fh, p1);
+		if (array->perms & PERM_DBG_SSC)
+			hdlr->ops->ssc_enable(hdlr->data,
+					array->domain,
+					array->fh_id,
+					arg);
 		break;
 	case FH_DBG_CMD_SSC_DISABLE:
-		ret = fh->hal_ops->pll_ssc_disable(fh);
-		break;
-	case FH_DBG_CMD_DVFS:
-		ret = fh->hal_ops->pll_hopping(fh, p1, -1);
-		break;
-	case FH_DBG_CMD_DVFS_API:
-		ret = !(mtk_fh_set_rate(pll_id, p1, -1));
+		if (array->perms & PERM_DBG_SSC)
+			hdlr->ops->ssc_disable(hdlr->data,
+					array->domain,
+					array->fh_id);
 		break;
 	default:
-		pr_info(" Not Support CMD:%x\n", cmd);
-		ret = -EINVAL;
+		FHDBG(" Not Support CMD:%x\n", cmd);
 		break;
 	}
-
-	if (ret)
-		pr_info(" Debug CMD fail err:%d\n", ret);
-
-	return ret;
+	return 0;
 }
 
+static bool prop_request(char *kbuf,
+		struct pll_dts *array)
+{
+	unsigned int n, i, arg;
+	int num_pll = array->num_pll;
+	struct pll_dts *entry = NULL;
+	char pll_name[32];
+	char prop[32];
 
-/***************************************************************************
- * FHCTL Debug CTRL OPS
- ***************************************************************************/
+	/* retrieve prop/pll_name/arg from kbuf */
+	n = sscanf(kbuf, "%s %31s %x", prop, pll_name, &arg);
+		FHDBG("prop<%s>, pll_name<%s>, arg<%x>\n",
+				prop, pll_name, arg);
+
+	/* get entry by pll_name */
+	for (i = 0; i < num_pll; i++, array++) {
+		if (strcmp(pll_name,
+					array->pll_name) == 0) {
+			entry = array;
+			break;
+		}
+	}
+
+	if (!entry)
+		return false;
+
+	/* update entry by prop/arg */
+	if (strstr(prop, "perms"))
+		entry->perms = arg;
+	else if (strstr(prop, "ssc-rate"))
+		entry->ssc_rate = arg;
+	else
+		return false;
+
+	return true;
+}
+
 static ssize_t fh_ctrl_proc_write(struct file *file,
 				const char *buffer, size_t count, loff_t *data)
 {
 	int ret, n;
 	char kbuf[256];
-	int pll_id;
+	char pll_name[32];
 	size_t len = 0;
-	unsigned int cmd, p1;
-	struct clk_mt_fhctl *fh;
-	struct mtk_fhctl *fhctl = file->f_inode->i_private;
+	unsigned int cmd, arg;
+	struct pll_dts *array = file->f_inode->i_private;
 
+	FHDBG("array<%x>\n", array);
 	len = min(count, (sizeof(kbuf) - 1));
 
-	pr_info("count: %ld", count);
+	FHDBG("count: %ld", count);
 	if (count == 0)
 		return -1;
 
@@ -109,30 +144,27 @@ static ssize_t fh_ctrl_proc_write(struct file *file,
 
 	kbuf[count] = '\0';
 
-	n = sscanf(kbuf, "%x %x %x", &cmd, &pll_id, &p1);
-	pr_info("pll:0x%x cmd:%x p1:%x", pll_id, cmd, p1);
+	/* permission control */
+	if (strstr(kbuf, array->comp)) {
+		has_perms = true;
+		FHDBG("has_perms to true\n");
+		return count;
+	} else if (!has_perms) {
+		FHDBG("!has_perms\n");
+		return count;
+	} else if (prop_request(kbuf, array)) {
+		FHDBG("prop_request = true\n");
+		return count;
+	}
 
-	if ((cmd < FH_DBG_CMD_ID) || (cmd > FH_DBG_CMD_MAX)) {
-		pr_info("cmd not support:%x", cmd);
+	n = sscanf(kbuf, "%x %31s %x", &cmd, pll_name, &arg);
+	if ((n != 3) && (n != 2)) {
+		FHDBG("error input format\n");
 		return -EINVAL;
 	}
 
-	if (pll_id >= fhctl->pll_num) {
-		pr_info("pll_id is illegal:%d", pll_id);
-		return -EINVAL;
-	}
-
-	fh = mtk_fh_get_fh_obj_tbl(fhctl, pll_id);
-
-	__fh_ctrl_cmd_handler(fh, cmd, pll_id, p1);
-
-	pr_debug("reg_cfg:0x%08x", readl(fh->fh_regs->reg_cfg));
-	pr_debug("reg_updnlmt:0x%08x", readl(fh->fh_regs->reg_updnlmt));
-	pr_debug("reg_dds:0x%08x", readl(fh->fh_regs->reg_dds));
-	pr_debug("reg_dvfs:0x%08x", readl(fh->fh_regs->reg_dvfs));
-	pr_debug("reg_mon:0x%08x", readl(fh->fh_regs->reg_mon));
-	pr_debug("reg_con0:0x%08x", readl(fh->fh_regs->reg_con0));
-	pr_debug("reg_con1:0x%08x", readl(fh->fh_regs->reg_con1));
+	FHDBG("pll:%s cmd:0x%x arg:0x%x", pll_name, cmd, arg);
+	__fh_ctrl_cmd_hdlr(array, cmd, pll_name, arg);
 
 	return count;
 }
@@ -140,32 +172,27 @@ static ssize_t fh_ctrl_proc_write(struct file *file,
 static int fh_ctrl_proc_read(struct seq_file *m, void *v)
 {
 	int i;
-	struct mtk_fhctl *fhctl = m->private;
+	struct pll_dts *array = m->private;
+	int num_pll = array->num_pll;
 
-	seq_puts(m, "====== FHCTL CTRL Description ======\n");
+	seq_printf(m, "====== FHCTL CTRL, has_perms<%d>, comp<%s>======\n",
+			has_perms, array->comp);
 
-	seq_puts(m, "[PLL Name and ID Table]\n");
-	for (i = 0 ; i < fhctl->pll_num ; i++)
-		seq_printf(m, "PLL_ID:%d PLL_NAME: %s\n",
-				i, fhctl->fh_tbl[i]->pll_data->pll_name);
+	seq_puts(m, "[Name pll-id fh-id perms ssc-rate]");
+	seq_puts(m, "[domain method]");
+	seq_puts(m, "[Hdlr]");
+	seq_puts(m, "\n");
 
-	seq_puts(m, "\n[Command Description]\n");
-	seq_puts(m, "	 [SSC Enable]\n");
-	seq_puts(m, "	 /> echo '1004 <PLL-ID> <SSC-Rate>' > ctrl\n");
-	seq_puts(m, "	 Example: echo '1004 2 2' > ctrl\n");
-	seq_puts(m, "	 [SSC Disable]\n");
-	seq_puts(m, "	 /> echo '1005 <PLL-ID>' > ctrl\n");
-	seq_puts(m, "	 Example: echo '1005 2' > ctrl\n");
-	seq_puts(m, "	 [SSC Hopping]\n");
-	seq_puts(m, "	 /> echo '1001 <PLL-ID> <DDS>' > ctrl\n");
-	seq_puts(m, "	 Example: echo '1001 2 ec200' > ctrl\n");
-	seq_puts(m, "	 [CLK API Hopping]\n");
-	seq_puts(m, "	 /> echo '1002 <PLL-ID> <DDS>' > ctrl\n");
-	seq_puts(m, "	 Example: echo '1002 2 ec200' > ctrl\n");
-
+	for (i = 0; i < num_pll; i++, array++) {
+		seq_printf(m, "<%s,%d,%d,%x,%d>,<%s,%s>,<%lx>\n",
+				array->pll_name,
+				array->pll_id, array->fh_id,
+				array->perms, array->ssc_rate,
+				array->domain, array->method,
+				(unsigned long)array->hdlr);
+	}
 	return 0;
 }
-
 
 static int fh_ctrl_proc_open(struct inode *inode, struct file *file)
 {
@@ -180,165 +207,155 @@ static const struct file_operations ctrl_fops = {
 	.release = single_release,
 };
 
-static int __sample_period_dds(struct clk_mt_fhctl *fh)
+static int __sample_dds(struct fh_pll_regs *regs,
+		struct fh_pll_data *data,
+		unsigned int *dds_max,
+		unsigned int *dds_min)
 {
 	int i, ssc_rate = 0;
-	struct clk_mt_fhctl_regs *fh_regs;
 	unsigned int mon_dds;
 	unsigned int dds;
 
-	fh_regs = fh->fh_regs;
+	mon_dds = readl(regs->reg_mon) & data->dds_mask;
+	dds = readl(regs->reg_dds) & data->dds_mask;
 
-	mon_dds = readl(fh_regs->reg_mon) & fh->pll_data->dds_mask;
-	dds = readl(fh_regs->reg_dds) & fh->pll_data->dds_mask;
-
-	fh->pll_data->dds_max = dds;
-	fh->pll_data->dds_min = mon_dds;
-
+	*dds_max = dds;
+	*dds_min = mon_dds;
 
 	/* Sample 200*10us */
 	for (i = 0 ; i < 200 ; i++) {
-		mon_dds = readl(fh_regs->reg_mon) & fh->pll_data->dds_mask;
+		mon_dds = readl(regs->reg_mon) & data->dds_mask;
 
-		if (mon_dds > fh->pll_data->dds_max)
-			fh->pll_data->dds_max = mon_dds;
+		if (mon_dds > *dds_max)
+			*dds_max = mon_dds;
 
-		if (mon_dds < fh->pll_data->dds_min)
-			fh->pll_data->dds_min = mon_dds;
+		if (mon_dds < *dds_min)
+			*dds_min = mon_dds;
 
 		udelay(10);
 	}
 
-	if ((fh->pll_data->dds_max == 0) ||
-		(fh->pll_data->dds_min == 0))
+	if ((*dds_max == 0) ||
+		(*dds_min == 0))
 		ssc_rate = 0;
 	else {
-		int diff = (fh->pll_data->dds_max - fh->pll_data->dds_min);
+		int diff = (*dds_max - *dds_min);
 
-		ssc_rate = (diff * 1000) / fh->pll_data->dds_max;
+		ssc_rate = (diff * 1000) / *dds_max;
 	}
 
 	return ssc_rate;
 }
 
-static int mt_fh_dumpregs_read(struct seq_file *m, void *data)
+static int fh_dumpregs_read(struct seq_file *m, void *v)
 {
-	struct mtk_fhctl *fhctl = dev_get_drvdata(m->private);
-	int i, ssc_rate;
-	struct clk_mt_fhctl *fh;
-	struct clk_mt_fhctl_regs *fh_regs;
+	int i;
+	struct pll_dts *array = m->private;
+	int num_pll = array->num_pll;
 
-	if (fhctl == NULL) {
-		seq_puts(m, "Cannot Get FHCTL driver data\n");
-		return 0;
-	}
-
+	FHDBG("array<%x>\n", array);
 	seq_puts(m, "FHCTL dumpregs Read\n");
 
-	for (i = 0; i < fhctl->pll_num ; i++) {
-		fh = mtk_fh_get_fh_obj_tbl(fhctl, i);
-		if (fh == NULL) {
-			pr_info(" fh:NULL pll_id:%d", i);
-			seq_printf(m, "ERROR PLL_ID:%d (%s) NULL\r\n",
-						i, fh->pll_data->pll_name);
-			return 0;
-		}
+	for (i = 0; i < num_pll ; i++, array++) {
+		struct fh_pll_domain *domain;
+		struct fh_pll_regs *regs;
+		struct fh_pll_data *data;
+		int fh_id,  pll_id;
+		char *pll_name;
+		int ssc_rate;
+		unsigned int dds_max, dds_min;
 
-		if (fh->pll_data->pll_type == FH_PLL_TYPE_NOT_SUPPORT) {
-			pr_debug(" Not support: %s", fh->pll_data->pll_name);
+		if (!(array->perms & PERM_DBG_DUMP))
 			continue;
-		}
 
-		fh_regs = fh->fh_regs;
-		if (fh_regs == NULL) {
-			pr_info("%s Not support dumpregs!",
-				fh->pll_data->pll_name);
-			seq_printf(m, "PLL_%d: %s Not support dumpregs!\n",
-						i, fh->pll_data->pll_name);
-			continue;
-		}
+		fh_id = array->fh_id;
+		pll_id = array->pll_id;
+		pll_name = array->pll_name;
+		domain = get_fh_domain(array->domain);
+		regs = &domain->regs[fh_id];
+		data = &domain->data[fh_id];
 
-		pr_debug("fh:0x%p fh_regs:0x%p", fh, fh_regs);
+		ssc_rate = __sample_dds(regs, data,
+				&dds_max, &dds_min);
 
-		if (i == 0) {
-			seq_printf(m, "\r\nFHCTL_HP_EN:\r\n0x%08x\r\n",
-				readl(fh_regs->reg_hp_en));
-			seq_printf(m, "\r\nFHCTL_CLK_CON:\r\n0x%08x\r\n",
-				readl(fh_regs->reg_clk_con));
-			seq_printf(m, "\r\nFHCTL_SLOPE0:\r\n0x%08x\r\n",
-				readl(fh_regs->reg_slope0));
-			seq_printf(m, "\r\nFHCTL_SLOPE1:\r\n0x%08x\r\n\n",
-				readl(fh_regs->reg_slope1));
-		}
-
-		ssc_rate = __sample_period_dds(fh);
-
-		seq_printf(m, "PLL_ID:%d (%s) type:%d \r\n",
-			i, fh->pll_data->pll_name, fh->pll_data->pll_type);
-
-		seq_puts(m, "CFG, UPDNLMT, DDS, DVFS, MON\r\n");
-		seq_printf(m, "0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\r\n",
-			readl(fh_regs->reg_cfg), readl(fh_regs->reg_updnlmt),
-			readl(fh_regs->reg_dds), readl(fh_regs->reg_dvfs),
-			readl(fh_regs->reg_mon));
-		seq_puts(m, "CON0, CON1\r\n");
-		seq_printf(m, "0x%08x 0x%08x\r\n",
-			readl(fh_regs->reg_con0), readl(fh_regs->reg_con1));
-
-		seq_printf(m,
-			"DDS max:0x%08x min:0x%08x ssc(1/1000):%d\r\n\r\n",
-			fh->pll_data->dds_max,
-			fh->pll_data->dds_min,
+		seq_printf(m, "PLL_ID:%d FH_ID:%d NAME:%s",
+			pll_id, fh_id, pll_name);
+		seq_printf(m, " PCW:%x SSC_RATE:%d\n",
+			readl(regs->reg_con_pcw) & data->dds_mask,
 			ssc_rate);
 
+		seq_puts(m, "HP_EN, CLK_CON, SLOPE0, SLOPE1\n");
+		seq_printf(m, "0x%08x 0x%08x 0x%08x 0x%08x\n",
+			readl(regs->reg_hp_en), readl(regs->reg_clk_con),
+			readl(regs->reg_slope0), readl(regs->reg_slope1));
 
-		pr_debug("pll_id:%d", i);
-		pr_debug("pll_type:%d", fh->pll_data->pll_type);
-		pr_debug("reg_hp_en:0x%08x", readl(fh_regs->reg_hp_en));
-		pr_debug("reg_clk_con:0x%08x", readl(fh_regs->reg_clk_con));
-		pr_debug("reg_rst_con:0x%08x", readl(fh_regs->reg_rst_con));
-		pr_debug("reg_slope0:0x%08x", readl(fh_regs->reg_slope0));
-		pr_debug("reg_slope1:0x%08x", readl(fh_regs->reg_slope1));
+		seq_puts(m, "CFG, UPDNLMT, DDS, DVFS, MON\n");
+		seq_printf(m, "0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			readl(regs->reg_cfg), readl(regs->reg_updnlmt),
+			readl(regs->reg_dds), readl(regs->reg_dvfs),
+			readl(regs->reg_mon));
+		seq_puts(m, "CON_PCW\n");
+		seq_printf(m, "0x%08x\n",
+			readl(regs->reg_con_pcw));
 
-		pr_debug("reg_cfg:0x%08x", readl(fh_regs->reg_cfg));
-		pr_debug("reg_updnlmt:0x%08x", readl(fh_regs->reg_updnlmt));
-		pr_debug("reg_dds:0x%08x", readl(fh_regs->reg_dds));
-		pr_debug("reg_dvfs:0x%08x", readl(fh_regs->reg_dvfs));
-		pr_debug("reg_mon:0x%08x", readl(fh_regs->reg_mon));
-		pr_debug("reg_con0:0x%08x", readl(fh_regs->reg_con0));
-		pr_debug("reg_con1:0x%08x", readl(fh_regs->reg_con1));
-
+		seq_printf(m,
+			"dds_max:0x%08x dds_mix:0x%08x ssc(1/1000):%d\n\n",
+			dds_max, dds_min, ssc_rate);
 	}
 	return 0;
 }
 
-void mt_fhctl_init_debugfs(struct mtk_fhctl *fhctl)
+static int fh_dumpregs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, fh_dumpregs_read, inode->i_private);
+}
+
+static const struct file_operations dumpregs_fops = {
+	.owner = THIS_MODULE,
+	.open = fh_dumpregs_open,
+	.read = seq_read,
+	.release = single_release,
+};
+
+int fhctl_debugfs_init(struct pll_dts *array)
 {
 	struct dentry *root;
+	struct dentry *fh_dumpregs_dir;
 	struct dentry *fh_ctrl_dir;
-	struct device *dev = fhctl->dev;
+	int i;
+	int num_pll = array->num_pll;
+
+	FHDBG("array<%x>\n", array);
 
 	root = debugfs_create_dir("fhctl", NULL);
 	if (IS_ERR(root)) {
-		dev_info(dev, "create debugfs fail");
-		return;
+		FHDBG("\n");
+		return -1;
 	}
 
-	fhctl->debugfs_root = root;
-
 	/* /sys/kernel/debug/fhctl/dumpregs */
-	debugfs_create_devm_seqfile(dev,
-				"dumpregs", root, mt_fh_dumpregs_read);
+	fh_dumpregs_dir = debugfs_create_file("dumpregs", 0664,
+						root, array, &dumpregs_fops);
+	if (IS_ERR(fh_dumpregs_dir)) {
+		FHDBG("\n");
+		return -1;
+	}
 
 	/* /sys/kernel/debug/fhctl/ctrl */
 	fh_ctrl_dir = debugfs_create_file("ctrl", 0664,
-						root, fhctl, &ctrl_fops);
+						root, array, &ctrl_fops);
 	if (IS_ERR(fh_ctrl_dir)) {
-		dev_info(dev, "failed to create ctrl debugfs");
-		return;
+		FHDBG("\n");
+		return -1;
 	}
 
-	dev_dbg(dev, "Create debugfs success!");
+	/* init resources */
+	for (i = 0; i < num_pll; i++, array++) {
+		init_fh_domain(array->domain,
+				array->comp,
+				array->fhctl_base,
+				array->apmixed_base);
+	}
+
+	return 0;
 }
-
-

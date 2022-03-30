@@ -5,6 +5,7 @@
  */
 
 #include "clk-fhctl.h"
+#include "sspm_ipi.h"
 
 #define FHCTL_D_LEN  9
 #define MAX_SSC_RATE 8
