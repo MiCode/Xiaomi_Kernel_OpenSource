@@ -277,6 +277,11 @@ static void init_smem_regions(struct ccci_smem_region *regions,
 			(unsigned long)regions[i].base_ap_view_vir,
 			(unsigned long)regions[i].base_md_view_phy,
 			regions[i].size);
+
+		if (regions[i].id == SMEM_USER_RAW_MDSS_DBG)
+			mrdump_mini_add_extra_file((unsigned long)regions[i].base_ap_view_vir,
+					(unsigned long)regions[i].base_ap_view_phy, regions[i].size,
+					"EXTRA_MDSS");
 	}
 }
 
