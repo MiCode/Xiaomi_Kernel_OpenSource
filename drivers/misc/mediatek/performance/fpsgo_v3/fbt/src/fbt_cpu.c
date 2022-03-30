@@ -1205,31 +1205,53 @@ static int fbt_get_dep_list(struct render_info *thr)
 	int pid;
 	int count = 0;
 	int ret_size;
-	struct fpsgo_loading dep_new[MAX_DEP_NUM],
-		dep_only_old[MAX_DEP_NUM], dep_old_need_reset[MAX_DEP_NUM];
+	struct fpsgo_loading *dep_new, *dep_only_old, *dep_old_need_reset;
+	int ret = 0;
+
 	int i;
 	int temp_size_only_old = 0, temp_size_old_need_reset = 0;
+
+	dep_new =
+		kcalloc(MAX_DEP_NUM, sizeof(struct fpsgo_loading), GFP_KERNEL);
+	dep_only_old =
+		kcalloc(MAX_DEP_NUM, sizeof(struct fpsgo_loading), GFP_KERNEL);
+	dep_old_need_reset =
+		kcalloc(MAX_DEP_NUM, sizeof(struct fpsgo_loading), GFP_KERNEL);
+	if (!dep_new || !dep_only_old || !dep_old_need_reset) {
+		ret = 6;
+		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
+		goto EXIT;
+	}
 
 	memset(dep_new, 0,
 		MAX_DEP_NUM * sizeof(struct fpsgo_loading));
 
-	if (!thr)
-		return 1;
+	if (!thr) {
+		ret = 1;
+		goto EXIT;
+	}
 
 	pid = thr->pid;
-	if (!pid)
-		return 2;
+	if (!pid) {
+		ret = 2;
+		goto EXIT;
+	}
 
 	count = fpsgo_fbt2xgf_get_dep_list_num(pid, thr->buffer_id);
-	if (count <= 0)
-		return 3;
+	if (count <= 0) {
+		ret = 3;
+		goto EXIT;
+	}
+
 	count = clamp(count, 1, MAX_DEP_NUM);
 
 	ret_size = fpsgo_fbt2xgf_get_dep_list(pid, count,
 		dep_new, thr->buffer_id);
 
-	if (ret_size == 0 || ret_size != count)
-		return 4;
+	if (ret_size == 0 || ret_size != count) {
+		ret = 4;
+		goto EXIT;
+	}
 
 	fbt_dep_list_filter(dep_new, count);
 	sort(dep_new, count, sizeof(struct fpsgo_loading), __cmp1, NULL);
@@ -1271,7 +1293,8 @@ static int fbt_get_dep_list(struct render_info *thr)
 				sizeof(struct fpsgo_loading));
 		if (thr->dep_arr == NULL) {
 			thr->dep_valid_size = 0;
-			return 5;
+			ret = 5;
+			goto EXIT;
 		}
 	}
 
@@ -1281,7 +1304,11 @@ static int fbt_get_dep_list(struct render_info *thr)
 	memcpy(thr->dep_arr, dep_new,
 		thr->dep_valid_size * sizeof(struct fpsgo_loading));
 
-	return 0;
+EXIT:
+	kfree(dep_old_need_reset);
+	kfree(dep_only_old);
+	kfree(dep_new);
+	return ret;
 }
 
 static void fbt_clear_dep_list(struct fpsgo_loading *pdep)
@@ -1294,11 +1321,18 @@ static void fbt_clear_dep_list(struct fpsgo_loading *pdep)
 static void fbt_clear_min_cap(struct render_info *thr)
 {
 	int i;
-	struct fpsgo_loading dep_need_set[MAX_DEP_NUM];
+	struct fpsgo_loading *dep_need_set;
 	int temp_size_need_set = 0;
 
+	dep_need_set =
+		kcalloc(MAX_DEP_NUM, sizeof(struct fpsgo_loading), GFP_KERNEL);
+	if (!dep_need_set) {
+		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
+		goto EXIT;
+	}
+
 	if (!thr || !thr->dep_arr)
-		return;
+		goto EXIT;
 
 	if ((thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id))
 		for (i = 0; i < thr->dep_valid_size; i++)
@@ -1319,6 +1353,8 @@ static void fbt_clear_min_cap(struct render_info *thr)
 		for (i = 0; i < temp_size_need_set; i++)
 			fbt_reset_task_setting(&dep_need_set[i], 1);
 	}
+EXIT:
+	kfree(dep_need_set);
 }
 
 static int fbt_is_light_loading(int loading)
@@ -1394,9 +1430,9 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	int bhr_local;
 	int cluster = 0;
 	int max_cap = 100;
-	struct fpsgo_loading dep_need_set[MAX_DEP_NUM];
+	struct fpsgo_loading *dep_need_set;
 	int temp_size_need_set = 0;
-
+	char temp[MAX_PID_DIGIT] = {"\0"};
 
 	if (!uclamp_boost_enable)
 		return;
@@ -1440,15 +1476,21 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		kcalloc(cluster_num, sizeof(int), GFP_KERNEL);
 	if (!clus_opp) {
 		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
-		return;
+		goto EXIT;
 	}
 
 	clus_floor_freq =
 		kcalloc(cluster_num, sizeof(unsigned int), GFP_KERNEL);
 	if (!clus_floor_freq) {
-		kfree(clus_opp);
 		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
-		return;
+		goto EXIT;
+	}
+
+	dep_need_set =
+		kcalloc(MAX_DEP_NUM, sizeof(struct fpsgo_loading), GFP_KERNEL);
+	if (!dep_need_set) {
+		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
+		goto EXIT;
 	}
 
 	if (cpu_max_freq <= 1)
@@ -1478,8 +1520,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			max_cap = min(max_cap,
 				(int)cpu_dvfs[cluster].capacity_ratio[min(mbhr_opp, i)]);
 	}
-	kfree(clus_floor_freq);
-	kfree(clus_opp);
 
 	if (loading_th || boost_affinity || boost_LR)
 		fbt_query_dep_list_loading(thr);
@@ -1490,7 +1530,7 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	dep_str = kcalloc(size + 1, MAX_PID_DIGIT * sizeof(char),
 				GFP_KERNEL);
 	if (!dep_str)
-		return;
+		goto EXIT;
 
 	if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id)
 		size_final = size;
@@ -1510,7 +1550,6 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	}
 
 	for (i = 0; i < size_final; i++) {
-		char temp[MAX_PID_DIGIT] = {"\0"};
 		struct fpsgo_loading *fl;
 
 		if (thr->pid == max_blc_pid && thr->buffer_id == max_blc_buffer_id)
@@ -1576,13 +1615,15 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 	}
 
 	fpsgo_main_trace("[%d] dep-list %s", thr->pid, dep_str);
-	kfree(dep_str);
-
 	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
 		min_cap,	"perf idx");
 	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
 		max_cap,	"perf_idx_max");
-
+EXIT:
+	kfree(clus_floor_freq);
+	kfree(clus_opp);
+	kfree(dep_str);
+	kfree(dep_need_set);
 }
 
 static int fbt_get_target_cluster(unsigned int blc_wt)
@@ -2606,12 +2647,24 @@ static void fbt_set_limit(unsigned int blc_wt,
 	int final_blc_pid = pid;
 	unsigned long long final_blc_buffer_id = buffer_id;
 	int final_blc_dep_num = dep_num;
-	struct fpsgo_loading final_blc_dep[MAX_DEP_NUM];
+
+	struct fpsgo_loading *final_blc_dep, *temp_blc_dep;
+
+	final_blc_dep
+		= kcalloc(MAX_DEP_NUM, sizeof(struct fpsgo_loading), GFP_KERNEL);
+	temp_blc_dep
+		= kcalloc(MAX_DEP_NUM, sizeof(struct fpsgo_loading), GFP_KERNEL);
+
+	if (!final_blc_dep || !temp_blc_dep) {
+		FPSGO_LOGE("ERROR OOM %d\n", __LINE__);
+		goto EXIT;
+	}
+
 
 	if (!(blc_wt > max_blc ||
 		(pid == max_blc_pid && buffer_id == max_blc_buffer_id))) {
 		fbt_clear_state(thread_info);
-		return;
+		goto EXIT;
 	}
 
 	if (dep)
@@ -2630,7 +2683,6 @@ static void fbt_set_limit(unsigned int blc_wt,
 		int temp_blc_pid = 0;
 		unsigned long long temp_blc_buffer_id = 0;
 		int temp_blc_dep_num = 0;
-		struct fpsgo_loading temp_blc_dep[MAX_DEP_NUM];
 
 		fbt_find_ex_max_blc(pid, buffer_id, &temp_blc,
 				&temp_blc_pid, &temp_blc_buffer_id,
@@ -2648,13 +2700,13 @@ static void fbt_set_limit(unsigned int blc_wt,
 			memcpy(final_blc_dep, temp_blc_dep,
 				temp_blc_dep_num * sizeof(struct fpsgo_loading));
 
-			goto EXIT;
+			goto BOOST;
 		}
 	}
 
 	fbt_check_cm_limit(thread_info, runtime);
 
-EXIT:
+BOOST:
 	if (boosted_group && !boost_ta) {
 		fbt_clear_boost_value();
 		if (thread_info)
@@ -2696,6 +2748,9 @@ EXIT:
 
 	if (jatm_notify_fp)
 		jatm_notify_fp(0);
+EXIT:
+	kfree(temp_blc_dep);
+	kfree(final_blc_dep);
 }
 
 static unsigned int fbt_get_max_userlimit_freq(void)
