@@ -8,7 +8,7 @@
 
 #include "mtk-scp-ultra.h"
 #include "mtk-afe-fe-dai.h"
-#include "mtk-mem-allocation-control.h"
+#include "mtk-afe-external.h"
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 #include "scp.h"
 #endif
