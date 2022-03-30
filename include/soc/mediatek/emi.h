@@ -34,7 +34,7 @@
 #define MTK_EMIMPU_READ_AID		4
 
 #define MTK_EMI_MAX_TOKEN		4
-#define MTK_EMI_MAX_CMD_LEN		4096
+#define MTK_EMI_MAX_CMD_LEN		256
 
 #define EMIMPUVER1			1
 #define EMIMPUVER2			2
