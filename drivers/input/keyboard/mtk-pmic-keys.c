@@ -12,26 +12,36 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/pm_wakeup.h>
 #include <linux/regmap.h>
 #include <linux/mfd/mt6323/registers.h>
 #include <linux/mfd/mt6359p/registers.h>
+#include <linux/mfd/mt6363/registers.h>
 #include <linux/mfd/mt6397/registers.h>
+#include <linux/mfd/mt6363/core.h>
 #include <linux/mfd/mt6397/core.h>
 
-
-#define MTK_PMIC_PWRKEY_INDEX		0
-#define MTK_PMIC_HOMEKEY_INDEX		1
-#define MTK_PMIC_MAX_KEY_COUNT		2
-#define MT6397_PWRKEY_RST_SHIFT		6
-#define MT6397_HOMEKEY_RST_SHIFT	5
-#define MT6397_RST_DU_SHIFT		8
-#define MT6359_PWRKEY_RST_SHIFT		9
-#define MT6359_HOMEKEY_RST_SHIFT	8
-#define MT6359_RST_DU_SHIFT		12
-#define PWRKEY_RST_EN			1
-#define HOMEKEY_RST_EN			1
-#define RST_DU_MASK			3
-#define INVALID_VALUE			0
+#define MTK_PMIC_PWRKEY_INDEX			0
+#define MTK_PMIC_HOMEKEY_INDEX			1
+#define MTK_PMIC_MAX_KEY_COUNT			2
+#define MT6397_PWRKEY_RST_SHIFT			6
+#define MT6397_HOMEKEY_RST_SHIFT		5
+#define MT6397_RST_DU_SHIFT			8
+#define MT6359_PWRKEY_RST_SHIFT			9
+#define MT6359_HOMEKEY_RST_SHIFT		8
+#define MT6359_RST_DU_SHIFT			12
+#define MT6363_PWRKEY_RST_SHIFT			2
+#define MT6363_HOMEKEY_RST_SHIFT		4
+#define MT6363_RST_DU_SHIFT			6
+#define PWRKEY_RST_EN				1
+#define HOMEKEY_RST_EN				1
+#define RST_DU_MASK				3
+#define RST_MODE_MASK				3
+#define RST_PWRKEY_MODE				0
+#define RST_PWRKEY_HOME_MODE			1
+#define RST_PWRKEY_HOME2_MODE			2
+#define RST_PWRKEY_HOME_HOME2_MODE		3
+#define INVALID_VALUE				0
 
 struct mtk_pmic_keys_regs {
 	u32 deb_reg;
@@ -54,6 +64,7 @@ struct mtk_pmic_regs {
 	const struct mtk_pmic_keys_regs keys_regs[MTK_PMIC_MAX_KEY_COUNT];
 	bool release_irq;
 	u32 pmic_rst_reg;
+	u32 pmic_rst_para_reg;
 	u32 pwrkey_rst_shift;
 	u32 homekey_rst_shift;
 	u32 rst_du_shift;
@@ -101,13 +112,28 @@ static const struct mtk_pmic_regs mt6359p_regs = {
 	.rst_du_shift = MT6359_RST_DU_SHIFT,
 };
 
+static const struct mtk_pmic_regs mt6363_regs = {
+	.keys_regs[MTK_PMIC_PWRKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(MT6363_TOPSTATUS,
+		0x1, MT6363_PSC_TOP_INT_CON0, 0x0),
+	.keys_regs[MTK_PMIC_HOMEKEY_INDEX] =
+		MTK_PMIC_KEYS_REGS(MT6363_TOPSTATUS,
+		0x3, MT6363_PSC_TOP_INT_CON0, 0x1),
+	.release_irq = true,
+	.pmic_rst_reg = MT6363_STRUP_CON11,
+	.pmic_rst_para_reg = MT6363_STRUP_CON12,
+	.pwrkey_rst_shift = MT6363_PWRKEY_RST_SHIFT,
+	.homekey_rst_shift = MT6363_HOMEKEY_RST_SHIFT,
+	.rst_du_shift = MT6363_RST_DU_SHIFT,
+};
+
 struct mtk_pmic_keys_info {
 	struct mtk_pmic_keys *keys;
 	const struct mtk_pmic_keys_regs *regs;
 	unsigned int keycode;
 	int irq;
 	int release_irq_num;
-	bool wakeup:1;
+	struct wakeup_source *suspend_lock;
 };
 
 struct mtk_pmic_keys {
@@ -129,16 +155,23 @@ static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
 	int ret;
 	u32 long_press_mode, long_press_debounce;
 	u32 pmic_rst_reg = pmic_regs->pmic_rst_reg;
-	u32 pwrkey_rst = PWRKEY_RST_EN << pmic_regs->pwrkey_rst_shift;
-	u32 homekey_rst =
-		HOMEKEY_RST_EN << pmic_regs->homekey_rst_shift;
+	u32 pmic_rst_para_reg = pmic_regs->pmic_rst_para_reg;
+	u32 pwrkey_rst_shift =
+		PWRKEY_RST_EN << pmic_regs->pwrkey_rst_shift;
+	u32 homekey_rst_shift =
+		RST_MODE_MASK << pmic_regs->homekey_rst_shift;
+
+	if (pmic_rst_para_reg == INVALID_VALUE) {
+		pmic_rst_para_reg = pmic_rst_reg;
+		homekey_rst_shift = HOMEKEY_RST_EN << pmic_regs->homekey_rst_shift;
+	}
 
 	ret = of_property_read_u32(keys->dev->of_node,
 		"power-off-time-sec", &long_press_debounce);
 	if (ret)
 		long_press_debounce = 0;
 
-	regmap_update_bits(keys->regmap, pmic_rst_reg,
+	regmap_update_bits(keys->regmap, pmic_rst_para_reg,
 			   RST_DU_MASK << pmic_regs->rst_du_shift,
 			   long_press_debounce << pmic_regs->rst_du_shift);
 
@@ -150,27 +183,27 @@ static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
 	switch (long_press_mode) {
 	case LP_ONEKEY:
 		regmap_update_bits(keys->regmap, pmic_rst_reg,
-				   pwrkey_rst,
-				   pwrkey_rst);
-		regmap_update_bits(keys->regmap, pmic_rst_reg,
-				   homekey_rst,
-				   0);
+				   pwrkey_rst_shift,
+				   pwrkey_rst_shift);
+		regmap_update_bits(keys->regmap, pmic_rst_para_reg,
+				   homekey_rst_shift,
+				   RST_PWRKEY_MODE);
 		break;
 	case LP_TWOKEY:
 		regmap_update_bits(keys->regmap, pmic_rst_reg,
-				   pwrkey_rst,
-				   pwrkey_rst);
-		regmap_update_bits(keys->regmap, pmic_rst_reg,
-				   homekey_rst,
-				   homekey_rst);
+				   pwrkey_rst_shift,
+				   pwrkey_rst_shift);
+		regmap_update_bits(keys->regmap, pmic_rst_para_reg,
+				   homekey_rst_shift,
+				   RST_PWRKEY_HOME_MODE << pmic_regs->homekey_rst_shift);
 		break;
 	case LP_DISABLE:
 		regmap_update_bits(keys->regmap, pmic_rst_reg,
-				   pwrkey_rst,
+				   pwrkey_rst_shift,
 				   0);
-		regmap_update_bits(keys->regmap, pmic_rst_reg,
-				   homekey_rst,
-				   0);
+		regmap_update_bits(keys->regmap, pmic_rst_para_reg,
+				   homekey_rst_shift,
+				   RST_PWRKEY_HOME_HOME2_MODE << pmic_regs->homekey_rst_shift);
 		break;
 	default:
 		break;
@@ -184,6 +217,8 @@ static irqreturn_t mtk_pmic_keys_release_irq_handler_thread(
 
 	input_report_key(info->keys->input_dev, info->keycode, 0);
 	input_sync(info->keys->input_dev);
+	if (info->suspend_lock)
+		__pm_relax(info->suspend_lock);
 	dev_dbg(info->keys->dev, "release key =%d using PMIC\n",
 			info->keycode);
 	return IRQ_HANDLED;
@@ -205,6 +240,10 @@ static irqreturn_t mtk_pmic_keys_irq_handler_thread(int irq, void *data)
 	input_report_key(info->keys->input_dev, info->keycode, pressed);
 	input_sync(info->keys->input_dev);
 
+	if (pressed && info->suspend_lock)
+		__pm_stay_awake(info->suspend_lock);
+	else if (info->suspend_lock)
+		__pm_relax(info->suspend_lock);
 	dev_dbg(info->keys->dev, "(%s) key =%d using PMIC\n",
 		 pressed ? "pressed" : "released", info->keycode);
 
@@ -257,7 +296,7 @@ static int __maybe_unused mtk_pmic_keys_suspend(struct device *dev)
 	int index;
 
 	for (index = 0; index < MTK_PMIC_MAX_KEY_COUNT; index++) {
-		if (keys->keys[index].wakeup)
+		if (keys->keys[index].suspend_lock)
 			enable_irq_wake(keys->keys[index].irq);
 	}
 
@@ -270,7 +309,7 @@ static int __maybe_unused mtk_pmic_keys_resume(struct device *dev)
 	int index;
 
 	for (index = 0; index < MTK_PMIC_MAX_KEY_COUNT; index++) {
-		if (keys->keys[index].wakeup)
+		if (keys->keys[index].suspend_lock)
 			disable_irq_wake(keys->keys[index].irq);
 	}
 
@@ -291,6 +330,9 @@ static const struct of_device_id of_mtk_pmic_keys_match_tbl[] = {
 		.compatible = "mediatek,mt6323-keys",
 		.data = &mt6323_regs,
 	}, {
+		.compatible = "mediatek,mt6363-keys",
+		.data = &mt6363_regs,
+	}, {
 		/* sentinel */
 	}
 };
@@ -300,7 +342,7 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 {
 	int error, index = 0;
 	unsigned int keycount;
-	struct mt6397_chip *pmic_chip = dev_get_drvdata(pdev->dev.parent);
+	struct mt6397_chip *pmic_chip;
 	struct device_node *node = pdev->dev.of_node, *child;
 	struct mtk_pmic_keys *keys;
 	const struct mtk_pmic_regs *mtk_pmic_regs;
@@ -312,8 +354,18 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 	if (!keys)
 		return -ENOMEM;
 
+	keys->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!keys->regmap) {
+		pmic_chip =  dev_get_drvdata(pdev->dev.parent);
+		if (!pmic_chip || !pmic_chip->regmap) {
+			dev_info(keys->dev, "failed to get pmic key regmap\n");
+			return -ENODEV;
+		}
+
+		keys->regmap = pmic_chip->regmap;
+	}
+
 	keys->dev = &pdev->dev;
-	keys->regmap = pmic_chip->regmap;
 	mtk_pmic_regs = of_id->data;
 
 	keys->input_dev = input_dev = devm_input_allocate_device(keys->dev);
@@ -360,7 +412,8 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 		}
 
 		if (of_property_read_bool(child, "wakeup-source"))
-			keys->keys[index].wakeup = true;
+			keys->keys[index].suspend_lock =
+				wakeup_source_register(NULL, "pwrkey wakelock");
 
 		error = mtk_pmic_key_setup(keys, &keys->keys[index]);
 		if (error) {

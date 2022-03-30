@@ -29,6 +29,8 @@
 #define KP_MEM4			(0x0010)
 #define KP_MEM5			(0x0014)
 #define KP_DEBOUNCE		(0x0018)
+#define KP_SEL			(0X0020)
+#define KP_EN			(0x0024)
 
 #define KPD_DEBOUNCE_MASK	((1U << 14) - 1)
 #define KPD_DOUBLE_KEY_MASK	(1U << 0)
@@ -45,6 +47,7 @@ struct mtk_keypad {
 	void __iomem *base;
 	unsigned int irqnr;
 	u32 key_debounce;
+	u32 use_extend_type;
 	u32 hw_map_num;
 	u32 hw_init_map[KPD_NUM_KEYS];
 	u16 keymap_state[KPD_NUM_MEMS];
@@ -57,6 +60,22 @@ static void kpd_get_keymap_state(void __iomem *kp_base, u16 state[])
 	state[2] = readw(kp_base + KP_MEM3);
 	state[3] = readw(kp_base + KP_MEM4);
 	state[4] = readw(kp_base + KP_MEM5);
+}
+
+static void kpd_double_key_enable(void __iomem *kp_base, int en)
+{
+	u16 tmp;
+
+	tmp = *(u16 *)KP_SEL;
+	if (en)
+		writew((u16)(tmp | KPD_DOUBLE_KEY_MASK), kp_base + KP_SEL);
+	else
+		writew((u16)(tmp & ~KPD_DOUBLE_KEY_MASK), kp_base + KP_SEL);
+}
+
+static void enable_kpd(void __iomem *kp_base, int en)
+{
+	writew((u16)(en), kp_base + KP_EN);
 }
 
 static void kpd_keymap_handler(unsigned long data)
@@ -126,6 +145,13 @@ static int kpd_get_dts_info(struct mtk_keypad *keypad,
 	if (ret) {
 		pr_debug("read mediatek,key-debounce-ms error.\n");
 		return ret;
+	}
+
+	ret = of_property_read_u32(node, "mediatek, use-extend-type",
+		&keypad->use_extend_type);
+	if (ret) {
+		pr_debug("read mediatek,use-extend-type error.\n");
+		keypad->use_extend_type = 0;
 	}
 
 	ret = of_property_read_u32(node, "mediatek,hw-map-num",
@@ -217,11 +243,19 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 	__set_bit(EV_KEY, keypad->input_dev->evbit);
 
+	if (!keypad->use_extend_type) {
+		for (i = 17; i < KPD_NUM_KEYS; i += 9)
+			keypad->hw_init_map[i] = 0;
+	}
+
 	for (i = 0; i < KPD_NUM_KEYS; i++) {
 		if (keypad->hw_init_map[i])
 			__set_bit(keypad->hw_init_map[i],
 				keypad->input_dev->keybit);
 	}
+
+	if (keypad->use_extend_type)
+		kpd_double_key_enable(keypad->base, 1);
 
 	ret = input_register_device(keypad->input_dev);
 	if (ret) {
@@ -255,6 +289,8 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 	if (ret < 0)
 		pr_notice("irq %d enable irq wake fail\n", keypad->irqnr);
 
+	platform_set_drvdata(pdev, keypad);
+
 	return 0;
 
 err_irq:
@@ -269,7 +305,6 @@ err_unprepare_clk:
 	return ret;
 }
 
-
 static int kpd_pdrv_remove(struct platform_device *pdev)
 {
 	struct mtk_keypad *keypad = platform_get_drvdata(pdev);
@@ -278,6 +313,24 @@ static int kpd_pdrv_remove(struct platform_device *pdev)
 	wakeup_source_unregister(keypad->suspend_lock);
 	input_unregister_device(keypad->input_dev);
 	clk_disable_unprepare(keypad->clk);
+
+	return 0;
+}
+
+static int kpd_pdrv_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct mtk_keypad *keypad = platform_get_drvdata(pdev);
+
+	enable_kpd(keypad->base, 0);
+
+	return 0;
+}
+
+static int kpd_pdrv_resume(struct platform_device *pdev)
+{
+	struct mtk_keypad *keypad = platform_get_drvdata(pdev);
+
+	enable_kpd(keypad->base, 1);
 
 	return 0;
 }
@@ -291,6 +344,8 @@ static const struct of_device_id kpd_of_match[] = {
 static struct platform_driver kpd_pdrv = {
 	.probe = kpd_pdrv_probe,
 	.remove = kpd_pdrv_remove,
+	.suspend = kpd_pdrv_suspend,
+	.resume = kpd_pdrv_resume,
 	.driver = {
 		   .name = KPD_NAME,
 		   .of_match_table = kpd_of_match,
