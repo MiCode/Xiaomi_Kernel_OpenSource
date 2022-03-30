@@ -12,7 +12,17 @@
 #include "mkp_demo.h"
 
 int is_vmalloc_or_module_addr(/*unsigned long x */const void *x);
+
+/* Available helpers */
+enum helper_ops {
+	HELPER_MAPPING_RO = 1,
+	HELPER_MAPPING_RW = 2,
+	HELPER_MAPPING_NX = 3,
+	HELPER_MAPPING_X = 4,
+	HELPER_CLEAR_MAPPING = 5,
+};
+
 int mkp_set_mapping_xxx_helper(unsigned long addr, int nr_pages, uint32_t policy,
-	int (*set_memory)(uint32_t policy, uint32_t handle));
+		enum helper_ops ops);
 
 #endif
