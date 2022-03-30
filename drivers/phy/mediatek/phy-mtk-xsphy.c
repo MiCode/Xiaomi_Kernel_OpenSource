@@ -61,10 +61,45 @@
 #define P2A5_RG_HSTX_SRCTRL_VAL(x)	((0x7 & (x)) << 12)
 
 #define XSP_USBPHYACR6		((SSUSB_SIFSLV_U2PHY_COM) + 0x018)
+#define P2A6_RG_U2_PHY_REV6		GENMASK(31, 30)
+#define P2A6_RG_U2_PHY_REV6_VAL(x)	((0x3 & (x)) << 30)
+#define P2A6_RG_U2_PHY_REV6_MASK	(0x3)
+#define P2A6_RG_U2_PHY_REV6_OFET	(30)
+#define P2A6_RG_U2_PHY_REV1		BIT(25)
 #define P2A6_RG_BC11_SW_EN	BIT(23)
 #define P2A6_RG_OTG_VBUSCMP_EN	BIT(20)
 
+#define XSP_USBPHYACR4		((SSUSB_SIFSLV_U2PHY_COM) + 0x020)
+#define P2A4_RG_USB20_GPIO_CTL		BIT(9)
+#define P2A4_USB20_GPIO_MODE		BIT(8)
+#define P2A4_U2_GPIO_CTR_MSK (P2A4_RG_USB20_GPIO_CTL | P2A4_USB20_GPIO_MODE)
+
+#define XSP_U2PHYDTM0		((SSUSB_SIFSLV_U2PHY_COM) + 0x068)
+#define P2D_FORCE_UART_EN		BIT(26)
+#define P2D_FORCE_DATAIN		BIT(23)
+#define P2D_FORCE_DM_PULLDOWN		BIT(21)
+#define P2D_FORCE_DP_PULLDOWN		BIT(20)
+#define P2D_FORCE_XCVRSEL		BIT(19)
+#define P2D_FORCE_SUSPENDM		BIT(18)
+#define P2D_FORCE_TERMSEL		BIT(17)
+#define P2D_RG_DATAIN			GENMASK(13, 10)
+#define P2D_RG_DATAIN_VAL(x)		((0xf & (x)) << 10)
+#define P2D_RG_DMPULLDOWN		BIT(7)
+#define P2D_RG_DPPULLDOWN		BIT(6)
+#define P2D_RG_XCVRSEL			GENMASK(5, 4)
+#define P2D_RG_XCVRSEL_VAL(x)		((0x3 & (x)) << 4)
+#define P2D_RG_SUSPENDM			BIT(3)
+#define P2D_RG_TERMSEL			BIT(2)
+#define P2D_DTM0_PART_MASK \
+		(P2D_FORCE_DATAIN | P2D_FORCE_DM_PULLDOWN | \
+		P2D_FORCE_DP_PULLDOWN | P2D_FORCE_XCVRSEL | \
+		P2D_FORCE_SUSPENDM | P2D_FORCE_TERMSEL | \
+		P2D_RG_DMPULLDOWN | P2D_RG_DPPULLDOWN | \
+		P2D_RG_TERMSEL)
+
+
 #define XSP_U2PHYDTM1		((SSUSB_SIFSLV_U2PHY_COM) + 0x06C)
+#define P2D_RG_UART_EN		BIT(16)
 #define P2D_FORCE_IDDIG		BIT(9)
 #define P2D_RG_VBUSVALID	BIT(5)
 #define P2D_RG_SESSEND		BIT(4)
@@ -211,6 +246,30 @@ static void u2_phy_instance_power_on(struct mtk_xsphy *xsphy,
 	u32 index = inst->index;
 	u32 tmp;
 
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp &= ~(P2D_FORCE_UART_EN);
+	writel(tmp, pbase + XSP_U2PHYDTM0);
+
+	tmp = readl(pbase + XSP_U2PHYDTM1);
+	tmp &= ~P2D_RG_UART_EN;
+	writel(tmp, pbase + XSP_U2PHYDTM1);
+
+	tmp = readl(pbase + XSP_USBPHYACR4);
+	tmp &= ~P2A4_U2_GPIO_CTR_MSK;
+	writel(tmp, pbase + XSP_USBPHYACR4);
+
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp &= ~P2D_FORCE_SUSPENDM;
+	writel(tmp, pbase + XSP_U2PHYDTM0);
+
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp &= ~(P2D_RG_XCVRSEL | P2D_RG_DATAIN | P2D_DTM0_PART_MASK);
+	writel(tmp, pbase + XSP_U2PHYDTM0);
+
+	tmp = readl(pbase + XSP_USBPHYACR6);
+	tmp &= ~P2A6_RG_BC11_SW_EN;
+	writel(tmp, pbase + XSP_USBPHYACR6);
+
 	tmp = readl(pbase + XSP_USBPHYACR6);
 	tmp |= P2A6_RG_OTG_VBUSCMP_EN;
 	writel(tmp, pbase + XSP_USBPHYACR6);
@@ -220,7 +279,14 @@ static void u2_phy_instance_power_on(struct mtk_xsphy *xsphy,
 	tmp &= ~P2D_RG_SESSEND;
 	writel(tmp, pbase + XSP_U2PHYDTM1);
 
-	dev_dbg(xsphy->dev, "%s(%d)\n", __func__, index);
+	tmp = readl(pbase + XSP_USBPHYACR6);
+	tmp &= ~(P2A6_RG_U2_PHY_REV6 | P2A6_RG_U2_PHY_REV1);
+	tmp |= P2A6_RG_U2_PHY_REV6_VAL(1);
+	writel(tmp, pbase + XSP_USBPHYACR6);
+
+	udelay(800);
+
+	dev_info(xsphy->dev, "%s(%d)\n", __func__, index);
 }
 
 static void u2_phy_instance_power_off(struct mtk_xsphy *xsphy,
@@ -229,6 +295,22 @@ static void u2_phy_instance_power_off(struct mtk_xsphy *xsphy,
 	void __iomem *pbase = inst->port_base;
 	u32 index = inst->index;
 	u32 tmp;
+
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp &= ~(P2D_FORCE_UART_EN);
+	writel(tmp, pbase + XSP_U2PHYDTM0);
+
+	tmp = readl(pbase + XSP_U2PHYDTM1);
+	tmp &= ~P2D_RG_UART_EN;
+	writel(tmp, pbase + XSP_U2PHYDTM1);
+
+	tmp = readl(pbase + XSP_USBPHYACR4);
+	tmp &= ~P2A4_U2_GPIO_CTR_MSK;
+	writel(tmp, pbase + XSP_USBPHYACR4);
+
+	tmp = readl(pbase + XSP_USBPHYACR6);
+	tmp &= ~P2A6_RG_BC11_SW_EN;
+	writel(tmp, pbase + XSP_USBPHYACR6);
 
 	tmp = readl(pbase + XSP_USBPHYACR6);
 	tmp &= ~P2A6_RG_OTG_VBUSCMP_EN;
@@ -239,7 +321,28 @@ static void u2_phy_instance_power_off(struct mtk_xsphy *xsphy,
 	tmp |= P2D_RG_SESSEND;
 	writel(tmp, pbase + XSP_U2PHYDTM1);
 
-	dev_dbg(xsphy->dev, "%s(%d)\n", __func__, index);
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp |= P2D_RG_SUSPENDM | P2D_FORCE_SUSPENDM;
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+
+	mdelay(2);
+
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp &= ~P2D_RG_DATAIN;
+	tmp |= (P2D_RG_XCVRSEL_VAL(1) | P2D_DTM0_PART_MASK);
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+
+	tmp = readl(pbase + XSP_USBPHYACR6);
+	tmp |= (P2A6_RG_U2_PHY_REV6_VAL(1) | P2A6_RG_U2_PHY_REV1);
+	writel(tmp, pbase + XSP_USBPHYACR6);
+
+	udelay(800);
+
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+	tmp &= ~P2D_RG_SUSPENDM;
+	tmp = readl(pbase + XSP_U2PHYDTM0);
+
+	dev_info(xsphy->dev, "%s(%d)\n", __func__, index);
 }
 
 static void u2_phy_instance_set_mode(struct mtk_xsphy *xsphy,
