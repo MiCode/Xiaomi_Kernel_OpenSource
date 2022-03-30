@@ -28,6 +28,7 @@
 #include <linux/of_fdt.h>
 #include <linux/ioport.h>
 #include <linux/io.h>
+#include <linux/err.h>
 //#include <mt-plat/sync_write.h>
 //#include <mt-plat/aee.h>
 #include <linux/delay.h>
@@ -1534,64 +1535,32 @@ void scp_deregister_feature(enum feature_id id)
 EXPORT_SYMBOL_GPL(scp_deregister_feature);
 
 /*scp sensor type register*/
-void scp_register_sensor(enum feature_id id, int sensor_id)
+int sensor_control_scp(enum feature_id id, int freq)
 {
-	uint32_t i;
-
 	/* prevent from access when scp is down */
 	if (!scp_ready[SCP_A_ID])
-		return;
+		return -EINVAL;
 
 	if (id != SENS_FEATURE_ID) {
 		pr_debug("[SCP]register sensor id err");
-		return;
+		return -EINVAL;
 	}
 	/* because feature_table is a global variable
 	 * use mutex lock to protect it from
 	 * accessing in the same time
 	 */
 	mutex_lock(&scp_register_sensor_mutex);
-	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-		if (sensor_type_table[i].feature == sensor_id)
-			sensor_type_table[i].enable = 1;
-	}
-
-	/* register sensor */
-	scp_control_feature(id, true);
+	if (freq) {
+		feature_table[id].freq = freq;
+		/* register sensor */
+		scp_control_feature(id, true);
+	} else
+		scp_control_feature(id, false);
 	mutex_unlock(&scp_register_sensor_mutex);
+
+	return 0;
 }
-EXPORT_SYMBOL_GPL(scp_register_sensor);
-
-/*scp sensor type deregister*/
-void scp_deregister_sensor(enum feature_id id, int sensor_id)
-{
-	bool feature_enable = false;
-	uint32_t i;
-
-	/* prevent from access when scp is down */
-	if (!scp_ready[SCP_A_ID])
-		return;
-
-	if (id != SENS_FEATURE_ID) {
-		pr_debug("[SCP]deregister sensor id err");
-		return;
-	}
-	/* because feature_table is a global variable
-	 * use mutex lock to protect it from
-	 * accessing in the same time
-	 */
-	mutex_lock(&scp_register_sensor_mutex);
-	if (sensor_type_table[sensor_id].feature == sensor_id)
-		sensor_type_table[sensor_id].enable = 0;
-	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-		if (sensor_type_table[i].enable)
-			feature_enable = true;
-	}
-	/* deregister sensor*/
-	scp_control_feature(id, feature_enable);
-	mutex_unlock(&scp_register_sensor_mutex);
-}
-EXPORT_SYMBOL_GPL(scp_deregister_sensor);
+EXPORT_SYMBOL_GPL(sensor_control_scp);
 
 /*
  * apps notification

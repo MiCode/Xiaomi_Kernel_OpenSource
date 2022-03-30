@@ -418,14 +418,6 @@ static uint32_t sum_required_freq(uint32_t core_id)
 			sum += feature_table[i].freq;
 	}
 
-	/*
-	 * calculate scp sensor frequency (core0 only)
-	 */
-	if (core_id == SCPSYS_CORE0)
-		for (i = 0; i < NUM_SENSOR_TYPE; i++)
-			if (sensor_type_table[i].enable == 1)
-				sum += sensor_type_table[i].freq;
-
 	return sum;
 }
 
@@ -1140,11 +1132,6 @@ static int mt_scp_dvfs_ctrl_proc_show(struct seq_file *m, void *v)
 		seq_printf(m, "feature=%d, freq=%d, enable=%d\n",
 			feature_table[i].feature, feature_table[i].freq,
 			feature_table[i].enable);
-
-	for (i = 0; i < NUM_SENSOR_TYPE; i++)
-		seq_printf(m, "sensor id=%d, freq=%d, enable=%d\n",
-			sensor_type_table[i].feature, sensor_type_table[i].freq,
-			sensor_type_table[i].enable);
 
 	return 0;
 }

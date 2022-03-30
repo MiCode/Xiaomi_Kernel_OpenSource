@@ -197,8 +197,7 @@ extern phys_addr_t scp_get_reserve_mem_size(enum scp_reserve_mem_id_t id);
 /* APIs for registering function of features */
 extern void scp_register_feature(enum feature_id id);
 extern void scp_deregister_feature(enum feature_id id);
-extern void scp_register_sensor(enum feature_id id, int sensor_id);
-extern void scp_deregister_sensor(enum feature_id id, int sensor_id);
+extern int sensor_control_scp(enum feature_id id, int freq);
 
 /* APIs for reset scp */
 extern void scp_wdt_reset(int cpu_id);
