@@ -57,8 +57,7 @@ enum mddp_log_level_e {
 	MDDP_LL_DEBUG,                      /* 5 */
 	MDDP_LL_ALL,                        /* 6 */
 };
-#define MDDP_LL_ENG_DEF                 MDDP_LL_NOTICE
-#define MDDP_LL_NON_ENG_DEF             MDDP_LL_WARN
+#define MDDP_LL_DEFAULT         MDDP_LL_WARN
 
 //------------------------------------------------------------------------------
 // Define marco.

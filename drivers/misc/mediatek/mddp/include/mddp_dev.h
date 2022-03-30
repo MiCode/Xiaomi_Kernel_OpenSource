@@ -15,9 +15,7 @@
 // -----------------------------------------------------------------------------
 #define MDDP_DETAILED_STATE_ENABLE 19283746
 #define MDDP_DETAILED_STATE_DISABLE 0
-#ifdef CONFIG_MTK_ENG_BUILD
 #define MDDP_EM_SUPPORT	1                   /**< Engineer mode support */
-#endif
 
 //------------------------------------------------------------------------------
 // Public functions.

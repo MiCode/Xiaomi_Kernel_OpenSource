@@ -137,6 +137,7 @@ typedef int32_t (*mddpw_cbf_notify_drv_info_t)(
 		struct mddpw_drv_notify_info_t *);
 typedef int32_t (*mddpw_cbf_get_net_stat_ext_t)(struct mddpw_net_stat_ext_t *);
 typedef int32_t (*mddpw_cbf_get_sys_stat_t)(struct mddpw_sys_stat_t **);
+typedef int32_t (*mddpw_cbf_get_mddp_feature_t)(void);
 
 struct mddpw_drv_handle_t {
 	/* MDDPW invokes these APIs provided by driver. */
@@ -150,6 +151,7 @@ struct mddpw_drv_handle_t {
 	mddpw_cbf_notify_drv_info_t            notify_drv_info;
 	mddpw_cbf_get_net_stat_ext_t           get_net_stat_ext;
 	mddpw_cbf_get_sys_stat_t               get_sys_stat;
+	mddpw_cbf_get_mddp_feature_t           get_mddp_feature;
 };
 
 enum mddp_md_smem_user_id_e {
@@ -217,6 +219,7 @@ enum mddp_drv_onoff_status {
 	MDDPW_DRV_INFO_WLAN_ON_END = 1,
 	MDDPW_DRV_INFO_WLAN_OFF_START = 2,
 	MDDPW_DRV_INFO_WLAN_OFF_END = 3,
+	MDDPW_DRV_INFO_WLAN_ON_END_QOS = 4,
 };
 
 enum mddp_md_notify_info_type {
@@ -225,5 +228,8 @@ enum mddp_md_notify_info_type {
 
 	MDDPW_MD_NOTIFY_END,
 };
+
+#define MDDP_FEATURE_MCIF_WIFI (1<<1)
+#define MDDP_FEATURE_MDDP_WH   (1<<2)
 
 #endif /* __MDDP_WIFI_DEF_H */

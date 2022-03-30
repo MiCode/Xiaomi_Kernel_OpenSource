@@ -25,6 +25,8 @@ int32_t mddp_on_get_offload_stats(enum mddp_app_type_e type,
 		uint8_t *buf, uint32_t *buf_len);
 int32_t mddp_on_set_data_limit(enum mddp_app_type_e type,
 		uint8_t *buf, uint32_t buf_len);
+int32_t mddp_on_set_warning_and_data_limit(enum mddp_app_type_e type,
+		uint8_t *buf, uint32_t buf_len);
 int32_t mddp_on_set_ct_value(enum mddp_app_type_e type,
 		uint8_t *buf, uint32_t buf_len);
 #endif /* __MDDP_IF_H */

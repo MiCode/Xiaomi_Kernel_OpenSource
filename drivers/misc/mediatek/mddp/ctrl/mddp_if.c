@@ -15,6 +15,8 @@
 #include "mddp_sm.h"
 #include "mddp_usage.h"
 
+#define MDDP_WIFI_NETIF_ID 0x500 /* copy from MD IPC_NETIF_ID_MCIF_BEGIN */
+
 //------------------------------------------------------------------------------
 // Struct definition.
 // -----------------------------------------------------------------------------
@@ -36,7 +38,44 @@
 //------------------------------------------------------------------------------
 // Private functions.
 //------------------------------------------------------------------------------
+static uint32_t mddp_netdev_notifier_is_init;
+static int mddp_netdev_notify_cb(struct notifier_block *nb,
+				 unsigned long event, void *data)
+{
+	struct mddp_app_t *app;
+	struct net_device *dev = netdev_notifier_info_to_dev(data);
 
+	if (!mddp_netdev_notifier_is_init)
+		return NOTIFY_DONE;
+
+	if (event == NETDEV_UNREGISTER) {
+		if (mddp_f_is_support_lan_dev(dev->ifindex) ||
+				mddp_f_is_support_wan_dev(dev->ifindex)) {
+			app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+			mddp_sm_on_event(app, MDDP_EVT_FUNC_DEACT);
+		}
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block mddp_netdev_notifier __read_mostly = {
+	.notifier_call = mddp_netdev_notify_cb,
+};
+
+void mddp_netdev_notifier_init(void)
+{
+	if (register_netdevice_notifier(&mddp_netdev_notifier) == 0)
+		mddp_netdev_notifier_is_init = 1;
+}
+
+void mddp_netdev_notifier_exit(void)
+{
+	if (mddp_netdev_notifier_is_init) {
+		mddp_netdev_notifier_is_init = 0;
+		unregister_netdevice_notifier(&mddp_netdev_notifier);
+	}
+}
 //------------------------------------------------------------------------------
 // Public functions.
 //------------------------------------------------------------------------------
@@ -79,7 +118,9 @@ int32_t mddp_on_enable(enum mddp_app_type_e in_type)
 	for (idx = 0; idx < MDDP_MOD_CNT; idx++) {
 		type = mddp_sm_module_list_s[idx];
 		app = mddp_get_app_inst(type);
+		mddp_sm_wait_pre(app);
 		mddp_sm_on_event(app, MDDP_EVT_FUNC_ENABLE);
+		mddp_sm_wait(app, MDDP_EVT_FUNC_ENABLE);
 	}
 
 	return 0;
@@ -100,7 +141,9 @@ int32_t mddp_on_disable(enum mddp_app_type_e in_type)
 	for (idx = 0; idx < MDDP_MOD_CNT; idx++) {
 		type = mddp_sm_module_list_s[idx];
 		app = mddp_get_app_inst(type);
+		mddp_sm_wait_pre(app);
 		mddp_sm_on_event(app, MDDP_EVT_FUNC_DISABLE);
+		mddp_sm_wait(app, MDDP_EVT_FUNC_DISABLE);
 	}
 
 	return 0;
@@ -120,6 +163,14 @@ int32_t mddp_on_activate(enum mddp_app_type_e type,
 	if (!app->is_config)
 		return -EINVAL;
 
+	if (!mddp_f_dev_add_wan_dev(ul_dev_name))
+		return -EINVAL;
+	if (!mddp_f_dev_add_lan_dev(dl_dev_name, MDDP_WIFI_NETIF_ID)) {
+		mddp_f_dev_del_wan_dev(ul_dev_name);
+		return -EINVAL;
+	}
+	mddp_netdev_notifier_init();
+
 	/*
 	 * MDDP ACTIVATE command.
 	 */
@@ -131,7 +182,10 @@ int32_t mddp_on_activate(enum mddp_app_type_e type,
 			"%s: type(%d), app(%p), ul(%s), dl(%s).\n",
 			__func__, type, app,
 			app->ap_cfg.ul_dev_name, app->ap_cfg.dl_dev_name);
+
+	mddp_sm_wait_pre(app);
 	mddp_sm_on_event(app, MDDP_EVT_FUNC_ACT);
+	mddp_sm_wait(app, MDDP_EVT_FUNC_ACT);
 	mddp_u_set_wan_iface(ul_dev_name);
 
 	return 0;
@@ -150,10 +204,13 @@ int32_t mddp_on_deactivate(enum mddp_app_type_e type)
 	if (!app->is_config)
 		return -EINVAL;
 
+	mddp_netdev_notifier_exit();
 	/*
 	 * MDDP DEACTIVATE command.
 	 */
+	mddp_sm_wait_pre(app);
 	mddp_sm_on_event(app, MDDP_EVT_FUNC_DEACT);
+	mddp_sm_wait(app, MDDP_EVT_FUNC_DEACT);
 
 	return 0;
 }
@@ -184,10 +241,22 @@ int32_t mddp_on_set_data_limit(
 	if (type != MDDP_APP_TYPE_ALL)
 		return -EINVAL;
 
-	/*
-	 * MDDP GET_OFFLOAD_STATISTICS command.
-	 */
 	ret = mddp_u_set_data_limit(buf, buf_len);
+
+	return ret;
+}
+
+int32_t mddp_on_set_warning_and_data_limit(
+		enum mddp_app_type_e type,
+		uint8_t *buf,
+		uint32_t buf_len)
+{
+	int32_t                 ret;
+
+	if (type != MDDP_APP_TYPE_ALL)
+		return -EINVAL;
+
+	ret = mddp_u_set_warning_and_data_limit(buf, buf_len);
 
 	return ret;
 }
@@ -223,21 +292,24 @@ static int __init mddp_init(void)
 
 	ret = mddp_ipc_init();
 	if (ret < 0)
-		goto _init_fail;
+		goto _init_fail2;
 
 	ret = mddp_dev_init();
 	if (ret < 0)
-		goto _init_fail;
+		goto _init_fail3;
 
 	ret = mddp_filter_init();
 	if (ret < 0)
-		goto _init_fail;
+		goto _init_fail4;
 
-	ret = mddp_usage_init();
-	if (ret < 0)
-		goto _init_fail;
+	return 0;
 
-
+_init_fail4:
+	mddp_dev_uninit();
+_init_fail3:
+	mddp_ipc_uninit();
+_init_fail2:
+	mddp_sm_uninit();
 _init_fail:
 	return ret;
 }
@@ -246,7 +318,6 @@ static void __exit mddp_exit(void)
 {
 	synchronize_net();
 
-	mddp_usage_uninit();
 	mddp_filter_uninit();
 	mddp_dev_uninit();
 	mddp_ipc_uninit();
