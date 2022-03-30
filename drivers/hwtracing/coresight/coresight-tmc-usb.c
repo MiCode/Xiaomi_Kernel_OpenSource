@@ -696,65 +696,69 @@ int tmc_etr_usb_init(struct amba_device *adev,
 	struct tmc_usb_bam_data *bamdata;
 	int mapping_config = 0;
 	struct iommu_domain *domain;
-	struct tmc_usb_data *usb_data;
+	struct tmc_usb_data *usb_data = NULL;
 	struct byte_cntr *byte_cntr_data;
 
-	usb_data = devm_kzalloc(dev, sizeof(*usb_data), GFP_KERNEL);
-	if (!usb_data)
-		return -ENOMEM;
+	if (tmc_etr_support_usb_bypass(dev) ||
+			tmc_etr_support_usb_bam(dev)) {
 
-	drvdata->usb_data = usb_data;
-	drvdata->usb_data->tmcdrvdata = drvdata;
-	byte_cntr_data = drvdata->byte_cntr;
-
-	if (tmc_etr_support_usb_bypass(dev)) {
-		usb_data->usb_mode = TMC_ETR_USB_SW;
-
-		if (!byte_cntr_data)
-			return -EINVAL;
-
-		ret = usb_bypass_init(byte_cntr_data);
-		if (ret)
-			return -EINVAL;
-
-		return 0;
-	} else if (tmc_etr_support_usb_bam(dev)) {
-		usb_data->usb_mode = TMC_ETR_USB_BAM_TO_BAM;
-		bamdata = devm_kzalloc(dev, sizeof(*bamdata), GFP_KERNEL);
-		if (!bamdata)
+		usb_data = devm_kzalloc(dev, sizeof(*usb_data), GFP_KERNEL);
+		if (!usb_data)
 			return -ENOMEM;
-		drvdata->usb_data->bamdata = bamdata;
+		drvdata->usb_data = usb_data;
+		drvdata->usb_data->tmcdrvdata = drvdata;
+		drvdata->mode_support |= BIT(TMC_ETR_OUT_MODE_USB);
 
-		ret = of_address_to_resource(adev->dev.of_node, 1, &res);
-		if (ret)
-			return -ENODEV;
+		if (tmc_etr_support_usb_bypass(dev)) {
+			byte_cntr_data = drvdata->byte_cntr;
+			usb_data->usb_mode = TMC_ETR_USB_SW;
 
-		bamdata->props.phys_addr = res.start;
-		bamdata->props.virt_addr = devm_ioremap(dev, res.start,
-							resource_size(&res));
-		if (!bamdata->props.virt_addr)
-			return -ENOMEM;
-		bamdata->props.virt_size = resource_size(&res);
+			if (!byte_cntr_data)
+				return -EINVAL;
 
-		bamdata->props.event_threshold = 0x4; /* Pipe event threshold */
-		bamdata->props.summing_threshold = 0x10; /* BAM event threshold */
-		bamdata->props.irq = 0;
-		bamdata->props.num_pipes = TMC_USB_BAM_NR_PIPES;
-		domain = iommu_get_domain_for_dev(dev);
-		if (domain) {
-			mapping_config = qcom_iommu_get_mappings_configuration(domain);
-			if (mapping_config < 0)
+			ret = usb_bypass_init(byte_cntr_data);
+			if (ret)
+				return -EINVAL;
+
+			return 0;
+		} else if (tmc_etr_support_usb_bam(dev)) {
+			usb_data->usb_mode = TMC_ETR_USB_BAM_TO_BAM;
+			bamdata = devm_kzalloc(dev, sizeof(*bamdata), GFP_KERNEL);
+			if (!bamdata)
 				return -ENOMEM;
-			if (!(mapping_config & QCOM_IOMMU_MAPPING_CONF_S1_BYPASS))
-				pr_debug("%s: setting SPS_BAM_SMMU_EN flag with (%s)\n",
-							__func__, dev_name(dev));
-			bamdata->props.options |= SPS_BAM_SMMU_EN;
-		}
+			drvdata->usb_data->bamdata = bamdata;
 
-		return sps_register_bam_device(&bamdata->props, &bamdata->handle);
+			ret = of_address_to_resource(adev->dev.of_node, 1, &res);
+			if (ret)
+				return -ENODEV;
+
+			bamdata->props.phys_addr = res.start;
+			bamdata->props.virt_addr = devm_ioremap(dev, res.start,
+							resource_size(&res));
+			if (!bamdata->props.virt_addr)
+				return -ENOMEM;
+			bamdata->props.virt_size = resource_size(&res);
+
+			bamdata->props.event_threshold = 0x4; /* Pipe event threshold */
+			bamdata->props.summing_threshold = 0x10; /* BAM event threshold */
+			bamdata->props.irq = 0;
+			bamdata->props.num_pipes = TMC_USB_BAM_NR_PIPES;
+			domain = iommu_get_domain_for_dev(dev);
+			if (domain) {
+				mapping_config = qcom_iommu_get_mappings_configuration(domain);
+				if (mapping_config < 0)
+					return -ENOMEM;
+				if (!(mapping_config & QCOM_IOMMU_MAPPING_CONF_S1_BYPASS))
+					pr_debug("%s: setting SPS_BAM_SMMU_EN flag with (%s)\n",
+							__func__, dev_name(dev));
+				bamdata->props.options |= SPS_BAM_SMMU_EN;
+			}
+
+			return sps_register_bam_device(&bamdata->props, &bamdata->handle);
+		}
 	}
 
-	usb_data->usb_mode = TMC_ETR_USB_NONE;
+	drvdata->usb_data = NULL;
 	pr_err("%s: ETR usb property is not configured!\n",
 					__func__, dev_name(dev));
 	return 0;

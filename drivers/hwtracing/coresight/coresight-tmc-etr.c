@@ -1325,13 +1325,16 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 	atomic_inc(csdev->refcnt);
 
 	spin_unlock_irqrestore(&drvdata->spinlock, flags);
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB) {
+	if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB)
 		ret = tmc_usb_enable(drvdata->usb_data);
-		if (ret) {
-			atomic_dec(csdev->refcnt);
-			drvdata->mode = CS_MODE_DISABLED;
-		}
+	else if (drvdata->out_mode == TMC_ETR_OUT_MODE_ETH)
+		ret = tmc_eth_enable(drvdata->eth_data);
+
+	if (ret) {
+		atomic_dec(csdev->refcnt);
+		drvdata->mode = CS_MODE_DISABLED;
 	}
+
 	goto out;
 
 unlock_out:
@@ -1825,11 +1828,14 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 			spin_lock_irqsave(&drvdata->spinlock, flags);
 		}
 		tmc_etr_disable_hw(drvdata);
-	} else {
+	} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB &&
+		drvdata->usb_data->usb_mode == TMC_ETR_USB_BAM_TO_BAM){
 		spin_unlock_irqrestore(&drvdata->spinlock, flags);
 		tmc_usb_disable(drvdata->usb_data);
 		spin_lock_irqsave(&drvdata->spinlock, flags);
-	}
+	} else if (drvdata->out_mode == TMC_ETR_OUT_MODE_ETH)
+		tmc_eth_disable(drvdata->eth_data);
+
 	/* Dissociate from monitored process. */
 	drvdata->pid = -1;
 	drvdata->mode = CS_MODE_DISABLED;
@@ -1859,16 +1865,33 @@ int tmc_etr_switch_mode(struct tmc_drvdata *drvdata, const char *out_mode)
 	enum tmc_etr_out_mode new_mode, old_mode;
 
 	mutex_lock(&drvdata->mem_lock);
-	if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM]))
-		new_mode = TMC_ETR_OUT_MODE_MEM;
-	else if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB])) {
-		if (drvdata->usb_data->usb_mode == TMC_ETR_USB_NONE) {
+	if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM])) {
+		if (drvdata->mode_support & BIT(TMC_ETR_OUT_MODE_MEM))
+			new_mode = TMC_ETR_OUT_MODE_MEM;
+		else {
+			dev_err(&drvdata->csdev->dev,
+					"Memory mode is not supported.\n");
+			mutex_unlock(&drvdata->mem_lock);
+			return -EINVAL;
+		}
+	} else if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB])) {
+		if (drvdata->mode_support & BIT(TMC_ETR_OUT_MODE_USB))
+			new_mode = TMC_ETR_OUT_MODE_USB;
+		else {
 			dev_err(&drvdata->csdev->dev,
 					"USB mode is not supported.\n");
 			mutex_unlock(&drvdata->mem_lock);
 			return -EINVAL;
 		}
-		new_mode = TMC_ETR_OUT_MODE_USB;
+	} else if (!strcmp(out_mode, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_ETH])) {
+		if (drvdata->mode_support & BIT(TMC_ETR_OUT_MODE_ETH))
+			new_mode = TMC_ETR_OUT_MODE_ETH;
+		else {
+			dev_err(&drvdata->csdev->dev,
+					"ETH mode is not supported.\n");
+			mutex_unlock(&drvdata->mem_lock);
+			return -EINVAL;
+		}
 	} else {
 		mutex_unlock(&drvdata->mem_lock);
 		return -EINVAL;
