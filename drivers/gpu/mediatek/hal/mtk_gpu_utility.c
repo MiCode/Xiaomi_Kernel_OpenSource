@@ -677,6 +677,17 @@ EXPORT_SYMBOL(mtk_notify_gpu_freq_change);
 
 /* ------------------------------------------------------------------------ */
 
+/* ----------------------gpu fence debug fp-------------------------- */
+void (*mtk_gpu_fence_debug_dump_fp)(int fd, int pid, int type) = NULL;
+EXPORT_SYMBOL(mtk_gpu_fence_debug_dump_fp);
+
+void mtk_gpu_fence_debug_dump(int fd, int pid, int type)
+{
+	if (mtk_gpu_fence_debug_dump_fp != NULL)
+		mtk_gpu_fence_debug_dump_fp(fd, pid, type);
+}
+EXPORT_SYMBOL(mtk_gpu_fence_debug_dump);
+
 static int mtk_gpu_hal_init(void)
 {
 	/*Do Nothing*/
