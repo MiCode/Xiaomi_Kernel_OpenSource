@@ -399,6 +399,7 @@ struct mtu3 {
 	u32 hw_version;
 
 	unsigned is_gadget_ready:1;
+	unsigned async_callbacks:1;
 };
 
 static inline struct mtu3 *gadget_to_mtu3(struct usb_gadget *g)

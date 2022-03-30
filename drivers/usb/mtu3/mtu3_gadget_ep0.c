@@ -64,14 +64,16 @@ forward_to_driver(struct mtu3 *mtu, const struct usb_ctrlrequest *setup)
 __releases(mtu->lock)
 __acquires(mtu->lock)
 {
-	int ret;
+	int ret = -EINVAL;
 
 	if (!mtu->gadget_driver)
 		return -EOPNOTSUPP;
 
-	spin_unlock(&mtu->lock);
-	ret = mtu->gadget_driver->setup(&mtu->g, setup);
-	spin_lock(&mtu->lock);
+	if (mtu->async_callbacks) {
+		spin_unlock(&mtu->lock);
+		ret = mtu->gadget_driver->setup(&mtu->g, setup);
+		spin_lock(&mtu->lock);
+	}
 
 	dev_dbg(mtu->dev, "%s ret %d\n", __func__, ret);
 	return ret;
