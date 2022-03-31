@@ -303,6 +303,13 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
  */
 int mhi_force_reset(struct mhi_controller *mhi_cntrl);
 
+/**
+ * mhi_start_dtr_channels - Host request to start DTR channels after others have
+ * been probed from mission mode completion
+ * @mhi_dev: MHI controller device for DTR channels
+ */
+void mhi_start_dtr_channels(struct mhi_device *mhi_dev);
+
 #else
 
 /**
@@ -630,6 +637,15 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 int mhi_force_reset(struct mhi_controller *mhi_cntrl)
 {
 	return -EINVAL;
+}
+
+/**
+ * mhi_start_dtr_channels - Host request to start DTR channels after others have
+ * been probed from mission mode completion
+ * @mhi_dev: MHI controller device for DTR channels
+ */
+void mhi_start_dtr_channels(struct mhi_device *mhi_dev)
+{
 }
 
 #endif /* CONFIG_MHI_BUS_MISC */
