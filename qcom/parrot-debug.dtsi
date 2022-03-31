@@ -7,10 +7,10 @@
 
 	dump_mem: mem_dump_region {
 		compatible = "shared-dma-pool";
-		alloc-ranges = <0x1 0x00000000 0xfffffffe 0xffffffff>;
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
 		reusable;
 		alignment = <0x0 0x400000>;
-		size = <0 0x2800000>;
+		size = <0x0 0xc00000>;
 	};
 };
 
@@ -302,7 +302,7 @@
 		};
 
 		rpmh {
-			qcom,dump-size = <0x2000000>;
+			qcom,dump-size = <0x400000>;
 			qcom,dump-id = <0xec>;
 		};
 

@@ -10,7 +10,7 @@
 		alloc-ranges = <0x1 0x00000000 0xfffffffe 0xffffffff>;
 		reusable;
 		alignment = <0x0 0x400000>;
-		size = <0 0x3000000>;
+		size = <0 0x1400000>;
 	};
 };
 
@@ -2460,7 +2460,7 @@
 		};
 
 		rpmh {
-			qcom,dump-size = <0x2000000>;
+			qcom,dump-size = <0x400000>;
 			qcom,dump-id = <0xec>;
 		};
 
