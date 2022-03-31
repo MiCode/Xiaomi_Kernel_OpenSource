@@ -51,6 +51,7 @@ struct adsp_data {
 	bool uses_elf64;
 	bool has_aggre2_clk;
 	bool auto_boot;
+	bool dma_phys_below_32b;
 
 	char **active_pd_names;
 	char **proxy_pd_names;
@@ -88,6 +89,7 @@ struct qcom_adsp {
 	struct icc_path *bus_client;
 	int crash_reason_smem;
 	bool has_aggre2_clk;
+	bool dma_phys_below_32b;
 	const char *info_name;
 
 	struct completion start_done;
@@ -282,7 +284,7 @@ static int adsp_load(struct rproc *rproc, const struct firmware *fw)
 	scm_pas_enable_bw();
 	ret = qcom_mdt_load_no_free(adsp->dev, fw, rproc->firmware, adsp->pas_id,
 			    adsp->mem_region, adsp->mem_phys, adsp->mem_size,
-			    &adsp->mem_reloc, adsp->mdata);
+			    &adsp->mem_reloc, adsp->dma_phys_below_32b, adsp->mdata);
 	scm_pas_disable_bw();
 	if (ret)
 		goto exit;
@@ -418,7 +420,8 @@ unscale_bus:
 disable_irqs:
 	qcom_q6v5_unprepare(&adsp->q6v5);
 free_metadata:
-	qcom_mdt_free_metadata(adsp->pas_id, adsp->mdata, ret);
+	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata,
+				adsp->dma_phys_below_32b, ret);
 
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "exit");
 	return ret;
@@ -732,6 +735,7 @@ static int adsp_probe(struct platform_device *pdev)
 	adsp->has_aggre2_clk = desc->has_aggre2_clk;
 	adsp->info_name = desc->sysmon_name;
 	adsp->qmp_name = desc->qmp_name;
+	adsp->dma_phys_below_32b = desc->dma_phys_below_32b;
 
 	if (desc->free_after_auth_reset) {
 		adsp->mdata = devm_kzalloc(adsp->dev, sizeof(struct qcom_mdt_metadata), GFP_KERNEL);
@@ -1121,6 +1125,7 @@ static const struct adsp_data waipio_mpss_resource = {
 	.sysmon_name = "modem",
 	.qmp_name = "modem",
 	.ssctl_id = 0x12,
+	.dma_phys_below_32b = true,
 };
 
 static const struct adsp_data diwali_mpss_resource = {
@@ -1136,6 +1141,7 @@ static const struct adsp_data diwali_mpss_resource = {
 	.sysmon_name = "modem",
 	.qmp_name = "modem",
 	.ssctl_id = 0x12,
+	.dma_phys_below_32b = true,
 };
 
 static const struct adsp_data cape_mpss_resource = {
@@ -1151,6 +1157,7 @@ static const struct adsp_data cape_mpss_resource = {
 	.sysmon_name = "modem",
 	.qmp_name = "modem",
 	.ssctl_id = 0x12,
+	.dma_phys_below_32b = true,
 };
 
 static const struct adsp_data parrot_mpss_resource = {
@@ -1166,6 +1173,7 @@ static const struct adsp_data parrot_mpss_resource = {
 	.sysmon_name = "modem",
 	.qmp_name = "modem",
 	.ssctl_id = 0x12,
+	.dma_phys_below_32b = true,
 };
 
 static const struct adsp_data slpi_resource_init = {
