@@ -1,8 +1,11 @@
+arm_smmu.ko
 cmd-db.ko
+iommu-logger.ko
 llcc-qcom.ko
 mem_buf.ko
 mem_buf_dev.ko
 msm_qmp.ko
+msm_dma_iommu_mapping.ko
 ns.ko
 pinctrl-msm.ko
 pinctrl-sm8150.ko
@@ -16,6 +19,7 @@ qcom_dma_heaps.ko
 qcom_rpmh.ko
 qcom_wdt_core.ko
 qcom_soc_wdt.ko
+qcom_iommu_util.ko
 qrtr.ko
 secure_buffer.ko
 smem.ko
