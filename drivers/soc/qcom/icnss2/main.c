@@ -3640,7 +3640,7 @@ static ssize_t wpss_boot_store(struct device *dev,
 	struct icnss_priv *priv = dev_get_drvdata(dev);
 	int wpss_rproc = 0;
 
-	if (priv->device_id != WCN6750_DEVICE_ID)
+	if (!priv->wpss_supported)
 		return count;
 
 	if (sscanf(buf, "%du", &wpss_rproc) != 1) {
@@ -4135,6 +4135,11 @@ static void icnss_init_control_params(struct icnss_priv *priv)
 	priv->ctrl_params.quirks = ICNSS_QUIRKS_DEFAULT;
 	priv->ctrl_params.bdf_type = ICNSS_BDF_TYPE_DEFAULT;
 
+	if (priv->device_id == WCN6750_DEVICE_ID ||
+	    of_property_read_bool(priv->pdev->dev.of_node,
+				  "wpss-support-enable"))
+		priv->wpss_supported = true;
+
 	if (of_property_read_bool(priv->pdev->dev.of_node,
 				  "bdf-download-support"))
 		priv->bdf_download_support = true;
@@ -4312,9 +4317,11 @@ static int icnss_probe(struct platform_device *pdev)
 		priv->use_nv_mac = icnss_use_nv_mac(priv);
 		icnss_pr_dbg("NV MAC feature is %s\n",
 			     priv->use_nv_mac ? "Mandatory":"Not Mandatory");
-		INIT_WORK(&wpss_loader, icnss_wpss_load);
 		register_trace_android_vh_rproc_recovery_set(rproc_restart_level_notifier, NULL);
 	}
+
+	if (priv->wpss_supported)
+		INIT_WORK(&wpss_loader, icnss_wpss_load);
 
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
 
