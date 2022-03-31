@@ -11,6 +11,7 @@ qcom_aoss.ko
 qcom_hwspinlock.ko
 qcom-pdc.ko
 qcom-scm.ko
+qcom_cpu_vendor_hooks.ko
 qcom_dma_heaps.ko
 qcom_rpmh.ko
 qcom_wdt_core.ko
