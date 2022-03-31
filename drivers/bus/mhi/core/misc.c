@@ -16,12 +16,6 @@
 #include <linux/wait.h>
 #include "internal.h"
 
-#ifdef CONFIG_MHI_BUS_DEBUG
-#define MHI_MISC_DEBUG_LEVEL MHI_MSG_LVL_VERBOSE
-#else
-#define MHI_MISC_DEBUG_LEVEL MHI_MSG_LVL_ERROR
-#endif
-
 const char * const mhi_log_level_str[MHI_MSG_LVL_MAX] = {
 	[MHI_MSG_LVL_VERBOSE] = "Verbose",
 	[MHI_MSG_LVL_INFO] = "Info",
@@ -291,7 +285,6 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 
 	mhi_priv->log_buf = ipc_log_context_create(MHI_IPC_LOG_PAGES,
 						   mhi_dev->name, 0);
-	mhi_priv->log_lvl = MHI_MISC_DEBUG_LEVEL;
 	mhi_priv->mhi_cntrl = mhi_cntrl;
 
 	/* adding it to this list only for debug purpose */
@@ -1551,6 +1544,16 @@ struct mhi_device *mhi_get_device_for_channel(struct mhi_controller *mhi_cntrl,
 	return mhi_cntrl->mhi_chan[channel].mhi_dev;
 }
 EXPORT_SYMBOL(mhi_get_device_for_channel);
+
+void mhi_controller_set_loglevel(struct mhi_controller *mhi_cntrl,
+				 enum MHI_DEBUG_LEVEL lvl)
+{
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
+
+	mhi_priv->log_lvl = lvl;
+}
+EXPORT_SYMBOL(mhi_controller_set_loglevel);
 
 #if !IS_ENABLED(CONFIG_MHI_DTR)
 long mhi_device_ioctl(struct mhi_device *mhi_dev, unsigned int cmd,

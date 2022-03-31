@@ -310,6 +310,15 @@ int mhi_force_reset(struct mhi_controller *mhi_cntrl);
  */
 void mhi_start_dtr_channels(struct mhi_device *mhi_dev);
 
+/**
+ * mhi_controller_set_loglevel - API for controller to set a desired log level
+ * which will be set to VERBOSE or 0 by default
+ * @mhi_cntrl: MHI controller
+ * @lvl: Log level from MHI_DEBUG_LEVEL enumerator
+ */
+void mhi_controller_set_loglevel(struct mhi_controller *mhi_cntrl,
+				 enum MHI_DEBUG_LEVEL lvl);
+
 #else
 
 /**
@@ -645,6 +654,17 @@ int mhi_force_reset(struct mhi_controller *mhi_cntrl)
  * @mhi_dev: MHI controller device for DTR channels
  */
 void mhi_start_dtr_channels(struct mhi_device *mhi_dev)
+{
+}
+
+/**
+ * mhi_controller_set_loglevel - API for controller to set a desired log level
+ * which will be set to VERBOSE or 0 by default
+ * @mhi_cntrl: MHI controller
+ * @lvl: Log level from MHI_DEBUG_LEVEL enumerator
+ */
+void mhi_controller_set_loglevel(struct mhi_controller *mhi_cntrl,
+				 enum MHI_DEBUG_LEVEL lvl)
 {
 }
 
