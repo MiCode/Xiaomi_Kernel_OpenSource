@@ -667,6 +667,19 @@ static const struct clk_rpmh_desc clk_rpmh_sm6350 = {
 	.num_clks = ARRAY_SIZE(sm6350_rpmh_clocks),
 };
 
+/* Resource name must match resource id present in cmd-db */
+DEFINE_CLK_RPMH_ARC(cinder, bi_tcxo, bi_tcxo_ao, "xo.lvl", 0x3, 1);
+
+static struct clk_hw *cinder_rpmh_clocks[] = {
+	[RPMH_CXO_CLK]      = &cinder_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]    = &cinder_bi_tcxo_ao.hw,
+};
+
+static const struct clk_rpmh_desc clk_rpmh_cinder = {
+	.clks = cinder_rpmh_clocks,
+	.num_clks = ARRAY_SIZE(cinder_rpmh_clocks),
+};
+
 static struct clk_hw *of_clk_rpmh_hw_get(struct of_phandle_args *clkspec,
 					 void *data)
 {
@@ -770,6 +783,7 @@ static const struct of_device_id clk_rpmh_match_table[] = {
 	{ .compatible = "qcom,waipio-rpmh-clk", .data = &clk_rpmh_waipio},
 	{ .compatible = "qcom,sc7280-rpmh-clk", .data = &clk_rpmh_sc7280},
 	{ .compatible = "qcom,kalama-rpmh-clk", .data = &clk_rpmh_kalama},
+	{ .compatible = "qcom,cinder-rpmh-clk", .data = &clk_rpmh_cinder},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, clk_rpmh_match_table);
