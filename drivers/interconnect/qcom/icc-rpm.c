@@ -1,192 +1,235 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2020 Linaro Ltd
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ *
  */
 
+#include <asm/div64.h>
 #include <linux/clk.h>
-#include <linux/device.h>
 #include <linux/interconnect-provider.h>
-#include <linux/io.h>
 #include <linux/module.h>
-#include <linux/of_device.h>
-#include <linux/of_platform.h>
-#include <linux/platform_device.h>
-#include <linux/slab.h>
 
-#include "smd-rpm.h"
 #include "icc-rpm.h"
+#include "qnoc-qos.h"
 
-static int qcom_icc_set(struct icc_node *src, struct icc_node *dst)
+static int qcom_icc_rpm_smd_send_msg(int ctx, int rsc_type, int rpm_id, u64 val)
 {
-	struct qcom_icc_provider *qp;
-	struct qcom_icc_node *qn;
-	struct icc_provider *provider;
-	struct icc_node *n;
-	u64 sum_bw;
-	u64 max_peak_bw;
-	u64 rate;
-	u32 agg_avg = 0;
-	u32 agg_peak = 0;
-	int ret, i;
-
-	qn = src->data;
-	provider = src->provider;
-	qp = to_qcom_provider(provider);
-
-	list_for_each_entry(n, &provider->nodes, node_list)
-		provider->aggregate(n, 0, n->avg_bw, n->peak_bw,
-				    &agg_avg, &agg_peak);
-
-	sum_bw = icc_units_to_bps(agg_avg);
-	max_peak_bw = icc_units_to_bps(agg_peak);
-
-	/* send bandwidth request message to the RPM processor */
-	if (qn->mas_rpm_id != -1) {
-		ret = qcom_icc_rpm_smd_send(QCOM_SMD_RPM_ACTIVE_STATE,
-					    RPM_BUS_MASTER_REQ,
-					    qn->mas_rpm_id,
-					    sum_bw);
-		if (ret) {
-			pr_err("qcom_icc_rpm_smd_send mas %d error %d\n",
-			       qn->mas_rpm_id, ret);
-			return ret;
-		}
-	}
-
-	if (qn->slv_rpm_id != -1) {
-		ret = qcom_icc_rpm_smd_send(QCOM_SMD_RPM_ACTIVE_STATE,
-					    RPM_BUS_SLAVE_REQ,
-					    qn->slv_rpm_id,
-					    sum_bw);
-		if (ret) {
-			pr_err("qcom_icc_rpm_smd_send slv %d error %d\n",
-			       qn->slv_rpm_id, ret);
-			return ret;
-		}
-	}
-
-	rate = max(sum_bw, max_peak_bw);
-
-	do_div(rate, qn->buswidth);
-	rate = min_t(u64, rate, LONG_MAX);
-
-	if (qn->rate == rate)
-		return 0;
-
-	for (i = 0; i < qp->num_clks; i++) {
-		ret = clk_set_rate(qp->bus_clks[i].clk, rate);
-		if (ret) {
-			pr_err("%s clk_set_rate error: %d\n",
-			       qp->bus_clks[i].id, ret);
-			return ret;
-		}
-	}
-
-	qn->rate = rate;
-
-	return 0;
-}
-
-int qnoc_probe(struct platform_device *pdev, size_t cd_size, int cd_num,
-	       const struct clk_bulk_data *cd)
-{
-	struct device *dev = &pdev->dev;
-	const struct qcom_icc_desc *desc;
-	struct icc_onecell_data *data;
-	struct icc_provider *provider;
-	struct qcom_icc_node **qnodes;
-	struct qcom_icc_provider *qp;
-	struct icc_node *node;
-	size_t num_nodes, i;
 	int ret;
+	struct msm_rpm_kvp rpm_kvp;
 
-	/* wait for the RPM proxy */
-	if (!qcom_icc_rpm_smd_available())
-		return -EPROBE_DEFER;
+	rpm_kvp.length = sizeof(uint64_t);
+	rpm_kvp.key = RPM_MASTER_FIELD_BW;
+	rpm_kvp.data = (uint8_t *)&val;
 
-	desc = of_device_get_match_data(dev);
-	if (!desc)
-		return -EINVAL;
-
-	qnodes = desc->nodes;
-	num_nodes = desc->num_nodes;
-
-	qp = devm_kzalloc(dev, sizeof(*qp), GFP_KERNEL);
-	if (!qp)
-		return -ENOMEM;
-
-	data = devm_kzalloc(dev, struct_size(data, nodes, num_nodes),
-			    GFP_KERNEL);
-	if (!data)
-		return -ENOMEM;
-
-	qp->bus_clks = devm_kmemdup(dev, cd, cd_size,
-				    GFP_KERNEL);
-	if (!qp->bus_clks)
-		return -ENOMEM;
-
-	qp->num_clks = cd_num;
-	ret = devm_clk_bulk_get(dev, qp->num_clks, qp->bus_clks);
-	if (ret)
-		return ret;
-
-	ret = clk_bulk_prepare_enable(qp->num_clks, qp->bus_clks);
-	if (ret)
-		return ret;
-
-	provider = &qp->provider;
-	INIT_LIST_HEAD(&provider->nodes);
-	provider->dev = dev;
-	provider->set = qcom_icc_set;
-	provider->aggregate = icc_std_aggregate;
-	provider->xlate = of_icc_xlate_onecell;
-	provider->data = data;
-
-	ret = icc_provider_add(provider);
-	if (ret) {
-		dev_err(dev, "error adding interconnect provider: %d\n", ret);
-		clk_bulk_disable_unprepare(qp->num_clks, qp->bus_clks);
-		return ret;
-	}
-
-	for (i = 0; i < num_nodes; i++) {
-		size_t j;
-
-		node = icc_node_create(qnodes[i]->id);
-		if (IS_ERR(node)) {
-			ret = PTR_ERR(node);
-			goto err;
-		}
-
-		node->name = qnodes[i]->name;
-		node->data = qnodes[i];
-		icc_node_add(node, provider);
-
-		for (j = 0; j < qnodes[i]->num_links; j++)
-			icc_link_create(node, qnodes[i]->links[j]);
-
-		data->nodes[i] = node;
-	}
-	data->num_nodes = num_nodes;
-
-	platform_set_drvdata(pdev, qp);
-
-	return 0;
-err:
-	icc_nodes_remove(provider);
-	clk_bulk_disable_unprepare(qp->num_clks, qp->bus_clks);
-	icc_provider_del(provider);
+	ret = msm_rpm_send_message(ctx, rsc_type, rpm_id, &rpm_kvp, 1);
 
 	return ret;
 }
-EXPORT_SYMBOL(qnoc_probe);
 
-int qnoc_remove(struct platform_device *pdev)
+/**
+ * qcom_icc_rpm_pre_aggregate - cleans up stale values from prior icc_set
+ * @node: icc node to operate on
+ */
+void qcom_icc_rpm_pre_aggregate(struct icc_node *node)
 {
-	struct qcom_icc_provider *qp = platform_get_drvdata(pdev);
+	size_t i;
+	struct qcom_icc_node *qn;
 
-	icc_nodes_remove(&qp->provider);
-	clk_bulk_disable_unprepare(qp->num_clks, qp->bus_clks);
-	return icc_provider_del(&qp->provider);
+	qn = node->data;
+
+	for (i = 0; i < RPM_NUM_CXT; i++) {
+		qn->sum_avg[i] = 0;
+		qn->max_peak[i] = 0;
+	}
 }
-EXPORT_SYMBOL(qnoc_remove);
+EXPORT_SYMBOL(qcom_icc_rpm_pre_aggregate);
+
+/**
+ * qcom_icc_rpm_aggregate - aggregate bw for buckets indicated by tag
+ * @node: node to aggregate
+ * @tag: tag to indicate which buckets to aggregate
+ * @avg_bw: new bw to sum aggregate
+ * @peak_bw: new bw to max aggregate
+ * @agg_avg: existing aggregate avg bw val
+ * @agg_peak: existing aggregate peak bw val
+ */
+int qcom_icc_rpm_aggregate(struct icc_node *node, u32 tag, u32 avg_bw,
+		       u32 peak_bw, u32 *agg_avg, u32 *agg_peak)
+{
+	size_t i;
+	struct qcom_icc_node *qn;
+
+	qn = node->data;
+
+	if (!tag)
+		tag = BIT(RPM_SLEEP_CXT) | BIT(RPM_ACTIVE_CXT);
+	else
+		tag = BIT(RPM_ACTIVE_CXT);
+
+	for (i = 0; i < RPM_NUM_CXT; i++) {
+		if (tag & BIT(i)) {
+			qn->sum_avg[i] += avg_bw;
+			qn->max_peak[i] = max_t(u32, qn->max_peak[i], peak_bw);
+		}
+	}
+
+	*agg_avg += avg_bw;
+	*agg_peak = max_t(u32, *agg_peak, peak_bw);
+
+	qn->dirty = true;
+
+	return 0;
+}
+EXPORT_SYMBOL(qcom_icc_rpm_aggregate);
+
+/**
+ * qcom_icc_rpm_set - set the constraints based on path
+ * @src: source node for the path to set constraints on
+ * @dst: destination node for the path to set constraints on
+ *
+ * Return: 0 on success, or an error code otherwise
+ */
+int qcom_icc_rpm_set(struct icc_node *src, struct icc_node *dst)
+{
+	struct qcom_icc_provider *qp;
+	struct qcom_icc_node *qn;
+	struct icc_node *n, *node;
+	struct icc_provider *provider;
+	int ret, i;
+	int rpm_ctx;
+	u64 clk_rate, sum_avg, max_peak;
+	u64 bus_clk_rate[RPM_NUM_CXT] = {0, 0};
+
+	if (!src)
+		node = dst;
+	else
+		node = src;
+
+	qp = to_qcom_provider(node->provider);
+	qn = node->data;
+
+	if (!qn->dirty)
+		return 0;
+
+	provider = node->provider;
+
+	list_for_each_entry(n, &provider->nodes, node_list) {
+		qn = n->data;
+		for (i = 0; i < RPM_NUM_CXT; i++) {
+			sum_avg = icc_units_to_bps(qn->sum_avg[i]);
+
+			sum_avg *= qp->util_factor;
+			do_div(sum_avg, DEFAULT_UTIL_FACTOR);
+
+			do_div(sum_avg, qn->channels);
+			max_peak = icc_units_to_bps(qn->max_peak[i]);
+
+			clk_rate = max(sum_avg, max_peak);
+			do_div(clk_rate, qn->buswidth);
+
+			bus_clk_rate[i] = max(bus_clk_rate[i], clk_rate);
+
+			if (bus_clk_rate[i] > RPM_CLK_MAX_LEVEL)
+				bus_clk_rate[i] = RPM_CLK_MAX_LEVEL;
+		}
+	}
+
+	for (i = 0; i < RPM_NUM_CXT; i++) {
+		if (qp->bus_clk_cur_rate[i] != bus_clk_rate[i]) {
+			if (qp->keepalive && i == RPM_ACTIVE_CXT) {
+				if (qp->init)
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+							RPM_CLK_MAX_LEVEL);
+				else if (bus_clk_rate[i] == 0)
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+							RPM_CLK_MIN_LEVEL);
+				else
+					ret = clk_set_rate(qp->bus_clks[i].clk,
+							bus_clk_rate[i]);
+			} else {
+				ret = clk_set_rate(qp->bus_clks[i].clk,
+							bus_clk_rate[i]);
+			}
+
+			if (ret) {
+				pr_err("%s clk_set_rate error: %d\n",
+					qp->bus_clks[i].id, ret);
+				return ret;
+			}
+
+			qp->bus_clk_cur_rate[i] = bus_clk_rate[i];
+		}
+	}
+
+	list_for_each_entry(n, &provider->nodes, node_list) {
+		qn = n->data;
+		if (!qn->dirty)
+			continue;
+
+		qn->dirty = false;
+		if ((qn->mas_rpm_id == -1) && (qn->slv_rpm_id == -1))
+			continue;
+
+		/* send bandwidth request message to the RPM processor */
+		for (i = 0; i < RPM_NUM_CXT; i++) {
+			if (qn->last_sum_avg[i] != qn->sum_avg[i]) {
+				rpm_ctx = (i == RPM_SLEEP_CXT) ?
+					RPM_SLEEP_SET : RPM_ACTIVE_SET;
+
+				sum_avg = icc_units_to_bps(qn->sum_avg[i]);
+
+				if (qn->mas_rpm_id != -1) {
+					ret = qcom_icc_rpm_smd_send_msg(
+						rpm_ctx,
+						RPM_BUS_MASTER_REQ,
+						qn->mas_rpm_id,
+						sum_avg);
+
+					if (ret) {
+						pr_err("qcom_icc_rpm_smd_send_msg mas %d error %d\n",
+							qn->mas_rpm_id, ret);
+						return ret;
+					}
+				}
+
+				if (qn->slv_rpm_id != -1) {
+					ret = qcom_icc_rpm_smd_send_msg(
+						rpm_ctx,
+						RPM_BUS_SLAVE_REQ,
+						qn->slv_rpm_id,
+						sum_avg);
+
+					if (ret) {
+						pr_err("qcom_icc_rpm_smd_send_msg slv %s error %d\n",
+							qn->slv_rpm_id, ret);
+						return ret;
+					}
+				}
+
+				qn->last_sum_avg[i] = qn->sum_avg[i];
+			}
+		}
+	}
+
+	qn = node->data;
+	/* Defer setting QoS until the first non-zero bandwidth request. */
+	if (qn && qn->qosbox && !qn->qosbox->initialized &&
+		(node->avg_bw || node->peak_bw)) {
+		ret = clk_bulk_prepare_enable(qp->num_qos_clks, qp->qos_clks);
+		if (ret) {
+			pr_err("%s: Clock enable failed for node %s\n",
+			__func__, node->name);
+			return ret;
+		}
+
+		qn->noc_ops->set_qos(qn);
+		clk_bulk_disable_unprepare(qp->num_qos_clks, qp->qos_clks);
+		qn->qosbox->initialized = true;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(qcom_icc_rpm_set);
+
+MODULE_LICENSE("GPL v2");
