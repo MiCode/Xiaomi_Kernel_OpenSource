@@ -223,9 +223,9 @@ static ssize_t store_##name(struct kobject *kobj,			\
 	if (mon->type == CPUCP_MON && ops) {					\
 		ret = ops->name(memlat_data->ph, grp->hw_type,		\
 				mon->index, mon->name);			\
-		if (ret == 0) {							\
+		if (ret < 0) {						\
 			pr_err("failed to set mon tunable :%d\n", ret);	\
-			count = 0;					\
+			return ret;					\
 		}							\
 	}								\
 	return count;							\
@@ -278,7 +278,7 @@ static ssize_t store_min_freq(struct kobject *kobj,
 				    mon->index, mon->min_freq);
 		if (ret < 0) {
 			pr_err("failed to set min_freq :%d\n", ret);
-			count = 0;
+			return ret;
 		}
 	}
 
@@ -307,7 +307,7 @@ static ssize_t store_max_freq(struct kobject *kobj,
 				    mon->index, mon->max_freq);
 		if (ret < 0) {
 			pr_err("failed to set max_freq :%d\n", ret);
-			count = 0;
+			return ret;
 		}
 	}
 
@@ -389,7 +389,7 @@ static ssize_t store_cpucp_sample_ms(struct kobject *kobj,
 	ret = ops->sample_ms(memlat_data->ph, val);
 	if (ret < 0) {
 		pr_err("Failed to set cpucp sample ms :%d\n", ret);
-		return 0;
+		return ret;
 	}
 
 	memlat_data->cpucp_sample_ms = val;
@@ -429,7 +429,7 @@ static ssize_t store_cpucp_log_level(struct kobject *kobj,
 	ret = ops->set_log_level(memlat_data->ph, val);
 	if (ret < 0) {
 		pr_err("failed to configure log_level, ret = %d\n", ret);
-		return 0;
+		return ret;
 	}
 
 	memlat_data->cpucp_log_level = val;
