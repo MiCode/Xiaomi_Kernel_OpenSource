@@ -343,22 +343,6 @@
 		};
 	};
 
-	bi_tcxo: bi_tcxo {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <4>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
-	bi_tcxo_ao: bi_tcxo_ao {
-		compatible = "fixed-factor-clock";
-		clock-mult = <1>;
-		clock-div = <4>;
-		clocks = <&xo_board>;
-		#clock-cells = <0>;
-	};
-
 	rpmhcc: qcom,rpmhcc {
 		compatible = "qcom,dummycc";
 		clock-output-names = "rpmhcc_clocks";
@@ -381,8 +365,21 @@
 	};
 
 	gcc: clock-controller@100000 {
-		compatible = "qcom,dummycc";
-		clock-output-names = "gcc_clocks";
+		compatible = "qcom,anorak-gcc", "syscon";
+		reg = <0x100000 0x1f4200>;
+		reg-name = "cc_base";
+		vdd_cx-supply = <&VDD_CX_LEVEL>;
+		vdd_mxa-supply = <&VDD_MXA_LEVEL>;
+		clocks = <&rpmhcc RPMH_CXO_CLK>, <&sleep_clk>,
+			<&pcie_0_pipe_clk>, <&pcie_1_pipe_clk>,
+			<&pcie_2_phy_aux_clk>, <&pcie_2_pipe_clk>,
+			<&ufs_phy_rx_symbol_0_clk>, <&ufs_phy_rx_symbol_1_clk>,
+			<&ufs_phy_tx_symbol_0_clk>, <&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
+		clock-names = "bi_tcxo", "sleep_clk",
+			"pcie_0_pipe_clk", "pcie_1_pipe_clk",
+			"pcie_2_phy_aux_clk", "pcie_2_pipe_clk",
+			"ufs_phy_rx_symbol_0_clk", "ufs_phy_rx_symbol_1_clk",
+			"ufs_phy_tx_symbol_0_clk", "usb3_phy_wrapper_gcc_usb30_pipe_clk";
 		#clock-cells = <1>;
 		#reset-cells = <1>;
 	};
@@ -541,79 +538,79 @@
 };
 
 &gcc_pcie_0_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status="ok";
 };
 
 &gcc_pcie_1_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	reg = <0x1ad004 0x4>;
 	qcom,support-hw-trigger;
 	status="ok";
 };
 
 &gcc_pcie_2_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status="ok";
 };
 
 &gcc_ufs_phy_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &gcc_usb30_prim_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_mmnoc_mmu_tbu_hf0_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_mmnoc_mmu_tbu_hf1_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_mmnoc_mmu_tbu_hf2_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_mmnoc_mmu_tbu_hf3_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_mmnoc_mmu_tbu_hf4_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_mmnoc_mmu_tbu_hf5_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_mmnoc_mmu_tbu_sf0_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_mmnoc_mmu_tbu_sf1_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_turing_mmu_tbu0_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
 &hlos1_vote_turing_mmu_tbu1_gdsc {
-	compatible = "regulator-fixed";
+	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
 
