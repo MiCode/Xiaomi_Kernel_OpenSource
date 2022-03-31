@@ -696,21 +696,63 @@ static void handle___pkvm_vcpu_sync_state(struct kvm_cpu_context *host_ctxt)
 	}
 }
 
-static void handle___kvm_vcpu_run(struct kvm_cpu_context *host_ctxt)
+static struct kvm_vcpu *__get_current_vcpu(struct kvm_vcpu *vcpu,
+					   struct pkvm_loaded_state **state)
 {
-	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 1);
-	int ret;
+	struct pkvm_loaded_state *sstate = NULL;
+
+	vcpu = kern_hyp_va(vcpu);
 
 	if (unlikely(is_protected_kvm_enabled())) {
-		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
+		sstate = this_cpu_ptr(&loaded_state);
 
-		flush_shadow_state(state);
+		if (!sstate || vcpu != sstate->vcpu->arch.pkvm.host_vcpu) {
+			sstate = NULL;
+			vcpu = NULL;
+		}
+	}
 
-		ret = __kvm_vcpu_run(state->vcpu);
+	*state = sstate;
+	return vcpu;
+}
 
-		sync_shadow_state(state, ret);
+#define get_current_vcpu(ctxt, regnr, statepp)				\
+	({								\
+		DECLARE_REG(struct kvm_vcpu *, __vcpu, ctxt, regnr);	\
+		__get_current_vcpu(__vcpu, statepp);			\
+	})
 
-		if (state->vcpu->arch.flags & KVM_ARM64_FP_ENABLED) {
+#define get_current_vcpu_from_cpu_if(ctxt, regnr, statepp)		\
+	({								\
+		DECLARE_REG(struct vgic_v3_cpu_if *, cif, ctxt, regnr); \
+		struct kvm_vcpu *__vcpu;				\
+		__vcpu = container_of(cif,				\
+				      struct kvm_vcpu,			\
+				      arch.vgic_cpu.vgic_v3);		\
+									\
+		__get_current_vcpu(__vcpu, statepp);			\
+	})
+
+static void handle___kvm_vcpu_run(struct kvm_cpu_context *host_ctxt)
+{
+	struct pkvm_loaded_state *shadow_state;
+	struct kvm_vcpu *vcpu;
+	int ret;
+
+	vcpu = get_current_vcpu(host_ctxt, 1, &shadow_state);
+	if (!vcpu) {
+		cpu_reg(host_ctxt, 1) =  -EINVAL;
+		return;
+	}
+
+	if (unlikely(shadow_state)) {
+		flush_shadow_state(shadow_state);
+
+		ret = __kvm_vcpu_run(shadow_state->vcpu);
+
+		sync_shadow_state(shadow_state, ret);
+
+		if (shadow_state->vcpu->arch.flags & KVM_ARM64_FP_ENABLED) {
 			/*
 			 * The guest has used the FP, trap all accesses
 			 * from the host (both FP and SVE).
@@ -722,7 +764,7 @@ static void handle___kvm_vcpu_run(struct kvm_cpu_context *host_ctxt)
 			sysreg_clear_set(cptr_el2, 0, reg);
 		}
 	} else {
-		ret = __kvm_vcpu_run(kern_hyp_va(vcpu));
+		ret = __kvm_vcpu_run(vcpu);
 	}
 
 	cpu_reg(host_ctxt, 1) =  ret;
@@ -759,20 +801,19 @@ out:
 
 static void handle___kvm_adjust_pc(struct kvm_cpu_context *host_ctxt)
 {
-	DECLARE_REG(struct kvm_vcpu *, vcpu, host_ctxt, 1);
+	struct pkvm_loaded_state *shadow_state;
+	struct kvm_vcpu *vcpu;
 
-	vcpu = kern_hyp_va(vcpu);
+	vcpu = get_current_vcpu(host_ctxt, 1, &shadow_state);
+	if (!vcpu)
+		return;
 
-	if (unlikely(is_protected_kvm_enabled())) {
-		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
-
-		/*
-		 * A shadow vcpu can never be updated from EL1, and we
-		 * must have a vcpu loaded when protected mode is
-		 * enabled.
-		 */
-		if (!state->vcpu || state->is_protected)
+	if (shadow_state) {
+		/* This only applies to non-protected VMs */
+		if (shadow_state->is_protected)
 			return;
+
+		vcpu = shadow_state->vcpu;
 	}
 
 	__kvm_adjust_pc(vcpu);
@@ -835,55 +876,49 @@ static void handle___kvm_get_mdcr_el2(struct kvm_cpu_context *host_ctxt)
 	cpu_reg(host_ctxt, 1) = __kvm_get_mdcr_el2();
 }
 
-static struct vgic_v3_cpu_if *get_shadow_vgic_v3_cpu_if(struct vgic_v3_cpu_if *cpu_if)
-{
-	if (unlikely(is_protected_kvm_enabled())) {
-		struct pkvm_loaded_state *state = this_cpu_ptr(&loaded_state);
-		struct kvm_vcpu *host_vcpu;
-
-		if (!state->vcpu)
-			return NULL;
-
-		host_vcpu = state->vcpu->arch.pkvm.host_vcpu;
-
-		if (&host_vcpu->arch.vgic_cpu.vgic_v3 != cpu_if)
-			return NULL;
-	}
-
-	return cpu_if;
-}
-
 static void handle___vgic_v3_save_vmcr_aprs(struct kvm_cpu_context *host_ctxt)
 {
-	DECLARE_REG(struct vgic_v3_cpu_if *, cpu_if, host_ctxt, 1);
-	struct vgic_v3_cpu_if *shadow_cpu_if;
+	struct pkvm_loaded_state *shadow_state;
+	struct kvm_vcpu *vcpu;
 
-	cpu_if = kern_hyp_va(cpu_if);
-	shadow_cpu_if = get_shadow_vgic_v3_cpu_if(cpu_if);
+	vcpu = get_current_vcpu_from_cpu_if(host_ctxt, 1, &shadow_state);
+	if (!vcpu)
+		return;
 
-	__vgic_v3_save_vmcr_aprs(shadow_cpu_if);
-
-	if (cpu_if != shadow_cpu_if) {
+	if (shadow_state) {
+		struct vgic_v3_cpu_if *shadow_cpu_if, *cpu_if;
 		int i;
+
+		shadow_cpu_if = &shadow_state->vcpu->arch.vgic_cpu.vgic_v3;
+		__vgic_v3_save_vmcr_aprs(shadow_cpu_if);
+
+		cpu_if = &vcpu->arch.vgic_cpu.vgic_v3;
 
 		cpu_if->vgic_vmcr = shadow_cpu_if->vgic_vmcr;
 		for (i = 0; i < ARRAY_SIZE(cpu_if->vgic_ap0r); i++) {
 			cpu_if->vgic_ap0r[i] = shadow_cpu_if->vgic_ap0r[i];
 			cpu_if->vgic_ap1r[i] = shadow_cpu_if->vgic_ap1r[i];
 		}
+	} else {
+		__vgic_v3_save_vmcr_aprs(&vcpu->arch.vgic_cpu.vgic_v3);
 	}
 }
 
 static void handle___vgic_v3_restore_vmcr_aprs(struct kvm_cpu_context *host_ctxt)
 {
-	DECLARE_REG(struct vgic_v3_cpu_if *, cpu_if, host_ctxt, 1);
-	struct vgic_v3_cpu_if *shadow_cpu_if;
+	struct pkvm_loaded_state *shadow_state;
+	struct kvm_vcpu *vcpu;
 
-	cpu_if = kern_hyp_va(cpu_if);
-	shadow_cpu_if = get_shadow_vgic_v3_cpu_if(cpu_if);
+	vcpu = get_current_vcpu_from_cpu_if(host_ctxt, 1, &shadow_state);
+	if (!vcpu)
+		return;
 
-	if (cpu_if != shadow_cpu_if) {
+	if (shadow_state) {
+		struct vgic_v3_cpu_if *shadow_cpu_if, *cpu_if;
 		int i;
+
+		shadow_cpu_if = &shadow_state->vcpu->arch.vgic_cpu.vgic_v3;
+		cpu_if = &vcpu->arch.vgic_cpu.vgic_v3;
 
 		shadow_cpu_if->vgic_vmcr = cpu_if->vgic_vmcr;
 		/* Should be a one-off */
@@ -894,9 +929,11 @@ static void handle___vgic_v3_restore_vmcr_aprs(struct kvm_cpu_context *host_ctxt
 			shadow_cpu_if->vgic_ap0r[i] = cpu_if->vgic_ap0r[i];
 			shadow_cpu_if->vgic_ap1r[i] = cpu_if->vgic_ap1r[i];
 		}
-	}
 
-	__vgic_v3_restore_vmcr_aprs(shadow_cpu_if);
+		__vgic_v3_restore_vmcr_aprs(shadow_cpu_if);
+	} else {
+		__vgic_v3_restore_vmcr_aprs(&vcpu->arch.vgic_cpu.vgic_v3);
+	}
 }
 
 static void handle___pkvm_init(struct kvm_cpu_context *host_ctxt)
