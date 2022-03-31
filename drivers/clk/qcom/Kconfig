@@ -836,4 +836,13 @@ config QDRU_ECPRICC_CINDER
 	  Say Y if you want to support the ecpri clock controller and functionality
 	  such as Ethernet.
 
+config QDRU_DEBUGCC_CINDER
+	tristate "CINDER Debug Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the debug clock controller on Qualcomm Technologies, Inc
+	  Cinder devices.
+	  Say Y if you want to support the debug clocks such as
+	  clock measurement functionality.
+
 endif
