@@ -59,6 +59,7 @@
 			dma-coherent;
 
 			interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
+			usb-phy = <&usb2_phy0>, <&usb_nop_phy>;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x0>;
@@ -68,8 +69,33 @@
 			snps,dis_u2_susphy_quirk;
 			tx-fifo-resize;
 			dr_mode = "peripheral";
-			maximum-speed = "super-speed";
+			maximum-speed = "high-speed";
 		};
 
 	};
+
+	/* USB port related High Speed PHY */
+	usb2_phy0: hsphy@88e3000 {
+		compatible = "qcom,usb-hsphy-snps-femto";
+		reg = <0x88e3000 0x11c>,
+			<0x088e2000 0x4>;
+		reg-names = "hsusb_phy_base",
+			"eud_enable_reg";
+
+		vdd-supply = <&L5B>;
+		vdda18-supply = <&L23B>;
+		vdda33-supply = <&L25B>;
+		qcom,vdd-voltage-level = <0 880000 920000>;
+
+		clocks = <&rpmhcc RPMH_CXO_CLK>;
+		clock-names = "ref_clk_src";
+
+		resets = <&gcc GCC_QUSB2PHY_PRIM_BCR>;
+		reset-names = "phy_reset";
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
+	};
+
 };

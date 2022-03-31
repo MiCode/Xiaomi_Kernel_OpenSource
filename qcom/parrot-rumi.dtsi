@@ -14,10 +14,6 @@
 		status = "disabled";
 	};
 
-	usb_nop_phy: usb_nop_phy {
-		compatible = "usb-nop-xceiv";
-	};
-
 	usb_emuphy: phy@a784000 {
 		compatible = "qcom,usb-emu-phy";
 		reg = <0x0a784000 0x9500>;
