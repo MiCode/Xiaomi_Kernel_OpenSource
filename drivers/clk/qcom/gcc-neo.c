@@ -2483,7 +2483,6 @@ static struct clk_regmap *gcc_neo_clocks[] = {
 };
 
 static const struct qcom_reset_map gcc_neo_resets[] = {
-	[GCC_CAMERA_BCR] = { 0x36000 },
 	[GCC_DISPLAY_BCR] = { 0x37000 },
 	[GCC_GPU_BCR] = { 0x9b000 },
 	[GCC_PCIE_0_BCR] = { 0x7b000 },
@@ -2568,11 +2567,9 @@ static int gcc_neo_probe(struct platform_device *pdev)
 
 	/*
 	 * Keep the clocks always-ON
-	 * GCC_CAMERA_AHB_CLK, GCC_CAMERA_XO_CLK, GCC_DISP_AHB_CLK
-	 * GCC_VIDEO_AHB_CLK, GCC_VIDEO_XO_CLK, GCC_GPU_CFG_AHB_CLK
+	 * GCC_DISP_AHB_CLK, GCC_VIDEO_AHB_CLK, GCC_VIDEO_XO_CLK,
+	 * GCC_GPU_CFG_AHB_CLK
 	 */
-	regmap_update_bits(regmap, 0x36004, BIT(0), BIT(0));
-	regmap_update_bits(regmap, 0x36020, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x37004, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x42004, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x42048, BIT(0), BIT(0));
