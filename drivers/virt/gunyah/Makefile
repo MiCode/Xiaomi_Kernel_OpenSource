@@ -12,3 +12,4 @@ obj-$(CONFIG_GH_VIRTIO_BACKEND) += gh_virtio_backend.o
 obj-$(CONFIG_GUNYAH)            += gunyah.o
 gunyah-y                        := gh_main.o
 gunyah-$(CONFIG_GH_SECURE_VM_LOADER) += gh_secure_vm_loader.o
+gunyah-$(CONFIG_GH_PROXY_SCHED)	+= gh_proxy_sched.o
