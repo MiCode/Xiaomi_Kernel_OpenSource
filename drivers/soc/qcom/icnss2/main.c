@@ -2440,7 +2440,7 @@ static int icnss_enable_recovery(struct icnss_priv *priv)
 	if (ret)
 		return ret;
 
-	if (priv->device_id == WCN6750_DEVICE_ID) {
+	if (priv->wpss_supported) {
 		icnss_wpss_early_ssr_register_notifier(priv);
 		icnss_wpss_ssr_register_notifier(priv);
 		return 0;
@@ -4372,8 +4372,14 @@ static int icnss_remove(struct platform_device *pdev)
 
 	icnss_destroy_ramdump_device(priv->msa0_dump_dev);
 
-	if (priv->wpss_supported)
+	if (priv->wpss_supported) {
 		icnss_dms_deinit(priv);
+		icnss_wpss_early_ssr_unregister_notifier(priv);
+		icnss_wpss_ssr_unregister_notifier(priv);
+	} else {
+		icnss_modem_ssr_unregister_notifier(priv);
+		icnss_pdr_unregister_notifier(priv);
+	}
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
 		icnss_genl_exit();
@@ -4382,17 +4388,12 @@ static int icnss_remove(struct platform_device *pdev)
 			mbox_free_channel(priv->mbox_chan);
 		unregister_trace_android_vh_rproc_recovery_set(rproc_restart_level_notifier, NULL);
 		complete_all(&priv->smp2p_soc_wake_wait);
-		icnss_wpss_early_ssr_unregister_notifier(priv);
-		icnss_wpss_ssr_unregister_notifier(priv);
 		rproc_put(priv->rproc);
 		icnss_destroy_ramdump_device(priv->m3_dump_phyareg);
 		icnss_destroy_ramdump_device(priv->m3_dump_phydbg);
 		icnss_destroy_ramdump_device(priv->m3_dump_wmac0reg);
 		icnss_destroy_ramdump_device(priv->m3_dump_wcssdbg);
 		icnss_destroy_ramdump_device(priv->m3_dump_phyapdmem);
-	} else {
-		icnss_modem_ssr_unregister_notifier(priv);
-		icnss_pdr_unregister_notifier(priv);
 	}
 
 	class_destroy(priv->icnss_ramdump_class);
