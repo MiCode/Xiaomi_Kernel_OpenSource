@@ -331,7 +331,10 @@ static int setup_gx_arc_votes(struct adreno_device *adreno_dev,
 	memset(vlvl_tbl, 0, sizeof(vlvl_tbl));
 
 	table->gx_votes[0].freq = 0;
-	table->gx_votes[0].acd =  pwr->pwrlevels[0].cx_min;
+	table->gx_votes[0].acd = 0;
+	/* Disable cx vote in gmu dcvs table if it is not supported in DT */
+	if (pwr->pwrlevels[0].cx_min == 0xffffffff)
+		table->gx_votes[0].acd = 0xffffffff;
 
 	/* GMU power levels are in ascending order */
 	for (index = 1, i = pwr->num_pwrlevels - 1; i >= 0; i--, index++) {
