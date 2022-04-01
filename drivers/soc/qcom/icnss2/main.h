@@ -485,6 +485,7 @@ struct icnss_priv {
 	char foundry_name;
 	bool bdf_download_support;
 	unsigned long device_config;
+	bool wpss_supported;
 };
 
 struct icnss_reg_info {
