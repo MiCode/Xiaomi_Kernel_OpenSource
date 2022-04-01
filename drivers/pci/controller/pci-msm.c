@@ -103,6 +103,7 @@
 #define PCIE20_BRIDGE_CTRL (0x3c)
 #define PCIE20_DEVICE_CONTROL_STATUS (0x78)
 #define PCIE20_DEVICE_CONTROL2_STATUS2 (0x98)
+#define PCIE20_PCI_MSI_CAP_ID_NEXT_CTRL_REG (0x50)
 
 #define PCIE20_AUX_CLK_FREQ_REG (0xb40)
 #define PCIE20_ACK_F_ASPM_CTRL_REG (0x70c)
@@ -2677,6 +2678,13 @@ static void msm_pcie_config_bandwidth_int(struct msm_pcie_dev_t *dev,
 	struct pci_dev *pci_dev = dev->dev;
 
 	if (enable) {
+		/* Clear INT_EN and PCI_MSI_ENABLE to receive interrupts */
+		msm_pcie_write_mask(dev->dm_core + PCIE20_COMMAND_STATUS,
+				    BIT(10), 0);
+		msm_pcie_write_mask(dev->dm_core +
+				    PCIE20_PCI_MSI_CAP_ID_NEXT_CTRL_REG,
+				    BIT(16), 0);
+
 		msm_pcie_write_reg_field(dev->parf, PCIE20_PARF_INT_ALL_2_MASK,
 				MSM_PCIE_BW_MGT_INT_STATUS, 1);
 		msm_pcie_config_clear_set_dword(pci_dev,
