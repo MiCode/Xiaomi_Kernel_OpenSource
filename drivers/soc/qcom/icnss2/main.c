@@ -1059,7 +1059,7 @@ static int icnss_driver_event_fw_ready_ind(struct icnss_priv *priv, void *data)
 	if (test_bit(ICNSS_PD_RESTART, &priv->state)) {
 		ret = icnss_pd_restart_complete(priv);
 	} else {
-		if (priv->device_id == WCN6750_DEVICE_ID)
+		if (priv->wpss_supported)
 			icnss_setup_dms_mac(priv);
 		ret = icnss_call_driver_probe(priv);
 	}
@@ -3184,7 +3184,7 @@ int icnss_wlan_enable(struct device *dev, struct icnss_wlan_enable_cfg *config,
 		return -EINVAL;
 	}
 
-	if (priv->device_id == WCN6750_DEVICE_ID &&
+	if (priv->wpss_supported &&
 	    !priv->dms.nv_mac_not_prov && !priv->dms.mac_valid)
 		icnss_setup_dms_mac(priv);
 
@@ -4302,9 +4302,6 @@ static int icnss_probe(struct platform_device *pdev)
 	init_completion(&priv->unblock_shutdown);
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
-		ret = icnss_dms_init(priv);
-		if (ret)
-			icnss_pr_err("ICNSS DMS init failed %d\n", ret);
 		ret = icnss_genl_init();
 		if (ret < 0)
 			icnss_pr_err("ICNSS genl init failed %d\n", ret);
@@ -4314,14 +4311,18 @@ static int icnss_probe(struct platform_device *pdev)
 		icnss_aop_mbox_init(priv);
 		set_bit(ICNSS_COLD_BOOT_CAL, &priv->state);
 		priv->bdf_download_support = true;
-		priv->use_nv_mac = icnss_use_nv_mac(priv);
-		icnss_pr_dbg("NV MAC feature is %s\n",
-			     priv->use_nv_mac ? "Mandatory":"Not Mandatory");
 		register_trace_android_vh_rproc_recovery_set(rproc_restart_level_notifier, NULL);
 	}
 
-	if (priv->wpss_supported)
+	if (priv->wpss_supported) {
+		ret = icnss_dms_init(priv);
+		if (ret)
+			icnss_pr_err("ICNSS DMS init failed %d\n", ret);
+		priv->use_nv_mac = icnss_use_nv_mac(priv);
+		icnss_pr_dbg("NV MAC feature is %s\n",
+			     priv->use_nv_mac ? "Mandatory":"Not Mandatory");
 		INIT_WORK(&wpss_loader, icnss_wpss_load);
+	}
 
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
 
@@ -4361,16 +4362,6 @@ static int icnss_remove(struct platform_device *pdev)
 
 	icnss_pr_info("Removing driver: state: 0x%lx\n", priv->state);
 
-	if (priv->device_id == WCN6750_DEVICE_ID) {
-		icnss_dms_deinit(priv);
-		icnss_genl_exit();
-		icnss_runtime_pm_deinit(priv);
-		if (!IS_ERR_OR_NULL(priv->mbox_chan))
-			mbox_free_channel(priv->mbox_chan);
-		unregister_trace_android_vh_rproc_recovery_set(rproc_restart_level_notifier, NULL);
-		complete_all(&priv->smp2p_soc_wake_wait);
-	}
-
 	device_init_wakeup(&priv->pdev->dev, false);
 
 	icnss_debugfs_destroy(priv);
@@ -4381,7 +4372,16 @@ static int icnss_remove(struct platform_device *pdev)
 
 	icnss_destroy_ramdump_device(priv->msa0_dump_dev);
 
+	if (priv->wpss_supported)
+		icnss_dms_deinit(priv);
+
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		icnss_genl_exit();
+		icnss_runtime_pm_deinit(priv);
+		if (!IS_ERR_OR_NULL(priv->mbox_chan))
+			mbox_free_channel(priv->mbox_chan);
+		unregister_trace_android_vh_rproc_recovery_set(rproc_restart_level_notifier, NULL);
+		complete_all(&priv->smp2p_soc_wake_wait);
 		icnss_wpss_early_ssr_unregister_notifier(priv);
 		icnss_wpss_ssr_unregister_notifier(priv);
 		rproc_put(priv->rproc);
