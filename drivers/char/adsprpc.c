@@ -214,7 +214,9 @@
 /* Length of glink transaction history to store */
 #define GLINK_MSG_HISTORY_LEN (128)
 
-#define PERF_CAPABILITY   (1 << 1)
+#define PERF_CAPABILITY_SUPPORT	(1 << 1)
+#define KERNEL_ERROR_CODE_V1_SUPPORT	1
+#define USERSPACE_ALLOCATION_SUPPORT	1
 
 #define MD_GMSG_BUFFER (1000)
 
@@ -770,10 +772,12 @@ static int hlosvmperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
 static uint32_t kernel_capabilities[FASTRPC_MAX_ATTRIBUTES -
 					FASTRPC_MAX_DSP_ATTRIBUTES] = {
-	PERF_CAPABILITY,
+	PERF_CAPABILITY_SUPPORT,
 	/* PERF_LOGGING_V2_SUPPORT feature is supported, unsupported = 0 */
-	1
+	KERNEL_ERROR_CODE_V1_SUPPORT,
 	/* Fastrpc Driver error code changes present */
+	USERSPACE_ALLOCATION_SUPPORT
+	/* Userspace allocation allowed for DSP memory request*/
 };
 
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);

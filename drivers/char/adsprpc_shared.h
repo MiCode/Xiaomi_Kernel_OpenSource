@@ -483,7 +483,7 @@ struct fastrpc_ioctl_control {
 };
 
 #define FASTRPC_MAX_DSP_ATTRIBUTES	(256)
-#define FASTRPC_MAX_ATTRIBUTES	(258)
+#define FASTRPC_MAX_ATTRIBUTES	(259)
 
 enum fastrpc_dsp_capability {
 	ASYNC_FASTRPC_CAP = 9,
