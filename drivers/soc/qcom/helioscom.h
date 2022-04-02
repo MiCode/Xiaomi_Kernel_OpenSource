@@ -89,22 +89,54 @@ struct helioscom_open_config_type {
 			union helioscom_event_data_type *event_data);
 };
 
+/* Client specific data */
+struct helioscom_reset_config_type {
+	/** Private data pointer for client to maintain context.
+	 * This data is passed back to client in the notification callbacks.
+	 */
+	void		*priv;
+
+	/* Notification callbacks to notify the HELIOS events */
+	void (*helioscom_reset_notification_cb)(void *handle, void *priv);
+};
+
 /**
- * helioscom_open() - opens a channel to interact with Blackghost
+ * helioscom_reset_register() - Register to get reset notification
+ * @open_config: pointer to the open configuration structure helioscom_reset_config_type
+ *
+ * Open a new connection to Helioscom
+ *
+ * Return a handle on success or NULL on error
+ */
+void *helioscom_pil_reset_register(struct helioscom_reset_config_type *open_config);
+
+/**
+ * helioscom_pil_reset_unregister() - Unregister for reset notfication
+ * @handle: pointer to the handle, provided by helioscom at
+ *	helioscom_open
+ *
+ * Unregister for helioscom pil notification.
+ *
+ * Return 0 on success or error on invalid handle
+ */
+int helioscom_pil_reset_unregister(void **handle);
+
+/**
+ * helioscom_open() - opens a channel to interact with Helioscom
  * @open_config: pointer to the open configuration structure
  *
- * Open a new connection to blackghost
+ * Open a new connection to Helioscom
  *
  * Return a handle on success or NULL on error
  */
 void *helioscom_open(struct helioscom_open_config_type *open_config);
 
 /**
- * helioscom_close() - close the exsting with Blackghost
+ * helioscom_close() - close the exsting channel with Helioscom
  * @handle: pointer to the handle, provided by helioscom at
  *	helioscom_open
  *
- * Open a new connection to blackghost
+ * close existing connection to Helioscom
  *
  * Return 0 on success or error on invalid handle
  */

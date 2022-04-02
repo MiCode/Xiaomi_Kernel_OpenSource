@@ -34,8 +34,11 @@
 #define HELIOS_SPI_AHB_WRITE_CMD (0x42)
 #define HELIOS_SPI_AHB_CMD_LEN (0x05)
 #define HELIOS_SPI_AHB_READ_CMD_LEN (0x08)
-#define HELIOS_STATUS_REG (0x05)
+#define HELIOS_STATUS_REG (0x01)
 #define HELIOS_CMND_REG (0x14)
+#define HELIOS_STATUS_READ_SIZE (0x07)
+#define HELIOS_RESET_BIT BIT(28)
+#define HELIOS_SPI_ACCESS_BLOCKED (0xDEADBEEF)
 
 #define HELIOS_SPI_MAX_WORDS (0x3FFFFFFD)
 #define HELIOS_SPI_MAX_REGS (0x0A)
@@ -124,6 +127,12 @@ struct cb_data {
 	struct list_head list;
 };
 
+struct cb_reset_data {
+	void *priv;
+	void *handle;
+	void (*helioscom_reset_notification_cb)(void *handle, void *priv);
+};
+
 struct helios_context {
 	struct helios_spi_priv *helios_spi;
 	enum helioscom_state state;
@@ -144,6 +153,7 @@ static struct list_head pr_lst_hd = LIST_HEAD_INIT(pr_lst_hd);
 static DEFINE_SPINLOCK(lst_setup_lock);
 static enum helioscom_spi_state spi_state;
 
+static struct cb_reset_data *pil_reset_cb;
 
 static struct workqueue_struct *wq;
 static DECLARE_WORK(input_work, send_input_events);
@@ -155,8 +165,9 @@ static atomic_t  helios_is_runtime_suspend;
 static atomic_t  helios_is_spi_active;
 static atomic_t  ok_to_sleep;
 static atomic_t  state;
-static int helios_irq;
-static int helios_irq_gpio;
+static uint32_t irq_gpio;
+static uint32_t helios_irq;
+static uint32_t helios_irq_gpio;
 
 static uint8_t *fxd_mem_buffer;
 static struct mutex cma_buffer_lock;
@@ -165,6 +176,9 @@ static ktime_t sleep_time_start;
 static DECLARE_COMPLETION(helios_resume_wait);
 static int helioscom_reg_write_cmd(void *handle, uint8_t reg_start_addr,
 					uint8_t num_regs, void *write_buf);
+
+static void helioscom_interrupt_release(struct helios_spi_priv *helios_spi);
+static int helioscom_interrupt_acquire(struct helios_spi_priv *helios_spi);
 
 static struct spi_device *get_spi_device(void)
 {
@@ -201,6 +215,18 @@ static void send_input_events(struct work_struct *work)
 	}
 }
 
+static int send_helios_reset_notification(void)
+{
+	HELIOSCOM_ERR("%s Helios reset received\n", __func__);
+	if (!pil_reset_cb) {
+		HELIOSCOM_ERR("%s PIL call back not registered\n", __func__);
+		return -EINVAL;
+	}
+	pil_reset_cb->helioscom_reset_notification_cb(pil_reset_cb->handle, pil_reset_cb->priv);
+	HELIOSCOM_ERR("%s Helios reset notification sent to PIL\n", __func__);
+	return 0;
+}
+
 int helioscom_set_spi_state(enum helioscom_spi_state state)
 {
 	struct helios_spi_priv *helios_spi = container_of(helios_com_drv,
@@ -208,6 +234,19 @@ int helioscom_set_spi_state(enum helioscom_spi_state state)
 	const struct device spi_dev = helios_spi->spi->master->dev;
 	ktime_t time_start, delta;
 	s64 time_elapsed;
+
+	if (state == HELIOSCOM_SPI_BUSY) {
+		HELIOSCOM_INFO("%s: Release interrupt line.\n", __func__);
+		helioscom_interrupt_release(helios_spi);
+	}
+
+	if (state == HELIOSCOM_SPI_FREE) {
+		HELIOSCOM_INFO("%s: Acquire interrupt line.\n", __func__);
+		if (helioscom_interrupt_acquire(helios_spi) != 0) {
+			HELIOSCOM_ERR("%s FAILED to get interrupt....\n", __func__);
+			return -EINVAL;
+		}
+	}
 
 	if (state < 0 || state > 1) {
 		HELIOSCOM_ERR("Invalid spi state. Returning %d\n", -EINVAL);
@@ -230,6 +269,7 @@ int helioscom_set_spi_state(enum helioscom_spi_state state)
 			msleep(100);
 		}
 	}
+
 	spi_state = state;
 	HELIOSCOM_INFO("state = %d\n", state);
 	mutex_unlock(&helios_spi->xfer_mutex);
@@ -516,30 +556,41 @@ static void send_back_notification(uint32_t slav_status_reg,
 
 static void helios_irq_tasklet_hndlr_l(void)
 {
+	uint32_t slave_to_host_cmd;
+	uint32_t slave_to_host_data;
 	uint32_t slave_status_reg;
 	uint32_t glink_isr_reg;
 	uint32_t slav_status_auto_clear_reg;
 	uint32_t fifo_fill_reg;
 	uint32_t fifo_size_reg;
 	int ret =  0;
-	uint32_t irq_buf[5] = {0};
+	uint32_t irq_buf[HELIOS_STATUS_READ_SIZE] = {0};
 	uint32_t cmnd_reg = 0;
 	struct helios_context clnt_handle;
 	struct helios_spi_priv *spi =
 			container_of(helios_com_drv, struct helios_spi_priv, lhandle);
 	clnt_handle.helios_spi = spi;
 
-	ret = read_helios_locl(HELIOSCOM_READ_REG, 5, &irq_buf[0]);
+	ret = read_helios_locl(HELIOSCOM_READ_REG, HELIOS_STATUS_READ_SIZE, &irq_buf[0]);
 	if (ret) {
 		HELIOSCOM_ERR("Returning from tasklet handler with value %d\n", ret);
 		return;
 	}
 	/* save current state */
-	slave_status_reg = irq_buf[0];
-	glink_isr_reg = irq_buf[1];
-	slav_status_auto_clear_reg = irq_buf[2];
-	fifo_fill_reg = irq_buf[3];
-	fifo_size_reg = irq_buf[4];
+	slave_to_host_cmd = irq_buf[0];
+	slave_to_host_data = irq_buf[1];
+	slave_status_reg = irq_buf[2];
+	glink_isr_reg = irq_buf[3];
+	slav_status_auto_clear_reg = irq_buf[4];
+	fifo_fill_reg = irq_buf[5];
+	fifo_size_reg = irq_buf[6];
+
+	if ((slave_to_host_cmd != HELIOS_SPI_ACCESS_BLOCKED) &&
+		(slave_to_host_cmd & HELIOS_RESET_BIT)) {
+		send_helios_reset_notification();
+		//helioscom_set_spi_state(HELIOSCOM_SPI_BUSY);
+		return;
+	}
 
 	if (slav_status_auto_clear_reg & HELIOS_PAUSE_REQ) {
 		cmnd_reg |= HELIOS_PAUSE_OK;
@@ -1187,16 +1238,21 @@ error_ret:
 }
 EXPORT_SYMBOL(helioscom_open);
 
-
-void *helioscom_pil_reset_register(struct helioscom_open_config_type *open_config)
+void *helioscom_pil_reset_register(struct helioscom_reset_config_type *open_config)
 {
 	struct helios_spi_priv *spi;
-	struct cb_data *irq_notification;
+	struct cb_reset_data *irq_notification;
 	struct helios_context  *clnt_handle =
 			kzalloc(sizeof(*clnt_handle), GFP_KERNEL);
 
 	if (!clnt_handle)
 		return NULL;
+
+	/* if call back already register, don't add additional */
+	if (pil_reset_cb != NULL) {
+		HELIOSCOM_ERR("%s PIL callback already registered\n", __func__);
+		goto error_ret;
+	}
 
 	/* Client handle Set-up */
 	if (!is_helioscom_ready()) {
@@ -1209,7 +1265,7 @@ void *helioscom_pil_reset_register(struct helioscom_open_config_type *open_confi
 	}
 	clnt_handle->cb = NULL;
 	/* Interrupt callback Set-up */
-	if (open_config && open_config->helioscom_notification_cb) {
+	if (open_config && open_config->helioscom_reset_notification_cb) {
 		irq_notification = kzalloc(sizeof(*irq_notification),
 			GFP_KERNEL);
 		if (!irq_notification)
@@ -1218,11 +1274,11 @@ void *helioscom_pil_reset_register(struct helioscom_open_config_type *open_confi
 		/* set irq node */
 		irq_notification->handle = clnt_handle;
 		irq_notification->priv = open_config->priv;
-		irq_notification->helioscom_notification_cb =
-					open_config->helioscom_notification_cb;
-		add_to_irq_list(irq_notification);
-		clnt_handle->cb = irq_notification;
+		irq_notification->helioscom_reset_notification_cb =
+					open_config->helioscom_reset_notification_cb;
+		pil_reset_cb = irq_notification;
 	}
+	HELIOSCOM_INFO("%s PIL reset notification callback registered successfully\n", __func__);
 	return clnt_handle;
 
 error_ret:
@@ -1230,6 +1286,21 @@ error_ret:
 	return NULL;
 }
 EXPORT_SYMBOL(helioscom_pil_reset_register);
+
+int helioscom_pil_reset_unregister(void **handle)
+{
+	if (*handle == NULL)
+		return -EINVAL;
+
+	kfree(*handle);
+	*handle = NULL;
+
+	kfree(pil_reset_cb);
+	pil_reset_cb = NULL;
+
+	return 0;
+}
+EXPORT_SYMBOL(helioscom_pil_reset_unregister);
 
 int helioscom_close(void **handle)
 {
@@ -1268,8 +1339,9 @@ static irqreturn_t helios_irq_tasklet_hndlr(int irq, void *device)
 		pm_runtime_put_sync_autosuspend(&spi->dev);
 		atomic_set(&helios_spi->irq_lock, 0);
 		return IRQ_HANDLED;
-	} else if (list_empty(&cb_head)) {
-		pr_debug("No callback registered\n");
+	} else if (list_empty(&cb_head) && (!pil_reset_cb)) {
+		HELIOSCOM_INFO("No callback registered\n");
+		msleep(50);
 		return IRQ_HANDLED;
 	} else if (spi_state == HELIOSCOM_SPI_BUSY) {
 		/* delay for SPI to be freed */
@@ -1281,6 +1353,70 @@ static irqreturn_t helios_irq_tasklet_hndlr(int irq, void *device)
 		atomic_set(&helios_spi->irq_lock, 0);
 	}
 	return IRQ_HANDLED;
+}
+
+static int helioscom_interrupt_acquire(struct helios_spi_priv *helios_spi)
+{
+	int ret;
+
+	ret = gpio_request(irq_gpio, "helioscom_gpio");
+	if (ret) {
+		pr_err("gpio %d request failed\n", irq_gpio);
+		goto err_ret;
+	}
+	helios_irq_gpio = irq_gpio;
+	HELIOSCOM_INFO("gpio %d gpio_request success\n", irq_gpio);
+	ret = gpio_direction_input(irq_gpio);
+	if (ret) {
+		pr_err("gpio_direction_input not set: %d\n", ret);
+		goto err_ret;
+	}
+
+	helios_irq = gpio_to_irq(irq_gpio);
+	ret = request_threaded_irq(helios_irq, NULL, helios_irq_tasklet_hndlr,
+		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "qcom-helios_spi", helios_spi);
+
+	if (ret) {
+		pr_err("%s request_threaded_irq registarion failed\n", __func__);
+		goto err_ret;
+	}
+
+	ret = irq_set_irq_wake(helios_irq, true);
+	if (ret) {
+		pr_err("irq set as wakeup return: %d\n", ret);
+		goto err_ret;
+	}
+
+	HELIOSCOM_INFO("%s: IRQ %d irq_request success\n", __func__, helios_irq);
+	return 0;
+
+err_ret:
+	HELIOSCOM_ERR("%s: Interrupt registration failed.\n", __func__);
+	if (helios_irq) {
+		HELIOSCOM_INFO("%s freeing  irq = %d\n", __func__, helios_irq);
+		free_irq(helios_irq, helios_spi);
+		helios_irq = 0;
+	}
+	if (helios_irq_gpio) {
+		HELIOSCOM_INFO("%s freeing  gpio = %d\n", __func__, helios_irq_gpio);
+		gpio_free(helios_irq_gpio);
+		helios_irq_gpio = 0;
+	}
+	return -EINVAL;
+}
+
+static void helioscom_interrupt_release(struct helios_spi_priv *helios_spi)
+{
+	if (helios_irq) {
+		HELIOSCOM_INFO("%s freeing  irq = %d\n", __func__, helios_irq);
+		free_irq(helios_irq, helios_spi);
+		helios_irq = 0;
+	}
+	if (helios_irq_gpio) {
+		HELIOSCOM_INFO("%s freeing  gpio = %d\n", __func__, helios_irq_gpio);
+		gpio_free(helios_irq_gpio);
+		helios_irq_gpio = 0;
+	}
 }
 
 static void helios_spi_init(struct helios_spi_priv *helios_spi)
@@ -1297,8 +1433,6 @@ static void helios_spi_init(struct helios_spi_priv *helios_spi)
 
 	/* HELIOSCOM IRQ set-up */
 	atomic_set(&helios_spi->irq_lock, 0);
-
-	spi_state = HELIOSCOM_SPI_FREE;
 
 	wq = create_singlethread_workqueue("input_wq");
 
@@ -1321,13 +1455,12 @@ static int helios_spi_probe(struct spi_device *spi)
 {
 	struct helios_spi_priv *helios_spi;
 	struct device_node *node;
-	int irq_gpio = 0;
-	int ret;
+	pil_reset_cb = NULL;
 
 	helios_spi = devm_kzalloc(&spi->dev, sizeof(*helios_spi),
 				   GFP_KERNEL | GFP_ATOMIC);
 
-	pr_info("%s started\n", __func__);
+	HELIOSCOM_INFO("%s started\n", __func__);
 
 	if (!helios_spi)
 		return -ENOMEM;
@@ -1343,31 +1476,6 @@ static int helios_spi_probe(struct spi_device *spi)
 		goto err_ret;
 	}
 
-	ret = gpio_request(irq_gpio, "helioscom_gpio");
-	if (ret) {
-		pr_err("gpio %d request failed\n", irq_gpio);
-		goto err_ret;
-	}
-	helios_irq_gpio = irq_gpio;
-	ret = gpio_direction_input(irq_gpio);
-	if (ret) {
-		pr_err("gpio_direction_input not set: %d\n", ret);
-		goto err_ret;
-	}
-
-	helios_irq = gpio_to_irq(irq_gpio);
-	ret = request_threaded_irq(helios_irq, NULL, helios_irq_tasklet_hndlr,
-		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "qcom-helios_spi", helios_spi);
-
-	if (ret)
-		goto err_ret;
-
-	ret = irq_set_irq_wake(helios_irq, true);
-	if (ret) {
-		pr_err("irq set as wakeup return: %d\n", ret);
-		goto err_ret;
-	}
-
 	atomic_set(&helios_is_spi_active, 1);
 	dma_set_coherent_mask(&spi->dev, DMA_BIT_MASK(64));
 
@@ -1376,24 +1484,13 @@ static int helios_spi_probe(struct spi_device *spi)
 	pm_runtime_set_autosuspend_delay(&spi->dev, HELIOS_SPI_AUTOSUSPEND_TIMEOUT);
 	pm_runtime_use_autosuspend(&spi->dev);
 
-	pr_info("%s success\n", __func__);
-	pr_info("Helioscom Probed successfully\n");
-	return ret;
+	HELIOSCOM_INFO("%s: Helioscom Probed successfully\n", __func__);
+	return 0;
 
 err_ret:
 	helios_com_drv = NULL;
 	mutex_destroy(&helios_spi->xfer_mutex);
 	spi_set_drvdata(spi, NULL);
-	if (helios_irq) {
-		pr_info("%s freeing  irq = %d\n", __func__, helios_irq);
-		free_irq(helios_irq, helios_spi);
-		helios_irq = 0;
-	}
-	if (helios_irq_gpio) {
-		pr_info("%s freeing  gpio = %d\n", __func__, helios_irq_gpio);
-		gpio_free(helios_irq_gpio);
-		helios_irq_gpio = 0;
-	}
 	return -ENODEV;
 }
 
