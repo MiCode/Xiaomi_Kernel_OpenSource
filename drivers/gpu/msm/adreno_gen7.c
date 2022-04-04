@@ -199,8 +199,11 @@ int gen7_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
+	u64 freq = gen7_core->gmu_hub_clk_freq;
 
 	adreno_dev->highest_bank_bit = gen7_core->highest_bank_bit;
+	adreno_dev->gmu_hub_clk_freq = freq ? freq : 150000000;
+
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
 			ADRENO_COOP_RESET);
 
