@@ -1865,6 +1865,10 @@
 	thermal_zones: thermal-zones {
 	};
 
+	logbuf: qcom,logbuf-vendor-hooks {
+		compatible = "qcom,logbuf-vendor-hooks";
+	};
+
 	wpss_pas: remoteproc-wpss@8A00000 {
 		compatible = "qcom,neo-wpss-pas";
 		reg = <0x08a00000 0x10000>;
