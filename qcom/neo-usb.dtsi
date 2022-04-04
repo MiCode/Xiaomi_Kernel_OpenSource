@@ -64,7 +64,7 @@
 			snps,dis_u2_susphy_quirk;
 			snps,parkmode-disable-ss-quirk;
 			tx-fifo-resize;
-			dr_mode = "peripheral";
+			dr_mode = "otg";
 			maximum-speed = "super-speed";
 		};
 	};
