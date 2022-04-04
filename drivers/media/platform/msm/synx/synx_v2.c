@@ -427,7 +427,7 @@ int synx_native_signal_core(struct synx_coredata *synx_obj,
 	return rc;
 }
 
-static int synx_native_signal_fence(struct synx_coredata *synx_obj,
+int synx_native_signal_fence(struct synx_coredata *synx_obj,
 	u32 status)
 {
 	int rc = 0;

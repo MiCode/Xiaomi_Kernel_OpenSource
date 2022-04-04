@@ -14,6 +14,8 @@ extern struct synx_device *synx_dev;
 
 extern void synx_fence_callback(struct dma_fence *fence,
 	struct dma_fence_cb *cb);
+extern int synx_native_signal_fence(struct synx_coredata *synx_obj,
+	u32 status);
 
 static inline bool synx_util_is_valid_bind_type(u32 type)
 {
