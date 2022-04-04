@@ -36,5 +36,13 @@ reboot-mode.ko
 qcom-pon.ko
 rtc-pm8xxx.ko
 nvmem_qcom-spmi-sdam.ko
+clk-rpmh.ko
+clk-qcom.ko
+clk-dummy.ko
+gdsc-regulator.ko
+gcc-sm8150.ko
+camcc-sm8150.ko
+dispcc-sm8250.ko
+qcom-cpufreq-hw.ko
 socinfo.ko
 qcom_ipc_logging.ko
