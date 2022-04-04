@@ -428,7 +428,7 @@ static int adsp_start(struct rproc *rproc)
 				    adsp->mem_region, adsp->mem_phys, adsp->mem_size,
 				    &adsp->mem_reloc, adsp->dma_phys_below_32b, adsp->mdata);
 	if (ret)
-		goto free_metadata;
+		goto free_metadata_dtb;
 
 	qcom_pil_info_store(adsp->info_name, adsp->mem_phys, adsp->mem_size);
 
@@ -470,6 +470,7 @@ disable_irqs:
 free_metadata:
 	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata,
 				adsp->dma_phys_below_32b, ret);
+free_metadata_dtb:
 	if (adsp->dtb_pas_id || adsp->dtb_fw_name) {
 		qcom_mdt_free_metadata(adsp->dev, adsp->dtb_pas_id,
 					&adsp->dtb_mdata,
