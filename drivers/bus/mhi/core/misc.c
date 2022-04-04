@@ -31,6 +31,8 @@ const char * const mhi_log_level_str[MHI_MSG_LVL_MAX] = {
 	((dev & 0xFFFF) << 16 | (domain & 0xF) << 12 | (bus & 0xFF) << 4 | \
 	 (slot & 0xF))
 
+#define MHI_DTR_CHANNEL 19
+
 struct mhi_bus mhi_bus;
 
 void mhi_misc_init(void)
@@ -1562,20 +1564,6 @@ long mhi_device_ioctl(struct mhi_device *mhi_dev, unsigned int cmd,
 	return -EIO;
 }
 EXPORT_SYMBOL(mhi_device_ioctl);
-
-static inline void mhi_misc_dtr_init(struct mhi_controller *mhi_cntrl)
-{
-}
-#else
-static inline void mhi_misc_dtr_init(struct mhi_controller *mhi_cntrl)
-{
-	struct dtr_device *dtr_dev;
-
-	/* IP_CTRL channel ID */
-	dtr_dev = mhi_get_device_for_channel(mhi_cntrl, 19);
-	if (dtr_dev)
-		mhi_start_dtr_channels(dtr_dev);
-}
 #endif
 
 int mhi_controller_set_sfr_support(struct mhi_controller *mhi_cntrl, size_t len)
@@ -1604,6 +1592,7 @@ void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
 	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 	struct mhi_private *mhi_priv = dev_get_drvdata(dev);
 	struct mhi_sfr_info *sfr_info = mhi_priv->sfr_info;
+	struct mhi_device *dtr_dev;
 	u64 local, remote;
 	int ret = -EIO;
 
@@ -1612,7 +1601,10 @@ void mhi_misc_mission_mode(struct mhi_controller *mhi_cntrl)
 	if (!ret)
 		MHI_LOG(dev, "Timesync: local: %llx, remote: %llx\n", local, remote);
 
-	mhi_misc_dtr_init(mhi_cntrl);
+	/* IP_CTRL DTR channel ID */
+	dtr_dev = mhi_get_device_for_channel(mhi_cntrl, MHI_DTR_CHANNEL);
+	if (dtr_dev)
+		mhi_notify(dtr_dev, MHI_CB_DTR_START_CHANNELS);
 
 	/* initialize SFR */
 	if (!sfr_info)
