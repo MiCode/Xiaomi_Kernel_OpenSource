@@ -380,7 +380,7 @@ static void mhi_dev_event_msi_cb(void *req)
 	if (ch->evt_buf_wp == ch->evt_buf_size)
 		ch->evt_buf_wp = 0;
 	/* Return the event req to the list */
-	spin_lock_irqsave(&mhi->lock, flags);
+	mutex_lock(&ch->ch_lock);
 	if (ch->curr_ereq == NULL)
 		ch->curr_ereq = ereq;
 	else {
@@ -388,7 +388,7 @@ static void mhi_dev_event_msi_cb(void *req)
 			ereq->is_stale = false;
 		list_add_tail(&ereq->list, &ch->event_req_buffers);
 	}
-	spin_unlock_irqrestore(&mhi->lock, flags);
+	mutex_unlock(&ch->ch_lock);
 }
 
 static void msi_trigger_completion_cb(void *data)
@@ -646,15 +646,12 @@ static int mhi_dev_flush_transfer_completion_events(struct mhi_dev *mhi,
 			break;
 		}
 
-		spin_lock_irqsave(&mhi->lock, flags);
 		if (list_empty(&ch->flush_event_req_buffers)) {
-			spin_unlock_irqrestore(&mhi->lock, flags);
 			break;
 		}
 		flush_ereq = container_of(ch->flush_event_req_buffers.next,
 					struct event_req, list);
 		list_del_init(&flush_ereq->list);
-		spin_unlock_irqrestore(&mhi->lock, flags);
 
 		if (ch->flush_req_cnt++ >= U32_MAX)
 			ch->flush_req_cnt = 0;
@@ -792,7 +789,6 @@ static int mhi_dev_queue_transfer_completion(struct mhi_req *mreq, bool *flush)
 			ch->curr_ereq->context = ch;
 
 			/* Move current event req to flush list*/
-			spin_lock_irqsave(&mhi_ctx->lock, flags);
 			list_add_tail(&ch->curr_ereq->list,
 				&ch->flush_event_req_buffers);
 
@@ -809,7 +805,6 @@ static int mhi_dev_queue_transfer_completion(struct mhi_req *mreq, bool *flush)
 						"evt req buffers empty\n");
 				ch->curr_ereq = NULL;
 			}
-			spin_unlock_irqrestore(&mhi_ctx->lock, flags);
 		}
 		return 0;
 	}
@@ -1868,16 +1863,16 @@ static void mhi_dev_process_reset_cmd(struct mhi_dev *mhi, int ch_id)
 	mhi_log(MHI_MSG_VERBOSE, "Processing reset cmd for ch%d\n", ch_id);
 	/*
 	 * Ensure that the completions that are present in the flush list are
-	 * removed from the list and discarded before stopping the channel.
-	 * Otherwise, those stale events may get flushed along with a valid
-	 * event in the next flush operation.
+	 * removed from the list and added to event req list before channel
+	 * reset. Otherwise, those stale events may get flushed along with a
+	 * valid event in the next flush operation.
 	 */
-	spin_lock_irqsave(&mhi_ctx->lock, flags);
-	list_for_each_entry_safe(itr, tmp, &ch->flush_event_req_buffers, list) {
-		list_del(&itr->list);
-		kfree(itr);
+	if (!list_empty(&ch->flush_event_req_buffers)) {
+		list_for_each_entry_safe(itr, tmp, &ch->flush_event_req_buffers, list) {
+			list_del(&itr->list);
+			list_add_tail(&itr->list, &ch->event_req_buffers);
+		}
 	}
-	spin_unlock_irqrestore(&mhi_ctx->lock, flags);
 
 	/* hard stop and set the channel to stop */
 	mhi->ch_ctx_cache[ch_id].ch_state =
@@ -1990,16 +1985,6 @@ static int mhi_dev_process_cmd_ring(struct mhi_dev *mhi,
 					mhi->ch_ctx_cache[ch_id].err_indx);
 					goto send_undef_completion_event;
 				}
-			}
-			mutex_lock(&mhi->ch[ch_id].ch_lock);
-			rc = mhi_dev_alloc_evt_buf_evt_req(mhi, &mhi->ch[ch_id],
-					evt_ring);
-			mutex_unlock(&mhi->ch[ch_id].ch_lock);
-			if (rc) {
-				mhi_log(MHI_MSG_ERROR,
-					"Failed to alloc ereqs for er %d\n",
-					mhi->ch_ctx_cache[ch_id].err_indx);
-				goto send_undef_completion_event;
 			}
 		}
 
@@ -3080,10 +3065,7 @@ static int mhi_dev_alloc_evt_buf_evt_req(struct mhi_dev *mhi,
 	int rc;
 	uint32_t size, i;
 
-	if (evt_ring)
-		size = evt_ring->ring_size;
-	else
-		size = mhi_dev_get_evt_ring_size(mhi, ch->ch_id);
+	size = mhi_dev_get_evt_ring_size(mhi, ch->ch_id);
 
 	if (!size) {
 		mhi_log(MHI_MSG_ERROR,
@@ -4122,6 +4104,8 @@ static int mhi_init(struct mhi_dev *mhi)
 		for (i = 0; i < mhi->cfg.channels; i++) {
 			mhi->ch[i].ch_id = i;
 			mutex_init(&mhi->ch[i].ch_lock);
+			INIT_LIST_HEAD(&mhi->ch[i].event_req_buffers);
+			INIT_LIST_HEAD(&mhi->ch[i].flush_event_req_buffers);
 			}
 	}
 

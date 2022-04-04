@@ -1474,7 +1474,7 @@ static int haptics_open_loop_drive_config(struct haptics_chip *chip, bool en)
 	u8 val;
 
 	if ((is_boost_vreg_enabled_in_open_loop(chip) ||
-	     is_haptics_external_powered(chip)) && en) {
+	     chip->hboost_enabled || is_haptics_external_powered(chip)) && en) {
 		/* Force VREG_RDY */
 		rc = haptics_masked_write(chip, chip->cfg_addr_base,
 				HAP_CFG_VSET_CFG_REG, FORCE_VREG_RDY_BIT,
@@ -1818,12 +1818,16 @@ static int haptics_set_manual_rc_clk_cal(struct haptics_chip *chip)
 static int haptics_update_fifo_samples(struct haptics_chip *chip,
 					u8 *samples, u32 length)
 {
-	int rc, count, i;
+	int rc = 0, count, i, remain;
+	u8 tmp[HAP_PTN_V2_FIFO_DIN_NUM] = {0};
 
 	if (samples == NULL) {
 		dev_err(chip->dev, "no FIFO samples available\n");
 		return -EINVAL;
 	}
+
+	if (!length)
+		return 0;
 
 	if (chip->ptn_revision == HAP_PTN_V1) {
 		for (i = 0; i < length; i++) {
@@ -1833,6 +1837,7 @@ static int haptics_update_fifo_samples(struct haptics_chip *chip,
 		}
 	} else {
 		count = length / HAP_PTN_V2_FIFO_DIN_NUM;
+		remain = length % HAP_PTN_V2_FIFO_DIN_NUM;
 		for (i = 0; i < count; i++) {
 			rc = haptics_update_fifo_sample_v2(chip,
 					samples, HAP_PTN_V2_FIFO_DIN_NUM);
@@ -1842,16 +1847,26 @@ static int haptics_update_fifo_samples(struct haptics_chip *chip,
 			samples += HAP_PTN_V2_FIFO_DIN_NUM;
 		}
 
-		if (length % HAP_PTN_V2_FIFO_DIN_NUM) {
-			rc = haptics_update_fifo_sample_v2(chip,
-					samples,
-					length % HAP_PTN_V2_FIFO_DIN_NUM);
-			if (rc < 0)
-				return rc;
+		if (remain) {
+			/*
+			 * In HAP_PTN_V2 module, when 1-byte FIFO write clashes
+			 * with the HW FIFO read operation, the HW will only read
+			 * 1 valid byte in every 4 bytes FIFO samples. So avoid
+			 * this by keeping the samples 4-byte aligned and always
+			 * use 4-byte write for HAP_PTN_V2 module.
+			 */
+			if (chip->ptn_revision == HAP_PTN_V2) {
+				memcpy(tmp, samples, remain);
+				rc = haptics_update_fifo_sample_v2(chip,
+						tmp, HAP_PTN_V2_FIFO_DIN_NUM);
+			} else {
+				rc = haptics_update_fifo_sample_v2(chip,
+						samples, remain);
+			}
 		}
 	}
 
-	return 0;
+	return rc;
 }
 
 static int haptics_set_fifo_playrate(struct haptics_chip *chip,
@@ -1984,6 +1999,10 @@ static int haptics_set_fifo(struct haptics_chip *chip, struct fifo_cfg *fifo)
 		return available;
 
 	num = min_t(u32, available, num);
+	/* Keep the FIFO programming 4-byte aligned if FIFO refilling is needed */
+	if ((num < fifo->num_s) && (num % HAP_PTN_V2_FIFO_DIN_NUM))
+		num = round_down(num, HAP_PTN_V2_FIFO_DIN_NUM);
+
 	rc = haptics_update_fifo_samples(chip, fifo->samples, num);
 	if (rc < 0) {
 		dev_err(chip->dev, "write FIFO samples failed, rc=%d\n", rc);
@@ -2875,23 +2894,18 @@ static irqreturn_t fifo_empty_irq_handler(int irq, void *data)
 		if (num < 0)
 			goto unlock;
 
-		/*
-		 * With HAPTICS_PATTERN module revision 2.0 and above, if use
-		 * 1-byte write before 4-byte write, the hardware would insert
-		 * zeros in between to keep the FIFO samples 4-byte aligned, and
-		 * the inserted 0 values would cause HW stop driving hence spurs
-		 * will be seen on the haptics output. So only use 1-byte write
-		 * at the end of FIFO streaming.
-		 */
-		if (samples_left <= num)
-			num = samples_left;
-		else if ((chip->ptn_revision >= HAP_PTN_V2) &&
-				(num % HAP_PTN_V2_FIFO_DIN_NUM))
-			num -= (num % HAP_PTN_V2_FIFO_DIN_NUM);
-
 		samples = fifo->samples + status->samples_written;
 
-		/* Write more pattern data into FIFO memory. */
+		/*
+		 * Always use 4-byte burst write in the middle of FIFO programming to
+		 * avoid HW padding zeros during 1-byte write which would cause the HW
+		 * stop driving for the unexpected padding zeros.
+		 */
+		if (num < samples_left)
+			num = round_down(num, HAP_PTN_V2_FIFO_DIN_NUM);
+		else
+			num = samples_left;
+
 		rc = haptics_update_fifo_samples(chip, samples, num);
 		if (rc < 0) {
 			dev_err(chip->dev, "Update FIFO samples failed, rc=%d\n",
