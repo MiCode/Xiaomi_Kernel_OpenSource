@@ -23,7 +23,7 @@
 	#size-cells = <2>;
 
 	chosen: chosen {
-		bootargs = " rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=off log_buf_len=256K console=ttyMSM0,115200,n8 loglevel=8 cpufreq.default_governor=performance swiotlb=noforce cgroup.memory=nokmem,nosocket allow_file_spec_access";
+		bootargs = " rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=off log_buf_len=256K console=ttyMSM0,115200,n8 loglevel=6 cpufreq.default_governor=performance swiotlb=noforce cgroup.memory=nokmem,nosocket allow_file_spec_access";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
