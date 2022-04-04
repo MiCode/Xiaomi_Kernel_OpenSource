@@ -508,5 +508,8 @@
 		clock-names = "gmu_clk", "cxo_clk", "axi_clk",
 			"memnoc_clk", "ahb_clk", "hub_clk", "smmu_vote",
 			"apb_pclk";
+
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
 	};
 };
