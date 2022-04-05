@@ -75,6 +75,16 @@
 			#cooling-cells = <2>;
 		};
 
+		cpu_5_6_pause: cpu-5-6-pause {
+			qcom,cpus = <&CPU5 &CPU6>;
+			#cooling-cells = <2>;
+		};
+
+		cpu_2_3_7_pause: cpu-2-3-7-pause {
+			qcom,cpus = <&CPU2 &CPU3 &CPU7>;
+			#cooling-cells = <2>;
+		};
+
 		/* Thermal-engine cooling devices */
 		pause-cpu0 {
 			qcom,cpus = <&CPU0>;
@@ -601,12 +611,49 @@
 				hysteresis = <5000>;
 				type = "passive";
 			};
+
+			gpu0_fail_safe1: fail_safe1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			gpu0_fail_safe2: fail_safe2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
 		};
 
 		cooling-maps {
 			gpu0_cdev {
 				trip = <&gpu0_tj_cfg>;
 				cooling-device = <&msm_gpu 0 THERMAL_NO_LIMIT>;
+			};
+
+			gpu0_fs1_cdev0 {
+				trip = <&gpu0_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			gpu0_fs1_cdev1 {
+				trip = <&gpu0_fail_safe1>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			gpu0_fs1_cdev2 {
+				trip = <&gpu0_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			gpu0_fs1_cdev3 {
+				trip = <&gpu0_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			gpu0_fs2_cdev0 {
+				trip = <&gpu0_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
 			};
 		};
 	};
@@ -639,6 +686,18 @@
 				hysteresis = <5000>;
 				type = "passive";
 			};
+
+			gpu1_fail_safe1: fail_safe1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			gpu1_fail_safe2: fail_safe2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
 		};
 
 		cooling-maps {
@@ -646,11 +705,36 @@
 				trip = <&gpu1_tj_cfg>;
 				cooling-device = <&msm_gpu 0 THERMAL_NO_LIMIT>;
 			};
+
+			gpu1_fs1_cdev0 {
+				trip = <&gpu1_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			gpu1_fs1_cdev1 {
+				trip = <&gpu1_fail_safe1>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			gpu1_fs1_cdev2 {
+				trip = <&gpu1_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			gpu1_fs1_cdev3 {
+				trip = <&gpu1_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			gpu1_fs2_cdev0 {
+				trip = <&gpu1_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
+			};
 		};
 	};
 
 	camera-0 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 13>;
 		trips {
@@ -665,11 +749,50 @@
 				hysteresis = <5000>;
 				type = "passive";
 			};
+
+			camera0_fail_safe1: fail_safe1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			camera0_fail_safe2: fail_safe2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			camera0_fs1_cdev0 {
+				trip = <&camera0_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			camera0_fs1_cdev1 {
+				trip = <&camera0_fail_safe1>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			camera0_fs1_cdev2 {
+				trip = <&camera0_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			camera0_fs1_cdev3 {
+				trip = <&camera0_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			camera0_fs2_cdev0 {
+				trip = <&camera0_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
+			};
 		};
 	};
 
 	camera-1 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens0 14>;
 		trips {
@@ -683,6 +806,45 @@
 				temperature = <115000>;
 				hysteresis = <5000>;
 				type = "passive";
+			};
+
+			camera1_fail_safe1: fail_safe1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			camera1_fail_safe2: fail_safe2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			camera1_fs1_cdev0 {
+				trip = <&camera1_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			camera1_fs1_cdev1 {
+				trip = <&camera1_fail_safe1>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			camera1_fs1_cdev2 {
+				trip = <&camera1_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			camera1_fs1_cdev3 {
+				trip = <&camera1_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			camera1_fs2_cdev0 {
+				trip = <&camera1_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
 			};
 		};
 	};
@@ -887,8 +1049,14 @@
 				type = "passive";
 			};
 
-			nspss_0_config0: junction-config0 {
+			nspss0_fail_safe1: fail_safe1 {
 				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			nspss0_fail_safe2: fail_safe2 {
+				temperature = <105000>;
 				hysteresis = <5000>;
 				type = "passive";
 			};
@@ -901,15 +1069,29 @@
 							THERMAL_NO_LIMIT>;
 			};
 
-			nsp_cdev1 {
-				trip = <&nspss_0_config0>;
+			nspss0_fs1_cdev0 {
+				trip = <&nspss0_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			nspss0_fs1_cdev1 {
+				trip = <&nspss0_fail_safe1>;
 				cooling-device = <&cdsp_sw 6 6>;
 			};
 
-			gpu_cdev {
-				trip = <&nspss_0_config0>;
-				/* Limit freq to 285000000 Hz*/
-				cooling-device = <&msm_gpu 5 5>;
+			nspss0_fs1_cdev2 {
+				trip = <&nspss0_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			nspss0_fs1_cdev3 {
+				trip = <&nspss0_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			nspss0_fs2_cdev0 {
+				trip = <&nspss0_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
 			};
 		};
 	};
@@ -943,8 +1125,14 @@
 				type = "passive";
 			};
 
-			nspss_1_config1: junction-config1 {
+			nspss1_fail_safe1: fail_safe1 {
 				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			nspss1_fail_safe2: fail_safe2 {
+				temperature = <105000>;
 				hysteresis = <5000>;
 				type = "passive";
 			};
@@ -957,15 +1145,29 @@
 							THERMAL_NO_LIMIT>;
 			};
 
-			nsp_cdev1 {
-				trip = <&nspss_1_config1>;
+			nspss1_fs1_cdev0 {
+				trip = <&nspss1_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			nspss1_fs1_cdev1 {
+				trip = <&nspss1_fail_safe1>;
 				cooling-device = <&cdsp_sw 6 6>;
 			};
 
-			gpu_cdev {
-				trip = <&nspss_1_config1>;
-				/* Limit freq to 285000000 Hz*/
-				cooling-device = <&msm_gpu 5 5>;
+			nspss1_fs1_cdev2 {
+				trip = <&nspss1_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			nspss1_fs1_cdev3 {
+				trip = <&nspss1_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			nspss1_fs2_cdev0 {
+				trip = <&nspss1_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
 			};
 		};
 	};
@@ -999,8 +1201,14 @@
 				type = "passive";
 			};
 
-			nspss_2_config1: junction-config2 {
+			nspss2_fail_safe1: fail_safe1 {
 				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			nspss2_fail_safe2: fail_safe2 {
+				temperature = <105000>;
 				hysteresis = <5000>;
 				type = "passive";
 			};
@@ -1013,21 +1221,35 @@
 							THERMAL_NO_LIMIT>;
 			};
 
-			nsp_cdev1 {
-				trip = <&nspss_2_config1>;
+			nspss2_fs1_cdev0 {
+				trip = <&nspss2_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			nspss2_fs1_cdev1 {
+				trip = <&nspss2_fail_safe1>;
 				cooling-device = <&cdsp_sw 6 6>;
 			};
 
-			gpu_cdev {
-				trip = <&nspss_2_config1>;
-				/* Limit freq to 285000000 Hz*/
-				cooling-device = <&msm_gpu 5 5>;
+			nspss2_fs1_cdev2 {
+				trip = <&nspss2_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			nspss2_fs1_cdev3 {
+				trip = <&nspss2_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			nspss2_fs2_cdev0 {
+				trip = <&nspss2_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
 			};
 		};
 	};
 
 	video {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 8>;
 		trips {
@@ -1041,6 +1263,45 @@
 				temperature = <115000>;
 				hysteresis = <5000>;
 				type = "passive";
+			};
+
+			video_fail_safe1: fail_safe1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			video_fail_safe2: fail_safe2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			video_fs1_cdev0 {
+				trip = <&video_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			video_fs1_cdev1 {
+				trip = <&video_fail_safe1>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			video_fs1_cdev2 {
+				trip = <&video_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			video_fs1_cdev3 {
+				trip = <&video_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			video_fs2_cdev0 {
+				trip = <&video_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
 			};
 		};
 	};
@@ -1090,7 +1351,7 @@
 	};
 
 	mdmss-0 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 10>;
 		trips {
@@ -1105,11 +1366,50 @@
 				hysteresis = <5000>;
 				type = "passive";
 			};
+
+			mdmss0_fail_safe1: fail_safe1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			mdmss0_fail_safe2: fail_safe2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			mdmss0_fs1_cdev0 {
+				trip = <&mdmss0_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			mdmss0_fs1_cdev1 {
+				trip = <&mdmss0_fail_safe1>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			mdmss0_fs1_cdev2 {
+				trip = <&mdmss0_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			mdmss0_fs1_cdev3 {
+				trip = <&mdmss0_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			mdmss0_fs2_cdev0 {
+				trip = <&mdmss0_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
+			};
 		};
 	};
 
 	mdmss-1 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 11>;
 		trips {
@@ -1124,11 +1424,50 @@
 				hysteresis = <5000>;
 				type = "passive";
 			};
+
+			mdmss1_fail_safe1: fail_safe1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			mdmss1_fail_safe2: fail_safe2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			mdmss1_fs1_cdev0 {
+				trip = <&mdmss1_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			mdmss1_fs1_cdev1 {
+				trip = <&mdmss1_fail_safe1>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			mdmss1_fs1_cdev2 {
+				trip = <&mdmss1_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			mdmss1_fs1_cdev3 {
+				trip = <&mdmss1_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			mdmss1_fs2_cdev0 {
+				trip = <&mdmss1_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
+			};
 		};
 	};
 
 	mdmss-2 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 12>;
 		trips {
@@ -1143,11 +1482,50 @@
 				hysteresis = <5000>;
 				type = "passive";
 			};
+
+			mdmss2_fail_safe1: fail_safe1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			mdmss2_fail_safe2: fail_safe2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			mdmss2_fs1_cdev0 {
+				trip = <&mdmss2_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			mdmss2_fs1_cdev1 {
+				trip = <&mdmss2_fail_safe1>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			mdmss2_fs1_cdev2 {
+				trip = <&mdmss2_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			mdmss2_fs1_cdev3 {
+				trip = <&mdmss2_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			mdmss2_fs2_cdev0 {
+				trip = <&mdmss2_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
+			};
 		};
 	};
 
 	mdmss-3 {
-		polling-delay-passive = <0>;
+		polling-delay-passive = <10>;
 		polling-delay = <0>;
 		thermal-sensors = <&tsens1 13>;
 		trips {
@@ -1161,6 +1539,45 @@
 				temperature = <115000>;
 				hysteresis = <5000>;
 				type = "passive";
+			};
+
+			mdmss3_fail_safe1: fail_safe1 {
+				temperature = <100000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			mdmss3_fail_safe2: fail_safe2 {
+				temperature = <105000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			mdmss3_fs1_cdev0 {
+				trip = <&mdmss3_fail_safe1>;
+				cooling-device = <&msm_gpu 5 5>;
+			};
+
+			mdmss3_fs1_cdev1 {
+				trip = <&mdmss3_fail_safe1>;
+				cooling-device = <&cdsp_sw 6 6>;
+			};
+
+			mdmss3_fs1_cdev2 {
+				trip = <&mdmss3_fail_safe1>;
+				cooling-device = <&cpu_5_6_pause 1 1>;
+			};
+
+			mdmss3_fs1_cdev3 {
+				trip = <&mdmss3_fail_safe1>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			mdmss3_fs2_cdev0 {
+				trip = <&mdmss3_fail_safe2>;
+				cooling-device = <&cpu_2_3_7_pause 1 1>;
 			};
 		};
 	};
