@@ -119,6 +119,13 @@ static const char * const drv_names_cape[] = {
 	""
 };
 
+static const char * const drv_names_parrot[] = {
+	"TZ", "L3", "HLOS", "HYP", "AUDIO", "AOP", "DEBUG", "GPU",
+	"DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW", "WPSS",
+	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
+	""
+};
+
 static ssize_t debug_time_ms_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -400,6 +407,8 @@ static const struct of_device_id drv_match_table[] = {
 	  .data = drv_names_diwali },
 	{ .compatible = "qcom,sys-pm-cape",
 	  .data = drv_names_cape },
+	{ .compatible = "qcom,sys-pm-parrot",
+	  .data = drv_names_parrot },
 	{ }
 };
 
