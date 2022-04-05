@@ -1088,6 +1088,24 @@ static int adreno_probe_llcc(struct adreno_device *adreno_dev,
 	} else
 		adreno_dev->gpuhtw_llc_slice_enable = true;
 
+	if (adreno_is_a621(adreno_dev)) {
+		/* Get the system cache slice descriptor for GPU MV grid buffer */
+		adreno_dev->gpumv_llc_slice = llcc_slice_getd(LLCC_GPUMV);
+		ret = PTR_ERR_OR_ZERO(adreno_dev->gpumv_llc_slice);
+		if (ret) {
+			if (ret == -EPROBE_DEFER) {
+				llcc_slice_putd(adreno_dev->gpu_llc_slice);
+				llcc_slice_putd(adreno_dev->gpuhtw_llc_slice);
+				return ret;
+			}
+
+			if (ret != -ENOENT)
+				dev_warn(&pdev->dev,
+					"Unable to get GPUMV buffer slice: %d\n", ret);
+		} else
+			adreno_dev->gpumv_llc_slice_enable = true;
+	}
+
 	return 0;
 }
 #else
@@ -1393,6 +1411,9 @@ static void adreno_unbind(struct device *dev)
 
 	if (!IS_ERR_OR_NULL(adreno_dev->gpuhtw_llc_slice))
 		llcc_slice_putd(adreno_dev->gpuhtw_llc_slice);
+
+	if (!IS_ERR_OR_NULL(adreno_dev->gpumv_llc_slice))
+		llcc_slice_putd(adreno_dev->gpumv_llc_slice);
 
 	kgsl_pwrscale_close(device);
 
@@ -1896,6 +1917,9 @@ static int adreno_stop(struct kgsl_device *device)
 
 	if (!IS_ERR_OR_NULL(adreno_dev->gpuhtw_llc_slice))
 		llcc_slice_deactivate(adreno_dev->gpuhtw_llc_slice);
+
+	if (!IS_ERR_OR_NULL(adreno_dev->gpumv_llc_slice))
+		llcc_slice_deactivate(adreno_dev->gpumv_llc_slice);
 
 	adreno_set_active_ctxs_null(adreno_dev);
 
