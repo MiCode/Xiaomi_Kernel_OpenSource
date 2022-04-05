@@ -34,6 +34,8 @@ gh_ctrl.ko
 gh_dbl.ko
 gh_msgq.ko
 gh_rm_drv.ko
+gunyah.ko
+mdt_loader.ko
 hwkm.ko
 icc-bcm-voter.ko
 icc-debug.ko
