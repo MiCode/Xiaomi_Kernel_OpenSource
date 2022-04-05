@@ -655,11 +655,13 @@ struct fastrpc_tx_msg {
 	struct smq_msg msg; /* Msg sent to remote subsystem */
 	int rpmsg_send_err; /* rpmsg error */
 	int64_t ns;         /* Timestamp (in ns) of msg */
+	uint64_t xo_time_in_us; /* XO Timestamp (in us) of sent message */
 };
 
 struct fastrpc_rx_msg {
 	struct smq_invoke_rspv2 rsp;  /* Response from remote subsystem */
 	int64_t ns;   /* Timestamp (in ns) of response */
+	uint64_t xo_time_in_us; /* XO Timestamp (in us) of response */
 };
 
 struct fastrpc_rpmsg_log {
