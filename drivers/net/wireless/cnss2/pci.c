@@ -547,6 +547,8 @@ static struct cnss_misc_reg syspm_reg_access_seq[] = {
 	{1, 0, QCA6390_SYSPM_WCSSAON_SR_STATUS, 0},
 };
 
+static struct cnss_print_optimize print_optimize;
+
 #define WCSS_REG_SIZE ARRAY_SIZE(wcss_reg_access_seq)
 #define PCIE_REG_SIZE ARRAY_SIZE(pcie_reg_access_seq)
 #define WLAON_REG_SIZE ARRAY_SIZE(wlaon_reg_access_seq)
@@ -2555,6 +2557,7 @@ skip_power_off:
 	}
 	clear_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 	clear_bit(CNSS_DRIVER_IDLE_SHUTDOWN, &plat_priv->driver_state);
+	memset(&print_optimize, 0, sizeof(print_optimize));
 
 out:
 	return ret;
@@ -4225,11 +4228,14 @@ int cnss_get_user_msi_assignment(struct device *dev, char *user_name,
 			*user_base_data = msi_config->users[idx].base_vector
 				+ pci_priv->msi_ep_base_data;
 			*base_vector = msi_config->users[idx].base_vector;
+			/*Add only single print for each user*/
+			if (print_optimize.msi_log_chk[idx]++)
+				goto skip_print;
 
 			cnss_pr_dbg("Assign MSI to user: %s, num_vectors: %d, user_base_data: %u, base_vector: %u\n",
 				    user_name, *num_vectors, *user_base_data,
 				    *base_vector);
-
+skip_print:
 			return 0;
 		}
 	}
@@ -4270,8 +4276,10 @@ void cnss_get_msi_address(struct device *dev, u32 *msi_addr_low,
 	else
 		*msi_addr_high = 0;
 
-	cnss_pr_dbg("Get MSI low addr = 0x%x, high addr = 0x%x\n",
-		    *msi_addr_low, *msi_addr_high);
+	/*Add only single print as the address is constant*/
+	if (!print_optimize.msi_addr_chk++)
+		cnss_pr_dbg("Get MSI low addr = 0x%x, high addr = 0x%x\n",
+			    *msi_addr_low, *msi_addr_high);
 }
 EXPORT_SYMBOL(cnss_get_msi_address);
 
