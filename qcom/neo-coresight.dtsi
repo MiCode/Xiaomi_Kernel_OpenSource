@@ -1,16 +1,5 @@
 &soc {
 
-	dcc: dcc_v2@100ff000 {
-		compatible = "qcom,dcc-v2";
-		reg = <0x100ff000 0x1000>,
-		      <0x10080000 0x18000>;
-
-		qcom,transaction_timeout = <0>;
-		status = "disabled";
-		reg-names = "dcc-base", "dcc-ram-base";
-		dcc-ram-offset = <0>;
-	};
-
 	stm: stm@10002000 {
 		compatible = "arm,primecell";
 		arm,primecell-periphid = <0x000bb962>;

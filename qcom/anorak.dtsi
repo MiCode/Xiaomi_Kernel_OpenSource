@@ -7,6 +7,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interconnect/qcom,icc.h>
 #include <dt-bindings/interconnect/qcom,anorak.h>
+#include <dt-bindings/soc/qcom,ipcc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. Anorak";
@@ -19,7 +20,10 @@
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
 
 
-	chosen: chosen { };
+	chosen: chosen {
+		bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-5 ftrace_dump_on_oops pstore.compress=none";
+
+	};
 
 	reserved_memory: reserved-memory { };
 
@@ -397,6 +401,32 @@
 		#reset-cells = <1>;
 	};
 
+	ipcc_mproc: qcom,ipcc@ed18000 {
+		compatible = "qcom,ipcc";
+		reg = <0x408000 0x1000>;
+		interrupts = <GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		#mbox-cells = <2>;
+	};
+
+	tcsr_mutex_block: syscon@1f40000 {
+		compatible = "syscon";
+		reg = <0x1f40000 0x20000>;
+	};
+
+	tcsr_mutex: hwlock {
+		compatible = "qcom,tcsr-mutex";
+		syscon = <&tcsr_mutex_block 0 0x1000>;
+		#hwlock-cells = <1>;
+		};
+
+	smem: qcom,smem {
+		compatible = "qcom,smem";
+		memory-region = <&smem_mem>;
+		hwlocks = <&tcsr_mutex 3>;
+	};
+
 	clk_virt: interconnect@0 {
 		compatible = "qcom,anorak-clk_virt";
 		#interconnect-cells = <1>;
@@ -626,3 +656,4 @@
 #include "anorak-pinctrl.dtsi"
 #include "anorak-stub-regulator.dtsi"
 #include "anorak-dma-heaps.dtsi"
+#include "ipcc-test.dtsi"

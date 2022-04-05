@@ -88,7 +88,7 @@
 		vendor = "Qualcomm";
 		image-name = "qcom,trustedvm";
 		qcom,pasid = <0x0 0x1c>;
-		qcom,qtee-config-info = "p=7C,8F,97,159,7F1;";
+		qcom,qtee-config-info = "p=7C,8F,97,159,199,7F1;";
 		qcom,secdomain-ids = <45>;
 		qcom,primary-vm-index = <0>;
 		vm-uri = "qualcomm.com/vmuid/trusted-ui";

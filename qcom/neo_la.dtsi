@@ -1,4 +1,6 @@
 #include "neo.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/qcom,rpmh.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. NEO-LA";
@@ -35,4 +37,171 @@
 			};
 		};
 	};
+};
+
+&tlmm {
+	pm8010i_active: pm8010i_active {
+		mux {
+			pins = "gpio101";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio101";
+			bias-pull-up;
+			output-high;
+			drive-strength = <2>;
+		};
+	};
+};
+
+/*
+ * Each QUP device that's a parent to PMIC must be listed as a critical device
+ * to GCC
+ */
+&gcc {
+	qcom,critical-devices = <&qupv3_se8_i2c>;
+};
+
+&qupv3_se8_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "ok";
+
+	pm8010i@8 {
+		compatible = "qcom,i2c-pmic";
+		reg = <0x8>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pm8010i_active>;
+
+		pm8010-chip@900 {
+			compatible = "qcom,pm8008-chip";
+			reg = <0x900>;
+
+			PM8010I_EN: qcom,pm8008-chip-en {
+				regulator-name = "pm8010i-chip-en";
+			};
+		};
+
+		qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100>;
+		};
+	};
+
+	pm8010i@9 {
+		compatible = "qcom,i2c-pmic";
+		reg = <0x9>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm8010i-regulator {
+			compatible = "qcom,pm8010-regulator";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pm8008_en-supply = <&PM8010I_EN>;
+
+			L1I: pm8010i_l1: regulator@4000 {
+				reg = <0x4000>;
+				regulator-name = "pm8010i_l1";
+				regulator-min-microvolt = <1140000>;
+				regulator-max-microvolt = <1220000>;
+				qcom,min-dropout-voltage = <80000>;
+				qcom,hpm-min-load = <30000>;
+			};
+
+			L2I: pm8010i_l2: regulator@4100 {
+				reg = <0x4100>;
+				regulator-name = "pm8010i_l2";
+				regulator-min-microvolt = <528000>;
+				regulator-max-microvolt = <1260000>;
+				qcom,min-dropout-voltage = <40000>;
+				qcom,hpm-min-load = <30000>;
+			};
+
+			L3I: pm8010i_l3: regulator@4200 {
+				reg = <0x4200>;
+				regulator-name = "pm8010i_l3";
+				regulator-min-microvolt = <2600000>;
+				regulator-max-microvolt = <3000000>;
+				qcom,min-dropout-voltage = <152000>;
+				qcom,hpm-min-load = <0>;
+			};
+
+			L4I: pm8010i_l4: regulator@4300 {
+				reg = <0x4300>;
+				regulator-name = "pm8010i_l4";
+				regulator-min-microvolt = <2600000>;
+				regulator-max-microvolt = <3000000>;
+				qcom,min-dropout-voltage = <152000>;
+				qcom,hpm-min-load = <0>;
+			};
+
+			L5I: pm8010i_l5: regulator@4400 {
+				reg = <0x4400>;
+				regulator-name = "pm8010i_l5";
+				regulator-min-microvolt = <1504000>;
+				regulator-max-microvolt = <1978000>;
+				qcom,min-dropout-voltage = <72000>;
+				qcom,hpm-min-load = <0>;
+			};
+
+			L6I: pm8010i_l6: regulator@4500 {
+				reg = <0x4500>;
+				regulator-name = "pm8010i_l6";
+				regulator-min-microvolt = <2700000>;
+				regulator-max-microvolt = <3000000>;
+				qcom,min-dropout-voltage = <152000>;
+				qcom,hpm-min-load = <0>;
+			};
+
+			L7I: pm8010i_l7: regulator@4600 {
+				reg = <0x4600>;
+				regulator-name = "pm8010i_l7";
+				regulator-min-microvolt = <2700000>;
+				regulator-max-microvolt = <3000000>;
+				qcom,min-dropout-voltage = <112000>;
+				qcom,hpm-min-load = <0>;
+			};
+		};
+	};
+};
+
+&tcsrcc {
+	/delete-property/ protected-clocks;
+};
+
+&gcc {
+	clocks = <&rpmhcc RPMH_CXO_CLK>, <&sleep_clk>,
+		<&pcie_0_pipe_clk>, <&pcie_1_pipe_clk>,
+		<&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
+	clock-names = "bi_tcxo", "sleep_clk",
+		"pcie_0_pipe_clk", "pcie_1_pipe_clk",
+		"usb3_phy_wrapper_gcc_usb30_pipe_clk";
+	/delete-property/ protected-clocks;
+};
+
+&gcc_pcie_0_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
+	/delete-property/ qcom,support-hw-trigger;
+};
+
+&gcc_pcie_0_phy_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
+};
+
+&gcc_pcie_1_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
+};
+
+&gcc_pcie_1_phy_gdsc {
+	parent-supply = <&VDD_CX_LEVEL>;
+	status = "ok";
 };

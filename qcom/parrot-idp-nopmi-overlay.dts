@@ -2,11 +2,12 @@
 /plugin/;
 
 #include "parrot-idp.dtsi"
-#include "parrot-idp-pm7250b.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. Parrot IDP";
 	compatible = "qcom,parrot-idp", "qcom,parrot", "qcom,idp";
 	qcom,msm-id = <537 0x10000>;
 	qcom,board-id = <34 0>;
+	qcom,pmic-id-size = <9>;
+	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
 };

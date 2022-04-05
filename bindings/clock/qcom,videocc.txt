@@ -12,6 +12,7 @@ Required properties :
 			"qcom,cape-videocc"
 			"qcom,neo-videocc"
 			"qcom,parrot-videocc"
+			"qcom,anorak-videocc"
 
 - reg : shall contain base register location and length
 - #clock-cells : from common clock binding, shall contain 1.

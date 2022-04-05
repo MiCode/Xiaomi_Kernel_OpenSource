@@ -10,7 +10,7 @@
 		alloc-ranges = <0x1 0x00000000 0xfffffffe 0xffffffff>;
 		reusable;
 		alignment = <0x0 0x400000>;
-		size = <0 0x3400000>;
+		size = <0 0x3000000>;
 	};
 };
 
@@ -2690,11 +2690,6 @@
 			qcom,dump-id = <0xef>;
 		};
 
-		gemnoc {
-			qcom,dump-size = <0x100000>;
-			qcom,dump-id = <0x162>;
-		};
-
 		rpmh {
 			qcom,dump-size = <0x2000000>;
 			qcom,dump-id = <0xec>;
@@ -2760,24 +2755,19 @@
 			qcom,dump-id = <0x104>;
 		};
 
-		llcc1dc {
-			qcom,dump-size = <0x171000>;
-			qcom,dump-id = <0x140>;
+		osm_reg {
+			qcom,dump-size = <0x400>;
+			qcom,dump-id = <0x163>;
 		};
 
-		llcc2dc {
-			qcom,dump-size = <0x171000>;
-			qcom,dump-id = <0x141>;
+		pcu_reg {
+			qcom,dump-size = <0x400>;
+			qcom,dump-id = <0x164>;
 		};
 
-		llcc3dc {
-			qcom,dump-size = <0x171000>;
-			qcom,dump-id = <0x142>;
-		};
-
-		llcc4dc {
-			qcom,dump-size = <0x171000>;
-			qcom,dump-id = <0x143>;
+		fsm_data {
+			qcom,dump-size = <0x400>;
+			qcom,dump-id = <0x165>;
 		};
 	};
 };

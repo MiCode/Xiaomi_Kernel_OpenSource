@@ -1,0 +1,30 @@
+#include <dt-bindings/sound/qcom,gpr.h>
+
+&soc {
+	qupv3_se3_spi: spi@98c000 {  /* BLSP3 QUP3*/
+		status = "ok";
+		qcom,helios-spi {
+			compatible = "qcom,helios-spi";
+			reg = <0>;
+			spi-max-frequency = <180000>;
+			interrupt-parent = <&tlmm>;
+			qcom,irq-gpio = <&tlmm 30 1>;
+		};
+	};
+
+	qcom,helios-daemon {
+		compatible = "qcom,helios-daemon";
+	};
+
+	qcom,glink-helioscom-xprt-helios {
+		compatible = "qcom,glink-helioscom-xprt";
+		label = "helios";
+
+		qcom,helios_qrtr {
+			qcom,glink-channels = "IPCRTR";
+			qcom,intents = <0x800  5
+					0x2000 3
+					0x4400 2>;
+			};
+	};
+};

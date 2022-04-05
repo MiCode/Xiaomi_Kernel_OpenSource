@@ -86,7 +86,7 @@
 
 	video_mem: video_region@86f00000 {
 		no-map;
-		reg = <0x0 0x86f00000 0x0 0x700000>;
+		reg = <0x0 0x86f00000 0x0 0x500000>;
 	};
 
 	adsp_mem: adsp_region@87600000 {

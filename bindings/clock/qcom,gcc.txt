@@ -36,6 +36,7 @@ Required properties :
 			"qcom,cape-gcc"
 			"qcom,neo-gcc"
 			"qcom,parrot-gcc"
+			"qcom,anorak-gcc"
 
 - reg : shall contain base register location and length
 - vdd_cx-supply: The vdd_cx logic rail supply.

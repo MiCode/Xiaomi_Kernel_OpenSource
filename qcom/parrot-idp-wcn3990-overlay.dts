@@ -2,6 +2,7 @@
 /plugin/;
 
 #include "parrot-idp-wcn3990.dtsi"
+#include "parrot-idp-pm7250b.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. Parrot IDP + WCN3990";
