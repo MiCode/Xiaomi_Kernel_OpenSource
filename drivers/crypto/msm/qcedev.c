@@ -1967,6 +1967,11 @@ long qcedev_ioctl(struct file *file,
 				goto exit_free_qcedev_areq;
 			}
 
+			if (unmap_buf.num_fds > QCEDEV_MAX_BUFFERS) {
+				err = -EINVAL;
+				goto exit_free_qcedev_areq;
+			}
+
 			for (i = 0; i < unmap_buf.num_fds; i++) {
 				err = qcedev_check_and_unmap_buffer(handle,
 						unmap_buf.fd[i]);
