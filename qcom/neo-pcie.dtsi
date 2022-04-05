@@ -121,7 +121,7 @@
 		qcom,num-parf-testbus-sel = <0xb9>;
 		qcom,config-recovery;
 
-		qcom,pcie-phy-ver = <96>;
+		qcom,pcie-phy-ver = <97>;
 		qcom,phy-status-offset = <0x214>;
 		qcom,phy-status-bit = <6>;
 		qcom,phy-power-down-offset = <0x240>;
