@@ -46,6 +46,7 @@
   __dynamic_dev_dbg
   __dynamic_pr_debug
   __fdget
+  __find_vma
   __free_pages
   __get_free_pages
   __get_task_comm
@@ -168,16 +169,20 @@
   __tracepoint_android_vh_binder_wakeup_ilocked
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
+  __tracepoint_android_vh_cpuidle_psci_enter
+  __tracepoint_android_vh_cpuidle_psci_exit
   __tracepoint_android_vh_ftrace_dump_buffer
   __tracepoint_android_vh_ftrace_format_check
   __tracepoint_android_vh_ftrace_oops_enter
   __tracepoint_android_vh_ftrace_oops_exit
   __tracepoint_android_vh_ftrace_size_check
+  __tracepoint_android_vh_gic_resume
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_logbuf_pr_cont
   __tracepoint_android_vh_printk_hotplug
+  __tracepoint_android_vh_rproc_recovery
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
@@ -585,6 +590,7 @@
   devm_regulator_get
   devm_regulator_get_optional
   devm_regulator_register
+  devm_regulator_register_notifier
   devm_request_any_context_irq
   devm_request_threaded_irq
   devm_reset_controller_register
@@ -674,6 +680,13 @@
   driver_find_device
   driver_register
   driver_unregister
+  edac_device_add_device
+  edac_device_alloc_ctl_info
+  edac_device_alloc_index
+  edac_device_del_device
+  edac_device_free_ctl_info
+  edac_device_handle_ce_count
+  edac_device_handle_ue_count
   enable_irq
   enable_percpu_irq
   event_triggers_call
@@ -693,7 +706,6 @@
   fd_install
   fget
   find_vpid
-  __find_vma
   finish_wait
   firmware_request_nowarn
   flush_dcache_page
@@ -766,6 +778,7 @@
   get_user_ifreq
   get_zeroed_page
   gic_nonsecure_priorities
+  gic_resume
   gov_attr_set_init
   gov_attr_set_put
   governor_sysfs_ops
@@ -1008,6 +1021,8 @@
   kobject_uevent
   krealloc
   kset_create_and_add
+  kset_find_obj
+  kset_unregister
   ksoftirqd
   kstat
   kstat_irqs_cpu
@@ -1384,8 +1399,8 @@
   rcuwait_wake_up
   rdev_get_drvdata
   reboot_mode
-  refcount_dec_and_lock
   reclaim_shmem_address_space
+  refcount_dec_and_lock
   refcount_dec_not_one
   refcount_warn_saturate
   register_console
@@ -1456,8 +1471,10 @@
   rproc_add_subdev
   rproc_alloc
   rproc_boot
+  rproc_coredump
   rproc_coredump_add_custom_segment
   rproc_coredump_add_segment
+  rproc_coredump_cleanup
   rproc_coredump_set_elf_info
   rproc_coredump_using_sections
   rproc_del
@@ -1632,6 +1649,7 @@
   strnstr
   strpbrk
   strrchr
+  strreplace
   strscpy
   strsep
   synchronize_irq
@@ -1755,6 +1773,8 @@
   ufshcd_suspend_prepare
   ufshcd_system_resume
   ufshcd_system_suspend
+  ufshcd_uic_hibern8_enter
+  ufshcd_uic_hibern8_exit
   uio_unregister_device
   unlock_page
   unregister_blkdev
@@ -1780,6 +1800,7 @@
   usb_bus_idr_lock
   usb_composite_setup_continue
   usb_debug_root
+  usb_decode_ctrl
   usb_ep_alloc_request
   usb_ep_autoconfig
   usb_ep_dequeue
