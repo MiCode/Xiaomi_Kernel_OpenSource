@@ -985,6 +985,12 @@
 		reg = <0x1fc0000 0x30000>;
 	};
 
+	qcom,mpm2-sleep-counter@c221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xc221000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	adsp_pas: remoteproc-adsp@03000000 {
 		compatible = "qcom,neo-adsp-pas";
 		reg = <0x03000000 0x10000>;
