@@ -258,6 +258,37 @@
 		size = <0x0 0x800000>;
 	};
 
+	lsr_lefteye_mem_heap: lsr_lefteye_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		no-map;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0xC00000>;
+	};
+
+	lsr_righteye_mem_heap: lsr_righteye_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		no-map;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0xC00000>;
+	};
+
+	lsr_depth_mem_heap: lsr_depth_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		no-map;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x100000>;
+	};
+
+	lsr_misc_mem_heap: lsr_misc_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		no-map;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x2800000>;
+	};
 };
 
 &soc {
