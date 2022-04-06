@@ -3592,7 +3592,11 @@
 					"aud_gpio_i2s0_off",
 					"aud_gpio_i2s0_on",
 					"aud_gpio_i2s3_off",
-					"aud_gpio_i2s3_on";
+					"aud_gpio_i2s3_on",
+					"vow_dat_miso_off",
+					"vow_dat_miso_on",
+					"vow_clk_miso_off",
+					"vow_clk_miso_on";
 
 			pinctrl-0 = <&aud_clk_mosi_off>;
 			pinctrl-1 = <&aud_clk_mosi_on>;
@@ -3608,6 +3612,10 @@
 			pinctrl-11 = <&aud_gpio_i2s0_on>;
 			pinctrl-12 = <&aud_gpio_i2s3_off>;
 			pinctrl-13 = <&aud_gpio_i2s3_on>;
+			pinctrl-14 = <&vow_dat_miso_off>;
+			pinctrl-15 = <&vow_dat_miso_on>;
+			pinctrl-16 = <&vow_clk_miso_off>;
+			pinctrl-17 = <&vow_clk_miso_on>;
 		};
 
 		audio_sram@11212000 {
@@ -7040,6 +7048,34 @@
 		};
 		pins_cmd3_dat {
 			pinmux = <PINMUX_GPIO52__FUNC_I2S3_LRCK>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+	};
+	vow_dat_miso_off: vow_dat_miso_off {
+		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO175__FUNC_GPIO175>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+	vow_dat_miso_on: vow_dat_miso_on {
+		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO175__FUNC_VOW_DAT_MISO>;
+			input-schmitt-enable;
+			bias-disable;
+		};
+	};
+	vow_clk_miso_off: vow_clk_miso_off {
+		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO176__FUNC_GPIO176>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+	vow_clk_miso_on: vow_clk_miso_on {
+		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO176__FUNC_VOW_CLK_MISO>;
 			input-schmitt-enable;
 			bias-disable;
 		};
