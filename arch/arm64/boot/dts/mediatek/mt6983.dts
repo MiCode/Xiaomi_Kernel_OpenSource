@@ -7067,6 +7067,13 @@
 		};
 	};
 
+	disp_sec {
+		compatible = "mediatek,disp_sec";
+		sw_sync_token_tzmp_disp_wait = <CMDQ_SYNC_TOKEN_TZMP_DISP_WAIT>;
+		sw_sync_token_tzmp_disp_set = <CMDQ_SYNC_TOKEN_TZMP_DISP_SET>;
+		mboxes = <&gce_sec 8 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_4>;
+	};
+
 	mmqos_wrapper {
 			compatible = "mediatek,mt6983-mmqos-wrapper";
 	};
