@@ -92,15 +92,13 @@ static int scp_dvfs_flag = 1;
 /*
  * 0: SCP Sleep: OFF,
  * 1: SCP Sleep: ON,
- * 2: SCP Sleep: sleep without wakeup,
- * 3: SCP Sleep: force to sleep
  */
 static int scp_resrc_current_req = -1;
 
 static struct mt_scp_pll_t mt_scp_pll;
 static struct wakeup_source *scp_suspend_lock;
 static int g_scp_dvfs_init_flag = -1;
-static int g_scp_dvfs_enable; /* feature enabled? */
+static int g_scp_dvfs_enable; /* feature enabled */
 
 static struct scp_dvfs_hw dvfs;
 
@@ -127,7 +125,6 @@ const char *scp_dvfs_hw_chip_ver[MAX_SCP_DVFS_CHIP_HW] __initconst = {
 	[MT6873] = "mediatek,mt6873",
 	[MT6893] = "mediatek,mt6893",
 	[MT6833] = "mediatek,mt6833",
-	[MT6789] = "mediatek,mt6789",
 };
 
 struct ulposc_cali_regs cali_regs[MAX_ULPOSC_VERSION] __initdata = {
@@ -212,11 +209,6 @@ struct scp_pmic_regs scp_pmic_hw_regs[MAX_SCP_DVFS_CHIP_HW] = {
 		REG_DEFINE_WITH_INIT(sshub_op_en, 0x1514, 0x1, 11, 1, 1)
 		REG_DEFINE_WITH_INIT(sshub_op_cfg, 0x151a, 0x1, 11, 1, 1)
 	},
-	[MT6789] = {
-		REG_DEFINE_WITH_INIT(sshub_op_mode, 0x1520, 0x1, 11, 0, 1)
-		REG_DEFINE_WITH_INIT(sshub_op_en, 0x1514, 0x1, 11, 1, 1)
-		REG_DEFINE_WITH_INIT(sshub_op_cfg, 0x151a, 0x1, 11, 1, 1)
-	},
 };
 
 static void slp_ipi_init(void)
@@ -259,6 +251,8 @@ int scp_resource_req(unsigned int req_type)
 
 	if (req_type < 0 || req_type >= SCP_REQ_MAX)
 		return 0;
+
+	pr_notice("%s(0x%x)\n", __func__, req_type);
 
 	arm_smccc_smc(MTK_SIP_SCP_DVFS_CONTROL, RESOURCE_REQ,
 		req_type, 0, 0, 0, 0, 0, &res);
@@ -334,7 +328,7 @@ static int scp_update_pmic_vow_lp_mode(bool on)
 {
 	int ret = 0;
 
-	if (dvfs.vlp_support) {
+	if (dvfs.vlp_support || dvfs.bypass_pmic_rg_access) {
 		pr_notice("[%s]: VCORE DVS is not supported\n", __func__);
 		WARN_ON(1);
 		return -ESCP_DVFS_DVS_SHOULD_BE_BYPASSED;
@@ -391,13 +385,15 @@ static int scp_set_pmic_vcore(unsigned int cur_freq)
 		WARN_ON(1);
 	}
 
-	/* vcore > 0.6v cannot hold pmic/vcore in lp mode */
-	if (idx < dvfs.vow_lp_en_gear)
-		/* enable VOW low power mode */
-		scp_update_pmic_vow_lp_mode(true);
-	else
-		/* disable VOW low power mode */
-		scp_update_pmic_vow_lp_mode(false);
+	if (dvfs.vow_lp_en_gear != -1) {
+		/* vcore > 0.6v cannot hold pmic/vcore in lp mode */
+		if (idx < dvfs.vow_lp_en_gear)
+			/* enable VOW low power mode */
+			scp_update_pmic_vow_lp_mode(true);
+		else
+			/* disable VOW low power mode */
+			scp_update_pmic_vow_lp_mode(false);
+	}
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 
 	return ret;
@@ -597,13 +593,14 @@ int scp_request_freq_vcore(void)
 				IPI_SEND_WAIT, &scp_expected_freq,
 				PIN_OUT_SIZE_DVFS_SET_FREQ_0, 0);
 			if (ret != IPI_ACTION_DONE)
-				pr_notice("SCP send IPI fail - %d\n", ret);
+				pr_notice("SCP send IPI fail - %d, %d\n", ret, timeout);
 
 			mdelay(2);
 			timeout -= 1; /*try 50 times, total about 100ms*/
 			if (timeout <= 0) {
 				pr_notice("set freq fail, current(%d) != expect(%d)\n",
 					scp_current_freq, scp_expected_freq);
+				scp_resource_req(SCP_REQ_RELEASE);
 				__pm_relax(scp_suspend_lock);
 				WARN_ON(1);
 				return -ESCP_DVFS_IPI_FAILED;
@@ -1327,21 +1324,24 @@ static void __init mt_pmic_sshub_init(void)
 			pr_notice("Set wrong vsram voltage\n");
 	}
 
-	scp_reg_init(dvfs.pmic_regmap, &dvfs.pmic_regs->_sshub_op_mode);
-	scp_reg_init(dvfs.pmic_regmap, &dvfs.pmic_regs->_sshub_op_en);
-	scp_reg_init(dvfs.pmic_regmap, &dvfs.pmic_regs->_sshub_op_cfg);
-
+	if (!dvfs.bypass_pmic_rg_access) {
+		scp_reg_init(dvfs.pmic_regmap, &dvfs.pmic_regs->_sshub_op_mode);
+		scp_reg_init(dvfs.pmic_regmap, &dvfs.pmic_regs->_sshub_op_en);
+		scp_reg_init(dvfs.pmic_regmap, &dvfs.pmic_regs->_sshub_op_cfg);
+	}
 
 	if (dvfs.pmic_sshub_en) {
-		/* BUCK_VCORE_SSHUB_EN: ON */
-		/* LDO_VSRAM_OTHERS_SSHUB_EN: ON */
-		/* PMRC mode: OFF */
-		scp_reg_init(dvfs.pmic_regmap,
-			&dvfs.pmic_regs->_sshub_buck_en);
-		scp_reg_init(dvfs.pmic_regmap,
-			&dvfs.pmic_regs->_sshub_ldo_en);
-		scp_reg_init(dvfs.pmic_regmap,
-			&dvfs.pmic_regs->_pmrc_en);
+		if (!dvfs.bypass_pmic_rg_access) {
+			/* BUCK_VCORE_SSHUB_EN: ON */
+			/* LDO_VSRAM_OTHERS_SSHUB_EN: ON */
+			/* PMRC mode: OFF */
+			scp_reg_init(dvfs.pmic_regmap,
+				&dvfs.pmic_regs->_sshub_buck_en);
+			scp_reg_init(dvfs.pmic_regmap,
+				&dvfs.pmic_regs->_sshub_ldo_en);
+			scp_reg_init(dvfs.pmic_regmap,
+				&dvfs.pmic_regs->_pmrc_en);
+		}
 
 		if (regulator_enable(reg_vcore) != 0)
 			pr_notice("Enable vcore failed!!!\n");
@@ -2465,6 +2465,11 @@ static int __init mt_scp_dts_regmap_init(struct platform_device *pdev,
 	if (dvfs.vlp_support)
 		goto BYPASS_PMIC;
 
+	dvfs.bypass_pmic_rg_access = of_property_read_bool(node, "no-pmic-rg-access");
+	pr_notice("bypass_pmic_rg_access: %s\n", dvfs.bypass_pmic_rg_access?"Yes":"No");
+	if (dvfs.bypass_pmic_rg_access)
+		goto BYPASS_PMIC;
+
 	pmic_node = of_parse_phandle(node, PMIC_PHANDLE_NAME, 0);
 	if (!pmic_node) {
 		dev_notice(&pdev->dev, "fail to find pmic node\n");
@@ -2572,7 +2577,9 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 		goto DTS_FAILED;
 	}
 
-	if (!dvfs.vlp_support) {
+	if (dvfs.vlp_support || dvfs.bypass_pmic_rg_access)
+		pr_notice("bypass pmic rg init\n");
+	else {
 		ret = mt_scp_dts_init_pmic_data();
 		if (ret)
 			goto DTS_FAILED;
@@ -2670,8 +2677,10 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 
 	/* get SCP DVFS enable/disable flag */
 	of_property_read_string(node, "scp_dvfs_flag", &str);
-	if (str && strcmp(str, "disable") == 0)
+	if (str && strcmp(str, "disable") == 0) {
 		scp_dvfs_flag = 0;
+		pr_notice("scp_dvfs_flag = 0\n");
+	}
 
 PASS:
 	return 0;
