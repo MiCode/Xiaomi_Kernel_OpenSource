@@ -847,7 +847,6 @@ static int vcp_pm_event(struct notifier_block *notifier
 			clk_disable_unprepare(vcp26m);
 		}
 		is_suspending = true;
-		mutex_unlock(&vcp_pw_clk_mutex);
 
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
@@ -856,7 +855,6 @@ static int vcp_pm_event(struct notifier_block *notifier
 
 		return NOTIFY_OK;
 	case PM_POST_SUSPEND:
-		mutex_lock(&vcp_pw_clk_mutex);
 		pr_notice("[VCP] PM_POST_SUSPEND entered %d %d\n", pwclkcnt, is_suspending);
 		if (is_suspending && pwclkcnt) {
 			retval = clk_prepare_enable(vcp26m);
