@@ -108,9 +108,9 @@ static void camsys_set_meta_stats_info(u32 dma_port, void *vaddr,
 		set_payload(&stats0->tsf_stats.tsfo_r2_buf, MTK_CAM_UAPI_TSFSO_SIZE, &offset);
 		set_payload(&stats0->tncy_stats.tncsyo_buf, MTK_CAM_UAPI_TNCSYO_SIZE, &offset);
 		if (pde_cfg) {
-			if (pde_cfg->pde_info.pd_table_offset) {
+			if (pde_cfg->pde_info[CAM_SET_CTRL].pd_table_offset) {
 				set_payload(&stats0->pde_stats.pdo_buf,
-					    pde_cfg->pde_info.pdo_max_size,
+					    pde_cfg->pde_info[CAM_SET_CTRL].pdo_max_size,
 					    &offset);
 			}
 		}

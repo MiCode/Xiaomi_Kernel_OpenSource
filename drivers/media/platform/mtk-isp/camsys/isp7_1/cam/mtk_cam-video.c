@@ -1902,28 +1902,14 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 	struct mtk_cam_pde_info *pde_info;
 	u32 extmeta_size = 0;
 
-	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
+	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG ||
+	    node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
 		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
-		pde_info = &pde_cfg->pde_info;
-		if (pde_info->pd_table_offset) {
+		pde_info = &pde_cfg->pde_info[CAM_SET_CTRL];
+		if (!pde_info->pd_table_offset) {
+			/* force reset the enlarged size */
 			node->active_fmt.fmt.meta.buffersize =
-				default_fmt->fmt.meta.buffersize
-				+ pde_info->pdi_max_size;
-			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
-				node->desc.dma_port,
-				node->active_fmt.fmt.meta.buffersize);
-		}
-	}
-	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
-		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
-		pde_info = &pde_cfg->pde_info;
-		if (pde_info->pd_table_offset) {
-			node->active_fmt.fmt.meta.buffersize =
-				default_fmt->fmt.meta.buffersize
-				+ pde_info->pdo_max_size;
-			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
-				node->desc.dma_port,
-				node->active_fmt.fmt.meta.buffersize);
+				default_fmt->fmt.meta.buffersize;
 		}
 	}
 
