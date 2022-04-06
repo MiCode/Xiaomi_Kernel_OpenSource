@@ -293,6 +293,46 @@
 		method = "smc";
 	};
 
+	lastbus: lastbus {
+		compatible = "mediatek,lastbus";
+		enabled = <1>;
+		sw_version = <1>;
+		timeout_ms = <200>;
+		timeout_type = <0>;
+		monitors {
+			monitor1 {
+				monitor_name = "debug_ctrl_ao_PERI_AO";
+				base = <0x1002b000>;
+				num_ports = <34>;
+				bus_freq_mhz = <78>;
+			};
+			monitor2 {
+				monitor_name = "debug_ctrl_ao_FMEM_AO";
+				base = <0x10042000>;
+				num_ports = <14>;
+				bus_freq_mhz = <78>;
+			};
+			monitor3 {
+				monitor_name = "debug_ctrl_ao_PERI_AO2";
+				base = <0x1002e000>;
+				num_ports = <19>;
+				bus_freq_mhz = <78>;
+			};
+			monitor4 {
+				monitor_name = "debug_ctrl_ao_PERI_PAR_AO";
+				base = <0x10040000>;
+				num_ports = <6>;
+				bus_freq_mhz = <78>;
+			};
+			monitor5 {
+				monitor_name = "debug_ctrl_ao_INFRA_AO";
+				base = <0x10023000>;
+				num_ports = <22>;
+				bus_freq_mhz = <78>;
+			};
+		};
+	};
+
 	firmware: firmware {
 		scmi: scmi {
 			compatible = "arm,scmi";
