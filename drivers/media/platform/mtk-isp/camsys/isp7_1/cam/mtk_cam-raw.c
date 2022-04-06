@@ -2667,9 +2667,6 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 
 void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev, int dequeued_frame_seq_no)
 {
-	struct mtk_cam_ctx *ctx;
-	struct mtk_cam_request_stream_data *s_data;
-
 	dev_info(raw_dev->dev,
 			 "%s: dequeued_frame_seq_no %d\n",
 			 __func__, dequeued_frame_seq_no);
@@ -2683,37 +2680,15 @@ void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev, int dequeued_frame_s
 				       dbg_RAWI_R2, ARRAY_SIZE(dbg_RAWI_R2));
 
 	if (raw_dev->pipeline->pde_config.pde_info[CAM_SET_CTRL].pd_table_offset) {
-		dev_dbg_ratelimited(raw_dev->dev,
-				    "DMA_ERR:%x,PDI_R1:%x,PDO_R1:%x\n",
-			readl_relaxed(raw_dev->base + 0x4060),
-			readl_relaxed(raw_dev->base + REG_PDI_R1_BASE + DMA_OFFSET_ERR_STAT),
-			readl_relaxed(raw_dev->base + REG_PDO_R1_BASE + DMA_OFFSET_ERR_STAT)
-			);
-		dev_dbg_ratelimited(raw_dev->dev,
-				    "TG_FRMSIZE_ST:%x,TG_FRMSIZE_ST_R:%x\n",
-			readl_relaxed(raw_dev->base + 0x0738),
-			readl_relaxed(raw_dev->base + 0x076c)
-			);
+		dev_info_ratelimited(raw_dev->dev,
+				     "TG_FRMSIZE_ST:%x,TG_FRMSIZE_ST_R:%x\n",
+				     readl_relaxed(raw_dev->base + 0x0738),
+				     readl_relaxed(raw_dev->base + 0x076c));
+
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
 				       "PDO_R1", dbg_PDO_R1, ARRAY_SIZE(dbg_PDO_R1));
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
 				       "PDI_R1", dbg_PDI_R1, ARRAY_SIZE(dbg_PDI_R1));
-
-		ctx = mtk_cam_find_ctx(raw_dev->cam, &raw_dev->pipeline->subdev.entity);
-		if (ctx) {
-			s_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, dequeued_frame_seq_no);
-			if (s_data) {
-				mtk_cam_req_dump(s_data,
-						 MTK_CAM_REQ_DUMP_DEQUEUE_FAILED,
-						 "PDE DMA ERR", true);
-			} else {
-				dev_info(raw_dev->dev,
-					 "%s: req(%d) can't be found for dump\n",
-					 __func__, dequeued_frame_seq_no);
-			}
-		} else {
-			dev_info(raw_dev->dev, "%s: cannot find ctx\n", __func__);
-		}
 	}
 	/*
 	 * mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
