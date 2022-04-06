@@ -112,6 +112,16 @@ static const struct {
 		.direction = IPI_APU_INITIATE,
 		.ack = IPI_WITH_ACK,
 	},
+	[APU_IPI_SAPU_LOCK] = { // 18
+		.name = "apu-lock-rv-rpmsg",
+		.direction = IPI_HOST_INITIATE,
+		.ack = IPI_WITH_ACK,
+	},
+	[APU_IPI_SCP_MIDDLEWARE] = { // 19
+		.name = "apu-scp-mdw-rpmsg",
+		.direction = IPI_HOST_INITIATE,
+		.ack = IPI_WITH_ACK,
+	},
 
 };
 
