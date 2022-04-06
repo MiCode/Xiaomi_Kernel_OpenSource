@@ -2719,7 +2719,6 @@
 		qcom,vmid = <50>;
 		qcom,firmware-name = "cpusys_vm";
 		memory-region = <&cpusys_vm_mem>;
-		status = "disabled";
 	};
 
 	trust_ui_vm: qcom,trust_ui_vm@e55fc000 {
