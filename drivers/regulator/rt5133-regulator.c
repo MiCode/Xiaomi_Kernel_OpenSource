@@ -53,7 +53,6 @@
 #define RT5133_LDO_REG_BASE(_id)	(0x20 + ((_id) - 1) * 4)
 
 #define RT5133_VENDOR_ID_MASK		GENMASK(7, 4)
-#define RT5133_VENDOR_ID		0x70
 #define RT5133_RESET_CODE		0xB1
 
 #define RT5133_FOFF_BASE_MASK		BIT(1)
@@ -105,6 +104,11 @@ enum {
 	RT5133_REGULATOR_MAX
 };
 
+struct chip_data {
+	const struct regulator_desc *regulators;
+	const u8 vendor_id;
+};
+
 struct rt5133_priv {
 	struct device *dev;
 	struct regmap *regmap;
@@ -113,6 +117,7 @@ struct rt5133_priv {
 	struct gpio_chip gc;
 	struct extdev_desc extdev_desc;
 	struct extdev_io_device *extdev;
+	const struct chip_data *cdata;
 	unsigned int gpio_output_flag;
 	u8 crc8_tbls[CRC8_TABLE_SIZE];
 };
@@ -127,6 +132,10 @@ static const unsigned int vout_type2_tables[] = {
 
 static const unsigned int vout_type3_tables[] = {
 	900000, 950000, 1000000, 1050000, 1100000, 1150000, 1200000, 1800000
+};
+
+static const unsigned int vout_type4_tables[] = {
+	855000, 900000, 950000, 1000000, 1040000, 1090000, 1140000, 1710000
 };
 
 static const struct regulator_ops rt5133_regulator_ops = {
@@ -245,6 +254,36 @@ static const struct regulator_desc rt5133_regulators[] = {
 	RT5133_REGULATOR_DESC(LDO6, vout_type2_tables, "rt5133,base"),
 	RT5133_REGULATOR_DESC(LDO7, vout_type3_tables, "rt5133-ldo1"),
 	RT5133_REGULATOR_DESC(LDO8, vout_type3_tables, "rt5133-ldo1"),
+};
+
+static const struct regulator_desc rt5133a_regulators[] = {
+	/* For digital part, base current control */
+	{
+		.name = "rt5133,base",
+		.id = RT5133_REGULATOR_BASE,
+		.of_match = of_match_ptr("BASE"),
+		.regulators_node = of_match_ptr("regulators"),
+		.of_parse_cb = rt5133_of_parse_cb,
+		.type = REGULATOR_VOLTAGE,
+		.owner = THIS_MODULE,
+		.ops = &rt5133_base_regulator_ops,
+		.enable_reg = RT5133_REG_BASE_CTRL,
+		.enable_mask = RT5133_FOFF_BASE_MASK,
+		.enable_is_inverted = true,
+	},
+	RT5133_REGULATOR_DESC(LDO1, vout_type1_tables, "rt5133,base"),
+	RT5133_REGULATOR_DESC(LDO2, vout_type1_tables, "rt5133,base"),
+	RT5133_REGULATOR_DESC(LDO3, vout_type2_tables, "rt5133,base"),
+	RT5133_REGULATOR_DESC(LDO4, vout_type2_tables, "rt5133,base"),
+	RT5133_REGULATOR_DESC(LDO5, vout_type2_tables, "rt5133,base"),
+	RT5133_REGULATOR_DESC(LDO6, vout_type2_tables, "rt5133,base"),
+	RT5133_REGULATOR_DESC(LDO7, vout_type3_tables, "rt5133-ldo1"),
+	RT5133_REGULATOR_DESC(LDO8, vout_type4_tables, "rt5133-ldo1"),
+};
+
+static const struct chip_data regulator_data[] = {
+	{ rt5133_regulators, 0x70},
+	{ rt5133a_regulators, 0x80},
 };
 
 static int rt5133_gpio_direction_output(struct gpio_chip *gpio,
@@ -481,14 +520,23 @@ static int rt5133_chip_reset(struct rt5133_priv *priv)
 static int rt5133_validate_vendor_info(struct rt5133_priv *priv)
 {
 	unsigned int val = 0;
-	int ret;
+	int i, ret;
 
 	ret = regmap_read(priv->regmap, RT5133_REG_CHIP_INFO, &val);
 	if (ret)
 		return ret;
 
-	if ((val & RT5133_VENDOR_ID_MASK) != RT5133_VENDOR_ID)
+	for (i = 0; i < sizeof(regulator_data); i++) {
+		if ((val & RT5133_VENDOR_ID_MASK) ==
+						regulator_data[i].vendor_id){
+			priv->cdata = &regulator_data[i];
+			break;
+		}
+	}
+	if (IS_ERR(priv->cdata)) {
+		dev_err(priv->dev, "Failed to find regualtor match version\n");
 		return -ENODEV;
+	}
 
 	return 0;
 }
@@ -556,8 +604,8 @@ static int rt5133_probe(struct i2c_client *i2c)
 
 	for (i = 0; i < RT5133_REGULATOR_MAX; i++) {
 		priv->rdev[i] = devm_regulator_register(&i2c->dev,
-							rt5133_regulators + i,
-							&config);
+						priv->cdata->regulators + i,
+						&config);
 		if (IS_ERR(priv->rdev[i])) {
 			dev_err(&i2c->dev,
 				"Failed to register [%d] regulator\n", i);
