@@ -41,9 +41,6 @@ enum idle_param {
 		val = (long) ((get_disabled(drv, state) & CPUIDLE_FLAG_UNUSABLE) ? 0 : 1) ; \
 	val;                                                    \
 })
-
-// FIXME
-// cpuidle_driver_state_disabled need exported
 #define mtk_cpuidle_set_param(drv, state, param, val)           \
 do {                                                            \
 	if (param == IDLE_PARAM_LAT) {                          \
@@ -59,12 +56,14 @@ do {                                                            \
 	} else if (param == IDLE_PARAM_EN) {			\
 		if (!!val) {					\
 			get_disabled(drv, state) &= ~CPUIDLE_FLAG_UNUSABLE;	\
+			cpuidle_driver_state_disabled(drv, state, false);	\
 		} else {							\
 			get_disabled(drv, state) |= CPUIDLE_FLAG_UNUSABLE;	\
+			cpuidle_driver_state_disabled(drv, state, true);	\
 		}								\
 	}							\
-	pr_info("mtk_cpuidle_set_param not supported\n");	\
 } while (0)
+
 void mtk_cpuidle_set_stress_test(bool en);
 bool mtk_cpuidle_get_stress_status(void);
 void mtk_cpuidle_set_stress_time(unsigned int val);
