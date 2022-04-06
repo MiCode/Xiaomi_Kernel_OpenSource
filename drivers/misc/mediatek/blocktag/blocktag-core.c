@@ -367,19 +367,14 @@ static bool mtk_btag_earaio_send_uevt(bool boost)
 }
 
 #define EARAIO_UEVT_THRESHOLD_PAGES ((32 * 1024 * 1024) >> 12)
-void mtk_btag_earaio_boost(bool boost)
+static int __mtk_btag_earaio_boost(bool boost)
 {
-	unsigned long flags;
-	bool changed = false;
+	int changed = 0;
 
-	if (!earaio_ctrl.enabled)
-		return;
+	if (!(boost ^ earaio_ctrl.boosted)) {
+		return changed;
+	}
 
-	/* Use earaio_obj.minor to indicate if obj is existed */
-	if (!(boost ^ earaio_ctrl.boosted) || unlikely(!earaio_obj.minor))
-		return;
-
-	spin_lock_irqsave(&earaio_ctrl.lock, flags);
 	if (boost) {
 		/* Establish threshold to avoid lousy uevents */
 		if ((earaio_ctrl.pwd_top_r_pages >= EARAIO_UEVT_THRESHOLD_PAGES) ||
@@ -391,15 +386,31 @@ void mtk_btag_earaio_boost(bool boost)
 
 	if (changed)
 		earaio_ctrl.boosted = boost;
+	else
+		changed = 2;
 
-	if (!earaio_ctrl.boosted) {
+	return changed;
+}
+
+void mtk_btag_earaio_boost(bool boost)
+{
+	unsigned long flags;
+	int changed = 0; // 0: not try, 1: try and success, 2: try but fail
+
+	/* Use earaio_obj.minor to indicate if obj is existed */
+	if (!earaio_ctrl.enabled || unlikely(!earaio_obj.minor))
+		return;
+
+	spin_lock_irqsave(&earaio_ctrl.lock, flags);
+	changed = __mtk_btag_earaio_boost(boost);
+	if (boost || changed == 1) {
 		earaio_ctrl.pwd_begin = sched_clock();
 		earaio_ctrl.pwd_top_r_pages = 0;
 		earaio_ctrl.pwd_top_w_pages = 0;
 	}
 	spin_unlock_irqrestore(&earaio_ctrl.lock, flags);
 
-	if (boost ^ changed) {
+	if ((boost && changed == 2) || (!boost && changed == 1)) {
 		struct mtk_btag_mictx_struct *mictx;
 
 		mictx = mtk_btag_mictx_get();
@@ -1312,11 +1323,6 @@ void mtk_btag_mictx_update(
 	    ((sched_clock() - earaio_ctrl.pwd_begin) >=
 	    MS_TO_NS(pwd_width_ms))) {
 		mtk_btag_earaio_boost(true);
-		spin_lock_irqsave(&earaio_ctrl.lock, flags);
-		earaio_ctrl.pwd_begin = sched_clock();
-		earaio_ctrl.pwd_top_r_pages = 0;
-		earaio_ctrl.pwd_top_w_pages = 0;
-		spin_unlock_irqrestore(&earaio_ctrl.lock, flags);
 	}
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_update);
