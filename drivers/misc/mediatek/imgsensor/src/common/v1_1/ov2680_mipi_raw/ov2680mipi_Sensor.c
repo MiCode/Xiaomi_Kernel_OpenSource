@@ -162,7 +162,7 @@ static struct imgsensor_struct imgsensor = {
 	.dummy_line = 0,	/* current dummyline */
 	.current_fps = 300,
 	.autoflicker_en = KAL_FALSE,
-	.test_pattern = KAL_FALSE,
+	.test_pattern = 0,
 	.current_scenario_id = MSDK_SCENARIO_ID_CAMERA_PREVIEW,
 	.ihdr_en = 0,
 	.i2c_write_id = 0x20,	/* record current sensor's i2c write id */
@@ -806,7 +806,7 @@ static kal_uint32 open(void)
 	imgsensor.dummy_pixel = 0;
 	imgsensor.dummy_line = 0;
 	imgsensor.ihdr_en = 0;
-	imgsensor.test_pattern = KAL_FALSE;
+	imgsensor.test_pattern = 0;
 	imgsensor.current_fps = imgsensor_info.pre.max_framerate;
 	spin_unlock(&imgsensor_drv_lock);
 
@@ -1366,17 +1366,28 @@ static kal_uint32 get_default_framerate_by_scenario(
 	return ERROR_NONE;
 }
 
-static kal_uint32 set_test_pattern_mode(kal_bool enable)
+static kal_uint32 set_test_pattern_mode(kal_uint32 modes)
 {
-	cam_pr_debug("enable: %d\n", enable);
+	cam_pr_debug("modes: %d\n", modes);
 
-	if (enable)
-		write_cmos_sensor(0x5080, 0x80);
-	else
+	if (modes == 5) {
+		write_cmos_sensor(0x5000, 1<<6);
+		write_cmos_sensor(0x5004, 0);
+		write_cmos_sensor(0x5005, 0);
+		write_cmos_sensor(0x5006, 0);
+		write_cmos_sensor(0x5007, 0);
+		write_cmos_sensor(0x5008, 0);
+		write_cmos_sensor(0x5009, 0);
+	} else if (modes != 5 && (imgsensor.test_pattern == 5)) {
+		write_cmos_sensor(0x5000, 0x00);	/* test pattern off */
+	} else if (modes != 2 && (imgsensor.test_pattern == 2)) {
 		write_cmos_sensor(0x5080, 0x00);
+	} else if (modes == 2) {
+		write_cmos_sensor(0x5080, 0x80);
+	}
 
 	spin_lock(&imgsensor_drv_lock);
-	imgsensor.test_pattern = enable;
+	imgsensor.test_pattern = modes;
 	spin_unlock(&imgsensor_drv_lock);
 
 	return ERROR_NONE;
@@ -1466,7 +1477,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			(MUINT32 *) (uintptr_t) (*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
-		set_test_pattern_mode((BOOL) * feature_data);
+		set_test_pattern_mode((UINT32)*feature_data);
 		break;
 	case SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE:
 		*feature_return_para_32 = imgsensor_info.checksum_value;
