@@ -66,7 +66,7 @@ static void __iomem *__gpufreq_of_ioremap(const char *node_name, int idx);
 static int __gpufreq_pause_dvfs(void);
 static void __gpufreq_resume_dvfs(void);
 static void __gpufreq_interpolate_volt(void);
-static void __gpufreq_apply_aging(unsigned int apply_aging);
+static void __gpufreq_apply_restore_margin(unsigned int apply_aging);
 static void __gpufreq_apply_adjust(enum gpufreq_target target,
 	struct gpufreq_adj_info *adj_table, int adj_num);
 /* dvfs function */
@@ -197,11 +197,13 @@ static struct gpufreq_status g_gpu;
 static struct gpufreq_status g_stack;
 static struct gpufreq_asensor_info g_asensor_info;
 static unsigned int g_shader_present;
-static unsigned int g_aging_enable;
-static unsigned int g_avs_enable;
-static unsigned int g_aging_load;
 static unsigned int g_mcl50_load;
-static unsigned int g_gpm_enable;
+static unsigned int g_asensor_enable;
+static unsigned int g_aging_load;
+static unsigned int g_aging_margin;
+static unsigned int g_avs_enable;
+static unsigned int g_avs_margin;
+static unsigned int g_gpm1_enable;
 static unsigned int g_gpueb_support;
 static unsigned int g_dvfs_timing_park_volt;
 static unsigned int g_dvfs_timing_park_reg;
@@ -261,7 +263,7 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.set_timestamp = __gpufreq_set_timestamp,
 	.check_bus_idle = __gpufreq_check_bus_idle,
 	.dump_infra_status = __gpufreq_dump_infra_status,
-	.set_aging_mode = __gpufreq_set_aging_mode,
+	.set_margin_mode = __gpufreq_set_margin_mode,
 	.set_gpm_mode = __gpufreq_set_gpm_mode,
 	.get_asensor_info = __gpufreq_get_asensor_info,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
@@ -474,9 +476,12 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_gpu(void)
 	opp_info.signed_opp_num = g_gpu.signed_opp_num;
 	opp_info.dvfs_state = g_dvfs_state;
 	opp_info.shader_present = g_shader_present;
-	opp_info.aging_enable = g_aging_enable;
+	opp_info.asensor_enable = g_asensor_enable;
+	opp_info.aging_load = g_aging_load;
+	opp_info.aging_margin = g_aging_margin;
 	opp_info.avs_enable = g_avs_enable;
-	opp_info.gpm_enable = g_gpm_enable;
+	opp_info.avs_margin = g_avs_margin;
+	opp_info.gpm1_enable = g_gpm1_enable;
 	if (__gpufreq_get_power_state()) {
 		opp_info.fmeter_freq = __gpufreq_get_fmeter_fgpu();
 		opp_info.con1_freq = __gpufreq_get_real_fgpu();
@@ -512,9 +517,12 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_stack(void)
 	opp_info.signed_opp_num = g_stack.signed_opp_num;
 	opp_info.dvfs_state = g_dvfs_state;
 	opp_info.shader_present = g_shader_present;
-	opp_info.aging_enable = g_aging_enable;
+	opp_info.asensor_enable = g_asensor_enable;
+	opp_info.aging_load = g_aging_load;
+	opp_info.aging_margin = g_aging_margin;
 	opp_info.avs_enable = g_avs_enable;
-	opp_info.gpm_enable = g_gpm_enable;
+	opp_info.avs_margin = g_avs_margin;
+	opp_info.gpm1_enable = g_gpm1_enable;
 	if (__gpufreq_get_power_state()) {
 		opp_info.fmeter_freq = __gpufreq_get_fmeter_fstack();
 		opp_info.con1_freq = __gpufreq_get_real_fstack();
@@ -809,7 +817,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_09);
 
 		/* control GPM 1.0 */
-		if (g_gpm_enable)
+		if (g_gpm1_enable)
 			__gpufreq_gpm_control();
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_0A);
 
@@ -1437,29 +1445,23 @@ int __gpufreq_get_low_batt_idx(int low_batt_level)
 }
 
 /* API: apply/restore Vaging to working table of STACK */
-int __gpufreq_set_aging_mode(unsigned int mode)
+void __gpufreq_set_margin_mode(unsigned int mode)
 {
-	/* prevent from repeatedly applying aging */
-	if (g_aging_enable ^ mode) {
-		__gpufreq_apply_aging(mode);
-		g_aging_enable = mode;
+	/* update volt margin */
+	__gpufreq_apply_restore_margin(mode);
 
-		/* set power info to working table */
-		__gpufreq_measure_power();
+	/* update power info to working table */
+	__gpufreq_measure_power();
 
-		/* update HW constraint parking volt */
-		__gpufreq_update_hw_constraint_volt();
-
-		return GPUFREQ_SUCCESS;
-	} else {
-		return GPUFREQ_EINVAL;
-	}
+	/* update HW constraint parking volt */
+	__gpufreq_update_hw_constraint_volt();
 }
 
 /* API: enable/disable GPM 1.0 */
-void __gpufreq_set_gpm_mode(unsigned int mode)
+void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode)
 {
-	g_gpm_enable = mode;
+	if (version == 1)
+		g_gpm1_enable = mode;
 }
 
 /* API: get core_mask table */
@@ -3873,6 +3875,41 @@ done:
 	return ret;
 }
 
+/* API: mode=true: apply marign, mode=false: restore margin */
+static void __gpufreq_apply_restore_margin(unsigned int mode)
+{
+	struct gpufreq_opp_info *working_table = NULL;
+	struct gpufreq_opp_info *signed_table = NULL;
+	int working_opp_num = 0, signed_opp_num = 0, segment_upbound = 0, i = 0;
+
+	working_table = g_stack.working_table;
+	signed_table = g_stack.signed_table;
+	working_opp_num = g_stack.opp_num;
+	signed_opp_num = g_stack.signed_opp_num;
+	segment_upbound = g_stack.segment_upbound;
+
+	mutex_lock(&gpufreq_lock);
+
+	/* update margin to signed table */
+	for (i = 0; i < signed_opp_num; i++) {
+		if (!mode)
+			signed_table[i].volt += signed_table[i].margin;
+		else
+			signed_table[i].volt -= signed_table[i].margin;
+		signed_table[i].vsram = __gpufreq_get_vsram_by_vstack(signed_table[i].volt);
+	}
+
+	for (i = 0; i < working_opp_num; i++) {
+		working_table[i].volt = signed_table[segment_upbound + i].volt;
+		working_table[i].vsram = signed_table[segment_upbound + i].vsram;
+
+		GPUFREQ_LOGD("Margin mode: %d, STACK[%d] Volt: %d, Vsram: %d",
+			mode, i, working_table[i].volt, working_table[i].vsram);
+	}
+
+	mutex_unlock(&gpufreq_lock);
+}
+
 /* API: calculate power of every OPP in working table */
 static void __gpufreq_measure_power(void)
 {
@@ -4057,30 +4094,6 @@ static void __gpufreq_interpolate_volt(void)
 	mutex_unlock(&gpufreq_lock);
 }
 
-/* API: apply aging volt diff to working table */
-static void __gpufreq_apply_aging(unsigned int apply_aging)
-{
-	int i = 0;
-	struct gpufreq_opp_info *working_table = g_stack.working_table;
-	int opp_num = g_stack.opp_num;
-
-	mutex_lock(&gpufreq_lock);
-
-	for (i = 0; i < opp_num; i++) {
-		if (apply_aging)
-			working_table[i].volt -= working_table[i].vaging;
-		else
-			working_table[i].volt += working_table[i].vaging;
-
-		working_table[i].vsram = __gpufreq_get_vsram_by_vstack(working_table[i].volt);
-
-		GPUFREQ_LOGD("apply Vaging: %d, STACK[%02d] Volt: %d, Vsram: %d",
-			apply_aging, i, working_table[i].volt, working_table[i].vsram);
-	}
-
-	mutex_unlock(&gpufreq_lock);
-}
-
 /* API: apply given adjustment table to signed table */
 static void __gpufreq_apply_adjust(enum gpufreq_target target,
 	struct gpufreq_adj_info *adj_table, int adj_num)
@@ -4117,18 +4130,15 @@ static void __gpufreq_apply_adjust(enum gpufreq_target target,
 				adj_table[i].volt : signed_table[oppidx].volt;
 			signed_table[oppidx].vsram = adj_table[i].vsram ?
 				adj_table[i].vsram : signed_table[oppidx].vsram;
-			signed_table[oppidx].vaging = adj_table[i].vaging ?
-				adj_table[i].vaging : signed_table[oppidx].vaging;
 		} else {
 			GPUFREQ_LOGE("invalid adj_table[%d].oppidx: %d", i, adj_table[i].oppidx);
 		}
 
-		GPUFREQ_LOGD("%s[%02d*] Freq: %d, Volt: %d, Vsram: %d, Vaging: %d",
+		GPUFREQ_LOGD("%s[%02d*] Freq: %d, Volt: %d, Vsram: %d",
 			(target == TARGET_STACK) ? "STACK" : "GPU",
 			oppidx, signed_table[oppidx].freq,
 			signed_table[oppidx].volt,
-			signed_table[oppidx].vsram,
-			signed_table[oppidx].vaging);
+			signed_table[oppidx].vsram);
 	}
 
 	mutex_unlock(&gpufreq_lock);
@@ -4395,10 +4405,9 @@ static void __gpufreq_aging_adjustment(void)
 		return;
 	}
 
-	for (i = 0; i < adj_num; i++) {
-		aging_adj[i].oppidx = i;
-		aging_adj[i].vaging = g_aging_table[aging_table_idx][i];
-	}
+	/* Aging margin is set if any OPP is adjusted by Aging */
+	if (aging_table_idx == 0)
+		g_aging_margin = true;
 
 	/* apply aging to signed table */
 	__gpufreq_apply_adjust(TARGET_STACK, aging_adj, adj_num);
@@ -4584,12 +4593,12 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 		g_gpu.working_table[i].volt = g_gpu.signed_table[j].volt;
 		g_gpu.working_table[i].vsram = g_gpu.signed_table[j].vsram;
 		g_gpu.working_table[i].posdiv = g_gpu.signed_table[j].posdiv;
-		g_gpu.working_table[i].vaging = g_gpu.signed_table[j].vaging;
+		g_gpu.working_table[i].margin = g_gpu.signed_table[j].margin;
 		g_gpu.working_table[i].power = g_gpu.signed_table[j].power;
 
-		GPUFREQ_LOGD("GPU[%02d] Freq: %d, Volt: %d, Vsram: %d, Vaging: %d",
+		GPUFREQ_LOGD("GPU[%02d] Freq: %d, Volt: %d, Vsram: %d, Margin: %d",
 			i, g_gpu.working_table[i].freq, g_gpu.working_table[i].volt,
-			g_gpu.working_table[i].vsram, g_gpu.working_table[i].vaging);
+			g_gpu.working_table[i].vsram, g_gpu.working_table[i].margin);
 	}
 
 	/* init STACK OPP table */
@@ -4638,23 +4647,13 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 		g_stack.working_table[i].volt = g_stack.signed_table[j].volt;
 		g_stack.working_table[i].vsram = g_stack.signed_table[j].vsram;
 		g_stack.working_table[i].posdiv = g_stack.signed_table[j].posdiv;
-		g_stack.working_table[i].vaging = g_stack.signed_table[j].vaging;
+		g_stack.working_table[i].margin = g_stack.signed_table[j].margin;
 		g_stack.working_table[i].power = g_stack.signed_table[j].power;
 
-		GPUFREQ_LOGD("STACK[%02d] Freq: %d, Volt: %d, Vsram: %d, Vaging: %d",
+		GPUFREQ_LOGD("STACK[%02d] Freq: %d, Volt: %d, Vsram: %d, Margin: %d",
 			i, g_stack.working_table[i].freq, g_stack.working_table[i].volt,
-			g_stack.working_table[i].vsram, g_stack.working_table[i].vaging);
+			g_stack.working_table[i].vsram, g_stack.working_table[i].margin);
 	}
-
-#if GPUFREQ_ASENSOR_ENABLE
-	/* apply aging volt to working table volt if Asensor works */
-	g_aging_enable = true;
-#else
-	/* apply aging volt to working table volt depending on Aging load */
-	g_aging_enable = g_aging_load;
-#endif /* GPUFREQ_ASENSOR_ENABLE */
-	if (g_aging_enable)
-		__gpufreq_apply_aging(true);
 
 	/* set power info to working table */
 	__gpufreq_measure_power();
@@ -5012,6 +5011,10 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 		goto done;
 	}
 
+	/* feature config */
+	g_gpm1_enable = true;
+	g_asensor_enable = GPUFREQ_ASENSOR_ENABLE;
+	g_avs_enable = GPUFREQ_AVS_ENABLE;
 	/* ignore return error and use default value if property doesn't exist */
 	of_property_read_u32(gpufreq_dev->of_node, "aging-load", &g_aging_load);
 	of_property_read_u32(gpufreq_dev->of_node, "mcl50-load", &g_mcl50_load);
@@ -5297,9 +5300,6 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 
 	/* init shader present */
 	__gpufreq_init_shader_present();
-
-	/* default enable GPM 1.0, before power control */
-	g_gpm_enable = true;
 
 	/* power on to init first OPP index */
 	ret = __gpufreq_power_control(POWER_ON);

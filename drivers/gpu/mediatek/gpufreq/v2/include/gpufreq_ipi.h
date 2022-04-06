@@ -18,7 +18,8 @@
 	(sizeof(struct gpufreq_ipi_data) / sizeof(unsigned int))
 #define GPUFREQ_SHARED_STATUS_SIZE \
 	sizeof(struct gpufreq_shared_status)
-#define GPUFREQ_MAX_OPP_NUM             (50)
+#define GPUFREQ_MAX_OPP_NUM             (70)
+#define GPUFREQ_MAX_ADJ_NUM             (10)
 
 /**************************************************
  * IPI Command ID
@@ -40,7 +41,7 @@ static char *gpufreq_ipi_cmd_name[] = {
 	"CMD_FIX_TARGET_OPPIDX",      // 11
 	"CMD_FIX_CUSTOM_FREQ_VOLT",   // 12
 	"CMD_SET_STRESS_TEST",        // 13
-	"CMD_SET_AGING_MODE",         // 14
+	"CMD_SET_MARGIN_MODE",        // 14
 	"CMD_SET_GPM_MODE",           // 15
 	"CMD_SET_TEST_MODE",          // 16
 	"CMD_NUM",                    // 17
@@ -63,7 +64,7 @@ enum gpufreq_ipi_cmd {
 	CMD_FIX_TARGET_OPPIDX         = 11,
 	CMD_FIX_CUSTOM_FREQ_VOLT      = 12,
 	CMD_SET_STRESS_TEST           = 13,
-	CMD_SET_AGING_MODE            = 14,
+	CMD_SET_MARGIN_MODE           = 14,
 	CMD_SET_GPM_MODE              = 15,
 	CMD_SET_TEST_MODE             = 16,
 	CMD_NUM                       = 17,
@@ -96,6 +97,10 @@ struct gpufreq_ipi_data {
 			int ceiling_info;
 			int floor_info;
 		} setlimit;
+		struct {
+			unsigned int version;
+			unsigned int mode;
+		} gpm;
 	} u;
 };
 
@@ -128,11 +133,15 @@ struct gpufreq_shared_status {
 	unsigned int power_control;
 	unsigned int dvfs_state;
 	unsigned int shader_present;
-	unsigned int aging_enable;
+	unsigned int asensor_enable;
+	unsigned int aging_load;
+	unsigned int aging_margin;
 	unsigned int avs_enable;
+	unsigned int avs_margin;
 	unsigned int sb_version;
 	unsigned int ptp_version;
-	unsigned int aging_load;
+	unsigned int gpm1_enable;
+	unsigned int gpm3_enable;
 	unsigned int dual_buck;
 	unsigned int segment_id;
 	unsigned int power_time_h;
@@ -145,6 +154,10 @@ struct gpufreq_shared_status {
 	struct gpufreq_opp_info signed_table_gpu[GPUFREQ_MAX_OPP_NUM];
 	struct gpufreq_opp_info signed_table_stack[GPUFREQ_MAX_OPP_NUM];
 	struct gpuppm_limit_info limit_table[LIMIT_NUM];
+	struct gpufreq_adj_info aging_table_gpu[GPUFREQ_MAX_ADJ_NUM];
+	struct gpufreq_adj_info aging_table_stack[GPUFREQ_MAX_ADJ_NUM];
+	struct gpufreq_adj_info avs_table_gpu[GPUFREQ_MAX_ADJ_NUM];
+	struct gpufreq_adj_info avs_table_stack[GPUFREQ_MAX_ADJ_NUM];
 };
 
 #endif /* __GPUFREQ_IPI_H__ */

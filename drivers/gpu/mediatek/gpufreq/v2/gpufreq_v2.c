@@ -1583,35 +1583,29 @@ int gpufreq_set_stress_test(unsigned int mode)
 }
 
 /***********************************************************************************
- * Function Name      : gpufreq_set_aging_mode
+ * Function Name      : gpufreq_set_margin_mode
  * Description        : Only for GPUFREQ internal debug purpose
  ***********************************************************************************/
-int gpufreq_set_aging_mode(unsigned int mode)
+int gpufreq_set_margin_mode(unsigned int mode)
 {
 	struct gpufreq_ipi_data send_msg = {};
 	int ret = GPUFREQ_SUCCESS;
 
 	/* implement on EB */
 	if (g_gpueb_support) {
-		send_msg.cmd_id = CMD_SET_AGING_MODE;
+		send_msg.cmd_id = CMD_SET_MARGIN_MODE;
 		send_msg.u.mode = mode;
 
-		if (!gpufreq_ipi_to_gpueb(send_msg))
-			ret = g_recv_msg.u.return_value;
-		else
-			ret = GPUFREQ_EINVAL;
+		ret = gpufreq_ipi_to_gpueb(send_msg);
 	/* implement on AP */
 	} else {
-		if (gpufreq_fp && gpufreq_fp->set_aging_mode)
-			ret = gpufreq_fp->set_aging_mode(mode);
+		if (gpufreq_fp && gpufreq_fp->set_margin_mode)
+			gpufreq_fp->set_margin_mode(mode);
 		else {
 			ret = GPUFREQ_ENOENT;
 			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 		}
 	}
-
-	if (unlikely(ret))
-		GPUFREQ_LOGE("fail to set aging mode: %d (%d)", mode, ret);
 
 	return ret;
 }
@@ -1620,7 +1614,7 @@ int gpufreq_set_aging_mode(unsigned int mode)
  * Function Name      : gpufreq_set_gpm_mode
  * Description        : Only for GPUFREQ internal debug purpose
  ***********************************************************************************/
-int gpufreq_set_gpm_mode(unsigned int mode)
+int gpufreq_set_gpm_mode(unsigned int version, unsigned int mode)
 {
 	struct gpufreq_ipi_data send_msg = {};
 	int ret = GPUFREQ_SUCCESS;
@@ -1628,13 +1622,14 @@ int gpufreq_set_gpm_mode(unsigned int mode)
 	/* implement on EB */
 	if (g_gpueb_support) {
 		send_msg.cmd_id = CMD_SET_GPM_MODE;
-		send_msg.u.mode = mode;
+		send_msg.u.gpm.version = version;
+		send_msg.u.gpm.mode = mode;
 
 		ret = gpufreq_ipi_to_gpueb(send_msg);
 	/* implement on AP */
 	} else {
 		if (gpufreq_fp && gpufreq_fp->set_gpm_mode)
-			gpufreq_fp->set_gpm_mode(mode);
+			gpufreq_fp->set_gpm_mode(version, mode);
 		else {
 			ret = GPUFREQ_ENOENT;
 			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
@@ -1770,9 +1765,9 @@ static void gpufreq_dump_dvfs_status(void)
 		GPUFREQ_LOGI("Ceiling/Floor: %d/%d, Limiter: %d/%d",
 			shared_status->cur_ceiling, shared_status->cur_floor,
 			shared_status->cur_c_limiter, shared_status->cur_f_limiter);
-		GPUFREQ_LOGI("Power Count: %d, Aging Enable: %d, AVS Enable: %d",
-			shared_status->power_count, shared_status->aging_enable,
-			shared_status->avs_enable);
+		GPUFREQ_LOGI("PowerCount: %d, AgingMargin: %d, AVSMargin: %d",
+			shared_status->power_count, shared_status->aging_margin,
+			shared_status->avs_margin);
 		GPUFREQ_LOGI("GPU_SB_Version: 0x%04x, GPU_PTP_Version: 0x%04x",
 			shared_status->sb_version, shared_status->ptp_version);
 	}

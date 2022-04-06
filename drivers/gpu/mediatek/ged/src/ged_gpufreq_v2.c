@@ -63,9 +63,9 @@ GED_ERROR ged_gpufreq_init(void)
 
 #ifdef GED_KPI_DEBUG
 	for (i = 0; i < g_working_oppnum; i++) {
-		GED_LOGI("[%02d*] Freq: %d, Volt: %d, Vsram: %d, Vaging: %d",
+		GED_LOGI("[%02d*] Freq: %d, Volt: %d, Vsram: %d",
 			i, g_working_table[i].freq, g_working_table[i].volt,
-			g_working_table[i].vsram, g_working_table[i].vaging);
+			g_working_table[i].vsram);
 	}
 #endif /* GED_KPI_DEBUG */
 
@@ -118,14 +118,13 @@ GED_ERROR ged_gpufreq_init(void)
 		g_virtual_table[i].freq =  freq_scale;
 		g_virtual_table[i].volt = 0;
 		g_virtual_table[i].vsram = 0;
-		g_virtual_table[i].vaging = 0;
 	}
 
 #ifdef GED_KPI_DEBUG
 	for (i = 0; i < g_virtual_oppnum; i++) {
-		GED_LOGI("[%02d*] Freq: %d, Volt: %d, Vsram: %d, Vaging: %d",
+		GED_LOGI("[%02d*] Freq: %d, Volt: %d, Vsram: %d",
 			i, g_virtual_table[i].freq, g_virtual_table[i].volt,
-			g_virtual_table[i].vsram, g_virtual_table[i].vaging);
+			g_virtual_table[i].vsram);
 	}
 #endif /* GED_KPI_DEBUG */
 	return GED_OK;
@@ -437,9 +436,9 @@ void ged_gpufreq_print_tables(void)
 				i, g_mask_table[i].num, g_mask_table[i].mask);
 
 	for (i = 0; i < g_virtual_oppnum; i++) {
-		GED_LOGI("[%02d*] Freq: %d, Volt: %d, Vsram: %d, Vaging: %d",
+		GED_LOGI("[%02d*] Freq: %d, Volt: %d, Vsram: %d",
 				i, g_virtual_table[i].freq, g_virtual_table[i].volt,
-				g_virtual_table[i].vsram, g_virtual_table[i].vaging);
+				g_virtual_table[i].vsram);
 	}
 }
 

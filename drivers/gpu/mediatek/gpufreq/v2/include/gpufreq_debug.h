@@ -83,11 +83,15 @@ struct gpufreq_debug_opp_info {
 	int signed_opp_num;
 	unsigned int dvfs_state;
 	unsigned int shader_present;
-	unsigned int aging_enable;
+	unsigned int asensor_enable;
+	unsigned int aging_load;
+	unsigned int aging_margin;
 	unsigned int avs_enable;
-	unsigned int gpm_enable;
+	unsigned int avs_margin;
 	unsigned int sb_version;
 	unsigned int ptp_version;
+	unsigned int gpm1_enable;
+	unsigned int gpm3_enable;
 	unsigned int temperature;
 	unsigned int temp_compensate;
 };

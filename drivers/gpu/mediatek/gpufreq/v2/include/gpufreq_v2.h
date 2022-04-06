@@ -122,8 +122,15 @@ struct gpufreq_opp_info {
 	unsigned int volt;            /* mV x 100 */
 	unsigned int vsram;           /* mV x 100 */
 	enum gpufreq_posdiv posdiv;
-	unsigned int vaging;          /* mV x 100 */
+	unsigned int margin;          /* mV x 100 */
 	unsigned int power;           /* mW */
+};
+
+struct gpufreq_adj_info {
+	int oppidx;
+	unsigned int freq;
+	unsigned int volt;
+	unsigned int vsram;
 };
 
 struct gpufreq_core_mask_info {
@@ -156,8 +163,8 @@ struct gpufreq_platform_fp {
 	void (*set_timestamp)(void);
 	void (*check_bus_idle)(void);
 	void (*dump_infra_status)(void);
-	int (*set_aging_mode)(unsigned int mode);
-	void (*set_gpm_mode)(unsigned int mode);
+	void (*set_margin_mode)(unsigned int mode);
+	void (*set_gpm_mode)(unsigned int version, unsigned int mode);
 	struct gpufreq_asensor_info (*get_asensor_info)(void);
 	struct gpufreq_core_mask_info *(*get_core_mask_table)(void);
 	unsigned int (*get_core_num)(void);
@@ -286,8 +293,8 @@ int gpufreq_fix_target_oppidx(enum gpufreq_target target, int oppidx);
 int gpufreq_fix_custom_freq_volt(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt);
 int gpufreq_set_stress_test(unsigned int mode);
-int gpufreq_set_aging_mode(unsigned int mode);
-int gpufreq_set_gpm_mode(unsigned int mode);
+int gpufreq_set_margin_mode(unsigned int mode);
+int gpufreq_set_gpm_mode(unsigned int version, unsigned int mode);
 int gpufreq_set_test_mode(unsigned int mode);
 struct gpufreq_asensor_info gpufreq_get_asensor_info(void);
 

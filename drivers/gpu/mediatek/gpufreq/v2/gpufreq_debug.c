@@ -32,9 +32,8 @@
 static unsigned int g_dual_buck;
 static unsigned int g_gpueb_support;
 static unsigned int g_stress_test;
-static unsigned int g_aging_enable;
-static unsigned int g_gpm_enable;
 static unsigned int g_debug_power_state;
+static unsigned int g_debug_margin_mode;
 static unsigned int g_test_mode;
 static struct gpufreq_debug_status g_debug_gpu;
 static struct gpufreq_debug_status g_debug_stack;
@@ -143,18 +142,18 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		gpu_opp_info.dvfs_state,
 		gpu_opp_info.shader_present);
 	seq_printf(m,
-		"%-15s Aging: %s, AVS: %s, StressTest: %s, GPM1.0: %s\n",
+		"%-15s AgingMargin: %s, AVSMargin: %s, RandomOPP: %s, GPM1.0: %s\n",
 		"[Common-Status]",
-		gpu_opp_info.aging_enable ? "Enable" : "Disable",
-		gpu_opp_info.avs_enable ? "Enable" : "Disable",
-		g_stress_test ? "Enable" : "Disable",
-		gpu_opp_info.gpm_enable ? "Enable" : "Disable");
+		gpu_opp_info.aging_margin ? "On" : "Off",
+		gpu_opp_info.avs_margin ? "On" : "Off",
+		g_stress_test ? "On" : "Off",
+		gpu_opp_info.gpm1_enable ? "On" : "Off");
 	seq_printf(m,
-		"%-15s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x, Temp_Compensate: %s (%d'C)\n",
+		"%-15s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x, TempCompensate: %s (%d'C)\n",
 		"[Common-Status]",
 		gpu_opp_info.sb_version,
 		gpu_opp_info.ptp_version,
-		gpu_opp_info.temp_compensate ? "Enable" : "Disable",
+		gpu_opp_info.temp_compensate ? "On" : "Off",
 		gpu_opp_info.temperature);
 
 	mutex_unlock(&gpufreq_debug_lock);
@@ -212,10 +211,10 @@ static int gpu_working_opp_table_proc_show(struct seq_file *m, void *v)
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
-			"[%02d] freq: %d, volt: %d, vsram: %d, posdiv: %d, vaging: %d, power: %d\n",
+			"[%02d] freq: %d, volt: %d, vsram: %d, posdiv: %d, margin: %d, power: %d\n",
 			i, opp_table[i].freq, opp_table[i].volt,
 			opp_table[i].vsram, opp_table[i].posdiv,
-			opp_table[i].vaging, opp_table[i].power);
+			opp_table[i].margin, opp_table[i].power);
 	}
 
 done:
@@ -243,10 +242,10 @@ static int stack_working_opp_table_proc_show(struct seq_file *m, void *v)
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
-			"[%02d] freq: %d, volt: %d, vsram: %d, posdiv: %d, vaging: %d, power: %d\n",
+			"[%02d] freq: %d, volt: %d, vsram: %d, posdiv: %d, margin: %d, power: %d\n",
 			i, opp_table[i].freq, opp_table[i].volt,
 			opp_table[i].vsram, opp_table[i].posdiv,
-			opp_table[i].vaging, opp_table[i].power);
+			opp_table[i].margin, opp_table[i].power);
 	}
 
 done:
@@ -279,10 +278,10 @@ static int gpu_signed_opp_table_proc_show(struct seq_file *m, void *v)
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
-			"[%02d*] freq: %d, volt: %d, vsram: %d, posdiv: %d, vaging: %d, power: %d\n",
+			"[%02d*] freq: %d, volt: %d, vsram: %d, posdiv: %d, margin: %d, power: %d\n",
 			i, opp_table[i].freq, opp_table[i].volt,
 			opp_table[i].vsram, opp_table[i].posdiv,
-			opp_table[i].vaging, opp_table[i].power);
+			opp_table[i].margin, opp_table[i].power);
 	}
 
 done:
@@ -315,10 +314,10 @@ static int stack_signed_opp_table_proc_show(struct seq_file *m, void *v)
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
-			"[%02d*] freq: %d, volt: %d, vsram: %d, posdiv: %d, vaging: %d, power: %d\n",
+			"[%02d*] freq: %d, volt: %d, vsram: %d, posdiv: %d, margin: %d, power: %d\n",
 			i, opp_table[i].freq, opp_table[i].volt,
 			opp_table[i].vsram, opp_table[i].posdiv,
-			opp_table[i].vaging, opp_table[i].power);
+			opp_table[i].margin, opp_table[i].power);
 	}
 
 done:
@@ -672,13 +671,10 @@ static int asensor_info_proc_show(struct seq_file *m, void *v)
 {
 	struct gpufreq_asensor_info asensor_info = {};
 
-	asensor_info = gpufreq_get_asensor_info();
-
 	mutex_lock(&gpufreq_debug_lock);
 
-	seq_printf(m,
-		"[GPUFREQ-DEBUG] Aging: %s\n",
-		(g_aging_enable) ? "Enable" : "Disable");
+	asensor_info = gpufreq_get_asensor_info();
+
 	seq_printf(m,
 		"Aging table index: %d, MOST_AGRRESIVE_AGING_TABLE_ID: %d\n",
 		asensor_info.aging_table_idx, asensor_info.aging_table_idx_agrresive);
@@ -712,32 +708,41 @@ static int asensor_info_proc_show(struct seq_file *m, void *v)
 	return GPUFREQ_SUCCESS;
 }
 
-/* PROCFS: show current state of aging mode */
-static int aging_mode_proc_show(struct seq_file *m, void *v)
+static int mfgsys_config_proc_show(struct seq_file *m, void *v)
 {
+	struct gpufreq_debug_opp_info gpu_opp_info = {};
+	int ret = GPUFREQ_SUCCESS;
+
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (g_aging_enable)
-		seq_puts(m, "[GPUFREQ-DEBUG] aging mode is enabled\n");
-	else
-		seq_puts(m, "[GPUFREQ-DEBUG] aging mode is disabled\n");
+	gpu_opp_info = gpufreq_get_debug_opp_info(TARGET_GPU);
+
+	seq_printf(m, "%-7s AgingSensor: %s, AgingLoad: %s, AgingMargin: %s\n",
+		"[AGING]",
+		gpu_opp_info.asensor_enable ? "On" : "Off",
+		gpu_opp_info.aging_load ? "On" : "Off",
+		gpu_opp_info.aging_margin ? "On" : "Off");
+	seq_printf(m, "%-7s AVS: %s, AVSMargin: %s\n",
+		"[AVS]",
+		gpu_opp_info.avs_enable ? "On" : "Off",
+		gpu_opp_info.avs_margin ? "On" : "Off");
+	seq_printf(m, "%-7s GPM1.0: %s, GPM3.0: %s\n",
+		"[GPM]",
+		gpu_opp_info.gpm1_enable ? "On" : "Off",
+		gpu_opp_info.gpm3_enable ? "On" : "Off");
 
 	mutex_unlock(&gpufreq_debug_lock);
 
-	return GPUFREQ_SUCCESS;
+	return ret;
 }
 
-/*
- * PROCFS: apply/restore Vaging by enable/disable aging mode
- * enable: apply aging volt reduction
- * disable: restore aging volt
- */
-static ssize_t aging_mode_proc_write(struct file *file,
+static ssize_t mfgsys_config_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *data)
 {
 	int ret = GPUFREQ_SUCCESS;
-	char buf[64];
+	char buf[64], cmd[32], conf[32];
 	unsigned int len = 0;
+	unsigned int mode = false;
 
 	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
 	if (copy_from_user(buf, buffer, len)) {
@@ -748,76 +753,24 @@ static ssize_t aging_mode_proc_write(struct file *file,
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (sysfs_streq(buf, "enable")) {
-		/* prevent from double aging */
-		ret = gpufreq_set_aging_mode(true);
-		if (ret)
-			GPUFREQ_LOGE("fail to enable aging mode (%d)", ret);
+	if (sscanf(buf, "%7s %6s", cmd, conf) == 2) {
+		/* parse mode */
+		if (sysfs_streq(cmd, "enable"))
+			mode = true;
+		else if (sysfs_streq(cmd, "disable"))
+			mode = false;
 		else
-			g_aging_enable = true;
-	} else if (sysfs_streq(buf, "disable")) {
-		/* prevent from double aging */
-		ret = gpufreq_set_aging_mode(false);
-		if (ret)
-			GPUFREQ_LOGE("fail to disable aging mode (%d)", ret);
-		else
-			g_aging_enable = false;
-	}
+			goto done;
 
-	mutex_unlock(&gpufreq_debug_lock);
-
-done:
-	return (ret < 0) ? ret : count;
-}
-
-/* PROCFS: show current state of GPM1.0 */
-static int gpm_mode_proc_show(struct seq_file *m, void *v)
-{
-	mutex_lock(&gpufreq_debug_lock);
-
-	if (g_gpm_enable)
-		seq_puts(m, "[GPUFREQ-DEBUG] GPM1.0 is enabled\n");
-	else
-		seq_puts(m, "[GPUFREQ-DEBUG] GPM1.0 is disabled\n");
-
-	mutex_unlock(&gpufreq_debug_lock);
-
-	return GPUFREQ_SUCCESS;
-}
-
-/*
- * PROCFS: set GPM1.0 registers when GPU power on
- * enable: apply GPM1.0 setting
- * disable: not apply GPM1.0 setting
- */
-static ssize_t gpm_mode_proc_write(struct file *file,
-		const char __user *buffer, size_t count, loff_t *data)
-{
-	int ret = GPUFREQ_SUCCESS;
-	char buf[64];
-	unsigned int len = 0;
-
-	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
-	if (copy_from_user(buf, buffer, len)) {
-		ret = GPUFREQ_EINVAL;
-		goto done;
-	}
-	buf[len] = '\0';
-
-	mutex_lock(&gpufreq_debug_lock);
-
-	if (sysfs_streq(buf, "enable")) {
-		ret = gpufreq_set_gpm_mode(true);
-		if (ret)
-			GPUFREQ_LOGE("fail to enable GPM1.0 (%d)", ret);
-		else
-			g_gpm_enable = true;
-	} else if (sysfs_streq(buf, "disable")) {
-		ret = gpufreq_set_gpm_mode(false);
-		if (ret)
-			GPUFREQ_LOGE("fail to disable GPM1.0 (%d)", ret);
-		else
-			g_gpm_enable = false;
+		/* parse config */
+		if (sysfs_streq(conf, "margin")) {
+			/* only allow enable/disable once */
+			if (g_debug_margin_mode ^ mode) {
+				gpufreq_set_margin_mode(mode);
+				g_debug_margin_mode = mode;
+			}
+		} else if (sysfs_streq(conf, "gpm1"))
+			gpufreq_set_gpm_mode(1, mode);
 	}
 
 	mutex_unlock(&gpufreq_debug_lock);
@@ -837,9 +790,8 @@ PROC_FOPS_RW(limit_table);
 PROC_FOPS_RW(fix_target_opp_index);
 PROC_FOPS_RW(fix_custom_freq_volt);
 PROC_FOPS_RW(mfgsys_power_control);
+PROC_FOPS_RW(mfgsys_config);
 PROC_FOPS_RW(opp_stress_test);
-PROC_FOPS_RW(aging_mode);
-PROC_FOPS_RW(gpm_mode);
 
 static int gpufreq_create_procfs(void)
 {
@@ -861,8 +813,7 @@ static int gpufreq_create_procfs(void)
 		PROC_ENTRY(fix_custom_freq_volt),
 		PROC_ENTRY(mfgsys_power_control),
 		PROC_ENTRY(opp_stress_test),
-		PROC_ENTRY(aging_mode),
-		PROC_ENTRY(gpm_mode),
+		PROC_ENTRY(mfgsys_config),
 	};
 
 	const struct pentry dualbuck_entries[] = {
@@ -922,9 +873,8 @@ void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support)
 	g_debug_stack.fixed_freq = 0;
 	g_debug_stack.fixed_volt = 0;
 
-	g_aging_enable = gpu_opp_info.aging_enable;
-	g_gpm_enable = gpu_opp_info.gpm_enable;
 	g_debug_power_state = POWER_OFF;
+	g_debug_margin_mode = true;
 	/* always enable test mode when AP mode */
 	if (!g_gpueb_support)
 		g_test_mode = true;
