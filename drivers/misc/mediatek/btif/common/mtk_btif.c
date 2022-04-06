@@ -13,6 +13,7 @@
 #include <linux/cdev.h>
 #include <linux/poll.h>
 #include <uapi/linux/sched/types.h>
+#include <asm/cacheflush.h>
 
 /*#include <mach/eint.h>*/
 /*-----------driver own header files----------------*/
@@ -1096,6 +1097,10 @@ unsigned int btif_dma_rx_data_receiver(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 {
 	unsigned int index = 0;
 	struct _mtk_btif_ *p_btif = &(g_btif[index]);
+
+	/* Although we use coherent DMA, we still need to flush cache. */
+	/* Or some data might be inconsistent. */
+	__flush_dcache_area(p_buf, buf_len);
 
 	btif_bbs_write(&(p_btif->btif_buf), p_buf, buf_len);
 /*save DMA Rx packet here*/
