@@ -42,14 +42,13 @@ static struct regbase rb[] = {
 	[spm] = REGBASE_V(0x10006000, spm, PD_NULL, CLK_NULL),
 	[apmixed] = REGBASE_V(0x1000C000, apmixed, PD_NULL, CLK_NULL),
 	[dvfsrc_top] = REGBASE_V(0x10012000, dvfsrc_top, PD_NULL, CLK_NULL),
-	[impc] = REGBASE_V(0x1101B000, impc, PD_NULL, CLK_NULL),
+	[impc] = REGBASE_V(0x1101B000, impc, PD_NULL, "i2c_sel"),
 	[afe] = REGBASE_V(0x11210000, afe, MT6789_POWER_DOMAIN_AUDIO, CLK_NULL),
-	[impw] = REGBASE_V(0x11E02000, impw, PD_NULL, CLK_NULL),
-	[impen] = REGBASE_V(0x11EB4000, impen, PD_NULL, CLK_NULL),
-	[impn] = REGBASE_V(0x11F01000, impn, PD_NULL, CLK_NULL),
+	[impw] = REGBASE_V(0x11E02000, impw, PD_NULL, "i2c_sel"),
+	[impen] = REGBASE_V(0x11EB4000, impen, PD_NULL, "i2c_sel"),
+	[impn] = REGBASE_V(0x11F01000, impn, PD_NULL, "i2c_sel"),
 	[mfgcfg] = REGBASE_V(0x13fbf000, mfgcfg, MT6789_POWER_DOMAIN_MFG3, CLK_NULL),
 	[mm] = REGBASE_V(0x14000000, mm, MT6789_POWER_DOMAIN_DISP, CLK_NULL),
-	[disp_dsc] = REGBASE_V(0x14012000, disp_dsc, PD_NULL, CLK_NULL),
 	[imgsys1] = REGBASE_V(0x15020000, imgsys1, MT6789_POWER_DOMAIN_ISP, CLK_NULL),
 	[vde2] = REGBASE_V(0x1602f000, vde2, MT6789_POWER_DOMAIN_VDEC, CLK_NULL),
 	[ven1] = REGBASE_V(0x17000000, ven1, MT6789_POWER_DOMAIN_VENC, CLK_NULL),
@@ -211,8 +210,6 @@ static struct regname rn[] = {
 	/* DISPSYS_CONFIG register */
 	REGNAME(mm, 0x100, MMSYS_CG_0),
 	REGNAME(mm, 0x1A0, MMSYS_CG_2),
-	/* DISP_DSC register */
-	REGNAME(disp_dsc, 0x0, DISP_DSC),
 	/* IMGSYS1 register */
 	REGNAME(imgsys1, 0x0, IMG_CG),
 	/* VDEC_GCON_BASE register */
@@ -292,7 +289,6 @@ static struct pvd_msk pvd_pwr_mask[] = {
 	{"camsys_rawb", PWR_STA, 0x02000000},
 	{"dbgao", PWR_STA, 0x00000000},
 	{"mmsys", PWR_STA, 0x00200000},
-	{"disp_dsc", PWR_STA, 0x00000000},
 	{"dvfsrc_top", PWR_STA, 0x00000000},
 	{"imgsys1", PWR_STA, 0x00002000},
 	{"imp_iic_wrap_c", PWR_STA, 0x00000000},
