@@ -218,6 +218,11 @@ int ged_ge_get(int ge_fd, int region_id, int u32_offset,
 
 	entry = file->private_data;
 
+	if (region_id >= GE_ALLOC_STRUCT_NUM) {
+		err = GED_ERROR_VENDOR_NOT_SUPPORT;
+		goto err_parameter;
+	}
+
 	if (valid_parameters(entry, region_id, u32_offset, u32_size)) {
 		err = -EFAULT;
 		goto err_parameter;
@@ -259,6 +264,11 @@ int ged_ge_set(int ge_fd, int region_id, int u32_offset,
 	}
 
 	entry = file->private_data;
+
+	if (region_id >= GE_ALLOC_STRUCT_NUM) {
+		err = GED_ERROR_VENDOR_NOT_SUPPORT;
+		goto err_parameter;
+	}
 
 	if (valid_parameters(entry, region_id, u32_offset, u32_size)) {
 		err = -EFAULT;

@@ -15,6 +15,7 @@
 #define GED_ERROR_CMD_NOT_PROCESSED	  6
 #define GED_ERROR_INVALID_PARAMS      7
 #define GED_ERROR_INTENTIONAL_BLOCK   8
+#define GED_ERROR_VENDOR_NOT_SUPPORT  9
 #define GED_ERROR                     int
 
 #define GED_HANDLE                    void*
