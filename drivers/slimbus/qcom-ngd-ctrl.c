@@ -220,6 +220,8 @@ struct qcom_slim_ngd_ctrl {
 	bool wait_for_adsp_up;
 	void *ipc_slimbus_log;
 	void *ipc_slimbus_log_err;
+	unsigned int irq;
+	bool irq_disabled;
 };
 
 enum slimbus_mode_enum_type_v01 {
@@ -833,14 +835,22 @@ static int qcom_slim_ngd_init_dma(struct qcom_slim_ngd_ctrl *ctrl)
 	return ret;
 }
 
+static bool device_pending_suspend(struct qcom_slim_ngd_ctrl *ctrl)
+{
+	int usage_count = atomic_read(&ctrl->ctrl.dev->power.usage_count);
+
+	return (pm_runtime_status_suspended(ctrl->ctrl.dev) || !usage_count);
+}
+
 static irqreturn_t qcom_slim_ngd_interrupt(int irq, void *d)
 {
 	struct qcom_slim_ngd_ctrl *ctrl = d;
 	void __iomem *base = ctrl->ngd->base;
 	u32 stat;
 
-	if (pm_runtime_suspended(ctrl->ctrl.dev)) {
-		SLIM_INFO(ctrl, "Slimbus is in suspend state\n");
+	if (device_pending_suspend(ctrl)) {
+		SLIM_INFO(ctrl, "Slimbus is in suspend state %d\n",
+			ctrl->irq_disabled);
 		return IRQ_HANDLED;
 	}
 
@@ -1565,14 +1575,12 @@ static int qcom_slim_ngd_runtime_resume(struct device *dev)
 	int ret = 0;
 
 	SLIM_INFO(ctrl, "Slim runtime resume\n");
+
 	mutex_lock(&ctrl->suspend_resume_lock);
 	if (!ctrl->qmi.handle) {
 		mutex_unlock(&ctrl->suspend_resume_lock);
 		return 0;
 	}
-
-	if (!ctrl->qmi.handle)
-		return 0;
 
 	if (ctrl->state >= QCOM_SLIM_NGD_CTRL_ASLEEP)
 		ret = qcom_slim_ngd_power_up(ctrl);
@@ -1584,10 +1592,16 @@ static int qcom_slim_ngd_runtime_resume(struct device *dev)
 			SLIM_WARN(ctrl, "HW wakeup attempt during SSR\n");
 	} else {
 		ctrl->state = QCOM_SLIM_NGD_CTRL_AWAKE;
+
+		if (ctrl->irq_disabled) {
+			enable_irq(ctrl->irq);
+			ctrl->irq_disabled = false;
+		}
 	}
 
 	mutex_unlock(&ctrl->suspend_resume_lock);
-	SLIM_INFO(ctrl, "Slim runtime resume: ret %d\n", ret);
+	SLIM_INFO(ctrl, "Slim runtime resume: ret %d irq_disabled %d\n",
+			ret, ctrl->irq_disabled);
 	return 0;
 }
 
@@ -1920,6 +1934,7 @@ static int qcom_slim_ngd_ctrl_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no slimbus IRQ resource\n");
 		return -ENODEV;
 	}
+	ctrl->irq = res->start;
 
 	ctrl->r_mem.is_r_mem = false;
 	remote_res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -1947,12 +1962,13 @@ static int qcom_slim_ngd_ctrl_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no Remote mem\n");
 	}
 
-	ret = devm_request_irq(dev, res->start, qcom_slim_ngd_interrupt,
+	ret = devm_request_irq(dev, ctrl->irq, qcom_slim_ngd_interrupt,
 			       IRQF_TRIGGER_HIGH, "slim-ngd", ctrl);
 	if (ret) {
 		dev_err(&pdev->dev, "request IRQ failed\n");
 		return ret;
 	}
+	ctrl->irq_disabled = false;
 
 	ctrl->wait_for_adsp_up = of_property_read_bool(pdev->dev.of_node,
 					"qcom,wait_for_adsp_up");
@@ -2120,10 +2136,16 @@ static int __maybe_unused qcom_slim_ngd_runtime_suspend(struct device *dev)
 	mutex_lock(&ctrl->suspend_resume_lock);
 	qcom_slim_ngd_exit_dma(ctrl);
 
+	if (!ctrl->irq_disabled) {
+		disable_irq(ctrl->irq);
+		ctrl->irq_disabled = true;
+	}
+
 	if (!ctrl->qmi.handle) {
 		mutex_unlock(&ctrl->suspend_resume_lock);
 		return 0;
 	}
+
 	SLIM_INFO(ctrl, "Sending QMI power off request\n");
 	ret = qcom_slim_qmi_power_request(ctrl, false);
 	if (ret && ret != -EBUSY)
@@ -2132,7 +2154,8 @@ static int __maybe_unused qcom_slim_ngd_runtime_suspend(struct device *dev)
 		ctrl->state = QCOM_SLIM_NGD_CTRL_ASLEEP;
 
 	mutex_unlock(&ctrl->suspend_resume_lock);
-	SLIM_INFO(ctrl, "Slim runtime suspend: ret %d\n", ret);
+	SLIM_INFO(ctrl, "Slim runtime suspend: ret %d irq_disabled %d\n",
+				ret, ctrl->irq_disabled);
 	return ret;
 }
 
