@@ -96,8 +96,6 @@ static int mtk_btag_init_procfs(void);
 /* mini context for major embedded storage only */
 #define MICTX_PROC_CMD_BUF_SIZE (1)
 static struct mtk_blocktag *btag_bootdev;
-static bool mtk_btag_mictx_self_test;
-static bool mtk_btag_mictx_data_dump;
 
 /* blocktag */
 static LIST_HEAD(mtk_btag_list);
@@ -352,10 +350,6 @@ start:
 			event_string, ret);
 	} else {
 		mictx->uevt_state = boost;
-		if (mtk_btag_mictx_data_dump) {
-			pr_info("[BLOCK_TAG] uevt: %s sent",
-				event_string);
-		}
 	}
 
 	spin_lock_irqsave(&mictx->lock, flags);
@@ -391,12 +385,6 @@ void mtk_btag_earaio_boost(bool boost)
 	/* Use earaio_obj.minor to indicate if obj is existed */
 	if (!(boost ^ mictx->boosted) || unlikely(!earaio_obj.minor))
 		return;
-
-	if (mtk_btag_mictx_data_dump) {
-		pr_info("[BLOCK_TAG] boost: sz-top:%llu,%llu, pwd-top: %u,%u\n",
-			mictx->req.r.size_top, mictx->req.w.size_top,
-			mictx->pwd_top_r_pages, mictx->pwd_top_w_pages);
-	}
 
 	spin_lock_irqsave(&mictx->lock, flags);
 	if (boost) {
@@ -587,26 +575,6 @@ void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm)
 }
 EXPORT_SYMBOL_GPL(mtk_btag_vmstat_eval);
 
-void mtk_btag_mictx_dump(void)
-{
-	struct mtk_btag_mictx_iostat_struct iostat;
-	int ret;
-
-	ret = mtk_btag_mictx_get_data(&iostat);
-
-	if (ret) {
-		pr_info("[BLOCK_TAG] Mictx: Get data failed %d\n", ret);
-		return;
-	}
-
-	pr_info("[BLOCK_TAG] Mictx: d:%llu|qd:%u|tp-req:%u,%u|tp-all:%u,%u|rc:%u,%u|rs:%u,%u|wl:%u|top:%u\n",
-		iostat.duration, iostat.q_depth,
-		iostat.tp_req_r, iostat.tp_req_w,
-		iostat.tp_all_r, iostat.tp_all_w,
-		iostat.reqcnt_r, iostat.reqcnt_w,
-		iostat.reqsize_r, iostat.reqsize_w,
-		iostat.wl, iostat.top);
-}
 /* evaluate pidlog trace from context */
 void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
 	struct mtk_btag_pidlogger *ctx_pl)
@@ -624,9 +592,6 @@ void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
 		memcpy(&pl->info[0], &ctx_pl->info[0], size);
 		memset(&ctx_pl->info[0], 0, size);
 	}
-
-	if (mtk_btag_mictx_self_test)
-		mtk_btag_mictx_dump();
 }
 EXPORT_SYMBOL_GPL(mtk_btag_pidlog_eval);
 
@@ -1039,20 +1004,12 @@ static ssize_t mtk_btag_mictx_sub_write(struct file *file,
 		mtk_btag_mictx_enable(1);
 	else if (cmd[0] == '2')
 		mtk_btag_mictx_enable(0);
-	else if (cmd[0] == '3')
-		mtk_btag_mictx_self_test = 1;
-	else if (cmd[0] == '4')
-		mtk_btag_mictx_self_test = 0;
-	else if (cmd[0] == '5')
-		mtk_btag_mictx_data_dump = 1;
-	else if (cmd[0] == '6')
-		mtk_btag_mictx_data_dump = 0;
-	else if (cmd[0] == '7') {
+	else if (cmd[0] == '3') {
 		if (btag_bootdev) {
 			btag_bootdev->mictx.earaio_allowed = true;
 			pr_info("[BLOCK_TAG] EARA-IO QoS: allowed\n");
 		}
-	} else if (cmd[0] == '8') {
+	} else if (cmd[0] == '4') {
 		if (btag_bootdev) {
 			mtk_btag_earaio_boost(false);
 			btag_bootdev->mictx.earaio_allowed = false;
@@ -1087,18 +1044,12 @@ static int mtk_btag_mictx_sub_show(struct seq_file *s, void *data)
 	seq_printf(s, "Storage type of bootdev: %s\n", name);
 	seq_puts(s, "Status:\n");
 	seq_printf(s, "  Mictx Active: %d\n", mictx_active);
-	seq_printf(s, "  Mictx Self-Test: %d\n", mtk_btag_mictx_self_test);
-	seq_printf(s, "  Mictx Event Dump: %d\n", mtk_btag_mictx_data_dump);
 	seq_printf(s, "  EARA-IO Active: %d\n", earaio_active);
 	seq_puts(s, "Commands: echo n > blockio_mictx, n presents\n");
 	seq_puts(s, "  Enable Mini Context : 1\n");
 	seq_puts(s, "  Disable Mini Context: 2\n");
-	seq_puts(s, "  Enable Self-Test    : 3\n");
-	seq_puts(s, "  Disable Self-Test   : 4\n");
-	seq_puts(s, "  Enable Data Dump    : 5\n");
-	seq_puts(s, "  Disable Data Dump   : 6\n");
-	seq_puts(s, "  Enable EARA-IO QoS  : 7\n");
-	seq_puts(s, "  Disable EARA-IO QoS : 8\n");
+	seq_puts(s, "  Enable EARA-IO QoS  : 3\n");
+	seq_puts(s, "  Disable EARA-IO QoS : 4\n");
 	return 0;
 }
 
@@ -1429,13 +1380,6 @@ int mtk_btag_mictx_get_data(
 		iostat->q_depth = DIV64_U64_ROUND_UP(mictx->weighted_qd, dur);
 	} else
 		iostat->q_depth = mictx->q_depth;
-
-	if (mtk_btag_mictx_self_test || mtk_btag_mictx_data_dump) {
-		pr_info("[BLOCK_TAG] get: sz:%llu,%llu, sz-top:%llu,%llu,%llu, qd:%hu, wl:%hu\n",
-			mictx->req.r.size, mictx->req.w.size,
-			mictx->req.r.size_top, mictx->req.w.size_top, top,
-			iostat->q_depth, iostat->wl);
-	}
 
 	/* everything was provided, now we can reset the mictx */
 	mtk_btag_mictx_reset(mictx, time_cur);
