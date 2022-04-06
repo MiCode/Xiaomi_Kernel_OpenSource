@@ -151,6 +151,7 @@ int secmem_fr_set_wfd_region(u64 pa, u32 size, int remote_region_type)
 
 int secmem_fr_set_prot_shared_region(u64 pa, u32 size, int remote_region_type)
 {
+	int ret = 0;
 	struct trusted_driver_cmd_params cmd_params = {0};
 
 	cmd_params.cmd = CMD_SEC_MEM_SET_PROT_REGION;
@@ -168,7 +169,11 @@ int secmem_fr_set_prot_shared_region(u64 pa, u32 size, int remote_region_type)
 	}
 #endif
 
-	return tee_directly_invoke_cmd(&cmd_params);
+	ret = tee_directly_invoke_cmd(&cmd_params);
+
+	mtk_iommu_sec_init(SEC_ID_SEC_CAM);
+
+	return ret;
 }
 
 int secmem_fr_dump_info(void)

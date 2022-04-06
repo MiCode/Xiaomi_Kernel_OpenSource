@@ -17,7 +17,6 @@
 #include "iommu_pseudo.h"
 
 #define M4U_L2_ENABLE	1
-#define SVP_FEATURE_DT_NAME	"SecureVideoPath"
 
 struct iommu_pseudo_data {
 	struct device	*dev;
@@ -142,19 +141,10 @@ EXPORT_SYMBOL_GPL(is_disable_map_sec);
 static int mtk_iommu_pseudo_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *svp_node;
 	struct device_node *larbnode;
 	struct platform_device	*plarbdev;
 	struct iommu_pseudo_data *data;
 	int ret, i, count = 0, larb_nr = 0;
-
-	svp_node = of_find_node_by_name(NULL, SVP_FEATURE_DT_NAME);
-	if (!svp_node) {
-		pr_info("SVP on MTEE not support, skip init iommu_pseudo\n");
-		iommu_on_mtee = STATE_DISABLED;
-		return 0;
-	}
-	of_node_put(svp_node);
 
 	data = devm_kzalloc(dev, sizeof(struct iommu_pseudo_data),
 			    GFP_KERNEL);
