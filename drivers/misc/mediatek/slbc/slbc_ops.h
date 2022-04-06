@@ -55,6 +55,7 @@ enum slbc_uid {
 	UID_AISR_APU,
 	UID_AISR_MML,
 	UID_SH_P1,
+	UID_SMT,
 	UID_MAX,
 };
 
@@ -132,7 +133,7 @@ struct slbc_ops {
 	void (*deactivate)(struct slbc_data *data);
 };
 
-extern int slbc_enable;
+extern unsigned int slbc_enable;
 extern char *slbc_uid_str[UID_MAX];
 extern int popcount(unsigned int x);
 

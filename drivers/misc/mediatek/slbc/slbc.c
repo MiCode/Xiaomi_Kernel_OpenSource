@@ -20,7 +20,7 @@
 
 #include <slbc.h>
 
-int slbc_enable;
+unsigned int slbc_enable;
 EXPORT_SYMBOL_GPL(slbc_enable);
 
 struct slbc_common_ops *common_ops;
@@ -52,6 +52,7 @@ char *slbc_uid_str[UID_MAX] = {
 	"UID_AISR_APU",
 	"UID_AISR_MML",
 	"UID_SH_P1",
+	"UID_SMT",
 };
 EXPORT_SYMBOL_GPL(slbc_uid_str);
 
