@@ -190,15 +190,19 @@ int mdla_cmd_run_sync_v2_0_sw_sched(struct mdla_run_cmd_sync *cmd_data,
 
 	u32 core_id = mdla_info->mdla_id;
 
-	if (!cd || (cd->count == 0) || (apusys_hd->cmdbuf == NULL))
+	if (!cd || (cd->count == 0) || (apusys_hd->cmdbuf == NULL)) {
+		mdla_err("%s: %d null check fail\n", __func__, __LINE__);
 		return -EINVAL;
+	}
 
 	/* need to define error code for scheduler is NULL */
 	if (!sched)
 		return -REASON_MDLA_NULLPOINT;
 
-	if (unlikely(priority >= PRIORITY_LEVEL))
+	if (unlikely(priority >= PRIORITY_LEVEL)) {
+		mdla_err("%s: %d illegal priority level\n", __func__, __LINE__);
 		return -EINVAL;
+	}
 
 	ret = mdla_pwr_ops_get()->on(core_id, false);
 	if (ret)
@@ -210,6 +214,7 @@ int mdla_cmd_run_sync_v2_0_sw_sched(struct mdla_run_cmd_sync *cmd_data,
 
 	if (unlikely(sched->ce[priority])) {
 		spin_unlock_irqrestore(&sched->lock, flags);
+		mdla_err("%s: %d has ce with same priority\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 
@@ -230,8 +235,13 @@ int mdla_cmd_run_sync_v2_0_sw_sched(struct mdla_run_cmd_sync *cmd_data,
 	mdla_cmd_prepare_v2_0_sw_sched(cd, apusys_hd, ce, priority);
 
 	out_end = apusys_hd->cmd_entry + apusys_hd->cmd_size;
-	if (mdla_cmd_plat_cb()->check_cmd_valid(out_end, ce) == false)
+	if (mdla_cmd_plat_cb()->check_cmd_valid(out_end, ce) == false) {
+		spin_lock_irqsave(&sched->lock, flags);
+		kfree(sched->ce[priority]);
+		sched->ce[priority] = NULL;
+		spin_unlock_irqrestore(&sched->lock, flags);
 		return -EINVAL;
+	}
 
 	ce->poweron_t = pwron_t;
 
