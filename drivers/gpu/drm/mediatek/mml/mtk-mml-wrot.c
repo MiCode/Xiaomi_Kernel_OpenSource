@@ -1731,16 +1731,19 @@ static s32 wrot_config_tile(struct mml_comp *comp, struct mml_task *task,
 	/* qos accumulate tile pixel */
 	wrot_frm->pixel_acc += wrot_tar_xsize * wrot_tar_ysize;
 
-	/* calculate qos for later use */
-	plane = MML_FMT_PLANE(dest->data.format);
-	wrot_frm->datasize += mml_color_get_min_y_size(dest->data.format,
-		wrot_tar_xsize, wrot_tar_ysize);
-	if (plane > 1)
-		wrot_frm->datasize += mml_color_get_min_uv_size(dest->data.format,
+	/* no bandwidth for racing mode since wrot write to sram */
+	if (cfg->info.mode != MML_MODE_RACING) {
+		/* calculate qos for later use */
+		plane = MML_FMT_PLANE(dest->data.format);
+		wrot_frm->datasize += mml_color_get_min_y_size(dest->data.format,
 			wrot_tar_xsize, wrot_tar_ysize);
-	if (plane > 2)
-		wrot_frm->datasize += mml_color_get_min_uv_size(dest->data.format,
-			wrot_tar_xsize, wrot_tar_ysize);
+		if (plane > 1)
+			wrot_frm->datasize += mml_color_get_min_uv_size(dest->data.format,
+				wrot_tar_xsize, wrot_tar_ysize);
+		if (plane > 2)
+			wrot_frm->datasize += mml_color_get_min_uv_size(dest->data.format,
+				wrot_tar_xsize, wrot_tar_ysize);
+	}
 
 	mml_msg("%s min block width: %u min buf line num: %u",
 		__func__, setting.main_blk_width, setting.main_buf_line_num);

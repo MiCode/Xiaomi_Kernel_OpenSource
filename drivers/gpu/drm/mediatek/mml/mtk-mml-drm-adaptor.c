@@ -403,16 +403,25 @@ static u32 frame_calc_layer_hrt(struct mml_drm_ctx *ctx, struct mml_frame_info *
 	u32 layer_w, u32 layer_h)
 {
 	/* MML HRT bandwidth calculate by
-	 *	width * height * Bpp * fps * v-blanking
+	 *	bw = width * height * Bpp * fps * v-blanking
+	 *
+	 * for raw data format, data size is
+	 *	bpp * width / 8
+	 * and for block format (such as UFO), data size is
+	 *	bpp * width / 256
 	 *
 	 * And for resize case total source pixel must read during layer
 	 * region (which is compose width and height). So ratio should be:
-	 *	panel * src / layer
+	 *	ratio = panel * src / layer
 	 *
-	 * This API returns bandwidth in KBps
+	 * This API returns bandwidth in KBps: bw * ratio
+	 *
+	 * Following api reorder factors to avoid overflow of uint32_t.
 	 */
+	const u32 bpp_div = MML_FMT_BLOCK(info->src.format) ? 256 : 8;
+
 	return ctx->panel_pixel / layer_w * info->src.width / layer_h * info->src.height *
-		MML_FMT_BITS_PER_PIXEL(info->src.format) / 8 * 122 / 100 *
+		MML_FMT_BITS_PER_PIXEL(info->src.format) / bpp_div * 122 / 100 *
 		MML_HRT_FPS / 1000;
 }
 
