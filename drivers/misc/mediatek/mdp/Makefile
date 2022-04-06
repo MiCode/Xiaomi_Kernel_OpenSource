@@ -21,6 +21,12 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/iommu \
              -I$(srctree)/drivers/misc/mediatek/iommu/
 
+ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),m)
+ifeq ($(CONFIG_MTK_MDP_MTEE_SUPPORT),m)
+ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
+endif
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 
 ifeq ($(strip $(CONFIG_MTK_PQ_COLOR_MODE)),"MDP")

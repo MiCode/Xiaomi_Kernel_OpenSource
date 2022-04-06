@@ -40,6 +40,7 @@
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 #include <cmdq-sec.h>
+#include "mtk_heap.h"
 #endif
 
 #ifdef MDP_MMPATH
@@ -1299,6 +1300,7 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 			kfree(addr_meta);
 			return -EFAULT;
 		}
+		cmdq_mdp_init_secure_id(addr_meta, secData->addrMetadataCount);
 		cmdq_sec_pkt_assign_metadata(handle->pkt,
 			secData->addrMetadataCount,
 			addr_meta);
@@ -1316,6 +1318,37 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	return 0;
 #else
 	return 0;
+#endif
+}
+
+void cmdq_mdp_init_secure_id(void *meta_array, u32 count)
+{
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	u32 i;
+	struct dma_buf *buf = NULL;
+	uint32_t sec_id = 0;
+	uint32_t sec_handle = 0;
+	struct cmdqSecAddrMetadataStruct *secMetadatas =
+			(struct cmdqSecAddrMetadataStruct *)meta_array;
+
+	for (i = 0; i < count; i++) {
+		secMetadatas[i].useSecIdinMeta = 1;
+		if (secMetadatas[i].baseHandle <= 0) {
+			secMetadatas[i].sec_id = 0;
+			continue;
+		}
+
+		buf = dma_buf_get(secMetadatas[i].baseHandle);
+		sec_id = dmabuf_to_sec_id(buf, &sec_handle);
+
+		CMDQ_MSG("%s,port:%d,baseHandle:%d,sec_id:%d,sec_handle:%#llx",
+				__func__, secMetadatas[i].port,
+				secMetadatas[i].baseHandle,
+				sec_id,
+				sec_handle);
+		secMetadatas[i].baseHandle = (uint64_t)sec_handle;
+		secMetadatas[i].sec_id = sec_id;
+	}
 #endif
 }
 

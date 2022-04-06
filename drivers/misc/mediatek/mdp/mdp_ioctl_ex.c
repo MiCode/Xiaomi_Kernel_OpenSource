@@ -31,6 +31,10 @@
 
 #include "mdp_rdma_ex.h"
 
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+#include "mtk_heap.h"
+#endif
+
 #define MDP_TASK_PAENDING_TIME_MAX	100000000
 
 #define RDMA_CPR_PREBUILT(mod, pipe, index) \
@@ -562,6 +566,34 @@ static s32 translate_meta(struct op_meta *meta,
 	}
 	case CMDQ_MOP_NOP:
 		break;
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	case CMDQ_MOP_WRITE_SEC_FD:
+	{
+		struct dma_buf *buf;
+
+		/* secure fd -> secure handle */
+		buf = dma_buf_get(meta->fd);
+		meta->sec_handle = dmabuf_to_secure_handle(buf);
+		CMDQ_MSG("CMDQ_MOP_WRITE_SEC_FD: translate fd %d to sec_handle %d\n",
+			meta->fd, meta->sec_handle);
+
+		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
+		if (!reg_addr)
+			return -EINVAL;
+		status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr,
+					meta->sec_handle, ~0);
+
+		/* use total buffer size count in translation */
+		if (!status) {
+			/* flush to make sure count is correct */
+			cmdq_handle_flush_cmd_buf(handle, cmd_buf);
+			status = cmdq_mdp_update_sec_addr_index(handle,
+				meta->sec_handle, meta->sec_index,
+				cmdq_mdp_handle_get_instr_count(handle) - 1);
+		}
+		break;
+	}
+#endif
 	default:
 		CMDQ_ERR("invalid meta op:%u\n", meta->op);
 		status = -EINVAL;

@@ -79,7 +79,10 @@ enum CMDQ_ENG_ENUM {
 
 #define CMDQ_ENG_MTEE_GROUP_BITS	((1LL << CMDQ_ENG_ISP_IMGI) |	\
 					 (1LL << CMDQ_ENG_ISP_VIPI) |	\
-					 (1LL << CMDQ_ENG_ISP_LCEI))
+					 (1LL << CMDQ_ENG_ISP_LCEI) | \
+					 (1LL << CMDQ_ENG_MDP_RDMA0) | \
+					 (1LL << CMDQ_ENG_MDP_WROT0) | \
+					 (1LL << CMDQ_ENG_MDP_WROT1))
 
 #define CMDQ_ENG_MDP_GROUP_BITS ((1LL << CMDQ_ENG_MDP_CAMIN) |  \
 				(1LL << CMDQ_ENG_MDP_CAMIN2) | \

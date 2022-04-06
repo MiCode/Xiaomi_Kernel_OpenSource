@@ -270,6 +270,7 @@ s32 cmdq_mdp_handle_create(struct cmdqRecStruct **handle_out);
 s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle);
 s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 			struct cmdqRecStruct *handle);
+void cmdq_mdp_init_secure_id(void *meta_array, u32 count);
 s32 cmdq_mdp_update_sec_addr_index(struct cmdqRecStruct *handle,
 	u32 sec_handle, u32 index, u32 instr_index);
 u32 cmdq_mdp_handle_get_instr_count(struct cmdqRecStruct *handle);

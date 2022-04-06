@@ -1831,6 +1831,11 @@ static s32 mdp_get_rdma_idx(u32 eng_base)
 	return rdma_idx;
 }
 
+static bool mdp_svp_support_meta_data(void)
+{
+	return true;
+}
+
 void cmdq_mdp_platform_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc = cmdq_mdp_get_func();
@@ -1882,6 +1887,7 @@ void cmdq_mdp_platform_function_setting(void)
 	pFunc->getEngineGroupName = mdp_get_engine_group_name;
 	pFunc->mdpComposeReadback = cmdq_mdp_compose_readback;
 	pFunc->getRDMAIndex = mdp_get_rdma_idx;
+	pFunc->mdpSvpSupportMetaData = mdp_svp_support_meta_data;
 }
 MODULE_LICENSE("GPL");
 
