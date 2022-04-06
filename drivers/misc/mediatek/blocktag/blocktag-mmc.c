@@ -436,10 +436,11 @@ int mmc_mtk_biolog_init(struct mmc_host *mmc)
 	}
 
 	btag = mtk_btag_alloc("mmc",
-	MMC_BIOLOG_RINGBUF_MAX,
-	sizeof(struct mmc_mtk_bio_context),
-	MMC_BIOLOG_CONTEXTS,
-	&mmc_mtk_btag_vops);
+				BTAG_STORAGE_MMC,
+				MMC_BIOLOG_RINGBUF_MAX,
+				sizeof(struct mmc_mtk_bio_context),
+				MMC_BIOLOG_CONTEXTS,
+				&mmc_mtk_btag_vops);
 
 	if (btag) {
 		mmc_mtk_btag = btag;

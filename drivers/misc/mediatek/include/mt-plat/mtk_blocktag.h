@@ -50,11 +50,6 @@ enum {
 };
 
 enum mtk_btag_storage_type {
-	BTAG_STORAGE_EMBEDDED = 0,
-	BTAG_STORAGE_EXTERNAL
-};
-
-enum {
 	BTAG_STORAGE_UFS     = 0,
 	BTAG_STORAGE_MMC     = 1,
 	BTAG_STORAGE_UNKNOWN = 2
@@ -217,6 +212,7 @@ struct mtk_btag_vops {
 /* BlockTag */
 struct mtk_blocktag {
 	char name[BLOCKTAG_NAME_LEN];
+	enum mtk_btag_storage_type storage_type;
 	struct mtk_btag_mictx_struct mictx;
 	struct mtk_btag_ringtrace rt;
 
@@ -237,6 +233,7 @@ struct mtk_blocktag {
 };
 
 struct mtk_blocktag *mtk_btag_alloc(const char *name,
+	enum mtk_btag_storage_type storage_type,
 	unsigned int ringtrace_count, size_t ctx_size, unsigned int ctx_count,
 	struct mtk_btag_vops *vops);
 void mtk_btag_earaio_boost(bool boost);

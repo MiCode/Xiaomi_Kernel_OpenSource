@@ -110,7 +110,7 @@ phys_addr_t dram_end_addr;
 #define MS_TO_NS(ms) (ms * 1000000ULL)
 u32 pwd_width_ms = 250;
 
-static struct mtk_blocktag *mtk_btag_find(const char *name)
+static struct mtk_blocktag *mtk_btag_find_by_name(const char *name)
 {
 	struct mtk_blocktag *btag, *n;
 	unsigned long flags;
@@ -118,6 +118,24 @@ static struct mtk_blocktag *mtk_btag_find(const char *name)
 	spin_lock_irqsave(&list_lock, flags);
 	list_for_each_entry_safe(btag, n, &mtk_btag_list, list) {
 		if (!strncmp(btag->name, name, BLOCKTAG_NAME_LEN-1)) {
+			spin_unlock_irqrestore(&list_lock, flags);
+			return btag;
+		}
+	}
+	spin_unlock_irqrestore(&list_lock, flags);
+
+	return NULL;
+}
+
+static struct mtk_blocktag *mtk_btag_find_by_type(
+					enum mtk_btag_storage_type storage_type)
+{
+	struct mtk_blocktag *btag, *n;
+	unsigned long flags;
+
+	spin_lock_irqsave(&list_lock, flags);
+	list_for_each_entry_safe(btag, n, &mtk_btag_list, list) {
+		if (btag->storage_type == storage_type) {
 			spin_unlock_irqrestore(&list_lock, flags);
 			return btag;
 		}
@@ -988,7 +1006,8 @@ static int mtk_btag_sub_open(struct inode *inode, struct file *file)
 			pr_notice("[BLOCK_TAG] %s: %s/%s\n", __func__,
 				entry->d_parent->d_name.name,
 				entry->d_name.name);
-			m->private = mtk_btag_find(entry->d_parent->d_name.name);
+			m->private = mtk_btag_find_by_name(
+						entry->d_parent->d_name.name);
 		}
 	}
 	return rc;
@@ -1449,6 +1468,7 @@ static void mtk_btag_mictx_init(const char *name,
 }
 
 struct mtk_blocktag *mtk_btag_alloc(const char *name,
+	enum mtk_btag_storage_type storage_type,
 	unsigned int ringtrace_count, size_t ctx_size, unsigned int ctx_count,
 	struct mtk_btag_vops *vops)
 {
@@ -1458,7 +1478,7 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 	if (!name || !ringtrace_count || !ctx_size || !ctx_count)
 		return NULL;
 
-	btag = mtk_btag_find(name);
+	btag = mtk_btag_find_by_type(storage_type);
 	if (btag) {
 		pr_notice("[BLOCK_TAG] %s: blocktag %s already exists.\n",
 			__func__, name);
@@ -1482,6 +1502,7 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 		return NULL;
 	}
 	strncpy(btag->name, name, BLOCKTAG_NAME_LEN-1);
+	btag->storage_type = storage_type;
 
 	/* context */
 	btag->ctx.count = ctx_count;
