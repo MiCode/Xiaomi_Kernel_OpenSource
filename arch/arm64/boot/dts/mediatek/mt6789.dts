@@ -4883,6 +4883,13 @@
 			mediatek,larbs = <&smi_larb4>;
 			operating-points-v2 = <&opp_table_vdec>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_MINI_MDP_R0_EXT)
+			&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L4_MINI_MDP_W0_EXT)
+			&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "path_mini_mdp_r0",
+						"path_mini_mdp_w0";
 			m4u-ports =
 				<M4U_PORT_L4_MINI_MDP_R0_EXT>,
 				<M4U_PORT_L4_MINI_MDP_W0_EXT>;
