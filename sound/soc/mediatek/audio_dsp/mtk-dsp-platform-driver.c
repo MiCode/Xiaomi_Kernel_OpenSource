@@ -709,36 +709,39 @@ static int mtk_dsp_pcm_open(struct snd_soc_component *component,
 		struct snd_pcm_substream *substream)
 {
 	int ret = 0;
+	int retry_flag = false;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct mtk_base_dsp *dsp = snd_soc_component_get_drvdata(component);
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 
 	int id = cpu_dai->id;
-
 	int dsp_feature_id = get_featureid_by_dsp_daiid(id);
 	const char *task_name = get_str_by_dsp_dai_id(id);
-
-	pr_info("%s(), %s\n", __func__, task_name);
 
 	memcpy((void *)(&(runtime->hw)), (void *)dsp->mtk_dsp_hardware,
 	       sizeof(struct snd_pcm_hardware));
 
-
 	ret = mtk_dsp_register_feature(dsp_feature_id);
 	if (ret) {
-		pr_info("%s register feature fail", __func__);
+		pr_info("%s(), %s register feature fail", __func__, task_name);
 		return -1;
 	}
 
+RETRY:
 	/* send to task with open information */
 	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(id), AUDIO_IPI_MSG_ONLY,
 			       AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_OPEN,
 			       0, 0, NULL);
 	if (ret < 0) {
-		pr_info("%s() ret[%d]\n", __func__, ret);
-		mtk_dsp_deregister_feature(dsp_feature_id);
-		goto error;
+		if (!retry_flag) {
+			wait_dsp_ready();
+			retry_flag = true;
+			goto RETRY;
+		} else {
+			mtk_dsp_deregister_feature(dsp_feature_id);
+			goto END;
+		}
 	}
 
 	/* set the wait_for_avail to 2 sec*/
@@ -747,7 +750,9 @@ static int mtk_dsp_pcm_open(struct snd_soc_component *component,
 	dsp->dsp_mem[id].substream = substream;
 	dsp->dsp_mem[id].underflowed = 0;
 
-error:
+END:
+	pr_info("%s(), %s(%d) ret[%d] retry[%d]\n", __func__,
+		task_name, id, ret, retry_flag);
 	return ret;
 }
 
