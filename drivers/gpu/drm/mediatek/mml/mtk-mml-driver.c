@@ -389,6 +389,8 @@ static s32 comp_init(struct platform_device *pdev, struct mml_comp *comp,
 	const char *clkname;
 	int i, ret;
 
+	mml_msg("%s comp id %u %s (%s)", __func__, comp->id, comp->name, clkpropname);
+
 	comp->base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
 	if (!res) {
 		dev_err(dev, "failed to get resource\n");
@@ -413,9 +415,9 @@ static s32 comp_init(struct platform_device *pdev, struct mml_comp *comp,
 			}
 			comp->clks[i] = of_clk_get_by_name(node, clkname);
 			if (IS_ERR(comp->clks[i])) {
-				dev_err(dev, "failed to get clk %s in %s\n",
-					clkname, node->full_name);
-				ret = PTR_ERR(comp->clks[i]);
+				dev_err(dev, "failed to get clk %s in %s err %d\n",
+					clkname, node->full_name,
+					PTR_ERR(comp->clks[i]));
 			} else {
 				i++;
 			}
@@ -587,7 +589,7 @@ s32 mml_comp_clk_enable(struct mml_comp *comp)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(comp->clks); i++) {
-		if (IS_ERR(comp->clks[i]))
+		if (IS_ERR_OR_NULL(comp->clks[i]))
 			break;
 		clk_prepare_enable(comp->clks[i]);
 	}
@@ -615,7 +617,7 @@ s32 mml_comp_clk_disable(struct mml_comp *comp)
 	call_hw_op(comp, qos_clear);
 
 	for (i = 0; i < ARRAY_SIZE(comp->clks); i++) {
-		if (IS_ERR(comp->clks[i]))
+		if (IS_ERR_OR_NULL(comp->clks[i]))
 			break;
 		clk_disable_unprepare(comp->clks[i]);
 	}
@@ -1076,7 +1078,7 @@ static int mml_probe(struct platform_device *pdev)
 	mml->cmdq_base = cmdq_register_device(dev);
 	for (i = 0; i < thread_cnt; i++) {
 		mml->cmdq_clts[i] = cmdq_mbox_create(dev, i);
-		if (IS_ERR(mml->cmdq_clts[i])) {
+		if (IS_ERR_OR_NULL(mml->cmdq_clts[i])) {
 			ret = PTR_ERR(mml->cmdq_clts[i]);
 			dev_err(dev, "unable to create cmdq mbox on %p:%d err %d",
 				dev, i, ret);

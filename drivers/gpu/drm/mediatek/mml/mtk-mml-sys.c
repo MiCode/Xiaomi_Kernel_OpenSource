@@ -24,9 +24,9 @@
 #define SYS_SW1_RST_B_REG	0x704
 #define SYS_AID_SEL		0xfa8	/* only for mt6983/mt6895 */
 
-#define MML_MAX_SYS_COMPONENTS	10
+#define MML_MAX_SYS_COMPONENTS	16
 #define MML_MAX_SYS_MUX_PINS	88
-#define MML_MAX_SYS_DL_RELAYS	4
+#define MML_MAX_SYS_DL_RELAYS	7
 #define MML_MAX_SYS_DBG_REGS	60
 #define MML_MAX_AID_COMPS	8
 
@@ -1630,7 +1630,7 @@ const struct of_device_id mtk_mml_of_ids[] = {
 	},
 	{
 		.compatible = "mediatek,mt6985-mml",
-		.data = &mt6983_mml_data,
+		.data = &mt6985_mml_data,
 	},
 	{},
 };
