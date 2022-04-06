@@ -7421,6 +7421,26 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 		}
 	}
 
+	// If stagger, need to turn off cam sv in advanced
+	if (mtk_cam_feature_is_stagger(feature))
+		hw_scen = mtk_raw_get_hdr_scen_id(ctx);
+	else if (mtk_cam_is_with_w_channel(ctx))
+		hw_scen = (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW);
+	else if (mtk_cam_hw_is_dc(ctx))
+		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
+
+	if (hw_scen) {
+		for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
+			if (ctx->pipe->enabled_raw & (1 << i)) {
+				mtk_cam_sv_dev_stream_on(
+					ctx, i - MTKCAM_SUBDEV_CAMSV_START, 0, hw_scen);
+				cam->sv.pipelines[i - MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
+				ctx->pipe->enabled_raw &= ~(1 << i);
+				enabled_sv |= (1 << i);
+			}
+		}
+	}
+
 	if (ctx->used_raw_num) {
 		if (mtk_cam_is_hsf(ctx)) {
 			ret = mtk_cam_hsf_uninit(ctx);
@@ -7470,34 +7490,11 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 			}
 		}
 	}
+
 	for (i = 0 ; i < ctx->used_sv_num ; i++) {
 		ret = mtk_cam_sv_dev_stream_on(ctx, i, 0, 1);
 		if (ret)
 			return ret;
-	}
-
-	if (mtk_cam_feature_is_stagger(feature)) {
-		hw_scen = mtk_raw_get_hdr_scen_id(ctx);
-	} else if (mtk_cam_is_with_w_channel(ctx)) {
-		hw_scen = (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW);
-	}  else if (mtk_cam_hw_is_dc(ctx)) {
-		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
-	}
-
-	if (hw_scen) {
-		for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
-			if (ctx->pipe->enabled_raw & (1 << i)) {
-				mtk_cam_sv_dev_stream_on(
-					ctx, i - MTKCAM_SUBDEV_CAMSV_START, 0, hw_scen);
-				cam->sv.pipelines[i - MTKCAM_SUBDEV_CAMSV_START].is_occupied = 0;
-				ctx->pipe->enabled_raw &= ~(1 << i);
-				enabled_sv |= (1 << i);
-
-				camsv_dev = get_camsv_dev(cam, &cam->sv.pipelines[
-					i - MTKCAM_SUBDEV_CAMSV_START]);
-				pm_runtime_put_sync(camsv_dev->dev);
-			}
-		}
 	}
 
 	for (i = 0 ; i < ctx->used_mraw_num ; i++) {
