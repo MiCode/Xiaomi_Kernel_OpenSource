@@ -851,6 +851,7 @@ struct mtk_cmdq_cb_data {
 	bool is_mml;
 	unsigned int pres_fence_idx;
 	struct drm_framebuffer *wb_fb;
+	unsigned int wb_fence_idx;
 	unsigned int hrt_idx;
 	struct mtk_lcm_dsi_cmd_packet *ddic_packet;
 };

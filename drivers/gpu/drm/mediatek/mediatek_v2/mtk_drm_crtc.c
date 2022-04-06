@@ -3825,6 +3825,23 @@ static void sub_cmdq_cb(struct cmdq_cb_data data)
 	kfree(cb_data);
 }
 
+void mtk_crtc_release_output_buffer_fence_by_idx(
+	struct drm_crtc *crtc, int session_id, unsigned int fence_idx)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+
+	/* fence release already during suspend */
+	if (priv->power_state == false)
+		return;
+
+	if (fence_idx && fence_idx != -1) {
+		DDPINFO("output fence_idx:%d\n", fence_idx);
+		mtk_release_fence(session_id,
+			mtk_fence_get_output_timeline_id(), fence_idx);
+	}
+}
+
 void mtk_crtc_release_output_buffer_fence(
 	struct drm_crtc *crtc, int session_id)
 {
@@ -8139,7 +8156,6 @@ static void mtk_crtc_wb_backup_to_slot(struct drm_crtc *crtc,
 	struct cmdq_pkt *cmdq_handle)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	int index = drm_crtc_index(crtc);
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct mtk_crtc_ddp_ctx *ddp_ctx = NULL;
 	dma_addr_t addr;
@@ -8167,8 +8183,6 @@ static void mtk_crtc_wb_backup_to_slot(struct drm_crtc *crtc,
 	addr = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_CUR_OUTPUT_FENCE);
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 		addr, state->prop_val[CRTC_PROP_OUTPUT_FENCE_IDX], ~0);
-	CRTC_MMP_MARK(index, wbBmpDump, 0,
-		state->prop_val[CRTC_PROP_OUTPUT_FENCE_IDX]);
 
 	addr = mtk_get_gce_backup_slot_pa(mtk_crtc, DISP_SLOT_CUR_INTERFACE_FENCE);
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
@@ -8327,19 +8341,16 @@ static void mtk_drm_wb_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
 	struct drm_crtc *crtc = cb_data->crtc;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int session_id;
-	unsigned int fence_idx = 0;
+	unsigned int fence_idx = cb_data->wb_fence_idx;
 
 	/* fb reference conut will also have 1 after put */
 //	drm_framebuffer_put(cb_data->wb_fb);
 
 	session_id = mtk_get_session_id(crtc);
-	mtk_crtc_release_output_buffer_fence(crtc, session_id);
+	mtk_crtc_release_output_buffer_fence_by_idx(crtc, session_id, fence_idx);
 
-	fence_idx = *(unsigned int *)
-		mtk_get_gce_backup_slot_va(mtk_crtc, DISP_SLOT_CUR_OUTPUT_FENCE);
-	CRTC_MMP_MARK(0, wbBmpDump, 0, fence_idx);
+	CRTC_MMP_MARK(0, wbBmpDump, 1, fence_idx);
 	mtk_dprec_mmp_dump_wdma_layer(crtc, cb_data->wb_fb);
 
 	cmdq_pkt_destroy(cb_data->cmdq_handle);
@@ -8428,7 +8439,6 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	} else if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE] &&
 		crtc_index == 0 && !is_from_dal) {
 		/* For DL write-back path */
-		mtk_crtc_wb_backup_to_slot(crtc, cmdq_handle);
 		cmdq_pkt_clear_event(cmdq_handle, mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
 	}
 
@@ -8460,7 +8470,9 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		wb_cb_data->wb_fb =
 			mtk_drm_framebuffer_lookup(crtc->dev,
 			state->prop_val[CRTC_PROP_OUTPUT_FB_ID]);
-		CRTC_MMP_MARK(crtc_index, wbBmpDump, (unsigned long)handle, 0);
+		wb_cb_data->wb_fence_idx = state->prop_val[CRTC_PROP_OUTPUT_FENCE_IDX];
+		CRTC_MMP_MARK(crtc_index, wbBmpDump, (unsigned long)handle,
+							wb_cb_data->wb_fence_idx);
 		cmdq_pkt_flush_threaded(handle, mtk_drm_wb_cb, wb_cb_data);
 	}
 
