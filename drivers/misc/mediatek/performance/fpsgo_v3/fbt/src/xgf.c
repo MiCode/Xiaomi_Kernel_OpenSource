@@ -1512,9 +1512,11 @@ int xgf_uboost_case(struct xgf_render *render)
 {
 	int quarter, ret = 0,	shift = 2;
 
-	quarter = render->frame_count >> shift;
-	if (quarter < render->u_wake_r_count)
-		ret = 1;
+	if (xgf_uboost) {
+		quarter = render->frame_count >> shift;
+		if (quarter < render->u_wake_r_count)
+			ret = 1;
+	}
 
 	return ret;
 }
@@ -1610,7 +1612,7 @@ static int xgf_tid_overlap(int tid, int rpid, int uboost)
 		goto out;
 	}
 
-	if (rpid == tid)
+	if (!uboost || rpid == tid)
 		goto out;
 
 	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
