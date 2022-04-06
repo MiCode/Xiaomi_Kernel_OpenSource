@@ -1554,12 +1554,12 @@ static int sc8551_set_present(struct sc8551 *sc, bool present)
 	return 0;
 }
 
-
+#if defined(SC8551_CUSTOMER_SUPPORT)
 static void sc8551_create_device_node(struct device *dev)
 {
 	device_create_file(dev, &dev_attr_registers);
 }
-
+#endif
 
 static enum power_supply_property sc8551_charger_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
@@ -2053,8 +2053,9 @@ static int sc8551_charger_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 	i2c_set_clientdata(client, sc);
+#if defined(SC8551_CUSTOMER_SUPPORT)
 	sc8551_create_device_node(&(client->dev));
-
+#endif
 	match = of_match_node(sc8551_charger_match_table, node);
 	if (match == NULL) {
 		pr_info("device tree match not found!\n");
