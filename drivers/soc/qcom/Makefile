@@ -93,3 +93,4 @@ obj-$(CONFIG_QCOM_VA_MINIDUMP) += qcom_va_minidump.o
 obj-$(CONFIG_QCOM_LOGBUF_VENDOR_HOOKS) += qcom_logbuf_vh.o
 obj-$(CONFIG_MSM_QBT_HANDLER) += qbt_handler.o
 obj-$(CONFIG_QCOM_HUNG_TASK_ENH) += hung_task_enh.o
+obj-$(CONFIG_QCOM_CX_IPEAK) += cx_ipeak.o
