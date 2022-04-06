@@ -2325,7 +2325,6 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	struct platform_device *reset_pdev;
 	struct device_link *link;
 	struct ufs_hba *hba;
-	struct cpumask imask;
 
 	reset_node = of_find_compatible_node(NULL, NULL,
 					     "ti,syscon-reset");
@@ -2361,11 +2360,8 @@ skip_reset:
 
 	/* set affinity to cpu3 */
 	hba = platform_get_drvdata(pdev);
-	if (hba && hba->irq) {
-		cpumask_clear(&imask);
-		cpumask_set_cpu(3, &imask);
-		irq_set_affinity_hint(hba->irq, &imask);
-	}
+	if (hba && hba->irq)
+		irq_set_affinity_hint(hba->irq, get_cpu_mask(3));
 
 	/*
 	 * Because the default power setting of VSx (the upper layer of
