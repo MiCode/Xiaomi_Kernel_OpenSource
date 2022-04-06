@@ -1207,10 +1207,12 @@ static void devapc_ut(uint32_t cmd)
 	pr_info(PFX "%s, irq_type:0x%x\n", __func__, irq_type);
 
 	if (cmd == DEVAPC_UT_DAPC_INFRA_VIO ||
+		cmd == DEVAPC_UT_DAPC_PERI_VIO ||
 		cmd == DEVAPC_UT_DAPC_VLP_VIO ||
 		cmd == DEVAPC_UT_DAPC_ADSP_VIO ||
 		cmd == DEVAPC_UT_DAPC_MMINFRA_VIO ||
-		cmd == DEVAPC_UT_DAPC_MMUP_VIO) {
+		cmd == DEVAPC_UT_DAPC_MMUP_VIO ||
+		cmd == DEVAPC_UT_DAPC_GPU_VIO) {
 		if (unlikely(dapc_ao_base == NULL)) {
 			pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
 			return;
