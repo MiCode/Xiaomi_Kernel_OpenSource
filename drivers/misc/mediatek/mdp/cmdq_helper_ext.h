@@ -660,6 +660,7 @@ struct mdp_readback_engine {
 struct cmdqRecStruct {
 	struct list_head list_entry;
 	struct cmdq_pkt *pkt;
+	struct cmdq_pkt *pkt_rb; /* pkt for readback command */
 	u32 *cmd_end;
 	u64 engineFlag;
 	s32 scenario;
@@ -695,6 +696,7 @@ struct cmdqRecStruct {
 	atomic_t exec;
 	enum TASK_STATE_ENUM state;	/* task life cycle */
 	s32 thread;
+	s32 thread_rb; /* pkt for readback command */
 	enum cmdq_thread_dispatch thd_dispatch;
 	/* work item when auto release is used */
 	struct work_struct auto_release_work;

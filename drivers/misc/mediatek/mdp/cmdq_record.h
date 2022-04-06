@@ -264,6 +264,10 @@ s32 cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 s32 cmdqRecWriteFromDataRegister(struct cmdqRecStruct *handle,
 	enum cmdq_gpr_reg src_data_reg, u32 hw_addr);
 
+s32 cmdq_op_get_event(struct cmdqRecStruct *handle, enum cmdq_event event);
+s32 cmdq_op_set_event_readback(struct cmdqRecStruct *handle, enum cmdq_event event);
+s32 cmdq_op_wait_event_readback(struct cmdqRecStruct *handle, enum cmdq_event event);
+
 struct cmdq_command_buffer {
 	void *va_base;
 	u32 avail_buf_size;
