@@ -1970,6 +1970,13 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		//writel_relaxed(val, dev->base_inner + REG_CTL_EN2);
 
 		wmb(); /* make sure committed */
+		enable_tg_db(dev, 0);
+		enable_tg_db(dev, 1);
+
+		dev_dbg(dev->dev,
+			"%s - [Force VF off] TG_VF_CON outer:0x%8x inner:0x%8x\n",
+			__func__, readl_relaxed(dev->base + REG_TG_VF_CON),
+			readl_relaxed(dev->base_inner + REG_TG_VF_CON));
 
 		if (readx_poll_timeout(readl, dev->base_inner + REG_TG_VF_CON,
 				       chk_val, chk_val == val,
@@ -1979,7 +1986,6 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			dev_info(dev->dev, "%s: wait vf off timeout: TG_VF_CON 0x%x\n",
 				 __func__, chk_val);
 		}
-
 		reset_reg(dev);
 	}
 }
