@@ -44,10 +44,10 @@ const struct module_ops imgsys_isp7_modules[] = {
 	},
 	[IMGSYS_MOD_ME] = {
 		.module_id = IMGSYS_MOD_ME,
-		.init = ipesys_me_set_initial_value,
+		.init = imgsys_me_set_initial_value,
 		.set = NULL,
-		.dump = ipesys_me_debug_dump,
-		.uninit = ipesys_me_uninit,
+		.dump = imgsys_me_debug_dump,
+		.uninit = imgsys_me_uninit,
 	},
 	[IMGSYS_MOD_WPE] = {
 		.module_id = IMGSYS_MOD_WPE,

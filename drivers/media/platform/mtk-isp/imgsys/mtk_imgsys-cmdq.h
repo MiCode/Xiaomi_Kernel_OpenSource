@@ -14,8 +14,11 @@
 #include "mtk_imgsys-sys.h"
 
 #define CMDQ_STOP_FUNC         (1)
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 #define DVFS_QOS_READY         (1)
+#else
+#define DVFS_QOS_READY         (0)
+#endif
 
 #define MAX_FRAME_IN_TASK		64
 

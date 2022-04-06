@@ -115,6 +115,7 @@ static void __iomem *g_trawRegBA, *g_ltrawRegBA, *g_xtrawRegBA;
 
 static unsigned int g_IOMMUDumpPort;
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 static unsigned int g_IOMMUL9Def[TRAW_L9_PORT_CNT] = {
 	MTK_M4U_PORT_ID(0, 0, 9, 0),	/* IMGI_T1_A */
 	MTK_M4U_PORT_ID(0, 0, 9, 1),	/* UFDI_T1_A */
@@ -161,7 +162,7 @@ static unsigned int g_IOMMUL11Def[TRAW_L11_PORT_CNT] = {
 	MTK_M4U_PORT_ID(0, 0, 11, 28),	/* SMTO_T6_C */
 	MTK_M4U_PORT_ID(0, 0, 11, 29)	/* DBGO_T1_C */
 };
-
+#endif
 static unsigned int ExeDbgCmd(struct mtk_imgsys_dev *a_pDev,
 			void __iomem *a_pRegBA,
 			unsigned int a_DdbSel,
@@ -584,7 +585,7 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 		DbgData & 0xFFFF, DbgLineCntReg);
 
 }
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 static int GetFaultDMAAddr(unsigned int port, unsigned int *pStartAddr, unsigned int *pEndAddr)
 {
 	int Result = 1;
@@ -750,9 +751,10 @@ static int imgsys_traw_iommu_cb(int port, dma_addr_t mva, void *cb_data)
 	return 0;
 
 }
-
+#endif
 static void imgsys_traw_reg_iommu_cb(void)
 {
+	#ifndef CONFIG_FPGA_EARLY_PORTING
 	unsigned int i = 0;
 
 	/* Reg Traw/Ltraw L9 Port Callback */
@@ -770,7 +772,7 @@ static void imgsys_traw_reg_iommu_cb(void)
 			(mtk_iommu_fault_callback_t)imgsys_traw_iommu_cb,
 			NULL, false);
 	}
-
+#endif
 }
 
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

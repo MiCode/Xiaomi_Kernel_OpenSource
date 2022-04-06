@@ -231,7 +231,7 @@ void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 			continue;
 		}
 	}
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef WPE_TF_DUMP_71_1
 	//wpe_eis
 	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_RDMA0,
@@ -385,8 +385,8 @@ void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
 #endif
-
-	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
+#endif
+	dev_info(imgsys_dev->dev, "%s: -\n", __func__);
 }
 
 void imgsys_wpe_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)

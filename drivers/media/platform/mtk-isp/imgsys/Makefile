@@ -51,6 +51,7 @@ platforms/isp7s/modules/mtk_imgsys-dip.o \
 platforms/isp7s/modules/mtk_imgsys-traw.o \
 platforms/isp7s/modules/mtk_imgsys-pqdip.o \
 platforms/isp7s/modules/mtk_imgsys-wpe.o \
+platforms/isp7s/modules/mtk_imgsys-me.o \
 platforms/isp7s/modules/mtk_imgsys-adl.o
 
 obj-${CONFIG_VIDEO_MTK_ISP_IMGSYS_7S} += mtk_imgsys_isp7s.o

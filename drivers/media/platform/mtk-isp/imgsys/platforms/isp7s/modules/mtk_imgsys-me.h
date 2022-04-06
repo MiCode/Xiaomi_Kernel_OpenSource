@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2018 MediaTek Inc.
+ * Copyright (c) 2020 MediaTek Inc.
  *
  * Author: Marvin Lin <Marvin.Lin@mediatek.com>
  *
@@ -27,10 +27,10 @@ struct ipesys_me_device {
 #define ME_CTL_RANGE_TF    0x120
 
 
-void ipesys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
-void ipesys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
+void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine);
-void ipesys_me_uninit(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_me_uninit(struct mtk_imgsys_dev *imgsys_dev);
 struct device *ipesys_me_getdev(void);
 
 

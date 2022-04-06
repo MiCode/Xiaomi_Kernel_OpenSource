@@ -558,6 +558,7 @@ EXPORT_SYMBOL(mtk_hcp_send_async);
 int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 	int32_t value, size_t size)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
 	struct slbc_data slb;
@@ -602,7 +603,7 @@ int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 				HCP_IMGSYS_SET_CONTROL_ID, &ctrl, sizeof(ctrl), 0, 0);
 		}
 	}
-
+#endif
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_hcp_set_apu_dc);
@@ -1145,13 +1146,15 @@ static unsigned int mtk_hcp_poll(struct file *file, poll_table *wait)
 static int mtk_hcp_release(struct inode *inode, struct file *file)
 {
 	struct mtk_hcp *hcp_dev = (struct mtk_hcp *)file->private_data;
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct slbc_data slb;
 	int ret;
+#endif
 
 	dev_dbg(hcp_dev->dev, "- E. hcp release.\n");
 
 	hcp_dev->is_open = false;
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	if (atomic_read(&(hcp_dev->have_slb)) > 0) {
 		slb.uid  = UID_SH_P2;
 		slb.type = TP_BUFFER;
@@ -1161,6 +1164,7 @@ static int mtk_hcp_release(struct inode *inode, struct file *file)
 			return -1;
 		}
 	}
+#endif
 
 	kfree(hcp_dev->extmem.d_va);
 	return 0;

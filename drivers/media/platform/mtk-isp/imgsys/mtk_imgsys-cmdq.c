@@ -293,7 +293,9 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 		cb_param->pkt_ofst[0], cb_param->pkt_ofst[1], cb_param->pkt_ofst[2],
 		cb_param->pkt_ofst[3], cb_param->pkt_ofst[4]);
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	mtk_imgsys_power_ctrl(imgsys_dev, false);
+#endif
 
 	if (imgsys_cmdq_ts_enable()) {
 		for (idx = 0; idx < cb_param->task_cnt; idx++) {
@@ -878,8 +880,9 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				|| (frm_info->user_info[frm_idx].is_secFrm)
 				|| (frm_info->user_info[frm_idx].is_earlycb)
 				|| ((frm_idx + 1) == frm_num)) {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 				mtk_imgsys_power_ctrl(imgsys_dev, true);
-
+#endif
 				/* Prepare cb param */
 				cb_param =
 					vzalloc(sizeof(struct mtk_imgsys_cb_param));
@@ -1307,7 +1310,7 @@ void mtk_imgsys_mmqos_init(struct mtk_imgsys_dev *imgsys_dev)
 	memset((void *)qos_info, 0x0, sizeof(struct mtk_imgsys_qos));
 	qos_info->dev = imgsys_dev->dev;
 	qos_info->qos_path = imgsys_qos_path;
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	for (idx = 0; idx < IMGSYS_M4U_PORT_MAX; idx++) {
 		qos_info->qos_path[idx].path =
 			of_mtk_icc_get(qos_info->dev, qos_info->qos_path[idx].dts_name);
@@ -1318,6 +1321,7 @@ void mtk_imgsys_mmqos_init(struct mtk_imgsys_dev *imgsys_dev)
 			qos_info->qos_path[idx].dts_name,
 			qos_info->qos_path[idx].bw);
 	}
+#endif
 	mtk_imgsys_mmqos_reset(imgsys_dev);
 }
 
@@ -1336,7 +1340,9 @@ void mtk_imgsys_mmqos_uninit(struct mtk_imgsys_dev *imgsys_dev)
 			qos_info->qos_path[idx].path,
 			qos_info->qos_path[idx].bw);
 		qos_info->qos_path[idx].bw = 0;
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		mtk_icc_set_bw(qos_info->qos_path[idx].path, 0, 0);
+#endif
 	}
 }
 
@@ -1387,6 +1393,7 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 					imgsys_qos_update_freq, imgsys_qos_blank_int,
 					imgsys_qos_factor);
 				/* Add update bw api */
+#ifndef CONFIG_FPGA_EARLY_PORTING
 				mtk_icc_set_bw(
 					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
 					MBps_to_icc(bw_final[0]),
@@ -1395,6 +1402,7 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 					qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
 					MBps_to_icc(bw_final[1]),
 					0);
+#endif
 			} else if ((qos_info->req_cnt > imgsys_qos_update_freq) &&
 					(qos_info->req_cnt <=
 					(imgsys_qos_update_freq + imgsys_qos_blank_int))) {
@@ -1411,8 +1419,10 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 		}
 	} else {
 		/* Set bw to zero */
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L9_COMMON_0].path, 0, 0);
 		mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L12_COMMON_1].path, 0, 0);
+#endif
 	}
 	#else
 	bw = 10240;
@@ -1430,10 +1440,12 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 				qos_info->qos_path[port_idx].path,
 				qos_info->qos_path[port_idx].bw, bw);
 			qos_info->qos_path[port_idx].bw = bw;
+#ifndef CONFIG_FPGA_EARLY_PORTING
 			mtk_icc_set_bw(
 				qos_info->qos_path[port_idx].path,
 				MBps_to_icc(qos_info->qos_path[port_idx].bw),
 				MBps_to_icc(qos_info->qos_path[port_idx].bw));
+#endif
 		}
 	}
 	#endif
@@ -1500,6 +1512,7 @@ void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
 						bw_final[1]);
 					qos_info->qos_path[IMGSYS_L9_COMMON_0].bw = bw_final[0];
 					qos_info->qos_path[IMGSYS_L12_COMMON_1].bw = bw_final[1];
+#ifndef CONFIG_FPGA_EARLY_PORTING
 					mtk_icc_set_bw(
 					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
 					MBps_to_icc(qos_info->qos_path[IMGSYS_L9_COMMON_0].bw),
@@ -1508,6 +1521,7 @@ void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
 					qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
 					MBps_to_icc(qos_info->qos_path[IMGSYS_L12_COMMON_1].bw),
 					0);
+#endif
 				}
 			}
 		}
@@ -1523,8 +1537,10 @@ void mtk_imgsys_mmqos_reset(struct mtk_imgsys_dev *imgsys_dev)
 
 	qos_info->qos_path[IMGSYS_L9_COMMON_0].bw = 0;
 	qos_info->qos_path[IMGSYS_L12_COMMON_1].bw = 0;
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L9_COMMON_0].path, 0, 0);
 	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L12_COMMON_1].path, 0, 0);
+#endif
 
 	for (dvfs_idx = 0; dvfs_idx < MTK_IMGSYS_DVFS_GROUP; dvfs_idx++) {
 		for (qos_idx = 0; qos_idx < MTK_IMGSYS_QOS_GROUP; qos_idx++)
