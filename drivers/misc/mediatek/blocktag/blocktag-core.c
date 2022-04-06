@@ -1310,6 +1310,19 @@ void mtk_btag_mictx_eval_req(
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_eval_req);
 
+void mtk_btag_mictx_eval_cnt_signle_wqd(
+	struct mtk_blocktag *btag, u64 t_begin, u64 t_cur)
+{
+	struct mtk_btag_mictx_struct *mictx = &btag->mictx;
+
+	if (!mictx->enabled)
+		return;
+
+	t_begin = max_t(u64, mictx->window_begin, t_begin);
+	mictx->weighted_qd += t_cur - t_begin;
+}
+EXPORT_SYMBOL_GPL(mtk_btag_mictx_eval_cnt_signle_wqd);
+
 void mtk_btag_mictx_update(
 	struct mtk_blocktag *btag,
 	__u32 q_depth)

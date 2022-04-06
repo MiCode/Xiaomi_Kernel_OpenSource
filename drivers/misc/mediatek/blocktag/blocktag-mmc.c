@@ -151,27 +151,6 @@ void mmc_mtk_biolog_send_command(unsigned int task_id,
 }
 EXPORT_SYMBOL_GPL(mmc_mtk_biolog_send_command);
 
-static void mmc_mtk_bio_mictx_cnt_signle_wqd(
-				struct mmc_mtk_bio_context_task *tsk,
-				struct mtk_btag_mictx_struct *mictx,
-				u64 t_cur)
-{
-	u64 t, t_begin;
-
-	if (!mictx->enabled)
-		return;
-
-	t_begin = max_t(u64, mictx->window_begin,
-			tsk->t[tsk_send_cmd]);
-
-	if (tsk->t[tsk_req_compl])
-		t = tsk->t[tsk_req_compl] - t_begin;
-	else
-		t = t_cur - t_begin;
-
-	mictx->weighted_qd += t;
-}
-
 void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
 	unsigned int task_id, unsigned long req_mask)
 {
@@ -230,7 +209,8 @@ void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
 	else
 		ctx->q_depth--;
 	mtk_btag_mictx_update(mmc_mtk_btag, ctx->q_depth);
-	mmc_mtk_bio_mictx_cnt_signle_wqd(tsk, &mmc_mtk_btag->mictx, 0);
+	mtk_btag_mictx_eval_cnt_signle_wqd(mmc_mtk_btag, tsk->t[tsk_send_cmd],
+						tsk->t[tsk_req_compl]);
 
 	/* clear this task */
 	tsk->t[tsk_send_cmd] = tsk->t[tsk_req_compl] = 0;

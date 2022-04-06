@@ -152,27 +152,6 @@ void ufs_mtk_biolog_send_command(unsigned int task_id,
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_biolog_send_command);
 
-static void ufs_mtk_bio_mictx_cnt_signle_wqd(
-				struct ufs_mtk_bio_context_task *tsk,
-				struct mtk_btag_mictx_struct *mictx,
-				u64 t_cur)
-{
-	u64 t, t_begin;
-
-	if (!mictx->enabled)
-		return;
-
-	t_begin = max_t(u64, mictx->window_begin,
-			tsk->t[tsk_send_cmd]);
-
-	if (tsk->t[tsk_req_compl])
-		t = tsk->t[tsk_req_compl] - t_begin;
-	else
-		t = t_cur - t_begin;
-
-	mictx->weighted_qd += t;
-}
-
 void ufs_mtk_bio_mictx_eval_wqd(struct mtk_btag_mictx_struct *mictx,
 				u64 t_cur)
 {
@@ -189,9 +168,9 @@ void ufs_mtk_bio_mictx_eval_wqd(struct mtk_btag_mictx_struct *mictx,
 
 	for (i = 0; i < UFS_BIOLOG_CONTEXT_TASKS; i++) {
 		tsk = &ctx->task[i];
-		if (tsk->t[tsk_send_cmd]) {
-			ufs_mtk_bio_mictx_cnt_signle_wqd(tsk, mictx,
-							 t_cur);
+		if (tsk->t[tsk_send_cmd] && !tsk->t[tsk_req_compl]) {
+			mtk_btag_mictx_eval_cnt_signle_wqd(ufs_mtk_btag,
+				tsk->t[tsk_send_cmd], t_cur);
 		}
 	}
 }
@@ -246,7 +225,8 @@ void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id,
 	else
 		ctx->q_depth--;
 	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth);
-	ufs_mtk_bio_mictx_cnt_signle_wqd(tsk, &ufs_mtk_btag->mictx, 0);
+	mtk_btag_mictx_eval_cnt_signle_wqd(ufs_mtk_btag, tsk->t[tsk_send_cmd],
+						tsk->t[tsk_req_compl]);
 
 	/* clear this task */
 	tsk->t[tsk_send_cmd] = tsk->t[tsk_req_compl] = 0;

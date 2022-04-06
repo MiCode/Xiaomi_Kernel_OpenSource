@@ -274,6 +274,8 @@ void mtk_btag_mictx_eval_tp(
 void mtk_btag_mictx_eval_req(
 	struct mtk_blocktag *btag,
 	unsigned int rw, __u32 cnt, __u32 size, bool top);
+void mtk_btag_mictx_eval_cnt_signle_wqd(
+	struct mtk_blocktag *btag, u64 t_begin, u64 t_cur);
 int mtk_btag_mictx_get_data(
 	struct mtk_btag_mictx_iostat_struct *iostat);
 void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth);
