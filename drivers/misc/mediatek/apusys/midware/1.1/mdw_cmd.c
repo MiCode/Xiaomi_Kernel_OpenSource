@@ -717,7 +717,12 @@ static int mdw_cmd_end_sc(struct mdw_apu_sc *in, struct mdw_apu_sc **out)
 	if (c->sc_status_bmp & (1ULL << in->idx)) {
 		c->sc_status_bmp &= ~(1ULL << in->idx);
 		mdw_cmd_update_scr(in);
+
+		/* update subcmd return value */
+		if (in->status)
+			c->sc_rets |= (1ULL << in->idx);
 	}
+
 	mdw_flw_debug("cmd status = 0x%llx after #%d sc done\n",
 		c->sc_status_bmp, in->idx);
 

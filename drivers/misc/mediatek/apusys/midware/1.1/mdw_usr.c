@@ -942,9 +942,16 @@ rewait:
 			mdw_dbg_aee("apusys midware wait timeout");
 		cmd_parser->abort_cmd(c);
 	} else { /* Wait done, delete cmd */
+		if (c->sc_rets) {
+			mdw_drv_err("cmd(0x%llx) sc(0x%llx) fail\n",
+				c->kid, c->sc_rets);
+			ret = -EIO;
+		} else {
+			ret = 0;
+		}
+
 		if (cmd_parser->delete_cmd(c))
 			mdw_drv_err("delete cmd fail\n");
-		ret = 0;
 	}
 
 	mdw_usr_ws_unlock();
