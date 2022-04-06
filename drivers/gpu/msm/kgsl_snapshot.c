@@ -1125,6 +1125,9 @@ void kgsl_device_snapshot_probe(struct kgsl_device *device, u32 size)
  */
 void kgsl_device_snapshot_close(struct kgsl_device *device)
 {
+	if (device->snapshot_memory.ptr == NULL)
+		return;
+
 	kgsl_remove_from_minidump("GPU_SNAPSHOT", (u64) device->snapshot_memory.ptr,
 			snapshot_phy_addr(device), device->snapshot_memory.size);
 
