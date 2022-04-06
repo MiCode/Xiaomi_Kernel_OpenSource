@@ -3424,13 +3424,6 @@ static void sc_nl_send_to_user(u32 pid, int seq, struct sc_nl_msg_t *reply_msg)
 		return;
 
 	nlh = nlmsg_put(skb, pid, seq, 0, size, 0);
-	if (!nlh) {
-		chr_err("[Netlink] nlmsg_put failed\n");
-		if (skb)
-			kfree_skb(skb);
-		return;
-	}
-
 	data = NLMSG_DATA(nlh);
 	memcpy(data, reply_msg, size);
 	NETLINK_CB(skb).portid = 0;	/* from kernel */
@@ -3439,8 +3432,6 @@ static void sc_nl_send_to_user(u32 pid, int seq, struct sc_nl_msg_t *reply_msg)
 	ret = netlink_unicast(pinfo->sc.daemo_nl_sk, skb, pid, MSG_DONTWAIT);
 	if (ret < 0) {
 		chr_err("[Netlink] sc send failed %d\n", ret);
-		if (skb)
-			kfree_skb(skb);
 		return;
 	}
 
