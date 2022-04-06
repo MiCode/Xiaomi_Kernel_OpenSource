@@ -224,7 +224,8 @@ struct tag_videolfb {
 };
 
 struct mtk_drm_disp_sec_cb {
-	int (*cb)(int value, struct cmdq_pkt *handle, resource_size_t dummy_larb);
+	int (*cb)(int value, struct cmdq_pkt *handle, resource_size_t dummy_larb,
+				struct dma_buf *buf_hnd);
 };
 
 enum DISP_SEC_SIGNAL {
@@ -232,6 +233,7 @@ enum DISP_SEC_SIGNAL {
 	DISP_SEC_STOP,
 	DISP_SEC_ENABLE,
 	DISP_SEC_DISABLE,
+	DISP_SEC_CHECK,
 };
 
 struct disp_iommu_device *disp_get_iommu_dev(void);

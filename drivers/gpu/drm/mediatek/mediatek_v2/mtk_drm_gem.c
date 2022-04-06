@@ -490,8 +490,10 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 		goto err_gem_free;
 	}
 #endif
-
-	mtk_gem->sec = false;
+	if (disp_sec_cb.cb != NULL && attach->dmabuf)
+		mtk_gem->sec = disp_sec_cb.cb(DISP_SEC_CHECK, NULL, 0, attach->dmabuf);
+	else
+		mtk_gem->sec = false;
 	mtk_gem->dma_addr = sg_dma_address(sg->sgl);
 	mtk_gem->size = attach->dmabuf->size;
 	mtk_gem->sg = sg;

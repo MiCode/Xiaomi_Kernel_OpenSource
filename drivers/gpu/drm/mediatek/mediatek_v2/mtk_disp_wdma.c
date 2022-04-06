@@ -376,7 +376,7 @@ static void mtk_wdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	if (data->use_larb_control_sec && crtc_idx == 2) {
 		if (disp_sec_cb.cb != NULL) {
-			if (disp_sec_cb.cb(DISP_SEC_START, NULL, 0))
+			if (disp_sec_cb.cb(DISP_SEC_START, NULL, 0, NULL))
 				wdma->wdma_sec_first_time_install = 1;
 		}
 	} else {
@@ -411,7 +411,7 @@ static void mtk_wdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	if (data->use_larb_control_sec && crtc_idx == 2) {
 		if (disp_sec_cb.cb != NULL)
-			disp_sec_cb.cb(DISP_SEC_STOP, NULL, 0);
+			disp_sec_cb.cb(DISP_SEC_STOP, NULL, 0, NULL);
 	}
 }
 
@@ -908,9 +908,11 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 		if (larb_ctl_dummy) {
 			if (mtk_wdma_store_sec_state(wdma, sec) && disp_sec_cb.cb != NULL) {
 				if (sec)
-					disp_sec_cb.cb(DISP_SEC_ENABLE, handle, larb_ctl_dummy);
+					disp_sec_cb.cb(DISP_SEC_ENABLE, handle,
+							larb_ctl_dummy, NULL);
 				else
-					disp_sec_cb.cb(DISP_SEC_DISABLE, handle, larb_ctl_dummy);
+					disp_sec_cb.cb(DISP_SEC_DISABLE, handle,
+							larb_ctl_dummy, NULL);
 			}
 		}
 	} else {
@@ -1048,9 +1050,11 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 		if (larb_ctl_dummy) {
 			if (mtk_wdma_store_sec_state(wdma, sec) && disp_sec_cb.cb != NULL) {
 				if (sec)
-					disp_sec_cb.cb(DISP_SEC_ENABLE, handle, larb_ctl_dummy);
+					disp_sec_cb.cb(DISP_SEC_ENABLE, handle,
+							larb_ctl_dummy, NULL);
 				else
-					disp_sec_cb.cb(DISP_SEC_DISABLE, handle, larb_ctl_dummy);
+					disp_sec_cb.cb(DISP_SEC_DISABLE, handle,
+							larb_ctl_dummy, NULL);
 			}
 		}
 	} else {

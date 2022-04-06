@@ -205,7 +205,9 @@ mtk_drm_mode_fb_create(struct drm_device *dev, struct drm_file *file,
 
 	mtk_gem = to_mtk_gem_obj(gem);
 
-	if (cmd->modifier[0] & MTK_FMT_SECURE)
+	if (disp_sec_cb.cb != NULL)
+		DDPINFO("mtk_gem->sec %d", mtk_gem->sec);
+	else if (cmd->modifier[0] & MTK_FMT_SECURE)
 		mtk_gem->sec = true;
 
 	//TO-DO: should need remove "!mtk_gem->sec"

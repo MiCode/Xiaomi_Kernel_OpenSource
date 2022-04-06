@@ -12,7 +12,7 @@
 #include "mtk_drm_drv.h"
 #include "mtk_log.h"
 #include "mtk_dump.h"
-
+#include "mtk_heap.h"
 
 #include "cmdq-sec.h"
 #include "cmdq-sec-iwc-common.h"
@@ -134,8 +134,17 @@ int mtk_disp_secure_domain_disable(struct cmdq_pkt *handle,
 	return true;
 }
 
+int mtk_disp_secure_get_dma_sec_status(struct dma_buf *buf_hnd)
+{
+	int sec_check = 0;
+
+	sec_check = is_mtk_sec_heap_dmabuf(buf_hnd);
+	DDPINFO("%s is %d\n", __func__, sec_check);
+	return sec_check;
+}
 static int mtk_drm_disp_sec_cb_event(int value, struct cmdq_pkt *handle,
-									resource_size_t dummy_larb)
+									resource_size_t dummy_larb,
+									struct dma_buf *buf_hnd)
 {
 	DDPINFO("%s+\n", __func__);
 	switch (value) {
@@ -147,6 +156,8 @@ static int mtk_drm_disp_sec_cb_event(int value, struct cmdq_pkt *handle,
 		return mtk_disp_secure_domain_enable(handle, dummy_larb);
 	case DISP_SEC_DISABLE:
 		return mtk_disp_secure_domain_disable(handle, dummy_larb);
+	case DISP_SEC_CHECK:
+		return mtk_disp_secure_get_dma_sec_status(buf_hnd);
 	default:
 		return false;
 	}
