@@ -1192,7 +1192,7 @@ STOP_SCAN:
 				 * if done_status is marked, it means the work
 				 * is running or complete
 				 */
-				if (flush_work(&s_data->frame_done_work.work))
+				if (flush_work(&s_data_pipe->frame_done_work.work))
 					dev_info(cam->dev,
 						 "%s:%s:pipe(%d):seq(%d): flush pipe(%d) frame_done_work\n",
 						 __func__, req->req.debug_str,
