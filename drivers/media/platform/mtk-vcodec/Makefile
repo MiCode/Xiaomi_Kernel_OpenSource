@@ -69,5 +69,6 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/rv
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/include
+ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
 
 #endif

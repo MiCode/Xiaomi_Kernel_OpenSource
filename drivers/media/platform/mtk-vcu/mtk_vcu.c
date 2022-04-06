@@ -47,6 +47,8 @@
 #include <linux/mtk_vcu_controls.h>
 #include "mtk_vcu.h"
 #include "vcp_helper.h"
+#include "iommu_pseudo.h"
+
 
 /**
  * VCU (Video Communication/Controller Unit) is a tiny processor
@@ -366,6 +368,8 @@ struct mtk_vcu {
 	struct cmdq_client *clt_vdec[GCE_THNUM_MAX];
 	struct cmdq_client *clt_venc[GCE_THNUM_MAX];
 	struct cmdq_client *clt_venc_sec[GCE_THNUM_MAX];
+	u16 cmdq_venc_norm_token;
+	u16 cmdq_venc_sec_token;
 	int gce_th_num[VCU_CODEC_MAX];
 	int gce_codec_eid[GCE_EVENT_MAX];
 	struct gce_cmds *gce_cmds[VCU_CODEC_MAX];
@@ -864,9 +868,7 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 			pr_info("[VCU] CMD_WRITE wrong addr: 0x%x 0x%x 0x%x\n",
 				addr, data, mask);
 	break;
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	case CMD_SEC_WRITE:
-#if defined(CONFIG_MTK_CMDQ_MBOX_EXT)
 		if (vcu_check_reg_base(vcu, addr, 4) == 0)
 			cmdq_sec_pkt_write_reg(pkt,
 				addr,
@@ -878,11 +880,9 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 		else
 			pr_info("[VCU] CMD_SEC_WRITE wrong addr: 0x%x 0x%x 0x%x 0x%x\n",
 				addr, data, dma_offset, dma_size);
-#endif
 		pr_debug("[VCU] %s addr: 0x%x, data: 0x%x, offset: 0x%x, size: 0x%x\n",
 			__func__, addr, data, dma_offset, dma_size);
 	break;
-#endif
 	case CMD_POLL_REG:
 		if (vcu_check_reg_base(vcu, addr, 4) == 0)
 			cmdq_pkt_poll_addr(pkt, data, addr, mask, gpr);
@@ -922,6 +922,111 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 	}
 }
 
+static void vcu_set_gce_secure_cmd(struct cmdq_pkt *pkt,
+	struct mtk_vcu *vcu, struct mtk_vcu_queue *q, unsigned char cmd,
+	u64 addr, u64 data, u32 mask, u32 gpr, u32 dma_offset, u32 dma_size)
+{
+	switch (cmd) {
+	case CMD_READ:
+		if (vcu_check_reg_base(vcu, addr, 4) == 0)
+			cmdq_pkt_read_addr(pkt, addr, CMDQ_THR_SPR_IDX1);
+		else
+			pr_info("[VCU] CMD_READ wrong addr: 0x%x\n", addr);
+
+		pr_debug("[VCU] %s CMD_READ addr: 0x%x, data: 0x%x, offset: 0x%x, size: 0x%x\n",
+			__func__, addr, data, dma_offset, dma_size);
+	break;
+	case CMD_WRITE:
+		if (vcu_check_reg_base(vcu, addr, 4) == 0)
+			cmdq_pkt_write(pkt, vcu->clt_base, addr, data, mask);
+		else
+			pr_info("[VCU] CMD_WRITE wrong addr: 0x%x 0x%x 0x%x\n",
+				addr, data, mask);
+		pr_debug("[VCU] %s CMD_WRITE addr: 0x%x, data: 0x%x, offset: 0x%x, size: 0x%x\n",
+			__func__, addr, data, dma_offset, dma_size);
+
+	break;
+	case CMD_SEC_WRITE:
+		if (vcu_check_reg_base(vcu, addr, 4) == 0)
+			cmdq_sec_pkt_write_reg(pkt,
+				addr,
+				data,
+				CMDQ_IWC_NMVA_2_MVA,
+				dma_offset,
+				dma_size,
+				0);
+		else
+			pr_info("[VCU] CMD_SEC_WRITE wrong addr: 0x%x 0x%x 0x%x 0x%x\n",
+				addr, data, dma_offset, dma_size);
+	break;
+	case CMD_POLL_REG:
+		if (vcu_check_reg_base(vcu, addr, 4) == 0)
+			cmdq_pkt_poll_addr(pkt, data, addr, mask, gpr);
+		else
+			pr_info("[VCU] CMD_POLL_REG wrong addr: 0x%x 0x%x 0x%x\n",
+				addr, data, mask);
+
+		pr_debug("[VCU] %s CMD_POLL_REG addr: 0x%x, data: 0x%x, offset: 0x%x, size: 0x%x\n",
+			__func__, addr, data, dma_offset, dma_size);
+	break;
+	case CMD_WAIT_EVENT:
+		if (data < GCE_EVENT_MAX)
+			cmdq_pkt_wfe(pkt, vcu->gce_codec_eid[data]);
+		else
+			pr_info("[VCU] %s got wrong eid %llu\n",
+				__func__, data);
+
+		pr_debug("[VCU] %s CMD_WAIT_EVENT\n", __func__);
+
+	break;
+	case CMD_MEM_MV:
+		if ((vcu_check_reg_base(vcu, addr, 4) == 0 ||
+			vcu_check_gce_pa_base(q, addr, 4) != NULL) &&
+			vcu_check_gce_pa_base(q, data, 4) != NULL)
+			cmdq_pkt_mem_move(pkt, vcu->clt_base, addr,
+				data, CMDQ_THR_SPR_IDX1);
+		else
+			pr_info("[VCU] CMD_MEM_MV wrong addr/data: 0x%x 0x%x\n",
+				addr, data);
+		pr_debug("[VCU] %s CMD_MEM_MV\n", __func__);
+	break;
+	case CMD_POLL_ADDR:
+		if (vcu_check_reg_base(vcu, addr, 4) == 0 ||
+			vcu_check_gce_pa_base(q, addr, 4) != NULL)
+			cmdq_pkt_poll_timeout(pkt, data, SUBSYS_NO_SUPPORT,
+				addr, mask, ~0, gpr);
+		else
+			pr_info("[VCU] CMD_POLL_REG wrong addr: 0x%x 0x%x 0x%x\n",
+				addr, data, mask);
+		pr_debug("[VCU] %s CMD_POLL_ADDR\n", __func__);
+	break;
+	default:
+		vcu_dbg_log("[VCU] unknown GCE cmd %d\n", cmd);
+	break;
+	}
+}
+
+static void vcu_set_gce_readstatus_cmd(struct cmdq_pkt *pkt,
+	struct mtk_vcu *vcu, struct mtk_vcu_queue *q, unsigned char cmd,
+	u64 addr, u64 data, u32 mask, u32 gpr, u32 dma_offset, u32 dma_size)
+{
+	switch (cmd) {
+	case CMD_MEM_MV:
+		if ((vcu_check_reg_base(vcu, addr, 4) == 0 ||
+			vcu_check_gce_pa_base(q, addr, 4) != NULL) &&
+			vcu_check_gce_pa_base(q, data, 4) != NULL)
+			cmdq_pkt_mem_move(pkt, vcu->clt_base, addr,
+				data, CMDQ_THR_SPR_IDX1);
+		else
+			pr_info("[VCU] CMD_MEM_MV wrong addr/data: 0x%x 0x%x\n",
+				addr, data);
+	break;
+	default:
+		vcu_dbg_log("[VCU] %s skip GCE cmd %d\n", __func__, cmd);
+	break;
+	}
+}
+
 static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 {
 	int i, j;
@@ -950,9 +1055,13 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 				vcu->gce_job_cnt[i][core_id].counter);
 	if (atomic_dec_and_test(&vcu->gce_job_cnt[i][core_id]) &&
 		vcu->gce_info[j].v4l2_ctx != NULL){
-		if (i == VCU_VENC && vcu->cbf.enc_unprepare != NULL)
+		if (i == VCU_VENC && vcu->cbf.enc_unprepare != NULL) {
 			vcu->cbf.enc_unprepare(vcu->gce_info[j].v4l2_ctx,
 				buff->cmdq_buff.core_id, &vcu->flags[i]);
+
+		if (buff->cmdq_buff.secure != 0)
+			cmdq_sec_mbox_switch_normal(vcu->clt_venc_sec[0]);
+		}
 	}
 
 	mutex_unlock(&vcu->vcu_gce_mutex[i]);
@@ -965,6 +1074,19 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 
 	cmdq_pkt_destroy(buff->pkt_ptr);
 }
+
+
+static void vcu_gce_pkt_destroy(struct cmdq_cb_data data)
+{
+	struct cmdq_pkt *pkt = (struct cmdq_pkt *)data.data;
+
+	if (data.err < 0)
+		pr_info("%s %d pkt:%p err:%d", __func__, __LINE__, pkt, data.err);
+	cmdq_dump_pkt(pkt, 0, true);
+	cmdq_pkt_destroy(pkt);
+	pr_debug("%s: pkt:%#lx", __func__, pkt);
+}
+
 
 static void vcu_gce_timeout_callback(struct cmdq_cb_data data)
 {
@@ -1002,7 +1124,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 	int i, j, ret;
 	unsigned char *user_data_addr = NULL;
 	struct gce_callback_data buff;
-	struct cmdq_pkt *pkt_ptr;
+	struct cmdq_pkt *pkt_ptr, *pkt;
 	struct cmdq_client *cl;
 	struct gce_cmds *cmds;
 	unsigned int suspend_block_cnt = 0;
@@ -1023,15 +1145,18 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 	i = (buff.cmdq_buff.codec_type == VCU_VDEC) ? VCU_VDEC : VCU_VENC;
 	cmds = vcu->gce_cmds[i];
 
-	user_data_addr = (unsigned char *)
-				   (unsigned long)buff.cmdq_buff.cmds_user_ptr;
-	ret = (long)copy_from_user(cmds, user_data_addr,
-				   (unsigned long)sizeof(struct gce_cmds));
-	if (ret != 0L) {
-		pr_info("[VCU] %s(%d) gce_cmds copy_from_user failed!%d\n",
-			__func__, __LINE__, ret);
+	if (buff.cmdq_buff.cmds_user_ptr > 0) {
+		user_data_addr = (unsigned char *)
+			(unsigned long)buff.cmdq_buff.cmds_user_ptr;
+		ret = (long)copy_from_user(cmds, user_data_addr,
+			(unsigned long)sizeof(struct gce_cmds));
+		if (ret != 0L) {
+			pr_info("[VCU] %s(%d) gce_cmds copy_from_user failed!%d\n",
+				__func__, __LINE__, ret);
+			return -EINVAL;
+		}
+	} else
 		return -EINVAL;
-	}
 
 	buff.cmdq_buff.cmds_user_ptr = (u64)(unsigned long)cmds;
 	core_id = buff.cmdq_buff.core_id;
@@ -1048,12 +1173,10 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 		vcu->clt_vdec[core_id] :
 		vcu->clt_venc[core_id];
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	if (buff.cmdq_buff.codec_type == VCU_VENC) {
 		if (buff.cmdq_buff.secure != 0)
 			cl = vcu->clt_venc_sec[0];
 	}
-#endif
 
 	if (cl == NULL) {
 		pr_info("[VCU] %s gce thread is null id %d type %d\n",
@@ -1118,45 +1241,96 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 		ret = -EINVAL;
 	}
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+
 	if (buff.cmdq_buff.codec_type == VCU_VENC) {
 		if (buff.cmdq_buff.secure != 0) {
 			const u64 dapc_engine =
 				(1LL << CMDQ_SEC_VENC_BSDMA) |
 				(1LL << CMDQ_SEC_VENC_CUR_LUMA) |
-				(1LL << CMDQ_SEC_VENC_CUR_CHROMA) |
-				(1LL << CMDQ_SEC_VENC_REF_LUMA) |
-				(1LL << CMDQ_SEC_VENC_REF_CHROMA) |
-				(1LL << CMDQ_SEC_VENC_REC) |
-				(1LL << CMDQ_SEC_VENC_SV_COMV) |
-				(1LL << CMDQ_SEC_VENC_RD_COMV);
+				(1LL << CMDQ_SEC_VENC_CUR_CHROMA);
 
 			const u64 port_sec_engine =
 				(1LL << CMDQ_SEC_VENC_BSDMA) |
 				(1LL << CMDQ_SEC_VENC_CUR_LUMA) |
-				(1LL << CMDQ_SEC_VENC_CUR_CHROMA) |
-				(1LL << CMDQ_SEC_VENC_REF_LUMA) |
-				(1LL << CMDQ_SEC_VENC_REF_CHROMA) |
-				(1LL << CMDQ_SEC_VENC_REC) |
-				(1LL << CMDQ_SEC_VENC_SV_COMV) |
-				(1LL << CMDQ_SEC_VENC_RD_COMV);
+				(1LL << CMDQ_SEC_VENC_CUR_CHROMA);
 
 			pr_debug("[VCU] dapc_engine: 0x%llx, port_sec_engine: 0x%llx\n",
 				dapc_engine, port_sec_engine);
-#if defined(CONFIG_MTK_CMDQ_MBOX_EXT)
 			cmdq_sec_pkt_set_data(pkt_ptr, dapc_engine,
 				port_sec_engine, CMDQ_SEC_KERNEL_CONFIG_GENERAL,
 				CMDQ_METAEX_VENC);
-#endif
+
+
+			// CMDQ MTEE hint
+			cmdq_sec_pkt_set_mtee(pkt_ptr, true);
+
+			//CMDQ SCENARIO hint WFD
+			cmdq_sec_pkt_set_secid(pkt_ptr, SEC_ID_WFD);
+
+
+			pkt = cmdq_pkt_create(vcu->clt_venc[0]);
+			if (IS_ERR_OR_NULL(pkt)) {
+				pr_info("[VCU] %s %d cmdq_pkt_create fail\n", __func__, __LINE__);
+				pkt = NULL;
+			}
+
+			if (pkt != NULL) {
+				cmdq_pkt_wfe(pkt, vcu->cmdq_venc_norm_token);
+				for (i = 0; i < cmds->cmd_cnt; i++) {
+					vcu_set_gce_readstatus_cmd(pkt, vcu, q, cmds->cmd[i],
+					cmds->addr[i], cmds->data[i],
+					cmds->mask[i], vcu->gce_gpr[core_id],
+					cmds->dma_offset[i], cmds->dma_size[i]);
+				}
+				cmdq_pkt_set_event(pkt, vcu->cmdq_venc_sec_token);
+
+				ret = cmdq_pkt_flush_threaded(pkt,
+					vcu_gce_pkt_destroy, (void *)pkt);
+
+				pr_info("[VCU] %s:  pkt %p\n", __func__, pkt);
+
+
+
+				if (ret < 0)
+					pr_info("[VCU] cmdq flush fail pkt %p\n", pkt);
+
+
+			} else
+				pr_info("%s %d submit read status pkt fail", __func__, __LINE__);
 		}
 	}
-#endif
 
-	for (i = 0; i < cmds->cmd_cnt; i++) {
-		vcu_set_gce_cmd(pkt_ptr, vcu, q, cmds->cmd[i],
-			cmds->addr[i], cmds->data[i],
-			cmds->mask[i], vcu->gce_gpr[core_id],
-			cmds->dma_offset[i], cmds->dma_size[i]);
+	if (buff.cmdq_buff.codec_type == VCU_VENC &&
+		buff.cmdq_buff.secure != 0) {
+		for (i = 0; i < cmds->cmd_cnt; i++) {
+			if (cmds->cmd[i]  == CMD_MEM_MV &&
+				 cmds->cmd[i-1] != CMD_MEM_MV) {
+				cmdq_pkt_set_event(pkt_ptr, vcu->cmdq_venc_norm_token);
+				continue;
+			}
+
+			if (cmds->cmd[i] == CMD_MEM_MV &&
+				 cmds->cmd[i+1] != CMD_MEM_MV) {
+				cmdq_pkt_wfe(pkt_ptr, vcu->cmdq_venc_sec_token);
+				continue;
+			}
+
+			if (cmds->cmd[i] == CMD_MEM_MV)
+				continue;
+
+			vcu_set_gce_secure_cmd(pkt_ptr, vcu, q, cmds->cmd[i],
+				cmds->addr[i], cmds->data[i],
+				cmds->mask[i], vcu->gce_gpr[core_id],
+				cmds->dma_offset[i], cmds->dma_size[i]);
+		}
+
+	} else {
+		for (i = 0; i < cmds->cmd_cnt; i++) {
+			vcu_set_gce_cmd(pkt_ptr, vcu, q, cmds->cmd[i],
+				cmds->addr[i], cmds->data[i],
+				cmds->mask[i], vcu->gce_gpr[core_id],
+				cmds->dma_offset[i], cmds->dma_size[i]);
+		}
 	}
 
 	i = buff.cmdq_buff.flush_order % GCE_PENDING_CNT;
@@ -1166,16 +1340,18 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 		(buff.cmdq_buff.secure == 0)?vcu_gce_timeout_callback:NULL;
 	pkt_ptr->err_cb.data = (void *)&vcu_ptr->gce_info[j].buff[i];
 
-	pr_debug("[VCU][%d] %s: buff %p type %d cnt %d order %d hndl %llx %d %d\n",
+	pr_debug("[VCU][%d] %s: buff %p type %d cnt %d order %d pkt %p hndl %llx %d %d\n",
 		core_id, __func__, &vcu_ptr->gce_info[j].buff[i],
 		buff.cmdq_buff.codec_type,
-		cmds->cmd_cnt, buff.cmdq_buff.flush_order,
+		cmds->cmd_cnt, buff.cmdq_buff.flush_order, pkt_ptr,
 		buff.cmdq_buff.gce_handle, ret, j);
 
 	/* flush cmd async */
-	cmdq_pkt_flush_threaded(pkt_ptr,
+	ret = cmdq_pkt_flush_threaded(pkt_ptr,
 		vcu_gce_flush_callback, (void *)&vcu_ptr->gce_info[j].buff[i]);
 
+	if (ret < 0)
+		pr_info("[VCU] cmdq flush fail pkt %p\n", pkt_ptr);
 	atomic_inc(&vcu_ptr->gce_info[j].flush_pending);
 	time_check_end(100, strlen(vcodec_param_string));
 
@@ -2587,11 +2763,20 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	for (i = 0; i < vcu->gce_th_num[VCU_VENC]; i++)
 		vcu->clt_venc[i] = cmdq_mbox_create(dev, i + vcu->gce_th_num[VCU_VDEC]);
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	if (vcu->gce_th_num[VCU_VENC] > 0)
 		vcu->clt_venc_sec[0] =
 		    cmdq_mbox_create(dev, vcu->gce_th_num[VCU_VDEC] + vcu->gce_th_num[VCU_VENC]);
-#endif
+
+	ret = of_property_read_u16(pdev->dev.of_node, "gce_norm_token",
+		&vcu->cmdq_venc_norm_token);
+	if (ret < 0)
+		dev_info(dev, "[VCU] get cmdq normal token fail (ret=%d)", ret);
+
+	ret = of_property_read_u16(pdev->dev.of_node, "gce_sec_token",
+		&vcu->cmdq_venc_sec_token);
+	if (ret < 0) {
+		dev_info(dev, "[VCU] get cmdq secure token fail (ret=%d)", ret);
+	}
 
 	dev_dbg(dev, "[VCU] GCE clt_base %p clt_vdec %d %p %p clt_venc %d %p %p %p dev %p",
 		vcu->clt_base, vcu->gce_th_num[VCU_VDEC],

@@ -226,6 +226,7 @@ struct venc_ap_ipi_msg_enc {
 	__u8 fb_num_planes;
 	__u8 bs_mode;
 	__u32 meta_size;
+	__u32 sec_mem_handle;
 };
 
 /**

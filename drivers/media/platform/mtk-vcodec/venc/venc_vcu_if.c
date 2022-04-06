@@ -13,6 +13,8 @@
 #include "mtk_vcodec_intr.h"
 #include "mtk_vcodec_enc_pm.h"
 #include "mtk_vcodec_enc.h"
+#include "mtk_heap.h"
+
 
 static void handle_enc_init_msg(struct venc_vcu_inst *vcu, void *data)
 {
@@ -624,6 +626,13 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 		out.bs_addr = bs_buf->dma_addr;
 		vsi->venc.bs_dma = bs_buf->dma_addr;
 		out.bs_size = bs_buf->size;
+
+		if (vsi->config.svp_mode) {
+			out.sec_mem_handle = dmabuf_to_secure_handle(bs_buf->dmabuf);
+			pr_info("%s %d out.sec_mem_handle 0x%x", __func__,
+				 __LINE__, out.sec_mem_handle);
+		}
+
 		mtk_vcodec_debug(vcu, " output (dma:%lx)",
 			(unsigned long)bs_buf->dmabuf);
 	}
