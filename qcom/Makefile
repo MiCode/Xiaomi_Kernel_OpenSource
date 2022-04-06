@@ -323,17 +323,17 @@ dtbo-$(CONFIG_ARCH_PARROT) += parrot-rumi-overlay.dtbo \
 	parrot-qrd-wcn6750-overlay.dtbo \
 	parrot-qrd-nopmi-overlay.dtbo
 
-parrot-rumi-overlay.dtbo-base := parrot.dtb
-parrot-atp-overlay.dtbo-base := parrot.dtb
-parrot-idp-overlay.dtbo-base := parrot.dtb
-parrot-idp-wcn3990-overlay.dtbo-base := parrot.dtb
-parrot-idp-wcn3990-amoled-rcm-overlay.dtbo-base := parrot.dtb
-parrot-idp-wcn6750-amoled-rcm-overlay.dtbo-base := parrot.dtb
-parrot-idp-wcn6750-amoled-overlay.dtbo-base := parrot.dtb
-parrot-idp-nopmi-overlay.dtbo-base := parrot.dtb
-parrot-qrd-overlay.dtbo-base := parrot.dtb
-parrot-qrd-wcn6750-overlay.dtbo-base := parrot.dtb
-parrot-qrd-nopmi-overlay.dtbo-base := parrot.dtb
+parrot-rumi-overlay.dtbo-base := parrot-wcn3990.dtb
+parrot-atp-overlay.dtbo-base := parrot-wcn3990.dtb
+parrot-idp-overlay.dtbo-base := parrot-wcn6750.dtb
+parrot-idp-wcn3990-overlay.dtbo-base := parrot-wcn3990.dtb
+parrot-idp-wcn3990-amoled-rcm-overlay.dtbo-base := parrot-wcn3990.dtb
+parrot-idp-wcn6750-amoled-rcm-overlay.dtbo-base := parrot-wcn6750.dtb
+parrot-idp-wcn6750-amoled-overlay.dtbo-base := parrot-wcn6750.dtb
+parrot-idp-nopmi-overlay.dtbo-base := parrot-wcn6750.dtb
+parrot-qrd-overlay.dtbo-base := parrot-wcn3990.dtb
+parrot-qrd-wcn6750-overlay.dtbo-base := parrot-wcn6750.dtb
+parrot-qrd-nopmi-overlay.dtbo-base := parrot-wcn3990.dtb
 else
 dtb-$(CONFIG_ARCH_PARROT) += parrot-rumi.dtb \
 	parrot-atp.dtb \
