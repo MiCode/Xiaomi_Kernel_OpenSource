@@ -662,7 +662,7 @@
 					/*x0_lsb is of data[1] bit16 */
 					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X0_LSB_BIT 03 01 10 00],
 					/*x1_msb is of data[1] bit24 */
-					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X1_MSB_BIT  03 01 24 00],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X1_MSB_BIT  03 01 18 00],
 					/*x0_lsb is of data[2] bit0 */
 					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_X1_LSB_BIT  03 02 00 00],
 					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
@@ -676,7 +676,7 @@
 					/*y0_lsb is of data[1] bit16 */
 					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y0_LSB_BIT  03 01 10 00],
 					/*y1_msb is of data[1] bit24 */
-					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y1_MSB_BIT  03 01 24 00],
+					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y1_MSB_BIT  03 01 18 00],
 					/*y0_lsb is of data[2] bit0 */
 					[MTK_LCM_LK_TYPE_HEX_PREPARE_PARAM_Y1_LSB_BIT  03 02 00 00],
 					[MTK_LCM_LK_TYPE_HEX_WRITE_PARAM 00],
