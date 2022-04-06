@@ -261,24 +261,6 @@ static void mtk_atomic_schedule(struct mtk_drm_private *private,
 	schedule_work(&private->commit.work);
 }
 
-static bool mtk_atomic_skip_config(struct drm_atomic_state *state)
-{
-	struct drm_crtc *crtc;
-	struct drm_crtc_state *old_crtc_state;
-	int i, index;
-
-	for_each_old_crtc_in_state(state, crtc, old_crtc_state, i) {
-		struct mtk_crtc_state *mtk_state =
-			to_mtk_crtc_state(crtc->state);
-		if (mtk_state->prop_val[CRTC_PROP_SKIP_CONFIG]) {
-			index = drm_crtc_index(crtc);
-			DDPINFO("crtc%d SKIP CONFIG\n", index);
-			return true;
-		}
-	}
-	return false;
-}
-
 static void mtk_atomic_wait_for_fences(struct drm_atomic_state *state)
 {
 	struct drm_plane *plane;
@@ -1370,11 +1352,6 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 {
 	struct drm_device *drm = private->drm;
 
-	if (mtk_atomic_skip_config(state)) {
-		drm_atomic_helper_commit_planes(drm, state,
-			DRM_PLANE_COMMIT_ACTIVE_ONLY);
-		return;
-	}
 	mtk_atomic_wait_for_fences(state);
 
 	/*
