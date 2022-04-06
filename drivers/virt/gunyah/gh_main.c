@@ -18,6 +18,7 @@
 #include <linux/gunyah.h>
 
 #include "gh_secure_vm_loader.h"
+#include "gh_proxy_sched.h"
 #include "gh_private.h"
 
 #define MAX_VCPU_NAME	20 /* gh-vcpu:u32_max +1 */
@@ -81,6 +82,7 @@ static void gh_notif_vm_exited(struct gh_vm *vm,
 	mutex_lock(&vm->vm_lock);
 	vm->exit_type = vm_exited->exit_type;
 	vm->status.vm_status = GH_RM_VM_STATUS_EXITED;
+	gh_wakeup_all_vcpus(vm->vmid);
 	wake_up_interruptible(&vm->vm_status_wait);
 	mutex_unlock(&vm->vm_lock);
 }
@@ -263,6 +265,7 @@ static int gh_vcpu_release(struct inode *inode, struct file *filp)
 
 static int gh_vcpu_ioctl_run(struct gh_vcpu *vcpu)
 {
+	struct gh_hcall_vcpu_run_resp vcpu_run;
 	struct gh_vm *vm = vcpu->vm;
 	int ret = 0;
 
@@ -281,6 +284,16 @@ static int gh_vcpu_ioctl_run(struct gh_vcpu *vcpu)
 	}
 
 	vm->vm_run_once = true;
+
+	if (vm->is_secure_vm &&
+		vm->created_vcpus != vm->allowed_vcpus) {
+		pr_err("VCPUs created %d doesn't match with allowed %d for VM %d\n",
+			vm->created_vcpus, vm->allowed_vcpus,
+							vm->vmid);
+		ret = -EINVAL;
+		mutex_unlock(&vm->vm_lock);
+		return ret;
+	}
 
 	if (vm->status.vm_status != GH_RM_VM_STATUS_READY) {
 		pr_err("VM:%d not ready to start\n", vm->vmid);
@@ -302,6 +315,18 @@ static int gh_vcpu_ioctl_run(struct gh_vcpu *vcpu)
 	mutex_unlock(&vm->vm_lock);
 
 start_vcpu_run:
+	/*
+	 * proxy scheduling APIs
+	 */
+	if (gh_vm_supports_proxy_sched(vm->vmid)) {
+		ret = gh_vcpu_run(vm->vmid, vcpu->vcpu_id,
+						0, 0, 0, &vcpu_run);
+		if (ret < 0) {
+			pr_err("Failed vcpu_run %d\n", ret);
+			return ret;
+		}
+	}
+
 	ret = gh_wait_for_vm_status(vm, GH_RM_VM_STATUS_EXITED);
 	if (ret)
 		return ret;
@@ -336,6 +361,17 @@ static const struct file_operations gh_vcpu_fops = {
 	.release = gh_vcpu_release,
 	.llseek = noop_llseek,
 };
+
+static int gh_vm_ioctl_get_vcpu_count(struct gh_vm *vm)
+{
+	if (!vm->is_secure_vm)
+		return -EINVAL;
+
+	if (vm->status.vm_status != GH_RM_VM_STATUS_READY)
+		return -EAGAIN;
+
+	return vm->allowed_vcpus;
+}
 
 static long gh_vm_ioctl_create_vcpu(struct gh_vm *vm, u32 id)
 {
@@ -484,6 +520,7 @@ long gh_vm_configure(u16 auth_mech, u64 image_offset,
 {
 	struct gh_vm_auth_param_entry entry;
 	long ret = -EINVAL;
+	int nr_vcpus = 0;
 
 	switch (auth_mech) {
 	case GH_VM_AUTH_PIL_ELF:
@@ -530,6 +567,20 @@ long gh_vm_configure(u16 auth_mech, u64 image_offset,
 		return ret;
 	}
 
+	if (vm->is_secure_vm) {
+		nr_vcpus = gh_get_nr_vcpus(vm->vmid);
+
+		if (nr_vcpus < 0) {
+			pr_err("Failed to get vcpu count for vm %d ret%d\n",
+				vm->vmid, nr_vcpus);
+			ret = nr_vcpus;
+			return ret;
+		} else if (!nr_vcpus) /* Hypervisor scheduled case when at least 1 vcpu is needed */
+			nr_vcpus = 1;
+
+		vm->allowed_vcpus = nr_vcpus;
+	}
+
 	return ret;
 }
 
@@ -548,6 +599,9 @@ static long gh_vm_ioctl(struct file *filp,
 		break;
 	case GH_VM_GET_FW_NAME:
 		ret = gh_vm_ioctl_get_fw_name(vm, arg);
+		break;
+	case GH_VM_GET_VCPU_COUNT:
+		ret = gh_vm_ioctl_get_vcpu_count(vm);
 		break;
 	default:
 		pr_err("Invalid gunyah VM ioctl 0x%lx\n", cmd);
@@ -686,6 +740,10 @@ static int __init gh_init(void)
 	if (ret)
 		pr_err("gunyah: secure loader init failed %d\n", ret);
 
+	ret = gh_proxy_sched_init();
+	if (ret)
+		pr_err("gunyah: proxy scheduler init failed %d\n", ret);
+
 	ret = misc_register(&gh_dev);
 	if (ret) {
 		pr_err("gunyah: misc device register failed %d\n", ret);
@@ -695,6 +753,7 @@ static int __init gh_init(void)
 	return ret;
 
 err_gh_init:
+	gh_proxy_sched_exit();
 	gh_secure_vm_loader_exit();
 	return 0;
 }
@@ -703,6 +762,7 @@ module_init(gh_init);
 static void __exit gh_exit(void)
 {
 	misc_deregister(&gh_dev);
+	gh_proxy_sched_exit();
 	gh_secure_vm_loader_exit();
 }
 module_exit(gh_exit);

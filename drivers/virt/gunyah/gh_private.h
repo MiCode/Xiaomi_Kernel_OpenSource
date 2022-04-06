@@ -25,6 +25,7 @@ struct gh_vm {
 	bool is_secure_vm; /* is true for Qcom authenticated secure VMs */
 	bool vm_run_once;
 	u32 created_vcpus;
+	u32 allowed_vcpus;
 	gh_vmid_t vmid;
 	struct gh_vcpu *vcpus[GH_MAX_VCPUS];
 	char fw_name[GH_VM_FW_NAME_MAX];

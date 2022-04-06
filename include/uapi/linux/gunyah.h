@@ -97,6 +97,15 @@ struct gh_fw_name {
  *         successful, -errno on failure
  */
 #define GH_VM_GET_FW_NAME		_IOR(GH_IOCTL_TYPE, 0x42, struct gh_fw_name)
+/**
+ * GH_VM_GET_VCPU_COUNT - Userspace can use this IOCTL to query the number
+ *			  of vcpus that are supported for the VM. Userspace
+ *			  can further use this count to create VCPUs.
+ *
+ * Return: nr_vcpus for proxy scheduled VMs, 1 for hypervisor scheduled VMs,
+ *         -errno on failure
+ */
+#define GH_VM_GET_VCPU_COUNT		_IO(GH_IOCTL_TYPE, 0x43)
 /*
  * ioctls for vcpu fd.
  */
