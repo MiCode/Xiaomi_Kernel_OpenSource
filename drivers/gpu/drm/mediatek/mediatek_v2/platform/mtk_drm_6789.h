@@ -138,6 +138,7 @@ extern const struct mtk_disp_ddp_data mt6789_ddp_driver_data;
 extern const struct mtk_mmsys_reg_data mt6789_mmsys_reg_data;
 // mipi_tx
 extern const struct mtk_mipitx_data mt6789_mipitx_data;
+extern const struct mtk_mipitx_data mt6789_mipitx_cphy_data;
 
 // ddp
 int mtk_ddp_mout_en_MT6789(const struct mtk_mmsys_reg_data *data,
