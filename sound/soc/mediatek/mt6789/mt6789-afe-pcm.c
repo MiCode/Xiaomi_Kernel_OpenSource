@@ -27,9 +27,6 @@
 #include "mt6789-afe-clk.h"
 #include "mt6789-afe-gpio.h"
 #include "mt6789-interconnection.h"
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-#include "../audio_dsp/mtk-dsp-common.h"
-#endif
 
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
 #if !defined(SKIP_SB)
@@ -932,142 +929,6 @@ static int mt6789_vow_barge_in_irq_id_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-static int mt6789_adsp_ref_mem_get(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mtk_base_afe_memif *memif;
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_CAPTURE_UL1_ID,
-					  ADSP_TASK_ATTR_MEMREF);
-	if (memif_num < 0)
-		return 0;
-
-	memif = &afe->memif[memif_num];
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-
-	return 0;
-}
-
-static int mt6789_adsp_ref_mem_set(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mtk_base_afe_memif *memif;
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_CAPTURE_UL1_ID,
-					  ADSP_TASK_ATTR_MEMREF);
-	if (memif_num < 0)
-		return 0;
-
-	memif = &afe->memif[memif_num];
-	memif->use_adsp_share_mem = ucontrol->value.integer.value[0];
-
-	return 0;
-}
-
-static int mt6789_adsp_mem_get(struct snd_kcontrol *kcontrol,
-			       struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mtk_base_afe_memif *memif;
-	int memif_num = -1;
-	int task_id = get_dsp_task_id_from_str(kcontrol->id.name);
-
-	switch (task_id) {
-	case AUDIO_TASK_PRIMARY_ID:
-	case AUDIO_TASK_DEEPBUFFER_ID:
-	case AUDIO_TASK_FAST_ID:
-	case AUDIO_TASK_OFFLOAD_ID:
-	case AUDIO_TASK_PLAYBACK_ID:
-	case AUDIO_TASK_CALL_FINAL_ID:
-	case AUDIO_TASK_KTV_ID:
-	case AUDIO_TASK_VOIP_ID:
-		memif_num = get_dsp_task_attr(task_id,
-					      ADSP_TASK_ATTR_MEMDL);
-		break;
-	case AUDIO_TASK_CAPTURE_UL1_ID:
-	case AUDIO_TASK_FM_ADSP_ID:
-		memif_num = get_dsp_task_attr(task_id,
-					      ADSP_TASK_ATTR_MEMUL);
-		break;
-	default:
-		pr_info("%s(), task_id %d do not use shared mem\n",
-			__func__, task_id);
-		break;
-	};
-
-	if (memif_num < 0)
-		return 0;
-
-	memif = &afe->memif[memif_num];
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-
-	return 0;
-}
-
-static int mt6789_adsp_mem_set(struct snd_kcontrol *kcontrol,
-			       struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mtk_base_afe_memif *memif;
-	int dl_memif_num = -1;
-	int ul_memif_num = -1;
-	int ref_memif_num = -1;
-	int task_id = get_dsp_task_id_from_str(kcontrol->id.name);
-
-	switch (task_id) {
-	case AUDIO_TASK_PRIMARY_ID:
-	case AUDIO_TASK_DEEPBUFFER_ID:
-	case AUDIO_TASK_FAST_ID:
-	case AUDIO_TASK_OFFLOAD_ID:
-	case AUDIO_TASK_VOIP_ID:
-		dl_memif_num = get_dsp_task_attr(task_id,
-						 ADSP_TASK_ATTR_MEMDL);
-		break;
-	case AUDIO_TASK_CAPTURE_UL1_ID:
-	case AUDIO_TASK_FM_ADSP_ID:
-		ul_memif_num = get_dsp_task_attr(task_id,
-						 ADSP_TASK_ATTR_MEMUL);
-		break;
-	case AUDIO_TASK_CALL_FINAL_ID:
-	case AUDIO_TASK_PLAYBACK_ID:
-	case AUDIO_TASK_KTV_ID:
-		dl_memif_num = get_dsp_task_attr(task_id,
-						 ADSP_TASK_ATTR_MEMDL);
-		ul_memif_num = get_dsp_task_attr(task_id,
-						 ADSP_TASK_ATTR_MEMUL);
-		ref_memif_num = get_dsp_task_attr(task_id,
-						  ADSP_TASK_ATTR_MEMREF);
-		break;
-	default:
-		pr_info("%s(), task_id %d do not use shared mem\n",
-			__func__, task_id);
-		break;
-	};
-
-	if (dl_memif_num >= 0) {
-		memif = &afe->memif[dl_memif_num];
-		memif->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	}
-
-	if (ul_memif_num >= 0) {
-		memif = &afe->memif[ul_memif_num];
-		memif->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	}
-
-	if (ref_memif_num >= 0) {
-		memif = &afe->memif[ref_memif_num];
-		memif->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	}
-
-	return 0;
-}
-#endif
-
 static int mt6789_mmap_dl_scene_get(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
@@ -1234,52 +1095,6 @@ static const struct snd_kcontrol_new mt6789_pcm_kcontrols[] = {
 		       mt6789_sram_size_get, NULL),
 	SOC_SINGLE_EXT("vow_barge_in_irq_id", SND_SOC_NOPM, 0, 0x3ffff, 0,
 			   mt6789_vow_barge_in_irq_id_get, NULL),
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	SOC_SINGLE_EXT("adsp_primary_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6789_adsp_mem_get,
-		       mt6789_adsp_mem_set),
-	SOC_SINGLE_EXT("adsp_deepbuffer_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6789_adsp_mem_get,
-		       mt6789_adsp_mem_set),
-	SOC_SINGLE_EXT("adsp_voip_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6789_adsp_mem_get,
-		       mt6789_adsp_mem_set),
-	SOC_SINGLE_EXT("adsp_playback_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6789_adsp_mem_get,
-		       mt6789_adsp_mem_set),
-	SOC_SINGLE_EXT("adsp_call_final_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6789_adsp_mem_get,
-		       mt6789_adsp_mem_set),
-	SOC_SINGLE_EXT("adsp_ktv_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6789_adsp_mem_get,
-		       mt6789_adsp_mem_set),
-	SOC_SINGLE_EXT("adsp_fm_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6789_adsp_mem_get,
-		       mt6789_adsp_mem_set),
-	SOC_SINGLE_EXT("adsp_offload_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6789_adsp_mem_get,
-		       mt6789_adsp_mem_set),
-	SOC_SINGLE_EXT("adsp_capture_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6789_adsp_mem_get,
-		       mt6789_adsp_mem_set),
-	SOC_SINGLE_EXT("adsp_ref_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6789_adsp_ref_mem_get,
-		       mt6789_adsp_ref_mem_set),
-	SOC_SINGLE_EXT("adsp_fast_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6789_adsp_mem_get,
-		       mt6789_adsp_mem_set),
-#endif
 	SOC_SINGLE_EXT("mmap_play_scenario", SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6789_mmap_dl_scene_get, mt6789_mmap_dl_scene_set),
 	SOC_SINGLE_EXT("mmap_record_scenario", SND_SOC_NOPM, 0, 0x1, 0,
@@ -5844,10 +5659,6 @@ static int mt6789_afe_pcm_dev_probe(struct platform_device *pdev)
 		dev_warn(dev, "afe component err: %d\n", ret);
 		goto err_pm_disable;
 	}
-
-#if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	audio_set_dsp_afe(afe);
-#endif
 
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
 #if !defined(SKIP_SB)
