@@ -920,6 +920,10 @@ static int rt5512_component_aif_hw_free(struct snd_pcm_substream *substream,
 	char *tmp = "SPK";
 
 	dev_info(dai->dev, "%s\n", __func__);
+
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+		return 0;
+
 	ret = snd_soc_dapm_disable_pin(dapm, tmp);
 	if (ret < 0)
 		return ret;
