@@ -303,12 +303,9 @@ int slbc_request(struct slbc_data *d)
 		d->size = SLBC_WAY_SIZE * popcount(d->slot_used);
 		if (!d->paddr)
 			ret = -1;
-	}
-
-	if ((d->type) == TP_CACHE)
+	} else if ((d->type) == TP_CACHE)
 		ret = slbc_request_cache(d);
-
-	if ((d->type) == TP_ACP)
+	else if ((d->type) == TP_ACP)
 		ret = slbc_request_acp(d);
 
 	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%lx size 0x%lx\n",
@@ -417,12 +414,9 @@ int slbc_release(struct slbc_data *d)
 	if ((d->type) == TP_BUFFER) {
 		ret = slbc_release_buffer(d);
 		d->size = 0;
-	}
-
-	if ((d->type) == TP_CACHE)
+	} else if ((d->type) == TP_CACHE)
 		ret = slbc_release_cache(d);
-
-	if ((d->type) == TP_ACP)
+	else if ((d->type) == TP_ACP)
 		ret = slbc_release_acp(d);
 
 	pr_info("#@# %s(%d) uid 0x%x ret %d d->ret %d pa 0x%lx size 0x%lx\n",
