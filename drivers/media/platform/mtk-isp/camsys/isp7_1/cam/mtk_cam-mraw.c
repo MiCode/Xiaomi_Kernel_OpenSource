@@ -1194,6 +1194,9 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 				buf_entry->mraw_cq_desc_size,
 				buf_entry->mraw_cq_desc_offset, 0);
 		} else {
+			if (watchdog_scenario(ctx))
+				mtk_ctx_watchdog_stop(ctx,
+					mraw_dev->id + MTKCAM_SUBDEV_MRAW_START);
 			mtk_cam_mraw_vf_on(mraw_dev, 0);
 		}
 	}
@@ -1246,6 +1249,9 @@ int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx,
 					buf_entry->mraw_cq_desc_size,
 					buf_entry->mraw_cq_desc_offset, 0);
 			} else {
+				if (watchdog_scenario(ctx))
+					mtk_ctx_watchdog_stop(ctx,
+						mraw_dev->id + MTKCAM_SUBDEV_MRAW_START);
 				mtk_cam_mraw_vf_on(mraw_dev, 0);
 			}
 			break;
@@ -1867,12 +1873,19 @@ int mtk_cam_mraw_dev_stream_on(
 			break;
 		}
 
-	if (streaming)
+	if (streaming) {
 		ret = mtk_cam_mraw_cq_enable(ctx, mraw_dev) ||
 			mtk_cam_mraw_top_enable(mraw_dev);
+		if (watchdog_scenario(ctx) && mraw_dev->is_enqueued)
+			mtk_ctx_watchdog_start(ctx, 4,
+				mraw_dev->id + MTKCAM_SUBDEV_MRAW_START);
+	}
 	else {
 		/* reset enqueued status */
 		mraw_dev->is_enqueued = 0;
+		if (watchdog_scenario(ctx))
+			mtk_ctx_watchdog_stop(ctx,
+				mraw_dev->id + MTKCAM_SUBDEV_MRAW_START);
 
 		ret = mtk_cam_mraw_top_disable(mraw_dev) ||
 			mtk_cam_mraw_cq_disable(mraw_dev) ||
@@ -2267,6 +2280,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	/* Frame start */
 	if (irq_status & MRAWCTL_SOF_INT_ST) {
 		irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_START);
+		mraw_dev->last_sof_time_ns = irq_info.ts_ns;
 		mraw_dev->sof_count++;
 		dev_dbg(dev, "sof block cnt:%d\n", mraw_dev->sof_count);
 	}
