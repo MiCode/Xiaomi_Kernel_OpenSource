@@ -242,6 +242,8 @@ static int board_ntc_get_temp(void *data, int *temp)
 		} else
 			dev_err(ntc_info->dev, "TIA data invalid, 0x%x\n", val);
 
+		*temp = THERMAL_TEMP_INVALID;
+
 		return -EAGAIN;
 	}
 
