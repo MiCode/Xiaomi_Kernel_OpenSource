@@ -4190,6 +4190,8 @@
 				<&gce CMDQ_EVENT_VENC_SPS_DONE>;
 
 			gce-gpr = <GCE_GPR_R10>, <GCE_GPR_R11>;
+			gce_norm_token = /bits/ 16 <CMDQ_SYNC_TOKEN_VENC_NORM_LOCK>;
+			gce_sec_token = /bits/ 16 <CMDQ_SYNC_TOKEN_VENC_SEC_LOCK>;
 		};
 
 		vcu_iommu_venc {
@@ -5315,7 +5317,7 @@
 			mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
 			mboxes = <&gce_m 14 0 CMDQ_THR_PRIO_1>,
 				 <&gce 14 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
-				 <&gce_m_sec 12 0 CMDQ_THR_PRIO_1>;
+				 <&gce_m_sec 8 0 CMDQ_THR_PRIO_1>;
 			token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 			token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 		};
