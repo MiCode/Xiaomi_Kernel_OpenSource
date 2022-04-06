@@ -2950,8 +2950,6 @@ void mtk_camsys_composed_delay_enque(struct mtk_raw_device *raw_dev,
 
 		/* Transit state from Sensor -> CQ */
 		if (ctx->sensor) {
-			/* update qos bw */
-			mtk_cam_qos_bw_calc(ctx, req_stream_data->raw_dmas, false);
 			if (mtk_cam_is_subsample(ctx))
 				state_transition(&req_stream_data->state,
 				E_STATE_SUBSPL_READY, E_STATE_SUBSPL_SCQ);
@@ -2968,6 +2966,10 @@ void mtk_camsys_composed_delay_enque(struct mtk_raw_device *raw_dev,
 		spin_unlock(&sensor_ctrl->camsys_state_lock);
 		spin_unlock(&ctx->processing_buffer_list.lock);
 		spin_unlock(&ctx->composed_buffer_list.lock);
+		if (ctx->sensor)
+			/* update qos bw */
+			mtk_cam_qos_bw_calc(ctx, req_stream_data->raw_dmas, false);
+
 	}
 
 	if (mtk_cam_is_with_w_channel(ctx) && is_apply) {
