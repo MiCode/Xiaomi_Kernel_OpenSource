@@ -257,33 +257,11 @@ static void ps5170_mux_set_work(struct work_struct *data)
 			dev_info(ps->dev, "%s Pin Assignment not support\n", __func__);
 			break;
 		}
-	} else if (ps->mode == TCP_NOTIFY_AMA_DP_HPD_STATE) {
-		uint8_t irq = dp_data.ama_dp_hpd_state.irq;
-		uint8_t state = dp_data.ama_dp_hpd_state.state;
-
-		dev_info(ps->dev, "TCP_NOTIFY_AMA_DP_HPD_STATE irq:%x state:%x\n",
-			irq, state);
-		/* Call DP API */
-		dev_info(ps->dev, "[%s][%d]\n", __func__, __LINE__);
-#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
-		if (state) {
-			if (irq)
-				mtk_dp_SWInterruptSet(0x8);
-			else
-				mtk_dp_SWInterruptSet(0x4);
-		} else {
-			mtk_dp_SWInterruptSet(0x2);
-		}
-#endif
 	} else if (ps->mode == TCP_NOTIFY_TYPEC_STATE) {
 		if ((dp_data.typec_state.old_state == TYPEC_ATTACHED_SRC ||
 			dp_data.typec_state.old_state == TYPEC_ATTACHED_SNK) &&
 			dp_data.typec_state.new_state == TYPEC_UNATTACHED) {
-			/* Call DP Event API Ready */
 			dev_info(ps->dev, "Plug Out\n");
-#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
-			mtk_dp_SWInterruptSet(0x2);
-#endif
 			ps5170_set_conf(ps, 0, 0);
 		}
 	}
