@@ -18,7 +18,7 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/kthread.h>
-//#include <trace/hooks/logbuf.h>
+#include <trace/hooks/logbuf.h>
 #include <printk/printk_ringbuffer.h>
 
 #include "aee.h"
@@ -138,11 +138,19 @@ void set_logtoomuch_enable(void)
 {
 	logmuch_enable = true;
 }
+EXPORT_SYMBOL_GPL(set_logtoomuch_enable);
 
 void set_logtoomuch_disable(void)
 {
 	logmuch_enable = false;
 }
+EXPORT_SYMBOL_GPL(set_logtoomuch_disable);
+
+bool get_logtoomuch_status(void)
+{
+	return logmuch_enable;
+}
+EXPORT_SYMBOL_GPL(get_logtoomuch_status);
 
 void set_detect_count(int val)
 {
@@ -162,8 +170,13 @@ EXPORT_SYMBOL_GPL(set_detect_count);
 
 int get_detect_count(void)
 {
-	pr_info("get log_much detect value %d.\n", detect_count);
-	return detect_count;
+	pr_info("get log_much detect value %d,get log_much detect after value %d.\n",
+		detect_count, detect_count_after);
+
+	if (detect_count_after_effect_flag)
+		return detect_count_after;
+	else
+		return detect_count;
 }
 EXPORT_SYMBOL_GPL(get_detect_count);
 
@@ -281,6 +294,23 @@ int get_detect_count(void)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(get_detect_count);
+void set_logtoomuch_enable(void)
+{
+
+}
+EXPORT_SYMBOL_GPL(set_logtoomuch_enable);
+
+void set_logtoomuch_disable(void)
+{
+
+}
+EXPORT_SYMBOL_GPL(set_logtoomuch_disable);
+
+bool get_logtoomuch_status(void)
+{
+	return false;
+}
+EXPORT_SYMBOL_GPL(get_logtoomuch_status);
 #endif
 
 
@@ -311,33 +341,31 @@ static int mt_printk_ctrl_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-//#if !IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
+#if !IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
 /*
  * register_trace_android_vh_printk_logbuf function, don't call printk/pr_xx to
  * printk log, or will into infinite loop
  */
-/*
- * #define CPU_INDEX (100000)
- * #define UART_INDEX (1000000)
- * static void mt_printk_logbuf(void *data, struct printk_ringbuffer *rb,
- *	struct printk_record *r)
- * {
- *	if (r->info->caller_id  & 0x80000000) {
- *		r->info->caller_id = ((r->info->caller_id & 0xFF) * CPU_INDEX)
- *			| task_pid_nr(current) | 0x80000000;
- *	} else {
- */
+
+#define CPU_INDEX (100000)
+#define UART_INDEX (1000000)
+static void mt_printk_logbuf(void *data, struct printk_ringbuffer *rb,
+	struct printk_record *r)
+{
+	if (r->info->caller_id  & 0x80000000) {
+		r->info->caller_id = ((r->info->caller_id & 0xFF) * CPU_INDEX)
+			| task_pid_nr(current) | 0x80000000;
+	} else {
 		/* max pid 0x8000 -> 32768 */
-/*
- *		r->info->caller_id = r->info->caller_id + (raw_smp_processor_id() * CPU_INDEX);
- *	}
- *#if IS_ENABLED(CONFIG_MTK_PRINTK_UART_CONSOLE)
- *	if (printk_ctrl_disable != 1)
- *		r->info->caller_id = r->info->caller_id + UART_INDEX;
- *#endif
- *}
- *#endif
- */
+		r->info->caller_id = r->info->caller_id + (raw_smp_processor_id() * CPU_INDEX);
+	}
+#if IS_ENABLED(CONFIG_MTK_PRINTK_UART_CONSOLE)
+	if (printk_ctrl_disable != 1)
+		r->info->caller_id = r->info->caller_id + UART_INDEX;
+#endif
+}
+#endif
+
 static ssize_t mt_printk_ctrl_write(struct file *filp,
 	const char *ubuf, size_t cnt, loff_t *data)
 {
@@ -416,11 +444,11 @@ static int __init mt_printk_ctrl_init(void)
 	entry = proc_create("mtprintk", 0664, NULL, &mt_printk_ctrl_fops);
 	if (!entry)
 		return -ENOMEM;
-/*
- *#if !IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
- *	register_trace_android_vh_logbuf(mt_printk_logbuf, NULL);
- *#endif
- */
+
+#if !IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
+	register_trace_android_vh_logbuf(mt_printk_logbuf, NULL);
+#endif
+
 #if IS_ENABLED(CONFIG_LOG_TOO_MUCH_WARNING)
 	logmuch_entry = proc_create("log_much", 0444, NULL, &log_much_ops);
 	if (!logmuch_entry) {
@@ -441,11 +469,11 @@ static void __exit mt_printk_ctrl_exit(void)
 {
 	if (entry)
 		proc_remove(entry);
-/*
- *#if !IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
- *	unregister_trace_android_vh_logbuf(mt_printk_logbuf, NULL);
- *#endif
- */
+
+#if !IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
+	unregister_trace_android_vh_logbuf(mt_printk_logbuf, NULL);
+#endif
+
 #if IS_ENABLED(CONFIG_LOG_TOO_MUCH_WARNING)
 	if (logmuch_entry)
 		proc_remove(logmuch_entry);
