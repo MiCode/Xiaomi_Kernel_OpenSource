@@ -11,7 +11,6 @@
 #include <trace/hooks/sched.h>
 #include <trace/hooks/fpsimd.h>
 #include <trace/hooks/binder.h>
-#include <trace/hooks/rwsem.h>
 #include <trace/hooks/futex.h>
 #include <trace/hooks/dtask.h>
 #include <trace/hooks/cpuidle.h>
@@ -82,10 +81,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_transaction_init);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_set_priority);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_restore_priority);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_wakeup_ilocked);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_init);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_wake);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rwsem_write_finished);
-EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_rwsem_list_add);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alter_futex_plist_add);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mutex_wait_start);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mutex_wait_finish);
