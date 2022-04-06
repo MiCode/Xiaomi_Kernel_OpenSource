@@ -78,7 +78,6 @@ bool g_profile_log;
 
 bool g_irq_log;
 bool g_trace_log;
-bool g_mml_debug;
 unsigned int mipi_volt;
 unsigned int disp_met_en;
 unsigned int lfr_dbg;
@@ -2904,28 +2903,27 @@ static void process_dbg_opt(const char *opt)
 	} else if (strncmp(opt, "mml_debug:", 10) == 0) {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
+		int ret, value;
 
-		if (strncmp(opt + 10, "1", 1) == 0)
-			g_mml_debug = true;
-		else if (strncmp(opt + 10, "0", 1) == 0)
-			g_mml_debug = false;
+		ret = sscanf(opt + 10, "%d\n", &value);
+		if (ret <= 0) {
+			DDPMSG("%d error to parse cmd %s\n", __LINE__, opt);
+			return;
+		}
 
 		/* this debug cmd only for crtc0 */
-		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
-					typeof(*crtc), head);
-
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list, typeof(*crtc), head);
 		if (!crtc) {
 			DDPPR_ERR("find crtc fail\n");
 			return;
 		}
-
 		mtk_crtc = to_mtk_crtc(crtc);
 
-		if (mtk_crtc)
-			mtk_crtc->is_mml_debug = g_mml_debug;
-
-		DDPMSG("g_mml_debug:%d, mtk_crtc->is_mml_debug:%d",
-			g_mml_debug, mtk_crtc->is_mml_debug);
+		mtk_crtc->mml_debug = value;
+		DDPMSG("mml_debug:%s %s %s\n",
+			value & DISP_MML_DBG_LOG ? "DBG_LOG" : "",
+			value & DISP_MML_MMCLK_UNLIMIT ? "MMCLK_UNLIMIT" : "",
+			value & DISP_MML_IR_CLEAR ? "IR_CLEAR" : "");
 	} else if (strncmp(opt, "dual_te:", 8) == 0) {
 		struct drm_crtc *crtc;
 

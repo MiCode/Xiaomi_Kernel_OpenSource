@@ -87,4 +87,10 @@ void mtk_drm_del_cb_data(struct cmdq_cb_data data, int crtc_id);
 int hrt_lp_switch_get(void);
 #endif
 
+enum mtk_drm_mml_dbg {
+	DISP_MML_DBG_LOG = 0x0001,
+	DISP_MML_MMCLK_UNLIMIT = 0x0002,
+	DISP_MML_IR_CLEAR = 0x0004,
+};
+
 #endif

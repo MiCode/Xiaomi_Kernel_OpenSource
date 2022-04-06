@@ -28,7 +28,6 @@
 #include "../mml/mtk-mml-driver.h"
 #include <linux/of_platform.h>
 
-extern bool g_mml_debug;
 static const struct drm_gem_object_funcs mtk_drm_gem_object_funcs = {
 	.free = mtk_drm_gem_free_object,
 	.get_sg_table = mtk_gem_prime_get_sg_table,
@@ -757,6 +756,7 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 	struct mml_drm_ctx *mml_ctx = NULL;
 	struct mml_submit *submit_kernel;
 	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
 
 	DDPINFO("%s:%d +\n", __func__, __LINE__);
 
@@ -794,9 +794,10 @@ int mtk_drm_ioctl_mml_gem_submit(struct drm_device *dev, void *data,
 
 	crtc = list_first_entry(&(dev)->mode_config.crtc_list,
 		typeof(*crtc), head);
+	mtk_crtc = to_mtk_crtc(crtc);
 	mml_ctx = mtk_drm_get_mml_drm_ctx(dev, crtc);
 
-	if (g_mml_debug) {
+	if (mtk_crtc->mml_debug & DISP_MML_DBG_LOG) {
 		DDPINFO("%s:%d\n", __func__, __LINE__);
 		print_mml_submit(submit_kernel);
 		DDPINFO("%s:%d\n", __func__, __LINE__);
