@@ -53,12 +53,27 @@ static const struct mtk_gate_regs cam_main_r1a_0_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr_dummys,			\
 	}
 
+#define GATE_CAM_MAIN_R1A_0_DUMMY(_id, _name, _parent, _shift) {		\
+		.id = _id,						\
+		.name = _name,						\
+		.parent_name = _parent,					\
+		.regs = &cam_main_r1a_0_cg_regs,			\
+		.shift = _shift,					\
+		.ops = &mtk_clk_gate_ops_setclr_dummy,			\
+	}
+
 static struct mtk_gate cam_main_r1a_clks[] = {
-	GATE_CAM_MAIN_R1A_0(CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON /* CLK ID */,
+	GATE_CAM_MAIN_R1A_0_DUMMY(CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13_CG_CON /* CLK ID */,
 		"c_larb13_con" /* name */,
 		"cam_ck" /* parent */, 0 /* bit */),
-	GATE_CAM_MAIN_R1A_0(CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON /* CLK ID */,
+	GATE_CAM_MAIN_R1A_0_DUMMY(CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14_CG_CON /* CLK ID */,
 		"c_larb14_con" /* name */,
+		"cam_ck" /* parent */, 1 /* bit */),
+	GATE_CAM_MAIN_R1A_0_DUMMY(CLK_CAM_MAIN_R1A_CAM_MAIN_LARB13R_CG_CON /* CLK ID */,
+		"c_larb13r_con" /* name */,
+		"cam_ck" /* parent */, 0 /* bit */),
+	GATE_CAM_MAIN_R1A_0_DUMMY(CLK_CAM_MAIN_R1A_CAM_MAIN_LARB14R_CG_CON /* CLK ID */,
+		"c_larb14r_con" /* name */,
 		"cam_ck" /* parent */, 1 /* bit */),
 	GATE_CAM_MAIN_R1A_0(CLK_CAM_MAIN_R1A_CAM_MAIN_CAM_CG_CON /* CLK ID */,
 		"c_cam_con" /* name */,
