@@ -4,6 +4,7 @@
  */
 #include <linux/module.h>
 #include <sched/sched.h>
+#include <sugov/cpufreq.h>
 #include "common.h"
 #include "eas_plus.h"
 #include "eas_trace.h"
@@ -245,6 +246,9 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	unsigned long freq, scale_cpu;
 	struct em_perf_state *ps;
 	int i, cpu, opp = -1;
+#if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
+	unsigned long cap, pwr_eff;
+#endif
 	unsigned long dyn_pwr = 0, static_pwr = 0;
 	unsigned long energy;
 
@@ -280,6 +284,11 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 
 	i = min(i, pd->nr_perf_states - 1);
 	opp = pd->nr_perf_states - i - 1;
+
+#if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
+	cap = pd_get_opp_capacity(cpu, opp);
+	pwr_eff = pd_get_util_pwr_eff(cpu, cap);
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_LEAKAGE_AWARE_TEMP)
 	for_each_cpu_and(cpu, to_cpumask(pd->cpus), cpu_online_mask) {
@@ -335,10 +344,16 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	 *                  scale_cpu
 	 */
 
+#if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
+	dyn_pwr = pwr_eff * 1000 * sum_util;
+	/* for pd_opp_capacity is scaled based on maximum scale 1024, so cost = pwr_eff * 1024 */
+	trace_sched_em_cpu_energy(opp, freq, pwr_eff, scale_cpu, dyn_pwr, static_pwr);
+#else
 	dyn_pwr = (ps->cost * 1000 * sum_util / scale_cpu);
-	energy = dyn_pwr + static_pwr;
-
 	trace_sched_em_cpu_energy(opp, freq, ps->cost, scale_cpu, dyn_pwr, static_pwr);
+#endif
+
+	energy = dyn_pwr + static_pwr;
 
 	return energy;
 }

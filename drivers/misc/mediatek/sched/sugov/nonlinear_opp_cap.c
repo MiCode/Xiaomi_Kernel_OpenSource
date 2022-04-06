@@ -8,6 +8,7 @@
 #include <linux/cpumask.h>
 #include <linux/percpu.h>
 #include <sched/sched.h>
+#include <linux/energy_model.h>
 #include "cpufreq.h"
 
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
@@ -116,7 +117,7 @@ static int init_capacity_table(void)
 				next_cap = -1;
 
 			ps = &pd->table[pd_info->nr_caps - j - 1];
-			pwr_div_cap = (ps->power << SCHED_CAPACITY_SHIFT) / pd_info->caps[j];
+			pwr_div_cap = em_scale_power(ps->power) / pd_info->caps[j];
 
 			for (k = cap; k > next_cap; k--) {
 				pd_info->util_to[k].opp = j;

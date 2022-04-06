@@ -101,14 +101,23 @@ TRACE_EVENT(sched_em_cpu_energy,
 		__entry->dyn_pwr    = dyn_pwr;
 		__entry->static_pwr = static_pwr;
 		),
-
-	TP_printk("opp=%d freq=%lu cost=%lu scale_cpu=%lu dyn_pwr=%lu static_pwr=%lu",
+#if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
+	TP_printk("opp=%d freq=%lu pwr_eff=%lu scale_cpu=%lu dyn_pwr=%lu static_pwr=%lu",
 		__entry->opp,
 		__entry->freq,
 		__entry->cost,
 		__entry->scale_cpu,
 		__entry->dyn_pwr,
 		__entry->static_pwr)
+#else
+	TP_printk("opp=%d freq=%lu ps->cost=%lu scale_cpu=%lu dyn_pwr=%lu static_pwr=%lu",
+		__entry->opp,
+		__entry->freq,
+		__entry->cost,
+		__entry->scale_cpu,
+		__entry->dyn_pwr,
+		__entry->static_pwr)
+#endif
 );
 
 TRACE_EVENT(sched_find_busiest_group,
