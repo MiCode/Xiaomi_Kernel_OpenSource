@@ -1082,6 +1082,8 @@ free_req:
 	if (alg)
 		crypto_free_shash(alg);
 	kfree(sdesc);
+	kfree(digest);
+	kfree(sign);
 	LOG_DBG_MUST("%s-\n", __func__);
 	return ret;
 }
