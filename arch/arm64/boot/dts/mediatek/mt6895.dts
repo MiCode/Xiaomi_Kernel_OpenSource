@@ -13175,7 +13175,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		mediatek,cammux-id = <15>;
 		interrupts = <GIC_SPI 465 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_CAM_MRAW>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON_DUMMY>,
 				<&camsys_mraw_clk CLK_CAM_MR_LARBX_DUMMY>,
 				<&camsys_mraw_clk CLK_CAM_MR_CAMTG>,
 				<&camsys_mraw_clk CLK_CAM_MR_MRAW0>,
@@ -13211,7 +13211,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		mediatek,cammux-id = <16>;
 		interrupts = <GIC_SPI 466 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_CAM_MRAW>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON_DUMMY>,
 				<&camsys_mraw_clk CLK_CAM_MR_LARBX_DUMMY>,
 				<&camsys_mraw_clk CLK_CAM_MR_CAMTG>,
 				<&camsys_mraw_clk CLK_CAM_MR_MRAW1>,
@@ -13247,7 +13247,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		mediatek,cammux-id = <17>;
 		interrupts = <GIC_SPI 467 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_CAM_MRAW>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON_DUMMY>,
 				<&camsys_mraw_clk CLK_CAM_MR_LARBX_DUMMY>,
 				<&camsys_mraw_clk CLK_CAM_MR_CAMTG>,
 				<&camsys_mraw_clk CLK_CAM_MR_MRAW2>,
@@ -13283,7 +13283,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		mediatek,cammux-id = <18>;
 		interrupts = <GIC_SPI 468 IRQ_TYPE_LEVEL_HIGH 0>;
 		power-domains = <&scpsys MT6895_POWER_DOMAIN_CAM_MRAW>;
-		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON>,
+		clocks = <&cam_main_r1a_clk CLK_CAM_MAIN_CAM_MRAW_CON_DUMMY>,
 				<&camsys_mraw_clk CLK_CAM_MR_LARBX_DUMMY>,
 				<&camsys_mraw_clk CLK_CAM_MR_CAMTG>,
 				<&camsys_mraw_clk CLK_CAM_MR_MRAW3>,
