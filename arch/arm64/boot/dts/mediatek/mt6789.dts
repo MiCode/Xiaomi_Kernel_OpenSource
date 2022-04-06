@@ -4403,6 +4403,9 @@
 			reg = <0 0x1400b000 0 0x1000>;
 			interrupts = <GIC_SPI 292 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&dispsys_config_clk CLK_MM_DISP_CCORR0>;
+			ccorr_bit = <13>;
+			ccorr_num_per_pipe = <1>;
+			ccorr_linear_per_pipe = <0x1>;
 		};
 
 		disp_aal0: disp_aal0@1400c000 {
@@ -4421,6 +4424,13 @@
 			reg = <0 0x1400d000 0 0x1000>;
 			interrupts = <GIC_SPI 295 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&dispsys_config_clk CLK_MM_DISP_GAMMA0>;
+			gamma_data_mode = <2>;
+			color_protect_red = <0>;
+			color_protect_green = <0>;
+			color_protect_blue = <0>;
+			color_protect_white = <0>;
+			color_protect_black = <0>;
+			color_protect_lsb = <0>;
 		};
 
 		disp_postmask0: disp_postmask0@1400e000 {
