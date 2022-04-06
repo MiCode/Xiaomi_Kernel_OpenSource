@@ -66,6 +66,7 @@
 #define VOW_RECOVERY_WAIT              100
 
 #define VOW_MAX_MIC_NUM	(2)
+#define VOW_DEFAULT_SPEAKER_NUM	(1)
 
 /* length limitation sync by audio hal */
 #if IS_ENABLED(CONFIG_DUAL_CH_TRANSFER)
@@ -176,6 +177,8 @@ enum vow_control_cmd_t {
 	VOWControlCmd_Reset,
 	VOWControlCmd_Mic_Single,
 	VOWControlCmd_Mic_Dual,
+	VOWControlCmd_Speaker_Single,
+	VOWControlCmd_Speaker_Dual
 };
 
 enum vow_ipi_msgid_t {
@@ -226,6 +229,7 @@ enum vow_flag_type_t {
 	VOW_FLAG_SEAMLESS,
 	VOW_FLAG_DUAL_MIC_SWITCH,
 	VOW_FLAG_MCPS,
+	VOW_FLAG_SPEAKER_NUMBER,
 	NUM_OF_VOW_FLAG_TYPE
 };
 

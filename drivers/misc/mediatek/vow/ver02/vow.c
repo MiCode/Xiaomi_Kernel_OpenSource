@@ -163,6 +163,7 @@ static struct
 	unsigned int         mtkif_type;
 	unsigned int         google_engine_version;
 	unsigned int         vow_mic_number;
+	unsigned int         vow_speaker_number;
 	char                 alexa_engine_version[VOW_ENGINE_INFO_LENGTH_BYTE];
 	char                 google_engine_arch[VOW_ENGINE_INFO_LENGTH_BYTE];
 	unsigned int         custom_model_addr;
@@ -555,6 +556,7 @@ static void vow_service_Init(void)
 		vowserv.custom_model_size = 0;
 		// update here when vow support more than 2 mic
 		vowserv.vow_mic_number = VOW_MAX_MIC_NUM;
+		vowserv.vow_speaker_number = VOW_DEFAULT_SPEAKER_NUM;
 		vow_pcm_dump_init();
 		vowserv.scp_dual_mic_switch = VOW_ENABLE_DUAL_MIC;
 		vowserv.mtkif_type = 0;
@@ -1948,6 +1950,15 @@ void VowDrv_SetDmicLowPower(bool enable)
 	VowDrv_SetFlag(VOW_FLAG_DMIC_LOWPOWER, enable);
 }
 
+static bool VowDrv_SetSpeakerNumber(void)
+{
+	bool ret = false;
+
+	ret = VowDrv_SetFlag(VOW_FLAG_SPEAKER_NUMBER, vowserv.vow_speaker_number);
+
+	return ret;
+}
+
 static bool VowDrv_SetMtkifType(unsigned int type)
 {
 	bool ret = false;
@@ -2440,6 +2451,14 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			vowserv.vow_mic_number = 2;
 			VOWDRV_DEBUG("VOW_SET_CONTROL Set Dual Mic VOW");
 			break;
+		case VOWControlCmd_Speaker_Single:
+			vowserv.vow_speaker_number = 1;
+			VOWDRV_DEBUG("VOW_SET_CONTROL Set Single Speaker VOW");
+			break;
+		case VOWControlCmd_Speaker_Dual:
+			vowserv.vow_speaker_number = 2;
+			VOWDRV_DEBUG("VOW_SET_CONTROL Set Dual Speaker VOW");
+			break;
 		default:
 			VOWDRV_DEBUG("VOW_SET_CONTROL no such command = %lu",
 				     arg);
@@ -2504,6 +2523,7 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		VowDrv_SetMtkifType((unsigned int)arg);
+		VowDrv_SetSpeakerNumber();
 		VowDrv_EnableHW(1);
 		VowDrv_ChangeStatus();
 		vow_service_Enable();
@@ -3032,6 +3052,9 @@ static int vow_scp_recover_event(struct notifier_block *this,
 
 		if (!VowDrv_SetMtkifType(vowserv.mtkif_type))
 			VOWDRV_DEBUG("fail: vow_SetMtkifType\n");
+
+		if (!VowDrv_SetSpeakerNumber())
+			VOWDRV_DEBUG("fail: VowDrv_SetSpeakerNumber\n");
 
 		if (!vow_service_Enable())
 			VOWDRV_DEBUG("fail: vow_service_Enable\n");
