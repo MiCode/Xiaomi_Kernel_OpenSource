@@ -428,33 +428,31 @@ void mdrv_DPTx_InitVariable(struct mtk_dp *mtk_dp)
 void mdrv_DPTx_SetSDP_DownCntinit(struct mtk_dp *mtk_dp,
 	u16 Sram_Read_Start)
 {
-	u16 SDP_Down_Cnt_Init = 0x0000;
-	u8 ucDCOffset;
+	u32 SDP_Down_Cnt_Init = 0;
 
 	if (mtk_dp->info.DPTX_OUTBL.PixRateKhz > 0)
-		SDP_Down_Cnt_Init = (Sram_Read_Start *
-			mtk_dp->training_info.ubLinkRate * 2700 * 8)
-			/ (mtk_dp->info.DPTX_OUTBL.PixRateKhz * 4);
+		SDP_Down_Cnt_Init = (UINT32)(Sram_Read_Start *
+			mtk_dp->training_info.ubLinkLaneCount * 2 *
+			mtk_dp->training_info.ubLinkRate * 2700 * 8) /
+			mtk_dp->info.DPTX_OUTBL.PixRateKhz;
 
 	switch (mtk_dp->training_info.ubLinkLaneCount) {
 	case DP_LANECOUNT_1:
-		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x1A) ?
-			SDP_Down_Cnt_Init : 0x1A;  //26
+		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x1E) ?
+			SDP_Down_Cnt_Init : 0x1E;  //30
 		break;
 	case DP_LANECOUNT_2:
 		// case for LowResolution && High Audio Sample Rate
-		ucDCOffset = (mtk_dp->info.DPTX_OUTBL.Vtt <= 525) ?
-			0x04 : 0x00;
-		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x10) ?
-			SDP_Down_Cnt_Init : 0x10 + ucDCOffset; //20 or 16
+		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x14) ?
+			SDP_Down_Cnt_Init : 0x14;  //20
 		break;
 	case DP_LANECOUNT_4:
-		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x06) ?
-			SDP_Down_Cnt_Init : 0x06; //6
+		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x08) ?
+			SDP_Down_Cnt_Init : 0x08;  //8
 		break;
 	default:
-		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x06) ?
-			SDP_Down_Cnt_Init : 0x06;
+		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x08) ?
+			SDP_Down_Cnt_Init : 0x08;
 		break;
 	}
 
@@ -466,33 +464,35 @@ void mdrv_DPTx_SetSDP_DownCntinit(struct mtk_dp *mtk_dp,
 
 void mdrv_DPTx_SetSDP_DownCntinitInHblanking(struct mtk_dp *mtk_dp)
 {
-	int PixClkMhz;
-	u8 ucDCOffset;
+	u32 SDP_Down_Cnt_Init = 0;
 
-	PixClkMhz = (mtk_dp->info.format == DP_COLOR_FORMAT_YUV_420) ?
-		mtk_dp->info.DPTX_OUTBL.PixRateKhz/2000 :
-		mtk_dp->info.DPTX_OUTBL.PixRateKhz/1000;
+	SDP_Down_Cnt_Init = (UINT32)((mtk_dp->info.DPTX_OUTBL.Htt -
+		mtk_dp->info.DPTX_OUTBL.Hde) *
+		mtk_dp->training_info.ubLinkRate * 2700 * 2) /
+		mtk_dp->info.DPTX_OUTBL.PixRateKhz;
+
+	SDP_Down_Cnt_Init = (mtk_dp->info.format == DP_COLOR_FORMAT_YUV_420) ?
+		SDP_Down_Cnt_Init / 2 : SDP_Down_Cnt_Init;
 
 	switch (mtk_dp->training_info.ubLinkLaneCount) {
 	case DP_LANECOUNT_1:
-		mhal_DPTx_SetSDP_DownCntinitInHblanking(mtk_dp, 0x0020);
+		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x1E) ?
+			SDP_Down_Cnt_Init : 0x1E;  //30
 		break;
 	case DP_LANECOUNT_2:
-		ucDCOffset = (mtk_dp->info.DPTX_OUTBL.Vtt <= 525) ? 0x14 : 0x00;
-		mhal_DPTx_SetSDP_DownCntinitInHblanking(mtk_dp,
-			0x0018 + ucDCOffset);
+		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x14) ?
+			SDP_Down_Cnt_Init : 0x14;  //20
 		break;
 	case DP_LANECOUNT_4:
-		ucDCOffset = (mtk_dp->info.DPTX_OUTBL.Vtt <= 525) ? 0x08 : 0x00;
-		if (PixClkMhz > (mtk_dp->training_info.ubLinkRate * 27)) {
-			mhal_DPTx_SetSDP_DownCntinitInHblanking(mtk_dp, 0x0008);
-			DPTXMSG("Pixclk > LinkRateChange\n");
-		} else {
-			mhal_DPTx_SetSDP_DownCntinitInHblanking(mtk_dp,
-				0x0010 + ucDCOffset);
-		}
+		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x08) ?
+			SDP_Down_Cnt_Init : 0x08;  //8
+		break;
+	default:
+		SDP_Down_Cnt_Init = (SDP_Down_Cnt_Init > 0x08) ?
+			SDP_Down_Cnt_Init : 0x08;
 		break;
 	}
+	mhal_DPTx_SetSDP_DownCntinitInHblanking(mtk_dp, SDP_Down_Cnt_Init);
 
 }
 
@@ -2657,21 +2657,16 @@ void mdrv_DPTx_DSC_SetParam(struct mtk_dp *mtk_dp, u8 slice_num, u16 chunk_num)
 
 	DPTXMSG("lane count = %d\n", mtk_dp->training_info.ubLinkLaneCount);
 	if (mtk_dp->training_info.ubLinkLaneCount == DP_LANECOUNT_2) {
-		if (chunk_num % 2)
-			//r16 = (int) ceil((chunk_num + 1 + 2) *
-				//slice_num / 3) % 16;
-			r16 = ((chunk_num + 1 + 2) * slice_num / 3) % 16;
-		else
-			//r16 = (int) ceil((chunk_num + 2) *
-				//slice_num / 3) % 16;
-			r16 = ((chunk_num + 2) * slice_num / 3) % 16;
+		//r16 = (int) ceil((chunk_num + 2) *
+		//slice_num / 3) % 16;
+		r16 = (((chunk_num + 2) * slice_num + 2) / 3) % 16;
 		DPTXMSG("r16 = %d\n", r16);
 		//r16 = 1; //test for 1080p
 		hde_last_num = (q16[r16] & (BIT1|BIT2)) >> 1;
 		hde_num_even = q16[r16] & BIT0;
 	} else {
 		//r8 = (int) ceil((chunk_num + 1) * slice_num / 3) % 8;
-		r8 = ((chunk_num + 1) * slice_num / 3) % 8;
+		r8 = (((chunk_num + 1) * slice_num + 2) / 3) % 8;
 		DPTXMSG("r8 = %d\n", r8);
 		//r8 = 1; //test for 1080p
 		hde_last_num = (q8[r8] & (BIT1|BIT2)) >> 1;
