@@ -2118,6 +2118,7 @@ int mtk_cam_sv_dev_config(
 		camsv_dev->pipeline->hw_scen = hw_scen;
 		camsv_dev->pipeline->master_pipe_id = 0;
 		camsv_dev->pipeline->exp_order = 0;
+		camsv_dev->sof_count = 0;
 	}
 
 	/* reset enqueued status */
@@ -2585,7 +2586,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 		wake_thread = 1;
 
 	/* Check ISP error status */
-	if (err_status) {
+	if (err_status && camsv_dev->sof_count > 1) {
 		struct mtk_camsys_irq_info err_info;
 
 		err_info.irq_type = 1 << CAMSYS_IRQ_ERROR;
