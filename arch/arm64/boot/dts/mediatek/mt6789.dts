@@ -2519,8 +2519,12 @@
 			gpio-vreq = <0x440 0x7 24>;
 
 			scp-cores = <1>;
-			pmic = <&pmic>;
+
+			no-pmic-rg-access;
+			pmic-sshub-support;
 			dvfsrc-vscp-supply = <&dvfsrc_vscp>;
+			sshub-vcore-supply = <&mt6358_vcore_sshub_reg>;
+			sshub-vsram-supply = <&mt6358_vsram_others_sshub_reg>;
 
 			do-ulposc-cali;
 			fmeter_clksys = <&topckgen_clk>;
@@ -2538,7 +2542,7 @@
 			clk-dbg-ver = "v1";
 			ccf-fmeter-support;
 			secure_access = "enable"; /* enable: need to secure access scp */
-			scp_dvfs_flag = "disable"; /* turn off SCP DVFS */
+			scp_dvfs_flag = "disable"; /* turn on/off SCP DVFS */
 		};
 
 		mbist_ao@10013000 {
