@@ -842,12 +842,8 @@
 
 	md_cooler: md-cooler {
 		compatible = "mediatek,mt6295-md-cooler";
-
 		pa1: pa1 {
 			mutt_pa1: mutt-pa1 {
-				#cooling-cells = <2>;
-			};
-			tx_pwr_pa1: tx-pwr-pa1 {
 				#cooling-cells = <2>;
 			};
 		};
