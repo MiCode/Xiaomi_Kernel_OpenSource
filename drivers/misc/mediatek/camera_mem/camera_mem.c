@@ -563,7 +563,6 @@ static long cam_mem_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Pa
 				mutex_lock(&cam_mem_ion_mutex[bucketID]);
 				dumpIonBufferList(&g_ion_buf_list[bucketID], 100, true);
 				mutex_unlock(&cam_mem_ion_mutex[bucketID]);
-				Ret = -EFAULT;
 				break;
 			}
 
