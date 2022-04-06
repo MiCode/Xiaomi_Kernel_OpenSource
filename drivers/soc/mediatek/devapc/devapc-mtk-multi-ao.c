@@ -79,15 +79,10 @@ static void query_devapc_subsys_status(int slave_type)
 {
 	struct arm_smccc_res res;
 
-	if (slave_type != DEVAPC_TYPE_MMUP &&
-		slave_type != DEVAPC_TYPE_ADSP) {
+	if (slave_type != DEVAPC_TYPE_ADSP &&
+		slave_type != DEVAPC_TYPE_MMINFRA &&
+		slave_type != DEVAPC_TYPE_MMUP) {
 		mtk_devapc_ctx->subsys_enabled[slave_type] = 1;
-	}
-
-	if (slave_type == DEVAPC_TYPE_MMUP) {
-		arm_smccc_smc(MTK_SIP_KERNEL_DAPC_MMUP_GET,
-			0, 0, 0, 0, 0, 0, 0, &res);
-		mtk_devapc_ctx->subsys_enabled[slave_type] = res.a0;
 	}
 
 	if (slave_type == DEVAPC_TYPE_ADSP) {
@@ -95,6 +90,18 @@ static void query_devapc_subsys_status(int slave_type)
 		 * todo: add image status check from smc
 		 */
 		mtk_devapc_ctx->subsys_enabled[slave_type] = 1;
+	}
+
+	if (slave_type == DEVAPC_TYPE_MMINFRA) {
+		/* bypass mminfra check since mminfra power on after lk.
+		 */
+		mtk_devapc_ctx->subsys_enabled[slave_type] = 1;
+	}
+
+	if (slave_type == DEVAPC_TYPE_MMUP) {
+		arm_smccc_smc(MTK_SIP_KERNEL_DAPC_MMUP_GET,
+			0, 0, 0, 0, 0, 0, 0, &res);
+		mtk_devapc_ctx->subsys_enabled[slave_type] = res.a0;
 	}
 }
 
@@ -107,24 +114,33 @@ static bool is_devapc_subsys_power_on(int slave_type)
 {
 	struct devapc_power_callbacks *powercb;
 
-	if (slave_type != DEVAPC_TYPE_MMUP &&
-		slave_type != DEVAPC_TYPE_ADSP) {
+	if (slave_type != DEVAPC_TYPE_ADSP &&
+		slave_type != DEVAPC_TYPE_MMINFRA &&
+		slave_type != DEVAPC_TYPE_MMUP) {
 		return true;
 	}
 
 	list_for_each_entry(powercb, &powercb_list, list) {
-		if (slave_type == DEVAPC_TYPE_MMUP) {
-			if (powercb->type == DEVAPC_TYPE_MMUP && powercb->query_power)
-				return powercb->query_power() &
-					mtk_devapc_ctx->subsys_enabled[slave_type];
+		if (slave_type == DEVAPC_TYPE_ADSP) {
+			if (powercb->type == DEVAPC_TYPE_ADSP && powercb->query_power)
+				return powercb->query_power() &&
+					is_devapc_subsys_enabled(slave_type);
 			else
 				return false;
 		}
 
-		if (slave_type == DEVAPC_TYPE_ADSP) {
-			if (powercb->type == DEVAPC_TYPE_ADSP && powercb->query_power)
-				return powercb->query_power() &
-					mtk_devapc_ctx->subsys_enabled[slave_type];
+		if (slave_type == DEVAPC_TYPE_MMINFRA) {
+			if (powercb->type == DEVAPC_TYPE_MMINFRA && powercb->query_power)
+				return powercb->query_power() &&
+					is_devapc_subsys_enabled(slave_type);
+			else
+				return false;
+		}
+
+		if (slave_type == DEVAPC_TYPE_MMUP) {
+			if (powercb->type == DEVAPC_TYPE_MMUP && powercb->query_power)
+				return powercb->query_power() &&
+					is_devapc_subsys_enabled(slave_type);
 			else
 				return false;
 		}
