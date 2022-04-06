@@ -216,6 +216,20 @@ extern int DW9839AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
 				int *pAF_Opened);
 extern int DW9839AF_GetFileName(unsigned char *pFileName);
 
+#define GT9768AF_SetI2Cclient GT9768AF_SetI2Cclient_Main
+#define GT9768AF_Ioctl GT9768AF_Ioctl_Main
+#define GT9768AF_Release GT9768AF_Release_Main
+#define GT9768AF_PowerDown GT9768AF_PowerDown_Main
+#define GT9768AF_GetFileName GT9768AF_GetFileName_Main
+extern int GT9768AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long GT9768AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+				unsigned long a_u4Param);
+extern int GT9768AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int GT9768AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
+extern int GT9768AF_GetFileName(unsigned char *pFileName);
+
 #define GT9764AF_SetI2Cclient GT9764AF_SetI2Cclient_Main
 #define GT9764AF_Ioctl GT9764AF_Ioctl_Main
 #define GT9764AF_Release GT9764AF_Release_Main
