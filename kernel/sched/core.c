@@ -5869,6 +5869,9 @@ long sched_getaffinity(pid_t pid, struct cpumask *mask)
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
 	cpumask_and(mask, &p->cpus_allowed, cpu_active_mask);
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+	cpumask_andnot(mask, mask, cpu_isolated_mask);
+#endif
 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 
 out_unlock:
