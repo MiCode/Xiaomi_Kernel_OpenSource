@@ -2483,7 +2483,7 @@ static s32 __init cmdq_late_init(void)
 		sizeof(struct iwcCmdqMessageEx2_t), GFP_KERNEL);
 	if (!handle->mtee_iwcMessageEx2)
 		return -ENOMEM;
-	CMDQ_LOG("iwc:%p(%#x) ex:%p(%#x) ex2:%p(%#x)\n",
+	CMDQ_LOG("iwc:%p(%#lx) ex:%p(%#lx) ex2:%p(%#lx)\n",
 		handle->mtee_iwcMessage, sizeof(struct iwcCmdqMessage_t),
 		handle->mtee_iwcMessageEx, sizeof(struct iwcCmdqMessageEx_t),
 		handle->mtee_iwcMessageEx2, sizeof(struct iwcCmdqMessageEx2_t));
