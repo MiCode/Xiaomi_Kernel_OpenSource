@@ -136,6 +136,7 @@ static void __gpuppm_sort_limit(enum gpufreq_target target)
 	struct gpuppm_limit_info *limit_table = NULL;
 	struct gpuppm_status *cur_status = NULL;
 	int cur_ceiling = 0, cur_floor = 0;
+	int opp_num = 0, max_oppidx = 0, min_oppidx = 0;
 	unsigned int cur_c_limiter = LIMIT_NUM;
 	unsigned int cur_f_limiter = LIMIT_NUM;
 	unsigned int cur_c_priority = GPUPPM_PRIO_NONE;
@@ -143,39 +144,66 @@ static void __gpuppm_sort_limit(enum gpufreq_target target)
 	int i = 0;
 
 	if (target == TARGET_STACK) {
+		opp_num = g_stack.opp_num;
+		max_oppidx = 0;
+		min_oppidx = opp_num - 1;
 		limit_table = g_stack_limit_table;
 		cur_status = &g_stack;
 		cur_ceiling = -1;
-		cur_floor = g_stack.opp_num;
+		cur_floor = opp_num;
 	} else {
+		opp_num = g_gpu.opp_num;
+		max_oppidx = 0;
+		min_oppidx = opp_num - 1;
 		limit_table = g_gpu_limit_table;
 		cur_status = &g_gpu;
 		cur_ceiling = -1;
-		cur_floor = g_gpu.opp_num;
+		cur_floor = opp_num;
 	}
 
-	/* find the largest ceiling */
-	for (i = 0; i < LIMIT_NUM; i++) {
-		/* skip default value */
+	/* sort ceiling among valid limiters except SEGMENT  */
+	for (i = 1; i < LIMIT_NUM; i++) {
+		/* skip default value and check enable */
 		if (limit_table[i].ceiling != GPUPPM_DEFAULT_IDX &&
-			limit_table[i].c_enable == LIMIT_ENABLE &&
-			limit_table[i].ceiling > cur_ceiling) {
-			cur_ceiling = limit_table[i].ceiling;
-			cur_c_limiter = limit_table[i].limiter;
-			cur_c_priority = limit_table[i].priority;
+			limit_table[i].ceiling != max_oppidx &&
+			limit_table[i].c_enable == LIMIT_ENABLE) {
+			/* use the largest ceiling with its limiter */
+			if (limit_table[i].ceiling > cur_ceiling) {
+				cur_ceiling = limit_table[i].ceiling;
+				cur_c_limiter = limit_table[i].limiter;
+			}
+			/* use the largest priority to cover all valid limiters */
+			if (limit_table[i].priority > cur_c_priority)
+				cur_c_priority = limit_table[i].priority;
+		}
+	}
+	/* sort floor among valid limiters except SEGMENT  */
+	for (i = 1; i < LIMIT_NUM; i++) {
+		/* skip default value and check enable */
+		if (limit_table[i].floor != GPUPPM_DEFAULT_IDX &&
+			limit_table[i].floor != min_oppidx &&
+			limit_table[i].f_enable == LIMIT_ENABLE) {
+			/* use the smallest floor with its limiter */
+			if (limit_table[i].floor < cur_floor) {
+				cur_floor = limit_table[i].floor;
+				cur_f_limiter = limit_table[i].limiter;
+			}
+			/* use the largest priority to cover all valid limiters */
+			if (limit_table[i].priority > cur_f_priority)
+				cur_f_priority = limit_table[i].priority;
 		}
 	}
 
-	/* find the smallest floor */
-	for (i = 0; i < LIMIT_NUM; i++) {
-		/* skip default value */
-		if (limit_table[i].floor != GPUPPM_DEFAULT_IDX &&
-			limit_table[i].f_enable == LIMIT_ENABLE &&
-			limit_table[i].floor < cur_floor) {
-			cur_floor = limit_table[i].floor;
-			cur_f_limiter = limit_table[i].limiter;
-			cur_f_priority = limit_table[i].priority;
-		}
+	/* if no valid limitation, use SEGMENT */
+	if (cur_ceiling == -1) {
+		cur_ceiling = limit_table[LIMIT_SEGMENT].ceiling;
+		cur_c_limiter = limit_table[LIMIT_SEGMENT].limiter;
+		cur_c_priority = limit_table[LIMIT_SEGMENT].priority;
+	}
+	if (cur_floor == opp_num) {
+		cur_floor = limit_table[LIMIT_SEGMENT].floor;
+		cur_f_limiter = limit_table[LIMIT_SEGMENT].limiter;
+		cur_f_priority = limit_table[LIMIT_SEGMENT].priority;
 	}
 
 	/* if limit interval with intersection */
