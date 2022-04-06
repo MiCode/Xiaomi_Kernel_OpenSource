@@ -407,7 +407,7 @@
 			swiotlb=noforce \
 			initcall_debug=1 cma=64M transparent_hugepage=never \
 			allow_mismatched_32bit_el0 \
-			firmware_class.path=/vendor/firmware";
+			firmware_class.path=/vendor/firmware pelt=8";
 			kaslr-seed = <0 0>;
 			atag,videolfb-fb_base_l = <0x7e605000>;
 			atag,videolfb-fb_base_h = <0x0>;
@@ -11623,8 +11623,9 @@
 
 	cam_yuv_a@1a050000 {
 		compatible = "mediatek,cam-yuv";
-		reg = <0 0x1a050000 0 0x8000>;
-		reg-names = "base";
+		reg = <0 0x1a050000 0 0x8000>,
+			  <0 0x1a058000 0 0x8000>;
+		reg-names = "base", "inner_base";
 		mediatek,cam-id = <0>;
 		mediatek,larbs = <&smi_larb17>;
 		interrupts = <GIC_SPI 461 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -11780,8 +11781,9 @@
 
 	cam_yuv_b@1a090000 {
 		compatible = "mediatek,cam-yuv";
-		reg = <0 0x1a090000 0 0x8000>;
-		reg-names = "base";
+		reg = <0 0x1a090000 0 0x8000>,
+			  <0 0x1a098000 0 0x8000>;
+		reg-names = "base", "inner_base";
 		mediatek,cam-id = <1>;
 		mediatek,larbs = <&smi_larb29>;
 		interrupts = <GIC_SPI 463 IRQ_TYPE_LEVEL_HIGH 0>;
@@ -11937,8 +11939,9 @@
 
 	cam_yuv_c@1a0d0000 {
 		compatible = "mediatek,cam-yuv";
-		reg = <0 0x1a0d0000 0 0x8000>;
-		reg-names = "base";
+		reg = <0 0x1a0d0000 0 0x8000>,
+			  <0 0x1a0d8000 0 0x8000>;
+		reg-names = "base", "inner_base";
 		mediatek,cam-id = <2>;
 		mediatek,larbs = <&smi_larb30>;
 		interrupts = <GIC_SPI 465 IRQ_TYPE_LEVEL_HIGH 0>;
