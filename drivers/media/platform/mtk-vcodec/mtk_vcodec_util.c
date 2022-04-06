@@ -281,7 +281,7 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 EXPORT_SYMBOL_GPL(mtk_vcodec_get_fb);
 
 
-void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
+int v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 		void *vbuf)
 {
 	struct v4l2_m2m_buffer *b = container_of(vbuf,
@@ -296,9 +296,10 @@ void v4l2_m2m_buf_queue_check(struct v4l2_m2m_ctx *m2m_ctx,
 		v4l2_aee_print("b %p next %p prev %p already in rdyq %p %p\n",
 			b, b->list.next, b->list.prev,
 			LIST_POISON1, LIST_POISON2);
-		return;
+		return -1;
 	}
 	v4l2_m2m_buf_queue(m2m_ctx, vbuf);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(v4l2_m2m_buf_queue_check);
 
