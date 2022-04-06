@@ -2873,7 +2873,22 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 		CCCI_ERROR_LOG(-1, TAG, "alloc PIT memory fail\r\n");
 		return LOW_MEMORY_PIT;
 	}
-	rxq->pit_phy_addr = virt_to_phys(rxq->pit_base);
+
+	rxq->pit_phy_addr = dma_map_single(
+		ccci_md_get_dev_by_id(dpmaif_ctrl->md_id), rxq->pit_base,
+		(rxq->pit_size_cnt * sizeof(struct dpmaifq_normal_pit)),
+		DMA_TO_DEVICE);
+	if (dma_mapping_error(ccci_md_get_dev_by_id(dpmaif_ctrl->md_id),
+		rxq->pit_phy_addr)) {
+		CCCI_ERROR_LOG(-1, TAG, "rxq->pit_base[0x%p]dma_mapping_error\n",
+			rxq->pit_base);
+		kfree(rxq->pit_base);
+		return -ENOMEM;
+	}
+	CCCI_BOOTUP_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%llx,pit_base=0x%p\r\n",
+		__func__, rxq->pit_phy_addr, rxq->pit_base);
+	CCCI_NORMAL_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%llx,pit_base=0x%p\r\n",
+		__func__, rxq->pit_phy_addr, rxq->pit_base);
 #endif
 	memset(rxq->pit_base, 0, dpmaif_ctrl->dl_pit_size);
 	/* dpmaif_pit_init(rxq->pit_base, rxq->pit_size_cnt); */
