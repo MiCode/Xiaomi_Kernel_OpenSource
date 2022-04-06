@@ -25,6 +25,8 @@ struct vdec_fb {
 	unsigned int    num_planes;
 	long long timestamp;
 	unsigned int    index;
+	enum v4l2_field field;
+	enum mtk_frame_type frame_type;
 	int             general_buf_fd;
 	struct  dma_buf *dma_general_buf;
 	dma_addr_t dma_general_addr;

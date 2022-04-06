@@ -134,7 +134,8 @@ enum vdec_get_param_type {
 	GET_PARAM_INTERLACING,
 	GET_PARAM_CODEC_TYPE,
 	GET_PARAM_INPUT_DRIVEN,
-	GET_PARAM_INTERLACING_FIELD_SEQ
+	GET_PARAM_INTERLACING_FIELD_SEQ,
+	GET_PARAM_CAPABILITY_FRAMEINTERVALS
 };
 
 /*
@@ -358,6 +359,8 @@ struct vdec_vcu_ipi_query_cap_ack {
  * @general_size: meta size
  * @poc         : picture order count of frame buffer
  * @timestamp : timestamp of frame buffer
+ * @field       : enum v4l2_field, field type of frame buffer
+ * @frame_type  : enum mtk_frame_type, I/P/B frame type
  * @reserved    : for 8 bytes alignment
  */
 struct vdec_ipi_fb {
@@ -365,8 +368,9 @@ struct vdec_ipi_fb {
 	__u64 y_fb_dma;
 	__u64 c_fb_dma;
 	__u64 timestamp;
+	__u16 field;
+	__u16 frame_type;
 	__u32 reserved;
-	__u32 reserved1;
 };
 
 
@@ -423,6 +427,7 @@ struct vdec_vsi {
 	struct vdec_pic_info pic;
 	struct mtk_color_desc color_desc;
 	struct v4l2_rect crop;
+	struct v4l2_fract time_per_frame;
 	struct mtk_video_fmt video_formats[MTK_MAX_DEC_CODECS_SUPPORT];
 	struct mtk_codec_framesizes vdec_framesizes[MTK_MAX_DEC_CODECS_SUPPORT];
 	__u32 aspect_ratio;

@@ -46,6 +46,13 @@ enum mtk_fmt_type {
 	MTK_FMT_FRAME = 2,
 };
 
+enum mtk_frame_type {
+	MTK_FRAME_NONE = 0,
+	MTK_FRAME_I = 1,
+	MTK_FRAME_P = 2,
+	MTK_FRAME_B = 3,
+};
+
 /**
  * struct mtk_video_fmt - Structure used to store information about pixelformats
  */
@@ -68,6 +75,18 @@ struct mtk_codec_framesizes {
 	struct	v4l2_frmsize_stepwise	stepwise;
 };
 
+/**
+ * struct mtk_video_frame_frameintervals - Structure used to store information about
+ *							frameintervals
+ * fourcc/width/height are input parameters
+ * stepwise is output parameter
+ */
+struct mtk_video_frame_frameintervals {
+	__u32   fourcc;
+	__u32   width;
+	__u32   height;
+	struct v4l2_frmival_stepwise stepwise;
+};
 
 struct mtk_color_desc {
 	__u32	color_primaries;
@@ -130,6 +149,7 @@ struct mtk_hdr_dynamic_info {
  * @bitdepth: Sequence bitdepth
  * @layout_mode: mediatek frame layout mode
  * @fourcc: frame buffer color format
+ * @field: enum v4l2_field, field type of this sequence
  * E.g. suppose picture size is 176x144,
  *      buffer size will be aligned to 176x160.
  */
@@ -142,7 +162,7 @@ struct vdec_pic_info {
 	__u32 bitdepth;
 	__u32 layout_mode;
 	__u32 fourcc;
-	__u32 reserved;
+	__u32 field;
 };
 
 /**

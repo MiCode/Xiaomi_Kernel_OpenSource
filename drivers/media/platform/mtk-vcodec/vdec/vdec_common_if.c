@@ -328,7 +328,10 @@ static void vdec_get_fb(struct vdec_inst *inst,
 	if (fb == NULL)
 		return;
 	fb->timestamp = list->fb_list[list->read_idx].timestamp;
-
+#ifdef TV_INTEGRATION
+	fb->field = list->fb_list[list->read_idx].field;
+	fb->frame_type = list->fb_list[list->read_idx].frame_type;
+#endif
 	if (disp_list) {
 		fb->status |= FB_ST_DISPLAY;
 		if (list->fb_list[list->read_idx].reserved)
@@ -367,6 +370,22 @@ static void get_supported_format(struct vdec_inst *inst,
 		}
 	}
 }
+
+#ifdef TV_INTEGRATION
+static void get_frame_intervals(struct vdec_inst *inst,
+	struct mtk_video_frame_frameintervals *f_ints)
+{
+	inst->vcu.ctx = inst->ctx;
+	vcu_dec_query_cap(&inst->vcu, GET_PARAM_CAPABILITY_FRAMEINTERVALS,
+					  f_ints);
+
+	mtk_vcodec_debug(inst, "codec fourcc %d w %d h %d max %d/%d min %d/%d step %d/%d\n",
+			 f_ints->fourcc, f_ints->width, f_ints->height,
+			 f_ints->stepwise.max.numerator, f_ints->stepwise.max.denominator,
+			 f_ints->stepwise.min.numerator, f_ints->stepwise.min.denominator,
+			 f_ints->stepwise.step.numerator, f_ints->stepwise.step.denominator);
+}
+#endif
 
 static void get_frame_sizes(struct vdec_inst *inst,
 	struct mtk_codec_framesizes *codec_framesizes)
@@ -457,6 +476,16 @@ static void get_input_driven(struct vdec_inst *inst,
 	if (inst->vsi != NULL)
 		*input_driven = inst->vsi->input_driven;
 }
+
+#ifdef TV_INTEGRATION
+static void get_frame_interval(struct vdec_inst *inst,
+			       struct v4l2_fract *time_per_frame)
+{
+	inst->vcu.ctx = inst->ctx;
+	if (inst->vsi != NULL)
+		memcpy(time_per_frame, &inst->vsi->time_per_frame, sizeof(struct v4l2_fract));
+}
+#endif
 
 static int vdec_get_param(unsigned long h_vdec,
 	enum vdec_get_param_type type, void *out)
@@ -551,6 +580,14 @@ static int vdec_get_param(unsigned long h_vdec,
 	case GET_PARAM_INTERLACING_FIELD_SEQ:
 		get_interlacing_fieldseq(inst, out);
 		break;
+#ifdef TV_INTEGRATION
+	case GET_PARAM_FRAME_INTERVAL:
+		get_frame_interval(inst, out);
+		break;
+	case GET_PARAM_CAPABILITY_FRAMEINTERVALS:
+		get_frame_intervals(inst, out);
+		break;
+#endif
 
 	default:
 		mtk_vcodec_err(inst, "invalid get parameter type=%d", type);

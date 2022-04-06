@@ -429,6 +429,24 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
 
 		dstbuf->ready_to_display = true;
 
+		switch (dstbuf->frame_buffer.frame_type) {
+		case MTK_FRAME_I:
+			dstbuf->vb.flags |= V4L2_BUF_FLAG_KEYFRAME;
+			break;
+		case MTK_FRAME_P:
+			dstbuf->vb.flags |= V4L2_BUF_FLAG_PFRAME;
+			break;
+		case MTK_FRAME_B:
+			dstbuf->vb.flags |= V4L2_BUF_FLAG_BFRAME;
+			break;
+		default:
+#ifdef TV_INTEGRATION
+			mtk_v4l2_debug(2, "[%d] unknown frame type %d",
+				ctx->id, dstbuf->frame_buffer.frame_type);
+#endif
+			break;
+		}
+
 		dstbuf->vb.vb2_buf.timestamp =
 			disp_frame_buffer->timestamp;
 
@@ -445,13 +463,14 @@ static struct vb2_buffer *get_display_buffer(struct mtk_vcodec_ctx *ctx,
 			dstbuf->vb.flags |= V4L2_BUF_FLAG_LAST;
 			ctx->eos_type = NON_EOS; // clear flag
 		}
+		dstbuf->vb.field = disp_frame_buffer->field;
 
 		mtk_v4l2_debug(2,
-			"[%d]status=%x queue id=%d to done_list %d %d flag=%x pts=%llu",
+			"[%d]status=%x queue id=%d to done_list %d %d flag=%x field %d pts=%llu",
 			ctx->id, disp_frame_buffer->status,
 			dstbuf->vb.vb2_buf.index,
 			dstbuf->queued_in_vb2, got_early_eos,
-			dstbuf->vb.flags, dstbuf->vb.vb2_buf.timestamp);
+			dstbuf->vb.flags, dstbuf->vb.field, dstbuf->vb.vb2_buf.timestamp);
 
 		v4l2_m2m_buf_done(&dstbuf->vb, VB2_BUF_STATE_DONE);
 		ctx->decoded_frame_cnt++;
@@ -2377,6 +2396,35 @@ static int vidioc_vdec_s_selection(struct file *file, void *priv,
 	return 0;
 }
 
+#ifdef TV_INTEGRATION
+static int vidioc_g_parm(struct file *file, void *priv,
+			 struct v4l2_streamparm *parm)
+{
+	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
+	struct v4l2_captureparm *cp = &parm->parm.capture;
+
+	if (parm->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		return -EINVAL;
+
+	if (ctx->state < MTK_STATE_HEADER) {
+		mtk_v4l2_err("can't get parm at state %d", ctx->state);
+		return -EINVAL;
+	}
+
+	memset(cp, 0, sizeof(struct v4l2_captureparm));
+	cp->capability = V4L2_CAP_TIMEPERFRAME;
+
+	if (vdec_if_get_param(ctx, GET_PARAM_FRAME_INTERVAL,
+			&cp->timeperframe) != 0) {
+		mtk_v4l2_err("[%d] Error!! Cannot get frame rate",
+			ctx->id);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+#endif
+
 static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 							 struct v4l2_format *f)
 {
@@ -2444,6 +2492,44 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 
 	return 0;
 }
+
+#ifdef TV_INTEGRATION
+static int vidioc_enum_frameintervals(struct file *file, void *priv,
+	struct v4l2_frmivalenum *fival)
+{
+	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
+	struct mtk_video_frame_frameintervals frameintervals;
+
+	if (fival->index != 0)
+		return -EINVAL;
+
+	fival->type = V4L2_FRMIVAL_TYPE_STEPWISE;
+	frameintervals.fourcc = fival->pixel_format;
+	frameintervals.width = fival->width;
+	frameintervals.height = fival->height;
+
+	if (vdec_if_get_param(ctx, GET_PARAM_CAPABILITY_FRAMEINTERVALS,
+		&frameintervals) != 0) {
+		mtk_v4l2_err("[%d] Error!! Cannot get frame interval", ctx->id);
+		return -EINVAL;
+	}
+
+	fival->stepwise = frameintervals.stepwise;
+	mtk_v4l2_debug(1,
+		"vdec frm_interval fourcc %d width %d height %d max %d/%d min %d/%d step %d/%d\n",
+		fival->pixel_format,
+		fival->width,
+		fival->height,
+		fival->stepwise.max.numerator,
+		fival->stepwise.max.denominator,
+		fival->stepwise.min.numerator,
+		fival->stepwise.min.denominator,
+		fival->stepwise.step.numerator,
+		fival->stepwise.step.denominator);
+
+	return 0;
+}
+#endif
 
 static int vidioc_enum_framesizes(struct file *file, void *priv,
 	struct v4l2_frmsizeenum *fsize)
@@ -2571,6 +2657,7 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 		}
 		q_data->coded_width = ctx->picinfo.buf_w;
 		q_data->coded_height = ctx->picinfo.buf_h;
+		q_data->field = ctx->picinfo.field;
 		fourcc = ctx->picinfo.fourcc;
 		q_data->fmt = mtk_find_fmt_by_pixel(fourcc);
 
@@ -2595,6 +2682,7 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 		 */
 		pix_mp->num_planes = q_data->fmt->num_planes;
 		pix_mp->pixelformat = q_data->fmt->fourcc;
+		pix_mp->field = q_data->field;
 
 		if (fourcc == V4L2_PIX_FMT_RV30 ||
 			fourcc == V4L2_PIX_FMT_RV40) {
@@ -2612,9 +2700,10 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 			}
 		}
 
-		mtk_v4l2_debug(1, "fourcc:(%d %d),bytesperline:%d,sizeimage:%d,%d,%d\n",
+		mtk_v4l2_debug(1, "fourcc:(%d %d),field:%d,bytesperline:%d,sizeimage:%d,%d,%d\n",
 			ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc,
 			q_data->fmt->fourcc,
+			pix_mp->field,
 			pix_mp->plane_fmt[0].bytesperline,
 			pix_mp->plane_fmt[0].sizeimage,
 			pix_mp->plane_fmt[1].bytesperline,
@@ -3918,13 +4007,18 @@ const struct v4l2_ioctl_ops mtk_vdec_ioctl_ops = {
 	.vidioc_enum_fmt_vid_cap = vidioc_vdec_enum_fmt_vid_cap_mplane,
 	.vidioc_enum_fmt_vid_out = vidioc_vdec_enum_fmt_vid_out_mplane,
 	.vidioc_enum_framesizes = vidioc_enum_framesizes,
+#ifdef TV_INTEGRATION
+	.vidioc_enum_frameintervals     = vidioc_enum_frameintervals,
+#endif
 
 	.vidioc_querycap                = vidioc_vdec_querycap,
 	.vidioc_subscribe_event         = vidioc_vdec_subscribe_evt,
 	.vidioc_unsubscribe_event       = v4l2_event_unsubscribe,
 	.vidioc_g_selection             = vidioc_vdec_g_selection,
 	.vidioc_s_selection             = vidioc_vdec_s_selection,
-
+#ifdef TV_INTEGRATION
+	.vidioc_g_parm                  = vidioc_g_parm,
+#endif
 	.vidioc_decoder_cmd     = vidioc_decoder_cmd,
 	.vidioc_try_decoder_cmd = vidioc_try_decoder_cmd,
 };
