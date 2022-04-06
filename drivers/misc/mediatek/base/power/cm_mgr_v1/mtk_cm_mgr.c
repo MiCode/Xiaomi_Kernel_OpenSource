@@ -62,7 +62,6 @@ int cm_ipi_ackdata;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
 #if (defined(CONFIG_MACH_MT6877) \
-	|| defined(CONFIG_MACH_MT6768) \
 	|| defined(CONFIG_MACH_MT6781) \
 	|| defined(CONFIG_MACH_MT6739))
 

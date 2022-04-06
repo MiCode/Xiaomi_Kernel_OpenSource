@@ -3,8 +3,8 @@
  * Copyright (c) 2019 MediaTek Inc.
 */
 
-#ifndef __HELIO_DVFSRC_H
-#define __HELIO_DVFSRC_H
+#ifndef __HELIO_DVFSRC_V2_H
+#define __HELIO_DVFSRC_V2_H
 
 #include <linux/delay.h>
 #include <linux/devfreq.h>

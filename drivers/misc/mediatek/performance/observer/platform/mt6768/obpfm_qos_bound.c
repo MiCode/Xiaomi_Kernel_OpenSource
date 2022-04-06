@@ -24,7 +24,7 @@
 #include <trace/events/pob.h>
 
 #include "helio-dvfsrc.h"
-#include "mtk_qos_sram.h"
+//#include "mtk_qos_sram.h"
 
 
 #ifdef CONFIG_MTK_DRAMC
