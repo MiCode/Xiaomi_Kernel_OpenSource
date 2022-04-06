@@ -420,6 +420,34 @@ int pe4_hal_enable_powerpath(struct chg_alg_device *alg,
 	return 0;
 }
 
+int pe4_hal_force_disable_powerpath(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool disable)
+{
+	struct power_supply *chg_psy = NULL;
+	union power_supply_propval prop;
+	int ret;
+
+	if (alg == NULL)
+		return -EINVAL;
+
+	if (chgidx == CHG1)
+		chg_psy = power_supply_get_by_name("mtk-master-charger");
+	else if (chgidx == CHG2)
+		chg_psy = power_supply_get_by_name("mtk-slave-charger");
+
+	if (IS_ERR_OR_NULL(chg_psy)) {
+		pe4_err("%s Couldn't get chg_psy %d\n", __func__, chgidx);
+		return -EINVAL;
+	}
+
+	prop.intval = (int)disable;
+	ret = power_supply_set_property(chg_psy,
+		POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX, &prop);
+	pe4_dbg("%s disable_powerpath:%d\n", __func__, prop.intval);
+
+	return ret;
+}
+
 int pe4_hal_get_charger_cnt(struct chg_alg_device *alg)
 {
 	struct pe40_hal *hal;

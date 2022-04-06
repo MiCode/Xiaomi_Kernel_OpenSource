@@ -531,7 +531,8 @@ int mtk_pe40_pd_request(struct chg_alg_device *alg,
 	if (pe40->cap.pdp > 0 &&
 		adapter_mv * adapter_ma > pe40->cap.pdp * 1000000) {
 		*adapter_ibus = pe40->cap.pdp * 1000000 / adapter_mv;
-		pe4_hal_set_input_current(alg, CHG1, *adapter_ibus * 1000);
+		if (oldmA > *adapter_ibus)
+			pe4_hal_set_input_current(alg, CHG1, *adapter_ibus * 1000);
 	}
 
 	ret = pe4_hal_set_adapter_cap(alg, adapter_mv, *adapter_ibus);
@@ -558,7 +559,10 @@ int mtk_pe40_pd_request(struct chg_alg_device *alg,
 	} else if (pinfo->data.parallel_vbus == false && (oldmA < ma))
 		charger_dev_set_input_current(pinfo->chg1_dev, ma * 1000);
 #else
-	if (oldmA < ma)
+	if (pe40->cap.pdp > 0 &&
+		adapter_mv * adapter_ma > pe40->cap.pdp * 1000000)
+		pe4_hal_set_input_current(alg, CHG1, *adapter_ibus * 1000);
+	else if (oldmA < ma)
 		pe4_hal_set_input_current(alg, CHG1, ma * 1000);
 #endif
 
@@ -753,7 +757,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 	}
 
 	/* disable charger */
-	pe4_hal_enable_powerpath(alg, CHG1, false);
+	pe4_hal_force_disable_powerpath(alg, CHG1, true);
 	chg_cnt = pe4_hal_get_charger_cnt(alg);
 	if (chg_cnt > 1 && alg->config == DUAL_CHARGERS_IN_SERIES) {
 		for (i = CHG2; i < CHG_MAX; i++) {
@@ -778,6 +782,8 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 		pe4->can_query = false;
 	else if (ret != 0) {
 		pe4_err("[pe40_i0] err:2 %d\n", ret);
+		/*enable charger*/
+		pe4_hal_force_disable_powerpath(alg, CHG1, false);
 		goto err;
 	}
 
@@ -794,7 +800,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 		cap.output_ma, chg2_chip_enabled);
 
 	/*enable charger*/
-	pe4_hal_enable_powerpath(alg, CHG1, true);
+	pe4_hal_force_disable_powerpath(alg, CHG1, false);
 	if (alg->config == SINGLE_CHARGER) {
 		pe4_hal_set_charging_current(alg,
 			CHG1, pe4->sc_charger_current);
