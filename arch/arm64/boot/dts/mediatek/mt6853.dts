@@ -4863,7 +4863,7 @@ page_owner=on loop.max_part=7";
 #endif
 
 	camera_af_hw_node: camera_af_hw_node {
-		compatible = "mediatek, camera_af_lens";
+		compatible = "mediatek,camera_af_lens";
 	};
 
 	mtk_composite_v4l2_2: mtk_composite_v4l2_2 {
