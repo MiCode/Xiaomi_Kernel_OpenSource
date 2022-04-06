@@ -308,15 +308,18 @@ static int mdw_rv_cmd_delete(struct mdw_rv_cmd *rc)
 
 	/* copy exec infos */
 	rmc = (struct mdw_rv_msg_cmd *)rc->cb->vaddr;
-	if (rmc->exec_infos_offset + c->exec_infos->size != rc->cb->size) {
-		mdw_drv_warn("c(0x%llx/0x%llx/0x%llx) execinfos size(%u/%u) not matched\n",
-			c->uid, c->kid, c->rvid,
-			rmc->exec_infos_offset + c->exec_infos->size,
-			rc->cb->size);
-	} else {
+	if (rmc->exec_infos_offset + c->exec_infos->size == rc->cb->size ||
+		rmc->link_offset + c->num_links * sizeof(struct mdw_rv_sc_link)
+		== rc->cb->size) {
 		memcpy(c->exec_infos->vaddr,
 			rc->cb->vaddr + rmc->exec_infos_offset,
 			c->exec_infos->size);
+	} else {
+		mdw_drv_warn("c(0x%llx/0x%llx/0x%llx) execinfos(%u/%u) links(%u/%u) not matched\n",
+			c->uid, c->kid, c->rvid,
+			rmc->exec_infos_offset + c->exec_infos->size,
+			rmc->link_offset, c->num_links,
+			rc->cb->size);
 	}
 
 	mdw_mem_pool_free(rc->cb);
