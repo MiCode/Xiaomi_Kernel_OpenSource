@@ -114,14 +114,23 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 		const struct mml_frame_dest *dest = &info->dest[i];
 		u32 destw = dest->data.width;
 		u32 desth = dest->data.height;
+		u32 crop_srcw = dest->crop.r.width ? dest->crop.r.width : srcw;
+		u32 crop_srch = dest->crop.r.height ? dest->crop.r.height : srch;
 
 		if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270)
 			swap(destw, desth);
 
-		if (srcw / destw > 20 || srch / desth > 255 ||
-			destw / srcw > 32 || desth / srch > 32) {
+		if (crop_srcw / destw > 20 || crop_srch / desth > 255 ||
+			destw / crop_srcw > 32 || desth / crop_srch > 32) {
 			mml_err("[drm]exceed HW limitation src %ux%u dest %ux%u",
-				srcw, srch, destw, desth);
+				crop_srcw, crop_srch, destw, desth);
+			goto not_support;
+		}
+
+		if ((crop_srcw * desth) / (destw * crop_srch) > 16 ||
+			(destw * crop_srch) / (crop_srcw * desth) > 16) {
+			mml_err("[drm]exceed tile ratio limitation src %ux%u dest %ux%u",
+				crop_srcw, crop_srch, destw, desth);
 			goto not_support;
 		}
 
