@@ -35,9 +35,9 @@
 	 __v; \
 	 })
 
-#define SENINF_WRITE_REG(base, reg, val) { \
+#define SENINF_WRITE_REG(base, reg, val) do { \
 	u32 __iomem *__p = base + reg; \
 	writel(val, __p); \
-}
+} while (0)
 #endif
 

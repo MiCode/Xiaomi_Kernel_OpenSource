@@ -29,10 +29,8 @@ void n3d_clk_init(struct SENINF_N3D_CLK *pclk)
 						gn3d_clk_name[i].pctrl);
 		atomic_set(&pclk->enable_cnt[i], 0);
 
-		if (IS_ERR(pclk->clk_sel[i])) {
-			LOG_E("cannot get %d clock\n", i);
-			return;
-		}
+		if (IS_ERR(pclk->clk_sel[i]))
+			LOG_D("skip get %d clock\n", i);
 	}
 #ifdef CONFIG_PM_SLEEP
 	pclk->n3d_wake_lock = wakeup_source_register(
@@ -67,8 +65,9 @@ void n3d_clk_open(struct SENINF_N3D_CLK *pclk)
 	for (i = N3D_CLK_IDX_SYS_MIN_NUM;
 		i < N3D_CLK_IDX_SYS_MAX_NUM;
 		i++) {
-		if (pclk->clk_sel[i] && IS_ERR(pclk->clk_sel[i])) {
-			LOG_D("skip clk\n");
+		if (!pclk->clk_sel[i] ||
+		    (pclk->clk_sel[i] && IS_ERR(pclk->clk_sel[i]))) {
+			LOG_D("skip clk %d\n", i);
 			continue;
 		}
 		if (clk_prepare_enable(pclk->clk_sel[i]))
