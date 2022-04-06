@@ -40,6 +40,7 @@
 #include "ap_md_reg_dump.h"
 #include <devapc_public.h>
 #include "ccci_fsm.h"
+#include "hif/ccci_hif_dpmaif.h"
 
 static struct ccci_clk_node clk_table[] = {
 	{ NULL, "scp-sys-md1-main"},
@@ -1037,5 +1038,15 @@ void ccci_modem_plt_resume(void)
 	md = ccci_md_get_modem_by_id(0);
 	if (md != NULL)
 		ccci_modem_restore_reg(md);
+}
+
+int ccci_modem_suspend_noirq(struct device *dev)
+{
+	return dpmaif_suspend_noirq(dev);
+}
+
+int ccci_modem_resume_noirq(struct device *dev)
+{
+	return dpmaif_resume_noirq(dev);
 }
 
