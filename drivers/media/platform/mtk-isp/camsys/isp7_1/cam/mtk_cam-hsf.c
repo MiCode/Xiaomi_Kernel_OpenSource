@@ -70,9 +70,9 @@ int mtk_cam_dmabuf_get_iova(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_device *cam = ctx->cam;
 	struct dma_buf_attachment *attach;
 	struct sg_table *table;
-	int handle = 0;
+	int handle;
 
-	//handle = dmabuf_to_secure_handle(dmap->dbuf);
+	handle = dmabuf_to_secure_handle(dmap->dbuf);
 
 	dev_info(cam->dev, "get dbuf dmabuf_to_secure_handle done\n");
 	if (!handle) {

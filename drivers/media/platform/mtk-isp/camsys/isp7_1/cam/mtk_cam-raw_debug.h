@@ -6,6 +6,9 @@
 #ifndef _MTK_CAM_RAW_DEBUG_H
 #define _MTK_CAM_RAW_DEBUG_H
 
+void debug_dma_fbc(struct device *dev,
+			  void __iomem *base, void __iomem *yuvbase);
+
 void mtk_cam_raw_dump_fbc(struct device *dev,
 			  void __iomem *base, void __iomem *yuvbase);
 

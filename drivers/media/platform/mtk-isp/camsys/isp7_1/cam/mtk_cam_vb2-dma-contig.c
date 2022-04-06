@@ -66,25 +66,20 @@ static unsigned long mtk_cam_vb2_get_contiguous_size(struct sg_table *sgt)
 static void *mtk_cam_vb2_cookie(struct vb2_buffer *vb, void *buf_priv)
 {
 	struct mtk_cam_vb2_buf *buf = buf_priv;
-
 	return &buf->dma_addr;
 }
-
 static void *mtk_cam_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 {
 	struct mtk_cam_vb2_buf *buf = buf_priv;
 	int ret;
-
 	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
-
 	if (!buf->vaddr && buf->db_attach)
 		ret = dma_buf_vmap(buf->db_attach->dmabuf, &buf->map);
-
 	buf->vaddr = buf->map.vaddr;
-
 	MTK_CAM_TRACE_END(BUFFER);
 	return buf->vaddr;
 }
+
 
 static unsigned int mtk_cam_vb2_num_users(void *buf_priv)
 {
@@ -179,7 +174,6 @@ static void mtk_cam_vb2_unmap_dmabuf(void *mem_priv)
 	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 
 	if (buf->vaddr) {
-		//dma_buf_vunmap(buf->db_attach->dmabuf, buf->vaddr);
 		dma_buf_vunmap(buf->db_attach->dmabuf, &buf->map);
 		buf->vaddr = NULL;
 	}
@@ -209,17 +203,13 @@ static void *mtk_cam_vb2_attach_dmabuf(struct vb2_buffer *vb, struct device *dev
 {
 	struct mtk_cam_vb2_buf *buf;
 	struct dma_buf_attachment *dba;
-
 	if (dbuf->size < size)
 		return ERR_PTR(-EFAULT);
-
 	if (WARN_ON(!dev))
 		return ERR_PTR(-EINVAL);
-
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
-
 	buf->dev = dev;
 	/* create attachment for the dmabuf with the user device */
 	dba = dma_buf_attach(dbuf, buf->dev);
@@ -228,14 +218,11 @@ static void *mtk_cam_vb2_attach_dmabuf(struct vb2_buffer *vb, struct device *dev
 		kfree(buf);
 		return dba;
 	}
-
 	/* always skip cache operations, we handle it manually */
 	dba->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
-
 	//buf->dma_dir = dma_dir;
 	buf->size = size;
 	buf->db_attach = dba;
-
 	return buf;
 }
 

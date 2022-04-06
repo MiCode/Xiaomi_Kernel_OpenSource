@@ -47,6 +47,36 @@ static __maybe_unused struct dma_debug_item dbg_RAWI_R3[] = {
 	{0x000002C1, "rawi_r3_smi_port / plane-0 / maddr_min record"},
 };
 
+static __maybe_unused struct dma_debug_item dbg_RAWI_R5[] = {
+	{0x00000007, "rawi_r5 32(hex) 0000"},
+	{0x00000107, "rawi_r5 state_checksum"},
+	{0x00000207, "rawi_r5 line_pix_cnt_tmp"},
+	{0x00000307, "rawi_r5 line_pix_cnt"},
+	{0x00000507, "rawi_r5 smi_debug_data (case 0)"},
+	{0x00010607, "rawi_r5 aff(fifo)_debug_data (case 1)"},
+	{0x00030607, "rawi_r5 aff(fifo)_debug_data (case 3)"},
+	{0x01000047, "rawi_r5_smi_port / plane-0 / data-crc"},
+	{0x01000065, "rawi_r5_smi_port / plane-0 / addr-crc"},
+	{0x00000085, "rawi_r5_smi_port / smi_latency_mon output"},
+	{0x000000A5, "rawi_r5_smi_port / plane-0 / { len-cnt, dle-cnt }"},
+	{0x000005C0, "rawi_r5_smi_port / plane-0 / maddr_max record"},
+	{0x000005C1, "rawi_r5_smi_port / plane-0 / maddr_min record"},
+};
+
+static __maybe_unused struct dma_debug_item dbg_RAWI_R6[] = {
+	{0x00000018, "rawi_r6 32(hex) 0000"},
+	{0x00000118, "rawi_r6 state_checksum"},
+	{0x00000218, "rawi_r6 line_pix_cnt_tmp"},
+	{0x00000318, "rawi_r6 line_pix_cnt"},
+	{0x00000418, "rawi_r6 important_status"},
+	{0x00000518, "rawi_r6 cmd_data_cnt"},
+	{0x00000618, "rawi_r6 tilex_byte_cnt"},
+	{0x00000718, "rawi_r6 tiley_cnt"},
+	{0x00000818, "rawi_r6 burst_line_cnt"},
+	{0x01000058, "aai_r1_smi_port / plane-2 (i.e. rawi_r6) / data-crc"},
+	{0x0000008A, "aai_r1_smi_port / smi_latency_mon output"},
+};
+
 static __maybe_unused struct dma_debug_item dbg_IMGO_R1[] = {
 	{0x00000019, "imgo_r1 32(hex) 0000"},
 	{0x00000119, "imgo_r1 state_checksum"},
@@ -143,10 +173,10 @@ static __maybe_unused struct dma_debug_item dbg_YUVO_R1[] = {
 	{0x000000AF, "yuvo_r1_smi_port / plane-1 (i.e. yuvbo_r1) / { len-cnt, dle-cnt }"},
 	{0x000000B0, "yuvo_r1_smi_port / plane-1 (i.e. yuvbo_r1) / { load_com-cnt, bvalid-cnt }"},
 
-	{0x000000C0, "yuvo_r1_smi_port / plane-0 - yuvo_r1_smi_port / plane-0 (i.e. yuvo_r1)"},
-	{0x000000C1, "yuvo_r1_smi_port / plane-0 - yuvo_r1_smi_port / plane-0 (i.e. yuvo_r1)"},
-	{0x000001C0, "yuvo_r1_smi_port / plane-1 - yuvo_r1_smi_port / plane-0 (i.e. yuvbo_r1)"},
-	{0x000001C1, "yuvo_r1_smi_port / plane-1 - yuvo_r1_smi_port / plane-0 (i.e. yuvbo_r1)"},
+	{0x000000C0, "yuvo_r1_smi_port / plane-0 - yuvo_r1_smi_port / plane-0 (i.e. yuvo_r1) / maddr_max record"},
+	{0x000000C1, "yuvo_r1_smi_port / plane-0 - yuvo_r1_smi_port / plane-0 (i.e. yuvo_r1) / maddr_min record"},
+	{0x000001C0, "yuvo_r1_smi_port / plane-1 - yuvo_r1_smi_port / plane-0 (i.e. yuvbo_r1) / maddr_max record"},
+	{0x000001C1, "yuvo_r1_smi_port / plane-1 - yuvo_r1_smi_port / plane-0 (i.e. yuvbo_r1) / maddr_min record"},
 };
 
 // M4U_PORT CAM3_YUVO_R3 : yuvo_r3 + yuvbo_r3
@@ -177,10 +207,10 @@ static __maybe_unused struct dma_debug_item dbg_YUVO_R3[] = {
 	{0x000000B3, "yuvo_r3_smi_port / plane-1 (i.e. yuvbo_r3) / { len-cnt, dle-cnt }"},
 	{0x000000B4, "yuvo_r3_smi_port / plane-1 (i.e. yuvbo_r3) / { load_com-cnt, bvalid-cnt }"},
 
-	{0x000002C0, "yuvo_r3_smi_port / plane-0 - yuvo_r3_smi_port / plane-0 (i.e. yuvo_r3)"},
-	{0x000002C1, "yuvo_r3_smi_port / plane-0 - yuvo_r3_smi_port / plane-0 (i.e. yuvo_r3)"},
-	{0x000003C0, "yuvo_r3_smi_port / plane-1 - yuvo_r3_smi_port / plane-0 (i.e. yuvbo_r3)"},
-	{0x000003C1, "yuvo_r3_smi_port / plane-1 - yuvo_r3_smi_port / plane-0 (i.e. yuvbo_r3)"},
+	{0x000002C0, "yuvo_r3_smi_port / plane-0 - yuvo_r3_smi_port / plane-0 (i.e. yuvo_r3) / maddr_max record"},
+	{0x000002C1, "yuvo_r3_smi_port / plane-0 - yuvo_r3_smi_port / plane-0 (i.e. yuvo_r3) / maddr_min record"},
+	{0x000003C0, "yuvo_r3_smi_port / plane-1 - yuvo_r3_smi_port / plane-0 (i.e. yuvbo_r3) / maddr_max record"},
+	{0x000003C1, "yuvo_r3_smi_port / plane-1 - yuvo_r3_smi_port / plane-0 (i.e. yuvbo_r3) / maddr_min record"},
 };
 
 // M4U_PORT CAM3_YUVCO_R1 : yuvco_r1 + yuvdo_r1 + yuvco_r3 + yuvdo_r3
@@ -208,10 +238,10 @@ static __maybe_unused struct dma_debug_item dbg_YUVCO_R1[] = {
 
 	{0x00000082, "yuvco_r1_smi_port / smi_latency_mon output"},
 
-	{0x000004C0, "yuvco_r1_smi_port / plane-0 - yuvco_r1_smi_port / plane-0 (i.e. yuvco_r1)"},
-	{0x000004C1, "yuvco_r1_smi_port / plane-0 - yuvco_r1_smi_port / plane-0 (i.e. yuvco_r1)"},
-	{0x000005C0, "yuvco_r1_smi_port / plane-1 - yuvco_r1_smi_port / plane-0 (i.e. yuvdo_r1)"},
-	{0x000005C1, "yuvco_r1_smi_port / plane-1 - yuvco_r1_smi_port / plane-0 (i.e. yuvdo_r1)"},
+	{0x000004C0, "yuvco_r1_smi_port / plane-0 - yuvco_r1_smi_port / plane-0 (i.e. yuvco_r1) / maddr_max record"},
+	{0x000004C1, "yuvco_r1_smi_port / plane-0 - yuvco_r1_smi_port / plane-0 (i.e. yuvco_r1) / maddr_min record"},
+	{0x000005C0, "yuvco_r1_smi_port / plane-1 - yuvco_r1_smi_port / plane-0 (i.e. yuvdo_r1) / maddr_max record"},
+	{0x000005C1, "yuvco_r1_smi_port / plane-1 - yuvco_r1_smi_port / plane-0 (i.e. yuvdo_r1) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_YUVCO_R3[] = {
@@ -238,10 +268,10 @@ static __maybe_unused struct dma_debug_item dbg_YUVCO_R3[] = {
 
 	{0x00000082, "yuvco_r1_smi_port / smi_latency_mon output"},
 
-	{0x000006C0, "yuvco_r1_smi_port / plane-2 - yuvco_r1_smi_port / plane-0 (i.e. yuvco_r3)"},
-	{0x000006C1, "yuvco_r1_smi_port / plane-2 - yuvco_r1_smi_port / plane-0 (i.e. yuvco_r3)"},
-	{0x000007C0, "yuvco_r1_smi_port / plane-3 - yuvco_r1_smi_port / plane-0 (i.e. yuvdo_r3)"},
-	{0x000007C1, "yuvco_r1_smi_port / plane-3 - yuvco_r1_smi_port / plane-0 (i.e. yuvdo_r3)"},
+	{0x000006C0, "yuvco_r1_smi_port / plane-2 - yuvco_r1_smi_port / plane-0 (i.e. yuvco_r3) / maddr_max record"},
+	{0x000006C1, "yuvco_r1_smi_port / plane-2 - yuvco_r1_smi_port / plane-0 (i.e. yuvco_r3) / maddr_max record"},
+	{0x000007C0, "yuvco_r1_smi_port / plane-3 - yuvco_r1_smi_port / plane-0 (i.e. yuvdo_r3) / maddr_max record"},
+	{0x000007C1, "yuvco_r1_smi_port / plane-3 - yuvco_r1_smi_port / plane-0 (i.e. yuvdo_r3) / maddr_min record"},
 };
 
 // M4U_PORT CAM3_YUVO_R2 : yuvo_r2 + yuvbo_r2 + yuvo_r4 + yuvbo_r4 + yuvo_r5 + yuvbo_r5
@@ -273,10 +303,10 @@ static __maybe_unused struct dma_debug_item dbg_YUVO_R2[] = {
 
 	{0x00000083, "yuvo_r2_smi_port / smi_latency_mon output"},
 
-	{0x000008C0, "yuvo_r2_smi_port / plane-0 - yuvo_r2_smi_port / plane-1 (i.e. cqi_r3)"},
-	{0x000008C1, "yuvo_r2_smi_port / plane-0 - yuvo_r2_smi_port / plane-1 (i.e. cqi_r3)"},
-	{0x000009C0, "yuvo_r2_smi_port / plane-1 - yuvo_r2_smi_port / plane-1 (i.e. cqi_r4)"},
-	{0x000009C1, "yuvo_r2_smi_port / plane-1 - yuvo_r2_smi_port / plane-1 (i.e. cqi_r4)"},
+	{0x000008C0, "yuvo_r2_smi_port / plane-0 - yuvo_r2_smi_port / plane-1 (i.e. cqi_r3) / maddr_max record"},
+	{0x000008C1, "yuvo_r2_smi_port / plane-0 - yuvo_r2_smi_port / plane-1 (i.e. cqi_r3) / maddr_min record"},
+	{0x000009C0, "yuvo_r2_smi_port / plane-1 - yuvo_r2_smi_port / plane-1 (i.e. cqi_r4) / maddr_max record"},
+	{0x000009C1, "yuvo_r2_smi_port / plane-1 - yuvo_r2_smi_port / plane-1 (i.e. cqi_r4) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_YUVO_R4[] = {
@@ -307,10 +337,10 @@ static __maybe_unused struct dma_debug_item dbg_YUVO_R4[] = {
 
 	{0x00000083, "yuvo_r2_smi_port / smi_latency_mon output"},
 
-	{0x00000AC0, "yuvo_r2_smi_port / plane-2 - yuvo_r2_smi_port / plane-0 (i.e. lsci_r1)"},
-	{0x00000AC1, "yuvo_r2_smi_port / plane-2 - yuvo_r2_smi_port / plane-0 (i.e. lsci_r1)"},
-	{0x00000BC0, "yuvo_r2_smi_port / plane-3 - yuvo_r2_smi_port / plane-0 (i.e. bpci_r1)"},
-	{0x00000BC1, "yuvo_r2_smi_port / plane-3 - yuvo_r2_smi_port / plane-0 (i.e. bpci_r1)"},
+	{0x00000AC0, "yuvo_r2_smi_port / plane-2 - yuvo_r2_smi_port / plane-0 (i.e. lsci_r1) / maddr_max record"},
+	{0x00000AC1, "yuvo_r2_smi_port / plane-2 - yuvo_r2_smi_port / plane-0 (i.e. lsci_r1) / maddr_min record"},
+	{0x00000BC0, "yuvo_r2_smi_port / plane-3 - yuvo_r2_smi_port / plane-0 (i.e. bpci_r1) / maddr_max record"},
+	{0x00000BC1, "yuvo_r2_smi_port / plane-3 - yuvo_r2_smi_port / plane-0 (i.e. bpci_r1) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_YUVO_R5[] = {
@@ -341,10 +371,10 @@ static __maybe_unused struct dma_debug_item dbg_YUVO_R5[] = {
 
 	{0x00000083, "yuvo_r2_smi_port / smi_latency_mon output"},
 
-	{0x00000CC0, "yuvo_r2_smi_port / plane-4 - yuvo_r2_smi_port / plane-1 (i.e. bpci_r2)"},
-	{0x00000CC1, "yuvo_r2_smi_port / plane-4 - yuvo_r2_smi_port / plane-1 (i.e. bpci_r2)"},
-	{0x00000DC0, "yuvo_r2_smi_port / plane-5 - yuvo_r2_smi_port / plane-2 (i.e. bpci_r3)"},
-	{0x00000DC1, "yuvo_r2_smi_port / plane-5 - yuvo_r2_smi_port / plane-2 (i.e. bpci_r3)"},
+	{0x00000CC0, "yuvo_r2_smi_port / plane-4 - yuvo_r2_smi_port / plane-1 (i.e. bpci_r2) / maddr_max record"},
+	{0x00000CC1, "yuvo_r2_smi_port / plane-4 - yuvo_r2_smi_port / plane-1 (i.e. bpci_r2) / maddr_min record"},
+	{0x00000DC0, "yuvo_r2_smi_port / plane-5 - yuvo_r2_smi_port / plane-2 (i.e. bpci_r3) / maddr_max record"},
+	{0x00000DC1, "yuvo_r2_smi_port / plane-5 - yuvo_r2_smi_port / plane-2 (i.e. bpci_r3) / maddr_min record"},
 };
 
 // M4U_PORT CAM3_RZH1N2TO_R1 : rzh1n2to_r1 + rzh1n2tbo_r1 + rzh1n2to_r2 + rzh1n2to_r3 + rzh1n2tbo_r3
@@ -373,10 +403,10 @@ static __maybe_unused struct dma_debug_item dbg_RZH1N2TO_R1[] = {
 
 	{0x00000084, "rzh1n2to_r1_smi_port / smi_latency_mon output"},
 
-	{0x00000EC0, "rzh1n2to_r1_smi_port / plane-0 - rzh1n2to_r1_smi_port/plane3 (rzh1n2to_r1)"},
-	{0x00000EC1, "rzh1n2to_r1_smi_port / plane-0 - rzh1n2to_r1_smi_port/plane3 (rzh1n2to_r1)"},
-	{0x00000FC0, "rzh1n2to_r1_smi_port / plane-1 - rzh1n2to_r1_smi_port/plane4 (rzh1n2tbo_r1)"},
-	{0x00000FC1, "rzh1n2to_r1_smi_port / plane-1 - rzh1n2to_r1_smi_port/plane4 (rzh1n2tbo_r1)"},
+	{0x00000EC0, "rzh1n2to_r1_smi_port / plane-0 - rzh1n2to_r1_smi_port / plane-3 (i.e. rzh1n2to_r1) / maddr_max record"},
+	{0x00000EC1, "rzh1n2to_r1_smi_port / plane-0 - rzh1n2to_r1_smi_port / plane-3 (i.e. rzh1n2to_r1) / maddr_min record"},
+	{0x00000FC0, "rzh1n2to_r1_smi_port / plane-1 - rzh1n2to_r1_smi_port / plane-4 (i.e. rzh1n2tbo_r1) / maddr_max record"},
+	{0x00000FC1, "rzh1n2to_r1_smi_port / plane-1 - rzh1n2to_r1_smi_port / plane-4 (i.e. rzh1n2tbo_r1) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_RZH1N2TO_R2[] = {
@@ -395,8 +425,8 @@ static __maybe_unused struct dma_debug_item dbg_RZH1N2TO_R2[] = {
 
 	{0x00000084, "rzh1n2to_r1_smi_port / smi_latency_mon output"},
 
-	{0x000010C0, "rzh1n2to_r1_smi_port / plane-2 - rzh1n2to_r1_smi_port/plane0 (rzh1n2to_r2)"},
-	{0x000010C1, "rzh1n2to_r1_smi_port / plane-2 - rzh1n2to_r1_smi_port/plane0 (rzh1n2to_r2)"},
+	{0x000010C0, "rzh1n2to_r1_smi_port / plane-2 - rzh1n2to_r1_smi_port / plane-0 (i.e. rzh1n2to_r2) / maddr_max record"},
+	{0x000010C1, "rzh1n2to_r1_smi_port / plane-2 - rzh1n2to_r1_smi_port / plane-0 (i.e. rzh1n2to_r2) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_RZH1N2TO_R3[] = {
@@ -427,10 +457,10 @@ static __maybe_unused struct dma_debug_item dbg_RZH1N2TO_R3[] = {
 
 	{0x00000084, "rzh1n2to_r1_smi_port / smi_latency_mon output"},
 
-	{0x000011C0, "rzh1n2to_r1_smi_port / plane-3 - rzh1n2to_r1_smi_port/plane1 (rzh1n2to_r3)"},
-	{0x000011C1, "rzh1n2to_r1_smi_port / plane-3 - rzh1n2to_r1_smi_port/plane1 (rzh1n2to_r3)"},
-	{0x000012C0, "rzh1n2to_r1_smi_port / plane-4 - rzh1n2to_r1_smi_port/plane2 (rzh1n2tbo_r3)"},
-	{0x000012C1, "rzh1n2to_r1_smi_port / plane-4 - rzh1n2to_r1_smi_port/plane2 (rzh1n2tbo_r3)"},
+	{0x000011C0, "rzh1n2to_r1_smi_port / plane-3 - rzh1n2to_r1_smi_port / plane-1 (i.e. rzh1n2to_r3) / maddr_max record"},
+	{0x000011C1, "rzh1n2to_r1_smi_port / plane-3 - rzh1n2to_r1_smi_port / plane-1 (i.e. rzh1n2to_r3) / maddr_min record"},
+	{0x000012C0, "rzh1n2to_r1_smi_port / plane-4 - rzh1n2to_r1_smi_port / plane-2 (i.e. rzh1n2tbo_r3) / maddr_max record"},
+	{0x000012C1, "rzh1n2to_r1_smi_port / plane-4 - rzh1n2to_r1_smi_port / plane-2 (i.e. rzh1n2tbo_r3) / maddr_min record"},
 };
 
 // M4U_PORT CAM3_DRZS4NO_R1 : drzs4no_r1 + drzs4no_r2 + drzs4no_r3 + lmvo_r1 + actso_r1
@@ -450,8 +480,8 @@ static __maybe_unused struct dma_debug_item dbg_DRZS4NO_R1[] = {
 
 	{0x00000085, "drzs4no_r1_smi_port / smi_latency_mon output"},
 
-	{0x000013C0, "drzs4no_r1_smi_port / plane-0 - drzs4no_r1_smi_port / plane-0 (drzs4no_r1)"},
-	{0x000013C1, "drzs4no_r1_smi_port / plane-0 - drzs4no_r1_smi_port / plane-0 (drzs4no_r1)"},
+	{0x000013C0, "drzs4no_r1_smi_port / plane-0 - drzs4no_r1_smi_port / plane-0 (i.e. drzs4no_r1) / maddr_max record"},
+	{0x000013C1, "drzs4no_r1_smi_port / plane-0 - drzs4no_r1_smi_port / plane-0 (i.e. drzs4no_r1) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_DRZS4NO_R2[] = {
@@ -470,8 +500,8 @@ static __maybe_unused struct dma_debug_item dbg_DRZS4NO_R2[] = {
 
 	{0x00000085, "drzs4no_r1_smi_port / smi_latency_mon output"},
 
-	{0x000014C0, "drzs4no_r1_smi_port / plane-1 - drzs4no_r1_smi_port / plane-0 (drzs4no_r2)"},
-	{0x000014C1, "drzs4no_r1_smi_port / plane-1 - drzs4no_r1_smi_port / plane-0 (drzs4no_r2)"},
+	{0x000014C0, "drzs4no_r1_smi_port / plane-1 - drzs4no_r1_smi_port / plane-0 (i.e. drzs4no_r2) / maddr_max record"},
+	{0x000014C1, "drzs4no_r1_smi_port / plane-1 - drzs4no_r1_smi_port / plane-0 (i.e. drzs4no_r2) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_DRZS4NO_R3[] = {
@@ -490,8 +520,8 @@ static __maybe_unused struct dma_debug_item dbg_DRZS4NO_R3[] = {
 
 	{0x00000085, "drzs4no_r1_smi_port / smi_latency_mon output"},
 
-	{0x000015C0, "drzs4no_r1_smi_port / plane-2 - drzs4no_r1_smi_port / plane-1 (drzs4no_r3)"},
-	{0x000015C1, "drzs4no_r1_smi_port / plane-2 - drzs4no_r1_smi_port / plane-1 (drzs4no_r3)"},
+	{0x000015C0, "drzs4no_r1_smi_port / plane-2 - drzs4no_r1_smi_port / plane-1 (i.e. drzs4no_r3) / maddr_max record"},
+	{0x000015C1, "drzs4no_r1_smi_port / plane-2 - drzs4no_r1_smi_port / plane-1 (i.e. drzs4no_r3) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_LMVO_R1[] = {
@@ -510,8 +540,8 @@ static __maybe_unused struct dma_debug_item dbg_LMVO_R1[] = {
 
 	{0x00000085, "drzs4no_r1_smi_port / smi_latency_mon output"},
 
-	{0x000016C0, "drzs4no_r1_smi_port / plane-3 - drzs4no_r1_smi_port / plane-2 (lmvo_r1)"},
-	{0x000016C1, "drzs4no_r1_smi_port / plane-3 - drzs4no_r1_smi_port / plane-2 (lmvo_r1)"},
+	{0x000016C0, "drzs4no_r1_smi_port / plane-3 - drzs4no_r1_smi_port / plane-2 (i.e. lmvo_r1) / maddr_max record"},
+	{0x000016C1, "drzs4no_r1_smi_port / plane-3 - drzs4no_r1_smi_port / plane-2 (i.e. lmvo_r1) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_ACTSO_R1[] = {
@@ -530,8 +560,8 @@ static __maybe_unused struct dma_debug_item dbg_ACTSO_R1[] = {
 
 	{0x00000085, "drzs4no_r1_smi_port / smi_latency_mon output"},
 
-	{0x000017C0, "drzs4no_r1_smi_port / plane-4 - drzs4no_r1_smi_port / plane-0 (actsoo_r1)"},
-	{0x000017C1, "drzs4no_r1_smi_port / plane-4 - drzs4no_r1_smi_port / plane-0 (actsoo_r1)"},
+	{0x000017C0, "drzs4no_r1_smi_port / plane-4 - drzs4no_r1_smi_port / plane-0 (i.e. actsoo_r1) / maddr_max record"},
+	{0x000017C1, "drzs4no_r1_smi_port / plane-4 - drzs4no_r1_smi_port / plane-0 (i.e. actsoo_r1) / maddr_min record"},
 };
 
 // M4U_PORT CAM3_TNCSO_R1 : tncso_r1 + tncsbo_r1 + tncsho_r1 + tncsyo_r1
@@ -551,8 +581,8 @@ static __maybe_unused struct dma_debug_item dbg_TNCSO_R1[] = {
 
 	{0x00000086, "tncso_r1_smi_port / smi_latency_mon output"},
 
-	{0x000018C0, "tncso_r1_smi_port / plane-0 - tncso_r1_smi_port / plane-1 (tncso_r1)"},
-	{0x000018C1, "tncso_r1_smi_port / plane-0 - tncso_r1_smi_port / plane-1 (tncso_r1)"},
+	{0x000018C0, "tncso_r1_smi_port / plane-0 - tncso_r1_smi_port / plane-1 (i.e. tncso_r1) / maddr_max record"},
+	{0x000018C1, "tncso_r1_smi_port / plane-0 - tncso_r1_smi_port / plane-1 (i.e. tncso_r1) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_TNCSBO_R1[] = {
@@ -571,8 +601,8 @@ static __maybe_unused struct dma_debug_item dbg_TNCSBO_R1[] = {
 
 	{0x00000086, "tncso_r1_smi_port / smi_latency_mon output"},
 
-	{0x000019C0, "tncso_r1_smi_port / plane-1 - tncso_r1_smi_port / plane-0 (tncsbo_r1)"},
-	{0x000019C1, "tncso_r1_smi_port / plane-1 - tncso_r1_smi_port / plane-0 (tncsbo_r1)"},
+	{0x000019C0, "tncso_r1_smi_port / plane-1 - tncso_r1_smi_port / plane-0 (i.e. tncsbo_r1) / maddr_max record"},
+	{0x000019C1, "tncso_r1_smi_port / plane-1 - tncso_r1_smi_port / plane-0 (i.e. tncsbo_r1) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_TNCSHO_R1[] = {
@@ -591,8 +621,8 @@ static __maybe_unused struct dma_debug_item dbg_TNCSHO_R1[] = {
 
 	{0x00000086, "tncso_r1_smi_port / smi_latency_mon output"},
 
-	{0x00001AC0, "tncso_r1_smi_port / plane-2 - tncso_r1_smi_port / plane-1 (tncsho_r1)"},
-	{0x00001AC1, "tncso_r1_smi_port / plane-2 - tncso_r1_smi_port / plane-1 (tncsho_r1)"},
+	{0x00001AC0, "tncso_r1_smi_port / plane-2 - tncso_r1_smi_port / plane-1 (i.e. tncsho_r1) / maddr_max record"},
+	{0x00001AC1, "tncso_r1_smi_port / plane-2 - tncso_r1_smi_port / plane-1 (i.e. tncsho_r1) / maddr_max record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_TNCSYO_R1[] = {
@@ -611,8 +641,8 @@ static __maybe_unused struct dma_debug_item dbg_TNCSYO_R1[] = {
 
 	{0x00000086, "tncso_r1_smi_port / smi_latency_mon output"},
 
-	{0x00001BC0, "tncso_r1_smi_port / plane-3 - tncso_r1_smi_port / plane-2 (tncsyo_r1)"},
-	{0x00001BC0, "tncso_r1_smi_port / plane-3 - tncso_r1_smi_port / plane-2 (tncsyo_r1)"},
+	{0x00001BC0, "tncso_r1_smi_port / plane-3 - tncso_r1_smi_port / plane-2 (i.e. tncsyo_r1) / maddr_max record"},
+	{0x00001BC0, "tncso_r1_smi_port / plane-3 - tncso_r1_smi_port / plane-2 (i.e. tncsyo_r1) / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_ulc_cmd_cnt[] = {

@@ -147,6 +147,8 @@ void ut_sv_reset(struct device *dev)
 	unsigned long end = jiffies + msecs_to_jiffies(100);
 	struct mtk_ut_camsv_device *sv_dev = dev_get_drvdata(dev);
 
+	//dev_dbg(dev, "%s\n", __func__);
+
 	writel_relaxed(0, sv_dev->base + REG_CAMSV_SW_CTL);
 	writel_relaxed(1, sv_dev->base + REG_CAMSV_SW_CTL);
 	wmb(); /* TBC */
@@ -235,14 +237,14 @@ int ut_mtk_cam_sv_tg_config(
 			cfg_in_param->subsample);
 	}
 
-	if (sv_dev->id == 0) {
+	if (sv_dev->exp_order == 0) {
 		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_SEN_MODE,
 			CAMSV_TG_SEN_MODE, STAGGER_EN, 0);
 		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_PATH_CFG,
 			CAMSV_TG_PATH_CFG, SUB_SOF_SRC_SEL, 0);
 		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_PATH_CFG,
 			CAMSV_TG_PATH_CFG, DB_LOAD_DIS, 1);
-	} else if (sv_dev->id == 1) {
+	} else {
 		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_SEN_MODE,
 			CAMSV_TG_SEN_MODE, STAGGER_EN, 1);
 		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_TG_PATH_CFG,
@@ -348,6 +350,15 @@ int ut_mtk_cam_sv_top_config(
 		CAMSV_DCIF_SET, FOR_DCIF_SUBSAMPLE_EN, 1);
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_DCIF_SET,
 		CAMSV_DCIF_SET, ENABLE_OUTPUT_CQ_START_SIGNAL, 1);
+
+	/* vf en chain */
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_MISC,
+		CAMSV_MISC, VF_SRC, 0);
+	if (sv_dev->id == 8 || sv_dev->id == 9) {
+		if (sv_dev->exp_order == 2)
+			CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSV_MISC,
+				CAMSV_MISC, VF_SRC, 1);
+	}
 
 	/* fmt sel */
 	fmt.Raw = ut_mtk_cam_sv_convert_fmt(cfg_in_param->fmt);
@@ -501,14 +512,14 @@ int ut_mtk_cam_sv_dmao_config(
 		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON0, 0x10000300);
 		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON1, 0x00C00060);
 		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON2, 0x01800120);
-		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON3, 0x020001A0);
-		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON4, 0x012000C0);
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON3, 0x820001A0);
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON4, 0x812000C0);
 	} else {
-		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON0, 0x10000100);
-		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON1, 0x00400020);
-		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON2, 0x00800060);
-		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON3, 0x00AA0082);
-		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON4, 0x00600040);
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON0, 0x10000080);
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON1, 0x00200010);
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON2, 0x00400030);
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON3, 0x80550045);
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSV_IMGO_CON4, 0x80300020);
 	}
 
 EXIT:
@@ -746,6 +757,8 @@ static int mtk_ut_camsv_component_bind(struct device *dev,
 	struct mtk_cam_ut *ut = data;
 	struct ut_event evt;
 
+	//dev_info(dev, "%s\n", __func__);
+
 	if (!data) {
 		dev_info(dev, "no master data\n");
 		return -1;
@@ -769,6 +782,7 @@ static void mtk_ut_camsv_component_unbind(struct device *dev,
 	struct mtk_ut_camsv_device *sv_dev = dev_get_drvdata(dev);
 	struct mtk_cam_ut *ut = data;
 
+	//dev_dbg(dev, "%s\n", __func__);
 	ut->camsv[sv_dev->id] = NULL;
 	remove_listener(&sv_dev->event_src, &ut->listener);
 }
@@ -792,7 +806,8 @@ static irqreturn_t mtk_ut_camsv_irq(int irq, void *data)
 	if (irq_status & CAMSV_INT_TG_SOF_INT_ST)
 		event.mask |= EVENT_SV_SOF;
 
-	if (event.mask && camsv->id == 0) {
+	if (event.mask && ((camsv->exp_order == 0 && camsv->exp_num > 1) ||
+		(camsv->exp_num == 1))) {
 		dev_dbg(camsv->dev, "send event 0x%x\n", event.mask);
 		send_event(&camsv->event_src, event);
 	}
@@ -816,6 +831,20 @@ static int mtk_ut_camsv_of_probe(struct platform_device *pdev,
 	dev_info(dev, "id = %d\n", camsv->id);
 	if (ret) {
 		dev_info(dev, "missing camsvid property\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,camsv-hwcap",
+						       &camsv->hw_cap);
+	if (ret) {
+		dev_dbg(dev, "missing hardware capability property\n");
+		return ret;
+	}
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,cammux-id",
+						       &camsv->cammux_id);
+	if (ret) {
+		dev_dbg(dev, "missing cammux id property\n");
 		return ret;
 	}
 
@@ -890,6 +919,8 @@ static int mtk_ut_camsv_probe(struct platform_device *pdev)
 	struct mtk_ut_camsv_device *camsv;
 	int ret;
 
+	//dev_info(dev, "%s\n", __func__);
+
 	camsv = devm_kzalloc(dev, sizeof(*camsv), GFP_KERNEL);
 	if (!camsv)
 		return -ENOMEM;
@@ -919,6 +950,8 @@ static int mtk_ut_camsv_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_ut_camsv_device *camsv = dev_get_drvdata(dev);
 	int i;
+
+	//dev_info(dev, "%s\n", __func__);
 
 	for (i = 0; i < camsv->num_clks; i++) {
 		if (camsv->clks[i])

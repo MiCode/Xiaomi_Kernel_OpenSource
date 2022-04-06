@@ -378,6 +378,7 @@ void mtk_cam_dvfs_uninit(struct mtk_cam_device *cam)
 
 	if (dvfs_info->clklv_num)
 		dev_pm_opp_of_remove_table(dvfs_info->dev);
+	dev_info(cam->dev, "[%s]\n", __func__);
 }
 
 void mtk_cam_dvfs_init(struct mtk_cam_device *cam)
@@ -456,7 +457,7 @@ opp_default_table:
 #define BW_B2KB(value) ((value) / 1024)
 #define BW_B2KB_WITH_RATIO(value) ((value) * 4 / 3 / 1024)
 
-void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
+void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool force)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_camsys_dvfs *dvfs_info = &cam->camsys_ctrl.dvfs_info;
@@ -482,14 +483,18 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas)
 
 	raw_mmqos = raw_qos + engine_id;
 
-	raw_dmas |= dvfs_info->updated_raw_dmas[engine_id];
+	if (force == true)
+		dvfs_info->updated_raw_dmas[engine_id] = 0;
+	else
+		raw_dmas |= dvfs_info->updated_raw_dmas[engine_id];
 
 	/* mstream may no settings */
 	if (raw_dmas == 0 || dvfs_info->updated_raw_dmas[engine_id] == raw_dmas)
 		return;
 
-	dev_info(cam->dev, "[%s] engine_id(%d) enable_dmas(0x%lx) raw_dmas(0x%lx), updated_raw_dmas(0x%lx)\n",
-		__func__, engine_id, pipe->enabled_dmas, raw_dmas,
+	dev_info(cam->dev, "[%s] force(%d), engine_id(%d) enabled_raw(%d) enable_dmas(0x%lx) raw_dmas(0x%lx), updated_raw_dmas(0x%lx)\n",
+		__func__, force, engine_id,
+		ctx->pipe->enabled_raw, pipe->enabled_dmas, raw_dmas,
 		dvfs_info->updated_raw_dmas[engine_id]);
 
 	dvfs_info->updated_raw_dmas[engine_id] = raw_dmas;

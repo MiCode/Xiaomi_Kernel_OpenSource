@@ -146,6 +146,8 @@ struct mtk_cam_ut {
 	int subsample;
 	int hardware_scenario;
 	int main_rawi;
+	unsigned int master_raw;
+	unsigned int used_sv_pipes;
 
 	struct mtk_cam_ut_event_handler hdl;
 

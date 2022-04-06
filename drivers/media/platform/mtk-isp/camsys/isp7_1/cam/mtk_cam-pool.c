@@ -354,7 +354,6 @@ int mtk_cam_sv_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 
 	for (i = 0; i < CAMSV_WORKING_BUF_NUM; i++) {
 		struct mtk_camsv_working_buf_entry *buf = &ctx->buf_pool.sv_working_buf[i];
-
 		buf->ctx = ctx;
 
 		list_add_tail(&buf->list_entry,

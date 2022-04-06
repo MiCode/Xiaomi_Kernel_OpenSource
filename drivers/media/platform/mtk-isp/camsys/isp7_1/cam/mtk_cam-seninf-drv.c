@@ -323,7 +323,6 @@ static int seninf_core_pm_runtime_enable(struct seninf_core *core)
 static int seninf_core_pm_runtime_disable(struct seninf_core *core)
 {
 	int i;
-
 	if (core->pm_domain_cnt == 1)
 		pm_runtime_disable(core->dev);
 	else {
@@ -342,7 +341,6 @@ static int seninf_core_pm_runtime_disable(struct seninf_core *core)
 static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 {
 	int i;
-
 	if (core->pm_domain_cnt == 1)
 		pm_runtime_get_sync(core->dev);
 	else {
@@ -361,7 +359,6 @@ static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 static int seninf_core_pm_runtime_put(struct seninf_core *core)
 {
 	int i;
-
 	if (core->pm_domain_cnt == 1)
 		pm_runtime_put_sync(core->dev);
 	else {
@@ -557,6 +554,8 @@ static int seninf_core_probe(struct platform_device *pdev)
 		core->seninf_kworker_task = NULL;
 	}
 
+	//dev_info(dev, "%s\n", __func__);
+
 	return 0;
 }
 
@@ -574,6 +573,8 @@ static int seninf_core_remove(struct platform_device *pdev)
 
 	if (core->seninf_kworker_task)
 		kthread_stop(core->seninf_kworker_task);
+
+	dev_info(dev, "%s\n", __func__);
 
 	return 0;
 }
@@ -840,10 +841,11 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 			g_seninf_ops->_set_test_model(ctx,
 					vc[i]->mux, vc[i]->cam, vc[i]->pixel_mode);
 
-			if (vc[i]->out_pad == PAD_SRC_PDAF0)
+			if (vc[i]->out_pad == PAD_SRC_PDAF0) {
 				mdelay(40);
-			else
+			} else {
 				udelay(40);
+			}
 		}
 	} else {
 		g_seninf_ops->_set_idle(ctx);
@@ -1207,6 +1209,68 @@ static int debug_err_detect_initialize(struct seninf_ctx *ctx)
 	return 0;
 }
 
+static int mtk_senif_get_ccu_phandle(struct seninf_core *core)
+{
+	struct device *dev = core->dev;
+	struct device_node *node;
+	int ret = 0;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,camera_fsync_ccu");
+	if (node == NULL) {
+		dev_info(dev, "of_find mediatek,camera_fsync_ccu fail\n");
+		ret = PTR_ERR(node);
+		goto out;
+	}
+
+	ret = of_property_read_u32(node, "mediatek,ccu_rproc",
+				   &core->rproc_ccu_phandle);
+	if (ret) {
+		dev_info(dev, "fail to get rproc_ccu_phandle:%d\n", ret);
+		ret = -EINVAL;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
+static int mtk_senif_power_ctrl_ccu(struct seninf_core *core, int on_off)
+{
+	int ret;
+
+	if (on_off) {
+		ret = mtk_senif_get_ccu_phandle(core);
+		if (ret)
+			goto out;
+		core->rproc_ccu_handle = rproc_get_by_phandle(core->rproc_ccu_phandle);
+		if (core->rproc_ccu_handle == NULL) {
+			dev_info(core->dev, "Get ccu handle fail\n");
+			ret = PTR_ERR(core->rproc_ccu_handle);
+			goto out;
+		}
+
+		ret = rproc_boot(core->rproc_ccu_handle);
+		if (ret)
+			dev_info(core->dev, "boot ccu rproc fail\n");
+
+		if (core->dfs.reg) {
+			if (regulator_enable(core->dfs.reg))
+				dev_info(core->dev, "regulator_enable fail\n");
+		}
+	} else {
+		if (core->dfs.reg && regulator_is_enabled(core->dfs.reg))
+			regulator_disable(core->dfs.reg);
+
+		if (core->rproc_ccu_handle) {
+			rproc_shutdown(core->rproc_ccu_handle);
+			ret = 0;
+		} else
+			ret = -EINVAL;
+	}
+out:
+	return ret;
+}
+
 static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
@@ -1214,6 +1278,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 #endif
 	int ret;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct seninf_core *core = ctx->core;
 
 	if (ctx->streaming == enable)
 		return 0;
@@ -1237,10 +1302,12 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 					ctx->sensor_pad_idx, &ctx->buffered_pixel_rate);
 
 		get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
+		mtk_senif_power_ctrl_ccu(core, 1);
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
 			pm_runtime_put_noidle(ctx->dev);
+			mtk_senif_power_ctrl_ccu(core, 0);
 			return ret;
 		}
 
@@ -1288,6 +1355,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		g_seninf_ops->_poweroff(ctx);
 		ctx->dbg_last_dump_req = 0;
 		pm_runtime_put_sync(ctx->dev);
+		mtk_senif_power_ctrl_ccu(core, 0);
 	}
 
 	ctx->streaming = enable;
@@ -1812,9 +1880,6 @@ static int runtime_suspend(struct device *dev)
 				clk_disable_unprepare(ctx->core->clk[i]);
 		} while (i);
 		seninf_core_pm_runtime_put(core);
-		if (ctx->core->dfs.reg && regulator_is_enabled(ctx->core->dfs.reg))
-			regulator_disable(ctx->core->dfs.reg);
-
 	}
 
 	mutex_unlock(&core->mutex);
@@ -1827,16 +1892,12 @@ static int runtime_resume(struct device *dev)
 	int i;
 	struct seninf_ctx *ctx = dev_get_drvdata(dev);
 	struct seninf_core *core = ctx->core;
-	int ret;
 
 	mutex_lock(&core->mutex);
 
 	core->refcnt++;
 
 	if (core->refcnt == 1) {
-		if (ctx->core->dfs.reg)
-			ret = regulator_enable(ctx->core->dfs.reg);
-
 		seninf_core_pm_runtime_get_sync(core);
 		for (i = 0; i < CLK_TOP_SENINF_END; i++) {
 			if (core->clk[i])
@@ -1872,6 +1933,8 @@ static int seninf_remove(struct platform_device *pdev)
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
 
 	mutex_destroy(&ctx->mutex);
+
+	//dev_info(dev, "%s\n", __func__);
 
 	return 0;
 }
@@ -2000,11 +2063,29 @@ u64 mtk_cam_seninf_get_frame_time(struct v4l2_subdev *sd, u32 seq_id)
 	return tmp * 1000;
 }
 
-
-int mtk_cam_seninf_dump(struct v4l2_subdev *sd)
+int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id)
 {
 	int ret = 0;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+	int val = 0;
+
+	if (ctx->dbg_last_dump_req != 0 &&
+		ctx->dbg_last_dump_req == seq_id) {
+		dev_info(ctx->dev, "%s skip duplicate dump for req %u\n", __func__, seq_id);
+		return 0;
+	}
+
+	ctx->dbg_last_dump_req = seq_id;
+	ctx->dbg_timeout = 0; //in us
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
+	if (ctrl) {
+		val = v4l2_ctrl_g_ctrl(ctrl);
+		if (val > 0)
+			ctx->dbg_timeout = val;
+	}
 
 	ret = pm_runtime_get_sync(ctx->dev);
 	if (ret < 0) {

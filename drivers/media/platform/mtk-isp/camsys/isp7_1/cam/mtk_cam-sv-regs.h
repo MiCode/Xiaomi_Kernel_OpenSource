@@ -413,6 +413,15 @@ union CAMSV_FBC_IMGO_CTL1 {
 
 /* FBC IMGO CTL2 */
 #define REG_CAMSV_FBC_IMGO_CTL2					0x0244
+union CAMSV_FBC_IMGO_CTL2 {
+	struct {
+		unsigned int  IMGO_RCNT					:	8;
+		unsigned int  IMGO_WCNT					:	8;
+		unsigned int  IMGO_FBC_CNT				:	8;
+		unsigned int  IMGO_DROP_CNT				:	8;
+	} Bits;
+	unsigned int Raw;
+};
 
 /* QBIN */
 #define REG_CAMSV_QBN							0x0400

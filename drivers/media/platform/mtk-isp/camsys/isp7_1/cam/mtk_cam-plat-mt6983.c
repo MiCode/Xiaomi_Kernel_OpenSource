@@ -5,6 +5,8 @@
 #include <linux/module.h>
 #include <linux/init.h>
 
+#include <clkchk-mt6983.h>
+
 #include "mtk_cam.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-video.h"
@@ -35,6 +37,7 @@
 #define SV_STATS_0_SIZE \
 	sizeof(struct mtk_cam_uapi_meta_camsv_stats_0)
 
+#define SV_EXT_STATS_SIZE (1024 * 1024 * 3)
 /* FIXME for ISP6 meta format */
 static const struct mtk_cam_format_desc meta_fmts[] = {
 	{
@@ -59,6 +62,12 @@ static const struct mtk_cam_format_desc meta_fmts[] = {
 		.vfmt.fmt.meta = {
 			.dataformat = V4L2_META_FMT_MTISP_LCS,
 			.buffersize = RAW_STATS_2_SIZE,
+		},
+	},
+	{
+		.vfmt.fmt.meta = {
+			.dataformat = V4L2_META_FMT_MTISP_3A,
+			.buffersize = SV_EXT_STATS_SIZE,
 		},
 	},
 };
@@ -200,6 +209,18 @@ static int camsys_get_port_bw(
 	return 0;
 }
 
+static bool camsys_support_AFO_independent(unsigned long fps)
+{
+	(void) fps;
+	return true;
+}
+
+static bool camsys_dump_raw_hw_debug_info(u32 raw_id)
+{
+	/* Don't dump debug info for mt6983 */
+	return true;
+}
+
 static struct camsys_plat_fp plat_fp = {
 	.get_meta_version = camsys_get_meta_version,
 	.get_meta_size = camsys_get_meta_size,
@@ -210,6 +231,8 @@ static struct camsys_plat_fp plat_fp = {
 #endif
 	.get_port_bw = camsys_get_port_bw,
 	.get_timestamp_addr = camsys_get_timestamp_addr,
+	.support_AFO_independent = camsys_support_AFO_independent,
+	.dump_raw_hw_debug_info = camsys_dump_raw_hw_debug_info,
 };
 
 static int __init plat_module_init(void)

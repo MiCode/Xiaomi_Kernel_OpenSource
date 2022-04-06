@@ -3058,10 +3058,12 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	unsigned long debug_ft = FT_30_FPS * SCAN_TIME ;//FIXME
 	unsigned long debug_vb = 3 * SCAN_TIME;//FIXME
 
-	if (ctx->dbg_timeout != 0)
+	if (ctx->dbg_timeout != 0) {
 		debug_ft = ctx->dbg_timeout / 1000;
-	if (debug_ft > FT_30_FPS)
+	}
+	if (debug_ft > FT_30_FPS) {
 		debug_vb = debug_ft / 10;
+	}
 
 
 	for (j = CSI_PORT_0A; j <= CSI_PORT_5B; j++) {
@@ -3371,7 +3373,7 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 	unsigned int camIrq_tmp;
 	char seninf_name[256];
 	/* for aee log */
-	int cnt2, cnt3, cnt4, cnt5, cnt6, cnt7;
+	int cnt1, cnt2, cnt3, cnt4, cnt5, cnt6, cnt7;
 	int cnt_tmp = 0;
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
@@ -3493,8 +3495,10 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 				if ((ctx_->size_err_cnt) >= (core->detection_cnt))
 					ctx_->size_err_flag = 1;
 
-				cnt2 = snprintf(seninf_name, 256,
-					"%s   data_not_enough_count: %d", __func__,
+				cnt1 = snprintf(seninf_name, 256, "%s", __func__);
+				cnt_tmp += cnt1;
+				cnt2 = snprintf(seninf_name+cnt_tmp, 256-cnt_tmp,
+					"   data_not_enough_count: %d",
 					ctx_->data_not_enough_cnt);
 				cnt_tmp += cnt2;
 				cnt3 = snprintf(seninf_name+cnt_tmp, 256-cnt_tmp,

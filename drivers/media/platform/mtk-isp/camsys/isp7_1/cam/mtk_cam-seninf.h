@@ -5,6 +5,7 @@
 #define __MTK_CAM_SENINF_H__
 
 #include <linux/kthread.h>
+#include <linux/remoteproc.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-fwnode.h>
@@ -85,6 +86,10 @@ struct seninf_core {
 	void __iomem *reg_if;
 	void __iomem *reg_ana;
 	int refcnt;
+
+	/* CCU control flow */
+	phandle rproc_ccu_phandle;
+	struct rproc *rproc_ccu_handle;
 
 	/* platform properties */
 	int cphy_settle_delay_dt;

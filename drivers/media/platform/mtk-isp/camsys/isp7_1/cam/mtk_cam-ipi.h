@@ -34,7 +34,6 @@ struct mtkcam_ipi_point {
  * @w: width (in pixels).
  * @h: height (in pixels).
  */
-
 struct mtkcam_ipi_size {
 	__u16 w;
 	__u16 h;
@@ -90,6 +89,7 @@ struct mtkcam_ipi_crop {
 	struct mtkcam_ipi_point p;
 	struct mtkcam_ipi_size s;
 } __packed;
+
 struct mtkcam_ipi_uid {
 	__u8 pipe_id;
 	__u8 id;
@@ -272,6 +272,7 @@ struct mtkcam_ipi_frame_ack_result {
 	__u32 sub_cq_desc_size;
 	__u32 mraw_cq_desc_size[MRAW_MAX_PIPE_USED];
 } __packed;
+
 struct mtkcam_ipi_ack_info {
 	__u8 ack_cmd_id;
 	__s32 ret;

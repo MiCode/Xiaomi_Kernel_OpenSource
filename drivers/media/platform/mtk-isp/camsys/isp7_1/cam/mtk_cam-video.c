@@ -130,6 +130,9 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 			*num_planes = 1;
 			sizes[0] = size;
 		}
+		for (i = 0; i < *num_planes; i++)
+			dev_dbg(cam->dev, "[%s] id:%d, name:%s, np:%d, i:%d, size:%d\n", __func__,
+				node->desc.id, node->desc.name, *num_planes, i, sizes[i]);
 	}
 
 	return 0;
@@ -641,8 +644,39 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 		mtk_cam_set_meta_stats_info(dma_port, vaddr, pde_cfg);
 		break;
 	case MTKCAM_IPI_CAMSV_MAIN_OUT:
-		if (node->desc.id == MTK_RAW_MAIN_STREAM_SV_1_OUT) {
+		if (mtk_cam_is_with_w_channel(node->ctx) &&
+			node->desc.id == MTK_RAW_MAIN_STREAM_SV_1_OUT) {
 			sv_frame_params->img_out.buf[0][0].iova = buf->daddr;
+		} else if (node->desc.id == MTK_RAW_MAIN_STREAM_SV_1_OUT ||
+			node->desc.id == MTK_RAW_MAIN_STREAM_SV_2_OUT) {
+			struct mtkcam_ipi_img_output *img_out;
+			int svimg_i = node->desc.id - MTK_RAW_MAIN_STREAM_SV_1_OUT;
+
+			img_out = &sv_frame_params->sensor_svimg_out;
+			img_out->buf[0][svimg_i].iova = buf->daddr;
+			img_out->fmt.s.w = node->active_fmt.fmt.pix_mp.width;
+			img_out->fmt.s.h = node->active_fmt.fmt.pix_mp.height;
+			img_out->fmt.stride[svimg_i] =
+				node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
+			dev_dbg(dev, "%s:MTK_RAW_MAIN_STREAM_SV(%d) iova(0x%x)w/h/stride=%d/%d/%d\n",
+			__func__, svimg_i, sv_frame_params->sensor_svimg_out.buf[0][svimg_i].iova,
+			img_out->fmt.s.w, img_out->fmt.s.h, img_out->fmt.stride[svimg_i]);
+		} else if (node->desc.id == MTK_RAW_META_SV_OUT_0 ||
+			node->desc.id == MTK_RAW_META_SV_OUT_1 ||
+			node->desc.id == MTK_RAW_META_SV_OUT_2) {
+			struct mtkcam_ipi_img_output *img_out;
+			int svmeta_i = node->desc.id - MTK_RAW_META_SV_OUT_0;
+
+			img_out = &sv_frame_params->sensor_svmeta_out;
+			img_out->buf[0][svmeta_i].iova = buf->daddr;
+			img_out->fmt.s.w = node->active_fmt.fmt.pix_mp.width;
+			img_out->fmt.s.h = node->active_fmt.fmt.pix_mp.height;
+			img_out->fmt.stride[svmeta_i] =
+				node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
+			dev_dbg(dev, "%s:MTK_RAW_META_SV(%d) iova(0x%x) w/h/stride=%d/%d/%d\n",
+			__func__, svmeta_i,
+			sv_frame_params->sensor_svmeta_out.buf[0][svmeta_i].iova,
+			img_out->fmt.s.w, img_out->fmt.s.h, img_out->fmt.stride[svmeta_i]);
 		} else {
 #if PDAF_READY
 			sv_frame_params->img_out.buf[0][0].iova = buf->daddr +
@@ -693,6 +727,8 @@ static void mtk_cam_vb2_buf_cleanup(struct vb2_buffer *vb)
 static void mtk_cam_vb2_request_complete(struct vb2_buffer *vb)
 {
 	struct mtk_cam_device *cam = vb2_get_drv_priv(vb->vb2_queue);
+
+	//dev_dbg(vb->vb2_queue->dev, "%s\n", __func__);
 
 	v4l2_ctrl_request_complete(vb->req_obj.req,
 				   cam->v4l2_dev.ctrl_handler);
@@ -1072,6 +1108,15 @@ int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_BAYER12:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12:
 	case MTKCAM_IPI_IMG_FMT_BAYER14:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER14:
+	case MTKCAM_IPI_IMG_FMT_BAYER16:
+	case MTKCAM_IPI_IMG_FMT_BAYER10_UNPACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER12_UNPACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER14_UNPACKED:
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER8:
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER10:
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER12:
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER14:
 	case MTKCAM_IPI_IMG_FMT_YUYV:
 	case MTKCAM_IPI_IMG_FMT_YVYU:
 	case MTKCAM_IPI_IMG_FMT_UYVY:
@@ -1118,19 +1163,22 @@ int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_YUV_P212_PACKED:
 	case MTKCAM_IPI_IMG_FMT_YVU_P212_PACKED:
 		return 200;
-	case V4L2_PIX_FMT_MTISP_BAYER8_UFBC:
-	case V4L2_PIX_FMT_MTISP_BAYER10_UFBC:
-	case V4L2_PIX_FMT_MTISP_BAYER12_UFBC:
-	case V4L2_PIX_FMT_MTISP_BAYER14_UFBC:
-		return 100;
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER8_3P:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P_PACKED:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P_PACKED:
+	case MTKCAM_IPI_IMG_FMT_RGB_8B_3P:
+	case MTKCAM_IPI_IMG_FMT_RGB_10B_3P:
+	case MTKCAM_IPI_IMG_FMT_RGB_12B_3P:
+	case MTKCAM_IPI_IMG_FMT_RGB_10B_3P_PACKED:
+	case MTKCAM_IPI_IMG_FMT_RGB_12B_3P_PACKED:
 		return 300;
 	default:
+		pr_info("%s unsupport format(%d)", __func__, ipi_fmt);
 		break;
 	}
-	return -1;
+	return 100;
 }
 
 int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
@@ -1196,31 +1244,15 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 				for (i = 0; i < info->comp_planes; i++) {
 					unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
 					unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
-
-					if (plane->bytesperline > stride &&
-						is_fullg_rb(pixelformat)) {
-						plane->sizeimage +=
-						DIV_ROUND_UP(plane->bytesperline, hdiv)
-						* DIV_ROUND_UP(height, vdiv);
-					} else if (plane->bytesperline > stride &&
-						!is_fullg_rb(pixelformat)) {
-						plane->sizeimage += plane->bytesperline
-						* DIV_ROUND_UP(height, vdiv);
-					} else {
-						plane->sizeimage += info->bpp[i]
-						* DIV_ROUND_UP(aligned_width, hdiv)
-						* DIV_ROUND_UP(height, vdiv);
-					}
-
-					if ((plane->bytesperline > stride) &&
-						(is_fullg_rb(pixelformat))) {
-						plane->sizeimage +=
-						DIV_ROUND_UP(plane->bytesperline, hdiv)
-						* DIV_ROUND_UP(height, vdiv);
-					} else if ((plane->bytesperline > stride) &&
-						(!is_fullg_rb(pixelformat))) {
-						plane->sizeimage += plane->bytesperline
-						* DIV_ROUND_UP(height, vdiv);
+					if (plane->bytesperline > stride) {
+						if (is_fullg_rb(pixelformat)) {
+							plane->sizeimage +=
+							DIV_ROUND_UP(plane->bytesperline, hdiv)
+							* DIV_ROUND_UP(height, vdiv);
+						} else {
+							plane->sizeimage += plane->bytesperline
+							* DIV_ROUND_UP(height, vdiv);
+						}
 					} else {
 						plane->sizeimage += info->bpp[i]
 						* DIV_ROUND_UP(aligned_width, hdiv)
@@ -1798,7 +1830,24 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage +=
 		mtk_cam_get_meta_size(MTKCAM_IPI_CAMSV_MAIN_OUT);
 #endif
+	/*extisp may use mainstream for yuvformat*/
+	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT &&
+		raw_feature & EXT_ISP_CUS_2) {
+		int stride;
 
+		stride = mtk_cam_dmao_xsize(try_fmt.fmt.pix_mp.width,
+			mtk_cam_get_img_fmt(try_fmt.fmt.pix_mp.pixelformat),
+			0);
+		try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline =
+			stride * 2;
+		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage =
+			try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline *
+			try_fmt.fmt.pix_mp.height;
+		dev_info(cam->dev, "%s id:%d raw_feature:0x%x stride:%d size:%d\n",
+			 __func__, node->desc.id, raw_feature,
+			 try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline,
+			 try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage);
+	}
 	/* Constant format fields */
 	try_fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
 	try_fmt.fmt.pix_mp.field = V4L2_FIELD_NONE;
@@ -1851,6 +1900,7 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 		&desc->fmts[desc->default_fmt_idx].vfmt;
 	struct mtk_raw_pde_config *pde_cfg;
 	struct mtk_cam_pde_info *pde_info;
+	u32 extmeta_size = 0;
 
 	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
 		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
@@ -1876,8 +1926,37 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 				node->active_fmt.fmt.meta.buffersize);
 		}
 	}
+
+	switch (node->desc.id) {
+	case MTK_RAW_MAIN_STREAM_SV_1_OUT:
+	case MTK_RAW_MAIN_STREAM_SV_2_OUT:
+		break;
+	case MTK_RAW_META_SV_OUT_0:
+	case MTK_RAW_META_SV_OUT_1:
+	case MTK_RAW_META_SV_OUT_2:
+		if (node->enabled && node->ctx)
+			extmeta_size = cam->raw.pipelines[node->uid.pipe_id]
+				.cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.width *
+				cam->raw.pipelines[node->uid.pipe_id]
+				.cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.height;
+		if (extmeta_size)
+			node->active_fmt.fmt.meta.buffersize = extmeta_size;
+		else
+			node->active_fmt.fmt.meta.buffersize =
+				CAMSV_EXT_META_0_WIDTH * CAMSV_EXT_META_0_HEIGHT;
+		dev_dbg(cam->dev,
+			"%s:extmeta name:%s buffersize:%d\n",
+			__func__, node->desc.name, node->active_fmt.fmt.meta.buffersize);
+		break;
+	default:
+		break;
+	}
+
 	f->fmt.meta.dataformat = node->active_fmt.fmt.meta.dataformat;
 	f->fmt.meta.buffersize = node->active_fmt.fmt.meta.buffersize;
+	dev_dbg(cam->dev,
+		"%s: node:%d dataformat:%d buffersize:%d\n",
+		__func__, node->desc.id, f->fmt.meta.dataformat, f->fmt.meta.buffersize);
 
 	return 0;
 }

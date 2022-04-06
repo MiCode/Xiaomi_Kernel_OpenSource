@@ -85,6 +85,8 @@ static int ut_seninf_reset(struct device *dev)
 	int i;
 	unsigned int cam_mux_ctrl;
 
+	dev_info(dev, "%s\n", __func__);
+
 	for (i = 0; i < camsys_tg_max; i++) {
 		cam_mux_ctrl_addr = ISP_SENINF_CAM_MUX_PCSR_0(seninf->base) + i * 0x20;
 		cam_mux_ctrl = readl_relaxed(cam_mux_ctrl_addr);
@@ -111,6 +113,7 @@ static int mtk_ut_seninf_component_bind(struct device *dev,
 {
 	struct mtk_cam_ut *ut = data;
 
+	dev_dbg(dev, "%s\n", __func__);
 	ut->seninf = dev;
 
 	return 0;
@@ -122,6 +125,7 @@ static void mtk_ut_seninf_component_unbind(struct device *dev,
 {
 	struct mtk_cam_ut *ut = data;
 
+	dev_dbg(dev, "%s\n", __func__);
 	ut->seninf = NULL;
 }
 
@@ -181,6 +185,8 @@ static int mtk_ut_seninf_probe(struct platform_device *pdev)
 	struct mtk_ut_seninf_device *seninf;
 	int ret;
 
+	dev_info(dev, "%s\n", __func__);
+
 	seninf = devm_kzalloc(dev, sizeof(*seninf), GFP_KERNEL);
 	if (!seninf)
 		return -ENOMEM;
@@ -209,6 +215,8 @@ static int mtk_ut_seninf_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
 	int i;
+
+	dev_info(dev, "%s\n", __func__);
 
 	for (i = 0; i < seninf->num_clks; i++) {
 		if (seninf->clks[i])

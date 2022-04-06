@@ -39,6 +39,11 @@ typedef int (*plat_camsys_get_port_bw)(
 typedef uint64_t* (*plat_camsys_get_timestamp_addr) (
 			void *vaddr);
 
+typedef bool (*plat_camsys_support_AFO_independent)(
+			unsigned long fps);
+
+typedef bool (*plat_camsys_dump_raw_hw_debug_info)(u32 raw_id);
+
 struct camsys_plat_fp {
 	plat_camsys_get_meta_version get_meta_version;
 	plat_camsys_get_meta_size get_meta_size;
@@ -49,6 +54,8 @@ struct camsys_plat_fp {
 #endif
 	plat_camsys_get_port_bw get_port_bw;
 	plat_camsys_get_timestamp_addr get_timestamp_addr;
+	plat_camsys_support_AFO_independent support_AFO_independent;
+	plat_camsys_dump_raw_hw_debug_info dump_raw_hw_debug_info;
 };
 
 void mtk_cam_set_plat_util(struct camsys_plat_fp *plat_fp);
@@ -72,5 +79,9 @@ int mtk_cam_get_port_bw(
 		unsigned long height, unsigned long fps);
 
 uint64_t *mtk_cam_get_timestamp_addr(void *vaddr);
+
+bool mtk_cam_support_AFO_independent(unsigned long fps);
+
+bool mtk_cam_dump_raw_hw_debug_info(u32 raw_id);
 
 #endif /*__MTK_CAM_PLAT_UTIL_H*/

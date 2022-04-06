@@ -228,6 +228,9 @@ static int mtk_mraw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 			pipe->enabled_dmas |= (1ULL << pipe->vdev_nodes[i].desc.dma_port);
 		}
 	} else {
+		for (i = 0; i < ARRAY_SIZE(mraw->devs); i++)
+			if (pipe->enabled_mraw & 1<<i)
+				pm_runtime_put_sync(mraw->devs[i]);
 		pipe->enabled_mraw = 0;
 		pipe->enabled_dmas = 0;
 	}
@@ -1134,7 +1137,7 @@ int mtk_cam_mraw_update_all_buffer_ts(struct mtk_cam_ctx *ctx, u64 ts_ns)
 	return 1;
 }
 
-int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx)
+int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 {
 	struct mtk_mraw_working_buf_entry *buf_entry, *buf_entry_prev;
 	struct mtk_mraw_device *mraw_dev;
@@ -1159,8 +1162,8 @@ int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx)
 							struct mtk_mraw_working_buf_entry,
 							list_entry);
 		if (mtk_cam_mraw_is_vf_on(mraw_dev) &&
-			buf_entry->s_data->req->pipe_used &
-			(1 << ctx->mraw_pipe[i]->id)) {
+			(buf_entry->s_data->req->pipe_used &
+			(1 << ctx->mraw_pipe[i]->id)) && is_check_ts) {
 			if (buf_entry->is_stagger == 0 ||
 				(buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0)) {
 				if ((buf_entry->ts_mraw == 0) ||
@@ -1278,6 +1281,8 @@ void mraw_reset(struct mtk_mraw_device *dev)
 {
 	int sw_ctl;
 	int ret;
+
+	//dev_dbg(dev->dev, "%s\n", __func__);
 
 	writel(0, dev->base + REG_MRAW_CTL_SW_CTL);
 	writel(1, dev->base + REG_MRAW_CTL_SW_CTL);
@@ -1686,6 +1691,7 @@ int mtk_cam_mraw_top_disable(struct mtk_mraw_device *dev)
 			MRAW_TG_VF_CON, TG_M1_VFDATA_EN)) {
 		MRAW_WRITE_BITS(dev->base + REG_MRAW_TG_VF_CON,
 			MRAW_TG_VF_CON, TG_M1_VFDATA_EN, 0);
+		mtk_cam_mraw_toggle_tg_db(dev);
 	}
 
 	mraw_reset(dev);
@@ -1794,6 +1800,8 @@ int mtk_cam_mraw_dev_config(
 	unsigned int i;
 	int ret, pad_idx = 0;
 
+	//dev_dbg(dev, "%s\n", __func__);
+
 	img_fmt = &ctx->mraw_pipe[idx]
 		->vdev_nodes[MTK_MRAW_META_OUT-MTK_MRAW_SINK_NUM].active_fmt;
 	pad_idx = ctx->mraw_pipe[idx]->seninf_padidx;
@@ -1845,6 +1853,8 @@ int mtk_cam_mraw_dev_stream_on(
 	unsigned int i;
 	int ret = 0;
 
+	//dev_dbg(dev, "%s\n", __func__);
+
 	dev_mraw = mtk_cam_find_mraw_dev(cam, ctx->used_mraw_dev[idx]);
 	if (dev_mraw == NULL) {
 		dev_dbg(dev, "stream on mraw device not found\n");
@@ -1869,8 +1879,6 @@ int mtk_cam_mraw_dev_stream_on(
 			mtk_cam_mraw_fbc_disable(mraw_dev) ||
 			mtk_cam_mraw_dma_disable(mraw_dev) ||
 			mtk_cam_mraw_tg_disable(mraw_dev);
-
-		pm_runtime_put_sync(mraw_dev->dev);
 	}
 
 	dev_info(dev, "mraw %d %s en(%d)\n", mraw_dev->id, __func__, streaming);
@@ -2592,6 +2600,8 @@ static void mtk_mraw_component_unbind(
 	struct mtk_cam_device *cam_dev = data;
 	struct mtk_mraw *mraw = &cam_dev->mraw;
 
+	//dev_info(dev, "%s\n", __func__);
+
 	mraw_dev->cam = NULL;
 	mraw_dev->pipeline = NULL;
 	mraw->devs[mraw_dev->id] = NULL;
@@ -2608,6 +2618,8 @@ static int mtk_mraw_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_mraw_device *mraw_dev;
 	int ret;
+
+	dev_info(dev, "%s\n", __func__);
 
 	mraw_dev = devm_kzalloc(dev, sizeof(*mraw_dev), GFP_KERNEL);
 	if (!mraw_dev)
@@ -2635,6 +2647,8 @@ static int mtk_mraw_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
+	dev_info(dev, "%s\n", __func__);
+
 	pm_runtime_disable(dev);
 
 	component_del(dev, &mtk_mraw_component_ops);
@@ -2646,11 +2660,11 @@ static int mtk_mraw_runtime_suspend(struct device *dev)
 	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
 	int i;
 
+	disable_irq(mraw_dev->irq);
+
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 	for (i = 0; i < mraw_dev->num_clks; i++)
 		clk_disable_unprepare(mraw_dev->clks[i]);
-
-	disable_irq(mraw_dev->irq);
 
 	return 0;
 }

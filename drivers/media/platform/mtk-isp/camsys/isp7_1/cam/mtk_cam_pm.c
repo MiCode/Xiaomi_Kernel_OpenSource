@@ -94,6 +94,7 @@ static int mtk_cam_larb_probe(struct platform_device *pdev)
 	struct mtk_cam_larb_device   *larb_dev;
 	int ret;
 
+	//dev_info(dev, "%s\n", __func__);
 	larb_dev = devm_kzalloc(dev, sizeof(*dev), GFP_KERNEL);
 	if (!larb_dev)
 		return -ENOMEM;

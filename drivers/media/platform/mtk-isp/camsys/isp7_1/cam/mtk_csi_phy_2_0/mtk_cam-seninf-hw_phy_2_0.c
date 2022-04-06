@@ -2761,7 +2761,7 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 	unsigned int camIrq_res_tmp;
 	/* for err detection aee log snprintf */
 	char seninf_name[256];
-	int cnt2, cnt3, cnt4, cnt5, cnt6, cnt7;
+	int cnt1, cnt2, cnt3, cnt4, cnt5, cnt6, cnt7;
 	int cnt_tmp = 0;
 
 	spin_lock_irqsave(&core->spinlock_irq, flags);
@@ -2849,8 +2849,10 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 				if ((ctx->size_err_cnt) >= (core->detection_cnt))
 					ctx->size_err_flag = 1;
 
-				cnt2 = snprintf(seninf_name, 256,
-					"%s   data_not_enough_count: %d", __func__,
+				cnt1 = snprintf(seninf_name, 256, "%s", __func__);
+				cnt_tmp += cnt1;
+				cnt2 = snprintf(seninf_name+cnt_tmp, 256-cnt_tmp,
+					"   data_not_enough_count: %d",
 					ctx->data_not_enough_cnt);
 				cnt_tmp += cnt2;
 				cnt3 = snprintf(seninf_name+cnt_tmp, 256-cnt_tmp,

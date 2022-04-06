@@ -252,7 +252,7 @@ static int ut_raw_apply_cq(struct device *dev,
 	writel(CTL_CQ_THR0_START, base + REG_CTL_START);
 	/* make sure reset take effect */
 
-	wmb();/*TBC*/
+	wmb();
 
 	return 0;
 }
@@ -274,6 +274,8 @@ static int mtk_ut_raw_component_bind(struct device *dev,
 	struct mtk_cam_ut *ut = data;
 	struct ut_event evt;
 
+	//dev_info(dev, "%s\n", __func__);
+
 	if (!data) {
 		dev_info(dev, "no master data\n");
 		return -1;
@@ -284,6 +286,7 @@ static int mtk_ut_raw_component_bind(struct device *dev,
 		return -1;
 	}
 	ut->raw[raw->id] = dev;
+	raw->ut = ut;
 
 	evt.mask = EVENT_SOF | EVENT_CQ_DONE | EVENT_SW_P1_DONE | EVENT_CQ_MAIN_TRIG_DLY;
 	add_listener(&raw->event_src, &ut->listener, evt);
@@ -297,6 +300,7 @@ static void mtk_ut_raw_component_unbind(struct device *dev,
 	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
 	struct mtk_cam_ut *ut = data;
 
+	//dev_dbg(dev, "%s\n", __func__);
 	ut->raw[raw->id] = NULL;
 	remove_listener(&raw->event_src, &ut->listener);
 }
@@ -493,12 +497,9 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 			cmd->dump_tg_err = 1;
 	}
 
-	/* modify for master raw B or C */
-	if (raw->hardware_scenario == MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB) {
-		if (raw->id != 1)
-			event->mask = 0;
-		/* do not mask master rawb */
-	} else if (raw->id != 0)
+	dev_info(raw->dev, "raw irq: raw->id %d ut->master_raw %d\n",
+		 raw->id, raw->ut->master_raw);
+	if (raw->id != raw->ut->master_raw)
 		event->mask = 0;
 
 	if (event->mask || cmd->any_debug) {
@@ -686,6 +687,8 @@ static int mtk_ut_raw_probe(struct platform_device *pdev)
 	struct mtk_ut_raw_device *drvdata;
 	int ret;
 
+	//dev_info(dev, "%s\n", __func__);
+
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
 		return -ENOMEM;
@@ -715,6 +718,8 @@ static int mtk_ut_raw_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_ut_raw_device *drvdata = dev_get_drvdata(dev);
 	int i;
+
+	//dev_info(dev, "%s\n", __func__);
 
 	pm_runtime_disable(dev);
 	component_del(dev, &mtk_ut_raw_component_ops);
@@ -859,6 +864,8 @@ static int mtk_ut_yuv_component_bind(struct device *dev,
 	struct mtk_ut_yuv_device *drvdata = dev_get_drvdata(dev);
 	struct mtk_cam_ut *ut = data;
 
+	//dev_info(dev, "%s\n", __func__);
+
 	if (!data) {
 		dev_info(dev, "no master data\n");
 		return -1;
@@ -879,6 +886,7 @@ static void mtk_ut_yuv_component_unbind(struct device *dev,
 	struct mtk_ut_yuv_device *drvdata = dev_get_drvdata(dev);
 	struct mtk_cam_ut *ut = data;
 
+	//dev_dbg(dev, "%s\n", __func__);
 	ut->yuv[drvdata->id] = NULL;
 }
 
@@ -995,7 +1003,7 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 		dev_info(dev, "failed to request irq=%d\n", irq);
 		return ret;
 	}
-	dev_dbg(dev, "registered irq=%d\n", irq);
+	//dev_dbg(dev, "registered irq=%d\n", irq);
 
 	clks = of_count_phandle_with_args(pdev->dev.of_node,
 				"clocks", "#clock-cells");
@@ -1055,6 +1063,8 @@ static int mtk_ut_yuv_probe(struct platform_device *pdev)
 	struct mtk_ut_yuv_device *drvdata;
 	int ret;
 
+	dev_info(dev, "%s\n", __func__);
+
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
 		return -ENOMEM;
@@ -1083,6 +1093,8 @@ static int mtk_ut_yuv_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_ut_raw_device *drvdata = dev_get_drvdata(dev);
 	int i;
+
+	//dev_info(dev, "%s\n", __func__);
 
 	pm_runtime_disable(dev);
 
@@ -1186,6 +1198,8 @@ static int mtk_ut_larb_component_bind(struct device *dev,
 {
 	struct device_link *link;
 
+	//dev_dbg(dev, "%s\n", __func__);
+
 	link = device_link_add(master, dev, DL_FLAG_AUTOREMOVE_CONSUMER |
 			       DL_FLAG_PM_RUNTIME);
 	if (!link) {
@@ -1200,7 +1214,7 @@ static void mtk_ut_larb_component_unbind(struct device *dev,
 					 struct device *master,
 					 void *data)
 {
-	dev_dbg(dev, "Start unbind larb component , return with no execution\n");
+	//dev_dbg(dev, "%s\n", __func__);
 }
 
 static const struct component_ops mtk_ut_larb_component_ops = {
@@ -1212,6 +1226,8 @@ static int mtk_ut_larb_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	int ret;
+
+	//dev_info(dev, "%s\n", __func__);
 
 #ifdef CONFIG_MTK_IOMMU_PGTABLE_EXT
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
@@ -1247,6 +1263,7 @@ static int mtk_ut_larb_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
+	dev_info(dev, "%s disable larb\n", __func__);
 	pm_runtime_put(dev);
 	pm_runtime_disable(dev);
 	return 0;
