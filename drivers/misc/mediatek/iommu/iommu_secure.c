@@ -51,9 +51,6 @@ enum iommu_atf_cmd {
 	DUMP_BANK_BASE,
 	DUMP_BANK_VAL,
 #endif
-	COPY_ENTRY_TO_SECURE,
-	CLEAN_SECURE_ENTRY,
-	DUMP_SECURE_ENTRY,
 	CMD_NUM
 };
 
@@ -245,54 +242,6 @@ mtk_iommu_secure_bk_tf_dump(uint32_t type, uint32_t id, uint32_t bank,
 	return SMC_IOMMU_SUCCESS;
 }
 EXPORT_SYMBOL_GPL(mtk_iommu_secure_bk_tf_dump);
-
-int mtk_iommu_copy_to_secure_entry(uint32_t type, uint32_t id, dma_addr_t iova, size_t size)
-{
-	int ret;
-	unsigned long cmd = IOMMU_ATF_SET_CMD(type, id, BANK_IGNORE, COPY_ENTRY_TO_SECURE);
-
-	ret = mtk_iommu_atf_call(type, id, BANK_IGNORE, cmd, iova, size, 0, 0, 0, 0);
-	if (ret) {
-		pr_err("%s fail, iova:%pa, sz:0x%zx, cmd:0x%lx\n",
-		       __func__, &iova, size, cmd);
-		return SMC_IOMMU_FAIL;
-	}
-
-	return SMC_IOMMU_SUCCESS;
-}
-EXPORT_SYMBOL_GPL(mtk_iommu_copy_to_secure_entry);
-
-int mtk_iommu_clean_secure_entry(uint32_t type, uint32_t id, dma_addr_t iova, size_t size)
-{
-	int ret;
-	unsigned long cmd = IOMMU_ATF_SET_CMD(type, id, BANK_IGNORE, CLEAN_SECURE_ENTRY);
-
-	ret = mtk_iommu_atf_call(type, id, BANK_IGNORE, cmd, iova, size, 0, 0, 0, 0);
-	if (ret) {
-		pr_err("%s fail, iova:%pa, sz:0x%zx, cmd:0x%lx\n",
-		       __func__, &iova, size, cmd);
-		return SMC_IOMMU_FAIL;
-	}
-
-	return SMC_IOMMU_SUCCESS;
-}
-EXPORT_SYMBOL_GPL(mtk_iommu_clean_secure_entry);
-
-int mtk_iommu_dump_secure_entry(uint32_t type, uint32_t id, dma_addr_t iova, size_t size)
-{
-	int ret;
-	unsigned long cmd = IOMMU_ATF_SET_CMD(type, id, BANK_IGNORE, DUMP_SECURE_ENTRY);
-
-	ret = mtk_iommu_atf_call(type, id, BANK_IGNORE, cmd, iova, size, 0, 0, 0, 0);
-	if (ret) {
-		pr_err("%s fail, iova:%pa, sz:0x%zx, cmd:0x%lx\n",
-		       __func__, &iova, size, cmd);
-		return SMC_IOMMU_FAIL;
-	}
-
-	return SMC_IOMMU_SUCCESS;
-}
-EXPORT_SYMBOL_GPL(mtk_iommu_dump_secure_entry);
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
 void mtk_iommu_dump_bank_base(void)
