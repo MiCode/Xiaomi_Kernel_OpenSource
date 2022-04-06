@@ -619,8 +619,11 @@ int gpufreq_get_opp_num(enum gpufreq_target target)
 		opp_num = gpufreq_fp->get_opp_num_stack();
 	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_opp_num_gpu)
 		opp_num = gpufreq_fp->get_opp_num_gpu();
+	//WA for print too much log will trigger kernel api dump
+	/*
 	else
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	*/
 
 done:
 	GPUFREQ_LOGD("target: %s, # of OPP index: %d",
@@ -663,8 +666,11 @@ unsigned int gpufreq_get_freq_by_idx(enum gpufreq_target target, int oppidx)
 		freq = gpufreq_fp->get_fstack_by_idx(oppidx);
 	else if (target == TARGET_GPU && gpufreq_fp && gpufreq_fp->get_fgpu_by_idx)
 		freq = gpufreq_fp->get_fgpu_by_idx(oppidx);
+	//WA for print too much log will trigger kernel api dump
+	/*
 	else
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	*/
 
 done:
 	GPUFREQ_LOGD("target: %s, freq[%d]: %d",
