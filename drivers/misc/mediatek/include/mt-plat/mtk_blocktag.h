@@ -238,7 +238,6 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 	enum mtk_btag_storage_type storage_type,
 	unsigned int ringtrace_count, size_t ctx_size, unsigned int ctx_count,
 	struct mtk_btag_vops *vops);
-void mtk_btag_earaio_boost(bool boost);
 void mtk_btag_free(struct mtk_blocktag *btag);
 
 struct mtk_btag_trace *mtk_btag_curr_trace(struct mtk_btag_ringtrace *rt);
@@ -268,7 +267,7 @@ void mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write);
 void mtk_btag_pidlog_set_pid_pages(struct page **page, int page_cnt,
 				   int mode, bool write);
 
-
+void mtk_btag_mictx_check_window(void);
 void mtk_btag_mictx_enable(int enable);
 void mtk_btag_mictx_eval_tp(
 	struct mtk_blocktag *btag,
@@ -281,6 +280,7 @@ void mtk_btag_mictx_eval_cnt_signle_wqd(
 int mtk_btag_mictx_get_data(
 	struct mtk_btag_mictx_iostat_struct *iostat);
 void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth);
+void mtk_btag_mictx_init(struct mtk_blocktag *btag, struct mtk_btag_vops *vops);
 
 int ufs_mtk_biolog_init(bool qos_allowed, bool boot_device);
 int ufs_mtk_biolog_exit(void);
@@ -293,6 +293,10 @@ void ufs_mtk_biolog_check(unsigned long req_mask);
 void ufs_mtk_biolog_clk_gating(bool gated);
 
 void rs_index_init(struct proc_dir_entry *parent);
+void mtk_btag_earaio_boost(bool boost);
+void mtk_btag_earaio_check_pwd(void);
+void mtk_btag_earaio_update_pwd(unsigned int write, __u32 size);
+
 void mmc_mtk_biolog_send_command(unsigned int task_id,
 				 struct mmc_request *mrq);
 void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
@@ -309,11 +313,13 @@ int mmc_mtk_biolog_exit(void);
 #define mtk_btag_pidlog_set_pid(...)
 #define mtk_btag_pidlog_set_pid_pages(...)
 
+#define mtk_btag_mictx_check_window(...)
 #define mtk_btag_mictx_enable(...)
 #define mtk_btag_mictx_eval_tp(...)
 #define mtk_btag_mictx_eval_req(...)
 #define mtk_btag_mictx_get_data(...)
 #define mtk_btag_mictx_update(...)
+#define mtk_btag_mictx_init(...)
 
 #define ufs_mtk_biolog_init(...)
 #define ufs_mtk_biolog_exit(...)
@@ -323,6 +329,9 @@ int mmc_mtk_biolog_exit(void);
 #define ufs_mtk_biolog_clk_gating(...)
 
 #define rs_index_init(...)
+#define mtk_btag_earaio_boost(...)
+#define mtk_btag_earaio_check_pwd(...)
+#define mtk_btag_earaio_update_pwd(...)
 
 #define mmc_mtk_biolog_send_command(...)
 #define mmc_mtk_biolog_transfer_req_compl(...)
