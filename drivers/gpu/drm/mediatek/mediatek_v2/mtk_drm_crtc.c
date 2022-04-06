@@ -8352,6 +8352,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc->state);
 	struct disp_ccorr_config *ccorr_config = NULL;
+	int is_from_dal = 0;
 	int crtc_index = drm_crtc_index(crtc);
 	struct cmdq_pkt *handle;
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
@@ -8409,17 +8410,26 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 			cmdq_handle, mtk_crtc->gce_obj.base);
 	}
 
+	/* if gce flush is form dal_show, we do not update and disconnect WDMA */
+	/* because WDMA addon path is not connected */
+	if (cb_data == cmdq_handle)
+		is_from_dal = 1;
+
 	if (mtk_crtc_is_dc_mode(crtc) ||
-		state->prop_val[CRTC_PROP_OUTPUT_ENABLE]) {
+		(state->prop_val[CRTC_PROP_OUTPUT_ENABLE] && crtc_index != 0)) {
 		mtk_crtc_wb_backup_to_slot(crtc, cmdq_handle);
 
-		cmdq_pkt_clear_event(cmdq_handle, mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
 		/* backup color matrix for DC and DC Mirror for RDMA update*/
 #ifdef IF_ZERO /* not ready for dummy register method */
 		if (mtk_crtc_is_dc_mode(crtc))
 			mtk_crtc_backup_color_matrix_data(crtc, ccorr_config,
 							cmdq_handle);
 #endif
+	} else if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE] &&
+		crtc_index == 0 && !is_from_dal) {
+		/* For DL write-back path */
+		mtk_crtc_wb_backup_to_slot(crtc, cmdq_handle);
+		cmdq_pkt_clear_event(cmdq_handle, mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF]);
 	}
 
 #ifdef MTK_DRM_CMDQ_ASYNC
@@ -8435,8 +8445,10 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	cmdq_pkt_flush(cmdq_handle);
 #endif
 
+	/* For DL write-back path */
 	/* wait WDMA frame done and disconnect immediately */
-	if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE] && crtc_index == 0) {
+	if (state->prop_val[CRTC_PROP_OUTPUT_ENABLE]
+		&& crtc_index == 0 && !is_from_dal) {
 		wb_cb_data = kmalloc(sizeof(*wb_cb_data), GFP_KERNEL);
 
 		mtk_crtc_pkt_create(&handle, crtc, client);
