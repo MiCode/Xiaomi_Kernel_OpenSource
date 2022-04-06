@@ -293,6 +293,13 @@ static struct mt6315_init_data mt6315_7_init_data = {
 	.buck3_modeset_mask = 0x4,
 };
 
+static struct mt6315_init_data mt6315_15_init_data = {
+	.id = MT6315_SLAVE_ID_15,
+	.size = MT6315_ID_15_MAX,
+	.buck1_modeset_mask = 0x3,
+	.buck3_modeset_mask = 0x4,
+};
+
 static const struct of_device_id mt6315_of_match[] = {
 	{
 		.compatible = "mediatek,mt6315_3-regulator",
@@ -303,6 +310,9 @@ static const struct of_device_id mt6315_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6315_7-regulator",
 		.data = &mt6315_7_init_data,
+	}, {
+		.compatible = "mediatek,mt6315_15-regulator",
+		.data = &mt6315_15_init_data,
 	}, {
 		/* sentinel */
 	},
