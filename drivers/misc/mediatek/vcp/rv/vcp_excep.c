@@ -15,6 +15,7 @@
 #include <linux/ratelimit.h>
 #include <linux/delay.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/slab.h>
 #include "vcp.h"
 #include "vcp_ipi_pin.h"
 #include "vcp_helper.h"
@@ -108,6 +109,8 @@ uint32_t memorydump_size_probe(struct platform_device *pdev)
 
 void vcp_dump_last_regs(int mmup_enable)
 {
+	uint32_t *out, *out_end;
+
 	if (mmup_enable == 0) {
 		pr_notice("[VCP] power off, do not vcp_dump_last_regs\n");
 		return;
@@ -206,6 +209,15 @@ void vcp_dump_last_regs(int mmup_enable)
 			readl(VCP_BUS_DBG_AW_TRACK6_L),
 			readl(VCP_BUS_DBG_AW_TRACK7_L)
 		   );
+
+	out = kmalloc(0x400 * sizeof(uint32_t), GFP_DMA|GFP_ATOMIC);
+	if (!out)
+		return;
+
+	out_end = out + 0x400;
+	pr_notice("%s at %d out:0x%08x, out_end:0x%08x\n", __func__, __LINE__, out, out_end);
+	vcp_do_tbufdump(out, out_end);
+	kfree(out);
 }
 
 void vcp_do_regdump(uint32_t *out, uint32_t *out_end)
