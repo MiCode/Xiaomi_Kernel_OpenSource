@@ -19,6 +19,19 @@
 #define GH_IOCTL_TYPE			0xB2
 
 /*
+ * fw_name is used to find the secure VM image by name to be loaded.
+ */
+#define GH_VM_FW_NAME_MAX		16
+
+/** @struct gh_fw_name
+ * A structure to be passed to GH_VM_SET_FM_NAME ioctl
+ * @name - name of the secure VM image
+ */
+struct gh_fw_name {
+	char name[GH_VM_FW_NAME_MAX];
+};
+
+/*
  * gh_vm_exit_reasons specifies the various reasons why
  * the secondary VM ended its execution. VCPU_RUN returns these values
  * to userspace.
@@ -58,6 +71,32 @@
  * Return: an fd for the per VCPU file created, -errno on failure
  */
 #define GH_CREATE_VCPU			_IO(GH_IOCTL_TYPE, 0x40)
+/*
+ * ioctls for VM properties
+ */
+/**
+ * GH_VM_SET_FW_NAME - Userspace will specify the name of the firmware
+ *		       image that needs to be loaded into VM's memory
+ *		       after authentication. The loaded VM memory details
+ *		       are forwarded to Gunyah Hypervisor underneath.
+ *
+ * Input: gh_fw_name structure with Secure VM name as name attribute of
+ *        the struct.
+ * Return: 0 if success, -errno on failure
+ */
+#define GH_VM_SET_FW_NAME		_IOW(GH_IOCTL_TYPE, 0x41, struct gh_fw_name)
+/**
+ * GH_VM_GET_FW_NAME - Userspace can use this IOCTL to query the name of
+ *		       the secure VM image that was loaded.
+ *
+ * Input: gh_fw_name structure to be filled with Secure VM name as the
+ *	  name attribute of the struct.
+ * Return: 0 if success and firmware name in struct fw_name that
+ *         represents the firmware image name currently associated with
+ *         the VM if a call to GH_VM_SET_FW_NAME ioctl previously was
+ *         successful, -errno on failure
+ */
+#define GH_VM_GET_FW_NAME		_IOR(GH_IOCTL_TYPE, 0x42, struct gh_fw_name)
 /*
  * ioctls for vcpu fd.
  */

@@ -17,6 +17,7 @@
 #include <soc/qcom/secure_buffer.h>
 #include <linux/gunyah.h>
 
+#include "gh_secure_vm_loader.h"
 #include "gh_private.h"
 
 #define MAX_VCPU_NAME	20 /* gh-vcpu:u32_max +1 */
@@ -125,6 +126,9 @@ static void gh_vm_cleanup(struct gh_vm *vm)
 	case GH_RM_VM_STATUS_EXITED:
 	case GH_RM_VM_STATUS_RUNNING:
 	case GH_RM_VM_STATUS_READY:
+		ret = gh_rm_unpopulate_hyp_res(vmid, vm->fw_name);
+		if (ret)
+			pr_warn("Failed to unpopulate hyp resources: %d\n", ret);
 	case GH_RM_VM_STATUS_INIT:
 	case GH_RM_VM_STATUS_AUTH:
 		ret = gh_rm_vm_reset(vmid);
@@ -134,6 +138,12 @@ static void gh_vm_cleanup(struct gh_vm *vm)
 				pr_err("wait for VM_STATUS_RESET interrupted %d\n", ret);
 		} else
 			pr_warn("Reset is unsuccessful for VM:%d\n", vmid);
+
+		if (vm->is_secure_vm) {
+			ret = gh_secure_vm_loader_reclaim_fw(vm);
+			if (ret)
+				pr_warn("Failed to reclaim mem VMID: %d: %d\n", vmid, ret);
+		}
 	case GH_RM_VM_STATUS_LOAD:
 		ret = gh_rm_vm_dealloc_vmid(vmid);
 		if (ret)
@@ -224,6 +234,7 @@ void gh_destroy_vm(struct gh_vm *vm)
 
 	gh_uevent_notify_change(GH_EVENT_DESTROY_VM, vm);
 	gh_notify_clients(vm, GH_VM_POWEROFF);
+	memset(vm->fw_name, 0, GH_VM_FW_NAME_MAX);
 
 clean_vm:
 	gh_rm_unregister_notifier(&vm->rm_nb);
@@ -469,7 +480,7 @@ err_hyp_assign:
 
 long gh_vm_configure(u16 auth_mech, u64 image_offset,
 			u64 image_size, u64 dtb_offset, u64 dtb_size,
-			u32 pas_id, struct gh_vm *vm)
+			u32 pas_id, const char *fw_name, struct gh_vm *vm)
 {
 	struct gh_vm_auth_param_entry entry;
 	long ret = -EINVAL;
@@ -513,6 +524,12 @@ long gh_vm_configure(u16 auth_mech, u64 image_offset,
 		return ret;
 	}
 
+	ret = gh_rm_populate_hyp_res(vm->vmid, fw_name);
+	if (ret < 0) {
+		pr_err("Failed to populate resources %d\n", ret);
+		return ret;
+	}
+
 	return ret;
 }
 
@@ -525,6 +542,12 @@ static long gh_vm_ioctl(struct file *filp,
 	switch (cmd) {
 	case GH_CREATE_VCPU:
 		ret = gh_vm_ioctl_create_vcpu(vm, arg);
+		break;
+	case GH_VM_SET_FW_NAME:
+		ret = gh_vm_ioctl_set_fw_name(vm, arg);
+		break;
+	case GH_VM_GET_FW_NAME:
+		ret = gh_vm_ioctl_get_fw_name(vm, arg);
 		break;
 	default:
 		pr_err("Invalid gunyah VM ioctl 0x%lx\n", cmd);
@@ -649,6 +672,7 @@ void gh_uevent_notify_change(unsigned int type, struct gh_vm *vm)
 		add_uevent_var(env, "vm_exit=%d", vm->exit_type);
 	}
 
+	add_uevent_var(env, "vm_name=%s", vm->fw_name);
 	env->envp[env->envp_idx++] = NULL;
 	kobject_uevent_env(&gh_dev.this_device->kobj, KOBJ_CHANGE, env->envp);
 	kfree(env);
@@ -658,18 +682,28 @@ static int __init gh_init(void)
 {
 	int ret;
 
-	ret = misc_register(&gh_dev);
+	ret = gh_secure_vm_loader_init();
 	if (ret)
+		pr_err("gunyah: secure loader init failed %d\n", ret);
+
+	ret = misc_register(&gh_dev);
+	if (ret) {
 		pr_err("gunyah: misc device register failed %d\n", ret);
+		goto err_gh_init;
+	}
 
 	return ret;
 
+err_gh_init:
+	gh_secure_vm_loader_exit();
+	return 0;
 }
 module_init(gh_init);
 
 static void __exit gh_exit(void)
 {
 	misc_deregister(&gh_dev);
+	gh_secure_vm_loader_exit();
 }
 module_exit(gh_exit);
 

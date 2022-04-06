@@ -9,6 +9,15 @@ config GUNYAH
 	  The userspace requests are relayed to Gunyah hypervisor via
 	  this driver.
 
+config GH_SECURE_VM_LOADER
+        tristate "Gunyah Secure Virtual Machine Loader Driver"
+	depends on GUNYAH
+        help
+	  This driver invokes mdt Loader to load images of
+	  any secure guest Virtual Machine (VM). The images are loaded
+	  in the carveout designated for the VM once the firmware name
+	  is validated.
+
 menuconfig GUNYAH_DRIVERS
 	bool "Gunyah Virtualization drivers"
 	depends on ARM64
