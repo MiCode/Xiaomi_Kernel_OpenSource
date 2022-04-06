@@ -581,6 +581,12 @@ struct drm_mtk_layer_config {
 	__u8 secure;
 };
 
+struct wb_frame_info {
+	__u32 fmt;
+	__u32 src_width, src_height;
+	__u32 dst_width, dst_height;
+};
+
 struct drm_mtk_layering_info {
 	struct drm_mtk_layer_config *input_config[3];
 	int disp_mode[3];
@@ -595,6 +601,7 @@ struct drm_mtk_layering_info {
 	__u32 hrt_weight;
 	__u32 hrt_idx;
 	struct mml_frame_info *mml_cfg[3];
+	struct wb_frame_info wb_cfg[3];
 };
 
 /**
@@ -638,6 +645,12 @@ enum MTK_DRM_DISP_FEATURE {
 	DRM_DISP_FEATURE_MML_PRIMARY = 0x00000400,
 	DRM_DISP_FEATURE_VIRUTAL_DISPLAY = 0x00000800,
 	DRM_DISP_FEATURE_IOMMU = 0x00001000,
+};
+
+enum MTK_DRM_DUMP_POINT {
+	MTK_DRM_BEFORE_PQ,
+	MTK_DRM_AFTER_PQ,
+	MTK_DRM_DUMP_POINT_NUM,
 };
 
 enum mtk_mmsys_id {
