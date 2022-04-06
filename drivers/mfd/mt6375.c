@@ -304,6 +304,7 @@ static int mt6375_add_irq_chip(struct mt6375_data *ddata)
 	ddata->irq_chip.irq_bus_sync_unlock = mt6375_irq_sync_unlock;
 	ddata->irq_chip.irq_disable = mt6375_irq_disable;
 	ddata->irq_chip.irq_enable = mt6375_irq_enable;
+	ddata->irq_chip.flags = IRQCHIP_SKIP_SET_WAKE;
 
 	ddata->domain = irq_domain_add_linear(ddata->dev->of_node,
 					      MT6375_IRQ_REGS * 8,
