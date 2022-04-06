@@ -187,3 +187,8 @@ int edma_rv_setup(struct apusys_core_info *info)
 	return ret;
 }
 
+void edma_rv_shutdown(void)
+{
+	unregister_rpmsg_driver(&edma_rpmsg_driver);
+	kobject_del(eRdev.edmaRV_root);
+}

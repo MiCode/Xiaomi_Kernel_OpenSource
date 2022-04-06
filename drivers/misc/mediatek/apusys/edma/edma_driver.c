@@ -440,6 +440,7 @@ err_unreg_edma_sub:
 
 void edma_exit(void)
 {
+	edma_rv_shutdown();
 	platform_driver_unregister(&edma_driver);
 	platform_driver_unregister(&mtk_edma_sub_driver);
 }

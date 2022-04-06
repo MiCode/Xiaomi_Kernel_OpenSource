@@ -175,5 +175,6 @@ struct edma_ext {
 int edma_initialize(struct edma_device *edma_device);
 
 int edma_rv_setup(struct apusys_core_info *info);
+void edma_rv_shutdown(void);
 
 #endif /* __EDMA_DRIVER_H__ */
