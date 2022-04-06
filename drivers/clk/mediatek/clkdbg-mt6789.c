@@ -145,6 +145,7 @@ const char * const *get_mt6789_all_clk_names(void)
 		"ifrao_u_bclk",
 		"ifrao_spi4",
 		"ifrao_spi5",
+		"ifrao_cq_dma",
 		"ifrao_ufs",
 		"ifrao_u_aes",
 		"ifrao_ap_msdc0",
