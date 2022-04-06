@@ -106,6 +106,7 @@ struct mtk_dvfsrc {
 	bool opp_forced;
 	spinlock_t force_lock;
 #endif
+	bool disable_wait_level;
 };
 
 #ifdef DVFSRC_OPP_BW_QUERY
@@ -698,7 +699,8 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 #endif
 		break;
 	case MTK_DVFSRC_CMD_DRAM_REQUEST:
-		ret = dvfsrc->dvd->wait_for_dram_level(dvfsrc, data);
+		if (!dvfsrc->disable_wait_level)
+			ret = dvfsrc->dvd->wait_for_dram_level(dvfsrc, data);
 		break;
 	}
 out:
@@ -860,6 +862,7 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	of_property_read_u32(np, "dvfsrc,bringup", &is_bringup);
 	of_property_read_u32(np, "dvfsrc_flag", &dvfsrc_flag);
 	of_property_read_u32(np, "dvfsrc_vmode", &dvfsrc_vmode);
+	dvfsrc->disable_wait_level = of_property_read_bool(np, "disable_wait_level");
 
 	if (!is_bringup) {
 		arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_DVFSRC_INIT,
@@ -1206,6 +1209,32 @@ static const struct dvfsrc_soc_data mt6855_data = {
 #endif
 };
 
+static const struct dvfsrc_opp dvfsrc_opp_mt6985[] = {
+	{0, 0}, {1, 0}, {2, 0}, {3, 0}, {4, 0},
+	{0, 1}, {1, 1}, {2, 1}, {3, 1},	{4, 1},
+	{0, 2}, {1, 2}, {2, 2}, {3, 2}, {4, 2},
+	{1, 3}, {2, 3}, {3, 3}, {4, 3},
+	{1, 4}, {2, 4}, {3, 4}, {4, 4},
+	{2, 5}, {3, 5}, {4, 5},
+	{3, 6}, {4, 6},
+	{4, 7},
+	{4, 8},
+};
+
+static const struct dvfsrc_opp_desc dvfsrc_opp_mt6985_desc[] = {
+	DVFSRC_OPP_DESC(dvfsrc_opp_mt6985),
+};
+
+static const struct dvfsrc_soc_data mt6985_data = {
+	DVFSRC_MT6983_SERIES_OPS,
+	.opps_desc = dvfsrc_opp_mt6985_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6985_desc),
+	.regs = mt6983_regs,
+#ifdef DVFSRC_FORCE_OPP_SUPPORT
+	.set_force_opp_level = mt6983_set_force_opp_level,
+#endif
+};
+
 static int mtk_dvfsrc_remove(struct platform_device *pdev)
 {
 	struct mtk_dvfsrc *dvfsrc = platform_get_drvdata(pdev);
@@ -1253,6 +1282,9 @@ static const struct of_device_id mtk_dvfsrc_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6855-dvfsrc",
 		.data = &mt6855_data,
+	}, {
+		.compatible = "mediatek,mt6985-dvfsrc",
+		.data = &mt6985_data,
 	}, {
 		/* sentinel */
 	},
