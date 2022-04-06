@@ -42,9 +42,10 @@ enum btag_blk_pm_event {
 	POST_RT_RESUME_END,
 	SET_RT_ACTIVE_START,
 	SET_RT_ACTIVE_END,
-	BLK_QUEUE_ENTER,
 	BLK_QUEUE_ENTER_SLEEP,
 	BLK_QUEUE_ENTER_WAKEUP,
+	BIO_QUEUE_ENTER_SLEEP,
+	BIO_QUEUE_ENTER_WAKEUP,
 	NR_BTAG_BLK_PM_EVENT,
 };
 
@@ -67,10 +68,10 @@ void btag_blk_pre_runtime_resume_end(void *data,
 		struct request_queue *q);
 
 void btag_blk_post_runtime_resume_start(void *data,
-		struct request_queue *q, int err);
+		struct request_queue *q);
 
 void btag_blk_post_runtime_resume_end(void *data,
-		struct request_queue *q, int err);
+		struct request_queue *q);
 
 void btag_blk_set_runtime_active_start(void *data,
 		struct request_queue *q);
@@ -78,13 +79,16 @@ void btag_blk_set_runtime_active_start(void *data,
 void btag_blk_set_runtime_active_end(void *data,
 		struct request_queue *q);
 
-void btag_blk_queue_enter(void *data,
-		struct request_queue *q);
-
 void btag_blk_queue_enter_sleep(void *data,
 		struct request_queue *q);
 
 void btag_blk_queue_enter_wakeup(void *data,
+		struct request_queue *q);
+
+void btag_bio_queue_enter_sleep(void *data,
+		struct request_queue *q);
+
+void btag_bio_queue_enter_wakeup(void *data,
 		struct request_queue *q);
 
 void mtk_btag_blk_pm_show(char **buff, unsigned long *size,

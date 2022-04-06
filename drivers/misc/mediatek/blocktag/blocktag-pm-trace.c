@@ -59,14 +59,17 @@ static const char *event_name(int event)
 	case SET_RT_ACTIVE_END:
 		ret = "set_runtime_active_end";
 		break;
-	case BLK_QUEUE_ENTER:
-		ret = "blk_queue_enter";
-		break;
 	case BLK_QUEUE_ENTER_SLEEP:
 		ret = "blk_queue_enter_sleep";
 		break;
 	case BLK_QUEUE_ENTER_WAKEUP:
 		ret = "blk_queue_enter_wakeup";
+		break;
+	case BIO_QUEUE_ENTER_SLEEP:
+		ret = "bio_queue_enter_sleep";
+		break;
+	case BIO_QUEUE_ENTER_WAKEUP:
+		ret = "bio_queue_enter_wakeup";
 		break;
 	default:
 		ret = "";
@@ -220,7 +223,7 @@ void btag_blk_pre_runtime_resume_end(void *data,
 }
 
 void btag_blk_post_runtime_resume_start(void *data,
-		struct request_queue *q, int err)
+		struct request_queue *q)
 {
 	dev_t dev = disk_devt(
 			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
@@ -232,11 +235,11 @@ void btag_blk_post_runtime_resume_start(void *data,
 	int dying = blk_queue_dying(q);
 
 	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
-			mq_freeze_depth, err, POST_RT_RESUME_START);
+			mq_freeze_depth, 0, POST_RT_RESUME_START);
 }
 
 void btag_blk_post_runtime_resume_end(void *data,
-		struct request_queue *q, int err)
+		struct request_queue *q)
 {
 	dev_t dev = disk_devt(
 			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
@@ -248,7 +251,7 @@ void btag_blk_post_runtime_resume_end(void *data,
 	int dying = blk_queue_dying(q);
 
 	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
-			mq_freeze_depth, err, POST_RT_RESUME_END);
+			mq_freeze_depth, 0, POST_RT_RESUME_END);
 }
 
 void btag_blk_set_runtime_active_start(void *data,
@@ -315,6 +318,38 @@ void btag_blk_queue_enter_wakeup(void *data,
 			mq_freeze_depth, 0, BLK_QUEUE_ENTER_WAKEUP);
 }
 
+void btag_bio_queue_enter_sleep(void *data,
+		struct request_queue *q)
+{
+	dev_t dev = disk_devt(
+			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
+	int maj = MAJOR(dev);
+	int min = MINOR(dev);
+	int rpm_status = q->rpm_status;
+	int pm_only = blk_queue_pm_only(q);
+	int mq_freeze_depth = q->mq_freeze_depth;
+	int dying = blk_queue_dying(q);
+
+	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+			mq_freeze_depth, 0, BIO_QUEUE_ENTER_SLEEP);
+}
+
+void btag_bio_queue_enter_wakeup(void *data,
+		struct request_queue *q)
+{
+	dev_t dev = disk_devt(
+			dev_to_disk(kobj_to_dev((q)->kobj.parent)));
+	int maj = MAJOR(dev);
+	int min = MINOR(dev);
+	int rpm_status = q->rpm_status;
+	int pm_only = blk_queue_pm_only(q);
+	int mq_freeze_depth = q->mq_freeze_depth;
+	int dying = blk_queue_dying(q);
+
+	btag_blk_pm_add_log(maj, min, rpm_status, pm_only, dying,
+			mq_freeze_depth, 0, BIO_QUEUE_ENTER_WAKEUP);
+}
+
 void mtk_btag_blk_pm_show(char **buff, unsigned long *size,
 		struct seq_file *seq)
 {
@@ -328,42 +363,16 @@ void mtk_btag_blk_pm_show(char **buff, unsigned long *size,
 		"time,pid,func,rpm_status,pm_only,freeze_depth,dying,ret/err\n");
 	while (idx >= 0) {
 		tr = &pm_traces.trace[idx];
-		if (tr->event_type == PRE_RT_SUSPEND_END) {
-			SPREAD_PRINTF(buff, size, seq,
-				"%lld,%d,%s,%s,%d,%d,%d,%d\n",
-				tr->ns_time,
-				tr->pid,
-				event_name(tr->event_type),
-				rpm_status_str(tr->rpm_status),
-				tr->pm_only,
-				tr->mq_freeze_depth,
-				tr->dying,
-				tr->ret);
-		} else if ((tr->event_type == POST_RT_SUSPEND_START) ||
-			   (tr->event_type == POST_RT_SUSPEND_END) ||
-			   (tr->event_type == POST_RT_RESUME_START) ||
-			   (tr->event_type == POST_RT_RESUME_END)) {
-			SPREAD_PRINTF(buff, size, seq,
-				"%lld,%d,%s,%s,%d,%d,%d,%d\n",
-				tr->ns_time,
-				tr->pid,
-				event_name(tr->event_type),
-				rpm_status_str(tr->rpm_status),
-				tr->pm_only,
-				tr->mq_freeze_depth,
-				tr->dying,
-				tr->ret);
-		} else {
-			SPREAD_PRINTF(buff, size, seq,
-				"%lld,%d,%s,%s,%d,%d,%d\n",
-				tr->ns_time,
-				tr->pid,
-				event_name(tr->event_type),
-				rpm_status_str(tr->rpm_status),
-				tr->pm_only,
-				tr->mq_freeze_depth,
-				tr->dying);
-		}
+		SPREAD_PRINTF(buff, size, seq,
+			"%lld,%d,%s,%s,%d,%d,%d,%d\n",
+			tr->ns_time,
+			tr->pid,
+			event_name(tr->event_type),
+			rpm_status_str(tr->rpm_status),
+			tr->pm_only,
+			tr->mq_freeze_depth,
+			tr->dying,
+			tr->ret);
 		if (idx == pm_traces.head)
 			break;
 		idx = idx ? idx - 1 : BLK_PM_MAX_LOG - 1;

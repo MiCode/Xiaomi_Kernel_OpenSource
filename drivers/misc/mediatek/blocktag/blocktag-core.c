@@ -1435,6 +1435,14 @@ static struct tracepoints_table interests[] = {
 		.name = "blk_queue_enter_wakeup",
 		.func = btag_blk_queue_enter_wakeup
 	},
+	{
+		.name = "bio_queue_enter_sleep",
+		.func = btag_bio_queue_enter_sleep
+	},
+	{
+		.name = "bio_queue_enter_wakeup",
+		.func = btag_bio_queue_enter_wakeup
+	},
 #endif
 #if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
 	{

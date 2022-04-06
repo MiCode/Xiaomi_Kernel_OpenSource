@@ -459,10 +459,16 @@ int blk_queue_enter(struct request_queue *q, blk_mq_req_flags_t flags)
 		 * reordered.
 		 */
 		smp_rmb();
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
+		trace_blk_queue_enter_sleep(q);
+#endif
 		wait_event(q->mq_freeze_wq,
 			   (!q->mq_freeze_depth &&
 			    blk_pm_resume_queue(pm, q)) ||
 			   blk_queue_dying(q));
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
+		trace_blk_queue_enter_wakeup(q);
+#endif
 		if (blk_queue_dying(q))
 			return -ENODEV;
 	}
@@ -491,10 +497,16 @@ static inline int bio_queue_enter(struct bio *bio)
 		 * reordered.
 		 */
 		smp_rmb();
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
+		trace_bio_queue_enter_sleep(q);
+#endif
 		wait_event(q->mq_freeze_wq,
 			   (!q->mq_freeze_depth &&
 			    blk_pm_resume_queue(false, q)) ||
 			   test_bit(GD_DEAD, &disk->state));
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
+		trace_bio_queue_enter_sleep(q);
+#endif
 		if (test_bit(GD_DEAD, &disk->state))
 			goto dead;
 	}
