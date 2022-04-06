@@ -678,6 +678,8 @@ int __pkvm_teardown_shadow(int shadow_handle)
 		goto err_unlock;
 	}
 
+	/* Ensure the VMID is clean before it can be reallocated */
+	__kvm_tlb_flush_vmid(&vm->arch.mmu);
 	remove_shadow_table(shadow_handle);
 	hyp_spin_unlock(&shadow_lock);
 

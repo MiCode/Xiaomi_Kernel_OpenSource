@@ -654,9 +654,8 @@ static void delete_vma(struct mm_struct *mm, struct vm_area_struct *vma)
 {
 	if (vma->vm_ops && vma->vm_ops->close)
 		vma->vm_ops->close(vma);
-	if (vma->vm_file)
-		fput(vma->vm_file);
 	put_nommu_region(vma->vm_region);
+	/* fput(vma->vm_file) happens within vm_area_free() */
 	vm_area_free(vma);
 }
 
@@ -664,7 +663,7 @@ static void delete_vma(struct mm_struct *mm, struct vm_area_struct *vma)
  * look up the first VMA in which addr resides, NULL if none
  * - should be called with mm->mmap_lock at least held readlocked
  */
-struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
+struct vm_area_struct *__find_vma(struct mm_struct *mm, unsigned long addr)
 {
 	struct vm_area_struct *vma;
 
@@ -686,7 +685,7 @@ struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
 
 	return NULL;
 }
-EXPORT_SYMBOL(find_vma);
+EXPORT_SYMBOL(__find_vma);
 
 /*
  * find a VMA
@@ -1254,8 +1253,7 @@ error:
 	if (region->vm_file)
 		fput(region->vm_file);
 	kmem_cache_free(vm_region_jar, region);
-	if (vma->vm_file)
-		fput(vma->vm_file);
+	/* fput(vma->vm_file) happens within vm_area_free() */
 	vm_area_free(vma);
 	return ret;
 

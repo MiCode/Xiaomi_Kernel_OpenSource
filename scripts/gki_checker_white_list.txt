@@ -1577,6 +1577,7 @@ s __initstub__kmod_mac_inuit____init_nls_macinuit6
 s __initstub__kmod_mac_roman____init_nls_macroman6
 s __initstub__kmod_mac_romanian____init_nls_macromanian6
 s __initstub__kmod_mac_turkish____init_nls_macturkish6
+s __initstub__kmod_macsec____macsec_init6
 s __initstub__kmod_main____pm_debugfs_init7
 s __initstub__kmod_main____pm_init1
 s __initstub__kmod_map_iter____bpf_map_iter_init7
@@ -2070,6 +2071,7 @@ s __kstrtab_mtk_mutex_disable
 s __kstrtab_mtk_mutex_enable
 s __kstrtab_mtk_mutex_get
 s __kstrtab_mtk_mutex_prepare
+s __kstrtab_mtk_mutex_put
 s __kstrtab_mtk_mutex_release
 s __kstrtab_mtk_mutex_remove_comp
 s __kstrtab_mtk_mutex_unprepare
@@ -2400,6 +2402,7 @@ s mt2712_mutex_driver_data
 s mt2712_mutex_mod
 s mt2712_mutex_sof
 s mt6779_mmsys_driver_data
+s mt6797_mmsys_driver_data
 s mt8167_mmsys_driver_data
 s mt8167_mmsys_routing_table
 s mt8167_mutex_driver_data
