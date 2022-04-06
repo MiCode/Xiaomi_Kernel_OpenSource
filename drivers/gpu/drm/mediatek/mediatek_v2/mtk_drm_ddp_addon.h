@@ -125,12 +125,13 @@ struct mtk_addon_wdma_config {
 
 struct mtk_addon_mml_config {
 	struct mtk_addon_config_type config_type;
-	struct mml_mutex_ctl mutex;	/* [IN] display mode and output port */
-	struct mml_submit submit;	/* [IN] mml_drm_split_info submit_pq */
-	bool dual;			/* [IN] set true if display uses dual pipe */
-	struct mml_task *task;		/* [OUT] task and config for mml */
-	struct mtk_rect mml_src_roi[DISP_PIPE_NUM];	/* [OUT] src roi for OVL */
-	struct mtk_rect mml_dst_roi[DISP_PIPE_NUM];	/* [OUT] dst roi for OVL */
+	struct mml_mutex_ctl mutex;		    /* [IN] display mode and output port */
+	struct mml_submit submit;		    /* [IN] mml_drm_split_info submit_pq */
+	bool dual;				    /* [IN] set true if display uses dual pipe */
+	struct mml_task *task;			    /* [OUT] task and config for mml */
+	struct mtk_rect mml_src_roi[DISP_PIPE_NUM]; /* [OUT] src roi for OVL */
+	struct mtk_rect mml_dst_roi[DISP_PIPE_NUM]; /* [OUT] dst roi for OVL */
+	bool is_yuv;				    /* [OUT] src format */
 };
 
 union mtk_addon_config {

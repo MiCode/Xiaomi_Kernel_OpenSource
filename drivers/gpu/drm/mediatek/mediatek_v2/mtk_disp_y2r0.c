@@ -57,7 +57,7 @@ static void mtk_y2r_addon_config(struct mtk_ddp_comp *comp,
 
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 			comp->regs_pa
-			+ DISP_REG_DISP_Y2R0_EN, 0x1, ~0);
+			+ DISP_REG_DISP_Y2R0_EN, addon_config->addon_mml_config.is_yuv, ~0);
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 			comp->regs_pa
 			+ DISP_REG_DISP_Y2R0_CON0,

@@ -65,6 +65,7 @@
 #include "../mml/mtk-mml.h"
 #include "../mml/mtk-mml-drm-adaptor.h"
 #include "../mml/mtk-mml-driver.h"
+#include "../mml/mtk-mml-color.h"
 
 static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "OVERLAP_LAYER_NUM", 0, UINT_MAX, 0},
@@ -1756,6 +1757,9 @@ static void mml_addon_module_connect(struct drm_crtc *crtc,
 	// Tell MML the info of dst, and MML return the SRC roi which MML
 	// need to calc RSZ.
 	calc_mml_config(crtc, addon_config, crtc_state);
+
+	addon_config->addon_mml_config.is_yuv =
+	    MML_FMT_IS_YUV(addon_config->addon_mml_config.submit.info.src.format);
 
 	crtc_state->mml_src_roi[0] = addon_config->addon_mml_config.mml_src_roi[0];
 	DDPINFO("%s:%d dual:src[0](%d,%d,%d,%d), dst[0](%d,%d,%d,%d)\n",
