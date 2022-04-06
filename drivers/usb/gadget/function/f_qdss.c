@@ -256,7 +256,17 @@ static void qdss_write_complete(struct usb_ep *ep,
 		qdss->ch.name, ep->name, req, req->status, req->length);
 	spin_lock_irqsave(&qdss->lock, flags);
 	list_move_tail(&qreq->list, &qdss->data_write_pool);
-	complete(&qreq->write_done);
+
+	/*
+	 * When channel is closed, we move all queued requests to
+	 * dequeued_data_pool list and wait for it to be drained.
+	 * Signal the completion here if the channel is closed
+	 * and both queued & dequeued lists are empty.
+	 */
+	if (!qdss->opened && list_empty(&qdss->dequeued_data_pool) &&
+			list_empty(&qdss->queued_data_pool))
+		complete(&qdss->dequeue_done);
+
 	if (req->length != 0) {
 		d_req->actual = req->actual;
 		d_req->status = req->status;
@@ -352,7 +362,6 @@ int usb_qdss_alloc_req(struct usb_qdss_ch *ch, int no_write_buf)
 		req->context = qreq;
 		req->complete = qdss_write_complete;
 		list_add_tail(&qreq->list, list_pool);
-		init_completion(&qreq->write_done);
 		spin_unlock_irqrestore(&qdss->lock, flags);
 	}
 
@@ -818,9 +827,11 @@ static struct f_qdss *alloc_usb_qdss(char *channel_name)
 	spin_lock_init(&qdss->lock);
 	INIT_LIST_HEAD(&qdss->data_write_pool);
 	INIT_LIST_HEAD(&qdss->queued_data_pool);
+	INIT_LIST_HEAD(&qdss->dequeued_data_pool);
 	INIT_WORK(&qdss->connect_w, usb_qdss_connect_work);
 	INIT_WORK(&qdss->disconnect_w, usb_qdss_disconnect_work);
 	mutex_init(&qdss->mutex);
+	init_completion(&qdss->dequeue_done);
 
 	return qdss;
 }
@@ -867,7 +878,6 @@ int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 	req->length = d_req->length;
 	req->sg = d_req->sg;
 	req->num_sgs = d_req->num_sgs;
-	reinit_completion(&qreq->write_done);
 	if (req->sg)
 		qdss_log("%s: req:%pK req->num_sgs:0x%x\n",
 			ch->name, req, req->num_sgs);
@@ -878,7 +888,6 @@ int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 		spin_lock_irqsave(&qdss->lock, flags);
 		/* Remove from queued pool and add back to data pool */
 		list_move_tail(&qreq->list, &qdss->data_write_pool);
-		complete(&qreq->write_done);
 		spin_unlock_irqrestore(&qdss->lock, flags);
 		pr_err("qdss usb_ep_queue failed\n");
 		mutex_unlock(&qdss->mutex);
@@ -933,6 +942,7 @@ retry:
 	ch->priv = priv;
 	ch->notify = notify;
 	qdss->opened = true;
+	reinit_completion(&qdss->dequeue_done);
 
 	/* the case USB cabel was connected before qdss called qdss_open */
 	if (qdss->usb_connected)
@@ -950,7 +960,7 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	unsigned long flags;
 	int status;
 	struct qdss_req *qreq;
-	LIST_HEAD(dequeued);
+	bool do_wait;
 
 	if (!ch) {
 		pr_err("%s: ch is NULL\n", __func__);
@@ -965,37 +975,45 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 		goto unlock_out;
 	}
 
-	qdss->opened = false;
 	spin_lock_irqsave(&qdss->lock, flags);
+	qdss->opened = false;
+	/*
+	 * Some UDCs like DWC3 stop the endpoint transfer upon dequeue
+	 * of a request and retire all the previously *started* requests.
+	 * This introduces a race between the below dequeue loop and
+	 * retiring of all started requests. As soon as we drop the lock
+	 * here before dequeue, the request gets retired and UDC thinks
+	 * we are dequeuing a request that was not queued before. To
+	 * avoid this problem, lets dequeue the requests in the reverse
+	 * order.
+	 */
 	while (!list_empty(&qdss->queued_data_pool)) {
-		qreq = list_first_entry(&qdss->queued_data_pool,
+		qreq = list_last_entry(&qdss->queued_data_pool,
 				struct qdss_req, list);
-		list_move_tail(&qreq->list, &dequeued);
+		list_move_tail(&qreq->list, &qdss->dequeued_data_pool);
 		spin_unlock_irqrestore(&qdss->lock, flags);
-		qdss_log("dequeue req:%pK\n", qreq->usb_req);
-		usb_ep_dequeue(qdss->port.data, qreq->usb_req);
+		status = usb_ep_dequeue(qdss->port.data, qreq->usb_req);
+		qdss_log("dequeue req:%pK status=%d\n", qreq->usb_req, status);
 		spin_lock_irqsave(&qdss->lock, flags);
 	}
 
 	/*
 	 * It's possible that requests may be completed synchronously during
 	 * usb_ep_dequeue() and would have already been moved back to
-	 * data_write_pool.  So make sure to check the last item on the
-	 * dequeued list (if any) rather than the last qreq that we just
-	 * called ep_dequeue() on in the loop above.
+	 * data_write_pool.  So make sure to check that our dequeued_data_pool
+	 * is empty. If not, wait for it to happen. The request completion
+	 * handler would signal us when this list is empty and channel close
+	 * is in progress.
 	 */
-	qreq = list_empty(&dequeued) ? NULL :
-		list_last_entry(&dequeued, struct qdss_req, list);
-
+	do_wait = !list_empty(&qdss->dequeued_data_pool);
 	spin_unlock_irqrestore(&qdss->lock, flags);
 
-	/* wait for the last qreq to be completed before freeing them */
-	if (qreq) {
-		qdss_log("waiting for completion on %pK\n", qreq->usb_req);
-		wait_for_completion(&qreq->write_done);
+	if (do_wait) {
+		qdss_log("waiting for completion on dequeued requests\n");
+		wait_for_completion(&qdss->dequeue_done);
 	}
 
-	WARN_ON(!list_empty(&dequeued));
+	WARN_ON(!list_empty(&qdss->dequeued_data_pool));
 
 	qdss_free_reqs(qdss);
 	ch->notify = NULL;

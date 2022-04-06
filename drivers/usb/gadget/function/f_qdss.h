@@ -65,6 +65,7 @@ struct f_qdss {
 	/* for mdm channel SW path */
 	struct list_head data_write_pool;
 	struct list_head queued_data_pool;
+	struct list_head dequeued_data_pool;
 
 	struct work_struct connect_w;
 	struct work_struct disconnect_w;
@@ -76,6 +77,7 @@ struct f_qdss {
 
 	struct mutex mutex;
 	bool opened;	/* protected by 'mutex' */
+	struct completion dequeue_done;
 };
 
 struct usb_qdss_opts {
@@ -86,7 +88,6 @@ struct usb_qdss_opts {
 
 struct qdss_req {
 	struct usb_request *usb_req;
-	struct completion write_done;
 	struct qdss_request *qdss_req;
 	struct list_head list;
 };
