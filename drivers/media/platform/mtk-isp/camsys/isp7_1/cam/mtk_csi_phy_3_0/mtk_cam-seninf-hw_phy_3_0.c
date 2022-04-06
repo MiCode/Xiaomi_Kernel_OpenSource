@@ -1358,7 +1358,7 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 
 #if FIX_DPHY_SETTLE
 		settle_delay_dt = settle_delay_ck = DPHY_SETTLE;
-			// 0x1c = 100ns/(1/csi_ck)
+		settle_delay_ck = 0;
 #else
 
 		if (ctx->csi_param.not_fixed_trail_settle) {

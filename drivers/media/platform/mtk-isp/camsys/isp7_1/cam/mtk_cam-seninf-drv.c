@@ -734,7 +734,7 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 		format->width = fmt->format.width;
 		format->height = fmt->format.height;
 
-		if (bSinkFormatChanged && !ctx->is_test_model)
+		if (bSinkFormatChanged && !ctx->is_test_model && !ctx->streaming)
 			mtk_cam_seninf_get_vcinfo(ctx);
 
 		dev_info(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
