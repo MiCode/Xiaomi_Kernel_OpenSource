@@ -1484,8 +1484,12 @@ void sc_select_charging_current(struct mtk_charger *info, struct charger_data *p
 				&& ((pdata->charging_current_limit - 100000) >= 500000)) {
 				if (info->sc.sc_ibat == -1)
 					info->sc.sc_ibat = pdata->charging_current_limit - 100000;
-				else if (info->sc.sc_ibat - 100000 >= 500000)
-					info->sc.sc_ibat = info->sc.sc_ibat - 100000;
+				else {
+					if (info->sc.sc_ibat - 100000 >= 500000)
+						info->sc.sc_ibat = info->sc.sc_ibat - 100000;
+					else
+						info->sc.sc_ibat = 500000;
+				}
 			}
 		}
 	}
