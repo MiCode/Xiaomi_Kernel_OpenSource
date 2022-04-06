@@ -14,6 +14,8 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <dt-bindings/soc/mtk,dvfsrc.h>
 #include "mtk-scpsys.h"
+#include <linux/interrupt.h>
+#include <linux/of_irq.h>
 
 /* Private */
 #define DVFSRC_OPP_BW_QUERY
@@ -93,6 +95,7 @@ struct mtk_dvfsrc {
 	struct platform_device *icc;
 	const struct dvfsrc_soc_data *dvd;
 	int dram_type;
+	int irq_counter;
 	const struct dvfsrc_opp_desc *curr_opps;
 	void __iomem *regs;
 	spinlock_t req_lock;
@@ -145,6 +148,7 @@ EXPORT_SYMBOL(dvfsrc_get_required_opp_peak_bw);
 #define DVFSRC_AEE_LEVEL_ERROR 0
 #define DVFSRC_AEE_FORCE_ERROR 1
 #define DVFSRC_AEE_VCORE_CHK_ERROR 2
+#define DVFSRC_AEE_TIMEOUT_ERROR 3
 
 static BLOCKING_NOTIFIER_HEAD(dvfsrc_debug_notifier);
 int register_dvfsrc_debug_notifier(struct notifier_block *nb)
@@ -220,6 +224,9 @@ enum dvfsrc_regs {
 	DVFSRC_FORCE_MASK,
 	DVFSRC_TARGET_FORCE_H,
 	DVFSRC_SW_FORCE_BW,
+	DVFSRC_INT,
+	DVFSRC_INT_EN,
+	DVFSRC_INT_CLR,
 };
 
 static const int mt8183_regs[] = {
@@ -240,6 +247,9 @@ static const int mt6873_regs[] = {
 	[DVFSRC_TARGET_LEVEL] =		0xD48,
 	[DVFSRC_VCORE_REQUEST] =	0x6C,
 	[DVFSRC_TARGET_FORCE] =		0xD70,
+	[DVFSRC_INT] =			0xC4,
+	[DVFSRC_INT_EN] =		0xC8,
+	[DVFSRC_INT_CLR] =		0xCC,
 };
 
 static const int mt6983_regs[] = {
@@ -255,6 +265,9 @@ static const int mt6983_regs[] = {
 	[DVFSRC_TARGET_FORCE_H] =	0x5DC,
 	[DVFSRC_FORCE_MASK] =		0x5EC,
 	[DVFSRC_SW_FORCE_BW] =		0x200,
+	[DVFSRC_INT] =			0xC8,
+	[DVFSRC_INT_EN] =		0xCC,
+	[DVFSRC_INT_CLR] =		0xD0,
 };
 
 static const struct dvfsrc_opp *get_current_opp(struct mtk_dvfsrc *dvfsrc)
@@ -787,6 +800,31 @@ static void pstate_notifier_register(struct mtk_dvfsrc *dvfsrc)
 	register_scpsys_notifier(&dvfsrc->scpsys_notifier);
 }
 
+static irqreturn_t mtk_dvfsrc_irq_handler_thread(int irq, void *data)
+{
+	struct mtk_dvfsrc *dvfsrc = data;
+	u32 val;
+
+	val = dvfsrc_read(dvfsrc, DVFSRC_INT);
+	dvfsrc_write(dvfsrc, DVFSRC_INT_CLR, val);
+	dvfsrc_write(dvfsrc, DVFSRC_INT_CLR, 0x0);
+
+	if (val & 0x2) {
+		dev_info(dvfsrc->dev, "DVFSRC Timeout Handler %d !\n", dvfsrc->irq_counter);
+		if (dvfsrc->irq_counter < 3) {
+			mtk_dvfsrc_dump_notify(dvfsrc, 0);
+			mtk_dvfsrc_aee_notify(dvfsrc, DVFSRC_AEE_TIMEOUT_ERROR);
+		} else if (dvfsrc->irq_counter == 3) {
+			dvfsrc_write(dvfsrc, DVFSRC_INT_EN,
+					dvfsrc_read(dvfsrc, DVFSRC_INT_EN) & ~0x2);
+			dev_info(dvfsrc->dev, "DVFSRC Timeout IRQ Disable\n");
+		}
+		dvfsrc->irq_counter++;
+	}
+
+	return IRQ_HANDLED;
+}
+
 static int mtk_dvfsrc_probe(struct platform_device *pdev)
 {
 	struct arm_smccc_res ares;
@@ -851,6 +889,16 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dvfsrc);
 	if (dvfsrc->dvd->num_domains)
 		pstate_notifier_register(dvfsrc);
+
+	ret = devm_request_threaded_irq(dvfsrc->dev, platform_get_irq(pdev, 0),
+					NULL, mtk_dvfsrc_irq_handler_thread,
+					IRQF_ONESHOT | IRQF_TRIGGER_NONE,
+					"dvfsrc", dvfsrc);
+	if (!ret) {
+		dvfsrc->irq_counter = 0;
+		dvfsrc_write(dvfsrc, DVFSRC_INT_EN, dvfsrc_read(dvfsrc, DVFSRC_INT_EN) | 0x2);
+		dev_info(dvfsrc->dev, "DVFSRC IRQ Enable\n");
+	}
 
 	dvfsrc->regulator = platform_device_register_data(dvfsrc->dev,
 			"mtk-dvfsrc-regulator", -1, NULL, 0);

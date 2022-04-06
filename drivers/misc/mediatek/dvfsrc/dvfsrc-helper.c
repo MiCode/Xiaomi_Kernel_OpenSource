@@ -277,6 +277,7 @@ static int dvfsrc_query_debug_info(u32 id)
 #define DVFSRC_AEE_LEVEL_ERROR 0
 #define DVFSRC_AEE_FORCE_ERROR 1
 #define DVFSRC_AEE_VCORE_CHK_ERROR 2
+#define DVFSRC_AEE_TIMEOUT_ERROR 3
 
 static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc,
 	char *p, u32 size)
@@ -322,6 +323,9 @@ static int dvfsrc_aee_trigger(struct mtk_dvfsrc *dvfsrc, u32 aee_type)
 	break;
 	case DVFSRC_AEE_VCORE_CHK_ERROR:
 		aee_kernel_warning("DVFSRC", "vcore check fail");
+	break;
+	case DVFSRC_AEE_TIMEOUT_ERROR:
+		aee_kernel_warning("DVFSRC", "timeout fail");
 	break;
 	default:
 		dev_info(dvfsrc->dev, "unknown aee type\n");
