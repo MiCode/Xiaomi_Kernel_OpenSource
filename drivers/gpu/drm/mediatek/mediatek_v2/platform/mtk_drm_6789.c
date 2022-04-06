@@ -53,6 +53,7 @@ const struct mtk_disp_ovl_data mt6789_ovl_driver_data = {
 	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x5555,
 	.is_support_34bits = true,
+	.source_bpc = 10,
 };
 
 // wdma
@@ -92,6 +93,7 @@ const struct mtk_disp_rdma_data mt6789_rdma_driver_data = {
 const struct mtk_disp_dsc_data mt6789_dsc_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
+	.need_obuf_sw = true,
 	.dsi_buffer = false,
 };
 
@@ -161,8 +163,8 @@ const struct mtk_dsi_driver_data mt6789_dsi_driver_data = {
 	.need_wait_fifo = true,
 	.dsi_buffer = false,
 	.dsi_new_trail = false,
-	.max_vfp = 0,
-	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
+	.max_vfp = 0x7ffe,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
 };
 
 // ddp
