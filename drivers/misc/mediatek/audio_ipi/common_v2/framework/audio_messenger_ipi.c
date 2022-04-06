@@ -225,38 +225,24 @@ bool check_print_msg_info(const struct ipi_msg_t *p_ipi_msg)
 static void audio_ipi_msg_dispatcher(int id, void *data, unsigned int len)
 {
 	struct ipi_msg_t *p_ipi_msg = NULL;
-	struct ipi_queue_handler_t *handler = NULL;
 
-	AUD_LOG_V("data = %p, len = %u", data, len);
-
-	if (data == NULL) {
-		pr_info("drop msg due to data = NULL");
+	if (data == NULL)
 		return;
-	}
-	if (len < IPI_MSG_HEADER_SIZE || len > MAX_IPI_MSG_BUF_SIZE) {
-		pr_info("drop msg due to len(%u) error!!", len);
+	if (len < IPI_MSG_HEADER_SIZE || len > MAX_IPI_MSG_BUF_SIZE)
 		return;
-	}
 
 	p_ipi_msg = (struct ipi_msg_t *)data;
-	if (check_msg_format(p_ipi_msg, len) != 0) {
-		pr_info("drop msg due to ipi fmt err");
+	if (check_msg_format(p_ipi_msg, len) != 0)
 		return;
-	}
 
 	if (p_ipi_msg->ack_type == AUDIO_IPI_MSG_ACK_BACK) {
-		if (check_print_msg_info(p_ipi_msg) == true)
-			DUMP_IPI_MSG("ack back", p_ipi_msg);
-		handler = get_ipi_queue_handler(p_ipi_msg->task_scene);
-		if (handler != NULL)
-			send_message_ack(handler, p_ipi_msg);
+		send_message_ack(get_ipi_queue_handler(p_ipi_msg->task_scene),
+				 p_ipi_msg);
 	} else if (p_ipi_msg->data_type == AUDIO_IPI_DMA &&
 		   p_ipi_msg->target_layer == AUDIO_IPI_LAYER_TO_HAL)
 		audio_ipi_dma_msg_to_hal(p_ipi_msg);
 	else {
-		if (recv_message_array[p_ipi_msg->task_scene] == NULL)
-			DUMP_IPI_MSG("task not reg cbk!!", p_ipi_msg);
-		else
+		if (recv_message_array[p_ipi_msg->task_scene] != NULL)
 			recv_message_array[p_ipi_msg->task_scene](p_ipi_msg);
 	}
 }

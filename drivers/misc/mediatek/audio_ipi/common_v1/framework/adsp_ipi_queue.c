@@ -69,7 +69,7 @@
  * =============================================================================
  */
 
-#define MAX_SCP_MSG_NUM_IN_QUEUE (32)
+#define MAX_SCP_MSG_NUM_IN_QUEUE (64)
 #define SCP_MSG_BUFFER_SIZE ((SHARE_BUF_SIZE) - 16)
 
 
@@ -196,8 +196,6 @@ inline uint32_t scp_get_num_messages_in_queue(
  *                     private function declaration
  * =============================================================================
  */
-
-static void scp_dump_msg_in_queue(struct scp_msg_queue_t *msg_queue);
 
 static int scp_push_msg(
 	struct scp_msg_queue_t *msg_queue,
@@ -550,11 +548,6 @@ int scp_dispatch_ipi_hanlder_to_queue(
 	int retval = 0;
 	unsigned long flags = 0;
 
-	ktime_t start_time = ktime_get();
-	s64 push_time = 0;
-	s64 wake_time = 0;
-	s64 stop_time = 0;
-
 	scp_debug("in, dsp_id: %u, ipi_id: %u, buf: %p, len: %u, ipi_handler: %p",
 		  dsp_id, ipi_id, buf, len, ipi_handler);
 
@@ -588,7 +581,6 @@ int scp_dispatch_ipi_hanlder_to_queue(
 			      false,
 			      &idx_msg,
 			      &queue_counter);
-	push_time = ktime_us_delta(ktime_get(), start_time);
 	spin_unlock_irqrestore(&msg_queue->queue_lock, flags);
 	if (retval != 0) {
 		pr_info("dsp_id: %u, push fail!!", dsp_id);
@@ -598,19 +590,6 @@ int scp_dispatch_ipi_hanlder_to_queue(
 	/* notify queue thread to process it */
 	dsb(SY);
 	wake_up_interruptible(&msg_queue->queue_wq);
-	wake_time = ktime_us_delta(ktime_get(), start_time);
-
-	scp_debug("out, dsp_id: %u, ipi_id: %u, buf: %p, len: %u, ipi_handler: %p",
-		  dsp_id, ipi_id, buf, len, ipi_handler);
-
-	stop_time = ktime_us_delta(ktime_get(), start_time);
-	if (stop_time > 1000) { /* 1 ms */
-		pr_notice("IPI Q push %lld us too long!! push %lld wake %lld, ktime api %lld",
-			  stop_time,
-			  push_time,
-			  wake_time - push_time,
-			  stop_time - wake_time);
-	}
 
 	return 0;
 }
@@ -623,38 +602,6 @@ int scp_dispatch_ipi_hanlder_to_queue(
  * =============================================================================
  */
 
-static void scp_dump_msg_in_queue(struct scp_msg_queue_t *msg_queue)
-{
-	struct scp_msg_t *p_scp_msg = NULL;
-	uint32_t idx_dump = msg_queue->idx_r;
-	char dump_str[16] = {0};
-	int n = 0;
-
-	pr_info("dsp_id: %u, idx_r: %u, idx_w: %u, queue(%u/%u)",
-		msg_queue->dsp_id,
-		msg_queue->idx_r,
-		msg_queue->idx_w,
-		scp_get_num_messages_in_queue(msg_queue),
-		msg_queue->size);
-
-	while (idx_dump != msg_queue->idx_w) {
-		/* get head msg */
-		p_scp_msg = &msg_queue->element[idx_dump].msg;
-
-		n = snprintf(dump_str, sizeof(dump_str), "#element[%u]", idx_dump);
-		if (n < 0 || n > sizeof(dump_str))
-			pr_info("error to get string dump_str\n");
-
-		DUMP_IPC_MSG(dump_str, p_scp_msg);
-
-		/* update dump index */
-		idx_dump++;
-		if (idx_dump == msg_queue->size)
-			idx_dump = 0;
-	}
-}
-
-
 static int scp_push_msg(
 	struct scp_msg_queue_t *msg_queue,
 	uint32_t ipi_id,
@@ -665,13 +612,13 @@ static int scp_push_msg(
 	uint32_t *p_idx_msg,
 	uint32_t *p_queue_counter)
 {
-	static bool dump_queue_flag;
 	struct ipi_msg_t *p_ipi_msg = NULL;
 	char dump_str[128] = {0};
 
 	struct scp_msg_t *p_scp_msg = NULL;
 	struct scp_queue_element_t *p_element = NULL;
 
+	bool need_retry = false;
 	unsigned long flags = 0;
 	int n = 0;
 
@@ -694,17 +641,18 @@ static int scp_push_msg(
 
 		p_ipi_msg = (struct ipi_msg_t *)buf;
 		if (len >= IPI_MSG_HEADER_SIZE &&
-		    p_ipi_msg->magic == IPI_MSG_MAGIC_NUMBER)
-			DUMP_IPI_MSG(dump_str, p_ipi_msg);
-		else
+		    p_ipi_msg->magic == IPI_MSG_MAGIC_NUMBER) {
+			if (p_ipi_msg->ack_type == AUDIO_IPI_MSG_NEED_ACK ||
+			    p_ipi_msg->ack_type == AUDIO_IPI_MSG_ACK_BACK) {
+				DUMP_IPI_MSG(dump_str, p_ipi_msg);
+				need_retry = true;
+			}
+		} else {
 			pr_info("%s", dump_str);
-
-		if (dump_queue_flag == false) {
-			dump_queue_flag = true;
-			scp_dump_msg_in_queue(msg_queue);
-			AUD_ASSERT(0);
+			need_retry = true;
 		}
-		return -EOVERFLOW;
+
+		return (need_retry) ? -EOVERFLOW : 0;
 	}
 
 	if (scp_check_idx_msg_valid(msg_queue, msg_queue->idx_w) == false) {
@@ -712,7 +660,6 @@ static int scp_push_msg(
 		return -1;
 	}
 
-	dump_queue_flag = false; /* reset dump flag after push succeed */
 
 	/* push */
 	*p_idx_msg = msg_queue->idx_w;

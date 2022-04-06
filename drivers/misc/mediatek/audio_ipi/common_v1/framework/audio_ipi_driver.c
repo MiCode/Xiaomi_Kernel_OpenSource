@@ -149,6 +149,8 @@ struct audio_task_info_t {
 
 static struct audio_task_info_t g_audio_task_info[TASK_SCENE_SIZE];
 
+static DEFINE_MUTEX(init_dsp_lock);
+static DEFINE_MUTEX(reg_dma_lock);
 
 
 /*
@@ -239,12 +241,21 @@ static int parsing_ipi_msg_from_user_space(
 	wb_dram = &dma_info->wb_dram;
 
 	if (data_type == AUDIO_IPI_DMA) {
-		/* get hal data & write hal data to DRAM */
+		/* check DMA & Write-Back size */
 		hal_data_size = dma_info->hal_buf.data_size;
 		if (hal_data_size > MAX_DSP_DMA_WRITE_SIZE) {
 			DUMP_IPI_MSG("hal_data_size error!!", &ipi_msg);
+			retval = -1;
 			goto parsing_exit;
 		}
+		hal_wb_buf_size = dma_info->hal_buf.memory_size;
+		if (hal_wb_buf_size > MAX_DSP_DMA_WRITE_SIZE) {
+			DUMP_IPI_MSG("hal_wb_buf_size error!!", &ipi_msg);
+			retval = -1;
+			goto parsing_exit;
+		}
+
+		/* get hal data & write hal data to DRAM */
 		copy_hal_data = vmalloc(hal_data_size);
 		if (copy_hal_data == NULL) {
 			retval = -ENOMEM;
@@ -271,7 +282,6 @@ static int parsing_ipi_msg_from_user_space(
 		}
 
 		/* write back result to hal later, like get parameter */
-		hal_wb_buf_size = dma_info->hal_buf.memory_size;
 		hal_wb_buf_addr = (void __user *)dma_info->hal_buf.addr;
 		ipi_dbg(
 			"write region copy_hal_data(%p), hal_data_size %d, hal_wb_buf_size %d"
@@ -604,6 +614,7 @@ static long audio_ipi_driver_ioctl(
 	}
 	case AUDIO_IPI_IOCTL_INIT_DSP: {
 		pr_debug("AUDIO_IPI_IOCTL_INIT_DSP");
+		mutex_lock(&init_dsp_lock);
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
 		for (dsp_id = 0; dsp_id < NUM_OPENDSP_TYPE; dsp_id++) {
 			if (is_audio_use_adsp(dsp_id))
@@ -626,6 +637,7 @@ static long audio_ipi_driver_ioctl(
 			pr_info("task info copy_to_user err");
 			retval = -EFAULT;
 		}
+		mutex_unlock(&init_dsp_lock);
 		break;
 	}
 	case AUDIO_IPI_IOCTL_REG_DMA: {
@@ -650,12 +662,14 @@ static long audio_ipi_driver_ioctl(
 			break;
 		}
 
+		mutex_lock(&reg_dma_lock);
 		if (dma_reg.reg_flag)
 			retval = audio_ipi_dma_alloc_region(dma_reg.task,
 							    dma_reg.a2d_size,
 							    dma_reg.d2a_size);
 		else
 			retval = audio_ipi_dma_free_region(dma_reg.task);
+		mutex_unlock(&reg_dma_lock);
 
 		break;
 	}

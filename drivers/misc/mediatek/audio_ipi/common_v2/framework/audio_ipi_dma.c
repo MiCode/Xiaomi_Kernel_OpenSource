@@ -9,6 +9,7 @@
 #include <linux/string.h>
 #include <linux/io.h>
 #include <linux/genalloc.h>
+#include <linux/mutex.h>
 
 #include <linux/vmalloc.h>
 
@@ -44,7 +45,7 @@
 
 
 /* hal read */
-#define MAX_SCP_MSG_NUM_IN_QUEUE (64)
+#define MAX_SCP_MSG_NUM_IN_QUEUE (256)
 
 
 /*
@@ -118,7 +119,7 @@ struct hal_dma_queue_t {
 	uint32_t idx_r;
 	uint32_t idx_w;
 
-	struct mutex queue_lock;
+	spinlock_t queue_lock;
 	wait_queue_head_t queue_wq;
 
 	struct audio_ringbuf_t dma_data;
@@ -139,6 +140,7 @@ static struct gen_pool *g_dma_pool[NUM_OPENDSP_TYPE];
 
 static bool g_dsp_init_flag[NUM_OPENDSP_TYPE];
 static bool g_region_reg_flag[TASK_SCENE_SIZE];
+static DEFINE_MUTEX(region_lock);
 
 static struct hal_dma_queue_t g_hal_dma_queue;
 
@@ -312,13 +314,8 @@ int init_audio_ipi_dma(const uint32_t dsp_id)
 		goto IPI_DMA_INIT_EXIT;
 	}
 	pr_info(
-		"dsp_id %u, dma %p, phy %p/0x%llx, vir %p/0x%llx, sz 0x%x, checksum %u, offset %u, cache align mask %u"
+		"dsp_id %u, sz 0x%x, checksum %u, offset %u, cache align mask %u"
 		, dsp_id,
-		dma,
-		dma->base_phy.addr,
-		dma->base_phy.addr_val,
-		dma->base_vir.addr,
-		dma->base_vir.addr_val,
 		dma->size,
 		dma->checksum,
 		dma->pool_offset,
@@ -627,8 +624,10 @@ int audio_ipi_dma_alloc_region(const uint8_t task,
 		audio_ipi_dma_init_dsp(dsp_id);
 	}
 
+	mutex_lock(&region_lock);
 	if (g_region_reg_flag[task] == true) {
 		pr_notice("task: %d already register", task);
+		mutex_unlock(&region_lock);
 		return -EEXIST;
 	}
 	g_region_reg_flag[task] = true;
@@ -702,6 +701,8 @@ int audio_ipi_dma_alloc_region(const uint8_t task,
 		adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 
+	mutex_unlock(&region_lock);
+
 	return ret;
 }
 
@@ -744,8 +745,10 @@ int audio_ipi_dma_free_region(const uint8_t task)
 		return -ENODEV;
 	}
 
+	mutex_lock(&region_lock);
 	if (g_region_reg_flag[task] == false) {
 		pr_info("task: %d already unregister", task);
+		mutex_unlock(&region_lock);
 		return -ENODEV;
 	}
 	g_region_reg_flag[task] = false;
@@ -804,6 +807,9 @@ int audio_ipi_dma_free_region(const uint8_t task)
 	if (is_audio_use_adsp(dsp_id))
 		adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
+
+	mutex_unlock(&region_lock);
+
 	return 0;
 }
 
@@ -1325,117 +1331,64 @@ inline uint32_t hal_dma_get_num_msg_in_queue(
 }
 
 
-static void hal_dma_dump_msg_in_queue(struct hal_dma_queue_t *msg_queue)
-{
-	struct ipi_msg_t *p_ipi_msg = NULL;
-	uint32_t idx_dump = msg_queue->idx_r;
-
-	pr_info("idx_r: %u, idx_w: %u, queue(%u/%u)",
-		msg_queue->idx_r,
-		msg_queue->idx_w,
-		hal_dma_get_num_msg_in_queue(msg_queue),
-		msg_queue->size);
-
-	while (idx_dump != msg_queue->idx_w) {
-		/* get head msg */
-		p_ipi_msg = &msg_queue->msg[idx_dump];
-
-		DUMP_IPI_MSG("dump queue list", p_ipi_msg);
-
-		/* update dump index */
-		idx_dump++;
-		if (idx_dump == msg_queue->size)
-			idx_dump = 0;
-	}
-}
-
-
 static int hal_dma_push(
 	struct hal_dma_queue_t *msg_queue,
 	struct ipi_msg_t *p_ipi_msg,
 	uint32_t *p_idx_msg)
 {
+	uint32_t data_size = 0;
+	uint32_t free_space = 0;
 	int retval = 0;
-#if 0
-	uint32_t i = 0;
-#endif
 
-
-	if (msg_queue == NULL || p_ipi_msg == NULL || p_idx_msg == NULL) {
-		pr_info("NULL!! msg_queue: %p, p_ipi_msg: %p, p_idx_msg: %p",
-			msg_queue, p_ipi_msg, p_idx_msg);
+	if (msg_queue == NULL || p_ipi_msg == NULL || p_idx_msg == NULL)
 		return -EFAULT;
-	}
 
-	/* check queue full */
-	if (hal_dma_check_queue_to_be_full(msg_queue) == true) {
-		pr_info("task: %d, msg_id: 0x%x, queue overflow, idx_r: %u, idx_w: %u, drop it",
-			p_ipi_msg->task_scene, p_ipi_msg->msg_id,
-			msg_queue->idx_r, msg_queue->idx_w);
-		hal_dma_dump_msg_in_queue(msg_queue);
-		WARN_ON(1);
+	if (sizeof(struct ipi_msg_t) >= MAX_DSP_DMA_WRITE_SIZE)
+		return -EFAULT;
+
+	/* get data from DMA ASAP s.t. adsp could fill more data */
+	data_size = p_ipi_msg->dma_info.data_size;
+	if (data_size > (MAX_DSP_DMA_WRITE_SIZE - sizeof(struct ipi_msg_t))) {
+		pr_info("task: %d, msg_id: 0x%x, data overflow, data_size %u, drop it",
+			p_ipi_msg->task_scene, p_ipi_msg->msg_id, data_size);
+		audio_ipi_dma_drop_region(p_ipi_msg->task_scene,
+					  data_size,
+					  p_ipi_msg->dma_info.rw_idx);
+		WARN_ON(1); /* enlarge tmp_buf_d2k!! no realloc in ISR() */
 		return -EOVERFLOW;
 	}
-
-	if (hal_dma_check_idx_msg_valid(msg_queue, msg_queue->idx_w) == false) {
-		pr_info("idx_w %u is invalid!! return", msg_queue->idx_w);
-		return -1;
-	}
-
-	/* get dma data */
-	if (p_ipi_msg->dma_info.data_size > MAX_DSP_DMA_WRITE_SIZE) {
-		pr_notice("data_size %u > %u!!",
-			  p_ipi_msg->dma_info.data_size,
-			  MAX_DSP_DMA_WRITE_SIZE);
-		return -EOVERFLOW;
-	}
-
 	retval = audio_ipi_dma_read_region(
 			 p_ipi_msg->task_scene,
 			 msg_queue->tmp_buf_d2k,
-			 p_ipi_msg->dma_info.data_size,
+			 data_size,
 			 p_ipi_msg->dma_info.rw_idx);
-
-#if 0
-	for (i = 0; i < p_ipi_msg->dma_info.data_size; i++)
-		pr_info("%d", msg_queue->tmp_buf_d2k[i]);
-#endif
-
 	if (retval != 0)
 		return retval;
 
+	/* copy data & push msg to queue */
+	free_space = audio_ringbuf_free_space(&msg_queue->dma_data);
+	if (hal_dma_check_queue_to_be_full(msg_queue) == true ||
+	    hal_dma_check_idx_msg_valid(msg_queue, msg_queue->idx_w) == false ||
+	    data_size > free_space) {
+		pr_info_once("task: %d, msg_id: 0x%x, queue overflow, idx_r: %u, idx_w: %u, drop it",
+			     p_ipi_msg->task_scene, p_ipi_msg->msg_id,
+			     msg_queue->idx_r, msg_queue->idx_w);
+		return -EOVERFLOW;
+	}
 
-	/* push */
 	*p_idx_msg = msg_queue->idx_w;
 	msg_queue->idx_w++;
 	if (msg_queue->idx_w == msg_queue->size)
 		msg_queue->idx_w = 0;
 
-	/* copy */
 	memcpy((void *)&msg_queue->msg[*p_idx_msg],
 	       p_ipi_msg,
 	       sizeof(struct ipi_msg_t));
 
-	if (p_ipi_msg->dma_info.data_size >
-	    audio_ringbuf_free_space(&msg_queue->dma_data)) {
-		dynamic_change_ring_buf_size(
-			&msg_queue->dma_data,
-			p_ipi_msg->dma_info.data_size);
-	}
 	audio_ringbuf_copy_from_linear_impl(
 		&msg_queue->dma_data,
 		msg_queue->tmp_buf_d2k,
-		p_ipi_msg->dma_info.data_size);
-
-
-	ipi_dbg("task: %d, msg_id: 0x%x, idx_r: %u, idx_w: %u, queue(%u/%u), *p_idx_msg: %u",
-		p_ipi_msg->task_scene,
-		p_ipi_msg->msg_id,
-		msg_queue->idx_r,
-		msg_queue->idx_w,
-		hal_dma_get_num_msg_in_queue(msg_queue),
-		msg_queue->size,
-		*p_idx_msg);
+		data_size);
 
 	return 0;
 }
@@ -1509,12 +1462,12 @@ static int hal_dma_front(
 	*p_idx_msg = msg_queue->idx_r;
 	*pp_ipi_msg = &msg_queue->msg[*p_idx_msg];
 
-	data_size =  + (*pp_ipi_msg)->dma_info.data_size;
-
+	data_size = (*pp_ipi_msg)->dma_info.data_size;
 	if ((data_size + sizeof(struct ipi_msg_t)) > MAX_DSP_DMA_WRITE_SIZE) {
 		pr_notice("%u + %zu > %u!!",
 			  data_size, sizeof(struct ipi_msg_t),
 			  MAX_DSP_DMA_WRITE_SIZE);
+		audio_ringbuf_drop_data(&msg_queue->dma_data, data_size);
 		hal_dma_pop(msg_queue);
 		return -EOVERFLOW;
 	}
@@ -1544,12 +1497,7 @@ static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
 	if (msg_queue->dma_data.base ||
 	    msg_queue->tmp_buf_d2k ||
 	    msg_queue->tmp_buf_k2h) {
-		pr_info("already init!! %p %p %p %u %u",
-			msg_queue->dma_data.base,
-			msg_queue->tmp_buf_d2k,
-			msg_queue->tmp_buf_k2h,
-			msg_queue->dma_data.size,
-			size);
+		pr_info("already init!! %u %u", msg_queue->dma_data.size, size);
 		if (dma_rb_sz > msg_queue->dma_data.size) {
 			vfree(msg_queue->dma_data.base);
 
@@ -1570,7 +1518,7 @@ static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
 	msg_queue->idx_r = 0;
 	msg_queue->idx_w = 0;
 
-	mutex_init(&msg_queue->queue_lock);
+	spin_lock_init(&msg_queue->queue_lock);
 	init_waitqueue_head(&msg_queue->queue_wq);
 
 	msg_queue->dma_data.size = dma_rb_sz;
@@ -1619,11 +1567,12 @@ static int hal_dma_get_queue_msg(
 {
 	bool is_empty = true;
 
+	unsigned long flags = 0;
 	int retval = 0;
 
-	mutex_lock(&msg_queue->queue_lock);
+	spin_lock_irqsave(&msg_queue->queue_lock, flags);
 	is_empty = hal_dma_check_queue_empty(msg_queue);
-	mutex_unlock(&msg_queue->queue_lock);
+	spin_unlock_irqrestore(&msg_queue->queue_lock, flags);
 
 	/* wait until message is pushed to queue */
 	if (is_empty == true) {
@@ -1637,9 +1586,9 @@ static int hal_dma_get_queue_msg(
 	}
 
 	if (hal_dma_check_queue_empty(msg_queue) == false) {
-		mutex_lock(&msg_queue->queue_lock);
+		spin_lock_irqsave(&msg_queue->queue_lock, flags);
 		retval = hal_dma_front(msg_queue, pp_ipi_msg, p_idx_msg);
-		mutex_unlock(&msg_queue->queue_lock);
+		spin_unlock_irqrestore(&msg_queue->queue_lock, flags);
 	}
 
 	return retval;
@@ -1653,6 +1602,7 @@ int audio_ipi_dma_msg_to_hal(struct ipi_msg_t *p_ipi_msg)
 	uint32_t idx_msg = 0;
 
 	int retval = 0;
+	unsigned long flags = 0;
 
 	if (p_ipi_msg == NULL || msg_queue == NULL) {
 		pr_info("p_ipi_msg(%p) or msg_queue(%p) is NULL!! return",
@@ -1672,11 +1622,11 @@ int audio_ipi_dma_msg_to_hal(struct ipi_msg_t *p_ipi_msg)
 #endif
 
 	/* push message to queue */
-	mutex_lock(&msg_queue->queue_lock);
+	spin_lock_irqsave(&msg_queue->queue_lock, flags);
 	retval = hal_dma_push(msg_queue,
 			      p_ipi_msg,
 			      &idx_msg);
-	mutex_unlock(&msg_queue->queue_lock);
+	spin_unlock_irqrestore(&msg_queue->queue_lock, flags);
 	if (retval != 0) {
 		pr_info("push fail!!");
 		return retval;
@@ -1698,6 +1648,7 @@ size_t audio_ipi_dma_msg_read(void __user *buf, size_t count)
 
 	size_t copy_size = 0;
 
+	unsigned long flags = 0;
 	int retval = 0;
 
 	if (buf == NULL || count == 0 || msg_queue == NULL) {
@@ -1738,9 +1689,9 @@ size_t audio_ipi_dma_msg_read(void __user *buf, size_t count)
 
 
 	/* pop message from queue */
-	mutex_lock(&msg_queue->queue_lock);
+	spin_lock_irqsave(&msg_queue->queue_lock, flags);
 	hal_dma_pop(msg_queue);
-	mutex_unlock(&msg_queue->queue_lock);
+	spin_unlock_irqrestore(&msg_queue->queue_lock, flags);
 
 	return copy_size;
 }
