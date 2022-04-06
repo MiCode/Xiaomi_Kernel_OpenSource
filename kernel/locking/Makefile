@@ -26,7 +26,7 @@ endif
 endif
 
 ifeq ($(CONFIG_DEBUG_SPINLOCK),y)
-ifeq ($(CONFIG_MACH_MTxxxx),y)
+ifeq ($(CONFIG_MACH_MT6771),y)
 ccflags-y += -DMTK_DEBUG_SPINLOCK_V2
 else
 ccflags-y += -DMTK_DEBUG_SPINLOCK_V1
