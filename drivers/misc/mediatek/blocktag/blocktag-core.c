@@ -464,11 +464,96 @@ static int mtk_btag_earaio_init(void)
 	}
 
 	return ret;
-
 }
 
-static void mtk_btag_earaio_init_mictx(void)
+
+static ssize_t mtk_btag_earaio_ctrl_sub_write(struct file *file,
+	const char __user *ubuf,
+	size_t count, loff_t *ppos)
 {
+	int ret;
+	char cmd[MICTX_PROC_CMD_BUF_SIZE];
+
+	if (count == 0)
+		goto err;
+	else if (count > MICTX_PROC_CMD_BUF_SIZE)
+		count = MICTX_PROC_CMD_BUF_SIZE;
+
+	ret = copy_from_user(cmd, ubuf, count);
+
+	if (ret < 0)
+		goto err;
+
+	if (cmd[0] == '1')
+		mtk_btag_mictx_enable(1);
+	else if (cmd[0] == '2')
+		mtk_btag_mictx_enable(0);
+	else if (cmd[0] == '3') {
+		earaio_ctrl.enabled = true;
+		pr_info("[BLOCK_TAG] EARA-IO QoS: allowed\n");
+	} else if (cmd[0] == '4') {
+		mtk_btag_earaio_boost(false);
+		earaio_ctrl.enabled = false;
+		pr_info("[BLOCK_TAG] EARA-IO QoS: disallowed\n");
+	} else {
+		pr_info("[BLOCK_TAG] invalid arg: 0x%x\n", cmd[0]);
+		goto err;
+	}
+
+	return count;
+
+err:
+	return -1;
+}
+
+static int mtk_btag_earaio_ctrl_sub_show(struct seq_file *s, void *data)
+{
+	struct mtk_blocktag *btag;
+	bool mictx_active = false;
+	char name[BLOCKTAG_NAME_LEN] = {' '};
+
+	btag = mtk_btag_find_by_type(earaio_ctrl.monitor_storage);
+	if (btag) {
+		if (btag->mictx.enabled)
+			mictx_active = true;
+		strncpy(name, btag->name, BLOCKTAG_NAME_LEN-1);
+	}
+
+	seq_puts(s, "<MTK EARA-IO Control Unit>\n");
+	seq_printf(s, "Monitor Storage Type: %s\n", name);
+	seq_puts(s, "Status:\n");
+	seq_printf(s, "  EARA-IO Mictx Active: %d\n", mictx_active);
+	seq_printf(s, "  EARA-IO Control Enable: %d\n", earaio_ctrl.enabled);
+	seq_puts(s, "Commands: echo n > blockio_mictx, n presents\n");
+	seq_puts(s, "  Enable EARA-IO Mini Context : 1\n");
+	seq_puts(s, "  Disable EARA-IO Mini Context: 2\n");
+	seq_puts(s, "  Enable EARA-IO QoS  : 3\n");
+	seq_puts(s, "  Disable EARA-IO QoS : 4\n");
+	return 0;
+}
+
+static int mtk_btag_earaio_ctrl_sub_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mtk_btag_earaio_ctrl_sub_show, inode->i_private);
+}
+
+static const struct proc_ops mtk_btag_earaio_ctrl_sub_fops = {
+	.proc_open		= mtk_btag_earaio_ctrl_sub_open,
+	.proc_read		= seq_read,
+	.proc_lseek		= seq_lseek,
+	.proc_release		= seq_release,
+	.proc_write		= mtk_btag_earaio_ctrl_sub_write,
+};
+
+static void mtk_btag_earaio_init_mictx(
+	struct mtk_btag_vops *vops,
+	enum mtk_btag_storage_type storage_type)
+{
+	struct proc_dir_entry *proc_entry;
+
+	if (!vops->earaio_enabled)
+		return;
+
 	if (!earaio_ctrl.enabled) {
 		earaio_ctrl.uevt_workq =
 			alloc_ordered_workqueue("mtk_btag_uevt",
@@ -479,10 +564,15 @@ static void mtk_btag_earaio_init_mictx(void)
 		earaio_ctrl.pwd_begin = sched_clock();
 		earaio_ctrl.pwd_top_r_pages = 0;
 		earaio_ctrl.pwd_top_w_pages = 0;
+		earaio_ctrl.monitor_storage = storage_type;
 	}
 
 	/* Enable mictx by default if EARA-IO is enabled*/
 	mtk_btag_mictx_enable(1);
+
+	rs_index_init(btag_proc_root);
+	proc_entry = proc_create("earaio_ctrl", S_IFREG | 0664,
+		btag_proc_root, &mtk_btag_earaio_ctrl_sub_fops);
 }
 
 #else
@@ -1021,81 +1111,6 @@ static const struct proc_ops mtk_btag_sub_fops = {
 	.proc_write		= mtk_btag_sub_write,
 };
 
-static ssize_t mtk_btag_mictx_sub_write(struct file *file,
-	const char __user *ubuf,
-	size_t count, loff_t *ppos)
-{
-	int ret;
-	char cmd[MICTX_PROC_CMD_BUF_SIZE];
-
-	if (count == 0)
-		goto err;
-	else if (count > MICTX_PROC_CMD_BUF_SIZE)
-		count = MICTX_PROC_CMD_BUF_SIZE;
-
-	ret = copy_from_user(cmd, ubuf, count);
-
-	if (ret < 0)
-		goto err;
-
-	if (cmd[0] == '1')
-		mtk_btag_mictx_enable(1);
-	else if (cmd[0] == '2')
-		mtk_btag_mictx_enable(0);
-	else if (cmd[0] == '3') {
-		earaio_ctrl.enabled = true;
-		pr_info("[BLOCK_TAG] EARA-IO QoS: allowed\n");
-	} else if (cmd[0] == '4') {
-		mtk_btag_earaio_boost(false);
-		earaio_ctrl.enabled = false;
-		pr_info("[BLOCK_TAG] EARA-IO QoS: disallowed\n");
-	} else {
-		pr_info("[BLOCK_TAG] invalid arg: 0x%x\n", cmd[0]);
-		goto err;
-	}
-
-	return count;
-
-err:
-	return -1;
-}
-static int mtk_btag_mictx_sub_show(struct seq_file *s, void *data)
-{
-	bool mictx_active = false;
-	char name[BLOCKTAG_NAME_LEN] = {' '};
-
-	if (btag_bootdev) {
-		if (btag_bootdev->mictx.enabled)
-			mictx_active = true;
-		strncpy(name, btag_bootdev->name, BLOCKTAG_NAME_LEN-1);
-	}
-
-	seq_puts(s, "<MTK Blocktag Mini Context>\n");
-	seq_printf(s, "Storage type of bootdev: %s\n", name);
-	seq_puts(s, "Status:\n");
-	seq_printf(s, "  Mictx Active: %d\n", mictx_active);
-	seq_printf(s, "  EARA-IO Control Enable: %d\n", earaio_ctrl.enabled);
-	seq_puts(s, "Commands: echo n > blockio_mictx, n presents\n");
-	seq_puts(s, "  Enable Mini Context : 1\n");
-	seq_puts(s, "  Disable Mini Context: 2\n");
-	seq_puts(s, "  Enable EARA-IO QoS  : 3\n");
-	seq_puts(s, "  Disable EARA-IO QoS : 4\n");
-	return 0;
-}
-
-static int mtk_btag_mictx_sub_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mtk_btag_mictx_sub_show, inode->i_private);
-}
-
-static const struct proc_ops mtk_btag_mictx_sub_fops = {
-	.proc_open		= mtk_btag_mictx_sub_open,
-	.proc_read		= seq_read,
-	.proc_lseek		= seq_lseek,
-	.proc_release		= seq_release,
-	.proc_write		= mtk_btag_mictx_sub_write,
-};
-
 void mtk_btag_free(struct mtk_blocktag *btag)
 {
 	unsigned long flags;
@@ -1459,25 +1474,14 @@ void mtk_btag_mictx_enable(int enable)
 }
 EXPORT_SYMBOL_GPL(mtk_btag_mictx_enable);
 
-static void mtk_btag_mictx_init(const char *name,
-				struct mtk_blocktag *btag,
+static void mtk_btag_mictx_init(struct mtk_blocktag *btag,
 				struct mtk_btag_vops *vops)
 {
-	struct proc_dir_entry *proc_entry;
-
 	if (!vops->boot_device)
 		return;
 
 	btag_bootdev = btag;
 	spin_lock_init(&btag->mictx.lock);
-
-	if (vops->earaio_enabled) {
-		mtk_btag_earaio_init_mictx();
-		rs_index_init(btag_proc_root);
-	}
-
-	proc_entry = proc_create("blockio_mictx", S_IFREG | 0444,
-		btag_proc_root, &mtk_btag_mictx_sub_fops);
 }
 
 struct mtk_blocktag *mtk_btag_alloc(const char *name,
@@ -1543,7 +1547,8 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 	if (IS_ERR(btag->dentry.dlog))
 		goto out;
 
-	mtk_btag_mictx_init(name, btag, vops);
+	mtk_btag_mictx_init(btag, vops);
+	mtk_btag_earaio_init_mictx(vops, storage_type);
 out:
 	spin_lock_irqsave(&list_lock, flags);
 	list_add(&btag->list, &mtk_btag_list);

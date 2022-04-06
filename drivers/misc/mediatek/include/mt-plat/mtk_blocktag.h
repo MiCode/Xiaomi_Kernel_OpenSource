@@ -132,6 +132,8 @@ struct mtk_btag_earaio_control {
 	spinlock_t lock;
 	bool enabled;	/* can send boost to earaio */
 
+	enum mtk_btag_storage_type monitor_storage;
+
 	/* peeking window */
 	__u64 pwd_begin;
 	__u32 pwd_top_r_pages;
