@@ -29,13 +29,13 @@ struct platform_device *ccd_get_pdev(struct platform_device *pdev)
 
 	ccd_node = of_parse_phandle(dev->of_node, "mediatek,scp", 0);
 	if (!ccd_node) {
-		dev_dbg(dev, "can't get ccd node\n");
+		dev_info(dev, "can't get ccd node\n");
 		return NULL;
 	}
 
 	ccd_pdev = of_find_device_by_node(ccd_node);
 	if (WARN_ON(!ccd_pdev)) {
-		dev_dbg(dev, "ccd pdev failed\n");
+		dev_info(dev, "ccd pdev failed\n");
 		of_node_put(ccd_node);
 		return NULL;
 	}
@@ -240,7 +240,7 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 		ccd_worker_write(ccd, &work_obj);
 		break;
 	default:
-		dev_dbg(ccd->dev, "Unknown ioctl\n");
+		dev_info(ccd->dev, "Unknown ioctl\n");
 		break;
 	}
 
@@ -362,12 +362,12 @@ static int ccd_probe(struct platform_device *pdev)
 			    fw_name,
 			    sizeof(*ccd));
 	if (!rproc) {
-		dev_dbg(dev, "unable to allocate remoteproc\n");
+		dev_info(dev, "unable to allocate remoteproc\n");
 		return -ENOMEM;
 	}
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
-		dev_dbg(dev, "No suitable DMA available\n");
+		dev_info(dev, "No suitable DMA available\n");
 
 	if (!dev->dma_parms) {
 		dev->dma_parms =
@@ -408,7 +408,7 @@ static int ccd_probe(struct platform_device *pdev)
 			       ccd_init_ipi_handler,
 			       ccd);
 	if (ret) {
-		dev_dbg(dev, "Failed to register IPI_SCP_INIT\n");
+		dev_info(dev, "Failed to register IPI_SCP_INIT\n");
 		goto free_rproc;
 	}
 

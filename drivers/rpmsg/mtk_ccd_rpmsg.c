@@ -321,7 +321,9 @@ mtk_rpmsg_create_rpmsgdev(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 
 	ret = rpmsg_register_device(rpdev);
 	if (ret) {
-		/* need to free idr_alloc */
+		mutex_lock(&mtk_subdev->endpoints_lock);
+		idr_remove(&mtk_subdev->endpoints, info->src);
+		mutex_unlock(&mtk_subdev->endpoints_lock);
 		kfree(mdev);
 		return NULL;
 	}
@@ -373,7 +375,10 @@ mtk_create_client_msgdevice(struct rproc_subdev *subdev,
 		if (ret != 0) {
 			dev_err(&mtk_subdev->pdev->dev,
 				"ccd listen wait error: %d\n", ret);
-			/* TBD: free mdev */
+			mutex_lock(&mtk_subdev->endpoints_lock);
+			idr_remove(&mtk_subdev->endpoints, info->src);
+			mutex_unlock(&mtk_subdev->endpoints_lock);
+			put_device(&mdev->rpdev.dev);
 			return NULL;
 		}
 
@@ -470,6 +475,14 @@ static int ccd_msgdev_cb(struct rpmsg_device *rpdev, void *data,
 	/* use the src addr to fetch the callback of the appropriate user */
 	mutex_lock(&mtk_subdev->endpoints_lock);
 	srcmdev = idr_find(&mtk_subdev->endpoints, src);
+
+	if (!srcmdev) {
+		dev_info(&mtk_subdev->pdev->dev, "src ept is not exist\n");
+		mutex_unlock(&mtk_subdev->endpoints_lock);
+		return -1;
+	}
+
+	get_device(&srcmdev->rpdev.dev);
 	mutex_unlock(&mtk_subdev->endpoints_lock);
 
 	if (!srcmdev)
