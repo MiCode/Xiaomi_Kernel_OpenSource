@@ -666,7 +666,11 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	bool hrt;
 
 	datasize = comp->hw_ops->qos_datasize_get(task, ccfg);
-	if (cfg->info.mode == MML_MODE_RACING) {
+	if (!datasize) {
+		hrt = false;
+		bandwidth = 0;
+		hrt_bw = 0;
+	} else if (cfg->info.mode == MML_MODE_RACING) {
 		hrt = true;
 		bandwidth = mml_calc_bw_racing(datasize);
 		if (unlikely(mml_racing_urgent))
