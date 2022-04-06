@@ -575,6 +575,15 @@ config CHARGER_BQ25890
 	help
 	  Say Y to enable support for the TI BQ25890 battery charger.
 
+config CHARGER_SC8551
+	tristate "Southchip SC8551 battery charger driver"
+	depends on I2C
+	help
+	  This adds support for charger in SC8551.
+	  Say Y to include support for Southchip Semiconductor Technology
+	  SC8551 charger IC Battery Charger. The base name for this driver is
+	  'sc8551.c'.
+
 config CHARGER_SMB347
 	tristate "Summit Microelectronics SMB347 Battery Charger"
 	depends on I2C
