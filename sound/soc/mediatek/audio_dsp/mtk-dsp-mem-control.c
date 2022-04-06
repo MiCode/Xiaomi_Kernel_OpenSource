@@ -751,6 +751,11 @@ int get_taskid_by_afe_daiid(int afe_dai_id)
 	struct mtk_adsp_task_attr *task_attr = NULL;
 	struct mtk_base_afe *afe = get_afe_base();
 
+	if (!afe) {
+		pr_warn("%s() afe == NULL\n", __func__);
+		return -1;
+	}
+
 	if (afe_dai_id >= afe->memif_size) {
 		pr_warn("%s() afe_dai_id over max %d, return\n",
 			__func__, afe_dai_id);
