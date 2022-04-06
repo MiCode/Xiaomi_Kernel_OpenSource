@@ -170,6 +170,8 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	unsigned int channels = params_channels(params);
 	unsigned int rate = params_rate(params);
 	snd_pcm_format_t format = params_format(params);
+	struct snd_dma_buffer *dmab = NULL;
+	bool using_dram = false;
 
 	// mmap don't alloc buffer
 	if (memif->use_mmap_share_mem != 0) {
@@ -264,6 +266,7 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 #endif
 		ret = snd_pcm_lib_malloc_pages(substream,
 					       params_buffer_bytes(params));
+		using_dram = true;
 		if (ret < 0) {
 			dev_err(afe->dev,
 				"%s(), snd_pcm_lib_malloc_pages err: %d\n",
@@ -280,10 +283,6 @@ MEM_ALLOCATE_DONE:
 		 substream->runtime->dma_area,
 		 substream->runtime->dma_bytes);
 
-	substream->dma_buffer.area = substream->runtime->dma_area;
-	substream->dma_buffer.addr = substream->runtime->dma_addr;
-	substream->dma_buffer.bytes = substream->runtime->dma_bytes;
-	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 
 	memset_io(substream->runtime->dma_area, 0,
 		  substream->runtime->dma_bytes);
@@ -329,6 +328,15 @@ MEM_ALLOCATE_DONE:
 	afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_HWPARAM,
 			   substream, params, dai, afe);
 #endif
+	if (!using_dram) {
+		dmab = kzalloc(sizeof(*dmab), GFP_KERNEL);
+		if (!dmab)
+			return -ENOMEM;
+		dmab->area = substream->runtime->dma_area;
+		dmab->addr = substream->runtime->dma_addr;
+		dmab->bytes = substream->runtime->dma_bytes;
+		snd_pcm_set_runtime_buffer(substream, dmab);
+	}
 
 	return 0;
 }
@@ -351,29 +359,39 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 		afe->release_dram_resource(afe->dev);
 
 	// mmap do not free buffer
-	if (memif->use_mmap_share_mem)
+	if (memif->use_mmap_share_mem) {
+		kfree(substream->runtime->dma_buffer_p);
+		snd_pcm_set_runtime_buffer(substream, NULL);
 		return 0;
+	}
 
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_SRAM)
 	if (memif->using_sram) {
 		memif->using_sram = 0;
+		kfree(substream->runtime->dma_buffer_p);
+		snd_pcm_set_runtime_buffer(substream, NULL);
 		return mtk_audio_sram_free(afe->sram, substream);
 	} else
 #endif
 	{
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-		if (memif->use_adsp_share_mem)
+		if (memif->use_adsp_share_mem) {
+			kfree(substream->runtime->dma_buffer_p);
+			snd_pcm_set_runtime_buffer(substream, NULL);
 			return mtk_adsp_free_mem(substream);
+		}
 #endif
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 		// ultrasound uses reserve dram, ignore free
-		if (memif->scp_ultra_enable)
+		if (memif->scp_ultra_enable) {
+			kfree(substream->runtime->dma_buffer_p);
+			snd_pcm_set_runtime_buffer(substream, NULL);
 			return 0;
+		}
 #endif
 
 		return snd_pcm_lib_free_pages(substream);
 	}
-	snd_pcm_set_runtime_buffer(substream, NULL);
 }
 EXPORT_SYMBOL_GPL(mtk_afe_fe_hw_free);
 
