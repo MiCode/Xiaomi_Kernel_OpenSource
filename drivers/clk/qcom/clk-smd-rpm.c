@@ -18,6 +18,9 @@
 #include <linux/soc/qcom/smd-rpm.h>
 #include <soc/qcom/rpm-smd.h>
 #include <linux/clk.h>
+#include <linux/pm.h>
+#include <linux/pm_runtime.h>
+#include <linux/suspend.h>
 
 #include <dt-bindings/clock/qcom,rpmcc.h>
 #include <dt-bindings/mfd/qcom-rpm.h>
@@ -1372,6 +1375,82 @@ static struct clk_hw *qcom_smdrpm_clk_hw_get(struct of_phandle_args *clkspec,
 	return rpmcc->clks[idx];
 }
 
+static int clk_smd_rpm_suspend(void)
+{
+	clk_set_rate(holi_cnoc_a_clk.hw.clk, 0);
+	clk_disable_unprepare(holi_cnoc_a_clk.hw.clk);
+
+	clk_set_rate(holi_snoc_a_clk.hw.clk, 0);
+	clk_disable_unprepare(holi_snoc_a_clk.hw.clk);
+
+	clk_set_rate(holi_qup_a_clk.hw.clk, 0);
+	clk_disable_unprepare(holi_qup_a_clk.hw.clk);
+
+	clk_disable_unprepare(holi_bi_tcxo_ao.hw.clk);
+
+	return 0;
+}
+
+static int clk_smd_rpm_pm_suspend(struct device *dev)
+{
+#ifdef CONFIG_DEEPSLEEP
+	if (pm_suspend_via_firmware())
+		clk_smd_rpm_suspend();
+#endif
+
+	return 0;
+}
+
+static int clk_smd_rpm_pm_freeze(struct device *dev)
+{
+	clk_smd_rpm_suspend();
+	return 0;
+}
+
+static int clk_smd_rpm_resume(void)
+{
+	int ret;
+
+	ret = clk_vote_bimc(&holi_bimc_clk.hw, INT_MAX);
+	if (ret < 0)
+		return ret;
+
+	clk_prepare_enable(holi_bi_tcxo_ao.hw.clk);
+
+	clk_prepare_enable(holi_cnoc_a_clk.hw.clk);
+	clk_set_rate(holi_cnoc_a_clk.hw.clk, 19200000);
+
+	clk_prepare_enable(holi_snoc_a_clk.hw.clk);
+	clk_set_rate(holi_snoc_a_clk.hw.clk, 19200000);
+
+	clk_prepare_enable(holi_qup_a_clk.hw.clk);
+	clk_set_rate(holi_qup_a_clk.hw.clk, 19200000);
+
+	return clk_smd_rpm_enable_scaling();
+}
+
+static int clk_smd_rpm_pm_resume(struct device *dev)
+{
+#ifdef CONFIG_DEEPSLEEP
+	if (pm_suspend_via_firmware())
+		return clk_smd_rpm_resume();
+#endif
+
+	return 0;
+}
+
+static int clk_smd_rpm_pm_restore(struct device *dev)
+{
+	return clk_smd_rpm_resume();
+}
+
+static const struct dev_pm_ops clk_smd_rpm_pm_ops = {
+	.suspend_late =  clk_smd_rpm_pm_suspend,
+	.freeze_late = clk_smd_rpm_pm_freeze,
+	.resume_early = clk_smd_rpm_pm_resume,
+	.restore_early = clk_smd_rpm_pm_restore,
+};
+
 static int rpm_smd_clk_probe(struct platform_device *pdev)
 {
 	struct clk_hw **hw_clks;
@@ -1476,6 +1555,7 @@ static struct platform_driver rpm_smd_clk_driver = {
 	.driver = {
 		.name = "qcom-clk-smd-rpm",
 		.of_match_table = rpm_smd_clk_match_table,
+		.pm = &clk_smd_rpm_pm_ops,
 	},
 	.probe = rpm_smd_clk_probe,
 	.remove = rpm_smd_clk_remove,
