@@ -109,6 +109,7 @@ static bool minidump_ftrace_dump = true;
 #define MD_RUNQUEUE_PAGES	8
 
 static bool md_in_oops_handler;
+static atomic_t md_handle_done;
 static struct seq_buf *md_runq_seq_buf;
 static md_align_offset;
 
@@ -1016,11 +1017,12 @@ static void md_ipi_stop(void *unused, struct pt_regs *regs)
 }
 #endif
 
-static int md_panic_handler(struct notifier_block *this,
-			    unsigned long event, void *ptr)
+void md_dump_process(void)
 {
 	if (md_in_oops_handler)
-		return NOTIFY_DONE;
+		return;
+	if (!atomic_add_unless(&md_handle_done, 1, 1))
+		return;
 	md_in_oops_handler = true;
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
 	if (!md_cntxt_seq_buf)
@@ -1053,6 +1055,13 @@ dump_rq:
 	if (md_dma_buf_procs_addr)
 		md_dma_buf_procs(md_dma_buf_procs_addr, md_dma_buf_procs_size);
 	md_in_oops_handler = false;
+}
+EXPORT_SYMBOL(md_dump_process);
+
+static int md_panic_handler(struct notifier_block *this,
+			    unsigned long event, void *ptr)
+{
+	md_dump_process();
 	return NOTIFY_DONE;
 }
 
