@@ -278,10 +278,10 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 			break;
 	}
 
-#if IS_ENABLED(CONFIG_MTK_LEAKAGE_AWARE_TEMP)
 	i = min(i, pd->nr_perf_states - 1);
 	opp = pd->nr_perf_states - i - 1;
 
+#if IS_ENABLED(CONFIG_MTK_LEAKAGE_AWARE_TEMP)
 	for_each_cpu_and(cpu, to_cpumask(pd->cpus), cpu_online_mask) {
 		unsigned int cpu_static_pwr;
 
