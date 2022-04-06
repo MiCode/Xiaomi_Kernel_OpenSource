@@ -20,6 +20,15 @@ config MTK_USB_TYPEC_DP_MUX
 	  Say Y to enable TYPEC DP Mux
 	  If unsure, say N.
 
+config MTK_USB_TYPEC_DP_MUX_V2
+	bool "Mediatek USB TYPE-C USB DP Mux V2"
+	help
+	  Enables to support USB DP mux in usb-c.
+	  To support TYPE-C USB DP must have a MUX to switch
+	  SSRX1/SSTX1/SSRX2/SSTX2 pins.
+	  Say Y to enable TYPEC DP Mux
+	  If unsure, say N.
+
 config MTK_USB_TYPEC_U3_MUX
 	bool "Mediatek USB TYPE-C USB 3.0 Mux"
 	help
