@@ -176,7 +176,8 @@ enum vdec_set_param_type {
 struct vdec_ap_ipi_cmd {
 	__u32 msg_id;
 	__u32 ctx_id;
-	__u32 vcu_inst_addr;
+	__u64 vcu_inst_addr;
+	__u32 drain_type;
 	__u32 reserved;
 };
 
@@ -190,6 +191,7 @@ struct vdec_vcu_ipi_ack {
 	__u32 msg_id;
 	__u32 ctx_id;
 	__s32 status;
+	__u32 reserved;
 #ifndef CONFIG_64BIT
 	union {
 		__u64 ap_inst_addr_64;
@@ -199,7 +201,7 @@ struct vdec_vcu_ipi_ack {
 	__u64 ap_inst_addr;
 #endif
 	__s32 codec_id;
-	__u32 reserved;
+	__u32 no_need_put;
 };
 
 /**
@@ -213,9 +215,10 @@ struct vdec_vcu_ipi_mem_op {
 	__u32 msg_id;
 	__u32 ctx_id;
 	__s32 status;
+	__u32 reserved;
 	__u64 ap_inst_addr;
 	struct vcodec_mem_obj mem;
-	__u32 reserved[2];
+	__u32 vcp_addr[2];
 };
 
 /**
@@ -227,7 +230,6 @@ struct vdec_vcu_ipi_mem_op {
 struct vdec_ap_ipi_init {
 	__u32 msg_id;
 	__u32 ctx_id;
-	__u32 reserved;
 #ifndef CONFIG_64BIT
 	union {
 		__u64 ap_inst_addr_64;
@@ -249,6 +251,7 @@ struct vdec_vcu_ipi_init_ack {
 	__u32 msg_id;
 	__u32 ctx_id;
 	__s32 status;
+	__u32 reserved;
 #ifndef CONFIG_64BIT
 	union {
 		__u64 ap_inst_addr_64;
@@ -257,7 +260,7 @@ struct vdec_vcu_ipi_init_ack {
 #else
 	__u64 ap_inst_addr;
 #endif
-	__u32 vcu_inst_addr;
+	__u64 vcu_inst_addr;
 };
 
 /**
@@ -271,9 +274,8 @@ struct vdec_vcu_ipi_init_ack {
 struct vdec_ap_ipi_dec_start {
 	__u32 msg_id;
 	__u32 ctx_id;
-	__u32 vcu_inst_addr;
+	__u64 vcu_inst_addr;
 	__u32 data[6];
-	__u32 reserved;
 };
 
 /**
@@ -286,9 +288,10 @@ struct vdec_ap_ipi_dec_start {
 struct vdec_ap_ipi_set_param {
 	__u32 msg_id;
 	__u32 ctx_id;
-	__u32 vcu_inst_addr;
+	__u64 vcu_inst_addr;
 	__u32 id;
-	__u32 data[12];
+	__u32 reserved;
+	__u32 data[10];
 };
 
 /**
@@ -301,6 +304,7 @@ struct vdec_ap_ipi_query_cap {
 	__u32 msg_id;
 	__u32 ctx_id;
 	__u32 id;
+	__u32 reserved;
 #ifndef CONFIG_64BIT
 	union {
 		__u64 ap_inst_addr_64;
@@ -328,21 +332,21 @@ struct vdec_vcu_ipi_query_cap_ack {
 	__u32 ctx_id;
 	__s32 status;
 #ifndef CONFIG_64BIT
+	__u32 id;
 	union {
 		__u64 ap_inst_addr_64;
 		__u32 ap_inst_addr;
 	};
-	__u32 id;
 	union {
 		__u64 ap_data_addr_64;
 		__u32 ap_data_addr;
 	};
 #else
-	__u64 ap_inst_addr;
 	__u32 id;
+	__u64 ap_inst_addr;
 	__u64 ap_data_addr;
 #endif
-	__u32 vcu_data_addr;
+	__u64 vcu_data_addr;
 };
 
 /*
@@ -360,10 +364,9 @@ struct vdec_ipi_fb {
 	__u64 vdec_fb_va;
 	__u64 y_fb_dma;
 	__u64 c_fb_dma;
-	__u64 dma_general_addr;
 	__u64 timestamp;
-	__s32 general_size;
 	__u32 reserved;
+	__u32 reserved1;
 };
 
 
@@ -427,16 +430,16 @@ struct vdec_vsi {
 	__u32 fix_buffers_svp;
 	__u32 interlacing;
 	__u32 codec_type;
+	__u32 input_driven;
 	__s8 crc_path[256];
 	__s8 golden_path[256];
-	__u8 input_driven;
-	__u8 ipi_blocked;
-	__s32 general_buf_fd;
 	__u64 general_buf_dma;
+	__s32 general_buf_fd;
 	__u32 general_buf_size;
-	__s32 meta_buf_fd;
 	__u64 meta_buf_dma;
+	__s32 meta_buf_fd;
 	__u32 meta_buf_size;
+	__u32 ipi_blocked;
 	__u32 interlacing_fieldseq;
 };
 

@@ -53,6 +53,7 @@ struct mtk_video_fmt {
 	__u32	fourcc;
 	__u32	type;   /* enum mtk_fmt_type */
 	__u32	num_planes;
+	__u32	reserved;
 };
 
 /**
@@ -63,6 +64,7 @@ struct mtk_codec_framesizes {
 	__u32	fourcc;
 	__u32	profile;
 	__u32	level;
+	__u32	reserved;
 	struct	v4l2_frmsize_stepwise	stepwise;
 };
 
@@ -140,6 +142,7 @@ struct vdec_pic_info {
 	__u32 bitdepth;
 	__u32 layout_mode;
 	__u32 fourcc;
+	__u32 reserved;
 };
 
 /**

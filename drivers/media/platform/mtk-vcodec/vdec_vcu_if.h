@@ -31,7 +31,7 @@ struct vdec_vcu_inst {
 	enum ipi_id id;
 	void *vsi;
 	int32_t failure;
-	uint32_t inst_addr;
+	uint64_t inst_addr;
 	unsigned int signaled;
 	unsigned int signaled_res;
 	struct mtk_vcodec_ctx *ctx;

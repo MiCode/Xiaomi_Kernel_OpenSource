@@ -36,7 +36,7 @@ static void handle_init_ack_msg(struct vdec_vcu_ipi_init_ack *msg)
 	/* the content in vsi is initialized to 0 in VCU */
 	vcu->vsi = VCU_FPTR(vcu_mapping_dm_addr)(vcu->dev, msg->vcu_inst_addr);
 	vcu->inst_addr = msg->vcu_inst_addr;
-	mtk_vcodec_debug(vcu, "- vcu_inst_addr = 0x%x", vcu->inst_addr);
+	mtk_vcodec_debug(vcu, "- vcu_inst_addr = 0x%llx", vcu->inst_addr);
 }
 
 static void handle_query_cap_ack_msg(struct vdec_vcu_ipi_query_cap_ack *msg)
@@ -47,7 +47,7 @@ static void handle_query_cap_ack_msg(struct vdec_vcu_ipi_query_cap_ack *msg)
 
 	if (vcu == NULL)
 		return;
-	mtk_vcodec_debug(vcu, "+ ap_inst_addr = 0x%lx, vcu_data_addr = 0x%x, id = %d",
+	mtk_vcodec_debug(vcu, "+ ap_inst_addr = 0x%lx, vcu_data_addr = 0x%llx, id = %d",
 		(uintptr_t)msg->ap_inst_addr, msg->vcu_data_addr, msg->id);
 	/* mapping VCU address to kernel virtual address */
 	data = VCU_FPTR(vcu_mapping_dm_addr)(vcu->dev, msg->vcu_data_addr);
@@ -67,7 +67,7 @@ static void handle_query_cap_ack_msg(struct vdec_vcu_ipi_query_cap_ack *msg)
 	default:
 		break;
 	}
-	mtk_vcodec_debug(vcu, "- vcu_inst_addr = 0x%x", vcu->inst_addr);
+	mtk_vcodec_debug(vcu, "- vcu_inst_addr = 0x%llx", vcu->inst_addr);
 }
 
 static int check_codec_id(struct vdec_vcu_ipi_ack *msg, unsigned int fmt, unsigned int svp)
@@ -369,7 +369,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 			ret = 1;
 			break;
 		case VCU_IPIMSG_DEC_PUT_FRAME_BUFFER:
-			mtk_vdec_put_fb(vcu->ctx, PUT_BUFFER_CALLBACK, msg->reserved != 0);
+			mtk_vdec_put_fb(vcu->ctx, PUT_BUFFER_CALLBACK, msg->no_need_put != 0);
 			ret = 1;
 			break;
 		default:
@@ -596,7 +596,7 @@ int vcu_dec_reset(struct vdec_vcu_inst *vcu, enum vdec_reset_type drain_type)
 	msg.msg_id = AP_IPIMSG_DEC_RESET;
 	msg.ctx_id = vcu->ctx->id;
 	msg.vcu_inst_addr = vcu->inst_addr;
-	msg.reserved = drain_type;
+	msg.drain_type = drain_type;
 
 	err = vcodec_vcu_send_msg(vcu, (void *)&msg, sizeof(msg));
 	mtk_vcodec_debug(vcu, "- ret=%d", err);
@@ -673,6 +673,7 @@ int vcu_dec_set_frame_buffer(struct vdec_vcu_inst *vcu, void *fb)
 	struct vdec_ipi_fb ipi_fb;
 	struct vdec_fb *pfb = NULL;
 	bool dst_not_get = true;
+	struct vdec_vsi *vsi;
 
 	mtk_vcodec_debug(vcu, "+ id=%X", AP_IPIMSG_DEC_FRAME_BUFFER);
 
@@ -682,6 +683,7 @@ int vcu_dec_set_frame_buffer(struct vdec_vcu_inst *vcu, void *fb)
 	msg.id = 0;
 	msg.ctx_id = vcu->ctx->id;
 	msg.vcu_inst_addr = vcu->inst_addr;
+	vsi = (struct vdec_vsi *)vcu->vsi;
 
 	do {
 		if (fb == NULL) {
@@ -700,14 +702,14 @@ int vcu_dec_set_frame_buffer(struct vdec_vcu_inst *vcu, void *fb)
 				ipi_fb.c_fb_dma = (u64)pfb->fb_base[1].dma_addr;
 
 			if (pfb->dma_general_buf != 0) {
-				ipi_fb.dma_general_addr = pfb->dma_general_addr;
-				ipi_fb.general_size = pfb->dma_general_buf->size;
+				vsi->general_buf_dma = pfb->dma_general_addr;
+				vsi->general_buf_size = pfb->dma_general_buf->size;
 				mtk_vcodec_debug(vcu, "FB id=%d dma_addr (%llx,%llx) dma_general_buf %p size %lu dma %lu",
 					pfb->index, ipi_fb.y_fb_dma, ipi_fb.c_fb_dma,
 					pfb->dma_general_buf, pfb->dma_general_buf->size,
 					pfb->dma_general_addr);
 			} else {
-				ipi_fb.dma_general_addr = -1;
+				vsi->general_buf_dma = -1;
 				mtk_vcodec_debug(vcu, "FB id=%d dma_addr (%llx,%llx) dma_general_buf %p no general buf dmabuf",
 					pfb->index, ipi_fb.y_fb_dma, ipi_fb.c_fb_dma,
 					pfb->dma_general_buf);

@@ -540,7 +540,7 @@ struct mtk_vcodec_ctx {
 	struct vb2_buffer *pend_src_buf;
 	wait_queue_head_t fm_wq;
 	wait_queue_head_t bs_wq;
-	unsigned char *ipi_blocked;
+	unsigned int *ipi_blocked;
 	enum vdec_input_driven_mode input_driven;
 
 	/* for user lock HW case release check */
