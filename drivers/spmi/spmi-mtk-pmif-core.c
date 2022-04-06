@@ -368,7 +368,7 @@ static int pmif_arb_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid)
 					rdata, (rdata & SPMI_OP_ST_BUSY) == SPMI_OP_ST_BUSY,
 					PMIF_DELAY_US, PMIF_TIMEOUT);
 	if (ret < 0)
-		dev_notice(&ctrl->dev, "timeout, err = %d\r\n", ret);
+		dev_err(&ctrl->dev, "timeout, err = %d\r\n", ret);
 
 	return ret;
 }
@@ -407,7 +407,7 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 					data, GET_SWINF(data) == SWINF_IDLE,
 					PMIF_DELAY_US, PMIF_TIMEOUT);
 	if (ret < 0) {
-		dev_notice(&ctrl->dev, "check IDLE timeout, read 0x%x, sta=0x%x, SPMI_DBG=0x%x\n",
+		dev_err(&ctrl->dev, "check IDLE timeout, read 0x%x, sta=0x%x, SPMI_DBG=0x%x\n",
 			addr, pmif_readl(arb, inf_reg->ch_sta),
 			readl(arb->spmimst_base + arb->spmimst_regs[SPMI_MST_DBG]));
 		/* set channel ready if the data has transferred */
@@ -430,7 +430,7 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 					data, GET_SWINF(data) == SWINF_WFVLDCLR,
 					PMIF_DELAY_US, PMIF_TIMEOUT);
 	if (ret < 0) {
-		dev_notice(&ctrl->dev, "check WFVLDCLR timeout, read 0x%x, sta=0x%x, SPMI_DBG=0x%x\n",
+		dev_err(&ctrl->dev, "check WFVLDCLR timeout, read 0x%x, sta=0x%x, SPMI_DBG=0x%x\n",
 			addr, pmif_readl(arb, inf_reg->ch_sta),
 			readl(arb->spmimst_base + arb->spmimst_regs[SPMI_MST_DBG]));
 		raw_spin_unlock_irqrestore(&arb->lock, flags);
@@ -482,7 +482,7 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 					data, GET_SWINF(data) == SWINF_IDLE,
 					PMIF_DELAY_US, PMIF_TIMEOUT);
 	if (ret < 0) {
-		dev_notice(&ctrl->dev, "check IDLE timeout, read 0x%x, sta=0x%x, SPMI_DBG=0x%x\n",
+		dev_err(&ctrl->dev, "check IDLE timeout, read 0x%x, sta=0x%x, SPMI_DBG=0x%x\n",
 			addr, pmif_readl(arb, inf_reg->ch_sta),
 			readl(arb->spmimst_base + arb->spmimst_regs[SPMI_MST_DBG]));
 		/* set channel ready if the data has transferred */
@@ -1203,6 +1203,9 @@ static const struct of_device_id mtk_spmi_match_table[] = {
 		.data = &mt6xxx_pmif_arb,
 	}, {
 		.compatible = "mediatek,mt6983-spmi",
+		.data = &mt6xxx_pmif_arb,
+	}, {
+		.compatible = "mediatek,mt6985-spmi",
 		.data = &mt6xxx_pmif_arb,
 	}, {
 		/* sentinel */
