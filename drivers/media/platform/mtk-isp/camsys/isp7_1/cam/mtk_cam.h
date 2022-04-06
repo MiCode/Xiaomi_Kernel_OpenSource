@@ -374,17 +374,6 @@ struct mtk_cam_img_working_buf_pool {
 	struct mtk_cam_working_buf_list cam_freeimglist;
 };
 
-struct mtk_cam_watchdog_data {
-	struct mtk_cam_ctx *ctx;
-	int pipe_id;
-	atomic_t watchdog_timeout_cnt;
-	atomic_t watchdog_cnt;
-	atomic_t watchdog_dumped;
-	atomic_t watchdog_dump_cnt;
-	struct work_struct watchdog_work;
-	u64 watchdog_time_diff_ns;
-};
-
 struct mtk_cam_device;
 struct mtk_camsys_ctrl;
 
@@ -472,12 +461,13 @@ struct mtk_cam_ctx {
 	spinlock_t first_cq_lock;
 
 	struct mtk_cam_hsf_ctrl *hsf;
-
-	/* Watchdog data */
-	spinlock_t watchdog_pipe_lock;
-	unsigned int enabled_watchdog_pipe;
+	atomic_t watchdog_timeout_cnt;
+	atomic_t watchdog_cnt;
+	atomic_t watchdog_dumped;
+	atomic_t watchdog_dump_cnt;
+	u64 watchdog_time_diff_ns;
 	struct timer_list watchdog_timer;
-	struct mtk_cam_watchdog_data watchdog_data[MTKCAM_SUBDEV_MAX];
+	struct work_struct watchdog_work;
 
 	/* To support debug dump */
 	struct mtkcam_ipi_config_param config_params;
@@ -861,9 +851,9 @@ void mtk_cam_complete_sensor_hdl(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx);
 int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx);
 bool watchdog_scenario(struct mtk_cam_ctx *ctx);
-void mtk_ctx_watchdog_kick(struct mtk_cam_ctx *ctx, int pipe_id);
-void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt, int pipe_id);
-void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id);
+void mtk_ctx_watchdog_kick(struct mtk_cam_ctx *ctx);
+void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt);
+void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx);
 
 int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 				      struct v4l2_subdev *sd,
