@@ -239,7 +239,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		cpu_energy_util = mtk_cpu_util(cpu, util_running_base, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #else
-		cpu_energy_util = schedutil_cpu_util(cpu, util_running_base, cpu_cap,
+		cpu_energy_util = effective_cpu_util(cpu, util_running_base, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #endif
 		sum_util_base += min(cpu_energy_util, _cpu_cap);
@@ -255,7 +255,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 		cpu_util_base = mtk_cpu_util(cpu, util_freq_base, cpu_cap,
 					      FREQUENCY_UTIL, NULL);
 #else
-		cpu_util_base = schedutil_cpu_util(cpu, util_freq_base, cpu_cap,
+		cpu_util_base = effective_cpu_util(cpu, util_freq_base, cpu_cap,
 					      FREQUENCY_UTIL, NULL);
 #endif
 		/*
@@ -282,7 +282,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 			cpu_energy_util = mtk_cpu_util(cpu, util_running_cur, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #else
-			cpu_energy_util = schedutil_cpu_util(cpu, util_running_cur, cpu_cap,
+			cpu_energy_util = effective_cpu_util(cpu, util_running_cur, cpu_cap,
 					       ENERGY_UTIL, NULL);
 #endif
 			sum_util_cur += min(cpu_energy_util, _cpu_cap);
@@ -298,7 +298,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd)
 			cpu_util_cur = mtk_cpu_util(cpu, util_freq_cur, cpu_cap,
 					      FREQUENCY_UTIL, tsk);
 #else
-			cpu_util_cur = schedutil_cpu_util(cpu, util_freq_cur, cpu_cap,
+			cpu_util_cur = effective_cpu_util(cpu, util_freq_cur, cpu_cap,
 					      FREQUENCY_UTIL, tsk);
 #endif
 		} else {
@@ -496,7 +496,7 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 			 * IOW, placing the task there would make the CPU
 			 * overutilized. Take uclamp into account to see how
 			 * much capacity we can get out of the CPU; this is
-			 * aligned with schedutil_cpu_util().
+			 * aligned with effective_cpu_util().
 			 */
 			util = mtk_uclamp_rq_util_with(cpu_rq(cpu), util, p);
 			if (!fits_capacity(util, cpu_cap))
