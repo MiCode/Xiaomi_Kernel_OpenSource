@@ -31,6 +31,7 @@
 #include <linux/vmstat.h>
 #include <trace/events/block.h>
 #include <trace/events/writeback.h>
+#include <linux/math64.h>
 
 #define BLOCKIO_MIN_VER	"3.09"
 
@@ -1404,8 +1405,7 @@ int mtk_btag_mictx_get_data(
 	if (mictx->idle_begin)
 		mictx->idle_total += (time_cur - mictx->idle_begin);
 
-	iostat->wl = 100 -
-		((__u32)((mictx->idle_total >> 10) * 100) / (__u32)(dur >> 10));
+	iostat->wl = 100 - div64_u64((mictx->idle_total * 100), dur);
 
 	/* calculate top ratio */
 	if (mictx->req.r.size || mictx->req.w.size) {
@@ -1426,9 +1426,7 @@ int mtk_btag_mictx_get_data(
 	btag = btag_bootdev;
 	if (btag && btag->vops->mictx_eval_wqd) {
 		btag->vops->mictx_eval_wqd(mictx, time_cur);
-		iostat->q_depth =
-			DIV_ROUND_UP((u32)(mictx->weighted_qd >> 10),
-				     (u32)(dur >> 10));
+		iostat->q_depth = DIV64_U64_ROUND_UP(mictx->weighted_qd, dur);
 	} else
 		iostat->q_depth = mictx->q_depth;
 
