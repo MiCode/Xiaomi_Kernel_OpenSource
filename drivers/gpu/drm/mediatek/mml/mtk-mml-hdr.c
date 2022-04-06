@@ -489,9 +489,9 @@ static s32 hdr_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 	if (!idx) {
 		if (task->config->dual)
-			hdr_frm->cut_pos_x = (dest->crop.r.width/2) + dest->crop.r.left;
+			hdr_frm->cut_pos_x = dest->crop.r.width / 2;
 		else
-			hdr_frm->cut_pos_x = dest->crop.r.left+dest->crop.r.width;
+			hdr_frm->cut_pos_x = dest->crop.r.width;
 		if (ccfg->pipe)
 			hdr_frm->out_hist_xs = hdr_frm->cut_pos_x;
 	}
