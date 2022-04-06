@@ -1765,7 +1765,8 @@ int _btif_enter_dpidle_from_on(struct _mtk_btif_ *p_btif)
 
 	btif_do_gettimeofday(&timer_start);
 
-	while ((!btif_is_tx_complete(p_btif)) && (retry < max_retry)) {
+	while ((!btif_is_tx_complete(p_btif) || !btif_is_rx_complete(p_btif)) &&
+		(retry < max_retry)) {
 		btif_do_gettimeofday(&timer_now);
 		if ((MAX_WAIT_TIME_MS/1000) <=
 				(timer_now.tv_sec - timer_start.tv_sec)) {
@@ -1868,6 +1869,19 @@ bool btif_is_tx_complete(struct _mtk_btif_ *p_btif)
 	}
 	b_ret = true;
 	return b_ret;
+}
+
+bool btif_is_rx_complete(struct _mtk_btif_ *p_btif)
+{
+	enum _ENUM_BTIF_MODE_ rx_mode = p_btif->rx_mode;
+
+	if (btif_rx_buf_has_pending_data(p_btif))
+		return false;
+
+	if (rx_mode == BTIF_MODE_DMA && hal_dma_rx_has_pending(p_btif->p_rx_dma->p_dma_info))
+		return false;
+
+	return true;
 }
 
 /*--------------------------------Functions-----------------------------------*/
