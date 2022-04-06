@@ -276,9 +276,20 @@ static int _iopgtbl_unmap_pages(struct kgsl_iommu_pt *pt, u64 gpuaddr,
 	return (unmapped == size) ? 0 : -EINVAL;
 }
 
+static void kgsl_iommu_flush_tlb(struct kgsl_mmu *mmu)
+{
+	struct kgsl_iommu *iommu = &mmu->iommu;
+
+	iommu_flush_iotlb_all(to_iommu_domain(&iommu->user_context));
+
+	/* As LPAC is optional, check LPAC domain is present before flush */
+	if (iommu->lpac_context.domain)
+		iommu_flush_iotlb_all(to_iommu_domain(&iommu->lpac_context));
+}
+
 static int _iopgtbl_unmap(struct kgsl_iommu_pt *pt, u64 gpuaddr, size_t size)
 {
-	struct kgsl_iommu *iommu = &pt->base.mmu->iommu;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(pt->base.mmu);
 	struct io_pgtable_ops *ops = pt->pgtbl_ops;
 	int ret = 0;
 
@@ -298,12 +309,16 @@ static int _iopgtbl_unmap(struct kgsl_iommu_pt *pt, u64 gpuaddr, size_t size)
 	}
 
 flush:
-	iommu_flush_iotlb_all(to_iommu_domain(&iommu->user_context));
+	/* Skip TLB Operations if GPU is in slumber */
+	if (mutex_trylock(&device->mutex)) {
+		if (device->state == KGSL_STATE_SLUMBER) {
+			mutex_unlock(&device->mutex);
+			return 0;
+		}
+		mutex_unlock(&device->mutex);
+	}
 
-	/* As LPAC is optional, check LPAC domain is present before flush */
-	if (iommu->lpac_context.domain)
-		iommu_flush_iotlb_all(to_iommu_domain(&iommu->lpac_context));
-
+	kgsl_iommu_flush_tlb(pt->base.mmu);
 	return 0;
 }
 
@@ -2508,6 +2523,7 @@ static const struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,
 	.mmu_getpagetable = kgsl_iommu_getpagetable,
 	.mmu_map_global = kgsl_iommu_map_global,
+	.mmu_flush_tlb = kgsl_iommu_flush_tlb,
 };
 
 static const struct kgsl_mmu_pt_ops iopgtbl_pt_ops = {

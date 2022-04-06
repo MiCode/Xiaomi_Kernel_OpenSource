@@ -802,6 +802,7 @@ struct msm_pcie_dev_t {
 	struct completion speed_change_completion;
 
 	bool drv_supported;
+	bool panic_genspeed_mismatch;
 
 	bool aer_dump;
 	void (*rumi_init)(struct msm_pcie_dev_t *pcie_dev);
@@ -4165,6 +4166,13 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 		 dev->rc_idx, dev->current_link_speed,
 		 dev->current_link_width);
 
+	if ((!dev->enumerated) && dev->panic_genspeed_mismatch &&
+	    dev->target_link_speed &&
+	    dev->target_link_speed != dev->current_link_speed)
+		panic("PCIe: RC%d: Gen-speed mismatch:%d, expected:%d\n",
+		      dev->rc_idx, dev->current_link_speed,
+		      dev->target_link_speed);
+
 	/*
 	 * If the link up GEN speed is less than the max/default supported,
 	 * then scale the resources accordingly.
@@ -5961,6 +5969,9 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				 "PCIe: RC%d: DRV: failed to setup DRV: ret: %d\n",
 				pcie_dev->rc_idx, ret);
 	}
+
+	pcie_dev->panic_genspeed_mismatch = of_property_read_bool(of_node,
+						"qcom,panic-genspeed-mismatch");
 
 	msm_pcie_sysfs_init(pcie_dev);
 

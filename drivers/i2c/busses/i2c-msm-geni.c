@@ -315,24 +315,12 @@ static int do_pending_cancel(struct geni_i2c_dev *gi2c)
 
 static int geni_i2c_prepare(struct geni_i2c_dev *gi2c)
 {
-	u32 geni_ios = 0;
-
 	if (gi2c->se_mode == UNINITIALIZED) {
 		int proto = get_se_proto(gi2c->base);
 		u32 se_mode;
 
 		if (proto != I2C) {
 			dev_err(gi2c->dev, "Invalid proto %d\n", proto);
-			if (!gi2c->is_le_vm)
-				se_geni_resources_off(&gi2c->i2c_rsc);
-			return -ENXIO;
-		}
-
-		geni_ios = geni_read_reg_nolog(gi2c->base, SE_GENI_IOS);
-		if ((geni_ios & 0x3) != 0x3) { //SCL:b'1, SDA:b'0
-			GENI_SE_DBG(gi2c->ipcl, true, gi2c->dev,
-			"IO lines not in good state, Check power to slave\n");
-
 			if (!gi2c->is_le_vm)
 				se_geni_resources_off(&gi2c->i2c_rsc);
 			return -ENXIO;
@@ -1292,11 +1280,14 @@ geni_i2c_txn_ret:
 		pm_runtime_mark_last_busy(gi2c->dev);
 		pm_runtime_put_autosuspend(gi2c->dev);
 	}
+
 	gi2c->cur = NULL;
-	gi2c->err = 0;
-	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
-			"i2c txn ret:%d\n", ret);
-	return ret;
+	I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
+		"i2c txn ret:%d, num:%d, err%:%d\n", ret, num, gi2c->err);
+	if (gi2c->err)
+		return gi2c->err;
+	else
+		return ret;
 }
 
 static u32 geni_i2c_func(struct i2c_adapter *adap)

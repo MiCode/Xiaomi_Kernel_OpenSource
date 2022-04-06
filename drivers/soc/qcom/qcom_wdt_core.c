@@ -282,6 +282,7 @@ int qcom_wdt_pet_suspend(struct device *dev)
 
 	wdog_data->freeze_in_progress = true;
 	wdog_data->ops->reset_wdt(wdog_data);
+	del_timer_sync(&wdog_data->pet_timer);
 	if (wdog_data->wakeup_irq_enable) {
 		wdog_data->last_pet = sched_clock();
 		return 0;
@@ -318,6 +319,9 @@ int qcom_wdt_pet_resume(struct device *dev)
 		add_timer(&wdog_data->user_pet_timer);
 	}
 
+	delay_time = msecs_to_jiffies(wdog_data->pet_time);
+	wdog_data->pet_timer.expires = jiffies + delay_time;
+	add_timer(&wdog_data->pet_timer);
 	wdog_data->freeze_in_progress = false;
 	if (wdog_data->wakeup_irq_enable) {
 		wdog_data->ops->reset_wdt(wdog_data);

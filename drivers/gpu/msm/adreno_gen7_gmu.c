@@ -601,18 +601,22 @@ static int gen7_gmu_hfi_start_msg(struct adreno_device *adreno_dev)
 	return gen7_hfi_send_generic_req(adreno_dev, &req);
 }
 
-static int gen7_complete_rpmh_votes(struct gen7_gmu_device *gmu)
+static int gen7_complete_rpmh_votes(struct gen7_gmu_device *gmu,
+		u32 timeout)
 {
 	int ret = 0;
 
 	ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS0_DRV0_STATUS,
-			BIT(0), 1, BIT(0));
+			BIT(0), timeout, BIT(0));
 	ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS1_DRV0_STATUS,
-			BIT(0), 1, BIT(0));
+			BIT(0), timeout, BIT(0));
 	ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS2_DRV0_STATUS,
-			BIT(0), 1, BIT(0));
+			BIT(0), timeout, BIT(0));
 	ret |= gen7_timed_poll_check_rscc(gmu, GEN7_RSCC_TCS3_DRV0_STATUS,
-			BIT(0), 1, BIT(0));
+			BIT(0), timeout, BIT(0));
+
+	if (ret)
+		dev_err(&gmu->pdev->dev, "RPMH votes timedout: %d\n", ret);
 
 	return ret;
 }
@@ -1107,7 +1111,7 @@ static void gen7_gmu_pwrctrl_suspend(struct adreno_device *adreno_dev)
 	/* Disconnect GPU from BUS is not needed if CX GDSC goes off later */
 
 	/* Check no outstanding RPMh voting */
-	gen7_complete_rpmh_votes(gmu);
+	gen7_complete_rpmh_votes(gmu, 1);
 
 	/* Clear the WRITEDROPPED fields and set fence to allow mode */
 	gmu_core_regwrite(device, GEN7_GMU_AHB_FENCE_STATUS_CLR, 0x7);
@@ -1667,6 +1671,13 @@ static int gen7_gmu_boot(struct adreno_device *adreno_dev)
 	if (ret)
 		goto gdsc_off;
 
+	/*
+	 * TLB operations are skipped during slumber. Incase CX doesn't
+	 * go down, it can result in incorrect translations due to stale
+	 * TLB entries. Flush TLB before boot up to ensure fresh start.
+	 */
+	kgsl_mmu_flush_tlb(&device->mmu);
+
 	ret = gen7_rscc_wakeup_sequence(adreno_dev);
 	if (ret)
 		goto clks_gdsc_off;
@@ -2157,6 +2168,10 @@ static int gen7_gmu_power_off(struct adreno_device *adreno_dev)
 
 	/* Wait for the lowest idle level we requested */
 	ret = gen7_gmu_wait_for_lowest_idle(adreno_dev);
+	if (ret)
+		goto error;
+
+	ret = gen7_complete_rpmh_votes(gmu, 2);
 	if (ret)
 		goto error;
 

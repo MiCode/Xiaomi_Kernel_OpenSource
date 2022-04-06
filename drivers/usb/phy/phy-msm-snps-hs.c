@@ -12,6 +12,8 @@
 #include <linux/io.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
+#include <linux/extcon.h>
+#include <linux/extcon-provider.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/consumer.h>
@@ -28,6 +30,23 @@
 #define OPMODE_MASK				(0x3 << 3)
 #define OPMODE_NONDRIVING			(0x1 << 3)
 #define SLEEPM					BIT(0)
+
+#define OPMODE_NORMAL				(0x00)
+#define TERMSEL					BIT(5)
+
+#define DCD_ENABLE				BIT(0)
+#define CHG_SEL0				BIT(1)
+#define VDAT_SRC_ENABLE				BIT(2)
+#define VDAT_DET_ENABLE				BIT(3)
+#define DM_PULLDOWN				BIT(3)
+
+#define USB2PHY_USB_PHY_CHARGING_DET_OUTPUT	(0x24)
+#define FSVPLUS0				BIT(6)
+#define CHGDET0					BIT(5)
+
+#define USB2_PHY_USB_PHY_UTMI_CTRL1		(0x40)
+#define USB2_PHY_CHARGING_DET_CTRL		(0x7c)
+#define XCVRSEL					BIT(0)
 
 #define USB2_PHY_USB_PHY_UTMI_CTRL5		(0x50)
 #define POR					BIT(1)
@@ -72,6 +91,8 @@
 #define TXVREFTUNE0_MASK			0xF
 #define PARAM_OVRD_MASK			0xFF
 
+#define DPSE_INTR_HIGH			BIT(0)
+
 #define USB_HSPHY_3P3_VOL_MIN			3050000 /* uV */
 #define USB_HSPHY_3P3_VOL_MAX			3300000 /* uV */
 #define USB_HSPHY_3P3_HPM_LOAD			16000	/* uA */
@@ -82,6 +103,23 @@
 #define USB_HSPHY_1P8_HPM_LOAD			19000	/* uA */
 
 #define USB_HSPHY_VDD_HPM_LOAD			30000	/* uA */
+
+enum port_state {
+	PORT_UNKNOWN,
+	PORT_DISCONNECTED,
+	PORT_DCD_IN_PROGRESS,
+	PORT_PRIMARY_IN_PROGRESS,
+	PORT_SECONDARY_IN_PROGRESS,
+	PORT_CHG_DET_DONE,
+	PORT_HOST_MODE,
+};
+
+enum chg_det_state {
+	STATE_UNKNOWN,
+	STATE_DCD,
+	STATE_PRIMARY,
+	STATE_SECONDARY,
+};
 
 struct msm_hsphy {
 	struct usb_phy		phy;
@@ -118,6 +156,12 @@ struct msm_hsphy {
 	struct power_supply	*usb_psy;
 	unsigned int		vbus_draw;
 	struct work_struct	vbus_draw_work;
+	struct extcon_dev	*usb_extcon;
+	bool			vbus_active;
+	bool			id_state;
+	struct delayed_work	port_det_w;
+	enum port_state		port_state;
+	unsigned int		dcd_timeout;
 
 	/* debugfs entries */
 	struct dentry		*root;
@@ -597,6 +641,77 @@ static int msm_hsphy_set_power(struct usb_phy *uphy, unsigned int mA)
 	return 0;
 }
 
+static void msm_hsphy_put_phy_in_non_driving_mode(struct msm_hsphy *phy,
+							int state)
+{
+	if (state) {
+		/* set utmi_phy_cmn_cntrl_override_en &
+		 * utmi_phy_datapath_ctrl_override_en
+		 */
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL2,
+					USB2_SUSPEND_N_SEL | USB2_SUSPEND_N,
+					USB2_SUSPEND_N_SEL | USB2_SUSPEND_N);
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
+					OPMODE_MASK, OPMODE_NONDRIVING);
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
+					UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN,
+					UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN);
+	} else {
+		/* clear utmi_phy_cmn_cntrl_override_en &
+		 * utmi_phy_datapath_ctrl_override_en
+		 */
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
+					UTMI_PHY_CMN_CTRL_OVERRIDE_EN, 0x00);
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
+					UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN, 0x00);
+	}
+}
+
+#define DP_PULSE_WIDTH_MSEC 200
+static enum usb_charger_type usb_phy_drive_dp_pulse(struct usb_phy *uphy)
+{
+	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+	int ret;
+
+	ret = msm_hsphy_enable_power(phy, true);
+	if (ret < 0) {
+		dev_dbg(phy->phy.dev,
+			"dpdm regulator enable failed:%d\n", ret);
+		return 0;
+	}
+	msm_hsphy_enable_clocks(phy, true);
+	msm_hsphy_put_phy_in_non_driving_mode(phy, 1);
+
+	/* set opmode to normal i.e. 0x0 & termsel to fs */
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
+				OPMODE_MASK, OPMODE_NORMAL);
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
+				TERMSEL, TERMSEL);
+	/* set xcvrsel to fs */
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL1,
+					XCVRSEL, XCVRSEL);
+
+	msleep(DP_PULSE_WIDTH_MSEC);
+
+	/* clear termsel to fs */
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
+				TERMSEL, 0x00);
+	/* clear xcvrsel */
+	msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL1,
+					XCVRSEL, 0x00);
+	msm_hsphy_put_phy_in_non_driving_mode(phy, 0);
+
+	msleep(20);
+	msm_hsphy_enable_clocks(phy, false);
+	ret = msm_hsphy_enable_power(phy, false);
+	if (ret < 0) {
+		dev_dbg(phy->phy.dev,
+			"dpdm regulator disable failed:%d\n", ret);
+	}
+
+	return 0;
+}
+
 static int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
 {
 	int ret = 0;
@@ -626,14 +741,7 @@ static int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
 		 * For PMIC charger detection, place PHY in UTMI non-driving
 		 * mode which leaves Dp and Dm lines in high-Z state.
 		 */
-		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_HS_PHY_CTRL2,
-					USB2_SUSPEND_N_SEL | USB2_SUSPEND_N,
-					USB2_SUSPEND_N_SEL | USB2_SUSPEND_N);
-		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL0,
-					OPMODE_MASK, OPMODE_NONDRIVING);
-		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_CFG0,
-					UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN,
-					UTMI_PHY_DATAPATH_CTRL_OVERRIDE_EN);
+		msm_hsphy_put_phy_in_non_driving_mode(phy, 1);
 
 		phy->dpdm_enable = true;
 	}
@@ -708,6 +816,24 @@ static int msm_hsphy_regulator_init(struct msm_hsphy *phy)
 	return PTR_ERR_OR_ZERO(phy->dpdm_rdev);
 }
 
+static int msm_hsphy_vbus_notifier(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+	struct usb_phy *usb_phy = container_of(nb, struct usb_phy, vbus_nb);
+	struct msm_hsphy *phy = container_of(usb_phy, struct msm_hsphy, phy);
+
+	if (!phy || !data) {
+		pr_err("Failed to get PHY for vbus_notifier\n");
+		return NOTIFY_DONE;
+	}
+
+	phy->vbus_active = !!event;
+	dev_dbg(phy->phy.dev, "Got VBUS notification: %u\n", event);
+	queue_delayed_work(system_freezable_wq, &phy->port_det_w, 0);
+
+	return NOTIFY_DONE;
+}
+
 static void msm_hsphy_create_debugfs(struct msm_hsphy *phy)
 {
 	phy->root = debugfs_create_dir(dev_name(phy->phy.dev), NULL);
@@ -717,6 +843,419 @@ static void msm_hsphy_create_debugfs(struct msm_hsphy *phy)
 	debugfs_create_x8("param_ovrd1", 0644, phy->root, &phy->param_ovrd1);
 	debugfs_create_x8("param_ovrd2", 0644, phy->root, &phy->param_ovrd2);
 	debugfs_create_x8("param_ovrd3", 0644, phy->root, &phy->param_ovrd3);
+}
+
+static int msm_hsphy_id_notifier(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+	struct usb_phy *usb_phy = container_of(nb, struct usb_phy, vbus_nb);
+	struct msm_hsphy *phy = container_of(usb_phy, struct msm_hsphy, phy);
+
+	if (!phy || !data) {
+		pr_err("Failed to get PHY for vbus_notifier\n");
+		return NOTIFY_DONE;
+	}
+
+	phy->id_state = !event;
+	dev_dbg(phy->phy.dev, "Got id notification: %u\n", event);
+	queue_delayed_work(system_freezable_wq, &phy->port_det_w, 0);
+
+	return NOTIFY_DONE;
+}
+
+static const unsigned int msm_hsphy_extcon_cable[] = {
+	EXTCON_USB,
+	EXTCON_USB_HOST,
+	EXTCON_NONE,
+};
+
+static int msm_hsphy_notify_charger(struct msm_hsphy *phy,
+					enum power_supply_type charger_type)
+{
+	union power_supply_propval pval = {0};
+
+	dev_dbg(phy->phy.dev, "Notify charger type: %d\n", charger_type);
+
+	if (!phy->usb_psy) {
+		phy->usb_psy = power_supply_get_by_name("usb");
+		if (!phy->usb_psy) {
+			dev_err(phy->phy.dev, "Could not get usb psy\n");
+			return -ENODEV;
+		}
+	}
+
+	pval.intval = charger_type;
+	power_supply_set_property(phy->usb_psy, POWER_SUPPLY_PROP_USB_TYPE,
+									&pval);
+	return 0;
+}
+
+static void msm_hsphy_notify_extcon(struct msm_hsphy *phy,
+						int extcon_id, int event)
+{
+	struct extcon_dev *edev = phy->phy.edev;
+	union extcon_property_value val;
+	int ret;
+
+	dev_dbg(phy->phy.dev, "Notify event: %d for extcon_id: %d\n",
+					event, extcon_id);
+
+	if (event) {
+		ret = extcon_get_property(edev, extcon_id,
+					EXTCON_PROP_USB_TYPEC_POLARITY, &val);
+		if (ret)
+			dev_err(phy->phy.dev, "Failed to get TYPEC POLARITY\n");
+		else
+			extcon_set_property(phy->usb_extcon, extcon_id,
+					EXTCON_PROP_USB_TYPEC_POLARITY, val);
+
+		ret = extcon_get_property(edev, extcon_id,
+						EXTCON_PROP_USB_SS, &val);
+		if (ret)
+			dev_err(phy->phy.dev, "Failed to get USB_SS property\n");
+		else
+			extcon_set_property(phy->usb_extcon, extcon_id,
+						EXTCON_PROP_USB_SS, val);
+	}
+
+	extcon_set_state_sync(phy->usb_extcon, extcon_id, event);
+}
+
+static bool msm_hsphy_chg_det_status(struct msm_hsphy *phy,
+						enum chg_det_state state)
+{
+	u32 reg, status = false;
+
+	reg = readl_relaxed(phy->base
+				+ USB2PHY_USB_PHY_CHARGING_DET_OUTPUT);
+	dev_dbg(phy->phy.dev, "state: %d reg: 0x%x\n", state, reg);
+
+	switch (state) {
+	case STATE_DCD:
+		status = reg & FSVPLUS0;
+		break;
+	case STATE_PRIMARY:
+		status = reg & CHGDET0;
+		break;
+	case STATE_SECONDARY:
+		status = reg & CHGDET0;
+		break;
+	case STATE_UNKNOWN:
+	default:
+		break;
+	}
+
+	return status;
+}
+
+/*
+ * Different circuit blocks are enabled on DP and DM lines as part
+ * of different phases of charger detection. Then the state of
+ * DP and DM lines are monitored to identify different type of
+ * chargers.
+ * These circuit blocks can be enabled with the configuration of
+ * the CHARGING_DET_CTRL register and the DP/DM lines can be
+ * monitored with the status of the CHARGING_DET_OUTPUT register.
+ */
+static void msm_hsphy_chg_det_enable_seq(struct msm_hsphy *phy, int state)
+{
+	dev_dbg(phy->phy.dev, "state: %d\n", state);
+
+	switch (state) {
+	case STATE_DCD:
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL1,
+						DM_PULLDOWN, DM_PULLDOWN);
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						DCD_ENABLE, DCD_ENABLE);
+		break;
+	case STATE_PRIMARY:
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						CHG_SEL0, 0);
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						VDAT_SRC_ENABLE, VDAT_SRC_ENABLE);
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						VDAT_DET_ENABLE, VDAT_DET_ENABLE);
+		break;
+	case STATE_SECONDARY:
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						CHG_SEL0, CHG_SEL0);
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						VDAT_SRC_ENABLE, VDAT_SRC_ENABLE);
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						VDAT_DET_ENABLE, VDAT_DET_ENABLE);
+		break;
+	case STATE_UNKNOWN:
+	default:
+		break;
+	}
+}
+
+static void msm_hsphy_chg_det_disable_seq(struct msm_hsphy *phy, int state)
+{
+	dev_dbg(phy->phy.dev, "state: %d\n", state);
+
+	switch (state) {
+	case STATE_DCD:
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						DCD_ENABLE, 0);
+		msm_usb_write_readback(phy->base, USB2_PHY_USB_PHY_UTMI_CTRL1,
+						DM_PULLDOWN, 0);
+		/* Delay 10ms for DCD circuit to turn off */
+		usleep_range(10000, 11000);
+		break;
+	case STATE_PRIMARY:
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						VDAT_SRC_ENABLE, 0);
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						VDAT_DET_ENABLE, 0);
+		break;
+	case STATE_SECONDARY:
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						CHG_SEL0, 0);
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						VDAT_SRC_ENABLE, 0);
+		msm_usb_write_readback(phy->base, USB2_PHY_CHARGING_DET_CTRL,
+						VDAT_DET_ENABLE, 0);
+		break;
+	case STATE_UNKNOWN:
+	default:
+		break;
+	}
+}
+
+#define CHG_DCD_TIMEOUT_MSEC		750
+#define CHG_DCD_POLL_TIME_MSEC		50
+
+/* Wait 50ms per BC 1.2 TVDPSRC_ON until output reads 1 */
+#define CHG_PRIMARY_DET_TIME_MSEC	50
+#define CHG_SECONDARY_DET_TIME_MSEC	50
+
+static int msm_hsphy_prepare_chg_det(struct msm_hsphy *phy)
+{
+	int ret;
+
+	/*
+	 * Set dpdm_enable to indicate charger detection
+	 * is in progress. This also prevents the core
+	 * driver from doing the set_suspend and init
+	 * calls of the PHY which inteferes with the charger
+	 * detection during bootup.
+	 */
+	phy->dpdm_enable = true;
+	ret = msm_hsphy_enable_power(phy, true);
+	if (ret)
+		return ret;
+
+	msm_hsphy_enable_clocks(phy, true);
+	msm_hsphy_reset(phy);
+
+	msm_hsphy_put_phy_in_non_driving_mode(phy, 1);
+	return 0;
+}
+
+static void msm_hsphy_unprepare_chg_det(struct msm_hsphy *phy)
+{
+	int ret;
+
+	ret = reset_control_assert(phy->phy_reset);
+	if (ret)
+		dev_err(phy->phy.dev, "phyassert failed\n");
+
+	usleep_range(100, 150);
+
+	ret = reset_control_deassert(phy->phy_reset);
+	if (ret)
+		dev_err(phy->phy.dev, "deassert failed\n");
+
+	msm_hsphy_enable_clocks(phy, false);
+	msm_hsphy_enable_power(phy, false);
+
+	phy->dpdm_enable = false;
+}
+
+static void msm_hsphy_port_state_work(struct work_struct *w)
+{
+	struct msm_hsphy *phy = container_of(w, struct msm_hsphy,
+							port_det_w.work);
+	unsigned long delay = 0;
+	int ret;
+	u32 status;
+
+	dev_dbg(phy->phy.dev, "state: %d\n", phy->port_state);
+
+	switch (phy->port_state) {
+	case PORT_UNKNOWN:
+		if (!phy->id_state) {
+			phy->port_state = PORT_HOST_MODE;
+			msm_hsphy_notify_extcon(phy, EXTCON_USB_HOST, 1);
+			return;
+		}
+
+		if (phy->vbus_active) {
+			if (phy->eud_enable_reg &&
+					readl_relaxed(phy->eud_enable_reg)) {
+				pr_err("usb: EUD is enabled, no charger detection\n");
+				msm_hsphy_notify_charger(phy,
+							POWER_SUPPLY_TYPE_USB);
+				msm_hsphy_notify_extcon(phy, EXTCON_USB, 1);
+				phy->port_state = PORT_CHG_DET_DONE;
+				return;
+			}
+
+			/* Enable DCD sequence */
+			ret = msm_hsphy_prepare_chg_det(phy);
+			if (ret)
+				return;
+
+			msm_hsphy_chg_det_enable_seq(phy, STATE_DCD);
+			phy->port_state = PORT_DCD_IN_PROGRESS;
+			phy->dcd_timeout = 0;
+			delay = CHG_DCD_POLL_TIME_MSEC;
+			break;
+		}
+		return;
+	case PORT_DISCONNECTED:
+		msm_hsphy_unprepare_chg_det(phy);
+		phy->port_state = PORT_UNKNOWN;
+		break;
+	case PORT_DCD_IN_PROGRESS:
+		if (!phy->vbus_active) {
+			/* Disable PHY sequence */
+			phy->port_state = PORT_DISCONNECTED;
+			break;
+		}
+
+		status = msm_hsphy_chg_det_status(phy, STATE_DCD);
+
+		if (!status) {
+			msm_hsphy_chg_det_disable_seq(phy, STATE_DCD);
+			msm_hsphy_chg_det_enable_seq(phy, STATE_PRIMARY);
+			phy->port_state = PORT_PRIMARY_IN_PROGRESS;
+			delay = CHG_PRIMARY_DET_TIME_MSEC;
+		} else if (phy->dcd_timeout < CHG_DCD_TIMEOUT_MSEC) {
+			delay = CHG_DCD_POLL_TIME_MSEC;
+			phy->dcd_timeout += delay;
+		} else {
+			msm_hsphy_notify_charger(phy,
+						POWER_SUPPLY_TYPE_USB_DCP);
+			msm_hsphy_chg_det_disable_seq(phy, STATE_DCD);
+			msm_hsphy_unprepare_chg_det(phy);
+			phy->port_state = PORT_CHG_DET_DONE;
+		}
+
+		break;
+	case PORT_PRIMARY_IN_PROGRESS:
+		if (!phy->vbus_active) {
+			phy->port_state = PORT_DISCONNECTED;
+			break;
+		}
+
+		status = msm_hsphy_chg_det_status(phy, STATE_PRIMARY);
+
+		if (status) {
+			msm_hsphy_chg_det_disable_seq(phy, STATE_PRIMARY);
+			/*
+			 * Delay 20ms TVDMSRC_DIS for Charging Port to
+			 * disable D-. This is needed between primary
+			 * detection shutoff and secondary detection start
+			 */
+			msleep(20);
+			msm_hsphy_chg_det_enable_seq(phy, STATE_SECONDARY);
+			phy->port_state = PORT_SECONDARY_IN_PROGRESS;
+			delay = CHG_SECONDARY_DET_TIME_MSEC;
+
+		} else {
+			msm_hsphy_chg_det_disable_seq(phy, STATE_PRIMARY);
+			msm_hsphy_unprepare_chg_det(phy);
+			msm_hsphy_notify_charger(phy, POWER_SUPPLY_TYPE_USB);
+			msm_hsphy_notify_extcon(phy, EXTCON_USB, 1);
+			phy->port_state = PORT_CHG_DET_DONE;
+		}
+		break;
+	case PORT_SECONDARY_IN_PROGRESS:
+		if (!phy->vbus_active) {
+			phy->port_state = PORT_DISCONNECTED;
+			break;
+		}
+
+		status = msm_hsphy_chg_det_status(phy, STATE_SECONDARY);
+
+		msm_hsphy_chg_det_disable_seq(phy, STATE_SECONDARY);
+		msm_hsphy_unprepare_chg_det(phy);
+		phy->port_state = PORT_CHG_DET_DONE;
+
+		if (status) {
+			msm_hsphy_notify_charger(phy,
+						POWER_SUPPLY_TYPE_USB_DCP);
+		} else {
+			msm_hsphy_notify_charger(phy,
+						POWER_SUPPLY_TYPE_USB_CDP);
+			msm_hsphy_notify_extcon(phy, EXTCON_USB, 1);
+		}
+		/*
+		 * Fall through to check if cable got disconnected
+		 * during detection.
+		 */
+	case PORT_CHG_DET_DONE:
+		if (!phy->vbus_active) {
+			phy->port_state = PORT_UNKNOWN;
+			msm_hsphy_notify_extcon(phy, EXTCON_USB, 0);
+		}
+
+		return;
+	case PORT_HOST_MODE:
+		if (phy->id_state) {
+			phy->port_state = PORT_UNKNOWN;
+			msm_hsphy_notify_extcon(phy, EXTCON_USB_HOST, 0);
+		}
+
+		if (!phy->vbus_active)
+			return;
+
+		break;
+	default:
+		return;
+	}
+
+	dev_dbg(phy->phy.dev, "%s status:%d vbus_state:%d delay:%d\n",
+				__func__, status, phy->vbus_active, delay);
+
+	queue_delayed_work(system_freezable_wq,
+			&phy->port_det_w, msecs_to_jiffies(delay));
+}
+
+static int msm_hsphy_extcon_register(struct msm_hsphy *phy)
+{
+	int ret;
+
+	/* Register extcon for notifications from charger driver */
+	phy->phy.vbus_nb.notifier_call = msm_hsphy_vbus_notifier;
+
+	phy->phy.id_nb.notifier_call = msm_hsphy_id_notifier;
+
+	/* Register extcon to notify USB driver */
+	phy->usb_extcon = devm_extcon_dev_allocate(phy->phy.dev,
+						msm_hsphy_extcon_cable);
+	if (IS_ERR(phy->usb_extcon)) {
+		dev_err(phy->phy.dev, "failed to allocate extcon device\n");
+		return PTR_ERR(phy->usb_extcon);
+	}
+
+	ret = devm_extcon_dev_register(phy->phy.dev, phy->usb_extcon);
+	if (ret) {
+		dev_err(phy->phy.dev, "failed to register extcon device\n");
+		return ret;
+	}
+
+	extcon_set_property_capability(phy->usb_extcon, EXTCON_USB,
+			EXTCON_PROP_USB_TYPEC_POLARITY);
+	extcon_set_property_capability(phy->usb_extcon, EXTCON_USB,
+			EXTCON_PROP_USB_SS);
+	extcon_set_property_capability(phy->usb_extcon, EXTCON_USB_HOST,
+			EXTCON_PROP_USB_TYPEC_POLARITY);
+	extcon_set_property_capability(phy->usb_extcon, EXTCON_USB_HOST,
+			EXTCON_PROP_USB_SS);
+	return 0;
 }
 
 static int msm_hsphy_probe(struct platform_device *pdev)
@@ -868,6 +1407,16 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	phy->phy.notify_disconnect	= msm_hsphy_notify_disconnect;
 	phy->phy.set_power		= msm_hsphy_set_power;
 	phy->phy.type			= USB_PHY_TYPE_USB2;
+	phy->phy.charger_detect		= usb_phy_drive_dp_pulse;
+
+	if (of_property_read_bool(dev->of_node, "extcon")) {
+		INIT_DELAYED_WORK(&phy->port_det_w, msm_hsphy_port_state_work);
+
+		ret = msm_hsphy_extcon_register(phy);
+		if (ret)
+			return ret;
+
+	}
 
 	ret = usb_add_phy_dev(&phy->phy);
 	if (ret)
@@ -880,6 +1429,20 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	}
 
 	INIT_WORK(&phy->vbus_draw_work, msm_hsphy_vbus_draw_work);
+
+	if (of_property_read_bool(dev->of_node, "extcon")) {
+		phy->id_state = true;
+		phy->vbus_active = false;
+
+		if (extcon_get_state(phy->phy.edev, EXTCON_USB_HOST) > 0) {
+			msm_hsphy_id_notifier(&phy->phy.id_nb,
+							1, phy->phy.edev);
+		} else if (extcon_get_state(phy->phy.edev, EXTCON_USB) > 0) {
+			msm_hsphy_vbus_notifier(&phy->phy.vbus_nb,
+							1, phy->phy.edev);
+		}
+	}
+
 	msm_hsphy_create_debugfs(phy);
 
 	/*
