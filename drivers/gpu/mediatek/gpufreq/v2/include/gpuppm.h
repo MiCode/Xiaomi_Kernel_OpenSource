@@ -68,7 +68,5 @@ int gpuppm_get_ceiling(void);
 int gpuppm_get_floor(void);
 unsigned int gpuppm_get_c_limiter(void);
 unsigned int gpuppm_get_f_limiter(void);
-const struct gpuppm_limit_info *gpuppm_get_limit_table(void);
-struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info(void);
 
 #endif /* __GPUPPM_H__ */

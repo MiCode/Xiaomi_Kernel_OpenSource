@@ -148,6 +148,34 @@ struct gpuppm_limit_info {
 	unsigned int f_enable;
 };
 
+struct gpufreq_asensor_info {
+	unsigned int efuse1;
+	unsigned int efuse2;
+	unsigned int efuse3;
+	unsigned int efuse4;
+	unsigned int efuse1_addr;
+	unsigned int efuse2_addr;
+	unsigned int efuse3_addr;
+	unsigned int efuse4_addr;
+	unsigned int a_t0_efuse1;
+	unsigned int a_t0_efuse2;
+	unsigned int a_t0_efuse3;
+	unsigned int a_t0_efuse4;
+	unsigned int a_tn_sensor1;
+	unsigned int a_tn_sensor2;
+	unsigned int a_tn_sensor3;
+	unsigned int a_tn_sensor4;
+	int a_diff1;
+	int a_diff2;
+	int a_diff3;
+	int a_diff4;
+	int tj_max;
+	unsigned int aging_table_idx;
+	unsigned int aging_table_idx_agrresive;
+	unsigned int leakage_power;
+	unsigned int lvts5_0_y_temperature;
+};
+
 /**************************************************
  * Platform Implementation
  **************************************************/
@@ -163,12 +191,11 @@ struct gpufreq_platform_fp {
 	void (*set_timestamp)(void);
 	void (*check_bus_idle)(void);
 	void (*dump_infra_status)(void);
+	void (*update_debug_opp_info)(void);
 	void (*set_margin_mode)(unsigned int mode);
 	void (*set_gpm_mode)(unsigned int version, unsigned int mode);
-	struct gpufreq_asensor_info (*get_asensor_info)(void);
 	struct gpufreq_core_mask_info *(*get_core_mask_table)(void);
 	unsigned int (*get_core_num)(void);
-	void (*get_critical_volt)(const struct gpufreq_opp_info *opp_table);
 	void (*pdc_control)(enum gpufreq_power_state power);
 	void (*fake_spm_mtcmos_control)(enum gpufreq_power_state power);
 	/* GPU */
@@ -185,9 +212,6 @@ struct gpufreq_platform_fp {
 	int (*get_idx_by_fgpu)(unsigned int freq);
 	unsigned int (*get_lkg_pgpu)(unsigned int volt);
 	unsigned int (*get_dyn_pgpu)(unsigned int freq, unsigned int volt);
-	const struct gpufreq_opp_info *(*get_working_table_gpu)(void);
-	const struct gpufreq_opp_info *(*get_signed_table_gpu)(void);
-	struct gpufreq_debug_opp_info (*get_debug_opp_info_gpu)(void);
 	int (*generic_commit_gpu)(int target_oppidx, enum gpufreq_dvfs_state key);
 	int (*fix_target_oppidx_gpu)(int oppidx);
 	int (*fix_custom_freq_volt_gpu)(unsigned int freq, unsigned int volt);
@@ -208,9 +232,6 @@ struct gpufreq_platform_fp {
 	int (*get_idx_by_fstack)(unsigned int freq);
 	unsigned int (*get_lkg_pstack)(unsigned int volt);
 	unsigned int (*get_dyn_pstack)(unsigned int freq, unsigned int volt);
-	const struct gpufreq_opp_info *(*get_working_table_stack)(void);
-	const struct gpufreq_opp_info *(*get_signed_table_stack)(void);
-	struct gpufreq_debug_opp_info (*get_debug_opp_info_stack)(void);
 	int (*generic_commit_stack)(int target_oppidx, enum gpufreq_dvfs_state key);
 	int (*fix_target_oppidx_stack)(int oppidx);
 	int (*fix_custom_freq_volt_stack)(unsigned int freq, unsigned int volt);
@@ -227,8 +248,6 @@ struct gpuppm_platform_fp {
 	int (*get_floor)(void);
 	unsigned int (*get_c_limiter)(void);
 	unsigned int (*get_f_limiter)(void);
-	const struct gpuppm_limit_info *(*get_limit_table)(void);
-	struct gpufreq_debug_limit_info (*get_debug_limit_info)(void);
 };
 
 /**************************************************
@@ -282,11 +301,8 @@ void gpufreq_register_gpufreq_fp(struct gpufreq_platform_fp *platform_fp);
 void gpufreq_register_gpuppm_fp(struct gpuppm_platform_fp *platform_fp);
 
 /* Debug */
-struct gpufreq_debug_opp_info gpufreq_get_debug_opp_info(enum gpufreq_target target);
-struct gpufreq_debug_limit_info gpufreq_get_debug_limit_info(enum gpufreq_target target);
+int gpufreq_update_debug_opp_info(void);
 const struct gpufreq_opp_info *gpufreq_get_working_table(enum gpufreq_target target);
-const struct gpufreq_opp_info *gpufreq_get_signed_table(enum gpufreq_target target);
-const struct gpuppm_limit_info *gpufreq_get_limit_table(enum gpufreq_target target);
 int gpufreq_switch_limit(enum gpufreq_target target,
 	enum gpuppm_limiter limiter, int c_enable, int f_enable);
 int gpufreq_fix_target_oppidx(enum gpufreq_target target, int oppidx);
@@ -296,6 +312,5 @@ int gpufreq_set_stress_test(unsigned int mode);
 int gpufreq_set_margin_mode(unsigned int mode);
 int gpufreq_set_gpm_mode(unsigned int version, unsigned int mode);
 int gpufreq_set_test_mode(unsigned int mode);
-struct gpufreq_asensor_info gpufreq_get_asensor_info(void);
 
 #endif /* __GPUFREQ_V2_H__ */

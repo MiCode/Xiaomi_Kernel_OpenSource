@@ -21,6 +21,7 @@
 #include <linux/uaccess.h>
 
 #include <gpufreq_v2.h>
+#include <gpufreq_ipi.h>
 #include <gpufreq_debug.h>
 #include <gpu_misc.h>
 
@@ -35,8 +36,7 @@ static unsigned int g_stress_test;
 static unsigned int g_debug_power_state;
 static unsigned int g_debug_margin_mode;
 static unsigned int g_test_mode;
-static struct gpufreq_debug_status g_debug_gpu;
-static struct gpufreq_debug_status g_debug_stack;
+static const struct gpufreq_shared_status *g_shared_status;
 static DEFINE_MUTEX(gpufreq_debug_lock);
 
 /**
@@ -47,114 +47,105 @@ static DEFINE_MUTEX(gpufreq_debug_lock);
 #if defined(CONFIG_PROC_FS)
 static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 {
-	struct gpufreq_debug_opp_info gpu_opp_info = {};
-	struct gpufreq_debug_opp_info stack_opp_info = {};
-	struct gpufreq_debug_limit_info limit_info = {};
+	unsigned long long power_time = 0;
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	gpu_opp_info = gpufreq_get_debug_opp_info(TARGET_GPU);
-	if (g_dual_buck)
-		stack_opp_info = gpufreq_get_debug_opp_info(TARGET_STACK);
-	limit_info = gpufreq_get_debug_limit_info(TARGET_DEFAULT);
+	gpufreq_update_debug_opp_info();
 
 	seq_printf(m,
 		"[GPUFREQ-DEBUG] Current Status of GPUFREQ\n");
 	seq_printf(m,
 		"%-15s Index: %d, Freq: %d, Volt: %d, Vsram: %d\n",
 		"[GPU-OPP]",
-		gpu_opp_info.cur_oppidx,
-		gpu_opp_info.cur_freq,
-		gpu_opp_info.cur_volt,
-		gpu_opp_info.cur_vsram);
+		g_shared_status->cur_oppidx_gpu,
+		g_shared_status->cur_fgpu,
+		g_shared_status->cur_vgpu,
+		g_shared_status->cur_vsram_gpu);
 	seq_printf(m,
 		"%-15s FmeterFreq: %d, Con1Freq: %d, ReguVolt: %d, ReguVsram: %d\n",
 		"[GPU-REALOPP]",
-		gpu_opp_info.fmeter_freq,
-		gpu_opp_info.con1_freq,
-		gpu_opp_info.regulator_volt,
-		gpu_opp_info.regulator_vsram);
-	seq_printf(m,
-		"%-15s PowerCount: %d, CG: %d, MTCMOS: %d, BUCK: %d\n",
-		"[GPU-Power]",
-		gpu_opp_info.power_count,
-		gpu_opp_info.cg_count,
-		gpu_opp_info.mtcmos_count,
-		gpu_opp_info.buck_count);
+		g_shared_status->cur_fmeter_fgpu,
+		g_shared_status->cur_con1_fgpu,
+		g_shared_status->cur_regulator_vgpu,
+		g_shared_status->cur_regulator_vsram_gpu);
 	seq_printf(m,
 		"%-15s SegmentID: %d, WorkingOPPNum: %d, SignedOPPNum: %d\n",
 		"[GPU-Segment]",
-		gpu_opp_info.segment_id,
-		gpu_opp_info.opp_num,
-		gpu_opp_info.signed_opp_num);
+		g_shared_status->segment_id,
+		g_shared_status->opp_num_gpu,
+		g_shared_status->signed_opp_num_gpu);
 
 	if (g_dual_buck) {
 		seq_printf(m,
 			"%-15s Index: %d, Freq: %d, Volt: %d, Vsram: %d\n",
 			"[STACK-OPP]",
-			stack_opp_info.cur_oppidx,
-			stack_opp_info.cur_freq,
-			stack_opp_info.cur_volt,
-			stack_opp_info.cur_vsram);
+			g_shared_status->cur_oppidx_stack,
+			g_shared_status->cur_fstack,
+			g_shared_status->cur_vstack,
+			g_shared_status->cur_vsram_stack);
 		seq_printf(m,
 			"%-15s FmeterFreq: %d, Con1Freq: %d, ReguVolt: %d, ReguVsram: %d\n",
 			"[STACK-REALOPP]",
-			stack_opp_info.fmeter_freq,
-			stack_opp_info.con1_freq,
-			stack_opp_info.regulator_volt,
-			stack_opp_info.regulator_vsram);
-		seq_printf(m,
-			"%-15s PowerCount: %d, CG: %d, MTCMOS: %d, BUCK: %d\n",
-			"[STACK-Power]",
-			stack_opp_info.power_count,
-			stack_opp_info.cg_count,
-			stack_opp_info.mtcmos_count,
-			stack_opp_info.buck_count);
+			g_shared_status->cur_fmeter_fstack,
+			g_shared_status->cur_con1_fstack,
+			g_shared_status->cur_regulator_vstack,
+			g_shared_status->cur_regulator_vsram_stack);
 		seq_printf(m,
 			"%-15s SegmentID: %d, WorkingOPPNum: %d, SignedOPPNum: %d\n",
 			"[STACK-Segment]",
-			stack_opp_info.segment_id,
-			stack_opp_info.opp_num,
-			stack_opp_info.signed_opp_num);
+			g_shared_status->segment_id,
+			g_shared_status->opp_num_stack,
+			g_shared_status->signed_opp_num_stack);
 	}
 
-	/* common info takes from GPU as it always exists */
+	power_time = g_shared_status->power_time_h;
+	power_time = (power_time << 32) | g_shared_status->power_time_l;
+	seq_printf(m,
+		"%-15s PowerCount: %d, CG: %d, MTCMOS: %d, BUCK: %d, Timestamp: %lld\n",
+		"[Common-Power]",
+		g_shared_status->power_count,
+		g_shared_status->cg_count,
+		g_shared_status->mtcmos_count,
+		g_shared_status->buck_count,
+		power_time);
 	seq_printf(m,
 		"%-15s CeilingIndex: %d, Limiter: %d, Priority: %d\n",
 		"[Common-LimitC]",
-		limit_info.ceiling,
-		limit_info.c_limiter,
-		limit_info.c_priority);
+		g_shared_status->cur_ceiling,
+		g_shared_status->cur_c_limiter,
+		g_shared_status->cur_c_priority);
 	seq_printf(m,
 		"%-15s FloorIndex: %d, Limiter: %d, Priority: %d\n",
 		"[Common-LimitF]",
-		limit_info.floor,
-		limit_info.f_limiter,
-		limit_info.f_priority);
+		g_shared_status->cur_floor,
+		g_shared_status->cur_f_limiter,
+		g_shared_status->cur_f_priority);
 	seq_printf(m,
-		"%-15s Dual Buck: %s, GPUEB Support: %s\n",
+		"%-15s DualBuck: %s, GPUEBSupport: %s, RandomOPP: %s\n",
 		"[Common-Status]",
 		g_dual_buck ? "True" : "False",
-		g_gpueb_support ? "On" : "Off");
+		g_gpueb_support ? "On" : "Off",
+		g_stress_test ? "On" : "Off");
 	seq_printf(m,
 		"%-15s DVFSState: 0x%04x, ShaderPresent: 0x%08x\n",
 		"[Common-Status]",
-		gpu_opp_info.dvfs_state,
-		gpu_opp_info.shader_present);
+		g_shared_status->dvfs_state,
+		g_shared_status->shader_present);
 	seq_printf(m,
-		"%-15s AgingMargin: %s, AVSMargin: %s, RandomOPP: %s, GPM1.0: %s\n",
+		"%-15s AgingMargin: %s, AVSMargin: %s, GPM1.0: %s, GPM3.0: %s\n",
 		"[Common-Status]",
-		gpu_opp_info.aging_margin ? "On" : "Off",
-		gpu_opp_info.avs_margin ? "On" : "Off",
-		g_stress_test ? "On" : "Off",
-		gpu_opp_info.gpm1_enable ? "On" : "Off");
+		g_shared_status->aging_margin ? "On" : "Off",
+		g_shared_status->avs_margin ? "On" : "Off",
+		g_shared_status->gpm3_enable ? "On" : "Off",
+		g_shared_status->gpm1_enable ? "On" : "Off");
 	seq_printf(m,
 		"%-15s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x, TempCompensate: %s (%d'C)\n",
 		"[Common-Status]",
-		gpu_opp_info.sb_version,
-		gpu_opp_info.ptp_version,
-		gpu_opp_info.temp_compensate ? "On" : "Off",
-		gpu_opp_info.temperature);
+		g_shared_status->sb_version,
+		g_shared_status->ptp_version,
+		g_shared_status->temp_compensate ? "On" : "Off",
+		g_shared_status->temperature);
 
 	mutex_unlock(&gpufreq_debug_lock);
 
@@ -166,8 +157,7 @@ static ssize_t gpufreq_status_proc_write(struct file *file,
 {
 	int ret = GPUFREQ_SUCCESS;
 	char buf[64];
-	unsigned int len = 0;
-	unsigned int value = 0;
+	unsigned int len = 0, value = 0;
 
 	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
 	if (copy_from_user(buf, buffer, len)) {
@@ -196,18 +186,17 @@ static int gpu_working_opp_table_proc_show(struct seq_file *m, void *v)
 {
 	const struct gpufreq_opp_info *opp_table = NULL;
 	int ret = GPUFREQ_SUCCESS;
-	int opp_num = 0;
-	int i = 0;
+	int opp_num = 0, i = 0;
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	opp_table = gpufreq_get_working_table(TARGET_GPU);
+	opp_num = g_shared_status->opp_num_gpu;
+	opp_table = g_shared_status->working_table_gpu;
 	if (!opp_table) {
 		GPUFREQ_LOGE("fail to get GPU working OPP table (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
-	opp_num = g_debug_gpu.opp_num;
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
@@ -227,18 +216,17 @@ static int stack_working_opp_table_proc_show(struct seq_file *m, void *v)
 {
 	const struct gpufreq_opp_info *opp_table = NULL;
 	int ret = GPUFREQ_SUCCESS;
-	int opp_num = 0;
-	int i = 0;
+	int opp_num = 0, i = 0;
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	opp_table = gpufreq_get_working_table(TARGET_STACK);
+	opp_num = g_shared_status->opp_num_stack;
+	opp_table = g_shared_status->working_table_stack;
 	if (!opp_table) {
 		GPUFREQ_LOGE("fail to get STACK working OPP table (ENOENT)");
 		ret = GPUFREQ_ENOENT;
 		goto done;
 	}
-	opp_num = g_debug_stack.opp_num;
 
 	for (i = 0; i < opp_num; i++) {
 		seq_printf(m,
@@ -258,17 +246,16 @@ static int gpu_signed_opp_table_proc_show(struct seq_file *m, void *v)
 {
 	const struct gpufreq_opp_info *opp_table = NULL;
 	int ret = GPUFREQ_SUCCESS;
-	int opp_num = 0;
-	int i = 0;
+	int opp_num = 0, i = 0;
 
 	mutex_lock(&gpufreq_debug_lock);
 
 	if (g_test_mode) {
-		opp_num = g_debug_gpu.signed_opp_num;
-		opp_table = gpufreq_get_signed_table(TARGET_GPU);
+		opp_num = g_shared_status->signed_opp_num_gpu;
+		opp_table = g_shared_status->signed_table_gpu;
 	} else {
-		opp_num = g_debug_gpu.opp_num;
-		opp_table = gpufreq_get_working_table(TARGET_GPU);
+		opp_num = g_shared_status->opp_num_gpu;
+		opp_table = g_shared_status->working_table_gpu;
 	}
 	if (!opp_table) {
 		GPUFREQ_LOGE("fail to get GPU signed OPP table (ENOENT)");
@@ -294,17 +281,16 @@ static int stack_signed_opp_table_proc_show(struct seq_file *m, void *v)
 {
 	const struct gpufreq_opp_info *opp_table = NULL;
 	int ret = GPUFREQ_SUCCESS;
-	int opp_num = 0;
-	int i = 0;
+	int opp_num = 0, i = 0;
 
 	mutex_lock(&gpufreq_debug_lock);
 
 	if (g_test_mode) {
-		opp_num = g_debug_stack.signed_opp_num;
-		opp_table = gpufreq_get_signed_table(TARGET_STACK);
+		opp_num = g_shared_status->signed_opp_num_stack;
+		opp_table = g_shared_status->signed_table_stack;
 	} else {
-		opp_num = g_debug_stack.opp_num;
-		opp_table = gpufreq_get_working_table(TARGET_STACK);
+		opp_num = g_shared_status->opp_num_stack;
+		opp_table = g_shared_status->working_table_stack;
 	}
 	if (!opp_table) {
 		GPUFREQ_LOGE("fail to get STACK signed OPP table (ENOENT)");
@@ -334,7 +320,7 @@ static int limit_table_proc_show(struct seq_file *m, void *v)
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	limit_table = gpufreq_get_limit_table(TARGET_DEFAULT);
+	limit_table = g_shared_status->limit_table;
 	if (!limit_table) {
 		GPUFREQ_LOGE("fail to get limit table (ENOENT)");
 		ret = GPUFREQ_ENOENT;
@@ -365,9 +351,8 @@ static ssize_t limit_table_proc_write(struct file *file,
 		const char __user *buffer, size_t count, loff_t *data)
 {
 	int ret = GPUFREQ_SUCCESS;
-	char buf[64];
+	char buf[64], cmd[64];
 	unsigned int len = 0;
-	char cmd[64];
 	int limiter = 0, ceiling = 0, floor = 0;
 
 	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
@@ -401,24 +386,21 @@ done:
 /* PROCFS: show current state of kept OPP index */
 static int fix_target_opp_index_proc_show(struct seq_file *m, void *v)
 {
-	int opp_num = 0, fixed_idx = 0;
+	unsigned int dvfs_state = DVFS_FREE;
+	int fixed_idx = -1;
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	if (g_dual_buck) {
-		fixed_idx = g_debug_stack.fixed_oppidx;
-		opp_num = g_debug_stack.opp_num;
-	} else {
-		fixed_idx = g_debug_gpu.fixed_oppidx;
-		opp_num = g_debug_gpu.opp_num;
-	}
-
-	if (fixed_idx >= 0 && fixed_idx < opp_num)
-		seq_printf(m, "[GPUFREQ-DEBUG] fix OPP index: %d\n", fixed_idx);
-	else if (fixed_idx == -1)
-		seq_puts(m, "[GPUFREQ-DEBUG] fixed OPP index is disabled\n");
+	dvfs_state = g_shared_status->dvfs_state;
+	if (g_dual_buck)
+		fixed_idx = g_shared_status->cur_oppidx_stack;
 	else
-		seq_printf(m, "[GPUFREQ-DEBUG] invalid state of OPP index: %d\n", fixed_idx);
+		fixed_idx = g_shared_status->cur_oppidx_gpu;
+
+	if (dvfs_state & DVFS_DEBUG_KEEP)
+		seq_printf(m, "[GPUFREQ-DEBUG] fix OPP index: %d\n", fixed_idx);
+	else
+		seq_puts(m, "[GPUFREQ-DEBUG] fixed OPP index is disabled\n");
 
 	mutex_unlock(&gpufreq_debug_lock);
 
@@ -436,8 +418,7 @@ static ssize_t fix_target_opp_index_proc_write(struct file *file,
 	int ret = GPUFREQ_SUCCESS;
 	char buf[64];
 	unsigned int len = 0;
-	int value = 0;
-	int opp_num = -1;
+	int value = 0, opp_num = -1;
 
 	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
 	if (copy_from_user(buf, buffer, len)) {
@@ -450,31 +431,19 @@ static ssize_t fix_target_opp_index_proc_write(struct file *file,
 
 	if (sysfs_streq(buf, "min")) {
 		if (g_dual_buck)
-			opp_num = g_debug_stack.opp_num;
+			opp_num = g_shared_status->opp_num_stack;
 		else
-			opp_num = g_debug_gpu.opp_num;
+			opp_num = g_shared_status->opp_num_gpu;
 		if (opp_num > 0) {
 			value = opp_num - 1;
 			ret = gpufreq_fix_target_oppidx(TARGET_DEFAULT, value);
-			if (ret) {
+			if (ret)
 				GPUFREQ_LOGE("fail to fix OPP index (%d)", ret);
-			} else {
-				if (g_dual_buck)
-					g_debug_stack.fixed_oppidx = value;
-				else
-					g_debug_gpu.fixed_oppidx = value;
-			}
 		}
 	} else if (sscanf(buf, "%2d", &value) == 1) {
 		ret = gpufreq_fix_target_oppidx(TARGET_DEFAULT, value);
-		if (ret) {
+		if (ret)
 			GPUFREQ_LOGE("fail to fix OPP index (%d)", ret);
-		} else {
-			if (g_dual_buck)
-				g_debug_stack.fixed_oppidx = value;
-			else
-				g_debug_gpu.fixed_oppidx = value;
-		}
 	}
 
 	mutex_unlock(&gpufreq_debug_lock);
@@ -486,26 +455,25 @@ done:
 /* PROCFS: show current state of kept freq and volt */
 static int fix_custom_freq_volt_proc_show(struct seq_file *m, void *v)
 {
+	unsigned int dvfs_state = DVFS_FREE;
 	unsigned int fixed_freq = 0, fixed_volt = 0;
 
 	mutex_lock(&gpufreq_debug_lock);
 
+	dvfs_state = g_shared_status->dvfs_state;
 	if (g_dual_buck) {
-		fixed_freq = g_debug_stack.fixed_freq;
-		fixed_volt = g_debug_stack.fixed_volt;
+		fixed_freq = g_shared_status->cur_fstack;
+		fixed_volt = g_shared_status->cur_vstack;
 	} else {
-		fixed_freq = g_debug_gpu.fixed_freq;
-		fixed_volt = g_debug_gpu.fixed_volt;
+		fixed_freq = g_shared_status->cur_fgpu;
+		fixed_volt = g_shared_status->cur_vgpu;
 	}
 
-	if (fixed_freq > 0 && fixed_volt > 0)
+	if (dvfs_state & DVFS_DEBUG_KEEP)
 		seq_printf(m, "[GPUFREQ-DEBUG] fix freq: %d and volt: %d\n",
 			fixed_freq, fixed_volt);
-	else if (fixed_freq == 0 && fixed_volt == 0)
-		seq_puts(m, "[GPUFREQ-DEBUG] fixed freq and volt are disabled\n");
 	else
-		seq_printf(m, "[GPUFREQ-DEBUG] invalid state of freq: %d and volt: %d\n",
-			fixed_freq, fixed_volt);
+		seq_puts(m, "[GPUFREQ-DEBUG] fixed freq and volt are disabled\n");
 
 	mutex_unlock(&gpufreq_debug_lock);
 
@@ -536,17 +504,8 @@ static ssize_t fix_custom_freq_volt_proc_write(struct file *file,
 
 	if (sscanf(buf, "%7d %6d", &fixed_freq, &fixed_volt) == 2) {
 		ret = gpufreq_fix_custom_freq_volt(TARGET_DEFAULT, fixed_freq, fixed_volt);
-		if (ret) {
+		if (ret)
 			GPUFREQ_LOGE("fail to fix freq and volt (%d)", ret);
-		} else {
-			if (g_dual_buck) {
-				g_debug_stack.fixed_freq = fixed_freq;
-				g_debug_stack.fixed_volt = fixed_volt;
-			} else {
-				g_debug_gpu.fixed_freq = fixed_freq;
-				g_debug_gpu.fixed_volt = fixed_volt;
-			}
-		}
 	}
 
 	mutex_unlock(&gpufreq_debug_lock);
@@ -673,7 +632,7 @@ static int asensor_info_proc_show(struct seq_file *m, void *v)
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	asensor_info = gpufreq_get_asensor_info();
+	asensor_info = g_shared_status->asensor_info;
 
 	seq_printf(m,
 		"Aging table index: %d, MOST_AGRRESIVE_AGING_TABLE_ID: %d\n",
@@ -710,30 +669,53 @@ static int asensor_info_proc_show(struct seq_file *m, void *v)
 
 static int mfgsys_config_proc_show(struct seq_file *m, void *v)
 {
-	struct gpufreq_debug_opp_info gpu_opp_info = {};
-	int ret = GPUFREQ_SUCCESS;
+	const struct gpufreq_adj_info *aging_table_gpu = NULL;
+	const struct gpufreq_adj_info *aging_table_stack = NULL;
+	const struct gpufreq_adj_info *avs_table_gpu = NULL;
+	const struct gpufreq_adj_info *avs_table_stack = NULL;
+	int adj_num = GPUFREQ_MAX_ADJ_NUM, i = 0;
 
 	mutex_lock(&gpufreq_debug_lock);
 
-	gpu_opp_info = gpufreq_get_debug_opp_info(TARGET_GPU);
+	aging_table_gpu = g_shared_status->aging_table_gpu;
+	aging_table_stack = g_shared_status->aging_table_stack;
+	avs_table_gpu = g_shared_status->avs_table_gpu;
+	avs_table_stack = g_shared_status->avs_table_stack;
 
 	seq_printf(m, "%-7s AgingSensor: %s, AgingLoad: %s, AgingMargin: %s\n",
 		"[AGING]",
-		gpu_opp_info.asensor_enable ? "On" : "Off",
-		gpu_opp_info.aging_load ? "On" : "Off",
-		gpu_opp_info.aging_margin ? "On" : "Off");
+		g_shared_status->asensor_enable ? "On" : "Off",
+		g_shared_status->aging_load ? "On" : "Off",
+		g_shared_status->aging_margin ? "On" : "Off");
 	seq_printf(m, "%-7s AVS: %s, AVSMargin: %s\n",
 		"[AVS]",
-		gpu_opp_info.avs_enable ? "On" : "Off",
-		gpu_opp_info.avs_margin ? "On" : "Off");
+		g_shared_status->avs_enable ? "On" : "Off",
+		g_shared_status->avs_margin ? "On" : "Off");
 	seq_printf(m, "%-7s GPM1.0: %s, GPM3.0: %s\n",
 		"[GPM]",
-		gpu_opp_info.gpm1_enable ? "On" : "Off",
-		gpu_opp_info.gpm3_enable ? "On" : "Off");
+		g_shared_status->gpm1_enable ? "On" : "Off",
+		g_shared_status->gpm3_enable ? "On" : "Off");
+
+	if (aging_table_gpu && avs_table_gpu) {
+		seq_puts(m, "\n[##*] [TOP Vaging] [##*] [TOP Vavs]\n");
+		for (i = 0; i < adj_num; i++) {
+			seq_printf(m, "[%02d*] %12d [%02d*] %10d\n",
+				aging_table_gpu[i].oppidx, aging_table_gpu[i].volt,
+				avs_table_gpu[i].oppidx, avs_table_gpu[i].volt);
+		}
+	}
+	if (aging_table_stack && avs_table_stack) {
+		seq_puts(m, "\n[##*] [STK Vaging] [##*] [STK Vavs]\n");
+		for (i = 0; i < adj_num; i++) {
+			seq_printf(m, "[%02d*] %12d [%02d*] %10d\n",
+				aging_table_stack[i].oppidx, aging_table_stack[i].volt,
+				avs_table_stack[i].oppidx, avs_table_stack[i].volt);
+		}
+	}
 
 	mutex_unlock(&gpufreq_debug_lock);
 
-	return ret;
+	return GPUFREQ_SUCCESS;
 }
 
 static ssize_t mfgsys_config_proc_write(struct file *file,
@@ -848,40 +830,29 @@ static int gpufreq_create_procfs(void)
 }
 #endif /* CONFIG_PROC_FS */
 
-void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support)
+void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support,
+	const struct gpufreq_shared_status *shared_status)
 {
-	struct gpufreq_debug_opp_info gpu_opp_info = {};
-	struct gpufreq_debug_opp_info stack_opp_info = {};
 	int ret = GPUFREQ_SUCCESS;
 
 	g_dual_buck = dual_buck;
 	g_gpueb_support = gpueb_support;
-
-	gpu_opp_info = gpufreq_get_debug_opp_info(TARGET_GPU);
-	if (g_dual_buck)
-		stack_opp_info = gpufreq_get_debug_opp_info(TARGET_STACK);
-
-	g_debug_gpu.opp_num = gpu_opp_info.opp_num;
-	g_debug_gpu.signed_opp_num = gpu_opp_info.signed_opp_num;
-	g_debug_gpu.fixed_oppidx = -1;
-	g_debug_gpu.fixed_freq = 0;
-	g_debug_gpu.fixed_volt = 0;
-
-	g_debug_stack.opp_num = stack_opp_info.opp_num;
-	g_debug_stack.signed_opp_num = stack_opp_info.signed_opp_num;
-	g_debug_stack.fixed_oppidx = -1;
-	g_debug_stack.fixed_freq = 0;
-	g_debug_stack.fixed_volt = 0;
-
 	g_debug_power_state = POWER_OFF;
 	g_debug_margin_mode = true;
 	/* always enable test mode when AP mode */
 	if (!g_gpueb_support)
 		g_test_mode = true;
+	/* take every info of mfgsys from shared status */
+	if (shared_status)
+		g_shared_status = shared_status;
+	else {
+		GPUFREQ_LOGE("null gpufreq shared status: 0x%x", shared_status);
+		BUG_ON(1);
+	}
 
 #if defined(CONFIG_PROC_FS)
 	ret = gpufreq_create_procfs();
 	if (ret)
 		GPUFREQ_LOGE("fail to create procfs (%d)", ret);
-#endif
+#endif /* CONFIG_PROC_FS */
 }

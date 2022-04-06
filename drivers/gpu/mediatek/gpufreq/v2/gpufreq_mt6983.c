@@ -28,7 +28,6 @@
 #include <linux/pm_domain.h>
 
 #include <gpufreq_v2.h>
-#include <gpufreq_debug.h>
 #include <gpuppm.h>
 #include <gpufreq_common.h>
 #include <gpufreq_mt6983.h>
@@ -228,9 +227,6 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.get_cur_idx_gpu = __gpufreq_get_cur_idx_gpu,
 	.get_opp_num_gpu = __gpufreq_get_opp_num_gpu,
 	.get_signed_opp_num_gpu = __gpufreq_get_signed_opp_num_gpu,
-	.get_working_table_gpu = __gpufreq_get_working_table_gpu,
-	.get_signed_table_gpu = __gpufreq_get_signed_table_gpu,
-	.get_debug_opp_info_gpu = __gpufreq_get_debug_opp_info_gpu,
 	.get_fgpu_by_idx = __gpufreq_get_fgpu_by_idx,
 	.get_pgpu_by_idx = __gpufreq_get_pgpu_by_idx,
 	.get_idx_by_fgpu = __gpufreq_get_idx_by_fgpu,
@@ -249,9 +245,6 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.get_cur_idx_stack = __gpufreq_get_cur_idx_stack,
 	.get_opp_num_stack = __gpufreq_get_opp_num_stack,
 	.get_signed_opp_num_stack = __gpufreq_get_signed_opp_num_stack,
-	.get_working_table_stack = __gpufreq_get_working_table_stack,
-	.get_signed_table_stack = __gpufreq_get_signed_table_stack,
-	.get_debug_opp_info_stack = __gpufreq_get_debug_opp_info_stack,
 	.get_fstack_by_idx = __gpufreq_get_fstack_by_idx,
 	.get_pstack_by_idx = __gpufreq_get_pstack_by_idx,
 	.get_idx_by_fstack = __gpufreq_get_idx_by_fstack,
@@ -265,10 +258,8 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.dump_infra_status = __gpufreq_dump_infra_status,
 	.set_margin_mode = __gpufreq_set_margin_mode,
 	.set_gpm_mode = __gpufreq_set_gpm_mode,
-	.get_asensor_info = __gpufreq_get_asensor_info,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
-	.get_critical_volt = __gpufreq_get_critical_volt,
 	.pdc_control = __gpufreq_pdc_control,
 	.fake_spm_mtcmos_control = __gpufreq_fake_spm_mtcmos_control,
 };
@@ -282,7 +273,6 @@ static struct gpufreq_platform_fp platform_eb_fp = {
 	.get_dyn_pstack = __gpufreq_get_dyn_pstack,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
-	.get_critical_volt = __gpufreq_get_critical_volt,
 	.pdc_control = __gpufreq_pdc_control,
 	.fake_spm_mtcmos_control = __gpufreq_fake_spm_mtcmos_control,
 };
@@ -455,88 +445,6 @@ const struct gpufreq_opp_info *__gpufreq_get_signed_table_gpu(void)
 const struct gpufreq_opp_info *__gpufreq_get_signed_table_stack(void)
 {
 	return g_stack.signed_table;
-}
-
-/* API: get debug info of GPU for Proc show */
-struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_gpu(void)
-{
-	struct gpufreq_debug_opp_info opp_info = {};
-
-	mutex_lock(&gpufreq_lock);
-	opp_info.cur_oppidx = g_gpu.cur_oppidx;
-	opp_info.cur_freq = g_gpu.cur_freq;
-	opp_info.cur_volt = g_gpu.cur_volt;
-	opp_info.cur_vsram = g_gpu.cur_vsram;
-	opp_info.power_count = g_gpu.power_count;
-	opp_info.cg_count = g_gpu.cg_count;
-	opp_info.mtcmos_count = g_gpu.mtcmos_count;
-	opp_info.buck_count = g_gpu.buck_count;
-	opp_info.segment_id = g_gpu.segment_id;
-	opp_info.opp_num = g_gpu.opp_num;
-	opp_info.signed_opp_num = g_gpu.signed_opp_num;
-	opp_info.dvfs_state = g_dvfs_state;
-	opp_info.shader_present = g_shader_present;
-	opp_info.asensor_enable = g_asensor_enable;
-	opp_info.aging_load = g_aging_load;
-	opp_info.aging_margin = g_aging_margin;
-	opp_info.avs_enable = g_avs_enable;
-	opp_info.avs_margin = g_avs_margin;
-	opp_info.gpm1_enable = g_gpm1_enable;
-	if (__gpufreq_get_power_state()) {
-		opp_info.fmeter_freq = __gpufreq_get_fmeter_fgpu();
-		opp_info.con1_freq = __gpufreq_get_real_fgpu();
-		opp_info.regulator_volt = __gpufreq_get_real_vgpu();
-		opp_info.regulator_vsram = __gpufreq_get_real_vsram();
-	} else {
-		opp_info.fmeter_freq = 0;
-		opp_info.con1_freq = 0;
-		opp_info.regulator_volt = 0;
-		opp_info.regulator_vsram = 0;
-	}
-	mutex_unlock(&gpufreq_lock);
-
-	return opp_info;
-}
-
-/* API: get debug info of STACK for Proc show */
-struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_stack(void)
-{
-	struct gpufreq_debug_opp_info opp_info = {};
-
-	mutex_lock(&gpufreq_lock);
-	opp_info.cur_oppidx = g_stack.cur_oppidx;
-	opp_info.cur_freq = g_stack.cur_freq;
-	opp_info.cur_volt = g_stack.cur_volt;
-	opp_info.cur_vsram = g_stack.cur_vsram;
-	opp_info.power_count = g_stack.power_count;
-	opp_info.cg_count = g_stack.cg_count;
-	opp_info.mtcmos_count = g_stack.mtcmos_count;
-	opp_info.buck_count = g_stack.buck_count;
-	opp_info.segment_id = g_stack.segment_id;
-	opp_info.opp_num = g_stack.opp_num;
-	opp_info.signed_opp_num = g_stack.signed_opp_num;
-	opp_info.dvfs_state = g_dvfs_state;
-	opp_info.shader_present = g_shader_present;
-	opp_info.asensor_enable = g_asensor_enable;
-	opp_info.aging_load = g_aging_load;
-	opp_info.aging_margin = g_aging_margin;
-	opp_info.avs_enable = g_avs_enable;
-	opp_info.avs_margin = g_avs_margin;
-	opp_info.gpm1_enable = g_gpm1_enable;
-	if (__gpufreq_get_power_state()) {
-		opp_info.fmeter_freq = __gpufreq_get_fmeter_fstack();
-		opp_info.con1_freq = __gpufreq_get_real_fstack();
-		opp_info.regulator_volt = __gpufreq_get_real_vstack();
-		opp_info.regulator_vsram = __gpufreq_get_real_vsram();
-	} else {
-		opp_info.fmeter_freq = 0;
-		opp_info.con1_freq = 0;
-		opp_info.regulator_volt = 0;
-		opp_info.regulator_vsram = 0;
-	}
-	mutex_unlock(&gpufreq_lock);
-
-	return opp_info;
 }
 
 /* API: get asensor info for Proc show */

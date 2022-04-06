@@ -16,7 +16,6 @@
 #include <linux/mutex.h>
 
 #include <gpufreq_v2.h>
-#include <gpufreq_debug.h>
 #include <gpuppm.h>
 #include <gpufreq_common.h>
 
@@ -88,8 +87,6 @@ static struct gpuppm_platform_fp platform_ap_fp = {
 	.get_floor = gpuppm_get_floor,
 	.get_c_limiter = gpuppm_get_c_limiter,
 	.get_f_limiter = gpuppm_get_f_limiter,
-	.get_limit_table = gpuppm_get_limit_table,
-	.get_debug_limit_info = gpuppm_get_debug_limit_info,
 };
 
 static struct gpuppm_platform_fp platform_eb_fp = {};
@@ -343,29 +340,6 @@ unsigned int gpuppm_get_c_limiter(void)
 unsigned int gpuppm_get_f_limiter(void)
 {
 	return g_ppm.f_limiter;
-}
-
-const struct gpuppm_limit_info *gpuppm_get_limit_table(void)
-{
-	return g_limit_table;
-}
-
-struct gpufreq_debug_limit_info gpuppm_get_debug_limit_info(void)
-{
-	struct gpufreq_debug_limit_info limit_info = {};
-
-	mutex_lock(&gpuppm_lock);
-
-	limit_info.ceiling = g_ppm.ceiling;
-	limit_info.c_limiter = g_ppm.c_limiter;
-	limit_info.c_priority = g_ppm.c_priority;
-	limit_info.floor = g_ppm.floor;
-	limit_info.f_limiter = g_ppm.f_limiter;
-	limit_info.f_priority = g_ppm.f_priority;
-
-	mutex_unlock(&gpuppm_lock);
-
-	return limit_info;
 }
 
 int gpuppm_set_limit(enum gpufreq_target target, enum gpuppm_limiter limiter,

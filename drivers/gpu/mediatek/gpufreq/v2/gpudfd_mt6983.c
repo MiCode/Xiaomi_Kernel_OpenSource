@@ -23,7 +23,6 @@
 #include <gpufreq_v2.h>
 #include <gpu_misc.h>
 #include <gpudfd_mt6983.h>
-#include <gpufreq_debug.h>
 
 /**
  * ===============================================
