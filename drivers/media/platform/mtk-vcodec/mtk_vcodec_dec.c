@@ -2672,10 +2672,17 @@ static int vb2ops_vdec_queue_setup(struct vb2_queue *vq,
 	unsigned int sizes[],
 	struct device *alloc_devs[])
 {
-	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(vq);
+	struct mtk_vcodec_ctx *ctx;
 	struct mtk_q_data *q_data;
 	unsigned int i;
 
+	if (IS_ERR_OR_NULL(vq) || IS_ERR_OR_NULL(nbuffers) ||
+		IS_ERR_OR_NULL(nplanes) || IS_ERR_OR_NULL(alloc_devs) ||
+		(*nplanes) > VB2_MAX_PLANES) {
+		return -EINVAL;
+	}
+
+	ctx = vb2_get_drv_priv(vq);
 	q_data = mtk_vdec_get_q_data(ctx, vq->type);
 
 	if (q_data == NULL) {
