@@ -650,6 +650,11 @@ static int vdec_set_param(unsigned long h_vdec,
 	case SET_PARAM_VDEC_PROPERTY:
 		mtk_vcodec_err(inst, "VCU not support SET_PARAM_VDEC_PROPERTY\n");
 		break;
+	case SET_PARAM_CROP_INFO:
+		if (inst->vsi == NULL)
+			return -EINVAL;
+		memcpy(&inst->vsi->crop, (struct v4l2_rect *)in, sizeof(struct v4l2_rect));
+		break;
 	default:
 		mtk_vcodec_err(inst, "invalid set parameter type=%d\n", type);
 		ret = -EINVAL;

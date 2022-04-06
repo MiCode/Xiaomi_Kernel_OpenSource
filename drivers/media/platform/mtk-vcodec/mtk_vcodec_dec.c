@@ -2384,11 +2384,7 @@ static int vidioc_vdec_s_selection(struct file *file, void *priv,
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE:
 	case V4L2_SEL_TGT_CROP:
-		s->r.left = 0;
-		s->r.top = 0;
-		s->r.width = ctx->picinfo.pic_w;
-		s->r.height = ctx->picinfo.pic_h;
-		break;
+		return vdec_if_set_param(ctx, SET_PARAM_CROP_INFO, &s->r);
 	default:
 		return -EINVAL;
 	}
