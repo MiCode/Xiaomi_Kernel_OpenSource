@@ -2370,6 +2370,18 @@ static int geni_i3c_runtime_resume(struct device *dev)
 		return ret;
 	}
 
+	ret = geni_icc_set_bw(&gi3c->se);
+	if (ret) {
+		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+			"%s icc set bw failed %d\n", __func__, ret);
+		return ret;
+	}
+	I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
+		"%s: GENI_TO_CORE:%d CPU_TO_GENI:%d GENI_TO_DDR:%d\n",
+		__func__, gi3c->se.icc_paths[GENI_TO_CORE].avg_bw,
+		gi3c->se.icc_paths[CPU_TO_GENI].avg_bw,
+		gi3c->se.icc_paths[GENI_TO_DDR].avg_bw);
+
 	ret = geni_se_resources_on(&gi3c->se);
 	if (ret) {
 		I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
