@@ -152,6 +152,9 @@ struct charger_ops {
 	int (*reset_vbusovp_alarm)(struct charger_device *dev);
 	int (*is_vbuslowerr)(struct charger_device *dev, bool *err);
 	int (*init_chip)(struct charger_device *dev);
+	int (*enable_auto_trans)(struct charger_device *dev, bool en);
+	int (*set_auto_trans)(struct charger_device *dev, uint32_t uV, bool en);
+	int (*set_operation_mode)(struct charger_device *dev, bool div2);
 
 	/* OTG */
 	int (*enable_otg)(struct charger_device *dev, bool en);
@@ -193,6 +196,7 @@ struct charger_ops {
 	int (*enable_hidden_mode)(struct charger_device *dev, bool en);
 	int (*get_ctd_dischg_status)(struct charger_device *dev, u8 *status);
 	int (*enable_hz)(struct charger_device *dev, bool en);
+	int (*set_vac_ovp)(struct charger_device *dev, u32 uV);
 
 	int (*set_property)(struct charger_device *dev,
 			    enum charger_property prop,
@@ -283,6 +287,12 @@ extern int charger_dev_enable_powerpath(
 	struct charger_device *charger_dev, bool en);
 extern int charger_dev_enable_safety_timer(
 	struct charger_device *charger_dev, bool en);
+extern int charger_dev_enable_auto_trans(
+	struct charger_device *chg_dev, bool en);
+extern int charger_dev_set_auto_trans(
+	struct charger_device *chg_dev, u32 uV, bool en);
+extern int charger_dev_set_operation_mode(
+	struct charger_device *chg_dev, bool div2);
 extern int charger_dev_enable_chg_type_det(
 	struct charger_device *charger_dev, bool en);
 extern int charger_dev_enable_otg(
@@ -301,6 +311,8 @@ extern int charger_dev_safety_check(
 	struct charger_device *charger_dev, u32 polling_ieoc);
 extern int charger_dev_enable_hz(
 	struct charger_device *charger_dev, bool en);
+extern int charger_dev_set_vac_ovp(
+	struct charger_device *charger_dev, u32 uV);
 
 /* PE+/PE+2.0 */
 extern int charger_dev_send_ta_current_pattern(

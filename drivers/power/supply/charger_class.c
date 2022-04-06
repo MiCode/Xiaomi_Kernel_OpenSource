@@ -368,6 +368,16 @@ int charger_dev_enable_hz(struct charger_device *chg_dev, bool en)
 }
 EXPORT_SYMBOL(charger_dev_enable_hz);
 
+int charger_dev_set_vac_ovp(struct charger_device *chg_dev, u32 uV)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL &&
+	    chg_dev->ops->set_vac_ovp)
+		return chg_dev->ops->set_vac_ovp(chg_dev, uV);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_set_vac_ovp);
+
 int charger_dev_get_adc(struct charger_device *charger_dev,
 	enum adc_channel chan, int *min, int *max)
 {
@@ -588,6 +598,36 @@ int charger_dev_init_chip(struct charger_device *chg_dev)
 	return -EOPNOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_init_chip);
+
+int charger_dev_enable_auto_trans(struct charger_device *chg_dev, bool en)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL &&
+	    chg_dev->ops->enable_auto_trans)
+		return chg_dev->ops->enable_auto_trans(chg_dev, en);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_enable_auto_trans);
+
+int charger_dev_set_auto_trans(struct charger_device *chg_dev, u32 uV, bool en)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL &&
+	    chg_dev->ops->set_auto_trans)
+		return chg_dev->ops->set_auto_trans(chg_dev, uV, en);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_set_auto_trans);
+
+int charger_dev_set_operation_mode(struct charger_device *chg_dev, bool div2)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL &&
+	    chg_dev->ops->set_operation_mode)
+		return chg_dev->ops->set_operation_mode(chg_dev, div2);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_set_operation_mode);
 
 int charger_dev_enable_chg_type_det(struct charger_device *chg_dev, bool en)
 {

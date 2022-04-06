@@ -17,11 +17,13 @@
 #include <linux/device.h>
 #include <linux/mutex.h>
 
-#define PE_ID    ( 1 << 0 )
-#define PE2_ID   ( 1 << 1 )
-#define PDC_ID   ( 1 << 2 )
-#define PE4_ID   ( 1 << 3 )
-#define PE5_ID   ( 1 << 4 )
+#define PE_ID    (1 << 0)
+#define PE2_ID   (1 << 1)
+#define PDC_ID   (1 << 2)
+#define PE4_ID   (1 << 3)
+#define PE5_ID   (1 << 4)
+#define HVBP_ID  (1 << 5)
+#define PE5P_ID  (1 << 6)
 
 struct chg_alg_properties {
 	const char *alias_name;
@@ -49,8 +51,11 @@ enum chg_alg_state {
 enum chg_idx {
 	CHG1,
 	CHG2,
+	BUCKBSTCHG,
 	DVCHG1,
 	DVCHG2,
+	HVDVCHG1,
+	HVDVCHG2,
 	CHG_MAX,
 };
 
@@ -60,6 +65,8 @@ enum charger_configuration {
 	DUAL_CHARGERS_IN_PARALLEL,
 	DIVIDER_CHARGER,
 	DUAL_DIVIDER_CHARGERS,
+	HVDIVIDER_CHARGER,
+	DUAL_HVDIVIDER_CHARGERS,
 };
 
 struct chg_alg_device {
@@ -178,6 +185,7 @@ extern int chg_alg_init_algo(struct chg_alg_device *alg_dev);
 extern int chg_alg_is_algo_ready(struct chg_alg_device *alg_dev);
 extern int chg_alg_start_algo(struct chg_alg_device *alg_dev);
 extern int chg_alg_is_algo_running(struct chg_alg_device *alg_dev);
+extern int chg_alg_plugout_reset(struct chg_alg_device *alg_dev);
 extern int chg_alg_stop_algo(struct chg_alg_device *alg_dev);
 extern int chg_alg_get_prop(struct chg_alg_device *alg_dev,
 	enum chg_alg_props s, int *value);

@@ -50,6 +50,7 @@ struct charger_data;
 #define BATTERY_CV 4350000
 #define V_CHARGER_MAX 6500000 /* 6.5 V */
 #define V_CHARGER_MIN 4600000 /* 4.6 V */
+#define VBUS_OVP_VOLTAGE 15000000 /* 15V */
 
 #define USB_CHARGER_CURRENT_SUSPEND		0 /* def CONFIG_USB_IF */
 #define USB_CHARGER_CURRENT_UNCONFIGURED	70000 /* 70mA */
@@ -160,6 +161,10 @@ struct mtk_charger_algorithm {
 			       void *v);
 	int (*do_dvchg2_event)(struct notifier_block *nb, unsigned long ev,
 			       void *v);
+	int (*do_hvdvchg1_event)(struct notifier_block *nb, unsigned long ev,
+			       void *v);
+	int (*do_hvdvchg2_event)(struct notifier_block *nb, unsigned long ev,
+			       void *v);
 	int (*change_current_setting)(struct mtk_charger *info);
 	void *algo_data;
 };
@@ -169,6 +174,7 @@ struct charger_custom_data {
 	int max_charger_voltage;
 	int max_charger_voltage_setting;
 	int min_charger_voltage;
+	int vbus_sw_ovp_voltage;
 
 	int usb_charger_current;
 	int ac_charger_current;
@@ -226,6 +232,8 @@ enum chg_data_idx_enum {
 	CHG2_SETTING,
 	DVCHG1_SETTING,
 	DVCHG2_SETTING,
+	HVDVCHG1_SETTING,
+	HVDVCHG2_SETTING,
 	CHGS_SETTING_MAX,
 };
 
@@ -238,6 +246,12 @@ struct mtk_charger {
 	struct notifier_block dvchg1_nb;
 	struct charger_device *dvchg2_dev;
 	struct notifier_block dvchg2_nb;
+	struct charger_device *hvdvchg1_dev;
+	struct notifier_block hvdvchg1_nb;
+	struct charger_device *hvdvchg2_dev;
+	struct notifier_block hvdvchg2_nb;
+	struct charger_device *bkbstchg_dev;
+	struct notifier_block bkbstchg_nb;
 
 	struct charger_data chg_data[CHGS_SETTING_MAX];
 	struct chg_limit_setting setting;
@@ -259,7 +273,16 @@ struct mtk_charger {
 	struct power_supply_config psy_dvchg_cfg2;
 	struct power_supply *psy_dvchg2;
 
+	struct power_supply_desc psy_hvdvchg_desc1;
+	struct power_supply_config psy_hvdvchg_cfg1;
+	struct power_supply *psy_hvdvchg1;
+
+	struct power_supply_desc psy_hvdvchg_desc2;
+	struct power_supply_config psy_hvdvchg_cfg2;
+	struct power_supply *psy_hvdvchg2;
+
 	struct power_supply  *chg_psy;
+	struct power_supply  *bc12_psy;
 	struct power_supply  *bat_psy;
 	struct adapter_device *pd_adapter;
 	struct notifier_block pd_nb;

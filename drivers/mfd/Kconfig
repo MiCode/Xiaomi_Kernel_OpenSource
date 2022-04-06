@@ -1186,6 +1186,19 @@ config MFD_RT5033
 	  sub-devices like charger, fuel gauge, flash LED, current source,
 	  LDO and Buck.
 
+config MFD_RT9490
+	tristate "Richtek RT9490 Buck-Boost Switching Battery Charger"
+	depends on I2C
+	select MFD_CORE
+	select REGMAP_I2C
+	select IRQ_DOMAIN
+	help
+	  Say Y here to support Richtek RT9490. The RT9490 is a high-integrated
+	  5A Buck-Boost switch mode battery charge management and system power
+	  path management device for 1 to 4 cell Li-Ion and Li-Polymer battery.
+	  Except the charger circuit, it also includes ADCs to sense the
+	  charger voltage and current like as VBUS/IBUS/VBAT/IBAT.
+
 config MFD_RC5T583
 	bool "Ricoh RC5T583 Power Management system device"
 	depends on I2C=y

@@ -364,7 +364,7 @@ static int do_algorithm(struct mtk_charger *info)
 	bool is_basic = true;
 	bool chg_done = false;
 	int i;
-	int ret;
+	int ret, ret2, ret3;
 	int val = 0;
 
 	pdata = &info->chg_data[CHG1_SETTING];
@@ -498,9 +498,15 @@ static int do_algorithm(struct mtk_charger *info)
 	    pdata->charging_current_limit == 0)
 		charger_dev_enable(info->chg1_dev, false);
 	else {
-		alg = get_chg_alg_by_name("pe5");
+		alg = get_chg_alg_by_name("pe5p");
 		ret = chg_alg_is_algo_ready(alg);
-		if (!(ret == ALG_READY || ret == ALG_RUNNING))
+		alg = get_chg_alg_by_name("pe5");
+		ret2 = chg_alg_is_algo_ready(alg);
+		alg = get_chg_alg_by_name("hvbp");
+		ret3 = chg_alg_is_algo_ready(alg);
+		if (!(ret == ALG_READY || ret == ALG_RUNNING) &&
+			!(ret2 == ALG_READY || ret2 == ALG_RUNNING) &&
+			!(ret3 == ALG_READY || ret3 == ALG_RUNNING))
 			charger_dev_enable(info->chg1_dev, true);
 	}
 
@@ -509,6 +515,9 @@ static int do_algorithm(struct mtk_charger *info)
 
 	if (info->chg2_dev != NULL)
 		charger_dev_dump_registers(info->chg2_dev);
+
+	if (info->bkbstchg_dev != NULL)
+		charger_dev_dump_registers(info->bkbstchg_dev);
 
 	return 0;
 }
@@ -648,6 +657,33 @@ static int dvchg2_dev_event(struct notifier_block *nb, unsigned long event,
 	return NOTIFY_OK;
 }
 
+static int hvdvchg1_dev_event(struct notifier_block *nb, unsigned long event,
+			      void *data)
+{
+	struct mtk_charger *info =
+		container_of(nb, struct mtk_charger, hvdvchg1_nb);
+	int alg_evt = to_alg_notify_evt(event);
+
+	chr_info("%s %ld", __func__, event);
+	if (alg_evt < 0)
+		return NOTIFY_DONE;
+	mtk_chg_alg_notify_call(info, alg_evt, 0);
+	return NOTIFY_OK;
+}
+
+static int hvdvchg2_dev_event(struct notifier_block *nb, unsigned long event,
+			      void *data)
+{
+	struct mtk_charger *info =
+		container_of(nb, struct mtk_charger, hvdvchg2_nb);
+	int alg_evt = to_alg_notify_evt(event);
+
+	chr_info("%s %ld", __func__, event);
+	if (alg_evt < 0)
+		return NOTIFY_DONE;
+	mtk_chg_alg_notify_call(info, alg_evt, 0);
+	return NOTIFY_OK;
+}
 
 int mtk_basic_charger_init(struct mtk_charger *info)
 {
@@ -657,6 +693,8 @@ int mtk_basic_charger_init(struct mtk_charger *info)
 	info->algo.do_event = charger_dev_event;
 	info->algo.do_dvchg1_event = dvchg1_dev_event;
 	info->algo.do_dvchg2_event = dvchg2_dev_event;
+	info->algo.do_hvdvchg1_event = hvdvchg1_dev_event;
+	info->algo.do_hvdvchg2_event = hvdvchg2_dev_event;
 	//info->change_current_setting = mtk_basic_charging_current;
 	return 0;
 }

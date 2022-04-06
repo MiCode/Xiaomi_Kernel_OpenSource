@@ -849,6 +849,25 @@ config GAUGE_MT6375
 	  This adds support for battery fuel gauge in Mediatek MT6375 PMIC.
 	  The fuelgauge calculates and determines the battery state of charge
 	  according to battery open circuit voltage.
+
+config CHARGER_RT9490
+	tristate "Richtek RT9490 charger support"
+	depends on MFD_RT9490
+	help
+	  Say Y here to enable support for Richtek RT9490 charger.
+	  Richtek RT9490 is a buck-boost switch type charger, and can support
+	  1-4 cell battery with up to 5A charging current.
+	  Say N to disable.
+
+config CHARGER_RT9758
+	tristate "Richtek RT9758 HV DV2 charger support"
+	depends on I2C
+	select REGMAP_I2C
+	select LINEAR_RANGES
+	help
+	  Say Y here to enable support for Richtek RT9758 HV DV2 charger.
+	  RT9758 is a high efficiency, and high charge current charger for
+	  high voltage application. The maximum charge current is up to 5A.
 	  Say N to disable.
 
 config MTK_CHARGER_TYPE_DETECT
@@ -907,6 +926,26 @@ config MTK_PUMP_EXPRESS_50_SUPPORT
 	  and has better thermal performance than PE+.
 	  Set Yes to enable PE 5.0
 	  Set No to disable PE 5.0
+
+config MTK_PUMP_EXPRESS_50_PLUS_SUPPORT
+	tristate "MediaTek PUMP EXPRESS 5.0 PLUS"
+	depends on MTK_CHARGER
+	help
+	  Fast charging technology using divider charger
+	  to achive better charging ability. It has higher charging efficiency
+	  and has better thermal performance than PE+.
+	  Set Yes to enable PE 5.0 PLUS
+	  Set No to disable PE 5.0 PLUS
+
+config MTK_HVBP_SUPPORT
+	tristate "MediaTek High Voltage Bypass Charging"
+	depends on MTK_CHARGER
+	help
+	  Fast charging technology using high voltage direct charger
+	  to achive better charging ability. It has higher charging efficiency
+	  and has better thermal performance than PE+.
+	  Set Yes to enable HVBP charging
+	  Set No to disable HVBP charging
 
 config CHARGER_RT9759
 	tristate "Charger Driver for Richtek RT9759 Charger IC"

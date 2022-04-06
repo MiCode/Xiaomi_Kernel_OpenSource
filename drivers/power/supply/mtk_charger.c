@@ -245,6 +245,13 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	}
 	info->data.max_charger_voltage_setting = info->data.max_charger_voltage;
 
+	if (of_property_read_u32(np, "vbus_sw_ovp_voltage", &val) >= 0)
+		info->data.vbus_sw_ovp_voltage = val;
+	else {
+		chr_err("use default V_CHARGER_MAX:%d\n", V_CHARGER_MAX);
+		info->data.vbus_sw_ovp_voltage = VBUS_OVP_VOLTAGE;
+	}
+
 	if (of_property_read_u32(np, "min_charger_voltage", &val) >= 0)
 		info->data.min_charger_voltage = val;
 	else {
@@ -1926,7 +1933,7 @@ int mtk_chg_enable_vbus_ovp(bool enable)
 	if (enable)
 		sw_ovp = pinfo->data.max_charger_voltage_setting;
 	else
-		sw_ovp = 15000000;
+		sw_ovp = pinfo->data.vbus_sw_ovp_voltage;
 
 	/* Enable/Disable SW OVP status */
 	pinfo->data.max_charger_voltage = sw_ovp;
@@ -2116,6 +2123,38 @@ static void mtk_chg_get_tchg(struct mtk_charger *info)
 			}
 		}
 	}
+
+	if (info->hvdvchg1_dev) {
+		pdata = &info->chg_data[HVDVCHG1_SETTING];
+		pdata->junction_temp_min = -127;
+		pdata->junction_temp_max = -127;
+		ret = charger_dev_is_enabled(info->hvdvchg1_dev, &en);
+		if (ret >= 0 && en) {
+			ret = charger_dev_get_adc(info->hvdvchg1_dev,
+						  ADC_CHANNEL_TEMP_JC,
+						  &tchg_min, &tchg_max);
+			if (ret >= 0) {
+				pdata->junction_temp_min = tchg_min;
+				pdata->junction_temp_max = tchg_max;
+			}
+		}
+	}
+
+	if (info->hvdvchg2_dev) {
+		pdata = &info->chg_data[HVDVCHG2_SETTING];
+		pdata->junction_temp_min = -127;
+		pdata->junction_temp_max = -127;
+		ret = charger_dev_is_enabled(info->hvdvchg2_dev, &en);
+		if (ret >= 0 && en) {
+			ret = charger_dev_get_adc(info->hvdvchg2_dev,
+						  ADC_CHANNEL_TEMP_JC,
+						  &tchg_min, &tchg_max);
+			if (ret >= 0) {
+				pdata->junction_temp_min = tchg_min;
+				pdata->junction_temp_max = tchg_max;
+			}
+		}
+	}
 }
 
 static void charger_check_status(struct mtk_charger *info)
@@ -2245,6 +2284,32 @@ static bool charger_init_algo(struct mtk_charger *info)
 		return false;
 	}
 
+	alg = get_chg_alg_by_name("pe5p");
+	info->alg[idx] = alg;
+	if (alg == NULL)
+		chr_err("get pe5p fail\n");
+	else {
+		chr_err("get pe5p success\n");
+		alg->config = info->config;
+		alg->alg_id = PE5P_ID;
+		chg_alg_init_algo(alg);
+		register_chg_alg_notifier(alg, &info->chg_alg_nb);
+	}
+	idx++;
+
+	alg = get_chg_alg_by_name("hvbp");
+	info->alg[idx] = alg;
+	if (alg == NULL)
+		chr_err("get hvbp fail\n");
+	else {
+		chr_err("get hvbp success\n");
+		alg->config = info->config;
+		alg->alg_id = HVBP_ID;
+		chg_alg_init_algo(alg);
+		register_chg_alg_notifier(alg, &info->chg_alg_nb);
+	}
+	idx++;
+
 	alg = get_chg_alg_by_name("pe5");
 	info->alg[idx] = alg;
 	if (alg == NULL)
@@ -2337,6 +2402,24 @@ static bool charger_init_algo(struct mtk_charger *info)
 				return false;
 			}
 		}
+	} else if (info->config == HVDIVIDER_CHARGER ||
+		   info->config == DUAL_HVDIVIDER_CHARGERS) {
+		info->hvdvchg1_dev = get_charger_by_name("hvdiv2_chg1");
+		if (info->hvdvchg1_dev)
+			chr_err("Found primary hvdivider charger\n");
+		else {
+			chr_err("*** Error : can't find primary hvdivider charger ***\n");
+			return false;
+		}
+		if (info->config == DUAL_HVDIVIDER_CHARGERS) {
+			info->hvdvchg2_dev = get_charger_by_name("hvdiv2_chg2");
+			if (info->hvdvchg2_dev)
+				chr_err("Found secondary hvdivider charger\n");
+			else {
+				chr_err("*** Error : can't find secondary hvdivider charger ***\n");
+				return false;
+			}
+		}
 	}
 
 	chr_err("register chg1 notifier %d %d\n",
@@ -2369,6 +2452,30 @@ static bool charger_init_algo(struct mtk_charger *info)
 		charger_dev_set_drvdata(info->dvchg2_dev, info);
 	}
 
+	chr_err("register hvdvchg chg1 notifier %d %d\n",
+		info->hvdvchg1_dev != NULL,
+		info->algo.do_hvdvchg1_event != NULL);
+	if (info->hvdvchg1_dev != NULL &&
+	    info->algo.do_hvdvchg1_event != NULL) {
+		chr_err("register hvdvchg chg1 notifier done\n");
+		info->hvdvchg1_nb.notifier_call = info->algo.do_hvdvchg1_event;
+		register_charger_device_notifier(info->hvdvchg1_dev,
+						 &info->hvdvchg1_nb);
+		charger_dev_set_drvdata(info->hvdvchg1_dev, info);
+	}
+
+	chr_err("register hvdvchg chg2 notifier %d %d\n",
+		info->hvdvchg2_dev != NULL,
+		info->algo.do_hvdvchg2_event != NULL);
+	if (info->hvdvchg2_dev != NULL &&
+	    info->algo.do_hvdvchg2_event != NULL) {
+		chr_err("register hvdvchg chg2 notifier done\n");
+		info->hvdvchg2_nb.notifier_call = info->algo.do_hvdvchg2_event;
+		register_charger_device_notifier(info->hvdvchg2_dev,
+						 &info->hvdvchg2_nb);
+		charger_dev_set_drvdata(info->hvdvchg2_dev, info);
+	}
+
 	return true;
 }
 
@@ -2394,6 +2501,7 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	for (i = 0; i < MAX_ALG_NO; i++) {
 		alg = info->alg[i];
 		chg_alg_notifier_call(alg, &notify);
+		chg_alg_plugout_reset(alg);
 	}
 	memset(&info->sc.data, 0, sizeof(struct scd_cmd_param_t_1));
 	wakeup_sc_algo_cmd(&info->sc.data, SC_EVENT_PLUG_OUT, 0);
@@ -2956,6 +3064,10 @@ static int psy_charger_get_property(struct power_supply *psy,
 		chg = info->dvchg1_dev;
 	else if (info->psy_dvchg2 != NULL && info->psy_dvchg2 == psy)
 		chg = info->dvchg2_dev;
+	else if (info->psy_hvdvchg1 != NULL && info->psy_hvdvchg1 == psy)
+		chg = info->hvdvchg1_dev;
+	else if (info->psy_hvdvchg2 != NULL && info->psy_hvdvchg2 == psy)
+		chg = info->hvdvchg2_dev;
 	else {
 		chr_err("%s fail\n", __func__);
 		return 0;
@@ -3275,6 +3387,11 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	if (IS_ERR_OR_NULL(info->chg_psy))
 		chr_err("%s: devm power fail to get chg_psy\n", __func__);
 
+	info->bc12_psy = devm_power_supply_get_by_phandle(&pdev->dev,
+		"bc12_psy");
+	if (IS_ERR_OR_NULL(info->bc12_psy))
+		chr_err("%s: devm power fail to get bc12_psy\n", __func__);
+
 	info->bat_psy = devm_power_supply_get_by_phandle(&pdev->dev,
 		"gauge");
 	if (IS_ERR_OR_NULL(info->bat_psy))
@@ -3333,6 +3450,40 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	if (IS_ERR(info->psy_dvchg2))
 		chr_err("register psy dvchg2 fail:%d\n",
 			PTR_ERR(info->psy_dvchg2));
+
+	info->psy_hvdvchg_desc1.name = "mtk-mst-hvdiv-chg";
+	info->psy_hvdvchg_desc1.type = POWER_SUPPLY_TYPE_UNKNOWN;
+	info->psy_hvdvchg_desc1.properties = charger_psy_properties;
+	info->psy_hvdvchg_desc1.num_properties =
+					     ARRAY_SIZE(charger_psy_properties);
+	info->psy_hvdvchg_desc1.get_property = psy_charger_get_property;
+	info->psy_hvdvchg_desc1.set_property = psy_charger_set_property;
+	info->psy_hvdvchg_desc1.property_is_writeable =
+					      psy_charger_property_is_writeable;
+	info->psy_hvdvchg_cfg1.drv_data = info;
+	info->psy_hvdvchg1 = power_supply_register(&pdev->dev,
+						   &info->psy_hvdvchg_desc1,
+						   &info->psy_hvdvchg_cfg1);
+	if (IS_ERR(info->psy_hvdvchg1))
+		chr_err("register psy hvdvchg1 fail:%d\n",
+					PTR_ERR(info->psy_hvdvchg1));
+
+	info->psy_hvdvchg_desc2.name = "mtk-slv-hvdiv-chg";
+	info->psy_hvdvchg_desc2.type = POWER_SUPPLY_TYPE_UNKNOWN;
+	info->psy_hvdvchg_desc2.properties = charger_psy_properties;
+	info->psy_hvdvchg_desc2.num_properties =
+					     ARRAY_SIZE(charger_psy_properties);
+	info->psy_hvdvchg_desc2.get_property = psy_charger_get_property;
+	info->psy_hvdvchg_desc2.set_property = psy_charger_set_property;
+	info->psy_hvdvchg_desc2.property_is_writeable =
+					      psy_charger_property_is_writeable;
+	info->psy_hvdvchg_cfg2.drv_data = info;
+	info->psy_hvdvchg2 = power_supply_register(&pdev->dev,
+						   &info->psy_hvdvchg_desc2,
+						   &info->psy_hvdvchg_cfg2);
+	if (IS_ERR(info->psy_hvdvchg2))
+		chr_err("register psy hvdvchg2 fail:%d\n",
+					PTR_ERR(info->psy_hvdvchg2));
 
 	info->log_level = CHRLOG_ERROR_LEVEL;
 

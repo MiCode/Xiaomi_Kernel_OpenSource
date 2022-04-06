@@ -104,6 +104,16 @@ int chg_alg_set_prop(struct chg_alg_device *alg_dev,
 }
 EXPORT_SYMBOL(chg_alg_set_prop);
 
+int chg_alg_plugout_reset(struct chg_alg_device *alg_dev)
+{
+	if (alg_dev != NULL && alg_dev->ops != NULL &&
+	    alg_dev->ops->plugout_reset)
+		return alg_dev->ops->plugout_reset(alg_dev);
+
+	return -EOPNOTSUPP;
+}
+EXPORT_SYMBOL(chg_alg_plugout_reset);
+
 int chg_alg_stop_algo(struct chg_alg_device *alg_dev)
 {
 	if (alg_dev != NULL && alg_dev->ops != NULL &&

@@ -71,6 +71,7 @@ obj-$(CONFIG_MEDIATEK_MT6362_ADC) += mt6362-adc.o
 obj-$(CONFIG_MEDIATEK_MT6360_ADC) += mt6360-adc.o
 obj-$(CONFIG_MEDIATEK_MT6375_ADC) += mt6375-adc.o
 obj-$(CONFIG_MEDIATEK_MT6375_AUXADC) += mt6375-auxadc.o
+obj-$(CONFIG_RT9490_ADC) += rt9490-adc.o
 obj-$(CONFIG_MEDIATEK_MT6577_AUXADC) += mt6577_auxadc.o
 obj-$(CONFIG_MEDIATEK_SPMI_PMIC_ADC) += mtk-spmi-pmic-adc.o
 obj-$(CONFIG_MEN_Z188_ADC) += men_z188_adc.o
