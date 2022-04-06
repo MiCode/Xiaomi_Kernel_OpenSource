@@ -10297,7 +10297,10 @@
 			<0 0x18060000 0 0xc08>, /* 20. 0x1806_0000 conn_host_csr_top, sz=0xc08 */
 			<0 0x18070000 0 0x8004>,/* 21. 0x1807_0000 conn_semaphore, sz=0x8004 */
 			<0 0x1c001000 0 0xfb0>, /* 22. 0x1c00_1000 spm, sz=0xfb0 */
-			<0 0x1c007000 0 0x51c>; /* 23. 0x1c00_7000 top_rgu, sz=0x51c */
+			<0 0x1c007000 0 0x51c>, /* 23. 0x1c00_7000 top_rgu, sz=0x51c */
+			<0 0x1803c000 0 0x04>,  /* 24. 0x1803_c000 ccif wf2ap swirq, sz=0x04 */
+			<0 0x1803e000 0 0x04>;  /* 25. 0x1803_e000 ccif bgf2ap swirq, sz=0x04 */
+
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_CONN>;
 		emi-addr = <0>;
 		emi-size = <0x0c00000>;
