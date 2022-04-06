@@ -189,6 +189,12 @@ config PINCTRL_MT8183
 	default ARM64 && ARCH_MEDIATEK
 	select PINCTRL_MTK_PARIS
 
+config PINCTRL_MT8188
+	tristate "Mediatek MT8188 pin control"
+	depends on OF
+	depends on ARM64 || COMPILE_TEST
+	select PINCTRL_MTK_PARIS
+
 config PINCTRL_MT8192
 	bool "Mediatek MT8192 pin control"
 	depends on OF
