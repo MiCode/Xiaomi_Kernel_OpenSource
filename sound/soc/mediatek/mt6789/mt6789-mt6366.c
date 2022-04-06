@@ -584,12 +584,10 @@ SND_SOC_DAILINK_DEFS(hostless_src_aaudio,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD) && !defined(CONFIG_FPGA_EARLY_PORTING)
-#if !defined(SKIP_SB)
 SND_SOC_DAILINK_DEFS(btcvsd,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
-	DAILINK_COMP_ARRAY(COMP_PLATFORM("18830000.mtk-btcvsd-snd")));
-#endif
+	DAILINK_COMP_ARRAY(COMP_PLATFORM("18050000.mtk-btcvsd-snd")));
 #endif
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)  && !defined(CONFIG_FPGA_EARLY_PORTING)
 #if !defined(SKIP_SB)
@@ -1040,13 +1038,11 @@ static struct snd_soc_dai_link mt6789_mt6366_dai_links[] = {
 	},
 	/* BTCVSD */
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_BTCVSD) && !defined(CONFIG_FPGA_EARLY_PORTING)
-#if !defined(SKIP_SB)
 	{
 		.name = "BTCVSD",
 		.stream_name = "BTCVSD",
 		SND_SOC_DAILINK_REG(btcvsd),
 	},
-#endif
 #endif
 	/* VoW */
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT) && !defined(CONFIG_FPGA_EARLY_PORTING)
