@@ -2076,6 +2076,38 @@
 			reg = <0 0x0c520100 0 0x10000>; /* 64KB */
 		};
 
+		bus_parity {
+			compatible = "mediatek,bus-parity";
+			reg = <0 0x0c538800 0 0x20>,    /* M0, MST_CCIM0 */
+				<0 0x0c538820 0 0x20>,  /* M1, MST_CCIM1 */
+				<0 0x0c538840 0 0x20>,  /* M2, MST_INTAXI */
+				<0 0x0c538860 0 0x40>,  /* S0, SLV_1TO2 */
+				<0 0x0c5388a0 0 0x30>,  /* S1, SLV_L3C */
+				<0 0x0c5388d0 0 0x30>,  /* S2, SLV_GIC */
+				<0 0x10270600 0 0x14>,  /* S4, MCU2EMI_M0 */
+				<0 0x10270620 0 0x14>,  /* S5, MCU2EMI_M1 */
+				<0 0x1030e600 0 0x14>,  /* S6, MCU2SUBEMI_M0 */
+				<0 0x1030e620 0 0x14>,  /* S7, MCU2SUBEMI_M1 */
+				<0 0x100017a8 0 0x14>,  /* S3, MCU2IFR */
+				<0 0x100017bc 0 0x8>,   /* M5, IFR_L3C2MCU */
+				<0 0x0c53a39c 0 0x4>;   /* BUS_PARITY_FAIL */
+
+			interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH 0>,        /* MCU */
+				     <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH 0>;       /* Infra */
+			interrupt-names = "mcu-bus-parity", "infra-bus-parity";
+
+			mcu-names = "MST_CCI_M0", "MST_CCI_M1", "MST_INTAXI_",
+				    "SLV_1TO2", "SLV_L3C", "SLV_GIC";
+			infra-names = "MCU2EMI_M0", "MCU2EMI_M1", "MCU2SUBEMI_M0",
+				    "MCU2SUBEMI_M1", "MCU2IFR", "IFR_L3C2MCU";
+
+			/* 0: master, 1: slave, 2: emi */
+			mcu-types = <0 0 0 1 1 1>;
+			infra-types = <2 2 2 2 1 0>;
+
+			mcu-data-len = <4 4 2 4 2 2>;
+		};
+
 		cpu_pll: mcusys_pll1u_top@1000c000 {
 			reg = <0 0x1000c000 0 0x1000>; /* 4KB */
 		};
