@@ -62,6 +62,8 @@
 #define IMGSYS_QOS_4K_30_BW_1	0//1258
 #define IMGSYS_QOS_4K_60_BW_0	2244
 #define IMGSYS_QOS_4K_60_BW_1	2360
+#define IMGSYS_QOS_VSS_BW_0		10000
+#define IMGSYS_QOS_VSS_BW_1		0
 
 enum mtk_imgsys_event {
 	/* HW event */

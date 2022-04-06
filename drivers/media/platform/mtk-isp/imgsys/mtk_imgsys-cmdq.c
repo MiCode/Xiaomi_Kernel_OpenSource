@@ -1450,6 +1450,7 @@ void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
 				bool isSet)
 {
 	struct mtk_imgsys_qos *qos_info = &imgsys_dev->qos_info;
+	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 	u32 hw_comb = 0;
 	u64 pixel_sz = 0;
 	u32 fps = 0;
@@ -1463,7 +1464,34 @@ void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
 
 	if (is_stream_off == 0) {
 		if (isSet == 1) {
-			if ((hw_comb & (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) ==
+			if (dvfs_info->vss_task_cnt != 0) {
+				bw_final[0] = IMGSYS_QOS_VSS_BW_0;
+				bw_final[1] = IMGSYS_QOS_VSS_BW_1;
+				if (qos_info->bw_total[0][0] != bw_final[0]) {
+					dev_dbg(qos_info->dev,
+						"[%s] L9_0 idx=%d, path=%p, bw=%d/%d; L12_1 idx=%d, path=%p, bw=%d/%d,\n",
+						__func__,
+						IMGSYS_L9_COMMON_0,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].bw,
+						bw_final[0],
+						IMGSYS_L12_COMMON_1,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].bw,
+						bw_final[1]);
+					// Save for capture bw
+					qos_info->bw_total[0][0] = bw_final[0];
+					qos_info->bw_total[0][1] = bw_final[1];
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L9_COMMON_0].bw),
+					MBps_to_icc(qos_info->bw_total[0][0]));
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L12_COMMON_1].bw),
+					MBps_to_icc(qos_info->bw_total[0][1]));
+				}
+			} else if ((hw_comb & (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) ==
 				(IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) {
 				if (fps == 30) {
 					if (pixel_sz > IMGSYS_QOS_4K_SIZE) {
@@ -1506,6 +1534,33 @@ void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
 						bw_final[1]);
 					qos_info->qos_path[IMGSYS_L9_COMMON_0].bw = bw_final[0];
 					qos_info->qos_path[IMGSYS_L12_COMMON_1].bw = bw_final[1];
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L9_COMMON_0].bw),
+					0);
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L12_COMMON_1].bw),
+					0);
+				}
+			}
+		} else if (isSet == 0) {
+			if (dvfs_info->vss_task_cnt == 0) {
+				if (qos_info->bw_total[0][0] != 0) {
+					dev_dbg(qos_info->dev,
+						"[%s] L9_0 idx=%d, path=%p, bw=%d/%d; L12_1 idx=%d, path=%p, bw=%d/%d,\n",
+						__func__,
+						IMGSYS_L9_COMMON_0,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].bw,
+						bw_final[0],
+						IMGSYS_L12_COMMON_1,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].bw,
+						bw_final[1]);
+					// Clear for capture bw
+					qos_info->bw_total[0][0] = 0;
+					qos_info->bw_total[0][1] = 0;
 					mtk_icc_set_bw(
 					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
 					MBps_to_icc(qos_info->qos_path[IMGSYS_L9_COMMON_0].bw),
