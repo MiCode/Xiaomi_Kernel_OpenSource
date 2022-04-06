@@ -213,4 +213,49 @@ struct subdrv_entry {
 	(((_shutter) > (_fine_integ)) ? (((_shutter) - (_fine_integ)) / 1000) : 0) \
 )
 
+#define CALC_LINE_TIME_IN_NS(pclk, linelength) \
+({ \
+	unsigned int val = 0; \
+	do { \
+		if (((pclk) / 1000) == 0) { \
+			val = 0; \
+			break; \
+		} \
+		val = \
+			((unsigned long long)(linelength)*1000000+(((pclk)/1000)-1)) \
+			/((pclk)/1000); \
+	} while (0); \
+	val; \
+})
+
+#define CONVERT_2_TOTAL_TIME(lineTimeInNs, lc) \
+({ \
+	unsigned int val = 0; \
+	do { \
+		if ((lineTimeInNs) == 0) { \
+			val = 0; \
+			break; \
+		} \
+		val = \
+			(unsigned int)((unsigned long long)(lc)*(lineTimeInNs)/1000); \
+	} while (0); \
+	val; \
+})
+
+#define CONVERT_2_TOTAL_TIME_V2(pclk, linelength, lc) \
+({ \
+	unsigned int val = 0; \
+	unsigned int lineTimeInNs = 0; \
+	lineTimeInNs = CALC_LINE_TIME_IN_NS((pclk), (linelength)); \
+	do { \
+		if ((lineTimeInNs) == 0) { \
+			val = 0; \
+			break; \
+		} \
+		val = \
+			(unsigned int)((unsigned long long)(lc)*(lineTimeInNs)/1000); \
+	} while (0); \
+	val; \
+})
+
 #endif

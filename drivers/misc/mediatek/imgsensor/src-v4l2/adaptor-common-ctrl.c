@@ -113,3 +113,44 @@ int g_max_exposure_line(struct adaptor_ctx *ctx,
 
 	return 0;
 }
+
+u32 g_sensor_margin(struct adaptor_ctx *ctx)
+{
+	union feature_para para;
+	struct mtk_stagger_info info = {0};
+	u32 len = 0;
+	u32 mode_exp_cnt = 1;
+
+	para.u64[0] = ctx->cur_mode->id;
+	para.u64[1] = 0;
+	para.u64[2] = 0;
+	subdrv_call(ctx, feature_control,
+		    SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO,
+		    para.u8, &len);
+	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
+
+	if (!g_stagger_info(ctx, ctx->cur_mode->id, &info))
+		mode_exp_cnt = info.count;
+
+	/* no vc info case, it is 1 exposure */
+	if (mode_exp_cnt == 0)
+		mode_exp_cnt = 1;
+
+	return (para.u64[2] * mode_exp_cnt);
+}
+
+u32 g_sensor_fine_integ_line(struct adaptor_ctx *ctx)
+{
+	union feature_para para;
+	u32 fine_integ_line = 0;
+	u32 len = 0;
+
+	para.u64[0] = ctx->cur_mode->id;
+	para.u64[1] = (u64)&fine_integ_line;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_FINE_INTEG_LINE_BY_SCENARIO,
+		para.u8, &len);
+
+	return fine_integ_line;
+}

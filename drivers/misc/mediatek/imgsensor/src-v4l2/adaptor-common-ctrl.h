@@ -20,4 +20,8 @@ int g_max_exposure_line(struct adaptor_ctx *ctx,
 					   int scenario,
 					   struct mtk_max_exp_line *info);
 
+u32 g_sensor_margin(struct adaptor_ctx *ctx);
+
+u32 g_sensor_fine_integ_line(struct adaptor_ctx *ctx);
+
 #endif
