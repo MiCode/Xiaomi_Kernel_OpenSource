@@ -7273,6 +7273,7 @@ static int mt6983_afe_pcm_dev_probe(struct platform_device *pdev)
 	afe->release_dram_resource = mt6983_afe_dram_release;
 
 	afe->copy = mt6983_afe_pcm_copy;
+	afe->is_scp_sema_support = 1;
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	/* debugfs */
