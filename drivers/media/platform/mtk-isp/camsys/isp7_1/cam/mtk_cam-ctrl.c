@@ -1480,7 +1480,14 @@ mtk_cam_set_sensor_full(struct mtk_cam_request_stream_data *s_data,
 		E_STATE_READY, E_STATE_SENSOR);
 
 	if (mtk_cam_is_mstream(ctx)) {
-		if (time_after_sof >= SENSOR_DELAY_GUARD_TIME_60FPS ||
+		struct mtk_cam_request_stream_data *s_data_2nd;
+
+		s_data_2nd = mtk_cam_req_get_s_data(req, ctx->stream_id, 0);
+
+		/* mstream 1 to 2 exp sensor frame rate is still 30fps, don't check it by 60fps */
+		if ((!mtk_cam_feature_change_is_mstream(
+				s_data_2nd->feature.switch_feature_type) &&
+				time_after_sof >= SENSOR_DELAY_GUARD_TIME_60FPS) ||
 				sof_count_after_set != sof_count_before_set) {
 			s_data->flags |=
 				MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED;
