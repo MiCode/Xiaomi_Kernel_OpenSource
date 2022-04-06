@@ -16,6 +16,7 @@ PROPERTIES
 		    - "qcom,sys-pm-waipio"
 		    - "qcom,sys-pm-diwali"
 		    - "qcom,sys-pm-cape"
+		    - "qcom,sys-pm-parrot"
 
 - reg:
 	Usage: required
