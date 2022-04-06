@@ -25,6 +25,16 @@
 #include "mt6358-accdet.h"
 #endif
 
+#define MAX_DEBUG_WRITE_INPUT 256
+#define CODEC_SYS_DEBUG_SIZE (1024 * 32)
+
+static ssize_t mt6358_codec_sysfs_read(struct file *filep, struct kobject *kobj,
+				       struct bin_attribute *attr,
+				       char *buf, loff_t offset, size_t size);
+static ssize_t mt6358_codec_sysfs_write(struct file *filp, struct kobject *kobj,
+					struct bin_attribute *bin_attr,
+					char *buf, loff_t off, size_t count);
+
 int mt6358_set_codec_ops(struct snd_soc_component *cmpnt,
 			 struct mt6358_codec_ops *ops)
 {
@@ -37,6 +47,26 @@ int mt6358_set_codec_ops(struct snd_soc_component *cmpnt,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt6358_set_codec_ops);
+
+static struct bin_attribute codec_dev_attr_reg = {
+	.attr = {
+		.name = "mtk_audio_codec",
+		.mode = 0600, /* permission */
+	},
+	.size = CODEC_SYS_DEBUG_SIZE,
+	.read = mt6358_codec_sysfs_read,
+	.write = mt6358_codec_sysfs_write,
+};
+
+static struct bin_attribute *mtk_codec_bin_attrs[] = {
+	&codec_dev_attr_reg,
+	NULL,
+};
+
+static struct attribute_group codec_bin_attr_group = {
+	.name = "mtk_codec_attrs",
+	.bin_attrs = mtk_codec_bin_attrs,
+};
 
 static int dc_trim_thread(void *arg);
 static int mt_dc_trim_event(struct snd_soc_dapm_widget *w,
@@ -6469,8 +6499,16 @@ static int get_hp_current_calibrate_val(struct mt6358_priv *priv)
 static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 {
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	struct snd_soc_card *sndcard = cmpnt->card;
+	struct snd_card *card = sndcard->snd_card;
+	int ret = 0;
 
 	dev_info(priv->dev, "%s()\n", __func__);
+
+	codec_dev_attr_reg.private = priv;
+	ret = snd_card_add_dev_attr(card, &codec_bin_attr_group);
+	if (ret)
+		pr_info("%s snd_card_add_dev_attr fail\n", __func__);
 
 	snd_soc_component_init_regmap(cmpnt, priv->regmap);
 
@@ -6492,9 +6530,8 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 	return 0;
 }
 
-static void debug_write_reg(struct file *file, void *arg)
+static void codec_write_reg(struct mt6358_priv *priv, void *arg)
 {
-	struct mt6358_priv *priv = file->private_data;
 	char *token1 = NULL;
 	char *token2 = NULL;
 	char *temp = arg;
@@ -6522,6 +6559,13 @@ static void debug_write_reg(struct file *file, void *arg)
 	} else {
 		dev_err(priv->dev, "token1 or token2 is NULL!\n");
 	}
+}
+
+static void debug_write_reg(struct file *file, void *arg)
+{
+	struct mt6358_priv *priv = file->private_data;
+
+	return codec_write_reg(priv, arg);
 }
 
 static void debug_re_trim_offset(struct file *file,
@@ -6565,6 +6609,24 @@ struct command_function {
 	.fn = _fn,		\
 }
 
+static u32 copy_from_buffer_request(void *dest, size_t destsize, const void *src,
+				    size_t srcsize, u32 offset, size_t request)
+{
+	/* if request == -1, offset == 0, copy full srcsize */
+	if (offset + request > srcsize)
+		request = srcsize - offset;
+
+	/* if destsize == -1, don't check the request size */
+	if (!dest || destsize < request) {
+		pr_info("%s, buffer null or not enough space", __func__);
+		return 0;
+	}
+
+	memcpy(dest, src + offset, request);
+
+	return request;
+}
+
 static const struct command_function debug_cmds[] = {
 	CMD_FN("write_reg", debug_write_reg),
 	CMD_FN("re_trim_offset", debug_re_trim_offset),
@@ -6578,17 +6640,11 @@ static int mt6358_debugfs_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t mt6358_debugfs_read(struct file *file, char __user *buf,
-				     size_t count, loff_t *pos)
+static ssize_t mt6358_codec_read(struct mt6358_priv *priv, char *buffer, size_t size)
 {
-	struct mt6358_priv *priv = file->private_data;
-	const int size = 12288;
-	char *buffer = NULL; /* for reduce kernel stack */
 	int n = 0;
-	unsigned int value;
-	int ret = 0;
+	unsigned int value = 0;
 
-	buffer = kmalloc(size, GFP_KERNEL);
 	if (!buffer)
 		return -ENOMEM;
 
@@ -7189,6 +7245,24 @@ static ssize_t mt6358_debugfs_read(struct file *file, char __user *buf,
 	n += scnprintf(buffer + n, size - n,
 		       "MT6358_ZCD_CON5 = 0x%x\n", value);
 
+	return n;
+}
+
+static ssize_t mt6358_debugfs_read(struct file *file, char __user *buf,
+				     size_t count, loff_t *pos)
+{
+	struct mt6358_priv *priv = file->private_data;
+	const int size = 12288;
+	char *buffer = NULL; /* for reduce kernel stack */
+	int n = 0;
+	int ret = 0;
+
+	buffer = kmalloc(size, GFP_KERNEL);
+	if (!buffer)
+		return -ENOMEM;
+
+	n = mt6358_codec_read(priv, buffer, size);
+
 	ret = simple_read_from_buffer(buf, count, pos, buffer, n);
 	kfree(buffer);
 	return ret;
@@ -7242,6 +7316,79 @@ static ssize_t mt6358_debugfs_write(struct file *f, const char __user *buf,
 	}
 
 	kfree(str_begin);
+exit:
+	return count;
+}
+
+/*
+ * sysfs bin_attribute node
+ */
+static ssize_t mt6358_codec_sysfs_read(struct file *filep, struct kobject *kobj,
+				       struct bin_attribute *attr,
+				       char *buf, loff_t offset, size_t size)
+{
+	size_t read_size, ceil_size, page_mask;
+	ssize_t ret;
+
+	struct mt6358_priv *priv = (struct mt6358_priv *)attr->private;
+	char *buffer = NULL; /* for reduce kernel stack */
+
+	buffer = kzalloc(CODEC_SYS_DEBUG_SIZE, GFP_KERNEL);
+	if (!buffer)
+		return -ENOMEM;
+
+	/* here read size may be different because of reg return may different */
+	read_size = mt6358_codec_read(priv, buffer, CODEC_SYS_DEBUG_SIZE);
+	page_mask = ~(PAGE_SIZE - 1);
+	ceil_size = (read_size & page_mask) + PAGE_SIZE;
+
+	pr_info("%s buf[%p] offset = %lld size = %zu read_size[%zu]\n",
+		__func__, buf, offset, size, read_size);
+
+	ret = copy_from_buffer_request(buf, -1, buffer, ceil_size, offset, size);
+	if (ret < 0)
+		ret = 0;
+
+	kfree(buffer);
+
+	return ret;
+}
+
+static ssize_t mt6358_codec_sysfs_write(struct file *filp, struct kobject *kobj,
+					struct bin_attribute *bin_attr,
+					char *buf, loff_t off, size_t count)
+{
+	struct mt6358_priv *priv = (struct mt6358_priv *)bin_attr->private;
+
+	char input[MAX_DEBUG_WRITE_INPUT];
+	char *temp, *command, *str_begin;
+	char delim[] = " ,";
+
+	if (!count) {
+		dev_info(priv->dev, "%s(), count is 0, return directly\n",
+			 __func__);
+		goto exit;
+	}
+
+	if (count > MAX_DEBUG_WRITE_INPUT)
+		count = MAX_DEBUG_WRITE_INPUT;
+
+	memset((void *)input, 0, MAX_DEBUG_WRITE_INPUT);
+	memcpy(input, buf, count);
+
+	str_begin = kstrndup(input, MAX_DEBUG_WRITE_INPUT - 1,
+			     GFP_KERNEL);
+	if (!str_begin) {
+		dev_info(priv->dev, "%s(), kstrdup fail\n", __func__);
+		goto exit;
+	}
+	temp = str_begin;
+	command = strsep(&temp, delim);
+	dev_info(priv->dev, "%s(), temp=%s, command = %s\n",
+		 __func__, temp, command);
+
+	if (strcmp("write_reg", command) == 0)
+		codec_write_reg(priv, temp);
 exit:
 	return count;
 }
