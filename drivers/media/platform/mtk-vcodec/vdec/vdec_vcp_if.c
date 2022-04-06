@@ -109,7 +109,6 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 	struct mutex *msg_mutex;
 	unsigned int *msg_signaled;
 	wait_queue_head_t *msg_wq;
-	struct vdec_ap_ipi_cmd *reset_msg = NULL;
 
 	if (inst->vcu.abort || inst->vcu.daemon_pid != get_vcp_generation())
 		return -EIO;
@@ -188,19 +187,6 @@ wait_ack:
 		/* wait for VCP's ACK */
 		timeout = msecs_to_jiffies(IPI_TIMEOUT_MS);
 		ret = wait_event_timeout(*msg_wq, *msg_signaled, timeout);
-		if (ret == 0 && *(__u32 *)msg == AP_IPIMSG_DEC_RESET) {
-			reset_msg = (struct vdec_ap_ipi_cmd *)msg;
-			if (reset_msg->reserved != VDEC_FLUSH && inst->ctx->input_driven) {
-				mtk_vcodec_err(inst, "inst reset abort %X type %d",
-					*(u32 *)msg, reset_msg->reserved);
-				vdec_if_set_param(inst->ctx, SET_PARAM_FRAME_BUFFER, NULL);
-				ret = wait_event_timeout(*msg_wq, *msg_signaled, timeout / 2);
-				mutex_unlock(msg_mutex);
-				inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
-				inst->vcu.abort = 1;
-				return -EIO;
-			}
-		}
 		*msg_signaled = false;
 
 		if (ret == 0 || inst->vcu.failure) {
