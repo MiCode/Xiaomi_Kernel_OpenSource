@@ -345,11 +345,11 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	 */
 
 #if IS_ENABLED(CONFIG_MTK_OPP_CAP_INFO)
-	dyn_pwr = pwr_eff * 1000 * sum_util;
+	dyn_pwr = pwr_eff * sum_util;
 	/* for pd_opp_capacity is scaled based on maximum scale 1024, so cost = pwr_eff * 1024 */
 	trace_sched_em_cpu_energy(opp, freq, pwr_eff, scale_cpu, dyn_pwr, static_pwr);
 #else
-	dyn_pwr = (ps->cost * 1000 * sum_util / scale_cpu);
+	dyn_pwr = (ps->cost * sum_util / scale_cpu);
 	trace_sched_em_cpu_energy(opp, freq, ps->cost, scale_cpu, dyn_pwr, static_pwr);
 #endif
 
