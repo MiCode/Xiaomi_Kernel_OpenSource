@@ -1423,6 +1423,7 @@ static void ged_dvfs_margin_value(int i32MarginValue)
 
 	mutex_lock(&gsDVFSLock);
 
+	g_fastdvfs_margin = 0;
 	dvfs_min_margin_inc_step = MIN_MARGIN_INC_STEP;
 	dvfs_margin_low_bound = MIN_DVFS_MARGIN/10;
 
@@ -1433,6 +1434,10 @@ static void ged_dvfs_margin_value(int i32MarginValue)
 		return;
 	} else if (i32MarginValue == -2) {
 		dvfs_margin_mode = VARIABLE_MARGIN_MODE_OPP_INDEX;
+		mutex_unlock(&gsDVFSLock);
+		return;
+	} else if (i32MarginValue == 999) {
+		g_fastdvfs_margin = 1;
 		mutex_unlock(&gsDVFSLock);
 		return;
 	}
@@ -1489,6 +1494,9 @@ static int ged_get_dvfs_margin_value(void)
 		ret = dvfs_margin_value + 500;
 	else if (dvfs_margin_mode == VARIABLE_MARGIN_MODE_OPP_INDEX)
 		ret = -2;
+
+	if (g_fastdvfs_margin)
+		ret = 999;
 
 	return ret;
 }

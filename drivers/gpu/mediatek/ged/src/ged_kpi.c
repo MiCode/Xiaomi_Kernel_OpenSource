@@ -1261,6 +1261,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						g_eb_coef = mtk_gpueb_dvfs_set_feedback_info(
 							psKPI->gpu_done_interval, util_ex,
 							ged_kpi_get_cur_fps());
+						ged_log_perf_trace_counter("eb_coef",
+							(long long)g_eb_coef, 5566, 0, 0);
 					}
 				} else {
 					psKPI->t_gpu

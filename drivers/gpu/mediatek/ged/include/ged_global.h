@@ -52,6 +52,7 @@ extern unsigned long g_ulWorkingPeriod_us;
 extern unsigned int g_fastdvfs_mode;
 extern unsigned int g_ged_gpueb_support;
 extern unsigned int g_ged_fdvfs_support;
+extern unsigned int g_fastdvfs_margin;
 extern unsigned int ged_is_fdvfs_support(void);
 extern void mtk_gpueb_dvfs_commit(unsigned long ui32NewFreqID,
 	GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited);
