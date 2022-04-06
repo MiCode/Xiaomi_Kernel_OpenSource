@@ -2626,70 +2626,65 @@ static unsigned int resizing_rule(struct drm_device *dev,
 	return scale_num;
 }
 
-static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev,
-	struct mtk_drm_private *priv, struct mml_frame_info *mml_info,
-	uint32_t l_count)
+static enum MTK_LAYERING_CAPS query_MML(struct drm_device *dev, struct drm_crtc *crtc,
+					struct mml_frame_info *mml_info)
 {
 	enum mml_mode mode = MML_MODE_UNKNOWN;
 	enum MTK_LAYERING_CAPS ret = MTK_MML_DISP_NOT_SUPPORT;
-	struct drm_crtc *crtc = NULL;
 	struct mtk_drm_crtc *mtk_crtc = NULL;
+	struct mtk_drm_private *priv = NULL;
 	unsigned int ratio = 0;
 	unsigned long mmclk = 0;
 
-	if (!priv || !mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY))
-		return MTK_MML_DISP_NOT_SUPPORT;
-
-	drm_for_each_crtc(crtc, dev)
-		if (drm_crtc_index(crtc) == 0)
-			break;
+	if (!dev || !crtc) {
+		DDPMSG("%s !dev, !crtc\n", __func__);
+		return ret;
+	}
+	priv = dev->dev_private;
 	mtk_crtc = to_mtk_crtc(crtc);
 
-	ret = MTK_MML_DISP_DECOUPLE_LAYER;
+	if (!(mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY)))
+		return ret;
+
+	if (!mml_info) {
+		DDPMSG("%s !mml_info\n", __func__);
+		return ret;
+	}
+
 	// TODO: need to be remove
 	if (g_mml_mode != MML_MODE_UNKNOWN) {
 		mode = g_mml_mode;
 	} else {
-		if (mml_info) {
-			if (mtk_crtc && mtk_crtc->is_mml_debug) {
-				DDPINFO("%s:%d\n", __func__, __LINE__);
-				print_mml_frame_info(*mml_info);
-				DDPINFO("%s:%d\n", __func__, __LINE__);
-			}
+		if (mtk_crtc->is_mml_debug) {
+			DDPINFO("%s:%d\n", __func__, __LINE__);
+			print_mml_frame_info(*mml_info);
+			DDPINFO("%s:%d\n", __func__, __LINE__);
+		}
 
-			// mode set to mml decouple mode if mmclk level need to be increased
-			ratio = (mml_info->src.width * mml_info->src.height) * 100 /
-				(mml_info->dest[0].data.width * mml_info->dest[0].data.height);
+		// mode set to mml decouple mode if mmclk level need to be increased
+		ratio = (mml_info->src.width * mml_info->src.height) * 100 /
+			(mml_info->dest[0].data.width * mml_info->dest[0].data.height);
+		mmclk = ratio * mtk_drm_get_freq(&mtk_crtc->base, __func__) / 100;
 
-			mmclk = ratio * mtk_drm_get_freq(&mtk_crtc->base, __func__) / 100;
+		if (mmclk > mtk_drm_get_mmclk(&mtk_crtc->base, __func__))
+			mml_info->mode = MML_MODE_MML_DECOUPLE;
 
-			if (mmclk > mtk_drm_get_mmclk(&mtk_crtc->base, __func__))
-				mml_info->mode = MML_MODE_MML_DECOUPLE;
+		DDPDBG("%s src_width=%d src_height=%d dst_width=%d dst_height=%d\n", __func__,
+		       mml_info->src.width, mml_info->src.height, mml_info->dest[0].data.width,
+		       mml_info->dest[0].data.height);
+		DDPDBG("%s ratio=%d get_freq=%d mmclk=%d cur_mmclk=%d, mode=%d\n", __func__, ratio,
+		       mtk_drm_get_freq(&mtk_crtc->base, __func__), mmclk,
+		       mtk_drm_get_mmclk(&mtk_crtc->base, __func__), mml_info->mode);
 
-			DDPDBG("%s src_width=%d src_height=%d dst_width=%d dst_height=%d\n",
-			__func__, mml_info->src.width, mml_info->src.height,
-			mml_info->dest[0].data.width, mml_info->dest[0].data.height);
-			DDPDBG("%s ratio=%d get_freq=%d mmclk=%d cur_mmclk=%d, mode=%d\n",
-			__func__, ratio, mtk_drm_get_freq(&mtk_crtc->base, __func__),
-			mmclk, mtk_drm_get_mmclk(&mtk_crtc->base, __func__), mml_info->mode);
+		mode = mml_drm_query_cap(mtk_drm_get_mml_drm_ctx(dev, crtc), mml_info);
+		DDPDBG("%s, mml_drm_query_cap mode:%d\n", __func__, mode);
 
-			mode = mml_drm_query_cap(mtk_drm_get_mml_drm_ctx(dev, crtc), mml_info);
-			DDPDBG("%s, mml_drm_query_cap mode:%d\n", __func__, mode);
-
-			// temp patch for CMD mode not in MML IR
-			if (mode == MML_MODE_RACING) {
-				if ((l_count >= 2))
-					mode = MML_MODE_MDP_DECOUPLE;
-				else if ((mtk_crtc_is_frame_trigger_mode(crtc) &&
-					!mtk_crtc->mml_cmd_ir &&
-					!mtk_drm_helper_get_opt(priv->helper_opt,
-					MTK_DRM_OPT_MML_SUPPORT_CMD_MODE)))
-					mode = MML_MODE_MML_DECOUPLE;
-			}
-
-			DDPDBG("%s, final mml mode:%d\n", __func__, mode);
-		} else
-			DDPMSG("%s, mml_info is null\n", __func__);
+		/* Temp patch for CMD mode not support IR */
+		if (mode == MML_MODE_RACING &&
+		    (mtk_crtc_is_frame_trigger_mode(crtc) &&
+		     !mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_SUPPORT_CMD_MODE) &&
+		     !mtk_crtc->mml_cmd_ir))
+			mode = MML_MODE_MML_DECOUPLE;
 	}
 
 	switch (mode) {
@@ -2737,25 +2732,29 @@ static void check_is_mml_layer(const int disp_idx,
 	struct drm_mtk_layering_info *disp_info, struct drm_device *dev,
 	unsigned int *scn_decision_flag, const unsigned int hrt_idx)
 {
-	int i = 0;
+	struct drm_crtc *crtc = NULL;
+	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct drm_mtk_layer_config *c = NULL;
-	struct mml_frame_info *mml_info = NULL;
-	uint32_t l_count = 0;
+	int i = 0;
+	const enum MTK_LAYERING_CAPS mml_mask =
+	    (MTK_MML_DISP_DIRECT_LINK_LAYER | MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
+	     MTK_MML_DISP_DECOUPLE_LAYER | MTK_MML_DISP_MDP_LAYER);
+	enum MTK_LAYERING_CAPS mml_capacity = mml_mask;
+
+	if (!dev || !disp_info || !scn_decision_flag)
+		return;
+
+	drm_for_each_crtc(crtc, dev)
+		if (drm_crtc_index(crtc) == disp_idx)
+			break;
+	mtk_crtc = to_mtk_crtc(crtc);
 
 	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
 		c = &disp_info->input_config[disp_idx][i];
-		if (MTK_MML_OVL_LAYER & c->layer_caps)
-			l_count++;
-	}
-
-	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
-		c = &disp_info->input_config[disp_idx][i];
-
 		if (!(MTK_MML_OVL_LAYER & c->layer_caps))
 			continue;
 
-		mml_info = &(disp_info->mml_cfg[disp_idx][i]);
-		c->layer_caps |= query_MML(dev, dev->dev_private, mml_info, l_count);
+		c->layer_caps |= query_MML(dev, crtc, &(disp_info->mml_cfg[disp_idx][i]));
 
 		/* IR support only for layer 0 */
 		if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
@@ -2767,13 +2766,6 @@ static void check_is_mml_layer(const int disp_idx,
 
 		/* Try to alloc sram for IR, rollback to DC if failed */
 		if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
-			struct drm_crtc *crtc = NULL;
-			struct mtk_drm_crtc *mtk_crtc = NULL;
-
-			drm_for_each_crtc(crtc, dev)
-				if (drm_crtc_index(crtc) == disp_idx)
-					break;
-			mtk_crtc = to_mtk_crtc(crtc);
 			if (!mtk_crtc_alloc_sram(mtk_crtc, hrt_idx)) {
 				c->layer_caps &= ~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
 				c->layer_caps |= MTK_MML_DISP_DECOUPLE_LAYER;
@@ -2782,8 +2774,29 @@ static void check_is_mml_layer(const int disp_idx,
 			}
 		}
 
+		/* If more than 1 MML layer, support only IR+GPU, DC+MDP */
+		if (mml_mask & c->layer_caps) {
+			if (mml_capacity & c->layer_caps) {
+				if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
+					mml_capacity = 0;
+				} else if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps) {
+					/* TBD */
+				} else {
+					mml_capacity &= ~(MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
+							 MTK_MML_DISP_DIRECT_LINK_LAYER);
+					mml_capacity &= ~(mml_mask & c->layer_caps);
+				}
+			} else {
+				DDPINFO("%s capacity exhausted %x -> %x\n", __func__,
+					c->layer_caps & mml_mask, mml_capacity);
+				c->layer_caps &= ~mml_mask;
+				c->layer_caps |=
+				    (mml_capacity ? mml_capacity : MTK_MML_DISP_NOT_SUPPORT);
+			}
+		}
+
 		if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps ||
-			MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
+		    MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
 			// if layer can use MML direct link or inline rotate handle,
 			// we don't use DISP RSZ
 			c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
@@ -2796,23 +2809,50 @@ static void check_is_mml_layer(const int disp_idx,
 
 		if (MTK_MML_DISP_NOT_SUPPORT & c->layer_caps) {
 			if (disp_info->gles_head[disp_idx] == -1 ||
-				disp_info->gles_head[disp_idx] > i)
+			    disp_info->gles_head[disp_idx] > i)
 				disp_info->gles_head[disp_idx] = i;
 			if (disp_info->gles_tail[disp_idx] == -1 ||
-				disp_info->gles_tail[disp_idx] < i)
+			    disp_info->gles_tail[disp_idx] < i)
 				disp_info->gles_tail[disp_idx] = i;
 		}
 	}
 
 	if (disp_info->gles_head[disp_idx] != -1) {
-		for (i = disp_info->gles_head[disp_idx];
-		     i <= disp_info->gles_tail[disp_idx]; i++) {
+		int adjusted_gles_head = -1;
+		int adjusted_gles_tail = -1;
+
+		for (i = disp_info->gles_head[disp_idx]; i <= disp_info->gles_tail[disp_idx]; ++i) {
 			c = &disp_info->input_config[disp_idx][i];
 			c->ext_sel_layer = -1;
-			if (MTK_MML_OVL_LAYER & c->layer_caps) {
-				c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+		}
+
+		/* Scan gles range, bottom up */
+		for (i = disp_info->gles_head[disp_idx]; i <= disp_info->gles_tail[disp_idx]; ++i) {
+			c = &disp_info->input_config[disp_idx][i];
+			if (!(mml_mask & c->layer_caps)) {
+				adjusted_gles_head = i;
+				break;
 			}
 		}
+
+		/* Scan gles range, top down */
+		for (i = disp_info->gles_tail[disp_idx]; i >= disp_info->gles_head[disp_idx]; --i) {
+			c = &disp_info->input_config[disp_idx][i];
+			if (!(mml_mask & c->layer_caps)) {
+				adjusted_gles_tail = i;
+				break;
+			}
+		}
+
+		if (adjusted_gles_head <= adjusted_gles_tail) {
+			disp_info->gles_head[disp_idx] = adjusted_gles_head;
+			disp_info->gles_tail[disp_idx] = adjusted_gles_tail;
+		} else {
+			disp_info->gles_head[disp_idx] = -1;
+			disp_info->gles_tail[disp_idx] = -1;
+		}
+
+		/* MML caps in gles range will be cleanned by clear_mml_caps_for_gles_layer */
 	}
 }
 
