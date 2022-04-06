@@ -7068,8 +7068,8 @@
 				      "ME_CG_LARB12";
 			operating-points-v2 = <&opp_table_img>, <&opp_table_ipe>;
 			dvfsrc-vmm-supply = <&vmm_proxy_label>;
-	#if 0
 			interconnects =
+	#if 0
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG1_IMGI_T1_A)
 					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L9_IMG1_UFDI_T1_A)
@@ -7382,11 +7382,13 @@
 					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos MASTER_LARB_PORT(M4U_PORT_L23_IMG2_DBGO_T1_C)
 					&mmqos SLAVE_COMMON(0)>,
+	#endif
 				<&mmqos SLAVE_LARB(9)
 					&mmqos SLAVE_COMMON(0)>,
 				<&mmqos SLAVE_LARB(12)
 					&mmqos SLAVE_COMMON(1)>;
 			interconnect-names =
+	#if 0
 					"l9_imgi_t1_a",
 					"l9_ufdi_t1_a",
 					"l9_imgbi_t1_a",
@@ -7543,9 +7545,9 @@
 					"l23_smto_t4_c",
 					"l23_smto_t6_c",
 					"l23_dbgo_t1_c",
+	#endif
 					"l9_common_0",
 					"l12_common_1";
-	#endif
 		};
 
 	dvs: dvs@15300000 {
