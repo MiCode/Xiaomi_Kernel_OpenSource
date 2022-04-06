@@ -157,10 +157,8 @@ void ufs_mtk_bio_mictx_eval_wqd(struct mtk_btag_mictx_struct *mictx,
 {
 	struct ufs_mtk_bio_context_task *tsk;
 	struct ufs_mtk_bio_context *ctx;
+	__u64 t_begin;
 	int i;
-
-	if (!mictx->enabled)
-		return;
 
 	ctx = ufs_mtk_bio_curr_ctx();
 	if (!ctx)
@@ -169,8 +167,9 @@ void ufs_mtk_bio_mictx_eval_wqd(struct mtk_btag_mictx_struct *mictx,
 	for (i = 0; i < UFS_BIOLOG_CONTEXT_TASKS; i++) {
 		tsk = &ctx->task[i];
 		if (tsk->t[tsk_send_cmd] && !tsk->t[tsk_req_compl]) {
-			mtk_btag_mictx_eval_cnt_signle_wqd(ufs_mtk_btag,
-				tsk->t[tsk_send_cmd], t_cur);
+			t_begin = max_t(u64, mictx->window_begin,
+					tsk->t[tsk_send_cmd]);
+			mictx->weighted_qd += t_cur - t_begin;
 		}
 	}
 }

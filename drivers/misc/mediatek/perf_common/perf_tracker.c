@@ -43,6 +43,7 @@ static int perf_tracker_on;
 static DEFINE_MUTEX(perf_ctl_mutex);
 
 static struct mtk_btag_mictx_iostat_struct iostat;
+static struct mtk_btag_mictx_id ufs_mictx_id = {.storage = BTAG_STORAGE_UFS};
 
 #if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
 static unsigned int gpu_pmu_enable;
@@ -206,7 +207,7 @@ void perf_tracker(u64 wallclock,
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 	/* If getting I/O stat fail, fallback to zero value. */
-	if (mtk_btag_mictx_get_data(iostat_ptr))
+	if (mtk_btag_mictx_get_data(ufs_mictx_id, iostat_ptr))
 		memset(iostat_ptr, 0,
 			sizeof(struct mtk_btag_mictx_iostat_struct));
 #endif
@@ -254,7 +255,7 @@ static ssize_t store_perf_enable(struct kobject *kobj,
 
 		perf_tracker_on = val;
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
-		mtk_btag_mictx_enable(val);
+		mtk_btag_mictx_enable(&ufs_mictx_id, val);
 #endif
 #if IS_ENABLED(CONFIG_MTK_GPU_SWPM_SUPPORT)
 		// GPU PMU Recording

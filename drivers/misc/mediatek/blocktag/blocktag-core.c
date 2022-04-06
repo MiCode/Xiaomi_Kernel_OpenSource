@@ -95,10 +95,10 @@ static int mtk_btag_init_procfs(void);
 
 /* mini context for major embedded storage only */
 #define MICTX_PROC_CMD_BUF_SIZE (1)
-static struct mtk_btag_earaio_control earaio_ctrl;
+struct mtk_btag_earaio_control earaio_ctrl;
 
 /* blocktag */
-static LIST_HEAD(mtk_btag_list);
+LIST_HEAD(mtk_btag_list);
 spinlock_t list_lock;
 
 /* memory block for PIDLogger */
@@ -126,7 +126,7 @@ static struct mtk_blocktag *mtk_btag_find_by_name(const char *name)
 	return NULL;
 }
 
-static struct mtk_blocktag *mtk_btag_find_by_type(
+struct mtk_blocktag *mtk_btag_find_by_type(
 					enum mtk_btag_storage_type storage_type)
 {
 	struct mtk_blocktag *btag, *n;
@@ -399,7 +399,7 @@ void mtk_btag_earaio_boost(bool boost)
 	spin_unlock_irqrestore(&earaio_ctrl.lock, flags);
 
 	if ((boost && changed == 2) || (!boost && changed == 1))
-		mtk_btag_mictx_check_window();
+		mtk_btag_mictx_check_window(earaio_ctrl.mictx_id);
 }
 
 void mtk_btag_earaio_check_pwd(void)
@@ -461,14 +461,10 @@ static ssize_t mtk_btag_earaio_ctrl_sub_write(struct file *file,
 	if (ret < 0)
 		goto err;
 
-	if (cmd[0] == '1')
-		mtk_btag_mictx_enable(1);
-	else if (cmd[0] == '2')
-		mtk_btag_mictx_enable(0);
-	else if (cmd[0] == '3') {
+	if (cmd[0] == '1') {
 		earaio_ctrl.enabled = true;
 		pr_info("[BLOCK_TAG] EARA-IO QoS: allowed\n");
-	} else if (cmd[0] == '4') {
+	} else if (cmd[0] == '2') {
 		mtk_btag_earaio_boost(false);
 		earaio_ctrl.enabled = false;
 		pr_info("[BLOCK_TAG] EARA-IO QoS: disallowed\n");
@@ -486,26 +482,19 @@ err:
 static int mtk_btag_earaio_ctrl_sub_show(struct seq_file *s, void *data)
 {
 	struct mtk_blocktag *btag;
-	bool mictx_active = false;
 	char name[BLOCKTAG_NAME_LEN] = {' '};
 
-	btag = mtk_btag_find_by_type(earaio_ctrl.monitor_storage);
-	if (btag) {
-		if (btag->mictx.enabled)
-			mictx_active = true;
+	btag = mtk_btag_find_by_type(earaio_ctrl.mictx_id.storage);
+	if (btag)
 		strncpy(name, btag->name, BLOCKTAG_NAME_LEN-1);
-	}
 
 	seq_puts(s, "<MTK EARA-IO Control Unit>\n");
 	seq_printf(s, "Monitor Storage Type: %s\n", name);
 	seq_puts(s, "Status:\n");
-	seq_printf(s, "  EARA-IO Mictx Active: %d\n", mictx_active);
 	seq_printf(s, "  EARA-IO Control Enable: %d\n", earaio_ctrl.enabled);
 	seq_puts(s, "Commands: echo n > blockio_mictx, n presents\n");
-	seq_puts(s, "  Enable EARA-IO Mini Context : 1\n");
-	seq_puts(s, "  Disable EARA-IO Mini Context: 2\n");
-	seq_puts(s, "  Enable EARA-IO QoS  : 3\n");
-	seq_puts(s, "  Disable EARA-IO QoS : 4\n");
+	seq_puts(s, "  Enable EARA-IO QoS  : 1\n");
+	seq_puts(s, "  Disable EARA-IO QoS : 2\n");
 	return 0;
 }
 
@@ -541,13 +530,13 @@ static void mtk_btag_earaio_init_mictx(
 		earaio_ctrl.pwd_begin = sched_clock();
 		earaio_ctrl.pwd_top_r_pages = 0;
 		earaio_ctrl.pwd_top_w_pages = 0;
-		earaio_ctrl.monitor_storage = storage_type;
+		earaio_ctrl.mictx_id.storage = storage_type;
 	}
 
 	/* Enable mictx by default if EARA-IO is enabled*/
-	mtk_btag_mictx_enable(1);
+	mtk_btag_mictx_enable(&earaio_ctrl.mictx_id, 1);
 
-	rs_index_init(btag_proc_root);
+	rs_index_init(btag_proc_root, earaio_ctrl.mictx_id);
 	proc_entry = proc_create("earaio_ctrl", S_IFREG | 0664,
 		btag_proc_root, &mtk_btag_earaio_ctrl_sub_fops);
 }
@@ -952,6 +941,15 @@ static size_t mtk_btag_seq_sub_show_usedmem(char **buff, unsigned long *size,
 		used_mem += size_l;
 	}
 
+	size_l = btag->mictx.count * sizeof(struct mtk_btag_mictx_struct);
+	SPREAD_PRINTF(buff, size, seq,
+		"%s mictx list: %d mictx * %zu = %zu bytes\n",
+			btag->name,
+			btag->mictx.count,
+			sizeof(struct mtk_btag_mictx_struct),
+			size_l);
+	used_mem += size_l;
+
 	SPREAD_PRINTF(buff, size, seq,
 		"%s sub-total: %zu KB\n", btag->name, used_mem >> 10);
 	return used_mem;
@@ -1075,6 +1073,7 @@ void mtk_btag_free(struct mtk_blocktag *btag)
 
 	spin_lock_irqsave(&list_lock, flags);
 	list_del(&btag->list);
+	mtk_btag_mictx_free_btag(btag);
 	spin_unlock_irqrestore(&list_lock, flags);
 
 	kfree(btag->ctx.priv);

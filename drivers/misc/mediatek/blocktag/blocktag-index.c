@@ -79,6 +79,8 @@ static unsigned long long last_access_ts;
 static unsigned long long prev_ts;
 static struct list_head io_stat_list;
 
+struct mtk_btag_mictx_id mictx_id;
+
 void (*rsi_getindex_fp)(__s32 *data, __s32 input_size);
 void (*rsi_switch_collect_fp)(__s32 cmd);
 
@@ -190,8 +192,8 @@ static void rs_get_io_stat_oneshot(struct rs_sys_data *stat)
 {
 	struct mtk_btag_mictx_iostat_struct iostat = {0};
 
-	if (mtk_btag_mictx_get_data(&iostat))
-		mtk_btag_mictx_enable(1);
+	if (mtk_btag_mictx_get_data(mictx_id, &iostat))
+		mtk_btag_mictx_enable(&mictx_id, 1);
 
 	stat->io_wl = iostat.wl;
 	stat->io_top = iostat.top;
@@ -429,7 +431,8 @@ static const struct proc_ops earasys_fops = {
 	.proc_release = single_release,
 };
 
-void rs_index_init(struct proc_dir_entry *parent)
+void rs_index_init(struct proc_dir_entry *parent,
+		struct mtk_btag_mictx_id id)
 {
 	int ret = 0;
 	struct proc_dir_entry *proc_entry;
@@ -438,6 +441,8 @@ void rs_index_init(struct proc_dir_entry *parent)
 
 	rsi_getindex_fp = rsi_trans_index;
 	rsi_switch_collect_fp = rsi_switch_collect;
+
+	mictx_id = id;
 
 	proc_entry = proc_create("eara_io",
 		0664, parent, &earasys_fops);
