@@ -1101,6 +1101,8 @@ static int __init cpufreq_mtk_init(void)
 			mtk_arch_set_freq_scale, NULL);
 	if (ret)
 		pr_info("register android_vh_arch_set_freq_scale failed\n");
+	else
+		topology_clear_scale_freq_source(SCALE_FREQ_SOURCE_ARCH, cpu_possible_mask);
 #endif
 
 	return cpufreq_register_governor(&mtk_gov);
