@@ -2402,6 +2402,7 @@ static void setup_fs_alg_stability_test_env_cfg(unsigned int test_id)
 	passed_vsyncs_ratio = test_list[test_id].env_cfg->passed_vsync_ratio;
 	max_pass_cnt = test_list[test_id].env_cfg->passed_vsync_max_cnt;
 	lock_exp = test_list[test_id].env_cfg->lock_exp;
+	// lock_exp = 1;
 	exp_table_idx = test_list[test_id].env_cfg->lock_exp_table_idx;
 	lock_flk = test_list[test_id].env_cfg->lock_flk;
 

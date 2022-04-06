@@ -417,7 +417,7 @@ struct ut_fs_test_ext_ctrl_cfg ext_ctrl_cfg_01[] = {
 /* perframe_ctrl trigger with no lock_exp and no lock_flk */
 struct ut_fs_test_env_cfg env_cfg_01 = {
 	.run_times = 10000,
-	.sync_th = 550,
+	.sync_th = 1000, // 550,
 	.passed_vsync = 0,
 	.passed_vsync_ratio = 0,
 	.passed_vsync_max_cnt = 0,
@@ -486,6 +486,19 @@ struct ut_fs_test_env_cfg env_cfg_06 = {
 	.passed_vsync_max_cnt = 0,
 	.lock_exp = 1,
 	.lock_exp_table_idx = 1, // 19997 us
+	.lock_flk = 0,
+};
+
+
+/* perframe_ctrl trigger with lock_exp and no lock_flk */
+struct ut_fs_test_env_cfg env_cfg_06_2 = {
+	.run_times = 10000,
+	.sync_th = 550,
+	.passed_vsync = 0,
+	.passed_vsync_ratio = 0,
+	.passed_vsync_max_cnt = 0,
+	.lock_exp = 1,
+	.lock_exp_table_idx = 2, // 29996 us
 	.lock_flk = 0,
 };
 
@@ -572,11 +585,19 @@ struct ut_fs_test_list test_list[] = {
 
 	{
 		.test_name =
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
 			"STG 3-exp-SE N+2 / Normal N+1, per-frame CTRL (LOCK exp-40005us / NO lock flk)",
+#else
+			"STG 3-exp-SE N+2 / Normal N+1, per-frame CTRL (LOCK exp-10002us / NO lock flk)",
+#endif // FORCE_ADJUST_SMALLER_DIFF
 		.auto_test_must_run = 1,
 		.sync_tag = 18,
 		.sensor_cfg = sensor_cfg_05,
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
 		.env_cfg = &env_cfg_04,
+#else
+		.env_cfg = &env_cfg_05,
+#endif // FORCE_ADJUST_SMALLER_DIFF
 	},
 
 	{
@@ -632,12 +653,20 @@ struct ut_fs_test_list test_list[] = {
 
 	{
 		.test_name =
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
 			"60:30 Normal N+1 / Normal N+2, per-frame CTRL (LOCK exp-10002us / NO lock flk), SA",
+#else
+			"60:30 Normal N+1 / Normal N+2, per-frame CTRL (LOCK exp-29996us / NO lock flk), SA",
+#endif // FORCE_ADJUST_SMALLER_DIFF
 		.auto_test_must_run = 1,
 		.alg_method = 2,
 		.sync_tag = 1,
 		.sensor_cfg = sensor_cfg_04,
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
 		.env_cfg = &env_cfg_07,
+#else
+		.env_cfg = &env_cfg_06_2,
+#endif // FORCE_ADJUST_SMALLER_DIFF
 		.n_1_cfg = n_1_cfg_2_1_60_main_0,
 	},
 
@@ -665,23 +694,39 @@ struct ut_fs_test_list test_list[] = {
 
 	{
 		.test_name =
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
 			"60:60 Normal N+2 / Normal N+1, per-frame CTRL (LOCK exp-19997us / NO lock flk), SA",
+#else
+			"60:60 Normal N+2 / Normal N+1, per-frame CTRL (LOCK exp-10002us / NO lock flk), SA",
+#endif // FORCE_ADJUST_SMALLER_DIFF
 		.auto_test_must_run = 1,
 		.alg_method = 2,
 		.sync_tag = 1,
 		.sensor_cfg = sensor_cfg_03,
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
 		.env_cfg = &env_cfg_08,
+#else
+		.env_cfg = &env_cfg_04,
+#endif // FORCE_ADJUST_SMALLER_DIFF
 		.n_1_cfg = n_1_cfg_2_2_60_main_0_1,
 	},
 
 	{
 		.test_name =
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
 			"60:60 Normal N+1 / Normal N+2, per-frame CTRL (LOCK exp-10002us / NO lock flk), SA",
+#else
+			"60:60 Normal N+1 / Normal N+2, per-frame CTRL (LOCK exp-29996us / NO lock flk), SA",
+#endif // FORCE_ADJUST_SMALLER_DIFF
 		.auto_test_must_run = 1,
 		.alg_method = 2,
 		.sync_tag = 1,
 		.sensor_cfg = sensor_cfg_04,
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
 		.env_cfg = &env_cfg_07,
+#else
+		.env_cfg = &env_cfg_06_2,
+#endif // FORCE_ADJUST_SMALLER_DIFF
 		.n_1_cfg = n_1_cfg_2_2_60_main_0_1,
 	},
 
