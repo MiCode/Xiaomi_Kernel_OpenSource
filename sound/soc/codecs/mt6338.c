@@ -565,6 +565,7 @@ static void mt6338_set_dl_src(struct mt6338_priv *priv, bool enable)
 		regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0,
 			AFE_DL_SRC_ON_TMP_CTL_PRE_MASK_SFT,
 			0x1 << AFE_DL_SRC_ON_TMP_CTL_PRE_SFT);
+
 		/* MTKAIFV4 */
 		if (priv->dl_rate[0] != 0)
 			rate = mt6338_rate_transform(priv->dl_rate[0]);
@@ -584,9 +585,12 @@ static void mt6338_set_dl_src(struct mt6338_priv *priv, bool enable)
 		regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_MTKAIFV4_RX_CFG0,
 			MT6338_MTKAIFV4_RXIF_INPUT_MODE_MASK_SFT,
 			rate << MT6338_MTKAIFV4_RXIF_INPUT_MODE_SFT);
-
-
 	} else {
+#ifdef ALIGN_SWING
+		regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_DL_SRC_CON0,
+			AFE_DL_GAIN_ON_CTL_PRE_MASK_SFT,
+			0x0 << AFE_DL_GAIN_ON_CTL_PRE_SFT);
+#endif
 		regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_MTKAIFV4_RX_CFG0,
 			MT6338_MTKAIFV4_RXIF_AFE_ON_MASK_SFT,
 			0x0 << MT6338_MTKAIFV4_RXIF_AFE_ON_SFT);
@@ -624,9 +628,15 @@ static void mt6338_set_2nd_dl_src(struct mt6338_priv *priv, bool enable)
 		regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_2ND_DL_SRC_CON0,
 			AFE_2ND_DL_VOICE_MODE_CTL_PRE_MASK_SFT,
 			0x0 << AFE_2ND_DL_VOICE_MODE_CTL_PRE_SFT);
+#ifdef ALIGN_SWING
 		regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_2ND_DL_SRC_CON0,
 			AFE_2ND_DL_GAIN_ON_CTL_PRE_MASK_SFT,
-			0x0 << AFE_2ND_DL_GAIN_ON_CTL_PRE_SFT);
+			0x1 << AFE_2ND_DL_GAIN_ON_CTL_PRE_SFT);
+		/* Step2: DL digital gain control, 0xA028, (-4dB),	20*log(41000/2^16) */
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_2ND_DL_SRC_CON1_H, 0xa0);
+		regmap_write(priv->regmap, MT6338_AFE_ADDA_2ND_DL_SRC_CON1_M, 0x28);
+#endif
+
 		regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_2ND_DL_SRC_CON0,
 			AFE_2ND_DL_SRC_ON_TMP_CTL_PRE_MASK_SFT,
 			0x1 << AFE_2ND_DL_SRC_ON_TMP_CTL_PRE_SFT);
@@ -651,6 +661,11 @@ static void mt6338_set_2nd_dl_src(struct mt6338_priv *priv, bool enable)
 			rate <<	MT6338_ADDA6_MTKAIFV4_RXIF_INPUT_MODE_SFT);
 
 	} else {
+#ifdef ALIGN_SWING
+		regmap_update_bits(priv->regmap, MT6338_AFE_ADDA_2ND_DL_SRC_CON0,
+			AFE_2ND_DL_GAIN_ON_CTL_PRE_MASK_SFT,
+			0x0 << AFE_2ND_DL_GAIN_ON_CTL_PRE_SFT);
+#endif
 		regmap_update_bits(priv->regmap, MT6338_AFE_ADDA6_MTKAIFV4_RX_CFG0,
 			MT6338_ADDA6_MTKAIFV4_RXIF_AFE_ON_MASK_SFT,
 			0x0 << MT6338_ADDA6_MTKAIFV4_RXIF_AFE_ON_SFT);
@@ -2772,7 +2787,7 @@ static int mtk_hp_impedance_enable(struct mt6338_priv *priv)
 		RG_HPPSHORT2VCM_VAUDP18_MASK_SFT,
 		0x0 << RG_HPPSHORT2VCM_VAUDP18_SFT);
 	/* Disable HP damping circuit & HPN 4K load */
-	regmap_write(priv->regmap, MT6338_AUDDEC_PMU_CON48,	0x0);
+	regmap_write(priv->regmap, MT6338_AUDDEC_PMU_CON48, 0x0);
 	regmap_update_bits(priv->regmap, MT6338_AUDDEC_2_PMU_CON0,
 		RG_AUDDACHPL_TRIM_EN_VAUDP18_MASK_SFT,
 		0x1 << RG_AUDDACHPL_TRIM_EN_VAUDP18_SFT);
@@ -3366,7 +3381,7 @@ static int mt_adc_clk_gen_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* CLKMODE */
-		regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON81,	0x0);
+		regmap_write(priv->regmap, MT6338_AUDENC_PMU_CON81, 0x0);
 		/* L */
 		regmap_update_bits(priv->regmap, MT6338_AUDENC_PMU_CON18,
 					RG_AUDADCLCLKGENMODE_MASK_SFT |
@@ -4027,6 +4042,16 @@ static int is_need_pll_208M(struct snd_soc_dapm_widget *source,
 	}
 
 	return (ret) ? 1 : 0;
+}
+
+static int is_hp_lowpower(struct snd_soc_dapm_widget *source,
+			       struct snd_soc_dapm_widget *sink)
+{
+	struct snd_soc_dapm_widget *w = sink;
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	return (priv->hp_hifi_mode == 0) ? 1 : 0;
 }
 
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
@@ -7361,7 +7386,9 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 
 	{"DL Digital Clock CH_1_2", NULL, "DL Digital Clock"},
 	{"DL Digital Clock CH_1_2", NULL, "SDM"},
+	{"DL Digital Clock CH_1_2", NULL, "SDM_3RD", is_hp_lowpower},
 	{"DL Digital Clock CH_1_2", NULL, "AFE_DL_SRC"},
+	{"DL Digital Clock CH_1_2", NULL, "AFE_2ND_DL_SRC", is_hp_lowpower},
 	{"DL Digital Clock CH_1_2", NULL, "NLE"},
 	{"DL Digital Clock CH_1_2", NULL, "ESD_RESIST"},
 	{"DL Digital Clock CH_1_2", NULL, "AUDGLB"},
@@ -8473,7 +8500,7 @@ static void stop_trim_hardware(struct mt6338_priv *priv)
 	regmap_write(priv->regmap, MT6338_AFUNC_AUD_CON2_L, 0x1);
 
 	/* Disable AUD_CLK */
-	regmap_write(priv->regmap, MT6338_AUDDEC_PMU_CON46,	0x0);
+	regmap_write(priv->regmap, MT6338_AUDDEC_PMU_CON46, 0x0);
 
 	/* SRAM  power down */
 	regmap_write(priv->regmap, MT6338_AUD_TOP_SRAM_CON, 0x6);
