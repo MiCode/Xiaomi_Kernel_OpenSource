@@ -2388,7 +2388,9 @@ static int msdc_drv_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
 	struct msdc_host *host;
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	struct resource *res;
+#endif
 	int ret;
 
 	if (!pdev->dev.of_node) {
@@ -2412,6 +2414,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		goto host_free;
 	}
 
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res) {
 		host->top_base = devm_ioremap_resource(&pdev->dev, res);
@@ -2419,7 +2422,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 			host->top_base = NULL;
 	}
 
-#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	ret = mmc_regulator_get_supply(mmc);
 	if (ret)
 		goto host_free;
