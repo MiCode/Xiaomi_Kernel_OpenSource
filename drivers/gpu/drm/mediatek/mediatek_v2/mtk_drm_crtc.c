@@ -6588,7 +6588,6 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 					DISP_REG_CONFIG_BYPASS_MUX_SHADOW);
 		}
 	}
-	cmdq_mbox_enable(mtk_crtc->gce_obj.client[CLIENT_CFG]->chan);
 #endif
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
@@ -6652,6 +6651,9 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 		return;
 	}
 	DDPINFO("crtc%d do %s\n", crtc_id, __func__);
+#ifndef DRM_CMDQ_DISABLE
+	cmdq_mbox_enable(mtk_crtc->gce_obj.client[CLIENT_CFG]->chan);
+#endif
 
 	/* 1. hold wakelock */
 	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
