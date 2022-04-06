@@ -18,6 +18,7 @@ enum gh_dbl_label {
 	GH_DBL_TUI_QRTR,
 	GH_DBL_TEST_TUIVM,
 	GH_DBL_TEST_OEMVM,
+	GH_DBL_HW_FENCE,
 	GH_DBL_LABEL_MAX
 };
 
