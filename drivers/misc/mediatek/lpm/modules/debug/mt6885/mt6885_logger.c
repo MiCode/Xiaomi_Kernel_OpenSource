@@ -769,8 +769,10 @@ static int mt6885_logger_nb_func(struct notifier_block *nb,
 			struct mtk_lpm_data val;
 
 			val.d.u32 = mt6885_log_gs_info.dump_type;
-			if (!mtk_lpm_callee_get(MTK_LPM_CALLEE_PWR_GS, &callee))
-				callee->set(MTK_LPM_PWR_GS_TYPE_VCORELP_26M, &val);
+			if (!mtk_lpm_callee_get(MTK_LPM_CALLEE_PWR_GS, &callee)) {
+				if (callee)
+					callee->set(MTK_LPM_PWR_GS_TYPE_VCORELP_26M, &val);
+			}
 
 			mt6885_log_gs_info.limit =
 				mt6885_log_gs_info.limit_set;
