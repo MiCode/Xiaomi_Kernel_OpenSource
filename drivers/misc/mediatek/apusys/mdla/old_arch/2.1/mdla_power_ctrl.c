@@ -88,7 +88,7 @@ int mdla_pwr_on(unsigned int core_id, bool force)
 
 	ret = apu_device_power_on(register_user);
 	if (!ret) {
-		mdla_drv_debug("%s power on device %d success\n",
+		mdla_cmd_debug("%s power on device %d success\n",
 						__func__, register_user);
 		mdla_devices[core_id].mdla_power_status = PWR_ON;
 	} else {

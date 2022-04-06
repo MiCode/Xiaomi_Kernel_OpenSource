@@ -488,18 +488,28 @@ int apusys_mdla_handler(int type,
 	struct apusys_cmd_hnd *cmd_hnd = hnd;
 	struct mdla_dev *mdla_info = (struct mdla_dev *)dev->private;
 
+
 	if (dev->dev_type == APUSYS_DEVICE_MDLA) {
 		mdla_info = (struct mdla_dev *)dev->private;
-		if (mdla_info->mdlaid >= mdla_max_num_core)
+		if (mdla_info->mdlaid >= mdla_max_num_core) {
+			mdla_error("%s:%d illegal mdla id\n",
+				__func__, __LINE__);
 			return -EINVAL;
+		}
 	} else if (dev->dev_type == APUSYS_DEVICE_MDLA_RT) {
 		mdla_info = (struct mdla_dev *)dev->private;
-		if (mdla_info->mdlaid >= mdla_max_num_core)
+		if (mdla_info->mdlaid >= mdla_max_num_core) {
+			mdla_error("%s:%d illegal mdla id\n",
+				__func__, __LINE__);
 			return -EINVAL;
+		}
 		if (type != APUSYS_CMD_EXECUTE)
 			return 0;
-	} else
+	} else {
+		mdla_error("%s:%d illegal device type\n",
+			__func__, __LINE__);
 		return -EINVAL;
+	}
 
 	switch (type) {
 	case APUSYS_CMD_POWERON:
@@ -529,11 +539,13 @@ int apusys_mdla_handler(int type,
 			mdla_info,
 			cmd_hnd,
 			priority);
+
 		break;
 	}
 	case APUSYS_CMD_PREEMPT:
-		return -EINVAL;
 	default:
+		mdla_error("%s:%d illegal cmd type\n",
+			__func__, __LINE__);
 		return -EINVAL;
 	}
 	return retval;

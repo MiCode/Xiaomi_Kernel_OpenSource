@@ -168,6 +168,7 @@ static inline void mdla_debugfs_exit(void)
 }
 #endif
 
+#define mdla_error(...) pr_info(__VA_ARGS__)
 #define mdla_drv_debug(...) mdla_debug(MDLA_DBG_DRV, __VA_ARGS__)
 #define mdla_mem_debug(...) mdla_debug(MDLA_DBG_MEM, __VA_ARGS__)
 #define mdla_cmd_debug(...) mdla_debug(MDLA_DBG_CMD, __VA_ARGS__)
