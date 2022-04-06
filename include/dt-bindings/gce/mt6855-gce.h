@@ -604,6 +604,11 @@
 #define CMDQ_SYNC_RESOURCE_WROT0			710
 #define CMDQ_SYNC_RESOURCE_WROT1			711
 
+/* VENC sw token */
+#define CMDQ_SYNC_TOKEN_VENC_NORM_LOCK		732
+#define CMDQ_SYNC_TOKEN_VENC_SEC_LOCK		733
+
+
 /* event for gpr timer, used in sleep and poll with timeout */
 #define CMDQ_TOKEN_GPR_TIMER_R0				994
 #define CMDQ_TOKEN_GPR_TIMER_R1				995
