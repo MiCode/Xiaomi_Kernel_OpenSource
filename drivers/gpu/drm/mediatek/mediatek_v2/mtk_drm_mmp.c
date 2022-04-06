@@ -405,7 +405,7 @@ int crtc_mva_unmap_kernel(unsigned int mva, unsigned int size,
 	return 0;
 }
 
-void *mtk_drm_buffer_map_kernel(struct drm_framebuffer *fb)
+void *mtk_drm_buffer_map_kernel(struct drm_framebuffer *fb, struct dma_buf_map *map)
 {
 	struct drm_gem_object *gem_obj = NULL;
 	struct dma_buf *dmabuf = NULL;
@@ -429,16 +429,18 @@ void *mtk_drm_buffer_map_kernel(struct drm_framebuffer *fb)
 		return 0;
 	}
 
-	ret = dma_buf_vmap(dmabuf, dma_va);
+	ret = dma_buf_vmap(dmabuf, map);
 	if (ret) {
 		DDPINFO("%s, [MMP]get dma_va fail\n", __func__);
 		return 0;
 	}
 
+	dma_va = map->vaddr;
+
 	return dma_va;
 }
 
-int mtk_drm_buffer_unmap_kernel(struct drm_framebuffer *fb, void *dma_va)
+int mtk_drm_buffer_unmap_kernel(struct drm_framebuffer *fb, struct dma_buf_map *map)
 {
 	struct drm_gem_object *gem_obj;
 	struct dma_buf *dmabuf;
@@ -446,7 +448,7 @@ int mtk_drm_buffer_unmap_kernel(struct drm_framebuffer *fb, void *dma_va)
 	gem_obj = mtk_fb_get_gem_obj(fb);
 	dmabuf = gem_obj->import_attach->dmabuf;
 
-	dma_buf_vunmap(dmabuf, dma_va);
+	dma_buf_vunmap(dmabuf, map);
 
 	return 0;
 }
@@ -463,6 +465,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 	unsigned int fmt = pending->format;
 	int raw = 0;
 	int yuv = 0;
+	struct dma_buf_map map;
 	void *dma_va;
 
 	if (!mtk_drm_helper_get_opt(private->helper_opt,
@@ -551,7 +554,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 		bitmap.down_sample_x = downSampleX;
 		bitmap.down_sample_y = downSampleY;
 
-		dma_va = mtk_drm_buffer_map_kernel(state->base.fb);
+		dma_va = mtk_drm_buffer_map_kernel(state->base.fb, &map);
 		if (!dma_va) {
 			DDPINFO("[MMP]dma_va is null\n", __func__);
 			goto end;
@@ -571,7 +574,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 				MMPROFILE_FLAG_PULSE,
 				&bitmap);
 		}
-		mtk_drm_buffer_unmap_kernel(state->base.fb, dma_va);
+		mtk_drm_buffer_unmap_kernel(state->base.fb, &map);
 	} else {
 		mmp_event *event_base = NULL;
 
@@ -609,6 +612,7 @@ int mtk_drm_mmp_wdma_buffer(struct drm_crtc *crtc,
 	struct mmp_metadata_t meta;
 	unsigned int fmt = wb_fb->format->format;
 	int ret, raw = 0, yuv = 0;
+	struct dma_buf_map map;
 	void *dma_va;
 
 	memset(&bitmap, 0, sizeof(struct mmp_metadata_bitmap_t));
@@ -620,7 +624,7 @@ int mtk_drm_mmp_wdma_buffer(struct drm_crtc *crtc,
 		raw = 1;
 
 	CRTC_MMP_EVENT_START(crtc_idx, wbBmpDump, 0, 0);
-	dma_va = mtk_drm_buffer_map_kernel(wb_fb);
+	dma_va = mtk_drm_buffer_map_kernel(wb_fb, &map);
 	if (!dma_va) {
 		DDPINFO("[MMP]dma_va is null\n", __func__);
 		goto end;
@@ -650,7 +654,7 @@ int mtk_drm_mmp_wdma_buffer(struct drm_crtc *crtc,
 
 		CRTC_MMP_META_MARK(crtc_idx, wb_dump, &meta);
 	}
-	mtk_drm_buffer_unmap_kernel(wb_fb, dma_va);
+	mtk_drm_buffer_unmap_kernel(wb_fb, &map);
 
 end:
 	CRTC_MMP_EVENT_END(crtc_idx, wbBmpDump, 0, 0);
