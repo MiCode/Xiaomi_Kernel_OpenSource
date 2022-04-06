@@ -335,6 +335,7 @@ MEM_ALLOCATE_DONE:
 		dmab->area = substream->runtime->dma_area;
 		dmab->addr = substream->runtime->dma_addr;
 		dmab->bytes = substream->runtime->dma_bytes;
+		dmab->dev = substream->dma_buffer.dev;
 		snd_pcm_set_runtime_buffer(substream, dmab);
 	}
 
