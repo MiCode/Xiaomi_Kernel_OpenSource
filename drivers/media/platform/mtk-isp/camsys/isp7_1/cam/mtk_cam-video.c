@@ -1895,23 +1895,7 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 {
 	struct mtk_cam_device *cam = video_drvdata(file);
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
-	struct mtk_cam_dev_node_desc *desc = &node->desc;
-	const struct v4l2_format *default_fmt =
-		&desc->fmts[desc->default_fmt_idx].vfmt;
-	struct mtk_raw_pde_config *pde_cfg;
-	struct mtk_cam_pde_info *pde_info;
 	u32 extmeta_size = 0;
-
-	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG ||
-	    node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
-		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
-		pde_info = &pde_cfg->pde_info[CAM_SET_CTRL];
-		if (!pde_info->pd_table_offset) {
-			/* force reset the enlarged size */
-			node->active_fmt.fmt.meta.buffersize =
-				default_fmt->fmt.meta.buffersize;
-		}
-	}
 
 	switch (node->desc.id) {
 	case MTK_RAW_MAIN_STREAM_SV_1_OUT:
