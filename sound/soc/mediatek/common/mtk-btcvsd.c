@@ -10,10 +10,16 @@
 #include <linux/timer.h>
 #include <linux/of_address.h>
 #include <linux/sched/clock.h>
+#include <linux/of_reserved_mem.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include <sound/soc.h>
 
+#include "mtk-base-afe.h"
+
 #define BTCVSD_SND_NAME "mtk-btcvsd-snd"
+#define AUDIO_BTCVSD_MBLOCK_MEMORY_KEY "mediatek,me_audio_btcvsd"
 
 #define BT_CVSD_TX_NREADY	BIT(21)
 #define BT_CVSD_RX_READY	BIT(22)
@@ -128,6 +134,7 @@ struct mtk_btcvsd_snd {
 
 	unsigned int irq_disabled:1;
 	unsigned int bypass_bt_access:1;
+	unsigned int isMblockSupport;
 
 	spinlock_t tx_lock;	/* spinlock for bt tx stream control */
 	spinlock_t rx_lock;	/* spinlock for bt rx stream control */
@@ -136,6 +143,8 @@ struct mtk_btcvsd_snd {
 
 	struct mtk_btcvsd_snd_stream *tx;
 	struct mtk_btcvsd_snd_stream *rx;
+	struct tfa_mblock_t *mblock_info;
+
 	u8 tx_packet_buf[BTCVSD_TX_BUF_SIZE];
 	u8 rx_packet_buf[BTCVSD_RX_BUF_SIZE];
 	u8 disable_write_silence;
@@ -147,6 +156,13 @@ struct mtk_btcvsd_snd {
 struct mtk_btcvsd_snd_time_buffer_info {
 	unsigned long long data_count_equi_time;
 	unsigned long long time_stamp_us;
+};
+
+struct tfa_mblock_t {
+	phys_addr_t base_paddr;
+	phys_addr_t total_size;
+	unsigned long write_idx;
+	void __iomem *base_vaddr;
 };
 
 static const unsigned int btsco_packet_valid_mask[BT_SCO_CVSD_MAX][6] = {
@@ -236,6 +252,51 @@ static void mtk_btcvsd_snd_set_state(struct mtk_btcvsd_snd *bt,
 		bt->rx->state, pre_irq_disabled, bt->irq_disabled);
 }
 
+static int mtk_btcvsd_mblock_init(struct tfa_mblock_t *mblock_info)
+{
+	struct device_node *mblock_info_node;
+	struct reserved_mem *rmem;
+
+	pr_info("%s(+)\n", __func__);
+
+	mblock_info_node = of_find_compatible_node(NULL, NULL,
+		AUDIO_BTCVSD_MBLOCK_MEMORY_KEY);
+
+	if (!mblock_info_node) {
+		pr_info("%s compatible:%s not found\n", __func__, AUDIO_BTCVSD_MBLOCK_MEMORY_KEY);
+		return -EFAULT;
+	}
+	rmem = of_reserved_mem_lookup(mblock_info_node);
+	if (!rmem) {
+		pr_info("%s audio mblock mem not found\n", __func__);
+		return -EFAULT;
+	}
+	mblock_info->base_paddr = rmem->base;
+	mblock_info->total_size = rmem->size;
+	mblock_info->write_idx = 0;
+
+	pr_info(" %s, mblock key: %s, mblock_physical_base: 0x%llx, size: 0x%llx\n",
+		__func__, AUDIO_BTCVSD_MBLOCK_MEMORY_KEY,
+		mblock_info->base_paddr, mblock_info->total_size);
+
+	if ((mblock_info->base_paddr == 0) ||
+		(mblock_info->total_size == 0)) {
+		pr_notice("%s audio mblock physical addr or size is zero:0x%llx 0x%llx\n",
+			 __func__, mblock_info->base_paddr, mblock_info->total_size);
+		return -EFAULT;
+	}
+	/* remap reserved memory as cacheale */
+	mblock_info->base_vaddr = ioremap(mblock_info->base_paddr, mblock_info->total_size);
+	if (IS_ERR(mblock_info->base_vaddr)) {
+		pr_notice("%s Fail to remap audio mblock vaddr:%d\n",
+			 __func__, PTR_ERR(mblock_info->base_vaddr));
+		return -EFAULT;
+	}
+	pr_info(" %s(-) mblock_virtual_base:0x%llx, size:0x%llx\n",
+		__func__, mblock_info->base_vaddr, mblock_info->total_size);
+
+	return 0;
+}
 static int mtk_btcvsd_snd_tx_init(struct mtk_btcvsd_snd *bt)
 {
 	memset(bt->tx, 0, sizeof(*bt->tx));
@@ -442,6 +503,7 @@ static int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 	unsigned long connsys_addr_tx, ap_addr_tx;
 	bool new_ap_addr_tx = true;
 	unsigned int codec_id;
+	unsigned int data_length = packet_length * packet_num;
 
 	if (bt->bypass_bt_access)
 		return -EIO;
@@ -474,9 +536,29 @@ static int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 	codec_id = (*bt->bt_reg_ctl >> 25) & 3;
 	if ((!bt->tx->mute) &&
 	    ((codec_id == 0) || codec_id == bt->band + 1)) {
+		if (bt->isMblockSupport) {
+			/* set mblock as dst */
+			dst = (u8 *)((unsigned long)(bt->mblock_info->base_vaddr) +
+				(unsigned long)(bt->mblock_info->write_idx));
+		}
 		mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_ARM2BT,
-					     bt->tx->temp_packet_buf, dst,
-					     packet_length, packet_num);
+					    bt->tx->temp_packet_buf, dst,
+					    packet_length, packet_num);
+
+		if (bt->isMblockSupport) {
+			/* call TFA read from mblock and write to BT SRAM */
+			struct arm_smccc_res res;
+
+			arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_BTCVSD_WRITE,
+				(unsigned long)(connsys_addr_tx & 0xFFFF),
+				bt->mblock_info->write_idx, packet_length,
+				0, 0, 0, &res);
+
+			// update write index
+			bt->mblock_info->write_idx += (unsigned long)data_length;
+			if (bt->mblock_info->write_idx + data_length >= bt->mblock_info->total_size)
+				bt->mblock_info->write_idx = 0;
+		}
 		bt->write_tx = 1;
 	}
 
@@ -1372,6 +1454,8 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 	struct mtk_btcvsd_snd *btcvsd;
 	struct device *dev = &pdev->dev;
 	u32 disable_write_silence = 0;
+	unsigned int isMblockSupport = 0;
+	unsigned int enable_secure_write = 0;
 
 	/* init btcvsd private data */
 	btcvsd = devm_kzalloc(dev, sizeof(*btcvsd), GFP_KERNEL);
@@ -1387,6 +1471,11 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 
 	btcvsd->tx = devm_kzalloc(btcvsd->dev, sizeof(*btcvsd->tx), GFP_KERNEL);
 	if (!btcvsd->tx)
+		return -ENOMEM;
+
+	btcvsd->mblock_info =
+		devm_kzalloc(btcvsd->dev, sizeof(*btcvsd->mblock_info), GFP_KERNEL);
+	if (!btcvsd->mblock_info)
 		return -ENOMEM;
 
 	spin_lock_init(&btcvsd->tx_lock);
@@ -1448,9 +1537,22 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(dev->of_node, "disable_write_silence",
 				     &disable_write_silence);
 	if (ret) {
-		dev_dbg(dev,
-			"%s(), get disable_write_silence fail %d, set 0\n"
+		dev_dbg(dev, "%s(), get disable_write_silence fail %d, set 0\n"
 			, __func__, ret);
+	}
+
+	/* get tfa_enable */
+	ret = of_property_read_u32(dev->of_node, "enable_secure_write",
+				     &enable_secure_write);
+	if (ret) {
+		dev_dbg(dev,
+			"%s(), get enable_secure_write fail %d, set 0\n"
+			, __func__, ret);
+	} else if (enable_secure_write) {
+		/* init mblock for tx data secure write */
+		isMblockSupport =
+			(mtk_btcvsd_mblock_init(btcvsd->mblock_info) == 0) ? 1 : 0;
+		pr_info("%s isMblockSupport: 0x%x\n", __func__, isMblockSupport);
 	}
 
 	btcvsd->infra_misc_offset = offset[0];
@@ -1466,6 +1568,7 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 	btcvsd->bt_reg_ctl = btcvsd->bt_pkv_base +
 			     btcvsd->cvsd_packet_indicator;
 	btcvsd->disable_write_silence = (u8) disable_write_silence;
+	btcvsd->isMblockSupport = isMblockSupport;
 
 	/* init state */
 	mtk_btcvsd_snd_set_state(btcvsd, btcvsd->tx, BT_SCO_STATE_IDLE);
