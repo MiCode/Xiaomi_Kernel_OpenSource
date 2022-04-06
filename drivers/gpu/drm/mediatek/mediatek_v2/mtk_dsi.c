@@ -165,7 +165,7 @@
 #define CMDQ_SIZE_SEL BIT(15)
 
 #define DSI_CMD_TYPE1_HS 0x6c
-#define CMD_HS_HFP_BLANKING_NULL_LEN REG_FLD_MSB_LSB(15, 0)
+#define CMD_HS_HFP_BLANKING_NULL_LEN 0xffff
 #define CMD_HS_HFP_BLANKING_HS_EN BIT(16)
 #define CMD_HS_HFP_BLANKING_NULL_EN BIT(17)
 #define CMD_CPHY_6BYTE_EN BIT(18)
@@ -1025,6 +1025,29 @@ static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 	return ret;
 }
 
+void mtk_dsi_config_null_packet(struct mtk_dsi *dsi)
+{
+	u32 null_packet_len = dsi->ext->params->cmd_null_pkt_len;
+
+	if (!dsi->ext->params->lp_perline_en &&
+		mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
+		dsi->ext->params->cmd_null_pkt_en) {
+		mtk_dsi_mask(dsi, DSI_CMD_TYPE1_HS,
+				CMD_HS_HFP_BLANKING_NULL_EN,
+				CMD_HS_HFP_BLANKING_NULL_EN);
+
+		mtk_dsi_mask(dsi, DSI_CMD_TYPE1_HS,
+				CMD_HS_HFP_BLANKING_NULL_LEN,
+				null_packet_len);
+	} else {
+		mtk_dsi_mask(dsi, DSI_CMD_TYPE1_HS,
+				CMD_HS_HFP_BLANKING_NULL_EN,
+				0);
+	}
+	DDPDBG("%s, cmd_null_pkt_en is %d, null_packet_len is %d\n",
+		__func__, dsi->ext->params->cmd_null_pkt_en, null_packet_len);
+}
+
 static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 {
 	struct mtk_drm_private *priv = dsi->ddp_comp.mtk_crtc->base.dev->dev_private;
@@ -1087,6 +1110,8 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 			goto err_disable_engine_clk;
 		}
 	}
+
+	mtk_dsi_config_null_packet(dsi);
 
 	mtk_dsi_set_LFR(dsi, NULL, NULL, 1);
 
@@ -5456,6 +5481,155 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
 	return compress_rate;
 }
 
+unsigned int mtk_dsi_get_ps_wc(struct mtk_drm_crtc *mtk_crtc,
+	struct mtk_dsi *dsi)
+{
+	u32 ps_wc = 0;
+	u32 dsi_buf_bpp = 0;
+	struct mtk_panel_dsc_params *dsc_params = &dsi->ext->params->dsc_params;
+	struct mtk_panel_spr_params *spr_params = &dsi->ext->params->spr_params;
+	unsigned int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
+
+	if (dsi->is_slave || dsi->slave_dsi)
+		hact /= 2;
+
+	if (dsi->format == MIPI_DSI_FMT_RGB565)
+		dsi_buf_bpp = 2;
+	else
+		dsi_buf_bpp = 3;
+
+	if (dsc_params->enable == 0) {
+		if (spr_params->enable == 1 && spr_params->relay == 0
+			&& disp_spr_bypass == 0) {
+			switch (dsi->ext->params->spr_output_mode) {
+			case MTK_PANEL_PACKED_SPR_8_BITS:
+				dsi_buf_bpp = 2;
+				break;
+			case MTK_PANEL_lOOSELY_SPR_8_BITS:
+				dsi_buf_bpp = 3;
+				break;
+			case MTK_PANEL_lOOSELY_SPR_10_BITS:
+				dsi_buf_bpp = 3;
+				break;
+			case MTK_PANEL_PACKED_SPR_12_BITS:
+				dsi_buf_bpp = 2;
+				break;
+			default:
+				break;
+			}
+			ps_wc = hact * dsi_buf_bpp;
+		} else {
+			ps_wc = hact * dsi_buf_bpp;
+		}
+	} else {
+		ps_wc = (((dsc_params->chunk_size + 2) / 3) * 3);
+		if (dsc_params->slice_mode == 1)
+			ps_wc *= 2;
+	}
+
+	return ps_wc;
+}
+
+unsigned int mtk_dsi_get_line_time(struct mtk_drm_crtc *mtk_crtc,
+	struct mtk_dsi *dsi)
+{
+	unsigned int line_time;
+	unsigned int data_rate;
+	unsigned int ps_wc;
+	unsigned int null_packet_len = dsi->ext->params->cmd_null_pkt_len;
+	u32 lpx = 0, hs_prpr = 0, hs_zero = 0, hs_trail = 0, da_hs_exit = 0;
+	u32 ui = 0, cycle_time = 0;
+	struct mtk_dsi_phy_timcon *phy_timcon = NULL;
+
+	//for FPS change,update dsi->ext
+	dsi->ext = find_panel_ext(dsi->panel);
+	data_rate = mtk_dsi_default_rate(dsi);
+
+	ps_wc = mtk_dsi_get_ps_wc(mtk_crtc, dsi);
+
+	if (dsi->ext->params->is_cphy) {
+		/* CPHY */
+		ui = (1000 / data_rate > 0) ? 1000 / data_rate : 1;
+		cycle_time = 7000 / data_rate;
+
+		lpx = NS_TO_CYCLE(75, cycle_time) + 1;
+		hs_prpr = NS_TO_CYCLE(64, cycle_time) + 1;
+		hs_zero = NS_TO_CYCLE((336 * ui), cycle_time);
+		hs_trail = NS_TO_CYCLE((203 * ui), cycle_time);
+		da_hs_exit = NS_TO_CYCLE(125, cycle_time) + 1;
+
+		phy_timcon = &dsi->ext->params->phy_timcon;
+
+		lpx = CHK_SWITCH(phy_timcon->lpx, lpx);
+		hs_prpr = CHK_SWITCH(phy_timcon->hs_prpr, hs_prpr);
+		hs_zero = CHK_SWITCH(phy_timcon->hs_zero, hs_zero);
+		hs_trail = CHK_SWITCH(phy_timcon->hs_trail, hs_trail);
+		da_hs_exit = CHK_SWITCH(phy_timcon->da_hs_exit, da_hs_exit);
+
+		if (dsi->ext->params->lp_perline_en) {
+			/* LP per line */
+			line_time =
+				lpx + hs_prpr + hs_zero + 2 + 1 +
+				DIV_ROUND_UP(((dsi->lanes * 3) + 3 + 3 +
+				(CEILING(1 + ps_wc + 2, 2) / 2)),
+				dsi->lanes) + hs_trail + 1 + da_hs_exit + 1;
+		} else {
+			if (dsi->ext->params->cmd_null_pkt_en) {
+				/* Keep HS + Dummy cycle */
+				line_time = ((dsi->lanes * 3) + 3 + 3 +
+					(CEILING(1 + ps_wc + 2, 2) / 2));
+					line_time = line_time + ((dsi->lanes * 3) + 3 + 3 +
+					(CEILING(1 + null_packet_len + 2, 2) / 2));
+					line_time = DIV_ROUND_UP(line_time, dsi->lanes);
+			} else {
+				/* Keep HS */
+				line_time = DIV_ROUND_UP(((dsi->lanes * 3) + 3 + 3 +
+					(CEILING(1 + ps_wc + 2, 2) / 2)), dsi->lanes);
+			}
+		}
+	} else {
+		/* DPHY */
+		ui = (1000 / data_rate > 0) ? 1000 / data_rate : 1;
+		cycle_time = 8000 / data_rate;
+
+		lpx = NS_TO_CYCLE(75, cycle_time) + 1;
+		hs_prpr = NS_TO_CYCLE((64 + 5 * ui), cycle_time) + 1;
+		hs_zero = NS_TO_CYCLE((200 + 10 * ui), cycle_time);
+		hs_zero = hs_zero > hs_prpr ? hs_zero - hs_prpr : hs_zero;
+		hs_trail = NS_TO_CYCLE((9 * ui), cycle_time) >
+					NS_TO_CYCLE((80 + 5 * ui), cycle_time) ?
+					NS_TO_CYCLE((9 * ui), cycle_time) :
+					NS_TO_CYCLE((80 + 5 * ui), cycle_time);
+		da_hs_exit = NS_TO_CYCLE(125, cycle_time) + 1;
+
+		phy_timcon = &dsi->ext->params->phy_timcon;
+
+		lpx = CHK_SWITCH(phy_timcon->lpx, lpx);
+		hs_prpr = CHK_SWITCH(phy_timcon->hs_prpr, hs_prpr);
+		hs_zero = CHK_SWITCH(phy_timcon->hs_zero, hs_zero);
+		hs_trail = CHK_SWITCH(phy_timcon->hs_trail, hs_trail);
+		da_hs_exit = CHK_SWITCH(phy_timcon->da_hs_exit, da_hs_exit);
+
+		if (dsi->ext->params->lp_perline_en) {
+			/* LP per line */
+			line_time = lpx + hs_prpr + hs_zero + 1 +
+				DIV_ROUND_UP((5 + ps_wc + 6), dsi->lanes) +
+				hs_trail + 1 + da_hs_exit + 1;
+		} else {
+			if (dsi->ext->params->cmd_null_pkt_en) {
+			/* Keep HS + Dummy cycle */
+				line_time = DIV_ROUND_UP((4 + null_packet_len + 2
+					+ 5 + ps_wc + 2), dsi->lanes);
+			} else {
+				/* Keep HS */
+				line_time = DIV_ROUND_UP((5 + ps_wc + 2),
+					dsi->lanes);
+			}
+		}
+	}
+	return line_time;
+}
+
 /******************************************************************************
  * HRT BW = Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
  * In Video Mode , Using the Formula below:
@@ -5581,6 +5755,8 @@ unsigned int mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 		drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
 	unsigned int image_time;
 	unsigned int line_time;
+	unsigned int null_packet_len =
+		dsi->ext->params->cmd_null_pkt_len;
 
 	if (!en) {
 		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
@@ -5595,6 +5771,9 @@ unsigned int mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 		DDPPR_ERR("DSI panel ext is NULL\n");
 		return pixclk;
 	}
+
+	if (ext->params->dsc_params.enable)
+		bpp = ext->params->dsc_params.bit_per_channel * 3;
 
 	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 
@@ -5657,6 +5836,7 @@ unsigned int mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 			if (mtk_crtc->is_dual_pipe)
 				pixclk /= 2;
 		} else {
+			//CMD mode
 			u32 ps_wc = 0, lpx = 0, hs_prpr = 0;
 			u32 hs_zero = 0, hs_trail = 0, da_hs_exit = 0;
 			u32 ui = 0, cycle_time = 0;
@@ -5714,13 +5894,20 @@ unsigned int mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 								dsi->lanes) +
 						hs_trail + 1 + da_hs_exit + 1;
 				} else {
-					/* Keep HS */
-					line_time =
-						DIV_ROUND_UP(((dsi->lanes * 3) + 3 + 3 +
-							(CEILING(1 + ps_wc + 2, 2) / 2)),
-								dsi->lanes);
-
-					/* TODO: Keep HS + Dummy cycle */
+					if (dsi->ext->params->cmd_null_pkt_en) {
+						/* Keep HS + Dummy cycle */
+						line_time = ((dsi->lanes * 3) + 3 + 3 +
+								(CEILING(1 + ps_wc + 2, 2) / 2));
+						line_time = line_time + ((dsi->lanes * 3) + 3 + 3 +
+							(CEILING(1 + null_packet_len + 2, 2) / 2));
+						line_time = DIV_ROUND_UP(line_time, dsi->lanes);
+					} else {
+						/* Keep HS */
+						line_time =
+							DIV_ROUND_UP(((dsi->lanes * 3) + 3 + 3 +
+								(CEILING(1 + ps_wc + 2, 2) / 2)),
+									dsi->lanes);
+					}
 				}
 			} else {
 				/* DPHY */
@@ -5754,10 +5941,15 @@ unsigned int mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 						DIV_ROUND_UP((5 + ps_wc + 6), dsi->lanes) +
 						hs_trail + 1 + da_hs_exit + 1;
 				} else {
-					/* Keep HS */
-					line_time = DIV_ROUND_UP((5 + ps_wc + 2), dsi->lanes);
-
-					/* TODO: Keep HS + Dummy cycle */
+					if (dsi->ext->params->cmd_null_pkt_en) {
+						/* Keep HS + Dummy cycle */
+						line_time = DIV_ROUND_UP((4 + null_packet_len + 2
+								+ 5 + ps_wc + 2), dsi->lanes);
+					} else {
+						/* Keep HS */
+						line_time = DIV_ROUND_UP((5 + ps_wc + 2),
+							dsi->lanes);
+					}
 				}
 			}
 			DDPDBG(
@@ -5798,6 +5990,11 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 	unsigned int compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 	unsigned int data_rate = mtk_dsi_default_rate(dsi);
 	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
+	struct mtk_panel_ext *ext = dsi->ext;
+
+	dsi->ext = find_panel_ext(dsi->panel);
+	if (dsi->ext->params->dsc_params.enable)
+		bpp = dsi->ext->params->dsc_params.bit_per_channel * 3;
 
 	bw_base = vact * hact * vrefresh * 4 / 1000;
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
@@ -5810,7 +6007,28 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 		bw_base = data_rate * dsi->lanes * compress_rate * 4;
 		bw_base = bw_base / bpp / 100;
 	}
+
 	DDPDBG("%s Frame Bw:%llu, bpp:%d\n", __func__, bw_base, bpp);
+
+	if (dsi->driver_data->dsi_buffer) {
+		u32 line_time = 0, image_time = 1, ps_wc;
+
+		ps_wc =  mtk_dsi_get_ps_wc(mtk_crtc, dsi);
+
+		if (ext->params->is_cphy)
+			image_time = DIV_ROUND_UP(DIV_ROUND_UP(ps_wc, 2), dsi->lanes);
+		else
+			image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
+
+		line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
+
+		bw_base = bw_base * image_time / line_time;
+		DDPDBG("%s, image_time=%d, line_time=%d\n",
+			__func__, image_time, line_time);
+	}
+
+	DDPDBG("%s Frame Bw:%llu\n", __func__, bw_base);
+
 	return bw_base;
 }
 
@@ -5826,6 +6044,9 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 	unsigned int data_rate = mtk_dsi_default_rate(dsi);
 	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 	struct mtk_panel_ext *panel_ext = mtk_crtc->panel_ext;
+
+	if (dsi->ext->params->dsc_params.enable)
+		bpp = dsi->ext->params->dsc_params.bit_per_channel * 3;
 
 	if (panel_ext && panel_ext->funcs && panel_ext->funcs->ext_param_get) {
 		struct mtk_panel_params *panel_params = NULL;
@@ -5862,6 +6083,24 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 	}
 
 	DDPDBG("%s Frame Bw:%llu, mode_idx:%d, bpp:%d\n", __func__, bw_base, mode_idx, bpp);
+
+	if (dsi->driver_data->dsi_buffer) {
+		u32 line_time = 0, image_time = 1, ps_wc;
+
+		ps_wc =  mtk_dsi_get_ps_wc(mtk_crtc, dsi);
+
+		if (dsi->ext->params->is_cphy)
+			image_time = DIV_ROUND_UP(DIV_ROUND_UP(ps_wc, 2), dsi->lanes);
+		else
+			image_time = DIV_ROUND_UP(ps_wc, dsi->lanes);
+
+		line_time = mtk_dsi_get_line_time(mtk_crtc, dsi);
+
+		bw_base = bw_base * image_time / line_time;
+	}
+
+	DDPMSG("%s Frame Bw:%llu\n", __func__, bw_base);
+
 	return bw_base;
 }
 
@@ -5888,7 +6127,8 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 
 	if (!(priv && mtk_drm_helper_get_opt(priv->helper_opt,
 		MTK_DRM_OPT_DYN_MIPI_CHANGE))
-		&& !(mtk_crtc->mode_change_index & MODE_DSI_RES))
+		&& !(mtk_crtc->mode_change_index & MODE_DSI_RES)
+		&& !(dsi->ext->params->cmd_null_pkt_en))
 		need_mipi_change = 0;
 
 	if (!(mtk_crtc->mode_change_index & MODE_DSI_RES)) {
@@ -7217,7 +7457,7 @@ static const struct mtk_dsi_driver_data mt6983_dsi_driver_data = {
 	.dsi_buffer = true,
 	.dsi_new_trail = false,
 	.max_vfp = 0xffe,
-	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V2,
 };
 
 static const struct mtk_dsi_driver_data mt6895_dsi_driver_data = {
