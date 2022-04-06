@@ -262,7 +262,9 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
 	mtk_map_util_freq(NULL, max_util, ps->frequency, to_cpumask(pd->cpus), &freq);
 #else
-	freq = map_util_freq(min(max_util, allowed_cpu_cap), ps->frequency, scale_cpu);
+	max_util = map_util_perf(max_util);
+	max_util = min(max_util, allowed_cpu_cap);
+	freq = map_util_freq(max_util, ps->frequency, scale_cpu);
 #endif
 	freq = max(freq, per_cpu(min_freq, cpu));
 
