@@ -110,6 +110,16 @@ static bool ufs_mtk_is_delay_after_vcc_off(struct ufs_hba *hba)
 	return !!(host->caps & UFS_MTK_CAP_DEALY_AFTER_VCC_OFF);
 }
 
+static bool ufs_mtk_is_clk_scale_ready(struct ufs_hba *hba)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	struct ufs_mtk_clk *mclk = &host->mclk;
+
+	return mclk->ufs_sel_clki &&
+		mclk->ufs_sel_max_clki &&
+		mclk->ufs_sel_min_clki;
+}
+
 static void ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
 {
 	u32 tmp;
@@ -1575,6 +1585,52 @@ out:
 }
 
 /**
+ * ufs_mtk_init_clocks - Init mtk driver private clocks
+ *
+ * @param hba: per adapter instance
+ * Returns zero on success else failed.
+ */
+static int ufs_mtk_init_clocks(struct ufs_hba *hba)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	struct ufs_clk_info *clki, *clki_tmp;
+	struct list_head *head = &hba->clk_list_head;
+	/*
+	 * Find private clocks and store in struct ufs_mtk_clk.
+	 * Remove "ufs_sel_min_src" and "ufs_sel_min_src" from list to avoid
+	 * being switched on/off in clock gating.
+	 */
+	list_for_each_entry_safe(clki, clki_tmp, head, list) {
+		if (!strcmp(clki->name, "ufs_sel")) {
+			/* clk scaling */
+			dev_dbg(hba->dev, "ufs_sel found");
+			host->mclk.ufs_sel_clki = clki;
+		} else if (!strcmp(clki->name, "ufs_sel_max_src")) {
+			/* clk scaling */
+			host->mclk.ufs_sel_max_clki = clki;
+			list_del(&clki->list);
+			dev_dbg(hba->dev, "ufs_sel_max_src found");
+		} else if (!strcmp(clki->name, "ufs_sel_min_src")) {
+			/* clk scaling */
+			host->mclk.ufs_sel_min_clki = clki;
+			list_del(&clki->list);
+			dev_dbg(hba->dev, "ufs_sel_min_clki found");
+		}
+	}
+
+	list_for_each_entry(clki, head, list) {
+		dev_info(hba->dev, "clk \"%s\" present", clki->name);
+	}
+
+	if (!ufs_mtk_is_clk_scale_ready(hba)) {
+		hba->caps &= ~UFSHCD_CAP_CLK_SCALING;
+		dev_info(hba->dev, "%s: Clk scaling not ready. Feature disabled.", __func__);
+		return -1;
+	}
+	return 0;
+}
+
+/**
  * ufs_mtk_init - find other essential mmio bases
  * @hba: host controller instance
  *
@@ -1629,12 +1685,16 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	/* Enable WriteBooster */
 	hba->caps |= UFSHCD_CAP_WB_EN;
 
+	/* enable clk scaling*/
+	hba->caps |= UFSHCD_CAP_CLK_SCALING;
+
 	hba->quirks |= UFSHCI_QUIRK_SKIP_MANUAL_WB_FLUSH_CTRL;
 	hba->vps->wb_flush_threshold = UFS_WB_BUF_REMAIN_PERCENT(80);
 
 	if (host->caps & UFS_MTK_CAP_DISABLE_AH8)
 		hba->caps |= UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
 
+	ufs_mtk_init_clocks(hba);
 	/*
 	 * ufshcd_vops_init() is invoked after
 	 * ufshcd_setup_clock(true) in ufshcd_hba_init() thus
@@ -1644,6 +1704,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	 */
 	ufs_mtk_mphy_power_on(hba, true);
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
+
 
 	/* Get vcc-opt */
 	ufs_mtk_get_vcc_info(res);
@@ -2248,6 +2309,57 @@ void ufs_mtk_setup_task_mgmt(struct ufs_hba *hba, int tag, u8 tm_function)
 #endif
 }
 
+
+static void ufs_mtk_config_scaling_param(struct ufs_hba *hba,
+					struct devfreq_dev_profile *profile,
+					void *data)
+{
+	/* customize min gear in clk scaling */
+	hba->clk_scaling.min_gear = 1;
+}
+
+/**
+ * ufs_mtk_clk_scale - Internal clk scaling operation
+ * MTK platform supports clk scaling by switching parent of ufs_sel(mux).
+ * The ufs_sel downstream to ufs_ck and fed directly to UFS hardware.
+ * Max and min clocks rate of ufs_sel defined in dts should match rate of
+ * "ufs_sel_max_src" and "ufs_sel_min_src" respectively.
+ * This prevent chaning rate of pll clock that is shared between modules.
+ *
+ * WARN: Need fix if pll clk rate is not static.
+ *
+ * @param hba: per adapter instance
+ * @param scale_up: True for scaling up and false for scaling down
+ */
+static void ufs_mtk_clk_scale(struct ufs_hba *hba, bool scale_up)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	struct ufs_mtk_clk *mclk = &host->mclk;
+
+	clk_prepare_enable(mclk->ufs_sel_clki->clk);
+	if (scale_up) {
+		clk_set_parent(mclk->ufs_sel_clki->clk, mclk->ufs_sel_max_clki->clk);
+		mclk->ufs_sel_clki->curr_freq = mclk->ufs_sel_clki->max_freq;
+	} else {
+		clk_set_parent(mclk->ufs_sel_clki->clk, mclk->ufs_sel_min_clki->clk);
+		mclk->ufs_sel_clki->curr_freq = mclk->ufs_sel_clki->min_freq;
+	}
+	clk_disable_unprepare(mclk->ufs_sel_clki->clk);
+
+	trace_ufs_mtk_clk_scale(mclk->ufs_sel_clki, scale_up);
+}
+
+static int ufs_mtk_clk_scale_notify(struct ufs_hba *hba, bool scale_up,
+				enum ufs_notify_change_status status)
+{
+	if (status == PRE_CHANGE) {
+		/* do parent switching before clk_set_rate() */
+		ufs_mtk_clk_scale(hba, scale_up);
+	}
+
+	return 0;
+}
+
 /*
  * struct ufs_hba_mtk_vops - UFS MTK specific variant operations
  *
@@ -2271,6 +2383,8 @@ static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.device_reset        = ufs_mtk_device_reset,
 	.event_notify        = ufs_mtk_event_notify,
 	.setup_task_mgmt     = ufs_mtk_setup_task_mgmt,
+	.config_scaling_param = ufs_mtk_config_scaling_param,
+	.clk_scale_notify    = ufs_mtk_clk_scale_notify,
 };
 
 /**

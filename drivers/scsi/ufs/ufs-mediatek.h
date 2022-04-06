@@ -175,6 +175,12 @@ struct ufs_mtk_crypt_cfg {
 	int vcore_volt;
 };
 
+struct ufs_mtk_clk {
+	struct ufs_clk_info *ufs_sel_clki; // mux
+	struct ufs_clk_info *ufs_sel_max_clki; // max src
+	struct ufs_clk_info *ufs_sel_min_clki; // min src
+};
+
 struct ufs_mtk_hw_ver {
 	u8 step;
 	u8 minor;
@@ -196,13 +202,13 @@ struct ufs_mtk_host {
 	bool ref_clk_enabled;
 	u16 ref_clk_ungating_wait_us;
 	u16 ref_clk_gating_wait_us;
+	struct ufs_mtk_clk mclk;
 	bool pm_qos_init;
 	struct pm_qos_request pm_qos_req;
 	bool qos_allowed;
 	bool qos_enabled;
 	bool boot_device;
 	struct ufs_vreg *vcc;
-
 	struct mutex rpmb_lock;
 #if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature ufsf;
