@@ -722,7 +722,7 @@ static inline void frec_dump_recorder(unsigned int idx)
 	fs_get_reg_sensor_info(idx, &info);
 
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u) recs:(at %u) (0:%u/%u), (1:%u/%u), (2:%u/%u) (fl_lc/shut_lc)\n",
+		"[%u] ID:%#x(sidx:%u) recs:(at %u) (0:%u/%u), (1:%u/%u), (2:%u/%u), (3:%u/%u) (fl_lc/shut_lc)\n",
 		idx,
 		info.sensor_id,
 		info.sensor_idx,
@@ -735,7 +735,9 @@ static inline void frec_dump_recorder(unsigned int idx)
 		pFrameRecord->frame_recs[1].framelength_lc,
 		pFrameRecord->frame_recs[1].shutter_lc,
 		pFrameRecord->frame_recs[2].framelength_lc,
-		pFrameRecord->frame_recs[2].shutter_lc);
+		pFrameRecord->frame_recs[2].shutter_lc,
+		pFrameRecord->frame_recs[3].framelength_lc,
+		pFrameRecord->frame_recs[3].shutter_lc);
 }
 
 
@@ -795,8 +797,8 @@ static void frec_notify_setting_frame_record_st_data(unsigned int idx)
 	struct frame_record_st recs[RECORDER_DEPTH];
 
 
-	/* 1. prepare frame settings in recorder */
-	/*    to this order: 0:newest, 1:second, 2:third */
+	/* 1. prepare frame settings in the recorder */
+	/*    => 0:newest, 1:second, 2:third */
 	for (i = 0; i < RECORDER_DEPTH; ++i) {
 		/* 1-1. ring back depthIdx */
 		depthIdx = (depthIdx + (RECORDER_DEPTH-1)) % (RECORDER_DEPTH);
@@ -851,13 +853,13 @@ static void frec_update_shutter_fl_lc(unsigned int idx,
 
 	if ((shutter_lc == 0) && (fl_lc == 0)) {
 		LOG_MUST(
-			"WARNING: [%u] ID:%#x(sidx:%u) set: %u/%u, recs[*%u] = *%u/%u (fl_lc/shut_lc), don't update frec data\n",
+			"WARNING: [%u] ID:%#x(sidx:%u) get: %u/%u => recs[*%u] = *%u/%u (fl_lc/shut_lc), don't update frec data\n",
 			idx,
 			info.sensor_id,
 			info.sensor_idx,
-			curr_depth,
-			shutter_lc,
 			fl_lc,
+			shutter_lc,
+			curr_depth,
 			pFrameRecord->frame_recs[curr_depth].framelength_lc,
 			pFrameRecord->frame_recs[curr_depth].shutter_lc);
 	}
@@ -865,13 +867,13 @@ static void frec_update_shutter_fl_lc(unsigned int idx,
 
 #ifndef REDUCE_FS_DRV_LOG
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u) set: %u/%u, recs[*%u] = *%u/%u (fl_lc/shut_lc)\n",
+		"[%u] ID:%#x(sidx:%u) get: %u/%u => recs[*%u] = *%u/%u (fl_lc/shut_lc)\n",
 		idx,
 		info.sensor_id,
 		info.sensor_idx,
-		curr_depth,
-		shutter_lc,
 		fl_lc,
+		shutter_lc,
+		curr_depth,
 		pFrameRecord->frame_recs[curr_depth].framelength_lc,
 		pFrameRecord->frame_recs[curr_depth].shutter_lc);
 #endif // REDUCE_FS_DRV_LOG
@@ -899,22 +901,40 @@ static inline void frec_push_def_shutter_fl_lc(
 
 	struct FrameRecorder (*pFrameRecord) = &fs_mgr.frm_recorder[idx];
 
+
+	/* case handling */
+	if (pFrameRecord->init) {
+		LOG_MUST(
+			"NOTICE: [%u] frec was initialized:%u, auto return [get %u/%u (fl_lc/shut_lc)]\n",
+			idx,
+			pFrameRecord->init,
+			fl_lc, shutter_lc);
+
+		frec_dump_recorder(idx);
+		return;
+	}
+	pFrameRecord->init = 1;
+
+
+	/* init all frec value to default shutter and framelength */
 	for (i = 0; i < RECORDER_DEPTH; ++i) {
 		pFrameRecord->frame_recs[i].shutter_lc = shutter_lc;
 		pFrameRecord->frame_recs[i].framelength_lc = fl_lc;
 	}
 
-	pFrameRecord->init = 1;
-
 
 #ifndef REDUCE_FS_DRV_LOG
 	/* log print info */
 	fs_get_reg_sensor_info(idx, &info);
-	LOG_INF("[%u] ID:%#x(sidx:%u) frame recorder initialized:%u\n",
+	LOG_INF("[%u] ID:%#x(sidx:%u) frame recorder initialized:%u, with def(exp:%u/fl:%u)\n",
 		idx,
 		info.sensor_id,
 		info.sensor_idx,
-		pFrameRecord->init);
+		pFrameRecord->init,
+		shutter_lc,
+		fl_lc);
+
+	frec_dump_recorder(idx);
 #endif // REDUCE_FS_DRV_LOG
 
 
@@ -936,22 +956,29 @@ static inline void frec_push_shutter_fl_lc(
 #endif // REDUCE_FS_DRV_LOG
 
 
-	/* push shutter_lc and framelength_lc */
-	pFrameRecord->frame_recs[*pDepthIdx].shutter_lc = shutter_lc;
-	pFrameRecord->frame_recs[*pDepthIdx].framelength_lc = fl_lc;
+	/* push shutter_lc and framelength_lc if are not equal to 0 */
+	if (shutter_lc > 0)
+		pFrameRecord->frame_recs[*pDepthIdx].shutter_lc = shutter_lc;
+	if (fl_lc > 0)
+		pFrameRecord->frame_recs[*pDepthIdx].framelength_lc = fl_lc;
+
+	/* depth idx ring forward */
 	(*pDepthIdx) = (((*pDepthIdx) + 1) % RECORDER_DEPTH);
 
 
 #ifndef REDUCE_FS_DRV_LOG
 	/* log print info */
 	fs_get_reg_sensor_info(idx, &info);
-	LOG_INF("[%u] ID:%#x(sidx:%u) recs[%u] = %u/%u (fl_lc/shut_lc)\n",
+	LOG_INF(
+		"[%u] ID:%#x(sidx:%u) get fl_lc:%u/shut_lc:%u => recs[%u] = %u/%u (fl_lc/shut_lc), depthIdx update to %u\n",
 		idx,
 		info.sensor_id,
 		info.sensor_idx,
+		fl_lc, shutter_lc,
 		bufDepthIdx,
-		fl_lc,
-		shutter_lc);
+		pFrameRecord->frame_recs[bufDepthIdx].framelength_lc,
+		pFrameRecord->frame_recs[bufDepthIdx].shutter_lc,
+		(*pDepthIdx));
 #endif // REDUCE_FS_DRV_LOG
 
 
@@ -1284,6 +1311,20 @@ static inline void fs_reset_ft_mode_data(unsigned int idx, unsigned int flag)
 }
 
 
+static void fs_reset_perframe_stage_data(
+	const unsigned int idx, const unsigned int flag)
+{
+	struct fs_perframe_st clear_st = {0};
+
+	if (flag > 0)
+		return;
+
+	fs_mgr.pf_ctrl[idx] = clear_st;
+
+	fs_alg_reset_vsync_data(idx);
+}
+
+
 #ifdef SUPPORT_FS_NEW_METHOD
 static inline void fs_check_sync_need_sa_mode(
 	unsigned int idx, enum FS_FEATURE_MODE flag)
@@ -1413,6 +1454,8 @@ static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 
 			/* power off CCU */
 			frm_power_on_ccu(0);
+
+			fs_alg_reset_vsync_data(idx);
 		}
 #endif // USING_CCU && DELAY_CCU_OP
 	}
@@ -1429,6 +1472,8 @@ static inline void fs_set_sync_status(unsigned int idx, unsigned int flag)
 			info.sensor_idx,
 			FS_READ_BITS(&fs_mgr.power_on_ccu_bits));
 #endif // REDUCE_FS_DRV_LOG
+
+		fs_alg_reset_vsync_data(idx);
 
 		/* power on CCU and get device handle */
 		frm_power_on_ccu(1);
@@ -2118,22 +2163,25 @@ void fs_update_tg(unsigned int ident, unsigned int tg)
 
 static inline void fs_reset_idx_ctx(unsigned int idx)
 {
-	/* 1. unset sync */
+	/* unset sync */
 	fs_set_sync_idx(idx, 0);
 
-	/* 2. reset frm frame info data */
+	/* reset frm frame info data */
 	frm_reset_frame_info(idx);
 
-	/* 3. reset fs instance data (algo -> fs_inst[idx]) */
+	/* reset fs instance data (algo -> fs_inst[idx]) */
 	fs_alg_reset_fs_inst(idx);
 
-	/* 4. reset frame recorder data */
+	/* reset frame recorder data */
 	frec_reset_recorder(idx);
 
-	/* 5. unset stream (stream off) */
+	/* clear/reset perframe stage data */
+	fs_reset_perframe_stage_data(idx, 0);
+
+	/* unset stream (stream off) */
 	fs_set_stream(idx, 0);
 
-	/* 6. clear/reset callback function pointer */
+	/* clear/reset callback function pointer */
 	fs_reset_cb_data(idx);
 }
 

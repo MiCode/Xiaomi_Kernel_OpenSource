@@ -711,6 +711,44 @@ void frm_set_frame_measurement(
 	/* x. clear check flag */
 	frm_inst.f_info[idx].wait_for_setting_predicted_fl = 0;
 }
+
+
+void frm_get_curr_frame_mesurement_and_ts_data(
+	const unsigned int idx, unsigned int *p_fmeas_idx,
+	unsigned int *p_pr_fl_us, unsigned int *p_pr_fl_lc,
+	unsigned int *p_act_fl_us, unsigned int *p_ts_arr)
+{
+	struct FrameMeasurement *p_fmeas = &frm_inst.f_info[idx].fmeas;
+	unsigned int fmeas_idx = 0;
+	unsigned int i = 0;
+
+	if (p_fmeas == NULL) {
+		LOG_MUST(
+			"[%u] ID:%#x(sidx:%u), tg:%u, p_fmeas is NULL\n",
+			idx,
+			frm_inst.f_info[idx].sensor_id,
+			frm_inst.f_info[idx].sensor_idx,
+			frm_inst.f_info[idx].tg);
+		return;
+	}
+
+
+	/* current result => ring back for get latest result */
+	fmeas_idx = ((p_fmeas->idx) + (VSYNCS_MAX - 1)) % VSYNCS_MAX;
+	if (p_fmeas_idx != NULL)
+		*p_fmeas_idx = fmeas_idx;
+
+	if (p_pr_fl_us != NULL)
+		*p_pr_fl_us = p_fmeas->results[fmeas_idx].predicted_fl_us;
+	if (p_pr_fl_lc != NULL)
+		*p_pr_fl_lc = p_fmeas->results[fmeas_idx].predicted_fl_lc;
+	if (p_act_fl_us != NULL)
+		*p_act_fl_us = p_fmeas->results[fmeas_idx].actual_fl_us;
+	if (p_ts_arr != NULL) {
+		for (i = 0; i < VSYNCS_MAX; ++i)
+			p_ts_arr[i] = p_fmeas->timestamps[i];
+	}
+}
 /******************************************************************************/
 
 

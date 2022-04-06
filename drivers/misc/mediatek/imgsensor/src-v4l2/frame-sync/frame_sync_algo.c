@@ -197,6 +197,7 @@ struct FrameSyncInst {
 	/* frame monitor data */
 	unsigned int vsyncs;
 	unsigned int last_vts;
+	unsigned int timestamps[VSYNCS_MAX];
 	unsigned int cur_tick;
 	unsigned int vdiff;
 
@@ -315,8 +316,8 @@ static inline void check_fl_boundary(unsigned int idx)
 }
 
 
-static inline unsigned int check_vsync_valid(
-	unsigned int solveIdxs[], unsigned int len)
+static inline unsigned int check_fs_inst_vsync_data_valid(
+	const unsigned int solveIdxs[], const unsigned int len)
 {
 	unsigned int i = 0;
 	unsigned int ret = 1; // valid -> 1 / non-valid -> 0
@@ -822,7 +823,7 @@ void fs_alg_setup_frame_monitor_fmeas_data(unsigned int idx)
 /******************************************************************************/
 static inline void fs_alg_dump_streaming_data(unsigned int idx)
 {
-	LOG_INF(
+	LOG_MUST(
 		"[%u] ID:%#x(sidx:%u), tg:%u, fl_delay:%u, fl_lc(def/max):%u/%u, def_shut_lc:%u, hdr_exp: c(%u/%u/%u/%u/%u, %u/%u), prev(%u/%u/%u/%u/%u, %u/%u), cnt:(mode/ae)\n",
 		idx,
 		fs_inst[idx].sensor_id,
@@ -940,16 +941,27 @@ void fs_alg_dump_all_fs_inst_data(void)
 #ifdef SUPPORT_FS_NEW_METHOD
 static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 {
-	unsigned int time_after_sof = 0;
+	unsigned int time_after_sof = 0, time_after_sof_cur = 0;
+	unsigned int fmeas_idx = 0, pr_fl_us = 0, pr_fl_lc = 0, act_fl_us = 0;
+	unsigned int fmeas_ts[VSYNCS_MAX] = {0};
 
-	time_after_sof = (tick_factor != 0)
-		? ((fs_sa_inst.dynamic_paras[idx].cur_tick / tick_factor)
-			- (fs_sa_inst.dynamic_paras[idx].last_ts))
-		: 0;
+
+	time_after_sof =
+		calc_time_after_sof(
+			fs_sa_inst.dynamic_paras[idx].last_ts,
+			fs_sa_inst.dynamic_paras[idx].cur_tick, tick_factor);
+
+	time_after_sof_cur =
+		calc_time_after_sof(
+			fs_inst[idx].last_vts,
+			fs_inst[idx].cur_tick, tick_factor);
+
+	frm_get_curr_frame_mesurement_and_ts_data(idx,
+		&fmeas_idx, &pr_fl_us, &pr_fl_lc, &act_fl_us, fmeas_ts);
 
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), #%u, out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pred_fl(c:%u/n:%u), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, ts(%u/+%u(%u)/%u)\n",
+		"[%u] ID:%#x(sidx:%u), #%u, out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, tg:%u, ts(%u/+%u(%u)/%u), [frec(0:%u/%u)(fl_lc/shut_lc), fmeas:%u(pr:%u(%u)/act:%u), fmeas_ts(%u/%u/%u/%u), fs_inst_ts(%u/%u/%u/%u ,%u/+%u(%u)/%u)]\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -970,7 +982,13 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 			fs_inst[idx].lineTimeInNs,
 			fs_sa_inst.dynamic_paras[idx].target_min_fl_us),
 		fs_sa_inst.dynamic_paras[idx].pred_fl_us[0],
+		convert2LineCount(
+			fs_inst[idx].lineTimeInNs,
+			fs_sa_inst.dynamic_paras[idx].pred_fl_us[0]),
 		fs_sa_inst.dynamic_paras[idx].pred_fl_us[1],
+		convert2LineCount(
+			fs_inst[idx].lineTimeInNs,
+			fs_sa_inst.dynamic_paras[idx].pred_fl_us[1]),
 		fs_sa_inst.dynamic_paras[idx].ts_bias_us,
 		fs_sa_inst.dynamic_paras[idx].tag_bias_us,
 		fs_sa_inst.dynamic_paras[idx].f_tag,
@@ -985,10 +1003,29 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 		fs_sa_inst.dynamic_paras[idx].adj_or_not,
 		fs_sa_inst.dynamic_paras[idx].adj_diff_m,
 		fs_inst[idx].flicker_en,
+		fs_inst[idx].tg,
 		fs_sa_inst.dynamic_paras[idx].last_ts,
 		time_after_sof,
 		fs_sa_inst.dynamic_paras[idx].cur_tick,
-		fs_sa_inst.dynamic_paras[idx].vsyncs);
+		fs_sa_inst.dynamic_paras[idx].vsyncs,
+		*fs_inst[idx].recs[0].framelength_lc,
+		*fs_inst[idx].recs[0].shutter_lc,
+		fmeas_idx,
+		pr_fl_us,
+		pr_fl_lc,
+		act_fl_us,
+		fmeas_ts[0],
+		fmeas_ts[1],
+		fmeas_ts[2],
+		fmeas_ts[3],
+		fs_inst[idx].timestamps[0],
+		fs_inst[idx].timestamps[1],
+		fs_inst[idx].timestamps[2],
+		fs_inst[idx].timestamps[3],
+		fs_inst[idx].last_vts,
+		time_after_sof_cur,
+		fs_inst[idx].cur_tick,
+		fs_inst[idx].vsyncs);
 }
 #endif // SUPPORT_FS_NEW_METHOD
 /******************************************************************************/
@@ -1032,9 +1069,12 @@ static unsigned int fs_alg_sa_dynamic_paras_checker(
 
 
 	/* check if last timestamp equal to zero */
-	if (check_vsync_valid(query_ts_idx, 2) == 0) {
-		LOG_INF(
-			"NOTICE: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), incorrect vsync timestamp detected, ts(s:%u/m:%u), p_para_ts(s:%u/m:%u)\n",
+	if (check_fs_inst_vsync_data_valid(query_ts_idx, 2) == 0
+		|| p_para_m->last_ts == 0
+		|| p_para_s->last_ts == 0) {
+
+		LOG_MUST(
+			"NOTICE: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), latest timestamp is/are ZERO (s:%u/m:%u), fs_inst(s(%u/%u/%u/%u), m(%u/%u/%u/%u)), p_para_ts(s:%u/m:%u)\n",
 			s_idx,
 			fs_inst[s_idx].sensor_id,
 			fs_inst[s_idx].sensor_idx,
@@ -1043,6 +1083,14 @@ static unsigned int fs_alg_sa_dynamic_paras_checker(
 			m_idx,
 			fs_inst[s_idx].last_vts,
 			fs_inst[m_idx].last_vts,
+			fs_inst[s_idx].timestamps[0],
+			fs_inst[s_idx].timestamps[1],
+			fs_inst[s_idx].timestamps[2],
+			fs_inst[s_idx].timestamps[3],
+			fs_inst[m_idx].timestamps[0],
+			fs_inst[m_idx].timestamps[1],
+			fs_inst[m_idx].timestamps[2],
+			fs_inst[m_idx].timestamps[3],
 			p_para_s->last_ts,
 			p_para_m->last_ts
 		);
@@ -1054,7 +1102,7 @@ static unsigned int fs_alg_sa_dynamic_paras_checker(
 	/* check sensor fl_active_delay value */
 	/* in this time predicted frame length are equal to zero */
 	if ((fdelay_s < 2 || fdelay_s > 3) || (fdelay_m < 2 || fdelay_m > 3)) {
-		LOG_INF(
+		LOG_MUST(
 			"ERROR: [%u] ID:%#x(sidx:%u), frame_time_delay_frame is/are not valid (must be 2 or 3), s:%u/m:%u\n",
 			s_idx,
 			fs_inst[s_idx].sensor_id,
@@ -1489,6 +1537,10 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 	/* check situation for changing master and adjusting this diff or not */
 	if ((adjust_diff_s > FS_TOLERANCE) && (adjust_diff_m > 0)
 		&& (sync_delay_m < sync_delay_s))
+		request_switch_master = 1;
+
+	if ((adjust_diff_s > FS_TOLERANCE)
+		&& (adjust_diff_m > 0) && (adjust_diff_m < FS_TOLERANCE))
 		request_switch_master = 1;
 
 	if (check_timing_critical_section(
@@ -2287,6 +2339,19 @@ void fs_alg_set_perframe_st_data(
 }
 
 
+void fs_alg_reset_vsync_data(const unsigned int idx)
+{
+	unsigned int i = 0;
+
+	fs_inst[idx].vsyncs = 0;
+	fs_inst[idx].last_vts = 0;
+	fs_inst[idx].cur_tick = 0;
+
+	for (i = 0; i < VSYNCS_MAX; ++i)
+		fs_inst[idx].timestamps[i] = 0;
+}
+
+
 void fs_alg_reset_fs_inst(unsigned int idx)
 {
 	struct FrameSyncInst clear_fs_inst_st = {0};
@@ -2337,7 +2402,7 @@ void fs_alg_set_frame_record_st_data(
 
 #ifndef REDUCE_FS_ALGO_LOG
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), tg:%u, frecs: (0:%u/%u), (1:%u/%u), (2:%u/%u) (fl_lc/shut_lc), pred_fl(curr:%u(%u), next:%u(%u))(%u), margin_lc:%u, fdelay:%u\n",
+		"[%u] ID:%#x(sidx:%u), tg:%u, frecs: (0:%u/%u), (1:%u/%u), (2:%u/%u), (3:%u/%u) (fl_lc/shut_lc), pred_fl(curr:%u(%u), next:%u(%u))(%u), margin_lc:%u, fdelay:%u\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -2348,6 +2413,8 @@ void fs_alg_set_frame_record_st_data(
 		*fs_inst[idx].recs[1].shutter_lc,
 		*fs_inst[idx].recs[2].framelength_lc,
 		*fs_inst[idx].recs[2].shutter_lc,
+		*fs_inst[idx].recs[3].framelength_lc,
+		*fs_inst[idx].recs[3].shutter_lc,
 		fs_inst[idx].predicted_fl_us[0],
 		fs_inst[idx].predicted_fl_lc[0],
 		fs_inst[idx].predicted_fl_us[1],
@@ -2364,7 +2431,7 @@ void fs_alg_sa_notify_setup_all_frame_info(unsigned int idx)
 	int m_idx = FS_ATOMIC_READ(&fs_sa_inst.master_idx);
 
 
-	fs_alg_sa_dump_dynamic_para(idx);
+	// fs_alg_sa_dump_dynamic_para(idx);
 	fs_alg_setup_frame_monitor_fmeas_data(idx);
 
 
@@ -2390,6 +2457,8 @@ void fs_alg_sa_notify_vsync(unsigned int idx)
 			fs_inst[idx].sensor_idx);
 	}
 #endif // REDUCE_FS_ALGO_LOG
+
+	fs_alg_sa_dump_dynamic_para(idx);
 }
 /******************************************************************************/
 
@@ -2404,7 +2473,7 @@ void fs_alg_sa_notify_vsync(unsigned int idx)
 /* return "0" -> done; "non 0" -> error ? */
 unsigned int fs_alg_get_vsync_data(unsigned int solveIdxs[], unsigned int len)
 {
-	unsigned int i = 0;
+	unsigned int i = 0, j = 0;
 
 	unsigned int query_tg_ts[TG_MAX_NUM];
 	struct vsync_rec vsync_recs = {0};
@@ -2454,18 +2523,27 @@ unsigned int fs_alg_get_vsync_data(unsigned int solveIdxs[], unsigned int len)
 		fs_inst[solveIdxs[i]].cur_tick =
 					vsync_recs.cur_tick;
 
+		for (j = 0; j < VSYNCS_MAX; ++j) {
+			fs_inst[solveIdxs[i]].timestamps[j] =
+					vsync_recs.recs[i].timestamps[j];
+		}
 
-#ifndef REDUCE_FS_ALGO_LOG
-		LOG_INF(
-			"[%u] ID:%#x(sidx:%u), tg:%u, vsyncs:%u, last_vts:%u, cur_tick:%u\n",
+
+//#ifndef REDUCE_FS_ALGO_LOG
+		LOG_PF_INF(
+			"[%u] ID:%#x(sidx:%u), tg:%u, vsyncs:%u, last_vts:%u, cur_tick:%u, ts(%u/%u/%u/%u)\n",
 			solveIdxs[i],
 			fs_inst[solveIdxs[i]].sensor_id,
 			fs_inst[solveIdxs[i]].sensor_idx,
 			fs_inst[solveIdxs[i]].tg,
 			fs_inst[solveIdxs[i]].vsyncs,
 			fs_inst[solveIdxs[i]].last_vts,
-			fs_inst[solveIdxs[i]].cur_tick);
-#endif // REDUCE_FS_ALGO_LOG
+			fs_inst[solveIdxs[i]].cur_tick,
+			fs_inst[solveIdxs[i]].timestamps[0],
+			fs_inst[solveIdxs[i]].timestamps[1],
+			fs_inst[solveIdxs[i]].timestamps[2],
+			fs_inst[solveIdxs[i]].timestamps[3]);
+//#endif // REDUCE_FS_ALGO_LOG
 
 
 		set_valid_for_using_vsyncs_recs_data(solveIdxs[i], 1);
@@ -2609,7 +2687,7 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 
 
 	/* 0. check vsync timestamp (preventing last vts is "0") */
-	if (check_vsync_valid(solveIdxs, len) == 0) {
+	if (check_fs_inst_vsync_data_valid(solveIdxs, len) == 0) {
 		LOG_PR_WARN(
 			"ERROR: Incorrect vsync timestamp detected, not adjust vsync diff\n"
 			);
@@ -2972,6 +3050,7 @@ static void do_fps_sync_sa(
 		}
 	}
 
+	/* chk for preventing FL not retracting after extending */
 	out_fl_us = (min_fl_us < target_min_fl_us)
 		? min_fl_us : target_min_fl_us;
 
