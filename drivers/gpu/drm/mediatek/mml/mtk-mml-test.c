@@ -254,8 +254,8 @@ static void case_general_submit(struct mml_test *test,
 	}
 
 	mml_ctx = mml_drm_get_context(mml_pdev, &disp);
-	if (!mml_ctx) {
-		mml_err("[test]get mml context failed");
+	if (IS_ERR_OR_NULL(mml_ctx)) {
+		mml_err("[test]get mml context failed %d", PTR_ERR(mml_ctx));
 		return;
 	}
 
@@ -1514,11 +1514,11 @@ static void mml_test_krun(u32 case_num)
 	}
 
 	if (mml_test_create_src(heap, &cur, &src_buf) < 0)
-		goto end;
+		goto free_heap;
 
 	if (mml_test_alloc_frame(heap, &dest_buf, cur.cfg_dest_format,
 		cur.cfg_dest_w, cur.cfg_dest_h) < 0)
-		goto end;
+		goto free_heap;
 
 	cur.buf_src = src_buf.dmabuf[0];
 	cur.dma_size_in = src_buf.size[0];
@@ -1530,14 +1530,15 @@ static void mml_test_krun(u32 case_num)
 	if (case_num < ARRAY_SIZE(cases) && cases[case_num].run)
 		cases[case_num].run(main_test, &cur);
 
-end:
-	mml_test_free_frame(&src_buf);
-	mml_test_free_frame(&dest_buf);
-
+free_heap:
 	/* put heap struct after use it done.
 	 * put times must same with get pass times, otherwise heap will disappear.
 	 */
 	dma_heap_put(heap);
+
+end:
+	mml_test_free_frame(&src_buf);
+	mml_test_free_frame(&dest_buf);
 }
 
 static int mml_test_krun_set(const char *val, const struct kernel_param *kp)
