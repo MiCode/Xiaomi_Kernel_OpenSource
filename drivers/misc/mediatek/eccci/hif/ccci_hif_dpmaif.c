@@ -4472,6 +4472,7 @@ static int dpmaif_resume(unsigned char hif_id)
 		for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 			queue = &hif_ctrl->txq[i];
 			dpmaif_tx_hw_init(queue);
+			atomic_set(&queue->tx_resume_done, 1);
 		}
 	}
 	return 0;
