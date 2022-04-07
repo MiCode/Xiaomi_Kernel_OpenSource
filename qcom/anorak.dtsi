@@ -406,6 +406,18 @@
 		#reset-cells = <1>;
 	};
 
+	adsp_pas: remoteproc-adsp@03000000 {
+		compatible = "qcom,anorak-adsp-pas";
+		reg = <0x03000000 0x10000>;
+		status = "disabled";
+	};
+
+	cdsp_pas: remoteproc-cdsp@32300000 {
+		compatible = "qcom,anorak-cdsp-pas";
+		reg = <0x32300000 0x10000>;
+		status = "disabled";
+	};
+
 	ipcc_mproc: qcom,ipcc@ed18000 {
 		compatible = "qcom,ipcc";
 		reg = <0x408000 0x1000>;
