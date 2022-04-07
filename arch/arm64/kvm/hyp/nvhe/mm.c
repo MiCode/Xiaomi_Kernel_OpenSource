@@ -331,6 +331,12 @@ static void *admit_host_page(void *arg)
 int refill_memcache(struct kvm_hyp_memcache *mc, unsigned long min_pages,
 		    struct kvm_hyp_memcache *host_mc)
 {
-	return __topup_hyp_memcache(mc, min_pages, admit_host_page,
-				    hyp_virt_to_phys, host_mc);
+	struct kvm_hyp_memcache tmp = *host_mc;
+	int ret;
+
+	ret =  __topup_hyp_memcache(mc, min_pages, admit_host_page,
+				    hyp_virt_to_phys, &tmp);
+	*host_mc = tmp;
+
+	return ret;
 }
