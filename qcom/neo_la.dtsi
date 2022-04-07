@@ -378,6 +378,23 @@
 		<7500 1094362>;
 
 	};
+
+	bluetooth: bt_wcn6x5x {
+		compatible = "qcom,kiwi";
+		qcom,bt-vdd18-aon-supply  = <&L15A>; /* BT VDD1.8 AON */
+		qcom,bt-vdd-dig-supply    = <&S4A>; /* BT LDO*/
+		qcom,bt-vdd-aon-supply    = <&S4A>; /* BT AON LDO*/
+		qcom,bt-vdd-rfaOp8_supply = <&S4A>; /* BT RFAOp8 CMN LDO*/
+		qcom,bt-vdd-rfa1-supply   = <>;   /* BT RFA1.2 LDO. always ON */
+		qcom,bt-vdd-rfa2-supply   = <&S5A>; /* BT RFA1.8 LDO */
+
+		qcom,bt-vdd18-aon-config  = <1800000 1800000 0 1>;
+		qcom,bt-vdd-aon-config    = <950000 950000 0 1>;
+		qcom,bt-vdd-dig-config    = <950000 950000 0 1>;
+		qcom,bt-vdd-rfaOp8-config = <950000 950000 0 1>;
+		qcom,bt-vdd-rfa1-config   = <1350000 1350000 0 1>;
+		qcom,bt-vdd-rfa2-config   = <1900000 1900000 0 1>;
+	};
 };
 
 &pcie0_rp {
