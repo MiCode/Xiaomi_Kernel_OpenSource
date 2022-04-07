@@ -6,6 +6,7 @@
 #ifndef __KGSL_GMU_CORE_H
 #define __KGSL_GMU_CORE_H
 
+#include <linux/rbtree.h>
 #include <linux/mailbox_client.h>
 
 /* GMU_DEVICE - Given an KGSL device return the GMU specific struct */
@@ -191,6 +192,12 @@ struct kgsl_mailbox {
 
 struct icc_path;
 
+struct gmu_vma_node {
+	struct rb_node node;
+	u32 va;
+	u32 size;
+};
+
 struct gmu_vma_entry {
 	/** @start: Starting virtual address of the vma */
 	u32 start;
@@ -198,6 +205,10 @@ struct gmu_vma_entry {
 	u32 size;
 	/** @next_va: Next available virtual address in this vma */
 	u32 next_va;
+	/** @lock: Spinlock for synchronization */
+	spinlock_t lock;
+	/** @vma_root: RB tree root that keeps track of dynamic allocations */
+	struct rb_root vma_root;
 };
 
 enum {

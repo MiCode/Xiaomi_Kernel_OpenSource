@@ -863,32 +863,10 @@ static int gmu_import_buffer(struct adreno_device *adreno_dev,
 	struct hfi_mem_alloc_entry *entry, u32 flags)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
-	int attrs = get_attrs(flags);
-	struct gmu_vma_entry *vma = &gmu->vma[GMU_NONCACHED_KERNEL];
+	u32 vma_id = (flags & HFI_MEMFLAG_GMU_CACHEABLE) ? GMU_CACHE : GMU_NONCACHED_KERNEL;
 	struct hfi_mem_alloc_desc *desc = &entry->desc;
-	int ret;
 
-	if (flags & HFI_MEMFLAG_GMU_CACHEABLE)
-		vma = &gmu->vma[GMU_CACHE];
-
-	if ((vma->next_va + desc->size) > (vma->start + vma->size)) {
-		dev_err(&gmu->pdev->dev,
-			"GMU mapping too big. available: %d required: %d\n",
-			vma->next_va - vma->start, desc->size);
-		return -ENOMEM;
-	}
-
-	ret = gmu_core_map_memdesc(gmu->domain, entry->md, vma->next_va, attrs);
-	if (ret) {
-		dev_err(&gmu->pdev->dev, "gmu map err: 0x%08x, %x\n",
-			vma->next_va, attrs);
-		return ret;
-	}
-
-	entry->md->gmuaddr = vma->next_va;
-
-	vma->next_va += desc->size;
-	return 0;
+	return gen7_gmu_import_buffer(gmu, vma_id, entry->md, desc->size, get_attrs(flags));
 }
 
 static struct hfi_mem_alloc_entry *lookup_mem_alloc_table(
