@@ -120,6 +120,10 @@ void gen7_cp_init_cmds(struct adreno_device *adreno_dev, u32 *cmds)
 	/* Enable the register init list with the spinlock */
 	mask |= BIT(8);
 
+	/* By default DMS is enabled from CP side, disable it if not supported */
+	if (!adreno_dev->dms_enabled)
+		mask |= BIT(11);
+
 	cmds[i++] = cp_type7_packet(CP_ME_INIT, 7);
 
 	/* Enabled ordinal mask */

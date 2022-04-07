@@ -129,6 +129,8 @@
 #define ADRENO_LSR BIT(15)
 /* GMU and kernel supports hardware fences */
 #define ADRENO_HW_FENCE BIT(16)
+/* Dynamic Mode Switching supported on this target */
+#define ADRENO_DMS BIT(17)
 
 
 /*
@@ -598,6 +600,8 @@ struct adreno_device {
 	bool bcl_enabled;
 	/** @lpac_enabled: True if LPAC is enabled */
 	bool lpac_enabled;
+	/** @dms_enabled: True if DMS is enabled */
+	bool dms_enabled;
 	struct kgsl_memdesc *profile_buffer;
 	unsigned int profile_index;
 	struct kgsl_memdesc *pwrup_reglist;
@@ -722,6 +726,8 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_ISDB_ENABLED = 12,
 	ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED = 13,
 	ADRENO_DEVICE_CORESIGHT_CX = 14,
+	/** @ADRENO_DEVICE_DMS: Set if DMS is enabled */
+	ADRENO_DEVICE_DMS = 15,
 };
 
 /**

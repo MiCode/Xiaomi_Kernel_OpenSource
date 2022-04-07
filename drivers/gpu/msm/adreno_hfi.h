@@ -74,6 +74,8 @@
 #define HFI_FEATURE_LPAC	24
 #define HFI_FEATURE_HW_FENCE	25
 #define HFI_FEATURE_PERF_NORETAIN	26
+#define HFI_FEATURE_DMS		27
+
 
 /* A6xx uses a different value for KPROF */
 #define HFI_FEATURE_A6XX_KPROF	14
