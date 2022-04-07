@@ -388,6 +388,8 @@ static inline void free_mem_obj_locked(struct smcinvoke_mem_obj *mem_obj)
 				ret, dmabuf_to_free);
 	else
 		dma_buf_put(dmabuf_to_free);
+
+	mutex_lock(&g_smcinvoke_lock);
 }
 
 static void del_mem_regn_obj_locked(struct kref *kref)
