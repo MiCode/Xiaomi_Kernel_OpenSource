@@ -186,3 +186,21 @@
 		};
 	};
 };
+
+&thermal_zones {
+	pm8350b-bcl-lvl2 {
+		cooling-maps {
+			vbat_gpu2 {
+				cooling-device = <&msm_gpu 9 9>;
+			};
+		};
+	};
+
+	pm8350c-bcl-lvl2 {
+		cooling-maps {
+			vph_gpu2 {
+				cooling-device = <&msm_gpu 9 9>;
+			};
+		};
+	};
+};
