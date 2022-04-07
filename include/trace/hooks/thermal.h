@@ -18,6 +18,14 @@ DECLARE_HOOK(android_vh_modify_thermal_target_freq,
 	TP_PROTO(struct cpufreq_policy *policy, unsigned int *target_freq),
 	TP_ARGS(policy, target_freq));
 
+DECLARE_HOOK(android_vh_thermal_register,
+	TP_PROTO(struct cpufreq_policy *policy),
+	TP_ARGS(policy));
+
+DECLARE_HOOK(android_vh_thermal_unregister,
+	TP_PROTO(struct cpufreq_policy *policy),
+	TP_ARGS(policy));
+
 DECLARE_HOOK(android_vh_enable_thermal_power_throttle,
 	TP_PROTO(int *enable),
 	TP_ARGS(enable));
