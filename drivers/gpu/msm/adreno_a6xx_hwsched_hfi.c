@@ -11,6 +11,7 @@
 #include "adreno_a6xx.h"
 #include "adreno_a6xx_hwsched.h"
 #include "adreno_hfi.h"
+#include "adreno_perfcounter.h"
 #include "adreno_pm4types.h"
 #include "adreno_trace.h"
 #include "kgsl_device.h"
@@ -1121,6 +1122,40 @@ int a6xx_hwsched_cp_init(struct adreno_device *adreno_dev)
 			A6XX_RBBM_SECVID_TRUST_CNTL, 0x0);
 	else
 		ret = send_switch_to_unsecure(adreno_dev);
+
+	return ret;
+}
+
+int a6xx_hwsched_counter_inline_enable(struct adreno_device *adreno_dev,
+		const struct adreno_perfcount_group *group,
+		unsigned int counter, unsigned int countable)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_perfcount_register *reg = &group->regs[counter];
+	u32 cmds[A6XX_PERF_COUNTER_ENABLE_DWORDS + 1];
+	int ret;
+	char str[64];
+
+	if (!(device->state == KGSL_STATE_ACTIVE))
+		return a6xx_counter_enable(adreno_dev, group, counter,
+			countable);
+
+	if (group->flags & ADRENO_PERFCOUNTER_GROUP_RESTORE)
+		a6xx_perfcounter_update(adreno_dev, reg, false);
+
+	cmds[0] = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW,
+		(A6XX_PERF_COUNTER_ENABLE_DWORDS + 1) << 2, HFI_MSG_CMD);
+
+	cmds[1] = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
+	cmds[2] = cp_type4_packet(reg->select, 1);
+	cmds[3] = countable;
+
+	snprintf(str, sizeof(str), "Perfcounter %s/%u/%u start via commands failed\n",
+			group->name, counter, countable);
+
+	ret = submit_raw_cmds(adreno_dev, cmds, str);
+	if (!ret)
+		reg->value = 0;
 
 	return ret;
 }

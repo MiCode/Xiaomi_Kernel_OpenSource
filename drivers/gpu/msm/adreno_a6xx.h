@@ -165,6 +165,9 @@ struct a6xx_cp_smmu_info {
 /* Size of the CP_INIT pm4 stream in dwords */
 #define A6XX_CP_INIT_DWORDS 11
 
+/* Size of the perf counter enable pm4 stream in dwords */
+#define A6XX_PERF_COUNTER_ENABLE_DWORDS 3
+
 #define A6XX_INT_MASK \
 	((1 << A6XX_INT_CP_AHB_ERROR) |			\
 	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\
@@ -359,6 +362,19 @@ void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 	const char *str);
 
 /**
+ * a6xx_counter_enable - Configure a performance counter for a countable
+ * @adreno_dev -  Adreno device to configure
+ * @group - Desired performance counter group
+ * @counter - Desired performance counter in the group
+ * @countable - Desired countable
+ *
+ * Physically set up a counter within a group with the desired countable
+ * Return 0 on success else error code
+ */
+int a6xx_counter_enable(struct adreno_device *adreno_dev,
+		const struct adreno_perfcount_group *group,
+		unsigned int counter, unsigned int countable);
+/**
  * a6xx_perfcounter_update - Update the IFPC perfcounter list
  * @adreno_dev: An Adreno GPU handle
  * @reg: Perfcounter reg struct to add/remove to the list
@@ -381,6 +397,7 @@ int a6xx_ringbuffer_init(struct adreno_device *adreno_dev);
 extern const struct adreno_perfcounters adreno_a630_perfcounters;
 extern const struct adreno_perfcounters adreno_a6xx_perfcounters;
 extern const struct adreno_perfcounters adreno_a6xx_legacy_perfcounters;
+extern const struct adreno_perfcounters adreno_a6xx_hwsched_perfcounters;
 
 /**
  * a6xx_rdpm_mx_freq_update - Update the mx frequency
