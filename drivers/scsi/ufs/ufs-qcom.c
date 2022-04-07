@@ -1905,6 +1905,7 @@ static int ufs_qcom_vdd_hba_reg_notifier(struct notifier_block *nb,
 		if (ufs_qcom_is_link_hibern8(host->hba) &&
 		    (host->chosen_algo != STATIC_ALLOC_ALG1))
 			host->vdd_hba_pc = true;
+		break;
 	default:
 		break;
 	}
@@ -2197,8 +2198,8 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 				 */
 				host->ref_clki->enabled = on;
 			}
-			break;
 		}
+		break;
 	case POST_CHANGE:
 		if (!on) {
 			if (!ufs_qcom_is_link_active(hba)) {
