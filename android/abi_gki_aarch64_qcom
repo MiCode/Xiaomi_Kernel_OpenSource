@@ -1443,17 +1443,6 @@
   resched_curr
   reset_control_assert
   reset_control_deassert
-  rndis_deregister
-  rndis_free_response
-  rndis_get_next_response
-  rndis_msg_parser
-  rndis_register
-  rndis_set_host_mac
-  rndis_set_param_dev
-  rndis_set_param_medium
-  rndis_set_param_vendor
-  rndis_signal_connect
-  rndis_uninit
   root_task_group
   round_jiffies_relative
   rpmsg_get_signals

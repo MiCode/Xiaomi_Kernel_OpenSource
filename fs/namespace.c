@@ -423,7 +423,7 @@ int mnt_want_write_file(struct file *file)
 		sb_end_write(file_inode(file)->i_sb);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(mnt_want_write_file);
+EXPORT_SYMBOL_NS_GPL(mnt_want_write_file, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /**
  * __mnt_drop_write - give up write access to a mount
@@ -466,7 +466,7 @@ void mnt_drop_write_file(struct file *file)
 	__mnt_drop_write_file(file);
 	sb_end_write(file_inode(file)->i_sb);
 }
-EXPORT_SYMBOL(mnt_drop_write_file);
+EXPORT_SYMBOL_NS(mnt_drop_write_file, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 static inline int mnt_hold_writers(struct mount *mnt)
 {
