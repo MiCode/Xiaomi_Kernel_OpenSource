@@ -131,6 +131,8 @@ struct walt_task_struct {
 	u64				total_exec;
 	int				mvp_prio;
 	int				cidx;
+	int				load_boost;
+	int64_t				boosted_task_load;
 	u8                              hung_detect_status;
 };
 
