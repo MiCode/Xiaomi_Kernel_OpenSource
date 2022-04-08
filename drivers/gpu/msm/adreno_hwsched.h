@@ -70,6 +70,7 @@ enum adreno_hwsched_flags {
 	ADRENO_HWSCHED_POWER = 0,
 	ADRENO_HWSCHED_ACTIVE,
 	ADRENO_HWSCHED_CTX_BAD_LEGACY,
+	ADRENO_HWSCHED_CONTEXT_QUEUE,
 };
 
 /**
@@ -144,5 +145,7 @@ static inline bool hwsched_in_fault(struct adreno_hwsched *hwsched)
 
 void adreno_hwsched_retire_cmdobj(struct adreno_hwsched *hwsched,
 	struct kgsl_drawobj_cmd *cmdobj);
+
+bool adreno_hwsched_context_queue_enabled(struct adreno_device *adreno_dev);
 
 #endif

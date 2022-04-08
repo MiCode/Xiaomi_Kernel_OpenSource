@@ -95,6 +95,7 @@
 #define HFI_VALUE_BIN_TIME		117
 #define HFI_VALUE_LOG_STREAM_ENABLE	119
 #define HFI_VALUE_PREEMPT_COUNT		120
+#define HFI_VALUE_CONTEXT_QUEUE		121
 
 #define HFI_VALUE_GLOBAL_TOKEN		0xFFFFFFFF
 
@@ -294,6 +295,39 @@ struct hfi_queue_table_header {
 } __packed;
 
 /**
+ * struct gmu_context_queue_header - GMU context queue header structure
+ */
+struct gmu_context_queue_header {
+	/** @version: Version of the header */
+	u32 version;
+	/** @start_addr: GMU VA of start of the queue */
+	u32 start_addr;
+	/** @queue_size: queue size in dwords */
+	u32 queue_size;
+	/** @out_fence_ts: Timestamp of last hardware fence sent to Tx Queue */
+	volatile u32 out_fence_ts;
+	/** @sync_obj_ts: Timestamp of last sync object that GMU has digested */
+	volatile u32 sync_obj_ts;
+	/** @read_index: Read index of the queue */
+	volatile u32 read_index;
+	/** @write_index: Write index of the queue */
+	volatile u32 write_index;
+	/**
+	 * @hw_fence_buffer_va: GMU VA of the buffer to store output hardware fences for this
+	 * context
+	 */
+	u32 hw_fence_buffer_va;
+	/**
+	 * @hw_fence_buffer_size: Size of the buffer to store output hardware fences for this
+	 * context
+	 */
+	u32 hw_fence_buffer_size;
+	u32 unused1;
+	u32 unused2;
+	u32 unused3;
+} __packed;
+
+/**
  * struct hfi_queue_header - HFI queue header structure
  * @status: active: 1; inactive: 0
  * @start_addr: starting address of the queue in GMU VA space
@@ -315,8 +349,8 @@ struct hfi_queue_header {
 	u32 unused2;
 	u32 unused3;
 	u32 unused4;
-	u32 read_index;
-	u32 write_index;
+	volatile u32 read_index;
+	volatile u32 write_index;
 } __packed;
 
 #define HFI_MSG_CMD 0 /* V1 and V2 */
@@ -688,6 +722,8 @@ struct hfi_context_pointers_cmd {
 	u64 sop_addr;
 	u64 eop_addr;
 	u64 user_ctxt_record_addr;
+	u32 version;
+	u32 gmu_context_queue_addr;
 } __packed;
 
 /* H2F */
@@ -897,8 +933,8 @@ static inline void hfi_update_read_idx(struct hfi_queue_header *hdr, u32 index)
 }
 
 /**
- * hfi_update_write_idx - Update the write index of an hfi queue
- * hdr: Pointer to the hfi queue header
+ * hfi_update_write_idx - Update the write index of a GMU queue
+ * write_idx: Pointer to the write index
  * index: New write index
  *
  * This function makes sure that the h2f packets are written out
@@ -907,7 +943,7 @@ static inline void hfi_update_read_idx(struct hfi_queue_header *hdr, u32 index)
  * if write index is updated before new packets have been written
  * out to memory.
  */
-static inline void hfi_update_write_idx(struct hfi_queue_header *hdr, u32 index)
+static inline void hfi_update_write_idx(volatile u32 *write_idx, u32 index)
 {
 	/*
 	 * This is to make sure packets are written out before gmu sees the
@@ -915,7 +951,7 @@ static inline void hfi_update_write_idx(struct hfi_queue_header *hdr, u32 index)
 	 */
 	wmb();
 
-	hdr->write_index = index;
+	*write_idx = index;
 
 	/*
 	 * Memory barrier to make sure write index is written before an

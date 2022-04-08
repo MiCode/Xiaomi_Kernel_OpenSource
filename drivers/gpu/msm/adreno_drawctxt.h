@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __ADRENO_DRAWCTXT_H
 #define __ADRENO_DRAWCTXT_H
@@ -75,6 +76,8 @@ struct adreno_context {
 
 	struct list_head active_node;
 	unsigned long active_time;
+	/** @gmu_context_queue: Queue to dispatch submissions to GMU */
+	struct kgsl_memdesc gmu_context_queue;
 };
 
 /* Flag definitions for flag field in adreno_context */

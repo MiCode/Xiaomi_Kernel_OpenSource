@@ -229,6 +229,26 @@ static bool parse_payload_rb(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+static int snapshot_context_queue(int id, void *ptr, void *data)
+{
+	struct kgsl_snapshot *snapshot = data;
+	struct kgsl_context *context = ptr;
+	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
+	struct gmu_mem_type_desc desc;
+
+	if (!context->gmu_registered)
+		return 0;
+
+	desc.memdesc = &drawctxt->gmu_context_queue;
+	desc.type = SNAPSHOT_GMU_MEM_CONTEXT_QUEUE;
+
+	kgsl_snapshot_add_section(context->device,
+		KGSL_SNAPSHOT_SECTION_GMU_MEMORY,
+		snapshot, gen7_snapshot_gmu_mem, &desc);
+
+	return 0;
+}
+
 void gen7_hwsched_snapshot(struct adreno_device *adreno_dev,
 	struct kgsl_snapshot *snapshot)
 {
@@ -296,6 +316,13 @@ void gen7_hwsched_snapshot(struct adreno_device *adreno_dev,
 	}
 
 	adreno_hwsched_parse_fault_cmdobj(adreno_dev, snapshot);
+
+	if (!adreno_hwsched_context_queue_enabled(adreno_dev))
+		return;
+
+	read_lock(&device->context_lock);
+	idr_for_each(&device->context_idr, snapshot_context_queue, snapshot);
+	read_unlock(&device->context_lock);
 }
 
 static int gen7_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
@@ -355,6 +382,11 @@ static int gen7_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 	ret = gen7_hwsched_hfi_start(adreno_dev);
 	if (ret)
 		goto err;
+
+	if (GMU_VER_MINOR(gmu->ver.hfi) >= 3) {
+		if (gen7_hwsched_hfi_get_value(adreno_dev, HFI_VALUE_CONTEXT_QUEUE) == 1)
+			set_bit(ADRENO_HWSCHED_CONTEXT_QUEUE, &adreno_dev->hwsched.flags);
+	}
 
 	icc_set_bw(pwr->icc_path, 0, 0);
 

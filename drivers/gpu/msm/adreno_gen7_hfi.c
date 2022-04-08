@@ -137,7 +137,7 @@ int gen7_hfi_queue_write(struct adreno_device *adreno_dev, u32 queue_idx,
 		write = (write + 1) % hdr->queue_size;
 	}
 
-	hfi_update_write_idx(hdr, write);
+	hfi_update_write_idx(&hdr->write_index, write);
 
 	return 0;
 }

@@ -102,6 +102,13 @@ struct gen7_gmu_device {
 	struct completion gdsc_gate;
 };
 
+struct gmu_mem_type_desc {
+	/** @memdesc: Pointer to the memory descriptor */
+	struct kgsl_memdesc *memdesc;
+	/** @type: Type of the memory descriptor */
+	u32 type;
+};
+
 /* Helper function to get to gen7 gmu device from adreno device */
 struct gen7_gmu_device *to_gen7_gmu(struct adreno_device *adreno_dev);
 
@@ -483,5 +490,17 @@ void gen7_gmu_send_nmi(struct adreno_device *adreno_dev, bool force);
  * @adreno_dev: Pointer to the adreno device
  */
 int gen7_gmu_add_to_minidump(struct adreno_device *adreno_dev);
+
+/**
+ * gen7_snapshot_gmu_mem - Snapshot a GMU memory descriptor
+ * @device: Pointer to the kgsl device
+ * @buf: Destination snapshot buffer
+ * @remain: Remaining size of the snapshot buffer
+ * @priv: Opaque handle
+ *
+ * Return: Number of bytes written to snapshot buffer
+ */
+size_t gen7_snapshot_gmu_mem(struct kgsl_device *device,
+	u8 *buf, size_t remain, void *priv);
 
 #endif

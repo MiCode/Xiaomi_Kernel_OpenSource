@@ -570,11 +570,19 @@ void adreno_drawctxt_detach(struct kgsl_context *context)
 void adreno_drawctxt_destroy(struct kgsl_context *context)
 {
 	struct adreno_context *drawctxt;
+	struct adreno_device *adreno_dev;
+	const struct adreno_gpudev *gpudev;
 
 	if (context == NULL)
 		return;
 
 	drawctxt = ADRENO_CONTEXT(context);
+
+	adreno_dev = ADRENO_DEVICE(context->device);
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+
+	if (gpudev->context_destroy)
+		gpudev->context_destroy(adreno_dev, drawctxt);
 	kfree(drawctxt);
 }
 
