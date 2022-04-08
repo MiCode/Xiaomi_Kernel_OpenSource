@@ -399,14 +399,21 @@ int msm_geni_serial_resources_on(struct msm_geni_serial_port *port)
 	ret = geni_icc_enable(&port->se);
 	if (ret) {
 		UART_LOG_DBG(port->ipc_log_misc, port->uport.dev,
-			"%s: Error %d geni_icc_enable failed\n", __func__, ret);
+			     "%s: Error %d geni_icc_enable failed\n", __func__, ret);
+		return ret;
+	}
+
+	ret = geni_icc_set_bw(&port->se);
+	if (ret) {
+		UART_LOG_DBG(port->ipc_log_misc, port->uport.dev,
+			     "%s: Error %d ICC BW voting failed\n", __func__, ret);
 		return ret;
 	}
 
 	ret = geni_se_common_clks_on(rsc->se_clk, rsc->m_ahb_clk, rsc->s_ahb_clk);
 	if (ret) {
 		UART_LOG_DBG(port->ipc_log_misc, port->uport.dev,
-			"%s: Error %d geni_se_common_clks_on failed\n", __func__, ret);
+			    "%s: Error %d geni_se_common_clks_on failed\n", __func__, ret);
 		return ret;
 	}
 
