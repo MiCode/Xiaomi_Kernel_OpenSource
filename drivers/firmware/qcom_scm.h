@@ -147,6 +147,7 @@ extern int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 #define QCOM_SCM_MP_MPU_LOCK_NS_REGION			0x25
 #define QCOM_SCM_IOMMU_TLBINVAL_FLAG    0x00000001
 #define QCOM_SCM_CP_APERTURE_REG	0x0
+#define QCOM_SCM_CP_LPAC_APERTURE_REG	0x1
 
 #define QCOM_SCM_SVC_DCVS			0x0D
 #define QCOM_SCM_DCVS_RESET			0x07
