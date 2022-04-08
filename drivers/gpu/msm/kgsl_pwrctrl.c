@@ -1628,8 +1628,6 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 
 	pwr->power_flags = 0;
 
-	kgsl_bus_close(device);
-
 	if (dev_pm_qos_request_active(&pwr->sysfs_thermal_req))
 		dev_pm_qos_remove_request(&pwr->sysfs_thermal_req);
 
