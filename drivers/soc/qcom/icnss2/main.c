@@ -4269,21 +4269,10 @@ static int icnss_probe(struct platform_device *pdev)
 	INIT_WORK(&priv->event_work, icnss_driver_event_work);
 	INIT_LIST_HEAD(&priv->event_list);
 
-	priv->soc_wake_wq = alloc_workqueue("icnss_soc_wake_event",
-					    WQ_UNBOUND|WQ_HIGHPRI, 1);
-	if (!priv->soc_wake_wq) {
-		icnss_pr_err("Soc wake Workqueue creation failed\n");
-		ret = -EFAULT;
-		goto out_destroy_wq;
-	}
-
-	INIT_WORK(&priv->soc_wake_msg_work, icnss_soc_wake_msg_work);
-	INIT_LIST_HEAD(&priv->soc_wake_msg_list);
-
 	ret = icnss_register_fw_service(priv);
 	if (ret < 0) {
 		icnss_pr_err("fw service registration failed: %d\n", ret);
-		goto out_destroy_soc_wq;
+		goto out_destroy_wq;
 	}
 
 	icnss_enable_recovery(priv);
@@ -4302,6 +4291,17 @@ static int icnss_probe(struct platform_device *pdev)
 	init_completion(&priv->unblock_shutdown);
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
+		priv->soc_wake_wq = alloc_workqueue("icnss_soc_wake_event",
+						    WQ_UNBOUND|WQ_HIGHPRI, 1);
+		if (!priv->soc_wake_wq) {
+			icnss_pr_err("Soc wake Workqueue creation failed\n");
+			ret = -EFAULT;
+			goto out_unregister_fw_service;
+		}
+
+		INIT_WORK(&priv->soc_wake_msg_work, icnss_soc_wake_msg_work);
+		INIT_LIST_HEAD(&priv->soc_wake_msg_list);
+
 		ret = icnss_genl_init();
 		if (ret < 0)
 			icnss_pr_err("ICNSS genl init failed %d\n", ret);
@@ -4330,8 +4330,8 @@ static int icnss_probe(struct platform_device *pdev)
 
 	return 0;
 
-out_destroy_soc_wq:
-	destroy_workqueue(priv->soc_wake_wq);
+out_unregister_fw_service:
+	icnss_unregister_fw_service(priv);
 out_destroy_wq:
 	destroy_workqueue(priv->event_wq);
 smmu_cleanup:
@@ -4394,6 +4394,8 @@ static int icnss_remove(struct platform_device *pdev)
 		icnss_destroy_ramdump_device(priv->m3_dump_wmac0reg);
 		icnss_destroy_ramdump_device(priv->m3_dump_wcssdbg);
 		icnss_destroy_ramdump_device(priv->m3_dump_phyapdmem);
+		if (priv->soc_wake_wq)
+			destroy_workqueue(priv->soc_wake_wq);
 	}
 
 	class_destroy(priv->icnss_ramdump_class);
@@ -4402,9 +4404,6 @@ static int icnss_remove(struct platform_device *pdev)
 	icnss_unregister_fw_service(priv);
 	if (priv->event_wq)
 		destroy_workqueue(priv->event_wq);
-
-	if (priv->soc_wake_wq)
-		destroy_workqueue(priv->soc_wake_wq);
 
 	priv->iommu_domain = NULL;
 
