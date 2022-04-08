@@ -283,6 +283,8 @@ enum arm_smmu_cbar_type {
 #define ARM_SMMU_CB_ATSR		0x8f0
 #define ARM_SMMU_ATSR_ACTIVE		BIT(0)
 
+#define ARM_SMMU_MICRO_IDLE_DELAY_US	5
+
 
 /* Maximum number of context banks per SMMU */
 #define ARM_SMMU_MAX_CBS		128
@@ -438,25 +440,6 @@ struct arm_smmu_device {
 
 	/* power ref count for the atomic clients. */
 	unsigned int			atomic_pwr_refcount;
-};
-
-struct qsmmuv500_tbu_device {
-	struct list_head		list;
-	struct device			*dev;
-	struct arm_smmu_device		*smmu;
-	void __iomem			*base;
-	void __iomem			*status_reg;
-
-	struct arm_smmu_power_resources *pwr;
-	u32				sid_start;
-	u32				num_sids;
-
-	/* Protects halt count */
-	spinlock_t			halt_lock;
-	u32				halt_count;
-
-	bool				has_micro_idle;
-	unsigned int			*irqs;
 };
 
 enum arm_smmu_context_fmt {
@@ -740,13 +723,13 @@ struct arm_smmu_device *qcom_adreno_smmu_impl_init(struct arm_smmu_device *smmu)
 void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx);
 int arm_mmu500_reset(struct arm_smmu_device *smmu);
 
-int arm_smmu_micro_idle_wake(struct arm_smmu_power_resources *pwr);
-void arm_smmu_micro_idle_allow(struct arm_smmu_power_resources *pwr);
 int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
 void arm_smmu_power_off(struct arm_smmu_device *smmu,
 			struct arm_smmu_power_resources *pwr);
 struct arm_smmu_power_resources *arm_smmu_init_power_resources(
 			struct device *dev);
+
+extern struct platform_driver qsmmuv500_tbu_driver;
 
 /* Misc. constants */
 #define TBUID_SHIFT                     10
