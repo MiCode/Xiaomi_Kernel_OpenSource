@@ -280,7 +280,9 @@ int qcom_wdt_pet_suspend(struct device *dev)
 	if (wdog_data->user_pet_enabled)
 		del_timer_sync(&wdog_data->user_pet_timer);
 
+	spin_lock(&wdog_data->freeze_lock);
 	wdog_data->freeze_in_progress = true;
+	spin_unlock(&wdog_data->freeze_lock);
 	wdog_data->ops->reset_wdt(wdog_data);
 	del_timer_sync(&wdog_data->pet_timer);
 	if (wdog_data->wakeup_irq_enable) {
@@ -320,9 +322,11 @@ int qcom_wdt_pet_resume(struct device *dev)
 	}
 
 	delay_time = msecs_to_jiffies(wdog_data->pet_time);
+	spin_lock(&wdog_data->freeze_lock);
 	wdog_data->pet_timer.expires = jiffies + delay_time;
 	add_timer(&wdog_data->pet_timer);
 	wdog_data->freeze_in_progress = false;
+	spin_unlock(&wdog_data->freeze_lock);
 	if (wdog_data->wakeup_irq_enable) {
 		wdog_data->ops->reset_wdt(wdog_data);
 		wdog_data->last_pet = sched_clock();
@@ -674,8 +678,13 @@ static __ref int qcom_wdt_kthread(void *arg)
 		/* Check again before scheduling
 		 * Could have been changed on other cpu
 		 */
-		if (!kthread_should_stop())
-			mod_timer(&wdog_dd->pet_timer, jiffies + delay_time);
+		if (!kthread_should_stop()) {
+			spin_lock(&wdog_dd->freeze_lock);
+			if (!wdog_dd->freeze_in_progress)
+				mod_timer(&wdog_dd->pet_timer,
+					jiffies + delay_time);
+			spin_unlock(&wdog_dd->freeze_lock);
+		}
 
 		queue_irq_counts_work(&wdog_dd->irq_counts_work);
 	}
