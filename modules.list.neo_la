@@ -60,6 +60,7 @@ kryo_arm64_edac.ko
 gcc-neo.ko
 gdsc-regulator.ko
 dispcc-neo.ko
+rtc-pm8xxx.ko
 secure_buffer.ko
 clk-rpmh.ko
 qcom-cpufreq-hw.ko
