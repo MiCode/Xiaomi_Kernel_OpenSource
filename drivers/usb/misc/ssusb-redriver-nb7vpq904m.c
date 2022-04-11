@@ -625,7 +625,10 @@ static void redriver_gadget_pullup_work(struct work_struct *w)
 int redriver_gadget_pullup_enter(struct device_node *node, int is_on)
 {
 	struct ssusb_redriver *redriver;
-	int timeout = 0;
+	u64 time = 0;
+
+	if (!is_on)
+		return 0;
 
 	redriver = check_devnode(node);
 	if (IS_ERR_OR_NULL(redriver))
@@ -635,15 +638,12 @@ int redriver_gadget_pullup_enter(struct device_node *node, int is_on)
 	    redriver->op_mode != OP_MODE_DEFAULT)
 		return 0;
 
-	if (is_on) {
-		while (redriver->work_ongoing) {
-			usleep_range(1000, 1500);
-			if (++timeout > 10) {
-				dev_warn(redriver->dev, "pullup timeout\n");
-				break;
-			}
-		}
+	while (redriver->work_ongoing) {
+		udelay(1);
+		time++;
 	}
+
+	dev_dbg(redriver->dev, "pull-up disable work took %llu us\n", time);
 
 	return 0;
 }
@@ -652,6 +652,9 @@ EXPORT_SYMBOL(redriver_gadget_pullup_enter);
 int redriver_gadget_pullup_exit(struct device_node *node, int is_on)
 {
 	struct ssusb_redriver *redriver;
+
+	if (is_on)
+		return 0;
 
 	redriver = check_devnode(node);
 	if (IS_ERR_OR_NULL(redriver))
@@ -663,10 +666,8 @@ int redriver_gadget_pullup_exit(struct device_node *node, int is_on)
 	    redriver->op_mode != OP_MODE_DEFAULT)
 		return 0;
 
-	if (!is_on) {
-		redriver->work_ongoing = true;
-		schedule_work(&redriver->pullup_work);
-	}
+	redriver->work_ongoing = true;
+	queue_work(system_highpri_wq, &redriver->pullup_work);
 
 	return 0;
 }
