@@ -50,6 +50,10 @@ Optional Properties:
 				the threshold for when ACD activates. Zero is
 				the default value, and the setting where ACD
 				will never activate.
+
+- qcom,cx-level:		Specifies the CX vote required for each GPU power
+				level.
+
 Example:
 
 qcom,gpu-pwrlevel@6 {
@@ -59,6 +63,7 @@ qcom,gpu-pwrlevel@6 {
 	qcom,bus-min = <0>;
 	qcom,bus-max = <0>;
 	qcom,acd-level = <0xffffffff>;
+	qcom,cx-level = <RPMH_REGULATOR_LEVEL_LOW_SVS>;
 };
 
 Example for DDR4/DDR5 specific part:
@@ -66,6 +71,7 @@ Example for DDR4/DDR5 specific part:
 qcom,gpu-pwrlevel@6 {
 	reg = <6>;
 	qcom,gpu-freq = <480000000>;
+	qcom,cx-level = <RPMH_REGULATOR_LEVEL_SVS>;
 
 	/* DDR5 */
 	qcom,bus-freq-ddr8 = <10>;
