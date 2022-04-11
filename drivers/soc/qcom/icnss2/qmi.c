@@ -2927,7 +2927,7 @@ static void wlfw_del_server(struct qmi_handle *qmi,
 	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
 
 	if (priv && test_bit(ICNSS_DEL_SERVER, &priv->state)) {
-		icnss_pr_info("WLFW server delete in progress, Ignore server delete:  0x%lx\n",
+		icnss_pr_info("WLFW server delete / icnss remove in progress, Ignore server delete:  0x%lx\n",
 			      priv->state);
 		return;
 	}
