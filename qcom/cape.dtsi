@@ -940,7 +940,6 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU4 &CPU5 &CPU6>;
 				qcom,cpufreq-memfreq-tbl =
-					<  300000  307200 >,
 					<  633600  518400 >,
 					<  883200  614400 >,
 					< 1113600  902400 >,
@@ -956,7 +955,6 @@
 				compatible = "qcom,memlat-mon";
 				qcom,cpulist = <&CPU7>;
 				qcom,cpufreq-memfreq-tbl =
-					<  300000  307200 >,
 					<  787200  518400 >,
 					<  921600  614400 >,
 					< 1171200  902400 >,
