@@ -16,6 +16,7 @@
 
 enum scmi_memlat_protocol_cmd {
 	MEMLAT_SET_LOG_LEVEL = SCMI_VENDOR_MSG_START,
+	MEMLAT_FLUSH_LOGBUF,
 	MEMLAT_SET_MEM_GROUP = SCMI_VENDOR_MSG_MODULE_START,
 	MEMLAT_SET_MONITOR,
 	MEMLAT_SET_COMMON_EV_MAP,
@@ -33,6 +34,7 @@ enum scmi_memlat_protocol_cmd {
 	MEMLAT_SET_MAX_FREQ,
 	MEMLAT_START_TIMER,
 	MEMLAT_STOP_TIMER,
+	MEMLAT_GET_TIMESTAMP,
 	MEMLAT_MAX_MSG
 };
 
@@ -240,6 +242,11 @@ static int scmi_start_timer(const struct scmi_protocol_handle *ph)
 	return scmi_send_start_stop(ph, MEMLAT_START_TIMER);
 }
 
+static int scmi_flush_cpucp_log(const struct scmi_protocol_handle *ph)
+{
+	return scmi_send_start_stop(ph, MEMLAT_FLUSH_LOGBUF);
+}
+
 static int scmi_set_global_var(const struct scmi_protocol_handle *ph, u32 val, u32 msg_id)
 {
 	int ret = 0;
@@ -267,6 +274,22 @@ static int scmi_set_sample_ms(const struct scmi_protocol_handle *ph, u32 val)
 	return scmi_set_global_var(ph, val, MEMLAT_SAMPLE_MS);
 }
 
+static int scmi_get_timestamp(const struct scmi_protocol_handle *ph, void *buf)
+{
+	int ret = 0;
+	struct scmi_xfer *t;
+
+	ret = ph->xops->xfer_get_init(ph, MEMLAT_GET_TIMESTAMP, sizeof(u32),
+				      SCMI_MAX_RX_SIZE, &t);
+	if (ret)
+		return ret;
+
+	ret = ph->xops->do_xfer(ph, t);
+	memcpy(buf, t->rx.buf, sizeof(u64));
+	ph->xops->xfer_put(ph, t);
+	return ret;
+}
+
 static struct scmi_memlat_vendor_ops memlat_proto_ops = {
 	.set_mem_grp = scmi_set_mem_grp,
 	.freq_map = scmi_freq_map,
@@ -286,6 +309,8 @@ static struct scmi_memlat_vendor_ops memlat_proto_ops = {
 	.start_timer = scmi_start_timer,
 	.stop_timer = scmi_stop_timer,
 	.set_log_level = scmi_set_log_level,
+	.flush_cpucp_log = scmi_flush_cpucp_log,
+	.get_timestamp = scmi_get_timestamp,
 };
 
 static int scmi_memlat_vendor_protocol_init(const struct scmi_protocol_handle *ph)

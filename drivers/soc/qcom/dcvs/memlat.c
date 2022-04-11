@@ -442,6 +442,52 @@ static ssize_t show_cpucp_log_level(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%lu\n", memlat_data->cpucp_log_level);
 }
 
+static ssize_t store_flush_cpucp_log(struct kobject *kobj,
+				     struct attribute *attr, const char *buf,
+				     size_t count)
+{
+	int ret;
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
+
+	if (!ops)
+		return -ENODEV;
+
+	ret = ops->flush_cpucp_log(memlat_data->ph);
+	if (ret < 0) {
+		pr_err("failed to flush cpucp log, ret = %d\n", ret);
+		return ret;
+	}
+
+	return count;
+}
+
+static ssize_t show_flush_cpucp_log(struct kobject *kobj,
+				    struct attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "Echo here to flush cpucp logs\n");
+}
+
+static ssize_t show_hlos_cpucp_offset(struct kobject *kobj,
+				      struct attribute *attr, char *buf)
+{
+	int ret;
+	const struct scmi_memlat_vendor_ops *ops = memlat_data->memlat_ops;
+	uint64_t cpucp_ts, hlos_ts;
+
+	if (!ops)
+		return -ENODEV;
+
+	ret = ops->get_timestamp(memlat_data->ph, &cpucp_ts);
+	if (ret < 0) {
+		pr_err("failed to get cpucp timestamp\n");
+		return ret;
+	}
+
+	hlos_ts = ktime_get()/1000;
+
+	return scnprintf(buf, PAGE_SIZE, "%ld\n", cpucp_ts - hlos_ts);
+}
+
 show_grp_attr(sampling_cur_freq);
 show_grp_attr(adaptive_cur_freq);
 show_grp_attr(adaptive_high_freq);
@@ -470,6 +516,8 @@ show_attr(freq_scale_limit_mhz);
 MEMLAT_ATTR_RW(sample_ms);
 MEMLAT_ATTR_RW(cpucp_sample_ms);
 MEMLAT_ATTR_RW(cpucp_log_level);
+MEMLAT_ATTR_RW(flush_cpucp_log);
+MEMLAT_ATTR_RO(hlos_cpucp_offset);
 
 MEMLAT_ATTR_RO(sampling_cur_freq);
 MEMLAT_ATTR_RO(adaptive_cur_freq);
@@ -492,6 +540,8 @@ static struct attribute *memlat_settings_attr[] = {
 	&sample_ms.attr,
 	&cpucp_sample_ms.attr,
 	&cpucp_log_level.attr,
+	&flush_cpucp_log.attr,
+	&hlos_cpucp_offset.attr,
 	NULL,
 };
 
