@@ -284,10 +284,13 @@ static u32 __ffa_host_share_ranges(struct ffa_mem_region_addr_range *ranges,
 
 	for (i = 0; i < nranges; ++i) {
 		struct ffa_mem_region_addr_range *range = &ranges[i];
-		u64 npages = (range->pg_cnt * FFA_PAGE_SIZE) / PAGE_SIZE;
+		u64 sz = (u64)range->pg_cnt * FFA_PAGE_SIZE;
 		u64 pfn = hyp_phys_to_pfn(range->address);
 
-		if (__pkvm_host_share_ffa(pfn, npages))
+		if (!PAGE_ALIGNED(sz))
+			break;
+
+		if (__pkvm_host_share_ffa(pfn, sz / PAGE_SIZE))
 			break;
 	}
 
@@ -301,10 +304,13 @@ static u32 __ffa_host_unshare_ranges(struct ffa_mem_region_addr_range *ranges,
 
 	for (i = 0; i < nranges; ++i) {
 		struct ffa_mem_region_addr_range *range = &ranges[i];
-		u64 npages = (range->pg_cnt * FFA_PAGE_SIZE) / PAGE_SIZE;
+		u64 sz = (u64)range->pg_cnt * FFA_PAGE_SIZE;
 		u64 pfn = hyp_phys_to_pfn(range->address);
 
-		if (__pkvm_host_unshare_ffa(pfn, npages))
+		if (!PAGE_ALIGNED(sz))
+			break;
+
+		if (__pkvm_host_unshare_ffa(pfn, sz / PAGE_SIZE))
 			break;
 	}
 
