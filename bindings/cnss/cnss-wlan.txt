@@ -106,6 +106,30 @@ Optional properties:
   - qcom,sw-ctrl-gpio: Switch control GPIO for device power control.
   - wlan-dev-sol-gpio: Device->host Sign-Of-Life GPIO number
   - wlan-host-sol-gpio: Host->device Sign-Of-Life GPIO number
+  - qcom,pmu_vreg_map: WLAN device PMU pin to Platform VReg mapping.
+	Syntax:
+	Comma separated mapping list for all WLAN Dev PMU pin as follows
+	"<WLAN Dev PMU Pin name>", "<Corresponding VReg from power grid>", ...
+	Reference:
+	This info can be identified from Power grid doc.
+  - qcom,vreg_pdc_map: Platform VReg to PDC name mapping.
+	Syntax:
+	Comma separated mapping list for all Platform VReg connected to
+	WLAN Device as follows
+	"<Platform VReg>", "<Corresponding PDC name>", ...
+	Reference:
+	This info can be identified from SOC Platform TCS context worksheet.
+  - qcom,pdc_init_table: Default TCS contents for a WLAN device. This is needed
+	to support CDT / runtime WLAN device detection and PDC initialization.
+	Syntax:
+	Comma separated Json format AOP messages as follows:
+	1. To configure Platform VReg:
+	"{class: wlan_pdc, ss: <pdc_name>, res: <VReg_name>.<VReg_param>,
+	 <seq_param>: <value>}", ...
+	2. To configure PDC:
+	"{class: wlan_pdc, ss: <pdc_name>, res: pdc, enable: <value>}"
+	Reference:
+	This info can be identified from SOC Platform TCS context worksheet.
 
 Examples:
 
@@ -159,4 +183,21 @@ Examples:
         qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 1>;
         wlan-ant-switch-supply = <&L7E>;
         qcom,wlan-ant-switch-config = <2800000 2800000 0 0 1>;
+
+	qcom,pmu_vreg_map =
+		"VDD095_MX_PMU", "s2e",
+		"VDD095_PMU", "s3e",
+		"VDD_PMU_AON_I", "s11b",
+		"VDD095_PMU_BT", "s11b",
+		"VDD19_PMU_RFA_I", "s1c";
+
+	qcom,vreg_pdc_map =
+		"s11b", "rf", "s10b", "rf", "s12b", "rf", "s1c", "rf",
+		"l7e", "rf", "s3e", "bb", "s2e", "bb";
+
+	qcom,pdc_init_table =
+		"{class: wlan_pdc, ss: rf, res: s11b.v, upval: 916}",
+		"{class: wlan_pdc, ss: rf, res: s11b.v, dwnval: 612}",
+		"{class: wlan_pdc, ss: rf, res: s12b.v, upval: 1316}",
+		"{class: wlan_pdc, ss: rf, res: s12b.v, dwnval: 944}";
 };
