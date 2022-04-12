@@ -176,6 +176,7 @@ static void do_ffa_rxtx_map(struct arm_smccc_res *res,
 	DECLARE_REG(phys_addr_t, rx, ctxt, 2);
 	DECLARE_REG(u32, npages, ctxt, 3);
 	int ret = 0;
+	void *rx_virt, *tx_virt;
 
 	if (npages != (KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE) / FFA_PAGE_SIZE) {
 		ret = FFA_RET_INVALID_PARAMETERS;
@@ -209,8 +210,22 @@ static void do_ffa_rxtx_map(struct arm_smccc_res *res,
 		goto err_unshare_tx;
 	}
 
-	host_kvm.ffa.tx = hyp_phys_to_virt(tx);
-	host_kvm.ffa.rx = hyp_phys_to_virt(rx);
+	tx_virt = hyp_phys_to_virt(tx);
+	ret = hyp_pin_shared_mem(tx_virt, tx_virt + 1);
+	if (ret) {
+		ret = FFA_RET_INVALID_PARAMETERS;
+		goto err_unshare_rx;
+	}
+
+	rx_virt = hyp_phys_to_virt(rx);
+	ret = hyp_pin_shared_mem(rx_virt, rx_virt + 1);
+	if (ret) {
+		ret = FFA_RET_INVALID_PARAMETERS;
+		goto err_unpin_tx;
+	}
+
+	host_kvm.ffa.tx = tx_virt;
+	host_kvm.ffa.rx = rx_virt;
 
 out_unlock:
 	hyp_spin_unlock(&host_kvm.ffa.lock);
@@ -218,6 +233,10 @@ out:
 	ffa_to_smccc_res(res, ret);
 	return;
 
+err_unpin_tx:
+	hyp_unpin_shared_mem(tx_virt, tx_virt + 1);
+err_unshare_rx:
+	__pkvm_host_unshare_hyp(hyp_phys_to_pfn(rx));
 err_unshare_tx:
 	__pkvm_host_unshare_hyp(hyp_phys_to_pfn(tx));
 err_unmap:
@@ -242,9 +261,11 @@ static void do_ffa_rxtx_unmap(struct arm_smccc_res *res,
 		goto out_unlock;
 	}
 
+	hyp_unpin_shared_mem(host_kvm.ffa.tx, host_kvm.ffa.tx + 1);
 	WARN_ON(__pkvm_host_unshare_hyp(hyp_virt_to_pfn(host_kvm.ffa.tx)));
 	host_kvm.ffa.tx = NULL;
 
+	hyp_unpin_shared_mem(host_kvm.ffa.rx, host_kvm.ffa.rx + 1);
 	WARN_ON(__pkvm_host_unshare_hyp(hyp_virt_to_pfn(host_kvm.ffa.rx)));
 	host_kvm.ffa.rx = NULL;
 
