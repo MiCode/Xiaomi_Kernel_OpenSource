@@ -64,10 +64,6 @@ static bool vgic_present;
 static DEFINE_PER_CPU(unsigned char, kvm_arm_hardware_enabled);
 DEFINE_STATIC_KEY_FALSE(userspace_irqchip_in_use);
 
-/* KVM "vendor" hypercalls which may be forwarded to userspace on request. */
-#define KVM_EXIT_HYPERCALL_VALID_MASK	(BIT(ARM_SMCCC_KVM_FUNC_MEM_SHARE) |	\
-					 BIT(ARM_SMCCC_KVM_FUNC_MEM_UNSHARE))
-
 int kvm_arch_vcpu_should_kick(struct kvm_vcpu *vcpu)
 {
 	return kvm_vcpu_exiting_guest_mode(vcpu) == IN_GUEST_MODE;
@@ -117,16 +113,6 @@ int kvm_vm_ioctl_enable_cap(struct kvm *kvm,
 			set_bit(KVM_ARCH_FLAG_MTE_ENABLED, &kvm->arch.flags);
 		}
 		mutex_unlock(&kvm->lock);
-		break;
-	case KVM_CAP_EXIT_HYPERCALL:
-		if (cap->args[0] & ~KVM_EXIT_HYPERCALL_VALID_MASK)
-			return -EINVAL;
-
-		if (cap->args[1] || cap->args[2] || cap->args[3])
-			return -EINVAL;
-
-		WRITE_ONCE(kvm->arch.hypercall_exit_enabled, cap->args[0]);
-		r = 0;
 		break;
 	default:
 		r = -EINVAL;
@@ -317,9 +303,6 @@ static int kvm_check_extension(struct kvm *kvm, long ext)
 	case KVM_CAP_ARM_PTRAUTH_GENERIC:
 		r = system_has_full_ptr_auth();
 		break;
-	case KVM_CAP_EXIT_HYPERCALL:
-		r = KVM_EXIT_HYPERCALL_VALID_MASK;
-		break;
 	default:
 		r = 0;
 	}
@@ -344,7 +327,6 @@ static int pkvm_check_extension(struct kvm *kvm, long ext, int kvm_cap)
 	case KVM_CAP_MAX_VCPU_ID:
 	case KVM_CAP_MSI_DEVID:
 	case KVM_CAP_ARM_VM_IPA_SIZE:
-	case KVM_CAP_EXIT_HYPERCALL:
 		r = kvm_cap;
 		break;
 	case KVM_CAP_GUEST_DEBUG_HW_BPS:
@@ -952,12 +934,6 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		ret = kvm_handle_mmio_return(vcpu);
 		if (ret)
 			return ret;
-	} else if (run->exit_reason == KVM_EXIT_HYPERCALL) {
-		smccc_set_retval(vcpu,
-				 vcpu->run->hypercall.ret,
-				 vcpu->run->hypercall.args[0],
-				 vcpu->run->hypercall.args[1],
-				 vcpu->run->hypercall.args[2]);
 	}
 
 	vcpu_load(vcpu);
