@@ -4388,7 +4388,6 @@ static int icnss_remove(struct platform_device *pdev)
 			mbox_free_channel(priv->mbox_chan);
 		unregister_trace_android_vh_rproc_recovery_set(rproc_restart_level_notifier, NULL);
 		complete_all(&priv->smp2p_soc_wake_wait);
-		rproc_put(priv->rproc);
 		icnss_destroy_ramdump_device(priv->m3_dump_phyareg);
 		icnss_destroy_ramdump_device(priv->m3_dump_phydbg);
 		icnss_destroy_ramdump_device(priv->m3_dump_wmac0reg);
