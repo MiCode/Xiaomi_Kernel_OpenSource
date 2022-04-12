@@ -103,20 +103,18 @@ static int mem_buf_probe(struct platform_device *pdev)
 		DMA_BIT_MASK(32);
 
 	if (of_property_match_string(dev->of_node, "qcom,mem-buf-capabilities",
-				     "supplier") >= 0) {
+				     "supplier") >= 0)
 		mem_buf_capability = MEM_BUF_CAP_SUPPLIER;
-	} else if (of_property_match_string(dev->of_node,
+	else if (of_property_match_string(dev->of_node,
 					    "qcom,mem-buf-capabilities",
-					    "consumer") >= 0) {
+					    "consumer") >= 0)
 		mem_buf_capability = MEM_BUF_CAP_CONSUMER;
-	} else if (of_property_match_string(dev->of_node,
+	else if (of_property_match_string(dev->of_node,
 					    "qcom,mem-buf-capabilities",
-					    "dual") >= 0) {
+					    "dual") >= 0)
 		mem_buf_capability = MEM_BUF_CAP_DUAL;
-	} else {
-		dev_err(dev, "Transfer direction property not present or not valid\n");
-		return -EINVAL;
-	}
+	else
+		mem_buf_capability = 0;
 
 	ret = dma_set_mask_and_coherent(dev, dma_mask);
 	if (ret) {
