@@ -420,15 +420,17 @@ static int adsp_start(struct rproc *rproc)
 		if (ret)
 			panic("Panicking, auth and reset failed for remoteproc %s dtb\n",
 				 rproc->name);
-
-		ret = request_firmware(&fw, rproc->firmware, adsp->dev);
 	}
+
+	ret = request_firmware(&fw, rproc->firmware, adsp->dev);
+	if (ret)
+		goto free_metadata_dtb;
 
 	ret = qcom_mdt_load_no_free(adsp->dev, fw, rproc->firmware, adsp->pas_id,
 				    adsp->mem_region, adsp->mem_phys, adsp->mem_size,
 				    &adsp->mem_reloc, adsp->dma_phys_below_32b, adsp->mdata);
 	if (ret)
-		goto free_metadata_dtb;
+		goto free_firmware;
 
 	qcom_pil_info_store(adsp->info_name, adsp->mem_phys, adsp->mem_size);
 
@@ -470,6 +472,8 @@ disable_irqs:
 free_metadata:
 	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata,
 				adsp->dma_phys_below_32b, ret);
+free_firmware:
+	release_firmware(fw);
 free_metadata_dtb:
 	if (adsp->dtb_pas_id || adsp->dtb_fw_name) {
 		qcom_mdt_free_metadata(adsp->dev, adsp->dtb_pas_id,
