@@ -3302,6 +3302,17 @@ static void adreno_deassert_gbif_halt(struct kgsl_device *device)
 		gpudev->deassert_gbif_halt(adreno_dev);
 }
 
+static void adreno_create_hw_fence(struct kgsl_device *device, struct kgsl_sync_fence *kfence)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (WARN_ON(!adreno_dev->dispatch_ops))
+		return;
+
+	if (adreno_dev->dispatch_ops->create_hw_fence)
+		adreno_dev->dispatch_ops->create_hw_fence(adreno_dev, kfence);
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.suspend_context = adreno_suspend_context,
@@ -3342,6 +3353,7 @@ static const struct kgsl_functable adreno_functable = {
 	.deassert_gbif_halt = adreno_deassert_gbif_halt,
 	.queue_recurring_cmd = adreno_queue_recurring_cmd,
 	.dequeue_recurring_cmd = adreno_dequeue_recurring_cmd,
+	.create_hw_fence = adreno_create_hw_fence,
 };
 
 static const struct component_master_ops adreno_ops = {

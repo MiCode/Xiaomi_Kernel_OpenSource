@@ -426,6 +426,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
 
 	INIT_LIST_HEAD(&drawctxt->active_node);
+	INIT_LIST_HEAD(&drawctxt->hw_fence_list);
 
 	if (adreno_dev->dispatch_ops && adreno_dev->dispatch_ops->setup_context)
 		adreno_dev->dispatch_ops->setup_context(adreno_dev, drawctxt);

@@ -6,6 +6,7 @@
 #ifndef __ADRENO_HFI_H
 #define __ADRENO_HFI_H
 
+#define HW_FENCE_QUEUE_SIZE		SZ_4K
 #define HFI_QUEUE_SIZE			SZ_4K /* bytes, must be base 4dw */
 #define MAX_RCVD_PAYLOAD_SIZE		16 /* dwords */
 #define MAX_RCVD_SIZE			(MAX_RCVD_PAYLOAD_SIZE + 3) /* dwords */
@@ -436,6 +437,7 @@ struct hfi_queue_table {
 #define H2F_MSG_CONTEXT_RULE		140 /* AKA constraint */
 #define H2F_MSG_ISSUE_RECURRING_CMD	141
 #define F2H_MSG_CONTEXT_BAD		150
+#define H2F_MSG_HW_FENCE_INFO		151
 
 enum gmu_ret_type {
 	GMU_SUCCESS = 0,
@@ -817,6 +819,25 @@ struct hfi_log_block {
 	u32 version;
 	u32 start_index;
 	u32 stop_index;
+} __packed;
+
+struct hfi_hw_fence_info {
+	/** @hdr: Header for the fence info packet */
+	u32 hdr;
+	/** @version: Version of the fence info packet */
+	u32 version;
+	/** @gmu_ctxt_id: GMU Context id to which this fence belongs */
+	u32 gmu_ctxt_id;
+	/** @error: Any error code associated with this fence */
+	u32 error;
+	/** @ctxt_id: Context id for which hw fence is to be triggered */
+	u64 ctxt_id;
+	/** @ts: Timestamp for which hw fence is to be triggered */
+	u64 ts;
+	/** @flags: Flags on how to handle this hfi packet */
+	u64 flags;
+	/** @hash_index: Index of the hw fence in hw fence table */
+	u64 hash_index;
 } __packed;
 
 /**

@@ -4,6 +4,7 @@
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#include <dt-bindings/soc/qcom,ipcc.h>
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/interconnect.h>
@@ -850,11 +851,73 @@ static void reset_preemption_records(struct adreno_device *adreno_dev)
 	}
 }
 
+static void trigger_hw_fence_cpu(struct adreno_device *adreno_dev,
+	struct adreno_hw_fence_entry *fence)
+{
+	struct kgsl_sync_fence *kfence = fence->kfence;
+	int ret = msm_hw_fence_update_txq(kfence->hw_fence_handle,
+		kfence->hw_fence_index, 0, 0);
+
+	if (ret) {
+		dev_err_ratelimited(adreno_dev->dev.dev,
+			"Failed to trigger hw fence via cpu: ctx:%d ts:%d ret:%d\n",
+			fence->drawctxt->base.id, kfence->timestamp, ret);
+		return;
+	}
+
+	msm_hw_fence_trigger_signal(kfence->hw_fence_handle, IPCC_CLIENT_GPU,
+		IPCC_CLIENT_APSS, 0);
+}
+
+/**
+ * drain_hw_fence_list_cpu - Force trigger the hardware fences that
+ * were not sent to TxQueue by the GMU
+ */
+static void drain_hw_fence_list_cpu(struct adreno_device *adreno_dev)
+{
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	struct adreno_hw_fence_entry *fence, *tmp;
+
+	list_for_each_entry_safe(fence, tmp, &hwsched->hw_fence_list, node) {
+		trigger_hw_fence_cpu(adreno_dev, fence);
+		adreno_hwsched_remove_hw_fence_entry(adreno_dev, fence);
+	}
+}
+
+/**
+ * check_pending_hw_fence_list - During SLUMBER entry, we must make sure all fences have been sent
+ * to TxQueue. If not, then log an error and take a snapshot
+ */
+static int check_pending_hw_fence_list(struct adreno_device *adreno_dev)
+{
+	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
+	struct adreno_hw_fence_entry *fence, *tmp;
+
+	list_for_each_entry_safe(fence, tmp, &hwsched->hw_fence_list, node) {
+		struct kgsl_sync_fence *kfence = fence->kfence;
+		struct adreno_context *drawctxt = fence->drawctxt;
+		struct gmu_context_queue_header *hdr = drawctxt->gmu_context_queue.hostptr;
+
+		/* Report any unsignaled fences when we are going to SLUMBER */
+		if (timestamp_cmp(hdr->out_fence_ts, kfence->timestamp) < 0) {
+			dev_err(adreno_dev->dev.dev, "pending hw fence ctx:%d ts:%d retired:%d\n",
+				drawctxt->base.id, kfence->timestamp, hdr->out_fence_ts);
+			gmu_core_fault_snapshot(KGSL_DEVICE(adreno_dev));
+			return -EINVAL;
+		}
+
+		adreno_hwsched_remove_hw_fence_entry(adreno_dev, fence);
+	}
+
+	return 0;
+}
+
 static int gen7_hwsched_power_off(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	int ret = 0;
+	bool drain_cpu = false;
 
 	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 		return 0;
@@ -888,7 +951,15 @@ static int gen7_hwsched_power_off(struct adreno_device *adreno_dev)
 no_gx_power:
 	kgsl_pwrctrl_irq(device, false);
 
+	/* Make sure GMU has sent all hardware fences to TxQueue */
+	if (check_pending_hw_fence_list(adreno_dev))
+		drain_cpu = true;
+
 	gen7_hwsched_gmu_power_off(adreno_dev);
+
+	/* Now that we are sure that GMU is powered off, drain pending fences */
+	if (drain_cpu)
+		drain_hw_fence_list_cpu(adreno_dev);
 
 	adreno_hwsched_unregister_contexts(adreno_dev);
 
@@ -1226,8 +1297,6 @@ int gen7_hwsched_reset(struct adreno_device *adreno_dev)
 	 */
 	gen7_hwsched_drain_ctxt_unregister(adreno_dev);
 
-	adreno_hwsched_unregister_contexts(adreno_dev);
-
 	if (!test_bit(GMU_PRIV_GPU_STARTED, &gmu->flags))
 		return 0;
 
@@ -1238,6 +1307,8 @@ int gen7_hwsched_reset(struct adreno_device *adreno_dev)
 	gen7_hwsched_hfi_stop(adreno_dev);
 
 	gen7_gmu_suspend(adreno_dev);
+
+	adreno_hwsched_unregister_contexts(adreno_dev);
 
 	clear_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
 
@@ -1263,6 +1334,7 @@ const struct adreno_power_ops gen7_hwsched_power_ops = {
 const struct adreno_hwsched_ops gen7_hwsched_ops = {
 	.submit_cmdobj = gen7_hwsched_submit_cmdobj,
 	.preempt_count = gen7_hwsched_preempt_count_get,
+	.send_hw_fence = gen7_hwsched_send_hw_fence,
 };
 
 int gen7_hwsched_probe(struct platform_device *pdev,

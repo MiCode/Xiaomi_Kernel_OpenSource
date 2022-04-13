@@ -78,6 +78,14 @@ struct adreno_context {
 	unsigned long active_time;
 	/** @gmu_context_queue: Queue to dispatch submissions to GMU */
 	struct kgsl_memdesc gmu_context_queue;
+	/** @gmu_hw_fence_queue: Queue for GMU to store hardware fences for this context */
+	struct kgsl_memdesc gmu_hw_fence_queue;
+	/** @hw_fence_list: List of hardware fences(sorted by timestamp) not yet submitted to GMU */
+	struct list_head hw_fence_list;
+	/** @hw_fence_ts: timestamp of the last hardware fence in the fence list */
+	u32 hw_fence_ts;
+	/** @hw_fence_count: Number of hardware fences not yet sent to Tx Queue */
+	u32 hw_fence_count;
 };
 
 /* Flag definitions for flag field in adreno_context */

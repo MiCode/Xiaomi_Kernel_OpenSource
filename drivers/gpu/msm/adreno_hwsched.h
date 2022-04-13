@@ -9,6 +9,20 @@
 
 #include <linux/soc/qcom/msm_hw_fence.h>
 
+#include "kgsl_sync.h"
+
+/**
+ * struct adreno_hw_fence_entry - A structure to store hardware fence and the context
+ */
+struct adreno_hw_fence_entry {
+	/** @kfence: Pointer to the kgsl fence */
+	struct kgsl_sync_fence *kfence;
+	/** @drawctxt: Pointer to the context */
+	struct adreno_context *drawctxt;
+	/** @node: list node to add it to a list */
+	struct list_head node;
+};
+
 /**
  * struct adreno_hwsched_ops - Function table to hook hwscheduler things
  * to target specific routines
@@ -23,6 +37,13 @@ struct adreno_hwsched_ops {
 	 * @preempt_count - Target specific function to get preemption count
 	 */
 	u32 (*preempt_count)(struct adreno_device *adreno_dev);
+	/**
+	 * @send_hw_fence - Target specific function to send hardware fence
+	 * info to the GMU
+	 */
+	int (*send_hw_fence)(struct adreno_device *adreno_dev,
+		struct adreno_hw_fence_entry *entry);
+
 };
 
 /**
@@ -74,6 +95,13 @@ struct adreno_hwsched {
 	struct work_struct lsr_check_ws;
 	/** @hw_fence: Container for the hw fences instance */
 	struct adreno_hw_fence hw_fence;
+	/** @hw_fence_cache: kmem cache for storing hardware output fences */
+	struct kmem_cache *hw_fence_cache;
+	/** @hw_fence_list: List of hardware fences sent to GMU */
+	struct list_head hw_fence_list;
+	/** @hw_fence_count: Number of hardware fences that haven't yet been sent to Tx Queue */
+	u32 hw_fence_count;
+
 };
 
 /*
@@ -183,5 +211,13 @@ void adreno_hwsched_register_hw_fence(struct adreno_device *adreno_dev);
  * as part of registering with the hardware fence driver
  */
 void adreno_hwsched_deregister_hw_fence(struct adreno_device *adreno_dev);
+
+/**
+ * adreno_hwsched_remove_hw_fence_entry - Remove hardware fence entry
+ * @adreno_dev: pointer to the adreno device
+ * @entry: Pointer to the hardware fence entry
+ */
+void adreno_hwsched_remove_hw_fence_entry(struct adreno_device *adreno_dev,
+	struct adreno_hw_fence_entry *entry);
 
 #endif

@@ -196,4 +196,15 @@ void gen7_hwsched_context_destroy(struct adreno_device *adreno_dev,
  */
 u32 gen7_hwsched_hfi_get_value(struct adreno_device *adreno_dev, u32 prop);
 
+/**
+ * gen7_hwsched_send_hw_fence - Send hardware fence info to GMU
+ * @adreno_dev: Pointer to adreno device
+ * @entry: Pointer to the adreno hardware fence entry
+ *
+ * Send the hardware fence info to the GMU
+ *
+ * Return: Zero on success or negative error on failure
+ */
+int gen7_hwsched_send_hw_fence(struct adreno_device *adreno_dev,
+	struct adreno_hw_fence_entry *entry);
 #endif
