@@ -52,6 +52,14 @@ static void syncobj_destroy_object(struct kgsl_drawobj *drawobj)
 				kfree(priv->fences);
 				kfree(priv);
 			}
+
+			if (event->handle) {
+				struct kgsl_sync_fence_cb *kcb = event->handle;
+
+				dma_fence_put(kcb->fence);
+				kfree(kcb);
+			}
+
 		} else if (event->type == KGSL_CMD_SYNCPOINT_TYPE_TIMELINE) {
 			kfree(event->priv);
 		}
