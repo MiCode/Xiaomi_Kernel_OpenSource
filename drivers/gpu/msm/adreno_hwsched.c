@@ -17,8 +17,8 @@
 
 /* This structure represents inflight command object */
 struct cmd_list_obj {
-	/** @cmdobj: Handle to the command object */
-	struct kgsl_drawobj_cmd *cmdobj;
+	/** @drawobj: Handle to the draw object */
+	struct kgsl_drawobj *drawobj;
 	/** @node: List node to put it in the list of inflight commands */
 	struct list_head node;
 };
@@ -285,21 +285,21 @@ static struct kgsl_drawobj *_process_drawqueue_get_next_drawobj(
 }
 
 /**
- * hwsched_dispatcher_requeue_cmdobj() - Put a command back on the context
+ * hwsched_dispatcher_requeue_drawobj() - Put a draw objet back on the context
  * queue
  * @drawctxt: Pointer to the adreno draw context
- * @cmdobj: Pointer to the KGSL command object to requeue
+ * @drawobj: Pointer to the KGSL draw object to requeue
  *
- * Failure to submit a command to the ringbuffer isn't the fault of the command
+ * Failure to submit a drawobj to the ringbuffer isn't the fault of the drawobj
  * being submitted so if a failure happens, push it back on the head of the
  * context queue to be reconsidered again unless the context got detached.
  */
-static inline int hwsched_dispatcher_requeue_cmdobj(
+static inline int hwsched_dispatcher_requeue_drawobj(
 		struct adreno_context *drawctxt,
-		struct kgsl_drawobj_cmd *cmdobj)
+		struct kgsl_drawobj *drawobj)
 {
+	struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj);
 	unsigned int prev;
-	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
 
 	spin_lock(&drawctxt->lock);
 
@@ -443,11 +443,11 @@ static void adreno_hwsched_process_hw_fence_list(struct adreno_device *adreno_de
  * Send a KGSL drawobj to the GPU hardware
  */
 static int hwsched_sendcmd(struct adreno_device *adreno_dev,
-	struct kgsl_drawobj_cmd *cmdobj)
+	struct kgsl_drawobj *drawobj)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_hwsched *hwsched = &adreno_dev->hwsched;
-	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
+	struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj);
 	struct kgsl_context *context = drawobj->context;
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(drawobj->context);
 	int ret;
@@ -486,7 +486,7 @@ static int hwsched_sendcmd(struct adreno_device *adreno_dev,
 		set_bit(ADRENO_HWSCHED_POWER, &hwsched->flags);
 	}
 
-	ret = hwsched->hwsched_ops->submit_cmdobj(adreno_dev, cmdobj);
+	ret = hwsched->hwsched_ops->submit_drawobj(adreno_dev, drawobj);
 	if (ret) {
 		/*
 		 * If the first submission failed, then put back the active
@@ -518,7 +518,7 @@ static int hwsched_sendcmd(struct adreno_device *adreno_dev,
 		kgsl_drawobj_destroy(drawobj);
 	} else {
 		drawctxt->internal_timestamp = drawobj->timestamp;
-		obj->cmdobj = cmdobj;
+		obj->drawobj = drawobj;
 		list_add_tail(&obj->node, &hwsched->cmd_list);
 	}
 
@@ -575,7 +575,7 @@ static int hwsched_sendcmds(struct adreno_device *adreno_dev,
 		context = drawobj->context;
 		trace_adreno_cmdbatch_ready(context->id, context->priority,
 			drawobj->timestamp, cmdobj->requeue_cnt);
-		ret = hwsched_sendcmd(adreno_dev, cmdobj);
+		ret = hwsched_sendcmd(adreno_dev, drawobj);
 
 		/*
 		 * On error from hwsched_sendcmd() try to requeue the cmdobj
@@ -591,8 +591,8 @@ static int hwsched_sendcmds(struct adreno_device *adreno_dev,
 				 * If we couldn't put it on dispatch queue
 				 * then return it to the context queue
 				 */
-				int r = hwsched_dispatcher_requeue_cmdobj(
-					drawctxt, cmdobj);
+				int r = hwsched_dispatcher_requeue_drawobj(
+					drawctxt, drawobj);
 				if (r)
 					ret = r;
 			}
@@ -1106,8 +1106,8 @@ static int retire_cmd_list(struct adreno_device *adreno_dev)
 	struct cmd_list_obj *obj, *tmp;
 
 	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
-		struct kgsl_drawobj_cmd *cmdobj = obj->cmdobj;
-		struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
+		struct kgsl_drawobj *drawobj = obj->drawobj;
+		struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj);
 
 		if (!kgsl_check_timestamp(device, drawobj->context,
 			drawobj->timestamp))
@@ -1322,10 +1322,9 @@ static void adreno_hwsched_replay(struct adreno_device *adreno_dev)
 	u32 retired = 0;
 
 	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
-		struct kgsl_drawobj_cmd *cmdobj = obj->cmdobj;
-		struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
+		struct kgsl_drawobj *drawobj = obj->drawobj;
 		struct kgsl_context *context = drawobj->context;
-
+		struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj);
 		/*
 		 * Get rid of retired objects or objects that belong to detached
 		 * or invalidated contexts
@@ -1342,7 +1341,7 @@ static void adreno_hwsched_replay(struct adreno_device *adreno_dev)
 			continue;
 		}
 
-		hwsched->hwsched_ops->submit_cmdobj(adreno_dev, cmdobj);
+		hwsched->hwsched_ops->submit_drawobj(adreno_dev, drawobj);
 	}
 
 	if (hwsched->recurring_cmdobj) {
@@ -1451,7 +1450,7 @@ static struct cmd_list_obj *get_active_cmdobj_lpac(
 	struct kgsl_drawobj *drawobj = NULL;
 
 	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
-		drawobj = DRAWOBJ(obj->cmdobj);
+		drawobj = obj->drawobj;
 
 		if (!(kgsl_context_is_lpac(drawobj->context)))
 			continue;
@@ -1477,10 +1476,12 @@ static struct cmd_list_obj *get_active_cmdobj_lpac(
 	}
 
 	if (active_obj) {
-		drawobj = DRAWOBJ(active_obj->cmdobj);
+		drawobj = active_obj->drawobj;
 
 		if (kref_get_unless_zero(&drawobj->refcount)) {
-			set_bit(CMDOBJ_FAULT, &active_obj->cmdobj->priv);
+			struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj);
+
+			set_bit(CMDOBJ_FAULT, &cmdobj->priv);
 			return active_obj;
 		}
 	}
@@ -1498,7 +1499,7 @@ static struct cmd_list_obj *get_active_cmdobj(
 	struct kgsl_drawobj *drawobj = NULL;
 
 	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
-		drawobj = DRAWOBJ(obj->cmdobj);
+		drawobj = obj->drawobj;
 
 		/* We track LPAC separately */
 		if (kgsl_context_is_lpac(drawobj->context))
@@ -1530,10 +1531,13 @@ static struct cmd_list_obj *get_active_cmdobj(
 	}
 
 	if (active_obj) {
-		drawobj = DRAWOBJ(active_obj->cmdobj);
+		struct kgsl_drawobj_cmd *cmdobj;
+
+		drawobj = active_obj->drawobj;
+		cmdobj = CMDOBJ(drawobj);
 
 		if (kref_get_unless_zero(&drawobj->refcount)) {
-			set_bit(CMDOBJ_FAULT, &active_obj->cmdobj->priv);
+			set_bit(CMDOBJ_FAULT, &cmdobj->priv);
 			return active_obj;
 		}
 	}
@@ -1548,12 +1552,14 @@ static struct cmd_list_obj *get_fault_cmdobj(struct adreno_device *adreno_dev,
 	struct cmd_list_obj *obj, *tmp;
 
 	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
-		struct kgsl_drawobj *drawobj = DRAWOBJ(obj->cmdobj);
+		struct kgsl_drawobj *drawobj = obj->drawobj;
 
 		if ((ctxt_id == drawobj->context->id) &&
 			(ts == drawobj->timestamp)) {
 			if (kref_get_unless_zero(&drawobj->refcount)) {
-				set_bit(CMDOBJ_FAULT, &obj->cmdobj->priv);
+				struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj);
+
+				set_bit(CMDOBJ_FAULT, &cmdobj->priv);
 				return obj;
 			}
 		}
@@ -1612,8 +1618,8 @@ static void adreno_hwsched_reset_and_snapshot_legacy(struct adreno_device *adren
 		obj = get_active_cmdobj(adreno_dev);
 
 	if (obj) {
-		drawobj = DRAWOBJ(obj->cmdobj);
-		trace_adreno_cmdbatch_fault(obj->cmdobj, fault);
+		drawobj = obj->drawobj;
+		trace_adreno_cmdbatch_fault(CMDOBJ(drawobj), fault);
 	} else if (hwsched->recurring_cmdobj &&
 		hwsched->recurring_cmdobj->base.context->id == cmd->ctxt_id) {
 		drawobj = DRAWOBJ(hwsched->recurring_cmdobj);
@@ -1685,7 +1691,7 @@ static void adreno_hwsched_reset_and_snapshot(struct adreno_device *adreno_dev, 
 		obj = get_active_cmdobj(adreno_dev);
 
 	if (obj)
-		drawobj = DRAWOBJ(obj->cmdobj);
+		drawobj = obj->drawobj;
 	else if (hwsched->recurring_cmdobj &&
 		hwsched->recurring_cmdobj->base.context->id == cmd->gc.ctxt_id) {
 		drawobj = DRAWOBJ(hwsched->recurring_cmdobj);
@@ -1707,7 +1713,7 @@ static void adreno_hwsched_reset_and_snapshot(struct adreno_device *adreno_dev, 
 	}
 
 	if (obj_lpac) {
-		drawobj_lpac = DRAWOBJ(obj_lpac->cmdobj);
+		drawobj_lpac = obj_lpac->drawobj;
 		context_lpac  = drawobj_lpac->context;
 		do_fault_header_lpac(adreno_dev, drawobj_lpac);
 	}
@@ -2073,8 +2079,8 @@ void adreno_hwsched_parse_fault_cmdobj(struct adreno_device *adreno_dev,
 		return;
 
 	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
-		struct kgsl_drawobj_cmd *cmdobj = obj->cmdobj;
-		struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
+		struct kgsl_drawobj *drawobj = obj->drawobj;
+		struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj);
 
 		if (test_bit(CMDOBJ_FAULT, &cmdobj->priv)) {
 			struct kgsl_memobj_node *ib;

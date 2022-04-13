@@ -100,17 +100,17 @@ int gen7_hwsched_cp_init(struct adreno_device *adreno_dev);
 int gen7_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
 
 /**
- * gen7_hwsched_submit_cmdobj - Dispatch IBs to dispatch queues
+ * gen7_hwsched_submit_drawobj - Dispatch IBs to dispatch queues
  * @adreno_dev: Pointer to adreno device structure
- * @cmdobj: The command object which needs to be submitted
+ * @drawobj: The command draw object which needs to be submitted
  *
  * This function is used to register the context if needed and submit
  * IBs to the hfi dispatch queues.
 
  * Return: 0 on success and negative error on failure
  */
-int gen7_hwsched_submit_cmdobj(struct adreno_device *adreno_dev,
-		struct kgsl_drawobj_cmd *cmdobj);
+int gen7_hwsched_submit_drawobj(struct adreno_device *adreno_dev,
+		struct kgsl_drawobj *drawobj);
 
 /**
  * gen7_hwsched_context_detach - Unregister a context with GMU

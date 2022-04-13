@@ -2047,12 +2047,12 @@ static int process_hw_fence_queue(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-int gen7_hwsched_submit_cmdobj(struct adreno_device *adreno_dev, struct kgsl_drawobj_cmd *cmdobj)
+int gen7_hwsched_submit_drawobj(struct adreno_device *adreno_dev, struct kgsl_drawobj *drawobj)
 {
 	struct gen7_hfi *hfi = to_gen7_hfi(adreno_dev);
 	int ret = 0;
 	u32 cmd_sizebytes;
-	struct kgsl_drawobj *drawobj = DRAWOBJ(cmdobj);
+	struct kgsl_drawobj_cmd *cmdobj = CMDOBJ(drawobj);
 	struct hfi_submit_cmd *cmd;
 	struct adreno_submit_time time = {0};
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(drawobj->context);

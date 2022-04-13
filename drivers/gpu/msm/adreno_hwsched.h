@@ -29,10 +29,10 @@ struct adreno_hw_fence_entry {
  */
 struct adreno_hwsched_ops {
 	/**
-	 * @submit_cmdobj - Target specific function to submit IBs to hardware
+	 * @submit_drawobj - Target specific function to submit IBs to hardware
 	 */
-	int (*submit_cmdobj)(struct adreno_device *adreno_dev,
-		struct kgsl_drawobj_cmd *cmdobj);
+	int (*submit_drawobj)(struct adreno_device *adreno_dev,
+		struct kgsl_drawobj *drawobj);
 	/**
 	 * @preempt_count - Target specific function to get preemption count
 	 */

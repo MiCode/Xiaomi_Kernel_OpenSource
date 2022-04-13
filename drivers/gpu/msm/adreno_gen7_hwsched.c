@@ -1417,7 +1417,7 @@ const struct adreno_power_ops gen7_hwsched_power_ops = {
 };
 
 const struct adreno_hwsched_ops gen7_hwsched_ops = {
-	.submit_cmdobj = gen7_hwsched_submit_cmdobj,
+	.submit_drawobj = gen7_hwsched_submit_drawobj,
 	.preempt_count = gen7_hwsched_preempt_count_get,
 	.send_hw_fence = gen7_hwsched_send_hw_fence,
 };
