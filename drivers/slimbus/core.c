@@ -163,6 +163,7 @@ static int slim_add_device(struct slim_controller *ctrl,
 	sbdev->ctrl = ctrl;
 	INIT_LIST_HEAD(&sbdev->stream_list);
 	spin_lock_init(&sbdev->stream_list_lock);
+	mutex_init(&ctrl->stream_lock);
 	sbdev->dev.of_node = of_node_get(node);
 	sbdev->dev.fwnode = of_fwnode_handle(node);
 

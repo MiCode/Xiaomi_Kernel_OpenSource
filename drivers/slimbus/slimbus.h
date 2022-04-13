@@ -467,6 +467,7 @@ struct slim_controller {
 	int		(*enable_stream)(struct slim_stream_runtime *rt);
 	int		(*disable_stream)(struct slim_stream_runtime *rt);
 	int			(*wakeup)(struct slim_controller *ctrl);
+	struct mutex            stream_lock;
 };
 
 /* IPC logging stuff */
