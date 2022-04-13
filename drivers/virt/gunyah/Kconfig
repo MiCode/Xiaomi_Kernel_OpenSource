@@ -1,5 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+config GUNYAH
+	tristate "Gunyah Virtualization support"
+	help
+	  The Gunyah driver adds support for creating and launching
+	  virtual machines from userspace. This driver exposes various
+	  IOCTLs to allow userspace interface to manage virtual machines.
+	  The userspace requests are relayed to Gunyah hypervisor via
+	  this driver.
+
 menuconfig GUNYAH_DRIVERS
 	bool "Gunyah Virtualization drivers"
 	depends on ARM64
@@ -109,15 +118,5 @@ config GH_VIRTIO_BACKEND
           running on top of Gunyah hypervisor. One device node per virtual
           machine is created for all backend devices of the VM. Say y or m here
           to enable.  If unsure, say n.
-
-config GH_VM_LOADER
-        tristate "Gunyah Virtual Machine Loader Driver"
-        depends on GH_RM_DRV
-        help
-          This driver provides an interface to manage the virtual machines
-          that run on top of Gunyah hypervisor. The operations include, loading
-          the VM binary, powering up of a VM, shutting down a VM, handing the
-          crash of a VM, and so on. The management APIs are exposed to the
-          user-space and can be controlled via IOCTLs.
 
 endif
