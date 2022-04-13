@@ -106,7 +106,11 @@ static int clk_branch_toggle(struct clk_hw *hw, bool en,
 	struct clk_branch *br = to_clk_branch(hw);
 	int ret;
 
-	if (en && (br->halt_check != BRANCH_HALT_POLL)) {
+	if (br->halt_check == BRANCH_HALT_POLL) {
+		return  clk_branch_wait(br, en, check_halt);
+	}
+
+	if (en) {
 		ret = clk_enable_regmap(hw);
 		if (ret)
 			return ret;
