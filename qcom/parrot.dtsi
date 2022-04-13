@@ -390,6 +390,12 @@
 		size = <0x0 0x4800000>;
 	};
 
+	va_md_mem: va_md_mem_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x1 0x00000000 0xfffffffe 0xffffffff>;
+		reusable;
+		size = <0 0x1000000>;
+	};
 };
 
 &soc {
@@ -2168,6 +2174,21 @@
 	};
 
 	thermal_zones: thermal-zones {
+	};
+
+	logbuf: qcom,logbuf-vendor-hooks {
+		compatible = "qcom,logbuf-vendor-hooks";
+	};
+
+	mini_dump_node {
+		compatible = "qcom,minidump";
+		status = "ok";
+	};
+
+	va_mini_dump {
+		compatible = "qcom,va-minidump";
+		memory-region = <&va_md_mem>;
+		status = "ok";
 	};
 };
 
