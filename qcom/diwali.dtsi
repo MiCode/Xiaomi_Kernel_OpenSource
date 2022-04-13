@@ -747,6 +747,7 @@
 		ss-name = "modem", "adsp", "adsp_island",
 			  "cdsp", "apss", "wpss";
 		mboxes = <&qmp_aop 0>;
+		ddr-freq-update;
 	};
 
 	sys-pm-vx@c320000 {
@@ -759,6 +760,7 @@
 	subsystem-sleep-stats {
 		compatible = "qcom,subsystem-sleep-stats";
 		reg = <0xc3f0000 0x400>;
+		ddr-freq-update;
 	};
 
 	memtimer: timer@17420000 {
