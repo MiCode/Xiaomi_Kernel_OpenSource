@@ -2065,13 +2065,13 @@ static int qcom_slim_ngd_ctrl_probe(struct platform_device *pdev)
 		goto pdr_release;
 	}
 
-	platform_driver_register(&qcom_slim_ngd_driver);
 	ret = of_qcom_slim_ngd_register(dev, ctrl);
 	if (ret) {
 		SLIM_ERR(ctrl, "qcom_slim_ngd_register failed ret:%d\n", ret);
 		goto pdr_release;
 	}
 
+	platform_driver_register(&qcom_slim_ngd_driver);
 	SLIM_INFO(ctrl, "NGD SB controller is up!\n");
 	return 0;
 
