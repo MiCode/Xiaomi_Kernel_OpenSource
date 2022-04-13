@@ -127,6 +127,8 @@
 #define ADRENO_LPAC BIT(14)
 /* Late Stage Reprojection (LSR) enablment for GMU */
 #define ADRENO_LSR BIT(15)
+/* GMU and kernel supports hardware fences */
+#define ADRENO_HW_FENCE BIT(16)
 
 
 /*

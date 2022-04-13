@@ -206,6 +206,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_RECLAIMED BIT(11)
 /* Skip reclaim of the memdesc pages */
 #define KGSL_MEMDESC_SKIP_RECLAIM BIT(12)
+/* The memdesc is mapped as iomem */
+#define KGSL_MEMDESC_IOMEM BIT(13)
 
 /**
  * struct kgsl_memdesc - GPU memory object descriptor

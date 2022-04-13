@@ -920,7 +920,10 @@ size_t adreno_snapshot_global(struct kgsl_device *device, u8 *buf,
 	header->ptbase = MMU_DEFAULT_TTBR0(device);
 	header->type = SNAPSHOT_GPU_OBJECT_GLOBAL;
 
-	memcpy(ptr, memdesc->hostptr, memdesc->size);
+	if ((memdesc->priv & KGSL_MEMDESC_IOMEM) != 0)
+		memcpy_fromio(ptr, memdesc->hostptr, memdesc->size);
+	else
+		memcpy(ptr, memdesc->hostptr, memdesc->size);
 
 	return memdesc->size + sizeof(*header);
 }
