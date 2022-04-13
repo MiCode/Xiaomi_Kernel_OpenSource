@@ -26,6 +26,7 @@ mem_buf.ko
 mem-hooks.ko
 mem-offline.ko
 memory_dump_v2.ko
+minidump.ko
 msm_dma_iommu_mapping.ko
 msm_geni_serial.ko
 msm_rtb.ko
