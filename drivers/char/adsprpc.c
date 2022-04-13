@@ -946,28 +946,6 @@ static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 	spin_unlock_irqrestore(&chan->gmsg_log.lock, flags);
 }
 
-/**
- * fastrpc_ramdump - Dump given ram dump entry
- * @dev       : Device handle
- * @ramdump_segment   : Dump region entry
- * @type              : ram dump type like elf or binary
- * Returns int
- */
-static int fastrpc_ramdump(struct device *dev, struct qcom_dump_segment *ramdump_seg, bool type)
-{
-	int err = 0;
-	struct list_head head;
-
-	INIT_LIST_HEAD(&head);
-	list_add(&ramdump_seg->node, &head);
-	if (type)
-		err = qcom_elf_dump(&head, dev, ELF_CLASS);
-	else
-		err = qcom_dump(&head, dev);
-
-	return err;
-}
-
 static inline int get_unique_index(void)
 {
 	int index = -1;
@@ -2440,6 +2418,7 @@ static void fastrpc_ramdump_collection(int cid)
 	struct fastrpc_buf *buf = NULL;
 	int ret = 0;
 	unsigned long irq_flags = 0;
+	struct list_head head;
 
 	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
@@ -2460,12 +2439,14 @@ static void fastrpc_ramdump_collection(int cid)
 		ramdump_entry.da = buf->phys;
 		ramdump_entry.va = (void *)buf->virt;
 		ramdump_entry.size = buf->size;
+		INIT_LIST_HEAD(&head);
+		list_add(&ramdump_entry.node, &head);
 
 		if (fl && fl->sctx && fl->sctx->smmu.dev)
-			ret = fastrpc_ramdump(fl->sctx->smmu.dev, &ramdump_entry, true);
+			ret = qcom_elf_dump(&head, fl->sctx->smmu.dev, ELF_CLASS);
 		else {
 			if (me->dev != NULL)
-				ret = fastrpc_ramdump(me->dev, &ramdump_entry, true);
+				ret = qcom_elf_dump(&head, me->dev, ELF_CLASS);
 		}
 		if (ret < 0)
 			ADSPRPC_ERR("adsprpc: %s: unable to dump PD memory (err %d)\n",
@@ -4934,8 +4915,10 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 			ramdump_segments_rh.da = match->phys;
 			ramdump_segments_rh.va = (void *)page_address((struct page *)match->va);
 			ramdump_segments_rh.size = match->size;
+			INIT_LIST_HEAD(&head);
+			list_add(&ramdump_segments_rh.node, &head);
 			if (me->dev && dump_enabled() && me->enable_ramdump) {
-				ret = fastrpc_ramdump(me->dev, &ramdump_segments_rh, true);
+				ret = qcom_elf_dump(&head, me->dev, ELF_CLASS);
 				if (ret < 0)
 					pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
 								__func__, ret);
@@ -6831,7 +6814,7 @@ static void fastrpc_print_fastrpcbuf(struct fastrpc_buf *buf, void *buffer)
  */
 static void  fastrpc_print_debug_data(int cid)
 {
-	unsigned int i = 0, count = 0, gmsg_log_iter = 3, err = 0;
+	unsigned int i = 0, count = 0, gmsg_log_iter = 3, err = 0, len = 0;
 	unsigned int tx_index = 0, rx_index = 0;
 	unsigned long flags = 0;
 	char *gmsg_log_tx = NULL;
@@ -6976,23 +6959,21 @@ static void  fastrpc_print_debug_data(int cid)
 	spin_unlock_irqrestore(&me->hlock, irq_flags);
 	spin_lock_irqsave(&chan->gmsg_log.lock, flags);
 	if (rx_index) {
-		for (i = rx_index, count = 0; i > 0 &&
+		for (i = rx_index, count = 0, len = 0 ; i > 0 &&
 				count <= gmsg_log_iter; i--, count++) {
 			rsp = &chan->gmsg_log.rx_msgs[i].rsp;
-			scnprintf(gmsg_log_rx + strlen(gmsg_log_rx),
-					MD_GMSG_BUFFER - strlen(gmsg_log_rx),
+			len += scnprintf(gmsg_log_rx + len, MD_GMSG_BUFFER - len,
 					"ctx: 0x%x, retval: %d, flags: %d, early_wake_time: %d, version: %d\n",
 					rsp->ctx, rsp->retval, rsp->flags,
 					rsp->early_wake_time, rsp->version);
 		}
 	}
 	if (tx_index) {
-		for (i = tx_index, count = 0;
+		for (i = tx_index, count = 0, len = 0;
 				i > 0 && count <= gmsg_log_iter;
 				i--, count++) {
 			tx_msg = &chan->gmsg_log.tx_msgs[i];
-			scnprintf(gmsg_log_tx + strlen(gmsg_log_tx),
-					MD_GMSG_BUFFER - strlen(gmsg_log_tx),
+			len += scnprintf(gmsg_log_tx + len, MD_GMSG_BUFFER - len,
 					"pid: %d, tid: %d, ctx: 0x%x, handle: 0x%x, sc: 0x%x, addr: 0x%x, size:%d\n",
 					tx_msg->msg.pid,
 					tx_msg->msg.tid,
