@@ -7,7 +7,6 @@
 #if !defined(_TRACE_HOOK_HUNG_TASK_H) || defined(TRACE_HEADER_MULTI_READ)
 #define _TRACE_HOOK_HUNG_TASK_H
 
-#include <linux/tracepoint.h>
 #include <trace/hooks/vendor_hooks.h>
 
 DECLARE_HOOK(android_vh_check_uninterruptible_tasks,

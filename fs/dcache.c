@@ -2145,7 +2145,7 @@ struct dentry *d_obtain_alias(struct inode *inode)
 {
 	return __d_obtain_alias(inode, true);
 }
-EXPORT_SYMBOL(d_obtain_alias);
+EXPORT_SYMBOL_NS(d_obtain_alias, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /**
  * d_obtain_root - find or allocate a dentry for a given inode
@@ -2219,7 +2219,7 @@ struct dentry *d_add_ci(struct dentry *dentry, struct inode *inode,
 	}
 	return found;
 }
-EXPORT_SYMBOL(d_add_ci);
+EXPORT_SYMBOL_NS(d_add_ci, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 
 static inline bool d_same_name(const struct dentry *dentry,
@@ -2950,7 +2950,7 @@ void d_move(struct dentry *dentry, struct dentry *target)
 	__d_move(dentry, target, false);
 	write_sequnlock(&rename_lock);
 }
-EXPORT_SYMBOL(d_move);
+EXPORT_SYMBOL_NS(d_move, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * d_exchange - exchange two dentries
@@ -3100,7 +3100,7 @@ out:
 	__d_add(dentry, inode);
 	return NULL;
 }
-EXPORT_SYMBOL(d_splice_alias);
+EXPORT_SYMBOL_NS(d_splice_alias, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * Test whether new_dentry is a subdirectory of old_dentry.

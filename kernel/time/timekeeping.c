@@ -22,6 +22,7 @@
 #include <linux/pvclock_gtod.h>
 #include <linux/compiler.h>
 #include <linux/audit.h>
+#include <trace/hooks/timekeeping.h>
 
 #include "tick-internal.h"
 #include "ntp_internal.h"
@@ -1321,6 +1322,8 @@ out:
 
 	write_seqcount_end(&tk_core.seq);
 	raw_spin_unlock_irqrestore(&timekeeper_lock, flags);
+
+	trace_android_rvh_tk_based_time_sync(tk);
 
 	/* Signal hrtimers about time change */
 	clock_was_set(CLOCK_SET_WALL);
