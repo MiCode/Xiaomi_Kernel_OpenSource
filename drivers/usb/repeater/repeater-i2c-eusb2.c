@@ -247,6 +247,9 @@ static int eusb2_repeater_init(struct usb_repeater *ur)
 	switch (chip->repeater_type) {
 	case TI_REPEATER:
 		eusb2_i2c_read_reg(er, REV_ID, &reg_val);
+		/* If the repeater revision is B1 disable auto-resume WA */
+		if (reg_val == 0x03)
+			ur->flags |= UR_AUTO_RESUME_SUPPORTED;
 		break;
 	case NXP_REPEATER:
 		eusb2_i2c_read_reg(er, REVISION_ID, &reg_val);
@@ -255,7 +258,7 @@ static int eusb2_repeater_init(struct usb_repeater *ur)
 		dev_err(er->ur.dev, "Invalid repeater\n");
 	}
 
-	dev_info(er->ur.dev, "eUSB2 repeater version = 0x%x\n", reg_val);
+	dev_info(er->ur.dev, "eUSB2 repeater version = 0x%x ur->flags:0x%x\n", reg_val, ur->flags);
 
 	/* override init sequence using devicetree based values */
 	if (er->param_override_seq_cnt)
