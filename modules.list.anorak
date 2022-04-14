@@ -26,3 +26,11 @@ qcom_ipcc.ko
 gcc-anorak.ko
 zram.ko
 zsmalloc.ko
+qcom_ipc_logging.ko
+qmi_helpers.ko
+qcom_hwspinlock.ko
+qrtr.ko
+smem.ko
+msm_qmp.ko
+qcom_aoss.ko
+ns.ko
