@@ -178,6 +178,7 @@
 .endm
 
 .macro __init_el2_mpam
+#ifdef CONFIG_ARM64_MPAM
 	/* Memory Partioning And Monitoring: disable EL2 traps */
 	mrs	x1, id_aa64pfr0_el1
 	ubfx	x0, x1, #ID_AA64PFR0_MPAM_SHIFT, #4
@@ -189,6 +190,7 @@
 	tbz	x0, #17, .Lskip_mpam_\@		// skip if no MPAMHCR reg
 	msr_s	SYS_MPAMHCR_EL2, xzr		// clear TRAP_MPAMIDR_EL1 -> EL2
 .Lskip_mpam_\@:
+#endif /* CONFIG_ARM64_MPAM */
 .endm
 
 /**
