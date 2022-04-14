@@ -3126,9 +3126,15 @@ static void msm_geni_serial_cons_pm(struct uart_port *uport,
 		se_geni_resources_on(&msm_port->serial_rsc);
 		msm_geni_enable_disable_se_clk(uport, true);
 		atomic_set(&msm_port->is_clock_off, 0);
+		/* Enable Interrupt */
+		IPC_LOG_MSG(msm_port->console_log, "%s Enable IRQ\n", __func__);
+		enable_irq(uport->irq);
 	} else if (new_state == UART_PM_STATE_OFF &&
 			old_state == UART_PM_STATE_ON) {
 		atomic_set(&msm_port->is_clock_off, 1);
+		/* Disable Interrupt */
+		IPC_LOG_MSG(msm_port->console_log, "%s Disable IRQ\n", __func__);
+		disable_irq(uport->irq);
 		msm_geni_enable_disable_se_clk(uport, false);
 		se_geni_resources_off(&msm_port->serial_rsc);
 	}
