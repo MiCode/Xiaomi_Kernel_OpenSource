@@ -324,6 +324,17 @@
  */
 
 /**
+ * DOC: Multi-Link Operation
+ *
+ * In Multi-Link Operation, a connection between to MLDs utilizes multiple
+ * links. To use this in nl80211, various commands and responses now need
+ * to or will include the new %NL80211_ATTR_MLO_LINKS attribute.
+ * Additionally, various commands that need to operate on a specific link
+ * now need to be given the %NL80211_ATTR_MLO_LINK_ID attribute, e.g. to
+ * use %NL80211_CMD_START_AP or similar functions.
+ */
+
+/**
  * enum nl80211_commands - supported nl80211 commands
  *
  * @NL80211_CMD_UNSPEC: unspecified command to catch errors
@@ -1237,6 +1248,12 @@
  *      to describe the BSSID address of the AP and %NL80211_ATTR_TIMEOUT to
  *      specify the timeout value.
  *
+ * @NL80211_CMD_ADD_LINK: Add a new link to an interface. The
+ *	%NL80211_ATTR_MLO_LINK_ID attribute is used for the new link.
+ * @NL80211_CMD_REMOVE_LINK: Remove a link from an interface. This may come
+ *	without %NL80211_ATTR_MLO_LINK_ID as an easy way to remove all links
+ *	in preparation for e.g. roaming to a regular (non-MLO) AP.
+ *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -1498,6 +1515,17 @@ enum nl80211_commands {
 	__NL80211_CMD_AFTER_LAST,
 	NL80211_CMD_MAX = __NL80211_CMD_AFTER_LAST - 1
 };
+
+/*
+ * These are temporary definitions that will become permanent when the UAPI
+ * change is accepted upstream. This will not be used in production until the
+ * UAPI change lands upstream
+ */
+
+/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=a353a99fb75e5c1c3b15050e9efaab1997350862 */
+#define NL80211_CMD_ADD_LINK NL80211_CMD_RESERVED_DO_NOT_USE_1
+#define NL80211_CMD_REMOVE_LINK NL80211_CMD_RESERVED_DO_NOT_USE_2
+
 
 /*
  * Allow user space programs to use #ifdef on new commands by defining them
@@ -2681,6 +2709,11 @@ enum nl80211_commands {
  *	suites allowed as %NL80211_MAX_NR_AKM_SUITES which is the legacy maximum
  *	number prior to the introduction of this attribute.
  *
+ * @NL80211_ATTR_MLO_LINK_ID: A (u8) link ID for use with MLO, to be used with
+ *	various commands that need a link ID to operate.
+ * @NL80211_ATTR_MLO_LINKS: A nested array of links, each containing some
+ *	per-link information and a link ID.
+ *
  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -3236,6 +3269,10 @@ enum nl80211_attrs {
 
 /* Link: https://lore.kernel.org/linux-wireless/1653312358-12321-1-git-send-email-quic_vjakkam@quicinc.com/ */
 #define NL80211_ATTR_MAX_NUM_AKM_SUITES NL80211_ATTR_RESERVED_DO_NOT_USE_1
+
+/* Link: https://git.kernel.org/pub/scm/linux/kernel/git/wireless/wireless-next.git/commit/?h=mld&id=a353a99fb75e5c1c3b15050e9efaab1997350862 */
+#define NL80211_ATTR_MLO_LINKS NL80211_ATTR_RESERVED_DO_NOT_USE_2
+#define NL80211_ATTR_MLO_LINK_ID NL80211_ATTR_RESERVED_DO_NOT_USE_3
 
 /* source-level API compatibility */
 #define NL80211_ATTR_SCAN_GENERATION NL80211_ATTR_GENERATION
