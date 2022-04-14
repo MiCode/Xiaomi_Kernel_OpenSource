@@ -34,6 +34,7 @@ ns.ko
 phy-generic.ko
 pinctrl-msm.ko
 qcom_cpu_vendor_hooks.ko
+qcom-dload-mode.ko
 qcom_dma_heaps.ko
 qcom_hwspinlock.ko
 qcom_iommu_util.ko
@@ -64,6 +65,7 @@ nvmem_qcom-spmi-sdam.ko
 proxy-consumer.ko
 qcom-spmi-pmic.ko
 spmi-pmic-arb.ko
+qcom-reboot-reason.ko
 qti-regmap-debugfs.ko
 regmap-spmi.ko
 rtc-pm8xxx.ko
