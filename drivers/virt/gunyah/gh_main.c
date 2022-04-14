@@ -17,6 +17,9 @@
 #include <soc/qcom/secure_buffer.h>
 #include <linux/gunyah.h>
 
+#include "gh_secure_vm_virtio_backend.h"
+#include "gh_secure_vm_loader.h"
+#include "gh_proxy_sched.h"
 #include "gh_private.h"
 
 #define MAX_VCPU_NAME	20 /* gh-vcpu:u32_max +1 */
@@ -80,6 +83,7 @@ static void gh_notif_vm_exited(struct gh_vm *vm,
 	mutex_lock(&vm->vm_lock);
 	vm->exit_type = vm_exited->exit_type;
 	vm->status.vm_status = GH_RM_VM_STATUS_EXITED;
+	gh_wakeup_all_vcpus(vm->vmid);
 	wake_up_interruptible(&vm->vm_status_wait);
 	mutex_unlock(&vm->vm_lock);
 }
@@ -125,6 +129,12 @@ static void gh_vm_cleanup(struct gh_vm *vm)
 	case GH_RM_VM_STATUS_EXITED:
 	case GH_RM_VM_STATUS_RUNNING:
 	case GH_RM_VM_STATUS_READY:
+		ret = gh_rm_unpopulate_hyp_res(vmid, vm->fw_name);
+		if (ret)
+			pr_warn("Failed to unpopulate hyp resources: %d\n", ret);
+		ret = gh_virtio_mmio_exit(vmid, vm->fw_name);
+		if (ret)
+			pr_warn("Failed to free virtio resources : %d\n", ret);
 	case GH_RM_VM_STATUS_INIT:
 	case GH_RM_VM_STATUS_AUTH:
 		ret = gh_rm_vm_reset(vmid);
@@ -134,6 +144,12 @@ static void gh_vm_cleanup(struct gh_vm *vm)
 				pr_err("wait for VM_STATUS_RESET interrupted %d\n", ret);
 		} else
 			pr_warn("Reset is unsuccessful for VM:%d\n", vmid);
+
+		if (vm->is_secure_vm) {
+			ret = gh_secure_vm_loader_reclaim_fw(vm);
+			if (ret)
+				pr_warn("Failed to reclaim mem VMID: %d: %d\n", vmid, ret);
+		}
 	case GH_RM_VM_STATUS_LOAD:
 		ret = gh_rm_vm_dealloc_vmid(vmid);
 		if (ret)
@@ -224,6 +240,7 @@ void gh_destroy_vm(struct gh_vm *vm)
 
 	gh_uevent_notify_change(GH_EVENT_DESTROY_VM, vm);
 	gh_notify_clients(vm, GH_VM_POWEROFF);
+	memset(vm->fw_name, 0, GH_VM_FW_NAME_MAX);
 
 clean_vm:
 	gh_rm_unregister_notifier(&vm->rm_nb);
@@ -252,6 +269,7 @@ static int gh_vcpu_release(struct inode *inode, struct file *filp)
 
 static int gh_vcpu_ioctl_run(struct gh_vcpu *vcpu)
 {
+	struct gh_hcall_vcpu_run_resp vcpu_run;
 	struct gh_vm *vm = vcpu->vm;
 	int ret = 0;
 
@@ -270,6 +288,16 @@ static int gh_vcpu_ioctl_run(struct gh_vcpu *vcpu)
 	}
 
 	vm->vm_run_once = true;
+
+	if (vm->is_secure_vm &&
+		vm->created_vcpus != vm->allowed_vcpus) {
+		pr_err("VCPUs created %d doesn't match with allowed %d for VM %d\n",
+			vm->created_vcpus, vm->allowed_vcpus,
+							vm->vmid);
+		ret = -EINVAL;
+		mutex_unlock(&vm->vm_lock);
+		return ret;
+	}
 
 	if (vm->status.vm_status != GH_RM_VM_STATUS_READY) {
 		pr_err("VM:%d not ready to start\n", vm->vmid);
@@ -291,6 +319,18 @@ static int gh_vcpu_ioctl_run(struct gh_vcpu *vcpu)
 	mutex_unlock(&vm->vm_lock);
 
 start_vcpu_run:
+	/*
+	 * proxy scheduling APIs
+	 */
+	if (gh_vm_supports_proxy_sched(vm->vmid)) {
+		ret = gh_vcpu_run(vm->vmid, vcpu->vcpu_id,
+						0, 0, 0, &vcpu_run);
+		if (ret < 0) {
+			pr_err("Failed vcpu_run %d\n", ret);
+			return ret;
+		}
+	}
+
 	ret = gh_wait_for_vm_status(vm, GH_RM_VM_STATUS_EXITED);
 	if (ret)
 		return ret;
@@ -325,6 +365,17 @@ static const struct file_operations gh_vcpu_fops = {
 	.release = gh_vcpu_release,
 	.llseek = noop_llseek,
 };
+
+static int gh_vm_ioctl_get_vcpu_count(struct gh_vm *vm)
+{
+	if (!vm->is_secure_vm)
+		return -EINVAL;
+
+	if (vm->status.vm_status != GH_RM_VM_STATUS_READY)
+		return -EAGAIN;
+
+	return vm->allowed_vcpus;
+}
 
 static long gh_vm_ioctl_create_vcpu(struct gh_vm *vm, u32 id)
 {
@@ -469,10 +520,11 @@ err_hyp_assign:
 
 long gh_vm_configure(u16 auth_mech, u64 image_offset,
 			u64 image_size, u64 dtb_offset, u64 dtb_size,
-			u32 pas_id, struct gh_vm *vm)
+			u32 pas_id, const char *fw_name, struct gh_vm *vm)
 {
 	struct gh_vm_auth_param_entry entry;
 	long ret = -EINVAL;
+	int nr_vcpus = 0;
 
 	switch (auth_mech) {
 	case GH_VM_AUTH_PIL_ELF:
@@ -513,6 +565,26 @@ long gh_vm_configure(u16 auth_mech, u64 image_offset,
 		return ret;
 	}
 
+	ret = gh_rm_populate_hyp_res(vm->vmid, fw_name);
+	if (ret < 0) {
+		pr_err("Failed to populate resources %d\n", ret);
+		return ret;
+	}
+
+	if (vm->is_secure_vm) {
+		nr_vcpus = gh_get_nr_vcpus(vm->vmid);
+
+		if (nr_vcpus < 0) {
+			pr_err("Failed to get vcpu count for vm %d ret%d\n",
+				vm->vmid, nr_vcpus);
+			ret = nr_vcpus;
+			return ret;
+		} else if (!nr_vcpus) /* Hypervisor scheduled case when at least 1 vcpu is needed */
+			nr_vcpus = 1;
+
+		vm->allowed_vcpus = nr_vcpus;
+	}
+
 	return ret;
 }
 
@@ -526,10 +598,29 @@ static long gh_vm_ioctl(struct file *filp,
 	case GH_CREATE_VCPU:
 		ret = gh_vm_ioctl_create_vcpu(vm, arg);
 		break;
+	case GH_VM_SET_FW_NAME:
+		ret = gh_vm_ioctl_set_fw_name(vm, arg);
+		break;
+	case GH_VM_GET_FW_NAME:
+		ret = gh_vm_ioctl_get_fw_name(vm, arg);
+		break;
+	case GH_VM_GET_VCPU_COUNT:
+		ret = gh_vm_ioctl_get_vcpu_count(vm);
+		break;
 	default:
-		pr_err("Invalid gunyah VM ioctl 0x%lx\n", cmd);
+		ret = gh_virtio_backend_ioctl(vm->fw_name, cmd, arg);
 		break;
 	}
+	return ret;
+}
+
+static int gh_vm_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	struct gh_vm *vm = file->private_data;
+	int ret = -EINVAL;
+
+	ret = gh_virtio_backend_mmap(vm->fw_name, vma);
+
 	return ret;
 }
 
@@ -543,6 +634,7 @@ static int gh_vm_release(struct inode *inode, struct file *filp)
 
 static const struct file_operations gh_vm_fops = {
 	.unlocked_ioctl = gh_vm_ioctl,
+	.mmap = gh_vm_mmap,
 	.release = gh_vm_release,
 	.llseek = noop_llseek,
 };
@@ -649,6 +741,7 @@ void gh_uevent_notify_change(unsigned int type, struct gh_vm *vm)
 		add_uevent_var(env, "vm_exit=%d", vm->exit_type);
 	}
 
+	add_uevent_var(env, "vm_name=%s", vm->fw_name);
 	env->envp[env->envp_idx++] = NULL;
 	kobject_uevent_env(&gh_dev.this_device->kobj, KOBJ_CHANGE, env->envp);
 	kfree(env);
@@ -658,18 +751,39 @@ static int __init gh_init(void)
 {
 	int ret;
 
-	ret = misc_register(&gh_dev);
+	ret = gh_secure_vm_loader_init();
 	if (ret)
+		pr_err("gunyah: secure loader init failed %d\n", ret);
+
+	ret = gh_proxy_sched_init();
+	if (ret)
+		pr_err("gunyah: proxy scheduler init failed %d\n", ret);
+
+	ret = misc_register(&gh_dev);
+	if (ret) {
 		pr_err("gunyah: misc device register failed %d\n", ret);
+		goto err_gh_init;
+	}
+
+	ret = gh_virtio_backend_init();
+	if (ret)
+		pr_err("gunyah: virtio backend init failed %d\n", ret);
 
 	return ret;
 
+err_gh_init:
+	gh_proxy_sched_exit();
+	gh_secure_vm_loader_exit();
+	return 0;
 }
 module_init(gh_init);
 
 static void __exit gh_exit(void)
 {
 	misc_deregister(&gh_dev);
+	gh_proxy_sched_exit();
+	gh_secure_vm_loader_exit();
+	gh_virtio_backend_exit();
 }
 module_exit(gh_exit);
 

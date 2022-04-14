@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -319,6 +320,7 @@ typedef int (*gh_vcpu_affinity_reset_cb_t)(gh_vmid_t vmid, gh_label_t label,
 						gh_capid_t cap_id, int *linux_irq);
 typedef int (*gh_vpm_grp_set_cb_t)(gh_vmid_t vmid, gh_capid_t cap_id, int linux_irq);
 typedef int (*gh_vpm_grp_reset_cb_t)(gh_vmid_t vmid, int *linux_irq);
+typedef void (*gh_all_res_populated_cb_t)(gh_vmid_t vmid, bool res_populated);
 
 #if IS_ENABLED(CONFIG_GH_RM_DRV)
 /* RM client registration APIs */
@@ -344,14 +346,11 @@ int gh_rm_vm_irq_reclaim(gh_virq_handle_t virq_handle);
 
 int gh_rm_set_virtio_mmio_cb(gh_virtio_mmio_cb_t fnptr);
 void gh_rm_unset_virtio_mmio_cb(void);
-int gh_rm_set_vcpu_affinity_cb(enum gh_vm_names vm_name_index,
-			       gh_vcpu_affinity_set_cb_t fnptr);
-int gh_rm_reset_vcpu_affinity_cb(enum gh_vm_names vm_name_index,
-				 gh_vcpu_affinity_reset_cb_t fnptr);
-int gh_rm_set_vpm_grp_cb(enum gh_vm_names vm_name_index,
-			 gh_vpm_grp_set_cb_t fnptr);
-int gh_rm_reset_vpm_grp_cb(enum gh_vm_names vm_name_index,
-			   gh_vpm_grp_reset_cb_t fnptr);
+int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_set_cb_t fnptr);
+int gh_rm_reset_vcpu_affinity_cb(gh_vcpu_affinity_reset_cb_t fnptr);
+int gh_rm_set_vpm_grp_cb(gh_vpm_grp_set_cb_t fnptr);
+int gh_rm_reset_vpm_grp_cb(gh_vpm_grp_reset_cb_t fnptr);
+int gh_rm_all_res_populated_cb(gh_all_res_populated_cb_t fnptr);
 
 /* Client APIs for VM management */
 int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid);
@@ -659,26 +658,27 @@ static inline void gh_rm_unset_virtio_mmio_cb(void)
 
 }
 
-static inline int gh_rm_set_vcpu_affinity_cb(enum gh_vm_names vm_name_index,
-						gh_vcpu_affinity_set_cb_t fnptr)
+static inline int gh_rm_set_vcpu_affinity_cb(gh_vcpu_affinity_set_cb_t fnptr)
 {
 	return -EINVAL;
 }
 
-static inline int gh_rm_reset_vcpu_affinity_cb(enum gh_vm_names vm_name_index,
-						gh_vcpu_affinity_reset_cb_t fnptr)
+static inline int gh_rm_reset_vcpu_affinity_cb(gh_vcpu_affinity_reset_cb_t fnptr)
 {
 	return -EINVAL;
 }
 
-static inline int gh_rm_set_vpm_grp_cb(enum gh_vm_names vm_name_index,
-						gh_vpm_grp_set_cb_t fnptr)
+static inline int gh_rm_set_vpm_grp_cb(gh_vpm_grp_set_cb_t fnptr)
 {
 	return -EINVAL;
 }
 
-static inline int gh_rm_reset_vpm_grp_cb(enum gh_vm_names vm_name_index,
-						gh_vpm_grp_reset_cb_t fnptr)
+static inline int gh_rm_reset_vpm_grp_cb(gh_vpm_grp_reset_cb_t fnptr)
+{
+	return -EINVAL;
+}
+
+static inline int gh_rm_all_res_populated_cb(gh_all_res_populated_cb_t fnptr)
 {
 	return -EINVAL;
 }

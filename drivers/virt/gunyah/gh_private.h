@@ -22,10 +22,13 @@ struct gh_vcpu {
 };
 
 struct gh_vm {
+	bool is_secure_vm; /* is true for Qcom authenticated secure VMs */
 	bool vm_run_once;
 	u32 created_vcpus;
+	u32 allowed_vcpus;
 	gh_vmid_t vmid;
 	struct gh_vcpu *vcpus[GH_MAX_VCPUS];
+	char fw_name[GH_VM_FW_NAME_MAX];
 	struct notifier_block rm_nb;
 	struct gh_vm_status status;
 	wait_queue_head_t vm_status_wait;
@@ -44,8 +47,7 @@ int gh_reclaim_mem(struct gh_vm *vm, phys_addr_t phys,
 					ssize_t size, bool is_system_vm);
 long gh_vm_configure(u16 auth_mech, u64 image_offset,
 			u64 image_size, u64 dtb_offset, u64 dtb_size,
-			u32 pas_id, struct gh_vm *vm);
+			u32 pas_id, const char *fw_name, struct gh_vm *vm);
 void gh_uevent_notify_change(unsigned int type, struct gh_vm *vm);
-
 
 #endif /* _GH_PRIVATE_H */

@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2021, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
-#define TRACE_SYSTEM gh_vcpu_sched
+#define TRACE_SYSTEM gh_proxy_sched
 #undef TRACE_INCLUDE_PATH
 #define TRACE_INCLUDE_PATH .
 #undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE gh_vcpu_sched_trace
+#define TRACE_INCLUDE_FILE gh_proxy_sched_trace
 
-#if !defined(_TRACE_GH_VCPU_SCHED_H) || defined(TRACE_HEADER_MULTI_READ)
-#define _TRACE_GH_VCPU_SCHED_H
+#if !defined(_TRACE_GH_PROXY_SCHED_H) || defined(TRACE_HEADER_MULTI_READ)
+#define _TRACE_GH_PROXY_SCHED_H
 
 #include <linux/tracepoint.h>
 
@@ -61,7 +61,26 @@ TRACE_EVENT(gh_susp_res_irq_handler,
 
 	TP_printk("vpmg_state=%llu", __entry->vpmg_state)
 );
-#endif /* _TRACE_GH_VCPU_SCHED_H */
+
+TRACE_EVENT(gh_vcpu_irq_handler,
+
+	TP_PROTO(u16 vm_id, u32 vcpu_idx),
+
+	TP_ARGS(vm_id, vcpu_idx),
+
+	TP_STRUCT__entry(
+		__field(u16, vm_id)
+		__field(u32, vcpu_idx)
+	),
+
+	TP_fast_assign(
+		__entry->vm_id = vm_id;
+		__entry->vcpu_idx = vcpu_idx;
+	),
+
+	TP_printk("vm=%u vcpu=%u", __entry->vm_id, __entry->vcpu_idx)
+);
+#endif /* _TRACE_GH_PROXY_SCHED_H */
 
 /* This part must be outside protection */
 #include <trace/define_trace.h>

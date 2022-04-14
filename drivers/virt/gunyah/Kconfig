@@ -9,6 +9,24 @@ config GUNYAH
 	  The userspace requests are relayed to Gunyah hypervisor via
 	  this driver.
 
+config GH_SECURE_VM_LOADER
+        tristate "Gunyah Secure Virtual Machine Loader Driver"
+	depends on GUNYAH
+        help
+	  This driver invokes mdt Loader to load images of
+	  any secure guest Virtual Machine (VM). The images are loaded
+	  in the carveout designated for the VM once the firmware name
+	  is validated.
+
+config GH_PROXY_SCHED
+	tristate "PROXY Scheduling for Secondary VMs"
+	depends on GUNYAH
+	help
+	  Gunyah Proxy Scheduler provides framework to schedule/run VCPUs
+	  of Secondary VMs by exposing required functionality which can be
+	  invoked by the Gunyah driver. Gunyah Proxy Scheduler communicates
+	  with Gunyah hypervisor to run the VCPUs as needed.
+
 menuconfig GUNYAH_DRIVERS
 	bool "Gunyah Virtualization drivers"
 	depends on ARM64
@@ -96,7 +114,6 @@ config GH_MEM_NOTIFIER
           interface for clients to transmit memory resources between virtual
           machines, and register callbacks that get invoked only when
           notifications pertaining to their memory resources arrive.
-
 
 config GH_GUEST_POPS
         tristate "Gunyah Guest Power-Operations driver"

@@ -877,15 +877,6 @@ config QCOM_GUESTVM
            Resource Manager driver to start the boot of VMs once it has
            successfully loaded the VM images in the designated memory.
 
-config QCOM_GH_VCPU_SCHED
-	tristate "VCPU Scheduling for Secondary VMs"
-	depends on QCOM_GUESTVM
-	help
-	  This driver provides mechanism to schedule/run VCPUs of Secondary VMs
-	  by creating kernel threads for each VCPU that the driver gets when
-	  secondary VMs are booted via Resource Manager driver. It communicates
-	  with Gunyah hypervisor to run the VCPUs as needed.
-
 config QCOM_HYP_CORE_CTL
         tristate "CPU reservation scheme for Hypervisor"
         depends on QCOM_GUESTVM && SCHED_WALT
