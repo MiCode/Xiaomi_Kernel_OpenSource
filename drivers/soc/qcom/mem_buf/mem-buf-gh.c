@@ -1340,6 +1340,10 @@ int mem_buf_msgq_alloc(struct device *dev)
 	};
 	int ret;
 
+	/* No msgq if neither a consumer nor a supplier */
+	if (!(mem_buf_capability & MEM_BUF_CAP_DUAL))
+		return 0;
+
 	mem_buf_wq = alloc_workqueue("mem_buf_wq", WQ_HIGHPRI | WQ_UNBOUND, 0);
 	if (!mem_buf_wq) {
 		dev_err(dev, "Unable to initialize workqueue\n");
@@ -1363,6 +1367,9 @@ err_msgq_register:
 
 void mem_buf_msgq_free(struct device *dev)
 {
+	if (!(mem_buf_capability & MEM_BUF_CAP_DUAL))
+		return;
+
 	mutex_lock(&mem_buf_list_lock);
 	if (!list_empty(&mem_buf_list))
 		dev_err(mem_buf_dev,
