@@ -4414,7 +4414,7 @@ static int f2fs_preallocate_blocks(struct kiocb *iocb, struct iov_iter *iter,
 		return 0;
 
 	/* If it will be a short write, don't bother. */
-	if (iov_iter_fault_in_readable(iter, count))
+	if (fault_in_iov_iter_readable(iter, count))
 		return 0;
 
 	if (f2fs_has_inline_data(inode)) {
