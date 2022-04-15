@@ -145,6 +145,7 @@
 #define IPA_IOCTL_DEL_MACSEC_MAPPING            93
 #define IPA_IOCTL_SET_NAT_EXC_RT_TBL_IDX        94
 #define IPA_IOCTL_SET_CONN_TRACK_EXC_RT_TBL_IDX 95
+#define IPA_IOCTL_COAL_EVICT_POLICY             96
 
 /**
  * max size of the header to be inserted
@@ -547,6 +548,7 @@ enum ipa_client_type {
 
 #define IPA_CLIENT_IS_APPS_CONS(client) \
 	((client) == IPA_CLIENT_APPS_LAN_CONS || \
+	(client) == IPA_CLIENT_APPS_LAN_COAL_CONS || \
 	(client) == IPA_CLIENT_APPS_WAN_CONS || \
 	(client) == IPA_CLIENT_APPS_WAN_COAL_CONS || \
 	(client) == IPA_CLIENT_APPS_WAN_LOW_LAT_CONS || \
@@ -567,7 +569,19 @@ enum ipa_client_type {
 
 #define IPA_CLIENT_IS_WAN_CONS(client) \
 	((client) == IPA_CLIENT_APPS_WAN_CONS || \
-	(client) == IPA_CLIENT_APPS_WAN_COAL_CONS)
+	 (client) == IPA_CLIENT_APPS_WAN_COAL_CONS)
+
+#define IPA_CLIENT_IS_LAN_CONS(client) \
+	((client) == IPA_CLIENT_APPS_LAN_CONS || \
+	 (client) == IPA_CLIENT_APPS_LAN_COAL_CONS)
+
+#define IPA_CLIENT_IS_LAN_or_WAN_CONS(client) \
+	((client) == IPA_CLIENT_APPS_LAN_CONS || \
+	 (client) == IPA_CLIENT_APPS_WAN_CONS)
+
+#define IPA_CLIENT_IS_APPS_COAL_CONS(client) \
+	((client) == IPA_CLIENT_APPS_LAN_COAL_CONS || \
+	 (client) == IPA_CLIENT_APPS_WAN_COAL_CONS)
 
 #define IPA_CLIENT_IS_LOW_LAT_CONS(client) \
 	((client) == IPA_CLIENT_APPS_WAN_LOW_LAT_CONS)
@@ -3365,6 +3379,9 @@ struct ipa_ioc_macsec_info {
 /**
  *   actual IOCTLs supported by IPA driver
  */
+#define IPA_IOC_COAL_EVICT_POLICY _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_COAL_EVICT_POLICY, \
+					struct ipa_ioc_coal_evict_policy *)
 #define IPA_IOC_ADD_HDR _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_HDR, \
 					struct ipa_ioc_add_hdr *)
@@ -3763,6 +3780,66 @@ struct teth_ioc_set_bridge_mode {
 struct teth_ioc_aggr_params {
 	struct teth_aggr_params aggr_params;
 	uint16_t lcid;
+};
+
+/**
+ * struct ipa_ioc_coal_evict_policy -
+ *
+ *   Structure used with the IPA_IOCTL_COAL_EVICT_POLICY ioctl to
+ *   control TCP/UDP eviction policy.
+ *
+ * @coal_vp_thrshld:
+ *
+ *   Connection that is opened below this val will not get
+ *   evicted. valid till v5_2.
+ *
+ * @coal_eviction_en:
+ *
+ *   bool -> Enable eviction
+ *
+ * @coal_vp_gran_sel:
+ *
+ * Select the appropriate time granularity: four possible values (0-3)
+ * Valid from v5_5.
+ *
+ * @coal_vp_udp_thrshld:
+ *
+ *   Coalescing eviction threshold. LRU VP stickness/inactivity
+ *   defined by this threshold fot UDP connectiom.  0 mean all UDP's
+ *   non sticky. Valid from v5_5.
+ *
+ * @coal_vp_tcp_thrshld:
+ *
+ *   Coalescing eviction threshold. LRU VP stickness/inactivity
+ *   defined by this threshold fot TCP connection.  0 mean all TCP's
+ *   non sticky. Valid from v5_5.
+ *
+ * @coal_vp_udp_thrshld_en:
+ *
+ *   bool -> Coalescing eviction enable for UDP connections when UDP
+ *   pacjet arrived. 0-disable these evictions. Valid from v5_5.
+ *
+ * @coal_vp_tcp_thrshld_en:
+ *
+ *   bool -> Coalescing eviction enable for TCP connections when TCP
+ *   pacjet arrived. 0-disable these evictions. Valid from v5_5.
+ *
+ * @coal_vp_tcp_num:
+ *
+ *   Configured TCP NUM value. SW define when TCP/UDP will treat as
+ *   excess during eviction process. Valid from v5_5.
+ */
+struct ipa_ioc_coal_evict_policy {
+	uint32_t coal_vp_thrshld;
+	uint32_t reserved1; /* reserved bits for alignment */
+	uint8_t  coal_eviction_en;
+	uint8_t  coal_vp_gran_sel;
+	uint8_t  coal_vp_udp_thrshld;
+	uint8_t  coal_vp_tcp_thrshld;
+	uint8_t  coal_vp_udp_thrshld_en;
+	uint8_t  coal_vp_tcp_thrshld_en;
+	uint8_t  coal_vp_tcp_num;
+	uint8_t  reserved2; /* reserved bits for alignment */
 };
 
 /**
