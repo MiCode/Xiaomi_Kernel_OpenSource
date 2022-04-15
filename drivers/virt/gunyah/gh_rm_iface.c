@@ -62,7 +62,7 @@ int gh_update_vm_prop_table(enum gh_vm_names vm_name,
 	if (!vm_prop)
 		return -EINVAL;
 
-	if (vm_prop->vmid < 0)
+	if (vm_prop->vmid < 0 || vm_name < GH_SELF_VM || vm_name > GH_VM_MAX)
 		return -EINVAL;
 
 	spin_lock(&gh_vm_table_lock);
@@ -193,6 +193,9 @@ int gh_rm_get_vminfo(enum gh_vm_names vm_name, struct gh_vminfo *vm)
 		return -EINVAL;
 
 	spin_lock(&gh_vm_table_lock);
+	if (!vm->guid || !vm->uri || !vm->name || !vm->sign_auth
+		|| vm_name < GH_SELF_VM || vm_name > GH_VM_MAX)
+		return -EINVAL;
 
 	vm->guid = gh_vm_table[vm_name].guid;
 	vm->uri = gh_vm_table[vm_name].uri;
