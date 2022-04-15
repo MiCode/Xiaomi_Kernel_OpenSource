@@ -1,6 +1,5 @@
 . ${ROOT_DIR}/${KERNEL_DIR}/build.config.constants
 
-BRANCH=android13-5.15
 KMI_GENERATION=3
 
 LLVM=1
