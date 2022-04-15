@@ -2003,6 +2003,11 @@ checkbme:
 
 link_fail:
 	dev->power_on = false;
+	if (dev->phy_rev >= 3)
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_LTSSM, BIT(8), 0);
+	else
+		ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_SYS_CTRL, BIT(0), 0);
+
 	if (!ep_pcie_debug_keep_resource)
 		ep_pcie_pipe_clk_deinit(dev);
 pipe_clk_fail:
@@ -2021,7 +2026,6 @@ out:
 
 int ep_pcie_core_disable_endpoint(void)
 {
-	u32 val = 0;
 	unsigned long irqsave_flags;
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
 
@@ -2050,10 +2054,6 @@ int ep_pcie_core_disable_endpoint(void)
 			dev->rev);
 	}
 	dev->conf_ipa_msi_iatu = false;
-
-	val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
-	EP_PCIE_DBG(dev, "PCIe V%d: LTSSM_STATE during disable:0x%x\n",
-		dev->rev, (val >> 0xC) & 0x3f);
 
 	EP_PCIE_DBG2(dev, "PCIe V%d: Set pcie_disconnect_req during D3_COLD\n",
 		     dev->rev);

@@ -136,11 +136,35 @@ static int cnss_stats_show_state(struct seq_file *s,
 	return 0;
 }
 
+static int cnss_stats_show_capability(struct seq_file *s,
+				      struct cnss_plat_data *plat_priv)
+{
+	if (test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
+		seq_puts(s, "\n<---------------- FW Capability ----------------->\n");
+		seq_printf(s, "Chip ID: 0x%x\n", plat_priv->chip_info.chip_id);
+		seq_printf(s, "Chip family: 0x%x\n",
+			   plat_priv->chip_info.chip_family);
+		seq_printf(s, "Board ID: 0x%x\n",
+			   plat_priv->board_info.board_id);
+		seq_printf(s, "SOC Info: 0x%x\n", plat_priv->soc_info.soc_id);
+		seq_printf(s, "Firmware Version: 0x%x\n",
+			   plat_priv->fw_version_info.fw_version);
+		seq_printf(s, "Firmware Build Timestamp: %s\n",
+			   plat_priv->fw_version_info.fw_build_timestamp);
+		seq_printf(s, "Firmware Build ID: %s\n",
+			   plat_priv->fw_build_id);
+	}
+
+	return 0;
+}
+
 static int cnss_stats_show(struct seq_file *s, void *data)
 {
 	struct cnss_plat_data *plat_priv = s->private;
 
 	cnss_stats_show_state(s, plat_priv);
+
+	cnss_stats_show_capability(s, plat_priv);
 
 	return 0;
 }

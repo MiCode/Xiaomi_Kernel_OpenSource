@@ -610,11 +610,11 @@ static int usb_cser_func_suspend(struct usb_function *f, u8 options)
 		if (!port->func_is_suspended) {
 			usb_cser_suspend(f);
 			port->func_is_suspended = true;
-		} else {
-			if (port->func_is_suspended) {
-				port->func_is_suspended = false;
-				usb_cser_resume(f);
-			}
+		}
+	} else {
+		if (port->func_is_suspended) {
+			port->func_is_suspended = false;
+			usb_cser_resume(f);
 		}
 	}
 	return 0;

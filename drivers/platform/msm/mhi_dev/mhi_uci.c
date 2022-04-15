@@ -55,7 +55,7 @@ enum uci_dbg_level {
 	UCI_DBG_reserved = 0x80000000
 };
 
-static enum uci_dbg_level mhi_uci_msg_lvl = UCI_DBG_CRITICAL;
+static enum uci_dbg_level mhi_uci_msg_lvl = UCI_DBG_ERROR;
 static enum uci_dbg_level mhi_uci_ipc_log_lvl = UCI_DBG_INFO;
 static void *mhi_uci_ipc_log;
 
@@ -452,7 +452,7 @@ static bool mhi_uci_are_channels_connected(struct uci_client *uci_client)
 	rc = mhi_ctrl_state_info(uci_client->in_chan, &info_ch_in);
 	if (rc) {
 		uci_log(UCI_DBG_DBG,
-			"Channels %d is not available with %d\n",
+			"ch_id:%d is not available with %d\n",
 			uci_client->out_chan, rc);
 		return false;
 	}
@@ -460,7 +460,7 @@ static bool mhi_uci_are_channels_connected(struct uci_client *uci_client)
 	rc = mhi_ctrl_state_info(uci_client->out_chan, &info_ch_out);
 	if (rc) {
 		uci_log(UCI_DBG_DBG,
-			"Channels %d is not available with %d\n",
+			"ch_id:%d is not available with %d\n",
 			uci_client->out_chan, rc);
 		return false;
 	}
@@ -468,7 +468,7 @@ static bool mhi_uci_are_channels_connected(struct uci_client *uci_client)
 	if ((info_ch_in != MHI_STATE_CONNECTED) ||
 		(info_ch_out != MHI_STATE_CONNECTED)) {
 		uci_log(UCI_DBG_DBG,
-			"Channels %d or %d are not connected\n",
+			"ch_id:%d or %d are not connected\n",
 			uci_client->in_chan, uci_client->out_chan);
 		return false;
 	}
@@ -490,13 +490,13 @@ static int mhi_init_read_chan(struct uci_client *client_handle,
 		return -EINVAL;
 	}
 	if (chan >= MHI_MAX_SOFTWARE_CHANNELS) {
-		uci_log(UCI_DBG_ERROR, "Incorrect channel number %d\n", chan);
+		uci_log(UCI_DBG_ERROR, "Incorrect ch_id:%d\n", chan);
 		return -EINVAL;
 	}
 
 	in_chan_attr = client_handle->in_chan_attr;
 	if (!in_chan_attr) {
-		uci_log(UCI_DBG_ERROR, "Null channel attributes for chan %d\n",
+		uci_log(UCI_DBG_ERROR, "Null channel attributes for ch_id:%d\n",
 				client_handle->in_chan);
 		return -EINVAL;
 	}
@@ -531,7 +531,7 @@ static struct mhi_req *mhi_uci_get_req(struct uci_client *uci_handle)
 
 	spin_lock_irqsave(&uci_handle->req_lock, flags);
 	if (list_empty(&uci_handle->req_list)) {
-		uci_log(UCI_DBG_ERROR, "Request pool empty for chans %d, %d\n",
+		uci_log(UCI_DBG_ERROR, "Request pool empty for ch_id:%d, %d\n",
 			uci_handle->in_chan, uci_handle->out_chan);
 		spin_unlock_irqrestore(&uci_handle->req_lock, flags);
 		return NULL;
@@ -546,7 +546,7 @@ static struct mhi_req *mhi_uci_get_req(struct uci_client *uci_handle)
 	 * req is re-used
 	 */
 	if (req->is_stale && req->buf && MHI_UCI_IS_CHAN_DIR_IN(req->chan)) {
-		uci_log(UCI_DBG_VERBOSE, "Freeing write buf for chan %d\n",
+		uci_log(UCI_DBG_VERBOSE, "Freeing write buf for ch_id:%d\n",
 			req->chan);
 		kfree(req->buf);
 	}
@@ -565,7 +565,7 @@ static int mhi_uci_put_req(struct uci_client *uci_handle, struct mhi_req *req)
 	spin_lock_irqsave(&uci_handle->req_lock, flags);
 	if (req->is_stale) {
 		uci_log(UCI_DBG_VERBOSE,
-			"Got stale completion for ch %d, ignoring\n",
+			"Got stale completion for ch_id:%d, ignoring\n",
 			req->chan);
 		spin_unlock_irqrestore(&uci_handle->req_lock, flags);
 		return -EINVAL;
@@ -630,7 +630,8 @@ static int mhi_uci_send_sync(struct uci_client *uci_handle,
 	int ret_val;
 
 	uci_log(UCI_DBG_VERBOSE,
-		"Sync write for ch %d size %d\n", uci_handle->out_chan, size);
+		"Sync write for ch_id:%d size %d\n",
+		uci_handle->out_chan, size);
 
 	ureq.client = uci_handle->out_handle;
 	ureq.buf = data_loc;
@@ -652,7 +653,7 @@ static int mhi_uci_send_async(struct uci_client *uci_handle,
 	struct mhi_req *ureq;
 
 	uci_log(UCI_DBG_DBG,
-		"Async write for ch %d size %d\n",
+		"Async write for ch_id:%d size %d\n",
 		uci_handle->out_chan, size);
 
 	ureq = mhi_uci_get_req(uci_handle);
@@ -691,7 +692,7 @@ static int mhi_uci_send_packet(struct uci_client *uci_handle, void *data_loc,
 		ret_val = uci_handle->send(uci_handle, data_loc, size);
 		if (!ret_val) {
 			uci_log(UCI_DBG_VERBOSE,
-				"No descriptors available, did we poll, chan %d?\n",
+				"No descriptors available, did we poll, ch_id:%d?\n",
 				uci_handle->out_chan);
 			mutex_unlock(&uci_handle->out_chan_lock);
 			if (uci_handle->f_flags & (O_NONBLOCK | O_NDELAY))
@@ -711,7 +712,7 @@ static int mhi_uci_send_packet(struct uci_client *uci_handle, void *data_loc,
 			 * Wait till pending writes complete or a timeout.
 			 */
 			uci_log(UCI_DBG_VERBOSE,
-				"Write req list empty for chan %d\n",
+				"Write req list empty for ch_id:%d\n",
 				uci_handle->out_chan);
 			mutex_unlock(&uci_handle->out_chan_lock);
 			if (uci_handle->f_flags & (O_NONBLOCK | O_NDELAY))
@@ -726,14 +727,14 @@ static int mhi_uci_send_packet(struct uci_client *uci_handle, void *data_loc,
 				 * retry the write.
 				 */
 				uci_log(UCI_DBG_VERBOSE,
-				"Write req struct available for chan %d\n",
+				"Write req struct available for ch_id:%d\n",
 					uci_handle->out_chan);
 				mutex_lock(&uci_handle->out_chan_lock);
 				ret_val = 0;
 				continue;
 			} else if (!ret_val) {
 				uci_log(UCI_DBG_ERROR,
-				"Timed out waiting for write req, chan %d\n",
+				"Timed out waiting for write req, ch_id:%d\n",
 					uci_handle->out_chan);
 				return -EIO;
 			} else if (-ERESTARTSYS == ret_val) {
@@ -743,7 +744,7 @@ static int mhi_uci_send_packet(struct uci_client *uci_handle, void *data_loc,
 			}
 		} else if (ret_val < 0) {
 			uci_log(UCI_DBG_ERROR,
-				"Err sending data: chan %d, buf %pK, size %d\n",
+				"Err sending data: ch_id:%d, buf %pK, size %d\n",
 				uci_handle->out_chan, data_loc, size);
 			ret_val = -EIO;
 			break;
@@ -807,18 +808,18 @@ static unsigned int mhi_uci_client_poll(struct file *file, poll_table *wait)
 	if (!atomic_read(&uci_ctxt.mhi_disabled) &&
 		!mhi_dev_channel_isempty(uci_handle->in_handle)) {
 		uci_log(UCI_DBG_VERBOSE,
-		"Client can read chan %d\n", uci_handle->in_chan);
+		"Client can read ch_id:%d\n", uci_handle->in_chan);
 		mask |= POLLIN | POLLRDNORM;
 	}
 	if (!atomic_read(&uci_ctxt.mhi_disabled) &&
 		!mhi_dev_channel_isempty(uci_handle->out_handle)) {
 		uci_log(UCI_DBG_VERBOSE,
-		"Client can write chan %d\n", uci_handle->out_chan);
+		"Client can write ch_id:%d\n", uci_handle->out_chan);
 		mask |= POLLOUT | POLLWRNORM;
 	}
 
 	uci_log(UCI_DBG_VERBOSE,
-		"Client attempted to poll chan %d, returning mask 0x%x\n",
+		"Client attempted to poll ch_id:%d, returning mask 0x%x\n",
 		uci_handle->in_chan, mask);
 	mutex_unlock(&uci_handle->client_lock);
 
@@ -853,7 +854,7 @@ static int mhi_uci_alloc_reqs(struct uci_client *client)
 		list_add_tail(&client->reqs[i].list, &client->req_list);
 
 	uci_log(UCI_DBG_INFO,
-		"Allocated %d write reqs for chan %d\n",
+		"Allocated %d write reqs for ch_id:%d\n",
 		num_reqs, client->out_chan);
 	return 0;
 }
@@ -866,12 +867,12 @@ static int mhi_uci_read_async(struct uci_client *uci_handle, int *bytes_avail)
 	struct mhi_dev_client *client_handle;
 
 	uci_log(UCI_DBG_DBG,
-		"Async read for ch %d\n", uci_handle->in_chan);
+		"Async read for ch_id:%d\n", uci_handle->in_chan);
 
 	ureq = mhi_uci_get_req(uci_handle);
 	if (!ureq) {
 		uci_log(UCI_DBG_ERROR,
-			"Out of reqs for chan %d\n", uci_handle->in_chan);
+			"Out of reqs for ch_id:%d\n", uci_handle->in_chan);
 		return -EBUSY;
 	}
 
@@ -917,14 +918,14 @@ static int mhi_uci_read_async(struct uci_client *uci_handle, int *bytes_avail)
 			uci_log(UCI_DBG_ERROR, "Exit signal caught\n");
 			return compl_ret;
 		} else if (compl_ret == 0) {
-			uci_log(UCI_DBG_ERROR, "Read timed out for ch %d\n",
+			uci_log(UCI_DBG_ERROR, "Read timed out for ch_id:%d\n",
 				uci_handle->in_chan);
 			return -EIO;
 		}
 		uci_log(UCI_DBG_VERBOSE,
-			"wk up Read completed on ch %d\n", uci_handle->in_chan);
+			"wk up Read completed on ch_id:%d\n", uci_handle->in_chan);
 		uci_log(UCI_DBG_VERBOSE,
-			"Got pkt of sz 0x%lx at adr %pK, ch %d\n",
+			"Got pkt of sz 0x%lx at adr %pK, ch_id:%d\n",
 			uci_handle->pkt_size,
 			uci_handle->pkt_loc, uci_handle->in_chan);
 	} else {
@@ -944,8 +945,8 @@ static int mhi_uci_read_sync(struct uci_client *uci_handle, int *bytes_avail)
 	struct mhi_req ureq;
 	struct mhi_dev_client *client_handle;
 
-	uci_log(UCI_DBG_ERROR,
-		"Sync read for ch %d\n", uci_handle->in_chan);
+	uci_log(UCI_DBG_INFO,
+		"Sync read for ch_id:%d\n", uci_handle->in_chan);
 
 	client_handle = uci_handle->in_handle;
 	ureq.chan = uci_handle->in_chan;
@@ -969,7 +970,7 @@ static int mhi_uci_read_sync(struct uci_client *uci_handle, int *bytes_avail)
 		uci_handle->pkt_size = ureq.transfer_len;
 
 		uci_log(UCI_DBG_VERBOSE,
-			"Got pkt of sz 0x%lx at adr %pK, ch %d\n",
+			"Got pkt of sz 0x%lx at adr %pK, ch_id:%d\n",
 			uci_handle->pkt_size,
 			ureq.buf, ureq.chan);
 	} else {
@@ -985,13 +986,12 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 	int rc = 0;
 
 	if (!mhi_uci_are_channels_connected(uci_client)) {
-		uci_log(UCI_DBG_ERROR, "%s:Channels are not connected\n",
-			__func__);
+		uci_log(UCI_DBG_ERROR, "Channels are not connected\n");
 		return -ENODEV;
 	}
 
 	uci_log(UCI_DBG_DBG,
-			"Starting channels %d %d.\n",
+			"Starting channels OUT ch_id:%d IN ch_id:%d\n",
 			uci_client->out_chan,
 			uci_client->in_chan);
 	mutex_lock(&uci_client->out_chan_lock);
@@ -1010,7 +1010,7 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 	}
 
 	uci_log(UCI_DBG_DBG,
-			"Initializing inbound chan %d.\n",
+			"Initializing inbound ch_id:%d.\n",
 			uci_client->in_chan);
 	rc = mhi_init_read_chan(uci_client, uci_client->in_chan);
 	if (rc < 0) {
@@ -1031,7 +1031,7 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 			uci_ctxt.event_notifier);
 	if (rc < 0) {
 		uci_log(UCI_DBG_ERROR,
-			"Failed to open chan %d, ret %d\n",
+			"Failed to open ch_id:%d, ret %d\n",
 			uci_client->out_chan, rc);
 		goto handle_in_err;
 	}
@@ -1134,14 +1134,14 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 	mutex_lock(&uci_handle->client_lock);
 	in_chan_attr = uci_handle->in_chan_attr;
 	if (!in_chan_attr) {
-		uci_log(UCI_DBG_ERROR, "Null channel attributes for chan %d\n",
+		uci_log(UCI_DBG_ERROR, "Null channel attributes for ch_id:%d\n",
 				uci_handle->in_chan);
 		mutex_unlock(&uci_handle->client_lock);
 		return -EINVAL;
 	}
 
 	if (atomic_sub_return(1, &uci_handle->ref_count)) {
-		uci_log(UCI_DBG_DBG, "Client close chan %d, ref count 0x%x\n",
+		uci_log(UCI_DBG_DBG, "Client close ch_id:%d, ref count 0x%x\n",
 			iminor(mhi_inode),
 			atomic_read(&uci_handle->ref_count));
 		mutex_unlock(&uci_handle->client_lock);
@@ -1149,7 +1149,7 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 	}
 
 	uci_log(UCI_DBG_DBG,
-			"Last client left, closing channel 0x%x\n",
+			"Last client left, closing ch 0x%x\n",
 			iminor(mhi_inode));
 
 	do {
@@ -1161,7 +1161,7 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 	} while (++count < MHI_UCI_RELEASE_TIMEOUT_COUNT);
 
 	if (count == MHI_UCI_RELEASE_TIMEOUT_COUNT) {
-		uci_log(UCI_DBG_DBG, "Channel %d has pending writes\n",
+		uci_log(UCI_DBG_DBG, "ch_id:%d has pending writes\n",
 			iminor(mhi_inode));
 	}
 
@@ -1192,7 +1192,7 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 				list_del_init(&ureq->list);
 				ureq->is_stale = true;
 				uci_log(UCI_DBG_VERBOSE,
-					"Adding back req for chan %d to free list\n",
+					"Adding back req for ch_id:%d to free list\n",
 					ureq->chan);
 				list_add_tail(&ureq->list, &uci_handle->req_list);
 				count++;
@@ -1247,7 +1247,7 @@ static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
 
 	rc = mhi_ctrl_state_info(MHI_DEV_UEVENT_CTRL, &info);
 	if (rc) {
-		pr_err("Failed to obtain MHI_STATE\n");
+		uci_log(UCI_DBG_ERROR, "Failed to obtain MHI_STATE\n");
 		return -EINVAL;
 	}
 
@@ -1257,12 +1257,13 @@ static int mhi_state_uevent(struct device *dev, struct kobj_uevent_env *env)
 	for (i = 0; i < ARRAY_SIZE(mhi_chan_attr_table); i++) {
 		chan_attrib = &mhi_chan_attr_table[i];
 		if (chan_attrib->state_bcast) {
-			uci_log(UCI_DBG_ERROR, "Calling notify for ch %d\n",
+			uci_log(UCI_DBG_INFO, "Calling notify for ch_id:%d\n",
 					chan_attrib->chan_id);
 			rc = mhi_ctrl_state_info(chan_attrib->chan_id, &info);
 			if (rc) {
-				pr_err("Failed to obtain channel %d state\n",
-						chan_attrib->chan_id);
+				uci_log(UCI_DBG_ERROR,
+					"Failed to obtain ch_id:%d state\n",
+					chan_attrib->chan_id);
 				return -EINVAL;
 			}
 			nbytes = 0;
@@ -1307,7 +1308,7 @@ static ssize_t mhi_uci_ctrl_client_read(struct file *file,
 			"MHI_STATE=DISCONNECTED");
 		break;
 	default:
-		pr_err("invalid info:%d\n", info);
+		uci_log(UCI_DBG_ERROR, "invalid info:%d\n", info);
 		return -EINVAL;
 	}
 
@@ -1329,8 +1330,7 @@ static int __mhi_uci_client_read(struct uci_client *uci_handle,
 
 	do {
 		if (!mhi_uci_are_channels_connected(uci_handle)) {
-			uci_log(UCI_DBG_ERROR,
-				"%s:Channels are not connected\n", __func__);
+			uci_log(UCI_DBG_ERROR, "Channels are not connected\n");
 			return -ENODEV;
 		}
 
@@ -1344,7 +1344,7 @@ static int __mhi_uci_client_read(struct uci_client *uci_handle,
 
 			/* If nothing was copied yet, wait for data */
 			uci_log(UCI_DBG_VERBOSE,
-				"No data read_data_ready %d, chan %d\n",
+				"No data read_data_ready %d, ch_id:%d\n",
 				atomic_read(&uci_handle->read_data_ready),
 				uci_handle->in_chan);
 			if (uci_handle->f_flags & (O_NONBLOCK | O_NDELAY))
@@ -1360,13 +1360,13 @@ static int __mhi_uci_client_read(struct uci_client *uci_handle,
 			}
 
 			uci_log(UCI_DBG_VERBOSE,
-				"wk up Got data on ch %d read_data_ready %d\n",
+				"wk up Got data on ch_id:%d read_data_ready %d\n",
 				uci_handle->in_chan,
 				atomic_read(&uci_handle->read_data_ready));
 		} else if (*bytes_avail > 0) {
 			/* A valid packet was returned from MHI */
 			uci_log(UCI_DBG_VERBOSE,
-				"Got packet: avail pkts %d phy_adr %pK, ch %d\n",
+				"Got packet: avail pkts %d phy_adr %pK, ch_id:%d\n",
 				atomic_read(&uci_handle->read_data_ready),
 				uci_handle->pkt_loc,
 				uci_handle->in_chan);
@@ -1399,7 +1399,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 	mutex = &uci_handle->in_chan_lock;
 	mutex_lock(mutex);
 
-	uci_log(UCI_DBG_VERBOSE, "Client attempted read on chan %d\n",
+	uci_log(UCI_DBG_VERBOSE, "Client attempted read on ch_id:%d\n",
 		uci_handle->in_chan);
 
 	ret_val = __mhi_uci_client_read(uci_handle, &bytes_avail);
@@ -1419,7 +1419,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 
 		bytes_copied = *bytes_pending;
 		*bytes_pending = 0;
-		uci_log(UCI_DBG_VERBOSE, "Copied 0x%lx of 0x%x, chan %d\n",
+		uci_log(UCI_DBG_VERBOSE, "Copied 0x%lx of 0x%x, ch_id:%d\n",
 			bytes_copied, (u32)*bytes_pending, uci_handle->in_chan);
 	} else {
 		addr_offset = uci_handle->pkt_size - *bytes_pending;
@@ -1430,7 +1430,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 		}
 		bytes_copied = uspace_buf_size;
 		*bytes_pending -= uspace_buf_size;
-		uci_log(UCI_DBG_VERBOSE, "Copied 0x%lx of 0x%x,chan %d\n",
+		uci_log(UCI_DBG_VERBOSE, "Copied 0x%lx of 0x%x,ch_id:%d\n",
 			bytes_copied,
 			(u32)*bytes_pending,
 			uci_handle->in_chan);
@@ -1438,7 +1438,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *ubuf,
 	/* We finished with this buffer, map it back */
 	if (*bytes_pending == 0) {
 		uci_log(UCI_DBG_VERBOSE,
-			"All data consumed. Pkt loc %p ,chan %d\n",
+			"All data consumed. Pkt loc %p ,ch_id:%d\n",
 			uci_handle->pkt_loc, uci_handle->in_chan);
 		uci_handle->pkt_loc = 0;
 		uci_handle->pkt_size = 0;
@@ -1481,8 +1481,7 @@ static ssize_t mhi_uci_client_write(struct file *file,
 	}
 
 	if (!mhi_uci_are_channels_connected(uci_handle)) {
-		uci_log(UCI_DBG_ERROR, "%s:Channels are not connected\n",
-			__func__);
+		uci_log(UCI_DBG_ERROR, "Channels are not connected\n");
 		return -ENODEV;
 	}
 
@@ -1541,8 +1540,7 @@ static ssize_t mhi_uci_client_write_iter(struct kiocb *iocb,
 	}
 
 	if (!mhi_uci_are_channels_connected(uci_handle)) {
-		uci_log(UCI_DBG_ERROR, "%s:Channels are not connected\n",
-			__func__);
+		uci_log(UCI_DBG_ERROR, "Channels are not connected\n");
 		return -ENODEV;
 	}
 
@@ -1581,7 +1579,7 @@ void mhi_uci_chan_state_notify_all(struct mhi_dev *mhi,
 	for (i = 0; i < ARRAY_SIZE(mhi_chan_attr_table); i++) {
 		chan_attrib = &mhi_chan_attr_table[i];
 		if (chan_attrib->state_bcast) {
-			uci_log(UCI_DBG_ERROR, "Calling notify for ch %d\n",
+			uci_log(UCI_DBG_ERROR, "Calling notify for ch_id:%d\n",
 					chan_attrib->chan_id);
 			mhi_uci_chan_state_notify(mhi, chan_attrib->chan_id,
 					ch_state);
@@ -1598,14 +1596,14 @@ void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
 	int rc;
 
 	if (ch_id < 0 || ch_id >= MHI_MAX_SOFTWARE_CHANNELS) {
-		uci_log(UCI_DBG_ERROR, "Invalid chan %d\n", ch_id);
+		uci_log(UCI_DBG_ERROR, "Invalid ch_id:%d\n", ch_id);
 		return;
 	}
 
 	uci_handle = &uci_ctxt.client_handles[CHAN_TO_CLIENT(ch_id)];
 	if (!uci_handle->out_chan_attr ||
 		!uci_handle->out_chan_attr->state_bcast) {
-		uci_log(UCI_DBG_VERBOSE, "Uevents not enabled for chan %d\n",
+		uci_log(UCI_DBG_VERBOSE, "Uevents not enabled for ch_id:%d\n",
 				ch_id);
 		return;
 	}
@@ -1631,7 +1629,7 @@ void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
 	rc = kobject_uevent_env(&mhi->dev->kobj, KOBJ_CHANGE, buf);
 	if (rc)
 		uci_log(UCI_DBG_ERROR,
-				"Sending uevent failed for chan %d\n", ch_id);
+				"Sending uevent failed for ch_id:%d\n", ch_id);
 
 	if (ch_state == MHI_STATE_DISCONNECTED &&
 			!atomic_read(&uci_handle->ref_count)) {
@@ -1651,7 +1649,7 @@ void uci_ctrl_update(struct mhi_dev_client_cb_reason *reason)
 	if (reason->reason == MHI_DEV_CTRL_UPDATE) {
 		uci_ctrl_handle = &uci_ctxt.ctrl_handle;
 		if (!uci_ctrl_handle) {
-			pr_err("Invalid uci ctrl handle\n");
+			uci_log(UCI_DBG_ERROR, "Invalid uci ctrl handle\n");
 			return;
 		}
 
@@ -1677,7 +1675,7 @@ static void uci_event_notifier(struct mhi_dev_client_cb_reason *reason)
 		uci_handle->out_chan_attr->tre_notif_cb(reason);
 	} else if (reason->reason == MHI_DEV_TRE_AVAILABLE) {
 		uci_log(UCI_DBG_DBG,
-			"recived TRE available event for chan %d\n",
+			"recived TRE available event for ch_id:%d\n",
 			uci_handle->in_chan);
 		if (reason->ch_id % 2) {
 			atomic_set(&uci_handle->write_data_ready, 1);
@@ -1702,7 +1700,7 @@ static int mhi_register_client(struct uci_client *mhi_client, int index)
 	/* Init the completion event for AT ctrl read */
 	init_completion(&mhi_client->at_ctrl_read_done);
 
-	uci_log(UCI_DBG_DBG, "Registering chan %d.\n", mhi_client->out_chan);
+	uci_log(UCI_DBG_DBG, "Registering ch_id:%d.\n", mhi_client->out_chan);
 	return 0;
 }
 
@@ -2069,7 +2067,7 @@ static void mhi_uci_at_ctrl_client_cb(struct mhi_dev_client_cb_data *cb_data)
 	int rc, i;
 	struct mhi_req *ureq;
 
-	uci_log(UCI_DBG_VERBOSE, " Rcvd MHI cb for channel %d, state %d\n",
+	uci_log(UCI_DBG_VERBOSE, " Rcvd MHI cb for ch_id:%d, state %d\n",
 		cb_data->channel, cb_data->ctrl_info);
 
 	if (cb_data->ctrl_info == MHI_STATE_CONNECTED) {
@@ -2120,7 +2118,7 @@ static void mhi_uci_generic_client_cb(struct mhi_dev_client_cb_data *cb_data)
 {
 	struct uci_client *client = cb_data->user_data;
 
-	uci_log(UCI_DBG_DBG, "Rcvd MHI cb for channel %d, state %d\n",
+	uci_log(UCI_DBG_DBG, "Rcvd MHI cb for ch_id:%d, state %d\n",
 		cb_data->channel, cb_data->ctrl_info);
 
 	if (cb_data->ctrl_info == MHI_STATE_CONNECTED)
@@ -2254,7 +2252,7 @@ int mhi_uci_init(void)
 	/* Control node */
 	uci_ctxt.cdev_ctrl = cdev_alloc();
 	if (uci_ctxt.cdev_ctrl == NULL) {
-		pr_err("%s: ctrl cdev alloc failed\n", __func__);
+		uci_log(UCI_DBG_ERROR, "ctrl cdev alloc failed\n");
 		return 0;
 	}
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2018-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2022 The Linux Foundation. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -8047,6 +8047,9 @@ static void smblib_lpd_ra_open_work(struct work_struct *work)
 	if (!(stat & TYPEC_WATER_DETECTION_STATUS_BIT)
 			|| (stat & TYPEC_TCCDEBOUNCE_DONE_STATUS_BIT)) {
 		chg->lpd_stage = LPD_STAGE_NONE;
+
+		/* Remove LPD_VOTER from ICL is moisture status is gone in attached state. */
+		vote(chg->usb_icl_votable, LPD_VOTER, false, 0);
 		goto out;
 	}
 
