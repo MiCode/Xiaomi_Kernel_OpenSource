@@ -43,3 +43,4 @@ obj-$(CONFIG_PINCTRL_SLPI) += pinctrl-slpi.o
 obj-$(CONFIG_QCOM_PINCTRL) += qcom-msm-pinctrl.o
 obj-$(CONFIG_PINCTRL_LPASS_LPI) += pinctrl-lpass-lpi.o
 obj-$(CONFIG_PINCTRL_BENGAL) += pinctrl-bengal.o
+obj-$(CONFIG_PINCTRL_SM6150) 	+= pinctrl-sm6150.o
