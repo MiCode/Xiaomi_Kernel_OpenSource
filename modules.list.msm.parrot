@@ -67,3 +67,9 @@ spmi-pmic-arb.ko
 qti-regmap-debugfs.ko
 regmap-spmi.ko
 rtc-pm8xxx.ko
+crypto-qti-common.ko
+crypto-qti-hwkm.ko
+hwkm.ko
+ufshcd-crypto-qti.ko
+tmecom-intf.ko
+cqhci-crypto-qti.ko
