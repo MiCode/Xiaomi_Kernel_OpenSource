@@ -91,6 +91,8 @@ struct adreno_gen7_core {
 	u64 ctxt_record_size;
 	/** @highest_bank_bit: Highest bank bit value */
 	u32 highest_bank_bit;
+	/** @gmu_hub_clk_freq: Gmu hub interface clock frequency */
+	u64 gmu_hub_clk_freq;
 };
 
 /**

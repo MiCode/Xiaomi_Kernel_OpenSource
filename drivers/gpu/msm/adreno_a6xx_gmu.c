@@ -2214,7 +2214,7 @@ int a6xx_gmu_enable_clks(struct adreno_device *adreno_dev)
 	}
 
 	ret = kgsl_clk_set_rate(gmu->clks, gmu->num_clks, "hub_clk",
-			150000000);
+			adreno_dev->gmu_hub_clk_freq);
 	if (ret && ret != -ENODEV) {
 		dev_err(&gmu->pdev->dev, "Unable to set the HUB clock\n");
 		return ret;

@@ -186,8 +186,11 @@ int a6xx_fenced_write(struct adreno_device *adreno_dev, u32 offset,
 int a6xx_init(struct adreno_device *adreno_dev)
 {
 	const struct adreno_a6xx_core *a6xx_core = to_a6xx_core(adreno_dev);
+	u64 freq = a6xx_core->gmu_hub_clk_freq;
 
 	adreno_dev->highest_bank_bit = a6xx_core->highest_bank_bit;
+
+	adreno_dev->gmu_hub_clk_freq = freq ? freq : 150000000;
 
 	adreno_dev->cooperative_reset = ADRENO_FEATURE(adreno_dev,
 							ADRENO_COOP_RESET);

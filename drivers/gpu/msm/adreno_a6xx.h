@@ -83,6 +83,8 @@ struct adreno_a6xx_core {
 	u32 highest_bank_bit;
 	/** @ctxt_record_size: Size of the preemption record in bytes */
 	u64 ctxt_record_size;
+	/** @gmu_hub_clk_freq: Gmu hub interface clock frequency */
+	u64 gmu_hub_clk_freq;
 };
 
 #define SPTPRAC_POWERON_CTRL_MASK	0x00778000

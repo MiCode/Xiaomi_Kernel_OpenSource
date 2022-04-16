@@ -635,6 +635,8 @@ struct adreno_device {
 	 * controls perfcounter ioctl read
 	 */
 	bool perfcounter;
+	/** @gmu_hub_clk_freq: Gmu hub interface clock frequency */
+	u64 gmu_hub_clk_freq;
 };
 
 /**
