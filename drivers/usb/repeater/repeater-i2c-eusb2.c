@@ -367,7 +367,7 @@ static int eusb2_repeater_i2c_probe(struct i2c_client *client)
 		goto err_probe;
 	}
 
-	er->reset_gpiod = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
+	er->reset_gpiod = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(er->reset_gpiod)) {
 		ret = PTR_ERR(er->reset_gpiod);
 		goto err_probe;
