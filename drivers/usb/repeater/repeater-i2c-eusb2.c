@@ -7,14 +7,12 @@
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/gpio/consumer.h>
-#include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/of.h>
-#include <linux/of_irq.h>
 #include <linux/regmap.h>
 #include <linux/qti-regmap-debugfs.h>
 #include <linux/regulator/consumer.h>
@@ -89,7 +87,6 @@ struct eusb2_repeater {
 	bool				power_enabled;
 
 	struct gpio_desc		*reset_gpiod;
-	int				reset_gpio_irq;
 	u32				*param_override_seq;
 	u8				param_override_seq_cnt;
 };
@@ -301,18 +298,6 @@ static int eusb2_repeater_powerdown(struct usb_repeater *ur)
 	return eusb2_repeater_power(er, false);
 }
 
-static irqreturn_t eusb2_reset_gpio_irq_handler(int irq, void *dev_id)
-{
-	/*
-	 * This IRQ handler is just returning IRQ_HANDLED to notify
-	 * interrupt framework to clear the interrupt.
-	 */
-	struct eusb2_repeater *er = dev_id;
-
-	dev_dbg(er->ur.dev, "reset gpio interrupt handled\n");
-	return IRQ_HANDLED;
-}
-
 static struct i2c_repeater_chip repeater_chip[] = {
 	[NXP_REPEATER] = {
 		.repeater_type = NXP_REPEATER,
@@ -385,21 +370,6 @@ static int eusb2_repeater_i2c_probe(struct i2c_client *client)
 	er->reset_gpiod = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(er->reset_gpiod)) {
 		ret = PTR_ERR(er->reset_gpiod);
-		goto err_probe;
-	}
-
-	er->reset_gpio_irq = of_irq_get_byname(dev->of_node, "eusb2_rptr_reset_gpio_irq");
-	if (er->reset_gpio_irq < 0) {
-		dev_err(dev, "failed to get reset gpio IRQ\n");
-		ret = er->reset_gpio_irq;
-		goto err_probe;
-	}
-
-	ret = devm_request_irq(dev, er->reset_gpio_irq,
-			eusb2_reset_gpio_irq_handler, IRQF_TRIGGER_RISING,
-			client->name, er);
-	if (ret < 0) {
-		dev_err(dev, "failed to request reset gpio irq\n");
 		goto err_probe;
 	}
 
