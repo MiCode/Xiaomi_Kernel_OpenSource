@@ -4,7 +4,6 @@
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
-#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
 #include <linux/types.h>
 #include <soc/qcom/cmd-db.h>
 #include <soc/qcom/tcs.h>
@@ -255,12 +254,15 @@ static struct rpmh_bw_votes *build_rpmh_bw_votes(struct bcm *bcms,
  * @hfi: Pointer to hfi device
  * @pri_rail: Pointer to primary power rail vlvl table
  * @sec_rail: Pointer to second/dependent power rail vlvl table
+ * @freqs: List of GMU frequencies
+ * @vlvls: List of GMU voltage levels
  *
  * This function initializes the cx votes for all gmu frequencies
  * for gmu dcvs
  */
 static int setup_cx_arc_votes(struct gen7_hfi *hfi,
-	struct rpmh_arc_vals *pri_rail, struct rpmh_arc_vals *sec_rail)
+	struct rpmh_arc_vals *pri_rail, struct rpmh_arc_vals *sec_rail,
+	u32 *freqs, u32 *vlvls)
 {
 	/* Hardcoded values of GMU CX voltage levels */
 	u16 gmu_cx_vlvl[MAX_CX_LEVELS];
@@ -269,14 +271,14 @@ static int setup_cx_arc_votes(struct gen7_hfi *hfi,
 	int ret, i;
 
 	gmu_cx_vlvl[0] = 0;
-	gmu_cx_vlvl[1] = RPMH_REGULATOR_LEVEL_LOW_SVS;
-	gmu_cx_vlvl[2] = RPMH_REGULATOR_LEVEL_SVS;
+	gmu_cx_vlvl[1] = vlvls[0];
+	gmu_cx_vlvl[2] = vlvls[1];
 
 	table->gmu_level_num = 3;
 
 	table->cx_votes[0].freq = 0;
-	table->cx_votes[1].freq = GMU_FREQ_MIN / 1000;
-	table->cx_votes[2].freq = GMU_FREQ_MAX / 1000;
+	table->cx_votes[1].freq = freqs[0] / 1000;
+	table->cx_votes[2].freq = freqs[1] / 1000;
 
 	ret = setup_volt_dependency_tbl(cx_votes, pri_rail,
 			sec_rail, gmu_cx_vlvl, table->gmu_level_num);
@@ -400,7 +402,8 @@ static int build_dcvs_table(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	ret = setup_cx_arc_votes(hfi, &cx_arc, &mx_arc);
+	ret = setup_cx_arc_votes(hfi, &cx_arc, &mx_arc,
+			gmu->freqs, gmu->vlvls);
 	if (ret)
 		return ret;
 

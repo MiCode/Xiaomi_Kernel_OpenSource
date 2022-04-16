@@ -56,6 +56,10 @@ struct gen7_gmu_device {
 	/** @num_clks: Number of entries in the @clks array */
 	int num_clks;
 	unsigned int idle_level;
+	/** @freqs: Array of GMU frequencies */
+	u32 freqs[GMU_MAX_PWRLEVELS];
+	/** @vlvls: Array of GMU voltage levels */
+	u32 vlvls[GMU_MAX_PWRLEVELS];
 	struct kgsl_mailbox mailbox;
 	/** @gmu_globals: Array to store gmu global buffers */
 	struct kgsl_memdesc gmu_globals[GMU_KERNEL_ENTRIES];
@@ -83,7 +87,7 @@ struct gen7_gmu_device {
 	struct kobject log_kobj;
 	/*
 	 * @perf_ddr_bw: The lowest ddr bandwidth that puts CX at a corner at
-	 * which GMU can run at 500 Mhz.
+	 * which GMU can run at higher frequency.
 	 */
 	u32 perf_ddr_bw;
 	/** @rdpm_cx_virt: Pointer where the RDPM CX block is mapped */

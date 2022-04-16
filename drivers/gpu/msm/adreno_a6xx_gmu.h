@@ -56,6 +56,10 @@ struct a6xx_gmu_device {
 	/** @num_clks: Number of entries in the @clks array */
 	int num_clks;
 	unsigned int idle_level;
+	/** @freqs: Array of GMU frequencies */
+	u32 freqs[GMU_MAX_PWRLEVELS];
+	/** @vlvls: Array of GMU voltage levels */
+	u32 vlvls[GMU_MAX_PWRLEVELS];
 	struct kgsl_mailbox mailbox;
 	bool preallocations;
 	/** @gmu_globals: Array to store gmu global buffers */
@@ -88,7 +92,7 @@ struct a6xx_gmu_device {
 	struct kobject log_kobj;
 	/*
 	 * @perf_ddr_bw: The lowest ddr bandwidth that puts CX at a corner at
-	 * which GMU can run at 500 Mhz.
+	 * which GMU can run at higher frequency.
 	 */
 	u32 perf_ddr_bw;
 	/** @num_oob_perfcntr: Number of active oob_perfcntr requests */
