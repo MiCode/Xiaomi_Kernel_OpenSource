@@ -53,6 +53,13 @@
 #define GPIO1_CONFIG			0x40
 #define UART_PORT1			0x50
 #define EXTRA_PORT1			0x51
+#define U_TX_ADJUST_PORT1		0x70
+#define U_HS_TX_PRE_EMPHASIS_P1		0x71
+#define U_RX_ADJUST_PORT1		0x72
+#define U_DISCONNECT_SQUELCH_PORT1	0x73
+#define E_HS_TX_PRE_EMPHASIS_P1		0x77
+#define E_TX_ADJUST_PORT1		0x78
+#define E_RX_ADJUST_PORT1		0x79
 #define REV_ID				0xB0
 #define GLOBAL_CONFIG			0xB2
 #define INT_ENABLE_1			0xB3
