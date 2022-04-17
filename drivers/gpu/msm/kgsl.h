@@ -104,7 +104,7 @@ static inline void KGSL_STATS_ADD(uint64_t size, atomic_long_t *stat,
 		atomic_long_set(max, ret);
 }
 
-#define KGSL_MAX_NUMIBS 100000
+#define KGSL_MAX_NUMIBS 2000
 #define KGSL_MAX_SYNCPOINTS 32
 
 struct kgsl_device;
