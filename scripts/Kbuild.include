@@ -142,6 +142,12 @@ if_changed = $(if $(if-changed-cond),                                        \
 	$(cmd);                                                              \
 	printf '%s\n' 'cmd_$@ := $(make-cmd)' > $(dot-target).cmd, @:)
 
+if_changed_cmd_only = $(if $(any-prereq)$(cmd-check),                        \
+	$(cmd), @:)
+
+if_changed_print_only = $(if $(any-prereq)$(cmd-check),                      \
+	printf '%s\n' 'cmd_$@ := $(make-cmd)' > $(dot-target).cmd, @:)
+
 # Execute the command and also postprocess generated .d dependencies file.
 if_changed_dep = $(if $(if-changed-cond),$(cmd_and_fixdep),@:)
 
