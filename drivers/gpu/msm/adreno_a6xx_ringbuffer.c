@@ -448,7 +448,7 @@ int a6xx_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			numibs++;
 	}
 
-	cmds = kmalloc((A6XX_COMMAND_DWORDS + (numibs * 5)) << 2, GFP_KERNEL);
+	cmds = kvmalloc((A6XX_COMMAND_DWORDS + (numibs * 5)) << 2, GFP_KERNEL);
 	if (!cmds) {
 		ret = -ENOMEM;
 		goto done;
@@ -539,6 +539,6 @@ done:
 	trace_kgsl_issueibcmds(device, drawctxt->base.id, numibs,
 		drawobj->timestamp, drawobj->flags, ret, drawctxt->type);
 
-	kfree(cmds);
+	kvfree(cmds);
 	return ret;
 }
