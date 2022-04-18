@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _A6XX_REG_H
@@ -1199,6 +1200,10 @@
 #define A6XX_GPUHTW_LLC_SCID_SHIFT		25
 #define A6XX_GPUHTW_LLC_SCID_MASK \
 	(((1 << A6XX_GPU_LLC_SCID_NUM_BITS) - 1) << A6XX_GPUHTW_LLC_SCID_SHIFT)
+
+#define A6XX_GPUMV_LLC_SCID_SHIFT		15
+#define A6XX_GPUMV_LLC_SCID_MASK \
+		(((1 << A6XX_GPU_LLC_SCID_NUM_BITS) - 1) << A6XX_GPUMV_LLC_SCID_SHIFT)
 
 #endif /* _A6XX_REG_H */
 
