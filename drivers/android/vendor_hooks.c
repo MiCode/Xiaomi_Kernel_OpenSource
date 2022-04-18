@@ -58,6 +58,7 @@
 #include <trace/hooks/audio_usboffload.h>
 #include <trace/hooks/drm_framebuffer.h>
 #include <trace/hooks/drm_atomic.h>
+#include <trace/hooks/usb.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -280,3 +281,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_audio_usb_offload_disconnect);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_atomic_remove_fb);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_drm_atomic_check_modeset);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_get_thermal_zone_device);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_usb_new_device_added);
