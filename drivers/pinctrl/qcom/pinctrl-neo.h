@@ -1441,7 +1441,7 @@ static const struct msm_pingroup neo_groups[] = {
 	[154] = PINGROUP(154, qdss_cti, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[155] = PINGROUP(155, qdss_cti, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0x9C01C, 11),
-	[156] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1a0000, 15, 0),
+	[156] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x1a1000, 0, 0),
 	[157] = SDC_QDSD_PINGROUP(sdc1_clk, 0x1a0000, 13, 6),
 	[158] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x1a0000, 11, 3),
 	[159] = SDC_QDSD_PINGROUP(sdc1_data, 0x1a0000, 9, 0),
