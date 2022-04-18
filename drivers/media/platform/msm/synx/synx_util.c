@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt) "synx: " fmt
 
@@ -171,12 +172,11 @@ void synx_util_object_destroy(struct synx_coredata *synx_obj)
 		}
 
 		/* clear the hash table entry */
-		entry = synx_util_retrieve_data(sync_id, type);
+		entry = synx_util_release_data(sync_id, type);
 		if (entry && type == SYNX_TYPE_CSL) {
 			spin_lock_bh(&camera_tbl_lock);
-			hash_del(&entry->node);
+			kref_put(&entry->refcount, synx_util_destroy_data);
 			spin_unlock_bh(&camera_tbl_lock);
-			kfree(entry);
 		}
 
 		rc = bind_ops->deregister_callback(
@@ -648,6 +648,10 @@ int synx_util_update_handle(struct synx_client *client,
 					synx_data->synx_obj = entry->data;
 					synx_util_get_object(synx_data->synx_obj);
 					*synx_handle = NULL;
+					/* release reference from retrieve data */
+					spin_lock_bh(&camera_tbl_lock);
+					kref_put(&entry->refcount, synx_util_destroy_data);
+					spin_unlock_bh(&camera_tbl_lock);
 				} else {
 					kref_get(&synx_data->internal_refcount);
 					*synx_handle = synx_data;
@@ -1288,9 +1292,11 @@ int synx_util_save_data(u32 key, u32 tbl, void *data)
 
 	entry->key = key;
 	entry->data = data;
+	kref_init(&entry->refcount);
 
 	switch (tbl) {
 	case SYNX_CAMERA_ID_TBL:
+		synx_util_get_object((struct synx_coredata *) data);
 		spin_lock_bh(&camera_tbl_lock);
 		hash_add(synx_camera_id_tbl, &entry->node, key);
 		spin_unlock_bh(&camera_tbl_lock);
@@ -1322,6 +1328,7 @@ struct hash_key_data *synx_util_retrieve_data(u32 key,
 		hash_for_each_possible(synx_camera_id_tbl,
 			curr, node, key) {
 			if (curr->key == key) {
+				kref_get(&curr->refcount);
 				entry = curr;
 				break;
 			}
@@ -1333,6 +1340,7 @@ struct hash_key_data *synx_util_retrieve_data(u32 key,
 		hash_for_each_possible(synx_global_key_tbl,
 			curr, node, key) {
 			if (curr->key == key) {
+				kref_get(&curr->refcount);
 				entry = curr;
 				break;
 			}
@@ -1345,4 +1353,53 @@ struct hash_key_data *synx_util_retrieve_data(u32 key,
 	}
 
 	return entry;
+}
+
+struct hash_key_data *synx_util_release_data(u32 key,
+	u32 tbl)
+{
+	void *entry = NULL;
+	struct hash_key_data *curr = NULL;
+	struct hlist_node *tmp_node;
+
+	switch (tbl) {
+	case SYNX_CAMERA_ID_TBL:
+		spin_lock_bh(&camera_tbl_lock);
+		hash_for_each_possible_safe(synx_camera_id_tbl,
+			curr, tmp_node, node, key) {
+			if (curr->key == key) {
+				entry = curr;
+				hash_del(&curr->node);
+				break;
+			}
+		}
+		spin_unlock_bh(&camera_tbl_lock);
+		break;
+	case SYNX_GLOBAL_KEY_TBL:
+		spin_lock_bh(&global_tbl_lock);
+		hash_for_each_possible_safe(synx_global_key_tbl,
+			curr, tmp_node, node, key) {
+			if (curr->key == key) {
+				entry = curr;
+				hash_del(&curr->node);
+				break;
+			}
+		}
+		spin_unlock_bh(&global_tbl_lock);
+		break;
+	default:
+		pr_err("invalid hash table selection %d\n",
+			tbl);
+	}
+
+	return entry;
+}
+
+void synx_util_destroy_data(struct kref *kref)
+{
+	struct hash_key_data *entry =
+		container_of(kref, struct hash_key_data, refcount);
+
+	synx_util_put_object((struct synx_coredata *) entry->data);
+	kfree(entry);
 }
