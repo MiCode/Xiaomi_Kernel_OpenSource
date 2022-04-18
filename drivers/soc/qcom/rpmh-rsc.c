@@ -898,10 +898,10 @@ static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl,
 
 	sts = read_tcs_reg(drv, drv->regs[RSC_DRV_STATUS], tcs_id);
 	cmds_enabled = read_tcs_reg(drv, drv->regs[RSC_DRV_CMD_ENABLE], tcs_id);
-	if (!cmds_enabled)
+	if (!cmds_enabled || !tcs_grp)
 		return;
 
-	if (!tcs_grp || !req)
+	if (!req)
 		goto print_tcs_data;
 
 	data = read_tcs_reg(drv, drv->regs[RSC_DRV_CONTROL], tcs_id);
