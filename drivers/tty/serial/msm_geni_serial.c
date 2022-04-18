@@ -3902,7 +3902,12 @@ static int msm_geni_serial_sys_resume(struct device *dev)
 	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
 	struct uart_port *uport = &port->uport;
 
-	if (uart_console(uport) &&
+	/* Platform driver is registered for console and when console
+	 * is disabled from cmdline simply return success.
+	 */
+	if (port->is_console && !con_enabled) {
+		return 0;
+	} else if (uart_console(uport) &&
 	    console_suspend_enabled && uport->suspended) {
 		IPC_LOG_MSG(port->console_log, "%s start %d\n", __func__, true);
 		uart_resume_port((struct uart_driver *)uport->private_data,
