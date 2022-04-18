@@ -22,7 +22,7 @@ TARGET_HAS_SEPARATE_RD=1
 [ -z "${DT_OVERLAY_SUPPORT}" ] && DT_OVERLAY_SUPPORT=0
 
 if [ "${KERNEL_CMDLINE_CONSOLE_AUTO}" != "0" ]; then
-	KERNEL_CMDLINE+=' console=ttyMSM0,115200n8 earlycon=qcom_geni,0x0099C000 msm_geni_serial.con_enabled=1 loglevel=8 '
+	KERNEL_CMDLINE+=' console=ttyMSM0,115200n8 earlycon=qcom_geni,0x0099C000 qcom_geni_serial.con_enabled=1 loglevel=8 '
 fi
 
 ################################################################################
