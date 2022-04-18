@@ -447,7 +447,7 @@ static int icnss_send_smp2p(struct icnss_priv *priv,
 	unsigned int value = 0;
 	int ret;
 
-	if (IS_ERR(priv->smp2p_info[smp2p_entry].smem_state))
+	if (IS_ERR_OR_NULL(priv->smp2p_info[smp2p_entry].smem_state))
 		return -EINVAL;
 
 	/* No Need to check FW_DOWN for ICNSS_RESET_MSG */
