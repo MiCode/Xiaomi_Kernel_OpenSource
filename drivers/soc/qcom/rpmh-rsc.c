@@ -999,22 +999,6 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 	BUG_ON(busy);
 }
 
-static bool __rpmh_rsc_ctrlr_is_busy(struct rsc_drv *drv, struct tcs_group *tcs)
-{
-	unsigned long set;
-	unsigned long max;
-
-	max = tcs->offset + tcs->num_tcs;
-	set = find_next_bit(drv->tcs_in_use, max, tcs->offset);
-
-	/* Check if there is pending fastpath transaction */
-	if (tcs[FAST_PATH_TCS].num_tcs &&
-	    !read_tcs_reg(drv, drv->regs[RSC_DRV_STATUS], tcs[FAST_PATH_TCS].offset))
-		return true;
-
-	return set < max;
-}
-
 /**
  * rpmh_rsc_ctrlr_is_busy() - Check if any of the AMCs are busy.
  * @drv: The controller
@@ -1032,8 +1016,10 @@ static bool __rpmh_rsc_ctrlr_is_busy(struct rsc_drv *drv, struct tcs_group *tcs)
  */
 static bool rpmh_rsc_ctrlr_is_busy(struct rsc_drv *drv)
 {
-	int i, ret = false;
+	int i;
 	struct tcs_group *tcs;
+	unsigned long set;
+	unsigned long max;
 
 	for (i = 0; i < MAX_CHANNEL; i++) {
 		if (!drv->ch[i].initialized)
@@ -1049,12 +1035,19 @@ static bool rpmh_rsc_ctrlr_is_busy(struct rsc_drv *drv)
 		if (!tcs->num_tcs)
 			tcs = &drv->ch[i].tcs[WAKE_TCS];
 
-		ret = __rpmh_rsc_ctrlr_is_busy(drv, tcs);
-		if (ret)
-			break;
+		max = tcs->offset + tcs->num_tcs;
+		set = find_next_bit(drv->tcs_in_use, max, tcs->offset);
+		if (set < max)
+			return true;
+
+		/* Check if there is pending fastpath transaction */
+		tcs = &drv->ch[i].tcs[FAST_PATH_TCS];
+		if (tcs->num_tcs &&
+		    !read_tcs_reg(drv, drv->regs[RSC_DRV_STATUS], tcs->offset))
+			return true;
 	}
 
-	return ret;
+	return false;
 }
 
 /**
