@@ -24,7 +24,8 @@
 #define SPI_TRANS_PREFIX_LEN    1
 #define REGISTER_WIDTH          4
 #define SPI_READ_DUMMY_LEN      4
-#define SPI_READ_PREFIX_LEN  (SPI_TRANS_PREFIX_LEN + REGISTER_WIDTH + SPI_READ_DUMMY_LEN)
+#define SPI_READ_PREFIX_LEN  \
+		(SPI_TRANS_PREFIX_LEN + REGISTER_WIDTH + SPI_READ_DUMMY_LEN)
 #define SPI_WRITE_PREFIX_LEN (SPI_TRANS_PREFIX_LEN + REGISTER_WIDTH)
 
 #define SPI_WRITE_FLAG  0xF0
@@ -80,7 +81,7 @@ static int goodix_spi_read_bra(struct device *dev, unsigned int addr,
 	spi_message_add_tail(&xfers, &spi_msg);
 	ret = spi_sync(spi, &spi_msg);
 	if (ret < 0) {
-		ts_err("spi transfer error:%d",ret);
+		ts_err("spi transfer error:%d", ret);
 		goto exit;
 	}
 	memcpy(data, &rx_buf[SPI_READ_PREFIX_LEN], len);
@@ -129,7 +130,7 @@ static int goodix_spi_read(struct device *dev, unsigned int addr,
 	spi_message_add_tail(&xfers, &spi_msg);
 	ret = spi_sync(spi, &spi_msg);
 	if (ret < 0) {
-		ts_err("spi transfer error:%d",ret);
+		ts_err("spi transfer error:%d", ret);
 		goto exit;
 	}
 	memcpy(data, &rx_buf[SPI_READ_PREFIX_LEN - 1], len);
@@ -158,11 +159,8 @@ static int goodix_spi_write(struct device *dev, unsigned int addr,
 	int ret = 0;
 
 	tx_buf = kzalloc(SPI_WRITE_PREFIX_LEN + len, GFP_KERNEL);
-	if (!tx_buf) {
-		ts_err("alloc tx_buf failed, size:%d",
-			SPI_WRITE_PREFIX_LEN + len);
+	if (!tx_buf)
 		return -ENOMEM;
-	}
 
 	spi_message_init(&spi_msg);
 	memset(&xfers, 0, sizeof(xfers));
@@ -179,7 +177,7 @@ static int goodix_spi_write(struct device *dev, unsigned int addr,
 	spi_message_add_tail(&xfers, &spi_msg);
 	ret = spi_sync(spi, &spi_msg);
 	if (ret < 0)
-		ts_err("spi transfer error:%d",ret);
+		ts_err("spi transfer error:%d", ret);
 
 	kfree(tx_buf);
 	return ret;

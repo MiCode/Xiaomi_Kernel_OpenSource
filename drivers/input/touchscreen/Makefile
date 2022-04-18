@@ -111,21 +111,10 @@ obj-$(CONFIG_TOUCHSCREEN_COLIBRI_VF50)	+= colibri-vf50-ts.o
 obj-$(CONFIG_TOUCHSCREEN_ROHM_BU21023)	+= rohm_bu21023.o
 obj-$(CONFIG_TOUCHSCREEN_RASPBERRYPI_FW)	+= raspberrypi-ts.o
 obj-$(CONFIG_TOUCHSCREEN_IQS5XX)	+= iqs5xx.o
-obj-$(CONFIG_TOUCHSCREEN_GOODIX_BRL) += goodix_core.o
-goodix_core-y := \
-				goodix_brl_i2c.o \
-				goodix_brl_spi.o \
-				goodix_ts_core.o \
-				goodix_brl_hw.o \
-				goodix_cfg_bin.o \
-				goodix_ts_utils.o \
-				goodix_brl_fwupdate.o \
-				goodix_ts_gesture.o \
-				goodix_ts_inspect.o \
-				goodix_ts_tools.o
 obj-$(CONFIG_TOUCHSCREEN_ST)	+= st/
 obj-$(CONFIG_TOUCHSCREEN_FTS)	+= focaltech_touch/
 obj-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX)	+= synaptics_dsx/
 obj-$(CONFIG_TOUCHSCREEN_ZINITIX)	+= zinitix.o
 obj-$(CONFIG_TOUCHSCREEN_NT36XXX_SPI)	+= nt36xxx/
 obj-$(CONFIG_TOUCHSCREEN_NT36XXX_I2C)	+= nt36xxx/
+obj-$(CONFIG_TOUCHSCREEN_GOODIX_BRL)	+= goodix_berlin_driver/
