@@ -1390,6 +1390,14 @@ void a6xx_gmu_register_config(struct adreno_device *adreno_dev)
 			gmu->hfi.hfi_mem->gmuaddr);
 	gmu_core_regwrite(device, A6XX_GMU_HFI_QTBL_INFO, 1);
 
+	/*
+	 * For A6xx GMUAO interrupt line BIT[1] is combined for ipcc
+	 * and doorbell. Enable dbdWakeupEn interrupt for GMU to receive
+	 * IPC interrupt.
+	 */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LSR))
+		gmu_core_regwrite(device, A6XX_GMU_AO_INTERRUPT_EN, BIT(1));
+
 	gmu_core_regwrite(device, A6XX_GMU_AHB_FENCE_RANGE_0,
 			GMU_FENCE_RANGE_MASK);
 
