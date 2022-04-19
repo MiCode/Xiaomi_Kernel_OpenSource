@@ -54,6 +54,10 @@ struct adreno_hwsched {
 	struct kgsl_drawobj_cmd *big_cmdobj;
 	/** @recurring_cmdobj: Recurring commmand object sent to GMU */
 	struct kgsl_drawobj_cmd *recurring_cmdobj;
+	/** @lsr_timer: Timer struct to schedule lsr work */
+	struct timer_list lsr_timer;
+	/** @lsr_check_ws: Lsr work to update power stats */
+	struct work_struct lsr_check_ws;
 };
 
 /*
