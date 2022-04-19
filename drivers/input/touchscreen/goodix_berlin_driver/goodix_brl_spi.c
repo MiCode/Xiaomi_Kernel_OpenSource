@@ -196,8 +196,8 @@ static int goodix_spi_probe(struct spi_device *spi)
 	ts_info("goodix spi probe in");
 
 	/* init spi_device */
-	spi->mode            = SPI_MODE_0;
-	spi->bits_per_word   = 8;
+	spi->mode          = SPI_MODE_0;
+	spi->bits_per_word = 8;
 
 	ret = spi_setup(spi);
 	if (ret) {
@@ -234,7 +234,8 @@ static int goodix_spi_probe(struct spi_device *spi)
 	goodix_pdev->dev.platform_data = &goodix_spi_bus;
 	goodix_pdev->dev.release = goodix_pdev_release;
 
-	/* register platform device, then the goodix_ts_core
+	/*
+	 * register platform device, then the goodix_ts_core
 	 * module will probe the touch deivce.
 	 */
 	ret = platform_device_register(goodix_pdev);

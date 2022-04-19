@@ -65,7 +65,7 @@ static ssize_t gsx_double_type_show(struct goodix_ext_module *module,
 		return 0;
 	}
 
-	return sprintf(buf, "%s\n",
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
 			(type & GESTURE_DOUBLE_TAP) ? "enable" : "disable");
 }
 
@@ -108,7 +108,7 @@ static ssize_t gsx_single_type_show(struct goodix_ext_module *module,
 		return 0;
 	}
 
-	return sprintf(buf, "%s\n",
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
 			(type & GESTURE_SINGLE_TAP) ? "enable" : "disable");
 }
 
@@ -151,7 +151,7 @@ static ssize_t gsx_fod_type_show(struct goodix_ext_module *module,
 		return 0;
 	}
 
-	return sprintf(buf, "%s\n",
+	return scnprintf(buf, PAGE_SIZE, "%s\n",
 			(type & GESTURE_FOD_PRESS) ? "enable" : "disable");
 }
 

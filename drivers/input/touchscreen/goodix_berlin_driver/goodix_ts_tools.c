@@ -265,7 +265,7 @@ static long goodix_tools_ioctl(struct file *filp, unsigned int cmd,
 	const struct goodix_ts_hw_ops *hw_ops;
 	struct goodix_ic_config *temp_cfg = NULL;
 
-	if (dev->ts_core == NULL) {
+	if (!dev->ts_core) {
 		ts_err("Tools module not register");
 		return -EINVAL;
 	}
@@ -312,7 +312,7 @@ static long goodix_tools_ioctl(struct file *filp, unsigned int cmd,
 		break;
 	case GTP_SEND_CONFIG:
 		temp_cfg = kzalloc(sizeof(struct goodix_ic_config), GFP_KERNEL);
-		if (temp_cfg == NULL) {
+		if (!temp_cfg) {
 			ts_err("Memory allco err");
 			ret = -ENOMEM;
 			goto err_out;
@@ -353,8 +353,7 @@ static long goodix_tools_ioctl(struct file *filp, unsigned int cmd,
 			ts_err("Async data write failed");
 		break;
 	case GTP_TOOLS_VER:
-		ret = copy_to_user((u8 *)arg, &goodix_tools_ver,
-					sizeof(u16));
+		ret = copy_to_user((u8 *)arg, &goodix_tools_ver, sizeof(u16));
 		if (ret)
 			ts_err("failed copy driver version info to user");
 		break;
@@ -405,6 +404,7 @@ static int goodix_tools_open(struct inode *inode, struct file *filp)
 static int goodix_tools_release(struct inode *inode, struct file *filp)
 {
 	int ret = 0;
+
 	/* when the last close this dev node unregister the module */
 	goodix_tools_dev->ts_core->tools_ctrl_sync = false;
 	atomic_set(&goodix_tools_dev->in_use, 0);

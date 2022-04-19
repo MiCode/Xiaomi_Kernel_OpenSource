@@ -127,7 +127,7 @@ static int goodix_read_cfg_bin(struct device *dev, const char *cfg_name,
 
 	if (firmware->size <= 0) {
 		ts_err("request_firmware, cfg_bin length ERROR,len:%zu",
-		       firmware->size);
+			firmware->size);
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -159,13 +159,13 @@ static int goodix_parse_cfg_bin(struct goodix_cfg_bin *cfg_bin)
 	}
 
 	memcpy(&cfg_bin->head, cfg_bin->bin_data,
-	       sizeof(struct goodix_cfg_bin_head));
+		sizeof(struct goodix_cfg_bin_head));
 	cfg_bin->head.bin_len = le32_to_cpu(cfg_bin->head.bin_len);
 
 	/*check length*/
 	if (cfg_bin->bin_data_len != cfg_bin->head.bin_len) {
 		ts_err("cfg_bin len check failed,%d != %d",
-		       cfg_bin->head.bin_len, cfg_bin->bin_data_len);
+			cfg_bin->head.bin_len, cfg_bin->bin_data_len);
 		return -EINVAL;
 	}
 
@@ -176,13 +176,13 @@ static int goodix_parse_cfg_bin(struct goodix_cfg_bin *cfg_bin)
 
 	if (checksum != cfg_bin->head.checksum) {
 		ts_err("cfg_bin checksum check filed 0x%02x != 0x%02x",
-		       cfg_bin->head.checksum, checksum);
+			cfg_bin->head.checksum, checksum);
 		return -EINVAL;
 	}
 
 	/*allocate memory for cfg packages*/
 	cfg_bin->cfg_pkgs = kzalloc(sizeof(struct goodix_cfg_package) *
-				    cfg_bin->head.pkg_num, GFP_KERNEL);
+					cfg_bin->head.pkg_num, GFP_KERNEL);
 	if (!cfg_bin->cfg_pkgs)
 		return -ENOMEM;
 
@@ -218,10 +218,10 @@ static int goodix_parse_cfg_bin(struct goodix_cfg_bin *cfg_bin)
 		}
 		/*get cfg pkg head*/
 		memcpy(&cfg_bin->cfg_pkgs[i].cnst_info,
-		       &cfg_bin->bin_data[offset1], TS_PKG_CONST_INFO_LEN);
+			&cfg_bin->bin_data[offset1], TS_PKG_CONST_INFO_LEN);
 		memcpy(&cfg_bin->cfg_pkgs[i].reg_info,
-		       &cfg_bin->bin_data[offset1 + TS_PKG_CONST_INFO_LEN],
-		       TS_PKG_REG_INFO_LEN);
+			&cfg_bin->bin_data[offset1 + TS_PKG_CONST_INFO_LEN],
+			TS_PKG_REG_INFO_LEN);
 
 		/*get configuration data*/
 		cfg_bin->cfg_pkgs[i].cfg =
@@ -241,7 +241,7 @@ exit:
 }
 
 static int goodix_get_reg_and_cfg(struct goodix_ts_core *cd, u8 sensor_id,
-			   struct goodix_cfg_bin *cfg_bin)
+			struct goodix_cfg_bin *cfg_bin)
 {
 	int i;
 	u8 cfg_type;
@@ -259,7 +259,7 @@ static int goodix_get_reg_and_cfg(struct goodix_ts_core *cd, u8 sensor_id,
 		cfg_pkg = &cfg_bin->cfg_pkgs[i];
 		if (sensor_id != cfg_pkg->cnst_info.sensor_id) {
 			ts_info("pkg:%d, sensor id contrast FAILED, bin %d != %d",
-			       i, cfg_pkg->cnst_info.sensor_id, sensor_id);
+				i, cfg_pkg->cnst_info.sensor_id, sensor_id);
 			continue;
 		}
 		cfg_type = cfg_pkg->cnst_info.cfg_type;
@@ -270,7 +270,7 @@ static int goodix_get_reg_and_cfg(struct goodix_ts_core *cd, u8 sensor_id,
 		}
 
 		cfg_len = cfg_pkg->pkg_len - TS_PKG_CONST_INFO_LEN -
-			    TS_PKG_REG_INFO_LEN;
+				TS_PKG_REG_INFO_LEN;
 		if (cfg_len > GOODIX_CFG_MAX_SIZE) {
 			ts_err("config len exceed limit %d > %d",
 				cfg_len, GOODIX_CFG_MAX_SIZE);

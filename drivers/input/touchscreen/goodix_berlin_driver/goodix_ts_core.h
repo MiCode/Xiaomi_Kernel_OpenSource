@@ -132,11 +132,11 @@ struct frame_head {
 };
 
 struct goodix_fw_version {
-	u8 rom_pid[6];               /* rom PID */
-	u8 rom_vid[3];               /* Mask VID */
+	u8 rom_pid[6];      /* rom PID */
+	u8 rom_vid[3];      /* Mask VID */
 	u8 rom_vid_reserved;
-	u8 patch_pid[8];              /* Patch PID */
-	u8 patch_vid[4];              /* Patch VID */
+	u8 patch_pid[8];    /* Patch PID */
+	u8 patch_vid[4];    /* Patch VID */
 	u8 patch_vid_reserved;
 	u8 sensor_id;
 	u8 reserved[2];
@@ -270,6 +270,7 @@ struct goodix_module {
  * @irq_flag: irq trigger type
  * @swap_axis: whether swaw x y axis
  * @panel_max_x/y/w/p: resolution and size
+ * @invert_xy: invert x and y for inversely mounted IC
  * @pannel_key_map: key map
  * @fw_name: name of the firmware image
  */
@@ -287,6 +288,7 @@ struct goodix_ts_board_data {
 	unsigned int panel_max_y;
 	unsigned int panel_max_w; /*major and minor*/
 	unsigned int panel_max_p; /*pressure*/
+	bool invert_xy;
 
 	bool pen_enable;
 	char fw_name[GOODIX_MAX_STR_LABLE_LEN];
@@ -295,13 +297,13 @@ struct goodix_ts_board_data {
 
 enum goodix_fw_update_mode {
 	UPDATE_MODE_DEFAULT = 0,
-	UPDATE_MODE_FORCE = (1<<0), /* force update mode */
-	UPDATE_MODE_BLOCK = (1<<1), /* update in block mode */
-	UPDATE_MODE_FLASH_CFG = (1<<2), /* reflash config */
-	UPDATE_MODE_SRC_SYSFS = (1<<4), /* firmware file from sysfs */
-	UPDATE_MODE_SRC_HEAD = (1<<5), /* firmware file from head file */
-	UPDATE_MODE_SRC_REQUEST = (1<<6), /* request firmware */
-	UPDATE_MODE_SRC_ARGS = (1<<7), /* firmware data from function args */
+	UPDATE_MODE_FORCE = (1 << 0), /* force update mode */
+	UPDATE_MODE_BLOCK = (1 << 1), /* update in block mode */
+	UPDATE_MODE_FLASH_CFG = (1 << 2), /* reflash config */
+	UPDATE_MODE_SRC_SYSFS = (1 << 4), /* firmware file from sysfs */
+	UPDATE_MODE_SRC_HEAD = (1 << 5), /* firmware file from head file */
+	UPDATE_MODE_SRC_REQUEST = (1 << 6), /* request firmware */
+	UPDATE_MODE_SRC_ARGS = (1 << 7), /* firmware data from function args */
 };
 
 #define MAX_CMD_DATA_LEN 10
@@ -409,7 +411,7 @@ struct goodix_bus_interface {
 	int ic_type;
 	struct device *dev;
 	int (*read)(struct device *dev, unsigned int addr,
-			 unsigned char *data, unsigned int len);
+			unsigned char *data, unsigned int len);
 	int (*write)(struct device *dev, unsigned int addr,
 			unsigned char *data, unsigned int len);
 };
@@ -500,8 +502,27 @@ struct goodix_ts_core {
 	struct notifier_block ts_notifier;
 	struct goodix_ts_esd ts_esd;
 
-#if IS_ENABLED(CONFIG_FB)
+#if defined(CONFIG_DRM)
 	struct notifier_block fb_notifier;
+	void *notifier_cookie;
+	const char *touch_environment;
+#elif defined(CONFIG_FB)
+	struct notifier_block fb_notifier;
+#endif
+
+#ifdef CONFIG_GOODIX_TRUSTED_TOUCH
+	struct trusted_touch_vm_info *vm_info;
+	struct mutex fts_clk_io_ctrl_mutex;
+	struct completion trusted_touch_powerdown;
+	struct clk *core_clk;
+	struct clk *iface_clk;
+	atomic_t trusted_touch_initialized;
+	atomic_t trusted_touch_enabled;
+	atomic_t trusted_touch_transition;
+	atomic_t trusted_touch_event;
+	atomic_t trusted_touch_abort_status;
+	atomic_t delayed_vm_probe_pending;
+	atomic_t trusted_touch_mode;
 #endif
 };
 
@@ -582,8 +603,8 @@ struct goodix_ext_attribute {
 /* external attrs helper macro */
 #define __EXTMOD_ATTR(_name, _mode, _show, _store)	{	\
 	.attr = {.name = __stringify(_name), .mode = _mode },	\
-	.show   = _show,	\
-	.store  = _store,	\
+	.show  = _show,	\
+	.store = _store,	\
 }
 
 /* external attrs helper macro, used to define external attrs */

@@ -382,11 +382,11 @@ static int brl_send_cmd(struct goodix_ts_core *cd,
 			ts_debug("cmd ack data %*ph",
 				 (int)sizeof(cmd_ack), cmd_ack.buf);
 			if (cmd_ack.ack == CMD_ACK_OK) {
-				msleep(40);		// wait for cmd response
+				msleep(40); // wait for cmd response
 				return 0;
 			}
 			if (cmd_ack.ack == CMD_ACK_BUSY ||
-			    cmd_ack.ack == 0x00) {
+				cmd_ack.ack == 0x00) {
 				usleep_range(1000, 1100);
 				continue;
 			}
@@ -568,7 +568,7 @@ static int brl_read_config(struct goodix_ts_core *cd, u8 *cfg, int size)
 	}
 
 	ret = hw_ops->read(cd, misc->fw_buffer_addr,
-			   cfg_head.buf, sizeof(cfg_head));
+			cfg_head.buf, sizeof(cfg_head));
 	if (ret) {
 		ts_err("failed read config head %d", ret);
 		goto exit;
@@ -582,9 +582,9 @@ static int brl_read_config(struct goodix_ts_core *cd, u8 *cfg, int size)
 
 	cfg_head.cfg_len = le16_to_cpu(cfg_head.cfg_len);
 	if (cfg_head.cfg_len > misc->fw_buffer_max_len ||
-	    cfg_head.cfg_len > size) {
+		cfg_head.cfg_len > size) {
 		ts_err("cfg len exceed buffer size %d > %d", cfg_head.cfg_len,
-			 misc->fw_buffer_max_len);
+			misc->fw_buffer_max_len);
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -917,7 +917,7 @@ static int brl_get_ic_info(struct goodix_ts_core *cd,
 			continue;
 		}
 		if (checksum_cmp((const uint8_t *)afe_data,
-					length, CHECKSUM_MODE_U8_LE)) {
+				length, CHECKSUM_MODE_U8_LE)) {
 			ts_info("fw info checksum error!");
 			usleep_range(5000, 5100);
 			continue;
@@ -1140,8 +1140,7 @@ static int goodix_touch_handler(struct goodix_ts_core *cd,
 			pre_pen_num = 0;
 		} else {
 			ts_event->event_type = EVENT_TOUCH;
-			goodix_parse_finger(touch_data,
-					    buffer, touch_num);
+			goodix_parse_finger(touch_data, buffer, touch_num);
 			pre_finger_num = touch_num;
 		}
 	}
@@ -1370,7 +1369,7 @@ static int brl_get_capacitance_data(struct goodix_ts_core *cd,
 	brl_irq_enbale(cd, false);
 	goodix_ts_blocking_notify(NOTIFY_ESD_OFF, NULL);
 
-    /* switch rawdata mode */
+	/* switch rawdata mode */
 	temp_cmd.cmd = GOODIX_CMD_RAWDATA;
 	temp_cmd.len = 4;
 	ret = brl_send_cmd(cd, &temp_cmd);
