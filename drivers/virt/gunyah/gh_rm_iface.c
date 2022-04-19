@@ -2228,3 +2228,52 @@ int gh_rm_mem_notify(gh_memparcel_handle_t handle, u8 flags,
 	return ret;
 }
 EXPORT_SYMBOL(gh_rm_mem_notify);
+
+/**
+ * gh_rm_vm_set_time_base: Send a request to Resource Manager VM to set time base.
+ * @vmid: The vmid of the vm to be started.
+ *
+ * The function encodes the error codes via ERR_PTR. Hence, the caller is
+ * responsible to check it with IS_ERR_OR_NULL().
+ */
+int gh_rm_vm_set_time_base(gh_vmid_t vmid)
+{
+	struct gh_vm_set_time_base_req_payload req_payload = {0};
+	size_t resp_payload_size;
+	struct timespec64 ts_ref;
+	u64 ts_ns_ref;
+	u64 qtime_ref;
+	int reply_err_code = 0;
+	void *resp;
+
+	req_payload.vmid = (gh_vmid_t) vmid;
+
+	local_irq_disable();
+	ktime_get_real_ts64(&ts_ref);
+	qtime_ref = arch_timer_read_counter();
+	local_irq_enable();
+
+	ts_ns_ref = timespec64_to_ns(&ts_ref);
+	req_payload.time_base_low = (u32) ts_ns_ref;
+	req_payload.time_base_high = (u32) (ts_ns_ref >> 32);
+	req_payload.arch_timer_ref_low = (u32) qtime_ref;
+	req_payload.arch_timer_ref_high = (u32) (qtime_ref >> 32);
+
+	resp = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_SET_TIME_BASE,
+				&req_payload, sizeof(req_payload),
+				&resp_payload_size, &reply_err_code);
+	if (reply_err_code) {
+		pr_err("%s: VM_SET_TIME_BASE failed with err: %d\n",
+			__func__, reply_err_code);
+		return reply_err_code;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_SET_TIME_BASE: %u\n",
+			__func__, resp_payload_size);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_vm_set_time_base);

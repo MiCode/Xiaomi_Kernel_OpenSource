@@ -90,6 +90,9 @@ struct gh_vm_property {
 #define GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_HYP_CAPIDS	0x56000021
 #define GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_HYP_IRQS	0X56000022
 
+/* Message IDs: vRTC Configuration */
+#define GH_RM_RPC_MSG_ID_CALL_VM_SET_TIME_BASE		0x56000030
+
 /* Message IDs: VM Configuration */
 #define GH_RM_RPC_MSG_ID_CALL_VM_IRQ_ACCEPT		0x56000050
 #define GH_RM_RPC_MSG_ID_CALL_VM_IRQ_LEND		0x56000051
@@ -289,6 +292,17 @@ struct gh_vm_get_hyp_res_resp_entry {
 struct gh_vm_get_hyp_res_resp_payload {
 	u32 n_resource_entries;
 	struct gh_vm_get_hyp_res_resp_entry resp_entries[];
+} __packed;
+
+/* Call: VM_SET_TIME_BASE */
+struct gh_vm_set_time_base_req_payload {
+	gh_vmid_t vmid;
+	u8 reserved0;
+	u8 reserved1;
+	u32 time_base_low;
+	u32 time_base_high;
+	u32 arch_timer_ref_low;
+	u32 arch_timer_ref_high;
 } __packed;
 
 /* Call: VM_IRQ_ACCEPT */
