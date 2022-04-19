@@ -936,16 +936,9 @@ static const struct adsp_data sm8150_adsp_resource = {
 		.pas_id = 1,
 		.has_aggre2_clk = false,
 		.auto_boot = true,
-		.active_pd_names = (char*[]){
-			"load_state",
-			NULL
-		},
-		.proxy_pd_names = (char*[]){
-			"cx",
-			NULL
-		},
 		.ssr_name = "lpass",
 		.sysmon_name = "adsp",
+		.qmp_name = "adsp",
 		.ssctl_id = 0x14,
 };
 
