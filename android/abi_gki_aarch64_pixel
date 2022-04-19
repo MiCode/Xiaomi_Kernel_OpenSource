@@ -1236,7 +1236,6 @@
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
   pfn_is_map_memory
-  pfn_valid
   phy_init
   phy_power_off
   phy_power_on
