@@ -1326,6 +1326,7 @@ struct ipa_flt_rule {
  * @close_aggr_irq_mod: close aggregation/coalescing and close GSI
  * interrupt moderation
  * @ttl_update: bool to indicate whether TTL update is needed or not.
+ * @qos_class: QOS classification value.
  */
 struct ipa_flt_rule_v2 {
 	uint8_t retain_hdr;
@@ -1345,6 +1346,7 @@ struct ipa_flt_rule_v2 {
 	uint8_t cnt_idx;
 	uint8_t close_aggr_irq_mod;
 	uint8_t ttl_update;
+	uint8_t qos_class;
 };
 
 /**
@@ -1455,6 +1457,8 @@ struct ipa_rt_rule {
  * @close_aggr_irq_mod: close aggregation/coalescing and close GSI
  * interrupt moderation
  * @ttl_update: bool to indicate whether TTL update is needed or not.
+ * @qos_class: QOS classification value.
+ * @skip_ingress: bool to skip ingress policing.
  */
 struct ipa_rt_rule_v2 {
 	enum ipa_client_type dst;
@@ -1469,6 +1473,8 @@ struct ipa_rt_rule_v2 {
 	uint8_t cnt_idx;
 	uint8_t close_aggr_irq_mod;
 	uint8_t ttl_update;
+	uint8_t qos_class;
+	uint8_t skip_ingress;
 };
 
 /**
