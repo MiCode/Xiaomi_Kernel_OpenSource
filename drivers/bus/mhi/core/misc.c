@@ -1737,7 +1737,10 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 	preempt_disable();
 	local_irq_disable();
 
-	*t_host = mhi_tsync->time_get(mhi_cntrl);
+	ret = mhi_read_reg(mhi_cntrl, mhi_tsync->time_reg,
+			   TIMESYNC_TIME_HIGH_OFFSET, &tdev_hi);
+	if (ret)
+		MHI_ERR(dev, "Time HIGH register read error\n");
 
 	ret = mhi_read_reg(mhi_cntrl, mhi_tsync->time_reg,
 			   TIMESYNC_TIME_LOW_OFFSET, &tdev_lo);
@@ -1750,6 +1753,7 @@ int mhi_get_remote_time_sync(struct mhi_device *mhi_dev,
 		MHI_ERR(dev, "Time HIGH register read error\n");
 
 	*t_dev = (u64) tdev_hi << 32 | tdev_lo;
+	*t_host = mhi_tsync->time_get(mhi_cntrl);
 
 	local_irq_enable();
 	preempt_enable();
