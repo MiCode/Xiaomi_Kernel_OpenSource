@@ -3296,7 +3296,6 @@ unsigned long wp_shared_mapping_range(struct address_space *mapping,
 
 extern int sysctl_nr_trim_pages;
 extern int reclaim_shmem_address_space(struct address_space *mapping);
-extern int reclaim_pages_from_list(struct list_head *page_list);
 
 #ifdef CONFIG_PRINTK
 void mem_dump_obj(void *object);
