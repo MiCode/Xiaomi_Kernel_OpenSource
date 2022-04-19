@@ -54,6 +54,7 @@
 			dma-coherent;
 
 			interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>;
+			usb-phy = <&eusb2_phy0>, <&usb_qmp_dp_phy>;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x0>;
@@ -61,10 +62,32 @@
 			snps,dis-u1-entry-quirk;
 			snps,dis-u2-entry-quirk;
 			snps,dis_u2_susphy_quirk;
+			snps,parkmode-disable-ss-quirk;
 			tx-fifo-resize;
-			dr_mode = "peripheral";
+			dr_mode = "otg";
 			maximum-speed = "super-speed";
 		};
+	};
+
+	eusb2_phy0: hsphy@88e3000 {
+		compatible = "qcom,usb-snps-eusb2-phy";
+		reg = <0x88e3000 0x154>,
+			<0x088e2000 0x4>,
+			<0x0C276000 0x4>;
+		reg-names = "eusb2_phy_base",
+			"eud_enable_reg",
+			"eud_detect_reg";
+
+		vdd-supply = <&L8A>;
+		vdda12-supply = <&L3A>;
+		qcom,vdd-voltage-level = <0 880000 880000>;
+
+		clocks = <&rpmhcc RPMH_CXO_CLK>,
+			 <&tcsrcc TCSR_USB2_CLKREF_EN>;
+		clock-names = "ref_clk_src", "ref_clk";
+
+		resets = <&gcc GCC_QUSB2PHY_PRIM_BCR>;
+		reset-names = "phy_reset";
 	};
 
 	/* USB port related QMP USB DP Combo PHY */
@@ -94,6 +117,9 @@
 		resets = <&gcc GCC_USB3_DP_PHY_PRIM_BCR>,
 			<&gcc GCC_USB3_PHY_PRIM_BCR>;
 		reset-names = "global_phy_reset", "phy_reset";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&usb3phy_portselect_default>;
 
 		qcom,qmp-phy-reg-offset =
 			<USB3_DP_PCS_PCS_STATUS1

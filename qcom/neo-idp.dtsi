@@ -1,4 +1,74 @@
 #include "neo-pmic-overlay.dtsi"
+#include "neo-thermal-overlay.dtsi"
 
 &soc {
+};
+
+&sdhc_1 {
+	status = "ok";
+
+	vdd-supply = <&L10A>;
+	qcom,vdd-voltage-level = <2960000 2960000>;
+	qcom,vdd-current-level = <0 570000>;
+
+	vdd-io-supply = <&L7A>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 325000>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc1_on>;
+	pinctrl-1 = <&sdc1_off>;
+};
+
+&pm8150_gpios {
+	wlan_pon_en: wlan_pon_en {
+		pins = "gpio9";
+		function = "pon_en";
+		input-disable;
+		output-high;
+		bias-pull-up;
+		power-source = <1>;     /* 1.8V */
+		qcom,drive-strength = <2>;
+	};
+
+	wlan_pon_dis: wlan_pon_dis {
+		pins = "gpio9";
+		function = "pon_dis";
+		input-disable;
+		output-low;
+		bias-pull-down;
+		power-source = <1>;     /* 1.8V */
+		qcom,drive-strength = <2>;
+	};
+
+	wlan_poff_en: wlan_poff_en {
+		pins = "gpio6";
+		function = "poff_en";
+		input-disable;
+		output-low;
+		bias-pull-down;
+		power-source = <1>;     /* 1.8V */
+		qcom,drive-strength = <2>;
+	};
+
+	wlan_poff_dis: wlan_poff_dis {
+		pins = "gpio6";
+		function = "poff_dis";
+		input-disable;
+		output-high;
+		bias-pull-up;
+		power-source = <1>;     /* 1.8V */
+		qcom,drive-strength = <2>;
+	};
+};
+
+
+&icnss2 {
+	pinctrl-names = "wlan_pon_en", "wlan_pon_dis", "wlan_poff_en", "wlan_poff_dis";
+	pinctrl-0 = <&wlan_pon_en>;
+	pinctrl-1 = <&wlan_pon_dis>;
+	pinctrl-2 = <&wlan_poff_en>;
+	pinctrl-3 = <&wlan_poff_dis>;
 };

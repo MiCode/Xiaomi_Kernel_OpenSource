@@ -1,25 +1,6 @@
 #include <dt-bindings/thermal/thermal_qti.h>
 
 &thermal_zones {
-	socd {
-		cooling-maps {
-			socd_apc1 {
-				trip = <&socd_trip>;
-				cooling-device = <&APC1_pause 1 1>;
-			};
-
-			socd_cdsp1 {
-				trip = <&socd_trip>;
-				cooling-device = <&cdsp_sw 4 4>;
-			};
-
-			socd_gpu0 {
-				trip = <&socd_trip>;
-				cooling-device = <&msm_gpu 4 4>;
-			};
-		};
-	};
-
 	pm8350b-bcl-lvl0 {
 		cooling-maps {
 			vbat_lte0 {

@@ -1,3 +1,5 @@
+#include <dt-bindings/clock/qcom,gcc-anorak.h>
+
 &arch_timer {
 	clock-frequency = <500000>;
 };
@@ -24,6 +26,22 @@
 			0x0 0x3c
 			0x0 0x4>;
 	};
+
+	bi_tcxo: bi_tcxo {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <4>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
+
+	bi_tcxo_ao: bi_tcxo_ao {
+		compatible = "fixed-factor-clock";
+		clock-mult = <1>;
+		clock-div = <4>;
+		clocks = <&xo_board>;
+		#clock-cells = <0>;
+	};
 };
 
 &usb0 {
@@ -33,4 +51,17 @@
 		maximum-speed = "high-speed";
 	};
 
+};
+
+&gcc {
+	clocks = <&bi_tcxo>, <&sleep_clk>,
+		<&pcie_0_pipe_clk>, <&pcie_1_pipe_clk>,
+		<&pcie_2_phy_aux_clk>, <&pcie_2_pipe_clk>,
+		<&ufs_phy_rx_symbol_0_clk>, <&ufs_phy_rx_symbol_1_clk>,
+		<&ufs_phy_tx_symbol_0_clk>, <&usb3_phy_wrapper_gcc_usb30_pipe_clk>;
+};
+
+&videocc {
+	clocks = <&bi_tcxo>, <&sleep_clk>,
+		<&gcc GCC_VIDEO_AHB_CLK>;
 };

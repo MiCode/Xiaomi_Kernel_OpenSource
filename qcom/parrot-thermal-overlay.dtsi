@@ -1,0 +1,138 @@
+#include <dt-bindings/thermal/thermal_qti.h>
+
+&thermal_zones {
+	pm6150l-bcl-lvl0 {
+		cooling-maps {
+			vph_lte0 {
+				trip = <&l_bcl_lvl0>;
+				cooling-device = <&modem_lte_dsc 8 8>;
+			};
+
+			vph_nr0_scg {
+				trip = <&l_bcl_lvl0>;
+				cooling-device = <&modem_nr_scg_dsc 3 3>;
+			};
+
+			vph_nr0 {
+				trip = <&l_bcl_lvl0>;
+				cooling-device = <&modem_nr_dsc 6 6>;
+			};
+
+			vph_cdsp0 {
+				trip = <&l_bcl_lvl0>;
+				cooling-device = <&cdsp_sw 2 2>;
+			};
+
+			vph_cpu_5 {
+				trip = <&l_bcl_lvl0>;
+				cooling-device = <&cpu5_pause 1 1>;
+			};
+
+			vph_gpu0 {
+				trip = <&l_bcl_lvl0>;
+				cooling-device = <&msm_gpu 1 1>;
+			};
+		};
+	};
+
+	pm6150l-bcl-lvl1 {
+		cooling-maps {
+			vph_lte1 {
+				trip = <&l_bcl_lvl1>;
+				cooling-device = <&modem_lte_dsc 10 10>;
+			};
+
+			vph_nr1_scg {
+				trip = <&l_bcl_lvl1>;
+				cooling-device = <&modem_nr_scg_dsc 10 10>;
+			};
+
+			vph_nr1 {
+				trip = <&l_bcl_lvl1>;
+				cooling-device = <&modem_nr_dsc 9 9>;
+			};
+
+			vph_cdsp1 {
+				trip = <&l_bcl_lvl1>;
+				cooling-device = <&cdsp_sw 4 4>;
+			};
+
+			vph_cpu_6_7 {
+				trip = <&l_bcl_lvl1>;
+				cooling-device = <&cpu_6_7_pause 1 1>;
+			};
+
+			vph_gpu1 {
+				trip = <&l_bcl_lvl1>;
+				cooling-device = <&msm_gpu 2 2>;
+			};
+		};
+	};
+
+	pm6150l-bcl-lvl2 {
+		cooling-maps {
+			vph_cdsp2 {
+				trip = <&l_bcl_lvl2>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+
+			vph_gpu2 {
+				trip = <&l_bcl_lvl2>;
+				cooling-device = <&msm_gpu 3 THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	pm6450_tz {
+		cooling-maps {
+			pm6450_gpu {
+				trip = <&pm6450_trip0>;
+				cooling-device = <&msm_gpu 3 THERMAL_NO_LIMIT>;
+			};
+
+			pm6450_cdsp {
+				trip = <&pm6450_trip0>;
+				cooling-device = <&cdsp_sw 5 THERMAL_NO_LIMIT>;
+			};
+		};
+	};
+
+	pm6150l_tz {
+		cooling-maps {
+			pm6150l_lte {
+				trip = <&pm6150l_trip0>;
+				cooling-device = <&modem_lte_dsc 255 255>;
+			};
+
+			pm6150l_nr {
+				trip = <&pm6150l_trip0>;
+				cooling-device = <&modem_nr_scg_dsc 255 255>;
+			};
+
+			pm6150l_cpu0 {
+				trip = <&pm6150l_trip0>;
+				cooling-device = <&cpu0_pause 1 1>;
+			};
+
+			pm6150l_cpu1 {
+				trip = <&pm6150l_trip0>;
+				cooling-device = <&cpu1_pause 1 1>;
+			};
+
+			pm6150l_cpu2 {
+				trip = <&pm6150l_trip0>;
+				cooling-device = <&cpu2_pause 1 1>;
+			};
+
+			pm6150l_cpu3 {
+				trip = <&pm6150l_trip0>;
+				cooling-device = <&cpu3_pause 1 1>;
+			};
+
+			pm6150l_apc1 {
+				trip = <&pm6150l_trip0>;
+				cooling-device = <&APC1_pause 1 1>;
+			};
+		};
+	};
+};

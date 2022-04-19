@@ -260,6 +260,16 @@
 		interrupt-parent = <&spmi_bus>;
 		interrupts = <0x2 0x8e 0x0 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "eusb2_rptr_reset_gpio_irq";
+		qcom,param-override-seq =
+				/* Rx squelch detection threshold to 110mV; default is 125mV */
+				<0x40 0x06
+				/*
+				 * Tx Deemphasis to 2dB, Tx Deemphasis bit duration to 0.8UI;
+				 * default is 0 for both
+				 */
+				0x22 0x07
+				/* Output Voltage Swing to 550mV; default is 450mV */
+				0x64 0x08>;
 	};
 };
 
@@ -287,6 +297,24 @@
 		port {
 			usb_port0_connector: endpoint {
 				remote-endpoint = <&usb_port0>;
+			};
+		};
+	};
+};
+
+&thermal_zones {
+	pm8350b-bcl-lvl2 {
+		cooling-maps {
+			vbat_gpu2 {
+				cooling-device = <&msm_gpu 9 9>;
+			};
+		};
+	};
+
+	pm8350c-bcl-lvl2 {
+		cooling-maps {
+			vph_gpu2 {
+				cooling-device = <&msm_gpu 9 9>;
 			};
 		};
 	};

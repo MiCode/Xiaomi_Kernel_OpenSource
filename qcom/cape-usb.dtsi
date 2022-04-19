@@ -33,6 +33,7 @@
 		qcom,use-pdc-interrupts;
 		qcom,use-eusb2-phy;
 
+		qcom,dis-sending-cm-l1-quirk;
 		qcom,core-clk-rate = <200000000>;
 		qcom,core-clk-rate-disconnected = <133333333>;
 		qcom,core-clk-rate-hs = <66666667>;
@@ -50,6 +51,7 @@
 		interconnects = <&aggre1_noc MASTER_USB3_0 &mc_virt SLAVE_EBI1>,
 				<&aggre1_noc MASTER_USB3_0 &config_noc SLAVE_IPA_CFG>,
 				<&gem_noc MASTER_APPSS_PROC &config_noc SLAVE_USB3_0>;
+		extcon = <&eud>;
 
 		dwc3@a600000 {
 			compatible = "snps,dwc3";
@@ -262,7 +264,7 @@
 			USB3_DP_QSERDES_RXB_AUX_DATA_TCOARSE_TFINE                 0xA0 0
 			USB3_DP_QSERDES_RXB_VGA_CAL_CNTRL1                         0x54 0
 			USB3_DP_QSERDES_RXB_VGA_CAL_CNTRL2                         0x0F 0
-			USB3_DP_QSERDES_RXB_GM_CAL                                 0x00 0
+			USB3_DP_QSERDES_RXB_GM_CAL                                 0x13 0
 			USB3_DP_QSERDES_RXB_RX_EQU_ADAPTOR_CNTRL2                  0x0F 0
 			USB3_DP_QSERDES_RXB_RX_EQU_ADAPTOR_CNTRL3                  0x4A 0
 			USB3_DP_QSERDES_RXB_RX_EQU_ADAPTOR_CNTRL4                  0x0A 0

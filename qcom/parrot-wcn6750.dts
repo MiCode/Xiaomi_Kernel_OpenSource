@@ -1,0 +1,9 @@
+/dts-v1/;
+
+#include "parrot-wcn6750.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Parrot SoC + WCN6750";
+	compatible = "qcom,parrot";
+	qcom,board-id = <0 0>;
+};

@@ -70,6 +70,38 @@
 		vdd-wlan-rfa2-supply = <&S12B>;
 		qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 1>;
 
+		qcom,pmu_vreg_map =
+			"VDD095_MX_PMU", "s2e",
+			"VDD095_PMU", "s3e",
+			"VDD_PMU_AON_I", "s11b",
+			"VDD095_PMU_BT", "s11b",
+			"VDD09_PMU_RFA_I", "s11b",
+			"VDD13_PMU_PCIE_I", "s12b",
+			"VDD13_PMU_RFA_I", "s12b",
+			"VDD19_PMU_PCIE_I", "s1c",
+			"VDD19_PMU_RFA_I", "s1c";
+
+		qcom,vreg_pdc_map =
+			"s11b", "rf", "s10b", "rf", "s12b", "rf", "s1c", "rf",
+			"l7e", "rf", "s3e", "bb", "s2e", "bb";
+
+		qcom,pdc_init_table =
+			" {class: wlan_pdc, ss: rf, res: s11b.v, upval: 916}",
+			" {class: wlan_pdc, ss: rf, res: s11b.v, dwnval: 612}",
+			" {class: wlan_pdc, ss: rf, res: s12b.v, upval: 1316}",
+			" {class: wlan_pdc, ss: rf, res: s12b.v, dwnval: 944}",
+			" {class: wlan_pdc, ss: rf, res: s1c.v, upval: 1864}",
+			" {class: wlan_pdc, ss: rf, res: s1c.v, dwnval: 1820}",
+			" {class: wlan_pdc, ss: rf, res: s2e.m, enable: 0}",
+			" {class: wlan_pdc, ss: rf, res: s2e.v, enable: 0}",
+			" {class: wlan_pdc, ss: rf, res: s3e.m, enable: 0}",
+			" {class: wlan_pdc, ss: rf, res: s3e.v, enable: 0}",
+			" {class: wlan_pdc, ss: bb, res: s2e.v, upval: 976}",
+			" {class: wlan_pdc, ss: bb, res: s2e.v, dwnval: 512}",
+			" {class: wlan_pdc, ss: bb, res: s3e.v, upval: 940}",
+			" {class: wlan_pdc, ss: bb, res: s3e.v, dwnval: 420}",
+			" {class: wlan_pdc, ss: bb, res: pdc, enable: 1}";
+
 		interconnects =
 		<&pcie_noc MASTER_PCIE_1 &pcie_noc SLAVE_ANOC_PCIE_GEM_NOC>,
 		<&gem_noc MASTER_ANOC_PCIE_GEM_NOC &mc_virt SLAVE_EBI1>;
@@ -86,8 +118,8 @@
 		<7500 1600000>,
 		/* medium: 60-240 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
 		<30000 1600000>,
-		/* high: 240-1200 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
-		<100000 3200000>,
+		/* high: 240-1200 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		<100000 1600000>,
 		/* very high: > 1200 Mbps snoc/anoc: 403 Mhz ddr: 1555 MHz */
 		<175000 6448000>,
 		/* ultra high: DBS mode snoc/anoc: 403 Mhz ddr: 2092 MHz */

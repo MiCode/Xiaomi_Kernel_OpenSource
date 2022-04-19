@@ -1,7 +1,7 @@
 /dts-v1/;
 /memreserve/ 0x90000000 0x00010000;
 
-#include "parrot.dtsi"
+#include "parrot-wcn3990.dtsi"
 #include "parrot-rumi.dtsi"
 
 / {

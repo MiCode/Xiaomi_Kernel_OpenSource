@@ -8,9 +8,38 @@
 };
 
 &chosen {
-	bootargs = "console=ttyMSM0,115200n8 loglevel=8 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none";
+	bootargs = "console=ttyMSM0,115200n8 loglevel=6 log_buf_len=256K kernel.panic_on_rcu_stall=1 loop.max_part=7 pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none kpti=off swiotlb=noforce cgroup.memory=nokmem,nosocket allow_file_spec_access";
 
 	stdout-path = "/soc/qcom,qup_uart@994000:115200n8";
+};
+
+&gpu_cc_gx_gdsc {
+	/*
+	 * Clocks uses GFX as its parent supply delete it as
+	 * its not required on neo_la.
+	 */
+	/delete-property/ parent-supply;
+};
+
+&apps_rsc {
+	/* Delete GFX rail as it is not required on neo_la platform. */
+	/delete-node/ rpmh-regulator-gfxlvl;
+
+	rpmh-regulator-mxclvl {
+		/delete-node/ regulator-pm8150-s8-gfx-voter-level;
+	};
+
+	rpmh-regulator-smpa2 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "smpa2";
+		S2A: pm8150_s2: regulator-pm8150-s2 {
+			regulator-name = "pm8150_s2";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <465000>;
+			regulator-max-microvolt = <1004000>;
+			qcom,init-voltage = <465000>;
+		};
+	};
 };
 
 &firmware {
@@ -205,3 +234,190 @@
 	parent-supply = <&VDD_CX_LEVEL>;
 	status = "ok";
 };
+
+&wpss_pas {
+	status = "disabled";
+	/delete-property/ memory-region;
+};
+
+&icnss2 {
+	status = "disabled";
+	/delete-property/ qcom,wlan-msa-fixed-region;
+};
+
+&reserved_memory {
+	cnss_wlan_mem: cnss_wlan_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		reusable;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x2000000>;
+	};
+};
+
+&pcie0 {
+	status = "ok";
+};
+
+&cnss_pins {
+	cnss_wlan_en_active: cnss_wlan_en_active {
+		mux {
+			pins = "gpio45";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio45";
+			drive-strength = <16>;
+			output-high;
+			bias-pull-up;
+		};
+	};
+
+	cnss_wlan_en_sleep: cnss_wlan_en_sleep {
+		mux {
+			pins = "gpio45";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio45";
+			drive-strength = <2>;
+			output-low;
+			bias-pull-down;
+		};
+	};
+
+	cnss_dev_sol_default: cnss_dev_sol_default {
+		mux {
+			pins = "gpio112";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio112";
+			drive-strength = <4>;
+			bias-pull-down;
+		};
+	};
+};
+
+&soc {
+	wlan_kiwi: qcom,cnss-kiwi@b0000000 {
+		compatible = "qcom,cnss-kiwi";
+		reg = <0xb0000000 0x10000>;
+		reg-names = "smmu_iova_ipa";
+		wlan-en-gpio = <&tlmm 45 0>;
+		wlan-dev-sol-gpio = <&tlmm 112 0>;
+		pinctrl-names = "wlan_en_active", "wlan_en_sleep",
+				"sol_default";
+		pinctrl-0 = <&cnss_wlan_en_active>;
+		pinctrl-1 = <&cnss_wlan_en_sleep>;
+		pinctrl-2 = <&cnss_dev_sol_default>;
+		qcom,wlan;
+		qcom,wlan-rc-num = <0>;
+		qcom,wlan-ramdump-dynamic = <0x780000>;
+		qcom,wlan-cbc-enabled;
+		use-pm-domain;
+		qcom,same-dt-multi-dev;
+		mboxes = <&qmp_aop 0>;
+
+		vdd-wlan-io-supply = <&L15A>;
+		qcom,vdd-wlan-io-config = <1800000 2000000 0 0 0>;
+		vdd-wlan-supply = <&S2A>;
+		qcom,vdd-wlan-config = <1000000 1004000 0 0 0>;
+		vdd-wlan-aon-supply = <&S4A>;
+		qcom,vdd-wlan-aon-config = <980000 1170000 0 0 1>;
+		vdd-wlan-dig-supply = <&S5A>;
+		qcom,vdd-wlan-dig-config = <1900000 2040000 0 0 1>;
+
+		interconnects =
+		<&pcie_noc MASTER_PCIE_0 &pcie_noc SLAVE_ANOC_PCIE_GEM_NOC>,
+		<&gem_noc MASTER_ANOC_PCIE_GEM_NOC &mc_virt SLAVE_EBI1>;
+		interconnect-names = "pcie_to_memnoc", "memnoc_to_ddr";
+
+		qcom,icc-path-count = <2>;
+		qcom,bus-bw-cfg-count = <9>;
+		qcom,bus-bw-cfg =
+		/** ICC Path 1 **/
+		<0 0>, /* no vote */
+		/* idle: 0-18 Mbps snoc/anoc: 100 Mhz */
+		<2250 1600000>,
+		/* low: 18-60 Mbps snoc/anoc: 100 Mhz */
+		<7500 1600000>,
+		/* medium: 60-240 Mbps snoc/anoc: 100 Mhz*/
+		<30000 1600000>,
+		/* high: 240-1200 Mbps snoc/anoc: 200 Mhz */
+		<100000 3200000>,
+		/* very high: > 1200 Mbps snoc/anoc: 403 Mhz */
+		<175000 6553200>,
+		/* ultra high: DBS mode snoc/anoc: 403 Mhz */
+		<175000 6553200>,
+		/* super high: DBS mode snoc/anoc: 403 Mhz */
+		<175000 6553200>,
+		/* low (latency critical): 18-60 Mbps snoc/anoc: 200 Mhz */
+		<7500 3200000>,
+
+		/** ICC Path 2 **/
+		<0 0>,
+		/* ddr: 451.2 MHz */
+		<2250 902212>,
+		/* ddr: 451.2 MHz */
+		<7500 902212>,
+		/* ddr: 451.2 MHz */
+		<30000 902212>,
+		/* ddr: 451.2 MHz */
+		<100000 902212>,
+		/* ddr: 1555 MHz */
+		<175000 3110362>,
+		/* ddr: 2092 MHz */
+		<175000 4185562>,
+		/* ddr: 2133 MHz */
+		<175000 4300537>,
+		/* ddr: 547.2 MHz */
+		<7500 1094362>;
+
+	};
+
+	bluetooth: bt_wcn6x5x {
+		compatible = "qcom,kiwi";
+		qcom,bt-vdd18-aon-supply  = <&L15A>; /* BT VDD1.8 AON */
+		qcom,bt-vdd-dig-supply    = <&S4A>; /* BT LDO*/
+		qcom,bt-vdd-aon-supply    = <&S4A>; /* BT AON LDO*/
+		qcom,bt-vdd-rfaOp8_supply = <&S4A>; /* BT RFAOp8 CMN LDO*/
+		qcom,bt-vdd-rfa1-supply   = <>;   /* BT RFA1.2 LDO. always ON */
+		qcom,bt-vdd-rfa2-supply   = <&S5A>; /* BT RFA1.8 LDO */
+
+		qcom,bt-vdd18-aon-config  = <1800000 1800000 0 1>;
+		qcom,bt-vdd-aon-config    = <950000 950000 0 1>;
+		qcom,bt-vdd-dig-config    = <950000 950000 0 1>;
+		qcom,bt-vdd-rfaOp8-config = <950000 950000 0 1>;
+		qcom,bt-vdd-rfa1-config   = <1350000 1350000 0 1>;
+		qcom,bt-vdd-rfa2-config   = <1900000 1900000 0 1>;
+	};
+};
+
+&pcie0_rp {
+	#address-cells = <5>;
+	#size-cells = <0>;
+
+	cnss_pci: cnss_pci {
+		reg = <0 0 0 0 0>;
+		qcom,iommu-group = <&cnss_pci_iommu_group1>;
+		memory-region = <&cnss_wlan_mem>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		cnss_pci_iommu_group1: cnss_pci_iommu_group1 {
+			qcom,iommu-msi-size = <0x1000>;
+			qcom,iommu-dma-addr-pool = <0xa0000000 0x10000000>;
+			qcom,iommu-dma = "fastmap";
+			qcom,iommu-pagetable = "coherent";
+			qcom,iommu-faults = "stall-disable", "HUPCF", "no-CFRE",
+					    "non-fatal";
+		};
+	};
+};
+
+#include "neo_la-reserved-memory.dtsi"

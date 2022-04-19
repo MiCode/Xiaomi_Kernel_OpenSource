@@ -11,6 +11,7 @@
 #include <dt-bindings/soc/qcom,ipcc.h>
 #include <dt-bindings/soc/qcom,rpmh-rsc.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. NEO";
@@ -22,7 +23,7 @@
 	#size-cells = <2>;
 
 	chosen: chosen {
-		bootargs = " rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=off log_buf_len=256K console=ttyMSM0,115200,n8 loglevel=8 cpufreq.default_governor=performance swiotlb=noforce cgroup.memory=nokmem,nosocket allow_file_spec_access";
+		bootargs = " rcupdate.rcu_expedited=1 rcu_nocbs=0-7 kpti=off log_buf_len=256K console=ttyMSM0,115200,n8 loglevel=6 cpufreq.default_governor=performance swiotlb=noforce cgroup.memory=nokmem,nosocket allow_file_spec_access";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
@@ -257,6 +258,37 @@
 		size = <0x0 0x800000>;
 	};
 
+	lsr_lefteye_mem_heap: lsr_lefteye_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		no-map;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0xC00000>;
+	};
+
+	lsr_righteye_mem_heap: lsr_righteye_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		no-map;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0xC00000>;
+	};
+
+	lsr_depth_mem_heap: lsr_depth_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		no-map;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x100000>;
+	};
+
+	lsr_misc_mem_heap: lsr_misc_region {
+		compatible = "shared-dma-pool";
+		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
+		no-map;
+		alignment = <0x0 0x400000>;
+		size = <0x0 0x2800000>;
+	};
 };
 
 &soc {
@@ -319,6 +351,37 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		status = "disabled";
+	};
+
+	bluetooth: bt_wcn6x5x {
+		compatible = "qcom,wcn6750-bt";
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_sleep>;
+		qcom,bt-reset-gpio = <&tlmm 46 0>; /* BT_EN */
+		qcom,bt-sw-ctrl-gpio = <&tlmm 47 0>; /* SW_CTRL */
+		qcom,wl-reset-gpio = <&tlmm 45 0>; /* WL_EN */
+
+		qcom,bt-vdd-io-supply = <&L15A>;  /* IO */
+		/* below regulators are always ON with wcn6750 */
+		qcom,bt-vdd-aon-supply = <>;
+		qcom,bt-vdd-dig-supply = <>; /* BT_CX_MX */
+		qcom,bt-vdd-rfacmn-supply = <>;
+		qcom,bt-vdd-rfa-0p8-supply = <>;
+		qcom,bt-vdd-rfa1-supply = <>; /*RFA 1p7*/
+		qcom,bt-vdd-rfa2-supply = <>; /*RFA 1p2*/
+		qcom,bt-vdd-ipa-2p2-supply = <>; /*IPA 2p2*/
+		qcom,bt-vdd-asd-supply = <>;
+
+		/* max voltage are set to regulator max voltage supported */
+		qcom,bt-vdd-io-config = <1800000 2000000 0 1>;
+		qcom,bt-vdd-aon-config = <824000 1120000 0 1>;
+		qcom,bt-vdd-dig-config = <824000 1120000 0 1>;
+		qcom,bt-vdd-rfacmn-config  = <824000 1120000 0 1>;
+		qcom,bt-vdd-rfa-0p8-config  = <824000 1120000 0 1>;
+		qcom,bt-vdd-rfa1-config = <1872000 2040000 0 1>;
+		qcom,bt-vdd-rfa2-config = <1256000 1500000 0 1>;
+		qcom,bt-vdd-ipa-2p2-config = <2200000 2210000 0 1>;
+		qcom,bt-vdd-asd-config = <2800000 3544000 0 1>;
 	};
 
 	intc: interrupt-controller@0x17200000 {
@@ -984,6 +1047,12 @@
 		reg = <0x1fc0000 0x30000>;
 	};
 
+	qcom,mpm2-sleep-counter@c221000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xc221000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	adsp_pas: remoteproc-adsp@03000000 {
 		compatible = "qcom,neo-adsp-pas";
 		reg = <0x03000000 0x10000>;
@@ -1074,7 +1143,7 @@
 		memory-region = <&cdsp_mem>;
 
 		/* Inputs from turing */
-		interrupts-extended = <&intc GIC_SPI 578 IRQ_TYPE_LEVEL_HIGH>,
+		interrupts-extended = <&intc GIC_SPI 578 IRQ_TYPE_EDGE_RISING>,
 					<&cdsp_smp2p_in 0 0>,
 					<&cdsp_smp2p_in 2 0>,
 					<&cdsp_smp2p_in 1 0>,
@@ -1476,11 +1545,15 @@
 	rpmh-sleep-stats@c3f0000 {
 		compatible = "qcom,rpmh-sleep-stats";
 		reg = <0xc3f0000 0x400>;
+		ss-name = "adsp", "adsp_island", "cdsp", "apss";
+		mboxes = <&qmp_aop 0>;
+		ddr-freq-update;
 	};
 
 	subsystem-sleep-stats@c3f0000 {
 		compatible = "qcom,subsystem-sleep-stats";
 		reg = <0xc3f0000 0x400>;
+		ddr-freq-update;
 	};
 
 	tcsr_mutex_block: syscon@1f40000 {
@@ -1809,46 +1882,6 @@
 			dma-coherent;
 			shared-cb = <5>;
 		};
-
-		qcom,msm_fastrpc_compute_cb16 {
-			compatible = "qcom,msm-fastrpc-compute-cb";
-			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x102B 0x0420>,
-					 <&apps_smmu 0x100B 0x0420>;
-			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
-			qcom,iommu-faults = "stall-disable", "HUPCF";
-			dma-coherent;
-		};
-
-		qcom,msm_fastrpc_compute_cb17 {
-			compatible = "qcom,msm-fastrpc-compute-cb";
-			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x102C 0x0420>,
-					 <&apps_smmu 0x100C 0x0420>;
-			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
-			qcom,iommu-faults = "stall-disable", "HUPCF";
-			dma-coherent;
-		};
-
-		qcom,msm_fastrpc_compute_cb18 {
-			compatible = "qcom,msm-fastrpc-compute-cb";
-			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x102D 0x0420>,
-					 <&apps_smmu 0x100D 0x0420>;
-			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
-			qcom,iommu-faults = "stall-disable", "HUPCF";
-			dma-coherent;
-		};
-
-		qcom,msm_fastrpc_compute_cb19 {
-			compatible = "qcom,msm-fastrpc-compute-cb";
-			label = "cdsprpc-smd";
-			iommus = <&apps_smmu 0x102E 0x0420>,
-					 <&apps_smmu 0x100E 0x0420>;
-			qcom,iommu-dma-addr-pool = <0x80000000 0x78000000>;
-			qcom,iommu-faults = "stall-disable", "HUPCF";
-			dma-coherent;
-		};
 	};
 
 	qcom,mem-buf-msgq {
@@ -1862,6 +1895,10 @@
 	};
 
 	thermal_zones: thermal-zones {
+	};
+
+	logbuf: qcom,logbuf-vendor-hooks {
+		compatible = "qcom,logbuf-vendor-hooks";
 	};
 
 	wpss_pas: remoteproc-wpss@8A00000 {
@@ -1924,19 +1961,11 @@
 
 	icnss2: qcom,wcn6750 {
 		compatible = "qcom,wcn6750";
-		reg = <0x17200040 0x0>;
+		reg = <0x17210040 0x0>;
 		reg-names = "msi_addr";
 		qcom,rproc-handle = <&wpss_pas>;
 		iommus = <&apps_smmu 0x1c00 0x1>;
-		interrupts = <GIC_SPI 760 IRQ_TYPE_EDGE_RISING>,
-			   <GIC_SPI 761 IRQ_TYPE_EDGE_RISING>,
-			   <GIC_SPI 762 IRQ_TYPE_EDGE_RISING>,
-			   <GIC_SPI 763 IRQ_TYPE_EDGE_RISING>,
-			   <GIC_SPI 764 IRQ_TYPE_EDGE_RISING>,
-			   <GIC_SPI 765 IRQ_TYPE_EDGE_RISING>,
-			   <GIC_SPI 766 IRQ_TYPE_EDGE_RISING>,
-			   <GIC_SPI 767 IRQ_TYPE_EDGE_RISING>,
-			   <GIC_SPI 768 IRQ_TYPE_EDGE_RISING>,
+		interrupts = <GIC_SPI 768 IRQ_TYPE_EDGE_RISING>,
 			   <GIC_SPI 769 IRQ_TYPE_EDGE_RISING>,
 			   <GIC_SPI 770 IRQ_TYPE_EDGE_RISING>,
 			   <GIC_SPI 771 IRQ_TYPE_EDGE_RISING>,
@@ -1959,7 +1988,15 @@
 			   <GIC_SPI 788 IRQ_TYPE_EDGE_RISING>,
 			   <GIC_SPI 789 IRQ_TYPE_EDGE_RISING>,
 			   <GIC_SPI 790 IRQ_TYPE_EDGE_RISING>,
-			   <GIC_SPI 791 IRQ_TYPE_EDGE_RISING>;
+			   <GIC_SPI 791 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 792 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 793 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 794 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 795 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 796 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 797 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 798 IRQ_TYPE_EDGE_RISING>,
+			   <GIC_SPI 799 IRQ_TYPE_EDGE_RISING>;
 
 		qcom,iommu-dma = "fastmap";
 		qcom,iommu-faults = "stall-disable", "HUPCF", "non-fatal";
@@ -2173,3 +2210,44 @@
 #include "helios.dtsi"
 #include "neo-eva.dtsi"
 #include "neo-regulators.dtsi"
+#include "neo-pcie.dtsi"
+
+&qupv3_se8_i2c {
+	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	nxp_eusb2_repeater: eusb2_repeater@4f {
+		compatible = "nxp,eusb2-repeater";
+		reg = <0x4f>;
+		vdd18-supply = <&L15A>;
+		vdd3-supply = <&L2A>;
+		reset-gpio = <&tlmm 99 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&eusb2_reset_ctrl_default>;
+	};
+};
+
+&eusb2_phy0 {
+	dummy-supply = <&nxp_eusb2_repeater>;
+	usb-repeater = <&nxp_eusb2_repeater>;
+};
+
+&apps_rsc {
+	rpmh-regulator-gfxlvl {
+		compatible = "qcom,rpmh-arc-regulator";
+		qcom,resource-name = "gfx.lvl";
+		VDD_GFX_LEVEL: S2A_LEVEL:
+		pm8150_s2_level: regulator-pm8150-s2-level {
+			regulator-name = "pm8150_s2_level";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+				<RPMH_REGULATOR_LEVEL_MAX>;
+			qcom,init-voltage-level =
+				<RPMH_REGULATOR_LEVEL_RETENTION>;
+		};
+	};
+};

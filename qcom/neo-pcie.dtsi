@@ -1,0 +1,567 @@
+#include <dt-bindings/clock/qcom,gcc-neo.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&soc {
+	pcie0: qcom,pcie@1c00000 {
+		compatible = "qcom,pci-msm";
+
+		reg = <0x01c00000 0x3000>,
+			<0x01c06000 0x2000>,
+			<0x60000000 0xf1d>,
+			<0x60000f20 0xa8>,
+			<0x60001000 0x1000>,
+			<0x60100000 0x100000>;
+		reg-names = "parf", "phy", "dm_core", "elbi", "iatu", "conf";
+
+		cell-index = <0>;
+		linux,pci-domain = <0>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		ranges = <0x01000000 0x0 0x60200000 0x60200000 0x0 0x100000>,
+			<0x02000000 0x0 0x60300000 0x60300000 0x0 0x3d00000>;
+
+		interrupt-parent = <&pcie0>;
+		interrupts = <0 1 2 3 4>;
+		interrupt-names = "int_global_int", "int_a", "int_b", "int_c",
+				"int_d";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0xffffffff>;
+
+		interrupt-map = <0 0 0 0 &intc GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH
+				0 0 0 1 &intc GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH
+				0 0 0 2 &intc GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH
+				0 0 0 3 &intc GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH
+				0 0 0 4 &intc GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>;
+
+		perst-gpio = <&tlmm 55 GPIO_ACTIVE_HIGH>;
+		wake-gpio = <&tlmm 57 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&pcie0_perst_default
+				&pcie0_clkreq_default
+				&pcie0_wake_default>;
+		pinctrl-1 = <&pcie0_perst_default
+				&pcie0_clkreq_sleep
+				&pcie0_wake_default>;
+
+		gdsc-vdd-supply = <&gcc_pcie_0_gdsc>;
+		vreg-1p8-supply = <&pm8150_l3>;
+		vreg-0p9-supply = <&pm8150_l8>;
+		vreg-cx-supply = <&VDD_CX_LEVEL>;
+		vreg-mx-supply = <&VDD_MXA_LEVEL>;
+		qcom,vreg-1p8-voltage-level = <1200000 1200000 15000>;
+		qcom,vreg-0p9-voltage-level = <880000 880000 46700>;
+		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
+						RPMH_REGULATOR_LEVEL_NOM 0>;
+		qcom,vreg-mx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
+						RPMH_REGULATOR_LEVEL_NOM 0>;
+		qcom,bw-scale = /* Gen1 */
+				<RPMH_REGULATOR_LEVEL_LOW_SVS
+				RPMH_REGULATOR_LEVEL_LOW_SVS
+				19200000
+				/* Gen2 */
+				RPMH_REGULATOR_LEVEL_LOW_SVS
+				RPMH_REGULATOR_LEVEL_LOW_SVS
+				19200000
+				/* Gen3 */
+				RPMH_REGULATOR_LEVEL_SVS
+				RPMH_REGULATOR_LEVEL_SVS
+				100000000>;
+
+		interconnect-names = "icc_path";
+		interconnects = <&pcie_noc MASTER_PCIE_0 &mc_virt SLAVE_EBI1>;
+
+		clocks = <&gcc GCC_PCIE_0_PIPE_CLK>,
+			<&rpmhcc RPMH_CXO_CLK>,
+			<&gcc GCC_PCIE_0_AUX_CLK>,
+			<&gcc GCC_PCIE_0_CFG_AHB_CLK>,
+			<&gcc GCC_PCIE_0_MSTR_AXI_CLK>,
+			<&gcc GCC_PCIE_0_SLV_AXI_CLK>,
+			<&tcsrcc TCSR_PCIE_0_CLKREF_EN>,
+			<&gcc GCC_PCIE_0_SLV_Q2A_AXI_CLK>,
+			<&gcc GCC_PCIE_0_PHY_RCHNG_CLK>,
+			<&gcc GCC_DDRSS_PCIE_SF_CLK>,
+			<&gcc GCC_AGGRE_NOC_PCIE_1_AXI_CLK>,
+			<&gcc GCC_CFG_NOC_PCIE_ANOC_AHB_CLK>,
+			<&gcc GCC_PCIE_0_PIPE_CLK_SRC>,
+			<&gcc GCC_QMIP_PCIE_AHB_CLK>,
+			<&pcie_0_pipe_clk>;
+		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
+				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_clkref_en", "pcie_0_slv_q2a_axi_clk",
+				"pcie_phy_refgen_clk",
+				"pcie_ddrss_sf_tbu_clk",
+				"pcie_aggre_noc_1_axi_clk",
+				"gcc_cfg_noc_pcie_anoc_ahb_clk",
+				"pcie_pipe_clk_mux",
+				"gcc_qmip_pcie_ahb_clk", "pcie_pipe_clk_ext_src";
+		max-clock-frequency-hz = <0>, <0>, <19200000>, <0>, <0>, <0>,
+					<0>, <0>, <0>, <0>, <150000000>,
+					<0>, <0>, <0>, <0>, <0>;
+
+		resets = <&gcc GCC_PCIE_0_BCR>,
+			<&gcc GCC_PCIE_0_PHY_BCR>;
+		reset-names = "pcie_0_core_reset",
+				"pcie_0_phy_reset";
+
+		dma-coherent;
+		qcom,smmu-sid-base = <0x1c00>;
+		iommu-map = <0x0 &apps_smmu 0x1c00 0x1>,
+			<0x100 &apps_smmu 0x1c01 0x1>;
+
+		qcom,boot-option = <0x1>;
+		qcom,aux-clk-freq = <20>; /* 19.2 MHz */
+		qcom,drv-supported;
+		qcom,drv-l1ss-timeout-us = <5000>;
+		qcom,l1-2-th-scale = <2>;
+		qcom,l1-2-th-value = <150>;
+		qcom,slv-addr-space-size = <0x4000000>;
+		qcom,ep-latency = <10>;
+		qcom,num-parf-testbus-sel = <0xb9>;
+		qcom,config-recovery;
+
+		qcom,pcie-phy-ver = <97>;
+		qcom,phy-status-offset = <0x214>;
+		qcom,phy-status-bit = <6>;
+		qcom,phy-power-down-offset = <0x240>;
+		qcom,phy-sequence = <0x0240 0x03 0x0
+				0x00c0 0x01 0x0
+				0x00cc 0x31 0x0
+				0x00d0 0x01 0x0
+				0x0060 0xde 0x0
+				0x0064 0x07 0x0
+				0x0000 0x4c 0x0
+				0x0004 0x06 0x0
+				0x00e0 0x90 0x0
+				0x00e4 0x82 0x0
+				0x00f4 0x07 0x0
+				0x0070 0x02 0x0
+				0x0010 0x02 0x0
+				0x0074 0x16 0x0
+				0x0014 0x16 0x0
+				0x0078 0x36 0x0
+				0x0018 0x36 0x0
+				0x0110 0x08 0x0
+				0x00bc 0x0e 0x0
+				0x0120 0x42 0x0
+				0x0080 0x0a 0x0
+				0x0084 0x1a 0x0
+				0x0020 0x14 0x0
+				0x0024 0x34 0x0
+				0x0088 0x82 0x0
+				0x0028 0x68 0x0
+				0x0090 0x55 0x0
+				0x0094 0x55 0x0
+				0x0098 0x03 0x0
+				0x0030 0xab 0x0
+				0x0034 0xaa 0x0
+				0x0038 0x02 0x0
+				0x0140 0x14 0x0
+				0x0164 0x34 0x0
+				0x003c 0x01 0x0
+				0x001c 0x04 0x0
+				0x0174 0x16 0x0
+				0x01bc 0x0f 0x0
+				0x0170 0xa0 0x0
+				0x11a4 0x38 0x0
+				0x10dc 0x11 0x0
+				0x1160 0xbf 0x0
+				0x1164 0xbf 0x0
+				0x1168 0xbf 0x0
+				0x116c 0xea 0x0
+				0x115c 0x3f 0x0
+				0x1174 0x5c 0x0
+				0x1178 0x9c 0x0
+				0x117c 0x1a 0x0
+				0x1180 0x89 0x0
+				0x1170 0xdc 0x0
+				0x1188 0x94 0x0
+				0x118c 0x5b 0x0
+				0x1190 0x1a 0x0
+				0x1194 0x89 0x0
+				0x10cc 0xf0 0x0
+				0x1008 0x09 0x0
+				0x1014 0x05 0x0
+				0x104c 0x08 0x0
+				0x1050 0x08 0x0
+				0x10d8 0x0f 0x0
+				0x1118 0x1c 0x0
+				0x10f8 0x07 0x0
+				0x11f8 0x08 0x0
+				0x0e84 0x15 0x0
+				0x0e90 0x3f 0x0
+				0x0ee4 0x02 0x0
+				0x0e40 0x06 0x0
+				0x0e3c 0x17 0x0
+				0x19a4 0x38 0x0
+				0x18dc 0x11 0x0
+				0x1960 0xbf 0x0
+				0x1964 0xbf 0x0
+				0x1968 0xb7 0x0
+				0x196c 0xea 0x0
+				0x195c 0x3f 0x0
+				0x1974 0x5c 0x0
+				0x1978 0x9c 0x0
+				0x197c 0x1a 0x0
+				0x1980 0x89 0x0
+				0x1970 0xdc 0x0
+				0x1988 0x94 0x0
+				0x198c 0x5b 0x0
+				0x1990 0x1a 0x0
+				0x1994 0x89 0x0
+				0x18cc 0xf0 0x0
+				0x1808 0x09 0x0
+				0x1814 0x05 0x0
+				0x184c 0x08 0x0
+				0x1850 0x08 0x0
+				0x18d8 0x0f 0x0
+				0x1918 0x1c 0x0
+				0x18f8 0x07 0x0
+				0x19f8 0x08 0x0
+				0x1684 0x15 0x0
+				0x1690 0x3f 0x0
+				0x16e4 0x02 0x0
+				0x1640 0x06 0x0
+				0x163c 0x17 0x0
+				0x02dc 0x05 0x0
+				0x0388 0x77 0x0
+				0x0398 0x0b 0x0
+				0x03e0 0x0f 0x0
+				0x060c 0x1d 0x0
+				0x0614 0x07 0x0
+				0x0620 0xc1 0x0
+				0x0694 0x00 0x0
+				0x03d0 0x8c 0x0
+				0x1424 0x00 0x0
+				0x1428 0x00 0x0
+				0x0200 0x00 0x0
+				0x0244 0x03 0x0>;
+
+		status = "disabled";
+
+		pcie0_rp: pcie0_rp {
+			reg = <0 0 0 0 0>;
+		};
+	};
+
+	pcie0_msi: qcom,pcie0_msi@0x17210040 {
+		compatible = "qcom,pci-msi";
+		msi-controller;
+		reg = <0x17210040 0x0>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 768 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 769 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 770 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 771 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 772 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 773 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 774 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 775 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 776 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 777 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 778 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 779 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 780 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 781 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 782 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 783 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 784 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 785 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 786 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 787 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 788 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 789 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 790 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 791 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 792 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 793 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 794 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 795 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 796 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 797 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 798 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 799 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	pcie1: qcom,pcie@1c08000 {
+		compatible = "qcom,pci-msm";
+
+		reg = <0x01c08000 0x3000>,
+			<0x01c0e000 0x2000>,
+			<0x40000000 0xf1d>,
+			<0x40000f20 0xa8>,
+			<0x40001000 0x1000>,
+			<0x40100000 0x100000>;
+		reg-names = "parf", "phy", "dm_core", "elbi", "iatu", "conf";
+
+		cell-index = <1>;
+		linux,pci-domain = <1>;
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		ranges = <0x01000000 0x0 0x40200000 0x40200000 0x0 0x100000>,
+			<0x02000000 0x0 0x40300000 0x40300000 0x0 0x1fd00000>;
+
+		interrupt-parent = <&pcie1>;
+		interrupts = <0 1 2 3 4>;
+		interrupt-names = "int_global_int", "int_a", "int_b", "int_c",
+				"int_d";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0xffffffff>;
+
+		interrupt-map = <0 0 0 0 &intc GIC_SPI 306 IRQ_TYPE_LEVEL_HIGH
+				0 0 0 1 &intc GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH
+				0 0 0 2 &intc GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH
+				0 0 0 3 &intc GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH
+				0 0 0 4 &intc GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH>;
+
+		perst-gpio = <&tlmm 58 GPIO_ACTIVE_HIGH>;
+		wake-gpio = <&tlmm 60 GPIO_ACTIVE_HIGH>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&pcie1_perst_default
+				&pcie1_clkreq_default
+				&pcie1_wake_default>;
+		pinctrl-1 = <&pcie1_perst_default
+				&pcie1_clkreq_sleep
+				&pcie1_wake_default>;
+
+		gdsc-vdd-supply = <&gcc_pcie_1_gdsc>;
+		vreg-1p8-supply = <&pm8150_l3>;
+		vreg-0p9-supply = <&pm8150_l8>;
+		vreg-cx-supply = <&VDD_CX_LEVEL>;
+		vreg-mx-supply = <&VDD_MXA_LEVEL>;
+		qcom,vreg-1p8-voltage-level = <1200000 1200000 15600>;
+		qcom,vreg-0p9-voltage-level = <880000 880000 54200>;
+		qcom,vreg-cx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
+						RPMH_REGULATOR_LEVEL_NOM 0>;
+		qcom,vreg-mx-voltage-level = <RPMH_REGULATOR_LEVEL_MAX
+						RPMH_REGULATOR_LEVEL_NOM 0>;
+		qcom,bw-scale = /* Gen1 */
+				<RPMH_REGULATOR_LEVEL_LOW_SVS
+				RPMH_REGULATOR_LEVEL_LOW_SVS
+				19200000
+				/* Gen2 */
+				RPMH_REGULATOR_LEVEL_LOW_SVS
+				RPMH_REGULATOR_LEVEL_LOW_SVS
+				19200000
+				/* Gen3 */
+				RPMH_REGULATOR_LEVEL_SVS
+				RPMH_REGULATOR_LEVEL_SVS
+				100000000>;
+
+		interconnect-names = "icc_path";
+		interconnects = <&pcie_noc MASTER_PCIE_1 &mc_virt SLAVE_EBI1>;
+
+		clocks = <&gcc GCC_PCIE_1_PIPE_CLK>,
+			<&rpmhcc RPMH_CXO_CLK>,
+			<&gcc GCC_PCIE_1_AUX_CLK>,
+			<&gcc GCC_PCIE_1_CFG_AHB_CLK>,
+			<&gcc GCC_PCIE_1_MSTR_AXI_CLK>,
+			<&gcc GCC_PCIE_1_SLV_AXI_CLK>,
+			<&tcsrcc TCSR_PCIE_1_CLKREF_EN>,
+			<&gcc GCC_PCIE_1_SLV_Q2A_AXI_CLK>,
+			<&gcc GCC_PCIE_1_PHY_RCHNG_CLK>,
+			<&gcc GCC_DDRSS_PCIE_SF_CLK>,
+			<&gcc GCC_AGGRE_NOC_PCIE_1_AXI_CLK>,
+			<&gcc GCC_CFG_NOC_PCIE_ANOC_AHB_CLK>,
+			<&gcc GCC_PCIE_0_PIPE_CLK_SRC>,
+			<&pcie_1_pipe_clk>;
+		clock-names = "pcie_1_pipe_clk", "pcie_1_ref_clk_src",
+				"pcie_1_aux_clk", "pcie_1_cfg_ahb_clk",
+				"pcie_1_mstr_axi_clk", "pcie_1_slv_axi_clk",
+				"pcie_clkref_en", "pcie_1_slv_q2a_axi_clk",
+				"pcie_phy_refgen_clk",
+				"pcie_ddrss_sf_tbu_clk",
+				"pcie_aggre_noc_1_axi_clk",
+				"gcc_cfg_noc_pcie_anoc_ahb_clk",
+				"pcie_pipe_clk_mux",
+				"pcie_pipe_clk_ext_src";
+		max-clock-frequency-hz = <0>, <0>, <19200000>, <0>, <0>, <0>,
+					<0>, <0>, <0>, <0>, <150000000>,
+					<0>, <0>, <0>, <0>;
+
+		resets = <&gcc GCC_PCIE_1_BCR>,
+			<&gcc GCC_PCIE_1_PHY_BCR>;
+		reset-names = "pcie_1_core_reset",
+				"pcie_1_phy_reset";
+
+		dma-coherent;
+		qcom,smmu-sid-base = <0x1e00>;
+		iommu-map = <0x0 &apps_smmu 0x1e00 0x1>,
+			<0x100 &apps_smmu 0x1e01 0x1>;
+
+		qcom,boot-option = <0x1>;
+		qcom,aux-clk-freq = <20>; /* 19.2 MHz */
+		qcom,drv-supported;
+		qcom,drv-l1ss-timeout-us = <5000>;
+		qcom,l1-2-th-scale = <2>;
+		qcom,l1-2-th-value = <150>;
+		qcom,slv-addr-space-size = <0x4000000>;
+		qcom,ep-latency = <10>;
+		qcom,num-parf-testbus-sel = <0xb9>;
+		qcom,config-recovery;
+
+		qcom,pcie-phy-ver = <97>;
+		qcom,phy-status-offset = <0x214>;
+		qcom,phy-status-bit = <6>;
+		qcom,phy-power-down-offset = <0x240>;
+		qcom,phy-sequence = <0x0240 0x03 0x0
+				0x00c0 0x01 0x0
+				0x00cc 0x31 0x0
+				0x00d0 0x01 0x0
+				0x0060 0xde 0x0
+				0x0064 0x07 0x0
+				0x0000 0x4c 0x0
+				0x0004 0x06 0x0
+				0x00e0 0x90 0x0
+				0x00e4 0x82 0x0
+				0x00f4 0x07 0x0
+				0x0070 0x02 0x0
+				0x0010 0x02 0x0
+				0x0074 0x16 0x0
+				0x0014 0x16 0x0
+				0x0078 0x36 0x0
+				0x0018 0x36 0x0
+				0x0110 0x08 0x0
+				0x00bc 0x0e 0x0
+				0x0120 0x42 0x0
+				0x0080 0x0a 0x0
+				0x0084 0x1a 0x0
+				0x0020 0x14 0x0
+				0x0024 0x34 0x0
+				0x0088 0x82 0x0
+				0x0028 0x68 0x0
+				0x0090 0x55 0x0
+				0x0094 0x55 0x0
+				0x0098 0x03 0x0
+				0x0030 0xab 0x0
+				0x0034 0xaa 0x0
+				0x0038 0x02 0x0
+				0x0140 0x14 0x0
+				0x0164 0x34 0x0
+				0x003c 0x01 0x0
+				0x001c 0x04 0x0
+				0x0174 0x16 0x0
+				0x01bc 0x0f 0x0
+				0x0170 0xa0 0x0
+				0x11a4 0x38 0x0
+				0x10dc 0x11 0x0
+				0x1160 0xbf 0x0
+				0x1164 0xbf 0x0
+				0x1168 0xbf 0x0
+				0x116c 0xea 0x0
+				0x115c 0x3f 0x0
+				0x1174 0x5c 0x0
+				0x1178 0x9c 0x0
+				0x117c 0x1a 0x0
+				0x1180 0x89 0x0
+				0x1170 0xdc 0x0
+				0x1188 0x94 0x0
+				0x118c 0x5b 0x0
+				0x1190 0x1a 0x0
+				0x1194 0x89 0x0
+				0x10cc 0xf0 0x0
+				0x1008 0x09 0x0
+				0x1014 0x05 0x0
+				0x104c 0x08 0x0
+				0x1050 0x08 0x0
+				0x10d8 0x0f 0x0
+				0x1118 0x1c 0x0
+				0x10f8 0x07 0x0
+				0x11f8 0x08 0x0
+				0x0e84 0x15 0x0
+				0x0e90 0x3f 0x0
+				0x0ee4 0x02 0x0
+				0x0e40 0x06 0x0
+				0x0e3c 0x17 0x0
+				0x19a4 0x38 0x0
+				0x18dc 0x11 0x0
+				0x1960 0xbf 0x0
+				0x1964 0xbf 0x0
+				0x1968 0xb7 0x0
+				0x196c 0xea 0x0
+				0x195c 0x3f 0x0
+				0x1974 0x5c 0x0
+				0x1978 0x9c 0x0
+				0x197c 0x1a 0x0
+				0x1980 0x89 0x0
+				0x1970 0xdc 0x0
+				0x1988 0x94 0x0
+				0x198c 0x5b 0x0
+				0x1990 0x1a 0x0
+				0x1994 0x89 0x0
+				0x18cc 0xf0 0x0
+				0x1808 0x09 0x0
+				0x1814 0x05 0x0
+				0x184c 0x08 0x0
+				0x1850 0x08 0x0
+				0x18d8 0x0f 0x0
+				0x1918 0x1c 0x0
+				0x18f8 0x07 0x0
+				0x19f8 0x08 0x0
+				0x1684 0x15 0x0
+				0x1690 0x3f 0x0
+				0x16e4 0x02 0x0
+				0x1640 0x06 0x0
+				0x163c 0x17 0x0
+				0x02dc 0x05 0x0
+				0x0388 0x77 0x0
+				0x0398 0x0b 0x0
+				0x03e0 0x0f 0x0
+				0x060c 0x1d 0x0
+				0x0614 0x07 0x0
+				0x0620 0xc1 0x0
+				0x0694 0x00 0x0
+				0x03d0 0x8c 0x0
+				0x1424 0x00 0x0
+				0x1428 0x00 0x0
+				0x0200 0x00 0x0
+				0x0244 0x03 0x0>;
+
+		status = "disabled";
+
+		pcie1_rp: pcie1_rp {
+			reg = <0 0 0 0 0>;
+		};
+	};
+
+	pcie1_msi: qcom,pcie1_msi@0x17210040 {
+		compatible = "qcom,pci-msi";
+		msi-controller;
+		reg = <0x17210040 0x0>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 800 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 801 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 802 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 803 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 804 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 805 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 806 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 807 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 808 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 809 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 810 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 811 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 812 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 813 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 814 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 815 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 816 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 817 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 818 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 819 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 820 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 821 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 822 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 823 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 824 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 825 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 826 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 827 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 828 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 829 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 830 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 831 IRQ_TYPE_EDGE_RISING>;
+	};
+};

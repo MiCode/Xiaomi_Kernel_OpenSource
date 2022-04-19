@@ -353,6 +353,8 @@
 
 	VDD_MXC_LEVEL:
 	S1E_LEVEL:
+	VDD_MM_MXC_VOTER_LEVEL:
+	VDD_GFX_MXC_VOTER_LEVEL:
 	pm_v6e_s1_level: regulator-pm-v6e-s1-level {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm_v6e_s1_level";
