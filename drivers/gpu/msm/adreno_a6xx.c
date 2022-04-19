@@ -765,6 +765,11 @@ void a6xx_start(struct adreno_device *adreno_dev)
 
 	a6xx_llc_enable_overrides(adreno_dev);
 
+	if (adreno_is_a662(adreno_dev))
+		kgsl_regrmw(device, A6XX_GBIF_CX_CONFIG, 0x3c0,
+			FIELD_PREP(GENMASK(7, 6), 0x1) |
+			FIELD_PREP(GENMASK(9, 8), 0x1));
+
 	if (adreno_is_a660(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);
 		kgsl_regwrite(device, A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0);
