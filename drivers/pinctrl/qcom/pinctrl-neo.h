@@ -440,8 +440,8 @@ static const unsigned int sdc1_data_pins[] = { 159 };
 
 enum neo_functions {
 	msm_mux_gpio,
-	msm_mux_PCIE0_CLK,
-	msm_mux_PCIE1_CLK,
+	msm_mux_PCIE0_CLK_REQ_N,
+	msm_mux_PCIE1_CLK_REQ_N,
 	msm_mux_aoss_cti,
 	msm_mux_atest_char,
 	msm_mux_atest_char0,
@@ -606,10 +606,10 @@ static const char * const gpio_groups[] = {
 	"gpio147", "gpio148", "gpio149", "gpio150", "gpio151", "gpio152",
 	"gpio153", "gpio154", "gpio155",
 };
-static const char * const PCIE0_CLK_groups[] = {
+static const char * const PCIE0_CLK_REQ_N_groups[] = {
 	"gpio56",
 };
-static const char * const PCIE1_CLK_groups[] = {
+static const char * const PCIE1_CLK_REQ_N_groups[] = {
 	"gpio59",
 };
 static const char * const aoss_cti_groups[] = {
@@ -1092,9 +1092,9 @@ static const struct msm_function neo_functions[] = {
 	FUNCTION(mdp_vsync2),
 	FUNCTION(mdp_vsync3),
 	FUNCTION(pll_clk),
-	FUNCTION(PCIE0_CLK),
+	FUNCTION(PCIE0_CLK_REQ_N),
 	FUNCTION(ddr_pxi0),
-	FUNCTION(PCIE1_CLK),
+	FUNCTION(PCIE1_CLK_REQ_N),
 	FUNCTION(dbg_out),
 	FUNCTION(cri_trng),
 	FUNCTION(atest_usb03),
@@ -1274,12 +1274,12 @@ static const struct msm_pingroup neo_groups[] = {
 			0x9C000, 5),
 	[55] = PINGROUP(55, NA, ddr_pxi2, NA, NA, NA, NA, NA, NA, NA,
 			0x9C00C, 8),
-	[56] = PINGROUP(56, PCIE0_CLK, NA, ddr_pxi0, NA, NA, NA, NA, NA, NA,
+	[56] = PINGROUP(56, PCIE0_CLK_REQ_N, NA, ddr_pxi0, NA, NA, NA, NA, NA, NA,
 			0x9C00C, 9),
 	[57] = PINGROUP(57, ddr_pxi0, NA, NA, NA, NA, NA, NA, NA, NA,
 			0x9C00C, 10),
 	[58] = PINGROUP(58, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0x9C00C, 11),
-	[59] = PINGROUP(59, PCIE1_CLK, dbg_out, NA, NA, NA, NA, NA, NA, NA,
+	[59] = PINGROUP(59, PCIE1_CLK_REQ_N, dbg_out, NA, NA, NA, NA, NA, NA, NA,
 			0x9C00C, 12),
 	[60] = PINGROUP(60, cri_trng, atest_usb03, NA, NA, NA, NA, NA, NA, NA,
 			0x9C00C, 13),
