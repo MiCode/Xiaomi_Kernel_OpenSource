@@ -561,6 +561,8 @@ enum fastrpc_process_exit_states {
 	FASTRPC_PROCESS_DSP_EXIT_INIT				= 2,
 	/* Process exit in DSP complete */
 	FASTRPC_PROCESS_DSP_EXIT_COMPLETE			= 3,
+	/* Process exit in DSP error */
+	FASTRPC_PROCESS_DSP_EXIT_ERROR				= 4,
 };
 
 static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg64_t *pra,
