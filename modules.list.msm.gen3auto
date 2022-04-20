@@ -10,6 +10,7 @@ ns.ko
 pinctrl-msm.ko
 pinctrl-slpi.ko
 pinctrl-sm8150.ko
+pinctrl-sdmshrike.ko
 qcom-dload-mode.ko
 qcom_aoss.ko
 qcom_hwspinlock.ko
