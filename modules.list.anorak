@@ -1,6 +1,7 @@
 arm_smmu.ko
 clk-dummy.ko
 clk-qcom.ko
+deferred-free-helper.ko
 iommu-logger.ko
 stub-regulator.ko
 msm_geni_serial.ko
@@ -12,7 +13,9 @@ qcom_dma_heaps.ko
 qcom-scm.ko
 mem_buf.ko
 mem_buf_dev.ko
+msm_dma_iommu_mapping.ko
 msm-geni-se.ko
+mem-hooks.ko
 gdsc-regulator.ko
 pinctrl-anorak.ko
 pinctrl-msm.ko
@@ -20,3 +23,6 @@ secure_buffer.ko
 msm_geni_serial.ko
 msm-geni-se.ko
 qcom_ipcc.ko
+gcc-anorak.ko
+zram.ko
+zsmalloc.ko

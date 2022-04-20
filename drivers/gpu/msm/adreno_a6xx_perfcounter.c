@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "adreno.h"
 #include "adreno_a6xx.h"
+#include "adreno_a6xx_hwsched_hfi.h"
 #include "adreno_perfcounter.h"
 #include "adreno_pm4types.h"
 #include "kgsl_device.h"
@@ -70,7 +72,7 @@ static u64 a6xx_counter_read_norestore(struct adreno_device *adreno_dev,
 	return ((((u64) hi) << 32) | lo) + reg->value;
 }
 
-static int a6xx_counter_enable(struct adreno_device *adreno_dev,
+int a6xx_counter_enable(struct adreno_device *adreno_dev,
 		const struct adreno_perfcount_group *group,
 		unsigned int counter, unsigned int countable)
 {
@@ -932,6 +934,47 @@ static const struct adreno_perfcount_group a6xx_perfcounter_groups
 		NULL),
 };
 
+static const struct adreno_perfcount_group a6xx_hwsched_perfcounter_groups
+				[KGSL_PERFCOUNTER_GROUP_MAX] = {
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CP, cp),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(RBBM, rbbm, 0,
+		a6xx_counter_enable, a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(PC, pc),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VFD, vfd),
+	A6XX_PERFCOUNTER_GROUP(HLSQ, hlsq, a6xx_hwsched_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VPC, vpc),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CCU, ccu),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(CMP, cmp),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(TSE, tse),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(RAS, ras),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(LRZ, lrz),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(UCHE, uche),
+	A6XX_PERFCOUNTER_GROUP(TP, tp, a6xx_hwsched_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_PERFCOUNTER_GROUP(SP, sp, a6xx_hwsched_counter_inline_enable,
+			a6xx_counter_read, a6xx_counter_load),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(RB, rb),
+	A6XX_REGULAR_PERFCOUNTER_GROUP(VSC, vsc),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF, gbif, 0,
+		a6xx_counter_gbif_enable, a6xx_counter_read_norestore, NULL),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(VBIF_PWR, gbif_pwr,
+		ADRENO_PERFCOUNTER_GROUP_FIXED, a6xx_counter_gbif_pwr_enable,
+		a6xx_counter_read_norestore, NULL),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(ALWAYSON, alwayson,
+		ADRENO_PERFCOUNTER_GROUP_FIXED,
+		a6xx_counter_alwayson_enable, a6xx_counter_alwayson_read, NULL),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(GMU_XOCLK, gmu_xoclk, 0,
+		a6xx_counter_gmu_xoclk_enable, a6xx_counter_read_norestore,
+		NULL),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(GMU_GMUCLK, gmu_gmuclk, 0,
+		a6xx_counter_gmu_gmuclk_enable, a6xx_counter_read_norestore,
+		NULL),
+	A6XX_PERFCOUNTER_GROUP_FLAGS(GMU_PERF, gmu_perf, 0,
+		a6xx_counter_gmu_perf_enable, a6xx_counter_read_norestore,
+		NULL),
+};
+
 /* a610, a612, a616, a618 and a619 do not have the GMU registers.
  * a605, a608, a615, a630, a640 and a680 don't have enough room in the
  * CP_PROTECT registers so the GMU counters are not accessible
@@ -949,4 +992,9 @@ const struct adreno_perfcounters adreno_a630_perfcounters = {
 const struct adreno_perfcounters adreno_a6xx_perfcounters = {
 	a6xx_perfcounter_groups,
 	ARRAY_SIZE(a6xx_perfcounter_groups),
+};
+
+const struct adreno_perfcounters adreno_a6xx_hwsched_perfcounters = {
+	a6xx_hwsched_perfcounter_groups,
+	ARRAY_SIZE(a6xx_hwsched_perfcounter_groups),
 };

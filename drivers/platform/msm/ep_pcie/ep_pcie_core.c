@@ -2026,6 +2026,11 @@ checkbme:
 
 link_fail:
 	dev->power_on = false;
+	if (dev->phy_rev >= 3)
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_LTSSM, BIT(8), 0);
+	else
+		ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_SYS_CTRL, BIT(0), 0);
+
 	if (!ep_pcie_debug_keep_resource)
 		ep_pcie_pipe_clk_deinit(dev);
 pipe_clk_fail:

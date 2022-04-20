@@ -8,5 +8,6 @@ obj-$(CONFIG_RPMSG_QCOM_GLINK_RPM) += qcom_glink_rpm.o
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd.o
 obj-$(CONFIG_RPMSG_QCOM_GLINK_SMEM) += qcom_glink_smem.o
 obj-$(CONFIG_RPMSG_QCOM_GLINK_SPSS) += qcom_glink_spss.o
+obj-$(CONFIG_RPMSG_QCOM_GLINK_HELIOSCOM) += qcom_glink_helioscom.o
 obj-$(CONFIG_RPMSG_QCOM_SMD)	+= qcom_smd.o
 obj-$(CONFIG_RPMSG_VIRTIO)	+= virtio_rpmsg_bus.o

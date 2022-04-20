@@ -3441,6 +3441,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 
 			smrs.id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
 			smrs.mask = FIELD_GET(ARM_SMMU_SMR_MASK, smr);
+			smrs.state = SMR_PROGRAMMED;
 
 		} else {
 			smrs.valid = FIELD_GET(ARM_SMMU_SMR_VALID, smr);
@@ -4231,62 +4232,6 @@ static const struct dev_pm_ops arm_smmu_pm_ops = {
 			   arm_smmu_runtime_resume, NULL)
 };
 
-static const struct of_device_id qsmmuv500_tbu_of_match[] = {
-	{.compatible = "qcom,qsmmuv500-tbu"},
-	{}
-};
-
-static int qsmmuv500_tbu_probe(struct platform_device *pdev)
-{
-	struct resource *res;
-	struct device *dev = &pdev->dev;
-	struct qsmmuv500_tbu_device *tbu;
-	const __be32 *cell;
-	int len;
-
-	tbu = devm_kzalloc(dev, sizeof(*tbu), GFP_KERNEL);
-	if (!tbu)
-		return -ENOMEM;
-
-	INIT_LIST_HEAD(&tbu->list);
-	tbu->dev = dev;
-	spin_lock_init(&tbu->halt_lock);
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
-	tbu->base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(tbu->base))
-		return PTR_ERR(tbu->base);
-
-	cell = of_get_property(dev->of_node, "qcom,stream-id-range", &len);
-	if (!cell || len < 8)
-		return -EINVAL;
-
-	tbu->sid_start = of_read_number(cell, 1);
-	tbu->num_sids = of_read_number(cell + 1, 1);
-
-	/* Return -EINVAL only if property not present */
-	tbu->has_micro_idle = of_property_read_bool(dev->of_node, "qcom,micro-idle");
-
-	tbu->pwr = arm_smmu_init_power_resources(dev);
-	if (IS_ERR(tbu->pwr))
-		return PTR_ERR(tbu->pwr);
-
-	if (tbu->has_micro_idle) {
-		tbu->pwr->resume = arm_smmu_micro_idle_wake;
-		tbu->pwr->suspend = arm_smmu_micro_idle_allow;
-	}
-
-	dev_set_drvdata(dev, tbu);
-	return 0;
-}
-
-static struct platform_driver qsmmuv500_tbu_driver = {
-	.driver	= {
-		.name		= "qsmmuv500-tbu",
-		.of_match_table	= of_match_ptr(qsmmuv500_tbu_of_match),
-	},
-	.probe	= qsmmuv500_tbu_probe,
-};
 
 static struct platform_driver arm_smmu_driver = {
 	.driver	= {

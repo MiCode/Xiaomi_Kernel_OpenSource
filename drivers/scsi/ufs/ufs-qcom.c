@@ -4919,6 +4919,12 @@ static void ufs_qcom_shutdown(struct platform_device *pdev)
 			scsi_remove_device(sdev);
 	}
 	ufshcd_shutdown(hba);
+
+	/* UFS_RESET TLMM register cannot reset to POR value '1' after warm
+	 * reset, so deassert ufs device reset line after UFS device shutdown
+	 * to ensure the UFS_RESET TLMM register value is POR value
+	 */
+	ufs_qcom_device_reset_ctrl(hba, false);
 }
 
 static const struct of_device_id ufs_qcom_of_match[] = {

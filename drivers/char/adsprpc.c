@@ -58,6 +58,7 @@
 #include <linux/soc/qcom/qmi.h>
 #include <linux/mem-buf.h>
 #include <linux/dma-iommu.h>
+#include <asm/arch_timer.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
@@ -213,7 +214,9 @@
 /* Length of glink transaction history to store */
 #define GLINK_MSG_HISTORY_LEN (128)
 
-#define PERF_CAPABILITY   (1 << 1)
+#define PERF_CAPABILITY_SUPPORT	(1 << 1)
+#define KERNEL_ERROR_CODE_V1_SUPPORT	1
+#define USERSPACE_ALLOCATION_SUPPORT	1
 
 #define MD_GMSG_BUFFER (1000)
 
@@ -372,11 +375,13 @@ struct fastrpc_tx_msg {
 	struct smq_msg msg; /* Msg sent to remote subsystem */
 	int rpmsg_send_err; /* rpmsg error */
 	int64_t ns;         /* Timestamp (in ns) of msg */
+	uint64_t xo_time_in_us;
 };
 
 struct fastrpc_rx_msg {
 	struct smq_invoke_rspv2 rsp;  /* Response from remote subsystem */
 	int64_t ns;   /* Timestamp (in ns) of response */
+	uint64_t xo_time_in_us;
 };
 
 struct fastrpc_rpmsg_log {
@@ -767,10 +772,12 @@ static int hlosvmperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
 static uint32_t kernel_capabilities[FASTRPC_MAX_ATTRIBUTES -
 					FASTRPC_MAX_DSP_ATTRIBUTES] = {
-	PERF_CAPABILITY,
+	PERF_CAPABILITY_SUPPORT,
 	/* PERF_LOGGING_V2_SUPPORT feature is supported, unsupported = 0 */
-	1
+	KERNEL_ERROR_CODE_V1_SUPPORT,
 	/* Fastrpc Driver error code changes present */
+	USERSPACE_ALLOCATION_SUPPORT
+	/* Userspace allocation allowed for DSP memory request*/
 };
 
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
@@ -779,7 +786,7 @@ static int fastrpc_mem_map_to_dsp(struct fastrpc_file *fl, int fd, int offset,
 				size_t size, uintptr_t *raddr);
 static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 	uint64_t ctx, int retval, uint32_t rsp_flags,
-	uint32_t early_wake_time, uint32_t ver, int64_t ns);
+	uint32_t early_wake_time, uint32_t ver, int64_t ns, uint64_t xo_time_in_us);
 
 /**
  * fastrpc_device_create - Create device for the fastrpc process file
@@ -848,7 +855,8 @@ static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t 
 			/* Update DSP response history */
 			fastrpc_update_rxmsg_buf(&gfa.channel[ctx->fl->cid],
 				ctx->msg.invoke.header.ctx, 0, POLL_MODE, 0,
-				FASTRPC_RSP_VERSION2, get_timestamp_in_ns());
+				FASTRPC_RSP_VERSION2, get_timestamp_in_ns(),
+				__arch_counter_get_cntvct() * 10ull / 192ull);
 			break;
 		}
 		if (jj == FASTRPC_POLL_TIME_MEM_UPDATE) {
@@ -867,11 +875,12 @@ static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t 
  * @msg            : Pointer to RPC message to remote subsystem
  * @rpmsg_send_err : Error from rpmsg
  * @ns             : Timestamp (in ns) of sent message
+ * @xo_time_in_us  : XO Timestamp (in us) of sent message
  *
  * Returns none
  */
 static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
-	struct smq_msg *msg, int rpmsg_send_err, int64_t ns)
+	struct smq_msg *msg, int rpmsg_send_err, int64_t ns, uint64_t xo_time_in_us)
 {
 	unsigned long flags = 0;
 	unsigned int tx_index = 0;
@@ -885,6 +894,7 @@ static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
 	memcpy(&tx_msg->msg, msg, sizeof(struct smq_msg));
 	tx_msg->rpmsg_send_err = rpmsg_send_err;
 	tx_msg->ns = ns;
+	tx_msg->xo_time_in_us = xo_time_in_us;
 
 	tx_index++;
 	chan->gmsg_log.tx_index =
@@ -902,12 +912,13 @@ static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
  * @early_wake_time : Poll time for early wakeup
  * @ver             : Version of response
  * @ns              : Timestamp (in ns) of response
+ * @xo_time_in_us   : XO Timestamp (in us) of response
  *
  * Returns none
  */
 static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 	uint64_t ctx, int retval, uint32_t rsp_flags,
-	uint32_t early_wake_time, uint32_t ver, int64_t ns)
+	uint32_t early_wake_time, uint32_t ver, int64_t ns, uint64_t xo_time_in_us)
 {
 	unsigned long flags = 0;
 	unsigned int rx_index = 0;
@@ -926,34 +937,13 @@ static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 	rsp->early_wake_time = early_wake_time;
 	rsp->version = ver;
 	rx_msg->ns = ns;
+	rx_msg->xo_time_in_us = xo_time_in_us;
 
 	rx_index++;
 	chan->gmsg_log.rx_index =
 		(rx_index > (GLINK_MSG_HISTORY_LEN - 1)) ? 0 : rx_index;
 
 	spin_unlock_irqrestore(&chan->gmsg_log.lock, flags);
-}
-
-/**
- * fastrpc_ramdump - Dump given ram dump entry
- * @dev       : Device handle
- * @ramdump_segment   : Dump region entry
- * @type              : ram dump type like elf or binary
- * Returns int
- */
-static int fastrpc_ramdump(struct device *dev, struct qcom_dump_segment *ramdump_seg, bool type)
-{
-	int err = 0;
-	struct list_head head;
-
-	INIT_LIST_HEAD(&head);
-	list_add(&ramdump_seg->node, &head);
-	if (type)
-		err = qcom_elf_dump(&head, dev, ELF_CLASS);
-	else
-		err = qcom_dump(&head, dev);
-
-	return err;
 }
 
 static inline int get_unique_index(void)
@@ -2428,6 +2418,7 @@ static void fastrpc_ramdump_collection(int cid)
 	struct fastrpc_buf *buf = NULL;
 	int ret = 0;
 	unsigned long irq_flags = 0;
+	struct list_head head;
 
 	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
@@ -2448,12 +2439,14 @@ static void fastrpc_ramdump_collection(int cid)
 		ramdump_entry.da = buf->phys;
 		ramdump_entry.va = (void *)buf->virt;
 		ramdump_entry.size = buf->size;
+		INIT_LIST_HEAD(&head);
+		list_add(&ramdump_entry.node, &head);
 
 		if (fl && fl->sctx && fl->sctx->smmu.dev)
-			ret = fastrpc_ramdump(fl->sctx->smmu.dev, &ramdump_entry, true);
+			ret = qcom_elf_dump(&head, fl->sctx->smmu.dev, ELF_CLASS);
 		else {
 			if (me->dev != NULL)
-				ret = fastrpc_ramdump(me->dev, &ramdump_entry, true);
+				ret = qcom_elf_dump(&head, me->dev, ELF_CLASS);
 		}
 		if (ret < 0)
 			ADSPRPC_ERR("adsprpc: %s: unable to dump PD memory (err %d)\n",
@@ -2619,6 +2612,12 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 
 		if (ctx->attrs && (ctx->attrs[i] & FASTRPC_ATTR_NOMAP))
 			dmaflags = FASTRPC_MAP_FD_NOMAP;
+		VERIFY(err, VALID_FASTRPC_CID(ctx->fl->cid));
+		if (err) {
+			err = -ECHRNG;
+			mutex_unlock(&ctx->fl->map_mutex);
+			goto bail;
+		}
 		dsp_cap_ptr = &gcinfo[ctx->fl->cid].dsp_cap_kernel;
 		// Skip cpu mapping if DMA_HANDLE_REVERSE_RPC_CAP is true.
 		if (!dsp_cap_ptr->dsp_attributes[DMA_HANDLE_REVERSE_RPC_CAP] &&
@@ -3079,6 +3078,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	int err = 0, cid = -1;
 	uint32_t sc = ctx->sc;
 	int64_t ns = 0;
+	uint64_t xo_time_in_us = 0;
 
 	if (!fl) {
 		err = -EBADF;
@@ -3119,12 +3119,13 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 		mutex_unlock(&channel_ctx->rpmsg_mutex);
 		goto bail;
 	}
+	xo_time_in_us = __arch_counter_get_cntvct() * 10ull / 192ull;
 	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
 	mutex_unlock(&channel_ctx->rpmsg_mutex);
 	trace_fastrpc_rpmsg_send(cid, (uint64_t)ctx, msg->invoke.header.ctx,
 		handle, sc, msg->invoke.page.addr, msg->invoke.page.size);
 	ns = get_timestamp_in_ns();
-	fastrpc_update_txmsg_buf(channel_ctx, msg, err, ns);
+	fastrpc_update_txmsg_buf(channel_ctx, msg, err, ns, xo_time_in_us);
  bail:
 	return err;
 }
@@ -4168,6 +4169,11 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		err = fastrpc_mmap_remove_pdr(fl);
 		if (err)
 			goto bail;
+	} else {
+		ADSPRPC_ERR(
+			"Create static process is failed for proc_name %s",
+			proc_name);
+		goto bail;
 	}
 
 	if (!me->staticpd_flags && !me->legacy_remote_heap) {
@@ -4184,7 +4190,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		 * If remote-heap VMIDs are defined in DTSI, then do
 		 * hyp_assign from HLOS to those VMs (LPASS, ADSP).
 		 */
-		if (rhvm->vmid) {
+		if (rhvm->vmid && mem->refs == 1 && size) {
 			err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1,
 				rhvm->vmid, rhvm->vmperm, rhvm->vmcount);
@@ -4683,7 +4689,7 @@ bail:
 
 static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 					uintptr_t va, uint64_t phys,
-					size_t size, uintptr_t *raddr)
+					size_t size, int refs, uintptr_t *raddr)
 {
 	struct fastrpc_ioctl_invoke_async ioctl;
 	struct fastrpc_apps *me = &gfa;
@@ -4749,7 +4755,7 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 		}
 	}
 	if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR
-				&& me->channel[cid].rhvm.vmid) {
+				&& me->channel[cid].rhvm.vmid && refs == 1) {
 		err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1, me->channel[cid].rhvm.vmid,
 				me->channel[cid].rhvm.vmperm,
@@ -4909,8 +4915,10 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 			ramdump_segments_rh.da = match->phys;
 			ramdump_segments_rh.va = (void *)page_address((struct page *)match->va);
 			ramdump_segments_rh.size = match->size;
+			INIT_LIST_HEAD(&head);
+			list_add(&ramdump_segments_rh.node, &head);
 			if (me->dev && dump_enabled() && me->enable_ramdump) {
-				ret = fastrpc_ramdump(me->dev, &ramdump_segments_rh, true);
+				ret = qcom_elf_dump(&head, me->dev, ELF_CLASS);
 				if (ret < 0)
 					pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
 								__func__, ret);
@@ -5247,12 +5255,18 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		if (err)
 			goto bail;
 		err = fastrpc_mmap_on_dsp(fl, ud->flags, 0,
-				rbuf->phys, rbuf->size, &raddr);
+				rbuf->phys, rbuf->size, 0, &raddr);
 		if (err)
 			goto bail;
 		rbuf->raddr = raddr;
 	} else {
 		uintptr_t va_to_dsp;
+		if (fl->is_unsigned_pd && ud->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+			err = -EINVAL;
+			ADSPRPC_ERR(
+				"Secure memory allocation is not supported in unsigned PD");
+			goto bail;
+		}
 
 		mutex_lock(&fl->map_mutex);
 		VERIFY(err, !(err = fastrpc_mmap_create(fl, ud->fd, NULL, 0,
@@ -5268,7 +5282,7 @@ static int fastrpc_internal_mmap(struct fastrpc_file *fl,
 		else
 			va_to_dsp = (uintptr_t)map->va;
 		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl, ud->flags,
-			va_to_dsp, map->phys, map->size, &raddr)));
+			va_to_dsp, map->phys, map->size, map->refs, &raddr)));
 		if (err)
 			goto bail;
 		map->raddr = raddr;
@@ -5420,7 +5434,9 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
 	int64_t ns = 0;
+	uint64_t xo_time_in_us = 0;
 
+	xo_time_in_us =  __arch_counter_get_cntvct() * 10ull / 192ull;
 	trace_fastrpc_msg("rpmsg_callback: begin");
 	cid = get_cid_from_rpdev(rpdev);
 	VERIFY(err, VALID_FASTRPC_CID(cid));
@@ -5457,7 +5473,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		rsp->retval, rsp_flags, early_wake_time);
 	ns = get_timestamp_in_ns();
 	fastrpc_update_rxmsg_buf(chan, rsp->ctx, rsp->retval,
-		rsp_flags, early_wake_time, ver, ns);
+		rsp_flags, early_wake_time, ver, ns, xo_time_in_us);
 
 	index = (uint32_t)GET_TABLE_IDX_FROM_CTXID(rsp->ctx);
 	VERIFY(err, index < FASTRPC_CTX_MAX);
@@ -6798,7 +6814,7 @@ static void fastrpc_print_fastrpcbuf(struct fastrpc_buf *buf, void *buffer)
  */
 static void  fastrpc_print_debug_data(int cid)
 {
-	unsigned int i = 0, count = 0, gmsg_log_iter = 3, err = 0;
+	unsigned int i = 0, count = 0, gmsg_log_iter = 3, err = 0, len = 0;
 	unsigned int tx_index = 0, rx_index = 0;
 	unsigned long flags = 0;
 	char *gmsg_log_tx = NULL;
@@ -6943,23 +6959,21 @@ static void  fastrpc_print_debug_data(int cid)
 	spin_unlock_irqrestore(&me->hlock, irq_flags);
 	spin_lock_irqsave(&chan->gmsg_log.lock, flags);
 	if (rx_index) {
-		for (i = rx_index, count = 0; i > 0 &&
+		for (i = rx_index, count = 0, len = 0 ; i > 0 &&
 				count <= gmsg_log_iter; i--, count++) {
 			rsp = &chan->gmsg_log.rx_msgs[i].rsp;
-			scnprintf(gmsg_log_rx + strlen(gmsg_log_rx),
-					MD_GMSG_BUFFER - strlen(gmsg_log_rx),
+			len += scnprintf(gmsg_log_rx + len, MD_GMSG_BUFFER - len,
 					"ctx: 0x%x, retval: %d, flags: %d, early_wake_time: %d, version: %d\n",
 					rsp->ctx, rsp->retval, rsp->flags,
 					rsp->early_wake_time, rsp->version);
 		}
 	}
 	if (tx_index) {
-		for (i = tx_index, count = 0;
+		for (i = tx_index, count = 0, len = 0;
 				i > 0 && count <= gmsg_log_iter;
 				i--, count++) {
 			tx_msg = &chan->gmsg_log.tx_msgs[i];
-			scnprintf(gmsg_log_tx + strlen(gmsg_log_tx),
-					MD_GMSG_BUFFER - strlen(gmsg_log_tx),
+			len += scnprintf(gmsg_log_tx + len, MD_GMSG_BUFFER - len,
 					"pid: %d, tid: %d, ctx: 0x%x, handle: 0x%x, sc: 0x%x, addr: 0x%x, size:%d\n",
 					tx_msg->msg.pid,
 					tx_msg->msg.tid,
@@ -7545,7 +7559,7 @@ long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
 		}
 		/* Map DMA buffer on DSP*/
 		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl,
-			map->flags, 0, map->phys, map->size, &raddr)));
+			map->flags, 0, map->phys, map->size, map->refs, &raddr)));
 		if (err) {
 			mutex_unlock(&fl->internal_map_mutex);
 			break;

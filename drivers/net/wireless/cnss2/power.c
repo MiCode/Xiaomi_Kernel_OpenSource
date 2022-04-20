@@ -80,29 +80,39 @@ static struct cnss_clk_cfg cnss_clk_list[] = {
 #define CNSS_MBOX_TIMEOUT_MS 1000
 
 /**
- * enum cnss_vreg_param: Voltage regulator TCS param
- * @CNSS_VREG_VOLTAGE: Provides voltage level to be configured in TCS
+ * enum cnss_aop_vreg_param: Voltage regulator TCS param
+ * @CNSS_VREG_VOLTAGE: Provides voltage level in mV to be configured in TCS
  * @CNSS_VREG_MODE: Regulator mode
- * @CNSS_VREG_TCS_ENABLE: Set Voltage regulator enable config in TCS
+ * @CNSS_VREG_TCS_ENABLE: Set bool Voltage regulator enable config in TCS.
  */
-enum cnss_vreg_param {
+enum cnss_aop_vreg_param {
 	CNSS_VREG_VOLTAGE,
 	CNSS_VREG_MODE,
 	CNSS_VREG_ENABLE,
+	CNSS_VREG_PARAM_MAX
+};
+
+/** enum cnss_aop_vreg_param_mode: Voltage modes supported by AOP*/
+enum cnss_aop_vreg_param_mode {
+	CNSS_VREG_RET_MODE = 3,
+	CNSS_VREG_LPM_MODE = 4,
+	CNSS_VREG_AUTO_MODE = 6,
+	CNSS_VREG_NPM_MODE = 7,
+	CNSS_VREG_MODE_MAX
 };
 
 /**
- * enum cnss_tcs_seq: TCS sequence ID for trigger
- * CNSS_TCS_UP_SEQ: TCS Sequence based on up trigger / Wake TCS
- * CNSS_TCS_DOWN_SEQ: TCS Sequence based on down trigger / Sleep TCS
- * CNSS_TCS_ALL_SEQ: Update for both up and down triggers
+ * enum cnss_aop_tcs_seq: TCS sequence ID for trigger
+ * @CNSS_TCS_UP_SEQ: TCS Sequence based on up trigger / Wake TCS
+ * @CNSS_TCS_DOWN_SEQ: TCS Sequence based on down trigger / Sleep TCS
+ * @CNSS_TCS_ENABLE_SEQ: Enable this TCS seq entry
  */
-enum cnss_tcs_seq {
+enum cnss_aop_tcs_seq_param {
 	CNSS_TCS_UP_SEQ,
 	CNSS_TCS_DOWN_SEQ,
-	CNSS_TCS_ALL_SEQ,
+	CNSS_TCS_ENABLE_SEQ,
+	CNSS_TCS_SEQ_MAX
 };
-
 
 static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 				struct cnss_vreg_info *vreg)
@@ -1139,33 +1149,19 @@ out:
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_MSM_QMP)
 int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv)
 {
 	struct mbox_client *mbox = &plat_priv->mbox_client_data;
 	struct mbox_chan *chan;
-	int ret = 0;
+	int ret;
+
+	plat_priv->mbox_chan = NULL;
 
 	mbox->dev = &plat_priv->plat_dev->dev;
 	mbox->tx_block = true;
 	mbox->tx_tout = CNSS_MBOX_TIMEOUT_MS;
 	mbox->knows_txdone = false;
-
-	plat_priv->mbox_chan = NULL;
-
-	ret = of_property_read_string(plat_priv->plat_dev->dev.of_node,
-				      "qcom,vreg_ol_cpr",
-				      &plat_priv->vreg_ol_cpr);
-	if (ret)
-		cnss_pr_dbg("Vreg for OL CPR not configured\n");
-
-	ret = of_property_read_string(plat_priv->plat_dev->dev.of_node,
-				      "qcom,vreg_ipa",
-				      &plat_priv->vreg_ipa);
-	if (ret)
-		cnss_pr_dbg("Volt regulator for Int Power Amp not configured\n");
-
-	if (!plat_priv->vreg_ol_cpr && !plat_priv->vreg_ipa)
-		return 0;
 
 	chan = mbox_request_channel(mbox, 0);
 	if (IS_ERR(chan)) {
@@ -1175,28 +1171,31 @@ int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv)
 
 	plat_priv->mbox_chan = chan;
 	cnss_pr_dbg("Mbox channel initialized\n");
+	ret = cnss_aop_pdc_reconfig(plat_priv);
+	if (ret)
+		cnss_pr_err("Failed to reconfig WLAN PDC, err = %d\n", ret);
 
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_MSM_QMP)
-static int cnss_aop_set_vreg_param(struct cnss_plat_data *plat_priv,
-				   const char *vreg_name,
-				   enum cnss_vreg_param param,
-				   enum cnss_tcs_seq seq, int val)
+/**
+ * cnss_aop_send_msg: Sends json message to AOP using QMP
+ * @plat_priv: Pointer to cnss platform data
+ * @msg: String in json format
+ *
+ * AOP accepts JSON message to configure WLAN resources. Format as follows:
+ * To send VReg config: {class: wlan_pdc, ss: <pdc_name>,
+ *                       res: <VReg_name>.<param>, <seq_param>: <value>}
+ * To send PDC Config: {class: wlan_pdc, ss: <pdc_name>, res: pdc,
+ *                      enable: <Value>}
+ * QMP returns timeout error if format not correct or AOP operation fails.
+ *
+ * Return: 0 for success
+ */
+int cnss_aop_send_msg(struct cnss_plat_data *plat_priv, char *mbox_msg)
 {
 	struct qmp_pkt pkt;
-	char mbox_msg[CNSS_MBOX_MSG_MAX_LEN];
-	static const char * const vreg_param_str[] = {"v", "m", "e"};
-	static const char *const tcs_seq_str[] = {"upval", "dwnval", "enable"};
 	int ret = 0;
-
-	if (param > CNSS_VREG_ENABLE || seq > CNSS_TCS_ALL_SEQ || !vreg_name)
-		return -EINVAL;
-
-	snprintf(mbox_msg, CNSS_MBOX_MSG_MAX_LEN,
-		 "{class: wlan_pdc, res: %s.%s, %s: %d}", vreg_name,
-		 vreg_param_str[param], tcs_seq_str[seq], val);
 
 	cnss_pr_dbg("Sending AOP Mbox msg: %s\n", mbox_msg);
 	pkt.size = CNSS_MBOX_MSG_MAX_LEN;
@@ -1210,15 +1209,160 @@ static int cnss_aop_set_vreg_param(struct cnss_plat_data *plat_priv,
 
 	return ret;
 }
-#else
+
+/* cnss_pdc_reconfig: Send PDC init table as configured in DT for wlan device */
+int cnss_aop_pdc_reconfig(struct cnss_plat_data *plat_priv)
+{
+	u32 i;
+	int ret;
+
+	if (plat_priv->pdc_init_table_len <= 0 || !plat_priv->pdc_init_table)
+		return 0;
+
+	cnss_pr_dbg("Setting PDC defaults for device ID: %d\n",
+		    plat_priv->device_id);
+	for (i = 0; i < plat_priv->pdc_init_table_len; i++) {
+		ret = cnss_aop_send_msg(plat_priv,
+					(char *)plat_priv->pdc_init_table[i]);
+		if (ret < 0)
+			break;
+	}
+	return ret;
+}
+
+/* cnss_aop_pdc_name_str: Get PDC name corresponding to VReg from DT Mapiping */
+static const char *cnss_aop_pdc_name_str(struct cnss_plat_data *plat_priv,
+					 const char *vreg_name)
+{
+	u32 i;
+	static const char * const aop_pdc_ss_str[] = {"rf", "bb"};
+	const char *pdc = aop_pdc_ss_str[0], *vreg_map_name;
+
+	if (plat_priv->vreg_pdc_map_len <= 0 || !plat_priv->vreg_pdc_map)
+		goto end;
+
+	for (i = 0; i < plat_priv->vreg_pdc_map_len; i++) {
+		vreg_map_name = plat_priv->vreg_pdc_map[i];
+		if (strnstr(vreg_map_name, vreg_name, strlen(vreg_map_name))) {
+			pdc = plat_priv->vreg_pdc_map[i + 1];
+			break;
+		}
+	}
+end:
+	cnss_pr_dbg("%s mapped to %s\n", vreg_name, pdc);
+	return pdc;
+}
+
 static int cnss_aop_set_vreg_param(struct cnss_plat_data *plat_priv,
 				   const char *vreg_name,
-				   enum cnss_vreg_param param,
-				   enum cnss_tcs_seq seq, int val)
+				   enum cnss_aop_vreg_param param,
+				   enum cnss_aop_tcs_seq_param seq_param,
+				   int val)
+{
+	char msg[CNSS_MBOX_MSG_MAX_LEN];
+	static const char * const aop_vreg_param_str[] = {
+		[CNSS_VREG_VOLTAGE] = "v", [CNSS_VREG_MODE] = "m",
+		[CNSS_VREG_ENABLE] = "e",};
+	static const char * const aop_tcs_seq_str[] = {
+		[CNSS_TCS_UP_SEQ] = "upval", [CNSS_TCS_DOWN_SEQ] = "dwnval",
+		[CNSS_TCS_ENABLE_SEQ] = "enable",};
+
+	if (param >= CNSS_VREG_PARAM_MAX || seq_param >= CNSS_TCS_SEQ_MAX ||
+	    !vreg_name)
+		return -EINVAL;
+
+	snprintf(msg, CNSS_MBOX_MSG_MAX_LEN,
+		 "{class: wlan_pdc, ss: %s, res: %s.%s, %s: %d}",
+		 cnss_aop_pdc_name_str(plat_priv, vreg_name),
+		 vreg_name, aop_vreg_param_str[param],
+		 aop_tcs_seq_str[seq_param], val);
+
+	return cnss_aop_send_msg(plat_priv, msg);
+}
+#else
+int cnss_aop_mbox_init(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+int cnss_aop_send_msg(struct cnss_plat_data *plat_priv, char *msg)
+{
+	return 0;
+}
+
+int cnss_aop_pdc_reconfig(struct cnss_plat_data *plat_priv)
+{
+	return 0;
+}
+
+static int cnss_aop_set_vreg_param(struct cnss_plat_data *plat_priv,
+				   const char *vreg_name,
+				   enum cnss_aop_vreg_param param,
+				   enum cnss_aop_tcs_seq_pram seq_param,
+				   int val)
 {
 	return 0;
 }
 #endif
+
+void cnss_power_misc_params_init(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+	int ret;
+
+	/* common DT Entries */
+	plat_priv->pdc_init_table_len =
+				of_property_count_strings(dev->of_node,
+							  "qcom,pdc_init_table");
+	if (plat_priv->pdc_init_table_len > 0) {
+		plat_priv->pdc_init_table =
+			kcalloc(plat_priv->pdc_init_table_len,
+				sizeof(char *), GFP_KERNEL);
+		ret =
+		of_property_read_string_array(dev->of_node,
+					      "qcom,pdc_init_table",
+					      plat_priv->pdc_init_table,
+					      plat_priv->pdc_init_table_len);
+		if (ret < 0)
+			cnss_pr_err("Failed to get PDC Init Table\n");
+	} else {
+		cnss_pr_dbg("PDC Init Table not configured\n");
+	}
+
+	plat_priv->vreg_pdc_map_len =
+			of_property_count_strings(dev->of_node,
+						  "qcom,vreg_pdc_map");
+	if (plat_priv->vreg_pdc_map_len > 0) {
+		plat_priv->vreg_pdc_map =
+			kcalloc(plat_priv->vreg_pdc_map_len,
+				sizeof(char *), GFP_KERNEL);
+		ret =
+		of_property_read_string_array(dev->of_node,
+					      "qcom,vreg_pdc_map",
+					      plat_priv->vreg_pdc_map,
+					      plat_priv->vreg_pdc_map_len);
+		if (ret < 0)
+			cnss_pr_err("Failed to get VReg PDC Mapping\n");
+	} else {
+		cnss_pr_dbg("VReg PDC Mapping not configured\n");
+	}
+
+	/* Device DT Specific */
+	if (plat_priv->device_id == QCA6390_DEVICE_ID ||
+	    plat_priv->device_id == QCA6490_DEVICE_ID) {
+		ret = of_property_read_string(dev->of_node,
+					      "qcom,vreg_ol_cpr",
+					      &plat_priv->vreg_ol_cpr);
+		if (ret)
+			cnss_pr_dbg("VReg for QCA6490 OL CPR not configured\n");
+
+		ret = of_property_read_string(dev->of_node,
+					      "qcom,vreg_ipa",
+					      &plat_priv->vreg_ipa);
+		if (ret)
+			cnss_pr_dbg("VReg for QCA6490 Int Power Amp not configured\n");
+	}
+}
 
 int cnss_update_cpr_info(struct cnss_plat_data *plat_priv)
 {

@@ -1282,8 +1282,8 @@ geni_i2c_txn_ret:
 	}
 
 	gi2c->cur = NULL;
-	I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
-		"i2c txn ret:%d, num:%d, err%:%d\n", ret, num, gi2c->err);
+	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+		"i2c txn ret:%d, num:%d, err:%d\n", ret, num, gi2c->err);
 	if (gi2c->err)
 		return gi2c->err;
 	else

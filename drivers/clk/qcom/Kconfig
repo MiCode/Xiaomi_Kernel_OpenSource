@@ -909,4 +909,22 @@ config TCSRCC
 	  Say Y if you want to support miscellaneous top-level clocks
 	  such as for the PHY references.
 
+config SXR_GCC_ANORAK
+	tristate "ANORAK Global Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the global clock controller on Qualcomm Technologies, Inc.
+	  ANORAK devices.
+	  Say Y if you want to use peripheral devices such as UART, SPI, I2C,
+	  USB, UFS, SD/eMMC, PCIE, etc.
+
+config SXR_VIDEOCC_ANORAK
+	tristate "ANORAK Video Clock Controller"
+	select SXR_GCC_ANORAK
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  ANORAK devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
 endif

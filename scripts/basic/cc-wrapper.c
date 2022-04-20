@@ -143,7 +143,7 @@ int main(int argc, char **argv)
 		goto done;
 	}
 
-	while ((len = read(pipes[0], buf, sizeof(buf))) > 0) {
+	while ((len = read(pipes[0], buf, sizeof(buf) - 1)) > 0) {
 		char *next = buf;
 
 		write(STDERR_FILENO, buf, len);

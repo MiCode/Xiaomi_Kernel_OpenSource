@@ -110,16 +110,10 @@ static int eusb2_i2c_read_reg(struct eusb2_repeater *er, u8 reg, u8 *val)
 	return 0;
 }
 
-static int eusb2_i2c_write_reg(struct eusb2_repeater *er, u8 reg, u8 mask, u8 val)
+static int eusb2_i2c_write_reg(struct eusb2_repeater *er, u8 reg, u8 val)
 {
 	int ret;
-	u8 reg_val;
 
-	ret = eusb2_i2c_read_reg(er, reg, &reg_val);
-	if (ret)
-		return ret;
-
-	val |= (reg_val & mask);
 	ret = regmap_write(er->regmap, reg, val);
 	if (ret < 0) {
 		dev_err(er->dev, "failed to write 0x%02x to reg: 0x%02x ret=%d\n", val, reg, ret);
@@ -134,12 +128,11 @@ static int eusb2_i2c_write_reg(struct eusb2_repeater *er, u8 reg, u8 mask, u8 va
 static void eusb2_repeater_update_seq(struct eusb2_repeater *er, u32 *seq, u8 cnt)
 {
 	int i;
-	u8 mask = 0xFF;
 
 	dev_dbg(er->ur.dev, "param override seq count:%d\n", cnt);
 	for (i = 0; i < cnt; i = i+2) {
 		dev_dbg(er->ur.dev, "write 0x%02x to 0x%02x\n", seq[i], seq[i+1]);
-		eusb2_i2c_write_reg(er, seq[i+1], mask, seq[i]);
+		eusb2_i2c_write_reg(er, seq[i+1], seq[i]);
 	}
 }
 
@@ -248,6 +241,21 @@ static int eusb2_repeater_init(struct usb_repeater *ur)
 {
 	struct eusb2_repeater *er =
 			container_of(ur, struct eusb2_repeater, ur);
+	const struct i2c_repeater_chip *chip = er->chip;
+	u8 reg_val;
+
+	switch (chip->repeater_type) {
+	case TI_REPEATER:
+		eusb2_i2c_read_reg(er, REV_ID, &reg_val);
+		break;
+	case NXP_REPEATER:
+		eusb2_i2c_read_reg(er, REVISION_ID, &reg_val);
+		break;
+	default:
+		dev_err(er->ur.dev, "Invalid repeater\n");
+	}
+
+	dev_info(er->ur.dev, "eUSB2 repeater version = 0x%x\n", reg_val);
 
 	/* override init sequence using devicetree based values */
 	if (er->param_override_seq_cnt)

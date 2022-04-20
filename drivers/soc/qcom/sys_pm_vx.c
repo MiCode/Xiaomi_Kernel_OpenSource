@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -115,6 +115,13 @@ static const char * const drv_names_diwali[] = {
 static const char * const drv_names_cape[] = {
 	"TZ", "HYP", "HLOS", "L3", "SECPROC", "AUDIO", "SENSOR", "AOP",
 	"DEBUG", "GPU", "DISPLAY", "COMPUTE_DSP", "TIME_SW", "TIME_HW",
+	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
+	""
+};
+
+static const char * const drv_names_parrot[] = {
+	"TZ", "L3", "HLOS", "HYP", "AUDIO", "AOP", "DEBUG", "GPU",
+	"DISPLAY", "COMPUTE_DSP", "TIME_HW", "TIME_SW", "WPSS",
 	"MDM SW", "MDM HW", "WLAN RF", "WLAN BB", "DDR AUX", "ARC CPRF",
 	""
 };
@@ -375,7 +382,7 @@ static const struct file_operations sys_pm_vx_fops = {
 	.release = single_release,
 };
 
-#if defined(DEBUG_FS)
+#if defined(CONFIG_DEBUG_FS)
 static int vx_create_debug_nodes(struct vx_platform_data *pd)
 {
 	struct dentry *pf;
@@ -400,6 +407,8 @@ static const struct of_device_id drv_match_table[] = {
 	  .data = drv_names_diwali },
 	{ .compatible = "qcom,sys-pm-cape",
 	  .data = drv_names_cape },
+	{ .compatible = "qcom,sys-pm-parrot",
+	  .data = drv_names_parrot },
 	{ }
 };
 
@@ -432,7 +441,7 @@ static int vx_probe(struct platform_device *pdev)
 	pd->ndrv = i;
 	pd->drvs = drvs;
 
-#if defined(DEBUG_FS)
+#if defined(CONFIG_DEBUG_FS)
 	ret = vx_create_debug_nodes(pd);
 	if (ret)
 		return ret;
@@ -484,7 +493,7 @@ static int vx_remove(struct platform_device *pdev)
 {
 	struct vx_platform_data *pd = platform_get_drvdata(pdev);
 
-#if defined(DEBUG_FS)
+#if defined(CONFIG_DEBUG_FS)
 	debugfs_remove(pd->vx_file);
 #endif
 	device_remove_file(&pdev->dev, &dev_attr_debug_time_ms);

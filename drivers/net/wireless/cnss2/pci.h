@@ -25,6 +25,7 @@
 #define PCI_LINK_DOWN			0
 #define LINK_TRAINING_RETRY_MAX_TIMES		3
 #define LINK_TRAINING_RETRY_DELAY_MS		500
+#define MSI_USERS			4
 
 enum cnss_mhi_state {
 	CNSS_MHI_INIT,
@@ -94,6 +95,11 @@ struct cnss_pm_stats {
 	atomic_t runtime_put_id[RTPM_ID_MAX];
 	u64 runtime_get_timestamp_id[RTPM_ID_MAX];
 	u64 runtime_put_timestamp_id[RTPM_ID_MAX];
+};
+
+struct cnss_print_optimize {
+	int msi_log_chk[MSI_USERS];
+	int msi_addr_chk;
 };
 
 struct cnss_pci_data {

@@ -37,7 +37,6 @@ enum icnss_bdf_type {
 	ICNSS_BDF_BIN,
 	ICNSS_BDF_ELF,
 	ICNSS_BDF_REGDB = 4,
-	ICNSS_BDF_DUMMY = 255,
 };
 
 struct icnss_control_params {
@@ -486,6 +485,7 @@ struct icnss_priv {
 	char foundry_name;
 	bool bdf_download_support;
 	unsigned long device_config;
+	bool wpss_supported;
 };
 
 struct icnss_reg_info {

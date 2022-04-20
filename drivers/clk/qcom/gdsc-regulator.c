@@ -188,8 +188,8 @@ static int gdsc_enable(struct regulator_dev *rdev)
 
 	regmap_read(sc->regmap, REG_OFFSET, &regval);
 	if (regval & HW_CONTROL_MASK) {
-		dev_warn(&rdev->dev, "Invalid enable while %s is under HW control\n",
-				sc->rdesc.name);
+		dev_warn(&rdev->dev, "Invalid enable while %s is under HW control, reg:0x%x\n",
+				sc->rdesc.name, regval);
 		return -EBUSY;
 	}
 
@@ -522,6 +522,10 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	default:
 		return -EINVAL;
 	}
+
+	regmap_read(sc->regmap, REG_OFFSET, &regval);
+	dev_dbg(&rdev->dev, "%s: %s mode:%u, hw_ctl:%u, reg:0x%x\n",
+			__func__, sc->rdesc.name, mode, sc->is_gdsc_hw_ctrl_mode, regval);
 
 	return 0;
 }
