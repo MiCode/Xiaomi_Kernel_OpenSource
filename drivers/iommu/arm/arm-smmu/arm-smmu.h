@@ -280,6 +280,11 @@ enum arm_smmu_cbar_type {
 #define TCU_SYNC_IN_PRGSS		BIT(20)
 #define TCU_INV_IN_PRGSS		BIT(16)
 
+/* Relative to SMMU_BASE */
+#define APPS_SMMU_SAFE_SEC_CFG		0x2648
+#define SAFE_REQ			BIT(2)
+#define SAFE_ACK			BIT(4)
+
 #define ARM_SMMU_CB_ATSR		0x8f0
 #define ARM_SMMU_ATSR_ACTIVE		BIT(0)
 
