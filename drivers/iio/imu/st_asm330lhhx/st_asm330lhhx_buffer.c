@@ -140,8 +140,11 @@ int st_asm330lhhx_update_watermark(struct st_asm330lhhx_sensor *sensor,
 				       cur_watermark);
 	}
 
-	fifo_watermark = max_t(u16, fifo_watermark,
-			       hw->hw_timestamp_enabled ? 2 : 1);
+	if (hw->resuming)
+		fifo_watermark = watermark;
+	else
+		fifo_watermark = max_t(u16, fifo_watermark,
+				       hw->hw_timestamp_enabled ? 2 : 1);
 
 	mutex_lock(&hw->page_lock);
 	err = regmap_read(hw->regmap,
