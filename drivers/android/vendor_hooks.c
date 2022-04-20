@@ -58,8 +58,10 @@
 #include <trace/hooks/audio_usboffload.h>
 #include <trace/hooks/drm_framebuffer.h>
 #include <trace/hooks/drm_atomic.h>
+#include <trace/hooks/psci.h>
 #include <trace/hooks/usb.h>
 #include <trace/hooks/regmap.h>
+#include <trace/hooks/dmabuf.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -129,6 +131,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_iowait);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_sugov_update);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_cpu_overutilized);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_setaffinity);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_sched_getaffinity);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_cpus_allowed);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_skip_swapcache_flags);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_set_gfp_zone_flags);
@@ -282,5 +285,10 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_audio_usb_offload_disconnect);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_atomic_remove_fb);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_drm_atomic_check_modeset);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_get_thermal_zone_device);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_psci_tos_resident_on);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_psci_cpu_suspend);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_usb_new_device_added);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_force_compatible_pre);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_force_compatible_post);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_regmap_update);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dma_buf_release);
