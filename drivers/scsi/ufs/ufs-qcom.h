@@ -9,7 +9,6 @@
 #include <linux/reset.h>
 #include <linux/phy/phy.h>
 #include <linux/pm_qos.h>
-#include <linux/notifier.h>
 #include "ufshcd.h"
 #include "unipro.h"
 
@@ -498,10 +497,6 @@ struct ufs_qcom_host {
 
 	bool disable_lpm;
 	struct qcom_bus_scale_data *qbsd;
-
-	bool vdd_hba_pc;
-	struct notifier_block vdd_hba_reg_nb;
-
 	struct ufs_vreg *vddp_ref_clk;
 	struct ufs_vreg *vccq_parent;
 	bool work_pending;
