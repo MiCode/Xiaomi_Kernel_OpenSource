@@ -7,7 +7,6 @@
 #include <linux/iopoll.h>
 #include <linux/irq.h>
 #include <linux/module.h>
-#include <linux/moduleparam.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/pm_opp.h>
@@ -20,9 +19,6 @@
 #include <linux/slab.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
-
-static bool con_enabled = IS_ENABLED(CONFIG_SERIAL_QCOM_GENI_CONSOLE_DEFAULT_ENABLED);
-module_param(con_enabled, bool, 0644);
 
 /* UART specific GENI registers */
 #define SE_UART_LOOPBACK_CFG		0x22c
@@ -139,7 +135,6 @@ struct qcom_geni_serial_port {
 	int wakeup_irq;
 	bool rx_tx_swap;
 	bool cts_rts_swap;
-	bool is_console;
 
 	struct qcom_geni_private_data private_data;
 };
@@ -1356,14 +1351,6 @@ static int qcom_geni_serial_probe(struct platform_device *pdev)
 		return PTR_ERR(port);
 	}
 
-	port->is_console = console;
-
-	if (console && !con_enabled) {
-		dev_err(&pdev->dev, "%s, Console Disabled\n", __func__);
-		platform_set_drvdata(pdev, port);
-		return ret;
-	}
-
 	uport = &port->uport;
 	/* Don't allow 2 drivers to access the same port */
 	if (uport->private_data)
@@ -1481,12 +1468,6 @@ static int qcom_geni_serial_remove(struct platform_device *pdev)
 	struct qcom_geni_serial_port *port = platform_get_drvdata(pdev);
 	struct uart_driver *drv = port->private_data.drv;
 
-	/* Platform driver is registered for console and when console
-	 * is disabled from cmdline simply return success.
-	 */
-	if (port->is_console && !con_enabled)
-		return 0;
-
 	dev_pm_clear_wake_irq(&pdev->dev);
 	device_init_wakeup(&pdev->dev, false);
 	uart_remove_one_port(drv, &port->uport);
@@ -1499,12 +1480,6 @@ static int __maybe_unused qcom_geni_serial_sys_suspend(struct device *dev)
 	struct qcom_geni_serial_port *port = dev_get_drvdata(dev);
 	struct uart_port *uport = &port->uport;
 	struct qcom_geni_private_data *private_data = uport->private_data;
-
-	/* Platform driver is registered for console and when console
-	 * is disabled from cmdline simply return success.
-	 */
-	if (port->is_console && !con_enabled)
-		return 0;
 
 	/*
 	 * This is done so we can hit the lowest possible state in suspend
@@ -1558,22 +1533,19 @@ static int __init qcom_geni_serial_init(void)
 {
 	int ret;
 
-	ret = uart_register_driver(&qcom_geni_uart_driver);
+	ret = console_register(&qcom_geni_console_driver);
 	if (ret)
 		return ret;
 
-	if (con_enabled) {
-		ret = console_register(&qcom_geni_console_driver);
-		if (ret) {
-			uart_unregister_driver(&qcom_geni_uart_driver);
-			return ret;
-		}
+	ret = uart_register_driver(&qcom_geni_uart_driver);
+	if (ret) {
+		console_unregister(&qcom_geni_console_driver);
+		return ret;
 	}
 
 	ret = platform_driver_register(&qcom_geni_serial_platform_driver);
 	if (ret) {
-		if (con_enabled)
-			console_unregister(&qcom_geni_console_driver);
+		console_unregister(&qcom_geni_console_driver);
 		uart_unregister_driver(&qcom_geni_uart_driver);
 	}
 	return ret;
@@ -1583,8 +1555,7 @@ module_init(qcom_geni_serial_init);
 static void __exit qcom_geni_serial_exit(void)
 {
 	platform_driver_unregister(&qcom_geni_serial_platform_driver);
-	if (con_enabled)
-		console_unregister(&qcom_geni_console_driver);
+	console_unregister(&qcom_geni_console_driver);
 	uart_unregister_driver(&qcom_geni_uart_driver);
 }
 module_exit(qcom_geni_serial_exit);
