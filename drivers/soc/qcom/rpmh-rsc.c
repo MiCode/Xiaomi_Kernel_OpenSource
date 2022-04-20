@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2018, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
@@ -23,6 +24,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/syscore_ops.h>
 #include <linux/wait.h>
 
 #include <soc/qcom/cmd-db.h>
@@ -82,6 +84,7 @@ static const char * const accl_str[] = {
 	"", "", "", "CLK", "VREG", "BUS",
 };
 
+static LIST_HEAD(rpmh_rsc_dev_list);
 static struct rsc_drv *__rsc_drv[MAX_RSC_COUNT];
 static int __rsc_count;
 bool rpmh_standalone;
@@ -882,7 +885,8 @@ static struct tcs_group *get_tcs_from_index(struct rsc_drv *drv, int tcs_id)
 	return NULL;
 }
 
-static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl)
+static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl,
+			   bool *aoss_irq_sts)
 {
 	int ch = 0;
 	struct tcs_group *tcs_grp = get_tcs_from_index(drv, tcs_id);
@@ -910,6 +914,8 @@ static void print_tcs_info(struct rsc_drv *drv, int tcs_id, unsigned long *accl)
 		tcs_id, sts ? "IDLE" : "BUSY", data,
 		(irq_sts & BIT(tcs_id)) ? "COMPLETED" : "PENDING");
 
+	*aoss_irq_sts = (irq_sts & BIT(tcs_id)) ? true : false;
+
 print_tcs_data:
 	for_each_set_bit(i, &cmds_enabled, tcs_grp->ncpt) {
 		addr = read_tcs_cmd(drv, drv->regs[RSC_DRV_CMD_ADDR], tcs_id, i);
@@ -928,7 +934,7 @@ print_tcs_data:
 void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 {
 	struct irq_data *rsc_irq_data = irq_get_irq_data(drv->irq);
-	bool irq_sts;
+	bool gic_irq_sts, aoss_irq_sts = false;
 	int i;
 	int busy = 0;
 	unsigned long accl = 0;
@@ -940,7 +946,7 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 		if (!test_bit(i, drv->tcs_in_use))
 			continue;
 		busy++;
-		print_tcs_info(drv, i, &accl);
+		print_tcs_info(drv, i, &accl, &aoss_irq_sts);
 	}
 
 	if (!rsc_irq_data) {
@@ -948,9 +954,9 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 		return;
 	}
 
-	irq_get_irqchip_state(drv->irq, IRQCHIP_STATE_PENDING, &irq_sts);
+	irq_get_irqchip_state(drv->irq, IRQCHIP_STATE_PENDING, &gic_irq_sts);
 	pr_warn("HW IRQ %lu is %s at GIC\n", rsc_irq_data->hwirq,
-		irq_sts ? "PENDING" : "NOT PENDING");
+		gic_irq_sts ? "PENDING" : "NOT PENDING");
 	pr_warn("Completion is %s to finish\n",
 		completion_done(compl) ? "PENDING" : "NOT PENDING");
 
@@ -959,10 +965,10 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 		strlcat(str, " ", sizeof(str));
 	}
 
-	if (busy && !irq_sts)
+	if ((busy && !gic_irq_sts) || !aoss_irq_sts)
 		pr_warn("ERROR:Accelerator(s) { %s } at AOSS did not respond\n",
 			str);
-	else if (irq_sts)
+	else if (gic_irq_sts)
 		pr_warn("ERROR:Possible lockup in Linux\n");
 
 	/* Show fast path status, if the TCS is busy */
@@ -979,7 +985,7 @@ void rpmh_rsc_debug(struct rsc_drv *drv, struct completion *compl)
 
 			if (!sts) {
 				pr_err("Fast-path TCS information:\n");
-				print_tcs_info(drv, tcs_id, &accl);
+				print_tcs_info(drv, tcs_id, &accl, &aoss_irq_sts);
 			}
 		}
 	}
@@ -1351,6 +1357,87 @@ int rpmh_rsc_update_fast_path(struct rsc_drv *drv,
 	return 0;
 }
 
+static int rpmh_rsc_poweroff_noirq(struct device *dev)
+{
+	return 0;
+}
+
+static void rpmh_rsc_tcs_irq_enable(struct rsc_drv *drv)
+{
+	u32 tcs_mask;
+	int ch;
+
+	for (ch = 0; ch < MAX_CHANNEL; ch++) {
+		if (!drv->ch[ch].initialized)
+			continue;
+
+		tcs_mask = readl_relaxed(drv->tcs_base + drv->regs[RSC_DRV_IRQ_ENABLE]);
+		tcs_mask |= drv->ch[ch].tcs[ACTIVE_TCS].mask;
+		writel_relaxed(tcs_mask, drv->tcs_base + drv->regs[RSC_DRV_IRQ_ENABLE]);
+	}
+}
+
+static int rpmh_rsc_restore_noirq(struct device *dev)
+{
+	struct rsc_drv_top *rsc_top = dev_get_drvdata(dev);
+	int i;
+
+	for (i = 0; i < rsc_top->drv_count; i++) {
+		if (rsc_top->drv[i].initialized)
+			rpmh_rsc_tcs_irq_enable(&rsc_top->drv[i]);
+	}
+
+	return 0;
+}
+
+static struct rsc_drv_top *rpmh_rsc_get_top_device(const char *name)
+{
+	struct rsc_drv_top *rsc_top;
+	bool rsc_dev_present = false;
+
+	list_for_each_entry(rsc_top, &rpmh_rsc_dev_list, list) {
+		if (!strcmp(name, rsc_top->name)) {
+			rsc_dev_present = true;
+			break;
+		}
+	}
+
+	if (!rsc_dev_present)
+		return ERR_PTR(-ENODEV);
+
+	return rsc_top;
+}
+
+static int rpmh_rsc_syscore_suspend(void)
+{
+	struct rsc_drv_top *rsc_top = rpmh_rsc_get_top_device("apps_rsc");
+	int i, ch, ret = 0;
+
+	if (IS_ERR(rsc_top))
+		return ret;
+
+	for (i = 0; i < rsc_top->drv_count; i++) {
+		if (rsc_top->drv[i].initialized) {
+			ch = rpmh_rsc_get_channel(&rsc_top->drv[i]);
+			if (ch < 0)
+				return -EBUSY;
+
+			ret =  _rpmh_flush(&rsc_top->drv[i].client, ch);
+		}
+	}
+
+	return ret;
+}
+
+static void rpmh_rsc_syscore_resume(void)
+{
+}
+
+static struct syscore_ops rpmh_rsc_syscore_ops = {
+	.suspend = rpmh_rsc_syscore_suspend,
+	.resume = rpmh_rsc_syscore_resume,
+};
+
 static int rpmh_probe_channel_tcs_config(struct device_node *np,
 					 struct rsc_drv *drv,
 					 u32 max_tcs, u32 ncpt, int ch)
@@ -1487,6 +1574,7 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 {
 	struct device_node *np, *dn = pdev->dev.of_node;
 	struct rsc_drv *drv;
+	struct rsc_drv_top *rsc_top;
 	int ret, irq;
 	u32 rsc_id, major_ver, minor_ver, solver_config;
 	int i, drv_count;
@@ -1509,6 +1597,10 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "RPMH is running in standalone mode.\n");
 
 
+	rsc_top = devm_kzalloc(&pdev->dev, sizeof(*rsc_top), GFP_KERNEL);
+	if (!rsc_top)
+		return -ENOMEM;
+
 	ret = of_property_read_u32(dn, "qcom,drv-count", &drv_count);
 	if (ret)
 		return ret;
@@ -1520,6 +1612,11 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 	name = of_get_property(dn, "label", NULL);
 	if (!name)
 		name = dev_name(&pdev->dev);
+
+	rsc_top->drv_count = drv_count;
+	rsc_top->drv = drv;
+	rsc_top->dev = &pdev->dev;
+	scnprintf(rsc_top->name, sizeof(rsc_top->name), "%s", name);
 
 	for_each_child_of_node(dn, np) {
 		struct device *drv_dev;
@@ -1587,6 +1684,7 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 			ret = rpmh_rsc_pd_attach(&drv[i]);
 			if (ret)
 				return ret;
+			register_syscore_ops(&rpmh_rsc_syscore_ops);
 		} else if (!solver_config &&
 			   !of_find_property(dn, "qcom,hw-channel", NULL)) {
 			drv[i].rsc_pm.notifier_call = rpmh_rsc_cpu_pm_callback;
@@ -1639,8 +1737,17 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 			return ret;
 	}
 
+	INIT_LIST_HEAD(&rsc_top->list);
+	list_add_tail(&rsc_top->list, &rpmh_rsc_dev_list);
+	dev_set_drvdata(&pdev->dev, &rsc_top);
+
 	return devm_of_platform_populate(&pdev->dev);
 }
+
+static const struct dev_pm_ops rpmh_rsc_dev_pm_ops = {
+	.poweroff_noirq = rpmh_rsc_poweroff_noirq,
+	.restore_noirq = rpmh_rsc_restore_noirq,
+};
 
 static const struct of_device_id rpmh_drv_match[] = {
 	{ .compatible = "qcom,rpmh-rsc", },
@@ -1653,6 +1760,7 @@ static struct platform_driver rpmh_driver = {
 	.driver = {
 		  .name = "rpmh",
 		  .of_match_table = rpmh_drv_match,
+		  .pm = &rpmh_rsc_dev_pm_ops,
 		  .suppress_bind_attrs = true,
 	},
 };

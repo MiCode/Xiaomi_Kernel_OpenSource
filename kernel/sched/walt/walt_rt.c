@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020-2022, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <trace/hooks/sched.h>
@@ -11,7 +12,7 @@
 #define MSEC_TO_NSEC (1000 * 1000)
 
 static DEFINE_PER_CPU(cpumask_var_t, walt_local_cpu_mask);
-static DEFINE_PER_CPU(u64, rt_task_arrival_time);
+DEFINE_PER_CPU(u64, rt_task_arrival_time);
 static bool long_running_rt_task_trace_rgstrd;
 
 void rt_task_arrival_marker(void *unused, bool preempt,
@@ -19,7 +20,7 @@ void rt_task_arrival_marker(void *unused, bool preempt,
 {
 	unsigned int cpu = raw_smp_processor_id();
 
-	if (rt_task(next))
+	if (next->policy == SCHED_FIFO)
 		per_cpu(rt_task_arrival_time, cpu) = rq_clock_task(this_rq());
 	else
 		per_cpu(rt_task_arrival_time, cpu) = 0;
@@ -60,6 +61,10 @@ int sched_long_running_rt_task_ms_handler(struct ctl_table *table, int write,
 	mutex_lock(&mutex);
 
 	ret = proc_douintvec_minmax(table, write, buffer, lenp, ppos);
+
+	if (sysctl_sched_long_running_rt_task_ms > 0 &&
+			sysctl_sched_long_running_rt_task_ms < 800)
+		sysctl_sched_long_running_rt_task_ms = 800;
 
 	if (write && !long_running_rt_task_trace_rgstrd) {
 		register_trace_sched_switch(rt_task_arrival_marker, NULL);

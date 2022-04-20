@@ -933,7 +933,7 @@
   dma_buf_unmap_attachment
   dma_get_sgtable_attrs
   down_read
-  find_vma
+  __find_vma
   kasan_flag_enabled
   __mmap_lock_do_trace_acquire_returned
   __mmap_lock_do_trace_released

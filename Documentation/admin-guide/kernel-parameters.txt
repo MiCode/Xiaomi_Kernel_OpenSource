@@ -961,6 +961,10 @@
 			can be useful when debugging issues that require an SLB
 			miss to occur.
 
+	disable_dma32=	[KNL]
+			Dynamically disable ZONE_DMA32 on kernels compiled with
+			CONFIG_ZONE_DMA32=y.
+
 	stress_slb	[PPC]
 			Limits the number of kernel SLB entries, and flushes
 			them frequently to increase the rate of SLB faults
@@ -2059,6 +2063,14 @@
 			1 - Allocate directly from the full usable range,
 			  forcing Dual Address Cycle for PCI cards supporting
 			  greater than 32-bit addressing.
+
+	iommu.max_align_shift=
+			[ARM64, X86] Limit the alignment of IOVAs to a maximum
+			PAGE_SIZE order. Larger IOVAs will be aligned to this
+			specified order. The order is expressed as a power of
+			two multiplied by the PAGE_SIZE.
+			Format: { "4" | "5" | "6" | "7" | "8" | "9" }
+			Default: 9
 
 	iommu.strict=	[ARM64, X86] Configure TLB invalidation behaviour
 			Format: { "0" | "1" }
@@ -5277,8 +5289,12 @@
 			Specific mitigations can also be selected manually:
 
 			retpoline	  - replace indirect branches
-			retpoline,generic - google's original retpoline
-			retpoline,amd     - AMD-specific minimal thunk
+			retpoline,generic - Retpolines
+			retpoline,lfence  - LFENCE; indirect branch
+			retpoline,amd     - alias for retpoline,lfence
+			eibrs		  - enhanced IBRS
+			eibrs,retpoline   - enhanced IBRS + Retpolines
+			eibrs,lfence      - enhanced IBRS + LFENCE
 
 			Not specifying this option is equivalent to
 			spectre_v2=auto.
@@ -6433,3 +6449,9 @@
 				memory, and other data can't be written using
 				xmon commands.
 			off	xmon is disabled.
+
+	eipv4=	[KNL] Sets ipv4 address at boot up for early ethernet.
+
+	eipv6=	[KNL] Sets ipv6 address at boot up for early ethernet.
+
+	ermac=	[KNL] Sets mac address at boot up for early ethernet.

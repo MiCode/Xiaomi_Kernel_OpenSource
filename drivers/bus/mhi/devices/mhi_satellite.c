@@ -99,6 +99,7 @@ const char * const mhi_log_level_str[MHI_MSG_LVL_MAX] = {
 #define MHI_TRE_GET_ID(tre) (((tre)->dword[1] >> 24) & 0xFF)
 #define MHI_TRE_GET_TYPE(tre) (((tre)->dword[1] >> 16) & 0xFF)
 #define MHI_TRE_IS_ER_CTXT_TYPE(tre) (((tre)->dword[1]) & 0x1)
+#define MHI_TRE_IS_IO_ADDR_TYPE(tre) (((tre)->dword[1]) & 0x1)
 
 /* mhi core definitions */
 #define MHI_CTXT_TYPE_GENERIC (0xA)
@@ -446,10 +447,24 @@ static void mhi_sat_process_cmds(struct mhi_sat_cntrl *sat_cntrl,
 
 			buf->phys_addr = MHI_TRE_GET_PTR(pkt);
 			buf->len = MHI_TRE_GET_SIZE(pkt);
+			buf->is_io = MHI_TRE_IS_IO_ADDR_TYPE(pkt);
 
-			iova = dma_map_resource(parent_dev,
-						buf->phys_addr, buf->len,
-						DMA_BIDIRECTIONAL, 0);
+			if (buf->is_io) {
+				iova = dma_map_resource(parent_dev,
+							buf->phys_addr, buf->len,
+							DMA_BIDIRECTIONAL, 0);
+			} else {
+				/*
+				 * DMA_ATTR_SKIP_CPU_SYNC used due to assumption
+				 * CPU does not read/write this memory, and addr
+				 * & size may not be aligned per CMO requirement
+				 */
+				iova = dma_map_single_attrs(parent_dev,
+							    phys_to_virt(buf->phys_addr),
+							    buf->len, DMA_BIDIRECTIONAL,
+							    DMA_ATTR_SKIP_CPU_SYNC);
+			}
+
 			if (dma_mapping_error(parent_dev, iova)) {
 				kfree(buf);
 				goto iommu_map_cmd_completion;
@@ -868,8 +883,16 @@ static void mhi_sat_rpmsg_remove(struct rpmsg_device *rpdev)
 					 node) {
 			struct device *parent_dev =
 				sat_cntrl->mhi_cntrl->mhi_dev->dev.parent;
-			dma_unmap_resource(parent_dev, buf->dma_addr, buf->len,
-					   DMA_BIDIRECTIONAL, 0);
+			if (buf->is_io) {
+				dma_unmap_resource(parent_dev, buf->dma_addr,
+						   buf->len,
+						   DMA_BIDIRECTIONAL, 0);
+			} else {
+				dma_unmap_single_attrs(parent_dev,
+						       buf->dma_addr, buf->len,
+						       DMA_BIDIRECTIONAL,
+						       DMA_ATTR_SKIP_CPU_SYNC);
+			}
 			list_del(&buf->node);
 			kfree(buf);
 		}
@@ -1003,8 +1026,18 @@ static void mhi_sat_dev_remove(struct mhi_device *mhi_dev)
 	list_for_each_entry_safe(buf, tmp, &sat_cntrl->addr_map_list, node) {
 		struct device *parent_dev =
 				sat_cntrl->mhi_cntrl->mhi_dev->dev.parent;
-		dma_unmap_resource(parent_dev, buf->dma_addr, buf->len,
-				   DMA_BIDIRECTIONAL, 0);
+		if (buf->is_io) {
+			dma_unmap_resource(parent_dev, buf->dma_addr, buf->len,
+					   DMA_BIDIRECTIONAL, 0);
+		} else {
+			dma_unmap_single_attrs(parent_dev, buf->dma_addr,
+					       buf->len, DMA_BIDIRECTIONAL,
+					       DMA_ATTR_SKIP_CPU_SYNC);
+		}
+
+		dma_unmap_single_attrs(parent_dev, buf->dma_addr,
+				       buf->len, DMA_BIDIRECTIONAL,
+				       DMA_ATTR_SKIP_CPU_SYNC);
 		list_del(&buf->node);
 		kfree(buf);
 	}

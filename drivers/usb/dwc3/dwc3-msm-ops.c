@@ -103,11 +103,24 @@ static int exit_dwc3_gadget_conndone_interrupt(struct kretprobe_instance *ri,
 static int entry_dwc3_gadget_pullup(struct kretprobe_instance *ri,
 				   struct pt_regs *regs)
 {
+	struct kprobe_data *data = (struct kprobe_data *)ri->data;
 	struct usb_gadget *g = (struct usb_gadget *)regs->regs[0];
-	int is_on = (int)regs->regs[1];
-	struct dwc3 *dwc = gadget_to_dwc(g);
 
-	dwc3_msm_notify_event(dwc, DWC3_CONTROLLER_PULLUP, is_on);
+	data->dwc = gadget_to_dwc(g);
+	data->xi0 = (int)regs->regs[1];
+	dwc3_msm_notify_event(data->dwc, DWC3_CONTROLLER_PULLUP_ENTER,
+				data->xi0);
+
+	return 0;
+}
+
+static int exit_dwc3_gadget_pullup(struct kretprobe_instance *ri,
+				   struct pt_regs *regs)
+{
+	struct kprobe_data *data = (struct kprobe_data *)ri->data;
+
+	dwc3_msm_notify_event(data->dwc, DWC3_CONTROLLER_PULLUP_EXIT,
+				data->xi0);
 
 	return 0;
 }
@@ -207,7 +220,7 @@ static struct kretprobe dwc3_msm_probes[] = {
 	ENTRY(dwc3_send_gadget_ep_cmd),
 	ENTRY(dwc3_gadget_reset_interrupt),
 	ENTRY_EXIT(dwc3_gadget_conndone_interrupt),
-	ENTRY(dwc3_gadget_pullup),
+	ENTRY_EXIT(dwc3_gadget_pullup),
 	ENTRY(trace_dwc3_ctrl_req),
 	ENTRY(trace_dwc3_ep_queue),
 	ENTRY(trace_dwc3_ep_dequeue),

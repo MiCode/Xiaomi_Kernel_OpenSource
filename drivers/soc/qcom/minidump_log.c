@@ -109,6 +109,7 @@ static bool minidump_ftrace_dump = true;
 #define MD_RUNQUEUE_PAGES	8
 
 static bool md_in_oops_handler;
+static atomic_t md_handle_done;
 static struct seq_buf *md_runq_seq_buf;
 static md_align_offset;
 
@@ -150,6 +151,10 @@ char *md_dma_buf_procs_addr;
 #define MD_MODULE_PAGES	  8
 static struct seq_buf *md_mod_info_seq_buf;
 static DEFINE_SPINLOCK(md_modules_lock);
+
+static int n_modump;
+static char *key_modules[10];
+module_param_array(key_modules, charp, &n_modump, 0644);
 #endif	/* CONFIG_MODULES */
 #endif
 
@@ -169,7 +174,7 @@ static int register_stack_entry(struct md_region *ksp_entry, u64 sp, u64 size)
 
 	entry = msm_minidump_add_region(ksp_entry);
 	if (entry < 0)
-		pr_err("Failed to add stack of entry %s in Minidump\n",
+		printk_deferred("Failed to add stack of entry %s in Minidump\n",
 				ksp_entry->name);
 	return entry;
 }
@@ -311,8 +316,7 @@ static void update_stack_entry(struct md_region *ksp_entry, u64 sp,
 		ksp_entry->phys_addr = virt_to_phys((uintptr_t *)sp);
 	}
 	if (msm_minidump_update_region(mdno, ksp_entry) < 0) {
-		pr_err_ratelimited(
-			"Failed to update stack entry %s in minidump\n",
+		printk_deferred("Failed to update stack entry %s in minidump\n",
 			ksp_entry->name);
 	}
 }
@@ -1013,11 +1017,12 @@ static void md_ipi_stop(void *unused, struct pt_regs *regs)
 }
 #endif
 
-static int md_panic_handler(struct notifier_block *this,
-			    unsigned long event, void *ptr)
+void md_dump_process(void)
 {
 	if (md_in_oops_handler)
-		return NOTIFY_DONE;
+		return;
+	if (!atomic_add_unless(&md_handle_done, 1, 1))
+		return;
 	md_in_oops_handler = true;
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
 	if (!md_cntxt_seq_buf)
@@ -1050,6 +1055,13 @@ dump_rq:
 	if (md_dma_buf_procs_addr)
 		md_dma_buf_procs(md_dma_buf_procs_addr, md_dma_buf_procs_size);
 	md_in_oops_handler = false;
+}
+EXPORT_SYMBOL(md_dump_process);
+
+static int md_panic_handler(struct notifier_block *this,
+			    unsigned long event, void *ptr)
+{
+	md_dump_process();
 	return NOTIFY_DONE;
 }
 
@@ -1149,14 +1161,87 @@ static void md_register_panic_data(void)
 }
 #endif
 
-static int print_module(const char *name, void *mod_addr, void *data)
+static int register_vmap_mem(const char *name, void *virual_addr, size_t dump_len)
 {
-	if (!md_mod_info_seq_buf) {
-		pr_err("md_mod_info_seq_buf is NULL\n");
-		return -EINVAL;
+	int to_dump;
+	u64 phys_addr;
+	char entry_name[12];
+	void *dump_addr = virual_addr;
+	int i = 0;
+
+	while (dump_len) {
+		to_dump = min(dump_len, PAGE_SIZE - offset_in_page(dump_addr));
+		phys_addr = page_to_phys(vmalloc_to_page((const void *)dump_addr));
+		snprintf(entry_name, sizeof(entry_name), "%d_%s", i, name);
+		md_register_minidump_entry(entry_name, (u64)dump_addr, phys_addr, to_dump);
+		dump_addr += to_dump;
+		dump_len -= to_dump;
+		i++;
 	}
 
-	seq_buf_printf(md_mod_info_seq_buf, "name: %s, base: %#lx\n", name, mod_addr);
+	return 0;
+}
+
+struct module_sect_attr {
+	struct bin_attribute battr;
+	unsigned long address;
+};
+
+struct module_sect_attrs {
+	struct attribute_group grp;
+	unsigned int nsections;
+	struct module_sect_attr attrs[];
+};
+
+static int md_module_process(struct module *mod)
+{
+	int i;
+	bool is_key_module = false;
+	unsigned long sec_addr, base_addr;
+	unsigned long dump_start, dump_end;
+
+	for (i = 0; i < n_modump; i++) {
+		if (strcmp(key_modules[i], mod->name) == 0)
+			is_key_module = true;
+	}
+
+	if (md_mod_info_seq_buf) {
+		base_addr = (unsigned long)mod->core_layout.base;
+		seq_buf_printf(md_mod_info_seq_buf, "name: %s, base: %lx",
+				mod->name, base_addr);
+		if (is_key_module) {
+			dump_start = base_addr +
+					mod->core_layout.ro_after_init_size;
+			dump_end = base_addr + mod->core_layout.size;
+			if (((dump_end - dump_start) / PAGE_SIZE) <
+				msm_minidump_get_available_region()) {
+				for (i = 0; i < mod->sect_attrs->nsections ; i++) {
+					sec_addr = mod->sect_attrs->attrs[i].address;
+					if (sec_addr >= dump_start && sec_addr < dump_end) {
+						seq_buf_printf(md_mod_info_seq_buf, ", %s: %lx",
+							mod->sect_attrs->attrs[i].battr.attr.name,
+									sec_addr);
+					}
+				}
+				register_vmap_mem(mod->name, (void *)dump_start,
+						(dump_end - dump_start));
+			} else
+				pr_err("Failed to dump module %s\n", mod->name);
+		}
+		seq_buf_printf(md_mod_info_seq_buf, "\n");
+	}
+
+	return 0;
+}
+
+static int md_get_present_module(const char *mod_name,
+				void *mod_addr, void *data)
+{
+	struct module *mod = container_of(mod_name,
+				struct module, name[0]);
+
+	if (mod != THIS_MODULE)
+		md_module_process(mod);
 	return 0;
 }
 
@@ -1166,16 +1251,8 @@ static int md_module_notify(struct notifier_block *self,
 	struct module *mod = data;
 
 	spin_lock(&md_modules_lock);
-	switch (mod->state) {
-	case MODULE_STATE_LIVE:
-		print_module(mod->name, mod->core_layout.base, data);
-		break;
-	case MODULE_STATE_GOING:
-		print_module(mod->name, mod->core_layout.base, data);
-		break;
-	default:
-		break;
-	}
+	if (mod->state == MODULE_STATE_LIVE)
+		md_module_process(mod);
 	spin_unlock(&md_modules_lock);
 	return 0;
 }
@@ -1202,7 +1279,7 @@ static void md_register_module_data(void)
 		return;
 	}
 
-	android_debug_for_each_module(print_module, NULL);
+	android_debug_for_each_module(md_get_present_module, NULL);
 }
 
 #ifdef CONFIG_QCOM_MINIDUMP_PSTORE

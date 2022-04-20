@@ -24,7 +24,6 @@ config QCOM_DCVS_FP
 
 config QCOM_DCVS
 	tristate "QCOM DCVS Driver"
-	select QCOM_DCVS_FP
 	select INTERCONNECT
 	default n
 	help

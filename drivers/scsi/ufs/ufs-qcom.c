@@ -540,6 +540,7 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 	}
 
 out:
+	host->vdd_hba_pc = false;
 	return ret;
 }
 
@@ -1892,6 +1893,42 @@ out:
 	return ret;
 }
 
+static int ufs_qcom_vdd_hba_reg_notifier(struct notifier_block *nb,
+					 unsigned long event, void *data)
+{
+	struct ufs_qcom_host *host = container_of(nb, struct ufs_qcom_host,
+						  vdd_hba_reg_nb);
+
+	switch (event) {
+	case REGULATOR_EVENT_DISABLE:
+		/* The flag will be cleared during h8 exit post change */
+		if (ufs_qcom_is_link_hibern8(host->hba) &&
+		    (host->chosen_algo != STATIC_ALLOC_ALG1))
+			host->vdd_hba_pc = true;
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static void ufs_qcom_hibern8_notify(struct ufs_hba *hba,
+				    enum uic_cmd_dme uic_cmd,
+				    enum ufs_notify_change_status status)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	/* Apply shared ICE WA */
+	if (uic_cmd == UIC_CMD_DME_HIBER_EXIT && status == POST_CHANGE &&
+	    host->vdd_hba_pc) {
+		WARN_ON(host->chosen_algo == STATIC_ALLOC_ALG1);
+		host->vdd_hba_pc = false;
+		ufshcd_writel(hba, 0x18, UFS_MEM_ICE);
+		ufshcd_writel(hba, 0x0, UFS_MEM_ICE);
+	}
+}
+
 static int ufs_qcom_quirk_host_pa_saveconfigtime(struct ufs_hba *hba)
 {
 	int err;
@@ -2161,8 +2198,8 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 				 */
 				host->ref_clki->enabled = on;
 			}
-			break;
 		}
+		break;
 	case POST_CHANGE:
 		if (!on) {
 			if (!ufs_qcom_is_link_active(hba)) {
@@ -3220,6 +3257,11 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 
 	ufs_qcom_setup_max_hs_gear(host);
 
+	/* Register vdd_hba vreg callback */
+	host->vdd_hba_reg_nb.notifier_call = ufs_qcom_vdd_hba_reg_notifier;
+	devm_regulator_register_notifier(hba->vreg_info.vdd_hba->reg,
+					 &host->vdd_hba_reg_nb);
+
 	/* update phy revision information before calling phy_init() */
 	/*
 	 * FIXME:
@@ -3980,6 +4022,7 @@ static const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.hce_enable_notify      = ufs_qcom_hce_enable_notify,
 	.link_startup_notify    = ufs_qcom_link_startup_notify,
 	.pwr_change_notify	= ufs_qcom_pwr_change_notify,
+	.hibern8_notify		= ufs_qcom_hibern8_notify,
 	.apply_dev_quirks	= ufs_qcom_apply_dev_quirks,
 	.suspend		= ufs_qcom_suspend,
 	.resume			= ufs_qcom_resume,

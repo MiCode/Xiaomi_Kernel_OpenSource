@@ -40,6 +40,7 @@
   bcmp
   bin2hex
   __bitmap_clear
+  __bitmap_equal
   bitmap_from_arr32
   bitmap_parse
   bitmap_parselist
@@ -464,6 +465,7 @@
   downgrade_write
   down_interruptible
   down_read
+  down_read_trylock
   down_trylock
   down_write
   drain_workqueue
@@ -684,7 +686,7 @@
   find_get_pid
   _find_next_bit
   find_task_by_vpid
-  find_vma
+  __find_vma
   finish_wait
   flush_work
   flush_workqueue
@@ -1112,6 +1114,7 @@
   of_clk_src_onecell_get
   of_count_phandle_with_args
   of_cpu_node_to_id
+  of_devfreq_cooling_register_power
   of_device_get_match_data
   of_device_is_available
   of_device_is_compatible
@@ -1252,6 +1255,9 @@
   pin_user_pages_fast
   pin_user_pages_remote
   pktgen_xfrm_outer_mode_output
+  pkvm_iommu_resume
+  pkvm_iommu_s2mpu_register
+  pkvm_iommu_suspend
   platform_bus_type
   platform_device_add
   platform_device_add_data
@@ -1521,6 +1527,7 @@
   sg_next
   __sg_page_iter_next
   __sg_page_iter_start
+  shmem_file_setup
   simple_attr_open
   simple_attr_read
   simple_attr_release
@@ -1697,6 +1704,7 @@
   sysrq_mask
   system_freezing_cnt
   system_highpri_wq
+  system_long_wq
   system_state
   system_unbound_wq
   system_wq
@@ -1728,6 +1736,7 @@
   thermal_zone_device_register
   thermal_zone_device_unregister
   thermal_zone_device_update
+  thermal_zone_get_temp
   thermal_zone_of_sensor_register
   thermal_zone_of_sensor_unregister
   thread_group_cputime_adjusted

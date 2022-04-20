@@ -85,6 +85,7 @@ ATOMIC_NOTIFIER_HEAD(core_ctl_notifier);
 static unsigned int last_nr_big;
 
 static unsigned int get_active_cpu_count(const struct cluster_data *cluster);
+static void __ref do_core_ctl(void);
 
 /* ========================= sysfs interface =========================== */
 
@@ -783,12 +784,6 @@ static bool adjustment_possible(const struct cluster_data *cluster,
 						cluster_paused_cpus(cluster)));
 }
 
-static bool need_all_cpus(const struct cluster_data *cluster)
-{
-	return (is_min_cluster_cpu(cluster->first_cpu) &&
-		sched_ravg_window < DEFAULT_SCHED_RAVG_WINDOW);
-}
-
 static bool eval_need(struct cluster_data *cluster)
 {
 	unsigned long flags;
@@ -804,7 +799,7 @@ static bool eval_need(struct cluster_data *cluster)
 
 	spin_lock_irqsave(&state_lock, flags);
 
-	if (cluster->boost || !cluster->enable || need_all_cpus(cluster)) {
+	if (cluster->boost || !cluster->enable) {
 		need_cpus = cluster->max_cpus;
 	} else {
 		cluster->active_cpus = get_active_cpu_count(cluster);
@@ -995,7 +990,7 @@ void core_ctl_check(u64 window_start)
 		wakeup |= eval_need(cluster);
 
 	if (wakeup)
-		wake_up_core_ctl_thread();
+		do_core_ctl();
 	core_ctl_call_notifier();
 }
 

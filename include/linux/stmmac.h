@@ -291,5 +291,9 @@ struct plat_stmmacenet_data {
 		 struct net_device *sb_dev);
 	unsigned int (*get_plat_tx_coal_frames)
 		(struct sk_buff *skb);
+	int (*handle_prv_ioctl)(struct net_device *dev, struct ifreq *ifr,
+		int cmd);
+	void (*request_phy_wol)(void *plat);
+	int (*init_pps)(void *priv);
 };
 #endif

@@ -11,6 +11,7 @@
 #include <linux/gunyah/gh_vm.h>
 #include <linux/gunyah/gh_msgq.h>
 #include <linux/gunyah/gh_common.h>
+#include <linux/mm.h>
 
 #include "gh_rm_drv_private.h"
 
@@ -28,6 +29,11 @@
 #define GH_RM_MEM_NOTIFY_VALID_FLAGS\
 	(GH_RM_MEM_NOTIFY_RECIPIENT_SHARED |\
 	 GH_RM_MEM_NOTIFY_OWNER_RELEASED | GH_RM_MEM_NOTIFY_OWNER_ACCEPTED)
+
+#define GH_RM_MEM_APPEND_VALID_FLAGS GH_RM_MEM_APPEND_END
+
+/* Maximum number of sgl entries supported by lend/share/donate/append/notify calls */
+#define GH_RM_MEM_MAX_SGL_ENTRIES 512
 
 static DEFINE_SPINLOCK(gh_vm_table_lock);
 static struct gh_vm_property gh_vm_table[GH_VM_MAX];
@@ -594,6 +600,8 @@ gh_rm_vm_get_hyp_res(gh_vmid_t vmid, u32 *n_entries)
 
 	/* The response payload should contain all the resource entries */
 	if (resp_payload_size < sizeof(*n_entries) ||
+		(sizeof(*resp_entries) &&
+		(resp_payload->n_resource_entries > U32_MAX / sizeof(*resp_entries))) ||
 		(sizeof(*n_entries) > (U32_MAX -
 		(resp_payload->n_resource_entries * sizeof(*resp_entries)))) ||
 		resp_payload_size != sizeof(*n_entries) +
@@ -1319,7 +1327,10 @@ static void gh_rm_populate_sgl_desc(struct gh_sgl_desc *dst_desc,
 				    struct gh_sgl_desc *src_desc,
 				    u16 reserved_param)
 {
-	u32 n_sgl_entries = src_desc ? src_desc->n_sgl_entries : 0;
+	u32 n_sgl_entries;
+
+	n_sgl_entries = min_t(u32, GH_RM_MEM_MAX_SGL_ENTRIES,
+			      src_desc ? src_desc->n_sgl_entries : 0);
 
 	dst_desc->n_sgl_entries = n_sgl_entries;
 	dst_desc->reserved = reserved_param;
@@ -1339,6 +1350,9 @@ static void gh_rm_populate_mem_attr_desc(struct gh_mem_attr_desc *dst_desc,
 		       sizeof(*dst_desc->attr_entries) * n_mem_attr_entries);
 }
 
+/*
+ * Only first GH_RM_MEM_MAX_SGL_ENTRIES are added to req_buf.
+ */
 static void gh_rm_populate_mem_request(void *req_buf, u32 fn_id,
 				       struct gh_acl_desc *src_acl_desc,
 				       struct gh_sgl_desc *src_sgl_desc,
@@ -1350,7 +1364,10 @@ static void gh_rm_populate_mem_request(void *req_buf, u32 fn_id,
 	struct gh_mem_attr_desc *dst_mem_attrs;
 	size_t req_hdr_size, req_acl_size, req_sgl_size;
 	u32 n_acl_entries = src_acl_desc ? src_acl_desc->n_acl_entries : 0;
-	u32 n_sgl_entries = src_sgl_desc ? src_sgl_desc->n_sgl_entries : 0;
+	u32 n_sgl_entries;
+
+	n_sgl_entries = min_t(u32, GH_RM_MEM_MAX_SGL_ENTRIES,
+			      src_sgl_desc ? src_sgl_desc->n_sgl_entries : 0);
 
 	switch (fn_id) {
 	case GH_RM_RPC_MSG_ID_CALL_MEM_LEND:
@@ -1608,7 +1625,6 @@ struct gh_sgl_desc *gh_rm_mem_accept(gh_memparcel_handle_t handle, u8 mem_type,
 				     struct gh_mem_attr_desc *mem_attr_desc,
 				     u16 map_vmid)
 {
-
 	struct gh_mem_accept_req_payload_hdr *req_payload_hdr;
 	struct gh_sgl_desc *ret_sgl;
 	struct gh_mem_accept_resp_payload *resp_payload;
@@ -1673,12 +1689,14 @@ struct gh_sgl_desc *gh_rm_mem_accept(gh_memparcel_handle_t handle, u8 mem_type,
 	if (sgl_desc) {
 		ret_sgl = sgl_desc;
 	} else {
-		ret_sgl = kmemdup(resp_payload, offsetof(struct gh_sgl_desc,
-				sgl_entries[resp_payload->n_sgl_entries]),
-				  GFP_KERNEL);
+		size_t size;
+
+		size = offsetof(struct gh_sgl_desc, sgl_entries[resp_payload->n_sgl_entries]);
+		ret_sgl = kvmalloc(size, GFP_KERNEL);
 		if (!ret_sgl)
 			ret_sgl = ERR_PTR(-ENOMEM);
 
+		memcpy(ret_sgl, resp_payload, size);
 		kfree(resp_payload);
 	}
 
@@ -1687,6 +1705,70 @@ err_rm_call:
 	return ret_sgl;
 }
 EXPORT_SYMBOL(gh_rm_mem_accept);
+
+/**
+ * gh_rm_mem_append: Append additional memory to an existing handle.
+ * @handle: Memparcel handle from a previous gh_rm_mem_lend/share/donate call, which
+ * had GH_RM_MEM_*_APPEND flag set.
+ * @flags:
+ * @sgl_entries: List of physical memory to append.
+ * @n_sgl_entries:
+ *
+ * flags must include GH_RM_MEM_APPEND_END on the last call to append.
+ * in case of error on a partially constructed handle, the caller should call
+ * gh_rm_mem_reclaim.
+ */
+int gh_rm_mem_append(gh_memparcel_handle_t handle, u8 flags,
+		struct gh_sgl_entry *sgl_entries, u32 n_sgl_entries)
+{
+	int gh_ret, ret = 0;
+	size_t req_payload_size, resp_payload_size;
+	void *req_buf, *resp_payload;
+	struct gh_mem_append_req_payload_hdr *req_hdr;
+	struct gh_sgl_desc *req_sgl_desc;
+
+	if ((flags & ~GH_RM_MEM_APPEND_VALID_FLAGS) ||
+	     n_sgl_entries > GH_RM_MEM_MAX_SGL_ENTRIES)
+		return -EINVAL;
+
+	req_payload_size = sizeof(*req_hdr);
+	req_payload_size += offsetof(struct gh_sgl_desc, sgl_entries[n_sgl_entries]);
+	req_buf = kmalloc(req_payload_size, GFP_KERNEL);
+	if (!req_buf)
+		return -ENOMEM;
+
+	req_hdr = req_buf;
+	req_sgl_desc = req_buf + sizeof(*req_hdr);
+
+	req_hdr->memparcel_handle = handle;
+	req_hdr->flags = flags;
+	req_sgl_desc->n_sgl_entries = n_sgl_entries;
+	memcpy(req_sgl_desc->sgl_entries, sgl_entries,
+	       sizeof(*sgl_entries) * n_sgl_entries);
+
+	resp_payload = gh_rm_call(GH_RM_RPC_MSG_ID_CALL_MEM_APPEND,
+				req_buf, req_payload_size,
+				&resp_payload_size, &gh_ret);
+	if (gh_ret || IS_ERR(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s failed with error: %d\n", __func__,
+		       PTR_ERR(resp_payload));
+		goto free_req_buf;
+	}
+
+	if (resp_payload_size) {
+		ret = -EINVAL;
+		pr_err("%s: Invalid size received: %u\n",
+			__func__, resp_payload_size);
+	}
+
+	kfree(resp_payload);
+free_req_buf:
+	kfree(req_buf);
+	return ret;
+}
+EXPORT_SYMBOL(gh_rm_mem_append);
+
 
 static int gh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
 				       gh_label_t label,
@@ -1701,6 +1783,7 @@ static int gh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
 	size_t req_payload_size, resp_payload_size;
 	u16 req_sgl_entries, req_acl_entries, req_mem_attr_entries = 0;
 	int gh_ret, ret = 0;
+	int idx, next;
 
 	if ((mem_type != GH_RM_MEM_TYPE_NORMAL &&
 	     mem_type != GH_RM_MEM_TYPE_IO) ||
@@ -1717,6 +1800,11 @@ static int gh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
 
 	req_acl_entries = acl_desc->n_acl_entries;
 	req_sgl_entries = sgl_desc->n_sgl_entries;
+	if (req_sgl_entries > GH_RM_MEM_MAX_SGL_ENTRIES) {
+		flags |= GH_RM_MEM_LEND_APPEND;
+		req_sgl_entries = GH_RM_MEM_MAX_SGL_ENTRIES;
+	}
+
 	if (mem_attr_desc)
 		req_mem_attr_entries = mem_attr_desc->n_mem_attr_entries;
 
@@ -1748,8 +1836,26 @@ static int gh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
 		goto err_resp_size;
 	}
 
-	*handle = resp_payload->memparcel_handle;
+	for (idx = req_sgl_entries; idx < sgl_desc->n_sgl_entries; idx = next) {
+		u8 append_flags = 0;
 
+		next = min_t(u32, idx + GH_RM_MEM_MAX_SGL_ENTRIES, sgl_desc->n_sgl_entries);
+		if (next == sgl_desc->n_sgl_entries)
+			append_flags |= GH_RM_MEM_APPEND_END;
+
+		ret = gh_rm_mem_append(resp_payload->memparcel_handle, append_flags,
+					sgl_desc->sgl_entries + idx, next - idx);
+		if (ret)
+			goto err_mem_append;
+	}
+
+	*handle = resp_payload->memparcel_handle;
+	kfree(resp_payload);
+	kfree(req_buf);
+	return 0;
+
+err_mem_append:
+	gh_rm_mem_reclaim(resp_payload->memparcel_handle, 0);
 err_resp_size:
 	kfree(resp_payload);
 err_rm_call:

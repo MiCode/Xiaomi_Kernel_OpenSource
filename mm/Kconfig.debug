@@ -150,3 +150,10 @@ config PTDUMP_DEBUGFS
 	  kernel.
 
 	  If in doubt, say N.
+
+config SPECULATIVE_PAGE_FAULT_STATS
+	bool "Additional statistics for speculative page faults"
+	depends on SPECULATIVE_PAGE_FAULT
+	help
+	  Additional statistics for speculative page faults.
+	  If in doubt, say N.

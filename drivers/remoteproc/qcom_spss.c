@@ -563,7 +563,7 @@ static int qcom_spss_probe(struct platform_device *pdev)
 
 	ret = qcom_spss_init_mmio(pdev, spss);
 	if (ret)
-		goto free_rproc;
+		goto deinit_wakeup_source;
 
 	if (!(__raw_readl(spss->rmb_gpm) & BIT(0)))
 		rproc->state = RPROC_DETACHED;
@@ -572,22 +572,22 @@ static int qcom_spss_probe(struct platform_device *pdev)
 
 	ret = spss_alloc_memory_region(spss);
 	if (ret)
-		goto free_rproc;
+		goto deinit_wakeup_source;
 
 	ret = spss_init_clock(spss);
 	if (ret)
-		goto free_rproc;
+		goto deinit_wakeup_source;
 
 	ret = init_regulator(spss->dev, &spss->cx, "cx");
 	if (ret)
-		goto free_rproc;
+		goto deinit_wakeup_source;
 
 	qcom_add_glink_spss_subdev(rproc, &spss->glink_subdev, "spss");
 	qcom_add_ssr_subdev(rproc, &spss->ssr_subdev, desc->ssr_name);
 	spss->sysmon_subdev = qcom_add_sysmon_subdev(rproc, desc->ssr_name, -EINVAL);
 	if (IS_ERR(spss->sysmon_subdev)) {
 		dev_err(spss->dev, "failed to add sysmon subdevice\n");
-		goto free_rproc;
+		goto deinit_wakeup_source;
 	}
 
 	mask_scsr_irqs(spss);
@@ -607,6 +607,8 @@ static int qcom_spss_probe(struct platform_device *pdev)
 
 remove_subdev:
 	qcom_remove_sysmon_subdev(spss->sysmon_subdev);
+deinit_wakeup_source:
+	device_init_wakeup(spss->dev, false);
 free_rproc:
 	rproc_free(rproc);
 
@@ -621,6 +623,7 @@ static int qcom_spss_remove(struct platform_device *pdev)
 	qcom_remove_glink_spss_subdev(spss->rproc, &spss->glink_subdev);
 	qcom_remove_ssr_subdev(spss->rproc, &spss->ssr_subdev);
 	qcom_remove_sysmon_subdev(spss->sysmon_subdev);
+	device_init_wakeup(spss->dev, false);
 	rproc_free(spss->rproc);
 
 	return 0;

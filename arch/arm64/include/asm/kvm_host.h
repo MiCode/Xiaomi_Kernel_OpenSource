@@ -375,16 +375,23 @@ extern s64 kvm_nvhe_sym(hyp_physvirt_offset);
 extern u64 kvm_nvhe_sym(hyp_cpu_logical_map)[NR_CPUS];
 #define hyp_cpu_logical_map CHOOSE_NVHE_SYM(hyp_cpu_logical_map)
 
-enum kvm_iommu_driver {
-	KVM_IOMMU_DRIVER_NONE,
-	KVM_IOMMU_DRIVER_S2MPU,
+enum pkvm_iommu_driver_id {
+	PKVM_IOMMU_DRIVER_S2MPU,
+	PKVM_IOMMU_NR_DRIVERS,
 };
 
-#ifdef CONFIG_KVM_S2MPU
-int kvm_s2mpu_init(void);
-#else
-static inline int kvm_s2mpu_init(void) { return -ENODEV; }
-#endif
+enum pkvm_iommu_pm_event {
+	PKVM_IOMMU_PM_SUSPEND,
+	PKVM_IOMMU_PM_RESUME,
+};
+
+int pkvm_iommu_driver_init(enum pkvm_iommu_driver_id drv_id, void *data, size_t size);
+int pkvm_iommu_register(struct device *dev, enum pkvm_iommu_driver_id drv_id,
+			phys_addr_t pa, size_t size);
+int pkvm_iommu_suspend(struct device *dev);
+int pkvm_iommu_resume(struct device *dev);
+
+int pkvm_iommu_s2mpu_register(struct device *dev, phys_addr_t pa);
 
 struct vcpu_reset_state {
 	unsigned long	pc;
@@ -849,6 +856,11 @@ static inline void kvm_init_host_cpu_context(struct kvm_cpu_context *cpu_ctxt)
 {
 	/* The host's MPIDR is immutable, so let's set it up at boot time */
 	ctxt_sys_reg(cpu_ctxt, MPIDR_EL1) = read_cpuid_mpidr();
+}
+
+static inline bool kvm_system_needs_idmapped_vectors(void)
+{
+	return cpus_have_const_cap(ARM64_SPECTRE_V3A);
 }
 
 void kvm_arm_vcpu_ptrauth_trap(struct kvm_vcpu *vcpu);

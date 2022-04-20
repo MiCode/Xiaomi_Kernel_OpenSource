@@ -13,6 +13,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/rpmsg.h>
+#include <trace/events/rproc_qcom.h>
 
 #include "qcom_common.h"
 
@@ -64,25 +65,6 @@ struct qcom_sysmon {
 
 	struct qmi_handle qmi;
 	struct sockaddr_qrtr ssctl;
-};
-
-enum {
-	SSCTL_SSR_EVENT_BEFORE_POWERUP,
-	SSCTL_SSR_EVENT_AFTER_POWERUP,
-	SSCTL_SSR_EVENT_BEFORE_SHUTDOWN,
-	SSCTL_SSR_EVENT_AFTER_SHUTDOWN,
-};
-
-static const char * const sysmon_state_string[] = {
-	[SSCTL_SSR_EVENT_BEFORE_POWERUP]	= "before_powerup",
-	[SSCTL_SSR_EVENT_AFTER_POWERUP]		= "after_powerup",
-	[SSCTL_SSR_EVENT_BEFORE_SHUTDOWN]	= "before_shutdown",
-	[SSCTL_SSR_EVENT_AFTER_SHUTDOWN]	= "after_shutdown",
-};
-
-struct sysmon_event {
-	const char *subsys_name;
-	u32 ssr_event;
 };
 
 static DEFINE_MUTEX(sysmon_lock);
@@ -564,6 +546,7 @@ static int sysmon_prepare(struct rproc_subdev *subdev)
 	struct qcom_sysmon *sysmon = container_of(subdev, struct qcom_sysmon,
 						  subdev);
 
+	trace_rproc_qcom_event(dev_name(sysmon->rproc->dev.parent), SYSMON_SUBDEV_NAME, "prepare");
 
 	mutex_lock(&sysmon->state_lock);
 	sysmon->state = QCOM_SSR_BEFORE_POWERUP;
@@ -588,6 +571,7 @@ static int sysmon_start(struct rproc_subdev *subdev)
 						  subdev);
 	struct qcom_sysmon *target;
 
+	trace_rproc_qcom_event(dev_name(sysmon->rproc->dev.parent), SYSMON_SUBDEV_NAME, "start");
 
 	mutex_lock(&sysmon->state_lock);
 	sysmon->state = QCOM_SSR_AFTER_POWERUP;
@@ -596,10 +580,12 @@ static int sysmon_start(struct rproc_subdev *subdev)
 
 	mutex_lock(&sysmon_lock);
 	list_for_each_entry(target, &sysmon_list, node) {
-		if (target == sysmon)
-			continue;
-
 		mutex_lock(&target->state_lock);
+		if (target == sysmon || target->state != QCOM_SSR_AFTER_POWERUP) {
+			mutex_unlock(&target->state_lock);
+			continue;
+		}
+
 		send_event(sysmon, target);
 		mutex_unlock(&target->state_lock);
 	}
@@ -613,6 +599,8 @@ static void sysmon_stop(struct rproc_subdev *subdev, bool crashed)
 	unsigned long timeout;
 	struct qcom_sysmon *sysmon = container_of(subdev, struct qcom_sysmon, subdev);
 
+	trace_rproc_qcom_event(dev_name(sysmon->rproc->dev.parent), SYSMON_SUBDEV_NAME,
+			       crashed ? "crash stop" : "stop");
 
 	sysmon->shutdown_acked = false;
 
@@ -647,6 +635,8 @@ static void sysmon_unprepare(struct rproc_subdev *subdev)
 	struct qcom_sysmon *sysmon = container_of(subdev, struct qcom_sysmon,
 						  subdev);
 
+	trace_rproc_qcom_event(dev_name(sysmon->rproc->dev.parent), SYSMON_SUBDEV_NAME,
+			       "unprepare");
 
 	mutex_lock(&sysmon->state_lock);
 	sysmon->state = QCOM_SSR_AFTER_SHUTDOWN;

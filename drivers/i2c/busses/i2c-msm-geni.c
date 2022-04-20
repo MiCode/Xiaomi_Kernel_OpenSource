@@ -172,7 +172,7 @@ struct geni_i2c_dev {
 	struct dbg_buf_ctxt *dbg_buf_ptr;
 	bool is_le_vm;
 	bool req_chan;
-	bool first_resume;
+	bool first_xfer_done; /* for le-vm doing lock/unlock, after first xfer initiated. */
 	bool gpi_reset;
 	bool is_i2c_hub;
 };
@@ -341,7 +341,6 @@ static inline void qcom_geni_i2c_calc_timeout(struct geni_i2c_dev *gi2c)
 							I2C_TIMEOUT_MIN_USEC;
 
 	gi2c->xfer_timeout = usecs_to_jiffies(xfer_max_usec);
-
 }
 
 static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
@@ -1121,6 +1120,33 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		}
 	}
 
+	if (gi2c->is_le_vm && (!gi2c->first_xfer_done)) {
+		/*
+		 * For le-vm we are doing resume operations during
+		 * the first xfer, because we are seeing probe sequence
+		 * issues from client and i2c-master driver, due to this
+		 * multiple times i2c_resume invoking and we are seeing
+		 * unclocked access. To avoid this added resume operations
+		 * here very first time.
+		 */
+		gi2c->first_xfer_done = true;
+		ret = geni_i2c_prepare(gi2c);
+		if (ret) {
+			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
+				"%s I2C prepare failed: %d\n", __func__, ret);
+			return ret;
+		}
+
+		ret = geni_i2c_lock_bus(gi2c);
+		if (ret) {
+			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
+				"%s lock failed: %d\n", __func__, ret);
+			return ret;
+		}
+		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+			"LE-VM first xfer\n");
+	}
+
 	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 		"n:%d addr:0x%x\n", num, msgs[0].addr);
 
@@ -1347,7 +1373,7 @@ static int geni_i2c_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,le-vm")) {
 		gi2c->is_le_vm = true;
-		gi2c->first_resume = true;
+		gi2c->first_xfer_done = false;
 		dev_info(&pdev->dev, "LE-VM usecase\n");
 	}
 	gi2c->i2c_rsc.dev = dev;
@@ -1405,7 +1431,7 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		 * core clk should be voted explicitly.
 		 */
 		if (gi2c->is_i2c_hub) {
-			gi2c->core_clk = devm_clk_get(dev->parent, "core-clk");
+			gi2c->core_clk = devm_clk_get(&pdev->dev, "core-clk");
 			if (IS_ERR(gi2c->core_clk)) {
 				ret = PTR_ERR(gi2c->core_clk);
 				dev_err(&pdev->dev, "Err getting core-clk %d\n", ret);
@@ -1519,12 +1545,9 @@ static int geni_i2c_runtime_suspend(struct device *dev)
 	if (gi2c->se_mode == FIFO_SE_DMA)
 		disable_irq(gi2c->irq);
 
-	if (gi2c->is_le_vm) {
-		if (!gi2c->first_resume)
-			geni_i2c_unlock_bus(gi2c);
-		else
-			gi2c->first_resume = false;
-	} else if (gi2c->is_shared) {
+	if (gi2c->is_le_vm && gi2c->first_xfer_done)
+		geni_i2c_unlock_bus(gi2c);
+	else if (gi2c->is_shared) {
 		/* Do not unconfigure GPIOs if shared se */
 		geni_se_common_clks_off(gi2c->i2c_rsc.clk, gi2c->m_ahb_clk, gi2c->s_ahb_clk);
 		ret = geni_icc_disable(&gi2c->i2c_rsc);
@@ -1566,6 +1589,18 @@ static int geni_i2c_runtime_resume(struct device *dev)
 			return ret;
 		}
 
+		ret = geni_icc_set_bw(&gi2c->i2c_rsc);
+		if (ret) {
+			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
+			"%s failing at icc set bw ret=%d\n", __func__, ret);
+			return ret;
+		}
+		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+			"%s: GENI_TO_CORE:%d CPU_TO_GENI:%d GENI_TO_DDR:%d\n",
+			__func__, gi2c->i2c_rsc.icc_paths[GENI_TO_CORE].avg_bw,
+			gi2c->i2c_rsc.icc_paths[CPU_TO_GENI].avg_bw,
+			gi2c->i2c_rsc.icc_paths[GENI_TO_DDR].avg_bw);
+
 		if (gi2c->is_i2c_hub) {
 			ret = clk_prepare_enable(gi2c->core_clk);
 			if (ret) {
@@ -1589,12 +1624,15 @@ static int geni_i2c_runtime_resume(struct device *dev)
 		if (gi2c->se_mode == FIFO_SE_DMA)
 			enable_irq(gi2c->irq);
 
-	} else if (!gi2c->first_resume) {
+	} else if (gi2c->is_le_vm && gi2c->first_xfer_done) {
 		/*
-		 * For first resume call in le, do nothing, and in
-		 * corresponding first suspend, set the first_resume
-		 * flag to false, to enable lock/unlock per resume/suspend
-		 * session.
+		 * For le-vm we are doing resume operations during
+		 * the first xfer, because we are seeing probe
+		 * sequence issues from client and i2c-master driver,
+		 * due to thils multiple times i2c_resume invoking
+		 * and we are seeing unclocked access. To avoid this
+		 * below opeations we are doing in i2c_xfer very first
+		 * time, after first xfer below logic will continue.
 		 */
 		ret = geni_i2c_prepare(gi2c);
 		if (ret) {

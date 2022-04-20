@@ -53,6 +53,7 @@
 #include <linux/soc/qcom/pdr.h>
 #include <linux/soc/qcom/qmi.h>
 #include <linux/mem-buf.h>
+#include <asm/arch_timer.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
@@ -192,7 +193,9 @@
 /* Max no. of persistent headers pre-allocated per process */
 #define MAX_PERSISTENT_HEADERS    (25)
 
-#define PERF_CAPABILITY   (1 << 1)
+#define PERF_CAPABILITY_SUPPORT	(1 << 1)
+#define KERNEL_ERROR_CODE_V1_SUPPORT	1
+#define USERSPACE_ALLOCATION_SUPPORT	1
 
 #define MD_GMSG_BUFFER (1000)
 
@@ -200,6 +203,9 @@
 
 /* Max number of region supported */
 #define MAX_UNIQUE_ID 5
+
+/* Convert the 19.2MHz clock count to micro-seconds */
+#define CONVERT_CNT_TO_US(CNT) (CNT * 10ull / 192ull)
 
 /* Unique index flag used for mini dump */
 static int md_unique_index_flag[MAX_UNIQUE_ID] = { 0, 0, 0, 0, 0 };
@@ -361,10 +367,12 @@ static int hlosvmperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
 static uint32_t kernel_capabilities[FASTRPC_MAX_ATTRIBUTES -
 					FASTRPC_MAX_DSP_ATTRIBUTES] = {
-	PERF_CAPABILITY,
+	PERF_CAPABILITY_SUPPORT,
 	/* PERF_LOGGING_V2_SUPPORT feature is supported, unsupported = 0 */
-	1
+	KERNEL_ERROR_CODE_V1_SUPPORT,
 	/* Fastrpc Driver error code changes present */
+	USERSPACE_ALLOCATION_SUPPORT
+	/* Userspace allocation allowed for DSP memory request*/
 };
 
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
@@ -373,7 +381,7 @@ static int fastrpc_mem_map_to_dsp(struct fastrpc_file *fl, int fd, int offset,
 				size_t size, uintptr_t *raddr);
 static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 	uint64_t ctx, int retval, uint32_t rsp_flags,
-	uint32_t early_wake_time, uint32_t ver, int64_t ns);
+	uint32_t early_wake_time, uint32_t ver, int64_t ns, uint64_t xo_time_in_us);
 
 /**
  * fastrpc_device_create - Create device for the fastrpc process file
@@ -442,7 +450,8 @@ static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t 
 			/* Update DSP response history */
 			fastrpc_update_rxmsg_buf(&gfa.channel[ctx->fl->cid],
 				ctx->msg.invoke.header.ctx, 0, POLL_MODE, 0,
-				FASTRPC_RSP_VERSION2, get_timestamp_in_ns());
+				FASTRPC_RSP_VERSION2, get_timestamp_in_ns(),
+				CONVERT_CNT_TO_US(__arch_counter_get_cntvct()));
 			break;
 		}
 		if (jj == FASTRPC_POLL_TIME_MEM_UPDATE) {
@@ -461,11 +470,12 @@ static inline int poll_for_remote_response(struct smq_invoke_ctx *ctx, uint32_t 
  * @msg            : Pointer to RPC message to remote subsystem
  * @rpmsg_send_err : Error from rpmsg
  * @ns             : Timestamp (in ns) of sent message
+ * @xo_time_in_us  : XO Timestamp (in us) of sent message
  *
  * Returns none
  */
 static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
-	struct smq_msg *msg, int rpmsg_send_err, int64_t ns)
+	struct smq_msg *msg, int rpmsg_send_err, int64_t ns, uint64_t xo_time_in_us)
 {
 	unsigned long flags = 0;
 	unsigned int tx_index = 0;
@@ -479,6 +489,7 @@ static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
 	memcpy(&tx_msg->msg, msg, sizeof(struct smq_msg));
 	tx_msg->rpmsg_send_err = rpmsg_send_err;
 	tx_msg->ns = ns;
+	tx_msg->xo_time_in_us = xo_time_in_us;
 
 	tx_index++;
 	chan->gmsg_log.tx_index =
@@ -496,12 +507,13 @@ static inline void fastrpc_update_txmsg_buf(struct fastrpc_channel_ctx *chan,
  * @early_wake_time : Poll time for early wakeup
  * @ver             : Version of response
  * @ns              : Timestamp (in ns) of response
+ * @xo_time_in_us   : XO Timestamp (in us) of response
  *
  * Returns none
  */
 static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 	uint64_t ctx, int retval, uint32_t rsp_flags,
-	uint32_t early_wake_time, uint32_t ver, int64_t ns)
+	uint32_t early_wake_time, uint32_t ver, int64_t ns, uint64_t xo_time_in_us)
 {
 	unsigned long flags = 0;
 	unsigned int rx_index = 0;
@@ -520,6 +532,7 @@ static inline void fastrpc_update_rxmsg_buf(struct fastrpc_channel_ctx *chan,
 	rsp->early_wake_time = early_wake_time;
 	rsp->version = ver;
 	rx_msg->ns = ns;
+	rx_msg->xo_time_in_us = xo_time_in_us;
 
 	rx_index++;
 	chan->gmsg_log.rx_index =
@@ -2686,6 +2699,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	int err = 0, cid = -1;
 	uint32_t sc = ctx->sc;
 	int64_t ns = 0;
+	uint64_t xo_time_in_us = 0;
 
 	if (!fl) {
 		err = -EBADF;
@@ -2726,12 +2740,13 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 		mutex_unlock(&channel_ctx->rpmsg_mutex);
 		goto bail;
 	}
+	xo_time_in_us = CONVERT_CNT_TO_US(__arch_counter_get_cntvct());
 	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)msg, sizeof(*msg));
 	mutex_unlock(&channel_ctx->rpmsg_mutex);
 	trace_fastrpc_rpmsg_send(cid, (uint64_t)ctx, msg->invoke.header.ctx,
 		handle, sc, msg->invoke.page.addr, msg->invoke.page.size);
 	ns = get_timestamp_in_ns();
-	fastrpc_update_txmsg_buf(channel_ctx, msg, err, ns);
+	fastrpc_update_txmsg_buf(channel_ctx, msg, err, ns, xo_time_in_us);
  bail:
 	return err;
 }
@@ -4511,20 +4526,29 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 				goto bail;
 			memset(&ramdump_segments_rh, 0, sizeof(ramdump_segments_rh));
 			ramdump_segments_rh.da = match->phys;
-			ramdump_segments_rh.va = (void *)match->va;
+			ramdump_segments_rh.va = (void *)page_address((struct page *)match->va);
 			ramdump_segments_rh.size = match->size;
 			if (me->dev && dump_enabled()) {
 				ret = fastrpc_ramdump(me->dev, &ramdump_segments_rh, true);
 				if (ret < 0)
 					pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
-							__func__, ret);
+								__func__, ret);
 			}
+			if (!locked)
+				mutex_lock(&fl->map_mutex);
 			fastrpc_mmap_free(match, 0);
+			if (!locked)
+				mutex_unlock(&fl->map_mutex);
 		}
 	} while (match);
 bail:
-	if (err && match)
+	if (err && match) {
+		if (!locked)
+			mutex_lock(&fl->map_mutex);
 		fastrpc_mmap_add(match);
+		if (!locked)
+			mutex_unlock(&fl->map_mutex);
+	}
 	return err;
 }
 
@@ -5013,7 +5037,9 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	struct fastrpc_channel_ctx *chan = NULL;
 	unsigned long irq_flags = 0;
 	int64_t ns = 0;
+	uint64_t xo_time_in_us = 0;
 
+	xo_time_in_us = CONVERT_CNT_TO_US(__arch_counter_get_cntvct());
 	trace_fastrpc_msg("rpmsg_callback: begin");
 	cid = get_cid_from_rpdev(rpdev);
 	VERIFY(err, VALID_FASTRPC_CID(cid));
@@ -5047,7 +5073,7 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		rsp->retval, rsp_flags, early_wake_time);
 	ns = get_timestamp_in_ns();
 	fastrpc_update_rxmsg_buf(chan, rsp->ctx, rsp->retval,
-		rsp_flags, early_wake_time, ver, ns);
+		rsp_flags, early_wake_time, ver, ns, xo_time_in_us);
 
 	index = (uint32_t)GET_TABLE_IDX_FROM_CTXID(rsp->ctx);
 	VERIFY(err, index < FASTRPC_CTX_MAX);

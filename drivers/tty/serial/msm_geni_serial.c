@@ -272,6 +272,7 @@ struct msm_geni_serial_port {
 	void *ipc_log_rx;
 	void *ipc_log_pwr;
 	void *ipc_log_misc;
+	void *ipc_log_new;
 	void *console_log;
 	void *ipc_log_irqstatus;
 	unsigned int cur_baud;
@@ -293,6 +294,7 @@ struct msm_geni_serial_port {
 	spinlock_t rx_lock;
 	atomic_t is_clock_off;
 	enum uart_error_code uart_error;
+	unsigned long ser_clk_cfg;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -397,14 +399,21 @@ int msm_geni_serial_resources_on(struct msm_geni_serial_port *port)
 	ret = geni_icc_enable(&port->se);
 	if (ret) {
 		UART_LOG_DBG(port->ipc_log_misc, port->uport.dev,
-			"%s: Error %d geni_icc_enable failed\n", __func__, ret);
+			     "%s: Error %d geni_icc_enable failed\n", __func__, ret);
+		return ret;
+	}
+
+	ret = geni_icc_set_bw(&port->se);
+	if (ret) {
+		UART_LOG_DBG(port->ipc_log_misc, port->uport.dev,
+			     "%s: Error %d ICC BW voting failed\n", __func__, ret);
 		return ret;
 	}
 
 	ret = geni_se_common_clks_on(rsc->se_clk, rsc->m_ahb_clk, rsc->s_ahb_clk);
 	if (ret) {
 		UART_LOG_DBG(port->ipc_log_misc, port->uport.dev,
-			"%s: Error %d geni_se_common_clks_on failed\n", __func__, ret);
+			    "%s: Error %d geni_se_common_clks_on failed\n", __func__, ret);
 		return ret;
 	}
 
@@ -448,6 +457,28 @@ static void msm_geni_update_uart_error_code(struct msm_geni_serial_port *port,
 		port->uart_error = uart_error_code;
 		UART_LOG_DBG(port->ipc_log_misc, port->uport.dev,
 				"%s uart_error_code %d", __func__, port->uart_error);
+	}
+}
+
+/*
+ * The below API is used to enable and disable serial clock divider.
+ */
+static void msm_geni_enable_disable_se_clk(struct uart_port *uport, bool enable)
+{
+	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+
+	UART_LOG_DBG(msm_port->ipc_log_misc, msm_port->uport.dev,
+		"%s: enable:%d ser_clk_cfg:0x%x\n", __func__, enable,
+		msm_port->ser_clk_cfg);
+
+	if (enable) {
+		geni_write_reg(msm_port->ser_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg(msm_port->ser_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg(uport->membase, GENI_SER_M_CLK_CFG);
+	} else {
+		geni_write_reg(0x1, uport->membase, GENI_SER_M_CLK_CFG);
+		geni_write_reg(0x1, uport->membase, GENI_SER_S_CLK_CFG);
+		geni_read_reg(uport->membase, GENI_SER_M_CLK_CFG);
 	}
 }
 
@@ -815,6 +846,15 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 			"%s TIOCFAULT - uart_error_set %d new_uart_error %d",
 			__func__, uart_error, port->uart_error);
 		ret = uart_error;
+
+		/* Do not use previous log file from this issue point */
+		geni_se_dump_dbg_regs(&port->se,
+				uport->membase, port->ipc_log_misc);
+		port->ipc_log_rx = port->ipc_log_new;
+		port->ipc_log_tx = port->ipc_log_new;
+		port->ipc_log_misc = port->ipc_log_new;
+		port->ipc_log_pwr = port->ipc_log_new;
+		port->ipc_log_irqstatus = port->ipc_log_new;
 		break;
 	}
 	default:
@@ -2544,7 +2584,7 @@ static void set_rfr_wm(struct msm_geni_serial_port *port)
 static void msm_geni_serial_shutdown(struct uart_port *uport)
 {
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
-	int ret;
+	int ret = 0;
 
 	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev, "%s: %d\n", __func__, true);
 	/* Stop the console before stopping the current tx */
@@ -2574,11 +2614,11 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 			msm_port->ioctl_count = 0;
 		}
 
-			ret = pm_runtime_put_sync_suspend(uport->dev);
-			if (ret) {
-				UART_LOG_DBG(msm_port->ipc_log_pwr, uport->dev,
-				"%s: Failed to suspend:%d\n", __func__, ret);
-			}
+		ret = pm_runtime_put_sync_suspend(uport->dev);
+		if (ret)
+			UART_LOG_DBG(msm_port->ipc_log_pwr, uport->dev,
+				     "%s: Failed to suspend:%d\n",
+				     __func__, ret);
 
 		if (msm_port->wakeup_irq > 0 && msm_port->wakeup_enabled) {
 			irq_set_irq_wake(msm_port->wakeup_irq, 0);
@@ -2907,7 +2947,12 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 			__func__, clk_freq_diff, baud, clk_rate, clk_div);
 
 	uport->uartclk = clk_rate;
-	clk_set_rate(port->serial_rsc.se_clk, clk_rate);
+	ret = clk_set_rate(port->serial_rsc.se_clk, clk_rate);
+	if (ret) {
+		dev_err(uport->dev, "Error setting clock rate\n");
+		IPC_LOG_MSG(port->ipc_log_misc, "%s: SE clock set_rate error:%d\n", __func__, ret);
+		WARN_ON(1);
+	}
 	ser_clk_cfg |= SER_CLK_EN;
 	ser_clk_cfg |= (clk_div << CLK_DIV_SHFT);
 
@@ -2916,10 +2961,12 @@ static void msm_geni_serial_set_termios(struct uart_port *uport,
 
 	geni_write_reg(ser_clk_cfg, uport->membase, GENI_SER_M_CLK_CFG);
 	geni_write_reg(ser_clk_cfg, uport->membase, GENI_SER_S_CLK_CFG);
+	port->ser_clk_cfg = ser_clk_cfg;
 	geni_read_reg(uport->membase, GENI_SER_M_CLK_CFG);
 
 	msm_geni_serial_termios_cfg(uport, termios);
-	UART_LOG_DBG(port->ipc_log_misc, uport->dev, "%s: baud %d\n", __func__, baud);
+	UART_LOG_DBG(port->ipc_log_misc, uport->dev, "%s: baud %d ser_clk_cfg:0x%x\n",
+			__func__, baud, port->ser_clk_cfg);
 exit_set_termios:
 	msm_geni_serial_start_rx(uport);
 	if (!uart_console(uport))
@@ -3159,6 +3206,17 @@ static void msm_geni_serial_debug_init(struct uart_port *uport, bool console)
 			if (!msm_port->ipc_log_irqstatus)
 				dev_info(uport->dev, "Err in irqstatus IPC Log\n");
 		}
+
+		/* New set of UART IPC log to avoid overwrite of logging */
+		memset(name, 0, sizeof(name));
+		if (!msm_port->ipc_log_new) {
+			scnprintf(name, sizeof(name), "%s%s",
+				dev_name(uport->dev), "_new");
+			msm_port->ipc_log_new = ipc_log_context_create(
+						IPC_LOG_MISC_PAGES, name, 0);
+			if (!msm_port->ipc_log_new)
+				dev_info(uport->dev, "Err with New IPC Log\n");
+		}
 	} else {
 		memset(name, 0, sizeof(name));
 		if (!msm_port->console_log) {
@@ -3182,10 +3240,12 @@ static void msm_geni_serial_cons_pm(struct uart_port *uport,
 
 	if (new_state == UART_PM_STATE_ON && old_state == UART_PM_STATE_OFF) {
 		msm_geni_serial_resources_on(msm_port);
+		msm_geni_enable_disable_se_clk(uport, true);
 		atomic_set(&msm_port->is_clock_off, 0);
 	} else if (new_state == UART_PM_STATE_OFF &&
 			old_state == UART_PM_STATE_ON) {
 		atomic_set(&msm_port->is_clock_off, 1);
+		msm_geni_enable_disable_se_clk(uport, false);
 		msm_geni_serial_resources_off(msm_port);
 	}
 }
@@ -3256,6 +3316,7 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 		}
 		geni_se_common_clks_on(msm_port->serial_rsc.se_clk,
 			msm_port->serial_rsc.m_ahb_clk, msm_port->serial_rsc.s_ahb_clk);
+		msm_geni_enable_disable_se_clk(uport, true);
 	}
 
 	/* Basic HW and FW info */
@@ -3287,6 +3348,7 @@ static int msm_geni_serial_get_ver_info(struct uart_port *uport)
 
 exit_ver_info:
 	if (!msm_port->is_console) {
+		msm_geni_enable_disable_se_clk(uport, false);
 		geni_se_common_clks_off(msm_port->serial_rsc.se_clk,
 			msm_port->serial_rsc.m_ahb_clk, msm_port->serial_rsc.s_ahb_clk);
 
@@ -3731,6 +3793,7 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 	if (port->wakeup_byte && port->wakeup_irq)
 		msm_geni_serial_allow_rx(port);
 
+	msm_geni_enable_disable_se_clk(&port->uport, false);
 	ret = msm_geni_serial_resources_off(port);
 	if (ret) {
 		dev_err(dev, "%s: Error ret %d\n", __func__, ret);
@@ -3785,6 +3848,7 @@ static int msm_geni_serial_runtime_resume(struct device *dev)
 		__pm_relax(port->geni_wake);
 		goto exit_runtime_resume;
 	}
+	msm_geni_enable_disable_se_clk(&port->uport, true);
 	start_rx_sequencer(&port->uport);
 	/* Ensure that the Rx is running before enabling interrupts */
 	mb();

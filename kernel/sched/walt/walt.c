@@ -19,7 +19,6 @@
 #include <trace/hooks/cpufreq.h>
 #include <trace/hooks/topology.h>
 #include <trace/events/power.h>
-
 #include "walt.h"
 #include "trace.h"
 
@@ -342,6 +341,9 @@ static void fixup_walt_sched_stats_common(struct rq *rq, struct task_struct *p,
 				      pred_demand_delta);
 }
 
+static void rollover_cpu_window(struct rq *rq, bool full_window);
+static void rollover_top_tasks(struct rq *rq, bool full_window);
+
 /*
  * Demand aggregation for frequency purpose:
  *
@@ -394,6 +396,7 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 	int nr_windows;
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	u64 old_window_start = wrq->window_start;
+	bool full_window;
 
 	if (wallclock < wrq->latest_clock) {
 		printk_deferred("WALT-BUG CPU%d; wallclock=%llu(0x%llx) is lesser than latest_clock=%llu(0x%llx)",
@@ -416,6 +419,10 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 	wrq->window_start += (u64)nr_windows * (u64)sched_ravg_window;
 
 	wrq->prev_window_size = sched_ravg_window;
+
+	full_window = nr_windows > 1;
+	rollover_cpu_window(rq, full_window);
+	rollover_top_tasks(rq, full_window);
 
 	return old_window_start;
 }
@@ -583,30 +590,41 @@ should_apply_suh_freq_boost(struct walt_sched_cluster *cluster)
 	return is_cluster_hosting_top_app(cluster);
 }
 
-static inline u64 freq_policy_load(struct rq *rq)
+static inline u64 freq_policy_load(struct rq *rq, unsigned int *reason)
 {
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_sched_cluster *cluster = wrq->cluster;
 	u64 aggr_grp_load = cluster->aggr_grp_load;
-	u64 load, tt_load = 0;
+	u64 load, tt_load = 0, kload = 0;
 	struct task_struct *cpu_ksoftirqd = per_cpu(ksoftirqd, cpu_of(rq));
 
 	if (wrq->ed_task != NULL) {
 		load = sched_ravg_window;
+		*reason = CPUFREQ_REASON_EARLY_DET;
 		goto done;
 	}
 
-	if (sched_freq_aggr_en)
+	if (sched_freq_aggr_en) {
 		load = wrq->prev_runnable_sum + aggr_grp_load;
+		*reason = CPUFREQ_REASON_FREQ_AGR;
+	}
 	else
 		load = wrq->prev_runnable_sum +
 					wrq->grp_time.prev_runnable_sum;
 
-	if (cpu_ksoftirqd && READ_ONCE(cpu_ksoftirqd->__state) == TASK_RUNNING)
-		load = max_t(u64, load, task_load(cpu_ksoftirqd));
+	if (cpu_ksoftirqd && READ_ONCE(cpu_ksoftirqd->__state) == TASK_RUNNING) {
+		kload = task_load(cpu_ksoftirqd);
+		if (kload > load) {
+			load = kload;
+			*reason = CPUFREQ_REASON_KSOFTIRQD;
+		}
+	}
 
 	tt_load = top_task_load(rq);
-	load = max_t(u64, load, tt_load);
+	if (tt_load > load) {
+		load = tt_load;
+		*reason = CPUFREQ_REASON_TT_LOAD;
+	}
 
 	if (should_apply_suh_freq_boost(cluster)) {
 		if (is_suh_max())
@@ -614,26 +632,27 @@ static inline u64 freq_policy_load(struct rq *rq)
 		else
 			load = div64_u64(load * sysctl_sched_user_hint,
 					 (u64)100);
+		*reason = CPUFREQ_REASON_SUH;
 	}
 
 done:
 	trace_sched_load_to_gov(rq, aggr_grp_load, tt_load, sched_freq_aggr_en,
 				load, 0, walt_rotation_enabled,
-				sysctl_sched_user_hint, wrq);
+				sysctl_sched_user_hint, wrq, *reason);
 	return load;
 }
 
 static bool rtgb_active;
 
 static inline unsigned long
-__cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load)
+__cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load, unsigned int *reason)
 {
 	u64 util;
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long capacity = capacity_orig_of(cpu);
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 
-	util = div64_u64(freq_policy_load(rq),
+	util = div64_u64(freq_policy_load(rq, reason),
 			sched_ravg_window >> SCHED_CAPACITY_SHIFT);
 
 	if (walt_load) {
@@ -658,7 +677,7 @@ __cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load)
 			(max(orig, mult_frac(other, x, 100)))
 
 unsigned long
-cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load)
+cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load, unsigned int *reason)
 {
 	struct walt_cpu_load wl_other = {0};
 	unsigned long util = 0, util_other = 0;
@@ -666,13 +685,13 @@ cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load)
 	int i, mpct = sysctl_sched_asym_cap_sibling_freq_match_pct;
 
 	if (!cpumask_test_cpu(cpu, &asym_cap_sibling_cpus))
-		return __cpu_util_freq_walt(cpu, walt_load);
+		return __cpu_util_freq_walt(cpu, walt_load, reason);
 
 	for_each_cpu(i, &asym_cap_sibling_cpus) {
 		if (i == cpu)
-			util = __cpu_util_freq_walt(cpu, walt_load);
+			util = __cpu_util_freq_walt(cpu, walt_load, reason);
 		else
-			util_other = __cpu_util_freq_walt(i, &wl_other);
+			util_other = __cpu_util_freq_walt(i, &wl_other, reason);
 	}
 
 	if (cpu == cpumask_last(&asym_cap_sibling_cpus))
@@ -1010,14 +1029,20 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 		WALT_BUG(WALT_BUG_UPSTREAM, p, "on CPU %d task %s(%d) not on src_rq %d",
 				raw_smp_processor_id(), p->comm, p->pid, src_rq->cpu);
 
-	walt_update_task_ravg(task_rq(p)->curr, task_rq(p),
-			 TASK_UPDATE,
-			 wallclock, 0);
-	walt_update_task_ravg(dest_rq->curr, dest_rq,
-			 TASK_UPDATE, wallclock, 0);
-
-	walt_update_task_ravg(p, task_rq(p), TASK_MIGRATE,
-			 wallclock, 0);
+	walt_update_task_ravg(p, task_rq(p), TASK_MIGRATE, wallclock, 0);
+	/*
+	 * The above update might have rolled over the
+	 * window for this migrating task. Since we are
+	 * going to adjust the destination CPU's busy time
+	 * counters with the task busytime counters, roll over
+	 * the window for the destination CPU also.
+	 *
+	 * The update_window_start() does nothing if the window
+	 * is not rolled over, so there is no need to check for
+	 * window boundary or if the counters will be accessed
+	 * or not.
+	 */
+	update_window_start(dest_rq, wallclock, TASK_UPDATE);
 
 	update_task_cpu_cycles(p, new_cpu, wallclock);
 
@@ -1550,6 +1575,50 @@ static void rollover_cpu_window(struct rq *rq, bool full_window)
 /*
  * Account cpu activity in its
  * busy time counters(wrq->curr/prev_runnable_sum)
+ *
+ * While the comments at the top of update_task_demand() apply, irqtime handling
+ * needs some explanation.
+ *
+ * Note that update_task_ravg() with irqtime is only called when idle, i.e. p is
+ * always idle
+ *
+ * ms_i = mark_start of idle task
+ * ws = wrq->window_start
+ * irq_s = start time of irq
+ * irq_e = end time of irq = wallclock
+ *
+ * note irqtime = irq_e - irq_s
+ *
+ * Similar to the explanation at update_task_demand() we have few sitautions for irqtime
+ *
+ *              ws   ms_i   is    ie
+ *              |    |      |      |
+ *              V    V      V      V
+ *      --------|--------------------|
+ *          prev    curr
+ *
+ * In the above case, new_window is false and irqtime is accounted in curr_runnable_sum, this is
+ * done in the if (!new_window) block.
+ *
+ *             ms_i  ws     is    ie
+ *              |    |      |      |
+ *              V    V      V      V
+ *      -------------|---------------------
+ *               prev   curr
+ *
+ * In this case, new_window is true, however the irqtime falls within the current window, the
+ * entire irqtime is accounted in curr_runnable_sum. This is handled in the if (irqtime) block and
+ * within that if (mark_start > window_start) block
+ *
+ *             ms_i  is     ws    ie
+ *              |    |      |      |
+ *              V    V      V      V
+ *      --------------------|---------------
+ *                      prev    curr
+ *
+ * In this case, new_window is true, portion  of the irqtime  needs to be accounted in
+ * prev_runnable_sum while the rest is in curr_runnable_sum. This is handled in the
+ * if (irqtime) block
  */
 static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 				 int event, u64 wallclock, u64 irqtime)
@@ -1585,11 +1654,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 	}
 
 	new_task = is_new_task(p);
-
-	if (p_is_curr_task && new_window) {
-		rollover_cpu_window(rq, full_window);
-		rollover_top_tasks(rq, full_window);
-	}
 
 	if (!account_busy_for_cpu_time(rq, p, irqtime, event))
 		goto done;
@@ -1631,15 +1695,25 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		goto done;
 	}
 
+	/*
+	 * situations below this need window rollover,
+	 * Rollover of cpu counters (curr/prev_runnable_sum) should have already be done
+	 * in update_window_start()
+	 *
+	 * For task counters curr/prev_window[_cpu] are rolled over in the early part of
+	 * this function. If full_window(s) have expired and time since last update needs
+	 * to be accounted as busy time, set the prev to a complete window size time, else
+	 * add the prev window portion.
+	 *
+	 * For task curr counters a new window has begun, always assign
+	 */
+
 	if (!p_is_curr_task) {
 		/*
 		 * account_busy_for_cpu_time() = 1 so busy time needs
 		 * to be accounted to the current window. A new window
-		 * has also started, but p is not the current task, so the
-		 * window is not rolled over - just split up and account
-		 * as necessary into curr and prev. The window is only
-		 * rolled over when a new window is processed for the current
-		 * task.
+		 * must have been started in udpate_window_start()
+		 * - just split up and account as necessary into curr and prev.
 		 *
 		 * Irqtime can't be accounted by a task that isn't the
 		 * currently running task.
@@ -1684,8 +1758,8 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		/*
 		 * account_busy_for_cpu_time() = 1 so busy time needs
 		 * to be accounted to the current window. A new window
-		 * has started and p is the current task so rollover is
-		 * needed. If any of these three above conditions are true
+		 * must have been started in udpate_window_start()
+		 * If any of these three above conditions are true
 		 * then this busy time can't be accounted as irqtime.
 		 *
 		 * Busy time for the idle task need not be accounted.
@@ -1717,10 +1791,6 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 			}
 		}
 
-		/*
-		 * Rollover is done here by overwriting the values in
-		 * prev_runnable_sum and curr_runnable_sum.
-		 */
 		*prev_runnable_sum += delta;
 		if (new_task)
 			*nt_prev_runnable_sum += delta;
@@ -1743,8 +1813,8 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		/*
 		 * account_busy_for_cpu_time() = 1 so busy time needs
 		 * to be accounted to the current window. A new window
-		 * has started and p is the current task so rollover is
-		 * needed. The current task must be the idle task because
+		 * must have been started in udpate_window_start()
+		 * The current task must be the idle task because
 		 * irqtime is not accounted for any other task.
 		 *
 		 * Irqtime will be accounted each time we process IRQ activity
@@ -1753,14 +1823,15 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		 */
 
 		WALT_PANIC(!is_idle_task(p));
+		/* mark_start here becomes the starting time of interrupt */
 		mark_start = wallclock - irqtime;
 
 		/*
-		 * Roll window over. If IRQ busy time was just in the current
+		 * If IRQ busy time was just in the current
 		 * window then that is all that need be accounted.
 		 */
 		if (mark_start > window_start) {
-			*curr_runnable_sum = scale_exec_time(irqtime, rq);
+			*curr_runnable_sum += scale_exec_time(irqtime, rq);
 			return;
 		}
 
@@ -1776,7 +1847,7 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 
 		/* Process the remaining IRQ busy time in the current window. */
 		delta = wallclock - window_start;
-		wrq->curr_runnable_sum = scale_exec_time(delta, rq);
+		wrq->curr_runnable_sum += scale_exec_time(delta, rq);
 
 		return;
 	}
@@ -2243,7 +2314,8 @@ static void init_new_task_load(struct task_struct *p)
 	wts->unfilter = sysctl_sched_task_unfilter_period;
 
 	INIT_LIST_HEAD(&wts->mvp_list);
-	wts->sum_exec_snapshot = 0;
+	wts->sum_exec_snapshot_for_slice = 0;
+	wts->sum_exec_snapshot_for_total = 0;
 	wts->total_exec = 0;
 	wts->mvp_prio = WALT_NOT_MVP;
 	wts->cidx = 0;
@@ -3186,7 +3258,6 @@ static void transfer_busy_time(struct rq *rq,
 
 	wallclock = walt_sched_clock();
 
-	walt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	walt_update_task_ravg(p, rq, TASK_UPDATE, wallclock, 0);
 	new_task = is_new_task(p);
 
@@ -3420,7 +3491,8 @@ static inline void __walt_irq_work_locked(bool is_migration, struct cpumask *loc
 	struct walt_rq *wrq;
 
 	wc = walt_sched_clock();
-	walt_load_reported_window = atomic64_read(&walt_irq_work_lastq_ws);
+	if (!is_migration)
+		walt_load_reported_window = atomic64_read(&walt_irq_work_lastq_ws);
 	for_each_sched_cluster(cluster) {
 		u64 aggr_grp_load = 0;
 
@@ -4086,7 +4158,9 @@ static void android_rvh_try_to_wake_up(void *unused, struct task_struct *p)
 	rq_lock_irqsave(rq, &rf);
 	old_load = task_load(p);
 	wallclock = walt_sched_clock();
-	walt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
+
+	if (is_idle_task(rq->curr) && p->in_iowait)
+		walt_update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	walt_update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
 	note_task_waking(p, wallclock);
 	rq_unlock_irqrestore(rq, &rf);
@@ -4112,14 +4186,25 @@ static void android_rvh_try_to_wake_up_success(void *unused, struct task_struct 
 	raw_spin_unlock_irqrestore(&cpu_rq(cpu)->__lock, flags);
 }
 
+u64 tick_sched_clock;
+static DECLARE_COMPLETION(tick_sched_clock_completion);
+
 static void android_rvh_tick_entry(void *unused, struct rq *rq)
 {
 	u64 wallclock;
 
+	if (!tick_sched_clock) {
+		/*
+		 * Let the window begin 20us prior to the tick,
+		 * that way we are guaranteed a rollover when the tick occurs.
+		 */
+		tick_sched_clock = rq_clock(rq) - 20000;
+		complete_all(&tick_sched_clock_completion);
+	}
+
 	lockdep_assert_held(&rq->__lock);
 	if (unlikely(walt_disabled))
 		return;
-
 	set_window_start(rq);
 	wallclock = walt_rq_clock(rq);
 
@@ -4230,6 +4315,19 @@ static void android_rvh_build_perf_domains(void *unused, bool *eas_check)
 	*eas_check = true;
 }
 
+static void walt_do_sched_yield(void *unused, struct rq *rq)
+{
+	struct task_struct *curr = rq->curr;
+	int mvp_prio = walt_get_mvp_task_prio(curr);
+
+	lockdep_assert_held(&rq->__lock);
+	if (mvp_prio != WALT_NOT_MVP)
+		walt_cfs_deactivate_mvp_task(curr);
+
+	if (rt_task(curr))
+		per_cpu(rt_task_arrival_time, cpu_of(rq)) = 0;
+}
+
 static void register_walt_hooks(void)
 {
 	register_trace_android_rvh_wake_up_new_task(android_rvh_wake_up_new_task, NULL);
@@ -4257,6 +4355,7 @@ static void register_walt_hooks(void)
 	register_trace_android_rvh_sched_exec(android_rvh_sched_exec, NULL);
 	register_trace_android_rvh_build_perf_domains(android_rvh_build_perf_domains, NULL);
 	register_trace_cpu_frequency_limits(walt_cpu_frequency_limits, NULL);
+	register_trace_android_rvh_do_sched_yield(walt_do_sched_yield, NULL);
 }
 
 atomic64_t walt_irq_work_lastq_ws;
@@ -4266,7 +4365,6 @@ static int walt_init_stop_handler(void *data)
 {
 	int cpu;
 	struct task_struct *g, *p;
-	u64 window_start_ns, nr_windows;
 	struct walt_rq *wrq;
 
 	read_lock(&tasklist_lock);
@@ -4278,10 +4376,6 @@ static int walt_init_stop_handler(void *data)
 		init_existing_task_load(p);
 	} while_each_thread(g, p);
 
-	window_start_ns = walt_sched_clock();
-	nr_windows = div64_u64(window_start_ns, sched_ravg_window);
-	window_start_ns = (u64)nr_windows * (u64)sched_ravg_window;
-
 	for_each_possible_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
 
@@ -4291,10 +4385,10 @@ static int walt_init_stop_handler(void *data)
 		walt_sched_init_rq(rq);
 
 		wrq = (struct walt_rq *) rq->android_vendor_data1;
-		wrq->window_start = window_start_ns;
+		wrq->window_start = tick_sched_clock;
 	}
 
-	atomic64_set(&walt_irq_work_lastq_ws, window_start_ns);
+	atomic64_set(&walt_irq_work_lastq_ws, tick_sched_clock);
 
 	create_default_coloc_group();
 
@@ -4345,7 +4439,7 @@ static void walt_init(struct work_struct *work)
 	walt_rt_init();
 	walt_cfs_init();
 	walt_halt_init();
-
+	wait_for_completion(&tick_sched_clock_completion);
 	stop_machine(walt_init_stop_handler, NULL, NULL);
 
 	hdr = register_sysctl_table(walt_base_table);

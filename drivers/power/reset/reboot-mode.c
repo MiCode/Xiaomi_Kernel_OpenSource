@@ -10,6 +10,7 @@
 #include <linux/of.h>
 #include <linux/reboot.h>
 #include <linux/reboot-mode.h>
+#include <linux/string.h>
 
 #define PREFIX "mode-"
 
@@ -28,6 +29,9 @@ static unsigned int get_reboot_mode_magic(struct reboot_mode_driver *reboot,
 
 	if (!cmd)
 		cmd = normal;
+
+	/* Before comparing to modes retrieved via DT, replace ' ' by '-' */
+	strreplace((char *)cmd, ' ', '-');
 
 	list_for_each_entry(info, &reboot->head, list) {
 		if (!strcmp(info->mode, cmd)) {

@@ -463,6 +463,11 @@ static int mhi_dev_send_multiple_tr_events(struct mhi_dev *mhi, int evnt_ring,
 		return -EINVAL;
 	}
 
+	if (!ring) {
+		pr_err("%s(): Ring %d not present\n", __func__, evnt_ring_idx);
+		return -EINVAL;
+	}
+
 	ctx = (union mhi_dev_ring_ctx *)&mhi->ev_ctx_cache[evnt_ring];
 
 	if (mhi_ring_get_state(ring) == RING_STATE_UINT) {
@@ -3163,6 +3168,11 @@ int mhi_dev_open_channel(uint32_t chan_id,
 	int rc = 0;
 	struct mhi_dev_channel *ch;
 	struct platform_device *pdev;
+
+	if (!mhi_ctx || !mhi_ctx->pdev) {
+		mhi_log(MHI_MSG_ERROR, "Invalid open channel call for ch_id:%d\n", chan_id);
+		return -EINVAL;
+	}
 
 	pdev = mhi_ctx->pdev;
 	ch = &mhi_ctx->ch[chan_id];

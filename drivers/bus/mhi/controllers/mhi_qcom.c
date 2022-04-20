@@ -950,6 +950,7 @@ static int mhi_qcom_register_controller(struct mhi_controller *mhi_cntrl,
 	mhi_cntrl->edl_image = dev_info->edl_image;
 
 	mhi_controller_set_privdata(mhi_cntrl, mhi_priv);
+	mhi_controller_set_loglevel(mhi_cntrl, MHI_QCOM_DEBUG_LEVEL);
 	mhi_controller_set_base(mhi_cntrl,
 				pci_resource_start(pci_dev, dev_info->bar_num));
 
@@ -1145,6 +1146,9 @@ static const struct dev_pm_ops pm_ops = {
 };
 
 #ifdef CONFIG_MHI_BUS_DEBUG
+
+#define MHI_QCOM_DEBUG_LEVEL MHI_MSG_LVL_VERBOSE
+
 static struct dentry *mhi_qcom_debugfs;
 
 static int mhi_qcom_debugfs_debug_mode_show(struct seq_file *m, void *d)
@@ -1203,6 +1207,8 @@ void mhi_qcom_debugfs_exit(void)
 }
 
 #else
+
+#define MHI_QCOM_DEBUG_LEVEL MHI_MSG_LVL_ERROR
 
 static inline void mhi_qcom_debugfs_init(void)
 {

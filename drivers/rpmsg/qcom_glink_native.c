@@ -1279,6 +1279,13 @@ static int qcom_glink_native_rx(struct qcom_glink *glink, int iterations)
 	int ret = 0;
 	int i;
 
+	if (should_wake) {
+		pr_info("%s: wakeup %s\n", __func__, glink->irqname);
+		glink_resume_pkt = true;
+		should_wake = false;
+		pm_system_wakeup();
+	}
+
 	spin_lock_irqsave(&glink->irq_lock, flags);
 	if (glink->irq_running) {
 		spin_unlock_irqrestore(&glink->irq_lock, flags);
@@ -1287,12 +1294,6 @@ static int qcom_glink_native_rx(struct qcom_glink *glink, int iterations)
 	glink->irq_running = true;
 	spin_unlock_irqrestore(&glink->irq_lock, flags);
 
-	if (should_wake) {
-		pr_info("%s: wakeup %s\n", __func__, glink->irqname);
-		glink_resume_pkt = true;
-		should_wake = false;
-		pm_system_wakeup();
-	}
 	/* To wakeup any blocking writers */
 	wake_up_all(&glink->tx_avail_notify);
 

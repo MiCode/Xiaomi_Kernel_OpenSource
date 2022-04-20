@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/ipa_fmwk.h>
@@ -592,6 +593,40 @@ bool ipa_is_ready(void)
 	return ipa_fmwk_ctx->ipa_ready;
 }
 EXPORT_SYMBOL(ipa_is_ready);
+
+#ifdef CONFIG_DEEPSLEEP
+int ipa_fmwk_deepsleep_entry_ipa(void)
+{
+	if (!ipa_fmwk_ctx) {
+		pr_err("ipa framework hasn't been initialized yet\n");
+		return -EPERM;
+	}
+
+	mutex_lock(&ipa_fmwk_ctx->lock);
+	ipa_fmwk_ctx->ipa_ready = false;
+	mutex_unlock(&ipa_fmwk_ctx->lock);
+	pr_info("IPA driver is now in exit state\n");
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_fmwk_deepsleep_entry_ipa);
+
+int ipa_fmwk_deepsleep_exit_ipa(void)
+{
+	if (!ipa_fmwk_ctx) {
+		pr_err("ipa framework hasn't been initialized yet\n");
+		return -EPERM;
+	}
+
+	mutex_lock(&ipa_fmwk_ctx->lock);
+	ipa_trigger_ipa_ready_cbs();
+	ipa_fmwk_ctx->ipa_ready = true;
+	mutex_unlock(&ipa_fmwk_ctx->lock);
+	pr_info("IPA driver is now in ready state\n");
+	return 0;
+}
+EXPORT_SYMBOL(ipa_fmwk_deepsleep_exit_ipa);
+#endif
 
 int ipa_register_ipa_ready_cb(void(*ipa_ready_cb)(void *user_data),
 	void *user_data)

@@ -480,6 +480,18 @@ config QTI_RIMPS_LOG
 	  This driver register with IPC_Logging framework, to have dedicated
 	  buffer for rimps hw device.
 
+config QTI_PLH_SCMI_CLIENT
+	tristate "Qualcomm Technologies Inc. SCMI client driver for PLH"
+	depends on MSM_PERFORMANCE && QTI_SCMI_PLH_PROTOCOL
+	default n
+	help
+	  SCMI client driver registers itself with SCMI framework for PLH
+	  vendor protocol, and also registers with the plh interface driver
+	  msm_performance.
+
+	  This driver deliver the PLH vendor protocol handle to interface
+	  driver, and interface driver will use this handle to communicate
+	  with RIMPS PLH.
 
 config QCOM_SOC_SLEEP_STATS
 	tristate "Qualcomm Technologies, Inc. (QTI) SoC sleep stats driver"
@@ -511,6 +523,15 @@ config QCOM_WDT_CORE
 	   only enables the framework, an individual Qualcomm Technologies, Inc.
 	   watchdog module must be loaded along with this for watchdog
 	   functionality.
+
+config QCOM_CX_IPEAK
+	tristate "Common driver to handle Cx iPeak limitation"
+	help
+	  Cx ipeak HW module is used to limit the current drawn by various
+	  subsystem blocks on Cx power rail. Each client needs to set their
+	  bit in tcsr register if it is going to cross its own threshold.
+	  If all clients are going to cross their thresholds then Cx ipeak
+	  hw module will raise an interrupt to cDSP block to throttle cDSP fmax.
 
 config QCOM_SOC_WATCHDOG
 	tristate "Qualcomm Technologies, Inc. Soc Watchdog"
@@ -838,6 +859,15 @@ config BUG_ON_HW_MEM_ONLINE_FAIL
 	  of such memory online failures.
 	  If unsure, say N
 
+config QCOM_HUNG_TASK_ENH
+        tristate "QTI Hung Task Enhancement"
+        depends on ARCH_QCOM
+        help
+          Add options at sysfs to enhance khungtask, allow user to
+          select and monitor tasks in black/white list mode. Also
+          processes in iowait for specific situation will be monitored
+          to avoid devices long time no response.
+
 config QCOM_GUESTVM
         tristate "Enable Guest VM to be loaded by PIL"
         select QCOM_MDT_LOADER
@@ -900,6 +930,15 @@ config QCOM_MINIDUMP
 	  register to dump their state at system bad state (panic/WDT,etc.,).
 	  Minidump would dump all registered entries, only when DLOAD mode
 	  is enabled.
+
+config QCOM_VA_MINIDUMP
+	tristate "QCOM VA Minidump Support"
+	depends on QCOM_MINIDUMP
+	help
+	  This enables minidump feature for registering dynamic
+	  data structures. It supports VA based registration
+	  with minidump, which is made into an ELF. The region
+	  for ELF is registered with legacy minidump.
 
 config QCOM_DYN_MINIDUMP_STACK
 	bool "QTI Dynamic Minidump Stack Registration Support"
@@ -971,6 +1010,25 @@ config MSM_QBT_HANDLER
          interrupt in an event queue and notifies the userspace to read the events
          from the queue. It also creates an input device to send key events such as
          KEY_POWER, KEY_HOME.
+
+config QCOM_VM_DMESG_DUMPER
+	tristate "Dump a VM's kmsg to a shared reserved memory upon panic"
+	depends on GH_RM_DRV
+	depends on QCOM_SECURE_BUFFER || ARCH_QTI_VM
+	help
+	  Upon encountering a kernel panic in a Virtual machine, enable the
+	  dumping the kmsg log buffer to a reserved memory section through the
+	  use of a Gunyah shared-memory doorbell object. This driver is to be
+	  enabled on both Primary VM and the other VM whose kmsg is desired.
+
+config QCOM_VM_ALIVE_LOG_DUMPER
+	bool "Dump a VM's alive kmsg to a shared reserved memory Support"
+	depends on QCOM_VM_DMESG_DUMPER
+	default n
+	help
+	  This enables to dump a VM's alive kmsg log buffer to the reserved
+	  memory section, triggered by Primary VM. This needs to be enabled on
+	  both Primary VM and the other VM whose kmsg is desired.
 
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"

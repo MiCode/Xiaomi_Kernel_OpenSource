@@ -285,6 +285,7 @@ err:
 	mmap_write_unlock(mm);
 err_free:
 	bprm->vma = NULL;
+	VM_BUG_ON(vma->vm_file);
 	vm_area_free(vma);
 	return err;
 }

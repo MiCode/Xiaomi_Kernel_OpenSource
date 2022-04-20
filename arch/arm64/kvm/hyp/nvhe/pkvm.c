@@ -230,19 +230,25 @@ extern unsigned long hyp_nr_cpus;
  * Protects writes to shadow_table, num_shadow_entries, and next_shadow_alloc,
  * as well as reads and writes to last_shadow_vcpu_lookup.
  */
-DEFINE_HYP_SPINLOCK(shadow_lock);
+static DEFINE_HYP_SPINLOCK(shadow_lock);
 
 /*
  * The table of shadow entries for protected VMs in hyp.
  * Allocated at hyp initialization and setup.
  */
-struct kvm_shadow_vm **shadow_table;
+static struct kvm_shadow_vm **shadow_table;
 
 /* Current number of vms in the shadow table. */
-int num_shadow_entries;
+static int num_shadow_entries;
 
 /* The next entry index to try to allocate from. */
-int next_shadow_alloc;
+static int next_shadow_alloc;
+
+void hyp_shadow_table_init(void *tbl)
+{
+	WARN_ON(shadow_table);
+	shadow_table = tbl;
+}
 
 /*
  * Return the shadow vm corresponding to the handle.
@@ -433,7 +439,7 @@ static int init_shadow_structs(struct kvm *kvm, struct kvm_shadow_vm *vm,
 	return 0;
 }
 
-static bool exists_shadow(struct kvm *host_kvm)
+static bool __exists_shadow(struct kvm *host_kvm)
 {
 	int i;
 	int num_checked = 0;
@@ -457,12 +463,14 @@ static bool exists_shadow(struct kvm *host_kvm)
  * Return a unique handle to the protected VM on success,
  * negative error code on failure.
  */
-static int __insert_shadow_table(struct kvm *kvm, struct kvm_shadow_vm *vm,
-			         size_t shadow_size)
+static int insert_shadow_table(struct kvm *kvm, struct kvm_shadow_vm *vm,
+			       size_t shadow_size)
 {
 	struct kvm_s2_mmu *mmu = &vm->arch.mmu;
 	int shadow_handle;
 	int vmid;
+
+	hyp_assert_lock_held(&shadow_lock);
 
 	if (unlikely(num_shadow_entries >= KVM_MAX_PVMS))
 		return -ENOMEM;
@@ -475,7 +483,7 @@ static int __insert_shadow_table(struct kvm *kvm, struct kvm_shadow_vm *vm,
 		return -EINVAL;
 
 	/* Check that a shadow hasn't been created before for this host KVM. */
-	if (unlikely(exists_shadow(kvm)))
+	if (unlikely(__exists_shadow(kvm)))
 		return -EEXIST;
 
 	/* Find the next free entry in the shadow table. */
@@ -503,32 +511,14 @@ static int __insert_shadow_table(struct kvm *kvm, struct kvm_shadow_vm *vm,
 	return shadow_handle;
 }
 
-static int insert_shadow_table(struct kvm *kvm, struct kvm_shadow_vm *vm,
-			       size_t shadow_size)
-{
-	int ret;
-
-	hyp_spin_lock(&shadow_lock);
-	ret = __insert_shadow_table(kvm, vm, shadow_size);
-	hyp_spin_unlock(&shadow_lock);
-
-	return ret;
-}
-
 /*
  * Deallocate and remove the shadow table entry corresponding to the handle.
  */
-static void __remove_shadow_table(int shadow_handle)
-{
-	shadow_table[shadow_handle_to_index(shadow_handle)] = NULL;
-	num_shadow_entries--;
-}
-
 static void remove_shadow_table(int shadow_handle)
 {
-	hyp_spin_lock(&shadow_lock);
-	__remove_shadow_table(shadow_handle);
-	hyp_spin_unlock(&shadow_lock);
+	hyp_assert_lock_held(&shadow_lock);
+	shadow_table[shadow_handle_to_index(shadow_handle)] = NULL;
+	num_shadow_entries--;
 }
 
 static size_t pkvm_get_shadow_size(int num_vcpus)
@@ -627,27 +617,29 @@ int __pkvm_init_shadow(struct kvm *kvm,
 	if (ret)
 		goto err_remove_pgd;
 
-	/* Add the entry to the shadow table. */
-	ret = insert_shadow_table(kvm, vm, shadow_size);
+	ret = init_shadow_structs(kvm, vm, pgd, nr_vcpus);
 	if (ret < 0)
 		goto err_unpin_host_vcpus;
 
-	ret = init_shadow_structs(kvm, vm, pgd, nr_vcpus);
+	/* Add the entry to the shadow table. */
+	hyp_spin_lock(&shadow_lock);
+	ret = insert_shadow_table(kvm, vm, shadow_size);
 	if (ret < 0)
-		goto err_remove_shadow_table;
+		goto err_unlock_unpin_host_vcpus;
 
 	ret = kvm_guest_prepare_stage2(vm, pgd);
 	if (ret)
 		goto err_remove_shadow_table;
 
+	hyp_spin_unlock(&shadow_lock);
 	return vm->shadow_handle;
 
 err_remove_shadow_table:
 	remove_shadow_table(vm->shadow_handle);
-
+err_unlock_unpin_host_vcpus:
+	hyp_spin_unlock(&shadow_lock);
 err_unpin_host_vcpus:
 	unpin_host_vcpus(vm->shadow_vcpus, nr_vcpus);
-
 err_remove_pgd:
 	WARN_ON(__pkvm_hyp_donate_host(hyp_virt_to_pfn(pgd), nr_pgd_pages));
 
@@ -686,7 +678,9 @@ int __pkvm_teardown_shadow(int shadow_handle)
 		goto err_unlock;
 	}
 
-	__remove_shadow_table(shadow_handle);
+	/* Ensure the VMID is clean before it can be reallocated */
+	__kvm_tlb_flush_vmid(&vm->arch.mmu);
+	remove_shadow_table(shadow_handle);
 	hyp_spin_unlock(&shadow_lock);
 
 	/* Reclaim guest pages, and page-table pages */

@@ -26,6 +26,7 @@ static struct dtr_info {
 	struct completion completion;
 	struct mhi_device *mhi_dev;
 	void *ipc_log;
+	bool probed;
 } *dtr_info;
 
 static enum MHI_DEBUG_LEVEL dtr_log_level = MHI_MSG_LVL_INFO;
@@ -202,8 +203,27 @@ static void mhi_dtr_ul_xfer_cb(struct mhi_device *mhi_dev,
 		complete(&dtr_info->completion);
 }
 
+void mhi_start_dtr_channels(struct mhi_device *mhi_dev)
+{
+	struct device *dev = &mhi_dev->dev;
+	int ret;
+
+	if (!dtr_info->probed) {
+		DTR_ERR("DTR probe not yet called!\n");
+		return;
+	}
+
+	ret = mhi_prepare_for_transfer(mhi_dev, 0);
+	if (!ret)
+		dtr_info->mhi_dev = mhi_dev;
+
+	DTR_LOG("DTR channels start attempt returns: %d\n", ret);
+}
+EXPORT_SYMBOL(mhi_start_dtr_channels);
+
 static void mhi_dtr_remove(struct mhi_device *mhi_dev)
 {
+	dtr_info->probed = false;
 	dtr_info->mhi_dev = NULL;
 }
 
@@ -211,18 +231,14 @@ static int mhi_dtr_probe(struct mhi_device *mhi_dev,
 			 const struct mhi_device_id *id)
 {
 	struct device *dev = &mhi_dev->dev;
-	int ret;
-
-	ret = mhi_prepare_for_transfer(mhi_dev, 0);
-	if (!ret)
-		dtr_info->mhi_dev = mhi_dev;
 
 	dtr_info->ipc_log = ipc_log_context_create(MHI_DTR_IPC_LOG_PAGES,
 						   dev_name(&mhi_dev->dev), 0);
 
-	DTR_LOG("%s setup complete, ret: %d\n", dev_name(&mhi_dev->dev), ret);
+	dtr_info->probed = true;
+	DTR_LOG("%s probe complete, ret: %d\n", dev_name(&mhi_dev->dev));
 
-	return ret;
+	return 0;
 }
 
 static const struct mhi_device_id mhi_dtr_table[] = {

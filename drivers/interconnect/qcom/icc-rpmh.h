@@ -99,6 +99,7 @@ struct qcom_icc_node {
  * @perf_mode_mask: mask to OR with enable_mask when QCOM_ICC_TAG_PERF_MODE is set
  * @dirty: flag used to indicate whether the bcm needs to be committed
  * @keepalive: flag used to indicate whether a keepalive is required
+ * @keepalive_early: keepalive only prior to sync-state
  * @qos_proxy: flag used to indicate whether a proxy vote needed as part of
  * qos configuration
  * @aux_data: auxiliary data used when calculating threshold values and
@@ -119,6 +120,7 @@ struct qcom_icc_bcm {
 	u32 perf_mode_mask;
 	bool dirty;
 	bool keepalive;
+	bool keepalive_early;
 	bool qos_proxy;
 	struct bcm_db aux_data;
 	struct list_head list;
@@ -160,7 +162,7 @@ int qcom_icc_aggregate_stub(struct icc_node *node, u32 tag, u32 avg_bw,
 int qcom_icc_set(struct icc_node *src, struct icc_node *dst);
 int qcom_icc_set_stub(struct icc_node *src, struct icc_node *dst);
 struct icc_node_data *qcom_icc_xlate_extended(struct of_phandle_args *spec, void *data);
-int qcom_icc_bcm_init(struct qcom_icc_bcm *bcm, struct device *dev);
+int qcom_icc_bcm_init(struct qcom_icc_provider *qp, struct qcom_icc_bcm *bcm, struct device *dev);
 void qcom_icc_pre_aggregate(struct icc_node *node);
 int qcom_icc_get_bw_stub(struct icc_node *node, u32 *avg, u32 *peak);
 int qcom_icc_rpmh_probe(struct platform_device *pdev);

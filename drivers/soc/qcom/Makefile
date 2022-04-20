@@ -66,12 +66,14 @@ obj-$(CONFIG_QCOM_DCVS) += dcvs/
 obj-$(CONFIG_QTI_RIMPS_LOG)	+= rimps_log.o
 obj-$(CONFIG_QCOM_RAMDUMP) += qcom_ramdump.o
 obj-$(CONFIG_QCOM_PANEL_EVENT_NOTIFIER) += panel_event_notifier.o
+obj-$(CONFIG_QCOM_VM_DMESG_DUMPER) += dmesg_dumper.o
 obj-$(CONFIG_QCOM_GUESTVM) += guestvm_loader.o
 obj-$(CONFIG_QCOM_GH_VCPU_SCHED) += gh_vcpu_sched.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
 obj-$(CONFIG_QTI_SYS_PM_VX) += sys_pm_vx.o
+obj-$(CONFIG_QTI_PLH_SCMI_CLIENT) += plh_scmi.o
 obj-$(CONFIG_QCOM_CPU_VENDOR_HOOKS) += qcom_cpu_vendor_hooks.o
 obj-$(CONFIG_QCOM_MEM_OFFLINE) += mem-offline.o
 obj-$(CONFIG_QCOM_HYP_CORE_CTL) += hyp_core_ctl.o
@@ -88,5 +90,8 @@ obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
 obj-$(CONFIG_QCOM_MINIDUMP) += minidump.o
 minidump-y   += msm_minidump.o minidump_log.o
 minidump-$(CONFIG_QCOM_MINIDUMP_PANIC_DUMP) += minidump_memory.o
+obj-$(CONFIG_QCOM_VA_MINIDUMP) += qcom_va_minidump.o
 obj-$(CONFIG_QCOM_LOGBUF_VENDOR_HOOKS) += qcom_logbuf_vh.o
 obj-$(CONFIG_MSM_QBT_HANDLER) += qbt_handler.o
+obj-$(CONFIG_QCOM_HUNG_TASK_ENH) += hung_task_enh.o
+obj-$(CONFIG_QCOM_CX_IPEAK) += cx_ipeak.o

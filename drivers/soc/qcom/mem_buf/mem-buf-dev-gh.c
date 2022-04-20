@@ -186,12 +186,18 @@ struct gh_sgl_desc *mem_buf_map_mem_s2(int op, gh_memparcel_handle_t *__memparce
 	int ret, ret2;
 	struct gh_sgl_desc *sgl_desc;
 	u8 flags = GH_RM_MEM_ACCEPT_VALIDATE_ACL_ATTRS |
-		   GH_RM_MEM_ACCEPT_MAP_IPA_CONTIGUOUS |
 		   GH_RM_MEM_ACCEPT_DONE;
 	gh_memparcel_handle_t memparcel_hdl = *__memparcel_hdl;
 
 	if (!acl_desc)
 		return ERR_PTR(-EINVAL);
+
+	/*
+	 * memory returns to its original IPA address when accepted by HLOS. For example,
+	 * scattered memory returns to being scattered memory.
+	 */
+	if (current_vmid != VMID_HLOS)
+		flags |= GH_RM_MEM_ACCEPT_MAP_IPA_CONTIGUOUS;
 
 	pr_debug("%s: adding CPU MMU stage 2 mappings\n", __func__);
 	sgl_desc = gh_rm_mem_accept(memparcel_hdl, GH_RM_MEM_TYPE_NORMAL, op,
@@ -219,7 +225,7 @@ err_relinquish:
 					__memparcel_hdl);
 	else
 		ret2 = mem_buf_unmap_mem_s2(memparcel_hdl);
-	kfree(sgl_desc);
+	kvfree(sgl_desc);
 	if (ret2) {
 		pr_err("%s failed to recover\n", __func__);
 		return ERR_PTR(-EADDRNOTAVAIL);

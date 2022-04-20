@@ -70,7 +70,7 @@ void dynamic_page_pool_free(struct dynamic_page_pool *pool, struct page *page)
 	dynamic_page_pool_add(pool, page);
 }
 
-static int dynamic_page_pool_total(struct dynamic_page_pool *pool, bool high)
+int dynamic_page_pool_total(struct dynamic_page_pool *pool, bool high)
 {
 	int count = pool->low_count;
 

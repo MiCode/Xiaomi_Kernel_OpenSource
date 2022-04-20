@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2016-2018, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 
@@ -109,6 +110,23 @@ struct drv_channel {
 	struct tcs_group tcs[TCS_TYPE_NR];
 	struct rsc_drv *drv;
 	bool initialized;
+};
+
+/**
+ * struct rsc_drv_top: our representation of the top RSC device
+ *
+ * @name:               Controller RSC device name.
+ * @drv_count:          No. of DRV controllers in the RSC device
+ * @drv:                Controller for each DRV
+ * @dev:                RSC top device
+ * @list:               RSC device added in rpmh_rsc_dev_list.
+ */
+struct rsc_drv_top {
+	char name[MAX_NAME_LENGTH];
+	int drv_count;
+	struct rsc_drv *drv;
+	struct device *dev;
+	struct list_head list;
 };
 
 /**

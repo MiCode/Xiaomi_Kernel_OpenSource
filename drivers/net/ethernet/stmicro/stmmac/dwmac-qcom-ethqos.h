@@ -6,6 +6,18 @@
 
 //#include <linux/msm-bus.h>
 
+#include <linux/inetdevice.h>
+#include <linux/inet.h>
+
+#include <net/addrconf.h>
+#include <net/ipv6.h>
+#include <net/inet_common.h>
+
+#include <linux/uaccess.h>
+
+#define QCOM_ETH_QOS_MAC_ADDR_LEN 6
+#define QCOM_ETH_QOS_MAC_ADDR_STR_LEN 18
+
 #define DRV_NAME "qcom-ethqos"
 #define ETHQOSDBG(fmt, args...) \
 	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
@@ -43,6 +55,12 @@
 #define MAC_PPSX_INTERVAL(x)		(0x00000b88 + ((x) * 0x10))
 #define MAC_PPSX_WIDTH(x)		(0x00000b8c + ((x) * 0x10))
 
+#define PPS_START_DELAY 100000000
+#define ONE_NS 1000000000
+#define PPS_ADJUST_NS 32
+
+#define DWC_ETH_QOS_PPS_CH_0 0
+#define DWC_ETH_QOS_PPS_CH_1 1
 #define DWC_ETH_QOS_PPS_CH_2 2
 #define DWC_ETH_QOS_PPS_CH_3 3
 
@@ -144,6 +162,13 @@ struct qcom_ethqos {
 	int clks_suspended;
 	/* Structure which holds done and wait members */
 	struct completion clk_enable_done;
+	/* early ethernet parameters */
+	struct work_struct early_eth;
+	struct delayed_work ipv4_addr_assign_wq;
+	struct delayed_work ipv6_addr_assign_wq;
+	bool early_eth_enabled;
+	/* Key Performance Indicators */
+	bool print_kpi;
 };
 
 struct pps_cfg {
@@ -152,6 +177,8 @@ struct pps_cfg {
 	unsigned int ppsout_ch;
 	unsigned int ppsout_duty;
 	unsigned int ppsout_start;
+	unsigned int ppsout_align;
+	unsigned int ppsout_align_ns;
 };
 
 struct ifr_data_struct {
@@ -171,6 +198,19 @@ struct pps_info {
 	int channel_no;
 };
 
+struct ip_params {
+	unsigned char mac_addr[QCOM_ETH_QOS_MAC_ADDR_LEN];
+	bool is_valid_mac_addr;
+	char link_speed[32];
+	bool is_valid_link_speed;
+	char ipv4_addr_str[32];
+	struct in_addr ipv4_addr;
+	bool is_valid_ipv4_addr;
+	char ipv6_addr_str[48];
+	struct in6_ifreq ipv6_addr;
+	bool is_valid_ipv6_addr;
+};
+
 int ethqos_init_reqgulators(struct qcom_ethqos *ethqos);
 void ethqos_disable_regulators(struct qcom_ethqos *ethqos);
 int ethqos_init_gpio(struct qcom_ethqos *ethqos);
@@ -183,7 +223,7 @@ int create_pps_interrupt_device_node(dev_t *pps_dev_t,
 bool qcom_ethqos_is_phy_link_up(struct qcom_ethqos *ethqos);
 void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos);
 
-int ppsout_config(struct stmmac_priv *priv, struct ifr_data_struct *req);
+int ppsout_config(struct stmmac_priv *priv, struct pps_cfg *eth_pps_cfg);
 
 u16 dwmac_qcom_select_queue(struct net_device *dev,
 			    struct sk_buff *skb,
@@ -214,6 +254,8 @@ u16 dwmac_qcom_select_queue(struct net_device *dev,
 #define IP_PKT_INT_MOD 32
 #define PTP_INT_MOD 1
 
+#define PPS_19_2_FREQ 19200000
+
 enum dwmac_qcom_queue_operating_mode {
 	DWMAC_QCOM_QDISABLED = 0X0,
 	DWMAC_QCOM_QAVB,
@@ -240,5 +282,5 @@ struct dwmac_qcom_avb_algorithm {
 void dwmac_qcom_program_avb_algorithm(struct stmmac_priv *priv,
 				      struct ifr_data_struct *req);
 unsigned int dwmac_qcom_get_plat_tx_coal_frames(struct sk_buff *skb);
-void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat);
+int ethqos_init_pps(void *priv);
 #endif

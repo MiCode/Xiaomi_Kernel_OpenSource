@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menuconfig USB_REDRIVER
+	tristate "USB super speed (plus) redriver support"
+	help
+	  USB super speed (plus) redriver chip used to improve
+	  USB signal which have long path(USB connector <-->
+	  FPC cable <---> USB PHY).
+
+	  Normally this kind of chip have i2c bus interface.
+
+
+if USB_REDRIVER
+
+config USB_REDRIVER_NB7VPQ904M
+	tristate "USB 3.1 Gen1/Gen2 10Gbps driver for NB7VPQ904M redriver"
+	select REGMAP_I2C
+	help
+	  NB7VPQ904M come from ON-SEMI company,
+	  it enhance USB super (plus) signal on mobile platform.
+	  it have i2c program interface.
+	  Say Y/M here if you want to support it.
+
+endif

@@ -3,7 +3,7 @@
  * Copied from drivers/hwtracing/stm.p-sys-t.c as of commit d69d5e83110f
  * ("stm class: Add MIPI SyS-T protocol support").
  *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2018, Intel Corporation.
  *
  * MIPI OST framing protocol for STM devices.
@@ -28,7 +28,7 @@
 #define STM_MAKE_VERSION(ma, mi)	((ma << 8) | mi)
 #define STM_HEADER_MAGIC		(0x5953)
 
-static ssize_t notrace ost_write(struct stm_data *data,
+static ssize_t notrace __nocfi ost_write(struct stm_data *data,
 		struct stm_output *output, unsigned int chan,
 		const char *buf, size_t count)
 {

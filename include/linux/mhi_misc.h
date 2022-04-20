@@ -32,6 +32,7 @@ enum MHI_DEBUG_LEVEL {
  * @dma_addr: IOMMU address of the buffer
  * @phys_addr: physical address of the buffer
  * @len: # of bytes
+ * @is_io: buffer is of IO/registesr type (resource) rather than of DDR/RAM type
  */
 struct mhi_buf_extended {
 	struct list_head node;
@@ -40,6 +41,7 @@ struct mhi_buf_extended {
 	dma_addr_t dma_addr;
 	phys_addr_t phys_addr;
 	size_t len;
+	bool is_io;
 };
 
 #ifdef CONFIG_MHI_BUS_MISC
@@ -300,6 +302,22 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
  * @mhi_cntrl: MHI controller
  */
 int mhi_force_reset(struct mhi_controller *mhi_cntrl);
+
+/**
+ * mhi_start_dtr_channels - Host request to start DTR channels after others have
+ * been probed from mission mode completion
+ * @mhi_dev: MHI controller device for DTR channels
+ */
+void mhi_start_dtr_channels(struct mhi_device *mhi_dev);
+
+/**
+ * mhi_controller_set_loglevel - API for controller to set a desired log level
+ * which will be set to VERBOSE or 0 by default
+ * @mhi_cntrl: MHI controller
+ * @lvl: Log level from MHI_DEBUG_LEVEL enumerator
+ */
+void mhi_controller_set_loglevel(struct mhi_controller *mhi_cntrl,
+				 enum MHI_DEBUG_LEVEL lvl);
 
 #else
 
@@ -628,6 +646,26 @@ int mhi_get_remote_time(struct mhi_device *mhi_dev,
 int mhi_force_reset(struct mhi_controller *mhi_cntrl)
 {
 	return -EINVAL;
+}
+
+/**
+ * mhi_start_dtr_channels - Host request to start DTR channels after others have
+ * been probed from mission mode completion
+ * @mhi_dev: MHI controller device for DTR channels
+ */
+void mhi_start_dtr_channels(struct mhi_device *mhi_dev)
+{
+}
+
+/**
+ * mhi_controller_set_loglevel - API for controller to set a desired log level
+ * which will be set to VERBOSE or 0 by default
+ * @mhi_cntrl: MHI controller
+ * @lvl: Log level from MHI_DEBUG_LEVEL enumerator
+ */
+void mhi_controller_set_loglevel(struct mhi_controller *mhi_cntrl,
+				 enum MHI_DEBUG_LEVEL lvl)
+{
 }
 
 #endif /* CONFIG_MHI_BUS_MISC */

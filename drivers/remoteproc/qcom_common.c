@@ -17,6 +17,8 @@
 #include <linux/slab.h>
 #include <linux/soc/qcom/mdt_loader.h>
 #include <linux/soc/qcom/smem.h>
+#include <trace/hooks/remoteproc.h>
+#include <trace/events/rproc_qcom.h>
 
 #include "remoteproc_internal.h"
 #include "qcom_common.h"
@@ -26,6 +28,10 @@
 #define to_glink_subdev(d) container_of(d, struct qcom_rproc_glink, subdev)
 #define to_smd_subdev(d) container_of(d, struct qcom_rproc_subdev, subdev)
 #define to_ssr_subdev(d) container_of(d, struct qcom_rproc_ssr, subdev)
+
+#define GLINK_SUBDEV_NAME	"glink"
+#define SMD_SUBDEV_NAME		"smd"
+#define SSR_SUBDEV_NAME		"ssr"
 
 #define MAX_NUM_OF_SS           10
 #define MAX_REGION_NAME_LENGTH  16
@@ -89,10 +95,31 @@ struct qcom_ssr_subsystem {
 	struct list_head list;
 };
 
+static struct kobject *sysfs_kobject;
+bool qcom_device_shutdown_in_progress;
+EXPORT_SYMBOL(qcom_device_shutdown_in_progress);
+
 static LIST_HEAD(qcom_ssr_subsystem_list);
 static DEFINE_MUTEX(qcom_ssr_subsys_lock);
 
 static const char * const ssr_timeout_msg = "srcu notifier chain for %s:%s taking too long";
+
+static ssize_t qcom_rproc_shutdown_request_store(struct kobject *kobj, struct kobj_attribute *attr,
+						 const char *buf, size_t count)
+{
+	bool val;
+	int ret;
+
+	ret = kstrtobool(buf, &val);
+	if (ret)
+		return ret;
+
+	qcom_device_shutdown_in_progress = val;
+	pr_info("qcom rproc: Device shutdown requested: %s\n", val ? "true" : "false");
+	return count;
+}
+static struct kobj_attribute shutdown_requested_attr = __ATTR(shutdown_in_progress, 0220, NULL,
+							  qcom_rproc_shutdown_request_store);
 
 static void qcom_minidump_cleanup(struct rproc *rproc)
 {
@@ -168,11 +195,16 @@ void qcom_minidump(struct rproc *rproc, unsigned int minidump_id, rproc_dumpfn_t
 	 */
 	if (subsystem->regions_baseptr == 0 ||
 	    le32_to_cpu(subsystem->status) != 1 ||
-	    le32_to_cpu(subsystem->enabled) != MD_SS_ENABLED ||
-	    le32_to_cpu(subsystem->encryption_status) != MD_SS_ENCR_DONE) {
+	    le32_to_cpu(subsystem->enabled) != MD_SS_ENABLED) {
+		return rproc_coredump(rproc);
+	}
+
+	if (le32_to_cpu(subsystem->encryption_status) != MD_SS_ENCR_DONE) {
 		dev_err(&rproc->dev, "Minidump not ready, skipping\n");
 		return;
 	}
+
+	rproc_coredump_cleanup(rproc);
 
 	ret = qcom_add_minidump_segments(rproc, subsystem, dumpfn);
 	if (ret) {
@@ -180,7 +212,10 @@ void qcom_minidump(struct rproc *rproc, unsigned int minidump_id, rproc_dumpfn_t
 		goto clean_minidump;
 	}
 
-	rproc_coredump_using_sections(rproc);
+	if (rproc->elf_class == ELFCLASS64)
+		rproc_coredump_using_sections(rproc);
+	else
+		rproc_coredump(rproc);
 clean_minidump:
 	qcom_minidump_cleanup(rproc);
 }
@@ -189,6 +224,8 @@ EXPORT_SYMBOL_GPL(qcom_minidump);
 static int glink_subdev_prepare(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
+
+	trace_rproc_qcom_event(dev_name(glink->dev->parent), GLINK_SUBDEV_NAME, "prepare");
 
 	glink->edge = qcom_glink_smem_register(glink->dev, glink->node);
 
@@ -199,12 +236,19 @@ static int glink_subdev_start(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
 
+	trace_rproc_qcom_event(dev_name(glink->dev->parent), GLINK_SUBDEV_NAME, "start");
+
 	return qcom_glink_smem_start(glink->edge);
 }
 
 static void glink_subdev_stop(struct rproc_subdev *subdev, bool crashed)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
+
+	if (!glink->edge)
+		return;
+	trace_rproc_qcom_event(dev_name(glink->dev->parent), GLINK_SUBDEV_NAME,
+			       crashed ? "crash stop" : "stop");
 
 	qcom_glink_smem_unregister(glink->edge);
 	glink->edge = NULL;
@@ -213,6 +257,8 @@ static void glink_subdev_stop(struct rproc_subdev *subdev, bool crashed)
 static void glink_subdev_unprepare(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
+
+	trace_rproc_qcom_event(dev_name(glink->dev->parent), GLINK_SUBDEV_NAME, "unprepare");
 
 	qcom_glink_ssr_notify(glink->ssr_name);
 }
@@ -309,6 +355,8 @@ static int smd_subdev_start(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_subdev *smd = to_smd_subdev(subdev);
 
+	trace_rproc_qcom_event(dev_name(smd->dev->parent), SMD_SUBDEV_NAME, "start");
+
 	smd->edge = qcom_smd_register_edge(smd->dev, smd->node);
 
 	return PTR_ERR_OR_ZERO(smd->edge);
@@ -317,6 +365,11 @@ static int smd_subdev_start(struct rproc_subdev *subdev)
 static void smd_subdev_stop(struct rproc_subdev *subdev, bool crashed)
 {
 	struct qcom_rproc_subdev *smd = to_smd_subdev(subdev);
+
+	if (!smd->edge)
+		return;
+	trace_rproc_qcom_event(dev_name(smd->dev->parent), SMD_SUBDEV_NAME,
+			       crashed ? "crash stop" : "stop");
 
 	qcom_smd_unregister_edge(smd->edge);
 	smd->edge = NULL;
@@ -402,6 +455,12 @@ void *qcom_register_early_ssr_notifier(const char *name, struct notifier_block *
 }
 EXPORT_SYMBOL(qcom_register_early_ssr_notifier);
 
+int qcom_unregister_early_ssr_notifier(void *notify, struct notifier_block *nb)
+{
+	return srcu_notifier_chain_unregister(notify, nb);
+}
+EXPORT_SYMBOL(qcom_unregister_early_ssr_notifier);
+
 void qcom_notify_early_ssr_clients(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_ssr *ssr = to_ssr_subdev(subdev);
@@ -485,6 +544,8 @@ static int ssr_notify_prepare(struct rproc_subdev *subdev)
 		.crashed = false,
 	};
 
+	trace_rproc_qcom_event(ssr->info->name, SSR_SUBDEV_NAME, "prepare");
+
 	ssr->notification = QCOM_SSR_BEFORE_POWERUP;
 	notify_ssr_clients(ssr, &data);
 	return 0;
@@ -497,6 +558,8 @@ static int ssr_notify_start(struct rproc_subdev *subdev)
 		.name = ssr->info->name,
 		.crashed = false,
 	};
+
+	trace_rproc_qcom_event(ssr->info->name, SSR_SUBDEV_NAME, "start");
 
 	ssr->notification = QCOM_SSR_AFTER_POWERUP;
 	notify_ssr_clients(ssr, &data);
@@ -511,6 +574,8 @@ static void ssr_notify_stop(struct rproc_subdev *subdev, bool crashed)
 		.crashed = crashed,
 	};
 
+	trace_rproc_qcom_event(ssr->info->name, SSR_SUBDEV_NAME, crashed ? "crash stop" : "stop");
+
 	ssr->notification = QCOM_SSR_BEFORE_SHUTDOWN;
 	notify_ssr_clients(ssr, &data);
 }
@@ -522,6 +587,8 @@ static void ssr_notify_unprepare(struct rproc_subdev *subdev)
 		.name = ssr->info->name,
 		.crashed = false,
 	};
+
+	trace_rproc_qcom_event(ssr->info->name, SSR_SUBDEV_NAME, "unprepare");
 
 	ssr->notification = QCOM_SSR_AFTER_SHUTDOWN;
 	notify_ssr_clients(ssr, &data);
@@ -571,6 +638,62 @@ void qcom_remove_ssr_subdev(struct rproc *rproc, struct qcom_rproc_ssr *ssr)
 	ssr->info = NULL;
 }
 EXPORT_SYMBOL_GPL(qcom_remove_ssr_subdev);
+
+static void qcom_check_ssr_status(void *data, struct rproc *rproc)
+{
+	if (!atomic_read(&rproc->power) ||
+	    rproc->state == RPROC_RUNNING ||
+	    qcom_device_shutdown_in_progress ||
+	    system_state == SYSTEM_RESTART ||
+	    system_state == SYSTEM_POWER_OFF ||
+	    system_state == SYSTEM_HALT)
+		return;
+
+	panic("Panicking, remoteproc %s failed to recover!\n", rproc->name);
+}
+
+static int __init qcom_common_init(void)
+{
+	int ret = 0;
+
+	qcom_device_shutdown_in_progress = false;
+
+	sysfs_kobject = kobject_create_and_add("qcom_rproc", kernel_kobj);
+	if (!sysfs_kobject) {
+		pr_err("qcom rproc: failed to create sysfs kobject\n");
+		return -EINVAL;
+	}
+
+	ret = sysfs_create_file(sysfs_kobject, &shutdown_requested_attr.attr);
+	if (ret) {
+		pr_err("qcom rproc: failed to create sysfs file\n");
+		goto remove_kobject;
+	}
+
+	ret = register_trace_android_vh_rproc_recovery(qcom_check_ssr_status, NULL);
+	if (ret) {
+		pr_err("qcom rproc: failed to register trace hooks\n");
+		goto remove_sysfs;
+	}
+
+	return 0;
+
+remove_sysfs:
+	sysfs_remove_file(sysfs_kobject, &shutdown_requested_attr.attr);
+remove_kobject:
+	kobject_put(sysfs_kobject);
+	return ret;
+
+}
+module_init(qcom_common_init);
+
+static void __exit qcom_common_exit(void)
+{
+	sysfs_remove_file(sysfs_kobject, &shutdown_requested_attr.attr);
+	kobject_put(sysfs_kobject);
+	unregister_trace_android_vh_rproc_recovery(qcom_check_ssr_status, NULL);
+}
+module_exit(qcom_common_exit);
 
 MODULE_DESCRIPTION("Qualcomm Remoteproc helper driver");
 MODULE_LICENSE("GPL v2");

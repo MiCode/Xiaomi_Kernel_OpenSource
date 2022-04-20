@@ -189,6 +189,19 @@ bool msm_minidump_enabled(void)
 }
 EXPORT_SYMBOL(msm_minidump_enabled);
 
+int msm_minidump_get_available_region(void)
+{
+	int res;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mdt_lock, flags);
+	res = MAX_NUM_ENTRIES - minidump_table.num_regions;
+	spin_unlock_irqrestore(&mdt_lock, flags);
+
+	return res;
+}
+EXPORT_SYMBOL(msm_minidump_get_available_region);
+
 static inline int validate_region(const struct md_region *entry)
 {
 	if (!entry)
@@ -196,7 +209,7 @@ static inline int validate_region(const struct md_region *entry)
 
 	if ((strlen(entry->name) > MAX_NAME_LENGTH) || !entry->virt_addr ||
 		(!IS_ALIGNED(entry->size, 4))) {
-		pr_err("Invalid entry details\n");
+		printk_deferred("Invalid entry details\n");
 		return -EINVAL;
 	}
 
@@ -223,14 +236,14 @@ int msm_minidump_update_region(int regno, const struct md_region *entry)
 	read_lock_irqsave(&mdt_remove_lock, flags);
 
 	if (regno >= first_removed_entry) {
-		pr_err("Region:[%s] was moved\n", entry->name);
+		printk_deferred("Region:[%s] was moved\n", entry->name);
 		ret = -EINVAL;
 		goto err_unlock;
 	}
 
 	ret = md_entry_num(entry);
 	if (ret < 0) {
-		pr_err("Region:[%s] does not exist to update.\n", entry->name);
+		printk_deferred("Region:[%s] does not exist to update.\n", entry->name);
 		goto err_unlock;
 	}
 
@@ -268,13 +281,13 @@ int msm_minidump_add_region(const struct md_region *entry)
 	spin_lock_irqsave(&mdt_lock, flags);
 	if (md_entry_num(entry) >= 0) {
 		spin_unlock_irqrestore(&mdt_lock, flags);
-		pr_info("Entry name already exist.\n");
+		printk_deferred("Entry name already exist.\n");
 		return -EEXIST;
 	}
 
 	entries = minidump_table.num_regions;
 	if (entries >= MAX_NUM_ENTRIES) {
-		pr_err("Maximum entries reached.\n");
+		printk_deferred("Maximum entries reached.\n");
 		spin_unlock_irqrestore(&mdt_lock, flags);
 		return -ENOMEM;
 	}
@@ -286,7 +299,7 @@ int msm_minidump_add_region(const struct md_region *entry)
 		toc_init = 1;
 		if (minidump_table.md_ss_toc->ss_region_count >= MAX_NUM_ENTRIES) {
 			spin_unlock_irqrestore(&mdt_lock, flags);
-			pr_err("Maximum regions in minidump table reached.\n");
+			printk_deferred("Maximum regions in minidump table reached.\n");
 			return -ENOMEM;
 		}
 	}
@@ -328,7 +341,7 @@ int msm_minidump_clear_headers(const struct md_region *entry)
 			break;
 	}
 	if (i == hdr->e_phnum) {
-		pr_err("Cannot find entry in elf\n");
+		printk_deferred("Cannot find entry in elf\n");
 		return -EINVAL;
 	}
 	pidx = i;
@@ -343,13 +356,13 @@ int msm_minidump_clear_headers(const struct md_region *entry)
 
 	}
 	if (i == hdr->e_shnum) {
-		pr_err("Cannot find entry in elf\n");
+		printk_deferred("Cannot find entry in elf\n");
 		return -EINVAL;
 	}
 	shidx = i;
 
 	if (shdr->sh_offset != phdr->p_offset) {
-		pr_err("Invalid entry details in elf, Minidump broken..\n");
+		printk_deferred("Invalid entry details in elf, Minidump broken..\n");
 		return -EINVAL;
 	}
 
@@ -402,7 +415,7 @@ int msm_minidump_remove_region(const struct md_region *entry)
 	if (ret < 0) {
 		write_unlock(&mdt_remove_lock);
 		spin_unlock_irqrestore(&mdt_lock, flags);
-		pr_info("Not able to find the entry %s in table\n", entry->name);
+		printk_deferred("Not able to find the entry %s in table\n", entry->name);
 		return ret;
 	}
 	entryno = ret;
@@ -410,7 +423,7 @@ int msm_minidump_remove_region(const struct md_region *entry)
 	if (rgno < 0) {
 		write_unlock(&mdt_remove_lock);
 		spin_unlock_irqrestore(&mdt_lock, flags);
-		pr_err("Not able to find the region %s (%d,%d) in table\n",
+		printk_deferred("Not able to find the region %s (%d,%d) in table\n",
 			entry->name, entryno, rgno);
 		return -EINVAL;
 	}
@@ -445,7 +458,7 @@ out:
 	spin_unlock_irqrestore(&mdt_lock, flags);
 
 	if (ret)
-		pr_err("Minidump is broken..disable Minidump collection\n");
+		printk_deferred("Minidump is broken..disable Minidump collection\n");
 	return ret;
 }
 EXPORT_SYMBOL(msm_minidump_remove_region);
@@ -590,8 +603,8 @@ static int msm_minidump_driver_probe(struct platform_device *pdev)
 	minidump_table.revision = md_global_toc->md_revision;
 	md_ss_toc = &md_global_toc->md_ss_toc[MD_SS_HLOS_ID];
 
-	md_ss_toc->encryption_status = MD_SS_ENCR_NONE;
-	md_ss_toc->encryption_required = MD_SS_ENCR_REQ;
+	md_ss_toc->encryption_status = MD_SS_ENCR_DONE;
+	md_ss_toc->encryption_required = MD_SS_ENCR_NOTREQ;
 
 	minidump_table.md_ss_toc = md_ss_toc;
 	minidump_table.md_regions = devm_kzalloc(&pdev->dev, (MAX_NUM_ENTRIES *

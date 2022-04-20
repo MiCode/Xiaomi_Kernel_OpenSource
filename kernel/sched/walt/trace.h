@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #undef TRACE_SYSTEM
@@ -103,14 +103,17 @@ TRACE_EVENT(sched_update_history,
 		__entry->cpu		= rq->cpu;
 	),
 
-	TP_printk("%d (%s): runtime %u samples %d event %s demand %u coloc_demand %u pred_demand_scaled %u (hist: %u %u %u %u %u) cpu %d nr_big %u",
+	TP_printk("%d (%s): runtime %u samples %d event %s demand %u (hist: %u %u %u %u %u %u %u %u) coloc_demand %u pred_demand_scaled %u cpu %d nr_big %u",
 		__entry->pid, __entry->comm,
 		__entry->runtime, __entry->samples,
 		task_event_names[__entry->evt],
-		__entry->demand, __entry->coloc_demand, __entry->pred_demand_scaled,
+		__entry->demand,
 		__entry->hist[0], __entry->hist[1],
 		__entry->hist[2], __entry->hist[3],
-		__entry->hist[4], __entry->cpu, __entry->nr_big_tasks)
+		__entry->hist[4], __entry->hist[5],
+		__entry->hist[6], __entry->hist[7],
+		__entry->coloc_demand, __entry->pred_demand_scaled,
+		__entry->cpu, __entry->nr_big_tasks)
 );
 
 TRACE_EVENT(sched_get_task_cpu_cycles,
@@ -418,9 +421,10 @@ TRACE_EVENT(sched_load_to_gov,
 		int freq_aggr, u64 load, int policy,
 		int big_task_rotation,
 		unsigned int user_hint,
-		struct walt_rq *wrq),
+		struct walt_rq *wrq,
+		unsigned int reasons),
 	TP_ARGS(rq, aggr_grp_load, tt_load, freq_aggr, load, policy,
-		big_task_rotation, user_hint, wrq),
+		big_task_rotation, user_hint, wrq, reasons),
 
 	TP_STRUCT__entry(
 		__field(int,	cpu)
@@ -437,6 +441,7 @@ TRACE_EVENT(sched_load_to_gov,
 		__field(u64,	load)
 		__field(int,	big_task_rotation)
 		__field(unsigned int, user_hint)
+		__field(unsigned int, reasons)
 	),
 
 	TP_fast_assign(
@@ -455,14 +460,15 @@ TRACE_EVENT(sched_load_to_gov,
 		__entry->load		= load;
 		__entry->big_task_rotation	= big_task_rotation;
 		__entry->user_hint	= user_hint;
+		__entry->reasons	= reasons;
 	),
 
-	TP_printk("cpu=%d policy=%d ed_task_pid=%d aggr_grp_load=%llu freq_aggr=%d tt_load=%llu rq_ps=%llu grp_rq_ps=%llu nt_ps=%llu grp_nt_ps=%llu pl=%llu load=%llu big_task_rotation=%d user_hint=%u",
+	TP_printk("cpu=%d policy=%d ed_task_pid=%d aggr_grp_load=%llu freq_aggr=%d tt_load=%llu rq_ps=%llu grp_rq_ps=%llu nt_ps=%llu grp_nt_ps=%llu pl=%llu load=%llu big_task_rotation=%d user_hint=%u reasons=0x%x",
 		__entry->cpu, __entry->policy, __entry->ed_task_pid,
 		__entry->aggr_grp_load, __entry->freq_aggr,
 		__entry->tt_load, __entry->rq_ps, __entry->grp_rq_ps,
 		__entry->nt_ps, __entry->grp_nt_ps, __entry->pl, __entry->load,
-		__entry->big_task_rotation, __entry->user_hint)
+		__entry->big_task_rotation, __entry->user_hint, __entry->reasons)
 );
 
 TRACE_EVENT(core_ctl_eval_need,
@@ -718,9 +724,10 @@ TRACE_EVENT(waltgov_util_update,
 TRACE_EVENT(waltgov_next_freq,
 	    TP_PROTO(unsigned int cpu, unsigned long util, unsigned long max, unsigned int raw_freq,
 		     unsigned int freq, unsigned int policy_min_freq, unsigned int policy_max_freq,
-		     unsigned int cached_raw_freq, bool need_freq_update),
+		     unsigned int cached_raw_freq, bool need_freq_update, unsigned int driving_cpu,
+		     unsigned int reason),
 	    TP_ARGS(cpu, util, max, raw_freq, freq, policy_min_freq, policy_max_freq,
-		    cached_raw_freq, need_freq_update),
+		    cached_raw_freq, need_freq_update, driving_cpu, reason),
 	    TP_STRUCT__entry(
 		    __field(unsigned int, cpu)
 		    __field(unsigned long, util)
@@ -732,6 +739,8 @@ TRACE_EVENT(waltgov_next_freq,
 		    __field(unsigned int, cached_raw_freq)
 		    __field(bool, need_freq_update)
 		    __field(unsigned int, rt_util)
+		    __field(unsigned int, driving_cpu)
+		    __field(unsigned int, reason)
 	    ),
 	    TP_fast_assign(
 		    __entry->cpu		= cpu;
@@ -743,9 +752,11 @@ TRACE_EVENT(waltgov_next_freq,
 		    __entry->policy_max_freq	= policy_max_freq;
 		    __entry->cached_raw_freq	= cached_raw_freq;
 		    __entry->need_freq_update	= need_freq_update;
-		    __entry->rt_util	= cpu_util_rt(cpu_rq(cpu));
+		    __entry->rt_util		= cpu_util_rt(cpu_rq(cpu));
+		    __entry->driving_cpu	= driving_cpu;
+		    __entry->reason		= reason;
 	    ),
-	    TP_printk("cpu=%u util=%lu max=%lu raw_freq=%lu freq=%u policy_min_freq=%u policy_max_freq=%u cached_raw_freq=%u need_update=%d rt_util=%u",
+	    TP_printk("cpu=%u util=%lu max=%lu raw_freq=%lu freq=%u policy_min_freq=%u policy_max_freq=%u cached_raw_freq=%u need_update=%d rt_util=%u driv_cpu=%u reason=0x%x",
 		      __entry->cpu,
 		      __entry->util,
 		      __entry->max,
@@ -755,7 +766,9 @@ TRACE_EVENT(waltgov_next_freq,
 		      __entry->policy_max_freq,
 		      __entry->cached_raw_freq,
 		      __entry->need_freq_update,
-		      __entry->rt_util)
+		      __entry->rt_util,
+		      __entry->driving_cpu,
+		      __entry->reason)
 );
 
 TRACE_EVENT(walt_active_load_balance,

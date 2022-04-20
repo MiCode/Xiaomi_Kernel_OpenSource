@@ -9,7 +9,7 @@
 #include <linux/module.h>
 #include <linux/notifier.h>
 #include <linux/platform_device.h>
-#include <soc/qcom/subsystem_notif.h>
+#include <linux/remoteproc/qcom_rproc.h>
 #include <linux/rpmsg/qcom_glink.h>
 #include <linux/rpmsg.h>
 #include <linux/ipc_logging.h>
@@ -49,18 +49,16 @@ static int glink_probe_ssr_cb(struct notifier_block *this,
 	struct edge_info *einfo = container_of(this, struct edge_info, nb);
 
 	GLINK_INFO("received %ld for %s\n", code, einfo->ssr_label);
-
 	switch (code) {
-	case SUBSYS_AFTER_POWERUP:
+	case QCOM_SSR_AFTER_POWERUP:
 		einfo->register_fn(einfo);
 		break;
-	case SUBSYS_AFTER_SHUTDOWN:
+	case QCOM_SSR_AFTER_SHUTDOWN:
 		einfo->unregister_fn(einfo);
 		break;
 	default:
 		break;
 	}
-
 	return NOTIFY_DONE;
 }
 
@@ -149,12 +147,13 @@ static void probe_subsystem(struct device *dev, struct device_node *np)
 
 	einfo->nb.notifier_call = glink_probe_ssr_cb;
 
-	handle = subsys_notif_register_notifier(einfo->ssr_label, &einfo->nb);
+	handle = qcom_register_ssr_notifier(einfo->ssr_label, &einfo->nb);
 	if (IS_ERR_OR_NULL(handle)) {
 		GLINK_ERR(dev, "could not register for SSR notifier for %s\n",
 			  einfo->ssr_label);
 		return;
 	}
+
 	einfo->notifier_handle = handle;
 
 	list_add_tail(&einfo->list, &edge_infos);
@@ -180,7 +179,7 @@ static int glink_remove(struct platform_device *pdev)
 
 	for_each_available_child_of_node(pn, cn) {
 		list_for_each_entry_safe(einfo, tmp, &edge_infos, list) {
-			subsys_notif_unregister_notifier(einfo->notifier_handle,
+			qcom_unregister_ssr_notifier(einfo->notifier_handle,
 							 &einfo->nb);
 			list_del(&einfo->list);
 		}

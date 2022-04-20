@@ -2,8 +2,6 @@ arch/arm64/crypto/aes-ce-core.S
 arch/arm64/crypto/aes-ce-glue.c
 arch/arm64/crypto/aes-ce.S
 arch/arm64/crypto/aes-ce-setkey.h
-arch/arm64/crypto/aes-cipher-core.S
-arch/arm64/crypto/aes-cipher-glue.c
 arch/arm64/crypto/aes-glue.c
 arch/arm64/crypto/aes-modes.S
 arch/arm64/crypto/chacha-neon-core.S
@@ -177,6 +175,7 @@ arch/arm64/include/asm/vdso/gettimeofday.h
 arch/arm64/include/asm/vdso.h
 arch/arm64/include/asm/vdso/processor.h
 arch/arm64/include/asm/vdso/vsyscall.h
+arch/arm64/include/asm/vectors.h
 arch/arm64/include/asm/vermagic.h
 arch/arm64/include/asm/virt.h
 arch/arm64/include/asm/vmalloc.h
@@ -324,6 +323,7 @@ arch/arm64/kvm/hyp/nvhe/hyp.lds.S
 arch/arm64/kvm/hyp/nvhe/hyp-main.c
 arch/arm64/kvm/hyp/nvhe/hyp-reloc.S
 arch/arm64/kvm/hyp/nvhe/hyp-smp.c
+arch/arm64/kvm/hyp/nvhe/iommu.c
 arch/arm64/kvm/hyp/nvhe/iommu/s2mpu.c
 arch/arm64/kvm/hyp/nvhe/mem_protect.c
 arch/arm64/kvm/hyp/nvhe/mm.c
@@ -346,6 +346,7 @@ arch/arm64/kvm/hyp/vhe/sysreg-sr.c
 arch/arm64/kvm/hyp/vhe/timer-sr.c
 arch/arm64/kvm/hyp/vhe/tlb.c
 arch/arm64/kvm/inject_fault.c
+arch/arm64/kvm/iommu.c
 arch/arm64/kvm/iommu/s2mpu.c
 arch/arm64/kvm/irq.h
 arch/arm64/kvm/mmio.c
@@ -528,7 +529,6 @@ crypto/cmac.c
 crypto/compress.c
 crypto/crc32c_generic.c
 crypto/crc32_generic.c
-crypto/cryptd.c
 crypto/crypto_engine.c
 crypto/crypto_null.c
 crypto/ctr.c
@@ -577,7 +577,6 @@ crypto/sha1_generic.c
 crypto/sha256_generic.c
 crypto/sha512_generic.c
 crypto/shash.c
-crypto/simd.c
 crypto/skcipher.c
 crypto/testmgr.c
 crypto/xcbc.c
@@ -1243,6 +1242,7 @@ drivers/net/can/dev/skb.c
 drivers/net/dummy.c
 drivers/net/ifb.c
 drivers/net/loopback.c
+drivers/net/macsec.c
 drivers/net/mdio/fwnode_mdio.c
 drivers/net/mdio/of_mdio.c
 drivers/net/mii.c
@@ -1342,7 +1342,6 @@ drivers/of/fdt_address.c
 drivers/of/fdt.c
 drivers/of/irq.c
 drivers/of/kobj.c
-drivers/of/of_net.c
 drivers/of/of_private.h
 drivers/of/of_reserved_mem.c
 drivers/of/platform.c
@@ -1421,6 +1420,7 @@ drivers/pinctrl/sunxi/pinctrl-sun50i-h616.c
 drivers/pinctrl/sunxi/pinctrl-sun50i-h616-r.c
 drivers/pinctrl/sunxi/pinctrl-sunxi.c
 drivers/pinctrl/sunxi/pinctrl-sunxi.h
+drivers/powercap/powercap_sys.c
 drivers/power/reset/hisi-reboot.c
 drivers/power/reset/syscon-reboot.c
 drivers/power/supply/power_supply_core.c
@@ -2315,7 +2315,6 @@ include/crypto/blake2b.h
 include/crypto/blake2s.h
 include/crypto/chacha20poly1305.h
 include/crypto/chacha.h
-include/crypto/cryptd.h
 include/crypto/ctr.h
 include/crypto/curve25519.h
 include/crypto/drbg.h
@@ -3220,6 +3219,7 @@ include/linux/posix_acl.h
 include/linux/posix_acl_xattr.h
 include/linux/posix-clock.h
 include/linux/posix-timers.h
+include/linux/powercap.h
 include/linux/power_supply.h
 include/linux/ppp_channel.h
 include/linux/ppp-comp.h
@@ -3587,6 +3587,7 @@ include/linux/virtio_ring.h
 include/linux/virtio_vsock.h
 include/linux/vmacache.h
 include/linux/vmalloc.h
+include/linux/vm_event.h
 include/linux/vm_event_item.h
 include/linux/vmpressure.h
 include/linux/vmstat.h
@@ -3735,6 +3736,7 @@ include/net/llc_sap.h
 include/net/lwtunnel.h
 include/net/mac80211.h
 include/net/mac802154.h
+include/net/macsec.h
 include/net/mip6.h
 include/net/mld.h
 include/net/mpls.h
@@ -4029,6 +4031,7 @@ include/trace/events/writeback.h
 include/trace/events/xdp.h
 include/trace/hooks/avc.h
 include/trace/hooks/binder.h
+include/trace/hooks/bug.h
 include/trace/hooks/cgroup.h
 include/trace/hooks/cpufreq.h
 include/trace/hooks/cpuidle.h
@@ -4037,6 +4040,8 @@ include/trace/hooks/creds.h
 include/trace/hooks/debug.h
 include/trace/hooks/dtask.h
 include/trace/hooks/epoch.h
+include/trace/hooks/fault.h
+include/trace/hooks/fips140.h
 include/trace/hooks/fpsimd.h
 include/trace/hooks/ftrace_dump.h
 include/trace/hooks/futex.h
@@ -4051,16 +4056,21 @@ include/trace/hooks/module.h
 include/trace/hooks/mpam.h
 include/trace/hooks/net.h
 include/trace/hooks/pm_domain.h
+include/trace/hooks/power.h
 include/trace/hooks/preemptirq.h
 include/trace/hooks/printk.h
 include/trace/hooks/remoteproc.h
+include/trace/hooks/rwsem.h
 include/trace/hooks/sched.h
 include/trace/hooks/selinux.h
+include/trace/hooks/softlockup.h
 include/trace/hooks/syscall_check.h
 include/trace/hooks/sys.h
 include/trace/hooks/sysrqcrash.h
+include/trace/hooks/thermal.h
 include/trace/hooks/timer.h
 include/trace/hooks/topology.h
+include/trace/hooks/traps.h
 include/trace/hooks/ufshcd.h
 include/trace/hooks/vendor_hooks.h
 include/trace/hooks/vmscan.h
@@ -4198,6 +4208,7 @@ include/uapi/linux/if_hippi.h
 include/uapi/linux/if_infiniband.h
 include/uapi/linux/if_link.h
 include/uapi/linux/if_ltalk.h
+include/uapi/linux/if_macsec.h
 include/uapi/linux/if_packet.h
 include/uapi/linux/if_pppol2tp.h
 include/uapi/linux/if_pppox.h
@@ -4612,6 +4623,7 @@ kernel/bpf/reuseport_array.c
 kernel/bpf/ringbuf.c
 kernel/bpf/stackmap.c
 kernel/bpf/syscall.c
+kernel/bpf/sysfs_btf.c
 kernel/bpf/task_iter.c
 kernel/bpf/tnum.c
 kernel/bpf/trampoline.c
@@ -5110,6 +5122,7 @@ lib/zstd/mem.h
 lib/zstd/zstd_common.c
 lib/zstd/zstd_internal.h
 lib/zstd/zstd_opt.h
+main.c
 mm/backing-dev.c
 mm/balloon_compaction.c
 mm/cleancache.c
@@ -5318,6 +5331,7 @@ net/core/net-procfs.c
 net/core/net-sysfs.c
 net/core/net-sysfs.h
 net/core/net-traces.c
+net/core/of_net.c
 net/core/page_pool.c
 net/core/ptp_classifier.c
 net/core/request_sock.c
@@ -6133,8 +6147,37 @@ sound/usb/stream.c
 sound/usb/stream.h
 sound/usb/usbaudio.h
 sound/usb/validate.c
+tools/arch/x86/include/uapi/asm/bitsperlong.h
+tools/arch/x86/include/uapi/asm/errno.h
+tools/include/asm-generic/bitsperlong.h
+tools/include/linux/build_bug.h
+tools/include/linux/compiler-gcc.h
+tools/include/linux/compiler.h
+tools/include/linux/compiler_types.h
+tools/include/linux/ctype.h
+tools/include/linux/err.h
+tools/include/linux/export.h
+tools/include/linux/kernel.h
+tools/include/linux/rbtree_augmented.h
+tools/include/linux/rbtree.h
+tools/include/linux/string.h
+tools/include/linux/types.h
+tools/include/linux/zalloc.h
 tools/include/tools/be_byteshift.h
 tools/include/tools/le_byteshift.h
+tools/include/uapi/asm/bitsperlong.h
+tools/include/uapi/asm/errno.h
+tools/include/uapi/asm-generic/bitsperlong.h
+tools/include/uapi/asm-generic/errno-base.h
+tools/include/uapi/asm-generic/errno.h
+tools/include/uapi/linux/bpf_common.h
+tools/include/uapi/linux/bpf.h
+tools/include/uapi/linux/btf.h
+tools/lib/bpf/btf.h
+tools/lib/bpf/libbpf_common.h
+tools/lib/bpf/libbpf.h
+tools/lib/bpf/libbpf_legacy.h
+tools/lib/subcmd/parse-options.h
 usr/gen_init_cpio.c
 usr/initramfs_data.S
 virt/kvm/async_pf.h

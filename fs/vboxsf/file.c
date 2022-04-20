@@ -163,6 +163,7 @@ static const struct vm_operations_struct vboxsf_file_vm_ops = {
 	.close		= vboxsf_vma_close,
 	.fault		= filemap_fault,
 	.map_pages	= filemap_map_pages,
+	.speculative	= true,
 };
 
 static int vboxsf_file_mmap(struct file *file, struct vm_area_struct *vma)

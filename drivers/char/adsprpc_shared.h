@@ -475,7 +475,7 @@ struct fastrpc_ioctl_control {
 };
 
 #define FASTRPC_MAX_DSP_ATTRIBUTES	(256)
-#define FASTRPC_MAX_ATTRIBUTES	(258)
+#define FASTRPC_MAX_ATTRIBUTES	(259)
 
 enum fastrpc_dsp_capability {
 	ASYNC_FASTRPC_CAP = 9,
@@ -655,11 +655,13 @@ struct fastrpc_tx_msg {
 	struct smq_msg msg; /* Msg sent to remote subsystem */
 	int rpmsg_send_err; /* rpmsg error */
 	int64_t ns;         /* Timestamp (in ns) of msg */
+	uint64_t xo_time_in_us; /* XO Timestamp (in us) of sent message */
 };
 
 struct fastrpc_rx_msg {
 	struct smq_invoke_rspv2 rsp;  /* Response from remote subsystem */
 	int64_t ns;   /* Timestamp (in ns) of response */
+	uint64_t xo_time_in_us; /* XO Timestamp (in us) of response */
 };
 
 struct fastrpc_rpmsg_log {
