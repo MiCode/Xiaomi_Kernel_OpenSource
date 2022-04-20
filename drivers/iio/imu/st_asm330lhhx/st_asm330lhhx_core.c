@@ -406,7 +406,9 @@ static int __maybe_unused dump_registers(const char *info,
 					"failed to read register %02x\n", i);
 				goto out_lock;
 			}
-			printk("%s: %02x: %02x\n", info, i, data);
+
+			dev_dbg(hw->dev, "%s: %02x: %02x\n",
+				info, i, data);
 			break;
 		default:
 			break;
@@ -440,7 +442,9 @@ static int __maybe_unused dump_registers(const char *info,
 					"failed to read register %02x\n", i);
 				goto out_lock;
 			}
-			printk("%s: %02x: %02x\n", info, i, data);
+
+			dev_dbg(hw->dev, "%s: %02x: %02x\n",
+				info, i, data);
 			break;
 		default:
 			break;
@@ -657,6 +661,7 @@ st_asm330lhhx_check_odr_dependency(struct st_asm330lhhx_hw *hw,
 
 static int st_asm330lhhx_update_odr_fsm(struct st_asm330lhhx_hw *hw,
 					enum st_asm330lhhx_sensor_id id,
+					enum st_asm330lhhx_sensor_id id_req,
 					int val, int delay)
 {
 	int ret = 0;
@@ -664,7 +669,8 @@ static int st_asm330lhhx_update_odr_fsm(struct st_asm330lhhx_hw *hw,
 	int mlc_running = st_asm330lhhx_mlc_running(hw);
 	int status;
 
-	if (fsm_running || mlc_running) {
+	if (fsm_running || mlc_running ||
+	    (id_req > ST_ASM330LHHX_ID_FIFO_MLC)) {
 		/*
 		 * In STMC_PAGE:
 		 * Addr 0x02 bit 1 set to 1 -- CLK Disable
@@ -771,6 +777,7 @@ unlock_page:
 static int st_asm330lhhx_set_odr(struct st_asm330lhhx_sensor *sensor,
 				 int req_odr, int req_uodr)
 {
+	enum st_asm330lhhx_sensor_id id_req = sensor->id;
 	enum st_asm330lhhx_sensor_id id = sensor->id;
 	struct st_asm330lhhx_hw *hw = sensor->hw;
 	int err, delay;
@@ -848,7 +855,7 @@ static int st_asm330lhhx_set_odr(struct st_asm330lhhx_sensor *sensor,
 
 	delay = 4000000 / req_odr;
 
-	return st_asm330lhhx_update_odr_fsm(hw, id, val, delay);
+	return st_asm330lhhx_update_odr_fsm(hw, id, id_req, val, delay);
 }
 
 int st_asm330lhhx_sensor_set_enable(struct st_asm330lhhx_sensor *sensor,
@@ -2054,7 +2061,7 @@ __maybe_unused _st_asm330lhhx_suspend(struct st_asm330lhhx_hw *hw)
 		hw->resume_sample_in_packet = 1;
 
 		/* wait 4 ODRs for internal filter settling time */
-		err = st_asm330lhhx_update_odr_fsm(hw, id_acc,
+		err = st_asm330lhhx_update_odr_fsm(hw, id_acc, id_acc,
 			st_asm330lhhx_odr_table[id_acc].odr_avl[0].val,
 			4 * (1000000 / 12.5));
 		if (err < 0)

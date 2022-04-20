@@ -187,6 +187,7 @@ st_asm330lhhx_mlc_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 			if (err < 0)
 				return err;
 
+#ifdef CONFIG_IIO_ST_ASM330LHHX_CHECK_MLC_REQUIRED
 			err = st_asm330lhhx_update_page_bits_locked(hw,
 					ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
 					ST_ASM330LHHX_MLC_EN_MASK,
@@ -194,6 +195,7 @@ st_asm330lhhx_mlc_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 						ST_ASM330LHHX_MLC_EN_MASK));
 			if (err < 0)
 				return err;
+#endif /* CONFIG_IIO_ST_ASM330LHHX_CHECK_MLC_REQUIRED */
 		}
 
 		dev_info(sensor->hw->dev,
@@ -204,6 +206,30 @@ st_asm330lhhx_mlc_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 
 	return err < 0 ? err : 0;
 }
+
+#ifdef CONFIG_IIO_ST_ASM330LHHX_CHECK_MLC_REQUIRED
+static int
+st_asm330lhhx_fsm_check_require_mlc(struct st_asm330lhhx_sensor *sensor,
+				    bool enable)
+{
+	int err = 0;
+
+	if (sensor->id >= ST_ASM330LHHX_ID_FSM_0 &&
+	    sensor->id <= ST_ASM330LHHX_ID_FSM_15) {
+		if (!st_asm330lhhx_mlc_running(sensor->hw)) {
+			err = st_asm330lhhx_update_page_bits_locked(sensor->hw,
+					ST_ASM330LHHX_EMB_FUNC_EN_B_ADDR,
+					ST_ASM330LHHX_MLC_EN_MASK,
+					ST_ASM330LHHX_SHIFT_VAL(enable,
+						ST_ASM330LHHX_MLC_EN_MASK));
+			if (err < 0)
+				return err;
+		}
+	}
+
+	return err < 0 ? err : 0;
+}
+#endif /* CONFIG_IIO_ST_ASM330LHHX_CHECK_MLC_REQUIRED */
 
 static int
 st_asm330lhhx_fsm_enable_sensor(struct st_asm330lhhx_sensor *sensor,
@@ -237,6 +263,7 @@ st_asm330lhhx_fsm_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 				if (err < 0)
 					return err;
 			}
+
 			if (hw->mlc_config->mlc_int_pin  & BIT(1)) {
 				err = st_asm330lhhx_update_page_bits_locked(hw,
 						ST_ASM330LHHX_FSM_INT2_A_ADDR,
@@ -292,7 +319,16 @@ st_asm330lhhx_fsm_enable_sensor(struct st_asm330lhhx_sensor *sensor,
 		return -ENODEV;
 	}
 
+#ifdef CONFIG_IIO_ST_ASM330LHHX_CHECK_MLC_REQUIRED
+	/* check if fsm requires mlc enabled */
+	err = st_asm330lhhx_fsm_check_require_mlc(sensor, enable);
+	if (err < 0)
+		return err;
+#endif /* CONFIG_IIO_ST_ASM330LHHX_CHECK_MLC_REQUIRED */
+
 	err = st_asm330lhhx_sensor_set_enable(sensor, enable);
+	if (err < 0)
+		return err;
 
 	/* check for any other fsm already enabled */
 	if ((!fsm_running && st_asm330lhhx_fsm_running(hw)) ||
@@ -909,12 +945,18 @@ int st_asm330lhhx_read_crash_min_duration(struct st_asm330lhhx_hw *hw)
 static void st_asm330lhhx_mlc_update(const struct firmware *fw,
 				     void *context)
 {
-	bool force_mlc_enabled = false, force_fsm_enabled = false;
+	bool force_mlc_enabled, force_fsm_enabled = false;
 	struct st_asm330lhhx_hw *hw = context;
 	enum st_asm330lhhx_sensor_id id;
 	u16 fsm_mask = 0;
 	u8 mlc_mask = 0;
 	int ret, i;
+
+#ifdef CONFIG_IIO_ST_ASM330LHHX_CHECK_MLC_REQUIRED
+	force_mlc_enabled = false;
+#else /* CONFIG_IIO_ST_ASM330LHHX_CHECK_MLC_REQUIRED */
+	force_mlc_enabled = true;
+#endif /* CONFIG_IIO_ST_ASM330LHHX_CHECK_MLC_REQUIRED */
 
 	if (!fw) {
 		dev_err(hw->dev, "could not get binary firmware\n");
