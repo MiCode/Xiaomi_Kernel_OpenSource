@@ -4,6 +4,7 @@ iommu-logger.ko
 llcc-qcom.ko
 mem_buf.ko
 mem_buf_dev.ko
+minidump.ko
 msm_qmp.ko
 msm_dma_iommu_mapping.ko
 ns.ko
