@@ -380,7 +380,7 @@ static int adsp_start(struct rproc *rproc)
 {
 	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
 	int ret;
-	const struct firmware *fw;
+	const struct firmware *fw = NULL;
 
 	trace_rproc_qcom_event(dev_name(adsp->dev), "adsp_start", "enter");
 
