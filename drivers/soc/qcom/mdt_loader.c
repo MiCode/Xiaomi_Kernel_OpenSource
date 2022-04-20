@@ -213,12 +213,12 @@ static int __qcom_mdt_load(struct device *dev, const struct firmware *fw, const 
 	phys_addr_t mem_reloc;
 	phys_addr_t min_addr = PHYS_ADDR_MAX;
 	phys_addr_t max_addr = 0;
-	dma_addr_t metadata_phys;
+	dma_addr_t metadata_phys = 0;
 	struct device *scm_dev = NULL;
-	size_t metadata_len;
+	size_t metadata_len = 0;
 	size_t fw_name_len;
 	ssize_t offset;
-	void *metadata;
+	void *metadata = NULL;
 	char *fw_name;
 	bool relocate = false;
 	bool is_split;
