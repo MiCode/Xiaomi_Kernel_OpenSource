@@ -1387,7 +1387,7 @@ st_asm330lhhx_selftest_sensor(struct st_asm330lhhx_sensor *sensor,
 	int ret, delay;
 	u8 raw_data[6];
 
-	switch(sensor->id) {
+	switch (sensor->id) {
 	case ST_ASM330LHHX_ID_ACC:
 		reg = ST_ASM330LHHX_REG_OUTX_L_A_ADDR;
 		bitmask = ST_ASM330LHHX_REG_STATUS_XLDA;
@@ -1401,7 +1401,7 @@ st_asm330lhhx_selftest_sensor(struct st_asm330lhhx_sensor *sensor,
 	}
 
 	/* set selftest normal mode */
-	ret =st_asm330lhhx_set_selftest(sensor, 0);
+	ret = st_asm330lhhx_set_selftest(sensor, 0);
 	if (ret < 0)
 		return ret;
 
@@ -1741,14 +1741,14 @@ static int st_asm330lhhx_reset_device(struct st_asm330lhhx_hw *hw)
 	if (err < 0)
 		return err;
 
-	msleep(50);
+	usleep_range(10500, 11000);
 
 	/* boot */
 	err = regmap_update_bits(hw->regmap, ST_ASM330LHHX_REG_CTRL3_C_ADDR,
 				 ST_ASM330LHHX_REG_BOOT_MASK,
 				 FIELD_PREP(ST_ASM330LHHX_REG_BOOT_MASK, 1));
 
-	msleep(50);
+	usleep_range(20, 30);
 
 	return err;
 }
@@ -1961,9 +1961,12 @@ int st_asm330lhhx_probe(struct device *dev, int irq,
 			return -ENOMEM;
 	}
 
-	err = st_asm330lhhx_shub_probe(hw);
-	if (err < 0)
-		return err;
+	if ((!dev_fwnode(dev) ||
+	     !device_property_read_bool(dev, "st,disable-sensor-hub"))) {
+		err = st_asm330lhhx_shub_probe(hw);
+		if (err < 0)
+			return err;
+	}
 
 	if (hw->irq > 0) {
 		err = st_asm330lhhx_buffers_setup(hw);
