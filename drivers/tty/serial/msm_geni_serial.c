@@ -198,28 +198,66 @@ static void __ftrace_dbg(struct device *dev, const char *fmt, ...)
 #define ftrace_dbg(dev, fmt, ...)			\
 	__ftrace_dbg(dev, fmt, ##__VA_ARGS__)	\
 
+/**
+ * enum uart_error_code: Various error codes used by driver
+ * @UART_ERROR_DEFAULT: Default error code
+ * @UART_ERROR_INVALID_FW_LOADED: used when invalid fw is downloaded
+ * @UART_ERROR_CLK_GET_FAIL: used when unable to get core se clocks
+ * @UART_ERROR_SE_CLK_RATE_FIND_FAIL: used when unable to get requested
+ *  clock rate
+ * @UART_ERROR_SE_RESOURCES_INIT_FAIL: used when serial engine resources
+ *  init failed
+ * @UART_ERROR_SE_RESOURCES_ON_FAIL: used when serial engine resources on
+ *  failed
+ * @UART_ERROR_SE_RESOURCES_OFF_FAIL: used when serial engine resources off
+ *  failed
+ * @UART_ERROR_TX_DMA_MAP_FAIL: used when dma preparation for tx fails
+ * @UART_ERROR_TX_CANCEL_FAIL: used when Tx cancel command fails
+ * @UART_ERROR_TX_ABORT_FAIL: used when Tx abort command fails
+ * @UART_ERROR_TX_FSM_RESET_FAIL: used when Tx FSM reset fails
+ * @UART_ERROR_RX_CANCEL_FAIL: used when Rx cancel command fails
+ * @UART_ERROR_RX_ABORT_FAIL: used when Rx abort command fails
+ * @UART_ERROR_RX_FSM_RESET_FAIL: used when Rx FSM reset fails
+ * @UART_ERROR_RX_TTY_INSERT_FAIL: used when there is error in inserting
+ *  block of characters in tty flip buffer
+ * @UART_ERROR_ILLEGAL_INTERRUPT: used when command with illegal opcode
+ *  is encountered by hardware
+ * @UART_ERROR_BUFFER_OVERRUN: used when HW writes to a full RX FIFO
+ * @UART_ERROR_RX_PARITY_ERROR: used when Rx parity error encountered
+ * @UART_ERROR_RX_BREAK_ERROR: used when Rx break error encountered
+ * @UART_ERROR_RX_SBE_ERROR: used when AHB bus error encountered during
+ *  DMA Rx transaction
+ * @SOC_ERROR_START_TX_IOS_SOC_RFR_HIGH: used when SOC RFR is high
+ *  and SOC is not ready to receive data
+ * @UART_ERROR_FLOW_OFF: used to indicate when UART is not ready to
+ *  receive data and flow is turned off
+ */
 enum uart_error_code {
-	UART_ERROR_DEFAULT,
-	UART_ERROR_INVALID_FW_LOADED,
-	UART_ERROR_CLK_GET_FAIL,
-	UART_ERROR_SE_CLK_RATE_FIND_FAIL,
-	UART_ERROR_SE_RESOURCES_INIT_FAIL,
-	UART_ERROR_SE_RESOURCES_ON_FAIL,
-	UART_ERROR_SE_RESOURCES_OFF_FAIL,
-	UART_ERROR_TX_DMA_MAP_FAIL,
-	UART_ERROR_TX_CANCEL_FAIL,
-	UART_ERROR_TX_ABORT_FAIL,
-	UART_ERROR_TX_FSM_RESET_FAIL,
-	UART_ERROR_RX_CANCEL_FAIL,
-	UART_ERROR_RX_ABORT_FAIL,
-	UART_ERROR_RX_FSM_RESET_FAIL,
-	UART_ERROR_RX_TTY_INSERT_FAIL,
-	UART_ERROR_ILLEGAL_INTERRUPT,
-	UART_ERROR_BUFFER_OVERRUN,
-	UART_ERROR_RX_PARITY_ERROR,
-	UART_ERROR_RX_BREAK_ERROR,
-	UART_ERROR_RX_SBE_ERROR,
-	SOC_ERROR_START_TX_IOS_SOC_RFR_HIGH
+	UART_ERROR_DEFAULT = 0,
+	UART_ERROR_INVALID_FW_LOADED = 1,
+	UART_ERROR_CLK_GET_FAIL = 2,
+	UART_ERROR_SE_CLK_RATE_FIND_FAIL = 3,
+	UART_ERROR_SE_RESOURCES_INIT_FAIL = 4,
+	UART_ERROR_SE_RESOURCES_ON_FAIL = 5,
+	UART_ERROR_SE_RESOURCES_OFF_FAIL = 6,
+	UART_ERROR_TX_DMA_MAP_FAIL = 7,
+	UART_ERROR_TX_CANCEL_FAIL = 8,
+	UART_ERROR_TX_ABORT_FAIL = 9,
+	UART_ERROR_TX_FSM_RESET_FAIL = 10,
+	UART_ERROR_RX_CANCEL_FAIL = 11,
+	UART_ERROR_RX_ABORT_FAIL = 12,
+	UART_ERROR_RX_FSM_RESET_FAIL = 13,
+	UART_ERROR_RX_TTY_INSERT_FAIL = 14,
+	UART_ERROR_ILLEGAL_INTERRUPT = 15,
+	UART_ERROR_BUFFER_OVERRUN = 16,
+	UART_ERROR_RX_PARITY_ERROR = 17,
+	UART_ERROR_RX_BREAK_ERROR = 18,
+	UART_ERROR_RX_SBE_ERROR = 19,
+	SOC_ERROR_START_TX_IOS_SOC_RFR_HIGH = 20,
+	UART_ERROR_FLOW_OFF = 21,
+
+	/* keep last */
+	UART_ERROR_CODE_MAX,
 };
 
 struct msm_geni_serial_ver_info {
@@ -973,6 +1011,10 @@ static unsigned int msm_geni_serial_get_mctrl(struct uart_port *uport)
 		mctrl |= TIOCM_CTS;
 	else
 		msm_geni_update_uart_error_code(port, SOC_ERROR_START_TX_IOS_SOC_RFR_HIGH);
+
+	if (!port->manual_flow)
+		mctrl |= TIOCM_RTS;
+
 	UART_LOG_DBG(port->ipc_log_misc, uport->dev, "%s: geni_ios:0x%x, mctrl:0x%x\n",
 		__func__, geni_ios, mctrl);
 	return mctrl;
@@ -983,32 +1025,52 @@ static void msm_geni_cons_set_mctrl(struct uart_port *uport,
 {
 }
 
+/*
+ * msm_geni_serial_set_mctrl() - Configures control lines of uart port
+ *
+ * @uport: pointer to uart port
+ * @mctrl: contains control line configuration
+ *
+ * Return: None
+ */
 static void msm_geni_serial_set_mctrl(struct uart_port *uport,
-							unsigned int mctrl)
+				      unsigned int mctrl)
 {
 	u32 uart_manual_rfr = 0;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
 
 	if (device_pending_suspend(uport)) {
 		UART_LOG_DBG(port->ipc_log_misc, uport->dev,
-			"%s.Device is suspended, %s: mctrl=0x%x\n",
-			 __func__, current->comm, mctrl);
+			     "%s.Device is suspended, %s: mctrl=0x%x\n",
+			     __func__, current->comm, mctrl);
 		return;
 	}
+
 	if (!(mctrl & TIOCM_RTS)) {
 		uart_manual_rfr |= (UART_MANUAL_RFR_EN | UART_RFR_NOT_READY);
 		port->manual_flow = true;
 	} else {
 		port->manual_flow = false;
 	}
-	geni_write_reg(uart_manual_rfr, uport->membase,
-							SE_UART_MANUAL_RFR);
+	geni_write_reg(uart_manual_rfr, uport->membase,	SE_UART_MANUAL_RFR);
+
 	/* Write to flow control must complete before return to client*/
 	mb();
+
+	if (port->manual_flow) {
+		/* Set error code UART_ERROR_FLOW_OFF indicating manual rfr
+		 * is enabled
+		 */
+		msm_geni_update_uart_error_code(port, UART_ERROR_FLOW_OFF);
+	} else if (port->uart_error == UART_ERROR_FLOW_OFF) {
+		/* Reset the prev err code since manual rfr is now disabled */
+		msm_geni_update_uart_error_code(port, UART_ERROR_DEFAULT);
+	}
+
 	UART_LOG_DBG(port->ipc_log_misc, uport->dev,
-			"%s:%s, mctrl=0x%x, manual_rfr=0x%x, flow=%s\n",
-			__func__, current->comm, mctrl, uart_manual_rfr,
-			(port->manual_flow ? "OFF" : "ON"));
+		     "%s:%s, mctrl=0x%x, manual_rfr=0x%x, flow=%s\n",
+		     __func__, current->comm, mctrl, uart_manual_rfr,
+		     (port->manual_flow ? "OFF" : "ON"));
 }
 
 static const char *msm_geni_serial_get_type(struct uart_port *uport)
