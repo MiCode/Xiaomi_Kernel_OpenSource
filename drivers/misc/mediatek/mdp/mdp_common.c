@@ -1430,6 +1430,7 @@ void cmdq_mdp_init_secure_id(void *meta_array, u32 count)
 				sec_handle);
 		secMetadatas[i].baseHandle = (uint64_t)sec_handle;
 		secMetadatas[i].sec_id = sec_id;
+		dma_buf_put(buf);
 	}
 #endif
 }

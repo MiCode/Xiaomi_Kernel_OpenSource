@@ -582,6 +582,7 @@ static s32 translate_meta(struct op_meta *meta,
 		meta->sec_handle = dmabuf_to_secure_handle(buf);
 		CMDQ_MSG("CMDQ_MOP_WRITE_SEC_FD: translate fd %d to sec_handle %d\n",
 			meta->fd, meta->sec_handle);
+		dma_buf_put(buf);
 
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr)
