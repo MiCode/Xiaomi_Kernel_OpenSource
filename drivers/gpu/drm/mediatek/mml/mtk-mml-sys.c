@@ -27,7 +27,7 @@
 #define MML_MAX_SYS_COMPONENTS	16
 #define MML_MAX_SYS_MUX_PINS	88
 #define MML_MAX_SYS_DL_RELAYS	7
-#define MML_MAX_SYS_DBG_REGS	60
+#define MML_MAX_SYS_DBG_REGS	75
 #define MML_MAX_AID_COMPS	8
 
 int mml_ir_loop = 1;
