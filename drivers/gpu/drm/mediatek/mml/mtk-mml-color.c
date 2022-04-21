@@ -423,6 +423,7 @@ static const struct mml_comp_config_ops color_cfg_ops = {
 	.tile = color_config_tile,
 	.post = color_config_post,
 	.reframe = color_reconfig_frame,
+	.repost = color_config_post,
 };
 
 static void color_debug_dump(struct mml_comp *comp)

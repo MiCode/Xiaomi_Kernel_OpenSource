@@ -613,7 +613,10 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 		else
 			aal_frm->out_hist_xs = tile->out.xe + 1;
 		save_first_blk_col_flag = (ccfg->pipe) ? 1 : 0;
-		save_last_blk_col_flag = 0;
+		if (idx + 1 >= tile_cnt)
+			save_last_blk_col_flag = (ccfg->pipe) ? 0 : 1;
+		else
+			save_last_blk_col_flag = 0;
 	} else if (idx + 1 >= tile_cnt) {
 		aal_frm->out_hist_xs = 0;
 		save_first_blk_col_flag = 0;
