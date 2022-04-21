@@ -1063,26 +1063,26 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		mtk_iommu_tlb_flush_all(orig_data);
 }
 
-static void mtk_iommu_dump_tf_iova(struct mtk_iommu_data *data,
+static void mtk_iommu_dump_iova(struct mtk_iommu_data *data,
 		enum iommu_bank bank, u64 fault_iova)
 {
-	u64 tf_iova_tmp, hw_pa[TAB_TYPE_NUM] = { 0 };
+	u64 iova_tmp, hw_pa[TAB_TYPE_NUM] = { 0 };
 	phys_addr_t fake_pa;
 	u32 sr_info[TAB_TYPE_NUM] = { 0 };
 	u32 pg_type[TAB_TYPE_NUM] = { 0 };
 	u32 lvl[TAB_TYPE_NUM] = { 0 };
 	int i;
 
-	for (i = 0, tf_iova_tmp = fault_iova; i < MTK_IOMMU_TF_IOVA_DUMP_NUM; i++) {
+	for (i = 0, iova_tmp = fault_iova; i < MTK_IOMMU_TF_IOVA_DUMP_NUM; i++) {
 		if (i > 0)
-			tf_iova_tmp -= SZ_4K;
-		fake_pa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, tf_iova_tmp);
+			iova_tmp -= SZ_4K;
+		fake_pa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, iova_tmp);
 		if (hypmmu_type2_en == true)
-			hw_pa[NS_TAB] = mtee_iova_to_phys(tf_iova_tmp,
+			hw_pa[NS_TAB] = mtee_iova_to_phys(iova_tmp,
 						data->plat_data->tab_id,
 						sr_info, hw_pa, pg_type, lvl);
 		pr_err("error, type2_en:%d, index:%d, lvl:%u, pg_type:0x%x, falut_iova:0x%lx, fault_pa:0x%llx ~ 0x%llx\n",
-			hypmmu_type2_en, i, lvl[NS_TAB], pg_type[NS_TAB], tf_iova_tmp,
+			hypmmu_type2_en, i, lvl[NS_TAB], pg_type[NS_TAB], iova_tmp,
 			(u64)fake_pa, hw_pa[NS_TAB]);
 		if (!fake_pa && i > 0)
 			break;
@@ -1139,7 +1139,7 @@ static irqreturn_t mtk_iommu_dump_sec_bank(struct mtk_iommu_data *data,
 	pr_info("%s fault iova=0x%llx pa=0x%llx layer=%d %s\n",
 		dev_name(dev), fault_iova, fault_pa, layer,
 		write ? "write" : "read");
-	mtk_iommu_dump_tf_iova(data, bank, fault_iova);
+	mtk_iommu_dump_iova(data, bank, fault_iova);
 	report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
 
 	mtk_iommu_tlb_flush_all(data);
@@ -1312,7 +1312,7 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 			dev_name(dev), table_base, int_state1, fault_iova, fault_pa,
 			layer, (write ? "write" : "read"), dom->cfg.arm_v7s_cfg.ttbr,
 			data->protect_base, readl_relaxed(base + REG_MMU_IVRP_PADDR));
-		mtk_iommu_dump_tf_iova(data, IOMMU_BK0, fault_iova);
+		mtk_iommu_dump_iova(data, IOMMU_BK0, fault_iova);
 		report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
 #else
 		fault_port = F_MMU_INT_ID_PORT_ID(regval);
@@ -1679,6 +1679,13 @@ static int mtk_iommu_map(struct iommu_domain *domain, unsigned long iova,
 
 	/* Synchronize with the tlb_lock */
 	ret = dom->iop->map(dom->iop, iova, paddr, size, prot, gfp);
+	if (ret) {
+		pr_info("%s fail:%d, iommu:(%d,%d) tab_id:%d, iova:0x%lx end:0x%lx pa:%pa size:0x%zx prot:0x%x gfp:0x%x\n",
+			__func__, ret, dom->data->plat_data->iommu_type,
+			dom->data->plat_data->iommu_id, dom->tab_id, iova,
+			(iova + size - 1), &paddr, size, prot, gfp);
+		mtk_iommu_dump_iova(dom->data, IOMMU_BK0, iova);
+	}
 	return ret;
 }
 
@@ -1691,6 +1698,13 @@ static size_t mtk_iommu_unmap(struct iommu_domain *domain,
 
 	iommu_iotlb_gather_add_range(gather, iova, size);
 	ret = dom->iop->unmap(dom->iop, iova, size, gather);
+	if (!ret) {
+		pr_info("%s fail:%d, iommu:(%d,%d) tab_id:%d, iova:0x%lx end:0x%lx size:0x%zx\n",
+			__func__, ret, dom->data->plat_data->iommu_type,
+			dom->data->plat_data->iommu_id, dom->tab_id, iova,
+			(iova + size - 1), size);
+		mtk_iommu_dump_iova(dom->data, IOMMU_BK0, iova);
+	}
 	return ret;
 }
 
@@ -1709,8 +1723,8 @@ static void mtk_iommu_iotlb_sync(struct iommu_domain *domain,
 	int ret;
 
 	if (gather->start > gather->end) {
-		pr_err("%s fail, iova range : 0x%lx ~ 0x%lx\n",
-		       __func__, gather->start, gather->end);
+		pr_err("unmap invalid iova range : 0x%lx ~ 0x%lx\n",
+		       gather->start, gather->end);
 		return;
 	}
 
@@ -1741,8 +1755,8 @@ static void mtk_iommu_sync_map(struct iommu_domain *domain, unsigned long iova,
 	int ret;
 
 	if (iova > (iova + size)) {
-		pr_err("%s fail, iova range : 0x%lx ~ 0x%lx\n",
-		       __func__, iova, iova + size);
+		pr_err("map invalid iova range : 0x%lx ~ 0x%lx\n",
+		       iova, iova + size);
 		return;
 	}
 

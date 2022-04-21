@@ -4470,7 +4470,8 @@ static void mtk_iommu_iova_map_dump(struct seq_file *s, u64 iova, u32 tab_id)
 	}
 
 	list_for_each_entry_safe(plist, n, &map_list.head[id], list_node)
-		if (plist->tab_id == tab_id && iova <= (plist->iova + SZ_4M) &&
+		if (plist->tab_id == tab_id &&
+		    iova <= (plist->iova + plist->size + SZ_4M) &&
 		    iova >= (plist->iova - SZ_4M))
 			iommu_dump(s, "%-6u 0x%-12llx 0x%-8zx %u.%06u\n",
 				plist->tab_id, plist->iova,
@@ -5371,12 +5372,13 @@ static void mtk_iova_dbg_alloc(struct device *dev,
 	struct iova_info *iova_buf;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	u32 tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
+	u32 dom_id = MTK_M4U_TO_DOM(fwspec->ids[0]);
 
 	if (!iova) {
 		pr_info("%s fail! dev:%s, size:0x%zx\n",
 			__func__, dev_name(dev), size);
 
-		if (tab_id == APU_TABLE)
+		if (dom_id > 0)
 			mtk_iommu_iova_alloc_dump(NULL, dev);
 
 		return mtk_iommu_iova_alloc_dump_top(NULL, dev);
@@ -5387,7 +5389,7 @@ static void mtk_iova_dbg_alloc(struct device *dev,
 		return;
 
 	iova_buf->tab_id = tab_id;
-	iova_buf->dom_id = MTK_M4U_TO_DOM(fwspec->ids[0]);
+	iova_buf->dom_id = dom_id;
 	iova_buf->dev = dev;
 	iova_buf->iovad = iovad;
 	iova_buf->iova = iova;
