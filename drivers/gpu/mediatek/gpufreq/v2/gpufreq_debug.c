@@ -21,7 +21,6 @@
 #include <linux/uaccess.h>
 
 #include <gpufreq_v2.h>
-#include <gpufreq_ipi.h>
 #include <gpufreq_debug.h>
 #include <gpu_misc.h>
 #include <gpufreq_history_debug.h>
@@ -847,7 +846,7 @@ void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support,
 	if (shared_status)
 		g_shared_status = shared_status;
 	else {
-		GPUFREQ_LOGE("null gpufreq shared status: 0x%x", shared_status);
+		GPUFREQ_LOGE("null gpufreq shared status: 0x%llx", shared_status);
 		BUG_ON(1);
 	}
 

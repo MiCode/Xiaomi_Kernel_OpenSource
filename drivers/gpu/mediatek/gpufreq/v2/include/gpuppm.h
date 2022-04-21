@@ -58,6 +58,7 @@ struct gpuppm_status {
  * Function
  **************************************************/
 int gpuppm_init(enum gpufreq_target target, unsigned int gpueb_support, unsigned int sramrc_vsafe);
+void gpuppm_set_shared_status(struct gpufreq_shared_status *shared_status);
 int gpuppm_limited_commit(enum gpufreq_target target, int oppidx);
 int gpuppm_set_limit(enum gpufreq_target target, enum gpuppm_limiter limiter,
 	int ceiling_info, int floor_info);

@@ -28,6 +28,7 @@ static void __gpuppm_sort_limit(void);
 static int __gpuppm_limit_effective(enum gpufreq_target target);
 static int __gpuppm_convert_limit_to_idx(enum gpufreq_target target, enum gpuppm_limiter limiter,
 	int ceiling_info, int floor_info, int *ceiling_idx, int *floor_idx);
+static void __gpuppm_update_gpuppm_info(void);
 
 /**
  * ===============================================
@@ -38,6 +39,7 @@ static DEFINE_MUTEX(gpuppm_lock);
 static struct gpuppm_status g_ppm;
 static unsigned int g_gpueb_support;
 static unsigned int g_stress_test;
+static struct gpufreq_shared_status *g_shared_status;
 
 static struct gpuppm_limit_info g_limit_table[] = {
 	LIMITOP(LIMIT_SEGMENT, "SEGMENT", GPUPPM_PRIO_9,
@@ -79,6 +81,7 @@ static struct gpuppm_limit_info g_limit_table[] = {
 };
 
 static struct gpuppm_platform_fp platform_ap_fp = {
+	.set_shared_status = gpuppm_set_shared_status,
 	.limited_commit = gpuppm_limited_commit,
 	.set_limit = gpuppm_set_limit,
 	.switch_limit = gpuppm_switch_limit,
@@ -317,6 +320,21 @@ static int __gpuppm_convert_limit_to_idx(enum gpufreq_target target, enum gpuppm
 	return ret;
 }
 
+static void __gpuppm_update_gpuppm_info(void)
+{
+	unsigned int copy_size = 0;
+
+	g_shared_status->cur_ceiling = g_ppm.ceiling;
+	g_shared_status->cur_floor = g_ppm.floor;
+	g_shared_status->cur_c_limiter = g_ppm.c_limiter;
+	g_shared_status->cur_f_limiter = g_ppm.f_limiter;
+	g_shared_status->cur_c_priority = g_ppm.c_priority;
+	g_shared_status->cur_f_priority = g_ppm.f_priority;
+
+	copy_size = sizeof(struct gpuppm_limit_info) * LIMIT_NUM;
+	memcpy(g_shared_status->limit_table, g_limit_table, copy_size);
+}
+
 void gpuppm_set_stress_test(unsigned int mode)
 {
 	g_stress_test = mode;
@@ -384,6 +402,9 @@ int gpuppm_set_limit(enum gpufreq_target target, enum gpuppm_limiter limiter,
 	/* update current limit status */
 	__gpuppm_sort_limit();
 
+	/* update current status to shared memory */
+	__gpuppm_update_gpuppm_info();
+
 	/* update current OPP if necessary */
 	ret = __gpuppm_limit_effective(target);
 
@@ -423,6 +444,9 @@ int gpuppm_switch_limit(enum gpufreq_target target, enum gpuppm_limiter limiter,
 
 	/* update current limit status */
 	__gpuppm_sort_limit();
+
+	/* update current status to shared memory */
+	__gpuppm_update_gpuppm_info();
 
 	/* update current OPP if necessary */
 	ret = __gpuppm_limit_effective(target);
@@ -475,6 +499,21 @@ int gpuppm_limited_commit(enum gpufreq_target target, int oppidx)
 	GPUFREQ_TRACE_END();
 
 	return ret;
+}
+
+void gpuppm_set_shared_status(struct gpufreq_shared_status *shared_status)
+{
+	mutex_lock(&gpuppm_lock);
+
+	if (shared_status)
+		g_shared_status = shared_status;
+	else
+		__gpufreq_abort("null gpufreq shared status: 0x%llx", shared_status);
+
+	/* update current status to shared memory */
+	__gpuppm_update_gpuppm_info();
+
+	mutex_unlock(&gpuppm_lock);
 }
 
 int gpuppm_init(enum gpufreq_target target,
