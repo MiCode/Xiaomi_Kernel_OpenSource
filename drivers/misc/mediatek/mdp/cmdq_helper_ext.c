@@ -4370,6 +4370,7 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 	struct ContextStruct *ctx;
 	u32 handle_count;
 	static wait_queue_head_t *wait_q;
+	int32_t thread;
 
 	if (!handle->finalized) {
 		CMDQ_ERR("handle not finalized:0x%p scenario:%d\n",
@@ -4432,6 +4433,7 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 		handle->pkt->cl = client;
 	}
 	wait_q = &cmdq_wait_queue[handle->thread];
+	thread = handle->thread;
 	err = cmdq_pkt_flush_async(handle->pkt, cmdq_pkt_flush_handler,
 		(void *)handle);
 	wake_up(wait_q);
@@ -4442,12 +4444,11 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 #endif
 	CMDQ_SYSTRACE_END();
 
-	mutex_unlock(&ctx->thread[handle->thread].thread_mutex);
+	mutex_unlock(&ctx->thread[(u32)thread].thread_mutex);
 
 	if (err < 0) {
-		CMDQ_ERR("pkt flush failed err:%d pkt:0x%p\n",
-			err, handle->pkt);
-		cmdq_pkt_release_handle(handle);
+		CMDQ_ERR("pkt flush failed err:%d handle:%p thread:%d\n",
+			err, handle, thread);
 		return err;
 	}
 
