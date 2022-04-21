@@ -10,9 +10,6 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/mboot_params.h>
 #endif
-#if IS_ENABLED(CONFIG_MTK_AEE_AED)
-#include <aed.h>
-#endif
 
 /**************************************************
  * Misc Definition
@@ -55,34 +52,12 @@
 /**************************************************
  * Enumeration
  **************************************************/
-enum gpufreq_exception {
-	GPUFREQ_GPU_EXCEPTION,
-	GPUFREQ_PMIC_EXCEPTION,
-	GPUFREQ_CCF_EXCEPTION,
-	GPUFREQ_FHCTL_EXCEPTION,
-	NUM_EXCEPTION,
-};
+
 
 /**************************************************
  * Structure
  **************************************************/
-struct gpufreq_exception_info {
-	enum gpufreq_exception exception_type;
-	char exception_string[1024];
-};
 
-/**************************************************
- * Local Variable Definition
- **************************************************/
-static struct gpufreq_exception_info g_pending_aee;
-static bool g_have_pending_aee;
-
-static const char * const g_exception_string[] = {
-	"GPUFREQ_GPU_EXCEPTION",
-	"GPUFREQ_PMIC_EXCEPTION",
-	"GPUFREQ_CCF_EXCEPTION",
-	"GPUFREQ_FHCTL_EXCEPTION",
-};
 
 /**************************************************
  * Platform Function Declaration
@@ -187,42 +162,7 @@ static inline void __gpufreq_footprint_power_count(int power_count)
 #endif /* CONFIG_MTK_AEE_IPANIC && CONFIG_MTK_AEE_FEATURE */
 }
 
-static inline void __gpufreq_dump_exception(enum gpufreq_exception except_type,
-	char *exception_string)
-{
-#if IS_ENABLED(CONFIG_MTK_AEE_AED)
-	if (!exception_string) {
-		GPUFREQ_LOGE("null exception string");
-		return;
-	}
-
-	if (except_type < 0 || except_type >= NUM_EXCEPTION) {
-		GPUFREQ_LOGE("invalid exception type");
-		return;
-	}
-
-	if (aee_get_mode() != AEE_MODE_NOT_INIT) {
-		aee_kernel_warning("GPUFREQ", "\n%s\nCRDISPATCH_KEY: %s\n",
-			exception_string, g_exception_string[except_type]);
-	} else if (!g_have_pending_aee) {
-		/*
-		 * if AEE driver is not ready when bring up
-		 * we will keep the exception log pending.
-		 * When GPU power off, we will check if there is pending
-		 * log need aee dump and trigger the AEE dump.
-		 */
-		g_pending_aee.exception_type = except_type;
-		strncpy(g_pending_aee.exception_string, exception_string, 1023);
-		g_have_pending_aee = true;
-	}
-#else
-	GPUFREQ_UNREFERENCED(except_type);
-	GPUFREQ_UNREFERENCED(exception_string);
-#endif
-}
-
-static inline void __gpufreq_abort(enum gpufreq_exception except_type,
-	const char *exception_string, ...)
+static inline void __gpufreq_abort(const char *exception_string, ...)
 {
 	va_list args;
 	int cx = 0;
@@ -235,21 +175,7 @@ static inline void __gpufreq_abort(enum gpufreq_exception except_type,
 	GPUFREQ_LOGE("[ABORT]: %s", tmp_string);
 	__gpufreq_dump_infra_status();
 
-	if (cx >= 0)
-		__gpufreq_dump_exception(except_type, tmp_string);
 	BUG_ON(1);
-}
-
-/*
- * Check if there is pending exception log
- */
-static inline void __gpufreq_check_pending_exception(void)
-{
-	if (g_have_pending_aee) {
-		g_have_pending_aee = false;
-		__gpufreq_dump_exception(g_pending_aee.exception_type,
-			g_pending_aee.exception_string);
-	}
 }
 
 #endif /* __GPUFREQ_COMMON_H__ */
