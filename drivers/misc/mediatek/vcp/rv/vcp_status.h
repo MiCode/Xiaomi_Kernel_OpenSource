@@ -26,6 +26,8 @@ extern int pwclkcnt;
 extern bool is_suspending;
 int mmup_enable_count(void);
 void vcp_set_fp(struct vcp_status_fp *fp);
+void vcp_set_ipidev(struct mtk_ipi_device *ipidev);
+struct mtk_ipi_device *vcp_get_ipidev(void);
 phys_addr_t vcp_get_reserve_mem_phys_ex(enum vcp_reserve_mem_id_t id);
 phys_addr_t vcp_get_reserve_mem_virt_ex(enum vcp_reserve_mem_id_t id);
 void vcp_register_feature_ex(enum feature_id id);

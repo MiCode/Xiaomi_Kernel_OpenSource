@@ -8,6 +8,7 @@
 #include "vcp.h"
 
 struct vcp_status_fp *vcp_fp;
+struct mtk_ipi_device *vcp_ipidev_ex;
 
 int pwclkcnt;
 EXPORT_SYMBOL_GPL(pwclkcnt);
@@ -33,6 +34,20 @@ void vcp_set_fp(struct vcp_status_fp *fp)
 	vcp_fp = fp;
 }
 EXPORT_SYMBOL_GPL(vcp_set_fp);
+
+void vcp_set_ipidev(struct mtk_ipi_device *ipidev)
+{
+	if (!ipidev)
+		return;
+	vcp_ipidev_ex = ipidev;
+}
+EXPORT_SYMBOL_GPL(vcp_set_ipidev);
+
+struct mtk_ipi_device *vcp_get_ipidev(void)
+{
+	return vcp_ipidev_ex;
+}
+EXPORT_SYMBOL_GPL(vcp_get_ipidev);
 
 phys_addr_t vcp_get_reserve_mem_phys_ex(enum vcp_reserve_mem_id_t id)
 {
