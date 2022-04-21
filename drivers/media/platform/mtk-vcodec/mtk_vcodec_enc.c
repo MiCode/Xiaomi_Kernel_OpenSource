@@ -198,7 +198,6 @@ void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx)
 			dst_vb2_v4l2->vb2_buf.timestamp =
 				src_vb2_v4l2->vb2_buf.timestamp;
 			dst_vb2_v4l2->timecode = src_vb2_v4l2->timecode;
-			dst_vb2_v4l2->flags |= src_vb2_v4l2->flags;
 			dst_vb2_v4l2->sequence = src_vb2_v4l2->sequence;
 			dst_buf = &dst_vb2_v4l2->vb2_buf;
 			dst_buf->planes[0].bytesused = rResult.bs_size;
