@@ -1044,6 +1044,10 @@ static void cmdq_task_release_buffer(struct cmdqRecStruct *handle)
 	handle->pkt = NULL;
 	handle->cmd_end = NULL;
 
+	if (handle->pkt_rb)
+		cmdq_pkt_destroy(handle->pkt_rb);
+	handle->pkt_rb = NULL;
+
 	/* secure path buffer */
 	if (handle->secData.addrMetadatas) {
 		kfree(CMDQ_U32_PTR(handle->secData.addrMetadatas));
@@ -1361,6 +1365,36 @@ s32 cmdq_op_set_event(struct cmdqRecStruct *handle, enum cmdq_event event)
 		return -EINVAL;
 
 	return cmdq_pkt_set_event(handle->pkt, arg_a);
+}
+
+s32 cmdq_op_get_event(struct cmdqRecStruct *handle, enum cmdq_event event)
+{
+	s32 event_id = cmdq_get_event_op_id(event);
+
+	if (event_id < 0 || !handle)
+		return -EINVAL;
+
+	return event_id;
+}
+
+s32 cmdq_op_set_event_readback(struct cmdqRecStruct *handle, enum cmdq_event event)
+{
+	s32 arg_a = cmdq_get_event_op_id(event);
+
+	if (arg_a < 0 || !handle)
+		return -EINVAL;
+
+	return cmdq_pkt_set_event(handle->pkt_rb, arg_a);
+}
+
+s32 cmdq_op_wait_event_readback(struct cmdqRecStruct *handle, enum cmdq_event event)
+{
+	s32 arg_a = cmdq_get_event_op_id(event);
+
+	if (arg_a < 0 || !handle)
+		return -EINVAL;
+
+	return cmdq_pkt_wfe(handle->pkt_rb, arg_a);
 }
 
 s32 cmdq_op_replace_overwrite_cpr(struct cmdqRecStruct *handle, u32 index,

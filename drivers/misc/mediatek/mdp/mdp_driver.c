@@ -1184,6 +1184,7 @@ static int cmdq_probe(struct platform_device *pDevice)
 	cmdq_core_initialize();
 
 	/* init cmdq context */
+	CMDQ_LOG("call cmdq_mdp_init\n");
 	cmdq_mdp_init(pDevice);
 
 	status = alloc_chrdev_region(&gMdpDevNo, 0, 1,

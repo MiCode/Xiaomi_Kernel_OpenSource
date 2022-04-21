@@ -138,6 +138,9 @@ typedef void (*MdpVcpPQReadback) (struct cmdqRecStruct *handle,
 
 typedef bool (*MdpSvpSupportMetaData) (void);
 
+typedef u16 (*MdpGetReadbackEventLock) (void);
+typedef u16 (*MdpGetReadbackEventUnlock) (void);
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
 	CmdqGetRequest getRequest;
@@ -203,6 +206,8 @@ struct cmdqMDPFuncStruct {
 	MdpVcpPQReadbackSupport mdpVcpPQReadbackSupport;
 	MdpVcpPQReadback mdpVcpPQReadback;
 	MdpSvpSupportMetaData mdpSvpSupportMetaData;
+	MdpGetReadbackEventLock mdpGetReadbackEventLock;
+	MdpGetReadbackEventUnlock mdpGetReadbackEventUnlock;
 
 };
 
@@ -335,9 +340,10 @@ s32 cmdq_mdp_get_rdma_idx(u32 base);
 u32 cmdq_mdp_vcp_pq_readback_support(void);
 void cmdq_mdp_vcp_pq_readback(struct cmdqRecStruct *handle, u16 engine,
 	u32 vcp_offset, u32 count);
+u16 mdp_get_rb_event_lock(void);
+u16 mdp_get_rb_event_unlock(void);
 
 struct device *mdp_larb_dev_get(void);
-
 
 /* Platform virtual function setting */
 void cmdq_mdp_platform_function_setting(void);

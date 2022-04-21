@@ -124,6 +124,13 @@ struct mdp_thread {
 	bool secure;
 };
 
+struct mdp_pq_readback {
+	u16 dre30_hist_sram_start;
+	u16 rb_thread_id;
+	u16 rb_event_lock;
+	u16 rb_event_unlock;
+};
+
 struct mdp_context {
 	struct list_head tasks_wait;	/* task waiting for available thread */
 	struct mdp_thread thread[CMDQ_MAX_THREAD_COUNT];
@@ -143,6 +150,7 @@ struct mdp_context {
 	atomic_t mdp_smi_usage;
 
 	struct device *larb;
+	struct mdp_pq_readback pq_readback;
 };
 static struct mdp_context mdp_ctx;
 static struct cmdq_buf_pool mdp_pool;
@@ -159,7 +167,6 @@ static wait_queue_head_t mdp_thread_dispatch;
 
 static struct notifier_block mdp_status_dump_notify;
 
-u32 dre30_hist_sram_start;
 #define LEGACY_DRE30_HIST_SRAM_START	1024
 
 /* MDP common kernel logic */
@@ -854,6 +861,13 @@ static s32 cmdq_mdp_find_free_thread(struct cmdqRecStruct *handle)
 	/* dispatch from free threads */
 	threads = mdp_ctx.thread;
 	for (index = MDP_THREAD_START; index < max_thd; index++) {
+
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+		/* This thread is dedicated for readback command */
+		if (index == mdp_ctx.pq_readback.rb_thread_id)
+			continue;
+#endif
+
 		if (!threads[index].acquired || threads[index].engine_flag ||
 			threads[index].task_count ||
 			!threads[index].allow_dispatch) {
@@ -1218,6 +1232,71 @@ s32 cmdq_mdp_handle_create(struct cmdqRecStruct **handle_out)
 	return 0;
 }
 
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+static void cmdq_mdp_config_readback_sec(struct cmdqRecStruct *handle)
+{
+	struct cmdq_sec_data *data =
+		(struct cmdq_sec_data *)handle->pkt->sec_data;
+	u32 i;
+
+	data->mdp_extension = handle->mdp_extension;
+	data->readback_cnt = handle->readback_cnt;
+
+	CMDQ_MSG("%s engine:%llx, mdp_extension:%d, readback_cnt:%d\n", __func__,
+		handle->engineFlag,
+		handle->mdp_extension,
+		handle->readback_cnt);
+
+	for (i = 0; i < handle->readback_cnt; i++) {
+		data->readback_engs[i].engine =
+			handle->readback_engs[i].engine;
+		data->readback_engs[i].start = handle->readback_engs[i].start;
+		data->readback_engs[i].count = handle->readback_engs[i].count;
+		data->readback_engs[i].param = handle->readback_engs[i].param;
+
+		CMDQ_MSG("%s idx:%u offset:%#x(%u) engine:%u param:%#x\n",
+			__func__, i, data->readback_engs[i].start,
+			data->readback_engs[i].count,
+			data->readback_engs[i].engine,
+			data->readback_engs[i].param);
+	}
+}
+
+s32 cmdq_mdp_config_readback_thread(struct cmdqRecStruct *handle)
+{
+	s32 err;
+	struct cmdq_client *cl_rb = NULL;
+
+	if (!handle)
+		return 0;
+
+	/* Assign static normal thread */
+	if (handle->scenario == CMDQ_SCENARIO_USER_MDP &&
+		handle->secData.is_secure)  {
+		handle->thread_rb = mdp_ctx.pq_readback.rb_thread_id;
+	}
+
+	CMDQ_MSG("%s engine:%llx, handle->thread_rb:%d, readback_cnt:%d\n", __func__,
+		handle->engineFlag,
+		handle->thread_rb,
+		handle->readback_cnt);
+
+	if (handle->thread_rb != CMDQ_INVALID_THREAD) {
+		cl_rb = cmdq_helper_mbox_client(handle->thread_rb);
+		handle->pkt_rb = cmdq_pkt_create(cl_rb);
+
+		if (IS_ERR(handle->pkt_rb)) {
+			err = PTR_ERR(handle->pkt_rb);
+			CMDQ_ERR("creat pkt_rb fail err:%d\n", err);
+			handle->pkt_rb = NULL;
+			return err;
+		}
+		handle->pkt_rb->cl = (void *)cl_rb;
+	}
+	return 0;
+}
+#endif
+
 s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 			struct cmdqRecStruct *handle)
 {
@@ -1309,7 +1388,10 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	cmdq_sec_pkt_set_mtee(handle->pkt,
 		cmdq_mdp_get_func()->mdpIsMtee(handle));
 
-	CMDQ_LOG("%s done, handle:%p mtee:%d dapc:%#llx port:%#llx engine:%#llx\n",
+	/* config handle->pkt_rb and handle->thread_rb */
+	cmdq_mdp_config_readback_thread(handle);
+
+	CMDQ_MSG("%s done, handle:%p mtee:%d dapc:%#llx port:%#llx engine:%#llx\n",
 		__func__, handle,
 		((struct cmdq_sec_data *)handle->pkt->sec_data)->mtee,
 		dapc, port, handle->engineFlag);
@@ -1387,11 +1469,21 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 	s32 status;
 
 	CMDQ_TRACE_FORCE_BEGIN("%s %llx\n", __func__, handle->engineFlag);
-	CMDQ_MSG("%s %llx\n", __func__, handle->engineFlag);
+
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+	if (handle->secData.is_secure) {
+		/* insert backup cookie cmd */
+		handle->thread = CMDQ_INVALID_THREAD;
+
+		/* Passing readback required data */
+		cmdq_mdp_config_readback_sec(handle);
+	}
+#endif
 
 	/* finalize it */
 	CMDQ_MSG("%s finalize\n", __func__);
 	handle->finalized = true;
+
 	cmdq_pkt_finalize(handle->pkt);
 
 	/* Dispatch handle to get correct thread or wait in list.
@@ -1399,8 +1491,10 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 	 * holds same engines.
 	 */
 	CMDQ_MSG("%s flush impl\n", __func__);
+
 	status = cmdq_mdp_flush_async_impl(handle);
 	CMDQ_TRACE_FORCE_END();
+
 	return status;
 }
 
@@ -1978,15 +2072,50 @@ static int cmdq_mdp_init_larb(struct platform_device *pdev)
 	return 0;
 }
 
-void cmdq_mdp_init(struct platform_device *pdev)
+static int cmdq_mdp_init_pq_readback(struct platform_device *pdev)
 {
 	int ret;
+	u16 hist_sram_start = 0;
+	u16 rb_thread_id = 0, rb_event_lock = 0, rb_event_unlock = 0;
 
+	ret = of_property_read_u16(pdev->dev.of_node,
+		"dre30_hist_sram_start", &hist_sram_start);
+	if (ret != 0 || !hist_sram_start)
+		hist_sram_start = LEGACY_DRE30_HIST_SRAM_START;
+
+	mdp_ctx.pq_readback.dre30_hist_sram_start = hist_sram_start;
+
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+	ret = of_property_read_u16(pdev->dev.of_node,
+		"pq_rb_thread_id", &rb_thread_id);
+	if (ret != 0)
+		CMDQ_MSG("pq_rb_thread_id is not defined\n");
+	mdp_ctx.pq_readback.rb_thread_id = rb_thread_id;
+
+	ret = of_property_read_u16(pdev->dev.of_node,
+		"pq_rb_event_lock", &rb_event_lock);
+	if (ret != 0)
+		CMDQ_MSG("pq_rb_event_lock is not defined\n");
+	mdp_ctx.pq_readback.rb_event_lock = rb_event_lock;
+
+	ret = of_property_read_u16(pdev->dev.of_node,
+		"pq_rb_event_unlock", &rb_event_unlock);
+	if (ret != 0)
+		CMDQ_MSG("pq_rb_event_unlock is not defined\n");
+	mdp_ctx.pq_readback.rb_event_unlock = rb_event_unlock;
+#endif
+
+	CMDQ_LOG("%s thd:%d, hist:%d, lock:%d, unlock:%d\n", __func__,
+		rb_thread_id, hist_sram_start, rb_event_lock, rb_event_unlock);
+
+	return 0;
+}
+
+void cmdq_mdp_init(struct platform_device *pdev)
+{
 	struct cmdqMDPFuncStruct *mdp_func = cmdq_mdp_get_func();
 
-	CMDQ_LOG("%s\n", __func__);
-
-	CMDQ_LOG("[MDP] %s ++\n", __func__);
+	CMDQ_LOG("%s ++\n", __func__);
 
 	/* Register MDP callback */
 	cmdqCoreRegisterCB(mdp_func->getGroupMdp(), cmdq_mdp_clock_enable,
@@ -2026,20 +2155,18 @@ void cmdq_mdp_init(struct platform_device *pdev)
 
 	/* MDP initialization setting */
 	cmdq_mdp_get_func()->mdpInitialSet(pdev);
+
 	cmdq_mdp_init_pmqos(pdev);
 
 	mdp_pool.limit = &mdp_pool_limit;
 	mdp_pool.cnt = &mdp_pool_cnt;
 
-	ret = of_property_read_u32(pdev->dev.of_node,
-		"dre30_hist_sram_start", &dre30_hist_sram_start);
-	if (ret != 0 || !dre30_hist_sram_start)
-		dre30_hist_sram_start = LEGACY_DRE30_HIST_SRAM_START;
-	CMDQ_LOG("dre hist sram start:%u\n", dre30_hist_sram_start);
-
 	cmdq_mdp_pool_create();
 
-	CMDQ_LOG("[MDP] %s --\n", __func__);
+	/* config pq readback setting from dts */
+	cmdq_mdp_init_pq_readback(pdev);
+
+	CMDQ_LOG("%s --\n", __func__);
 
 }
 
@@ -3075,6 +3202,26 @@ void cmdq_mdp_compose_readback_virtual(struct cmdqRecStruct *handle,
 	CMDQ_ERR("%s not implement\n", __func__);
 }
 
+u16 mdp_get_rb_event_lock(void)
+{
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+	return mdp_ctx.pq_readback.rb_event_lock;
+#else
+	CMDQ_ERR("%s not implement\n", __func__);
+	return 0;
+#endif
+}
+
+u16 mdp_get_rb_event_unlock(void)
+{
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+	return mdp_ctx.pq_readback.rb_event_unlock;
+#else
+	CMDQ_ERR("%s not implement\n", __func__);
+	return 0;
+#endif
+}
+
 #define MDP_AAL_SRAM_CFG	0x0C4
 #define MDP_AAL_SRAM_STATUS	0x0C8
 #define MDP_AAL_SRAM_RW_IF_2	0x0D4
@@ -3099,6 +3246,12 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	dma_addr_t begin_pa;
 	u32 offset, condi_offset;
 	u32 *condi_inst;
+	u16 hist_sram_start = mdp_ctx.pq_readback.dre30_hist_sram_start;
+
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+	const u16 rb_event_lock = mdp_ctx.pq_readback.rb_event_lock;
+	const u16 rb_event_unlock = mdp_ctx.pq_readback.rb_event_unlock;
+#endif
 
 	const u16 idx_addr = CMDQ_THR_SPR_IDX1;
 	const u16 idx_val = CMDQ_THR_SPR_IDX2;
@@ -3111,9 +3264,8 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	u16 idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_P6;
 
 	struct cmdq_operand lop, rop;
-	struct cmdq_pkt_buffer *buf;
 
-	CMDQ_MSG("%s buffer:%lx engine:%hu dre:%u\n",
+	CMDQ_LOG_PQ("%s buffer:%lx engine:%hu dre:%u\n",
 		__func__, (unsigned long)pa, engine, dre);
 
 	if (pipe == 1) {
@@ -3125,22 +3277,25 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	rb->count = 768;
 	if (multiple)
 		rb->count += 16;
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	if (handle->secData.is_secure)
-		rb->engine = pipe + CMDQ_SEC_MDP_AAL0;
-	else
-#endif
-		rb->engine = engine;
+
+	rb->engine = engine;
 	rb->param = param;
 	handle->readback_cnt++;
 	handle->mdp_extension |= 1LL << DP_CMDEXT_AAL_DRE;
 	if (multiple)
 		handle->mdp_extension |= 1LL << DP_CMDEXT_AAL_MULTIPIPE;
 
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+	/* secure pq readback is implemented in normal world */
+	if (handle->secData.is_secure) {
+		pkt = handle->pkt_rb;
+		cmdq_op_wait_event_readback(handle, rb_event_lock);
+	}
+#else
+	/* secure pq readback is implemented in secure world */
 	if (handle->secData.is_secure)
 		return;
-
-	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
+#endif
 
 	/* following part read back aal histogram */
 	cmdq_pkt_write_value_addr(pkt, base + MDP_AAL_SRAM_CFG,
@@ -3150,7 +3305,7 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	 * spr1 = AAL_SRAM_START
 	 * gpr_p4 = out_pa
 	 */
-	cmdq_pkt_assign_command(pkt, idx_addr, dre30_hist_sram_start);
+	cmdq_pkt_assign_command(pkt, idx_addr, hist_sram_start);
 	cmdq_pkt_assign_command(pkt, idx_out_spr, (u32)pa);
 	cmdq_pkt_assign_command(pkt, idx_out + 1, (u32)(pa >> 32));
 
@@ -3181,7 +3336,7 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 	lop.reg = true;
 	lop.idx = idx_addr;
 	rop.reg = false;
-	rop.value = dre30_hist_sram_start + 4 * (MDP_AAL_SRAM_CNT - 1);
+	rop.value = hist_sram_start + 4 * (MDP_AAL_SRAM_CNT - 1);
 	cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX0, 0);
 	condi_offset = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 	cmdq_pkt_cond_jump_abs(pkt, CMDQ_THR_SPR_IDX0, &lop, &rop,
@@ -3236,6 +3391,15 @@ static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
 			offset += 4;
 		}
 	}
+
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+	if (handle->secData.is_secure)
+		cmdq_op_set_event_readback(handle, rb_event_unlock);
+#endif
+
+	CMDQ_LOG_PQ("%s done, handle:%p, engine:%hu, mdp_extension:%x, readback_cnt:%d\n",
+		__func__, handle, engine, handle->mdp_extension, handle->readback_cnt);
+
 }
 
 #define MDP_HDR_HIST_DATA 0x0E0
@@ -3254,6 +3418,11 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	u32 condi_offset;
 	u32 *condi_inst;
 
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+	u16 rb_event_lock = mdp_ctx.pq_readback.rb_event_lock;
+	u16 rb_event_unlock = mdp_ctx.pq_readback.rb_event_unlock;
+#endif
+
 	const u16 idx_counter = CMDQ_THR_SPR_IDX1;
 	const u16 idx_val = CMDQ_THR_SPR_IDX2;
 	/* pipe 0: P6 (R12+R13)
@@ -3262,10 +3431,9 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	u16 idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_R12;
 	u16 idx_out64 = CMDQ_GPR_CNT_ID + CMDQ_GPR_P6;
 	struct cmdq_operand lop, rop;
-	struct cmdq_pkt_buffer *buf;
 
-	CMDQ_MSG("%s buffer:%lx engine:%hu\n",
-		__func__, (unsigned long)pa, engine);
+	CMDQ_LOG_PQ("%s handle:%p, buffer:%lx engine:%hu, secData.is_secure:%d\n",
+		__func__, handle, (unsigned long)pa, engine, handle->secData.is_secure);
 
 	if (pipe == 1) {
 		idx_out = CMDQ_GPR_CNT_ID + CMDQ_GPR_R14;
@@ -3274,20 +3442,22 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 
 	rb->start = pa;
 	rb->count = 58;
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	if (handle->secData.is_secure)
-		rb->engine = pipe + CMDQ_SEC_MDP_HDR0;
-	else
-#endif
-		rb->engine = engine;
+	rb->engine = engine;
 	rb->param = param;
 	handle->readback_cnt++;
 	handle->mdp_extension |= 1LL << DP_CMDEXT_HDR;
 
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+	/* secure pq readback is implemented in normal world */
+	if (handle->secData.is_secure) {
+		pkt = handle->pkt_rb;
+		cmdq_op_wait_event_readback(handle, rb_event_lock);
+	}
+#else
+	/* secure pq readback is implemented in secure world */
 	if (handle->secData.is_secure)
 		return;
-
-	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
+#endif
 
 	/* readback to this pa */
 	cmdq_pkt_move(pkt, idx_out64 - CMDQ_GPR_CNT_ID, pa);
@@ -3348,6 +3518,15 @@ static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
 	pa = pa + MDP_HDR_HIST_CNT * 4;
 	cmdq_pkt_mem_move(pkt, NULL, base + MDP_HDR_LBOX_DET_4, pa,
 		CMDQ_THR_SPR_IDX3);
+
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+	if (handle->secData.is_secure)
+		cmdq_op_set_event_readback(handle, rb_event_unlock);
+#endif
+
+	CMDQ_LOG_PQ("%s done, handle:%p, engine:%hu, mdp_extension:%x, readback_cnt:%d\n",
+		__func__, handle, engine, handle->mdp_extension, handle->readback_cnt);
+
 }
 
 static s32 mdp_get_rdma_idx_virtual(u32 eng_base)
@@ -3461,6 +3640,8 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->mdpVcpPQReadbackSupport = mdp_vcp_pq_readback_support_virtual;
 	pFunc->mdpVcpPQReadback = mdp_vcp_pq_readback_virtual;
 	pFunc->mdpSvpSupportMetaData = mdp_svp_support_meta_data_virtual;
+	pFunc->mdpGetReadbackEventLock = mdp_get_rb_event_lock;
+	pFunc->mdpGetReadbackEventUnlock = mdp_get_rb_event_unlock;
 
 }
 

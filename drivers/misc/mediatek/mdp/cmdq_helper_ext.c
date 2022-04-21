@@ -3554,8 +3554,14 @@ void cmdq_core_release_handle_by_file_node(void *file_node)
 		 * The ideal solution is to stop / cancel HW operation
 		 * immediately, but we cannot do so due to SMI hang risk.
 		 */
-		client = cmdq_clients[handle->thread];
-		cmdq_mbox_thread_remove_task(client->chan, handle->pkt);
+		client = cmdq_clients[(u32)handle->thread];
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+		if (handle->pkt->sec_data)
+			cmdq_sec_mbox_stop(client);
+		else
+#endif
+			cmdq_mbox_thread_remove_task(client->chan, handle->pkt);
+
 		cmdq_pkt_auto_release_task(handle, true);
 	}
 	mutex_unlock(&cmdq_handle_list_mutex);
@@ -4430,6 +4436,10 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 		(void *)handle);
 	wake_up(wait_q);
 
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+	if (handle->pkt_rb)
+		cmdq_pkt_flush_async(handle->pkt_rb, NULL, NULL);
+#endif
 	CMDQ_SYSTRACE_END();
 
 	mutex_unlock(&ctx->thread[handle->thread].thread_mutex);

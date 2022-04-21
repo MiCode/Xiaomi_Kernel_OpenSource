@@ -484,6 +484,12 @@ static s32 translate_meta(struct op_meta *meta,
 			if (!dram_addr)
 				return -EINVAL;
 
+#if defined(CMDQ_SECURE_PATH_SUPPORT)
+			if (handle->secData.is_secure) {
+				cmdq_op_set_event(handle, mdp_get_rb_event_lock());
+				cmdq_op_wait(handle, mdp_get_rb_event_unlock());
+			}
+#endif
 			/* flush first since readback add commands to pkt */
 			cmdq_handle_flush_cmd_buf(handle, cmd_buf);
 
