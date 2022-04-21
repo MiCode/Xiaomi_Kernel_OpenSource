@@ -980,6 +980,52 @@ static const struct dvfsrc_debug_data mt6985_data = {
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6985_desc),
 };
 
+static struct dvfsrc_opp dvfsrc_opp_mt6886[] = {
+	{0, 0, 0, 0},
+	{1, 0, 0, 0},
+	{2, 0, 0, 0},
+	{3, 0, 0, 0},
+	{4, 0, 0, 0},
+	{0, 1, 0, 0},
+	{1, 1, 0, 0},
+	{2, 1, 0, 0},
+	{3, 1, 0, 0},
+	{4, 1, 0, 0},
+	{0, 2, 0, 0},
+	{1, 2, 0, 0},
+	{2, 2, 0, 0},
+	{3, 2, 0, 0},
+	{4, 2, 0, 0},
+	{1, 3, 0, 0},
+	{2, 3, 0, 0},
+	{3, 3, 0, 0},
+	{4, 3, 0, 0},
+	{1, 4, 0, 0},
+	{2, 4, 0, 0},
+	{3, 4, 0, 0},
+	{4, 4, 0, 0},
+	{2, 5, 0, 0},
+	{3, 5, 0, 0},
+	{4, 5, 0, 0},
+	{2, 6, 0, 0},
+	{3, 6, 0, 0},
+	{4, 6, 0, 0},
+	{3, 7, 0, 0},
+	{4, 7, 0, 0},
+	{4, 8, 0, 0},
+};
+
+static struct dvfsrc_opp_desc dvfsrc_opp_mt6886_desc[] = {
+	MT_DVFSRC_OPP(5, 9, dvfsrc_opp_mt6886),
+};
+
+static const struct dvfsrc_debug_data mt6886_data = {
+	.version = 0x6886,
+	.config = &mt6983_dvfsrc_config,
+	.opps_desc = dvfsrc_opp_mt6886_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6886_desc),
+};
+
 static const struct of_device_id dvfsrc_helper_of_match[] = {
 	{
 		.compatible = "mediatek,mt6789-dvfsrc",
@@ -1017,6 +1063,9 @@ static const struct of_device_id dvfsrc_helper_of_match[] = {
 	}, {
 		.compatible = "mediatek,mt6985-dvfsrc",
 		.data = &mt6985_data,
+	}, {
+		.compatible = "mediatek,mt6886-dvfsrc",
+		.data = &mt6886_data,
 	}, {
 		/* sentinel */
 	},
