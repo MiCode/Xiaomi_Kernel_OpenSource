@@ -1857,6 +1857,7 @@ static int mt6375_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 	mt6375_enable_vsafe0v_detect(ddata, !en);
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 	if (en) {
+		tcpci_set_otp_fwen(tcpc, false);
 		data = MT6375_MSK_LPWR_EN;
 #if CONFIG_TYPEC_CAP_NORP_SRC
 		data |= MT6375_MSK_VBUSDET_EN;
