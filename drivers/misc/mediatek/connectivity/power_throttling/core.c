@@ -112,10 +112,22 @@ int conn_pwr_get_thermal_level(struct conn_pwr_update_info *info, int current_te
 {
 	int ret = CONN_PWR_THR_LV_0;
 	int thermal_max_level = 0;
+	int thermal_level = 0;
 
 	if (conn_pwr_get_plat_level(CONN_PWR_PLAT_THERMAL, &thermal_max_level) != 0) {
+		pr_info("%s conn_pwr cant get max temp\n", __func__);
+		return ret;
+	}
+
+	if (conn_pwr_get_plat_level(CONN_PWR_PLAT_THERMAL_LEVEL, &thermal_level) != 0) {
 		pr_info("%s conn_pwr cant get thermal level\n", __func__);
 		return ret;
+	}
+
+	/* if host thermal set level directly, we will ignore max_temp and recovery_temp */
+	if (info->reason == CONN_PWR_ARB_THERMAL_LEVEL) {
+		pr_info("%s host thermal set level, level = %d\n", __func__, thermal_level);
+		return thermal_level;
 	}
 
 	g_thermal_info.max_temp = thermal_max_level;
@@ -169,6 +181,7 @@ int conn_pwr_set_level(struct conn_pwr_update_info *info, int radio_power_level[
 		break;
 	case CONN_PWR_ARB_THERMAL:
 	case CONN_PWR_ARB_TEMP_CHECK:
+	case CONN_PWR_ARB_THERMAL_LEVEL:
 		g_platform_pwr_level[CONN_PWR_PLAT_THERMAL] =
 			conn_pwr_get_thermal_level(info, current_temp);
 		break;

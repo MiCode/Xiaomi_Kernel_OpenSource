@@ -60,6 +60,7 @@ static int g_max_temp = CONN_PWR_MAX_TEMP_HIGH;
 static int g_connsys_temp = CONN_PWR_INVALID_TEMP;
 static unsigned int g_customer_level;
 static unsigned long long g_radio_last_updated_time[CONN_PWR_DRV_MAX];
+static int g_thermal_level;
 
 /* device node related */
 static int gConnPwrMajor = CONN_PWR_DEV_MAJOR;
@@ -175,6 +176,22 @@ int conn_pwr_set_battery_level(int level)
 	return 0;
 }
 
+int conn_pwr_set_thermal_level(int level)
+{
+	struct conn_pwr_update_info info;
+
+	pr_info("%s level = %d\n", __func__, level);
+	if (level < CONN_PWR_THER_LV_0 || level >= CONN_PWR_THER_LV_MAX) {
+		pr_info("invalid level %d\n", level);
+		return -1;
+	}
+	g_thermal_level = level;
+	info.reason = CONN_PWR_ARB_THERMAL_LEVEL;
+	conn_pwr_arbitrate(&info);
+	return 0;
+}
+EXPORT_SYMBOL(conn_pwr_set_thermal_level);
+
 static long conn_pwr_dev_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
@@ -225,6 +242,8 @@ int conn_pwr_get_plat_level(enum conn_pwr_plat_type type, int *data)
 		*data = g_max_temp;
 	else if (type == CONN_PWR_PLAT_CUSTOMER)
 		*data = g_customer_level;
+	else if (type == CONN_PWR_PLAT_THERMAL_LEVEL)
+		*data = g_thermal_level;
 	else {
 		pr_info("type %d is out of range.\n", type);
 		return -2;
