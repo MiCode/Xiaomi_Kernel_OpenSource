@@ -4926,7 +4926,10 @@
 			isp-opp = <&opp_table_img>;
 			mdp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 			isp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-			dre30_hist_sram_start = <1536>;
+			dre30_hist_sram_start = /bits/ 16 <1536>;
+			pq_rb_thread_id = /bits/ 16 <19>;
+			pq_rb_event_lock = /bits/ 16 <CMDQ_SYNC_TOKEN_HISTOGRAM_MDP_WAIT>;
+			pq_rb_event_unlock = /bits/ 16 <CMDQ_SYNC_TOKEN_HISTOGRAM_MDP_SET>;
 		};
 
 		mdp_mutex0: mdp_mutex0@1f001000 {
