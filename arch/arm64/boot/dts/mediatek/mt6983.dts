@@ -10379,7 +10379,8 @@
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_MDP_LOCK>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_MML_LOCK>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_VFMT_LOCK>,
-				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_DISP_LOCK>;
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_DISP_LOCK>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_HW_TRACE_LOCK>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_INFRA>;
 		mediatek,smi = <&smi_mdp_common>;
 		prebuilt-enable;
@@ -10387,7 +10388,8 @@
 		gce_in_vcp;
 		cmdq-log-perf-off;
 		append-by-event;
-		mboxes = <&gce 13 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		mboxes = <&gce 13 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
+			 <&gce 14 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_HIGHEST>;
 		clocks = <&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_D>,
 			 <&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_26M>;
 		clock-names = "gce","gce-timer";
@@ -10422,7 +10424,8 @@
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_MDP_LOCK>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_MML_LOCK>,
 				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_VFMT_LOCK>,
-				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_DISP_LOCK>;
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_PREBUILT_DISP_LOCK>,
+				 /bits/ 16 <CMDQ_SYNC_TOKEN_HW_TRACE_LOCK>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_MM_INFRA>;
 		mediatek,smi = <&smi_mdp_common>;
 		prebuilt-enable;
@@ -10430,7 +10433,8 @@
 		gce_in_vcp;
 		cmdq-log-perf-off;
 		append-by-event;
-		mboxes = <&gce_m 13 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		mboxes = <&gce_m 13 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
+			 <&gce_m 14 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_HIGHEST>;
 		clocks = <&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_M>,
 			 <&mminfra_config_clk CLK_MMINFRA_CONFIG_GCE_26M>;
 		clock-names = "gce","gce-timer";
@@ -10466,9 +10470,9 @@
 		mediatek,gce = <&gce_m>;
 		mmsys_config = <&dispsys_config>;
 		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
-		mboxes = <&gce_m 14 0 CMDQ_THR_PRIO_1>,
-			 <&gce 14 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
-			 <&gce_m_sec 9 0 CMDQ_THR_PRIO_1>;
+		mboxes = <&gce_m 12 0 CMDQ_THR_PRIO_1>,
+			 <&gce 12 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
+			 <&gce_m_sec 12 0 CMDQ_THR_PRIO_1>;
 		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 	};
