@@ -65,10 +65,8 @@ static struct oc_debug_t mt6879_oc_debug[] = {
 	REG_OC_DEBUG(mt6368_vrf13_aif),
 	REG_OC_DEBUG(mt6368_vrf18_aif),
 	REG_OC_DEBUG(mt6368_vant18),
-	REG_OC_DEBUG(mt6368_vibr),
 	REG_OC_DEBUG(mt6368_vio28),
 	REG_OC_DEBUG(mt6368_vfp),
-	REG_OC_DEBUG(mt6368_vtp),
 	REG_OC_DEBUG(mt6368_vmch),
 	REG_OC_DEBUG(mt6368_vmc),
 	REG_OC_DEBUG(mt6368_vcn33_1),
@@ -113,10 +111,8 @@ static struct oc_debug_t mt6983_oc_debug[] = {
 	REG_OC_DEBUG(mt6373_vefuse),
 	REG_OC_DEBUG(mt6373_vmch),
 	REG_OC_DEBUG(mt6373_vmc),
-	REG_OC_DEBUG(mt6373_vibr),
 	REG_OC_DEBUG(mt6373_vio28),
 	REG_OC_DEBUG(mt6373_vfp),
-	REG_OC_DEBUG(mt6373_vtp),
 };
 
 static struct oc_debug_info mt6879_debug_info = {
