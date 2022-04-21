@@ -1960,14 +1960,24 @@ static int __init scp_init(void)
 #endif
 #endif  // CONFIG_FPGA_EARLY_PORTING
 
+	if (platform_driver_register(&mtk_scpsys_device)) {
+		pr_err("[SCP] scpsys probe fail\n");
+		goto err_1;
+	}
+
+	if(scpreg.scpsys == 0) {
+		pr_err("[SCP] skip the scpsys probe\n");
+		goto err_1;
+	}
+
 	if (platform_driver_register(&mtk_scp_device)) {
 		pr_err("[SCP] scp probe fail\n");
 		goto err;
 	}
 
-	if (platform_driver_register(&mtk_scpsys_device)) {
-		pr_err("[SCP] scpsys probe fail\n");
-		goto err_1;
+	if(scpreg.sram == 0) {
+		pr_err("[SCP] skip the scp probe\n");
+		goto err;
 	}
 
 	/* skip initial if dts status = "disable" */
