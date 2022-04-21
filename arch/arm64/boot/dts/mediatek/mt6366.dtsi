@@ -494,8 +494,6 @@
 			mediatek,xo-buf-name = "XO_SOC", "XO_WCN", "XO_NFC",
 						"XO_CEL", "RSV1", "RSV2",
 						"XO_EXT";
-			mediatek,bblpm-support;
-			mediatek,hwbblpm-support;
 			mediatek,dcxo-drv-curr-support;
 			mediatek,clkbuf-pmic-central-base;
 
