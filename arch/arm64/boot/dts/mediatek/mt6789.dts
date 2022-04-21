@@ -71,6 +71,7 @@
 		atag,videolfb-vramSize= <0x1be0000>;
 		atag,videolfb-lcmname=
 			"nt36672e_fhdp_dsi_vdo_60hz_jdi_dphy_drv";
+		kaslr-seed = <0 0>;
 	};
 
 	cpus {
