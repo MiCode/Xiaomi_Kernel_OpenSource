@@ -1355,7 +1355,6 @@ static void mtk_vdec_worker(struct work_struct *work)
 	struct timespec64 vputvend;
 	struct mtk_video_dec_buf *dst_buf_info = NULL, *src_buf_info = NULL;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
-	unsigned int fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 	unsigned int dpbsize = 0;
 	struct mtk_color_desc color_desc = {.is_hdr = 0};
 	struct vdec_fb drain_fb;
@@ -1578,13 +1577,11 @@ static void mtk_vdec_worker(struct work_struct *work)
 		} else {
 			mtk_v4l2_debug(1, "Stopping no need to queue dec_flush_buf.");
 		}
-	} else if ((ret == 0) && ((fourcc == V4L2_PIX_FMT_RV40) ||
-		(fourcc == V4L2_PIX_FMT_RV30) ||
-		(res_chg == false && need_more_output == false))) {
+	} else if ((ret == 0) && (res_chg == false && need_more_output == false)) {
 		/*
 		 * we only return src buffer with VB2_BUF_STATE_DONE
 		 * when decode success without resolution
-		 * change except rv30/rv40.
+		 * change.
 		 */
 		src_vb2_v4l2 = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		clean_free_bs_buffer(ctx, NULL);
@@ -1595,40 +1592,24 @@ static void mtk_vdec_worker(struct work_struct *work)
 	}
 
 	if (ret == 0 && res_chg) {
-		if ((fourcc == V4L2_PIX_FMT_RV40) ||
-			(fourcc == V4L2_PIX_FMT_RV30)) {
-			/*
-			 * For rv30/rv40 stream, encountering a resolution
-			 * change the current frame needs to refer to the
-			 * previous frame,so driver should not flush decode,
-			 * but the driver should sends a
-			 * V4L2_EVENT_SOURCE_CHANGE
-			 * event for source change to app.
-			 * app should set new crop to mdp directly.
-			 */
-			mtk_v4l2_debug(0, "RV30/RV40 RPR res_chg:%d\n",
-				res_chg);
-			mtk_vdec_queue_res_chg_event(ctx);
-		} else {
-			mtk_vdec_pic_info_update(ctx);
-			/*
-			 * On encountering a resolution change in the stream.
-			 * The driver must first process and decode all
-			 * remaining buffers from before the resolution change
-			 * point, so call flush decode here
-			 */
-			mtk_vdec_reset_decoder(ctx, 1, NULL);
-			if (ctx->input_driven != NON_INPUT_DRIVEN)
-				*(ctx->ipi_blocked) = true;
-			/*
-			 * After all buffers containing decoded frames from
-			 * before the resolution change point ready to be
-			 * dequeued on the CAPTURE queue, the driver sends a
-			 * V4L2_EVENT_SOURCE_CHANGE event for source change
-			 * type V4L2_EVENT_SRC_CH_RESOLUTION
-			 */
-			mtk_vdec_queue_res_chg_event(ctx);
-		}
+		mtk_vdec_pic_info_update(ctx);
+		/*
+		 * On encountering a resolution change in the stream.
+		 * The driver must first process and decode all
+		 * remaining buffers from before the resolution change
+		 * point, so call flush decode here
+		 */
+		mtk_vdec_reset_decoder(ctx, 1, NULL);
+		if (ctx->input_driven != NON_INPUT_DRIVEN)
+			*(ctx->ipi_blocked) = true;
+		/*
+		 * After all buffers containing decoded frames from
+		 * before the resolution change point ready to be
+		 * dequeued on the CAPTURE queue, the driver sends a
+		 * V4L2_EVENT_SOURCE_CHANGE event for source change
+		 * type V4L2_EVENT_SRC_CH_RESOLUTION
+		 */
+		mtk_vdec_queue_res_chg_event(ctx);
 	} else if (ret == 0) {
 		ret = vdec_if_get_param(ctx, GET_PARAM_DPB_SIZE, &dpbsize);
 		if (dpbsize != 0) {
@@ -2664,14 +2645,8 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 		 * rectangle.
 		 */
 		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
-		if (fourcc == V4L2_PIX_FMT_RV30 ||
-			fourcc == V4L2_PIX_FMT_RV40) {
-			pix_mp->width = 1920;
-			pix_mp->height = 1088;
-		} else {
-			pix_mp->width = q_data->coded_width;
-			pix_mp->height = q_data->coded_height;
-		}
+		pix_mp->width = q_data->coded_width;
+		pix_mp->height = q_data->coded_height;
 		/*
 		 * Set pixelformat to the format in which mt vcodec
 		 * outputs the decoded frame
@@ -2680,20 +2655,11 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 		pix_mp->pixelformat = q_data->fmt->fourcc;
 		pix_mp->field = q_data->field;
 
-		if (fourcc == V4L2_PIX_FMT_RV30 ||
-			fourcc == V4L2_PIX_FMT_RV40) {
-			for (i = 0; i < pix_mp->num_planes; i++) {
-				pix_mp->plane_fmt[i].bytesperline = 1920;
-				pix_mp->plane_fmt[i].sizeimage =
-					q_data->sizeimage[i];
-			}
-		} else {
-			for (i = 0; i < pix_mp->num_planes; i++) {
-				pix_mp->plane_fmt[i].bytesperline =
-					q_data->bytesperline[i];
-				pix_mp->plane_fmt[i].sizeimage =
-					q_data->sizeimage[i];
-			}
+		for (i = 0; i < pix_mp->num_planes; i++) {
+			pix_mp->plane_fmt[i].bytesperline =
+				q_data->bytesperline[i];
+			pix_mp->plane_fmt[i].sizeimage =
+				q_data->sizeimage[i];
 		}
 
 		mtk_v4l2_debug(1, "fourcc:(%d %d),field:%d,bytesperline:%d,sizeimage:%d,%d,%d\n",
@@ -2723,24 +2689,13 @@ static int vidioc_vdec_g_fmt(struct file *file, void *priv,
 		pix_mp->pixelformat = q_data->fmt->fourcc;
 		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 
-		if (fourcc == V4L2_PIX_FMT_RV30 ||
-			fourcc == V4L2_PIX_FMT_RV40) {
-			for (i = 0; i < pix_mp->num_planes; i++) {
-				pix_mp->width = 1920;
-				pix_mp->height = 1088;
-				pix_mp->plane_fmt[i].bytesperline = 1920;
-				pix_mp->plane_fmt[i].sizeimage =
-					q_data->sizeimage[i];
-			}
-		} else {
-			pix_mp->width = q_data->coded_width;
-			pix_mp->height = q_data->coded_height;
-			for (i = 0; i < pix_mp->num_planes; i++) {
-				pix_mp->plane_fmt[i].bytesperline =
-					q_data->bytesperline[i];
-				pix_mp->plane_fmt[i].sizeimage =
-					q_data->sizeimage[i];
-			}
+		pix_mp->width = q_data->coded_width;
+		pix_mp->height = q_data->coded_height;
+		for (i = 0; i < pix_mp->num_planes; i++) {
+			pix_mp->plane_fmt[i].bytesperline =
+				q_data->bytesperline[i];
+			pix_mp->plane_fmt[i].sizeimage =
+				q_data->sizeimage[i];
 		}
 
 		mtk_v4l2_debug(1,
