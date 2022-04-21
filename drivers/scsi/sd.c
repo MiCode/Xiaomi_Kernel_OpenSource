@@ -1578,8 +1578,20 @@ static unsigned int sd_check_events(struct gendisk *disk, unsigned int clearing)
 	if (scsi_block_when_processing_errors(sdp)) {
 		struct scsi_sense_hdr sshdr = { 0, };
 
+		/*
+		 * It may cause some issue when sending test unit ready
+		 * while suspending. So get and put pm_runtime before
+		 * and after call scsi_test_unit_ready().
+		 *
+		 */
+		retval = scsi_autopm_get_device(sdp);
+		if (retval)
+			goto out;
+
 		retval = scsi_test_unit_ready(sdp, SD_TIMEOUT, SD_MAX_RETRIES,
 					      &sshdr);
+
+		scsi_autopm_put_device(sdp);
 
 		/* failed to execute TUR, assume media not present */
 		if (host_byte(retval)) {
