@@ -26,6 +26,8 @@ enum ssmr_feature_type {
 	SSMR_FEAT_WFD_PAGE = TRUSTED_MEM_WFD_PAGE,
 	SSMR_FEAT_SAPU_DATA_SHM = TRUSTED_MEM_SAPU_DATA_SHM,
 	SSMR_FEAT_SAPU_ENGINE_SHM = TRUSTED_MEM_SAPU_ENGINE_SHM,
+	SSMR_FEAT_AP_MD_SHM = TRUSTED_MEM_AP_MD_SHM,
+	SSMR_FEAT_AP_SCP_SHM = TRUSTED_MEM_AP_SCP_SHM,
 
 	__MAX_NR_SSMR_FEATURES,
 };
@@ -35,7 +37,9 @@ int ssmr_offline(phys_addr_t *pa, unsigned long *size, bool is_64bit,
 int ssmr_online(unsigned int feat);
 int ssmr_query_total_sec_heap_count(void);
 int ssmr_query_heap_info(int heap_index, char *heap_name);
-int ssmr_init(struct platform_device *pdev);
+int sec_ssmr_init(struct platform_device *pdev);
+int apmd_ssmr_init(struct platform_device *pdev);
+int apscp_ssmr_init(struct platform_device *pdev);
 
 bool is_page_based_memory(enum TRUSTED_MEM_TYPE mem_type);
 bool is_svp_on_mtee(void);

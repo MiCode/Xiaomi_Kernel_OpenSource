@@ -24,6 +24,8 @@
 #define FACE_REGISTRATION_FLAGS 0x02u
 #define FACE_PAYMENT_FLAGS 0x04u
 #define FACE_UNLOCK_FLAGS 0x08u
+#define FACE_APMD_SHM_FLAGS 0x10u
+#define FACE_APSCP_SHM_FLAGS 0x20u
 #define TUI_FLAGS 0x10u
 
 #define SSMR_INVALID_FEATURE(f) (f >= __MAX_NR_SSMR_FEATURES)
@@ -327,6 +329,26 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.enable = "on",
 		.scheme_flag = FACE_REGISTRATION_FLAGS | FACE_PAYMENT_FLAGS |
 				FACE_UNLOCK_FLAGS,
+		.req_size = 0,
+		.is_page_based = false,
+	},
+	[SSMR_FEAT_AP_MD_SHM] = {
+		.dt_prop_name = "ap-md-shm-size",
+		.feat_name = "ap-md-shm",
+		.cmd_online = "ap_md_shm=on",
+		.cmd_offline = "ap_md_shm=off",
+		.enable = "on",
+		.scheme_flag = FACE_APMD_SHM_FLAGS,
+		.req_size = 0,
+		.is_page_based = false,
+	},
+	[SSMR_FEAT_AP_SCP_SHM] = {
+		.dt_prop_name = "ap-scp-shm-size",
+		.feat_name = "ap-scp-shm",
+		.cmd_online = "ap_scp_shm=on",
+		.cmd_offline = "ap_scp_shm=off",
+		.enable = "on",
+		.scheme_flag = FACE_APSCP_SHM_FLAGS,
 		.req_size = 0,
 		.is_page_based = false,
 	},

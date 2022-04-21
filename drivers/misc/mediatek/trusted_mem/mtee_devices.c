@@ -184,6 +184,28 @@ static struct tmem_device_description mtee_mchunks[] = {
 		.mem_cfg = &mchunk_general_configs,
 		.dev_name = "MTEE_SAPU_ENGINE_SHM",
 	},
+	{
+		.kern_tmem_type = TRUSTED_MEM_AP_MD_SHM,
+		.tee_smem_type = TEE_SMEM_INVALID,
+		.mtee_chunks_id = MTEE_MCHUNKS_AP_MD_SHM,
+		.ssmr_feature_id = SSMR_FEAT_AP_MD_SHM,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_AP_MD_SHM},
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_AP_MD_SHM",
+	},
+	{
+		.kern_tmem_type = TRUSTED_MEM_AP_SCP_SHM,
+		.tee_smem_type = TEE_SMEM_INVALID,
+		.mtee_chunks_id = MTEE_MCHUNKS_AP_SCP_SHM,
+		.ssmr_feature_id = SSMR_FEAT_AP_SCP_SHM,
+		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_AP_SCP_SHM},
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "MTEE_AP_SCP_SHM",
+	},
 };
 
 #define MTEE_MCHUNKS_DEVICE_COUNT ARRAY_SIZE(mtee_mchunks)

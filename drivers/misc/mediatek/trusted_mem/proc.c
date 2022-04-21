@@ -279,7 +279,13 @@ static int trusted_mem_init(struct platform_device *pdev)
 		return ssheap_init(pdev);
 #endif
 
-	ssmr_init(pdev);
+	if (strncmp(dev_name(&pdev->dev), "apmd_ssmr", 10) == 0)
+		return apmd_ssmr_init(pdev);
+
+	if (strncmp(dev_name(&pdev->dev), "apscp_ssmr", 10) == 0)
+		return apscp_ssmr_init(pdev);
+
+	sec_ssmr_init(pdev);
 
 	trusted_mem_subsys_init();
 

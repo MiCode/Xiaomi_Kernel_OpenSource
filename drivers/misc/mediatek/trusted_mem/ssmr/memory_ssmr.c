@@ -37,7 +37,9 @@
 #define SVP_ON_MTEE_DT_UNAME "MTEE"
 #define SVP_STATIC_RESERVED_DT_UNAME "mediatek,reserve-memory-svp"
 
-static struct device *ssmr_dev;
+static struct device *sec_ssmr_dev;
+static struct device *apmd_ssmr_dev;
+static struct device *apscp_ssmr_dev;
 
 static struct SSMR_HEAP_INFO _ssmr_heap_info[__MAX_NR_SSMR_FEATURES];
 
@@ -238,6 +240,17 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 	struct device_node *np;
 	size_t alloc_size;
 	struct page *page;
+	struct device *ssmr_dev;
+
+	if (!strncmp(feature->feat_name,
+			_ssmr_feats[SSMR_FEAT_AP_MD_SHM].feat_name, TRUSTED_MEM_AP_MD_SHM)) {
+		ssmr_dev = apmd_ssmr_dev;
+	} else if (!strncmp(feature->feat_name,
+			_ssmr_feats[SSMR_FEAT_AP_SCP_SHM].feat_name, TRUSTED_MEM_AP_SCP_SHM)) {
+		ssmr_dev = apscp_ssmr_dev;
+	} else {
+		ssmr_dev = sec_ssmr_dev;
+	}
 
 	if (!ssmr_dev) {
 		pr_info("%s: feature: %s, No ssmr device\n", __func__, feature->feat_name);
@@ -373,6 +386,17 @@ EXPORT_SYMBOL(ssmr_offline);
 static int memory_region_online(struct SSMR_Feature *feature)
 {
 	size_t alloc_size;
+	struct device *ssmr_dev;
+
+	if (!strncmp(feature->feat_name,
+			_ssmr_feats[SSMR_FEAT_AP_MD_SHM].feat_name, TRUSTED_MEM_AP_MD_SHM)) {
+		ssmr_dev = apmd_ssmr_dev;
+	} else if (!strncmp(feature->feat_name,
+			_ssmr_feats[SSMR_FEAT_AP_SCP_SHM].feat_name, TRUSTED_MEM_AP_SCP_SHM)) {
+		ssmr_dev = apscp_ssmr_dev;
+	} else {
+		ssmr_dev = sec_ssmr_dev;
+	}
 
 	if (!ssmr_dev)
 		pr_info("%s: No ssmr device\n", __func__);
@@ -459,11 +483,11 @@ bool is_svp_enabled(void)
 	return true;
 }
 
-int ssmr_init(struct platform_device *pdev)
+int sec_ssmr_init(struct platform_device *pdev)
 {
 	int i;
 
-	ssmr_dev = &pdev->dev;
+	sec_ssmr_dev = &pdev->dev;
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
 
 	/* setup secure feature size */
@@ -487,7 +511,41 @@ int ssmr_init(struct platform_device *pdev)
 
 	get_reserved_cma_memory(&pdev->dev);
 
-	pr_info("ssmr init done\n");
+	pr_info("sec_ssmr init done\n");
+
+	return 0;
+}
+
+int apmd_ssmr_init(struct platform_device *pdev)
+{
+	apmd_ssmr_dev = &pdev->dev;
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+
+	memory_ssmr_init_feature(_ssmr_feats[SSMR_FEAT_AP_MD_SHM].feat_name,
+						_ssmr_feats[SSMR_FEAT_AP_MD_SHM].req_size,
+						&_ssmr_feats[SSMR_FEAT_AP_MD_SHM],
+						_ssmr_feats[SSMR_FEAT_AP_MD_SHM].proc_entry_fops);
+
+	get_reserved_cma_memory(&pdev->dev);
+
+	pr_info("apmd_ssmr init done\n");
+
+	return 0;
+}
+
+int apscp_ssmr_init(struct platform_device *pdev)
+{
+	apscp_ssmr_dev = &pdev->dev;
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+
+	memory_ssmr_init_feature(_ssmr_feats[SSMR_FEAT_AP_SCP_SHM].feat_name,
+						_ssmr_feats[SSMR_FEAT_AP_SCP_SHM].req_size,
+						&_ssmr_feats[SSMR_FEAT_AP_SCP_SHM],
+						_ssmr_feats[SSMR_FEAT_AP_SCP_SHM].proc_entry_fops);
+
+	get_reserved_cma_memory(&pdev->dev);
+
+	pr_info("apscp_ssmr init done\n");
 
 	return 0;
 }
