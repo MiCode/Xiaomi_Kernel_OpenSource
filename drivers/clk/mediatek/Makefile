@@ -123,6 +123,7 @@ obj-$(CONFIG_COMMON_CLK_MT8192_MSDC) += clk-mt8192-msdc.o
 obj-$(CONFIG_COMMON_CLK_MT8192_SCP_ADSP) += clk-mt8192-scp_adsp.o
 obj-$(CONFIG_COMMON_CLK_MT8192_VDECSYS) += clk-mt8192-vdec.o
 obj-$(CONFIG_COMMON_CLK_MT8192_VENCSYS) += clk-mt8192-venc.o
+ifneq ($(wildcard $(srctree)/$(src)/clk-mt8188.c),)
 obj-$(CONFIG_COMMON_CLK_MT8188) += clk-mt8188.o  clk-bringup.o
 obj-$(CONFIG_COMMON_CLK_MT8188_AUDSYS_SRC) += clk-mt8188-audio_src.o
 obj-$(CONFIG_COMMON_CLK_MT8188_CAMSYS) += clk-mt8188-cam.o
@@ -138,6 +139,7 @@ obj-$(CONFIG_COMMON_CLK_MT8188_VPPSYS1) += clk-mt8188-vpp1.o
 obj-$(CONFIG_COMMON_CLK_MT8188_WPESYS) += clk-mt8188-wpe.o
 obj-$(CONFIG_COMMON_CLK_MT8188_CCUSYS) += clk-mt8188-ccu.o
 obj-$(CONFIG_COMMON_CLK_MT8188_MFGCFG) += clk-mt8188-mfgcfg.o
+endif
 obj-$(CONFIG_COMMON_CLK_MT8516) += clk-mt8516.o
 obj-$(CONFIG_COMMON_CLK_MT8516_AUDSYS) += clk-mt8516-aud.o
 obj-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING) += fhctl.o
