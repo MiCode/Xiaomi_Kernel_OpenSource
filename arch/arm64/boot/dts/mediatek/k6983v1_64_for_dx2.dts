@@ -453,6 +453,33 @@
 	pd_vbus_upper_bound = <12000000>;
 };
 
+&ufshci {
+	clocks =
+		<&topckgen_clk CLK_TOPCKGEN_UFS_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_UNIVPLL_D6_D2>,
+		<&topckgen_clk CLK_TOPCKGEN_MAINPLL_D6_D2>,
+		<&topckgen_clk CLK_TOPCKGEN_UFS_HD_HAXI_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_AES_UFSFDE_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_UFS_MBIST_SEL>,
+		<&topckgen_clk CLK_TOPCKGEN_UFS_HF_FMEM_SEL>;
+	clock-names =
+		"ufs_sel",
+		"ufs_sel_max_src",
+		"ufs_sel_min_src",
+		"ufs_hd_haxi",
+		"ufs_fde",
+		"ufs_mbist",
+		"ufs_hf_fmem";
+	freq-table-hz =
+		<182000000 208000000>,
+		<0 0>,
+		<0 0>,
+		<0 0>,
+		<0 0>,
+		<0 0>,
+		<0 0>;
+};
+
 #include <k6983v1_64_for_dx2/cust.dtsi>
 #include "mediatek/cust_mt6983_touch_1080x2400.dtsi"
 #include "mediatek/cust_mt6983_camera_v4l2.dtsi"
