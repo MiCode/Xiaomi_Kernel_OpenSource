@@ -26,6 +26,7 @@
 #define PIN_OUT_R_SIZE_SLEEP_0           1 /* the following will use mbox 1 */
 #define PIN_OUT_SIZE_TEST_0		 1 /* the following will use mbox 1 */
 #define PIN_OUT_SIZE_AUDIO_ULTRA_SND_0	 9 /* the following will use mbox 1 */
+#define PIN_OUT_SIZE_MMDVFS		 1 /* the following will use mbox 1 */
 
 /* definition of slot size for received PINs */
 #define PIN_IN_SIZE_APCCCI_0		 2 /* the following will use mbox 1 */
@@ -34,6 +35,7 @@
 #define PIN_IN_SIZE_VCP_RAM_DUMP_0	 2 /* the following will use mbox 1 */
 #define PIN_IN_SIZE_AUDIO_ULTRA_SND_0	 5 /* the following will use mbox 1 */
 #define PIN_IN_SIZE_AUDIO_ULTRA_SND_ACK_0 2 /* the following will use mbox 1 */
+#define PIN_IN_SIZE_MMDVFS		 1 /* the following will use mbox 1 */
 /* ============================================================ */
 
 /* core1 */
@@ -81,34 +83,36 @@ enum {
 
 /* core0 */
 	/* the following will use mbox1 */
-	IPI_OUT_C_SLEEP_0         =  2,
-	IPI_OUT_TEST_0            =  3,
-	IPI_IN_VCP_ERROR_INFO_0   =  4,
-	IPI_IN_VCP_READY_0        =  5,
+	IPI_OUT_C_SLEEP_0         = 2,
+	IPI_OUT_TEST_0            = 3,
+	IPI_IN_VCP_ERROR_INFO_0   = 4,
+	IPI_IN_VCP_READY_0        = 5,
 	IPI_IN_VCP_RAM_DUMP_0     = 6,
 	IPI_OUT_VCP_CONNSYS       = 7,
 	IPI_IN_VCP_CONNSYS        = 8,
+	IPI_OUT_MMDVFS		  = 9,
+	IPI_IN_MMDVFS		  = 10,
 
 	/* the following will use mbox2 */
-	IPI_OUT_VENC_0	   =  9,
-	IPI_IN_VENC_0	   =  10,
-	IPI_OUT_VCP_MPOOL_0       = 11,
-	IPI_IN_VCP_MPOOL_0        = 12,
+	IPI_OUT_VENC_0		  = 11,
+	IPI_IN_VENC_0		  = 12,
+	IPI_OUT_VCP_MPOOL_0       = 13,
+	IPI_IN_VCP_MPOOL_0        = 14,
 
 /* core1 */
 	/* the following will use mbox3 */
-	IPI_OUT_C_SLEEP_1         = 13,
-	IPI_OUT_TEST_1            = 14,
-	IPI_OUT_LOGGER_CTRL       = 15,
-	IPI_OUT_VCPCTL_1          = 16,
-	IPI_IN_VCP_ERROR_INFO_1   = 17,
-	IPI_IN_LOGGER_CTRL        = 18,
-	IPI_IN_VCP_READY_1        = 19,
-	IPI_IN_VCP_RAM_DUMP_1     = 20,
+	IPI_OUT_C_SLEEP_1         = 15,
+	IPI_OUT_TEST_1            = 16,
+	IPI_OUT_LOGGER_CTRL       = 17,
+	IPI_OUT_VCPCTL_1          = 18,
+	IPI_IN_VCP_ERROR_INFO_1   = 19,
+	IPI_IN_LOGGER_CTRL        = 20,
+	IPI_IN_VCP_READY_1        = 21,
+	IPI_IN_VCP_RAM_DUMP_1     = 22,
 
 	/* the following will use mbox4 */
-	IPI_OUT_VCP_MPOOL_1       = 21,
-	IPI_IN_VCP_MPOOL_1        = 22,
+	IPI_OUT_VCP_MPOOL_1       = 23,
+	IPI_IN_VCP_MPOOL_1        = 24,
 	VCP_IPI_COUNT
 };
 
@@ -157,6 +161,7 @@ enum feature_id {
 	VDEC_FEATURE_ID,
 	VENC_FEATURE_ID,
 	GCE_FEATURE_ID,
+	MMDVFS_FEATURE_ID,
 	NUM_FEATURE_ID,
 };
 
