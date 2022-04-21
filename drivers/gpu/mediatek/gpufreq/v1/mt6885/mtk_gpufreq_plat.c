@@ -34,7 +34,7 @@
 #include <linux/proc_fs.h>
 
 #include "clk-fmeter.h"
-#include "clk-mt6893-fmeter.h"
+#include "clk-mt6885-fmeter.h"
 
 #include "mtk_pmic_wrap.h"
 #include "mtk_devinfo.h"
