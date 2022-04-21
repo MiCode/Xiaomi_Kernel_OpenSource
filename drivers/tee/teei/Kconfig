@@ -24,12 +24,12 @@ config MICROTRUST_TEE_SUPPORT
 config MICROTRUST_TEE_VERSION
 	string "MICROTRUST TEE Version"
 	depends on MICROTRUST_TEE_SUPPORT
-	default "400"
+	default "500"
 	help
 	  Enables the support of Microtrust new version.
 	  All Microtrust related TEE drivers will depend on this option.
-	  Say 400 if you would like to enable this feature.
-	  If unsure, say 400.
+	  Say 500 if you would like to enable this feature.
+	  If unsure, say 500.
 
 config MICROTRUST_TZ_DRIVER
 	tristate "Microtrust TEEI Driver"
