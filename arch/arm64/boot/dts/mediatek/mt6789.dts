@@ -3871,7 +3871,9 @@
 				<0 0x10001000 0 0x1000>,  /* INFRACFG_AO */
 				<0 0x10023000 0 0x1000>,  /* INFRA_AO_DEBUG_CTRL */
 				<0 0x1002b000 0 0x1000>,  /* INFRA_AO1_DEBUG_CTRL */
-				<0 0x11c10000 0 0x1000>;  /* EFUSE */
+				<0 0x10000000 0 0x1000>,  /* TOPCKGEN */
+				<0 0x11c10000 0 0x1000>,  /* EFUSE */
+				<0 0x10215000 0 0x1000>;  /* infra_bcrm */
 			reg-names = "mfg_top_config",
 				"sleep",
 				"nth_emicfg_reg",
@@ -3880,7 +3882,9 @@
 				"infracfg_ao",
 				"infra_ao_debug_ctrl",
 				"infra_ao1_debug_ctrl",
-				"efuse";
+				"topckgen",
+				"efuse",
+				"infra_bcrm";
 			clocks =
 				<&topckgen_clk CLK_TOP_MFG_PLL_SEL>,
 				<&topckgen_clk CLK_TOP_MFGPLL>,
@@ -7014,14 +7018,6 @@
 };
 
 &mt6358_vaux18_reg {
-	regulator-always-on;
-};
-
-&mt6358_vgpu_reg {
-	regulator-always-on;
-};
-
-&mt6358_vsram_gpu_reg {
 	regulator-always-on;
 };
 
