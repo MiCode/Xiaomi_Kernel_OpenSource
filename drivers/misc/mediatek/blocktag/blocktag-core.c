@@ -22,7 +22,7 @@
 
 #define BLOCKIO_MIN_VER	"3.09"
 
-#ifdef CONFIG_MTK_USE_RESERVED_EXT_MEM
+#if IS_ENABLED(CONFIG_MTK_USE_RESERVED_EXT_MEM)
 #include <linux/exm_driver.h>
 #endif
 
@@ -144,12 +144,6 @@ static size_t mtk_btag_seq_pidlog_usedmem(char **buff, unsigned long *size,
 	return size_l;
 }
 
-#define biolog_fmt "wl:%d%%,%lld,%lld,%d.vm:%lld,%lld,%lld,%lld,%lld,%lld." \
-	"cpu:%llu,%llu,%llu,%llu,%llu,%llu,%llu.pid:%d,"
-#define biolog_fmt_wt "wt:%d,%d,%lld."
-#define biolog_fmt_rt "rt:%d,%d,%lld."
-#define pidlog_fmt "{%05d:%05d:%08d:%05d:%08d}"
-
 void mtk_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, pid_t pid,
 	__u32 len, int write)
 {
@@ -217,75 +211,22 @@ static void mtk_btag_pidlog_commit_bio(struct request_queue *q, struct bio *bio,
 	ppl->pid = 0;
 }
 
-#if IS_ENABLED(CONFIG_CGROUP_SCHED)
-static bool mtk_btag_is_top_in_cgrp(struct task_struct *t)
+void mtk_btag_commit_req(struct request *rq, bool is_sd)
 {
-	struct cgroup *grp;
+	struct request_queue *q = rq->q;
+	struct bio *bio = rq->bio;
+	struct bio_vec bvec;
+	struct req_iterator rq_iter;
 
-	rcu_read_lock();
-	grp = task_cgroup(t, cpuset_cgrp_id);
-	rcu_read_unlock();
-
-	if (grp->kn->name && !strcmp("top-app", grp->kn->name))
-		return true;
-	else
-		return false;
-}
-
-static bool mtk_btag_is_top_task(struct task_struct *task, int mode, unsigned long page_idx)
-{
-	struct task_struct *t_tgid = NULL;
-
-	if (mtk_btag_is_top_in_cgrp(task))
-		return true;
-
-	if (task->tgid && task->tgid != task->pid) {
-		rcu_read_lock();
-		t_tgid = find_task_by_vpid(task->tgid);
-		rcu_read_unlock();
-		if (t_tgid) {
-			if (mtk_btag_is_top_in_cgrp(t_tgid))
-				return true;
-		}
-	}
-
-	return false;
-}
-
-#else
-static inline bool mtk_btag_is_top_task(struct task_struct *task,
-					int mode,
-					unsigned long page_idx)
-{
-	return false;
-}
-#endif
-
-static void mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
-{
-	struct page_pid_logger *ppl;
-	short pid = current->pid;
-	unsigned long idx;
-	bool top;
-
-	idx = mtk_btag_pidlog_index(p);
-	if (idx >= mtk_btag_pidlog_max_entry())
+	if (unlikely(!mtk_btag_pagelogger) || !bio)
 		return;
-	ppl = mtk_btag_pidlog_entry(idx);
 
-	/* Using negative pid for taks with "TOP_APP" schedtune cgroup */
-	top = mtk_btag_is_top_task(current, mode, idx);
-	pid = (top) ? -pid : pid;
+	if (bio_op(bio) != REQ_OP_READ && bio_op(bio) != REQ_OP_WRITE)
+		return;
 
-	/* we do lockless operation here to favor performance */
-
-	if (mode == PIDLOG_MODE_MM_MARK_DIRTY) {
-		/* keep real requester anyway */
-		ppl->pid = pid;
-	} else {
-		/* do not overwrite the real owner set before */
-		if (ppl->pid == 0)
-			ppl->pid = pid;
+	rq_for_each_segment(bvec, rq, rq_iter) {
+		if (bvec.bv_page)
+			mtk_btag_pidlog_commit_bio(q, bio, &bvec, is_sd);
 	}
 }
 
@@ -422,6 +363,36 @@ void mtk_btag_throughput_eval(struct mtk_btag_throughput *tp)
 	mtk_btag_throughput_rw_eval(&tp->w);
 }
 
+/* get current trace in debugfs ring buffer */
+struct mtk_btag_trace *mtk_btag_curr_trace(struct mtk_btag_ringtrace *rt)
+{
+	if (rt)
+		return &rt->trace[rt->index];
+	else
+		return NULL;
+}
+
+/* step to next trace in debugfs ring buffer */
+struct mtk_btag_trace *mtk_btag_next_trace(struct mtk_btag_ringtrace *rt)
+{
+	rt->index++;
+	if (rt->index >= rt->max)
+		rt->index = 0;
+
+	return mtk_btag_curr_trace(rt);
+}
+
+/* clear debugfs ring buffer */
+static void mtk_btag_clear_trace(struct mtk_btag_ringtrace *rt)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&rt->lock, flags);
+	memset(rt->trace, 0, (sizeof(struct mtk_btag_trace) * rt->max));
+	rt->index = 0;
+	spin_unlock_irqrestore(&rt->lock, flags);
+}
+
 static void mtk_btag_seq_time(char **buff, unsigned long *size,
 	struct seq_file *seq, uint64_t time)
 {
@@ -431,6 +402,12 @@ static void mtk_btag_seq_time(char **buff, unsigned long *size,
 	SPREAD_PRINTF(buff, size, seq, "[%5lu.%06lu]", (unsigned long)time,
 		(unsigned long)nsec/1000);
 }
+
+#define biolog_fmt "wl:%d%%,%lld,%lld,%d.vm:%lld,%lld,%lld,%lld,%lld,%lld." \
+	"cpu:%llu,%llu,%llu,%llu,%llu,%llu,%llu.pid:%d,"
+#define biolog_fmt_wt "wt:%d,%d,%lld."
+#define biolog_fmt_rt "rt:%d,%d,%lld."
+#define pidlog_fmt "{%05d:%05d:%08d:%05d:%08d}"
 
 static void mtk_btag_seq_trace(char **buff, unsigned long *size,
 	struct seq_file *seq, const char *name, struct mtk_btag_trace *tr)
@@ -492,36 +469,6 @@ static void mtk_btag_seq_trace(char **buff, unsigned long *size,
 	SPREAD_PRINTF(buff, size, seq, ".\n");
 }
 
-/* get current trace in debugfs ring buffer */
-struct mtk_btag_trace *mtk_btag_curr_trace(struct mtk_btag_ringtrace *rt)
-{
-	if (rt)
-		return &rt->trace[rt->index];
-	else
-		return NULL;
-}
-
-/* step to next trace in debugfs ring buffer */
-struct mtk_btag_trace *mtk_btag_next_trace(struct mtk_btag_ringtrace *rt)
-{
-	rt->index++;
-	if (rt->index >= rt->max)
-		rt->index = 0;
-
-	return mtk_btag_curr_trace(rt);
-}
-
-/* clear debugfs ring buffer */
-static void mtk_btag_clear_trace(struct mtk_btag_ringtrace *rt)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&rt->lock, flags);
-	memset(rt->trace, 0, (sizeof(struct mtk_btag_trace) * rt->max));
-	rt->index = 0;
-	spin_unlock_irqrestore(&rt->lock, flags);
-}
-
 static void mtk_btag_seq_debug_show_ringtrace(char **buff, unsigned long *size,
 	struct seq_file *seq, struct mtk_blocktag *btag)
 {
@@ -548,7 +495,6 @@ static void mtk_btag_seq_debug_show_ringtrace(char **buff, unsigned long *size,
 	};
 	spin_unlock_irqrestore(&rt->lock, flags);
 }
-
 
 static size_t mtk_btag_seq_sub_show_usedmem(char **buff, unsigned long *size,
 	struct seq_file *seq, struct mtk_blocktag *btag)
@@ -595,35 +541,6 @@ static size_t mtk_btag_seq_sub_show_usedmem(char **buff, unsigned long *size,
 	SPREAD_PRINTF(buff, size, seq,
 		"%s sub-total: %zu KB\n", btag->name, used_mem >> 10);
 	return used_mem;
-}
-
-/* clear all ringtraces */
-static ssize_t mtk_btag_main_write(struct file *file, const char __user *ubuf,
-	size_t count, loff_t *ppos)
-{
-	struct mtk_blocktag *btag, *n;
-	unsigned long flags;
-
-	spin_lock_irqsave(&list_lock, flags);
-	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
-		mtk_btag_clear_trace(&btag->rt);
-	spin_unlock_irqrestore(&list_lock, flags);
-
-	return count;
-}
-
-/* clear ringtrace */
-static ssize_t mtk_btag_sub_write(struct file *file, const char __user *ubuf,
-	size_t count, loff_t *ppos)
-{
-	struct seq_file *seq = file->private_data;
-	struct mtk_blocktag *btag;
-
-	if (seq && seq->private) {
-		btag = seq->private;
-		mtk_btag_clear_trace(&btag->rt);
-	}
-	return count;
 }
 
 /* seq file operations */
@@ -698,6 +615,20 @@ static int mtk_btag_sub_open(struct inode *inode, struct file *file)
 	return rc;
 }
 
+/* clear ringtrace */
+static ssize_t mtk_btag_sub_write(struct file *file, const char __user *ubuf,
+	size_t count, loff_t *ppos)
+{
+	struct seq_file *seq = file->private_data;
+	struct mtk_blocktag *btag;
+
+	if (seq && seq->private) {
+		btag = seq->private;
+		mtk_btag_clear_trace(&btag->rt);
+	}
+	return count;
+}
+
 static const struct proc_ops mtk_btag_sub_fops = {
 	.proc_open		= mtk_btag_sub_open,
 	.proc_read		= seq_read,
@@ -705,46 +636,6 @@ static const struct proc_ops mtk_btag_sub_fops = {
 	.proc_release		= seq_release,
 	.proc_write		= mtk_btag_sub_write,
 };
-
-void mtk_btag_free(struct mtk_blocktag *btag)
-{
-	unsigned long flags;
-
-	if (!btag)
-		return;
-
-	spin_lock_irqsave(&list_lock, flags);
-	list_del(&btag->list);
-	mtk_btag_mictx_free_btag(btag);
-	spin_unlock_irqrestore(&list_lock, flags);
-
-	kfree(btag->ctx.priv);
-	kfree(btag->rt.trace);
-	proc_remove(btag->dentry.droot);
-	kfree(btag);
-}
-
-static void mtk_btag_init_pidlogger(void)
-{
-	unsigned long count = mtk_btag_system_dram_size >> PAGE_SHIFT;
-	unsigned long size = count * sizeof(struct page_pid_logger);
-
-	if (mtk_btag_pagelogger)
-		goto init;
-
-#ifdef CONFIG_MTK_USE_RESERVED_EXT_MEM
-	mtk_btag_pagelogger = extmem_malloc_page_align(size);
-#else
-	mtk_btag_pagelogger = vmalloc(size);
-#endif
-
-init:
-	if (mtk_btag_pagelogger)
-		memset(mtk_btag_pagelogger, 0, size);
-	else
-		pr_info(
-		"[BLOCK_TAG] blockio: fail to allocate mtk_btag_pagelogger\n");
-}
 
 static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 	struct seq_file *seq)
@@ -805,19 +696,6 @@ static int mtk_btag_seq_main_show(struct seq_file *seq, void *v)
 	return 0;
 }
 
-void mtk_btag_get_aee_buffer(unsigned long *vaddr, unsigned long *size)
-{
-	unsigned long free_size = BLOCKIO_AEE_BUFFER_SIZE;
-	char *buff;
-
-	buff = blockio_aee_buffer;
-	mtk_btag_seq_main_info(&buff, &free_size, NULL);
-	/* retrun start location */
-	*vaddr = (unsigned long)blockio_aee_buffer;
-	*size = BLOCKIO_AEE_BUFFER_SIZE - free_size;
-}
-EXPORT_SYMBOL(mtk_btag_get_aee_buffer);
-
 static const struct seq_operations mtk_btag_seq_main_ops = {
 	.start  = mtk_btag_seq_debug_start,
 	.next   = mtk_btag_seq_debug_next,
@@ -830,6 +708,21 @@ static int mtk_btag_main_open(struct inode *inode, struct file *file)
 	return seq_open(file, &mtk_btag_seq_main_ops);
 }
 
+/* clear all ringtraces */
+static ssize_t mtk_btag_main_write(struct file *file, const char __user *ubuf,
+	size_t count, loff_t *ppos)
+{
+	struct mtk_blocktag *btag, *n;
+	unsigned long flags;
+
+	spin_lock_irqsave(&list_lock, flags);
+	list_for_each_entry_safe(btag, n, &mtk_btag_list, list)
+		mtk_btag_clear_trace(&btag->rt);
+	spin_unlock_irqrestore(&list_lock, flags);
+
+	return count;
+}
+
 static const struct proc_ops mtk_btag_main_fops = {
 	.proc_open		= mtk_btag_main_open,
 	.proc_read		= seq_read,
@@ -837,31 +730,6 @@ static const struct proc_ops mtk_btag_main_fops = {
 	.proc_release		= seq_release,
 	.proc_write		= mtk_btag_main_write,
 };
-
-static int mtk_btag_init_procfs(void)
-{
-	struct proc_dir_entry *proc_entry;
-	kuid_t uid;
-	kgid_t gid;
-
-	if (btag_proc_root)
-		return 0;
-
-	uid = make_kuid(&init_user_ns, 0);
-	gid = make_kgid(&init_user_ns, 1001);
-
-	btag_proc_root = proc_mkdir("blocktag", NULL);
-
-	proc_entry = proc_create("blockio", S_IFREG | 0444, btag_proc_root,
-			      &mtk_btag_main_fops);
-
-	if (proc_entry)
-		proc_set_user(proc_entry, uid, gid);
-	else
-		pr_info("[BLOCK_TAG} %s: failed to initialize procfs", __func__);
-
-	return 0;
-}
 
 struct mtk_blocktag *mtk_btag_alloc(const char *name,
 	enum mtk_btag_storage_type storage_type,
@@ -936,6 +804,96 @@ out:
 	return btag;
 }
 
+void mtk_btag_free(struct mtk_blocktag *btag)
+{
+	unsigned long flags;
+
+	if (!btag)
+		return;
+
+	spin_lock_irqsave(&list_lock, flags);
+	list_del(&btag->list);
+	mtk_btag_mictx_free_btag(btag);
+	spin_unlock_irqrestore(&list_lock, flags);
+
+	kfree(btag->ctx.priv);
+	kfree(btag->rt.trace);
+	proc_remove(btag->dentry.droot);
+	kfree(btag);
+}
+
+#if IS_ENABLED(CONFIG_CGROUP_SCHED)
+static bool mtk_btag_is_top_in_cgrp(struct task_struct *t)
+{
+	struct cgroup *grp;
+
+	rcu_read_lock();
+	grp = task_cgroup(t, cpuset_cgrp_id);
+	rcu_read_unlock();
+
+	if (grp->kn->name && !strcmp("top-app", grp->kn->name))
+		return true;
+	else
+		return false;
+}
+
+static bool mtk_btag_is_top_task(struct task_struct *task, int mode, unsigned long page_idx)
+{
+	struct task_struct *t_tgid = NULL;
+
+	if (mtk_btag_is_top_in_cgrp(task))
+		return true;
+
+	if (task->tgid && task->tgid != task->pid) {
+		rcu_read_lock();
+		t_tgid = find_task_by_vpid(task->tgid);
+		rcu_read_unlock();
+		if (t_tgid) {
+			if (mtk_btag_is_top_in_cgrp(t_tgid))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+#else
+static inline bool mtk_btag_is_top_task(struct task_struct *task,
+					int mode,
+					unsigned long page_idx)
+{
+	return false;
+}
+#endif
+
+static void mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
+{
+	struct page_pid_logger *ppl;
+	short pid = current->pid;
+	unsigned long idx;
+	bool top;
+
+	idx = mtk_btag_pidlog_index(p);
+	if (idx >= mtk_btag_pidlog_max_entry())
+		return;
+	ppl = mtk_btag_pidlog_entry(idx);
+
+	/* Using negative pid for taks with "TOP_APP" schedtune cgroup */
+	top = mtk_btag_is_top_task(current, mode, idx);
+	pid = (top) ? -pid : pid;
+
+	/* we do lockless operation here to favor performance */
+
+	if (mode == PIDLOG_MODE_MM_MARK_DIRTY) {
+		/* keep real requester anyway */
+		ppl->pid = pid;
+	} else {
+		/* do not overwrite the real owner set before */
+		if (ppl->pid == 0)
+			ppl->pid = pid;
+	}
+}
+
 static void btag_trace_block_bio_queue(void *data, struct bio *bio)
 {
 	struct bvec_iter iter;
@@ -964,25 +922,6 @@ static void btag_trace_block_bio_queue(void *data, struct bio *bio)
 	}
 }
 
-void mtk_btag_commit_req(struct request *rq, bool is_sd)
-{
-	struct request_queue *q = rq->q;
-	struct bio *bio = rq->bio;
-	struct bio_vec bvec;
-	struct req_iterator rq_iter;
-
-	if (unlikely(!mtk_btag_pagelogger) || !bio)
-		return;
-
-	if (bio_op(bio) != REQ_OP_READ && bio_op(bio) != REQ_OP_WRITE)
-		return;
-
-	rq_for_each_segment(bvec, rq, rq_iter) {
-		if (bvec.bv_page)
-			mtk_btag_pidlog_commit_bio(q, bio, &bvec, is_sd);
-	}
-}
-
 static void btag_trace_writeback_dirty_page(void *data,
 					struct page *page,
 					struct address_space *mapping)
@@ -997,19 +936,6 @@ static void btag_trace_writeback_dirty_page(void *data,
 
 	mtk_btag_pidlog_set_pid(page, PIDLOG_MODE_MM_MARK_DIRTY, true);
 
-}
-
-static void mtk_btag_init_memory(void)
-{
-	phys_addr_t start, end;
-
-	dram_start_addr = start = 0;
-	dram_end_addr = end = memblock_end_of_DRAM();
-	mtk_btag_system_dram_size = (unsigned long long)(end - start);
-	pr_debug("[BLOCK_TAG] DRAM: %pa - %pa, size: 0x%llx\n", &start,
-		&end, (unsigned long long)(end - start));
-	blockio_aee_buffer = kzalloc(BLOCKIO_AEE_BUFFER_SIZE,
-			     GFP_KERNEL);
 }
 
 struct tracepoints_table {
@@ -1161,6 +1087,79 @@ static int mtk_btag_install_tracepoints(void)
 
 	return 0;
 }
+
+static void mtk_btag_init_memory(void)
+{
+	phys_addr_t start, end;
+
+	dram_start_addr = start = 0;
+	dram_end_addr = end = memblock_end_of_DRAM();
+	mtk_btag_system_dram_size = (unsigned long long)(end - start);
+	pr_debug("[BLOCK_TAG] DRAM: %pa - %pa, size: 0x%llx\n", &start,
+		&end, (unsigned long long)(end - start));
+	blockio_aee_buffer = kzalloc(BLOCKIO_AEE_BUFFER_SIZE,
+			     GFP_KERNEL);
+}
+
+static void mtk_btag_init_pidlogger(void)
+{
+	unsigned long count = mtk_btag_system_dram_size >> PAGE_SHIFT;
+	unsigned long size = count * sizeof(struct page_pid_logger);
+
+	if (mtk_btag_pagelogger)
+		goto init;
+
+#if IS_ENABLED(CONFIG_MTK_USE_RESERVED_EXT_MEM)
+	mtk_btag_pagelogger = extmem_malloc_page_align(size);
+#else
+	mtk_btag_pagelogger = vmalloc(size);
+#endif
+
+init:
+	if (mtk_btag_pagelogger)
+		memset(mtk_btag_pagelogger, 0, size);
+	else
+		pr_info(
+		"[BLOCK_TAG] blockio: fail to allocate mtk_btag_pagelogger\n");
+}
+
+static int mtk_btag_init_procfs(void)
+{
+	struct proc_dir_entry *proc_entry;
+	kuid_t uid;
+	kgid_t gid;
+
+	if (btag_proc_root)
+		return 0;
+
+	uid = make_kuid(&init_user_ns, 0);
+	gid = make_kgid(&init_user_ns, 1001);
+
+	btag_proc_root = proc_mkdir("blocktag", NULL);
+
+	proc_entry = proc_create("blockio", S_IFREG | 0444, btag_proc_root,
+			      &mtk_btag_main_fops);
+
+	if (proc_entry)
+		proc_set_user(proc_entry, uid, gid);
+	else
+		pr_info("[BLOCK_TAG} %s: failed to initialize procfs", __func__);
+
+	return 0;
+}
+
+void mtk_btag_get_aee_buffer(unsigned long *vaddr, unsigned long *size)
+{
+	unsigned long free_size = BLOCKIO_AEE_BUFFER_SIZE;
+	char *buff;
+
+	buff = blockio_aee_buffer;
+	mtk_btag_seq_main_info(&buff, &free_size, NULL);
+	/* return start location */
+	*vaddr = (unsigned long)blockio_aee_buffer;
+	*size = BLOCKIO_AEE_BUFFER_SIZE - free_size;
+}
+EXPORT_SYMBOL(mtk_btag_get_aee_buffer);
 
 static int __init mtk_btag_init(void)
 {
