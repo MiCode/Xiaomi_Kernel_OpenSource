@@ -458,7 +458,6 @@ static int __probe_v2(struct platform_device *pdev)
 #else
 			ret = irq_force_affinity(irq, cpumask_of(cpu));
 #endif
-			cpu++;
 			if (ret) {
 				dev_err(&pdev->dev,
 					"failed to set affinity for irq %d\n",
@@ -466,7 +465,8 @@ static int __probe_v2(struct platform_device *pdev)
 				return -ENXIO;
 			}
 			dev_info(&pdev->dev, "bound irq %d for cpu%d\n",
-					irq, i);
+					irq, cpu);
+			cpu++;
 		} else
 			cache_parity.record[i].v2.cpu = nr_cpu_ids;
 
