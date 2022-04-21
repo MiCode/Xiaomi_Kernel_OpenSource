@@ -499,37 +499,25 @@ page_owner=on loop.max_part=7";
 			"clk_pll_6",
 			"clk_pll_7";
 
-		dvfsrc-opp-num = <3>;
+		vsram_chk_gpio = <&pio 200 0x0>;
+		dvfsrc-opp-num = <6>;
 		dvfs-opp =
-		/* vcore vsram dvfsrc spm   freq  mux resource uv_index */
-		< 550000 750000	 0    0x008  196   2	 0       3>,
-		< 600000 750000	 1    0x104  260   5	 0       2>,
-		< 650000 750000	 2    0x202  280   7	 0       1>,
-		< 725000 750000	 3    0x301  360   3     0x3     0>,
-		< 725000 750000	 3    0x301  416   4     0x3     0>;
+			/*vcore		vsram	uv	rc  spm		freq	mux*/
+			< 575000	800000	0xff	0x0 0x0		110	0>,
+			< 600000	800000	0xff	0x0 0x0		130	0>,
+			< 650000	850000	0xff	0x0 0x1		165	2>,
+			< 650000	850000	0xff	0x0 0x1		218	5>,
+			< 700000	850000	0xff	0x1 0x12	330	2>,
+			< 800000	900000	0xff	0x2 0x28	416	4>;
 
-		gpio = <&scp_gpio>;
-		scp-cores = <1>;
 
-		pmic-sshub-support;
-		vow-lp-en-gear = <2>;
+/*		sshub-vcore-supply = <&mt_pmic_vcore_sshub_buck_reg>;*/
+/*		sshub-vsram-supply = <&mt_pmic_vsram_others_sshub_ldo_reg>;*/
 
-		do-ulposc-cali;
-		ccf-fmeter-support;
-		fmeter-id-ulposc2 = <36>;
-		fmeter-id-26M = <25>;
-		ulposc_clksys = <&apmixed>;
-		scp_clk_ctrl = <&scp_clk_ctrl>;
-		scp-clk-hw-ver = "v1";
-		ulposc-cali-ver = "v1";
-		ulposc-cali-num = <3>;
-		ulposc-cali-target = <196 280 360>;
-		ulposc-cali-config =
-			/* con0		con1			con2 */
-			<0x5aa940	0x3002900		0x40>,
-			<0x3ca940	0x2900			0x40>,
-			<0x52a940	0x2900			0x40>;
-
+		gpio = <&gpio 1>;
+		gpio-feature = "gpio-mode";
+		gpio-feature-cfg = <1>;
+		gpio-mode-reg = <0x430 0x7 8 1>;
 	};
 
 	infracfg_ao_mem@10002000 {

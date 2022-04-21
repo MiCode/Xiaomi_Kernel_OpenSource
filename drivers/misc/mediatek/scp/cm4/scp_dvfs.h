@@ -39,7 +39,7 @@ enum {
 	CLK_HIGH_IRQ_EN_BIT = 17,
 };
 
-#if defined(CONFIG_MACH_MT6781)
+#if (defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6785))
 #include <linux/arm-smccc.h>
 enum scp_req_r {
 	SCP_REQ_RELEASE = 0,

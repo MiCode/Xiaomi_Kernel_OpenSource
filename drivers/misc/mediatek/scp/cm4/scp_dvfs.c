@@ -46,7 +46,8 @@
 #include "mtk_spm_resource_req.h"
 
 #if (defined(CONFIG_MACH_MT6781)  \
-	||defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6771))
+	||defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6771) ||defined(CONFIG_MACH_MT6785))
+
 #include <mt-plat/upmu_common.h>
 //#include <mt-plat/mtk_secure_api.h>
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
@@ -117,7 +118,7 @@ spm_resource_req(unsigned int user, unsigned int req_mask)
 }*/
 
 
-#if defined(CONFIG_MACH_MT6781)
+#if (defined(CONFIG_MACH_MT6781) ||defined(CONFIG_MACH_MT6785))
 #define ADR_GPIO_DIR6 (gpio_base + 0x060)
 #define BIT_GPIO_DIR6_GPIO200 8
 #define MAK_GPIO_DIR6_GPIO200 0x1
@@ -336,7 +337,9 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 		unsigned int vcore;
 		unsigned int uv = dvfs->opp[idx].uv_idx;
 	#if !defined(CONFIG_MACH_MT6768) \
-		&& !defined(CONFIG_MACH_MT6781) && !defined(CONFIG_MACH_MT6771)
+		&& !defined(CONFIG_MACH_MT6781) && !defined(CONFIG_MACH_MT6771) \
+		&& !defined(CONFIG_MACH_MT6785)
+
 		int max_vcore = dvfs->opp[dvfs->scp_opp_num - 1].vcore + 100000;
 		int max_vsram = dvfs->opp[dvfs->scp_opp_num - 1].vsram + 100000;
 	#endif
@@ -348,7 +351,8 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 		/* vcore MAX_uV set to highest opp + 100mV */
 
 	#if (defined(CONFIG_MACH_MT6768) \
-	|| defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6771))
+	|| defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6771) ||defined(CONFIG_MACH_MT6785))
+
 		ret_vc = pmic_scp_set_vcore(vcore);
 		ret_vs = pmic_scp_set_vsram_vcore(dvfs->opp[idx].vsram);
 	#else
@@ -499,7 +503,7 @@ int scp_request_freq(void)
 	#ifndef CONFIG_MACH_MT6771
 		/* Request SPM not to turn off mainpll/26M/infra */
 		/* because SCP may park in it during DFS process */
-		#if defined(CONFIG_MACH_MT6781)
+		#if defined(CONFIG_MACH_MT6781) ||defined(CONFIG_MACH_MT6785)
 		scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR | SCP_REQ_SYSPLL1);
 		#else
 		spm_resource_req(SPM_RESOURCE_USER_SCP,
@@ -548,7 +552,7 @@ int scp_request_freq(void)
 #ifndef CONFIG_MACH_MT6771
 	#ifndef CONFIG_MACH_MT6768
 		if (scp_expected_freq == MAINPLL_273M)
-			#if defined(CONFIG_MACH_MT6781)
+			#if (defined(CONFIG_MACH_MT6781) ||defined(CONFIG_MACH_MT6785))
 			scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR | SCP_REQ_SYSPLL1);
 			#else
 			spm_resource_req(SPM_RESOURCE_USER_SCP,
@@ -559,7 +563,7 @@ int scp_request_freq(void)
 		if (scp_expected_freq == UNIVPLL_416M)
 	#endif
 
-			#if defined(CONFIG_MACH_MT6781)
+			#if (defined(CONFIG_MACH_MT6781) ||defined(CONFIG_MACH_MT6785))
 			scp_resource_req(SCP_REQ_26M | SCP_REQ_IFR);
 			#else
 			spm_resource_req(SPM_RESOURCE_USER_SCP,
@@ -567,7 +571,7 @@ int scp_request_freq(void)
 						SPM_RESOURCE_AXI_BUS);
 			#endif
 		else
-			#if defined(CONFIG_MACH_MT6781)
+			#if (defined(CONFIG_MACH_MT6781) ||defined(CONFIG_MACH_MT6785))
 			scp_resource_req(SCP_REQ_RELEASE);
 			#else
 			spm_resource_req(SPM_RESOURCE_USER_SCP,
@@ -1264,6 +1268,8 @@ fail:
 
 	return ret;
 }
+
+
 #if defined(CONFIG_MACH_MT6781)
 
 static void mt_pmic_sshub_init_for_mt6781(void)
@@ -1444,6 +1450,7 @@ static void __init mt_pmic_sshub_init(void)
 	mt_pmic_sshub_init_for_mt6781();
 #elif defined(CONFIG_MACH_MT6771)
 	mt_pmic_sshub_init_for_mt6771();
+
 #else
 	int max_vcore = dvfs->opp[dvfs->scp_opp_num - 1].vcore + 100000;
 	int max_vsram = dvfs->opp[dvfs->scp_opp_num - 1].vsram + 100000;
@@ -1493,7 +1500,7 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	char *buf;
 	int i;
 	int ret = 0;
-#if defined(CONFIG_MACH_MT6781)
+#if (defined(CONFIG_MACH_MT6781) ||defined(CONFIG_MACH_MT6785))
 	int gpio_idx, gpio_val;
 #endif
 	/* find device tree node of scp_dvfs */
@@ -1604,7 +1611,7 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 		kfree(gpio_mode);
 	}
 
-#if defined(CONFIG_MACH_MT6781)
+#if (defined(CONFIG_MACH_MT6781) ||defined(CONFIG_MACH_MT6785))
 	/* get GPIO value by GPIO API */
 	/* get high/low level of gpio pin */
 	gpio_idx = of_get_named_gpio(pdev->dev.of_node, "vsram_chk_gpio", 0);
@@ -1687,8 +1694,9 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	}
 
 #if (defined (CONFIG_MACH_MT6768) \
-	||defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6771))
+	||defined(CONFIG_MACH_MT6781) || defined(CONFIG_MACH_MT6771) ||defined(CONFIG_MACH_MT6785))
 	pr_notice("mt6768  6781 6771 no pmic config in dts\n");
+
 	mt_pmic_sshub_init();
 	goto pass;
 #endif
