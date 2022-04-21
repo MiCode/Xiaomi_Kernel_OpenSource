@@ -10444,7 +10444,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 		mdp-opp = <&opp_table_mdp>;
 		operating-points-v2 = <&opp_table_mdp>;
 		mdp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-		dre30_hist_sram_start = <1536>;
+		dre30_hist_sram_start = /bits/ 16 <1536>;
 	};
 
 	mdp_mutex0: mdp_mutex0@1f001000 {

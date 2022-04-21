@@ -3546,7 +3546,7 @@
 		mdp_rdma0_frame_done = <CMDQ_EVENT_MDP_RDMA0_FRAME_DONE>;
 		mdp_hdr0_frame_done = <CMDQ_EVENT_MDP_HDR0_FRAME_DONE>;
 		mdp_aal_frame_done = <CMDQ_EVENT_MDP_AAL0_FRAME_DONE>;
-		dre30_hist_sram_start = <1536>;
+		dre30_hist_sram_start = /bits/ 16 <1536>;
 	};
 
 	mdp_mutex: mdp_mutex@1f001000 {

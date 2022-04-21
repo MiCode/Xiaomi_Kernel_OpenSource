@@ -5044,7 +5044,7 @@
 			mdp_color_frame_done = <306>;
 			mdp_aal1_frame_done = <309>;
 			mdp_aal_frame_done = <310>;
-			dre30_hist_sram_start = <1536>;
+			dre30_hist_sram_start = /bits/ 16 <1536>;
 		};
 
 		mdp_mutex: mdp_mutex@1f001000 {
