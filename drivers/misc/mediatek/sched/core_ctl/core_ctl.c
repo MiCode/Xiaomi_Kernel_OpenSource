@@ -135,15 +135,18 @@ int core_ctl_enable_policy(unsigned int policy)
 {
 	unsigned int old_val;
 	unsigned long flags;
+	bool success = false;
 
 	spin_lock_irqsave(&state_lock, flags);
 	if (policy != enable_policy) {
 		old_val = enable_policy;
 		enable_policy = policy;
-		pr_info("%s: Change policy from %d to %d successfully.",
-				TAG, old_val, policy);
+		success = true;
 	}
 	spin_unlock_irqrestore(&state_lock, flags);
+	if (success)
+		pr_info("%s: Change policy from %d to %d successfully.",
+			TAG, old_val, policy);
 	return 0;
 }
 EXPORT_SYMBOL(core_ctl_enable_policy);
