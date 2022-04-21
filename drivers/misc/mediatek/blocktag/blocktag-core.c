@@ -297,7 +297,7 @@ static inline bool mtk_btag_is_top_task(struct task_struct *task,
 }
 #endif
 
-static void _mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
+static void mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
 {
 	struct page_pid_logger *ppl;
 	short pid = current->pid;
@@ -358,14 +358,6 @@ void mtk_btag_pidlog_copy_pid(struct page *src, struct page *dst)
 	ppl_dst->pid = ppl_src->pid;
 }
 
-void mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
-{
-	if (unlikely(!mtk_btag_pagelogger) || unlikely(!p))
-		return;
-
-	_mtk_btag_pidlog_set_pid(p, mode, write);
-}
-EXPORT_SYMBOL_GPL(mtk_btag_pidlog_set_pid);
 
 void mtk_btag_pidlog_set_pid_pages(struct page **page, int page_cnt,
 				   int mode, bool write)
@@ -376,7 +368,7 @@ void mtk_btag_pidlog_set_pid_pages(struct page **page, int page_cnt,
 		return;
 
 	for (i = 0; i < page_cnt; i++)
-		_mtk_btag_pidlog_set_pid(page[i], mode, write);
+		mtk_btag_pidlog_set_pid(page[i], mode, write);
 }
 EXPORT_SYMBOL_GPL(mtk_btag_pidlog_set_pid_pages);
 
@@ -1036,10 +1028,8 @@ out:
 }
 EXPORT_SYMBOL_GPL(mtk_btag_alloc);
 
-static void btag_trace_block_rq_insert(void *data,
-				struct request *rq)
+static void btag_trace_block_bio_queue(void *data, struct bio *bio)
 {
-	struct bio *bio = rq->bio;
 	struct bvec_iter iter;
 	struct bio_vec bvec;
 	int type;
@@ -1057,8 +1047,8 @@ static void btag_trace_block_rq_insert(void *data,
 	for_each_bio(bio) {
 		bio_for_each_segment(bvec, bio, iter) {
 			if (bvec.bv_page) {
-				_mtk_btag_pidlog_set_pid(bvec.bv_page,
-					PIDLOG_MODE_BLK_RQ_INSERT,
+				mtk_btag_pidlog_set_pid(bvec.bv_page,
+					PIDLOG_MODE_BLK_BIO_QUEUE,
 					(bio_op(bio) == REQ_OP_WRITE) ?
 					true : false);
 			}
@@ -1094,7 +1084,11 @@ static void btag_trace_writeback_dirty_page(void *data,
 	 * To get real requester of this page, we shall keep it
 	 * before writeback takes over.
 	 */
+	if (unlikely(!mtk_btag_pagelogger) || unlikely(!page))
+		return;
+
 	mtk_btag_pidlog_set_pid(page, PIDLOG_MODE_MM_MARK_DIRTY, true);
+
 }
 
 static void mtk_btag_init_memory(void)
@@ -1119,8 +1113,8 @@ struct tracepoints_table {
 
 static struct tracepoints_table interests[] = {
 	{
-		.name = "block_rq_insert",
-		.func = btag_trace_block_rq_insert
+		.name = "block_bio_queue",
+		.func = btag_trace_block_bio_queue
 	},
 	{
 		.name = "writeback_dirty_page",

@@ -43,10 +43,8 @@ extern void *extmem_malloc_page_align(size_t bytes);
 #endif
 
 enum {
-	PIDLOG_MODE_BLK_RQ_INSERT   = 0,
-	PIDLOG_MODE_FS_FUSE         = 1,
-	PIDLOG_MODE_FS_WRITE_BEGIN  = 2,
-	PIDLOG_MODE_MM_MARK_DIRTY   = 3
+	PIDLOG_MODE_BLK_BIO_QUEUE,
+	PIDLOG_MODE_MM_MARK_DIRTY
 };
 
 enum mtk_btag_storage_type {
@@ -278,7 +276,6 @@ void mtk_btag_pidlog_map_sg(struct request_queue *q, struct bio *bio,
 void mtk_btag_pidlog_copy_pid(struct page *src, struct page *dst);
 int mtk_btag_pidlog_get_mode(struct page *p);
 void mtk_btag_pidlog_submit_bio(struct bio *bio);
-void mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write);
 void mtk_btag_pidlog_set_pid_pages(struct page **page, int page_cnt,
 				   int mode, bool write);
 
