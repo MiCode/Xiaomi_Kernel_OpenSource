@@ -9,7 +9,7 @@
 /**************************************************
  * GPUFREQ Local Config
  **************************************************/
-#define GPUFREQ_BRINGUP                 (1)
+#define GPUFREQ_BRINGUP                 (0)
 /*
  * 0 -> power on once then never off and disable DDK power on/off callback
  */
@@ -21,7 +21,7 @@
  * (0, 1) -> DVFS disable but init to CUST_INIT_OPPIDX (do DVFS only onces)
  * (0, 0) -> DVFS disable
  */
-#define GPUFREQ_DVFS_ENABLE             (0)
+#define GPUFREQ_DVFS_ENABLE             (1)
 #define GPUFREQ_CUST_INIT_ENABLE        (0)
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 /* misc setting control */

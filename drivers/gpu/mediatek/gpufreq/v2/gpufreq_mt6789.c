@@ -153,6 +153,8 @@ static void __iomem *g_mfg_cpe_control_base;
 static void __iomem *g_mfg_cpe_sensor_base;
 static void __iomem *g_mali_base;
 static void __iomem *g_infra_ao_mem_base;
+static void __iomem *g_topckgen_base;
+static void __iomem *g_infra_bcrm_base;
 static struct gpufreq_pmic_info *g_pmic;
 static struct gpufreq_clk_info *g_clk;
 static struct gpufreq_mtcmos_info *g_mtcmos;
@@ -613,6 +615,7 @@ unsigned int __gpufreq_get_dyn_pstack(unsigned int freq, unsigned int volt)
 int __gpufreq_power_control(enum gpufreq_power_state power)
 {
 	int ret = 0;
+	u32 val;
 
 	GPUFREQ_TRACE_START("power=%d", power);
 
@@ -633,6 +636,12 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 
 	if (power == POWER_ON && g_gpu.power_count == 1) {
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_01);
+
+		//set way_en, 0x1021504c [12:11] = 0x1 when power on
+		val = readl(g_infra_bcrm_base + 0x4C);
+		val |= (1UL << 11);
+		val |= (1UL << 12);
+		writel(val, g_infra_bcrm_base + 0x4C);
 
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_ON);
@@ -665,6 +674,11 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		g_dvfs_state &= ~DVFS_POWEROFF;
 	} else if (power == POWER_OFF && g_gpu.power_count == 0) {
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_05);
+
+		//set way_en, 0x1021504c [12] = 0x1 when power off
+		val = readl(g_infra_bcrm_base + 0x4C);
+		val |= (1UL << 12);
+		writel(val, g_infra_bcrm_base + 0x4C);
 
 		/* freeze DVFS when power off */
 		g_dvfs_state |= DVFS_POWEROFF;
@@ -1283,13 +1297,6 @@ static int __gpufreq_switch_clksrc(enum gpufreq_clk_src clksrc)
 
 	GPUFREQ_TRACE_START("clksrc=%d", clksrc);
 
-	ret = clk_prepare_enable(g_clk->clk_mux);
-	if (unlikely(ret)) {
-		__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
-			"fail to enable clk_mux(TOP_MUX_MFG) (%d)", ret);
-		goto done;
-	}
-
 	if (clksrc == CLOCK_MAIN) {
 		ret = clk_set_parent(g_clk->clk_mux, g_clk->clk_main_parent);
 		if (unlikely(ret)) {
@@ -1308,7 +1315,6 @@ static int __gpufreq_switch_clksrc(enum gpufreq_clk_src clksrc)
 		GPUFREQ_LOGE("invalid clock source: %d (EINVAL)", clksrc);
 		goto done;
 	}
-	clk_disable_unprepare(g_clk->clk_mux);
 
 done:
 	GPUFREQ_TRACE_END();
@@ -1396,7 +1402,7 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 
 	GPUFREQ_TRACE_START("freq_old=%d, freq_new=%d", freq_old, freq_new);
 
-	GPUFREQ_LOGI("begin to scale Fgpu: (%d->%d)", freq_old, freq_new);
+	GPUFREQ_LOGD("begin to scale Fgpu: (%d->%d)", freq_old, freq_new);
 
 	/*
 	 * MFGPLL_CON1[31:31]: MFGPLL_SDM_PCW_CHG
@@ -1721,7 +1727,7 @@ static unsigned int __gpufreq_get_real_fgpu(void)
 	unsigned int freq = 0;
 	unsigned int pcw = 0;
 
-	GPUFREQ_LOGE("%s: MFGPLL_CON1 = 0x%x", __func__, (g_apmixed_base + 0x026C));
+	GPUFREQ_LOGD("%s: MFGPLL_CON1 = 0x%x", __func__, (g_apmixed_base + 0x026C));
 
 	mfgpll = readl(MFGPLL_CON1);
 
@@ -1765,8 +1771,8 @@ static void __gpufreq_external_cg_control(void)
 
 	/* [F] MFG_ASYNC_CON 0x13FB_F020 [22] MEM0_MST_CG_ENABLE = 0x1 */
 	/* [J] MFG_ASYNC_CON 0x13FB_F020 [23] MEM0_SLV_CG_ENABLE = 0x1 */
-	/* [G] MFG_ASYNC_CON 0x13FB_F020 [24] MEM1_MST_CG_ENABLE = 0x1 */
-	/* [K] MFG_ASYNC_CON 0x13FB_F020 [25] MEM1_SLV_CG_ENABLE = 0x1 */
+	/* [H] MFG_ASYNC_CON 0x13FB_F020 [24] MEM1_MST_CG_ENABLE = 0x1 */
+	/* [L] MFG_ASYNC_CON 0x13FB_F020 [25] MEM1_SLV_CG_ENABLE = 0x1 */
 	val = readl(g_mfg_top_base + 0x20);
 	val |= (1UL << 22);
 	val |= (1UL << 23);
@@ -1786,10 +1792,10 @@ static void __gpufreq_external_cg_control(void)
 	val |= (1UL << 4);
 	writel(val, g_mfg_top_base + 0xB4);
 
-	/* [E] MFG_GLOBAL_CON 0x13FB_F0B0 [19] PWR_CG_FREE_RUN = 0x0 */
+	/* [E] MFG_GLOBAL_CON 0x13FB_F0B0 [19] PWR_CG_FREE_RUN = 0x1 */
 	/* [P] MFG_GLOBAL_CON 0x13FB_F0B0 [8] MFG_SOC_IN_AXI_FREE_RUN = 0x0 */
 	val = readl(g_mfg_top_base + 0xB0);
-	val &= ~(1UL << 19);
+	val |= (1UL << 19);
 	val &= ~(1UL << 8);
 	writel(val, g_mfg_top_base + 0xB0);
 
@@ -1817,10 +1823,14 @@ static int __gpufreq_clock_control(enum gpufreq_power_state power)
 				"fail to enable subsys_bg3d (%d)", ret);
 			goto done;
 		}
+
+		__gpufreq_switch_clksrc(CLOCK_MAIN);
+
 		__gpufreq_external_cg_control();
 
 		g_gpu.cg_count++;
 	} else {
+		__gpufreq_switch_clksrc(CLOCK_SUB);
 		clk_disable_unprepare(g_clk->subsys_bg3d);
 		g_gpu.cg_count--;
 	}
@@ -3097,6 +3107,30 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	g_fmem_ao_debug_ctrl = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
 	if (unlikely(!g_fmem_ao_debug_ctrl)) {
 		GPUFREQ_LOGE("fail to ioremap fmem_ao_debug_ctrl: 0x%llx", res->start);
+		goto done;
+	}
+
+	/* 0x10000000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "topckgen");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource topckgen");
+		goto done;
+	}
+	g_topckgen_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_topckgen_base)) {
+		GPUFREQ_LOGE("fail to ioremap topckgen: 0x%llx", res->start);
+		goto done;
+	}
+
+	/* 0x10215000 */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "infra_bcrm");
+	if (unlikely(!res)) {
+		GPUFREQ_LOGE("fail to get resource infra_bcrm");
+		goto done;
+	}
+	g_infra_bcrm_base = devm_ioremap(gpufreq_dev, res->start, resource_size(res));
+	if (unlikely(!g_infra_bcrm_base)) {
+		GPUFREQ_LOGE("fail to ioremap infra_bcrm: 0x%llx", res->start);
 		goto done;
 	}
 
