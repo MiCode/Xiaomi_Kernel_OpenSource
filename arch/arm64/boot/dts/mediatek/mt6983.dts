@@ -11511,6 +11511,8 @@
 
 	rt-pd-manager {
 		compatible = "mediatek,rt-pd-manager";
+		/* wd0_enable : use it for enable wd0 function */
+		//wd0_enable;
 	};
 
 	typec_mux_switch: typec_mux_switch {
@@ -14383,6 +14385,11 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			wd,sbu_ph_ubound1_c2c = <3150>;	/* mV */
 			wd,sbu_ph_ubound2_c2c = <3800>;	/* mV */
 			wd,sbu_aud_ubound = <1600>;	/* mV */
+			/* 0:16x, 1:128x, 2:512x, 3:1024x */
+			wd,wd0_tsleep = <1>;
+			/* 0:400us, 1:1ms, 2:2ms, 3:4ms, 4:10ms, 5:40ms, 6:100ms, 7:400ms */
+			wd,wd0_tdet = <3>;
+			/* example wd0_tsleep = 512x, wd0_tdet = 4ms, wd0 polling time = 512*4ms */
 			pd-data {
 				pd,vid = <0x29cf>;
 				pd,pid = <0x6375>;
