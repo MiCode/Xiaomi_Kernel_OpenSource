@@ -23,192 +23,93 @@
 #define pr_fmt(fmt) "[mml_pq_tdshp]" fmt
 
 
-#define TDSHP_00		0x000
-#define TDSHP_01		0x004
-#define TDSHP_02		0x008
-#define TDSHP_03		0x00c
-#define TDSHP_05		0x014
-#define TDSHP_06		0x018
-#define TDSHP_07		0x01c
-#define TDSHP_08		0x020
-#define TDSHP_09		0x024
-#define PBC_00			0x040
-#define PBC_01			0x044
-#define PBC_02			0x048
-#define PBC_03			0x04c
-#define PBC_04			0x050
-#define PBC_05			0x054
-#define PBC_06			0x058
-#define PBC_07			0x05c
-#define PBC_08			0x060
-#define HIST_CFG_00		0x064
-#define HIST_CFG_01		0x068
-#define LUMA_HIST_00		0x06c
-#define LUMA_HIST_01		0x070
-#define LUMA_HIST_02		0x074
-#define LUMA_HIST_03		0x078
-#define LUMA_HIST_04		0x07c
-#define LUMA_HIST_05		0x080
-#define LUMA_HIST_06		0x084
-#define LUMA_HIST_07		0x08c
-#define LUMA_HIST_08		0x090
-#define LUMA_HIST_09		0x094
-#define LUMA_HIST_10		0x098
-#define LUMA_HIST_11		0x09c
-#define LUMA_HIST_12		0x0a0
-#define LUMA_HIST_13		0x0a4
-#define LUMA_HIST_14		0x0a8
-#define LUMA_HIST_15		0x0ac
-#define LUMA_HIST_16		0x0b0
-#define LUMA_SUM		0x0b4
-#define Y_FTN_1_0_MAIN		0x0bc
-#define Y_FTN_3_2_MAIN		0x0c0
-#define Y_FTN_5_4_MAIN		0x0c4
-#define Y_FTN_7_6_MAIN		0x0c8
-#define Y_FTN_9_8_MAIN		0x0cc
-#define Y_FTN_11_10_MAIN	0x0d0
-#define Y_FTN_13_12_MAIN	0x0d4
-#define Y_FTN_15_14_MAIN	0x0d8
-#define Y_FTN_17_16_MAIN	0x0dc
-#define C_BOOST_MAIN		0x0e0
-#define C_BOOST_MAIN_2		0x0e4
-#define TDSHP_ATPG		0x0fc
-#define TDSHP_CTRL		0x100
-#define TDSHP_INTEN		0x104
-#define TDSHP_INTSTA		0x108
-#define TDSHP_STATUS		0x10c
-#define TDSHP_CFG		0x110
-#define TDSHP_INPUT_COUNT	0x114
-#define TDSHP_CHKSUM		0x118
-#define TDSHP_OUTPUT_COUNT	0x11c
-#define TDSHP_INPUT_SIZE	0x120
-#define TDSHP_OUTPUT_OFFSET	0x124
-#define TDSHP_OUTPUT_SIZE	0x128
-#define TDSHP_BLANK_WIDTH	0x12c
-#define TDSHP_DUMMY_REG		0x14c
-#define LUMA_HIST_INIT_00	0x200
-#define LUMA_HIST_INIT_01	0x204
-#define LUMA_HIST_INIT_02	0x208
-#define LUMA_HIST_INIT_03	0x20c
-#define LUMA_HIST_INIT_04	0x210
-#define LUMA_HIST_INIT_05	0x214
-#define LUMA_HIST_INIT_06	0x218
-#define LUMA_HIST_INIT_07	0x21c
-#define LUMA_HIST_INIT_08	0x220
-#define LUMA_HIST_INIT_09	0x224
-#define LUMA_HIST_INIT_10	0x228
-#define LUMA_HIST_INIT_11	0x22c
-#define LUMA_HIST_INIT_12	0x230
-#define LUMA_HIST_INIT_13	0x234
-#define LUMA_HIST_INIT_14	0x238
-#define LUMA_HIST_INIT_15	0x23c
-#define LUMA_HIST_INIT_16	0x240
-#define LUMA_SUM_INIT		0x244
-#define DC_DBG_CFG_MAIN		0x250
-#define DC_TWO_D_W1		0x25c
-#define DC_TWO_D_W1_RESULT_INIT	0x260
-#define DC_TWO_D_W1_RESULT	0x264
-#define EDF_GAIN_00		0x300
-#define EDF_GAIN_01		0x304
-#define EDF_GAIN_02		0x308
-#define EDF_GAIN_03		0x30c
-#define EDF_GAIN_05		0x314
-#define TDSHP_10		0x320
-#define TDSHP_11		0x324
-#define TDSHP_12		0x328
-#define TDSHP_13		0x32c
-#define PAT1_GEN_SET		0x330
-#define PAT1_GEN_FRM_SIZE	0x334
-#define PAT1_GEN_COLOR0		0x338
-#define PAT1_GEN_COLOR1		0x33c
-#define PAT1_GEN_COLOR2		0x340
-#define PAT1_GEN_POS		0x344
-#define PAT1_GEN_TILE_POS	0x354
-#define PAT1_GEN_TILE_OV	0x358
-#define PAT2_GEN_SET		0x360
-#define PAT2_GEN_COLOR0		0x368
-#define PAT2_GEN_COLOR1		0x36c
-#define PAT2_GEN_POS		0x374
-#define PAT2_GEN_CURSOR_RB0	0x378
-#define PAT2_GEN_CURSOR_RB1	0x37c
-#define PAT2_GEN_TILE_POS	0x384
-#define PAT2_GEN_TILE_OV	0x388
-#define BITPLUS_00		0x38c
-#define BITPLUS_01		0x390
-#define BITPLUS_02		0x394
-#define CONTOUR_HIST_INIT_00	0x398
-#define CONTOUR_HIST_INIT_01	0x39c
-#define CONTOUR_HIST_INIT_02	0x3a0
-#define CONTOUR_HIST_INIT_03	0x3a4
-#define CONTOUR_HIST_INIT_04	0x3a8
-#define CONTOUR_HIST_INIT_05	0x3ac
-#define CONTOUR_HIST_INIT_06	0x3b0
-#define CONTOUR_HIST_INIT_07	0x3b4
-#define CONTOUR_HIST_INIT_08	0x3b8
-#define CONTOUR_HIST_INIT_09	0x3bc
-#define CONTOUR_HIST_INIT_10	0x3c0
-#define CONTOUR_HIST_INIT_11	0x3c4
-#define CONTOUR_HIST_INIT_12	0x3c8
-#define CONTOUR_HIST_INIT_13	0x3cc
-#define CONTOUR_HIST_INIT_14	0x3d0
-#define CONTOUR_HIST_INIT_15	0x3d4
-#define CONTOUR_HIST_INIT_16	0x3d8
-#define CONTOUR_HIST_00		0x3dc
-#define CONTOUR_HIST_01		0x3e0
-#define CONTOUR_HIST_02		0x3e4
-#define CONTOUR_HIST_03		0x3e8
-#define CONTOUR_HIST_04		0x3ec
-#define CONTOUR_HIST_05		0x3f0
-#define CONTOUR_HIST_06		0x3f4
-#define CONTOUR_HIST_07		0x3f8
-#define CONTOUR_HIST_08		0x3fc
-#define CONTOUR_HIST_09		0x400
-#define CONTOUR_HIST_10		0x404
-#define CONTOUR_HIST_11		0x408
-#define CONTOUR_HIST_12		0x40c
-#define CONTOUR_HIST_13		0x410
-#define CONTOUR_HIST_14		0x414
-#define CONTOUR_HIST_15		0x418
-#define CONTOUR_HIST_16		0x41c
-#define DC_SKIN_RANGE0		0x420
-#define DC_SKIN_RANGE1		0x424
-#define DC_SKIN_RANGE2		0x428
-#define DC_SKIN_RANGE3		0x42c
-#define DC_SKIN_RANGE4		0x430
-#define DC_SKIN_RANGE5		0x434
-#define POST_YLEV_00		0x480
-#define POST_YLEV_01		0x484
-#define POST_YLEV_02		0x488
-#define POST_YLEV_03		0x48c
-#define POST_YLEV_04		0x490
-#define TDSHP_SHADOW_CTRL	0x67c
-
 #define TDSHP_WAIT_TIMEOUT_MS (50)
 #define DS_REG_NUM (36)
+
+enum mml_tdshp_reg_index {
+	TDSHP_00,
+	HIST_CFG_00,
+	HIST_CFG_01,
+	TDSHP_CTRL,
+	TDSHP_INTEN,
+	TDSHP_INTSTA,
+	TDSHP_STATUS,
+	TDSHP_CFG,
+	TDSHP_INPUT_COUNT,
+	TDSHP_OUTPUT_COUNT,
+	TDSHP_INPUT_SIZE,
+	TDSHP_OUTPUT_OFFSET,
+	TDSHP_OUTPUT_SIZE,
+	TDSHP_BLANK_WIDTH,
+	TDSHP_SHADOW_CTRL,
+	TDSHP_REG_MAX_COUNT
+};
+
+static const u16 tdshp_reg_table_mt6983[TDSHP_REG_MAX_COUNT] = {
+	[TDSHP_00] = 0x000,
+	[HIST_CFG_00] = 0x064,
+	[HIST_CFG_01] = 0x068,
+	[TDSHP_CTRL] = 0x100,
+	[TDSHP_INTEN] = 0x104,
+	[TDSHP_INTSTA] = 0x108,
+	[TDSHP_STATUS] = 0x10c,
+	[TDSHP_CFG] = 0x110,
+	[TDSHP_INPUT_COUNT] = 0x114,
+	[TDSHP_OUTPUT_COUNT] = 0x11c,
+	[TDSHP_INPUT_SIZE] = 0x120,
+	[TDSHP_OUTPUT_OFFSET] = 0x124,
+	[TDSHP_OUTPUT_SIZE] = 0x128,
+	[TDSHP_BLANK_WIDTH] = 0x12c,
+	[TDSHP_SHADOW_CTRL] = 0x67c
+};
+
+static const u16 tdshp_reg_table_mt6985[TDSHP_REG_MAX_COUNT] = {
+	[TDSHP_00] = 0x000,
+	[HIST_CFG_00] = 0x064,
+	[HIST_CFG_01] = 0x068,
+	[TDSHP_CTRL] = 0x100,
+	[TDSHP_INTEN] = 0x104,
+	[TDSHP_INTSTA] = 0x108,
+	[TDSHP_STATUS] = 0x10c,
+	[TDSHP_CFG] = 0x110,
+	[TDSHP_INPUT_COUNT] = 0x114,
+	[TDSHP_OUTPUT_COUNT] = 0x11c,
+	[TDSHP_INPUT_SIZE] = 0x120,
+	[TDSHP_OUTPUT_OFFSET] = 0x124,
+	[TDSHP_OUTPUT_SIZE] = 0x128,
+	[TDSHP_BLANK_WIDTH] = 0x12c,
+	[TDSHP_SHADOW_CTRL] = 0x724
+};
 
 struct tdshp_data {
 	u32 tile_width;
 	/* u32 min_hfg_width; 9: HFG min + TDSHP crop */
+	const u16 *reg_table;
 };
 
 static const struct tdshp_data mt6893_tdshp_data = {
-	.tile_width = 528
+	.tile_width = 528,
+	.reg_table = tdshp_reg_table_mt6983,
 };
 
 static const struct tdshp_data mt6983_tdshp_data = {
 	.tile_width = 1628,
+	.reg_table = tdshp_reg_table_mt6983,
 };
 
 static const struct tdshp_data mt6879_tdshp_data = {
 	.tile_width = 1344,
+	.reg_table = tdshp_reg_table_mt6983,
 };
 
 static const struct tdshp_data mt6895_tdshp_data = {
 	.tile_width = 1926,
+	.reg_table = tdshp_reg_table_mt6983,
 };
 
 static const struct tdshp_data mt6985_tdshp_data = {
 	.tile_width = 1660,
+	.reg_table = tdshp_reg_table_mt6985,
 };
 
 struct mml_comp_tdshp {
@@ -312,24 +213,29 @@ static u32 tdshp_get_label_count(struct mml_comp *comp, struct mml_task *task,
 	return DS_REG_NUM;
 }
 
-static void tdshp_init(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
+static void tdshp_init(struct mml_comp *comp, struct cmdq_pkt *pkt, const phys_addr_t base_pa)
 {
-	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 0x1, 0x00000001);
-	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CFG, 0x2, 0x00000002);
+	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[TDSHP_CTRL], 0x1, 0x00000001);
+	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[TDSHP_CFG], 0x2, 0x00000002);
 	/* Enable shadow */
-	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_SHADOW_CTRL, 0x2, U32_MAX);
+	cmdq_pkt_write(pkt, NULL,
+		base_pa + tdshp->data->reg_table[TDSHP_SHADOW_CTRL], 0x2, U32_MAX);
 }
 
-static void tdshp_relay(struct cmdq_pkt *pkt, const phys_addr_t base_pa,
+static void tdshp_relay(struct mml_comp *comp, struct cmdq_pkt *pkt, const phys_addr_t base_pa,
 			u32 relay)
 {
-	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CFG, relay, 0x00000001);
+	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[TDSHP_CFG], relay, 0x00000001);
 }
 
 static s32 tdshp_config_init(struct mml_comp *comp, struct mml_task *task,
 			     struct mml_comp_config *ccfg)
 {
-	tdshp_init(task->pkts[ccfg->pipe], comp->base_pa);
+	tdshp_init(comp, task->pkts[ccfg->pipe], comp->base_pa);
 	return 0;
 }
 
@@ -350,6 +256,7 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 	const struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	struct mml_task_reuse *reuse = &task->reuse[ccfg->pipe];
 	struct mml_pipe_cache *cache = &cfg->cache[ccfg->pipe];
+	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
 
 	const phys_addr_t base_pa = comp->base_pa;
 	struct mml_pq_comp_config_result *result;
@@ -357,23 +264,27 @@ static s32 tdshp_config_frame(struct mml_comp *comp, struct mml_task *task,
 	s32 i;
 	struct mml_pq_reg *regs = NULL;
 
-	if (MML_FMT_10BIT(src->format) || MML_FMT_10BIT(dest->data.format))
-		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 0, 0x00000004);
-	else
-		cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_CTRL, 0x4, 0x00000004);
+	if (MML_FMT_10BIT(src->format) || MML_FMT_10BIT(dest->data.format)) {
+		cmdq_pkt_write(pkt, NULL,
+			base_pa + tdshp->data->reg_table[TDSHP_CTRL], 0, 0x00000004);
+	} else {
+		cmdq_pkt_write(pkt, NULL,
+			base_pa + tdshp->data->reg_table[TDSHP_CTRL], 0x4, 0x00000004);
+	}
 
 	if (!dest->pq_config.en_sharp && !dest->pq_config.en_dc) {
 		/* relay mode */
 		if (cfg->info.mode == MML_MODE_DDP_ADDON) {
 			/* enable to crop */
-			tdshp_relay(pkt, base_pa, 0x0);
-			cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_00, 0, 1 << 31);
+			tdshp_relay(comp, pkt, base_pa, 0x0);
+			cmdq_pkt_write(pkt, NULL,
+				base_pa + tdshp->data->reg_table[TDSHP_00], 0, 1 << 31);
 		} else {
-			tdshp_relay(pkt, base_pa, 0x1);
+			tdshp_relay(comp, pkt, base_pa, 0x1);
 		}
 		return 0;
 	}
-	tdshp_relay(pkt, base_pa, 0x0);
+	tdshp_relay(comp, pkt, base_pa, 0x0);
 
 	do {
 		ret = mml_pq_get_comp_config_result(task, TDSHP_WAIT_TIMEOUT_MS);
@@ -420,6 +331,8 @@ static s32 tdshp_config_tile(struct mml_comp *comp, struct mml_task *task,
 
 	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
 
+	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
+
 	u32 tdshp_input_w;
 	u32 tdshp_input_h;
 	u32 tdshp_output_w;
@@ -441,17 +354,17 @@ static s32 tdshp_config_tile(struct mml_comp *comp, struct mml_task *task,
 	tdshp_hist_left = 0xffff;
 	tdshp_hist_top = 0xffff;
 
-	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_INPUT_SIZE,
+	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[TDSHP_INPUT_SIZE],
 		(tdshp_input_w << 16) + tdshp_input_h, U32_MAX);
-	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_OUTPUT_OFFSET,
+	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[TDSHP_OUTPUT_OFFSET],
 		(tdshp_crop_x_offset << 16) + tdshp_crop_y_offset, U32_MAX);
-	cmdq_pkt_write(pkt, NULL, base_pa + TDSHP_OUTPUT_SIZE,
+	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[TDSHP_OUTPUT_SIZE],
 		(tdshp_output_w << 16) + tdshp_output_h, U32_MAX);
 
-	cmdq_pkt_write(pkt, NULL, base_pa + HIST_CFG_00,
+	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[HIST_CFG_00],
 		((tile->out.xe - tile->in.xs) << 16) +
 		(tdshp_hist_left - tile->in.xs), U32_MAX);
-	cmdq_pkt_write(pkt, NULL, base_pa + HIST_CFG_01,
+	cmdq_pkt_write(pkt, NULL, base_pa + tdshp->data->reg_table[HIST_CFG_01],
 		((tile->out.ye - tile->in.ys) << 16) +
 		(tdshp_hist_top - tile->in.ys), U32_MAX);
 
@@ -531,6 +444,7 @@ static const struct mml_comp_config_ops tdshp_cfg_ops = {
 
 static void tdshp_debug_dump(struct mml_comp *comp)
 {
+	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
 	void __iomem *base = comp->base;
 	u32 value[11];
 	u32 shadow_ctrl;
@@ -538,21 +452,21 @@ static void tdshp_debug_dump(struct mml_comp *comp)
 	mml_err("tdshp component %u dump:", comp->id);
 
 	/* Enable shadow read working */
-	shadow_ctrl = readl(base + TDSHP_SHADOW_CTRL);
+	shadow_ctrl = readl(base + tdshp->data->reg_table[TDSHP_SHADOW_CTRL]);
 	shadow_ctrl |= 0x4;
-	writel(shadow_ctrl, base + TDSHP_SHADOW_CTRL);
+	writel(shadow_ctrl, base + tdshp->data->reg_table[TDSHP_SHADOW_CTRL]);
 
-	value[0] = readl(base + TDSHP_CTRL);
-	value[1] = readl(base + TDSHP_INTEN);
-	value[2] = readl(base + TDSHP_INTSTA);
-	value[3] = readl(base + TDSHP_STATUS);
-	value[4] = readl(base + TDSHP_CFG);
-	value[5] = readl(base + TDSHP_INPUT_COUNT);
-	value[6] = readl(base + TDSHP_OUTPUT_COUNT);
-	value[7] = readl(base + TDSHP_INPUT_SIZE);
-	value[8] = readl(base + TDSHP_OUTPUT_OFFSET);
-	value[9] = readl(base + TDSHP_OUTPUT_SIZE);
-	value[10] = readl(base + TDSHP_BLANK_WIDTH);
+	value[0] = readl(base + tdshp->data->reg_table[TDSHP_CTRL]);
+	value[1] = readl(base + tdshp->data->reg_table[TDSHP_INTEN]);
+	value[2] = readl(base + tdshp->data->reg_table[TDSHP_INTSTA]);
+	value[3] = readl(base + tdshp->data->reg_table[TDSHP_STATUS]);
+	value[4] = readl(base + tdshp->data->reg_table[TDSHP_CFG]);
+	value[5] = readl(base + tdshp->data->reg_table[TDSHP_INPUT_COUNT]);
+	value[6] = readl(base + tdshp->data->reg_table[TDSHP_OUTPUT_COUNT]);
+	value[7] = readl(base + tdshp->data->reg_table[TDSHP_INPUT_SIZE]);
+	value[8] = readl(base + tdshp->data->reg_table[TDSHP_OUTPUT_OFFSET]);
+	value[9] = readl(base + tdshp->data->reg_table[TDSHP_OUTPUT_SIZE]);
+	value[10] = readl(base + tdshp->data->reg_table[TDSHP_BLANK_WIDTH]);
 
 	mml_err("TDSHP_CTRL %#010x TDSHP_INTEN %#010x TDSHP_INTSTA %#010x TDSHP_STATUS %#010x",
 		value[0], value[1], value[2], value[3]);

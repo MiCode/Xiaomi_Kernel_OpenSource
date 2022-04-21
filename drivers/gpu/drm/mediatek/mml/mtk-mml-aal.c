@@ -24,125 +24,7 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "[mml_pq_aal]" fmt
 
-#define AAL_EN				0x000
-#define AAL_RESET			0x004
-#define AAL_INTEN			0x008
-#define AAL_INTSTA			0x00c
-#define AAL_STATUS			0x010
-#define AAL_CFG				0x020
-#define AAL_INPUT_COUNT			0x024
-#define AAL_OUTPUT_COUNT		0x028
-#define AAL_CHKSUM			0x02c
-#define AAL_SIZE			0x030
-#define AAL_OUTPUT_SIZE			0x034
-#define AAL_OUTPUT_OFFSET		0x038
-#define AAL_DUMMY_REG			0x0c0
-#define AAL_SRAM_CFG			0x0c4
-#define AAL_SRAM_STATUS			0x0c8
-#define AAL_SRAM_RW_IF_0		0x0cc
-#define AAL_SRAM_RW_IF_1		0x0d0
-#define AAL_SRAM_RW_IF_2		0x0d4
-#define AAL_SRAM_RW_IF_3		0x0d8
-#define AAL_SHADOW_CTRL			0x0f0
-#define AAL_TILE_02			0x0f4
-#define AAL_DRE_BLOCK_INFO_07		0x0f8
-#define AAL_ATPG			0x0fc
-#define AAL_DREI_PAT_GEN_SET		0x100
-#define AAL_DREI_PAT_GEN_COLOR0		0x108
-#define AAL_DREI_PAT_GEN_COLOR1		0x10c
-#define AAL_DREO_PAT_GEN_SET		0x130
-#define AAL_DREO_PAT_GEN_COLOR0		0x138
-#define AAL_DREO_PAT_GEN_COLOR1		0x13c
-#define AAL_DREO_PAT_GEN_POS		0x144
-#define AAL_DREO_PAT_GEN_CURSOR_RB0	0x148
-#define AAL_DREO_PAT_GEN_CURSOR_RB1	0x14c
-#define AAL_CABCO_PAT_GEN_SET		0x160
-#define AAL_CABCO_PAT_GEN_FRM_SIZE	0x164
-#define AAL_CABCO_PAT_GEN_COLOR0	0x168
-#define AAL_CABCO_PAT_GEN_COLOR1	0x16c
-#define AAL_CABCO_PAT_GEN_COLOR2	0x170
-#define AAL_CABCO_PAT_GEN_POS		0x174
-#define AAL_CABCO_PAT_GEN_CURSOR_RB0	0x178
-#define AAL_CABCO_PAT_GEN_CURSOR_RB1	0x17c
-#define AAL_CABCO_PAT_GEN_RAMP		0x180
-#define AAL_CABCO_PAT_GEN_TILE_POS	0x184
-#define AAL_CABCO_PAT_GEN_TILE_OV	0x188
-#define AAL_CFG_MAIN			0x200
-#define AAL_MAX_HIST_CONFIG_00		0x204
-#define AAL_DRE_FLT_FORCE_00		0x358
-#define AAL_DRE_FLT_FORCE_01		0x35c
-#define AAL_DRE_FLT_FORCE_02		0x360
-#define AAL_DRE_FLT_FORCE_03		0x364
-#define AAL_DRE_FLT_FORCE_04		0x368
-#define AAL_DRE_FLT_FORCE_05		0x36c
-#define AAL_DRE_FLT_FORCE_06		0x370
-#define AAL_DRE_FLT_FORCE_07		0x374
-#define AAL_DRE_FLT_FORCE_08		0x378
-#define AAL_DRE_FLT_FORCE_09		0x37c
-#define AAL_DRE_FLT_FORCE_10		0x380
-#define AAL_DRE_FLT_FORCE_11		0x384
-#define AAL_DRE_MAPPING_00		0x3b4
-#define AAL_DBG_CFG_MAIN		0x45c
-#define AAL_WIN_X_MAIN			0x460
-#define AAL_WIN_Y_MAIN			0x464
-#define AAL_DRE_BLOCK_INFO_00		0x468
-#define AAL_DRE_BLOCK_INFO_01		0x46c
-#define AAL_DRE_BLOCK_INFO_02		0x470
-#define AAL_DRE_BLOCK_INFO_03		0x474
-#define AAL_DRE_BLOCK_INFO_04		0x478
-#define AAL_DRE_CHROMA_HIST_00		0x480
-#define AAL_DRE_CHROMA_HIST_01		0x484
-#define AAL_DRE_ALPHA_BLEND_00		0x488
-#define AAL_DRE_BITPLUS_00		0x48c
-#define AAL_DRE_BITPLUS_01		0x490
-#define AAL_DRE_BITPLUS_02		0x494
-#define AAL_DRE_BITPLUS_03		0x498
-#define AAL_DRE_BITPLUS_04		0x49c
-#define AAL_DRE_BLOCK_INFO_05		0x4b4
-#define AAL_DRE_BLOCK_INFO_06		0x4b8
-#define AAL_Y2R_00			0x4bc
-#define AAL_Y2R_01			0x4c0
-#define AAL_Y2R_02			0x4c4
-#define AAL_Y2R_03			0x4c8
-#define AAL_Y2R_04			0x4cc
-#define AAL_Y2R_05			0x4d0
-#define AAL_R2Y_00			0x4d4
-#define AAL_R2Y_01			0x4d8
-#define AAL_R2Y_02			0x4dc
-#define AAL_R2Y_03			0x4e0
-#define AAL_R2Y_04			0x4e4
-#define AAL_R2Y_05			0x4e8
-#define AAL_TILE_00			0x4ec
-#define AAL_TILE_01			0x4f0
-#define AAL_DUAL_PIPE_00		0x500
-#define AAL_DUAL_PIPE_01		0x504
-#define AAL_DUAL_PIPE_02		0x508
-#define AAL_DUAL_PIPE_03		0x50c
-#define AAL_DUAL_PIPE_04		0x510
-#define AAL_DUAL_PIPE_05		0x514
-#define AAL_DUAL_PIPE_06		0x518
-#define AAL_DUAL_PIPE_07		0x51c
-#define AAL_DRE_ROI_00			0x520
-#define AAL_DRE_ROI_01			0x524
-#define AAL_DRE_CHROMA_HIST2_00		0x528
-#define AAL_DRE_CHROMA_HIST2_01		0x52c
-#define AAL_DRE_CHROMA_HIST3_00		0x530
-#define AAL_DRE_CHROMA_HIST3_01		0x534
-#define AAL_DRE_FLATLINE_DIR		0x538
-#define AAL_DRE_BILATERAL		0x53c
-#define AAL_DRE_DISP_OUT		0x540
-#define AAL_DUAL_PIPE_08		0x544
-#define AAL_DUAL_PIPE_09		0x548
-#define AAL_DUAL_PIPE_10		0x54c
-#define AAL_DUAL_PIPE_11		0x550
-#define AAL_DUAL_PIPE_12		0x554
-#define AAL_DUAL_PIPE_13		0x558
-#define AAL_DUAL_PIPE_14		0x55c
-#define AAL_DUAL_PIPE_15		0x560
-#define AAL_DRE_BILATERAL_BLENDING	0x564
-
 #define AAL_WAIT_TIMEOUT_MS	(50)
-
 #define AAL_POLL_SLEEP_TIME_US	(10)
 #define AAL_MAX_POLL_TIME_US	(1000)
 #define MAX_SRAM_BUF_NUM (2)
@@ -154,6 +36,95 @@
  */
 #define AAL_LABEL_CNT		10
 
+enum mml_aal_reg_index {
+	AAL_EN,
+	AAL_INTSTA,
+	AAL_STATUS,
+	AAL_CFG,
+	AAL_INPUT_COUNT,
+	AAL_OUTPUT_COUNT,
+	AAL_SIZE,
+	AAL_OUTPUT_SIZE,
+	AAL_OUTPUT_OFFSET,
+	AAL_SRAM_STATUS,
+	AAL_SRAM_RW_IF_0,
+	AAL_SRAM_RW_IF_1,
+	AAL_SRAM_RW_IF_2,
+	AAL_SRAM_RW_IF_3,
+	AAL_SHADOW_CTRL,
+	AAL_TILE_02,
+	AAL_DRE_BLOCK_INFO_07,
+	AAL_CFG_MAIN,
+	AAL_WIN_X_MAIN,
+	AAL_WIN_Y_MAIN,
+	AAL_DRE_BLOCK_INFO_00,
+	AAL_TILE_00,
+	AAL_TILE_01,
+	AAL_DUAL_PIPE_00,
+	AAL_DUAL_PIPE_01,
+	AAL_DUAL_PIPE_02,
+	AAL_DUAL_PIPE_03,
+	AAL_DUAL_PIPE_04,
+	AAL_DUAL_PIPE_05,
+	AAL_DUAL_PIPE_06,
+	AAL_DUAL_PIPE_07,
+	AAL_DRE_ROI_00,
+	AAL_DRE_ROI_01,
+	AAL_DUAL_PIPE_08,
+	AAL_DUAL_PIPE_09,
+	AAL_DUAL_PIPE_10,
+	AAL_DUAL_PIPE_11,
+	AAL_DUAL_PIPE_12,
+	AAL_DUAL_PIPE_13,
+	AAL_DUAL_PIPE_14,
+	AAL_DUAL_PIPE_15,
+	AAL_REG_MAX_COUNT
+};
+
+static const u16 aal_reg_table_mt6983[AAL_REG_MAX_COUNT] = {
+	[AAL_EN] = 0x000,
+	[AAL_INTSTA] = 0x00c,
+	[AAL_STATUS] = 0x010,
+	[AAL_CFG] = 0x020,
+	[AAL_INPUT_COUNT] = 0x024,
+	[AAL_OUTPUT_COUNT] = 0x028,
+	[AAL_SIZE] = 0x030,
+	[AAL_OUTPUT_SIZE] = 0x034,
+	[AAL_OUTPUT_OFFSET] = 0x038,
+	[AAL_SRAM_STATUS] = 0x0c8,
+	[AAL_SRAM_RW_IF_0] = 0x0cc,
+	[AAL_SRAM_RW_IF_1] = 0x0d0,
+	[AAL_SRAM_RW_IF_2] = 0x0d4,
+	[AAL_SRAM_RW_IF_3] = 0x0d8,
+	[AAL_SHADOW_CTRL] = 0x0f0,
+	[AAL_TILE_02] = 0x0f4,
+	[AAL_DRE_BLOCK_INFO_07] = 0x0f8,
+	[AAL_CFG_MAIN] = 0x200,
+	[AAL_WIN_X_MAIN] = 0x460,
+	[AAL_WIN_Y_MAIN] = 0x464,
+	[AAL_DRE_BLOCK_INFO_00] = 0x468,
+	[AAL_TILE_00] = 0x4ec,
+	[AAL_TILE_01] = 0x4f0,
+	[AAL_DUAL_PIPE_00] = 0x500,
+	[AAL_DUAL_PIPE_01] = 0x504,
+	[AAL_DUAL_PIPE_02] = 0x508,
+	[AAL_DUAL_PIPE_03] = 0x50c,
+	[AAL_DUAL_PIPE_04] = 0x510,
+	[AAL_DUAL_PIPE_05] = 0x514,
+	[AAL_DUAL_PIPE_06] = 0x518,
+	[AAL_DUAL_PIPE_07] = 0x51c,
+	[AAL_DRE_ROI_00] = 0x520,
+	[AAL_DRE_ROI_01] = 0x524,
+	[AAL_DUAL_PIPE_08] = 0x544,
+	[AAL_DUAL_PIPE_09] = 0x548,
+	[AAL_DUAL_PIPE_10] = 0x54c,
+	[AAL_DUAL_PIPE_11] = 0x550,
+	[AAL_DUAL_PIPE_12] = 0x554,
+	[AAL_DUAL_PIPE_13] = 0x558,
+	[AAL_DUAL_PIPE_14] = 0x55c,
+	[AAL_DUAL_PIPE_15] = 0x560
+};
+
 struct aal_data {
 	u32 min_tile_width;
 	u32 tile_width;
@@ -161,6 +132,7 @@ struct aal_data {
 	bool vcp_readback;
 	u16 gpr[MML_PIPE_CNT];
 	u16 cpr[MML_PIPE_CNT];
+	const u16 *reg_table;
 };
 
 static const struct aal_data mt6893_aal_data = {
@@ -170,6 +142,7 @@ static const struct aal_data mt6893_aal_data = {
 	.vcp_readback = false,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+	.reg_table = aal_reg_table_mt6983,
 };
 
 static const struct aal_data mt6983_aal_data = {
@@ -179,6 +152,7 @@ static const struct aal_data mt6983_aal_data = {
 	.vcp_readback = false,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+	.reg_table = aal_reg_table_mt6983,
 };
 
 static const struct aal_data mt6879_aal_data = {
@@ -188,6 +162,7 @@ static const struct aal_data mt6879_aal_data = {
 	.vcp_readback = false,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+	.reg_table = aal_reg_table_mt6983,
 };
 
 static const struct aal_data mt6895_aal0_data = {
@@ -197,6 +172,7 @@ static const struct aal_data mt6895_aal0_data = {
 	.vcp_readback = true,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+	.reg_table = aal_reg_table_mt6983,
 };
 
 static const struct aal_data mt6895_aal1_data = {
@@ -206,6 +182,7 @@ static const struct aal_data mt6895_aal1_data = {
 	.vcp_readback = true,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+	.reg_table = aal_reg_table_mt6983,
 };
 
 static const struct aal_data mt6985_aal_data = {
@@ -215,6 +192,7 @@ static const struct aal_data mt6985_aal_data = {
 	.vcp_readback = false,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},
 	.cpr = {CMDQ_CPR_MML_PQ0_ADDR, CMDQ_CPR_MML_PQ1_ADDR},
+	.reg_table = aal_reg_table_mt6983,
 };
 
 struct mml_comp_aal {
@@ -357,23 +335,27 @@ static u32 aal_get_label_count(struct mml_comp *comp, struct mml_task *task,
 	return AAL_LABEL_TOTAL;
 }
 
-static void aal_init(struct cmdq_pkt *pkt, const phys_addr_t base_pa)
+static void aal_init(struct mml_comp *comp, struct cmdq_pkt *pkt, const phys_addr_t base_pa)
 {
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_EN, 0x1, U32_MAX);
+	struct mml_comp_aal *aal = comp_to_aal(comp);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_EN], 0x1, U32_MAX);
 	/* Enable shadow */
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_SHADOW_CTRL, 0x2, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_SHADOW_CTRL], 0x2, U32_MAX);
 }
 
-static void aal_relay(struct cmdq_pkt *pkt, const phys_addr_t base_pa,
+static void aal_relay(struct mml_comp *comp, struct cmdq_pkt *pkt, const phys_addr_t base_pa,
 		      u32 relay)
 {
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_CFG, relay, 0x00000001);
+	struct mml_comp_aal *aal = comp_to_aal(comp);
+
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_CFG], relay, 0x00000001);
 }
 
 static s32 aal_config_init(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg)
 {
-	aal_init(task->pkts[ccfg->pipe], comp->base_pa);
+	aal_init(comp, task->pkts[ccfg->pipe], comp->base_pa);
 	return 0;
 }
 
@@ -411,18 +393,18 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id, dest->pq_config.en_dre);
 	if (!dest->pq_config.en_dre || dest->crop.r.width < aal->data->min_tile_width) {
 		/* relay mode */
-		aal_relay(pkt, base_pa, 0x1);
+		aal_relay(comp, pkt, base_pa, 0x1);
 		goto exit;
 	}
-	aal_relay(pkt, base_pa, 0x0);
+	aal_relay(comp, pkt, base_pa, 0x0);
 
 	mml_pq_msg("%s sram_start_addr[%d] cmdq_cpr[%d]", __func__, addr, cpr);
 
 	if (MML_FMT_10BIT(src->format) || MML_FMT_10BIT(dest->data.format))
-		cmdq_pkt_write(pkt, NULL, base_pa + AAL_CFG_MAIN,
+		cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_CFG_MAIN],
 			0, 0x00000080);
 	else
-		cmdq_pkt_write(pkt, NULL, base_pa + AAL_CFG_MAIN,
+		cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_CFG_MAIN],
 			1 << 7, 0x00000080);
 
 	do {
@@ -457,10 +439,11 @@ static s32 aal_config_frame(struct mml_comp *comp, struct mml_task *task,
 			regs[i].offset, regs[i].value, regs[i].mask);
 	}
 	for (i = 0; i < AAL_CURVE_NUM; i++, addr += 4) {
-		cmdq_pkt_write(pkt, NULL, base_pa + AAL_SRAM_RW_IF_0, addr, U32_MAX);
+		cmdq_pkt_write(pkt, NULL,
+			base_pa + aal->data->reg_table[AAL_SRAM_RW_IF_0], addr, U32_MAX);
 		cmdq_pkt_poll(pkt, NULL, (0x1 << 16),
-			base_pa + AAL_SRAM_STATUS, (0x1 << 16), gpr);
-		mml_write_array(pkt, base_pa + AAL_SRAM_RW_IF_1, curve[i],
+			base_pa + aal->data->reg_table[AAL_SRAM_STATUS], (0x1 << 16), gpr);
+		mml_write_array(pkt, base_pa + aal->data->reg_table[AAL_SRAM_RW_IF_1], curve[i],
 			U32_MAX, reuse, cache, &aal_frm->reuse_curve);
 	}
 
@@ -491,6 +474,7 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	const phys_addr_t base_pa = comp->base_pa;
 	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
 	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
+	struct mml_comp_aal *aal = comp_to_aal(comp);
 
 	struct mml_tile_engine *tile = config_get_tile(cfg, ccfg, idx);
 	u32 src_frame_width = cfg->info.src.width;
@@ -533,11 +517,11 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 	aal_crop_x_offset = tile->out.xs - tile->in.xs;
 	aal_crop_y_offset = tile->out.ys - tile->in.ys;
 
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_SIZE,
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_SIZE],
 		(aal_input_w << 16) + aal_input_h, U32_MAX);
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_OUTPUT_OFFSET,
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_OUTPUT_OFFSET],
 		(aal_crop_x_offset << 16) + aal_crop_y_offset, U32_MAX);
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_OUTPUT_SIZE,
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_OUTPUT_SIZE],
 		(aal_output_w << 16) + aal_output_h, U32_MAX);
 
 	if (!dest->pq_config.en_dre)
@@ -658,35 +642,35 @@ static s32 aal_config_tile(struct mml_comp *comp, struct mml_task *task,
 			__func__, task->job.jobid, comp->id, idx,
 			last_tile_x_flag, last_tile_y_flag);
 
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_BLOCK_INFO_00,
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_DRE_BLOCK_INFO_00],
 		(act_win_x_end << 16) | act_win_x_start, U32_MAX);
 
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_BLOCK_INFO_07, (act_win_y_end << 16) |
-		act_win_y_start, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_DRE_BLOCK_INFO_07],
+		(act_win_y_end << 16) | act_win_y_start, U32_MAX);
 
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_TILE_00, (save_first_blk_col_flag << 23) |
-		(save_last_blk_col_flag << 22) | (last_tile_x_flag << 21) |
-		(last_tile_y_flag << 20) | (blk_num_x_end << 15) |
-		(blk_num_x_start << 10) | (blk_num_y_end << 5) |
-		blk_num_y_start, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_TILE_00],
+		(save_first_blk_col_flag << 23) | (save_last_blk_col_flag << 22) |
+		(last_tile_x_flag << 21) | (last_tile_y_flag << 20) |
+		(blk_num_x_end << 15) | (blk_num_x_start << 10) |
+		(blk_num_y_end << 5) | blk_num_y_start, U32_MAX);
 
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_TILE_01, (blk_cnt_x_end << 16) |
-		blk_cnt_x_start, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_TILE_01],
+		(blk_cnt_x_end << 16) | blk_cnt_x_start, U32_MAX);
 
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_TILE_02, (blk_cnt_y_end << 16) |
-		blk_cnt_y_start, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_TILE_02],
+		(blk_cnt_y_end << 16) | blk_cnt_y_start, U32_MAX);
 
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_ROI_00, (roi_x_end << 16) |
-		roi_x_start, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_DRE_ROI_00],
+		(roi_x_end << 16) | roi_x_start, U32_MAX);
 
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_DRE_ROI_01, (roi_y_end << 16) |
-		roi_y_start, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_DRE_ROI_01],
+		(roi_y_end << 16) | roi_y_start, U32_MAX);
 
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_WIN_X_MAIN, (win_x_end << 16) |
-		win_x_start, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_WIN_X_MAIN],
+		(win_x_end << 16) | win_x_start, U32_MAX);
 
-	cmdq_pkt_write(pkt, NULL, base_pa + AAL_WIN_Y_MAIN, (win_y_end << 16) |
-		win_y_start, U32_MAX);
+	cmdq_pkt_write(pkt, NULL, base_pa + aal->data->reg_table[AAL_WIN_Y_MAIN],
+		(win_y_end << 16) | win_y_start, U32_MAX);
 
 exit:
 	mml_pq_trace_ex_end();
@@ -748,14 +732,14 @@ static void aal_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 	begin_pa = cmdq_pkt_get_pa_by_offset(pkt, aal_frm->begin_offset);
 
 	/* config aal sram addr and poll */
-	cmdq_pkt_write_reg_addr(pkt, base_pa + AAL_SRAM_RW_IF_2,
+	cmdq_pkt_write_reg_addr(pkt, base_pa + aal->data->reg_table[AAL_SRAM_RW_IF_2],
 		idx_addr, U32_MAX);
 	/* use gpr low as poll gpr */
 	cmdq_pkt_poll_addr(pkt, AAL_SRAM_STATUS_BIT,
-		base_pa + AAL_SRAM_STATUS,
+		base_pa + aal->data->reg_table[AAL_SRAM_STATUS],
 		AAL_SRAM_STATUS_BIT, poll_gpr);
 	/* read to value spr */
-	cmdq_pkt_read_addr(pkt, base_pa + AAL_SRAM_RW_IF_3, idx_val);
+	cmdq_pkt_read_addr(pkt, base_pa + aal->data->reg_table[AAL_SRAM_RW_IF_3], idx_val);
 	/* write value spr to dst cpr64 */
 	cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
@@ -791,7 +775,8 @@ static void aal_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 	*condi_inst = (u32)CMDQ_REG_SHIFT_ADDR(begin_pa);
 
 	for (i = 0; i < 8; i++) {
-		cmdq_pkt_read_addr(pkt, base_pa + AAL_DUAL_PIPE_00 + i * 4, idx_val);
+		cmdq_pkt_read_addr(pkt, base_pa + aal->data->reg_table[AAL_DUAL_PIPE_00] + i * 4,
+			idx_val);
 		cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 		lop.reg = true;
@@ -802,7 +787,8 @@ static void aal_readback_cmdq(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	for (i = 0; i < 8; i++) {
-		cmdq_pkt_read_addr(pkt, base_pa + AAL_DUAL_PIPE_08 + i * 4, idx_val);
+		cmdq_pkt_read_addr(pkt, base_pa + aal->data->reg_table[AAL_DUAL_PIPE_08] + i * 4,
+			idx_val);
 		cmdq_pkt_write_reg_indriect(pkt, idx_out64, idx_val, U32_MAX);
 
 		lop.reg = true;
@@ -1139,41 +1125,62 @@ static void aal_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 		void __iomem *base = comp->base;
 		s32 i;
 		s32 dual_info_start = AAL_HIST_NUM;
+		u32 poll_intsta_addr = aal->data->reg_table[AAL_INTSTA];
+		u32 poll_sram_status_addr = aal->data->reg_table[AAL_SRAM_STATUS];
 		u32 *phist = kmalloc((AAL_HIST_NUM+AAL_DUAL_INFO_NUM)*sizeof(u32),
 			GFP_KERNEL);
 
 		for (i = 0; i < AAL_HIST_NUM; i++) {
-			if (aal_reg_poll(comp, AAL_INTSTA, (0x1 << 1), (0x1 << 1))) {
+			if (aal_reg_poll(comp, poll_intsta_addr, (0x1 << 1), (0x1 << 1))) {
 				do {
-					writel(addr, base + AAL_SRAM_RW_IF_2);
+					writel(addr,
+						base + aal->data->reg_table[AAL_SRAM_RW_IF_2]);
 
-					if (aal_reg_poll(comp, AAL_SRAM_STATUS,
-							(0x1 << 17), (0x1 << 17)) != true) {
+					if (aal_reg_poll(comp, poll_sram_status_addr,
+						(0x1 << 17), (0x1 << 17)) != true) {
 						mml_pq_log("%s idx[%d]", __func__, i);
 						break;
 					}
-					phist[i] = readl(base + AAL_SRAM_RW_IF_3);
-				} while (0);
-				addr = addr + 4;
+
+					phist[i] = readl(base +
+						aal->data->reg_table[AAL_SRAM_RW_IF_3]);
+					} while (0);
+					addr = addr + 4;
 			}
 		}
 		if (task->config->dual) {
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_00);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_01);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_02);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_03);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_04);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_05);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_06);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_07);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_08);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_09);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_10);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_11);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_12);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_13);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_14);
-			phist[dual_info_start++] = readl(base + AAL_DUAL_PIPE_15);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_00]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_01]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_02]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_03]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_04]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_05]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_06]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_07]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_08]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_09]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_10]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_11]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_12]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_13]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_14]);
+			phist[dual_info_start++] =
+				readl(base + aal->data->reg_table[AAL_DUAL_PIPE_15]);
 		}
 		mml_pq_aal_readback(task, ccfg->pipe, phist);
 	}
@@ -1200,6 +1207,7 @@ static const struct mml_comp_hw_ops aal_hw_ops = {
 
 static void aal_debug_dump(struct mml_comp *comp)
 {
+	struct mml_comp_aal *aal = comp_to_aal(comp);
 	void __iomem *base = comp->base;
 	u32 value[9];
 	u32 shadow_ctrl;
@@ -1207,19 +1215,19 @@ static void aal_debug_dump(struct mml_comp *comp)
 	mml_err("aal component %u dump:", comp->id);
 
 	/* Enable shadow read working */
-	shadow_ctrl = readl(base + AAL_SHADOW_CTRL);
+	shadow_ctrl = readl(base + aal->data->reg_table[AAL_SHADOW_CTRL]);
 	shadow_ctrl |= 0x4;
-	writel(shadow_ctrl, base + AAL_SHADOW_CTRL);
+	writel(shadow_ctrl, base + aal->data->reg_table[AAL_SHADOW_CTRL]);
 
-	value[0] = readl(base + AAL_INTSTA);
-	value[1] = readl(base + AAL_STATUS);
-	value[2] = readl(base + AAL_INPUT_COUNT);
-	value[3] = readl(base + AAL_OUTPUT_COUNT);
-	value[4] = readl(base + AAL_SIZE);
-	value[5] = readl(base + AAL_OUTPUT_SIZE);
-	value[6] = readl(base + AAL_OUTPUT_OFFSET);
-	value[7] = readl(base + AAL_TILE_00);
-	value[8] = readl(base + AAL_TILE_01);
+	value[0] = readl(base + aal->data->reg_table[AAL_INTSTA]);
+	value[1] = readl(base + aal->data->reg_table[AAL_STATUS]);
+	value[2] = readl(base + aal->data->reg_table[AAL_INPUT_COUNT]);
+	value[3] = readl(base + aal->data->reg_table[AAL_OUTPUT_COUNT]);
+	value[4] = readl(base + aal->data->reg_table[AAL_SIZE]);
+	value[5] = readl(base + aal->data->reg_table[AAL_OUTPUT_SIZE]);
+	value[6] = readl(base + aal->data->reg_table[AAL_OUTPUT_OFFSET]);
+	value[7] = readl(base + aal->data->reg_table[AAL_TILE_00]);
+	value[8] = readl(base + aal->data->reg_table[AAL_TILE_01]);
 
 	mml_err("AAL_INTSTA %#010x AAL_STATUS %#010x AAL_INPUT_COUNT %#010x AAL_OUTPUT_COUNT %#010x",
 		value[0], value[1], value[2], value[3]);
