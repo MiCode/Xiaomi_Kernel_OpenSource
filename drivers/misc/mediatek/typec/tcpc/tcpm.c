@@ -1927,6 +1927,13 @@ EXPORT_SYMBOL(tcpm_update_pd_status_event);
 
 #endif	/* CONFIG_USB_PD_REV30_STATUS_LOCAL */
 
+bool tcpm_is_comm_capable(struct tcpc_device *tcpc)
+{
+	struct pd_port *pd_port = &tcpc->pd_port;
+
+	return pd_port->pe_data.dpm_flags & DPM_FLAGS_PARTNER_USB_COMM;
+}
+EXPORT_SYMBOL(tcpm_is_comm_capable);
 #if CONFIG_USB_PD_BLOCK_TCPM
 
 static const char * const bk_event_ret_name[] = {

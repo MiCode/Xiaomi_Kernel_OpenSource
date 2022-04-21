@@ -988,6 +988,7 @@ extern int tcpm_dpm_pd_request_ex(struct tcpc_device *tcpc,
 	const struct tcp_dpm_event_cb_data *data);
 extern int tcpm_dpm_pd_bist_cm2(struct tcpc_device *tcpc,
 	const struct tcp_dpm_event_cb_data *data);
+extern bool tcpm_is_comm_capable(struct tcpc_device *tcpc);
 
 #if CONFIG_USB_PD_REV30
 extern int tcpm_dpm_pd_get_source_cap_ext(struct tcpc_device *tcpc,
