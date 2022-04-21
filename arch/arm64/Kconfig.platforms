@@ -537,7 +537,7 @@ config MACH_MT6885
 	select PM_DEVFREQ
 	select MTK_ES_REG
 	select MEDIATEK_MC if MEMORY
-	select MTK_CQDMA
+	select MEDIATEK_CQDMA
 	select MTK_DBGTOP
 	select MTK_L3C_PART
 	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
@@ -566,6 +566,7 @@ config MACH_MT6885
 	select MTK_DEBUG_LATCH
 	select MTK_DFD_INTERNAL_DUMP
 	select MTK_PID_MAP
+	select MTK_SDA
 	select MTK_CACHE_PARITY_CHECK
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
