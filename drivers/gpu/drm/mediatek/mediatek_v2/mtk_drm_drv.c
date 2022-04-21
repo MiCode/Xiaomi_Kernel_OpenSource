@@ -1256,7 +1256,7 @@ static void mtk_atomic_mml(struct drm_device *dev,
 	struct drm_atomic_state *state)
 {
 	struct drm_crtc *crtc;
-	struct drm_crtc_state *old_crtc_state;
+	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
 	struct drm_plane *plane;
 	struct drm_plane_state *plane_state, *old_plane_state;
 	struct mtk_plane_state *mtk_plane_state;
@@ -1300,6 +1300,18 @@ static void mtk_atomic_mml(struct drm_device *dev,
 
 		if (mtk_crtc->last_is_mml)
 			mtk_crtc->need_stop_last_mml_job = true;
+	}
+
+	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+		if (drm_atomic_crtc_needs_modeset(new_crtc_state) &&
+		    drm_atomic_crtc_effectively_active(old_crtc_state)) {
+			struct mtk_crtc_state *s = to_mtk_crtc_state(new_crtc_state);
+
+			if (s->lye_state.scn[i] == MML || s->lye_state.scn[i] == MML_SRAM_ONLY) {
+				s->lye_state.scn[i] = NONE;
+				DDPMSG("%s:%d clear MML scn after suspend\n", __func__, __LINE__);
+			}
+		}
 	}
 }
 

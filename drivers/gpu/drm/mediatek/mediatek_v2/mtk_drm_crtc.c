@@ -2399,7 +2399,7 @@ _mtk_crtc_lye_addon_module_connect(
 		} else if ((addon_module->type == ADDON_BETWEEN) &&
 			(addon_module->module == DISP_INLINE_ROTATE ||
 			addon_module->module == DISP_INLINE_ROTATE_1)) {
-			if (mtk_crtc->is_force_mml_scen)
+			if (mtk_crtc->is_force_mml_scen && mtk_crtc->is_mml)
 				mml_addon_module_connect(crtc, ddp_mode, addon_module,
 					addon_module_dual, &addon_config, cmdq_handle);
 		} else if (addon_module->type == ADDON_BETWEEN &&
