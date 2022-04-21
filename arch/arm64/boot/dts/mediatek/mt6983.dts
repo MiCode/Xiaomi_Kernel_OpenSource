@@ -9581,8 +9581,8 @@
 		compatible = "mediatek,mt6983-vcodec-enc";
 		mediatek,platform = "platform:mt6983";
 		mediatek,ipm = <2>;
-		reg = <0 0x17020000 0 0x2000>,
-			<0 0x17820000 0 0x2000>;
+		reg = <0 0x17020000 0 0x6000>,
+			<0 0x17820000 0 0x6000>;
 		reg-names = "VENC_SYS",
 			"VENC_C1_SYS";
 		iommus = <&mdp_iommu M4U_PORT_L8_VENC_RCPU_MDP>,
