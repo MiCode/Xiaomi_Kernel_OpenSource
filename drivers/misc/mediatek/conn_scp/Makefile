@@ -34,7 +34,6 @@ ifneq ($(KERNELRELEASE),)
 
 	# SCP
 	$(MODULE_NAME)-objs += conap_scp/msg_thread.o
-	#$(MODULE_NAME)-objs += conap_scp/ring_buffer.o
 	$(MODULE_NAME)-objs += conap_scp/conap_scp_core.o
 	$(MODULE_NAME)-objs += conap_scp/conap_scp_ipi.o
 	$(MODULE_NAME)-objs += conap_scp/conap_platform_data.o
@@ -45,7 +44,6 @@ ifneq ($(KERNELRELEASE),)
 		ccflags-y += -D AOLTEST_SUPPORT
 		$(MODULE_NAME)-objs += aoltest/aoltest_core.o
 		$(MODULE_NAME)-objs += aoltest/aoltest_netlink.o
-		$(MODULE_NAME)-objs += aoltest/aoltest_ring_buffer.o
     endif
     #endif
 

@@ -33,7 +33,7 @@ enum aoltest_cmd_type {
 struct netlink_event_cb {
 	int (*aoltest_bind)(void);
 	int (*aoltest_unbind)(void);
-	int (*aoltest_handler)(int cmd, void *data);
+	int (*aoltest_handler)(u32 msg_id, void *data, u32 sz);
 };
 
 int aoltest_netlink_init(struct netlink_event_cb *cb);

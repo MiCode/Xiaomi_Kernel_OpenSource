@@ -208,6 +208,13 @@ int msg_thread_send_1(struct msg_thread_ctx *ctx, int opid, size_t param1)
 
 int msg_thread_send_2(struct msg_thread_ctx *ctx, int opid, size_t param1, size_t param2)
 {
+	return msg_thread_send_3(ctx, opid, param1, param2, 0);
+}
+
+
+int msg_thread_send_3(struct msg_thread_ctx *ctx, int opid, size_t param1,
+					size_t param2, size_t param3)
+{
 	struct msg_op *op = NULL;
 	struct msg_op_signal *signal;
 	int ret;
@@ -220,6 +227,7 @@ int msg_thread_send_2(struct msg_thread_ctx *ctx, int opid, size_t param1, size_
 	op->op.op_id = opid;
 	op->op.op_data[0] = param1;
 	op->op.op_data[1] = param2;
+	op->op.op_data[2] = param3;
 
 	signal = &op->signal;
 	signal->timeoutValue = 0;
