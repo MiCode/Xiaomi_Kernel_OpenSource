@@ -195,10 +195,13 @@ enum isp_tile_message tile_tdshp_init(struct tile_func_block *ptr_func,
 	ptr_func->out_tile_width  = data->max_width;
 	ptr_func->in_tile_height  = 65535;
 	ptr_func->out_tile_height = 65535;
-	ptr_func->l_tile_loss     = 3;
-	ptr_func->r_tile_loss     = 3;
-	ptr_func->t_tile_loss     = 2;
-	ptr_func->b_tile_loss     = 2;
+
+	if (!data->relay_mode) {
+		ptr_func->l_tile_loss = 3;
+		ptr_func->r_tile_loss = 3;
+		ptr_func->t_tile_loss = 2;
+		ptr_func->b_tile_loss = 2;
+	}
 
 	return ISP_MESSAGE_TILE_OK;
 }

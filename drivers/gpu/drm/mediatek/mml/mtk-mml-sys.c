@@ -928,9 +928,9 @@ static const struct mml_submit bypass_submit = {
 	},
 };
 
-static void sys_calc_cfg(struct mtk_ddp_comp *ddp_comp,
-			 union mtk_addon_config *addon_config,
-			 struct cmdq_pkt *pkt)
+static void sys_mml_calc_cfg(struct mtk_ddp_comp *ddp_comp,
+			     union mtk_addon_config *addon_config,
+			     struct cmdq_pkt *pkt)
 {
 	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
 	struct mtk_addon_mml_config *cfg = &addon_config->addon_mml_config;
@@ -1101,11 +1101,37 @@ static void sys_unprepare(struct mtk_ddp_comp *ddp_comp)
 		sys_ddp_disable(sys, task, 1);
 }
 
+#define call_dbg_op(_comp, op, ...) \
+	((_comp->debug_ops && _comp->debug_ops->op) ? \
+		_comp->debug_ops->op(_comp, ##__VA_ARGS__) : 0)
+
+static void ddp_comp_dump(const struct mml_topology_path *path)
+{
+	struct mml_comp *comp;
+	u32 i;
+
+	if (!path)
+		return;
+	for (i = 0; i < path->node_cnt; i++) {
+		comp = path->nodes[i].comp;
+		call_dbg_op(comp, dump);
+	}
+}
+
+static void sys_ddp_dump(struct mtk_ddp_comp *ddp_comp)
+{
+	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
+
+	ddp_comp_dump(sys->ddp_path[0]);
+	ddp_comp_dump(sys->ddp_path[1]);
+}
+
 static const struct mtk_ddp_comp_funcs sys_ddp_funcs = {
-	.mml_calc_cfg = sys_calc_cfg,
+	.mml_calc_cfg = sys_mml_calc_cfg,
 	.addon_config = sys_addon_config,
 	.start = sys_start,
 	.unprepare = sys_unprepare,
+	.dump = sys_ddp_dump,
 };
 
 static s32 dli_tile_prepare(struct mml_comp *comp, struct mml_task *task,
@@ -1601,6 +1627,11 @@ static const struct mml_data mt6895_mml_data = {
 		[MML_CT_SYS] = &sys_comp_init,
 		[MML_CT_DL_IN] = &dli_comp_init,
 		[MML_CT_DL_OUT] = &dlo_comp_init,
+	},
+	.ddp_comp_funcs = {
+		[MML_CT_SYS] = &sys_ddp_funcs,
+		[MML_CT_DL_IN] = &dl_ddp_funcs,
+		[MML_CT_DL_OUT] = &dl_ddp_funcs,
 	},
 	.aid_sel = sys_config_aid_sel,
 	.gpr = {CMDQ_GPR_R08, CMDQ_GPR_R10},

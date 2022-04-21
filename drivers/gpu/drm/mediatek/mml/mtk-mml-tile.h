@@ -54,6 +54,7 @@ struct rsz_tile_data {
 };
 
 struct tdshp_tile_data {
+	bool relay_mode;
 	u32 max_width;
 };
 

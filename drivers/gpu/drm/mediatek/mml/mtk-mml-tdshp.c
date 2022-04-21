@@ -168,6 +168,7 @@ static s32 tdshp_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
 	struct mml_comp_tdshp *tdshp = comp_to_tdshp(comp);
 
+	data->tdshp.relay_mode = dest->pq_config.en_sharp ? false : true;
 	data->tdshp.max_width = tdshp->data->tile_width;
 	/* TDSHP support crop capability, if no HFG. */
 	func->type = TILE_TYPE_CROP_EN;

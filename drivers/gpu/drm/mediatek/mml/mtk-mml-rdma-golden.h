@@ -29,7 +29,7 @@ struct rdma_golden {
 	u8 cnt;
 };
 
-/* Folling part is mt6983 racing mode golden settings */
+/* begin of mt6983 racing mode golden settings */
 
 /* 4K60 ARGB/YUYV 1 plane 4 bpp */
 #define MT6983_ARGB_4K_PREULTRA		(828 << 16 | 736)
@@ -182,7 +182,6 @@ static const struct golden_setting th_yuv420_mt6983[] = {
 			},
 		},
 	},
-
 };
 
 /* end of mt6983 */
