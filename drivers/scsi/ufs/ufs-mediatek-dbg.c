@@ -220,7 +220,7 @@ static void cmd_hist_init_common_info(int ptr)
 }
 
 static void probe_android_vh_ufs_send_tm_command(void *data, struct ufs_hba *hba,
-						 unsigned int tag, int str_t)
+						 int tag, int str_t)
 {
 	u8 tm_func;
 	int ptr, lun, task_tag;
