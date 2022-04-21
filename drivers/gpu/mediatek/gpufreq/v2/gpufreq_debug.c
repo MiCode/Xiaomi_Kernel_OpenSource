@@ -24,6 +24,7 @@
 #include <gpufreq_ipi.h>
 #include <gpufreq_debug.h>
 #include <gpu_misc.h>
+#include <gpufreq_history_debug.h>
 
 /**
  * ===============================================
@@ -854,5 +855,12 @@ void gpufreq_debug_init(unsigned int dual_buck, unsigned int gpueb_support,
 	ret = gpufreq_create_procfs();
 	if (ret)
 		GPUFREQ_LOGE("fail to create procfs (%d)", ret);
+
 #endif /* CONFIG_PROC_FS */
+#if defined(CONFIG_DEBUG_FS)
+	ret = gpufreq_create_debugfs();
+	if (ret)
+		GPUFREQ_LOGE("fail to create debugfs (%d)", ret);
+#endif
+
 }

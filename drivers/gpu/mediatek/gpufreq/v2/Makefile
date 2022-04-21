@@ -32,6 +32,7 @@ endif
 
 mtk_gpufreq_wrapper-y := \
 	gpufreq_v2.o \
+	gpufreq_history_debug.o \
 	gpufreq_debug.o \
 	gpu_misc.o
 
