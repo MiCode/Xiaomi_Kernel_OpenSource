@@ -26,6 +26,7 @@
 #define VCP_RTOS_START		(0x800)
 
 #define VCP_DRAM_MAPSIZE	(0x100000)
+#define VCP_CLK_FMETER
 
 /* vcp dvfs return status flag */
 #define SET_PLL_FAIL		(1)

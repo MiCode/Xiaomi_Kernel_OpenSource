@@ -199,6 +199,8 @@ struct vcp_status_fp vcp_helper_fp = {
 	.vcp_register_feature		= vcp_register_feature,
 	.vcp_deregister_feature		= vcp_deregister_feature,
 	.is_vcp_ready				= is_vcp_ready,
+	.vcp_A_register_notify		= vcp_A_register_notify,
+	.vcp_A_unregister_notify	= vcp_A_unregister_notify,
 };
 
 #undef pr_debug
@@ -694,7 +696,7 @@ uint32_t vcp_wait_ready_sync(enum feature_id id)
 	return i;
 }
 
-#ifdef CLK_FMETER // todo: remove after clk fmeter ready
+#ifdef VCP_CLK_FMETER
 extern unsigned int mt_get_fmeter_freq(unsigned int id, enum FMETER_TYPE type);
 #endif
 void vcp_enable_pm_clk(enum feature_id id)
@@ -706,9 +708,12 @@ void vcp_enable_pm_clk(enum feature_id id)
 
 	mutex_lock(&vcp_pw_clk_mutex);
 	if (is_suspending) {
-		pr_notice("[VCP] %s return %d %d\n", __func__, pwclkcnt, is_suspending);
+		pr_notice("[VCP] %s blocked %d %d\n", __func__, pwclkcnt, is_suspending);
 		mutex_unlock(&vcp_pw_clk_mutex);
-		return;
+		while (is_suspending)
+			usleep_range(10000, 20000);
+		pr_notice("[VCP] %s exit %d %d\n", __func__, pwclkcnt, is_suspending);
+		mutex_lock(&vcp_pw_clk_mutex);
 	}
 
 	if (pwclkcnt == 0) {
@@ -732,7 +737,7 @@ void vcp_enable_pm_clk(enum feature_id id)
 			reset_vcp(VCP_ALL_ENABLE);
 	}
 	pwclkcnt++;
-#ifdef CLK_FMETER // todo: remove after clk fmeter ready
+#ifdef VCP_CLK_FMETER
 	pr_notice("[VCP] %s id %d done %d clk %d\n", __func__, id,
 		pwclkcnt, mt_get_fmeter_freq(10, CKGEN));
 #endif
@@ -752,9 +757,12 @@ void vcp_disable_pm_clk(enum feature_id id)
 
 	mutex_lock(&vcp_pw_clk_mutex);
 	if (is_suspending) {
-		pr_notice("[VCP] %s return %d %d\n", __func__, pwclkcnt, is_suspending);
+		pr_notice("[VCP] %s blocked %d %d\n", __func__, pwclkcnt, is_suspending);
 		mutex_unlock(&vcp_pw_clk_mutex);
-		return;
+		while (is_suspending)
+			usleep_range(10000, 20000);
+		pr_notice("[VCP] %s exit %d %d\n", __func__, pwclkcnt, is_suspending);
+		mutex_lock(&vcp_pw_clk_mutex);
 	}
 
 	pr_notice("[VCP] %s id %d entered %d ready %d\n", __func__, id,
@@ -854,6 +862,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 			clk_disable_unprepare(vcp26m);
 		}
 		is_suspending = true;
+		mutex_unlock(&vcp_pw_clk_mutex);
 
 		// SMC call to TFA / DEVAPC
 		// arm_smccc_smc(MTK_SIP_KERNEL_VCP_CONTROL, MTK_TINYSYS_VCP_KERNEL_OP_XXX,
@@ -862,6 +871,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 
 		return NOTIFY_OK;
 	case PM_POST_SUSPEND:
+		mutex_lock(&vcp_pw_clk_mutex);
 		pr_notice("[VCP] PM_POST_SUSPEND entered %d %d\n", pwclkcnt, is_suspending);
 		if (is_suspending && pwclkcnt) {
 			retval = clk_prepare_enable(vcp26m);
@@ -929,7 +939,7 @@ void vcp_set_clk(void)
 			pr_notice("[VCP] %s: Failed to set parent %s of %s ret %d\n", __func__,
 				__clk_get_name(vcpclk), __clk_get_name(vcpsel), ret);
 
-#ifdef CLK_FMETER // todo: remove after clk fmeter ready
+#ifdef VCP_CLK_FMETER
 		ret = mt_get_fmeter_freq(vcpreg.femter_ck, CKGEN);
 		if (ret > VCP_30MHZ) {	/* fmeter 5% deviation */
 			/* or fail dump something */
@@ -938,7 +948,7 @@ void vcp_set_clk(void)
 #endif
 	}
 
-#ifdef CLK_FMETER // todo: remove after clk fmeter ready
+#ifdef VCP_CLK_FMETER
 	if (ret < VCP_30MHZ)
 		pr_notice("[VCP] %s: fail clk %d(%d) clk_retry %d\n", __func__,
 		ret, mt_get_fmeter_freq(vcpreg.femter_ck, CKGEN), i);
@@ -986,7 +996,7 @@ int reset_vcp(int reset)
 				1, 0, 0, 0, 0, 0, &res);
 		}
 
-#ifdef CLK_FMETER // todo: remove after clk fmeter ready
+#ifdef VCP_CLK_FMETER
 		pr_notice("[VCP] %s: CORE0_RSTN_CLR %x %x %x ret %lu clk %d\n", __func__,
 			readl(DRAM_RESV_ADDR_REG), readl(DRAM_RESV_SIZE_REG),
 			readl(R_CORE0_SW_RSTN_CLR), res.a0,
@@ -1927,7 +1937,7 @@ void vcp_sys_reset_ws(struct work_struct *ws)
 			MTK_TINYSYS_VCP_KERNEL_OP_RESET_RELEASE,
 			1, 0, 0, 0, 0, 0, &res);
 
-#ifdef CLK_FMETER // todo: remove after clk fmeter ready
+#ifdef VCP_CLK_FMETER
 	pr_notice("[VCP] %s: CORE0_RSTN_CLR %x %x %x ret %lu clk %d\n", __func__,
 		readl(DRAM_RESV_ADDR_REG), readl(DRAM_RESV_SIZE_REG),
 		readl(R_CORE0_SW_RSTN_CLR), res.a0,
