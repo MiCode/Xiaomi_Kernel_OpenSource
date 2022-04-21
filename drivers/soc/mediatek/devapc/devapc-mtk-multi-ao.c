@@ -1796,11 +1796,9 @@ int mtk_devapc_probe(struct platform_device *pdev,
 			mtk_devapc_ctx->devapc_irq[irq_type],
 			(irq_handler_t)devapc_violation_irq,
 			IRQF_TRIGGER_NONE, "devapc", NULL);
-		if (ret) {
-			pr_err(PFX "request devapc irq[%d] failed, ret:%d\n",
+		if (ret)
+			pr_info(PFX "request devapc irq[%d] failed, ret:%d\n",
 				irq_type, ret);
-			return ret;
-		}
 	}
 
 	/* CCF (Common Clock Framework) */
