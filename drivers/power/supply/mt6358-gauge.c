@@ -39,6 +39,14 @@
 #define RG_BM_TOP_INT_MASK_CON0_SET		0xc40
 #define RG_BM_TOP_INT_MASK_CON0_CLR		0xc42
 #define RG_BM_TOP_INT_STATUS0			0xc4a
+#define RG_FGADC_ANA_CON0			0xc88
+#define RG_SPARE_MASK				0x1
+#define RG_SPARE_SHIFT				5
+#define RG_FGADC_ANA_TEST_CON0			0xc8a
+#define FG_DWA_RST_SW_MASK			0x1
+#define FG_DWA_RST_SW_SHIFT			13
+#define FG_DWA_RST_MODE_MASK			0x1
+#define FG_DWA_RST_MODE_SHIFT			12
 #define RG_FGADC_ANA_ELR1			0xc90
 #define RG_FGADC_CON0				0xd08
 #define FG_ZCV_DET_EN_MASK			0x1
@@ -135,6 +143,7 @@
 #define RG_FGADC_CUR_CON3			0xd90
 #define FG_CIC2_MASK				GENMASK(15, 0)
 #define FG_CIC2_SHIFT				0
+#define RG_FGADC_OFFSET_CON0			0xd92
 #define RG_SYSTEM_INFO_CON0			0xd9a
 #define RG_BATON_ANA_MON0			0xe0a
 #define AD_BATON_UNDET_MASK			0x1
@@ -967,7 +976,6 @@ int nafg_check_corner(struct mtk_gauge *gauge)
 			(((nag_c_dltv_value_h | 0xf800) & 0xffff) << 16);
 	get_c_dltv_mv = reg_to_mv_value(nag_c_dltv_reg_value);
 
-	/* TODO check this whether mt6359 only?*/
 	nag_vbat = get_nafg_vbat(gauge);
 	if (nag_vbat < 31500 && nag_zcv > 31500)
 		gauge->nafg_corner = 1;
@@ -984,11 +992,159 @@ int nafg_check_corner(struct mtk_gauge *gauge)
 	return 0;
 }
 
+void enable_dwa(struct mtk_gauge *gauge, bool enable)
+{
+	if (enable == true) {
+		regmap_update_bits(gauge->regmap,
+			RG_FGADC_ANA_TEST_CON0,
+			FG_DWA_RST_SW_MASK << FG_DWA_RST_SW_SHIFT,
+			0 << FG_DWA_RST_SW_SHIFT);
+		regmap_update_bits(gauge->regmap,
+			RG_FGADC_ANA_TEST_CON0,
+			FG_DWA_RST_MODE_MASK << FG_DWA_RST_MODE_SHIFT,
+			0 << FG_DWA_RST_MODE_SHIFT);
+		regmap_update_bits(gauge->regmap,
+			RG_FGADC_ANA_CON0,
+			RG_SPARE_MASK << RG_SPARE_SHIFT,
+			0 << RG_SPARE_SHIFT);
+	} else {
+		regmap_update_bits(gauge->regmap,
+			RG_FGADC_ANA_TEST_CON0,
+			FG_DWA_RST_SW_MASK << FG_DWA_RST_SW_SHIFT,
+			1 << FG_DWA_RST_SW_SHIFT);
+		regmap_update_bits(gauge->regmap,
+			RG_FGADC_ANA_TEST_CON0,
+			FG_DWA_RST_MODE_MASK << FG_DWA_RST_MODE_SHIFT,
+			1 << FG_DWA_RST_MODE_SHIFT);
+		regmap_update_bits(gauge->regmap,
+			RG_FGADC_ANA_CON0,
+			RG_SPARE_MASK << RG_SPARE_SHIFT,
+			1 << RG_SPARE_SHIFT);
+	}
+}
+
+void iavg_check(struct mtk_gauge *gauge_dev, int *offset_less, int *iavg_less)
+{
+	unsigned int iavg_reg = 0, offset_reg = 0;
+	signed int cic2 = 0, offset = 0;
+	long long fg_iavg_reg = 0;
+	long long fg_iavg_reg_tmp = 0;
+	long long fg_iavg_ma = 0;
+	int fg_iavg_reg_27_16 = 0;
+	int fg_iavg_reg_15_00 = 0;
+	int sign_bit = 0, dwa = 0, fg_int_mode = 0;
+	int r_fg_value, car_tune_value, valid_bit, iavg, is_bat_charging;
+
+	r_fg_value = gauge_dev->hw_status.r_fg_value;
+	car_tune_value = gauge_dev->gm->fg_cust_data.car_tune_value;
+
+	pre_gauge_update(gauge_dev);
+
+	regmap_read(gauge_dev->regmap, RG_FGADC_CUR_CON3, &iavg_reg);
+	regmap_read(gauge_dev->regmap, RG_FGADC_OFFSET_CON0, &offset_reg);
+
+	cic2 = reg_to_current(gauge_dev, iavg_reg);
+	offset = reg_to_current(gauge_dev, offset_reg);
+
+	/* iavg */
+	regmap_read(gauge_dev->regmap, RG_FGADC_IAVG_CON1, &valid_bit);
+	valid_bit = (valid_bit & (FG_IAVG_VLD_MASK
+		<< FG_IAVG_VLD_SHIFT)) >> FG_IAVG_VLD_SHIFT;
+
+	if (valid_bit == 1) {
+		regmap_read(gauge_dev->regmap, RG_FGADC_IAVG_CON1,
+			&fg_iavg_reg_27_16);
+		fg_iavg_reg_27_16 =
+			(fg_iavg_reg_27_16 & (FG_IAVG_27_16_MASK
+			<< FG_IAVG_27_16_SHIFT)) >> FG_IAVG_27_16_SHIFT;
+		regmap_read(gauge_dev->regmap, RG_FGADC_IAVG_CON0,
+			&fg_iavg_reg_15_00);
+
+		fg_iavg_reg = fg_iavg_reg_27_16;
+		fg_iavg_reg =
+		((long long)fg_iavg_reg << 16) + fg_iavg_reg_15_00;
+
+		sign_bit = (fg_iavg_reg_27_16 & 0x800) >> 11;
+
+		if (sign_bit) {
+			fg_iavg_reg_tmp = fg_iavg_reg;
+			fg_iavg_reg = 0xfffffff - fg_iavg_reg_tmp + 1;
+		}
+
+		if (sign_bit == 1)
+			is_bat_charging = 0;	/* discharge */
+		else
+			is_bat_charging = 1;	/* charge */
+
+		fg_iavg_ma = fg_iavg_reg * UNIT_FG_IAVG * car_tune_value;
+
+#if defined(__LP64__) || defined(_LP64)
+		do_div(fg_iavg_ma, 1000000);
+		do_div(fg_iavg_ma, r_fg_value);
+#else
+		fg_iavg_ma = div_s64(fg_iavg_ma, 1000000);
+		fg_iavg_ma = div_s64(fg_iavg_ma, r_fg_value);
+#endif
+
+		if (sign_bit == 1)
+			fg_iavg_ma = 0 - fg_iavg_ma;
+
+		iavg = fg_iavg_ma;
+	} else {
+		iavg = cic2;
+	}
+	post_gauge_update(gauge_dev);
+
+	if (abs(offset) < 1500)
+		*offset_less = true;
+	else
+		*offset_less = false;
+
+	if (abs(iavg + offset) < 300)
+		*iavg_less = true;
+	else
+		*iavg_less = false;
+
+	regmap_read(gauge_dev->regmap, RG_FGADC_ANA_TEST_CON0, &dwa);
+	regmap_read(gauge_dev->regmap, RG_FGADC_ANA_CON0, &fg_int_mode);
+	bm_err("[%s] iavg:%lld cic2:%d offset:%d 0x%x 0x%x %d %d\r\n",
+		__func__,
+		fg_iavg_ma, cic2, offset,
+		dwa, fg_int_mode, *offset_less, *iavg_less);
+}
+
+void iavg_workaround(struct mtk_gauge *gauge, enum gauge_event evt)
+{
+	int iavg_less, offset_less;
+	int dwa = 0, fg_int_mode = 0;
+
+	iavg_check(gauge, &offset_less, &iavg_less);
+
+	if (offset_less == true) {
+		if (evt == EVT_INT_IAVG && iavg_less == false)
+			enable_dwa(gauge, true);
+
+		if (evt == EVT_INT_BAT_INT2_HT ||
+			evt == EVT_INT_BAT_INT2_LT) {
+			if (iavg_less == true)
+				enable_dwa(gauge, false);
+			else
+				enable_dwa(gauge, true);
+		}
+	}
+
+	regmap_read(gauge->regmap, RG_FGADC_ANA_TEST_CON0, &dwa);
+	regmap_read(gauge->regmap, RG_FGADC_ANA_CON0, &fg_int_mode);
+	bm_err("[%s]type:%d 0x%x 0x%x!\n", __func__, evt, dwa, fg_int_mode);
+}
+
 int event_set(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int event)
 {
 	if (event == EVT_INT_NAFG_CHECK)
 		nafg_check_corner(gauge);
+
+	iavg_workaround(gauge, event);
 
 	return 0;
 }
@@ -1451,6 +1607,8 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 	int sign_bit_ht, sign_bit_lt;
 
 
+/* fg_iavg_ma = fg_iavg_reg * UNIT_FG_IAVG * fg_cust_data.car_tune_value */
+/* fg_iavg_ma = fg_iavg_ma / 1000 / 1000 / fg_cust_data.r_fg_value; */
 	average_current_get(gauge_dev, NULL, &iavg);
 
 	iavg_ht = abs(iavg) + iavg_gap;
@@ -1462,11 +1620,6 @@ static signed int fg_set_iavg_intr(struct mtk_gauge *gauge_dev, void *data)
 	gauge_dev->hw_status.iavg_ht = iavg_ht;
 	gauge_dev->hw_status.iavg_lt = iavg_lt;
 
-/* reverse for IAVG */
-/* fg_iavg_ma * 100 * fg_cust_data.r_fg_value / DEFAULT_RFG * 1000 * 1000 */
-/* / fg_cust_data.car_tune_value / UNIT_FG_IAVG  = fg_iavg_reg  */
-
-	/* TODO check units*/
 	/* iavg_ht */
 	fg_iavg_reg_ht = iavg_ht * 1000 * 1000;
 	if (gauge_dev->hw_status.r_fg_value != DEFAULT_R_FG)
@@ -2327,6 +2480,29 @@ static int nafg_c_dltv_get(struct mtk_gauge *gauge,
 			AUXADC_NAG_C_DLTV_26_16_MASK);
 
 	bcheckbit10 = nag_c_dltv_value_h & 0x0400;
+
+	if (gauge->nafg_corner == 1) {
+		nag_c_dltv_reg_value = (nag_c_dltv_value & 0x7fff);
+		nag_c_dltv_mv_value = reg_to_mv_value(nag_c_dltv_reg_value);
+		*nafg_c_dltv = nag_c_dltv_mv_value;
+
+		bm_debug("[fg_bat_nafg][%s] mV:Reg[%d:%d] [b10:%d][26_16(0x%04x) 15_00(0x%04x)] corner:%d\n",
+			__func__, nag_c_dltv_mv_value, nag_c_dltv_reg_value,
+			bcheckbit10, nag_c_dltv_value_h, nag_c_dltv_value,
+			gauge->nafg_corner);
+		return 0;
+	} else if (gauge->nafg_corner == 2) {
+		nag_c_dltv_reg_value = (nag_c_dltv_value - 32768);
+		nag_c_dltv_mv_value =
+			reg_to_mv_value(nag_c_dltv_reg_value);
+		*nafg_c_dltv = nag_c_dltv_mv_value;
+
+		bm_debug("[fg_bat_nafg][%s] mV:Reg[%d:%d] [b10:%d][26_16(0x%04x) 15_00(0x%04x)] corner:%d\n",
+			__func__, nag_c_dltv_mv_value, nag_c_dltv_reg_value,
+			bcheckbit10, nag_c_dltv_value_h, nag_c_dltv_value,
+			gauge->nafg_corner);
+		return 0;
+	}
 
 	if (bcheckbit10 == 0)
 		nag_c_dltv_reg_value = (nag_c_dltv_value & 0xffff) +
@@ -3226,7 +3402,6 @@ void dump_nag(struct mtk_gauge *gauge)
 {
 	int nag[12];
 
-	/* TODO need add vbat & nag_vbat?*/
 	/* PMIC_AUXADC_NAG_C_DLTV_IRQ */
 	/* PMIC_AUXADC_NAG_IRQ_EN */
 	/* PMIC_AUXADC_NAG_PRD */
