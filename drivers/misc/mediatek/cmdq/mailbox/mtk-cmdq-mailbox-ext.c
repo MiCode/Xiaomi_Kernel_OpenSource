@@ -533,8 +533,14 @@ static void cmdq_task_connect_buffer(struct cmdq_task *task,
 	inst = *task_base;
 	*task_base = (u64)CMDQ_JUMP_BY_PA << 32 |
 		CMDQ_REG_SHIFT_ADDR(next_task->pa_base);
-	cmdq_log("change last inst 0x%016llx to 0x%016llx connect 0x%p -> 0x%p",
+
+	next_task->pkt->append.pre_last_inst = *task_base;
+	cmdq_log("change last inst %#018llx to %#018llx connect 0x%p -> 0x%p",
 		inst, *task_base, task->pkt, next_task->pkt);
+
+	if (inst == *task_base)
+		cmdq_err("change inst fail: %#018llx to %#018llx connect 0x%p -> 0x%p",
+			inst, *task_base, task->pkt, next_task->pkt);
 }
 
 static void *cmdq_task_current_va(dma_addr_t pa, struct cmdq_pkt *pkt)

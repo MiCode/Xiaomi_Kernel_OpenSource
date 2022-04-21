@@ -3276,9 +3276,10 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 			pkt->rec_wait, pkt->rec_irq);
 #endif
 		cmdq_util_user_msg(client->chan,
-			"append info pc:%pa -> %pa end:%pa suspend:%d",
+			"append info pc:%pa->%pa end:%pa suspend:%d last_inst:%#018llx",
 			&pkt->append.pc[0], &pkt->append.pc[1],
-			&pkt->append.end, pkt->append.suspend);
+			&pkt->append.end, pkt->append.suspend,
+			pkt->append.pre_last_inst);
 	}
 
 	if (dump_ist)

@@ -147,6 +147,7 @@ struct cmdq_append {
 	bool	suspend;
 	dma_addr_t pc[2];
 	dma_addr_t end;
+	u64 pre_last_inst;
 };
 
 struct cmdq_pkt {
