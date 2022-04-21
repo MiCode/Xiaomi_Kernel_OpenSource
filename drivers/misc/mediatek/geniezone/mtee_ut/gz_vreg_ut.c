@@ -37,8 +37,10 @@
 
 DEFINE_MUTEX(vreg_ut_mutex);
 
+#define fg_test 0
 int gz_test_vreg_main(void)
 {
+#if fg_test
 	void __iomem *io;
 	uint32_t v;
 
@@ -60,7 +62,9 @@ int gz_test_vreg_main(void)
 		iounmap(io);
 
 out:
+#endif
 
+	KREE_INFO("[%s] no test here.\n", __func__);
 	return 0;
 }
 

@@ -1435,7 +1435,15 @@ EXPORT_SYMBOL(tipc_k_connect);
 
 int tipc_k_disconnect(struct tipc_k_handle *h)
 {
-	struct tipc_dn_chan *dn = h->dn;
+	struct tipc_dn_chan *dn = NULL;
+
+	if (!h || !h->dn) {
+		pr_info("[%s] ERROR: try to free a non-existent handle\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	dn = h->dn;
 
 	dn_shutdown(dn);
 

@@ -45,7 +45,6 @@ struct tipc_dn_chan {
 	u32 session;
 	struct mutex sess_lock;
 	enum tee_id_t tee_id;
-	int port_id;
 	int32_t cpumask;
 };
 
