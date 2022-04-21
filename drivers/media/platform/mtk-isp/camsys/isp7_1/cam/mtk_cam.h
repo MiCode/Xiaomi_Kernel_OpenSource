@@ -364,7 +364,6 @@ struct mtk_cam_img_working_buf_pool {
 	struct dma_buf *working_img_buf_dmabuf;
 	void *working_img_buf_va;
 	dma_addr_t working_img_buf_iova;
-	int working_img_buf_fd;
 	int working_img_buf_size;
 	struct mtk_cam_img_working_buf_entry img_working_buf[CAM_IMG_BUF_NUM];
 	struct mtk_cam_working_buf_list cam_freeimglist;

@@ -48,6 +48,8 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 	if (IS_ERR(mem_priv))
 		return PTR_ERR(mem_priv);
+
+	/* close fd in userspace driver */
 	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
 	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 	if (dbuf)
@@ -61,12 +63,15 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 	if (IS_ERR(mem_priv))
 		return PTR_ERR(mem_priv);
+
+	/* close fd in userspace driver */
 	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
 	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 	if (dbuf)
 		mtk_dma_buf_set_name(dbuf, "CAM_MEM_MSG_ID");
 	ctx->buf_pool.msg_buf_va = smem.va;
 	ctx->buf_pool.msg_buf_fd = dmabuf_fd;
+
 
 	for (i = 0; i < CAM_CQ_BUF_NUM; i++) {
 		struct mtk_cam_working_buf_entry *buf = &ctx->buf_pool.working_buf[i];
@@ -86,68 +91,28 @@ int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
 		dev_dbg(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(%pad)\n",
 			__func__, ctx->stream_id, i, &buf->buffer.iova);
 
-		/* meta buffer */
-		smem.len = mtk_cam_get_meta_size(MTKCAM_IPI_RAW_META_STATS_1);
-		mem_priv = mtk_ccd_get_buffer(ccd, &smem);
-		if (IS_ERR(mem_priv))
-			return PTR_ERR(mem_priv);
-		buf->meta_buffer.fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
-		dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
-		if (dbuf)
-			mtk_dma_buf_set_name(dbuf, "CAM_MEM_META_ID");
-		buf->meta_buffer.va = smem.va;
-		buf->meta_buffer.iova = smem.iova;
-		buf->meta_buffer.size = smem.len;
-
-		dev_dbg(ctx->cam->dev,
-			 "%s:meta_buf[%d]:va(%d),iova(%pad),fd(%d),size(%d)\n",
-			 __func__, i, buf->meta_buffer.va, &buf->meta_buffer.iova,
-			 buf->meta_buffer.fd, buf->meta_buffer.size);
-
 		list_add_tail(&buf->list_entry, &ctx->buf_pool.cam_freelist.list);
 		ctx->buf_pool.cam_freelist.cnt++;
 	}
 
 	dev_info(ctx->cam->dev,
-		"%s: ctx(%d): cq buffers init, freebuf cnt(%d),fd(%d)\n",
+		"%s: ctx(%d): cq buffers init, freebuf cnt(%d),working(%d),msgfd(%d)\n",
 		__func__, ctx->stream_id, ctx->buf_pool.cam_freelist.cnt,
-		dmabuf_fd);
+		ctx->buf_pool.working_buf_fd, ctx->buf_pool.msg_buf_fd);
 
 	return 0;
 }
 
 void mtk_cam_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 {
-	struct mtk_cam_working_buf_entry *buf;
+
 	struct mtk_ccd *ccd = ctx->cam->rproc_handle->priv;
 	struct mem_obj smem;
-	int fd, i;
-
-	/* meta buffer */
-	for (i = 0; i < CAM_CQ_BUF_NUM; i++) {
-		buf = &ctx->buf_pool.working_buf[i];
-
-		smem.va = buf->meta_buffer.va;
-		smem.iova = buf->meta_buffer.iova;
-		smem.len = buf->meta_buffer.size;
-		fd = buf->meta_buffer.fd;
-
-		mtk_ccd_put_buffer_fd(ccd, &smem, fd);
-		mtk_ccd_put_buffer(ccd, &smem);
-		dev_dbg(ctx->cam->dev,
-			"%s:ctx(%d):meta buffers[%d] release, mem iova(%pad), sz(%d)\n",
-			__func__, ctx->stream_id, i, &smem.iova, smem.len);
-
-		buf->meta_buffer.size = 0;
-	}
 
 	/* msg buffer */
 	smem.va = ctx->buf_pool.working_buf_va;
 	smem.iova = ctx->buf_pool.working_buf_iova;
 	smem.len = ctx->buf_pool.working_buf_size;
-	fd = ctx->buf_pool.working_buf_fd;
-
-	mtk_ccd_put_buffer_fd(ccd, &smem, fd);
 	mtk_ccd_put_buffer(ccd, &smem);
 
 	dev_dbg(ctx->cam->dev,
@@ -158,8 +123,6 @@ void mtk_cam_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 	smem.va = ctx->buf_pool.msg_buf_va;
 	smem.iova = 0;
 	smem.len = ctx->buf_pool.msg_buf_size;
-	fd = ctx->buf_pool.msg_buf_fd;
-	mtk_ccd_put_buffer_fd(ccd, &smem, fd);
 	mtk_ccd_put_buffer(ccd, &smem);
 
 	dev_dbg(ctx->cam->dev,
@@ -224,7 +187,6 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num,
 	struct mem_obj smem;
 	struct mtk_ccd *ccd;
 	void *mem_priv;
-	int dmabuf_fd;
 	struct dma_buf *dbuf;
 
 	if (buf_num > CAM_IMG_BUF_NUM) {
@@ -246,13 +208,12 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num,
 	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
 	if (IS_ERR(mem_priv))
 		return PTR_ERR(mem_priv);
-	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
+
 	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 	if (dbuf)
 		mtk_dma_buf_set_name(dbuf, "CAM_MEM_IMG_ID");
 	ctx->img_buf_pool.working_img_buf_va = smem.va;
 	ctx->img_buf_pool.working_img_buf_iova = smem.iova;
-	ctx->img_buf_pool.working_img_buf_fd = dmabuf_fd;
 
 	for (i = 0; i < buf_num; i++) {
 		struct mtk_cam_img_working_buf_entry *buf = &ctx->img_buf_pool.img_working_buf[i];
@@ -280,20 +241,17 @@ int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num,
 
 void mtk_cam_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
 {
-	int fd;
 	struct mtk_ccd *ccd = ctx->cam->rproc_handle->priv;
 	struct mem_obj smem;
 
 	smem.va = ctx->img_buf_pool.working_img_buf_va;
 	smem.iova = ctx->img_buf_pool.working_img_buf_iova;
 	smem.len = ctx->img_buf_pool.working_img_buf_size;
-	fd = ctx->img_buf_pool.working_img_buf_fd;
-	mtk_ccd_put_buffer_fd(ccd, &smem, fd);
 	mtk_ccd_put_buffer(ccd, &smem);
 	ctx->img_buf_pool.working_img_buf_size = 0;
 
 	dev_info(ctx->cam->dev,
-		"%s:ctx(%d):cq buffers release, mem iova(0x%x), sz(%d)\n",
+		"%s:ctx(%d):img buffers release, mem iova(0x%x), sz(%d)\n",
 		__func__, ctx->stream_id, smem.iova, smem.len);
 }
 

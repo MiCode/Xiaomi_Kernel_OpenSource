@@ -4858,9 +4858,6 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	struct mtk_cam_device *cam;
 	struct mtk_cam_working_buf_entry *buf_entry;
 	struct mtk_mraw_working_buf_entry *mraw_buf_entry;
-#ifdef SUPPORT_AFO_MEMCPY
-	struct mtkcam_ipi_meta_output *meta_1_out;
-#endif
 	struct mtkcam_ipi_img_output *imgo_out_fmt;
 	struct mtk_cam_buffer *meta1_buf;
 	struct mtk_mraw_device *mraw_dev;
@@ -4941,23 +4938,6 @@ static void isp_tx_frame_worker(struct work_struct *work)
 
 	/* Prepare MTKCAM_IPI_RAW_META_STATS_1 params */
 	meta1_buf = mtk_cam_s_data_get_vbuf(req_stream_data, MTK_RAW_META_OUT_1);
-
-#ifdef SUPPORT_AFO_MEMCPY
-	if (req_stream_data->flags & MTK_CAM_REQ_S_DATA_FLAG_META1_INDEPENDENT &&
-	    meta1_buf) {
-		/* replace the video buffer with ccd buffer*/
-		frame_param = &req_stream_data->frame_params;
-		meta_1_out =
-			&frame_param->meta_outputs[MTK_RAW_META_OUT_1 - MTK_RAW_META_OUT_BEGIN];
-		meta_1_out->buf.ccd_fd = buf_entry->meta_buffer.fd;
-		meta_1_out->buf.size = buf_entry->meta_buffer.size;
-		meta_1_out->buf.iova = buf_entry->meta_buffer.iova;
-		meta_1_out->uid.id = MTKCAM_IPI_RAW_META_STATS_1;
-		mtk_cam_set_meta_stats_info(MTKCAM_IPI_RAW_META_STATS_1,
-					    buf_entry->meta_buffer.va,
-					    NULL);
-	}
-#endif
 
 	for (i = 0; i < ctx->used_mraw_num; i++) {
 		req->p_data[ctx->mraw_pipe[i]->id].s_data_num =
