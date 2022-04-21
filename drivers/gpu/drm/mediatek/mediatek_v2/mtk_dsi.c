@@ -1954,6 +1954,9 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			if (__ratelimit(&isr_ratelimit))
 				DDPPR_ERR(pr_fmt("[IRQ] %s: buffer underrun\n"),
 					mtk_dump_comp_str(&dsi->ddp_comp));
+
+			if (mtk_crtc)
+				atomic_set(&mtk_crtc->force_high_step, 1);
 		}
 
 		//if (status & INP_UNFINISH_INT_EN)

@@ -820,6 +820,9 @@ struct mtk_drm_crtc {
 
 	/* check and make sure 1 flush config per frame*/
 	atomic_t flush_count;
+
+	atomic_t force_high_step;
+	int force_high_enabled;
 };
 
 struct mtk_crtc_state {

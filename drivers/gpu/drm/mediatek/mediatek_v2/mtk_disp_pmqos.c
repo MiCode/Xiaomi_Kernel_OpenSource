@@ -359,6 +359,11 @@ void mtk_drm_mmdvfs_init(struct device *dev)
 	mtk_drm_mmdvfs_get_avail_freq(dev);
 }
 
+unsigned int mtk_drm_get_mmclk_step_size(void)
+{
+	return step_size;
+}
+
 void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 			const char *caller)
 {
