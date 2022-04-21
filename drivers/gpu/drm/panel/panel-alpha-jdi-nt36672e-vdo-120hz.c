@@ -902,6 +902,42 @@ static const struct drm_display_mode performance_mode_120hz = {
 	.vtotal = 2400 + 60 + 10 + 10,//VBP
 };
 
+static const struct drm_display_mode performance_mode_30hz = {
+	.clock = 92626,
+	.hdisplay = 1080,
+	.hsync_start = 1080 + 76,//HFP
+	.hsync_end = 1080 + 76 + 12,//HSA
+	.htotal = 1080 + 76 + 12 + 80,//HBP
+	.vdisplay = 2400,
+	.vsync_start = 2400 + 60,//VFP
+	.vsync_end = 2400 + 60 + 10,//VSA
+	.vtotal = 2400 + 60 + 10 + 10,//VBP
+};
+
+static const struct drm_display_mode performance_mode_24hz = {
+	.clock = 74101,
+	.hdisplay = 1080,
+	.hsync_start = 1080 + 76,//HFP
+	.hsync_end = 1080 + 76 + 12,//HSA
+	.htotal = 1080 + 76 + 12 + 80,//HBP
+	.vdisplay = 2400,
+	.vsync_start = 2400 + 60,//VFP
+	.vsync_end = 2400 + 60 + 10,//VSA
+	.vtotal = 2400 + 60 + 10 + 10,//VBP
+};
+
+static const struct drm_display_mode performance_mode_10hz = {
+	.clock = 30875,
+	.hdisplay = 1080,
+	.hsync_start = 1080 + 76,//HFP
+	.hsync_end = 1080 + 76 + 12,//HSA
+	.htotal = 1080 + 76 + 12 + 80,//HBP
+	.vdisplay = 2400,
+	.vsync_start = 2400 + 60,//VFP
+	.vsync_end = 2400 + 60 + 10,//VSA
+	.vtotal = 2400 + 60 + 10 + 10,//VBP
+};
+
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 551,
@@ -1192,9 +1228,19 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 		ext->params = &ext_params;
 	else if (drm_mode_vrefresh(m) == 90)
 		ext->params = &ext_params_90hz;
-	else if (drm_mode_vrefresh(m) == 120)
+	else if (drm_mode_vrefresh(m) == 120) {
+		ext_params_120hz.skip_vblank = 0;
 		ext->params = &ext_params_120hz;
-	else
+	} else if (drm_mode_vrefresh(m) == 30) {
+		ext_params_120hz.skip_vblank = 4;
+		ext->params = &ext_params_120hz;
+	} else if (drm_mode_vrefresh(m) == 24) {
+		ext_params_120hz.skip_vblank = 5;
+		ext->params = &ext_params_120hz;
+	} else if (drm_mode_vrefresh(m) == 10) {
+		ext_params_120hz.skip_vblank = 12;
+		ext->params = &ext_params_120hz;
+	} else
 		ret = 1;
 
 	return ret;
@@ -1320,6 +1366,9 @@ static int jdi_get_modes(struct drm_panel *panel,
 	struct drm_display_mode *mode;
 	struct drm_display_mode *mode2;
 	struct drm_display_mode *mode3;
+	struct drm_display_mode *mode4;
+	struct drm_display_mode *mode5;
+	struct drm_display_mode *mode6;
 
 	mode = drm_mode_duplicate(connector->dev, &default_mode);
 	if (!mode) {
@@ -1356,6 +1405,42 @@ static int jdi_get_modes(struct drm_panel *panel,
 	drm_mode_set_name(mode3);
 	mode3->type = DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(connector, mode3);
+
+	mode4 = drm_mode_duplicate(connector->dev, &performance_mode_30hz);
+	if (!mode4) {
+		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
+			 performance_mode_30hz.hdisplay, performance_mode_30hz.vdisplay,
+			 drm_mode_vrefresh(&performance_mode_30hz));
+		return -ENOMEM;
+	}
+
+	drm_mode_set_name(mode4);
+	mode4->type = DRM_MODE_TYPE_DRIVER;
+	drm_mode_probed_add(connector, mode4);
+
+	mode5 = drm_mode_duplicate(connector->dev, &performance_mode_24hz);
+	if (!mode5) {
+		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
+			 performance_mode_24hz.hdisplay, performance_mode_24hz.vdisplay,
+			 drm_mode_vrefresh(&performance_mode_24hz));
+		return -ENOMEM;
+	}
+
+	drm_mode_set_name(mode5);
+	mode5->type = DRM_MODE_TYPE_DRIVER;
+	drm_mode_probed_add(connector, mode5);
+
+	mode6 = drm_mode_duplicate(connector->dev, &performance_mode_10hz);
+	if (!mode6) {
+		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
+			 performance_mode_10hz.hdisplay, performance_mode_10hz.vdisplay,
+			 drm_mode_vrefresh(&performance_mode_10hz));
+		return -ENOMEM;
+	}
+
+	drm_mode_set_name(mode6);
+	mode6->type = DRM_MODE_TYPE_DRIVER;
+	drm_mode_probed_add(connector, mode6);
 
 	connector->display_info.width_mm = 70;
 	connector->display_info.height_mm = 152;

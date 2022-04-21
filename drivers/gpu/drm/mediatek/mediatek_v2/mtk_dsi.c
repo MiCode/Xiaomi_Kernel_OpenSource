@@ -1899,6 +1899,7 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 5);
 	bool doze_enabled = 0;
 	unsigned int doze_wait = 0;
+	unsigned int skip_vblank = 0;
 	static unsigned int cnt;
 
 	if (IS_ERR_OR_NULL(dsi))
@@ -2024,8 +2025,19 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				wakeup_dsi_wq(&dsi->frame_done);
 
 			if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
-				mtk_crtc && mtk_crtc->vblank_en)
-				mtk_crtc_vblank_irq(&mtk_crtc->base);
+				mtk_crtc && mtk_crtc->vblank_en) {
+				panel_ext = dsi->ext;
+
+				if (panel_ext && panel_ext->params->skip_vblank) {
+					skip_vblank = panel_ext->params->skip_vblank;
+					if (cnt % skip_vblank == 0) {
+						mtk_crtc_vblank_irq(&mtk_crtc->base);
+						cnt = 0;
+					}
+					cnt++;
+				} else
+					mtk_crtc_vblank_irq(&mtk_crtc->base);
+			}
 		}
 	}
 

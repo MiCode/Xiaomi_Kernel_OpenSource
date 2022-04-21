@@ -461,6 +461,9 @@ struct mtk_panel_params {
 
 	struct mtk_panel_cm_params cm_params;
 	struct mtk_panel_spr_params spr_params;
+
+	/*Msync 3.0*/
+	unsigned int skip_vblank;
 };
 
 struct mtk_panel_ext {
