@@ -654,6 +654,23 @@ static struct sg_table *mtk_sec_heap_page_map_dma_buf(struct dma_buf_attachment 
 	return table;
 }
 
+#define SVP_FEATURE_DT_NAME	"SecureVideoPath"
+static int svp_load = -1;
+static bool is_svp_load(void)
+{
+	if (svp_load == -1) {
+		struct device_node *svp_node;
+
+		svp_node = of_find_node_by_name(NULL, SVP_FEATURE_DT_NAME);
+		if (!svp_node)
+			svp_load = 0;
+		else
+			svp_load = 1;
+	}
+
+	return (svp_load == 1);
+}
+
 static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachment *attachment,
 						 enum dma_data_direction direction)
 {
@@ -687,7 +704,7 @@ static struct sg_table *mtk_sec_heap_region_map_dma_buf(struct dma_buf_attachmen
 		return table;
 	}
 
-	if (is_disable_map_sec()) {
+	if (is_disable_map_sec() && !is_svp_load()) {
 		pr_err("%s not support, dev:%s\n", __func__,
 		       dev_name(attachment->dev));
 		return ERR_PTR(-EINVAL);
