@@ -11,7 +11,7 @@
 #include <linux/slab.h>
 
 #include "clkdbg.h"
-#include "clk-mt6893-fmeter.h"
+#include "clk-mt6885-fmeter.h"
 
 #define FM_TIMEOUT		30
 
@@ -294,7 +294,7 @@ static void __iomem *get_base_from_comp(const char *comp)
 	if (node) {
 		base = of_iomap(node, 0);
 		if (!base) {
-			pr_err("%s() can't find iomem for %s\n",
+			pr_debug("%s() can't find iomem for %s\n",
 					__func__, comp);
 			return ERR_PTR(-EINVAL);
 		}
@@ -302,7 +302,7 @@ static void __iomem *get_base_from_comp(const char *comp)
 		return base;
 	}
 
-	pr_err("%s can't find compatible node\n", __func__);
+	pr_debug("%s can't find compatible node\n", __func__);
 
 	return ERR_PTR(-EINVAL);
 }
@@ -323,7 +323,7 @@ static int clk_fmeter_mt6893_probe(struct platform_device *pdev)
 
 	return 0;
 ERR:
-	pr_err("%s can't find base\n", __func__);
+	pr_debug("%s can't find base\n", __func__);
 
 	return -EINVAL;
 }
@@ -342,7 +342,7 @@ static int __init clk_fmeter_init(void)
 
 	clk_fmeter_dev = platform_device_register_simple("clk-fmeter-mt6893", -1, NULL, 0);
 	if (IS_ERR(clk_fmeter_dev))
-		pr_warn("unable to register clk-fmeter device");
+		pr_debug("unable to register clk-fmeter device");
 
 	return platform_driver_register(&clk_fmeter_mt6893_drv);
 }

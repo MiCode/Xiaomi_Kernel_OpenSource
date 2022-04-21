@@ -15,7 +15,7 @@
 
 #include "clkdbg.h"
 #include "clkchk.h"
-#include "clkchk-mt6893.h"
+#include "clkchk-mt6885.h"
 #include "clk-fmeter.h"
 #include <clk-mux.h>
 

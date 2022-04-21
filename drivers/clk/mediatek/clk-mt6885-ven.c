@@ -12,7 +12,7 @@
 #include "clk-mtk.h"
 #include "clk-gate.h"
 
-#include <dt-bindings/clock/mt6893-clk.h>
+#include <dt-bindings/clock/mt6885-clk.h>
 
 #define MT_CCF_BRINGUP		1
 
@@ -143,7 +143,7 @@ static int clk_mt6893_ven_grp_probe(struct platform_device *pdev)
 
 	r = mtk_clk_simple_probe(pdev);
 	if (r)
-		dev_err(&pdev->dev,
+		dev_dbg(&pdev->dev,
 			"could not register clock provider: %s: %d\n",
 			pdev->name, r);
 

@@ -12,7 +12,7 @@
 #include "clk-mtk.h"
 #include "clk-gate.h"
 
-#include <dt-bindings/clock/mt6893-clk.h>
+#include <dt-bindings/clock/mt6885-clk.h>
 
 #define MT_CCF_BRINGUP		1
 
@@ -81,7 +81,7 @@ static const struct mtk_gate_regs apu1_cg_regs = {
 		.shift = _shift,				\
 		.ops = &mtk_clk_gate_ops_setclr_dummy,		\
 	}
-	
+
 static const struct mtk_gate apu1_clks[] = {
 	GATE_DUMMY_1(CLK_APU1_APU, "apu1_apu",
 			"dsp2_ck"/* parent */, 0),
@@ -402,7 +402,7 @@ static int clk_mt6893_apu_grp_probe(struct platform_device *pdev)
 
 	r = mtk_clk_simple_probe(pdev);
 	if (r)
-		dev_err(&pdev->dev,
+		dev_dbg(&pdev->dev,
 			"could not register clock provider: %s: %d\n",
 			pdev->name, r);
 

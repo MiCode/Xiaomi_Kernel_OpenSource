@@ -18,7 +18,7 @@
 #include "clk-mux.h"
 #include "clk-gate.h"
 
-#include <dt-bindings/clock/mt6893-clk.h>
+#include <dt-bindings/clock/mt6885-clk.h>
 
 /* bringup config */
 #define MT_CCF_BRINGUP		1
@@ -2569,7 +2569,7 @@ static int clk_mt6893_pll_registration(enum subsys_id id,
 
 	base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(base)) {
-		pr_err("%s(): ioremap failed\n", __func__);
+		pr_debug("%s(): ioremap failed\n", __func__);
 		return PTR_ERR(base);
 	}
 
@@ -2581,7 +2581,7 @@ static int clk_mt6893_pll_registration(enum subsys_id id,
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
 	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
+		pr_debug("%s(): could not register clock provider: %d\n",
 			__func__, r);
 
 	plls_data[id] = plls;
@@ -2616,7 +2616,7 @@ static int clk_mt6893_ifrao_probe(struct platform_device *pdev)
 
 	r = mtk_clk_register_gates(node, ifrao_clks, CLK_IFRAO_NR_CLK, clk_data);
 	if (r) {
-		dev_err(&pdev->dev,
+		dev_dbg(&pdev->dev,
 			"could not register clock gates: %s: %d\n",
 			pdev->name, r);
 		return r;
@@ -2624,7 +2624,7 @@ static int clk_mt6893_ifrao_probe(struct platform_device *pdev)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
+		pr_debug("%s(): could not register clock provider: %d\n",
 			__func__, r);
 
 #if MT_CCF_BRINGUP
@@ -2649,7 +2649,7 @@ static int clk_mt6893_top_probe(struct platform_device *pdev)
 
 	base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(base)) {
-		pr_err("%s(): ioremap failed\n", __func__);
+		pr_debug("%s(): ioremap failed\n", __func__);
 		return PTR_ERR(base);
 	}
 
@@ -2664,14 +2664,14 @@ static int clk_mt6893_top_probe(struct platform_device *pdev)
 	mtk_clk_register_dividers(top_adj_divs, ARRAY_SIZE(top_adj_divs),
 			base, &mt6893_clk_lock, clk_data);
 
-	
+
 	mtk_clk_register_composites(top_composites, ARRAY_SIZE(top_composites),
 			base, &mt6893_clk_lock, clk_data);
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
 	if (r)
-		pr_err("%s(): could not register clock provider: %d\n",
+		pr_debug("%s(): could not register clock provider: %d\n",
 			__func__, r);
 
 #if MT_CCF_BRINGUP
@@ -2746,7 +2746,7 @@ static int clk_mt6893_probe(struct platform_device *pdev)
 
 	r = clk_probe(pdev);
 	if (r)
-		dev_err(&pdev->dev,
+		dev_dbg(&pdev->dev,
 			"could not register clock provider: %s: %d\n",
 			pdev->name, r);
 

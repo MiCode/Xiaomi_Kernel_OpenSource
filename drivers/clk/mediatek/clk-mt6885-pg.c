@@ -16,11 +16,11 @@
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
 
-#include <dt-bindings/clock/mt6893-clk.h>
+#include <dt-bindings/clock/mt6885-clk.h>
 
-#include "clk-mt6893-pg.h"
+#include "clk-mt6885-pg.h"
 #include "clkchk.h"
-#include "clkchk-mt6893.h"
+#include "clkchk-mt6885.h"
 
 #define MT_CCF_DEBUG	0
 #define MT_CCF_BRINGUP	0
@@ -1139,7 +1139,7 @@ static void ram_console_update(void)
 #endif
 
 	if (log_over_cnt && log_timeout)
-		BUG_ON(1);
+		WARN_ON(true);
 }
 
 static void enable_subsys_hwcg(enum subsys_id id)
@@ -5167,7 +5167,7 @@ static int clk_mt6893_scpsys_probe(struct platform_device *pdev)
 	ckgen_base = get_reg(node, 2);
 
 	if (!infracfg_base || !spm_base || !ckgen_base) {
-		pr_err("clk-pg-mt6893: missing reg\n");
+		pr_debug("clk-pg-mt6893: missing reg\n");
 
 		return -EINVAL;
 	}
@@ -5180,7 +5180,7 @@ static int clk_mt6893_scpsys_probe(struct platform_device *pdev)
 
 	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 	if (ret) {
-		pr_err("[CCF] %s:could not register clock provide\n",
+		pr_debug("[CCF] %s:could not register clock provide\n",
 			__func__);
 
 		return ret;

@@ -1,7 +1,6 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2021 MediaTek Inc.
- * Author: Owen Chen <owen.chen@mediatek.com>
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #ifndef __DRV_CLK_MT6893_PG_H

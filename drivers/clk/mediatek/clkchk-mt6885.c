@@ -9,9 +9,9 @@
 #include <linux/version.h>
 
 #include <mt-plat/aee.h>
-#include "clk-mt6893-pg.h"
+#include "clk-mt6885-pg.h"
 #include "clkchk.h"
-#include "clkchk-mt6893.h"
+#include "clkchk-mt6885.h"
 #include "clkdbg.h"
 
 #define TAG			"[clkchk] "
@@ -1021,9 +1021,9 @@ void mtk_check_subsys_swcg(enum subsys_id id)
 	}
 
 	if (ret) {
-		pr_err("%s(%d): %d\n", __func__, id, ret);
+		pr_debug("%s(%d): %d\n", __func__, id, ret);
 #if BUG_ON_CHK_ENABLE
-		BUG_ON(1);
+		WARN_ON(true);
 #endif
 	}
 }
