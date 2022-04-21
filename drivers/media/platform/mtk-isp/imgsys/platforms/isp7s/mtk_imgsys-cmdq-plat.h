@@ -16,10 +16,17 @@
 
 #define IMGSYS_SECURE_ENABLE   (0)
 
+#ifdef GCE_SUPPORT_REPLACE_MODE
+#undef GCE_SUPPORT_REPLACE_MODE
+#endif
+#define GCE_SUPPORT_REPLACE_MODE    (0)
+
 /* Record info definitions */
 #define GCE_REC_MAX_FRAME_BLOCK     (40)
 #define GCE_REC_MAX_TILE_BLOCK      (40)
+#if GCE_SUPPORT_REPLACE_MODE
 #define GCE_REC_MAX_LABEL_COUNT     (2048)
+#endif
 
 #define IMGSYS_ENG_MAX 10
 #define IMGSYS_QOS_MAX 56
@@ -895,9 +902,11 @@ static struct mtk_imgsys_qos_path imgsys_qos_path[IMGSYS_M4U_PORT_MAX] = {
 };
 
 struct BlockRecord {
+#if GCE_SUPPORT_REPLACE_MODE
 	uint32_t            label_min;
 	uint32_t            label_max;
 	uint32_t            label_count;
+#endif
 	uint32_t            cmd_offset;
 	uint32_t            cmd_length;
 };
@@ -946,6 +955,7 @@ struct GCERecoder {
 	// Current mode setting
 	enum GCE_REC_MODE_ENUM   curr_mode;
 
+#if GCE_SUPPORT_REPLACE_MODE
 	// Append/Replace mode switch
 	uint32_t            orig_index;
 	uint32_t            *pOrig_out;
@@ -961,6 +971,7 @@ struct GCERecoder {
 	// Each tile command label
 	uint32_t            tile_label[GCE_REC_MAX_LABEL_COUNT];
 	uint32_t            tile_count;
+#endif
 
 	uint32_t            footer_code;
 };

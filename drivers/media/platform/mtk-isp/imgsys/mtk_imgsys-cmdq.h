@@ -22,6 +22,13 @@
 
 #define MAX_FRAME_IN_TASK		64
 
+#ifdef GCE_SUPPORT_REPLACE_MODE
+#undef GCE_SUPPORT_REPLACE_MODE
+#endif
+#define GCE_SUPPORT_REPLACE_MODE    (0)
+
+typedef uint32_t pseudo_gce_cmd_addr_t;
+
 struct task_timestamp {
 	dma_addr_t dma_pa;
 	uint32_t *dma_va;
@@ -125,14 +132,14 @@ struct Command {
 		// For load, move, read
 		struct {
 			uint32_t mask;
-			uint64_t target;
-			uint64_t source;
+			pseudo_gce_cmd_addr_t target;
+			pseudo_gce_cmd_addr_t source;
 		} __packed;
 
 		// For write and poll
 		struct {
 			uint32_t dummy;
-			uint64_t address;
+			pseudo_gce_cmd_addr_t address;
 			uint32_t value;
 		} __packed;
 
