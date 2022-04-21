@@ -505,7 +505,7 @@ static inline int bio_queue_enter(struct bio *bio)
 			    blk_pm_resume_queue(false, q)) ||
 			   test_bit(GD_DEAD, &disk->state));
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
-		trace_bio_queue_enter_sleep(q);
+		trace_bio_queue_enter_wakeup(q);
 #endif
 		if (test_bit(GD_DEAD, &disk->state))
 			goto dead;
