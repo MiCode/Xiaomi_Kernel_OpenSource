@@ -220,19 +220,20 @@ static void cmd_hist_init_common_info(int ptr)
 }
 
 static void probe_android_vh_ufs_send_tm_command(void *data, struct ufs_hba *hba,
-						 unsigned int tag, enum ufs_trace_str_t str_t)
+						 unsigned int tag, int str_t)
 {
 	u8 tm_func;
 	int ptr, lun, task_tag;
 	unsigned long flags;
 	enum cmd_hist_event event;
+	enum ufs_trace_str_t _str_t = str_t;
 	struct utp_task_req_desc *d = &hba->utmrdl_base_addr[tag];
 
 	lun = (be32_to_cpu(d->header.dword_0) >> 8) & 0xFF;
 	task_tag = be32_to_cpu(d->header.dword_0) & 0xFF;
 	tm_func = (be32_to_cpu(d->header.dword_1) >> 16) & 0xFFFF;
 
-	switch (str_t){
+	switch (_str_t){
 	case UFS_TM_SEND:
 		event = CMD_TM_SEND;
 		break;
@@ -243,7 +244,7 @@ static void probe_android_vh_ufs_send_tm_command(void *data, struct ufs_hba *hba
 		event = CMD_TM_COMPLETED_ERR;
 		break;
 	default:
-		pr_notice("%s: undefined TM command (0x%x)", __func__, str_t);
+		pr_notice("%s: undefined TM command (0x%x)", __func__, _str_t);
 		break;
 	}
 
