@@ -2294,7 +2294,8 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 		/* Enable IBIST */
 		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON12, 0x0055);
 		/* Set HP DR bias current optimization, 010: 6uA */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON11, 0x4900);
+		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON11,
+				0xff80, 0x4900);
 		/* Set HP & ZCD bias current optimization */
 		/* 01: ZCD: 4uA, HP/HS/LO: 5uA */
 		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON12, 0x0055);
