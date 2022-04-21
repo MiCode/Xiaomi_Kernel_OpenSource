@@ -18,6 +18,8 @@
 #include "cmdq-sec-iwc-common.h"
 #include "cmdq-sec-mailbox.h"
 
+#define RETRY_SEC_CMDQ_FLUSH 3
+
 struct mtk_disp_sec_config {
 	struct cmdq_client *disp_sec_client;
 	struct cmdq_pkt *sec_cmdq_handle;
@@ -33,7 +35,7 @@ static void mtk_disp_secure_cb(struct cmdq_cb_data data)
 		DDPPR_ERR("%s: secure sec_cmdq_handle already stopped\n", __func__);
 		return;
 	}
-	DDPINFO("%s\n", __func__);
+	DDPINFO("%s err:%d\n", __func__, data.err);
 
 	cmdq_pkt_destroy(sec_config.sec_cmdq_handle);
 	sec_config.sec_cmdq_handle = NULL;
@@ -44,6 +46,11 @@ int mtk_disp_cmdq_secure_init(void)
 	if (!sec_config.disp_sec_client) {
 		DDPINFO("%s:%d, sec_config.disp_sec_client is NULL\n",
 			__func__, __LINE__);
+		return false;
+	}
+
+	if (sec_config.sec_cmdq_handle) {
+		DDPMSG("%s cmdq_handle is already exist\n", __func__);
 		return false;
 	}
 
@@ -82,7 +89,19 @@ int mtk_disp_cmdq_secure_end(void)
 int mtk_disp_secure_domain_enable(struct cmdq_pkt *handle,
 									resource_size_t dummy_larb)
 {
+	int retry_count = 0;
 	DDPINFO("%s\n", __func__);
+
+	while (!sec_config.sec_cmdq_handle) {
+		retry_count++;
+		DDPMSG("%s: no secure sec_cmdq_handle, retry %d\n"
+				, __func__, retry_count);
+		mtk_disp_cmdq_secure_init();
+		if (retry_count > RETRY_SEC_CMDQ_FLUSH) {
+			DDPMSG("%s: too many times init fail\n", __func__);
+			return false;
+		}
+	}
 
 	cmdq_pkt_write(handle, NULL, dummy_larb, BIT(1), BIT(1));
 	cmdq_pkt_set_event(handle, sec_config.tzmp_disp_sec_wait);
@@ -94,7 +113,19 @@ int mtk_disp_secure_domain_enable(struct cmdq_pkt *handle,
 int mtk_disp_secure_domain_disable(struct cmdq_pkt *handle,
 									resource_size_t dummy_larb)
 {
+	int retry_count = 0;
 	DDPINFO("%s\n", __func__);
+
+	while (!sec_config.sec_cmdq_handle) {
+		retry_count++;
+		DDPMSG("%s: no secure sec_cmdq_handle, retry %d\n"
+				, __func__, retry_count);
+		mtk_disp_cmdq_secure_init();
+		if (retry_count > RETRY_SEC_CMDQ_FLUSH) {
+			DDPMSG("%s: too many times init fail\n", __func__);
+			return false;
+		}
+	}
 
 	cmdq_pkt_write(handle, NULL, dummy_larb, 0, BIT(1));
 	cmdq_pkt_set_event(handle, sec_config.tzmp_disp_sec_wait);
