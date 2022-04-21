@@ -777,6 +777,8 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 		if (!pkt->dev || !buf->va_base || !CMDQ_BUF_ADDR(buf))
 			cmdq_err("pkt:0x%p pa:%pa iova:%pa",
 			pkt, &buf->pa_base, &buf->iova_base);
+
+		buf->alloc_time = 0;
 		if (buf->use_pool) {
 			if (pkt->cur_pool.pool)
 				cmdq_mbox_pool_free_impl(pkt->cur_pool.pool,
@@ -2315,9 +2317,9 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 				size = CMDQ_CMD_BUFFER_SIZE;
 
 			cmdq_util_user_msg(client ? client->chan : NULL,
-				"error irq buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llu",
+				"err irq buf %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llu pool:%d",
 				cnt, buf, buf->va_base, &buf->pa_base,
-				&buf->iova_base, buf->alloc_time);
+				&buf->iova_base, buf->alloc_time, buf->use_pool);
 			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
 				CMDQ_BUF_ADDR(buf), pc, NULL, client->chan);
 
