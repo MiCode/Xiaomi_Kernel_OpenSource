@@ -294,6 +294,8 @@ struct mtk_i2c {
 	u16 high_speed_reg;
 	u16 ltiming_reg;
 	unsigned char auto_restart;
+	int  scl_gpio_id;
+	int  sda_gpio_id;
 	bool ignore_restart_irq;
 	bool master_code_sended;
 	struct mtk_i2c_ac_timing ac_timing;
@@ -996,6 +998,17 @@ static int mtk_i2c_set_speed(struct mtk_i2c *i2c, unsigned int parent_clk)
 	return 0;
 }
 
+extern void gpio_dump_regs_range(int start, int end);
+static void mtk_i2c_gpio_dump(struct mtk_i2c *i2c)
+{
+	int start;
+	int end;
+
+	start = i2c->scl_gpio_id < i2c->sda_gpio_id ? i2c->scl_gpio_id : i2c->sda_gpio_id;
+	end = i2c->scl_gpio_id < i2c->sda_gpio_id ? i2c->sda_gpio_id : i2c->scl_gpio_id;
+	gpio_dump_regs_range(start, end);
+}
+
 static void mtk_i2c_dump_reg(struct mtk_i2c *i2c)
 {
 	u16 slave_addr_value = 0;
@@ -1004,13 +1017,14 @@ static void mtk_i2c_dump_reg(struct mtk_i2c *i2c)
 		slave_addr_value = mtk_i2c_readw(i2c, OFFSET_SLAVE_ADDR1);
 	else
 		slave_addr_value = mtk_i2c_readw(i2c, OFFSET_SLAVE_ADDR);
-	dev_info(i2c->dev, "I2C register:\n"
+	dev_info(i2c->dev, "I2C (speed %d) register:\n"
 		"SLAVE_ADDR=0x%x,INTR_STAT=0x%x,CONTROL=0x%x,\n"
 		"TRANSFER_LEN=0x%x,TRANSAC_LEN=0x%x,START=0x%x,\n"
 		"FIFO_STAT=0x%x,DEBUGSTAT=0x%x,DMA_FSM_DEBUG=0x%x,\n"
 		"INTR_MASK=0x%x,EXT_CONF=0x%x,IO_CONFIG=0x%x,\n"
 		"CLOCK_DIV=0x%x,FIFO_THRESH=0x%x,DEBUGCTRL=0x%x,\n"
 		"HS=0x%x,TIMING=0x%x\n",
+		i2c->speed_hz,
 		(slave_addr_value),
 		(mtk_i2c_readw(i2c, OFFSET_INTR_STAT)),
 		(mtk_i2c_readw(i2c, OFFSET_CONTROL)),
@@ -1397,6 +1411,7 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		u16 start_reg = mtk_i2c_readw(i2c, OFFSET_START);
 		dev_dbg(i2c->dev, "addr: %x, transfer timeout\n", msgs->addr);
 		mtk_i2c_dump_reg(i2c);
+		mtk_i2c_gpio_dump(i2c);
 		if (i2c->ch_offset_i2c) {
 			mtk_i2c_writew(i2c, I2C_FIFO_ADDR_CLR_MCH | I2C_FIFO_ADDR_CLR,
 						OFFSET_FIFO_ADDR_CLR);
@@ -1605,6 +1620,7 @@ static int mtk_i2c_parse_dt(struct device_node *np, struct mtk_i2c *i2c)
 
 	if (i2c->clk_src_div == 0)
 		return -EINVAL;
+
 	of_property_read_u32(np, "clk_src_in_hz", &i2c->clk_src_in_hz);
 	of_property_read_u32(np, "ch_offset_i2c", &i2c->ch_offset_i2c);
 	of_property_read_u32(np, "ch_offset_dma", &i2c->ch_offset_dma);
@@ -1613,6 +1629,8 @@ static int mtk_i2c_parse_dt(struct device_node *np, struct mtk_i2c *i2c)
 	i2c->have_pmic = of_property_read_bool(np, "mediatek,have-pmic");
 	i2c->use_push_pull =
 		of_property_read_bool(np, "mediatek,use-push-pull");
+	of_property_read_u32(np, "scl-gpio-id", &i2c->scl_gpio_id);
+	of_property_read_u32(np, "sda-gpio-id", &i2c->sda_gpio_id);
 
 	return 0;
 }
