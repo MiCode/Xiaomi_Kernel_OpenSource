@@ -2081,7 +2081,7 @@ static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
 	if (dev_info->wspecversion >= 0x0300) {
 		if (vreg_info->vccq2) {
 			regulator_disable(vreg_info->vccq2->reg);
-			kfree(vreg_info->vccq2->name);
+			devm_kfree(hba->dev, vreg_info->vccq2->name);
 			devm_kfree(hba->dev, vreg_info->vccq2);
 			vreg_info->vccq2 = NULL;
 		}
@@ -2090,7 +2090,7 @@ static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
 	} else {
 		if (vreg_info->vccq) {
 			regulator_disable(vreg_info->vccq->reg);
-			kfree(vreg_info->vccq->name);
+			devm_kfree(hba->dev, vreg_info->vccq->name);
 			devm_kfree(hba->dev, vreg_info->vccq);
 			vreg_info->vccq = NULL;
 		}
