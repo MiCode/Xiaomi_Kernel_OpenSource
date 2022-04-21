@@ -1081,9 +1081,6 @@ static const struct snd_soc_dapm_route mtk_dai_i2s_routes[] = {
 	{"I2S5", NULL, "I2S5_CH1"},
 	{"I2S5", NULL, "I2S5_CH2"},
 
-	{"I2S3_CH1", "DL7_CH1", "DL7"},
-	{"I2S3_CH2", "DL7_CH2", "DL7"},
-
 	{"I2S5", NULL, "I2S0_EN", mtk_afe_i2s_share_connect},
 	{"I2S5", NULL, "I2S1_EN", mtk_afe_i2s_share_connect},
 	{"I2S5", NULL, "I2S2_EN", mtk_afe_i2s_share_connect},
