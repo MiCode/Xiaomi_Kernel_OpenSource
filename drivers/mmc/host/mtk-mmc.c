@@ -2508,7 +2508,7 @@ static void msdc_hs400_enhanced_strobe(struct mmc_host *mmc,
 
 /* SMC call wapper function */
 #define mmc_mtk_crypto_ctrl(smcc_res) \
-	arm_smccc_smc(MMC_MTK_SIP_CRYPTO_CTRL, \
+	arm_smccc_smc(MTK_SIP_MMC_CONTROL, \
 		MMC_MTK_SIP_CRYPTO_CTRL, 0, 0, 0, 0, 0, 0, &smcc_res)
 
 static void mmc_mtk_crypto_enable(struct mmc_host *mmc)
