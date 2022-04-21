@@ -12,6 +12,9 @@
 		clocks =
 			<&topckgen_clk CLK_TOP_DISP0_SEL>,
 			<&topckgen_clk CLK_TOP_DISP1_SEL>,
+			<&topckgen_clk CLK_TOP_PEXTP_MBIST_SEL>,
+			<&topckgen_clk CLK_TOP_VENC_SEL>,
+			<&topckgen_clk CLK_TOP_VDEC_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTG_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTG2_SEL>,
 			<&topckgen_clk CLK_TOP_CAMTG3_SEL>,
