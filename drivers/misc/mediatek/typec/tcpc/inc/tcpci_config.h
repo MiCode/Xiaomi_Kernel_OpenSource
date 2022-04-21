@@ -282,13 +282,6 @@
 #define CONFIG_WATER_DETECTION	0
 #endif /* CONFIG_MTK_TYPEC_WATER_DETECT */
 
-/*
- * CONFIG_WD0_IRQ_ONLY
- * 1 -> only notify wd0 state
- * 0 -> set DRP behavior will be related with wd0 state
- */
-#define CONFIG_WD0_IRQ_ONLY	1
-
 #define CONFIG_WATER_CALIBRATION	0
 #define CONFIG_WD_SBU_CALIB_INIT	1800 /* mV */
 #define CONFIG_WD_SBU_PL_BOUND		200 /* mV */

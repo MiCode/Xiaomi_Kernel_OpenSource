@@ -56,6 +56,8 @@ struct rt_pd_manager_data {
 	int sink_ma_new;
 	int sink_mv_old;
 	int sink_ma_old;
+	uint8_t role_def;
+	bool wd0_enable;
 
 	struct typec_capability typec_caps;
 	struct typec_port *typec_port;
@@ -367,6 +369,18 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		state.data = noti;
 		typec_mux_set(rpmd->typec_port->mux, &state);
 		break;
+	case TCP_NOTIFY_WD0_STATE:
+		if (rpmd->wd0_enable) {
+			if (noti->wd0_state.wd0)
+				tcpm_typec_change_role(rpmd->tcpc,
+						       rpmd->role_def);
+			else
+				tcpm_typec_change_role_postpone(rpmd->tcpc,
+								TYPEC_ROLE_SNK,
+								true);
+
+		}
+		break;
 	default:
 		break;
 	};
@@ -645,6 +659,15 @@ static int rt_pd_manager_probe(struct platform_device *pdev)
 				      __func__, ret);
 		goto err_init_typec;
 	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "wd0_enable"))
+		rpmd->wd0_enable = true;
+	else
+		rpmd->wd0_enable = false;
+
+	rpmd->role_def = tcpm_inquire_typec_role_def(rpmd->tcpc);
+	if (rpmd->wd0_enable && tcpm_is_floating_ground(rpmd->tcpc))
+		tcpm_typec_change_role_postpone(rpmd->tcpc, TYPEC_ROLE_SNK, true);
 
 	rpmd->pd_nb.notifier_call = pd_tcp_notifier_call;
 	ret = register_tcp_dev_notifier(rpmd->tcpc, &rpmd->pd_nb,

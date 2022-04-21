@@ -2098,10 +2098,6 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc)
 	if (typec_is_cc_attach(tcpc)) {
 		typec_disable_low_power_mode(tcpc);
 		typec_attach_wait_entry(tcpc);
-#if !CONFIG_WD0_IRQ_ONLY
-		if (tcpc->tcpc_flags & TCPC_FLAGS_FLOATING_GROUND)
-			tcpci_set_floating_ground(tcpc, false);
-#endif /* CONFIG_WD0_IRQ_ONLY = 0 */
 		if ((tcpc->tcpc_flags & TCPC_FLAGS_TYPEC_OTP) &&
 			((typec_get_cc1() + typec_get_cc2()) >= TYPEC_CC_VOLT_SNK_DFT))
 			tcpci_set_otp_fwen(tcpc, true);

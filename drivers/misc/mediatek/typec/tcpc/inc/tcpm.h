@@ -877,6 +877,8 @@ extern int tcpm_inquire_typec_remote_rp_curr(struct tcpc_device *tcpc);
 extern bool tcpm_inquire_cc_polarity(struct tcpc_device *tcpc);
 extern uint8_t tcpm_inquire_typec_attach_state(struct tcpc_device *tcpc);
 extern uint8_t tcpm_inquire_typec_role(struct tcpc_device *tcpc);
+extern uint8_t tcpm_inquire_typec_role_def(struct tcpc_device *tcpc);
+extern bool tcpm_is_floating_ground(struct tcpc_device *tcpc);
 extern uint8_t tcpm_inquire_typec_local_rp(struct tcpc_device *tcpc);
 
 extern int tcpm_typec_set_wake_lock(
@@ -1348,6 +1350,11 @@ static inline uint8_t tcpm_inquire_typec_attach_state(
 }
 
 static inline uint8_t tcpm_inquire_typec_role(struct tcpc_device *tcpc)
+{
+	return TYPEC_ROLE_UNKNOWN;
+}
+
+static inline uint8_t tcpm_inquire_typec_role_def(struct tcpc_device *tcpc)
 {
 	return TYPEC_ROLE_UNKNOWN;
 }

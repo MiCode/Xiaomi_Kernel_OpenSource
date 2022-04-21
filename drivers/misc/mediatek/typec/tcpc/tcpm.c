@@ -160,6 +160,18 @@ uint8_t tcpm_inquire_typec_role(struct tcpc_device *tcpc)
 }
 EXPORT_SYMBOL(tcpm_inquire_typec_role);
 
+uint8_t tcpm_inquire_typec_role_def(struct tcpc_device *tcpc)
+{
+	return tcpc->desc.role_def;
+}
+EXPORT_SYMBOL(tcpm_inquire_typec_role_def);
+
+bool tcpm_is_floating_ground(struct tcpc_device *tcpc)
+{
+	return (tcpc->tcpc_flags & TCPC_FLAGS_FLOATING_GROUND);
+}
+EXPORT_SYMBOL(tcpm_is_floating_ground);
+
 uint8_t tcpm_inquire_typec_local_rp(struct tcpc_device *tcpc)
 {
 	return tcpc->typec_local_rp_level;

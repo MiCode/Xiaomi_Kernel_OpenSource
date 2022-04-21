@@ -221,24 +221,6 @@
 #define MT6375_MSK_WD0_TDET	GENMASK(2, 0)
 #define MT6375_SFT_WD0_TDET	(0)
 
-enum {
-	MT6375_WD0_TSLEEP_16X,
-	MT6375_WD0_TSLEEP_128X,
-	MT6375_WD0_TSLEEP_512X,
-	MT6375_WD0_TSLEEP_1024X,
-};
-
-enum {
-	MT6375_WD0_TDET_400US,
-	MT6375_WD0_TDET_1MS,
-	MT6375_WD0_TDET_2MS,
-	MT6375_WD0_TDET_4MS,
-	MT6375_WD0_TDET_10MS,
-	MT6375_WD0_TDET_40MS,
-	MT6375_WD0_TDET_100MS,
-	MT6375_WD0_TDET_400MS,
-};
-
 struct mt6375_tcpc_data {
 	struct device *dev;
 	struct regmap *rmap;
@@ -250,7 +232,10 @@ struct mt6375_tcpc_data {
 	struct iio_channel *adc_iio;
 	int irq;
 	u16 did;
+	bool wd0_state;
 	bool wd0_enable;
+	u8 wd0_tsleep;
+	u8 wd0_tdet;
 
 	atomic_t wd_protect_rty;
 
@@ -1388,13 +1373,10 @@ static int mt6375_enable_floating_ground(struct mt6375_tcpc_data *ddata,
 
 	pr_info("%s: en:%d\n", __func__, en);
 	if (en) {
-#if CONFIG_WD0_IRQ_ONLY
-		value |= (MT6375_WD0_TSLEEP_512X << MT6375_SFT_WD0_TSLEEP);
-		value |= (MT6375_WD0_TDET_4MS << MT6375_SFT_WD0_TDET);
+		/* set wd0 detect time */
+		value |= (ddata->wd0_tsleep << MT6375_SFT_WD0_TSLEEP);
+		value |= (ddata->wd0_tdet << MT6375_SFT_WD0_TDET);
 		ret = mt6375_write8_rt2(ddata, MT6375_REG_WDSET3, value);
-#else
-		ret = tcpci_set_cc(ddata->tcpc, TYPEC_CC_RD);
-#endif /* CONFIG_WD0_IRQ_ONLY */
 		if (ret < 0)
 			return ret;
 		ret = mt6375_set_wd_ldo(ddata, MT6375_WD_LDO_0_6V);
@@ -1423,17 +1405,8 @@ static int mt6375_floating_ground_evt_process(struct mt6375_tcpc_data *ddata)
 	ret = mt6375_read8(ddata, MT6375_REG_WD0SET, &data);
 	if (ret < 0)
 		return ret;
-#if CONFIG_WD0_IRQ_ONLY
-	return tcpci_notify_wd0_state(ddata->tcpc,
-				      !!(data & MT6375_MSK_WD0PULL_STS));
-#else
-	if (data & MT6375_MSK_WD0PULL_STS)
-		return tcpci_set_cc(ddata->tcpc, TYPEC_CC_DRP);
-#if CONFIG_TCPC_LOW_POWER_MODE
-	tcpci_set_low_power_mode(ddata->tcpc, true, TYPEC_CC_DRP);
-#endif /* CONFIG_TCPC_LOW_POWER_MODE */
-	return tcpci_set_floating_ground(ddata->tcpc, true);
-#endif /* CONFIG_WD0_IRQ_ONLY */
+	ddata->wd0_state = (data & MT6375_MSK_WD0PULL_STS) ? true : false;
+	return tcpci_notify_wd0_state(ddata->tcpc, ddata->wd0_state);
 }
 
 /*
@@ -1709,30 +1682,17 @@ static int mt6375_set_cc(struct tcpc_device *tcpc, int pull)
 	MT6375_INFO("%s %d\n", __func__, pull);
 	pull = TYPEC_CC_PULL_GET_RES(pull);
 
-#if CONFIG_WD0_IRQ_ONLY
 	/* enable wd0 once when set cc */
-	if ((tcpc->tcpc_flags & TCPC_FLAGS_FLOATING_GROUND) &&
-	    !ddata->wd0_enable) {
+	if (!ddata->wd0_enable && tcpm_is_floating_ground(tcpc)) {
 		ret = mt6375_enable_floating_ground(ddata, true);
-		if (ret >= 0)
+		if (ret < 0)
+			dev_err(ddata->dev, "enable wd0 failed\n");
+		else
 			ddata->wd0_enable = true;
 	}
-#endif /* CONFIG_WD0_IRQ_ONLY */
 
 	if (pull == TYPEC_CC_DRP) {
-#if CONFIG_WD0_IRQ_ONLY
 		ret = mt6375_set_cc_toggling(ddata, rp_lvl);
-#else
-		if (tcpc->tcpc_flags & TCPC_FLAGS_FLOATING_GROUND) {
-			ret = mt6375_is_floating_ground_enabled(ddata, &en);
-			if (ret < 0 || !en)
-				ret = mt6375_enable_floating_ground(ddata,
-								    true);
-			else
-				ret = mt6375_set_cc_toggling(ddata, rp_lvl);
-		} else
-			ret = mt6375_set_cc_toggling(ddata, rp_lvl);
-#endif /* CONFIG_WD0_IRQ_ONLY */
 	} else {
 		if (tcpc->tcpc_flags & TCPC_FLAGS_WD_POLLING_ONLY) {
 			cancel_delayed_work_sync(&ddata->wd_poll_dwork);
@@ -2567,6 +2527,24 @@ static int mt6375_parse_dt(struct mt6375_tcpc_data *ddata)
 	}
 
 	ddata->desc = desc;
+
+	if (desc->en_floatgnd) {
+		if (device_property_read_u32(dev, "wd,wd0_tsleep", &val)) {
+			dev_notice(dev, "wd0_tsleep use default\n");
+			ddata->wd0_tsleep = 1;
+		} else {
+			dev_notice(dev, "wd0_tsleep = %d\n", val);
+			ddata->wd0_tsleep = val;
+		}
+		if (device_property_read_u32(dev, "wd,wd0_tdet", &val)) {
+			dev_notice(dev, "wd0_tdet use default\n");
+			ddata->wd0_tdet = 3;
+		} else {
+			dev_notice(dev, "wd0_tdet = %d\n", val);
+			ddata->wd0_tdet = val;
+		}
+
+	}
 	return 0;
 }
 
