@@ -579,6 +579,7 @@ struct mtk_panel_funcs {
 		void *dsi_drv, dcs_write_gce_pack cb, void *handle);
 	int (*ddic_ops)(struct drm_panel *panel, enum MTK_PANEL_DDIC_OPS ops,
 		struct mtk_lcm_dsi_cmd_packet *packet, void *misc);
+	int (*set_value)(int value);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);

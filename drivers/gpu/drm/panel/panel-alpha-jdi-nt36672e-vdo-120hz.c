@@ -154,6 +154,8 @@ module_exit(_lcm_i2c_exit);
 /***********************************/
 #endif
 
+static int fake_mode;
+
 struct jdi {
 	struct device *dev;
 	struct drm_panel panel;
@@ -1321,12 +1323,23 @@ static int panel_ext_reset(struct drm_panel *panel, int on)
 	return 0;
 }
 
+static int mtk_set_value(int value)
+{
+	if (value == 1)
+		fake_mode = 1;
+	else
+		fake_mode = 0;
+
+	return 0;
+}
+
 static struct mtk_panel_funcs ext_funcs = {
 	.reset = panel_ext_reset,
 	.set_backlight_cmdq = jdi_setbacklight_cmdq,
 	.ext_param_set = mtk_panel_ext_param_set,
 	.mode_switch = mode_switch,
 	.ata_check = panel_ata_check,
+	.set_value = mtk_set_value,
 };
 #endif
 
@@ -1406,41 +1419,43 @@ static int jdi_get_modes(struct drm_panel *panel,
 	mode3->type = DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(connector, mode3);
 
-	mode4 = drm_mode_duplicate(connector->dev, &performance_mode_30hz);
-	if (!mode4) {
-		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
-			 performance_mode_30hz.hdisplay, performance_mode_30hz.vdisplay,
-			 drm_mode_vrefresh(&performance_mode_30hz));
-		return -ENOMEM;
+	if (fake_mode == 1) {
+		mode4 = drm_mode_duplicate(connector->dev, &performance_mode_30hz);
+		if (!mode4) {
+			dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
+				 performance_mode_30hz.hdisplay, performance_mode_30hz.vdisplay,
+				 drm_mode_vrefresh(&performance_mode_30hz));
+			return -ENOMEM;
+		}
+
+		drm_mode_set_name(mode4);
+		mode4->type = DRM_MODE_TYPE_DRIVER;
+		drm_mode_probed_add(connector, mode4);
+
+		mode5 = drm_mode_duplicate(connector->dev, &performance_mode_24hz);
+		if (!mode5) {
+			dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
+				 performance_mode_24hz.hdisplay, performance_mode_24hz.vdisplay,
+				 drm_mode_vrefresh(&performance_mode_24hz));
+			return -ENOMEM;
+		}
+
+		drm_mode_set_name(mode5);
+		mode5->type = DRM_MODE_TYPE_DRIVER;
+		drm_mode_probed_add(connector, mode5);
+
+		mode6 = drm_mode_duplicate(connector->dev, &performance_mode_10hz);
+		if (!mode6) {
+			dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
+				 performance_mode_10hz.hdisplay, performance_mode_10hz.vdisplay,
+				 drm_mode_vrefresh(&performance_mode_10hz));
+			return -ENOMEM;
+		}
+
+		drm_mode_set_name(mode6);
+		mode6->type = DRM_MODE_TYPE_DRIVER;
+		drm_mode_probed_add(connector, mode6);
 	}
-
-	drm_mode_set_name(mode4);
-	mode4->type = DRM_MODE_TYPE_DRIVER;
-	drm_mode_probed_add(connector, mode4);
-
-	mode5 = drm_mode_duplicate(connector->dev, &performance_mode_24hz);
-	if (!mode5) {
-		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
-			 performance_mode_24hz.hdisplay, performance_mode_24hz.vdisplay,
-			 drm_mode_vrefresh(&performance_mode_24hz));
-		return -ENOMEM;
-	}
-
-	drm_mode_set_name(mode5);
-	mode5->type = DRM_MODE_TYPE_DRIVER;
-	drm_mode_probed_add(connector, mode5);
-
-	mode6 = drm_mode_duplicate(connector->dev, &performance_mode_10hz);
-	if (!mode6) {
-		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
-			 performance_mode_10hz.hdisplay, performance_mode_10hz.vdisplay,
-			 drm_mode_vrefresh(&performance_mode_10hz));
-		return -ENOMEM;
-	}
-
-	drm_mode_set_name(mode6);
-	mode6->type = DRM_MODE_TYPE_DRIVER;
-	drm_mode_probed_add(connector, mode6);
 
 	connector->display_info.width_mm = 70;
 	connector->display_info.height_mm = 152;

@@ -2871,6 +2871,49 @@ static void process_dbg_opt(const char *opt)
 		params->lcm_color_mode = (fake_hdr_en) ?
 			MTK_DRM_COLOR_MODE_DISPLAY_P3 : MTK_DRM_COLOR_MODE_NATIVE;
 		DDPINFO("set panel color_mode to %d\n", params->lcm_color_mode);
+	} else if (strncmp(opt, "fake_mode:", 10) == 0) {
+		unsigned int en = 0;
+		struct drm_crtc *crtc;
+		struct mtk_panel_funcs *funcs;
+		struct mtk_drm_crtc *mtk_crtc;
+		struct mtk_ddp_comp *comp;
+		int tmp;
+		int ret;
+
+		ret = sscanf(opt, "fake_mode:%u\n", &en);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n", __LINE__, opt);
+			return;
+		}
+
+		if (en != 0 && en != 1) {
+			DDPPR_ERR("[Fake mode] not support cmd param=%d\n", en);
+			return;
+		}
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+
+		funcs = mtk_drm_get_lcm_ext_funcs(crtc);
+		if (!funcs || !funcs->set_value) {
+			DDPPR_ERR("[Fake mode] find lcm funcs->debug_set fail\n");
+			return;
+		}
+		funcs->set_value(en);
+		DDPINFO("[Fake mode] set panel debug to %d\n", en);
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		comp = mtk_ddp_comp_request_output(mtk_crtc);
+		mtk_ddp_comp_io_cmd(comp, NULL,	DSI_FILL_MODE_BY_CONNETOR, mtk_crtc);
+		tmp = mtk_crtc->avail_modes_num;
+		mtk_ddp_comp_io_cmd(comp, NULL,	DSI_SET_CRTC_AVAIL_MODES, mtk_crtc);
+		DDPINFO("[Fake mode] avail_modes_num:%d->%d\n",
+							tmp, mtk_crtc->avail_modes_num);
 	} else if (strncmp(opt, "esd_check", 9) == 0) {
 		unsigned int esd_check_en = 0;
 		struct drm_crtc *crtc;

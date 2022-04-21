@@ -7548,19 +7548,23 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	{
 		struct mtk_drm_crtc *crtc = (struct mtk_drm_crtc *)params;
 		struct drm_display_mode *m;
-		unsigned int i = 0;
+		struct drm_display_mode *avail_modes;
+		unsigned int i = 0, num = 0;
 
-		crtc->avail_modes_num = 0;
 		list_for_each_entry(m, &dsi->conn.modes, head)
-			crtc->avail_modes_num++;
+			num++;
 
-		crtc->avail_modes =
-		    vzalloc(sizeof(struct drm_display_mode) *
-			    crtc->avail_modes_num);
+		avail_modes = vzalloc(sizeof(struct drm_display_mode) * num);
 		list_for_each_entry(m, &dsi->conn.modes, head) {
-			drm_mode_copy(&crtc->avail_modes[i], m);
+			drm_mode_copy(&avail_modes[i], m);
 			i++;
 		}
+
+		m = crtc->avail_modes;
+		crtc->avail_modes_num = num;
+		crtc->avail_modes = avail_modes;
+		if (m)
+			vfree(m);
 	}
 		break;
 	case DSI_TIMING_CHANGE:
