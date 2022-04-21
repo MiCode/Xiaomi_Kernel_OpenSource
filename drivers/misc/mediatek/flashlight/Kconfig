@@ -11,6 +11,15 @@ config MTK_FLASHLIGHT
 	  If you have any questions about this, say Y here,
 	  only say N if you know exactly what you are doing.
 
+
+config MTK_V4L2_FLASHLIGHT
+	tristate "Mediatek V4L2 flashlight driver"
+	help
+	  Say Y to enable V4L2 flashlight device
+	  This Framework is good for
+	  controling flashlight Leds.
+	  Say N to disable V4L2 flashlight.
+
 config MTK_FLASHLIGHT_AW3644
 	tristate "Mediatek flashlight with driver IC (AW3644)"
 	depends on MTK_FLASHLIGHT
