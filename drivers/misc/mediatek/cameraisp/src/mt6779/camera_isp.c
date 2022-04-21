@@ -1464,6 +1464,65 @@ static void ISP_DumpCQDbg(enum ISP_IRQ_TYPE_ENUM module,
 		(unsigned int)ISP_RD32(CAM_REG_CQ_THR28_BASEADDR(regModule)));
 }
 
+static void ISP_DumpAFO_DbgData(enum ISP_IRQ_TYPE_ENUM module)
+{
+	unsigned int afo_checksum_dbg_sel = 0x180B;
+	unsigned int afo_smi_dbg_data_case0_dbg_sel = 0x406;
+	unsigned int afo_fifo_case2_dbg_sel = 0x20306;
+	unsigned int ctrl_misc = 0;
+	unsigned int afo_checksum = 0, line_pix_cnt_tmp = 0, line_pix_cnt = 0, data_cnt = 0;
+	unsigned int afo_smi_dbg_data_case0 = 0, afo_fifo_case2 = 0;
+	enum ISP_DEV_NODE_ENUM regModule = ISP_DEV_NODE_NUM; /* for read/write register */
+
+	switch (module) {
+	case ISP_IRQ_TYPE_INT_CAM_A_ST:
+		regModule = ISP_CAM_A_IDX;
+		break;
+	case ISP_IRQ_TYPE_INT_CAM_B_ST:
+		regModule = ISP_CAM_B_IDX;
+		break;
+	case ISP_IRQ_TYPE_INT_CAM_C_ST:
+		regModule = ISP_CAM_C_IDX;
+		break;
+	default:
+		LOG_NOTICE("unsupported module:0x%x\n", module);
+		return;
+	}
+
+	/* need to off db_en due to switch dbg_sel */
+	ctrl_misc = ISP_RD32(CAM_REG_CTL_MISC(regModule));
+	ISP_WR32(CAM_REG_CTL_MISC(regModule), (ctrl_misc & 0xffffffef)); /* CAMCTL_DB_EN off*/
+	ISP_WR32(CAM_REG_DBG_SET(regModule), 0xF0);
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), afo_checksum_dbg_sel);
+	afo_checksum = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), afo_checksum_dbg_sel + 0x100);
+	line_pix_cnt_tmp = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), afo_checksum_dbg_sel + 0x200);
+	line_pix_cnt = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), afo_checksum_dbg_sel + 0x300);
+	data_cnt = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), afo_smi_dbg_data_case0_dbg_sel);
+	afo_smi_dbg_data_case0 = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	ISP_WR32(CAM_REG_DMA_DEBUG_SEL(regModule), afo_fifo_case2_dbg_sel);
+	afo_fifo_case2 = ISP_RD32(CAM_REG_DBG_PORT(regModule));
+
+	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
+		"afo: chksum=0x%x, line_pix_cnt_tmp=0x%x, line_pix_cnt=0x%x, data_cnt=0x%x\n",
+		afo_checksum, line_pix_cnt_tmp, line_pix_cnt, data_cnt);
+
+	IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR,
+		"afo: smi_case0=0x%x, fifo_case2=0x%x\n",
+		afo_smi_dbg_data_case0, afo_fifo_case2);
+
+	/* need to restore db_en after dump */
+	ISP_WR32(CAM_REG_CTL_MISC(regModule), ctrl_misc);
+
+
+}
+
 /*******************************************************************************
  *
  ******************************************************************************/
@@ -1614,6 +1673,10 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 			(unsigned int)ISP_RD32(
 				CAM_REG_DMA_DEBUG_SEL(regModule)),
 			0);
+
+		/* Dump afo debug info */
+		if (dmaerr[_afo_] != 0xffff0000)
+			ISP_DumpAFO_DbgData(module);
 	}
 
 	if ((dmaerr[_rawi_] | dmaerr[_bpci_] | dmaerr[_lsci_] | dmaerr[_bpci_r2_] | dmaerr[_pdi_] |
