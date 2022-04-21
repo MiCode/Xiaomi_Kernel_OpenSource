@@ -143,36 +143,26 @@ void ufs_mtk_biolog_send_command(unsigned int task_id,
 	tsk->t[tsk_send_cmd] = sched_clock();
 	tsk->t[tsk_req_compl] = 0;
 
+	ctx->sum_of_start += tsk->t[tsk_send_cmd];
 	if (!ctx->period_start_t)
 		ctx->period_start_t = tsk->t[tsk_send_cmd];
 
 	ctx->q_depth++;
-	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth);
+	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth,
+			      ctx->sum_of_start);
 
 	spin_unlock_irqrestore(&ctx->lock, flags);
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_biolog_send_command);
 
-void ufs_mtk_bio_mictx_eval_wqd(struct mtk_btag_mictx_struct *mictx,
-				u64 t_cur)
+__u16 ufs_mtk_bio_mictx_eval_qd(struct mtk_btag_mictx_struct *mictx,
+			       u64 t_cur)
 {
-	struct ufs_mtk_bio_context_task *tsk;
-	struct ufs_mtk_bio_context *ctx;
-	__u64 t_begin;
-	int i;
+	__u64 compl = mictx->weighted_qd;
+	__u64 inflight = t_cur * mictx->q_depth - mictx->sum_of_start;
+	__u64 dur = t_cur - mictx->window_begin;
 
-	ctx = ufs_mtk_bio_curr_ctx();
-	if (!ctx)
-		return;
-
-	for (i = 0; i < UFS_BIOLOG_CONTEXT_TASKS; i++) {
-		tsk = &ctx->task[i];
-		if (tsk->t[tsk_send_cmd] && !tsk->t[tsk_req_compl]) {
-			t_begin = max_t(u64, mictx->window_begin,
-					tsk->t[tsk_send_cmd]);
-			mictx->weighted_qd += t_cur - t_begin;
-		}
-	}
+	return DIV64_U64_ROUND_UP(compl + inflight, dur);
 }
 
 void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id,
@@ -222,13 +212,14 @@ void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id,
 				       size);
 	}
 
+	ctx->sum_of_start -= tsk->t[tsk_send_cmd];
 	if (!req_mask)
 		ctx->q_depth = 0;
 	else
 		ctx->q_depth--;
-	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth);
-	mtk_btag_mictx_eval_cnt_signle_wqd(ufs_mtk_btag, tsk->t[tsk_send_cmd],
-						tsk->t[tsk_req_compl]);
+	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth, ctx->sum_of_start);
+	mtk_btag_mictx_accumulate_weight_qd(ufs_mtk_btag, tsk->t[tsk_send_cmd],
+					    tsk->t[tsk_req_compl]);
 
 	/* clear this task */
 	tsk->t[tsk_send_cmd] = tsk->t[tsk_req_compl] = 0;
@@ -395,7 +386,7 @@ static void ufs_mtk_bio_init_ctx(struct ufs_mtk_bio_context *ctx)
 
 static struct mtk_btag_vops ufs_mtk_btag_vops = {
 	.seq_show       = ufs_mtk_bio_seq_debug_show_info,
-	.mictx_eval_wqd = ufs_mtk_bio_mictx_eval_wqd,
+	.mictx_eval_qd = ufs_mtk_bio_mictx_eval_qd,
 };
 
 int ufs_mtk_biolog_init(bool qos_allowed, bool boot_device)

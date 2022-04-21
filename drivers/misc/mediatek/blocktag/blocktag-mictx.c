@@ -101,7 +101,7 @@ void mtk_btag_mictx_eval_req(
 		mtk_btag_earaio_update_pwd(write, size);
 }
 
-void mtk_btag_mictx_eval_cnt_signle_wqd(
+void mtk_btag_mictx_accumulate_weight_qd(
 	struct mtk_blocktag *btag, u64 t_begin, u64 t_cur)
 {
 	struct mtk_btag_mictx_struct *mictx, *n;
@@ -115,9 +115,8 @@ void mtk_btag_mictx_eval_cnt_signle_wqd(
 	spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
 }
 
-void mtk_btag_mictx_update(
-	struct mtk_blocktag *btag,
-	__u32 q_depth)
+void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth,
+			   __u64 sum_of_start)
 {
 	struct mtk_btag_mictx_struct *mictx, *n;
 	unsigned long flags;
@@ -125,6 +124,7 @@ void mtk_btag_mictx_update(
 
 	spin_lock_irqsave(&btag->mictx.list_lock, flags);
 	list_for_each_entry_safe(mictx, n, &btag->mictx.list, list) {
+		mictx->sum_of_start = sum_of_start;
 		mictx->q_depth = q_depth;
 
 		if (!mictx->q_depth) {
@@ -247,9 +247,9 @@ int mtk_btag_mictx_get_data(
 	iostat->top = top;
 
 	/* fill-in cmdq depth */
-	if (btag->vops->mictx_eval_wqd) {
-		btag->vops->mictx_eval_wqd(&tmp_mictx, time_cur);
-		iostat->q_depth = DIV64_U64_ROUND_UP(tmp_mictx.weighted_qd, dur);
+	if (btag->vops->mictx_eval_qd) {
+		iostat->q_depth =
+			btag->vops->mictx_eval_qd(&tmp_mictx, time_cur);
 	} else
 		iostat->q_depth = tmp_mictx.q_depth;
 

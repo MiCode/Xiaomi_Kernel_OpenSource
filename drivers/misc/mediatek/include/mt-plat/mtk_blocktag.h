@@ -122,6 +122,7 @@ struct mtk_btag_mictx_struct {
 	__u64 idle_begin;
 	__u64 idle_total;
 	__u64 weighted_qd;
+	__u64 sum_of_start;
 
 	__u16 q_depth;
 
@@ -205,8 +206,8 @@ struct mtk_btag_ringtrace {
 struct mtk_btag_vops {
 	size_t  (*seq_show)(char **buff, unsigned long *size,
 			    struct seq_file *seq);
-	void    (*mictx_eval_wqd)(struct mtk_btag_mictx_struct *mctx,
-				  u64 t_cur);
+	__u16   (*mictx_eval_qd)(struct mtk_btag_mictx_struct *mictx,
+				 u64 t_cur);
 	bool	boot_device;
 	bool	earaio_enabled;
 };
@@ -275,9 +276,10 @@ void mtk_btag_mictx_eval_tp(
 void mtk_btag_mictx_eval_req(
 	struct mtk_blocktag *btag,
 	unsigned int rw, __u32 cnt, __u32 size, bool top);
-void mtk_btag_mictx_eval_cnt_signle_wqd(
+void mtk_btag_mictx_accumulate_weight_qd(
 	struct mtk_blocktag *btag, u64 t_begin, u64 t_cur);
-void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth);
+void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth,
+			   __u64 sum_of_start);
 int mtk_btag_mictx_get_data(
 	struct mtk_btag_mictx_id mictx_id,
 	struct mtk_btag_mictx_iostat_struct *iostat);
