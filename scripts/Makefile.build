@@ -471,8 +471,7 @@ quiet_cmd_link_multi-m = LD [M]  $@
 endif
 
 $(multi-obj-m): FORCE
-	$(call if_changed_cmd_only,link_multi-m)
-	$(call if_changed_print_only,link_multi-m)
+	$(call if_changed,link_multi-m)
 $(call multi_depend, $(multi-obj-m), .o, -objs -y -m)
 
 targets += $(multi-obj-m)
