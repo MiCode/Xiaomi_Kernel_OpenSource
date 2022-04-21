@@ -127,6 +127,18 @@ extern int mtk_vdec_sw_mem_sec;
 #define DEBUG   1
 #define VCU_FPTR(x) (vcu_func.x)
 
+enum mtk_vcodec_debug_level {
+	VCODEC_DBG_L0 = 0,
+	VCODEC_DBG_L1 = 1,
+	VCODEC_DBG_L2 = 2,
+	VCODEC_DBG_L3 = 3,
+	VCODEC_DBG_L4 = 4,
+	VCODEC_DBG_L5 = 5,
+	VCODEC_DBG_L6 = 6,
+	VCODEC_DBG_L7 = 7,
+	VCODEC_DBG_L8 = 8,
+};
+
 #if defined(DEBUG)
 
 #define mtk_v4l2_debug(level, fmt, args...)                              \

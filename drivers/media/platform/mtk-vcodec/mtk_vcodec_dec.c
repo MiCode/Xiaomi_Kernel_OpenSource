@@ -1468,6 +1468,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	buf->dma_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
 	buf->size = (size_t)src_buf->planes[0].bytesused;
 	buf->length = (size_t)src_buf->planes[0].length;
+	buf->data_offset = (size_t)src_buf->planes[0].data_offset;
 	buf->dmabuf = src_buf->planes[0].dbuf;
 	buf->flags = src_vb2_v4l2->flags;
 	buf->index = src_buf->index;
@@ -2832,10 +2833,10 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 			mtkbuf->frame_buffer.dma_general_buf = 0;
 
 		mtk_v4l2_debug(4,
-			"general_buf fd=%d, dma_buf=%p, DMA=%lx",
+			"general_buf fd=%d, dma_buf=%p, DMA=%pad",
 			mtkbuf->general_user_fd,
 			mtkbuf->frame_buffer.dma_general_buf,
-			(unsigned long)mtkbuf->frame_buffer.dma_general_addr);
+			&mtkbuf->frame_buffer.dma_general_addr);
 
 		if (mtkbuf->meta_user_fd > 0) {
 			mtkbuf->frame_buffer.dma_meta_buf =
@@ -2845,10 +2846,10 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 		} else
 			mtkbuf->frame_buffer.dma_meta_buf = 0;
 		mtk_v4l2_debug(4,
-			"meta_buf fd=%d, dma_buf=%p, DMA=%lx",
+			"meta_buf fd=%d, dma_buf=%p, DMA=%pad",
 			mtkbuf->meta_user_fd,
 			mtkbuf->frame_buffer.dma_meta_buf,
-			(unsigned long)mtkbuf->frame_buffer.dma_meta_addr);
+			&mtkbuf->frame_buffer.dma_meta_addr);
 	}
 	if (vb->vb2_queue->memory == VB2_MEMORY_DMABUF &&
 		!(mtkbuf->flags & NO_CAHCE_CLEAN) &&
@@ -2865,9 +2866,9 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 			src_mem.size = (size_t)vb->planes[0].bytesused;
 
 			mtk_v4l2_debug(4,
-			   "[%d] Cache sync- TD for %lx sz=%d dev %p",
+			   "[%d] Cache sync- TD for %pad sz=%d dev %p",
 			   ctx->id,
-			   (unsigned long)src_mem.dma_addr,
+			   &src_mem.dma_addr,
 			   (unsigned int)src_mem.size,
 			   &ctx->dev->plat_dev->dev);
 		} else {
@@ -2886,9 +2887,9 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 				dst_mem.fb_base[plane].size =
 					ctx->picinfo.fb_sz[plane];
 				mtk_v4l2_debug(4,
-				 "[%d] Cache sync- TD for %lx sz=%d dev %p",
+				 "[%d] Cache sync- TD for %pad sz=%d dev %p",
 				 ctx->id,
-				 (unsigned long)dst_mem.fb_base[plane].dma_addr,
+				 &dst_mem.fb_base[plane].dma_addr,
 				 (unsigned int)dst_mem.fb_base[plane].size,
 				 &ctx->dev->plat_dev->dev);
 			}
@@ -3029,16 +3030,18 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	src_mem->dma_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
 	src_mem->size = (size_t)src_buf->planes[0].bytesused;
 	src_mem->length = (size_t)src_buf->planes[0].length;
+	src_mem->data_offset = (size_t)src_buf->planes[0].data_offset;
 	src_mem->dmabuf = src_buf->planes[0].dbuf;
 	src_mem->flags = vb2_v4l2->flags;
 	src_mem->index = vb->index;
+	ctx->dec_params.timestamp = src_vb2_v4l2->vb2_buf.timestamp;
 
 	mtk_v4l2_debug(2,
-		"[%d] buf id=%d va=%p DMA=%lx size=%zx length=%zu dmabuf=%p",
+		"[%d] buf id=%d va=%p DMA=%lx size=%zx length=%zu dmabuf=%p pts %llu",
 		ctx->id, src_buf->index,
 		src_mem->va, (unsigned long)src_mem->dma_addr,
 		src_mem->size, src_mem->length,
-		src_mem->dmabuf);
+		src_mem->dmabuf, ctx->dec_params.timestamp);
 
 	if (src_mem->va != NULL) {
 		sprintf(debug_bs, "%02x %02x %02x %02x %02x %02x %02x %02x %02x",
@@ -3087,8 +3090,8 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			return;
 		}
 		src_buf = &src_vb2_v4l2->vb2_buf;
-		v4l2_m2m_buf_done(src_vb2_v4l2,
-						  VB2_BUF_STATE_DONE);
+		clean_free_bs_buffer(ctx, NULL);
+
 		mtk_v4l2_debug(((ret || mtk_vcodec_unsupport || need_seq_header) ? 0 : 1),
 			"[%d] vdec_if_decode() src_buf=%d, size=%zu, fail=%d, res_chg=%d, mtk_vcodec_unsupport=%d, need_seq_header=%d, BS %s",
 			ctx->id, src_buf->index,
@@ -3119,6 +3122,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	if (res_chg) {
 		mtk_v4l2_debug(3, "[%d] vdec_if_decode() res_chg: %d\n",
 					   ctx->id, res_chg);
+		clean_free_bs_buffer(ctx, src_mem);
 		mtk_vdec_queue_res_chg_event(ctx);
 
 		/* remove all framebuffer.
@@ -3226,19 +3230,19 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 		dma_buf_put(mtkbuf->frame_buffer.dma_general_buf);
 		mtkbuf->frame_buffer.dma_general_buf = 0;
 		mtk_v4l2_debug(4,
-		"dma_buf_put general_buf fd=%d, dma_buf=%p, DMA=%lx",
+		"dma_buf_put general_buf fd=%d, dma_buf=%p, DMA=%pad",
 		mtkbuf->general_user_fd,
 		mtkbuf->frame_buffer.dma_general_buf,
-		(unsigned long)mtkbuf->frame_buffer.dma_general_addr);
+		&mtkbuf->frame_buffer.dma_general_addr);
 	}
 	if (mtkbuf->frame_buffer.dma_meta_buf != 0) {
 		dma_buf_put(mtkbuf->frame_buffer.dma_meta_buf);
 		mtkbuf->frame_buffer.dma_meta_buf = 0;
 		mtk_v4l2_debug(4,
-		"dma_buf_put meta_buf fd=%d, dma_buf=%p, DMA=%lx",
+		"dma_buf_put meta_buf fd=%d, dma_buf=%p, DMA=%pad",
 		mtkbuf->meta_user_fd,
 		mtkbuf->frame_buffer.dma_meta_buf,
-		(unsigned long)mtkbuf->frame_buffer.dma_meta_addr);
+		&mtkbuf->frame_buffer.dma_meta_addr);
 	}
 
 	if (vb->vb2_queue->memory == VB2_MEMORY_DMABUF &&
@@ -3257,9 +3261,9 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 			dst_mem.fb_base[plane].size = ctx->picinfo.fb_sz[plane];
 
 			mtk_v4l2_debug(4,
-				"[%d] Cache sync- FD for %lx sz=%d dev %p pfb %p",
+				"[%d] Cache sync- FD for %pad sz=%d dev %p pfb %p",
 				ctx->id,
-				(unsigned long)dst_mem.fb_base[plane].dma_addr,
+				&dst_mem.fb_base[plane].dma_addr,
 				(unsigned int)dst_mem.fb_base[plane].size,
 				&ctx->dev->plat_dev->dev,
 				&buf->frame_buffer);
@@ -3492,6 +3496,8 @@ static void m2mops_vdec_job_abort(void *priv)
 
 	if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM)
 		vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, NULL);
+	else if (ctx->input_driven == INPUT_DRIVEN_CB_FRM)
+		wake_up(&ctx->fm_wq);
 
 	mtk_v4l2_debug(4, "[%d]", ctx->id);
 	ctx->state = MTK_STATE_ABORT;
