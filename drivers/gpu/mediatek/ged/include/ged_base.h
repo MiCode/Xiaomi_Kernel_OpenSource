@@ -14,7 +14,7 @@
 	#define GED_LOGD(fmt, args...) \
 		pr_info(GED_TAG"[DEBUG]@%s: "fmt"\n", __func__, ##args)
 #else
-	#define GED_LOGD(fmt, args...) {}
+	#define GED_LOGD(fmt, args...) do {} while (0)
 #endif /* GED_DEBUG_LOG */
 #define GED_LOGI(fmt, args...) pr_info(GED_TAG"[INFO]@%s: "fmt"\n", __func__, ##args)
 #define GED_LOGE(fmt, args...) pr_info(GED_TAG"[ERROR]@%s: "fmt"\n", __func__, ##args)

@@ -54,7 +54,7 @@ GED_ERROR ged_gpufreq_init(void)
 						sizeof(struct gpufreq_opp_info), GFP_KERNEL);
 
 	if (!g_working_table || !opp_table) {
-		GED_LOGE("%s: Failed to init opp table");
+		GED_LOGI("%s: Failed to init opp table");
 		return GED_ERROR_FAIL;
 	}
 
@@ -62,7 +62,7 @@ GED_ERROR ged_gpufreq_init(void)
 		*(g_working_table + i) = *(opp_table + i);
 
 	for (i = 0; i < g_working_oppnum; i++) {
-		GED_LOGI("[%02d*] Freq: %d, Volt: %d, Vsram: %d",
+		GED_LOGD("[%02d*] Freq: %d, Volt: %d, Vsram: %d",
 			i, g_working_table[i].freq, g_working_table[i].volt,
 			g_working_table[i].vsram);
 	}
@@ -79,12 +79,12 @@ GED_ERROR ged_gpufreq_init(void)
 		*(g_mask_table + i) = *(core_mask_table + i);
 
 	if (!core_mask_table || !g_mask_table) {
-		GED_LOGE("%s: Failed to init core mask table");
+		GED_LOGI("%s: Failed to init core mask table");
 		return GED_OK;
 	}
 
 	for (i = 0; i < g_avail_mask_num; i++) {
-		GED_LOGE("[%02d*] MC0%d : 0x%llX",
+		GED_LOGD("[%02d*] MC0%d : 0x%llX",
 			i, g_mask_table[i].num, g_mask_table[i].mask);
 	}
 
@@ -117,7 +117,7 @@ GED_ERROR ged_gpufreq_init(void)
 	}
 
 	for (i = 0; i < g_virtual_oppnum; i++) {
-		GED_LOGI("[%02d*] Freq: %d, Volt: %d, Vsram: %d",
+		GED_LOGD("[%02d*] Freq: %d, Volt: %d, Vsram: %d",
 			i, g_virtual_table[i].freq, g_virtual_table[i].volt,
 			g_virtual_table[i].vsram);
 	}
@@ -427,7 +427,7 @@ void ged_gpufreq_print_tables(void)
 		GED_LOGE("Failed to print core mask table");
 
 	for (i = 0; i < g_avail_mask_num; i++)
-		GED_LOGE("[%02d*] MC0%d : 0x%llX",
+		GED_LOGI("[%02d*] MC0%d : 0x%llX",
 				i, g_mask_table[i].num, g_mask_table[i].mask);
 
 	for (i = 0; i < g_virtual_oppnum; i++) {

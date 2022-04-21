@@ -24,7 +24,7 @@ ccflags-y += \
 
 # ccflags-y += -DMTK_CPUFREQ
 # ccflags-y += -DGED_KPI_DEBUG
-ccflags-y += -DGED_DEBUG_LOG
+# ccflags-y += -DGED_DEBUG_LOG
 ccflags-y += -DMTK_GPUFREQ_V2
 ccflags-y += -DMTK_GED_KPI
 ccflags-y += -DMET_USER_EVENT_SUPPORT -DMTK_GPU_DVFS
