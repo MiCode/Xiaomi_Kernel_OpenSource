@@ -2162,7 +2162,7 @@ static bool color_get_TDSHP0_REG(struct resource *res)
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_tdshp0");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp-tuning-mdp_tdshp0");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
@@ -2181,7 +2181,7 @@ static bool color_get_MML_TDSHP0_REG(struct resource *res)
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_tdshp");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_tdshp0");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
@@ -2278,7 +2278,7 @@ static bool color_get_MML_COLOR0_REG(struct resource *res)
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_color");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mml-tuning-mml_color0");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
@@ -2297,7 +2297,7 @@ static bool color_get_MDP_COLOR0_REG(struct resource *res)
 	int rc = 0;
 	struct device_node *node = NULL;
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp_color0");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mdp-tuning-mdp_color0");
 	rc = of_address_to_resource(node, 0, res);
 
 	// check if fail to get reg.
