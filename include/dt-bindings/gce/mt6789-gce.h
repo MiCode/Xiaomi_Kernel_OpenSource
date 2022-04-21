@@ -495,6 +495,12 @@
 #define CMDQ_SYNC_TOKEN_DISP_VA_START			692
 #define CMDQ_SYNC_TOKEN_DISP_VA_END			693
 
+/* histogram sw token */
+#define CMDQ_SYNC_TOKEN_HISTOGRAM_MDP_WAIT		694
+#define CMDQ_SYNC_TOKEN_HISTOGRAM_MDP_SET		695
+#define CMDQ_SYNC_TOKEN_HISTOGRAM_VENC_WAIT		696
+#define CMDQ_SYNC_TOKEN_HISTOGRAM_VENC_SET		697
+
 /* GPR access tokens (for HW register backup)
  * There are 15 32-bit GPR, 3 GPR form a set
  * (64-bit for address, 32-bit for value)
