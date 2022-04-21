@@ -73,6 +73,14 @@ static ssize_t cpufreq_debug_proc_write(struct file *file,
 	struct device *cpu_dev = get_cpu_device(cpu);
 	struct cpufreq_policy *policy;
 
+	if (!buf)
+		return -ENOMEM;
+
+	if (count > 255) {
+		free_page((unsigned long)buf);
+		return -EINVAL;
+	}
+
 	if (copy_from_user(buf, buffer, count)) {
 		free_page((unsigned long)buf);
 		return -EINVAL;
@@ -86,6 +94,8 @@ static ssize_t cpufreq_debug_proc_write(struct file *file,
 
 	free_page((unsigned long)buf);
 	if (min <= 0 || max <= 0)
+		return -EINVAL;
+	if (cpu > 7 || cpu < 0)
 		return -EINVAL;
 	MHz = max;
 	mHz = min;

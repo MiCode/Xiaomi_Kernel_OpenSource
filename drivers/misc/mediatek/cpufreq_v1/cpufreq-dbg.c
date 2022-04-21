@@ -300,8 +300,13 @@ static ssize_t cpufreq_debug_proc_write(struct file *file,
 	struct device *cpu_dev = get_cpu_device(cpu);
 	struct cpufreq_policy *policy;
 
-	if (count >= 1000)
+	if (!buf)
+		return -ENOMEM;
+
+	if (count > 255) {
+		free_page((unsigned long)buf);
 		return -EINVAL;
+	}
 
 	if (copy_from_user(buf, buffer, count)) {
 		free_page((unsigned long)buf);
@@ -315,6 +320,8 @@ static ssize_t cpufreq_debug_proc_write(struct file *file,
 
 	free_page((unsigned long)buf);
 	if (min <= 0 || max <= 0)
+		return -EINVAL;
+	if (cpu > 7 || cpu < 0)
 		return -EINVAL;
 	MHz = max;
 	mHz = min;
@@ -383,6 +390,14 @@ static ssize_t cpufreq_cci_mode_proc_write(struct file *file,
 	unsigned int mode;
 	unsigned int rc;
 	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count > 255) {
+		free_page((unsigned long)buf);
+		return -EINVAL;
+	}
 
 	if (copy_from_user(buf, buffer, count)) {
 		free_page((unsigned long)buf);
@@ -475,6 +490,14 @@ static ssize_t phyclk_proc_write(struct file *file,
 	int cluster = 0, freq = 0;
 	char *buf = (char *) __get_free_page(GFP_USER);
 
+	if (!buf)
+		return -ENOMEM;
+
+	if (count > 255) {
+		free_page((unsigned long)buf);
+		return -EINVAL;
+	}
+
 	if (copy_from_user(buf, buffer, count)) {
 		free_page((unsigned long)buf);
 		return -EINVAL;
@@ -518,6 +541,14 @@ static ssize_t phyvolt_proc_write(struct file *file,
 {
 	int cluster = 0, volt = 0;
 	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count > 255) {
+		free_page((unsigned long)buf);
+		return -EINVAL;
+	}
 
 	if (copy_from_user(buf, buffer, count)) {
 		free_page((unsigned long)buf);
