@@ -6,6 +6,8 @@
 #ifndef __MTK_CAM_PLAT_UTIL_H
 #define __MTK_CAM_PLAT_UTIL_H
 
+#include "mtk_cam-raw.h"
+
 #define PDAF_READY 1
 
 enum MMQOS_PORT {
@@ -58,6 +60,7 @@ struct camsys_plat_fp {
 	plat_camsys_dump_raw_hw_debug_info dump_raw_hw_debug_info;
 };
 
+#ifdef REMOVE_LATER
 void mtk_cam_set_plat_util(struct camsys_plat_fp *plat_fp);
 
 int mtk_cam_get_meta_version(bool major);
@@ -83,5 +86,62 @@ uint64_t *mtk_cam_get_timestamp_addr(void *vaddr);
 bool mtk_cam_support_AFO_independent(unsigned long fps);
 
 bool mtk_cam_dump_raw_hw_debug_info(u32 raw_id);
+#else
+static inline
+void mtk_cam_set_plat_util(struct camsys_plat_fp *plat_fp) {}
+
+static inline
+int mtk_cam_get_meta_version(bool major) { return 0; }
+
+static inline
+int mtk_cam_get_meta_size(u32 video_id) { return 0; }
+
+static inline
+const struct mtk_cam_format_desc *mtk_cam_get_meta_fmts(void)
+{
+	static const struct mtk_cam_format_desc meta_fmts[] = {
+		{
+			.vfmt.fmt.meta = {
+				.dataformat = V4L2_META_FMT_MTISP_PARAMS,
+				.buffersize = 100000,
+			},
+		},
+		{
+			.vfmt.fmt.meta = {
+				.dataformat = V4L2_META_FMT_MTISP_AF,
+				.buffersize = 400000,
+			},
+		},
+	};
+	return meta_fmts;
+}
+
+static inline
+void mtk_cam_set_meta_stats_info(
+		u32 dma_port, void *vaddr,
+		struct mtk_raw_pde_config *pde_cfg)
+{}
+
+static inline
+void mtk_cam_set_sv_meta_stats_info(
+		u32 dma_port, void *vaddr, unsigned int width,
+		unsigned int height, unsigned int stride)
+{}
+
+static inline
+int mtk_cam_get_port_bw(
+		enum MMQOS_PORT port,
+		unsigned long height, unsigned long fps)
+{ return 0; }
+
+static inline
+uint64_t *mtk_cam_get_timestamp_addr(void *vaddr) { return NULL; }
+
+static inline
+bool mtk_cam_support_AFO_independent(unsigned long fps) { return true; }
+
+static inline
+bool mtk_cam_dump_raw_hw_debug_info(u32 raw_id) { return false; }
+#endif
 
 #endif /*__MTK_CAM_PLAT_UTIL_H*/

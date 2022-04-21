@@ -219,9 +219,6 @@ unsigned int mtk_cam_get_pixel_bits(unsigned int pix_fmt);
 
 unsigned int mtk_cam_get_img_fmt(unsigned int fourcc);
 
-void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr,
-				 struct mtk_raw_pde_config *pde_cfg);
-
 int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, int feature);
 
 int is_mtk_format(u32 pixelformat);

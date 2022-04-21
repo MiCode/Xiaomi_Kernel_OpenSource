@@ -32,6 +32,7 @@
 #include <trace/hooks/v4l2mc.h>
 
 #include "mtk_cam.h"
+#include "mtk_cam-plat.h"
 #include "mtk_cam-ctrl.h"
 #include "mtk_cam-feature.h"
 #include "mtk_cam_pm.h"
@@ -75,7 +76,8 @@ MODULE_PARM_DESC(debug_ae, "activates debug ae info");
 	0, sizeof(*(p)) - offsetof(typeof(*(p)), field) -sizeof((p)->field))
 
 static const struct of_device_id mtk_cam_of_ids[] = {
-	{.compatible = "mediatek,camisp",},
+	{.compatible = "mediatek,mt6985-camisp", .data = &mt6985_data},
+	{.compatible = "mediatek,mt6886-camisp", .data = NULL},
 	{}
 };
 static int debug_preisp_off_data;
@@ -8406,8 +8408,16 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 	unsigned int i;
+	const struct camsys_platform_data *platform_data;
 
 	//dev_info(dev, "%s\n", __func__);
+	platform_data = of_device_get_match_data(dev);
+	if (!platform_data) {
+		dev_info(dev, "Error: failed to get match data\n");
+		return -ENODEV;
+	}
+	set_platform_data(platform_data);
+	dev_info(dev, "platform = %s\n", platform_data->platform);
 
 	/* initialize structure */
 	cam_dev = devm_kzalloc(dev, sizeof(*cam_dev), GFP_KERNEL);
