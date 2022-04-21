@@ -87,6 +87,13 @@ struct cmdq_record {
 	u32 exec_end;	/* task execute time in hardware thread */
 };
 
+struct cmdq_hw_trace {
+	bool enable;
+	struct cmdq_client *clt;
+	struct cmdq_pkt *pkt;
+	struct cmdq_pkt_buffer *buf;
+};
+
 struct cmdq_util {
 	struct cmdq_util_error	err;
 	struct cmdq_util_dentry	fs;
@@ -98,6 +105,7 @@ struct cmdq_util {
 	u32 mbox_sec_cnt;
 	const char *first_err_mod[CMDQ_HW_MAX];
 	struct cmdq_client *prebuilt_clt[CMDQ_HW_MAX];
+	struct cmdq_hw_trace hw_trace[CMDQ_HW_MAX];
 };
 static struct cmdq_util	util;
 
@@ -504,6 +512,156 @@ void cmdq_util_prebuilt_dump(const u16 hwid, const u16 event)
 		0, 0, 0, 0, &res);
 }
 EXPORT_SYMBOL(cmdq_util_prebuilt_dump);
+
+void cmdq_util_prebuilt_dump_cpr(const u16 hwid, const u16 cpr, const u16 cnt)
+{
+	struct cmdq_client *clt = util.prebuilt_clt[hwid];
+	struct cmdq_pkt *pkt;
+	dma_addr_t pa;
+	void *va;
+	u32 val[8];
+	s32 i, j;
+
+	if (cnt * sizeof(u32) > CMDQ_BUF_ALLOC_SIZE) {
+		cmdq_msg("%s: hwid:%hu cpr:%#hx cnt:%hu too much",
+			__func__, hwid, cpr, cnt);
+		return;
+	}
+
+	va = cmdq_mbox_buf_alloc(clt, &pa);
+	memset(va, 0, CMDQ_BUF_ALLOC_SIZE);
+
+	pkt = cmdq_pkt_create(clt);
+	for (i = 0; i < cnt; i++)
+		cmdq_pkt_write_indriect(
+			pkt, NULL, pa + i * 4, cpr + i, UINT_MAX);
+	cmdq_pkt_flush(pkt);
+	cmdq_pkt_destroy(pkt);
+
+	cmdq_msg("%s: hwid:%hu cpr:%#x cnt:%hu", __func__, hwid, cpr, cnt);
+	for (i = 0; i < cnt; i += 8) {
+		for (j = 0; j < 8; j++)
+			val[j] = readl(va + (i + j) * 4);
+		cmdq_msg(
+			"%s: cpr:%#x val:%#10x %#10x %#10x %#10x %#10x %#10x %#10x %#10x",
+			__func__, cpr + i, val[0], val[1], val[2], val[3],
+			val[4], val[5], val[6], val[7]);
+	}
+	cmdq_mbox_buf_free(clt, va, pa);
+}
+EXPORT_SYMBOL(cmdq_util_prebuilt_dump_cpr);
+
+void cmdq_util_hw_trace_set_client(const u16 hwid, struct cmdq_client *client)
+{
+	if (hwid >= CMDQ_HW_MAX)
+		cmdq_err("invalid hwid:%u", hwid);
+	else
+		util.hw_trace[hwid].clt = client;
+	cmdq_msg("hwid:%u client:%p", hwid, client);
+}
+EXPORT_SYMBOL(cmdq_util_hw_trace_set_client);
+
+static void cmdq_util_hw_trace_cb(struct cmdq_cb_data data)
+{
+}
+
+void cmdq_util_hw_trace_enable(const u16 hwid, const bool dram)
+{
+	struct cmdq_hw_trace *trace;
+
+	if (hwid > util.mbox_cnt)
+		return;
+
+	trace = &util.hw_trace[hwid];
+
+	if (unlikely(trace->enable)) {
+		cmdq_msg("%s: hwid:%hu enable:%d already",
+			__func__, hwid, trace->enable);
+		return;
+	}
+	trace->enable = true;
+
+	if (unlikely(!trace->clt))
+		cmdq_mbox_set_hw_id(util.cmdq_mbox[hwid]);
+
+	if (unlikely(!trace->buf)) {
+		trace->buf = kzalloc(sizeof(*trace->buf), GFP_KERNEL);
+		trace->buf->va_base =
+			cmdq_mbox_buf_alloc(trace->clt, &trace->buf->pa_base);
+	}
+	memset(trace->buf->va_base, 0, CMDQ_BUF_ALLOC_SIZE);
+
+	if (unlikely(!trace->pkt)) {
+		struct cmdq_operand lop, rop;
+		s32 i;
+
+		trace->pkt = cmdq_pkt_create(trace->clt);
+
+		lop.reg = true;
+		lop.idx = CMDQ_CPR_HW_TRACE_TEMP;
+		rop.reg = false;
+		rop.value = 0;
+
+		for (i = 0; i < CMDQ_CPR_HW_TRACE_SIZE; i++) {
+			cmdq_pkt_wfe(trace->pkt, CMDQ_TOKEN_HW_TRACE_WAIT);
+			// SRAM
+			cmdq_pkt_logic_command(trace->pkt, CMDQ_LOGIC_ADD,
+				CMDQ_CPR_HW_TRACE_START + i, &lop, &rop);
+			if (dram)
+				cmdq_pkt_write_indriect(trace->pkt, NULL,
+					trace->buf->pa_base + i * 4,
+					CMDQ_CPR_HW_TRACE_TEMP, UINT_MAX);
+		}
+	}
+
+	cmdq_pkt_refinalize(trace->pkt);
+	cmdq_pkt_finalize_loop(trace->pkt);
+	cmdq_pkt_flush_threaded(
+		trace->pkt, cmdq_util_hw_trace_cb, (void *)trace->pkt);
+}
+EXPORT_SYMBOL(cmdq_util_hw_trace_enable);
+
+void cmdq_util_hw_trace_disable(const u16 hwid)
+{
+	struct cmdq_hw_trace *trace;
+
+	if (hwid > util.mbox_cnt)
+		return;
+
+	trace = &util.hw_trace[hwid];
+	if (trace->enable && trace->clt) {
+		trace->enable = false;
+		cmdq_mbox_stop(trace->clt);
+	}
+}
+EXPORT_SYMBOL(cmdq_util_hw_trace_disable);
+
+void cmdq_util_hw_trace_dump(const u16 hwid, const bool dram)
+{
+	struct cmdq_hw_trace *trace;
+	u32 val[8];
+	s32 i, j;
+
+	if (hwid > util.mbox_cnt)
+		return;
+
+	trace = &util.hw_trace[hwid];
+	cmdq_dump_summary(trace->clt, trace->pkt);
+
+	// SRAM
+	cmdq_util_prebuilt_dump_cpr(
+		hwid, CMDQ_CPR_HW_TRACE_START, CMDQ_CPR_HW_TRACE_SIZE);
+	// DRAM
+	for (i = 0; dram && i < CMDQ_CPR_HW_TRACE_SIZE; i += 8) {
+		for (j = 0; j < 8; j++)
+			val[j] = readl(trace->buf->va_base + (i + j) * 4);
+		cmdq_msg(
+			"%s: i:%d val:%#10x %#10x %#10x %#10x %#10x %#10x %#10x %#10x",
+			__func__, i, val[0], val[1], val[2], val[3],
+			val[4], val[5], val[6], val[7]);
+	}
+}
+EXPORT_SYMBOL(cmdq_util_hw_trace_dump);
 
 void cmdq_util_mminfra_cmd(const u8 type)
 {

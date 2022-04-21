@@ -208,6 +208,7 @@ struct cmdq {
 	bool			outpin_en;
 	bool			prebuilt_enable;
 	struct cmdq_client	*prebuilt_clt;
+	struct cmdq_client	*hw_trace_clt;
 };
 
 struct gce_plat {
@@ -2294,6 +2295,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq_util_controller->track_ctrl(cmdq, cmdq->base_pa, false);
 #endif
 	cmdq->prebuilt_clt = cmdq_mbox_create(&pdev->dev, 0);
+	cmdq->hw_trace_clt = cmdq_mbox_create(&pdev->dev, 1);
 
 	if (!of_parse_phandle_with_args(
 		dev->of_node, "iommus", "#iommu-cells", 0, &args)) {
@@ -2606,6 +2608,7 @@ s32 cmdq_mbox_set_hw_id(void *cmdq_mbox)
 		return -EINVAL;
 	cmdq->hwid = (u8)cmdq_util_get_hw_id(cmdq->base_pa);
 	cmdq_util_prebuilt_set_client(cmdq->hwid, cmdq->prebuilt_clt);
+	cmdq_util_hw_trace_set_client(cmdq->hwid, cmdq->hw_trace_clt);
 	return 0;
 }
 
