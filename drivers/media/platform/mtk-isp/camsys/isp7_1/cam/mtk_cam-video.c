@@ -144,7 +144,7 @@ static int mtk_cam_vb2_buf_init(struct vb2_buffer *vb)
 	struct device *dev = vb->vb2_queue->dev;
 	struct mtk_cam_buffer *buf;
 	dma_addr_t addr;
-
+	unsigned int dma_port;
 	buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 	buf->daddr = vb2_dma_contig_plane_dma_addr(vb, 0);
 	buf->scp_addr = 0;
@@ -152,6 +152,16 @@ static int mtk_cam_vb2_buf_init(struct vb2_buffer *vb)
 	/* SCP address is only valid for meta input buffer */
 	if (!node->desc.smem_alloc)
 		return 0;
+	/* debug log use */
+	dma_port = node->desc.dma_port;
+	switch (dma_port) {
+	case MTKCAM_IPI_MRAW_META_STATS_CFG:
+	case MTKCAM_IPI_MRAW_META_STATS_0:
+		dev_info(dev, "buf_length %d", vb->planes[0].length);
+		break;
+	default:
+		break;
+	}
 
 	buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 	/* Use coherent address to get iova address */
