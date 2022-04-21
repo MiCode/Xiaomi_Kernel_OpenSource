@@ -543,7 +543,20 @@ static int flashlight_update_charger_status(struct flashlight_dev *fdev)
 /******************************************************************************
  * Power throttling
  *****************************************************************************/
+#ifdef CONFIG_MTK_FLASHLIGHT_DLPT
+void flashlight_kicker_pbm(bool status)
+{
+	kicker_pbm_by_flash(status);
+}
+EXPORT_SYMBOL(flashlight_kicker_pbm);
+#endif
 #ifdef CONFIG_MTK_FLASHLIGHT_PT
+int flashlight_pt_is_low(void)
+{
+	return pt_is_low(pt_low_vol, pt_low_bat, pt_over_cur);
+}
+EXPORT_SYMBOL(flashlight_pt_is_low);
+
 static int pt_arg_verify(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 {
 	if (pt_low_vol < LOW_BATTERY_LEVEL_0 ||
@@ -583,33 +596,26 @@ static int pt_is_low(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 static int pt_trigger(void)
 {
 	struct flashlight_dev *fdev;
-	int is_flash_enable = 0;
 
 	mutex_lock(&fl_mutex);
 	list_for_each_entry(fdev, &flashlight_list, node) {
-		if (fdev->enable)
-			is_flash_enable = 1;
-	}
-	if (is_flash_enable) {
-		list_for_each_entry(fdev, &flashlight_list, node) {
-			if (!fdev->ops)
-				continue;
+		if (!fdev->ops)
+			continue;
 
-			fdev->ops->flashlight_open();
-			fdev->ops->flashlight_set_driver(1);
-			if (pt_strict) {
-				pr_info("PT trigger(%d,%d,%d) disable flashlight\n",
-					pt_low_vol, pt_low_bat, pt_over_cur);
-				fl_enable(fdev, 0);
-			} else {
-				pr_info("PT trigger(%d,%d,%d) decrease duty: %d\n",
-					pt_low_vol, pt_low_bat,
-					pt_over_cur, fdev->low_pt_level);
-				fl_set_level(fdev, fdev->low_pt_level);
-			}
-			fdev->ops->flashlight_set_driver(0);
-			fdev->ops->flashlight_release();
+		fdev->ops->flashlight_open();
+		fdev->ops->flashlight_set_driver(1);
+		if (pt_strict) {
+			pr_info_ratelimited("PT trigger(%d,%d,%d) disable flashlight\n",
+				pt_low_vol, pt_low_bat, pt_over_cur);
+			fl_enable(fdev, 0);
+		} else {
+			pr_info_ratelimited("PT trigger(%d,%d,%d) decrease duty: %d\n",
+				pt_low_vol, pt_low_bat,
+				pt_over_cur, fdev->low_pt_level);
+			fl_set_level(fdev, fdev->low_pt_level);
 		}
+		fdev->ops->flashlight_set_driver(0);
+		fdev->ops->flashlight_release();
 	}
 	mutex_unlock(&fl_mutex);
 
@@ -903,7 +909,6 @@ static int flashlight_release(struct inode *inode, struct file *file)
 
 		pr_debug("Release(%d,%d,%d)\n", fdev->dev_id.type,
 				fdev->dev_id.ct, fdev->dev_id.part);
-		fl_enable(fdev, 0);
 		fdev->ops->flashlight_release();
 	}
 	mutex_unlock(&fl_mutex);
@@ -1469,7 +1474,7 @@ static ssize_t flashlight_sw_disable_show(
 	char status_tmp[FLASHLIGHT_SW_DISABLE_STATUS_TMPBUF_SIZE];
 	int ret;
 
-	pr_debug("Charger status show\n");
+	pr_debug("Sw disable status show\n");
 
 	memset(status, '\0', FLASHLIGHT_SW_DISABLE_STATUS_BUF_SIZE);
 
