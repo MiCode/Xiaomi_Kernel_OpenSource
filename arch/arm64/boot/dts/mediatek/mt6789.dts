@@ -6625,7 +6625,7 @@
 				 "cpu_L_opp,cpu_B_opp,cci_volt,cci_freq,cci_opp";
 
 				 node_31 = "SSPM_SWPM_CPU__LKG_POWER",
-				 "cpu_L,cpu_B,dsu";
+				 "cpu0,cpu1,cpu2,cpu3,cpu4,cpu5,cpu6,cpu7,dsu";
 
 				 node_32 = "SSPM_SWPM_CPU__POWER",
 				 "cpu_L,cpu_B,dsu,mcusys";
