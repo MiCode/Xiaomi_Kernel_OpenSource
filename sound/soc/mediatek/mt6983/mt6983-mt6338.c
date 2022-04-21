@@ -174,6 +174,8 @@ static const struct snd_soc_dapm_route mt6983_mt6338_routes[] = {
 	{EXT_SPK_AMP_W_NAME, NULL, "Headphone R Ext Spk Amp"},
 };
 
+static const struct snd_soc_dapm_route mt6983_mt6338_routes_dummy[] = {};
+
 static const struct snd_kcontrol_new mt6983_mt6338_controls[] = {
 	SOC_DAPM_PIN_SWITCH(EXT_SPK_AMP_W_NAME),
 	SOC_ENUM_EXT("MTK_SPK_TYPE_GET", mt6983_spk_type_enum[0],
@@ -398,6 +400,11 @@ static int mt6983_mt6338_init(struct snd_soc_pcm_runtime *rtd)
 		snd_soc_rtdcom_lookup(rtd, CODEC_MT6338_NAME);
 	struct snd_soc_dapm_context *dapm = &rtd->card->dapm;
 	struct mt6338_codec_ops ops;
+
+	if (!mt6338_probe_done) {
+		dev_info(afe->dev, "%s(), mt6338_probe_done == false, gonna return 0\n", __func__);
+		return 0;
+	}
 
 	/* set dc component callback function for codec */
 	ops.enable_dc_compensation = mt6983_enable_dc_compensation;
@@ -1593,6 +1600,37 @@ static struct snd_soc_card mt6983_mt6338_soc_card = {
 	.num_dapm_routes = ARRAY_SIZE(mt6983_mt6338_routes),
 };
 
+static int mt6983_mt6338_bypass_primary_codec(struct platform_device *pdev)
+{
+	struct snd_soc_card *card = &mt6983_mt6338_soc_card;
+	int i;
+	struct snd_soc_dai_link *dai_link;
+
+	dev_info(&pdev->dev, "%s() successfully start\n", __func__);
+
+	for_each_card_prelinks(card, i, dai_link) {
+		if (strcmp(dai_link->name, "Primary Codec") == 0) {
+			dai_link->codecs->name = "snd-soc-dummy";
+			dai_link->codecs->dai_name = "snd-soc-dummy-dai";
+			dai_link->init = NULL;
+			dev_info(&pdev->dev, "%s() Primary Codec modified\n", __func__);
+		} else if (strcmp(dai_link->name, "Primary Codec CH34") == 0) {
+			dai_link->codecs->name = "snd-soc-dummy";
+			dai_link->codecs->dai_name = "snd-soc-dummy-dai";
+			dev_info(&pdev->dev, "%s() Primary Codec CH34 modified\n", __func__);
+		} else if (strcmp(dai_link->name, "VOW_Capture") == 0) {
+			dai_link->codecs->name = "snd-soc-dummy";
+			dai_link->codecs->dai_name = "snd-soc-dummy-dai";
+			dev_info(&pdev->dev, "%s() VOW_Capture modified\n", __func__);
+		}
+	}
+
+	card->dapm_routes = mt6983_mt6338_routes_dummy;
+	card->num_dapm_routes = ARRAY_SIZE(mt6983_mt6338_routes_dummy);
+
+	return 0;
+}
+
 static int mt6983_mt6338_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6983_mt6338_soc_card;
@@ -1649,6 +1687,10 @@ static int mt6983_mt6338_dev_probe(struct platform_device *pdev)
 			}
 		}
 	}
+
+	/* codec probe fail, bypass codec driver */
+	if (!mt6338_probe_done)
+		mt6983_mt6338_bypass_primary_codec(pdev);
 
 	card->dev = &pdev->dev;
 
