@@ -201,5 +201,9 @@
 	};
 };
 
+&pdc {
+	pd_vbus_upper_bound = <12000000>;
+};
+
 #include <k6789v1_64/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/
