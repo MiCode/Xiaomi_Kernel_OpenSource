@@ -796,6 +796,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	struct cmdq_pkt *cmdq_handle;
 	struct mtk_ddp_comp *comp = mtk_ddp_comp_request_output(mtk_crtc);
 	struct mtk_cmdq_cb_data *cb_data;
+	struct cmdq_client *client;
 	static unsigned int bl_cnt;
 	bool is_frame_mode;
 	int index = drm_crtc_index(crtc);
@@ -845,8 +846,10 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		cmdq_handle = sb_cmdq_handle;
 		sb_cmdq_handle = NULL;
 	} else {
-		cmdq_handle =
-			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+		/* setbacklight would use VM CMD in  DSI VDO mode only */
+		client = (is_frame_mode) ? mtk_crtc->gce_obj.client[CLIENT_CFG] :
+						mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
+		cmdq_handle = cmdq_pkt_create(client);
 	}
 
 	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))

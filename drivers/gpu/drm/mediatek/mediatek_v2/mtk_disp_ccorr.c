@@ -442,29 +442,27 @@ void disp_ccorr_on_end_of_frame(struct mtk_ddp_comp *comp)
 	unsigned long flags;
 	int index = index_of_ccorr(comp->id);
 
-	if (spin_trylock_irqsave(&g_ccorr_clock_lock, flags)) {
-		if (atomic_read(&g_ccorr_is_clock_on[index]) != 1) {
-			DDPINFO("%s: clock is off. enabled:%d\n", __func__, 0);
+	spin_lock_irqsave(&g_ccorr_clock_lock, flags);
 
-			spin_unlock_irqrestore(&g_ccorr_clock_lock, flags);
-			return;
-		}
-		intsta = readl(comp->regs + DISP_REG_CCORR_INTSTA);
+	if (atomic_read(&g_ccorr_is_clock_on[index]) != 1) {
+		DDPINFO("%s: clock is off. enabled:%d\n", __func__, 0);
 
-		if (intsta & 0x2) {	/* End of frame */
-			// Clear irq
-			writel(intsta & ~0x3, comp->regs
-				+ DISP_REG_CCORR_INTSTA);
-
-			if (index == 0) {
-				atomic_set(&g_ccorr_get_irq, 1);
-				wake_up_interruptible(&g_ccorr_get_irq_wq);
-			}
-		}
 		spin_unlock_irqrestore(&g_ccorr_clock_lock, flags);
-	} else {
-		DDPINFO("%s: [IRQ] Failed to spin_trylock_irqsave --", __func__);
+		return;
 	}
+	intsta = readl(comp->regs + DISP_REG_CCORR_INTSTA);
+
+	if (intsta & 0x2) {	/* End of frame */
+		// Clear irq
+		writel(intsta & ~0x3, comp->regs
+			+ DISP_REG_CCORR_INTSTA);
+
+		if (index == 0) {
+			atomic_set(&g_ccorr_get_irq, 1);
+			wake_up_interruptible(&g_ccorr_get_irq_wq);
+		}
+	}
+	spin_unlock_irqrestore(&g_ccorr_clock_lock, flags);
 }
 
 static void disp_ccorr_set_interrupt(struct mtk_ddp_comp *comp,

@@ -174,6 +174,7 @@ struct mtk_aal_feature_option {
 static struct mtk_disp_aal *g_aal_data;
 static struct mtk_disp_aal *g_aal1_data;
 static struct mtk_aal_feature_option *g_aal_fo;
+static DEFINE_MUTEX(g_aal_sram_lock);
 
 static inline struct mtk_disp_aal *comp_to_aal(struct mtk_ddp_comp *comp)
 {
@@ -426,15 +427,14 @@ void disp_aal_refresh_by_kernel(void)
 		spin_lock_irqsave(&g_aal_irq_en_lock, flags);
 		atomic_set(&g_aal_force_enable_irq, 1);
 
-		if (spin_trylock_irqsave(&g_aal_clock_lock, clockflags)) {
-			if (atomic_read(&g_aal_data->is_clock_on) != 1)
-				AALFLOW_LOG("aal clock is off\n");
-			else if (isDualPQ && atomic_read(&g_aal1_data->is_clock_on) != 1)
-				AALFLOW_LOG("aal1 clock is off\n");
-			else
-				disp_aal_set_interrupt(NULL, true);
-			spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
-		}
+		spin_lock_irqsave(&g_aal_clock_lock, clockflags);
+		if (atomic_read(&g_aal_data->is_clock_on) != 1)
+			AALFLOW_LOG("aal clock is off\n");
+		else if (isDualPQ && atomic_read(&g_aal1_data->is_clock_on) != 1)
+			AALFLOW_LOG("aal1 clock is off\n");
+		else
+			disp_aal_set_interrupt(NULL, true);
+		spin_unlock_irqrestore(&g_aal_clock_lock, clockflags);
 
 		spin_unlock_irqrestore(&g_aal_irq_en_lock, flags);
 		/* Backlight or Kernel API latency should be smallest */
@@ -555,8 +555,20 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	int ret = 0;
 	unsigned long flags;
 	int *enabled = (int *)data;
+	int retry = 5;
 
 	AALFLOW_LOG("%d\n", *enabled);
+
+	if (*enabled) {
+		mtk_drm_idlemgr_kick(__func__,
+				&default_comp->mtk_crtc->base, 1);
+		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+
+		while ((atomic_read(&aal_data->is_clock_on) != 1) && (retry != 0)) {
+			usleep_range(500, 1000);
+			retry--;
+		}
+	}
 
 	spin_lock_irqsave(&g_aal_irq_en_lock, flags);
 	if (atomic_read(&g_aal_force_enable_irq) == 1) {
@@ -584,11 +596,12 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
  *		}
  *	}
  */
-	if (*enabled) {
-		mtk_drm_idlemgr_kick(__func__,
-			&default_comp->mtk_crtc->base, 1);
-		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
-	}
+/*	if (*enabled) {
+ *		mtk_drm_idlemgr_kick(__func__,
+ *			&default_comp->mtk_crtc->base, 1);
+ *		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+ *	}
+ */
 
 	return ret;
 }
@@ -1507,7 +1520,9 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	if (backlight_value == 0)
 		g_aal_param.cabc_fltgain_force = 0;
 
+	mutex_lock(&g_aal_sram_lock);
 	ret = mtk_crtc_user_cmd(crtc, comp, SET_PARAM, data);
+	mutex_unlock(&g_aal_sram_lock);
 
 	atomic_set(&g_aal_allowPartial, g_aal_param.allowPartial);
 
@@ -2416,6 +2431,7 @@ static void mtk_aal_prepare(struct mtk_ddp_comp *comp)
 		atomic_set(&g_aal1_data->is_clock_on, 1);
 		atomic_set(&g_aal1_first_frame, 1);
 	}
+
 	AALFLOW_LOG("[aal_data, g_aal_data] addr[%x, %x] val[%d, %d]\n",
 			&aal_data->is_clock_on, &g_aal_data->is_clock_on,
 			atomic_read(&aal_data->is_clock_on),
@@ -2581,6 +2597,8 @@ static void disp_aal_wait_sof_irq(void)
 	unsigned long flags;
 	struct mtk_disp_aal *aal_data;
 	int ret = 0;
+	int aal_lock = 0;
+	int retry = 5;
 
 	if (atomic_read(&g_aal_sof_irq_available) == 0) {
 		AALFLOW_LOG("wait_event_interruptible\n");
@@ -2597,6 +2615,7 @@ static void disp_aal_wait_sof_irq(void)
 	aal_data = comp_to_aal(default_comp);
 	AALIRQ_LOG("[SRAM] g_aal_dre_config(%d) in SOF",
 			atomic_read(&g_aal_dre_config));
+	mutex_lock(&g_aal_sram_lock);
 	spin_lock_irqsave(&g_aal_clock_lock, flags);
 	if (atomic_read(&aal_data->is_clock_on) != 1)
 		AALIRQ_LOG("clock is off\n");
@@ -2604,6 +2623,8 @@ static void disp_aal_wait_sof_irq(void)
 		disp_aal_update_dre3_sram(default_comp, true);
 	spin_unlock_irqrestore(&g_aal_clock_lock,
 			flags);
+	if (!isDualPQ)
+		mutex_unlock(&g_aal_sram_lock);
 	CRTC_MMP_MARK(0, aal_sof_thread, 0, 1);
 
 	if (isDualPQ) {
@@ -2611,7 +2632,14 @@ static void disp_aal_wait_sof_irq(void)
 
 		AALIRQ_LOG("[SRAM] g_aal1_dre_config(%d) in SOF",
 			atomic_read(&g_aal1_dre_config));
-		if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
+		while ((!aal_lock) && (retry != 0)) {
+			aal_lock = spin_trylock_irqsave(&g_aal_clock_lock, flags);
+			if (!aal_lock) {
+				usleep_range(500, 1000);
+				retry--;
+			}
+		}
+		if (aal_lock) {
 			if (atomic_read(&aal1_data->is_clock_on) != 1)
 				AALIRQ_LOG("aal1 clock is off\n");
 			else
@@ -2620,6 +2648,7 @@ static void disp_aal_wait_sof_irq(void)
 			spin_unlock_irqrestore(&g_aal_clock_lock,
 				flags);
 		}
+		mutex_unlock(&g_aal_sram_lock);
 		CRTC_MMP_MARK(0, aal_sof_thread, 0, 2);
 
 		if (atomic_read(&g_aal_first_frame) == 1 &&
@@ -2719,15 +2748,15 @@ static irqreturn_t mtk_disp_aal_irq_handler(int irq, void *dev_id)
 	else if (comp->id == DDP_COMPONENT_AAL1)
 		DRM_MMP_MARK(aal1, val, 0);
 
-	if (spin_trylock_irqsave(&g_aal_clock_lock, flags)) {
-		if (atomic_read(&aal_data->is_clock_on) != 1)
-			AALIRQ_LOG("clock is off\n");
-		else {
-			disp_aal_on_end_of_frame(comp);
-			ret = IRQ_HANDLED;
-		}
-		spin_unlock_irqrestore(&g_aal_clock_lock, flags);
+	spin_lock_irqsave(&g_aal_clock_lock, flags);
+	if (atomic_read(&aal_data->is_clock_on) != 1)
+		AALIRQ_LOG("clock is off\n");
+	else {
+		disp_aal_on_end_of_frame(comp);
+		ret = IRQ_HANDLED;
 	}
+	spin_unlock_irqrestore(&g_aal_clock_lock, flags);
+
 	if (comp->id == DDP_COMPONENT_AAL0)
 		DRM_MMP_MARK(aal0, val, 1);
 	else if (comp->id == DDP_COMPONENT_AAL1)
