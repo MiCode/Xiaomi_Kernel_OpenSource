@@ -128,6 +128,9 @@ struct dcxo_hw mt6366_dcxo = {
 	SET_REG(bblpm_auxout, MT6366_XO_STATIC_AUXOUT_ADDR, 0x1, 5)
 	MT6366_SET_REG_BY_NAME(swbblpm_en, XO_BB_LPM_EN_M)
 	MT6366_SET_REG_BY_NAME(hwbblpm_sel, XO_BB_LPM_EN_SEL)
+	MT6366_SET_REG_BY_NAME(xo_cdac_fpm, XO_CDAC_FPM)
+	MT6366_SET_REG_BY_NAME(xo_aac_fpm_swen, XO_AAC_FPM_SWEN)
+	MT6366_SET_REG_BY_NAME(xo_heater_sel, RG_XO_HEATER_SEL)
 	.ops = {
 		.dcxo_dump_reg_log = mt6366_dcxo_dump_reg_log,
 	},
