@@ -18,6 +18,7 @@
 #include <linux/kthread.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #if IS_ENABLED(CONFIG_RTC_LIB)
@@ -2301,6 +2302,28 @@ static struct miscdevice aed_ke_dev = {
 	.name = "aed1",
 	.fops = &aed_ke_fops,
 };
+
+static int aee_is_enable(void)
+{
+	struct device_node *node;
+	const char *aee_enable;
+	int ret = 0;
+
+	node = of_find_node_by_path("/chosen");
+	if (node) {
+		if (of_property_read_string(node, "aee,enable", &aee_enable) == 0) {
+			if (strnstr(aee_enable, "mini", 4))
+				ret = 1;
+			else if (strnstr(aee_enable, "full", 4))
+				ret = 2;
+		}
+		of_node_put(node);
+	} else {
+		pr_notice("%s: Can't find chosen node\n", __func__);
+	}
+
+	return ret;
+}
 
 static int __init aed_init(void)
 {

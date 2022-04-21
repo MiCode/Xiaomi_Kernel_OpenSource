@@ -188,7 +188,7 @@ int mrdump_common_die(int reboot_reason, const char *msg,
 	int next_step;
 	int cpu_tmp;
 
-	if (!aee_is_enable()) {
+	if (!mrdump_cblock) {
 		pr_notice("%s: ipanic: mrdump is disable\n", __func__);
 		panic(msg);
 		return 0;
@@ -298,12 +298,19 @@ static __init int mrdump_parse_chosen(struct mrdump_params *mparams)
 {
 	struct device_node *node;
 	u32 reg[2];
-	const char *lkver, *ddr_rsv;
+	const char *lkver, *ddr_rsv, *aee_enable;
 
 	memset(mparams, 0, sizeof(struct mrdump_params));
 
 	node = of_find_node_by_path("/chosen");
 	if (node) {
+		if (of_property_read_string(node, "aee,enable", &aee_enable) == 0) {
+			if (strncmp(aee_enable, "mini", 4) == 0)
+				mparams->aee_enable = 1;
+			else if (strncmp(aee_enable, "full", 4) == 0)
+				mparams->aee_enable = 2;
+		}
+
 		if (of_property_read_u32_array(node, "mrdump,cblock",
 					       reg, ARRAY_SIZE(reg)) == 0) {
 			mparams->cb_addr = reg[0];
@@ -360,8 +367,14 @@ static int __init mrdump_panic_init(void)
 	struct reserved_mem *rmem;
 	void *kinfo_vaddr;
 
-	if (!aee_is_enable()) {
-		pr_notice("%s: ipanic: mrdump is disable\n", __func__);
+#ifdef MODULE
+	mrdump_module_init_mboot_params();
+#endif
+
+	if (mrdump_parse_chosen(&mparams) < 0)
+		return 0;
+	if ((mparams.aee_enable != 1) && (mparams.aee_enable != 2)) {
+		pr_info("[mrdump] disabled\n");
 		return 0;
 	}
 
@@ -394,10 +407,6 @@ static int __init mrdump_panic_init(void)
 	pr_info("[mrdump] rmem->priv = %llx\n", rmem->priv);
 
 
-	mrdump_parse_chosen(&mparams);
-#ifdef MODULE
-	mrdump_module_init_mboot_params();
-#endif
 	mrdump_cblock_init(&mparams);
 	if (mrdump_cblock == NULL) {
 		pr_notice("%s: MT-RAMDUMP no control block\n", __func__);

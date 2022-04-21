@@ -10,9 +10,6 @@
 #include <asm/memory.h>
 #include <asm/smp_plat.h>
 #include <asm-generic/sections.h>
-#if IS_ENABLED(CONFIG_MEDIATEK_CACHE_API)
-#include <linux/soc/mediatek/mtk_cache.h>
-#endif
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 #include <mt-plat/mboot_params.h>
 #endif
@@ -31,6 +28,8 @@ extern int kernel_addr_valid(unsigned long addr);
 struct pt_regs;
 
 struct mrdump_params {
+	int aee_enable;
+
 	char lk_version[12];
 	bool drm_ready;
 
@@ -58,7 +57,6 @@ int mrdump_mini_init(const struct mrdump_params *mparams);
 
 uint64_t mrdump_get_mpt(void);
 void mrdump_save_control_register(void *creg);
-
 
 #if defined(__arm__)
 static inline void crash_setup_regs(struct pt_regs *newregs,
