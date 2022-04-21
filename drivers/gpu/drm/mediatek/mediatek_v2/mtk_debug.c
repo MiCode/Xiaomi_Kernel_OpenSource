@@ -54,7 +54,6 @@
 #define SMI_LARB_VC_PRI_MODE (0x020)
 #define SMI_LARB_NON_SEC_CON(port) (0x380 + 4 * (port))
 #define GET_M4U_PORT 0x1F
-#define MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH 128
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *mtkfb_dbgfs;
@@ -1496,16 +1495,16 @@ static void mtk_drm_cwb_info_init(struct drm_crtc *crtc)
 	if (!cwb_info->buffer[0].dst_roi.width ||
 		!cwb_info->buffer[0].dst_roi.height) {
 		mtk_rect_make(&cwb_info->buffer[0].dst_roi, 0, 0,
-			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH,
-			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH);
+			crtc->state->adjusted_mode.hdisplay,
+			crtc->state->adjusted_mode.hdisplay);
 		mtk_rect_make(&cwb_info->buffer[1].dst_roi, 0, 0,
-			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH,
-			MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH);
+			crtc->state->adjusted_mode.hdisplay,
+			crtc->state->adjusted_mode.hdisplay);
 	}
 
 	/*alloc && config two fb*/
 	if (!cwb_info->buffer[0].fb) {
-		mode.width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+		mode.width = cwb_info->src_roi.width;
 		mode.height = cwb_info->src_roi.height;
 		mode.pixel_format = DRM_FORMAT_RGB888;
 		mode.pitches[0] = mode.width * 3;
@@ -1627,16 +1626,13 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 		return false;
 	}
 
-	if (rect.width > MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH)
-		rect.width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
-
 	if (rect.x + rect.width > cwb_info->src_roi.width)
 		rect.width = cwb_info->src_roi.width - rect.x;
 	if (rect.y + rect.height > cwb_info->src_roi.height)
 		rect.height = cwb_info->src_roi.height - rect.y;
 
 	if (!cwb_info->buffer[0].fb) {
-		mode.width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+		mode.width = cwb_info->src_roi.width;
 		mode.height = cwb_info->src_roi.height;
 		mode.pixel_format = DRM_FORMAT_RGB888;
 		mode.pitches[0] = mode.width * 3;
@@ -2823,10 +2819,10 @@ static void process_dbg_opt(const char *opt)
 			return;
 
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-		width = MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH;
+		width = cwb_info->src_roi.width;
 		height = cwb_info->src_roi.height;
 		size = sizeof(u8) * width * height * 3;
-		user_buffer = kzalloc(size, GFP_KERNEL);
+		user_buffer = vmalloc(size);
 		mtk_drm_set_cwb_user_buf((void *)user_buffer, IMAGE_ONLY);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		DDPMSG("[capture] wait frame complete\n");
@@ -2840,7 +2836,7 @@ static void process_dbg_opt(const char *opt)
 			mtk_drm_set_cwb_user_buf((void *)NULL, IMAGE_ONLY);
 			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 		}
-		kfree(user_buffer);
+		vfree(user_buffer);
 		reinit_completion(&cwb_cmp);
 	} else if (strncmp(opt, "fake_wcg", 8) == 0) {
 		unsigned int fake_hdr_en = 0;
