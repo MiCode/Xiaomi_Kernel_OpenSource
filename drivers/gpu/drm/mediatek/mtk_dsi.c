@@ -5841,7 +5841,7 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 			pixclk = pixclk * 16 / 7;
 		pixclk = pixclk / bpp / 100;
 	}
-	if (mtk_crtc->is_dual_pipe)
+	if (mtk_crtc->is_dual_pipe && ext->params->lcm_cmd_if != MTK_PANEL_DUAL_PORT)
 		pixclk /= 2;
 
 	DDPINFO("%s,data_rate=%d,clk=%u pixclk_min=%d, dual=%u, vrefresh=%d\n",
