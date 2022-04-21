@@ -28,14 +28,12 @@
 #define BLOCKTAG_PIDLOG_ENTRIES 50
 #define BLOCKTAG_NAME_LEN      16
 #define BLOCKTAG_PRINT_LEN     4096
-#define STORAGE_BOOT_DEV_NUM 2
 
 #define BTAG_RT(btag)     (btag ? &btag->rt : NULL)
 #define BTAG_CTX(btag)    (btag ? btag->ctx.priv : NULL)
 
 struct page_pid_logger {
 	short pid;
-	short mode;
 };
 
 #ifdef CONFIG_MTK_USE_RESERVED_EXT_MEM
@@ -122,13 +120,10 @@ struct mtk_btag_mictx_struct {
 	__u64 tp_min_time;
 	__u64 tp_max_time;
 	__u64 idle_begin;
-	__u64 idle_begin_top;
 	__u64 idle_total;
-	__u64 idle_total_top;
 	__u64 weighted_qd;
 
 	__u16 q_depth;
-	__u16 q_depth_top;
 
 	struct list_head list;
 };
@@ -263,21 +258,11 @@ int mtk_btag_pidlog_add_ufs(struct request_queue *q, short pid, __u32 len,
 void mtk_btag_get_aee_buffer(unsigned long *vaddr, unsigned long *size);
 void mtk_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, pid_t pid,
 __u32 len, int rw);
-void mtk_mq_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, pid_t pid,
-	__u32 len, int write, bool ext_sd);
 void mtk_btag_cpu_eval(struct mtk_btag_cpu *cpu);
 void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
 	struct mtk_btag_pidlogger *ctx_pl);
 void mtk_btag_throughput_eval(struct mtk_btag_throughput *tp);
 void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm);
-
-void mtk_btag_pidlog_map_sg(struct request_queue *q, struct bio *bio,
-	struct bio_vec *bvec);
-void mtk_btag_pidlog_copy_pid(struct page *src, struct page *dst);
-int mtk_btag_pidlog_get_mode(struct page *p);
-void mtk_btag_pidlog_submit_bio(struct bio *bio);
-void mtk_btag_pidlog_set_pid_pages(struct page **page, int page_cnt,
-				   int mode, bool write);
 
 void mtk_btag_mictx_check_window(struct mtk_btag_mictx_id mictx_id);
 void mtk_btag_mictx_enable(struct mtk_btag_mictx_id *mictx_id, int enable);
@@ -325,11 +310,7 @@ int mmc_mtk_biolog_exit(void);
 
 #else
 
-#define mtk_btag_pidlog_copy_pid(...)
-#define mtk_btag_pidlog_map_sg(...)
-#define mtk_btag_pidlog_submit_bio(...)
 #define mtk_btag_pidlog_set_pid(...)
-#define mtk_btag_pidlog_set_pid_pages(...)
 
 #define mtk_btag_mictx_check_window(...)
 #define mtk_btag_mictx_enable(...)

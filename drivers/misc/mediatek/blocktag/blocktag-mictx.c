@@ -78,7 +78,6 @@ void mtk_btag_mictx_eval_tp(
 	}
 	spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
 }
-EXPORT_SYMBOL_GPL(mtk_btag_mictx_eval_tp);
 
 void mtk_btag_mictx_eval_req(
 	struct mtk_blocktag *btag,
@@ -101,7 +100,6 @@ void mtk_btag_mictx_eval_req(
 	if (top && btag->vops->earaio_enabled)
 		mtk_btag_earaio_update_pwd(write, size);
 }
-EXPORT_SYMBOL_GPL(mtk_btag_mictx_eval_req);
 
 void mtk_btag_mictx_eval_cnt_signle_wqd(
 	struct mtk_blocktag *btag, u64 t_begin, u64 t_cur)
@@ -116,7 +114,6 @@ void mtk_btag_mictx_eval_cnt_signle_wqd(
 	}
 	spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
 }
-EXPORT_SYMBOL_GPL(mtk_btag_mictx_eval_cnt_signle_wqd);
 
 void mtk_btag_mictx_update(
 	struct mtk_blocktag *btag,
@@ -148,7 +145,6 @@ void mtk_btag_mictx_update(
 	if (q_depth && btag->vops->earaio_enabled)
 		mtk_btag_earaio_check_pwd();
 }
-EXPORT_SYMBOL_GPL(mtk_btag_mictx_update);
 
 static __u32 mtk_btag_eval_tp_speed(__u32 bytes, __u64 duration)
 {

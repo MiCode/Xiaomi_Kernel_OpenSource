@@ -8,29 +8,17 @@
 
 #define DEBUG 1
 
-#include <linux/blk_types.h>
-#include <linux/blkdev.h>
-#include <linux/cpumask.h>
-#include <linux/jiffies.h>
-#include <linux/kernel_stat.h>
 #include <linux/memblock.h>
 #include <linux/module.h>
-#include <linux/mutex.h>
 #include <linux/proc_fs.h>
 #include <linux/sched.h>
-#include <linux/sched/cputime.h>
-#include <linux/slab.h>
 #include <linux/spinlock.h>
-#include <linux/spinlock_types.h>
 #include <linux/tick.h>
-#include <linux/time.h>
 #include <linux/tracepoint.h>
-#include <linux/types.h>
 #include <linux/vmalloc.h>
 #include <linux/vmstat.h>
 #include <trace/events/block.h>
 #include <trace/events/writeback.h>
-#include <linux/math64.h>
 
 #define BLOCKIO_MIN_VER	"3.09"
 
@@ -180,7 +168,6 @@ void mtk_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, pid_t pid,
 		}
 	}
 }
-EXPORT_SYMBOL_GPL(mtk_btag_pidlog_insert);
 
 static int mtk_btag_get_storage_type(struct bio *bio)
 {
@@ -193,28 +180,6 @@ static int mtk_btag_get_storage_type(struct bio *bio)
 	else
 		return BTAG_STORAGE_UNKNOWN;
 }
-
-void mtk_mq_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, pid_t pid,
-	__u32 len, int write, bool ext_sd)
-{
-	int i;
-	struct mtk_btag_pidlogger_entry *pe;
-	struct mtk_btag_pidlogger_entry_rw *prw;
-
-	for (i = 0; i < BLOCKTAG_PIDLOG_ENTRIES; i++) {
-		pe = &pidlog->info[i];
-		if (!strncmp(pe->comm, "kworker", strlen("kworker")) ||
-			(pe->pid == pid) || (pe->pid == 0)) {
-			pe->pid = pid;
-			get_task_comm(pe->comm, current);
-			prw = (write) ? &pe->w : &pe->r;
-			prw->count++;
-			prw->length += len;
-			break;
-		}
-	}
-}
-EXPORT_SYMBOL_GPL(mtk_mq_btag_pidlog_insert);
 
 static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
 	short pid, __u32 len, bool is_sd)
@@ -240,7 +205,7 @@ static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
  * pidlog: hook function for __blk_bios_map_sg()
  * rw: 0=read, 1=write
  */
-void mtk_btag_pidlog_commit_bio(struct request_queue *q, struct bio *bio,
+static void mtk_btag_pidlog_commit_bio(struct request_queue *q, struct bio *bio,
 	struct bio_vec *bvec, bool is_sd)
 {
 	struct page_pid_logger *ppl;
@@ -251,7 +216,6 @@ void mtk_btag_pidlog_commit_bio(struct request_queue *q, struct bio *bio,
 	mtk_btag_pidlog_add(q, bio, ppl->pid, bvec->bv_len, is_sd);
 	ppl->pid = 0;
 }
-EXPORT_SYMBOL_GPL(mtk_btag_pidlog_commit_bio);
 
 #if IS_ENABLED(CONFIG_CGROUP_SCHED)
 static bool mtk_btag_is_top_in_cgrp(struct task_struct *t)
@@ -325,53 +289,6 @@ static void mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
 	}
 }
 
-int mtk_btag_pidlog_get_mode(struct page *p)
-{
-	unsigned long idx;
-	struct page_pid_logger *ppl;
-
-	idx = mtk_btag_pidlog_index(p);
-	if (idx >= mtk_btag_pidlog_max_entry())
-		return -1;
-	ppl = mtk_btag_pidlog_entry(idx);
-
-	return ppl->mode;
-}
-
-void mtk_btag_pidlog_copy_pid(struct page *src, struct page *dst)
-{
-	struct page_pid_logger *ppl_src, *ppl_dst;
-	unsigned long idx_src, idx_dst;
-
-	idx_src = mtk_btag_pidlog_index(src);
-
-	if (idx_src >= mtk_btag_pidlog_max_entry())
-		return;
-
-	idx_dst = mtk_btag_pidlog_index(dst);
-
-	if (idx_dst >= mtk_btag_pidlog_max_entry())
-		return;
-
-	ppl_src = mtk_btag_pidlog_entry(idx_src);
-	ppl_dst = mtk_btag_pidlog_entry(idx_dst);
-	ppl_dst->pid = ppl_src->pid;
-}
-
-
-void mtk_btag_pidlog_set_pid_pages(struct page **page, int page_cnt,
-				   int mode, bool write)
-{
-	int i;
-
-	if (unlikely(!mtk_btag_pagelogger) || unlikely(!page))
-		return;
-
-	for (i = 0; i < page_cnt; i++)
-		mtk_btag_pidlog_set_pid(page[i], mode, write);
-}
-EXPORT_SYMBOL_GPL(mtk_btag_pidlog_set_pid_pages);
-
 /* evaluate vmstat trace from global_node_page_state() */
 void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm)
 {
@@ -397,7 +314,6 @@ void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm)
 		vm->fmflt += this->event[PGMAJFAULT];
 	}
 }
-EXPORT_SYMBOL_GPL(mtk_btag_vmstat_eval);
 
 /* evaluate pidlog trace from context */
 void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
@@ -417,7 +333,6 @@ void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
 		memset(&ctx_pl->info[0], 0, size);
 	}
 }
-EXPORT_SYMBOL_GPL(mtk_btag_pidlog_eval);
 
 static __u64 mtk_btag_cpu_idle_time(int cpu)
 {
@@ -481,7 +396,6 @@ void mtk_btag_cpu_eval(struct mtk_btag_cpu *cpu)
 	cpu->irq = irq;
 	cpu->softirq = softirq;
 }
-EXPORT_SYMBOL_GPL(mtk_btag_cpu_eval);
 
 static void mtk_btag_throughput_rw_eval(struct mtk_btag_throughput_rw *rw)
 {
@@ -507,9 +421,8 @@ void mtk_btag_throughput_eval(struct mtk_btag_throughput *tp)
 	mtk_btag_throughput_rw_eval(&tp->r);
 	mtk_btag_throughput_rw_eval(&tp->w);
 }
-EXPORT_SYMBOL_GPL(mtk_btag_throughput_eval);
 
-void mtk_btag_seq_time(char **buff, unsigned long *size,
+static void mtk_btag_seq_time(char **buff, unsigned long *size,
 	struct seq_file *seq, uint64_t time)
 {
 	uint32_t nsec;
@@ -518,7 +431,6 @@ void mtk_btag_seq_time(char **buff, unsigned long *size,
 	SPREAD_PRINTF(buff, size, seq, "[%5lu.%06lu]", (unsigned long)time,
 		(unsigned long)nsec/1000);
 }
-EXPORT_SYMBOL_GPL(mtk_btag_seq_time);
 
 static void mtk_btag_seq_trace(char **buff, unsigned long *size,
 	struct seq_file *seq, const char *name, struct mtk_btag_trace *tr)
@@ -588,7 +500,6 @@ struct mtk_btag_trace *mtk_btag_curr_trace(struct mtk_btag_ringtrace *rt)
 	else
 		return NULL;
 }
-EXPORT_SYMBOL_GPL(mtk_btag_curr_trace);
 
 /* step to next trace in debugfs ring buffer */
 struct mtk_btag_trace *mtk_btag_next_trace(struct mtk_btag_ringtrace *rt)
@@ -599,7 +510,6 @@ struct mtk_btag_trace *mtk_btag_next_trace(struct mtk_btag_ringtrace *rt)
 
 	return mtk_btag_curr_trace(rt);
 }
-EXPORT_SYMBOL_GPL(mtk_btag_next_trace);
 
 /* clear debugfs ring buffer */
 static void mtk_btag_clear_trace(struct mtk_btag_ringtrace *rt)
@@ -813,7 +723,6 @@ void mtk_btag_free(struct mtk_blocktag *btag)
 	proc_remove(btag->dentry.droot);
 	kfree(btag);
 }
-EXPORT_SYMBOL_GPL(mtk_btag_free);
 
 static void mtk_btag_init_pidlogger(void)
 {
@@ -1026,7 +935,6 @@ out:
 
 	return btag;
 }
-EXPORT_SYMBOL_GPL(mtk_btag_alloc);
 
 static void btag_trace_block_bio_queue(void *data, struct bio *bio)
 {
