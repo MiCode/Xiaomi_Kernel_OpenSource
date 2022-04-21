@@ -116,6 +116,13 @@ struct mtk_venc_multi_ref {
 	__u32	reserved;
 };
 
+struct mtk_venc_vui_info {
+	__u32	aspect_ratio_idc;
+	__u32	sar_width;
+	__u32	sar_height;
+	__u32	reserved;
+};
+
 struct mtk_hdr_dynamic_info {
 	__u32    max_sc_lR;
 		// u(17); Max R Nits *10; in the range of 0x00000-0x186A0
@@ -138,6 +145,35 @@ struct mtk_hdr_dynamic_info {
 		 * 8=99.95% percentile maxRGB Nits *10
 		 */
 };
+struct dynamicinfo_change_flag {
+	unsigned int fgBitrate;
+	unsigned int fgFrameQp;
+	unsigned int fgSliceHeaderSpacing;
+	unsigned int fgForceI;
+	unsigned int fgBaseLayerPid;
+	unsigned int fgMarkLTR;
+	unsigned int fgUseLTR;
+	unsigned int fgTemporalLayerCount;
+};
+
+struct temporal_layer_count {
+	unsigned int nPLayerCountActual;
+	unsigned int nBLayerCountActual;
+};
+
+struct inputqueue_dynamic_info {
+	struct dynamicinfo_change_flag changed;
+	unsigned int nBitrate;
+	unsigned int nFrameQp;
+	unsigned int bSliceHeaderSpacing;
+	unsigned int bForceI;
+	unsigned int nBaseLayerPid;
+	unsigned int nMarkLTR;
+	unsigned int nUseLTR;
+	struct temporal_layer_count sTemporalLayerCount;
+	signed long long nTimeStamp;
+};
+
 
 /**
  * struct vdec_pic_info  - picture size information

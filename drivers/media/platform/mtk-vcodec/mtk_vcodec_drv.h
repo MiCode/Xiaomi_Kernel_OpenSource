@@ -325,10 +325,17 @@ struct mtk_enc_params {
 	int             ip_qpdelta;
 	unsigned int	qp_control_mode;
 	unsigned int	dummynal;
-	int		priority;
-	unsigned int	wpp_mode;
-	unsigned int	low_latency_mode;
-	unsigned int	use_irq;
+	int             priority;
+	unsigned int    wpp_mode;
+	unsigned int    low_latency_mode;
+	unsigned int    use_irq;
+	unsigned int    hier_ref_layer;
+	unsigned int    hier_ref_type;
+	unsigned int    temporal_layer_pcount;
+	unsigned int    temporal_layer_bcount;
+	unsigned int    max_ltr_num;
+	unsigned int    slice_header_spacing;
+	struct mtk_venc_vui_info vui_info; //data from userspace
 };
 
 /*
@@ -391,6 +398,14 @@ struct venc_enc_param {
 	unsigned int dummynal;
 	unsigned int slbc_addr;
 	char *set_vcp_buf;
+	unsigned int hier_ref_layer;
+	unsigned int hier_ref_type;
+	unsigned int temporal_layer_pcount;
+	unsigned int temporal_layer_bcount;
+	unsigned int max_ltr_num;
+	unsigned int slice_header_spacing;
+	struct mtk_venc_multi_ref *multi_ref;
+	struct mtk_venc_vui_info *vui_info;
 };
 
 /*
@@ -415,6 +430,8 @@ struct venc_frm_buf {
 	dma_addr_t qpmap_dma_addr;
 	struct dma_buf *metabuffer_dma;
 	dma_addr_t metabuffer_addr;
+	dma_addr_t dyparams_dma_addr;
+	struct dma_buf *dyparams_dma;
 };
 
 struct dma_gen_buf {
@@ -434,7 +451,8 @@ struct dma_meta_buf {
 
 enum metadata_type {
 	METADATA_HDR               = 0,
-	METADATA_QPMAP             = 1
+	METADATA_QPMAP             = 1,
+	METADATA_DYNAMICPARAM    = 2
 };
 
 struct meta_describe {
@@ -954,4 +972,8 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 		(V4L2_CID_CODEC_MTK_BASE+52)
 #define V4L2_CID_MPEG_MTK_ENCODE_LOW_LATENCY_MODE \
 		(V4L2_CID_CODEC_MTK_BASE+53)
+#define V4L2_CID_MPEG_MTK_ENCODE_TEMPORAL_LAYER_COUNT \
+	(V4L2_CID_CODEC_MTK_BASE+54)
+#define V4L2_CID_MPEG_MTK_ENCODE_MAX_LTR_FRAMES \
+	(V4L2_CID_CODEC_MTK_BASE+55)
 #endif /* _MTK_VCODEC_DRV_H_ */

@@ -455,7 +455,6 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.p_qp = enc_prm->p_qp;
 		inst->vsi->config.b_qp = enc_prm->b_qp;
 		inst->vsi->config.svp_mode = enc_prm->svp_mode;
-		inst->vsi->config.tsvc = enc_prm->tsvc;
 		inst->vsi->config.highquality = enc_prm->highquality;
 		inst->vsi->config.max_qp = enc_prm->max_qp;
 		inst->vsi->config.min_qp = enc_prm->min_qp;
@@ -463,12 +462,32 @@ static int venc_set_param(unsigned long handle,
 		inst->vsi->config.qp_control_mode = enc_prm->qp_control_mode;
 		inst->vsi->config.frame_level_qp = enc_prm->framelvl_qp;
 		inst->vsi->config.dummynal = enc_prm->dummynal;
+		inst->vsi->config.hier_ref_layer = enc_prm->hier_ref_layer;
+		inst->vsi->config.hier_ref_type = enc_prm->hier_ref_type;
+		inst->vsi->config.temporal_layer_pcount = enc_prm->temporal_layer_pcount;
+		inst->vsi->config.temporal_layer_bcount = enc_prm->temporal_layer_bcount;
+		inst->vsi->config.max_ltr_num = enc_prm->max_ltr_num;
 
 		if (enc_prm->color_desc) {
 			memcpy(&inst->vsi->config.color_desc,
 				enc_prm->color_desc,
 				sizeof(struct mtk_color_desc));
 		}
+
+		if (enc_prm->multi_ref) {
+			memcpy(&inst->vsi->config.multi_ref,
+				enc_prm->multi_ref,
+				sizeof(struct mtk_venc_multi_ref));
+		}
+
+		if (enc_prm->vui_info) {
+			memcpy(&inst->vsi->config.vui_info,
+				enc_prm->vui_info,
+				sizeof(struct mtk_venc_vui_info));
+		}
+
+		inst->vsi->config.slice_header_spacing =
+			enc_prm->slice_header_spacing;
 
 		fmt = inst->ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
 		mtk_vcodec_debug(inst, "fmt:%u", fmt);

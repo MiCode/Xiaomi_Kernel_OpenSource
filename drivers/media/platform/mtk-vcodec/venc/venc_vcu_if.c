@@ -565,6 +565,10 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 		out.data_item = 1;
 		out.data[0] = enc_param->ip_qpdelta;
 		break;
+	case VENC_SET_PARAM_ADJUST_QP_CONTROL_MODE:
+		out.data_item = 1;
+		out.data[0] = enc_param->qp_control_mode;
+		break;
 	case VENC_SET_PARAM_ADJUST_FRAME_LEVEL_QP:
 		out.data_item = 1;
 		out.data[0] = enc_param->framelvl_qp;
@@ -572,6 +576,11 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 	case VENC_SET_PARAM_ENABLE_DUMMY_NAL:
 		out.data_item = 1;
 		out.data[0] = enc_param->dummynal;
+		break;
+	case VENC_SET_PARAM_TEMPORAL_LAYER_CNT:
+		out.data_item = 2;
+		out.data[0] = enc_param->temporal_layer_pcount;
+		out.data[1] = enc_param->temporal_layer_bcount;
 		break;
 	default:
 		mtk_vcodec_err(vcu, "id %d not supported", id);
@@ -614,7 +623,7 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 	if (frm_buf) {
 		out.fb_num_planes = frm_buf->num_planes;
 		for (i = 0; i < frm_buf->num_planes; i++) {
-			out.input_addr[i] =
+			vsi->venc.input_addr[i] =
 				frm_buf->fb_addr[i].dma_addr;
 			vsi->venc.fb_dma[i] =
 				frm_buf->fb_addr[i].dma_addr;
@@ -640,6 +649,14 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 			vsi->qpmap_size = 0;
 		}
 
+		if (frm_buf->dyparams_dma) {
+			vsi->dynamicparams_addr = frm_buf->dyparams_dma_addr;
+			vsi->dynamicparams_size = sizeof(struct inputqueue_dynamic_info);
+		} else {
+			vsi->dynamicparams_addr = 0;
+			vsi->dynamicparams_size = 0;
+		}
+
 		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx), size %d %llx",
 			frm_buf->num_planes,
 			(unsigned long)frm_buf->fb_addr[0].dmabuf,
@@ -652,7 +669,7 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 	}
 
 	if (bs_buf) {
-		out.bs_addr = bs_buf->dma_addr;
+		vsi->venc.bs_addr = bs_buf->dma_addr;
 		vsi->venc.bs_dma = bs_buf->dma_addr;
 		out.bs_size = bs_buf->size;
 		mtk_vcodec_debug(vcu, " output (dma:%lx)",

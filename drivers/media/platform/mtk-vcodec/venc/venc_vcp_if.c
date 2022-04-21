@@ -85,7 +85,7 @@ static void handle_query_cap_ack_msg(struct venc_vcu_ipi_query_cap_ack *msg)
 	default:
 		break;
 	}
-	mtk_vcodec_debug(vcu, "- vcu_inst_addr = 0x%x", vcu->inst_addr);
+	mtk_vcodec_debug(vcu, "- vcu_inst_addr = 0x%llx", vcu->inst_addr);
 }
 
 static struct device *get_dev_by_mem_type(struct venc_inst *inst, struct vcodec_mem_obj *mem)
@@ -837,8 +837,8 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 	mtk_vcodec_debug(inst, "bs_mode %d ->", bs_mode);
 
 	if (sizeof(out) > SHARE_BUF_SIZE) {
-		mtk_vcodec_err(inst, "venc_ap_ipi_msg_enc cannot be large than %d",
-					   SHARE_BUF_SIZE);
+		mtk_vcodec_err(inst, "venc_ap_ipi_msg_enc cannot be large than %d sizeof(out):%zu",
+					   SHARE_BUF_SIZE, sizeof(out));
 		return -EINVAL;
 	}
 
@@ -849,7 +849,7 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 	if (frm_buf) {
 		out.fb_num_planes = frm_buf->num_planes;
 		for (i = 0; i < frm_buf->num_planes; i++) {
-			out.input_addr[i] =
+			vsi->venc.input_addr[i] =
 				frm_buf->fb_addr[i].dma_addr;
 			vsi->venc.fb_dma[i] =
 				frm_buf->fb_addr[i].dma_addr;
@@ -874,6 +874,17 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 			vsi->qpmap_size = 0;
 		}
 
+		if (frm_buf->dyparams_dma) {
+			vsi->dynamicparams_addr = frm_buf->dyparams_dma_addr;
+			vsi->dynamicparams_size = sizeof(struct inputqueue_dynamic_info);
+			mtk_vcodec_debug(inst, "vsi dynamic params addr %llx size%d",
+				vsi->dynamicparams_addr,
+				vsi->dynamicparams_size);
+		} else {
+			vsi->dynamicparams_addr = 0;
+			vsi->dynamicparams_size = 0;
+		}
+
 		mtk_vcodec_debug(inst, " num_planes = %d input (dmabuf:%lx), size %d %llx",
 			frm_buf->num_planes,
 			(unsigned long)frm_buf->fb_addr[0].dmabuf,
@@ -884,7 +895,7 @@ int vcp_enc_encode(struct venc_inst *inst, unsigned int bs_mode,
 	}
 
 	if (bs_buf) {
-		out.bs_addr = bs_buf->dma_addr;
+		vsi->venc.bs_addr = bs_buf->dma_addr;
 		vsi->venc.bs_dma = bs_buf->dma_addr;
 		out.bs_size = bs_buf->size;
 		mtk_vcodec_debug(inst, " output (dma:%lx)",
@@ -1260,8 +1271,8 @@ void set_venc_vcp_data(struct venc_inst *inst, enum vcp_reserve_mem_id_t id, voi
 	msg.data[1] = (__u32)((__u64)string_pa >> 32);
 	inst->vcu_inst.daemon_pid = get_vcp_generation();
 
-	mtk_vcodec_debug(inst, "msg.param_id %d msg.data[0]:0x%08x, msg.data[1]:0x%08x\n",
-		msg.param_id, msg.data[0], msg.data[1]);
+	mtk_vcodec_debug(inst, "msg.param_id %d msg.data[0]:0x%08x, msg.data[1]:0x%08x vcu_inst_addr=%llx\n",
+		msg.param_id, msg.data[0], msg.data[1], msg.vcu_inst_addr);
 }
 
 int vcp_enc_set_param(struct venc_inst *inst,
@@ -1381,9 +1392,18 @@ int vcp_enc_set_param(struct venc_inst *inst,
 		out.data_item = 1;
 		out.data[0] = enc_param->framelvl_qp;
 		break;
+	case VENC_SET_PARAM_ADJUST_QP_CONTROL_MODE:
+		out.data_item = 1;
+		out.data[0] = enc_param->qp_control_mode;
+		break;
 	case VENC_SET_PARAM_ENABLE_DUMMY_NAL:
 		out.data_item = 1;
 		out.data[0] = enc_param->dummynal;
+		break;
+	case VENC_SET_PARAM_TEMPORAL_LAYER_CNT:
+		out.data_item = 2;
+		out.data[0] = enc_param->temporal_layer_pcount;
+		out.data[1] = enc_param->temporal_layer_bcount;
 		break;
 	default:
 		mtk_vcodec_err(inst, "id %d not supported", id);
@@ -1454,11 +1474,33 @@ static int venc_vcp_set_param(unsigned long handle,
 		inst->vsi->config.frame_level_qp = enc_prm->framelvl_qp;
 		inst->vsi->config.dummynal = enc_prm->dummynal;
 
+		inst->vsi->config.hier_ref_layer = enc_prm->hier_ref_layer;
+		inst->vsi->config.hier_ref_type = enc_prm->hier_ref_type;
+		inst->vsi->config.temporal_layer_pcount = enc_prm->temporal_layer_pcount;
+		inst->vsi->config.temporal_layer_bcount = enc_prm->temporal_layer_bcount;
+		inst->vsi->config.max_ltr_num = enc_prm->max_ltr_num;
+
 		if (enc_prm->color_desc) {
 			memcpy(&inst->vsi->config.color_desc,
 				enc_prm->color_desc,
 				sizeof(struct mtk_color_desc));
 		}
+
+		if (enc_prm->multi_ref) {
+			memcpy(&inst->vsi->config.multi_ref,
+				enc_prm->multi_ref,
+				sizeof(struct mtk_venc_multi_ref));
+		}
+
+		if (enc_prm->vui_info) {
+			memcpy(&inst->vsi->config.vui_info,
+				enc_prm->vui_info,
+				sizeof(struct mtk_venc_vui_info));
+		}
+
+		inst->vsi->config.slice_header_spacing =
+			enc_prm->slice_header_spacing;
+
 
 		fmt = inst->ctx->q_data[MTK_Q_DATA_DST].fmt->fourcc;
 		mtk_vcodec_debug(inst, "fmt:%u", fmt);

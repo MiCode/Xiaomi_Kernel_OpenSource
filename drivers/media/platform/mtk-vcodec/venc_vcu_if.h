@@ -32,7 +32,7 @@ struct venc_vcu_inst {
 	int failure;
 	int bs_size;
 	int is_key_frm;
-	unsigned int inst_addr;
+	__u64 inst_addr;
 	void *vsi;
 	enum ipi_id id;
 	struct mtk_vcodec_ctx *ctx;

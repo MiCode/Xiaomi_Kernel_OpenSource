@@ -510,21 +510,6 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 			ctrl->val);
 		p->b_qp = ctrl->val;
 		break;
-	case V4L2_CID_MPEG_VIDEO_ENABLE_TSVC:
-		mtk_v4l2_debug(0,
-			"V4L2_CID_MPEG_VIDEO_ENABLE_TSVC layer: %d, type: %d\n",
-			ctrl->p_new.p_u32[0], ctrl->p_new.p_u32[1]);
-		if (ctrl->p_new.p_u32[0] == 3)
-			p->tsvc = 1;
-		ctx->param_change |= MTK_ENCODE_PARAM_TSVC;
-		break;
-	case V4L2_CID_MPEG_MTK_ENCODE_MULTI_REF:
-		mtk_v4l2_debug(0,
-			"V4L2_CID_MPEG_MTK_ENCODE_MULTI_REF multi_ref_en: %d\n",
-			ctrl->p_new.p_u32[0]);
-		memcpy(&p->multi_ref, ctrl->p_new.p_u32,
-		sizeof(struct mtk_venc_multi_ref));
-		break;
 	case V4L2_CID_MPEG_MTK_ENCODE_WPP_MODE:
 		mtk_v4l2_debug(0,
 			"V4L2_CID_MPEG_MTK_ENCODE_WPP_MODE: %d",
@@ -586,6 +571,46 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_MTK_VCP_PROP:
 		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_PROP);
+		break;
+	case V4L2_CID_MPEG_VIDEO_ENABLE_TSVC:
+		mtk_v4l2_debug(0,
+			"V4L2_CID_MPEG_VIDEO_ENABLE_TSVC layer: %d, type: %d\n",
+			ctrl->p_new.p_u32[0], ctrl->p_new.p_u32[1]);
+		p->hier_ref_layer = ctrl->p_new.p_u32[0];
+		p->hier_ref_type = ctrl->p_new.p_u32[1];
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_MULTI_REF:
+		mtk_v4l2_debug(0,
+			"V4L2_CID_MPEG_MTK_ENCODE_MULTI_REF multi_ref_en: %d\n",
+			ctrl->p_new.p_u32[0]);
+		memcpy(&p->multi_ref, ctrl->p_new.p_u32,
+		sizeof(struct mtk_venc_multi_ref));
+		break;
+	case V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_ENABLE:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_ENABLE: 0x%x",
+			ctrl->val);
+		memcpy(&p->vui_info, ctrl->p_new.p_u32,
+		sizeof(struct mtk_venc_vui_info));
+		break;
+	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB: 0x%x",
+			ctrl->val);
+		p->slice_header_spacing = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_TEMPORAL_LAYER_COUNT:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_TEMPORAL_LAYER_COUNT temporal_layer_pcount: %d, temporal_layer_bcount: %d\n",
+			ctrl->p_new.p_u32[0], ctrl->p_new.p_u32[1]);
+		p->temporal_layer_pcount = ctrl->p_new.p_u32[0];
+		p->temporal_layer_bcount = ctrl->p_new.p_u32[1];
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_MAX_LTR_FRAMES:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_MAX_LTR_FRAMES val = %d",
+			ctrl->val);
+		p->max_ltr_num = ctrl->val;
 		break;
 	default:
 		mtk_v4l2_debug(4, "ctrl-id=%d not support!", ctrl->id);
@@ -1172,6 +1197,15 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->framelvl_qp = enc_params->framelvl_qp;
 	param->ip_qpdelta = enc_params->ip_qpdelta;
 	param->qp_control_mode = enc_params->qp_control_mode;
+
+	param->hier_ref_layer = enc_params->hier_ref_layer;
+	param->hier_ref_type = enc_params->hier_ref_type;
+	param->temporal_layer_pcount = enc_params->temporal_layer_pcount;
+	param->temporal_layer_bcount = enc_params->temporal_layer_bcount;
+	param->max_ltr_num = enc_params->max_ltr_num;
+	param->slice_header_spacing = enc_params->slice_header_spacing;
+	param->multi_ref = &enc_params->multi_ref;
+	param->vui_info = &enc_params->vui_info;
 }
 
 static int vidioc_venc_subscribe_evt(struct v4l2_fh *fh,
@@ -1546,6 +1580,7 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 	mtkbuf->frm_buf.has_meta = 0;
 	mtkbuf->frm_buf.qpmap_dma = 0;
 	mtkbuf->frm_buf.metabuffer_dma = 0;
+	mtkbuf->frm_buf.dyparams_dma = 0;
 
 	if (buf->flags & V4L2_BUF_FLAG_HDR_META && buf->reserved != 0) {
 		mtkbuf->frm_buf.has_meta = 1;
@@ -1725,6 +1760,40 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 					mtk_v4l2_debug(2, "[%d] Have Qpmap fd, buf->index:%d. qpmap_dma:%p, fd:%u",
 						ctx->id, buf->index,
 						mtkbuf->frm_buf.qpmap_dma, meta_desc.value);
+				} else if (meta_desc.type == METADATA_DYNAMICPARAM) {
+					struct dma_buf_attachment *buf_att;
+					struct sg_table *sgt;
+
+					mtkbuf->frm_buf.dyparams_dma = dma_buf_get(meta_desc.value);
+
+					if (IS_ERR(mtkbuf->frm_buf.dyparams_dma)) {
+						mtk_v4l2_err("%s dynamic_ctl_dma is err 0x%p.\n",
+							__func__, mtkbuf->frm_buf.dyparams_dma);
+						mtk_venc_queue_error_event(ctx);
+						continue;
+					}
+
+					buf_att = dma_buf_attach(mtkbuf->frm_buf.dyparams_dma,
+								dev);
+					sgt = dma_buf_map_attachment(buf_att,
+								DMA_TO_DEVICE);
+					if (IS_ERR_OR_NULL(sgt)) {
+						mtk_v4l2_err("dynamic_params dma_buf_map_attachment fail %d.\n",
+										sgt);
+						dma_buf_detach(mtkbuf->frm_buf.dyparams_dma,
+										buf_att);
+						dma_buf_put(mtkbuf->frm_buf.dyparams_dma);
+						continue;
+					}
+					mtkbuf->frm_buf.dyparams_dma_addr =
+						sg_dma_address(sgt->sgl);
+
+					dma_buf_unmap_attachment(buf_att,
+						sgt, DMA_TO_DEVICE);
+					dma_buf_detach(mtkbuf->frm_buf.dyparams_dma, buf_att);
+					mtk_v4l2_debug(2, "[%d] Have dynamic_param fd, buf->index:%d. qpmap_dma:%p, fd:%u",
+						ctx->id, buf->index,
+						mtkbuf->frm_buf.dyparams_dma, meta_desc.value);
 				}
 			} else {
 				if (meta_desc.type == METADATA_HDR) {
@@ -2052,6 +2121,16 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 		}
 		dma_buf_put(mtkbuf->frm_buf.qpmap_dma);
 		mtkbuf->frm_buf.qpmap_dma = 0;
+	}
+
+	if (mtkbuf->frm_buf.dyparams_dma != 0) {
+		mtk_v4l2_debug(2,
+			"dma_buf_put dyparams_dma=%p, DMA=%lx",
+			mtkbuf->frm_buf.dyparams_dma,
+			(unsigned long)mtkbuf->frm_buf.dyparams_dma);
+
+		dma_buf_put(mtkbuf->frm_buf.dyparams_dma);
+		mtkbuf->frm_buf.dyparams_dma = 0;
 	}
 
 }
@@ -2608,6 +2687,18 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 					&enc_prm);
 	}
 
+	if (!ret &&
+	mtk_buf->param_change & MTK_ENCODE_PARAM_QP_CTRL_MODE) {
+		enc_prm.qp_control_mode = mtk_buf->enc_params.qp_control_mode;
+		mtk_v4l2_err("[%d] idx=%d, qp_control_mode=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.qp_control_mode);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_ADJUST_QP_CONTROL_MODE,
+					&enc_prm);
+	}
+
 	mtk_buf->param_change = MTK_ENCODE_PARAM_NONE;
 
 	if (ret) {
@@ -2994,6 +3085,19 @@ void mtk_vcodec_enc_custom_ctrls_check(struct v4l2_ctrl_handler *hdl,
 	}
 }
 
+static const struct v4l2_ctrl_config mtk_enc_vui_sar_ctrl = {
+	.ops = &mtk_vcodec_enc_ctrl_ops,
+	.id = V4L2_CID_MPEG_VIDEO_H264_VUI_SAR_ENABLE,
+	.name = "Video encode vui sar description for Extended_SAR",
+	.type = V4L2_CTRL_TYPE_U32,
+	.flags = V4L2_CTRL_FLAG_WRITE_ONLY,
+	.min = 0x00000000,
+	.max = 0xffffffff,
+	.step = 1,
+	.def = 0,
+	.dims = { sizeof(struct mtk_venc_vui_info)/sizeof(u32) }
+};
+
 int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 {
 	const struct v4l2_ctrl_ops *ops = &mtk_vcodec_enc_ctrl_ops;
@@ -3057,6 +3161,24 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	if (handler->error)
 		mtk_v4l2_debug(0, "Adding control failed V4L2_CID_MPEG_VIDEO_BITRATE_MODE %x %d",
 			 V4L2_CID_MPEG_VIDEO_BITRATE_MODE, handler->error);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode nonrefp";
+	cfg.min = 0;
+	cfg.max = 65535;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+	if (handler->error)
+		mtk_v4l2_debug(0, "Adding control failed V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_MB %x %d",
+			 V4L2_CID_MPEG_VIDEO_BITRATE_MODE, handler->error);
+
+	mtk_vcodec_enc_custom_ctrls_check(handler,
+		&mtk_enc_vui_sar_ctrl, NULL);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_SCENARIO;
@@ -3254,33 +3376,20 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
-	/* g_volatile_ctrl */
 	memset(&cfg, 0, sizeof(cfg));
-	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_ROI_RC_QP;
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_MAX_LTR_FRAMES;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
-	cfg.flags = V4L2_CTRL_FLAG_VOLATILE |
-		V4L2_CTRL_FLAG_READ_ONLY;
-	cfg.name = "Video encode roi rc qp";
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode qp control mode";
 	cfg.min = 0;
-	cfg.max = 2048;
+	cfg.max = 3;
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
-
-	memset(&cfg, 0, sizeof(cfg));
-	cfg.id = V4L2_CID_MPEG_MTK_RESOLUTION_CHANGE;
-	cfg.type = V4L2_CTRL_TYPE_U32;
-	cfg.flags = V4L2_CTRL_FLAG_VOLATILE |
-		V4L2_CTRL_FLAG_READ_ONLY;
-	cfg.name = "Video encode resolution change";
-	cfg.min = 0x00000000;
-	cfg.max = 0x00ffffff;
-	cfg.step = 1;
-	cfg.def = 0;
-	cfg.ops = ops;
-	cfg.dims[0] = sizeof(struct venc_resolution_change)/sizeof(u32);
-	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+	if (handler->error)
+		mtk_v4l2_debug(0, "Adding control failed V4L2_CID_MPEG_MTK_ENCODE_MAX_LTR_FRAMES %x %d",
+			 V4L2_CID_MPEG_MTK_ENCODE_MAX_LTR_FRAMES, handler->error);
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_VIDEO_ENABLE_TSVC;
@@ -3292,6 +3401,19 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.dims[0] = 2;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_MULTI_REF;
+	cfg.type = V4L2_CTRL_TYPE_U32;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode multi ref";
+	cfg.min = 0;
+	cfg.max = 65535;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.dims[0] = sizeof(struct mtk_venc_multi_ref)/sizeof(u32);
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
@@ -3446,6 +3568,19 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.ops = ops;
 	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_TEMPORAL_LAYER_COUNT;
+	cfg.type = V4L2_CTRL_TYPE_U32;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video temporal layer count";
+	cfg.min = 0;
+	cfg.max = 4;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.dims[0] = 2;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
 	if (handler->error) {
 		mtk_v4l2_err("Init control handler fail %d",
 			     handler->error);
@@ -3453,6 +3588,35 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	}
 
 	v4l2_ctrl_handler_setup(&ctx->ctrl_hdl);
+	ctx->param_change = MTK_ENCODE_PARAM_NONE;
+
+	/* g_volatile_ctrl */
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_ROI_RC_QP;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_VOLATILE |
+		V4L2_CTRL_FLAG_READ_ONLY;
+	cfg.name = "Video encode roi rc qp";
+	cfg.min = 0;
+	cfg.max = 2048;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_RESOLUTION_CHANGE;
+	cfg.type = V4L2_CTRL_TYPE_U32;
+	cfg.flags = V4L2_CTRL_FLAG_VOLATILE |
+		V4L2_CTRL_FLAG_READ_ONLY;
+	cfg.name = "Video encode resolution change";
+	cfg.min = 0x00000000;
+	cfg.max = 0x00ffffff;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	cfg.dims[0] = sizeof(struct venc_resolution_change)/sizeof(u32);
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
 
 	return 0;
 }

@@ -117,7 +117,9 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_ENABLE_HIGHQUALITY,
 	VENC_SET_PARAM_ENABLE_DUMMY_NAL,
 	VENC_SET_PARAM_PROPERTY,
-	VENC_SET_PARAM_VCP_LOG_INFO
+	VENC_SET_PARAM_VCP_LOG_INFO,
+	VENC_SET_PARAM_ADJUST_QP_CONTROL_MODE,
+	VENC_SET_PARAM_TEMPORAL_LAYER_CNT
 };
 
 /**
@@ -181,10 +183,11 @@ struct venc_vcu_ipi_query_cap_ack {
 	};
 #else
 	__u64 ap_inst_addr;
-	__u32 id;
 	__u64 ap_data_addr;
+	__u32 id;
+	__u32 reserved;
 #endif
-	__u32 vcu_data_addr;
+	__u64 vcu_data_addr;
 };
 
 /**
@@ -198,7 +201,8 @@ struct venc_vcu_ipi_query_cap_ack {
  */
 struct venc_ap_ipi_msg_set_param {
 	__u32 msg_id;
-	__u32 vcu_inst_addr;
+	__u32 reserved;
+	__u64 vcu_inst_addr;
 	__u32 param_id;
 	__u32 data_item;
 	__u32 data[8];
@@ -219,15 +223,14 @@ struct venc_ap_ipi_msg_set_param {
  */
 struct venc_ap_ipi_msg_enc {
 	__u32 msg_id;
-	__u32 vcu_inst_addr;
-	__u32 input_addr[3];
 	__u32 input_size[3];
-	__u32 bs_addr;
+	__u64 vcu_inst_addr;
 	__u32 bs_size;
 	__u32 data_offset[3];
 	__u8 fb_num_planes;
 	__u8 bs_mode;
-	__u32 meta_size;
+	__u16 reserved1;
+	__u32 reserved2;
 };
 
 /**
@@ -238,7 +241,8 @@ struct venc_ap_ipi_msg_enc {
  */
 struct venc_ap_ipi_msg_deinit {
 	__u32 msg_id;
-	__u32 vcu_inst_addr;
+	__u32 reserved;
+	__u64 vcu_inst_addr;
 };
 
 /**
@@ -260,6 +264,7 @@ struct venc_vcu_ipi_msg_common {
 	__s32 status;
 	__u64 venc_inst;
 	__s32 codec_id;
+	__s32 reserved;
 };
 
 /**
@@ -291,8 +296,7 @@ struct venc_vcu_ipi_msg_init {
 	__u32 msg_id;
 	__s32 status;
 	__u64 venc_inst;
-	__u32 vcu_inst_addr;
-	__u32 reserved;
+	__u64 vcu_inst_addr;
 };
 
 /**
@@ -461,6 +465,14 @@ struct venc_vcu_config {
 	__u32 highquality;
 	__u32 dummynal;
 	__u32 slbc_addr;
+	__u32 hier_ref_layer;
+	__u32 hier_ref_type;
+	__u32 temporal_layer_pcount;
+	__u32 temporal_layer_bcount;
+	__u32 max_ltr_num;
+	__u32 slice_header_spacing;
+	struct mtk_venc_multi_ref multi_ref;
+	struct mtk_venc_vui_info vui_info;
 };
 
 /**
@@ -498,6 +510,8 @@ struct venc_info {
 	__u32 index;
 	__u64 timestamp;
 	__u32 qpmap;
+	__u64 input_addr[3];
+	__u64 bs_addr;
 };
 
 /**
@@ -544,6 +558,8 @@ struct venc_vsi {
 	__u32 meta_offset;
 	__u64 qpmap_addr;
 	__u32 qpmap_size;
+	__u64 dynamicparams_addr;
+	__u32 dynamicparams_size;
 };
 
 #endif /* _VENC_IPI_MSG_H_ */
