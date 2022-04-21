@@ -874,7 +874,7 @@ static void ufs_mtk_trace_vh_send_command(void *data, struct ufs_hba *hba, struc
 		list_for_each_entry(link,
 			&hba->sdev_ufs_device->sdev_gendev.links.consumers,
 			s_node) {
-			dev_err(hba->dev, "Consumer: %s Link: status:%d, rpm_active%d, Runtime PM: req=%d, status:%d, err:%d, usage_count:%d, links_count:%d\n",
+			dev_err(hba->dev, "Consumer: %s Link: status:%d, rpm_active:%d, Runtime PM: req=%d, status:%d, err:%d, usage_count:%d, last_busy:%lld\n",
 				dev_name(link->consumer),
 				link->status,
 				link->rpm_active,
@@ -882,10 +882,12 @@ static void ufs_mtk_trace_vh_send_command(void *data, struct ufs_hba *hba, struc
 				link->consumer->power.runtime_status,
 				link->consumer->power.runtime_error,
 				link->consumer->power.usage_count,
-				link->consumer->power.links_count);
+				link->consumer->power.last_busy);
 		}
 
 		ufs_mtk_dbg_dump(100);
+
+		BUG_ON(1);
 	}
 }
 
