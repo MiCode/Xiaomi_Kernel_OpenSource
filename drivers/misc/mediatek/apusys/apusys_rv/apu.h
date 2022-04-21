@@ -221,6 +221,7 @@ extern const struct mtk_apu_platdata mt6893_platdata;
 extern const struct mtk_apu_platdata mt6895_platdata;
 extern const struct mtk_apu_platdata mt6983_platdata;
 extern const struct mtk_apu_platdata mt6985_platdata;
+extern const struct mtk_apu_platdata mt8188_platdata;
 
 extern int reviser_set_init_info(struct mtk_apu *apu);
 extern int vpu_set_init_info(struct mtk_apu *apu);
