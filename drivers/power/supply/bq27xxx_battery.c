@@ -1878,6 +1878,7 @@ static int bq27xxx_battery_get_property(struct power_supply *psy,
 		break;
 #if defined(CONFIG_MACH_MT6893)
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
+		ret = bq27xxx_simple_value(di->cache.capacity, val);
 		if (val->intval >= 0)
 			val->intval = ((val->intval) * 8000) / 100;
 		break;
