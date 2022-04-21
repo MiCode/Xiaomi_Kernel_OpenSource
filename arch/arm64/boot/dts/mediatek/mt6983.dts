@@ -1110,7 +1110,6 @@
 			compatible = "mediatek,mddriver";
 			/* bit0~3: CLDMA|CCIF|DPMAIF */
 			mediatek,mdhif_type = <6>;
-			mediatek,md_id = <0>;
 			mediatek,ap_plat_info = <6983>;
 			mediatek,md_generation = <6298>;
 			/* 0x44: epon offset; */
