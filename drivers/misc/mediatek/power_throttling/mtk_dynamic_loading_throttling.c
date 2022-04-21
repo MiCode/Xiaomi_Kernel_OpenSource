@@ -87,7 +87,7 @@ struct dlpt_priv {
 };
 
 struct dlpt_callback_table {
-	void (*dlptcb)(int value);
+	void (*dlptcb)(unsigned int value);
 };
 
 static struct dlpt_priv dlpt = {

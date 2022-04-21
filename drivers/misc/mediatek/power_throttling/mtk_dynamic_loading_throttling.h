@@ -19,7 +19,7 @@ enum DLPT_PRIO_TAG {
 	DLPT_PRIO_BACKLIGHT = 9
 };
 
-typedef void (*dlpt_callback)(int val);
+typedef void (*dlpt_callback)(unsigned int val);
 
 #if IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
 void register_dlpt_notify(dlpt_callback dlpt_cb,

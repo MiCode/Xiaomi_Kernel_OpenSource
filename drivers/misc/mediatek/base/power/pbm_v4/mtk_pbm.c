@@ -29,17 +29,21 @@
 #if (defined(CONFIG_MACH_MT6877) \
 	|| defined(CONFIG_MACH_MT6768) \
 	|| defined(CONFIG_MACH_MT6781) \
+	|| defined(CONFIG_MACH_MT6893) \
+	|| defined(CONFIG_MACH_MT6885) \
+	|| defined(CONFIG_MACH_MT6873) \
 	|| defined(CONFIG_MACH_MT6833))
-//#include <mach/upmu_sw.h>
-//#include <mt-plat/upmu_common.h>
+#include <mach/upmu_sw.h>
+#include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_auxadc_intf.h>
 #include <mtk_cpufreq_api.h>
 #ifdef CONFIG_THERMAL
 #include <mach/mtk_thermal.h>
 #endif
+#else
+#include <mtk_dynamic_loading_throttling.h>
 #endif
 #include <mtk_ppm_api.h>
-#include <mtk_dynamic_loading_throttling.h>
 #endif
 
 #ifndef DISABLE_PBM_FEATURE
@@ -505,7 +509,7 @@ static void mtk_power_budget_manager(enum pbm_kicker kicker, struct mrp *mrpmgr)
  * i_max: mA
  * condition: persentage decrease 1%, then update i_max
  */
-void kicker_pbm_by_dlpt(int i_max)
+void kicker_pbm_by_dlpt(unsigned int i_max)
 {
 	struct pbm *pwrctrl = &pbm_ctrl;
 	struct mrp mrpmgr = {0};
@@ -998,7 +1002,7 @@ static int __init pbm_module_init(void)
 
 #else				/* #ifndef DISABLE_PBM_FEATURE */
 
-void kicker_pbm_by_dlpt(int i_max)
+void kicker_pbm_by_dlpt(unsigned int i_max)
 {
 }
 
