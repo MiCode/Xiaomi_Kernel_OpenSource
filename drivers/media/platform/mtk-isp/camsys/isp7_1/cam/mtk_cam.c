@@ -6973,9 +6973,16 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		/* stagger mode - use sv to output data to DRAM - online mode */
 		if (mtk_cam_feature_is_stagger(feature_active)) {
 			int used_pipes, src_pad_idx;
+			int pad_offset = PAD_SRC_RAW0;
 			unsigned int hw_scen = mtk_raw_get_hdr_scen_id(ctx);
 			bool is_dc;
 			int exp_shift = 0;
+
+			/* check first request is 1 exposure */
+			if (mtk_cam_hw_is_otf(ctx) &&
+				!mtk_cam_feature_is_2_exposure(feature_first_req) &&
+				!mtk_cam_feature_is_3_exposure(feature_first_req))
+				pad_offset = PAD_SRC_RAW1;
 
 			/* check stagger mode */
 			is_dc = mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode);
@@ -6994,7 +7001,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					if (cam->sv.pipelines[i -
 						MTKCAM_SUBDEV_CAMSV_START].hw_cap &
 						(1 << (exp_shift + CAMSV_EXP_ORDER_SHIFT))) {
-						src_pad_idx = PAD_SRC_RAW0 + j;
+						src_pad_idx = pad_offset + j;
 						break;
 					}
 				}
@@ -7017,7 +7024,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 					ret = mtk_cam_sv_dev_config(
 						ctx, i - MTKCAM_SUBDEV_CAMSV_START, hw_scen,
 						(is_dc && (src_pad_idx == exp_no)) ?
-						2 : src_pad_idx - PAD_SRC_RAW0, tgo_pxl_mode);
+						2 : src_pad_idx - pad_offset, tgo_pxl_mode);
 					if (ret)
 						goto fail_img_buf_release;
 				}

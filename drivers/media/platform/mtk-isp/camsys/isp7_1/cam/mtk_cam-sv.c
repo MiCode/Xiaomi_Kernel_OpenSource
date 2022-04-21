@@ -2041,13 +2041,6 @@ int mtk_cam_sv_dev_config(
 			pad_idx = PAD_SRC_RAW0;
 			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
 		}
-		/* Use pixmode from raw pad */
-		// FIXME: seninf pixel updated after sv_dev_config,
-		// for DC mode, temporarily use argument pixelmode
-		// which is fixed to 8 pixel mode
-		if (!(hw_scen & (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER))) {
-			mtk_cam_seninf_get_pixelmode(ctx->seninf, pad_idx, &cfg_pixel_mode);
-		}
 	} else {
 		img_fmt = &ctx->sv_pipe[idx]
 			->vdev_nodes[MTK_CAMSV_MAIN_STREAM_OUT-MTK_CAMSV_SINK_NUM].active_fmt;
