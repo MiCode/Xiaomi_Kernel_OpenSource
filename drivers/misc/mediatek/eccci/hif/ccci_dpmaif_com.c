@@ -2500,6 +2500,10 @@ static int dpmaif_suspend_noirq(struct device *dev)
 
 	atomic_set(&dpmaif_ctl->suspend_flag, 1);
 
+	if (dpmaif_ctl->dpmaif_state != DPMAIF_STATE_PWRON &&
+		dpmaif_ctl->dpmaif_state != DPMAIF_STATE_EXCEPTION)
+		return 0;
+
 	/* dpmaif clock on: backup int mask. */
 	dpmaif_ctl->suspend_reg_int_mask_bak = ops.drv_get_dl_interrupt_mask();
 
@@ -2509,6 +2513,7 @@ static int dpmaif_suspend_noirq(struct device *dev)
 static int dpmaif_resume_noirq(struct device *dev)
 {
 	struct arm_smccc_res res;
+	int ret = 0;
 
 	if ((!dpmaif_ctl) || (atomic_read(&dpmaif_ctl->suspend_flag) < 0))
 		return 0;
@@ -2524,15 +2529,22 @@ static int dpmaif_resume_noirq(struct device *dev)
 	if ((!res.a0) && (res.a1 == WAKE_SRC_HIF_DPMAIF))
 		arch_atomic_set(&dpmaif_ctl->wakeup_src, 1);
 
-	atomic_set(&dpmaif_ctl->suspend_flag, 0);
+	if (dpmaif_ctl->dpmaif_state != DPMAIF_STATE_PWRON &&
+		dpmaif_ctl->dpmaif_state != DPMAIF_STATE_EXCEPTION)
+		goto EXIT_FUNC;
 
 	/*IP don't power down before*/
 	if (ops.drv_check_power_down() == false) {
 		CCCI_NORMAL_LOG(0, TAG, "[%s] sys_resume no need restore\n", __func__);
-		return 0;
+		goto EXIT_FUNC;
 	}
 
-	return ops.drv_resume_noirq(dev);
+	ret = ops.drv_resume_noirq(dev);
+
+EXIT_FUNC:
+	atomic_set(&dpmaif_ctl->suspend_flag, 0);
+
+	return ret;
 }
 
 static const struct dev_pm_ops g_dpmaif_pm_ops = {
