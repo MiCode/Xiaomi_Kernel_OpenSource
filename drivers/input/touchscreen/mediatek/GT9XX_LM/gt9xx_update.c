@@ -106,12 +106,6 @@ u8 gtp_loading_fw;
 static u8 gup_check_and_repair(struct i2c_client *, s32, u8 *, u32);
 #endif
 
-#define _CLOSE_FILE(p_file)                                                    \
-	{                                                                      \
-		if (p_file && !IS_ERR(p_file))                                 \
-			filp_close(p_file, NULL);                              \
-	}
-
 static u8 gup_burn_fw_app_section(struct i2c_client *client, u8 *fw_section,
 				  u16 start_addr, u32 len, u8 bank_cmd);
 
@@ -538,8 +532,6 @@ update_cfg_file_failed:
 static void gup_search_file(s32 search_type)
 {
 	s32 i = 0;
-	struct file *pfile = NULL;
-
 	got_file_flag = 0x00;
 
 	searching_file = 1;
@@ -554,22 +546,6 @@ static void gup_search_file(s32 search_type)
 			GTP_DEBUG("Search for %s, %s for fw update.(%d/%d)",
 				  UPDATE_FILE_PATH_1, UPDATE_FILE_PATH_2, i + 1,
 				  GUP_SEARCH_FILE_TIMES);
-			pfile = filp_open(UPDATE_FILE_PATH_1, O_RDONLY, 0);
-			if (IS_ERR(pfile)) {
-				pfile = filp_open(UPDATE_FILE_PATH_2, O_RDONLY,
-						  0);
-				if (!IS_ERR(pfile)) {
-					GTP_INFO("Bin file: %s for fw update.",
-						 UPDATE_FILE_PATH_2);
-					got_file_flag |= BIN_FILE_READY;
-					update_msg.file = pfile;
-				}
-			} else {
-				GTP_INFO("Bin file: %s for fw update.",
-					 UPDATE_FILE_PATH_1);
-				got_file_flag |= BIN_FILE_READY;
-				update_msg.file = pfile;
-			}
 			if (got_file_flag & BIN_FILE_READY) {
 #ifdef CONFIG_GTP_AUTO_UPDATE_CFG
 				if (search_type & AUTO_SEARCH_CFG) {
@@ -591,23 +567,6 @@ static void gup_search_file(s32 search_type)
 			GTP_DEBUG("Search for %s, %s for config update.(%d/%d)",
 				  CONFIG_FILE_PATH_1, CONFIG_FILE_PATH_2, i + 1,
 				  GUP_SEARCH_FILE_TIMES);
-			pfile = filp_open(CONFIG_FILE_PATH_1, O_RDONLY, 0);
-			if (IS_ERR(pfile)) {
-				pfile = filp_open(CONFIG_FILE_PATH_2, O_RDONLY,
-						  0);
-				if (!IS_ERR(pfile)) {
-					GTP_INFO(
-						"Cfg file: %s for config update.",
-						CONFIG_FILE_PATH_2);
-					got_file_flag |= CFG_FILE_READY;
-					update_msg.cfg_file = pfile;
-				}
-			} else {
-				GTP_INFO("Cfg file: %s for config update.",
-					 CONFIG_FILE_PATH_1);
-				got_file_flag |= CFG_FILE_READY;
-				update_msg.cfg_file = pfile;
-			}
 			if (got_file_flag & CFG_FILE_READY) {
 				searching_file = 0;
 				return;
@@ -630,7 +589,6 @@ static u8 gup_check_update_file(struct i2c_client *client,
 	got_file_flag = 0x00;
 	if (path) {
 		/*GTP_DEBUG("Update File path:%s, %d", path, strlen(path)); */
-		update_msg.file = filp_open(path, O_RDONLY, 0);
 
 		if (IS_ERR(update_msg.file)) {
 			GTP_ERROR("Open update file(%s) error!", path);
@@ -685,7 +643,6 @@ static u8 gup_check_update_file(struct i2c_client *client,
 			if (ret <= 0)
 				GTP_ERROR("Update config failed!");
 
-			_CLOSE_FILE(update_msg.cfg_file);
 			msleep(500); /* waiting config to be stored in FLASH. */
 		}
 #else
@@ -755,7 +712,6 @@ static u8 gup_check_update_file(struct i2c_client *client,
 
 load_failed:
 	set_fs(update_msg.old_fs);
-	_CLOSE_FILE(update_msg.file);
 	return FAIL;
 }
 
@@ -2214,7 +2170,6 @@ file_fail:
 	if (update_msg.file && !IS_ERR(update_msg.file)) {
 		if (update_msg.old_fs)
 			set_fs(update_msg.old_fs);
-		filp_close(update_msg.file, NULL);
 	}
 #if (defined(CONFIG_GTP_AUTO_UPDATE) &&                                   \
 	defined(CONFIG_GTP_HEADER_FW_UPDATE) &&                                \
