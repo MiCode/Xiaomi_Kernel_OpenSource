@@ -868,6 +868,9 @@ struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client)
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	if (client && cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
 		cmdq_pkt_perf_begin(pkt);
+
+	if (!cmdq_util_is_prebuilt_client(client))
+		cmdq_pkt_hw_trace(pkt);
 #endif
 	pkt->task_alive = true;
 	return pkt;
@@ -2005,9 +2008,28 @@ u32 *cmdq_pkt_get_perf_ret(struct cmdq_pkt *pkt)
 }
 EXPORT_SYMBOL(cmdq_pkt_get_perf_ret);
 
+static bool cmdq_pkt_hw_trace_event(struct cmdq_pkt *pkt, const u16 event)
+{
+	if (!cmdq_hw_trace)
+		return false;
+
+	switch (event) {
+	case CMDQ_TOKEN_HW_TRACE_WAIT:
+	case CMDQ_TOKEN_HW_TRACE_LOCK:
+	case CMDQ_TOKEN_PAUSE_TASK_0 ... CMDQ_TOKEN_PAUSE_TASK_32:
+		return false;
+	}
+
+	if (!pkt->cl)
+		return false;
+
+	return true;
+}
+
 int cmdq_pkt_wfe(struct cmdq_pkt *pkt, u16 event)
 {
 	u32 arg_b;
+	int ret;
 
 	if (event >= CMDQ_EVENT_MAX)
 		return -EINVAL;
@@ -2020,9 +2042,13 @@ int cmdq_pkt_wfe(struct cmdq_pkt *pkt, u16 event)
 	 * bit 31: 1 - update, 0 - no update
 	 */
 	arg_b = CMDQ_WFE_UPDATE | CMDQ_WFE_WAIT | CMDQ_WFE_WAIT_VALUE;
-	return cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(arg_b),
+	ret = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(arg_b),
 		CMDQ_GET_ARG_B(arg_b), event,
 		0, 0, 0, 0, CMDQ_CODE_WFE);
+
+	if (cmdq_pkt_hw_trace_event(pkt, event))
+		cmdq_pkt_hw_trace(pkt);
+	return ret;
 }
 EXPORT_SYMBOL(cmdq_pkt_wfe);
 
@@ -2045,6 +2071,10 @@ int cmdq_pkt_wait_no_clear(struct cmdq_pkt *pkt, u16 event)
 	ret = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(arg_b),
 		CMDQ_GET_ARG_B(arg_b), event,
 		0, 0, 0, 0, CMDQ_CODE_WFE);
+
+	if (cmdq_pkt_hw_trace_event(pkt, event))
+		cmdq_pkt_hw_trace(pkt);
+
 	if (event == CMDQ_TOKEN_PAUSE_TASK_32)
 		pkt->pause_offset = pkt->cmd_buf_size;
 

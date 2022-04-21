@@ -234,6 +234,9 @@ void cmdq_dump_usage(void)
 			__func__, g_cmdq[i]->hwid, g_cmdq[i]->suspended,
 			atomic_read(&g_cmdq[i]->usage));
 
+		if (!atomic_read(&g_cmdq[i]->usage))
+			continue;
+
 		for (j = 0; j < ARRAY_SIZE(g_cmdq[i]->thread); j++)
 			usage[j] = atomic_read(&g_cmdq[i]->thread[j].usage);
 
@@ -2475,7 +2478,7 @@ void cmdq_mbox_disable(void *chan)
 		WARN_ON(1);
 		return;
 	}
-	cmdq_msg("%s: hwid:%hu usage:%d idx:%d usage:%d", __func__,
+	cmdq_log("%s: hwid:%hu usage:%d idx:%d usage:%d", __func__,
 		cmdq->hwid, usage, i, atomic_read(&cmdq->thread[i].usage));
 
 	usage = atomic_dec_return(&cmdq->thread[i].usage);
@@ -2945,6 +2948,46 @@ void cmdq_event_verify(void *chan, u16 event_id)
 	cmdq_msg("end debug event for %u", event_id);
 }
 EXPORT_SYMBOL(cmdq_event_verify);
+
+s32 cmdq_pkt_hw_trace(struct cmdq_pkt *pkt)
+{
+	struct cmdq_thread *thread;
+	struct cmdq_operand lop, rop;
+
+	if (!pkt->cl) {
+		cmdq_log("%s: pkt:%p without client", __func__, pkt);
+		return -EINVAL;
+	}
+
+	thread = (struct cmdq_thread *)
+		((struct cmdq_client *)pkt->cl)->chan->con_priv;
+	cmdq_log("%s: pkt:%p idx:%hu", __func__, pkt, thread->idx);
+
+	// spr = (CMDQ_TPR_ID >> 14) | (idx << 24)
+	cmdq_pkt_assign_command(pkt, CMDQ_SPR_FOR_TEMP, thread->idx << 24);
+
+	lop.reg = true;
+	lop.idx = CMDQ_TPR_ID;
+	rop.reg = false;
+	rop.value = 14;
+	cmdq_pkt_logic_command(
+		pkt, CMDQ_LOGIC_RIGHT_SHIFT, CMDQ_THR_SPR_IDX2, &lop, &rop);
+
+	cmdq_pkt_wfe(pkt, CMDQ_TOKEN_HW_TRACE_LOCK);
+
+	lop.reg = true;
+	lop.idx = CMDQ_THR_SPR_IDX2;
+	rop.reg = true;
+	rop.idx = CMDQ_SPR_FOR_TEMP;
+	cmdq_pkt_logic_command(
+		pkt, CMDQ_LOGIC_OR, CMDQ_CPR_HW_TRACE_TEMP, &lop, &rop);
+
+	cmdq_pkt_set_event(pkt, CMDQ_TOKEN_HW_TRACE_WAIT);
+	cmdq_pkt_set_event(pkt, CMDQ_TOKEN_HW_TRACE_LOCK);
+
+	return 0;
+}
+EXPORT_SYMBOL(cmdq_pkt_hw_trace);
 
 #if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
 void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt)

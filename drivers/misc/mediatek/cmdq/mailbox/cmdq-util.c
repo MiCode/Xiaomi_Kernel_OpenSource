@@ -451,6 +451,17 @@ enum cmdq_smc_request {
 
 static atomic_t cmdq_dbg_ctrl[CMDQ_HW_MAX] = {ATOMIC_INIT(0)};
 
+bool cmdq_util_is_prebuilt_client(struct cmdq_client *client)
+{
+	s32 i;
+
+	for (i = 0; i < CMDQ_HW_MAX; i++)
+		if (client == util.prebuilt_clt[i])
+			return true;
+	return false;
+}
+EXPORT_SYMBOL(cmdq_util_is_prebuilt_client);
+
 void cmdq_util_prebuilt_set_client(const u16 hwid, struct cmdq_client *client)
 {
 	if (hwid >= CMDQ_HW_MAX)
