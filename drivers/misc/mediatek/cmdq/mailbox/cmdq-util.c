@@ -21,7 +21,7 @@
 #if IS_ENABLED(CONFIG_MTK_SMI)
 #include <soc/mediatek/smi.h>
 #endif
-#ifdef CONFIG_MTK_DEVAPC
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
 #include <linux/soc/mediatek/devapc_public.h>
 #endif
 
@@ -792,25 +792,10 @@ void cmdq_util_devapc_dump(void)
 }
 EXPORT_SYMBOL(cmdq_util_devapc_dump);
 
-#ifdef CONFIG_MTK_DEVAPC
-static void cmdq_util_handle_devapc_vio(void)
-{
-	u32 i;
-
-	cmdq_util_msg("%s mbox cnt:%u", __func__, util.mbox_cnt);
-	for (i = 0; i < util.mbox_cnt; i++)
-		cmdq_thread_dump_all(util.cmdq_mbox[i], true, true, false);
-
-#ifdef CMDQ_SECURE_SUPPORT
-	cmdq_util_msg("%s mbox sec cnt:%u", __func__, util.mbox_sec_cnt);
-	for (i = 0; i < util.mbox_sec_cnt; i++)
-		cmdq_sec_dump_thread_all(util.cmdq_sec_mbox[i]);
-#endif
-}
-
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
 static struct devapc_vio_callbacks devapc_vio_handle = {
 	.id = INFRA_SUBSYS_GCE,
-	.debug_dump = cmdq_util_handle_devapc_vio,
+	.debug_dump = cmdq_util_devapc_dump,
 };
 #endif
 
@@ -893,7 +878,7 @@ int cmdq_util_init(void)
 	if (exists)
 		dput(dir);
 
-#ifdef CONFIG_MTK_DEVAPC
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
 	register_devapc_vio_callback(&devapc_vio_handle);
 #endif
 
