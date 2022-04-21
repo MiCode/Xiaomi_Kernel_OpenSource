@@ -103,7 +103,7 @@ int gpio_get_tristate_input(unsigned int pin)
 			pin);
 		return gpio_get_value(pin);
 	}
-	if (pullen > MTK_PUPD_SET_R1R0_00)
+	if ((pullen > MTK_PUPD_SET_R1R0_00) && (pullen <= MTK_PUPD_SET_R1R0_11))
 		pull_type = 1;
 	else
 		pull_type = 0;

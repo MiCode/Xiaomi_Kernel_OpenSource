@@ -90,8 +90,7 @@ static int mtk_pinconf_get(struct pinctrl_dev *pctldev,
 {
 	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
 	u32 param = pinconf_to_config_param(*config);
-	int err, reg, ret = 1;
-	int pullup;
+	int pullup, err, reg, ret = 1;
 	const struct mtk_pin_desc *desc;
 
 	if (pin >= hw->soc->npins) {
@@ -1044,6 +1043,12 @@ int mtk_paris_pinctrl_probe(struct platform_device *pdev,
 		if (IS_ERR(hw->base[i]))
 			return PTR_ERR(hw->base[i]);
 	}
+
+	if (of_find_property(hw->dev->of_node,
+			     "mediatek,rsel_resistance_in_si_unit", NULL))
+		hw->rsel_si_unit = true;
+	else
+		hw->rsel_si_unit = false;
 
 	spin_lock_init(&hw->lock);
 
