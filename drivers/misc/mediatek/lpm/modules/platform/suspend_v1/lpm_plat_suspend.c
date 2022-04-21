@@ -336,12 +336,10 @@ static struct notifier_block lpm_spm_suspend_pm_notifier_func = {
 
 #define MTK_LPM_SLEEP_COMPATIBLE_STRING "mediatek,sleep"
 static int spm_irq_number = -1;
-static irqreturn_t spm_irq0_handler(int irq, void *dev_id)
+static irqreturn_t spm_irq_handler(int irq, void *dev_id)
 {
-	pm_system_wakeup();
 	return IRQ_HANDLED;
 }
-
 
 static inline unsigned int virq_to_hwirq(unsigned int virq)
 {
@@ -369,15 +367,19 @@ static int lpm_init_spm_irq(void)
 		pr_info("[name:spm&][SPM] failed to get spm irq\n");
 		goto FINISHED;
 	}
-/* Do not re-register spm irq handler again when TWAM presents */
-#if !IS_ENABLED(CONFIG_MTK_SPMTWAM)
-	ret = request_irq(irq, spm_irq0_handler,
-		IRQF_NO_SUSPEND, "spm-irq", NULL);
+
+	ret = request_irq(irq, spm_irq_handler, 0, "spm-irq", NULL);
 	if (ret) {
 		pr_info("[name:spm&][SPM] failed to install spm irq handler, ret = %d\n", ret);
 		goto FINISHED;
 	}
-#endif
+
+	ret = enable_irq_wake(irq);
+	if (ret) {
+		pr_info("[name:spm&][SPM] failed to enable spm irq wake, ret = %d\n", ret);
+		goto FINISHED;
+	}
+
 	/* tell ATF spm driver that spm irq pending number */
 	spm_irq_number = virq_to_hwirq(irq);
 	ret = lpm_smc_spm(MT_SPM_SMC_UID_SET_PENDING_IRQ_INIT,
