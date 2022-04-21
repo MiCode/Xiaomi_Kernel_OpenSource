@@ -2247,12 +2247,12 @@ static int mtk_venc_encode_header(void *priv)
 	bs_buf->size = (size_t)dst_buf->planes[0].length;
 	bs_buf->dmabuf = dst_buf->planes[0].dbuf;
 
-	mtk_v4l2_debug(1,
-		       "[%d] buf id=%d va=0x%p dma_addr=0x%llx size=%zu",
+	mtk_v4l2_debug(0,
+		       "[%d] buf id=%d va=0x%p dma_addr=0x%llx size=%zu state %d",
 		       ctx->id,
 		       dst_buf->index, bs_buf->va,
 		       (u64)bs_buf->dma_addr,
-		       bs_buf->size);
+		       bs_buf->size, ctx->state);
 
 	ret = venc_if_encode(ctx,
 			     VENC_START_OPT_ENCODE_SEQUENCE_HEADER,
