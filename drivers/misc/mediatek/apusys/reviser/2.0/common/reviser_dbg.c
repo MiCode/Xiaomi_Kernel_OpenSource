@@ -599,6 +599,11 @@ static ssize_t reviser_dbg_write_op(struct file *file, const char __user *user_b
 		return -ENOMEM;
 
 	ret = copy_from_user(tmp, user_buf, count);
+	if (ret) {
+		ret = -EINVAL;
+		goto out;
+	}
+
 
 	tmp[count] = '\0';
 	cursor = tmp;
