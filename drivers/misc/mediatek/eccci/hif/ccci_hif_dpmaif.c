@@ -3344,6 +3344,31 @@ static irqreturn_t dpmaif_isr(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#ifdef ENABLE_CPU_AFFINITY
+void mtk_ccci_affinity_rta(u32 irq_cpus, u32 push_cpus, int cpu_nr)
+{
+	struct cpumask imask, tmask;
+	unsigned int i;
+
+	cpumask_clear(&imask);
+	cpumask_clear(&tmask);
+
+	for (i = 0; i < cpu_nr; i++) {
+		if (irq_cpus & (1 << i))
+			cpumask_set_cpu(i, &imask);
+		if (push_cpus & (1 << i))
+			cpumask_set_cpu(i, &tmask);
+	}
+	CCCI_REPEAT_LOG(-1, TAG, "%s: i:0x%x t:0x%x\r\n",
+			__func__, irq_cpus, push_cpus);
+
+	if (dpmaif_ctrl->dpmaif_irq_id)
+		irq_force_affinity(dpmaif_ctrl->dpmaif_irq_id, &imask);
+	if (dpmaif_ctrl->rxq[0].rx_thread)
+		sched_setaffinity(dpmaif_ctrl->rxq[0].rx_thread->pid, &tmask);
+}
+
+#endif
 /* =======================================================
  *
  * Descriptions: State part start(1/3): init(RX) -- 1.1.2 rx sw init
@@ -4725,7 +4750,7 @@ int ccci_dpmaif_hif_init(struct device *dev)
 	register_syscore_ops(&dpmaif_sysops);
 
 #ifdef MT6297
-	//mtk_ccci_speed_monitor_init();
+	mtk_ccci_speed_monitor_init();
 #endif
 	atomic_set(&dpmaif_ctrl->suspend_flag, 0);
 

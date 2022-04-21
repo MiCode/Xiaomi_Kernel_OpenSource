@@ -40,6 +40,8 @@
 #include <linux/stacktrace.h>
 #include "ccmni.h"
 #include "ccci_debug.h"
+#include "rps_perf.h"
+
 #if defined(CCMNI_MET_DEBUG)
 #include <mt-plat/met_drv.h>
 #endif
@@ -58,6 +60,16 @@ long int gro_flush_timer;
 #define DEV_CLOSE               0
 
 static unsigned long timeout_flush_num, clear_flush_num;
+
+void set_ccmni_rps(unsigned long value)
+{
+	int i = 0;
+	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[0];
+
+	for (i = 0; i < ctlb->ccci_ops->ccmni_num; i++)
+		set_rps_map(ctlb->ccmni_inst[i]->dev->_rx, value);
+}
+EXPORT_SYMBOL(set_ccmni_rps);
 
 /********************internal function*********************/
 static inline int is_ack_skb(int md_id, struct sk_buff *skb)
