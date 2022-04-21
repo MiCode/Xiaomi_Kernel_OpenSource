@@ -44,6 +44,17 @@ int core_module_prob_sate = CORE_MODULE_UNPROBED;
 
 static bool disp_notify_reg_flag;
 
+static struct task_struct *gt9895_polling_thread;
+static int gt9895_ts_event_polling(void *arg);
+static int gt9895_polling_flag;
+
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
+/*
+ * struct goodix_ts_core *ts_core_for_tui;
+ * EXPORT_SYMBOL_GPL(ts_core_for_tui);
+ */
+#endif
+
 static int goodix_send_ic_config(struct goodix_ts_core *cd, int type);
 /**
  * __do_register_ext_module - register external module
@@ -675,6 +686,49 @@ static ssize_t goodix_ts_irq_info_show(struct device *dev,
 	return offset;
 }
 
+/**
+ * goodix_ts_power_on - Turn on power to the touch device
+ * @core_data: pointer to touch core data
+ * return: 0 ok, <0 failed
+ */
+int goodix_ts_power_on(struct goodix_ts_core *cd)
+{
+	int ret = 0;
+
+	ts_info("Device power on");
+	if (cd->power_on)
+		return 0;
+
+	ret = cd->hw_ops->power_on(cd, true);
+	if (!ret)
+		cd->power_on = 1;
+	else
+		ts_err("failed power on, %d", ret);
+	return ret;
+}
+
+/**
+ * goodix_ts_power_off - Turn off power to the touch device
+ * @core_data: pointer to touch core data
+ * return: 0 ok, <0 failed
+ */
+int goodix_ts_power_off(struct goodix_ts_core *cd)
+{
+	int ret;
+
+	ts_info("Device power off");
+	if (!cd->power_on)
+		return 0;
+
+	ret = cd->hw_ops->power_on(cd, false);
+	if (!ret)
+		cd->power_on = 0;
+	else
+		ts_err("failed power off, %d", ret);
+
+	return ret;
+}
+
 /* enable/disable irq */
 static ssize_t goodix_ts_irq_info_store(struct device *dev,
 					struct device_attribute *attr,
@@ -682,14 +736,61 @@ static ssize_t goodix_ts_irq_info_store(struct device *dev,
 {
 	struct goodix_ts_core *core_data = dev_get_drvdata(dev);
 	struct goodix_ts_hw_ops *hw_ops = core_data->hw_ops;
+	int ret = 0;
 
 	if (!buf || count <= 0)
 		return -EINVAL;
 
-	if (buf[0] != '0')
-		hw_ops->irq_enable(core_data, true);
-	else
+	switch (buf[0]) {
+	/* change to touch polling mode */
+	case '0':
 		hw_ops->irq_enable(core_data, false);
+		gt9895_polling_flag = 1;
+		ts_info("disable irq, polling mode, flag = %d", gt9895_polling_flag);
+		if (gt9895_polling_thread == NULL) {
+			gt9895_polling_thread =
+				kthread_run(gt9895_ts_event_polling,
+				0, GOODIX_CORE_DRIVER_NAME);
+			ts_info("gt9895_polling_thread, kthread_run");
+			if (IS_ERR(gt9895_polling_thread)) {
+				ret = PTR_ERR(gt9895_polling_thread);
+				ts_err(" failed to create kernel thread: %d\n",
+					ret);
+			}
+		}
+		break;
+	/* change to touch irq mode */
+	case '1':
+		hw_ops->irq_enable(core_data, true);
+		gt9895_polling_flag = 0;
+		ts_info("enable irq, irq mode, flag = %d", gt9895_polling_flag);
+		if (gt9895_polling_thread) {
+			kthread_stop(gt9895_polling_thread);
+			gt9895_polling_thread = NULL;
+		}
+		break;
+	/* use cmd to make touch power off */
+	case '2':
+		ret = goodix_ts_power_off(core_data);
+		if (ret < 0) {
+			ts_err("Failed to disable analog power: %d", ret);
+			return ret;
+		}
+		ts_info("touch power off");
+		break;
+	/* use cmd to make touch power on */
+	case '3':
+		ret = goodix_ts_power_on(core_data);
+		if (ret < 0) {
+			ts_err("Failed to enable analog power: %d", ret);
+			return ret;
+		}
+		ts_info("touch power on");
+		break;
+	default:
+		break;
+	}
+
 	return count;
 }
 
@@ -1227,6 +1328,32 @@ static irqreturn_t goodix_ts_threadirq_func(int irq, void *data)
 }
 
 /**
+ * goodix_ts_event_polling used for bring up
+ */
+static int gt9895_ts_event_polling(void *arg)
+{
+	struct goodix_ts_event *ts_event = &ts_core->ts_event;
+	struct goodix_ts_hw_ops *hw_ops = ts_core->hw_ops;
+	int ret;
+
+	sched_set_normal(current, 19);
+
+	do {
+		usleep_range(30000, 35100);
+		/* read touch data from touch device */
+		ret = hw_ops->event_handler(ts_core, ts_event);
+		if (likely(ret >= 0)) {
+			if (ts_event->event_type == EVENT_TOUCH) {
+				/* report touch */
+				goodix_ts_report_finger(ts_core->input_dev,
+					&ts_event->touch_data);
+			}
+		}
+	} while (!kthread_should_stop());
+	return 0;
+}
+
+/**
  * goodix_ts_init_irq - Requset interrput line from system
  * @core_data: pointer to touch core data
  * return: 0 ok, <0 failed
@@ -1303,49 +1430,6 @@ static int goodix_ts_power_init(struct goodix_ts_core *core_data)
 	} else {
 		ts_info("iovdd name is NULL");
 	}
-
-	return ret;
-}
-
-/**
- * goodix_ts_power_on - Turn on power to the touch device
- * @core_data: pointer to touch core data
- * return: 0 ok, <0 failed
- */
-int goodix_ts_power_on(struct goodix_ts_core *cd)
-{
-	int ret = 0;
-
-	ts_info("Device power on");
-	if (cd->power_on)
-		return 0;
-
-	ret = cd->hw_ops->power_on(cd, true);
-	if (!ret)
-		cd->power_on = 1;
-	else
-		ts_err("failed power on, %d", ret);
-	return ret;
-}
-
-/**
- * goodix_ts_power_off - Turn off power to the touch device
- * @core_data: pointer to touch core data
- * return: 0 ok, <0 failed
- */
-int goodix_ts_power_off(struct goodix_ts_core *cd)
-{
-	int ret;
-
-	ts_info("Device power off");
-	if (!cd->power_on)
-		return 0;
-
-	ret = cd->hw_ops->power_on(cd, false);
-	if (!ret)
-		cd->power_on = 0;
-	else
-		ts_err("failed power off, %d", ret);
 
 	return ret;
 }
@@ -1966,8 +2050,8 @@ static int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
 /* resume: touch power on is after display to avoid display disturb */
 			ts_info("%s IN", __func__);
 			if (*data == MTK_DISP_BLANK_UNBLANK) {
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
-				if (!atomic_read(&goodix_tui_flag))
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
+			/*	if (!atomic_read(&gt9895_tui_flag)) */
 #endif
 					goodix_ts_resume(core_data);
 			}
@@ -1980,8 +2064,8 @@ static int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
 			ts_info("%s IN", __func__);
 			if (*data == MTK_DISP_BLANK_POWERDOWN) {
 
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
-				if (!atomic_read(&goodix_tui_flag))
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
+			/*	if (!atomic_read(&gt9895_tui_flag)) */
 #endif
 					goodix_ts_suspend(core_data);
 			}
@@ -2329,6 +2413,11 @@ static int goodix_ts_probe(struct platform_device *pdev)
 			ret_disp = mtk_panel_tch_handle_init();
 			*ret_disp = (void *)goodix_ts_power_on_reinit;
 		}
+#endif
+
+	/* for tui touch */
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
+	/* ts_core_for_tui = core_data; */
 #endif
 
 	/* generic notifier callback */

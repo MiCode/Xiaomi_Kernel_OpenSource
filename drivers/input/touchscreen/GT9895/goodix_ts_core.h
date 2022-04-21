@@ -708,4 +708,13 @@ int goodix_ts_gpio_suspend(struct goodix_ts_core *core_data);
 int goodix_ts_gpio_resume(struct goodix_ts_core *core_data);
 #endif
 
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI)
+/*
+ * extern atomic_t gt9895_tui_flag;
+ * extern struct goodix_ts_core *ts_core_for_tui;
+ * extern void mt_spi_enable_master_clk(struct spi_device *spidev);
+ * extern void mt_spi_disable_master_clk(struct spi_device *spidev);
+ */
+#endif
+
 #endif
