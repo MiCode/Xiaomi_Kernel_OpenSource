@@ -3468,6 +3468,23 @@ static long FDVT_ioctl(struct file *pFile,
 				       &request->frame_config
 						[request->frame_rd_idx],
 				       sizeof(struct fdvt_config));
+				if (request->frame_config[request->frame_rd_idx].FDVT_IS_SECURE) {
+					fdvt_free_iova(
+					  &request->frame_dmabuf[request->frame_rd_idx].ImgSrcY);
+					dma_buf_put(
+					request->frame_dmabuf[request->frame_rd_idx].ImgSrcY.dmabuf
+					);
+					if (
+	request->frame_config[request->frame_rd_idx].FDVT_METADATA_TO_GCE.ImgSrcUV_Handler
+					) {
+						fdvt_free_iova(
+					&request->frame_dmabuf[request->frame_rd_idx].ImgSrcUV
+						);
+						dma_buf_put(
+					request->frame_dmabuf[request->frame_rd_idx].ImgSrcUV.dmabuf
+						);
+					}
+				}
 				request->fdvt_frame_status
 					[request->frame_rd_idx++]
 						= FDVT_FRAME_STATUS_EMPTY;
@@ -3537,6 +3554,25 @@ static long FDVT_ioctl(struct file *pFile,
 						&request->frame_config
 						[request->frame_rd_idx],
 						sizeof(struct fdvt_config));
+					if (
+					request->frame_config[request->frame_rd_idx].FDVT_IS_SECURE
+					) {
+						fdvt_free_iova(
+							&request->frame_dmabuf[
+							request->frame_rd_idx].ImgSrcY);
+						dma_buf_put(
+					request->frame_dmabuf[request->frame_rd_idx].ImgSrcY.dmabuf
+						);
+					}
+					if (
+		request->frame_config[request->frame_rd_idx].FDVT_METADATA_TO_GCE.ImgSrcUV_Handler
+				&& request->frame_config[request->frame_rd_idx].FDVT_IS_SECURE
+					) {
+						fdvt_free_iova(
+					&request->frame_dmabuf[request->frame_rd_idx].ImgSrcUV);
+						dma_buf_put(
+				request->frame_dmabuf[request->frame_rd_idx].ImgSrcUV.dmabuf);
+					}
 					request->fdvt_frame_status
 						[request->frame_rd_idx++] =
 						FDVT_FRAME_STATUS_EMPTY;
