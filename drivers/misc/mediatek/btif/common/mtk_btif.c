@@ -1097,6 +1097,12 @@ unsigned int btif_dma_rx_data_receiver(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 	unsigned int index = 0;
 	struct _mtk_btif_ *p_btif = &(g_btif[index]);
 
+	/* Although we use coherent DMA, we still need to flush cache. */
+	/* However, btif cannot invoke cache API directly because btif is KO. */
+	/* We unmap dma buffer to resolve this problem */
+	dma_unmap_single(p_btif->private_data, p_dma_info->p_vfifo->phy_addr,
+			p_dma_info->p_vfifo->vfifo_size, DMA_FROM_DEVICE);
+
 	btif_bbs_write(&(p_btif->btif_buf), p_buf, buf_len);
 /*save DMA Rx packet here*/
 	if (buf_len > 0)
