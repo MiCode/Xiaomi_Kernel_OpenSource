@@ -15,9 +15,9 @@
 
 #include "fscmd-trace.h"
 
-#define MAX_RW_LOG_NR    (2000) /* entries size of total log */
+#define MAX_RW_LOG_NR    (1000) /* entries size of total log */
 #define MAX_OTHER_LOG_NR (8000) /* entries size of total log */
-#define MAX_F2FS_LOG_NR  (100) /* entries size of total log */
+#define MAX_F2FS_LOG_NR  (4000) /* entries size of total log */
 #define SPREAD_PRINTF(buff, size, evt, fmt, args...) \
 do { \
 	if (buff && size && *(size)) { \
@@ -123,11 +123,13 @@ struct nr_table_s NR_other_table[] = {
 enum {
 	F2FS_TBLID_CK = 0,
 	F2FS_TBLID_GC,
+	F2FS_TBLID_RWSEM,
 };
 
 struct nr_table_s NR_f2fs_table[] = {
 	{"ckpt", F2FS_TBLID_CK},
 	{"gc", F2FS_TBLID_GC},
+	{"rwsem", F2FS_TBLID_RWSEM},
 	{"none", -1},
 };
 
@@ -215,7 +217,7 @@ static void fscmd_add_log(struct fscmd_s *fscmd_log, struct fscmd_log_s *log)
 	cmdlog->type = log->type;
 	cmdlog->syscall_nr = log->syscall_nr;
 	cmdlog->pid = log->pid;
-	get_task_comm(cmdlog->comm, current);
+	strncpy(cmdlog->comm, log->comm, TASK_COMM_LEN);
 	spin_unlock_irqrestore(&ghis_spinlock, flags);
 
 }
@@ -245,11 +247,16 @@ void fscmd_trace_sys_enter(void *data,
 		struct pt_regs *regs, long id)
 {
 	struct fscmd_log_s syscall;
-
+	// syscall_nr: type id of syscall
+	//  time: timestamp
+	//  pid: pid
+	//  type: enter or exist
+	//  comm: thread name
 	syscall.syscall_nr = id;
 	syscall.time = sched_clock();
 	syscall.pid = current->pid;
 	syscall.type = FSCMD_SYSCALL_ENTRY;
+	get_task_comm(syscall.comm, current);
 	if (!ghistory_log[LOG_TYPE_RW].record || !ghistory_log[LOG_TYPE_OTHER].record)
 		return;
 
@@ -263,11 +270,16 @@ void fscmd_trace_sys_exit(void *data,
 		struct pt_regs *regs, long ret)
 {
 	struct fscmd_log_s syscall;
-
+	// syscall_nr: type id of syscall
+	//  time: timestamp
+	//  pid: pid
+	//  type: enter or exist
+	//  comm: thread name
 	syscall.syscall_nr = regs->syscallno;
 	syscall.time = sched_clock();
 	syscall.pid = current->pid;
 	syscall.type = FSCMD_SYSCALL_EXIT;
+	get_task_comm(syscall.comm, current);
 	if (!ghistory_log[LOG_TYPE_RW].record || !ghistory_log[LOG_TYPE_OTHER].record)
 		return;
 
@@ -346,6 +358,13 @@ static void f2fs_dump_log(struct fscmd_s *fscmd_log, char **buff, unsigned long 
 			log->type,
 			log->pid,
 			log->comm);
+	} else if (pt->id == F2FS_TBLID_RWSEM) {
+		SPREAD_PRINTF(buff, size, seq,
+			"%llu,%s,%d,%d\n",
+			log->time,
+			pt->name,
+			log->cp_reason,
+			log->type);
 	}
 }
 
@@ -353,7 +372,11 @@ void fscmd_trace_f2fs_write_checkpoint(void *data,
 	struct super_block *sb, int reason, char *msg)
 {
 	struct fscmd_log_s syscall;
-
+	// syscall_nr: checkpoint type of log in fscmd_f2fs
+	//  time: timestamp
+	//  pid: pid
+	//  type: three steps in write_cp
+	//  reason: cp_reason form f2fs
 	syscall.syscall_nr = F2FS_TBLID_CK;
 	syscall.time = sched_clock();
 	syscall.pid = current->pid;
@@ -378,7 +401,10 @@ void fscmd_trace_f2fs_gc_begin(void *data,
 		unsigned int prefree_seg)
 {
 	struct fscmd_log_s syscall;
-
+	// syscall_nr: gc type of log in fscmd_f2fs
+	//  time: timestamp
+	//  pid: pid
+	//  type: begin or end of gc in f2fs
 	syscall.syscall_nr = F2FS_TBLID_GC;
 	syscall.time = sched_clock();
 	syscall.pid = current->pid;
@@ -395,11 +421,29 @@ void fscmd_trace_f2fs_gc_end(void *data,
 	int reserved_seg, unsigned int prefree_seg)
 {
 	struct fscmd_log_s syscall;
-
+	// syscall_nr: gc type of log in fscmd_f2fs
+	//  time: timestamp
+	//  pid: pid
+	//  type: begin or end of gc in f2fs
 	syscall.syscall_nr = F2FS_TBLID_GC;
 	syscall.time = sched_clock();
 	syscall.pid = current->pid;
 	syscall.type = GC_TPYE_END; // for different ckpt step
+	ghistory_log[LOG_TYPE_F2FS].record(&ghistory_log[LOG_TYPE_F2FS], &syscall);
+}
+
+void fscmd_trace_f2fs_ck_rwsem(void *data,
+	uint64_t time0, uint64_t time1, unsigned long sem_count)
+{
+	struct fscmd_log_s syscall;
+	// syscall_nr: rwsem type of log in fscmd_f2fs
+	//  time: timestamp
+	//  cp_reason: duration for wait down_write(cp_rwsem)
+	//  type: count in rwsem
+	syscall.syscall_nr = F2FS_TBLID_RWSEM;
+	syscall.time = sched_clock();
+	syscall.cp_reason = (int)(time1 - time0);
+	syscall.type = (int)sem_count;
 	ghistory_log[LOG_TYPE_F2FS].record(&ghistory_log[LOG_TYPE_F2FS], &syscall);
 }
 

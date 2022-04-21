@@ -1199,6 +1199,10 @@ static int block_operations(struct f2fs_sb_info *sbi)
 		.for_reclaim = 0,
 	};
 	int err = 0, cnt = 0;
+#if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
+	uint64_t time0, time1;
+	unsigned long sem_count;
+#endif
 
 	/*
 	 * Let's flush inline_data in dirty node pages.
@@ -1206,7 +1210,15 @@ static int block_operations(struct f2fs_sb_info *sbi)
 	f2fs_flush_inline_data(sbi);
 
 retry_flush_quotas:
+#if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
+	time0 = sched_clock();
+	sem_count = atomic_long_read(&sbi->cp_rwsem.internal_rwsem.count);
+#endif
 	f2fs_lock_all(sbi);
+#if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
+	time1 = sched_clock();
+	trace_f2fs_ck_rwsem(time0, time1, sem_count);
+#endif
 	if (__need_flush_quota(sbi)) {
 		int locked;
 

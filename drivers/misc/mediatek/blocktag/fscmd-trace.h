@@ -34,6 +34,9 @@ void fscmd_trace_f2fs_gc_end(void *data,
 	unsigned int free_sec, unsigned int free_seg,
 	int reserved_seg, unsigned int prefree_seg);
 
+void fscmd_trace_f2fs_ck_rwsem(void *data,
+	uint64_t time0, uint64_t time1, unsigned long sem_count);
+
 void mtk_fscmd_show(char **buff, unsigned long *size,
 	struct seq_file *seq);
 

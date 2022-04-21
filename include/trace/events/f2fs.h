@@ -2068,6 +2068,29 @@ TRACE_EVENT(f2fs_fiemap,
 		__entry->ret)
 );
 
+#if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
+TRACE_EVENT(f2fs_ck_rwsem,
+
+	TP_PROTO(uint64_t time0, uint64_t time1, unsigned long sem_count),
+
+	TP_ARGS(time0, time1, sem_count),
+
+	TP_STRUCT__entry(
+		__field(uint64_t, t0)
+		__field(uint64_t, t1)
+		__field(unsigned long, count)
+	),
+
+	TP_fast_assign(
+		__entry->t0		= time0;
+		__entry->t1		= time1;
+		__entry->count	= sem_count;
+	),
+
+	TP_printk("[fscmd] T0 %llu T1 %llu with %ld\n"
+		, __entry->t0, __entry->t1, __entry->count)
+);
+#endif
 #endif /* _TRACE_F2FS_H */
 
  /* This part must be outside protection */

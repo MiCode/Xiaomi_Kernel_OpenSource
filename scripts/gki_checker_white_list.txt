@@ -6,11 +6,13 @@ f drivers/media/mc/mc-device.c
 f drivers/media/v4l2-core/v4l2-ioctl.c
 f drivers/media/v4l2-core/v4l2-subdev.c
 f fs/coredump.c
+f fs/f2fs/checkpoint.c
 f include/linux/dev_printk.h
 f include/linux/dynamic_debug.h
 f include/linux/printk.h
 f include/media/media-entity.h
 f include/trace/events/block.h
+f include/trace/events/f2fs.h
 f kernel/audit.c
 f kernel/printk/printk.c
 f kernel/printk/printk_ringbuffer.c
