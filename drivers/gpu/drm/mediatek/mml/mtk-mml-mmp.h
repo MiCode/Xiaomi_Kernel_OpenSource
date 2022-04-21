@@ -6,7 +6,14 @@
 #ifndef __MTK_MML_MMP_H__
 #define __MTK_MML_MMP_H__
 
+#ifndef MML_FPGA
 #if IS_ENABLED(CONFIG_MMPROFILE)
+#define MML_MMP_SUPPORT
+#endif
+#endif
+
+
+#ifdef MML_MMP_SUPPORT
 #include <mmprofile.h>
 #include <mmprofile_function.h>
 

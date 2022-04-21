@@ -5,6 +5,8 @@
 
 #include "mtk-mml-mmp.h"
 
+#ifndef MML_FPGA
+
 static struct mml_mmp_events_t mml_mmp_events;
 
 struct mml_mmp_events_t *mml_mmp_get_event(void)
@@ -40,3 +42,5 @@ void mml_mmp_init(void)
 	mmprofile_enable_event_recursive(mml, 1);
 	mmprofile_start(1);
 }
+
+#endif

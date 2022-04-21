@@ -520,18 +520,20 @@ s32 mml_comp_init_larb(struct mml_comp *comp, struct device *dev)
 	comp->larb_dev = &larb_pdev->dev;
 
 	/* also do mmqos and mmdvfs since dma component do init here */
+#ifndef MML_FPGA
 	comp->icc_path = of_mtk_icc_get(dev, "mml_dma");
 	if (IS_ERR_OR_NULL(comp->icc_path)) {
 		mml_err("%s not support qos", __func__);
 		comp->icc_path = NULL;
 	}
+#endif
 
 	return 0;
 }
 
 s32 mml_comp_pw_enable(struct mml_comp *comp)
 {
-	int ret;
+	int ret = 0;
 
 	comp->pw_cnt++;
 	if (comp->pw_cnt > 1)
@@ -547,10 +549,12 @@ s32 mml_comp_pw_enable(struct mml_comp *comp)
 		return 0;
 	}
 
+#ifndef MML_FPGA
 	ret = mtk_smi_larb_get(comp->larb_dev);
-
 	if (ret)
 		mml_err("%s enable fail ret:%d", __func__, ret);
+#endif
+
 	return ret;
 }
 
@@ -570,7 +574,9 @@ s32 mml_comp_pw_disable(struct mml_comp *comp)
 		return 0;
 	}
 
+#ifndef MML_FPGA
 	mtk_smi_larb_put(comp->larb_dev);
+#endif
 
 	return 0;
 }
@@ -687,7 +693,9 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 	/* store for debug log */
 	task->pipe[ccfg->pipe].bandwidth = max(bandwidth,
 		task->pipe[ccfg->pipe].bandwidth);
+#ifndef MML_FPGA
 	mtk_icc_set_bw(comp->icc_path, MBps_to_icc(bandwidth), hrt_bw);
+#endif
 
 	mml_msg_qos("%s comp %u %s qos bw %u(%u) by throughput %u pixel %u size %u%s",
 		__func__, comp->id, comp->name, bandwidth, hrt_bw / 1000,
@@ -697,7 +705,9 @@ void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
 
 void mml_comp_qos_clear(struct mml_comp *comp)
 {
+#ifndef MML_FPGA
 	mtk_icc_set_bw(comp->icc_path, 0, 0);
+#endif
 	mml_msg_qos("%s comp %u %s qos bw clear", __func__, comp->id, comp->name);
 }
 
@@ -708,6 +718,7 @@ static const struct mml_comp_hw_ops mml_hw_ops = {
 
 void __iomem *mml_sram_get(struct mml_dev *mml)
 {
+#ifndef MML_FPGA
 	int ret;
 	void __iomem *sram = NULL;
 
@@ -735,10 +746,14 @@ void __iomem *mml_sram_get(struct mml_dev *mml)
 done:
 	mutex_unlock(&mml->sram_mutex);
 	return sram;
+#else
+	return NULL;
+#endif
 }
 
 void mml_sram_put(struct mml_dev *mml)
 {
+#ifndef MML_FPGA
 	mutex_lock(&mml->sram_mutex);
 
 	mml->sram_cnt--;
@@ -753,6 +768,7 @@ void mml_sram_put(struct mml_dev *mml)
 
 done:
 	mutex_unlock(&mml->sram_mutex);
+#endif
 }
 
 bool mml_racing_enable(struct mml_dev *mml)
@@ -1031,6 +1047,7 @@ static int mml_probe(struct platform_device *pdev)
 	u32 i;
 	int ret, thread_cnt;
 
+	mml_msg("%s with dev %p", __func__, dev);
 	mml = devm_kzalloc(dev, sizeof(*mml), GFP_KERNEL);
 	if (!mml)
 		return -ENOMEM;
@@ -1100,6 +1117,7 @@ static int mml_probe(struct platform_device *pdev)
 
 	mml->wake_lock = wakeup_source_register(dev, "mml_pm_lock");
 	mml_record_init(mml);
+	mml_msg("%s success end", __func__);
 	return 0;
 
 err_mbox_create:

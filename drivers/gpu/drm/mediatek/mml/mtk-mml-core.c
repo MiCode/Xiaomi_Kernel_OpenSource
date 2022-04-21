@@ -20,7 +20,11 @@
 
 #define MML_TRACE_MSG_LEN	1024
 
+#ifndef MML_FPGA
 int mtk_mml_msg;
+#else
+int mtk_mml_msg = 1;
+#endif
 EXPORT_SYMBOL(mtk_mml_msg);
 module_param(mtk_mml_msg, int, 0644);
 
@@ -540,7 +544,9 @@ static s32 core_enable(struct mml_task *task, u32 pipe)
 	}
 	mml_trace_ex_end();
 
+#ifndef MML_FPGA
 	cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
+#endif
 
 	mml_clock_unlock(task->config->mml);
 

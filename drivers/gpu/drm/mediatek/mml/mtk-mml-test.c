@@ -157,6 +157,7 @@ struct test_case_op {
 
 static void check_fence(int32_t fd, const char *func)
 {
+#ifndef MML_FPGA
 	struct dma_fence *fence = sync_file_get_fence(fd);
 	long fret = dma_fence_wait(fence, true);
 
@@ -165,6 +166,7 @@ static void check_fence(int32_t fd, const char *func)
 
 	dma_fence_put(fence);
 	put_unused_fd(fd);
+#endif
 }
 
 #define mml_afbc_align(p) (((p + 31) >> 5) << 5)
@@ -467,7 +469,6 @@ static void case_config_relay_crop(void)
 static void setup_relay(struct mml_submit *task, struct mml_ut *cur)
 {
 	task->info.dest[0].pq_config.en = true;
-	task->info.dest[0].pq_config.en_dre = true;
 	task->info.dest[0].crop.r.left = 0;
 	task->info.dest[0].crop.r.top = 0;
 	task->info.dest[0].crop.r.width = the_case.cfg_dest_w;
@@ -1480,6 +1481,35 @@ static int mml_test_create_src(struct dma_heap *heap, struct mml_ut *cur_case,
 	return 0;
 }
 
+static int mml_test_create_dest(struct dma_heap *heap, struct mml_ut *cur_case,
+	struct mml_buffer *buf)
+{
+	u64 *va;
+	struct dma_buf_map map;
+	u32 i;
+	int ret;
+
+	if (mml_test_alloc_frame(heap, buf, cur_case->cfg_dest_format,
+		cur_case->cfg_dest_w, cur_case->cfg_dest_h) < 0)
+		return -EINVAL;
+
+	/* retrieve va to fill in raw data */
+	ret = dma_buf_vmap(buf->dmabuf[0], &map);
+	if (ret) {
+		mml_err("[test]%s fail to vmap", __func__);
+		return -ENOMEM;
+	}
+	va = map.vaddr;
+
+	for (i = 0; i < buf->size[0] / 8; i++)
+		va[i] = 0xdeadbeef + i;
+
+	buf->flush = true;
+	dma_buf_vunmap(buf->dmabuf[0], &map);
+
+	return 0;
+}
+
 static struct mml_test *main_test;
 
 static void mml_test_krun(u32 case_num)
@@ -1516,8 +1546,7 @@ static void mml_test_krun(u32 case_num)
 	if (mml_test_create_src(heap, &cur, &src_buf) < 0)
 		goto free_heap;
 
-	if (mml_test_alloc_frame(heap, &dest_buf, cur.cfg_dest_format,
-		cur.cfg_dest_w, cur.cfg_dest_h) < 0)
+	if (mml_test_create_dest(heap, &cur, &dest_buf) < 0)
 		goto free_heap;
 
 	cur.buf_src = src_buf.dmabuf[0];

@@ -298,6 +298,9 @@ enum rdma_label {
 	RDMA_LABEL_TOTAL
 };
 
+int mml_rdma_crc;
+module_param(mml_rdma_crc, int, 0644);
+
 static s32 rdma_write(struct cmdq_pkt *pkt, phys_addr_t base_pa, u8 hw_pipe,
 		      enum cpr_reg_idx idx, u32 value, bool write_sec)
 {
@@ -1080,6 +1083,10 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_SHADOW_CTRL, 0x1, U32_MAX);
 	}
 
+	if (mml_rdma_crc)
+		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_DEBUG_CON,
+			mml_rdma_crc, U32_MAX);
+
 	rdma_color_fmt(cfg, rdma_frm);
 
 	if (MML_FMT_V_SUBSAMPLE(src->format) &&
@@ -1658,7 +1665,7 @@ static void rdma_debug_dump(struct mml_comp *comp)
 {
 	struct mml_comp_rdma *rdma = comp_to_rdma(comp);
 	void __iomem *base = comp->base;
-	u32 value[30];
+	u32 value[31];
 	u32 mon[29];
 	u32 state, greq;
 	u32 shadow_ctrl;
@@ -1715,6 +1722,9 @@ static void rdma_debug_dump(struct mml_comp *comp)
 		value[29] = readl(base + RDMA_AFBC_PAYLOAD_OST);
 	}
 
+	if (mml_rdma_crc)
+		value[30] = readl(base + RDMA_CHKS_EXTR);
+
 	/* mon sta from 0 ~ 28 */
 	for (i = 0; i < ARRAY_SIZE(mon); i++)
 		mon[i] = readl(base + RDMA_MON_STA_0 + i * 8);
@@ -1749,6 +1759,9 @@ static void rdma_debug_dump(struct mml_comp *comp)
 		mml_err("RDMA_AFBC_PAYLOAD_OST %#010x",
 			value[29]);
 	}
+
+	if (mml_rdma_crc)
+		mml_err("RDMA_CHKS_EXTR %#010x", value[30]);
 
 	for (i = 0; i < ARRAY_SIZE(mon) / 3; i++) {
 		mml_err("RDMA_MON_STA_%-2u %#010x RDMA_MON_STA_%-2u %#010x RDMA_MON_STA_%-2u %#010x",

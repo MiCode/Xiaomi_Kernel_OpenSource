@@ -2,7 +2,7 @@
 
 ifeq (y, $(filter y, $(CONFIG_DRM_MEDIATEK_V2)))
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek_v2/
-obj-$(CONFIG_DRM_MEDIATEK) += mml/
+obj-$(CONFIG_MTK_MML) += mml/
 else
 
 mediatek-drm-y := mtk_disp_aal.o \

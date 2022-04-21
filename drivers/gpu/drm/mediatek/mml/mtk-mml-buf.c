@@ -32,7 +32,9 @@ void mml_buf_get_fd(struct mml_file_buf *buf, int32_t *fd, u32 cnt, const char *
 		}
 
 		buf->dma[i].dmabuf = dmabuf;
+#ifndef MML_FPGA
 		mtk_dma_buf_set_name(dmabuf, name);
+#endif
 	}
 }
 
@@ -46,7 +48,9 @@ void mml_buf_get(struct mml_file_buf *buf, void **dmabufs, u32 cnt, const char *
 
 		get_dma_buf(dmabufs[i]);
 		buf->dma[i].dmabuf = dmabufs[i];
+#ifndef MML_FPGA
 		mtk_dma_buf_set_name(dmabufs[i], name);
+#endif
 	}
 }
 

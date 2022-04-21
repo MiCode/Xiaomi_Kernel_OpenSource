@@ -115,6 +115,10 @@ module_param(mml_racing_h, int, 0644);
 int mml_racing_rdone;
 module_param(mml_racing_rdone, int, 0644);
 
+/* 0x1 for input crc, 0xd for output crc */
+int mml_wrot_crc;
+module_param(mml_wrot_crc, int, 0644);
+
 /* ceil_m and floor_m helper function */
 static u32 ceil_m(u64 n, u64 d)
 {
@@ -1029,6 +1033,9 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	/* Enable engine */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_ROT_EN, 0x01, 0x00000001);
+
+	if (mml_wrot_crc)
+		cmdq_pkt_write(pkt, NULL, base_pa + VIDO_CRC_CTRL, mml_wrot_crc, U32_MAX);
 
 	/* Enable shadow */
 	cmdq_pkt_write(pkt, NULL, base_pa + VIDO_SHADOW_CTRL, 0x1, U32_MAX);
@@ -2001,7 +2008,7 @@ static void wrot_debug_dump(struct mml_comp *comp)
 {
 	void __iomem *base = comp->base;
 	struct mml_comp_wrot *wrot = comp_to_wrot(comp);
-	u32 value[33];
+	u32 value[35];
 	u32 debug[33];
 	u32 dbg_id = 0, state, smi_req;
 	u32 shadow_ctrl;
@@ -2047,6 +2054,8 @@ static void wrot_debug_dump(struct mml_comp *comp)
 	value[30] = readl(base + VIDO_BASE_ADDR_C);
 	value[31] = readl(base + VIDO_BASE_ADDR_HIGH_V);
 	value[32] = readl(base + VIDO_BASE_ADDR_V);
+	value[33] = readl(base + VIDO_CRC_CTRL);
+	value[34] = readl(base + VIDO_CRC_VALUE);
 
 	/* debug id from 0x0100 ~ 0x2100, count 33 which is debug array size */
 	for (i = 0; i < ARRAY_SIZE(debug); i++) {
@@ -2063,6 +2072,8 @@ static void wrot_debug_dump(struct mml_comp *comp)
 		value[6], value[7], value[8]);
 	mml_err("VIDO_FRAME_SIZE %#010x",
 		value[9]);
+	if (value[33] || value[34])
+		mml_err("VIDO_CRC_CTRL %#010x VIDO_CRC_VALUE %#010x", value[33], value[34]);
 	mml_err("VIDO_OFST ADDR_HIGH   %#010x ADDR   %#010x",
 		value[10], value[11]);
 	mml_err("VIDO_OFST ADDR_HIGH_C %#010x ADDR_C %#010x",

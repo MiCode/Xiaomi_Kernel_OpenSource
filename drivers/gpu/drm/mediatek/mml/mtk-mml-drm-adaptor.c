@@ -872,6 +872,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 
 	/* create fence for this task */
 	fence.value = task->job.jobid;
+#ifndef MML_FPGA
 	if (submit->job && ctx->timeline && submit->info.mode != MML_MODE_RACING &&
 		mtk_sync_fence_create(ctx->timeline, &fence) >= 0) {
 		task->job.fence = fence.fence;
@@ -879,6 +880,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	} else {
 		task->job.fence = -1;
 	}
+#endif
 	mml_msg("[drm]mml job %u fence fd %d task %p fence %p config %p mode %hhu%s act_t %u",
 		task->job.jobid, task->job.fence, task, task->fence, cfg,
 		cfg->info.mode,
@@ -1110,7 +1112,9 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 	ctx->wq_config[0] = alloc_ordered_workqueue("mml_work0", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 	ctx->wq_config[1] = alloc_ordered_workqueue("mml_work1", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 
+#ifndef MML_FPGA
 	ctx->timeline = mtk_sync_timeline_create("mml_timeline");
+#endif
 	if (!ctx->timeline)
 		mml_err("[drm]fail to create timeline");
 	else
@@ -1176,7 +1180,9 @@ static void drm_ctx_release(struct mml_drm_ctx *ctx)
 	destroy_workqueue(ctx->wq_config[0]);
 	destroy_workqueue(ctx->wq_config[1]);
 	kthread_destroy_worker(ctx->kt_done);
+#ifndef MML_FPGA
 	mtk_sync_timeline_destroy(ctx->timeline);
+#endif
 	for (i = 0; i < ARRAY_SIZE(ctx->tile_cache); i++) {
 		for (j = 0; j < ARRAY_SIZE(ctx->tile_cache[i].func_list); j++)
 			kfree(ctx->tile_cache[i].func_list[j]);

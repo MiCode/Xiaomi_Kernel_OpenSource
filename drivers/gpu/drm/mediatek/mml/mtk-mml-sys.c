@@ -885,7 +885,9 @@ static void sys_ddp_enable(struct mml_sys *sys, struct mml_task *task, u32 pipe)
 		sys_ddp_disable_locked(sys, pipe);
 	sys->ddp_path[pipe] = path;
 
+#ifndef MML_FPGA
 	cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
+#endif
 
 enabled:
 	mml_clock_unlock(task->config->mml);
