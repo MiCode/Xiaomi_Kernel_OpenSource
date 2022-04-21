@@ -784,6 +784,7 @@ static const struct soc_id soc_id[] = {
 	{ 525, "NEO-LE" },
 	{ 552, "WAIPIO-LTE" },
 	{ 554, "NEO-LA" },
+	{ 568, "RAVELIN" },
 };
 
 static struct qcom_socinfo *qsocinfo;
