@@ -10,4 +10,5 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/rv
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/iommu
+ccflags-y += -I$(srctree)/drivers/dma-buf/heaps
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem

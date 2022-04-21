@@ -14,7 +14,7 @@
 #include "mtk_vcodec_enc_pm.h"
 #include "mtk_vcodec_enc.h"
 #include "mtk_heap.h"
-
+#include "iommu_pseudo.h"
 
 static void handle_enc_init_msg(struct venc_vcu_inst *vcu, void *data)
 {
@@ -584,6 +584,10 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 	if (frm_buf) {
 		out.fb_num_planes = frm_buf->num_planes;
 		for (i = 0; i < frm_buf->num_planes; i++) {
+			if (vsi->config.svp_mode && is_disable_map_sec()) {
+				frm_buf->fb_addr[i].dma_addr = dmabuf_to_secure_handle(
+					frm_buf->fb_addr[i].dmabuf);
+			}
 			out.input_addr[i] =
 				frm_buf->fb_addr[i].dma_addr;
 			vsi->venc.fb_dma[i] =
@@ -623,14 +627,19 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 	}
 
 	if (bs_buf) {
+		if (vsi->config.svp_mode && is_disable_map_sec())
+			bs_buf->dma_addr = dmabuf_to_secure_handle(bs_buf->dmabuf);
+
 		out.bs_addr = bs_buf->dma_addr;
 		vsi->venc.bs_dma = bs_buf->dma_addr;
 		out.bs_size = bs_buf->size;
 
 		if (vsi->config.svp_mode) {
 			out.sec_mem_handle = dmabuf_to_secure_handle(bs_buf->dmabuf);
-			pr_info("%s %d out.sec_mem_handle 0x%x", __func__,
-				 __LINE__, out.sec_mem_handle);
+			out.sec_is_hal_secure_handle = is_disable_map_sec();
+			pr_info("%s %d out.sec_mem_handle 0x%x, out.sec_is_hal_secure_handle %d",
+				__func__, __LINE__,
+				out.sec_mem_handle, out.sec_is_hal_secure_handle);
 		}
 
 		mtk_vcodec_debug(vcu, " output (dma:%lx)",
