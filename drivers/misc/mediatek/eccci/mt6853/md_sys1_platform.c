@@ -34,7 +34,11 @@
 #include <linux/pm_qos.h>
 #include <helio-dvfsrc-opp.h>
 #endif
+#ifdef CCCI_PLATFORM_MT6877
 #include <clk-mt6877-pg.h>
+#else
+#include <clk-mt6853-pg.h>
+#endif
 #include "ccci_core.h"
 #include "ccci_platform.h"
 
