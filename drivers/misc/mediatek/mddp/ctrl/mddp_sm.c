@@ -167,6 +167,9 @@ static void mddp_print_mdfpm_log(struct mdfpm_log *buf, uint32_t buf_len)
 		mdfpm_log_buf = (struct mdfpm_log *)buf;
 		switch (mdfpm_log_buf->action_id) {
 		case MDFPM_LOG_NONE:
+			size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ, "[MDDP_WH] None");
+			MDDP_S_LOG(MDDP_LL_DEBUG, "%s", str_dstate);
+			break;
 		case MDFPM_LOG_MDDP_WH_RUN:
 			size = snprintf(str_dstate, MDFPM_SEND_LOG_BUF_SZ, "[MDDP_WH] Running");
 			MDDP_S_LOG(MDDP_LL_DEBUG, "%s", str_dstate);
