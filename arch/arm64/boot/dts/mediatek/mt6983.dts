@@ -1987,7 +1987,8 @@
 				<0 0x10042000 0 0x1000>,  /* NTH_EMI_AO_DEBUG_CTRL */
 				<0 0x11ee0000 0 0x1000>,  /* EFUSE */
 				<0 0x13fb9c00 0 0x100>,   /* MFG_CPE_CONTROL */
-				<0 0x13fb6000 0 0x1000>;  /* MFG_CPE_SENSOR */
+				<0 0x13fb6000 0 0x1000>,  /* MFG_CPE_SENSOR */
+				<0 0x00116000 0 0x1000>;  /* SYSRAM_MFG_HISTORY */
 			reg-names =
 				"mfg_pll",
 				"mfgsc_pll",
@@ -2005,7 +2006,8 @@
 				"nth_emi_ao_debug_ctrl",
 				"efuse",
 				"mfg_cpe_control",
-				"mfg_cpe_sensor";
+				"mfg_cpe_sensor",
+				"sysram_mfg_history";
 			_vcore-supply = <&mt6363_vbuck2>;
 			/*_dvfsrc-supply = <&dvfsrc_vcore>;*/
 			_vstack-supply = <&mt6373_vbuck2>;
