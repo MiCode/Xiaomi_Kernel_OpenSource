@@ -6701,7 +6701,7 @@
 
 				 node_55 = "SSPM_SWPM_DRAM__POWER",
 				 "aphy_vddq_0p6v,aphy_vm_0p75v,aphy_vio_1p2v,dram_vddq_0p6v,",
-				 "dram_vdd2l_0p9v,dram_vdd2h_1p05v,dram_vdd1_1p8v";
+				 "dram_vdd2_1p25v,dram_vdd1_1p8v";
 
 				 node_56 = "SSPM_SWPM_ME__POWER",
 				 "disp,mdp,venc,vdec";
