@@ -161,7 +161,6 @@ struct vcp_region_info_st {
 };
 
 extern unsigned int vcp_support;
-extern bool driver_init_done;
 
 /* vcp device attribute */
 extern struct device_attribute dev_attr_vcp_A_mobile_log_UT;

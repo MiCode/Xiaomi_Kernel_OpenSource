@@ -87,10 +87,6 @@ EXPORT_SYMBOL_GPL(vcp_support);
 
 unsigned int vcp_dbg_log;
 
-/* set flag after driver initial done */
-bool driver_init_done;
-EXPORT_SYMBOL_GPL(driver_init_done);
-
 /*vcp awake variable*/
 int vcp_awake_counts[VCP_CORE_TOTAL];
 
@@ -170,6 +166,8 @@ static DEFINE_MUTEX(vcp_feature_mutex);
 
 char *core_ids[VCP_CORE_TOTAL] = {"VCP A"};
 DEFINE_SPINLOCK(vcp_awake_spinlock);
+/* set flag after driver initial done */
+static bool driver_init_done;
 struct vcp_ipi_irq {
 	const char *name;
 	int order;
@@ -877,7 +875,6 @@ static int vcp_pm_event(struct notifier_block *notifier
 #if VCP_RECOVERY_SUPPORT
 			cpuidle_pause_and_lock();
 			reset_vcp(VCP_ALL_SUSPEND);
-			is_suspending = false;
 			waitCnt = vcp_wait_ready_sync(RTOS_FEATURE_ID);
 			cpuidle_resume_and_unlock();
 #endif
