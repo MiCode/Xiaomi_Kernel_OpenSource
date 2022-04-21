@@ -95,6 +95,7 @@ enum {CMDQ_PREBUILT_MDP, CMDQ_PREBUILT_MML, CMDQ_PREBUILT_VFMT,
 extern int gce_shift_bit;
 extern int gce_mminfra;
 extern bool gce_in_vcp;
+extern bool cpr_not_support_cookie;
 extern bool skip_poll_sleep;
 
 #define CMDQ_REG_SHIFT_ADDR(addr) (((addr) + gce_mminfra) >> gce_shift_bit)

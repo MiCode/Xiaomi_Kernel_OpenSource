@@ -387,11 +387,10 @@ s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
 	if (err)
 		return err;
 
-#ifdef CMDQ_SECURE_CPR_SUPPORT
-	xpr = CMDQ_CPR_THREAD_COOKIE(thread->idx);
-#else
-	xpr = CMDQ_THR_SPR_IDX1;
-#endif
+	if (!cpr_not_support_cookie)
+		xpr = CMDQ_CPR_THREAD_COOKIE(thread->idx);
+	else
+		xpr = CMDQ_THR_SPR_IDX1;
 
 	left.reg = true;
 	left.idx = xpr;
