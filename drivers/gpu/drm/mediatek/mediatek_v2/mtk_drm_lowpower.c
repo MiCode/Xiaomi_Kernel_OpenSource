@@ -62,16 +62,6 @@ static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 
 static void mtk_drm_cmd_mode_enter_idle(struct drm_crtc *crtc)
 {
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-
-	// Temp code. This flow will only enter by debug command
-	// (CMD mode will enter MML IR by debug command), we don't
-	// have to worry about it will effect the original flow.
-	if (mtk_crtc && mtk_crtc->is_mml && mtk_crtc->mml_cfg &&
-		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-		return;
-	}
-
 	mtk_drm_idlemgr_disable_crtc(crtc);
 	lcm_fps_ctx_reset(crtc);
 }
@@ -108,16 +98,6 @@ static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
 
 static void mtk_drm_cmd_mode_leave_idle(struct drm_crtc *crtc)
 {
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-
-	// Temp code. This flow will only enter by debug command
-	// (CMD mode will enter MML IR by debug command), we don't
-	// have to worry about it will effect the original flow.
-	if (mtk_crtc && mtk_crtc->is_mml && mtk_crtc->mml_cfg &&
-		mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-		return;
-	}
-
 	mtk_drm_idlemgr_enable_crtc(crtc);
 	lcm_fps_ctx_reset(crtc);
 }
@@ -551,6 +531,7 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	unsigned int i, j;
 	struct mtk_ddp_comp *output_comp = NULL;
 	int en = 1;
+	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 
 	DDPINFO("crtc%d do %s+\n", crtc_id, __func__);
 
@@ -622,6 +603,10 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 
 	/* 12. enable fake vsync if need */
 	mtk_drm_fake_vsync_switch(crtc, true);
+
+	/* 13. alloc sram if last is MML */
+	if (mtk_crtc->is_mml)
+		mtk_crtc_alloc_sram(mtk_crtc, mtk_state->prop_val[CRTC_PROP_LYE_IDX]);
 
 	DDPINFO("crtc%d do %s-\n", crtc_id, __func__);
 }

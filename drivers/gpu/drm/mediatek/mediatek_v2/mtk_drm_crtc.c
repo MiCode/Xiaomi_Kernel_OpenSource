@@ -6019,17 +6019,6 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	if (!need_wait)
 		goto skip;
 
-	{
-		struct mtk_drm_sram_list *entry, *tmp;
-
-		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
-		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
-			list_del_init(&entry->head);
-		}
-		mtk_crtc_free_sram(mtk_crtc);
-		refcount_set(&mtk_crtc->mml_ir_sram.ref.refcount, 0);
-		mutex_unlock(&mtk_crtc->mml_ir_sram.lock);
-	}
 
 	if (crtc_id == 2) {
 		int gce_event =
@@ -6093,6 +6082,18 @@ skip:
 		if (mtk_crtc_with_sodi_loop(crtc) &&
 				(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_stop_sodi_loop(crtc);
+	}
+
+	{
+		struct mtk_drm_sram_list *entry, *tmp;
+
+		mutex_lock(&mtk_crtc->mml_ir_sram.lock);
+		list_for_each_entry_safe(entry, tmp, &mtk_crtc->mml_ir_sram.list.head, head) {
+			list_del_init(&entry->head);
+		}
+		mtk_crtc_free_sram(mtk_crtc);
+		refcount_set(&mtk_crtc->mml_ir_sram.ref.refcount, 0);
+		mutex_unlock(&mtk_crtc->mml_ir_sram.lock);
 	}
 
 	DDPINFO("%s:%d -\n", __func__, __LINE__);
