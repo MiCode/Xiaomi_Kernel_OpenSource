@@ -85,7 +85,7 @@ static const struct {
 	[APU_IPI_MNOC_TX] = { // 12
 		.name = "apu-mnoc-rpmsg",
 		.direction = IPI_HOST_INITIATE,
-		.ack = IPI_WITHOUT_ACK,
+		.ack = IPI_WITH_ACK,
 	},
 	[APU_IPI_MVPU_TX] = { // 13
 		.name = "apu-mvpu-tx",
