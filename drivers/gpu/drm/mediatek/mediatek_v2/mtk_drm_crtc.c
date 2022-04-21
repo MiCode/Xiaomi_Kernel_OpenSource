@@ -115,6 +115,8 @@ static unsigned int dummy_data[MT6983_DUMMY_REG_CNT];
 #define DISP_MUTEX0_MOD0 0xB0
 #define DISP_MUTEX0_MOD1 0xB4
 
+#define TZMP2_DT_NAME "ssheap-reserved-cma_memory"
+
 struct drm_crtc *_get_context(void)
 {
 	static int is_context_inited;
@@ -6969,7 +6971,18 @@ int mtk_crtc_check_out_sec(struct drm_crtc *crtc)
 	return out_sec;
 }
 
-#ifdef MTK_MTEE_SVP_SUPPORT
+/*====for MTEE SVP=====*/
+bool is_tzmp2_enable(void)
+{
+	struct device_node *dt_node;
+
+	dt_node = of_find_node_by_name(NULL, TZMP2_DT_NAME);
+	if (!dt_node)
+		return false;
+
+	return true;
+}
+
 static int mtk_mtee_sec_flow_by_cmdq(struct cmdq_pkt *cmdq_handle, struct mtk_ddp_comp *comp,
 		u32 crtc_id)
 {
@@ -6986,7 +6999,7 @@ static int mtk_mtee_sec_flow_by_cmdq(struct cmdq_pkt *cmdq_handle, struct mtk_dd
 
 	return ret;
 }
-#endif
+/*=====end======*/
 
 void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 {
@@ -6998,20 +7011,17 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
 
 	DDPINFO("%s+ crtc%d\n", __func__, drm_crtc_index(crtc));
-#ifdef MTK_MTEE_SVP_SUPPORT
-	if (mtk_crtc->sec_on)
+	if (mtk_crtc->sec_on && !is_tzmp2_enable())
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
 		mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
 	else
-#endif
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
-#ifdef MTK_MTEE_SVP_SUPPORT
-	if (mtk_crtc->sec_on)
+	if (mtk_crtc->sec_on && !is_tzmp2_enable())
 		mtk_mtee_sec_flow_by_cmdq(cmdq_handle, comp, idx);
-#endif
+
 	if (idx == 2)
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_NORMAL, NULL);
 
@@ -7080,21 +7090,17 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 	struct mtk_panel_params *params =
 			mtk_drm_get_lcm_ext_params(crtc);
 
-#ifdef MTK_MTEE_SVP_SUPPORT
-	if (mtk_crtc->sec_on) {
+	if (mtk_crtc->sec_on && !is_tzmp2_enable()) {
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
 			mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
 	} else {
-#endif
 		if (mtk_crtc_is_dc_mode(crtc) || mtk_crtc->is_mml)
 			mtk_crtc_pkt_create(&cmdq_handle, crtc,
 				mtk_crtc->gce_obj.client[CLIENT_SUB_CFG]);
 		else
 			mtk_crtc_pkt_create(&cmdq_handle, crtc,
 				mtk_crtc->gce_obj.client[CLIENT_CFG]);
-#ifdef MTK_MTEE_SVP_SUPPORT
 	}
-#endif
 
 	/* mml need to power on InlineRotate and sync with mml */
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY) &&
@@ -7126,9 +7132,8 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 		struct mtk_ddp_comp *comp = NULL;
 
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
-#ifdef MTK_MTEE_SVP_SUPPORT
-		mtk_mtee_sec_flow_by_cmdq(cmdq_handle, comp, idx);
-#endif
+		if (!is_tzmp2_enable())
+			mtk_mtee_sec_flow_by_cmdq(cmdq_handle, comp, idx);
 		if (idx == 2)
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 					IRQ_LEVEL_IDLE, NULL);

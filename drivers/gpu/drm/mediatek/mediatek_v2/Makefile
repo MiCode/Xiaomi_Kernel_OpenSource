@@ -112,10 +112,6 @@ ccflags-y += -DNOT_SUPPORT_CABC_HW
 ccflags-y += -DDISP_MDP_COLOR_ON
 ccflags-y += -DCCORR_SUPPORT
 
-ifneq ($(wildcard $(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/platform/mtk_drm_6789.c),)
-# Enable legacy svp flow
-ccflags-y += -DMTK_MTEE_SVP_SUPPORT
-endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
