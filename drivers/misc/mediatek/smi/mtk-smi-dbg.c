@@ -8,6 +8,9 @@
 #include <linux/io.h>
 #include <linux/limits.h>
 #include <linux/module.h>
+#include <linux/timer.h>
+#include <linux/delay.h>
+#include <linux/kthread.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -336,25 +339,53 @@ enum {
  */
 static const u32 mon_bit[MON_BIT_NR + 1] = {0, 8, 14, 16, 24, 26, 28, 30, 32};
 
+#define SMI_LARB_OSTD_MON_PORT_NR	(32)
+#define SMI_COMM_OSTD_MON_PORT_NR	(2)
+#define BUS_BUSY_TIME (5)
+#define MAX_MON_REQ	(4)
+
 struct mtk_smi_dbg_node {
 	struct device	*dev;
 	void __iomem	*va;
 	phys_addr_t	pa;
 	struct device	*comm;
 	u32	id;
+	u8	smi_type;
 
 	u32	regs_nr;
 	u32	*regs;
 
 	u32	mon[SMI_MON_BUS_NR];
+	u32	bus_ostd_val[BUS_BUSY_TIME][SMI_LARB_OSTD_MON_PORT_NR];
+	u32	bw[MAX_MON_REQ];
+
+	u8	port_stat[SMI_LARB_OSTD_MON_PORT_NR];
 };
 
+enum smi_bus_type {
+	SMI_LARB = 0,
+	SMI_COMMON,
+	SMI_SUB_COMMON,
+};
+
+struct mtk_smi_dbg_init_setting {
+	u32 ostd_cnt_offset;
+	u32 mon_port_nr;
+	u32 smi_nr;
+	u32 mask_r;
+	u32 mask_w;
+};
+
+#define MTK_SMI_TYPE_NR (3)
+#define MTK_SMI_NR_MAX (64)
 struct mtk_smi_dbg {
 	bool			probe;
 	struct dentry		*fs;
-	struct mtk_smi_dbg_node	larb[MTK_LARB_NR_MAX];
-	struct mtk_smi_dbg_node	comm[MTK_LARB_NR_MAX];
-	struct mtk_smi_dbg_node	rsi[MTK_LARB_NR_MAX];
+	struct mtk_smi_dbg_node	larb[MTK_SMI_NR_MAX];
+	struct mtk_smi_dbg_node	comm[MTK_SMI_NR_MAX];
+	struct mtk_smi_dbg_node	rsi[MTK_SMI_NR_MAX];
+
+	struct mtk_smi_dbg_init_setting init_setting[MTK_SMI_TYPE_NR];
 
 	u64			exec;
 	u8			frame;
@@ -665,6 +696,34 @@ static int smi_dbg_suspend_cb(struct notifier_block *nb,
 	return 0;
 }
 
+#define SC_OSTD_BITS (7)
+#define SSC_OSTD_BITS (6)
+
+static void init_smi_dbg_setting(struct mtk_smi_dbg	*smi)
+{
+
+	/*smi larb*/
+	smi->init_setting[SMI_LARB].ostd_cnt_offset = SMI_LARB_OSTD_MON_PORT(0);
+	smi->init_setting[SMI_LARB].mon_port_nr = SMI_LARB_OSTD_MON_PORT_NR;
+	smi->init_setting[SMI_LARB].smi_nr = ARRAY_SIZE(smi->larb);
+	smi->init_setting[SMI_LARB].mask_r = ~(u32)0;
+	smi->init_setting[SMI_LARB].mask_w = ~(u32)0;
+	/*smi common*/
+	smi->init_setting[SMI_COMMON].ostd_cnt_offset = SMI_DEBUG_M0;
+	smi->init_setting[SMI_COMMON].mon_port_nr = SMI_COMM_OSTD_MON_PORT_NR;
+	smi->init_setting[SMI_COMMON].mask_r = GENMASK(SC_OSTD_BITS + 11, 12);
+	smi->init_setting[SMI_COMMON].mask_w = GENMASK(2*SC_OSTD_BITS + 11, SC_OSTD_BITS + 12);
+	smi->init_setting[SMI_COMMON].smi_nr = ARRAY_SIZE(smi->comm);
+	/*smi sub common*/
+	smi->init_setting[SMI_SUB_COMMON].ostd_cnt_offset = SMI_DEBUG_M0;
+	smi->init_setting[SMI_SUB_COMMON].mon_port_nr = SMI_COMM_OSTD_MON_PORT_NR;
+	smi->init_setting[SMI_SUB_COMMON].mask_r = GENMASK(SSC_OSTD_BITS + 10, 11);
+	smi->init_setting[SMI_SUB_COMMON].mask_w =
+			GENMASK(2*SSC_OSTD_BITS + 10, SSC_OSTD_BITS + 11);
+	smi->init_setting[SMI_SUB_COMMON].smi_nr = ARRAY_SIZE(smi->comm);
+
+}
+
 static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 {
 	//struct device_node	*node = NULL, *comm;
@@ -690,6 +749,7 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 			return -EINVAL;
 		smi->larb[id].dev = &pdev->dev;
 		smi->larb[id].id = id;
+		smi->larb[id].smi_type = SMI_LARB;
 
 		ret = mtk_smi_dbg_parse(pdev, smi->larb, true, id);
 		if (ret)
@@ -709,6 +769,11 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 			return -EINVAL;
 		smi->comm[id].dev = &pdev->dev;
 		smi->comm[id].id = id;
+
+		if (of_property_read_bool(node, "smi-common"))
+			smi->comm[id].smi_type = SMI_COMMON;
+		else
+			smi->comm[id].smi_type = SMI_SUB_COMMON;
 
 		ret = mtk_smi_dbg_parse(pdev, smi->comm, false, id);
 		if (ret)
@@ -743,6 +808,9 @@ static s32 mtk_smi_dbg_probe(struct mtk_smi_dbg *smi)
 		smi->rsi[id].regs = smi_rsi_regs;
 
 	}
+
+	init_smi_dbg_setting(smi);
+
 	smi->suspend_nb.notifier_call = smi_dbg_suspend_cb;
 	mtk_smi_driver_register_notifier(&smi->suspend_nb);
 	return 0;
@@ -761,92 +829,119 @@ int mtk_smi_dbg_unregister_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(mtk_smi_dbg_unregister_notifier);
 
-s32 mtk_smi_dbg_hang_detect(const char *user)
+static void read_smi_ostd_status(struct mtk_smi_dbg_node node[])
+{
+	u32 i, j, id, type;
+	struct mtk_smi_dbg	*smi = gsmi;
+	struct mtk_smi_dbg_init_setting	*dbg_setting;
+
+	for (i = 0; i < BUS_BUSY_TIME ; i++) {
+		for (id = 0; id < MTK_SMI_NR_MAX; id++) {
+			if (!node[id].dev || !node[id].va)
+				continue;
+
+			type = node[id].smi_type;
+			dbg_setting = &smi->init_setting[type];
+
+			if (pm_runtime_get_if_in_use(node[id].dev) <= 0) {
+				memset(node[id].bus_ostd_val[i], 0,
+						sizeof(u32) * SMI_LARB_OSTD_MON_PORT_NR);
+				continue;
+			}
+
+			for (j = 0; j < dbg_setting->mon_port_nr; j++)
+				node[id].bus_ostd_val[i][j] =
+				readl_relaxed(node[id].va +
+						dbg_setting->ostd_cnt_offset + (j << 2));
+
+			pm_runtime_put(node[id].dev);
+		}
+		udelay(3);
+	}
+}
+
+#define READ_BIT (0)
+#define WRITE_BIT (1)
+
+static u32 smi_bus_ostd_check(struct mtk_smi_dbg_node node[])
 {
 	struct mtk_smi_dbg	*smi = gsmi;
-	struct mtk_smi_dbg_node	node;
-	s32			i, j, ret, busy = 0, time = 5, PRINT_NR = 1;
-	u32			val;
+	struct mtk_smi_dbg_init_setting	*dbg_setting;
+	u8 i, j, id, type, r_busy_cnt, w_busy_cnt, is_busy = 0;
+	u32 prev_ostd_r, prev_ostd_w, ostd_r, ostd_w;
 
-	pr_info("%s: check caller:%s\n", __func__, user);
+	read_smi_ostd_status(node);
 
-	if (!smi->probe) {
-		ret = mtk_smi_dbg_probe(smi);
-		if (ret)
-			return ret;
-
-		smi->probe = true;
-	}
-#if IS_ENABLED(CONFIG_MTK_EMI)
-	mtk_emidbg_dump();
-#endif
-	//mtk_dump_reg_for_hang_issue(0, 0);
-	//mtk_dump_reg_for_hang_issue(0, 1);
-
-	raw_notifier_call_chain(&smi_notifier_list, 0, NULL);
-
-	//check LARB status
-	for (i = 0; i < ARRAY_SIZE(smi->larb); i++) {
-		node = smi->larb[i];
-		if (!node.dev || !node.va)
+	for (id = 0; id < MTK_SMI_NR_MAX; id++) {
+		if (!node[id].dev || !node[id].va)
 			continue;
-		if (pm_runtime_get_if_in_use(node.dev) <= 0)
-			continue;
-		busy = 0;
-		for (j = 0; j < time; j++) {
-			val = readl_relaxed(node.va + SMI_LARB_STAT);
-			busy += val ? 1 : 0;
+
+		type = node[id].smi_type;
+		dbg_setting = &smi->init_setting[type];
+
+		for (j = 0; j < dbg_setting->mon_port_nr; j++) {
+			if (!node[id].bus_ostd_val[0][j])
+				continue;
+
+			r_busy_cnt = 0;
+			w_busy_cnt = 0;
+			for (i = 1; i < BUS_BUSY_TIME; i++) {
+				prev_ostd_r = node[id].bus_ostd_val[i-1][j] & dbg_setting->mask_r;
+				prev_ostd_w = node[id].bus_ostd_val[i-1][j] & dbg_setting->mask_w;
+				ostd_r = node[id].bus_ostd_val[i][j] & dbg_setting->mask_r;
+				ostd_w = node[id].bus_ostd_val[i][j] & dbg_setting->mask_w;
+
+				if (prev_ostd_r)
+					r_busy_cnt += (prev_ostd_r == ostd_r);
+				if (prev_ostd_w)
+					w_busy_cnt += (prev_ostd_w == ostd_w);
+			}
+
+			/*store check result for hang detect check bw*/
+			node[id].port_stat[j] = 0;
+			/*bit0 for read, bit1 for write*/
+			node[id].port_stat[j] = ((r_busy_cnt == (BUS_BUSY_TIME - 1)) << READ_BIT);
+			node[id].port_stat[j] |= ((w_busy_cnt == (BUS_BUSY_TIME - 1)) << WRITE_BIT);
+
+			if (node[id].port_stat[j]) {
+				pr_notice("[smi]smi busy (type,id,r/w)=(%d,%d,%d), %#x = %#x\n",
+					type, id, node[id].port_stat[j],
+					dbg_setting->ostd_cnt_offset + (j << 2),
+					node[id].bus_ostd_val[0][j]);
+				is_busy = 1;
+			}
 		}
-		if (busy == time) {
-			PRINT_NR = 5;
-			dev_info(node.dev, "===== %pa.%s:%u %s:%d/%d =====\n",
-				&node.pa, "LARB", i, "busy", busy, time);
-		}
-		pm_runtime_put(node.dev);
 	}
-
-	//check COMM status
-	for (i = 0; i < ARRAY_SIZE(smi->comm); i++) {
-		node = smi->comm[i];
-		if (!node.dev || !node.va)
-			continue;
-		if (pm_runtime_get_if_in_use(node.dev) <= 0)
-			continue;
-		busy = 0;
-		for (j = 0; j < time; j++) {
-			val = readl_relaxed(node.va + SMI_DEBUG_MISC);
-			busy += !val ? 1 : 0;
-		}
-		if (busy == time) {
-			PRINT_NR = 5;
-			dev_info(node.dev, "===== %pa.%s:%u %s:%d/%d =====\n",
-			&node.pa, "COMM", i, "busy", busy, time);
-		}
-		pm_runtime_put(node.dev);
-	}
-
-	if (PRINT_NR == 1)
-		pr_info("%s: ===== SMI MM bus NOT hang =====:%s\n", __func__, user);
-
-	for (j = 0; j < PRINT_NR; j++) {
-		for (i = 0; i < ARRAY_SIZE(smi->larb); i++)
-			mtk_smi_dbg_print(smi, true, false, i, false);
-
-		for (i = 0; i < ARRAY_SIZE(smi->comm); i++)
-			mtk_smi_dbg_print(smi, false, false, i, false);
-
-		for (i = 0; i < ARRAY_SIZE(smi->rsi); i++)
-			mtk_smi_dbg_print(smi, true, true, i, false);
-	}
-
-	mtk_smi_dump_last_pd(user);
-
-	return ret;
+	return is_busy;
 }
-EXPORT_SYMBOL_GPL(mtk_smi_dbg_hang_detect);
 
+static bool smi_bus_hang_check(struct mtk_smi_dbg_node node[])
+{
+	struct mtk_smi_dbg	*smi = gsmi;
+	struct mtk_smi_dbg_init_setting	*dbg_setting;
+	u8 id, j, type;
 
+	for (id = 0; id < MTK_SMI_NR_MAX; id++) {
+		if (!node[id].dev ||
+			!node[id].va ||
+			!(node[id].smi_type == SMI_COMMON))
+			continue;
 
+		type = node[id].smi_type;
+		dbg_setting = &smi->init_setting[type];
+
+		for (j = 0; j < dbg_setting->mon_port_nr; j++) {
+			/*check read bw*/
+			if ((node[id].port_stat[j] & BIT(READ_BIT)) && !node[id].bw[j])
+				return true;
+			/*check write bw*/
+			if ((node[id].port_stat[j] & BIT(WRITE_BIT)) && !node[id].bw[j+2])
+				return true;
+		}
+	}
+
+	return false;
+}
 
 s32 mtk_smi_dbg_cg_status(void)
 {
@@ -1056,8 +1151,6 @@ MODULE_PARM_DESC(smi_larb_disable, "disable smi larb");
 module_init(mtk_smi_dbg_init);
 MODULE_LICENSE("GPL v2");
 
-#define MAX_MON_REQ	(4)
-
 /*
  * smi_monitor_start() - start to monitor the commonlarb read/write byte count
  * @dev: reference to the user device node
@@ -1155,6 +1248,79 @@ s32 smi_monitor_stop(struct device *dev, u32 common_id, u32 *bw)
 }
 EXPORT_SYMBOL_GPL(smi_monitor_stop);
 
+static void smi_hang_detect_bw_monitor(bool is_start)
+{
+	struct mtk_smi_dbg	*smi = gsmi;
+	u32 commonlarb_id[MAX_MON_REQ] = {0, 1, 0, 1};
+	u32 flags[MAX_MON_REQ] = {1, 1, 2, 2};
+	u8 i;
+
+	for (i = 0; i < ARRAY_SIZE(smi->comm); i++) {
+		if (!smi->comm[i].dev ||
+			!smi->comm[i].va ||
+			!(smi->comm[i].smi_type == SMI_COMMON))
+			continue;
+		if (is_start)
+			smi_monitor_start(NULL, i, commonlarb_id, flags);
+		else
+			smi_monitor_stop(NULL, i, smi->comm[i].bw);
+	}
+}
+
+s32 mtk_smi_dbg_hang_detect(const char *user)
+{
+	struct mtk_smi_dbg	*smi = gsmi;
+	s32			i, j, ret, PRINT_NR = 1, is_busy = 0;
+
+	pr_info("%s: check caller:%s\n", __func__, user);
+
+	if (!smi->probe) {
+		ret = mtk_smi_dbg_probe(smi);
+		if (ret)
+			return ret;
+
+		smi->probe = true;
+	}
+#if IS_ENABLED(CONFIG_MTK_EMI)
+	mtk_emidbg_dump();
+#endif
+
+	raw_notifier_call_chain(&smi_notifier_list, 0, NULL);
+
+	/*start to monitor bw and check ostd*/
+	smi_hang_detect_bw_monitor(true);
+	is_busy |= smi_bus_ostd_check(smi->comm);
+	is_busy |= smi_bus_ostd_check(smi->larb);
+	smi_hang_detect_bw_monitor(false);
+
+	if (is_busy) {
+		pr_info("%s: ===== SMI MM bus busy =====:%s\n", __func__, user);
+		PRINT_NR = 5;
+	} else
+		pr_info("%s: ===== SMI MM bus NOT hang =====:%s\n", __func__, user);
+
+	for (j = 0; j < PRINT_NR; j++) {
+		for (i = 0; i < ARRAY_SIZE(smi->larb); i++)
+			mtk_smi_dbg_print(smi, true, false, i, false);
+
+		for (i = 0; i < ARRAY_SIZE(smi->comm); i++)
+			mtk_smi_dbg_print(smi, false, false, i, false);
+
+		for (i = 0; i < ARRAY_SIZE(smi->rsi); i++)
+			mtk_smi_dbg_print(smi, true, true, i, false);
+	}
+
+	mtk_smi_dump_last_pd(user);
+
+	if (smi_bus_hang_check(smi->comm)) {
+		pr_notice("[smi] smi hang system recover\n");
+		BUG_ON(1);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mtk_smi_dbg_hang_detect);
+
 int smi_larb_force_all_on(char *buf, const struct kernel_param *kp)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
@@ -1200,7 +1366,7 @@ static struct kernel_param_ops smi_larb_force_all_put_ops = {
 module_param_cb(smi_force_all_put, &smi_larb_force_all_put_ops, NULL, 0644);
 MODULE_PARM_DESC(smi_force_all_put, "smi larb force all put");
 
-int smi_bw_monitor_start(const char *val, const struct kernel_param *kp)
+int smi_bw_monitor_ut(const char *val, const struct kernel_param *kp)
 {
 	u32 commonlarb_id[MAX_MON_REQ];
 	u32 flag[MAX_MON_REQ];
@@ -1232,8 +1398,8 @@ int smi_bw_monitor_start(const char *val, const struct kernel_param *kp)
 	return 0;
 }
 
-static struct kernel_param_ops smi_bw_monitor_start_ops = {
-	.set = smi_bw_monitor_start,
+static struct kernel_param_ops smi_bw_monitor_ut_ops = {
+	.set = smi_bw_monitor_ut,
 };
-module_param_cb(smi_bw_monitor_start, &smi_bw_monitor_start_ops, NULL, 0644);
-MODULE_PARM_DESC(smi_bw_monitor_start, "smi monitor bw");
+module_param_cb(smi_bw_monitor_ut, &smi_bw_monitor_ut_ops, NULL, 0644);
+MODULE_PARM_DESC(smi_bw_monitor_ut, "smi monitor bw");
