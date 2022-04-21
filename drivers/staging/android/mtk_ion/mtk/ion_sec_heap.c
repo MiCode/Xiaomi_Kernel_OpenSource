@@ -361,7 +361,7 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 	caller_tid = (unsigned int)current->tgid;
 
 	pbufferinfo = kzalloc(sizeof(*pbufferinfo), GFP_KERNEL);
-	if (IS_ERR_OR_NULL(pbufferinfo)) {
+	if (!pbufferinfo) {
 		IONMSG("%s Error. Allocate pbufferinfo failed.\n", __func__);
 		caller_pid = 0;
 		caller_tid = 0;
