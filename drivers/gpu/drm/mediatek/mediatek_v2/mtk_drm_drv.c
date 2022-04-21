@@ -134,6 +134,17 @@ void **mtk_drm_disp_sec_cb_init(void)
 }
 EXPORT_SYMBOL(mtk_drm_disp_sec_cb_init);
 
+struct mtk_drm_disp_mtee_cb disp_mtee_cb;
+EXPORT_SYMBOL(disp_mtee_cb);
+
+void **mtk_drm_disp_mtee_cb_init(void)
+{
+	DDPMSG("%s+\n", __func__);
+	return (void **)&disp_mtee_cb.cb;
+}
+EXPORT_SYMBOL(mtk_drm_disp_mtee_cb_init);
+
+
 int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 
@@ -4810,6 +4821,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_PQ_CAPS, mtk_drm_ioctl_set_pq_caps,
 			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SEC_HND_TO_GEM_HND, mtk_drm_sec_hnd_to_gem_hnd,
+			DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 };
 
 static const struct file_operations mtk_drm_fops = {

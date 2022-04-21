@@ -228,11 +228,18 @@ struct mtk_drm_disp_sec_cb {
 	int (*cb)(int value, struct cmdq_pkt *handle, resource_size_t dummy_larb);
 };
 
+struct mtk_drm_disp_mtee_cb {
+	int (*cb)(int value, int fd, struct mtk_drm_gem_obj *mtk_gem_obj,
+	struct cmdq_pkt *handle, struct mtk_ddp_comp *comp, u32 crtc_id,
+	u32 regs_addr, u32 lye_addr, u32 offset, u32 size);
+};
+
 enum DISP_SEC_SIGNAL {
 	DISP_SEC_START = 0,
 	DISP_SEC_STOP,
 	DISP_SEC_ENABLE,
 	DISP_SEC_DISABLE,
+	DISP_SEC_FD_TO_SEC_HDL,
 };
 
 static const struct mtk_addon_module_data addon_rsz_data[] = {
@@ -302,6 +309,7 @@ extern struct platform_driver mtk_disp_dli_async_driver;
 extern struct platform_driver mtk_disp_inlinerotate_driver;
 extern struct platform_driver mtk_mmlsys_bypass_driver;
 extern struct mtk_drm_disp_sec_cb disp_sec_cb;
+extern struct mtk_drm_disp_mtee_cb disp_mtee_cb;
 
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);
@@ -338,5 +346,6 @@ void **mtk_aod_scp_ipi_init(void);
 void mtk_free_mml_submit(struct mml_submit *temp);
 int copy_mml_submit(struct mml_submit *src, struct mml_submit *dst);
 void **mtk_drm_disp_sec_cb_init(void);
+void **mtk_drm_disp_mtee_cb_init(void);
 
 #endif /* MTK_DRM_DRV_H */

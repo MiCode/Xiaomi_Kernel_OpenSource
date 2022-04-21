@@ -6969,6 +6969,25 @@ int mtk_crtc_check_out_sec(struct drm_crtc *crtc)
 	return out_sec;
 }
 
+#ifdef MTK_MTEE_SVP_SUPPORT
+static int mtk_mtee_sec_flow_by_cmdq(struct cmdq_pkt *cmdq_handle, struct mtk_ddp_comp *comp,
+		u32 crtc_id)
+{
+	int ret = -1;
+
+	if (disp_mtee_cb.cb != NULL)
+		ret = disp_mtee_cb.cb(DISP_SEC_STOP, 0, NULL, cmdq_handle, comp, crtc_id,
+					0, 0, 0, 0);
+	else
+		DDPMSG("%s not support mtee flow\n", __func__);
+
+	if (ret < 0)
+		DDPMSG("%s failed\n", __func__);
+
+	return ret;
+}
+#endif
+
 void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 {
 	struct cmdq_pkt *cmdq_handle;
@@ -6979,11 +6998,20 @@ void mtk_crtc_disable_secure_state(struct drm_crtc *crtc)
 	comp = mtk_ddp_comp_request_output(mtk_crtc);
 
 	DDPINFO("%s+ crtc%d\n", __func__, drm_crtc_index(crtc));
-	mtk_crtc_pkt_create(&cmdq_handle, crtc,
-		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+#ifdef MTK_MTEE_SVP_SUPPORT
+	if (mtk_crtc->sec_on)
+		mtk_crtc_pkt_create(&cmdq_handle, crtc,
+		mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
+	else
+#endif
+		mtk_crtc_pkt_create(&cmdq_handle, crtc,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle, DDP_FIRST_PATH, 0);
-
+#ifdef MTK_MTEE_SVP_SUPPORT
+	if (mtk_crtc->sec_on)
+		mtk_mtee_sec_flow_by_cmdq(cmdq_handle, comp, idx);
+#endif
 	if (idx == 2)
 		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_NORMAL, NULL);
 
@@ -7052,12 +7080,21 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 	struct mtk_panel_params *params =
 			mtk_drm_get_lcm_ext_params(crtc);
 
-	if (mtk_crtc_is_dc_mode(crtc) || mtk_crtc->is_mml)
+#ifdef MTK_MTEE_SVP_SUPPORT
+	if (mtk_crtc->sec_on) {
 		mtk_crtc_pkt_create(&cmdq_handle, crtc,
-			mtk_crtc->gce_obj.client[CLIENT_SUB_CFG]);
-	else
-		mtk_crtc_pkt_create(&cmdq_handle, crtc,
-			mtk_crtc->gce_obj.client[CLIENT_CFG]);
+			mtk_crtc->gce_obj.client[CLIENT_SEC_CFG]);
+	} else {
+#endif
+		if (mtk_crtc_is_dc_mode(crtc) || mtk_crtc->is_mml)
+			mtk_crtc_pkt_create(&cmdq_handle, crtc,
+				mtk_crtc->gce_obj.client[CLIENT_SUB_CFG]);
+		else
+			mtk_crtc_pkt_create(&cmdq_handle, crtc,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
+#ifdef MTK_MTEE_SVP_SUPPORT
+	}
+#endif
 
 	/* mml need to power on InlineRotate and sync with mml */
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_MML_PRIMARY) &&
@@ -7089,6 +7126,9 @@ struct cmdq_pkt *mtk_crtc_gce_commit_begin(struct drm_crtc *crtc,
 		struct mtk_ddp_comp *comp = NULL;
 
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
+#ifdef MTK_MTEE_SVP_SUPPORT
+		mtk_mtee_sec_flow_by_cmdq(cmdq_handle, comp, idx);
+#endif
 		if (idx == 2)
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 					IRQ_LEVEL_IDLE, NULL);
@@ -9663,6 +9703,11 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 		}
 		mtk_crtc->gce_obj.client[i] =
 			cmdq_mbox_create(dev, index);
+
+		if (i != CLIENT_SEC_CFG)
+			continue;
+		if (drm_crtc_index(&mtk_crtc->base) == 0)
+			continue;
 	}
 
 	/* Load CRTC GCE event */

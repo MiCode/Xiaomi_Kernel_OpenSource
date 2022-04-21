@@ -103,6 +103,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/slbc/ \
              -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/ \
              -I$(srctree)/drivers/misc/mediatek/clkbuf/v1/inc/ \
+             -I$(srctree)/drivers/dma-buf/heaps/ \
 
 ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox
 
@@ -110,6 +111,11 @@ ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/m
 ccflags-y += -DNOT_SUPPORT_CABC_HW
 ccflags-y += -DDISP_MDP_COLOR_ON
 ccflags-y += -DCCORR_SUPPORT
+
+ifneq ($(wildcard $(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/platform/mtk_drm_6789.c),)
+# Enable legacy svp flow
+ccflags-y += -DMTK_MTEE_SVP_SUPPORT
+endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/

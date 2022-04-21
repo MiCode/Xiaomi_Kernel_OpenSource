@@ -306,6 +306,12 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 
 #define EXT_SECURE_OFFSET 4
 
+#define OVL_LAYER_DOMAIN 0xfc4
+#define OVL_LAYER_EXT_DOMAIN 0xfc8
+#define OVL_LAYER_Lx_DOMAIN(id)		REG_FLD_MSB_LSB((4 + 8 * id), (0 + 8 * id))
+#define OVL_LAYER_ELx_DOMAIN(id)	REG_FLD_MSB_LSB((4 + 8 * id), (0 + 8 * id))
+
+#define OVL_LAYER_SVP_DOMAIN_INDEX  (4)
 #define OVL_RDMA_DEBUG_OFFSET (0x4)
 
 #define OVL_RDMA_MEM_GMC 0x40402020
@@ -1488,6 +1494,114 @@ static void write_ext_layer_hdr_addr_cmdq(struct mtk_ddp_comp *comp,
 			       (addr >> 24), 0xf00);
 }
 
+static void write_sec_phy_layer_addr_cmdq(struct mtk_ddp_comp *comp,
+			struct cmdq_pkt *handle, u32 id, dma_addr_t addr,
+			unsigned int offset, unsigned int buf_size)
+{
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+
+	if (disp_mtee_cb.cb != NULL)
+		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, NULL, 0,
+				comp->regs_pa + DISP_REG_OVL_ADDR(ovl, id),
+				addr, offset, buf_size);
+}
+
+static void write_sec_ext_layer_addr_cmdq(struct mtk_ddp_comp *comp,
+			struct cmdq_pkt *handle, u32 id, dma_addr_t addr,
+			unsigned int offset, unsigned int buf_size)
+{
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+
+	if (disp_mtee_cb.cb != NULL)
+		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, NULL, 0,
+				comp->regs_pa + DISP_REG_OVL_EL_ADDR(ovl, id),
+				addr, offset, buf_size);
+}
+
+static void write_sec_phy_layer_hdr_addr_cmdq(struct mtk_ddp_comp *comp,
+			struct cmdq_pkt *handle, u32 id, dma_addr_t addr,
+			unsigned int offset, unsigned int buf_size)
+{
+	//struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+
+	if (disp_mtee_cb.cb != NULL)
+		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, NULL, 0,
+			comp->regs_pa + DISP_REG_OVL_LX_HDR_ADDR(id),
+			addr, offset, buf_size);
+}
+
+static void write_sec_ext_layer_hdr_addr_cmdq(struct mtk_ddp_comp *comp,
+				struct cmdq_pkt *handle, u32 id, dma_addr_t addr,
+				unsigned int offset, unsigned int buf_size)
+{
+	struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+
+	if (disp_mtee_cb.cb != NULL)
+		disp_mtee_cb.cb(DISP_SEC_ENABLE, 0, NULL, handle, NULL, 0,
+			comp->regs_pa + DISP_REG_OVL_ELX_HDR_ADDR(ovl, id),
+			addr, offset, buf_size);
+}
+
+static void set_sec_phy_layer_dom_cmdq(struct mtk_ddp_comp *comp,
+					struct cmdq_pkt *handle, u32 id)
+{
+	u32 domain_val = 0, domain_mask = 0;
+
+	SET_VAL_MASK(domain_val, domain_mask,
+				 OVL_LAYER_SVP_DOMAIN_INDEX, OVL_LAYER_Lx_DOMAIN(id));
+	cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+	DDPINFO("%s:%d,L%dSet dom(0x%x,0x%x,0x%x)\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+}
+
+static void set_sec_ext_layer_dom_cmdq(struct mtk_ddp_comp *comp,
+					struct cmdq_pkt *handle, u32 id)
+{
+	u32 domain_val = 0, domain_mask = 0;
+
+	SET_VAL_MASK(domain_val, domain_mask,
+				 OVL_LAYER_SVP_DOMAIN_INDEX, OVL_LAYER_ELx_DOMAIN(id));
+	cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+}
+
+static void clr_sec_phy_layer_dom_cmdq(struct mtk_ddp_comp *comp,
+					struct cmdq_pkt *handle, u32 id)
+{
+	u32 domain_val = 0, domain_mask = 0;
+
+	SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_Lx_DOMAIN(id));
+	cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+	DDPINFO("%s:%d,L%d clr dom(0x%x,0x%x,0x%x)\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_DOMAIN,
+					domain_val, domain_mask);
+}
+
+static void clr_sec_ext_layer_dom_cmdq(struct mtk_ddp_comp *comp,
+					struct cmdq_pkt *handle, u32 id)
+{
+	u32 domain_val = 0, domain_mask = 0;
+
+	SET_VAL_MASK(domain_val, domain_mask,
+					0, OVL_LAYER_ELx_DOMAIN(id));
+	cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+	DDPINFO("%s:%d,L%d clr dom(0x%x,0x%x,0x%x)\n",
+					__func__, __LINE__, id,
+					comp->regs_pa + OVL_LAYER_EXT_DOMAIN,
+					domain_val, domain_mask);
+}
+
 /* config addr, pitch, src_size */
 static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			       struct mtk_plane_state *state,
@@ -1575,10 +1689,22 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					mmsys_reg + aid_sel_offset,
 					0, BIT(sec_bit));
+		} else {
+			/*legacy secure flow, for mt6789*/
+			if (comp->mtk_crtc->sec_on) {
+				if (state->pending.is_sec && pending->addr) {
+					write_sec_ext_layer_addr_cmdq(comp, handle, id,
+								addr, offset, buf_size);
+					set_sec_ext_layer_dom_cmdq(comp, handle, id);
+					goto legacy_sec1;
+				} else
+					clr_sec_ext_layer_dom_cmdq(comp, handle, id);
+			} else
+				clr_sec_ext_layer_dom_cmdq(comp, handle, id);
 		}
 
 		write_ext_layer_addr_cmdq(comp, handle, id, addr);
-
+legacy_sec1:
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_EL_SRC_SIZE(id),
 			src_size, ~0);
@@ -1603,6 +1729,18 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					mmsys_reg + aid_sel_offset,
 					0, BIT(sec_bit));
+		} else  {
+			if (comp->mtk_crtc->sec_on) {
+				DDPMSG("enter svp2----\n");
+				if (state->pending.is_sec && pending->addr && (dst_h >= 1)) {
+					write_sec_phy_layer_addr_cmdq(comp, handle, lye_idx,
+								addr, offset, buf_size);
+					set_sec_phy_layer_dom_cmdq(comp, handle, lye_idx);
+					goto legacy_sec2;
+				} else
+					clr_sec_phy_layer_dom_cmdq(comp, handle, lye_idx);
+			} else
+				clr_sec_phy_layer_dom_cmdq(comp, handle, lye_idx);
 		}
 
 		if (pending->mml_mode == MML_MODE_RACING) {
@@ -1635,6 +1773,8 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		} else {
 			write_phy_layer_addr_cmdq(comp, handle, lye_idx, addr);
 		}
+
+legacy_sec2:
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_SRC_SIZE(lye_idx),
 			src_size, ~0);
@@ -2339,10 +2479,22 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					mmsys_reg + aid_sel_offset,
 					0, BIT(sec_bit));
-		}
+		} else {
+			if (comp->mtk_crtc->sec_on) {
+				if (state->pending.is_sec && pending->addr) {
+					DDPMSG("enter svp----\n");
+					write_sec_ext_layer_addr_cmdq(comp, handle, id,
+							addr, 0, buf_size);
+					set_sec_ext_layer_dom_cmdq(comp, handle, id);
+					goto legacy_sec1;
+				} else
+					clr_sec_ext_layer_dom_cmdq(comp, handle, id);
+			} else
+				clr_sec_ext_layer_dom_cmdq(comp, handle, id);
+			}
 
 		write_ext_layer_addr_cmdq(comp, handle, id, lx_addr);
-
+legacy_sec1:
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa +
 				       DISP_REG_OVL_EL_PITCH(id),
@@ -2371,9 +2523,21 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					mmsys_reg + aid_sel_offset,
 					0, BIT(sec_bit));
-		}
+		} else {
+			if (comp->mtk_crtc->sec_on) {
+				if (state->pending.is_sec && pending->addr) {
+					write_sec_phy_layer_addr_cmdq(comp, handle, lye_idx,
+								addr, 0, buf_size);
+					set_sec_phy_layer_dom_cmdq(comp, handle, lye_idx);
+					goto legacy_sec2;
+				} else
+					clr_sec_phy_layer_dom_cmdq(comp, handle, lye_idx);
+			} else
+				clr_sec_phy_layer_dom_cmdq(comp, handle, lye_idx);
+			}
 
 		write_phy_layer_addr_cmdq(comp, handle, lye_idx, lx_addr);
+legacy_sec2:
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_PITCH(lye_idx),
 			       lx_pitch, 0xffff);
@@ -2622,10 +2786,31 @@ bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					mmsys_reg + aid_sel_offset,
 					0, BIT(sec_bit));
+		} else {
+			if (comp->mtk_crtc->sec_on) {
+				u32 addr_offset;
+
+				addr_offset = header_offset + tile_offset * tile_body_size;
+				if (state->pending.is_sec && pending->addr) {
+					write_sec_ext_layer_addr_cmdq(comp, handle, id,
+							addr, addr_offset, buf_size);
+
+					addr_offset = tile_offset *
+					AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
+					write_sec_ext_layer_hdr_addr_cmdq(comp, handle, id,
+								addr, addr_offset, buf_size);
+
+					set_sec_ext_layer_dom_cmdq(comp, handle, id);
+					goto legacy_sec1;
+				} else
+					clr_sec_ext_layer_dom_cmdq(comp, handle, id);
+			} else
+				clr_sec_ext_layer_dom_cmdq(comp, handle, id);
 		}
 
 		write_ext_layer_addr_cmdq(comp, handle, id, lx_addr);
 		write_ext_layer_hdr_addr_cmdq(comp, handle, id, lx_hdr_addr);
+legacy_sec1:
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_EL_PITCH_MSB(id),
 			lx_pitch_msb, ~0);
@@ -2652,11 +2837,32 @@ bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					mmsys_reg + aid_sel_offset,
 					0, BIT(sec_bit));
+		} else {
+			if (comp->mtk_crtc->sec_on) {
+				u32 addr_offset;
+
+				addr_offset = header_offset + tile_offset * tile_body_size;
+				if (state->pending.is_sec && pending->addr) {
+					write_sec_phy_layer_addr_cmdq(comp, handle, lye_idx, addr,
+						addr_offset, buf_size);
+
+					addr_offset = tile_offset *
+					AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
+					write_sec_phy_layer_hdr_addr_cmdq(comp, handle, lye_idx,
+								addr, addr_offset, buf_size);
+
+					set_sec_phy_layer_dom_cmdq(comp, handle, lye_idx);
+					goto legacy_sec2;
+				} else
+					clr_sec_phy_layer_dom_cmdq(comp, handle, lye_idx);
+			} else
+				clr_sec_phy_layer_dom_cmdq(comp, handle, lye_idx);
 		}
 
 		write_phy_layer_addr_cmdq(comp, handle, lye_idx, lx_addr);
 		write_phy_layer_hdr_addr_cmdq(comp, handle, lye_idx,
 					lx_hdr_addr);
+legacy_sec2:
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_PITCH_MSB(lye_idx),
 			lx_pitch_msb, ~0);
