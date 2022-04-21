@@ -469,6 +469,12 @@ static int mt6577_auxadc_probe(struct platform_device *pdev)
 
 	adc_dev->dev_comp = of_device_get_match_data(&pdev->dev);
 
+	if (!adc_dev->dev_comp) {
+		ret = -EINVAL;
+		dev_notice(&pdev->dev, "null dev_comp\n");
+		goto err_disable_clk;
+	}
+
 	if (adc_dev->dev_comp->sample_data_cali)
 		mt_auxadc_update_cali(&pdev->dev);
 
