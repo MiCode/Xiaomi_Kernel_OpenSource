@@ -12,6 +12,7 @@
 #define VPU_PWR_NO_BOOST    0xff
 
 int vpu_init_dev_pwr(struct platform_device *pdev, struct vpu_device *vd);
+int vpu_init_dev_pwr_rv(struct platform_device *pdev, struct vpu_device *vd);
 void vpu_exit_dev_pwr(struct platform_device *pdev, struct vpu_device *vd);
 
 int vpu_pwr_up(struct vpu_device *vd, uint8_t boost, uint32_t off_timer);

@@ -59,6 +59,28 @@ int vpu_cmd_init(struct vpu_device *vd)
 }
 
 /**
+ * vpu_cmd_init_rv - Initialize command control for rv solution
+ * @vd: the pointer of vpu_device.
+ */
+int vpu_cmd_init_rv(struct vpu_device *vd)
+{
+	int ret = 0;
+	dma_addr_t iova = 0;
+	struct vpu_mem_ops *mops = vd_mops(vd);
+
+	vd->iova_cmd.bin = VPU_MEM_ALLOC;
+	vd->iova_cmd.size = VPU_CMD_SIZE * VPU_MAX_PRIORITY;
+
+	iova = mops->alloc(vd->dev, &vd->iova_cmd);
+	if (!iova) {
+		vpu_cmd_exit_rv(vd);
+		ret = -ENOMEM;
+	}
+
+	return ret;
+}
+
+/**
  * vpu_cmd_exit - free command control
  * @vd: the pointer of vpu_device.
  */
@@ -69,6 +91,17 @@ void vpu_cmd_exit(struct vpu_device *vd)
 
 	for (i = 0; i < vd->cmd_prio_max; i++)
 		mops->free(vd->dev, &vd->cmd[i].vi);
+}
+
+/**
+ * vpu_cmd_exit_rv - free command control for rv solution
+ * @vd: the pointer of vpu_device.
+ */
+void vpu_cmd_exit_rv(struct vpu_device *vd)
+{
+	struct vpu_mem_ops *mops = vd_mops(vd);
+
+	mops->free(vd->dev, &vd->iova_cmd);
 }
 
 /**
@@ -403,5 +436,11 @@ int vpu_cmd_boost(struct vpu_device *vd, int prio)
 	return vd->cmd[vpu_prio(prio)].boost;
 }
 
+struct vpu_cmd_ops vpu_cmd_ops_ap = {
+	.init = vpu_cmd_init,
+};
 
+struct vpu_cmd_ops vpu_cmd_ops_rv = {
+	.init = vpu_cmd_init_rv,
+};
 

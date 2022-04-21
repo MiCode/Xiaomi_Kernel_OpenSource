@@ -13,6 +13,7 @@
 #include <linux/bitops.h>
 #include <linux/wait.h>
 #include <linux/sched/clock.h>
+#include <linux/list_sort.h>
 
 #include "vpu_algo.h"
 #include "vpu_cmd.h"
@@ -434,6 +435,99 @@ static dma_addr_t preload_iova_alloc(
 	return mva;
 }
 
+static int vpu_algo_cmp(void *priv, const struct list_head *a,
+	const struct list_head *b)
+{
+	struct __vpu_algo *la, *lb;
+
+	la = list_entry(a, struct __vpu_algo, list);
+	lb = list_entry(b, struct __vpu_algo, list);
+
+	return strcmp(la->a.name, lb->a.name);
+}
+
+static int vpu_init_algo_info(struct vpu_device *vd,
+	struct vpu_iova *iova_algo_info, struct vpu_algo_list *al)
+{
+	struct algo_head *head;
+	struct algo_list *algo, *array;
+	struct __vpu_algo *alg, *tmp;
+	dma_addr_t iova = 0;
+	unsigned int size = al->cnt * sizeof(struct algo_list) +
+		sizeof(struct algo_head);
+	struct vpu_mem_ops *mops = vd_mops(vd);
+
+	if (iova_algo_info->m.va)
+		return 0;
+
+	memset(iova_algo_info, 0, sizeof(struct vpu_iova));
+
+	iova_algo_info->size = __ALIGN_KERNEL(size, 0x1000);
+	iova_algo_info->bin = 0xFFFFFFFF;
+
+	iova = mops->alloc(vd->dev, iova_algo_info);
+
+	if (!iova) {
+		pr_info("%s: vpu%d: iova allcation failed\n", __func__, vd->id);
+		return 0;
+	}
+
+	head = (struct algo_head *)iova_algo_info->m.va;
+
+	memset(head, 0, size);
+
+	head->size = sizeof(struct algo_head);
+	head->id = vd->id;
+	head->number = al->cnt;
+	array = (void *)((unsigned long)head + sizeof(struct algo_head));
+	algo = array;
+
+	spin_lock(&al->lock);
+	list_sort(NULL, &al->a, vpu_algo_cmp);
+	list_for_each_entry_safe(alg, tmp, &al->a, list) {
+		strncpy(algo->name, alg->a.name, ALGO_NAMELEN);
+		algo->mva = alg->a.mva;
+		algo->len = alg->a.len;
+		algo->entry_off = alg->a.entry_off;
+		algo->iram_len = alg->a.iram_len;
+		algo->iram_mva = alg->a.iram_mva;
+
+		if (algo->entry_off)
+			head->preload = 1;
+
+		vpu_drv_debug("%s: vpu%d algo(0x%lX): %s, va: 0x%08X, len: 0x%X, entry: 0x%X\n",
+			__func__, vd->id,
+			(unsigned long)algo,
+			algo->name, algo->mva, algo->len,
+			algo->entry_off);
+
+		algo++;
+	}
+	spin_unlock(&al->lock);
+
+	mops->sync_for_device(vd->dev, iova_algo_info);
+
+	vpu_drv_debug("%s: vpu%d [%s] iova: 0x%lX, size: 0x%X, num: %d\n",
+		__func__, vd->id, (head->preload) ? "preload" : "normal",
+		(unsigned long)iova, size, vd->aln.cnt);
+	return 0;
+}
+
+static int vpu_free_algo_info(struct vpu_device *vd)
+{
+	struct vpu_mem_ops *mops = vd_mops(vd);
+
+	if (!vd->iova_algo_info.m.va)
+		return 0;
+
+	mops->alloc(vd->dev, &vd->iova_algo_info);
+	mops->alloc(vd->dev, &vd->iova_preload_info);
+	vd->iova_algo_info.m.va = 0;
+	vd->iova_preload_info.m.va = 0;
+	return 0;
+}
+
+
 #define PRELOAD_IRAM 0xFFFFFFFF
 
 static uint32_t vpu_init_dev_algo_preload_entry(
@@ -538,6 +632,7 @@ static int vpu_init_dev_algo_preload(
 				vd, al, info, offset);
 		}
 	}
+	vpu_init_algo_info(vd, &vd->iova_preload_info, al);
 
 	return ret;
 }
@@ -596,6 +691,7 @@ static int vpu_init_dev_algo_normal(
 		vpu_drv_debug("%s: vpu%d, total algo count: %d\n",
 			__func__, vd->id, al->cnt);
 	}
+	vpu_init_algo_info(vd, &vd->iova_algo_info, al);
 out:
 	return ret;
 }
@@ -622,6 +718,8 @@ void vpu_exit_dev_algo(struct platform_device *pdev, struct vpu_device *vd)
 
 	if (bin_type(vd) == VPU_IMG_PRELOAD)
 		vpu_exit_dev_algo_general(vd, &vd->alp);
+
+	vpu_free_algo_info(vd);
 }
 
 static wait_queue_head_t *vpu_isr_check_cmd_xos(struct vpu_device *vd,
@@ -1006,6 +1104,7 @@ int vpu_init_dev_hw(struct platform_device *pdev, struct vpu_device *vd)
 {
 	int ret = 0;
 	struct vpu_sys_ops *sops = vd_sops(vd);
+	struct vpu_cmd_ops *cmd_ops = vd_cmd_ops(vd);
 
 	ret = request_irq(vd->irq_num,	sops->isr,
 		irq_get_trigger_type(vd->irq_num),
@@ -1023,7 +1122,7 @@ int vpu_init_dev_hw(struct platform_device *pdev, struct vpu_device *vd)
 	if (sops->xos_unlock)
 		sops->xos_unlock(vd);
 
-	ret = vpu_cmd_init(vd);
+	ret = cmd_ops->init(vd);
 	if (ret) {
 		pr_info("%s: %s: fail to init commands: %d\n",
 			__func__, vd->name, ret);

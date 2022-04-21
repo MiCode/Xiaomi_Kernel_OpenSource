@@ -423,4 +423,8 @@ struct vpu_misc_ops vpu_cops_mt67xx = {
 	.is_disabled = vpu_is_disabled_dummy,
 };
 
+struct vpu_misc_ops vpu_cops_mt8188 = {
+	.emi_mpu_set = vpu_emi_mpu_set_dummy,
+	.is_disabled = vpu_is_disabled_dummy,
+};
 

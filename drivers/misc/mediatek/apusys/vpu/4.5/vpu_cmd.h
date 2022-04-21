@@ -14,6 +14,7 @@ struct vpu_device;
 
 int vpu_cmd_init(struct vpu_device *vd);
 void vpu_cmd_exit(struct vpu_device *vd);
+void vpu_cmd_exit_rv(struct vpu_device *vd);
 void vpu_cmd_clear(struct vpu_device *vd);
 
 void vpu_cmd_lock(struct vpu_device *vd, int prio);
@@ -63,6 +64,9 @@ struct vpu_cmd_ctl {
 	struct vpu_iova vi;  /* command buffer */
 	uint64_t exe_cnt;    /* debug: execution count */
 };
+
+extern struct vpu_cmd_ops vpu_cmd_ops_ap;
+extern struct vpu_cmd_ops vpu_cmd_ops_rv;
 
 #endif
 

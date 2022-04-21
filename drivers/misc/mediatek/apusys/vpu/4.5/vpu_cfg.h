@@ -62,5 +62,6 @@ extern struct vpu_register vpu_reg_mt67xx;
 extern struct vpu_misc_ops vpu_cops_mt6885;
 extern struct vpu_misc_ops vpu_cops_mt68xx;
 extern struct vpu_misc_ops vpu_cops_mt67xx;
+extern struct vpu_misc_ops vpu_cops_mt8188;
 
 #endif

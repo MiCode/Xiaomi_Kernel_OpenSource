@@ -31,11 +31,94 @@
 #include "vpu_tag.h"
 #include "vpu_hw.h"
 
+#include "apu.h"
+#include "apu_config.h"
+
 struct vpu_platform vpu_plat_mt6885;
 
 static void vpu_exit_drv_plat(void);
 static int vpu_suspend(struct vpu_device *vd);
 static int vpu_resume(struct vpu_device *vd);
+
+#define VPU_NUM_MAX 3
+struct vpu_probe_info probe_info[VPU_NUM_MAX];
+
+int vpu_set_init_info(struct mtk_apu *apu)
+{
+	int i;
+	struct vpu_probe_info *p;
+	struct platform_device *pdev;
+	struct vpu_init_info *info;
+	struct vpu_device *vd;
+	struct vpu_misc *misc;
+
+	if (!apu || !apu->conf_buf) {
+		vpu_cmd_debug("invalid argument: apu(%p) conf_buf(%p)\n",
+			apu, apu->conf_buf);
+		return -EINVAL;
+	}
+
+	info = (struct vpu_init_info *)
+		get_apu_config_user_ptr(apu->conf_buf, eVPU_INIT_INFO);
+
+	for (i = 0; i < vpu_drv->vp->core_num; i++) {
+		p = &probe_info[i];
+
+		if (!p->np) {
+			vpu_cmd_debug("probe_info %d invalid\n", i);
+			return -EPROBE_DEFER;
+		}
+
+		if (p->bound)
+			continue;
+
+		pdev = of_find_device_by_node(p->np);
+
+		if (!pdev) {
+			vpu_cmd_debug("vpu pdev%d failed\n", i);
+			return -EINVAL;
+		}
+
+		vd = (struct vpu_device *)platform_get_drvdata(pdev);
+		info->algo_info_ptr[2 * i] = vd->iova_algo_info.m.pa;
+		info->algo_info_ptr[2 * i + 1] = vd->iova_preload_info.m.pa;
+		info->rst_vec[i]   = vd->iova_reset.addr;
+		info->dmem_addr[i] = vd->dmem.res->start;
+		info->imem_addr[i] = vd->imem.res->start;
+		info->iram_addr[i] = vd->iova_iram.addr;
+		info->cmd_addr[i]  = vd->iova_cmd.m.pa;
+		info->log_addr[i]  = vd->iova_work.m.pa;
+		info->log_size[i]  = vd->iova_work.m.length;
+		p->bound = 1;
+	}
+
+	info->vpu_num = i;
+
+	if (!info->cfg_addr && info->vpu_num) {
+		misc = (void *)vpu_drv->iova_cfg.m.va;
+		memset(misc, 0, sizeof(*misc));
+		misc->ulog_lv = 0x3;
+		misc->pwr_off_delay = 3000;
+		vd_mops(vd)->sync_for_device(vd->dev, &vpu_drv->iova_cfg);
+		info->cfg_addr = vpu_drv->iova_cfg.addr;
+		info->cfg_size = vpu_drv->iova_cfg.size;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(vpu_set_init_info);
+
+int vpu_init_info_remove(struct mtk_apu *apu)
+{
+	int i;
+	struct vpu_probe_info *p;
+
+	for (i = 0; i < VPU_NUM_MAX; i++) {
+		p = &probe_info[i];
+		p->bound = 0;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(vpu_init_info_remove);
 
 /* handle different user query */
 static int vpu_ucmd_handle(struct vpu_device *vd,
@@ -468,6 +551,17 @@ static int vpu_shared_get(struct platform_device *pdev,
 		vpu_drv->iova_algo.addr = iova;
 	}
 
+	if (!vpu_drv->mva_cfg) {
+		vpu_drv->iova_cfg.bin = VPU_MEM_ALLOC;
+		vpu_drv->iova_cfg.size = __ALIGN_KERNEL(sizeof(struct vpu_misc),
+			0x1000);
+		iova = mops->alloc(vd->dev, &vpu_drv->iova_cfg);
+		if (!iova)
+			goto error;
+		vpu_drv->mva_cfg = iova;
+		vpu_drv->iova_cfg.addr = iova;
+	}
+
 	return 0;
 
 error:
@@ -574,6 +668,11 @@ error:
 	return -ENOMEM;
 }
 
+static int vpu_init_dev_irq_rv(struct platform_device *pdev,
+	struct vpu_device *vd)
+{
+	return 0;
+}
 
 static int vpu_init_dev_irq(struct platform_device *pdev,
 	struct vpu_device *vd)
@@ -592,7 +691,11 @@ static int vpu_init_dev_irq(struct platform_device *pdev,
 	return 0;
 }
 
-typedef int (*cmd_handler_t)(int op, void *hnd, struct apusys_device *adev);
+static int vpu_init_adev_rv(struct vpu_device *vd,
+	struct apusys_device *adev, int type, cmd_handler_t hndl)
+{
+	return 0;
+}
 
 static int vpu_init_adev(struct vpu_device *vd,
 	struct apusys_device *adev, int type, cmd_handler_t hndl)
@@ -672,6 +775,7 @@ static int vpu_init_dev_plat(struct platform_device *pdev,
 static int vpu_probe(struct platform_device *pdev)
 {
 	struct vpu_device *vd;
+	struct vpu_probe_ops *probe_ops = vd_probe_ops(vd);
 
 	int ret = 0;
 
@@ -740,7 +844,7 @@ static int vpu_probe(struct platform_device *pdev)
 	if (ret)
 		goto free;
 
-	ret = vpu_init_dev_irq(pdev, vd);
+	ret = probe_ops->init_dev_irq(pdev, vd);
 	if (ret)
 		goto free;
 
@@ -750,7 +854,7 @@ static int vpu_probe(struct platform_device *pdev)
 		goto free;
 
 	/* power initialization */
-	ret = vpu_init_dev_pwr(pdev, vd);
+	ret = probe_ops->init_power(pdev, vd);
 	if (ret)
 		goto hw_free;
 
@@ -760,13 +864,13 @@ static int vpu_probe(struct platform_device *pdev)
 		goto hw_free;
 
 	/* register device to APUSYS */
-	ret = vpu_init_adev(vd, &vd->adev,
+	ret = probe_ops->init_adev(vd, &vd->adev,
 		APUSYS_DEVICE_VPU, vpu_send_cmd);
 	if (ret)
 		goto hw_free;
 
 	if (xos_type(vd) == VPU_XOS) {
-		ret = vpu_init_adev(vd, &vd->adev_rt,
+		ret = probe_ops->init_adev(vd, &vd->adev_rt,
 			APUSYS_DEVICE_VPU_RT, vpu_send_cmd_rt);
 		if (ret)
 			goto hw_free;
@@ -832,6 +936,30 @@ static int vpu_resume(struct vpu_device *vd)
 	return 0;
 }
 
+struct vpu_probe_ops vpu_probe_ops_ap = {
+	.init_adev = vpu_init_adev,
+	.init_power = vpu_init_dev_pwr,
+	.init_dev_irq = vpu_init_dev_irq,
+};
+
+struct vpu_probe_ops vpu_probe_ops_rv = {
+	.init_adev = vpu_init_adev_rv,
+	.init_power = vpu_init_dev_pwr_rv,
+	.init_dev_irq = vpu_init_dev_irq_rv,
+};
+
+struct vpu_platform vpu_plat_mt8188 = {
+	.bops = &vpu_bops_preload,
+	.mops = &vpu_mops_v2,
+	.sops = &vpu_sops_mt68xx,
+	.cops = &vpu_cops_mt8188,
+	.reg = &vpu_reg_mt68xx,
+	.cfg = &vpu_cfg_mt68xx,
+	.cmd_ops = &vpu_cmd_ops_rv,
+	.probe_ops = &vpu_probe_ops_rv,
+	.core_num = 1,
+};
+
 struct vpu_platform vpu_plat_mt6885 = {
 	.bops = &vpu_bops_preload,
 	.mops = &vpu_mops_v2,
@@ -839,6 +967,9 @@ struct vpu_platform vpu_plat_mt6885 = {
 	.cops = &vpu_cops_mt6885,
 	.reg = &vpu_reg_mt68xx,
 	.cfg = &vpu_cfg_mt68xx,
+	.cmd_ops = &vpu_cmd_ops_ap,
+	.probe_ops = &vpu_probe_ops_ap,
+	.core_num = 2,
 };
 
 struct vpu_platform vpu_plat_mt68xx = {
@@ -848,6 +979,9 @@ struct vpu_platform vpu_plat_mt68xx = {
 	.cops = &vpu_cops_mt68xx,
 	.reg = &vpu_reg_mt68xx,
 	.cfg = &vpu_cfg_mt68xx,
+	.cmd_ops = &vpu_cmd_ops_ap,
+	.probe_ops = &vpu_probe_ops_ap,
+	.core_num = 2,
 };
 
 struct vpu_platform vpu_plat_mt67xx = {
@@ -857,6 +991,9 @@ struct vpu_platform vpu_plat_mt67xx = {
 	.cops = &vpu_cops_mt67xx,
 	.reg = &vpu_reg_mt67xx,
 	.cfg = &vpu_cfg_mt67xx,
+	.cmd_ops = &vpu_cmd_ops_ap,
+	.probe_ops = &vpu_probe_ops_ap,
+	.core_num = 2,
 };
 
 static const struct of_device_id vpu_of_ids[] = {
@@ -866,6 +1003,7 @@ static const struct of_device_id vpu_of_ids[] = {
 	{.compatible = "mediatek,mt6893-vpu_core", .data = &vpu_plat_mt68xx},
 	{.compatible = "mediatek,mt6785-vpu_core", .data = &vpu_plat_mt67xx},
 	{.compatible = "mediatek,mt6779-vpu_core", .data = &vpu_plat_mt67xx},
+	{.compatible = "mediatek,mt8188-vpu_core", .data = &vpu_plat_mt8188},
 	{}
 };
 

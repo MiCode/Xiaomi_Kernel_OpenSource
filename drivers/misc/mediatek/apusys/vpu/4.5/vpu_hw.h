@@ -38,6 +38,24 @@ struct vpu_pre_info {
 	char name[ALGO_NAMELEN];
 };
 
+struct algo_list {
+	char name[ALGO_NAMELEN];
+	uint32_t len;     /* binary length */
+	uint64_t mva;     /* mapped mva address to the binary */
+
+	/* preload algo */
+	uint32_t entry_off;  /* algo entry offset */
+	uint32_t iram_len;   /* iram data length */
+	uint64_t iram_mva;   /* iram data iova */
+};
+
+struct algo_head {
+	unsigned int size;
+	unsigned int id;
+	int preload;
+	unsigned int number;
+};
+
 /*
  * The VPU program is stored in EMMC Partitions, and the little kernel will
  * load it to DDR. There are three partitions for different purpose, and little

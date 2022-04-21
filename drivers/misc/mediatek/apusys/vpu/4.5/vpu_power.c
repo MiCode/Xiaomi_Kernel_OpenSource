@@ -341,6 +341,11 @@ int vpu_init_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
 	return ret;
 }
 
+int vpu_init_dev_pwr_rv(struct platform_device *pdev, struct vpu_device *vd)
+{
+	return 0;
+}
+
 void vpu_exit_dev_pwr(struct platform_device *pdev, struct vpu_device *vd)
 {
 	if (flush_delayed_work(&vd->pw_off_work)) {

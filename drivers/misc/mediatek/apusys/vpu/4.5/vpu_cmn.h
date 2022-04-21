@@ -98,6 +98,17 @@ struct vpu_met_hrt {
 	uint64_t latency;
 };
 
+struct vpu_misc {
+	uint32_t ulog_lv;
+	uint32_t pwr_off_delay;
+	uint32_t reserved[7];
+} __packed;
+
+struct vpu_probe_info {
+	void *np;
+	int bound; /* device is bound */
+};
+
 struct vpu_platform;
 struct vpu_device;
 
@@ -118,9 +129,11 @@ struct vpu_driver {
 	struct device *iova_dev;
 	struct vpu_iova iova_algo;
 	struct vpu_iova iova_share;
+	struct vpu_iova iova_cfg;
 
 	/* shared */
 	uint64_t mva_algo;
+	uint64_t mva_cfg;
 
 	/* memory */
 	struct apu_bmap ab;  /* bitmap used by v2 allocator */
@@ -173,6 +186,19 @@ enum vpu_state {
 struct vpu_iomem {
 	void __iomem *m;
 	struct resource *res;
+};
+
+struct vpu_cmd_ops {
+	int (*init)(struct vpu_device *vd);
+};
+
+typedef int (*cmd_handler_t)(int op, void *hnd, struct apusys_device *adev);
+
+struct vpu_probe_ops {
+	int (*init_adev)(struct vpu_device *vd, struct apusys_device *adev,
+		int type, cmd_handler_t hndl);
+	int (*init_power)(struct platform_device *pdev, struct vpu_device *vd);
+	int (*init_dev_irq)(struct platform_device *pdev, struct vpu_device *vd);
 };
 
 struct vpu_bin_ops {
@@ -406,6 +432,10 @@ struct vpu_platform {
 	struct vpu_misc_ops *cops;
 	struct vpu_register *reg;
 	struct vpu_config *cfg;
+	struct vpu_pwr_ops *pops;
+	struct vpu_cmd_ops *cmd_ops;
+	struct vpu_probe_ops *probe_ops;
+	int core_num;
 };
 
 // device data
@@ -451,6 +481,9 @@ struct vpu_device {
 	struct vpu_iova iova_kernel;
 	struct vpu_iova iova_iram;
 	struct vpu_iova iova_work;
+	struct vpu_iova iova_algo_info;
+	struct vpu_iova iova_preload_info;
+	struct vpu_iova iova_cmd;
 
 	/* work buffer */
 	uint32_t wb_log_size;
@@ -493,6 +526,8 @@ struct vpu_device {
 #define vd_cops(vd)	(__vp->cops)
 #define vd_sops(vd)	(__vp->sops)
 #define vd_bops(vd)	(__vp->bops)
+#define vd_cmd_ops(vd)	(__vp->cmd_ops)
+#define vd_probe_ops(vd)	(__vp->probe_ops)
 
 #define xos_type(vd)	(vd_cfg(vd)->xos)
 #define bin_type(vd)	(vd_cfg(vd)->bin_type)
