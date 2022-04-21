@@ -1054,7 +1054,7 @@ void pm_qos_add_request(struct pm_qos_request *req,
 			int pm_qos_class, s32 value)
 {
 #if defined(CONFIG_MACH_MT6771)
-	char owner[20];
+	char owner[20] = {0};
 #endif
 	if (!req) /*guard against callers passing in null */
 		return;
