@@ -108,7 +108,7 @@ static int detect_count = CONFIG_LOG_TOO_MUCH_DETECT_COUNT;
 static bool logmuch_enable;
 static int logmuch_exit;
 static void *log_much;
-static int log_much_len = 1 << (CONFIG_LOG_BUF_SHIFT + 1);
+static int log_much_len = CONFIG_LOG_TOO_MUCH_DETECT_COUNT * 300 * 5;
 struct proc_dir_entry *logmuch_entry;
 static u32 log_count;
 static bool detect_count_after_effect_flag;
@@ -328,7 +328,7 @@ static int mt_printk_ctrl_show(struct seq_file *m, void *v)
 	seq_puts(m, "4:   printk too much log in 10 seconds.\n");
 	seq_puts(m,
 "xxx: printk too much detect count(xxx represents for a integer > 50)\n");
-	seq_printf(m, "log_much detect %d Line, %d sieze.\n", log_count, log_much_len);
+	seq_printf(m, "log_much detect %d Line, %d size.\n", log_count, log_much_len);
 #endif
 	seq_puts(m, "=== mt printk controller ===\n\n");
 #if IS_ENABLED(CONFIG_MTK_PRINTK_UART_CONSOLE)
