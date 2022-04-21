@@ -272,35 +272,30 @@ void mhal_DPTx_SetColorDepth(struct mtk_dp *mtk_dp, BYTE coloer_depth)
 			4,
 			0x07);
 		break;
-
 	case DP_COLOR_DEPTH_8BIT:
 		msWriteByteMask(mtk_dp,
 			REG_303C_DP_ENCODER0_P0 + 1,
 			3,
 			0x07);
 		break;
-
 	case DP_COLOR_DEPTH_10BIT:
 		msWriteByteMask(mtk_dp,
 			REG_303C_DP_ENCODER0_P0 + 1,
 			2,
 			0x07);
 		break;
-
 	case DP_COLOR_DEPTH_12BIT:
 		msWriteByteMask(mtk_dp,
 			REG_303C_DP_ENCODER0_P0 + 1,
 			1,
 			0x07);
 		break;
-
 	case DP_COLOR_DEPTH_16BIT:
 		msWriteByteMask(mtk_dp,
 			REG_303C_DP_ENCODER0_P0 + 1,
 			0,
 			0x07);
 		break;
-
 	default:
 		break;
 	}
@@ -481,7 +476,6 @@ void mhal_DPTx_PG_Pure_Color(struct mtk_dp *mtk_dp, BYTE BGR, DWORD ColorDepth)
 		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
 			ColorDepth, MASKBIT(11:0));
 		break;
-
 	case DPTX_PG_PURECOLOR_GREEN:
 		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
 			0, MASKBIT(11:0));
@@ -490,7 +484,6 @@ void mhal_DPTx_PG_Pure_Color(struct mtk_dp *mtk_dp, BYTE BGR, DWORD ColorDepth)
 		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
 			0, MASKBIT(11:0));
 		break;
-
 	case DPTX_PG_PURECOLOR_RED:
 		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
 			ColorDepth, MASKBIT(11:0));
@@ -499,7 +492,6 @@ void mhal_DPTx_PG_Pure_Color(struct mtk_dp *mtk_dp, BYTE BGR, DWORD ColorDepth)
 		msWrite2ByteMask(mtk_dp, REG_3184_DP_ENCODER0_P0,
 			0, MASKBIT(11:0));
 		break;
-
 	default:
 		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
 			ColorDepth, MASKBIT(11:0));
@@ -530,7 +522,6 @@ void mhal_DPTx_PG_VerticalRamping(struct mtk_dp *mtk_dp, BYTE BGR,
 			BGR, MASKBIT(2:0));
 		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x3FFF);
 		break;
-
 	case DPTX_PG_LOCATION_TOP:
 		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
 			0, MASKBIT(11:0));
@@ -542,7 +533,6 @@ void mhal_DPTx_PG_VerticalRamping(struct mtk_dp *mtk_dp, BYTE BGR,
 			BGR, MASKBIT(2:0));
 		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x40);
 		break;
-
 	case DPTX_PG_LOCATION_BOTTOM:
 		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
 			ColorDepth, MASKBIT(11:0));
@@ -554,7 +544,6 @@ void mhal_DPTx_PG_VerticalRamping(struct mtk_dp *mtk_dp, BYTE BGR,
 			BGR, MASKBIT(2:0));
 		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x2FFF);
 		break;
-
 	default:
 		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
 			0, MASKBIT(11:0));
@@ -565,7 +554,6 @@ void mhal_DPTx_PG_VerticalRamping(struct mtk_dp *mtk_dp, BYTE BGR,
 		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0,
 			BGR, MASKBIT(2:0));
 		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x3FFF);
-
 		break;
 	}
 }
@@ -593,7 +581,6 @@ void mhal_DPTx_PG_HorizontalRamping(struct mtk_dp *mtk_dp, BYTE BGR,
 		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0,
 			BGR, MASKBIT(2:0));
 		break;
-
 	case DPTX_PG_LOCATION_LEFT_OF_TOP:
 		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
 			0, MASKBIT(11:0));
@@ -605,7 +592,6 @@ void mhal_DPTx_PG_HorizontalRamping(struct mtk_dp *mtk_dp, BYTE BGR,
 			BGR, MASKBIT(2:0));
 		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x3FFF);
 		break;
-
 	case DPTX_PG_LOCATION_LEFT_OF_BOTTOM:
 		msWrite2ByteMask(mtk_dp, REG_317C_DP_ENCODER0_P0,
 			0, MASKBIT(11:0));
@@ -617,7 +603,6 @@ void mhal_DPTx_PG_HorizontalRamping(struct mtk_dp *mtk_dp, BYTE BGR,
 			BGR, MASKBIT(2:0));
 		msWrite2Byte(mtk_dp, REG_31A0_DP_ENCODER0_P0, 0x3FFF);
 		break;
-
 	default:
 		break;
 
@@ -637,49 +622,42 @@ void mhal_DPTx_PG_VerticalColorBar(struct mtk_dp *mtk_dp, BYTE Location)
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			0, MASKBIT(2:0));
 		break;
-
 	case DPTX_PG_LOCATION_LEFT:
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT4, MASKBIT(5:4));
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			0, MASKBIT(2:0));
 		break;
-
 	case DPTX_PG_LOCATION_RIGHT:
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT4, MASKBIT(5:4));
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT2, MASKBIT(2:0));
 		break;
-
 	case DPTX_PG_LOCATION_LEFT_OF_LEFT:
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT5|BIT4, MASKBIT(5:4));
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			0, MASKBIT(2:0));
 		break;
-
 	case DPTX_PG_LOCATION_RIGHT_OF_LEFT:
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT5|BIT4, MASKBIT(5:4));
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT1, MASKBIT(2:0));
 		break;
-
 	case DPTX_PG_LOCATION_LEFT_OF_RIGHT:
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT5|BIT4, MASKBIT(5:4));
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT2, MASKBIT(2:0));
 		break;
-
 	case DPTX_PG_LOCATION_RIGHT_OF_RIGHT:
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT5|BIT4, MASKBIT(5:4));
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT2|BIT1, MASKBIT(2:0));
 		break;
-
 	default:
 		break;
 	}
@@ -696,21 +674,18 @@ void mhal_DPTx_PG_HorizontalColorBar(struct mtk_dp *mtk_dp, BYTE Location)
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			0, MASKBIT(2:0));
 		break;
-
 	case DPTX_PG_LOCATION_TOP:
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT4, MASKBIT(5:4));
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			0, MASKBIT(2:0));
 		break;
-
 	case DPTX_PG_LOCATION_BOTTOM:
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT4, MASKBIT(5:4));
 		msWriteByteMask(mtk_dp, REG_3190_DP_ENCODER0_P0,
 			BIT2, MASKBIT(2:0));
 		break;
-
 	default:
 		break;
 	}
@@ -742,7 +717,6 @@ void mhal_DPTx_PG_Chessboard(struct mtk_dp *mtk_dp, BYTE Location,
 		msWrite2ByteMask(mtk_dp, REG_31AC_DP_ENCODER0_P0,
 			(Vde/8), MASKBIT(13:0));
 		break;
-
 	default:
 		break;
 	}
@@ -758,12 +732,10 @@ void mhal_DPTx_PG_SubPixel(struct mtk_dp *mtk_dp, BYTE Location)
 	case DPTX_PG_PIXEL_ODD_MASK:
 		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0 + 1, 0, BIT5);
 		break;
-
 	case DPTX_PG_PIXEL_EVEN_MASK:
 		msWriteByteMask(mtk_dp, REG_31B0_DP_ENCODER0_P0 + 1,
 			BIT5, BIT5);
 		break;
-
 	default:
 		break;
 	}
@@ -964,7 +936,7 @@ void mhal_DPTx_Audio_PG_EN(struct mtk_dp *mtk_dp, BYTE Channel,
 		msWrite2ByteMask(mtk_dp, REG_3324_DP_ENCODER1_P0,
 			0x0 << AUDIO_PATGEN_CH_NUM_DP_ENCODER1_P0_FLDMASK_POS,
 			AUDIO_PATTERN_GEN_CH_NUM_DP_ENCODER1_P0_FLDMASK);
-	break;
+		break;
 	}
 
 	//audio channel count change reset
@@ -1008,7 +980,6 @@ void mhal_DPTx_AudioClock(struct mtk_dp *mtk_dp, BYTE Channel, BYTE Fs)
 	divb = clk_source / mck - 1;
 	DPTXMSG("bck = %d, mck = %d, div4 = %d, divb=%d\n",
 		bck, mck, div4, divb);
-
 
 	msWrite4Byte(mtk_dp, 0x1000c320, 0x6F28BD4C);
 	msWrite4Byte(mtk_dp, 0x1000c040, 0x6F28BD4D);
@@ -1293,7 +1264,6 @@ void mhal_DPTx_SPKG_SDP(struct mtk_dp *mtk_dp, bool bEnable, BYTE ucSDPType,
 			DPTXMSG("SENT SDP TYPE EXT\n");
 		}
 		break;
-
 	case DPTx_SDPTYP_PPS0:
 		msWriteByte(mtk_dp, REG_31E8_DP_ENCODER0_P0, 0x00);
 		if (bEnable) {
@@ -1304,8 +1274,7 @@ void mhal_DPTx_SPKG_SDP(struct mtk_dp *mtk_dp, bool bEnable, BYTE ucSDPType,
 			msWriteByte(mtk_dp, REG_31E8_DP_ENCODER0_P0, 0x05);
 			DPTXMSG("SENT SDP TYPE PPS0\n");
 		}
-	break;
-
+		break;
 	case DPTx_SDPTYP_PPS1:
 		msWriteByte(mtk_dp, REG_31E8_DP_ENCODER0_P0, 0x00);
 		if (bEnable) {
@@ -1316,8 +1285,7 @@ void mhal_DPTx_SPKG_SDP(struct mtk_dp *mtk_dp, bool bEnable, BYTE ucSDPType,
 			msWriteByte(mtk_dp, REG_31E8_DP_ENCODER0_P0, 0x05);
 			DPTXMSG("SENT SDP TYPE PPS1\n");
 		}
-	break;
-
+		break;
 	case DPTx_SDPTYP_PPS2:
 		msWriteByte(mtk_dp, REG_31E8_DP_ENCODER0_P0, 0x00);
 		if (bEnable) {
@@ -1328,8 +1296,7 @@ void mhal_DPTx_SPKG_SDP(struct mtk_dp *mtk_dp, bool bEnable, BYTE ucSDPType,
 			msWriteByte(mtk_dp, REG_31E8_DP_ENCODER0_P0, 0x05);
 			DPTXMSG("SENT SDP TYPE PPS2\n");
 		}
-	break;
-
+		break;
 	case DPTx_SDPTYP_PPS3:
 		msWriteByte(mtk_dp, REG_31E8_DP_ENCODER0_P0, 0x00);
 		if (bEnable) {
@@ -1340,8 +1307,7 @@ void mhal_DPTx_SPKG_SDP(struct mtk_dp *mtk_dp, bool bEnable, BYTE ucSDPType,
 			msWriteByte(mtk_dp, REG_31E8_DP_ENCODER0_P0, 0x05);
 			DPTXMSG("SENT SDP TYPE PPS3\n");
 		}
-	break;
-
+		break;
 	case DPTx_SDPTYP_DRM:
 		msWriteByte(mtk_dp, REG_31DC_DP_ENCODER0_P0, 0x00);
 		if (bEnable) {
@@ -1358,7 +1324,7 @@ void mhal_DPTx_SPKG_SDP(struct mtk_dp *mtk_dp, bool bEnable, BYTE ucSDPType,
 			msWriteByte(mtk_dp, REG_31DC_DP_ENCODER0_P0, 0x05);
 			DPTXMSG("SENT SDP TYPE DRM\n");
 		}
-	break;
+		break;
 	default:
 		break;
 	}
@@ -1559,7 +1525,7 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 			MCU_ACK_TRANSACTION_COMPLETE_AUX_TX_P0_FLDMASK);
 		msWriteByte(mtk_dp, REG_3640_AUX_TX_P0, 0x7F);
 
-		udelay(AUX_WRITE_READ_WAIT_TIME);
+		//udelay(AUX_WRITE_READ_WAIT_TIME);
 		DPTXMSG("WaitReplyCount =%x TimeOut", WaitReplyCount);
 		return false;
 	}
@@ -1582,8 +1548,8 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 						| DP_AUX_I2C_MOT))
 					|| (ubCmd == DP_AUX_I2C_READ))
 					udelay(500);
-				else
-					udelay(AUX_WRITE_READ_WAIT_TIME*5);
+				//else
+				//	udelay(AUX_WRITE_READ_WAIT_TIME*5);
 
 				*(pRxBuf + ubRdCount)
 					= msReadByte(mtk_dp,
@@ -1598,7 +1564,7 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 		MCU_ACK_TRANSACTION_COMPLETE_AUX_TX_P0_FLDMASK);
 	msWriteByte(mtk_dp, REG_3640_AUX_TX_P0, 0x7F);
 
-	udelay(AUX_WRITE_READ_WAIT_TIME);
+	//udelay(AUX_WRITE_READ_WAIT_TIME);
 	return bVaildCmd;
 }
 
@@ -1672,7 +1638,7 @@ bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 		msWriteByte(mtk_dp, REG_3650_AUX_TX_P0 + 1, 0x01);
 		msWriteByte(mtk_dp, REG_3640_AUX_TX_P0, 0x7F);
 
-		udelay(AUX_WRITE_READ_WAIT_TIME);
+		//udelay(AUX_WRITE_READ_WAIT_TIME);
 
 		DPTXMSG("ubReplyCmd = 0x%x WaitReplyCount = %d\n",
 			ubReplyCmd, WaitReplyCount);
@@ -2046,7 +2012,6 @@ void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp)
 	msWrite4Byte(mtk_dp, 0x1240, value);
 	DPTXDBG("0x40:%#010x, 0x40:%#010x", value, msRead4Byte(mtk_dp, 0x1140));
 
-
 	value = (mtk_dp->phy_params[0].CP1 & mask)
 		| ((mtk_dp->phy_params[1].CP1 & mask) << 8)
 		| ((mtk_dp->phy_params[2].CP1 & mask) << 16)
@@ -2120,7 +2085,7 @@ void mhal_DPTx_AuxSetting(struct mtk_dp *mtk_dp)
 	// modify timeout threshold = 1595 [12 : 8]
 	msWrite2ByteMask(mtk_dp,
 		REG_360C_AUX_TX_P0,
-		0x1595,
+		0x1D0C,  // 572us = 400us + 172bits (with 16 bytes data)
 		AUX_TIMEOUT_THR_AUX_TX_P0_FLDMASK);
 	msWriteByteMask(mtk_dp,
 		REG_3658_AUX_TX_P0,
@@ -2138,7 +2103,6 @@ void mhal_DPTx_AuxSetting(struct mtk_dp *mtk_dp)
 		0x01 << MTK_ATOP_EN_AUX_TX_P0_FLDMASK_POS,
 		MTK_ATOP_EN_AUX_TX_P0_FLDMASK);
 }
-
 
 void mhal_DPTx_DigitalSetting(struct mtk_dp *mtk_dp)
 {
@@ -2174,7 +2138,6 @@ void mhal_DPTx_DigitalSwReset(struct mtk_dp *mtk_dp)
 	mdelay(1);
 	msWriteByteMask(mtk_dp, REG_340C_DP_TRANS_P0 + 1, 0, BIT5);
 }
-
 
 void mhal_DPTx_SetTxLaneToLane(struct mtk_dp *mtk_dp, BYTE ucLaneNum,
 	BYTE ucSetLaneNum)
@@ -2272,7 +2235,6 @@ void mhal_DPTx_SetTxRate(struct mtk_dp *mtk_dp, int Value)
 		0x00000003); // power on BandGap, TPLL and Lane;
 }
 
-
 void mhal_DPTx_SetTxTrainingPattern(struct mtk_dp *mtk_dp, int  Value)
 {
 	DPTXMSG("Set Train Pattern =0x%x\n ", Value);
@@ -2285,8 +2247,6 @@ void mhal_DPTx_SetTxTrainingPattern(struct mtk_dp *mtk_dp, int  Value)
 		Value,
 		MASKBIT(7 : 4));
 }
-
-
 
 void mhal_DPTx_PHY_SetIdlePattern(struct mtk_dp *mtk_dp, bool bENABLE)
 {
@@ -2318,7 +2278,6 @@ void mhal_DPTx_SetFreeSync(struct mtk_dp *mtk_dp, bool bENABLE)
 			BIT5|BIT4);
 }
 
-
 void mhal_DPTx_SetEF_Mode(struct mtk_dp *mtk_dp, bool  bENABLE)
 {
 	if (bENABLE)//[4] REG_enhanced_frame_mode [1 : 0]mtk_dp, REG_lane_num
@@ -2334,7 +2293,6 @@ void mhal_DPTx_SetEF_Mode(struct mtk_dp *mtk_dp, bool  bENABLE)
 
 }
 
-
 void mhal_DPTx_SetScramble(struct mtk_dp *mtk_dp, bool  bENABLE)
 {
 	if (bENABLE)
@@ -2348,7 +2306,6 @@ void mhal_DPTx_SetScramble(struct mtk_dp *mtk_dp, bool  bENABLE)
 			0,
 			BIT0); //[0]dp tx transmitter scramble enable
 }
-
 
 void mhal_DPTx_SetScramble_Type(struct mtk_dp *mtk_dp, bool bSelType)
 {
@@ -2364,7 +2321,6 @@ void mhal_DPTx_SetScramble_Type(struct mtk_dp *mtk_dp, bool bSelType)
 			0,
 			BIT1);
 }
-
 
 void mhal_DPTx_VideoMute(struct mtk_dp *mtk_dp, bool bENABLE)
 {
@@ -2453,7 +2409,6 @@ void mhal_DPTx_PHY_ResetPattern(struct mtk_dp *mtk_dp)
 	mhal_DPTx_ComplianceEyeEnSetting(mtk_dp, false);
 }
 
-
 void mhal_DPTx_PRBSEnable(struct mtk_dp *mtk_dp, bool bENABLE)
 {
 	DPTXFUNC();
@@ -2537,5 +2492,4 @@ void mhal_DPTx_AnalogPowerOnOff(struct mtk_dp *mtk_dp, bool enable)
 		msWrite2Byte(mtk_dp, 0x0038, 0x555);
 	}
 }
-
 
