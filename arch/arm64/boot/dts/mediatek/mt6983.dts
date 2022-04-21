@@ -8047,7 +8047,8 @@
 			 <&gce_m 16 3000 CMDQ_THR_PRIO_1>,
 			 <&gce_m 17 3000 CMDQ_THR_PRIO_1>,
 			 <&gce_m 18 3000 CMDQ_THR_PRIO_1>,
-			 <&gce_m 19 3000 CMDQ_THR_PRIO_1>;
+			 <&gce_m 19 3000 CMDQ_THR_PRIO_1>,
+			 <&gce_m 22 3000 CMDQ_THR_PRIO_1>;
 		traw_cq_thread0_frame_done =
 			/bits/ 16 <CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_0>;
 		traw_cq_thread1_frame_done =
