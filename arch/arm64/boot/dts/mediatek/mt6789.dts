@@ -5341,10 +5341,10 @@
 			dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 
 			mediatek,dec_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
-			mediatek,enc_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
+			mediatek,enc_gce_th_num = <1>; /* VENC GCE HW THREAD NUM*/
 
 			mboxes = <&gce 7 0 CMDQ_THR_PRIO_1>,
-					<&gce 12 0 CMDQ_THR_PRIO_1>,
+					<&gce 23 0 CMDQ_THR_PRIO_1>,
 					<&gce_sec 12 0 CMDQ_THR_PRIO_1>;
 			gce-event-names = "venc_eof",
 					"venc_cmdq_pause_done",
@@ -5387,6 +5387,8 @@
 					<&gce CMDQ_EVENT_VDEC_GCE_EVENT_15>;
 
 			gce-gpr = <GCE_GPR_R10>, <GCE_GPR_R11>;
+			gce_norm_token = /bits/ 16 <CMDQ_SYNC_TOKEN_HISTOGRAM_VENC_WAIT>;
+			gce_sec_token = /bits/ 16 <CMDQ_SYNC_TOKEN_HISTOGRAM_VENC_SET>;
 		};
 
 		vdec@16000000 {
