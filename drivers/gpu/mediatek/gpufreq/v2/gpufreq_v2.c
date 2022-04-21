@@ -1159,38 +1159,38 @@ unsigned int gpufreq_get_core_num(void)
 EXPORT_SYMBOL(gpufreq_get_core_num);
 
 /***********************************************************************************
- * Function Name      : gpufreq_pdc_control
+ * Function Name      : gpufreq_pdca_config
  * Inputs             : power          - Target power state
  * Outputs            : -
  * Returns            : -
  * Description        : Manually control PDCv2 setting
  ***********************************************************************************/
-void gpufreq_pdc_control(enum gpufreq_power_state power)
+void gpufreq_pdca_config(enum gpufreq_power_state power)
 {
 	/* implement only on AP */
-	if (gpufreq_fp && gpufreq_fp->pdc_control)
-		gpufreq_fp->pdc_control(power);
+	if (gpufreq_fp && gpufreq_fp->pdca_config)
+		gpufreq_fp->pdca_config(power);
 	else
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 }
-EXPORT_SYMBOL(gpufreq_pdc_control);
+EXPORT_SYMBOL(gpufreq_pdca_config);
 
 /***********************************************************************************
- * Function Name      : gpufreq_fake_spm_mtcmos_control
+ * Function Name      : gpufreq_fake_mtcmos_control
  * Inputs             : power          - Target power state
  * Outputs            : -
  * Returns            : -
  * Description        : Fake PWR_CON value of SPM MFG register
  ***********************************************************************************/
-void gpufreq_fake_spm_mtcmos_control(enum gpufreq_power_state power)
+void gpufreq_fake_mtcmos_control(enum gpufreq_power_state power)
 {
 	/* implement only on AP */
-	if (gpufreq_fp && gpufreq_fp->fake_spm_mtcmos_control)
-		gpufreq_fp->fake_spm_mtcmos_control(power);
+	if (gpufreq_fp && gpufreq_fp->fake_mtcmos_control)
+		gpufreq_fp->fake_mtcmos_control(power);
 	else
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
 }
-EXPORT_SYMBOL(gpufreq_fake_spm_mtcmos_control);
+EXPORT_SYMBOL(gpufreq_fake_mtcmos_control);
 
 /***********************************************************************************
  * Function Name      : gpufreq_update_debug_opp_info

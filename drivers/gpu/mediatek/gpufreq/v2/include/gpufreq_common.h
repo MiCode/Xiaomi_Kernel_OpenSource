@@ -6,11 +6,10 @@
 #ifndef __GPUFREQ_COMMON_H__
 #define __GPUFREQ_COMMON_H__
 
+#include <linux/bits.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/mboot_params.h>
 #endif
-
-#include <gpufreq_v2.h>
 #if IS_ENABLED(CONFIG_MTK_AEE_AED)
 #include <aed.h>
 #endif
@@ -28,68 +27,34 @@
 /**************************************************
  * Shader Present Setting
  **************************************************/
-#define T0C0  (1 <<  0)
-#define T1C0  (1 <<  1)
-#define T2C0  (1 <<  2)
-#define T3C0  (1 <<  3)
-#define T0C1  (1 <<  4)
-#define T1C1  (1 <<  5)
-#define T2C1  (1 <<  6)
-#define T3C1  (1 <<  7)
-#define T0C2  (1 <<  8)
-#define T1C2  (1 <<  9)
-#define T2C2  (1 << 10)
-#define T3C2  (1 << 11)
-#define T0C3  (1 << 12)
-#define T1C3  (1 << 13)
-#define T2C3  (1 << 14)
-#define T3C3  (1 << 15)
-#define T4C0  (1 << 16)
-#define T5C0  (1 << 17)
-#define T6C0  (1 << 18)
-#define T7C0  (1 << 19)
-#define T4C1  (1 << 20)
-#define T5C1  (1 << 21)
-#define T6C1  (1 << 22)
-#define T7C1  (1 << 23)
+#define T0C0  (BIT(0))
+#define T1C0  (BIT(1))
+#define T2C0  (BIT(2))
+#define T3C0  (BIT(3))
+#define T0C1  (BIT(4))
+#define T1C1  (BIT(5))
+#define T2C1  (BIT(6))
+#define T3C1  (BIT(7))
+#define T0C2  (BIT(8))
+#define T1C2  (BIT(9))
+#define T2C2  (BIT(10))
+#define T3C2  (BIT(11))
+#define T0C3  (BIT(12))
+#define T1C3  (BIT(13))
+#define T2C3  (BIT(14))
+#define T3C3  (BIT(15))
+#define T4C0  (BIT(16))
+#define T5C0  (BIT(17))
+#define T6C0  (BIT(18))
+#define T7C0  (BIT(19))
+#define T4C1  (BIT(20))
+#define T5C1  (BIT(21))
+#define T6C1  (BIT(22))
+#define T7C1  (BIT(23))
 
 /**************************************************
  * Enumeration
  **************************************************/
-enum gpufreq_power_step {
-	GPUFREQ_POWER_STEP_01 = 0x1,
-	GPUFREQ_POWER_STEP_02 = 0x2,
-	GPUFREQ_POWER_STEP_03 = 0x3,
-	GPUFREQ_POWER_STEP_04 = 0x4,
-	GPUFREQ_POWER_STEP_05 = 0x5,
-	GPUFREQ_POWER_STEP_06 = 0x6,
-	GPUFREQ_POWER_STEP_07 = 0x7,
-	GPUFREQ_POWER_STEP_08 = 0x8,
-	GPUFREQ_POWER_STEP_09 = 0x9,
-	GPUFREQ_POWER_STEP_0A = 0xA,
-	GPUFREQ_POWER_STEP_0B = 0xB,
-	GPUFREQ_POWER_STEP_0C = 0xC,
-	GPUFREQ_POWER_STEP_0D = 0xD,
-	GPUFREQ_POWER_STEP_0E = 0xE,
-	GPUFREQ_POWER_STEP_0F = 0xF,
-	GPUFREQ_POWER_STEP_10 = 0x10,
-	GPUFREQ_POWER_STEP_11 = 0x11,
-	GPUFREQ_POWER_STEP_12 = 0x12,
-	GPUFREQ_POWER_STEP_13 = 0x13,
-	GPUFREQ_POWER_STEP_14 = 0x14,
-	GPUFREQ_POWER_STEP_15 = 0x15,
-	GPUFREQ_POWER_STEP_16 = 0x16,
-	GPUFREQ_POWER_STEP_17 = 0x17,
-	GPUFREQ_POWER_STEP_18 = 0x18,
-	GPUFREQ_POWER_STEP_19 = 0x19,
-	GPUFREQ_POWER_STEP_1A = 0x1A,
-	GPUFREQ_POWER_STEP_1B = 0x1B,
-	GPUFREQ_POWER_STEP_1C = 0x1C,
-	GPUFREQ_POWER_STEP_1D = 0x1D,
-	GPUFREQ_POWER_STEP_1E = 0x1E,
-	GPUFREQ_POWER_STEP_1F = 0x1F,
-};
-
 enum gpufreq_exception {
 	GPUFREQ_GPU_EXCEPTION,
 	GPUFREQ_PMIC_EXCEPTION,
@@ -139,9 +104,8 @@ void __gpufreq_set_margin_mode(unsigned int mode);
 void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode);
 struct gpufreq_core_mask_info *__gpufreq_get_core_mask_table(void);
 unsigned int __gpufreq_get_core_num(void);
-void __gpufreq_get_critical_volt(const struct gpufreq_opp_info *opp_table);
-void __gpufreq_pdc_control(enum gpufreq_power_state power);
-void __gpufreq_fake_spm_mtcmos_control(enum gpufreq_power_state power);
+void __gpufreq_pdca_config(enum gpufreq_power_state power);
+void __gpufreq_fake_mtcmos_control(enum gpufreq_power_state power);
 /* GPU */
 unsigned int __gpufreq_get_cur_fgpu(void);
 unsigned int __gpufreq_get_cur_vgpu(void);
@@ -164,8 +128,6 @@ int __gpufreq_fix_custom_freq_volt_gpu(unsigned int freq, unsigned int volt);
 /* SRAM */
 unsigned int __gpufreq_get_cur_vsram_gpu(void);
 unsigned int __gpufreq_get_cur_vsram_stack(void);
-unsigned int __gpufreq_get_vsram_by_vgpu(unsigned int volt);
-unsigned int __gpufreq_get_vsram_by_vstack(unsigned int volt);
 /* GPUSTACK */
 unsigned int __gpufreq_get_cur_fstack(void);
 unsigned int __gpufreq_get_cur_vstack(void);
@@ -189,52 +151,40 @@ int __gpufreq_fix_custom_freq_volt_stack(unsigned int freq, unsigned int volt);
 /**************************************************
  * Function
  **************************************************/
-static inline void __gpufreq_footprint_power_step(enum gpufreq_power_step step)
-{
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-	aee_rr_rec_gpu_dvfs_vgpu(step);
-#else
-	GPUFREQ_UNREFERENCED(step);
-#endif
-}
-
-static inline void __gpufreq_footprint_power_step_reset(void)
+static inline void __gpufreq_reset_footprint(void)
 {
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_rr_rec_gpu_dvfs_vgpu(0);
-#endif
-}
-
-static inline void __gpufreq_footprint_oppidx(int idx)
-{
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-	aee_rr_rec_gpu_dvfs_oppidx(idx);
-#else
-	GPUFREQ_UNREFERENCED(idx);
-#endif
-}
-
-static inline void __gpufreq_footprint_oppidx_reset(void)
-{
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-	aee_rr_rec_gpu_dvfs_oppidx(0xFF);
-#endif
-}
-
-static inline void __gpufreq_footprint_power_count(int count)
-{
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
-	aee_rr_rec_gpu_dvfs_power_count(count);
-#else
-	GPUFREQ_UNREFERENCED(count);
-#endif
-}
-
-static inline void __gpufreq_footprint_power_count_reset(void)
-{
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	aee_rr_rec_gpu_dvfs_power_count(0);
-#endif
+	aee_rr_rec_gpu_dvfs_oppidx(GENMASK(7, 0));
+#endif /* CONFIG_MTK_AEE_IPANIC && CONFIG_MTK_AEE_FEATURE */
+}
+
+static inline void __gpufreq_footprint_power_step(unsigned int step)
+{
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+	aee_rr_rec_gpu_dvfs_vgpu(step & GENMASK(7, 0));
+#else
+	GPUFREQ_UNREFERENCED(step);
+#endif /* CONFIG_MTK_AEE_IPANIC && CONFIG_MTK_AEE_FEATURE */
+}
+
+static inline void __gpufreq_footprint_oppidx(int oppidx)
+{
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+	aee_rr_rec_gpu_dvfs_oppidx(oppidx);
+#else
+	GPUFREQ_UNREFERENCED(oppidx);
+#endif /* CONFIG_MTK_AEE_IPANIC && CONFIG_MTK_AEE_FEATURE */
+}
+
+static inline void __gpufreq_footprint_power_count(int power_count)
+{
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC) && IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+	aee_rr_rec_gpu_dvfs_power_count(power_count);
+#else
+	GPUFREQ_UNREFERENCED(power_count);
+#endif /* CONFIG_MTK_AEE_IPANIC && CONFIG_MTK_AEE_FEATURE */
 }
 
 static inline void __gpufreq_dump_exception(enum gpufreq_exception except_type,

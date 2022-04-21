@@ -6,6 +6,7 @@
 #ifndef __GPUFREQ_V2_H__
 #define __GPUFREQ_V2_H__
 
+#include <linux/bits.h>
 #include <uapi/asm-generic/errno-base.h>
 
 /**************************************************
@@ -66,12 +67,12 @@ enum gpufreq_posdiv {
 };
 
 enum gpufreq_dvfs_state {
-	DVFS_FREE = 0,              // 0000 0000
-	DVFS_DISABLE = 1 << 0,      // 0000 0001
-	DVFS_POWEROFF = 1 << 1,     // 0000 0010
-	DVFS_DEBUG_KEEP = 1 << 2,   // 0000 0100
-	DVFS_AVS_KEEP = 1 << 3,     // 0000 1000
-	DVFS_AGING_KEEP = 1 << 4,   // 0001 0000
+	DVFS_FREE       = 0,      /* 0000 0000 */
+	DVFS_DISABLE    = BIT(0), /* 0000 0001 */
+	DVFS_POWEROFF   = BIT(1), /* 0000 0010 */
+	DVFS_DEBUG_KEEP = BIT(2), /* 0000 0100 */
+	DVFS_AVS_KEEP   = BIT(3), /* 0000 1000 */
+	DVFS_AGING_KEEP = BIT(4), /* 0001 0000 */
 };
 
 enum gpufreq_target {
@@ -196,8 +197,8 @@ struct gpufreq_platform_fp {
 	void (*set_gpm_mode)(unsigned int version, unsigned int mode);
 	struct gpufreq_core_mask_info *(*get_core_mask_table)(void);
 	unsigned int (*get_core_num)(void);
-	void (*pdc_control)(enum gpufreq_power_state power);
-	void (*fake_spm_mtcmos_control)(enum gpufreq_power_state power);
+	void (*pdca_config)(enum gpufreq_power_state power);
+	void (*fake_mtcmos_control)(enum gpufreq_power_state power);
 	/* GPU */
 	unsigned int (*get_cur_fgpu)(void);
 	unsigned int (*get_cur_vgpu)(void);
@@ -295,8 +296,8 @@ int gpufreq_power_control(enum gpufreq_power_state power);
 int gpufreq_commit(enum gpufreq_target target, int oppidx);
 struct gpufreq_core_mask_info *gpufreq_get_core_mask_table(void);
 unsigned int gpufreq_get_core_num(void);
-void gpufreq_pdc_control(enum gpufreq_power_state power);
-void gpufreq_fake_spm_mtcmos_control(enum gpufreq_power_state power);
+void gpufreq_pdca_config(enum gpufreq_power_state power);
+void gpufreq_fake_mtcmos_control(enum gpufreq_power_state power);
 void gpufreq_register_gpufreq_fp(struct gpufreq_platform_fp *platform_fp);
 void gpufreq_register_gpuppm_fp(struct gpuppm_platform_fp *platform_fp);
 

@@ -138,8 +138,8 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		"[Common-Status]",
 		g_shared_status->aging_margin ? "On" : "Off",
 		g_shared_status->avs_margin ? "On" : "Off",
-		g_shared_status->gpm3_enable ? "On" : "Off",
-		g_shared_status->gpm1_enable ? "On" : "Off");
+		g_shared_status->gpm1_enable ? "On" : "Off",
+		g_shared_status->gpm3_enable ? "On" : "Off");
 	seq_printf(m,
 		"%-15s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x, TempCompensate: %s (%d'C)\n",
 		"[Common-Status]",
