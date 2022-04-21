@@ -117,6 +117,144 @@ page_owner=on loop.max_part=7";
 		};
 	};
 
+	cluster0_opp: opp_table0 {
+		compatible = "operating-points-v2";
+		opp-shared;
+		opp0 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-microvolt = <650000>;
+		};
+		opp1 {
+			opp-hz = /bits/ 64 <650000000>;
+			opp-microvolt = <650000>;
+		};
+		opp2 {
+			opp-hz = /bits/ 64 <703000000>;
+			opp-microvolt = <662500>;
+		};
+		opp3 {
+			opp-hz = /bits/ 64 <756000000>;
+			opp-microvolt = <675000>;
+		};
+		opp4 {
+			opp-hz = /bits/ 64 <862000000>;
+			opp-microvolt = <693750>;
+		};
+		opp5 {
+			opp-hz = /bits/ 64 <968000000>;
+			opp-microvolt = <718750>;
+		};
+		opp6 {
+			opp-hz = /bits/ 64 <1048000000>;
+			opp-microvolt = <750000>;
+		};
+		opp7 {
+			opp-hz = /bits/ 64 <1181000000>;
+			opp-microvolt = <768750>;
+		};
+		opp8 {
+			opp-hz = /bits/ 64 <1287000000>;
+			opp-microvolt = <787500>;
+		};
+		opp9 {
+			opp-hz = /bits/ 64 <1393000000>;
+			opp-microvolt = <812500>;
+		};
+		opp10 {
+			opp-hz = /bits/ 64 <1500000000>;
+			opp-microvolt = <837500>;
+		};
+		opp11 {
+			opp-hz = /bits/ 64 <1625000000>;
+			opp-microvolt = <881250>;
+		};
+		opp12 {
+			opp-hz = /bits/ 64 <1708000000>;
+			opp-microvolt = <906250>;
+		};
+		opp13 {
+			opp-hz = /bits/ 64 <1791000000>;
+			opp-microvolt = <931250>;
+		};
+		opp14 {
+			opp-hz = /bits/ 64 <1895000000>;
+			opp-microvolt = <968750>;
+		};
+		opp15 {
+			opp-hz = /bits/ 64 <2000000000>;
+			opp-microvolt = <1000000>;
+		};
+	};
+
+	cluster1_opp: opp_table1 {
+		compatible = "operating-points-v2";
+		opp-shared;
+		opp0 {
+			opp-hz = /bits/ 64 <730000000>;
+			opp-microvolt = <650000>;
+		};
+		opp1 {
+			opp-hz = /bits/ 64 <825000000>;
+			opp-microvolt = <668750>;
+		};
+		opp2 {
+			opp-hz = /bits/ 64 <921000000>;
+			opp-microvolt = <687500>;
+		};
+		opp3 {
+			opp-hz = /bits/ 64 <1048000000>;
+			opp-microvolt = <706250>;
+		};
+		opp4 {
+			opp-hz = /bits/ 64 <1176000000>;
+			opp-microvolt = <731250>;
+		};
+		opp5 {
+			opp-hz = /bits/ 64 <1271000000>;
+			opp-microvolt = <750000>;
+		};
+		opp6 {
+			opp-hz = /bits/ 64 <1367000000>;
+			opp-microvolt = <768750>;
+		};
+		opp7 {
+			opp-hz = /bits/ 64 <1526000000>;
+			opp-microvolt = <793750>;
+		};
+		opp8 {
+			opp-hz = /bits/ 64 <1622000000>;
+			opp-microvolt = <812500>;
+		};
+		opp9 {
+			opp-hz = /bits/ 64 <1750000000>;
+			opp-microvolt = <837500>;
+		};
+		opp10 {
+			opp-hz = /bits/ 64 <1803000000>;
+			opp-microvolt = <856250>;
+		};
+		opp11 {
+			opp-hz = /bits/ 64 <1900000000>;
+			opp-microvolt = <893750>;
+		};
+		opp12 {
+			opp-hz = /bits/ 64 <1975000000>;
+			opp-microvolt = <918750>;
+		};
+		opp13 {
+			opp-hz = /bits/ 64 <2050000000>;
+			opp-microvolt = <943750>;
+		};
+		opp14 {
+			opp-hz = /bits/ 64 <2106000000>;
+			opp-microvolt = <962500>;
+		};
+		opp15 {
+			opp-hz = /bits/ 64 <2202000000>;
+			opp-microvolt = <1000000>;
+		};
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -127,6 +265,9 @@ page_owner=on loop.max_part=7";
 			reg = <0x0000>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <85>;
+			capacity-dmips-mhz = <284>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
@@ -136,6 +277,9 @@ page_owner=on loop.max_part=7";
 			reg = <0x0100>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <85>;
+			capacity-dmips-mhz = <284>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
@@ -145,6 +289,9 @@ page_owner=on loop.max_part=7";
 			reg = <0x0200>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <85>;
+			capacity-dmips-mhz = <284>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
@@ -154,6 +301,9 @@ page_owner=on loop.max_part=7";
 			reg = <0x0300>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <85>;
+			capacity-dmips-mhz = <284>;
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
@@ -163,6 +313,9 @@ page_owner=on loop.max_part=7";
 			reg = <0x0400>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
+			operating-points-v2 = <&cluster1_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
@@ -172,6 +325,9 @@ page_owner=on loop.max_part=7";
 			reg = <0x0500>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
+			operating-points-v2 = <&cluster1_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
@@ -181,6 +337,9 @@ page_owner=on loop.max_part=7";
 			reg = <0x0600>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
+			operating-points-v2 = <&cluster1_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
@@ -190,6 +349,9 @@ page_owner=on loop.max_part=7";
 			reg = <0x0700>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
+			operating-points-v2 = <&cluster1_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
 			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
