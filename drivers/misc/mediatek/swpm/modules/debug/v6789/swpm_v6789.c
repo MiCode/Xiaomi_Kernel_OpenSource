@@ -96,12 +96,12 @@ struct me_swpm_rec_data *me_ptr;
 
 /* rt => /100000, uA => *1000, res => 100 */
 #define CORE_DEFAULT_DEG (30)
-#define CORE_STATIC_MA (70)
+#define CORE_STATIC_MA (40)
 #define CORE_STATIC_ID (7)
 #define CORE_STATIC_RT_RES (100)
-#define V_OF_CORE_STATIC (750)
+#define V_OF_CORE_STATIC (725)
 static char core_ts_name[NR_CORE_TS][MAX_POWER_NAME_LENGTH] = {
-	"soc1", "soc2", "soc3", "soc4",
+	"soc1", "soc2",
 };
 static unsigned int core_static;
 static unsigned int core_static_replaced;
@@ -642,6 +642,9 @@ static void swpm_update_temp(void)
 #endif
 			cpu_ptr->cpu_temp[i] = (unsigned int)tz_temp;
 		}
+		/* MT6789 workaround */
+		cpu_ptr->cpu_temp[0] = cpu_ptr->cpu_temp[1];
+		cpu_ptr->cpu_temp[3] = cpu_ptr->cpu_temp[4];
 	}
 
 	if (core_ptr) {

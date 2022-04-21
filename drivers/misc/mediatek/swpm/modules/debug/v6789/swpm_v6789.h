@@ -88,8 +88,6 @@ enum ddr_freq {
 enum core_ts_sample {
 	CORE_TS_SOC1,
 	CORE_TS_SOC2,
-	CORE_TS_SOC3,
-	CORE_TS_SOC4,
 
 	NR_CORE_TS,
 };
