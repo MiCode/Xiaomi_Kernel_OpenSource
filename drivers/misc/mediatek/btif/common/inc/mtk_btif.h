@@ -217,7 +217,8 @@ struct _mtk_btif_ {
 
 	struct _mtk_btif_dma_ *p_tx_dma;	/*BTIF Tx channel DMA */
 	struct _mtk_btif_dma_ *p_rx_dma;	/*BTIF Rx channel DMA */
-	void __iomem *dma_clk_addr;		/*BTIF DMA clock address */
+	void __iomem *dma_clk_addr;		/*APDMA clock address */
+	void __iomem *dma_idle_en_addr;		/*APDMA idle en address */
 
 	MTK_WCN_BTIF_RX_CB rx_cb;	/*Rx callback function */
 	MTK_BTIF_RX_NOTIFY rx_notify;
@@ -324,6 +325,7 @@ int btif_rx_dma_has_pending_data(struct _mtk_btif_ *p_btif);
 int btif_tx_dma_has_pending_data(struct _mtk_btif_ *p_btif);
 void btif_dump_dma_vfifo(struct _mtk_btif_ *p_btif);
 bool btif_is_tx_complete(struct _mtk_btif_ *p_btif);
+bool btif_is_rx_complete(struct _mtk_btif_ *p_btif);
 struct task_struct *btif_rx_thread_get(struct _mtk_btif_ *p_btif);
 void btif_do_gettimeofday(struct timespec64 *tv);
 int btif_dump_array(const char *string, const char *p_buf, int len);

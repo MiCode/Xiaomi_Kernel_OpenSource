@@ -1097,6 +1097,12 @@ unsigned int btif_dma_rx_data_receiver(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 	unsigned int index = 0;
 	struct _mtk_btif_ *p_btif = &(g_btif[index]);
 
+	/* Although we use coherent DMA, we still need to flush cache. */
+	/* However, btif cannot invoke cache API directly because btif is KO. */
+	/* We unmap dma buffer to resolve this problem */
+	dma_unmap_single(p_btif->private_data, p_dma_info->p_vfifo->phy_addr,
+			p_dma_info->p_vfifo->vfifo_size, DMA_FROM_DEVICE);
+
 	btif_bbs_write(&(p_btif->btif_buf), p_buf, buf_len);
 /*save DMA Rx packet here*/
 	if (buf_len > 0)
@@ -1765,7 +1771,8 @@ int _btif_enter_dpidle_from_on(struct _mtk_btif_ *p_btif)
 
 	btif_do_gettimeofday(&timer_start);
 
-	while ((!btif_is_tx_complete(p_btif)) && (retry < max_retry)) {
+	while ((!btif_is_tx_complete(p_btif) || !btif_is_rx_complete(p_btif)) &&
+		(retry < max_retry)) {
 		btif_do_gettimeofday(&timer_now);
 		if ((MAX_WAIT_TIME_MS/1000) <=
 				(timer_now.tv_sec - timer_start.tv_sec)) {
@@ -1868,6 +1875,19 @@ bool btif_is_tx_complete(struct _mtk_btif_ *p_btif)
 	}
 	b_ret = true;
 	return b_ret;
+}
+
+bool btif_is_rx_complete(struct _mtk_btif_ *p_btif)
+{
+	enum _ENUM_BTIF_MODE_ rx_mode = p_btif->rx_mode;
+
+	if (btif_rx_buf_has_pending_data(p_btif))
+		return false;
+
+	if (rx_mode == BTIF_MODE_DMA && hal_dma_rx_has_pending(p_btif->p_rx_dma->p_dma_info))
+		return false;
+
+	return true;
 }
 
 /*--------------------------------Functions-----------------------------------*/
@@ -3533,34 +3553,53 @@ static int _btif_rx_thread_lock(struct _mtk_btif_ *p_btif, bool enable)
 
 int btif_rx_data_path_lock(struct _mtk_btif_ *p_btif)
 {
-	/* rx_thread_lock takes the mutex, and dma_lock takes the spinlock,
-	 * and we must take the thread_lock before spinlock
-	 */
 	if (_btif_rx_thread_lock(p_btif, true))
 		return E_BTIF_FAIL;
-
-	if (hal_rx_dma_lock(true)) {
-		_btif_rx_thread_lock(p_btif, false);
-		return E_BTIF_FAIL;
-	}
 	return 0;
 }
 
 int btif_rx_data_path_unlock(struct _mtk_btif_ *p_btif)
 {
-	hal_rx_dma_lock(false);
 	_btif_rx_thread_lock(p_btif, false);
 	return 0;
 }
 
 int btif_rx_dma_has_pending_data(struct _mtk_btif_ *p_btif)
 {
-	return hal_dma_rx_has_pending(p_btif->p_rx_dma->p_dma_info);
+	unsigned int ori_state;
+	int ret;
+
+	if (p_btif == NULL || _btif_state_hold(p_btif))
+		return 0;
+
+	ori_state = _btif_state_get(p_btif);
+	if (ori_state != B_S_ON) {
+		BTIF_STATE_RELEASE(p_btif);
+		return 0;
+	}
+
+	ret = hal_dma_rx_has_pending(p_btif->p_rx_dma->p_dma_info);
+	BTIF_STATE_RELEASE(p_btif);
+	return ret;
 }
 
 int btif_tx_dma_has_pending_data(struct _mtk_btif_ *p_btif)
 {
-	return hal_dma_tx_has_pending(p_btif->p_tx_dma->p_dma_info);
+	unsigned int ori_state;
+	int ret;
+
+	if (p_btif == NULL || _btif_state_hold(p_btif))
+		return 0;
+
+	ori_state = _btif_state_get(p_btif);
+	if (ori_state != B_S_ON) {
+		BTIF_STATE_RELEASE(p_btif);
+		return 0;
+	}
+
+	ret = hal_dma_tx_has_pending(p_btif->p_tx_dma->p_dma_info);
+	BTIF_STATE_RELEASE(p_btif);
+	return ret;
 }
 
 int btif_rx_buf_has_pending_data(struct _mtk_btif_ *p_btif)
