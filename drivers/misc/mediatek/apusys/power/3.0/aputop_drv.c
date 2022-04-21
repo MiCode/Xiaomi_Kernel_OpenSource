@@ -32,7 +32,7 @@ struct wakeup_source *ws;
 int fpga_type;
 module_param(fpga_type, int, 0444);
 MODULE_PARM_DESC(fpga_type,
-"[1]ACX0_mvpu+ACX1_mvpu [2]ACX0_mvpu+ACX1_mdla0 [3]ACX0_mdla0+ACX1_mdla0");
+"Different rcx/acx/ncx combination for fpga platform, check platform code for detail");
 
 static void apu_pwr_wake_lock(void)
 {
@@ -239,11 +239,15 @@ const struct apupwr_plat_data mt6879_plat_data;
 #ifndef MT6895_PLAT_DATA
 const struct apupwr_plat_data mt6895_plat_data;
 #endif
+#ifndef MT6985_PLAT_DATA
+const struct apupwr_plat_data mt6985_plat_data;
+#endif
 
 static const struct of_device_id of_match_apu_top[] = {
 	{ .compatible = "mt6983,apu_top_3", .data = &mt6983_plat_data},
 	{ .compatible = "mt6879,apu_top_3", .data = &mt6879_plat_data},
 	{ .compatible = "mt6895,apu_top_3", .data = &mt6895_plat_data},
+	{ .compatible = "mt6985,apu_top_3", .data = &mt6985_plat_data},
 	{ /* end of list */},
 };
 
