@@ -53,6 +53,7 @@ int set_task_attr(int task_id, int task_enum, int param);
 int get_task_attr(int dspid, int task_enum);
 
 
+bool is_adsp_genpool_addr_valid(struct snd_pcm_substream *substream);
 int mtk_adsp_genpool_allocate_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 					    unsigned int size, int id);
 int mtk_adsp_genpool_free_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
