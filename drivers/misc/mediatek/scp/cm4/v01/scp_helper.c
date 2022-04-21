@@ -1036,7 +1036,7 @@ static int create_files(void)
 
 phys_addr_t scp_get_reserve_mem_phys(enum scp_reserve_mem_id_t id)
 {
-	if (id >= NUMS_MEM_ID || id < 0) {
+	if (id >= NUMS_MEM_ID) {
 		pr_err("[SCP] no reserve memory for %d", id);
 		return 0;
 	} else
@@ -1046,7 +1046,7 @@ EXPORT_SYMBOL_GPL(scp_get_reserve_mem_phys);
 
 phys_addr_t scp_get_reserve_mem_virt(enum scp_reserve_mem_id_t id)
 {
-	if (id >= NUMS_MEM_ID || id < 0) {
+	if (id >= NUMS_MEM_ID) {
 		pr_err("[SCP] no reserve memory for %d", id);
 		return 0;
 	} else
@@ -1056,7 +1056,7 @@ EXPORT_SYMBOL_GPL(scp_get_reserve_mem_virt);
 
 phys_addr_t scp_get_reserve_mem_size(enum scp_reserve_mem_id_t id)
 {
-	if (id >= NUMS_MEM_ID || id < 0) {
+	if (id >= NUMS_MEM_ID) {
 		pr_err("[SCP] no reserve memory for %d", id);
 		return 0;
 	} else

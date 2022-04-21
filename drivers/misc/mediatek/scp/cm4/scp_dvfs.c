@@ -156,8 +156,7 @@ static int scp_get_sub_feature_idx(enum subsys_enum sys_e,
 {
 	int i;
 
-	if ((sys_e < 0 || sys_e >= SYS_NUM) ||
-		(comp_e < 0 || comp_e >= SUB_FEATURE_NUM))
+	if (sys_e >= SYS_NUM || comp_e >= SUB_FEATURE_NUM)
 		return -EINVAL;
 
 	if(!sd[sys_e].regmap || !sd[sys_e].fd) {
@@ -183,8 +182,7 @@ static struct sub_feature_data *scp_get_sub_feature(enum subsys_enum sys_e,
 {
 	int idx;
 
-	if ((sys_e < 0 || sys_e >= SYS_NUM) ||
-		(comp_e < 0 || comp_e >= SUB_FEATURE_NUM))
+	if (sys_e >= SYS_NUM || comp_e >= SUB_FEATURE_NUM)
 		return NULL;
 
 	idx = scp_get_sub_feature_idx(sys_e, comp_e);
@@ -199,8 +197,7 @@ static int scp_get_sub_feature_onoff(enum subsys_enum sys_e,
 {
 	int idx;
 
-	if ((sys_e < 0 || sys_e >= SYS_NUM) ||
-		(comp_e < 0 || comp_e >= SUB_FEATURE_NUM))
+	if (sys_e >= SYS_NUM || comp_e >= SUB_FEATURE_NUM)
 		return 0;
 
 	idx = scp_get_sub_feature_idx(sys_e, comp_e);
@@ -219,8 +216,7 @@ static unsigned int *scp_get_sub_register_cfg(enum subsys_enum sys_e,
 	unsigned int val = 0;
 	int i;
 
-	if ((sys_e < 0 || sys_e >= SYS_NUM) ||
-		(comp_e < 0 || comp_e >= SUB_FEATURE_NUM))
+	if (sys_e >= SYS_NUM || comp_e >= SUB_FEATURE_NUM)
 		return NULL;
 
 	fd = scp_get_sub_feature(sys_e, comp_e);
@@ -277,8 +273,7 @@ static int scp_set_sub_register_cfg(enum subsys_enum sys_e,
 	int ret = 0;
 	int i;
 
-	if ((sys_e < 0 || sys_e >= SYS_NUM) ||
-		(comp_e < 0 || comp_e >= SUB_FEATURE_NUM))
+	if (sys_e >= SYS_NUM || comp_e >= SUB_FEATURE_NUM)
 		return -EINVAL;
 	if (!regmap) {
 		pr_err("scp_dvfs: %d regmap is NULL\n", sys_e);
