@@ -1685,7 +1685,7 @@ static int goodix_ts_input_dev_config(struct goodix_ts_core *core_data)
 	core_data->input_dev = input_dev;
 	input_set_drvdata(input_dev, core_data);
 
-	input_dev->name = GOODIX_CORE_DRIVER_NAME;
+	input_dev->name = GOODIX_INPUT_DEV_NAME;
 	input_dev->phys = GOOIDX_INPUT_PHYS;
 	input_dev->id.product = 0xDEAD;
 	input_dev->id.vendor = 0xBEEF;
