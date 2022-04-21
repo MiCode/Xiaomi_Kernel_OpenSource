@@ -9,6 +9,7 @@ ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/imgsys/platforms/
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/imgsys/platforms/isp71
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/mtk-ipesys-me/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(srctree)/drivers/iommu
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/iommu
 

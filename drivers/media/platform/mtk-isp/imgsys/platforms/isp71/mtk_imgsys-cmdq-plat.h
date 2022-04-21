@@ -11,7 +11,6 @@
 
 #define IMGSYS_DVFS_ENABLE     (1)
 #define IMGSYS_QOS_ENABLE      (1)
-#define IMGSYS_QOS_SET_REAL    (0)
 #define IMGSYS_QOS_SET_BY_SCEN (1)
 
 #define IMGSYS_SECURE_ENABLE   (0)
@@ -773,8 +772,10 @@ enum mtk_imgsys_m4u_port {
 	IMGSYS_M4U_PORT_L12_IPE_ME_WDMA,
 
 	/* SMI COMMON */
-	IMGSYS_L9_COMMON_0,
-	IMGSYS_L12_COMMON_1,
+	IMGSYS_L9_COMMON_R_0,
+	IMGSYS_L10_COMMON_W_0,
+	IMGSYS_L12_COMMON_R_1,
+	IMGSYS_L15_COMMON_W_1,
 	IMGSYS_M4U_PORT_MAX
 };
 
@@ -897,8 +898,10 @@ static struct mtk_imgsys_qos_path imgsys_qos_path[IMGSYS_M4U_PORT_MAX] = {
 	{NULL, "l23_wpe_wdma_4p0", 0},
 	{NULL, "l12_me_rdma", 0},
 	{NULL, "l12_me_wdma", 0},
-	{NULL, "l9_common_0", 0},
-	{NULL, "l12_common_1", 0}
+	{NULL, "l9_common_r_0", 0},
+	{NULL, "l10_common_w_0", 0},
+	{NULL, "l12_common_r_1", 0},
+	{NULL, "l15_common_w_1", 0}
 };
 
 struct BlockRecord {

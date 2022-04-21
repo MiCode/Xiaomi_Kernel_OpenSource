@@ -252,6 +252,7 @@ struct mtk_imgsys_qos {
 	unsigned long bw_total[MTK_IMGSYS_DVFS_GROUP][MTK_IMGSYS_QOS_GROUP];
 	unsigned long ts_total[MTK_IMGSYS_DVFS_GROUP];
 	unsigned long req_cnt;
+	u64 time_prev_req; /* unit is ms */
 	bool isIdle;
 };
 
