@@ -19,7 +19,6 @@
 #include <linux/regmap.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
-#include <linux/timer.h>
 #include <linux/workqueue.h>
 
 #include "pmic_lbat_service.h"
@@ -40,7 +39,7 @@
 #define DEF_R_RATIO_0		7
 #define DEF_R_RATIO_1		2
 
-#define LBAT_SERVICE_DBG 0
+#define LBAT_SERVICE_DBG	0
 
 enum lbat_thd_type {
 	LBAT_HV,
@@ -65,8 +64,7 @@ struct lbat_user {
 	unsigned int hv_deb_times;
 	unsigned int lv_deb_prd;
 	unsigned int lv_deb_times;
-	struct timer_list deb_timer;
-	struct work_struct deb_work;
+	struct delayed_work deb_work;
 	struct list_head thd_list;
 };
 
@@ -233,6 +231,24 @@ static int lv_list_cmp(void *priv, const struct list_head *a, const struct list_
 	return thd_b->thd_volt - thd_a->thd_volt;
 }
 
+#if LBAT_SERVICE_DBG
+static void dump_lbat_list(void)
+{
+	char buf[50];
+	char *p = buf;
+	struct lbat_thd_t *thd;
+
+	list_for_each_entry(thd, &lbat_hv_list, list) {
+		p += sprintf(p, "->%d", thd->thd_volt);
+	}
+	p += sprintf(p, ", LV");
+	list_for_each_entry(thd, &lbat_lv_list, list) {
+		p += sprintf(p, "->%d", thd->thd_volt);
+	}
+	pr_notice("HV%s\n", buf);
+}
+#endif
+
 static void modify_lbat_list(enum lbat_thd_type type, struct lbat_thd_t *thd)
 {
 	switch (type) {
@@ -257,6 +273,9 @@ static void modify_lbat_list(enum lbat_thd_type type, struct lbat_thd_t *thd)
 		}
 		break;
 	}
+#if LBAT_SERVICE_DBG
+	dump_lbat_list();
+#endif
 }
 
 /*
@@ -305,26 +324,49 @@ static void lbat_set_next_thd(struct lbat_user *user, struct lbat_thd_t *thd)
  */
 static void lbat_deb_handler(struct work_struct *work)
 {
-	enum lbat_thd_type type;
+	unsigned int deb_prd;
 	unsigned int deb_times;
-	struct lbat_user *user = container_of(work, struct lbat_user, deb_work);
+	struct lbat_user *user = container_of(work, struct lbat_user, deb_work.work);
 
 	mutex_lock(&lbat_mutex);
 	if (user->deb_thd_ptr == user->hv_thd) {
-		type = LBAT_HV;
+		/* LBAT user HV de-bounce */
+		if (lbat_read_volt() < user->deb_thd_ptr->thd_volt) {
+			/* ignore this event and reset lbat_list */
+			modify_lbat_list(LBAT_HV, user->deb_thd_ptr);
+			goto done;
+		}
+		deb_prd = user->hv_deb_prd;
 		deb_times = user->hv_deb_times;
-	} else {
-		type = LBAT_LV;
+	} else if (user->deb_thd_ptr == user->lv1_thd ||
+		   user->deb_thd_ptr == user->lv2_thd) {
+		/* LBAT user LV de-bounce */
+		if (lbat_read_volt() > user->deb_thd_ptr->thd_volt) {
+			/* ignore this event and reset lbat_list */
+			modify_lbat_list(LBAT_LV, user->deb_thd_ptr);
+			goto done;
+		}
+		deb_prd = user->lv_deb_prd;
 		deb_times = user->lv_deb_times;
-	}
-	if (user->deb_cnt >= deb_times) {
-		/* execute user's callback after de-bounce */
-		user->callback(user->deb_thd_ptr->thd_volt);
-		lbat_set_next_thd(user, user->deb_thd_ptr);
 	} else {
-		/* ignore this event and reset lbat_list */
-		modify_lbat_list(type, user->deb_thd_ptr);
+		pr_notice("[%s] LBAT debounce threshold not match\n", __func__);
+		mutex_unlock(&lbat_mutex);
+		return;
 	}
+	user->deb_cnt++;
+#if LBAT_SERVICE_DBG
+	pr_info("[%s] name:%s, read_volt:%d, thd_volt:%d, de-bounce times:%d\n", __func__,
+		user->name, lbat_read_volt(), user->deb_thd_ptr->thd_volt, user->deb_cnt);
+#endif
+	if (user->deb_cnt < deb_times) {
+		queue_delayed_work(lbat_wq, &user->deb_work, msecs_to_jiffies(deb_prd));
+		mutex_unlock(&lbat_mutex);
+		return;
+	}
+	/* execute user's callback after de-bounce */
+	user->callback(user->deb_thd_ptr->thd_volt);
+	lbat_set_next_thd(user, user->deb_thd_ptr);
+done:
 	/* de-bounce done, reset deb_cnt and deb_thd_ptr */
 	user->deb_cnt = 0;
 	user->deb_thd_ptr = NULL;
@@ -334,57 +376,13 @@ static void lbat_deb_handler(struct work_struct *work)
 	mutex_unlock(&lbat_mutex);
 }
 
-static void lbat_timer_func(struct timer_list *t)
-{
-	unsigned int deb_prd = 0;
-	unsigned int deb_times = 0;
-	struct lbat_user *user = from_timer(user, t, deb_timer);
-
-	if (user->deb_thd_ptr == user->hv_thd) {
-		/* LBAT user HV de-bounce */
-		if (lbat_read_volt() < user->deb_thd_ptr->thd_volt) {
-			/* queue deb_work to reset lbat_list */
-			goto wq_handler;
-		}
-		deb_prd = user->hv_deb_prd;
-		deb_times = user->hv_deb_times;
-	} else if (user->deb_thd_ptr == user->lv1_thd ||
-		   user->deb_thd_ptr == user->lv2_thd) {
-		/* LBAT user LV de-bounce */
-		if (lbat_read_volt() > user->deb_thd_ptr->thd_volt) {
-			/* queue deb_work to reset lbat_list */
-			goto wq_handler;
-		}
-		deb_prd = user->lv_deb_prd;
-		deb_times = user->lv_deb_times;
-	} else {
-		pr_notice("[%s] LBAT debounce threshold not match\n", __func__);
-		return;
-	}
-	user->deb_cnt++;
-#if LBAT_SERVICE_DBG
-	pr_info("[%s] name:%s, thd_volt:%d, de-bounce times:%d\n",
-		__func__, user->name,
-		user->deb_thd_ptr->thd_volt, user->deb_cnt);
-#endif
-	if (user->deb_cnt < deb_times) {
-		mod_timer(&user->deb_timer,
-			  jiffies + msecs_to_jiffies(deb_prd));
-		return;
-	}
-wq_handler:
-	/* queue deb_work to execute user's callback or reset lbat_list */
-	queue_work(lbat_wq, &user->deb_work);
-}
-
-static void lbat_user_init_timer(struct lbat_user *user)
+static void lbat_user_init_debounce(struct lbat_user *user)
 {
 	user->deb_cnt = 0;
 	user->hv_deb_prd = 0;
 	user->hv_deb_times = 0;
 	user->lv_deb_prd = 0;
 	user->lv_deb_times = 0;
-	timer_setup(&user->deb_timer, lbat_timer_func, 0);
 }
 
 static int lbat_user_update(struct lbat_user *user)
@@ -456,8 +454,8 @@ struct lbat_user *lbat_user_register_ext(const char *name, unsigned int *thd_vol
 		list_add_tail(&thd->list, &user->thd_list);
 	}
 	user->callback = callback;
-	lbat_user_init_timer(user);
-	INIT_WORK(&user->deb_work, lbat_deb_handler);
+	lbat_user_init_debounce(user);
+	INIT_DELAYED_WORK(&user->deb_work, lbat_deb_handler);
 	pr_info("[%s] name=%s, thd_volt_max=%d, thd_volt_min=%d\n", __func__,
 		user->name, thd_volt_arr[0], thd_volt_arr[thd_volt_size - 1]);
 	ret = lbat_user_update(user);
@@ -509,8 +507,8 @@ struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 		goto out;
 	}
 	user->callback = callback;
-	lbat_user_init_timer(user);
-	INIT_WORK(&user->deb_work, lbat_deb_handler);
+	lbat_user_init_debounce(user);
+	INIT_DELAYED_WORK(&user->deb_work, lbat_deb_handler);
 	pr_info("[%s] name=%s, hv=%d, lv1=%d, lv2=%d\n",
 		__func__, name, hv_thd_volt, lv1_thd_volt, lv2_thd_volt);
 	ret = lbat_user_update(user);
@@ -576,8 +574,7 @@ static irqreturn_t bat_h_int_handler(int irq, void *data)
 	if (user->hv_deb_times) {
 		user->deb_cnt = 0;
 		user->deb_thd_ptr = cur_hv_ptr;
-		mod_timer(&user->deb_timer,
-			jiffies + msecs_to_jiffies(user->hv_deb_prd));
+		queue_delayed_work(lbat_wq, &user->deb_work, msecs_to_jiffies(user->hv_deb_prd));
 	} else {
 		user->callback(cur_hv_ptr->thd_volt);
 		if (list_empty(&user->thd_list))
@@ -618,8 +615,7 @@ static irqreturn_t bat_l_int_handler(int irq, void *data)
 	if (user->lv_deb_times) {
 		user->deb_cnt = 0;
 		user->deb_thd_ptr = cur_lv_ptr;
-		mod_timer(&user->deb_timer,
-			  jiffies + msecs_to_jiffies(user->lv_deb_prd));
+		queue_delayed_work(lbat_wq, &user->deb_work, msecs_to_jiffies(user->lv_deb_prd));
 	} else {
 		user->callback(cur_lv_ptr->thd_volt);
 		if (list_empty(&user->thd_list))
