@@ -3578,6 +3578,11 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 			       CMDQ_SIZE_SEL);
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DSI_CON_CTRL, 1, 1);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			       comp->regs_pa + DSI_CON_CTRL, 0, 1);
+
+		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DSI_START, 0, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DSI_START, 1, ~0);
