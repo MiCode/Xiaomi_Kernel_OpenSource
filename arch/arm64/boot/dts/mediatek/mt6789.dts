@@ -1009,9 +1009,9 @@
 				<&dvfsrc_freq_opp4>,
 				<&dvfsrc_freq_opp5>,
 				<&dvfsrc_freq_opp6>;
-		cm_mgr,cp_down  = <100 100 100 100 100 100>;
-		cm_mgr,cp_up = <100 100 100 100 100 100>;
-		cm_mgr,dt_down = <5 5 3 3 0 0>;
+		cm_mgr,cp_down  = <140 140 50 100 100 100>;
+		cm_mgr,cp_up = <160 160 50 100 100 100>;
+		cm_mgr,dt_down = <3 3 0 0 0 0>;
 		cm_mgr,dt_up = <0 0 0 0 0 0>;
 		cm_mgr,vp_down = <100 100 100 100 100 100>;
 		cm_mgr,vp_up = <100 100 100 100 100 100>;
@@ -6553,16 +6553,16 @@
 				 "total_bw";
 
 				 node_9 = "SSPM_CM_MGR_CP_RATIO",
-				 "up0,up1,up2,up3,up4,up5,up6,",
-				 "down0,down1,down2,down3,down4,down5,down6";
+				 "up0,up1,up2,up3,up4,up5,",
+				 "down0,down1,down2,down3,down4,down5";
 
 				 node_10 = "SSPM_CM_MGR_VP_RATIO",
-				 "up0,up1,up2,up3,up4,up5,up6,",
-				 "down0,down1,down2,down3,down4,down5,down6";
+				 "up0,up1,up2,up3,up4,up5,",
+				 "down0,down1,down2,down3,down4,down5";
 
 				 node_11 = "SSPM_CM_MGR_DE_TIMES",
-				 "up0,up1,up2,up3,up4,up5,up6,",
-				 "down0,down1,down2,down3,down4,down5,down6,reset";
+				 "up0,up1,up2,up3,up4,up5,",
+				 "down0,down1,down2,down3,down4,down5,reset";
 
 				 node_12 = "SSPM_CM_MGR_DSU_DVFS_PWR",
 				 "up_L,up_B,up_BB,up_DSU,cur_L,cur_B,cur_BB,cur_DSU,down_L,down_B,",
