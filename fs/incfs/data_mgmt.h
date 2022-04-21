@@ -109,6 +109,9 @@ struct mount_info {
 	struct path mi_backing_dir_path;
 
 	struct dentry *mi_index_dir;
+	/* For stacking mounts, if true, this indicates if the index dir needs
+	 * to be freed for this SB otherwise it was created by lower level SB */
+	bool mi_index_free;
 
 	const struct cred *mi_owner;
 
