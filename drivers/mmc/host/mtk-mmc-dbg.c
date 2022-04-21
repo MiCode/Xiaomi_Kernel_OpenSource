@@ -27,8 +27,6 @@ u16 msdc_offsets[] = {
 	MSDC_INT,
 	MSDC_INTEN,
 	MSDC_FIFOCS,
-	MSDC_TXDATA,
-	MSDC_RXDATA,
 	SDC_CFG,
 	SDC_CMD,
 	SDC_ARG,
@@ -39,6 +37,7 @@ u16 msdc_offsets[] = {
 	SDC_RESP3,
 	SDC_BLK_NUM,
 	SDC_ADV_CFG0,
+	MSDC_NEW_RX_CFG,
 	EMMC_IOCON,
 	SDC_ACMD_RESP,
 	DMA_SA_H4BIT,
@@ -84,6 +83,8 @@ u16 msdc_offsets_top[] = {
 	EMMC50_PAD_DAT5_TUNE,
 	EMMC50_PAD_DAT6_TUNE,
 	EMMC50_PAD_DAT7_TUNE,
+	LOOP_TEST_CONTROL,
+	MSDC_TOP_NEW_RX_CFG,
 
 	0xFFFF /*as mark of end */
 };
