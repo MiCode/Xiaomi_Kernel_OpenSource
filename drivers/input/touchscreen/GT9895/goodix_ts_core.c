@@ -30,8 +30,6 @@
 #endif
 
 #include "goodix_ts_core.h"
-/* goodix fb test */
-// #include "../../../video/fbdev/core/fb_firefly.h"
 
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 #include "mtk_panel_ext.h"
@@ -39,13 +37,11 @@ static struct goodix_ts_core *ts_core;
 #endif
 
 #define GOODIX_DEFAULT_CFG_NAME		"goodix_cfg_group.cfg"
-#define GOOIDX_INPUT_PHYS			"goodix_ts/input0"
+#define GOOIDX_INPUT_PHYS		"goodix_ts/input0"
 
 struct goodix_module goodix_modules;
 int core_module_prob_sate = CORE_MODULE_UNPROBED;
 
-//disp_notify_reg_flag is used when gt9896s_ts_core_release
-//disp_notify_reg_flag is used only in gt9896s_later_init_thread
 static bool disp_notify_reg_flag;
 
 static int goodix_send_ic_config(struct goodix_ts_core *cd, int type);
@@ -1363,7 +1359,7 @@ int goodix_ts_power_off(struct goodix_ts_core *cd)
 static int goodix_ts_pinctrl_init(struct goodix_ts_core *core_data)
 {
 	int r = 0;
-	
+
 	ts_debug("enter %s", __func__);
 
 	/* get pinctrl handler from of node */
@@ -1967,7 +1963,7 @@ static int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
 
 	if (core_data && v) {
 		if (value == MTK_DISP_EVENT_BLANK) {
-//resume: touch power on is after display to avoid display disturb
+/* resume: touch power on is after display to avoid display disturb */
 			ts_info("%s IN", __func__);
 			if (*data == MTK_DISP_BLANK_UNBLANK) {
 #ifdef CONFIG_TRUSTONIC_TRUSTED_UI
@@ -1977,8 +1973,10 @@ static int goodix_ts_disp_notifier_callback(struct notifier_block *nb,
 			}
 			ts_info("%s OUT", __func__);
 		} else if (value == MTK_DISP_EARLY_EVENT_BLANK) {
-//suspend: touch power off is before display to avoid touch report event
-//after screen is off
+/**
+ * suspend: touch power off is before display to avoid touch report event
+ * after screen is off
+ */
 			ts_info("%s IN", __func__);
 			if (*data == MTK_DISP_BLANK_POWERDOWN) {
 
@@ -2093,7 +2091,7 @@ int goodix_ts_stage2_init(struct goodix_ts_core *cd)
 	goodix_ts_esd_init(cd);
 
 	return 0;
-	
+
 err_finger:
 	goodix_ts_input_dev_remove(cd);
 	return ret;
@@ -2235,7 +2233,7 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	struct goodix_ts_core *core_data = NULL;
 	struct goodix_bus_interface *bus_interface;
 	int ret;
-	
+
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 		void **ret_disp = NULL;
 #endif

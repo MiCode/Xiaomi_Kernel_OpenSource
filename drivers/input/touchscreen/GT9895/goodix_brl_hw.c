@@ -21,29 +21,29 @@
 #include "goodix_ts_core.h"
 
 /* berlin_A SPI mode setting */
-#define GOODIX_SPI_MODE_REG			0xC900
+#define GOODIX_SPI_MODE_REG		0xC900
 #define GOODIX_SPI_NORMAL_MODE_0	0x01
 
 /* berlin_A D12 setting */
-#define GOODIX_REG_CLK_STA0			0xD807
+#define GOODIX_REG_CLK_STA0		0xD807
 #define GOODIX_CLK_STA0_ENABLE		0xFF
-#define GOODIX_REG_CLK_STA1			0xD806
+#define GOODIX_REG_CLK_STA1		0xD806
 #define GOODIX_CLK_STA1_ENABLE		0x77
-#define GOODIX_REG_TRIM_D12			0xD006
+#define GOODIX_REG_TRIM_D12		0xD006
 #define GOODIX_TRIM_D12_LEVEL		0x3C
-#define GOODIX_REG_RESET			0xD808
-#define GOODIX_RESET_EN				0xFA
-#define HOLD_CPU_REG_W				0x0002
-#define HOLD_CPU_REG_R				0x2000
+#define GOODIX_REG_RESET		0xD808
+#define GOODIX_RESET_EN			0xFA
+#define HOLD_CPU_REG_W			0x0002
+#define HOLD_CPU_REG_R			0x2000
 
-#define DEV_CONFIRM_VAL				0xAA
-#define BOOTOPTION_ADDR				0x10000
+#define DEV_CONFIRM_VAL			0xAA
+#define BOOTOPTION_ADDR			0x10000
 #define FW_VERSION_INFO_ADDR_BRA	0x1000C
 #define FW_VERSION_INFO_ADDR		0x10014
 
 #define GOODIX_IC_INFO_MAX_LEN		1024
 #define GOODIX_IC_INFO_ADDR_BRA		0x10068
-#define GOODIX_IC_INFO_ADDR			0x10070
+#define GOODIX_IC_INFO_ADDR		0x10070
 
 
 enum brl_request_code {
@@ -225,7 +225,7 @@ static int brl_power_on(struct goodix_ts_core *cd, bool on)
 			}
 			usleep_range(3000, 3100);
 		}
-		//usleep_range(3000, 3100);
+
 		if (avdd_gpio > 0) {
 			gpio_direction_output(avdd_gpio, 1);
 		} else if (cd->avdd) {
@@ -242,7 +242,7 @@ static int brl_power_on(struct goodix_ts_core *cd, bool on)
 					cd->pin_int_sta_active);
 			if (ret < 0) {
 				ts_err("Failed to select int active state, ret:%d", ret);
-			}			
+			}
 			ret = pinctrl_select_state(cd->pinctrl,
 					cd->pin_rst_sta_active);
 			if (ret < 0) {
@@ -269,7 +269,7 @@ power_off:
 				cd->pin_int_sta_suspend);
 		if (r < 0) {
 			ts_err("Failed to select int suspend state, r:%d", r);
-		}		
+		}
 		r = pinctrl_select_state(cd->pinctrl,
 				cd->pin_rst_sta_suspend);
 		if (r < 0) {
@@ -409,7 +409,8 @@ static int brl_send_cmd(struct goodix_ts_core *cd,
 			ts_debug("cmd ack data %*ph",
 				 (int)sizeof(cmd_ack), cmd_ack.buf);
 			if (cmd_ack.ack == CMD_ACK_OK) {
-				msleep(40);		// wait for cmd response
+			/* wait for cmd response */
+				msleep(40);
 				return 0;
 			}
 			if (cmd_ack.ack == CMD_ACK_BUSY ||
@@ -1346,7 +1347,7 @@ static int brl_get_capacitance_data(struct goodix_ts_core *cd,
 	brl_irq_enbale(cd, false);
 	goodix_ts_blocking_notify(NOTIFY_ESD_OFF, NULL);
 
-    /* switch rawdata mode */
+	/* switch rawdata mode */
 	temp_cmd.cmd = GOODIX_CMD_RAWDATA;
 	temp_cmd.len = 4;
 	ret = brl_send_cmd(cd, &temp_cmd);

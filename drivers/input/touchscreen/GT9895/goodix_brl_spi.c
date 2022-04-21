@@ -285,7 +285,6 @@ err_pdev:
 
 static int goodix_spi_remove(struct spi_device *spi)
 {
-	//platform_device_unregister(goodix_pdev);
 	platform_device_put(goodix_pdev);
 	return 0;
 }
@@ -308,7 +307,6 @@ static const struct spi_device_id spi_id_table[] = {
 static struct spi_driver goodix_spi_driver = {
 	.driver = {
 		.name = TS_DRIVER_NAME,
-		//.owner = THIS_MODULE,
 		.of_match_table = spi_matchs,
 	},
 	.id_table = spi_id_table,

@@ -20,34 +20,34 @@
  */
 #include "goodix_ts_core.h"
 
-#define BUS_TYPE_SPI					1
-#define BUS_TYPE_I2C					0
+#define BUS_TYPE_SPI				1
+#define BUS_TYPE_I2C				0
 
 #define GOODIX_BUS_RETRY_TIMES			3
 
-#define FW_HEADER_SIZE_BRA				256
-#define FW_HEADER_SIZE					512
-#define FW_SUBSYS_INFO_SIZE				10
+#define FW_HEADER_SIZE_BRA			256
+#define FW_HEADER_SIZE				512
+#define FW_SUBSYS_INFO_SIZE			10
 #define FW_SUBSYS_INFO_OFFSET_BRA		36
 #define FW_SUBSYS_INFO_OFFSET			42
-#define FW_SUBSYS_MAX_NUM				47
+#define FW_SUBSYS_MAX_NUM			47
 
-#define ISP_MAX_BUFFERSIZE				4096
+#define ISP_MAX_BUFFERSIZE			4096
 
-#define FW_PID_LEN						8
-#define FW_VID_LEN						4
-#define FLASH_CMD_LEN					11
+#define FW_PID_LEN				8
+#define FW_VID_LEN				4
+#define FLASH_CMD_LEN				11
 
 #define FW_FILE_CHECKSUM_OFFSET			8
-#define CONFIG_DATA_TYPE				4
+#define CONFIG_DATA_TYPE			4
 
-#define ISP_RAM_ADDR_BRA				0x18400
-#define ISP_RAM_ADDR_BRB				0x57000
-#define ISP_RAM_ADDR_BRD				0x23800
-#define HW_REG_CPU_RUN_FROM				0x10000
-#define FLASH_CMD_REG_BRA				0x10400
-#define FLASH_CMD_REG_BRB				0x13400
-#define FLASH_CMD_REG_BRD				0x12400
+#define ISP_RAM_ADDR_BRA			0x18400
+#define ISP_RAM_ADDR_BRB			0x57000
+#define ISP_RAM_ADDR_BRD			0x23800
+#define HW_REG_CPU_RUN_FROM			0x10000
+#define FLASH_CMD_REG_BRA			0x10400
+#define FLASH_CMD_REG_BRB			0x13400
+#define FLASH_CMD_REG_BRD			0x12400
 #define HW_REG_ISP_BUFFER_BRA			0x10410
 #define HW_REG_ISP_BUFFER_BRB			0x13410
 #define HW_REG_ISP_BUFFER_BRD			0x12410
@@ -58,33 +58,33 @@
 #define GOODIX_CFG_ID_ADDR_BRB			0x10076
 #define GOODIX_CFG_ID_ADDR_BRD			0x10076
 
-#define HOLD_CPU_REG_W					0x0002
-#define HOLD_CPU_REG_R					0x2000
-#define MISCTL_REG_BRA					0xD807
-#define MISCTL_REG_BRB					0xD80B
-#define MISCTL_REG_BRD					0xD804
-#define ENABLE_MISCTL_BRA				0x08
-#define ENABLE_MISCTL_BRB				0x40
-#define ENABLE_MISCTL_BRD				0x20700000
-#define ESD_KEY_REG						0xCC58
-#define WATCH_DOG_REG_BRA				0xCC54
-#define WATCH_DOG_REG_BRB				0xD054
-#define WATCH_DOG_REG_BRD				0xD040
+#define HOLD_CPU_REG_W				0x0002
+#define HOLD_CPU_REG_R				0x2000
+#define MISCTL_REG_BRA				0xD807
+#define MISCTL_REG_BRB				0xD80B
+#define MISCTL_REG_BRD				0xD804
+#define ENABLE_MISCTL_BRA			0x08
+#define ENABLE_MISCTL_BRB			0x40
+#define ENABLE_MISCTL_BRD			0x20700000
+#define ESD_KEY_REG				0xCC58
+#define WATCH_DOG_REG_BRA			0xCC54
+#define WATCH_DOG_REG_BRB			0xD054
+#define WATCH_DOG_REG_BRD			0xD040
 
-#define FLASH_CMD_TYPE_READ				0xAA
+#define FLASH_CMD_TYPE_READ			0xAA
 #define FLASH_CMD_TYPE_WRITE			0xBB
 #define FLASH_CMD_ACK_CHK_PASS			0xEE
 #define FLASH_CMD_ACK_CHK_ERROR			0x33
-#define FLASH_CMD_ACK_IDLE				0x11
+#define FLASH_CMD_ACK_IDLE			0x11
 #define FLASH_CMD_W_STATUS_CHK_PASS		0x22
 #define FLASH_CMD_W_STATUS_CHK_FAIL		0x33
 #define FLASH_CMD_W_STATUS_ADDR_ERR		0x44
-#define FLASH_CMD_W_STATUS_WRITE_ERR	0x55
+#define FLASH_CMD_W_STATUS_WRITE_ERR		0x55
 #define FLASH_CMD_W_STATUS_WRITE_OK		0xEE
 
-#define CHIP_TYPE_BRA					0x96
-#define CHIP_TYPE_BRB					0x97
-#define CHIP_TYPE_BRD					0x98
+#define CHIP_TYPE_BRA				0x96
+#define CHIP_TYPE_BRB				0x97
+#define CHIP_TYPE_BRD				0x98
 
 
 struct update_info_t {
@@ -216,7 +216,6 @@ struct goodix_flash_cmd {
 			u8 fw_type;
 			u16 fw_len;
 			u32 fw_addr;
-			//u16 checksum;
 		};
 		u8 buf[16];
 	};

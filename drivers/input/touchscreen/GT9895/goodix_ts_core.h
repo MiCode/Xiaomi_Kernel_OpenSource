@@ -50,31 +50,31 @@
 #define GOODIX_PEN_DRIVER_NAME			"goodix_ts,pen"
 #define GOODIX_INPUT_DEVICE_NAME		"mtk-tpd"
 #define GOODIX_DRIVER_VERSION			"v1.2.6"
-#define GOODIX_MAX_TOUCH				10
+#define GOODIX_MAX_TOUCH			10
 #define GOODIX_PEN_MAX_PRESSURE			4096
-#define GOODIX_MAX_PEN_KEY				2
-#define GOODIX_PEN_MAX_TILT				90
-#define GOODIX_CFG_MAX_SIZE				4096
-#define GOODIX_FW_MAX_SIEZE				(300 * 1024)
+#define GOODIX_MAX_PEN_KEY			2
+#define GOODIX_PEN_MAX_TILT			90
+#define GOODIX_CFG_MAX_SIZE			4096
+#define GOODIX_FW_MAX_SIEZE			(300 * 1024)
 #define GOODIX_MAX_STR_LABLE_LEN		64
 #define GOODIX_MAX_FRAMEDATA_LEN		1700
 #define GOODIX_GESTURE_DATA_LEN			16
 
-#define GOODIX_NORMAL_RESET_DELAY_MS	100
-#define GOODIX_HOLD_CPU_RESET_DELAY_MS  5
+#define GOODIX_NORMAL_RESET_DELAY_MS		100
+#define GOODIX_HOLD_CPU_RESET_DELAY_MS		5
 
-#define GOODIX_RETRY_3					3
-#define GOODIX_RETRY_5					5
-#define GOODIX_RETRY_10					10
+#define GOODIX_RETRY_3				3
+#define GOODIX_RETRY_5				5
+#define GOODIX_RETRY_10				10
 
-#define TS_DEFAULT_FIRMWARE				"goodix_firmware.bin"
-#define TS_DEFAULT_CFG_BIN				"goodix_cfg_group.bin"
+#define TS_DEFAULT_FIRMWARE			"goodix_firmware.bin"
+#define TS_DEFAULT_CFG_BIN			"goodix_cfg_group.bin"
 
-#define PINCTRL_STATE_SPI_DEFAULT   "gt9896s_spi_mode"
-#define PINCTRL_STATE_INT_ACTIVE    "gt9896s_int_active"
-#define PINCTRL_STATE_RST_ACTIVE    "gt9896s_reset_active"
-#define PINCTRL_STATE_INT_SUSPEND   "gt9896s_int_suspend"
-#define PINCTRL_STATE_RST_SUSPEND   "gt9896s_reset_suspend"
+#define PINCTRL_STATE_SPI_DEFAULT		"gt9896s_spi_mode"
+#define PINCTRL_STATE_INT_ACTIVE		"gt9896s_int_active"
+#define PINCTRL_STATE_RST_ACTIVE		"gt9896s_reset_active"
+#define PINCTRL_STATE_INT_SUSPEND		"gt9896s_int_suspend"
+#define PINCTRL_STATE_RST_SUSPEND		"gt9896s_reset_suspend"
 
 enum GOODIX_GESTURE_TYP {
 	GESTURE_SINGLE_TAP = (1 << 0),
@@ -160,8 +160,8 @@ struct goodix_fw_version {
 	u8 rom_pid[6];               /* rom PID */
 	u8 rom_vid[3];               /* Mask VID */
 	u8 rom_vid_reserved;
-	u8 patch_pid[8];              /* Patch PID */
-	u8 patch_vid[4];              /* Patch VID */
+	u8 patch_pid[8];             /* Patch PID */
+	u8 patch_vid[4];             /* Patch VID */
 	u8 patch_vid_reserved;
 	u8 sensor_id;
 	u8 reserved[2];
@@ -265,7 +265,7 @@ struct goodix_ic_info {
 #define TS_RAWDATA_BUFF_MAX             7000
 #define TS_RAWDATA_RESULT_MAX           100
 struct ts_rawdata_info {
-	int used_size; //fill in rawdata size
+	int used_size; /* fill in rawdata size */
 	s16 buff[TS_RAWDATA_BUFF_MAX];
 	char result[TS_RAWDATA_RESULT_MAX];
 };
