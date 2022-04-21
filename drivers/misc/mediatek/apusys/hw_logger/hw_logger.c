@@ -54,6 +54,7 @@ static struct proc_dir_entry *log_devinfo;
 static struct proc_dir_entry *log_devattr;
 static struct proc_dir_entry *log_seqlog;
 static struct proc_dir_entry *log_seqlogL;
+static struct proc_dir_entry *log_aov_log;
 
 /* logtop mmap address */
 static void *apu_logtop;
@@ -65,7 +66,9 @@ static void *apu_mbox;
 
 /* hw log buffer related */
 static char *hw_log_buf;
+static char *aov_hw_log_buf;
 static dma_addr_t hw_log_buf_addr;
+static dma_addr_t aov_hw_log_buf_addr;
 
 /* local buffer related */
 DEFINE_MUTEX(hw_logger_mutex);
@@ -84,6 +87,8 @@ static unsigned int __hw_log_r_ofs;
 /* for sysfs normal dump */
 static unsigned int g_dump_log_r_ofs;
 #endif
+
+uint32_t aov_log_buf_sz;
 
 atomic_t apu_toplog_deep_idle;
 
@@ -130,6 +135,7 @@ static void hw_logger_buf_invalidate(void)
 
 static int hw_logger_buf_alloc(struct device *dev)
 {
+	struct device_node *np = dev->of_node;
 	int ret = 0;
 
 	ret = dma_set_coherent_mask(dev, DMA_BIT_MASK(64));
@@ -157,9 +163,36 @@ static int hw_logger_buf_alloc(struct device *dev)
 		HWLOGR_LOG_SIZE, DMA_FROM_DEVICE);
 	ret = dma_mapping_error(dev, hw_log_buf_addr);
 	if (ret) {
-		HWLOGR_ERR("dma_map_single fail (%d)\n", ret);
+		HWLOGR_ERR("dma_map_single fail for hw_log_buf_addr (%d)\n", ret);
 		ret = -ENOMEM;
 		goto out;
+	}
+
+	ret = of_property_read_u32(np, "aov_log_buf_sz",
+				   &aov_log_buf_sz);
+	if (ret || (aov_log_buf_sz == 0)) {
+		dev_info(dev, "not support aov_log_buf_sz(%d)(ret = %d)\n",
+			aov_log_buf_sz, ret);
+		ret = 0;
+	} else if (aov_log_buf_sz != 0) {
+		dev_info(dev, "aov_log_buf_sz = %d\n", aov_log_buf_sz);
+
+		/* memory used by hw logger for aov */
+		aov_hw_log_buf = kzalloc(aov_log_buf_sz, GFP_KERNEL);
+		if (!aov_hw_log_buf) {
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		aov_hw_log_buf_addr = dma_map_single(dev, aov_hw_log_buf,
+			aov_log_buf_sz, DMA_FROM_DEVICE);
+		ret = dma_mapping_error(dev, aov_hw_log_buf_addr);
+		if (ret) {
+			HWLOGR_ERR("dma_map_single fail for aov_hw_log_buf_addr (%d)\n",
+				ret);
+			ret = -ENOMEM;
+			goto out;
+		}
 	}
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
@@ -172,11 +205,19 @@ static int hw_logger_buf_alloc(struct device *dev)
 		(unsigned long)hw_log_buf,
 		__pa_nodebug(hw_log_buf),
 		HWLOGR_LOG_SIZE, "APUSYS_HW_LOG");
+
+	if (aov_hw_log_buf && aov_log_buf_sz != 0)
+		(void)mrdump_mini_add_extra_file(
+			(unsigned long)aov_hw_log_buf,
+			__pa_nodebug(aov_hw_log_buf),
+			aov_log_buf_sz, "APUSYS_AOV_LOG");
 #endif
 
 	HWLOGR_INFO("local_log_buf = 0x%llx\n", (unsigned long long)local_log_buf);
 	HWLOGR_INFO("hw_log_buf = 0x%llx, hw_log_buf_addr = 0x%llx\n",
 		(unsigned long long)hw_log_buf, hw_log_buf_addr);
+	HWLOGR_INFO("aov_hw_log_buf = 0x%llx, aov_hw_log_buf_addr = 0x%llx\n",
+		(unsigned long long)aov_hw_log_buf, aov_hw_log_buf_addr);
 
 out:
 	return ret;
@@ -312,9 +353,23 @@ int hw_logger_config_init(struct mtk_apu *apu)
 			upper_32_bits(hw_log_buf_addr);
 	}
 
+	if (aov_hw_log_buf_addr) {
+		st_logger_init_info->aov_iova =
+			lower_32_bits(aov_hw_log_buf_addr);
+		st_logger_init_info->aov_iova_h =
+			upper_32_bits(aov_hw_log_buf_addr);
+		st_logger_init_info->aov_buf_sz =
+			aov_log_buf_sz;
+	}
+
 	HWLOGR_DBG("set st_logger_init_info iova = 0x%x, iova_h = 0x%x\n",
 		st_logger_init_info->iova,
 		st_logger_init_info->iova_h);
+
+	if (aov_hw_log_buf_addr)
+		HWLOGR_DBG("set st_logger_init_info aov_iova = 0x%x, aov_iova_h = 0x%x\n",
+			st_logger_init_info->aov_iova,
+			st_logger_init_info->aov_iova_h);
 
 	return 0;
 }
@@ -661,7 +716,7 @@ static ssize_t show_debuglv(struct file *filp, char __user *buffer,
 		__loc_log_w_ofs, __loc_log_ov_flg, __loc_log_sz);
 	len += scnprintf(buf + len, sizeof(buf) - len,
 		"g_log: w_ptr = %d, r_ptr = %d, ov_flg = %d\n",
-		g_log.w_ptr, g_log.r_ptr, g_log_l.ov_flg);
+		g_log.w_ptr, g_log.r_ptr, g_log.ov_flg);
 	len += scnprintf(buf + len, sizeof(buf) - len,
 		"g_log_l: w_ptr = %d, r_ptr = %d, ov_flg = %d, not_rd_sz = %d\n",
 		g_log_l.w_ptr, g_log_l.r_ptr,
@@ -1210,6 +1265,31 @@ static const struct proc_ops hw_loggerSeqLogL_ops = {
 	.proc_release = seq_release
 };
 
+static int aov_seq_show(struct seq_file *s, void *v)
+{
+	if (aov_hw_log_buf) {
+		dma_sync_single_for_cpu(
+			hw_logger_dev, aov_hw_log_buf_addr,
+			aov_log_buf_sz, DMA_FROM_DEVICE);
+		seq_write(s, aov_hw_log_buf, HWLOGR_LOG_SIZE);
+	}
+
+	return 0;
+}
+
+static int aov_log_sqopen(struct inode *inode, struct file *file)
+{
+	return single_open(file, aov_seq_show, NULL);
+}
+
+static const struct proc_ops aov_log_ops = {
+	.proc_open		= aov_log_sqopen,
+	.proc_read		= seq_read,
+	.proc_lseek		= seq_lseek,
+	.proc_release	= single_release
+};
+
+
 #ifdef HW_LOG_SYSFS_BIN
 static ssize_t apusys_log_dump(struct file *filep,
 		struct kobject *kobj, struct bin_attribute *attr,
@@ -1304,6 +1384,7 @@ static void hw_logger_remove_procfs(struct device *dev)
 	remove_proc_entry("log", log_root);
 	remove_proc_entry("seq_log", log_root);
 	remove_proc_entry("seq_logl", log_root);
+	remove_proc_entry("aov_log", log_root);
 	remove_proc_entry("attr", log_root);
 	remove_proc_entry(APUSYS_HWLOGR_DIR, NULL);
 }
@@ -1341,6 +1422,14 @@ static int hw_logger_create_procfs(struct device *dev)
 	ret = IS_ERR_OR_NULL(log_seqlogL);
 	if (ret) {
 		HWLOGR_ERR("create seqlogL fail (%d)\n", ret);
+		goto out;
+	}
+
+	log_aov_log = proc_create("aov_log", 0444,
+		log_root, &aov_log_ops);
+	ret = IS_ERR_OR_NULL(log_aov_log);
+	if (ret) {
+		HWLOGR_ERR("create aov_log fail (%d)\n", ret);
 		goto out;
 	}
 
@@ -1497,6 +1586,12 @@ static int hw_logger_remove(struct platform_device *pdev)
 	hw_log_buf = NULL;
 	kfree(local_log_buf);
 	local_log_buf = NULL;
+
+	if (aov_hw_log_buf) {
+		dma_unmap_single(dev, aov_hw_log_buf_addr, aov_log_buf_sz, DMA_FROM_DEVICE);
+		kfree(aov_hw_log_buf);
+		aov_hw_log_buf = NULL;
+	}
 
 	iounmap(apu_logtop);
 	apu_logtop = NULL;

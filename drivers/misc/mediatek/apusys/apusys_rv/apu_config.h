@@ -37,6 +37,9 @@ struct apusys_chip_data {
 struct logger_init_info {
 	uint32_t iova;
 	uint32_t iova_h;
+	uint32_t aov_iova;
+	uint32_t aov_iova_h;
+	uint32_t aov_buf_sz;
 } __packed;
 
 struct reviser_init_info {
