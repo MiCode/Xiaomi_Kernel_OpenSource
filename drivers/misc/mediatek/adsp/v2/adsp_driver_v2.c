@@ -287,7 +287,8 @@ static int adsp_core_drv_probe(struct platform_device *pdev)
 
 	if (pdata->sysram_phys == 0 || pdata->sysram_size == 0)
 		return -ENODEV;
-	pdata->sysram = ioremap_wc(pdata->sysram_phys, pdata->sysram_size);
+	pdata->sysram = __ioremap(pdata->sysram_phys, pdata->sysram_size,
+			__pgprot((PROT_NORMAL_NC&~PTE_WRITE)|PTE_RDONLY));
 
 	of_property_read_u32(dev->of_node, "feature_control_bits",
 			     &pdata->feature_set);
