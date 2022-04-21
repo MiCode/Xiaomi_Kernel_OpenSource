@@ -59,7 +59,7 @@
 		bootargs = "console=tty0 root=/dev/ram \
 			    loglevel=8 \
 			    androidboot.hardware=mt6789 \
-			    initcall_debug=1 \
+			    initcall_debug=1 transparent_hugepage=never \
 			    vmalloc=400M swiotlb=noforce cma=64M \
 			    firmware_class.path=/vendor/firmware pelt=8\
 			    loop.max_part=7";
