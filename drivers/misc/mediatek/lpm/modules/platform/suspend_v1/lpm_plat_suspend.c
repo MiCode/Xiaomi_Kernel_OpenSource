@@ -320,8 +320,10 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 	case PM_POST_HIBERNATION:
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
+		cpu_hotplug_disable();
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
+		cpu_hotplug_enable();
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
