@@ -987,7 +987,7 @@ static void mtk_cam_exceptoin_detect_work(struct work_struct *work)
 	}
 
 	if (ctx->seninf) {
-		ret = mtk_cam_seninf_dump(ctx->seninf, s_data->frame_seq_no);
+		ret = mtk_cam_seninf_dump(ctx->seninf, s_data->frame_seq_no, false);
 		dev_info(ctx->cam->dev,
 			"%s:ctx(%d):used_raw(0x%x) frame_seq_no(%d):mtk_cam_seninf_dump() ret=%d\n",
 			__func__, ctx->stream_id, ctx->used_raw_dev, s_data->frame_seq_no, ret);
@@ -1171,7 +1171,7 @@ static void mtk_cam_req_seninf_dump_work(struct work_struct *work)
 	if (!seninf)
 		pr_info("%s: filaed, seninf can't be NULL\n", __func__);
 	else
-		mtk_cam_seninf_dump(seninf, seninf_dump_work->frame_seq_no);
+		mtk_cam_seninf_dump(seninf, seninf_dump_work->frame_seq_no, false);
 
 	kfree(seninf_dump_work);
 }

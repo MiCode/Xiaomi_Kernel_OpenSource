@@ -7977,7 +7977,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 			}
 			atomic_set(&watchdog_data->watchdog_dumped, 1); // fixme
 			atomic_set(&watchdog_data->watchdog_cnt, 0);
-			if (mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no) &&
+			if (mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no, true) &&
 				is_raw_subdev(pipe_id))
 				mtk_cam_event_esd_recovery(ctx->pipe, ctx->dequeued_frame_seq_no);
 			/* both reset are required */

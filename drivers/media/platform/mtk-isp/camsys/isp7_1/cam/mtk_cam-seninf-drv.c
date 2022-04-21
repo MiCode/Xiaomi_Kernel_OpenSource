@@ -2061,7 +2061,7 @@ u64 mtk_cam_seninf_get_frame_time(struct v4l2_subdev *sd, u32 seq_id)
 	return tmp * 1000;
 }
 
-int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id)
+int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 {
 	int ret = 0;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
@@ -2070,7 +2070,7 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id)
 	int val = 0;
 	int reset_by_user = 0;
 
-	if (ctx->dbg_last_dump_req != 0 &&
+	if (!force_check && ctx->dbg_last_dump_req != 0 &&
 		ctx->dbg_last_dump_req == seq_id) {
 		dev_info(ctx->dev, "%s skip duplicate dump for req %u\n", __func__, seq_id);
 		return 0;
@@ -2107,8 +2107,8 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id)
 
 	pm_runtime_put_sync(ctx->dev);
 
-	dev_info(ctx->dev, "%s ret(%d), reset_by_user(%d)\n",
-		 __func__, ret, reset_by_user);
+	dev_info(ctx->dev, "%s ret(%d), req(%u), force(%d) reset_by_user(%d)\n",
+		 __func__, ret, seq_id, force_check, reset_by_user);
 
 	return (ret && reset_by_user);
 }

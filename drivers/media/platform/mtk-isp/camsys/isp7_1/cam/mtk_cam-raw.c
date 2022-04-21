@@ -2816,7 +2816,7 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 		dev_info(raw_dev->dev, "%s: req(%d) can't be found for dump\n",
 			__func__, dequeued_frame_seq_no);
 		if (0 && raw_dev->sof_count > 3 && ctx->seninf)
-			mtk_cam_seninf_dump(ctx->seninf, (u32)dequeued_frame_seq_no);
+			mtk_cam_seninf_dump(ctx->seninf, (u32)dequeued_frame_seq_no, false);
 	}
 }
 
