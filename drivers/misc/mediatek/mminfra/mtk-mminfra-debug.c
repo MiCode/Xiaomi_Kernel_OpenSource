@@ -19,6 +19,11 @@
 #include <mt-plat/aee.h>
 #endif
 #include <soc/mediatek/smi.h>
+
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+#include <linux/soc/mediatek/devapc_public.h>
+#endif
+
 #define MMINFRA_MAX_CLK_NUM	(4)
 
 struct mminfra_dbg {
@@ -356,6 +361,18 @@ static irqreturn_t mminfra_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+static bool mminfra_devapc_power_cb(void)
+{
+	return is_mminfra_power_on();
+}
+
+static struct devapc_power_callbacks devapc_power_handle = {
+	.type = DEVAPC_TYPE_MMINFRA,
+	.query_power = mminfra_devapc_power_cb,
+};
+#endif
+
 static int mminfra_debug_probe(struct platform_device *pdev)
 {
 	struct device_node *node;
@@ -452,6 +469,11 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 			pr_notice("%s: init-clk-on enable clk\n", __func__);
 		}
 	}
+
+#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+	register_devapc_power_callback(&devapc_power_handle);
+#endif
+
 	return ret;
 }
 
