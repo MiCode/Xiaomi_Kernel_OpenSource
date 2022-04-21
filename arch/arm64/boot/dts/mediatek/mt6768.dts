@@ -755,7 +755,7 @@ page_owner=on loop.max_part=7";
 				  "syscon", "simple-mfd";
 		reg = <0 0x10007000 0 0x1000>;
 		interrupts = <GIC_SPI 156 IRQ_TYPE_LEVEL_LOW>;
-		mediatek,rg_dfd_timeout = <0xa0>;
+		mediatek,rg_dfd_timeout = <0x1ffff>;
 		#reset-cells = <1>;
 		reboot-mode {
 			compatible = "syscon-reboot-mode";
