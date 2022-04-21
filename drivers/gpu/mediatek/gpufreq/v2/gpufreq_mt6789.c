@@ -2306,6 +2306,7 @@ static void __gpufreq_interpolate_volt(void)
 static void __gpufreq_apply_aging(unsigned int apply_aging)
 {
 	int i = 0;
+	int signed_opp_num = g_gpu.signed_opp_num;
 	GPUFREQ_TRACE_START("apply_aging=%d", apply_aging);
 
 	mutex_lock(&gpufreq_lock);
@@ -2323,7 +2324,18 @@ static void __gpufreq_apply_aging(unsigned int apply_aging)
 			apply_aging, i, g_gpu.working_table[i].volt, g_gpu.working_table[i].vsram);
 	}
 
-	__gpufreq_set_springboard();
+	for (i = 0; i < signed_opp_num; i++) {
+		if (apply_aging)
+			g_gpu.signed_table[i].volt -= g_gpu.signed_table[i].vaging;
+		else
+			g_gpu.signed_table[i].volt += g_gpu.signed_table[i].vaging;
+
+		g_gpu.signed_table[i].vsram =
+			__gpufreq_get_vsram_by_vgpu(g_gpu.signed_table[i].volt);
+	}
+
+
+	//__gpufreq_set_springboard();
 
 	mutex_unlock(&gpufreq_lock);
 
@@ -2779,6 +2791,8 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 	g_gpu.signed_table = g_default_gpu;
 	/* apply segment adjustment to GPU signed table */
 	__gpufreq_segment_adjustment(pdev);
+	/* apply aging adjustment to GPU signed table */
+	__gpufreq_aging_adjustment();
 
 	/* after these, signed table is settled down */
 	g_gpu.working_table = kcalloc(g_gpu.opp_num, sizeof(struct gpufreq_opp_info), GFP_KERNEL);
@@ -2801,6 +2815,9 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 			i, g_gpu.working_table[i].freq, g_gpu.working_table[i].volt,
 			g_gpu.working_table[i].vsram, g_gpu.working_table[i].vaging);
 	}
+
+	if (g_aging_enable)
+		__gpufreq_apply_aging(true);
 
 	/* set power info to working table */
 	__gpufreq_measure_power();
@@ -3256,9 +3273,6 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 
 	/* apply aging volt to working table volt depending on Aging load */
 	g_aging_enable = g_aging_load;
-
-	if (g_aging_enable)
-		__gpufreq_apply_aging(true);
 
 	/* init OPP table */
 	ret = __gpufreq_init_opp_table(pdev);
