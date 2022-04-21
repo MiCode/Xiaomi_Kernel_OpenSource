@@ -677,22 +677,23 @@ static int drv1_resume_noirq(struct device *dev)
 	for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 		txq = &dpmaif_ctl->txq[i];
 
-		if (txq->drb_rd_idx != txq->drb_wr_idx) {
+		if (atomic_read(&txq->drb_rd_idx) != atomic_read(&txq->drb_wr_idx)) {
 			CCCI_NORMAL_LOG(0, TAG,
 				"[%s] txq(%d) warning: md not read all skb: rel/r/w(%d,%d,%d)\n",
-				__func__, i,
-				txq->drb_rel_rd_idx, txq->drb_rd_idx, txq->drb_wr_idx);
+				__func__, i, atomic_read(&txq->drb_rel_rd_idx),
+				atomic_read(&txq->drb_rd_idx), atomic_read(&txq->drb_wr_idx));
 		}
 
-		if (txq->drb_wr_idx != txq->drb_rel_rd_idx) {
+		if (atomic_read(&txq->drb_wr_idx) != atomic_read(&txq->drb_rel_rd_idx)) {
 			rel_cnt = ringbuf_releasable(txq->drb_cnt,
-					txq->drb_rel_rd_idx, txq->drb_wr_idx);
+						atomic_read(&txq->drb_rel_rd_idx),
+						atomic_read(&txq->drb_wr_idx));
 			ccci_dpmaif_txq_release_skb(txq, rel_cnt);
 		}
 
-		txq->drb_rd_idx = 0;
-		txq->drb_wr_idx = 0;
-		txq->drb_rel_rd_idx = 0;
+		atomic_set(&txq->drb_rd_idx, 0);
+		atomic_set(&txq->drb_wr_idx, 0);
+		atomic_set(&txq->drb_rel_rd_idx, 0);
 	}
 
 	/* there are some inter for init para. check. */

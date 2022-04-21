@@ -286,8 +286,8 @@ struct dpmaif_bat_request {
 	unsigned int    bat_pkt_cnt;
 	void           *bat_pkt_addr;/* collect skb/page linked to bat */
 
-	unsigned short  bat_wr_idx;
-	unsigned short  bat_rd_idx;
+	atomic_t        bat_wr_idx;
+	atomic_t        bat_rd_idx;
 
 	unsigned int    pkt_buf_sz;
 };
@@ -337,8 +337,8 @@ struct dpmaif_rx_queue {
 	void           *pit_base;
 	dma_addr_t      pit_phy_addr;
 
-	unsigned short  pit_rd_idx;
-	unsigned short  pit_wr_idx;
+	atomic_t        pit_rd_idx;
+	atomic_t        pit_wr_idx;
 
 	struct tasklet_struct    rxq_task;
 	wait_queue_head_t        rxq_wq;
@@ -369,9 +369,9 @@ struct dpmaif_tx_queue {
 	void               *drb_base;
 	dma_addr_t          drb_phy_addr;  /* physical address for DMA */
 
-	unsigned short      drb_wr_idx;
-	unsigned short      drb_rd_idx;
-	unsigned short      drb_rel_rd_idx;
+	atomic_t            drb_wr_idx;
+	atomic_t            drb_rd_idx;
+	atomic_t            drb_rel_rd_idx;
 	void               *drb_skb_base;
 
 	wait_queue_head_t   req_wq;

@@ -491,13 +491,6 @@ do { \
 #define DPMAIF_UL_ALL_QUE_ARB_EN    (0xF << 8)
 
 
-/* INFRA */
-#define INFRA_DPMAIF_CTRL_REG   (0xC00)
-#define DPMAIF_IP_BUSY_MASK     (0x3 << 12)
-#define INFRA_PROT_DPMAIF_BIT   (1 << 10)
-
-
-
 #define DPMAIF_HW_CHK_RB_PIT_NUM   64
 
 #define DPMAIF_CHK_RB_PITNUM_MSK   0x000000FF

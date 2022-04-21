@@ -39,8 +39,8 @@
 
 
 struct fifo_t {
-	u32 w;
-	u32 r;
+	atomic_t w;
+	atomic_t r;
 	void *buf[DL_POOL_LEN];
 
 	u32 dp_cnt;
@@ -53,46 +53,46 @@ static struct fifo_t *s_dl_pools;
 
 static inline u32 fifo_avail(struct fifo_t *fifo)
 {
-	if (fifo->r > fifo->w)
-		return (fifo->r - fifo->w - 1);
+	if (atomic_read(&fifo->r) > atomic_read(&fifo->w))
+		return (atomic_read(&fifo->r) - atomic_read(&fifo->w) - 1);
 	else
-		return (DL_POOL_LEN - fifo->w + fifo->r - 1);
+		return (DL_POOL_LEN - atomic_read(&fifo->w) + atomic_read(&fifo->r) - 1);
 }
 
 static inline void fifo_write(struct fifo_t *fifo, void *skb)
 {
-	fifo->buf[fifo->w] = skb;
+	fifo->buf[atomic_read(&fifo->w)] = skb;
 
 	/* wait: fifo->buf[fifo->w] = skb done*/
 	mb();
 
-	if (fifo->w < (DL_POOL_LEN - 1))
-		fifo->w++;
+	if (atomic_read(&fifo->w) < (DL_POOL_LEN - 1))
+		atomic_inc(&fifo->w);
 	else
-		fifo->w = 0;
+		atomic_set(&fifo->w, 0);
 }
 
 static inline void *fifo_read(struct fifo_t *fifo)
 {
-	void *data = fifo->buf[fifo->r];
+	void *data = fifo->buf[atomic_read(&fifo->r)];
 
 	/* wait: data = fifo->buf[r] done*/
 	mb();
 
-	if (fifo->r < (DL_POOL_LEN - 1))
-		fifo->r++;
+	if (atomic_read(&fifo->r) < (DL_POOL_LEN - 1))
+		atomic_inc(&fifo->r);
 	else
-		fifo->r = 0;
+		atomic_set(&fifo->r, 0);
 
 	return data;
 }
 
 static inline u32 fifo_len(struct fifo_t *fifo)
 {
-	if (fifo->w >= fifo->r)
-		return (fifo->w - fifo->r);
+	if (atomic_read(&fifo->w) >= atomic_read(&fifo->r))
+		return (atomic_read(&fifo->w) - atomic_read(&fifo->r));
 
-	return (DL_POOL_LEN - fifo->r + fifo->w);
+	return (DL_POOL_LEN - atomic_read(&fifo->r) + atomic_read(&fifo->w));
 }
 
 int ccci_dl_pool_init(u32 q_num)
