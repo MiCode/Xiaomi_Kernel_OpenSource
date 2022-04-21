@@ -1228,7 +1228,6 @@ void tcpc_enable_timer(struct tcpc_device *tcpc, uint32_t timer_id)
 	uint32_t r, mod, tout;
 	uint64_t mask_curr, mask_prev;
 
-	mask_prev = tcpc_get_timer_enable_mask(tcpc);
 	TCPC_TIMER_EN_DBG(tcpc, timer_id);
 	if (timer_id >= PD_TIMER_NR) {
 		PD_BUG_ON(1);
@@ -1238,13 +1237,12 @@ void tcpc_enable_timer(struct tcpc_device *tcpc, uint32_t timer_id)
 	if (timer_id >= TYPEC_TIMER_START_ID)
 		tcpc_reset_timer_range(tcpc, TYPEC_TIMER_START_ID, PD_TIMER_NR);
 
+	mask_prev = tcpc_get_timer_enable_mask(tcpc);
 	tcpc_set_timer_enable_mask(tcpc, timer_id);
 
 	mask_curr = tcpc_get_timer_enable_mask(tcpc);
 	if (mask_prev ^ mask_curr)
 		atomic_inc(&tcpc->suspend_pending);
-	else
-		atomic_dec_if_positive(&tcpc->suspend_pending);
 
 	tout = tcpc_timer_timeout[timer_id];
 #if PD_DYNAMIC_SENDER_RESPONSE
