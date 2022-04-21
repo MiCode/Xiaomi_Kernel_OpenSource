@@ -751,6 +751,7 @@ int __init mkp_demo_init(void)
 	unsigned long size = 0x100000;
 	struct device_node *node;
 	u32 mkp_policy = 0x0001ffff;
+	const char *mkp_panic;
 
 	node = of_find_node_by_path("/chosen");
 	if (node) {
@@ -759,10 +760,13 @@ int __init mkp_demo_init(void)
 		else
 			MKP_WARN("mkp,policy cannot be found, use default\n");
 
-		if (of_property_read_bool(node, "mkp_panic_on"))
-			enable_action_panic();
+		if (of_property_read_string(node, "mkp_panic", &mkp_panic) == 0)
+			if (strcmp(mkp_panic, "on") == 0)
+				enable_action_panic();
+			else
+				pr_info("%s: mkp_panic=off\n", __func__);
 		else
-			pr_info("%s: no mkp_panic_on\n", __func__);
+			pr_info("%s: no mkp_panic node\n", __func__);
 	} else
 		MKP_WARN("chosen node cannot be found, use default\n");
 
