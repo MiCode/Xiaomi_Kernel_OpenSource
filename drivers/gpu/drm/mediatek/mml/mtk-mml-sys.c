@@ -14,6 +14,7 @@
 #include "mtk-mml-core.h"
 #include "mtk-mml-driver.h"
 #include "mtk-mml-dle-adaptor.h"
+#include "mtk-mml-mmp.h"
 
 #include "tile_driver.h"
 #include "mtk-mml-tile.h"
@@ -942,6 +943,8 @@ static void sys_calc_cfg(struct mtk_ddp_comp *ddp_comp,
 
 	mml_msg("%s module:%d", __func__, cfg->config_type.module);
 
+	mml_mmp(addon_mml_calc_cfg, MMPROFILE_FLAG_PULSE, 0, 0);
+
 	if (!cfg->submit.info.src.width) {
 		/* set test submit */
 		cfg->submit = bypass_submit;
@@ -1050,6 +1053,8 @@ static void sys_addon_config(struct mtk_ddp_comp *ddp_comp,
 	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
 	struct mtk_addon_mml_config *cfg = &addon_config->addon_mml_config;
 
+	mml_mmp(addon_addon_config, MMPROFILE_FLAG_PULSE, cfg->config_type.type, 0);
+
 	mml_msg("%s type:%d", __func__, cfg->config_type.type);
 	if (cfg->config_type.type == ADDON_DISCONNECT)
 		sys_addon_disconnect(sys, cfg);
@@ -1061,6 +1066,8 @@ static void sys_start(struct mtk_ddp_comp *ddp_comp, struct cmdq_pkt *pkt)
 {
 	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
 	struct mml_dle_ctx *ctx = sys_get_dle_ctx(sys, NULL);
+
+	mml_mmp(addon_start, MMPROFILE_FLAG_PULSE, 0, 0);
 
 	if (IS_ERR_OR_NULL(ctx)) {
 		mml_err("%s fail to get mml ctx", __func__);
@@ -1075,6 +1082,8 @@ static void sys_unprepare(struct mtk_ddp_comp *ddp_comp)
 	struct mml_sys *sys = ddp_comp_to_sys(ddp_comp);
 	struct mml_dle_ctx *ctx = sys_get_dle_ctx(sys, NULL);
 	struct mml_task *task;
+
+	mml_mmp(addon_unprepare, MMPROFILE_FLAG_PULSE, 0, 0);
 
 	if (IS_ERR_OR_NULL(ctx)) {
 		mml_log("%s fail to get mml ctx", __func__);

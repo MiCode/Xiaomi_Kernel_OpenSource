@@ -38,6 +38,13 @@ struct mml_mmp_events_t {
 	mmp_event irq_stop;
 	mmp_event fence_sig;
 	mmp_event exec;
+
+	/* events for inline rotate disp addon */
+	mmp_event addon;
+	mmp_event addon_mml_calc_cfg;
+	mmp_event addon_addon_config;
+	mmp_event addon_start;
+	mmp_event addon_unprepare;
 };
 
 void mml_mmp_init(void);

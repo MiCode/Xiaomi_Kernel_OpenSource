@@ -16,7 +16,7 @@ struct mml_mmp_events_t *mml_mmp_get_event(void)
 
 void mml_mmp_init(void)
 {
-	mmp_event mml;
+	mmp_event mml, addon;
 
 	if (mml_mmp_events.mml)
 		return;
@@ -38,6 +38,13 @@ void mml_mmp_init(void)
 	mml_mmp_events.irq_stop = mmprofile_register_event(mml, "irq_stop");
 	mml_mmp_events.fence_sig = mmprofile_register_event(mml, "fence_sig");
 	mml_mmp_events.exec = mmprofile_register_event(mml, "exec");
+
+	addon = mmprofile_register_event(mml, "addon");
+	mml_mmp_events.addon = addon;
+	mml_mmp_events.addon_mml_calc_cfg = mmprofile_register_event(addon, "mml_calc_cfg");
+	mml_mmp_events.addon_addon_config = mmprofile_register_event(addon, "addon_config");
+	mml_mmp_events.addon_start = mmprofile_register_event(addon, "start");
+	mml_mmp_events.addon_unprepare = mmprofile_register_event(addon, "unprepare");
 
 	mmprofile_enable_event_recursive(mml, 1);
 	mmprofile_start(1);
