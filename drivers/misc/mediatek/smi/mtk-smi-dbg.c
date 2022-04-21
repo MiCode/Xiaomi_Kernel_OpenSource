@@ -1247,7 +1247,7 @@ s32 smi_monitor_stop(struct device *dev, u32 common_id, u32 *bw)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(smi_monitor_stop);
-
+/*
 static void smi_hang_detect_bw_monitor(bool is_start)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
@@ -1266,7 +1266,7 @@ static void smi_hang_detect_bw_monitor(bool is_start)
 			smi_monitor_stop(NULL, i, smi->comm[i].bw);
 	}
 }
-
+*/
 s32 mtk_smi_dbg_hang_detect(const char *user)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
@@ -1288,10 +1288,10 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 	raw_notifier_call_chain(&smi_notifier_list, 0, NULL);
 
 	/*start to monitor bw and check ostd*/
-	smi_hang_detect_bw_monitor(true);
+	//smi_hang_detect_bw_monitor(true);
 	is_busy |= smi_bus_ostd_check(smi->comm);
 	is_busy |= smi_bus_ostd_check(smi->larb);
-	smi_hang_detect_bw_monitor(false);
+	//smi_hang_detect_bw_monitor(false);
 
 	if (is_busy) {
 		pr_info("%s: ===== SMI MM bus busy =====:%s\n", __func__, user);
@@ -1313,8 +1313,8 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 	mtk_smi_dump_last_pd(user);
 
 	if (smi_bus_hang_check(smi->comm)) {
-		pr_notice("[smi] smi hang system recover\n");
-		BUG_ON(1);
+		pr_notice("[smi] smi may hang\n");
+		//BUG_ON(1);
 	}
 
 	return ret;
