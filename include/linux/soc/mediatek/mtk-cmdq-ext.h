@@ -23,6 +23,8 @@ typedef const char *(*util_event_module_dispatch)(phys_addr_t gce_pa,
 	const u16 event, s32 thread);
 typedef const char *(*util_thread_module_dispatch)(phys_addr_t gce_pa,
 	s32 thread);
+typedef bool (*util_hw_trace_thread)(void *chan);
+
 struct cmdq_util_helper_fp {
 	util_is_feature_en is_feature_en;
 	util_dump_lock dump_lock;
@@ -35,6 +37,7 @@ struct cmdq_util_helper_fp {
 	util_track track;
 	util_event_module_dispatch event_module_dispatch;
 	util_thread_module_dispatch thread_module_dispatch;
+	util_hw_trace_thread hw_trace_thread;
 };
 void cmdq_helper_set_fp(struct cmdq_util_helper_fp *cust_cmdq_util);
 #endif

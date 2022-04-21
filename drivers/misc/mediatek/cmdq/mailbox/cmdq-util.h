@@ -145,6 +145,7 @@ typedef u32 (*platform_test_get_subsys_list)(u32 **regs_out);
 typedef void (*platform_test_set_ostd)(void);
 typedef const char *(*platform_util_hw_name)(void *chan);
 typedef bool (*platform_thread_ddr_module)(const s32 thread);
+typedef bool (*platform_hw_trace_thread)(void *chan);
 
 struct cmdq_util_platform_fp {
 	platform_thread_module_dispatch thread_module_dispatch;
@@ -154,6 +155,7 @@ struct cmdq_util_platform_fp {
 	platform_test_set_ostd test_set_ostd;
 	platform_util_hw_name util_hw_name;
 	platform_thread_ddr_module thread_ddr_module;
+	platform_hw_trace_thread hw_trace_thread;
 };
 
 void cmdq_util_set_fp(struct cmdq_util_platform_fp *cust_cmdq_platform);
@@ -198,6 +200,7 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 u32 cmdq_util_hw_id(u32 pa);
 const char *cmdq_util_hw_name(void *chan);
 bool cmdq_thread_ddr_module(const s32 thread);
+bool cmdq_mbox_hw_trace_thread(void *chan);
 void cmdq_util_enable_dbg(u32 id);
 void cmdq_util_devapc_dump(void);
 int cmdq_util_init(void);

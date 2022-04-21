@@ -2010,6 +2010,8 @@ EXPORT_SYMBOL(cmdq_pkt_get_perf_ret);
 
 static bool cmdq_pkt_hw_trace_event(struct cmdq_pkt *pkt, const u16 event)
 {
+	struct cmdq_client *client;
+
 	if (!cmdq_hw_trace)
 		return false;
 
@@ -2023,7 +2025,8 @@ static bool cmdq_pkt_hw_trace_event(struct cmdq_pkt *pkt, const u16 event)
 	if (!pkt->cl)
 		return false;
 
-	return true;
+	client = (struct cmdq_client *)pkt->cl;
+	return cmdq_util_helper->hw_trace_thread(client->chan);
 }
 
 int cmdq_pkt_wfe(struct cmdq_pkt *pkt, u16 event)

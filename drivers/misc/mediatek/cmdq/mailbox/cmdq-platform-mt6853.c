@@ -295,6 +295,11 @@ bool cmdq_thread_ddr_module(const s32 thread)
 	}
 }
 
+bool cmdq_mbox_hw_trace_thread(void *chan)
+{
+	return true;
+}
+
 struct cmdq_util_platform_fp platform_fp = {
 	.thread_module_dispatch = cmdq_thread_module_dispatch,
 	.event_module_dispatch = cmdq_event_module_dispatch,
@@ -302,6 +307,7 @@ struct cmdq_util_platform_fp platform_fp = {
 	.test_get_subsys_list = cmdq_test_get_subsys_list,
 	.util_hw_name = cmdq_util_hw_name,
 	.thread_ddr_module = cmdq_thread_ddr_module,
+	.hw_trace_thread = cmdq_mbox_hw_trace_thread,
 };
 
 static int __init cmdq_platform_init(void)
