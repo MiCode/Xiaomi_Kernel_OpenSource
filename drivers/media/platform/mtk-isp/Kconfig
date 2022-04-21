@@ -51,6 +51,14 @@ config VIDEO_MTK_ISP_HCP
 	    events, and other notification events that are needed for a
 	    working camera session.
 
+config VIDEO_MTK_ISP_HXP
+	tristate "Mediatek hxp processing function"
+	help
+	    HXP driver acts a message protocol between aov scp driver and
+	    userspace process. messages can include init, deint and aov
+	    notification events. The operation modes include normal detect,
+	    debug and bit-true dump mode.
+
 config VIDEO_MTK_ISP_IMGSYS
 	tristate "Mediatek imgsys processing function"
 	help
