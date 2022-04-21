@@ -1064,7 +1064,7 @@ static void sleepmon_lpi_exception_check(u64 curr_timestamp, u64 elapsed_time)
 			result = sleepmon_send_lpi_issue_command();
 
 			if (result &&
-				adspsleepmon.b_panic_lpi &&
+				g_adspsleepmon.b_panic_lpi &&
 				is_audio_active)
 				panic("ADSP_SLEEPMON: ADSP LPI issue detected");
 		}
