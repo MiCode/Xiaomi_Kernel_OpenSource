@@ -1021,6 +1021,10 @@
 #define CMDQ_SYNC_RESOURCE_WROT0			710
 #define CMDQ_SYNC_RESOURCE_WROT1			711
 
+/* HW TRACE sw token */
+#define CMDQ_SYNC_TOKEN_HW_TRACE_WAIT			712
+#define CMDQ_SYNC_TOKEN_HW_TRACE_LOCK			713
+
 /* event for gpr timer, used in sleep and poll with timeout */
 #define CMDQ_TOKEN_GPR_TIMER_R0				994
 #define CMDQ_TOKEN_GPR_TIMER_R1				995
