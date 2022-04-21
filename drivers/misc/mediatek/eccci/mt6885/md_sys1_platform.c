@@ -34,7 +34,7 @@
 #include <helio-dvfsrc-opp.h>
 #endif
 //#include <clk-mt6885-pg.h>
-#include <clk-mt6893-pg.h>
+#include <clk-mt6885-pg.h>
 #include "ccci_core.h"
 #include "ccci_platform.h"
 
