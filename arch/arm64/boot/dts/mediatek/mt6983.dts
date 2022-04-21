@@ -6220,6 +6220,34 @@
 		reg = <0 0x0d030000 0 0x1000>;
 	};
 
+	bus_tracer@0d040000 {
+		compatible = "mediatek,bus_tracer-v1";
+		reg = <0 0x0d040000 0 0x1000>, /* dem base */
+		      <0 0x0d01a000 0 0x1000>, /* dbgao base */
+		      <0 0x0d041000 0 0x3000>, /* funnel/rep/etr base */
+		      <0 0x0d044000 0 0x1000>, /* bus tracer etf base */
+		      <0 0x0d040800 0 0x100>, /* ap bus tracer base */
+		      <0 0x0d040900 0 0x100>; /* infra bus tracer base */
+
+		mediatek,err_flag = <0xe3f8ffff>;
+
+		/*
+		 * index 0 for ap bus tracer
+		 * index 1 for infra bus tracer
+		 */
+		mediatek,num_tracer = <2>;
+		mediatek,enabled_tracer = <0 1>;
+		mediatek,at_id = <0x10 0x30>;
+
+		/* filters: disabled by default */
+		/*
+		 * mediatek,watchpoint_filter = <0x0 0x10010000 0xfffff000>;
+		 * mediatek,bypass_filter = <0x14000000 0xffff0000>;
+		 * mediatek,id_filter = <0x10 0x40>;
+		 * mediatek,rw_filter = <0x0 0x1>;
+		 */
+	};
+
 	dbg_dem@0d0a0000 {
 		compatible = "mediatek,dbg_dem";
 		reg = <0 0x0d0a0000 0 0x10000>;
