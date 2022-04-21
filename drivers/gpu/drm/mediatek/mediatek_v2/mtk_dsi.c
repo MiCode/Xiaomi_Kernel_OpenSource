@@ -1754,6 +1754,7 @@ static u16 mtk_get_gpr(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	mmsys_id = mtk_get_mmsys_id(crtc);
 
 	switch (mmsys_id) {
+	case MMSYS_MT6789:
 	case MMSYS_MT6983:
 	case MMSYS_MT6879:
 	case MMSYS_MT6895:
