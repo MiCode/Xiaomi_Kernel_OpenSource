@@ -92,12 +92,8 @@ static int __init dfd_init(void)
 	/* get dfd settings */
 	dev_node = of_find_compatible_node(NULL, NULL, "mediatek,dfd");
 	if (dev_node) {
-
-		if (of_property_read_u32(dev_node,
-					"mediatek,dfd_latch_offset", &val)) {
+		if (of_property_read_u32(dev_node, "mediatek,dfd_latch_offset", &val))
 			pr_info("%s: Latch offset not found.\n", __func__);
-			return -ENODATA;
-		}
 
 		if (of_property_read_u32(dev_node, "mediatek,enabled", &val))
 			drv->enabled = 0;
