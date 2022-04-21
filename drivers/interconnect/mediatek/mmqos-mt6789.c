@@ -333,9 +333,9 @@ static const struct mtk_mmqos_desc mmqos_desc_mt6789 = {
 	.comm_icc_hrt_path_names = comm_icc_hrt_path_names_mt6789,
 	.max_ratio = 40,
 	.hrt_LPDDR4 = {
-		.hrt_bw = {3888, 0, 0},
+		.hrt_bw = {1842, 0, 0},
 		.hrt_total_bw = 17064, /* 4266*2B*2CH=17064 Todo: Use DRAMC API */
-		.md_speech_bw = { 3888, 3888},
+		.md_speech_bw = { 2350, 1842},
 		.hrt_ratio = {1000, 1000, 1000, 1000},
 		.blocking = true,
 		.emi_ratio = 500,
