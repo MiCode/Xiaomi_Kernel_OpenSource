@@ -82,3 +82,4 @@ regmap-spmi.ko
 proxy-consumer.ko
 clk-spmi-pmic-div.ko
 qcom_pm8008-regulator.ko
+bq256xx_charger.ko
