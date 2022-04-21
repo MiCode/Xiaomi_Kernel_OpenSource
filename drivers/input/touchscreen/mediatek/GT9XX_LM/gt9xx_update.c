@@ -2196,24 +2196,7 @@ file_fail:
 
 u8 gup_init_update_proc(struct i2c_client *client)
 {
-	struct task_struct *thread = NULL;
-
 	GTP_INFO("Ready to run auto update thread");
-
-#ifdef CONFIG_GTP_COMPATIBLE_MODE
-	if (gtp_chip_type == CHIP_TYPE_GT9F)
-		thread = kthread_run(gup_update_proc, "update",
-				     "fl_auto_update");
-	else
-#endif
-		thread = kthread_run(gup_update_proc, (void *)NULL,
-				     "guitar_update");
-
-	if (IS_ERR(thread)) {
-		GTP_ERROR("Failed to create update thread.\n");
-		return -1;
-	}
-
 	return 0;
 }
 
