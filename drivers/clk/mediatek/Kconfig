@@ -918,6 +918,142 @@ config COMMON_CLK_MT8192_VENCSYS
 	help
 	  This driver supports MediaTek MT8192 vencsys clocks.
 
+config COMMON_CLK_MT8188
+	tristate "Clock driver for MediaTek MT8188"
+	depends on ARM64 || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	help
+	  This driver supports MediaTek MT8188 basic clocks.
+	  which is used to control basic clock output.
+	  If you wish to use clock resources from the MT6983 SOC,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_AUDSYS_SRC
+	tristate "Clock driver for MediaTek MT8188 audsys_src"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 audsys_src clocks.
+	  which is used to control audsys_src clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_CAMSYS
+	tristate "Clock driver for MediaTek MT8188 camsys"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 camsys clocks.
+	  which is used to control camsys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_IMGSYS
+	tristate "Clock driver for MediaTek MT8188 imgsys"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 imgsys clocks.
+	  which is used to control imgsys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_IMP_IIC_WRAP
+	tristate "Clock driver for MediaTek MT8188 imp_iic_wrap"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 imp_iic_wrap clocks.
+	  which is used to control imp_iic_wrap clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_IPESYS
+	tristate "Clock driver for MediaTek MT8188 ipesys"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 ipesys clocks.
+	  which is used to control ipesys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_VDECSYS
+	tristate "Clock driver for MediaTek MT8188 vdecsys"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 vdecsys clocks.
+	  which is used to control vdecsys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_VDOSYS0
+	tristate "Clock driver for MediaTek MT8188 vdosys0"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 vdosys0 clocks.
+	  which is used to control vdosys0 clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_VDOSYS1
+	tristate "Clock driver for MediaTek MT8188 vdosys1"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 vdosys1 clocks.
+	  which is used to control vdosys1 clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_VENCSYS
+	tristate "Clock driver for MediaTek MT8188 vencsys"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 vencsys clocks.
+	  which is used to control vencsys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_VPPSYS0
+	tristate "Clock driver for MediaTek MT8188 vppsys0"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 vppsys0 clocks.
+	  which is used to control vppsys0 clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_VPPSYS1
+	tristate "Clock driver for MediaTek MT8188 vppsys1"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 vppsys1 clocks.
+	  which is used to control vppsys1 clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_WPESYS
+	tristate "Clock driver for MediaTek MT8188 wpesys"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 wpesys clocks.
+	  which is used to control wpesys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_CCUSYS
+	tristate "Clock driver for MediaTek MT8188 ccusys"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 ccusys clocks.
+	  which is used to control ccusys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT8188_MFGCFG
+	tristate "Clock driver for MediaTek MT8188 mfgcfg"
+	depends on COMMON_CLK_MT8188
+	help
+	  This driver supports MediaTek MT8188 mfgcfg clocks.
+	  which is used to control mfgcfg clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
 config COMMON_CLK_MT8516
 	bool "Clock driver for MediaTek MT8516"
 	depends on ARM || ARM64 || COMPILE_TEST

@@ -80,6 +80,16 @@ err_out:
 }
 EXPORT_SYMBOL_GPL(mtk_alloc_clk_data);
 
+void mtk_free_clk_data(struct clk_onecell_data *clk_data)
+{
+	if (!clk_data)
+		return;
+
+	kfree(clk_data->clks);
+	kfree(clk_data);
+}
+EXPORT_SYMBOL_GPL(mtk_free_clk_data);
+
 void mtk_clk_register_fixed_clks(const struct mtk_fixed_clk *clks,
 		int num, struct clk_onecell_data *clk_data)
 {
