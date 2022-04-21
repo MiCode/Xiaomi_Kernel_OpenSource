@@ -29,9 +29,7 @@
 #include "mt6789-interconnection.h"
 
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
-#if !defined(SKIP_SB)
 #include "../ultrasound/ultra_scp/mtk-scp-ultra-common.h"
-#endif
 #endif
 /* FORCE_FPGA_ENABLE_IRQ use irq in fpga */
 /* #define FORCE_FPGA_ENABLE_IRQ */
@@ -5661,9 +5659,7 @@ static int mt6789_afe_pcm_dev_probe(struct platform_device *pdev)
 	}
 
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
-#if !defined(SKIP_SB)
 	ultra_set_dsp_afe(afe);
-#endif
 #endif
 	return 0;
 

@@ -599,12 +599,10 @@ SND_SOC_DAILINK_DEFS(vow,
 #endif
 #endif
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
-#if !defined(SKIP_SB)
 SND_SOC_DAILINK_DEFS(ultra,
 		DAILINK_COMP_ARRAY(COMP_DUMMY()),
 		DAILINK_COMP_ARRAY(COMP_DUMMY()),
 		DAILINK_COMP_ARRAY(COMP_PLATFORM("snd_scp_ultra")));
-#endif
 #endif
 
 static struct snd_soc_dai_link mt6789_mt6366_dai_links[] = {
@@ -1057,13 +1055,11 @@ static struct snd_soc_dai_link mt6789_mt6366_dai_links[] = {
 #endif
 #endif
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY) && !defined(CONFIG_FPGA_EARLY_PORTING)
-#if !defined(SKIP_SB)
 	{
 		.name = "SCP_ULTRA_Playback",
 		.stream_name = "SCP_ULTRA_Playback",
 		SND_SOC_DAILINK_REG(ultra),
 	},
-#endif
 #endif
 };
 
