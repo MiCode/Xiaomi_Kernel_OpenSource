@@ -12,7 +12,7 @@
 #include <dt-bindings/mfd/mt6315-irq.h>
 #include <dt-bindings/mfd/mt6359-irq.h>
 #include <dt-bindings/pinctrl/mt6885-pinfunc.h>
-#include <dt-bindings/clock/mt6893-clk.h>
+#include <dt-bindings/clock/mt6885-clk.h>
 #include <dt-bindings/mmc/mt6885-msdc.h>
 #include <dt-bindings/spmi/spmi.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
@@ -8514,7 +8514,7 @@ page_owner=on loop.max_part=7";
 #include "mediatek/mt6315_s7.dtsi"
 #include "mediatek/mt6315_s3.dtsi"
 #include "mediatek/mt6359p.dtsi"
-#include "mediatek/cust_mt6893_msdc.dtsi"
+#include "mediatek/cust_mt6885_msdc.dtsi"
 #include "mediatek/v1/mt6360_pd.dtsi"
 
 &mt_pmic_vemc_ldo_reg {
