@@ -162,6 +162,7 @@
 		mkp,policy = <0x0001fff5>;
 		bootargs = "console=tty0 root=/dev/ram \
 			rcupdate.rcu_expedited=1 transparent_hugepage=never \
+			8250.nr_uarts=4 \
 			vmalloc=400M swiotlb=noforce cma=64M \
 			firmware_class.path=/vendor/firmware pelt=8";
 		kaslr-seed = <0 0>;

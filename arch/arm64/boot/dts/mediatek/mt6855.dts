@@ -588,6 +588,7 @@
 		mkp,policy = <0x0001fff5>;
 		bootargs = "console=tty0  root=/dev/ram \
 			    loglevel=8 \
+			    8250.nr_uarts=4 \
 			    androidboot.hardware=mt6855 \
 			    initcall_debug=1 transparent_hugepage=never \
 			    vmalloc=400M swiotlb=noforce cma=64M allow_file_spec_access \
