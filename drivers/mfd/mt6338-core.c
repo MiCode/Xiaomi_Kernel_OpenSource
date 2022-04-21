@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (c) 2022 MediaTek Inc.
  */
 
 #include <linux/i2c.h>
@@ -14,6 +14,8 @@
 
 #include <linux/mfd/mt6338.h>
 #include <linux/mfd/mt6338-private.h>
+bool mt6338_probe_done;
+EXPORT_SYMBOL_GPL(mt6338_probe_done);
 
 #define MT6338_MFD_CELL(_name)					\
 	{							\
@@ -178,6 +180,7 @@ static int mt6338_pmic_probe(struct i2c_client *client,
 	struct mt6338_pmic_info *mpi;
 	struct regmap_config *regmap_config = &mt6338_regmap_config;
 	int ret;
+	mt6338_probe_done = false;
 
 	dev_info(&client->dev, "+%s()\n", __func__);
 
@@ -199,7 +202,11 @@ static int mt6338_pmic_probe(struct i2c_client *client,
 		return PTR_ERR(mpi->regmap);
 	}
 	/* chip id check */
-	mt6338_check_id(mpi);
+	ret = mt6338_check_id(mpi);
+	if (ret < 0) {
+		dev_info(&client->dev, "mt6338_check_id fail, return 0\n");
+		return ret;
+	}
 
 	/* mfd cell register */
 	ret = devm_mfd_add_devices(&client->dev, PLATFORM_DEVID_NONE,
@@ -218,6 +225,7 @@ static int mt6338_pmic_probe(struct i2c_client *client,
 	mt6338_Suspend_Setting(mpi);
 
 	dev_info(&client->dev, "Successfully probed\n");
+	mt6338_probe_done = true;
 	return 0;
 out:
 	i2c_unregister_device(mpi->i2c);
