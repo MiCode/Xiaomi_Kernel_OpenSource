@@ -262,4 +262,6 @@ int cnss_pci_get_user_msi_assignment(struct cnss_pci_data *pci_priv,
 				     u32 *user_base_data,
 				     u32 *base_vector);
 bool cnss_pci_is_smmu_s1_enabled(struct cnss_pci_data *pci_priv);
+int cnss_pci_dsp_link_control(struct cnss_pci_data *pci_priv,
+			      bool link_enable);
 #endif /* _CNSS_PCI_H */
