@@ -74,7 +74,7 @@ static int worker_func(void *data)
 			node->run(node);
 		end = ktime_get_boottime_ns();
 		if ((end - start) > 2000000)
-			dev_info(head->dev, "%s: work run time %lld > 2ms\n",
+			dev_dbg(head->dev, "%s: work run time %lld > 2ms\n",
 			__func__, (end - start));
 
 		IMGSYS_SYSTRACE_END();
