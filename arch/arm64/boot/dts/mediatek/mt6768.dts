@@ -928,6 +928,7 @@ page_owner=on loop.max_part=7";
 			      "mediatek,mt6765-timer",
 			      "mediatek,sys_timer";
 		reg = <0 0x10017000 0 0x1000>;
+		reg-names = "sys_timer_base";
 		interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clk13m>;
 	};
