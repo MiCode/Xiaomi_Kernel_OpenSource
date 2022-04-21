@@ -345,12 +345,9 @@ static void ufs_mtk_setup_ref_clk_wait_us(struct ufs_hba *hba,
 
 static void ufs_mtk_dbg_sel(struct ufs_hba *hba)
 {
-	static u32 hw_ver;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
-	if (!hw_ver)
-		hw_ver = ufshcd_readl(hba, REG_UFS_MTK_HW_VER);
-
-	if (((hw_ver >> 16) & 0xFF) >= 0x36) {
+	if (((host->ip_ver >> 16) & 0xFF) >= 0x36) {
 		ufshcd_writel(hba, 0x820820, REG_UFS_DEBUG_SEL);
 		ufshcd_writel(hba, 0x0, REG_UFS_DEBUG_SEL_B0);
 		ufshcd_writel(hba, 0x55555555, REG_UFS_DEBUG_SEL_B1);
@@ -1738,6 +1735,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	ufs_mtk_mphy_power_on(hba, true);
 	ufs_mtk_setup_clocks(hba, true, POST_CHANGE);
 
+	host->ip_ver = ufshcd_readl(hba, REG_UFS_MTK_IP_VER);
 
 	/* Get vcc-opt */
 	ufs_mtk_get_vcc_info(res);
