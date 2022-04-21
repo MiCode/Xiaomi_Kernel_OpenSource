@@ -52,7 +52,7 @@ const struct mtk_disp_ovl_data mt6789_ovl_driver_data = {
 	.issue_req_th_urg_dl = 95,
 	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x5555,
-	.is_support_34bits = true,
+	.is_support_34bits = false,
 	.source_bpc = 10,
 };
 
@@ -67,7 +67,7 @@ const struct mtk_disp_wdma_data mt6789_wdma_driver_data = {
 	.sodi_config = mt6789_mtk_sodi_config,
 	.support_shadow = false,
 	.need_bypass_shadow = true,
-	.is_support_34bits = true,
+	.is_support_34bits = false,
 };
 
 // rdma
@@ -85,7 +85,7 @@ const struct mtk_disp_rdma_data mt6789_rdma_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = true,
 	.has_greq_urg_num = false,
-	.is_support_34bits = true,
+	.is_support_34bits = false,
 	.dsi_buffer = false,
 };
 
@@ -106,7 +106,7 @@ const struct mtk_disp_rsz_data mt6789_rsz_driver_data = {
 
 // postmask
 const struct mtk_disp_postmask_data mt6789_postmask_driver_data = {
-	.is_support_34bits = true,
+	.is_support_34bits = false,
 };
 
 // aal
