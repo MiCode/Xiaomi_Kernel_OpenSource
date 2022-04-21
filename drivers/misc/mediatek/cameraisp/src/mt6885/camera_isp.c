@@ -39,10 +39,10 @@
 #endif
 #include "mach/pseudo_m4u.h"
 #ifdef CONFIG_MACH_MT6893
-#include <clk-mt6893-pg.h>
+#include <clk-mt6885-pg.h>
 #endif
 #ifdef CONFIG_MACH_MT6885
-#include <clk-mt6893-pg.h>
+#include <clk-mt6885-pg.h>
 #endif
 
 
