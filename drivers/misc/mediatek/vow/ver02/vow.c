@@ -2004,6 +2004,8 @@ static ssize_t VowDrv_SetPhase1Debug(struct device *kobj,
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
 
+	vowserv.force_phase_stage = (enable == 1) ? FORCE_PHASE1 : NO_FORCE;
+
 	VowDrv_SetFlag(VOW_FLAG_FORCE_PHASE1_DEBUG, enable);
 	return n;
 }
@@ -2035,6 +2037,8 @@ static ssize_t VowDrv_SetPhase2Debug(struct device *kobj,
 
 	if (kstrtouint(buf, 0, &enable) != 0)
 		return -EINVAL;
+
+	vowserv.force_phase_stage = (enable == 1) ? FORCE_PHASE2 : NO_FORCE;
 
 	VowDrv_SetFlag(VOW_FLAG_FORCE_PHASE2_DEBUG, enable);
 	return n;
@@ -2249,6 +2253,9 @@ static ssize_t VowDrv_SetSWIPLog(struct device *kobj,
 		return -EINVAL;
 
 	VowDrv_SetFlag(VOW_FLAG_SWIP_LOG_PRINT, enable);
+	vowserv.swip_log_enable = (enable == 1) ? true : false;
+	VOWDRV_DEBUG("%s(),enable=%d\n", __func__, enable);
+
 	return n;
 }
 DEVICE_ATTR(vow_SetLibLog,
