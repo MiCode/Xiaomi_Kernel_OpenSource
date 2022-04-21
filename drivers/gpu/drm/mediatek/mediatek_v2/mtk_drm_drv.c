@@ -1224,6 +1224,8 @@ static void _mtk_atomic_mml_plane(struct drm_device *dev,
 	if (ret)
 		goto err_submit;
 
+	CRTC_MMP_MARK(0, mml_dbg, crtc_state->prop_val[CRTC_PROP_LYE_IDX], MMP_MML_SUBMIT);
+
 	// release previous mml_cfg
 	mtk_free_mml_submit(mtk_crtc->mml_cfg);
 	mtk_free_mml_submit(mtk_plane_state->mml_cfg);

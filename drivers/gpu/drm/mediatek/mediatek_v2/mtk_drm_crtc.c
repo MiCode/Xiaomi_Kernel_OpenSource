@@ -1687,6 +1687,8 @@ static void calc_mml_config(struct drm_crtc *crtc,
 	w = crtc_state->mml_dst_roi.width;
 	h = crtc_state->mml_dst_roi.height;
 
+	CRTC_MMP_EVENT_START(0, mml_dbg, x, w);
+
 	addon_config->addon_mml_config.mml_dst_roi[0].x = x;
 	addon_config->addon_mml_config.mml_dst_roi[0].y = y;
 	addon_config->addon_mml_config.mml_dst_roi[0].width = w;
@@ -1717,6 +1719,9 @@ static void calc_mml_config(struct drm_crtc *crtc,
 
 	comp = priv->ddp_comp[DDP_COMPONENT_MML_MML0];
 	mtk_ddp_comp_mml_calc_cfg(comp, addon_config);
+
+	CRTC_MMP_EVENT_END(0, mml_dbg, addon_config->addon_mml_config.mml_dst_roi[1].x,
+			   addon_config->addon_mml_config.mml_dst_roi[1].width);
 
 	if (mtk_crtc->is_dual_pipe)
 		addon_config->addon_mml_config.mml_dst_roi[1].x -= mid_line;
@@ -1798,6 +1803,7 @@ static void mml_addon_module_connect(struct drm_crtc *crtc,
 		mtk_addon_connect_between(crtc, ddp_mode, addon_module_dual,
 					addon_config, cmdq_handle);
 	}
+	CRTC_MMP_MARK(0, mml_dbg, (unsigned long)cmdq_handle, MMP_ADDON_CONNECT);
 }
 
 static void mml_addon_module_disconnect(struct drm_crtc *crtc,
@@ -1854,6 +1860,8 @@ static void mml_addon_module_disconnect(struct drm_crtc *crtc,
 		mtk_addon_disconnect_between(crtc, ddp_mode, addon_module_dual,
 				  addon_config, cmdq_handle);
 	}
+
+	CRTC_MMP_MARK(0, mml_dbg, (unsigned long)cmdq_handle, MMP_ADDON_DISCONNECT);
 }
 
 void _mtk_crtc_wb_addon_module_disconnect(

@@ -1946,6 +1946,21 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 			}
 
 			if (dsi_underrun_trigger == 1 && dsi->encoder.crtc) {
+				if (mtk_crtc->is_mml) { /* Temp patch for debug MML */
+					u32 pos_xy[4] = {0};
+
+					pos_xy[0] = readl_relaxed(
+					    0x244UL + priv->ddp_comp[DDP_COMPONENT_OVL0_2L]->regs);
+					pos_xy[1] = readl_relaxed(
+					    0x244UL + priv->ddp_comp[DDP_COMPONENT_OVL2_2L]->regs);
+					pos_xy[2] = readl_relaxed(
+					    0x28CUL + priv->ddp_comp[DDP_COMPONENT_OVL0]->regs);
+					pos_xy[3] = readl_relaxed(
+					    0x28CUL + priv->ddp_comp[DDP_COMPONENT_OVL1]->regs);
+					CRTC_MMP_MARK(0, mml_dbg, pos_xy[0], pos_xy[1]);
+					CRTC_MMP_MARK(0, mml_dbg, pos_xy[2], pos_xy[3]);
+					mmprofile_enable(0);
+				}
 				mtk_drm_crtc_analysis(dsi->encoder.crtc);
 				mtk_drm_crtc_dump(dsi->encoder.crtc);
 				dsi_underrun_trigger = 0;
