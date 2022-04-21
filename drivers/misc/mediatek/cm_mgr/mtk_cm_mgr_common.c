@@ -104,6 +104,7 @@ static int dsu_opp_send = 0xff;
 static int dsu_mode;
 static int cm_aggr;
 unsigned int cm_hint;
+unsigned int dsu_perf;
 #endif
 int debounce_times_reset_adb;
 int light_load_cps = 1000;
@@ -135,6 +136,11 @@ int get_cm_step_num(void)
 	return cm_hint;
 }
 EXPORT_SYMBOL_GPL(get_cm_step_num);
+int get_dsu_perf(void)
+{
+	return dsu_perf;
+}
+EXPORT_SYMBOL_GPL(get_dsu_perf);
 #endif
 
 struct icc_path *cm_mgr_get_bw_path(void)
@@ -553,6 +559,8 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 			cm_aggr);
 	len += cm_mgr_print("cm_hint %d\n",
 			cm_hint);
+	len += cm_mgr_print("dsu_perf %d\n",
+			dsu_perf);
 	len += cm_mgr_print("cm_mgr_dram_opp_ceiling %d\n",
 			    cm_mgr_dram_opp_ceiling);
 	len += cm_mgr_print("cm_mgr_dram_opp_floor %d\n",
@@ -723,6 +731,8 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		cm_mgr_to_sspm_command(IPI_CM_MGR_AGGRESSIVE, val_1);
 	} else if (!strcmp(cmd, "cm_hint")) {
 		cm_hint = val_1;
+	} else if (!strcmp(cmd, "dsu_perf")) {
+		dsu_perf = val_1;
 	} else if (!strcmp(cmd, "cm_mgr_dram_opp_ceiling")) {
 		cm_mgr_dram_opp_ceiling = val_1;
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DRAM_OPP_CEILING, val_1);

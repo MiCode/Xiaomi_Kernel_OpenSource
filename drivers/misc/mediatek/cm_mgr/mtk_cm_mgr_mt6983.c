@@ -186,10 +186,14 @@ void cm_mgr_perf_platform_set_status_mt6983(int enable)
 	unsigned long expires;
 	int down_local;
 	int cm_thresh;
+	unsigned int dsu_perf;
 
 
 	cm_thresh = get_cm_step_num();
 	csram_write(OFFS_CM_THRESH, cm_thresh);
+
+	dsu_perf = get_dsu_perf();
+	csram_write(OFFS_DSU_PERF, dsu_perf);
 
 
 	if (enable || pm_qos_update_request_status) {
