@@ -1018,7 +1018,7 @@
 			"mediatek,toprgu",
 			"syscon", "simple-mfd";
 		reg = <0 0x10007000 0 0x1000>;
-		mediatek,rg_dfd_timeout = <0xa0>;
+		mediatek,rg_dfd_timeout = <0x1ffff>;
 		#reset-cells = <1>;
 		reboot-mode {
 			compatible = "syscon-reboot-mode";
