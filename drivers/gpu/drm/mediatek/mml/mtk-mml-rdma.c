@@ -1668,18 +1668,20 @@ static void rdma_debug_dump(struct mml_comp *comp)
 	u32 value[31];
 	u32 mon[29];
 	u32 state, greq;
-	u32 shadow_ctrl;
 	u32 i;
 
 	mml_err("rdma component %u dump:", comp->id);
 
-	/* Enable shadow read working */
-	shadow_ctrl = readl(base + RDMA_SHADOW_CTRL);
-	shadow_ctrl |= 0x4;
-	writel(shadow_ctrl, base + RDMA_SHADOW_CTRL);
-
 	if (rdma->data->write_sec_reg)
 		cmdq_util_prebuilt_dump(0, CMDQ_TOKEN_PREBUILT_MML_WAIT);
+	else {
+		u32 shadow_ctrl;
+
+		/* Enable shadow read working */
+		shadow_ctrl = readl(base + RDMA_SHADOW_CTRL);
+		shadow_ctrl |= 0x4;
+		writel(shadow_ctrl, base + RDMA_SHADOW_CTRL);
+	}
 
 	value[0] = readl(base + RDMA_EN);
 	value[1] = readl(base + RDMA_RESET);
