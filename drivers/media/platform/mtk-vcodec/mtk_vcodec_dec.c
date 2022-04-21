@@ -1552,7 +1552,6 @@ static void mtk_vdec_worker(struct work_struct *work)
 			 */
 			mtk_v4l2_err(" <=== [%d] vcodec not support the source!===>",
 				ctx->id);
-			ctx->state = MTK_STATE_FLUSH;
 			mtk_vdec_queue_error_event(ctx);
 			v4l2_m2m_buf_done(&src_buf_info->vb,
 				VB2_BUF_STATE_DONE);
