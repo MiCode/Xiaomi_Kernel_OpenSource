@@ -218,8 +218,8 @@ static int apusys_mvpu_handler_lite(int type, void *hnd, struct apusys_device *d
 				continue;
 
 			// check buffer integrity
-			if (apusys_mem_get_by_iova(cmd_hnd->session,
-				(uint64_t)sec_chk_addr[i]) != 0) {
+			if (apusys_mem_validate_by_cmd(cmd_hnd->session, NULL,
+				(uint64_t)sec_chk_addr[i], 0) != 0) {
 				pr_info("[MVPU][Sec] buf[%d]: 0x%08x integrity checked FAIL\n",
 							i, sec_chk_addr[i]);
 				ret = -1;
