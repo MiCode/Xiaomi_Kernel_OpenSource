@@ -21,6 +21,7 @@
 #include <linux/tick.h>
 #include <linux/time.h>
 #include <linux/vmalloc.h>
+#include <scsi/scsi_proto.h>
 #include "mtk_blocktag.h"
 #include "blocktag-ufs.h"
 
@@ -197,10 +198,12 @@ void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id,
 
 	tsk->t[tsk_req_compl] = sched_clock();
 
-	if (tsk->cmd == 0x28) {
+	if (tsk->cmd == READ_6 || tsk->cmd == READ_10 ||
+	    tsk->cmd == READ_16) {
 		rw = 0; /* READ */
 		tp = &ctx->throughput.r;
-	} else if (tsk->cmd == 0x2A) {
+	} else if (tsk->cmd == WRITE_6 || tsk->cmd == WRITE_10 ||
+		   tsk->cmd == WRITE_16) {
 		rw = 1; /* WRITE */
 		tp = &ctx->throughput.w;
 	}
