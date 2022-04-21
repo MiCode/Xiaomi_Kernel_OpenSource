@@ -245,6 +245,7 @@ struct mtk_mraw_device {
 	atomic_t is_fifo_overflow;
 
 	unsigned int sof_count;
+	u64 last_sof_time_ns;
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;
 	unsigned int is_enqueued;

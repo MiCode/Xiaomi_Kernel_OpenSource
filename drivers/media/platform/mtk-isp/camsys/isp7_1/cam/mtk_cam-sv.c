@@ -2169,11 +2169,20 @@ int mtk_cam_sv_dev_stream_on(
 			}
 	}
 
-	if (streaming)
+	if (streaming) {
 		ret = mtk_cam_sv_top_enable(camsv_dev);
+		if (watchdog_scenario(ctx) && camsv_dev->is_enqueued &&
+			!(hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO))
+			mtk_ctx_watchdog_start(ctx, 4,
+				camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START);
+	}
 	else {
 		/* reset enqueued status */
 		camsv_dev->is_enqueued = 0;
+		if (watchdog_scenario(ctx) &&
+			!(hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO))
+			mtk_ctx_watchdog_stop(ctx,
+				camsv_dev->id + MTKCAM_SUBDEV_CAMSV_START);
 
 		ret = mtk_cam_sv_top_disable(camsv_dev) ||
 			mtk_cam_sv_fbc_disable(camsv_dev) ||
@@ -2552,6 +2561,7 @@ static irqreturn_t mtk_irq_camsv(int irq, void *data)
 	/* Frame start */
 	if (irq_status & CAMSV_INT_TG_SOF_INT_ST) {
 		irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_START);
+		camsv_dev->last_sof_time_ns = irq_info.ts_ns;
 		camsv_dev->sof_count++;
 		camsv_dev->sof_timestamp = ktime_get_boottime_ns();
 		if (camsv_dev->pipeline->hw_scen &
