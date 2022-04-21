@@ -221,6 +221,7 @@ u32 cmdq_util_get_bit_feature(void)
 {
 	return util.fs.bit_feature;
 }
+EXPORT_SYMBOL(cmdq_util_get_bit_feature);
 
 bool cmdq_util_is_feature_en(u8 feature)
 {
@@ -581,8 +582,11 @@ void cmdq_util_hw_trace_enable(const u16 hwid, const bool dram)
 {
 	struct cmdq_hw_trace *trace;
 
-	if (hwid > util.mbox_cnt)
+	if (hwid > util.mbox_cnt || !cmdq_hw_trace) {
+		cmdq_msg("%s: hwid:%hu mbox_cnt:%u cmdq_hw_trace:%d",
+			__func__, hwid, util.mbox_cnt, cmdq_hw_trace);
 		return;
+	}
 
 	trace = &util.hw_trace[hwid];
 
@@ -637,8 +641,11 @@ void cmdq_util_hw_trace_disable(const u16 hwid)
 {
 	struct cmdq_hw_trace *trace;
 
-	if (hwid > util.mbox_cnt)
+	if (hwid > util.mbox_cnt || !cmdq_hw_trace) {
+		cmdq_msg("%s: hwid:%hu mbox_cnt:%u cmdq_hw_trace:%d",
+			__func__, hwid, util.mbox_cnt, cmdq_hw_trace);
 		return;
+	}
 
 	trace = &util.hw_trace[hwid];
 	if (trace->enable && trace->clt) {
@@ -654,8 +661,11 @@ void cmdq_util_hw_trace_dump(const u16 hwid, const bool dram)
 	u32 val[8];
 	s32 i, j;
 
-	if (hwid > util.mbox_cnt)
+	if (hwid > util.mbox_cnt || !cmdq_hw_trace) {
+		cmdq_msg("%s: hwid:%hu mbox_cnt:%u cmdq_hw_trace:%d",
+			__func__, hwid, util.mbox_cnt, cmdq_hw_trace);
 		return;
+	}
 
 	trace = &util.hw_trace[hwid];
 	cmdq_dump_summary(trace->clt, trace->pkt);

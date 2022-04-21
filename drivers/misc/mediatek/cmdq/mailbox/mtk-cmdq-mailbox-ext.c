@@ -144,6 +144,46 @@ int cmdq_trace;
 EXPORT_SYMBOL(cmdq_trace);
 module_param(cmdq_trace, int, 0644);
 
+int cmdq_hw_trace;
+EXPORT_SYMBOL(cmdq_hw_trace);
+
+struct cmdq_hw_trace_bit {
+	uint8_t enable : 1;
+	uint8_t dump : 1;
+	uint8_t hwid : 2;
+	uint32_t unused : 28;
+};
+
+int cmdq_hw_trace_set(const char *val, const struct kernel_param *kp)
+{
+	struct cmdq_hw_trace_bit bit;
+	int ret;
+
+	ret = kstrtouint(val, 0, (u32 *)(void *)&bit);
+	cmdq_msg("%s: bit:%#x enable:%d dump:%d hwid:%#x ret:%d",
+		__func__, bit, bit.enable, bit.dump, bit.hwid, ret);
+
+	if (ret)
+		return ret;
+
+	cmdq_hw_trace = bit.enable ? 1 : 0;
+
+	if (bit.dump && (bit.hwid & 0x1))
+		cmdq_util_hw_trace_dump(
+			0, cmdq_util_get_bit_feature() & CMDQ_LOG_FEAT_PERF);
+
+	if (bit.dump && (bit.hwid & 0x2))
+		cmdq_util_hw_trace_dump(
+			1, cmdq_util_get_bit_feature() & CMDQ_LOG_FEAT_PERF);
+
+	return ret;
+}
+
+static struct kernel_param_ops cmdq_hw_trace_ops = {
+	.set = cmdq_hw_trace_set,
+};
+module_param_cb(cmdq_hw_trace, &cmdq_hw_trace_ops, NULL, 0644);
+
 struct cmdq_task {
 	struct cmdq		*cmdq;
 	struct list_head	list_entry;
@@ -359,6 +399,10 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 	mmprofile_log_ex(cmdq_mmp.thread_suspend, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), CMDQ_THR_SUSPEND);
 #endif
+	if (cmdq_hw_trace)
+		cmdq_log("%s: hwid:%hu idx:%hu",
+			__func__, cmdq->hwid, thread->idx);
+
 	writel(CMDQ_THR_SUSPEND, thread->base + CMDQ_THR_SUSPEND_TASK);
 
 	/* If already disabled, treat as suspended successful. */
@@ -379,16 +423,17 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 
 static void cmdq_thread_resume(struct cmdq_thread *thread)
 {
-#if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
 	struct cmdq *cmdq = container_of(
 		thread->chan->mbox, typeof(*cmdq), mbox);
-#endif
 
 	writel(CMDQ_THR_RESUME, thread->base + CMDQ_THR_SUSPEND_TASK);
 #if IS_ENABLED(CONFIG_CMDQ_MMPROFILE_SUPPORT)
 	mmprofile_log_ex(cmdq_mmp.thread_suspend, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), CMDQ_THR_RESUME);
 #endif
+	if (cmdq_hw_trace)
+		cmdq_log("%s: hwid:%hu idx:%hu",
+			__func__, cmdq->hwid, thread->idx);
 }
 
 int cmdq_thread_reset(struct cmdq *cmdq, struct cmdq_thread *thread)
@@ -2244,6 +2289,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq->hwid = hwid++;
 	cmdq->prebuilt_enable =
 		of_property_read_bool(dev->of_node, "prebuilt-enable");
+	cmdq_hw_trace = 1; // default enable
 
 	cmdq->mbox.dev = dev;
 	cmdq->mbox.chans = devm_kcalloc(dev, CMDQ_THR_MAX_COUNT,
@@ -2450,6 +2496,11 @@ void cmdq_mbox_enable(void *chan)
 			cmdq_util_prebuilt_enable(cmdq->hwid);
 		} else
 			cmdq_init(cmdq);
+
+		if (cmdq_hw_trace)
+			cmdq_util_hw_trace_enable(cmdq->hwid,
+				cmdq_util_get_bit_feature() &
+				CMDQ_LOG_FEAT_PERF);
 	}
 }
 EXPORT_SYMBOL(cmdq_mbox_enable);
@@ -2490,12 +2541,15 @@ void cmdq_mbox_disable(void *chan)
 		cmdq_err("hwid:%hu idx:%d usage:%d still has tasks",
 			cmdq->hwid, i, usage);
 
-	usage = atomic_dec_return(&cmdq->usage);
-	if (usage < 0) {
+	usage = atomic_read(&cmdq->usage);
+	if (cmdq_hw_trace && usage == 1)
+		cmdq_util_hw_trace_disable(cmdq->hwid);
+
+	if (usage <= 0) {
 		cmdq_err("hwid:%u usage:%d cannot below zero",
 			cmdq->hwid, usage);
 		WARN_ON(1);
-	} else if (!usage) {
+	} else if (usage == 1) {
 		unsigned long flags;
 
 		cmdq_log("%s: hwid:%hu usage:%d idx:%d usage:%d",
@@ -2529,6 +2583,7 @@ void cmdq_mbox_disable(void *chan)
 				cmdq->hwid, usage);
 		pm_runtime_put_sync(cmdq->mbox.dev);
 	}
+	atomic_dec(&cmdq->usage);
 }
 EXPORT_SYMBOL(cmdq_mbox_disable);
 
@@ -2953,6 +3008,9 @@ s32 cmdq_pkt_hw_trace(struct cmdq_pkt *pkt)
 {
 	struct cmdq_thread *thread;
 	struct cmdq_operand lop, rop;
+
+	if (!cmdq_hw_trace)
+		return 0;
 
 	if (!pkt->cl) {
 		cmdq_log("%s: pkt:%p without client", __func__, pkt);

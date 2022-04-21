@@ -18,6 +18,8 @@ enum {
 	CMDQ_LOG_FEAT_NUM,
 };
 
+extern int cmdq_hw_trace;
+
 #define cmdq_util_log(feat, fmt, args...) \
 	do { \
 		cmdq_util_error_save("[cmdq] "fmt"\n", ##args); \
