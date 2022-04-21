@@ -108,7 +108,7 @@ static void kpd_keymap_handler(unsigned long data)
 
 			/* bit is 1: not pressed, 0: pressed */
 			pressed = (new_state[i] & mask) == 0U;
-			pr_debug("(%s) HW keycode = %d\n",
+			pr_notice("(%s) HW keycode = %d\n",
 				(pressed) ? "pressed" : "released",
 					hw_keycode);
 
@@ -117,7 +117,7 @@ static void kpd_keymap_handler(unsigned long data)
 				continue;
 			input_report_key(keypad->input_dev, keycode, pressed);
 			input_sync(keypad->input_dev);
-			pr_debug("report Linux keycode = %d\n", keycode);
+			pr_notice("report Linux keycode = %d\n", keycode);
 		}
 	}
 
@@ -143,26 +143,26 @@ static int kpd_get_dts_info(struct mtk_keypad *keypad,
 	ret = of_property_read_u32(node, "mediatek,key-debounce-ms",
 		&keypad->key_debounce);
 	if (ret) {
-		pr_debug("read mediatek,key-debounce-ms error.\n");
+		pr_notice("read mediatek,key-debounce-ms error.\n");
 		return ret;
 	}
 
 	ret = of_property_read_u32(node, "mediatek, use-extend-type",
 		&keypad->use_extend_type);
 	if (ret) {
-		pr_debug("read mediatek,use-extend-type error.\n");
+		pr_notice("read mediatek,use-extend-type error.\n");
 		keypad->use_extend_type = 0;
 	}
 
 	ret = of_property_read_u32(node, "mediatek,hw-map-num",
 		&keypad->hw_map_num);
 	if (ret) {
-		pr_debug("read mediatek,hw-map-num error.\n");
+		pr_notice("read mediatek,hw-map-num error.\n");
 		return ret;
 	}
 
 	if (keypad->hw_map_num > KPD_NUM_KEYS) {
-		pr_debug("hw-map-num error, it cannot bigger than %d.\n",
+		pr_notice("hw-map-num error, it cannot bigger than %d.\n",
 			KPD_NUM_KEYS);
 		return -EINVAL;
 	}
@@ -171,11 +171,11 @@ static int kpd_get_dts_info(struct mtk_keypad *keypad,
 		keypad->hw_init_map, keypad->hw_map_num);
 
 	if (ret) {
-		pr_debug("hw-init-map was not defined in dts.\n");
+		pr_notice("hw-init-map was not defined in dts.\n");
 		return ret;
 	}
 
-	pr_debug("deb= %d\n", keypad->key_debounce);
+	pr_notice("deb= %d\n", keypad->key_debounce);
 
 	return 0;
 }
@@ -197,7 +197,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 	ret = clk_prepare_enable(keypad->clk);
 	if (ret) {
-		pr_debug("cannot prepare/enable keypad clock\n");
+		pr_notice("cannot prepare/enable keypad clock\n");
 		return ret;
 	}
 
@@ -210,21 +210,21 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 	keypad->base = devm_ioremap(&pdev->dev, res->start,
 			resource_size(res));
 	if (!keypad->base) {
-		pr_debug("KP iomap failed\n");
+		pr_notice("KP iomap failed\n");
 		ret = -EBUSY;
 		goto err_unprepare_clk;
 	}
 
 	keypad->irqnr = irq_of_parse_and_map(pdev->dev.of_node, 0);
 	if (!keypad->irqnr) {
-		pr_debug("KP get irqnr failed\n");
+		pr_notice("KP get irqnr failed\n");
 		ret = -ENODEV;
 		goto err_unprepare_clk;
 	}
 
 	ret = kpd_get_dts_info(keypad, pdev->dev.of_node);
 	if (ret) {
-		pr_debug("get dts info failed.\n");
+		pr_notice("get dts info failed.\n");
 		goto err_unprepare_clk;
 	}
 
