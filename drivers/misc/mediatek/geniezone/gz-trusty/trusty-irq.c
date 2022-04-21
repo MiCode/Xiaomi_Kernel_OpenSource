@@ -412,7 +412,7 @@ static int trusty_irq_init_normal_irq(struct trusty_irq_state *is, int tirq)
 	dev_dbg(is->dev, "%s: tirq=%d, virq=%d\n", __func__, tirq, irq);
 #endif
 
-	ret = request_irq(irq, trusty_irq_handler, IRQF_NO_THREAD,
+	ret = request_irq(irq, trusty_irq_handler, IRQF_NO_THREAD | IRQF_SHARED | IRQF_PROBE_SHARED,
 			  "trusty", trusty_irq);
 	if (ret) {
 		dev_info(is->dev, "request_irq failed %d\n", ret);
