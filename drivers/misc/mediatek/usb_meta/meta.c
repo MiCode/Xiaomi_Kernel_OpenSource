@@ -1406,6 +1406,10 @@ static int usb_meta_probe(struct platform_device *pdev)
 	node_udc = of_parse_phandle(pdev->dev.of_node, "udc", 0);
 	if (node_udc) {
 		pdev_udc = of_find_device_by_node(node_udc);
+		if (!platform_get_drvdata(pdev_udc)) {
+			err = -EPROBE_DEFER;
+			goto err_probe;
+		}
 		sprintf(meta_udc_name, "%s", dev_name(&pdev_udc->dev));
 		of_node_put(node_udc);
 	} else {
@@ -1427,6 +1431,7 @@ static int usb_meta_probe(struct platform_device *pdev)
 		pr_info("%s: failed to probe driver %d\n",
 				__func__, err);
 		_android_dev = NULL;
+		usb_composite_unregister(&android_usb_driver);
 		goto err_probe;
 	}
 
