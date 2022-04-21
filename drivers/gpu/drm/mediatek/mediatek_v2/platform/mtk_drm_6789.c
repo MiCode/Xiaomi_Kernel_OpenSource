@@ -1479,6 +1479,7 @@ const struct mtk_mipitx_data mt6789_mipitx_data = {
 	.mppll_preserve = (0 << 8),
 	.dsi_pll_sdm_pcw_chg = RG_DSI_PLL_SDM_PCW_CHG,
 	.dsi_pll_en = RG_DSI_PLL_EN,
+	.dsi_ssc_en = RG_DSI_PLL_SDM_SSC_EN,
 	.ck_sw_ctl_en = MIPITX_CK_SW_CTL_EN,
 	.d0_sw_ctl_en = MIPITX_D0_SW_CTL_EN,
 	.d1_sw_ctl_en = MIPITX_D1_SW_CTL_EN,
@@ -1499,12 +1500,14 @@ const struct mtk_mipitx_data mt6789_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw,
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en,
 };
 
 const struct mtk_mipitx_data mt6789_mipitx_cphy_data = {
 	.mppll_preserve = (0 << 8),
 	.dsi_pll_sdm_pcw_chg = RG_DSI_PLL_SDM_PCW_CHG,
 	.dsi_pll_en = RG_DSI_PLL_EN,
+	.dsi_ssc_en = RG_DSI_PLL_SDM_SSC_EN,
 	.ck_sw_ctl_en = MIPITX_CK_SW_CTL_EN,
 	.d0_sw_ctl_en = MIPITX_D0_SW_CTL_EN,
 	.d1_sw_ctl_en = MIPITX_D1_SW_CTL_EN,
