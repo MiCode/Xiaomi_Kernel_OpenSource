@@ -52,7 +52,8 @@ static DEFINE_SPINLOCK(map_idr_lock);
 static DEFINE_IDR(link_idr);
 static DEFINE_SPINLOCK(link_idr_lock);
 
-int sysctl_unprivileged_bpf_disabled __read_mostly;
+int sysctl_unprivileged_bpf_disabled __read_mostly =
+	IS_BUILTIN(CONFIG_BPF_UNPRIV_DEFAULT_OFF) ? 2 : 0;
 
 static const struct bpf_map_ops * const bpf_map_types[] = {
 #define BPF_PROG_TYPE(_id, _name, prog_ctx_type, kern_ctx_type)
@@ -537,8 +538,10 @@ static void bpf_map_show_fdinfo(struct seq_file *m, struct file *filp)
 
 	if (map->map_type == BPF_MAP_TYPE_PROG_ARRAY) {
 		array = container_of(map, struct bpf_array, map);
-		type  = array->aux->type;
-		jited = array->aux->jited;
+		spin_lock(&array->aux->owner.lock);
+		type  = array->aux->owner.type;
+		jited = array->aux->owner.jited;
+		spin_unlock(&array->aux->owner.lock);
 	}
 
 	seq_printf(m,
@@ -1309,12 +1312,11 @@ int generic_map_update_batch(struct bpf_map *map,
 	void __user *values = u64_to_user_ptr(attr->batch.values);
 	void __user *keys = u64_to_user_ptr(attr->batch.keys);
 	u32 value_size, cp, max_count;
-	int ufd = attr->map_fd;
+	int ufd = attr->batch.map_fd;
 	void *key, *value;
 	struct fd f;
 	int err = 0;
 
-	f = fdget(ufd);
 	if (attr->batch.elem_flags & ~BPF_F_LOCK)
 		return -EINVAL;
 
@@ -1339,6 +1341,7 @@ int generic_map_update_batch(struct bpf_map *map,
 		return -ENOMEM;
 	}
 
+	f = fdget(ufd); /* bpf_map_do_batch() guarantees ufd is valid */
 	for (cp = 0; cp < max_count; cp++) {
 		err = -EFAULT;
 		if (copy_from_user(key, keys + cp * map->key_size,
@@ -1358,6 +1361,7 @@ int generic_map_update_batch(struct bpf_map *map,
 
 	kfree(value);
 	kfree(key);
+	fdput(f);
 	return err;
 }
 
