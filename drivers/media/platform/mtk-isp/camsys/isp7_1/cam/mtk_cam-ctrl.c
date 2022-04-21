@@ -4116,46 +4116,6 @@ void mtk_cam_meta1_done_work(struct work_struct *work)
 		 __func__, req->req.debug_str, s_data->frame_seq_no);
 }
 
-void mtk_cam_sv_work(struct work_struct *work)
-{
-	struct mtk_cam_req_work *sv_work = (struct mtk_cam_req_work *)work;
-	struct mtk_cam_request_stream_data *s_data;
-	struct mtk_cam_ctx *ctx;
-	struct device *dev_sv;
-	struct mtk_camsv_device *camsv_dev;
-	unsigned int seq_no;
-	dma_addr_t base_addr;
-
-	s_data = mtk_cam_req_work_get_s_data(sv_work);
-	ctx = mtk_cam_s_data_get_ctx(s_data);
-
-	spin_lock(&ctx->streaming_lock);
-	if (!ctx->streaming) {
-		dev_info(ctx->cam->dev,
-			"%s:Ignore enque from workqueue after streaming off\n", __func__);
-		spin_unlock(&ctx->streaming_lock);
-		return;
-	}
-	spin_unlock(&ctx->streaming_lock);
-
-	dev_sv = ctx->cam->sv.devs[s_data->pipe_id - MTKCAM_SUBDEV_CAMSV_START];
-	camsv_dev = dev_get_drvdata(dev_sv);
-
-	if (s_data->req->pipe_used & (1 << s_data->pipe_id)) {
-		seq_no = s_data->frame_seq_no;
-		base_addr = s_data->sv_frame_params.img_out.buf[0][0].iova;
-		mtk_cam_sv_setup_cfg_info(camsv_dev, s_data);
-		mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
-		mtk_cam_sv_vf_on(camsv_dev, 1);
-		if (watchdog_scenario(ctx))
-			mtk_ctx_watchdog_start(ctx, 4, s_data->pipe_id);
-	} else {
-		mtk_cam_sv_vf_on(camsv_dev, 0);
-		if (watchdog_scenario(ctx))
-			mtk_ctx_watchdog_stop(ctx, s_data->pipe_id);
-	}
-}
-
 static void mtk_cam_meta1_done(struct mtk_cam_ctx *ctx,
 			       unsigned int frame_seq_no,
 			       unsigned int pipe_id)

@@ -1735,6 +1735,33 @@ int mtk_cam_sv_fbc(struct mtk_camsv_device *dev)
 	return (fbc_imgo_ctl2 & 0x1FF0000) >> 16;
 }
 
+void mtk_cam_sv_apply_frame_setting(
+	struct mtk_cam_request_stream_data *s_data)
+{
+	struct mtk_cam_ctx *ctx;
+	struct mtk_camsv_device *camsv_dev;
+	unsigned int seq_no;
+	dma_addr_t base_addr;
+
+	ctx = mtk_cam_s_data_get_ctx(s_data);
+	camsv_dev = get_camsv_dev(ctx->cam,
+		&ctx->cam->sv.pipelines[s_data->pipe_id - MTKCAM_SUBDEV_CAMSV_START]);
+
+	if (s_data->req->pipe_used & (1 << s_data->pipe_id)) {
+		seq_no = s_data->frame_seq_no;
+		base_addr = s_data->sv_frame_params.img_out.buf[0][0].iova;
+		mtk_cam_sv_setup_cfg_info(camsv_dev, s_data);
+		mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
+		mtk_cam_sv_vf_on(camsv_dev, 1);
+		if (watchdog_scenario(ctx))
+			mtk_ctx_watchdog_start(ctx, 4, s_data->pipe_id);
+	} else {
+		mtk_cam_sv_vf_on(camsv_dev, 0);
+		if (watchdog_scenario(ctx))
+			mtk_ctx_watchdog_stop(ctx, s_data->pipe_id);
+	}
+}
+
 int mtk_cam_find_sv_dev_index(
 	struct mtk_cam_ctx *ctx,
 	unsigned int idx)
@@ -1831,15 +1858,10 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts)
 					!mtk_cam_is_stagger(ctx) && !mtk_cam_is_stagger_m2m(ctx) &&
 					!mtk_cam_is_time_shared(ctx) && !mtk_cam_is_mstream(ctx))
 					mtk_cam_sv_write_rcnt(ctx, ctx->sv_pipe[i]->id);
-			} else {
-				if (ctx->sv_wq)
-					queue_work(ctx->sv_wq, &buf_entry->s_data->sv_work.work);
-			}
-		} else {
-			/* under seamless/sat case, to turn off vf */
-			if (ctx->sv_wq)
-				queue_work(ctx->sv_wq, &buf_entry->s_data->sv_work.work);
-		}
+			} else
+				mtk_cam_sv_apply_frame_setting(buf_entry->s_data);
+		} else
+			mtk_cam_sv_apply_frame_setting(buf_entry->s_data);
 	}
 
 	return 1;
@@ -1902,16 +1924,10 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx,
 						!mtk_cam_is_time_shared(ctx) &&
 						!mtk_cam_is_mstream(ctx))
 						mtk_cam_sv_write_rcnt(ctx, ctx->sv_pipe[i]->id);
-				} else {
-					if (ctx->sv_wq)
-						queue_work(ctx->sv_wq,
-							&buf_entry->s_data->sv_work.work);
-				}
-			} else {
-				/* under seamless/sat case, to turn off vf */
-				if (ctx->sv_wq)
-					queue_work(ctx->sv_wq, &buf_entry->s_data->sv_work.work);
-			}
+				} else
+					mtk_cam_sv_apply_frame_setting(buf_entry->s_data);
+			} else
+				mtk_cam_sv_apply_frame_setting(buf_entry->s_data);
 			break;
 		}
 	}

@@ -3458,7 +3458,7 @@ static void fill_mstream_s_data(struct mtk_cam_ctx *ctx,
 static void fill_sv_mstream_s_data(struct mtk_cam_device *cam,
 				struct mtk_cam_request *req, unsigned int pipe_id)
 {
-	struct mtk_cam_req_work *frame_done_work, *sv_work;
+	struct mtk_cam_req_work *frame_done_work;
 	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_request_stream_data *req_stream_data_mstream;
 
@@ -3477,11 +3477,6 @@ static void fill_sv_mstream_s_data(struct mtk_cam_device *cam,
 	frame_done_work = &req_stream_data_mstream->frame_done_work;
 	mtk_cam_req_work_init(frame_done_work, req_stream_data_mstream);
 	INIT_WORK(&frame_done_work->work, mtk_cam_frame_done_work);
-
-	/* sv work */
-	sv_work = &req_stream_data_mstream->sv_work;
-	mtk_cam_req_work_init(sv_work, req_stream_data_mstream);
-	INIT_WORK(&sv_work->work, mtk_cam_sv_work);
 
 	/* sv parameters */
 	req_stream_data_mstream->sv_frame_params = req_stream_data->sv_frame_params;
@@ -3588,8 +3583,6 @@ static void mtk_cam_req_s_data_init(struct mtk_cam_request *req,
 	mtk_cam_req_work_init(&req_stream_data->frame_done_work,
 				  req_stream_data);
 	mtk_cam_req_work_init(&req_stream_data->meta1_done_work,
-				  req_stream_data);
-	mtk_cam_req_work_init(&req_stream_data->sv_work,
 				  req_stream_data);
 	/**
 	 * clean the param structs since we support req reinit.
@@ -5164,8 +5157,6 @@ bool mtk_cam_sv_req_enqueue(struct mtk_cam_ctx *ctx,
 		atomic_set(&buf_entry->is_apply, 0);
 
 		mtk_cam_req_dump_work_init(pipe_stream_data);
-		mtk_cam_req_work_init(&pipe_stream_data->sv_work, pipe_stream_data);
-		INIT_WORK(&pipe_stream_data->sv_work.work, mtk_cam_sv_work);
 		mtk_cam_sv_wbuf_set_s_data(buf_entry, pipe_stream_data);
 		spin_lock(&ctx->sv_using_buffer_list[i].lock);
 		list_add_tail(&buf_entry->list_entry,
@@ -6558,14 +6549,6 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		goto fail_uninit_composer_wq;
 	}
 
-	ctx->sv_wq =
-			alloc_ordered_workqueue(dev_name(cam->dev),
-						WQ_HIGHPRI | WQ_FREEZABLE);
-	if (!ctx->sv_wq) {
-		dev_info(cam->dev, "failed to alloc sv workqueue\n");
-		goto fail_uninit_frame_done_wq;
-	}
-
 	mtk_cam_sv_working_buf_pool_init(ctx);
 
 	mtk_cam_mraw_working_buf_pool_init(ctx);
@@ -6575,7 +6558,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		dev_info(cam->dev,
 			 "%s:pipe(%d):failed in media_pipeline_start:%d\n",
 			 __func__, node->uid.pipe_id, ret);
-		goto fail_uninit_sv_wq;
+		goto fail_uninit_frame_done_wq;
 	}
 
 	/* traverse to update used subdevs & number of nodes */
@@ -6625,8 +6608,6 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 
 fail_stop_pipeline:
 	media_pipeline_stop(entity);
-fail_uninit_sv_wq:
-	destroy_workqueue(ctx->sv_wq);
 fail_uninit_frame_done_wq:
 	destroy_workqueue(ctx->frame_done_wq);
 fail_uninit_composer_wq:
@@ -6713,9 +6694,6 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	drain_workqueue(ctx->frame_done_wq);
 	destroy_workqueue(ctx->frame_done_wq);
 	ctx->frame_done_wq = NULL;
-	drain_workqueue(ctx->sv_wq);
-	destroy_workqueue(ctx->sv_wq);
-	ctx->sv_wq = NULL;
 	kthread_flush_worker(&ctx->sensor_worker);
 	kthread_stop(ctx->sensor_worker_task);
 	ctx->sensor_worker_task = NULL;

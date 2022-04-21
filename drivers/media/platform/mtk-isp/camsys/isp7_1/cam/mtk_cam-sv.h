@@ -339,6 +339,7 @@ int mtk_cam_sv_setup_cfg_info(struct mtk_camsv_device *dev,
 	struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_sv_frame_no_inner(struct mtk_camsv_device *dev);
 int mtk_cam_sv_fbc(struct mtk_camsv_device *dev);
+void mtk_cam_sv_apply_frame_setting(struct mtk_cam_request_stream_data *s_data);
 #ifdef CAMSYS_TF_DUMP_71_1
 int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif

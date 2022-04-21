@@ -248,7 +248,6 @@ struct mtk_cam_request_stream_data {
 	struct mtk_cam_req_work frame_work;
 	struct mtk_cam_req_work meta1_done_work;
 	struct mtk_cam_req_work frame_done_work;
-	struct mtk_cam_req_work sv_work;
 	struct mtk_camsys_ctrl_state state;
 	struct mtk_cam_working_buf_entry *working_buf;
 	unsigned int no_frame_done_cnt;
@@ -423,7 +422,6 @@ struct mtk_cam_ctx {
 	struct kthread_worker sensor_worker;
 	struct workqueue_struct *composer_wq;
 	struct workqueue_struct *frame_done_wq;
-	struct workqueue_struct *sv_wq;
 
 	struct completion session_complete;
 	struct completion m2m_complete;
