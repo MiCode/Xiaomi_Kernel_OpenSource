@@ -20,9 +20,9 @@
 #define MML_IR_HEIGHT_2K	(1440 + 30)
 #define MML_IR_2K		(MML_IR_WIDTH_2K * MML_IR_HEIGHT_2K)
 /* fhd size and pixel as lower bound */
-#define MML_IR_WIDTH		(1920 - 30)
-#define MML_IR_HEIGHT		(1088 - 30)
-#define MML_IR_FHD		(MML_IR_WIDTH * MML_IR_HEIGHT)
+#define MML_IR_WIDTH		320
+#define MML_IR_HEIGHT		480
+#define MML_IR_SD		(MML_IR_WIDTH * MML_IR_HEIGHT)
 
 #define MML_IR_MAX_OPP		1	/* use OPP index 0(229Mhz) 1(273Mhz) */
 
@@ -684,7 +684,7 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 		goto decouple;
 	if (info->dest[0].crop.r.width < MML_IR_WIDTH ||
 		info->dest[0].crop.r.height < MML_IR_HEIGHT ||
-		pixel < MML_IR_FHD)
+		pixel < MML_IR_SD)
 		goto decouple;
 
 	return MML_MODE_RACING;
