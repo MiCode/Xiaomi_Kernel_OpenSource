@@ -18,6 +18,7 @@
 	allow_mismatched_32bit_el0 \
 	kasan.stacktrace=on \
 	initcall_debug=1";
+	mkp_panic="on";
 };
 
 &odm {
