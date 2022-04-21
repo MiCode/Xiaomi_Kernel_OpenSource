@@ -189,8 +189,7 @@ static int mtk_btag_eara_ioctl_init(struct proc_dir_entry *parent)
 }
 
 static ssize_t mtk_btag_earaio_ctrl_sub_write(struct file *file,
-	const char __user *ubuf,
-	size_t count, loff_t *ppos)
+	const char __user *ubuf, size_t count, loff_t *ppos)
 {
 	int ret;
 	char cmd[MICTX_PROC_CMD_BUF_SIZE];
@@ -208,7 +207,7 @@ static ssize_t mtk_btag_earaio_ctrl_sub_write(struct file *file,
 	if (cmd[0] == '1') {
 		earaio_ctrl.enabled = true;
 		pr_info("[BLOCK_TAG] EARA-IO QoS: allowed\n");
-	} else if (cmd[0] == '2') {
+	} else if (cmd[0] == '0') {
 		mtk_btag_earaio_boost(false);
 		earaio_ctrl.enabled = false;
 		pr_info("[BLOCK_TAG] EARA-IO QoS: disallowed\n");
@@ -238,13 +237,20 @@ static int mtk_btag_earaio_ctrl_sub_show(struct seq_file *s, void *data)
 	seq_printf(s, "  EARA-IO Control Enable: %d\n", earaio_ctrl.enabled);
 	seq_puts(s, "Commands: echo n > blockio_mictx, n presents\n");
 	seq_puts(s, "  Enable EARA-IO QoS  : 1\n");
-	seq_puts(s, "  Disable EARA-IO QoS : 2\n");
+	seq_puts(s, "  Disable EARA-IO QoS : 0\n");
 	return 0;
 }
 
+static const struct seq_operations mtk_btag_seq_earaio_ctrl_ops = {
+	.start  = mtk_btag_seq_debug_start,
+	.next   = mtk_btag_seq_debug_next,
+	.stop   = mtk_btag_seq_debug_stop,
+	.show   = mtk_btag_earaio_ctrl_sub_show,
+};
+
 static int mtk_btag_earaio_ctrl_sub_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, mtk_btag_earaio_ctrl_sub_show, inode->i_private);
+	return seq_open(file, &mtk_btag_seq_earaio_ctrl_ops);
 }
 
 static const struct proc_ops mtk_btag_earaio_ctrl_sub_fops = {
@@ -402,7 +408,7 @@ void mtk_btag_earaio_init_mictx(
 	mtk_btag_mictx_enable(&earaio_ctrl.mictx_id, 1);
 
 	mtk_btag_eara_ioctl_init(btag_proc_root);
-	proc_entry = proc_create("earaio_ctrl", S_IFREG | 0664,
+	proc_entry = proc_create("earaio_ctrl", S_IFREG | 0444,
 		btag_proc_root, &mtk_btag_earaio_ctrl_sub_fops);
 }
 

@@ -543,7 +543,7 @@ static size_t mtk_btag_seq_sub_show_usedmem(char **buff, unsigned long *size,
 }
 
 /* seq file operations */
-static void *mtk_btag_seq_debug_start(struct seq_file *seq, loff_t *pos)
+void *mtk_btag_seq_debug_start(struct seq_file *seq, loff_t *pos)
 {
 	unsigned int idx;
 
@@ -554,7 +554,7 @@ static void *mtk_btag_seq_debug_start(struct seq_file *seq, loff_t *pos)
 	return (void *) ((unsigned long) idx);
 }
 
-static void *mtk_btag_seq_debug_next(struct seq_file *seq, void *v, loff_t *pos)
+void *mtk_btag_seq_debug_next(struct seq_file *seq, void *v, loff_t *pos)
 {
 	unsigned int idx;
 
@@ -566,7 +566,7 @@ static void *mtk_btag_seq_debug_next(struct seq_file *seq, void *v, loff_t *pos)
 	return (void *) ((unsigned long) idx);
 }
 
-static void mtk_btag_seq_debug_stop(struct seq_file *seq, void *v)
+void mtk_btag_seq_debug_stop(struct seq_file *seq, void *v)
 {
 }
 

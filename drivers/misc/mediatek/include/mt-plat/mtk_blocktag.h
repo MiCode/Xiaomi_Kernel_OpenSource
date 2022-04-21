@@ -309,6 +309,11 @@ void mmc_mtk_biolog_transfer_req_compl(
 	struct mmc_host *mmc, int task_id, unsigned long req_mask);
 void mmc_mtk_biolog_check(struct mmc_host *mmc, unsigned long req_mask);
 
+/* seq file operations */
+void *mtk_btag_seq_debug_start(struct seq_file *seq, loff_t *pos);
+void *mtk_btag_seq_debug_next(struct seq_file *seq, void *v, loff_t *pos);
+void mtk_btag_seq_debug_stop(struct seq_file *seq, void *v);
+
 #else
 
 #define mtk_btag_mictx_enable(...)
