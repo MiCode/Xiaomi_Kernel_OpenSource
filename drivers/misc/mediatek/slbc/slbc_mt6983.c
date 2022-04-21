@@ -1017,6 +1017,65 @@ static int slbc_resume(struct platform_device *pdev)
 	return 0;
 }
 
+static int slbc_suspend_cb(struct device *dev)
+{
+	int i;
+	int sid;
+
+	for (i = 0; i < UID_MAX; i++) {
+		sid = slbc_get_sid_by_uid(i);
+		if (sid != SID_NOT_FOUND && uid_ref[i]) {
+			if (sid == UID_HIFI3) {
+				pr_info("uid_ref %s %x\n",
+						slbc_uid_str[i], uid_ref[i]);
+			} else if (sid == UID_AOV |
+					sid == UID_AOV_DC |
+					sid == UID_AOV_APU) {
+				pr_info("uid_ref %s %x, screen off user\n",
+						slbc_uid_str[i], uid_ref[i]);
+			} else {
+				pr_info("uid_ref %s %x, screen on user\n",
+						slbc_uid_str[i], uid_ref[i]);
+				WARN_ON(uid_ref[i]);
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int slbc_resume_cb(struct device *dev)
+{
+	int i;
+	int sid;
+
+	for (i = 0; i < UID_MAX; i++) {
+		sid = slbc_get_sid_by_uid(i);
+		if (sid != SID_NOT_FOUND && uid_ref[i]) {
+			if (sid == UID_HIFI3) {
+				pr_info("uid_ref %s %x\n",
+						slbc_uid_str[i], uid_ref[i]);
+			} else if (sid == UID_AOV |
+					sid == UID_AOV_DC |
+					sid == UID_AOV_APU) {
+				pr_info("uid_ref %s %x, screen off user\n",
+						slbc_uid_str[i], uid_ref[i]);
+				WARN_ON(uid_ref[i]);
+			} else {
+				pr_info("uid_ref %s %x, screen on user\n",
+						slbc_uid_str[i], uid_ref[i]);
+			}
+		}
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops slbc_pm_ops = {
+	.suspend_late = slbc_suspend_cb,
+	.resume_early = slbc_resume_cb,
+};
+
 static const struct of_device_id slbc_of_match[] = {
 	{ .compatible = "mediatek,mtk-slbc", },
 	{}
@@ -1031,6 +1090,7 @@ static struct platform_driver slbc_pdrv = {
 		.name = "slbc",
 		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(slbc_of_match),
+		.pm = &slbc_pm_ops,
 	},
 };
 
