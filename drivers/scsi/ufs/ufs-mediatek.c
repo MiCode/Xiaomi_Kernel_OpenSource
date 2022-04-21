@@ -1025,9 +1025,6 @@ int ufs_mtk_rpmb_security_out(struct scsi_device *sdev,
 	cmd[4] = 0;                              /* inc_512 bit 7 set to 0 */
 	put_unaligned_be32(trans_len, cmd + 6);  /* transfer length */
 
-	/* Ensure device is resumed before RPMB operation */
-	scsi_autopm_get_device(sdev);
-
 retry:
 	ret = scsi_execute_req(sdev, cmd, DMA_TO_DEVICE,
 				     frames, trans_len, &sshdr,
@@ -1050,9 +1047,6 @@ retry:
 	if (driver_byte(ret) & DRIVER_SENSE)
 		scsi_print_sense_hdr(sdev, "rpmb: security out", &sshdr);
 
-	/* Allow device to be runtime suspended */
-	scsi_autopm_put_device(sdev);
-
 	return ret;
 }
 
@@ -1072,9 +1066,6 @@ int ufs_mtk_rpmb_security_in(struct scsi_device *sdev,
 	cmd[4] = 0;                             /* inc_512 bit 7 set to 0 */
 	put_unaligned_be32(alloc_len, cmd + 6); /* allocation length */
 
-	/* Ensure device is resumed before RPMB operation */
-	scsi_autopm_get_device(sdev);
-
 retry:
 	ret = scsi_execute_req(sdev, cmd, DMA_FROM_DEVICE,
 				     frames, alloc_len, &sshdr,
@@ -1089,9 +1080,6 @@ retry:
 		 */
 		if (--reset_retries > 0)
 			goto retry;
-
-	/* Allow device to be runtime suspended */
-	scsi_autopm_put_device(sdev);
 
 	if (ret)
 		dev_err(&sdev->sdev_gendev, "%s: failed with err %0x\n",
@@ -1137,6 +1125,9 @@ static int ufs_mtk_rpmb_cmd_seq(struct device *dev,
 	 * Use mutex not spin lock because in/out function might sleep.
 	 */
 	mutex_lock(&host->rpmb_lock);
+	/* Ensure device is resumed before RPMB operation */
+	scsi_autopm_get_device(sdev);
+
 	for (ret = 0, i = 0; i < ncmds && !ret; i++) {
 		cmd = &cmds[i];
 		if (cmd->flags & RPMB_F_WRITE)
@@ -1146,6 +1137,9 @@ static int ufs_mtk_rpmb_cmd_seq(struct device *dev,
 			ret = ufs_mtk_rpmb_security_in(sdev, cmd->frames,
 						      cmd->nframes);
 	}
+
+	/* Allow device to be runtime suspended */
+	scsi_autopm_put_device(sdev);
 	mutex_unlock(&host->rpmb_lock);
 
 	scsi_device_put(sdev);
