@@ -10504,7 +10504,7 @@
 	};
 
 	consys: consys@18000000 {
-		compatible = "mediatek,mt6983-consys";
+		compatible = "mediatek,mt6983-consys-atf";
 		#thermal-sensor-cells = <0>;
 		reg =   <0 0x10001000 0 0xee4>, /* 0. 0x1000_1000 infracfg_ao, sz=0xee4 */
 			<0 0x10005000 0 0xa7c>, /* 1. 0x1000_5000 GPIO, sz=0xa7c */
