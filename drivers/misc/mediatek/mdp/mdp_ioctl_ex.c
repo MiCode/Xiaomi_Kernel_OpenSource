@@ -828,6 +828,12 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		goto done;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+	/* add perf begin for this handle->pkt while non-secure case */
+	if (!handle->secData.is_secure)
+		cmdq_pkt_perf_begin(handle->pkt);
+#endif
+
 	/* Make command from user job */
 	CMDQ_TRACE_FORCE_BEGIN("mdp_translate_user_job\n");
 	trans_cost = sched_clock();

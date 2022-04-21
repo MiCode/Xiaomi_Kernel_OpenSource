@@ -1229,10 +1229,6 @@ s32 cmdq_mdp_handle_create(struct cmdqRecStruct **handle_out)
 	/* assign handle for mdp */
 	*handle_out = handle;
 
-#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	/* add perf begin for this handle->pkt */
-	cmdq_pkt_perf_begin(handle->pkt);
-#endif
 	return 0;
 }
 
