@@ -372,6 +372,7 @@ static struct mtk_iommu_iova_region mt6833_multi_dom[] __maybe_unused = {
  * 8,VDEC:	     0x1_7000_0000~0x1_FFFF_FFFF(2GB+256MB)
  */
 static struct mtk_iommu_iova_region mt6855_multi_dom[] __maybe_unused = {
+	{ .iova_base = SZ_4G, .size = (SZ_4G * 3), .type = NORMAL}, /*0, NORMAL */
 	{ .iova_base = SZ_4K, .size = (SZ_4G * 1 - SZ_4K - SZ_64M), .type = NORMAL}, /* 1,CAM_MDP */
 	{ .iova_base = 0xFC000000ULL, .size = (SZ_64M), .type = PROTECTED}, /* 2,AIE_RESV_64M */
 	{ .iova_base = 0x106000000ULL, .size = SZ_32M, .type = NORMAL}, /* 3,LK_RESV:32MB */
