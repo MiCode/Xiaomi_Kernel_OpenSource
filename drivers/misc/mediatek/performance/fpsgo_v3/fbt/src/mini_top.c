@@ -974,7 +974,7 @@ static ssize_t thrs_heavy_show(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-MINITOP_SYSFS_WRITE(thrs_heavy, 0, 100)
+MINITOP_SYSFS_WRITE(thrs_heavy, 0, 101)
 
 static KOBJ_ATTR_RW(thrs_heavy);
 
