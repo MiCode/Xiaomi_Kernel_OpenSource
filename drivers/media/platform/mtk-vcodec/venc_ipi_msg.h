@@ -446,7 +446,6 @@ struct venc_vcu_config {
 	__u32 roi_rc_qp;
 	__u32 roion;
 	__u32 heif_grid_size;
-	struct mtk_color_desc color_desc;
 	__u32 resolutionChange;
 	__u32 max_w;
 	__u32 max_h;
@@ -465,12 +464,16 @@ struct venc_vcu_config {
 	__u32 highquality;
 	__u32 dummynal;
 	__u32 slbc_addr;
+	__u32 wpp_mode;
+	__u32 low_latency_mode;
 	__u32 hier_ref_layer;
 	__u32 hier_ref_type;
 	__u32 temporal_layer_pcount;
 	__u32 temporal_layer_bcount;
 	__u32 max_ltr_num;
 	__u32 slice_header_spacing;
+	__u32 reserved;
+	struct mtk_color_desc color_desc;
 	struct mtk_venc_multi_ref multi_ref;
 	struct mtk_venc_vui_info vui_info;
 };
@@ -509,10 +512,12 @@ struct venc_info {
 	__u32 fb_num_planes;
 	__u32 index;
 	__u64 timestamp;
-	__u32 qpmap;
 	__u64 input_addr[3];
 	__u64 bs_addr;
+	__u32 qpmap;
+	__u32 reserved;
 };
+
 
 /**
  * struct ring_input_list - ring input buffer list
@@ -531,6 +536,7 @@ struct ring_input_list {
 	__s32 write_idx;
 	__s32 count;
 	__s32 reserved;
+	__s32 is_last_slice[VENC_MAX_FB_NUM];
 };
 
 /*
@@ -553,13 +559,14 @@ struct venc_vsi {
 	struct ring_input_list list_free;
 	struct venc_info       venc;
 	__u32 sync_mode;
-	__u64 meta_addr;
 	__u32 meta_size;
+	__u64 meta_addr;
 	__u32 meta_offset;
-	__u64 qpmap_addr;
 	__u32 qpmap_size;
+	__u64 qpmap_addr;
 	__u64 dynamicparams_addr;
 	__u32 dynamicparams_size;
+	__u32 reserved;
 };
 
 #endif /* _VENC_IPI_MSG_H_ */

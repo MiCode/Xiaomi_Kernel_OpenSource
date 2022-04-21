@@ -62,6 +62,7 @@ struct venc_done_result {
 	__u32 is_key_frm;
 	unsigned long bs_va;
 	unsigned long frm_va;
+	__u32 is_last_slc;
 };
 
 /*

@@ -144,34 +144,37 @@ struct mtk_hdr_dynamic_info {
 		 * 7=95% percentile maxRGB Nits *10
 		 * 8=99.95% percentile maxRGB Nits *10
 		 */
+	__u32   reserved;
 };
+
 struct dynamicinfo_change_flag {
-	unsigned int fgBitrate;
-	unsigned int fgFrameQp;
-	unsigned int fgSliceHeaderSpacing;
-	unsigned int fgForceI;
-	unsigned int fgBaseLayerPid;
-	unsigned int fgMarkLTR;
-	unsigned int fgUseLTR;
-	unsigned int fgTemporalLayerCount;
+	__u32 fgBitrate;
+	__u32 fgFrameQp;
+	__u32 fgSliceHeaderSpacing;
+	__u32 fgForceI;
+	__u32 fgBaseLayerPid;
+	__u32 fgMarkLTR;
+	__u32 fgUseLTR;
+	__u32 fgTemporalLayerCount;
 };
 
 struct temporal_layer_count {
-	unsigned int nPLayerCountActual;
-	unsigned int nBLayerCountActual;
+	__u32 nPLayerCountActual;
+	__u32 nBLayerCountActual;
 };
 
 struct inputqueue_dynamic_info {
 	struct dynamicinfo_change_flag changed;
-	unsigned int nBitrate;
-	unsigned int nFrameQp;
-	unsigned int bSliceHeaderSpacing;
-	unsigned int bForceI;
-	unsigned int nBaseLayerPid;
-	unsigned int nMarkLTR;
-	unsigned int nUseLTR;
+	__u64 nTimeStamp;
+	__u32 nBitrate;
+	__u32 nFrameQp;
+	__u32 bSliceHeaderSpacing;
+	__u32 bForceI;
+	__u32 nBaseLayerPid;
+	__u32 nMarkLTR;
+	__u32 nUseLTR;
+	__u32 reserved;
 	struct temporal_layer_count sTemporalLayerCount;
-	signed long long nTimeStamp;
 };
 
 

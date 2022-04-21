@@ -208,11 +208,14 @@ void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx)
 			dst_vb2_v4l2->sequence = src_vb2_v4l2->sequence;
 			dst_buf = &dst_vb2_v4l2->vb2_buf;
 			dst_buf->planes[0].bytesused = rResult.bs_size;
-			v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_DONE);
+			if (rResult.is_last_slc == 1)
+				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_DONE);
+			else
+				mtk_v4l2_debug(1, "cur slice is not last slice");
 			v4l2_m2m_buf_done(dst_vb2_v4l2, VB2_BUF_STATE_DONE);
 
-			mtk_v4l2_debug(1, "venc_if_encode bs size=%d",
-				rResult.bs_size);
+			mtk_v4l2_debug(1, "venc_if_encode bs size=%d is_last_slc=%d",
+				rResult.bs_size, rResult.is_last_slc);
 		} else if (src_vb2_v4l2 == NULL && dst_vb2_v4l2 != NULL) {
 			dst_buf = &dst_vb2_v4l2->vb2_buf;
 			dst_buf->planes[0].bytesused = rResult.bs_size;
@@ -3749,6 +3752,7 @@ void mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 	ret = down_interruptible(&ctx->dev->enc_sem[hw_id]);
 	ctx->core_locked[hw_id] = 1;
 }
+
 
 void mtk_vcodec_enc_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
 {

@@ -141,6 +141,7 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_IP_QPDELTA = (1 << 22),
 	MTK_ENCODE_PARAM_QP_CTRL_MODE = (1 << 23),
 	MTK_ENCODE_PARAM_DUMMY_NAL = (1 << 24),
+	MTK_ENCODE_PARAM_FRAME_LEVEL_QP = (1 << 25)
 };
 
 /*
@@ -202,6 +203,12 @@ enum vdec_input_driven_mode {
 	NON_INPUT_DRIVEN = 0,
 	INPUT_DRIVEN_CB_FRM = 1,
 	INPUT_DRIVEN_PUT_FRM = 2,
+};
+
+enum venc_lock {
+	VENC_LOCK_NONE,
+	VENC_LOCK_NORMAL,
+	VENC_LOCK_SEC
 };
 
 /**
@@ -398,6 +405,8 @@ struct venc_enc_param {
 	unsigned int dummynal;
 	unsigned int slbc_addr;
 	char *set_vcp_buf;
+	unsigned int wpp_mode;
+	unsigned int low_latency_mode;
 	unsigned int hier_ref_layer;
 	unsigned int hier_ref_type;
 	unsigned int temporal_layer_pcount;
