@@ -385,6 +385,7 @@ static void lcm_panel_init(struct lcm *ctx)
 	lcm_dcs_write_seq_static(ctx, 0x53, 0x28);
 
 	lcm_dcs_write_seq_static(ctx, 0xFE, 0xA1);
+	lcm_dcs_write_seq_static(ctx, 0xCA, 0x80);
 	lcm_dcs_write_seq_static(ctx, 0xCD, 0x08);
 
 	lcm_dcs_write_seq_static(ctx, 0xFE, 0x00);
@@ -706,6 +707,9 @@ static struct mtk_panel_params ext_params = {
 #else
 	.pll_clk = 400,
 #endif
+	.phy_timcon = {
+		.hs_trail = 8,
+	},
 };
 
 static int setbacklight_cmdq(void *dsi, dcs_write_gce cb, void *handle,
