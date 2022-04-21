@@ -1023,11 +1023,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		} else
 			cmdq_err("cannot get dev:%p domain", cmdq->mbox.dev);
 
-		if (append_by_event)
-			cmdq_thread_dump_pkt_by_pc(thread, curr_pa, true);
-
-		set_bit(thread->idx, &cmdq->err_irq_idx);
-		wake_up_interruptible(&cmdq->err_irq_wq);
+		cmdq_thread_dump_pkt_by_pc(thread, curr_pa, true);
 	}
 
 	cmdq_log("task status %pa~%pa err:%d",
@@ -1101,6 +1097,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 				curr_task->pkt, thread->idx, err);
 			cmdq_buf_dump_schedule(task, false, curr_pa);
 			cmdq_task_exec_done(task, err);
+			BUG_ON(1);
 			cmdq_task_handle_error(curr_task);
 			spin_lock_irqsave(&cmdq->irq_removes_lock, flags);
 			list_add_tail(&task->list_entry, &cmdq->irq_removes);
@@ -1249,7 +1246,6 @@ static int cmdq_irq_handler_thread(void *data)
 {
 	struct cmdq *cmdq = data;
 	unsigned long irq, flags;
-	u32 bit;
 
 	while (!kthread_should_stop()) {
 		wait_event_interruptible(cmdq->err_irq_wq, cmdq->err_irq_idx);
@@ -1272,26 +1268,7 @@ static int cmdq_irq_handler_thread(void *data)
 			spin_unlock_irqrestore(&cmdq->irq_removes_lock, flags);
 
 			clear_bit(CMDQ_THR_MAX_COUNT, &cmdq->err_irq_idx);
-			if (irq == BIT(CMDQ_THR_MAX_COUNT))
-				continue;
 		}
-
-		for_each_set_bit(bit, &cmdq->err_irq_idx, fls(CMDQ_IRQ_MASK)) {
-			struct cmdq_thread *thread = &cmdq->thread[bit];
-			dma_addr_t pc = cmdq_thread_get_pc(thread);
-
-			cmdq_err("%s: hwid:%u irq:%#lx idx:%u pc:%pa",
-				__func__, cmdq->hwid, cmdq->err_irq_idx,
-				thread->idx, &pc);
-
-			spin_lock_irqsave(&thread->chan->lock, flags);
-			cmdq_thread_dump_pkt_by_pc(thread, pc, false);
-			spin_unlock_irqrestore(&thread->chan->lock, flags);
-			clear_bit(bit, &cmdq->err_irq_idx);
-		}
-		cmdq_util_dump_smi();
-		cmdq_util_aee("CMDQ", "%s: hwid:%hu irq:%#lx",
-			__func__, cmdq->hwid, irq);
 	}
 
 	return 0;

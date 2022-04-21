@@ -2327,15 +2327,17 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 		}
 	}
 
+	cmdq_util_helper->dump_smi();
+
 	if (inst) {
 		/* not sync case, print raw */
-		cmdq_util_aee(mod,
+		cmdq_util_aee_ex(CMDQ_AEE_EXCEPTION, mod,
 			"%s(%s) inst:%#018llx thread:%d",
 			mod, cmdq_util_helper->hw_name(client->chan),
 			*(u64 *)inst, thread_id);
 	} else {
 		/* no inst available */
-		cmdq_util_aee(mod,
+		cmdq_util_aee_ex(CMDQ_AEE_EXCEPTION, mod,
 			"%s(%s) instruction not available pc:%#llx thread:%d",
 			mod, cmdq_util_helper->hw_name(client->chan), pc, thread_id);
 	}
