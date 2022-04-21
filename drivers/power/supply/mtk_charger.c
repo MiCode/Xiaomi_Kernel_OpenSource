@@ -2133,7 +2133,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 	info->pd_adapter = get_adapter_by_name("pd_adapter");
 	if (!info->pd_adapter)
-		chr_err("%s: No pd adapter found\n");
+		chr_err("%s: No pd adapter found\n",__func__);
 	else {
 		info->pd_nb.notifier_call = notify_adapter_event;
 		register_adapter_device_notifier(info->pd_adapter,
