@@ -8395,7 +8395,7 @@
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_116>;
 		sw_sync_token_pool_117 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_117>;
-		sw_sync_token_pool_3118 =
+		sw_sync_token_pool_118 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_118>;
 		sw_sync_token_pool_119 =
 			/bits/ 16 <CMDQ_SYNC_TOKEN_IMGSYS_POOL_119>;
