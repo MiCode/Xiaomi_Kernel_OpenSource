@@ -80,6 +80,12 @@
 };
 
 &i2c2 {
+	camera_main_two_af_mtk:camera_main_two_af@0d {
+		compatible = "mediatek,camera_main_two_af";
+		reg = <0x0d>;
+		status = "okay";
+	};
+
 	camera_main_three_af_mtk:camera_main_three_af@0c {
 		compatible = "mediatek,camera_main_three_af";
 		reg = <0x0c>;
@@ -89,6 +95,7 @@
 
 &camera_af_hw_node {
 	camaf_m1_pmic-supply = <&rt5133_ldo3>;
+	camaf_m2_pmic-supply = <&rt5133_gpio1>;
 	camaf_m3_pmic-supply = <&rt5133_gpio1>;
 	status = "okay";
 };
