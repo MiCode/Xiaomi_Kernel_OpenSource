@@ -46,27 +46,27 @@ CFLAGS=-Wall LLVM=1 LLVM_IAS=1
 
 # disable BTF as workaround for "pahole: invalid operation -J" issue
 EXT_CONFIG="\
-	CONFIG_DEBUG_INFO_BTF_MODULES= \
-	"
+    CONFIG_DEBUG_INFO_BTF_MODULES= \
+    "
 
 ### DEFINE ###
 define kernel-make
 +$(MAKE) -C $(KDIR) \
-	ARCH=$(TARGET_ARCH) \
-	CROSS_COMPILE=$(CROSS_COMPILE) \
-	CROSS_COMPILE_COMPAT=$(CROSS_COMPILE_COMPAT) \
-	CFLAGS=$(CFLAGS) \
-	CC=$(CC) \
-	LD=$(LD) \
-	AR=$(AR) \
-	STRIP=$(STRIP) \
-	OBJCOPY=$(OBJCOPY) \
-	OBJDUMP=$(OBJDUMP) \
-	READELF=$(READELF) \
-	HOSTCC=$(HOSTCC) \
-	HOSTAR=$(HOSTAR) \
-	HOSTLD=$(HOSTLD) \
-	M=$(PWD)
+    ARCH=$(TARGET_ARCH) \
+    CROSS_COMPILE=$(CROSS_COMPILE) \
+    CROSS_COMPILE_COMPAT=$(CROSS_COMPILE_COMPAT) \
+    CFLAGS=$(CFLAGS) \
+    CC=$(CC) \
+    LD=$(LD) \
+    AR=$(AR) \
+    STRIP=$(STRIP) \
+    OBJCOPY=$(OBJCOPY) \
+    OBJDUMP=$(OBJDUMP) \
+    READELF=$(READELF) \
+    HOSTCC=$(HOSTCC) \
+    HOSTAR=$(HOSTAR) \
+    HOSTLD=$(HOSTLD) \
+    M=$(PWD)
 endef
 
 
