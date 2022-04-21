@@ -429,14 +429,6 @@
 			size = <0 0x10000000>;
 			alignment = <0 0x1000000>;
 		};
-
-		reserve-memory-scp_share {  /* for scp legacy dump */
-			compatible = "mediatek,reserve-memory-scp_share";
-			no-map;
-			size = <0 0x003A0000>; /*3MB + 128K share mem size */
-			alignment = <0 0x1000000>;
-			alloc-ranges = <0 0x50000000 0 0x40000000>;
-		};
 	};
 
 	memory_ssmr_features: memory-ssmr-features {
@@ -3459,7 +3451,7 @@
 			<13 200 0>;	/* ultrasound */
 
 			debug_dumptimeout = "enable"; /*core dump timeout debug*/
-			secure_dump = "disable";	/* enable dump via secure world */
+			secure_dump = "enable";	/* enable dump via secure world */
 			secure_dump_size = <0x200000>;
 
 			scp_mem_key = "mediatek,reserve-memory-scp_share";
