@@ -163,7 +163,7 @@ static inline bool pd_process_data_msg_bist(
 }
 
 /*
- * [BLOCK] Porcess Ctrl MSG
+ * [BLOCK] Process Ctrl MSG
  */
 
 static void pd_cancel_dpm_reaction(struct pd_port *pd_port)
@@ -318,7 +318,7 @@ static inline bool pd_process_ctrl_msg(
 			PE_STATE_FLAG_BACK_READY_IF_SR_TIMER_TOUT) {
 			pe_transit_ready_state(pd_port);
 			return true;
-		} else if (pd_port->pe_data.vdm_state_timer) {
+		} else if (pd_port->pe_data.vdm_state_timer < PD_TIMER_NR) {
 			vdm_put_pe_event(
 				pd_port->tcpc, PD_PE_VDM_NOT_SUPPORT);
 		}
@@ -330,7 +330,7 @@ static inline bool pd_process_ctrl_msg(
 }
 
 /*
- * [BLOCK] Porcess Data MSG
+ * [BLOCK] Process Data MSG
  */
 
 static inline bool pd_process_data_msg(
@@ -361,14 +361,14 @@ static inline bool pd_process_data_msg(
 		break;
 #endif	/* CONFIG_USB_PD_REV30_BAT_STATUS_REMOTE */
 
-#if CONFIG_USB_PD_REV30_COUNTRY_CODE_LOCAL
+#if CONFIG_USB_PD_REV30_COUNTRY_INFO_LOCAL
 	case PD_DATA_GET_COUNTRY_INFO:
 		if (pd_port->country_nr) {
 			ret = PE_MAKE_STATE_TRANSIT_SINGLE(
 				ready_state, PE_GIVE_COUNTRY_INFO);
 		}
 		break;
-#endif	/* CONFIG_USB_PD_REV30_COUNTRY_CODE_LOCAL */
+#endif	/* CONFIG_USB_PD_REV30_COUNTRY_INFO_LOCAL */
 #endif	/* CONFIG_USB_PD_REV30 */
 	}
 
@@ -376,7 +376,7 @@ static inline bool pd_process_data_msg(
 }
 
 /*
- * [BLOCK] Porcess Extend MSG
+ * [BLOCK] Process Extend MSG
  */
 
 #if CONFIG_USB_PD_REV30
@@ -460,7 +460,7 @@ static inline bool pd_process_ext_msg(
 #endif	/* CONFIG_USB_PD_REV30 */
 
 /*
- * [BLOCK] Porcess DPM MSG
+ * [BLOCK] Process DPM MSG
  */
 
 static inline bool pd_process_dpm_msg(
@@ -498,7 +498,7 @@ static inline bool pd_process_dpm_msg(
 }
 
 /*
- * [BLOCK] Porcess HW MSG
+ * [BLOCK] Process HW MSG
  */
 
 static inline bool pd_process_recv_hard_reset(
@@ -569,7 +569,7 @@ static inline bool pd_process_hw_msg(
 }
 
 /*
- * [BLOCK] Porcess Timer MSG
+ * [BLOCK] Process Timer MSG
  */
 
 static inline bool pd_check_rx_pending(struct pd_port *pd_port)
@@ -624,7 +624,6 @@ static inline bool pd_process_timer_msg(
 	uint8_t ready_state = pe_get_curr_ready_state(pd_port);
 
 	switch (pd_event->msg) {
-#if !CONFIG_USB_PD_DBG_IGRONE_TIMEOUT
 	case PD_TIMER_SENDER_RESPONSE:
 
 		if (pd_check_rx_pending(pd_port))
@@ -645,7 +644,6 @@ static inline bool pd_process_timer_msg(
 			return true;
 		}
 		break;
-#endif	/* CONFIG_USB_PD_DBG_IGRONE_TIMEOUT */
 	case PD_TIMER_BIST_CONT_MODE:
 		if (PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_BIST_CARRIER_MODE_2, ready_state))

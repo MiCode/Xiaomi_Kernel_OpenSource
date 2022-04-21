@@ -40,7 +40,7 @@ DECL_PE_STATE_TRANSITION(PD_TIMER_PS_HARD_RESET) = {
 DECL_PE_STATE_REACTION(PD_TIMER_PS_HARD_RESET);
 
 /*
- * [BLOCK] Porcess Ctrl MSG
+ * [BLOCK] Process Ctrl MSG
  */
 
 static inline bool pd_process_ctrl_msg_good_crc(
@@ -179,7 +179,7 @@ static inline bool pd_process_ctrl_msg(
 }
 
 /*
- * [BLOCK] Porcess Data MSG
+ * [BLOCK] Process Data MSG
  */
 
 static inline bool pd_process_data_msg(
@@ -225,7 +225,7 @@ static inline bool pd_process_data_msg(
 }
 
 /*
- * [BLOCK] Porcess Extend MSG
+ * [BLOCK] Process Extend MSG
  */
 #if CONFIG_USB_PD_REV30
 
@@ -261,7 +261,7 @@ static inline bool pd_process_ext_msg(
 #endif	/* CONFIG_USB_PD_REV30 */
 
 /*
- * [BLOCK] Porcess DPM MSG
+ * [BLOCK] Process DPM MSG
  */
 
 static inline bool pd_process_dpm_msg(
@@ -285,7 +285,7 @@ static inline bool pd_process_dpm_msg(
 }
 
 /*
- * [BLOCK] Porcess HW MSG
+ * [BLOCK] Process HW MSG
  */
 
 static inline bool pd_process_hw_msg_vbus_present(
@@ -353,7 +353,7 @@ static inline bool pd_process_hw_msg(
 }
 
 /*
- * [BLOCK] Porcess PE MSG
+ * [BLOCK] Process PE MSG
  */
 
 static inline bool pd_process_pe_msg(
@@ -374,7 +374,7 @@ static inline bool pd_process_pe_msg(
 }
 
 /*
- * [BLOCK] Porcess Timer MSG
+ * [BLOCK] Process Timer MSG
  */
 static inline bool pd_process_timer_msg_source_start(
 	struct pd_port *pd_port, struct pd_event *pd_event)
@@ -441,13 +441,11 @@ static inline bool pd_process_timer_msg(
 	case PD_TIMER_SOURCE_CAPABILITY:
 		return pd_process_timer_msg_source_cap(pd_port, pd_event);
 
-#if !CONFIG_USB_PD_DBG_IGRONE_TIMEOUT
 #if CONFIG_PD_SRC_RESET_CABLE
 	case PD_TIMER_SENDER_RESPONSE:
 		return PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SRC_CBL_SEND_SOFT_RESET, PE_SRC_SEND_CAPABILITIES);
 #endif	/*  CONFIG_PD_SRC_RESET_CABLE */
-#endif
 
 	case PD_TIMER_PS_HARD_RESET:
 		return PE_MAKE_STATE_TRANSIT(PD_TIMER_PS_HARD_RESET);
@@ -455,10 +453,8 @@ static inline bool pd_process_timer_msg(
 	case PD_TIMER_SOURCE_START:
 		return pd_process_timer_msg_source_start(pd_port, pd_event);
 
-#if !CONFIG_USB_PD_DBG_IGRONE_TIMEOUT
 	case PD_TIMER_NO_RESPONSE:
 		return pd_process_timer_msg_no_response(pd_port, pd_event);
-#endif
 
 	case PD_TIMER_SOURCE_TRANSITION:
 		if (pd_port->state_machine != PE_STATE_MACHINE_PR_SWAP)
@@ -488,8 +484,8 @@ static inline bool pd_process_timer_msg(
 
 		break;
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
-		fallthrough;
 #if CONFIG_USB_PD_REV30
+		fallthrough;
 	case PD_TIMER_CK_NOT_SUPPORTED:
 		return PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SRC_CHUNK_RECEIVED, PE_SRC_SEND_NOT_SUPPORTED);

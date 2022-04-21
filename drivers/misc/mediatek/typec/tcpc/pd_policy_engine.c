@@ -966,14 +966,16 @@ static inline void print_state(
 #endif	/* PE_DBG_ENABLE */
 }
 
-static void pe_reset_vdm_state_variable(
+static inline void pe_reset_vdm_state_variable(
 	struct pd_port *pd_port, struct pe_data *pe_data)
 {
-	if (pe_data->vdm_state_timer)
-		pd_disable_timer(pd_port, pe_data->vdm_state_timer);
-
 	pe_data->vdm_state_flags = 0;
-	pe_data->vdm_state_timer = 0;
+
+	if (pe_data->vdm_state_timer >= PD_TIMER_NR)
+		return;
+
+	pd_disable_timer(pd_port, pe_data->vdm_state_timer);
+	pe_data->vdm_state_timer = PD_TIMER_NR;
 }
 
 static inline void pd_pe_state_change(
@@ -982,7 +984,6 @@ static inline void pd_pe_state_change(
 	void (*prev_exit_action)(struct pd_port *pd_port);
 	void (*next_entry_action)(struct pd_port *pd_port);
 	struct pe_data *pe_data = &pd_port->pe_data;
-
 	uint8_t old_state = pd_port->pe_state_curr;
 	uint8_t new_state = pd_port->pe_state_next;
 
@@ -1010,10 +1011,8 @@ static inline void pd_pe_state_change(
 
 	if (pd_curr_is_vdm_evt(pd_port))
 		pe_reset_vdm_state_variable(pd_port, pe_data);
-	else if (pe_data->pe_state_timer) {
-		pd_disable_timer(pd_port, pe_data->pe_state_timer);
-		pe_data->pe_state_timer = 0;
-	}
+	else
+		pd_disable_pe_state_timer(pd_port);
 
 	pe_data->pe_state_flags = 0;
 	pe_data->pe_state_flags2 = 0;
@@ -1083,32 +1082,17 @@ static inline bool pd_try_get_vdm_event(
 	switch (pd_port->pe_pd_state) {
 #if CONFIG_USB_PD_PE_SINK
 	case PE_SNK_READY:
-		ret = pd_get_vdm_event(tcpc, pd_event);
-		break;
 #endif	/* CONFIG_USB_PD_PE_SINK */
-
 #if CONFIG_USB_PD_PE_SOURCE
 	case PE_SRC_READY:
-		ret = pd_get_vdm_event(tcpc, pd_event);
-		break;
 	case PE_SRC_STARTUP:
-		ret = pd_get_vdm_event(tcpc, pd_event);
-		break;
 	case PE_SRC_DISCOVERY:
-		ret = pd_get_vdm_event(tcpc, pd_event);
-		break;
-
 #if CONFIG_PD_SRC_RESET_CABLE
 	case PE_SRC_CBL_SEND_SOFT_RESET:
-		ret = pd_get_vdm_event(tcpc, pd_event);
-		break;
 #endif	/* CONFIG_PD_SRC_RESET_CABLE */
 #endif	/* CONFIG_USB_PD_PE_SOURCE */
-
 #if CONFIG_USB_PD_CUSTOM_DBGACC
 	case PE_DBG_READY:
-		ret = pd_get_vdm_event(tcpc, pd_event);
-		break;
 #endif	/* CONFIG_USB_PD_CUSTOM_DBGACC */
 	case PE_IDLE1:
 		ret = pd_get_vdm_event(tcpc, pd_event);
@@ -1211,7 +1195,7 @@ static inline bool pd_check_pd20_tx_ready(struct pd_port *pd_port)
 static inline bool pd_check_tx_ready(struct pd_port *pd_port)
 {
 	/* VDM BUSY : Waiting for response */
-	if (pd_port->pe_data.vdm_state_timer)
+	if (pd_port->pe_data.vdm_state_timer < PD_TIMER_NR)
 		return false;
 
 #if CONFIG_USB_PD_REV30

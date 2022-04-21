@@ -95,6 +95,12 @@ enum pd_pe_state_machine {
 	pd_port->pe_data.pe_state_flags2 = \
 	PE_STATE_FLAG_BACK_READY_IF_RECV_GOOD_CRC; }
 
+#define PE_STATE_WAIT_TX_SUCCESS_OR_FAILED(pd_port)	{\
+	pd_port->pe_data.pe_state_flags = \
+	PE_STATE_FLAG_BACK_READY_IF_TX_FAILED; \
+	pd_port->pe_data.pe_state_flags2 = \
+	PE_STATE_FLAG_BACK_READY_IF_RECV_GOOD_CRC; }
+
 #define PE_STATE_DPM_INFORMED(pd_port)	{\
 	pd_port->pe_data.pe_state_flags2 = \
 	PE_STATE_FLAG_BACK_READY_IF_DPM_ACK |\

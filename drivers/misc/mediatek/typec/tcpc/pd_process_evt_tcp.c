@@ -101,17 +101,10 @@ static inline int pd_handle_tcp_event_softreset(struct pd_port *pd_port)
 #if CONFIG_PD_DFP_RESET_CABLE
 static inline int pd_handle_tcp_event_cable_softreset(struct pd_port *pd_port)
 {
-	bool role_check;
-
 	if (!pd_check_pe_state_ready(pd_port))
 		return TCP_DPM_RET_DENIED_NOT_READY;
 
-	role_check = pd_port->data_role == PD_ROLE_DFP;
-
-	if (pd_check_rev30(pd_port))
-		role_check = pd_port->vconn_role;
-
-	if (!role_check)
+	if (!pd_is_cable_communication_available(pd_port))
 		return TCP_DPM_RET_DENIED_WRONG_DATA_ROLE;
 
 	PE_TRANSIT_STATE(pd_port, PE_DFP_CBL_SEND_SOFT_RESET);
@@ -363,13 +356,9 @@ static inline int pd_handle_tcp_dpm_event(
 
 #if CONFIG_USB_PD_PE_SINK
 	case TCP_DPM_EVT_REQUEST:
-		ret = pd_handle_tcp_event_request(pd_port);
-		break;
 	case TCP_DPM_EVT_REQUEST_EX:
-		ret = pd_handle_tcp_event_request(pd_port);
-		break;
 	case TCP_DPM_EVT_REQUEST_AGAIN:
-		ret =  pd_handle_tcp_event_request(pd_port);
+		ret = pd_handle_tcp_event_request(pd_port);
 		break;
 #endif	/* CONFIG_USB_PD_PE_SINK */
 

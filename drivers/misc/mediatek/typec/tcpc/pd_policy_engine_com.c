@@ -51,6 +51,7 @@ void pe_idle2_entry(struct pd_port *pd_port)
 {
 	pd_free_unexpected_event(pd_port);
 	memset(&pd_port->pe_data, 0, sizeof(struct pe_data));
+	pe_data_init(&pd_port->pe_data);
 	pd_set_rx_enable(pd_port, PD_RX_CAP_PE_IDLE);
 	pd_disable_timer(pd_port, PD_TIMER_PE_IDLE_TOUT);
 	pd_notify_pe_idle(pd_port);
@@ -166,30 +167,23 @@ void pe_send_soft_reset_standby_entry(struct pd_port *pd_port)
  * Policy Engine Share State Activity
  */
 
+static inline uint8_t pe20_power_ready_entry(struct pd_port *pd_port)
+{
+	if (pd_is_cable_communication_available(pd_port))
+		return PD_RX_CAP_PE_READY_DFP;
+	else
+		return PD_RX_CAP_PE_READY_UFP;
+}
+
 static inline uint8_t pe30_power_ready_entry(struct pd_port *pd_port)
 {
-	uint8_t rx_cap = PD_RX_CAP_PE_READY_UFP;
-
-	if (pd_port->vconn_role)
-		rx_cap = PD_RX_CAP_PE_READY_DFP;
-
 #if CONFIG_USB_PD_REV30_COLLISION_AVOID
 	dpm_reaction_clear(pd_port,
 		DPM_REACTION_DFP_FLOW_DELAY |
 		DPM_REACTION_UFP_FLOW_DELAY);
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
 
-	return rx_cap;
-}
-
-static inline uint8_t pe20_power_ready_entry(struct pd_port *pd_port)
-{
-	uint8_t rx_cap = PD_RX_CAP_PE_READY_UFP;
-
-	if (pd_port->data_role == PD_ROLE_DFP)
-		rx_cap = PD_RX_CAP_PE_READY_DFP;
-
-	return rx_cap;
+	return pe20_power_ready_entry(pd_port);
 }
 
 void pe_power_ready_entry(struct pd_port *pd_port)
@@ -335,7 +329,7 @@ void pe_give_manufacturer_info_entry(struct pd_port *pd_port)
 #if CONFIG_USB_PD_REV30_COUNTRY_CODE_REMOTE
 void pe_get_country_codes_entry(struct pd_port *pd_port)
 {
-	PE_STATE_WAIT_MSG(pd_port);
+	PE_STATE_WAIT_MSG_OR_TX_FAILED(pd_port);
 
 	pd_send_sop_ctrl_msg(pd_port, PD_CTRL_GET_COUNTRY_CODE);
 }
@@ -353,7 +347,7 @@ void pe_get_country_codes_exit(struct pd_port *pd_port)
 #if CONFIG_USB_PD_REV30_COUNTRY_CODE_LOCAL
 void pe_give_country_codes_entry(struct pd_port *pd_port)
 {
-	PE_STATE_WAIT_TX_SUCCESS(pd_port);
+	PE_STATE_WAIT_TX_SUCCESS_OR_FAILED(pd_port);
 
 	pd_dpm_send_country_codes(pd_port);
 }
@@ -369,7 +363,8 @@ void pe_get_country_info_entry(struct pd_port *pd_port)
 	uint32_t *ccdo =
 		pd_get_tcp_event_data_object(pd_port);
 
-	PE_STATE_WAIT_MSG(pd_port);
+	PE_STATE_WAIT_MSG_OR_TX_FAILED(pd_port);
+
 	pd_send_sop_data_msg(pd_port,
 		PD_DATA_GET_COUNTRY_INFO, PD_CCDO_SIZE, ccdo);
 }
@@ -387,7 +382,7 @@ void pe_get_country_info_exit(struct pd_port *pd_port)
 #if CONFIG_USB_PD_REV30_COUNTRY_INFO_LOCAL
 void pe_give_country_info_entry(struct pd_port *pd_port)
 {
-	PE_STATE_WAIT_TX_SUCCESS(pd_port);
+	PE_STATE_WAIT_TX_SUCCESS_OR_FAILED(pd_port);
 
 	pd_dpm_send_country_info(pd_port);
 }

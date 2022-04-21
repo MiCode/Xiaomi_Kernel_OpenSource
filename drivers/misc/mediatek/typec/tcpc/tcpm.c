@@ -178,20 +178,6 @@ uint8_t tcpm_inquire_typec_local_rp(struct tcpc_device *tcpc)
 }
 EXPORT_SYMBOL(tcpm_inquire_typec_local_rp);
 
-int tcpm_typec_set_wake_lock(struct tcpc_device *tcpc, bool user_lock)
-{
-	int ret;
-
-	mutex_lock(&tcpc->access_lock);
-	ret = tcpci_set_wake_lock(
-		tcpc, tcpc->wake_lock_pd, user_lock);
-	tcpc->wake_lock_user = user_lock;
-	mutex_unlock(&tcpc->access_lock);
-
-	return ret;
-}
-EXPORT_SYMBOL(tcpm_typec_set_wake_lock);
-
 int tcpm_typec_set_usb_sink_curr(struct tcpc_device *tcpc, int curr)
 {
 	bool force_sink_vbus = true;
@@ -370,14 +356,17 @@ uint8_t tcpm_inquire_pd_pe_ready(struct tcpc_device *tcpc)
 }
 EXPORT_SYMBOL(tcpm_inquire_pd_pe_ready);
 
-uint8_t tcpm_inquire_cable_current(struct tcpc_device *tcpc)
+uint32_t tcpm_inquire_cable_current(struct tcpc_device *tcpc)
 {
 	struct pd_port *pd_port = &tcpc->pd_port;
+	uint32_t ret = PD_CABLE_CURR_UNKNOWN;
 
+	mutex_lock(&pd_port->pd_lock);
 	if (pd_port->pe_data.power_cable_present)
-		return pd_get_cable_curr_lvl(pd_port)+1;
+		ret = pd_get_cable_curr_lvl(pd_port) + 1;
+	mutex_unlock(&pd_port->pd_lock);
 
-	return PD_CABLE_CURR_UNKNOWN;
+	return ret;
 }
 EXPORT_SYMBOL(tcpm_inquire_cable_current);
 
@@ -652,7 +641,7 @@ int tcpm_get_remote_power_cap(struct tcpc_device *tcpc,
 	int i;
 
 	mutex_lock(&pd_port->pd_lock);
-	remote_cap->selected_cap_idx = pd_port->pe_data.remote_selected_cap;
+	remote_cap->selected_cap_idx = pd_port->pe_data.selected_cap;
 	remote_cap->nr = pd_port->pe_data.remote_src_cap.nr;
 	for (i = 0; i < remote_cap->nr; i++) {
 		tcpm_extract_power_cap_val(
@@ -1400,7 +1389,7 @@ int tcpm_notify_vbus_stable(struct tcpc_device *tcpc)
 {
 #if CONFIG_USB_PD_VBUS_STABLE_TOUT
 	tcpc_disable_timer(tcpc, PD_TIMER_VBUS_STABLE);
-#endif
+#endif	/* CONFIG_USB_PD_VBUS_STABLE_TOUT */
 
 	pd_put_vbus_stable_event(tcpc);
 	return TCPM_SUCCESS;
@@ -1540,16 +1529,14 @@ int tcpm_set_apdo_charging_policy(struct tcpc_device *tcpc,
 		return TCPM_ERROR_PARAMETER;
 
 	mutex_lock(&pd_port->pd_lock);
-	if (pd_port->dpm_charging_policy == policy) {
-		mutex_unlock(&pd_port->pd_lock);
-		TCPC_INFO("BUG!!! FIX IT!!!\n");
-		return tcpm_dpm_pd_request(tcpc, mv, ma, NULL);
-		/* return TCPM_ERROR_REPEAT_POLICY; */
-	}
-
 	if (pd_port->pd_connect_state != PD_CONNECT_PE_READY_SNK_APDO) {
 		mutex_unlock(&pd_port->pd_lock);
 		return TCPM_ERROR_INVALID_POLICY;
+	}
+
+	if (pd_port->dpm_charging_policy == policy) {
+		mutex_unlock(&pd_port->pd_lock);
+		return tcpm_dpm_pd_request(tcpc, mv, ma, NULL);
 	}
 
 	pd_port->dpm_charging_policy = policy;
@@ -1984,7 +1971,7 @@ static inline int __tcpm_dpm_wait_bk_event(
 		return pd_port->tcpm_bk_ret;
 	mutex_lock(&pd_port->pd_lock);
 
-	pd_port->tcpm_bk_event_id = TCP_DPM_EVT_UNKONW;
+	pd_port->tcpm_bk_event_id = TCP_DPM_EVT_UNKNOWN;
 
 #if CONFIG_USB_PD_TCPM_CB_2ND
 	pd_port->tcpm_bk_cb_data = NULL;
@@ -2001,8 +1988,7 @@ int tcpm_dpm_wait_bk_event(struct pd_port *pd_port, uint32_t tout_ms)
 #if TCPM_DBG_ENABLE
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-	if (ret < TCP_DPM_RET_NR && ret >= 0
-		&& ret < ARRAY_SIZE(bk_event_ret_name))
+	if (ret < TCP_DPM_RET_NR && ret >= 0)
 		TCPM_DBG("bk_event_cb -> %s\n", bk_event_ret_name[ret]);
 #endif /* TCPM_DBG_ENABLE */
 
@@ -2054,15 +2040,14 @@ static int tcpm_put_tcp_dpm_event_bk(
 	struct tcpc_device *tcpc, struct tcp_dpm_event *event,
 	uint32_t tout_ms, uint8_t *data, uint8_t size)
 {
-	int ret;
-	uint8_t retry = CONFIG_USB_PD_TCPM_CB_RETRY;
+	int ret = TCP_DPM_RET_TIMEOUT, retry = CONFIG_USB_PD_TCPM_CB_RETRY;
 	struct pd_port *pd_port = &tcpc->pd_port;
 
 	event->event_cb = tcpm_dpm_bk_event_cb;
 
 	mutex_lock(&pd_port->tcpm_bk_lock);
 
-	while (1) {
+	do {
 		ret = __tcpm_put_tcp_dpm_event_bk(
 			tcpc, event, tout_ms, data, size);
 		if (retry > 0 &&
@@ -2073,7 +2058,9 @@ static int tcpm_put_tcp_dpm_event_bk(
 			continue;
 		}
 		break;
-	}
+	} while ((ret == TCP_DPM_RET_TIMEOUT ||
+		  ret == TCP_DPM_RET_DROP_DISCARD ||
+		  ret == TCP_DPM_RET_DROP_UNEXPECTED) && (retry-- > 0));
 
 	mutex_unlock(&pd_port->tcpm_bk_lock);
 

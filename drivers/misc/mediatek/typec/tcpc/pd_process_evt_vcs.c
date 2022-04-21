@@ -17,7 +17,7 @@ DECL_PE_STATE_TRANSITION(PD_DPM_MSG_ACK) = {
 DECL_PE_STATE_REACTION(PD_DPM_MSG_ACK);
 
 /*
- * [BLOCK] Porcess PD Ctrl MSG
+ * [BLOCK] Process PD Ctrl MSG
  */
 
 static inline bool pd_process_ctrl_msg(
@@ -50,7 +50,7 @@ static inline bool pd_process_ctrl_msg(
 }
 
 /*
- * [BLOCK] Porcess DPM MSG
+ * [BLOCK] Process DPM MSG
  */
 
 static inline bool pd_process_dpm_msg(
@@ -71,7 +71,7 @@ static inline bool pd_process_dpm_msg(
 }
 
 /*
- * [BLOCK] Porcess Timer MSG
+ * [BLOCK] Process Timer MSG
  */
 
 static inline bool pd_process_timer_msg(

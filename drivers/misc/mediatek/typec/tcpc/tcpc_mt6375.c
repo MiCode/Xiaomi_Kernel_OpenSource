@@ -12,7 +12,7 @@
 #include <linux/kthread.h>
 #include <linux/cpu.h>
 #include <linux/iio/consumer.h>
-#include <uapi/linux/sched/types.h>
+#include <linux/sched.h>
 #include <dt-bindings/mfd/mt6375.h>
 #include <linux/sched/clock.h>
 
@@ -334,7 +334,7 @@ enum mt6375_wd_tdet {
 };
 
 static const u8 mt6375_vend_alert_clearall[MT6375_VEND_INT_NUM] = {
-	0x3F, 0xFF, 0xF0, 0xE3, 0xFF, 0xF8, 0x3F,
+	0x3F, 0xFD, 0xF0, 0xE3, 0xFF, 0xF8, 0x3F,
 };
 
 static const u8 mt6375_vend_alert_maskall[MT6375_VEND_INT_NUM] = {
@@ -544,9 +544,7 @@ static int mt6375_init_vend_mask(struct mt6375_tcpc_data *ddata)
 
 	if (ddata->tcpc->tcpc_flags & TCPC_FLAGS_LPM_WAKEUP_WATCHDOG)
 		mask[MT6375_VEND_INT1] |= MT6375_MSK_WAKEUP;
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	mask[MT6375_VEND_INT1] |= MT6375_MSK_VBUS80;
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 	if (ddata->tcpc->tcpc_flags & TCPC_FLAGS_TYPEC_OTP)
 		mask[MT6375_VEND_INT1] |= MT6375_MSK_TYPECOTP;
@@ -613,13 +611,11 @@ static int mt6375_enable_force_discharge(struct mt6375_tcpc_data *ddata,
 		(ddata, TCPC_V10_REG_POWER_CTRL, TCPC_V10_REG_FORCE_DISC_EN);
 }
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6375_enable_vsafe0v_detect(struct mt6375_tcpc_data *ddata, bool en)
 {
 	return (en ? mt6375_set_bits : mt6375_clr_bits)
 		(ddata, MT6375_REG_MTMASK1, MT6375_MSK_VBUS80);
 }
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 static int __maybe_unused mt6375_enable_rpdet_auto(
 					struct mt6375_tcpc_data *ddata, bool en)
@@ -1330,11 +1326,9 @@ static int mt6375_set_cc_toggling(struct mt6375_tcpc_data *ddata, int rp_lvl)
 #if CONFIG_TCPC_LOW_POWER_MODE
 	tcpci_set_low_power_mode(ddata->tcpc, true, TYPEC_CC_DRP);
 #else
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	ret = mt6375_enable_vsafe0v_detect(ddata, false);
 	if (ret < 0)
 		return ret;
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 #endif /* CONFIG_TCPC_LOW_POWER_MODE */
 	udelay(30);
 	ret = mt6375_write8(ddata, TCPC_V10_REG_COMMAND,
@@ -1439,7 +1433,7 @@ static int mt6375_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 
 	/*
 	 * DRP Toggle Cycle : 51.2 + 6.4*val ms
-	 * DRP Duyt Ctrl : dcSRC / 1024
+	 * DRP Duty Ctrl : dcSRC / 1024
 	 */
 	mt6375_write8(ddata, MT6375_REG_TCPCCTRL2, 4);
 	mt6375_write16(ddata, MT6375_REG_TCPCCTRL3, TCPC_NORMAL_RP_DUTY);
@@ -1608,13 +1602,11 @@ static int mt6375_get_power_status(struct tcpc_device *tcpc, u16 *status)
 	 * Vsafe0v only triggers when vbus falls under 0.8V,
 	 * also update parameter if vbus present triggers
 	 */
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	ret = tcpci_is_vsafe0v(tcpc);
 	if (ret < 0)
 		goto out;
 	tcpc->vbus_safe0v = ret ? true : false;
 out:
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 	return 0;
 }
 
@@ -1780,7 +1772,6 @@ static int mt6375_set_watchdog(struct tcpc_device *tcpc, bool en)
 		(ddata, TCPC_V10_REG_TCPC_CTRL, TCPC_V10_REG_TCPC_CTRL_EN_WDT);
 }
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6375_is_vsafe0v(struct tcpc_device *tcpc)
 {
 	int ret;
@@ -1792,7 +1783,6 @@ static int mt6375_is_vsafe0v(struct tcpc_device *tcpc)
 		return ret;
 	return (data & MT6375_MSK_VBUS80) ? 1 : 0;
 }
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 #if CONFIG_TCPC_LOW_POWER_MODE
 static int mt6375_is_low_power_mode(struct tcpc_device *tcpc)
@@ -1813,9 +1803,7 @@ static int mt6375_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 	u8 data;
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	mt6375_enable_vsafe0v_detect(ddata, !en);
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 	if (en) {
 		tcpci_set_otp_fwen(tcpc, false);
 		data = MT6375_MSK_LPWR_EN;
@@ -1860,31 +1848,29 @@ static int mt6375_get_message(struct tcpc_device *tcpc, u32 *payload,
 			      u16 *msg_head,
 			      enum tcpm_transmit_type *frame_type)
 {
-	int ret;
-	u8 type, cnt = 0;
-	u8 buf[4] = {0};
+	int ret = 0;
+	u8 cnt = 0, buf[4] = {0};
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
-	uint32_t cmd;
 
 	ret = mt6375_bulk_read(ddata, TCPC_V10_REG_RX_BYTE_CNT, buf, 4);
-	cnt = buf[0];
-	type = buf[1];
-	*msg_head = *(u16 *)&buf[2];
+	if (ret < 0)
+		return ret;
 
-	cmd = PD_HEADER_TYPE(*msg_head);
-	MT6375_INFO("MessageType is %d\n", cmd);
+	cnt = buf[0];
+	*frame_type = buf[1];
+	*msg_head = le16_to_cpu(*(u16 *)&buf[2]);
+
+	MT6375_INFO("Count is %d\n", cnt);
+	MT6375_INFO("FrameType is %d\n", *frame_type);
+	MT6375_INFO("MessageType is %d\n", PD_HEADER_TYPE(*msg_head));
 
 	/* TCPC 1.0 ==> no need to subtract the size of msg_head */
-	if (ret >= 0 && cnt > 3) {
+	if (cnt > 3) {
 		cnt -= 3; /* MSG_HDR */
 		ret = mt6375_bulk_read(ddata, TCPC_V10_REG_RX_DATA,
-				       (u8 *)payload, cnt);
+				       payload, cnt);
 	}
-	*frame_type = (enum tcpm_transmit_type)type;
 
-	/* Read complete, clear RX status alert bit */
-	tcpci_alert_status_clear(tcpc, TCPC_V10_REG_ALERT_RX_STATUS |
-				 TCPC_V10_REG_RX_OVERFLOW);
 	return ret;
 }
 
@@ -2025,7 +2011,6 @@ static int mt6375_set_floating_ground(struct tcpc_device *tcpc, bool en)
  * ==================================================================
  */
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6375_vsafe0v_irq_handler(struct mt6375_tcpc_data *ddata)
 {
 	int ret;
@@ -2036,7 +2021,6 @@ static int mt6375_vsafe0v_irq_handler(struct mt6375_tcpc_data *ddata)
 	ddata->tcpc->vbus_safe0v = ret ? true : false;
 	return 0;
 }
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 static int mt6375_typec_otp_irq_handler(struct mt6375_tcpc_data *ddata)
 {
@@ -2136,9 +2120,7 @@ struct irq_mapping_tbl {
 	{ .num = _num, .name = #_name, .hdlr = mt6375_##_name##_irq_handler }
 
 static struct irq_mapping_tbl mt6375_vend_irq_mapping_tbl[] = {
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	MT6375_IRQ_MAPPING(1, vsafe0v),
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 	MT6375_IRQ_MAPPING(2, typec_otp),
 
@@ -2252,9 +2234,7 @@ static struct tcpc_ops mt6375_tcpc_ops = {
 	.set_auto_dischg_discnt = mt6375_set_auto_dischg_discnt,
 	.get_vbus_voltage = mt6375_get_vbus_voltage,
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	.is_vsafe0v = mt6375_is_vsafe0v,
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 #if CONFIG_TCPC_LOW_POWER_MODE
 	.is_low_power_mode = mt6375_is_low_power_mode,
@@ -2337,7 +2317,6 @@ static irqreturn_t mt6375_pd_evt_handler(int irq, void *data)
 static int mt6375_tcpc_init_irq(struct mt6375_tcpc_data *ddata)
 {
 	int ret;
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
 	dev_info(ddata->dev, "IRQ: %s\n", __func__);
 	/* Mask all alerts & clear them */
@@ -2346,7 +2325,7 @@ static int mt6375_tcpc_init_irq(struct mt6375_tcpc_data *ddata)
 	mt6375_bulk_write(ddata, MT6375_REG_MTINT1, mt6375_vend_alert_clearall,
 			  ARRAY_SIZE(mt6375_vend_alert_clearall));
 	mt6375_write16(ddata, TCPC_V10_REG_ALERT_MASK, 0);
-	mt6375_write16(ddata, TCPC_V10_REG_ALERT, 0xFFFF);
+	mt6375_write16(ddata, TCPC_V10_REG_ALERT, 0x8FFF);
 
 	kthread_init_worker(&ddata->irq_worker);
 	ddata->irq_worker_task = kthread_run(kthread_worker_fn,
@@ -2356,7 +2335,7 @@ static int mt6375_tcpc_init_irq(struct mt6375_tcpc_data *ddata)
 		dev_err(ddata->dev, "%s create tcpc task fail\n", __func__);
 		return -EINVAL;
 	}
-	sched_setscheduler(ddata->irq_worker_task, SCHED_FIFO, &param);
+	sched_set_fifo(ddata->irq_worker_task);
 	kthread_init_work(&ddata->irq_work, mt6375_irq_work_handler);
 
 	ret = platform_get_irq_byname(to_platform_device(ddata->dev), "pd_evt");
@@ -2372,21 +2351,16 @@ static int mt6375_tcpc_init_irq(struct mt6375_tcpc_data *ddata)
 		dev_err(ddata->dev, "failed to request irq %d\n", ddata->irq);
 		return ret;
 	}
+	device_init_wakeup(ddata->dev, true);
+
 	return 0;
 }
 
 static int mt6375_register_tcpcdev(struct mt6375_tcpc_data *ddata)
 {
-	struct device_node *boot_np, *np = ddata->dev->of_node;
 	struct tcpc_desc *desc = ddata->desc;
-	const struct {
-		u32 size;
-		u32 tag;
-		u32 boot_mode;
-		u32 boot_type;
-	} *tag;
 
-	ddata->tcpc = tcpc_device_register(ddata->dev, ddata->desc,
+	ddata->tcpc = tcpc_device_register(ddata->dev, desc,
 					  &mt6375_tcpc_ops, ddata);
 	if (IS_ERR_OR_NULL(ddata->tcpc))
 		return -EINVAL;
@@ -2423,21 +2397,6 @@ static int mt6375_register_tcpcdev(struct mt6375_tcpc_data *ddata)
 		ddata->tcpc->tcpc_flags |= TCPC_FLAGS_TYPEC_OTP;
 	if (desc->en_floatgnd)
 		ddata->tcpc->tcpc_flags |= TCPC_FLAGS_FLOATING_GROUND;
-
-	/* mediatek boot mode */
-	boot_np = of_parse_phandle(np, "boot_mode", 0);
-	if (!boot_np) {
-		dev_err(ddata->dev, "failed to get bootmode phandle\n");
-		return -ENODEV;
-	}
-	tag = of_get_property(boot_np, "atag,boot", NULL);
-	if (!tag) {
-		dev_err(ddata->dev, "failed to get atag,boot\n");
-		return -EINVAL;
-	}
-	dev_info(ddata->dev, "sz:0x%x tag:0x%x mode:0x%x type:0x%x\n",
-		 tag->size, tag->tag, tag->boot_mode, tag->boot_type);
-	ddata->tcpc->bootmode = tag->boot_mode;
 
 	if (ddata->tcpc->tcpc_flags & TCPC_FLAGS_PD_REV30)
 		dev_info(ddata->dev, "%s PD REV30\n", __func__);
@@ -2726,4 +2685,4 @@ module_platform_driver(mt6375_tcpc_driver);
 MODULE_AUTHOR("Gene Chen <gene_chen@richtek.com>");
 MODULE_DESCRIPTION("MT6375 USB Type-C Port Controller Interface Driver");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("1.0.1");
+MODULE_VERSION("1.0.2");

@@ -158,7 +158,6 @@ int pd_dpm_send_source_caps(struct pd_port *pd_port)
 	uint8_t i;
 	uint32_t cable_curr = 3000;
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
-
 	struct pd_port_power_caps *src_cap0 = &pd_port->local_src_cap_default;
 	struct pd_port_power_caps *src_cap1 = &pd_port->local_src_cap;
 
@@ -216,10 +215,12 @@ static bool dpm_response_request(struct pd_port *pd_port, bool accept)
 
 /* ---- SNK ---- */
 
-static void dpm_build_sink_pdo_info(struct dpm_pdo_info_t *sink_pdo_info,
+static void dpm_build_sink_pdo_info(struct dpm_pdo_info_t *sink,
 		uint8_t type, int request_v, int request_i)
 {
-	sink_pdo_info->type = type;
+	memset(sink, 0, sizeof(*sink));
+
+	sink->type = type;
 
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	if (type == DPM_PDO_TYPE_APDO) {
@@ -229,9 +230,29 @@ static void dpm_build_sink_pdo_info(struct dpm_pdo_info_t *sink_pdo_info,
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 		request_i = (request_i / 10) * 10;
 
-	sink_pdo_info->vmin = sink_pdo_info->vmax = request_v;
-	sink_pdo_info->ma = request_i;
-	sink_pdo_info->uw = request_v * request_i;
+	sink->vmax = sink->vmin = request_v;
+	sink->uw = request_v * request_i;
+	sink->ma = request_i;
+}
+
+static bool dpm_build_request_info_with_new_src_cap(
+		struct pd_port *pd_port, struct dpm_rdo_info_t *req_info,
+		struct pd_port_power_caps *src_cap, uint8_t charging_policy)
+{
+	uint8_t sel = pd_port->pe_data.selected_cap;
+	struct dpm_pdo_info_t sink, source;
+
+	if (sel > src_cap->nr)
+		return false;
+
+	dpm_extract_pdo_info(src_cap->pdos[sel-1], &source);
+
+	dpm_build_sink_pdo_info(&sink, source.type,
+			pd_port->request_v, pd_port->request_i);
+
+	return dpm_find_match_req_info(req_info,
+			&sink, src_cap->nr, src_cap->pdos,
+			-1, charging_policy);
 }
 
 
@@ -283,13 +304,13 @@ static bool dpm_build_request_info_apdo(
 		struct pd_port *pd_port, struct dpm_rdo_info_t *req_info,
 		struct pd_port_power_caps *src_cap, uint8_t charging_policy)
 {
-	struct dpm_pdo_info_t sink_pdo_info;
+	struct dpm_pdo_info_t sink;
 
-	dpm_build_sink_pdo_info(&sink_pdo_info, DPM_PDO_TYPE_APDO,
+	dpm_build_sink_pdo_info(&sink, DPM_PDO_TYPE_APDO,
 			pd_port->request_v_apdo, pd_port->request_i_apdo);
 
 	return dpm_find_match_req_info(req_info,
-			&sink_pdo_info, src_cap->nr, src_cap->pdos,
+			&sink, src_cap->nr, src_cap->pdos,
 			-1, charging_policy);
 }
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
@@ -301,16 +322,16 @@ static bool dpm_build_request_info_pdo(
 {
 	bool find_cap = false;
 	int i, max_uw = -1;
-	struct dpm_pdo_info_t sink_pdo_info;
+	struct dpm_pdo_info_t sink;
 	struct pd_port_power_caps *snk_cap = &pd_port->local_snk_cap;
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	for (i = 0; i < snk_cap->nr; i++) {
 		DPM_DBG("EvaSinkCap%d\n", i+1);
-		dpm_extract_pdo_info(snk_cap->pdos[i], &sink_pdo_info);
+		dpm_extract_pdo_info(snk_cap->pdos[i], &sink);
 
 		find_cap = dpm_find_match_req_info(req_info,
-				&sink_pdo_info, src_cap->nr, src_cap->pdos,
+				&sink, src_cap->nr, src_cap->pdos,
 				max_uw, charging_policy);
 
 		if (find_cap) {
@@ -322,7 +343,6 @@ static bool dpm_build_request_info_pdo(
 			DPM_DBG("Find SrcCap%d(%s):%d mw\n",
 					req_info->pos, req_info->mismatch ?
 					"Mismatch" : "Match", max_uw/1000);
-			pd_port->pe_data.local_selected_cap = i + 1;
 		}
 	}
 
@@ -336,13 +356,21 @@ static bool dpm_build_request_info(
 	uint8_t charging_policy = pd_port->dpm_charging_policy;
 	struct pd_port_power_caps *src_cap = &pd_port->pe_data.remote_src_cap;
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+	struct pd_event *pd_event = pd_get_curr_pd_event(pd_port);
 
 	memset(req_info, 0, sizeof(struct dpm_rdo_info_t));
 
 	DPM_INFO("Policy=0x%X\n", charging_policy);
 
 	for (i = 0; i < src_cap->nr; i++)
-		DPM_DBG("SrcCap%d: 0x%08x\n", i+1, src_cap->pdos[i]);
+		DPM_INFO("SrcCap%d: 0x%08x\n", i+1, src_cap->pdos[i]);
+
+	if (pd_event_data_msg_match(pd_event, PD_DATA_SOURCE_CAP) &&
+		pd_port->pe_data.explicit_contract) {
+		if (dpm_build_request_info_with_new_src_cap(
+				pd_port, req_info, src_cap, charging_policy))
+			return true;
+	}
 
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	if ((charging_policy & DPM_CHARGING_POLICY_MASK)
@@ -359,27 +387,22 @@ static bool dpm_build_request_info(
 static bool dpm_build_default_request_info(
 		struct pd_port *pd_port, struct dpm_rdo_info_t *req_info)
 {
-	struct dpm_pdo_info_t sink, source;
-	struct pd_port_power_caps *snk_cap = &pd_port->local_snk_cap;
+	struct dpm_pdo_info_t source;
 	struct pd_port_power_caps *src_cap = &pd_port->pe_data.remote_src_cap;
 
-	pd_port->pe_data.local_selected_cap = 1;
-
-	dpm_extract_pdo_info(snk_cap->pdos[0], &sink);
 	dpm_extract_pdo_info(src_cap->pdos[0], &source);
 
 	req_info->pos = 1;
 	req_info->type = source.type;
-	req_info->mismatch = true;
-	req_info->vmax = 5000;
-	req_info->vmin = 5000;
+	req_info->mismatch = false;
+	req_info->vmin = source.vmin;
+	req_info->vmax = source.vmax;
 
 	if (req_info->type == DPM_PDO_TYPE_BAT) {
-		req_info->max_uw = sink.uw;
+		req_info->max_uw = source.uw;
 		req_info->oper_uw = source.uw;
-
 	} else {
-		req_info->max_ma = sink.ma;
+		req_info->max_ma = source.ma;
 		req_info->oper_ma = source.ma;
 	}
 
@@ -398,15 +421,15 @@ static inline void dpm_update_request_i_new(
 static inline void dpm_update_request_bat(struct pd_port *pd_port,
 	struct dpm_rdo_info_t *req_info, uint32_t flags)
 {
-	uint32_t mw_op, mw_max;
+	uint32_t mw_max, mw_op;
 
-	mw_op = req_info->oper_uw / 1000;
-	mw_max = req_info->max_uw / 1000;
-
-	pd_port->request_i_op = req_info->oper_uw / req_info->vmin;
 	pd_port->request_i_max = req_info->max_uw / req_info->vmin;
+	pd_port->request_i_op = req_info->oper_uw / req_info->vmin;
 
 	dpm_update_request_i_new(pd_port, req_info);
+
+	mw_max = req_info->max_uw / 1000;
+	mw_op = req_info->oper_uw / 1000;
 
 	pd_port->last_rdo = RDO_BATT(
 			req_info->pos, mw_op, mw_max, flags);
@@ -415,8 +438,8 @@ static inline void dpm_update_request_bat(struct pd_port *pd_port,
 static inline void dpm_update_request_not_bat(struct pd_port *pd_port,
 	struct dpm_rdo_info_t *req_info, uint32_t flags)
 {
-	pd_port->request_i_op = req_info->oper_ma;
 	pd_port->request_i_max = req_info->max_ma;
+	pd_port->request_i_op = req_info->oper_ma;
 
 	dpm_update_request_i_new(pd_port, req_info);
 
@@ -488,32 +511,32 @@ int pd_dpm_update_tcp_request(struct pd_port *pd_port,
 	bool find_cap = false;
 	uint8_t type = DPM_PDO_TYPE_FIXED;
 	struct dpm_rdo_info_t req_info;
-	struct dpm_pdo_info_t sink_pdo_info;
+	struct dpm_pdo_info_t sink;
 	uint8_t charging_policy = pd_port->dpm_charging_policy;
 	struct pd_port_power_caps *src_cap = &pd_port->pe_data.remote_src_cap;
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	memset(&req_info, 0, sizeof(struct dpm_rdo_info_t));
 
-	DPM_DBG("charging_policy=0x%X\n", charging_policy);
+	DPM_INFO("Policy=0x%X\n", charging_policy);
 
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	if ((charging_policy & DPM_CHARGING_POLICY_MASK)
 		== DPM_CHARGING_POLICY_PPS)
 		type = DPM_PDO_TYPE_APDO;
-#endif	/*CONFIG_USB_PD_REV30_PPS_SINK */
+#endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
-	dpm_build_sink_pdo_info(&sink_pdo_info, type, pd_req->mv, pd_req->ma);
+	dpm_build_sink_pdo_info(&sink, type, pd_req->mv, pd_req->ma);
 
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	if (pd_port->request_apdo &&
-		(sink_pdo_info.vmin == pd_port->request_v) &&
-		(sink_pdo_info.ma == pd_port->request_i))
+		(sink.vmin == pd_port->request_v) &&
+		(sink.ma == pd_port->request_i))
 		return TCP_DPM_RET_DENIED_REPEAT_REQUEST;
-#endif	/*CONFIG_USB_PD_REV30_PPS_SINK */
+#endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
 	find_cap = dpm_find_match_req_info(&req_info,
-			&sink_pdo_info, src_cap->nr, src_cap->pdos,
+			&sink, src_cap->nr, src_cap->pdos,
 			-1, charging_policy);
 
 	if (!find_cap) {
@@ -524,8 +547,8 @@ int pd_dpm_update_tcp_request(struct pd_port *pd_port,
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	if ((charging_policy & DPM_CHARGING_POLICY_MASK)
 		== DPM_CHARGING_POLICY_PPS) {
-		pd_port->request_v_apdo = sink_pdo_info.vmin;
-		pd_port->request_i_apdo = sink_pdo_info.ma;
+		pd_port->request_v_apdo = sink.vmin;
+		pd_port->request_i_apdo = sink.ma;
 	}
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
@@ -545,7 +568,8 @@ int pd_dpm_update_tcp_request_ex(struct pd_port *pd_port,
 		return false;
 
 #if CONFIG_USB_PD_REV30_PPS_SINK
-	if (pd_port->dpm_charging_policy == DPM_CHARGING_POLICY_PPS) {
+	if ((pd_port->dpm_charging_policy & DPM_CHARGING_POLICY_MASK)
+		== DPM_CHARGING_POLICY_PPS) {
 		DPM_INFO("Reject tcp_rqeuest_ex if charging_policy=pps\n");
 		return TCP_DPM_RET_DENIED_INVALID_REQUEST;
 	}
@@ -555,41 +579,34 @@ int pd_dpm_update_tcp_request_ex(struct pd_port *pd_port,
 
 	req_info.pos = pd_req->pos;
 	req_info.type = source.type;
-	req_info.mismatch = false;
-	req_info.vmax = source.vmax;
 	req_info.vmin = source.vmin;
+	req_info.vmax = source.vmax;
 
 	if (req_info.type == DPM_PDO_TYPE_BAT) {
+		req_info.mismatch = source.uw < pd_req->max_uw;
 		req_info.max_uw = pd_req->max_uw;
 		req_info.oper_uw = pd_req->oper_uw;
-		if (pd_req->oper_uw < pd_req->max_uw)
-			req_info.mismatch = true;
 	} else {
+		req_info.mismatch = source.ma < pd_req->max_ma;
 		req_info.max_ma = pd_req->max_ma;
 		req_info.oper_ma = pd_req->oper_ma;
-		if (pd_req->oper_ma < pd_req->max_ma)
-			req_info.mismatch = true;
 	}
 
 	dpm_update_request(pd_port, &req_info);
 	return TCP_DPM_RET_SUCCESS;
 }
 
-int pd_dpm_update_tcp_request_again(struct pd_port *pd_port)
+static uint8_t pd_dpm_build_rdo(struct pd_port *pd_port)
 {
 	bool find_cap = false;
-	int sink_nr, source_nr;
 	struct dpm_rdo_info_t req_info;
 	struct pd_port_power_caps *snk_cap = &pd_port->local_snk_cap;
 	struct pd_port_power_caps *src_cap = &pd_port->pe_data.remote_src_cap;
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
-	sink_nr = snk_cap->nr;
-	source_nr = src_cap->nr;
-
-	if ((source_nr <= 0) || (sink_nr <= 0)) {
+	if ((src_cap->nr <= 0) || (snk_cap->nr <= 0)) {
 		DPM_INFO("SrcNR or SnkNR = 0\n");
-		return TCP_DPM_RET_DENIED_INVALID_REQUEST;
+		return 0;
 	}
 
 	find_cap = dpm_build_request_info(pd_port, &req_info);
@@ -602,39 +619,29 @@ int pd_dpm_update_tcp_request_again(struct pd_port *pd_port)
 		DPM_INFO("Select SrcCap%d\n", req_info.pos);
 
 	dpm_update_request(pd_port, &req_info);
-	return TCP_DPM_RET_SUCCESS;
+
+	return req_info.pos;
+}
+
+int pd_dpm_update_tcp_request_again(struct pd_port *pd_port)
+{
+	if (pd_dpm_build_rdo(pd_port))
+		return TCP_DPM_RET_SUCCESS;
+	else
+		return TCP_DPM_RET_DENIED_INVALID_REQUEST;
 }
 
 void pd_dpm_snk_evaluate_caps(struct pd_port *pd_port)
 {
-	bool find_cap = false;
-	struct dpm_rdo_info_t req_info;
-	struct pd_port_power_caps *snk_cap = &pd_port->local_snk_cap;
-	struct pd_port_power_caps *src_cap = &pd_port->pe_data.remote_src_cap;
-	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+	uint8_t pos = 0;
 
 	PD_BUG_ON(pd_get_msg_data_payload(pd_port) == NULL);
 
 	pd_dpm_dr_inform_source_cap(pd_port);
 
-	if ((src_cap->nr <= 0) || (snk_cap->nr <= 0)) {
-		DPM_INFO("SrcNR or SnkNR = 0\n");
-		return;
-	}
-
-	find_cap = dpm_build_request_info(pd_port, &req_info);
-
-	/* If we can't find any cap to use, choose default setting */
-	if (!find_cap) {
-		DPM_INFO("Can't find any SrcCap\n");
-		dpm_build_default_request_info(pd_port, &req_info);
-	} else
-		DPM_INFO("Select SrcCap%d\n", req_info.pos);
-
-	dpm_update_request(pd_port, &req_info);
-
-	if (req_info.pos > 0)
-		pd_put_dpm_notify_event(pd_port, req_info.pos);
+	pos = pd_dpm_build_rdo(pd_port);
+	if (pos)
+		pd_put_dpm_notify_event(pd_port, pos);
 }
 
 void pd_dpm_snk_standby_power(struct pd_port *pd_port)
@@ -738,7 +745,6 @@ void pd_dpm_snk_hard_reset(struct pd_port *pd_port)
 	int mv = 0, ma = 0;
 	bool ignore_hreset = false;
 
-#if CONFIG_USB_PD_SNK_HRESET_KEEP_DRAW
 	if (!pd_port->pe_data.pd_prev_connected) {
 #if CONFIG_USB_PD_SNK_IGNORE_HRESET_IF_TYPEC_ONLY
 		ignore_hreset = true;
@@ -747,7 +753,6 @@ void pd_dpm_snk_hard_reset(struct pd_port *pd_port)
 		mv = TCPC_VBUS_SINK_5V;
 #endif	/* CONFIG_USB_PD_SNK_IGNORE_HRESET_IF_TYPEC_ONLY */
 	}
-#endif	/* CONFIG_USB_PD_SNK_HRESET_KEEP_DRAW */
 
 	if (!ignore_hreset) {
 		tcpci_sink_vbus(
@@ -811,8 +816,8 @@ static inline bool dpm_evaluate_request(
 
 	/* Accept request */
 
-	pd_port->request_i_op = op_curr;
 	pd_port->request_i_max = max_curr;
+	pd_port->request_i_op = op_curr;
 
 	if (rdo & RDO_CAP_MISMATCH)
 		pd_port->request_i_new = op_curr;
@@ -841,7 +846,7 @@ void pd_dpm_src_evaluate_request(struct pd_port *pd_port)
 	pe_data = &pd_port->pe_data;
 
 	if (dpm_evaluate_request(pd_port, rdo, rdo_pos))  {
-		pe_data->local_selected_cap = rdo_pos;
+		pe_data->selected_cap = rdo_pos;
 		pd_put_dpm_notify_event(pd_port, rdo_pos);
 	} else {
 		/*
@@ -854,7 +859,7 @@ void pd_dpm_src_evaluate_request(struct pd_port *pd_port)
 		 */
 
 		pe_data->invalid_contract = false;
-		pe_data->local_selected_cap = 0;
+		pe_data->selected_cap = 0;
 		pd_put_dpm_nak_event(pd_port, PD_DPM_NAK_REJECT);
 	}
 }
@@ -1469,7 +1474,6 @@ void pd_dpm_dr_inform_sink_cap(struct pd_port *pd_port)
 {
 	const uint32_t reaction_clear = DPM_REACTION_GET_SINK_CAP
 		| DPM_REACTION_ATTEMPT_GET_FLAG;
-
 	struct pd_event *pd_event = pd_get_curr_pd_event(pd_port);
 	struct pd_port_power_caps *snk_cap = &pd_port->pe_data.remote_snk_cap;
 
@@ -1490,7 +1494,6 @@ void pd_dpm_dr_inform_source_cap(struct pd_port *pd_port)
 {
 	uint32_t reaction_clear = DPM_REACTION_GET_SOURCE_CAP
 		| DPM_REACTION_ATTEMPT_GET_FLAG;
-
 	struct pd_event *pd_event = pd_get_curr_pd_event(pd_port);
 	struct pd_port_power_caps *src_cap = &pd_port->pe_data.remote_src_cap;
 
@@ -1625,7 +1628,7 @@ void pd_dpm_prs_evaluate_swap(struct pd_port *pd_port, uint8_t role)
 		check_src = true;
 #endif	/* CONFIG_USB_PD_SRC_REJECT_PR_SWAP_IF_GOOD_PW */
 
-	if (check_src|check_snk) {
+	if (check_src || check_snk) {
 		sink = pd_port->power_role == PD_ROLE_SINK;
 		good_power = dpm_check_good_power(pd_port);
 
@@ -1758,9 +1761,9 @@ int pd_dpm_send_source_cap_ext(struct pd_port *pd_port)
 #endif	/* CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL */
 
 #if CONFIG_USB_PD_REV30_BAT_CAP_LOCAL
-
 static const struct pd_battery_capabilities c_invalid_bcdb = {
-	0, 0, 0, 0, PD_BCDB_BAT_TYPE_INVALID
+	0xffff, 0, PD_BCDB_BAT_CAP_NOT_PRESENT,
+	PD_BCDB_BAT_CAP_NOT_PRESENT, PD_BCDB_BAT_TYPE_INVALID
 };
 
 int pd_dpm_send_battery_cap(struct pd_port *pd_port)
@@ -1824,10 +1827,6 @@ int pd_dpm_send_battery_status(struct pd_port *pd_port)
 		bsdo = &bat_info->bat_status;
 	} else
 		bsdo = &c_invalid_bsdo;
-
-#if CONFIG_USB_PD_REV30_ALERT_LOCAL
-	pd_port->pe_data.get_status_once = true;
-#endif	/* CONFIG_USB_PD_REV30_ALERT_LOCAL */
 
 	return pd_send_sop_data_msg(pd_port,
 		PD_DATA_BAT_STATUS, PD_BSDO_SIZE, bsdo);
@@ -2050,10 +2049,6 @@ int pd_dpm_send_status(struct pd_port *pd_port)
 
 	if (pd_port->power_role !=  PD_ROLE_SINK)
 		sdb.event_flags &= ~PD_STATUS_EVENT_OVP;
-
-#if CONFIG_USB_PD_REV30_ALERT_LOCAL
-	pe_data->get_status_once = true;
-#endif	/* CONFIG_USB_PD_REV30_ALERT_LOCAL */
 
 	return pd_send_sop_ext_msg(pd_port, PD_EXT_STATUS,
 			PD_SDB_SIZE, &sdb);

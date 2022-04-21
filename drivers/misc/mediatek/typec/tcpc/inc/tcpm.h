@@ -392,14 +392,9 @@ enum tcpc_cc_voltage_status {
 };
 
 enum tcpm_vbus_level {
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
-	TCPC_VBUS_SAFE0V = 0,	/* < 0.8V */
-	TCPC_VBUS_INVALID,		/* > 0.8V */
-	TCPC_VBUS_VALID,		/* > 4.5V */
-#else
-	TCPC_VBUS_INVALID = 0,
-	TCPC_VBUS_VALID,
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT */
+	TCPC_VBUS_SAFE0V,	/* < 0.8V */
+	TCPC_VBUS_INVALID,	/* > 0.8V */
+	TCPC_VBUS_VALID,	/* > 4V */
 };
 
 enum typec_role_defination {
@@ -583,7 +578,7 @@ enum tcp_dpm_return_code {
 };
 
 enum TCP_DPM_EVT_ID {
-	TCP_DPM_EVT_UNKONW = 0,
+	TCP_DPM_EVT_UNKNOWN = 0,
 
 	TCP_DPM_EVT_PD_COMMAND,
 
@@ -881,9 +876,6 @@ extern uint8_t tcpm_inquire_typec_role_def(struct tcpc_device *tcpc);
 extern bool tcpm_is_floating_ground(struct tcpc_device *tcpc);
 extern uint8_t tcpm_inquire_typec_local_rp(struct tcpc_device *tcpc);
 
-extern int tcpm_typec_set_wake_lock(
-	struct tcpc_device *tcpc, bool user_lock);
-
 extern int tcpm_typec_set_usb_sink_curr(
 	struct tcpc_device *tcpc, int curr);
 
@@ -927,7 +919,7 @@ extern uint8_t tcpm_inquire_pd_vconn_role(
 extern uint8_t tcpm_inquire_pd_pe_ready(
 	struct tcpc_device *tcpc);
 
-extern uint8_t tcpm_inquire_cable_current(
+extern uint32_t tcpm_inquire_cable_current(
 	struct tcpc_device *tcpc);
 
 extern uint32_t tcpm_inquire_dpm_flags(
@@ -1450,7 +1442,7 @@ static inline uint8_t tcpm_inquire_pd_pe_ready(
 	return 0;
 }
 
-static inline uint8_t tcpm_inquire_cable_current(
+static inline uint32_t tcpm_inquire_cable_current(
 	struct tcpc_device *tcpc)
 {
 	return PD_CABLE_CURR_UNKNOWN;

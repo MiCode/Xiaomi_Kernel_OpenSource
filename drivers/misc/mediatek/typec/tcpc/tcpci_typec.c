@@ -68,7 +68,9 @@ static inline void typec_wait_ps_change(struct tcpc_device *tcpc,
 
 	if (tcpc->typec_wait_ps_change == TYPEC_WAIT_PS_SRC_VSAFE0V
 		&& state != TYPEC_WAIT_PS_SRC_VSAFE0V) {
+#if CONFIG_TYPEC_ATTACHED_SRC_SAFE0V_DELAY
 		tcpc_disable_timer(tcpc, TYPEC_RT_TIMER_SAFE0V_DELAY);
+#endif	/* CONFIG_TYPEC_ATTACHED_SRC_SAFE0V_DELAY */
 
 #if CONFIG_TYPEC_ATTACHED_SRC_SAFE0V_TIMEOUT
 		tcpc_disable_timer(tcpc, TYPEC_RT_TIMER_SAFE0V_TOUT);
@@ -326,7 +328,7 @@ static int typec_alert_attach_state_change(struct tcpc_device *tcpc)
 	TYPEC_INFO("Attached-> %s\n",
 		   typec_attach_name[tcpc->typec_attach_new]);
 
-	/*Report function */
+	/* Report function */
 	ret = tcpci_report_usb_port_changed(tcpc);
 
 	tcpc->typec_attach_old = tcpc->typec_attach_new;
@@ -632,9 +634,16 @@ static void typec_unattached_entry(struct tcpc_device *tcpc)
 	typec_unattached_power_entry(tcpc);
 }
 
-static void typec_unattach_wait_pe_idle_entry(struct tcpc_device *tcpc)
+static void typec_attach_new_unattached(struct tcpc_device *tcpc)
 {
 	tcpc->typec_attach_new = TYPEC_UNATTACHED;
+	tcpc->typec_remote_rp_level = TYPEC_CC_VOLT_SNK_DFT;
+	tcpc->typec_polarity = false;
+}
+
+static void typec_unattach_wait_pe_idle_entry(struct tcpc_device *tcpc)
+{
+	typec_attach_new_unattached(tcpc);
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	if (tcpc->pd_pe_running) {
@@ -654,14 +663,11 @@ static void typec_postpone_state_change(struct tcpc_device *tcpc)
 
 static void typec_cc_open_entry(struct tcpc_device *tcpc, uint8_t state)
 {
-	mutex_lock(&tcpc->access_lock);
+	typec_attach_new_unattached(tcpc);
 	TYPEC_NEW_STATE(state);
-	tcpc->typec_attach_new = TYPEC_UNATTACHED;
-	mutex_unlock(&tcpc->access_lock);
-
 	tcpci_set_cc(tcpc, TYPEC_CC_OPEN);
+	typec_enable_low_power_mode(tcpc, TYPEC_CC_OPEN);
 	typec_unattached_power_entry(tcpc);
-
 	typec_postpone_state_change(tcpc);
 }
 
@@ -874,7 +880,7 @@ static inline void typec_trywait_snk_entry(struct tcpc_device *tcpc)
 
 static inline void typec_trywait_snk_pe_entry(struct tcpc_device *tcpc)
 {
-	tcpc->typec_attach_new = TYPEC_UNATTACHED;
+	typec_attach_new_unattached(tcpc);
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	if (tcpc->typec_attach_old) {
@@ -985,7 +991,7 @@ static inline void typec_cc_src_detect_entry(
 	struct tcpc_device *tcpc)
 {
 	/* If Port Partner act as Sink with low VBUS, wait vSafe0v */
-	bool vbus_absent = tcpci_check_vsafe0v(tcpc, true);
+	bool vbus_absent = tcpci_check_vsafe0v(tcpc);
 
 	if (vbus_absent || tcpc->typec_reach_vsafe0v)
 		typec_cc_src_detect_vsafe0v_entry(tcpc);
@@ -1767,39 +1773,33 @@ static inline bool typec_is_cc_attach(struct tcpc_device *tcpc)
 		}
 	}
 #endif	/* RICHTEK_PD_COMPLIANCE_FAKE_RA_DETACH */
-	switch (tcpc->typec_attach_old) {
-	case TYPEC_ATTACHED_SNK:
-	case TYPEC_ATTACHED_SRC:
-		if ((cc_res != TYPEC_CC_VOLT_OPEN) &&
-				(cc_res != TYPEC_CC_VOLT_RA))
-			cc_attach = true;
-		break;
+	switch (tcpc->typec_state) {
+	case typec_attached_snk:
+	case typec_attached_src:
 #if CONFIG_TYPEC_CAP_CUSTOM_SRC
-	case TYPEC_ATTACHED_CUSTOM_SRC:
-		if ((cc_res != TYPEC_CC_VOLT_OPEN) &&
-				(cc_res != TYPEC_CC_VOLT_RA))
-			cc_attach = true;
-		break;
+	case typec_attached_custom_src:
 #endif	/* CONFIG_TYPEC_CAP_CUSTOM_SRC */
-
 #if CONFIG_TYPEC_CAP_DBGACC_SNK
-	case TYPEC_ATTACHED_DBGACC_SNK:
+		fallthrough;
+	case typec_attached_dbgacc_snk:
+#endif	/* CONFIG_TYPEC_CAP_DBGACC_SNK */
 		if ((cc_res != TYPEC_CC_VOLT_OPEN) &&
 				(cc_res != TYPEC_CC_VOLT_RA))
 			cc_attach = true;
 		break;
-#endif	/* CONFIG_TYPEC_CAP_DBGACC_SNK */
-	case TYPEC_ATTACHED_AUDIO:
+
+	case typec_audioaccessory:
 		if (typec_check_cc_both(TYPEC_CC_VOLT_RA))
 			cc_attach = true;
 		break;
 
 #if CONFIG_TYPEC_CAP_DBGACC
-	case TYPEC_ATTACHED_DEBUG:
+	case typec_debugaccessory:
 		if (typec_check_cc_both(TYPEC_CC_VOLT_RD))
 			cc_attach = true;
 		break;
 #endif	/* CONFIG_TYPEC_CAP_DBGACC */
+
 	default:	/* TYPEC_UNATTACHED */
 		if (cc1 != TYPEC_CC_VOLT_OPEN)
 			cc_attach = true;
@@ -2366,11 +2366,6 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc, uint32_t timer_id)
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
 	switch (timer_id) {
-#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
-#if CONFIG_COMPATIBLE_APPLE_TA
-	case TYPEC_TIMER_APPLE_CC_OPEN:
-#endif /* CONFIG_COMPATIBLE_APPLE_TA */
-#endif	/* CONFIG_USB_POWER_DELIVERY */
 	case TYPEC_TIMER_CCDEBOUNCE:
 	case TYPEC_TIMER_PDDEBOUNCE:
 	case TYPEC_TIMER_TRYCCDEBOUNCE:
@@ -2378,7 +2373,15 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc, uint32_t timer_id)
 #if CONFIG_TYPEC_CAP_NORP_SRC
 	case TYPEC_TIMER_NORP_SRC:
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
+#if CONFIG_COMPATIBLE_APPLE_TA
+		fallthrough;
+	case TYPEC_TIMER_APPLE_CC_OPEN:
+#endif /* CONFIG_COMPATIBLE_APPLE_TA */
 		ret = typec_handle_debounce_timeout(tcpc);
+		break;
+
+	case TYPEC_TIMER_DRP_SRC_TOGGLE:
+		ret = typec_handle_src_toggle_timeout(tcpc);
 		break;
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
@@ -2411,10 +2414,6 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc, uint32_t timer_id)
 			ret = tcpc_typec_handle_vsafe0v(tcpc);
 		break;
 #endif	/* CONFIG_TYPEC_ATTACHED_SRC_SAFE0V_TIMEOUT */
-
-	case TYPEC_TIMER_DRP_SRC_TOGGLE:
-		ret = typec_handle_src_toggle_timeout(tcpc);
-		break;
 
 #if CONFIG_TYPEC_CAP_ROLE_SWAP
 	case TYPEC_RT_TIMER_ROLE_SWAP_START:
@@ -2504,8 +2503,7 @@ static inline int typec_attached_snk_vbus_absent(struct tcpc_device *tcpc)
 #if TYPEC_EXIT_ATTACHED_SNK_VIA_VBUS
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 #if CONFIG_USB_PD_DIRECT_CHARGE
-	if (tcpc->pd_during_direct_charge &&
-		!tcpci_check_vsafe0v(tcpc, true)) {
+	if (tcpc->pd_during_direct_charge && !tcpci_check_vsafe0v(tcpc)) {
 		TYPEC_DBG("Ignore vbus_absent(snk), DirectCharge\n");
 		return 0;
 	}
@@ -2552,10 +2550,6 @@ static inline int typec_handle_vbus_absent(struct tcpc_device *tcpc)
 	default:
 		break;
 	}
-
-#if !CONFIG_TCPC_VSAFE0V_DETECT
-	tcpc_typec_handle_vsafe0v(tcpc);
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT */
 
 	return 0;
 }
@@ -2835,7 +2829,6 @@ int tcpc_typec_init(struct tcpc_device *tcpc, uint8_t typec_role)
 
 	mutex_lock(&tcpc->access_lock);
 	tcpc->wake_lock_pd = 0;
-	tcpc->wake_lock_user = true;
 	mutex_unlock(&tcpc->access_lock);
 	tcpc->typec_usb_sink_curr = CONFIG_TYPEC_SNK_CURR_DFT;
 
@@ -2863,7 +2856,7 @@ int tcpc_typec_init(struct tcpc_device *tcpc, uint8_t typec_role)
 	return ret;
 }
 
-void  tcpc_typec_deinit(struct tcpc_device *tcpc)
+void tcpc_typec_deinit(struct tcpc_device *tcpc)
 {
 }
 
@@ -2887,9 +2880,8 @@ int tcpc_typec_handle_wd(struct tcpc_device *tcpc, bool wd)
 		goto out;
 	}
 
-	tcpc->typec_attach_new = TYPEC_UNATTACHED;
+	typec_attach_new_unattached(tcpc);
 	ret = tcpci_set_cc(tcpc, TYPEC_CC_OPEN);
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	ret = tcpci_is_vsafe0v(tcpc);
 	if (ret == 0) {
 		TYPEC_NEW_STATE(typec_water_protection_wait);
@@ -2898,10 +2890,6 @@ int tcpc_typec_handle_wd(struct tcpc_device *tcpc, bool wd)
 		TYPEC_NEW_STATE(typec_water_protection);
 		tcpci_set_water_protection(tcpc, true);
 	}
-#else
-	/* TODO: Wait ps change ? */
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
-
 out:
 	tcpci_notify_wd_status(tcpc, wd);
 	if (tcpc->typec_state == typec_water_protection ||

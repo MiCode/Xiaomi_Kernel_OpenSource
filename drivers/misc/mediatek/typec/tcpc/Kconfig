@@ -33,21 +33,11 @@ config TCPC_RT1711H
 	  TypeC port Controller
 	  Driver
 
-config TCPC_RT5081
-	tristate "Richtek RT5081 TypeC port Controller Driver"
-	depends on TCPC_CLASS
-	default n
-	help
-	  Say Y to enable Richtek RT5081
-	  TypeC port Controller
-	  Also Support Power Delivery
-	  Say N to disable
-
 config TCPC_MT6360
 	tristate "MediaTek MT6360 TypeC port Controller Driver"
 	depends on TCPC_CLASS
 	help
-	  Say Y to enable MediaTek MT6370
+	  Say Y to enable MediaTek MT6360
 	  TypeC port Controller
 	  Also Support Power Delivery
 	  Say N to disable

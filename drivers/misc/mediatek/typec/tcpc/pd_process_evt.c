@@ -115,7 +115,6 @@ static const char *const pd_hw_msg_name[] = {
 	"vbus_stable",
 	"tx_err",
 	"discard",
-	"retry_vdm",
 
 #if CONFIG_USB_PD_REV30_COLLISION_AVOID
 	"sink_tx_change",
@@ -157,7 +156,7 @@ static inline void print_dpm_msg_event(struct tcpc_device *tcpc, uint8_t msg)
 }
 
 static const char *const tcp_dpm_evt_name[] = {
-	/* TCP_DPM_EVT_UNKONW */
+	/* TCP_DPM_EVT_UNKNOWN */
 	"unknown",
 
 	/* TCP_DPM_EVT_PD_COMMAND */

@@ -3,19 +3,15 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#include <linux/cpu.h>
-#include <linux/iio/consumer.h>
-#include <linux/interrupt.h>
 #include <linux/kernel.h>
-#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/of_irq.h>
-#include <linux/platform_device.h>
 #include <linux/regmap.h>
-#include <linux/sched/clock.h>
+#include <linux/platform_device.h>
+#include <linux/kthread.h>
+#include <linux/cpu.h>
+#include <linux/iio/consumer.h>
 #include <dt-bindings/mfd/mt6362.h>
-#include <uapi/linux/sched/types.h>
 
 #include "inc/tcpci.h"
 #include "inc/tcpci_typec.h"
@@ -122,6 +118,9 @@
 	(MT6362_MSK_VCON_OVCC1 | MT6362_MSK_VCON_OVCC2 | MT6362_MSK_VCON_RVP | \
 	 MT6362_MSK_VCON_UVP | MT6362_MSK_VCON_SHTGND)
 #define MT6362_MSK_CTD		BIT(4)
+#define MT6362_MSK_FOD_DONE	BIT(0)
+#define MT6362_MSK_FOD_OV	BIT(1)
+#define MT6362_MSK_FOD_DISCHGF	BIT(7)
 #define MT6362_MSK_RPDET_AUTO	BIT(7)
 #define MT6362_MSK_RPDET_MANUAL	BIT(6)
 #define MT6362_MSK_CTD_EN	BIT(1)
@@ -143,6 +142,14 @@
 #define MT6362_MSK_HIDET_CC2_CMPEN	BIT(4)
 #define MT6362_MSK_HIDET_CC_CMPEN \
 	(MT6362_MSK_HIDET_CC1_CMPEN | MT6362_MSK_HIDET_CC2_CMPEN)
+#define MT6362_MSK_FOD_DONE	BIT(0)
+#define MT6362_MSK_FOD_OV	BIT(1)
+#define MT6362_MSK_FOD_LR	BIT(5)
+#define MT6362_MSK_FOD_HR	BIT(6)
+#define MT6362_MSK_FOD_DISCHGF	BIT(7)
+#define MT6362_MSK_FOD_ALL \
+	(MT6362_MSK_FOD_DONE | MT6362_MSK_FOD_OV | MT6362_MSK_FOD_LR | \
+	 MT6362_MSK_FOD_HR | MT6362_MSK_FOD_DISCHGF)
 #define MT6362_MSK_CABLE_TYPEC	BIT(4)
 #define MT6362_MSK_CABLE_TYPEA	BIT(5)
 #define MT6362_MSK_SHIPPING_OFF	BIT(5)
@@ -459,9 +466,7 @@ static int mt6362_init_vend_mask(struct mt6362_tcpc_data *tdata)
 {
 	u8 mask[MT6362_VEND_INT_NUM] = {0};
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	mask[MT6362_VEND_INT1] |= MT6362_MSK_VBUS80;
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 	if (tdata->tcpc->tcpc_flags & TCPC_FLAGS_LPM_WAKEUP_WATCHDOG)
 		mask[MT6362_VEND_INT1] |= MT6362_MSK_WAKEUP;
 
@@ -516,13 +521,11 @@ static int mt6362_enable_force_discharge(struct mt6362_tcpc_data *tdata,
 		(tdata, TCPC_V10_REG_POWER_CTRL, TCPC_V10_REG_FORCE_DISC_EN);
 }
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6362_enable_vsafe0v_detect(struct mt6362_tcpc_data *tdata, bool en)
 {
 	return (en ? mt6362_set_bits : mt6362_clr_bits)
 		(tdata, MT6362_REG_MTMASK1, MT6362_MSK_VBUS80);
 }
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 static int __maybe_unused mt6362_enable_rpdet_auto(
 					struct mt6362_tcpc_data *tdata, bool en)
@@ -1099,11 +1102,9 @@ static int mt6362_set_cc_toggling(struct mt6362_tcpc_data *tdata, int pull)
 	ret = mt6362_write8(tdata, TCPC_V10_REG_ROLE_CTRL, data);
 	if (ret < 0)
 		return ret;
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	ret = mt6362_enable_vsafe0v_detect(tdata, false);
 	if (ret < 0)
 		return ret;
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 	/* Set LDO to 2V */
 	ret = mt6362_write8(tdata, MT6362_REG_LPWRCTRL3, 0xD9);
 	if (ret < 0)
@@ -1157,7 +1158,7 @@ static int mt6362_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 
 	/*
 	 * DRP Toggle Cycle : 51.2 + 6.4*val ms
-	 * DRP Duyt Ctrl : dcSRC / 1024
+	 * DRP Duty Ctrl : dcSRC / 1024
 	 */
 	mt6362_write8(tdata, MT6362_REG_TCPCCTRL2, 4);
 	mt6362_write16(tdata, MT6362_REG_TCPCCTRL3, TCPC_NORMAL_RP_DUTY);
@@ -1229,6 +1230,7 @@ static int mt6362_init_mask(struct tcpc_device *tcpc)
 	mt6362_init_vend_mask(tdata);
 
 #if CONFIG_CABLE_TYPE_DETECTION
+	/* Init cable type must be done after fod */
 	if (tdata->handle_init_ctd) {
 		/*
 		 * wait 3ms for exit low power mode and
@@ -1316,12 +1318,10 @@ static int mt6362_get_power_status(struct tcpc_device *tcpc, u16 *status)
 	 * Vsafe0v only triggers when vbus falls under 0.8V,
 	 * also update parameter if vbus present triggers
 	 */
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	ret = tcpci_is_vsafe0v(tcpc);
 	if (ret < 0)
 		goto out;
 	tcpc->vbus_safe0v = ret ? true : false;
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 out:
 	return 0;
 }
@@ -1461,7 +1461,6 @@ static int mt6362_set_watchdog(struct tcpc_device *tcpc, bool en)
 		(tdata, TCPC_V10_REG_TCPC_CTRL, TCPC_V10_REG_TCPC_CTRL_EN_WDT);
 }
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6362_is_vsafe0v(struct tcpc_device *tcpc)
 {
 	int ret;
@@ -1473,7 +1472,6 @@ static int mt6362_is_vsafe0v(struct tcpc_device *tcpc)
 		return ret;
 	return (data & MT6362_MSK_VBUS80) ? 1 : 0;
 }
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 #if CONFIG_TCPC_LOW_POWER_MODE
 static int mt6362_is_low_power_mode(struct tcpc_device *tcpc)
@@ -1501,9 +1499,7 @@ static int mt6362_set_low_power_mode(struct tcpc_device *tcpc, bool en,
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 	} else {
 		data = MT6362_MSK_VBUSDET_EN | MT6362_MSK_BMCIOOSC_EN;
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 		mt6362_enable_vsafe0v_detect(tdata, true);
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 	}
 	return mt6362_write8(tdata, MT6362_REG_SYSCTRL2, data);
 }
@@ -1540,27 +1536,25 @@ static int mt6362_get_message(struct tcpc_device *tcpc, u32 *payload,
 			      u16 *msg_head,
 			      enum tcpm_transmit_type *frame_type)
 {
-	int ret;
-	u8 type, cnt = 0;
-	u8 buf[4] = {0};
+	int ret = 0;
+	u8 cnt = 0, buf[4];
 	struct mt6362_tcpc_data *tdata = tcpc_get_dev_data(tcpc);
 
 	ret = mt6362_bulk_read(tdata, TCPC_V10_REG_RX_BYTE_CNT, buf, 4);
+	if (ret < 0)
+		return ret;
+
 	cnt = buf[0];
-	type = buf[1];
-	*msg_head = *(u16 *)&buf[2];
+	*frame_type = buf[1];
+	*msg_head = le16_to_cpu(*(u16 *)&buf[2]);
 
 	/* TCPC 1.0 ==> no need to subtract the size of msg_head */
-	if (ret >= 0 && cnt > 3) {
+	if (cnt > 3) {
 		cnt -= 3; /* MSG_HDR */
 		ret = mt6362_bulk_read(tdata, TCPC_V10_REG_RX_DATA,
-				       (u8 *)payload, cnt);
+				       payload, cnt);
 	}
-	*frame_type = (enum tcpm_transmit_type)type;
 
-	/* Read complete, clear RX status alert bit */
-	tcpci_alert_status_clear(tcpc, TCPC_V10_REG_ALERT_RX_STATUS |
-				 TCPC_V10_REG_RX_OVERFLOW);
 	return ret;
 }
 
@@ -1669,7 +1663,6 @@ static int mt6362_set_wd_polling(struct tcpc_device *tcpc, bool en)
  * ==================================================================
  */
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 static int mt6362_vsafe0v_irq_handler(struct mt6362_tcpc_data *tdata)
 {
 	int ret;
@@ -1680,7 +1673,6 @@ static int mt6362_vsafe0v_irq_handler(struct mt6362_tcpc_data *tdata)
 	tdata->tcpc->vbus_safe0v = ret ? true : false;
 	return 0;
 }
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 #if CONFIG_WATER_DETECTION
 static int mt6362_wd12_strise_irq_handler(struct mt6362_tcpc_data *tdata)
@@ -1723,9 +1715,7 @@ struct irq_mapping_tbl {
 	{ .num = _num, .name = #_name, .hdlr = mt6362_##_name##_irq_handler }
 
 static struct irq_mapping_tbl mt6362_vend_irq_mapping_tbl[] = {
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	MT6362_IRQ_MAPPING(1, vsafe0v),
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 #if CONFIG_WATER_DETECTION
 	MT6362_IRQ_MAPPING(49, wd12_strise),
@@ -1794,9 +1784,7 @@ static struct tcpc_ops mt6362_tcpc_ops = {
 	.set_watchdog = mt6362_set_watchdog,
 	.alert_vendor_defined_handler = mt6362_alert_vendor_defined_handler,
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	.is_vsafe0v = mt6362_is_vsafe0v,
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 #if CONFIG_TCPC_LOW_POWER_MODE
 	.is_low_power_mode = mt6362_is_low_power_mode,
@@ -1850,7 +1838,6 @@ static int mt6362_init_irq(struct mt6362_tcpc_data *tdata,
 			   struct platform_device *pdev)
 {
 	int ret;
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
 
 	/* Mask all alerts & clear them */
 	mt6362_bulk_write(tdata, MT6362_REG_MTMASK1, mt6362_vend_alert_maskall,
@@ -1868,7 +1855,7 @@ static int mt6362_init_irq(struct mt6362_tcpc_data *tdata,
 		dev_err(tdata->dev, "%s create tcpc task fail\n", __func__);
 		return -EINVAL;
 	}
-	sched_setscheduler(tdata->irq_worker_task, SCHED_FIFO, &param);
+	sched_set_fifo(tdata->irq_worker_task);
 	kthread_init_work(&tdata->irq_work, mt6362_irq_work_handler);
 
 	tdata->irq = platform_get_irq_byname(pdev, "pd_evt");
@@ -1942,7 +1929,6 @@ static int mt6362_parse_dt(struct mt6362_tcpc_data *tdata)
 
 	/* default setting */
 	desc->role_def = TYPEC_ROLE_DRP;
-	desc->notifier_supply_num = 0;
 	desc->rp_lvl = TYPEC_RP_DFT;
 	desc->vconn_supply = TCPC_VCONN_SUPPLY_ALWAYS;
 
@@ -1951,13 +1937,6 @@ static int mt6362_parse_dt(struct mt6362_tcpc_data *tdata)
 			desc->role_def = TYPEC_ROLE_DRP;
 		else
 			desc->role_def = val;
-	}
-
-	if (of_property_read_u32(np, "tcpc,notifier_supply_num", &val) >= 0) {
-		if (val < 0)
-			desc->notifier_supply_num = 0;
-		else
-			desc->notifier_supply_num = val;
 	}
 
 	if (of_property_read_u32(np, "tcpc,rp_level", &val) >= 0) {
@@ -2188,7 +2167,6 @@ static int mt6362_tcpc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	tcpc_schedule_init_work(tdata->tcpc);
 	dev_info(tdata->dev, "%s successfully!\n", __func__);
 	return 0;
 err:

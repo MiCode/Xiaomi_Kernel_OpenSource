@@ -29,6 +29,7 @@ struct pd_event {
 	struct pd_msg *pd_msg;
 };
 
+void pd_postpone_vdm_event_timeout(struct tcpc_device *tcpc);
 struct pd_msg *pd_alloc_msg(struct tcpc_device *tcpc);
 void pd_free_msg(struct tcpc_device *tcpc, struct pd_msg *pd_msg);
 bool pd_is_msg_empty(struct tcpc_device *tcpc);
@@ -41,8 +42,6 @@ void pd_free_event(struct tcpc_device *tcpc, struct pd_event *pd_event);
 bool pd_get_vdm_event(struct tcpc_device *tcpc, struct pd_event *pd_event);
 bool pd_put_vdm_event(struct tcpc_device *tcpc,
 			struct pd_event *pd_event, bool from_port_partner);
-
-bool pd_put_last_vdm_event(struct tcpc_device *tcpc);
 
 bool pd_get_deferred_tcp_event(
 	struct tcpc_device *tcpc, struct tcp_dpm_event *tcp_event);
@@ -60,10 +59,9 @@ void pd_put_recv_hard_reset_event(struct tcpc_device *tcpc);
 void pd_put_sent_hard_reset_event(struct tcpc_device *tcpc);
 bool pd_put_pd_msg_event(struct tcpc_device *tcpc, struct pd_msg *pd_msg);
 void pd_put_hard_reset_completed_event(struct tcpc_device *tcpc);
-void pd_put_vbus_changed_event(struct tcpc_device *tcpc, bool from_ic);
+void pd_put_vbus_changed_event(struct tcpc_device *tcpc);
 void pd_put_vbus_safe0v_event(struct tcpc_device *tcpc);
 void pd_put_vbus_stable_event(struct tcpc_device *tcpc);
-void pd_put_vbus_present_event(struct tcpc_device *tcpc);
 
 enum pd_event_type {
 	PD_EVT_PD_MSG = 0,	/* either ctrl msg or data msg */
@@ -124,7 +122,7 @@ enum pd_msg_type {
 	PD_DATA_ALERT = 6,
 	PD_DATA_GET_COUNTRY_INFO = 7,
 #endif	/* CONFIG_USB_PD_REV30 */
-	/* 7-14 Reserved */
+	/* 8-14 Reserved */
 	PD_DATA_VENDOR_DEF = 15,
 	PD_DATA_MSG_NR,
 #if CONFIG_USB_PD_REV30
@@ -157,7 +155,6 @@ enum pd_msg_type {
 	PD_HW_VBUS_STABLE,
 	PD_HW_TX_FAILED,	/* no good crc or discard */
 	PD_HW_TX_DISCARD,	/* discard vdm msg */
-	PD_HW_RETRY_VDM,	/* discard vdm msg (retry) */
 #if CONFIG_USB_PD_REV30_COLLISION_AVOID
 	PD_HW_SINK_TX_CHANGE,
 #endif	/* CONFIG_USB_PD_REV30_COLLISION_AVOID */
@@ -210,10 +207,7 @@ enum pd_tx_transmit_state {
 static inline bool pd_event_msg_match(struct pd_event *pd_event,
 					uint8_t type, uint8_t msg)
 {
-	if (pd_event->event_type != type)
-		return false;
-
-	return pd_event->msg == msg;
+	return pd_event->event_type == type && pd_event->msg == msg;
 }
 
 static inline bool pd_event_ctrl_msg_match(

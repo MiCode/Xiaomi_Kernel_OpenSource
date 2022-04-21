@@ -258,9 +258,6 @@ static uint8_t dpm_reaction_send_alert(struct pd_port *pd_port)
 	alert_urgent = pe_data->local_alert;
 	alert_urgent &= ~ADO_GET_STATUS_ONCE_MASK;
 
-	if (!pe_data->get_status_once)
-		pe_data->local_alert = alert_urgent;
-
 	if ((!pe_data->pe_ready) && (alert_urgent == 0))
 		return 0;
 

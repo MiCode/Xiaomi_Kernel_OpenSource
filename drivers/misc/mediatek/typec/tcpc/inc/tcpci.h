@@ -13,7 +13,6 @@
 #include <linux/err.h>
 #include <linux/cpu.h>
 #include <linux/delay.h>
-#include <linux/sched.h>
 
 #include "tcpci_core.h"
 
@@ -32,8 +31,6 @@
 
 /* provide to TCPC interface */
 extern int tcpci_report_usb_port_changed(struct tcpc_device *tcpc);
-extern int tcpci_set_wake_lock(
-	struct tcpc_device *tcpc, bool pd_lock, bool user_lock);
 extern int tcpci_report_power_control(struct tcpc_device *tcpc, bool en);
 extern int tcpc_typec_init(struct tcpc_device *tcpc, uint8_t typec_role);
 extern void tcpc_typec_deinit(struct tcpc_device *tcpc);
@@ -62,7 +59,7 @@ static inline int tcpci_check_vbus_valid(struct tcpc_device *tcpc)
 }
 
 int tcpci_check_vbus_valid_from_ic(struct tcpc_device *tcpc);
-int tcpci_check_vsafe0v(struct tcpc_device *tcpc, bool detect_en);
+bool tcpci_check_vsafe0v(struct tcpc_device *tcpc);
 int tcpci_alert_status_clear(struct tcpc_device *tcpc, uint32_t mask);
 int tcpci_fault_status_clear(struct tcpc_device *tcpc, uint8_t status);
 int tcpci_set_alert_mask(struct tcpc_device *tcpc, uint32_t mask);
@@ -75,6 +72,7 @@ int tcpci_init_alert_mask(struct tcpc_device *tcpc);
 
 int tcpci_get_cc(struct tcpc_device *tcpc);
 int tcpci_set_cc(struct tcpc_device *tcpc, int pull);
+int tcpci_set_otp_fwen(struct tcpc_device *tcpc, bool en);
 static inline int __tcpci_set_cc(struct tcpc_device *tcpc, int pull)
 {
 	PD_BUG_ON(tcpc->ops->set_cc == NULL);
@@ -98,9 +96,7 @@ int tcpci_set_watchdog(struct tcpc_device *tcpc, bool en);
 int tcpci_alert_vendor_defined_handler(struct tcpc_device *tcpc);
 int tcpci_set_auto_dischg_discnt(struct tcpc_device *tcpc, bool en);
 int tcpci_get_vbus_voltage(struct tcpc_device *tcpc, u32 *vbus);
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 int tcpci_is_vsafe0v(struct tcpc_device *tcpc);
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 #if CONFIG_WATER_DETECTION
 int tcpci_is_water_detected(struct tcpc_device *tcpc);
@@ -122,8 +118,6 @@ int tcpci_notify_wd0_state(struct tcpc_device *tcpc, bool wd0_state);
 int tcpci_notify_plug_out(struct tcpc_device *tcpc);
 
 int tcpci_set_floating_ground(struct tcpc_device *tcpc, bool en);
-
-int tcpci_set_otp_fwen(struct tcpc_device *tcpc, bool en);
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 

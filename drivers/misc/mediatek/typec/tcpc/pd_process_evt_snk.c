@@ -34,7 +34,7 @@ DECL_PE_STATE_TRANSITION(PD_DATA_MSG_SOURCE_CAP) = {
 DECL_PE_STATE_REACTION(PD_DATA_MSG_SOURCE_CAP);
 
 /*
- * [BLOCK] Porcess Ctrl MSG
+ * [BLOCK] Process Ctrl MSG
  */
 
 static bool pd_process_ctrl_msg_get_source_cap(
@@ -169,7 +169,7 @@ static inline bool pd_process_ctrl_msg(
 }
 
 /*
- * [BLOCK] Porcess Data MSG
+ * [BLOCK] Process Data MSG
  */
 
 static inline bool pd_process_data_msg(
@@ -210,7 +210,7 @@ static inline bool pd_process_data_msg(
 }
 
 /*
- * [BLOCK] Porcess Extend MSG
+ * [BLOCK] Process Extend MSG
  */
 #if CONFIG_USB_PD_REV30
 static inline bool pd_process_ext_msg(
@@ -252,7 +252,7 @@ static inline bool pd_process_ext_msg(
 #endif	/* CONFIG_USB_PD_REV30 */
 
 /*
- * [BLOCK] Porcess DPM MSG
+ * [BLOCK] Process DPM MSG
  */
 
 static inline bool pd_process_dpm_msg(
@@ -269,7 +269,7 @@ static inline bool pd_process_dpm_msg(
 }
 
 /*
- * [BLOCK] Porcess HW MSG
+ * [BLOCK] Process HW MSG
  */
 
 static inline bool pd_process_hw_msg_sink_tx_change(
@@ -302,15 +302,13 @@ static inline bool pd_process_hw_msg_sink_tx_change(
 
 static inline bool pd_process_vbus_absent(struct pd_port *pd_port)
 {
-	if (pd_port->pe_state_curr != PE_SNK_DISCOVERY)
-		return false;
-#if CONFIG_USB_PD_SNK_HRESET_KEEP_DRAW
 	/* iSafe0mA: Maximum current a Sink
 	 * is allowed to draw when VBUS is driven to vSafe0V
 	 */
 	pd_dpm_sink_vbus(pd_port, false);
-#endif	/* CONFIG_USB_PD_SNK_HRESET_KEEP_DRAW */
 	pd_disable_pe_state_timer(pd_port);
+	if (pd_check_pe_during_hard_reset(pd_port))
+		pd_enable_pe_state_timer(pd_port, PD_TIMER_HARD_RESET_SAFE5V);
 	pd_enable_vbus_valid_detection(pd_port, true);
 	return false;
 }
@@ -340,7 +338,7 @@ static inline bool pd_process_hw_msg(
 }
 
 /*
- * [BLOCK] Porcess PE MSG
+ * [BLOCK] Process PE MSG
  */
 
 static inline bool pd_process_pe_msg(
@@ -366,7 +364,7 @@ static inline bool pd_process_pe_msg(
 }
 
 /*
- * [BLOCK] Porcess Timer MSG
+ * [BLOCK] Process Timer MSG
  */
 
 static inline void pd_report_typec_only_charger(struct pd_port *pd_port)
@@ -389,24 +387,28 @@ static inline void pd_report_typec_only_charger(struct pd_port *pd_port)
 static inline bool pd_process_timer_msg(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
-#if !CONFIG_USB_PD_DBG_IGRONE_TIMEOUT
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
-#endif	/* CONFIG_USB_PD_DBG_IGRONE_TIMEOUT */
 	struct pe_data __maybe_unused *pe_data = &pd_port->pe_data;
 
 	switch (pd_event->msg) {
 	case PD_TIMER_SINK_REQUEST:
 		return PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SNK_READY, PE_SNK_SELECT_CAPABILITY);
-#if !CONFIG_USB_PD_DBG_IGRONE_TIMEOUT
 	case PD_TIMER_SINK_WAIT_CAP:
 	case PD_TIMER_PS_TRANSITION:
-		if ((pd_port->pe_state_curr != PE_SNK_DISCOVERY) &&
-			(pe_data->hard_reset_counter <= PD_HARD_RESET_COUNT)) {
+#if CONFIG_USB_PD_RETRY_HRESET
+		fallthrough;
+	case PD_TIMER_HARD_RESET_SAFE0V:
+	case PD_TIMER_HARD_RESET_SAFE5V:
+#endif /* CONFIG_USB_PD_RETRY_HRESET */
+		if (pe_data->hard_reset_counter <= PD_HARD_RESET_COUNT) {
 			PE_TRANSIT_STATE(pd_port, PE_SNK_HARD_RESET);
 			return true;
 		}
-
+#if !CONFIG_USB_PD_RETRY_HRESET
+	case PD_TIMER_HARD_RESET_SAFE0V:
+	case PD_TIMER_HARD_RESET_SAFE5V:
+#endif /* !CONFIG_USB_PD_RETRY_HRESET */
 		PE_INFO("SRC NoResp\n");
 		if (pd_port->request_v == TCPC_VBUS_SINK_5V) {
 			pd_report_typec_only_charger(pd_port);
@@ -415,22 +417,21 @@ static inline bool pd_process_timer_msg(
 			return true;
 		}
 		break;
-#endif	/* CONFIG_USB_PD_DBG_IGRONE_TIMEOUT */
 
 #if CONFIG_USB_PD_DFP_READY_DISCOVER_ID
 	case PD_TIMER_DISCOVER_ID:
 		vdm_put_dpm_discover_cable_event(pd_port);
 		break;
 #endif	/* CONFIG_USB_PD_DFP_READY_DISCOVER_ID */
-		fallthrough;
 #if CONFIG_USB_PD_REV30
+		fallthrough;
 	case PD_TIMER_CK_NOT_SUPPORTED:
 		if (PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SNK_CHUNK_RECEIVED, PE_SNK_SEND_NOT_SUPPORTED))
 			return true;
-		fallthrough;
 #if CONFIG_USB_PD_REV30_COLLISION_AVOID
 #if CONFIG_USB_PD_REV30_SNK_FLOW_DELAY_STARTUP
+		fallthrough;
 	case PD_TIMER_SNK_FLOW_DELAY:
 		if (pe_data->pd_traffic_control == PD_SINK_TX_START) {
 			if (typec_get_cc_res() == TYPEC_CC_VOLT_SNK_3_0)

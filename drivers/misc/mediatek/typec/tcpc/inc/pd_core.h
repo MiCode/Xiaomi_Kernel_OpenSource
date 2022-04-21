@@ -77,11 +77,11 @@
  * 4. The Variable Supply (non battery) Objects,
  *    if present, shall be sent in Minimum Voltage order; lowest to highest.
  */
-#define PDO_TYPE_FIXED    (0 << 30)
-#define PDO_TYPE_BATTERY  (1 << 30)
-#define PDO_TYPE_VARIABLE (2 << 30)
-#define PDO_TYPE_APDO	(3 << 30)
-#define PDO_TYPE_MASK     (3 << 30)
+#define PDO_TYPE_FIXED		(0 << 30)
+#define PDO_TYPE_BATTERY	(1 << 30)
+#define PDO_TYPE_VARIABLE	(2 << 30)
+#define PDO_TYPE_APDO		(3 << 30)
+#define PDO_TYPE_MASK		(3 << 30)
 
 #define PDO_FIXED_DUAL_ROLE	(1 << 29) /* Dual role device */
 #define PDO_FIXED_SUSPEND	(1 << 28) /* USB Suspend supported (SRC) */
@@ -97,7 +97,7 @@
 #define PDO_FIXED_CURR(ma)  \
 	((((ma)/10) & 0x3ff) << 0)  /* Max current in 10mA units */
 
-#define PDO_TYPE(raw)	(raw & PDO_TYPE_MASK)
+#define PDO_TYPE(raw)		(raw & PDO_TYPE_MASK)
 #define PDO_TYPE_VAL(raw)	(PDO_TYPE(raw) >> 30)
 
 #define PDO_FIXED_EXTRACT_VOLT_RAW(raw)	(((raw) >> 10) & 0x3ff)
@@ -157,7 +157,7 @@
 #define APDO_TYPE_MASK		(3 << 28)
 #define APDO_TYPE_PPS		(0 << 28)
 
-#define APDO_TYPE(raw)	(raw & APDO_TYPE_MASK)
+#define APDO_TYPE(raw)		(raw & APDO_TYPE_MASK)
 #define APDO_TYPE_VAL(raw)	(APDO_TYPE(raw) >> 28)
 
 #define APDO_PPS_CURR_FOLDBACK	(1<<26)
@@ -166,9 +166,9 @@
 #define APDO_PPS_CURR(ma) ((((ma) / 50) & 0x7f) << 0)
 
 #define APDO_PPS_EXTRACT_MAX_VOLT_RAW(raw)	(((raw) >> 17) & 0xff)
-#define APDO_PPS_EXTRACT_MIN_VOLT_RAW(raw)	(((raw) >> 8) & 0Xff)
-#define APDO_PPS_EXTRACT_CURR_RAW(raw)	(((raw) >> 0) & 0x7f)
-#define APDO_PPS_EXTRACT_PWR_LIMIT(raw)        ((raw >> 27) & 0x1)
+#define APDO_PPS_EXTRACT_MIN_VOLT_RAW(raw)	(((raw) >> 8) & 0xff)
+#define APDO_PPS_EXTRACT_CURR_RAW(raw)		(((raw) >> 0) & 0x7f)
+#define APDO_PPS_EXTRACT_PWR_LIMIT(raw)		((raw >> 27) & 0x1)
 
 #define APDO_PPS_EXTRACT_MAX_VOLT(raw)	\
 	(APDO_PPS_EXTRACT_MAX_VOLT_RAW(raw) * 100)
@@ -184,8 +184,8 @@
 	flags | PDO_TYPE_APDO | APDO_TYPE_PPS)
 
 /* RDO : Request Data Object */
-#define RDO_OBJ_POS(n)             (((n) & 0x7) << 28)
-#define RDO_POS(rdo)               (((rdo) >> 28) & 0x7)
+#define RDO_OBJ_POS(n)             (((n) & 0xF) << 28)
+#define RDO_POS(rdo)               (((rdo) >> 28) & 0xF)
 #define RDO_GIVE_BACK              (1 << 27)
 #define RDO_CAP_MISMATCH           (1 << 26)
 #define RDO_COMM_CAP               (1 << 25)
@@ -205,10 +205,10 @@
 #define RDO_BATT_EXTRACT_OP_POWER(raw)	(((raw >> 10 & 0x3ff)) * 250)
 #define RDO_BATT_EXTRACT_MAX_POWER(raw)	(((raw >> 0 & 0x3ff)) * 250)
 
-#define RDO_APDO_OP_MV(mv)	((((mv) / 20) & 0x7FF) << 9)
+#define RDO_APDO_OP_MV(mv)	((((mv) / 20) & 0xFFF) << 9)
 #define RDO_APDO_OP_MA(ma)	((((ma) / 50) & 0x7F) << 0)
 
-#define RDO_APDO_EXTRACT_OP_MV(raw)	(((raw >> 9 & 0x7FF)) * 20)
+#define RDO_APDO_EXTRACT_OP_MV(raw)	(((raw >> 9 & 0xFFF)) * 20)
 #define RDO_APDO_EXTRACT_OP_MA(raw)	(((raw >> 0 & 0x7F)) * 50)
 
 #define RDO_FIXED(n, op_ma, max_ma, flags) \
@@ -767,8 +767,7 @@ struct pe_data {		/* reset after detached */
 	uint32_t dpm_reaction_id;
 	uint32_t dpm_ready_reactions;
 
-	uint8_t local_selected_cap;
-	uint8_t remote_selected_cap;
+	uint8_t selected_cap;
 
 	uint8_t pe_state_flags;
 	uint8_t pe_state_flags2;
@@ -804,7 +803,6 @@ struct pe_data {		/* reset after detached */
 
 #if CONFIG_USB_PD_REV30_ALERT_LOCAL
 	uint32_t local_alert;
-	bool get_status_once;
 #endif	/* CONFIG_USB_PD_REV30_ALERT_LOCAL */
 
 #if CONFIG_USB_PD_REV30_COLLISION_AVOID
@@ -904,8 +902,8 @@ struct pd_port {
 	int request_i;
 	int request_v_new;
 	int request_i_new;
-	int request_i_op;
 	int request_i_max;
+	int request_i_op;
 
 #if CONFIG_USB_PD_REV30_PPS_SINK
 	int request_v_apdo;
@@ -985,7 +983,7 @@ struct pd_port {
 	uint8_t	*pd_msg_data_payload;
 
 	uint8_t	curr_vdm_ops;
-	uint16_t	curr_vdm_svid;
+	uint16_t curr_vdm_svid;
 
 	uint16_t curr_msg_hdr;
 	uint32_t curr_vdm_hdr;
@@ -1043,6 +1041,7 @@ static inline struct dp_data *pd_get_dp_data(struct pd_port *pd_port)
 }
 #endif	/* CONFIG_USB_PD_ALT_MODE */
 
+extern void pe_data_init(struct pe_data *pe_data);
 extern int pd_core_init(struct tcpc_device *tcpc);
 
 static inline void *pd_get_msg_data_payload(struct pd_port *pd_port)
@@ -1133,6 +1132,7 @@ static inline bool pd_check_timer_msg_event(
 		pd_get_curr_pd_event(pd_port), msg);
 }
 
+extern bool pd_is_cable_communication_available(struct pd_port *pd_port);
 extern bool pd_is_reset_cable(struct pd_port *pd_port);
 extern bool pd_is_discover_cable(struct pd_port *pd_port);
 
@@ -1265,41 +1265,35 @@ extern bool pd_is_pe_wait_pd_transmit_done(struct pd_port *pd_port);
 
 static inline void pd_restart_timer(struct pd_port *pd_port, uint32_t timer_id)
 {
-	return tcpc_restart_timer(pd_port->tcpc, timer_id);
+	tcpc_restart_timer(pd_port->tcpc, timer_id);
 }
 
 static inline void pd_enable_timer(struct pd_port *pd_port, uint32_t timer_id)
 {
-	return tcpc_enable_timer(pd_port->tcpc, timer_id);
+	tcpc_enable_timer(pd_port->tcpc, timer_id);
 }
 
 static inline void pd_enable_pe_state_timer(
 	struct pd_port *pd_port, uint32_t timer_id)
 {
-	/* timer_id shoult not be zero */
-	PD_BUG_ON(timer_id == 0);
-
 	pd_port->pe_data.pe_state_timer = timer_id;
-	return pd_enable_timer(pd_port, timer_id);
-}
-
-static inline void pd_enable_vdm_state_timer(
-	struct pd_port *pd_port, uint32_t timer_id)
-{
-	pd_port->pe_data.vdm_state_timer = timer_id;
+	pd_enable_timer(pd_port, timer_id);
 }
 
 static inline void pd_disable_timer(struct pd_port *pd_port, uint32_t timer_id)
 {
-	return tcpc_disable_timer(pd_port->tcpc, timer_id);
+	tcpc_disable_timer(pd_port->tcpc, timer_id);
 }
 
 static inline void pd_disable_pe_state_timer(struct pd_port *pd_port)
 {
 	struct pe_data *pe_data = &pd_port->pe_data;
 
+	if (pe_data->pe_state_timer >= PD_TIMER_NR)
+		return;
+
 	pd_disable_timer(pd_port, pe_data->pe_state_timer);
-	pe_data->pe_state_timer = 0;
+	pe_data->pe_state_timer = PD_TIMER_NR;
 }
 
 void pd_reset_pe_timer(struct pd_port *pd_port);

@@ -12,8 +12,10 @@
 #include <linux/workqueue.h>
 #include <linux/pm_wakeup.h>
 #include <linux/notifier.h>
+#include <linux/sched.h>
 #include <linux/semaphore.h>
 #include <linux/spinlock.h>
+#include <uapi/linux/sched/types.h>
 
 #include "tcpm.h"
 #include "tcpci_timer.h"
@@ -32,8 +34,7 @@
 #define PE_EVENT_DBG_ENABLE	1
 #define PE_STATE_INFO_ENABLE	1
 #define TCPC_INFO_ENABLE	1
-#define TCPC_TIMER_DBG_EN	0
-#define TCPC_TIMER_INFO_EN	0
+#define TCPC_TIMER_DBG_ENABLE	0
 #define PE_INFO_ENABLE		1
 #define TCPC_DBG_ENABLE		0
 #define TCPC_DBG2_ENABLE	0
@@ -59,10 +60,10 @@
 #define TCPC_ENABLE_ANYMSG	\
 		((TCPC_DBG_ENABLE)|(TCPC_DBG2_ENABLE)|\
 		(DPM_DBG_ENABLE)|\
-		(PD_ERR_ENABLE)|(PE_INFO_ENABLE)|(TCPC_TIMER_INFO_EN)|\
+		(PD_ERR_ENABLE)|(PE_INFO_ENABLE)|\
 		(PE_DBG_ENABLE)|(PE_EVENT_DBG_ENABLE)|\
 		(PE_STATE_INFO_ENABLE)|(TCPC_INFO_ENABLE)|\
-		(TCPC_TIMER_DBG_EN)|(TYPEC_DBG_ENABLE)|\
+		(TCPC_TIMER_DBG_ENABLE)|(TYPEC_DBG_ENABLE)|\
 		(TYPEC_INFO_ENABLE)|\
 		(DP_INFO_ENABLE)|(DP_DBG_ENABLE)|\
 		(UVDM_INFO_ENABLE)|(TCPM_DBG_ENABLE))
@@ -87,7 +88,6 @@ struct tcpc_desc {
 	uint8_t role_def;
 	uint8_t rp_lvl;
 	uint8_t vconn_supply;
-	int notifier_supply_num;
 	const char *name;
 	bool en_wd;
 	bool en_wd_sbu_polling;
@@ -168,7 +168,7 @@ struct tcpc_desc {
 #define TCPC_FLAGS_WAIT_HRESET_COMPLETE		(1<<1)	/* Always true */
 #define TCPC_FLAGS_CHECK_CC_STABLE		(1<<2)
 #define TCPC_FLAGS_LPM_WAKEUP_WATCHDOG		(1<<3)
-#define TCPC_FLAGS_CHECK_RA_DETACHE		(1<<4)
+#define TCPC_FLAGS_CHECK_RA_DETACH		(1<<4)
 #define TCPC_FLAGS_PREFER_LEGACY2		(1<<5)
 #define TCPC_FLAGS_DISABLE_LEGACY		(1<<6)
 
@@ -243,9 +243,7 @@ struct tcpc_ops {
 	int (*set_auto_dischg_discnt)(struct tcpc_device *tcpc, bool en);
 	int (*get_vbus_voltage)(struct tcpc_device *tcpc, u32 *vbus);
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	int (*is_vsafe0v)(struct tcpc_device *tcpc);
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 #if CONFIG_WATER_DETECTION
 	int (*is_water_detected)(struct tcpc_device *tcpc);
@@ -325,6 +323,11 @@ struct tcpc_ops {
 
 struct tcpc_managed_res;
 
+struct tcpc_timer {
+	struct hrtimer timer;
+	struct tcpc_device *tcpc;
+};
+
 /*
  * tcpc device
  */
@@ -335,7 +338,6 @@ struct tcpc_device {
 	void *drv_data;
 	struct tcpc_desc desc;
 	struct device dev;
-	bool wake_lock_user;
 	uint8_t wake_lock_pd;
 	struct wakeup_source *attach_wake_lock;
 	struct wakeup_source *detach_wake_lock;
@@ -348,29 +350,25 @@ struct tcpc_device {
 
 	/* For tcpc timer & event */
 	uint32_t timer_handle_index;
-	struct hrtimer tcpc_timer[PD_TIMER_NR];
+	struct tcpc_timer tcpc_timer[PD_TIMER_NR];
 
 	struct alarm wake_up_timer;
 	struct delayed_work wake_up_work;
 	struct wakeup_source *wakeup_wake_lock;
 
-	ktime_t last_expire[PD_TIMER_NR];
 	struct mutex access_lock;
 	struct mutex typec_lock;
 	struct mutex timer_lock;
-	struct semaphore timer_enable_mask_lock;
 	spinlock_t timer_tick_lock;
 	atomic_t pending_event;
 	atomic_t suspend_pending;
 	uint64_t timer_tick;
-	uint64_t timer_enable_mask;
 	wait_queue_head_t event_wait_que;
 	wait_queue_head_t timer_wait_que;
 	struct task_struct *event_task;
 	struct task_struct *timer_task;
 
-	struct delayed_work	init_work;
-	struct delayed_work	event_init_work;
+	struct delayed_work event_init_work;
 	struct workqueue_struct *evt_wq;
 	struct srcu_notifier_head evt_nh[TCP_NOTIFY_IDX_NR];
 	struct tcpc_managed_res *mr_head;
@@ -455,11 +453,9 @@ struct tcpc_device {
 	bool pd_pending_vdm_event;
 	bool pd_pending_vdm_reset;
 	bool pd_pending_vdm_good_crc;
-	bool pd_pending_vdm_discard;
 	bool pd_pending_vdm_attention;
 	bool pd_postpone_vdm_timeout;
 
-	struct pd_msg pd_last_vdm_msg;
 	struct pd_msg pd_attention_vdm_msg;
 	struct pd_event pd_vdm_event;
 
@@ -529,9 +525,6 @@ struct tcpc_device {
 	enum tcpc_cable_type typec_cable_type;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 	bool typec_otp;
-	u32 boot_mode;
-	u32 boot_type;
-	u32 alert_mask;
 	struct completion alert_done;
 	long long alert_max_access_time;
 };
@@ -619,6 +612,13 @@ static inline bool pd_check_rev30(struct pd_port *pd_port)
 #else
 #define TCPC_DBG2(format, args...)
 #endif /* TCPC_DBG2_ENABLE */
+
+#if TCPC_TIMER_DBG_ENABLE
+#define TCPC_TIMER_DBG(format, args...)	\
+	RT_DBG_INFO(CONFIG_TCPC_DBG_PRESTR "TIMER:" format, ##args)
+#else
+#define TCPC_TIMER_DBG(format, args...)
+#endif /* TCPC_TIMER_DBG_ENABLE */
 
 #define TCPC_ERR(format, args...)	\
 	RT_DBG_INFO(CONFIG_TCPC_DBG_PRESTR "TCPC-ERR:" format, ##args)
@@ -728,4 +728,5 @@ static inline bool pd_check_rev30(struct pd_port *pd_port)
 
 #endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
 
+void sched_set_fifo(struct task_struct *p);
 #endif /* #ifndef __LINUX_RT_TCPCI_CORE_H */

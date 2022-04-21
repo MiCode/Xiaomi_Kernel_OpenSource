@@ -82,7 +82,7 @@ DECL_PE_STATE_TRANSITION(PD_HW_VBUS_SAFE0V) = {
 DECL_PE_STATE_REACTION(PD_HW_VBUS_SAFE0V);
 
 /*
- * [BLOCK] Porcess PD Ctrl MSG
+ * [BLOCK] Process PD Ctrl MSG
  */
 
 static inline bool pd_process_ctrl_msg_good_crc(
@@ -137,7 +137,7 @@ static inline bool pd_process_ctrl_msg(
 }
 
 /*
- * [BLOCK] Porcess DPM MSG
+ * [BLOCK] Process DPM MSG
  */
 
 static inline bool pd_process_dpm_msg(
@@ -155,7 +155,7 @@ static inline bool pd_process_dpm_msg(
 }
 
 /*
- * [BLOCK] Porcess HW MSG
+ * [BLOCK] Process HW MSG
  */
 
 static inline bool pd_process_hw_msg(
@@ -181,7 +181,7 @@ static inline bool pd_process_hw_msg(
 }
 
 /*
- * [BLOCK] Porcess Timer MSG
+ * [BLOCK] Process Timer MSG
  */
 
 static inline bool pd_process_timer_msg(

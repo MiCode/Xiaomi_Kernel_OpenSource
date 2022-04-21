@@ -22,13 +22,11 @@ static inline void pd_parse_pdata_bat_info(
 	int ret = 0;
 	u32 design_cap;
 	uint32_t vid, pid;
-	const char *mstring;
-
-	struct pd_battery_capabilities *bat_cap = &bat_info->bat_cap;
-
 #if CONFIG_USB_PD_REV30_MFRS_INFO_LOCAL
+	const char *mstring;
 	struct pd_manufacturer_info *mfrs_info = &bat_info->mfrs_info;
 #endif	/* CONFIG_USB_PD_REV30_MFRS_INFO_LOCAL */
+	struct pd_battery_capabilities *bat_cap = &bat_info->bat_cap;
 
 	ret = of_property_read_u32(sub, "bat,vid", (u32 *)&vid);
 	if (ret < 0) {
@@ -269,9 +267,8 @@ static inline void pd_parse_pdata_src_cap_ext(
 #if CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL
 	int ret = 0;
 
-	ret = of_property_read_u32_array(np, "pd,source-cap-ext",
-		(u32 *) &pd_port->src_cap_ext,
-		sizeof(struct pd_source_cap_ext)/4);
+	ret = of_property_read_u8_array(np, "pd,source-cap-ext",
+		(u8 *)&pd_port->src_cap_ext, PD_SCEDB_SIZE);
 
 	if (ret < 0)
 		pr_err("%s get source-cap-ext fail\n", __func__);
@@ -544,9 +541,16 @@ static void fg_bat_absent_work(struct work_struct *work)
 }
 #endif /* ONFIG_RECV_BAT_ABSENT_NOTIFY */
 
+void pe_data_init(struct pe_data *pe_data)
+{
+	pe_data->pe_state_timer = PD_TIMER_NR;
+	pe_data->vdm_state_timer = PD_TIMER_NR;
+}
+
 int pd_core_init(struct tcpc_device *tcpc)
 {
 	struct pd_port *pd_port = &tcpc->pd_port;
+	struct pe_data *pe_data = &pd_port->pe_data;
 	int ret;
 
 	mutex_init(&pd_port->pd_lock);
@@ -559,6 +563,8 @@ int pd_core_init(struct tcpc_device *tcpc)
 	pd_port->tcpc = tcpc;
 	pd_port->pe_pd_state = PE_IDLE2;
 	pd_port->cap_miss_match = 0; /* For src_cap miss match */
+
+	pe_data_init(pe_data);
 
 	ret = pd_parse_pdata(pd_port);
 	if (ret < 0)
@@ -661,24 +667,18 @@ uint32_t pd_get_cable_current_limit(struct pd_port *pd_port)
 	}
 }
 
-static inline bool pd_is_cable_communication_available(
-	struct pd_port *pd_port)
+bool pd_is_cable_communication_available(struct pd_port *pd_port)
 {
-	/*
-	 * After pr_swap or fr_swap,
-	 * the source (must be Vconn SRC) can communicate with Cable,
-	 * the sink doesn't communicate with cable even if it's DFP.
-	 *
-	 * When an Explicit Contract is in place,
-	 * Only the Vconn SRC can communicate with Cable.
-	 */
+#if CONFIG_USB_PD_REV30
+	return !!pd_port->vconn_role;
+#else
+	struct pe_data *pe_data = &pd_port->pe_data;
 
-#if CONFIG_USB_PD_REV30_DISCOVER_CABLE_WITH_VCONN
-	if (pd_check_rev30(pd_port) && (!pd_port->vconn_role))
-		return false;
-#endif	/* CONFIG_USB_PD_REV30_DISCOVER_CABLE_WITH_VCONN */
-
-	return true;
+	if (pe_data->explicit_contract)
+		return pd_port->data_role == PD_ROLE_DFP;
+	else
+		return pd_port->power_role == PD_ROLE_SOURCE;
+#endif	/* CONFIG_USB_PD_REV30 */
 }
 
 bool pd_is_reset_cable(struct pd_port *pd_port)
@@ -748,8 +748,7 @@ int pd_reset_protocol_layer(struct pd_port *pd_port, bool sop_only)
 #endif	/* CONFIG_USB_PD_PE_SOURCE */
 
 	pe_data->explicit_contract = false;
-	pe_data->local_selected_cap = 0;
-	pe_data->remote_selected_cap = 0;
+	pe_data->selected_cap = 0;
 	pe_data->during_swap = 0;
 	pd_port->cap_miss_match = 0;
 

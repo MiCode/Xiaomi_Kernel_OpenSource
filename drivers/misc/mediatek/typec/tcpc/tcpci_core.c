@@ -9,6 +9,7 @@
 #include <linux/version.h>
 #include <linux/slab.h>
 #include <linux/list.h>
+#include <linux/of.h>
 #include <linux/power_supply.h>
 #include <linux/workqueue.h>
 
@@ -23,7 +24,7 @@
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#define TCPC_CORE_VERSION		"2.0.17_MTK"
+#define TCPC_CORE_VERSION		"2.0.18_MTK"
 
 static ssize_t tcpc_show_property(struct device *dev,
 				  struct device_attribute *attr, char *buf);
@@ -40,6 +41,8 @@ static ssize_t tcpc_store_property(struct device *dev,
 
 struct class *tcpc_class;
 EXPORT_SYMBOL_GPL(tcpc_class);
+
+static int bootmode;
 
 static struct device_type tcpc_dev_type;
 
@@ -99,11 +102,8 @@ static ssize_t tcpc_show_property(struct device *dev,
 	case TCPC_DESC_CAP_INFO:
 		pd_port = &tcpc->pd_port;
 		pe_data = &pd_port->pe_data;
-		ret = snprintf(buf+strlen(buf), 256, "%s = %d\n%s = %d\n",
-				"local_selected_cap",
-				pe_data->local_selected_cap,
-				"remote_selected_cap",
-				pe_data->remote_selected_cap);
+		ret = snprintf(buf+strlen(buf), 256, "selected_cap = %d\n",
+				pe_data->selected_cap);
 		if (ret < 0)
 			break;
 		ret = snprintf(buf+strlen(buf), 256, "%s\n",
@@ -279,15 +279,8 @@ static ssize_t tcpc_store_property(struct device *dev,
 			dev_err(dev, "get parameters fail\n");
 			return -EINVAL;
 		}
-		#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
-		if (val > 0 && val <= PD_PE_TIMER_END_ID)
-			pd_enable_timer(&tcpc->pd_port, val);
-		else if (val > PD_PE_TIMER_END_ID && val < PD_TIMER_NR)
+		if (val >= 0 && val < PD_TIMER_NR)
 			tcpc_enable_timer(tcpc, val);
-		#else
-		if (val > 0 && val < PD_TIMER_NR)
-			tcpc_enable_timer(tcpc, val);
-		#endif /* CONFIG_USB_POWER_DELIVERY */
 		break;
 	#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	case TCPC_DESC_PD_TEST:
@@ -382,7 +375,6 @@ static void tcpc_device_release(struct device *dev)
 	/* Do initialization */
 }
 
-static void tcpc_init_work(struct work_struct *work);
 static void tcpc_event_init_work(struct work_struct *work);
 
 struct tcpc_device *tcpc_device_register(struct device *parent,
@@ -407,7 +399,6 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 	mutex_init(&tcpc->typec_lock);
 	mutex_init(&tcpc->timer_lock);
 	mutex_init(&tcpc->mr_lock);
-	sema_init(&tcpc->timer_enable_mask_lock, 1);
 	spin_lock_init(&tcpc->timer_tick_lock);
 
 	tcpc->dev.class = tcpc_class;
@@ -420,6 +411,9 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 	tcpc->desc = *tcpc_desc;
 	tcpc->ops = ops;
 	tcpc->typec_local_rp_level = tcpc_desc->rp_lvl;
+	tcpc->typec_remote_rp_level = TYPEC_CC_VOLT_SNK_DFT;
+	tcpc->typec_polarity = false;
+	tcpc->bootmode = bootmode;
 
 #if CONFIG_TCPC_VCONN_SUPPLY_MODE
 	tcpc->tcpc_vconn_supply = tcpc_desc->vconn_supply;
@@ -433,12 +427,8 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 		return ERR_PTR(ret);
 	}
 
-	INIT_DELAYED_WORK(&tcpc->init_work, tcpc_init_work);
 	INIT_DELAYED_WORK(&tcpc->event_init_work, tcpc_event_init_work);
 
-	/* If system support "WAKE_LOCK_IDLE",
-	 * please use it instead of "WAKE_LOCK_SUSPEND"
-	 */
 	tcpc->attach_wake_lock =
 		wakeup_source_register(&tcpc->dev, "tcpc_attach_wake_lock");
 	tcpc->detach_wake_lock =
@@ -478,8 +468,7 @@ int tcpc_device_irq_enable(struct tcpc_device *tcpc)
 		return ret;
 	}
 
-	schedule_delayed_work(
-		&tcpc->event_init_work, msecs_to_jiffies(10*1000));
+	schedule_delayed_work(&tcpc->event_init_work, 0);
 
 	pr_info("%s : tcpc irq enable OK!\n", __func__);
 	return 0;
@@ -587,36 +576,6 @@ static void tcpc_event_init_work(struct work_struct *work)
 
 #endif /* CONFIG_USB_POWER_DELIVERY */
 }
-
-static void tcpc_init_work(struct work_struct *work)
-{
-	struct tcpc_device *tcpc = container_of(
-		work, struct tcpc_device, init_work.work);
-
-#if !CONFIG_TCPC_NOTIFIER_LATE_SYNC
-	if (tcpc->desc.notifier_supply_num == 0)
-		return;
-#endif
-	pr_info("%s force start\n", __func__);
-
-	tcpc->desc.notifier_supply_num = 0;
-	tcpc_device_irq_enable(tcpc);
-}
-
-int tcpc_schedule_init_work(struct tcpc_device *tcpc)
-{
-#if !CONFIG_TCPC_NOTIFIER_LATE_SYNC
-	if (tcpc->desc.notifier_supply_num == 0)
-		return tcpc_device_irq_enable(tcpc);
-
-	pr_info("%s wait %d num\n", __func__, tcpc->desc.notifier_supply_num);
-
-	schedule_delayed_work(
-		&tcpc->init_work, msecs_to_jiffies(30*1000));
-#endif
-	return 0;
-}
-EXPORT_SYMBOL(tcpc_schedule_init_work);
 
 struct tcp_notifier_block_wrapper {
 	struct notifier_block stub_nb;
@@ -727,21 +686,6 @@ int register_tcp_dev_notifier(struct tcpc_device *tcp_dev,
 		}
 	}
 
-#if !CONFIG_TCPC_NOTIFIER_LATE_SYNC
-	if (tcp_dev->desc.notifier_supply_num == 0) {
-		pr_info("%s already started\n", __func__);
-		return 0;
-	}
-
-	tcp_dev->desc.notifier_supply_num--;
-	pr_info("%s supply_num = %d\n", __func__,
-		tcp_dev->desc.notifier_supply_num);
-
-	if (tcp_dev->desc.notifier_supply_num == 0) {
-		cancel_delayed_work(&tcp_dev->init_work);
-		tcpc_device_irq_enable(tcp_dev);
-	}
-#endif
 	return ret;
 }
 EXPORT_SYMBOL(register_tcp_dev_notifier);
@@ -859,6 +803,14 @@ static void tcpc_init_attrs(struct device_type *dev_type)
 
 static int __init tcpc_class_init(void)
 {
+	struct device_node *of_chosen = NULL;
+	const struct {
+		u32 size;
+		u32 tag;
+		u32 bootmode;
+		u32 boottype;
+	} *tag = NULL;
+
 	pr_info("%s (%s)\n", __func__, TCPC_CORE_VERSION);
 
 #if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
@@ -873,6 +825,21 @@ static int __init tcpc_class_init(void)
 	}
 	tcpc_init_attrs(&tcpc_dev_type);
 
+	/* mediatek boot mode */
+	of_chosen = of_find_node_by_path("/chosen");
+	if (of_chosen == NULL)
+		of_chosen = of_find_node_by_path("/chosen@0");
+	if (of_chosen == NULL)
+		goto out;
+	tag = of_get_property(of_chosen, "atag,boot", NULL);
+	if (!tag) {
+		pr_notice("failed to get atag,boot\n");
+		goto out;
+	}
+	pr_info("size:0x%x tag:0x%x mode:0x%x type:0x%x\n",
+		tag->size, tag->tag, tag->bootmode, tag->boottype);
+	bootmode = tag->bootmode;
+out:
 	pr_info("TCPC class init OK\n");
 	return 0;
 }
@@ -886,12 +853,44 @@ static void __exit tcpc_class_exit(void)
 subsys_initcall(tcpc_class_init);
 module_exit(tcpc_class_exit);
 
+void __weak sched_set_fifo(struct task_struct *p)
+{
+	struct sched_param sp = { .sched_priority = MAX_RT_PRIO / 2 };
+
+	WARN_ON_ONCE(sched_setscheduler_nocheck(p, SCHED_FIFO, &sp) != 0);
+}
+
 MODULE_DESCRIPTION("Richtek TypeC Port Control Core");
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_VERSION(TCPC_CORE_VERSION);
 MODULE_LICENSE("GPL");
 
 /* Release Version
+ * 2.0.18_MTK
+ * (1) Fix typos
+ * (2) Revise tcpci_alert.c
+ * (3) Request the previous voltage/current first with new Source_Capabilities
+ * (4) #undef CONFIG_USB_PD_ALT_MODE_RTDC
+ * (5) Use typec_state in typec_is_cc_attach()
+ * (6) Add epr_source_pdp into struct pd_source_cap_ext for new PD spec
+ * (7) Revise get_status_once, pd_traffic_idle
+ * (8) Revise IRQ handling
+ * (9) Start PD policy engine without delay
+ * (10) Revise typec_remote_rp_level
+ * (11) Revise Hard Reset timer as PD Sink
+ * (12) Set mismatch to false in dpm_build_default_request_info()
+ * (13) Revise tcpc_timer
+ * (14) Remove notifier_supply_num
+ * (15) Fix COMMON.CHECK.PD.5 Check Unexpected Messages and Signals
+ * (16) Fix TEST.PD.PROT.PORT3.4 Invalid Battery Capabilities Reference
+ * (17) Fix TEST.PD.VDM.SRC.1 Discovery Process and Enter Mode
+ * (18) Add PD_TIMER_VSAFE5V_DELAY
+ * (19) Revise SOP' communication
+ * (20) Revise PD request as Sink
+ * (21) Disable old legacy cable workaround
+ * (22) Enable PD Safe0V Timeout
+ * (23) Replace calling of sched_setscheduler() with sched_set_fifo()
+ *
  * 2.0.17_MTK
  * (1) Add CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP
  * (2) Fix a synchronization/locking problem in pd_notify_pe_error_recovery()

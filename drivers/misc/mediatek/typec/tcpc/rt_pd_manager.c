@@ -16,7 +16,7 @@
 #include <charger_class.h>
 #endif /* CONFIG_MTK_CHARGER */
 
-#define RT_PD_MANAGER_VERSION	"1.0.8"
+#define RT_PD_MANAGER_VERSION	"1.0.9"
 
 struct typec_port {
 	unsigned int			id;
@@ -90,6 +90,11 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 
 	switch (event) {
 	case TCP_NOTIFY_SINK_VBUS:
+		break;
+	case TCP_NOTIFY_SOURCE_VBUS:
+		dev_info(rpmd->dev, "%s source vbus %dmV %dmA type(0x%02X)\n",
+				    __func__, noti->vbus_state.mv,
+				    noti->vbus_state.ma, noti->vbus_state.type);
 		break;
 	case TCP_NOTIFY_TYPEC_STATE:
 		old_state = noti->typec_state.old_state;
@@ -754,6 +759,9 @@ MODULE_VERSION(RT_PD_MANAGER_VERSION);
 
 /*
  * Release Note
+ * 1.0.9
+ * (1) Add more information for source vbus log
+ *
  * 1.0.8
  * (1) Register typec_port
  * (2) Remove unused parts

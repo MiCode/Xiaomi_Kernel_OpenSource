@@ -121,18 +121,9 @@ int tcpci_get_vbus_voltage(struct tcpc_device *tcpc, u32 *vbus)
 }
 EXPORT_SYMBOL(tcpci_get_vbus_voltage);
 
-int tcpci_check_vsafe0v(
-	struct tcpc_device *tcpc, bool detect_en)
+bool tcpci_check_vsafe0v(struct tcpc_device *tcpc)
 {
-	int ret = 0;
-
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
-	ret = (tcpc->vbus_level == TCPC_VBUS_SAFE0V);
-#else
-	ret = (tcpc->vbus_level == TCPC_VBUS_INVALID);
-#endif
-
-	return ret;
+	return tcpc->vbus_level == TCPC_VBUS_SAFE0V;
 }
 EXPORT_SYMBOL(tcpci_check_vsafe0v);
 
@@ -258,11 +249,9 @@ EXPORT_SYMBOL(tcpci_get_cc);
 
 int tcpci_set_cc(struct tcpc_device *tcpc, int pull)
 {
-#if CONFIG_TYPEC_CHECK_LEGACY_CABLE
 #if CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP
 	uint8_t rp_lvl = TYPEC_RP_DFT, res = TYPEC_CC_DRP;
 #endif /* CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP */
-#endif /* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
 
 #if CONFIG_TYPEC_CHECK_LEGACY_CABLE
 	if (pull == TYPEC_CC_DRP && tcpc->typec_legacy_cable) {
@@ -276,12 +265,14 @@ int tcpci_set_cc(struct tcpc_device *tcpc, int pull)
 			pull = TYPEC_CC_RP_1_5;
 		TCPC_DBG2("LC->Toggling (%d)\n", pull);
 	} else if (!tcpc->typec_legacy_cable) {
+#endif /* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
 #if CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP
 		rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
 		res = TYPEC_CC_PULL_GET_RES(pull);
 		pull = TYPEC_CC_PULL(rp_lvl == TYPEC_RP_DFT ?
 			tcpc->typec_local_rp_level : rp_lvl, res);
 #endif /* CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP */
+#if CONFIG_TYPEC_CHECK_LEGACY_CABLE
 	}
 #endif /* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
 	return __tcpci_set_cc(tcpc, pull);
@@ -382,7 +373,6 @@ int tcpci_alert_vendor_defined_handler(struct tcpc_device *tcpc)
 }
 EXPORT_SYMBOL(tcpci_alert_vendor_defined_handler);
 
-#if CONFIG_TCPC_VSAFE0V_DETECT_IC
 int tcpci_is_vsafe0v(struct tcpc_device *tcpc)
 {
 	int rv = -ENOTSUPP;
@@ -393,7 +383,6 @@ int tcpci_is_vsafe0v(struct tcpc_device *tcpc)
 	return rv;
 }
 EXPORT_SYMBOL(tcpci_is_vsafe0v);
-#endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
 #if CONFIG_WATER_DETECTION
 int tcpci_is_water_detected(struct tcpc_device *tcpc)
