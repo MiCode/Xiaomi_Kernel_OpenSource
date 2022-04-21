@@ -2777,13 +2777,7 @@ send_orig_cmd:
 	/* Make sure descriptors are ready before ringing the doorbell */
 	wmb();
 
-#if defined(CONFIG_SCSI_UFS_FEATURE) && defined(CONFIG_SCSI_UFS_HPB)
-		if (!pre_req_err)
-			ufs_mtk_biolog_send_command(add_tag, add_lrbp->cmd);
-#endif
-		ufs_mtk_biolog_send_command(tag, lrbp->cmd);
-
-spin_lock_irqsave(hba->host->host_lock, flags);
+	spin_lock_irqsave(hba->host->host_lock, flags);
 
 #if defined(CONFIG_SCSI_UFS_FEATURE) && defined(CONFIG_SCSI_UFS_HPB)
 	if (!pre_req_err) {
