@@ -2908,8 +2908,12 @@ static void mtk_crtc_get_plane_comp_state(struct drm_crtc *crtc,
 		/* Set the crtc to plane state for releasing fence purpose.*/
 		plane_state->crtc = crtc;
 
-		mtk_plane_get_comp_state(plane, &plane_state->comp_state, crtc,
-					 0);
+		mtk_plane_get_comp_state(plane, &plane_state->comp_state, crtc, 0);
+
+		if (plane_state->comp_state.layer_caps & MTK_MML_DISP_DECOUPLE_LAYER)
+			plane_state->mml_mode = MML_MODE_MML_DECOUPLE;
+		else if (plane_state->comp_state.layer_caps & MTK_MML_DISP_MDP_LAYER)
+			plane_state->mml_mode = MML_MODE_MDP_DECOUPLE;
 	}
 }
 unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *i_crtc)

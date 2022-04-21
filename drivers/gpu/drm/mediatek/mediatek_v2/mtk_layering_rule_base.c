@@ -2713,6 +2713,8 @@ static void check_is_mml_layer(const int disp_idx,
 	    (MTK_MML_DISP_DIRECT_LINK_LAYER | MTK_MML_DISP_DIRECT_DECOUPLE_LAYER |
 	     MTK_MML_DISP_DECOUPLE_LAYER | MTK_MML_DISP_MDP_LAYER);
 	enum MTK_LAYERING_CAPS mml_capacity = mml_mask;
+	static bool last_is_ir;
+	bool curr_is_ir = false;
 
 	if (!dev || !disp_info || !scn_decision_flag)
 		return;
@@ -2737,7 +2739,7 @@ static void check_is_mml_layer(const int disp_idx,
 				    mtk_has_layer_cap(c, MTK_LAYERING_OVL_ONLY)) {
 					disp_info->gles_head[disp_idx] = 0;
 					disp_info->gles_tail[disp_idx] =
-					    disp_info->layer_num[disp_idx];
+					    disp_info->layer_num[disp_idx] - 1;
 				} else {
 					c->layer_caps &= ~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
 					c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
@@ -2760,6 +2762,7 @@ static void check_is_mml_layer(const int disp_idx,
 			if (mml_capacity & c->layer_caps) {
 				if (MTK_MML_DISP_DIRECT_DECOUPLE_LAYER & c->layer_caps) {
 					mml_capacity = 0;
+					curr_is_ir = true;
 				} else if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps) {
 					/* TBD */
 				} else {
@@ -2774,6 +2777,13 @@ static void check_is_mml_layer(const int disp_idx,
 				c->layer_caps |=
 				    (mml_capacity ? mml_capacity : MTK_MML_DISP_NOT_SUPPORT);
 			}
+		}
+
+		/* Frame[N-1](IR) Frame[N](DC) is not allowed */
+		if ((MTK_MML_DISP_DECOUPLE_LAYER & c->layer_caps) && last_is_ir) {
+			c->layer_caps &= ~MTK_MML_DISP_DECOUPLE_LAYER;
+			c->layer_caps |= MTK_MML_DISP_MDP_LAYER;
+			DDPMSG("%s hrt_idx:%d last is IR, set MML_DC to MDP\n", __func__, hrt_idx);
 		}
 
 		if (MTK_MML_DISP_DIRECT_LINK_LAYER & c->layer_caps ||
@@ -2797,6 +2807,7 @@ static void check_is_mml_layer(const int disp_idx,
 				disp_info->gles_tail[disp_idx] = i;
 		}
 	}
+	last_is_ir = curr_is_ir;
 
 	if (disp_info->gles_head[disp_idx] != -1) {
 		int adjusted_gles_head = -1;
