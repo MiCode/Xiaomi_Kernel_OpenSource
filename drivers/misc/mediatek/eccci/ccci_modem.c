@@ -25,11 +25,10 @@
 
 #define TAG "md"
 
-
 /* TO BE removed after variables in per_md_data move to the right module */
-struct ccci_per_md *ccci_get_per_md_data(unsigned char md_id)
+struct ccci_per_md *ccci_get_per_md_data(void)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	if (md)
 		return &md->per_md_data;

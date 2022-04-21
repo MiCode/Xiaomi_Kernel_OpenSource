@@ -46,7 +46,7 @@ enum md_cooling_status get_md_cooling_status(void)
 	if (!mdc)
 		return MD_OFF;
 
-	md_state = exec_ccci_kern_func_by_md_id(0, ID_GET_MD_STATE, NULL, 0);
+	md_state = exec_ccci_kern_func(ID_GET_MD_STATE, NULL, 0);
 	if (md_state == MD_STATE_INVALID || md_state == MD_STATE_EXCEPTION) {
 		pr_warn("Invalid MD state(%d)!\n", md_state);
 		cur_status = MD_OFF;
@@ -64,7 +64,7 @@ int send_throttle_msg(unsigned int msg)
 	int ret;
 
 	mutex_lock(&send_tmc_msg_lock);
-	ret = exec_ccci_kern_func_by_md_id(MD_SYS1, ID_THROTTLING_CFG, (char *)&msg, 4);
+	ret = exec_ccci_kern_func(ID_THROTTLING_CFG, (char *)&msg, 4);
 	mutex_unlock(&send_tmc_msg_lock);
 
 	if (ret)

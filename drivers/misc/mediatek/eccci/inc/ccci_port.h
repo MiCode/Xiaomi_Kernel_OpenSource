@@ -19,25 +19,25 @@ enum {
  * This API is called by ccci_modem,
  * and used to create all ccci port instance for per modem
  */
-int ccci_port_init(int md_id);
+int ccci_port_init(void);
 
 /*
  * This API is called by ccci_fsm,
  * and used to all ccci port status for debugging
  */
-void ccci_port_dump_status(int md_id);
+void ccci_port_dump_status(void);
 
 /*
  * This API is called by ccci_fsm,
  * and used to dispatch modem status for related port
  */
-void ccci_port_md_status_notify(int md_id, unsigned int state);
+void ccci_port_md_status_notify(unsigned int state);
 
 /*
  * This API is called by HIF,
  * and used to dispatch Queue status for related port
  */
-void ccci_port_queue_status_notify(int md_id, int hif_id, int qno, int dir,
+void ccci_port_queue_status_notify(int hif_id, int qno, int dir,
 	unsigned int state);
 
 /*
@@ -45,32 +45,32 @@ void ccci_port_queue_status_notify(int md_id, int hif_id, int qno, int dir,
  * and used to dispatch RX data for related port
  * flag: if 0x1: with ccci_header, 0x2: with netif_header
  */
-int ccci_port_recv_skb(int md_id, int hif_id, struct sk_buff *skb,
+int ccci_port_recv_skb(int hif_id, struct sk_buff *skb,
 	unsigned int flag);
 
 /*
  * This API is called by ccci fsm,
  * and used to check whether all critical user exited.
  */
-int ccci_port_check_critical_user(int md_id);
+int ccci_port_check_critical_user(void);
 
 /*
  * This API is called by ccci fsm,
  * and used to check critical user only ccci_fsd exited.
  */
-int ccci_port_critical_user_only_fsd(int md_id);
+int ccci_port_critical_user_only_fsd(void);
 
 /*
  * This API is called by ccci fsm,
  * and used to get critical user status.
  */
-int ccci_port_get_critical_user(int md_id, unsigned int user_id);
+int ccci_port_get_critical_user(unsigned int user_id);
 
 /*
  * This API is called by ccci fsm,
  * and used to send a ccci msg for modem.
  */
-int ccci_port_send_msg_to_md(int md_id, int ch, unsigned int msg,
+int ccci_port_send_msg_to_md(int ch, unsigned int msg,
 	unsigned int resv, int blocking);
 
 /*
@@ -80,5 +80,5 @@ int ccci_port_send_msg_to_md(int md_id, int ch, unsigned int msg,
  * port traffic use md_boot_data[MD_CFG_DUMP_FLAG] = 0x6000_000x
  * as port dump flag
  */
-void ccci_port_set_traffic_flag(int md_id, unsigned int dump_flag);
+void ccci_port_set_traffic_flag(unsigned int dump_flag);
 #endif /* __CCCI_PORT_H__ */

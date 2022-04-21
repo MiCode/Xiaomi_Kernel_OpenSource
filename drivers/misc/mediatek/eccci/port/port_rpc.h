@@ -235,7 +235,6 @@ struct eint_struct {
 };
 struct eint_node_name {
 	char *node_name;	/*node name in dtsi */
-	int md_id;		/* md_id in node_name, no use currently */
 	int sim_id;		/* sim_id in node_name, no use currently */
 };
 struct eint_node_struct {

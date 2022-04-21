@@ -145,13 +145,8 @@ struct ccci_smem_region *get_smem_by_user_id(
 		if (!regions || regions[i].id == SMEM_USER_MAX)
 			return NULL;
 
-		if (regions[i].id == user_id) {
-			if (!get_modem_is_enabled(MD_SYS3) &&
-				(regions[i].flag & SMF_MD3_RELATED))
-				return NULL;
-			else
-				return regions + i;
-		}
+		if (regions[i].id == user_id)
+			return regions + i;
 	}
 	return NULL;
 }
@@ -166,10 +161,6 @@ static void init_smem_regions(struct ccci_smem_region *regions,
 	for (i = 0; ; i++) {
 		if (!regions || regions[i].id == SMEM_USER_MAX)
 			break;
-
-		if (!get_modem_is_enabled(MD_SYS3) &&
-			(regions[i].flag & SMF_MD3_RELATED))
-			continue;
 
 		regions[i].base_ap_view_phy =
 			base_ap_view_phy + regions[i].offset;
@@ -207,9 +198,6 @@ static void clear_smem_region(struct ccci_smem_region *regions, int first_boot)
 		if (!regions || regions[i].id == SMEM_USER_MAX)
 			break;
 
-		if (!get_modem_is_enabled(MD_SYS3) &&
-			(regions[i].flag & SMF_MD3_RELATED))
-			continue;
 		if (first_boot) {
 			if (!(regions[i].flag & SMF_NCLR_FIRST)) {
 				if (regions[i].size) {
@@ -246,7 +234,7 @@ static inline int update_smem_region(struct ccci_smem_region *region)
 	return ret;
 }
 
-static void ccci_6297_md_smem_layout_config(unsigned char index, struct ccci_mem_layout *mm_str)
+static void ccci_6297_md_smem_layout_config(struct ccci_mem_layout *mm_str)
 {
 	//struct ccci_mem_layout *mm_str = &md->mem_layout;
 	unsigned int md_resv_mem_offset = 0, ccb_offset = 0;
@@ -256,7 +244,7 @@ static void ccci_6297_md_smem_layout_config(unsigned char index, struct ccci_mem
 	int size;
 
 	/* non-cacheable start */
-	get_md_resv_mem_info(index, NULL, NULL, &md_resv_smem_addr, NULL);
+	get_md_resv_mem_info(NULL, NULL, &md_resv_smem_addr, NULL);
 
 	for (i = 0; i < ARRAY_SIZE(md1_6297_noncacheable_fat); i++) {
 		update_smem_region(&md1_6297_noncacheable_fat[i]);
@@ -271,14 +259,14 @@ static void ccci_6297_md_smem_layout_config(unsigned char index, struct ccci_mem
 		/* Special case */
 		switch (md1_6297_noncacheable_fat[i].id) {
 		case SMEM_USER_RAW_AMMS_POS:
-			size = get_smem_amms_pos_size(MD_SYS1);
+			size = get_smem_amms_pos_size();
 			if (size >= 0) {
 				/* free AMMS POS smem*/
 				smem_amms_pos_addr = md_resv_smem_addr
 					+ md1_6297_noncacheable_fat[i].offset;
 				amms_cma_free(smem_amms_pos_addr, size);
 			}
-			CCCI_BOOTUP_LOG(index, TAG,
+			CCCI_BOOTUP_LOG(0, TAG,
 			"smem amms pos size:%d\n",
 			md1_6297_noncacheable_fat[i].size);
 			break;
@@ -288,22 +276,22 @@ static void ccci_6297_md_smem_layout_config(unsigned char index, struct ccci_mem
 	}
 
 	mm_str->md_bank4_noncacheable = md1_6297_noncacheable_fat;
-	get_md_resv_csmem_info(index,
+	get_md_resv_csmem_info(
 		&mm_str->md_bank4_cacheable_total.base_ap_view_phy,
 		&mm_str->md_bank4_cacheable_total.size);
 	/* cacheable start */
 	mm_str->md_bank4_cacheable_total.base_md_view_phy = 0x40000000
-		+ get_md_smem_cachable_offset(MD_SYS1)
+		+ get_md_smem_cachable_offset()
 		+ mm_str->md_bank4_cacheable_total.base_ap_view_phy -
 		round_down(mm_str->md_bank4_cacheable_total.base_ap_view_phy,
 			0x00100000);
 
 	/* specially, CCB size. */
-	/* get_md_resv_ccb_info(index, &ccb_offset, &ccb_size); */
+	/* get_md_resv_ccb_info(&ccb_offset, &ccb_size); */
 	get_md_cache_region_info(SMEM_USER_CCB_START,
 				&ccb_offset,
 				&ccb_size);
-	CCCI_BOOTUP_LOG(index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 			"ccb totoal :offset = 0x%x, size = 0x%x\n",
 			ccb_offset, ccb_size);
 	for (i = 0; i < (sizeof(md1_6297_cacheable)/
@@ -326,7 +314,7 @@ static void ccci_6297_md_smem_layout_config(unsigned char index, struct ccci_mem
 			md1_6297_cacheable[i].offset =
 				(ccb_size > CCB_CACHE_MIN_SIZE) ?
 				(ccb_offset + CCB_CACHE_MIN_SIZE):ccb_offset;
-			CCCI_BOOTUP_LOG(index, TAG,
+			CCCI_BOOTUP_LOG(0, TAG,
 				"[%d]RAW size:%d\n", md1_6297_cacheable[i].id,
 				md1_6297_cacheable[i].size);
 			break;
@@ -360,7 +348,7 @@ static void ccci_6297_md_smem_layout_config(unsigned char index, struct ccci_mem
 }
 #endif
 
-void ccci_md_config_layout_6293(unsigned char index, struct ccci_mem_layout *mem_layout)
+void ccci_md_config_layout_6293(struct ccci_mem_layout *mem_layout)
 {
 	int dfd_size;
 	phys_addr_t smem_amms_pos_addr = 0;
@@ -374,149 +362,146 @@ void ccci_md_config_layout_6293(unsigned char index, struct ccci_mem_layout *mem
 	unsigned int i;
 
 	/* Get udc cache&noncache size */
-	get_md_resv_udc_info(index,
+	get_md_resv_udc_info(
 			&udc_noncache_size, &udc_cache_size);
 
 	md_bank4_cacheable_total_size
 		= mem_layout->md_bank4_cacheable_total.size;
-	if (index == MD_SYS1) {
-		mem_layout->md_bank4_noncacheable
-			= md1_6293_noncacheable_fat;
-		mem_layout->md_bank4_cacheable
-			= md1_6293_cacheable;
-		/* Runtime adjust md_phy_capture and udc noncache size */
-		for (i = 0; i < (sizeof(md1_6293_noncacheable_fat)/
-			sizeof(struct ccci_smem_region)); i++) {
-			if (offset_adjust_flag == 1)
-				md1_6293_noncacheable_fat[i].offset =
-				md1_6293_noncacheable_fat[i-1].offset
-				+ md1_6293_noncacheable_fat[i-1].size;
-			if (md1_6293_noncacheable_fat[i].id ==
-				SMEM_USER_RAW_PHY_CAP) {
+
+	mem_layout->md_bank4_noncacheable
+		= md1_6293_noncacheable_fat;
+	mem_layout->md_bank4_cacheable
+		= md1_6293_cacheable;
+	/* Runtime adjust md_phy_capture and udc noncache size */
+	for (i = 0; i < (sizeof(md1_6293_noncacheable_fat)/
+		sizeof(struct ccci_smem_region)); i++) {
+		if (offset_adjust_flag == 1)
+			md1_6293_noncacheable_fat[i].offset =
+			md1_6293_noncacheable_fat[i-1].offset
+			+ md1_6293_noncacheable_fat[i-1].size;
+		if (md1_6293_noncacheable_fat[i].id ==
+			SMEM_USER_RAW_PHY_CAP) {
+			md1_6293_noncacheable_fat[i].size =
+				get_md_resv_phy_cap_size();
+			CCCI_BOOTUP_LOG(0, TAG,
+			"PHY size:%d\n",
+			md1_6293_noncacheable_fat[i].size);
+		}
+		if (md1_6293_noncacheable_fat[i].id ==
+			SMEM_USER_RAW_UDC_DATA) {
+			md1_6293_noncacheable_fat[i].size =
+				udc_noncache_size;
+			offset_adjust_flag = 1;
+		}
+		if (md1_6293_noncacheable_fat[i].id ==
+			SMEM_USER_RAW_DFD) {
+			dfd_size = get_md_smem_dfd_size();
+			if (dfd_size >= 0 && dfd_size !=
+				md1_6293_noncacheable_fat[i].size) {
 				md1_6293_noncacheable_fat[i].size =
-					get_md_resv_phy_cap_size(MD_SYS1);
-				CCCI_BOOTUP_LOG(index, TAG,
-				"PHY size:%d\n",
-				md1_6293_noncacheable_fat[i].size);
-			}
-			if (md1_6293_noncacheable_fat[i].id ==
-				SMEM_USER_RAW_UDC_DATA) {
-				md1_6293_noncacheable_fat[i].size =
-					udc_noncache_size;
+				dfd_size;
 				offset_adjust_flag = 1;
 			}
-			if (md1_6293_noncacheable_fat[i].id ==
-				SMEM_USER_RAW_DFD) {
-				dfd_size = get_md_smem_dfd_size(MD_SYS1);
-				if (dfd_size >= 0 && dfd_size !=
-					md1_6293_noncacheable_fat[i].size) {
-					md1_6293_noncacheable_fat[i].size =
-					dfd_size;
-					offset_adjust_flag = 1;
-				}
-				CCCI_BOOTUP_LOG(index, TAG,
-				"dfd size:%d\n",
-				md1_6293_noncacheable_fat[i].size);
-			}
-			if (md1_6293_noncacheable_fat[i].id ==
-				SMEM_USER_RAW_AMMS_POS) {
-				size = get_smem_amms_pos_size(MD_SYS1);
-				if (size >= 0 && size !=
-				md1_6293_noncacheable_fat[i].size) {
-					md1_6293_noncacheable_fat[i].size =
-					size;
-					offset_adjust_flag = 1;
-					/* free AMMS POS smem*/
-					smem_amms_pos_addr = md_resv_smem_addr
-					+ md1_6293_noncacheable_fat[i].offset;
-					amms_cma_free(smem_amms_pos_addr, size);
-				}
-				CCCI_BOOTUP_LOG(index, TAG,
-				"smem amms pos size:%d\n",
-				md1_6293_noncacheable_fat[i].size);
-			}
-			if (md1_6293_noncacheable_fat[i].id ==
-				SMEM_USER_RAW_ALIGN_PADDING) {
-				size = get_smem_align_padding_size(MD_SYS1);
-				if (size >= 0 && size !=
-				md1_6293_noncacheable_fat[i].size) {
-					md1_6293_noncacheable_fat[i].size =
-					size;
-					offset_adjust_flag = 1;
-					/* free POS padding smem*/
-					smem_align_padding_addr =
-					md_resv_smem_addr
-					+ md1_6293_noncacheable_fat[i].offset;
-					amms_cma_free(
-					smem_align_padding_addr,
-					size);
-				}
-				CCCI_BOOTUP_LOG(index, TAG,
-				"smem align padding size:%d\n",
-				md1_6293_noncacheable_fat[i].size);
-			}
-
+			CCCI_BOOTUP_LOG(0, TAG,
+			"dfd size:%d\n",
+			md1_6293_noncacheable_fat[i].size);
 		}
-		if (md_bank4_cacheable_total_size
-			>= CCB_CACHE_MIN_SIZE) {
-			/*
-			 * 2M is control part size,
-			 *md1_6293_cacheable[0].size
-			 * initial value but changed by collect_ccb_info
-			 */
-			for (i = (SMEM_USER_CCB_END -
-				SMEM_USER_CCB_START + 1);
-				i < (sizeof(md1_6293_cacheable)/
-				sizeof(struct ccci_smem_region)); i++) {
-				if (md1_6293_cacheable[i].id >
-						SMEM_USER_CCB_END) {
-					/* for rumtime udc offset */
-					if (md1_6293_cacheable[i].id ==
-						SMEM_USER_RAW_UDC_DESCTAB) {
-						md1_6293_cacheable[i].offset =
-						md1_6293_cacheable[i-1].offset +
-						md1_6293_cacheable[i-1].size;
-						CCCI_BOOTUP_LOG(index, TAG,
-						"UDC offset:%d\n",
-						md1_6293_cacheable[i].offset);
-						md1_6293_cacheable[i].size
-						= udc_cache_size;
-						continue;
-					}
-					md1_6293_cacheable[i].size =
-					md_bank4_cacheable_total_size -
-					udc_cache_size -
-					CCB_CACHE_MIN_SIZE;
-
-				CCCI_BOOTUP_LOG(index, TAG,
-					"RAW size:%d\n",
-					md1_6293_cacheable[i].size);
-				}
+		if (md1_6293_noncacheable_fat[i].id ==
+			SMEM_USER_RAW_AMMS_POS) {
+			size = get_smem_amms_pos_size();
+			if (size >= 0 && size !=
+			md1_6293_noncacheable_fat[i].size) {
+				md1_6293_noncacheable_fat[i].size =
+				size;
+				offset_adjust_flag = 1;
+				/* free AMMS POS smem*/
+				smem_amms_pos_addr = md_resv_smem_addr
+				+ md1_6293_noncacheable_fat[i].offset;
+				amms_cma_free(smem_amms_pos_addr, size);
 			}
-		} else if (udc_cache_size) {
-			for (i = 0; i < (sizeof(md1_6293_cacheable)/
-				sizeof(struct ccci_smem_region)); i++) {
+			CCCI_BOOTUP_LOG(0, TAG,
+			"smem amms pos size:%d\n",
+			md1_6293_noncacheable_fat[i].size);
+		}
+		if (md1_6293_noncacheable_fat[i].id ==
+			SMEM_USER_RAW_ALIGN_PADDING) {
+			size = get_smem_align_padding_size();
+			if (size >= 0 && size !=
+			md1_6293_noncacheable_fat[i].size) {
+				md1_6293_noncacheable_fat[i].size =
+				size;
+				offset_adjust_flag = 1;
+				/* free POS padding smem*/
+				smem_align_padding_addr =
+				md_resv_smem_addr
+				+ md1_6293_noncacheable_fat[i].offset;
+				amms_cma_free(
+				smem_align_padding_addr,
+				size);
+			}
+			CCCI_BOOTUP_LOG(0, TAG,
+			"smem align padding size:%d\n",
+			md1_6293_noncacheable_fat[i].size);
+		}
+
+	}
+	if (md_bank4_cacheable_total_size
+		>= CCB_CACHE_MIN_SIZE) {
+		/*
+		 * 2M is control part size,
+		 * md1_6293_cacheable[0].size
+		 * initial value but changed by collect_ccb_info
+		 */
+		for (i = (SMEM_USER_CCB_END -
+			SMEM_USER_CCB_START + 1);
+			i < (sizeof(md1_6293_cacheable)/
+			sizeof(struct ccci_smem_region)); i++) {
+			if (md1_6293_cacheable[i].id >
+					SMEM_USER_CCB_END) {
+				/* for rumtime udc offset */
 				if (md1_6293_cacheable[i].id ==
 					SMEM_USER_RAW_UDC_DESCTAB) {
-					md1_6293_cacheable[i].offset
-						= 0;
-					CCCI_BOOTUP_LOG(index, TAG,
+					md1_6293_cacheable[i].offset =
+					md1_6293_cacheable[i-1].offset +
+					md1_6293_cacheable[i-1].size;
+					CCCI_BOOTUP_LOG(0, TAG,
 					"UDC offset:%d\n",
 					md1_6293_cacheable[i].offset);
 					md1_6293_cacheable[i].size
-						= udc_cache_size;
+					= udc_cache_size;
 					continue;
 				}
-				md1_6293_cacheable[i].offset = 0;
-				md1_6293_cacheable[i].size = 0;
+				md1_6293_cacheable[i].size =
+				md_bank4_cacheable_total_size -
+				udc_cache_size -
+				CCB_CACHE_MIN_SIZE;
+
+			CCCI_BOOTUP_LOG(0, TAG,
+				"RAW size:%d\n",
+				md1_6293_cacheable[i].size);
 			}
-		} else
-			mem_layout->md_bank4_cacheable = NULL;
-		} else
-			WARN_ON(1);
+		}
+	} else if (udc_cache_size) {
+		for (i = 0; i < (sizeof(md1_6293_cacheable)/
+			sizeof(struct ccci_smem_region)); i++) {
+			if (md1_6293_cacheable[i].id ==
+				SMEM_USER_RAW_UDC_DESCTAB) {
+				md1_6293_cacheable[i].offset = 0;
+				CCCI_BOOTUP_LOG(0, TAG,
+				"UDC offset:%d\n",
+				md1_6293_cacheable[i].offset);
+				md1_6293_cacheable[i].size
+					= udc_cache_size;
+				continue;
+			}
+			md1_6293_cacheable[i].offset = 0;
+			md1_6293_cacheable[i].size = 0;
+		}
+	} else
+		mem_layout->md_bank4_cacheable = NULL;
 }
 
-void ccci_md_smem_layout_config(unsigned char index, struct ccci_mem_layout *mm_str)
+void ccci_md_smem_layout_config(struct ccci_mem_layout *mm_str)
 {
 	//struct ccci_mem_layout *mm_str = &md->mem_layout;
 	unsigned int md_resv_mem_offset = 0, ccb_offset = 0;
@@ -529,7 +514,7 @@ void ccci_md_smem_layout_config(unsigned char index, struct ccci_mem_layout *mm_
 	int size;
 
 	/* non-cacheable start */
-	get_md_resv_mem_info(index, NULL, NULL, &md_resv_smem_addr, NULL);
+	get_md_resv_mem_info(NULL, NULL, &md_resv_smem_addr, NULL);
 	for (i = 0; i < (sizeof(md1_6293_noncacheable_fat)/
 		sizeof(struct ccci_smem_region)); i++) {
 		/* update offset */
@@ -540,24 +525,24 @@ void ccci_md_smem_layout_config(unsigned char index, struct ccci_mem_layout *mm_
 		switch (md1_6293_noncacheable_fat[i].id) {
 		case SMEM_USER_RAW_PHY_CAP:
 			md1_6293_noncacheable_fat[i].size =
-				get_md_resv_phy_cap_size(MD_SYS1);
-			CCCI_BOOTUP_LOG(index, TAG,
+				get_md_resv_phy_cap_size();
+			CCCI_BOOTUP_LOG(0, TAG,
 			"PHY size:%d\n",
 			md1_6293_noncacheable_fat[i].size);
 			break;
 		case SMEM_USER_RAW_DFD:
-			size = get_md_smem_dfd_size(MD_SYS1);
+			size = get_md_smem_dfd_size();
 			if (size >= 0 && size !=
 			md1_6293_noncacheable_fat[i].size) {
 				md1_6293_noncacheable_fat[i].size = size;
 				offset_adjust_flag = 1;
 			}
-			CCCI_BOOTUP_LOG(index, TAG,
+			CCCI_BOOTUP_LOG(0, TAG,
 			"dfd size:%d\n",
 			md1_6293_noncacheable_fat[i].size);
 			break;
 		case SMEM_USER_RAW_AMMS_POS:
-			size = get_smem_amms_pos_size(MD_SYS1);
+			size = get_smem_amms_pos_size();
 			if (size >= 0 && size !=
 			md1_6293_noncacheable_fat[i].size) {
 				md1_6293_noncacheable_fat[i].size = size;
@@ -567,12 +552,12 @@ void ccci_md_smem_layout_config(unsigned char index, struct ccci_mem_layout *mm_
 					+ md1_6293_noncacheable_fat[i].offset;
 				amms_cma_free(smem_amms_pos_addr, size);
 			}
-			CCCI_BOOTUP_LOG(index, TAG,
+			CCCI_BOOTUP_LOG(0, TAG,
 			"smem amms pos size:%d\n",
 			md1_6293_noncacheable_fat[i].size);
 			break;
 		case SMEM_USER_RAW_ALIGN_PADDING:
-			size = get_smem_align_padding_size(MD_SYS1);
+			size = get_smem_align_padding_size();
 			if (size >= 0 && size !=
 			md1_6293_noncacheable_fat[i].size) {
 				md1_6293_noncacheable_fat[i].size = size;
@@ -582,12 +567,12 @@ void ccci_md_smem_layout_config(unsigned char index, struct ccci_mem_layout *mm_
 					+ md1_6293_noncacheable_fat[i].offset;
 				amms_cma_free(smem_align_padding_addr, size);
 			}
-			CCCI_BOOTUP_LOG(index, TAG,
+			CCCI_BOOTUP_LOG(0, TAG,
 			"smem align padding size:%d\n",
 			md1_6293_noncacheable_fat[i].size);
 			break;
 		case SMEM_USER_RAW_UDC_DATA:
-			get_md_resv_udc_info(index,
+			get_md_resv_udc_info(
 				&udc_noncache_size, &udc_cache_size);
 			if (udc_noncache_size > 0 && udc_noncache_size !=
 				md1_6293_noncacheable_fat[i].size) {
@@ -602,7 +587,7 @@ void ccci_md_smem_layout_config(unsigned char index, struct ccci_mem_layout *mm_
 	}
 
 	mm_str->md_bank4_noncacheable = md1_6293_noncacheable_fat;
-	get_md_resv_csmem_info(index,
+	get_md_resv_csmem_info(
 		&mm_str->md_bank4_cacheable_total.base_ap_view_phy,
 		&mm_str->md_bank4_cacheable_total.size);
 	/* cacheable start */
@@ -613,24 +598,24 @@ void ccci_md_smem_layout_config(unsigned char index, struct ccci_mem_layout *mm_
 			mm_str->md_bank4_cacheable_total.base_ap_view_phy,
 			mm_str->md_bank4_cacheable_total.size);
 	else
-		CCCI_ERROR_LOG(index, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"get cacheable info base:%lx size:%x\n",
 			(unsigned long)
 			mm_str->md_bank4_cacheable_total.base_ap_view_phy,
 			mm_str->md_bank4_cacheable_total.size);
 
 	mm_str->md_bank4_cacheable_total.base_md_view_phy = 0x40000000
-		+ get_md_smem_cachable_offset(MD_SYS1)
+		+ get_md_smem_cachable_offset()
 		+ mm_str->md_bank4_cacheable_total.base_ap_view_phy -
 		round_down(mm_str->md_bank4_cacheable_total.base_ap_view_phy,
 			0x00100000);
 
 	/* specially, CCB size. */
-	/* get_md_resv_ccb_info(index, &ccb_offset, &ccb_size); */
+	/* get_md_resv_ccb_info(&ccb_offset, &ccb_size); */
 	get_md_cache_region_info(SMEM_USER_CCB_START,
 				&ccb_offset,
 				&ccb_size);
-	CCCI_BOOTUP_LOG(index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 			"ccb totoal :offset = 0x%x, size = 0x%x\n",
 			ccb_offset, ccb_size);
 	for (i = 0; i < (sizeof(md1_6293_cacheable)/
@@ -653,7 +638,7 @@ void ccci_md_smem_layout_config(unsigned char index, struct ccci_mem_layout *mm_
 			md1_6293_cacheable[i].offset =
 				(ccb_size > CCB_CACHE_MIN_SIZE) ?
 				(ccb_offset + CCB_CACHE_MIN_SIZE):ccb_offset;
-			CCCI_BOOTUP_LOG(index, TAG,
+			CCCI_BOOTUP_LOG(0, TAG,
 				"[%d]RAW size:%d\n", md1_6293_cacheable[i].id,
 				md1_6293_cacheable[i].size);
 			break;
@@ -701,19 +686,16 @@ void ccci_md_smem_layout_config(unsigned char index, struct ccci_mem_layout *mm_
 	/* md_smem_layout_parsing(md); */
 }
 
-void ap_md_mem_init(unsigned char index, struct ccci_mem_layout *mem_layout)
+void ap_md_mem_init(struct ccci_mem_layout *mem_layout)
 {
-	phys_addr_t md_resv_mem_addr = 0,
-		md_resv_smem_addr = 0, md1_md3_smem_phy = 0;
+	phys_addr_t md_resv_mem_addr = 0, md_resv_smem_addr = 0;
 
-	unsigned int md_resv_mem_size = 0,
-		md_resv_smem_size = 0, md1_md3_smem_size = 0;
+	unsigned int md_resv_mem_size = 0, md_resv_smem_size = 0;
 
 	/* Get memory info */
-	get_md_resv_mem_info(index, &md_resv_mem_addr,
+	get_md_resv_mem_info(&md_resv_mem_addr,
 		&md_resv_mem_size, &md_resv_smem_addr, &md_resv_smem_size);
-	get_md1_md3_resv_smem_info(index, &md1_md3_smem_phy,
-		&md1_md3_smem_size);
+
 	/* setup memory layout */
 	/* MD image */
 	mem_layout->md_bank0.base_ap_view_phy = md_resv_mem_addr;
@@ -731,14 +713,12 @@ void ap_md_mem_init(unsigned char index, struct ccci_mem_layout *mem_layout)
 	 * this should align with LK's remap setting
 	 */
 	/* non-cacheable region */
-	if (index == MD_SYS1)
-		mem_layout->md_bank4_noncacheable_total.base_ap_view_phy
-			= md_resv_smem_addr;
-	else if (index == MD_SYS3)
-		mem_layout->md_bank4_noncacheable_total.base_ap_view_phy
-			= md1_md3_smem_phy;
+
+	mem_layout->md_bank4_noncacheable_total.base_ap_view_phy
+		= md_resv_smem_addr;
+
 	mem_layout->md_bank4_noncacheable_total.size
-			= md_resv_smem_size + md1_md3_smem_size;
+		= md_resv_smem_size;
 
 	mem_layout->md_bank4_noncacheable_total.base_ap_view_vir =
 		ccci_map_phy_addr(
@@ -751,13 +731,13 @@ void ap_md_mem_init(unsigned char index, struct ccci_mem_layout *mem_layout)
 		mem_layout->md_bank4_noncacheable_total.base_ap_view_phy,
 		0x02000000);
 #if (MD_GENERATION >= 6297)
-	ccci_6297_md_smem_layout_config(index, mem_layout);
+	ccci_6297_md_smem_layout_config(mem_layout);
 #else
 	if (md->hw_info->plat_val->md_gen >= 6295)
 		ccci_md_smem_layout_config(md);
 	else {
 		/* cacheable region */
-		get_md_resv_ccb_info(index,
+		get_md_resv_ccb_info(
 		&mem_layout->md_bank4_cacheable_total.base_ap_view_phy,
 			&mem_layout->md_bank4_cacheable_total.size);
 		if (mem_layout->md_bank4_cacheable_total.base_ap_view_phy
@@ -767,25 +747,25 @@ void ap_md_mem_init(unsigned char index, struct ccci_mem_layout *mem_layout)
 			mem_layout->md_bank4_cacheable_total.base_ap_view_phy
 			, mem_layout->md_bank4_cacheable_total.size);
 		else
-			CCCI_ERROR_LOG(index, TAG,
+			CCCI_ERROR_LOG(, TAG,
 				"get ccb info base:%lx size:%x\n",
 			(unsigned long)
 			mem_layout->md_bank4_cacheable_total.base_ap_view_phy
 			, mem_layout->md_bank4_cacheable_total.size);
-		if (index == MD_SYS1) {
-			mem_layout->md_bank4_cacheable_total.base_md_view_phy
-				= 0x40000000 + (224 * 1024 * 1024) +
-			mem_layout->md_bank4_cacheable_total.base_ap_view_phy
-				- round_down(
-			mem_layout->md_bank4_cacheable_total.base_ap_view_phy
-				, 0x00100000);
-		}
+
+		mem_layout->md_bank4_cacheable_total.base_md_view_phy
+			= 0x40000000 + (224 * 1024 * 1024) +
+		mem_layout->md_bank4_cacheable_total.base_ap_view_phy
+			- round_down(
+		mem_layout->md_bank4_cacheable_total.base_ap_view_phy
+			, 0x00100000);
+
 		if (md->hw_info->plat_val->md_gen == 6293)
 			ccci_md_config_layout_6293(md);
 	}
 
 #endif
-	CCCI_BOOTUP_LOG(index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"smem info: (%lx %lx %lx %d) (%lx %lx %lx %d)\n",
 		(unsigned long)
 		mem_layout->md_bank4_noncacheable_total.base_ap_view_phy,
@@ -812,56 +792,49 @@ void ap_md_mem_init(unsigned char index, struct ccci_mem_layout *mem_layout)
 		mem_layout->md_bank4_cacheable_total.base_md_view_phy);
 }
 
-struct ccci_mem_layout *ccci_md_get_mem(int md_id)
+struct ccci_mem_layout *ccci_md_get_mem(void)
 {
-	if (md_id >= MAX_MD_NUM || md_id < 0)
-		return NULL;
-	return &modem_sys[md_id]->mem_layout;
+	return &modem_sys->mem_layout;
 }
 
-struct ccci_smem_region *ccci_md_get_smem_by_user_id(int md_id,
-	enum SMEM_USER_ID user_id)
+struct ccci_smem_region *ccci_md_get_smem_by_user_id(enum SMEM_USER_ID user_id)
 {
 	struct ccci_smem_region *curr = NULL;
 
-	if (md_id >= MAX_MD_NUM || md_id < 0)
-		return NULL;
-
-	if (modem_sys[md_id] == NULL) {
-		CCCI_ERROR_LOG(md_id, TAG,
-			"md%d not enable/ before driver int, return NULL\n",
-			md_id);
+	if (modem_sys == NULL) {
+		CCCI_ERROR_LOG(0, TAG,
+			"md not enable/ before driver int, return NULL\n");
 		return NULL;
 	}
 
 	curr = get_smem_by_user_id(
-		modem_sys[md_id]->mem_layout.md_bank4_noncacheable, user_id);
+		modem_sys->mem_layout.md_bank4_noncacheable, user_id);
 	if (curr)
 		return curr;
 	curr = get_smem_by_user_id(
-		modem_sys[md_id]->mem_layout.md_bank4_cacheable, user_id);
+		modem_sys->mem_layout.md_bank4_cacheable, user_id);
 	return curr;
 }
 EXPORT_SYMBOL(ccci_md_get_smem_by_user_id);
 
-void ccci_md_clear_smem(int md_id, int first_boot)
+void ccci_md_clear_smem(int first_boot)
 {
 	struct ccci_smem_region *region = NULL;
 	unsigned int size;
 
 	/* MD will clear share memory itself after the first boot */
-	clear_smem_region(modem_sys[md_id]->mem_layout.md_bank4_noncacheable,
+	clear_smem_region(modem_sys->mem_layout.md_bank4_noncacheable,
 		first_boot);
-	clear_smem_region(modem_sys[md_id]->mem_layout.md_bank4_cacheable,
+	clear_smem_region(modem_sys->mem_layout.md_bank4_cacheable,
 		first_boot);
 	if (!first_boot) {
 		CCCI_NORMAL_LOG(-1, TAG, "clear buffer ! first_boot\n");
-		region = ccci_md_get_smem_by_user_id(md_id, SMEM_USER_CCB_DHL);
+		region = ccci_md_get_smem_by_user_id(SMEM_USER_CCB_DHL);
 		if (region && region->size) {
 			/*clear ccb data smem*/
 			memset_io(region->base_ap_view_vir, 0, region->size);
 		}
-		region = ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_DHL);
+		region = ccci_md_get_smem_by_user_id(SMEM_USER_RAW_DHL);
 		if (region && region->size) {
 			/* clear first 1k bytes in dsp log buffer */
 			size = (region->size > (128 * sizeof(long long))) ?
@@ -876,14 +849,14 @@ void ccci_md_clear_smem(int md_id, int first_boot)
 }
 
 /* maybe we can change it to hook function of MD FSM */
-int smem_md_state_notification(int md_id, unsigned char state)
+int smem_md_state_notification(unsigned char state)
 {
 	static int init = 1; /*default is 0*/
 	int ret = 0;
 
 	switch (state) {
 	case BOOT_WAITING_FOR_HS1:
-		ccci_md_clear_smem(md_id, init);
+		ccci_md_clear_smem(init);
 		if (init)
 			init = 0;
 		break;

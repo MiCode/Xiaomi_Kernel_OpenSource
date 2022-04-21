@@ -61,7 +61,7 @@ static void drv_md_hw_bus_remap(void)
 	phys_addr_t md_base_at_ap;
 	unsigned long long tmp_val;
 
-	get_md_resv_mem_info(MD_SYS1, &md_base_at_ap, NULL, NULL, NULL);
+	get_md_resv_mem_info(&md_base_at_ap, NULL, NULL, NULL);
 	tmp_val = (unsigned long long)md_base_at_ap;
 
 	/*Remap and Remap enable for address*/
@@ -742,54 +742,54 @@ static void drv3_dump_register(int buf_type)
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF Tx pdn; pd_ul_base register -> (start addr: 0x%lX, len: %d):\n",
 		dpmaif_ctl->pd_ul_base + NRL2_DPMAIF_UL_ADD_DESC, len);
-	ccci_util_mem_dump(0, buf_type,
+	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_ul_base + NRL2_DPMAIF_UL_ADD_DESC, len);
 
 	len = DPMAIF_AO_UL_CHNL3_STA - DPMAIF_AO_UL_CHNL0_STA + 4;
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF Tx ao; ao_ul_base register -> (start addr: 0x%lX, len: %d):\n",
 		dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA, len);
-	ccci_util_mem_dump(0, buf_type,
+	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->ao_ul_base + DPMAIF_AO_UL_CHNL0_STA, len);
 
 	len = DPMAIF_PD_DL_MISC_CON0 - DPMAIF_PD_DL_BAT_INIT + 4;
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF Rx pdn; pd_dl_base register -> (start addr: 0x%lX, len: %d):\n",
 		dpmaif_ctl->pd_dl_base + DPMAIF_PD_DL_BAT_INIT, len);
-	ccci_util_mem_dump(0, buf_type,
+	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_dl_base + DPMAIF_PD_DL_BAT_INIT, len);
 
 	len = DPMAIF_PD_DL_DBG_STA14 - DPMAIF_PD_DL_STA0 + 4;
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF Rx pdn; pd_dl_base register -> (start addr: 0x%lX, len: %d):\n",
 		dpmaif_ctl->pd_dl_base + DPMAIF_PD_DL_STA0, len);
-	ccci_util_mem_dump(0, buf_type,
+	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_dl_base + DPMAIF_PD_DL_STA0, len);
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF dma_rd; pd_dl_base register -> (start addr: 0x%lX, len: %d):\n",
 		dpmaif_ctl->pd_dl_base + 0x100, 0xC8);
-	ccci_util_mem_dump(0, buf_type,
+	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_dl_base + 0x100, 0xC8);
 
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF dma_wr; pd_dl_base register -> (start addr: 0x%lX, len: %d):\n",
 		dpmaif_ctl->pd_dl_base + 0x200, 0x58 + 4);
-	ccci_util_mem_dump(0, buf_type,
+	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_dl_base + 0x200, 0x58 + 4);
 
 	len = DPMAIF_AO_DL_FRGBAT_STA2 - DPMAIF_AO_DL_PKTINFO_CONO + 4;
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF Rx ao; ao_dl_base register -> (start addr: 0x%lX, len: %d):\n",
 		dpmaif_ctl->ao_dl_base + DPMAIF_AO_DL_PKTINFO_CONO, len);
-	ccci_util_mem_dump(0, buf_type,
+	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->ao_dl_base + DPMAIF_AO_DL_PKTINFO_CONO, len);
 
 	len = DPMAIF_PD_AP_CODA_VER - DPMAIF_PD_AP_UL_L2TISAR0 + 4;
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF MISC pdn; pd_misc_base register -> (start addr: 0x%lX, len: %d):\n",
 		dpmaif_ctl->pd_misc_base + DPMAIF_PD_AP_UL_L2TISAR0, len);
-	ccci_util_mem_dump(0, buf_type,
+	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_misc_base + DPMAIF_PD_AP_UL_L2TISAR0, len);
 
 	/* open sram clock for debug sram needs sram clock. */
@@ -797,7 +797,7 @@ static void drv3_dump_register(int buf_type)
 	CCCI_BUF_LOG_TAG(0, buf_type, TAG,
 		"dump AP DPMAIF SRAM pdn; pd_sram_base register -> (start addr: 0x%lX, len: %d):\n",
 		dpmaif_ctl->pd_sram_base + 0x00, 0x184);
-	ccci_util_mem_dump(0, buf_type,
+	ccci_util_mem_dump(buf_type,
 		dpmaif_ctl->pd_sram_base + 0x00, 0x184);
 
 #ifdef ENABLE_DPMAIF_ISR_LOG
@@ -808,7 +808,6 @@ static void drv3_dump_register(int buf_type)
 
 static void drv3_hw_reset(void)
 {
-	unsigned char md_id = 0;
 	unsigned int value;
 	int ret;
 
@@ -832,7 +831,7 @@ static void drv3_hw_reset(void)
 	udelay(500);
 
 	/* DPMAIF HW reset */
-	CCCI_BOOTUP_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
+	CCCI_BOOTUP_LOG(0, TAG, "%s:rst dpmaif\n", __func__);
 	/* reset dpmaif hw: PD Domain */
 	ret = regmap_write(dpmaif_ctl->infra_ao_base, INFRA_RST0_REG_PD, DPMAIF_PD_RST_MASK);
 	if (ret)
@@ -847,7 +846,7 @@ static void drv3_hw_reset(void)
 	udelay(500);
 
 	/* reset dpmaif hw: AO Domain */
-	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
+	CCCI_BOOTUP_LOG(0, TAG, "%s:clear reset\n", __func__);
 	ret = regmap_write(dpmaif_ctl->infra_ao_base, INFRA_RST0_REG_AO, DPMAIF_AO_RST_MASK);
 	if (ret)
 		CCCI_ERROR_LOG(0, TAG,
@@ -861,7 +860,7 @@ static void drv3_hw_reset(void)
 	udelay(500);
 
 	/* reset dpmaif clr */
-	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
+	CCCI_BOOTUP_LOG(0, TAG, "%s:clear reset\n", __func__);
 	ret = regmap_write(dpmaif_ctl->infra_ao_base, INFRA_RST1_REG_AO, DPMAIF_AO_RST_MASK);
 	if (ret)
 		CCCI_ERROR_LOG(0, TAG,
@@ -890,7 +889,6 @@ static void drv3_hw_reset(void)
 
 static void drv3_hw_reset_v1(void)
 {
-	unsigned char md_id = 0;
 	unsigned int value;
 	int ret;
 
@@ -911,7 +909,7 @@ static void drv3_hw_reset_v1(void)
 	udelay(500);
 
 	/* DPMAIF HW reset */
-	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
+	CCCI_DEBUG_LOG(0, TAG, "%s:rst dpmaif\n", __func__);
 	/* reset dpmaif hw: PD Domain */
 	dpmaif_write32(dpmaif_ctl->infra_reset_pd_base, 0xF50, 1<<22);
 

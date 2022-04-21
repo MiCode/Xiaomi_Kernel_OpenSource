@@ -36,21 +36,19 @@ static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	char buf_fail[] = "Fail alloc mem for exception\n";
 #endif
 	char *img_inf = NULL;
-	int md_id = mdee->md_id;
 	struct mdee_dumper_v1 *dumper = mdee->dumper_obj;
 	struct ccci_smem_region *mdss_dbg =
-		ccci_md_get_smem_by_user_id(mdee->md_id,
-			SMEM_USER_RAW_MDSS_DBG);
-	struct ccci_per_md *per_md_data = ccci_get_per_md_data(mdee->md_id);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
+	struct ccci_per_md *per_md_data = ccci_get_per_md_data();
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
 	buff = kmalloc(AED_STR_LEN, GFP_ATOMIC);
 	if (buff == NULL) {
-		CCCI_ERROR_LOG(md_id, FSM, "Fail alloc Mem for buff, %d!\n",
+		CCCI_ERROR_LOG(0, FSM, "Fail alloc Mem for buff, %d!\n",
 			md_dbg_dump_flag);
 		goto err_exit1;
 	}
-	img_inf = ccci_get_md_info_str(md_id);
+	img_inf = ccci_get_md_info_str();
 	if (img_inf == NULL)
 		img_inf = "";
 	info_str_len = strlen(aed_str);
@@ -60,14 +58,14 @@ static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 		/* Cut string length to AED_STR_LEN */
 		buff[AED_STR_LEN - 1] = '\0';
 
-	snprintf(buff, AED_STR_LEN, "md%d:%s%s", md_id + 1, aed_str, img_inf);
+	snprintf(buff, AED_STR_LEN, "md:%s%s", aed_str, img_inf);
 	/* MD ID must sync with aee_dump_ccci_debug_info() */
  err_exit1:
 	if (dump_flag & CCCI_AED_DUMP_CCIF_REG) {
 		/* check this first, as we overwrite share memory here */
 		ex_log_addr = mdss_dbg->base_ap_view_vir;
 		ex_log_len = mdss_dbg->size;
-		ccci_md_dump_info(mdee->md_id,
+		ccci_md_dump_info(
 			DUMP_FLAG_CCIF | DUMP_FLAG_CCIF_REG,
 			mdss_dbg->base_ap_view_vir + CCCI_EE_OFFSET_CCIF_SRAM,
 			CCCI_EE_SIZE_CCIF_SRAM);
@@ -104,7 +102,6 @@ static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 {
 	struct mdee_dumper_v1 *dumper = mdee->dumper_obj;
-	int md_id = mdee->md_id;
 	char *ex_info = NULL;/* [EE_BUF_LEN] = ""; */
 	char *ex_info_temp = NULL;
 	/* [EE_BUF_LEN] = "\n[Others] May I-Bit dis too long\n"; */
@@ -114,20 +111,17 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 	int dump_flag = 0;
 	struct debug_info_t *debug_info = &dumper->debug_info;
 	unsigned char c;
-	int md_state = ccci_fsm_get_md_state(mdee->md_id);
+	int md_state = ccci_fsm_get_md_state();
 	struct ccci_smem_region *mdccci_dbg =
-		ccci_md_get_smem_by_user_id(mdee->md_id,
-			SMEM_USER_RAW_MDCCCI_DBG);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDCCCI_DBG);
 	struct ccci_smem_region *mdss_dbg =
-		ccci_md_get_smem_by_user_id(mdee->md_id,
-			SMEM_USER_RAW_MDSS_DBG);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
 	struct rtc_time tm;
 	struct timespec64 time_spec64;
 	struct timespec64 tv = { 0 };
 	struct timespec64 tv_android = { 0 };
 	struct rtc_time tm_android;
-	struct ccci_per_md *per_md_data =
-			ccci_get_per_md_data(mdee->md_id);
+	struct ccci_per_md *per_md_data = ccci_get_per_md_data();
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
 	ktime_get_real_ts64(&time_spec64);
@@ -137,7 +131,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 	rtc_time64_to_tm(tv.tv_sec, &tm);
 	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
 	rtc_time64_to_tm(tv_android.tv_sec, &tm_android);
-	CCCI_ERROR_LOG(md_id, FSM,
+	CCCI_ERROR_LOG(0, FSM,
 	"Sync:%d%02d%02d %02d:%02d:%02d.%u(%02d:%02d:%02d.%03d(TZone))\n",
 	tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 	tm.tm_hour, tm.tm_min, tm.tm_sec,
@@ -147,21 +141,21 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 
 	ex_info = kmalloc(EE_BUF_LEN, GFP_ATOMIC);
 	if (ex_info == NULL) {
-		CCCI_ERROR_LOG(md_id, FSM, "Fail alloc Mem for ex_info!\n");
+		CCCI_ERROR_LOG(0, FSM, "Fail alloc Mem for ex_info!\n");
 		goto err_exit;
 	}
-	CCCI_ERROR_LOG(md_id, FSM, "exception type(%d):%s\n",
+	CCCI_ERROR_LOG(0, FSM, "exception type(%d):%s\n",
 	debug_info->type, debug_info->name ? : "Unknown");
 
 	switch (debug_info->type) {
 	case MD_EX_TYPE_ASSERT_DUMP:
 		/* Fall through */
 	case MD_EX_TYPE_ASSERT:
-		CCCI_NORMAL_LOG(md_id, FSM, "filename = %s\n",
+		CCCI_NORMAL_LOG(0, FSM, "filename = %s\n",
 			debug_info->assert.file_name);
-		CCCI_NORMAL_LOG(md_id, FSM, "line = %d\n",
+		CCCI_NORMAL_LOG(0, FSM, "line = %d\n",
 			debug_info->assert.line_num);
-		CCCI_NORMAL_LOG(md_id, FSM,
+		CCCI_NORMAL_LOG(0, FSM,
 				"para0 = %d, para1 = %d, para2 = %d\n",
 				debug_info->assert.parameters[0],
 				debug_info->assert.parameters[1],
@@ -188,11 +182,11 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 	case MD_EX_TYPE_FATALERR_TASK:
 		/* Fall through */
 	case MD_EX_TYPE_C2K_ERROR:
-		CCCI_NORMAL_LOG(md_id, FSM, "fatal error code 1 = %d\n",
+		CCCI_NORMAL_LOG(0, FSM, "fatal error code 1 = %d\n",
 			debug_info->fatal_error.err_code1);
-		CCCI_NORMAL_LOG(md_id, FSM, "fatal error code 2 = %d\n",
+		CCCI_NORMAL_LOG(0, FSM, "fatal error code 2 = %d\n",
 			debug_info->fatal_error.err_code2);
-		CCCI_NORMAL_LOG(md_id, FSM, "fatal error offender %s\n",
+		CCCI_NORMAL_LOG(0, FSM, "fatal error offender %s\n",
 			debug_info->fatal_error.offender);
 		if (debug_info->fatal_error.offender[0] != '\0') {
 			snprintf(ex_info, EE_BUF_LEN,
@@ -208,9 +202,9 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 		}
 		break;
 	case CC_MD1_EXCEPTION:
-		CCCI_NORMAL_LOG(md_id, FSM, "fatal error code 1 = %d\n",
+		CCCI_NORMAL_LOG(0, FSM, "fatal error code 1 = %d\n",
 		debug_info->fatal_error.err_code1);
-		CCCI_NORMAL_LOG(md_id, FSM, "fatal error code 2 = %d\n",
+		CCCI_NORMAL_LOG(0, FSM, "fatal error code 2 = %d\n",
 		debug_info->fatal_error.err_code2);
 		snprintf(ex_info, EE_BUF_LEN,
 		"\n[%s] err_code1:%d err_code2:%d\n",
@@ -219,7 +213,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 		debug_info->fatal_error.err_code2);
 		break;
 	case MD_EX_TYPE_EMI_CHECK:
-		CCCI_NORMAL_LOG(md_id, FSM,
+		CCCI_NORMAL_LOG(0, FSM,
 		"md_emi_check: %08X, %08X, %02d, %08X\n",
 		debug_info->data.data0, debug_info->data.data1,
 		debug_info->data.channel, debug_info->data.reserved);
@@ -229,13 +223,13 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 		debug_info->data.channel, debug_info->data.reserved);
 		break;
 	case DSP_EX_TYPE_ASSERT:
-		CCCI_NORMAL_LOG(md_id, FSM, "filename = %s\n",
+		CCCI_NORMAL_LOG(0, FSM, "filename = %s\n",
 			debug_info->dsp_assert.file_name);
-		CCCI_NORMAL_LOG(md_id, FSM, "line = %d\n",
+		CCCI_NORMAL_LOG(0, FSM, "line = %d\n",
 			debug_info->dsp_assert.line_num);
-		CCCI_NORMAL_LOG(md_id, FSM, "exec unit = %s\n",
+		CCCI_NORMAL_LOG(0, FSM, "exec unit = %s\n",
 			debug_info->dsp_assert.execution_unit);
-		CCCI_NORMAL_LOG(md_id, FSM,
+		CCCI_NORMAL_LOG(0, FSM,
 			"para0 = %d, para1 = %d, para2 = %d\n",
 			debug_info->dsp_assert.parameters[0],
 			debug_info->dsp_assert.parameters[1],
@@ -250,7 +244,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 			debug_info->dsp_assert.parameters[2]);
 		break;
 	case DSP_EX_TYPE_EXCEPTION:
-		CCCI_NORMAL_LOG(md_id, FSM,
+		CCCI_NORMAL_LOG(0, FSM,
 			"exec unit = %s, code1:0x%08x\n",
 			debug_info->dsp_exception.execution_unit,
 			debug_info->dsp_exception.code1);
@@ -260,9 +254,9 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 			debug_info->dsp_exception.code1);
 		break;
 	case DSP_EX_FATAL_ERROR:
-		CCCI_NORMAL_LOG(md_id, FSM, "exec unit = %s\n",
+		CCCI_NORMAL_LOG(0, FSM, "exec unit = %s\n",
 			debug_info->dsp_fatal_err.execution_unit);
-		CCCI_NORMAL_LOG(md_id, FSM,
+		CCCI_NORMAL_LOG(0, FSM,
 			"err_code0 = 0x%08x, err_code1 = 0x%08x\n",
 			debug_info->dsp_fatal_err.err_code[0],
 			debug_info->dsp_fatal_err.err_code[1]);
@@ -283,7 +277,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 	/* Add additional info */
 	ex_info_temp = kmalloc(EE_BUF_LEN, GFP_ATOMIC);
 	if (ex_info_temp == NULL) {
-		CCCI_ERROR_LOG(md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"Fail alloc Mem for ex_info_temp!\n");
 		goto err_exit;
 	}
@@ -317,7 +311,7 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 	/* get ELM_status field from MD side */
 	snprintf(ex_info_temp, EE_BUF_LEN, "%s", ex_info);
 	c = dumper->ex_info.envinfo.ELM_status;
-	CCCI_ERROR_LOG(md_id, FSM, "ELM_status: %x\n", c);
+	CCCI_ERROR_LOG(0, FSM, "ELM_status: %x\n", c);
 	switch (c) {
 	case 0xFF:
 		snprintf(ex_info, EE_BUF_LEN, "%s%s", ex_info_temp,
@@ -340,16 +334,11 @@ static void mdee_dumper_info_dump_v1(struct ccci_fsm_ee *mdee)
 	}
 err_exit:
 	/* Dump MD EE info */
-	CCCI_MEM_LOG_TAG(md_id, FSM, "Dump MD EX log\n");
-	if ((md_id == MD_SYS3)
-		|| (dumper->more_info == MD_EE_CASE_NORMAL
-		&& md_state == BOOT_WAITING_FOR_HS1)) {
-		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
-			&dumper->ex_info, sizeof(struct ex_log_t));
-	} else if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM)) {
-		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+	CCCI_MEM_LOG_TAG(0, FSM, "Dump MD EX log\n");
+	if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM)) {
+		ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 			mdccci_dbg->base_ap_view_vir, mdccci_dbg->size);
-		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+		ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 			mdss_dbg->base_ap_view_vir, mdss_dbg->size);
 	}
 
@@ -374,9 +363,9 @@ err_exit:
 	 */
 	if (debug_info->type == MD_EX_TYPE_C2K_ERROR
 		&& debug_info->fatal_error.err_code1 == MD_EX_C2K_FATAL_ERROR)
-		CCCI_ERROR_LOG(md_id, FSM, "C2K EE, No need trigger DB\n");
+		CCCI_ERROR_LOG(0, FSM, "C2K EE, No need trigger DB\n");
 	else if (debug_info->type == CC_MD1_EXCEPTION)
-		CCCI_ERROR_LOG(md_id, FSM, "MD1 EE, No need trigger DB\n");
+		CCCI_ERROR_LOG(0, FSM, "MD1 EE, No need trigger DB\n");
 	else if (ex_info == NULL)
 		ccci_aed_v1(mdee, dump_flag, buf_fail, db_opt);
 	else
@@ -394,25 +383,20 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 	struct ex_log_t *ex_info = NULL;
 	int ee_type, ee_case;
 	struct mdee_dumper_v1 *dumper = mdee->dumper_obj;
-	int md_id = mdee->md_id;
 	struct debug_info_t *debug_info = &dumper->debug_info;
 	struct ccci_smem_region *mdss_dbg =
-		ccci_md_get_smem_by_user_id(mdee->md_id,
-			SMEM_USER_RAW_MDSS_DBG);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
 
 	if (debug_info == NULL)
 		return;
 
-	if ((md_id == MD_SYS3) ||
-	(dumper->more_info == MD_EE_CASE_NORMAL
-	&& ccci_fsm_get_md_state(mdee->md_id)
-	== BOOT_WAITING_FOR_HS1)) {
+	if ((dumper->more_info == MD_EE_CASE_NORMAL
+		&& ccci_fsm_get_md_state() == BOOT_WAITING_FOR_HS1)) {
 		ex_info = &dumper->ex_info;
-		CCCI_DEBUG_LOG(md_id, FSM,
-			"Parse ex info from ccci packages\n");
+		CCCI_DEBUG_LOG(0, FSM, "Parse ex info from ccci packages\n");
 	} else {
 		ex_info = (struct ex_log_t *)mdss_dbg->base_ap_view_vir;
-		CCCI_DEBUG_LOG(md_id, FSM,
+		CCCI_DEBUG_LOG(0, FSM,
 			"Parse ex info from shared memory\n");
 	}
 	ee_case = dumper->more_info;
@@ -471,31 +455,17 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 
 	case MD_EX_TYPE_ASSERT:
 		debug_info->name = "ASSERT";
-		if (md_id == MD_SYS3) {
-			snprintf(debug_info->assert.file_name,
-				sizeof(debug_info->assert.file_name),
-				ex_info->content.c2k_assert.filename);
-			debug_info->assert.line_num =
-				ex_info->content.c2k_assert.linenumber;
-			debug_info->assert.parameters[0] =
-				ex_info->content.c2k_assert.parameters[0];
-			debug_info->assert.parameters[1] =
-				ex_info->content.c2k_assert.parameters[1];
-			debug_info->assert.parameters[2] =
-				ex_info->content.c2k_assert.parameters[2];
-		} else {
-			snprintf(debug_info->assert.file_name,
-				sizeof(debug_info->assert.file_name),
-				ex_info->content.assert.filename);
-			debug_info->assert.line_num =
-				ex_info->content.assert.linenumber;
-			debug_info->assert.parameters[0] =
-				ex_info->content.assert.parameters[0];
-			debug_info->assert.parameters[1] =
-				ex_info->content.assert.parameters[1];
-			debug_info->assert.parameters[2] =
-				ex_info->content.assert.parameters[2];
-		}
+		snprintf(debug_info->assert.file_name,
+			sizeof(debug_info->assert.file_name),
+			ex_info->content.assert.filename);
+		debug_info->assert.line_num =
+			ex_info->content.assert.linenumber;
+		debug_info->assert.parameters[0] =
+			ex_info->content.assert.parameters[0];
+		debug_info->assert.parameters[1] =
+			ex_info->content.assert.parameters[1];
+		debug_info->assert.parameters[2] =
+			ex_info->content.assert.parameters[2];
 		break;
 
 	case MD_EX_TYPE_FATALERR_TASK:
@@ -533,55 +503,29 @@ static void mdee_dumper_info_prepare_v1(struct ccci_fsm_ee *mdee)
 
 	case MD_EX_TYPE_ASSERT_DUMP:
 		debug_info->name = "ASSERT DUMP";
-		if (md_id == MD_SYS3) {
-			snprintf(debug_info->assert.file_name,
-				sizeof(debug_info->assert.file_name),
-				ex_info->content.c2k_assert.filename);
-			debug_info->assert.line_num =
-				ex_info->content.c2k_assert.linenumber;
-		} else {
-			snprintf(debug_info->assert.file_name,
-				sizeof(debug_info->assert.file_name),
-				ex_info->content.assert.filename);
-			debug_info->assert.line_num =
-				ex_info->content.assert.linenumber;
-		}
+		snprintf(debug_info->assert.file_name,
+			sizeof(debug_info->assert.file_name),
+			ex_info->content.assert.filename);
+		debug_info->assert.line_num =
+			ex_info->content.assert.linenumber;
 		break;
 
 	case DSP_EX_TYPE_ASSERT:
 		debug_info->name = "MD DMD ASSERT";
-		if (md_id == MD_SYS3) {
-			snprintf(debug_info->dsp_assert.file_name,
-				sizeof(debug_info->dsp_assert.file_name),
-				ex_info->content.c2k_assert.filename);
-			debug_info->dsp_assert.line_num =
-				ex_info->content.c2k_assert.linenumber;
-			snprintf(debug_info->dsp_assert.execution_unit,
-				sizeof(debug_info->dsp_assert.execution_unit),
-				ex_info->envinfo.execution_unit);
-			debug_info->dsp_assert.parameters[0] =
-				ex_info->content.c2k_assert.parameters[0];
-			debug_info->dsp_assert.parameters[1] =
-				ex_info->content.c2k_assert.parameters[1];
-			debug_info->dsp_assert.parameters[2] =
-				ex_info->content.c2k_assert.parameters[2];
-
-		} else {
-			snprintf(debug_info->dsp_assert.file_name,
-				sizeof(debug_info->dsp_assert.file_name),
-				ex_info->content.assert.filename);
-			debug_info->dsp_assert.line_num =
-				ex_info->content.assert.linenumber;
-			snprintf(debug_info->dsp_assert.execution_unit,
-				sizeof(debug_info->dsp_assert.execution_unit),
-				ex_info->envinfo.execution_unit);
-			debug_info->dsp_assert.parameters[0] =
-				ex_info->content.assert.parameters[0];
-			debug_info->dsp_assert.parameters[1] =
-				ex_info->content.assert.parameters[1];
-			debug_info->dsp_assert.parameters[2] =
-				ex_info->content.assert.parameters[2];
-		}
+		snprintf(debug_info->dsp_assert.file_name,
+			sizeof(debug_info->dsp_assert.file_name),
+			ex_info->content.assert.filename);
+		debug_info->dsp_assert.line_num =
+			ex_info->content.assert.linenumber;
+		snprintf(debug_info->dsp_assert.execution_unit,
+			sizeof(debug_info->dsp_assert.execution_unit),
+			ex_info->envinfo.execution_unit);
+		debug_info->dsp_assert.parameters[0] =
+			ex_info->content.assert.parameters[0];
+		debug_info->dsp_assert.parameters[1] =
+			ex_info->content.assert.parameters[1];
+		debug_info->dsp_assert.parameters[2] =
+			ex_info->content.assert.parameters[2];
 		break;
 
 	case DSP_EX_TYPE_EXCEPTION:
@@ -626,16 +570,13 @@ static void mdee_dumper_v1_dump_ee_info(struct ccci_fsm_ee *mdee,
 	enum MDEE_DUMP_LEVEL level, int more_info)
 {
 	struct mdee_dumper_v1 *dumper = mdee->dumper_obj;
-	int md_id = mdee->md_id;
 	struct ccci_smem_region *mdccci_dbg =
-		ccci_md_get_smem_by_user_id(mdee->md_id,
-			SMEM_USER_RAW_MDCCCI_DBG);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDCCCI_DBG);
 	struct ccci_smem_region *mdss_dbg =
-		ccci_md_get_smem_by_user_id(mdee->md_id,
-			SMEM_USER_RAW_MDSS_DBG);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
 	char ex_info[EE_BUF_LEN] = {0};
-	int md_state = ccci_fsm_get_md_state(mdee->md_id);
-	struct ccci_per_md *per_md_data = ccci_get_per_md_data(mdee->md_id);
+	int md_state = ccci_fsm_get_md_state();
+	struct ccci_per_md *per_md_data = ccci_get_per_md_data();
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
 	dumper->more_info = more_info;
@@ -651,12 +592,12 @@ static void mdee_dumper_v1_dump_ee_info(struct ccci_fsm_ee *mdee,
 			snprintf(ex_info, EE_BUF_LEN,
 				"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n", 2);
 			/* Handshake 2 fail */
-			CCCI_MEM_LOG_TAG(md_id, FSM, "Dump MD EX log\n");
+			CCCI_MEM_LOG_TAG(0, FSM, "Dump MD EX log\n");
 			if (md_dbg_dump_flag & (1U << MD_DBG_DUMP_SMEM)) {
-				ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+				ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 					mdccci_dbg->base_ap_view_vir,
 					mdccci_dbg->size);
-				ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+				ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 					mdss_dbg->base_ap_view_vir,
 					mdss_dbg->size);
 			}
@@ -667,10 +608,10 @@ static void mdee_dumper_v1_dump_ee_info(struct ccci_fsm_ee *mdee,
 		}
 	} else if (level == MDEE_DUMP_LEVEL_STAGE1) {
 		if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM)) {
-			CCCI_MEM_LOG_TAG(md_id, FSM, "Dump MD exp smem_log\n");
-			ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+			CCCI_MEM_LOG_TAG(0, FSM, "Dump MD exp smem_log\n");
+			ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 				mdccci_dbg->base_ap_view_vir, mdccci_dbg->size);
-			ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP,
+			ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 				mdss_dbg->base_ap_view_vir, mdss_dbg->size);
 		}
 	} else if (level == MDEE_DUMP_LEVEL_STAGE2) {
@@ -688,12 +629,11 @@ static struct md_ee_ops mdee_ops_v1 = {
 int mdee_dumper_v1_alloc(struct ccci_fsm_ee *mdee)
 {
 	struct mdee_dumper_v1 *dumper;
-	int md_id = mdee->md_id;
 
 	/* Allocate port_proxy obj and set all member zero */
 	dumper = kzalloc(sizeof(struct mdee_dumper_v1), GFP_KERNEL);
 	if (dumper == NULL) {
-		CCCI_ERROR_LOG(md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"%s:alloc mdee_parser_v1 fail\n", __func__);
 		return -1;
 	}

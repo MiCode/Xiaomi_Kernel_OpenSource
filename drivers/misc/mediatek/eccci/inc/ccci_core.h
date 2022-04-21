@@ -238,9 +238,6 @@ extern struct ccci_ccb_config ccb_configs[];
 /*mdlogger*/
 #define CCCI_IOC_MDLOG_DUMP_DONE		\
 	_IO(CCCI_IOC_MAGIC, 56)
-/* mdlogger */
-#define CCCI_IOC_GET_OTHER_MD_STATE		\
-	_IOR(CCCI_IOC_MAGIC, 57, unsigned int)
 /* META */
 #define CCCI_IOC_SET_MD_BOOT_MODE		\
 	_IOW(CCCI_IOC_MAGIC, 58, unsigned int)

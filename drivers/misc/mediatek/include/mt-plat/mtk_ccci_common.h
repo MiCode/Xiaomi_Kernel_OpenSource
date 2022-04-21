@@ -9,18 +9,9 @@
 #include <asm/setup.h>
 #include <linux/device.h>
 #include <linux/skbuff.h>
-/*
- * all code owned by CCCI should use modem index starts from ZERO
- */
+
 enum MD_SYS {
-	/* MD SYS name counts from 1,
-	 * but internal index counts from 0
-	 */
 	MD_SYS1 = 0,
-	MD_SYS2,
-	MD_SYS3,
-	MD_SYS4,
-	MD_SYS5 = 4,
 	MAX_MD_NUM
 };
 
@@ -515,8 +506,8 @@ struct ccci_image_info {
 	struct IMG_REGION_INFO rmpu_info;  /* refion pinfo for RMPU setting */
 };
 
-typedef int (*get_status_func_t)(int, char*, int);
-typedef int (*boot_md_func_t)(int);
+typedef int (*get_status_func_t)(char*, int);
+typedef int (*boot_md_func_t)(void);
 
 enum SMEM_USER_ID {
 	/* this should remain to be 0 for backward compatibility */
@@ -576,7 +567,7 @@ enum SYS_CB_ID {
 	ID_GET_TDD_THERMAL_DATA,
 };
 
-typedef int (*ccci_sys_cb_func_t)(int, int);
+typedef int (*ccci_sys_cb_func_t)(int);
 struct ccci_sys_cb_func_info {
 	enum SYS_CB_ID		id;
 	ccci_sys_cb_func_t	func;
@@ -599,44 +590,40 @@ enum MD_WAKEUP_SOURCE {
 /* for getting modem info, Export by ccci util */
 int ccci_get_fo_setting(char item[], unsigned int *val);
 void ccci_md_mem_reserve(void);
-unsigned int get_modem_is_enabled(int md_id);
+unsigned int get_modem_is_enabled(void);
 unsigned int ccci_get_modem_nr(void);
-int ccci_sysfs_add_modem(int md_id, void *kobj, void *ktype,
+int ccci_sysfs_add_modem(void *kobj, void *ktype,
 	get_status_func_t get_sta_func, boot_md_func_t boot_func);
-int get_modem_support_cap(int md_id); /* Export by ccci util */
-int set_modem_support_cap(int md_id, int new_val);
-char *ccci_get_md_info_str(int md_id);
-void get_md_postfix(int md_id, const char k[], char buf[], char buf_ex[]);
+int get_modem_support_cap(void); /* Export by ccci util */
+int set_modem_support_cap(int new_val);
+char *ccci_get_md_info_str(void);
+void get_md_postfix(const char k[], char buf[], char buf_ex[]);
 void update_ccci_port_ver(unsigned int new_ver);
-int ccci_load_firmware(int md_id, void *img_inf, char img_err_str[],
+int ccci_load_firmware(void *img_inf, char img_err_str[],
 	char post_fix[], struct device *dev);
-int get_md_resv_mem_info(int md_id, phys_addr_t *r_rw_base,
+int get_md_resv_mem_info(phys_addr_t *r_rw_base,
 	unsigned int *r_rw_size, phys_addr_t *srw_base, unsigned int *srw_size);
 int get_md_sib_mem_info(phys_addr_t *rw_base, unsigned int *rw_size);
-int get_md_resv_ccb_info(int md_id, phys_addr_t *ccb_data_base,
+int get_md_resv_ccb_info(phys_addr_t *ccb_data_base,
 	unsigned int *ccb_data_size);
-int get_md_resv_udc_info(int md_id, unsigned int *udc_noncache_size,
+int get_md_resv_udc_info(unsigned int *udc_noncache_size,
 	unsigned int *udc_cache_size);
-int get_md1_md3_resv_smem_info(int md_id, phys_addr_t *rw_base,
-	unsigned int *rw_size);
-unsigned int get_md_resv_phy_cap_size(int md_id);
-unsigned int get_md_resv_sib_size(int md_id);
-int get_smem_amms_pos_size(int md_id);
-int get_smem_align_padding_size(int md_id);
-int get_md_smem_dfd_size(int md_id);
-unsigned int get_md_smem_cachable_offset(int md_id);
-phys_addr_t get_smem_phy_start_addr(int md_id,
-	enum SMEM_USER_ID user_id, int *size_o);
+unsigned int get_md_resv_phy_cap_size(void);
+unsigned int get_md_resv_sib_size(void);
+int get_smem_amms_pos_size(void);
+int get_smem_align_padding_size(void);
+int get_md_smem_dfd_size(void);
+unsigned int get_md_smem_cachable_offset(void);
+phys_addr_t get_smem_phy_start_addr(int id, enum SMEM_USER_ID user_id, int *size_o);
 
-unsigned long ccci_get_md_boot_count(int md_id); /* Export by ccci fsm */
-int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
+unsigned long ccci_get_md_boot_count(void); /* Export by ccci fsm */
+int exec_ccci_kern_func(unsigned int id, char *buf,
 	unsigned int len); /* Export by ccci core */
-int register_ccci_sys_call_back(int md_id, unsigned int id,
+int register_ccci_sys_call_back(unsigned int id,
 	ccci_sys_cb_func_t func); /* Export by ccci port */
-void __iomem *get_smem_start_addr(int md_id, enum SMEM_USER_ID user_id,
+void __iomem *get_smem_start_addr(enum SMEM_USER_ID user_id,
 	int *size_o); /* Export by ccci port */
-int switch_sim_mode(int id, char *buf,
-	unsigned int len); /* Export by SIM switch */
+int switch_sim_mode(char *buf, unsigned int len); /* Export by SIM switch */
 unsigned int get_sim_switch_type(void); /* Export by SIM switch */
 
 #if IS_ENABLED(CONFIG_MTK_ECCCI_C2K_USB)
@@ -655,13 +642,13 @@ int wait_time_update_notify(void);
 /* callback for system power off*/
 void ccci_power_off(void);
 /* LK load modem, Export by ccci util */
-int modem_run_env_ready(int md_id);
+int modem_run_env_ready(void);
 int get_lk_load_md_info(char buf[], int size);
-int get_md_type_from_lk(int md_id);
-int get_raw_check_hdr(int md_id, char buf[], int size);
-int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[]);
-int get_md_img_raw_size(int md_id);
-void clear_meta_1st_boot_arg(int md_id);
+int get_md_type_from_lk(void);
+int get_raw_check_hdr(char buf[], int size);
+int ccci_get_md_check_hdr_inf(void *img_inf, char post_fix[]);
+int get_md_img_raw_size(void);
+void clear_meta_1st_boot_arg(void);
 
 /* CCCI dump */
 #define CCCI_DUMP_TIME_FLAG		(1<<0)
@@ -681,10 +668,10 @@ enum {
 	CCCI_DUMP_DPMAIF,
 	CCCI_DUMP_MAX,
 };
-void ccci_util_mem_dump(int md_id, int buf_type, void *start_addr, int len);
-void ccci_util_cmpt_mem_dump(int md_id, int buf_type, void *start_addr,
+void ccci_util_mem_dump(int buf_type, void *start_addr, int len);
+void ccci_util_cmpt_mem_dump(int buf_type, void *start_addr,
 	int len);
-int ccci_dump_write(int md_id, int buf_type, unsigned int flag,
+int ccci_dump_write(int buf_type, unsigned int flag,
 	const char *fmt, ...);
 int ccci_log_write(const char *fmt, ...);
 int ccci_log_write_raw(unsigned int flags, const char *fmt, ...);
@@ -703,18 +690,18 @@ struct _mpu_cfg *get_mpu_region_cfg_info(int region_id);
 int ccci_get_opt_val(char *opt_name);
 
 /* RAT configure relate */
-int get_md_img_type(int md_id);
-int check_rat_at_md_img(int md_id, char str[]);
-unsigned int get_md_bin_capability(int md_id);
-int set_soc_md_rt_rat_str(int md_id, char str[]);
-unsigned int get_soc_md_rt_rat(int md_id);
-int check_rat_at_rt_setting(int md_id, char str[]);
-unsigned int get_soc_md_rt_rat_idx(int md_id);
-int set_soc_md_rt_rat_by_idx(int md_id, unsigned int wm_idx);
+int get_md_img_type(void);
+int check_rat_at_md_img(char str[]);
+unsigned int get_md_bin_capability(void);
+int set_soc_md_rt_rat_str(char str[]);
+unsigned int get_soc_md_rt_rat(void);
+int check_rat_at_rt_setting(char str[]);
+unsigned int get_soc_md_rt_rat_idx(void);
+int set_soc_md_rt_rat_by_idx(unsigned int wm_idx);
 
 int get_nc_smem_region_info(unsigned int id, unsigned int *ap_off,
 				unsigned int *md_off, unsigned int *size);
-int get_md_resv_csmem_info(int md_id, phys_addr_t *buf_base,
+int get_md_resv_csmem_info(phys_addr_t *buf_base,
 	unsigned int *buf_size);
 int get_md_cache_region_info(int region_id, unsigned int *buf_base,
 	unsigned int *buf_size);

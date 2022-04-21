@@ -21,19 +21,18 @@
  */
 static void control_msg_handler(struct port_t *port, struct sk_buff *skb)
 {
-	int md_id = port->md_id;
 	int ret = 0;
 
-	ret = ccci_fsm_recv_control_packet(md_id, skb);
+	ret = ccci_fsm_recv_control_packet(skb);
 	if (ret)
-		CCCI_ERROR_LOG(port->md_id, PORT,
+		CCCI_ERROR_LOG(0, PORT,
 			"%s control msg gotten error: %d\n",
 			port->name, ret);
 }
 
 static int port_ctl_init(struct port_t *port)
 {
-	CCCI_DEBUG_LOG(port->md_id, PORT,
+	CCCI_DEBUG_LOG(0, PORT,
 		"kernel port %s is initializing\n", port->name);
 	port->skb_handler = &control_msg_handler;
 	port->private_data = kthread_run(port_kthread_handler,

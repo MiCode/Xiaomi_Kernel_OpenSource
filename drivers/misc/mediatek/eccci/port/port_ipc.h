@@ -70,6 +70,6 @@ struct ccci_emi_info {
 } __packed; /* for USB direct tethering */
 
 /* export API */
-int ccci_ipc_send_ilm(int md_id, struct ipc_ilm *in_ilm);
+int ccci_ipc_send_ilm(struct ipc_ilm *in_ilm);
 
 #endif				/* __PORT_IPC_H__ */

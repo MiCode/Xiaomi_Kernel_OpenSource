@@ -39,8 +39,7 @@ static const char irq_name[][16] = {
 	"",
 };
 
-#define SWTP_MAX_SUPPORT_MD 1
-struct swtp_t swtp_data[SWTP_MAX_SUPPORT_MD];
+struct swtp_t swtp_data;
 static const char rf_name[] = "RF_cable";
 #define MAX_RETRY_CNT 30
 
@@ -56,15 +55,15 @@ static int swtp_send_tx_power(struct swtp_t *swtp)
 
 	spin_lock_irqsave(&swtp->spinlock, flags);
 
-	ret = exec_ccci_kern_func_by_md_id(swtp->md_id, ID_UPDATE_TX_POWER,
+	ret = exec_ccci_kern_func(ID_UPDATE_TX_POWER,
 		(char *)&swtp->tx_power_mode, sizeof(swtp->tx_power_mode));
 	power_mode = swtp->tx_power_mode;
 	spin_unlock_irqrestore(&swtp->spinlock, flags);
 
 	if (ret != 0)
-		CCCI_LEGACY_ERR_LOG(swtp->md_id, SYS,
-			"%s to MD%d,state=%d,ret=%d\n",
-			__func__, swtp->md_id + 1, power_mode, ret);
+		CCCI_LEGACY_ERR_LOG(0, SYS,
+			"%s to MD,state=%d,ret=%d\n",
+			__func__, power_mode, ret);
 
 	return ret;
 }
@@ -128,18 +127,13 @@ static void swtp_send_tx_power_state(struct swtp_t *swtp)
 		return;
 	}
 
-	if (swtp->md_id == 0) {
-		ret = swtp_send_tx_power(swtp);
-		if (ret < 0) {
-			CCCI_LEGACY_ERR_LOG(swtp->md_id, SYS,
-				"%s send tx power failed, ret=%d, schedule delayed work\n",
-				__func__, ret);
-			schedule_delayed_work(&swtp->delayed_work, 5 * HZ);
-		}
-	} else
-		CCCI_LEGACY_ERR_LOG(swtp->md_id, SYS,
-			"%s:md is no support\n", __func__);
-
+	ret = swtp_send_tx_power(swtp);
+	if (ret < 0) {
+		CCCI_LEGACY_ERR_LOG(0, SYS,
+			"%s send tx power failed, ret=%d, schedule delayed work\n",
+			__func__, ret);
+		schedule_delayed_work(&swtp->delayed_work, 5 * HZ);
+	}
 }
 
 static irqreturn_t swtp_irq_handler(int irq, void *data)
@@ -149,7 +143,7 @@ static irqreturn_t swtp_irq_handler(int irq, void *data)
 
 	ret = swtp_switch_state(irq, swtp);
 	if (ret < 0) {
-		CCCI_LEGACY_ERR_LOG(swtp->md_id, SYS,
+		CCCI_LEGACY_ERR_LOG(0, SYS,
 			"%s swtp_switch_state failed in irq, ret=%d\n",
 			__func__, ret);
 	} else
@@ -174,18 +168,11 @@ static void swtp_tx_delayed_work(struct work_struct *work)
 	}
 }
 
-int swtp_md_tx_power_req_hdlr(int md_id, int data)
+int swtp_md_tx_power_req_hdlr(int data)
 {
 	struct swtp_t *swtp = NULL;
 
-	if (md_id < 0 || md_id >= SWTP_MAX_SUPPORT_MD) {
-		CCCI_LEGACY_ERR_LOG(md_id, SYS,
-		"%s:md_id=%d not support\n",
-		__func__, md_id);
-		return -1;
-	}
-
-	swtp = &swtp_data[md_id];
+	swtp = &swtp_data;
 	swtp_send_tx_power_state(swtp);
 
 	return 0;
@@ -193,9 +180,6 @@ int swtp_md_tx_power_req_hdlr(int md_id, int data)
 
 static void swtp_init_delayed_work(struct work_struct *work)
 {
-	struct swtp_t *swtp = container_of(to_delayed_work(work),
-		struct swtp_t, init_delayed_work);
-	int md_id;
 	int i, ret = 0;
 #ifdef CONFIG_MTK_EIC
 	u32 ints[2] = { 0, 0 };
@@ -207,14 +191,6 @@ static void swtp_init_delayed_work(struct work_struct *work)
 
 	CCCI_NORMAL_LOG(-1, SYS, "%s at the begin...\n", __func__);
 	CCCI_BOOTUP_LOG(-1, SYS, "%s at the begin...\n", __func__);
-
-	md_id = swtp->md_id;
-	if (md_id < 0 || md_id >= SWTP_MAX_SUPPORT_MD) {
-		ret = -2;
-		CCCI_LEGACY_ERR_LOG(-1, SYS,
-			"%s: invalid md_id = %d\n", __func__, md_id);
-		goto SWTP_INIT_END;
-	}
 
 	if (ARRAY_SIZE(swtp_of_match) != ARRAY_SIZE(irq_name) ||
 		ARRAY_SIZE(swtp_of_match) > MAX_PIN_NUM + 1 ||
@@ -228,7 +204,7 @@ static void swtp_init_delayed_work(struct work_struct *work)
 	}
 
 	for (i = 0; i < MAX_PIN_NUM; i++)
-		swtp_data[md_id].gpio_state[i] = SWTP_EINT_PIN_PLUG_OUT;
+		swtp_data.gpio_state[i] = SWTP_EINT_PIN_PLUG_OUT;
 
 	for (i = 0; i < MAX_PIN_NUM; i++) {
 		node = of_find_matching_node(NULL, &swtp_of_match[i]);
@@ -236,7 +212,7 @@ static void swtp_init_delayed_work(struct work_struct *work)
 			ret = of_property_read_u32_array(node, "debounce",
 				ints, ARRAY_SIZE(ints));
 			if (ret) {
-				CCCI_LEGACY_ERR_LOG(md_id, SYS,
+				CCCI_LEGACY_ERR_LOG(0, SYS,
 					"%s:swtp%d get debounce fail\n",
 					__func__, i);
 				break;
@@ -245,73 +221,65 @@ static void swtp_init_delayed_work(struct work_struct *work)
 			ret = of_property_read_u32_array(node, "interrupts",
 				ints1, ARRAY_SIZE(ints1));
 			if (ret) {
-				CCCI_LEGACY_ERR_LOG(md_id, SYS,
+				CCCI_LEGACY_ERR_LOG(0, SYS,
 					"%s:swtp%d get interrupts fail\n",
 					__func__, i);
 				break;
 			}
 #ifdef CONFIG_MTK_EIC /* for chips before mt6739 */
-			swtp_data[md_id].gpiopin[i] = ints[0];
-			swtp_data[md_id].setdebounce[i] = ints[1];
+			swtp_data.gpiopin[i] = ints[0];
+			swtp_data.setdebounce[i] = ints[1];
 #else /* for mt6739,and chips after mt6739 */
-			swtp_data[md_id].setdebounce[i] = ints[0];
-			swtp_data[md_id].gpiopin[i] =
+			swtp_data.setdebounce[i] = ints[0];
+			swtp_data.gpiopin[i] =
 				of_get_named_gpio(node, "deb-gpios", 0);
 #endif
-			gpio_set_debounce(swtp_data[md_id].gpiopin[i],
-				swtp_data[md_id].setdebounce[i]);
-			swtp_data[md_id].eint_type[i] = ints1[1];
-			swtp_data[md_id].irq[i] = irq_of_parse_and_map(node, 0);
+			gpio_set_debounce(swtp_data.gpiopin[i],
+				swtp_data.setdebounce[i]);
+			swtp_data.eint_type[i] = ints1[1];
+			swtp_data.irq[i] = irq_of_parse_and_map(node, 0);
 
-			ret = request_irq(swtp_data[md_id].irq[i],
+			ret = request_irq(swtp_data.irq[i],
 				swtp_irq_handler, IRQF_TRIGGER_NONE,
-				irq_name[i], &swtp_data[md_id]);
+				irq_name[i], &swtp_data);
 			if (ret) {
-				CCCI_LEGACY_ERR_LOG(md_id, SYS,
+				CCCI_LEGACY_ERR_LOG(0, SYS,
 					"swtp%d-eint IRQ LINE NOT AVAILABLE\n",
 					i);
 				break;
 			}
 		} else {
-			CCCI_LEGACY_ERR_LOG(md_id, SYS,
+			CCCI_LEGACY_ERR_LOG(0, SYS,
 				"%s:can't find swtp%d compatible node\n",
 				__func__, i);
 			ret = -4;
 		}
 	}
-	register_ccci_sys_call_back(md_id, MD_SW_MD1_TX_POWER_REQ,
+	register_ccci_sys_call_back(MD_SW_MD1_TX_POWER_REQ,
 		swtp_md_tx_power_req_hdlr);
 
 SWTP_INIT_END:
-	CCCI_BOOTUP_LOG(md_id, SYS, "%s end: ret = %d\n", __func__, ret);
-	CCCI_NORMAL_LOG(md_id, SYS, "%s end: ret = %d\n", __func__, ret);
+	CCCI_BOOTUP_LOG(0, SYS, "%s end: ret = %d\n", __func__, ret);
+	CCCI_NORMAL_LOG(0, SYS, "%s end: ret = %d\n", __func__, ret);
 
 }
 
-int swtp_init(int md_id)
+int swtp_init(void)
 {
-	/* parameter check */
-	if (md_id < 0 || md_id >= SWTP_MAX_SUPPORT_MD) {
-		CCCI_LEGACY_ERR_LOG(-1, SYS,
-			"%s: invalid md_id = %d\n", __func__, md_id);
-		return -1;
-	}
 	/* init woke setting */
-	swtp_data[md_id].md_id = md_id;
-
-	INIT_DELAYED_WORK(&swtp_data[md_id].init_delayed_work,
+	INIT_DELAYED_WORK(&swtp_data.init_delayed_work,
 		swtp_init_delayed_work);
 	/* tx work setting */
-	INIT_DELAYED_WORK(&swtp_data[md_id].delayed_work,
+	INIT_DELAYED_WORK(&swtp_data.delayed_work,
 		swtp_tx_delayed_work);
-	swtp_data[md_id].tx_power_mode = SWTP_NO_TX_POWER;
+	swtp_data.tx_power_mode = SWTP_NO_TX_POWER;
 
-	spin_lock_init(&swtp_data[md_id].spinlock);
+	spin_lock_init(&swtp_data.spinlock);
 
 	/* schedule init work */
-	schedule_delayed_work(&swtp_data[md_id].init_delayed_work, HZ);
+	schedule_delayed_work(&swtp_data.init_delayed_work, HZ);
 
-	CCCI_BOOTUP_LOG(md_id, SYS, "%s end, init_delayed_work scheduled\n",
+	CCCI_BOOTUP_LOG(0, SYS, "%s end, init_delayed_work scheduled\n",
 		__func__);
 	return 0;
 }

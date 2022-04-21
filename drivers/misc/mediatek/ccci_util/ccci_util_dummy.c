@@ -23,14 +23,14 @@ void __weak spm_ap_mdsrc_req(u8 lock)
 	pr_notice("[ccci/dummy] %s is not supported!\n", __func__);
 }
 
-int __weak exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
+int __weak exec_ccci_kern_func(unsigned int id, char *buf,
 	unsigned int len)
 {
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
 	return 0;
 }
 
-int __weak switch_sim_mode(int id, char *buf, unsigned int len)
+int __weak switch_sim_mode(char *buf, unsigned int len)
 {
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
 	return 0;
@@ -42,13 +42,13 @@ unsigned int __weak get_sim_switch_type(void)
 	return 0;
 }
 
-unsigned int __weak get_modem_is_enabled(int md_id)
+unsigned int __weak get_modem_is_enabled(void)
 {
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
 	return 0;
 }
 
-int __weak register_ccci_sys_call_back(int md_id, unsigned int id,
+int __weak register_ccci_sys_call_back(unsigned int id,
 	int (*func)(int, int))
 {
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
@@ -61,7 +61,7 @@ unsigned int __weak mt_irq_get_pending(unsigned int irq)
 	return 0;
 }
 
-unsigned long __weak ccci_get_md_boot_count(int md_id)
+unsigned long __weak ccci_get_md_boot_count(void)
 {
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
 	return 0;

@@ -205,16 +205,14 @@ static void usip_get_addr(void)
 	phys_addr_t r_rw_base;
 	unsigned int r_rw_size;
 
-	phys_addr = get_smem_phy_start_addr(MD_SYS1,
-					    SMEM_USER_RAW_USIP, &size_o);
+	phys_addr = get_smem_phy_start_addr(0, SMEM_USER_RAW_USIP, &size_o);
 	if (phys_addr == 0) {
 		pr_info("%s(), cannot get emi addr from ccci", __func__);
 		usip.memory_ready = false;
 	} else {
 		usip.memory_ready = true;
 
-		get_md_resv_mem_info(MD_SYS1, &r_rw_base, &r_rw_size,
-				     &srw_base, &srw_size);
+		get_md_resv_mem_info(&r_rw_base, &r_rw_size, &srw_base, &srw_size);
 		pr_info("%s(), 0x%llx %d 0x%llx %d 0x%llx", __func__,
 			r_rw_base, r_rw_size, srw_base, srw_size, phys_addr);
 

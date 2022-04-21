@@ -86,7 +86,7 @@ do {\
 	} \
 } while (0)
 
-static void ccci_ringbuf_dump(int md_id, unsigned char *title,
+static void ccci_ringbuf_dump(unsigned char *title,
 	unsigned char *buffer, unsigned int read,
 	unsigned int length, int dump_size)
 {
@@ -97,7 +97,7 @@ static void ccci_ringbuf_dump(int md_id, unsigned char *title,
 
 	if (write >= length)
 		write -= length;
-	CCCI_MEM_LOG_TAG(md_id, TAG,
+	CCCI_MEM_LOG_TAG(0, TAG,
 		"%s rbdump: buf=0x%p, read=%d, write=%d\n",
 		title, buffer, read, write);
 	read = (read >> 3) << 3;
@@ -105,7 +105,7 @@ static void ccci_ringbuf_dump(int md_id, unsigned char *title,
 	write = ((write + 7) >> 3) << 3;
 	if (write >= length)
 		write -= length;
-	CCCI_MEM_LOG_TAG(md_id, TAG,
+	CCCI_MEM_LOG_TAG(0, TAG,
 		"rbdump:aligned read=%d,write=%d\n", read,
 		write);
 	i = read;
@@ -124,20 +124,20 @@ static void ccci_ringbuf_dump(int md_id, unsigned char *title,
 			if (i == write)
 				goto OUT;
 		}
-		CCCI_MEM_LOG_TAG(md_id, TAG, "%s\n", tmp_buf);
+		CCCI_MEM_LOG_TAG(0, TAG, "%s\n", tmp_buf);
 	}
  OUT:
-	CCCI_MEM_LOG_TAG(md_id, TAG, "%s\n", tmp_buf);
+	CCCI_MEM_LOG_TAG(0, TAG, "%s\n", tmp_buf);
 }
 
-struct ccci_ringbuf *ccci_create_ringbuf(int md_id, unsigned char *buf,
+struct ccci_ringbuf *ccci_create_ringbuf(unsigned char *buf,
 	int buf_size, int rx_size, int tx_size)
 {
 	int buflen;
 	struct ccci_ringbuf *ringbuf = NULL;
 
 	buflen = CCCI_RINGBUF_CTL_LEN + rx_size + tx_size;
-	CCCI_NORMAL_LOG(md_id, TAG,
+	CCCI_NORMAL_LOG(0, TAG,
 	"crb:buf=0x%p, buf_size=%d,buflen=%d,rx_size=%d,tx_size=%d,ctr_len=%zu\n",
 	buf, buf_size, buflen, rx_size, tx_size, CCCI_RINGBUF_CTL_LEN);
 	if (buf_size < buflen)
@@ -147,7 +147,7 @@ struct ccci_ringbuf *ccci_create_ringbuf(int md_id, unsigned char *buf,
 	*((unsigned int *)buf) = CCCI_RBF_HEADER;
 	*((unsigned int *)(buf + sizeof(unsigned int)))
 		= CCCI_RBF_HEADER;
-	CCCI_NORMAL_LOG(md_id, TAG,
+	CCCI_NORMAL_LOG(0, TAG,
 		"crb:Header(0x%llx)=0x%x %x\n", (u64)buf,
 		*((unsigned int *)buf),
 		*((unsigned int *)(buf + sizeof(unsigned int))));
@@ -156,7 +156,7 @@ struct ccci_ringbuf *ccci_create_ringbuf(int md_id, unsigned char *buf,
 		= CCCI_RBF_FOOTER;
 	*((unsigned int *)(buf + buflen - 2 * sizeof(unsigned int)))
 		= CCCI_RBF_FOOTER;
-	CCCI_NORMAL_LOG(md_id, TAG,
+	CCCI_NORMAL_LOG(0, TAG,
 		"crb:Footer(0x%llx)=0x%x %x\n",
 		(u64)(buf + buflen - sizeof(int)),
 		*((unsigned int *)(buf + buflen - sizeof(unsigned int))),
@@ -169,17 +169,17 @@ struct ccci_ringbuf *ccci_create_ringbuf(int md_id, unsigned char *buf,
 	ringbuf->tx_control.length = tx_size;
 	ringbuf->tx_control.read = 0;
 	ringbuf->tx_control.write = 0;
-	CCCI_NORMAL_LOG(md_id, TAG, "crb:rbf=0x%llx\n", (u64)ringbuf);
+	CCCI_NORMAL_LOG(0, TAG, "crb:rbf=0x%llx\n", (u64)ringbuf);
 	return ringbuf;
 }
 
-int ccci_ringbuf_writeable(int md_id, struct ccci_ringbuf *ringbuf,
+int ccci_ringbuf_writeable(struct ccci_ringbuf *ringbuf,
 	unsigned int write_size)
 {
 	int read, write, size, length;
 
 	if (ringbuf == NULL) {
-		CCCI_ERROR_LOG(md_id, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"rbwb param error,ringbuf == NULL\n");
 		return -CCCI_RINGBUF_PARAM_ERR;
 	}
@@ -187,7 +187,7 @@ int ccci_ringbuf_writeable(int md_id, struct ccci_ringbuf *ringbuf,
 	write = (unsigned int)(ringbuf->tx_control.write);
 	length = (unsigned int)(ringbuf->tx_control.length);
 	if (write_size > length) {
-		CCCI_ERROR_LOG(md_id, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 		"rbwb param error,writesize(%d) > length(%d)\n",
 		write_size, length);
 		return -CCCI_RINGBUF_PARAM_ERR;
@@ -207,7 +207,7 @@ int ccci_ringbuf_writeable(int md_id, struct ccci_ringbuf *ringbuf,
 	return (write_size < size) ? write_size : -(write_size - size);
 }
 
-int ccci_ringbuf_write(int md_id, struct ccci_ringbuf *ringbuf,
+int ccci_ringbuf_write(struct ccci_ringbuf *ringbuf,
 	unsigned char *data, int data_len)
 {
 	int aligned_data_len;
@@ -220,7 +220,7 @@ int ccci_ringbuf_write(int md_id, struct ccci_ringbuf *ringbuf,
 
 	if (ringbuf == NULL || data_len == 0 || data == NULL)
 		return -CCCI_RINGBUF_PARAM_ERR;
-	if (ccci_ringbuf_writeable(md_id, ringbuf, data_len) <= 0)
+	if (ccci_ringbuf_writeable(ringbuf, data_len) <= 0)
 		return -CCCI_RINGBUF_NOT_ENOUGH;
 	read = (unsigned int)(ringbuf->tx_control.read);
 	write = (unsigned int)(ringbuf->tx_control.write);
@@ -249,7 +249,7 @@ int ccci_ringbuf_write(int md_id, struct ccci_ringbuf *ringbuf,
 	write += CCIF_FOOTER_LEN;
 	if (write >= length)
 		write -= length;
-	CCCI_DEBUG_LOG(md_id, TAG,
+	CCCI_DEBUG_LOG(0, TAG,
 	"rbw: rbf=0x%p,tx_buf=0x%p,o_write=%d,n_write=%d,datalen=%d,aligned_data_len=%d,HLEN=%d,LEN=%d,read=%d\n",
 	ringbuf, tx_buffer, ringbuf->tx_control.write, write,
 	data_len, aligned_data_len, 16, length, ringbuf->tx_control.read);
@@ -265,12 +265,12 @@ int ccci_ringbuf_write(int md_id, struct ccci_ringbuf *ringbuf,
 	return data_len;
 
 Fail:
-	CCCI_ERROR_LOG(md_id, TAG,
+	CCCI_ERROR_LOG(0, TAG,
 		"write length err, write = 0x%x length = 0x%x\n", write, length);
 	return -CCCI_RINGBUF_PARAM_ERR;
 }
 
-int ccci_ringbuf_readable(int md_id, struct ccci_ringbuf *ringbuf)
+int ccci_ringbuf_readable(struct ccci_ringbuf *ringbuf)
 {
 	unsigned char *rx_buffer = NULL;
 	unsigned char *outptr = NULL;
@@ -281,7 +281,7 @@ int ccci_ringbuf_readable(int md_id, struct ccci_ringbuf *ringbuf)
 	int size;
 
 	if (ringbuf == NULL) {
-		CCCI_ERROR_LOG(md_id, TAG, "rbrdb param error,ringbuf==NULL\n");
+		CCCI_ERROR_LOG(0, TAG, "rbrdb param error,ringbuf==NULL\n");
 		return -CCCI_RINGBUF_PARAM_ERR;
 	}
 	read = (unsigned int)(ringbuf->rx_control.read);
@@ -292,27 +292,26 @@ int ccci_ringbuf_readable(int md_id, struct ccci_ringbuf *ringbuf)
 	if (size < 0)
 		size += length;
 
-	CCCI_DEBUG_LOG(md_id, TAG,
+	CCCI_DEBUG_LOG(0, TAG,
 	"rbrdb:rbf=%p,rx_buf=0x%p,read=%d,write=%d,len=%d\n",
 	ringbuf, rx_buffer, read, write, length);
 	if (size < CCIF_HEADER_LEN + CCIF_FOOTER_LEN + CCCI_HEADER_LEN)
 		return -CCCI_RINGBUF_EMPTY;
 	outptr = (unsigned char *)header;
 	if (read >= length) {
-		CCCI_ERROR_LOG(md_id, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"read length err, read = 0x%x length = 0x%x\n", read, length);
 		return -CCCI_RINGBUF_PARAM_ERR;
 	}
 	CCIF_RBF_READ(rx_buffer, outptr, CCIF_HEADER_LEN, read, length);
 	if (header[0] != CCIF_PKG_HEADER) {
-		CCCI_NORMAL_LOG(md_id, TAG,
+		CCCI_NORMAL_LOG(0, TAG,
 		"rbrdb:rbf=%p,rx_buf=0x%p,read=%d,write=%d,len=%d\n",
 		ringbuf, rx_buffer, read, write, length);
-		CCCI_ERROR_LOG(md_id, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"rbrdb:rx_buffer=0x%p header 0x%x!=0xAABBAABB\n",
 			rx_buffer, header[0]);
-		ccci_ringbuf_dump(md_id, "readable",
-			rx_buffer, read, length, size);
+		ccci_ringbuf_dump("readable", rx_buffer, read, length, size);
 		return -CCCI_RINGBUF_BAD_HEADER;
 	}
 	ccci_pkg_len = header[1];
@@ -321,7 +320,7 @@ int ccci_ringbuf_readable(int md_id, struct ccci_ringbuf *ringbuf)
 	/* 8 byte align */
 	ccif_pkg_len = (((ccif_pkg_len + 7) >> 3) << 3);
 	if (ccif_pkg_len > size) {
-		CCCI_ERROR_LOG(md_id, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"rbrdb:header ccif_pkg_len(%d) > all data size(%d)\n",
 			ccif_pkg_len, size);
 		return -CCCI_RINGBUF_NOT_COMPLETE;
@@ -330,7 +329,7 @@ int ccci_ringbuf_readable(int md_id, struct ccci_ringbuf *ringbuf)
 	if (footer_pos >= length)
 		footer_pos -= length;
 	if (footer_pos >= length) {
-		CCCI_ERROR_LOG(md_id, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"footer_pos length err, footer_pos = 0x%x length = 0x%x\n",
 			footer_pos, length);
 		return -CCCI_RINGBUF_BAD_FOOTER;
@@ -338,17 +337,16 @@ int ccci_ringbuf_readable(int md_id, struct ccci_ringbuf *ringbuf)
 	outptr = (unsigned char *)footer;
 	CCIF_RBF_READ(rx_buffer, outptr, CCIF_FOOTER_LEN, footer_pos, length);
 	if (footer[0] != CCIF_PKG_FOOTER || footer[1] != CCIF_PKG_FOOTER) {
-		CCCI_ERROR_LOG(md_id, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 		"rbrdb:ccif_pkg_len=0x%x,footer_pos=0x%x, footer 0x%x %x!=0xCCDDEEFF CCDDEEFF\n",
 		ccif_pkg_len, footer_pos, footer[0], footer[1]);
-		ccci_ringbuf_dump(md_id, "readable",
-			rx_buffer, read, length, ccif_pkg_len + 8);
+		ccci_ringbuf_dump("readable", rx_buffer, read, length, ccif_pkg_len + 8);
 		return -CCCI_RINGBUF_BAD_FOOTER;
 	}
 	return ccci_pkg_len;
 }
 
-int ccci_ringbuf_read(int md_id, struct ccci_ringbuf *ringbuf,
+int ccci_ringbuf_read(struct ccci_ringbuf *ringbuf,
 	unsigned char *buf, int read_size)
 {
 	unsigned int read, write, length;
@@ -363,7 +361,7 @@ int ccci_ringbuf_read(int md_id, struct ccci_ringbuf *ringbuf,
 	if (read >= length)
 		read -= length;
 	if (read >= length) {
-		CCCI_ERROR_LOG(md_id, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"read length err, read = 0x%x length = 0x%x\n", read, length);
 		return -CCCI_RINGBUF_PARAM_ERR;
 	}
@@ -372,14 +370,14 @@ int ccci_ringbuf_read(int md_id, struct ccci_ringbuf *ringbuf,
 	return read_size;
 }
 
-void ccci_ringbuf_move_rpointer(int md_id, struct ccci_ringbuf *ringbuf,
+void ccci_ringbuf_move_rpointer(struct ccci_ringbuf *ringbuf,
 	int read_size)
 {
 	unsigned int read, length;
 
 	if (ringbuf->rx_control.read == 0
 		&& ringbuf->rx_control.write == 0) {
-		CCCI_ERROR_LOG(md_id, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"move_rpointer, rbf=%p has been reset\n", ringbuf);
 		return;
 	}
@@ -394,16 +392,16 @@ void ccci_ringbuf_move_rpointer(int md_id, struct ccci_ringbuf *ringbuf,
 	ringbuf->rx_control.read = read;
 }
 
-void ccci_ringbuf_reset(int md_id, struct ccci_ringbuf *ringbuf, int dir)
+void ccci_ringbuf_reset(struct ccci_ringbuf *ringbuf, int dir)
 {
 	if (dir == 0) {
 		ringbuf->rx_control.read = 0;
 		ringbuf->rx_control.write = 0;
-		CCCI_DEBUG_LOG(md_id, TAG, "rbrst:rbf=%p rx\n", ringbuf);
+		CCCI_DEBUG_LOG(0, TAG, "rbrst:rbf=%p rx\n", ringbuf);
 	} else {
 		ringbuf->tx_control.read = 0;
 		ringbuf->tx_control.write = 0;
-		CCCI_DEBUG_LOG(md_id, TAG, "rbrst:rbf=%p tx\n", ringbuf);
+		CCCI_DEBUG_LOG(0, TAG, "rbrst:rbf=%p tx\n", ringbuf);
 	}
 }
 

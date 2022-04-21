@@ -28,10 +28,9 @@ unsigned int port_char_dev_poll(struct file *fp,
 {
 	struct port_t *port = fp->private_data;
 	unsigned int mask = 0;
-	int md_id = port->md_id;
-	int md_state = ccci_fsm_get_md_state(md_id);
+	int md_state = ccci_fsm_get_md_state();
 
-	CCCI_DEBUG_LOG(md_id, CHAR, "poll on %s\n", port->name);
+	CCCI_DEBUG_LOG(0, CHAR, "poll on %s\n", port->name);
 	poll_wait(fp, &port->rx_wq, poll);
 	/* TODO: lack of poll wait for Tx */
 	if (!skb_queue_empty(&port->rx_skb_list))
@@ -45,7 +44,7 @@ unsigned int port_char_dev_poll(struct file *fp,
 		 * before md_init kills it
 		 */
 		mask |= POLLERR;
-		CCCI_NORMAL_LOG(md_id, CHAR,
+		CCCI_NORMAL_LOG(0, CHAR,
 			"poll error for MD logger at state %d,mask=%d\n",
 			md_state, mask);
 	}
@@ -70,9 +69,8 @@ static int port_char_init(struct port_t *port)
 {
 	struct cdev *dev = NULL;
 	int ret = 0;
-	int md_id = port->md_id;
 
-	CCCI_DEBUG_LOG(md_id, CHAR,
+	CCCI_DEBUG_LOG(0, CHAR,
 		"char port %s is initializing\n", port->name);
 	port->rx_length_th = MAX_QUEUE_LENGTH;
 	port->skb_from_pool = 1;
@@ -80,7 +78,7 @@ static int port_char_init(struct port_t *port)
 	if (port->flags & PORT_F_WITH_CHAR_NODE) {
 		dev = kmalloc(sizeof(struct cdev), GFP_KERNEL);
 		if (unlikely(!dev)) {
-			CCCI_ERROR_LOG(port->md_id, CHAR,
+			CCCI_ERROR_LOG(0, CHAR,
 				"alloc char dev fail!!\n");
 			return -1;
 		}
@@ -119,7 +117,6 @@ EXPORT_SYMBOL(ccci_c2k_set_usb_callback);
 
 static int c2k_req_push_to_usb(struct port_t *port, struct sk_buff *skb)
 {
-	int md_id = port->md_id;
 	struct ccci_header *ccci_h = NULL;
 	int read_len, read_count, ret = 0;
 	int c2k_ch_id;
@@ -131,7 +128,7 @@ static int c2k_req_push_to_usb(struct port_t *port, struct sk_buff *skb)
 		c2k_ch_id = MDLOG_CH_C2K-2;
 	else {
 		ret = -ENODEV;
-		CCCI_ERROR_LOG(md_id, CHAR,
+		CCCI_ERROR_LOG(0, CHAR,
 			"Err: wrong ch_id(%d) from usb bypass\n", port->rx_ch);
 		return ret;
 	}
@@ -145,13 +142,13 @@ static int c2k_req_push_to_usb(struct port_t *port, struct sk_buff *skb)
 retry_push:
 	/* push to usb: USB_RAWBULK_READY: requires C2K USB driver */
 	if (!usb_upstream_cb) {
-		CCCI_ERROR_LOG(md_id, CHAR,
+		CCCI_ERROR_LOG(0, CHAR,
 				"usb upstream callback is not set\n");
 		return -EINVAL;
 	}
 	read_count = usb_upstream_cb(c2k_ch_id, skb->data, read_len);
 
-	CCCI_DEBUG_LOG(md_id, CHAR,
+	CCCI_DEBUG_LOG(0, CHAR,
 		"data push to usb bypass (ch%d)(%d)\n",
 		port->rx_ch, read_count);
 
@@ -163,10 +160,10 @@ retry_push:
 		else if (read_len == 0)
 			ccci_free_skb(skb);
 		else if (read_len < 0)
-			CCCI_ERROR_LOG(md_id, CHAR,
+			CCCI_ERROR_LOG(0, CHAR,
 				"read_len error, check why come here\n");
 	} else {
-		CCCI_NORMAL_LOG(md_id, CHAR, "usb buf full\n");
+		CCCI_NORMAL_LOG(0, CHAR, "usb buf full\n");
 		msleep(20);
 		goto retry_push;
 	}
@@ -178,8 +175,6 @@ retry_push:
 
 static int port_char_recv_skb(struct port_t *port, struct sk_buff *skb)
 {
-	int md_id = port->md_id;
-
 	if (!atomic_read(&port->usage_cnt) &&
 		(port->flags&PORT_F_CLOSE_NO_DROP_PKT) == 0)
 		return -CCCI_ERR_DROP_PACKET;
@@ -190,7 +185,7 @@ static int port_char_recv_skb(struct port_t *port, struct sk_buff *skb)
 		return 0;
 	}
 #endif
-	CCCI_DEBUG_LOG(md_id, CHAR, "recv on %s, len=%d\n",
+	CCCI_DEBUG_LOG(0, CHAR, "recv on %s, len=%d\n",
 		port->name, port->rx_skb_list.qlen);
 	return port_recv_skb(port, skb);
 }
@@ -204,7 +199,7 @@ void port_char_dump_info(struct port_t *port, unsigned int flag)
 	if (atomic_read(&port->usage_cnt) == 0)
 		return;
 	if (port->flags & PORT_F_CH_TRAFFIC)
-		CCCI_REPEAT_LOG(port->md_id, CHAR,
+		CCCI_REPEAT_LOG(0, CHAR,
 			"CHR:(%d):%dR(%d,%d,%d):%dT(%d)\n",
 			port->flags, port->rx_ch,
 			port->rx_skb_list.qlen,

@@ -23,7 +23,6 @@
 void ccci_scp_md_state_sync(int md_state);
 
 struct ccci_fsm_scp ccci_scp_ctl = {
-	.md_id = 0,
 	.md_state_sync = &ccci_scp_md_state_sync,
 };
 
@@ -61,7 +60,7 @@ static unsigned int scp_clk_last_state;
 static struct ccci_ipi_msg scp_ipi_rx_msg;
 #endif
 
-static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
+static int ccci_scp_ipi_send(int op_id, void *data)
 {
 	int ret = 0;
 #if (MD_GENERATION >= 6297)
@@ -69,7 +68,7 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 	unsigned int cnt = 0;
 #endif
 	if (atomic_read(&scp_state) == SCP_CCCI_STATE_INVALID) {
-		CCCI_ERROR_LOG(md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"ignore IPI %d, SCP state %d!\n",
 			op_id, atomic_read(&scp_state));
 		return -CCCI_ERR_MD_NOT_READY;
@@ -77,10 +76,10 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 
 	mutex_lock(&scp_ipi_tx_mutex);
 	memset(&scp_ipi_tx_msg, 0, sizeof(scp_ipi_tx_msg));
-	scp_ipi_tx_msg.md_id = md_id;
+
 	scp_ipi_tx_msg.op_id = op_id;
 	scp_ipi_tx_msg.data[0] = *((u32 *)data);
-	CCCI_NORMAL_LOG(scp_ipi_tx_msg.md_id, FSM,
+	CCCI_NORMAL_LOG(0, FSM,
 		"IPI send op_id=%d/data=0x%x, size=%d\n",
 		scp_ipi_tx_msg.op_id, scp_ipi_tx_msg.data[0],
 		(int)sizeof(struct ccci_ipi_msg));
@@ -92,19 +91,19 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 			break;
 		cnt++;
 		if (cnt > 10) {
-			CCCI_ERROR_LOG(md_id, FSM, "IPI send 10 times!\n");
+			CCCI_ERROR_LOG(0, FSM, "IPI send 10 times!\n");
 			/* aee_kernel_warning("ccci", "ipi:tx busy");*/
 			break;
 		}
 	}
 	if (ipi_status != IPI_ACTION_DONE) {
-		CCCI_ERROR_LOG(md_id, FSM, "IPI send fail!\n");
+		CCCI_ERROR_LOG(0, FSM, "IPI send fail!\n");
 		ret = -CCCI_ERR_MD_NOT_READY;
 	}
 #else
 	if (scp_ipi_send(IPI_APCCCI, &scp_ipi_tx_msg,
 			sizeof(scp_ipi_tx_msg), 1, SCP_A_ID) != SCP_IPI_DONE) {
-		CCCI_ERROR_LOG(md_id, FSM, "IPI send fail!\n");
+		CCCI_ERROR_LOG(0, FSM, "IPI send fail!\n");
 		ret = -CCCI_ERR_MD_NOT_READY;
 	}
 #endif
@@ -150,52 +149,45 @@ static int scp_set_clk_cg(unsigned int on)
 
 static void ccci_scp_md_state_sync_work(struct work_struct *work)
 {
-	struct ccci_fsm_scp *scp_ctl = container_of(work,
-		struct ccci_fsm_scp, scp_md_state_sync_work);
 	int ret;
-	enum MD_STATE_FOR_USER state =
-		ccci_fsm_get_md_state_for_user(scp_ctl->md_id);
+	enum MD_STATE_FOR_USER state = ccci_fsm_get_md_state_for_user();
 	int count = 0;
 
 	switch (state) {
 	case MD_STATE_READY:
-		if (scp_ctl->md_id == MD_SYS1) {
-			while (count < SCP_BOOT_TIMEOUT/EVENT_POLL_INTEVAL) {
-				if (atomic_read(&scp_state) ==
-					SCP_CCCI_STATE_BOOTING
-					|| atomic_read(&scp_state)
-					== SCP_CCCI_STATE_RBREADY
-					|| atomic_read(&scp_state)
-					== SCP_CCCI_STATE_STOP)
-					break;
-				count++;
-				msleep(EVENT_POLL_INTEVAL);
+		while (count < SCP_BOOT_TIMEOUT/EVENT_POLL_INTEVAL) {
+			if (atomic_read(&scp_state) ==
+				SCP_CCCI_STATE_BOOTING
+				|| atomic_read(&scp_state)
+				== SCP_CCCI_STATE_RBREADY
+				|| atomic_read(&scp_state)
+				== SCP_CCCI_STATE_STOP)
+				break;
+			count++;
+			msleep(EVENT_POLL_INTEVAL);
+		}
+		if (count == SCP_BOOT_TIMEOUT/EVENT_POLL_INTEVAL)
+			CCCI_ERROR_LOG(0, FSM,
+				"SCP init not ready!\n");
+		else {
+			ret = scp_set_clk_cg(1);
+			if (ret) {
+				CCCI_ERROR_LOG(0, FSM,
+					"fail to set scp clk, ret = %d\n", ret);
+				break;
 			}
-			if (count == SCP_BOOT_TIMEOUT/EVENT_POLL_INTEVAL)
-				CCCI_ERROR_LOG(scp_ctl->md_id, FSM,
-					"SCP init not ready!\n");
-			else {
-				ret = scp_set_clk_cg(1);
-				if (ret) {
-					CCCI_ERROR_LOG(scp_ctl->md_id, FSM,
-						"fail to set scp clk, ret = %d\n", ret);
-					break;
-				}
 
-				ret = ccci_port_send_msg_to_md(scp_ctl->md_id,
-					CCCI_SYSTEM_TX, CCISM_SHM_INIT, 0, 1);
-				if (ret < 0)
-					CCCI_ERROR_LOG(scp_ctl->md_id, FSM,
-						"fail to send CCISM_SHM_INIT %d\n",
-						ret);
-			}
-		} else
-			break;
+			ret = ccci_port_send_msg_to_md(CCCI_SYSTEM_TX,
+			CCISM_SHM_INIT, 0, 1);
+			if (ret < 0)
+				CCCI_ERROR_LOG(0, FSM,
+					"fail to send CCISM_SHM_INIT %d\n",
+					ret);
+		}
 		break;
 	case MD_STATE_EXCEPTION:
 	case MD_STATE_INVALID:
-		ccci_scp_ipi_send(scp_ctl->md_id,
-			CCCI_OP_MD_STATE, &state);
+		ccci_scp_ipi_send(CCCI_OP_MD_STATE, &state);
 		break;
 	default:
 		break;
@@ -216,9 +208,8 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 			return;
 		}
 		ipi_msg_ptr = (struct ccci_ipi_msg *)skb->data;
-		if (!get_modem_is_enabled(ipi_msg_ptr->md_id)) {
-			CCCI_ERROR_LOG(ipi_msg_ptr->md_id,
-				CORE, "MD not exist\n");
+		if (!get_modem_is_enabled()) {
+			CCCI_ERROR_LOG(0, CORE, "MD not exist\n");
 			return;
 		}
 		switch (ipi_msg_ptr->op_id) {
@@ -227,15 +218,12 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 			case SCP_CCCI_STATE_BOOTING:
 				if (atomic_read(&scp_state) ==
 					SCP_CCCI_STATE_RBREADY) {
-					CCCI_NORMAL_LOG(ipi_msg_ptr->md_id, FSM,
+					CCCI_NORMAL_LOG(0, FSM,
 						"SCP reset detected\n");
-					ccci_port_send_msg_to_md(MD_SYS1,
+					ccci_port_send_msg_to_md(
 					CCCI_SYSTEM_TX, CCISM_SHM_INIT, 0, 1);
-					ccci_port_send_msg_to_md(MD_SYS3,
-					CCCI_CONTROL_TX,
-					C2K_CCISM_SHM_INIT, 0, 1);
 				} else {
-					CCCI_NORMAL_LOG(ipi_msg_ptr->md_id, FSM,
+					CCCI_NORMAL_LOG(0, FSM,
 						"SCP boot up\n");
 				}
 				/* too early to init share memory here,
@@ -243,30 +231,18 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 				 */
 				break;
 			case SCP_CCCI_STATE_RBREADY:
-				switch (ipi_msg_ptr->md_id) {
-				case MD_SYS1:
-					ccci_port_send_msg_to_md(MD_SYS1,
-					CCCI_SYSTEM_TX,
-					CCISM_SHM_INIT_DONE, 0, 1);
-					break;
-				case MD_SYS3:
-					ccci_port_send_msg_to_md(MD_SYS3,
-					CCCI_CONTROL_TX,
-					C2K_CCISM_SHM_INIT_DONE, 0, 1);
-					break;
-				};
-				data =
-				ccci_fsm_get_md_state_for_user(
-					ipi_msg_ptr->md_id);
-				ccci_scp_ipi_send(ipi_msg_ptr->md_id,
-					CCCI_OP_MD_STATE, &data);
+				ccci_port_send_msg_to_md(CCCI_SYSTEM_TX,
+				CCISM_SHM_INIT_DONE, 0, 1);
+
+				data = ccci_fsm_get_md_state_for_user();
+				ccci_scp_ipi_send(CCCI_OP_MD_STATE, &data);
 				break;
 			case SCP_CCCI_STATE_STOP:
-				CCCI_NORMAL_LOG(ipi_msg_ptr->md_id, FSM,
+				CCCI_NORMAL_LOG(0, FSM,
 						"MD INVALID,scp send ack to ap\n");
 				ret = scp_set_clk_cg(0);
 				if (ret)
-					CCCI_ERROR_LOG(ipi_msg_ptr->md_id, FSM,
+					CCCI_ERROR_LOG(0, FSM,
 						"fail to set scp clk, ret = %d\n", ret);
 				break;
 			default:
@@ -323,8 +299,7 @@ static void ccci_scp_ipi_handler(int id, void *data, unsigned int len)
 		len, (int)sizeof(struct ccci_ipi_msg));
 		return;
 	}
-	CCCI_NORMAL_LOG(ipi_msg_ptr->md_id, CORE,
-		"IPI handler %d/0x%x, %d\n",
+	CCCI_NORMAL_LOG(0, CORE, "IPI handler %d/0x%x, %d\n",
 		ipi_msg_ptr->op_id,
 		ipi_msg_ptr->data[0], len);
 
@@ -339,23 +314,23 @@ static void ccci_scp_ipi_handler(int id, void *data, unsigned int len)
 #endif
 #endif
 
-int fsm_ccism_init_ack_handler(int md_id, int data)
+int fsm_ccism_init_ack_handler(int data)
 {
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	struct ccci_smem_region *ccism_scp =
-		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_CCISM_SCP);
+		ccci_md_get_smem_by_user_id(SMEM_USER_CCISM_SCP);
 
 	memset_io(ccism_scp->base_ap_view_vir, 0, ccism_scp->size);
-	ccci_scp_ipi_send(md_id, CCCI_OP_SHM_INIT,
+	ccci_scp_ipi_send(CCCI_OP_SHM_INIT,
 		&ccism_scp->base_ap_view_phy);
 #endif
 	return 0;
 }
 
 #ifdef FEATURE_SCP_CCCI_SUPPORT
-static int fsm_sim_type_handler(int md_id, int data)
+static int fsm_sim_type_handler(int data)
 {
-	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
+	struct ccci_per_md *per_md_data = ccci_get_per_md_data();
 
 	per_md_data->sim_type = data;
 	return 0;
@@ -367,7 +342,7 @@ static int fsm_sim_type_handler(int md_id, int data)
 void fsm_scp_init0(void)
 {
 	enum MD_STATE_FOR_USER state =
-		ccci_fsm_get_md_state_for_user(ccci_scp_ctl.md_id);
+		ccci_fsm_get_md_state_for_user();
 	mutex_init(&scp_ipi_tx_mutex);
 
 	if (!init_work_done) {
@@ -424,18 +399,15 @@ int fsm_scp_init(struct ccci_fsm_scp *scp_ctl)
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	scp_A_register_notify(&apsync_notifier);
 #endif
-#ifndef CCCI_KMODULE_ENABLE
-	scp_ctl->md_id = ctl->md_id;
-#endif
+
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	INIT_WORK(&scp_ctl->scp_md_state_sync_work,
 		ccci_scp_md_state_sync_work);
-	register_ccci_sys_call_back(scp_ctl->md_id, CCISM_SHM_INIT_ACK,
+	register_ccci_sys_call_back(CCISM_SHM_INIT_ACK,
 		fsm_ccism_init_ack_handler);
 #endif
 
-	register_ccci_sys_call_back(scp_ctl->md_id, MD_SIM_TYPE,
-		fsm_sim_type_handler);
+	register_ccci_sys_call_back(MD_SIM_TYPE, fsm_sim_type_handler);
 
 	return ret;
 }
@@ -478,7 +450,7 @@ int ccci_scp_probe(struct platform_device *pdev)
 		CCCI_ERROR_LOG(-1, FSM, "ccci get scp info fail");
 		return ret;
 	}
-	ccci_fsm_scp_register(0, &ccci_scp_ctl);
+	ccci_fsm_scp_register(&ccci_scp_ctl);
 	return 0;
 }
 

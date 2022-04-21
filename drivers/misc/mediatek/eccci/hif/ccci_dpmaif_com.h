@@ -397,7 +397,6 @@ struct dpmaif_ctrl {
 	struct dpmaif_tx_queue    txq[DPMAIF_TXQ_NUM];
 	struct dpmaif_rx_queue    rxq[DPMAIF_RXQ_NUM];
 
-	unsigned char             md_id;
 	unsigned char             hif_id;
 	atomic_t                  wakeup_src;
 

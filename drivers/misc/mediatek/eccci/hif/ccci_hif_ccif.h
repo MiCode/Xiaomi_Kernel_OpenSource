@@ -121,7 +121,6 @@ struct md_ccif_ctrl {
 	struct work_struct wdt_work;
 	struct ccif_flow_control *flow_ctrl;
 
-	unsigned char md_id;
 	unsigned char hif_id;
 	struct ccci_hif_traffic traffic_info;
 	struct timer_list traffic_monitor;
@@ -287,10 +286,8 @@ void ccif_polling_ready(unsigned char hif_id, int step);
 void md_ccif_sram_reset(unsigned char hif_id);
 //int md_ccif_ring_buf_init(unsigned char hif_id);
 void md_ccif_switch_ringbuf(unsigned char hif_id, enum ringbuf_id rb_id);
-void ccci_reset_ccif_hw(unsigned char md_id,
-			int ccif_id, void __iomem *baseA,
-			void __iomem *baseB,
-			struct md_ccif_ctrl *md_ctrl);
+void ccci_reset_ccif_hw(int ccif_id, void __iomem *baseA,
+		void __iomem *baseB, struct md_ccif_ctrl *md_ctrl);
 
 
 //int md_ccif_send(unsigned char hif_id, int channel_id);
@@ -309,7 +306,7 @@ extern void mt_irq_dump_status(unsigned int irq);
 #endif
 /* used for throttling feature - start */
 extern unsigned long ccci_modem_boot_count[];
-extern int md_fsm_exp_info(int md_id, unsigned int channel_id);
+extern int md_fsm_exp_info(unsigned int channel_id);
 extern char *ccci_port_get_dev_name(unsigned int rx_user_id);
 /* used for throttling feature - end */
 #endif				/* __MODEM_CCIF_H__ */

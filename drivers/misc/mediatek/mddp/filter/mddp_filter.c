@@ -402,7 +402,7 @@ int32_t mddp_f_set_ct_value(uint8_t *buf, uint32_t buf_len)
 		return -EINVAL;
 	}
 
-	md_status = exec_ccci_kern_func_by_md_id(0, ID_GET_MD_STATE, NULL, 0);
+	md_status = exec_ccci_kern_func(ID_GET_MD_STATE, NULL, 0);
 
 	if (md_status != MD_STATE_READY) {
 		MDDP_F_LOG(MDDP_LL_NOTICE,

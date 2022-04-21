@@ -78,7 +78,6 @@ struct port_t {
 	unsigned int minor;
 	char *name;
 	/* un-initiallized in defination, always put them at the end */
-	int md_id;
 	void *port_proxy;
 	void *private_data;
 	atomic_t usage_cnt;
@@ -136,10 +135,10 @@ int port_user_unregister(struct port_t *port);
 int port_ask_more_req_to_md(struct port_t *port);
 int port_write_room_to_md(struct port_t *port);
 void port_ch_dump(struct port_t *port, int dir, void *msg_buf, int len);
-int port_get_capability(int md_id);
+int port_get_capability(void);
 struct port_t *port_get_by_node(int major, int minor);
-struct port_t *port_get_by_minor(int md_id, int minor);
-struct port_t *port_get_by_channel(int md_id, enum CCCI_CH ch);
+struct port_t *port_get_by_minor(int minor);
+struct port_t *port_get_by_channel(enum CCCI_CH ch);
 int port_send_skb_to_md(struct port_t *port, struct sk_buff *skb,
 	int blocking);
 int port_net_send_skb_to_md(struct port_t *port, int is_ack,
@@ -161,5 +160,5 @@ long port_dev_compat_ioctl(struct file *filp, unsigned int cmd,
 int port_dev_mmap(struct file *fp, struct vm_area_struct *vma);
 
 int find_port_by_channel(int channel, struct port_t **port);
-int send_new_time_to_new_md(int md_id, int tz);
+int send_new_time_to_new_md(int tz);
 #endif /* __PORT_T_H__ */

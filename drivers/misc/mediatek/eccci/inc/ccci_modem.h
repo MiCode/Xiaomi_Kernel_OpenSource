@@ -330,9 +330,9 @@ enum {
 	MD_FLIGHT_MODE_LEAVE = 2
 };/* FLIGHT_STAGE */
 
-int ccci_md_force_assert(unsigned char md_id, enum MD_FORCE_ASSERT_TYPE type,
+int ccci_md_force_assert(enum MD_FORCE_ASSERT_TYPE type,
 	char *param, int len);
-int ccci_md_send_ccb_tx_notify(unsigned char md_id, int core_id);
+int ccci_md_send_ccb_tx_notify(int core_id);
 
 struct ccci_modem_cfg {
 	unsigned int load_type;
@@ -367,11 +367,11 @@ struct ccci_per_md {
 	unsigned long long netif_rx_profile[8];
 #endif
 };
-struct ccci_per_md *ccci_get_per_md_data(unsigned char md_id);
+struct ccci_per_md *ccci_get_per_md_data(void);
 
-static inline int ccci_md_get_cap_by_id(int md_id)
+static inline int ccci_md_get_cap_by_id(void)
 {
-	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
+	struct ccci_per_md *per_md_data = ccci_get_per_md_data();
 
 	if (per_md_data == NULL)
 		return -CCCI_ERR_MD_INDEX_NOT_FOUND;

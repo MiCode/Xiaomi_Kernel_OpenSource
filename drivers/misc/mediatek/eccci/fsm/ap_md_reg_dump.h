@@ -31,6 +31,6 @@ enum md_dump_flag {
 	DUMP_DELAY_us,
 };
 
-void md_dump_register_6873(unsigned int md_index);
-void md_dump_reg(unsigned int md_index);
+void md_dump_register_6873(void);
+void md_dump_reg(void);
 #endif

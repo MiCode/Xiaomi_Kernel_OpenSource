@@ -62,7 +62,6 @@ struct ccci_force_assert_shm_fmt {
 extern int current_time_zone;
 
 struct ccci_dev_cfg {
-	unsigned int index;
 	unsigned int major;
 	unsigned int minor_base;
 	unsigned int capability;
@@ -113,7 +112,6 @@ struct md_sys1_info {
 };
 
 struct ccci_modem {
-	unsigned char index;
 	unsigned char *private_data;
 
 	struct ccci_modem_ops *ops;
@@ -154,7 +152,7 @@ struct ccci_modem {
 	struct ccci_per_md per_md_data;
 };
 
-extern struct ccci_modem *modem_sys[MAX_MD_NUM];
+extern struct ccci_modem *modem_sys;
 
 /****************************************************************************/
 /* API Region called by sub-modem class, reuseable API */
@@ -162,35 +160,28 @@ extern struct ccci_modem *modem_sys[MAX_MD_NUM];
 struct ccci_modem *ccci_md_alloc(int private_size);
 int ccci_md_register(struct ccci_modem *modem);
 
-static inline struct ccci_modem *ccci_md_get_modem_by_id(int md_id)
+static inline struct ccci_modem *ccci_get_modem(void)
 {
-	if (md_id >= MAX_MD_NUM)
-		return NULL;
-	return modem_sys[md_id];
+	return modem_sys;
 }
 
-static inline struct device *ccci_md_get_dev_by_id(int md_id)
+static inline struct device *ccci_md_get_dev(void)
 {
-	if (md_id >= MAX_MD_NUM)
-		return NULL;
-	return &modem_sys[md_id]->plat_dev->dev;
+	return &(modem_sys->plat_dev->dev);
 }
 
-static inline void *ccci_md_get_hw_info(int md_id)
+static inline void *ccci_md_get_hw_info(void)
 {
-	if (md_id >= MAX_MD_NUM)
-		return NULL;
-	return modem_sys[md_id]->hw_info;
+	return modem_sys->hw_info;
 }
 
-static inline int ccci_md_recv_skb(unsigned char md_id,
-	unsigned char hif_id, struct sk_buff *skb)
+static inline int ccci_md_recv_skb(unsigned char hif_id, struct sk_buff *skb)
 {
 	int flag = NORMAL_DATA;
 
 	if (hif_id == MD1_NET_HIF)
 		flag = CLDMA_NET_DATA;
-	return ccci_port_recv_skb(md_id, hif_id, skb, flag);
+	return ccci_port_recv_skb(hif_id, skb, flag);
 }
 
 /***************************************************************************/
@@ -212,19 +203,19 @@ extern int mrdump_mini_add_extra_file(unsigned long vaddr, unsigned long paddr,
 extern void mt_irq_dump_status(unsigned int irq);
 #endif
 
-int ccci_md_start(unsigned char md_id);
-int ccci_md_soft_start(unsigned char md_id, unsigned int sim_mode);
-int ccci_md_send_runtime_data(unsigned char md_id);
-void ccci_md_dump_info(unsigned char md_id, enum MODEM_DUMP_FLAG flag,
+int ccci_md_start(void);
+int ccci_md_soft_start(unsigned int sim_mode);
+int ccci_md_send_runtime_data(void);
+void ccci_md_dump_info(enum MODEM_DUMP_FLAG flag,
 	void *buff, int length);
-int ccci_md_pre_stop(unsigned char md_id, unsigned int stop_type);
-int ccci_md_stop(unsigned char md_id, unsigned int stop_type);
-int ccci_md_soft_stop(unsigned char md_id, unsigned int sim_mode);
-//int ccci_md_force_assert(unsigned char md_id, enum MD_FORCE_ASSERT_TYPE type,
+int ccci_md_pre_stop(unsigned int stop_type);
+int ccci_md_stop(unsigned int stop_type);
+int ccci_md_soft_stop(unsigned int sim_mode);
+//int ccci_md_force_assert(enum MD_FORCE_ASSERT_TYPE type,
 //	char *param, int len);
-void ccci_md_exception_handshake(unsigned char md_id, int timeout);
-//int ccci_md_send_ccb_tx_notify(unsigned char md_id, int core_id);
-int ccci_md_pre_start(unsigned char md_id);
-int ccci_md_post_start(unsigned char md_id);
+void ccci_md_exception_handshake(int timeout);
+//int ccci_md_send_ccb_tx_notify(int core_id);
+int ccci_md_pre_start(void);
+int ccci_md_post_start(void);
 
 #endif	/* __CCCI_MODEM_H__ */

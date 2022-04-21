@@ -71,7 +71,6 @@ struct ccmni_ch {
 	int		   tx;
 	int		   tx_ack;
 	int		   dl_ack;
-	int		   multiq;
 };
 
 enum {
@@ -103,7 +102,6 @@ struct ccmni_flt_act {
 
 struct ccmni_instance {
 	int                index;
-	int                md_id;
 	struct ccmni_ch    ch;
 	int                net_if_off;
 	unsigned int	   ack_prio_en;
@@ -147,13 +145,11 @@ struct ccmni_ccci_ops {
 	/* "ccmni" or "cc2mni" or "ccemni" */
 	unsigned char      name[16];
 	unsigned int       md_ability;
-	/* with which md on iRAT */
-	unsigned int       irat_md_id;
 	unsigned int       napi_poll_weigh;
-	int (*send_pkt)(int md_id, int ccmni_idx, void *data, int is_ack);
-	int (*napi_poll)(int md_id, int ccmni_idx,
+	int (*send_pkt)(int ccmni_idx, void *data, int is_ack);
+	int (*napi_poll)(int ccmni_idx,
 			struct napi_struct *napi, int weight);
-	int (*get_ccmni_ch)(int md_id, int ccmni_idx, struct ccmni_ch *channel);
+	int (*get_ccmni_ch)(int ccmni_idx, struct ccmni_ch *channel);
 	void (*ccci_net_init)(char *name);
 	int (*ccci_handle_port_list)(int status, char *name);
 };
@@ -170,18 +166,17 @@ struct ccmni_ctl_block {
 struct ccmni_dev_ops {
 	/* must-have */
 	int  skb_alloc_size;
-	int  (*init)(int md_id, struct ccmni_ccci_ops *ccci_info);
-	int  (*rx_callback)(int md_id, int ccmni_idx,
+	int  (*init)(struct ccmni_ccci_ops *ccci_info);
+	int  (*rx_callback)(int ccmni_idx,
 			struct sk_buff *skb, void *priv_data);
-	void (*md_state_callback)(int md_id,
-		int ccmni_idx, enum MD_STATE state);
-	void (*queue_state_callback)(int md_id, int ccmni_idx,
+	void (*md_state_callback)(int ccmni_idx, enum MD_STATE state);
+	void (*queue_state_callback)(int ccmni_idx,
 			enum HIF_STATE state, int is_ack);
-	void (*exit)(int md_id);
-	void (*dump)(int md_id, int ccmni_idx, unsigned int flag);
-	void (*dump_rx_status)(int md_id, unsigned long long *status);
-	struct ccmni_ch *(*get_ch)(int md_id, int ccmni_idx);
-	int (*is_ack_skb)(int md_id, struct sk_buff *skb);
+	void (*exit)(void);
+	void (*dump)(int ccmni_idx, unsigned int flag);
+	void (*dump_rx_status)(unsigned long long *status);
+	struct ccmni_ch *(*get_ch)(int ccmni_idx);
+	int (*is_ack_skb)(struct sk_buff *skb);
 };
 
 struct md_drt_tag {
@@ -221,27 +216,5 @@ enum {
 	CCMNI_TXQ_NUM,
 	CCMNI_TXQ_END = CCMNI_TXQ_NUM
 };
-
-struct arphdr_in {
-	__be16 ar_hrd;
-	__be16 ar_pro;
-	unsigned char ar_hln;
-	unsigned char ar_pln;
-	__be16 ar_op;
-
-	unsigned char ar_sha[ETH_ALEN];
-	unsigned char ar_sip[4];
-	unsigned char ar_tha[ETH_ALEN];
-	unsigned char ar_tip[4];
-};
-
-/***********************ccmni debug function*****************************/
-#define CCMNI_DBG_MSG(idx, fmt, args...) \
-	pr_debug("[ccci%d/net]" fmt, (idx+1), ##args)
-#define CCMNI_INF_MSG(idx, fmt, args...) \
-	pr_info("[ccci%d/net]" fmt, (idx+1), ##args)
-#define CCMNI_PR_DBG(idx, fmt, args...) \
-	pr_debug("[ccci%d/net][Error:%d]%s:" fmt, (idx+1),\
-		__LINE__, __func__, ##args)
 
 #endif /* __CCCI_CCMNI_H__ */

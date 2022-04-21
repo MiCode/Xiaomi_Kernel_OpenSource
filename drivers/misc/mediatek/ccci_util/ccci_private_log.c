@@ -263,7 +263,6 @@ static const struct proc_ops ccci_log_fops = {
 	.proc_poll = ccci_log_poll,
 };
 
-
 /******************************************************************************/
 /* Dump buffer part, this type log is NON block read, used for AED dump       */
 /******************************************************************************/
@@ -277,14 +276,6 @@ static const struct proc_ops ccci_log_fops = {
 #define CCCI_KE_DUMP_BUF		(1024 * 32)
 #define CCCI_DPMAIF_DUMP_BUF		(1024 * 256 * 8)
 
-#define MD3_CCCI_INIT_SETTING_BUF	(64)
-#define MD3_CCCI_BOOT_UP_BUF		(64)
-#define MD3_CCCI_NORMAL_BUF		(64)
-#define MD3_CCCI_REPEAT_BUF		(64)
-#define MD3_CCCI_REG_DUMP_BUF		(64)
-#define MD3_CCCI_HISTORY_BUF		(64)
-#define MD3_CCCI_DPMAIF_DUMP_BUF	(64)
-
 struct ccci_dump_buffer {
 	void *buffer;
 	unsigned int buf_size;
@@ -296,9 +287,9 @@ struct ccci_dump_buffer {
 };
 
 struct ccci_user_ctlb {
-	unsigned int read_idx[2][CCCI_DUMP_MAX];
-	unsigned int sep_cnt1[2][CCCI_DUMP_MAX];
-	unsigned int sep_cnt2[2]; /* 1st MD; 2nd MD */
+	unsigned int read_idx[CCCI_DUMP_MAX];
+	unsigned int sep_cnt1[CCCI_DUMP_MAX];
+	unsigned int sep_cnt2;
 	unsigned int busy;
 };
 static spinlock_t file_lock;
@@ -313,9 +304,6 @@ static struct ccci_dump_buffer ke_dump_ctlb[2];
 static struct ccci_dump_buffer md_init_buf[2];
 static struct ccci_dump_buffer dpmaif_dump_buf[2];
 
-static int buff_bind_md_id[5];
-static int md_id_bind_buf_id[5];
-static unsigned int buff_en_bit_map;
 static char sep_buf[64];
 static char md_sep_buf[64];
 
@@ -330,61 +318,25 @@ struct buffer_node {
 #define CCCI_DUMP_ATTR_BUSY	(1U<<0)
 #define CCCI_DUMP_ATTR_RING	(1U<<1)
 
-static int get_plat_capbility(int md_id)
-{
-	unsigned int en_flag = 0;
-
-	/* MD1 */
-	/* Fix me, may design more better solution to reduce memory usage */
-	en_flag |= (1<<0);
-
-	/* MD3 */
-	en_flag |= (1<<2);
-
-	return (en_flag & (1<<md_id));
-}
-
-static struct buffer_node node_array[2][CCCI_DUMP_MAX+1] = {
-	{
-		{&init_setting_ctlb[0], CCCI_INIT_SETTING_BUF,
-		0, CCCI_DUMP_INIT},
-		{&boot_up_ctlb[0], CCCI_BOOT_UP_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_BOOTUP},
-		{&normal_ctlb[0], CCCI_NORMAL_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_NORMAL},
-		{&repeat_ctlb[0], CCCI_REPEAT_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_REPEAT},
-		{&reg_dump_ctlb[0], CCCI_REG_DUMP_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_MEM_DUMP},
-		{&history_ctlb[0], CCCI_HISTORY_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_HISTORY},
-		{&ke_dump_ctlb[0], CCCI_KE_DUMP_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_REGISTER},
-		{&md_init_buf[0], CCCI_DUMP_MD_INIT_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_MD_INIT},
-		{&dpmaif_dump_buf[0], CCCI_DPMAIF_DUMP_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_DPMAIF},
-	},
-	{
-		{&init_setting_ctlb[1], MD3_CCCI_INIT_SETTING_BUF,
-		0, CCCI_DUMP_INIT},
-		{&boot_up_ctlb[1], MD3_CCCI_BOOT_UP_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_BOOTUP},
-		{&normal_ctlb[1], MD3_CCCI_NORMAL_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_NORMAL},
-		{&repeat_ctlb[1], MD3_CCCI_REPEAT_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_REPEAT},
-		{&reg_dump_ctlb[1], MD3_CCCI_REG_DUMP_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_MEM_DUMP},
-		{&history_ctlb[1], MD3_CCCI_HISTORY_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_HISTORY},
-		{&ke_dump_ctlb[1], 1*1024,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_REGISTER},
-		{&md_init_buf[1], 64,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_MD_INIT},
-		{&dpmaif_dump_buf[1], MD3_CCCI_DPMAIF_DUMP_BUF,
-		CCCI_DUMP_ATTR_RING, CCCI_DUMP_DPMAIF},
-	}
+static struct buffer_node node_array[CCCI_DUMP_MAX+1] = {
+	{&init_setting_ctlb[0], CCCI_INIT_SETTING_BUF,
+	0, CCCI_DUMP_INIT},
+	{&boot_up_ctlb[0], CCCI_BOOT_UP_BUF,
+	CCCI_DUMP_ATTR_RING, CCCI_DUMP_BOOTUP},
+	{&normal_ctlb[0], CCCI_NORMAL_BUF,
+	CCCI_DUMP_ATTR_RING, CCCI_DUMP_NORMAL},
+	{&repeat_ctlb[0], CCCI_REPEAT_BUF,
+	CCCI_DUMP_ATTR_RING, CCCI_DUMP_REPEAT},
+	{&reg_dump_ctlb[0], CCCI_REG_DUMP_BUF,
+	CCCI_DUMP_ATTR_RING, CCCI_DUMP_MEM_DUMP},
+	{&history_ctlb[0], CCCI_HISTORY_BUF,
+	CCCI_DUMP_ATTR_RING, CCCI_DUMP_HISTORY},
+	{&ke_dump_ctlb[0], CCCI_KE_DUMP_BUF,
+	CCCI_DUMP_ATTR_RING, CCCI_DUMP_REGISTER},
+	{&md_init_buf[0], CCCI_DUMP_MD_INIT_BUF,
+	CCCI_DUMP_ATTR_RING, CCCI_DUMP_MD_INIT},
+	{&dpmaif_dump_buf[0], CCCI_DPMAIF_DUMP_BUF,
+	CCCI_DUMP_ATTR_RING, CCCI_DUMP_DPMAIF},
 };
 
 #define CCCI_DUMP_WRITE_MAX_LEN 255
@@ -404,7 +356,7 @@ static ssize_t ccci_dump_fops_write(struct file *file,
 	infor_buf[size] = '\0';
 
 	dump_flag = CCCI_DUMP_TIME_FLAG | CCCI_DUMP_ANDROID_TIME_FLAG;
-	res = ccci_dump_write(0, CCCI_DUMP_MD_INIT, dump_flag, "%s\n", infor_buf);
+	res = ccci_dump_write(CCCI_DUMP_MD_INIT, dump_flag, "%s\n", infor_buf);
 	if (unlikely(res < 0)) {
 		pr_info("[ccci0/util]ccci dump write fail, size=%d, info:%s, res:%d\n",
 		       size, infor_buf, res);
@@ -412,8 +364,7 @@ static ssize_t ccci_dump_fops_write(struct file *file,
 	return size;
 }
 
-int ccci_dump_write(int md_id, int buf_type,
-	unsigned int flag, const char *fmt, ...)
+int ccci_dump_write(int buf_type, unsigned int flag, const char *fmt, ...)
 {
 	va_list args;
 	unsigned int write_len = 0;
@@ -423,7 +374,6 @@ int ccci_dump_write(int md_id, int buf_type,
 	char state;
 	u64 ts_nsec;
 	unsigned long rem_nsec;
-	int buf_id;
 	int can_be_write;
 	int actual_write;
 	struct ccci_dump_buffer *ptr = NULL;
@@ -431,22 +381,16 @@ int ccci_dump_write(int md_id, int buf_type,
 	struct rtc_time android_time;
 
 	/* parameter check */
-	if (unlikely(md_id >= MAX_MD_NUM))
-		return -1;
-	if (unlikely(md_id < 0))
-		md_id = 0;
 	if (unlikely(buf_type >= CCCI_DUMP_MAX))
 		return -2;
-	buf_id = buff_bind_md_id[md_id];
-	if (buf_id == -1)
-		return -3;
-	if (unlikely(node_array[buf_id][buf_type].index != buf_type))
+
+	if (unlikely(node_array[buf_type].index != buf_type))
 		return -4;
-	if (unlikely(node_array[buf_id][buf_type].ctlb_ptr->buffer == NULL))
+	if (unlikely(node_array[buf_type].ctlb_ptr->buffer == NULL))
 		return -5;
 
 	/* using local ptr */
-	ptr = node_array[buf_id][buf_type].ctlb_ptr;
+	ptr = node_array[buf_type].ctlb_ptr;
 
 	/* if ring buffer mode, write pointer always can be updated */
 	/* if one short mode,
@@ -627,7 +571,6 @@ static ssize_t ccci_dump_fops_read(struct file *file, char __user *buf,
 {
 	unsigned int available, read_len;
 	int ret;
-	int i;
 	int has_read = 0;
 	int left = size;
 	int read_pos;
@@ -653,140 +596,129 @@ static ssize_t ccci_dump_fops_read(struct file *file, char __user *buf,
 	if (has_closed)
 		return 0;
 
-	for (i = 0; i < 2; i++) {
-		if (!(buff_en_bit_map & (1U << i)))
-			continue;
+	md_sep_buf[13] = '0';
+	/* dump data begin */
+	node_ptr = &node_array[0];
 
-		md_sep_buf[13] = '0' + i;
-		/* dump data begin */
-		node_ptr = &node_array[i][0];
+	/* insert separator "===" to buf */
+	curr = user_info->sep_cnt2;
+	if (curr < 64) {
+		available = 64 - curr;
+		read_len = left < available ? left : available;
+		if (read_len == 0)
+			goto _out;
+		ret = copy_to_user(&buf[has_read],
+				&md_sep_buf[curr], read_len);
+		if (ret == 0) {
+			has_read += read_len;
+			left -= read_len;
+			user_info->sep_cnt2 += read_len;
+		} else
+			pr_notice("[ccci0/util]dump copy to ser fail%d[-1]\n",
+				ret);
+	}
 
-		/* insert separator "===" to buf */
-		curr = user_info->sep_cnt2[i];
+	while (node_ptr->ctlb_ptr != NULL) {
+		ptr = node_ptr->ctlb_ptr;
+		index = node_ptr->index;
+		node_ptr++;
+
+		format_separate_str(sep_buf, index);
+		sep_buf[9] = '0' + 1;
+		/* insert region separator "___" to buf */
+		curr = user_info->sep_cnt1[index];
 		if (curr < 64) {
 			available = 64 - curr;
 			read_len = left < available ? left : available;
 			if (read_len == 0)
 				goto _out;
-			ret = copy_to_user(&buf[has_read],
-					&md_sep_buf[curr], read_len);
+			ret = copy_to_user(
+					&buf[has_read],
+					&sep_buf[curr],
+					read_len);
 			if (ret == 0) {
 				has_read += read_len;
 				left -= read_len;
-				user_info->sep_cnt2[i] += read_len;
+				user_info->sep_cnt1[index]
+					+= read_len;
 			} else
-				pr_notice("[ccci0/util]dump copy to ser fail%d[-1]\n",
+				pr_notice("[ccci0/util]dump copy to ser fail%d[-2]\n",
 					ret);
 		}
 
-		while (node_ptr->ctlb_ptr != NULL) {
-			ptr = node_ptr->ctlb_ptr;
-			index = node_ptr->index;
-			node_ptr++;
-
-			format_separate_str(sep_buf, index);
-			/*set log title md id */
-			sep_buf[9] = '0' + md_id_bind_buf_id[i];
-			/* insert region separator "___" to buf */
-			curr = user_info->sep_cnt1[i][index];
-			if (curr < 64) {
-				available = 64 - curr;
-				read_len = left < available ? left : available;
-				if (read_len == 0)
-					goto _out;
-				ret = copy_to_user(
-						&buf[has_read],
-						&sep_buf[curr],
-						read_len);
-				if (ret == 0) {
-					has_read += read_len;
-					left -= read_len;
-					user_info->sep_cnt1[i][index]
-						+= read_len;
-				} else
-					pr_notice(
-					"[ccci0/util]dump copy to ser fail%d[-2]\n",
-						ret);
+		/* insert region data */
+		/* One short read */
+		if ((ptr->attr & CCCI_DUMP_ATTR_RING) == 0) {
+			read_pos = user_info->read_idx[index];
+			available = ptr->write_pos - read_pos;
+			if (available == 0)
+				continue;
+			read_len = left < available ? left : available;
+			if (read_len == 0)
+				goto _out;
+			ret = copy_to_user(
+					&buf[has_read],
+					ptr->buffer + read_pos,
+					read_len);
+			if (ret == 0) {
+				has_read += read_len;
+				left -= read_len;
+				user_info->read_idx[index]
+					+= read_len;
+			} else
+				pr_notice(
+				"[ccci0/util]dump copy to ser fail%d\n",
+					ret);
+		} else { /* ring buffer read */
+			if (ptr->data_size > ptr->buf_size) {
+				read_pos = ptr->write_pos
+					+ user_info->read_idx[index];
+				read_pos &= ptr->buf_size - 1;
+			} else {
+				read_pos =
+					user_info->read_idx[index];
 			}
-
-			/* insert region data */
-			/* One short read */
-			if ((ptr->attr & CCCI_DUMP_ATTR_RING) == 0) {
-				read_pos = user_info->read_idx[i][index];
-				available = ptr->write_pos - read_pos;
-				if (available == 0)
-					continue;
-				read_len = left < available ? left : available;
-				if (read_len == 0)
-					goto _out;
-				ret = copy_to_user(
-						&buf[has_read],
+			available = ptr->data_size
+				- user_info->read_idx[index];
+			if (available == 0)
+				continue;
+			read_len = left < available ? left : available;
+			if (read_len == 0)
+				goto _out;
+			available = read_len;
+			if (read_pos + available > ptr->buf_size) {
+				read_len = ptr->buf_size - read_pos;
+				ret = copy_to_user(&buf[has_read],
 						ptr->buffer + read_pos,
 						read_len);
 				if (ret == 0) {
 					has_read += read_len;
 					left -= read_len;
-					user_info->read_idx[i][index]
-						+= read_len;
+					user_info->read_idx[index] += read_len;
 				} else
-					pr_notice(
-					"[ccci0/util]dump copy to ser fail%d\n",
-						ret);
-			} else { /* ring buffer read */
-				if (ptr->data_size > ptr->buf_size) {
-					read_pos = ptr->write_pos
-						+ user_info->read_idx[i][index];
-					read_pos &= ptr->buf_size - 1;
-				} else {
-					read_pos =
-						user_info->read_idx[i][index];
-				}
-				available = ptr->data_size
-					- user_info->read_idx[i][index];
-				if (available == 0)
-					continue;
-				read_len = left < available ? left : available;
-				if (read_len == 0)
-					goto _out;
-				available = read_len;
-				if (read_pos + available > ptr->buf_size) {
-					read_len = ptr->buf_size - read_pos;
-					ret = copy_to_user(&buf[has_read],
-							ptr->buffer + read_pos,
-							read_len);
-					if (ret == 0) {
-						has_read += read_len;
-						left -= read_len;
-						user_info->read_idx[i][index]
-							+= read_len;
-					} else
-						pr_notice("[ccci0/util]dump copy to ser fail%d[1]\n",
-									ret);
-					ret = copy_to_user(&buf[has_read],
-						ptr->buffer,
-						available - read_len);
-					if (ret == 0) {
-						has_read +=
-							available - read_len;
-						left -= available - read_len;
-						user_info->read_idx[i][index]
-							+= available - read_len;
-					} else
-						pr_notice("[ccci0/util]dump copy to ser fail%d[2]\n",
-									ret);
-				} else {
-					ret = copy_to_user(&buf[has_read],
-							ptr->buffer + read_pos,
-							available);
-					if (ret == 0) {
-						has_read += available;
-						left -= available;
-						user_info->read_idx[i][index]
-							+= available;
-					} else
-						pr_notice("[ccci0/util]dump copy to ser fail%d[3]\n",
-									ret);
-				}
+					pr_notice("[ccci0/util]dump copy to ser fail%d[1]\n",
+								ret);
+				ret = copy_to_user(&buf[has_read], ptr->buffer,
+					available - read_len);
+				if (ret == 0) {
+					has_read += available - read_len;
+					left -= available - read_len;
+					user_info->read_idx[index]
+						+= available - read_len;
+				} else
+					pr_notice("[ccci0/util]dump copy to ser fail%d[2]\n",
+								ret);
+			} else {
+				ret = copy_to_user(&buf[has_read],
+						ptr->buffer + read_pos,
+						available);
+				if (ret == 0) {
+					has_read += available;
+					left -= available;
+					user_info->read_idx[index] += available;
+				} else
+					pr_notice("[ccci0/util]dump copy to ser fail%d[3]\n",
+								ret);
 			}
 		}
 	}
@@ -860,7 +792,6 @@ static const struct proc_ops ccci_dump_fops = {
 static void ccci_dump_buffer_init(void)
 {
 	int i = 0;
-	int j = 0;
 	struct proc_dir_entry *ccci_dump_proc;
 	struct buffer_node *node_ptr = NULL;
 	struct ccci_dump_buffer *ptr = NULL;
@@ -888,37 +819,24 @@ static void ccci_dump_buffer_init(void)
 	md_sep_buf[12] = 'F';
 	md_sep_buf[14] = ' ';
 
-	for (i = 0; i < 5; i++) {
-		buff_bind_md_id[i] = -1;
-		if (j >= 2)
-			continue;
-		if (get_plat_capbility(MD_SYS1 + i)) {
-			buff_bind_md_id[MD_SYS1 + i] = j;
-			buff_en_bit_map |= 1<<j;
-			md_id_bind_buf_id[j] = MD_SYS1 + i + 1;
-			j++;
+	node_ptr = &node_array[0];
+	while (node_ptr->ctlb_ptr != NULL) {
+		ptr = node_ptr->ctlb_ptr;
+		spin_lock_init(&ptr->lock);
+		if (node_ptr->init_size) {
+			/* allocate buffer */
+			ptr->buffer = kmalloc(node_ptr->init_size,
+					GFP_KERNEL);
+			if (ptr->buffer != NULL) {
+				ptr->buf_size = node_ptr->init_size;
+				ptr->attr = node_ptr->init_attr;
+			} else
+				pr_notice("[ccci0/util]fail to allocate buff index %d\n",
+					node_ptr->index);
 		}
+		node_ptr++;
 	}
 
-	for (i = 0; i < 2; i++) {
-		node_ptr = &node_array[i][0];
-		while (node_ptr->ctlb_ptr != NULL) {
-			ptr = node_ptr->ctlb_ptr;
-			spin_lock_init(&ptr->lock);
-			if (buff_en_bit_map & (1U<<i) && node_ptr->init_size) {
-				/* allocate buffer */
-				ptr->buffer = kmalloc(node_ptr->init_size,
-						GFP_KERNEL);
-				if (ptr->buffer != NULL) {
-					ptr->buf_size = node_ptr->init_size;
-					ptr->attr = node_ptr->init_attr;
-				} else
-					pr_notice("[ccci0/util]fail to allocate buff index %d\n",
-						node_ptr->index);
-			}
-			node_ptr++;
-		}
-	}
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 	mrdump_mini_add_extra_file((unsigned long)reg_dump_ctlb[0].buffer,
 		__pa_nodebug(reg_dump_ctlb[0].buffer),
@@ -960,7 +878,7 @@ int get_dump_buf_usage(char buf[], int size)
 	return ret;
 }
 
-void ccci_util_mem_dump(int md_id, int buf_type, void *start_addr, int len)
+void ccci_util_mem_dump(int buf_type, void *start_addr, int len)
 {
 	unsigned int *curr_p = (unsigned int *)start_addr;
 	unsigned char *curr_ch_p = NULL;
@@ -970,19 +888,19 @@ void ccci_util_mem_dump(int md_id, int buf_type, void *start_addr, int len)
 	int i, j;
 
 	if (curr_p == NULL) {
-		ccci_dump_write(md_id, buf_type, 0, "start_addr <NULL>\n");
+		ccci_dump_write(buf_type, 0, "start_addr <NULL>\n");
 		return;
 	}
 	if (len == 0) {
-		ccci_dump_write(md_id, buf_type, 0, "len [0]\n");
+		ccci_dump_write(buf_type, 0, "len [0]\n");
 		return;
 	}
 
-	ccci_dump_write(md_id, buf_type, 0, "Base: %lx\n",
+	ccci_dump_write(buf_type, 0, "Base: %lx\n",
 		(unsigned long)start_addr);
 	/* Fix section */
 	for (i = 0; i < _16_fix_num; i++) {
-		ccci_dump_write(md_id, buf_type, 0,
+		ccci_dump_write(buf_type, 0,
 				"%03X: %08X %08X %08X %08X\n",
 				i * 16, *curr_p, *(curr_p + 1),
 				*(curr_p + 2), *(curr_p + 3));
@@ -999,7 +917,7 @@ void ccci_util_mem_dump(int md_id, int buf_type, void *start_addr, int len)
 		for (; j < 16; j++)
 			buf[j] = 0;
 		curr_p = (unsigned int *)buf;
-		ccci_dump_write(md_id, buf_type, 0,
+		ccci_dump_write(buf_type, 0,
 				"%03X: %08X %08X %08X %08X\n",
 				i * 16, *curr_p, *(curr_p + 1),
 				*(curr_p + 2), *(curr_p + 3));
@@ -1007,7 +925,7 @@ void ccci_util_mem_dump(int md_id, int buf_type, void *start_addr, int len)
 }
 EXPORT_SYMBOL(ccci_util_mem_dump);
 
-void ccci_util_cmpt_mem_dump(int md_id, int buf_type,
+void ccci_util_cmpt_mem_dump(int buf_type,
 	void *start_addr, int len)
 {
 	unsigned int *curr_p = (unsigned int *)start_addr;
@@ -1018,17 +936,17 @@ void ccci_util_cmpt_mem_dump(int md_id, int buf_type,
 	int i, j;
 
 	if (curr_p == NULL) {
-		ccci_dump_write(md_id, buf_type, 0, "start_addr <NULL>\n");
+		ccci_dump_write(buf_type, 0, "start_addr <NULL>\n");
 		return;
 	}
 	if (len == 0) {
-		ccci_dump_write(md_id, buf_type, 0, "len [0]\n");
+		ccci_dump_write(buf_type, 0, "len [0]\n");
 		return;
 	}
 
 	/* Fix section */
 	for (i = 0; i < _64_fix_num; i++) {
-		ccci_dump_write(md_id, buf_type, 0,
+		ccci_dump_write(buf_type, 0,
 			"%03X: %X %X %X %X %X %X %X %X %X %X %X %X %X %X %X %X\n",
 			i * 64,
 			*curr_p, *(curr_p + 1),
@@ -1052,7 +970,7 @@ void ccci_util_cmpt_mem_dump(int md_id, int buf_type,
 		for (; j < 64; j++)
 			buf[j] = 0;
 		curr_p = (unsigned int *)buf;
-		ccci_dump_write(md_id, buf_type, 0,
+		ccci_dump_write(buf_type, 0,
 			"%03X: %X %X %X %X %X %X %X %X %X %X %X %X %X %X %X %X\n",
 			i * 64,
 			*curr_p, *(curr_p + 1),

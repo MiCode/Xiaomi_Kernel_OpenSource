@@ -249,7 +249,6 @@ struct md_cd_ctrl {
 	 */
 	struct work_struct cldma_irq_work;
 	struct workqueue_struct *cldma_irq_worker;
-	unsigned char md_id;
 	unsigned char hif_id;
 	struct ccci_hif_traffic traffic_info;
 	atomic_t wakeup_src;

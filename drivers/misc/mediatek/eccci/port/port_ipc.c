@@ -81,7 +81,7 @@ int port_ipc_recv_match(struct port_t *port, struct sk_buff *skb)
 	if (port->rx_ch != CCCI_IPC_RX)
 		return 1;
 
-	CCCI_DEBUG_LOG(port->md_id, IPC,
+	CCCI_DEBUG_LOG(0, IPC,
 		"task_id matching: (%x/%x)\n",
 		ipc_ctrl->task_id, ccci_h->reserved);
 	id_map = unify_AP_id_2_local_id(ccci_h->reserved);
@@ -93,7 +93,7 @@ int port_ipc_recv_match(struct port_t *port, struct sk_buff *skb)
 }
 
 #if MD_GENERATION <= (6295)
-static int send_new_time_to_md(int md_id, int tz);
+static int send_new_time_to_md(int tz);
 #endif
 int current_time_zone;
 
@@ -131,18 +131,18 @@ long port_ipc_ioctl(struct file *file, unsigned int cmd,
 		break;
 
 	case CCCI_IPC_UPDATE_TIME:
-		CCCI_REPEAT_LOG(port->md_id, IPC,
+		CCCI_REPEAT_LOG(0, IPC,
 			"CCCI_IPC_UPDATE_TIME 0x%x\n", (unsigned int)arg);
 		current_time_zone = (int)arg;
 		#if MD_GENERATION <= (6295)
-		ret = send_new_time_to_md(port->md_id, (int)arg);
+		ret = send_new_time_to_md(0, (int)arg);
 		#else
-		ret = send_new_time_to_new_md(port->md_id, (int)arg);
+		ret = send_new_time_to_new_md((int)arg);
 		#endif
 		break;
 
 	case CCCI_IPC_UPDATE_TIMEZONE:
-		CCCI_REPEAT_LOG(port->md_id, IPC,
+		CCCI_REPEAT_LOG(0, IPC,
 			"CCCI_IPC_UPDATE_TIMEZONE keep 0x%x\n",
 			(unsigned int)arg);
 		current_time_zone = (int)arg;
@@ -181,7 +181,7 @@ int port_ipc_write_check_id(struct port_t *port, struct sk_buff *skb)
 
 	id_map = local_MD_id_2_unify_id(ilm->dest_mod_id);
 	if (id_map == NULL) {
-		CCCI_ERROR_LOG(port->md_id, IPC,
+		CCCI_ERROR_LOG(0, IPC,
 		"Invalid Dest MD ID (%d)\n", ilm->dest_mod_id);
 		return -CCCI_ERR_IPC_ID_ERROR;
 	}
@@ -205,9 +205,9 @@ unsigned int port_ipc_poll(struct file *fp, struct poll_table_struct *poll)
 	return mask;
 }
 
-static struct port_t *find_ipc_port_by_task_id(int md_id, int task_id)
+static struct port_t *find_ipc_port_by_task_id(int task_id)
 {
-	return port_get_by_minor(md_id, task_id + CCCI_IPC_MINOR_BASE);
+	return port_get_by_minor(task_id + CCCI_IPC_MINOR_BASE);
 }
 
 
@@ -224,7 +224,7 @@ static const struct file_operations ipc_dev_fops = {
 	.poll = &port_ipc_poll,
 };
 
-static int port_ipc_kernel_write(int md_id, struct ipc_ilm *in_ilm)
+static int port_ipc_kernel_write(struct ipc_ilm *in_ilm)
 {
 	u32 task_id;
 	int count, actual_count, ret;
@@ -235,7 +235,7 @@ static int port_ipc_kernel_write(int md_id, struct ipc_ilm *in_ilm)
 
 	/* src module id check */
 	task_id = in_ilm->src_mod_id & (~AP_UNIFY_ID_FLAG);
-	port = find_ipc_port_by_task_id(md_id, task_id);
+	port = find_ipc_port_by_task_id(task_id);
 	if (!port) {
 		CCCI_ERROR_LOG(-1, IPC, "invalid task ID %x\n",
 		in_ilm->src_mod_id);
@@ -251,12 +251,12 @@ static int port_ipc_kernel_write(int md_id, struct ipc_ilm *in_ilm)
 	count = sizeof(struct ccci_ipc_ilm) +
 		in_ilm->local_para_ptr->msg_len;
 	if (count > CCCI_MTU) {
-		CCCI_ERROR_LOG(port->md_id, IPC,
+		CCCI_ERROR_LOG(0, IPC,
 			"reject packet(size=%d ), lager than MTU on %s\n",
 			count, port->name);
 		return -ENOMEM;
 	}
-	CCCI_DEBUG_LOG(port->md_id, IPC, "write on %s for %d\n",
+	CCCI_DEBUG_LOG(0, IPC, "write on %s for %d\n",
 		port->name, in_ilm->local_para_ptr->msg_len);
 
 	actual_count = count + sizeof(struct ccci_header);
@@ -302,11 +302,9 @@ static int port_ipc_kernel_write(int md_id, struct ipc_ilm *in_ilm)
 	}
 }
 
-int ccci_ipc_send_ilm(int md_id, struct ipc_ilm *in_ilm)
+int ccci_ipc_send_ilm(struct ipc_ilm *in_ilm)
 {
-	if (md_id < 0 || md_id >= MAX_MD_NUM)
-		return -EINVAL;
-	return port_ipc_kernel_write(md_id, in_ilm);
+	return port_ipc_kernel_write(in_ilm);
 }
 
 #ifdef CONFIG_MTK_CONN_MD
@@ -326,7 +324,7 @@ static int port_ipc_kernel_thread(void *arg)
 	struct ipc_ilm out_ilm;
 	struct ipc_task_id_map *id_map = NULL;
 
-	CCCI_DEBUG_LOG(port->md_id, IPC,
+	CCCI_DEBUG_LOG(0, IPC,
 		"port %s's thread running\n", port->name);
 
 	while (1) {
@@ -339,7 +337,7 @@ retry:
 		}
 		if (kthread_should_stop())
 			break;
-		CCCI_DEBUG_LOG(port->md_id, IPC,
+		CCCI_DEBUG_LOG(0, IPC,
 			"read on %s\n", port->name);
 		/* 1. dequeue */
 		spin_lock_irqsave(&port->rx_skb_list.lock, flags);
@@ -372,17 +370,17 @@ retry:
 #endif
 				break;
 			default:
-				CCCI_ERROR_LOG(port->md_id, IPC,
+				CCCI_ERROR_LOG(0, IPC,
 					"recv unknown task ID %d\n",
 					id_map->task_id);
 				break;
 			}
 		} else {
-			CCCI_ERROR_LOG(port->md_id, IPC,
+			CCCI_ERROR_LOG(0, IPC,
 				"recv unknown module ID %d\n",
 				ccci_h->reserved);
 		}
-		CCCI_DEBUG_LOG(port->md_id, IPC,
+		CCCI_DEBUG_LOG(0, IPC,
 			"read done on %s l=%d\n", port->name,
 			out_ilm.local_para_ptr->msg_len);
 		ccci_free_skb(skb);
@@ -397,7 +395,7 @@ int port_ipc_init(struct port_t *port)
 		kmalloc(sizeof(struct ccci_ipc_ctrl), GFP_KERNEL);
 
 	if (unlikely(!ipc_ctrl)) {
-		CCCI_ERROR_LOG(port->md_id, IPC, "alloc ipc_ctrl fail!!\n");
+		CCCI_ERROR_LOG(0, IPC, "alloc ipc_ctrl fail!!\n");
 		return -1;
 	}
 
@@ -417,7 +415,7 @@ int port_ipc_init(struct port_t *port)
 	if (port->flags & PORT_F_WITH_CHAR_NODE) {
 		dev = kmalloc(sizeof(struct cdev), GFP_KERNEL);
 		if (unlikely(!dev)) {
-			CCCI_ERROR_LOG(port->md_id, IPC,
+			CCCI_ERROR_LOG(0, IPC,
 				"alloc ipc char dev fail!!\n");
 			kfree(ipc_ctrl);
 			return -1;
@@ -452,7 +450,7 @@ struct port_ops ipc_port_ops = {
 };
 
 #if MD_GENERATION <= (6295)
-int send_new_time_to_md(int md_id, int tz)
+int send_new_time_to_md(int tz)
 {
 	struct ipc_ilm in_ilm;
 	char local_param[sizeof(struct local_para) + 16];
@@ -479,17 +477,17 @@ int send_new_time_to_md(int md_id, int tz)
 	in_ilm.local_para_ptr->msg_len = 20;
 	memcpy(in_ilm.local_para_ptr->data, timeinfo, 16);
 
-	CCCI_DEBUG_LOG(md_id, IPC,
+	CCCI_DEBUG_LOG(0, IPC,
 		"Update time(R): [sec=0x%lx][timezone=0x%08x][des=0x%08x]\n",
 		tv.tv_sec, sys_tz.tz_minuteswest, sys_tz.tz_dsttime);
-	CCCI_DEBUG_LOG(md_id, IPC,
+	CCCI_DEBUG_LOG(0, IPC,
 		"Update time(A): [L:0x%08x][H:0x%08x][0x%08x][0x%08x]\n",
 		timeinfo[0], timeinfo[1], timeinfo[2], timeinfo[3]);
-	if (port_ipc_kernel_write(md_id, &in_ilm) < 0) {
-		CCCI_NORMAL_LOG(md_id, IPC, "Update fail\n");
+	if (port_ipc_kernel_write(&in_ilm) < 0) {
+		CCCI_NORMAL_LOG(0, IPC, "Update fail\n");
 		return -1;
 	}
-	CCCI_REPEAT_LOG(md_id, IPC, "Update success\n");
+	CCCI_REPEAT_LOG(0, IPC, "Update success\n");
 	return 0;
 }
 #endif

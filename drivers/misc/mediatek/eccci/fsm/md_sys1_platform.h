@@ -61,8 +61,8 @@ struct ccci_clk_node {
 };
 
 struct ccci_plat_ops {
-	void (*md_dump_reg)(unsigned int md_index);
-	//void (*cldma_hw_rst)(unsigned char md_id);
+	void (*md_dump_reg)(void);
+	//void (*cldma_hw_rst)(void);
 	//void (*set_clk_cg)(struct ccci_modem *md, unsigned int on);
 	int (*remap_md_reg)(struct ccci_modem *md);
 	void (*lock_modem_clock_src)(int locked);
@@ -76,7 +76,7 @@ struct ccci_plat_ops {
 	int (*power_on)(struct ccci_modem *md);
 	int (*let_md_go)(struct ccci_modem *md);
 	int (*power_off)(struct ccci_modem *md, unsigned int timeout);
-	int (*vcore_config)(unsigned int md_id, unsigned int hold_req);
+	int (*vcore_config)(unsigned int hold_req);
 };
 
 struct md_hw_info {
@@ -109,7 +109,7 @@ enum {
 /* ADD_SYS_CORE */
 int ccci_modem_syssuspend(void);
 void ccci_modem_sysresume(void);
-void md_dump_register_6873(unsigned int md_index);
+void md_dump_register_6873(void);
 
 #if IS_ENABLED(CONFIG_MTK_EMI)
 extern void mtk_emidbg_dump(void);

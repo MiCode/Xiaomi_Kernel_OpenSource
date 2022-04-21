@@ -48,7 +48,7 @@
 
 #define TAG "mcd"
 
-struct ccci_modem *modem_sys[MAX_MD_NUM];
+struct ccci_modem *modem_sys;
 
 #ifdef CCCI_KMODULE_ENABLE
 bool spm_is_md1_sleep(void)
@@ -75,7 +75,7 @@ void ccif_enable_irq(struct ccci_modem *md)
 
 	if (atomic_cmpxchg(&md_info->ccif_irq_enabled, 0, 1) == 0) {
 		enable_irq(md_info->ap_ccif_irq_id);
-		CCCI_NORMAL_LOG(md->index, TAG, "enable ccif irq\n");
+		CCCI_NORMAL_LOG(0, TAG, "enable ccif irq\n");
 	}
 }
 
@@ -85,7 +85,7 @@ void ccif_disable_irq(struct ccci_modem *md)
 
 	if (atomic_cmpxchg(&md_info->ccif_irq_enabled, 1, 0) == 1) {
 		disable_irq_nosync(md_info->ap_ccif_irq_id);
-		/*CCCI_NORMAL_LOG(md->index, TAG, "disable ccif irq\n");*/
+		/*CCCI_NORMAL_LOG(0, TAG, "disable ccif irq\n");*/
 	}
 }
 
@@ -93,7 +93,7 @@ void wdt_enable_irq(struct ccci_modem *md)
 {
 	if (atomic_cmpxchg(&md->wdt_enabled, 0, 1) == 0) {
 		enable_irq(md->md_wdt_irq_id);
-		CCCI_NORMAL_LOG(md->index, TAG, "enable wdt irq\n");
+		CCCI_NORMAL_LOG(0, TAG, "enable wdt irq\n");
 	}
 }
 
@@ -105,7 +105,7 @@ void wdt_disable_irq(struct ccci_modem *md)
 		 * if use disable_irq in isr, system will hang
 		 */
 		disable_irq_nosync(md->md_wdt_irq_id);
-		/*CCCI_NORMAL_LOG(md->index, TAG, "disable wdt irq\n");*/
+		/*CCCI_NORMAL_LOG(0, TAG, "disable wdt irq\n");*/
 	}
 }
 
@@ -113,11 +113,11 @@ static irqreturn_t md_cd_wdt_isr(int irq, void *data)
 {
 	struct ccci_modem *md = (struct ccci_modem *)data;
 
-	//CCCI_ERROR_LOG(md->index, TAG, "MD WDT IRQ\n");
-	//ccci_event_log("md%d: MD WDT IRQ\n", md->index);
+	//CCCI_ERROR_LOG(0, TAG, "MD WDT IRQ\n");
+	//ccci_event_log("md: MD WDT IRQ\n");
 	ccif_disable_irq(md);
 	wdt_disable_irq(md);
-	ccci_fsm_recv_md_interrupt(md->index, MD_IRQ_WDT);
+	ccci_fsm_recv_md_interrupt(MD_IRQ_WDT);
 
 	return IRQ_HANDLED;
 }
@@ -125,11 +125,10 @@ static irqreturn_t md_cd_wdt_isr(int irq, void *data)
 static void md_cd_exception(struct ccci_modem *md, enum HIF_EX_STAGE stage)
 {
 	struct ccci_smem_region *mdccci_dbg =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_MDCCCI_DBG);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDCCCI_DBG);
 
-	CCCI_ERROR_LOG(md->index, TAG, "MD exception HIF %d\n", stage);
-	ccci_event_log("md%d:MD exception HIF %d\n", md->index, stage);
+	CCCI_ERROR_LOG(0, TAG, "MD exception HIF %d\n", stage);
+	ccci_event_log("md:MD exception HIF %d\n", stage);
 	/* in exception mode, MD won't sleep, so we do not
 	 * need to request MD resource first
 	 */
@@ -137,8 +136,7 @@ static void md_cd_exception(struct ccci_modem *md, enum HIF_EX_STAGE stage)
 	case HIF_EX_INIT:
 		if (*((int *)(mdccci_dbg->base_ap_view_vir +
 			CCCI_SMEM_OFFSET_SEQERR)) != 0) {
-			CCCI_ERROR_LOG(md->index, TAG,
-				"MD found wrong sequence number\n");
+			CCCI_ERROR_LOG(0, TAG, "MD found wrong sequence number\n");
 		}
 		ccci_hif_md_exception(md->hif_flag, stage);
 		/* Rx dispatch does NOT depend on queue index
@@ -154,7 +152,7 @@ static void md_cd_exception(struct ccci_modem *md, enum HIF_EX_STAGE stage)
 		ccci_hif_md_exception(md->hif_flag, stage);
 		/* tell MD to reset CLDMA */
 		ccci_hif_send_data(CCIF_HIF_ID, H2D_EXCEPTION_CLEARQ_ACK);
-		CCCI_NORMAL_LOG(md->index, TAG, "send clearq_ack to MD\n");
+		CCCI_NORMAL_LOG(0, TAG, "send clearq_ack to MD\n");
 		break;
 	case HIF_EX_ALLQ_RESET:
 		md->per_md_data.is_in_ee_dump = 1;
@@ -177,14 +175,14 @@ static void polling_ready(struct ccci_modem *md, int step)
 #endif
 	while (cnt > 0) {
 		if (md_info->channel_id & (1 << step)) {
-			CCCI_DEBUG_LOG(md->index, TAG,
+			CCCI_DEBUG_LOG(0, TAG,
 				"poll RCHNUM %d\n", md_info->channel_id);
 			return;
 		}
 		msleep(time_once);
 		cnt--;
 	}
-	CCCI_ERROR_LOG(md->index, TAG,
+	CCCI_ERROR_LOG(0, TAG,
 		"poll EE HS timeout, RCHNUM %d\n", md_info->channel_id);
 }
 
@@ -207,16 +205,16 @@ static int md_cd_ee_handshake(struct ccci_modem *md, int timeout)
 	return 0;
 }
 
-int md_fsm_exp_info(int md_id, unsigned int channel_id)
+int md_fsm_exp_info(unsigned int channel_id)
 {
 	struct ccci_modem *md;
 	struct md_sys1_info *md_info;
 
-	md = ccci_md_get_modem_by_id(md_id);
+	md = ccci_get_modem();
 	if (!md)
 		return 0;
 	if (channel_id & (1 << D2H_EXCEPTION_INIT)) {
-		ccci_fsm_recv_md_interrupt(md->index, MD_IRQ_CCIF_EX);
+		ccci_fsm_recv_md_interrupt(MD_IRQ_CCIF_EX);
 		return 0;
 	}
 	md_info = (struct md_sys1_info *)md->private_data;
@@ -226,13 +224,13 @@ int md_fsm_exp_info(int md_id, unsigned int channel_id)
 		__pm_wakeup_event(md_info->peer_wake_lock,
 			jiffies_to_msecs(HZ));
 	if (md_info->channel_id & (1<<AP_MD_SEQ_ERROR)) {
-		CCCI_ERROR_LOG(md->index, TAG, "MD check seq fail\n");
+		CCCI_ERROR_LOG(0, TAG, "MD check seq fail\n");
 		md->ops->dump_info(md, DUMP_FLAG_CCIF, NULL, 0);
 	}
 
 	if (md_info->channel_id & (1 << D2H_EXCEPTION_INIT)) {
 		/* do not disable IRQ, as CCB still needs it */
-		ccci_fsm_recv_md_interrupt(md->index, MD_IRQ_CCIF_EX);
+		ccci_fsm_recv_md_interrupt(MD_IRQ_CCIF_EX);
 	}
 
 	return 0;
@@ -243,20 +241,20 @@ static inline int md_sys1_sw_init(struct ccci_modem *md)
 {
 	int ret;
 
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"%s, MD_WDT IRQ(%d)\n", __func__, md->md_wdt_irq_id);
 
 	ret = request_irq(md->md_wdt_irq_id, md_cd_wdt_isr,
 			md->md_wdt_irq_flags, "MD_WDT", md);
 	if (ret) {
-		CCCI_ERROR_LOG(md->index, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"request MD_WDT IRQ(%d) error %d\n",
 			md->md_wdt_irq_id, ret);
 		return ret;
 	}
 	ret = irq_set_irq_wake(md->md_wdt_irq_id, 1);
 	if (ret)
-		CCCI_ERROR_LOG(md->index, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"irq_set_irq_wake MD_WDT IRQ(%d) error %d\n",
 			md->md_wdt_irq_id, ret);
 	/* IRQ is enabled after requested, so call enable_irq after
@@ -267,7 +265,7 @@ static inline int md_sys1_sw_init(struct ccci_modem *md)
 
 static int md_cd_init(struct ccci_modem *md)
 {
-	CCCI_INIT_LOG(md->index, TAG, "CCCI: modem is initializing\n");
+	CCCI_INIT_LOG(0, TAG, "CCCI: modem is initializing\n");
 
 	return 0;
 }
@@ -281,15 +279,15 @@ static int ccci_md_hif_start(struct ccci_modem *md, int stage)
 		//if (md->hw_info->plat_ptr->set_clk_cg)
 		//	md->hw_info->plat_ptr->set_clk_cg(md, 1);
 
-		//ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, md->index, 1);
+		//ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, 1);
 
 		//if (md->hif_flag & (1 << CLDMA_HIF_ID)) {
 			/* 2. clearring buffer, just in case */
 			//ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, OUT);
 			//ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, IN);
 			//if (md->hw_info->plat_ptr->cldma_hw_rst)
-			//	md->hw_info->plat_ptr->cldma_hw_rst(md->index);
-			//ccci_hif_hw_reset(1 << CLDMA_HIF_ID, md->index);
+			//	md->hw_info->plat_ptr->cldma_hw_rst();
+			//ccci_hif_hw_reset(1 << CLDMA_HIF_ID);
 		//}
 		break;
 
@@ -316,14 +314,14 @@ static int md_cd_start(struct ccci_modem *md)
 			md->hw_info->plat_ptr->remap_md_reg(md);
 		md_sys1_sw_init(md);
 
-		//ccci_hif_late_init(md->index, md->hif_flag);
+		//ccci_hif_late_init(md->hif_flag);
 		/* init security, as security depends on dummy_char,
 		 * which is ready very late.
 		 */
 		if (md->hw_info->plat_ptr->start_platform) {
 			ret = md->hw_info->plat_ptr->start_platform(md);
 			if (ret) {
-				CCCI_BOOTUP_LOG(md->index, TAG,
+				CCCI_BOOTUP_LOG(0, TAG,
 					"power on MD BROM fail %d\n", ret);
 				goto out;
 			}
@@ -331,28 +329,25 @@ static int md_cd_start(struct ccci_modem *md)
 		md->per_md_data.config.setting &= ~MD_SETTING_FIRST_BOOT;
 	}
 
-	CCCI_BOOTUP_LOG(md->index, TAG, "modem is starting\n");
+	CCCI_BOOTUP_LOG(0, TAG, "modem is starting\n");
 	/* 1. load modem image */
 
-	CCCI_BOOTUP_LOG(md->index, TAG,
-		"modem image ready, bypass load\n");
-	ret = ccci_get_md_check_hdr_inf(md->index,
+	CCCI_BOOTUP_LOG(0, TAG, "modem image ready, bypass load\n");
+	ret = ccci_get_md_check_hdr_inf(
 		&md->per_md_data.img_info[IMG_MD],
 		md->per_md_data.img_post_fix);
 	if (ret < 0) {
-		CCCI_BOOTUP_LOG(md->index, TAG,
-			"partition read fail(%d)\n", ret);
+		CCCI_BOOTUP_LOG(0, TAG, "partition read fail(%d)\n", ret);
 		/* goto out; */
 	} else
-		CCCI_BOOTUP_LOG(md->index, TAG,
-			"partition read success\n");
+		CCCI_BOOTUP_LOG(0, TAG, "partition read success\n");
 
 	ccci_md_hif_start(md, 1);
 	/* 4. power on modem, do NOT touch MD register before this */
 	if (md->hw_info->plat_ptr->power_on) {
 		ret = md->hw_info->plat_ptr->power_on(md);
 		if (ret) {
-			CCCI_BOOTUP_LOG(md->index, TAG,
+			CCCI_BOOTUP_LOG(0, TAG,
 				"power on MD fail %d\n", ret);
 			goto out;
 		}
@@ -374,7 +369,7 @@ static int md_cd_start(struct ccci_modem *md)
 	md->per_md_data.is_in_ee_dump = 0;
 	md->is_force_asserted = 0;
  out:
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"modem started %d\n", ret);
 	/* used for throttling feature - start */
 	/*ccci_modem_boot_count[md->index]++;*/
@@ -386,23 +381,16 @@ static int check_power_off_en(struct ccci_modem *md)
 {
 	int smem_val;
 	struct ccci_smem_region *mdss_dbg =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_MDSS_DBG);
-
-	if (md->index != MD_SYS1)
-		return 1;
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
 
 	smem_val = *((int *)((long)mdss_dbg->base_ap_view_vir +
 		md->hw_info->plat_val->offset_epof_md1));
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"share for power off:%x\n", smem_val);
+	CCCI_NORMAL_LOG(0, TAG, "share for power off:%x\n", smem_val);
 	if (smem_val != 0) {
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"[ccci]enable power off check\n");
+		CCCI_NORMAL_LOG(0, TAG, "[ccci]enable power off check\n");
 		return 1;
 	}
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"disable power off check\n");
+	CCCI_NORMAL_LOG(0, TAG, "disable power off check\n");
 	return 0;
 }
 
@@ -430,13 +418,10 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 	int count = 0;
 	int en_power_check = check_power_off_en(md);
 	struct ccci_smem_region *mdccci_dbg =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_MDCCCI_DBG);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDCCCI_DBG);
 	struct ccci_smem_region *mdss_dbg =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_MDSS_DBG);
-	struct ccci_per_md *per_md_data =
-		ccci_get_per_md_data(md->index);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
+	struct ccci_per_md *per_md_data = ccci_get_per_md_data();
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
 	count = 5;
@@ -444,17 +429,17 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 		count--;
 		if (count == 0) {
 			if (en_power_check) {
-				CCCI_NORMAL_LOG(md->index, TAG,
+				CCCI_NORMAL_LOG(0, TAG,
 				"MD is not in sleep mode, dump md status!\n");
-				CCCI_MEM_LOG_TAG(md->index, TAG,
+				CCCI_MEM_LOG_TAG(0, TAG,
 				"Dump MD EX log\n");
 				if (md_dbg_dump_flag &
 					(1 << MD_DBG_DUMP_SMEM)) {
-					ccci_util_mem_dump(md->index,
+					ccci_util_mem_dump(
 					CCCI_DUMP_MEM_DUMP,
 					mdccci_dbg->base_ap_view_vir,
 					mdccci_dbg->size);
-					ccci_util_mem_dump(md->index,
+					ccci_util_mem_dump(
 					CCCI_DUMP_MEM_DUMP,
 					mdss_dbg->base_ap_view_vir,
 					mdss_dbg->size);
@@ -481,23 +466,20 @@ static int md_cd_pre_stop(struct ccci_modem *md, unsigned int stop_type)
 {
 	u32 pending;
 	struct ccci_smem_region *mdccci_dbg =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_MDCCCI_DBG);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDCCCI_DBG);
 	struct ccci_smem_region *mdss_dbg =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_MDSS_DBG);
-	struct ccci_per_md *per_md_data =
-		ccci_get_per_md_data(md->index);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
+	struct ccci_per_md *per_md_data = ccci_get_per_md_data();
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
 	/* 1. mutex check */
 	if (atomic_add_return(1, &md->reset_on_going) > 1) {
-		CCCI_NORMAL_LOG(md->index, TAG,
+		CCCI_NORMAL_LOG(0, TAG,
 			"One reset flow is on-going\n");
 		return -CCCI_ERR_MD_IN_RESET;
 	}
 
-	CCCI_NORMAL_LOG(md->index, TAG,
+	CCCI_NORMAL_LOG(0, TAG,
 		"%s: CCCI modem is resetting\n", __func__);
 	/* 2. disable WDT IRQ */
 	wdt_disable_irq(md);
@@ -511,14 +493,14 @@ static int md_cd_pre_stop(struct ccci_modem *md, unsigned int stop_type)
 		pending = mt_irq_get_pending(md->md_wdt_irq_id);
 #endif
 		if (pending) {
-			CCCI_NORMAL_LOG(md->index, TAG, "WDT IRQ occur.");
-			CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD EX log\n");
+			CCCI_NORMAL_LOG(0, TAG, "WDT IRQ occur.");
+			CCCI_MEM_LOG_TAG(0, TAG, "Dump MD EX log\n");
 			if (md_dbg_dump_flag & (1 << MD_DBG_DUMP_SMEM)) {
-				ccci_util_mem_dump(md->index,
+				ccci_util_mem_dump(
 					CCCI_DUMP_MEM_DUMP,
 					mdccci_dbg->base_ap_view_vir,
 					mdccci_dbg->size);
-				ccci_util_mem_dump(md->index,
+				ccci_util_mem_dump(
 					CCCI_DUMP_MEM_DUMP,
 					mdss_dbg->base_ap_view_vir,
 					mdss_dbg->size);
@@ -533,8 +515,8 @@ static int md_cd_pre_stop(struct ccci_modem *md, unsigned int stop_type)
 		}
 	}
 
-	CCCI_NORMAL_LOG(md->index, TAG, "Reset when MD state: %d\n",
-			ccci_fsm_get_md_state(md->index));
+	CCCI_NORMAL_LOG(0, TAG, "Reset when MD state: %d\n",
+			ccci_fsm_get_md_state());
 	return 0;
 }
 
@@ -542,7 +524,7 @@ static int md_cd_stop(struct ccci_modem *md, unsigned int stop_type)
 {
 	int ret = 0;
 
-	CCCI_NORMAL_LOG(md->index, TAG,
+	CCCI_NORMAL_LOG(0, TAG,
 		"modem is power off, stop_type=%d\n", stop_type);
 	ccif_disable_irq(md);
 	/* Check EMI before */
@@ -553,8 +535,7 @@ static int md_cd_stop(struct ccci_modem *md, unsigned int stop_type)
 	if (md->hw_info->plat_ptr->power_off)
 		ret = md->hw_info->plat_ptr->power_off(md,
 			stop_type == MD_FLIGHT_MODE_ENTER ? 100 : 0);
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"modem is power off done, %d\n", ret);
+	CCCI_NORMAL_LOG(0, TAG, "modem is power off done, %d\n", ret);
 	/* Check EMI after */
 	if (md->hw_info->plat_ptr->check_emi_state)
 		md->hw_info->plat_ptr->check_emi_state(md, 0);
@@ -567,37 +548,37 @@ static void dump_runtime_data_v2(struct ccci_modem *md,
 {
 	u8 i = 0;
 
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"head_pattern 0x%x\n", ap_feature->head_pattern);
 
 	for (i = BOOT_INFO; i < AP_RUNTIME_FEATURE_ID_MAX; i++) {
-		CCCI_BOOTUP_LOG(md->index, TAG,
+		CCCI_BOOTUP_LOG(0, TAG,
 			"feature %u: mask %u, version %u\n",
 			i, ap_feature->feature_set[i].support_mask,
 			ap_feature->feature_set[i].version);
 	}
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"share_memory_support 0x%x\n",
 		ap_feature->share_memory_support);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"ap_runtime_data_addr 0x%x\n",
 		ap_feature->ap_runtime_data_addr);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"ap_runtime_data_size 0x%x\n",
 		ap_feature->ap_runtime_data_size);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"md_runtime_data_addr 0x%x\n",
 		ap_feature->md_runtime_data_addr);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"md_runtime_data_size 0x%x\n",
 		ap_feature->md_runtime_data_size);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"set_md_mpu_start_addr 0x%x\n",
 		ap_feature->set_md_mpu_start_addr);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"set_md_mpu_total_size 0x%x\n",
 		ap_feature->set_md_mpu_total_size);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"tail_pattern 0x%x\n",
 		ap_feature->tail_pattern);
 }
@@ -607,43 +588,43 @@ static void dump_runtime_data_v2_1(struct ccci_modem *md,
 {
 	u8 i = 0;
 
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"head_pattern 0x%x\n", ap_feature->head_pattern);
 
 	for (i = BOOT_INFO; i < AP_RUNTIME_FEATURE_ID_MAX; i++) {
-		CCCI_BOOTUP_LOG(md->index, TAG,
+		CCCI_BOOTUP_LOG(0, TAG,
 			"feature %u: mask %u, version %u\n",
 			i, ap_feature->feature_set[i].support_mask,
 			ap_feature->feature_set[i].version);
 	}
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"share_memory_support 0x%x\n",
 		ap_feature->share_memory_support);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"ap_runtime_data_addr 0x%x\n",
 		ap_feature->ap_runtime_data_addr);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"ap_runtime_data_size 0x%x\n",
 		ap_feature->ap_runtime_data_size);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"md_runtime_data_addr 0x%x\n",
 		ap_feature->md_runtime_data_addr);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"md_runtime_data_size 0x%x\n",
 		ap_feature->md_runtime_data_size);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"set_md_mpu_noncached_start_addr 0x%x\n",
 		ap_feature->noncached_mpu_start_addr);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"set_md_mpu_noncached_total_size 0x%x\n",
 		ap_feature->noncached_mpu_total_size);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"set_md_mpu_cached_start_addr 0x%x\n",
 		ap_feature->cached_mpu_start_addr);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"set_md_mpu_cached_total_size 0x%x\n",
 		ap_feature->cached_mpu_total_size);
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_BOOTUP_LOG(0, TAG,
 		"tail_pattern 0x%x\n",
 		ap_feature->tail_pattern);
 }
@@ -654,7 +635,7 @@ static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 	int i;
 	int __iomem *addr;
 	struct ccci_smem_region *dbm =
-		ccci_md_get_smem_by_user_id(md->index, SMEM_USER_RAW_DBM);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_DBM);
 
 	/* Region 0, dbm */
 	addr = (int __iomem *)dbm->base_ap_view_vir;
@@ -683,7 +664,7 @@ static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 #if IS_ENABLED(CONFIG_MTK_PBM)
 	int __iomem *addr;
 	struct ccci_smem_region *dbm =
-		ccci_md_get_smem_by_user_id(md->index, SMEM_USER_RAW_DBM);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_DBM);
 
 	/* Region 0, dbm */
 	addr = (int __iomem *)dbm->base_ap_view_vir;
@@ -696,8 +677,7 @@ static void config_ap_runtime_data_v2(struct ccci_modem *md,
 	struct ap_query_md_feature *ap_feature)
 {
 	struct ccci_smem_region *runtime_data =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_RUNTIME_DATA);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_RUNTIME_DATA);
 
 	ap_feature->head_pattern = AP_FEATURE_QUERY_PATTERN;
 	/*AP query MD feature set */
@@ -730,8 +710,7 @@ static void config_ap_runtime_data_v2_1(struct ccci_modem *md,
 	struct ap_query_md_feature_v2_1 *ap_feature)
 {
 	struct ccci_smem_region *runtime_data =
-		ccci_md_get_smem_by_user_id(md->index,
-			SMEM_USER_RAW_RUNTIME_DATA);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_RUNTIME_DATA);
 
 	ap_feature->head_pattern = AP_FEATURE_QUERY_PATTERN;
 	/*AP query MD feature set */
@@ -774,7 +753,7 @@ static int md_cd_send_runtime_data_v2(struct ccci_modem *md,
 	int ret;
 
 	if (md->runtime_version < AP_MD_HS_V2) {
-		CCCI_ERROR_LOG(md->index, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"unsupported runtime version %d\n",
 			md->runtime_version);
 		return -CCCI_ERR_CCIF_INVALID_RUNTIME_LEN;
@@ -788,7 +767,7 @@ static int md_cd_send_runtime_data_v2(struct ccci_modem *md,
 			ccci_hif_fill_rt_header(CCIF_HIF_ID, packet_size,
 			tx_ch, txqno);
 		if (!ap_rt_data_v2_1) {
-			CCCI_ERROR_LOG(md->index, TAG, "rt header v2 NULL!\n");
+			CCCI_ERROR_LOG(0, TAG, "rt header v2 NULL!\n");
 			return -1;
 		}
 
@@ -804,7 +783,7 @@ static int md_cd_send_runtime_data_v2(struct ccci_modem *md,
 			ccci_hif_fill_rt_header(CCIF_HIF_ID, packet_size,
 			tx_ch, txqno);
 		if (!ap_rt_data) {
-			CCCI_ERROR_LOG(md->index, TAG, "rt header NULL!\n");
+			CCCI_ERROR_LOG(0, TAG, "rt header NULL!\n");
 			return -1;
 		}
 		memset_io(ap_rt_data, 0, sizeof(struct ap_query_md_feature));
@@ -820,7 +799,7 @@ static int md_cd_send_runtime_data_v2(struct ccci_modem *md,
 
 static int md_cd_force_assert(struct ccci_modem *md, enum MD_COMM_TYPE type)
 {
-	CCCI_NORMAL_LOG(md->index, TAG,
+	CCCI_NORMAL_LOG(0, TAG,
 		"force assert MD using %d\n", type);
 	if (type == CCIF_INTERRUPT)
 		ccci_hif_send_data(CCIF_HIF_ID, AP_MD_SEQ_ERROR);
@@ -835,12 +814,12 @@ static int md_cd_dump_info(struct ccci_modem *md,
 	enum MODEM_DUMP_FLAG flag, void *buff, int length)
 {
 	if (flag & DUMP_FLAG_CCIF_REG) {
-		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump CCIF REG\n");
+		CCCI_MEM_LOG_TAG(0, TAG, "Dump CCIF REG\n");
 		ccci_hif_dump_status(CCIF_HIF_ID, DUMP_FLAG_CCIF_REG,
 			NULL, -1);
 	}
 	if (flag & DUMP_FLAG_PCCIF_REG) {
-		CCCI_MEM_LOG_TAG(md->index, TAG, "ignore Dump PCCIF REG\n");
+		CCCI_MEM_LOG_TAG(0, TAG, "ignore Dump PCCIF REG\n");
 		/*md_cd_dump_pccif_reg(md);*/
 	}
 	if (flag & DUMP_FLAG_CCIF) {
@@ -852,7 +831,7 @@ static int md_cd_dump_info(struct ccci_modem *md,
 		else
 			dest_buff = (unsigned int *)ccif_sram;
 		if (length < sizeof(ccif_sram) && length > 0) {
-			CCCI_ERROR_LOG(md->index, TAG,
+			CCCI_ERROR_LOG(0, TAG,
 				"dump CCIF SRAM length illegal %d/%zu\n",
 				length, sizeof(ccif_sram));
 			dest_buff = (unsigned int *)ccif_sram;
@@ -873,38 +852,34 @@ static int md_cd_dump_info(struct ccci_modem *md,
 		md->hw_info->plat_ptr->debug_reg(md);
 	if (flag & DUMP_FLAG_SMEM_EXP) {
 		struct ccci_smem_region *mdccci_dbg =
-			ccci_md_get_smem_by_user_id(md->index,
-				SMEM_USER_RAW_MDCCCI_DBG);
+			ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDCCCI_DBG);
 		struct ccci_smem_region *mdss_dbg =
-			ccci_md_get_smem_by_user_id(md->index,
-				SMEM_USER_RAW_MDSS_DBG);
+			ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
 
-		CCCI_MEM_LOG_TAG(md->index, TAG,
+		CCCI_MEM_LOG_TAG(0, TAG,
 			"Dump exception share memory\n");
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
+		ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 			mdccci_dbg->base_ap_view_vir, mdccci_dbg->size);
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
+		ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 			mdss_dbg->base_ap_view_vir, mdss_dbg->size);
 	}
 	if (flag & DUMP_FLAG_SMEM_CCISM) {
 		struct ccci_smem_region *scp =
-			ccci_md_get_smem_by_user_id(md->index,
-				SMEM_USER_CCISM_SCP);
+			ccci_md_get_smem_by_user_id(SMEM_USER_CCISM_SCP);
 
-		CCCI_MEM_LOG_TAG(md->index, TAG,
+		CCCI_MEM_LOG_TAG(0, TAG,
 			"Dump CCISM share memory\n");
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
+		ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 			scp->base_ap_view_vir, scp->size);
 	}
 	if (flag & DUMP_FLAG_SMEM_CCB_CTRL) {
 		struct ccci_smem_region *ccb_ctl =
-			ccci_md_get_smem_by_user_id(md->index,
-				SMEM_USER_RAW_CCB_CTRL);
+			ccci_md_get_smem_by_user_id(SMEM_USER_RAW_CCB_CTRL);
 
 		if (ccb_ctl) {
-			CCCI_MEM_LOG_TAG(md->index, TAG,
+			CCCI_MEM_LOG_TAG(0, TAG,
 				"Dump CCB CTRL share memory\n");
-			ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
+			ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 				ccb_ctl->base_ap_view_vir,
 				32 * ccb_configs_len * 2);
 		}
@@ -914,14 +889,12 @@ static int md_cd_dump_info(struct ccci_modem *md,
 		unsigned char *curr_ch_p = NULL;
 		unsigned int *curr_p = NULL;
 		struct ccci_smem_region *ccb_data =
-			ccci_md_get_smem_by_user_id(md->index,
-				SMEM_USER_CCB_START);
+			ccci_md_get_smem_by_user_id(SMEM_USER_CCB_START);
 		struct ccci_smem_region *dhl_raw =
-			ccci_md_get_smem_by_user_id(md->index,
-				SMEM_USER_RAW_DHL);
+			ccci_md_get_smem_by_user_id(SMEM_USER_RAW_DHL);
 
 		if (ccb_data && ccb_data->size != 0) {
-			CCCI_MEM_LOG_TAG(md->index, TAG,
+			CCCI_MEM_LOG_TAG(0, TAG,
 				"Dump CCB DATA share memory\n");
 			curr_ch_p = ccb_data->base_ap_view_vir;
 			curr_p = (unsigned int *)curr_ch_p;
@@ -929,7 +902,7 @@ static int md_cd_dump_info(struct ccci_modem *md,
 				/* dump dl buffer */
 				for (j = 0; j < ccb_configs[i].dl_buff_size /
 					ccb_configs[i].dl_page_size;  j++) {
-					ccci_dump_write(md->index,
+					ccci_dump_write(
 						CCCI_DUMP_MEM_DUMP, 0,
 						"ul_buf%2d-page%2d %p: %08X %08X %08X %08X\n",
 						i, j, curr_p,
@@ -944,7 +917,7 @@ static int md_cd_dump_info(struct ccci_modem *md,
 				/* dump ul buffer */
 				for (j = 0; j < ccb_configs[i].ul_buff_size /
 					ccb_configs[i].ul_page_size; j++) {
-					ccci_dump_write(md->index,
+					ccci_dump_write(
 						CCCI_DUMP_MEM_DUMP, 0,
 						"dl_buf%2d-page%2d %p: %08X %08X %08X %08X\n",
 						i, j, curr_p,
@@ -958,11 +931,11 @@ static int md_cd_dump_info(struct ccci_modem *md,
 			}
 		}
 		if (dhl_raw && dhl_raw->size) {
-			CCCI_MEM_LOG_TAG(md->index, TAG,
+			CCCI_MEM_LOG_TAG(0, TAG,
 				"Dump DHL RAW share memory\n");
 			curr_ch_p = dhl_raw->base_ap_view_vir;
 			curr_p = (unsigned int *)curr_ch_p;
-			ccci_dump_write(md->index,
+			ccci_dump_write(
 				CCCI_DUMP_MEM_DUMP, 0,
 					"%p: %08X %08X %08X %08X\n",
 					curr_p, *curr_p, *(curr_p + 1),
@@ -971,19 +944,19 @@ static int md_cd_dump_info(struct ccci_modem *md,
 	}
 
 	if (flag & DUMP_FLAG_LAYOUT) {
-		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD layout struct\n");
-		ccci_util_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
+		CCCI_MEM_LOG_TAG(0, TAG, "Dump MD layout struct\n");
+		ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 			&md->mem_layout, sizeof(struct ccci_mem_layout));
 	}
 	if (flag & DUMP_FLAG_MD_WDT) {
-		CCCI_MEM_LOG_TAG(md->index, TAG,
+		CCCI_MEM_LOG_TAG(0, TAG,
 			"wdt_enabled=%d\n", atomic_read(&md->wdt_enabled));
 #if IS_ENABLED(CONFIG_MTK_IRQ_DBG)
-		CCCI_NORMAL_LOG(md->index, TAG, "Dump md WDT IRQ status\n");
+		CCCI_NORMAL_LOG(0, TAG, "Dump md WDT IRQ status\n");
 		mt_irq_dump_status(md->md_wdt_irq_id);
 #endif
-		CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD RGU registers\n");
-		CCCI_MEM_LOG_TAG(md->index, TAG, "wdt_enabled=%d\n",
+		CCCI_MEM_LOG_TAG(0, TAG, "Dump MD RGU registers\n");
+		CCCI_MEM_LOG_TAG(0, TAG, "wdt_enabled=%d\n",
 			atomic_read(&md->wdt_enabled));
 	}
 
@@ -1006,7 +979,7 @@ static int md_cd_ee_callback(struct ccci_modem *md, enum MODEM_EE_FLAG flag)
 
 static int md_cd_send_ccb_tx_notify(struct ccci_modem *md, int core_id)
 {
-	/* CCCI_NORMAL_LOG(md->index, TAG,
+	/* CCCI_NORMAL_LOG(0, TAG,
 	 * "ccb tx notify to core %d\n", core_id);
 	 */
 	switch (core_id) {
@@ -1034,110 +1007,109 @@ static struct ccci_modem_ops md_cd_ops = {
 	.ee_callback = &md_cd_ee_callback,
 	.send_ccb_tx_notify = &md_cd_send_ccb_tx_notify,
 };
-int ccci_md_pre_stop(unsigned char md_id, unsigned int stop_type)
+int ccci_md_pre_stop(unsigned int stop_type)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	return md->ops->pre_stop(md, stop_type);
 }
 
-int ccci_md_stop(unsigned char md_id, unsigned int stop_type)
+int ccci_md_stop(unsigned int stop_type)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	return md->ops->stop(md, stop_type);
 }
 
-int __weak md_cd_vcore_config(unsigned int md_id, unsigned int hold_req)
+int __weak md_cd_vcore_config(unsigned int hold_req)
 {
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
 	return 0;
 }
 
-int ccci_md_pre_start(unsigned char md_id)
+int ccci_md_pre_start(void)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	if (md->hw_info->plat_ptr->vcore_config)
-		return md->hw_info->plat_ptr->vcore_config(md_id, 1);
+		return md->hw_info->plat_ptr->vcore_config(1);
 	return -1;
 }
-int ccci_md_start(unsigned char md_id)
+int ccci_md_start(void)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	return md->ops->start(md);
 }
-int ccci_md_post_start(unsigned char md_id)
+int ccci_md_post_start(void)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	if (md->hw_info->plat_ptr->vcore_config)
-		return md->hw_info->plat_ptr->vcore_config(md_id, 0);
+		return md->hw_info->plat_ptr->vcore_config(0);
 	return -1;
 }
-int ccci_md_soft_stop(unsigned char md_id, unsigned int sim_mode)
+int ccci_md_soft_stop(unsigned int sim_mode)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	if (md->ops->soft_stop)
 		return md->ops->soft_stop(md, sim_mode);
 	return -1;
 }
-int ccci_md_soft_start(unsigned char md_id, unsigned int sim_mode)
+int ccci_md_soft_start(unsigned int sim_mode)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	if (md->ops->soft_start)
 		return md->ops->soft_start(md, sim_mode);
 	return -1;
 }
 
-int ccci_md_send_runtime_data(unsigned char md_id)
+int ccci_md_send_runtime_data(void)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	return md->ops->send_runtime_data(md, CCCI_CONTROL_TX, 0, 0);
 }
 
-void ccci_md_dump_info(unsigned char md_id, enum MODEM_DUMP_FLAG flag,
-	void *buff, int length)
+void ccci_md_dump_info(enum MODEM_DUMP_FLAG flag, void *buff, int length)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	if (md)
 		md->ops->dump_info(md, flag, buff, length);
 	else
-		CCCI_ERROR_LOG(md_id, TAG, "invalid md_id %d!!\n", md_id);
+		CCCI_ERROR_LOG(0, TAG, "invalid md!!\n");
 }
 //EXPORT_SYMBOL(ccci_md_dump_info);
 
-void ccci_md_exception_handshake(unsigned char md_id, int timeout)
+void ccci_md_exception_handshake(int timeout)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	md->ops->ee_handshake(md, timeout);
 }
 
-int ccci_md_send_ccb_tx_notify(unsigned char md_id, int core_id)
+int ccci_md_send_ccb_tx_notify(int core_id)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 
 	return md->ops->send_ccb_tx_notify(md, core_id);
 }
 
-int ccci_md_force_assert(unsigned char md_id, enum MD_FORCE_ASSERT_TYPE type,
+int ccci_md_force_assert(enum MD_FORCE_ASSERT_TYPE type,
 	char *param, int len)
 {
 	int ret = 0;
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 	struct ccci_force_assert_shm_fmt *ccci_fa_smem_ptr = NULL;
 	struct ccci_smem_region *force_assert =
-		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_FORCE_ASSERT);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_FORCE_ASSERT);
 
 	if (md->is_force_asserted != 0)
 		return ret;
-	mdee_set_ex_time_str(md_id, type, param);
+	mdee_set_ex_time_str(type, param);
 	if (type == MD_FORCE_ASSERT_BY_AP_MPU) {
 		ret = md->ops->force_assert(md, CCIF_MPU_INTR);
 	} else {
@@ -1168,7 +1140,7 @@ static ssize_t md_cd_debug_show(struct ccci_modem *md, char *buf)
 
 	curr = snprintf(buf, 16, "%d\n", ccci_debug_enable);
 	if (curr < 0 || curr >= 16) {
-		CCCI_ERROR_LOG(md->index, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"%s-%d:snprintf fail,curr = %d\n", __func__, __LINE__, curr);
 		return -1;
 	}
@@ -1195,7 +1167,7 @@ static ssize_t md_cd_dump_show(struct ccci_modem *md, char *buf)
 static ssize_t md_cd_dump_store(struct ccci_modem *md,
 	const char *buf, size_t count)
 {
-	enum MD_STATE md_state = ccci_fsm_get_md_state(md->index);
+	enum MD_STATE md_state = ccci_fsm_get_md_state();
 	/* echo will bring "xxx\n" here,
 	 * so we eliminate the "\n" during comparing
 	 */
@@ -1225,11 +1197,10 @@ static ssize_t md_cd_dump_store(struct ccci_modem *md,
 			md->ops->dump_info(md, DUMP_FLAG_LAYOUT, NULL, 0);
 		if (strncmp(buf, "mdslp", count - 1) == 0) {
 			struct ccci_smem_region *low_pwr =
-				ccci_md_get_smem_by_user_id(md->index,
-					SMEM_USER_RAW_DBM);
+				ccci_md_get_smem_by_user_id(SMEM_USER_RAW_DBM);
 
-			CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD SLP registers\n");
-			ccci_util_cmpt_mem_dump(md->index, CCCI_DUMP_MEM_DUMP,
+			CCCI_MEM_LOG_TAG(0, TAG, "Dump MD SLP registers\n");
+			ccci_util_cmpt_mem_dump(CCCI_DUMP_MEM_DUMP,
 				low_pwr->base_ap_view_vir, low_pwr->size);
 		}
 		//md->ops->dump_info(md, DUMP_FLAG_SMEM_MDSLP, NULL, 0);
@@ -1237,7 +1208,7 @@ static ssize_t md_cd_dump_store(struct ccci_modem *md,
 			ccci_hif_dump_status(1<<DPMAIF_HIF_ID,
 				DUMP_FLAG_REG, NULL, -1);
 		if (strncmp(buf, "port", count - 1) == 0)
-			ccci_port_dump_status(md->index);
+			ccci_port_dump_status();
 	}
 	return count;
 }
@@ -1278,28 +1249,28 @@ static void md_cd_sysfs_init(struct ccci_modem *md)
 	ccci_md_attr_debug.modem = md;
 	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_debug.attr);
 	if (ret)
-		CCCI_ERROR_LOG(md->index, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"fail to add sysfs node %s %d\n",
 			ccci_md_attr_debug.attr.name, ret);
 
 	ccci_md_attr_dump.modem = md;
 	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_dump.attr);
 	if (ret)
-		CCCI_ERROR_LOG(md->index, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"fail to add sysfs node %s %d\n",
 			ccci_md_attr_dump.attr.name, ret);
 
 	ccci_md_attr_net_speed.modem = md;
 	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_net_speed.attr);
 	if (ret)
-		CCCI_ERROR_LOG(md->index, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"fail to add sysfs node %s %d\n",
 			ccci_md_attr_net_speed.attr.name, ret);
 
 	ccci_md_attr_parameter.modem = md;
 	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_parameter.attr);
 	if (ret)
-		CCCI_ERROR_LOG(md->index, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"fail to add sysfs node %s %d\n",
 			ccci_md_attr_parameter.attr.name, ret);
 }
@@ -1310,11 +1281,11 @@ void ccci_hif_cldma_restore_reg(struct ccci_modem *md)
 
 static void ccci_modem_restore_reg(struct ccci_modem *md)
 {
-	enum MD_STATE md_state = ccci_fsm_get_md_state(md->index);
+	enum MD_STATE md_state = ccci_fsm_get_md_state();
 
 	if (md_state == GATED || md_state == WAITING_TO_STOP ||
 		md_state == INVALID) {
-		CCCI_NORMAL_LOG(md->index, TAG,
+		CCCI_NORMAL_LOG(0, TAG,
 			"Resume no need restore for md_state=%d\n", md_state);
 		return;
 	}
@@ -1322,7 +1293,7 @@ static void ccci_modem_restore_reg(struct ccci_modem *md)
 	if (md->hif_flag & (1 << CLDMA_HIF_ID))
 		ccci_hif_cldma_restore_reg(md);
 
-	ccci_hif_resume(md->index, md->hif_flag);
+	ccci_hif_resume(md->hif_flag);
 }
 
 int ccci_modem_syssuspend(void)
@@ -1330,9 +1301,9 @@ int ccci_modem_syssuspend(void)
 	struct ccci_modem *md;
 
 	CCCI_DEBUG_LOG(0, TAG, "%s only for MD\n", __func__);
-	md = ccci_md_get_modem_by_id(0);
+	md = ccci_get_modem();
 	if (md != NULL)
-		ccci_hif_suspend(md->index, md->hif_flag);
+		ccci_hif_suspend(md->hif_flag);
 	return 0;
 }
 
@@ -1341,7 +1312,7 @@ void ccci_modem_sysresume(void)
 	struct ccci_modem *md;
 
 	CCCI_DEBUG_LOG(0, TAG, "%s should be no used\n", __func__);
-	md = ccci_md_get_modem_by_id(0);
+	md = ccci_get_modem();
 	if (md != NULL)
 		ccci_modem_restore_reg(md);
 }
@@ -1378,14 +1349,14 @@ struct ccci_modem *ccci_md_alloc(int private_size)
 void ccci_md_config(struct ccci_modem *md)
 {
 	/* setup config */
-	md->per_md_data.config.load_type = get_md_img_type(md->index);
-	if (get_modem_is_enabled(md->index))
+	md->per_md_data.config.load_type = get_md_img_type();
+	if (get_modem_is_enabled())
 		md->per_md_data.config.setting |= MD_SETTING_ENABLE;
 	else
 		md->per_md_data.config.setting &= ~MD_SETTING_ENABLE;
 
 
-	ap_md_mem_init(md->index, &md->mem_layout);
+	ap_md_mem_init(&md->mem_layout);
 
 	/* updae image info */
 	md->per_md_data.img_info[IMG_MD].type = IMG_MD;
@@ -1395,17 +1366,17 @@ void ccci_md_config(struct ccci_modem *md)
 	md->per_md_data.img_info[IMG_ARMV7].type = IMG_ARMV7;
 }
 
-int boot_md_show(int md_id, char *buf, int size)
+int boot_md_show(char *buf, int size)
 {
 	int curr = 0;
 
-	if (get_modem_is_enabled(md_id))
-		curr += snprintf(&buf[curr], size, "md%d:%d",
-			md_id + 1, ccci_fsm_get_md_state(md_id));
+	if (get_modem_is_enabled())
+		curr += snprintf(&buf[curr], size, "md1:%d",
+			ccci_fsm_get_md_state());
 	return curr;
 }
 
-int boot_md_store(int md_id)
+int boot_md_store(void)
 {
 	return -EACCES;
 }
@@ -1456,9 +1427,9 @@ static struct kobj_type ccci_md_ktype = {
 	.default_attrs = ccci_md_default_attrs
 };
 
-void ccci_sysfs_add_md(int md_id, void *kobj)
+void ccci_sysfs_add_md(void *kobj)
 {
-	ccci_sysfs_add_modem(md_id, (void *)kobj, (void *)&ccci_md_ktype,
+	ccci_sysfs_add_modem((void *)kobj, (void *)&ccci_md_ktype,
 		boot_md_show, boot_md_store);
 }
 
@@ -1467,17 +1438,17 @@ int ccci_md_register(struct ccci_modem *md)
 	int ret;
 
 	/* init per-modem sub-system */
-	CCCI_INIT_LOG(md->index, TAG, "register modem\n");
+	CCCI_INIT_LOG(0, TAG, "register modem\n");
 	/* init modem */
 	ret = md->ops->init(md);
 	if (ret < 0)
 		return ret;
 	ccci_md_config(md);
 
-	modem_sys[md->index] = md;
-	ccci_sysfs_add_md(md->index, (void *)&md->kobj);
-	ccci_fsm_init(md->index);
-	ccci_port_init(md->index);
+	modem_sys = md;
+	ccci_sysfs_add_md((void *)&md->kobj);
+	ccci_fsm_init();
+	ccci_port_init();
 	return 0;
 }
 
@@ -1488,7 +1459,6 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 {
 	struct ccci_modem *md = NULL;
 	struct md_sys1_info *md_info = NULL;
-	int md_id;
 	int ret;
 
 	/* Allocate md ctrl memory and do initialize */
@@ -1498,7 +1468,7 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 			"%s:alloc modem ctrl mem fail\n", __func__);
 		return -1;
 	}
-	md->index = md_id = dev_cfg->index;
+
 	md->per_md_data.md_capability = dev_cfg->capability;
 	md->hw_info = md_hw;
 
@@ -1506,7 +1476,7 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 	md->plat_dev->dev.dma_mask = &cldma_dmamask;
 	md->plat_dev->dev.coherent_dma_mask = cldma_dmamask;
 	md->ops = &md_cd_ops;
-	CCCI_INIT_LOG(md_id, TAG,
+	CCCI_INIT_LOG(0, TAG,
 		"%s:md=%p,md->private_data=%p\n", __func__,
 		md, md->private_data);
 
@@ -1517,22 +1487,21 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 	md_info = (struct md_sys1_info *)md->private_data;
 
 	snprintf(md->trm_wakelock_name, sizeof(md->trm_wakelock_name),
-		"md%d_cldma_trm", md_id + 1);
+		"md_cldma_trm");
 	md->trm_wake_lock = wakeup_source_register(NULL, md->trm_wakelock_name);
 	if (!md->trm_wake_lock) {
-		CCCI_ERROR_LOG(md->index, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"%s %d: init wakeup source fail",
 			__func__, __LINE__);
 		return -1;
 	}
 	snprintf(md_info->peer_wakelock_name,
-		sizeof(md_info->peer_wakelock_name),
-		"md%d_cldma_peer", md_id + 1);
+		sizeof(md_info->peer_wakelock_name), "md_cldma_peer");
 
 	md_info->peer_wake_lock =
 		wakeup_source_register(NULL, md_info->peer_wakelock_name);
 	if (!md_info->peer_wake_lock) {
-		CCCI_ERROR_LOG(md->index, TAG,
+		CCCI_ERROR_LOG(0, TAG,
 			"%s %d: init wakeup source fail",
 			__func__, __LINE__);
 		return -1;

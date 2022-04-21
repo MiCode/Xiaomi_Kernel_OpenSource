@@ -129,8 +129,7 @@ static int md_oc_notify(struct oc_debug_t *oc_dbg)
 {
 	int ret;
 
-	ret = exec_ccci_kern_func_by_md_id(MD_SYS1, ID_PMIC_INTR,
-					   &oc_dbg->md_data, 4);
+	ret = exec_ccci_kern_func(ID_PMIC_INTR, &oc_dbg->md_data, 4);
 	if (ret)
 		pr_notice("[%s]-exec_ccci fail:%d\n", __func__, ret);
 	return 0;

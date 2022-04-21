@@ -22,20 +22,20 @@
 
 
 struct ccci_cldma_plat_ops {
-	void (*hw_reset)(unsigned char md_id);
-	void (*set_clk_cg)(unsigned char md_id, unsigned int on);
-	int (*syssuspend)(unsigned char md_id);
-	void (*sysresume)(unsigned char md_id);
+	void (*hw_reset)(void);
+	void (*set_clk_cg)(unsigned int on);
+	int (*syssuspend)(void);
+	void (*sysresume)(void);
 };
 
 #define CLDMA_CLOCK_COUNT 1
 
 
 
-extern void cldma_plat_hw_reset(unsigned char md_id);
-extern void cldma_plat_set_clk_cg(unsigned char md_id, unsigned int on);
-extern int cldma_plat_suspend(unsigned char md_id);
-extern void cldma_plat_resume(unsigned char md_id);
+extern void cldma_plat_hw_reset(void);
+extern void cldma_plat_set_clk_cg(unsigned int on);
+extern int cldma_plat_suspend(void);
+extern void cldma_plat_resume(void);
 
 extern void ccci_hif_set_devapc_flag(unsigned int value);
 

@@ -82,7 +82,7 @@ static void enable_watchpoint(void *address)
 #endif
 
 #ifdef CCCI_MEM_BM_DEBUG
-void ccci_mem_dump(int md_id, void *start_addr, int len)
+void ccci_mem_dump(void *start_addr, int len)
 {
 	unsigned int *curr_p = (unsigned int *)start_addr;
 	unsigned char *curr_ch_p = NULL;
@@ -92,18 +92,18 @@ void ccci_mem_dump(int md_id, void *start_addr, int len)
 	int i, j;
 
 	if (curr_p == NULL) {
-		CCCI_NORMAL_LOG(md_id, BM, "NULL point to dump!\n");
+		CCCI_NORMAL_LOG(0, BM, "NULL point to dump!\n");
 		return;
 	}
 	if (len == 0) {
-		CCCI_NORMAL_LOG(md_id, BM, "Not need to dump\n");
+		CCCI_NORMAL_LOG(0, BM, "Not need to dump\n");
 		return;
 	}
 
-	CCCI_NORMAL_LOG(md_id, BM, "Base: %p\n", start_addr);
+	CCCI_NORMAL_LOG(0, BM, "Base: %p\n", start_addr);
 	/* Fix section */
 	for (i = 0; i < _16_fix_num; i++) {
-		CCCI_NORMAL_LOG(md_id, BM, "%03X: %08X %08X %08X %08X\n",
+		CCCI_NORMAL_LOG(0, BM, "%03X: %08X %08X %08X %08X\n",
 			i * 16, *curr_p, *(curr_p + 1),
 			*(curr_p + 2), *(curr_p + 3));
 		curr_p += 4;
@@ -119,7 +119,7 @@ void ccci_mem_dump(int md_id, void *start_addr, int len)
 		for (; j < 16; j++)
 			buf[j] = 0;
 		curr_p = (unsigned int *)buf;
-		CCCI_NORMAL_LOG(md_id, BM, "%03X: %08X %08X %08X %08X\n",
+		CCCI_NORMAL_LOG(0, BM, "%03X: %08X %08X %08X %08X\n",
 			i * 16, *curr_p, *(curr_p + 1),
 			*(curr_p + 2), *(curr_p + 3));
 	}
@@ -480,13 +480,13 @@ void ccci_free_skb(struct sk_buff *skb)
 }
 EXPORT_SYMBOL(ccci_free_skb);
 
-void ccci_dump_skb_pool_usage(int md_id)
+void ccci_dump_skb_pool_usage(void)
 {
-	CCCI_REPEAT_LOG(md_id, BM,
+	CCCI_REPEAT_LOG(0, BM,
 		"skb_pool_4K: \t\tmax_occupied %04d, enq_count %08d, deq_count %08d\n",
 		skb_pool_4K.max_occupied, skb_pool_4K.enq_count,
 		skb_pool_4K.deq_count);
-	CCCI_REPEAT_LOG(md_id, BM,
+	CCCI_REPEAT_LOG(0, BM,
 		"skb_pool_16: \t\tmax_occupied %04d, enq_count %08d, deq_count %08d\n",
 		skb_pool_16.max_occupied, skb_pool_16.enq_count,
 		skb_pool_16.deq_count);

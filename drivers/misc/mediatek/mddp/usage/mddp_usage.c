@@ -56,7 +56,7 @@ void mddp_u_get_data_stats(void *buf, uint32_t *buf_len)
 	struct mddp_u_data_stats_t             *usage;
 	uint32_t                                sm_len = 0;
 
-	md_stats = get_smem_start_addr(MD_SYS1, SMEM_USER_RAW_NETD, &sm_len);
+	md_stats = get_smem_start_addr(SMEM_USER_RAW_NETD, &sm_len);
 	md_stats += wan_id;
 
 	if (sm_len >= sizeof(struct mddp_u_data_stats_t)) {
@@ -106,7 +106,7 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 		return -EINVAL;
 	}
 
-	md_status = exec_ccci_kern_func_by_md_id(0, ID_GET_MD_STATE, NULL, 0);
+	md_status = exec_ccci_kern_func(ID_GET_MD_STATE, NULL, 0);
 
 	if (md_status != MD_STATE_READY) {
 		MDDP_U_LOG(MDDP_LL_NOTICE,
@@ -166,7 +166,7 @@ int32_t mddp_u_set_warning_and_data_limit(uint8_t *buf, uint32_t buf_len)
 		return -EINVAL;
 	}
 
-	md_status = exec_ccci_kern_func_by_md_id(0, ID_GET_MD_STATE, NULL, 0);
+	md_status = exec_ccci_kern_func(ID_GET_MD_STATE, NULL, 0);
 
 	if (md_status != MD_STATE_READY) {
 		MDDP_U_LOG(MDDP_LL_NOTICE,

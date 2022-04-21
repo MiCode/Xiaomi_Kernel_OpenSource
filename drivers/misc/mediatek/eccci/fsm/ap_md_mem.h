@@ -47,11 +47,10 @@ struct ccci_mem_layout {
 	struct ccci_smem_region *md_bank4_cacheable;
 };
 
-struct ccci_mem_layout *ccci_md_get_mem(int md_id);
-struct ccci_smem_region *ccci_md_get_smem_by_user_id(int md_id,
-	enum SMEM_USER_ID user_id);
-//void ccci_md_clear_smem(int md_id, int first_boot);
-void ap_md_mem_init(unsigned char index, struct ccci_mem_layout *mem_layout);
-int smem_md_state_notification(int md_id, unsigned char state);
+struct ccci_mem_layout *ccci_md_get_mem(void);
+struct ccci_smem_region *ccci_md_get_smem_by_user_id(enum SMEM_USER_ID user_id);
+//void ccci_md_clear_smem(int first_boot);
+void ap_md_mem_init(struct ccci_mem_layout *mem_layout);
+int smem_md_state_notification(unsigned char state);
 
 #endif

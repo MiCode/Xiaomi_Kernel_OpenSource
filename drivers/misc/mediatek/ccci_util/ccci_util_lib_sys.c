@@ -79,21 +79,16 @@ static const struct sysfs_ops ccci_sysfs_ops = {
 /* CCCI common sys attribute part */
 /*======================================= */
 /* Sys -- boot status */
-static get_status_func_t get_status_func[MAX_MD_NUM];
-static boot_md_func_t boot_md_func[MAX_MD_NUM];
-static int get_md_status(int md_id, char val[], int size)
+static get_status_func_t get_status_func;
+static boot_md_func_t boot_md_func;
+static int get_md_status(char val[], int size)
 {
 	int ret = 0;
 
-	if (md_id < 0 || md_id >= MAX_MD_NUM) {
-		CCCI_UTIL_INF_MSG("invalid md_id = %d\n", md_id);
-		return -1;
-	}
-	if ((md_id < MAX_MD_NUM)
-			&& (get_status_func[md_id] != NULL))
-		(get_status_func[md_id]) (md_id, val, size);
+	if (get_status_func != NULL)
+		(get_status_func) (val, size);
 	else {
-		ret = snprintf(val, 32, "md%d:n/a", md_id + 1);
+		ret = snprintf(val, 32, "md1:n/a");
 		if (ret < 0 || ret >= 32) {
 			CCCI_UTIL_INF_MSG("%s-%d:snprintf fail,ret=%d\n",
 				__func__, __LINE__, ret);
@@ -103,14 +98,10 @@ static int get_md_status(int md_id, char val[], int size)
 	return 0;
 }
 
-static int trigger_md_boot(int md_id)
+static int trigger_md_boot(void)
 {
-	if (md_id < 0 || md_id >= MAX_MD_NUM) {
-		CCCI_UTIL_INF_MSG("invalid md_id = %d\n", md_id);
-		return -1;
-	}
-	if ((md_id < MAX_MD_NUM) && (boot_md_func[md_id] != NULL))
-		return (boot_md_func[md_id]) (md_id);
+	if (boot_md_func != NULL)
+		return (boot_md_func) ();
 
 	return -1;
 }
@@ -118,37 +109,20 @@ static int trigger_md_boot(int md_id)
 static ssize_t boot_status_show(char *buf)
 {
 	char md1_sta_str[32];
-	char md2_sta_str[32];
-	char md3_sta_str[32];
-	char md5_sta_str[32];
 
-	/* MD1 --- */
-	get_md_status(MD_SYS1, md1_sta_str, 32);
-	/* MD2 --- */
-	get_md_status(MD_SYS2, md2_sta_str, 32);
-	/* MD3 */
-	get_md_status(MD_SYS3, md3_sta_str, 32);
-	/* MD5 */
-	get_md_status(MD_SYS5, md5_sta_str, 32);
+	get_md_status(md1_sta_str, 32);
 
 	/* Final string */
-	return snprintf(buf, 32 * 4 + 3 * 4 + 1,
-			"%s | %s | %s | md4:n/a | %s\n",
-			md1_sta_str, md2_sta_str,
-			md3_sta_str, md5_sta_str);
+	return snprintf(buf, 32 + 1, "%s\n", md1_sta_str);
 }
 
 static ssize_t boot_status_store(const char *buf, size_t count)
 {
-	unsigned int md_id;
+	CCCI_UTIL_INF_MSG("md get boot store\n");
 
-	md_id = buf[0] - '0';
-	CCCI_UTIL_INF_MSG("md%d get boot store\n", md_id + 1);
-	if (md_id < MAX_MD_NUM) {
-		if (trigger_md_boot(md_id) != 0)
-			CCCI_UTIL_INF_MSG("md%d n/a\n", md_id + 1);
-	} else
-		CCCI_UTIL_INF_MSG("invalid id(%d)\n", md_id + 1);
+	if (trigger_md_boot() != 0)
+		CCCI_UTIL_INF_MSG("md n/a\n");
+
 	return count;
 }
 
@@ -157,21 +131,15 @@ CCCI_ATTR(boot, 0660, &boot_status_show, &boot_status_store);
 /* Sys -- enable status */
 static ssize_t ccci_md_enable_show(char *buf)
 {
-	int i;
-	char md_en[MAX_MD_NUM];
+	char md_en;
 
-	for (i = 0; i < MAX_MD_NUM; i++) {
-		if (get_modem_is_enabled(MD_SYS1 + i))
-			md_en[i] = 'E';
-		else
-			md_en[i] = 'D';
-	}
+	if (get_modem_is_enabled())
+		md_en = 'E';
+	else
+		md_en = 'D';
 
 	/* Final string */
-	return snprintf(buf, 32,
-			"%c-%c-%c-%c-%c (1->5)\n",
-			md_en[0], md_en[1], md_en[2],
-			md_en[3], md_en[4]);
+	return snprintf(buf, 32, "md_en=%c\n", md_en);
 }
 
 CCCI_ATTR(md_en, 0444, &ccci_md_enable_show, NULL);
@@ -179,7 +147,7 @@ CCCI_ATTR(md_en, 0444, &ccci_md_enable_show, NULL);
 /* Sys -- post fix */
 static ssize_t ccci_md1_post_fix_show(char *buf)
 {
-	get_md_postfix(MD_SYS1, NULL, buf, NULL);
+	get_md_postfix(NULL, buf, NULL);
 	return strlen(buf);
 }
 
@@ -268,24 +236,19 @@ static ssize_t kcfg_setting_show(char *buf)
 {
 	unsigned int curr = 0;
 	unsigned int actual_write;
-	char md_en[MAX_MD_NUM];
-	unsigned int md_num = 0;
-	int i;
+	char md_en;
 	char c_en;
 
-	for (i = 0; i < MAX_MD_NUM; i++) {
-		if (get_modem_is_enabled(MD_SYS1 + i)) {
-			md_num++;
-			md_en[i] = '1';
-		} else
-			md_en[i] = '0';
-	}
+	if (get_modem_is_enabled())
+		md_en = '1';
+	else
+		md_en = '0';
+
 	/* MD enable setting part */
 	/* Reserve 16 byte to store size info */
 	actual_write = snprintf(&buf[curr],
 					4096 - 16 - curr,
-					"[modem num]:%d\n",
-					md_num);
+					"[modem num]:1\n");
 	if (actual_write < 0) {
 		CCCI_UTIL_ERR_MSG(
 			"%s-%d:snprintf fail,actual_write=%d\n",
@@ -296,9 +259,7 @@ static ssize_t kcfg_setting_show(char *buf)
 	curr += actual_write;
 	/* Reserve 16 byte to store size info */
 	actual_write = snprintf(&buf[curr], 4096 - 16 - curr,
-		"[modem en]:%c-%c-%c-%c-%c\n",
-		md_en[0], md_en[1], md_en[2],
-		md_en[3], md_en[4]);
+		"[modem en]:%c\n", md_en);
 	if (actual_write < 0) {
 		CCCI_UTIL_ERR_MSG(
 			"%s-%d:snprintf fail,actual_write=%d\n",
@@ -309,7 +270,7 @@ static ssize_t kcfg_setting_show(char *buf)
 	curr += actual_write;
 
 	/* ECCCI_C2K */
-	if (check_rat_at_md_img(MD_SYS1, "C"))
+	if (check_rat_at_md_img("C"))
 		c_en = '1';
 	else
 		c_en = '0';
@@ -342,7 +303,7 @@ static ssize_t kcfg_setting_show(char *buf)
 	curr += actual_write;
 
 	actual_write = snprintf(&buf[curr],
-		4096 - curr, "[MTK_MD_CAP]:%d\n", get_md_img_type(MD_SYS1));
+		4096 - curr, "[MTK_MD_CAP]:%d\n", get_md_img_type());
 	if (actual_write > 0 && actual_write < (4096 - curr))
 		curr += actual_write;
 
@@ -402,7 +363,7 @@ static struct kobj_type ccci_ktype = {
 	.default_attrs = ccci_default_attrs
 };
 
-int ccci_sysfs_add_modem(int md_id, void *kobj, void *ktype,
+int ccci_sysfs_add_modem(void *kobj, void *ktype,
 	get_status_func_t get_sta_func, boot_md_func_t boot_func)
 {
 	int ret;
@@ -414,22 +375,21 @@ int ccci_sysfs_add_modem(int md_id, void *kobj, void *ktype,
 		return -CCCI_ERR_SYSFS_NOT_READY;
 	}
 
-	if (md_add_flag & (1 << md_id)) {
-		CCCI_UTIL_ERR_MSG("md%d sys dup add\n", md_id + 1);
+	if (md_add_flag) {
+		CCCI_UTIL_ERR_MSG("md sys dup add\n");
 		return -CCCI_ERR_SYSFS_NOT_READY;
 	}
 
 	ret =
 	    kobject_init_and_add((struct kobject *)kobj,
-		(struct kobj_type *)ktype, &ccci_sys_info->kobj,
-		"mdsys%d", md_id + 1);
+		(struct kobj_type *)ktype, &ccci_sys_info->kobj, "mdsys");
 	if (ret < 0) {
 		kobject_put(kobj);
-		CCCI_UTIL_ERR_MSG_WITH_ID(md_id, "fail to add md kobject\n");
+		CCCI_UTIL_ERR_MSG("fail to add md kobject\n");
 	} else {
-		md_add_flag |= (1 << md_id);
-		get_status_func[md_id] = get_sta_func;
-		boot_md_func[md_id] = boot_func;
+		md_add_flag |= (1 << 0);
+		get_status_func = get_sta_func;
+		boot_md_func = boot_func;
 	}
 
 	return ret;
@@ -439,7 +399,6 @@ EXPORT_SYMBOL(ccci_sysfs_add_modem);
 int ccci_common_sysfs_init(void)
 {
 	int ret = 0;
-	int i;
 
 	ccci_sys_info = kmalloc(sizeof(struct ccci_info), GFP_KERNEL);
 	if (!ccci_sys_info)
@@ -454,10 +413,9 @@ int ccci_common_sysfs_init(void)
 		CCCI_UTIL_ERR_MSG("fail to add ccci kobject\n");
 		return ret;
 	}
-	for (i = 0; i < MAX_MD_NUM; i++) {
-		get_status_func[i] = NULL;
-		boot_md_func[i] = NULL;
-	}
+
+	get_status_func = NULL;
+	boot_md_func = NULL;
 
 	ccci_sys_info->ccci_attr_count = ARRAY_SIZE(ccci_default_attrs) - 1;
 	CCCI_UTIL_DBG_MSG("ccci attr cnt %d\n", ccci_sys_info->ccci_attr_count);

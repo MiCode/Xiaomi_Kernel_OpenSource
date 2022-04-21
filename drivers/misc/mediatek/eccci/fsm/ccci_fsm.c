@@ -24,7 +24,7 @@
 #include "modem_sys.h"
 #include "ccci_auxadc.h"
 
-static struct ccci_fsm_ctl *ccci_fsm_entries[MAX_MD_NUM];
+struct ccci_fsm_ctl *ccci_fsm_entries;
 
 static void fsm_finish_command(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *cmd, int result);
@@ -62,16 +62,16 @@ EXPORT_SYMBOL(mtk_ccci_register_md_state_cb);
 int force_md_stop(struct ccci_fsm_monitor *monitor_ctl)
 {
 	int ret = -1;
-	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(monitor_ctl->md_id);
+	struct ccci_fsm_ctl *ctl = ccci_fsm_entries;
 
 	needforcestop = 1;
 	if (!ctl) {
-		CCCI_ERROR_LOG(monitor_ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"fsm_append_command:CCCI_COMMAND_STOP fal\n");
 		return -1;
 	}
 	ret = fsm_append_command(ctl, CCCI_COMMAND_STOP, 0);
-	CCCI_NORMAL_LOG(monitor_ctl->md_id, FSM,
+	CCCI_NORMAL_LOG(0, FSM,
 			"force md stop\n");
 	return ret;
 }
@@ -82,13 +82,13 @@ unsigned long __weak BAT_Get_Battery_Voltage(int polling_mode)
 	return 0;
 }
 
-void mdee_set_ex_time_str(unsigned char md_id, unsigned int type, char *str)
+void mdee_set_ex_time_str(unsigned int type, char *str)
 {
-	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
+	struct ccci_fsm_ctl *ctl = ccci_fsm_entries;
 
 	if (ctl == NULL) {
-		CCCI_ERROR_LOG(md_id, FSM,
-			"%s:fsm_get_entity_by_md_id fail\n", __func__);
+		CCCI_ERROR_LOG(0, FSM,
+			"%s:ccci_fsm_entries is null\n", __func__);
 		return;
 	}
 	mdee_set_ex_start_str(&ctl->ee_ctl, type, str);
@@ -121,13 +121,13 @@ static inline int fsm_broadcast_state(struct ccci_fsm_ctl *ctl,
 	enum MD_STATE old_state;
 
 	if (unlikely(ctl->md_state != BOOT_WAITING_FOR_HS2 && state == READY)) {
-		CCCI_NORMAL_LOG(ctl->md_id, FSM,
+		CCCI_NORMAL_LOG(0, FSM,
 		"ignore HS2 when md_state=%d\n",
 		ctl->md_state);
 		return 0;
 	}
 
-	CCCI_NORMAL_LOG(ctl->md_id, FSM,
+	CCCI_NORMAL_LOG(0, FSM,
 			"md_state change from %d to %d\n",
 			ctl->md_state, state);
 
@@ -137,23 +137,22 @@ static inline int fsm_broadcast_state(struct ccci_fsm_ctl *ctl,
 	/* update to port first,
 	 * otherwise send message on HS2 may fail
 	 */
-	ccci_port_md_status_notify(ctl->md_id, state);
-	ccci_hif_state_notification(ctl->md_id, state);
+	ccci_port_md_status_notify(state);
+	ccci_hif_state_notification(state);
 #ifdef CCCI_KMODULE_ENABLE
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	if (ctl->scp_ctl) {
-		CCCI_NORMAL_LOG(ctl->md_id, FSM,
-			"ccci scp state sync %d, %lx, %lx, %d\n", state,
-			(unsigned long)ctl->scp_ctl, (unsigned long)ctl->scp_ctl->md_state_sync,
-			ctl->scp_ctl->md_id);
+		CCCI_NORMAL_LOG(0, FSM,
+			"ccci scp state sync %d, %lx, %lx\n", state,
+			(unsigned long)ctl->scp_ctl, (unsigned long)ctl->scp_ctl->md_state_sync);
 		if (ctl->scp_ctl->md_state_sync)
 			ctl->scp_ctl->md_state_sync(state);
 		else {
-			CCCI_NORMAL_LOG(ctl->md_id, FSM,
+			CCCI_NORMAL_LOG(0, FSM,
 				"ccci scp_work not ready %d\n", state);
 		}
 	} else
-		CCCI_NORMAL_LOG(ctl->md_id, FSM, "ccci scp not ready %d\n", state);
+		CCCI_NORMAL_LOG(0, FSM, "ccci scp not ready %d\n", state);
 #endif
 #endif
 	if (old_state != state &&
@@ -171,14 +170,14 @@ static void fsm_routine_zombie(struct ccci_fsm_ctl *ctl)
 	struct ccci_fsm_command *cmd_next = NULL;
 	unsigned long flags;
 
-	CCCI_ERROR_LOG(ctl->md_id, FSM,
+	CCCI_ERROR_LOG(0, FSM,
 		"unexpected FSM state %d->%d, from %ps\n",
 		ctl->last_state, ctl->curr_state,
 		__builtin_return_address(0));
 	spin_lock_irqsave(&ctl->command_lock, flags);
 	list_for_each_entry_safe(cmd,
 		cmd_next, &ctl->command_queue, entry) {
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 		"unhandled command %d\n", cmd->cmd_id);
 		list_del(&cmd->entry);
 		fsm_finish_command(ctl, cmd, -1);
@@ -187,7 +186,7 @@ static void fsm_routine_zombie(struct ccci_fsm_ctl *ctl)
 	spin_lock_irqsave(&ctl->event_lock, flags);
 	list_for_each_entry_safe(event,
 		evt_next, &ctl->event_queue, entry) {
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 		"unhandled event %d\n", event->event_id);
 		fsm_finish_event(ctl, event);
 	}
@@ -213,11 +212,10 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_event *event = NULL;
 	unsigned long flags;
 
-	CCCI_NORMAL_LOG(ctl->md_id, FSM,
+	CCCI_NORMAL_LOG(0, FSM,
 		"exception %d, from %ps\n",
 		reason, __builtin_return_address(0));
-	fsm_monitor_send_message(ctl->md_id,
-		CCCI_MD_MSG_EXCEPTION, 0);
+	fsm_monitor_send_message(CCCI_MD_MSG_EXCEPTION, 0);
 	/* 1. state sanity check */
 	if (ctl->curr_state == CCCI_FSM_GATED) {
 		if (cmd)
@@ -235,24 +233,24 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 	/* 2. check EE reason */
 	switch (reason) {
 	case EXCEPTION_HS1_TIMEOUT:
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"MD_BOOT_HS1_FAIL!\n");
 		fsm_md_bootup_timeout_handler(&ctl->ee_ctl);
 		break;
 	case EXCEPTION_HS2_TIMEOUT:
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"MD_BOOT_HS2_FAIL!\n");
 		fsm_md_bootup_timeout_handler(&ctl->ee_ctl);
 		break;
 	case EXCEPTION_MD_NO_RESPONSE:
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"MD_NO_RESPONSE!\n");
 		fsm_broadcast_state(ctl, EXCEPTION);
 		fsm_md_no_response_handler(&ctl->ee_ctl);
 		break;
 	case EXCEPTION_WDT:
 		fsm_broadcast_state(ctl, EXCEPTION);
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"MD_WDT!\n");
 		fsm_md_wdt_handler(&ctl->ee_ctl);
 		break;
@@ -265,8 +263,7 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		 * event polling in EE_CTRL,
 		 * so we do it here
 		 */
-		ccci_md_exception_handshake(ctl->md_id,
-			MD_EX_CCIF_TIMEOUT);
+		ccci_md_exception_handshake(MD_EX_CCIF_TIMEOUT);
 #ifdef ENABLE_EMIMPU_CB
 		mtk_clear_md_violation();
 #endif
@@ -353,7 +350,7 @@ static unsigned int get_booting_start_id(struct ccci_modem *md)
 				| get_boot_mode_from_dts());
 	booting_start_id |= md->mdlg_mode & 0xffff0000;
 
-	CCCI_BOOTUP_LOG(md->index, FSM,
+	CCCI_BOOTUP_LOG(0, FSM,
 		"%s 0x%x\n", __func__, booting_start_id);
 	return booting_start_id;
 }
@@ -384,8 +381,7 @@ static void config_ap_side_feature(struct ccci_modem *md,
 
 	md_feature->feature_set[CCISM_SHARE_MEMORY_EXP].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
-	if ((md->index == MD_SYS1) && ((get_md_resv_phy_cap_size(MD_SYS1) > 0)
-		|| (get_md_resv_sib_size(MD_SYS1) > 0)))
+	if ((get_md_resv_phy_cap_size() > 0) || (get_md_resv_sib_size() > 0))
 		md_feature->feature_set[MD_PHY_CAPTURE].support_mask
 			= CCCI_FEATURE_MUST_SUPPORT;
 	else
@@ -397,14 +393,13 @@ static void config_ap_side_feature(struct ccci_modem *md,
 		= CCCI_FEATURE_NOT_SUPPORT;
 
 #if (MD_GENERATION >= 6297)
-	region =	ccci_md_get_smem_by_user_id(MD_SYS1,
-		SMEM_USER_RAW_UDC_DESCTAB);
+	region = ccci_md_get_smem_by_user_id(SMEM_USER_RAW_UDC_DESCTAB);
 	if (region)
 		udc_cache_size = region->size;
 	else
 		udc_cache_size = 0;
 
-	region = ccci_md_get_smem_by_user_id(MD_SYS1, SMEM_USER_RAW_UDC_DATA);
+	region = ccci_md_get_smem_by_user_id(SMEM_USER_RAW_UDC_DATA);
 	if (region)
 		udc_noncache_size = region->size;
 	else
@@ -416,7 +411,7 @@ static void config_ap_side_feature(struct ccci_modem *md,
 		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
 			= CCCI_FEATURE_NOT_SUPPORT;
 #else
-	get_md_resv_udc_info(md->index, &udc_noncache_size, &udc_cache_size);
+	get_md_resv_udc_info(&udc_noncache_size, &udc_cache_size);
 	if (udc_noncache_size > 0 && udc_cache_size > 0)
 		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
 			= CCCI_FEATURE_MUST_SUPPORT;
@@ -424,7 +419,7 @@ static void config_ap_side_feature(struct ccci_modem *md,
 		md_feature->feature_set[UDC_RAW_SHARE_MEMORY].support_mask
 			= CCCI_FEATURE_NOT_SUPPORT;
 #endif
-	if ((md->index == MD_SYS1) && (get_smem_amms_pos_size(MD_SYS1) > 0))
+	if (get_smem_amms_pos_size() > 0)
 		md_feature->feature_set[MD_POS_SHARE_MEMORY].support_mask =
 			CCCI_FEATURE_MUST_SUPPORT;
 	else
@@ -453,7 +448,7 @@ static void config_ap_side_feature(struct ccci_modem *md,
 		= CCCI_FEATURE_MUST_SUPPORT;
 
 	/* default always support MISC_INFO_RTC_32K_LESS */
-	CCCI_DEBUG_LOG(md->index, FSM, "MISC_32K_LESS support\n");
+	CCCI_DEBUG_LOG(0, FSM, "MISC_32K_LESS support\n");
 	md_feature->feature_set[MISC_INFO_RTC_32K_LESS].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
 
@@ -565,7 +560,7 @@ static void ccci_sib_region_set_runtime(struct ccci_runtime_feature *rt_feature,
 		rt_shm->size = 0;
 }
 
-static void ccci_md_mem_inf_prepare(int md_id,
+static void ccci_md_mem_inf_prepare(
 		struct ccci_runtime_feature *rt_ft,
 		struct ccci_runtime_md_mem_ap_addr *tbl, unsigned int num)
 {
@@ -574,16 +569,16 @@ static void ccci_md_mem_inf_prepare(int md_id,
 	u32 ro_rw_size, ncrw_size, crw_size;
 	int ret;
 
-	ret = get_md_resv_mem_info(md_id, &ro_rw_base, &ro_rw_size,
+	ret = get_md_resv_mem_info(&ro_rw_base, &ro_rw_size,
 					&ncrw_base, &ncrw_size);
 	if (ret < 0) {
-		CCCI_REPEAT_LOG(md_id, FSM, "%s get mdrorw and srw fail\n",
+		CCCI_REPEAT_LOG(0, FSM, "%s get mdrorw and srw fail\n",
 			__func__);
 		return;
 	}
-	ret = get_md_resv_csmem_info(md_id, &crw_base, &crw_size);
+	ret = get_md_resv_csmem_info(&crw_base, &crw_size);
 	if (ret < 0) {
-		CCCI_REPEAT_LOG(md_id, FSM, "%s get cache smem info fail\n",
+		CCCI_REPEAT_LOG(0, FSM, "%s get cache smem info fail\n",
 			__func__);
 		return;
 	}
@@ -596,7 +591,7 @@ static void ccci_md_mem_inf_prepare(int md_id,
 		tbl[add_num].ap_view_phy_hi32 = (u32)(ro_rw_base >> 32);
 		add_num++;
 	} else
-		CCCI_REPEAT_LOG(md_id, FSM, "%s add bank0/1 fail(%d)\n",
+		CCCI_REPEAT_LOG(0, FSM, "%s add bank0/1 fail(%d)\n",
 			__func__, add_num);
 
 	if (add_num < num) {
@@ -606,18 +601,18 @@ static void ccci_md_mem_inf_prepare(int md_id,
 		tbl[add_num].ap_view_phy_hi32 = (u32)(ncrw_base >> 32);
 		add_num++;
 	} else
-		CCCI_REPEAT_LOG(md_id, FSM, "%s add bank4 nc fail(%d)\n",
+		CCCI_REPEAT_LOG(0, FSM, "%s add bank4 nc fail(%d)\n",
 			__func__, add_num);
 
 	if (add_num < num) {
 		tbl[add_num].md_view_phy = 0x40000000 +
-				get_md_smem_cachable_offset(md_id);
+				get_md_smem_cachable_offset();
 		tbl[add_num].size = crw_size;
 		tbl[add_num].ap_view_phy_lo32 = (u32)crw_base;
 		tbl[add_num].ap_view_phy_hi32 = (u32)(crw_base >> 32);
 		add_num++;
 	} else
-		CCCI_REPEAT_LOG(md_id, FSM, "%s add bank4 c fail(%d)\n",
+		CCCI_REPEAT_LOG(0, FSM, "%s add bank4 c fail(%d)\n",
 			__func__, add_num);
 	rt_ft->feature_id = MD_MEM_AP_VIEW_INF;
 	rt_ft->data_len =
@@ -625,12 +620,11 @@ static void ccci_md_mem_inf_prepare(int md_id,
 }
 #endif
 
-static void ccci_smem_region_set_runtime(unsigned char md_id, unsigned int id,
+static void ccci_smem_region_set_runtime(unsigned int id,
 	struct ccci_runtime_feature *rt_feature,
 	struct ccci_runtime_share_memory *rt_shm)
 {
-	struct ccci_smem_region *region = ccci_md_get_smem_by_user_id(md_id,
-		id);
+	struct ccci_smem_region *region = ccci_md_get_smem_by_user_id(id);
 
 	if (region) {
 		rt_feature->data_len =
@@ -645,17 +639,16 @@ static void ccci_smem_region_set_runtime(unsigned char md_id, unsigned int id,
 	}
 }
 
-int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
-	int length)
+int ccci_md_prepare_runtime_data(unsigned char *data, int length)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 	u8 i = 0;
 	u32 total_len;
 	int j;
 	/*runtime data buffer */
 	struct ccci_smem_region *region;
 	struct ccci_smem_region *rt_data_region =
-		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_RUNTIME_DATA);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_RUNTIME_DATA);
 	char *rt_data = (char *)rt_data_region->base_ap_view_vir;
 
 	struct ccci_runtime_feature rt_feature;
@@ -672,7 +665,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 	unsigned int c2k_flags = 0;
 	int adc_val = 0;
 
-	CCCI_BOOTUP_LOG(md->index, FSM,
+	CCCI_BOOTUP_LOG(0, FSM,
 		"prepare_runtime_data  AP total %u features\n",
 		MD_RUNTIME_FEATURE_ID_MAX);
 
@@ -684,11 +677,9 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 
 	if (md_feature->head_pattern != MD_FEATURE_QUERY_PATTERN ||
 	    md_feature->tail_pattern != MD_FEATURE_QUERY_PATTERN) {
-		CCCI_BOOTUP_LOG(md->index, FSM,
+		CCCI_BOOTUP_LOG(0, FSM,
 			"md_feature pattern is wrong: head 0x%x, tail 0x%x\n",
 			md_feature->head_pattern, md_feature->tail_pattern);
-		if (md->index == MD_SYS3)
-			md->ops->dump_info(md, DUMP_FLAG_CCIF, NULL, 0);
 		return -1;
 	}
 
@@ -701,13 +692,13 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 			CCCI_FEATURE_MUST_SUPPORT &&
 		    md_feature_ap.feature_set[i].support_mask <
 			CCCI_FEATURE_MUST_SUPPORT) {
-			CCCI_BOOTUP_LOG(md->index, FSM,
+			CCCI_BOOTUP_LOG(0, FSM,
 				"feature %u not support for AP\n",
 				rt_feature.feature_id);
 			return -1;
 		}
 
-		CCCI_DEBUG_LOG(md->index, FSM,
+		CCCI_DEBUG_LOG(0, FSM,
 			"ftr %u mask %u, ver %u\n",
 			rt_feature.feature_id,
 			md_feature->feature_set[i].support_mask,
@@ -765,18 +756,18 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				adc_val = ccci_get_adc_mV();
 				/* 0V ~ 0.1V is EVB */
 				if (adc_val >= 100) {
-					CCCI_BOOTUP_LOG(md->index, FSM,
+					CCCI_BOOTUP_LOG(0, FSM,
 					"ADC val:%d, Phone\n", adc_val);
 					/* bit 1: 0: EVB 1: Phone */
 					boot_info.boot_attributes |= (1 << 1);
 				} else
-					CCCI_BOOTUP_LOG(md->index, FSM,
+					CCCI_BOOTUP_LOG(0, FSM,
 					"ADC val:%d, EVB\n", adc_val);
 				append_runtime_feature(&rt_data,
 					&rt_feature, &boot_info);
 				break;
 			case EXCEPTION_SHARE_MEMORY:
-				region = ccci_md_get_smem_by_user_id(md_id,
+				region = ccci_md_get_smem_by_user_id(
 					SMEM_USER_RAW_MDCCCI_DBG);
 				rt_feature.data_len =
 				sizeof(struct ccci_runtime_share_memory);
@@ -786,14 +777,14 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 					&rt_feature, &rt_shm);
 				break;
 			case CCIF_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_CCISM_MCU,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data,
 					&rt_feature, &rt_shm);
 				break;
 			case CCISM_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_CCISM_SCP,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data,
@@ -804,7 +795,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				 * all CCB region size here
 				 */
 				/* ctrl control first */
-				region = ccci_md_get_smem_by_user_id(md_id,
+				region = ccci_md_get_smem_by_user_id(
 					SMEM_USER_RAW_CCB_CTRL);
 				if (region) {
 					rt_feature.data_len =
@@ -817,8 +808,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				/* ccb data second */
 				for (j = SMEM_USER_CCB_START;
 					j <= SMEM_USER_CCB_END; j++) {
-					region = ccci_md_get_smem_by_user_id(
-						md_id, j);
+					region = ccci_md_get_smem_by_user_id(j);
 					if (j == SMEM_USER_CCB_START
 						&& region) {
 						rt_f_element.feature[2] =
@@ -831,7 +821,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 						rt_f_element.feature[3] +=
 						region->size;
 				}
-				CCCI_BOOTUP_LOG(md->index, FSM,
+				CCCI_BOOTUP_LOG(0, FSM,
 					"ccb data size (include dsp raw): %X\n",
 					rt_f_element.feature[3]);
 
@@ -839,21 +829,21 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				&rt_feature, &rt_f_element);
 				break;
 			case DHL_RAW_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_RAW_DHL,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data,
 					&rt_feature, &rt_shm);
 				break;
 			case LWA_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_RAW_LWA,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data,
 				&rt_feature, &rt_shm);
 				break;
 			case MULTI_MD_MPU:
-				CCCI_BOOTUP_LOG(md->index, FSM,
+				CCCI_BOOTUP_LOG(0, FSM,
 				"new version md use multi-MPU.\n");
 				md->multi_md_mpu_support = 1;
 				rt_feature.data_len = 0;
@@ -861,28 +851,28 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				&rt_feature, NULL);
 				break;
 			case DT_NETD_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_RAW_NETD,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data,
 				&rt_feature, &rt_shm);
 				break;
 			case DT_USB_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_RAW_USB,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data,
 				&rt_feature, &rt_shm);
 				break;
 			case SMART_LOGGING_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_SMART_LOGGING,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data,
 				&rt_feature, &rt_shm);
 				break;
 			case MD1MD3_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_RAW_MD2MD,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data,
@@ -920,12 +910,12 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				sizeof(struct ccci_misc_info_element);
 				rt_f_element.feature[0] = md->sbp_code;
 				rt_f_element.feature[1] =
-						get_soc_md_rt_rat(MD_SYS1);
-				CCCI_BOOTUP_LOG(md->index, FSM,
+						get_soc_md_rt_rat();
+				CCCI_BOOTUP_LOG(0, FSM,
 					"sbp=0x%x,wmid[0x%x]\n",
 					rt_f_element.feature[0],
 					rt_f_element.feature[1]);
-				CCCI_NORMAL_LOG(md->index, FSM,
+				CCCI_NORMAL_LOG(0, FSM,
 					"sbp=0x%x,wmid[0x%x]\n",
 					rt_f_element.feature[0],
 					rt_f_element.feature[1]);
@@ -963,9 +953,9 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				sizeof(struct ccci_misc_info_element);
 				c2k_flags = 0;
 
-				if (check_rat_at_rt_setting(MD_SYS1, "C"))
+				if (check_rat_at_rt_setting("C"))
 					c2k_flags |= (1 << 2);
-				CCCI_NORMAL_LOG(md_id, FSM,
+				CCCI_NORMAL_LOG(0, FSM,
 					"c2k_flags 0x%X; MD_GENERATION: %d\n",
 					c2k_flags, MD_GENERATION);
 
@@ -1004,14 +994,14 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				&rt_feature, &random_seed);
 				break;
 			case AUDIO_RAW_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_RAW_AUDIO,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data,
 				&rt_feature, &rt_shm);
 				break;
 			case CCISM_SHARE_MEMORY_EXP:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_CCISM_MCU_EXP,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data, &rt_feature,
@@ -1022,7 +1012,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				ccci_sib_region_set_runtime(&rt_feature,
 					&rt_shm);
 #else
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_RAW_PHY_CAP,
 					&rt_feature, &rt_shm);
 #endif
@@ -1030,7 +1020,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				&rt_shm);
 				break;
 			case UDC_RAW_SHARE_MEMORY:
-				region = ccci_md_get_smem_by_user_id(md_id,
+				region = ccci_md_get_smem_by_user_id(
 					SMEM_USER_RAW_UDC_DATA);
 				if (region) {
 					rt_feature.data_len = sizeof(
@@ -1045,7 +1035,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 					rt_f_element.feature[0] = 0;
 					rt_f_element.feature[1] = 0;
 				}
-				region = ccci_md_get_smem_by_user_id(md_id,
+				region = ccci_md_get_smem_by_user_id(
 					SMEM_USER_RAW_UDC_DESCTAB);
 				if (region) {
 					rt_feature.data_len = sizeof(
@@ -1064,14 +1054,14 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 					&rt_feature, &rt_f_element);
 				break;
 			case MD_CONSYS_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_RAW_MD_CONSYS,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data, &rt_feature,
 				&rt_shm);
 				break;
 			case MD_USIP_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_RAW_USIP,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data, &rt_feature,
@@ -1085,35 +1075,35 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				&random_seed);
 				break;
 			case MD_POS_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_RAW_AMMS_POS,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data, &rt_feature,
 					&rt_shm);
 				break;
 			case MD_WIFI_PROXY_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_MD_WIFI_PROXY,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data, &rt_feature,
 				&rt_shm);
 				break;
 			case NVRAM_CACHE_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_MD_NVRAM_CACHE,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data, &rt_feature,
 				&rt_shm);
 				break;
 			case MD_MEM_AP_VIEW_INF:
-				ccci_md_mem_inf_prepare(md_id, &rt_feature,
+				ccci_md_mem_inf_prepare(&rt_feature,
 					rt_mem_view, 4);
 				append_runtime_feature(&rt_data, &rt_feature,
 				rt_mem_view);
 				break;
 #ifdef CCCI_SUPPORT_AP_MD_SECURE_FEATURE
 			case SECURITY_SHARE_MEMORY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_SECURITY_SMEM,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data, &rt_feature,
@@ -1121,7 +1111,7 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 				break;
 #endif
 			case AMMS_DRDI_COPY:
-				ccci_smem_region_set_runtime(md_id,
+				ccci_smem_region_set_runtime(
 					SMEM_USER_MD_DRDI,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data, &rt_feature,
@@ -1138,8 +1128,8 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 	}
 
 	total_len = rt_data - (char *)rt_data_region->base_ap_view_vir;
-	CCCI_BOOTUP_DUMP_LOG(md->index, FSM, "AP runtime data\n");
-	ccci_util_mem_dump(md->index, CCCI_DUMP_BOOTUP,
+	CCCI_BOOTUP_DUMP_LOG(0, FSM, "AP runtime data\n");
+	ccci_util_mem_dump(CCCI_DUMP_BOOTUP,
 		rt_data_region->base_ap_view_vir, total_len);
 
 	return 0;
@@ -1167,8 +1157,8 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	__pm_stay_awake(ctl->wakelock);
 	/* 2. poll for critical users exit */
 	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL && !needforcestop) {
-		if (ccci_port_check_critical_user(ctl->md_id) == 0 ||
-				ccci_port_critical_user_only_fsd(ctl->md_id)) {
+		if (ccci_port_check_critical_user() == 0 ||
+				ccci_port_critical_user_only_fsd()) {
 			user_exit = 1;
 			break;
 		}
@@ -1184,19 +1174,19 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	 * so we tango on...
 	 */
 	if (!user_exit)
-		CCCI_ERROR_LOG(ctl->md_id, FSM, "critical user alive %d\n",
-			ccci_port_check_critical_user(ctl->md_id));
+		CCCI_ERROR_LOG(0, FSM, "critical user alive %d\n",
+			ccci_port_check_critical_user());
 	spin_lock_irqsave(&ctl->event_lock, flags);
 	list_for_each_entry_safe(event, next, &ctl->event_queue, entry) {
-		CCCI_NORMAL_LOG(ctl->md_id, FSM,
+		CCCI_NORMAL_LOG(0, FSM,
 			"drop event %d before start\n", event->event_id);
 		fsm_finish_event(ctl, event);
 	}
 	spin_unlock_irqrestore(&ctl->event_lock, flags);
 	/* 3. action and poll event queue */
-	ccci_md_pre_start(ctl->md_id);
+	ccci_md_pre_start();
 	fsm_broadcast_state(ctl, BOOT_WAITING_FOR_HS1);
-	ret = ccci_md_start(ctl->md_id);
+	ret = ccci_md_start();
 	if (ret)
 		goto fail;
 	ctl->boot_count++;
@@ -1213,28 +1203,26 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 				if (event->length
 					== sizeof(struct md_query_ap_feature)
 					+ sizeof(struct ccci_header))
-					ccci_md_prepare_runtime_data(ctl->md_id,
+					ccci_md_prepare_runtime_data(
 						event->data, event->length);
 				else if (event->length
 						== sizeof(struct ccci_header))
-					CCCI_NORMAL_LOG(ctl->md_id, FSM,
+					CCCI_NORMAL_LOG(0, FSM,
 						"old handshake1 message\n");
 				else
-					CCCI_ERROR_LOG(ctl->md_id, FSM,
+					CCCI_ERROR_LOG(0, FSM,
 						"invalid MD_QUERY_MSG %d\n",
 						event->length);
 #ifdef SET_EMI_STEP_BY_STAGE
-				ccci_set_mem_access_protection_second_stage(
-					ctl->md_id);
+				ccci_set_mem_access_protection_second_stage();
 #endif
-				ccci_md_dump_info(ctl->md_id,
-					DUMP_MD_BOOTUP_STATUS, NULL, 0);
+				ccci_md_dump_info(DUMP_MD_BOOTUP_STATUS, NULL, 0);
 				fsm_finish_event(ctl, event);
 
 				spin_unlock_irqrestore(&ctl->event_lock, flags);
 				/* this API would alloc skb */
-				ret = ccci_md_send_runtime_data(ctl->md_id);
-				CCCI_NORMAL_LOG(ctl->md_id, FSM,
+				ret = ccci_md_send_runtime_data();
+				CCCI_NORMAL_LOG(0, FSM,
 					"send runtime data %d\n", ret);
 				spin_lock_irqsave(&ctl->event_lock, flags);
 			} else if (event->event_id == CCCI_EVENT_HS2) {
@@ -1247,7 +1235,7 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 		}
 		spin_unlock_irqrestore(&ctl->event_lock, flags);
 		if (fsm_check_for_ee(ctl, 0)) {
-			CCCI_ERROR_LOG(ctl->md_id, FSM,
+			CCCI_ERROR_LOG(0, FSM,
 				"early exception detected\n");
 			goto fail_ee;
 		}
@@ -1285,7 +1273,7 @@ fail_ee:
 success:
 	ctl->last_state = ctl->curr_state;
 	ctl->curr_state = CCCI_FSM_READY;
-	ccci_md_post_start(ctl->md_id);
+	ccci_md_post_start();
 	fsm_finish_command(ctl, cmd, 1);
 	__pm_relax(ctl->wakelock);
 	__pm_wakeup_event(ctl->wakelock, jiffies_to_msecs(10 * HZ));
@@ -1314,7 +1302,7 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 	ctl->last_state = ctl->curr_state;
 	ctl->curr_state = CCCI_FSM_STOPPING;
 	/* 2. pre-stop: polling MD for infinit sleep mode */
-	ccci_md_pre_stop(ctl->md_id,
+	ccci_md_pre_stop(
 	cmd->flag & FSM_CMD_FLAG_FLIGHT_MODE
 	?
 	MD_FLIGHT_MODE_ENTER
@@ -1332,7 +1320,7 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 	ctl->poller_ctl.poller_state = FSM_POLLER_RECEIVED_RESPONSE;
 	wake_up(&ctl->poller_ctl.status_rx_wq);
 	/* 4. hardware stop */
-	ccci_md_stop(ctl->md_id,
+	ccci_md_stop(
 	cmd->flag & FSM_CMD_FLAG_FLIGHT_MODE
 	?
 	MD_FLIGHT_MODE_ENTER
@@ -1342,7 +1330,7 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 	spin_lock_irqsave(&ctl->event_lock, flags);
 	list_for_each_entry_safe(event, next,
 		&ctl->event_queue, entry) {
-		CCCI_NORMAL_LOG(ctl->md_id, FSM,
+		CCCI_NORMAL_LOG(0, FSM,
 			"drop event %d after stop\n",
 			event->event_id);
 		fsm_finish_event(ctl, event);
@@ -1353,9 +1341,9 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 success:
 	needforcestop = 0;
 	/* when MD is stopped, the skb list of ccci_fs should be clean */
-	port = port_get_by_channel(ctl->md_id, CCCI_FS_RX);
+	port = port_get_by_channel(CCCI_FS_RX);
 	if (port == NULL) {
-		CCCI_ERROR_LOG(ctl->md_id, FSM, "port_get_by_channel fail");
+		CCCI_ERROR_LOG(0, FSM, "port_get_by_channel fail");
 		return;
 	}
 
@@ -1371,37 +1359,26 @@ success:
 	fsm_finish_command(ctl, cmd, 1);
 }
 
-static int ccci_md_epon_set(int md_id)
+static int ccci_md_epon_set(void)
 {
-	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+	struct ccci_modem *md = ccci_get_modem();
 	struct ccci_smem_region *mdss_dbg
-			= ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_MDSS_DBG);
+			= ccci_md_get_smem_by_user_id(SMEM_USER_RAW_MDSS_DBG);
 	int ret = 0, in_md_l2sram = 0;
 
-	switch (md_id) {
-	case MD_SYS1:
-		if (!md || !md->hw_info) {
-			CCCI_NORMAL_LOG(md_id, FSM, "%s, NULL!!!\n");
-			break;
-		}
-		if (md->hw_info->md_l2sram_base) {
-			md_cd_lock_modem_clock_src(1);
-			ret = *((int *)(md->hw_info->md_l2sram_base
-				+ md->hw_info->md_epon_offset)) == 0xBAEBAE10;
-			md_cd_lock_modem_clock_src(0);
-			in_md_l2sram = 1;
-		} else if (mdss_dbg && mdss_dbg->base_ap_view_vir)
-			ret = *((int *)(mdss_dbg->base_ap_view_vir
-				+ md->hw_info->md_epon_offset)) == 0xBAEBAE10;
-		break;
-	case MD_SYS3:
+	if (md->hw_info->md_l2sram_base) {
+		md_cd_lock_modem_clock_src(1);
+		ret = *((int *)(md->hw_info->md_l2sram_base
+			+ md->hw_info->md_epon_offset)) == 0xBAEBAE10;
+		md_cd_lock_modem_clock_src(0);
+		in_md_l2sram = 1;
+	} else if (mdss_dbg && mdss_dbg->base_ap_view_vir)
 		ret = *((int *)(mdss_dbg->base_ap_view_vir
-			+ 0x464)) //#define CCCI_EE_OFFSET_EPON_MD3 (0x464)
-				== 0xBAEBAE10;
-		break;
-	}
-	CCCI_NORMAL_LOG(md_id, FSM, "reset MD after WDT, %s, 0x%x\n",
+			+ md->hw_info->md_epon_offset)) == 0xBAEBAE10;
+
+	CCCI_NORMAL_LOG(0, FSM, "reset MD after WDT, %s, 0x%x\n",
 		(in_md_l2sram?"l2sram":"mdssdbg"), ret);
+
 	return ret;
 }
 
@@ -1411,26 +1388,23 @@ static void fsm_routine_wdt(struct ccci_fsm_ctl *ctl,
 	int reset_md = 0;
 	int is_epon_set = 0;
 
-	is_epon_set = ccci_md_epon_set(ctl->md_id);
+	is_epon_set = ccci_md_epon_set();
 
 	if (is_epon_set)
 		reset_md = 1;
 	else {
-		if (ccci_port_get_critical_user(ctl->md_id,
+		if (ccci_port_get_critical_user(
 				CRIT_USR_MDLOG) == 0) {
-			CCCI_NORMAL_LOG(ctl->md_id, FSM,
+			CCCI_NORMAL_LOG(0, FSM,
 				"mdlogger closed, reset MD after WDT\n");
 			reset_md = 1;
 		} else {
 			fsm_routine_exception(ctl, NULL, EXCEPTION_WDT);
 		}
 	}
-	if (reset_md) {
-		fsm_monitor_send_message(ctl->md_id,
-			CCCI_MD_MSG_RESET_REQUEST, 0);
-		fsm_monitor_send_message(GET_OTHER_MD_ID(ctl->md_id),
-			CCCI_MD_MSG_RESET_REQUEST, 0);
-	}
+	if (reset_md)
+		fsm_monitor_send_message(CCCI_MD_MSG_RESET_REQUEST, 0);
+
 	fsm_finish_command(ctl, cmd, 1);
 }
 
@@ -1455,8 +1429,7 @@ static int fsm_main_thread(void *data)
 		list_del(&cmd->entry);
 		spin_unlock_irqrestore(&ctl->command_lock, flags);
 
-		CCCI_NORMAL_LOG(ctl->md_id, FSM,
-			"command %d process\n", cmd->cmd_id);
+		CCCI_NORMAL_LOG(0, FSM, "command process\n");
 
 		s_is_normal_mdee = 0;
 		s_devapc_dump_counter = 0;
@@ -1499,7 +1472,7 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
 
 	if (cmd_id <= CCCI_COMMAND_INVALID
 			|| cmd_id >= CCCI_COMMAND_MAX) {
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"invalid command %d\n", cmd_id);
 		return -CCCI_ERR_INVALID_PARAM;
 	}
@@ -1507,7 +1480,7 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
 		(in_irq() || in_softirq()
 		|| irqs_disabled()) ? GFP_ATOMIC : GFP_KERNEL);
 	if (!cmd) {
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"fail to alloc command %d\n", cmd_id);
 		return -CCCI_ERR_GET_MEM_FAIL;
 	}
@@ -1523,7 +1496,7 @@ int fsm_append_command(struct ccci_fsm_ctl *ctl,
 	list_add_tail(&cmd->entry, &ctl->command_queue);
 	spin_unlock_irqrestore(&ctl->command_lock, flags);
 	if (!in_irq())
-		CCCI_NORMAL_LOG(ctl->md_id, FSM,
+		CCCI_NORMAL_LOG(0, FSM,
 			"command %d is appended %x from %ps\n",
 			cmd_id, flag,
 			__builtin_return_address(0));
@@ -1553,7 +1526,7 @@ static void fsm_finish_command(struct ccci_fsm_ctl *ctl,
 {
 	unsigned long flags;
 
-	CCCI_NORMAL_LOG(ctl->md_id, FSM,
+	CCCI_NORMAL_LOG(0, FSM,
 		"command %d is completed %d by %ps\n",
 		cmd->cmd_id, result,
 		__builtin_return_address(0));
@@ -1581,7 +1554,7 @@ int fsm_append_event(struct ccci_fsm_ctl *ctl, enum CCCI_FSM_EVENT event_id,
 	unsigned long flags;
 
 	if (event_id <= CCCI_EVENT_INVALID || event_id >= CCCI_EVENT_MAX) {
-		CCCI_ERROR_LOG(ctl->md_id, FSM, "invalid event %d\n", event_id);
+		CCCI_ERROR_LOG(0, FSM, "invalid event %d\n", event_id);
 		return -CCCI_ERR_INVALID_PARAM;
 	}
 	if (event_id == CCCI_EVENT_FS_IN) {
@@ -1594,7 +1567,7 @@ int fsm_append_event(struct ccci_fsm_ctl *ctl, enum CCCI_FSM_EVENT event_id,
 	event = kmalloc(sizeof(struct ccci_fsm_event) + length,
 		in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
 	if (!event) {
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"fail to alloc event%d\n", event_id);
 		return -CCCI_ERR_GET_MEM_FAIL;
 	}
@@ -1608,7 +1581,7 @@ int fsm_append_event(struct ccci_fsm_ctl *ctl, enum CCCI_FSM_EVENT event_id,
 	list_add_tail(&event->entry, &ctl->event_queue);
 	spin_unlock_irqrestore(&ctl->event_lock, flags);
 	/* do not derefence event after here */
-	CCCI_NORMAL_LOG(ctl->md_id, FSM,
+	CCCI_NORMAL_LOG(0, FSM,
 		"event %d is appended from %ps\n", event_id,
 		__builtin_return_address(0));
 	return 0;
@@ -1619,7 +1592,7 @@ static void fsm_finish_event(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_event *event)
 {
 	list_del(&event->entry);
-	CCCI_NORMAL_LOG(ctl->md_id, FSM,
+	CCCI_NORMAL_LOG(0, FSM,
 		"event %d is completed by %ps\n", event->event_id,
 		__builtin_return_address(0));
 	kfree(event);
@@ -1627,46 +1600,26 @@ static void fsm_finish_event(struct ccci_fsm_ctl *ctl,
 
 struct ccci_fsm_ctl *fsm_get_entity_by_device_number(dev_t dev_n)
 {
-	int i;
+	if (ccci_fsm_entries &&
+		ccci_fsm_entries->monitor_ctl.dev_n == dev_n)
+		return ccci_fsm_entries;
 
-	for (i = 0; i < ARRAY_SIZE(ccci_fsm_entries); i++) {
-		if (ccci_fsm_entries[i]
-			&& ccci_fsm_entries[i]->monitor_ctl.dev_n
-			== dev_n)
-			return ccci_fsm_entries[i];
-	}
 	return NULL;
 }
 
-struct ccci_fsm_ctl *fsm_get_entity_by_md_id(int md_id)
-{
-
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(ccci_fsm_entries); i++) {
-		if (ccci_fsm_entries[i]
-			&& ccci_fsm_entries[i]->md_id == md_id)
-			return ccci_fsm_entries[i];
-	}
-	return NULL;
-}
-
-int ccci_fsm_init(int md_id)
+int ccci_fsm_init(void)
 {
 	struct ccci_fsm_ctl *ctl = NULL;
 	int ret = 0;
 
-	if (md_id < 0 || md_id >= ARRAY_SIZE(ccci_fsm_entries))
-		return -CCCI_ERR_INVALID_PARAM;
-
 	ctl = kzalloc(sizeof(struct ccci_fsm_ctl), GFP_KERNEL);
 	if (ctl == NULL) {
-		CCCI_ERROR_LOG(md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 					"%s kzalloc ccci_fsm_ctl fail\n",
 					__func__);
 		return -1;
 	}
-	ctl->md_id = md_id;
+
 	ctl->last_state = CCCI_FSM_INVALID;
 	ctl->curr_state = CCCI_FSM_GATED;
 	INIT_LIST_HEAD(&ctl->command_queue);
@@ -1676,50 +1629,48 @@ int ccci_fsm_init(int md_id)
 	spin_lock_init(&ctl->command_lock);
 	spin_lock_init(&ctl->cmd_complete_lock);
 	atomic_set(&ctl->fs_ongoing, 0);
-	ret = snprintf(ctl->wakelock_name, sizeof(ctl->wakelock_name),
-		"md%d_wakelock", ctl->md_id + 1);
+	ret = snprintf(ctl->wakelock_name, sizeof(ctl->wakelock_name), "md_wakelock");
 	if (ret <= 0 || ret >= sizeof(ctl->wakelock_name)) {
-		CCCI_ERROR_LOG(md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"%s snprintf wakelock_name fail\n",
 			__func__);
 		ctl->wakelock_name[0] = 0;
 	}
 	ctl->wakelock = wakeup_source_register(NULL, ctl->wakelock_name);
 	if (!ctl->wakelock) {
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"%s %d: init wakeup source fail",
 			__func__, __LINE__);
 		return -1;
 	}
-	ctl->fsm_thread = kthread_run(fsm_main_thread, ctl,
-		"ccci_fsm%d", md_id + 1);
+	ctl->fsm_thread = kthread_run(fsm_main_thread, ctl, "ccci_fsm");
 #ifndef CCCI_KMODULE_ENABLE
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	fsm_scp_init(&ctl->scp_ctl);
 #endif
 #else
-	CCCI_NORMAL_LOG(md_id, FSM, "%s oringinal position scp_init\n", __func__);
+	CCCI_NORMAL_LOG(0, FSM, "%s oringinal position scp_init\n", __func__);
 #endif
 	fsm_poller_init(&ctl->poller_ctl);
 	fsm_ee_init(&ctl->ee_ctl);
 	fsm_monitor_init(&ctl->monitor_ctl);
 	fsm_sys_init();
 
-	ccci_fsm_entries[md_id] = ctl;
+	ccci_fsm_entries = ctl;
 	return 0;
 }
 
 #ifdef CCCI_KMODULE_ENABLE
-void ccci_fsm_scp_register(int md_id, struct ccci_fsm_scp *scp_ctl)
+void ccci_fsm_scp_register(struct ccci_fsm_scp *scp_ctl)
 {
-	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
+	struct ccci_fsm_ctl *ctl = ccci_fsm_entries;
 
 	if (!ctl)
 		return;
 
 	ctl->scp_ctl = scp_ctl;
-	CCCI_NORMAL_LOG(ctl->md_id, FSM,
-		"ccci scp register to fsm, %d, %lx, %lx, %lx\n", md_id,
+	CCCI_NORMAL_LOG(0, FSM,
+		"ccci scp register to fsm, %lx, %lx, %lx\n",
 		(unsigned long)ctl->scp_ctl,
 		(unsigned long)scp_ctl,
 		(unsigned long)&scp_ctl->md_state_sync);
@@ -1727,9 +1678,9 @@ void ccci_fsm_scp_register(int md_id, struct ccci_fsm_scp *scp_ctl)
 }
 EXPORT_SYMBOL(ccci_fsm_scp_register);
 #endif
-enum MD_STATE ccci_fsm_get_md_state(int md_id)
+enum MD_STATE ccci_fsm_get_md_state(void)
 {
-	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
+	struct ccci_fsm_ctl *ctl = ccci_fsm_entries;
 
 	if (ctl)
 		return ctl->md_state;
@@ -1738,9 +1689,9 @@ enum MD_STATE ccci_fsm_get_md_state(int md_id)
 }
 EXPORT_SYMBOL(ccci_fsm_get_md_state);
 
-enum MD_STATE_FOR_USER ccci_fsm_get_md_state_for_user(int md_id)
+enum MD_STATE_FOR_USER ccci_fsm_get_md_state_for_user(void)
 {
-	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
+	struct ccci_fsm_ctl *ctl = ccci_fsm_entries;
 
 	if (!ctl)
 		return MD_STATE_INVALID;
@@ -1759,7 +1710,7 @@ enum MD_STATE_FOR_USER ccci_fsm_get_md_state_for_user(int md_id)
 	case EXCEPTION:
 		return MD_STATE_EXCEPTION;
 	default:
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"Invalid md_state %d\n", ctl->md_state);
 		return MD_STATE_INVALID;
 	}
@@ -1767,9 +1718,9 @@ enum MD_STATE_FOR_USER ccci_fsm_get_md_state_for_user(int md_id)
 EXPORT_SYMBOL(ccci_fsm_get_md_state_for_user);
 
 
-int ccci_fsm_recv_md_interrupt(int md_id, enum MD_IRQ_TYPE type)
+int ccci_fsm_recv_md_interrupt(enum MD_IRQ_TYPE type)
 {
-	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
+	struct ccci_fsm_ctl *ctl = ccci_fsm_entries;
 
 	if (!ctl)
 		return -CCCI_ERR_INVALID_PARAM;
@@ -1785,18 +1736,18 @@ int ccci_fsm_recv_md_interrupt(int md_id, enum MD_IRQ_TYPE type)
 	return 0;
 }
 
-int ccci_fsm_recv_control_packet(int md_id, struct sk_buff *skb)
+int ccci_fsm_recv_control_packet(struct sk_buff *skb)
 {
-	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
+	struct ccci_fsm_ctl *ctl = ccci_fsm_entries;
 	struct ccci_header *ccci_h = (struct ccci_header *)skb->data;
 	int ret = 0, free_skb = 1;
 	struct c2k_ctrl_port_msg *c2k_ctl_msg = NULL;
-	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
+	struct ccci_per_md *per_md_data = ccci_get_per_md_data();
 
 	if (!ctl)
 		return -CCCI_ERR_INVALID_PARAM;
 
-	CCCI_NORMAL_LOG(ctl->md_id, FSM,
+	CCCI_NORMAL_LOG(0, FSM,
 		"control message 0x%X,0x%X\n",
 		ccci_h->data[1], ccci_h->reserved);
 	switch (ccci_h->data[1]) {
@@ -1816,12 +1767,12 @@ int ccci_fsm_recv_control_packet(int md_id, struct sk_buff *skb)
 
 	case C2K_HB_MSG:
 		free_skb = 0;
-		ccci_fsm_recv_status_packet(ctl->md_id, skb);
+		ccci_fsm_recv_status_packet(skb);
 		break;
 	case C2K_STATUS_IND_MSG:
 	case C2K_STATUS_QUERY_MSG:
 		c2k_ctl_msg = (struct c2k_ctrl_port_msg *)&ccci_h->reserved;
-		CCCI_NORMAL_LOG(ctl->md_id, FSM,
+		CCCI_NORMAL_LOG(0, FSM,
 			"C2K line status %d: 0x%02x\n",
 			ccci_h->data[1], c2k_ctl_msg->option);
 		if (c2k_ctl_msg->option & 0x80)
@@ -1831,14 +1782,14 @@ int ccci_fsm_recv_control_packet(int md_id, struct sk_buff *skb)
 		break;
 	case C2K_CCISM_SHM_INIT_ACK:
 #ifndef CCCI_KMODULE_ENABLE
-		fsm_ccism_init_ack_handler(ctl->md_id, ccci_h->reserved);
+		fsm_ccism_init_ack_handler(ccci_h->reserved);
 #endif
 		break;
 	case C2K_FLOW_CTRL_MSG:
-		ccci_hif_start_queue(ctl->md_id, ccci_h->reserved, OUT);
+		ccci_hif_start_queue(ccci_h->reserved, OUT);
 		break;
 	default:
-		CCCI_ERROR_LOG(ctl->md_id, FSM,
+		CCCI_ERROR_LOG(0, FSM,
 			"unknown control message %x\n", ccci_h->data[1]);
 		break;
 	}
@@ -1849,9 +1800,9 @@ int ccci_fsm_recv_control_packet(int md_id, struct sk_buff *skb)
 }
 
 /* requested by throttling feature */
-unsigned long ccci_get_md_boot_count(int md_id)
+unsigned long ccci_get_md_boot_count(void)
 {
-	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(md_id);
+	struct ccci_fsm_ctl *ctl = ccci_fsm_entries;
 
 	if (ctl)
 		return ctl->boot_count;

@@ -35,7 +35,7 @@ static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 
 		md_throttle_cmd = TMC_CTRL_CMD_TX_POWER | level << 8 |
 			PT_LOW_BATTERY_VOLTAGE << 16 | intensity << 24;
-		ret = exec_ccci_kern_func_by_md_id(MD_SYS1, ID_THROTTLING_CFG,
+		ret = exec_ccci_kern_func(ID_THROTTLING_CFG,
 			(char *)&md_throttle_cmd, 4);
 		if (ret)
 			pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
@@ -58,7 +58,7 @@ static void md_pt_over_current_cb(enum BATTERY_OC_LEVEL_TAG level)
 
 		md_throttle_cmd = TMC_CTRL_CMD_TX_POWER | level << 8 | PT_OVER_CURRENT << 16 |
 			intensity << 24;
-		ret = exec_ccci_kern_func_by_md_id(MD_SYS1, ID_THROTTLING_CFG,
+		ret = exec_ccci_kern_func(ID_THROTTLING_CFG,
 			(char *)&md_throttle_cmd, 4);
 		if (ret)
 			pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,

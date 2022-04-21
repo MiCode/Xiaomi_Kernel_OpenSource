@@ -26,23 +26,21 @@ int ccci_dpmaif_empty_query(int qno)
 	return ret;
 }
 
-void ccci_hif_set_clk_cg(unsigned int hif_flag,
-		unsigned char md_id, unsigned int on)
+void ccci_hif_set_clk_cg(unsigned int hif_flag, unsigned int on)
 {
 	if (hif_flag & (1 << CLDMA_HIF_ID)) {
 		if (ccci_hif[CLDMA_HIF_ID] &&
 				ccci_hif_op[CLDMA_HIF_ID]->set_clk_cg)
-			ccci_hif_op[CLDMA_HIF_ID]->set_clk_cg(md_id, on);
+			ccci_hif_op[CLDMA_HIF_ID]->set_clk_cg(on);
 	}
-
 }
 
-void ccci_hif_hw_reset(unsigned int hif_flag, unsigned char md_id)
+void ccci_hif_hw_reset(unsigned int hif_flag)
 {
 	if (hif_flag & (1 << CLDMA_HIF_ID)) {
 		if (ccci_hif[CLDMA_HIF_ID] &&
 				ccci_hif_op[CLDMA_HIF_ID]->hw_reset)
-			ccci_hif_op[CLDMA_HIF_ID]->hw_reset(md_id);
+			ccci_hif_op[CLDMA_HIF_ID]->hw_reset();
 	}
 
 }
@@ -59,7 +57,7 @@ int ccci_hif_clear(unsigned int hif_flag)
 	return ret;
 }
 
-int ccci_hif_init(unsigned char md_id, unsigned int hif_flag)
+int ccci_hif_init(unsigned int hif_flag)
 {
 	int ret = 0;
 
@@ -68,13 +66,13 @@ int ccci_hif_init(unsigned char md_id, unsigned int hif_flag)
 	if (hif_flag & (1 << CLDMA_HIF_ID)) {
 		if (ccci_hif[CLDMA_HIF_ID] && ccci_hif_op[CLDMA_HIF_ID]->init)
 			ret |=
-			ccci_hif_op[CLDMA_HIF_ID]->init(CLDMA_HIF_ID, md_id);
+			ccci_hif_op[CLDMA_HIF_ID]->init(CLDMA_HIF_ID);
 	}
 
 	return ret;
 }
 
-int ccci_hif_late_init(unsigned char md_id, unsigned int hif_flag)
+int ccci_hif_late_init(unsigned int hif_flag)
 {
 	int ret = 0;
 
@@ -267,18 +265,17 @@ int ccci_hif_ask_more_request(unsigned char hif_id, int rx_qno)
 	return ret;
 }
 
-void ccci_hif_start_queue(unsigned char hif_id, unsigned int reserved,
-	enum DIRECTION dir)
+void ccci_hif_start_queue(unsigned int reserved, enum DIRECTION dir)
 {
 }
 
-static inline int ccci_hif_napi_poll(unsigned char md_id, int rx_qno,
+static inline int ccci_hif_napi_poll(int rx_qno,
 	struct napi_struct *napi, int weight)
 {
 	return 0;
 }
 
-static void ccci_md_dump_log_rec(unsigned char md_id, struct ccci_log *log)
+static void ccci_md_dump_log_rec(struct ccci_log *log)
 {
 	u64 ts_nsec = log->tv;
 	unsigned long rem_nsec;
@@ -287,13 +284,13 @@ static void ccci_md_dump_log_rec(unsigned char md_id, struct ccci_log *log)
 		return;
 	rem_nsec = do_div(ts_nsec, 1000000000);
 	if (!log->dropped) {
-		CCCI_MEM_LOG(md_id, CORE,
+		CCCI_MEM_LOG(0, CORE,
 		"%08X %08X %08X %08X  %5lu.%06lu\n",
 		log->msg.data[0], log->msg.data[1],
 		*(((u32 *)&log->msg) + 2),
 		log->msg.reserved, (unsigned long)ts_nsec, rem_nsec / 1000);
 	} else {
-		CCCI_MEM_LOG(md_id, CORE, "%08X %08X %08X %08X  %5lu.%06lu -\n",
+		CCCI_MEM_LOG(0, CORE, "%08X %08X %08X %08X  %5lu.%06lu -\n",
 			log->msg.data[0], log->msg.data[1],
 			*(((u32 *)&log->msg) + 2),
 			log->msg.reserved, (unsigned long)ts_nsec,
@@ -337,7 +334,7 @@ void ccci_md_add_log_history(struct ccci_hif_traffic *tinfo,
 }
 EXPORT_SYMBOL(ccci_md_add_log_history);
 
-void ccci_md_dump_log_history(unsigned char md_id,
+void ccci_md_dump_log_history(
 	struct ccci_hif_traffic *tinfo, int dump_multi_rec,
 	int tx_queue_num, int rx_queue_num)
 {
@@ -365,21 +362,19 @@ void ccci_md_dump_log_history(unsigned char md_id,
 
 	if (rx_queue_num > 0)
 		for (; i_rx < rx_qno; i_rx++) {
-			CCCI_MEM_LOG_TAG(md_id, CORE,
+			CCCI_MEM_LOG_TAG(0, CORE,
 				"dump rxq%d packet history, ptr=%d\n", i_rx,
 			       tinfo->rx_history_ptr[i_rx]);
 			for (j = 0; j < PACKET_HISTORY_DEPTH; j++)
-				ccci_md_dump_log_rec(md_id,
-				&tinfo->rx_history[i_rx][j]);
+				ccci_md_dump_log_rec(&tinfo->rx_history[i_rx][j]);
 		}
 	if (tx_queue_num > 0)
 		for (; i_tx < tx_qno; i_tx++) {
-			CCCI_MEM_LOG_TAG(md_id, CORE,
+			CCCI_MEM_LOG_TAG(0, CORE,
 				"dump txq%d packet history, ptr=%d\n", i_tx,
 			       tinfo->tx_history_ptr[i_tx]);
 			for (j = 0; j < PACKET_HISTORY_DEPTH; j++)
-				ccci_md_dump_log_rec(md_id,
-				&tinfo->tx_history[i_tx][j]);
+				ccci_md_dump_log_rec(&tinfo->tx_history[i_tx][j]);
 		}
 #endif
 }
@@ -444,7 +439,7 @@ void ccci_hif_md_exception(unsigned int hif_flag, unsigned char stage)
 			CCCI_NORMAL_LOG(0, TAG,
 				"%s: dump queue0-1 done\n", __func__);
 
-			ccci_hif_hw_reset(1 << CLDMA_HIF_ID, 0);
+			ccci_hif_hw_reset(1 << CLDMA_HIF_ID);
 			CCCI_NORMAL_LOG(0, TAG,
 				"%s: hw reset done\n", __func__);
 			ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, IN);
@@ -462,7 +457,7 @@ void ccci_hif_md_exception(unsigned int hif_flag, unsigned char stage)
 
 }
 
-int ccci_hif_state_notification(int md_id, unsigned char state)
+int ccci_hif_state_notification(unsigned char state)
 {
 	int ret = 0;
 
@@ -471,11 +466,11 @@ int ccci_hif_state_notification(int md_id, unsigned char state)
 		ccci_hif_start(CCIF_HIF_ID);
 		ccci_hif_start(DPMAIF_HIF_ID);
 
-		ccci_hif_late_init(md_id, 1 << CLDMA_HIF_ID);
-		ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, md_id, 1);
+		ccci_hif_late_init(1 << CLDMA_HIF_ID);
+		ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, 1);
 		ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, OUT);
 		ccci_hif_clear_all_queue(1 << CLDMA_HIF_ID, IN);
-		ccci_hif_hw_reset(1 << CLDMA_HIF_ID, md_id);
+		ccci_hif_hw_reset(1 << CLDMA_HIF_ID);
 		ccci_hif_start(CLDMA_HIF_ID);
 
 		break;
@@ -506,8 +501,8 @@ int ccci_hif_state_notification(int md_id, unsigned char state)
 			ccci_hif_op[CLDMA_HIF_ID]->stop) {
 			ccci_hif_clear(1 << CLDMA_HIF_ID);
 			ccci_hif_stop(CLDMA_HIF_ID);
-			ccci_hif_hw_reset(1 << CLDMA_HIF_ID, md_id);
-			ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, md_id, 0);
+			ccci_hif_hw_reset(1 << CLDMA_HIF_ID);
+			ccci_hif_set_clk_cg(1 << CLDMA_HIF_ID, 0);
 		}
 		break;
 	default:
@@ -516,11 +511,11 @@ int ccci_hif_state_notification(int md_id, unsigned char state)
 	return ret;
 }
 
-void ccci_hif_resume(unsigned char md_id, unsigned int hif_flag)
+void ccci_hif_resume(unsigned int hif_flag)
 {
 }
 
-void ccci_hif_suspend(unsigned char md_id, unsigned int hif_flag)
+void ccci_hif_suspend(unsigned int hif_flag)
 {
 }
 

@@ -160,7 +160,6 @@ enum ccci_ipi_op_id {
 #define EE_DONE_TIMEOUT 30 /* s */
 #define SCP_BOOT_TIMEOUT (30*1000)
 
-#define GET_OTHER_MD_ID(a) (a == MD_SYS1 ? MD_SYS3 : MD_SYS1)
 
 #define DSP_IMG_DUMP_SIZE (1<<9)
 #define CCCI_AED_DUMP_EX_MEM		(1<<0)
@@ -172,13 +171,11 @@ enum ccci_ipi_op_id {
 /************ structures ************/
 
 struct ccci_ipi_msg {
-	u16 md_id;
 	u16 op_id;
 	u32 data[1];
 } __packed;
 
 struct ccci_fsm_scp {
-	int md_id;
 	struct work_struct scp_md_state_sync_work;
 #ifdef CCCI_KMODULE_ENABLE
 	void (*md_state_sync)(int);
@@ -186,7 +183,6 @@ struct ccci_fsm_scp {
 };
 
 struct ccci_fsm_poller {
-	int md_id;
 	enum CCCI_FSM_POLLER_STATE poller_state;
 	struct task_struct *poll_thread;
 	wait_queue_head_t status_rx_wq;
@@ -201,7 +197,6 @@ struct md_ee_ops {
 };
 
 struct ccci_fsm_ee {
-	int md_id;
 	unsigned int ee_info_flag;
 	spinlock_t ctrl_lock;
 
@@ -215,7 +210,6 @@ struct ccci_fsm_ee {
 };
 
 struct ccci_fsm_monitor {
-	int md_id;
 	dev_t dev_n;
 	struct cdev *char_dev;
 	atomic_t usage_cnt;
@@ -224,7 +218,6 @@ struct ccci_fsm_monitor {
 };
 
 struct ccci_fsm_ctl {
-	int md_id;
 	enum MD_STATE md_state;
 
 	unsigned int curr_state;
@@ -278,17 +271,18 @@ int fsm_append_event(struct ccci_fsm_ctl *ctl, enum CCCI_FSM_EVENT event_id,
 #ifndef CCCI_KMODULE_ENABLE
 int fsm_scp_init(struct ccci_fsm_scp *scp_ctl);
 #else
-extern void ccci_fsm_scp_register(int md_id, struct ccci_fsm_scp *scp_ctl);
+extern void ccci_fsm_scp_register(struct ccci_fsm_scp *scp_ctl);
 #endif
 int fsm_poller_init(struct ccci_fsm_poller *poller_ctl);
 int fsm_ee_init(struct ccci_fsm_ee *ee_ctl);
 int fsm_monitor_init(struct ccci_fsm_monitor *monitor_ctl);
 int fsm_sys_init(void);
 
+extern struct ccci_fsm_ctl *ccci_fsm_entries;
+
 struct ccci_fsm_ctl *fsm_get_entity_by_device_number(dev_t dev_n);
-struct ccci_fsm_ctl *fsm_get_entity_by_md_id(int md_id);
-int fsm_monitor_send_message(int md_id, enum CCCI_MD_MSG msg, u32 resv);
-int fsm_ccism_init_ack_handler(int md_id, int data);
+int fsm_monitor_send_message(enum CCCI_MD_MSG msg, u32 resv);
+int fsm_ccism_init_ack_handler(int data);
 
 void fsm_md_bootup_timeout_handler(struct ccci_fsm_ee *ee_ctl);
 void fsm_md_wdt_handler(struct ccci_fsm_ee *ee_ctl);
@@ -302,9 +296,9 @@ extern int mdee_dumper_v1_alloc(struct ccci_fsm_ee *mdee);
 extern int mdee_dumper_v2_alloc(struct ccci_fsm_ee *mdee);
 extern int mdee_dumper_v3_alloc(struct ccci_fsm_ee *mdee);
 extern int mdee_dumper_v5_alloc(struct ccci_fsm_ee *mdee);
-extern void inject_md_status_event(int md_id, int event_type, char reason[]);
+extern void inject_md_status_event(int event_type, char reason[]);
 #ifdef SET_EMI_STEP_BY_STAGE
-extern void ccci_set_mem_access_protection_second_stage(int md_id);
+extern void ccci_set_mem_access_protection_second_stage(void);
 #endif
 extern void mdee_set_ex_start_str(struct ccci_fsm_ee *ee_ctl,
 	const unsigned int type, const char *str);

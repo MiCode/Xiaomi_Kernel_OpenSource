@@ -119,20 +119,17 @@ static enum hrtimer_restart smem_tx_timer_func(struct hrtimer *timer)
 	struct ccci_smem_port *smem_port =
 		container_of(timer, struct ccci_smem_port, notify_timer);
 
-	ccci_md_send_ccb_tx_notify(smem_port->port->md_id,
-		smem_port->core_id);
+	ccci_md_send_ccb_tx_notify(smem_port->core_id);
 	//if (smem_port->core_id = P_CORE)
 	//maybe we can use ccci_hif_send_data(CCIF_HIF_ID, AP_MD_CCB_WAKEUP);
 	return HRTIMER_NORESTART;
 }
 
-static void collect_ccb_info(int md_id, struct ccci_smem_port *smem_port)
+static void collect_ccb_info(struct ccci_smem_port *smem_port)
 {
 	unsigned int i, j, len, curr_size;
 	struct ccci_smem_region *prev = NULL, *curr = NULL;
 
-	if (md_id != MD_SYS1)
-		return;
 	if (smem_port->user_id < SMEM_USER_CCB_START
 		|| smem_port->user_id > SMEM_USER_CCB_END)
 		return;
@@ -159,10 +156,10 @@ static void collect_ccb_info(int md_id, struct ccci_smem_port *smem_port)
 			}
 			/* align to 4k */
 			curr_size = (curr_size + 0xFFF) & (~0xFFF);
-			curr = ccci_md_get_smem_by_user_id(md_id, i);
+			curr = ccci_md_get_smem_by_user_id(i);
 			if (curr)
 				curr->size = curr_size;
-			CCCI_BOOTUP_LOG(md_id, TAG,
+			CCCI_BOOTUP_LOG(0, TAG,
 				"CCB user %d: ccb_ctrl_offset=%d, length=%d\n",
 				i, smem_port->ccb_ctrl_offset, curr_size);
 			/* init other member */
@@ -183,8 +180,8 @@ static void collect_ccb_info(int md_id, struct ccci_smem_port *smem_port)
 	if (SMEM_USER_CCB_END - SMEM_USER_CCB_START >= 1)
 		for (i = SMEM_USER_CCB_START + 1;
 			 i <= SMEM_USER_CCB_END; i++) {
-			curr = ccci_md_get_smem_by_user_id(md_id, i);
-			prev = ccci_md_get_smem_by_user_id(md_id, i - 1);
+			curr = ccci_md_get_smem_by_user_id(i);
+			prev = ccci_md_get_smem_by_user_id(i - 1);
 			if (curr && prev) {
 				curr->base_ap_view_phy =
 					prev->base_ap_view_phy + prev->size;
@@ -193,7 +190,7 @@ static void collect_ccb_info(int md_id, struct ccci_smem_port *smem_port)
 				curr->base_md_view_phy =
 					prev->base_md_view_phy + prev->size;
 				curr->offset = prev->offset + prev->size;
-				CCCI_BOOTUP_LOG(md_id, TAG,
+				CCCI_BOOTUP_LOG(0, TAG,
 				"CCB user %d: offset=%d, size=%d, base_ap = 0x%x, base_md = 0x%x\n",
 				i, curr->offset, curr->size,
 				(unsigned int)curr->base_ap_view_phy,
@@ -213,8 +210,7 @@ int port_smem_tx_nofity(struct port_t *port, unsigned int user_data)
 		return -EFAULT;
 	if (!hrtimer_active(&(smem_port->notify_timer))) {
 		smem_port->core_id = user_data;
-		ccci_md_send_ccb_tx_notify(smem_port->port->md_id,
-			smem_port->core_id);
+		ccci_md_send_ccb_tx_notify(smem_port->core_id);
 		hrtimer_start(&(smem_port->notify_timer),
 				ktime_set(0, 1000000), HRTIMER_MODE_REL);
 	}
@@ -231,11 +227,10 @@ int port_smem_rx_poll(struct port_t *port, unsigned int user_data)
 #endif
 	int md_state, ret;
 	unsigned long flags;
-	int md_id = port->md_id;
 
 	if (smem_port->type != TYPE_CCB)
 		return -EFAULT;
-	CCCI_DEBUG_LOG(md_id, TAG,
+	CCCI_DEBUG_LOG(0, TAG,
 		"before wait event, bitmask=%x\n", user_data);
 #ifdef DEBUG_FOR_CCB
 	idx = smem_port->poll_save_idx;
@@ -266,16 +261,16 @@ int port_smem_rx_poll(struct port_t *port, unsigned int user_data)
 		smem_port->wakeup & user_data);
 	spin_lock_irqsave(&smem_port->write_lock, flags);
 	smem_port->wakeup &= ~user_data;
-	CCCI_DEBUG_LOG(md_id, TAG,
+	CCCI_DEBUG_LOG(0, TAG,
 		"after wait event, wakeup=%x\n", smem_port->wakeup);
 	spin_unlock_irqrestore(&smem_port->write_lock, flags);
 
 	if (ret == -ERESTARTSYS)
 		ret = -EINTR;
 	else {
-		md_state = ccci_fsm_get_md_state(md_id);
+		md_state = ccci_fsm_get_md_state();
 		if (md_state == WAITING_TO_STOP) {
-			CCCI_REPEAT_LOG(md_id, TAG,
+			CCCI_REPEAT_LOG(0, TAG,
 				"smem poll return, md_state = %d\n", md_state);
 			ret = -ENODEV;
 		}
@@ -318,7 +313,6 @@ int port_smem_rx_wakeup(struct port_t *port)
 	struct ccci_smem_port *smem_port =
 		(struct ccci_smem_port *)port->private_data;
 	unsigned long flags;
-	int md_id = port->md_id;
 
 	if (smem_port == NULL)
 		return -EFAULT;
@@ -332,7 +326,7 @@ int port_smem_rx_wakeup(struct port_t *port)
 	spin_unlock_irqrestore(&smem_port->write_lock, flags);
 
 	__pm_wakeup_event(port->rx_wakelock, jiffies_to_msecs(HZ));
-	CCCI_DEBUG_LOG(md_id, TAG, "wakeup port.\n");
+	CCCI_DEBUG_LOG(0, TAG, "wakeup port.\n");
 #ifdef DEBUG_FOR_CCB
 	smem_port->last_rx_wk_time = local_clock();
 #endif
@@ -340,12 +334,11 @@ int port_smem_rx_wakeup(struct port_t *port)
 	return 0;
 }
 
-void __iomem *get_smem_start_addr(int md_id,
-	enum SMEM_USER_ID user_id, int *size_o)
+void __iomem *get_smem_start_addr(enum SMEM_USER_ID user_id, int *size_o)
 {
 	void __iomem *addr = NULL;
 	struct ccci_smem_region *smem_region =
-		ccci_md_get_smem_by_user_id(md_id, user_id);
+		ccci_md_get_smem_by_user_id(user_id);
 
 	if (smem_region) {
 		addr = smem_region->base_ap_view_vir;
@@ -365,48 +358,46 @@ void __iomem *get_smem_start_addr(int md_id,
 }
 EXPORT_SYMBOL(get_smem_start_addr);
 
-phys_addr_t get_smem_phy_start_addr(int md_id,
-	enum SMEM_USER_ID user_id, int *size_o)
+phys_addr_t get_smem_phy_start_addr(int id, enum SMEM_USER_ID user_id, int *size_o)
 {
 	phys_addr_t addr = 0;
 	struct ccci_smem_region *smem_region =
-		ccci_md_get_smem_by_user_id(md_id, user_id);
+		ccci_md_get_smem_by_user_id(user_id);
 
 	if (smem_region) {
 		addr = smem_region->base_ap_view_phy;
-		CCCI_NORMAL_LOG(md_id, TAG, "phy address: 0x%lx, ",
+		CCCI_NORMAL_LOG(0, TAG, "phy address: 0x%lx, ",
 			(unsigned long)addr);
 		if (size_o) {
 			*size_o = smem_region->size;
-			CCCI_NORMAL_LOG(md_id, TAG, "0x%x",
+			CCCI_NORMAL_LOG(0, TAG, "0x%x",
 				*size_o);
 		} else {
-			CCCI_NORMAL_LOG(md_id, TAG, "size_0 is NULL(invalid)");
+			CCCI_NORMAL_LOG(0, TAG, "size_0 is NULL(invalid)");
 		}
 	}
 	return addr;
 }
 EXPORT_SYMBOL(get_smem_phy_start_addr);
 
-static struct port_t *find_smem_port_by_user_id(int md_id, int user_id)
+static struct port_t *find_smem_port_by_user_id(int user_id)
 {
-	return port_get_by_minor(md_id, user_id + CCCI_SMEM_MINOR_BASE);
+	return port_get_by_minor(user_id + CCCI_SMEM_MINOR_BASE);
 }
 
 long port_ccb_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 {
-	int md_id = port->md_id;
 	long ret = 0;
 	struct ccci_ccb_config in_ccb, out_ccb;
 	struct ccci_smem_region *ccb_ctl =
-		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_CCB_CTRL);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_CCB_CTRL);
 	struct ccb_ctrl_info ctrl_info;
 	struct port_t *s_port = NULL;
 	struct ccci_smem_port *smem_port =
 		(struct ccci_smem_port *)port->private_data;
 
 	if (ccb_ctl == NULL) {
-		CCCI_ERROR_LOG(md_id, TAG, "ccb ctrl is NULL!\n");
+		CCCI_ERROR_LOG(0, TAG, "ccb ctrl is NULL!\n");
 		return -1;
 	}
 
@@ -427,7 +418,7 @@ long port_ccb_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 	case CCCI_IOC_CCB_CTRL_INFO:
 		if (copy_from_user(&ctrl_info, (void __user *)arg,
 			sizeof(struct ccb_ctrl_info))) {
-			CCCI_ERROR_LOG(md_id, TAG,
+			CCCI_ERROR_LOG(0, TAG,
 			"get ccb ctrl fail: copy_from_user fail!\n");
 			ret = -EINVAL;
 			break;
@@ -435,23 +426,22 @@ long port_ccb_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 		/*user id counts from ccb start*/
 		if (ctrl_info.user_id + SMEM_USER_CCB_START >
 				SMEM_USER_CCB_END) {
-			CCCI_ERROR_LOG(md_id, TAG,
+			CCCI_ERROR_LOG(0, TAG,
 				"get ccb ctrl fail: user_id = %d!\n",
 				ctrl_info.user_id);
 			ret = -EINVAL;
 			break;
 		}
 		/*get ctrl info by user id*/
-		s_port = find_smem_port_by_user_id(md_id,
-			ctrl_info.user_id + SMEM_USER_CCB_START);
+		s_port = find_smem_port_by_user_id(ctrl_info.user_id + SMEM_USER_CCB_START);
 		if (!s_port) {
-			CCCI_ERROR_LOG(md_id, TAG,
+			CCCI_ERROR_LOG(0, TAG,
 				"get ccb port fail: user_id = %d!\n",
 				ctrl_info.user_id);
 			ret = -EINVAL;
 			break;
 		}
-		CCCI_NORMAL_LOG(md_id, TAG, "find ccb port %s for user%d!\n",
+		CCCI_NORMAL_LOG(0, TAG, "find ccb port %s for user%d!\n",
 			s_port->name, ctrl_info.user_id + SMEM_USER_CCB_START);
 		smem_port = (struct ccci_smem_port *)s_port->private_data;
 		ctrl_info.ctrl_offset = smem_port->ccb_ctrl_offset;
@@ -459,7 +449,7 @@ long port_ccb_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 		ctrl_info.ctrl_length = (unsigned int)ccb_ctl->size;
 		if (copy_to_user((void __user *)arg, &ctrl_info,
 			sizeof(struct ccb_ctrl_info))) {
-			CCCI_ERROR_LOG(md_id, TAG,
+			CCCI_ERROR_LOG(0, TAG,
 				"copy_to_user ccb ctrl failed !!\n");
 			ret = -EINVAL;
 			break;
@@ -468,7 +458,7 @@ long port_ccb_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 		smem_port->state = CCB_USER_OK;
 		break;
 	case CCCI_IOC_GET_CCB_CONFIG_LENGTH:
-		CCCI_NORMAL_LOG(md_id, TAG, "ccb_configs_len: %d\n",
+		CCCI_NORMAL_LOG(0, TAG, "ccb_configs_len: %d\n",
 		ccb_configs_len);
 
 		ret = put_user(ccb_configs_len, (unsigned int __user *)arg);
@@ -476,7 +466,7 @@ long port_ccb_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 	case CCCI_IOC_GET_CCB_CONFIG:
 		if (copy_from_user(&in_ccb, (void __user *)arg,
 			sizeof(struct ccci_ccb_config))) {
-			CCCI_ERROR_LOG(md_id, TAG,
+			CCCI_ERROR_LOG(0, TAG,
 				"set user_id fail: copy_from_user fail!\n");
 			ret = -EINVAL;
 			break;
@@ -496,7 +486,7 @@ long port_ccb_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 		out_ccb.user_id -= SMEM_USER_CCB_START;
 		if (copy_to_user((void __user *)arg, &out_ccb,
 			sizeof(struct ccci_ccb_config)))
-			CCCI_ERROR_LOG(md_id, TAG,
+			CCCI_ERROR_LOG(0, TAG,
 				"copy_to_user ccb failed !!\n");
 		break;
 	default:
@@ -509,7 +499,6 @@ long port_ccb_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 long port_smem_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 {
 	long ret = 0;
-	int md_id = port->md_id;
 	unsigned int data;
 	struct ccci_smem_port *smem_port =
 		(struct ccci_smem_port *)port->private_data;
@@ -517,7 +506,7 @@ long port_smem_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case CCCI_IOC_SMEM_BASE:
 		smem_port = (struct ccci_smem_port *)port->private_data;
-		CCCI_NORMAL_LOG(md_id, TAG, "smem_port->addr_phy=%lx\n",
+		CCCI_NORMAL_LOG(0, TAG, "smem_port->addr_phy=%lx\n",
 			(unsigned long)smem_port->addr_phy);
 		ret = put_user((unsigned int)smem_port->addr_phy,
 				(unsigned int __user *)arg);
@@ -528,7 +517,7 @@ long port_smem_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 				(unsigned int __user *)arg);
 		break;
 	case CCCI_IOC_CCB_CTRL_OFFSET:
-		CCCI_REPEAT_LOG(md_id, TAG,
+		CCCI_REPEAT_LOG(0, TAG,
 			"rx_ch who invoke CCCI_IOC_CCB_CTRL_OFFSET:%d\n",
 			port->rx_ch);
 		if ((smem_port->addr_phy == 0) || (smem_port->length == 0)) {
@@ -539,7 +528,7 @@ long port_smem_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 		smem_port = (struct ccci_smem_port *)port->private_data;
 		ret = put_user((unsigned int)smem_port->ccb_ctrl_offset,
 				(unsigned int __user *)arg);
-		CCCI_REPEAT_LOG(md_id, TAG,
+		CCCI_REPEAT_LOG(0, TAG,
 			"get ctrl_offset=%d\n", smem_port->ccb_ctrl_offset);
 
 		break;
@@ -547,7 +536,7 @@ long port_smem_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 	case CCCI_IOC_SMEM_TX_NOTIFY:
 		if (copy_from_user(&data, (void __user *)arg,
 			sizeof(unsigned int))) {
-			CCCI_NORMAL_LOG(md_id, TAG,
+			CCCI_NORMAL_LOG(0, TAG,
 				"smem tx notify fail: copy_from_user fail!\n");
 			ret = -EFAULT;
 		} else
@@ -557,7 +546,7 @@ long port_smem_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 
 		if (copy_from_user(&data, (void __user *)arg,
 			sizeof(unsigned int))) {
-			CCCI_NORMAL_LOG(md_id, TAG,
+			CCCI_NORMAL_LOG(0, TAG,
 			"smem rx poll fail: copy_from_user fail!\n");
 			ret = -EFAULT;
 		} else {
@@ -568,7 +557,7 @@ long port_smem_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 		smem_port = (struct ccci_smem_port *)port->private_data;
 		if (copy_from_user(&data, (void __user *)arg,
 			sizeof(unsigned int))) {
-			CCCI_NORMAL_LOG(md_id, TAG,
+			CCCI_NORMAL_LOG(0, TAG,
 				"smem set state fail: copy_from_user fail!\n");
 			ret = -EFAULT;
 		} else
@@ -607,30 +596,29 @@ static int smem_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 	struct port_t *port = fp->private_data;
 	struct ccci_smem_port *smem_port =
 		(struct ccci_smem_port *)port->private_data;
-	int md_id = port->md_id;
 	int ret;
 	unsigned long pfn, len;
 	struct ccci_smem_region *ccb_ctl =
-		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_CCB_CTRL);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_CCB_CTRL);
 
 	if ((smem_port->addr_phy == 0) || (smem_port->length == 0))
 		return -EFAULT;
 
 	switch (port->rx_ch) {
 	case CCCI_CCB_CTRL:
-		CCCI_NORMAL_LOG(md_id, CHAR,
+		CCCI_NORMAL_LOG(0, CHAR,
 			"remap control addr:0x%llx len:%d  map-len:%lu\n",
 			(unsigned long long)ccb_ctl->base_ap_view_phy,
 			ccb_ctl->size, vma->vm_end - vma->vm_start);
 		if (vma->vm_end < vma->vm_start) {
-			CCCI_ERROR_LOG(md_id, CHAR,
+			CCCI_ERROR_LOG(0, CHAR,
 				"vm_end:%lu < vm_start:%lu request from %s\n",
 				vma->vm_end, vma->vm_start, port->name);
 			return -EINVAL;
 		}
 		len = vma->vm_end - vma->vm_start;
 		if (len > ccb_ctl->size) {
-			CCCI_ERROR_LOG(md_id, CHAR,
+			CCCI_ERROR_LOG(0, CHAR,
 				"invalid mm size request from %s\n",
 				port->name);
 			return -EINVAL;
@@ -645,7 +633,7 @@ static int smem_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 		ret = remap_pfn_range(vma, vma->vm_start, pfn,
 				len, vma->vm_page_prot);
 		if (ret) {
-			CCCI_ERROR_LOG(md_id, CHAR,
+			CCCI_ERROR_LOG(0, CHAR,
 				"remap failed %d/%lx, 0x%llx -> 0x%llx\n",
 				ret, pfn,
 				(unsigned long long)ccb_ctl->base_ap_view_phy,
@@ -653,27 +641,27 @@ static int smem_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 			return -EAGAIN;
 		}
 
-		CCCI_NORMAL_LOG(md_id, CHAR,
+		CCCI_NORMAL_LOG(0, CHAR,
 			"remap succeed %lx, 0x%llx -> 0x%llx\n", pfn,
 			(unsigned long long)ccb_ctl->base_ap_view_phy,
 			(unsigned long long)vma->vm_start);
 		break;
 
 	case CCCI_SMEM_CH:
-		CCCI_NORMAL_LOG(md_id, CHAR,
+		CCCI_NORMAL_LOG(0, CHAR,
 			"remap addr:0x%llx len:%d  map-len:%lu\n",
 			(unsigned long long)smem_port->addr_phy,
 			smem_port->length,
 			vma->vm_end - vma->vm_start);
 		if (vma->vm_end < vma->vm_start) {
-			CCCI_ERROR_LOG(md_id, CHAR,
+			CCCI_ERROR_LOG(0, CHAR,
 				"vm_end:%lu < vm_start:%lu request from %s\n",
 				vma->vm_end, vma->vm_start, port->name);
 			return -EINVAL;
 		}
 		len = vma->vm_end - vma->vm_start;
 		if (len > smem_port->length) {
-			CCCI_ERROR_LOG(md_id, CHAR,
+			CCCI_ERROR_LOG(0, CHAR,
 				"invalid mm size request from %s\n",
 				port->name);
 			return -EINVAL;
@@ -688,7 +676,7 @@ static int smem_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 		ret = remap_pfn_range(vma, vma->vm_start, pfn, len,
 				vma->vm_page_prot);
 		if (ret) {
-			CCCI_ERROR_LOG(md_id, CHAR,
+			CCCI_ERROR_LOG(0, CHAR,
 				"remap failed %d/%lx, 0x%llx -> 0x%llx\n",
 				ret, pfn,
 				(unsigned long long)smem_port->addr_phy,
@@ -721,17 +709,16 @@ int port_smem_init(struct port_t *port)
 {
 	struct cdev *dev = NULL;
 	int ret = 0;
-	int md_id = port->md_id;
 	struct ccci_smem_port *smem_port = NULL;
 	struct ccci_smem_region *smem_region =
-		ccci_md_get_smem_by_user_id(md_id, port->minor);
+		ccci_md_get_smem_by_user_id(port->minor);
 
 	/*Set SMEM MINOR base*/
 	port->minor += CCCI_SMEM_MINOR_BASE;
 	if (port->flags & PORT_F_WITH_CHAR_NODE) {
 		dev = kmalloc(sizeof(struct cdev), GFP_KERNEL);
 		if (unlikely(!dev)) {
-			CCCI_ERROR_LOG(port->md_id, CHAR,
+			CCCI_ERROR_LOG(0, CHAR,
 				"alloc smem char dev fail!!\n");
 			return -1;
 		}
@@ -748,7 +735,7 @@ int port_smem_init(struct port_t *port)
 	port->private_data = smem_port =
 		kzalloc(sizeof(struct ccci_smem_port), GFP_KERNEL);
 	if (smem_port == NULL) {
-		CCCI_ERROR_LOG(port->md_id, CHAR,
+		CCCI_ERROR_LOG(0, CHAR,
 			"alloc ccci_smem_port fail\n");
 		return -1;
 	}
@@ -765,12 +752,12 @@ int port_smem_init(struct port_t *port)
 		smem_port->addr_vir = smem_region->base_ap_view_vir;
 		smem_port->length = smem_region->size;
 		/* this may override addr_phy/vir and length */
-		collect_ccb_info(md_id, smem_port);
+		collect_ccb_info(smem_port);
 	}
 #ifdef DEBUG_FOR_CCB
 {
 	struct ccci_smem_region *ccb_ctl =
-		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_CCB_CTRL);
+		ccci_md_get_smem_by_user_id(SMEM_USER_RAW_CCB_CTRL);
 	smem_port->ccb_vir_addr =
 		(struct buffer_header *)ccb_ctl->base_ap_view_vir;
 	smem_port->poll_save_idx = 0;
@@ -816,7 +803,7 @@ static void port_smem_dump_info(struct port_t *port, unsigned int flag)
 
 	ts = smem_port->last_rx_wk_time;
 	nsec_rem = do_div(ts, NSEC_PER_SEC);
-	CCCI_MEM_LOG_TAG(port->md_id, TAG,
+	CCCI_MEM_LOG_TAG(0, TAG,
 		"ccb port_smem(%d) poll history: last_wake<%llu.%06lu>, poll(%d/%d, 0x%x/0x%x)\n",
 		smem_port->user_id, ts, nsec_rem / 1000,
 		atomic_read(&smem_port->poll_processing[0]),
@@ -827,13 +814,13 @@ static void port_smem_dump_info(struct port_t *port, unsigned int flag)
 		nsec_rem_s = do_div(ts_s, NSEC_PER_SEC);
 		ts_e = smem_port->last_poll_t_exit[idx];
 		nsec_rem_e = do_div(ts_e, NSEC_PER_SEC);
-		CCCI_MEM_LOG(port->md_id, TAG,
+		CCCI_MEM_LOG(0, TAG,
 			"<%llu.%06lu ~ %llu.%06lu> ",
 			ts_s, nsec_rem_s/1000, ts_e, nsec_rem_e/1000);
 	}
-	CCCI_MEM_LOG(port->md_id, TAG, "\n");
+	CCCI_MEM_LOG(0, TAG, "\n");
 	for (idx = 0; idx < CCB_POLL_PTR_MAX;) {
-		CCCI_MEM_LOG(port->md_id, TAG,
+		CCCI_MEM_LOG(0, TAG,
 			"0x%x, 0x%x, 0x%x, 0x%x; 0x%x, 0x%x, 0x%x, 0x%x; 0x%x, 0x%x, 0x%x, 0x%x",
 			smem_port->last_in[idx + 0].al_id,
 			smem_port->last_in[idx + 0].fr_id,
@@ -847,7 +834,7 @@ static void port_smem_dump_info(struct port_t *port, unsigned int flag)
 			smem_port->last_in[idx + 2].fr_id,
 			smem_port->last_in[idx + 2].r_id,
 			smem_port->last_in[idx + 2].w_id);
-		CCCI_MEM_LOG(port->md_id, TAG,
+		CCCI_MEM_LOG(0, TAG,
 			"  ~ 0x%x, 0x%x, 0x%x, 0x%x; 0x%x, 0x%x, 0x%x, 0x%x; 0x%x, 0x%x, 0x%x, 0x%x\n",
 			smem_port->last_out[idx + 0].al_id,
 			smem_port->last_out[idx + 0].fr_id,

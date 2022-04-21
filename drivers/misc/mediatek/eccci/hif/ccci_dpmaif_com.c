@@ -162,7 +162,7 @@ static void tx_force_md_assert(char buf[])
 		CCCI_NORMAL_LOG(0, TAG,
 			"[%s] error: force assert md, because: %s\n",
 			__func__, buf);
-		ccci_md_force_assert(0, MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED, "TX", 3);
+		ccci_md_force_assert(MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED, "TX", 3);
 	}
 }
 
@@ -325,7 +325,7 @@ static void dpmaif_dump_txq_data(int qno)
 			txq->index, txq->drb_base, sizeof(struct dpmaif_drb_pd), txq->drb_cnt,
 			txq->drb_wr_idx, txq->drb_rd_idx, txq->drb_rel_rd_idx);
 
-		ccci_util_mem_dump(0, CCCI_DUMP_MEM_DUMP,
+		ccci_util_mem_dump(CCCI_DUMP_MEM_DUMP,
 			txq->drb_base, txq->drb_cnt * sizeof(struct dpmaif_drb_pd));
 	}
 }
@@ -353,7 +353,7 @@ static void dpmaif_dump_rxq_data(int qno)
 			rxq->index, rxq->pit_base, drv.normal_pit_size, rxq->pit_cnt,
 			rxq->pit_wr_idx, rxq->pit_rd_idx);
 
-		ccci_util_mem_dump(0, CCCI_DUMP_DPMAIF,
+		ccci_util_mem_dump(CCCI_DUMP_DPMAIF,
 			rxq->pit_base, rxq->pit_cnt * drv.normal_pit_size);
 	}
 
@@ -366,7 +366,7 @@ static void dpmaif_dump_rxq_data(int qno)
 			(int)sizeof(struct dpmaif_bat_base), dpmaif_ctl->bat_skb->bat_cnt,
 			dpmaif_ctl->bat_skb->bat_wr_idx, dpmaif_ctl->bat_skb->bat_rd_idx);
 
-		ccci_util_mem_dump(0, CCCI_DUMP_DPMAIF,
+		ccci_util_mem_dump(CCCI_DUMP_DPMAIF,
 			dpmaif_ctl->bat_skb->bat_base,
 			dpmaif_ctl->bat_skb->bat_cnt * sizeof(struct dpmaif_bat_base));
 	}
@@ -788,7 +788,7 @@ static void dpmaif_rxq_tasklet(unsigned long data)
 		return;
 
 	} else
-		ccci_md_force_assert(0, MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED, NULL, 0);
+		ccci_md_force_assert(MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED, NULL, 0);
 
 processing_done:
 	atomic_set(&rxq->rxq_processing, 0);
@@ -813,12 +813,12 @@ static int dpmaif_rxq_push_thread(void *arg)
 			need_rx_flush = atomic_read(&rxq->rxq_need_flush);
 			if (need_rx_flush || (pkg_count > g_rx_flush_pkt_cnt)) {
 				pkg_count = 0;
-				ccci_port_queue_status_notify(0, hif_id, qno, IN, RX_FLUSH);
+				ccci_port_queue_status_notify(hif_id, qno, IN, RX_FLUSH);
 			}
 			if (!need_rx_flush)
 				continue;
 #else
-			ccci_port_queue_status_notify(0, hif_id, qno, IN, RX_FLUSH);
+			ccci_port_queue_status_notify(hif_id, qno, IN, RX_FLUSH);
 #endif
 			ret = wait_event_interruptible(rxq->rxq_wq, (ccci_dl_queue_len(qno) ||
 #ifdef ENABLE_DPMAIF_DEBUG_LOG
@@ -837,7 +837,7 @@ static int dpmaif_rxq_push_thread(void *arg)
 #ifdef ENABLE_DPMAIF_DEBUG_LOG
 		skb = ccci_dequeue_debug_skb();
 		if (skb)
-			ccci_port_recv_skb(0, hif_id, skb, CLDMA_NET_DATA);
+			ccci_port_recv_skb(hif_id, skb, CLDMA_NET_DATA);
 #endif
 		skb = (struct sk_buff *)ccci_dl_dequeue(qno);
 		if (!skb)
@@ -845,7 +845,7 @@ static int dpmaif_rxq_push_thread(void *arg)
 
 		mtk_ccci_add_dl_pkt_bytes(qno, skb->len);
 
-		ccci_port_recv_skb(0, hif_id, skb, CLDMA_NET_DATA);
+		ccci_port_recv_skb(hif_id, skb, CLDMA_NET_DATA);
 
 #ifdef DPMAIF_REDUCE_RX_FLUSH
 		pkg_count++;
@@ -1254,9 +1254,9 @@ static inline unsigned int dpmaif_txq_release_buffer(struct dpmaif_tx_queue *txq
 		txq->drb_rel_rd_idx = cur_idx;
 		atomic_inc(&txq->txq_budget);
 
-		if (likely(ccci_md_get_cap_by_id(0) & MODEM_CAP_TXBUSY_STOP)) {
+		if (likely(ccci_md_get_cap_by_id() & MODEM_CAP_TXBUSY_STOP)) {
 			if (atomic_read(&txq->txq_budget) > (txq->drb_cnt / 8))
-				ccci_port_queue_status_notify(0, dpmaif_ctl->hif_id,
+				ccci_port_queue_status_notify(dpmaif_ctl->hif_id,
 					txq->index, OUT, TX_IRQ);
 		}
 	}
@@ -1407,7 +1407,7 @@ static int dpmaif_txq_done_thread(void *arg)
 			}
 
 		} else
-			ccci_md_force_assert(0, MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED, NULL, 0);
+			ccci_md_force_assert(MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED, NULL, 0);
 	}
 
 	return 0;
@@ -1474,8 +1474,8 @@ static inline int dpmaif_tx_send_skb_check(int qno)
 		return -EBUSY;
 
 	if (atomic_read(&g_tx_busy_assert_on)) {
-		if (likely(ccci_md_get_cap_by_id(0) & MODEM_CAP_TXBUSY_STOP))
-			ccci_port_queue_status_notify(0, dpmaif_ctl->hif_id,
+		if (likely(ccci_md_get_cap_by_id() & MODEM_CAP_TXBUSY_STOP))
+			ccci_port_queue_status_notify(dpmaif_ctl->hif_id,
 				qno, OUT, TX_FULL);
 
 		return HW_REG_CHK_FAIL;
@@ -1542,8 +1542,8 @@ static inline int dpmaif_txq_full_check(struct dpmaif_tx_queue *txq,
 
 	if (remain_cnt < send_cnt) {
 		/* buffer check: full */
-		if (likely(ccci_md_get_cap_by_id(0) & MODEM_CAP_TXBUSY_STOP))
-			ccci_port_queue_status_notify(0, dpmaif_ctl->hif_id,
+		if (likely(ccci_md_get_cap_by_id() & MODEM_CAP_TXBUSY_STOP))
+			ccci_port_queue_status_notify(dpmaif_ctl->hif_id,
 				txq->index, OUT, TX_FULL);
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
 		txq->busy_count++;
@@ -2033,7 +2033,7 @@ static int dpmaif_stop(unsigned char hif_id)
 	return 0;
 
 occur_err:
-	ccci_md_force_assert(0, MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED, NULL, 0);
+	ccci_md_force_assert(MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED, NULL, 0);
 
 	return -1;
 }
@@ -2185,7 +2185,7 @@ static void dpmaif_dump_rx_data(void)
 			rxq->index, rxq->pit_base, rxq->pit_cnt, drv.normal_pit_size,
 			rxq->pit_wr_idx, rxq->pit_rd_idx);
 
-		ccci_util_mem_dump(0, CCCI_DUMP_DPMAIF, rxq->pit_base,
+		ccci_util_mem_dump(CCCI_DUMP_DPMAIF, rxq->pit_base,
 			rxq->pit_cnt * drv.normal_pit_size);
 	}
 
@@ -2195,7 +2195,7 @@ static void dpmaif_dump_rx_data(void)
 		dpmaif_ctl->bat_skb->bat_cnt, sizeof(struct dpmaif_bat_base),
 		dpmaif_ctl->bat_skb->bat_wr_idx, dpmaif_ctl->bat_skb->bat_rd_idx);
 
-	ccci_util_mem_dump(0, CCCI_DUMP_DPMAIF,
+	ccci_util_mem_dump(CCCI_DUMP_DPMAIF,
 		dpmaif_ctl->bat_skb->bat_base,
 		dpmaif_ctl->bat_skb->bat_cnt * sizeof(struct dpmaif_bat_base));
 }

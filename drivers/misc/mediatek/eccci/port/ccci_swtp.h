@@ -23,7 +23,6 @@
 #define SWTP_NO_TX_POWER	(1)
 
 struct swtp_t {
-	unsigned int	md_id;
 	unsigned int	curr_mode;
 	unsigned int	irq[MAX_PIN_NUM];
 	unsigned int	gpiopin[MAX_PIN_NUM];
@@ -38,6 +37,6 @@ struct swtp_t {
 /*****************************************************************************/
 /* External API Region called by ccci_swtp object */
 /*****************************************************************************/
-extern int swtp_init(int md_id);
+extern int swtp_init(void);
 extern void inject_pin_status_event(int pin_value, const char pin_name[]);
 #endif				/* __SWTP_H__ */

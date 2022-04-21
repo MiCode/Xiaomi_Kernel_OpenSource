@@ -228,7 +228,7 @@ static void dpmaif_push_data_to_stack(int is_md_ee)
 		if (g_rx_wq)
 			wake_up_all(g_rx_wq);
 
-		ret = ccci_port_recv_skb(0, DPMAIF_HIF_ID, skb, CLDMA_NET_DATA);
+		ret = ccci_port_recv_skb(DPMAIF_HIF_ID, skb, CLDMA_NET_DATA);
 		if (ret)
 			dev_kfree_skb_any(skb);
 

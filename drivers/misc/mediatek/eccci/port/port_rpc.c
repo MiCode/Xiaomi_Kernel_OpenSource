@@ -188,10 +188,10 @@ static struct eint_struct md_eint_struct[] = {
 };
 
 static struct eint_node_name md_eint_node[] = {
-	{"MD1_SIM1_HOT_PLUG_EINT", 1, 1,},
-	{"MD1_SIM2_HOT_PLUG_EINT", 1, 2,},
-	{"MD1_SIM3_HOT_PLUG_EINT", 1, 3,},
-	{"MD1_SIM4_HOT_PLUG_EINT", 1, 4,},
+	{"MD1_SIM1_HOT_PLUG_EINT", 1,},
+	{"MD1_SIM2_HOT_PLUG_EINT", 2,},
+	{"MD1_SIM3_HOT_PLUG_EINT", 3,},
+	{"MD1_SIM4_HOT_PLUG_EINT", 4,},
 	/* {"MD1_SIM5_HOT_PLUG_EINT", 1, 5, }, */
 	/* {"MD1_SIM6_HOT_PLUG_EINT", 1, 6, }, */
 	/* {"MD1_SIM7_HOT_PLUG_EINT", 1, 7, }, */
@@ -213,7 +213,7 @@ struct eint_node_struct eint_node_prop = {
 	md_eint_struct,
 };
 
-static int get_eint_attr_val(int md_id, struct device_node *node, int index)
+static int get_eint_attr_val(struct device_node *node, int index)
 {
 	int value;
 	int ret = 0, type;
@@ -230,7 +230,7 @@ static int get_eint_attr_val(int md_id, struct device_node *node, int index)
 		if (ret != 0) {
 			md_eint_struct[type].value_sim[index] =
 			ERR_SIM_HOT_PLUG_QUERY_TYPE;
-			CCCI_NORMAL_LOG(md_id, RPC, "%s:  not found\n",
+			CCCI_NORMAL_LOG(0, RPC, "%s:  not found\n",
 			md_eint_struct[type].property);
 			ret = ERR_SIM_HOT_PLUG_QUERY_TYPE;
 			continue;
@@ -260,7 +260,7 @@ static int get_eint_attr_val(int md_id, struct device_node *node, int index)
 					= -1;
 				md_eint_struct[SIM_EINT_SENS].value_sim[index]
 					= -1;
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 					"invalid value, please check dtsi!\n");
 				break;
 			}
@@ -277,7 +277,7 @@ static int get_eint_attr_val(int md_id, struct device_node *node, int index)
 	return ret;
 }
 
-void get_dtsi_eint_node(int md_id)
+void get_dtsi_eint_node(void)
 {
 	static int init; /*default is 0*/
 	int i;
@@ -288,22 +288,22 @@ void get_dtsi_eint_node(int md_id)
 	init = 1;
 	for (i = 0; i < MD_SIM_MAX; i++) {
 		if (eint_node_prop.name[i].node_name == NULL) {
-			CCCI_INIT_LOG(md_id, RPC, "node %d is NULL\n", i);
+			CCCI_INIT_LOG(0, RPC, "node %d is NULL\n", i);
 			break;
 		}
 		node = of_find_node_by_name(NULL,
 			eint_node_prop.name[i].node_name);
 		if (node != NULL) {
 			eint_node_prop.ExistFlag |= (1U << i);
-			get_eint_attr_val(md_id, node, i);
+			get_eint_attr_val(node, i);
 		} else {
-			CCCI_INIT_LOG(md_id, RPC, "%s: node %d no found\n",
+			CCCI_INIT_LOG(0, RPC, "%s: node %d no found\n",
 				     eint_node_prop.name[i].node_name, i);
 		}
 	}
 }
 
-int get_eint_attr_DTSVal(int md_id, const char *name, unsigned int name_len,
+int get_eint_attr_DTSVal(const char *name, unsigned int name_len,
 			unsigned int type, char *result, unsigned int *len)
 {
 	int i, sim_value;
@@ -323,7 +323,7 @@ int get_eint_attr_DTSVal(int md_id, const char *name, unsigned int name_len,
 			eint_node_prop.eint_value[type].value_sim[i];
 			*len = sizeof(sim_value);
 			memcpy(sim_info, &sim_value, *len);
-			CCCI_BOOTUP_LOG(md_id, RPC,
+			CCCI_BOOTUP_LOG(0, RPC,
 			"md_eint:%s, sizeof: %d, sim_info: %d, %d\n",
 			eint_node_prop.eint_value[type].property,
 			*len, *sim_info,
@@ -335,10 +335,10 @@ int get_eint_attr_DTSVal(int md_id, const char *name, unsigned int name_len,
 	return ERR_SIM_HOT_PLUG_QUERY_STRING;
 }
 
-static int get_eint_attr(int md_id, char *name, unsigned int name_len,
+static int get_eint_attr(char *name, unsigned int name_len,
 			unsigned int type, char *result, unsigned int *len)
 {
-	return get_eint_attr_DTSVal(md_id, name, name_len, type, result, len);
+	return get_eint_attr_DTSVal(name, name_len, type, result, len);
 }
 
 static void get_md_dtsi_val(struct ccci_rpc_md_dtsi_input *input,
@@ -544,14 +544,14 @@ static void ccci_rpc_get_gpio_adc_v2(struct ccci_rpc_gpio_adc_intput_v2 *input,
 	}
 }
 
-static int ccci_rpc_remap_queue(int md_id, struct ccci_rpc_queue_mapping *remap)
+static int ccci_rpc_remap_queue(struct ccci_rpc_queue_mapping *remap)
 {
 	struct port_t *port;
 
-	port = port_get_by_minor(md_id, remap->net_if + CCCI_NET_MINOR_BASE);
+	port = port_get_by_minor(remap->net_if + CCCI_NET_MINOR_BASE);
 
 	if (!port) {
-		CCCI_ERROR_LOG(md_id, RPC, "can't find ccmni for netif: %d\n",
+		CCCI_ERROR_LOG(0, RPC, "can't find ccmni for netif: %d\n",
 			remap->net_if);
 		return -1;
 	}
@@ -560,16 +560,16 @@ static int ccci_rpc_remap_queue(int md_id, struct ccci_rpc_queue_mapping *remap)
 		/*normal queue*/
 		port->txq_index = 0;
 		port->txq_exp_index = 0xF0 | 0x1;
-		CCCI_NORMAL_LOG(md_id, RPC, "remap port %s Tx to cldma%d\n",
+		CCCI_NORMAL_LOG(0, RPC, "remap port %s Tx to cldma%d\n",
 			port->name, port->txq_index);
 	} else if (remap->lhif_q == LHIF_HWQ_AP_UL_Q1) {
 		/*IMS queue*/
 		port->txq_index = 3;
 		port->txq_exp_index = 0xF0 | 0x3;
-		CCCI_NORMAL_LOG(md_id, RPC, "remap port %s Tx to cldma%d\n",
+		CCCI_NORMAL_LOG(0, RPC, "remap port %s Tx to cldma%d\n",
 			port->name, port->txq_index);
 	} else
-		CCCI_ERROR_LOG(md_id, RPC, "invalid remap for q%d\n",
+		CCCI_ERROR_LOG(0, RPC, "invalid remap for q%d\n",
 			remap->lhif_q);
 
 	return 0;
@@ -583,10 +583,9 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 	 * after this function return, be careful with the size!
 	 */
 	int pkt_num = p_rpc_buf->para_num;
-	int md_id = port->md_id;
 	int md_val = -1;
 
-	CCCI_DEBUG_LOG(md_id, RPC, "%s++ %d\n", __func__,
+	CCCI_DEBUG_LOG(0, RPC, "%s++ %d\n", __func__,
 		p_rpc_buf->para_num);
 	tmp_data[0] = 0;
 	switch (p_rpc_buf->op_id) {
@@ -600,7 +599,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			unsigned int length = 0;
 
 			if (pkt_num < 2 || pkt_num > RPC_MAX_ARG_NUM) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 				"invalid parameter for [0x%X]: pkt_num=%d!\n",
 				p_rpc_buf->op_id, pkt_num);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -608,7 +607,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			}
 			length = pkt[0].len;
 			if (length < 1) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 				"invalid parameter for [0x%X]: pkt_num=%d, name_len=%d!\n",
 				p_rpc_buf->op_id, pkt_num, length);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -617,7 +616,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 
 			name = kmalloc(length, GFP_KERNEL);
 			if (name == NULL) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 				"Fail alloc Mem for [0x%X]!\n",
 				p_rpc_buf->op_id);
 				tmp_data[0] = FS_ERROR_RESERVED;
@@ -649,7 +648,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 						get_num = FS_FUNC_FAIL;
 				}
 
-				CCCI_NORMAL_LOG(md_id, RPC,
+				CCCI_NORMAL_LOG(0, RPC,
 					"[0x%08X]: name:%s, len=%d, get_num:%d\n",
 					p_rpc_buf->op_id, name,
 					length, get_num);
@@ -683,7 +682,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			int dram_clk = 0;
 
 			if (pkt_num != 0) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 				"invalid parameter for [0x%X]: pkt_num=%d!\n",
 				p_rpc_buf->op_id, pkt_num);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -695,7 +694,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 				goto err2;
 			} else {
 				tmp_data[0] = 0;
-				CCCI_NORMAL_LOG(md_id, RPC,
+				CCCI_NORMAL_LOG(0, RPC,
 				"[0x%08X]: dram_clk: %d, dram_type:%d\n",
 				p_rpc_buf->op_id, dram_clk, dram_type);
 			}
@@ -733,7 +732,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			int ret = 0;
 
 			if (pkt_num < 3 || pkt_num > RPC_MAX_ARG_NUM) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 				"invalid parameter for [0x%X]: pkt_num=%d!\n",
 				p_rpc_buf->op_id, pkt_num);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -741,7 +740,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			}
 			name_len = pkt[0].len;
 			if (name_len < 1) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 				"invalid parameter for [0x%X]: pkt_num=%d, name_len=%d!\n",
 				p_rpc_buf->op_id, pkt_num, name_len);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -750,7 +749,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 
 			eint_name = kmalloc(name_len, GFP_KERNEL);
 			if (eint_name == NULL) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 				"Fail alloc Mem for [0x%X]!\n",
 				p_rpc_buf->op_id);
 				tmp_data[0] = FS_ERROR_RESERVED;
@@ -763,7 +762,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			type = *(unsigned int *)(pkt[2].buf);
 			res = (unsigned char *)&(p_rpc_buf->para_num) +
 					4 * sizeof(unsigned int);
-			ret = get_eint_attr(md_id, eint_name, name_len, type,
+			ret = get_eint_attr(eint_name, name_len, type,
 					res, &res_len);
 			if (ret == 0) {
 				tmp_data[0] = ret;
@@ -772,14 +771,14 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 				pkt[pkt_num++].buf = (void *)&tmp_data[0];
 				pkt[pkt_num].len = res_len;
 				pkt[pkt_num++].buf = (void *)res;
-				CCCI_DEBUG_LOG(md_id, RPC,
+				CCCI_DEBUG_LOG(0, RPC,
 					"[0x%08X] OK: name:%s, len:%d, type:%d, res:%d, res_len:%d\n",
 					p_rpc_buf->op_id, eint_name, name_len,
 					type, *res, res_len);
 				kfree(eint_name);
 			} else {
 				tmp_data[0] = ret;
-				CCCI_DEBUG_LOG(md_id, RPC,
+				CCCI_DEBUG_LOG(0, RPC,
 					"[0x%08X] fail: name:%s, len:%d, type:%d, ret:%d\n",
 					p_rpc_buf->op_id, eint_name, name_len,
 					type, ret);
@@ -807,7 +806,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			int ret = 0;
 
 			if (pkt_num != 1) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 					"invalid parameter for [0x%X]: pkt_num=%d!\n",
 					p_rpc_buf->op_id, pkt_num);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -830,7 +829,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			pkt[pkt_num++].buf = (void *)&tmp_data[1];
 			clkbuf = (struct ccci_rpc_clkbuf_result *)&tmp_data[1];
 			if (count != CLKBUF_MAX_COUNT) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 				"IPC_RPC_GET_RF_CLK_BUF, wrong count %d/%d\n",
 				count, CLKBUF_MAX_COUNT);
 				clkbuf->CLKBuf_Count = 0xFF;
@@ -858,12 +857,12 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 						CLKBUF_MAX_COUNT);
 
 					if (ret)
-						CCCI_ERROR_LOG(md_id, RPC,
+						CCCI_ERROR_LOG(0, RPC,
 							"%s get property fail\n",
 							__func__);
 
 				} else {
-					CCCI_ERROR_LOG(md_id, RPC,
+					CCCI_ERROR_LOG(0, RPC,
 					"%s can't find compatible node\n",
 					__func__);
 				}
@@ -887,12 +886,12 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 				clkbuf->ClkBuf_Driving[1] = vals_drv[1];
 				clkbuf->ClkBuf_Driving[2] = vals_drv[2];
 				clkbuf->ClkBuf_Driving[3] = vals_drv[3];
-				CCCI_NORMAL_LOG(md_id, RPC,
+				CCCI_NORMAL_LOG(0, RPC,
 					"RF_CLK_BUF*_DRIVING_CURR %d, %d, %d, %d, AfcDac: %d\n",
 					vals_drv[0], vals_drv[1], vals_drv[2],
 					vals_drv[3], AfcDac);
 			}
-			CCCI_DEBUG_LOG(md_id, RPC,
+			CCCI_DEBUG_LOG(0, RPC,
 				"IPC_RPC_GET_RF_CLK_BUF count=%x\n",
 				clkbuf->CLKBuf_Count);
 			break;
@@ -905,7 +904,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			int val = 0;
 
 			if (pkt_num != 1) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 					"invalid parameter for [0x%X]: pkt_num=%d!\n",
 					p_rpc_buf->op_id, pkt_num);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -918,7 +917,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			else if (p_rpc_buf->op_id == IPC_RPC_GET_ADC_VAL_OP)
 				val = get_md_adc_val(num);
 			tmp_data[0] = val;
-			CCCI_DEBUG_LOG(md_id, RPC, "[0x%X]: num=%d, val=%d!\n",
+			CCCI_DEBUG_LOG(0, RPC, "[0x%X]: num=%d, val=%d!\n",
 				p_rpc_buf->op_id, num, val);
 
  err4:
@@ -939,7 +938,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			unsigned int pkt_size;
 
 			if (pkt_num != 1) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 					"invalid parameter for [0x%X]: pkt_num=%d!\n",
 					p_rpc_buf->op_id, pkt_num);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -967,7 +966,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 				/* 0xF for failure */
 				memset(output, 0xF,
 				sizeof(struct ccci_rpc_gpio_adc_output));
-				CCCI_BOOTUP_LOG(md_id, RPC,
+				CCCI_BOOTUP_LOG(0, RPC,
 					"IPC_RPC_GET_GPIO_ADC_OP request=%x\n",
 					input->reqMask);
 				ccci_rpc_get_gpio_adc(input, output);
@@ -989,12 +988,12 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 				/* 0xF for failure */
 				memset(output_v2, 0xF,
 				sizeof(struct ccci_rpc_gpio_adc_output_v2));
-				CCCI_BOOTUP_LOG(md_id, RPC,
+				CCCI_BOOTUP_LOG(0, RPC,
 					"IPC_RPC_GET_GPIO_ADC_OP request=%x\n",
 					input_v2->reqMask);
 				ccci_rpc_get_gpio_adc_v2(input_v2, output_v2);
 			} else {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 					"can't recognize pkt size%d!\n",
 					pkt_size);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -1013,7 +1012,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			struct ccci_rpc_usim2nfs *input, *output;
 
 			if (pkt_num != 1) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 					"invalid parameter for [0x%X]: pkt_num=%d!\n",
 					p_rpc_buf->op_id, pkt_num);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -1033,13 +1032,13 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			pkt[pkt_num++].buf = (void *)&tmp_data[1];
 			output = (struct ccci_rpc_usim2nfs *)&tmp_data[1];
 			output->lock_vsim1 = input->lock_vsim1;
-			CCCI_DEBUG_LOG(md_id, RPC,
+			CCCI_DEBUG_LOG(0, RPC,
 				"IPC_RPC_USIM2NFC_OP request=%x\n",
 				input->lock_vsim1);
 			/* lock_vsim1==1, NFC not power VSIM;
 			 * lock_vsim==0, NFC power VSIM
 			 */
-			inform_nfc_vsim_change(md_id, 1, input->lock_vsim1);
+			inform_nfc_vsim_change(1, input->lock_vsim1);
 			break;
 		}
 #endif
@@ -1048,7 +1047,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			struct ccci_rpc_queue_mapping *remap;
 
 			if (pkt_num != 1) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 					"invalid parameter for [0x%X]: pkt_num=%d!\n",
 					p_rpc_buf->op_id, pkt_num);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -1060,12 +1059,12 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 				break;
 			}
 
-			CCCI_NORMAL_LOG(md_id, RPC,
+			CCCI_NORMAL_LOG(0, RPC,
 				"op_id[0x%X]: pkt_num=%d, pkt[0] len %u!\n",
 				p_rpc_buf->op_id, pkt_num, pkt[0].len);
 
 			remap = (struct ccci_rpc_queue_mapping *)(pkt[0].buf);
-			ccci_rpc_remap_queue(md_id, remap);
+			ccci_rpc_remap_queue(remap);
 			pkt_num = 0;
 			tmp_data[0] = 0;
 			pkt[pkt_num].len = sizeof(unsigned int);
@@ -1081,7 +1080,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			struct ccci_rpc_md_dtsi_output *output;
 
 			if (pkt_num != 1) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 					"invalid parameter for [0x%X]: pkt_num=%d!\n",
 					p_rpc_buf->op_id, pkt_num);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -1108,7 +1107,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			break;
 		}
 	case IPC_RPC_QUERY_CARD_TYPE:
-		CCCI_NORMAL_LOG(md_id, RPC,
+		CCCI_NORMAL_LOG(0, RPC,
 			"enter QUERY CARD_TYPE operation in ccci_rpc_work\n");
 		break;
 	case IPC_RPC_TRNG:
@@ -1116,7 +1115,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			struct arm_smccc_res res = {0};
 
 			if (pkt_num != 1) {
-				CCCI_ERROR_LOG(md_id, RPC,
+				CCCI_ERROR_LOG(0, RPC,
 				"invalid parameter for [0x%X]: pkt_num=%d!\n",
 					     p_rpc_buf->op_id, pkt_num);
 				tmp_data[0] = FS_PARAM_ERROR;
@@ -1143,34 +1142,34 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 		{
 			int i;
 
-			CCCI_NORMAL_LOG(md_id, RPC,
+			CCCI_NORMAL_LOG(0, RPC,
 				"[RPCIT] enter IT operation in ccci_rpc_work\n");
 			/* exam input parameters in pkt */
 			for (i = 0; i < pkt_num; i++) {
-				CCCI_NORMAL_LOG(md_id, RPC,
+				CCCI_NORMAL_LOG(0, RPC,
 					"len=%d val=%X\n", pkt[i].len,
 					*((unsigned int *)pkt[i].buf));
 			}
 			tmp_data[0] = 1;
 			tmp_data[1] = 0xA5A5;
 			pkt_num = 0;
-			CCCI_NORMAL_LOG(md_id, RPC,
+			CCCI_NORMAL_LOG(0, RPC,
 				"[RPCIT] prepare output parameters\n");
 			pkt[pkt_num].len = sizeof(unsigned int);
 			pkt[pkt_num++].buf = (void *)&tmp_data[0];
-			CCCI_NORMAL_LOG(md_id, RPC,
+			CCCI_NORMAL_LOG(0, RPC,
 				"[RPCIT] LV[%d]  len= 0x%08X, value= 0x%08X\n",
 				0, pkt[0].len, *((unsigned int *)pkt[0].buf));
 			pkt[pkt_num].len = sizeof(unsigned int);
 			pkt[pkt_num++].buf = (void *)&tmp_data[1];
-			CCCI_NORMAL_LOG(md_id, RPC,
+			CCCI_NORMAL_LOG(0, RPC,
 			"[RPCIT] LV[%d]  len= 0x%08X, value= 0x%08X\n",
 			1, pkt[1].len, *((unsigned int *)pkt[1].buf));
 			break;
 		}
 
 	default:
-		CCCI_NORMAL_LOG(md_id, RPC,
+		CCCI_NORMAL_LOG(0, RPC,
 		"[Error]Unknown Operation ID (0x%08X)\n",
 		p_rpc_buf->op_id);
 		tmp_data[0] = FS_NO_OP;
@@ -1181,13 +1180,12 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 	}
 
 	p_rpc_buf->para_num = pkt_num;
-	CCCI_DEBUG_LOG(md_id, RPC, "%s-- %d\n", __func__,
+	CCCI_DEBUG_LOG(0, RPC, "%s-- %d\n", __func__,
 		p_rpc_buf->para_num);
 }
 
 static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 {
-	int md_id = port->md_id;
 	struct rpc_buffer *rpc_buf = (struct rpc_buffer *)skb->data;
 	int i, data_len, AlignLength, ret;
 	struct rpc_pkt pkt[RPC_MAX_ARG_NUM];
@@ -1198,13 +1196,13 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 		kmalloc(128*sizeof(unsigned int), GFP_ATOMIC);
 
 	if (tmp_data == NULL) {
-		CCCI_ERROR_LOG(md_id, RPC,
+		CCCI_ERROR_LOG(0, RPC,
 			"RPC request buffer fail 128*sizeof(unsigned int)\n");
 		goto err_out;
 	}
 	/* sanity check */
 	if (skb->len > RPC_MAX_BUF_SIZE) {
-		CCCI_ERROR_LOG(md_id, RPC,
+		CCCI_ERROR_LOG(0, RPC,
 				"invalid RPC buffer size 0x%x/0x%x\n",
 				skb->len, RPC_MAX_BUF_SIZE);
 		goto err_out;
@@ -1213,7 +1211,7 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 		rpc_buf->header.reserved > RPC_REQ_BUFFER_NUM ||
 	    rpc_buf->para_num < 0 ||
 		rpc_buf->para_num > RPC_MAX_ARG_NUM) {
-		CCCI_ERROR_LOG(md_id, RPC,
+		CCCI_ERROR_LOG(0, RPC,
 			"invalid RPC index %d/%d\n",
 			rpc_buf->header.reserved, rpc_buf->para_num);
 		goto err_out;
@@ -1224,14 +1222,14 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 	for (i = 0; i < rpc_buf->para_num; i++) {
 		pkt[i].len = *((unsigned int *)ptr);
 		if (pkt[i].len >= skb->len) {
-			CCCI_ERROR_LOG(md_id, RPC,
+			CCCI_ERROR_LOG(0, RPC,
 				"invalid packet length in parse %u\n",
 				pkt[i].len);
 			goto err_out;
 		}
 		if ((data_len + sizeof(pkt[i].len) + pkt[i].len) >
 			RPC_MAX_BUF_SIZE) {
-			CCCI_ERROR_LOG(md_id, RPC,
+			CCCI_ERROR_LOG(0, RPC,
 				"RPC buffer overflow in parse %zu\n",
 				data_len + sizeof(pkt[i].len) + pkt[i].len);
 			goto err_out;
@@ -1243,7 +1241,7 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 		data_len += (sizeof(pkt[i].len) + AlignLength);
 	}
 	if ((ptr - ptr_base) > RPC_MAX_BUF_SIZE) {
-		CCCI_ERROR_LOG(md_id, RPC,
+		CCCI_ERROR_LOG(0, RPC,
 			"RPC overflow in parse 0x%p\n",
 			(void *)(ptr - ptr_base));
 		goto err_out;
@@ -1258,7 +1256,7 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 	for (i = 0; i < rpc_buf->para_num; i++) {
 		if ((data_len + sizeof(pkt[i].len) + pkt[i].len) >
 			RPC_MAX_BUF_SIZE) {
-			CCCI_ERROR_LOG(md_id, RPC,
+			CCCI_ERROR_LOG(0, RPC,
 				"RPC overflow in write %zu\n",
 				data_len + sizeof(pkt[i].len) + pkt[i].len);
 			goto err_out;
@@ -1274,7 +1272,7 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 		if (ptr != pkt[i].buf)
 			memcpy(ptr, pkt[i].buf, pkt[i].len);
 		else
-			CCCI_DEBUG_LOG(md_id, RPC,
+			CCCI_DEBUG_LOG(0, RPC,
 				"same addr, no copy, op_id=0x%x\n",
 				rpc_buf->op_id);
 
@@ -1289,7 +1287,7 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 	/* update CCCI header */
 	rpc_buf->header.channel = CCCI_RPC_TX;
 	rpc_buf->header.data[1] = data_len;
-	CCCI_DEBUG_LOG(md_id, RPC,
+	CCCI_DEBUG_LOG(0, RPC,
 		"Write %d/%d, %08X, %08X, %08X, %08X, op_id=0x%x\n",
 		skb->len, data_len, rpc_buf->header.data[0],
 		rpc_buf->header.data[1], rpc_buf->header.channel,
@@ -1309,7 +1307,7 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 static int port_rpc_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 {
 	struct port_t *port = fp->private_data;
-	int md_id, len, ret;
+	int len, ret;
 	unsigned long pfn;
 	struct ccci_smem_region *amms_smem = NULL;
 
@@ -1318,28 +1316,26 @@ static int port_rpc_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 		return -1;
 	}
 
-	md_id = port->md_id;
 	if (port->rx_ch != CCCI_RPC_RX)
 		return -EFAULT;
 
-	amms_smem = ccci_md_get_smem_by_user_id(md_id,
-		SMEM_USER_MD_DRDI);
+	amms_smem = ccci_md_get_smem_by_user_id(SMEM_USER_MD_DRDI);
 	if (!amms_smem) {
-		CCCI_ERROR_LOG(md_id, RPC, "%s:%d:ccci_md_get_smem_by_user_id fail\n",
+		CCCI_ERROR_LOG(0, RPC, "%s:%d:ccci_md_get_smem_by_user_id fail\n",
 			__func__, __LINE__);
 		return -1;
 	}
 
 	if (amms_smem->size != BANK4_DRDI_SMEM_SIZE)
-		CCCI_ERROR_LOG(md_id, RPC, "%s:%d:SMEM_USER_MD_DRDI size invalid(0x%x)\n",
+		CCCI_ERROR_LOG(0, RPC, "%s:%d:SMEM_USER_MD_DRDI size invalid(0x%x)\n",
 			__func__, __LINE__, amms_smem->size);
 	amms_smem->size &= ~(PAGE_SIZE - 1);
-	CCCI_NORMAL_LOG(md_id, RPC,
+	CCCI_NORMAL_LOG(0, RPC,
 			"remap drdi smem addr:0x%llx len:%d  map-len:%lx\n",
 			(unsigned long long)amms_smem->base_ap_view_phy,
 			amms_smem->size, vma->vm_end - vma->vm_start);
 	if ((vma->vm_end - vma->vm_start) != amms_smem->size) {
-		CCCI_ERROR_LOG(md_id, RPC,
+		CCCI_ERROR_LOG(0, RPC,
 			"smem size error:%s,vm_start=0x%llx,vm_end=0x%llx,smem_size=0x%x\n",
 			port->name, vma->vm_start, vma->vm_end, amms_smem->size);
 		return -EINVAL;
@@ -1355,7 +1351,7 @@ static int port_rpc_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 	ret = remap_pfn_range(vma, vma->vm_start, pfn,
 				len, vma->vm_page_prot);
 	if (ret) {
-		CCCI_ERROR_LOG(md_id, RPC,
+		CCCI_ERROR_LOG(0, RPC,
 			"drdi_smem remap failed %d/%lx, 0x%llx -> 0x%llx\n",
 			ret, pfn,
 			(unsigned long long)amms_smem->base_ap_view_phy,
@@ -1380,7 +1376,7 @@ static int port_rpc_init(struct port_t *port)
 	int ret = 0;
 	static int first_init = 1;
 
-	CCCI_DEBUG_LOG(port->md_id, RPC,
+	CCCI_DEBUG_LOG(0, RPC,
 		"rpc port %s is initializing\n", port->name);
 	port->rx_length_th = MAX_QUEUE_LENGTH;
 	port->skb_from_pool = 1;
@@ -1388,7 +1384,7 @@ static int port_rpc_init(struct port_t *port)
 	if (port->flags & PORT_F_WITH_CHAR_NODE) {
 		dev = kmalloc(sizeof(struct cdev), GFP_KERNEL);
 		if (unlikely(!dev)) {
-			CCCI_ERROR_LOG(port->md_id, CHAR,
+			CCCI_ERROR_LOG(0, CHAR,
 				"alloc rpc char dev fail!!\n");
 			return -1;
 		}
@@ -1405,7 +1401,7 @@ static int port_rpc_init(struct port_t *port)
 	}
 
 	if (first_init) {
-		get_dtsi_eint_node(port->md_id);
+		get_dtsi_eint_node();
 		get_md_dtsi_debug();
 		first_init = 0;
 	}
@@ -1414,7 +1410,6 @@ static int port_rpc_init(struct port_t *port)
 
 int port_rpc_recv_match(struct port_t *port, struct sk_buff *skb)
 {
-	int md_id = port->md_id;
 	int is_userspace_msg = 0;
 	struct ccci_header *ccci_h = (struct ccci_header *)skb->data;
 	struct rpc_buffer *rpc_buf = (struct rpc_buffer *)skb->data;
@@ -1458,17 +1453,17 @@ int port_rpc_recv_match(struct port_t *port, struct sk_buff *skb)
 	if (is_userspace_msg &&
 		(port->flags & PORT_F_WITH_CHAR_NODE)) {
 		/*userspace msg, so need match userspace port*/
-		CCCI_DEBUG_LOG(md_id, RPC, "userspace rpc msg 0x%x on %s\n",
+		CCCI_DEBUG_LOG(0, RPC, "userspace rpc msg 0x%x on %s\n",
 						rpc_buf->op_id, port->name);
 	} else {
 		/*kernel msg, so need match kernel port*/
 		if (is_userspace_msg == 0 &&
 			!(port->flags & PORT_F_WITH_CHAR_NODE)) {
-			CCCI_DEBUG_LOG(md_id, RPC,
+			CCCI_DEBUG_LOG(0, RPC,
 				"kernelspace rpc msg 0x%x on %s\n",
 				rpc_buf->op_id, port->name);
 		} else {
-			CCCI_DEBUG_LOG(md_id, RPC,
+			CCCI_DEBUG_LOG(0, RPC,
 				"port_rpc cfg error, need check:msg 0x%x on %s\n",
 				rpc_buf->op_id, port->name);
 			return 0;
