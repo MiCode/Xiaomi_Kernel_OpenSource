@@ -838,11 +838,17 @@ static int mtk_panel_ext_param_set(struct drm_panel *panel,
 	return ret;
 }
 
+static int lcm_ata_check(struct drm_panel *panel)
+{
+	return 1;
+}
+
 static struct mtk_panel_funcs ext_funcs = {
 	.set_backlight_cmdq = setbacklight_cmdq,
 	.ext_param_set = mtk_panel_ext_param_set,
 	.mode_switch = mode_switch,
 	.hbm_set_cmdq = sethbm_cmdq,
+	.ata_check = lcm_ata_check,
 };
 #endif
 
