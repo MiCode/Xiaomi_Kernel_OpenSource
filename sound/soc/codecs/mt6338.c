@@ -20441,6 +20441,7 @@ static int mt6338_platform_driver_probe(struct platform_device *pdev)
 	priv->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!priv->regmap) {
 		dev_err(&pdev->dev, "Faled to get parent regmap\n");
+		mt6338_probe_done = false;
 		return -ENODEV;
 	}
 
@@ -20453,6 +20454,8 @@ static int mt6338_platform_driver_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_warn(&pdev->dev,
 			 "%s() fail to parse dts: %d\n", __func__, ret);
+		mt6338_probe_done = false;
+		return -ENODEV;
 	}
 
 	return devm_snd_soc_register_component(&pdev->dev,

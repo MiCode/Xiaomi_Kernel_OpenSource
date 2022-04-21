@@ -22854,5 +22854,6 @@ void mt6338_mtkaif_calibration_enable(struct snd_soc_component *cmpnt);
 void mt6338_mtkaif_calibration_disable(struct snd_soc_component *cmpnt);
 void mt6338_set_mtkaif_calibration_phase(struct snd_soc_component *cmpnt,
 					 int phase_1, int phase_2, int phase_3);
+extern bool mt6338_probe_done;
 
 #endif/* end _MT6338_H_ */
