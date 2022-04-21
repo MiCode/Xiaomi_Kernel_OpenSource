@@ -184,7 +184,7 @@ static int gx_tb_dvfs_margin = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 static int gx_tb_dvfs_margin_cur = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 
 #define MAX_TB_DVFS_MARGIN               99
-#define MIN_TB_DVFS_MARGIN               15
+#define MIN_TB_DVFS_MARGIN               20
 #define MIN_TB_MARGIN_INC_STEP           1
 #define CONFIGURE_TIMER_BASED_MODE       0x00000000
 #define DYNAMIC_TB_MASK                  0x00000100
@@ -317,8 +317,14 @@ bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
 
 		if (pui32Loading) {
 			ged_log_perf_trace_counter("gpu_loading",
-				(long long)*pui32Loading,
-				5566, 0, 0);
+				(long long)*pui32Loading, 5566, 0, 0);
+			ged_log_perf_trace_counter("gpu_ta_loading",
+				(long long)Util_Ex->util_ta, 5566, 0, 0);
+			ged_log_perf_trace_counter("gpu_3d_loading",
+				(long long)Util_Ex->util_3d, 5566, 0, 0);
+			ged_log_perf_trace_counter("gpu_compute_loading",
+				(long long)Util_Ex->util_compute, 5566, 0, 0);
+
 			gpu_av_loading = *pui32Loading;
 
 			spin_lock_irqsave(&load_info_lock, ui32IRQFlags);
@@ -402,26 +408,31 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 			}
 		}
 
-		if (ged_is_fdvfs_support() &&
-			is_fb_dvfs_triggered && is_fdvfs_enable()) {
+		if (ged_is_fdvfs_support()
+			&& is_fb_dvfs_triggered && is_fdvfs_enable()) {
 			memset(batch_freq, 0, sizeof(batch_freq));
 			avg_freq = mtk_gpueb_sysram_batch_read(BATCH_MAX_READ_COUNT,
 						batch_freq, BATCH_STR_SIZE);
 
 			ged_log_perf_trace_batch_counter("gpu_freq",
-				(long long)(avg_freq),
-				5566, 0, 0, batch_freq);
+				(long long)avg_freq, 5566, 0, 0, batch_freq);
 		} else {
-				ged_log_perf_trace_counter("gpu_freq",
+			ged_log_perf_trace_counter("gpu_freq",
 				(long long)(ged_get_cur_freq() / 1000), 5566, 0, 0);
 		}
 
-		ged_log_perf_trace_counter("gpu_freq_max",
-			(long long)(ged_get_freq_by_idx(
-			ged_get_cur_limit_idx_ceil())/1000), 5566, 0, 0);
-
+		ged_log_perf_trace_counter("gpu_freq_ceil",
+			(long long)ged_get_freq_by_idx(ui32CeilingID) / 1000, 5566, 0, 0);
+		ged_log_perf_trace_counter("gpu_freq_floor",
+			(long long)ged_get_freq_by_idx(ui32FloorID) / 1000, 5566, 0, 0);
+		ged_log_perf_trace_counter("limitter_ceil",
+			(long long)ged_get_cur_limiter_ceil(), 5566, 0, 0);
+		ged_log_perf_trace_counter("limitter_floor",
+			(long long)ged_get_cur_limiter_floor(), 5566, 0, 0);
 		ged_log_perf_trace_counter("commit_type",
 			(long long)eCommitType, 5566, 0, 0);
+		ged_log_perf_trace_counter("commit_freq",
+			(long long)ged_get_freq_by_idx(ui32NewFreqID) / 1000, 5566, 0, 0);
 	}
 	return bCommited;
 }
@@ -674,8 +685,8 @@ GED_ERROR ged_dvfs_um_commit(unsigned long gpu_tar_freq, bool bFallback)
 
 int gx_fb_dvfs_margin = DEFAULT_DVFS_MARGIN;/* 10-bias */
 
-#define MAX_DVFS_MARGIN 990 /* 99 % margin */
-#define MIN_DVFS_MARGIN 40 /* 4% margin */
+#define MAX_DVFS_MARGIN 990 /* 99% margin */
+#define MIN_DVFS_MARGIN 100 /* 10% margin */
 
 /* dynamic margin mode for FPSGo control fps margin */
 #define DYNAMIC_MARGIN_MODE_CONFIG_FPS_MARGIN 0x10
@@ -952,6 +963,11 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 
 	gpu_freq_pre = gpu_freq_pre << 10;
 
+	ged_log_perf_trace_counter("fb_workload",
+			(long long)busy_cycle_cur, 5566, 0, 0);
+	ged_log_perf_trace_counter("fb_margin_value",
+			(long long)gx_fb_dvfs_margin / 10, 5566, 0, 0);
+
 	ged_log_buf_print(ghLogBuf_DVFS,
 	"[GED_K][FB_DVFS]t_gpu:%d,t_gpu_tar:%d,gpu_freq_tar:%d,gpu_freq_pre:%d",
 	t_gpu, t_gpu_target, gpu_freq_tar, gpu_freq_pre);
@@ -1209,6 +1225,9 @@ static bool ged_dvfs_policy(
 			i32NewFreqID += 1;
 			g_lb_up_count = 1;
 		}
+
+		ged_log_perf_trace_counter("lb_margin_value",
+				(long long)gx_tb_dvfs_margin_cur, 5566, 0, 0);
 
 		ged_log_buf_print(ghLogBuf_DVFS,
 	"[GED_K1] rdy gpu_av_loading:%u, %d(%d)-up:%d,%d, new: %d, step: 0x%x",

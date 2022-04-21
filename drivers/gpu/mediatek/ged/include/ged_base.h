@@ -10,9 +10,14 @@
 #include "ged_type.h"
 
 #define GED_TAG "[GPU/GED]"
-#define GED_LOGD(...) pr_debug(GED_TAG"[DEBUG]" __VA_ARGS__)
-#define GED_LOGI(...) pr_info(GED_TAG"[INFO]" __VA_ARGS__)
-#define GED_LOGE(...) pr_err(GED_TAG"[ERROR]" __VA_ARGS__)
+#ifdef GED_DEBUG_LOG
+	#define GED_LOGD(fmt, args...) \
+		pr_info(GED_TAG"[DEBUG]@%s: "fmt"\n", __func__, ##args)
+#else
+	#define GED_LOGD(fmt, args...) {}
+#endif /* GED_DEBUG_LOG */
+#define GED_LOGI(fmt, args...) pr_info(GED_TAG"[INFO]@%s: "fmt"\n", __func__, ##args)
+#define GED_LOGE(fmt, args...) pr_info(GED_TAG"[ERROR]@%s: "fmt"\n", __func__, ##args)
 #define GED_CONTAINER_OF(ptr, type, member) \
 	((type *)(((char *)ptr) - offsetof(type, member)))
 

@@ -57,12 +57,12 @@ static void _dcs_init_core_mask_table(void)
 	for (i = 0; i < g_max_core_num; i++)
 		*(g_core_mask_table + i) = *(mask_table + i);
 
-#ifdef GED_KPI_DEBUG
+
 	for (i = 0; i < g_max_core_num; i++) {
-		GED_LOGI("[%02d*] MC0%d : 0x%llX",
+		GED_LOGD("[%02d*] MC0%d : 0x%llX",
 			i, g_core_mask_table[i].num, g_core_mask_table[i].mask);
 	}
-#endif /* GED_KPI_DEBUG */
+
 
 	// return mask_table;
 }
@@ -138,12 +138,10 @@ struct gpufreq_core_mask_info *dcs_get_avail_mask_table(void)
 		iter >>= 1;
 	}
 
-#ifdef GED_KPI_DEBUG
 	for (i = 0; i < g_avail_mask_num; i++) {
-		GED_LOGI("[%02d*] MC0%d : 0x%llX",
+		GED_LOGD("[%02d*] MC0%d : 0x%llX",
 			i, g_avail_mask_table[i].num, g_avail_mask_table[i].mask);
 	}
-#endif /* GED_KPI_DEBUG */
 
 	return g_avail_mask_table;
 }

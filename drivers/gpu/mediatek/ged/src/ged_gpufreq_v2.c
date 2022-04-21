@@ -61,13 +61,11 @@ GED_ERROR ged_gpufreq_init(void)
 	for (i = 0; i < g_working_oppnum; i++)
 		*(g_working_table + i) = *(opp_table + i);
 
-#ifdef GED_KPI_DEBUG
 	for (i = 0; i < g_working_oppnum; i++) {
 		GED_LOGI("[%02d*] Freq: %d, Volt: %d, Vsram: %d",
 			i, g_working_table[i].freq, g_working_table[i].volt,
 			g_working_table[i].vsram);
 	}
-#endif /* GED_KPI_DEBUG */
 
 	/* init core mask table if support DCS policy*/
 	core_mask_table = dcs_get_avail_mask_table();
@@ -85,12 +83,10 @@ GED_ERROR ged_gpufreq_init(void)
 		return GED_OK;
 	}
 
-#ifdef GED_KPI_DEBUG
 	for (i = 0; i < g_avail_mask_num; i++) {
 		GED_LOGE("[%02d*] MC0%d : 0x%llX",
 			i, g_mask_table[i].num, g_mask_table[i].mask);
 	}
-#endif /* GED_KPI_DEBUG */
 
 	/* init virtual opp table by core mask table */
 	g_virtual_oppnum = g_working_oppnum + g_avail_mask_num - 1;
@@ -120,13 +116,12 @@ GED_ERROR ged_gpufreq_init(void)
 		g_virtual_table[i].vsram = 0;
 	}
 
-#ifdef GED_KPI_DEBUG
 	for (i = 0; i < g_virtual_oppnum; i++) {
 		GED_LOGI("[%02d*] Freq: %d, Volt: %d, Vsram: %d",
 			i, g_virtual_table[i].freq, g_virtual_table[i].volt,
 			g_virtual_table[i].vsram);
 	}
-#endif /* GED_KPI_DEBUG */
+
 	return GED_OK;
 }
 

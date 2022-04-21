@@ -378,25 +378,20 @@ static GED_BOOL ged_kpi_find_main_head_func(unsigned long ulID,
 {
 	struct GED_KPI_HEAD *psHead = (struct GED_KPI_HEAD *)pvoid;
 
-	if (psHead) {
-#ifdef GED_KPI_DEBUG
-		GED_LOGD("[GED_KPI] psHead->i32Count: %d, isSF: %d\n",
-			psHead->i32Count, psHead->isSF);
-#endif /* GED_KPI_DEBUG */
-		if (psHead->isSF == 0) {
-			if (main_head == NULL
-				|| psHead->i32Count > main_head->i32Count) {
-				if (main_head && psHead) {
-#ifdef GED_KPI_DEBUG
-					GED_LOGD("[GED_KPI] main_head",
-					"changes from",
-					"%p to %p\n", main_head, psHead);
-#endif /* GED_KPI_DEBUG */
-				}
-				main_head = psHead;
-			}
+	if (!psHead)
+		return GED_FALSE;
+
+	GED_LOGD("psHead->i32Count: %d, isSF: %d", psHead->i32Count, psHead->isSF);
+
+	if (psHead->isSF == 0) {
+		if (main_head == NULL || psHead->i32Count > main_head->i32Count) {
+			if (main_head && psHead)
+				GED_LOGD("main_head changes from %p to %p",
+					main_head, psHead);
+			main_head = psHead;
 		}
 	}
+
 	return GED_TRUE;
 }
 /* ------------------------------------------------------------------- */
@@ -407,17 +402,15 @@ static inline void ged_kpi_calc_kpi_info(u64 ulID, struct GED_KPI *psKPI
 {
 	ged_hashtable_iterator(gs_hashtable,
 		ged_kpi_find_main_head_func, (void *)NULL);
-#ifdef GED_KPI_DEBUG
+
 	/* check if there is a main rendering thread */
 	/* only SF is excluded from the group of considered candidates */
-	if (main_head)
-		GED_LOGD("[GED_KPI] main_head =",
-			"%p, i32Count= %d, i32QedBuffer_length=%d\n",
-			main_head, main_head->i32Count,
-			main_head->i32QedBuffer_length);
+	if (main_head) {
+		GED_LOGD("main_head = %p, i32Count= %d, i32QedBuffer_length=%d",
+			main_head, main_head->i32Count, main_head->i32QedBuffer_length);
+	}
 	else
-		GED_LOGD("[GED_KPI] main_head = NULL\n");
-#endif /* GED_KPI_DEBUG */
+		GED_LOGD("main_head = NULL");
 
 	if (main_head != prev_main_head && main_head == psHead) {
 		ged_kpi_clean_kpi_info();
@@ -430,8 +423,7 @@ static inline void ged_kpi_calc_kpi_info(u64 ulID, struct GED_KPI *psKPI
 	}
 
 	if (psHead == main_head) {
-		g_elapsed_time_per_sec +=
-			psKPI->ullTimeStampS - g_pre_TimeStampS;
+		g_elapsed_time_per_sec += psKPI->ullTimeStampS - g_pre_TimeStampS;
 		g_gpu_time_accum += psKPI->t_gpu;
 		g_CRemTimeAccu += psKPI->ullTimeStampS - psKPI->ullTimeStamp1;
 		g_gpu_freq_accum += psKPI->gpu_freq;
@@ -633,18 +625,17 @@ static GED_BOOL ged_kpi_tag_type_s(u64 ulID, struct GED_KPI_HEAD *psHead
 			if (psKPI && (psKPI->ulMask & GED_TIMESTAMP_TYPE_2))
 				ged_kpi_statistics_and_remove(psHead, psKPI);
 		} else {
-#ifdef GED_KPI_DEBUG
-			GED_LOGD("[GED_KPI][Exception] TYPE_S:",
-				"psKPI NULL, frameID: %lu\n",
+			GED_LOGD("[Exception] TYPE_S: psKPI NULL, frameID: %lu",
 				psTimeStamp->i32FrameID);
-#endif /* GED_KPI_DEBUG */
 		}
 		return ret;
 	} else {
 		return GED_FALSE;
 	}
 }
+
 /* ------------------------------------------------------------------- */
+/* For GED_TIMESTAMP_TYPE_H (deprecated)*/
 static GED_BOOL ged_kpi_h_iterator_func(unsigned long ulID,
 	void *pvoid, void *pvParam)
 {
@@ -739,48 +730,43 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 {
 	GED_BOOL ret = GED_FALSE;
 
-	if (psHead) {
-		switch (mode) {
-		case GED_KPI_FRC_DEFAULT_MODE:
-			psHead->frc_mode = GED_KPI_FRC_DEFAULT_MODE;
-			vsync_period = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
-			break;
-		default:
-			psHead->frc_mode = GED_KPI_FRC_DEFAULT_MODE;
-			vsync_period = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
-#ifdef GED_KPI_DEBUG
-			GED_LOGD("[GED_KPI][Exception]: no invalid",
-				"FRC mode is specified, use default mode\n");
-#endif /* GED_KPI_DEBUG */
-		}
+	if (!psHead)
+		return ret;
 
+	switch (mode) {
+	case GED_KPI_FRC_DEFAULT_MODE:
+		psHead->frc_mode = GED_KPI_FRC_DEFAULT_MODE;
+		vsync_period = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
+		break;
+	default:
+		psHead->frc_mode = GED_KPI_FRC_DEFAULT_MODE;
+		vsync_period = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
+		GED_LOGD("[Exception]: no invalid",
+			"FRC mode is specified, use default mode");
+	}
+
+	psHead->target_fps = target_fps;
+	psHead->target_fps_margin = target_fps_margin;
+	psHead->eara_fps_margin = eara_fps_margin;
+	psHead->t_cpu_fpsgo = cpu_time;
+	if (target_fps > 0 && target_fps <= GED_KPI_FPS_LIMIT) {
+		psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/target_fps);
 		psHead->target_fps = target_fps;
-		psHead->target_fps_margin = target_fps_margin;
-		psHead->eara_fps_margin = eara_fps_margin;
-		psHead->t_cpu_fpsgo = cpu_time;
+	} else {
+		psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/g_target_fps_default);
+		psHead->target_fps = -1;
+	}
+	psHead->t_gpu_target = psHead->t_cpu_target;
+	psHead->frc_client = client;
+	ret = GED_TRUE;
 
-		/* use default refresh as target when FPSGo disabled */
-		if (target_fps > 0 && target_fps <= GED_KPI_FPS_LIMIT) {
-			psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/target_fps);
-			psHead->target_fps = target_fps;
-		} else {
-			psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/g_target_fps_default);
-			psHead->target_fps = -1;
-		}
-
-		psHead->t_gpu_target = psHead->t_cpu_target;
-		psHead->frc_client = client;
-		ret = GED_TRUE;
-
-#ifdef GED_KPI_DEBUG
-		GED_LOGI("[GED_KPI]FPSGO info PID:%d,tfps:%d,fps_margin:%d,eara_diff:%d,t_cpu:%d\n",
+	GED_LOGD("FPSGO info PID:%d,tfps:%d,fps_margin:%d,eara_diff:%d,t_cpu:%d",
 			psHead->pid,
 			psHead->target_fps,
 			psHead->target_fps_margin,
 			psHead->eara_fps_margin,
 			psHead->t_cpu_fpsgo);
-#endif /* GED_KPI_DEBUG */
-	}
+
 	return ret;
 }
 /* ------------------------------------------------------------------- */
@@ -807,16 +793,13 @@ static void ged_kpi_record_miss_tag(u64 ulID, int i32FrameID
 		if (miss_tag_head) {
 			int i;
 
-			memset(miss_tag_head, 0,
-				sizeof(struct GED_KPI_MISS_TAG));
+			memset(miss_tag_head, 0, sizeof(struct GED_KPI_MISS_TAG));
 			memset(gs_miss_tag, 0, sizeof(gs_miss_tag));
 			for (i = 0; i < GED_KPI_MISS_TAG_COUNT; i++)
 				INIT_LIST_HEAD(&gs_miss_tag[i].sList);
 			INIT_LIST_HEAD(&miss_tag_head->sList);
 		} else {
-			GED_PR_DEBUG("[GED_KPI][Exception]");
-			GED_PR_DEBUG(
-			"ged_alloc_atomic(sizeof(GED_KPI_MISS_TAG)) failed\n");
+			GED_LOGD("ged_alloc_atomic(sizeof(GED_KPI_MISS_TAG)) failed");
 			return;
 		}
 	}
@@ -826,9 +809,7 @@ static void ged_kpi_record_miss_tag(u64 ulID, int i32FrameID
 	list_del(&psMiss_tag->sList);
 
 	if (unlikely(!psMiss_tag)) {
-		GED_PR_DEBUG("GED_KPI][Exception]:");
-		GED_PR_DEBUG(
-		"ged_alloc_atomic(sizeof(GED_KPI_MISS_TAG)) failed\n");
+		GED_LOGD("ged_alloc_atomic(sizeof(GED_KPI_MISS_TAG)) failed");
 		return;
 	}
 
@@ -839,6 +820,7 @@ static void ged_kpi_record_miss_tag(u64 ulID, int i32FrameID
 	psMiss_tag->ulID = ulID;
 	list_add_tail(&psMiss_tag->sList, &miss_tag_head->sList);
 }
+
 static GED_BOOL ged_kpi_find_and_delete_miss_tag(u64 ulID, int i32FrameID
 	, GED_TIMESTAMP_TYPE eTimeStampType)
 {
@@ -853,9 +835,9 @@ static GED_BOOL ged_kpi_find_and_delete_miss_tag(u64 ulID, int i32FrameID
 			psMiss_tag =
 			list_entry(psListEntry, struct GED_KPI_MISS_TAG, sList);
 			if (psMiss_tag
-			&& psMiss_tag->ulID == ulID
-			&& psMiss_tag->i32FrameID == i32FrameID
-			&& psMiss_tag->eTimeStampType == eTimeStampType) {
+				&& psMiss_tag->ulID == ulID
+				&& psMiss_tag->i32FrameID == i32FrameID
+				&& psMiss_tag->eTimeStampType == eTimeStampType) {
 				list_del(&psMiss_tag->sList);
 				INIT_LIST_HEAD(&psMiss_tag->sList);
 				ret = GED_TRUE;
@@ -895,19 +877,20 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		GED_CONTAINER_OF(psWork, struct GED_TIMESTAMP, sWork);
 	struct GED_KPI_HEAD *psHead;
 	struct GED_KPI *psKPI = NULL;
+	struct list_head *psListEntry, *psListEntryTemp;
+	struct list_head *psList;
+
 	u64 ulID;
 	unsigned long long phead_last1;
 	int target_FPS;
 	unsigned long ulIRQFlags;
 	int eara_fps_margin;
 
-#ifdef GED_KPI_DEBUG
-	GED_LOGD("[GED_KPI] ts type = %d, pid = %d, wnd = %llu, frame = %lu\n",
+	GED_LOGD("ts type = %d, pid = %d, wnd = %llu, frame = %lu",
 		psTimeStamp->eTimeStampType,
 		psTimeStamp->pid,
 		psTimeStamp->ullWnd,
 		psTimeStamp->i32FrameID);
-#endif /* GED_KPI_DEBUG */
 
 	switch (psTimeStamp->eTimeStampType) {
 
@@ -920,27 +903,21 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		ulID = psKPI->ullWnd;
 		psHead = (struct GED_KPI_HEAD *)ged_hashtable_find(gs_hashtable
 						, (unsigned long)ulID);
-		if (psHead) {
+		if (!psHead)
+			GED_LOGD("no hashtable head for ulID: %lu", ulID);
+		else {
 			psHead->i32Count -= 1;
 			list_del(&psKPI->sList);
 
 			if (psHead->i32Count < 1
-			&& (psHead->sList.next == &(psHead->sList))) {
+				&& (psHead->sList.next == &(psHead->sList))) {
 				if (psHead == main_head)
 					main_head = NULL;
-				spin_lock_irqsave(&gs_hashtableLock,
-					ulIRQFlags);
-				ged_hashtable_remove(gs_hashtable
-					, (unsigned long)ulID);
-				spin_unlock_irqrestore(&gs_hashtableLock,
-					ulIRQFlags);
+				spin_lock_irqsave(&gs_hashtableLock, ulIRQFlags);
+				ged_hashtable_remove(gs_hashtable, (unsigned long)ulID);
+				spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
 				ged_free(psHead, sizeof(struct GED_KPI_HEAD));
 			}
-		} else {
-#ifdef GED_KPI_DEBUG
-			GED_PR_DEBUG("[GED_KPI][Exception]");
-			GED_PR_DEBUG("no hashtable head for ulID: %lu\n", ulID);
-#endif /* GED_KPI_DEBUG */
 		}
 
 		/* reset data */
@@ -955,30 +932,25 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		if (!psHead) {
 			psHead = (struct GED_KPI_HEAD *)
 				ged_alloc_atomic(sizeof(struct GED_KPI_HEAD));
-			if (psHead) {
-				memset(psHead, 0, sizeof(struct GED_KPI_HEAD));
-				psHead->pid = psTimeStamp->pid;
-				psHead->ullWnd = psTimeStamp->ullWnd;
-				psHead->isSF = psTimeStamp->isSF;
-				ged_kpi_update_TargetTimeAndTargetFps(
-					psHead,
-					g_target_fps_default,
-					GED_KPI_DEFAULT_FPS_MARGIN, 0, 0,
-					GED_KPI_FRC_DEFAULT_MODE, -1);
-				ged_kpi_set_gift_status(0);
-				INIT_LIST_HEAD(&psHead->sList);
-				spin_lock_irqsave(&gs_hashtableLock,
-					ulIRQFlags);
-				ged_hashtable_set(gs_hashtable
-				, (unsigned long)ulID, (void *)psHead);
-				spin_unlock_irqrestore(&gs_hashtableLock,
-					ulIRQFlags);
-			} else {
-				GED_PR_DEBUG(
-				"[GED_KPI][Exception] ged_alloc_atomic");
-				GED_PR_DEBUG("(sizeof(GED_KPI_HEAD)) failed\n");
+			if (!psHead) {
+				GED_LOGD("ged_alloc_atomic (sizeof(GED_KPI_HEAD)) failed");
 				goto work_cb_end;
 			}
+			memset(psHead, 0, sizeof(struct GED_KPI_HEAD));
+			psHead->pid = psTimeStamp->pid;
+			psHead->ullWnd = psTimeStamp->ullWnd;
+			psHead->isSF = psTimeStamp->isSF;
+			ged_kpi_update_TargetTimeAndTargetFps(
+				psHead,
+				g_target_fps_default,
+				GED_KPI_DEFAULT_FPS_MARGIN, 0, 0,
+				GED_KPI_FRC_DEFAULT_MODE, -1);
+			ged_kpi_set_gift_status(0);
+			INIT_LIST_HEAD(&psHead->sList);
+			spin_lock_irqsave(&gs_hashtableLock, ulIRQFlags);
+			ged_hashtable_set(gs_hashtable,
+				(unsigned long)ulID, (void *)psHead);
+			spin_unlock_irqrestore(&gs_hashtableLock, ulIRQFlags);
 		}
 
 		memset(psKPI, 0, sizeof(struct GED_KPI));
@@ -998,126 +970,98 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		psHead = (struct GED_KPI_HEAD *)ged_hashtable_find(gs_hashtable
 			, (unsigned long)ulID);
 
-		if (psHead) {
-			struct list_head *psListEntry, *psListEntryTemp;
-			struct list_head *psList = &psHead->sList;
+		if (!psHead) {
+			GED_LOGD("no hashtable head for ulID: %lu", ulID);
+			break;
+		}
 
-			list_for_each_prev_safe(psListEntry,
-				psListEntryTemp, psList) {
-				psKPI =
-				list_entry(psListEntry, struct GED_KPI, sList);
+		psList = &psHead->sList;
+		list_for_each_prev_safe(psListEntry,
+			psListEntryTemp, psList) {
+			psKPI =
+			list_entry(psListEntry, struct GED_KPI, sList);
 
-				if (psKPI
-					&& (psKPI->i32DeQueueID ==
-					psTimeStamp->i32FrameID))
-					break;
-				psKPI = NULL;
-			}
-			if (psKPI == NULL) {
-				GED_PR_DEBUG("[GED_KPI][Exception]");
-				GED_PR_DEBUG(
-					"TYPE_1: psKPI NULL, frameID: %lu\n",
-					psTimeStamp->i32FrameID);
-				goto work_cb_end;
-			}
-			/* set fw idle time if display Hz change */
-			/* powerhal scenario set default 5ms */
-			if (idle_fw_set_flag == g_idle_set_prepare) {
-				if (!g_is_idle_fw_enable) {
+			if (psKPI && (psKPI->i32DeQueueID == psTimeStamp->i32FrameID))
+				break;
+			psKPI = NULL;
+		}
+		if (psKPI == NULL) {
+			GED_LOGD("TYPE_1: psKPI NULL, frameID: %lu",
+				psTimeStamp->i32FrameID);
+			goto work_cb_end;
+		}
+		/* set fw idle time if display Hz change */
+		/* powerhal scenario set default 5ms */
+		if (idle_fw_set_flag == g_idle_set_prepare) {
+			if (!g_is_idle_fw_enable) {
+				mtk_set_gpu_idle(5);
+				idle_fw_set_flag = g_idle_set_finish;
+			} else {
+				if (g_target_fps_default <= 60)
+					mtk_set_gpu_idle(0);
+				else
 					mtk_set_gpu_idle(5);
-					idle_fw_set_flag = g_idle_set_finish;
-				} else {
-					if (g_target_fps_default <= 60)
-						mtk_set_gpu_idle(0);
-					else
-						mtk_set_gpu_idle(5);
-					idle_fw_set_flag = g_idle_set_finish;
-				}
+				idle_fw_set_flag = g_idle_set_finish;
 			}
-
-			/* new data */
-			psKPI->pid = psTimeStamp->pid;
-			psKPI->ullWnd = psTimeStamp->ullWnd;
-			psKPI->i32QueueID = psTimeStamp->i32FrameID;
-			psKPI->ulMask |= GED_TIMESTAMP_TYPE_1;
-			psKPI->ullTimeStamp1 = psTimeStamp->ullTimeStamp;
-			psKPI->i32QedBuffer_length =
-				psTimeStamp->i32QedBuffer_length;
-			psHead->i32QedBuffer_length =
-				psTimeStamp->i32QedBuffer_length;
-
-			/**********************************/
-			psKPI->t_cpu_fpsgo = psHead->t_cpu_fpsgo;
-			psKPI->t_cpu_target = psHead->t_cpu_target;
-			psKPI->t_gpu_target = psHead->t_gpu_target;
-			psKPI->target_fps_margin = psHead->target_fps_margin;
-			psHead->i32Gpu_uncompleted++;
-			psKPI->i32Gpu_uncompleted = psHead->i32Gpu_uncompleted;
-			psHead->i32DebugQedBuffer_length += 1;
-			psKPI->i32DebugQedBuffer_length =
-				psHead->i32DebugQedBuffer_length;
-			/* recording cpu time per frame & boost CPU if needed */
-			phead_last1 = psHead->last_TimeStamp1;
-			psHead->t_cpu_latest =
-				psKPI->ullTimeStamp1 - psHead->last_TimeStamp1;
-			psKPI->t_cpu = psHead->t_cpu_latest;
-			ged_log_perf_trace_counter("t_cpu", psKPI->t_cpu,
-				psTimeStamp->pid, psTimeStamp->i32FrameID
-				, ulID);
-			psKPI->QedBufferDelay = psHead->last_QedBufferDelay;
-			psHead->last_QedBufferDelay = 0;
-			psHead->last_TimeStamp1 = psKPI->ullTimeStamp1;
-
-			if (ged_kpi_find_and_delete_miss_tag(ulID,
-				psTimeStamp->i32FrameID,
-				GED_TIMESTAMP_TYPE_S) == GED_TRUE) {
-
-				psTimeStamp->eTimeStampType =
-					GED_TIMESTAMP_TYPE_S;
-				ged_kpi_tag_type_s(ulID, psHead, psTimeStamp);
-				psHead->i32DebugQedBuffer_length -= 1;
-#ifdef GED_KPI_DEBUG
-				GED_LOGD("[GED_KPI] timestamp matched, Type_S:",
-					"psHead: %p\n", psHead);
-#endif /* GED_KPI_DEBUG */
-
-				if ((main_head != NULL) &&
-					(main_head->t_cpu_remained >
-						(-1)*SCREEN_IDLE_PERIOD)) {
-#ifdef GED_KPI_DEBUG
-					GED_LOGD("[GED_KPI] t_cpu_remained",
-						": %lld, main_head: %p\n",
-						main_head->t_cpu_remained,
-						main_head);
-#endif /* GED_KPI_DEBUG */
-					ged_kpi_set_cpu_remained_time(
-						main_head->t_cpu_remained,
-						main_head->i32QedBuffer_length);
-				}
-			}
-
-#ifdef GED_KPI_DEBUG
-			if (psHead->isSF != psTimeStamp->isSF)
-				GED_LOGD("[GED_KPI][Exception] psHead->isSF !=",
-					"psTimeStamp->isSF\n");
-			if (psHead->pid != psTimeStamp->pid) {
-				GED_LOGD("[GED_KPI][Exception] psHead->pid !=",
-					"psTimeStamp->pid: (%d, %d)\n",
-					psHead->pid, psTimeStamp->pid);
-			}
-			GED_LOGD("[GED_KPI] TimeStamp1, i32QedBuffer_length:",
-				"%d, ts: %llu, psHead: %p\n",
-				psTimeStamp->i32QedBuffer_length,
-					psTimeStamp->ullTimeStamp, psHead);
-#endif /* GED_KPI_DEBUG */
 		}
-#ifdef GED_KPI_DEBUG
-		else {
-			GED_PR_DEBUG("[GED_KPI][Exception]");
-			GED_PR_DEBUG("no hashtable head for ulID: %lu\n", ulID);
+
+		/* new data */
+		psKPI->pid = psTimeStamp->pid;
+		psKPI->ullWnd = psTimeStamp->ullWnd;
+		psKPI->i32QueueID = psTimeStamp->i32FrameID;
+		psKPI->ulMask |= GED_TIMESTAMP_TYPE_1;
+		psKPI->ullTimeStamp1 = psTimeStamp->ullTimeStamp;
+		psKPI->i32QedBuffer_length = psTimeStamp->i32QedBuffer_length;
+		psHead->i32QedBuffer_length = psTimeStamp->i32QedBuffer_length;
+
+		/**********************************/
+		psKPI->t_cpu_fpsgo = psHead->t_cpu_fpsgo;
+		psKPI->t_cpu_target = psHead->t_cpu_target;
+		psKPI->t_gpu_target = psHead->t_gpu_target;
+		psKPI->target_fps_margin = psHead->target_fps_margin;
+		psHead->i32Gpu_uncompleted++;
+		psKPI->i32Gpu_uncompleted = psHead->i32Gpu_uncompleted;
+		psHead->i32DebugQedBuffer_length += 1;
+		psKPI->i32DebugQedBuffer_length = psHead->i32DebugQedBuffer_length;
+		/* recording cpu time per frame & boost CPU if needed */
+		phead_last1 = psHead->last_TimeStamp1;
+		psHead->t_cpu_latest = psKPI->ullTimeStamp1 - psHead->last_TimeStamp1;
+		psKPI->t_cpu = psHead->t_cpu_latest;
+
+		psKPI->QedBufferDelay = psHead->last_QedBufferDelay;
+		psHead->last_QedBufferDelay = 0;
+		psHead->last_TimeStamp1 = psKPI->ullTimeStamp1;
+
+		if (ged_kpi_find_and_delete_miss_tag(ulID,
+			psTimeStamp->i32FrameID, GED_TIMESTAMP_TYPE_S) == GED_TRUE) {
+
+			psTimeStamp->eTimeStampType = GED_TIMESTAMP_TYPE_S;
+			ged_kpi_tag_type_s(ulID, psHead, psTimeStamp);
+			psHead->i32DebugQedBuffer_length -= 1;
+
+			GED_LOGD("timestamp matched, Type_S: psHead: %p", psHead);
+
+			if (main_head != NULL &&
+				(main_head->t_cpu_remained > (-1) * SCREEN_IDLE_PERIOD)) {
+				GED_LOGD("t_cpu_remained: %lld, main_head: %p",
+				main_head->t_cpu_remained, main_head);
+				ged_kpi_set_cpu_remained_time(
+					main_head->t_cpu_remained,
+					main_head->i32QedBuffer_length);
+			}
 		}
-#endif /* GED_KPI_DEBUG */
-		break;
+
+		if (psHead->isSF != psTimeStamp->isSF)
+			GED_LOGD("[Exception] psHead->isSF != psTimeStamp->isSF");
+		if (psHead->pid != psTimeStamp->pid) {
+			GED_LOGD("[Exception] psHead->pid != psTimeStamp->pid: (%d, %d)",
+				psHead->pid, psTimeStamp->pid);
+		}
+		GED_LOGD("TimeStamp1, i32QedBuffer_length: %d, ts: %llu, psHead: %p",
+			psTimeStamp->i32QedBuffer_length,
+			psTimeStamp->ullTimeStamp,
+			psHead);
+	break;
 
 	/* GPU done scope */
 	case GED_TIMESTAMP_TYPE_2:
@@ -1125,274 +1069,215 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		psHead = (struct GED_KPI_HEAD *)ged_hashtable_find(gs_hashtable
 			, (unsigned long)ulID);
 
-		if (psHead) {
-			struct list_head *psListEntry, *psListEntryTemp;
-			struct list_head *psList = &psHead->sList;
-			static unsigned long long last_3D_done, cur_3D_done;
-			int time_spent;
-			static int gpu_freq_pre;
+		if (!psHead) {
+			GED_LOGD(
+				"[Exception] no hashtable head for ulID: %lu", ulID);
+			break;
+		}
+		static unsigned long long last_3D_done, cur_3D_done;
+		int time_spent;
+		static int gpu_freq_pre;
 
-			list_for_each_prev_safe(psListEntry, psListEntryTemp,
-			psList) {
-				psKPI =
-				list_entry(psListEntry, struct GED_KPI, sList);
-				if (psKPI
-				&& ((psKPI->ulMask & GED_TIMESTAMP_TYPE_2) == 0)
-				&& (psKPI->i32QueueID ==
-				psTimeStamp->i32FrameID))
-					break;
-				psKPI = NULL;
-			}
+		psList = &psHead->sList;
+		list_for_each_prev_safe(psListEntry, psListEntryTemp, psList) {
+			psKPI = list_entry(psListEntry, struct GED_KPI, sList);
 
-			if (psKPI) {
-				psKPI->ulMask |= GED_TIMESTAMP_TYPE_2;
-				psKPI->ullTimeStamp2 =
-					psTimeStamp->ullTimeStamp;
-				psKPI->cpu_gpu_info.gpu.tb_dvfs_mode =
-					ged_dvfs_get_tb_dvfs_margin_mode();
-				psKPI->cpu_gpu_info.gpu.tb_dvfs_margin =
-					ged_dvfs_get_tb_dvfs_margin_cur();
+			if (psKPI && ((psKPI->ulMask & GED_TIMESTAMP_TYPE_2) == 0)
+				&& (psKPI->i32QueueID == psTimeStamp->i32FrameID))
+				break;
+			psKPI = NULL;
+		}
 
-				/* calculate gpu_pipe time */
-				if (psKPI->ullTimeStamp1 >
-					psHead->last_TimeStamp2
-					&& psKPI->ullTimeStamp1 >
-					psKPI->ullTimeStampP)
-					psHead->t_gpu_latest =
-						psKPI->ullTimeStamp2
-						- psKPI->ullTimeStamp1;
-				else if (psKPI->ullTimeStamp1 >
-					psHead->last_TimeStamp2)
-					psHead->t_gpu_latest =
-						psKPI->ullTimeStamp2
-						- psKPI->ullTimeStampP;
-				else if (psHead->last_TimeStamp2 >
-					psKPI->ullTimeStampP)
-					psHead->t_gpu_latest =
-					psKPI->ullTimeStamp2
-					- psHead->last_TimeStamp2;
-				else
-					psHead->t_gpu_latest =
-					psKPI->ullTimeStamp2
-					- psKPI->ullTimeStampP;
-
-				/* gpu info to KPI TAG*/
-				psKPI->t_gpu = psHead->t_gpu_latest;
-
-				psKPI->gpu_freq =
-					ged_get_cur_freq() / 1000;
-				psKPI->gpu_freq_max =
-					ged_get_freq_by_idx(
-					ged_get_cur_limit_idx_ceil()) / 1000;
-
-				psHead->pre_TimeStamp2 =
-					psHead->last_TimeStamp2;
-				psHead->last_TimeStamp2 =
-					psTimeStamp->ullTimeStamp;
-				psHead->i32Gpu_uncompleted--;
-				psKPI->gpu_loading = psTimeStamp->i32GPUloading;
-				if (psKPI->gpu_loading == 0)
-					mtk_get_gpu_loading(
-						&psKPI->gpu_loading);
-
-				psKPI->cpu_gpu_info.gpu.t_gpu_real =
-					((unsigned long long)
-					(psHead->last_TimeStamp2
-					- psHead->pre_TimeStamp2))
-					* psKPI->gpu_loading / 100U;
-
-				psKPI->cpu_gpu_info.gpu.limit_upper =
-					ged_get_cur_limiter_ceil();
-				psKPI->cpu_gpu_info.gpu.limit_lower =
-					ged_get_cur_limiter_floor();
-
-				cur_3D_done = psKPI->ullTimeStamp2;
-				if (psTimeStamp->i32GPUloading) {
-					/* not fallback mode */
-
-					/* choose which loading to calc. t_gpu */
-					struct GpuUtilization_Ex util_ex;
-					unsigned int mode = 0;
-
-					memset(&util_ex, 0, sizeof(util_ex));
-
-					mtk_get_dvfs_loading_mode(&mode);
-					ged_get_gpu_utli_ex(&util_ex);
-
-					/* calculate gpu time using
-					 * choosed gpu loading
-					 */
-					if (mode == LOADING_MAX_3DTA_COM)
-						psTimeStamp->i32GPUloading =
-						MAX(util_ex.util_3d,
-							util_ex.util_ta) +
-						util_ex.util_compute;
-					else if (mode == LOADING_MAX_3DTA)
-						psTimeStamp->i32GPUloading =
-						MAX(util_ex.util_3d,
-						util_ex.util_ta);
-
-					/* hint JS0, JS1 info to EAT */
-					ged_log_perf_trace_counter("gpu_ta_loading",
-					util_ex.util_ta, psTimeStamp->pid,
-					psTimeStamp->i32FrameID, ulID);
-					ged_log_perf_trace_counter("gpu_3d_loading",
-					util_ex.util_3d, psTimeStamp->pid,
-					psTimeStamp->i32FrameID, ulID);
-
-					/* hint GiFT ratio to EAT */
-					ged_log_perf_trace_counter(
-					"is_gift_on", g_psGIFT->gift_ratio,
-					psTimeStamp->pid,
-					psTimeStamp->i32FrameID, ulID);
-
-					time_spent = psKPI->cpu_gpu_info.gpu.t_gpu_real;
-
-					psKPI->gpu_done_interval = cur_3D_done - last_3D_done;
-
-						psKPI->t_gpu =
-							psHead->t_gpu_latest =
-							time_spent;
-
-					if (ged_is_fdvfs_support() &&
-						psTimeStamp->pid != pid_sf &&
-						psTimeStamp->pid != pid_sysui) {
-						g_eb_coef = mtk_gpueb_dvfs_set_feedback_info(
-							psKPI->gpu_done_interval, util_ex,
-							ged_kpi_get_cur_fps());
-						ged_log_perf_trace_counter("eb_coef",
-							(long long)g_eb_coef, 5566, 0, 0);
-					}
-				} else {
-					psKPI->t_gpu
-						= time_spent
-						= psHead->t_gpu_latest;
-				}
-				/* Detect if there are multi renderers by */
-				/* checking if there is struct GED_KPI info
-				 * resource monopoly
-				 */
-				g_force_gpu_dvfs_fallback = ged_kpi_check_fallback_mode();
-
-			/* dvfs_margin_mode == */
-			/* DYNAMIC_MARGIN_MODE_CONFIG_FPS_MARGIN or */
-			/* DYNAMIC_MARGIN_MODE_FIXED_FPS_MARGIN) or */
-			/* DYNAMIC_MARGIN_MODE_NO_FPS_MARGIN */
-			/* bit0~bit9: headroom ratio:10-bias */
-			/* bit15: is frame base? */
-			/* bit16~bit23: dvfs_margin_mode */
-
-			psKPI->cpu_gpu_info.gpu.gpu_dvfs |=
-			(((unsigned long) ged_get_dvfs_margin()) & 0x3FF);
-			psKPI->cpu_gpu_info.gpu.gpu_dvfs |=
-			((((unsigned long) ged_get_dvfs_margin_mode()) & 0xFF)
-				<< 16);
-
-			if (psTimeStamp->pid != pid_sf && psTimeStamp->pid != pid_sysui) {
-				if (main_head == psHead && !g_force_gpu_dvfs_fallback) {
-					psKPI->cpu_gpu_info.gpu.gpu_dvfs |= (0x8000);
-					if (ged_is_fdvfs_support())
-						mtk_gpueb_dvfs_set_frame_base_dvfs(1);
-				} else {
-					if (ged_is_fdvfs_support())
-						mtk_gpueb_dvfs_set_frame_base_dvfs(0);
-				}
-			}
-
-			if (main_head == psHead || psHead->target_fps == -1) {
-				psKPI->t_gpu_target = g_target_time_default;
-				ged_log_perf_trace_counter("target_fps_fb",
-					psHead->target_fps, 5566, 0, 0);
-			}
-
-			if (main_head == psHead)
-				gpu_freq_pre = ged_kpi_gpu_dvfs(
-					time_spent, psKPI->t_gpu_target
-					, psKPI->target_fps_margin
-					, g_force_gpu_dvfs_fallback);
-			else if (g_force_gpu_dvfs_fallback)
-				gpu_freq_pre = ged_kpi_gpu_dvfs(
-					time_spent, psKPI->t_gpu_target
-					, psKPI->target_fps_margin
-					, 1); /* fallback mode */
-			else
-				/* t_gpu is not accurate, so hint -1 */
-				gpu_freq_pre = ged_kpi_gpu_dvfs(
-					-1, psKPI->t_gpu_target
-					, psKPI->target_fps_margin
-					, 0); /* do nothing */
-
-			psKPI->cpu_gpu_info.gpu.gpu_freq_target
-			= gpu_freq_pre;
-			last_3D_done = cur_3D_done;
-
-			g_psGIFT->gpu_freq_cur = psKPI->gpu_freq * 1000;
-			g_psGIFT->gpu_freq_max = psKPI->gpu_freq_max * 1000;
-			g_psGIFT->gpu_freq_pred = gpu_freq_pre;
-			if (main_head == psHead &&
-				psHead->pid == g_psGIFT->target_pid) {
-				g_psGIFT->target_fps = psHead->target_fps;
-				g_psGIFT->target_fps_margin = psKPI->target_fps_margin;
-				g_psGIFT->eara_fps_margin = psHead->eara_fps_margin;
-				g_psGIFT->gpu_time = time_spent;
-			} else {
-				g_psGIFT->target_fps = -1;
-				g_psGIFT->target_fps_margin = 0;
-				g_psGIFT->eara_fps_margin = 0;
-				g_psGIFT->gpu_time = -1;
-			}
-
-			if (!g_force_gpu_dvfs_fallback)
-				ged_set_backup_timer_timeout(0);
-			else
-				ged_set_backup_timer_timeout(
-					psKPI->t_gpu_target << 1);
-
-			ged_log_perf_trace_counter("t_gpu",
-				psKPI->t_gpu, psTimeStamp->pid,
-				psTimeStamp->i32FrameID, ulID);
-			if (main_head == psHead)
-				ged_log_perf_trace_counter("t_gpu",
-					psKPI->t_gpu, 5566, 0, 0);
-
-			if (psHead->last_TimeStamp1
-				!= psKPI->ullTimeStamp1) {
-				psHead->last_QedBufferDelay =
-					psTimeStamp->ullTimeStamp
-					- psHead->last_TimeStamp1;
-			}
-
-			if (g_force_gpu_dvfs_fallback) {
-				/* hint FPSGO do not use t_gpu */
-				ged_kpi_output_gfx_info2(-1
-					, psKPI->gpu_freq * 1000
-					, psKPI->gpu_freq_max * 1000
-					, ulID);
-			} else {
-				ged_kpi_output_gfx_info2(
-					psHead->t_gpu_latest
-					, psKPI->gpu_freq * 1000
-					, psKPI->gpu_freq_max * 1000
-					, ulID);
-			}
-
-			if (psKPI &&
-				(psKPI->ulMask & GED_TIMESTAMP_TYPE_S))
-				ged_kpi_statistics_and_remove(psHead
-					, psKPI);
-			} else {
-				GED_PR_DEBUG(
-		"[GED_KPI][Exception] TYPE_2: psKPI NULL, frameID: %lu\n",
+		if (!psKPI) {
+			GED_LOGD(
+				"[Exception] TYPE_2: psKPI NULL, frameID: %lu",
 				psTimeStamp->i32FrameID);
+			break;
+		}
+
+		psKPI->ulMask |= GED_TIMESTAMP_TYPE_2;
+		psKPI->ullTimeStamp2 = psTimeStamp->ullTimeStamp;
+		psKPI->cpu_gpu_info.gpu.tb_dvfs_mode =
+			ged_dvfs_get_tb_dvfs_margin_mode();
+		psKPI->cpu_gpu_info.gpu.tb_dvfs_margin =
+			ged_dvfs_get_tb_dvfs_margin_cur();
+
+		/* calculate gpu_pipe time */
+		if (psKPI->ullTimeStamp1 > psHead->last_TimeStamp2
+			&& psKPI->ullTimeStamp1 > psKPI->ullTimeStampP)
+			psHead->t_gpu_latest = psKPI->ullTimeStamp2 - psKPI->ullTimeStamp1;
+		else if (psKPI->ullTimeStamp1 > psHead->last_TimeStamp2)
+			psHead->t_gpu_latest = psKPI->ullTimeStamp2 - psKPI->ullTimeStampP;
+		else if (psHead->last_TimeStamp2 > psKPI->ullTimeStampP)
+			psHead->t_gpu_latest = psKPI->ullTimeStamp2 - psHead->last_TimeStamp2;
+		else
+			psHead->t_gpu_latest = psKPI->ullTimeStamp2 - psKPI->ullTimeStampP;
+
+		/* gpu info to KPI TAG*/
+		psKPI->t_gpu = psHead->t_gpu_latest;
+		psKPI->gpu_freq = ged_get_cur_freq() / 1000;
+		psKPI->gpu_freq_max =
+			ged_get_freq_by_idx(ged_get_cur_limit_idx_ceil()) / 1000;
+
+		psHead->pre_TimeStamp2 = psHead->last_TimeStamp2;
+		psHead->last_TimeStamp2 = psTimeStamp->ullTimeStamp;
+		psHead->i32Gpu_uncompleted--;
+		psKPI->gpu_loading = psTimeStamp->i32GPUloading;
+
+		if (psKPI->gpu_loading == 0)
+			mtk_get_gpu_loading(&psKPI->gpu_loading);
+
+		psKPI->cpu_gpu_info.gpu.t_gpu_real =
+				((unsigned long long)
+				(psHead->last_TimeStamp2 - psHead->pre_TimeStamp2))
+				* psKPI->gpu_loading / 100U;
+
+		psKPI->cpu_gpu_info.gpu.limit_upper = ged_get_cur_limiter_ceil();
+		psKPI->cpu_gpu_info.gpu.limit_lower = ged_get_cur_limiter_floor();
+
+		cur_3D_done = psKPI->ullTimeStamp2;
+		if (psTimeStamp->i32GPUloading) {
+			/* not fallback mode */
+
+			/* choose which loading to calc. t_gpu */
+			struct GpuUtilization_Ex util_ex;
+			unsigned int mode = 0;
+
+			memset(&util_ex, 0, sizeof(util_ex));
+
+			mtk_get_dvfs_loading_mode(&mode);
+			ged_get_gpu_utli_ex(&util_ex);
+
+			/* calculate gpu time using
+			 * choosed gpu loading
+			 */
+			if (mode == LOADING_MAX_3DTA_COM)
+				psTimeStamp->i32GPUloading =
+					MAX(util_ex.util_3d, util_ex.util_ta) +
+					util_ex.util_compute;
+			else if (mode == LOADING_MAX_3DTA)
+				psTimeStamp->i32GPUloading =
+					MAX(util_ex.util_3d, util_ex.util_ta);
+
+			time_spent = psKPI->cpu_gpu_info.gpu.t_gpu_real;
+
+			psKPI->gpu_done_interval = cur_3D_done - last_3D_done;
+			psKPI->t_gpu =	psHead->t_gpu_latest = time_spent;
+
+			if (ged_is_fdvfs_support() &&
+				psTimeStamp->pid != pid_sf &&
+				psTimeStamp->pid != pid_sysui) {
+				g_eb_coef = mtk_gpueb_dvfs_set_feedback_info(
+					psKPI->gpu_done_interval, util_ex, ged_kpi_get_cur_fps());
+				ged_log_perf_trace_counter("eb_coef",
+					(long long)g_eb_coef, 5566, 0, 0);
 			}
 		} else {
-#ifdef GED_KPI_DEBUG
-			GED_PR_DEBUG(
-		"[GED_KPI][Exception] no hashtable head for ulID: %lu\n",
-			ulID);
-#endif /* GED_KPI_DEBUG */
+			psKPI->t_gpu = time_spent = psHead->t_gpu_latest;
 		}
-		break;
+		/* Detect if there are multi renderers by */
+		/* checking if there is struct GED_KPI info
+		 * resource monopoly
+		 */
+		g_force_gpu_dvfs_fallback = ged_kpi_check_fallback_mode();
+
+		/* dvfs_margin_mode == */
+		/* DYNAMIC_MARGIN_MODE_CONFIG_FPS_MARGIN or */
+		/* DYNAMIC_MARGIN_MODE_FIXED_FPS_MARGIN) or */
+		/* DYNAMIC_MARGIN_MODE_NO_FPS_MARGIN */
+		/* bit0~bit9: headroom ratio:10-bias */
+		/* bit15: is frame base? */
+		/* bit16~bit23: dvfs_margin_mode */
+
+		psKPI->cpu_gpu_info.gpu.gpu_dvfs |=
+		(((unsigned long) ged_get_dvfs_margin()) & 0x3FF);
+		psKPI->cpu_gpu_info.gpu.gpu_dvfs |=
+		((((unsigned long) ged_get_dvfs_margin_mode()) & 0xFF) << 16);
+
+		if (psTimeStamp->pid != pid_sf && psTimeStamp->pid != pid_sysui) {
+			if (main_head == psHead && !g_force_gpu_dvfs_fallback) {
+				psKPI->cpu_gpu_info.gpu.gpu_dvfs |= (0x8000);
+				if (ged_is_fdvfs_support())
+					mtk_gpueb_dvfs_set_frame_base_dvfs(1);
+			} else {
+				if (ged_is_fdvfs_support())
+					mtk_gpueb_dvfs_set_frame_base_dvfs(0);
+			}
+		}
+
+		if (main_head == psHead)
+			gpu_freq_pre = ged_kpi_gpu_dvfs(time_spent, psKPI->t_gpu_target
+				, psKPI->target_fps_margin
+				, g_force_gpu_dvfs_fallback);
+		else if (g_force_gpu_dvfs_fallback)
+			gpu_freq_pre = ged_kpi_gpu_dvfs(
+				time_spent, psKPI->t_gpu_target
+				, psKPI->target_fps_margin, 1); /* fallback mode */
+		else
+			/* t_gpu is not accurate, so hint -1 */
+			gpu_freq_pre = ged_kpi_gpu_dvfs(
+				-1, psKPI->t_gpu_target
+				, psKPI->target_fps_margin, 0); /* do nothing */
+
+		psKPI->cpu_gpu_info.gpu.gpu_freq_target = gpu_freq_pre;
+		last_3D_done = cur_3D_done;
+
+		g_psGIFT->gpu_freq_cur = psKPI->gpu_freq * 1000;
+		g_psGIFT->gpu_freq_max = psKPI->gpu_freq_max * 1000;
+		g_psGIFT->gpu_freq_pred = gpu_freq_pre;
+		if (main_head == psHead && psHead->pid == g_psGIFT->target_pid) {
+			g_psGIFT->target_fps = psHead->target_fps;
+			g_psGIFT->target_fps_margin = psKPI->target_fps_margin;
+			g_psGIFT->eara_fps_margin = psHead->eara_fps_margin;
+			g_psGIFT->gpu_time = time_spent;
+		} else {
+			g_psGIFT->target_fps = -1;
+			g_psGIFT->target_fps_margin = 0;
+			g_psGIFT->eara_fps_margin = 0;
+			g_psGIFT->gpu_time = -1;
+		}
+
+		if (!g_force_gpu_dvfs_fallback)
+			ged_set_backup_timer_timeout(0);
+		else
+			ged_set_backup_timer_timeout(psKPI->t_gpu_target << 1);
+
+		if (psHead->last_TimeStamp1 != psKPI->ullTimeStamp1)
+			psHead->last_QedBufferDelay =
+				psTimeStamp->ullTimeStamp - psHead->last_TimeStamp1;
+
+		if (g_force_gpu_dvfs_fallback) {
+			/* hint FPSGO do not use t_gpu */
+			ged_kpi_output_gfx_info2(-1
+				, psKPI->gpu_freq * 1000
+				, psKPI->gpu_freq_max * 1000
+				, ulID);
+		} else {
+			ged_kpi_output_gfx_info2(
+				psHead->t_gpu_latest
+				, psKPI->gpu_freq * 1000
+				, psKPI->gpu_freq_max * 1000
+				, ulID);
+		}
+
+		if (psKPI && (psKPI->ulMask & GED_TIMESTAMP_TYPE_S))
+			ged_kpi_statistics_and_remove(psHead, psKPI);
+
+		/* hint JS0, JS1 info to EAT */
+		ged_log_perf_trace_counter("is_gift_on", g_psGIFT->gift_ratio,
+				psTimeStamp->pid, psTimeStamp->i32FrameID, ulID);
+		ged_log_perf_trace_counter("t_cpu", psKPI->t_cpu,
+			psTimeStamp->pid, psTimeStamp->i32FrameID, ulID);
+		ged_log_perf_trace_counter("t_gpu",	psKPI->t_gpu,
+			psTimeStamp->pid, psTimeStamp->i32FrameID, ulID);
+
+		if (main_head == psHead) {
+			ged_log_perf_trace_counter("fb_t_gpu",
+				(long long)psKPI->t_gpu, 5566, 0, 0);
+			ged_log_perf_trace_counter("fb_t_target",
+				(long long)psKPI->t_gpu_target, 5566, 0, 0);
+		}
+	break;
 
 	/* Prefence scope */
 	case GED_TIMESTAMP_TYPE_P:
@@ -1400,66 +1285,38 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		psHead = (struct GED_KPI_HEAD *)ged_hashtable_find(gs_hashtable
 			, (unsigned long)ulID);
 
-		// if (gx_dfps <= GED_KPI_MAX_FPS && gx_dfps >= 10)
-		// 	ged_kpi_set_target_FPS(ulID, gx_dfps);
-		// else
-		// 	gx_dfps = 0;
+		if (!psHead) {
+			GED_LOGD("[Exception] no hashtable head for ulID: %lu", ulID);
+			break;
+		}
 
-		if (psHead) {
-			struct list_head *psListEntry, *psListEntryTemp;
-			struct list_head *psList = &psHead->sList;
+		psList = &psHead->sList;
+		list_for_each_prev_safe(psListEntry, psListEntryTemp, psList) {
+			psKPI = list_entry(psListEntry, struct GED_KPI, sList);
+			if (psKPI
+				&& ((psKPI->ulMask & GED_TIMESTAMP_TYPE_P) == 0)
+				&& ((psKPI->ulMask & GED_TIMESTAMP_TYPE_2) == 0)
+				&& (psKPI->i32QueueID == psTimeStamp->i32FrameID))
+				break;
+			psKPI = NULL;
+		}
 
-			list_for_each_prev_safe(psListEntry,
-				psListEntryTemp, psList) {
-				psKPI =
-				list_entry(psListEntry, struct GED_KPI, sList);
-				if (psKPI
-				&& (
-				(psKPI->ulMask & GED_TIMESTAMP_TYPE_P) == 0)
-				&& (
-				(psKPI->ulMask & GED_TIMESTAMP_TYPE_2) == 0)
-				&& (
-				psKPI->i32QueueID == psTimeStamp->i32FrameID))
-					break;
-				psKPI = NULL;
+		if (psKPI) {
+			long long pre_fence_delay;
 
-				// check for abnormal list
-				if (psListEntry->prev == NULL || psListEntry->next == NULL)
-					GED_LOGI(
-				"[GED_KPI] PID: 0x%x, Wnd:0x%llx, count: %d. prev/next: %p/%p",
-						psHead->pid, psHead->ullWnd, psHead->i32Count,
-						psListEntry->prev, psListEntry->next);
-			}
-
-			if (psKPI) {
-				long long pre_fence_delay;
-
-				pre_fence_delay =
-				psTimeStamp->ullTimeStamp -
-					psKPI->ullTimeStamp1;
-				ged_log_perf_trace_counter("t_pre_fence_delay",
+			pre_fence_delay = psTimeStamp->ullTimeStamp - psKPI->ullTimeStamp1;
+			ged_log_perf_trace_counter("t_pre_fence_delay",
 				pre_fence_delay, psTimeStamp->pid,
 				psTimeStamp->i32FrameID, ulID);
-				psKPI->ulMask |= GED_TIMESTAMP_TYPE_P;
-				psKPI->ullTimeStampP =
-					psTimeStamp->ullTimeStamp;
-			} else {
-				ged_log_perf_trace_counter("t_pre_fence_delay",
-				0, psTimeStamp->pid, psTimeStamp->i32FrameID
-				, ulID);
-#ifdef GED_KPI_DEBUG
-				GED_LOGD(
-		"[GED_KPI][Exception] TYPE_P: psKPI NULL, frameID: %lu\n",
-				psTimeStamp->i32FrameID);
-#endif /* GED_KPI_DEBUG */
-			}
+			psKPI->ulMask |= GED_TIMESTAMP_TYPE_P;
+			psKPI->ullTimeStampP = psTimeStamp->ullTimeStamp;
 		} else {
-#ifdef GED_KPI_DEBUG
-			GED_LOGD(
-			"[GED_KPI][Exception] no hashtable head for ulID: %lu\n",
-			ulID);
-#endif /* GED_KPI_DEBUG */
-		}
+			ged_log_perf_trace_counter("t_pre_fence_delay",
+				0, psTimeStamp->pid, psTimeStamp->i32FrameID, ulID);
+			GED_LOGD("[Exception] TYPE_P: psKPI NULL, frameID: %lu",
+				psTimeStamp->i32FrameID);
+			}
+
 		break;
 
 	/* acquire buffer scope (deprecated) */
@@ -1468,38 +1325,26 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		psHead = (struct GED_KPI_HEAD *)ged_hashtable_find(gs_hashtable
 			, (unsigned long)ulID);
 
-#ifdef GED_KPI_DEBUG
 		if (!psHead) {
-			GED_PR_DEBUG(
-			"[GED_KPI][Exception] TYPE_S:",
-			"no hashtable head for ulID: %lu\n"
-			, ulID);
+			GED_LOGD("[Exception] TYPE_S: no hashtable head for ulID: %lu",
+				ulID);
+			break;
 		}
-#endif /* GED_KPI_DEBUG */
 
 		if (ged_kpi_tag_type_s(ulID, psHead, psTimeStamp) != GED_TRUE) {
-#ifdef GED_KPI_DEBUG
-			GED_LOGD("[GED_KPI] TYPE_S timestamp miss, ",
-				"ulID: %lu\n", ulID);
-#endif /* GED_KPI_DEBUG */
+			GED_LOGD("TYPE_S timestamp miss, ulID: %lu", ulID);
 			ged_kpi_record_miss_tag(ulID, psTimeStamp->i32FrameID,
 				GED_TIMESTAMP_TYPE_S);
 		} else {
 			psHead->i32DebugQedBuffer_length -= 1;
-#ifdef GED_KPI_DEBUG
 			GED_LOGD(
-			"[GED_KPI] timestamp matched, Type_S: psHead: %p\n",
-			psHead);
-#endif /* GED_KPI_DEBUG */
+				"timestamp matched, Type_S: psHead: %p", psHead);
 		}
 
 		if ((main_head != NULL) &&
 			(main_head->t_cpu_remained > (-1)*SCREEN_IDLE_PERIOD)) {
-#ifdef GED_KPI_DEBUG
-			GED_LOGD(
-			"[GED_KPI] t_cpu_remained: %lld, main_head: %p\n",
-			main_head->t_cpu_remained, main_head);
-#endif /* GED_KPI_DEBUG */
+			GED_LOGD("t_cpu_remained: %lld, main_head: %p",
+				main_head->t_cpu_remained, main_head);
 			ged_kpi_set_cpu_remained_time(main_head->t_cpu_remained,
 				main_head->i32QedBuffer_length);
 		}
@@ -1509,48 +1354,40 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 	case GED_TIMESTAMP_TYPE_H:
 		ged_hashtable_iterator(gs_hashtable, ged_kpi_h_iterator_func,
 			(void *)psTimeStamp);
-
-#ifdef GED_KPI_DEBUG
 		{
 			long long t_cpu_remained, t_gpu_remained;
 			long t_cpu_target, t_gpu_target;
 
 			ged_kpi_get_latest_perf_state(&t_cpu_remained,
 				&t_gpu_remained, &t_cpu_target, &t_gpu_target);
-			GED_LOGD(
-			"[GED_KPI] t_cpu: %ld, %lld, t_gpu: %ld, %lld\n",
-			t_cpu_target,
-			t_cpu_remained,
-			t_gpu_target,
-			t_gpu_remained);
+			GED_LOGD("t_cpu: %ld, %lld, t_gpu: %ld, %lld",
+				t_cpu_target,
+				t_cpu_remained,
+				t_gpu_target,
+				t_gpu_remained);
 		}
-#endif /* GED_KPI_DEBUG */
 		break;
 
 	case GED_SET_TARGET_FPS:
-
 		target_FPS = psTimeStamp->i32FrameID;
 		ulID = psTimeStamp->ullWnd;
 		eara_fps_margin = psTimeStamp->i32QedBuffer_length;
-		psHead = (struct GED_KPI_HEAD *)ged_hashtable_find(gs_hashtable
-			, (unsigned long)ulID);
-		if (psHead) {
-			ged_kpi_update_TargetTimeAndTargetFps(psHead,
-				target_FPS&0x000000ff,
-				(target_FPS&0x00000700) >> 8,
-				(target_FPS&0xfffff100) >> 11,
-				eara_fps_margin,
-				GED_KPI_FRC_DEFAULT_MODE, -1);
-		}
+		psHead =
+			(struct GED_KPI_HEAD *)
+			ged_hashtable_find(gs_hashtable, (unsigned long)ulID);
+
+		if (!psHead)
+			GED_LOGD("@%s: no such renderer for BQ_ID: %llu", __func__, ulID);
+
+		ged_kpi_update_TargetTimeAndTargetFps(psHead,
+			target_FPS&0x000000ff,
+			(target_FPS&0x00000700) >> 8,
+			(target_FPS&0xfffff100) >> 11,
+			eara_fps_margin,
+			GED_KPI_FRC_DEFAULT_MODE, -1);
 
 		ged_log_perf_trace_counter("target_fps_fpsgo",
 				(target_FPS&0x000000ff), 5566, 0, 0);
-#ifdef GED_KPI_DEBUG
-		else
-			GED_LOGD("@%s: no such renderer for BQ_ID: %llu\n",
-				__func__, ulID);
-#endif /* GED_KPI_DEBUG */
-		break;
 	default:
 		break;
 	}
@@ -1572,14 +1409,12 @@ static GED_ERROR ged_kpi_push_timestamp(
 	unsigned long ui32IRQFlags;
 
 	if (g_psWorkQueue && is_GED_KPI_enabled) {
-		struct GED_TIMESTAMP *psTimeStamp =
-			(struct GED_TIMESTAMP *)ged_alloc_atomic(
-			sizeof(struct GED_TIMESTAMP));
+		struct GED_TIMESTAMP *psTimeStamp = (struct GED_TIMESTAMP *)
+			ged_alloc_atomic(sizeof(struct GED_TIMESTAMP));
 		unsigned int pui32Block, pui32Idle;
 
 		if (!psTimeStamp) {
-			GED_PR_DEBUG("[GED_KPI]: GED_ERROR_OOM in %s\n",
-				__func__);
+			GED_LOGD("GED_ERROR_OOM in %s", __func__);
 			return GED_ERROR_OOM;
 		}
 
@@ -1587,8 +1422,8 @@ static GED_ERROR ged_kpi_push_timestamp(
 			spin_lock_irqsave(&gsGpuUtilLock, ui32IRQFlags);
 
 			if (!ged_kpi_check_if_fallback_mode()
-				&& !g_force_gpu_dvfs_fallback && pid != pid_sysui
-				&& pid != pid_sf) {
+				&& !g_force_gpu_dvfs_fallback
+				&& pid != pid_sysui && pid != pid_sf) {
 				struct GpuUtilization_Ex util_ex;
 				ged_kpi_trigger_fb_dvfs();
 				ged_dvfs_cal_gpu_utilization_ex(
@@ -1639,13 +1474,12 @@ static GED_ERROR ged_kpi_push_timestamp(
 			break;
 		}
 	}
-#ifdef GED_KPI_DEBUG
+
 	else {
-		GED_LOGD("[GED_KPI][Exception]: g_psWorkQueue: ",
-			"NULL or GED KPI is disabled\n");
+		GED_LOGD("[Exception]: g_psWorkQueue: NULL or GED KPI is disabled");
 		return GED_ERROR_FAIL;
 	}
-#endif /* GED_KPI_DEBUG */
+
 	return GED_OK;
 }
 /* ------------------------------------------------------------------- */
@@ -1802,7 +1636,7 @@ GED_ERROR ged_kpi_queue_buffer_ts(int pid, u64 ullWdnd, int i32FrameID,
 	(struct GED_KPI_GPU_TS *)ged_alloc(sizeof(struct GED_KPI_GPU_TS));
 
 	if (!psMonitor) {
-		pr_info("[GED_KPI]: GED_ERROR_OOM in %s\n",
+		pr_info("GED_ERROR_OOM in %s",
 			__func__);
 		return GED_ERROR_OOM;
 	}
@@ -1956,13 +1790,10 @@ void ged_dfrc_fps_limit_cb(unsigned int target_fps)
 	g_target_fps_default =
 		(target_fps > 0 && target_fps <= GED_KPI_FPS_LIMIT) ?
 		target_fps : g_target_fps_default;
-	g_target_time_default = GED_KPI_SEC_DIVIDER / g_target_fps_default;
-#ifdef GED_KPI_DEBUG
-	GED_LOGI("[GED_KPI] dfrc_fps:%d, dfrc_time %u\n",
-		g_target_fps_default, g_target_time_default);
-#endif /* GED_KPI_DEBUG */
-
 	idle_fw_set_flag = g_idle_set_prepare;
+
+	GED_LOGD("dfrc_fps:%d, dfrc_time %u\n",
+		g_target_fps_default, g_target_time_default);
 }
 /* ------------------------------------------------------------------- */
 GED_ERROR ged_kpi_system_init(void)
@@ -1981,9 +1812,8 @@ GED_ERROR ged_kpi_system_init(void)
 	g_psGIFT = (struct GED_KPI_MEOW_DVFS_FREQ_PRED *)
 		ged_alloc_atomic(sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED));
 	if (unlikely(!g_psGIFT)) {
-		GED_PR_DEBUG("[GED_KPI][Exception]:");
-		GED_PR_DEBUG(
-		"ged_alloc_atomic(sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED)) failed\n");
+		GED_LOGD(
+		"ged_alloc_atomic(sizeof(struct GED_KPI_MEOW_DVFS_FREQ_PRED)) failed");
 		return GED_ERROR_FAIL;
 	}
 
@@ -2208,19 +2038,17 @@ GED_ERROR ged_kpi_query_gpu_dvfs_info(
 	out->eara_fps_margin = g_psGIFT->eara_fps_margin;
 	out->gpu_time = (g_psGIFT->gpu_time == -1) ? -1 : g_psGIFT->gpu_time / 1000;
 
-#ifdef GED_KPI_DEBUG
-	GED_LOGI("[GED_KPI] pid:%d,freq_c:%d,freq_max:%d,freq_pre:%d,tfps:%d",
+	GED_LOGD("pid:%d,freq_c:%d,freq_max:%d,freq_pre:%d,tfps:%d",
 		g_psGIFT->target_pid,
 		out->gpu_freq_cur,
 		out->gpu_freq_max,
 		out->gpu_freq_dvfs_pred,
 		out->target_fps);
-	GED_LOGI("[GED_KPI] tfps_mar:%d,eara_diff:%d t_gpu:%d,gift_ratio:%d\n",
+	GED_LOGD("tfps_mar:%d,eara_diff:%d t_gpu:%d,gift_ratio:%d",
 		out->target_fps_margin,
 		out->eara_fps_margin,
 		out->gpu_time,
 		g_psGIFT->gift_ratio);
-#endif /* GED_KPI_DEBUG */
 
 	return GED_OK;
 #else
