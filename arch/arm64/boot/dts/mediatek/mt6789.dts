@@ -2253,7 +2253,7 @@
 		sleep@10006000 {
 			compatible = "mediatek,sleep";
 			reg = <0 0x10006000 0 0xa00>;
-			interrupts = <GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH 0>;
+			interrupts = <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		watchdog: watchdog@10007000 {
@@ -6161,7 +6161,7 @@
 	spmtwam: spmtwam@10006000 {
 		compatible = "mediatek,spmtwam";
 		reg = <0 0x10006000 0 0x1000>;
-		interrupts = <GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH 0>;
 		spm_twam_con = <0x990>;
 		spm_twam_window_len = <0x994>;
 		spm_twam_idle_sel = <0x998>;
