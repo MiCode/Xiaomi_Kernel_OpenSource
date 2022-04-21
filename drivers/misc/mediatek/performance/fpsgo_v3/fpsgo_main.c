@@ -25,7 +25,6 @@
 #include "fps_composer.h"
 #include "xgf.h"
 #include "mtk_drm_arr.h"
-#include "uboost.h"
 #include "gbe_common.h"
 
 #define CREATE_TRACE_POINTS
@@ -101,7 +100,6 @@ static void fpsgo_notifier_wq_cb_vsync(unsigned long long ts)
 		return;
 
 	fpsgo_ctrl2fbt_vsync(ts);
-	fpsgo_uboost_traverse(ts);
 }
 
 static void fpsgo_notifier_wq_cb_swap_buffer(int pid)
@@ -790,7 +788,6 @@ static void __exit fpsgo_exit(void)
 #if IS_ENABLED(CONFIG_DRM_MEDIATEK)
 	drm_unregister_fps_chg_callback(dfrc_fps_limit_cb);
 #endif
-	fpsgo_uboost_exit();
 	fbt_cpu_exit();
 	mtk_fstb_exit();
 	fpsgo_composer_exit();
@@ -845,7 +842,6 @@ fail_reg_cpu_frequency_entry:
 	fbt_cpu_init();
 	mtk_fstb_init();
 	fpsgo_composer_init();
-	fpsgo_uboost_init();
 
 	/* game boost engine*/
 	init_gbe_common();

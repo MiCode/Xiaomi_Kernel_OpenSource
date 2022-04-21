@@ -172,16 +172,9 @@ static inline int fbt_cpu_set_floor_opp(int new_opp) { return 0; }
 #endif
 
 #if defined(CONFIG_MTK_FPSGO_V3)
-void xgf_igather_timer(const void * const t, int v);
-void xgf_epoll_igather_timer(const void * const t, ktime_t *to, int v);
 void xgf_qudeq_notify(unsigned int cmd, unsigned long arg);
-void fpsgo_update_render_dep(struct task_struct *p);
 #else
-static inline void xgf_igather_timer(const void * const t, int v) { }
-static inline void xgf_epoll_igather_timer(const void * const t,
-		ktime_t *to, int v) { }
 static inline void xgf_qudeq_notify(unsigned int cmd, unsigned long arg) { }
-static inline void fpsgo_update_render_dep(struct task_struct *p) { }
 #endif
 
 

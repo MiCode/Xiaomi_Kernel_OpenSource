@@ -25,7 +25,6 @@
 #include "fstb.h"
 #include "xgf.h"
 #include "mini_top.h"
-#include "uboost.h"
 #include "gbe2.h"
 
 /*#define FPSGO_COM_DEBUG*/
@@ -183,7 +182,6 @@ static int fpsgo_com_refetch_buffer(struct render_info *f_render, int pid,
 	f_render->queue_SF = queue_SF;
 	if (!f_render->pLoading || !f_render->p_blc) {
 		fpsgo_base2fbt_node_init(f_render);
-		fpsgo_base2uboost_init(f_render);
 	}
 
 	FPSGO_COM_TRACE("%s: refetch %d: %llu, %llu, %d\n", __func__,
@@ -356,7 +354,7 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			enqueue_end_time, f_render->enqueue_length);
 
 		fpsgo_comp2fstb_prepare_calculate_target_fps(pid, f_render->buffer_id,
-			f_render->t_dequeue_start, enqueue_end_time);
+			enqueue_end_time);
 
 		xgf_ret =
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,

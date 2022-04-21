@@ -26,7 +26,6 @@
 #include "fbt_cpu.h"
 #include "fbt_cpu_platform.h"
 #include "fps_composer.h"
-#include "uboost.h"
 
 #include <linux/preempt.h>
 #include <linux/trace_events.h>
@@ -458,7 +457,6 @@ void fpsgo_traverse_linger(unsigned long long cur_ts)
 			FPSGO_LOGI("timeout %d(%p)(%llu),",
 				pos->pid, pos, pos->linger_ts);
 			fpsgo_base2fbt_cancel_jerk(pos);
-			fpsgo_base2uboost_cancel(pos);
 			fpsgo_del_linger(pos);
 			tofree = 1;
 			n = rb_first(&linger_tree);
@@ -854,26 +852,6 @@ void fpsgo_clear(void)
 	}
 
 	fpsgo_render_tree_unlock(__func__);
-}
-
-int fpsgo_uboost_traverse(unsigned long long ts)
-{
-	struct rb_node *n;
-	struct render_info *iter;
-	int result = 0;
-
-	fpsgo_render_tree_lock(__func__);
-
-	for (n = rb_first(&render_pid_tree); n != NULL; n = rb_next(n)) {
-		iter = rb_entry(n, struct render_info, render_key_node);
-		fpsgo_thread_lock(&iter->thr_mlock);
-		fpsgo_base2uboost_compute(iter, ts);
-		fpsgo_thread_unlock(&iter->thr_mlock);
-	}
-
-	fpsgo_render_tree_unlock(__func__);
-
-	return result;
 }
 
 int fpsgo_update_swap_buffer(int pid)

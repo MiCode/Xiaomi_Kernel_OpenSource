@@ -12,8 +12,9 @@ void fpsgo_comp2fstb_queue_time_update(
 	int pid, unsigned long long bufID, int frame_type,
 	unsigned long long ts,
 	int api, int hwui_flag);
-void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bufID,
-	unsigned long long cur_dequeue_start_ts, unsigned long long cur_queue_end_ts);
+void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid,
+	unsigned long long bufID,
+	unsigned long long cur_queue_end_ts);
 int fpsgo_ctrl2fstb_gblock(int tid, int start);
 void fpsgo_ctrl2fstb_get_fps(int *pid, int *fps);
 int fpsgo_ctrl2fstb_wait_fstb_active(void);

@@ -1161,7 +1161,7 @@ out:
 }
 
 static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
-	unsigned long long cur_dequeue_start_ts, unsigned long long cur_queue_end_ts)
+	unsigned long long cur_queue_end_ts)
 {
 	int i, target_fps, margin = 0, eara_is_active = 0;
 	int target_fps_old = max_fps_limit, target_fps_new = max_fps_limit;
@@ -1187,7 +1187,7 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	mutex_unlock(&fstb_lock);
 
 	target_fps = fpsgo_fstb2xgf_get_target_fps(pid, bufID,
-		&margin, cur_dequeue_start_ts, cur_queue_end_ts, eara_is_active);
+		&margin, cur_queue_end_ts, eara_is_active);
 
 	mutex_lock(&fstb_lock);
 
@@ -1237,9 +1237,12 @@ static void fstb_calculate_target_fps(int pid, unsigned long long bufID,
 	}
 	iter->target_fps_margin_v2 = margin;
 
-	fpsgo_main_trace("[fstb][%d][0x%llx] | target_fps:%d(%d)(%d)(%d) margin:%d",
+	fpsgo_main_trace("[fstb][%d][0x%llx] | target_fps:%d(%d)(%d)(%d)",
 		iter->pid, iter->bufid, iter->target_fps_v2,
-		target_fps_old, target_fps_new, target_fps, iter->target_fps_margin_v2);
+		target_fps_old, target_fps_new, target_fps);
+	fpsgo_main_trace("[fstb][%d][0x%llx] | dfrc:%d eara:%d margin:%d",
+		iter->pid, iter->bufid,
+		dfps_ceiling, eara_is_active, iter->target_fps_margin_v2);
 	fpsgo_systrace_c_fstb(iter->pid, iter->bufid, iter->target_fps_v2, "target_fps_v2");
 	fpsgo_systrace_c_fstb(iter->pid, iter->bufid, iter->target_fps_margin_v2,
 		"target_fps_margin_v2");
@@ -1261,13 +1264,13 @@ static void fstb_notifier_wq_cb(struct work_struct *psWork)
 		return;
 
 	fstb_calculate_target_fps(vpPush->pid, vpPush->bufid,
-		vpPush->cur_dequeue_start_ts, vpPush->cur_queue_end_ts);
+		vpPush->cur_queue_end_ts);
 
 	kfree(vpPush);
 }
 
 void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bufID,
-	unsigned long long cur_dequeue_start_ts, unsigned long long cur_queue_end_ts)
+	unsigned long long cur_queue_end_ts)
 {
 	struct FSTB_FRAME_INFO *iter;
 	struct FSTB_NOTIFIER_PUSH_TAG *vpPush;
@@ -1297,7 +1300,6 @@ void fpsgo_comp2fstb_prepare_calculate_target_fps(int pid, unsigned long long bu
 
 	vpPush->pid = pid;
 	vpPush->bufid = bufID;
-	vpPush->cur_dequeue_start_ts = cur_dequeue_start_ts;
 	vpPush->cur_queue_end_ts = cur_queue_end_ts;
 
 	INIT_WORK(&vpPush->sWork, fstb_notifier_wq_cb);
@@ -2277,8 +2279,6 @@ static void fstb_fps_stats(struct work_struct *work)
 	//fpsgo_check_thread_status();
 	xgf_trace("fstb_is_cam_active:%d", fstb_is_cam_active);
 	fpsgo_fstb2xgf_do_recycle(fstb_active2xgf);
-	fpsgo_create_render_dep();
-
 }
 
 struct video_info *fstb_search_and_add_video_info(int pid, int add_node)
