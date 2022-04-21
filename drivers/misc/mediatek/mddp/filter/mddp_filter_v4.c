@@ -188,15 +188,7 @@ static bool mddp_f_add_nat_tuple(struct nat_tuple *t)
 		return false;
 	}
 
-	switch (t->proto) {
-	case IPPROTO_TCP:
-	case IPPROTO_UDP:
-		hash = HASH_NAT_TUPLE_TCPUDP(t);
-		break;
-	default:
-		kmem_cache_free(mddp_f_nat_tuple_cache, t);
-		return false;
-	}
+	hash = HASH_NAT_TUPLE_TCPUDP(t);
 
 	MDDP_F_NAT_TUPLE_LOCK(&mddp_f_nat_tuple_lock, flag);
 	INIT_LIST_HEAD(&t->list);
@@ -371,11 +363,6 @@ static inline void mddp_f_ip4_udp(
 		desc->flag |= DESC_FLAG_TRACK_NAT;
 }
 
-#define IPC_HDR_IS_V4(_ip_hdr) \
-	(0x40 == (*((unsigned char *)(_ip_hdr)) & 0xf0))
-
-
-
 
 //------------------------------------------------------------------------------
 // Private functions.
@@ -392,45 +379,38 @@ static inline void _mddp_f_in_nat(
 
 	void *l4_header;
 
+	desc->flag |= DESC_FLAG_IPV4;
 
-	if (likely(IPC_HDR_IS_V4(offset2))) {	/* support NAT and ROUTE */
-		desc->flag |= DESC_FLAG_IPV4;
+	ip = (struct ip4header *) offset2;
 
-		ip = (struct ip4header *) offset2;
+	MDDP_F_LOG(MDDP_LL_DEBUG,
+			"%s: IPv4 pre-routing, skb[%p], ip_id[%x], checksum[%x], protocol[%d], in_dev[%s].\n",
+			__func__, skb, ip->ip_id,
+			ip->ip_sum, ip->ip_p, skb->dev->name);
 
-		MDDP_F_LOG(MDDP_LL_DEBUG,
-				"%s: IPv4 pre-routing, skb[%p], ip_id[%x], checksum[%x], protocol[%d], in_dev[%s].\n",
-				__func__, skb, ip->ip_id,
-				ip->ip_sum, ip->ip_p, skb->dev->name);
+	/* ip fragmentation? */
+	if (ip->ip_off & 0xff3f) {
+		desc->flag |= DESC_FLAG_IPFRAG;
+		return;
+	}
 
-		/* ip fragmentation? */
-		if (ip->ip_off & 0xff3f) {
-			desc->flag |= DESC_FLAG_IPFRAG;
-			return;
-		}
+	desc->l3_len = ip->ip_hl << 2;
+	desc->l4_off = desc->l3_off + desc->l3_len;
+	l4_header = skb->data + desc->l4_off;
 
-		desc->l3_len = ip->ip_hl << 2;
-		desc->l4_off = desc->l3_off + desc->l3_len;
-		l4_header = skb->data + desc->l4_off;
+	t4.nat.src = ip->ip_src;
+	t4.nat.dst = ip->ip_dst;
+	t4.nat.proto = ip->ip_p;
 
-		t4.nat.src = ip->ip_src;
-		t4.nat.dst = ip->ip_dst;
-		t4.nat.proto = ip->ip_p;
-
-		switch (ip->ip_p) {
-		case IPPROTO_TCP:
-			mddp_f_ip4_tcp(desc, skb, &t4, ip, l4_header);
-			return;
-		case IPPROTO_UDP:
-			mddp_f_ip4_udp(desc, skb, &t4, ip, l4_header);
-			return;
-		default:
-			desc->flag |= DESC_FLAG_UNKNOWN_PROTOCOL;
-			return;
-		}
-	} else {
-		memset(desc, 0, sizeof(*desc));	/* avoid compiler warning */
-		desc->flag |= DESC_FLAG_UNKNOWN_ETYPE;
+	switch (ip->ip_p) {
+	case IPPROTO_TCP:
+		mddp_f_ip4_tcp(desc, skb, &t4, ip, l4_header);
+		return;
+	case IPPROTO_UDP:
+		mddp_f_ip4_udp(desc, skb, &t4, ip, l4_header);
+		return;
+	default:
+		desc->flag |= DESC_FLAG_UNKNOWN_PROTOCOL;
 		return;
 	}
 }
@@ -447,8 +427,7 @@ static int mddp_f_in_nf_v4(struct sk_buff *skb)
 	skb_set_network_header(skb, desc.l3_off);
 
 	_mddp_f_in_nat(skb->data, &desc, skb);
-	if (desc.flag & (DESC_FLAG_UNKNOWN_ETYPE |
-			DESC_FLAG_UNKNOWN_PROTOCOL | DESC_FLAG_IPFRAG)) {
+	if (desc.flag & (DESC_FLAG_UNKNOWN_PROTOCOL | DESC_FLAG_IPFRAG)) {
 		/* un-handled packet, so pass it to kernel stack */
 		MDDP_F_LOG(MDDP_LL_DEBUG,
 					"%s: Un-handled packet, pass it to kernel stack, flag[%x], skb[%p].\n",
@@ -459,6 +438,104 @@ static int mddp_f_in_nf_v4(struct sk_buff *skb)
 	return !(desc.flag & DESC_FLAG_TRACK_NAT);
 }
 
+static uint8_t check_tcp_state(struct sk_buff *skb, struct nf_conn *nat_ip_conntrack)
+{
+	unsigned char tcp_state;
+
+	tcp_state = nat_ip_conntrack->proto.tcp.state;
+
+	if (tcp_state != TCP_CONNTRACK_ESTABLISHED) {
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: TCP state[%d] is not in ESTABLISHED state, skb[%p] is filtered out.\n",
+				__func__, tcp_state, skb);
+		return 1;
+	}
+	return 0;
+}
+
+static uint8_t check_conntrack(struct sk_buff *skb, struct nf_conn *nat_ip_conntrack)
+{
+	unsigned char ext_offset;
+
+	if (!nat_ip_conntrack) {
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: Null ip conntrack, skb[%p] is filtered out.\n",
+				__func__, skb);
+		return 1;
+	}
+	if (nat_ip_conntrack->ext) { /* helper */
+		ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
+		if (ext_offset) {
+			MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
+				__func__, skb,
+				nat_ip_conntrack->ext, ext_offset);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void fill_cb_info(struct nf_conn *nat_ip_conntrack, struct ip4header *ip,
+	struct mddp_f_cb *cb, struct tuple *t, struct tcpheader *tcp, struct udpheader *udp)
+{
+	struct nf_conntrack_tuple *nf_tuple;
+
+	cb->proto = ip->ip_p;
+	cb->ip_ver = ip->ip_v;
+	switch (ip->ip_p) {
+	case IPPROTO_TCP:
+		t->nat.s.tcp.port = tcp->th_sport;
+		t->nat.d.tcp.port = tcp->th_dport;
+		break;
+	case IPPROTO_UDP:
+		t->nat.s.udp.port = udp->uh_sport;
+		t->nat.d.udp.port = udp->uh_dport;
+		break;
+	default:
+		return;
+	}
+
+	t->nat.src = ip->ip_src;
+	t->nat.dst = ip->ip_dst;
+	t->nat.proto = ip->ip_p;
+	nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+	if (cb->is_uplink) {
+		cb->src[0] = nf_tuple->src.u3.ip;
+		cb->dst[0] = t->nat.dst;
+	} else {
+		cb->src[0] = t->nat.src;
+		cb->dst[0] = nf_tuple->dst.u3.ip;
+	}
+	cb->sport = nf_tuple->src.u.all;
+	cb->dport = nf_tuple->dst.u.all;
+}
+
+static struct nat_tuple *new_nat_tuple(struct ip4header *ip,
+	struct tcpheader *tcp, struct udpheader *udp)
+{
+	struct nat_tuple *found_nat_tuple;
+
+	found_nat_tuple = kmem_cache_alloc(mddp_f_nat_tuple_cache, GFP_ATOMIC);
+	if (found_nat_tuple == NULL) {
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+				"%s: kmem_cache_alloc() failed\n",
+				__func__);
+		return NULL;
+	}
+	found_nat_tuple->src_ip = ip->ip_src;
+	found_nat_tuple->dst_ip = ip->ip_dst;
+	found_nat_tuple->proto = ip->ip_p;
+	if (ip->ip_p == IPPROTO_TCP) {
+		found_nat_tuple->src.tcp.port = tcp->th_sport;
+		found_nat_tuple->dst.tcp.port = tcp->th_dport;
+	} else if (ip->ip_p == IPPROTO_UDP) {
+		found_nat_tuple->src.udp.port = udp->uh_sport;
+		found_nat_tuple->dst.udp.port = udp->uh_dport;
+	}
+	return found_nat_tuple;
+}
+
 static void mddp_f_out_nf_ipv4(struct sk_buff *skb, struct mddp_f_cb *cb)
 {
 	struct nf_conn *nat_ip_conntrack;
@@ -467,8 +544,6 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb, struct mddp_f_cb *cb)
 	struct nat_tuple *found_nat_tuple;
 	struct tcpheader *tcp;
 	struct udpheader *udp;
-	unsigned char tcp_state;
-	unsigned char ext_offset;
 	unsigned long flag;
 	unsigned int tuple_hit_cnt = 0;
 	int ret;
@@ -477,242 +552,50 @@ static void mddp_f_out_nf_ipv4(struct sk_buff *skb, struct mddp_f_cb *cb)
 
 	memset(&t, 0, sizeof(struct tuple));
 	offset2 += (ip->ip_hl << 2);
-	cb->proto = ip->ip_p;
-	cb->ip_ver = ip->ip_v;
-	switch (ip->ip_p) {
-	case IPPROTO_TCP:
-		tcp = (struct tcpheader *) offset2;
-		nat_ip_conntrack = nf_ct_get(skb, &ctinfo);
-		if (!nat_ip_conntrack) {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
-					__func__, skb);
+	tcp = (struct tcpheader *) offset2;
+	udp = (struct udpheader *) offset2;
+	nat_ip_conntrack = nf_ct_get(skb, &ctinfo);
+
+	if (check_conntrack(skb, nat_ip_conntrack))
+		goto out;
+	if (ip->ip_p == IPPROTO_TCP) {
+		if (!check_tcp_state(skb, nat_ip_conntrack))
 			goto out;
-		}
-
-		tcp_state = nat_ip_conntrack->proto.tcp.state;
-		if (nat_ip_conntrack->ext) { /* helper */
-			ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
-			if (ext_offset) {
-				MDDP_F_LOG(MDDP_LL_DEBUG,
-					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
-					__func__, skb,
-					nat_ip_conntrack->ext, ext_offset);
-				goto out;
-			}
-		}
-
-
-		if (tcp_state >= TCP_CONNTRACK_FIN_WAIT
-				&& tcp_state <=	TCP_CONNTRACK_CLOSE) {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Invalid TCP state[%d], skb[%p] is filtered out.\n",
-					__func__, tcp_state, skb);
-			goto out;
-		} else if (tcp_state !=	TCP_CONNTRACK_ESTABLISHED) {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: TCP state[%d] is not in ESTABLISHED state, skb[%p] is filtered out.\n",
-					__func__, tcp_state, skb);
-			goto out;
-		}
-
-		t.nat.src = ip->ip_src;
-		t.nat.dst = ip->ip_dst;
-		t.nat.proto = ip->ip_p;
-		t.nat.s.tcp.port = tcp->th_sport;
-		t.nat.d.tcp.port = tcp->th_dport;
-
-		if (cb->is_uplink) {
-			struct nf_conntrack_tuple *nf_tuple;
-
-			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-			cb->src[0] = nf_tuple->src.u3.ip;
-			cb->dst[0] = t.nat.dst;
-			cb->sport = nf_tuple->src.u.all;
-			cb->dport = nf_tuple->dst.u.all;
-		} else {
-			struct nf_conntrack_tuple *nf_tuple;
-
-			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-			cb->src[0] = t.nat.src;
-			cb->dst[0] = nf_tuple->dst.u3.ip;
-			cb->sport = nf_tuple->src.u.all;
-			cb->dport = nf_tuple->dst.u.all;
-		}
-
-		/* Tag this packet for MD tracking */
-		MDDP_F_NAT_TUPLE_LOCK(&mddp_f_nat_tuple_lock, flag);
-		found_nat_tuple =
-			mddp_f_get_nat_tuple_ip4_tcpudp_wo_lock(&t);
-
-		if (found_nat_tuple) {
-			tuple_hit_cnt = found_nat_tuple->curr_cnt;
-			found_nat_tuple->last_cnt = 0;
-			found_nat_tuple->curr_cnt = 0;
-			MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock, flag);
-
-			MDDP_F_LOG(MDDP_LL_DEBUG,
-				"%s: tuple[%p] is found!!\n",
-				__func__, found_nat_tuple);
-			ret = mddp_f_tag_packet(skb, cb, tuple_hit_cnt);
-			if (ret == 0)
-				MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-					__func__, cb->is_uplink, skb,
-					ip->ip_id, ip->ip_sum);
-
-			goto out;
-		} else {
-			MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock, flag);
-
-			/* Save tuple to avoid tag many packets */
-			found_nat_tuple = kmem_cache_alloc(
-						mddp_f_nat_tuple_cache, GFP_ATOMIC);
-			if (found_nat_tuple == NULL) {
-				MDDP_F_LOG(MDDP_LL_NOTICE,
-						"%s: kmem_cache_alloc() failed\n",
-						__func__);
-				goto out;
-			}
-
-			found_nat_tuple->src_ip = ip->ip_src;
-			found_nat_tuple->dst_ip = ip->ip_dst;
-			found_nat_tuple->src.tcp.port = tcp->th_sport;
-			found_nat_tuple->dst.tcp.port = tcp->th_dport;
-			found_nat_tuple->proto = ip->ip_p;
-
-			mddp_f_add_nat_tuple(found_nat_tuple);
-
-			ret = mddp_f_tag_packet(skb, cb, tuple_hit_cnt);
-			if (ret == 0)
-				MDDP_F_LOG(MDDP_LL_NOTICE,
-						"%s: Add IPv4 TCP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-						__func__, cb->is_uplink,
-						skb, ip->ip_id,
-						ip->ip_sum);
-		}
-		break;
-	case IPPROTO_UDP:
-		udp = (struct udpheader *) offset2;
-		nat_ip_conntrack = nf_ct_get(skb, &ctinfo);
-		if (!nat_ip_conntrack) {
-			MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: Null ip conntrack, skb[%p] is filtered out.\n",
-					__func__, skb);
-			goto out;
-		}
-
-		if (nat_ip_conntrack->ext) { /* helper */
-			ext_offset = nat_ip_conntrack->ext->offset[NF_CT_EXT_HELPER];
-			if (ext_offset) {
-				MDDP_F_LOG(MDDP_LL_NOTICE,
-					"%s: skb[%p] is filtered out, ext[%p], ext_offset[%d].\n",
-					__func__, skb,
-					nat_ip_conntrack->ext, ext_offset);
-				goto out;
-			}
-		}
-
-		t.nat.src = ip->ip_src;
-		t.nat.dst = ip->ip_dst;
-		t.nat.proto = ip->ip_p;
-		t.nat.s.udp.port = udp->uh_sport;
-		t.nat.d.udp.port = udp->uh_dport;
-
-		if (cb->is_uplink) {
-			struct nf_conntrack_tuple *nf_tuple;
-
-			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-			cb->src[0] = nf_tuple->src.u3.ip;
-			cb->dst[0] = t.nat.dst;
-			cb->sport = nf_tuple->src.u.all;
-			cb->dport = nf_tuple->dst.u.all;
-		} else {
-			struct nf_conntrack_tuple *nf_tuple;
-
-			nf_tuple = &nat_ip_conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-			cb->src[0] = t.nat.src;
-			cb->dst[0] = nf_tuple->dst.u3.ip;
-			cb->sport = nf_tuple->src.u.all;
-			cb->dport = nf_tuple->dst.u.all;
-		}
-
-		if (cb->sport != 67 && cb->sport != 68) {
-			/* Don't fastpath dhcp packet */
-
-			/* Tag this packet for MD tracking */
-			MDDP_F_NAT_TUPLE_LOCK(&mddp_f_nat_tuple_lock, flag);
-			found_nat_tuple =
-				mddp_f_get_nat_tuple_ip4_tcpudp_wo_lock(
-						&t);
-
-			if (found_nat_tuple) {
-				tuple_hit_cnt =
-					found_nat_tuple->curr_cnt;
-				found_nat_tuple->last_cnt = 0;
-				found_nat_tuple->curr_cnt = 0;
-				MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock,
-						flag);
-
-				MDDP_F_LOG(MDDP_LL_DEBUG,
-						"%s: tuple[%p] is found!!\n",
-						__func__,
-						found_nat_tuple);
-
-				ret = mddp_f_tag_packet(skb, cb,
-						tuple_hit_cnt);
-				if (ret == 0)
-					MDDP_F_LOG(MDDP_LL_NOTICE,
-						"%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-						__func__, cb->is_uplink,
-						skb, ip->ip_id,
-						ip->ip_sum);
-
-				goto out;
-			} else {
-				MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock,
-						flag);
-
-				/* Save tuple to avoid tag many packets */
-				found_nat_tuple = kmem_cache_alloc(
-							mddp_f_nat_tuple_cache, GFP_ATOMIC);
-				if (found_nat_tuple == NULL) {
-					MDDP_F_LOG(MDDP_LL_NOTICE,
-							"%s: kmem_cache_alloc() failed\n",
-							__func__);
-					goto out;
-				}
-
-				found_nat_tuple->src_ip = ip->ip_src;
-				found_nat_tuple->dst_ip = ip->ip_dst;
-				found_nat_tuple->src.udp.port = udp->uh_sport;
-				found_nat_tuple->dst.udp.port = udp->uh_dport;
-				found_nat_tuple->proto = ip->ip_p;
-
-				mddp_f_add_nat_tuple(found_nat_tuple);
-
-				ret = mddp_f_tag_packet(skb, cb,
-						tuple_hit_cnt);
-				if (ret == 0)
-					MDDP_F_LOG(MDDP_LL_NOTICE,
-						"%s: Add IPv4 UDP MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
-						__func__, cb->is_uplink,
-						skb, ip->ip_id,
-						ip->ip_sum);
-			}
-		} else {
-			MDDP_F_LOG(MDDP_LL_DEBUG,
-					"%s: Don't track DHCP packet, s_port[%d], skb[%p] is filtered out.\n",
-					__func__, cb->sport, skb);
-		}
-		break;
-	default:
+	}
+	fill_cb_info(nat_ip_conntrack, ip, cb, &t, tcp, udp);
+	/* Don't fastpath dhcp packet */
+	if (ip->ip_p == IPPROTO_UDP && (cb->sport == 67 || cb->sport == 68)) {
 		MDDP_F_LOG(MDDP_LL_DEBUG,
-					"%s: Not TCP/UDP packet, protocal[%d], skb[%p] is filtered out.\n",
-					__func__, ip->ip_p, skb);
-		break;
+				"%s: Don't track DHCP packet, s_port[%d], skb[%p] is filtered out.\n",
+				__func__, cb->sport, skb);
+		goto out;
 	}
 
+	/* Tag this packet for MD tracking */
+	MDDP_F_NAT_TUPLE_LOCK(&mddp_f_nat_tuple_lock, flag);
+	found_nat_tuple = mddp_f_get_nat_tuple_ip4_tcpudp_wo_lock(&t);
+	if (found_nat_tuple) {
+		tuple_hit_cnt = found_nat_tuple->curr_cnt;
+		found_nat_tuple->last_cnt = 0;
+		found_nat_tuple->curr_cnt = 0;
+		MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock, flag);
+		MDDP_F_LOG(MDDP_LL_DEBUG,
+				"%s: tuple[%p] is found!!\n", __func__, found_nat_tuple);
+	} else {
+		MDDP_F_NAT_TUPLE_UNLOCK(&mddp_f_nat_tuple_lock, flag);
+		/* Save tuple to avoid tag many packets */
+		found_nat_tuple = new_nat_tuple(ip, tcp, udp);
+		if (found_nat_tuple == NULL)
+			goto out;
+		mddp_f_add_nat_tuple(found_nat_tuple);
+	}
+
+	ret = mddp_f_tag_packet(skb, cb, tuple_hit_cnt);
+	if (ret == 0)
+		MDDP_F_LOG(MDDP_LL_NOTICE,
+			"%s: Add IPv4 %s MDDP tag, is_uplink[%d], skb[%p], ip_id[%x], ip_checksum[%x].\n",
+			__func__, (ip->ip_p == IPPROTO_TCP) ? "TCP" : "UDP",
+			cb->is_uplink, skb, ip->ip_id, ip->ip_sum);
 out:
 	return;
 }
