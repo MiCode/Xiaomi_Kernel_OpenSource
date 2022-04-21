@@ -780,6 +780,8 @@ int mtk_cam_dequeue_req_frame(struct mtk_cam_ctx *ctx,
 
 	dequeue_cnt = 0;
 	s_data_cnt = 0;
+
+	mutex_lock(&ctx->cleanup_lock);
 	spin_lock(&ctx->cam->running_job_lock);
 	list_for_each_entry_safe(req, req_prev, &ctx->cam->running_job_list, list) {
 		if (!(req->pipe_used & (1 << pipe_id)))
@@ -980,6 +982,7 @@ STOP_SCAN:
 		}
 	}
 
+	mutex_unlock(&ctx->cleanup_lock);
 	return dequeue_cnt;
 }
 
@@ -1044,6 +1047,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state
 	int i, num_s_data, s_data_cnt, handled_cnt;
 	bool need_clean_req;
 
+	mutex_lock(&ctx->cleanup_lock);
 	mutex_lock(&cam->queue_lock);
 	mtk_cam_dev_req_clean_pending(cam, pipe_id, buf_state);
 
@@ -1076,6 +1080,7 @@ void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state
 STOP_SCAN:
 	spin_unlock(&cam->running_job_lock);
 	mutex_unlock(&cam->queue_lock);
+	mutex_unlock(&ctx->cleanup_lock);
 
 	for (handled_cnt = 0; handled_cnt < s_data_cnt; handled_cnt++) {
 		s_data = clean_s_data[handled_cnt];
@@ -8158,7 +8163,7 @@ static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
 	spin_lock_init(&ctx->streaming_lock);
 	spin_lock_init(&ctx->first_cq_lock);
 	spin_lock_init(&ctx->processing_img_buffer_list.lock);
-
+	mutex_init(&ctx->cleanup_lock);
 	mtk_ctx_watchdog_init(ctx);
 }
 

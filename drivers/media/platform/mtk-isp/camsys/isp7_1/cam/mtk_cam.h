@@ -459,6 +459,7 @@ struct mtk_cam_ctx {
 
 	spinlock_t streaming_lock;
 	spinlock_t first_cq_lock;
+	struct mutex cleanup_lock;
 
 	struct mtk_cam_hsf_ctrl *hsf;
 	atomic_t watchdog_timeout_cnt;
