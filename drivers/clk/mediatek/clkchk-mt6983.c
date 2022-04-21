@@ -358,6 +358,7 @@ static u32 pwr_ofs[STA_NUM] = {
 	[PWR_STA2] = 0xF38,
 	[XPU_PWR_STA] = 0xF3C,
 	[XPU_PWR_STA2] = 0xF40,
+	[OTHER_STA] = 0x414,
 };
 
 static u32 pwr_sta[STA_NUM];
