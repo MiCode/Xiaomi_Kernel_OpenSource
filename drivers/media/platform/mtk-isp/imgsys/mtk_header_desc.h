@@ -225,10 +225,34 @@ struct singlenode_desc_norm {
 	/* RGB-12bit-3P-Unpacked, (R)(G)(B) */
 #define V4L2_PIX_FMT_MTISP_FGRBP8 v4l2_fourcc('M', 'F', 'g', '8')
 	/* FG-8bit-2P-Packed */
+#define V4L2_PIX_FMT_MTISP_FGRB2P8_BGGR v4l2_fourcc('f', 'B', '2', '8')
+	/* FG-8bit-2P-Packed, (B)(G)(G)(R)  */
+#define V4L2_PIX_FMT_MTISP_FGRB2P8_GBRG v4l2_fourcc('f', 'G', '2', '8')
+	/* FG-8bit-2P-Packed, (G)(B)(R)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB2P8_GRBG v4l2_fourcc('f', 'g', '2', '8')
+	/* FG-8bit-2P-Packed, (G)(R)(B)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB2P8_RGGB v4l2_fourcc('f', 'R', '2', '8')
+	/* FG-8bit-2P-Packed, (R)(G)(G)(B)  */
 #define V4L2_PIX_FMT_MTISP_FGRBP10 v4l2_fourcc('M', 'F', 'g', 'a')
 	/* FG-10bit-2P-Packed */
+#define V4L2_PIX_FMT_MTISP_FGRB2P10_BGGR v4l2_fourcc('f', 'B', '2', 'a')
+	/* FG-10bit-2P-Packed, (B)(G)(G)(R)  */
+#define V4L2_PIX_FMT_MTISP_FGRB2P10_GBRG v4l2_fourcc('f', 'G', '2', 'a')
+	/* FG-10bit-2P-Packed, (G)(B)(R)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB2P10_GRBG v4l2_fourcc('f', 'g', '2', 'a')
+	/* FG-10bit-2P-Packed, (G)(R)(B)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB2P10_RGGB v4l2_fourcc('f', 'R', '2', 'a')
+	/* FG-10bit-2P-Packed, (R)(G)(G)(B)  */
 #define V4L2_PIX_FMT_MTISP_FGRBP12 v4l2_fourcc('M', 'F', 'g', 'c')
 	/* FG-12bit-2P-Packed */
+#define V4L2_PIX_FMT_MTISP_FGRB2P12_BGGR v4l2_fourcc('f', 'B', '2', 'c')
+	/* FG-12bit-2P-Packed, (B)(G)(G)(R)  */
+#define V4L2_PIX_FMT_MTISP_FGRB2P12_GBRG v4l2_fourcc('f', 'G', '2', 'c')
+	/* FG-12bit-2P-Packed, (G)(B)(R)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB2P12_GRBG v4l2_fourcc('f', 'g', '2', 'c')
+	/* FG-12bit-2P-Packed, (G)(R)(B)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB2P12_RGGB v4l2_fourcc('f', 'R', '2', 'c')
+	/* FG-12bit-2P-Packed, (R)(G)(G)(B)  */
 #define V4L2_PIX_FMT_MTISP_FGRBU8 v4l2_fourcc('M', 'F', 'G', '8')
 	/* FG-8bit-2P-Unpacked */
 #define V4L2_PIX_FMT_MTISP_FGRBU10 v4l2_fourcc('M', 'F', 'G', 'A')
@@ -237,10 +261,34 @@ struct singlenode_desc_norm {
 	/* FG-12bit-2P-Unpacked */
 #define V4L2_PIX_FMT_MTISP_FGRB3P8 v4l2_fourcc('M', 'f', '3', '8')
 	/* FG-8bit-3P-Packed */
+#define V4L2_PIX_FMT_MTISP_FGRB3P8_BGGR v4l2_fourcc('f', 'B', '3', '8')
+	/* FG-8bit-3P-Packed, (B)(G)(G)(R)  */
+#define V4L2_PIX_FMT_MTISP_FGRB3P8_GBRG v4l2_fourcc('f', 'G', '3', '8')
+	/* FG-8bit-3P-Packed, (G)(B)(R)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB3P8_GRBG v4l2_fourcc('f', 'g', '3', '8')
+	/* FG-8bit-3P-Packed, (G)(R)(B)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB3P8_RGGB v4l2_fourcc('f', 'R', '3', '8')
+	/* FG-8bit-3P-Packed, (R)(G)(G)(B)  */
 #define V4L2_PIX_FMT_MTISP_FGRB3P10 v4l2_fourcc('M', 'f', '3', 'a')
 	/* FG-10bit-3P-Packed */
+#define V4L2_PIX_FMT_MTISP_FGRB3P10_BGGR v4l2_fourcc('f', 'B', '3', 'a')
+	/* FG-10bit-3P-Packed, (B)(G)(G)(R)  */
+#define V4L2_PIX_FMT_MTISP_FGRB3P10_GBRG v4l2_fourcc('f', 'G', '3', 'a')
+	/* FG-10bit-3P-Packed, (G)(B)(R)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB3P10_GRBG v4l2_fourcc('f', 'g', '3', 'a')
+	/* FG-10bit-3P-Packed, (G)(R)(B)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB3P10_RGGB v4l2_fourcc('f', 'R', '3', 'a')
+	/* FG-10bit-3P-Packed, (R)(G)(G)(B)  */
 #define V4L2_PIX_FMT_MTISP_FGRB3P12 v4l2_fourcc('M', 'f', '3', 'c')
 	/* FG-12bit-3P-Packed */
+#define V4L2_PIX_FMT_MTISP_FGRB3P12_BGGR v4l2_fourcc('f', 'B', '3', 'c')
+	/* FG-12bit-3P-Packed, (B)(G)(G)(R)  */
+#define V4L2_PIX_FMT_MTISP_FGRB3P12_GBRG v4l2_fourcc('f', 'G', '3', 'c')
+	/* FG-12bit-3P-Packed, (G)(B)(R)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB3P12_GRBG v4l2_fourcc('f', 'g', '3', 'c')
+	/* FG-12bit-3P-Packed, (G)(R)(B)(G)  */
+#define V4L2_PIX_FMT_MTISP_FGRB3P12_RGGB v4l2_fourcc('f', 'R', '3', 'c')
+	/* FG-12bit-3P-Packed, (R)(G)(G)(B)  */
 #define V4L2_PIX_FMT_MTISP_FGRB3U8 v4l2_fourcc('M', 'F', '3', '8')
 	/* FG-8bit-3P-Unpacked */
 #define V4L2_PIX_FMT_MTISP_FGRB3U10 v4l2_fourcc('M', 'F', '3', 'A')
@@ -442,6 +490,22 @@ struct singlenode_desc_norm {
 	/* MIPI-10bit-Packed, (G)(R)(B)(G) */
 #define V4L2_PIX_FMT_MTISP_SRGGBM10 v4l2_fourcc('M', 'M', 'R', 'A')
 	/* MIPI-10bit-Packed, (R)(G)(G)(B) */
+#define V4L2_PIX_FMT_MTISP_SBGGRM12 v4l2_fourcc('M', 'M', 'B', 'C')
+	/* MIPI-12bit-Packed, (B)(G)(G)(R) */
+#define V4L2_PIX_FMT_MTISP_SGBRGM12 v4l2_fourcc('M', 'M', 'G', 'C')
+	/* MIPI-12bit-Packed, (G)(B)(R)(G) */
+#define V4L2_PIX_FMT_MTISP_SGRBGM12 v4l2_fourcc('M', 'M', 'g', 'C')
+	/* MIPI-12bit-Packed, (G)(R)(B)(G) */
+#define V4L2_PIX_FMT_MTISP_SRGGBM12 v4l2_fourcc('M', 'M', 'R', 'C')
+	/* MIPI-12bit-Packed, (R)(G)(G)(B) */
+#define V4L2_PIX_FMT_MTISP_SBGGRM14 v4l2_fourcc('M', 'M', 'B', 'E')
+	/* MIPI-14bit-Packed, (B)(G)(G)(R) */
+#define V4L2_PIX_FMT_MTISP_SGBRGM14 v4l2_fourcc('M', 'M', 'G', 'E')
+	/* MIPI-14bit-Packed, (G)(B)(R)(G) */
+#define V4L2_PIX_FMT_MTISP_SGRBGM14 v4l2_fourcc('M', 'M', 'g', 'E')
+	/* MIPI-14bit-Packed, (G)(R)(B)(G) */
+#define V4L2_PIX_FMT_MTISP_SRGGBM14 v4l2_fourcc('M', 'M', 'R', 'E')
+	/* MIPI-14bit-Packed, (R)(G)(G)(B) */
 
 /* Vendor specific - Mediatek ISP parameters for firmware */
 #define V4L2_META_FMT_MTISP_PARAMS v4l2_fourcc('M', 'T', 'f', 'p')

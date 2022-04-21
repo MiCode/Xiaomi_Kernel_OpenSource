@@ -18,27 +18,25 @@
 #include <mtk_imgsys-cmdq.h>
 
 // Local header file
-#include "mtk_imgsys-engine.h"
+#include "./../mtk_imgsys-engine.h"
 
 /********************************************************************
  * Global Define
  ********************************************************************/
-#define TRAW_A_BASE_ADDR	0x15020000
+#define TRAW_A_BASE_ADDR	0x15700000
 #define TRAW_B_BASE_ADDR	0x15040000
-#define TRAW_C_BASE_ADDR	0x15640000
+
+#define IF_0_DEFINE 0
 
 #define TRAW_DMA_NAME_MAX_SIZE	20
 
-#define TRAW_DMA_DBG_SEL	 (0x4070)
-#define TRAW_DMA_DBG_PORT	 (0x4074)
-#define TRAW_CTL_DBG_SEL	 (0x0190)
-#define TRAW_CTL_DBG_PORT	 (0x0194)
-#define TRAW_DIPCQ_CQ_EN	 (0x0200)
-#define WPE_MACRO_SW_RST	 (0x000C)
-#define WPE_MACRO_WPE_RST	 (0x0004)
-#define WPE_MACRO_LARB11_RST	 (0x0001)
+#define TRAW_DMA_DBG_SEL	 (0x4088)
+#define TRAW_DMA_DBG_PORT	 (0x408C)
+#define TRAW_CTL_DBG_SEL	 (0x0280)
+#define TRAW_CTL_DBG_PORT	 (0x0284)
+#define TRAW_DIPCQ_CQ_EN	 (0x0400)
 
-
+#if IF_0_DEFINE //YWTBD K DBG
 #define TRAW_IMGI_STATE_CHECKSUM		(0x00100)
 #define TRAW_IMGI_LINE_PIX_CNT_TMP		(0x00200)
 #define TRAW_IMGI_LINE_PIX_CNT			(0x00300)
@@ -52,20 +50,29 @@
 #define TRAW_IMGI_FIFO_DEBUG_DATA_CASE3		(0x30600)
 #define TRAW_YUVO_T1_FIFO_DEBUG_DATA_CASE1	(0x10700)
 #define TRAW_YUVO_T1_FIFO_DEBUG_DATA_CASE3	(0x30700)
+#endif
 
 #define	TRAW_DMA_IMGI_ADDR		(0x4100)
-#define	TRAW_DMA_UFDI_ADDR		(0x4170)
-#define	TRAW_DMA_IMGBI_ADDR		(0x41E0)
-#define	TRAW_DMA_IMGCI_ADDR		(0x4250)
-#define	TRAW_DMA_YUVO_T1_ADDR		(0x4600)
-#define	TRAW_DMA_YUVBO_T1_ADDR		(0x46B0)
-#define	TRAW_DMA_YUVCO_T1_ADDR		(0x4760)
-#define	TRAW_DMA_TIMGO_T1_ADDR		(0x48C0)
-#define	TRAW_DMA_YUVO_T2_ADDR		(0x4970)
-#define	TRAW_DMA_YUVO_T5_ADDR		(0x4AF0)
-#define	TRAW_DMA_TNCSO_T1_ADDR		(0x4BA0)
-#define	TRAW_DMA_RZH1N2TO_T1_ADDR	(0x5000)
-#define	TRAW_DMA_DBGO_T1_ADDR		(0x51C0)
+#define	TRAW_DMA_IMGBI_ADDR		(0x4170)
+#define	TRAW_DMA_IMGCI_ADDR		(0x41E0)
+#define	TRAW_DMA_UFDI_ADDR		(0x4250)
+#define	TRAW_DMA_CACI_ADDR		(0x4480)
+
+#define	TRAW_DMA_TIMGO_T1_ADDR		(0x47E0)
+#define	TRAW_DMA_YUVO_T1_ADDR		(0x4890)
+#define	TRAW_DMA_YUVBO_T1_ADDR		(0x4940)
+#define	TRAW_DMA_YUVCO_T1_ADDR		(0x49F0)
+#define	TRAW_DMA_YUVDO_T1_ADDR		(0x4AA0)
+#define	TRAW_DMA_YUVO_T2_ADDR		(0x5000)
+#define	TRAW_DMA_YUVBO_T2_ADDR		(0x5040)
+#define	TRAW_DMA_YUVO_T3_ADDR		(0x5080)
+#define	TRAW_DMA_YUVBO_T3_ADDR		(0x50C0)
+#define	TRAW_DMA_YUVO_T4_ADDR		(0x5100)
+#define	TRAW_DMA_YUVBO_T4_ADDR		(0x5140)
+#define	TRAW_DMA_YUVO_T5_ADDR		(0x5180)
+#define	TRAW_DMA_TNCSO_T1_ADDR		(0x51C0)
+#define	TRAW_DMA_DRZS4NO_T1_ADDR	(0x5540)
+#define	TRAW_DMA_LTMSO_T1_ADDR		(0x5600)
 
 /********************************************************************
  * Enum Define
