@@ -6063,12 +6063,16 @@ page_owner=on loop.max_part=7";
 		mediatek,mailbox-gce = <&gce_mbox>;
 		mediatek,dec_gce_th_num = <1>;
 		mediatek,enc_gce_th_num = <2>;
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 		mboxes = <&gce_mbox 16 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 17 0 CMDQ_THR_PRIO_1>,
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-			<&gce_mbox_sec 12 0 CMDQ_THR_PRIO_1>,
-#endif
+			<&gce_mbox 18 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox_sec 12 0 CMDQ_THR_PRIO_1>;
+#else
+		mboxes = <&gce_mbox 16 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 17 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 18 0 CMDQ_THR_PRIO_1>;
+#endif
 		gce-event-names = "venc_eof",
 			"venc_eof_c1", "venc_wp_2nd_done", "venc_wp_3nd_done",
 			"vdec_pic_start", "vdec_decode_done", "vdec_pause",
