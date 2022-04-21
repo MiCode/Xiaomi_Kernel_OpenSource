@@ -18,6 +18,8 @@ ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6983-larb-port.h),)
 else ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6879-larb-port.h),)
   subdir-ccflags-y += -DWPE_TF_DUMP_71_2
   subdir-ccflags-y += -DONEPIXEL_MODE
+else ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6985-larb-port.h),)
+  subdir-ccflags-y += -WPE_TF_DUMP_7S_1
 endif
 $(info "imgsys, subdir-ccflags-y = $(subdir-ccflags-y)")
 

@@ -13,11 +13,8 @@
 #include <linux/remoteproc.h>
 
 #include "iommu_debug.h"
-#ifdef WPE_TF_DUMP_71_1
-#include <dt-bindings/memory/mt6983-larb-port.h>
-
-#elif defined(WPE_TF_DUMP_71_2)
-#include <dt-bindings/memory/mt6879-larb-port.h>
+#ifdef WPE_TF_DUMP_7S_1
+#include <dt-bindings/memory/mt6985-larb-port.h>
 #endif
 
 #define M4U_PORT_DUMMY_EIS  (0)
@@ -58,6 +55,7 @@ const struct mtk_imgsys_init_array
 	{0x00EC, 0x80000000}, /* WPE_TOP_CQ_IRQ_EN3, en w-clr */
 	{0x00F4, 0xFFFFFFFF}, /* WPE_TOP_CQ_IRQ_STX3, w-clr */
 	{0x0204, 0x00000002}, /* WPE_CACHE_RWCTL_CTL */
+	{0x025C, 0x02000200}, /* WPE_CACHE_CACHI_CON2_0 */
 	{0x03D4, 0x80000000}, /* WPE_DMA_DMA_ERR_CTRL */
 	{0x0B08, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR0_CTL */
 	{0x0B18, CQ_THRX_CTL}, /*DIPCQ_W1A_DIPCQ_CQ_THR1_CTL */
@@ -88,15 +86,16 @@ const struct imgsys_reg_range wpe_regs[] = {
 	{0x0340, 0x0368}, /* WPEO2 */
 	{0x0380, 0x03A8}, /* MSKO */
 	{0x03C0, 0x0408}, /* DMA */
-	{0x0440, 0x0450}, /* TDRI */
+	{0x0440, 0x0458}, /* TDRI */
 	{0x04C0, 0x0508}, /* VGEN */
-	{0x0540, 0x05D4}, /* PSP */
+	{0x0540, 0x05DC}, /* PSP */
 	{0x0600, 0x0620}, /* C24,C02 */
 	{0x0640, 0x0654}, /* DL CROP */
 	{0x0680, 0x0694}, /* DMA CROP */
 	{0x06C0, 0x07B4}, /* DEC,PAK */
-	{0x07C0, 0x07D0}, /* TOP2 */
+	{0x07C0, 0x084C}, /* TOP2 */
 	{0x0800, 0x080C},
+	{0x0830, 0x083C}, /* MERGE */
 	{0x0B00, 0x0C34}, /* DIPCQ_W1 */
 };
 #define WPE_REG_ARRAY_COUNT	ARRAY_SIZE(wpe_regs)
@@ -114,70 +113,37 @@ int imgsys_wpe_tfault_callback(int port,
 	pr_debug("%s: +\n", __func__);
 
 	switch (port) {
-#ifdef WPE_TF_DUMP_71_1
-	case M4U_PORT_L11_IMG2_WPE_RDMA0:
-	case M4U_PORT_L11_IMG2_WPE_RDMA1:
-	case M4U_PORT_L11_IMG2_WPE_RDMA_4P0:
-	case M4U_PORT_L11_IMG2_WPE_RDMA_4P1:
-	case M4U_PORT_L11_IMG2_WPE_WDMA0:
-	case M4U_PORT_L11_IMG2_WPE_WDMA_4P0:
-	case M4U_PORT_L11_IMG2_WPE_CQ0:
-	case M4U_PORT_L11_IMG2_WPE_CQ1:
-#elif defined(WPE_TF_DUMP_71_2)
-	case M4U_LARB11_PORT0:
-	case M4U_LARB11_PORT1:
-	case M4U_LARB11_PORT2:
-	case M4U_LARB11_PORT3:
-	case M4U_LARB11_PORT18:
-	case M4U_LARB11_PORT19:
-	case M4U_LARB11_PORT4:
-	case M4U_LARB11_PORT5:
+#ifdef WPE_TF_DUMP_7S_1
+	case M4U_PORT_L11_WPE_RDMA_0:
+	case M4U_PORT_L11_WPE_RDMA_1:
+	case M4U_PORT_L11_WPE_RDMA_4P_0:
+	case M4U_PORT_L11_WPE_RDMA_4P_1:
+	case M4U_PORT_L11_WPE_WDMA_0:
+	case M4U_PORT_L11_WPE_WDMA_4P_0:
 #else
 	case M4U_PORT_DUMMY_EIS:
 #endif
 		engine = REG_MAP_E_WPE_EIS;
 		break;
-#ifdef WPE_TF_DUMP_71_1
-	case M4U_PORT_L22_IMG2_WPE_RDMA0:
-	case M4U_PORT_L22_IMG2_WPE_RDMA1:
-	case M4U_PORT_L22_IMG2_WPE_RDMA_4P0:
-	case M4U_PORT_L22_IMG2_WPE_RDMA_4P1:
-	case M4U_PORT_L22_IMG2_WPE_WDMA0:
-	case M4U_PORT_L22_IMG2_WPE_WDMA_4P0:
-	case M4U_PORT_L22_IMG2_WPE_CQ0:
-	case M4U_PORT_L22_IMG2_WPE_CQ1:
-#elif defined(WPE_TF_DUMP_71_2)
-	case M4U_LARB22_PORT0:
-	case M4U_LARB22_PORT1:
-	case M4U_LARB22_PORT2:
-	case M4U_LARB22_PORT3:
-	case M4U_LARB22_PORT18:
-	case M4U_LARB22_PORT19:
-	case M4U_LARB22_PORT4:
-	case M4U_LARB22_PORT5:
+#ifdef WPE_TF_DUMP_7S_1
+	case M4U_PORT_L22_WPE_RDMA_0:
+	case M4U_PORT_L22_WPE_RDMA_1:
+	case M4U_PORT_L22_WPE_RDMA_4P_0:
+	case M4U_PORT_L22_WPE_RDMA_4P_1:
+	case M4U_PORT_L22_WPE_WDMA_0:
+	case M4U_PORT_L22_WPE_WDMA_4P_0:
 #else
 	case M4U_PORT_DUMMY_TNR:
 #endif
 		engine = REG_MAP_E_WPE_TNR;
 		break;
-#ifdef WPE_TF_DUMP_71_1
-	case M4U_PORT_L23_IMG2_WPE_RDMA0:
-	case M4U_PORT_L23_IMG2_WPE_RDMA1:
-	case M4U_PORT_L23_IMG2_WPE_RDMA_4P0:
-	case M4U_PORT_L23_IMG2_WPE_RDMA_4P1:
-	case M4U_PORT_L23_IMG2_WPE_WDMA0:
-	case M4U_PORT_L23_IMG2_WPE_WDMA_4P0:
-	case M4U_PORT_L23_IMG2_WPE_CQ0:
-	case M4U_PORT_L23_IMG2_WPE_CQ1:
-#elif defined(WPE_TF_DUMP_71_2)
-	case M4U_LARB23_PORT0:
-	case M4U_LARB23_PORT1:
-	case M4U_LARB23_PORT2:
-	case M4U_LARB23_PORT3:
-	case M4U_LARB23_PORT18:
-	case M4U_LARB23_PORT19:
-	case M4U_LARB23_PORT4:
-	case M4U_LARB23_PORT5:
+#ifdef WPE_TF_DUMP_7S_1
+	case M4U_PORT_L23_WPE_RDMA_0:
+	case M4U_PORT_L23_WPE_RDMA_1:
+	case M4U_PORT_L23_WPE_RDMA_4P_0:
+	case M4U_PORT_L23_WPE_RDMA_4P_1:
+	case M4U_PORT_L23_WPE_WDMA_0:
+	case M4U_PORT_L23_WPE_WDMA_4P_0:
 #else
 	case M4U_PORT_DUMMY_LITE:
 #endif
@@ -232,156 +198,62 @@ void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 		}
 	}
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#ifdef WPE_TF_DUMP_71_1
+#ifdef WPE_TF_DUMP_7S_1
 	//wpe_eis
-	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_RDMA0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L11_WPE_RDMA_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_RDMA1,
+	mtk_iommu_register_fault_callback(M4U_PORT_L11_WPE_RDMA_1,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_RDMA_4P0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L11_WPE_RDMA_4P_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_RDMA_4P1,
+	mtk_iommu_register_fault_callback(M4U_PORT_L11_WPE_RDMA_4P_1,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, 0);
-	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_WDMA0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L11_WPE_WDMA_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, 0);
-	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_WDMA_4P0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L11_WPE_WDMA_4P_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, 0);
-	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_CQ0,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L11_IMG2_WPE_CQ1,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
 	//wpe_tnr
-	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_RDMA0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L22_WPE_RDMA_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_RDMA1,
+	mtk_iommu_register_fault_callback(M4U_PORT_L22_WPE_RDMA_1,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_RDMA_4P0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L22_WPE_RDMA_4P_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_RDMA_4P1,
+	mtk_iommu_register_fault_callback(M4U_PORT_L22_WPE_RDMA_4P_1,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_WDMA0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L22_WPE_WDMA_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_WDMA_4P0,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_CQ0,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L22_IMG2_WPE_CQ1,
+	mtk_iommu_register_fault_callback(M4U_PORT_L22_WPE_WDMA_4P_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
 	//wpe_lite
-	mtk_iommu_register_fault_callback(M4U_PORT_L23_IMG2_WPE_RDMA0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L23_WPE_RDMA_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L23_IMG2_WPE_RDMA1,
+	mtk_iommu_register_fault_callback(M4U_PORT_L23_WPE_RDMA_1,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L23_IMG2_WPE_RDMA_4P0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L23_WPE_RDMA_4P_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L23_IMG2_WPE_RDMA_4P0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L23_WPE_RDMA_4P_1,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L23_IMG2_WPE_WDMA0,
+	mtk_iommu_register_fault_callback(M4U_PORT_L23_WPE_WDMA_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L23_IMG2_WPE_WDMA_4P0,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L23_IMG2_WPE_CQ0,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L23_IMG2_WPE_CQ1,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-#elif defined(WPE_TF_DUMP_71_2)
-	//wpe_eis
-	mtk_iommu_register_fault_callback(M4U_LARB11_PORT0,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB11_PORT1,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB11_PORT2,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB11_PORT3,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, 0);
-	mtk_iommu_register_fault_callback(M4U_LARB11_PORT18,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, 0);
-	mtk_iommu_register_fault_callback(M4U_LARB11_PORT19,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, 0);
-	mtk_iommu_register_fault_callback(M4U_LARB11_PORT4,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB11_PORT5,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	//wpe_tnr
-	mtk_iommu_register_fault_callback(M4U_LARB22_PORT0,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB22_PORT1,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB22_PORT2,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB22_PORT3,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB22_PORT18,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB22_PORT19,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB22_PORT4,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB22_PORT5,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	//wpe_lite
-	mtk_iommu_register_fault_callback(M4U_LARB23_PORT0,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB23_PORT1,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB23_PORT2,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB23_PORT23,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB23_PORT18,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB23_PORT19,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB23_PORT4,
-			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
-			NULL, false);
-	mtk_iommu_register_fault_callback(M4U_LARB23_PORT5,
+	mtk_iommu_register_fault_callback(M4U_PORT_L23_WPE_WDMA_4P_0,
 			(mtk_iommu_fault_callback_t)imgsys_wpe_tfault_callback,
 			NULL, false);
 #endif
