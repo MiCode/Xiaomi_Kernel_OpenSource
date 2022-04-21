@@ -13,12 +13,15 @@ OUT_DIR=$(PWD)/out
 srctree=$(KROOT)
 src=$(subst $(KROOT),,$(PWD))
 
-# reference config file to fetch clang version
-CONFIG=$(KROOT)build.config.common
+## reference config file to fetch clang version
+CONFIG=$(KROOT)build.config.constants
+CLANG_VERSION=$(shell cat $(CONFIG) | grep CLANG_VERSION | cut -d'=' -f 2)
 
-CLANG_PREBUILT_BIN:=$(shell cat $(CONFIG) | grep CLANG_PREBUILT_BIN | cut -d'=' -f 2)
-CLANG_PATH:=$(ROOT_DIR)/$(CLANG_PREBUILT_BIN:prebuilts-master%=prebuilts%)
+COMMON_CONFIG=$(KROOT)build.config.common
+CLANG_PREBUILT_BIN=$(shell cat $(COMMON_CONFIG) | grep CLANG_PREBUILT_BIN | cut -d'=' -f 2)
+CLANG_PATH=$(ROOT_DIR)/$(subst $${CLANG_VERSION},$(CLANG_VERSION),$(CLANG_PREBUILT_BIN))
 
+#$(info CLANG_VERSION = $(CLANG_VERSION))
 #$(info CLANG_PREBUILT_BIN = $(CLANG_PREBUILT_BIN))
 $(info CLANG_PATH = $(CLANG_PATH))
 
@@ -40,6 +43,11 @@ HOSTAR=$(CLANG_PATH)/llvm-ar
 HOSTLD=$(CLANG_PATH)/ld.lld
 
 CFLAGS=-Wall LLVM=1 LLVM_IAS=1
+
+# disable BTF as workaround for "pahole: invalid operation -J" issue
+EXT_CONFIG="\
+	CONFIG_DEBUG_INFO_BTF_MODULES= \
+	"
 
 ### DEFINE ###
 define kernel-make
@@ -66,7 +74,7 @@ endef
 
 all: check-env build install
 build:
-	$(kernel-make) modules
+	$(kernel-make) modules $(EXT_CONFIG)
 install: build
 	$(kernel-make) modules_install INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=$(OUT_DIR)
 clean:
