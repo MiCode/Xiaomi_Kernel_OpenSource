@@ -304,6 +304,7 @@ unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 EXPORT_SYMBOL(mtk_cpu_util);
 
 DEFINE_PER_CPU(int, cpufreq_idle_cpu);
+DEFINE_PER_CPU(int, pre_rt_throttled);
 EXPORT_SYMBOL(cpufreq_idle_cpu);
 
 DEFINE_PER_CPU(spinlock_t, cpufreq_idle_cpu_lock) = __SPIN_LOCK_UNLOCKED(cpufreq_idle_cpu_lock);
@@ -313,12 +314,19 @@ static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 	struct rq *rq = cpu_rq(sg_cpu->cpu);
 	unsigned long util = cpu_util_cfs(rq);
 	unsigned long max = capacity_orig_of(sg_cpu->cpu);
+	int rt_throttled_toggle = 0;
 
 	sg_cpu->max = max;
 	sg_cpu->bw_dl = cpu_bw_dl(rq);
 
 	spin_lock(&per_cpu(cpufreq_idle_cpu_lock, sg_cpu->cpu));
-	if (per_cpu(cpufreq_idle_cpu, sg_cpu->cpu)) {
+	if (per_cpu(pre_rt_throttled, sg_cpu->cpu) != rq->rt.rt_throttled) {
+		rt_throttled_toggle = 1;
+		per_cpu(cpufreq_idle_cpu, sg_cpu->cpu) = (rq->nr_running) ? 0 : 1;
+	}
+	per_cpu(pre_rt_throttled, sg_cpu->cpu) = rq->rt.rt_throttled;
+	if ((!rt_throttled_toggle && per_cpu(cpufreq_idle_cpu, sg_cpu->cpu)) ||
+		(rt_throttled_toggle &&  !rq->nr_running)) {
 		spin_unlock(&per_cpu(cpufreq_idle_cpu_lock, sg_cpu->cpu));
 		return 0;
 	}
