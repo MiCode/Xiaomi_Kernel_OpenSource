@@ -953,7 +953,7 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 					dyn_buf_info.fmt.fmt.pix_mp.height;
 			dev_buf->fmt.fmt.pix_mp.pixelformat =
 					dyn_buf_info.fmt.fmt.pix_mp.pixelformat;
-			for (i = 0; i < IMGBUF_MAX_PLANES; i++) {
+			for (i = 0; i < dyn_buf_info.buf.num_planes; i++) {
 				vfmt = &dev_buf->fmt.fmt.pix_mp.plane_fmt[i];
 				bfmt =
 				&dyn_buf_info.fmt.fmt.pix_mp.plane_fmt[i];
