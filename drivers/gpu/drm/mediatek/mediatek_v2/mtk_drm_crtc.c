@@ -4727,6 +4727,12 @@ static void mtk_crtc_comp_trigger(struct mtk_drm_crtc *mtk_crtc,
 
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
 		mtk_ddp_comp_config_trigger(comp, cmdq_handle, trig_flag);
+
+	/* aware there might be redudant operation if same comp in dual pipe path */
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j)
+			mtk_ddp_comp_config_trigger(comp, cmdq_handle, trig_flag);
+	}
 }
 
 int mtk_crtc_comp_is_busy(struct mtk_drm_crtc *mtk_crtc)
@@ -5025,6 +5031,8 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 			*inst1 = *inst1 & 0xFFFFFFFF00000000;
 			*inst1 = *inst1 | CMDQ_REG_SHIFT_ADDR(jump_pa1);
 		} else {
+			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
+					      MTK_TRIG_FLAG_PRE_TRIGGER);
 			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
 						   mtk_crtc->gce_obj.base);
 			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
