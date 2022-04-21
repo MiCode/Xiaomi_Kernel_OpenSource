@@ -14387,15 +14387,12 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			/* 0: Unknown, 1: SNK, 2: SRC, 3: DRP, 4: Try.SRC, 5: Try.SNK */
 			tcpc,role_def = <5>;
 			/* 0: Default, 1: 1.5, 2: 3.0 */
-			tcpc,rp_level = <0>;
+			tcpc,rp_level = <1>;
 			/* 0: Never, 1: Always, 2: EMarkOnly, 3: StartOnly */
-			tcpc,vconn_supply  = <1>;
-			/* the number of notifier supply */
-			tcpc,notifier_supply_num = <3>;
+			tcpc,vconn_supply = <1>;
 			io-channels = <&mt6375_adc MT6375_ADC_SBU1>,
 				      <&mt6375_adc MT6375_ADC_SBU2>;
 			charger = <&mt6375_chg>;
-			boot_mode = <&chosen>;
 			tcpc,en_wd;
 			tcpc,en_wd_sbu_polling;
 			tcpc,en_wd_polling_only;
@@ -14413,62 +14410,46 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 			wd,sbu_ph_ubound1_c2c = <3150>;	/* mV */
 			wd,sbu_ph_ubound2_c2c = <3800>;	/* mV */
 			wd,sbu_aud_ubound = <1600>;	/* mV */
-			/* 0:16x, 1:128x, 2:512x, 3:1024x */
-			wd,wd0_tsleep = <1>;
-			/* 0:400us, 1:1ms, 2:2ms, 3:4ms, 4:10ms, 5:40ms, 6:100ms, 7:400ms */
-			wd,wd0_tdet = <3>;
-			/* example wd0_tsleep = 512x, wd0_tdet = 4ms, wd0 polling time = 512*4ms */
 			pd-data {
 				pd,vid = <0x29cf>;
 				pd,pid = <0x6375>;
-				pd,source-cap-ext = <0x637529cf 0x00000000 0x00000000
-						     0x00000000 0x00000000 0x07010000 >;
+				pd,source-cap-ext = /bits/ 8 <0xcf 0x29 0x75 0x63
+							      0x00 0x00 0x00 0x00
+							      0x00 0x00 0x00 0x00
+							      0x00 0x00 0x00 0x00
+							      0x00 0x00 0x00 0x00
+							      0x00 0x00 0x01 0x07
+							      0x00>;
 				pd,mfrs = "RichtekTCPC";
-				/*
-				 * VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
-				 * MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
-				 * MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
-				 */
-				pd,charging_policy= <0x21>;
 
 				/*
-				 * Fixed 5V, 500 mA <0x00019032>
-				 * Fixed 5V, 1A <0x00019064>
-				 * Fixed 5V, 2A <0x000190c8>
-				 * Fixed 5V, 3A <0x0001912c>
-				 * Fixed 9V, 500 mA <0x0002d032>
-				 * Fixed 9V, 1A <0x0002d064>
-				 * Fixed 5V, 1.5A <0x00019096>
-				 * Fixed 9V, 2A <0x0002d0c8>
-				 * Fixed 9V, 3A <0x0002d12c>
-				 * Variable 5-9V, 1A <0x8642d064>
-				 * Variable 5-9V, 2A <0x8642d0c8>
-				 * Variable 5-9V, 3A <0x8642d12c>
-				 * PPS 3V~5.9V, 3A <0xC0761E3C>
+				 *	VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
+				 *	MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
+				 *	MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
 				 */
+				pd,charging_policy = <0x31>;
 
 				pd,source-pdo-size = <1>;
-				pd,source-pdo-data = <0x00019032>;
-				/* 5V, 500 mA */
-				pd,sink-pdo-size = <2>;
-				pd,sink-pdo-data = <0x000190c8 0x000190c8> ;
-				/* 0x0002d0c8 : 9V, 2A<0x04019032 0x04019064> */
+				pd,source-pdo-data = <0x00019096>; /* 5V, 1500 mA */
+				pd,sink-pdo-size = <1>;
+				pd,sink-pdo-data = <0x000190c8>;
 
 				/*
 				 * No DP, host + device
-				 *	pd,id-vdo-size = <3>;
-				 *	pd,id-vdo-data =
-						<0xd00029cf 0x0 0x00010000>;
+				 *	pd,id-vdo-size = <6>;
+				 *	pd,id-vdo-data = <0xd14029cf 0x0 0x63750000
+							  0x61000000 0x0 0x41000000>;
 				 * With DP
-				 *	pd,id-vdo-size = <4>;
-				 *	pd,id-vdo-data =
-				 *	<0xec0029cf 0x0 0x00010000 0x11000001>;
+				 *	pd,id-vdo-size = <6>;
+				 *	pd,id-vdo-data = <0xd54029cf 0x0 0x63750000
+							  0x61000000 0x0 0x41000000>;
 				 */
-				pd,id-vdo-size = <4>;
-				pd,id-vdo-data = <0xec0029cf 0x0 0x00010000 0x11000001>;
-				bat,nr = <1>;
-				pd,country_nr = <0>;
 
+				pd,id-vdo-size = <6>;
+				pd,id-vdo-data = <0xd54029cf 0x0 0x63750000
+						  0x61000000 0x0 0x41000000>;
+
+				bat,nr = <1>;
 				bat-info0 {
 					bat,vid = <0x29cf>;
 					bat,pid = <0x6375>;
@@ -14476,7 +14457,6 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					bat,design_cap = <3000>;
 				};
 			};
-
 			dpm_caps {
 				local_dr_power;
 				local_dr_data;
@@ -14511,7 +14491,7 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 				2nd_connection = "dfp_d";
 				signal,dp_v13;
 				//signal,dp_gen2;
-				usbr20_not_used;
+				//usbr20_not_used;
 				typec,receptacle;
 				ufp_d {
 					//pin_assignment,mode_a;
@@ -14521,13 +14501,12 @@ cpuqos_mode,dnth0,dnth1,upth0,upth1";
 					//pin_assignment,mode_e;
 				};
 				dfp_d {
-					/* Only support mode C & D */
 					//pin_assignment,mode_a;
 					//pin_assignment,mode_b;
 					pin_assignment,mode_c;
 					pin_assignment,mode_d;
 					pin_assignment,mode_e;
-					pin_assignment,mode_f;
+					//pin_assignment,mode_f;
 				};
 			};
 		};

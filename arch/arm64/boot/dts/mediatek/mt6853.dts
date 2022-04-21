@@ -1261,11 +1261,9 @@
 			/* 3: Try.SRC, 4: Try.SNK */
 			tcpc,role_def = <4>;
 			/* 0: Default, 1: 1.5, 2: 3.0 */
-			tcpc,rp_level = <0>;
+			tcpc,rp_level = <1>;
 			/* 0: Never, 1: Always, 2: EMarkOnly, 3: StartOnly */
-			tcpc,vconn_supply  = <1>;
-			/* the number of notifier supply */
-			tcpc,notifier_supply_num = <3>;
+			tcpc,vconn_supply = <1>;
 			interrupts = <MT6362_PD_EVT>;
 			interrupt-names = "pd_evt";
 			io-channels = <&mt6362_adc MT6362_ADCCH_PDSBU1DIV4>,
@@ -1287,7 +1285,7 @@
 				 * MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
 				 * MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
 				 */
-				pd,charging_policy= <0x21>;
+				pd,charging_policy = <0x31>;
 				pd,source-pdo-size = <1>;
 				pd,source-pdo-data = <0x00019032>;
 				/* 5V, 500 mA */
@@ -1460,4 +1458,3 @@
 		};
 	};
 };
-
