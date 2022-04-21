@@ -57,7 +57,7 @@
 	/* Pseudo1 for hide percentage */
 	Q_MAX_SYS_VOLTAGE_BAT3 = <(3350)>;
 	/* Pseudo1 for hide percentage */
-	COM_FG_METER_RESISTANCE = <(70)>;
+	COM_FG_METER_RESISTANCE = <(100)>;
 	/* compensate The resistance of PCB */
 	COM_R_FG_VALUE = <(0)>;
 	/* compensate R_sense resistance */
