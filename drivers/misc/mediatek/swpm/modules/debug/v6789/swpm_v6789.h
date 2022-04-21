@@ -298,11 +298,17 @@ struct share_ctrl {
 	unsigned int clear_flag;
 };
 
+struct share_data {
+	unsigned int ddr_opp_freq[NR_DDR_FREQ];
+	unsigned int core_volt_tbl[NR_CORE_VOLT];
+};
+
 struct share_wrap {
 	unsigned int share_index_addr;
 	unsigned int share_ctrl_addr;
 	unsigned int share_index_ext_addr;
 	unsigned int share_ctrl_ext_addr;
+	unsigned int share_data_addr;
 };
 
 struct aphy_core_bw_data {
@@ -370,9 +376,6 @@ struct cpu_swpm_rec_data {
 
 /* mem share memory data structure - 2640/2700 bytes */
 struct mem_swpm_rec_data {
-	/* 2(short) * 9(ddr_opp) = 18 bytes */
-	unsigned short ddr_opp_freq[NR_DDR_FREQ];
-
 	/* 2(short) * 16(sample point) * 9(opp_num) = 288 bytes */
 	struct aphy_others_bw_data aphy_others_bw_tbl[NR_DDR_FREQ];
 
@@ -393,9 +396,6 @@ struct mem_swpm_rec_data {
 
 /* core share memory data structure - 874/1000 bytes */
 struct core_swpm_rec_data {
-	/* 2(short) * 5(core_volt) = 10 bytes */
-	unsigned short core_volt_tbl[NR_CORE_VOLT];
-
 	/* 2(short) * 12(sample point) * 9(opp_num) = 216 bytes */
 	struct aphy_core_bw_data aphy_core_bw_tbl[NR_DDR_FREQ];
 

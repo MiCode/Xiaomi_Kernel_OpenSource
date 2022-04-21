@@ -27,6 +27,7 @@
 #define CORE_SRAM (share_idx_ref_ext->core_idx_ext)
 #define DDR_SRAM (share_idx_ref_ext->mem_idx_ext)
 #define SUSPEND_SRAM (share_idx_ref_ext->suspend)
+#define DATA_SRAM (share_data_ref)
 
 #define OPP_FREQ_TO_DDR(x) \
 	((x == 1066 || x == 1333) ? (x * 2 + 1) : (x * 2))
@@ -37,6 +38,7 @@ static DEFINE_SPINLOCK(swpm_sp_spinlock);
 /* share sram for extension index */
 static struct share_index_ext *share_idx_ref_ext;
 static struct share_ctrl_ext *share_idx_ctrl_ext;
+static struct share_data *share_data_ref;
 
 static unsigned int update_interval_ms = DEFAULT_UPDATE_MS;
 
@@ -57,8 +59,7 @@ static uint64_t total_suspend_us;
 
 /* core ip (cam, img1, img2, ipe, disp venc, vdec, gpu, scp, adsp */
 static char core_ip_str[NR_CORE_IP][MAX_IP_NAME_LENGTH] = {
-	"CAM", "IMG", "ISP", "MMSYS",
-	"VENC", "VDEC", "SCP",
+	"DISP", "VENC", "VDEC", "SCP",
 };
 /* ddr bw ip (total r/total w/cpu/gpu/mm/md) */
 static char ddr_bc_ip_str[NR_DDR_BC_IP][MAX_IP_NAME_LENGTH] = {
@@ -273,6 +274,26 @@ void swpm_v6789_ext_init(void)
 {
 	int i, j;
 
+	/* init extension index address */
+	/* swpm_sp_init(sspm_sbuf_get(wrap_d->share_index_ext_addr), */
+	/*     sspm_sbuf_get(wrap_d->share_ctrl_ext_addr)); */
+
+	if (wrap_d) {
+		share_idx_ref_ext =
+		(struct share_index_ext *)
+		sspm_sbuf_get(wrap_d->share_index_ext_addr);
+		share_idx_ctrl_ext =
+		(struct share_ctrl_ext *)
+		sspm_sbuf_get(wrap_d->share_ctrl_ext_addr);
+		share_data_ref =
+		(struct share_data *)
+		sspm_sbuf_get(wrap_d->share_data_addr);
+	} else {
+		share_idx_ref_ext = NULL;
+		share_idx_ctrl_ext = NULL;
+		share_data_ref = NULL;
+	}
+
 	/* core_ip_stats initialize */
 	for (i = 0; i < NR_CORE_IP; i++) {
 		strncpy(core_ip_stats[i].ip_name,
@@ -280,27 +301,27 @@ void swpm_v6789_ext_init(void)
 		core_ip_stats[i].vol_times =
 		kmalloc(sizeof(struct ip_vol_times) * NR_CORE_VOLT, GFP_KERNEL);
 		if (core_ip_stats[i].vol_times) {
-			for (j = 0; core_ptr && j < NR_CORE_VOLT; j++) {
+			for (j = 0; DATA_SRAM && j < NR_CORE_VOLT; j++) {
 				core_ip_stats[i].vol_times[j].active_time = 0;
 				core_ip_stats[i].vol_times[j].idle_time = 0;
 				core_ip_stats[i].vol_times[j].off_time = 0;
 				core_ip_stats[i].vol_times[j].vol =
-					core_ptr->core_volt_tbl[j];
+					DATA_SRAM->core_volt_tbl[j];
 			}
 		}
 	}
 	/* core duration initialize */
-	for (i = 0; core_ptr && i < NR_CORE_VOLT; i++) {
+	for (i = 0; DATA_SRAM && i < NR_CORE_VOLT; i++) {
 		core_vol_duration[i].duration = 0;
 		core_vol_duration[i].vol =
-			core_ptr->core_volt_tbl[i];
+			DATA_SRAM->core_volt_tbl[i];
 	}
 
 	/* ddr act duration initialize */
-	for (i = 0; mem_ptr && i < NR_DDR_FREQ; i++) {
+	for (i = 0; DATA_SRAM && i < NR_DDR_FREQ; i++) {
 		ddr_act_duration[i].active_time = 0;
 		ddr_act_duration[i].freq =
-		OPP_FREQ_TO_DDR(mem_ptr->ddr_opp_freq[i]);
+			OPP_FREQ_TO_DDR(DATA_SRAM->ddr_opp_freq[i]);
 	}
 	/* ddr sr pd duration initialize */
 	ddr_sr_pd_duration.sr_time = 0;
@@ -313,30 +334,14 @@ void swpm_v6789_ext_init(void)
 		ddr_ip_stats[i].bc_stats =
 		kmalloc(sizeof(struct ddr_bc_stats) * NR_DDR_FREQ, GFP_KERNEL);
 		if (ddr_ip_stats[i].bc_stats) {
-			for (j = 0; mem_ptr && j < NR_DDR_FREQ; j++) {
+			for (j = 0; DATA_SRAM && j < NR_DDR_FREQ; j++) {
 				ddr_ip_stats[i].bc_stats[j].value = 0;
 				ddr_ip_stats[i].bc_stats[j].freq =
-				OPP_FREQ_TO_DDR(mem_ptr->ddr_opp_freq[j]);
+				OPP_FREQ_TO_DDR(DATA_SRAM->ddr_opp_freq[j]);
 			}
 		}
 	}
 	total_suspend_us = 0;
-
-	/* init extension index address */
-	/* swpm_sp_init(sspm_sbuf_get(wrap_d->share_index_ext_addr), */
-	/*     sspm_sbuf_get(wrap_d->share_ctrl_ext_addr)); */
-
-	if (wrap_d) {
-		share_idx_ref_ext =
-		(struct share_index_ext *)
-		sspm_sbuf_get(wrap_d->share_index_ext_addr);
-		share_idx_ctrl_ext =
-		(struct share_ctrl_ext *)
-		sspm_sbuf_get(wrap_d->share_ctrl_ext_addr);
-	} else {
-		share_idx_ref_ext = NULL;
-		share_idx_ctrl_ext = NULL;
-	}
 
 #if SWPM_TEST
 	pr_notice("share_index_ext size = %zu bytes\n",

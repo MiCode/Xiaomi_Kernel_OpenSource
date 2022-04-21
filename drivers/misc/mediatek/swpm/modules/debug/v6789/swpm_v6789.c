@@ -76,6 +76,8 @@ static unsigned int swpm_log_mask = DEFAULT_LOG_MASK;
 /* share sram for average power index */
 static struct share_index *share_idx_ref;
 static struct share_ctrl *share_idx_ctrl;
+/* share sram for common used data */
+static struct share_data *share_data_ref;
 /* type of unsigned int pointer for share_index iterator */
 static unsigned int *idx_ref_uint_ptr;
 /* numbers of unsigned int output to LTR with iterator */
@@ -105,12 +107,6 @@ static unsigned int core_static;
 static unsigned int core_static_replaced;
 static unsigned short core_static_rt[NR_CORE_STATIC_TYPE] = {
 	2170, 3804, 3931, 4335, 10544, 11673, 11788, 13976, 17134, 20646
-};
-static unsigned short core_volt_tbl[NR_CORE_VOLT] = {
-	550, 600, 650, 725,
-};
-static unsigned short ddr_opp_freq[NR_DDR_FREQ] = {
-	400, 600, 800, 933, 1200, 1600, 2133,
 };
 static unsigned short dram_pwr_sample[NR_DRAM_PWR_SAMPLE] = {
 	1600, 1600, 1600,
@@ -593,6 +589,8 @@ static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 		sspm_sbuf_get(wrap_d->share_index_addr);
 	share_idx_ctrl = (struct share_ctrl *)
 		sspm_sbuf_get(wrap_d->share_ctrl_addr);
+	share_data_ref = (struct share_data *)
+		sspm_sbuf_get(wrap_d->share_data_addr);
 
 	/* init unsigned int ptr for share index iterator */
 	idx_ref_uint_ptr = (unsigned int *)share_idx_ref;
@@ -619,6 +617,7 @@ error:
 	swpm_init_state = 0;
 	share_idx_ref = NULL;
 	share_idx_ctrl = NULL;
+	share_data_ref = NULL;
 	idx_ref_uint_ptr = NULL;
 	idx_output_size = 0;
 }
@@ -801,12 +800,13 @@ static void swpm_core_static_data_init(void)
 		static_p : core_static_replaced;
 
 	/* static power unit mA with voltage scaling */
-	for (i = 0; i < NR_CORE_VOLT; i++) {
-		scaled_p = static_p * core_volt_tbl[i] / V_OF_CORE_STATIC;
+	for (i = 0; share_data_ref && i < NR_CORE_VOLT; i++) {
+		scaled_p = static_p *
+			share_data_ref->core_volt_tbl[i] / V_OF_CORE_STATIC;
 		for (j = 0; j < NR_CORE_STATIC_TYPE; j++) {
 			/* calc static ratio and transfer unit to uA */
 			core_ptr->core_static_pwr[i][j] =
-				scaled_p * core_static_rt[j] / CORE_STATIC_RT_RES;
+			scaled_p * core_static_rt[j] / CORE_STATIC_RT_RES;
 		}
 	}
 }
@@ -816,19 +816,15 @@ static void swpm_core_pwr_data_init(void)
 	if (!core_ptr)
 		return;
 
-	/* copy core volt data */
-	memcpy(core_ptr->core_volt_tbl, core_volt_tbl,
-	       sizeof(core_volt_tbl));
 	/* copy aphy core pwr data */
 	memcpy(core_ptr->aphy_core_bw_tbl, aphy_ref_core_bw_tbl,
 	       sizeof(aphy_ref_core_bw_tbl));
 	memcpy(core_ptr->aphy_core_pwr_tbl, aphy_def_core_pwr_tbl,
 	       sizeof(aphy_def_core_pwr_tbl));
 
-	pr_notice("aphy core_bw[%ld]/core[%ld]/core_volt[%ld]\n",
+	pr_notice("aphy core_bw[%ld]/core[%ld]\n",
 		  (unsigned long)sizeof(aphy_ref_core_bw_tbl),
-		  (unsigned long)sizeof(aphy_def_core_pwr_tbl),
-		  (unsigned long)sizeof(core_volt_tbl));
+		  (unsigned long)sizeof(aphy_def_core_pwr_tbl));
 }
 
 static void swpm_mem_pwr_data_init(void)
@@ -846,8 +842,6 @@ static void swpm_mem_pwr_data_init(void)
 	       sizeof(dram_pwr_sample));
 	memcpy(mem_ptr->dram_conf, dram_def_pwr_conf,
 	       sizeof(dram_def_pwr_conf));
-	memcpy(mem_ptr->ddr_opp_freq, ddr_opp_freq,
-	       sizeof(ddr_opp_freq));
 }
 
 static void swpm_me_pwr_data_init(void)
@@ -1147,6 +1141,9 @@ int swpm_v6789_init(void)
 	}
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+	if (!swpm_init_state)
+		swpm_pass_to_sspm();
+
 	ret |= swpm_reserve_mem_init(&rec_virt_addr, &rec_size);
 #endif
 
@@ -1164,11 +1161,6 @@ int swpm_v6789_init(void)
 		if (!swpm_init_retry_work_queue)
 			pr_debug("swpm_init_retry workqueue create failed\n");
 	}
-
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-	if (!swpm_init_state)
-		swpm_pass_to_sspm();
-#endif
 
 #if SWPM_TEST
 	swpm_interface_unit_test();

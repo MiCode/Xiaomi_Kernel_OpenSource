@@ -18,19 +18,16 @@ enum pmsr_power_state {
 };
 /* #define NR_POWER_STATE (3) */
 
-/* core ip (cam, img, isp, mmsys, venc, vdec, scp */
+/* core ip (disp, venc, vdec, scp) */
 enum core_ip_state {
-	CORE_IP_CAM,
-	CORE_IP_IMG,
-	CORE_IP_ISP,
-	CORE_IP_MMSYS,
+	CORE_IP_DISP,
 	CORE_IP_VENC,
 	CORE_IP_VDEC,
 	CORE_IP_SCP,
 
 	NR_CORE_IP,
 };
-/* #define NR_CORE_IP (8) */
+/* #define NR_CORE_IP (4) */
 
 /* ddr byte count ip (total read, total write, cpu, mm, gpu, others) */
 enum ddr_bc_ip {
