@@ -805,9 +805,9 @@ static const struct mtk_mux top_muxes[] = {
 		audio_parents, CLK_CFG_3, CLK_CFG_3_SET, CLK_CFG_3_CLR,
 		24, 2, 31, CLK_CFG_UPDATE, 15),
 	/* CLK_CFG_4 */
-	MUX_GATE_CLR_SET_UPD(CLK_TOP_AUD_INTBUS_SEL, "aud_intbus_sel",
+	MUX_GATE_CLR_SET_UPD_FLAGS(CLK_TOP_AUD_INTBUS_SEL, "aud_intbus_sel",
 		aud_intbus_parents, CLK_CFG_4, CLK_CFG_4_SET, CLK_CFG_4_CLR,
-		0, 2, 7, CLK_CFG_UPDATE, 16),
+		0, 2, 7, CLK_CFG_UPDATE, 16, CLK_IS_CRITICAL),
 	MUX_GATE_CLR_SET_UPD(CLK_TOP_AUD_1_SEL, "aud_1_sel",
 		aud_1_parents, CLK_CFG_4, CLK_CFG_4_SET, CLK_CFG_4_CLR,
 		8, 1, 15, CLK_CFG_UPDATE, 17),
@@ -999,6 +999,17 @@ static const struct mtk_gate_regs ifr5_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
+
+#define GATE_IFR3_AO(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &ifr3_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr,	\
+		.flags = CLK_IS_CRITICAL,		\
+	}
+
 #define GATE_IFR4(_id, _name, _parent, _shift) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -1006,6 +1017,16 @@ static const struct mtk_gate_regs ifr5_cg_regs = {
 		.regs = &ifr4_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+	}
+
+#define GATE_IFR4_AO(_id, _name, _parent, _shift) {	\
+		.id = _id,				\
+		.name = _name,				\
+		.parent_name = _parent,			\
+		.regs = &ifr4_cg_regs,			\
+		.shift = _shift,			\
+		.ops = &mtk_clk_gate_ops_setclr,	\
+		.flags = CLK_IS_CRITICAL,		\
 	}
 
 #define GATE_IFR5(_id, _name, _parent, _shift) {	\
@@ -1054,13 +1075,13 @@ static const struct mtk_gate ifr_clks[] = {
 	GATE_IFR3(CLK_IFR_AP_DMA, "ifr_ap_dma", "axi_ck", 18),
 	GATE_IFR3(CLK_IFR_DEVICE_APC, "ifr_dapc", "axi_ck", 20),
 	GATE_IFR3(CLK_IFR_CCIF_AP, "ifr_ccif_ap", "axi_ck", 23),
-	GATE_IFR3(CLK_IFR_AUDIO, "ifr_audio", "axi_ck", 25),
+	GATE_IFR3_AO(CLK_IFR_AUDIO, "ifr_audio", "axi_ck", 25),
 	GATE_IFR3(CLK_IFR_CCIF_MD, "ifr_ccif_md", "axi_ck", 26),
 	/* INFRA mode 2 */
 	GATE_IFR4(CLK_IFR_RG_PWM_FBCLK6, "ifr_pwmfb", "f_f26m_ck", 0),
 	GATE_IFR4(CLK_IFR_DISP_PWM, "ifr_disp_pwm", "f_fdisp_pwm_ck", 2),
 	GATE_IFR4(CLK_IFR_CLDMA_BCLK, "ifr_cldmabclk", "axi_ck", 3),
-	GATE_IFR4(CLK_IFR_AUDIO_26M_BCLK, "ifr_audio26m", "f_f26m_ck", 4),
+	GATE_IFR4_AO(CLK_IFR_AUDIO_26M_BCLK, "ifr_audio26m", "f_f26m_ck", 4),
 	GATE_IFR4(CLK_IFR_SPI1, "ifr_spi1", "spi_ck", 6),
 	GATE_IFR4(CLK_IFR_I2C4, "ifr_i2c4", "i2c_ck", 7),
 	GATE_IFR4(CLK_IFR_SPI2, "ifr_spi2", "spi_ck", 9),
