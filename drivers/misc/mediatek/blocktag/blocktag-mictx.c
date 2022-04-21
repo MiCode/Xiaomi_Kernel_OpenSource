@@ -56,7 +56,7 @@ void mtk_btag_mictx_check_window(struct mtk_btag_mictx_id mictx_id)
 
 void mtk_btag_mictx_eval_tp(
 	struct mtk_blocktag *btag,
-	unsigned int write, __u64 usage, __u32 size)
+	bool write, __u64 usage, __u32 size)
 {
 	struct mtk_btag_mictx_struct *mictx, *n;
 	struct mtk_btag_throughput_rw *tprw;
@@ -81,7 +81,7 @@ void mtk_btag_mictx_eval_tp(
 
 void mtk_btag_mictx_eval_req(
 	struct mtk_blocktag *btag,
-	unsigned int write, __u32 cnt, __u32 size, bool top)
+	bool write, __u32 cnt, __u32 size, bool top)
 {
 	struct mtk_btag_mictx_struct *mictx, *n;
 	struct mtk_btag_req_rw *reqrw;
@@ -102,7 +102,7 @@ void mtk_btag_mictx_eval_req(
 }
 
 void mtk_btag_mictx_accumulate_weight_qd(
-	struct mtk_blocktag *btag, u64 t_begin, u64 t_cur)
+	struct mtk_blocktag *btag, __u64 t_begin, __u64 t_cur)
 {
 	struct mtk_btag_mictx_struct *mictx, *n;
 	unsigned long flags;
@@ -116,7 +116,7 @@ void mtk_btag_mictx_accumulate_weight_qd(
 }
 
 void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth,
-			   __u64 sum_of_start)
+			   __u64 sum_of_inflight_start)
 {
 	struct mtk_btag_mictx_struct *mictx, *n;
 	unsigned long flags;
@@ -124,7 +124,7 @@ void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth,
 
 	spin_lock_irqsave(&btag->mictx.list_lock, flags);
 	list_for_each_entry_safe(mictx, n, &btag->mictx.list, list) {
-		mictx->sum_of_start = sum_of_start;
+		mictx->sum_of_inflight_start = sum_of_inflight_start;
 		mictx->q_depth = q_depth;
 
 		if (!mictx->q_depth) {
@@ -247,9 +247,9 @@ int mtk_btag_mictx_get_data(
 	iostat->top = top;
 
 	/* fill-in cmdq depth */
-	if (btag->vops->mictx_eval_qd) {
+	if (btag->vops->mictx_eval_wqd) {
 		iostat->q_depth =
-			btag->vops->mictx_eval_qd(&tmp_mictx, time_cur);
+			btag->vops->mictx_eval_wqd(&tmp_mictx, time_cur);
 	} else
 		iostat->q_depth = tmp_mictx.q_depth;
 
@@ -319,7 +319,7 @@ void mtk_btag_mictx_free_btag(struct mtk_blocktag *btag)
 	spin_unlock_irqrestore(&btag->mictx.list_lock, flags);
 }
 
-void mtk_btag_mictx_enable(struct mtk_btag_mictx_id *mictx_id, int enable)
+void mtk_btag_mictx_enable(struct mtk_btag_mictx_id *mictx_id, bool enable)
 {
 	if (enable)
 		mictx_id->id = mtk_btag_mictx_alloc(mictx_id->storage);

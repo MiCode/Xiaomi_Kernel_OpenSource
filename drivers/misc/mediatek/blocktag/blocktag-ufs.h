@@ -22,27 +22,21 @@ enum {
 };
 
 struct ufs_mtk_bio_context_task {
-	__u32 qid;
 	__u16 cmd;
 	__u16 len;
 	__u32 lba;
-	uint64_t t[tsk_max];
+	__u64 t[tsk_max];
 };
 
 /* Context of Request Queue */
 struct ufs_mtk_bio_context {
-	int id;
-	int state;
-	pid_t pid;
-	__u16 qid;
-	__u16 q_depth;
-	__u16 q_depth_top;
 	spinlock_t lock;
-	uint64_t busy_start_t;
-	uint64_t period_start_t;
-	uint64_t period_end_t;
-	uint64_t period_usage;
-	__u64 sum_of_start;
+	__u64 busy_start_t;
+	__u64 period_start_t;
+	__u64 period_end_t;
+	__u64 period_usage;
+	__u64 sum_of_inflight_start;
+	__u16 q_depth;
 	struct ufs_mtk_bio_context_task task[UFS_BIOLOG_CONTEXT_TASKS];
 	struct mtk_btag_workload workload;
 	struct mtk_btag_throughput throughput;

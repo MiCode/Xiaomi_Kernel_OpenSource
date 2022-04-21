@@ -424,6 +424,20 @@ void mtk_fscmd_show(char **buff, unsigned long *size,
 	spin_unlock_irqrestore(&ghis_spinlock, flags);
 }
 
+size_t mtk_fscmd_used_mem(void)
+{
+	size_t used_mem = 0;
+	int i;
+
+	used_mem += sizeof(ghistory_log);
+	for (i = 0; i < LOG_TYPE_ENTRY; i++)
+		if (ghistory_log[i].trace)
+			used_mem += (ghistory_log[i].max_count *
+				     sizeof(struct fscmd_log_s));
+
+	return used_mem;
+}
+
 int mtk_fscmd_init(void)
 {
 	return ghistory_struct_init();

@@ -144,8 +144,8 @@ static size_t mtk_btag_seq_pidlog_usedmem(char **buff, unsigned long *size,
 	return size_l;
 }
 
-void mtk_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, pid_t pid,
-	__u32 len, int write)
+void mtk_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, __s16 pid,
+			    __u32 len, bool write)
 {
 	int i;
 	struct mtk_btag_pidlogger_entry *pe;
@@ -176,20 +176,19 @@ static int mtk_btag_get_storage_type(struct bio *bio)
 }
 
 static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
-	short pid, __u32 len, bool is_sd)
+	__s16 pid, __u32 len, bool is_sd)
 {
 	int type;
+	bool write = (bio_data_dir(bio) == WRITE) ? true : false;
 
 	type = mtk_btag_get_storage_type(bio);
 
 	if (pid) {
 		if (type == BTAG_STORAGE_UFS) {
-			mtk_btag_pidlog_add_ufs(q, pid, len,
-						bio_data_dir(bio));
+			mtk_btag_pidlog_add_ufs(q, pid, len, write);
 			return;
 		} else if (type == BTAG_STORAGE_MMC) {
-			mtk_btag_pidlog_add_mmc(q, pid, len,
-						bio_data_dir(bio), is_sd);
+			mtk_btag_pidlog_add_mmc(q, pid, len, write, is_sd);
 			return;
 		}
 	}
@@ -203,7 +202,7 @@ static void mtk_btag_pidlog_commit_bio(struct request_queue *q, struct bio *bio,
 	struct bio_vec *bvec, bool is_sd)
 {
 	struct page_pid_logger *ppl;
-	unsigned long idx;
+	__u32 idx;
 
 	idx = mtk_btag_pidlog_index(bvec->bv_page);
 	ppl = mtk_btag_pidlog_entry(idx);
@@ -277,7 +276,7 @@ void mtk_btag_pidlog_eval(struct mtk_btag_pidlogger *pl,
 
 static __u64 mtk_btag_cpu_idle_time(int cpu)
 {
-	u64 idle, idle_usecs = -1ULL;
+	__u64 idle, idle_usecs = -1ULL;
 
 	if (cpu_online(cpu))
 		idle_usecs = get_cpu_idle_time_us(cpu, NULL);
@@ -394,9 +393,9 @@ static void mtk_btag_clear_trace(struct mtk_btag_ringtrace *rt)
 }
 
 static void mtk_btag_seq_time(char **buff, unsigned long *size,
-	struct seq_file *seq, uint64_t time)
+	struct seq_file *seq, __u64 time)
 {
-	uint32_t nsec;
+	__u32 nsec;
 
 	nsec = do_div(time, 1000000000);
 	SPREAD_PRINTF(buff, size, seq, "[%5lu.%06lu]", (unsigned long)time,
@@ -678,6 +677,18 @@ static void mtk_btag_seq_main_info(char **buff, unsigned long *size,
 	SPREAD_PRINTF(buff, size, seq, "<blocktag core>\n");
 	used_mem += mtk_btag_seq_pidlog_usedmem(buff, size, seq);
 
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
+	SPREAD_PRINTF(buff, size, seq, "blk pm log: %d bytes\n",
+			sizeof(struct blk_pm_logs_s));
+	used_mem += sizeof(struct blk_pm_logs_s);
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_FSCMD_TRACER)
+	SPREAD_PRINTF(buff, size, seq, "fscmd history: %d bytes\n",
+			mtk_fscmd_used_mem());
+	used_mem += mtk_fscmd_used_mem();
+#endif
+
 	SPREAD_PRINTF(buff, size, seq, "aee buffer: %d bytes\n",
 			BLOCKIO_AEE_BUFFER_SIZE);
 	used_mem += BLOCKIO_AEE_BUFFER_SIZE;
@@ -733,7 +744,7 @@ static const struct proc_ops mtk_btag_main_fops = {
 
 struct mtk_blocktag *mtk_btag_alloc(const char *name,
 	enum mtk_btag_storage_type storage_type,
-	unsigned int ringtrace_count, size_t ctx_size, unsigned int ctx_count,
+	__u32 ringtrace_count, size_t ctx_size, __u32 ctx_count,
 	struct mtk_btag_vops *vops)
 {
 	struct mtk_blocktag *btag;
@@ -837,7 +848,7 @@ static bool mtk_btag_is_top_in_cgrp(struct task_struct *t)
 		return false;
 }
 
-static bool mtk_btag_is_top_task(struct task_struct *task, int mode, unsigned long page_idx)
+static bool mtk_btag_is_top_task(struct task_struct *task, int mode)
 {
 	struct task_struct *t_tgid = NULL;
 
@@ -859,8 +870,7 @@ static bool mtk_btag_is_top_task(struct task_struct *task, int mode, unsigned lo
 
 #else
 static inline bool mtk_btag_is_top_task(struct task_struct *task,
-					int mode,
-					unsigned long page_idx)
+					int mode)
 {
 	return false;
 }
@@ -879,7 +889,7 @@ static void mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
 	ppl = mtk_btag_pidlog_entry(idx);
 
 	/* Using negative pid for taks with "TOP_APP" schedtune cgroup */
-	top = mtk_btag_is_top_task(current, mode, idx);
+	top = mtk_btag_is_top_task(current, mode);
 	pid = (top) ? -pid : pid;
 
 	/* we do lockless operation here to favor performance */

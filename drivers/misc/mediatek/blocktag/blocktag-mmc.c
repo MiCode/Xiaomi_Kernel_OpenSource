@@ -21,7 +21,7 @@
 struct mtk_blocktag *mmc_mtk_btag;
 
 static struct mmc_mtk_bio_context_task *mmc_mtk_bio_get_task(
-	struct mmc_mtk_bio_context *ctx, unsigned int task_id)
+	struct mmc_mtk_bio_context *ctx, int task_id)
 {
 	struct mmc_mtk_bio_context_task *tsk = NULL;
 
@@ -50,7 +50,7 @@ static struct mmc_mtk_bio_context *mmc_mtk_bio_curr_ctx(bool is_sd)
 }
 
 static struct mmc_mtk_bio_context_task *mmc_mtk_bio_curr_task(
-	unsigned int task_id, struct mmc_mtk_bio_context **curr_ctx, bool is_sd)
+	int task_id, struct mmc_mtk_bio_context **curr_ctx, bool is_sd)
 {
 	struct mmc_mtk_bio_context *ctx;
 
@@ -60,8 +60,8 @@ static struct mmc_mtk_bio_context_task *mmc_mtk_bio_curr_task(
 	return mmc_mtk_bio_get_task(ctx, task_id);
 }
 
-int mtk_btag_pidlog_add_mmc(struct request_queue *q, short pid,
-	__u32 len, int rw, bool is_sd)
+int mtk_btag_pidlog_add_mmc(struct request_queue *q, __s16 pid,
+	__u32 len, bool write, bool is_sd)
 {
 	unsigned long flags;
 	struct mmc_mtk_bio_context *ctx;
@@ -71,8 +71,8 @@ int mtk_btag_pidlog_add_mmc(struct request_queue *q, short pid,
 		return 0;
 
 	spin_lock_irqsave(&ctx->lock, flags);
-	mtk_btag_pidlog_insert(&ctx->pidlog, abs(pid), len, rw);
-	mtk_btag_mictx_eval_req(mmc_mtk_btag, rw, len >> 12, len,
+	mtk_btag_pidlog_insert(&ctx->pidlog, abs(pid), len, write);
+	mtk_btag_mictx_eval_req(mmc_mtk_btag, write, len >> 12, len,
 				pid < 0 ? true : false);
 	spin_unlock_irqrestore(&ctx->lock, flags);
 
@@ -80,8 +80,7 @@ int mtk_btag_pidlog_add_mmc(struct request_queue *q, short pid,
 }
 EXPORT_SYMBOL_GPL(mtk_btag_pidlog_add_mmc);
 
-void mmc_mtk_biolog_send_command(unsigned int task_id,
-				 struct mmc_request *mrq)
+void mmc_mtk_biolog_send_command(int task_id, struct mmc_request *mrq)
 {
 	struct mmc_queue_req *mqrq;
 	struct request *req;
@@ -152,13 +151,13 @@ void mmc_mtk_biolog_send_command(unsigned int task_id,
 EXPORT_SYMBOL_GPL(mmc_mtk_biolog_send_command);
 
 void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
-	unsigned int task_id, unsigned long req_mask)
+	int task_id, unsigned long req_mask)
 {
 	struct mmc_mtk_bio_context *ctx;
 	struct mmc_mtk_bio_context_task *tsk;
 	struct mtk_btag_throughput_rw *tp = NULL;
 	unsigned long flags;
-	int rw = -1;
+	bool write;
 	__u64 busy_time;
 	__u32 size;
 	bool is_sd;
@@ -183,10 +182,10 @@ void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
 	tsk->t[tsk_req_compl] = sched_clock();
 
 	if (tsk->dir) {
-		rw = 0; /* READ */
+		write = false;
 		tp = &ctx->throughput.r;
 	} else {
-		rw = 1; /* WRITE */
+		write = true;
 		tp = &ctx->throughput.w;
 	}
 
@@ -200,7 +199,7 @@ void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
 		size = tsk->len;
 		tp->usage += busy_time;
 		tp->size += size;
-		mtk_btag_mictx_eval_tp(mmc_mtk_btag, rw, busy_time,
+		mtk_btag_mictx_eval_tp(mmc_mtk_btag, write, busy_time,
 				       size);
 	}
 

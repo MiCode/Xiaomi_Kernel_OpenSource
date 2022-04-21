@@ -28,18 +28,18 @@
 /* ring trace for debugfs */
 struct mtk_blocktag *ufs_mtk_btag;
 
-static inline uint16_t chbe16_to_u16(const char *str)
+static inline __u16 chbe16_to_u16(const char *str)
 {
-	uint16_t ret;
+	__u16 ret;
 
 	ret = str[0];
 	ret = ret << 8 | str[1];
 	return ret;
 }
 
-static inline uint32_t chbe32_to_u32(const char *str)
+static inline __u32 chbe32_to_u32(const char *str)
 {
-	uint32_t ret;
+	__u32 ret;
 
 	ret = str[0];
 	ret = ret << 8 | str[1];
@@ -53,7 +53,7 @@ static inline uint32_t chbe32_to_u32(const char *str)
 #define scsi_cmnd_cmd(cmd)  (cmd->cmnd[0])
 
 static struct ufs_mtk_bio_context_task *ufs_mtk_bio_get_task(
-	struct ufs_mtk_bio_context *ctx, unsigned int task_id)
+	struct ufs_mtk_bio_context *ctx, int task_id)
 {
 	struct ufs_mtk_bio_context_task *tsk = NULL;
 
@@ -79,8 +79,7 @@ static struct ufs_mtk_bio_context *ufs_mtk_bio_curr_ctx(void)
 }
 
 static struct ufs_mtk_bio_context_task *ufs_mtk_bio_curr_task(
-	unsigned int task_id,
-	struct ufs_mtk_bio_context **curr_ctx)
+	int task_id, struct ufs_mtk_bio_context **curr_ctx)
 {
 	struct ufs_mtk_bio_context *ctx;
 
@@ -90,8 +89,8 @@ static struct ufs_mtk_bio_context_task *ufs_mtk_bio_curr_task(
 	return ufs_mtk_bio_get_task(ctx, task_id);
 }
 
-int mtk_btag_pidlog_add_ufs(struct request_queue *q, short pid,
-	__u32 len, int rw)
+int mtk_btag_pidlog_add_ufs(struct request_queue *q, __s16 pid,
+	__u32 len, bool write)
 {
 	unsigned long flags;
 	struct ufs_mtk_bio_context *ctx;
@@ -101,8 +100,8 @@ int mtk_btag_pidlog_add_ufs(struct request_queue *q, short pid,
 		return 0;
 
 	spin_lock_irqsave(&ctx->lock, flags);
-	mtk_btag_pidlog_insert(&ctx->pidlog, abs(pid), len, rw);
-	mtk_btag_mictx_eval_req(ufs_mtk_btag, rw, len >> 12, len,
+	mtk_btag_pidlog_insert(&ctx->pidlog, abs(pid), len, write);
+	mtk_btag_mictx_eval_req(ufs_mtk_btag, write, len >> 12, len,
 				pid < 0 ? true : false);
 	spin_unlock_irqrestore(&ctx->lock, flags);
 
@@ -117,8 +116,7 @@ void ufs_mtk_biolog_clk_gating(bool clk_on)
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_biolog_clk_gating);
 
-void ufs_mtk_biolog_send_command(unsigned int task_id,
-				 struct scsi_cmnd *cmd)
+void ufs_mtk_biolog_send_command(int task_id, struct scsi_cmnd *cmd)
 {
 	unsigned long flags;
 	struct ufs_mtk_bio_context *ctx;
@@ -143,36 +141,36 @@ void ufs_mtk_biolog_send_command(unsigned int task_id,
 	tsk->t[tsk_send_cmd] = sched_clock();
 	tsk->t[tsk_req_compl] = 0;
 
-	ctx->sum_of_start += tsk->t[tsk_send_cmd];
+	ctx->sum_of_inflight_start += tsk->t[tsk_send_cmd];
 	if (!ctx->period_start_t)
 		ctx->period_start_t = tsk->t[tsk_send_cmd];
 
 	ctx->q_depth++;
 	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth,
-			      ctx->sum_of_start);
+			      ctx->sum_of_inflight_start);
 
 	spin_unlock_irqrestore(&ctx->lock, flags);
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_biolog_send_command);
 
-__u16 ufs_mtk_bio_mictx_eval_qd(struct mtk_btag_mictx_struct *mictx,
+__u16 ufs_mtk_bio_mictx_eval_wqd(struct mtk_btag_mictx_struct *mictx,
 			       u64 t_cur)
 {
 	__u64 compl = mictx->weighted_qd;
-	__u64 inflight = t_cur * mictx->q_depth - mictx->sum_of_start;
+	__u64 inflight = t_cur * mictx->q_depth - mictx->sum_of_inflight_start;
 	__u64 dur = t_cur - mictx->window_begin;
 
 	return DIV64_U64_ROUND_UP(compl + inflight, dur);
 }
 
-void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id,
+void ufs_mtk_biolog_transfer_req_compl(int task_id,
 				       unsigned long req_mask)
 {
 	struct ufs_mtk_bio_context *ctx;
 	struct ufs_mtk_bio_context_task *tsk;
 	struct mtk_btag_throughput_rw *tp = NULL;
 	unsigned long flags;
-	int rw = -1;
+	bool write;
 	__u64 busy_time;
 	__u32 size;
 
@@ -190,11 +188,11 @@ void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id,
 
 	if (tsk->cmd == READ_6 || tsk->cmd == READ_10 ||
 	    tsk->cmd == READ_16) {
-		rw = 0; /* READ */
+		write = false;
 		tp = &ctx->throughput.r;
 	} else if (tsk->cmd == WRITE_6 || tsk->cmd == WRITE_10 ||
 		   tsk->cmd == WRITE_16) {
-		rw = 1; /* WRITE */
+		write = true;
 		tp = &ctx->throughput.w;
 	}
 
@@ -208,16 +206,16 @@ void ufs_mtk_biolog_transfer_req_compl(unsigned int task_id,
 		size = tsk->len << SECTOR_SHIFT;
 		tp->usage += busy_time;
 		tp->size += size;
-		mtk_btag_mictx_eval_tp(ufs_mtk_btag, rw, busy_time,
+		mtk_btag_mictx_eval_tp(ufs_mtk_btag, write, busy_time,
 				       size);
 	}
 
-	ctx->sum_of_start -= tsk->t[tsk_send_cmd];
+	ctx->sum_of_inflight_start -= tsk->t[tsk_send_cmd];
 	if (!req_mask)
 		ctx->q_depth = 0;
 	else
 		ctx->q_depth--;
-	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth, ctx->sum_of_start);
+	mtk_btag_mictx_update(ufs_mtk_btag, ctx->q_depth, ctx->sum_of_inflight_start);
 	mtk_btag_mictx_accumulate_weight_qd(ufs_mtk_btag, tsk->t[tsk_send_cmd],
 					    tsk->t[tsk_req_compl]);
 
@@ -231,7 +229,7 @@ EXPORT_SYMBOL_GPL(ufs_mtk_biolog_transfer_req_compl);
 /* evaluate throughput and workload of given context */
 static void ufs_mtk_bio_context_eval(struct ufs_mtk_bio_context *ctx)
 {
-	uint64_t period;
+	__u64 period;
 
 	ctx->workload.usage = ctx->period_usage;
 
@@ -264,8 +262,8 @@ static struct mtk_btag_trace *ufs_mtk_bio_print_trace(
 		goto out;
 
 	memset(tr, 0, sizeof(struct mtk_btag_trace));
-	tr->pid = ctx->pid;
-	tr->qid = ctx->qid;
+	tr->pid = 0;
+	tr->qid = 0;
 	mtk_btag_pidlog_eval(&tr->pidlog, &ctx->pidlog);
 	mtk_btag_vmstat_eval(&tr->vmstat);
 	mtk_btag_cpu_eval(&tr->cpu);
@@ -357,23 +355,6 @@ do { \
 static size_t ufs_mtk_bio_seq_debug_show_info(char **buff, unsigned long *size,
 	struct seq_file *seq)
 {
-	int i;
-	struct ufs_mtk_bio_context *ctx = BTAG_CTX(ufs_mtk_btag);
-
-	if (!ctx)
-		return 0;
-
-	for (i = 0; i < UFS_BIOLOG_CONTEXTS; i++)	{
-		if (ctx[i].pid == 0)
-			continue;
-		SPREAD_PRINTF(buff, size, seq,
-			"ctx[%d]=ctx_map[%d],pid:%4d,q:%d\n",
-			i,
-			ctx[i].id,
-			ctx[i].pid,
-			ctx[i].qid);
-	}
-
 	return 0;
 }
 
@@ -386,7 +367,7 @@ static void ufs_mtk_bio_init_ctx(struct ufs_mtk_bio_context *ctx)
 
 static struct mtk_btag_vops ufs_mtk_btag_vops = {
 	.seq_show       = ufs_mtk_bio_seq_debug_show_info,
-	.mictx_eval_qd = ufs_mtk_bio_mictx_eval_qd,
+	.mictx_eval_wqd = ufs_mtk_bio_mictx_eval_wqd,
 };
 
 int ufs_mtk_biolog_init(bool qos_allowed, bool boot_device)

@@ -37,5 +37,7 @@ void fscmd_trace_f2fs_gc_end(void *data,
 void mtk_fscmd_show(char **buff, unsigned long *size,
 	struct seq_file *seq);
 
+size_t mtk_fscmd_used_mem(void);
+
 int mtk_fscmd_init(void);
 #endif //_FSCMD_F2FS_SYNC_FS_H

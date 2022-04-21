@@ -36,7 +36,7 @@ struct mmc_mtk_bio_context_task {
 	__u32 dir;
 	__u32 len;
 	__u32 lba;
-	uint64_t t[tsk_max];
+	__u64 t[tsk_max];
 };
 
 struct tag_bootmode {

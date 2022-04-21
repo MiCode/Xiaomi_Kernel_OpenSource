@@ -363,7 +363,7 @@ void mtk_btag_earaio_check_pwd(void)
 		mtk_btag_earaio_boost(true);
 }
 
-void mtk_btag_earaio_update_pwd(unsigned int write, __u32 size)
+void mtk_btag_earaio_update_pwd(bool write, __u32 size)
 {
 	unsigned long flags;
 

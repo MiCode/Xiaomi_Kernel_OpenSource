@@ -33,7 +33,7 @@
 #define BTAG_CTX(btag)    (btag ? btag->ctx.priv : NULL)
 
 struct page_pid_logger {
-	short pid;
+	__s16 pid;
 };
 
 #if IS_ENABLED(CONFIG_MTK_USE_RESERVED_EXT_MEM)
@@ -53,7 +53,7 @@ enum mtk_btag_storage_type {
 
 struct mtk_btag_mictx_id {
 	enum mtk_btag_storage_type storage;
-	int id;
+	__s8 id;
 };
 
 struct mtk_btag_workload {
@@ -112,8 +112,7 @@ struct mtk_btag_mictx_iostat_struct {
  * other performance analysis tools.
  */
 struct mtk_btag_mictx_struct {
-	int id;
-
+	struct list_head list;
 	struct mtk_btag_throughput tp;
 	struct mtk_btag_req req;
 	__u64 window_begin;
@@ -122,11 +121,9 @@ struct mtk_btag_mictx_struct {
 	__u64 idle_begin;
 	__u64 idle_total;
 	__u64 weighted_qd;
-	__u64 sum_of_start;
-
+	__u64 sum_of_inflight_start;
 	__u16 q_depth;
-
-	struct list_head list;
+	__s8 id;
 };
 
 struct mtk_btag_earaio_control {
@@ -185,9 +182,9 @@ struct mtk_btag_cpu {
 
 /* Trace: entry of the ring buffer */
 struct mtk_btag_trace {
-	uint64_t time;
-	pid_t pid;
-	u32 qid;
+	__u64 time;
+	__u32 qid;
+	__s16 pid;
 	struct mtk_btag_workload workload;
 	struct mtk_btag_throughput throughput;
 	struct mtk_btag_vmstat vmstat;
@@ -199,36 +196,37 @@ struct mtk_btag_trace {
 struct mtk_btag_ringtrace {
 	struct mtk_btag_trace *trace;
 	spinlock_t lock;
-	int index;
-	int max;
+	__s32 index;
+	__s32 max;
 };
 
 struct mtk_btag_vops {
 	size_t  (*seq_show)(char **buff, unsigned long *size,
 			    struct seq_file *seq);
-	__u16   (*mictx_eval_qd)(struct mtk_btag_mictx_struct *mictx,
-				 u64 t_cur);
+	__u16   (*mictx_eval_wqd)(struct mtk_btag_mictx_struct *mictx,
+				  __u64 t_cur);
 	bool	boot_device;
 	bool	earaio_enabled;
 };
 
 /* BlockTag */
 struct mtk_blocktag {
+	struct list_head list;
 	char name[BLOCKTAG_NAME_LEN];
 	enum mtk_btag_storage_type storage_type;
 	struct mtk_btag_ringtrace rt;
 
 	struct mictx_t {
-		spinlock_t list_lock;
-		int count;
-		int last_unused_id;
 		struct list_head list;
+		spinlock_t list_lock;
+		__s16 count;
+		__s16 last_unused_id;
 	} mictx;
 
 	struct context_t {
-		int count;
-		int size;
 		void *priv;
+		__u32 count;
+		__u32 size;
 	} ctx;
 
 	struct dentry_t {
@@ -237,19 +235,17 @@ struct mtk_blocktag {
 	} dentry;
 
 	struct mtk_btag_vops *vops;
-
-	struct list_head list;
 };
 
 struct mtk_blocktag *mtk_btag_find_by_type(
 	enum mtk_btag_storage_type storage_type);
 
 void mtk_btag_pidlog_insert(
-	struct mtk_btag_pidlogger *pidlog, pid_t pid, __u32 len, int rw);
+	struct mtk_btag_pidlogger *pidlog, __s16 pid, __u32 len, bool write);
 int mtk_btag_pidlog_add_ufs(
-	struct request_queue *q, short pid, __u32 len, int rw);
+	struct request_queue *q, __s16 pid, __u32 len, bool write);
 int mtk_btag_pidlog_add_mmc(
-	struct request_queue *q, short pid, __u32 len, int rw, bool is_sd);
+	struct request_queue *q, __s16 pid, __u32 len, bool write, bool is_sd);
 void mtk_btag_commit_req(struct request *rq, bool is_sd);
 
 void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm);
@@ -263,7 +259,7 @@ struct mtk_btag_trace *mtk_btag_next_trace(struct mtk_btag_ringtrace *rt);
 
 struct mtk_blocktag *mtk_btag_alloc(
 	const char *name, enum mtk_btag_storage_type storage_type,
-	unsigned int ringtrace_count, size_t ctx_size, unsigned int ctx_count,
+	__u32 ringtrace_count, size_t ctx_size, __u32 ctx_count,
 	struct mtk_btag_vops *vops);
 void mtk_btag_free(struct mtk_blocktag *btag);
 
@@ -272,19 +268,19 @@ void mtk_btag_get_aee_buffer(unsigned long *vaddr, unsigned long *size);
 void mtk_btag_mictx_check_window(struct mtk_btag_mictx_id mictx_id);
 void mtk_btag_mictx_eval_tp(
 	struct mtk_blocktag *btag,
-	unsigned int rw, __u64 usage, __u32 size);
+	bool write, __u64 usage, __u32 size);
 void mtk_btag_mictx_eval_req(
 	struct mtk_blocktag *btag,
-	unsigned int rw, __u32 cnt, __u32 size, bool top);
+	bool rw, __u32 cnt, __u32 size, bool top);
 void mtk_btag_mictx_accumulate_weight_qd(
-	struct mtk_blocktag *btag, u64 t_begin, u64 t_cur);
+	struct mtk_blocktag *btag, __u64 t_begin, __u64 t_cur);
 void mtk_btag_mictx_update(struct mtk_blocktag *btag, __u32 q_depth,
 			   __u64 sum_of_start);
 int mtk_btag_mictx_get_data(
 	struct mtk_btag_mictx_id mictx_id,
 	struct mtk_btag_mictx_iostat_struct *iostat);
 void mtk_btag_mictx_free_btag(struct mtk_blocktag *btag);
-void mtk_btag_mictx_enable(struct mtk_btag_mictx_id *mictx_id, int enable);
+void mtk_btag_mictx_enable(struct mtk_btag_mictx_id *mictx_id, bool enable);
 void mtk_btag_mictx_init(struct mtk_blocktag *btag, struct mtk_btag_vops *vops);
 
 void mtk_btag_earaio_init_mictx(
@@ -294,23 +290,23 @@ void mtk_btag_earaio_init_mictx(
 int mtk_btag_earaio_init(void);
 void mtk_btag_earaio_boost(bool boost);
 void mtk_btag_earaio_check_pwd(void);
-void mtk_btag_earaio_update_pwd(unsigned int write, __u32 size);
+void mtk_btag_earaio_update_pwd(bool write, __u32 size);
 
 int ufs_mtk_biolog_init(bool qos_allowed, bool boot_device);
 int ufs_mtk_biolog_exit(void);
 void ufs_mtk_biolog_send_command(
-	unsigned int task_id, struct scsi_cmnd *cmd);
+	int task_id, struct scsi_cmnd *cmd);
 void ufs_mtk_biolog_transfer_req_compl(
-	unsigned int taski_id, unsigned long req_mask);
+	int task_id, unsigned long req_mask);
 void ufs_mtk_biolog_check(unsigned long req_mask);
 void ufs_mtk_biolog_clk_gating(bool gated);
 
 int mmc_mtk_biolog_init(struct mmc_host *mmc);
 int mmc_mtk_biolog_exit(void);
 void mmc_mtk_biolog_send_command(
-	unsigned int task_id, struct mmc_request *mrq);
+	int task_id, struct mmc_request *mrq);
 void mmc_mtk_biolog_transfer_req_compl(
-	struct mmc_host *mmc, unsigned int task_id, unsigned long req_mask);
+	struct mmc_host *mmc, int task_id, unsigned long req_mask);
 void mmc_mtk_biolog_check(struct mmc_host *mmc, unsigned long req_mask);
 
 #else
