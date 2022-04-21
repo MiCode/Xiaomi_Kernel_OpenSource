@@ -2406,23 +2406,36 @@ int ufs_mtk_pltfrm_suspend(struct device *dev)
 {
 	int ret;
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_mtk_host *host;
 #if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
+#endif
 
+	host = ufshcd_get_variant(hba);
+	if (!mutex_trylock(&host->rpmb_lock))
+		return -EBUSY;
+
+#if defined(CONFIG_UFSFEATURE)
 	if (ufsf->hba)
 		ufsf_suspend(ufsf);
 #endif
 
 	/* Check if shutting down */
-	if (!ufshcd_is_user_access_allowed(hba))
-		return -EBUSY;
+	if (!ufshcd_is_user_access_allowed(hba)) {
+		ret = -EBUSY;
+		goto out;
+	}
 
 	ret = ufshcd_pltfrm_suspend(dev);
+out:
+
 #if defined(CONFIG_UFSFEATURE)
 	/* We assume link is off */
 	if (ret && ufsf)
 		ufsf_resume(ufsf, true);
 #endif
+	if (ret)
+		mutex_unlock(&host->rpmb_lock);
 
 	return ret;
 }
@@ -2430,8 +2443,9 @@ int ufs_mtk_pltfrm_suspend(struct device *dev)
 int ufs_mtk_pltfrm_resume(struct device *dev)
 {
 	int ret;
-#if defined(CONFIG_UFSFEATURE)
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_mtk_host *host;
+#if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 	bool is_link_off = ufshcd_is_link_off(hba);
 #endif
@@ -2442,6 +2456,9 @@ int ufs_mtk_pltfrm_resume(struct device *dev)
 	if (!ret && ufsf->hba)
 		ufsf_resume(ufsf, is_link_off);
 #endif
+
+	host = ufshcd_get_variant(hba);
+	mutex_unlock(&host->rpmb_lock);
 
 	return ret;
 }
