@@ -11,5 +11,4 @@
 # GNU General Public License for more details.
 #
 
-obj-y += timesync/
-obj-$(CONFIG_MTK_TIMER_ACCURACY_TEST) += accuracy-test/
+obj-y +=  systimer_compensation_test.o

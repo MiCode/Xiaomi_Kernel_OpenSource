@@ -559,4 +559,5 @@ endmenu # Debug
 menu "Misc"
 source "drivers/misc/mediatek/ext_gic/Kconfig"
 source "drivers/misc/mediatek/cirq/Kconfig"
+source "drivers/misc/mediatek/timer/Kconfig"
 endmenu # Misc

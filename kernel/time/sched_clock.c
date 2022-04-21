@@ -19,6 +19,7 @@
 #include <linux/sched_clock.h>
 #include <linux/seqlock.h>
 #include <linux/bitops.h>
+#include <mt-plat/mtk_sys_timer.h>
 
 /**
  * struct clock_read_data - data required to read from sched_clock()
@@ -188,6 +189,12 @@ static enum hrtimer_restart sched_clock_poll(struct hrtimer *hrt)
 	update_sched_clock();
 	hrtimer_forward_now(hrt, cd.wrap_kt);
 
+	/* snchronize new sched_clock base to co-processors */
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_MTK_TIMER_TIMESYNC
+	sys_timer_timesync_sync_base(SYS_TIMER_TIMESYNC_FLAG_ASYNC);
+#endif
+#endif
 	return HRTIMER_RESTART;
 }
 
@@ -309,6 +316,13 @@ int sched_clock_suspend(void)
 	hrtimer_cancel(&sched_clock_timer);
 	rd->read_sched_clock = suspended_sched_clock_read;
 
+	/* snchronize new sched_clock base to co-processors */
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_MTK_TIMER_TIMESYNC
+	sys_timer_timesync_sync_base(SYS_TIMER_TIMESYNC_FLAG_SYNC |
+		SYS_TIMER_TIMESYNC_FLAG_FREEZE);
+#endif
+#endif
 	return 0;
 }
 
@@ -319,6 +333,14 @@ void sched_clock_resume(void)
 	rd->epoch_cyc = cd.actual_read_sched_clock();
 	hrtimer_start(&sched_clock_timer, cd.wrap_kt, HRTIMER_MODE_REL);
 	rd->read_sched_clock = cd.actual_read_sched_clock;
+
+	/* snchronize new sched_clock base to co-processors */
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_MTK_TIMER_TIMESYNC
+	sys_timer_timesync_sync_base(SYS_TIMER_TIMESYNC_FLAG_SYNC |
+		SYS_TIMER_TIMESYNC_FLAG_UNFREEZE);
+#endif
+#endif
 }
 
 static struct syscore_ops sched_clock_ops = {
