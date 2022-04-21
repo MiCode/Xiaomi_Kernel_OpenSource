@@ -13,8 +13,6 @@
 #include "mtk_vcodec_dec.h"
 #include "mtk_vcodec_drv.h"
 #include "vdec_drv_if.h"
-#include "mtk_heap.h"
-#include "iommu_pseudo.h"
 
 
 static void put_fb_to_free(struct vdec_inst *inst, struct vdec_fb *fb)
@@ -168,11 +166,8 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 
 	num_planes = fb ? inst->vsi->dec.fb_num_planes : 0U;
 
-	for (i = 0; i < num_planes; i++) {
-		if (inst->ctx->dec_params.svp_mode && is_disable_map_sec())
-			fb->fb_base[i].dma_addr = dmabuf_to_secure_handle(fb->fb_base[i].dmabuf);
+	for (i = 0; i < num_planes; i++)
 		fb_dma[i] = (u64)fb->fb_base[i].dma_addr;
-	}
 
 	vdec_fb_va = (u64)(uintptr_t)fb;
 
@@ -188,9 +183,6 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 		else
 			return vcu_dec_reset(vcu, VDEC_DRAIN_EOS);   /* drain and return EOS frame (2) */
 	}
-
-	if (inst->ctx->dec_params.svp_mode && is_disable_map_sec())
-		bs->dma_addr = dmabuf_to_secure_handle(bs->dmabuf);
 
 	mtk_vcodec_debug(inst, "+ BS dma=0x%llx dmabuf=%p format=%c%c%c%c",
 		(uint64_t)bs->dma_addr, bs->dmabuf, bs_fourcc & 0xFF,

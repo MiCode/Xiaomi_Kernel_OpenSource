@@ -12,6 +12,9 @@
 #include <linux/ktime.h>
 #include <linux/module.h>
 
+#include "mtk_heap.h"
+#include "iommu_pseudo.h"
+
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_dec.h"
 #include "mtk_vcodec_intr.h"
@@ -53,6 +56,61 @@ void mtk_vdec_do_gettimeofday(struct timespec64 *tv)
 	ktime_get_real_ts64(&now);
 	tv->tv_sec = now.tv_sec;
 	tv->tv_nsec = now.tv_nsec; // micro sec = ((long)(now.tv_nsec)/1000);
+}
+
+static int mtk_vdec_sec_dc_map_dmabuf(void *mem_priv)
+{
+	struct vb2_dc_buf *buf = mem_priv;
+
+	if (WARN_ON(!buf->db_attach)) {
+		mtk_v4l2_err("trying to pin a non attached buffer\n");
+		return -EINVAL;
+	}
+
+	if (WARN_ON(buf->dma_addr)) {
+		mtk_v4l2_err("dmabuf buffer is already pinned\n");
+		return 0;
+	}
+
+	buf->dma_addr = dmabuf_to_secure_handle(buf->db_attach->dmabuf);
+	buf->dma_sgt = NULL;
+	buf->vaddr = NULL;
+
+	return 0;
+}
+
+static void mtk_vdec_sec_dc_unmap_dmabuf(void *mem_priv)
+{
+	struct vb2_dc_buf *buf = mem_priv;
+
+	if (WARN_ON(!buf->db_attach)) {
+		mtk_v4l2_err("trying to unpin a not attached buffer\n");
+		return;
+	}
+
+	if (WARN_ON(!buf->dma_addr)) {
+		mtk_v4l2_err("dmabuf buffer is already unpinned\n");
+		return;
+	}
+
+	if (buf->vaddr) {
+		mtk_v4l2_err("dmabuf buffer vaddr not null\n");
+		buf->vaddr = NULL;
+	}
+
+	buf->dma_addr = 0;
+	buf->dma_sgt = NULL;
+}
+
+static bool mtk_vdec_is_vcu(void)
+{
+	if (VCU_FPTR(vcu_get_plat_device)) {
+		if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER))
+			return false;
+		else
+			return true;
+	}
+	return false;
 }
 
 static void set_vdec_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_id_t id)
@@ -2086,10 +2144,16 @@ static int vb2ops_vdec_queue_setup(struct vb2_queue *vq,
 			sizes[i] = q_data->sizeimage[i];
 	}
 
-	mtk_v4l2_debug(1,
-				   "[%d]\t type = %d, get %d plane(s), %d buffer(s) of size 0x%x 0x%x ",
-				   ctx->id, vq->type, *nplanes, *nbuffers,
-				   sizes[0], sizes[1]);
+	mtk_v4l2_debug(1, "[%d]\t type = %d, get %d plane(s), %d buffer(s) of size 0x%x 0x%x ",
+		ctx->id, vq->type, *nplanes, *nbuffers, sizes[0], sizes[1]);
+
+	if (ctx->dec_params.svp_mode && is_disable_map_sec() && mtk_vdec_is_vcu()) {
+		vdec_dma_contig_memops.map_dmabuf   = mtk_vdec_sec_dc_map_dmabuf;
+		vdec_dma_contig_memops.unmap_dmabuf = mtk_vdec_sec_dc_unmap_dmabuf;
+		vq->mem_ops = &vdec_dma_contig_memops;
+		mtk_v4l2_debug(1, "[%d] hook mem_ops.map_dmabuf for queue type %d",
+			ctx->id, vq->type);
+	}
 
 	return 0;
 }
@@ -3363,6 +3427,10 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->ops             = &mtk_vdec_vb2_ops;
 	vdec_dma_contig_memops = vb2_dma_contig_memops;
 	vdec_dma_contig_memops.attach_dmabuf = mtk_vdec_dc_attach_dmabuf;
+	if (ctx->dec_params.svp_mode && is_disable_map_sec() && mtk_vdec_is_vcu()) {
+		vdec_dma_contig_memops.map_dmabuf   = mtk_vdec_sec_dc_map_dmabuf;
+		vdec_dma_contig_memops.unmap_dmabuf = mtk_vdec_sec_dc_unmap_dmabuf;
+	}
 	src_vq->mem_ops         = &vdec_dma_contig_memops;
 	mtk_v4l2_debug(4, "src_vq use vdec_dma_contig_memops");
 

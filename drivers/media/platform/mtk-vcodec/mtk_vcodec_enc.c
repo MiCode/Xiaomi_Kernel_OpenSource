@@ -13,6 +13,9 @@
 #include <linux/semaphore.h>
 #include <linux/module.h>
 
+#include "mtk_heap.h"
+#include "iommu_pseudo.h"
+
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_enc.h"
 #include "mtk_vcodec_intr.h"
@@ -46,6 +49,61 @@ inline unsigned int log2_enc(__u32 value)
 		x++;
 	}
 	return x;
+}
+
+static int mtk_venc_sec_dc_map_dmabuf(void *mem_priv)
+{
+	struct vb2_dc_buf *buf = mem_priv;
+
+	if (WARN_ON(!buf->db_attach)) {
+		mtk_v4l2_err("trying to pin a non attached buffer\n");
+		return -EINVAL;
+	}
+
+	if (WARN_ON(buf->dma_addr)) {
+		mtk_v4l2_err("dmabuf buffer is already pinned\n");
+		return 0;
+	}
+
+	buf->dma_addr = dmabuf_to_secure_handle(buf->db_attach->dmabuf);
+	buf->dma_sgt = NULL;
+	buf->vaddr = NULL;
+
+	return 0;
+}
+
+static void mtk_venc_sec_dc_unmap_dmabuf(void *mem_priv)
+{
+	struct vb2_dc_buf *buf = mem_priv;
+
+	if (WARN_ON(!buf->db_attach)) {
+		mtk_v4l2_err("trying to unpin a not attached buffer\n");
+		return;
+	}
+
+	if (WARN_ON(!buf->dma_addr)) {
+		mtk_v4l2_err("dmabuf buffer is already unpinned\n");
+		return;
+	}
+
+	if (buf->vaddr) {
+		mtk_v4l2_err("dmabuf buffer vaddr not null\n");
+		buf->vaddr = NULL;
+	}
+
+	buf->dma_addr = 0;
+	buf->dma_sgt = NULL;
+}
+
+static bool mtk_venc_is_vcu(void)
+{
+	if (VCU_FPTR(vcu_get_plat_device)) {
+		if (mtk_vcodec_vcp & (1 << MTK_INST_ENCODER))
+			return false;
+		else
+			return true;
+	}
+	return false;
 }
 
 static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_id_t id)
@@ -1859,7 +1917,15 @@ static int vb2ops_venc_queue_setup(struct vb2_queue *vq,
 		       q_data->sizeimage[0],
 		       q_data->sizeimage[1],
 		       q_data->sizeimage[2],
-			   ctx->state);
+		       ctx->state);
+
+	if (ctx->enc_params.svp_mode && is_disable_map_sec() && mtk_venc_is_vcu()) {
+		venc_dma_contig_memops.map_dmabuf   = mtk_venc_sec_dc_map_dmabuf;
+		venc_dma_contig_memops.unmap_dmabuf = mtk_venc_sec_dc_unmap_dmabuf;
+		vq->mem_ops = &venc_dma_contig_memops;
+		mtk_v4l2_debug(1, "[%d] hook mem_ops.map_dmabuf for queue type %d",
+			ctx->id, vq->type);
+	}
 
 	if (ctx->state == MTK_STATE_ABORT) { // previously stream off with task not empty
 		ctx->state = MTK_STATE_FLUSH;
@@ -3424,6 +3490,10 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->ops             = &mtk_venc_vb2_ops;
 	venc_dma_contig_memops = vb2_dma_contig_memops;
 	venc_dma_contig_memops.attach_dmabuf = mtk_venc_dc_attach_dmabuf;
+	if (ctx->enc_params.svp_mode && is_disable_map_sec() && mtk_venc_is_vcu()) {
+		venc_dma_contig_memops.map_dmabuf   = mtk_venc_sec_dc_map_dmabuf;
+		venc_dma_contig_memops.unmap_dmabuf = mtk_venc_sec_dc_unmap_dmabuf;
+	}
 	src_vq->mem_ops         = &vb2_dma_contig_memops;
 	mtk_v4l2_debug(4, "src_vq use vb2_dma_contig_memops");
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
