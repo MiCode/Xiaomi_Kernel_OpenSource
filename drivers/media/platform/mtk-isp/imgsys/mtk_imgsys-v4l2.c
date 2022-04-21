@@ -899,9 +899,8 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 {
 	struct mtk_imgsys_pipe *pipe = video_drvdata(file);
 	struct mtk_imgsys_video_device *node = mtk_imgsys_file_to_node(file);
-	struct vb2_buffer *vb = node->dev_q.vbq.bufs[buf->index];
-	struct mtk_imgsys_dev_buffer *dev_buf =
-					mtk_imgsys_vb2_buf_to_dev_buf(vb);
+	struct vb2_buffer *vb;
+	struct mtk_imgsys_dev_buffer *dev_buf;
 	struct buf_info dyn_buf_info;
 	int ret = 0, i = 0;
 	unsigned long user_ptr = 0;
@@ -911,6 +910,13 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 	struct v4l2_plane_pix_format *vfmt;
 	struct plane_pix_format *bfmt;
 #endif
+	if ((buf->index >= VB2_MAX_FRAME) || (buf->index < 0)) {
+		dev_info(pipe->imgsys_dev->dev, "[%s] error vb2 index %d\n", __func__, buf->index);
+		return -EINVAL;
+	}
+
+	vb = node->dev_q.vbq.bufs[buf->index];
+	dev_buf = mtk_imgsys_vb2_buf_to_dev_buf(vb);
 	if (!dev_buf) {
 		dev_dbg(pipe->imgsys_dev->dev, "[%s] NULL dev_buf obtained with idx %d\n", __func__,
 											buf->index);
