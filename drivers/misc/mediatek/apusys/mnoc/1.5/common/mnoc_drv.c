@@ -369,26 +369,30 @@ static struct platform_driver mnoc_driver = {
 
 int mnoc_init(struct apusys_core_info *info)
 {
+	int ret = 0;
 	LOG_DEBUG("mnoc driver init start\n");
-
 	mnoc_core_info = info;
-
 	memset(&mnoc_drv, 0, sizeof(struct mnoc_plat_drv));
-
 	mnoc_driver.driver.of_match_table = mnoc_util_get_device_id();
 
-	mnoc_rv_setup(info);
+	ret = mnoc_rv_setup(info);
+	if (ret) {
+		LOG_ERR("failed to set mnoc rv\n");
+		goto out;
+	}
 
 	if (platform_driver_register(&mnoc_driver)) {
-		LOG_ERR("failed to register %s driver", APUSYS_MNOC_DEV_NAME);
+		LOG_ERR("failed to register %s driver\n", APUSYS_MNOC_DEV_NAME);
 		return -ENODEV;
 	}
 
-	return 0;
+out:
+	return ret;
 }
 
 void mnoc_exit(void)
 {
 	LOG_DEBUG("de-initialization\n");
 	platform_driver_unregister(&mnoc_driver);
+	mnoc_rv_clear();
 }

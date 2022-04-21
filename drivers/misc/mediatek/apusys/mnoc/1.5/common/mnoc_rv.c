@@ -192,3 +192,8 @@ int mnoc_rv_setup(struct apusys_core_info *info)
 	return ret;
 }
 
+void mnoc_rv_clear(void)
+{
+	unregister_rpmsg_driver(&mnoc_rpmsg_driver);
+	kobject_del(eRdev.mnocRV_root);
+}
