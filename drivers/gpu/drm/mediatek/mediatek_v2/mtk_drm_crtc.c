@@ -3079,6 +3079,8 @@ __get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
 	static struct golden_setting_context gs_ctx[MAX_CRTC];
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	int idx = drm_crtc_index(&mtk_crtc->base);
+	struct drm_display_mode *mode = NULL;
+	struct mtk_ddp_comp *output_comp;
 
 	/* default setting */
 	gs_ctx[idx].is_dc = 0;
@@ -3090,7 +3092,13 @@ __get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
 				mtk_crtc_is_frame_trigger_mode(crtc) ? 0 : 1;
 		gs_ctx[idx].dst_width = crtc->state->adjusted_mode.hdisplay;
 		gs_ctx[idx].dst_height = crtc->state->adjusted_mode.vdisplay;
-		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
+		output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+		if (output_comp)
+			mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_GET_MODE_BY_MAX_VREFRESH, &mode);
+		if (mode) {
+			gs_ctx[idx].vrefresh = drm_mode_vrefresh(mode);
+		} else if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
 			struct mtk_panel_params *params;
 
 			params = mtk_crtc->panel_ext->params;
