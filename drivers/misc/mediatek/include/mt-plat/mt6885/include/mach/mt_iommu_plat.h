@@ -6,7 +6,7 @@
 #ifndef __MT_IOMMU_PLAT_H__
 #define __MT_IOMMU_PLAT_H__
 
-#include "clk-mt6893-pg.h"
+#include "clk-mt6885-pg.h"
 
 #define MMU0_SET_ORDER   7
 #define MMU1_SET_ORDER   7
