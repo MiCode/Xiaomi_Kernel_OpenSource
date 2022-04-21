@@ -185,12 +185,12 @@ int imgsys_queue_timeout(struct imgsys_queue *que)
 
 	spin_lock(&que->lock);
 
-	dev_info(que->dev, "%s: stalled work+\n");
+	dev_info(que->dev, "%s: stalled work+\n", __func__);
 	list_for_each_entry_safe(work, tmp,
 		&que->queue, entry){
 		dev_info(que->dev, "%s: work %p\n", __func__, work);
 	}
-	dev_info(que->dev, "%s: stalled work-\n");
+	dev_info(que->dev, "%s: stalled work-\n", __func__);
 
 	spin_unlock(&que->lock);
 
