@@ -1532,6 +1532,7 @@
 #define MT6895_CHIST_PATH_CONNECT (BIT(MT6895_DISP_CHIST0_FROM_RDMA0_POS) | \
 	BIT(MT6895_DISP_CHIST1_FROM_DITHER0))
 
+/* For MT6886: re-use MT6895 define*/
 
 /*For MT6873*/
 #define MT6873_DISP_OVL0_MOUT_EN 0xf04
@@ -2642,6 +2643,7 @@ static const unsigned int mt6983_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_INLINE_ROTATE1] = MT6983_MUTEX_MOD1_INLINEROT0,
 };
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 static const unsigned int mt6895_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_DMDP_AAL0] = MT6895_MUTEX_MOD0_DISP_MDP_AAL0,
 		[DDP_COMPONENT_DMDP_AAL1] = MT6895_MUTEX_MOD0_DISP_MDP_AAL0,
@@ -3118,6 +3120,7 @@ static const unsigned int mt6983_mutex_sof[DDP_MUTEX_SOF_MAX] = {
 			MT6983_MUTEX_SOF_DPI1 | MT6983_MUTEX_EOF_DPI1,
 };
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 static const unsigned int mt6895_mutex_sof[DDP_MUTEX_SOF_MAX] = {
 		[DDP_MUTEX_SOF_SINGLE_MODE] = MT6895_MUTEX_SOF_SINGLE_MODE,
 		[DDP_MUTEX_SOF_DSI0] =
@@ -5084,6 +5087,7 @@ static char *ddp_signal_5_mt6895(int bit)
 	}
 }
 
+/* mt6886 is the same as mt6895 */
 static char *ddp_signal_mt6895(int idx, int bit)
 {
 	switch (idx) {
@@ -6073,6 +6077,7 @@ static char *ddp_greq_name_larb1_mt6983(int bit)
 	}
 }
 
+/* mt6886 is the same as mt6895 */
 static char *ddp_greq_name_larb0_mt6895(int bit)
 {
 	switch (bit) {
@@ -6103,6 +6108,7 @@ static char *ddp_greq_name_larb0_mt6895(int bit)
 	}
 }
 
+/* mt6886 is the same as mt6895 */
 static char *ddp_greq_name_larb1_mt6895(int bit)
 {
 	switch (bit) {
@@ -6531,6 +6537,7 @@ static char *ddp_get_mutex_module1_name_mt6983(unsigned int bit)
 	return "unknown-mutex";
 }
 
+/* mt6886 is the same as mt6895 */
 static char *ddp_get_mutex_module0_name_mt6895(unsigned int bit)
 {
 	switch (bit) {
@@ -6604,6 +6611,7 @@ static char *ddp_get_mutex_module0_name_mt6895(unsigned int bit)
 	return "unknown-mutex";
 }
 
+/* mt6886 is the same as mt6895 */
 static char *ddp_get_mutex_module1_name_mt6895(unsigned int bit)
 {
 	switch (bit) {
@@ -6632,7 +6640,6 @@ static char *ddp_get_mutex_module1_name_mt6895(unsigned int bit)
 	}
 	return "unknown-mutex";
 }
-
 
 static char *ddp_get_mutex_module0_name_mt6873(unsigned int bit)
 {
@@ -7314,6 +7321,7 @@ static char *ddp_clock_1_mt6983(int bit)
 	}
 }
 
+/* mt6886 is the same as mt6895 */
 static char *ddp_clock_0_mt6895(int bit)
 {
 	switch (bit) {
@@ -7384,6 +7392,7 @@ static char *ddp_clock_0_mt6895(int bit)
 	}
 }
 
+/* mt6886 is the same as mt6895 */
 static char *ddp_clock_1_mt6895(int bit)
 {
 	switch (bit) {
@@ -8712,6 +8721,7 @@ static int mtk_ddp_sout_sel_MT6983(const struct mtk_mmsys_reg_data *data,
 	return value;
 }
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 static int mtk_ddp_mout_en_MT6895(const struct mtk_mmsys_reg_data *data,
 			   enum mtk_ddp_comp_id cur, enum mtk_ddp_comp_id next,
 			   unsigned int *addr)
@@ -8817,6 +8827,7 @@ static int mtk_ddp_mout_en_MT6895(const struct mtk_mmsys_reg_data *data,
 	return value;
 }
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 static int mtk_ddp_sel_in_MT6895(const struct mtk_mmsys_reg_data *data,
 			  enum mtk_ddp_comp_id cur, enum mtk_ddp_comp_id next,
 			  unsigned int *addr)
@@ -8932,6 +8943,7 @@ static int mtk_ddp_sel_in_MT6895(const struct mtk_mmsys_reg_data *data,
 	return value;
 }
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 static int mtk_ddp_sout_sel_MT6895(const struct mtk_mmsys_reg_data *data,
 			    enum mtk_ddp_comp_id cur, enum mtk_ddp_comp_id next,
 			    unsigned int *addr)
@@ -10244,6 +10256,7 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 		break;
 
 	case MMSYS_MT6895:
+	case MMSYS_MT6886:
 		/* decide which dispsys need to config */
 		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
@@ -10266,7 +10279,6 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 			writel_relaxed(value, config_regs + addr);
 
 		break;
-
 
 	case MMSYS_MT6873:
 		value = mtk_ddp_mout_en_MT6873(reg_data, cur, next, &addr);
@@ -10496,6 +10508,7 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		break;
 
 	case MMSYS_MT6895:
+	case MMSYS_MT6886:
 		/* decide which dispsys need to config */
 		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
@@ -10741,6 +10754,7 @@ void mtk_ddp_remove_comp_from_path(struct mtk_drm_crtc *mtk_crtc,
 		}
 		break;
 	case MMSYS_MT6895:
+	case MMSYS_MT6886:
 		/* decide which dispsys need to config */
 		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
@@ -10885,6 +10899,7 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 					   ~(unsigned int)value, value);
 		break;
 	case MMSYS_MT6895:
+	case MMSYS_MT6886:
 		/* decide which dispsys need to config */
 		if (mtk_crtc->dispsys_num > 1 && reg_data->dispsys_map &&
 				reg_data->dispsys_map[cur] == 1)
@@ -11793,6 +11808,7 @@ void mtk_ddp_remove_dsc_prim_MT6983(struct mtk_drm_crtc *mtk_crtc,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 }
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 void mtk_ddp_insert_dsc_prim_MT6895(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle)
 {
@@ -11835,6 +11851,7 @@ void mtk_ddp_insert_dsc_prim_MT6895(struct mtk_drm_crtc *mtk_crtc,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 }
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 void mtk_ddp_remove_dsc_prim_MT6895(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle)
 {
@@ -12780,6 +12797,7 @@ REDUMP:
 	}
 }
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 void mutex_dump_reg_mt6895(struct mtk_disp_mutex *mutex)
 {
 	struct mtk_ddp *ddp =
@@ -13036,6 +13054,7 @@ REDUMP:
 	}
 }
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 void mutex_dump_analysis_mt6895(struct mtk_disp_mutex *mutex)
 {
 	struct mtk_ddp *ddp =
@@ -13417,6 +13436,7 @@ void mmsys_config_dump_reg_mt6983(void __iomem *config_regs)
 		mtk_serial_dump_reg(config_regs, off, 4);
 }
 
+/* mt6886 is the same as mt6895  exclude dual pipe */
 void mmsys_config_dump_reg_mt6895(void __iomem *config_regs)
 {
 	unsigned int off = 0;
@@ -13816,6 +13836,7 @@ void mmsys_config_dump_analysis_mt6983(void __iomem *config_regs)
 #endif
 }
 
+/* mt6886 is the same as mt6895 */
 void mmsys_config_dump_analysis_mt6895(void __iomem *config_regs)
 {
 	unsigned int idx = 0, bit = 0, len = 0;

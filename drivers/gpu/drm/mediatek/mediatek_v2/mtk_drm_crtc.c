@@ -283,6 +283,7 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 			mtk_dump_reg(comp);
 		break;
 	case MMSYS_MT6895:
+	case MMSYS_MT6886:
 		DDPDUMP("== DISP pipe0 MMSYS_CONFIG REGS:0x%x ==\n",
 					mtk_crtc->config_regs_pa);
 		mmsys_config_dump_reg_mt6895(mtk_crtc->config_regs);
@@ -430,6 +431,7 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		}
 		break;
 	case MMSYS_MT6895:
+	case MMSYS_MT6886:
 		DDPDUMP("== DUMP DISP pipe0 ANALYSIS:0x%x ==\n",
 			mtk_crtc->config_regs_pa);
 		mmsys_config_dump_analysis_mt6895(mtk_crtc->config_regs);
@@ -4189,7 +4191,8 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 		if (priv->data->mmsys_id == MMSYS_MT6983 ||
 			priv->data->mmsys_id == MMSYS_MT6879 ||
 			priv->data->mmsys_id == MMSYS_MT6895 ||
-			priv->data->mmsys_id == MMSYS_MT6855) {
+			priv->data->mmsys_id == MMSYS_MT6855 ||
+			priv->data->mmsys_id == MMSYS_MT6886) {
 			/*set smi_larb_sec_con reg as 1*/
 			mtk_crtc_exec_atf_prebuilt_instr(mtk_crtc, handle);
 		}
@@ -5245,6 +5248,7 @@ static void mtk_crtc_addon_connector_disconnect(struct drm_crtc *crtc,
 			mtk_ddp_remove_dsc_prim_MT6983(mtk_crtc, handle);
 			break;
 		case MMSYS_MT6895:
+		case MMSYS_MT6886:
 			mtk_ddp_remove_dsc_prim_MT6895(mtk_crtc, handle);
 			break;
 		case MMSYS_MT6873:
@@ -5346,6 +5350,7 @@ static void mtk_crtc_addon_connector_connect(struct drm_crtc *crtc,
 			mtk_ddp_insert_dsc_prim_MT6873(mtk_crtc, handle);
 			break;
 		case MMSYS_MT6895:
+		case MMSYS_MT6886:
 			mtk_ddp_insert_dsc_prim_MT6895(mtk_crtc, handle);
 			break;
 		case MMSYS_MT6853:
@@ -5823,7 +5828,8 @@ void mtk_crtc_config_default_path(struct mtk_drm_crtc *mtk_crtc)
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
-		priv->data->mmsys_id == MMSYS_MT6855) {
+		priv->data->mmsys_id == MMSYS_MT6855 ||
+		priv->data->mmsys_id == MMSYS_MT6886) {
 		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
 		writel(0x3, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
@@ -6574,7 +6580,8 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
-		priv->data->mmsys_id == MMSYS_MT6855) {
+		priv->data->mmsys_id == MMSYS_MT6855 ||
+		priv->data->mmsys_id == MMSYS_MT6886) {
 		/*Set EVENT_GCED_EN EVENT_GCEM_EN*/
 		writel(0x3, mtk_crtc->config_regs +
 				DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL);
@@ -6611,9 +6618,10 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 
 	/*3. Enable M4U port and replace OVL address to mva */
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
-				MTK_DRM_OPT_USE_M4U))
+				MTK_DRM_OPT_USE_M4U)) {
+		DDPINFO("%s, enable iommu\n", __func__);
 		mtk_crtc_enable_iommu_runtime(mtk_crtc, cmdq_handle);
-
+	}
 	/*4. Enable Frame done IRQ &  process first config */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
 		mtk_ddp_comp_first_cfg(comp, &cfg, cmdq_handle);

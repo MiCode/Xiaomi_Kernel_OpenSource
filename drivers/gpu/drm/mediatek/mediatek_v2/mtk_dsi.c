@@ -3571,7 +3571,8 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 		/* TODO: avoid hardcode: 0xF0 register offset  */
 		if (!ext->params->lp_perline_en &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
-			if (priv->data->mmsys_id == MMSYS_MT6855)
+			if (priv->data->mmsys_id == MMSYS_MT6855 ||
+			    priv->data->mmsys_id == MMSYS_MT6886)
 				cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x10,
 						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
 						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
