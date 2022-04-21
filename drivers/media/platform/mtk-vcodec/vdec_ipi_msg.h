@@ -112,8 +112,8 @@ enum vdec_reset_type {
  * GET_PARAM_DPB_SIZE           : get dpb size, __s32*
  * GET_PARAM_FRAME_INTERVAL     : get frame interval info*
  * GET_PARAM_ERRORMB_MAP        : get error mocroblock when decode error*
- * GET_PARAM_CAPABILITY_SUPPORTED_FORMATS: get codec supported format capability
- * GET_PARAM_CAPABILITY_FRAME_SIZES:
+ * GET_PARAM_VDEC_CAP_SUPPORTED_FORMATS: get codec supported format capability
+ * GET_PARAM_VDEC_CAP_FRAME_SIZES:
  *                       get codec supported frame size & alignment info
  */
 enum vdec_get_param_type {
@@ -170,6 +170,25 @@ enum vdec_set_param_type {
 	SET_PARAM_CROP_INFO,
 };
 
+#ifndef CONFIG_64BIT
+#define VDEC_MSG_PREFIX	\
+	__u32 msg_id;	\
+	__u32 ctx_id;	\
+	__s32 status;	\
+	__u32 reserved;	\
+	union {	\
+		__u64 ap_inst_addr_64;		\
+		__u32 ap_inst_addr;	\
+	}
+#else
+#define VDEC_MSG_PREFIX	\
+	__u32 msg_id;	\
+	__u32 ctx_id;	\
+	__s32 status;	\
+	__u32 reserved;	\
+	__u64 ap_inst_addr
+#endif
+
 /**
  * struct vdec_ap_ipi_cmd - generic AP to VCU ipi command format
  * @msg_id      : vdec_ipi_msg_id
@@ -190,18 +209,7 @@ struct vdec_ap_ipi_cmd {
  * @ap_inst_addr        : AP video decoder instance address
  */
 struct vdec_vcu_ipi_ack {
-	__u32 msg_id;
-	__u32 ctx_id;
-	__s32 status;
-	__u32 reserved;
-#ifndef CONFIG_64BIT
-	union {
-		__u64 ap_inst_addr_64;
-		__u32 ap_inst_addr;
-	};
-#else
-	__u64 ap_inst_addr;
-#endif
+	VDEC_MSG_PREFIX;
 	__s32 codec_id;
 	__u32 no_need_put;
 };
@@ -214,11 +222,7 @@ struct vdec_vcu_ipi_ack {
  * @struct vcodec_mem_obj: encoder memories
  */
 struct vdec_vcu_ipi_mem_op {
-	__u32 msg_id;
-	__u32 ctx_id;
-	__s32 status;
-	__u32 reserved;
-	__u64 ap_inst_addr;
+	VDEC_MSG_PREFIX;
 	struct vcodec_mem_obj mem;
 	__u32 vcp_addr[2];
 };
@@ -250,18 +254,7 @@ struct vdec_ap_ipi_init {
  * @vcu_inst_addr : VCU decoder instance address
  */
 struct vdec_vcu_ipi_init_ack {
-	__u32 msg_id;
-	__u32 ctx_id;
-	__s32 status;
-	__u32 reserved;
-#ifndef CONFIG_64BIT
-	union {
-		__u64 ap_inst_addr_64;
-		__u32 ap_inst_addr;
-	};
-#else
-	__u64 ap_inst_addr;
-#endif
+	VDEC_MSG_PREFIX;
 	__u64 vcu_inst_addr;
 };
 
@@ -303,23 +296,16 @@ struct vdec_ap_ipi_set_param {
  * @vdec_inst     : AP query data address
  */
 struct vdec_ap_ipi_query_cap {
-	__u32 msg_id;
-	__u32 ctx_id;
-	__u32 id;
-	__u32 reserved;
+	VDEC_MSG_PREFIX;
 #ifndef CONFIG_64BIT
-	union {
-		__u64 ap_inst_addr_64;
-		__u32 ap_inst_addr;
-	};
 	union {
 		__u64 ap_data_addr_64;
 		__u32 ap_data_addr;
 	};
 #else
-	__u64 ap_inst_addr;
 	__u64 ap_data_addr;
 #endif
+	__u32 id;
 };
 
 /**
@@ -330,25 +316,17 @@ struct vdec_ap_ipi_query_cap {
  * @vcu_data_addr  : VCU query data address
  */
 struct vdec_vcu_ipi_query_cap_ack {
-	__u32 msg_id;
-	__u32 ctx_id;
-	__s32 status;
+	VDEC_MSG_PREFIX;
 #ifndef CONFIG_64BIT
-	__u32 id;
-	union {
-		__u64 ap_inst_addr_64;
-		__u32 ap_inst_addr;
-	};
 	union {
 		__u64 ap_data_addr_64;
 		__u32 ap_data_addr;
 	};
 #else
-	__u32 id;
-	__u64 ap_inst_addr;
 	__u64 ap_data_addr;
 #endif
 	__u64 vcu_data_addr;
+	__u32 id;
 };
 
 /*
@@ -373,7 +351,6 @@ struct vdec_ipi_fb {
 	__u16 frame_type;
 	__u32 reserved;
 };
-
 
 /**
  * struct ring_bs_list - ring bitstream buffer list

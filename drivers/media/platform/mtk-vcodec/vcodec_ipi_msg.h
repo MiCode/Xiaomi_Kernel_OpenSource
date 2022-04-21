@@ -100,8 +100,8 @@ struct mtk_color_desc {
 	__u32	min_display_mastering_luminance;
 	__u32	max_content_light_level;
 	__u32	max_pic_light_level;
-	__u32   is_hdr;
-	__u32   full_range;
+	__u32	is_hdr;
+	__u32	full_range;
 	__u32	reserved;
 };
 
