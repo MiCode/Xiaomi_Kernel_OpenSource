@@ -948,7 +948,7 @@ static long vcodec_lockhw_vdec(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 {
 	unsigned int FirstUseDecHW = 0;
 	unsigned long ulFlagsLockHW;
-	unsigned long handle = 0;
+	unsigned long handle = 0, handle_id = 0;
 	long ret = 0;
 	struct VAL_TIME_T rCurTime;
 	unsigned int u4TimeInterval;
@@ -965,8 +965,14 @@ static long vcodec_lockhw_vdec(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 #ifdef VCODEC_DVFS_V2
 	mutex_lock(&VcodecDVFSLock);
 	handle = (unsigned long)(pHWLock->pvHandle);
-	cur_job = add_job((void *)pmem_user_v2p_video(handle), &codec_jobs);
-	/* pr_debug("cur_job's handle %p", cur_job->handle); */
+	handle_id = pmem_user_v2p_video(handle);
+	if (handle_id == 0) {
+		pr_info("[error] handle is freed at %d\n", __LINE__);
+		mutex_unlock(&VcodecDVFSLock);
+		return -1;
+	}
+
+	cur_job = add_job((void *)handle_id, &codec_jobs);
 	mutex_unlock(&VcodecDVFSLock);
 #endif
 
@@ -1000,8 +1006,15 @@ static long vcodec_lockhw_vdec(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 		mutex_lock(&HWLock);
 		/* one process try to lock twice */
 		handle = (unsigned long)(pHWLock->pvHandle);
+		handle_id = pmem_user_v2p_video(handle);
+		if (handle_id == 0) {
+			pr_info("[error] handle is freed at %d\n", __LINE__);
+			mutex_unlock(&HWLock);
+			return -1;
+		}
+
 		if (CodecHWLock.pvHandle ==
-			(void *)pmem_user_v2p_video(handle)) {
+			(void *)handle_id) {
 			pr_info("[VDEC] Same inst double lock\n");
 			pr_info("may timeout!! inst = 0x%lx, TID = %d\n",
 				(unsigned long)CodecHWLock.pvHandle,
@@ -1049,8 +1062,15 @@ static long vcodec_lockhw_vdec(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 			}
 #endif
 			gu4VdecLockThreadId = current->pid;
+			handle_id = pmem_user_v2p_video(handle);
+			if (handle_id == 0) {
+				pr_info("[error] handle is freed at %d\n", __LINE__);
+				mutex_unlock(&HWLock);
+				return -1;
+			}
+
 			CodecHWLock.pvHandle =
-				(void *)pmem_user_v2p_video(handle);
+				(void *)handle_id;
 			CodecHWLock.eDriverType = pHWLock->eDriverType;
 			eVideoGetTimeOfDay(&CodecHWLock.rLockedTime,
 					sizeof(struct VAL_TIME_T));
@@ -1148,7 +1168,7 @@ static long vcodec_lockhw_vdec(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 static long vcodec_lockhw_venc(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 {
 	unsigned int FirstUseEncHW = 0;
-	unsigned long handle = 0;
+	unsigned long handle = 0, handle_id = 0;
 	long ret = 0;
 	struct VAL_TIME_T rCurTime;
 	unsigned int u4TimeInterval;
@@ -1167,7 +1187,14 @@ static long vcodec_lockhw_venc(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 	if (pHWLock->eDriverType != VAL_DRIVER_TYPE_JPEG_ENC) {
 		mutex_lock(&VcodecDVFSLock);
 		handle = (unsigned long)(pHWLock->pvHandle);
-		cur_job = add_job((void *)pmem_user_v2p_video(handle),
+		handle_id = pmem_user_v2p_video(handle);
+		if (handle_id == 0) {
+			pr_info("[error] handle is freed at %d\n", __LINE__);
+			mutex_unlock(&VcodecDVFSLock);
+			return -1;
+		}
+
+		cur_job = add_job((void *)handle_id,
 					&codec_jobs);
 		/* pr_debug("cur_job's handle %p", cur_job->handle); */
 		mutex_unlock(&VcodecDVFSLock);
@@ -1224,8 +1251,15 @@ static long vcodec_lockhw_venc(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 		mutex_lock(&HWLock);
 		handle = (unsigned long)(pHWLock->pvHandle);
 		/* one process try to lock twice */
+		handle_id = pmem_user_v2p_video(handle);
+		if (handle_id == 0) {
+			pr_info("[error] handle is freed at %d\n", __LINE__);
+			mutex_unlock(&HWLock);
+			return -1;
+		}
+
 		if (CodecHWLock.pvHandle ==
-			(void *)pmem_user_v2p_video(handle)) {
+			(void *)handle_id) {
 			pr_info("VENC_LOCKHW, Some inst double lock");
 			pr_info("may timeout inst=0x%lx, TID=%d, type:%d\n",
 				(unsigned long)CodecHWLock.pvHandle,
@@ -1270,8 +1304,15 @@ static long vcodec_lockhw_venc(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 				usleep_range(1000, 2000);
 			}
 #endif
+			handle_id = pmem_user_v2p_video(handle);
+			if (handle_id == 0) {
+				pr_info("[error] handle is freed at %d\n", __LINE__);
+				mutex_unlock(&HWLock);
+				return -1;
+			}
+
 			CodecHWLock.pvHandle =
-					(void *)pmem_user_v2p_video(handle);
+					(void *)handle_id;
 			CodecHWLock.eDriverType = pHWLock->eDriverType;
 			eVideoGetTimeOfDay(&CodecHWLock.rLockedTime,
 					sizeof(struct VAL_TIME_T));
@@ -1288,8 +1329,9 @@ static long vcodec_lockhw_venc(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 
 #ifdef VCODEC_DVFS_V2
 			if (CodecHWLock.eDriverType !=
-				VAL_DRIVER_TYPE_JPEG_ENC) {
+					VAL_DRIVER_TYPE_JPEG_ENC) {
 				mutex_lock(&VcodecDVFSLock);
+
 			if (cur_job == 0) {
 				target_freq = 1;
 				target_freq_64 = match_freq(99999,
@@ -1517,7 +1559,7 @@ static long vcodec_unlockhw(unsigned long arg)
 {
 	unsigned char *user_data_addr;
 	struct VAL_HW_LOCK_T rHWLock;
-	unsigned long handle = 0;
+	unsigned long handle = 0, handle_id = 0;
 	enum VAL_RESULT_T eValRet;
 	long ret;
 #ifdef VCODEC_DVFS_V2
@@ -1545,9 +1587,17 @@ static long vcodec_unlockhw(unsigned long arg)
 		rHWLock.eDriverType == VAL_DRIVER_TYPE_H264_DEC ||
 		rHWLock.eDriverType == VAL_DRIVER_TYPE_MP1_MP2_DEC) {
 		mutex_lock(&HWLock);
+
+		handle_id = pmem_user_v2p_video(handle);
+		if (handle_id == 0) {
+			pr_info("[error] handle is freed at %d\n", __LINE__);
+			mutex_unlock(&HWLock);
+			return -1;
+		}
+
 		/* Current owner give up hw lock */
 		if (CodecHWLock.pvHandle ==
-				(void *)pmem_user_v2p_video(handle)) {
+				(void *)handle_id) {
 #ifdef VCODEC_DVFS_V2
 			mutex_lock(&VcodecDVFSLock);
 			cur_job = codec_jobs;
@@ -1600,8 +1650,15 @@ static long vcodec_unlockhw(unsigned long arg)
 			 rHWLock.eDriverType == VAL_DRIVER_TYPE_JPEG_ENC) {
 		mutex_lock(&HWLock);
 		/* Current owner give up hw lock */
+		handle_id = pmem_user_v2p_video(handle);
+		if (handle_id == 0) {
+			pr_info("[error] handle is freed at %d\n", __LINE__);
+			mutex_unlock(&HWLock);
+			return -1;
+		}
+
 		if (CodecHWLock.pvHandle ==
-				(void *)pmem_user_v2p_video(handle)) {
+				(void *)handle_id) {
 #ifdef VCODEC_DVFS_V2
 
 			if (rHWLock.eDriverType != VAL_DRIVER_TYPE_JPEG_ENC) {
@@ -1664,7 +1721,7 @@ static long vcodec_waitisr(unsigned long arg)
 	struct VAL_ISR_T val_isr;
 	char bLockedHW = VAL_FALSE;
 	unsigned long ulFlags;
-	unsigned long handle;
+	unsigned long handle, handle_id = 0;
 	long ret;
 	enum VAL_RESULT_T eValRet;
 
@@ -1685,8 +1742,16 @@ static long vcodec_waitisr(unsigned long arg)
 		val_isr.eDriverType == VAL_DRIVER_TYPE_H264_DEC ||
 		val_isr.eDriverType == VAL_DRIVER_TYPE_MP1_MP2_DEC) {
 		mutex_lock(&HWLock);
+
+		handle_id = pmem_user_v2p_video(handle);
+		if (handle_id == 0) {
+			pr_info("[error] handle is freed at %d\n", __LINE__);
+			mutex_unlock(&HWLock);
+			return -1;
+		}
+
 		if (CodecHWLock.pvHandle ==
-				(void *)pmem_user_v2p_video(handle)) {
+				(void *)handle_id) {
 			/* Add one line comment for avoid kernel coding style,
 			 * WARNING:BRACES:
 			 */
@@ -1714,8 +1779,16 @@ static long vcodec_waitisr(unsigned long arg)
 		}
 	} else if (val_isr.eDriverType == VAL_DRIVER_TYPE_H264_ENC) {
 		mutex_lock(&HWLock);
+
+		handle_id = pmem_user_v2p_video(handle);
+		if (handle_id == 0) {
+			pr_info("[error] handle is freed at %d\n", __LINE__);
+			mutex_unlock(&HWLock);
+			return -1;
+		}
+
 		if (CodecHWLock.pvHandle ==
-				(void *)pmem_user_v2p_video(handle)) {
+				(void *)handle_id) {
 			/* Add one line comment for avoid kernel coding style,
 			 * WARNING:BRACES:
 			 */

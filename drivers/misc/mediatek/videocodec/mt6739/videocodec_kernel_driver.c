@@ -765,6 +765,7 @@ static long vcodec_lockhw(unsigned long arg)
 	unsigned long ulFlagsLockHW;
 	unsigned int u4VcodecSel;
 	unsigned int u4DeBlcoking = 1;
+	unsigned long handle_id = 0;
 
 	pr_debug("VCODEC_LOCKHW + tid = %d\n", current->pid);
 
@@ -811,10 +812,16 @@ static long vcodec_lockhw(unsigned long arg)
 			mutex_unlock(&HWLockEventTimeoutLock);
 
 			mutex_lock(&HWLock);
+			handle_id = pmem_user_v2p_video((unsigned long)rHWLock.pvHandle);
+			if (handle_id == 0) {
+				pr_info("[error] handle is freed at %d\n", __LINE__);
+				mutex_unlock(&HWLock);
+				return -1;
+			}
+
 			/* one process try to lock twice */
 			if (grVcodecHWLock.pvHandle ==
-				(void *)pmem_user_v2p_video(
-				(unsigned long)rHWLock.pvHandle)) {
+				(void *)handle_id) {
 				pr_err("[WARNING] VCODEC_LOCKHW, one decoder instance try to lock twice\n");
 				pr_debug("may cause lock HW timeout!! instance = 0x%lx, CurrentTID = %d\n",
 				(unsigned long)grVcodecHWLock.pvHandle,
@@ -845,9 +852,14 @@ static long vcodec_lockhw(unsigned long arg)
 			mutex_lock(&HWLock);
 			if (grVcodecHWLock.pvHandle == 0) { /* No one holds dec hw lock now */
 				gu4VdecLockThreadId = current->pid;
+				handle_id = pmem_user_v2p_video((unsigned long)rHWLock.pvHandle);
+				if (handle_id == 0) {
+					pr_info("[error] handle is freed at %d\n", __LINE__);
+					mutex_unlock(&HWLock);
+					return -1;
+				}
 				grVcodecHWLock.pvHandle =
-					(void *)pmem_user_v2p_video(
-					(unsigned long)rHWLock.pvHandle);
+					(void *)handle_id;
 				grVcodecHWLock.eDriverType = rHWLock.eDriverType;
 				eVideoGetTimeOfDay(&grVcodecHWLock.rLockedTime,
 					sizeof(struct VAL_TIME_T));
@@ -955,10 +967,15 @@ static long vcodec_lockhw(unsigned long arg)
 			mutex_unlock(&HWLockEventTimeoutLock);
 
 			mutex_lock(&HWLock);
+			handle_id = pmem_user_v2p_video((unsigned long)rHWLock.pvHandle);
+			if (handle_id == 0) {
+				pr_info("[error] handle is freed at %d\n", __LINE__);
+				mutex_unlock(&HWLock);
+				return -1;
+			}
 			/* one process try to lock twice */
 			if (grVcodecHWLock.pvHandle ==
-			(void *)pmem_user_v2p_video(
-			(unsigned long)rHWLock.pvHandle)) {
+			(void *)handle_id) {
 				pr_err("[WARNING] VCODEC_LOCKHW, one encoder instance try to lock twice\n");
 				pr_debug("may cause lock HW timeout!! instance=0x%lx, CurrentTID=%d, type:%d\n",
 					(unsigned long)grVcodecHWLock.pvHandle,
@@ -989,9 +1006,16 @@ static long vcodec_lockhw(unsigned long arg)
 				if (rHWLock.eDriverType == VAL_DRIVER_TYPE_H264_ENC ||
 					rHWLock.eDriverType == VAL_DRIVER_TYPE_HEVC_ENC ||
 					rHWLock.eDriverType == VAL_DRIVER_TYPE_JPEG_ENC) {
-					grVcodecHWLock.pvHandle =
-					(void *)pmem_user_v2p_video(
+					handle_id = pmem_user_v2p_video(
 					(unsigned long)rHWLock.pvHandle);
+					if (handle_id == 0) {
+						pr_info("[error] handle is freed at %d\n",
+						__LINE__);
+						mutex_unlock(&HWLock);
+						return -1;
+					}
+					grVcodecHWLock.pvHandle =
+					(void *)handle_id;
 					grVcodecHWLock.eDriverType = rHWLock.eDriverType;
 					eVideoGetTimeOfDay(
 						&grVcodecHWLock.rLockedTime,
@@ -1148,6 +1172,7 @@ static long vcodec_unlockhw(unsigned long arg)
 	struct VAL_HW_LOCK_T rHWLock;
 	enum VAL_RESULT_T eValRet;
 	long ret;
+	unsigned long handle_id = 0;
 
 	pr_debug("VCODEC_UNLOCKHW + tid = %d\n", current->pid);
 
@@ -1170,9 +1195,15 @@ static long vcodec_unlockhw(unsigned long arg)
 		rHWLock.eDriverType == VAL_DRIVER_TYPE_VC1_ADV_DEC ||
 		rHWLock.eDriverType == VAL_DRIVER_TYPE_VP8_DEC) {
 		mutex_lock(&HWLock);
+		handle_id = pmem_user_v2p_video((unsigned long)rHWLock.pvHandle);
+		if (handle_id == 0) {
+			pr_info("[error] handle is freed at %d\n", __LINE__);
+			mutex_unlock(&HWLock);
+			return -1;
+		}
 		/* Current owner give up hw lock */
 		if (grVcodecHWLock.pvHandle ==
-		(void *)pmem_user_v2p_video((unsigned long)rHWLock.pvHandle)) {
+		(void *)handle_id) {
 			grVcodecHWLock.pvHandle = 0;
 			grVcodecHWLock.eDriverType = VAL_DRIVER_TYPE_NONE;
 			if (rHWLock.bSecureInst == VAL_FALSE) {
@@ -1207,9 +1238,15 @@ static long vcodec_unlockhw(unsigned long arg)
 			 rHWLock.eDriverType == VAL_DRIVER_TYPE_HEVC_ENC ||
 			 rHWLock.eDriverType == VAL_DRIVER_TYPE_JPEG_ENC) {
 		mutex_lock(&HWLock);
+		handle_id = pmem_user_v2p_video((unsigned long)rHWLock.pvHandle);
+		if (handle_id == 0) {
+			pr_info("[error] handle is freed at %d\n", __LINE__);
+			mutex_unlock(&HWLock);
+			return -1;
+		}
 		/* Current owner give up hw lock */
 		if (grVcodecHWLock.pvHandle ==
-		(void *)pmem_user_v2p_video((unsigned long)rHWLock.pvHandle)) {
+		(void *)handle_id) {
 			grVcodecHWLock.pvHandle = 0;
 			grVcodecHWLock.eDriverType = VAL_DRIVER_TYPE_NONE;
 			if (rHWLock.eDriverType == VAL_DRIVER_TYPE_H264_ENC ||
@@ -1263,6 +1300,7 @@ static long vcodec_waitisr(unsigned long arg)
 	unsigned long ulFlags;
 	long ret;
 	enum VAL_RESULT_T eValRet;
+	unsigned long handle_id = 0;
 
 	pr_debug("VCODEC_WAITISR + tid = %d\n", current->pid);
 
@@ -1283,8 +1321,14 @@ static long vcodec_waitisr(unsigned long arg)
 		val_isr.eDriverType == VAL_DRIVER_TYPE_VC1_ADV_DEC ||
 		val_isr.eDriverType == VAL_DRIVER_TYPE_VP8_DEC) {
 		mutex_lock(&HWLock);
+		handle_id = pmem_user_v2p_video((unsigned long)val_isr.pvHandle);
+		if (handle_id == 0) {
+			pr_info("[error] handle is freed at %d\n", __LINE__);
+			mutex_unlock(&HWLock);
+			return -1;
+		}
 		if (grVcodecHWLock.pvHandle ==
-		(void *)pmem_user_v2p_video((unsigned long)val_isr.pvHandle)) {
+		(void *)handle_id) {
 /* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
 			bLockedHW = VAL_TRUE;
 		} else {
@@ -1312,8 +1356,14 @@ static long vcodec_waitisr(unsigned long arg)
 	} else if (val_isr.eDriverType == VAL_DRIVER_TYPE_H264_ENC ||
 		   val_isr.eDriverType == VAL_DRIVER_TYPE_HEVC_ENC) {
 		mutex_lock(&HWLock);
+		handle_id = pmem_user_v2p_video((unsigned long)val_isr.pvHandle);
+		if (handle_id == 0) {
+			pr_info("[error] handle is freed at %d\n", __LINE__);
+			mutex_unlock(&HWLock);
+			return -1;
+		}
 		if (grVcodecHWLock.pvHandle ==
-		(void *)pmem_user_v2p_video((unsigned long)val_isr.pvHandle)) {
+		(void *)handle_id) {
 /* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
 			bLockedHW = VAL_TRUE;
 		} else {
