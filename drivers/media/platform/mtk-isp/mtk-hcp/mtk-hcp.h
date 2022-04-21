@@ -14,6 +14,8 @@
 #include <linux/dma-direction.h>
 #include <linux/scatterlist.h>
 #include <linux/dma-buf.h>
+
+#include "mtk-hcp-aee.h"
 #include "mtk-img-ipi.h"
 
 //#include "scp_ipi.h"
@@ -56,6 +58,7 @@ enum hcp_id {
 	HCP_IMGSYS_SET_CONTROL_ID,
 	HCP_IMGSYS_GET_CONTROL_ID,
 	HCP_IMGSYS_CLEAR_HWTOKEN_ID,
+	HCP_IMGSYS_AEE_DUMP_ID,
 	HCP_FD_CMD_ID,
 	HCP_FD_FRAME_ID,
 	HCP_RSC_INIT_ID,
@@ -316,6 +319,7 @@ struct mtk_hcp {
 	bool cm4_support_list[MODULE_MAX_ID];
 	struct task_struct *current_task;
 	struct workqueue_struct *daemon_notify_wq[MODULE_MAX_ID];
+	struct hcp_aee aee_info;
 };
 
 struct mtk_hcp_data {

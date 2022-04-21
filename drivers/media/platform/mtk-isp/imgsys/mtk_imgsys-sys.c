@@ -1685,6 +1685,12 @@ static void imgsys_cleartoken_handler(void *data, unsigned int len, void *priv)
 	}
 }
 
+static void imgsys_aee_handler(void *data, unsigned int len, void *priv)
+{
+    /*TODO: how to notify imgstream? */
+}
+
+
 static void imgsys_set_smvr(struct mtk_imgsys_request *req,
 					struct img_ipi_param *ipi)
 {
@@ -2083,6 +2089,8 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		imgsys_scp_handler, "imgsys_scp_handler", imgsys_dev);
 	mtk_hcp_register(imgsys_dev->scp_pdev, HCP_IMGSYS_CLEAR_HWTOKEN_ID,
 		imgsys_cleartoken_handler, "imgsys_cleartoken_handler", imgsys_dev);
+	mtk_hcp_register(imgsys_dev->scp_pdev, HCP_IMGSYS_AEE_DUMP_ID,
+		imgsys_aee_handler, "imgsys_aee_handler", imgsys_dev);
 
 	return 0;
 }

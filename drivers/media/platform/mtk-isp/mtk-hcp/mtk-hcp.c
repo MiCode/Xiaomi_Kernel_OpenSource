@@ -27,11 +27,17 @@
 #include <linux/slab.h>
 #include <linux/dma-iommu.h>
 #include <linux/dma-mapping.h>
-//#include <asm/dma-contiguous.h>
 #include <linux/videodev2.h>
 #include <videobuf2-dma-contig.h>
+#include <linux/proc_fs.h>
+#include <linux/slab.h>
+#include <linux/string.h>
+#include <linux/module.h>
+
+#include <aee.h>
 
 #include "mtk-hcp.h"
+#include "mtk-hcp-aee.h"
 #include "mtk-hcp-support.h"
 #include "mtk-hcp_isp71.h"
 #include "mtk-hcp_isp7s.h"
@@ -126,12 +132,14 @@ struct ctrl_data {
 #define HCP_WAKEUP              _IOWR('H', 4, struct share_buf)
 #define HCP_TIMEOUT             _IO('H', 5)
 
+#if IS_ENABLED(CONFIG_COMPAT)
 #define COMPAT_HCP_INIT         _IOWR('H', 0, struct share_buf)
 #define COMPAT_HCP_GET_OBJECT   _IOWR('H', 1, struct share_buf)
 #define COMPAT_HCP_NOTIFY       _IOWR('H', 2, struct share_buf)
 #define COMPAT_HCP_COMPLETE     _IOWR('H', 3, struct share_buf)
 #define COMPAT_HCP_WAKEUP       _IOWR('H', 4, struct share_buf)
 #define COMPAT_HCP_TIMEOUT      _IO('H', 5)
+#endif
 
 struct msg {
 	struct list_head entry;
@@ -152,6 +160,15 @@ struct my_wq_t {
 	struct share_buf  data_addr;
 	struct work_struct task_work;
 };
+
+/*  function prototype declaration */
+static void module_notify(struct mtk_hcp *hcp_dev,
+						struct share_buf *user_data_addr);
+static int hcp_send_internal(struct mtk_hcp *hcp_dev,
+							enum hcp_id id, void *buf,
+							unsigned int len, int req_fd,
+							unsigned int wait);
+/*  End */
 
 static struct msg *msg_pool_get(struct mtk_hcp *hcp_dev)
 {
@@ -305,6 +322,184 @@ static inline bool mtk_hcp_running(struct mtk_hcp *hcp_dev)
 	return hcp_dev->is_open;
 }
 
+#ifdef AED_SET_EXTRA_FUNC_READY_ON_K515
+int hcp_notify_aee(void)
+{
+	struct msg *msg;
+	char dummy;
+
+	pr_info("HCP trigger AEE dump+\n");
+	msg = msg_pool_get(hcp_mtkdev);
+	msg->user_obj.id = HCP_IMGSYS_AEE_DUMP_ID;
+	msg->user_obj.len = 0;
+	msg->user_obj.info.send.hcp = HCP_IMGSYS_AEE_DUMP_ID;
+	msg->user_obj.info.send.req = 0;
+	msg->user_obj.info.send.ack = 0;
+
+	hcp_send_internal(hcp_mtkdev, HCP_IMGSYS_AEE_DUMP_ID, &dummy, 1, 0, 1);
+	module_notify(hcp_mtkdev, &msg->user_obj);
+
+	pr_info("HCP trigger AEE dump-\n");
+
+	return 0;
+}
+#endif
+
+int proc_open(struct inode *inode, struct file *file)
+{
+	struct mtk_hcp *hcp_dev = hcp_mtkdev;
+
+	const char *name;
+
+	try_module_get(THIS_MODULE);
+
+	name = file->f_path.dentry->d_name.name;
+	if (!strcmp(name, "daemon")) {
+		file->private_data = &hcp_dev->aee_info.data[0];
+	} else if (!strcmp(name, "kernel")) {
+		file->private_data = &hcp_dev->aee_info.data[1];
+	} else if (!strcmp(name, "stream")) {
+		file->private_data = &hcp_dev->aee_info.data[2];
+	} else {
+		module_put(THIS_MODULE);
+		return -EPERM;
+	}
+
+	if (file->private_data == NULL) {
+		pr_info("failed to allocate proc file(%s) buffer", name);
+		return -ENOMEM;
+	}
+
+	pr_info("%s: %s", __func__, name);
+
+	return 0;
+}
+
+static ssize_t proc_read(struct file *file, char __user *buf, size_t lbuf,
+	loff_t *ppos)
+{
+	struct proc_info *info = (struct proc_info *)file->private_data;
+	int nbytes, maxbytes, bytes_to_do;
+
+	maxbytes = info->count - *ppos;
+	bytes_to_do = (maxbytes > lbuf) ? lbuf : maxbytes;
+	if (bytes_to_do == 0)
+		pr_info("Reached end of the device on a read");
+
+	nbytes = bytes_to_do - copy_to_user(buf, info->buffer + *ppos, bytes_to_do);
+	*ppos += nbytes;
+
+	pr_info("\n Leaving the   READ function, nbytes=%d, pos=%d\n",
+		nbytes, (int)*ppos);
+
+	return nbytes;
+}
+
+static ssize_t proc_write(struct file *file, const char __user *buf,
+	size_t lbuf, loff_t *ppos)
+{
+	struct proc_info *info = (struct proc_info *)file->private_data;
+	int nbytes, maxbytes, bytes_to_do;
+	unsigned long bytes_remain = 0;
+
+	maxbytes = info->size - *ppos;
+	bytes_to_do = (maxbytes > lbuf) ? lbuf : maxbytes;
+	if (bytes_to_do == 0)
+		pr_info("Reached end of the device on a write");
+
+	bytes_remain = copy_from_user(info->buffer + *ppos, buf, bytes_to_do);
+	nbytes = bytes_to_do - bytes_remain;
+
+	*ppos += nbytes;
+	if (*ppos > info->count)
+		info->count = *ppos;
+
+	pr_info("\n Leaving the WRITE function, nbytes=%d, pos=%d\n",
+		nbytes, (int)*ppos);
+
+	return nbytes;
+}
+
+int proc_close(struct inode *inode, struct file *file)
+{
+	module_put(THIS_MODULE);
+	return 0;
+}
+
+static const struct proc_ops aee_ops = {
+	.proc_open = proc_open,
+	.proc_read  = proc_read,
+	.proc_write = proc_write,
+	.proc_release = proc_close
+};
+
+static void hcp_aee_reset(struct mtk_hcp *hcp_dev)
+{
+	int i;
+	struct hcp_aee *aee_info;
+
+	dev_info(hcp_dev->dev, "%s -s\n", __func__);
+	aee_info = &hcp_dev->aee_info;
+
+	for (i = 0 ; i < HCP_AEE_PROC_FILE_NUM ; i++) {
+		memset(aee_info->data[i].buffer, 0, aee_info->data[i].size);
+		aee_info->data[i].count = 0;
+	}
+
+	dev_info(hcp_dev->dev, "%s -e\n", __func__);
+}
+
+int hcp_aee_init(struct mtk_hcp *hcp_dev)
+{
+	struct hcp_aee *aee_info;
+
+	dev_info(hcp_dev->dev, "%s -s\n", __func__);
+	aee_info = &hcp_dev->aee_info;
+	#ifdef AED_SET_EXTRA_FUNC_READY_ON_K515
+	aed_set_extra_func(hcp_notify_aee);
+	#endif
+	aee_info->entry = proc_mkdir("mtk_img_debug", NULL);
+	if (aee_info->entry) {
+		//  Must set size separately to reserve the size flexibility of
+		//  different proc.
+		aee_info->data[0].size = HCP_AEE_MAX_BUFFER_SIZE;
+		aee_info->data[1].size = HCP_AEE_MAX_BUFFER_SIZE;
+		aee_info->data[2].size = HCP_AEE_MAX_BUFFER_SIZE;
+		hcp_aee_reset(hcp_dev);
+
+		aee_info->daemon = proc_create("daemon",
+				0644, aee_info->entry, &aee_ops);
+		aee_info->stream = proc_create("stream",
+				0644, aee_info->entry, &aee_ops);
+		aee_info->kernel = proc_create("kernel",
+				0644, aee_info->entry, &aee_ops);
+	} else {
+		pr_info("%s: failed to create imgsys debug node\n", __func__);
+	}
+
+	dev_info(hcp_dev->dev, "%s - e\n", __func__);
+	return 0;
+}
+
+int hcp_aee_deinit(struct mtk_hcp *hcp_dev)
+{
+	struct hcp_aee *aee_info = &hcp_dev->aee_info;
+
+	if (aee_info->kernel)
+		proc_remove(aee_info->kernel);
+
+	if (aee_info->daemon)
+		proc_remove(aee_info->daemon);
+
+	if (aee_info->stream)
+		proc_remove(aee_info->stream);
+
+	if (aee_info->entry)
+		proc_remove(aee_info->entry);
+
+	return 0;
+}
+
 #if MTK_CM4_SUPPORT
 static void hcp_ipi_handler(int id, void *data, unsigned int len)
 {
@@ -417,46 +612,44 @@ int mtk_hcp_unregister(struct platform_device *pdev, enum hcp_id id)
 }
 EXPORT_SYMBOL(mtk_hcp_unregister);
 
-static int hcp_send_internal(struct platform_device *pdev,
+static int hcp_send_internal(struct mtk_hcp *hcp_dev,
 		 enum hcp_id id, void *buf,
 		 unsigned int len, int req_fd,
 		 unsigned int wait)
 {
-	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	struct share_buf send_obj;
 	unsigned long timeout, flag;
 	struct msg *msg;
 	int ret = 0;
 	unsigned int no;
 
-	dev_dbg(&pdev->dev, "%s id:%d len %d\n",
+	dev_dbg(hcp_dev->dev, "%s id:%d len %d\n",
 				__func__, id, len);
 
 	if (id < HCP_INIT_ID || id >= HCP_MAX_ID ||
 			len > sizeof(send_obj.share_data) || buf == NULL) {
-		dev_info(&pdev->dev,
+		dev_info(hcp_dev->dev,
 			"%s failed to send hcp message (Invalid arg.), len/sz(%d/%d)\n",
 			__func__, len, sizeof(send_obj.share_data));
 		return -EINVAL;
 	}
 
 	if (mtk_hcp_running(hcp_dev) == false) {
-		dev_info(&pdev->dev, "%s hcp is not running\n", __func__);
+		dev_info(hcp_dev->dev, "%s hcp is not running\n", __func__);
 		return -EPERM;
 	}
 
 	if (mtk_hcp_cm4_support(hcp_dev, id) == true) {
-#if MTK_CM4_SUPPORT
+	#if MTK_CM4_SUPPORT
 		int ipi_id = hcp_id_to_ipi_id(hcp_dev, id);
 
-		dev_dbg(&pdev->dev, "%s cm4 is support !!!\n", __func__);
+		dev_dbg(hcp_dev->dev, "%s cm4 is support !!!\n", __func__);
 		return scp_ipi_send(ipi_id, buf, len, 0, SCP_A_ID);
-#endif
+	#endif
 	} else {
 		int module_id = hcp_id_to_module_id(hcp_dev, id);
-
 		if (module_id < MODULE_ISP || module_id >= MODULE_MAX_ID) {
-			dev_info(&pdev->dev, "%s invalid module id %d", __func__, module_id);
+			dev_info(hcp_dev->dev, "%s invalid module id %d", __func__, module_id);
 			return -EINVAL;
 		}
 
@@ -464,11 +657,11 @@ static int hcp_send_internal(struct platform_device *pdev,
 		ret = wait_event_timeout(hcp_dev->msg_wq,
 			((msg = msg_pool_get(hcp_dev)) != NULL), timeout);
 		if (ret == 0) {
-			dev_info(&pdev->dev, "%s id:%d refill time out !\n",
+			dev_info(hcp_dev->dev, "%s id:%d refill time out !\n",
 				__func__, id);
 			return -EIO;
 		} else if (-ERESTARTSYS == ret) {
-			dev_info(&pdev->dev, "%s id:%d refill interrupted !\n",
+			dev_info(hcp_dev->dev, "%s id:%d refill interrupted !\n",
 				__func__, id);
 			return -ERESTARTSYS;
 		}
@@ -498,7 +691,7 @@ static int hcp_send_internal(struct platform_device *pdev,
 
 		wake_up(&hcp_dev->poll_wq[module_id]);
 
-		dev_dbg(&pdev->dev,
+		dev_dbg(hcp_dev->dev,
 			"%s frame_no_%d, message(%d)size(%d) send to user space !!!\n",
 			__func__, no, id, len);
 
@@ -513,15 +706,15 @@ static int hcp_send_internal(struct platform_device *pdev,
 		ret = wait_event_timeout(hcp_dev->ack_wq[module_id],
 			atomic_cmpxchg(&(hcp_dev->hcp_id_ack[id]), 1, 0), timeout);
 		if (ret == 0) {
-			dev_info(&pdev->dev, "%s hcp id:%d ack time out !\n",
+			dev_info(hcp_dev->dev, "%s hcp id:%d ack time out !\n",
 				__func__, id);
 			/*
-			 * clear un-success event to prevent unexpected flow
-			 * cauesd be remaining data
-			 */
+				* clear un-success event to prevent unexpected flow
+				* cauesd be remaining data
+				*/
 			return -EIO;
 		} else if (-ERESTARTSYS == ret) {
-			dev_info(&pdev->dev, "%s hcp id:%d ack wait interrupted !\n",
+			dev_info(hcp_dev->dev, "%s hcp id:%d ack wait interrupted !\n",
 				__func__, id);
 			return -ERESTARTSYS;
 		} else {
@@ -543,7 +736,9 @@ int mtk_hcp_send(struct platform_device *pdev,
 		 enum hcp_id id, void *buf,
 		 unsigned int len, int req_fd)
 {
-	return hcp_send_internal(pdev, id, buf, len, req_fd, SYNC_SEND);
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	return hcp_send_internal(hcp_dev, id, buf, len, req_fd, SYNC_SEND);
 }
 EXPORT_SYMBOL(mtk_hcp_send);
 
@@ -551,7 +746,9 @@ int mtk_hcp_send_async(struct platform_device *pdev,
 		 enum hcp_id id, void *buf,
 		 unsigned int len, int req_fd)
 {
-	return hcp_send_internal(pdev, id, buf, len, req_fd, ASYNC_SEND);
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	return hcp_send_internal(hcp_dev, id, buf, len, req_fd, ASYNC_SEND);
 }
 EXPORT_SYMBOL(mtk_hcp_send_async);
 
@@ -583,7 +780,7 @@ int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 			ctrl.value = ((slb.size << 32) |
 				((uintptr_t)slb.paddr & 0x0FFFFFFFFULL));
 
-			return hcp_send_internal(pdev,
+			return hcp_send_internal(hcp_dev,
 				HCP_IMGSYS_SET_CONTROL_ID, &ctrl, sizeof(ctrl), 0, 0);
 		}
 	} else {
@@ -599,7 +796,7 @@ int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 			ctrl.id    = CTRL_ID_SLB_BASE;
 			ctrl.value = 0;
 
-			return hcp_send_internal(pdev,
+			return hcp_send_internal(hcp_dev,
 				HCP_IMGSYS_SET_CONTROL_ID, &ctrl, sizeof(ctrl), 0, 0);
 		}
 	}
@@ -1311,6 +1508,7 @@ static void module_notify(struct mtk_hcp *hcp_dev,
 		return;
 	}
 
+
 	dev_dbg(hcp_dev->dev, " %s with message id:%d\n",
 				__func__, user_data_addr->id);
 	if (hcp_dev->hcp_desc_table[user_data_addr->id].handler) {
@@ -1882,6 +2080,8 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 		goto err_device;
 	}
 
+	hcp_aee_init(hcp_mtkdev);
+	dev_dbg(&pdev->dev, "hcp aee init done\n");
 	dev_dbg(&pdev->dev, "- X. hcp driver probe success.\n");
 
 #if HCP_RESERVED_MEM
@@ -1938,6 +2138,7 @@ static int mtk_hcp_remove(struct platform_device *pdev)
 #endif
 
 	dev_dbg(&pdev->dev, "- E. hcp driver remove.\n");
+	hcp_aee_deinit(hcp_dev);
 
 #if HCP_RESERVED_MEM
 	//remove reserved memory
