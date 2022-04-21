@@ -10663,13 +10663,14 @@
 		< 0 0 18>,/* IPI_OUT_VDEC_1 */
 		< 2 1  2>,/* IPI_OUT_C_SLEEP_0 */
 		< 3 1  1>,/* IPI_OUT_TEST_0 */
-		< 9 2 18>,/* IPI_OUT_VENC_0 */
-		<11 2  4>,/* IPI_OUT_VCP_MPOOL_0 */
-		<13 3  2>,/* IPI_OUT_C_SLEEP_1 */
-		<14 3  1>,/* IPI_OUT_TEST_1 */
-		<15 3  6>,/* IPI_OUT_LOGGER_CTRL */
-		<16 3  2>,/* IPI_OUT_VCPCTL_1 */
-		<21 4  4>;/* IPI_OUT_VCP_MPOOL_1 */
+		< 9 1  1>,/* IPI_OUT_MMDVFS */
+		<11 2 18>,/* IPI_OUT_VENC_0 */
+		<13 2  4>,/* IPI_OUT_VCP_MPOOL_0 */
+		<15 3  2>,/* IPI_OUT_C_SLEEP_1 */
+		<16 3  1>,/* IPI_OUT_TEST_1 */
+		<17 3  6>,/* IPI_OUT_LOGGER_CTRL */
+		<18 3  2>,/* IPI_OUT_VCPCTL_1 */
+		<23 4  4>;/* IPI_OUT_VCP_MPOOL_1 */
 
 		/* id, mbox, recv_size, recv_opt */
 		recv_table =
@@ -10678,14 +10679,15 @@
 		< 4 1 10 0>,/* IPI_IN_VCP_ERROR_INFO_0 */
 		< 5 1  1 0>,/* IPI_IN_VCP_READY_0 */
 		< 6 1  2 0>,/* IPI_IN_VCP_RAM_DUMP_0 */
-		<10 2 18 0>,/* IPI_IN_VENC_0 */
-		<12 2  4 0>,/* IPI_IN_VCP_MPOOL_0 */
-		<13 3  1 1>,/* IPI_OUT_C_SLEEP_1 */
-		<17 3 10 0>,/* IPI_IN_VCP_ERROR_INFO_1 */
-		<18 3  6 0>,/* IPI_IN_LOGGER_CTRL */
-		<19 3  1 0>,/* IPI_IN_VCP_READY_1 */
-		<20 3  2 0>,/* IPI_IN_VCP_RAM_DUMP_1 */
-		<22 4  4 0>;/* IPI_IN_VCP_MPOOL_1 */
+		<10 1  1 0>,/* IPI_IN_MMDVFS */
+		<12 2 18 0>,/* IPI_IN_VENC_0 */
+		<14 2  4 0>,/* IPI_IN_VCP_MPOOL_0 */
+		<15 3  1 1>,/* IPI_OUT_C_SLEEP_1 */
+		<19 3 10 0>,/* IPI_IN_VCP_ERROR_INFO_1 */
+		<20 3  6 0>,/* IPI_IN_LOGGER_CTRL */
+		<21 3  1 0>,/* IPI_IN_VCP_READY_1 */
+		<22 3  2 0>,/* IPI_IN_VCP_RAM_DUMP_1 */
+		<24 4  4 0>;/* IPI_IN_VCP_MPOOL_1 */
 
 		vcp_mem_key = "mediatek,reserve-memory-vcp_share";
 		vcp_mem_tbl = <0 0x78000>, /* VDEC_MEM_ID 480KB */
