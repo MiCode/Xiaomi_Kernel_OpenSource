@@ -33,6 +33,7 @@
 #include <lpm_type.h>
 #include <lpm_call_type.h>
 #include <lpm_dbg_common_v1.h>
+#include <mtk_cpuidle_status.h>
 
 #include "lpm_plat.h"
 #include "lpm_plat_comm.h"
@@ -308,6 +309,7 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 {
 	struct timespec64 ts;
 	struct rtc_time tm;
+	int ret;
 
 	ktime_get_ts64(&ts);
 	rtc_time64_to_tm(ts.tv_sec, &tm);
@@ -320,10 +322,15 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 	case PM_POST_HIBERNATION:
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
+		ret = mtk_s2idle_state_enable(1);
+		if (ret)
+			return NOTIFY_BAD;
 		cpu_hotplug_disable();
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
 		cpu_hotplug_enable();
+		/* make sure the rest of callback proceeds*/
+		mtk_s2idle_state_enable(0);
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
@@ -415,6 +422,8 @@ static int lpm_s2idle_barrier(void)
 			      drv->states[i-1].exit_latency)/2;
 
 	cpu_latency_qos_add_request(&lpm_qos_request, s2idle_block_value);
+
+	mtk_s2idle_state_enable(0);
 
 	return 0;
 }
