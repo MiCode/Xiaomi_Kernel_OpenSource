@@ -182,6 +182,16 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 			"[src_clk_cg]enable:%d freq:%lu\n",
 			__clk_is_enabled(host->src_clk_cg), clk_get_rate(host->src_clk_cg));
 
+	if (host->crypto_clk)
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[crypto_clk]enable:%d freq:%lu\n",
+			__clk_is_enabled(host->crypto_clk), clk_get_rate(host->crypto_clk));
+
+	if (host->crypto_cg)
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[crypto_cg]enable:%d freq:%lu\n",
+			__clk_is_enabled(host->crypto_cg), clk_get_rate(host->crypto_cg));
+
 	SPREAD_PRINTF(buff, size, m, "%s", buffer);
 }
 

@@ -429,6 +429,7 @@ struct mtk_mmc_compatible {
 	bool support_64g;
 	bool use_internal_cd;
 	bool need_gate_cg;
+	bool set_crypto_enable_in_sw;
 };
 
 struct msdc_tune_para {

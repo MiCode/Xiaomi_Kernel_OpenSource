@@ -38,6 +38,8 @@
 #include "mtk-mmc.h"
 #include "mtk-mmc-dbg.h"
 #include "rpmb-mtk.h"
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <mt-plat/mtk_blocktag.h>
 
 
@@ -2114,9 +2116,33 @@ static void msdc_hs400_enhanced_strobe(struct mmc_host *mmc,
 	}
 }
 
+/* SiP commands */
+#define MTK_SIP_MMC_CONTROL	MTK_SIP_SMC_CMD(0x273)
+#define MMC_MTK_SIP_CRYPTO_CTRL	BIT(1)
+
+/* SMC call wapper function */
+#define mmc_mtk_crypto_ctrl(smcc_res) \
+	arm_smccc_smc(MTK_SIP_MMC_CONTROL, \
+		MMC_MTK_SIP_CRYPTO_CTRL, 0, 0, 0, 0, 0, 0, &smcc_res)
+
+static void mmc_mtk_crypto_enable(struct mmc_host *mmc)
+{
+	struct arm_smccc_res res;
+
+	mmc_mtk_crypto_ctrl(res);
+	if (res.a0) {
+		pr_info("%s: crypto enable failed, err: %lu\n",
+			 __func__, res.a0);
+		mmc->caps2 &= ~MMC_CAP2_CRYPTO;
+	}
+}
+
 static void msdc_cqe_enable(struct mmc_host *mmc)
 {
 	struct msdc_host *host = mmc_priv(mmc);
+
+	if (host->dev_comp->set_crypto_enable_in_sw)
+		mmc_mtk_crypto_enable(mmc);
 
 	/* enable cmdq irq */
 	writel(MSDC_INT_CMDQ, host->base + MSDC_INTEN);
