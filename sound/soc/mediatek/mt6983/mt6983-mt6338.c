@@ -26,6 +26,10 @@
  */
 #define EXT_SPK_AMP_W_NAME "Ext_Speaker_Amp"
 
+static struct snd_soc_card mt6983_mt6338_soc_card;
+
+struct mt6983_compress_info compr_info;
+
 static const char *const mt6983_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_RICHTEK_RT5509_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR,
@@ -80,9 +84,66 @@ static int mt6983_spk_i2s_in_type_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int mt6983_compress_info_set(struct snd_kcontrol *kcontrol,
+				    const unsigned int __user *data,
+				    unsigned int size)
+{
+	if (copy_from_user(&compr_info,
+			   data,
+			   sizeof(struct mt6983_compress_info))) {
+		pr_info("%s() copy fail, data=%p, size=%d\n",
+			__func__, data, size);
+		return -EFAULT;
+	}
+	return 0;
+}
+
+static int mt6983_compress_info_get(struct snd_kcontrol *kcontrol,
+				    unsigned int __user *data, unsigned int size)
+{
+	struct snd_soc_card *card = &mt6983_mt6338_soc_card;
+	struct snd_card *snd_card;
+	struct snd_soc_dai_link *dai_link;
+
+	struct snd_device *snd_dev;
+	struct snd_compr *compr;
+	int ret = 0, i = 0;
+
+	snd_card = card->snd_card;
+
+	pr_info("i = %d, compr_info->id: %s\n", compr_info.device, compr_info.id);
+
+	list_for_each_entry(snd_dev, &snd_card->devices, list) {
+		if ((unsigned int)snd_dev->type == (unsigned int)SNDRV_DEV_COMPRESS) {
+			compr = snd_dev->device_data;
+			if (compr->device == compr_info.device) {
+				pr_debug("%s() compr->direction %s\n",
+					 __func__,
+					 (compr->direction) ? "Capture" : "Playback");
+				compr_info.dir = compr->direction;
+			}
+			for_each_card_prelinks(card, i, dai_link) {
+				if (i == compr_info.device) {
+					pr_debug("device = %d, dai_link->name: %s\n",
+						 i, dai_link->stream_name);
+					strscpy(compr_info.id, dai_link->stream_name,
+						sizeof(compr_info.id));
+					break;
+				}
+			}
+			break;
+		}
+	}
+	if (copy_to_user(data, &compr_info, sizeof(struct mt6983_compress_info))) {
+		pr_info("%s(), copy_to_user fail", __func__);
+		ret = -EFAULT;
+	}
+	return ret;
+}
+
 static int mt6983_mt6338_spk_amp_event(struct snd_soc_dapm_widget *w,
-					struct snd_kcontrol *kcontrol,
-					int event)
+				       struct snd_kcontrol *kcontrol,
+				       int event)
 {
 	struct snd_soc_dapm_context *dapm = w->dapm;
 	struct snd_soc_card *card = dapm->card;
@@ -121,6 +182,9 @@ static const struct snd_kcontrol_new mt6983_mt6338_controls[] = {
 		     mt6983_spk_i2s_out_type_get, NULL),
 	SOC_ENUM_EXT("MTK_SPK_I2S_IN_TYPE_GET", mt6983_spk_type_enum[1],
 		     mt6983_spk_i2s_in_type_get, NULL),
+	SND_SOC_BYTES_TLV("MTK_COMPRESS_INFO",
+			  sizeof(struct mt6983_compress_info),
+			  mt6983_compress_info_get, mt6983_compress_info_set),
 };
 
 /*
