@@ -659,6 +659,12 @@ static void fgauge_set_nafg_intr_internal(struct mtk_gauge *gauge,
 	gauge->zcv_reg = mv_to_reg_value(_zcv_mv);
 	gauge->thr_reg = mv_to_reg_value(_thr_mv);
 
+	if (gauge->thr_reg >= 32768) {
+		bm_err("[%s]nag_c_dltv_thr mv=%d ,thr_reg=%d,limit thr_reg to 32767\n",
+			__func__, _thr_mv, gauge->thr_reg);
+		gauge->thr_reg = 32767;
+	}
+
 	NAG_C_DLTV_Threashold_26_16 = (gauge->thr_reg & 0xffff0000) >> 16;
 	NAG_C_DLTV_Threashold_15_0 = (gauge->thr_reg & 0x0000ffff);
 
