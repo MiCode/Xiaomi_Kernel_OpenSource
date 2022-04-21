@@ -5994,7 +5994,7 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	DDPINFO("%s:%d +\n", __func__, __LINE__);
 	return;
 #else
-	struct cmdq_pkt *cmdq_handle;
+	struct cmdq_pkt *cmdq_handle = NULL, *cmdq_handle2 = NULL;
 	struct mtk_ddp_comp *comp;
 	int i, j;
 
@@ -6007,13 +6007,15 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 
 	/* 0. Waiting CLIENT_DSI_CFG thread done */
 	if (crtc_id == 0) {
-		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+		mtk_crtc_pkt_create(&cmdq_handle2, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
-		cmdq_pkt_flush(cmdq_handle);
-		if (cmdq_handle != NULL)
-			cmdq_pkt_destroy(cmdq_handle);
-		else
-			DDPPR_ERR("%s %d null cmdq_handle\n", __func__, __LINE__);
+		if (IS_ERR_OR_NULL(cmdq_handle2))
+			DDPPR_ERR("%s %d null cmdq_handle2\n", __func__, __LINE__);
+		else {
+			cmdq_pkt_flush(cmdq_handle2);
+			cmdq_pkt_destroy(cmdq_handle2);
+			cmdq_handle2 = NULL;
+		}
 	}
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
@@ -6062,11 +6064,13 @@ skip:
 		mtk_crtc_is_connector_enable(mtk_crtc))
 		mtk_crtc_mml_racing_stop_sync(crtc, cmdq_handle);
 
-	cmdq_pkt_flush(cmdq_handle);
-	if (cmdq_handle != NULL)
-		cmdq_pkt_destroy(cmdq_handle);
-	else
+	if (IS_ERR_OR_NULL(cmdq_handle))
 		DDPPR_ERR("%s %d null cmdq_handle\n", __func__, __LINE__);
+	else {
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+		cmdq_handle = NULL;
+	}
 
 	/* 4. Set QOS BW to 0 */
 	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
