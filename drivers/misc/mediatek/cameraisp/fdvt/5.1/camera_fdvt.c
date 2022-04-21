@@ -2046,8 +2046,10 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config,
 	dmabuf_metadata.FDOutBuf_Handler = fdvt_sec_dma.FDOutBuf_Handler;
 	dmabuf_metadata.FD_POSE_Config_Handler = fdvt_sec_dma.FD_POSE_Config_Handler;
 	dmabuf_metadata.ImgSrcY_IOVA = fdvt_get_sec_iova(dmabuf->ImgSrcY.dmabuf, &dmabuf->ImgSrcY);
-	dmabuf_metadata.ImgSrcUV_IOVA =
-		fdvt_get_sec_iova(dmabuf->ImgSrcUV.dmabuf, &dmabuf->ImgSrcUV);
+	if (dmabuf_metadata.ImgSrcUV_Handler) {
+		dmabuf_metadata.ImgSrcUV_IOVA =
+			fdvt_get_sec_iova(dmabuf->ImgSrcUV.dmabuf, &dmabuf->ImgSrcUV);
+	}
 	if (fdvt_sec_dma.iova_first_time == 0) {
 		dmabuf_metadata.YUVConfig_IOVA =
 			fdvt_get_sec_iova(fdvt_sec_dma.YUVConfig.dmabuf, &fdvt_sec_dma.YUVConfig);
@@ -2068,7 +2070,8 @@ static signed int config_secure_fdvt_hw(struct fdvt_config *basic_config,
 			fdvt_get_sec_iova(fdvt_sec_dma.FD_POSE.dmabuf, &fdvt_sec_dma.FD_POSE);
 		fdvt_sec_dma.FD_POSE.iova = dmabuf_metadata.FDPOSE_IOVA;
 		dmabuf_metadata.FDResultBuf_MVA =
-	fdvt_get_sec_iova(fdvt_sec_dma.FDResultBuf_MVA.dmabuf, &fdvt_sec_dma.FDResultBuf_MVA);
+			fdvt_get_sec_iova(fdvt_sec_dma.FDResultBuf_MVA.dmabuf,
+					  &fdvt_sec_dma.FDResultBuf_MVA);
 		fdvt_sec_dma.FDResultBuf_MVA.iova = dmabuf_metadata.FDResultBuf_MVA;
 		fdvt_sec_dma.iova_first_time++;
 	} else {
@@ -3967,6 +3970,8 @@ static signed int FDVT_release(struct inode *pInode, struct file *pFile)
 		dma_buf_put(fdvt_sec_dma.FDResultBuf_MVA.dmabuf);
 		fdvt_sec_dma.iova_first_time = 0;
 	}
+	fdvt_sec_dma.handler_first_time = 0;
+
 	cmdq_mbox_disable(fdvt_clt->chan);
 	fdvt_enable_clock(MFALSE);
 	log_dbg("FDVT release clock_enable_count: %d", clock_enable_count);
