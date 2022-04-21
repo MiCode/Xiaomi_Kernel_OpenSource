@@ -34,7 +34,7 @@
 #include <linux/i2c.h>
 //#include "lcm_i2c.h"
 
-#define HFP_SUPPORT 0
+#define HFP_SUPPORT 1
 
 #if HFP_SUPPORT
 static int current_fps = 60;
