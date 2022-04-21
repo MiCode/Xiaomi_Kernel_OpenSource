@@ -78,6 +78,15 @@
 #define INT_SMI_LARB_DBG_CON		(0x500 + (SMI_LARB_DBG_CON))
 #define INT_SMI_LARB_OSTD_MON_PORT(p)	(0x500 + SMI_LARB_OSTD_MON_PORT(p))
 
+#define	SMI_MON_AXI_ENA_MON2		(0x650)
+#define	SMI_MON_AXI_CLR_MON2		(0x654)
+#define SMI_MON_AXI_TYPE_MON2		(0x65c)
+#define SMI_MON_AXI_CON_MON2		(0x660)
+#define SMI_MON_AXI_BYT_CNT_MON2	(0x680)
+#define SMI_MON_AXI_ACT_CNT_MON2	(0x670)
+#define SMI_MON_AXI_REQ_CNT_MON2	(0x674)
+#define SMI_MON_AXI_BEA_CNT_MON2	(0x67c)
+
 #define SMI_LARB_REGS_NR		(194)
 static u32	smi_larb_regs[SMI_LARB_REGS_NR] = {
 	SMI_LARB_STAT, SMI_LARB_IRQ_EN, SMI_LARB_IRQ_STATUS, SMI_LARB_SLP_CON,
@@ -1047,6 +1056,105 @@ MODULE_PARM_DESC(smi_larb_disable, "disable smi larb");
 module_init(mtk_smi_dbg_init);
 MODULE_LICENSE("GPL v2");
 
+#define MAX_MON_REQ	(4)
+
+/*
+ * smi_monitor_start() - start to monitor the commonlarb read/write byte count
+ * @dev: reference to the user device node
+ * @common_id: the common id
+ * @commonlarb_id: the common larb which would be monitored
+ * @falg:  read 0x1/write 0x2
+ *
+ * Returns 0 on success, -EAGAIN means fail to get smi monitor or an
+ * appropriate error code otherwise.
+ */
+s32 smi_monitor_start(struct device *dev, u32 common_id, u32 commonlarb_id[MAX_MON_REQ],
+			u32 flag[MAX_MON_REQ])
+{
+	u32 i, ret;
+	bool is_write;
+	struct mtk_smi_dbg	*smi = gsmi;
+	void __iomem *comm_base;
+
+	comm_base = smi->comm[common_id].va;
+	if (!comm_base) {
+		pr_notice("[smi]%s: failed to monitor comm%d\n", __func__, common_id);
+		return -EAGAIN;
+	}
+
+	ret = pm_runtime_get_if_in_use(smi->comm[common_id].dev);
+	if (ret <= 0) {
+		pr_notice("[smi]%s: comm%d power off, rpm:%d\n", __func__, common_id, ret);
+		return ret;
+	}
+
+	for (i = 0; i < MAX_MON_REQ; i++) {
+		if (flag[i] == 0)
+			break;
+		is_write = (flag[i] == 0x2);
+
+		if (is_write)
+			writel_relaxed(readl(comm_base + SMI_MON_AXI_TYPE_MON2) | (0x1 << i),
+				comm_base + SMI_MON_AXI_TYPE_MON2);
+		writel_relaxed(readl(comm_base + SMI_MON_AXI_CON_MON2) |
+			(commonlarb_id[i] << (4 + i * 4)), comm_base + SMI_MON_AXI_CON_MON2);
+	}
+	writel_relaxed(0x3, comm_base + SMI_MON_AXI_ENA_MON2);
+
+	pm_runtime_put(smi->comm[common_id].dev);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(smi_monitor_start);
+
+ /*
+  * smi_monitor_stop() - start to monitor the commonlarb read/write byte count
+  * @dev: reference to the user device node
+  * @common_id: the common id which would be monitored
+  * @bw: byte count from start to stop
+  *
+  * Returns 0 on success, or an appropriate error code otherwise.
+  */
+s32 smi_monitor_stop(struct device *dev, u32 common_id, u32 *bw)
+{
+	u32 i, ret;
+	u32 byte_cnt[MAX_MON_REQ] = { 0 };
+	struct mtk_smi_dbg	*smi = gsmi;
+	void __iomem *comm_base;
+
+	comm_base = smi->comm[common_id].va;
+	if (!comm_base) {
+		pr_notice("[smi]%s: failed to monitor comm%d\n", __func__, common_id);
+		return -EAGAIN;
+	}
+
+	ret = pm_runtime_get_if_in_use(smi->comm[common_id].dev);
+	if (ret <= 0) {
+		pr_notice("[smi]%s: comm%d power off, rpm:%d\n", __func__, common_id, ret);
+		return ret;
+	}
+
+	writel_relaxed(0x0, comm_base + SMI_MON_AXI_ENA_MON2);
+
+	byte_cnt[0] = readl(comm_base + SMI_MON_AXI_BYT_CNT_MON2);
+	byte_cnt[1] = readl(comm_base + SMI_MON_AXI_ACT_CNT_MON2);
+	byte_cnt[2] = readl(comm_base + SMI_MON_AXI_REQ_CNT_MON2);
+	byte_cnt[3] = readl(comm_base + SMI_MON_AXI_BEA_CNT_MON2);
+
+	for (i = 0; i < MAX_MON_REQ; i++)
+		bw[i] = byte_cnt[i];
+
+	writel_relaxed(0x0, comm_base + SMI_MON_AXI_TYPE_MON2);
+	writel_relaxed(0x0, comm_base + SMI_MON_AXI_CON_MON2);
+	writel_relaxed(0x1, comm_base + SMI_MON_AXI_CLR_MON2);
+	writel_relaxed(0x0, comm_base + SMI_MON_AXI_CLR_MON2);
+
+	pm_runtime_put(smi->comm[common_id].dev);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(smi_monitor_stop);
+
 int smi_larb_force_all_on(char *buf, const struct kernel_param *kp)
 {
 	struct mtk_smi_dbg	*smi = gsmi;
@@ -1091,3 +1199,41 @@ static struct kernel_param_ops smi_larb_force_all_put_ops = {
 };
 module_param_cb(smi_force_all_put, &smi_larb_force_all_put_ops, NULL, 0644);
 MODULE_PARM_DESC(smi_force_all_put, "smi larb force all put");
+
+int smi_bw_monitor_start(const char *val, const struct kernel_param *kp)
+{
+	u32 commonlarb_id[MAX_MON_REQ];
+	u32 flag[MAX_MON_REQ];
+	u32 common_id, i, j, result;
+	u32 bw[MAX_MON_REQ];
+
+	result = sscanf(val, "%d:%d %d %d %d:%d %d %d %d", &common_id,
+		&commonlarb_id[0], &commonlarb_id[1], &commonlarb_id[2], &commonlarb_id[3],
+		&flag[0], &flag[1], &flag[2], &flag[3]);
+
+	if (result != 9) {
+		pr_notice("%s: failed: %d\n", __func__, result);
+		return result;
+	}
+
+	for (i = 0; i < 4; i++) {
+		pr_notice("[smi] bw ut flag%d = %d\n", i, flag[i]);
+		pr_notice("[smi] bw ut common_id%d = %d\n", i, commonlarb_id[i]);
+	}
+
+	for (i = 0; i < 1000; i++) {
+		smi_monitor_start(NULL, common_id, commonlarb_id, flag);
+		msleep(1);
+		smi_monitor_stop(NULL, common_id, bw);
+		for (j = 0; j < MAX_MON_REQ; j++)
+			pr_notice("%s: common_id(%d) bw[%u]=%u\n", __func__, common_id, j, bw[j]);
+	}
+
+	return 0;
+}
+
+static struct kernel_param_ops smi_bw_monitor_start_ops = {
+	.set = smi_bw_monitor_start,
+};
+module_param_cb(smi_bw_monitor_start, &smi_bw_monitor_start_ops, NULL, 0644);
+MODULE_PARM_DESC(smi_bw_monitor_start, "smi monitor bw");
