@@ -89,7 +89,7 @@ int qcom_find_cfg_index(struct clk_hw *hw, const struct parent_map *map, u8 cfg)
 
 	return -ENOENT;
 }
-EXPORT_SYMBOL(qcom_find_cfg_index);
+EXPORT_SYMBOL_GPL(qcom_find_cfg_index);
 
 struct regmap *
 qcom_cc_map(struct platform_device *pdev, const struct qcom_cc_desc *desc)

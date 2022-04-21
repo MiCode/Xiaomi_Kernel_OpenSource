@@ -933,6 +933,7 @@ pwr_dwn:
 
 static void stm32h7_adc_unprepare(struct stm32_adc *adc)
 {
+	stm32_adc_writel(adc, STM32H7_ADC_PCSEL, 0);
 	stm32h7_adc_disable(adc);
 	stm32h7_adc_enter_pwr_down(adc);
 }
