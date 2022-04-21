@@ -3881,6 +3881,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			break;
 		}
 		break;
+	case SENSOR_FEATURE_GET_MAX_EXP_LINE:
 	case SENSOR_FEATURE_GET_STAGGER_MAX_EXP_TIME:
 		if (*feature_data == SENSOR_SCENARIO_ID_CUSTOM4
 			|| *feature_data == SENSOR_SCENARIO_ID_CUSTOM9
@@ -3895,7 +3896,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 				break;
 			}
 		} else {
-			*(feature_data + 2) = 0;
+			*(feature_data + 2) = 65532 - imgsensor_info.margin;
 		}
 		break;
 	case SENSOR_FEATURE_SET_HDR_SHUTTER://for 2EXP
