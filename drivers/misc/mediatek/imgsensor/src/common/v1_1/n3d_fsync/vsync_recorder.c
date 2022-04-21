@@ -196,7 +196,9 @@ static int try_update_vs2_rec(unsigned int d_tclk)
 /* ISR */
 int record_vs_diff(int vflag, unsigned int diff_cnt)
 {
-	spin_lock(&global_lock);
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&global_lock, flags);
 
 	if (!is_period_closely(latest_vs1_period, latest_vs2_period)) {
 		/* skip recording untrust ts */
@@ -227,7 +229,7 @@ int record_vs_diff(int vflag, unsigned int diff_cnt)
 #endif
 	}
 
-	spin_unlock(&global_lock);
+	spin_unlock_irqrestore(&global_lock, flags);
 
 	return 0;
 }
@@ -235,7 +237,9 @@ int record_vs_diff(int vflag, unsigned int diff_cnt)
 /* ISR */
 int record_vs1(unsigned int tclk)
 {
-	spin_lock(&global_lock);
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&global_lock, flags);
 
 	latest_vs1_period = tclk;
 
@@ -244,7 +248,7 @@ int record_vs1(unsigned int tclk)
 
 	record_vs(0, tclk);
 
-	spin_unlock(&global_lock);
+	spin_unlock_irqrestore(&global_lock, flags);
 
 	return 0;
 }
@@ -252,7 +256,9 @@ int record_vs1(unsigned int tclk)
 /* ISR */
 int record_vs2(unsigned int tclk)
 {
-	spin_lock(&global_lock);
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&global_lock, flags);
 
 	latest_vs2_period = tclk;
 
@@ -269,7 +275,7 @@ int record_vs2(unsigned int tclk)
 	}
 #endif
 
-	spin_unlock(&global_lock);
+	spin_unlock_irqrestore(&global_lock, flags);
 
 	return 0;
 }
