@@ -13,7 +13,7 @@
 /*
  * 0 -> power on once then never off and disable DDK power on/off callback
  */
-#define GPUFREQ_POWER_CTRL_ENABLE       (0)
+#define GPUFREQ_POWER_CTRL_ENABLE       (1)
 /*
  * (DVFS_ENABLE, CUST_INIT)
  * (1, 1) -> DVFS enable and init to CUST_INIT_OPPIDX

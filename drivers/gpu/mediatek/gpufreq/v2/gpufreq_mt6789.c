@@ -3297,7 +3297,7 @@ register_fp:
 		gpufreq_register_gpufreq_fp(&platform_ap_fp);
 
 	/* init gpu ppm */
-	ret = gpuppm_init(TARGET_GPU, g_gpueb_support, GPUFREQ_SAFE_VLOGIC);
+	ret = gpuppm_init(TARGET_GPU, g_gpueb_support, 0);
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to init gpuppm (%d)", ret);
 		goto done;
