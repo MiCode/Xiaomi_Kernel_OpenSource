@@ -10,7 +10,6 @@ obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys.o mtk-pm-domain-disable-unused.o
 ifneq ($(wildcard $(srctree)/$(src)/mtk-scpsys-mt6983.c),)
 obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys-mt6983.o mtk-scpsys-bringup.o
 endif
-obj-$(CONFIG_MTK_SCPSYS_PM_DOMAINS) += mtk-pm-domains.o
 obj-$(CONFIG_MTK_MMSYS) += mtk-mmsys.o
 obj-$(CONFIG_MTK_DEVAPC) += devapc/
 obj-$(CONFIG_MTK_DEVMPU) += devmpu/
