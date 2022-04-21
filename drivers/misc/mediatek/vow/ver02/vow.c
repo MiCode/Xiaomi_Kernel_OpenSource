@@ -1974,7 +1974,7 @@ static bool VowDrv_SetMtkifType(unsigned int type)
 static bool VowDrv_CheckMtkifType(unsigned int type)
 {
 	unsigned int mtkif_type = type & 0x0F;
-	unsigned int ch_num = type >> 4;
+	unsigned int ch_num = (type >> 4) & 0x0F;
 
 	if (mtkif_type >= VOW_MTKIF_MAX || mtkif_type < 0) {
 		VOWDRV_DEBUG("out of VOW_MTKIF_TYPE %d\n\r", mtkif_type);

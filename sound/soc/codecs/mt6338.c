@@ -1259,6 +1259,37 @@ static int dmic_used_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+static int vow_pbuf_ch_get(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mt6338_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int value = 0;
+	unsigned int i = 0;
+	unsigned int vow_ch = priv->vow_channel;
+	unsigned int pbuf_ch = 0;
+	unsigned int pbuf_active = 0;
+
+	regmap_read(priv->regmap, MT6338_AUDIO_VAD_PBUF_CON1, &value);
+	/* pbuf reg: [7:6]CH3_SEL,[5:4]CH2_SEL,[3:2]CH1_SEL,[1:0]CH0_SEL */
+	/* change into 4bits, pbuf_active = [3]CH3, [2]CH2, [1]CH1, [0]CH0 */
+	/* ex: pbuf reg = 0xE, means CH0_SEL=mic2, CH1_SEL=mic3 */
+	/*     => pbuf_active = 0xC, means CH2 & CH3 is active */
+	for (i = 0; i < vow_ch; i++) {
+		pbuf_ch = (value >> (2 * i)) & 0x3;
+		pbuf_active |= (0x01 << pbuf_ch);
+	}
+	dev_info(priv->dev, "%s(), VAD_PBUF_CON1=0x%x, pbuf_active 0x%x\n",
+		 __func__,
+		 value,
+		 pbuf_active);
+	ucontrol->value.integer.value[0] = pbuf_active;
+
+	return 0;
+}
+#endif
+
 static int mt6338_put_volsw(struct snd_kcontrol *kcontrol,
 			    struct snd_ctl_elem_value *ucontrol)
 {
@@ -1651,6 +1682,62 @@ static const struct snd_kcontrol_new miso3_mux_control =
 	SOC_DAPM_ENUM("MIS0_MUX Select", miso3_mux_map_enum);
 
 #if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+/* VOW PBUF MUX */
+static const char * const vow_pbuf_mux_map[] = {
+	"PBUF_CH0",
+	"PBUF_CH1",
+	"PBUF_CH2",
+	"PBUF_CH3"
+};
+
+static int vow_pbuf_mux_map_value[] = {
+	VOW_PBUF_MUX_CH_0,
+	VOW_PBUF_MUX_CH_1,
+	VOW_PBUF_MUX_CH_2,
+	VOW_PBUF_MUX_CH_3
+};
+
+/* VOW PBUF MUX */
+static SOC_VALUE_ENUM_SINGLE_DECL(vow_pbuf0_mux_map_enum,
+				  MT6338_AUDIO_VAD_PBUF_CON1,
+				  RG_VAD_CH0_DATA_SEL_SFT,
+				  RG_VAD_CH0_DATA_SEL_MASK,
+				  vow_pbuf_mux_map,
+				  vow_pbuf_mux_map_value);
+
+static const struct snd_kcontrol_new vow_pbuf0_mux_control =
+	SOC_DAPM_ENUM("VOW_PBUF_MUX Select", vow_pbuf0_mux_map_enum);
+
+static SOC_VALUE_ENUM_SINGLE_DECL(vow_pbuf1_mux_map_enum,
+				  MT6338_AUDIO_VAD_PBUF_CON1,
+				  RG_VAD_CH1_DATA_SEL_SFT,
+				  RG_VAD_CH1_DATA_SEL_MASK,
+				  vow_pbuf_mux_map,
+				  vow_pbuf_mux_map_value);
+
+static const struct snd_kcontrol_new vow_pbuf1_mux_control =
+	SOC_DAPM_ENUM("VOW_PBUF_MUX Select", vow_pbuf1_mux_map_enum);
+
+static SOC_VALUE_ENUM_SINGLE_DECL(vow_pbuf2_mux_map_enum,
+				  MT6338_AUDIO_VAD_PBUF_CON1,
+				  RG_VAD_CH2_DATA_SEL_SFT,
+				  RG_VAD_CH2_DATA_SEL_MASK,
+				  vow_pbuf_mux_map,
+				  vow_pbuf_mux_map_value);
+
+static const struct snd_kcontrol_new vow_pbuf2_mux_control =
+	SOC_DAPM_ENUM("VOW_PBUF_MUX Select", vow_pbuf2_mux_map_enum);
+
+static SOC_VALUE_ENUM_SINGLE_DECL(vow_pbuf3_mux_map_enum,
+				  MT6338_AUDIO_VAD_PBUF_CON1,
+				  RG_VAD_CH3_DATA_SEL_SFT,
+				  RG_VAD_CH3_DATA_SEL_MASK,
+				  vow_pbuf_mux_map,
+				  vow_pbuf_mux_map_value);
+
+static const struct snd_kcontrol_new vow_pbuf3_mux_control =
+	SOC_DAPM_ENUM("VOW_PBUF_MUX Select", vow_pbuf3_mux_map_enum);
+
 /* VOW AMIC MUX */
 static const char * const vow_amic_mux_map[] = {
 	"ADC_DATA_0",
@@ -1668,9 +1755,9 @@ static int vow_amic_mux_map_value[] = {
 
 /* VOW AMIC MUX */
 static SOC_VALUE_ENUM_SINGLE_DECL(vow_amic0_mux_map_enum,
-				  MT6338_AFE_AMIC_ARRAY_CFG,
-				  RG_AMIC_ADC0_SOURCE_SEL_SFT,
-				  RG_AMIC_ADC0_SOURCE_SEL_MASK,
+				  SND_SOC_NOPM,
+				  0,
+				  0,
 				  vow_amic_mux_map,
 				  vow_amic_mux_map_value);
 
@@ -1678,9 +1765,9 @@ static const struct snd_kcontrol_new vow_amic0_mux_control =
 	SOC_DAPM_ENUM("VOW_AMIC_MUX Select", vow_amic0_mux_map_enum);
 
 static SOC_VALUE_ENUM_SINGLE_DECL(vow_amic1_mux_map_enum,
-				  MT6338_AFE_AMIC_ARRAY_CFG,
-				  RG_AMIC_ADC1_SOURCE_SEL_SFT,
-				  RG_AMIC_ADC1_SOURCE_SEL_MASK,
+				  SND_SOC_NOPM,
+				  0,
+				  0,
 				  vow_amic_mux_map,
 				  vow_amic_mux_map_value);
 
@@ -1688,9 +1775,9 @@ static const struct snd_kcontrol_new vow_amic1_mux_control =
 	SOC_DAPM_ENUM("VOW_AMIC_MUX Select", vow_amic1_mux_map_enum);
 
 static SOC_VALUE_ENUM_SINGLE_DECL(vow_amic2_mux_map_enum,
-				  MT6338_AFE_AMIC_ARRAY_CFG,
-				  RG_AMIC_ADC2_SOURCE_SEL_SFT,
-				  RG_AMIC_ADC2_SOURCE_SEL_MASK,
+				  SND_SOC_NOPM,
+				  0,
+				  0,
 				  vow_amic_mux_map,
 				  vow_amic_mux_map_value);
 
@@ -1698,9 +1785,9 @@ static const struct snd_kcontrol_new vow_amic2_mux_control =
 	SOC_DAPM_ENUM("VOW_AMIC_MUX Select", vow_amic2_mux_map_enum);
 
 static SOC_VALUE_ENUM_SINGLE_DECL(vow_amic3_mux_map_enum,
-				  MT6338_AFE_AMIC_ARRAY_CFG,
-				  RG_AMIC_ADC3_SOURCE_SEL_SFT,
-				  RG_AMIC_ADC3_SOURCE_SEL_MASK,
+				  SND_SOC_NOPM,
+				  0,
+				  0,
 				  vow_amic_mux_map,
 				  vow_amic_mux_map_value);
 
@@ -5966,8 +6053,8 @@ static int mt_pga_3_event(struct snd_soc_dapm_widget *w,
 		return -EINVAL;
 	}
 
-	/* if vow is enabled, always set volume as 10 (24dB) */
-	mic_gain_3 = priv->vow_enable ? 10 :
+	/* if vow is enabled, always set volume as 6 (18dB) */
+	mic_gain_3 = priv->vow_enable ? 6 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP3];
 	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_3 %d, mux_pga %d, vow_enable %d\n",
 		__func__, event, mic_type, mic_gain_3, mux_pga, priv->vow_enable);
@@ -6044,8 +6131,8 @@ static int mt_pga_4_event(struct snd_soc_dapm_widget *w,
 		return -EINVAL;
 	}
 
-	/* if vow is enabled, always set volume as 10 (24dB) */
-	mic_gain_4 = priv->vow_enable ? 10 :
+	/* if vow is enabled, always set volume as 6 (18dB) */
+	mic_gain_4 = priv->vow_enable ? 6 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP4];
 	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_4 %d, mux_pga %d, vow_enable %d\n",
 		__func__, event, mic_type, mic_gain_4, mux_pga, priv->vow_enable);
@@ -7000,6 +7087,15 @@ static const struct snd_soc_dapm_widget mt6338_dapm_widgets[] = {
 			      &vow_amic2_mux_control),
 	SND_SOC_DAPM_MUX("VOW_AMIC3_MUX", SND_SOC_NOPM, 0, 0,
 			      &vow_amic3_mux_control),
+	/* VOW PBUF MUX */
+	SND_SOC_DAPM_MUX("VOW_PBUF0_MUX", SND_SOC_NOPM, 0, 0,
+			      &vow_pbuf0_mux_control),
+	SND_SOC_DAPM_MUX("VOW_PBUF1_MUX", SND_SOC_NOPM, 0, 0,
+			      &vow_pbuf1_mux_control),
+	SND_SOC_DAPM_MUX("VOW_PBUF2_MUX", SND_SOC_NOPM, 0, 0,
+			      &vow_pbuf2_mux_control),
+	SND_SOC_DAPM_MUX("VOW_PBUF3_MUX", SND_SOC_NOPM, 0, 0,
+			      &vow_pbuf3_mux_control),
 #endif
 	SND_SOC_DAPM_MUX_E("ADC_L_Mux", SND_SOC_NOPM, 0, 0,
 			      &adc_left_mux_control, NULL, 0),
@@ -7485,6 +7581,39 @@ static const struct snd_soc_dapm_route mt6338_dapm_routes[] = {
 	{"VOW_AMIC3_MUX", "ADC_DATA_1", "ADC_R"},
 	{"VOW_AMIC3_MUX", "ADC_DATA_2", "ADC_3"},
 	{"VOW_AMIC3_MUX", "ADC_DATA_3", "ADC_4"},
+	/* vow prefetch buffer */
+	{"VOW_PBUF0_MUX", "PBUF_CH0", "ADC_L"},
+	{"VOW_PBUF0_MUX", "PBUF_CH1", "ADC_R"},
+	{"VOW_PBUF0_MUX", "PBUF_CH2", "ADC_3"},
+	{"VOW_PBUF0_MUX", "PBUF_CH3", "ADC_4"},
+	{"VOW_PBUF1_MUX", "PBUF_CH0", "ADC_L"},
+	{"VOW_PBUF1_MUX", "PBUF_CH1", "ADC_R"},
+	{"VOW_PBUF1_MUX", "PBUF_CH2", "ADC_3"},
+	{"VOW_PBUF1_MUX", "PBUF_CH3", "ADC_4"},
+	{"VOW_PBUF2_MUX", "PBUF_CH0", "ADC_L"},
+	{"VOW_PBUF2_MUX", "PBUF_CH1", "ADC_R"},
+	{"VOW_PBUF2_MUX", "PBUF_CH2", "ADC_3"},
+	{"VOW_PBUF2_MUX", "PBUF_CH3", "ADC_4"},
+	{"VOW_PBUF3_MUX", "PBUF_CH0", "ADC_L"},
+	{"VOW_PBUF3_MUX", "PBUF_CH1", "ADC_R"},
+	{"VOW_PBUF3_MUX", "PBUF_CH2", "ADC_3"},
+	{"VOW_PBUF3_MUX", "PBUF_CH3", "ADC_4"},
+	{"VOW_PBUF0_MUX", "PBUF_CH0", "AIN0_DMIC"},
+	{"VOW_PBUF0_MUX", "PBUF_CH1", "AIN2_DMIC"},
+	{"VOW_PBUF0_MUX", "PBUF_CH2", "AIN3_DMIC"},
+	{"VOW_PBUF0_MUX", "PBUF_CH3", "AIN4_DMIC"},
+	{"VOW_PBUF1_MUX", "PBUF_CH0", "AIN0_DMIC"},
+	{"VOW_PBUF1_MUX", "PBUF_CH1", "AIN2_DMIC"},
+	{"VOW_PBUF1_MUX", "PBUF_CH2", "AIN3_DMIC"},
+	{"VOW_PBUF1_MUX", "PBUF_CH3", "AIN4_DMIC"},
+	{"VOW_PBUF2_MUX", "PBUF_CH0", "AIN0_DMIC"},
+	{"VOW_PBUF2_MUX", "PBUF_CH1", "AIN2_DMIC"},
+	{"VOW_PBUF2_MUX", "PBUF_CH2", "AIN3_DMIC"},
+	{"VOW_PBUF2_MUX", "PBUF_CH3", "AIN4_DMIC"},
+	{"VOW_PBUF3_MUX", "PBUF_CH0", "AIN0_DMIC"},
+	{"VOW_PBUF3_MUX", "PBUF_CH1", "AIN2_DMIC"},
+	{"VOW_PBUF3_MUX", "PBUF_CH2", "AIN3_DMIC"},
+	{"VOW_PBUF3_MUX", "PBUF_CH3", "AIN4_DMIC"},
 #endif
 };
 
@@ -9811,6 +9940,9 @@ static const struct snd_kcontrol_new mt6338_snd_misc_controls[] = {
 		mic_hifi_mode_get, mic_hifi_mode_set),
 	SOC_ENUM_EXT("MIC ULCF EN", misc_control_enum[0],
 		mic_ulcf_en_get, mic_ulcf_en_set),
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+	SOC_ENUM_EXT("VOW PBUF Channel", misc_control_enum[0], vow_pbuf_ch_get, NULL),
+#endif
 };
 
 static void keylock_set(struct mt6338_priv *priv)
