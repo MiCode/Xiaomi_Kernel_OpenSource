@@ -129,6 +129,13 @@ struct md_ccif_ctrl {
 
 	unsigned int ccif_hw_reset_ver;
 	void __iomem *infracfg_base;
+	spinlock_t mask_lock;
+};
+
+struct ccif_irq_cb_func_info {
+	enum ccif_isr_cb_user_id id;
+	unsigned int qno; /* hw channel = id + AP_MD_DATA_NOTIFY */
+	void (*cb_func)(unsigned char user_id);
 };
 
 static inline void ccif_set_busy_queue(struct md_ccif_ctrl *md_ctrl,

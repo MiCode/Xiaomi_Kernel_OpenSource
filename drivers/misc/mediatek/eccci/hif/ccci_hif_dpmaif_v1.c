@@ -100,6 +100,15 @@ static struct dpmaif_clk_node g_clk_tbs[] = {
 };
 
 
+static int dpmaif_smem_release_tx_buffer(unsigned int qno);
+static void dpmaif_smem_tx_stop(void);
+
+static unsigned int g_smem_drb_qsize[DPMA_UL_QUEUE_NUM] = {
+		DPMA_UL_Q0_SIZE,
+		DPMA_UL_Q1_SIZE,
+		DPMA_UL_Q2_SIZE,
+};
+
 /*
  * for debug log:
  * 0 to disable; 1 for print to ram; 2 for print to uart
@@ -2475,8 +2484,18 @@ static int dpmaif_empty_query(int qno)
 			"query dpmaif empty fail for NULL txq\n");
 		return 0;
 	}
-	return atomic_read(&txq->tx_budget) >
-				txq->drb_size_cnt / 8;
+
+	if (dpmaif_ctrl->tx_sw_solution_enable) {
+		if (qno < 0)
+			qno = 0;
+		else if (qno >= DPMA_UL_QUEUE_NUM)
+			qno = DPMA_UL_QUEUE_NUM - 1;
+
+		return atomic_read(&(dpmaif_ctrl->txq[qno].tx_budget))
+				> g_smem_drb_qsize[qno] / 8;
+
+	} else
+		return atomic_read(&txq->tx_budget) > txq->drb_size_cnt / 8;
 }
 
 static atomic_t s_tx_busy_num[DPMAIF_TXQ_NUM];
@@ -3741,9 +3760,19 @@ static void dpmaif_tx_hw_init(struct dpmaif_tx_queue *txq)
 static int dpmaif_txq_init(struct dpmaif_tx_queue *txq)
 {
 	int ret = -1;
+	int qno;
 
 	init_waitqueue_head(&txq->req_wq);
-	atomic_set(&txq->tx_budget, DPMAIF_UL_DRB_ENTRY_SIZE);
+
+	if (dpmaif_ctrl->tx_sw_solution_enable) {
+		qno = txq->index;
+		if (qno >= DPMA_UL_QUEUE_NUM)
+			qno = DPMA_UL_QUEUE_NUM - 1;
+		atomic_set(&(dpmaif_ctrl->txq[qno].tx_budget), g_smem_drb_qsize[qno]);
+
+	} else
+		atomic_set(&txq->tx_budget, DPMAIF_UL_DRB_ENTRY_SIZE);
+
 	ret = dpmaif_tx_buf_init(txq);
 	if (ret) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
@@ -4410,6 +4439,9 @@ static int dpmaif_stop(unsigned char hif_id)
 	/* stop debug mechnism */
 	del_timer(&dpmaif_ctrl->traffic_monitor);
 
+	if (dpmaif_ctrl->tx_sw_solution_enable)
+		dpmaif_smem_tx_stop();
+
 	#ifdef MT6297
 	/* todo: CG set */
 	ccci_set_clk_by_id(1, 0);
@@ -4577,6 +4609,457 @@ static struct ccci_hif_ops ccci_hif_dpmaif_ops = {
 	.empty_query = dpmaif_empty_query,
 };
 
+
+static int dpmaif_smem_release_tx_buffer(unsigned int qno)
+{
+	struct drb_queue_info *drb_qinfo = dpmaif_ctrl->smem_drb_qinfo[qno];
+	struct dpmaif_drb_pd  *smem_drb_base = dpmaif_ctrl->smem_drb_qbase[qno];
+	struct dpmaif_drb_skb *smem_drb_skb  = dpmaif_ctrl->dpma_drb_qskb[qno];
+	struct dpmaif_tx_queue *txq = &dpmaif_ctrl->txq[qno];
+	int i, rel_cnt;
+	unsigned int cur_idx;
+	struct dpmaif_drb_pd  *drb_pd;
+	struct dpmaif_drb_skb *drb_skb;
+
+	rel_cnt = ringbuf_releasable(drb_qinfo->sz, drb_qinfo->rel, drb_qinfo->rd);
+	if (rel_cnt <= 0)
+		return 0;
+
+	cur_idx = drb_qinfo->rel;
+
+	for (i = 0; i < rel_cnt; i++) {
+		drb_pd = &smem_drb_base[cur_idx];
+		if (drb_pd->dtyp == DES_DTYP_PD && drb_pd->c_bit == 0) {
+			drb_skb = &smem_drb_skb[cur_idx];
+			if (drb_skb->skb == NULL) {
+				CCCI_ERROR_LOG(0, TAG,
+					"[%s] error: q:%d; i: %d; qinfo: rel/rd/wr(%u/%u/%u)\n",
+					__func__, qno, i,
+					drb_qinfo->rel, drb_qinfo->rd, drb_qinfo->wr);
+				return -1;
+			}
+
+			ccci_free_skb(drb_skb->skb);
+			drb_skb->skb = NULL;
+
+#if DPMAIF_TRAFFIC_MONITOR_INTERVAL
+			dpmaif_ctrl->tx_traffic_monitor[qno]++;
+#endif
+		}
+
+		cur_idx = ringbuf_get_next_idx(drb_qinfo->sz, cur_idx, 1);
+		atomic_inc(&txq->tx_budget);
+
+		if (likely(ccci_md_get_cap_by_id(0) & MODEM_CAP_TXBUSY_STOP)) {
+			if (atomic_read(&txq->tx_budget) > (drb_qinfo->sz / 8))
+				dpmaif_queue_broadcast_state(dpmaif_ctrl,
+							TX_IRQ, OUT, txq->index);
+		}
+
+		if (atomic_cmpxchg(&dpmaif_ctrl->wakeup_src, 1, 0) == 1)
+			CCCI_NOTICE_LOG(dpmaif_ctrl->md_id, TAG,
+				"DPMA_MD wakeup source:(%d/%d%s)\n",
+				txq->index, txq->last_ch_id,
+				(drb_pd->dtyp == DES_DTYP_MSG) ?
+							"" : "/data 1st received");
+	}
+
+	drb_qinfo->rel = cur_idx;
+
+	return rel_cnt;
+}
+
+static void dpmaif_smem_tx_stop(void)
+{
+	int i;
+
+	/* flush work */
+	cancel_delayed_work(&dpmaif_ctrl->smem_drb_work);
+	flush_delayed_work(&dpmaif_ctrl->smem_drb_work);
+
+	for (i = 0; i < DPMA_UL_QUEUE_NUM; i++) {
+		dpmaif_smem_release_tx_buffer(i);
+
+		dpmaif_ctrl->smem_drb_qinfo[i]->rel = 0;
+		dpmaif_ctrl->smem_drb_qinfo[i]->rd = 0;
+		dpmaif_ctrl->smem_drb_qinfo[i]->wr = 0;
+
+		dpmaif_ctrl->smem_drb_qbuf_inf[i].rel = 0;
+		dpmaif_ctrl->smem_drb_qbuf_inf[i].rd = 0;
+		dpmaif_ctrl->smem_drb_qbuf_inf[i].wr = 0;
+	}
+}
+
+static void dpmaif_smem_tx_irq_func(unsigned char user_id)
+{
+	int ret;
+
+	ccif_mask_setting(ID_CCIF_USER_DATA, 1);
+
+	ret = queue_delayed_work(dpmaif_ctrl->smem_worker,
+				&dpmaif_ctrl->smem_drb_work,
+				msecs_to_jiffies(5));
+}
+
+static inline int dpmaif_set_skb_data_to_smem_drb(struct dpmaif_tx_queue *txq,
+	struct sk_buff *skb, int qno, unsigned int send_cnt)
+{
+	unsigned int cur_idx, is_frag, c_bit, wt_cnt, data_len, payload_cnt;
+	struct drb_queue_info *drb_qinfo     = dpmaif_ctrl->smem_drb_qinfo[qno];
+	struct dpmaif_drb_pd  *smem_drb_base = dpmaif_ctrl->smem_drb_qbase[qno];
+	struct dpmaif_drb_skb *smem_drb_skb  = dpmaif_ctrl->dpma_drb_qskb[qno];
+	struct dpmaif_drb_msg *drb_msg;
+	struct dpmaif_drb_pd  *drb_pd;
+	struct dpmaif_drb_skb *drb_skb;
+	struct drb_queue_info *drb_qbuf_inf = &dpmaif_ctrl->smem_drb_qbuf_inf[qno];
+
+	struct skb_shared_info *shinfo;
+	struct ccci_header ccci_h;
+	void *data_addr = NULL;
+	void *smem_data_addr;
+	dma_addr_t phy_addr;
+	unsigned short prio_count = 0;
+
+	if (skb->mark & UIDMASK) {
+		g_dp_uid_mask_count++;
+		prio_count = 0x1000;
+	}
+
+	ccci_h = *(struct ccci_header *)skb->data;
+	skb_pull(skb, sizeof(struct ccci_header));
+
+	cur_idx = drb_qinfo->wr;
+
+	drb_msg = (struct dpmaif_drb_msg *)(&smem_drb_base[cur_idx]);
+	drb_msg->dtyp = DES_DTYP_MSG;
+	drb_msg->c_bit = 1;
+	drb_msg->packet_len = skb->len;
+	drb_msg->count_l = prio_count;
+	drb_msg->channel_id = ccci_h.data[0];
+	drb_msg->network_type = 0;
+	drb_msg->ipv4 = 0;
+	drb_msg->l4 = 0;
+
+	drb_skb = &smem_drb_skb[cur_idx];
+	drb_skb->skb = skb;
+	drb_skb->phy_addr = 0;
+	drb_skb->data_len = 0;
+	drb_skb->drb_idx = cur_idx;
+	drb_skb->is_msg = 1;
+	drb_skb->is_frag = 0;
+	drb_skb->is_last_one = 0;
+
+	cur_idx = ringbuf_get_next_idx(drb_qinfo->sz, cur_idx, 1);
+
+	payload_cnt = send_cnt - 1;
+	shinfo = skb_shinfo(skb);
+
+	for (wt_cnt = 0; wt_cnt < payload_cnt; wt_cnt++) {
+		if (wt_cnt == 0) {
+			data_len = skb_headlen(skb);
+			data_addr = skb->data;
+			is_frag = 0;
+
+		} else {
+			skb_frag_t *frag = shinfo->frags + (wt_cnt - 1);
+
+			data_len = skb_frag_size(frag);
+			data_addr = skb_frag_address(frag);
+			is_frag = 1;
+		}
+
+		if (wt_cnt == payload_cnt - 1)
+			c_bit = 0;
+		else
+			c_bit = 1;
+
+		smem_data_addr = dpmaif_ctrl->smem_drb_qbuf_vir[qno] +
+						(DPMA_SKB_DATA_LEN * drb_qbuf_inf->wr);
+		phy_addr = dpmaif_ctrl->smem_drb_qbuf_phy[qno] +
+						(DPMA_SKB_DATA_LEN * drb_qbuf_inf->wr);
+		memcpy_toio(smem_data_addr, data_addr, data_len);
+
+		drb_qbuf_inf->wr = ringbuf_get_next_idx(drb_qbuf_inf->sz, drb_qbuf_inf->wr, 1);
+
+		drb_pd = &smem_drb_base[cur_idx];
+		drb_pd->dtyp = DES_DTYP_PD;
+		drb_pd->c_bit = c_bit;
+		drb_pd->data_len = data_len;
+		drb_pd->p_data_addr = phy_addr & 0xFFFFFFFF;
+		drb_pd->data_addr_ext = (phy_addr >> 32) & 0xFF;
+
+		drb_skb = &smem_drb_skb[cur_idx];
+		drb_skb->skb = skb;
+		drb_skb->phy_addr = phy_addr;
+		drb_skb->data_len = data_len;
+		drb_skb->drb_idx = cur_idx;
+		drb_skb->is_msg = 0;
+		drb_skb->is_frag = is_frag;
+		drb_skb->is_last_one = (c_bit == 0 ? 1 : 0);
+
+		cur_idx = ringbuf_get_next_idx(drb_qinfo->sz, cur_idx, 1);
+	}
+
+	/* debug: tx on ccci_channel && HW Q */
+	ccci_channel_update_packet_counter(
+		dpmaif_ctrl->traffic_info.logic_ch_pkt_pre_cnt, &ccci_h);
+
+	atomic_sub(send_cnt, &txq->tx_budget);
+	drb_qinfo->wr = cur_idx;
+
+	/* 3.3 submit drb descriptor*/
+	wmb();
+
+	dpmaif_write32(dpmaif_ctrl->dpmaif_pd_md_misc_base, 0x1C, 0x03);
+
+	return 0;
+}
+
+static int dpmaif_handle_skb_data(struct sk_buff *skb, int qno,
+		struct dpmaif_tx_queue *txq)
+{
+	struct drb_queue_info *drb_qinfo = dpmaif_ctrl->smem_drb_qinfo[qno];
+	struct skb_shared_info *info = NULL;
+	unsigned int remain_cnt, send_cnt = 0, payload_cnt = 0;
+	unsigned long flags;
+	int ret = 0;
+
+	info = skb_shinfo(skb);
+
+	if (info->frag_list != NULL)
+		CCCI_ERROR_LOG(0, TAG, "[%s] error: skb frag_list not supported!\n", __func__);
+
+	payload_cnt = info->nr_frags + 1;
+	/* nr_frags: frag cnt, 1: skb->data, 1: msg drb */
+	send_cnt = payload_cnt + 1;
+
+	spin_lock_irqsave(&txq->tx_lock, flags);
+
+	remain_cnt = ringbuf_writeable(drb_qinfo->sz, drb_qinfo->rel, drb_qinfo->wr);
+	if (remain_cnt < send_cnt) {
+		/* buffer check: full */
+		if (likely(ccci_md_get_cap_by_id(0)&MODEM_CAP_TXBUSY_STOP))
+			dpmaif_queue_broadcast_state(dpmaif_ctrl, TX_FULL, OUT, txq->index);
+#if DPMAIF_TRAFFIC_MONITOR_INTERVAL
+		txq->busy_count++;
+#endif
+		ret = -EBUSY;
+		goto __EXIT_FUN;
+	}
+
+	ret = dpmaif_set_skb_data_to_smem_drb(txq, skb, qno, send_cnt);
+
+__EXIT_FUN:
+	spin_unlock_irqrestore(&txq->tx_lock, flags);
+	return ret;
+}
+
+static int dpmaif_tx_send_skb_to_smem(unsigned char hif_id, int qno,
+	struct sk_buff *skb, int skb_from_pool, int blocking)
+{
+	struct dpmaif_tx_queue *txq = NULL;
+	int ret = 0;
+
+	if (!skb)
+		return 0;
+
+	if (dpmaif_wait_resume_done() < 0)
+		return -EBUSY;
+
+	if (qno < 0) {
+		CCCI_ERROR_LOG(0, TAG, "[%s] error: qno(%d) < 0\n", __func__, qno);
+		return -CCCI_ERR_INVALID_QUEUE_INDEX;
+	}
+
+	if (dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON)
+		return -CCCI_ERR_HIF_NOT_POWER_ON;
+
+	if (atomic_read(&s_tx_busy_assert_on)) {
+		if (likely(ccci_md_get_cap_by_id(0)&MODEM_CAP_TXBUSY_STOP))
+			dpmaif_queue_broadcast_state(dpmaif_ctrl, TX_FULL, OUT, qno);
+		return HW_REG_CHK_FAIL;
+	}
+
+	if (qno >= DPMA_UL_QUEUE_NUM)
+		qno = DPMA_UL_QUEUE_NUM - 1;
+
+	txq = &dpmaif_ctrl->txq[qno];
+
+	atomic_set(&txq->tx_processing, 1);
+	smp_mb(); /* for cpu exec. */
+	if (txq->que_started != true) {
+		ret = -CCCI_ERR_HIF_NOT_POWER_ON;
+		goto __EXIT_FUN;
+	}
+
+	ret = dpmaif_handle_skb_data(skb, qno, txq);
+	if (ret)
+		goto __EXIT_FUN;
+
+
+__EXIT_FUN:
+	atomic_set(&txq->tx_processing, 0);
+
+	return ret;
+}
+
+static int dpmaif_alloc_smem_to_drb(void)
+{
+	int i, len, pos = 0;
+	unsigned int size = dpmaif_ctrl->smem_size;
+
+	memset(dpmaif_ctrl->smem_base_vir, 0, size);
+	memset(dpmaif_ctrl->smem_drb_qbuf_inf, 0, sizeof(dpmaif_ctrl->smem_drb_qbuf_inf));
+
+	len = sizeof(struct drb_queue_info) * DPMA_UL_QUEUE_NUM;
+	if ((pos + len) > size) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: smem size too small.(%d/%u)\n",
+			__func__, pos + len, size);
+		return -1;
+	}
+
+	for (i = 0; i < DPMA_UL_QUEUE_NUM; i++) {
+		dpmaif_ctrl->smem_drb_qinfo[i] = (struct drb_queue_info *)
+							(dpmaif_ctrl->smem_base_vir + pos);
+		dpmaif_ctrl->smem_drb_qinfo[i]->sz = g_smem_drb_qsize[i];
+		dpmaif_ctrl->smem_drb_qbuf_inf[i].sz = g_smem_drb_qsize[i];
+
+		pos += (sizeof(struct drb_queue_info));
+	}
+
+	for (i = 0; i < DPMA_UL_QUEUE_NUM; i++) {
+		len = (dpmaif_ctrl->smem_drb_qinfo[i]->sz * sizeof(struct dpmaif_drb_pd)) * 2;
+		if ((pos + len) > size) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] error: smem size too small.(%d/%u)\n",
+				__func__, pos + len, size);
+			return -1;
+		}
+
+		dpmaif_ctrl->smem_drb_qbase[i] = (struct dpmaif_drb_pd *)
+								(dpmaif_ctrl->smem_base_vir + pos);
+		pos += len;
+	}
+
+	for (i = 0; i < DPMA_UL_QUEUE_NUM; i++) {
+		len = dpmaif_ctrl->smem_drb_qinfo[i]->sz * DPMA_SKB_DATA_LEN;
+		if ((pos + len) > size) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] error: smem size too small.(%d/%u)\n",
+				__func__, pos + len, size);
+			return -1;
+		}
+
+		dpmaif_ctrl->smem_drb_qbuf_vir[i] = (void *)(dpmaif_ctrl->smem_base_vir + pos);
+		dpmaif_ctrl->smem_drb_qbuf_phy[i] = dpmaif_ctrl->smem_base_phy + pos;
+		pos += len;
+	}
+
+	CCCI_NORMAL_LOG(-1, TAG, "[%s] pos: %d; size: %u)\n", __func__, pos, size);
+
+	for (i = 0; i < DPMA_UL_QUEUE_NUM; i++) {
+		len = (dpmaif_ctrl->smem_drb_qinfo[i]->sz * sizeof(struct dpmaif_drb_skb)) * 2;
+
+		dpmaif_ctrl->dpma_drb_qskb[i] = kzalloc(len, GFP_KERNEL);
+		if (dpmaif_ctrl->dpma_drb_qskb[i] == NULL) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] error: kzalloc dpma_drb_qskb memory fail. len:%d\n",
+				__func__, len);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+static void dpmaif_smem_tx_done(struct work_struct *work)
+{
+	int i, ret, retry = 0;
+
+do_retry:
+	if (dpmaif_wait_resume_done()) {
+		//if resume not done, will waiting 10ms
+		ret = queue_delayed_work(dpmaif_ctrl->smem_worker,
+					&dpmaif_ctrl->smem_drb_work,
+					msecs_to_jiffies(10));
+		return;
+	}
+
+	for (i = 0; i < DPMA_UL_QUEUE_NUM; i++) {
+		/* This is used to avoid race condition which may cause KE */
+		if (dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON) {
+			CCCI_ERROR_LOG(0, TAG, "[%s] meet hw power down.\n", __func__);
+			goto do_exit;
+		}
+
+		if (!dpmaif_ctrl->txq[i].que_started) {
+			CCCI_ERROR_LOG(0, TAG, "[%s] meet queue stop(%d)\n", __func__, i);
+			goto do_exit;
+		}
+
+		if (dpmaif_smem_release_tx_buffer(i) > 0)
+			retry = 1;
+	}
+
+	if (retry) {
+		retry = 0;
+		goto do_retry;
+	}
+
+do_exit:
+	ccif_mask_setting(ID_CCIF_USER_DATA, 0);
+}
+
+static int dpmaif_tx_sw_solution_init(void)
+{
+	int ret;
+
+	dpmaif_ctrl->smem_base_vir = get_smem_start_addr(0, SMEM_USER_MD_DATA,
+							&dpmaif_ctrl->smem_size);
+	dpmaif_ctrl->smem_base_phy = ccci_get_md_view_phy_addr_by_user_id(0,
+							SMEM_USER_MD_DATA);
+
+	if (dpmaif_ctrl->smem_base_vir == NULL || dpmaif_ctrl->smem_base_phy == 0 ||
+				dpmaif_ctrl->smem_size <= 0) {
+		dpmaif_ctrl->tx_sw_solution_enable = 0;
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: fail. smem_base: %p(%p); smem_size: %u\n",
+			__func__, dpmaif_ctrl->smem_base_vir, dpmaif_ctrl->smem_base_phy,
+			dpmaif_ctrl->smem_size);
+		return 0;
+	}
+
+	dpmaif_ctrl->tx_sw_solution_enable = 1;
+
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] tx_sw_solution_enable: %u; smem_base: %p(0x%llX); smem_size: %u\n",
+		__func__, dpmaif_ctrl->tx_sw_solution_enable,
+		dpmaif_ctrl->smem_base_vir, dpmaif_ctrl->smem_base_phy,
+		dpmaif_ctrl->smem_size);
+
+	INIT_DELAYED_WORK(&dpmaif_ctrl->smem_drb_work, &dpmaif_smem_tx_done);
+	dpmaif_ctrl->smem_worker = alloc_workqueue("smem_ul_worker",
+					WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_HIGHPRI, 1);
+	if (dpmaif_ctrl->smem_worker == NULL) {
+		CCCI_ERROR_LOG(-1, TAG, "[%s] error: alloc_workqueue() fail.\n", __func__);
+		return -1;
+	}
+
+	ret = register_ccif_irq_cb(ID_CCIF_USER_DATA, &dpmaif_smem_tx_irq_func);
+	if (ret)
+		return ret;
+
+	ret = dpmaif_alloc_smem_to_drb();
+	if (ret)
+		return ret;
+
+	ccci_hif_dpmaif_ops.send_skb = &dpmaif_tx_send_skb_to_smem;
+
+	return 0;
+}
+
+
 /* =======================================================
  *
  * Descriptions: State Module part End
@@ -4706,6 +5189,10 @@ static int dpmaif_hif_init(struct device *dev)
 	hif_ctrl->dpmaif_irq_flags = IRQF_TRIGGER_NONE;
 	CCCI_DEBUG_LOG(0, TAG, "dpmaif_irq_id:%d\n",
 			hif_ctrl->dpmaif_irq_id);
+
+	ret = dpmaif_tx_sw_solution_init();
+	if (ret)
+		goto DPMAIF_INIT_FAIL;
 
 	dev->dma_mask = &dpmaif_dmamask;
 	dev->coherent_dma_mask = dpmaif_dmamask;

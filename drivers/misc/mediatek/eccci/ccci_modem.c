@@ -77,6 +77,7 @@ struct ccci_smem_region md1_6297_noncacheable_fat[] = {
 	{SMEM_USER_CCISM_MCU_EXP, 0, (120+1)*1024,	SMF_NCLR_FIRST, },
 	{SMEM_USER_RESERVED, 0, 18*1024,	 0, },
 	{SMEM_USER_MD_DRDI, 0, BANK4_DRDI_SMEM_SIZE, SMF_NCLR_FIRST, },
+	{SMEM_USER_MD_DATA, 0, 0 /*5*1024*1024*/, SMF_NCLR_FIRST, },
 	{SMEM_USER_MAX, }, /* tail guard */
 };
 
@@ -121,7 +122,7 @@ struct ccci_smem_region md1_6293_noncacheable_fat[] = {
 				SMF_NCLR_FIRST, },
 {SMEM_USER_RAW_ALIGN_PADDING,	(1*1024 + 448)*1024,	0,
 				SMF_NCLR_FIRST, },
-
+{SMEM_USER_MD_DATA, 0, 0 /*5*1024*1024*/, SMF_NCLR_FIRST, },
 /* for SIB */
 {SMEM_USER_RAW_LWA,		(1*1024+448)*1024,	0*1024*1024,	0, },
 {SMEM_USER_RAW_PHY_CAP,	(1*1024+448)*1024, 0*1024*1024, SMF_NCLR_FIRST, },
@@ -576,6 +577,11 @@ void ccci_md_smem_layout_config(struct ccci_modem *md)
 				offset_adjust_flag = 1;
 			}
 			break;
+		case SMEM_USER_MD_DATA:
+			md_resv_mem_size = md1_6293_noncacheable_fat[i].size;
+			update_smem_region(&md1_6293_noncacheable_fat[i]);
+			if (md_resv_mem_size != md1_6293_noncacheable_fat[i].size)
+				offset_adjust_flag = 1;
 		default:
 			break;
 		}
@@ -1143,6 +1149,19 @@ struct ccci_smem_region *ccci_md_get_smem_by_user_id(int md_id,
 }
 EXPORT_SYMBOL(ccci_md_get_smem_by_user_id);
 
+phys_addr_t ccci_get_md_view_phy_addr_by_user_id(int md_id,
+	enum SMEM_USER_ID user_id)
+{
+	struct ccci_smem_region *curr = NULL;
+
+	curr = ccci_md_get_smem_by_user_id(md_id, user_id);
+	if (curr)
+		return curr->base_md_view_phy;
+
+	return 0;
+}
+EXPORT_SYMBOL(ccci_get_md_view_phy_addr_by_user_id);
+
 void ccci_md_clear_smem(int md_id, int first_boot)
 {
 	struct ccci_smem_region *region = NULL;
@@ -1411,6 +1430,7 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	struct md_query_ap_feature *md_feature)
 {
 	unsigned int udc_noncache_size = 0, udc_cache_size = 0;
+	struct ccci_smem_region *region;
 
 	md->runtime_version = AP_MD_HS_V2;
 	md_feature->feature_set[BOOT_INFO].support_mask
@@ -1594,6 +1614,14 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	if (md->hw_info->plat_val->md_gen >= 6297)
 		md_feature->feature_set[MD_MEM_AP_VIEW_INF].support_mask =
 			CCCI_FEATURE_OPTIONAL_SUPPORT;
+
+	region = ccci_md_get_smem_by_user_id(0, SMEM_USER_MD_DATA);
+	if (region && (region->size > 0))
+		md_feature->feature_set[MD_DATA_SMEM_INF].support_mask =
+				CCCI_FEATURE_OPTIONAL_SUPPORT;
+	else
+		md_feature->feature_set[MD_DATA_SMEM_INF].support_mask =
+				CCCI_FEATURE_NOT_SUPPORT;
 }
 
 unsigned int align_to_2_power(unsigned int n)
@@ -1910,6 +1938,16 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 					&rt_feature, &rt_shm);
 				append_runtime_feature(&rt_data,
 				&rt_feature, &rt_shm);
+				break;
+			case MD_DATA_SMEM_INF:
+				region = ccci_md_get_smem_by_user_id(md_id, SMEM_USER_MD_DATA);
+				if (region && (region->size > 0)) {
+					ccci_smem_region_set_runtime(md_id,
+						SMEM_USER_MD_DATA,
+						&rt_feature, &rt_shm);
+					append_runtime_feature(&rt_data,
+						&rt_feature, &rt_shm);
+				}
 				break;
 			case MULTI_MD_MPU:
 				CCCI_BOOTUP_LOG(md->index, TAG,

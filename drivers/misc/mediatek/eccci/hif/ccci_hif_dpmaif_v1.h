@@ -19,6 +19,26 @@
 #include "ccci_bm.h"
 #include "ccci_hif_internal.h"
 
+
+extern int register_ccif_irq_cb(unsigned char user_id, void (*cb_func)(unsigned char user_id));
+extern int ccif_mask_setting(unsigned char user_id, unsigned char mask_set);
+extern phys_addr_t ccci_get_md_view_phy_addr_by_user_id(int md_id, enum SMEM_USER_ID user_id);
+
+struct drb_queue_info {
+	unsigned int rd;
+	unsigned int wr;
+	unsigned int rel;
+	unsigned int sz;
+};
+
+#define DPMA_UL_QUEUE_NUM   3
+#define DPMA_UL_Q0_SIZE     1024
+#define DPMA_UL_Q1_SIZE     1024
+#define DPMA_UL_Q2_SIZE     1024
+
+#define DPMA_SKB_DATA_LEN   1600
+
+
 #ifdef MT6297
 #undef MT6297
 #endif
@@ -378,6 +398,23 @@ struct hif_dpmaif_ctrl {
 	struct platform_device *plat_dev;
 	atomic_t suspend_flag;
 
+	unsigned int tx_sw_solution_enable;
+
+	struct workqueue_struct *smem_worker;
+	struct delayed_work      smem_drb_work;
+
+	void                    *smem_base_vir;
+	phys_addr_t              smem_base_phy;
+	unsigned int             smem_size;
+
+	struct drb_queue_info   *smem_drb_qinfo[DPMA_UL_QUEUE_NUM];
+	struct dpmaif_drb_pd    *smem_drb_qbase[DPMA_UL_QUEUE_NUM];
+
+	struct drb_queue_info    smem_drb_qbuf_inf[DPMA_UL_QUEUE_NUM];
+	void                    *smem_drb_qbuf_vir[DPMA_UL_QUEUE_NUM];
+	phys_addr_t              smem_drb_qbuf_phy[DPMA_UL_QUEUE_NUM];
+
+	struct dpmaif_drb_skb   *dpma_drb_qskb[DPMA_UL_QUEUE_NUM];
 };
 
 static inline int ccci_dpma_hif_send_skb(unsigned char hif_id, int tx_qno,
