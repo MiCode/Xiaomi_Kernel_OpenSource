@@ -245,6 +245,7 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 			if (ret < 0) {
 				dev_err(afe->dev, "%s(), adsp_share_mem: %d, err: %d\n",
 					__func__, memif->use_adsp_share_mem, ret);
+				mtk_adsp_genpool_dump_all();
 				return ret;
 			}
 

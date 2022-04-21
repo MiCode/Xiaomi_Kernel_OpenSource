@@ -97,6 +97,7 @@ int mtk_adsp_genpool_allocate_memory(unsigned char **vaddr,
 				     int id);
 int mtk_adsp_genpool_free_memory(unsigned char **vaddr,
 				 size_t *size, int id);
+int mtk_adsp_genpool_dump_all(void);
 int afe_get_pcmdir(int dir, struct audio_hw_buffer buf);
 int get_dsp_task_attr(int dsp_id, int task_attr);
 int get_dsp_task_id_from_str(const char *task_name);

@@ -309,6 +309,34 @@ int dsp_dram_release(struct device *dev)
 	return 0;
 }
 
+static void mtk_adsp_genpool_dump_chunk(struct gen_pool *pool,
+					struct gen_pool_chunk *chunk, void *data)
+{
+	int order, nlongs, nbits, i;
+
+	order = pool->min_alloc_order;
+	nbits = (chunk->end_addr - chunk->start_addr) >> order;
+	nlongs = BITS_TO_LONGS(nbits);
+
+	pr_info("phys_addr=0x%llx bits=", chunk->phys_addr);
+	for (i = 0; i < nlongs; i++)
+		pr_info("%03d: 0x%llx ", i, chunk->bits[i]);
+}
+
+int mtk_adsp_genpool_dump_all(void)
+{
+	struct gen_pool *pool = mtk_get_adsp_dram_gen_pool(AUDIO_DSP_AFE_SHARE_MEM_ID);
+	size_t size_avail, total_size;
+
+	total_size = gen_pool_size(pool);
+	size_avail = gen_pool_avail(pool);
+
+	pr_info("%s, total_size=%zu, free=%zu\n", __func__, total_size, size_avail);
+	gen_pool_for_each_chunk(pool, mtk_adsp_genpool_dump_chunk, NULL);
+	return 0;
+}
+EXPORT_SYMBOL(mtk_adsp_genpool_dump_all);
+
 int mtk_adsp_genpool_allocate_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 					    unsigned int size, int id)
 {
@@ -336,15 +364,18 @@ int mtk_adsp_genpool_allocate_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 	init_ring_buf(&dsp_mem->ring_buf, vaddr, size);
 	init_ring_buf_bridge(&dsp_mem->adsp_buf.aud_buffer.buf_bridge, paddr, size);
 
+	pr_info("%s, id:%d allocate %u bytes, pool use/total:%zu,%zu\n",
+		__func__, id, size,
+		gen_pool_size(pool) - gen_pool_avail(pool),
+		gen_pool_size(pool));
+
 	return 0;
 }
 EXPORT_SYMBOL(mtk_adsp_genpool_allocate_sharemem_ring);
 
-int mtk_adsp_genpool_free_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
-					int id)
+int mtk_adsp_genpool_free_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem, int id)
 {
-	struct ringbuf_bridge *buf_bridge;
-	struct RingBuf *ring_buf;
+	struct audio_dsp_dram *share_buf;
 	struct gen_pool *pool;
 
 	pool = dsp_mem->gen_pool_buffer;
@@ -353,15 +384,14 @@ int mtk_adsp_genpool_free_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 		return -1;
 	}
 
-	buf_bridge = &(dsp_mem->adsp_buf.aud_buffer.buf_bridge);
-	ring_buf = &dsp_mem->ring_buf;
+	share_buf = &dsp_mem->dsp_ring_share_buf;
+	if (share_buf->vir_addr) {
+		gen_pool_free(pool, share_buf->va_addr, share_buf->size);
+		memset(share_buf, 0, sizeof(*share_buf));
 
-	if (ring_buf->pBufBase != NULL) {
-		gen_pool_free(pool, (unsigned long)ring_buf->pBufBase, ring_buf->bufLen);
-		RingBuf_Bridge_Clear(buf_bridge);
-		RingBuf_Clear(ring_buf);
-	} else
-		pr_info("%s ring_buf->pBufBase = null\n", __func__);
+		RingBuf_Bridge_Clear(&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
+		RingBuf_Clear(&dsp_mem->ring_buf);
+	}
 
 	return 0;
 }
@@ -407,6 +437,12 @@ int mtk_adsp_genpool_allocate_memory(unsigned char **vaddr, dma_addr_t *paddr,
 		return -EINVAL;
 
 	*vaddr = gen_pool_dma_zalloc(pool, size, paddr);
+
+	if (vaddr)
+		pr_info("%s, allocate %u bytes, pool use/total:%zu,%zu\n",
+			__func__, size,
+			gen_pool_size(pool) - gen_pool_avail(pool),
+			gen_pool_size(pool));
 
 	return *vaddr ? 0 : -ENOMEM;
 }
@@ -723,9 +759,9 @@ int init_mtk_adsp_dram_segment(void)
 		ret = gen_pool_add_virt(dsp_dram_pool[i],
 					dram->va_addr, dram->phy_addr, dram->size, -1);
 
-		pr_info("%s ret(%d) add chunk va/sz=(0x%lx, %zu), pool total(%zu/%zu)\n",
+		pr_info("%s ret(%d) add chunk va/sz=(0x%lx, %zu), pool total(%zu)\n",
 			__func__, ret, dram->va_addr, dram->size,
-			gen_pool_avail(dsp_dram_pool[i]), gen_pool_size(dsp_dram_pool[i]));
+			gen_pool_size(dsp_dram_pool[i]));
 
 		if (ret)
 			break;
@@ -850,7 +886,6 @@ static int adsp_core_mem_initall(struct mtk_base_dsp *dsp, unsigned int core_id)
 	}
 
 	core = &dsp->core_share_mem;
-	core->gen_pool_buffer = pool;
 	pshare_dram = &core->ap_adsp_share_buf[core_id];
 
 	if (pshare_dram->size == 0) {
@@ -867,8 +902,11 @@ static int adsp_core_mem_initall(struct mtk_base_dsp *dsp, unsigned int core_id)
 			 pshare_dram->phy_addr,
 			 pshare_dram->vir_addr,
 			 pshare_dram->size);
+	} else {
+		memset(pshare_dram->vir_addr, 0, pshare_dram->size);
 	}
 
+	core->gen_pool_buffer = pool;
 	core->ap_adsp_core_mem[core_id] = (struct audio_core_flag *)pshare_dram->vir_addr;
 
 	task_scene = (core_id == ADSP_A_ID) ? TASK_SCENE_AUD_DAEMON_A
@@ -884,8 +922,6 @@ static int adsp_core_mem_initall(struct mtk_base_dsp *dsp, unsigned int core_id)
 static int adsp_core_mem_init(struct mtk_base_dsp *dsp)
 {
 	int ret, core_id;
-
-	memset(&dsp->core_share_mem, 0, sizeof(struct mtk_ap_adsp_mem));
 
 	for (core_id = 0; core_id < get_adsp_core_total(); ++core_id) {
 		ret = adsp_core_mem_initall(dsp, core_id);

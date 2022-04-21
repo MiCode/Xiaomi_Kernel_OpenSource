@@ -61,6 +61,7 @@ int mtk_adsp_genpool_free_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 int mtk_adsp_genpool_allocate_sharemem_msg(struct mtk_base_dsp_mem *dsp_mem,
 					  int size,
 					  int id);
+int mtk_adsp_genpool_dump_all(void);
 /* get struct of sharemem_block */
 unsigned int mtk_get_adsp_sharemem_size(int audio_task_id,
 					int task_sharemem_id);
