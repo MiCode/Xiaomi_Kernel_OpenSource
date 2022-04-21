@@ -86,6 +86,10 @@ enum {CMDQ_PREBUILT_MDP, CMDQ_PREBUILT_MML, CMDQ_PREBUILT_VFMT,
 
 #define CMDQ_CPR_THREAD_COOKIE(idx)	(0x8130 + (idx))
 
+#define CMDQ_CPR_HW_TRACE_SIZE		368
+#define CMDQ_CPR_HW_TRACE_TEMP		0x816f
+#define CMDQ_CPR_HW_TRACE_START		0x8170
+
 /* GCE provide 26M timer, thus each tick 1/26M second,
  * which is, 1 microsecond = 26 ticks
  */
@@ -174,6 +178,10 @@ enum gce_event {
 
 	CMDQ_TOKEN_DISP_VA_START = 692,
 	CMDQ_TOKEN_DISP_VA_END = 693,
+
+	/* HW TRACE sw token */
+	CMDQ_TOKEN_HW_TRACE_WAIT = 712,
+	CMDQ_TOKEN_HW_TRACE_LOCK = 713,
 
 	CMDQ_TOKEN_PAUSE_TASK_0 = 800,
 	CMDQ_TOKEN_PAUSE_TASK_32 = 832,
@@ -541,6 +549,8 @@ s32 cmdq_pkt_finalize_loop(struct cmdq_pkt *pkt);
  */
 s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 	cmdq_async_flush_cb cb, void *data);
+
+void cmdq_dump_summary(struct cmdq_client *client, struct cmdq_pkt *pkt);
 
 int cmdq_pkt_wait_complete(struct cmdq_pkt *pkt);
 

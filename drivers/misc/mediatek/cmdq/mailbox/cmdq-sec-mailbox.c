@@ -615,8 +615,6 @@ static bool cmdq_sec_irq_handler(
 	return false;
 }
 
-void cmdq_dump_summary(struct cmdq_client *client, struct cmdq_pkt *pkt);
-
 void cmdq_sec_dump_notify_loop(void *chan)
 {
 	struct cmdq_sec *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
