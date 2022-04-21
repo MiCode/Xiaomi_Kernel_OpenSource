@@ -2286,7 +2286,7 @@
 			compatible = "mediatek,mt6983-eint";
 			reg = <0 0x1000b000 0 0x1000>;
 			reg-name = "eint";
-			mediatek,total-pin-number = <140>;
+			mediatek,total-pin-number = <160>;
 			mediatek,instance-num = <1>;
 			interrupts = <GIC_SPI 244 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
