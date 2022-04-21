@@ -1977,6 +1977,7 @@ static void ccif_set_clk_on(unsigned char hif_id)
  * for ccif4,5 power off action different:
  * gen97: 0x1000330C [31:0] write 0x0
  * gen98: 0x10001BF0 [15:0] write 0xF7FF
+ * gen95: 0x10001C10 [31:0] write 0x0
  */
 static void ccif_set_clk_off(unsigned char hif_id)
 {
@@ -2002,10 +2003,17 @@ static void ccif_set_clk_off(unsigned char hif_id)
 		}
 	} else if (ccif_ctrl->plat_val.md_gen <= 6297) {
 		/* Clean MD_PCCIF4_SW_READY and MD_PCCIF4_PWR_ON */
-		if (!IS_ERR(ccif_ctrl->pericfg_base)) {
-			CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s:pericfg_base:0x%p\n",
-				__func__, ccif_ctrl->pericfg_base);
-			regmap_write(ccif_ctrl->pericfg_base, 0x30c, 0x0);
+		if (ccif_ctrl->plat_val.md_gen == 6297) {
+			if (!IS_ERR(ccif_ctrl->pericfg_base)) {
+				CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s:pericfg_base:0x%p\n",
+					__func__, ccif_ctrl->pericfg_base);
+				regmap_write(ccif_ctrl->pericfg_base, 0x30c, 0x0);
+			}
+		} else {
+		/* set gen95 clock */
+			CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s:infra_ao_base:0x%p\n",
+				__func__, ccif_ctrl->plat_val.infra_ao_base);
+			regmap_write(ccif_ctrl->plat_val.infra_ao_base, 0xC10, 0x0);
 		}
 
 		for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
