@@ -855,6 +855,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	union feature_para para;
 	int ret = 0;
 	u32 len;
+	int i;
 
 	/*
 	 * Applying V4L2 control value only happens
@@ -1108,6 +1109,10 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_SEAMLESS_SCENARIOS:
 		{
 			struct mtk_seamless_target_scenarios *info = ctrl->p_new.p;
+
+			/* reset seamless_scenarios */
+			for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++)
+				ctx->seamless_scenarios[i] = SENSOR_SCENARIO_ID_NONE;
 
 			copy_from_user(&ctx->seamless_scenarios, info->target_scenario_ids,
 					min(sizeof(ctx->seamless_scenarios),
