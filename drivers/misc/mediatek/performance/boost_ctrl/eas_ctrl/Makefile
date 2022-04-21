@@ -47,6 +47,9 @@ ccflags-y += \
 else ifeq ($(CONFIG_MACH_MT6873),y)
 ccflags-y += \
 		-DMTK_K14_EAS_BOOST
+else ifeq ($(CONFIG_MACH_MT6771),y)
+ccflags-y += \
+		-DMTK_K14_EAS_BOOST
 endif
 
 obj-y += eas_ctrl.o uclamp_ctrl.o
