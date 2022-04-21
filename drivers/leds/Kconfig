@@ -203,6 +203,19 @@ config LEDS_MT6360
 	  Support Torch and Strobe mode independently current source.
 	  Include Low-VF and short protection.
 
+config LEDS_MT6362
+	tristate "MT6362 SPMI LEDS driver"
+	depends on LEDS_CLASS_FLASH && OF
+	depends on V4L2_FLASH_LED_CLASS || !V4L2_FLASH_LED_CLASS
+	depends on MFD_MT6362
+	help
+	  Say yes here to have support for the MT6362 LEDS
+	  Provide strobe and torch mode with flashlight, and
+	  indicator and moonlight with rgbled.
+
+	  The driver can also be build as a module.
+	  If so, the module will be called leds_mt6362
+
 config LEDS_S3C24XX
 	tristate "LED Support for Samsung S3C24XX GPIO LEDs"
 	depends on LEDS_CLASS
