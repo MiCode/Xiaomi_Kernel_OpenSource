@@ -230,7 +230,7 @@ enum mtk_dec_param {
 	MTK_DEC_PARAM_FIXED_MAX_OUTPUT_BUFFER = (1 << 7),
 	MTK_DEC_PARAM_SEC_DECODE = (1 << 8),
 	MTK_DEC_PARAM_OPERATING_RATE = (1 << 9),
-	MTK_DEC_PARAM_DOBLY_VISION = (1 << 10)
+	MTK_DEC_PARAM_DV = (1 << 10)
 };
 
 struct mtk_dec_params {
@@ -828,9 +828,9 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 /* MTK 10-bit yuv 4:2:0 Hybrid FBC mode, two contiguous planes */
 #define V4L2_PIX_FMT_NV12_HYFBC v4l2_fourcc('N', '1', '2', 'H')
 #define V4L2_PIX_FMT_P010_HYFBC v4l2_fourcc('P', '0', '1', 'H')
-/*< Dolby Vision formats - used for DV query cap*/
-#define V4L2_PIX_FMT_DVAV    v4l2_fourcc('D', 'V', 'A', 'V') /* Dolby Vision AVC */
-#define V4L2_PIX_FMT_DVHE    v4l2_fourcc('D', 'V', 'H', 'E') /* Dolby Vision HEVC */
+/*< DV formats - used for DV query cap*/
+#define V4L2_PIX_FMT_DVAV    v4l2_fourcc('D', 'V', 'A', 'V') /* DV AVC */
+#define V4L2_PIX_FMT_DVHE    v4l2_fourcc('D', 'V', 'H', 'E') /* DV HEVC */
 
 /* Reference freed flags*/
 #define V4L2_BUF_FLAG_REF_FREED			0x00000200
