@@ -17,7 +17,7 @@
  * @param src: src address
  * @param size: memory size
  */
-void mtk_memcpy_to_tinysys(void __iomem *dest, const void *src, int size)
+void mtk_memcpy_to_tinysys(void __iomem *dest, const void *src, uint32_t size)
 {
 	int i;
 	u32 __iomem *t = dest;
@@ -33,7 +33,7 @@ void mtk_memcpy_to_tinysys(void __iomem *dest, const void *src, int size)
  * @param src: src address
  * @param size: memory size
  */
-void mtk_memcpy_from_tinysys(void *dest, const void __iomem *src, int size)
+void mtk_memcpy_from_tinysys(void *dest, const void __iomem *src, uint32_t size)
 {
 	int i;
 	u32 *t = dest;
@@ -54,7 +54,7 @@ int mtk_mbox_write_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	struct mtk_mbox_info *minfo;
 	struct mtk_ipi_msg *ipimsg;
 	void __iomem *base;
-	int len;
+	uint32_t len;
 	unsigned long flags;
 
 	if (!mbdev) {
@@ -74,7 +74,8 @@ int mtk_mbox_write_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	ipimsg = (struct mtk_ipi_msg *)msg;
 	len = ipimsg->ipihd.len;
 
-	if (len > size * MBOX_SLOT_SIZE)
+	if ((slot_ofs + sizeof(struct mtk_ipi_msg_hd) + len)
+		> size * MBOX_SLOT_SIZE)
 		return MBOX_WRITE_SZ_ERR;
 
 	spin_lock_irqsave(&mbdev->info_table[mbox].mbox_lock, flags);
@@ -129,7 +130,8 @@ int mtk_mbox_read_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	size = minfo->slot;
 	ipihd = (struct mtk_ipi_msg_hd *)(base + slot_ofs);
 
-	if (ipihd->len > size * MBOX_SLOT_SIZE)
+	if ((slot_ofs + sizeof(struct mtk_ipi_msg_hd) + ipihd->len)
+		> size * MBOX_SLOT_SIZE)
 		return MBOX_READ_SZ_ERR;
 
 	spin_lock_irqsave(&mbdev->info_table[mbox].mbox_lock, flags);
