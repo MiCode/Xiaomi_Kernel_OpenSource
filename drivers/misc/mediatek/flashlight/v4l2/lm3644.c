@@ -133,8 +133,8 @@ struct lm3644_flash {
 	int need_cooler;
 	unsigned long max_state;
 	unsigned long target_state;
-	unsigned long target_current;
-	unsigned long ori_current;
+	unsigned long target_current[LM3644_LED_MAX];
+	unsigned long ori_current[LM3644_LED_MAX];
 };
 
 /* define usage count */
@@ -283,10 +283,10 @@ static int lm3644_torch_brt_ctrl(struct lm3644_flash *flash,
 		return lm3644_enable_ctrl(flash, led_no, false);
 
 	if (flash->need_cooler == 0) {
-		flash->ori_current = brt;
+		flash->ori_current[led_no] = brt;
 	} else {
-		if (brt > flash->target_current) {
-			brt = flash->target_current;
+		if (brt > flash->target_current[led_no]) {
+			brt = flash->target_current[led_no];
 			pr_info("thermal limit current:%d\n", brt);
 		}
 	}
@@ -313,8 +313,8 @@ static int lm3644_flash_brt_ctrl(struct lm3644_flash *flash,
 	if (brt < LM3644_FLASH_BRT_MIN)
 		return lm3644_enable_ctrl(flash, led_no, false);
 
-	if (flash->need_cooler == 1 && brt > flash->target_current) {
-		brt = flash->target_current;
+	if (flash->need_cooler == 1 && brt > flash->target_current[led_no]) {
+		brt = flash->target_current[led_no];
 		pr_info("thermal limit current:%d\n", brt);
 	}
 
@@ -669,17 +669,16 @@ static int lm3644_init(struct lm3644_flash *flash)
 	/* output disable */
 	flash->led_mode = V4L2_FLASH_LED_MODE_NONE;
 	rval = lm3644_mode_ctrl(flash);
-	if (rval < 0)
-		return rval;
 
-	rval = regmap_update_bits(flash->regmap,
-				  REG_LED0_TORCH_BR, 0x80, 0x00);
-	if (rval < 0)
-		return rval;
-	rval = regmap_update_bits(flash->regmap,
-				  REG_LED0_FLASH_BR, 0x80, 0x00);
-	if (rval < 0)
-		return rval;
+	lm3644_torch_brt_ctrl(flash, LM3644_LED0,
+				flash->ori_current[LM3644_LED0]);
+	lm3644_torch_brt_ctrl(flash, LM3644_LED1,
+				flash->ori_current[LM3644_LED1]);
+	lm3644_flash_brt_ctrl(flash, LM3644_LED0,
+				flash->ori_current[LM3644_LED0]);
+	lm3644_flash_brt_ctrl(flash, LM3644_LED1,
+				flash->ori_current[LM3644_LED1]);
+
 	/* reset faults */
 	rval = regmap_read(flash->regmap, REG_FLAG1, &reg_val);
 	return rval;
@@ -822,19 +821,22 @@ static int lm3644_cooling_set_cur_state(struct thermal_cooling_device *cdev,
 
 	if (flash->target_state == 0) {
 		flash->need_cooler = 0;
-		flash->target_current = LM3644_FLASH_BRT_MAX;
+		flash->target_current[LM3644_LED0] = LM3644_FLASH_BRT_MAX;
+		flash->target_current[LM3644_LED1] = LM3644_FLASH_BRT_MAX;
 		ret = lm3644_torch_brt_ctrl(flash, LM3644_LED0,
 					LM3644_TORCH_BRT_MAX);
 		ret = lm3644_torch_brt_ctrl(flash, LM3644_LED1,
 					LM3644_TORCH_BRT_MAX);
 	} else {
 		flash->need_cooler = 1;
-		flash->target_current =
+		flash->target_current[LM3644_LED0] =
+			flash_state_to_current_limit[flash->target_state - 1];
+		flash->target_current[LM3644_LED1] =
 			flash_state_to_current_limit[flash->target_state - 1];
 		ret = lm3644_torch_brt_ctrl(flash, LM3644_LED0,
-						flash->target_current);
+					flash->target_current[LM3644_LED0]);
 		ret = lm3644_torch_brt_ctrl(flash, LM3644_LED1,
-						flash->target_current);
+					flash->target_current[LM3644_LED1]);
 	}
 	return ret;
 }
@@ -957,8 +959,10 @@ static int lm3644_probe(struct i2c_client *client,
 	flash->max_state = LM3644_COOLER_MAX_STATE;
 	flash->target_state = 0;
 	flash->need_cooler = 0;
-	flash->target_current = LM3644_FLASH_BRT_MAX;
-	flash->ori_current = LM3644_TORCH_BRT_MAX;
+	flash->target_current[LM3644_LED0] = LM3644_FLASH_BRT_MAX;
+	flash->target_current[LM3644_LED1] = LM3644_FLASH_BRT_MAX;
+	flash->ori_current[LM3644_LED0] = LM3644_TORCH_BRT_MIN;
+	flash->ori_current[LM3644_LED1] = LM3644_TORCH_BRT_MIN;
 	flash->cdev = thermal_of_cooling_device_register(client->dev.of_node,
 			"flashlight_cooler", flash, &lm3644_cooling_ops);
 	if (IS_ERR(flash->cdev))
