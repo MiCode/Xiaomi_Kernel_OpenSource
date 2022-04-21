@@ -40,12 +40,16 @@ static int mvpu_validation(void *hnd)
 	struct apusys_cmdbuf *cmdbuf;
 
 	void *kreg_kva;
+#ifdef MVPU_SEC_KREG_IN_POOL
+	uint32_t kreg_iova_pool = 0;
+#endif
 	uint32_t knl_num = 0;
 
 	uint32_t batch_name_hash;
 	uint32_t buf_num = 0;
 	uint32_t rp_num = 0;
 	uint32_t kerarg_num = 0;
+	uint32_t primem_num = 0;
 	uint32_t sec_level = 0;
 	uint32_t buf_int_check_pass = 1;
 
@@ -64,24 +68,30 @@ static int mvpu_validation(void *hnd)
 	uint32_t *kerarg_offset = NULL;
 	uint32_t *kerarg_size = NULL;
 
-#ifdef MVPU_SEC_BUF_INFO_COPY
-	void *sec_chk_addr_kva;
-	void *sec_buf_size_kva;
-	void *sec_buf_attr_kva;
-#endif
-#ifdef MVPU_SEC_OLD_ADDR_INFO_COPY
-	void *tgtbuf_old_base_kva;
-	void *tgtbuf_old_ofst_kva;
-#endif
-#ifdef MVPU_SEC_NEW_ADDR_INFO_COPY
-	void *tgtbuf_new_base_kva;
-	void *tgtbuf_new_ofst_kva;
-#endif
-#ifdef MVPU_SEC_KERARG_INFO_COPY
-	void *kerarg_buf_id_kva;
-	void *kerarg_offset_kva;
-	void *kerarg_size_kva;
-#endif
+	uint32_t *primem_src_buf_id = NULL;
+	uint32_t *primem_dst_buf_id = NULL;
+	uint32_t *primem_src_offset = NULL;
+	uint32_t *primem_dst_offset = NULL;
+	uint32_t *primem_size = NULL;
+
+	void *sec_chk_addr_kva = NULL;
+	void *sec_buf_size_kva = NULL;
+	void *sec_buf_attr_kva = NULL;
+
+	void *tgtbuf_old_base_kva = NULL;
+	void *tgtbuf_old_ofst_kva = NULL;
+	void *tgtbuf_new_base_kva = NULL;
+	void *tgtbuf_new_ofst_kva = NULL;
+
+	void *kerarg_buf_id_kva = NULL;
+	void *kerarg_offset_kva = NULL;
+	void *kerarg_size_kva = NULL;
+
+	void *primem_src_buf_id_kva = NULL;
+	void *primem_dst_buf_id_kva = NULL;
+	void *primem_src_offset_kva = NULL;
+	void *primem_dst_offset_kva = NULL;
+	void *primem_size_kva = NULL;
 
 	uint32_t *target_buf_old_map = NULL;
 	uint32_t *target_buf_new_map = NULL;
@@ -91,24 +101,18 @@ static int mvpu_validation(void *hnd)
 	uint32_t ker_bin_offset = 0;
 	//uint32_t ker_size = 0;
 	uint32_t ker_bin_num = 0;
-	uint32_t *ker_bin_each_iova;
+	uint32_t *ker_bin_each_iova = NULL;
 
 	uint32_t session_id = -1;
 	uint32_t hash_id = -1;
 	bool algo_in_pool = false;
+	bool algo_all_same_buf = true;
 
 	uint32_t buf_cmd_cnt = 0;
-	uint32_t buf_cmd_next = 0x0;
+	uint32_t buf_cmd_kreg = 0;
+	uint32_t buf_cmd_next = 0;
 
-	uint32_t buf_ker_cnt = 0x0;
-	uint32_t buf_ker_start_long = 0x0;
-	uint32_t buf_ker_end_long = 0x0;
-
-	bool buf_get_start = false;
-	bool buf_get_end = false;
-	bool buf_get_cnt_done = false;
-
-	bool kerarg_pool = false;
+	bool support_mod_kerarg = false;
 
 	cmd_hnd = hnd;
 
@@ -131,9 +135,9 @@ static int mvpu_validation(void *hnd)
 
 	cmdbuf = cmd_hnd->cmdbufs;
 
-	if (cmdbuf[MVPU_CMD_INFO_IDX].size == sizeof(struct mvpu_request)) {
-		kerarg_pool = true;
-	} else if (cmdbuf[MVPU_CMD_INFO_IDX].size != MVPU_CMD_LITE_SIZE) {
+	if ((cmdbuf[MVPU_CMD_INFO_IDX].size != sizeof(struct mvpu_request)) &&
+		(cmdbuf[MVPU_CMD_INFO_IDX].size != MVPU_CMD_LITE_SIZE_0) &&
+		(cmdbuf[MVPU_CMD_INFO_IDX].size != MVPU_CMD_LITE_SIZE_1)) {
 		pr_info("[MVPU][Sec] [ERROR] get wrong cmdbuf size: 0x%x, should be 0x%x\n",
 				cmdbuf[MVPU_CMD_INFO_IDX].size,
 				sizeof(struct mvpu_request));
@@ -147,24 +151,91 @@ static int mvpu_validation(void *hnd)
 	batch_name_hash = mvpu_req->batch_name_hash;
 
 	//get buf infos
-	buf_num = mvpu_req->buf_num;
+	buf_num = mvpu_req->buf_num & BUF_NUM_MASK;
 
 	//get replace infos
 	rp_num = mvpu_req->rp_num;
 
-	//get kernel ard infos
-	//kerarg_num = mvpu_req->kerarg_num;
-	kerarg_num = mvpu_req->mpu_seg[0];
-
-	//get security level
-	sec_level = mvpu_req->mpu_seg[1];
-
 	if (mvpu_loglvl_drv >= APUSYS_MVPU_LOG_DBG) {
 		pr_info("[MVPU][Sec] DRV set batch: 0x%08x\n", batch_name_hash);
-		pr_info("[MVPU][Sec] sec_level %d\n", sec_level);
 		pr_info("[MVPU][Sec] buf_num %d\n", buf_num);
 		pr_info("[MVPU][Sec] rp_num %d\n", rp_num);
+	}
+
+	algo_in_img = get_ptn_hash(batch_name_hash);
+
+	if (algo_in_img == true && get_mvpu_algo_available() == false) {
+		pr_info("[MVPU][IMG] [ERROR] get HASH 0x%08x but mvpu_algo.img is wrong, please check\n",
+						batch_name_hash);
+		ret = -1;
+		goto END;
+	}
+
+#ifdef MVPU_SEC_BLOCK_EDMA_KERNEL
+	if ((batch_name_hash & RT_BATCH_KERNEL_USING_EDMA) != 0x0) {
+		if (algo_in_img == false) {
+			pr_info("[MVPU][Sec] [ERROR] batch 0x%08x using EDMA function is forbiddened!!!\n",
+						batch_name_hash);
+
+			ret = -1;
+			goto END;
+		}
+	}
+#endif
+
+	mutex_lock(&mvpu_pool_lock);
+
+	algo_in_pool = get_hash_info(session,
+						batch_name_hash,
+						&session_id,
+						&hash_id,
+						buf_num);
+
+	//get security level
+	sec_level = (mvpu_req->buf_num & SEC_LEVEL_MASK) >> SEC_LEVEL_SHIFT;
+
+	if (sec_level >= SEC_LVL_END) {
+		pr_info("[MVPU][Sec] [WARNING] wrong sec_level %d, set to check\n",
+				sec_level);
+		sec_level = SEC_LVL_CHECK;
+	}
+
+	// get kerarg setting and check support modify
+	kerarg_num = (mvpu_req->buf_num & KERARG_NUM_MASK) >> KERARG_NUM_SHIFT;
+	if (cmdbuf[MVPU_CMD_INFO_IDX].size == sizeof(struct mvpu_request))
+		support_mod_kerarg = true;
+
+	if (support_mod_kerarg == false && kerarg_num != 0) {
+		if (mvpu_loglvl_drv >= APUSYS_MVPU_LOG_DBG)
+			pr_info("[MVPU][Sec] [WARNING] not support ker arg modify, set to check\n");
+		sec_level = SEC_LVL_CHECK;
+	}
+
+	// set security level to uP
+	mvpu_req->header.reg_bundle_setting_0.s.kreg_0x0000_rsv1 = sec_level;
+
+	if (mvpu_loglvl_drv >= APUSYS_MVPU_LOG_DBG) {
+		pr_info("[MVPU][Sec] sec_level %d\n", sec_level);
 		pr_info("[MVPU][Sec] kerarg_num %d\n", kerarg_num);
+	}
+
+	if (algo_in_pool == false) {
+		if ((buf_num == 0 || rp_num == 0) ||
+			sec_level != SEC_LVL_PROTECT) {
+			if (mvpu_loglvl_drv >= APUSYS_MVPU_LOG_DBG)
+				pr_info("[MVPU][Sec] check flow\n");
+
+			knl_num = mvpu_req->header.reg_bundle_setting_0.s.kreg_kernel_num;
+			ret = check_batch_flow(session, cmd_hnd->cmd, sec_level, kreg_kva, knl_num);
+
+			if (ret != 0) {
+				pr_info("[MVPU][Sec] integrity checked FAIL\n");
+				goto END;
+			}
+
+			if (algo_in_img == false)
+				goto END;
+		}
 	}
 
 	if (mvpu_loglvl_drv >= APUSYS_MVPU_LOG_ALL) {
@@ -185,107 +256,168 @@ static int mvpu_validation(void *hnd)
 		}
 	}
 
-	if ((buf_num == 0 || rp_num == 0) ||
-		(kerarg_pool == false && kerarg_num != 0) ||
-		sec_level != SEC_LVL_PROTECT) {
-		if (mvpu_loglvl_drv >= APUSYS_MVPU_LOG_DBG) {
-			pr_info("[MVPU][Sec] check flow\n");
-			if (kerarg_pool == false && kerarg_num != 0)
-				pr_info("[MVPU][Sec] update kerarg without pool\n");
+	if (algo_in_pool == false) {
+		if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+				(uint64_t)mvpu_req->sec_chk_addr, buf_num*sizeof(uint32_t)) != 0) {
+			pr_info("[MVPU][Sec] sec_chk_addr integrity checked FAIL\n");
+			ret = -EINVAL;
+			goto END;
 		}
 
-		knl_num = mvpu_req->header.reg_bundle_setting_0.s.kreg_kernel_num;
-		ret = check_batch_flow(session, cmd_hnd->cmd, sec_level, kreg_kva, knl_num);
+		if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+				(uint64_t)mvpu_req->sec_buf_size, buf_num*sizeof(uint32_t)) != 0) {
+			pr_info("[MVPU][Sec] sec_buf_size integrity checked FAIL\n");
+			ret = -EINVAL;
+			goto END;
+		}
 
-		if (ret != 0)
-			pr_info("[MVPU][Sec] integrity checked FAIL\n");
+		if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+				(uint64_t)mvpu_req->sec_buf_attr, buf_num*sizeof(uint32_t)) != 0) {
+			pr_info("[MVPU][Sec] sec_buf_attr integrity checked FAIL\n");
+			ret = -EINVAL;
+			goto END;
+		}
 
-		goto END;
+		if (kerarg_num != 0) {
+			if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+					(uint64_t)mvpu_req->kerarg_buf_id,
+					kerarg_num*sizeof(uint32_t)) != 0) {
+				pr_info("[MVPU][Sec] kerarg_buf_id integrity checked FAIL\n");
+				ret = -EINVAL;
+				goto END;
+			}
+
+			if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+					(uint64_t)mvpu_req->kerarg_offset,
+					kerarg_num*sizeof(uint32_t)) != 0) {
+				pr_info("[MVPU][Sec] kerarg_offset integrity checked FAIL\n");
+				ret = -EINVAL;
+				goto END;
+			}
+
+			if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+					(uint64_t)mvpu_req->kerarg_size,
+					kerarg_num*sizeof(uint32_t)) != 0) {
+				pr_info("[MVPU][Sec] kerarg_size integrity checked FAIL\n");
+				ret = -EINVAL;
+				goto END;
+			}
+
+			if (primem_num != 0) {
+				if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+						(uint64_t)mvpu_req->primem_src_buf_id,
+						primem_num*sizeof(uint32_t)) != 0) {
+					pr_info("[MVPU][Sec] primem_src_buf_id integrity checked FAIL\n");
+					ret = -EINVAL;
+					goto END;
+				}
+
+				if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+						(uint64_t)mvpu_req->primem_dst_buf_id,
+						primem_num*sizeof(uint32_t)) != 0) {
+					pr_info("[MVPU][Sec] primem_dst_buf_id integrity checked FAIL\n");
+					ret = -EINVAL;
+					goto END;
+				}
+
+				if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+						(uint64_t)mvpu_req->primem_dst_offset,
+						primem_num*sizeof(uint32_t)) != 0) {
+					pr_info("[MVPU][Sec] primem_dst_offset integrity checked FAIL\n");
+					ret = -EINVAL;
+					goto END;
+				}
+
+				if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+						(uint64_t)mvpu_req->primem_src_offset,
+						primem_num*sizeof(uint32_t)) != 0) {
+					pr_info("[MVPU][Sec] primem_src_offset integrity checked FAIL\n");
+					ret = -EINVAL;
+					goto END;
+				}
+
+				if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+						(uint64_t)mvpu_req->primem_size,
+						primem_num*sizeof(uint32_t)) != 0) {
+					pr_info("[MVPU][Sec] primem_size integrity checked FAIL\n");
+					ret = -EINVAL;
+					goto END;
+				}
+			} //(primem_num != 0)
+		} //(kerarg_num != 0)
+
+		if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+				(uint64_t)mvpu_req->target_buf_old_base,
+				rp_num*sizeof(uint32_t)) != 0) {
+			pr_info("[MVPU][Sec] target_buf_old_base integrity checked FAIL\n");
+			ret = -EINVAL;
+			goto END;
+		}
+
+		if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+				(uint64_t)mvpu_req->target_buf_old_offset,
+				rp_num*sizeof(uint32_t)) != 0) {
+			pr_info("[MVPU][Sec] target_buf_old_offset integrity checked FAIL\n");
+			ret = -EINVAL;
+			goto END;
+		}
+
+		if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+				(uint64_t)mvpu_req->target_buf_new_base,
+				rp_num*sizeof(uint32_t)) != 0) {
+			pr_info("[MVPU][Sec] target_buf_new_base integrity checked FAIL\n");
+			ret = -EINVAL;
+			goto END;
+		}
+
+		if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
+				(uint64_t)mvpu_req->target_buf_new_offset,
+				rp_num*sizeof(uint32_t)) != 0) {
+			pr_info("[MVPU][Sec] target_buf_new_offset integrity checked FAIL\n");
+			ret = -EINVAL;
+			goto END;
+		}
 	}
 
-#ifdef MVPU_SEC_BUF_INFO_COPY
-	sec_chk_addr = kzalloc(buf_num*sizeof(uint32_t), GFP_KERNEL);
-	if (!sec_chk_addr) {
+	// copy buf infos
+	sec_chk_addr = kcalloc(buf_num, sizeof(uint32_t), GFP_KERNEL);
+	if (sec_chk_addr == NULL) {
 		ret = -ENOMEM;
 		goto END;
 	}
-
-#ifdef MVPU_SEC_CHECK_INFO
-	// check buffer integrity
-	if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
-			(uint64_t)mvpu_req->sec_chk_addr, buf_num*sizeof(uint32_t)) != 0) {
-		pr_info("[MVPU][Sec] sec_chk_addr 0x%llx integrity checked FAIL\n",
-					mvpu_req->sec_chk_addr);
-		ret = -EINVAL;
-		goto END;
-	}
-#endif
 
 	sec_chk_addr_kva =
 		apusys_mem_query_kva_by_sess(session, mvpu_req->sec_chk_addr);
 
 	if (sec_chk_addr_kva != NULL)
 		memcpy(sec_chk_addr, sec_chk_addr_kva, buf_num*sizeof(uint32_t));
-#else
-	sec_chk_addr =
-		(uint32_t *)apusys_mem_query_kva_by_sess(session, mvpu_req->sec_chk_addr);
-#endif
 
-#ifdef MVPU_SEC_BUF_INFO_COPY
-	sec_buf_size = kzalloc(buf_num*sizeof(uint32_t), GFP_KERNEL);
-	if (!sec_buf_size) {
+	sec_buf_size = kcalloc(buf_num, sizeof(uint32_t), GFP_KERNEL);
+	if (sec_buf_size == NULL) {
 		ret = -ENOMEM;
 		goto END;
 	}
-
-#ifdef MVPU_SEC_CHECK_INFO
-	// check buffer integrity
-	if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
-			(uint64_t)mvpu_req->sec_buf_size, buf_num*sizeof(uint32_t)) != 0) {
-		pr_info("[MVPU][Sec] sec_buf_size integrity checked FAIL\n");
-		ret = -EINVAL;
-		goto END;
-	}
-#endif
 
 	sec_buf_size_kva =
 		apusys_mem_query_kva_by_sess(session, mvpu_req->sec_buf_size);
 
 	if (sec_buf_size_kva != NULL)
 		memcpy(sec_buf_size, sec_buf_size_kva, buf_num*sizeof(uint32_t));
-#else
-	sec_buf_size =
-		(uint32_t *)apusys_mem_query_kva_by_sess(session, mvpu_req->sec_buf_size);
-#endif
 
-#ifdef MVPU_SEC_BUF_INFO_COPY
-	sec_buf_attr = kzalloc(buf_num*sizeof(uint32_t), GFP_KERNEL);
-	if (!sec_buf_attr) {
+	sec_buf_attr = kcalloc(buf_num, sizeof(uint32_t), GFP_KERNEL);
+	if (sec_buf_attr == NULL) {
 		ret = -ENOMEM;
 		goto END;
 	}
 
-#ifdef MVPU_SEC_CHECK_INFO
-	// check buffer integrity
-	if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
-			(uint64_t)mvpu_req->sec_buf_attr, buf_num*sizeof(uint32_t)) != 0) {
-		pr_info("[MVPU][Sec] sec_buf_attr integrity checked FAIL\n");
-		ret = -EINVAL;
-		goto END;
-	}
-#endif
 
 	sec_buf_attr_kva =
 		apusys_mem_query_kva_by_sess(session, mvpu_req->sec_buf_attr);
 
 	if (sec_buf_attr_kva != NULL)
 		memcpy(sec_buf_attr, sec_buf_attr_kva, buf_num*sizeof(uint32_t));
-#else
-	sec_buf_attr =
-		(uint32_t *)apusys_mem_query_kva_by_sess(session, mvpu_req->sec_buf_attr);
-#endif
 
-	//integrity check
+	// buf integrity check
 	for (i = 0; i < buf_num; i++) {
 		if (mvpu_loglvl_drv >= APUSYS_MVPU_LOG_DBG) {
 			pr_info("[MVPU][Sec] buf[%3d]: addr 0x%08x, attr: %d, size: 0x%08x\n",
@@ -296,25 +428,12 @@ static int mvpu_validation(void *hnd)
 
 		if (sec_chk_addr[i] == 0) {
 			buf_cmd_cnt++;
-			buf_get_cnt_done = true;
-			if (buf_get_end == false) {
-				buf_ker_end_long = i - 1;
-				buf_get_end = true;
+			if (buf_cmd_cnt == MVPU_MIN_CMDBUF_NUM) {
+				buf_cmd_kreg = i;
+				buf_cmd_next = i + 1;
 			}
+
 			continue;
-		}
-
-		if (buf_cmd_cnt == MVPU_MIN_CMDBUF_NUM && buf_cmd_next == 0x0)
-			buf_cmd_next = i;
-
-		if (sec_buf_attr[i] != BUF_RINGBUFFER) {
-			if (buf_get_cnt_done == false)
-				buf_ker_cnt++;
-
-			if (buf_get_start == false) {
-				buf_ker_start_long = i;
-				buf_get_start = true;
-			}
 		}
 
 		// check buffer integrity
@@ -337,10 +456,17 @@ static int mvpu_validation(void *hnd)
 	}
 
 	//get image infos: kernel.bin
-	algo_in_img = get_ker_info(batch_name_hash, &ker_bin_offset, &ker_bin_num);
 	if (algo_in_img) {
+		get_ker_info(batch_name_hash, &ker_bin_offset, &ker_bin_num);
+
+		if (ker_bin_num == 0) {
+			pr_info("[MVPU][IMG] [ERROR] not found Kernel_*.bin in mvpu_algo.img, please check\n");
+			ret = -1;
+			goto END;
+		}
+
 		ker_bin_each_iova = kcalloc(ker_bin_num, sizeof(uint32_t), GFP_KERNEL);
-		if (!ker_bin_each_iova) {
+		if (ker_bin_each_iova == NULL) {
 			ret = -ENOMEM;
 			goto END;
 		}
@@ -348,224 +474,174 @@ static int mvpu_validation(void *hnd)
 		set_ker_iova(ker_bin_offset, ker_bin_num, ker_bin_each_iova);
 	}
 
+	// copy ker arg infos
 	if (kerarg_num != 0) {
-#ifdef MVPU_SEC_KERARG_INFO_COPY
-		kerarg_buf_id = kzalloc(kerarg_num*sizeof(uint32_t), GFP_KERNEL);
-		if (!kerarg_buf_id) {
+		kerarg_buf_id = kcalloc(kerarg_num, sizeof(uint32_t), GFP_KERNEL);
+		if (kerarg_buf_id == NULL) {
 			ret = -ENOMEM;
 			goto END;
 		}
-
-#ifdef MVPU_SEC_CHECK_INFO
-		// check buffer integrity
-		if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
-				(uint64_t)mvpu_req->kerarg_buf_id,
-				kerarg_num*sizeof(uint32_t)) != 0) {
-			pr_info("[MVPU][Sec] kerarg_buf_id integrity checked FAIL\n");
-			ret = -EINVAL;
-			goto END;
-		}
-#endif
 
 		kerarg_buf_id_kva =
 			apusys_mem_query_kva_by_sess(session, mvpu_req->kerarg_buf_id);
 
 		if (kerarg_buf_id_kva != NULL)
 			memcpy(kerarg_buf_id, kerarg_buf_id_kva, kerarg_num*sizeof(uint32_t));
-#else
-		kerarg_buf_id =
-			(uint32_t *)apusys_mem_query_kva_by_sess(session, mvpu_req->kerarg_buf_id);
-#endif
 
-#ifdef MVPU_SEC_KERARG_INFO_COPY
-		kerarg_offset = kzalloc(kerarg_num*sizeof(uint32_t), GFP_KERNEL);
-		if (!kerarg_offset) {
+		kerarg_offset = kcalloc(kerarg_num, sizeof(uint32_t), GFP_KERNEL);
+		if (kerarg_offset == NULL) {
 			ret = -ENOMEM;
 			goto END;
 		}
-
-#ifdef MVPU_SEC_CHECK_INFO
-		// check buffer integrity
-		if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
-				(uint64_t)mvpu_req->kerarg_offset,
-				kerarg_num*sizeof(uint32_t)) != 0) {
-			pr_info("[MVPU][Sec] kerarg_offset integrity checked FAIL\n");
-			ret = -EINVAL;
-			goto END;
-		}
-#endif
 
 		kerarg_offset_kva =
 			apusys_mem_query_kva_by_sess(session, mvpu_req->kerarg_offset);
 
 		if (kerarg_offset_kva != NULL)
 			memcpy(kerarg_offset, kerarg_offset_kva, kerarg_num*sizeof(uint32_t));
-#else
-		kerarg_offset =
-			(uint32_t *)apusys_mem_query_kva_by_sess(session, mvpu_req->kerarg_offset);
-#endif
 
-#ifdef MVPU_SEC_KERARG_INFO_COPY
-		kerarg_size = kzalloc(kerarg_num*sizeof(uint32_t), GFP_KERNEL);
-		if (!kerarg_size) {
+		kerarg_size = kcalloc(kerarg_num, sizeof(uint32_t), GFP_KERNEL);
+		if (kerarg_size == NULL) {
 			ret = -ENOMEM;
 			goto END;
 		}
-
-#ifdef MVPU_SEC_CHECK_INFO
-		// check buffer integrity
-		if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
-				(uint64_t)mvpu_req->kerarg_size,
-				kerarg_num*sizeof(uint32_t)) != 0) {
-			pr_info("[MVPU][Sec] kerarg_size integrity checked FAIL\n");
-			ret = -EINVAL;
-			goto END;
-		}
-#endif
 
 		kerarg_size_kva =
 			apusys_mem_query_kva_by_sess(session, mvpu_req->kerarg_size);
 
 		if (kerarg_size_kva != NULL)
 			memcpy(kerarg_size, kerarg_size_kva, kerarg_num*sizeof(uint32_t));
-#else
-		kerarg_size =
-			(uint32_t *)apusys_mem_query_kva_by_sess(session, mvpu_req->kerarg_size);
-#endif
+
+		// get primem only when ker arg num != 0 & not get into check flow
+		primem_num = mvpu_req->primem_num;
+		if (primem_num != 0) {
+			primem_src_buf_id = kcalloc(primem_num, sizeof(uint32_t), GFP_KERNEL);
+			if (primem_src_buf_id == NULL) {
+				ret = -ENOMEM;
+				goto END;
+			}
+
+			primem_src_buf_id_kva =
+				apusys_mem_query_kva_by_sess(session, mvpu_req->primem_src_buf_id);
+
+			if (primem_src_buf_id_kva != NULL)
+				memcpy(primem_src_buf_id, primem_src_buf_id_kva,
+					primem_num*sizeof(uint32_t));
+
+			primem_dst_buf_id = kcalloc(primem_num, sizeof(uint32_t), GFP_KERNEL);
+			if (primem_dst_buf_id == NULL) {
+				ret = -ENOMEM;
+				goto END;
+			}
+
+			primem_dst_buf_id_kva =
+				apusys_mem_query_kva_by_sess(session, mvpu_req->primem_dst_buf_id);
+
+			if (primem_dst_buf_id_kva != NULL)
+				memcpy(primem_dst_buf_id, primem_dst_buf_id_kva,
+					primem_num*sizeof(uint32_t));
+
+			primem_src_offset = kcalloc(primem_num, sizeof(uint32_t), GFP_KERNEL);
+			if (primem_src_offset == NULL) {
+				ret = -ENOMEM;
+				goto END;
+			}
+
+			primem_src_offset_kva =
+				apusys_mem_query_kva_by_sess(session, mvpu_req->primem_src_offset);
+
+			if (primem_src_offset_kva != NULL)
+				memcpy(primem_src_offset, primem_src_offset_kva,
+					primem_num*sizeof(uint32_t));
+
+			primem_dst_offset = kcalloc(primem_num, sizeof(uint32_t), GFP_KERNEL);
+			if (primem_dst_offset == NULL) {
+				ret = -ENOMEM;
+				goto END;
+			}
+
+			primem_dst_offset_kva =
+				apusys_mem_query_kva_by_sess(session, mvpu_req->primem_dst_offset);
+
+			if (primem_dst_offset_kva != NULL)
+				memcpy(primem_dst_offset, primem_dst_offset_kva,
+					primem_num*sizeof(uint32_t));
+
+			primem_size = kcalloc(primem_num, sizeof(uint32_t), GFP_KERNEL);
+			if (primem_size == NULL) {
+				ret = -ENOMEM;
+				goto END;
+			}
+
+			primem_size_kva =
+				apusys_mem_query_kva_by_sess(session, mvpu_req->primem_size);
+
+			if (primem_size_kva != NULL)
+				memcpy(primem_size, primem_size_kva, primem_num*sizeof(uint32_t));
+		}
 	}
 
-	mutex_lock(&mvpu_pool_lock);
+	// copy rp infos
+	if (rp_num != 0) {
+		target_buf_old_base = kcalloc(rp_num, sizeof(uint32_t), GFP_KERNEL);
+		if (target_buf_old_base == NULL) {
+			ret = -ENOMEM;
+			goto END;
+		}
 
-	algo_in_pool = get_hash_info(session,
-						batch_name_hash,
-						&session_id,
-						&hash_id,
-						buf_num,
-						rp_num,
-						sec_buf_size);
+		tgtbuf_old_base_kva =
+			apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_old_base);
 
+		if (tgtbuf_old_base_kva != NULL)
+			memcpy(target_buf_old_base, tgtbuf_old_base_kva, rp_num*sizeof(uint32_t));
 
-	if (algo_in_pool == true)
-		goto REPLACE_MEM;
+		target_buf_old_offset = kcalloc(rp_num, sizeof(uint32_t), GFP_KERNEL);
+		if (target_buf_old_offset == NULL) {
+			ret = -ENOMEM;
+			goto END;
+		}
 
-#ifdef MVPU_SEC_OLD_ADDR_INFO_COPY
-	target_buf_old_base = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
-	if (!target_buf_old_base) {
-		ret = -ENOMEM;
-		goto VALIDATE_END;
-	}
+		tgtbuf_old_ofst_kva =
+			apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_old_offset);
 
-#ifdef MVPU_SEC_CHECK_INFO
-	// check buffer integrity
-	if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
-			(uint64_t)mvpu_req->target_buf_old_base, rp_num*sizeof(uint32_t)) != 0) {
-		pr_info("[MVPU][Sec] target_buf_old_base integrity checked FAIL\n");
-		ret = -EINVAL;
-		goto VALIDATE_END;
-	}
-#endif
+		if (tgtbuf_old_ofst_kva != NULL)
+			memcpy(target_buf_old_offset, tgtbuf_old_ofst_kva, rp_num*sizeof(uint32_t));
 
-	tgtbuf_old_base_kva =
-		apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_old_base);
+		target_buf_new_base = kcalloc(rp_num, sizeof(uint32_t), GFP_KERNEL);
+		if (target_buf_new_base == NULL) {
+			ret = -ENOMEM;
+			goto END;
+		}
 
-	if (tgtbuf_old_base_kva != NULL)
-		memcpy(target_buf_old_base, tgtbuf_old_base_kva, rp_num*sizeof(uint32_t));
-#else
-	target_buf_old_base =
-		(uint32_t *)apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_old_base);
-#endif
+		tgtbuf_new_base_kva =
+			apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_new_base);
 
-#ifdef MVPU_SEC_OLD_ADDR_INFO_COPY
-	target_buf_old_offset = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
-	if (!target_buf_old_offset) {
-		ret = -ENOMEM;
-		goto VALIDATE_END;
-	}
+		if (tgtbuf_new_base_kva != NULL)
+			memcpy(target_buf_new_base, tgtbuf_new_base_kva, rp_num*sizeof(uint32_t));
 
-#ifdef MVPU_SEC_CHECK_INFO
-	// check buffer integrity
-	if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
-			(uint64_t)mvpu_req->target_buf_old_offset, rp_num*sizeof(uint32_t)) != 0) {
-		pr_info("[MVPU][Sec] target_buf_old_offset integrity checked FAIL\n");
-		ret = -EINVAL;
-		goto VALIDATE_END;
-	}
-#endif
+		target_buf_new_offset = kcalloc(rp_num, sizeof(uint32_t), GFP_KERNEL);
+		if (target_buf_new_offset == NULL) {
+			ret = -ENOMEM;
+			goto END;
+		}
 
-	tgtbuf_old_ofst_kva =
-		apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_old_offset);
+		tgtbuf_new_ofst_kva =
+			apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_new_offset);
 
-	if (tgtbuf_old_ofst_kva != NULL)
-		memcpy(target_buf_old_offset, tgtbuf_old_ofst_kva, rp_num*sizeof(uint32_t));
-#else
-	target_buf_old_offset =
-		(uint32_t *)apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_old_offset);
-#endif
+		if (tgtbuf_new_ofst_kva != NULL)
+			memcpy(target_buf_new_offset, tgtbuf_new_ofst_kva, rp_num*sizeof(uint32_t));
 
-#ifdef MVPU_SEC_NEW_ADDR_INFO_COPY
-	target_buf_new_base = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
-	if (!target_buf_new_base) {
-		ret = -ENOMEM;
-		goto VALIDATE_END;
-	}
+		target_buf_old_map = kcalloc(rp_num, sizeof(uint32_t), GFP_KERNEL);
+		if (target_buf_old_map == NULL) {
+			ret = -ENOMEM;
+			goto END;
+		}
 
-#ifdef MVPU_SEC_CHECK_INFO
-	// check buffer integrity
-	if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
-			(uint64_t)mvpu_req->target_buf_new_base, rp_num*sizeof(uint32_t)) != 0) {
-		pr_info("[MVPU][Sec] target_buf_new_base integrity checked FAIL\n");
-		ret = -EINVAL;
-		goto VALIDATE_END;
-	}
-#endif
-
-	tgtbuf_new_base_kva =
-		apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_new_base);
-
-	if (tgtbuf_new_base_kva != NULL)
-		memcpy(target_buf_new_base, tgtbuf_new_base_kva, rp_num*sizeof(uint32_t));
-#else
-	target_buf_new_base =
-		(uint32_t *)apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_new_base);
-#endif
-
-#ifdef MVPU_SEC_NEW_ADDR_INFO_COPY
-	target_buf_new_offset = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
-	if (!target_buf_new_offset) {
-		ret = -ENOMEM;
-		goto VALIDATE_END;
-	}
-
-#ifdef MVPU_SEC_CHECK_INFO
-	// check buffer integrity
-	if (apusys_mem_validate_by_cmd(session, cmd_hnd->cmd,
-			(uint64_t)mvpu_req->target_buf_new_offset, rp_num*sizeof(uint32_t)) != 0) {
-		pr_info("[MVPU][Sec] target_buf_new_offset integrity checked FAIL\n");
-		ret = -EINVAL;
-		goto VALIDATE_END;
-	}
-#endif
-
-	tgtbuf_new_ofst_kva =
-		apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_new_offset);
-
-	if (tgtbuf_new_ofst_kva != NULL)
-		memcpy(target_buf_new_offset, tgtbuf_new_ofst_kva, rp_num*sizeof(uint32_t));
-#else
-	target_buf_new_offset =
-		(uint32_t *)apusys_mem_query_kva_by_sess(session, mvpu_req->target_buf_new_offset);
-#endif
-
-	target_buf_old_map = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
-	if (!target_buf_old_map) {
-		ret = -ENOMEM;
-		goto VALIDATE_END;
-	}
-
-	target_buf_new_map = kzalloc(rp_num*sizeof(uint32_t), GFP_KERNEL);
-	if (!target_buf_new_map) {
-		ret = -ENOMEM;
-		goto VALIDATE_END;
+		target_buf_new_map = kcalloc(rp_num, sizeof(uint32_t), GFP_KERNEL);
+		if (target_buf_new_map == NULL) {
+			ret = -ENOMEM;
+			goto END;
+		}
 	}
 
 	//map rp_info to buf_id
@@ -577,10 +653,33 @@ static int mvpu_validation(void *hnd)
 					target_buf_old_base,
 					target_buf_new_map,
 					target_buf_new_base,
-					buf_cmd_next,
-					buf_ker_cnt,
-					buf_ker_start_long,
-					buf_ker_end_long);
+					buf_cmd_kreg,
+					buf_cmd_next);
+
+	if (algo_in_pool == true)
+		goto REPLACE_MEM;
+
+	// special case: check flow with image
+	if ((sec_level != SEC_LVL_PROTECT) && (algo_in_img == true)) {
+		ret = replace_img_knl(session,
+					buf_num,
+					sec_chk_addr,
+					sec_buf_attr,
+					rp_num,
+					target_buf_old_map,
+					target_buf_old_base,
+					target_buf_old_offset,
+					target_buf_new_map,
+					target_buf_new_base,
+					target_buf_new_offset,
+					ker_bin_num,
+					ker_bin_each_iova);
+
+		if (mvpu_req->mpu_num != 0)
+			ret = add_img_mpu(mvpu_req);
+
+		goto END;
+	}
 
 	//mem pool: session/hash
 	if (session_id != -1) {
@@ -590,7 +689,7 @@ static int mvpu_validation(void *hnd)
 			if (hash_id == -1) {
 				pr_info("[MVPU][SEC] [ERROR] out of hash pool\n");
 				ret = -1;
-				goto VALIDATE_END;
+				goto END;
 			}
 #endif
 
@@ -602,6 +701,7 @@ static int mvpu_validation(void *hnd)
 						hash_id,
 						batch_name_hash,
 						buf_num,
+						kreg_kva,
 						sec_chk_addr,
 						sec_buf_size,
 						sec_buf_attr);
@@ -609,7 +709,7 @@ static int mvpu_validation(void *hnd)
 			if (ret != 0) {
 				pr_info("[MVPU][SEC] hash error: ret = 0x%08x\n",
 							ret);
-				goto VALIDATE_END;
+				goto END;
 			}
 		}
 	} else {
@@ -618,7 +718,7 @@ static int mvpu_validation(void *hnd)
 		if (session_id == -1) {
 			pr_info("[MVPU][SEC] [ERROR] out of session pool\n");
 			ret = -1;
-			goto VALIDATE_END;
+			goto END;
 		}
 #endif
 
@@ -630,7 +730,7 @@ static int mvpu_validation(void *hnd)
 		if (hash_id == -1) {
 			pr_info("[MVPU][SEC] [ERROR] out of hash pool\n");
 			ret = -1;
-			goto VALIDATE_END;
+			goto END;
 		}
 #endif
 
@@ -642,6 +742,7 @@ static int mvpu_validation(void *hnd)
 						hash_id,
 						batch_name_hash,
 						buf_num,
+						kreg_kva,
 						sec_chk_addr,
 						sec_buf_size,
 						sec_buf_attr);
@@ -649,27 +750,32 @@ static int mvpu_validation(void *hnd)
 		if (ret != 0) {
 			pr_info("[MVPU][SEC] hash error: ret = 0x%08x\n",
 						ret);
-			goto VALIDATE_END;
+			goto END;
 		}
 	}
 
 REPLACE_MEM:
 
-	rp_skip_buf = kzalloc(buf_num*sizeof(uint32_t), GFP_KERNEL);
-	if (!rp_skip_buf) {
+	rp_skip_buf = kcalloc(buf_num, sizeof(uint32_t), GFP_KERNEL);
+	if (rp_skip_buf == NULL) {
 		ret = -ENOMEM;
-		goto VALIDATE_END;
+		goto END;
 	}
 
 	if (algo_in_pool == true) {
-		set_rp_skip_buf(session_id,
+		algo_all_same_buf = set_rp_skip_buf(session_id,
 						hash_id,
 						buf_num,
 						sec_chk_addr,
 						sec_buf_attr,
 						rp_skip_buf);
-	}
 
+		if (algo_all_same_buf == true || rp_num == 0) {
+			if (mvpu_loglvl_drv >= APUSYS_MVPU_LOG_DBG)
+				pr_info("[MVPU][SEC] skip replacement\n");
+			goto TRIGGER_SETTING;
+		}
+	}
 
 	ret = update_new_base_addr(algo_in_img,
 							algo_in_pool,
@@ -686,22 +792,26 @@ REPLACE_MEM:
 							kreg_kva);
 
 	if (ret != 0)
-		goto VALIDATE_END;
+		goto END;
 
-	if (algo_in_pool == false) {
-		ret = save_hash_info(session_id,
+#ifdef FULL_RP_INFO
+	ret = save_hash_info(session_id,
 						hash_id,
 						buf_num,
 						rp_num,
 						sec_chk_addr,
-						sec_buf_size,
 						target_buf_old_base,
 						target_buf_old_offset,
 						target_buf_new_base,
 						target_buf_new_offset,
 						target_buf_old_map,
 						target_buf_new_map);
-	}
+#else
+	ret = save_hash_info(session_id,
+						hash_id,
+						buf_num,
+						sec_chk_addr);
+#endif
 
 	ret = replace_mem(session_id, hash_id,
 					sec_buf_attr,
@@ -716,19 +826,6 @@ REPLACE_MEM:
 					target_buf_new_offset,
 					kreg_kva);
 
-	if (kerarg_num != 0 && algo_in_pool == true) {
-		ret = replace_kerarg(session,
-					session_id, hash_id,
-					kerarg_num,
-					sec_chk_addr,
-					kerarg_buf_id,
-					kerarg_offset,
-					kerarg_size);
-	}
-
-VALIDATE_END:
-	mutex_unlock(&mvpu_pool_lock);
-
 	if (ret != 0)
 		goto END;
 
@@ -742,9 +839,36 @@ VALIDATE_END:
 						i, mvpu_req->mpu_seg[i]);
 	}
 
-END:
+TRIGGER_SETTING:
+#ifdef MVPU_SEC_KREG_IN_POOL
+	get_pool_kreg_iova(&kreg_iova_pool,
+						session_id,
+						hash_id,
+						buf_cmd_kreg);
 
-#ifdef MVPU_SEC_BUF_INFO_COPY
+	// set KREG iova to uP
+	mvpu_req->header.reg_bundle_setting_1.dwValue = kreg_iova_pool;
+#endif
+
+	if (kerarg_num != 0 && algo_in_pool == true) {
+		ret = replace_kerarg(session,
+					session_id, hash_id,
+					kerarg_num,
+					sec_chk_addr,
+					kerarg_buf_id,
+					kerarg_offset,
+					kerarg_size,
+					primem_num,
+					primem_src_buf_id,
+					primem_dst_buf_id,
+					primem_src_offset,
+					primem_dst_offset,
+					primem_size);
+	}
+
+END:
+	mutex_unlock(&mvpu_pool_lock);
+
 	if (sec_chk_addr != NULL) {
 		kfree(sec_chk_addr);
 		sec_chk_addr = NULL;
@@ -759,9 +883,7 @@ END:
 		kfree(sec_buf_attr);
 		sec_buf_attr = NULL;
 	}
-#endif
 
-#ifdef MVPU_SEC_OLD_ADDR_INFO_COPY
 	if (target_buf_old_base != NULL) {
 		kfree(target_buf_old_base);
 		target_buf_old_base = NULL;
@@ -771,9 +893,7 @@ END:
 		kfree(target_buf_old_offset);
 		target_buf_old_offset = NULL;
 	}
-#endif
 
-#ifdef MVPU_SEC_NEW_ADDR_INFO_COPY
 	if (target_buf_new_base != NULL) {
 		kfree(target_buf_new_base);
 		target_buf_new_base = NULL;
@@ -783,7 +903,46 @@ END:
 		kfree(target_buf_new_offset);
 		target_buf_new_offset = NULL;
 	}
-#endif
+
+	if (kerarg_buf_id != NULL) {
+		kfree(kerarg_buf_id);
+		kerarg_buf_id = NULL;
+	}
+
+	if (kerarg_offset != NULL) {
+		kfree(kerarg_offset);
+		kerarg_offset = NULL;
+	}
+
+	if (kerarg_size != NULL) {
+		kfree(kerarg_size);
+		kerarg_size = NULL;
+	}
+
+	if (primem_src_buf_id != NULL) {
+		kfree(primem_src_buf_id);
+		primem_src_buf_id = NULL;
+	}
+
+	if (primem_dst_buf_id != NULL) {
+		kfree(primem_dst_buf_id);
+		primem_dst_buf_id = NULL;
+	}
+
+	if (primem_dst_offset != NULL) {
+		kfree(primem_dst_offset);
+		primem_dst_offset = NULL;
+	}
+
+	if (primem_src_offset != NULL) {
+		kfree(primem_src_offset);
+		primem_src_offset = NULL;
+	}
+
+	if (primem_size != NULL) {
+		kfree(primem_size);
+		primem_size = NULL;
+	}
 
 	if (target_buf_old_map != NULL) {
 		kfree(target_buf_old_map);
@@ -798,6 +957,11 @@ END:
 	if (rp_skip_buf != NULL) {
 		kfree(rp_skip_buf);
 		rp_skip_buf = NULL;
+	}
+
+	if (ker_bin_each_iova != NULL) {
+		kfree(ker_bin_each_iova);
+		ker_bin_each_iova = NULL;
 	}
 
 	return ret;

@@ -31,6 +31,7 @@ static struct kobject *root_dir;
 
 #ifdef MVPU_SECURITY
 static uint64_t ptn_total_size;
+static uint64_t kerbin_total_size;
 
 static ssize_t mvpu_img_show(struct kobject *kobj, struct kobj_attribute *attr,
 			 char *buf)
@@ -40,8 +41,14 @@ static ssize_t mvpu_img_show(struct kobject *kobj, struct kobj_attribute *attr,
 	else
 		pr_info("[MVPU] already get ptn_total_size: 0x%x\n", ptn_total_size);
 
-	sprintf(buf, "0x%x", ptn_total_size);
-	pr_info("[MVPU] %s, ptn_size = 0x%x\n", __func__, (uint32_t)ptn_total_size);
+	if (kerbin_total_size == 0)
+		kerbin_total_size = get_kerbin_total_size();
+	else
+		pr_info("[MVPU] already get kerbin_total_size: 0x%x\n", kerbin_total_size);
+
+	sprintf(buf, "0x%x", ptn_total_size + kerbin_total_size + 32);
+	pr_info("[MVPU] %s, ptn_size = 0x%x, kerbin_size = 0x%x\n",
+		__func__, (uint32_t)ptn_total_size, (uint32_t)kerbin_total_size);
 
 	return 0;
 }

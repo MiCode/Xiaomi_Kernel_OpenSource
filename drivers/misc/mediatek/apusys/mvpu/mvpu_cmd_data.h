@@ -6,6 +6,9 @@
 #ifndef __MVPU_CMD_DATA_H__
 #define __MVPU_CMD_DATA_H__
 
+#define MVPU_PE_NUM  64
+#define MVPU_DUP_BUF_SIZE  (2 * MVPU_PE_NUM)
+
 #define MVPU_REQUEST_NAME_SIZE 32
 #define MVPU_MPU_SEGMENT_NUMS  39
 
@@ -13,10 +16,28 @@
 #define MVPU_CMD_INFO_IDX       0
 #define MVPU_CMD_KREG_BASE_IDX  1
 
-#define MVPU_CMD_LITE_SIZE  0x12E
+#define MVPU_CMD_LITE_SIZE_0 0x12E
+#define MVPU_CMD_LITE_SIZE_1 0x14A
 
 #ifndef MVPU_SECURITY
 #define MVPU_SECURITY
+#endif
+
+#ifdef MVPU_SECURITY
+#define BUF_NUM_MASK     0x0000FFFF
+
+#define KERARG_NUM_MASK  0x3FFF0000
+#define KERARG_NUM_SHIFT 16
+
+#define SEC_LEVEL_MASK   0xC0000000
+#define SEC_LEVEL_SHIFT  30
+
+enum MVPU_SEC_LEVEL {
+	SEC_LVL_CHECK = 0,
+	SEC_LVL_CHECK_ALL = 1,
+	SEC_LVL_PROTECT = 2,
+	SEC_LVL_END,
+};
 #endif
 
 struct BundleHeader {
@@ -104,6 +125,13 @@ struct mvpu_request {
 	uint64_t kerarg_buf_id;
 	uint64_t kerarg_offset;
 	uint64_t kerarg_size;
+
+	uint32_t primem_num;
+	uint64_t primem_src_buf_id;
+	uint64_t primem_dst_buf_id;
+	uint64_t primem_src_offset;
+	uint64_t primem_dst_offset;
+	uint64_t primem_size;
 #endif
 } __packed;
 

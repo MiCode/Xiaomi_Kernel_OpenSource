@@ -16,23 +16,21 @@
 
 //#define MVPU_SEC_BLOCK_WRONG_BUF_INFO   // Forbidden (buf_num == 0 || rp_num == 0)
 
-#define MVPU_SEC_BUF_INFO_COPY // copy PTN buf info's iova integrity
-#define MVPU_SEC_OLD_ADDR_INFO_COPY // copy PTN old addr info's iova integrity
-#define MVPU_SEC_NEW_ADDR_INFO_COPY // copy PTN new addr info's iova integrity
-#define MVPU_SEC_KERARG_INFO_COPY // copy PTN buf info's iova integrity
-//#define MVPU_SEC_CHECK_INFO // copy and check PTN new addr info's iova integrity
-
 #define MVPU_SEC_IMPROVE_MAP // improve info mapping
-#define MVPU_SEC_IMPROVE_MAP_KER // improve info mapping with skip longest kernel serial
 
 //function switches for debug
 #define MVPU_SEC_USE_MEM_POOL   // Use mem pool instead of user's buf
+#define MVPU_SEC_KREG_IN_POOL   // Copy CMD buf KREG part to mem pool
+
 //#define MVPU_SEC_MPU_NUM_BLOCK  // Forbidden buffer num > MVPU_MPU_SEGMENT_NUMS
 #define MVPU_SEC_UPDT_MPU       // Use mem pool's MPU region setting instead of engine's setting
 #define MVPU_SEC_CLEAR_MPU      // Clear All MPU settings
 
 //#define MVPU_SEC_USE_OLDEST_SESSION_ID //TBD: clear and use oldest session id
-//#define MVPU_SEC_USE_OLDEST_HASH_ID    //TBD: clear and use oldest hash id
+#define MVPU_SEC_USE_OLDEST_HASH_ID    //TBD: clear and use oldest hash id
+
+//#define MVPU_SEC_BLOCK_EDMA_KERNEL   // Forbidden edma in kernel code
+#define RT_BATCH_KERNEL_USING_EDMA    (1 << 27)
 
 //mvpu_algo.img
 //void * mvpu_algo_img;
@@ -41,6 +39,11 @@ static dma_addr_t mvpu_algo_iova;
 static uint32_t *mvpu_algo_img;
 static uint32_t ker_img_offset;
 
+static uint32_t ptn_img_size;
+static uint32_t knl_img_size;
+
+static bool mvpu_algo_available;
+
 static int mvpu_loglvl_sec;
 
 //image headers
@@ -48,19 +51,14 @@ static int mvpu_loglvl_sec;
 #define PTN_INFO_SIZE   2
 #define KER_INFO_SIZE   3
 
-#define PNT_SIZE_OFFSET   1
-#define KER_SIZE_OFFSET   1
-#define KER_NUM_OFFSET    2
-#define KER_BIN_INFO_SIZE 2
+#define PNT_SIZE_OFFSET     1
+#define KER_SIZE_OFFSET     1
+#define KER_NUM_OFFSET      2
+#define KER_BIN_SIZE_OFFSET 3
+#define KER_BIN_INFO_SIZE   2
 
 #define MVPU_ADDR_ALIGN  128
 #define MVPU_MPU_SIZE   4096
-
-enum MVPU_SEC_LEVEL {
-	SEC_LVL_CHECK = 0,
-	SEC_LVL_CHECK_ALL = 1,
-	SEC_LVL_PROTECT = 2,
-};
 
 enum buffer_attr {
 	BUF_NORMAL = 0,
@@ -80,8 +78,8 @@ static uint32_t sess_oldest;
 static struct mvpu_hash_pool *hash_pool[MAX_SAVE_SESSION];
 
 struct mvpu_hash_pool {
-	uint32_t buf_num;
-	uint32_t rp_num;
+	uint32_t buf_num[MAX_SAVE_HASH];
+	uint32_t rp_num[MAX_SAVE_HASH];
 	uint32_t hash_list[MAX_SAVE_HASH];
 	uint32_t hash_oldest;
 
@@ -95,13 +93,15 @@ struct mvpu_hash_pool {
 	uint32_t hash_pool_size[MAX_SAVE_HASH];
 
 	uint32_t *sec_chk_addr[MAX_SAVE_HASH];
-	uint32_t *sec_buf_size[MAX_SAVE_HASH];
+
+#ifdef FULL_RP_INFO
 	uint32_t *target_buf_old_base[MAX_SAVE_HASH];
 	uint32_t *target_buf_old_offset[MAX_SAVE_HASH];
 	uint32_t *target_buf_new_base[MAX_SAVE_HASH];
 	uint32_t *target_buf_new_offset[MAX_SAVE_HASH];
 	uint32_t *target_buf_old_map[MAX_SAVE_HASH];
 	uint32_t *target_buf_new_map[MAX_SAVE_HASH];
+#endif
 
 	uint32_t *hash_offset[MAX_SAVE_HASH];
 };
@@ -145,11 +145,14 @@ enum DESC_TYPE {
 void set_sec_log_lvl(int log_lvl);
 
 // image
+bool get_mvpu_algo_available(void);
 uint32_t get_ptn_total_size(void);
 uint32_t get_ptn_size(uint32_t hash);
+bool get_ptn_hash(uint32_t hash);
+uint32_t get_kerbin_total_size(void);
 uint32_t get_ker_img_offset(void);
 
-bool get_ker_info(uint32_t hash, uint32_t *ker_bin_offset, uint32_t *ker_bin_num);
+void get_ker_info(uint32_t hash, uint32_t *ker_bin_offset, uint32_t *ker_bin_num);
 void set_ker_iova(uint32_t ker_bin_offset, uint32_t ker_bin_num, uint32_t *ker_bin_each_iova);
 
 // buf map
@@ -161,10 +164,8 @@ void map_base_buf_id(uint32_t buf_num,
 					uint32_t *target_old_base,
 					uint32_t *target_new_map,
 					uint32_t *target_new_base,
-					uint32_t buf_cmd_next,
-					uint32_t buf_ker_cnt,
-					uint32_t buf_ker_start_long,
-					uint32_t buf_ker_end_long);
+					uint32_t buf_cmd_kreg,
+					uint32_t buf_cmd_next);
 
 // mem pool
 uint32_t get_saved_session_id(void *session);
@@ -180,38 +181,57 @@ uint32_t get_avail_hash_id(uint32_t session_id);
 void clear_hash(uint32_t session_id, uint32_t hash_id);
 void free_all_hash(uint32_t session_id);
 
-int update_hash_pool(void *session, bool algo_in_img,
-						uint32_t session_id,
-						uint32_t hash_id,
-						uint32_t batch_name_hash,
-						uint32_t buf_num,
-						uint32_t *sec_chk_addr,
-						uint32_t *sec_buf_size,
-						uint32_t *mem_is_kernel);
+int update_hash_pool(void *session,
+							bool algo_in_img,
+							uint32_t session_id,
+							uint32_t hash_id,
+							uint32_t batch_name_hash,
+							uint32_t buf_num,
+							void *kreg_kva,
+							uint32_t *sec_chk_addr,
+							uint32_t *sec_buf_size,
+							uint32_t *sec_buf_attr);
 
+#ifdef FULL_RP_INFO
 int save_hash_info(uint32_t session_id,
 						uint32_t hash_id,
 						uint32_t buf_num,
 						uint32_t rp_num,
 						uint32_t *sec_chk_addr,
-						uint32_t *sec_buf_size,
 						uint32_t *target_buf_old_base,
 						uint32_t *target_buf_old_offset,
 						uint32_t *target_buf_new_base,
 						uint32_t *target_buf_new_offset,
 						uint32_t *target_buf_old_map,
 						uint32_t *target_buf_new_map);
-
+#else
+int save_hash_info(uint32_t session_id,
+						uint32_t hash_id,
+						uint32_t buf_num,
+						uint32_t *sec_chk_addr);
+#endif
 
 bool get_hash_info(void *session,
 						uint32_t batch_name_hash,
 						uint32_t *session_id,
 						uint32_t *hash_id,
-						uint32_t buf_num,
-						uint32_t rp_num,
-						uint32_t *sec_buf_size);
+						uint32_t buf_num);
 
-void set_rp_skip_buf(uint32_t session_id,
+int replace_img_knl(void *session,
+					uint32_t buf_num,
+					uint32_t *sec_chk_addr,
+					uint32_t *sec_buf_attr,
+					uint32_t rp_num,
+					uint32_t *target_buf_old_map,
+					uint32_t *target_buf_old_base,
+					uint32_t *target_buf_old_offset,
+					uint32_t *target_buf_new_map,
+					uint32_t *target_buf_new_base,
+					uint32_t *target_buf_new_offset,
+					uint32_t ker_bin_num,
+					uint32_t *ker_bin_each_iova);
+
+bool set_rp_skip_buf(uint32_t session_id,
 						uint32_t hash_id,
 						uint32_t buf_num,
 						uint32_t *sec_chk_addr,
@@ -255,7 +275,20 @@ int replace_kerarg(void *session,
 					uint32_t *sec_chk_addr,
 					uint32_t *kerarg_buf_id,
 					uint32_t *kerarg_offset,
-					uint32_t *kerarg_size);
+					uint32_t *kerarg_size,
+					uint32_t primem_num,
+					uint32_t *primem_src_buf_id,
+					uint32_t *primem_dst_buf_id,
+					uint32_t *primem_src_offset,
+					uint32_t *primem_dst_offset,
+					uint32_t *primem_size);
+
+void get_pool_kreg_iova(uint32_t *kreg_iova_pool,
+						uint32_t session_id,
+						uint32_t hash_id,
+						uint32_t buf_cmd_kreg);
+
+int add_img_mpu(void *mvpu_cmd);
 
 int update_mpu(void *mvpu_cmd,
 					uint32_t session_id,

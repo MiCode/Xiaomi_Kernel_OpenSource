@@ -33,15 +33,25 @@
 
 static struct device *mvpu_dev;
 
+//#define FULL_RP_INFO
+
 void set_sec_log_lvl(int log_lvl)
 {
 	mvpu_loglvl_sec = log_lvl;
 }
 
+bool get_mvpu_algo_available(void)
+{
+	return mvpu_algo_available;
+}
+
 uint32_t get_ptn_total_size(void)
 {
 	uint32_t ptn_total_size = mvpu_algo_img[3];
-	//printf("[SEC_IMG] PTN total size: 0x%08x\n", ptn_total_size);
+
+	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL)
+		pr_info("[MVPU][IMG] PTN total size: 0x%08x\n", ptn_total_size);
+
 	return ptn_total_size;
 }
 
@@ -81,6 +91,46 @@ uint32_t get_ptn_size(uint32_t hash)
 	return ptn_size;
 }
 
+bool get_ptn_hash(uint32_t hash)
+{
+	uint32_t ptn_total_num = mvpu_algo_img[KER_NUM_OFFSET];
+	int i = 0;
+
+	uint32_t shift = 0;
+	uint32_t ptn_hash = 0;
+	uint32_t ptn_size_offset = 0;
+
+	for (i = 0; i < ptn_total_num; i++) {
+		// get hash by ptn.bin size
+		shift = IMG_HEADER_SIZE + ptn_size_offset/sizeof(uint32_t) + PTN_INFO_SIZE*i;
+		ptn_hash = mvpu_algo_img[shift];
+
+		// check hash
+		if (ptn_hash == hash)
+			return true;
+
+		// count ptn.bin size to shift
+		ptn_size_offset += mvpu_algo_img[shift + PNT_SIZE_OFFSET];
+
+		// alignment
+		if ((ptn_size_offset % 4) != 0)
+			ptn_size_offset = ptn_size_offset + 4 - (ptn_size_offset % 4);
+	}
+
+	return false;
+}
+
+uint32_t get_kerbin_total_size(void)
+{
+	uint32_t kerbin_total_size =
+			mvpu_algo_img[ker_img_offset/sizeof(uint32_t) + KER_BIN_SIZE_OFFSET];
+
+	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL)
+		pr_info("[MVPU][IMG] KER total size: 0x%08x\n", kerbin_total_size);
+
+	return kerbin_total_size;
+}
+
 uint32_t get_ker_img_offset(void)
 {
 	uint32_t offset = mvpu_algo_img[3] + 0x10;
@@ -91,7 +141,7 @@ uint32_t get_ker_img_offset(void)
 	return offset;
 }
 
-bool get_ker_info(uint32_t hash, uint32_t *ker_bin_offset, uint32_t *ker_bin_num)
+void get_ker_info(uint32_t hash, uint32_t *ker_bin_offset, uint32_t *ker_bin_num)
 {
 	uint32_t ker_img_total_num =
 				mvpu_algo_img[ker_img_offset/sizeof(uint32_t) + KER_NUM_OFFSET];
@@ -100,6 +150,9 @@ bool get_ker_info(uint32_t hash, uint32_t *ker_bin_offset, uint32_t *ker_bin_num
 	uint32_t ker_hash = 0;
 	uint32_t ker_size_offset = 0;
 	int i = 0;
+
+	if (ker_img_total_num == 0)
+		pr_info("[MVPU][IMG] [ERROR] not found Kernel_*.bin in mvpu_algo.img, please check\n");
 
 	for (i = 0; i < ker_img_total_num; i++) {
 		// get hash by ker.bin size
@@ -110,8 +163,21 @@ bool get_ker_info(uint32_t hash, uint32_t *ker_bin_offset, uint32_t *ker_bin_num
 
 		ker_hash = mvpu_algo_img[shift];
 
+		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL) {
+			pr_info("[MVPU][IMG] shift 0x%08x, 0x%08x 0x%08x 0x%08x 0x%08x\n",
+				shift,
+				mvpu_algo_img[shift + 0],
+				mvpu_algo_img[shift + 1],
+				mvpu_algo_img[shift + 2],
+				mvpu_algo_img[shift + 3]
+				);
+		}
+
 		// check hash
 		if (ker_hash == hash) {
+			if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
+				pr_info("[MVPU][IMG] Get KNL HASH 0x%08x\n", hash);
+
 			*ker_bin_offset = (shift + KER_INFO_SIZE)*sizeof(uint32_t);
 			//*ker_size = mvpu_algo_img[shift + KER_SIZE_OFFSET];
 			*ker_bin_num =	mvpu_algo_img[shift + KER_NUM_OFFSET];
@@ -125,10 +191,7 @@ bool get_ker_info(uint32_t hash, uint32_t *ker_bin_offset, uint32_t *ker_bin_num
 		//ker_size_offset = ker_size_offset + 4 - (ker_size_offset % 4);
 	}
 
-	if (ker_hash == hash)
-		return true;
-
-	return false;
+	return;
 }
 
 void set_ker_iova(uint32_t ker_bin_offset, uint32_t ker_bin_num, uint32_t *ker_bin_each_iova)
@@ -138,7 +201,7 @@ void set_ker_iova(uint32_t ker_bin_offset, uint32_t ker_bin_num, uint32_t *ker_b
 	int i = 0;
 
 	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
-		pr_info("[MVPU][Sec] %s\n", __func__);
+		pr_info("[MVPU][Sec] %s, ker_bin_num %d\n", __func__, ker_bin_num);
 
 	for (i = 0; i < ker_bin_num; i++) {
 		shift = ker_bin_offset/sizeof(uint32_t)
@@ -148,6 +211,10 @@ void set_ker_iova(uint32_t ker_bin_offset, uint32_t ker_bin_num, uint32_t *ker_b
 		//shift = 4*(ker_size_offset/sizeof(uint32_t) + KER_BIN_INFO_SIZE*i);
 		ker_bin_each_iova[i] = (shift + KER_BIN_INFO_SIZE)*sizeof(uint32_t)
 							+ mvpu_algo_iova;
+
+		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
+			pr_info("[MVPU][IMG] ker_bin_each_iova[%d] = 0x%08x\n",
+					i, ker_bin_each_iova[i]);
 
 		ker_size_offset += mvpu_algo_img[shift + KER_SIZE_OFFSET];
 	}
@@ -161,64 +228,62 @@ void map_base_buf_id(uint32_t buf_num,
 						uint32_t *target_old_base,
 						uint32_t *target_new_map,
 						uint32_t *target_new_base,
-						uint32_t buf_cmd_next,
-						uint32_t buf_ker_cnt,
-						uint32_t buf_ker_start_long,
-						uint32_t buf_ker_end_long)
+						uint32_t buf_cmd_kreg,
+						uint32_t buf_cmd_next)
 {
 	int i = 0, j = 0;
-
-#ifdef MVPU_SEC_IMPROVE_MAP_KER
-	uint32_t buf_ker_get = 0;
-#endif
-
-	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
-		pr_info("[MVPU][Sec] %s serial kernel: %d to %d, num: %d\n",
-				__func__, buf_ker_start_long, buf_ker_end_long, buf_ker_cnt);
+	bool mapped_new_buf = false;
+	bool mapped_old_buf = false;
 
 	for (j = 0; j < rp_num; j++) {
+		mapped_new_buf = false;
+		mapped_old_buf = false;
+
 		if (target_new_base[j] == sec_chk_addr[buf_cmd_next]) {
 			target_new_map[j] = buf_cmd_next;
-		} else if (target_new_base[j] != 0) {
-			for (i = buf_num - 1; i >= 0; i--) {
-				if (sec_chk_addr[i] == 0x0)
-					continue;
-
-#ifdef MVPU_SEC_IMPROVE_MAP_KER
-				if (buf_ker_cnt != 0 &&
-					buf_ker_get == buf_ker_cnt &&
-					i == buf_ker_end_long) {
-					i = buf_ker_start_long; //skip all kernel
-					continue;
-				}
-#endif
-
-				if (target_new_base[j] == sec_chk_addr[i]) {
-					target_new_map[j] = i;
-
-#ifdef MVPU_SEC_IMPROVE_MAP_KER
-					if (sec_buf_attr[i] == BUF_KERNEL
-						&& buf_ker_get < buf_ker_cnt)
-						buf_ker_get++;
-#endif
-					break;
-				}
-			}
+			mapped_new_buf = true;
+		} else if (target_new_base[j] == 0) {
+			mapped_new_buf = true;
 		}
 
 		if (target_old_base[j] == sec_chk_addr[buf_cmd_next]) {
 			target_old_map[j] = buf_cmd_next;
-		} else if (target_old_base[j] != 0) {
-			for (i = 0; i < buf_num; i++) {
-				if (sec_chk_addr[i] == 0x0 || sec_buf_attr[i] == BUF_KERNEL)
-					continue;
+			mapped_old_buf = true;
+#ifdef MVPU_SEC_KREG_IN_POOL
+		} else if (target_old_base[j] == 0) {
+			target_old_map[j] = buf_cmd_kreg;
+			mapped_old_buf = true;
+#endif
+		}
 
-				if (sec_buf_attr[i] == BUF_IO)
-					break;
+		if (mapped_new_buf && mapped_old_buf)
+			continue;
 
+		for (i = 0; i < buf_num; i++) {
+			if (mapped_new_buf && mapped_old_buf)
+				break;
+
+			if (i == buf_cmd_next)
+				continue;
+
+			if (sec_chk_addr[i] == 0x0)
+				continue;
+
+			if (mapped_new_buf == false) {
+				if (target_new_base[j] == sec_chk_addr[i]) {
+					target_new_map[j] = i;
+					mapped_new_buf = true;
+				}
+			}
+
+			if (sec_buf_attr[i] == BUF_KERNEL ||
+				sec_buf_attr[i] == BUF_IO)
+				continue;
+
+			if (mapped_old_buf == false) {
 				if (target_old_base[j] == sec_chk_addr[i]) {
 					target_old_map[j] = i;
-					break;
+					mapped_old_buf = true;
 				}
 			}
 		}
@@ -375,8 +440,8 @@ void clear_hash(uint32_t session_id, uint32_t hash_id)
 {
 	// clear old hash settings
 	if (hash_pool[session_id]->hash_list[hash_id] != 0) {
-		hash_pool[session_id]->buf_num = 0;
-		hash_pool[session_id]->rp_num = 0;
+		hash_pool[session_id]->buf_num[hash_id] = 0;
+		hash_pool[session_id]->rp_num[hash_id] = 0;
 		hash_pool[session_id]->hash_list[hash_id] = 0;
 
 		dma_buf_unmap_attachment(hash_pool[session_id]->attach[hash_id],
@@ -392,13 +457,15 @@ void clear_hash(uint32_t session_id, uint32_t hash_id)
 		hash_pool[session_id]->hash_pool_size[hash_id] = 0;
 
 		kfree(hash_pool[session_id]->sec_chk_addr[hash_id]);
-		kfree(hash_pool[session_id]->sec_buf_size[hash_id]);
+
+#ifdef FULL_RP_INFO
 		kfree(hash_pool[session_id]->target_buf_old_base[hash_id]);
 		kfree(hash_pool[session_id]->target_buf_old_offset[hash_id]);
 		kfree(hash_pool[session_id]->target_buf_new_base[hash_id]);
 		kfree(hash_pool[session_id]->target_buf_new_offset[hash_id]);
 		kfree(hash_pool[session_id]->target_buf_old_map[hash_id]);
 		kfree(hash_pool[session_id]->target_buf_new_map[hash_id]);
+#endif
 
 		kfree(hash_pool[session_id]->hash_offset[hash_id]);
 
@@ -434,6 +501,7 @@ int update_hash_pool(void *session,
 							uint32_t hash_id,
 							uint32_t batch_name_hash,
 							uint32_t buf_num,
+							void *kreg_kva,
 							uint32_t *sec_chk_addr,
 							uint32_t *sec_buf_size,
 							uint32_t *sec_buf_attr)
@@ -445,11 +513,13 @@ int update_hash_pool(void *session,
 	void *cp_buff;
 	void *buf_kva;
 	bool copy_to_pool = true;
+	int ret_dma_buf_vmap = 0;
+	struct dma_buf_map sys_map;
 
 	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 		pr_info("[MVPU][Sec] %s\n", __func__);
 
-	hash_pool[session_id]->buf_num = buf_num;
+	hash_pool[session_id]->buf_num[hash_id] = buf_num;
 	hash_pool[session_id]->hash_list[hash_id] = batch_name_hash;
 
 #ifdef MVPU_SEC_USE_OLDEST_HASH_ID
@@ -466,7 +536,7 @@ int update_hash_pool(void *session,
 	}
 
 	// count buf size
-	for (cnt = 0; cnt < hash_pool[session_id]->buf_num; cnt++) {
+	for (cnt = 0; cnt < hash_pool[session_id]->buf_num[hash_id]; cnt++) {
 		if (sec_buf_attr[cnt] != BUF_IO) {
 			buf_size = sec_buf_size[cnt];
 
@@ -534,18 +604,17 @@ int update_hash_pool(void *session,
 	}
 
 	// get *kva
-	ret = dma_buf_vmap(hash_pool[session_id]->hash_dma_buf[hash_id],
-		 &sys_map);
+	ret_dma_buf_vmap = dma_buf_vmap(hash_pool[session_id]->hash_dma_buf[hash_id], &sys_map);
 	p_buf = sys_map.vaddr;
 	//hash_pool[session_id]->hash_base_kva[hash_id] = (uint64_t *)p_buf;
 
-	if (!p_buf) {
+	if ((ret_dma_buf_vmap != 0) || (!p_buf)) {
 		pr_info("[MVPU][Sec] kva map failed\n");
 		return -ENOMEM;
 	}
 
 	hash_pool[session_id]->hash_offset[hash_id] =
-		kcalloc(hash_pool[session_id]->buf_num, sizeof(uint32_t), GFP_KERNEL);
+		kcalloc(hash_pool[session_id]->buf_num[hash_id], sizeof(uint32_t), GFP_KERNEL);
 
 	//cache sync
 	dma_buf_begin_cpu_access(hash_pool[session_id]->hash_dma_buf[hash_id], DMA_TO_DEVICE);
@@ -553,7 +622,7 @@ int update_hash_pool(void *session,
 	if (hash_pool[session_id]->hash_offset[hash_id] != NULL) {
 		buf_size = 0;
 
-		for (cnt = 0; cnt < hash_pool[session_id]->buf_num; cnt++) {
+		for (cnt = 0; cnt < hash_pool[session_id]->buf_num[hash_id]; cnt++) {
 			//iova
 			hash_pool[session_id]->hash_offset[hash_id][cnt] = buf_ofst;
 			cp_buff = (void *)((uintptr_t)p_buf + buf_ofst);
@@ -570,10 +639,18 @@ int update_hash_pool(void *session,
 								cnt);
 					copy_to_pool = true;
 				} else {
-					if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL)
+#ifndef MVPU_SEC_KREG_IN_POOL
+					if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 						pr_info("[MVPU][Sec] buf[%3d]: bypass cmd_buf\n",
 								cnt);
 					copy_to_pool = false;
+#else
+					if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
+						pr_info("[MVPU][Sec] buf[%3d]: copy cmd_buf\n",
+								cnt);
+					copy_to_pool = true;
+					buf_kva = kreg_kva;
+#endif
 				}
 				break;
 			case BUF_KERNEL:
@@ -642,111 +719,111 @@ int update_hash_pool(void *session,
 	return 0;
 }
 
+#ifdef FULL_RP_INFO
 int save_hash_info(uint32_t session_id,
 						uint32_t hash_id,
 						uint32_t buf_num,
 						uint32_t rp_num,
 						uint32_t *sec_chk_addr,
-						uint32_t *sec_buf_size,
 						uint32_t *target_buf_old_base,
 						uint32_t *target_buf_old_offset,
 						uint32_t *target_buf_new_base,
 						uint32_t *target_buf_new_offset,
 						uint32_t *target_buf_old_map,
 						uint32_t *target_buf_new_map)
+#else
+int save_hash_info(uint32_t session_id,
+						uint32_t hash_id,
+						uint32_t buf_num,
+						uint32_t *sec_chk_addr)
+
+#endif
 {
 	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 		pr_info("[MVPU][Sec] %s\n", __func__);
 
-	hash_pool[session_id]->rp_num = rp_num;
+#ifdef FULL_RP_INFO
+	hash_pool[session_id]->rp_num[hash_id] = rp_num;
+#endif
 
 	hash_pool[session_id]->sec_chk_addr[hash_id] =
-		kcalloc(hash_pool[session_id]->buf_num, sizeof(uint32_t), GFP_KERNEL);
+		kcalloc(hash_pool[session_id]->buf_num[hash_id], sizeof(uint32_t), GFP_KERNEL);
 
 	if (hash_pool[session_id]->sec_chk_addr[hash_id] != NULL) {
 		memcpy(hash_pool[session_id]->sec_chk_addr[hash_id],
 			sec_chk_addr,
-			hash_pool[session_id]->buf_num*sizeof(uint32_t));
+			hash_pool[session_id]->buf_num[hash_id]*sizeof(uint32_t));
 	} else {
 		return -ENOMEM;
 	}
 
-	hash_pool[session_id]->sec_buf_size[hash_id] =
-		kcalloc(hash_pool[session_id]->buf_num, sizeof(uint32_t), GFP_KERNEL);
-
-	if (hash_pool[session_id]->sec_buf_size[hash_id] != NULL) {
-		memcpy(hash_pool[session_id]->sec_buf_size[hash_id],
-			sec_buf_size,
-			hash_pool[session_id]->buf_num*sizeof(uint32_t));
-	} else {
-		return -ENOMEM;
-	}
-
+#ifdef FULL_RP_INFO
 	hash_pool[session_id]->target_buf_old_base[hash_id] =
-		kcalloc(hash_pool[session_id]->rp_num, sizeof(uint32_t), GFP_KERNEL);
+		kcalloc(hash_pool[session_id]->rp_num[hash_id], sizeof(uint32_t), GFP_KERNEL);
 
 	if (hash_pool[session_id]->target_buf_old_base[hash_id] != NULL) {
 		memcpy(hash_pool[session_id]->target_buf_old_base[hash_id],
 			target_buf_old_base,
-			hash_pool[session_id]->rp_num*sizeof(uint32_t));
+			hash_pool[session_id]->rp_num[hash_id]*sizeof(uint32_t));
 	} else {
 		return -ENOMEM;
 	}
 
 	hash_pool[session_id]->target_buf_old_offset[hash_id] =
-		kcalloc(hash_pool[session_id]->rp_num, sizeof(uint32_t), GFP_KERNEL);
+		kcalloc(hash_pool[session_id]->rp_num[hash_id], sizeof(uint32_t), GFP_KERNEL);
 
 	if (hash_pool[session_id]->target_buf_old_offset[hash_id] != NULL) {
 		memcpy(hash_pool[session_id]->target_buf_old_offset[hash_id],
 			target_buf_old_offset,
-			hash_pool[session_id]->rp_num*sizeof(uint32_t));
+			hash_pool[session_id]->rp_num[hash_id]*sizeof(uint32_t));
 	} else {
 		return -ENOMEM;
 	}
 
 	hash_pool[session_id]->target_buf_new_base[hash_id] =
-		kcalloc(hash_pool[session_id]->rp_num, sizeof(uint32_t), GFP_KERNEL);
+		kcalloc(hash_pool[session_id]->rp_num[hash_id], sizeof(uint32_t), GFP_KERNEL);
 
 	if (hash_pool[session_id]->target_buf_new_base[hash_id] != NULL) {
 		memcpy(hash_pool[session_id]->target_buf_new_base[hash_id],
 			target_buf_new_base,
-			hash_pool[session_id]->rp_num*sizeof(uint32_t));
+			hash_pool[session_id]->rp_num[hash_id]*sizeof(uint32_t));
 	} else {
 		return -ENOMEM;
 	}
 
 	hash_pool[session_id]->target_buf_new_offset[hash_id] =
-		kcalloc(hash_pool[session_id]->rp_num, sizeof(uint32_t), GFP_KERNEL);
+		kcalloc(hash_pool[session_id]->rp_num[hash_id], sizeof(uint32_t), GFP_KERNEL);
 
 	if (hash_pool[session_id]->target_buf_new_offset[hash_id] != NULL) {
 		memcpy(hash_pool[session_id]->target_buf_new_offset[hash_id],
 			target_buf_new_offset,
-			hash_pool[session_id]->rp_num*sizeof(uint32_t));
+			hash_pool[session_id]->rp_num[hash_id]*sizeof(uint32_t));
 	} else {
 		return -ENOMEM;
 	}
 
 	hash_pool[session_id]->target_buf_old_map[hash_id] =
-		kcalloc(hash_pool[session_id]->rp_num, sizeof(uint32_t), GFP_KERNEL);
+		kcalloc(hash_pool[session_id]->rp_num[hash_id], sizeof(uint32_t), GFP_KERNEL);
 
 	if (hash_pool[session_id]->target_buf_old_map[hash_id] != NULL) {
 		memcpy(hash_pool[session_id]->target_buf_old_map[hash_id],
 			target_buf_old_map,
-			hash_pool[session_id]->rp_num*sizeof(uint32_t));
+			hash_pool[session_id]->rp_num[hash_id]*sizeof(uint32_t));
 	} else {
 		return -ENOMEM;
 	}
 
 	hash_pool[session_id]->target_buf_new_map[hash_id] =
-		kcalloc(hash_pool[session_id]->rp_num, sizeof(uint32_t), GFP_KERNEL);
+		kcalloc(hash_pool[session_id]->rp_num[hash_id], sizeof(uint32_t), GFP_KERNEL);
 
 	if (hash_pool[session_id]->target_buf_new_map[hash_id] != NULL) {
 		memcpy(hash_pool[session_id]->target_buf_new_map[hash_id],
 			target_buf_new_map,
-			hash_pool[session_id]->rp_num*sizeof(uint32_t));
+			hash_pool[session_id]->rp_num[hash_id]*sizeof(uint32_t));
 	} else {
 		return -ENOMEM;
 	}
+#endif
 
 	return 0;
 }
@@ -755,12 +832,8 @@ bool get_hash_info(void *session,
 						uint32_t batch_name_hash,
 						uint32_t *session_id,
 						uint32_t *hash_id,
-						uint32_t buf_num,
-						uint32_t rp_num,
-						uint32_t *sec_buf_size)
+						uint32_t buf_num)
 {
-	int i;
-
 	*session_id = get_saved_session_id(session);
 
 	if (*session_id == -1)
@@ -770,22 +843,90 @@ bool get_hash_info(void *session,
 
 	if (*hash_id == -1)
 		return false;
+	else if (*hash_id == hash_pool[*session_id]->hash_oldest)
+		hash_pool[*session_id]->hash_oldest++;
 
-	if (hash_pool[*session_id]->buf_num != buf_num)
+	if (hash_pool[*session_id]->buf_num[*hash_id] != buf_num)
 		return false;
-
-	if (hash_pool[*session_id]->rp_num != rp_num)
-		return false;
-
-	for (i = 0; i < buf_num; i++) {
-		if (hash_pool[*session_id]->sec_buf_size[*hash_id][i] != sec_buf_size[i])
-			return false;
-	}
 
 	return true;
 }
 
-void set_rp_skip_buf(uint32_t session_id,
+
+int replace_img_knl(void *session,
+					uint32_t buf_num,
+					uint32_t *sec_chk_addr,
+					uint32_t *sec_buf_attr,
+					uint32_t rp_num,
+					uint32_t *target_buf_old_map,
+					uint32_t *target_buf_old_base,
+					uint32_t *target_buf_old_offset,
+					uint32_t *target_buf_new_map,
+					uint32_t *target_buf_new_base,
+					uint32_t *target_buf_new_offset,
+					uint32_t ker_bin_num,
+					uint32_t *ker_bin_each_iova)
+{
+	int ret = 0;
+	uint32_t cnt = 0;
+	uint32_t ker_img_cnt = 0;
+	void *buf_ptr;
+	void *buf_ptr_base;
+
+	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
+		pr_info("[MVPU][Sec] %s\n", __func__);
+
+	for (cnt = 0; cnt < buf_num; cnt++) {
+		if (sec_buf_attr[cnt] != BUF_KERNEL)
+			continue;
+
+		if (ker_img_cnt > ker_bin_num) {
+			pr_info("[MVPU][IMG] [ERROR] User's KNL buf num > mvpu_algo.img Kernel_*.bin num %d\n",
+						ker_bin_num);
+
+			ret = -1;
+			return ret;
+		}
+
+		sec_chk_addr[cnt] = ker_bin_each_iova[ker_img_cnt];
+
+		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL)
+			pr_info("[MVPU][Sec] set target_buf[%d] = 0x%08x, from partition\n",
+							cnt, sec_chk_addr[cnt]);
+
+		ker_img_cnt++;
+	}
+
+	for (cnt = 0; cnt < rp_num; cnt++) {
+		buf_ptr_base = apusys_mem_query_kva_by_sess(session, target_buf_old_base[cnt]);
+		buf_ptr = (void *)((uintptr_t)buf_ptr_base
+							+ target_buf_old_offset[cnt]);
+
+		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL) {
+			pr_info("[MVPU][Sec] DRV rp cnt %03d, replace *[0x%llx + 0x%08x] from 0x%08x to [0x%08x + 0x%08x]\n",
+					cnt,
+					target_buf_old_base[cnt],
+					target_buf_old_offset[cnt],
+					*((uint32_t *)buf_ptr),
+					sec_chk_addr[target_buf_new_map[cnt]],
+					target_buf_new_offset[cnt]);
+		}
+
+		// replacement, set new values
+		*((uint32_t *)buf_ptr) =
+			(uint32_t)(sec_chk_addr[target_buf_new_map[cnt]]
+				+ target_buf_new_offset[cnt]);
+
+		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL)
+			pr_info("[MVPU][Sec] new value: 0x%08x\n",
+					*((uint32_t *)buf_ptr));
+	}
+
+	return ret;
+}
+
+
+bool set_rp_skip_buf(uint32_t session_id,
 							uint32_t hash_id,
 							uint32_t buf_num,
 							uint32_t *sec_chk_addr,
@@ -793,6 +934,7 @@ void set_rp_skip_buf(uint32_t session_id,
 							uint32_t *rp_skip_buf)
 {
 	int i = 0;
+	bool algo_all_same_buf = true;
 
 	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 		pr_info("[MVPU][Sec] %s\n", __func__);
@@ -805,7 +947,11 @@ void set_rp_skip_buf(uint32_t session_id,
 
 		if (hash_pool[session_id]->sec_chk_addr[hash_id][i] == sec_chk_addr[i])
 			rp_skip_buf[i] = 1;
+		else
+			algo_all_same_buf = false;
 	}
+
+	return algo_all_same_buf;
 }
 
 int update_new_base_addr(bool algo_in_img,
@@ -834,11 +980,12 @@ int update_new_base_addr(bool algo_in_img,
 		pr_info("[MVPU][Sec] %s\n", __func__);
 
 	target_pool_addr =
-		kcalloc(hash_pool[session_id]->buf_num, sizeof(uint32_t), GFP_KERNEL);
+		kcalloc(hash_pool[session_id]->buf_num[hash_id], sizeof(uint32_t), GFP_KERNEL);
 
 	if (!target_pool_addr)
 		return -ENOMEM;
 
+#ifdef FULL_RP_INFO
 	if (algo_in_pool == true) {
 		rp_buf_new_base = hash_pool[session_id]->target_buf_new_base[hash_id];
 		rp_buf_new_map = hash_pool[session_id]->target_buf_new_map[hash_id];
@@ -846,19 +993,23 @@ int update_new_base_addr(bool algo_in_img,
 		rp_buf_new_base = target_buf_new_base;
 		rp_buf_new_map = target_buf_new_map;
 	}
+#else
+	rp_buf_new_base = target_buf_new_base;
+	rp_buf_new_map = target_buf_new_map;
+#endif
 
 	// update pool addr
-	for (cnt = 0; cnt < hash_pool[session_id]->buf_num; cnt++) {
+	for (cnt = 0; cnt < hash_pool[session_id]->buf_num[hash_id]; cnt++) {
 		if (rp_skip_buf[cnt] == 1)
 			continue;
 
 		if (algo_in_img && sec_buf_attr[cnt] == BUF_KERNEL) {
 			if (ker_img_cnt > ker_bin_num) {
-				pr_info("[MVPU][Sec] [WARNING] sec_buf_attr[%d], total num >= image kernel num %d\n",
-							cnt, ker_bin_num);
+				pr_info("[MVPU][IMG] [ERROR] User's KNL buf num > mvpu_algo.img Kernel_*.bin num %d\n",
+							ker_bin_num);
 
 				ret = -1;
-				break;
+				return ret;
 			}
 
 			target_pool_addr[cnt] = ker_bin_each_iova[ker_img_cnt];
@@ -900,7 +1051,7 @@ int update_new_base_addr(bool algo_in_img,
 #endif
 
 		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL)
-			pr_info("[MVPU][Sec] target_buf_new_base[%d]: 0x%08x\n",
+			pr_info("[MVPU][Sec] update target_buf_new_base[%02d]: 0x%08x\n",
 					cnt, rp_buf_new_base[cnt]);
 	}
 
@@ -925,7 +1076,7 @@ int replace_mem(uint32_t session_id,
 {
 	int ret = 0;
 	int cnt = 0;
-	struct dma_buf_map sys_map;
+
 	// get *kva
 	void *buf_ptr_base;
 	void *buf_ptr;
@@ -937,19 +1088,23 @@ int replace_mem(uint32_t session_id,
 	uint32_t *rp_buf_new_map;
 	uint32_t *rp_buf_new_base;
 	uint32_t *rp_buf_new_offset;
+	int ret_dma_buf_vmap = 0;
+	struct dma_buf_map sys_map;
 
 	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 		pr_info("[MVPU][Sec] %s\n", __func__);
 
-	buf_ptr_base = dma_buf_vmap(hash_pool[session_id]->hash_dma_buf[hash_id]);
+	ret_dma_buf_vmap = dma_buf_vmap(hash_pool[session_id]->hash_dma_buf[hash_id], &sys_map);
+	buf_ptr_base = sys_map.vaddr;
 
-	if (!buf_ptr_base) {
+	if ((ret_dma_buf_vmap != 0) || (!buf_ptr_base)) {
 		pr_info("[MVPU][Sec] buf_ptr_base kva map failed\n");
 		return -ENOMEM;
 	}
 
 	buf_ptr = buf_ptr_base;
 
+#ifdef FULL_RP_INFO
 	if (algo_in_pool == true) {
 		rp_buf_old_map = hash_pool[session_id]->target_buf_old_map[hash_id];
 		rp_buf_old_base = hash_pool[session_id]->target_buf_old_base[hash_id];
@@ -965,6 +1120,14 @@ int replace_mem(uint32_t session_id,
 		rp_buf_new_base = target_buf_new_base;
 		rp_buf_new_offset = target_buf_new_offset;
 	}
+#else
+	rp_buf_old_map = target_buf_old_map;
+	rp_buf_old_base = target_buf_old_base;
+	rp_buf_old_offset = target_buf_old_offset;
+	rp_buf_new_map = target_buf_new_map;
+	rp_buf_new_base = target_buf_new_base;
+	rp_buf_new_offset = target_buf_new_offset;
+#endif
 
 	//cache sync
 	dma_buf_begin_cpu_access(hash_pool[session_id]->hash_dma_buf[hash_id], DMA_TO_DEVICE);
@@ -973,6 +1136,7 @@ int replace_mem(uint32_t session_id,
 		if (rp_skip_buf[rp_buf_new_map[cnt]] == 1)
 			continue;
 
+#ifndef MVPU_SEC_KREG_IN_POOL
 		// get addr kva
 		if (rp_buf_old_base[cnt] == 0) {
 			buf_ptr = (void *)((uintptr_t)kreg_kva + rp_buf_old_offset[cnt]);
@@ -984,12 +1148,24 @@ int replace_mem(uint32_t session_id,
 								+ target_pool_ofst
 								+ rp_buf_old_offset[cnt]);
 		}
+#else
+		target_pool_ofst =
+				hash_pool[session_id]
+					->hash_offset[hash_id][rp_buf_old_map[cnt]];
+		buf_ptr = (void *)((uintptr_t)buf_ptr_base
+							+ target_pool_ofst
+							+ rp_buf_old_offset[cnt]);
+#endif
 
 		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL) {
 			pr_info("[MVPU][Sec] DRV rp cnt %03d, replace *[0x%llx + 0x%08x] from 0x%08x to [0x%08x + 0x%08x]\n",
 					cnt,
+#ifndef MVPU_SEC_KREG_IN_POOL
 					(rp_buf_old_base[cnt] == 0) ?
 						((uintptr_t)kreg_kva):(rp_buf_old_base[cnt]),
+#else
+					rp_buf_old_base[cnt],
+#endif
 					rp_buf_old_offset[cnt],
 					*((uint32_t *)buf_ptr),
 					rp_buf_new_base[cnt],
@@ -1015,6 +1191,35 @@ int replace_mem(uint32_t session_id,
 	return ret;
 }
 
+void CopyArgToPrimem(char *dst_ptr, char *src_ptr, int src_size)
+{
+	char dup_buf[MVPU_DUP_BUF_SIZE] = { 0 };
+	char *src_data;
+	int i, j;
+
+	for (i = 0; i < src_size; i += 2) {
+		src_data = src_ptr + i;
+		for (j = 0; j < MVPU_PE_NUM * 2; j += 2)
+			memcpy(dup_buf + j, src_data, 2);
+
+		memcpy(dst_ptr, dup_buf, MVPU_DUP_BUF_SIZE);
+		dst_ptr = dst_ptr + MVPU_DUP_BUF_SIZE;
+	}
+}
+
+void CheckPrimemArg(char *dst_ptr, int src_size)
+{
+	int i, j;
+
+	for (i = 0; i < src_size; i += 2) {
+		for (j = 0; j < MVPU_PE_NUM * 2; j += 2)
+			pr_info("[MVPU][Sec] check primem_ptr 0x%02x%02x\n",
+					*((char *)dst_ptr + j + 1), *((char *)dst_ptr + j));
+
+		dst_ptr = dst_ptr + MVPU_DUP_BUF_SIZE;
+	}
+}
+
 int replace_kerarg(void *session,
 					uint32_t session_id,
 					uint32_t hash_id,
@@ -1022,27 +1227,39 @@ int replace_kerarg(void *session,
 					uint32_t *sec_chk_addr,
 					uint32_t *kerarg_buf_id,
 					uint32_t *kerarg_offset,
-					uint32_t *kerarg_size)
+					uint32_t *kerarg_size,
+					uint32_t primem_num,
+					uint32_t *primem_src_buf_id,
+					uint32_t *primem_dst_buf_id,
+					uint32_t *primem_src_offset,
+					uint32_t *primem_dst_offset,
+					uint32_t *primem_size)
 {
 	int ret = 0;
 	int cnt = 0;
 
 	// get *kva
 	void *sec_chk_addr_kva;
-	void *buf_ptr_base;
+	void *pool_ptr_base;
 
 	void *buf_ptr;
 	void *kerarg_ptr;
+	void *primem_ptr;
 
 	uint32_t target_pool_ofst = 0;
+	uint32_t target_src_ofst = 0;
+	uint32_t target_dst_ofst = 0;
 	int i;
+	int ret_dma_buf_vmap = 0;
+	struct dma_buf_map sys_map;
 
 	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
 		pr_info("[MVPU][Sec] %s\n", __func__);
 
-	buf_ptr_base = dma_buf_vmap(hash_pool[session_id]->hash_dma_buf[hash_id]);
+	ret_dma_buf_vmap = dma_buf_vmap(hash_pool[session_id]->hash_dma_buf[hash_id], &sys_map);
+	pool_ptr_base = sys_map.vaddr;
 
-	if (!buf_ptr_base) {
+	if ((ret_dma_buf_vmap != 0) || (!pool_ptr_base)) {
 		pr_info("[MVPU][Sec] buf_ptr_base kva map failed\n");
 		return -ENOMEM;
 	}
@@ -1051,43 +1268,96 @@ int replace_kerarg(void *session,
 	dma_buf_begin_cpu_access(hash_pool[session_id]->hash_dma_buf[hash_id], DMA_TO_DEVICE);
 
 	for (cnt = 0; cnt < kerarg_num; cnt++) {
+		sec_chk_addr_kva =
+			apusys_mem_query_kva_by_sess(session, sec_chk_addr[kerarg_buf_id[cnt]]);
+		buf_ptr = (void *)((uintptr_t)sec_chk_addr_kva
+								+ kerarg_offset[cnt]);
+
 		target_pool_ofst = hash_pool[session_id]->hash_offset[hash_id][kerarg_buf_id[cnt]];
-		buf_ptr = (void *)((uintptr_t)buf_ptr_base
+		kerarg_ptr = (void *)((uintptr_t)pool_ptr_base
 								+ target_pool_ofst
 								+ kerarg_offset[cnt]);
 
-		sec_chk_addr_kva =
-			apusys_mem_query_kva_by_sess(session, sec_chk_addr[kerarg_buf_id[cnt]]);
-		kerarg_ptr = (void *)((uintptr_t)sec_chk_addr_kva
-								+ kerarg_offset[cnt]);
-
-		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL) {
-			pr_info("[MVPU][Sec] kerarg cnt %03d, set pool[%03d][0x%llx] to buf[%03d][0x%llx] with offset 0x%08x with 0x%x bytes\n",
+		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG) {
+			pr_info("[MVPU][Sec] kerarg cnt %03d, set kerarg[%03d][0x%llx] from buf[%03d][0x%llx] offset 0x%08x with 0x%x bytes\n",
 					cnt,
 					kerarg_buf_id[cnt],
-					buf_ptr_base + target_pool_ofst,
+					pool_ptr_base + target_pool_ofst,
 					kerarg_buf_id[cnt],
 					sec_chk_addr_kva,
 					kerarg_offset[cnt],
 					kerarg_size[cnt]);
-			for (i = 0; i < kerarg_size[cnt]; i++) {
-				pr_info("[MVPU][Sec] set kerarg_ptr 0x%02x to buf_ptr 0x%02x\n",
-					*((char *)kerarg_ptr + i), *((char *)buf_ptr + i));
+
+			if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL) {
+				for (i = 0; i < kerarg_size[cnt]; i++) {
+					pr_info("[MVPU][Sec] set kerarg_ptr 0x%02x from buf_ptr 0x%02x\n",
+						*((char *)kerarg_ptr + i), *((char *)buf_ptr + i));
+				}
 			}
 		}
 
-		memcpy(buf_ptr, kerarg_ptr, kerarg_size[cnt]);
+		memcpy(kerarg_ptr, buf_ptr, kerarg_size[cnt]);
+
+		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL) {
+			for (i = 0; i < kerarg_size[cnt]; i++) {
+				pr_info("[MVPU][Sec] kerarg_ptr 0x%02x\n",
+					*((char *)kerarg_ptr + i));
+			}
+		}
+
+		// replace primem
+		for (i = 0; i < primem_num; i++) {
+			if ((kerarg_buf_id[cnt] == primem_src_buf_id[i]) &&
+				(kerarg_offset[cnt] >= primem_src_offset[i]) &&
+				(kerarg_offset[cnt] < primem_src_offset[i] + primem_size[i])) {
+				target_pool_ofst =
+					hash_pool[session_id]->hash_offset
+						[hash_id][primem_dst_buf_id[i]];
+				target_src_ofst = kerarg_offset[cnt] - primem_src_offset[i];
+				target_dst_ofst =
+					primem_dst_offset[i] + target_src_ofst * MVPU_PE_NUM;
+
+				primem_ptr = (void *)((uintptr_t)pool_ptr_base
+								+ target_pool_ofst
+								+ target_dst_ofst);
+
+				if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG) {
+					pr_info("[MVPU][Sec] CopyArgToPrimem buf[%d]->buf[%d], ker_ofst 0x%08x, dst_ofst (0x%08x + 0x%08x), size 0x%x\n",
+							primem_src_buf_id[i],
+							primem_dst_buf_id[i],
+							kerarg_offset[cnt],
+							primem_dst_offset[i],
+							target_dst_ofst,
+							kerarg_size[cnt]);
+				}
+
+				CopyArgToPrimem(primem_ptr, kerarg_ptr, kerarg_size[cnt]);
+
+				if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_ALL)
+					CheckPrimemArg(primem_ptr, kerarg_size[cnt]);
+
+				break;
+			}
+		}
 	}
 
 	//cache sync
 	dma_buf_end_cpu_access(hash_pool[session_id]->hash_dma_buf[hash_id], DMA_TO_DEVICE);
 
-	if (buf_ptr_base)
-		dma_buf_vunmap(hash_pool[session_id]->hash_dma_buf[hash_id], buf_ptr_base);
+	if (pool_ptr_base)
+		dma_buf_vunmap(hash_pool[session_id]->hash_dma_buf[hash_id], pool_ptr_base);
 
 	return ret;
 }
 
+void get_pool_kreg_iova(uint32_t *kreg_iova_pool,
+						uint32_t session_id,
+						uint32_t hash_id,
+						uint32_t buf_cmd_kreg)
+{
+	*kreg_iova_pool = hash_pool[session_id]->hash_base_iova[hash_id]
+				+ hash_pool[session_id]->hash_offset[hash_id][buf_cmd_kreg];
+}
 
 void region_sort(uint32_t region_num, uint32_t *region)
 {
@@ -1254,11 +1524,20 @@ int region_mpu_set(uint32_t session_id,
 	mpu_seg[buf_io_cnt + TCM_END_SFT]	= VIRTUAL_APUSYS_TCM_BASE_END;
 
 	mpu_seg[buf_io_cnt + IMG_BASE_SFT] = mvpu_algo_iova;
-	mpu_seg[buf_io_cnt + IMG_END_SFT] =
-		(((mvpu_algo_iova + get_ptn_total_size())
-			+ MVPU_MPU_SIZE - 1)
-			/MVPU_MPU_SIZE)
-			*MVPU_MPU_SIZE;
+	if (mvpu_algo_available == true) {
+		mpu_seg[buf_io_cnt + IMG_END_SFT] =
+			(((mvpu_algo_iova + 32
+				+ ptn_img_size
+				+ knl_img_size)
+				+ MVPU_MPU_SIZE - 1)
+				/MVPU_MPU_SIZE)
+				*MVPU_MPU_SIZE;
+	} else {
+		if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
+			pr_info("[MVPU][IMG] [MPU][WARN] set fake image region: 0x%08x\n",
+				mvpu_algo_iova + MVPU_MPU_SIZE);
+		mpu_seg[buf_io_cnt + IMG_END_SFT] = mvpu_algo_iova + MVPU_MPU_SIZE;
+	}
 
 	mpu_seg[buf_io_cnt + POOL_BASE_SFT] = hash_pool[session_id]->hash_base_iova[hash_id];
 	mpu_seg[buf_io_cnt + POOL_END_SFT] =
@@ -1310,6 +1589,46 @@ int region_mpu_set(uint32_t session_id,
 	return total_mpu_cnt;
 }
 
+int add_img_mpu(void *mvpu_cmd)
+{
+	struct mvpu_request *mvpu_req;
+
+	int ret = 0;
+	int i = 0;
+
+	if (mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG)
+		pr_info("[MVPU][SEC] %s\n", __func__);
+
+	mvpu_req = (struct mvpu_request *)mvpu_cmd;
+
+	if (mvpu_req->mpu_num >= MVPU_MPU_SEGMENT_NUMS - 3) {
+		mvpu_req->mpu_num = 0;
+		memset(mvpu_req->mpu_seg, 0, sizeof(mvpu_req->mpu_seg));
+	} else {
+		mvpu_req->mpu_seg[0] = mvpu_algo_iova;
+		mvpu_req->mpu_seg[1] =
+			(((mvpu_algo_iova + 32
+				+ ptn_img_size
+				+ knl_img_size)
+				+ MVPU_MPU_SIZE - 1)
+				/MVPU_MPU_SIZE)
+				*MVPU_MPU_SIZE;
+
+		region_sort(MVPU_MPU_SEGMENT_NUMS, mvpu_req->mpu_seg);
+		mvpu_req->mpu_num = mvpu_req->mpu_num + 2;
+	}
+
+	if (mvpu_req->mpu_num != 0 && mvpu_loglvl_sec >= APUSYS_MVPU_LOG_DBG) {
+		pr_info("[MVPU][SEC] [MPU] mpu_num = %3d\n", mvpu_req->mpu_num);
+		for (i = 0; i < MVPU_MPU_SEGMENT_NUMS; i++)
+			pr_info("[MVPU][SEC] [MPU] drv mpu_reg[%3d] = 0x%08x\n",
+						i, mvpu_req->mpu_seg[i]);
+	}
+
+	return ret;
+}
+
+
 int update_mpu(void *mvpu_cmd,
 					uint32_t session_id,
 					uint32_t hash_id,
@@ -1322,6 +1641,7 @@ int update_mpu(void *mvpu_cmd,
 
 	int ret = 0;
 	int i = 0;
+	uint32_t buf_num = 0;
 
 	uint32_t buf_io_total = 0;
 	uint32_t buf_io_total_merged = 0;
@@ -1336,6 +1656,7 @@ int update_mpu(void *mvpu_cmd,
 		pr_info("[MVPU][SEC] %s\n", __func__);
 
 	mvpu_req = (struct mvpu_request *)mvpu_cmd;
+	buf_num = mvpu_req->buf_num & BUF_NUM_MASK;
 
 #ifdef MVPU_SEC_CLEAR_MPU
 	//clear MPU
@@ -1344,7 +1665,7 @@ int update_mpu(void *mvpu_cmd,
 #endif
 
 	//get total IO buffers
-	for (i = 0; i < mvpu_req->buf_num; i++) {
+	for (i = 0; i < buf_num; i++) {
 		if (sec_buf_attr[i] == BUF_IO)
 			buf_io_total++;
 	}
@@ -1361,7 +1682,7 @@ int update_mpu(void *mvpu_cmd,
 		goto END;
 	}
 
-	buf_io_total = region_info_set(mvpu_req->buf_num,
+	buf_io_total = region_info_set(buf_num,
 						sec_chk_addr, sec_buf_size, sec_buf_attr,
 						buf_io_addr, buf_io_size);
 
@@ -1612,6 +1933,16 @@ int mvpu_load_img(struct device *dev)
 
 	ker_img_offset = get_ker_img_offset();
 	//ker_img_iova = mvpu_algo_iova + ker_img_offset;
+
+	ptn_img_size = get_ptn_total_size();
+	knl_img_size = get_kerbin_total_size();
+	if ((ptn_img_size % 4 == 0) && (knl_img_size % 4 == 0)) {
+		mvpu_algo_available = true;
+	} else {
+		mvpu_algo_available = false;
+		pr_info("[MVPU][IMG] [WARN] get mvpu_algo.img size error, PTN: 0x%08x, KNL: 0x%08x\n",
+					ptn_img_size, knl_img_size);
+	}
 
 END:
 	return ret;
