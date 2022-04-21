@@ -185,3 +185,4 @@ obj-$(CONFIG_MACH_MT6771) += cm_mgr_v1/
 endif
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += qos/
 obj-$(CONFIG_MACH_MT6893) += dvfsrc/
+obj-$(CONFIG_MACH_MT6885) += dvfsrc/
