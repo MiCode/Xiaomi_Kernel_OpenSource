@@ -5173,6 +5173,12 @@ void mtk_crtc_stop_trig_loop(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
+	if (IS_ERR_OR_NULL(mtk_crtc) ||
+	    IS_ERR_OR_NULL(mtk_crtc->trig_loop_cmdq_handle)) {
+		DDPDBG("%s: trig_loop already stopped\n", __func__);
+		return;
+	}
+
 	cmdq_mbox_stop(mtk_crtc->gce_obj.client[CLIENT_TRIG_LOOP]);
 	cmdq_pkt_destroy(mtk_crtc->trig_loop_cmdq_handle);
 	mtk_crtc->trig_loop_cmdq_handle = NULL;
@@ -5182,14 +5188,13 @@ void mtk_crtc_stop_trig_loop(struct drm_crtc *crtc)
 void mtk_crtc_stop_sodi_loop(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_private *priv = NULL;
 
-	if (!mtk_crtc->sodi_loop_cmdq_handle) {
+	if (IS_ERR_OR_NULL(mtk_crtc) ||
+	    IS_ERR_OR_NULL(mtk_crtc->sodi_loop_cmdq_handle)) {
 		DDPDBG("%s: sodi_loop already stopped\n", __func__);
 		return;
 	}
 
-	priv = mtk_crtc->base.dev->dev_private;
 	cmdq_mbox_stop(mtk_crtc->gce_obj.client[CLIENT_SODI_LOOP]);
 	cmdq_pkt_destroy(mtk_crtc->sodi_loop_cmdq_handle);
 	mtk_crtc->sodi_loop_cmdq_handle = NULL;
