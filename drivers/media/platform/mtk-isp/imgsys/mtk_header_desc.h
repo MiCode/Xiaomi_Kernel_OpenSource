@@ -28,6 +28,8 @@ enum img_resize_ratio {
 	img_resize_down4,
 	img_resize_down2,
 	img_resize_down42,
+	img_resize_down8,
+	img_resize_down16,
 	img_resiz_max
 };
 #define COMPACT_USE
