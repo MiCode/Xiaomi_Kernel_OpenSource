@@ -66,9 +66,7 @@ static struct mtk_ccd_buf *mtk_ccd_buf_alloc(
 		dma_buf_detach(buf->dbuf, buf->db_attach);
 		return ERR_PTR(-ENOMEM);
 	}
-	pr_info("Before dma_buf_vmap\n");
 	dma_buf_vmap(buf->dbuf, &map);
-	pr_info("After dma_buf_vmap\n");
 	buf->vaddr = map.vaddr;
 	buf->map = map;
 	buf->dma_addr = sg_dma_address(buf->dma_sgt->sgl);
@@ -82,9 +80,7 @@ static void mtk_ccd_buf_put(struct mtk_ccd_buf *buf)
 {
 	/* free va */
 	if (buf->vaddr) {
-		pr_info("Before dma_buf_vunmap\n");
 		dma_buf_vunmap(buf->dbuf, &buf->map);
-		pr_info("After dma_buf_vunmap\n");
 	}
 	/* free iova */
 	if (buf->db_attach && buf->dma_sgt)
@@ -104,9 +100,7 @@ static dma_addr_t mtk_ccd_buf_get_daddr(struct mtk_ccd_buf *buf)
 static void *mtk_ccd_buf_get_vaddr(struct mtk_ccd_buf *buf)
 {
 	if (!buf->vaddr && buf->db_attach) {
-		pr_info("Before dma_buf_vmap\n");
 		dma_buf_vmap(buf->db_attach->dmabuf, &buf->map);
-		pr_info("After dma_buf_vmap\n");
 		buf->vaddr = buf->map.vaddr;
 	}
 	return buf->vaddr;
