@@ -7876,6 +7876,7 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 	struct mtk_camsv_device *camsv_dev;
 	struct mtk_mraw_device *mraw_dev;
 	int enabled_watchdog_pipe;
+	unsigned long flags;
 
 	watchdog_data = container_of(work,
 					struct mtk_cam_watchdog_data, watchdog_work);
@@ -7898,9 +7899,9 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 	pipe_id = watchdog_data->pipe_id;
 	watchdog_cnt = atomic_read(&watchdog_data->watchdog_cnt);
 
-	spin_lock(&ctx->watchdog_pipe_lock);
+	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
 	enabled_watchdog_pipe = ctx->enabled_watchdog_pipe;
-	spin_unlock(&ctx->watchdog_pipe_lock);
+	spin_unlock_irqrestore(&ctx->watchdog_pipe_lock, flags);
 
 	if (!(enabled_watchdog_pipe & (1 << pipe_id))) {
 		dev_info(ctx->cam->dev,
@@ -8087,6 +8088,7 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 	int enabled_watchdog_pipe;
 	int idx;
 	int i;
+	unsigned long flags;
 
 	if (!ctx->streaming)
 		return;
@@ -8106,9 +8108,9 @@ static void mtk_ctx_watchdog(struct timer_list *t)
 		return;
 	}
 
-	spin_lock(&ctx->watchdog_pipe_lock);
+	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
 	enabled_watchdog_pipe = ctx->enabled_watchdog_pipe;
-	spin_unlock(&ctx->watchdog_pipe_lock);
+	spin_unlock_irqrestore(&ctx->watchdog_pipe_lock, flags);
 
 	for (i = MTKCAM_SUBDEV_RAW_START; i < MTKCAM_SUBDEV_MAX; i++) {
 		if (enabled_watchdog_pipe & (1 << i)) {
@@ -8227,10 +8229,12 @@ void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt, int pipe_i
 {
 	struct mtk_cam_watchdog_data *watchdog_data = &ctx->watchdog_data[pipe_id];
 	int enabled_watchdog_pipe;
+	int is_timer_add = 0;
+	unsigned long flags;
 
-	spin_lock(&ctx->watchdog_pipe_lock);
+	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
 	enabled_watchdog_pipe = ctx->enabled_watchdog_pipe;
-	spin_unlock(&ctx->watchdog_pipe_lock);
+	spin_unlock_irqrestore(&ctx->watchdog_pipe_lock, flags);
 
 	if (enabled_watchdog_pipe & (1 << pipe_id))
 		return;
@@ -8244,27 +8248,31 @@ void mtk_ctx_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt, int pipe_i
 	atomic_set(&watchdog_data->watchdog_dumped, 0);
 	atomic_set(&watchdog_data->watchdog_dump_cnt, 0);
 
-	spin_lock(&ctx->watchdog_pipe_lock);
+	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
 	/* Start timer when the first watchdog start */
-	if (!ctx->enabled_watchdog_pipe) {
+	if (!ctx->enabled_watchdog_pipe)
+		is_timer_add = 1;
+	watchdog_data->ctx = ctx;
+	ctx->enabled_watchdog_pipe |= (1 << pipe_id);
+	spin_unlock_irqrestore(&ctx->watchdog_pipe_lock, flags);
+
+	if (is_timer_add) {
 		ctx->watchdog_timer.expires = jiffies +
-					msecs_to_jiffies(MTK_CAM_CTX_WATCHDOG_INTERVAL);
+			msecs_to_jiffies(MTK_CAM_CTX_WATCHDOG_INTERVAL);
 		add_timer(&ctx->watchdog_timer);
 	}
-	watchdog_data->ctx = ctx;
-
-	ctx->enabled_watchdog_pipe |= (1 << pipe_id);
-	spin_unlock(&ctx->watchdog_pipe_lock);
 }
 
 void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id)
 {
 	struct mtk_cam_watchdog_data *watchdog_data = &ctx->watchdog_data[pipe_id];
 	int enabled_watchdog_pipe;
+	int is_timer_delete = 0;
+	unsigned long flags;
 
-	spin_lock(&ctx->watchdog_pipe_lock);
+	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
 	enabled_watchdog_pipe = ctx->enabled_watchdog_pipe;
-	spin_unlock(&ctx->watchdog_pipe_lock);
+	spin_unlock_irqrestore(&ctx->watchdog_pipe_lock, flags);
 
 	if (!(enabled_watchdog_pipe & (1 << pipe_id)))
 		return;
@@ -8272,14 +8280,16 @@ void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id)
 	dev_info(ctx->cam->dev, "%s:ctx/pipe_id(%d/%d):stop the watchdog\n",
 		__func__, ctx->stream_id, pipe_id);
 
-	spin_lock(&ctx->watchdog_pipe_lock);
+	spin_lock_irqsave(&ctx->watchdog_pipe_lock, flags);
 	ctx->enabled_watchdog_pipe &= ~(1 << pipe_id);
 	watchdog_data->ctx = NULL;
-
 	/* Stop timer when the last watchdog stop */
 	if (!ctx->enabled_watchdog_pipe)
+		is_timer_delete = 1;
+	spin_unlock_irqrestore(&ctx->watchdog_pipe_lock, flags);
+
+	if (is_timer_delete)
 		del_timer_sync(&ctx->watchdog_timer);
-	spin_unlock(&ctx->watchdog_pipe_lock);
 }
 
 static void mtk_cam_ctx_init(struct mtk_cam_ctx *ctx,
