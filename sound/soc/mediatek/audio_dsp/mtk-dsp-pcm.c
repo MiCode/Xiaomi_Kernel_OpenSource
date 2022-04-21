@@ -177,7 +177,6 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 			__func__, ret);
 		goto err_platform;
 	}
-	dump_all_adsp_dram();
 
 	ret = mtk_adsp_init_gen_pool(dsp);
 	if (ret) {
