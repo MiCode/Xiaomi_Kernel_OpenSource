@@ -12,12 +12,20 @@
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+#if !defined(CONFIG_MACH_MT6771)
 #include <linux/soc/mediatek/mtk-pm-qos.h>
+#endif
 
 #ifdef MTK_K14_DRM_BOOST
 #if defined(MTK_QOS_SUPPORT)
 #include <linux/pm_qos.h>
 #include <helio-dvfsrc-opp.h>
+
+#if defined(CONFIG_MACH_MT6771)
+#define MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE PM_QOS_DDR_OPP_DEFAULT_VALUE
+#define MTK_PM_QOS_DDR_OPP PM_QOS_DDR_OPP
+#endif
+
 #endif
 
 #if defined(CONFIG_MTK_DRAMC)
