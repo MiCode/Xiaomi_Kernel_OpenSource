@@ -20,7 +20,7 @@
 	mmc-hs400-1_8v;
 	no-sdio;
 	no-sd;
-	hs400-ds-delay = <0x12814>;
+	hs400-ds-delay = <0x12414>;
 	mediatek,cqhci;
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
 	non-removable;
@@ -39,12 +39,19 @@
 				 <PINMUX_GPIO130__FUNC_MSDC0_DAT7>,
 				 <PINMUX_GPIO122__FUNC_MSDC0_CMD>;
 			input-enable;
+			drive-strength = <4>;
 		};
 		pins_clk {
 			pinmux = <PINMUX_GPIO124__FUNC_MSDC0_CLK>;
+			drive-strength = <4>;
+		};
+		pins_ds {
+			pinmux = <PINMUX_GPIO131__FUNC_MSDC0_DSL>;
+			drive-strength = <4>;
 		};
 		pins_rst {
 			pinmux = <PINMUX_GPIO133__FUNC_MSDC0_RSTB>;
+			drive-strength = <4>;
 		};
 	};
 	mmc0_pins_uhs: mmc0@0{
