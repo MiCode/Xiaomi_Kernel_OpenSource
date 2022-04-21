@@ -154,6 +154,7 @@ void dcm_disable(unsigned int type)
 	mutex_unlock(&dcm_lock);
 
 }
+EXPORT_SYMBOL(dcm_disable);
 
 void dcm_restore(unsigned int type)
 {
@@ -199,13 +200,12 @@ void dcm_restore(unsigned int type)
 	mutex_unlock(&dcm_lock);
 }
 
-
 void dcm_dump_state(int type)
 {
 	int i;
 	struct DCM *dcm;
 
-	dcm_pr_info("\n******** dcm dump state *********\n");
+	dcm_pr_info("\n******** Kernel dcm dump state *********\n");
 	for (i = 0, dcm = &common_dcm_array[0]; i < NR_DCM_TYPE; i++, dcm++) {
 		if (type & dcm->typeid) {
 			dcm_pr_info("[%-16s 0x%08x] current state:%d (%d)\n",
@@ -214,6 +214,7 @@ void dcm_dump_state(int type)
 		}
 	}
 }
+EXPORT_SYMBOL(dcm_dump_state);
 
 #ifdef CONFIG_PM
 static ssize_t dcm_state_show(struct kobject *kobj, struct kobj_attribute *attr,
@@ -291,19 +292,13 @@ static ssize_t dcm_state_store(struct kobject *kobj,
 		} else if (!strcmp(cmd, "set")) {
 			if (sscanf(buf, "%15s %x %d", cmd, &mask, &mode) == 3) {
 				mask &= common_all_dcm_type;
-
-				dcm_set_state(mask, mode);
-
-				/*
-				 * Log for stallDCM switching
-				 * in Performance/Normal mode
-				 */
-				if (mask & STALL_DCM_TYPE) {
-					if (mode)
-						dcm_pr_info("stall dcm is enabled for Default(Normal) mode started\n");
-					else
-						dcm_pr_info("stall dcm is disabled for Performance(Sports) mode started\n");
+				if (mode == 0 || mode == 1) {
+					dcm_set_state(mask, mode);
+				} else {
+					dcm_pr_info("SORRY, do not support your value(must be 1 or 0): %s\n",
+				    cmd);
 				}
+
 			}
 		} else {
 			dcm_pr_info("SORRY, do not support your command: %s\n",
