@@ -1,7 +1,11 @@
 ifeq ($(CONFIG_MTK_SENSOR_SUPPORT),y)
 obj-$(CONFIG_CUSTOM_KERNEL_SENSORHUB)	+= sensorHub/
 obj-$(CONFIG_MTK_HWMON)	    += hwmon/
+ifeq ($(CONFIG_CUSTOM_KERNEL_ALS),y)
+obj-$(CONFIG_CUSTOM_KERNEL_ALS) += alsps/
+else
 obj-$(CONFIG_CUSTOM_KERNEL_ALSPS) += alsps/
+endif
 ifeq ($(CONFIG_CUSTOM_KERNEL_ACCELGYRO),y)
 obj-y += accelgyro/
 else

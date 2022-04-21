@@ -15,6 +15,14 @@ config MTK_AUTO_DETECT_ALSPS
 	  project and be auto detected by setting this option to yes,
 	  usually only one ALSPS driver can be probed.
 
+config CUSTOM_KERNEL_ALS
+	bool "CUSTOM KERNEL ALS Config"
+	help
+	  ALS sensor driver to detect ambient light.
+	  After configure this configuration,the specific
+	  ambient light sensor driver configuration
+	  should be configured as well.
+
 source "drivers/misc/mediatek/sensors-1.0/alsps/alspshub/Kconfig"
 source "drivers/misc/mediatek/sensors-1.0/alsps/cm36558/Kconfig"
 source "drivers/misc/mediatek/sensors-1.0/alsps/ltr303/Kconfig"
