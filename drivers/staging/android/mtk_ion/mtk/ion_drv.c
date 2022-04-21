@@ -421,8 +421,6 @@ static long ion_sys_cache_sync(struct ion_client *client,
 #else
 	unsigned int kernel_size = 0;
 #endif
-	struct sg_table *table;
-	struct ion_heap *heap = NULL;
 	int is_kernel_addr = from_kernel;
 
 	/* Get kernel handle
@@ -503,6 +501,8 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	case ION_CACHE_FLUSH_BY_RANGE_USE_PA:
 		sync_va = param->iova;
 #ifdef	CONFIG_MTK_PSEUDO_M4U
+		struct sg_table *table;
+		struct ion_heap *heap = NULL;
 		table = buffer->sg_table;
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)

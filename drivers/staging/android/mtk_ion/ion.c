@@ -2255,7 +2255,6 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	size_t total_orphaned_size = 0;
 	unsigned long long current_ts = 0;
 	unsigned int heap_id = heap->id;
-	unsigned int mm_id = ION_HEAP_TYPE_MULTIMEDIA;
 	unsigned int cam_id = ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA;
 
 	seq_printf(s, "total sz[%llu]\n",
