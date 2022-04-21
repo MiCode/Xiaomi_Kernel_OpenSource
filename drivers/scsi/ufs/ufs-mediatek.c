@@ -1639,11 +1639,13 @@ static int ufs_mtk_init_clocks(struct ufs_hba *hba)
 		} else if (!strcmp(clki->name, "ufs_sel_max_src")) {
 			/* clk scaling */
 			host->mclk.ufs_sel_max_clki = clki;
+			clk_disable_unprepare(clki->clk);
 			list_del(&clki->list);
 			dev_dbg(hba->dev, "ufs_sel_max_src found");
 		} else if (!strcmp(clki->name, "ufs_sel_min_src")) {
 			/* clk scaling */
 			host->mclk.ufs_sel_min_clki = clki;
+			clk_disable_unprepare(clki->clk);
 			list_del(&clki->list);
 			dev_dbg(hba->dev, "ufs_sel_min_clki found");
 		}
