@@ -56,11 +56,12 @@ struct edma_ipi_data {
 struct edma_rv_dev {
 	struct rpmsg_device *rpdev;
 	struct rpmsg_endpoint *ept;
+	struct completion ack;
 	struct kobject *edmaRV_root;
-
 };
 
 static struct edma_rv_dev eRdev;
+static struct mutex edma_ipi_mtx;
 
 
 static int edma_rpmsg_cb(struct rpmsg_device *rpdev, void *data,
@@ -69,6 +70,7 @@ static int edma_rpmsg_cb(struct rpmsg_device *rpdev, void *data,
 	int ret = 0;
 
 	LOG_INF("%s len=%d, priv=%p, src=%d\n", __func__, len, priv, src);
+	complete(&eRdev.ack);
 	//ret = reviser_remote_rx_cb(data, len);
 
 	return ret;
@@ -137,6 +139,13 @@ static ssize_t edma_rvlog_store(struct kobject *kobj,
 	int ret;
 	struct edma_ipi_data mData;
 
+	if (!eRdev.ept) {
+		LOG_ERR("%s: eRdev.ept == NULL\n", __func__);
+		return count;
+	}
+
+	mutex_lock(&edma_ipi_mtx);
+
 	ret = kstrtouint(buf, 10, &val);
 
 	LOG_RV_DBG("set debug lv = %d\n", val);
@@ -147,14 +156,20 @@ static ssize_t edma_rvlog_store(struct kobject *kobj,
 	mData.data = g_edmaRV_log_lv;
 
 	ret = rpmsg_send(eRdev.ept, &mData, sizeof(mData));
-	if (ret)
+	if (ret) {
 		LOG_ERR("send msg fail\n");
+		goto exit;
+	}
 
+	ret = wait_for_completion_timeout(&eRdev.ack, msecs_to_jiffies(100));
+	if (ret == 0)
+		LOG_WRN("%s: wait for completion timeout\n", __func__);
+exit:
+	mutex_unlock(&edma_ipi_mtx);
 
 	return count;
-
-
 }
+
 static const struct kobj_attribute edma_log_lv_attr =
 	__ATTR(edma_rv_log_lv, 0660, edma_rvlog_show,
 		edma_rvlog_store);
@@ -167,6 +182,9 @@ int edma_rv_setup(struct apusys_core_info *info)
 	pr_info("%s +\n", __func__);
 
 	memset(&eRdev, 0, sizeof(eRdev));
+
+	init_completion(&eRdev.ack);
+	mutex_init(&edma_ipi_mtx);
 
 	eRdev.edmaRV_root = kobject_create_and_add("edma_rv", kernel_kobj);
 
