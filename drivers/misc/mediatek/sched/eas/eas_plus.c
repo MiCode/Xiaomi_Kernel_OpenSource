@@ -305,7 +305,7 @@ unsigned long mtk_em_cpu_energy(struct em_perf_domain *pd,
 	 *                  scale_cpu
 	 */
 
-	dyn_pwr = (ps->cost * 1000 * sum_util / scale_cpu);
+	dyn_pwr = (ps->cost * sum_util / scale_cpu);
 	energy = dyn_pwr + static_pwr;
 
 	trace_sched_em_cpu_energy(opp, freq, ps->cost, scale_cpu, dyn_pwr, static_pwr);
