@@ -2568,6 +2568,10 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		mmc->max_seg_size = 64 * 1024;
 	}
 
+#if IS_ENABLED(CONFIG_MMC_DEBUG)
+	spin_lock_init(&host->log_lock);
+#endif
+
 	ret = devm_request_irq(&pdev->dev, host->irq, msdc_irq,
 			       IRQF_TRIGGER_NONE, pdev->name, host);
 	if (ret)
