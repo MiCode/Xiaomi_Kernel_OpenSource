@@ -265,7 +265,7 @@ extern int scp_resource_req(unsigned int req);
 extern uint32_t scp_get_freq(void);
 extern void scp_init_vcore_request(void);
 extern void wait_scp_dvfs_init_done(void);
-extern void sync_ulposc_cali_data_to_scp(void);
+extern bool sync_ulposc_cali_data_to_scp(void);
 extern int __init scp_dvfs_init(void);
 extern void scp_dvfs_exit(void);
 extern int scp_dvfs_feature_enable(void);

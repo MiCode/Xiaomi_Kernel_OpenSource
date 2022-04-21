@@ -551,7 +551,23 @@ static void scp_A_notify_ws(struct work_struct *ws)
 
 #if SCP_DVFS_INIT_ENABLE
 		if (scp_dvfs_feature_enable()) {
-			sync_ulposc_cali_data_to_scp();
+			uint32_t cali_times = 0;
+
+			while (!sync_ulposc_cali_data_to_scp()) {
+				/*
+				 * Although notify_ipi has been sent,
+				 * the scp seems stop again, try to wait WDT.
+				 */
+				pr_notice("[SCP] cali #%d fail\n", ++cali_times);
+				msleep(2000);
+				if (atomic_read(&scp_reset_status) == RESET_STATUS_START_WDT ||
+					cali_times >= 20) {
+					pr_notice("[SCP] cali fail, do recovery\n");
+					atomic_set(&scp_reset_status, RESET_STATUS_START);
+					scp_send_reset_wq(RESET_TYPE_WDT);
+					return;
+				}
+			}
 			/* release pll clock after scp ulposc ready */
 			scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 
