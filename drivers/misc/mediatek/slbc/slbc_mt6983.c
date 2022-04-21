@@ -1001,7 +1001,7 @@ static int slbc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int slbc_suspend(struct platform_device *pdev, pm_message_t state)
+static int slbc_suspend(struct device *dev)
 {
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
 	slbc_suspend_resume_notify(1);
@@ -1009,7 +1009,7 @@ static int slbc_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
-static int slbc_resume(struct platform_device *pdev)
+static int slbc_resume(struct device *dev)
 {
 #if IS_ENABLED(CONFIG_MTK_SLBC_IPI)
 	slbc_suspend_resume_notify(0);
@@ -1072,6 +1072,8 @@ static int slbc_resume_cb(struct device *dev)
 }
 
 static const struct dev_pm_ops slbc_pm_ops = {
+	.suspend = slbc_suspend,
+	.resume = slbc_resume,
 	.suspend_late = slbc_suspend_cb,
 	.resume_early = slbc_resume_cb,
 };
@@ -1084,8 +1086,6 @@ static const struct of_device_id slbc_of_match[] = {
 static struct platform_driver slbc_pdrv = {
 	.probe = slbc_probe,
 	.remove = slbc_remove,
-	.suspend = slbc_suspend,
-	.resume = slbc_resume,
 	.driver = {
 		.name = "slbc",
 		.owner = THIS_MODULE,
