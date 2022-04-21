@@ -243,10 +243,10 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		if (memif->use_adsp_share_mem) {
 			ret = mtk_adsp_allocate_mem(substream,
 						    params_buffer_bytes(params));
+			using_dram = true;
 			if (ret < 0) {
 				dev_err(afe->dev, "%s(), adsp_share_mem: %d, err: %d\n",
 					__func__, memif->use_adsp_share_mem, ret);
-				mtk_adsp_genpool_dump_all();
 				return ret;
 			}
 
@@ -380,11 +380,8 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 #endif
 	{
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-		if (is_adsp_genpool_addr_valid(substream)) {
-			kfree(substream->runtime->dma_buffer_p);
-			snd_pcm_set_runtime_buffer(substream, NULL);
+		if (is_adsp_genpool_addr_valid(substream))
 			return mtk_adsp_free_mem(substream);
-		}
 #endif
 #if IS_ENABLED(CONFIG_MTK_ULTRASND_PROXIMITY)
 		// ultrasound uses reserve dram, ignore free

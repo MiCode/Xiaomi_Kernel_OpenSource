@@ -840,7 +840,6 @@ static int mtk_dsp_pcm_hw_params(struct snd_soc_component *component,
 	/* allocate ring buffer wioth share memory */
 	ret = mtk_adsp_genpool_allocate_sharemem_ring(dsp_mem, params_buffer_bytes(params), id);
 	if (ret < 0) {
-		mtk_adsp_genpool_dump_all();
 		pr_warn("%s err\n", __func__);
 		return ret;
 	}

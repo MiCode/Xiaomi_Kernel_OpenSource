@@ -318,12 +318,12 @@ static void mtk_adsp_genpool_dump_chunk(struct gen_pool *pool,
 	nbits = (chunk->end_addr - chunk->start_addr) >> order;
 	nlongs = BITS_TO_LONGS(nbits);
 
-	pr_info("phys_addr=0x%llx bits=", chunk->phys_addr);
+	pr_debug("phys_addr=0x%llx bits=", chunk->phys_addr);
 	for (i = 0; i < nlongs; i++)
-		pr_info("%03d: 0x%llx ", i, chunk->bits[i]);
+		pr_debug("%03d: 0x%llx ", i, chunk->bits[i]);
 }
 
-int mtk_adsp_genpool_dump_all(void)
+static int mtk_adsp_genpool_dump_all(void)
 {
 	struct gen_pool *pool = mtk_get_adsp_dram_gen_pool(AUDIO_DSP_AFE_SHARE_MEM_ID);
 	size_t size_avail, total_size;
@@ -335,7 +335,7 @@ int mtk_adsp_genpool_dump_all(void)
 	gen_pool_for_each_chunk(pool, mtk_adsp_genpool_dump_chunk, NULL);
 	return 0;
 }
-EXPORT_SYMBOL(mtk_adsp_genpool_dump_all);
+
 bool is_adsp_genpool_addr_valid(struct snd_pcm_substream *substream)
 {
 	struct gen_pool *gen_pool_dsp =
@@ -362,8 +362,10 @@ int mtk_adsp_genpool_allocate_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 	}
 
 	vaddr = gen_pool_dma_zalloc(pool, size, &paddr);
-	if (!vaddr)
+	if (!vaddr) {
+		mtk_adsp_genpool_dump_all();
 		return -ENOMEM;
+	}
 
 	share_buf = &dsp_mem->dsp_ring_share_buf;
 	share_buf->phy_addr = paddr;
@@ -374,10 +376,10 @@ int mtk_adsp_genpool_allocate_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 	init_ring_buf(&dsp_mem->ring_buf, vaddr, size);
 	init_ring_buf_bridge(&dsp_mem->adsp_buf.aud_buffer.buf_bridge, paddr, size);
 
-	pr_info("%s, id:%d allocate %u bytes, pool use/total:%zu,%zu\n",
-		__func__, id, size,
-		gen_pool_size(pool) - gen_pool_avail(pool),
-		gen_pool_size(pool));
+	pr_debug("%s, id:%d allocate %u bytes, pool use/total:%zu,%zu\n",
+		 __func__, id, size,
+		 gen_pool_size(pool) - gen_pool_avail(pool),
+		 gen_pool_size(pool));
 
 	return 0;
 }
@@ -410,76 +412,64 @@ EXPORT_SYMBOL(mtk_adsp_genpool_free_sharemem_ring);
 int mtk_adsp_allocate_mem(struct snd_pcm_substream *substream, unsigned int size)
 {
 	int ret = 0;
+	struct gen_pool *pool = mtk_get_adsp_dram_gen_pool(AUDIO_DSP_AFE_SHARE_MEM_ID);
+	struct snd_dma_buffer *dmab = NULL;
 
-	if (substream->runtime->dma_area) {
-		ret = mtk_adsp_genpool_free_memory(&substream->runtime->dma_area,
-						   &substream->runtime->dma_bytes,
-						   AUDIO_DSP_AFE_SHARE_MEM_ID);
-		if (ret)
-			return ret;
+	if (!pool) {
+		pr_warn("%s pool == NULL\n", __func__);
+		return -1;
 	}
 
-	return mtk_adsp_genpool_allocate_memory(&substream->runtime->dma_area,
-						&substream->runtime->dma_addr,
-						size, AUDIO_DSP_AFE_SHARE_MEM_ID);
+	dmab = kzalloc(sizeof(*dmab), GFP_KERNEL);
+	if (!dmab)
+		return -ENOMEM;
+
+	dmab->dev = substream->dma_buffer.dev;
+	dmab->bytes = size;
+	dmab->area = gen_pool_dma_zalloc(pool, dmab->bytes, &dmab->addr);
+	if (!dmab->area) {
+		mtk_adsp_genpool_dump_all();
+		kfree(dmab);
+		return -ENOMEM;
+	}
+
+	snd_pcm_set_runtime_buffer(substream, dmab);
+
+	pr_debug("%s, allocate %u bytes, pool use/total:%zu,%zu\n",
+		 __func__, size,
+		 gen_pool_size(pool) - gen_pool_avail(pool),
+		 gen_pool_size(pool));
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_adsp_allocate_mem);
 
 int mtk_adsp_free_mem(struct snd_pcm_substream *substream)
 {
-	return mtk_adsp_genpool_free_memory(&substream->runtime->dma_area,
-					    &substream->runtime->dma_bytes,
-					    AUDIO_DSP_AFE_SHARE_MEM_ID);
-}
-EXPORT_SYMBOL_GPL(mtk_adsp_free_mem);
+	struct gen_pool *pool = mtk_get_adsp_dram_gen_pool(AUDIO_DSP_AFE_SHARE_MEM_ID);
+	struct snd_pcm_runtime *runtime;
 
-int mtk_adsp_genpool_allocate_memory(unsigned char **vaddr, dma_addr_t *paddr,
-				     unsigned int size, int id)
-{
-	struct gen_pool *pool = mtk_get_adsp_dram_gen_pool(id);
+	if (!substream || !substream->runtime)
+		return -EINVAL;
 
 	if (!pool) {
 		pr_warn("%s pool == NULL\n", __func__);
 		return -1;
 	}
 
-	if (!vaddr || !paddr)
-		return -EINVAL;
+	runtime = substream->runtime;
+	if (runtime->dma_area == NULL)
+		return 0;
 
-	*vaddr = gen_pool_dma_zalloc(pool, size, paddr);
-
-	if (vaddr)
-		pr_info("%s, allocate %u bytes, pool use/total:%zu,%zu\n",
-			__func__, size,
-			gen_pool_size(pool) - gen_pool_avail(pool),
-			gen_pool_size(pool));
-
-	return *vaddr ? 0 : -ENOMEM;
-}
-
-int mtk_adsp_genpool_free_memory(unsigned char **vaddr, size_t *size, int id)
-{
-	struct gen_pool *pool = mtk_get_adsp_dram_gen_pool(id);
-
-	if (!pool) {
-		pr_warn("%s pool == NULL\n", __func__);
-		return -1;
+	if (runtime->dma_buffer_p) {
+		gen_pool_free(pool, (unsigned long)runtime->dma_area, runtime->dma_bytes);
+		kfree(runtime->dma_buffer_p);
 	}
 
-	if (!vaddr || !size)
-		return -EINVAL;
-
-	if (!gen_pool_has_addr(pool, (unsigned long)*vaddr, *size)) {
-		pr_warn("%s() vaddr is not in genpool\n", __func__);
-		return -EFAULT;
-	}
-
-	gen_pool_free(pool, (unsigned long)*vaddr, *size);
-	*vaddr = NULL;
-	*size = 0;
-
+	snd_pcm_set_runtime_buffer(substream, NULL);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_adsp_free_mem);
 
 int aud_genppol_allocate_sharemem_msg(struct mtk_base_dsp_mem *dsp_mem, int size, int id)
 {
