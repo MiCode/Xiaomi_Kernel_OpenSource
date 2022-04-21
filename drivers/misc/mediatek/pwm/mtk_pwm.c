@@ -923,11 +923,6 @@ s32 pwm_set_easy_config(struct pwm_easy_config *conf)
 		return -EINVALID;
 	}
 
-	if  (conf->duty < 0) {
-		pr_debug(T "duty parameter is invalid\n");
-		return -EINVALID;
-	}
-
 	if (conf->duty == 0) {
 		mt_set_pwm_disable(conf->pwm_no);
 		mt_pwm_power_off(conf->pwm_no, conf->pmic_pad);
