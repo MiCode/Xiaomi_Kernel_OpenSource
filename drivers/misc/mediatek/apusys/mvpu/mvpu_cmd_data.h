@@ -13,6 +13,8 @@
 #define MVPU_CMD_INFO_IDX       0
 #define MVPU_CMD_KREG_BASE_IDX  1
 
+#define MVPU_CMD_LITE_SIZE  0x12E
+
 #ifndef MVPU_SECURITY
 #define MVPU_SECURITY
 #endif
@@ -91,12 +93,17 @@ struct mvpu_request {
 
 	uint64_t sec_chk_addr;
 	uint64_t sec_buf_size;
-	uint64_t mem_is_kernel;
+	uint64_t sec_buf_attr;
 
 	uint64_t target_buf_old_base;
 	uint64_t target_buf_old_offset;
 	uint64_t target_buf_new_base;
 	uint64_t target_buf_new_offset;
+
+	uint32_t kerarg_num;
+	uint64_t kerarg_buf_id;
+	uint64_t kerarg_offset;
+	uint64_t kerarg_size;
 #endif
 } __packed;
 

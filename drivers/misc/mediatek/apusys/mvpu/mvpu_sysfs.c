@@ -86,6 +86,7 @@ static ssize_t loglevel_store(struct kobject *kobj, struct kobj_attribute *attr,
 	if (!ret) {
 		pr_info("[MVPU] %s, level= %d\n", __func__, (uint32_t)level);
 		mvpu_ipi_send(MVPU_LOG_LEVEL, level);
+		mvpu_loglvl_sys = level;
 	} else {
 		pr_info("[MVPU] %s[%d]: get invalid cmd\n", __func__, __LINE__);
 	}
@@ -102,12 +103,18 @@ static struct kobj_attribute loglevel = {
 	.store = loglevel_store,
 };
 
+int get_mvpu_log_lvl(void)
+{
+	return mvpu_loglvl_sys;
+}
+
 int mvpu_sysfs_init(void)
 {
 
 	int ret = 0;
 
 	pr_info("%s +\n", __func__);
+	mvpu_loglvl_sys = 0;
 
 	/* create /sys/kernel/mvpu */
 	root_dir = kobject_create_and_add("mvpu", kernel_kobj);
