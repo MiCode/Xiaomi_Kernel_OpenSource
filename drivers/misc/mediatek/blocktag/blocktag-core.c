@@ -15,7 +15,6 @@
 #include <linux/kernel_stat.h>
 #include <linux/memblock.h>
 #include <linux/module.h>
-#include <linux/miscdevice.h>
 #include <linux/mutex.h>
 #include <linux/proc_fs.h>
 #include <linux/sched.h>
@@ -93,10 +92,6 @@ struct proc_dir_entry *btag_proc_root;
 
 static int mtk_btag_init_procfs(void);
 
-/* mini context for major embedded storage only */
-#define MICTX_PROC_CMD_BUF_SIZE (1)
-struct mtk_btag_earaio_control earaio_ctrl;
-
 /* blocktag */
 LIST_HEAD(mtk_btag_list);
 spinlock_t list_lock;
@@ -104,10 +99,6 @@ spinlock_t list_lock;
 /* memory block for PIDLogger */
 phys_addr_t dram_start_addr;
 phys_addr_t dram_end_addr;
-
-/* peeking window */
-#define MS_TO_NS(ms) (ms * 1000000ULL)
-u32 pwd_width_ms = 250;
 
 static struct mtk_blocktag *mtk_btag_find_by_name(const char *name)
 {
@@ -297,250 +288,6 @@ static bool mtk_btag_is_top_task(struct task_struct *task, int mode, unsigned lo
 	return false;
 }
 
-static struct miscdevice earaio_obj;
-static void mtk_btag_earaio_uevt_worker(struct work_struct *work)
-{
-	#define EVT_STR_SIZE 10
-	unsigned long flags;
-	char event_string[EVT_STR_SIZE];
-	char *envp[2];
-	bool boost, restart, quit;
-	int ret;
-
-	envp[0] = event_string;
-	envp[1] = NULL;
-
-start:
-	boost = false;
-	quit = false;
-	restart = false;
-	spin_lock_irqsave(&earaio_ctrl.lock, flags);
-	if (earaio_ctrl.uevt_state != earaio_ctrl.uevt_req)
-		boost = earaio_ctrl.uevt_req;
-	else
-		quit = true;
-	spin_unlock_irqrestore(&earaio_ctrl.lock, flags);
-
-	if (quit)
-		return;
-
-	ret = snprintf(event_string, EVT_STR_SIZE, "boost=%d", boost ? 1 : 0);
-	if (!ret)
-		return;
-
-	ret = kobject_uevent_env(
-			&earaio_obj.this_device->kobj,
-			KOBJ_CHANGE, envp);
-	if (ret) {
-		pr_info("[BLOCK_TAG] uevt: %s sent fail:%d", event_string, ret);
-	} else {
-		earaio_ctrl.uevt_state = boost;
-	}
-
-	spin_lock_irqsave(&earaio_ctrl.lock, flags);
-	if (earaio_ctrl.uevt_state != earaio_ctrl.uevt_req)
-		restart = true;
-	spin_unlock_irqrestore(&earaio_ctrl.lock, flags);
-
-	if (restart)
-		goto start;
-}
-
-static bool mtk_btag_earaio_send_uevt(bool boost)
-{
-	earaio_ctrl.uevt_req = boost;
-	queue_work(earaio_ctrl.uevt_workq, &earaio_ctrl.uevt_work);
-
-	return true;
-}
-
-#define EARAIO_UEVT_THRESHOLD_PAGES ((32 * 1024 * 1024) >> 12)
-static int __mtk_btag_earaio_boost(bool boost)
-{
-	int changed = 0;
-
-	if (!(boost ^ earaio_ctrl.boosted)) {
-		return changed;
-	}
-
-	if (boost) {
-		/* Establish threshold to avoid lousy uevents */
-		if ((earaio_ctrl.pwd_top_r_pages >= EARAIO_UEVT_THRESHOLD_PAGES) ||
-			(earaio_ctrl.pwd_top_w_pages >= EARAIO_UEVT_THRESHOLD_PAGES))
-			changed = mtk_btag_earaio_send_uevt(true);
-	} else {
-		changed = mtk_btag_earaio_send_uevt(false);
-	}
-
-	if (changed)
-		earaio_ctrl.boosted = boost;
-	else
-		changed = 2;
-
-	return changed;
-}
-
-void mtk_btag_earaio_boost(bool boost)
-{
-	unsigned long flags;
-	int changed = 0; // 0: not try, 1: try and success, 2: try but fail
-
-	/* Use earaio_obj.minor to indicate if obj is existed */
-	if (!earaio_ctrl.enabled || unlikely(!earaio_obj.minor))
-		return;
-
-	spin_lock_irqsave(&earaio_ctrl.lock, flags);
-	changed = __mtk_btag_earaio_boost(boost);
-	if (boost || changed == 1) {
-		earaio_ctrl.pwd_begin = sched_clock();
-		earaio_ctrl.pwd_top_r_pages = 0;
-		earaio_ctrl.pwd_top_w_pages = 0;
-	}
-	spin_unlock_irqrestore(&earaio_ctrl.lock, flags);
-
-	if ((boost && changed == 2) || (!boost && changed == 1))
-		mtk_btag_mictx_check_window(earaio_ctrl.mictx_id);
-}
-
-void mtk_btag_earaio_check_pwd(void)
-{
-	if ((sched_clock() - earaio_ctrl.pwd_begin) >= MS_TO_NS(pwd_width_ms))
-		mtk_btag_earaio_boost(true);
-}
-
-void mtk_btag_earaio_update_pwd(unsigned int write, __u32 size)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&earaio_ctrl.lock, flags);
-	if (write)
-		earaio_ctrl.pwd_top_w_pages += (size >> 12);
-	else
-		earaio_ctrl.pwd_top_r_pages += (size >> 12);
-	spin_unlock_irqrestore(&earaio_ctrl.lock, flags);
-}
-
-static int mtk_btag_earaio_init(void)
-{
-	int ret = 0;
-
-	earaio_obj.name = "eara-io";
-	earaio_obj.minor = MISC_DYNAMIC_MINOR;
-	ret = misc_register(&earaio_obj);
-	if (ret) {
-		pr_info("[BLOCK_TAG] register earaio obj error:%d\n", ret);
-		earaio_obj.minor = 0;
-		return ret;
-	}
-
-	ret = kobject_uevent(&earaio_obj.this_device->kobj, KOBJ_ADD);
-	if (ret) {
-		misc_deregister(&earaio_obj);
-		pr_info("[BLOCK_TAG] add uevent fail:%d\n", ret);
-		earaio_obj.minor = 0;
-		return ret;
-	}
-
-	return ret;
-}
-
-static ssize_t mtk_btag_earaio_ctrl_sub_write(struct file *file,
-	const char __user *ubuf,
-	size_t count, loff_t *ppos)
-{
-	int ret;
-	char cmd[MICTX_PROC_CMD_BUF_SIZE];
-
-	if (count == 0)
-		goto err;
-	else if (count > MICTX_PROC_CMD_BUF_SIZE)
-		count = MICTX_PROC_CMD_BUF_SIZE;
-
-	ret = copy_from_user(cmd, ubuf, count);
-
-	if (ret < 0)
-		goto err;
-
-	if (cmd[0] == '1') {
-		earaio_ctrl.enabled = true;
-		pr_info("[BLOCK_TAG] EARA-IO QoS: allowed\n");
-	} else if (cmd[0] == '2') {
-		mtk_btag_earaio_boost(false);
-		earaio_ctrl.enabled = false;
-		pr_info("[BLOCK_TAG] EARA-IO QoS: disallowed\n");
-	} else {
-		pr_info("[BLOCK_TAG] invalid arg: 0x%x\n", cmd[0]);
-		goto err;
-	}
-
-	return count;
-
-err:
-	return -1;
-}
-
-static int mtk_btag_earaio_ctrl_sub_show(struct seq_file *s, void *data)
-{
-	struct mtk_blocktag *btag;
-	char name[BLOCKTAG_NAME_LEN] = {' '};
-
-	btag = mtk_btag_find_by_type(earaio_ctrl.mictx_id.storage);
-	if (btag)
-		strncpy(name, btag->name, BLOCKTAG_NAME_LEN-1);
-
-	seq_puts(s, "<MTK EARA-IO Control Unit>\n");
-	seq_printf(s, "Monitor Storage Type: %s\n", name);
-	seq_puts(s, "Status:\n");
-	seq_printf(s, "  EARA-IO Control Enable: %d\n", earaio_ctrl.enabled);
-	seq_puts(s, "Commands: echo n > blockio_mictx, n presents\n");
-	seq_puts(s, "  Enable EARA-IO QoS  : 1\n");
-	seq_puts(s, "  Disable EARA-IO QoS : 2\n");
-	return 0;
-}
-
-static int mtk_btag_earaio_ctrl_sub_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mtk_btag_earaio_ctrl_sub_show, inode->i_private);
-}
-
-static const struct proc_ops mtk_btag_earaio_ctrl_sub_fops = {
-	.proc_open		= mtk_btag_earaio_ctrl_sub_open,
-	.proc_read		= seq_read,
-	.proc_lseek		= seq_lseek,
-	.proc_release		= seq_release,
-	.proc_write		= mtk_btag_earaio_ctrl_sub_write,
-};
-
-static void mtk_btag_earaio_init_mictx(
-	struct mtk_btag_vops *vops,
-	enum mtk_btag_storage_type storage_type)
-{
-	struct proc_dir_entry *proc_entry;
-
-	if (!vops->earaio_enabled)
-		return;
-
-	if (!earaio_ctrl.enabled) {
-		earaio_ctrl.uevt_workq =
-			alloc_ordered_workqueue("mtk_btag_uevt",
-			WQ_MEM_RECLAIM);
-		INIT_WORK(&earaio_ctrl.uevt_work, mtk_btag_earaio_uevt_worker);
-		spin_lock_init(&earaio_ctrl.lock);
-		earaio_ctrl.enabled = true;
-		earaio_ctrl.pwd_begin = sched_clock();
-		earaio_ctrl.pwd_top_r_pages = 0;
-		earaio_ctrl.pwd_top_w_pages = 0;
-		earaio_ctrl.mictx_id.storage = storage_type;
-	}
-
-	/* Enable mictx by default if EARA-IO is enabled*/
-	mtk_btag_mictx_enable(&earaio_ctrl.mictx_id, 1);
-
-	rs_index_init(btag_proc_root, earaio_ctrl.mictx_id);
-	proc_entry = proc_create("earaio_ctrl", S_IFREG | 0664,
-		btag_proc_root, &mtk_btag_earaio_ctrl_sub_fops);
-}
-
 #else
 static inline bool mtk_btag_is_top_task(struct task_struct *task,
 					int mode,
@@ -548,13 +295,6 @@ static inline bool mtk_btag_is_top_task(struct task_struct *task,
 {
 	return false;
 }
-
-static inline bool mtk_btag_earaio_init(void)
-{
-	return true;
-}
-
-#define mtk_btag_earaio_init_mictx(...)
 #endif
 
 static void _mtk_btag_pidlog_set_pid(struct page *p, int mode, bool write)
@@ -1286,7 +1026,7 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 		goto out;
 
 	mtk_btag_mictx_init(btag, vops);
-	mtk_btag_earaio_init_mictx(vops, storage_type);
+	mtk_btag_earaio_init_mictx(vops, storage_type, btag_proc_root);
 out:
 	spin_lock_irqsave(&list_lock, flags);
 	list_add(&btag->list, &mtk_btag_list);

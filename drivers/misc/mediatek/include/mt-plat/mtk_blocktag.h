@@ -309,8 +309,11 @@ void ufs_mtk_biolog_transfer_req_compl(unsigned int taski_id,
 void ufs_mtk_biolog_check(unsigned long req_mask);
 void ufs_mtk_biolog_clk_gating(bool gated);
 
-void rs_index_init(struct proc_dir_entry *parent,
-		struct mtk_btag_mictx_id mictx_id);
+void mtk_btag_earaio_init_mictx(
+	struct mtk_btag_vops *vops,
+	enum mtk_btag_storage_type storage_type,
+	struct proc_dir_entry *btag_proc_root);
+int mtk_btag_earaio_init(void);
 void mtk_btag_earaio_boost(bool boost);
 void mtk_btag_earaio_check_pwd(void);
 void mtk_btag_earaio_update_pwd(unsigned int write, __u32 size);
@@ -347,7 +350,8 @@ int mmc_mtk_biolog_exit(void);
 #define ufs_mtk_biolog_check(...)
 #define ufs_mtk_biolog_clk_gating(...)
 
-#define rs_index_init(...)
+#define mtk_btag_earaio_init_mictx(...)
+#define mtk_btag_earaio_init(...)
 #define mtk_btag_earaio_boost(...)
 #define mtk_btag_earaio_check_pwd(...)
 #define mtk_btag_earaio_update_pwd(...)
