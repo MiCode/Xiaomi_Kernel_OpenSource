@@ -304,10 +304,12 @@ int mtk_disp_mtee_gem_fd_to_sec_hdl(u32 fd, struct mtk_drm_gem_obj *mtk_gem_obj)
 		DDPINFO("%s:sec_hnd=0x%x,sec_id=%d\n", __func__, sec_handle, sec_id);
 	else {
 		DDPMSG("%s failed %d\n", __func__, fd);
+		dma_buf_put(dma_buf);
 		return false;
 	}
 	mtk_gem_obj->dma_addr = sec_handle;
 
+	dma_buf_put(dma_buf);
 	return true;
 }
 
