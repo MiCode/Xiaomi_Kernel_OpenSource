@@ -208,21 +208,23 @@ static int subsystem_sleep_stats(struct sleep_stats_data *stats_data, struct sle
 bool has_system_slept(void)
 {
 	int i;
+	bool sleep_flag = true;
 
 	for (i = 0; i < ARRAY_SIZE(system_stats); i++) {
 		if (b_system_stats[i].count == a_system_stats[i].count) {
 			pr_info("System %s has not entered sleep\n", system_stats[i].name);
-			return false;
+			sleep_flag = false;
 		}
 	}
 
-	return true;
+	return sleep_flag;
 }
 EXPORT_SYMBOL(has_system_slept);
 
 bool has_subsystem_slept(void)
 {
 	int i;
+	bool sleep_flag = true;
 
 	for (i = 0; i < ARRAY_SIZE(subsystem_stats); i++) {
 		if (subsystem_stats[i].not_present)
@@ -232,11 +234,11 @@ bool has_subsystem_slept(void)
 			(a_subsystem_stats[i].last_exited_at >
 				a_subsystem_stats[i].last_entered_at)) {
 			pr_info("Subsystem %s has not entered sleep\n", subsystem_stats[i].name);
-			return false;
+			sleep_flag = false;
 		}
 	}
 
-	return true;
+	return sleep_flag;
 }
 EXPORT_SYMBOL(has_subsystem_slept);
 
@@ -545,7 +547,7 @@ static int subsytem_stats_suspend(struct device *dev)
 
 	mutex_lock(&sleep_stats_mutex);
 	for (i = 0; i < ARRAY_SIZE(subsystem_stats); i++) {
-		ret = subsystem_sleep_stats(stats_data, b_subsystem_stats,
+		ret = subsystem_sleep_stats(stats_data, b_subsystem_stats + i,
 					subsystem_stats[i].pid, subsystem_stats[i].smem_item);
 		if (ret == -ENODEV)
 			subsystem_stats[i].not_present = true;
@@ -554,7 +556,7 @@ static int subsytem_stats_suspend(struct device *dev)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(system_stats); i++)
-		subsystem_sleep_stats(stats_data, b_system_stats,
+		subsystem_sleep_stats(stats_data, b_system_stats + i,
 					system_stats[i].pid, system_stats[i].smem_item);
 	mutex_unlock(&sleep_stats_mutex);
 
@@ -571,11 +573,11 @@ static int subsytem_stats_resume(struct device *dev)
 
 	mutex_lock(&sleep_stats_mutex);
 	for (i = 0; i < ARRAY_SIZE(subsystem_stats); i++)
-		subsystem_sleep_stats(stats_data, a_subsystem_stats,
+		subsystem_sleep_stats(stats_data, a_subsystem_stats + i,
 					subsystem_stats[i].pid, subsystem_stats[i].smem_item);
 
 	for (i = 0; i < ARRAY_SIZE(system_stats); i++)
-		subsystem_sleep_stats(stats_data, a_system_stats,
+		subsystem_sleep_stats(stats_data, a_system_stats + i,
 					system_stats[i].pid, system_stats[i].smem_item);
 	mutex_unlock(&sleep_stats_mutex);
 
