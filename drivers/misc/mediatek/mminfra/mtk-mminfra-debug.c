@@ -180,6 +180,7 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 		mminfra_cg_check(true);
 		count = atomic_inc_return(&clk_ref_cnt);
 		cmdq_util_mminfra_cmd(0);
+		cmdq_util_mminfra_cmd(3); //mminfra rfifo init
 		do_mminfra_bkrs(true);
 		test_base = ioremap(0x1e800280, 4);
 		val = readl_relaxed(test_base);
@@ -437,6 +438,7 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 			return ret;
 		}
 		cmdq_util_mminfra_cmd(0);
+		cmdq_util_mminfra_cmd(3); //mminfra rfifo init
 	}
 
 	dbg->mminfra_base = ioremap(MMINFRA_BASE, 0x8f4);
