@@ -1255,9 +1255,8 @@ void mtk_cam_subspl_req_prepare(struct mtk_camsys_sensor_ctrl *sensor_ctrl)
 		if (sensor_seq_no_next == 2)
 			req_stream_data->state.estate = E_STATE_SUBSPL_SENSOR;
 		if (req_stream_data->state.estate < E_STATE_SUBSPL_SENSOR) {
-			dev_info(cam->dev, "[%s:pass] sensor_no:%d state:0x%x\n", __func__,
+			dev_info(cam->dev, "[%s:pass previous] sensor_no:%d state:0x%x\n", __func__,
 					sensor_seq_no_next - 1, req_stream_data->state.estate);
-			return;
 		}
 	}
 	req_stream_data = mtk_cam_get_req_s_data(ctx, ctx->stream_id, sensor_seq_no_next);
@@ -1902,9 +1901,8 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
 	/* check if last sensor setting triggered */
 	if (sensor_seq_no < frame_idx_inner) {
-		dev_info(raw_dev->dev, "[%s:pass] sen_no:%d inner:%d\n",
+		dev_info(raw_dev->dev, "[%s:pass previous] sen_no:%d inner:%d\n",
 			__func__, sensor_seq_no, frame_idx_inner);
-		return STATE_RESULT_PASS_CQ_SW_DELAY;
 	}
 	/* HW imcomplete case */
 	if (que_cnt >= STATE_NUM_AT_SOF)
@@ -1934,9 +1932,10 @@ int mtk_camsys_raw_subspl_state_handle(struct mtk_raw_device *raw_dev,
 				if (state_outer->estate == E_STATE_SUBSPL_OUTER) {
 					mtk_cam_submit_kwork_in_sensorctrl(
 						sensor_ctrl->sensorsetting_wq, sensor_ctrl);
-					dev_info(raw_dev->dev, "sensor delay to SOF, pass next CQ (in:%d)\n",
+					req_stream_data->flags |=
+						MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED;
+					dev_info(raw_dev->dev, "sensor delay to SOF, unreliable (in:%d)\n",
 						frame_idx_inner);
-					return STATE_RESULT_PASS_CQ_SW_DELAY;
 				}
 				state_transition(state_outer, E_STATE_SUBSPL_SENSOR,
 						 E_STATE_SUBSPL_INNER);
