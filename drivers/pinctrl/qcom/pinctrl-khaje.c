@@ -229,14 +229,14 @@ static const struct pinctrl_pin_desc khaje_pins[] = {
 	PINCTRL_PIN(110, "GPIO_110"),
 	PINCTRL_PIN(111, "GPIO_111"),
 	PINCTRL_PIN(112, "GPIO_112"),
-	PINCTRL_PIN(113, "SDC1_RCLK"),
-	PINCTRL_PIN(114, "SDC1_CLK"),
-	PINCTRL_PIN(115, "SDC1_CMD"),
-	PINCTRL_PIN(116, "SDC1_DATA"),
-	PINCTRL_PIN(117, "SDC2_CLK"),
-	PINCTRL_PIN(118, "SDC2_CMD"),
-	PINCTRL_PIN(119, "SDC2_DATA"),
-	PINCTRL_PIN(120, "UFS_RESET"),
+	PINCTRL_PIN(113, "UFS_RESET"),
+	PINCTRL_PIN(114, "SDC1_RCLK"),
+	PINCTRL_PIN(115, "SDC1_CLK"),
+	PINCTRL_PIN(116, "SDC1_CMD"),
+	PINCTRL_PIN(117, "SDC1_DATA"),
+	PINCTRL_PIN(118, "SDC2_CLK"),
+	PINCTRL_PIN(119, "SDC2_CMD"),
+	PINCTRL_PIN(120, "SDC2_DATA"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -355,14 +355,14 @@ DECLARE_MSM_GPIO_PINS(110);
 DECLARE_MSM_GPIO_PINS(111);
 DECLARE_MSM_GPIO_PINS(112);
 
-static const unsigned int sdc1_rclk_pins[] = { 113 };
-static const unsigned int sdc1_clk_pins[] = { 114 };
-static const unsigned int sdc1_cmd_pins[] = { 115 };
-static const unsigned int sdc1_data_pins[] = { 116 };
-static const unsigned int sdc2_clk_pins[] = { 117 };
-static const unsigned int sdc2_cmd_pins[] = { 118 };
-static const unsigned int sdc2_data_pins[] = { 119 };
-static const unsigned int ufs_reset_pins[] = { 120 };
+static const unsigned int sdc1_rclk_pins[] = { 114 };
+static const unsigned int sdc1_clk_pins[] = { 115 };
+static const unsigned int sdc1_cmd_pins[] = { 116 };
+static const unsigned int sdc1_data_pins[] = { 117 };
+static const unsigned int sdc2_clk_pins[] = { 118 };
+static const unsigned int sdc2_cmd_pins[] = { 119 };
+static const unsigned int sdc2_data_pins[] = { 120 };
+static const unsigned int ufs_reset_pins[] = { 113 };
 
 enum khaje_functions {
 	msm_mux_gpio,
@@ -1526,14 +1526,14 @@ static const struct msm_pingroup khaje_groups[] = {
 	[111] = PINGROUP(111, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[112] = PINGROUP(112, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0x71000, 14),
-	[113] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x175000, 15, 0),
-	[114] = SDC_QDSD_PINGROUP(sdc1_clk, 0x175000, 13, 6),
-	[115] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x175000, 11, 3),
-	[116] = SDC_QDSD_PINGROUP(sdc1_data, 0x175000, 9, 0),
-	[117] = SDC_QDSD_PINGROUP(sdc2_clk, 0x573000, 14, 6),
-	[118] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x573000, 11, 3),
-	[119] = SDC_QDSD_PINGROUP(sdc2_data, 0x573000, 9, 0),
-	[120] = UFS_RESET(ufs_reset, 0x178000),
+	[113] = UFS_RESET(ufs_reset, 0x178000),
+	[114] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x175000, 15, 0),
+	[115] = SDC_QDSD_PINGROUP(sdc1_clk, 0x175000, 13, 6),
+	[116] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x175000, 11, 3),
+	[117] = SDC_QDSD_PINGROUP(sdc1_data, 0x175000, 9, 0),
+	[118] = SDC_QDSD_PINGROUP(sdc2_clk, 0x573000, 14, 6),
+	[119] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x573000, 11, 3),
+	[120] = SDC_QDSD_PINGROUP(sdc2_data, 0x573000, 9, 0),
 };
 
 static const int khaje_reserved_gpios[] = {
@@ -1548,7 +1548,7 @@ static const struct msm_pinctrl_soc_data khaje_pinctrl = {
 	.groups = khaje_groups,
 	.ngroups = ARRAY_SIZE(khaje_groups),
 	.reserved_gpios = khaje_reserved_gpios,
-	.ngpios = 113,
+	.ngpios = 114,
 };
 
 static int khaje_pinctrl_probe(struct platform_device *pdev)
