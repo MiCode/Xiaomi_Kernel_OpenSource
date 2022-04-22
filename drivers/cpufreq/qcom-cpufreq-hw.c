@@ -17,6 +17,9 @@
 #include <linux/spinlock.h>
 #include <linux/qcom-cpufreq-hw.h>
 
+#define CREATE_TRACE_POINTS
+#include <trace/events/dcvsh.h>
+
 #define LUT_MAX_ENTRIES			40U
 #define LUT_SRC				GENMASK(31, 30)
 #define LUT_L_VAL			GENMASK(7, 0)
@@ -367,6 +370,7 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 		dev_pm_opp_put(opp);
 
 	throttled_freq = freq_hz / HZ_PER_KHZ;
+	trace_dcvsh_freq(cpu, qcom_cpufreq_hw_get(cpu), throttled_freq);
 
 	/* Update thermal pressure */
 
@@ -398,6 +402,7 @@ static void qcom_lmh_dcvs_notify(struct qcom_cpufreq_data *data)
 		writel_relaxed(val, data->base + soc_data->reg_intr_clear);
 
 		enable_irq(data->throttle_irq);
+		trace_dcvsh_throttle(cpu, 0);
 	} else {
 		mod_delayed_work(system_highpri_wq, &data->throttle_work,
 				 msecs_to_jiffies(10));
@@ -419,6 +424,7 @@ static irqreturn_t qcom_lmh_dcvs_handle_irq(int irq, void *data)
 {
 	struct qcom_cpufreq_data *c_data = data;
 	const struct qcom_cpufreq_soc_data *soc_data = c_data->soc_data;
+	struct cpufreq_policy *policy = c_data->policy;
 	u32 val;
 
 	val = readl_relaxed(c_data->base + soc_data->reg_intr_status);
@@ -427,6 +433,7 @@ static irqreturn_t qcom_lmh_dcvs_handle_irq(int irq, void *data)
 
 	/* Disable interrupt and enable polling */
 	disable_irq_nosync(c_data->throttle_irq);
+	trace_dcvsh_throttle(cpumask_first(policy->cpus), 1);
 	schedule_delayed_work(&c_data->throttle_work, 0);
 
 	return IRQ_HANDLED;
@@ -515,6 +522,7 @@ static void qcom_cpufreq_hw_lmh_exit(struct qcom_cpufreq_data *data)
 	cancel_delayed_work_sync(&data->throttle_work);
 
 	arch_set_thermal_pressure(policy->related_cpus, 0);
+	trace_dcvsh_throttle(cpumask_first(policy->related_cpus), 0);
 }
 
 static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
