@@ -47,7 +47,7 @@ int populate_l3_table(struct device *dev, u32 **freq_table)
 	unsigned long freq, prev_freq = 0;
 	struct resource res;
 	void __iomem *ftbl_base;
-	unsigned int ftbl_row_size = FTBL_ROW_SIZE;
+	unsigned int ftbl_row_size;
 	u32 *tmp_l3_table;
 
 	idx = of_property_match_string(dev->of_node, "reg-names", "l3tbl-base");
@@ -67,6 +67,11 @@ int populate_l3_table(struct device *dev, u32 **freq_table)
 		dev_err(dev, "Unable to map l3tbl-base!\n");
 		return -ENOMEM;
 	}
+
+	ret = of_property_read_u32(dev->of_node, "qcom,ftbl-row-size",
+						&ftbl_row_size);
+	if (ret < 0)
+		ftbl_row_size = FTBL_ROW_SIZE;
 
 	tmp_l3_table = kcalloc(MAX_L3_ENTRIES, sizeof(*tmp_l3_table), GFP_KERNEL);
 	if (!tmp_l3_table) {
