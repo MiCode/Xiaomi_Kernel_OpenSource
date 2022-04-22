@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "smcinvoke: %s: " fmt, __func__
@@ -1042,8 +1043,14 @@ static int invoke_cmd_handler(int cmd, phys_addr_t in_paddr, size_t in_buf_len,
 		break;
 
 	case SMCINVOKE_CB_RSP_CMD:
+		if (legacy_smc_call)
+			qtee_shmbridge_flush_shm_buf(out_shm);
 		ret = qcom_scm_invoke_callback_response(virt_to_phys(out_buf), out_buf_len,
 			result, response_type, data);
+		if (legacy_smc_call) {
+			qtee_shmbridge_inv_shm_buf(in_shm);
+			qtee_shmbridge_inv_shm_buf(out_shm);
+		}
 		break;
 
 	default:
