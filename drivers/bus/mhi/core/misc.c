@@ -283,6 +283,11 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 			     parent->device, pci_domain_nr(parent->bus),
 			     parent->bus->number, PCI_SLOT(parent->devfn));
 		mhi_dev->name = dev_name(&mhi_dev->dev);
+
+		mhi_priv->numeric_id = MHI_NUMERIC_DEVICE_ID(parent->device,
+						    pci_domain_nr(parent->bus),
+						    parent->bus->number,
+						    PCI_SLOT(parent->devfn));
 	}
 
 	mhi_priv->log_buf = ipc_log_context_create(MHI_IPC_LOG_PAGES,
@@ -295,11 +300,6 @@ int mhi_misc_register_controller(struct mhi_controller *mhi_cntrl)
 	mutex_unlock(&mhi_bus.lock);
 
 	dev_set_drvdata(dev, mhi_priv);
-
-	mhi_priv->numeric_id = MHI_NUMERIC_DEVICE_ID(parent->device,
-						    pci_domain_nr(parent->bus),
-						    parent->bus->number,
-						    PCI_SLOT(parent->devfn));
 
 	mhi_priv->offload_wq = alloc_ordered_workqueue("mhi_offload_wq",
 						       WQ_HIGHPRI);
