@@ -221,6 +221,15 @@ clean_minidump:
 }
 EXPORT_SYMBOL_GPL(qcom_minidump);
 
+static int glink_early_ssr_notifier_event(struct notifier_block *this,
+					   unsigned long code, void *data)
+{
+	struct qcom_rproc_glink *glink = container_of(this, struct qcom_rproc_glink, nb);
+
+	qcom_glink_early_ssr_notify(glink->edge);
+	return NOTIFY_DONE;
+}
+
 static int glink_subdev_prepare(struct rproc_subdev *subdev)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
@@ -238,17 +247,31 @@ static int glink_subdev_start(struct rproc_subdev *subdev)
 
 	trace_rproc_qcom_event(dev_name(glink->dev->parent), GLINK_SUBDEV_NAME, "start");
 
+	glink->nb.notifier_call = glink_early_ssr_notifier_event;
+
+	glink->notifier_handle = qcom_register_early_ssr_notifier(glink->ssr_name, &glink->nb);
+	if (IS_ERR(glink->notifier_handle)) {
+		dev_err(glink->dev, "Failed to register for SSR notifier\n");
+		glink->notifier_handle = NULL;
+	}
+
 	return qcom_glink_smem_start(glink->edge);
 }
 
 static void glink_subdev_stop(struct rproc_subdev *subdev, bool crashed)
 {
 	struct qcom_rproc_glink *glink = to_glink_subdev(subdev);
+	int ret;
 
 	if (!glink->edge)
 		return;
 	trace_rproc_qcom_event(dev_name(glink->dev->parent), GLINK_SUBDEV_NAME,
 			       crashed ? "crash stop" : "stop");
+
+	ret = qcom_unregister_early_ssr_notifier(glink->notifier_handle, &glink->nb);
+	if (ret)
+		dev_err(glink->dev, "Error in unregistering notifier\n");
+	glink->notifier_handle = NULL;
 
 	qcom_glink_smem_unregister(glink->edge);
 	glink->edge = NULL;

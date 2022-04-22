@@ -34,6 +34,9 @@ struct qcom_rproc_glink {
 	struct device *dev;
 	struct device_node *node;
 	struct qcom_glink *edge;
+
+	struct notifier_block nb;
+	void *notifier_handle;
 };
 
 struct qcom_rproc_subdev {
