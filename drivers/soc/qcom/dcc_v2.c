@@ -204,6 +204,25 @@ static int dcc_sram_writel(struct dcc_drvdata *drvdata,
 	return 0;
 }
 
+static int dcc_sram_memcpy(void *to, const void __iomem *from,
+							size_t count)
+{
+	if (!count || (!IS_ALIGNED((unsigned long)from, 4) ||
+			!IS_ALIGNED((unsigned long)to, 4) ||
+			!IS_ALIGNED((unsigned long)count, 4))) {
+		return -EINVAL;
+	}
+
+	while (count >= 4) {
+		*(unsigned int *)to = __raw_readl(from);
+		to += 4;
+		from += 4;
+		count -= 4;
+	}
+
+	return 0;
+}
+
 static bool dcc_ready(struct dcc_drvdata *drvdata)
 {
 	uint32_t val;
@@ -1641,7 +1660,7 @@ static ssize_t dcc_sram_read(struct file *file, char __user *data,
 	if (!buf)
 		return -ENOMEM;
 
-	memcpy_fromio(buf, (drvdata->ram_base + *ppos), len);
+	dcc_sram_memcpy(buf, (drvdata->ram_base + *ppos), len);
 
 	if (copy_to_user(data, buf, len)) {
 		dev_err(drvdata->dev,
