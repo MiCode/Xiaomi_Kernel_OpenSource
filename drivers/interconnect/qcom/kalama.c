@@ -377,6 +377,7 @@ static struct qcom_icc_qosbox alm_gpu_tcu_qos = {
 	.config = &(struct qos_config) {
 		.prio = 1,
 		.urg_fwd = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -398,6 +399,7 @@ static struct qcom_icc_qosbox alm_sys_tcu_qos = {
 	.config = &(struct qos_config) {
 		.prio = 6,
 		.urg_fwd = 0,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -429,7 +431,8 @@ static struct qcom_icc_qosbox qnm_gpu_qos = {
 	.offsets = { 0x31000, 0x71000 },
 	.config = &(struct qos_config) {
 		.prio = 0,
-		.urg_fwd = 0,
+		.urg_fwd = 1,
+		.prio_fwd_disable = 1,
 	},
 };
 
@@ -450,7 +453,7 @@ static struct qcom_icc_qosbox qnm_lpass_gemnoc_qos = {
 	.offsets = { 0xb5000 },
 	.config = &(struct qos_config) {
 		.prio = 0,
-		.urg_fwd = 0,
+		.urg_fwd = 1,
 	},
 };
 
@@ -526,6 +529,7 @@ static struct qcom_icc_qosbox qnm_nsp_gemnoc_qos = {
 	.config = &(struct qos_config) {
 		.prio = 0,
 		.urg_fwd = 1,
+		.prio_fwd_disable = 1,
 	},
 };
 
