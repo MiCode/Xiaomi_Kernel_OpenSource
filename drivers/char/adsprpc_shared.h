@@ -33,6 +33,12 @@
 		_IOWR('R', 21, struct fastrpc_ioctl_invoke_perf)
 #define FASTRPC_IOCTL_NOTIF_RSP \
 		_IOWR('R', 22, struct fastrpc_ioctl_notif_rsp)
+#define FASTRPC_IOCTL_DSPSIGNAL_CREATE _IOWR('R', 23, struct fastrpc_ioctl_dspsignal_create)
+#define FASTRPC_IOCTL_DSPSIGNAL_DESTROY _IOWR('R', 24, struct fastrpc_ioctl_dspsignal_destroy)
+#define FASTRPC_IOCTL_DSPSIGNAL_SIGNAL _IOWR('R', 25, struct fastrpc_ioctl_dspsignal_signal)
+#define FASTRPC_IOCTL_DSPSIGNAL_WAIT _IOWR('R', 26, struct fastrpc_ioctl_dspsignal_wait)
+#define FASTRPC_IOCTL_DSPSIGNAL_CANCEL_WAIT \
+		_IOWR('R', 27, struct fastrpc_ioctl_dspsignal_cancel_wait)
 
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
@@ -334,6 +340,28 @@ struct fastrpc_ioctl_munmap_fd {
 	ssize_t  len;			/* length */
 };
 
+struct fastrpc_ioctl_dspsignal_create {
+	uint32_t signal_id; /* Signal ID */
+	uint32_t flags;     /* Flags, currently unused */
+};
+
+struct fastrpc_ioctl_dspsignal_destroy {
+	uint32_t signal_id; /* Signal ID */
+};
+
+struct fastrpc_ioctl_dspsignal_signal {
+	uint32_t signal_id; /* Signal ID */
+};
+
+struct fastrpc_ioctl_dspsignal_wait {
+	uint32_t signal_id;    /* Signal ID */
+	uint32_t timeout_usec; /* Timeout in microseconds. UINT32_MAX for an infinite wait */
+};
+
+struct fastrpc_ioctl_dspsignal_cancel_wait {
+	uint32_t signal_id; /* Signal ID */
+};
+
 /**
  * Control flags for mapping memory on DSP user process
  */
@@ -475,7 +503,7 @@ struct fastrpc_ioctl_control {
 };
 
 #define FASTRPC_MAX_DSP_ATTRIBUTES	(256)
-#define FASTRPC_MAX_ATTRIBUTES	(259)
+#define FASTRPC_MAX_ATTRIBUTES	(260)
 
 enum fastrpc_dsp_capability {
 	ASYNC_FASTRPC_CAP = 9,
@@ -615,6 +643,14 @@ enum fastrpc_msg_type {
 	KERNEL_MSG_WITH_ZERO_PID,
 	KERNEL_MSG_WITH_NONZERO_PID,
 };
+
+#define DSPSIGNAL_TIMEOUT_NONE 0xffffffff
+#define DSPSIGNAL_NUM_SIGNALS 1024
+
+// Signal state and completions are stored in groups of DSPSIGNAL_GROUP_SIZE.
+// Must be a power of two.
+#define DSPSIGNAL_GROUP_SIZE 256
+
 
 struct secure_vm {
 	int *vmid;
@@ -915,6 +951,18 @@ struct fastrpc_notif_queue {
 	spinlock_t nqlock;
 };
 
+enum fastrpc_dspsignal_state {
+	DSPSIGNAL_STATE_UNUSED = 0,
+	DSPSIGNAL_STATE_PENDING,
+	DSPSIGNAL_STATE_SIGNALED,
+	DSPSIGNAL_STATE_CANCELED
+};
+
+struct fastrpc_dspsignal {
+	struct completion comp;
+	int state;
+};
+
 struct fastrpc_file {
 	struct hlist_node hn;
 	spinlock_t hlock;
@@ -985,6 +1033,10 @@ struct fastrpc_file {
 	bool is_unsigned_pd;
 	/* Flag to indicate 32 bit driver*/
 	bool is_compat;
+	/* Completion objects and state for dspsignals */
+	struct fastrpc_dspsignal *signal_groups[DSPSIGNAL_NUM_SIGNALS / DSPSIGNAL_GROUP_SIZE];
+	spinlock_t dspsignals_lock;
+	struct mutex signal_create_mutex;
 };
 
 union fastrpc_ioctl_param {
@@ -1000,6 +1052,11 @@ union fastrpc_ioctl_param {
 	struct fastrpc_ioctl_control cp;
 	struct fastrpc_ioctl_capability cap;
 	struct fastrpc_ioctl_invoke2 inv2;
+	struct fastrpc_ioctl_dspsignal_signal sig;
+	struct fastrpc_ioctl_dspsignal_wait wait;
+	struct fastrpc_ioctl_dspsignal_create cre;
+	struct fastrpc_ioctl_dspsignal_destroy des;
+	struct fastrpc_ioctl_dspsignal_cancel_wait canc;
 };
 
 int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
@@ -1035,5 +1092,21 @@ int fastrpc_setmode(unsigned long ioctl_param,
 int fastrpc_get_info_from_kernel(
 		struct fastrpc_ioctl_capability *cap,
 		struct fastrpc_file *fl);
+
+int fastrpc_dspsignal_signal(struct fastrpc_file *fl,
+			     struct fastrpc_ioctl_dspsignal_signal *sig);
+
+int fastrpc_dspsignal_wait(struct fastrpc_file *fl,
+			   struct fastrpc_ioctl_dspsignal_wait *wait);
+
+int fastrpc_dspsignal_create(struct fastrpc_file *fl,
+			     struct fastrpc_ioctl_dspsignal_create *create);
+
+int fastrpc_dspsignal_destroy(struct fastrpc_file *fl,
+			      struct fastrpc_ioctl_dspsignal_destroy *destroy);
+
+int fastrpc_dspsignal_cancel_wait(struct fastrpc_file *fl,
+				  struct fastrpc_ioctl_dspsignal_cancel_wait *cancel);
+
 
 #endif

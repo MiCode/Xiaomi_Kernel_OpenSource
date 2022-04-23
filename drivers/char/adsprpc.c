@@ -196,6 +196,7 @@
 #define PERF_CAPABILITY_SUPPORT	(1 << 1)
 #define KERNEL_ERROR_CODE_V1_SUPPORT	1
 #define USERSPACE_ALLOCATION_SUPPORT	1
+#define DSPSIGNAL_SUPPORT		1
 
 #define MD_GMSG_BUFFER (1000)
 
@@ -256,6 +257,10 @@ enum fastrpc_proc_attr {
 		&& (!strcmp(cb_pdname, local_pdname)))
 
 #define IS_ASYNC_FASTRPC_AVAILABLE (1)
+
+/* Use the second definition to enable additional dspsignal debug logging */
+#define DSPSIGNAL_VERBOSE(x, ...)
+/*#define DSPSIGNAL_VERBOSE ADSPRPC_INFO*/
 
 static struct dentry *debugfs_root;
 static struct dentry *debugfs_global_file;
@@ -371,8 +376,10 @@ static uint32_t kernel_capabilities[FASTRPC_MAX_ATTRIBUTES -
 	/* PERF_LOGGING_V2_SUPPORT feature is supported, unsupported = 0 */
 	KERNEL_ERROR_CODE_V1_SUPPORT,
 	/* Fastrpc Driver error code changes present */
-	USERSPACE_ALLOCATION_SUPPORT
+	USERSPACE_ALLOCATION_SUPPORT,
 	/* Userspace allocation allowed for DSP memory request*/
+	DSPSIGNAL_SUPPORT
+	/* Lightweight driver-based signaling */
 };
 
 static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type);
@@ -5035,6 +5042,55 @@ bail:
 			rpdev->dev.parent->of_node->name, cid);
 }
 
+static void handle_signal_rpmsg(uint64_t msg, int cid)
+{
+	struct fastrpc_apps *me = &gfa;
+	uint32_t pid = msg >> 32;
+	uint32_t signal_id = msg & 0xffffffff;
+	struct fastrpc_file *fl = NULL;
+	struct hlist_node *n = NULL;
+	unsigned long irq_flags = 0;
+
+	DSPSIGNAL_VERBOSE("Received queue signal %llx: PID %u, signal %u\n", msg, pid, signal_id);
+
+	if (signal_id >= DSPSIGNAL_NUM_SIGNALS) {
+		ADSPRPC_ERR("Received bad signal %u for PID %u\n", signal_id, pid);
+		return;
+	}
+
+	spin_lock_irqsave(&me->hlock, irq_flags);
+	hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
+		if ((fl->tgid == pid) && (fl->cid == cid)) {
+			unsigned long fflags = 0;
+
+			spin_lock_irqsave(&fl->dspsignals_lock, fflags);
+			if (fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE]) {
+				struct fastrpc_dspsignal *group =
+					fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE];
+				struct fastrpc_dspsignal *sig =
+					&group[signal_id % DSPSIGNAL_GROUP_SIZE];
+
+				if ((sig->state == DSPSIGNAL_STATE_PENDING) ||
+				    (sig->state == DSPSIGNAL_STATE_SIGNALED)) {
+					DSPSIGNAL_VERBOSE("Signaling signal %u for PID %u\n",
+							  signal_id, pid);
+					complete(&sig->comp);
+					sig->state = DSPSIGNAL_STATE_SIGNALED;
+				} else if (sig->state == DSPSIGNAL_STATE_UNUSED) {
+					ADSPRPC_ERR("Received unknown signal %u for PID %u\n",
+						    signal_id, pid);
+				}
+			} else {
+				ADSPRPC_ERR("Received unknown signal %u for PID %u\n",
+					    signal_id, pid);
+			}
+			spin_unlock_irqrestore(&fl->dspsignals_lock, fflags);
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
+}
+
 static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 	int len, void *priv, u32 addr)
 {
@@ -5059,7 +5115,14 @@ static int fastrpc_rpmsg_callback(struct rpmsg_device *rpdev, void *data,
 		goto bail;
 	}
 
+	if (len == sizeof(uint64_t)) {
+		// dspsignal message from the DSP
+		handle_signal_rpmsg(*((uint64_t *)data), cid);
+		goto bail;
+	}
+
 	chan = &me->channel[cid];
+
 	if (notif && notif->ctx == FASTRPC_NOTIF_CTX_RESERVED) {
 		VERIFY(err, (notif->type == STATUS_RESPONSE &&
 					 len >= sizeof(*notif)));
@@ -5171,6 +5234,7 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 	int err = 0;
 	unsigned long irq_flags = 0;
 	bool is_locked = false;
+	int i;
 
 	if (!fl)
 		return 0;
@@ -5254,6 +5318,10 @@ skip_dump_wait:
 		fastrpc_session_free(&fl->apps->channel[cid], fl->sctx);
 	if (!err && fl->secsctx)
 		fastrpc_session_free(&fl->apps->channel[cid], fl->secsctx);
+
+	for (i = 0; i < (DSPSIGNAL_NUM_SIGNALS / DSPSIGNAL_GROUP_SIZE); i++)
+		kfree(fl->signal_groups[i]);
+	mutex_destroy(&fl->signal_create_mutex);
 
 	fastrpc_remote_buf_list_free(fl);
 	mutex_destroy(&fl->map_mutex);
@@ -5649,6 +5717,8 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->dev_pm_qos_req = kcalloc(me->silvercores.corecount,
 				sizeof(struct dev_pm_qos_request),
 				GFP_KERNEL);
+	spin_lock_init(&fl->dspsignals_lock);
+	mutex_init(&fl->signal_create_mutex);
 
 	return 0;
 }
@@ -6077,6 +6147,312 @@ bail:
 	return err;
 }
 
+
+int fastrpc_dspsignal_signal(struct fastrpc_file *fl,
+			     struct fastrpc_ioctl_dspsignal_signal *sig)
+{
+	int err = 0, cid = -1;
+	struct fastrpc_channel_ctx *channel_ctx = NULL;
+	uint64_t msg = 0;
+
+	// We don't check if the signal has even been allocated since we don't
+	// track outgoing signals in the driver. The userspace library does a
+	// basic sanity check and any security validation needs to be done by
+	// the recipient.
+	DSPSIGNAL_VERBOSE("Send signal PID %u, signal %u\n",
+			  (unsigned int)fl->tgid, (unsigned int)sig->signal_id);
+	VERIFY(err, sig->signal_id < DSPSIGNAL_NUM_SIGNALS);
+	if (err) {
+		ADSPRPC_ERR("Sending bad signal %u for PID %u",
+			    sig->signal_id, (unsigned int)fl->tgid);
+		err = -EBADR;
+		goto bail;
+	}
+
+	cid = fl->cid;
+	VERIFY(err, VALID_FASTRPC_CID(cid) && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
+
+	channel_ctx = &fl->apps->channel[cid];
+	mutex_lock(&channel_ctx->smd_mutex);
+	if (fl->ssrcount != channel_ctx->ssrcount) {
+		err = -ECONNRESET;
+		mutex_unlock(&channel_ctx->smd_mutex);
+		goto bail;
+	}
+
+	mutex_lock(&channel_ctx->rpmsg_mutex);
+	VERIFY(err, !IS_ERR_OR_NULL(channel_ctx->rpdev));
+	if (err) {
+		ADSPRPC_ERR("No rpmsg device for %s\n", current->comm);
+		err = -ENODEV;
+		mutex_unlock(&channel_ctx->rpmsg_mutex);
+		mutex_unlock(&channel_ctx->smd_mutex);
+		goto bail;
+	}
+	msg = (((uint64_t)fl->tgid) << 32) | ((uint64_t)sig->signal_id);
+	err = rpmsg_send(channel_ctx->rpdev->ept, (void *)&msg, sizeof(msg));
+	mutex_unlock(&channel_ctx->rpmsg_mutex);
+	mutex_unlock(&channel_ctx->smd_mutex);
+
+bail:
+	return err;
+}
+
+
+int fastrpc_dspsignal_wait(struct fastrpc_file *fl,
+			   struct fastrpc_ioctl_dspsignal_wait *wait)
+{
+	int err = 0, cid = -1;
+	unsigned long timeout = usecs_to_jiffies(wait->timeout_usec);
+	uint32_t signal_id = wait->signal_id;
+	struct fastrpc_dspsignal *s = NULL;
+	long ret = 0;
+	unsigned long irq_flags = 0;
+
+	DSPSIGNAL_VERBOSE("Wait for signal %u\n", signal_id);
+	VERIFY(err, signal_id < DSPSIGNAL_NUM_SIGNALS);
+	if (err) {
+		ADSPRPC_ERR("Waiting on bad signal %u", signal_id);
+		err = -EINVAL;
+		goto bail;
+	}
+	cid = fl->cid;
+	VERIFY(err, VALID_FASTRPC_CID(cid) && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
+
+	spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+	if (fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE] != NULL) {
+		struct fastrpc_dspsignal *group =
+			fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE];
+
+		s = &group[signal_id % DSPSIGNAL_GROUP_SIZE];
+	}
+	if ((s == NULL) || (s->state == DSPSIGNAL_STATE_UNUSED)) {
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		ADSPRPC_ERR("Unknown signal id %u\n", signal_id);
+		err = -ENOENT;
+		goto bail;
+	}
+	if (s->state != DSPSIGNAL_STATE_PENDING) {
+		if ((s->state == DSPSIGNAL_STATE_CANCELED) || (s->state == DSPSIGNAL_STATE_UNUSED))
+			err = -EINTR;
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		DSPSIGNAL_VERBOSE("Signal %u in state %u, complete wait immediately",
+				  signal_id, s->state);
+		goto bail;
+	}
+	spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+
+	if (timeout != 0xffffffff)
+		ret = wait_for_completion_interruptible_timeout(&s->comp, timeout);
+	else
+		ret = wait_for_completion_interruptible(&s->comp);
+
+	if (ret == 0) {
+		DSPSIGNAL_VERBOSE("Wait for signal %u timed out\n", signal_id);
+		err = -ETIMEDOUT;
+		goto bail;
+	} else if (ret < 0) {
+		ADSPRPC_ERR("Wait for signal %u failed %d\n", signal_id, (int)ret);
+		err = ret;
+		goto bail;
+	}
+
+	spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+	if (s->state == DSPSIGNAL_STATE_SIGNALED) {
+		s->state = DSPSIGNAL_STATE_PENDING;
+		DSPSIGNAL_VERBOSE("Signal %u completed\n", signal_id);
+	} else if ((s->state == DSPSIGNAL_STATE_CANCELED) || (s->state == DSPSIGNAL_STATE_UNUSED)) {
+		DSPSIGNAL_VERBOSE("Signal %u cancelled or destroyed\n", signal_id);
+		err = -EINTR;
+	}
+	spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+
+bail:
+	return err;
+}
+
+
+int fastrpc_dspsignal_create(struct fastrpc_file *fl,
+			     struct fastrpc_ioctl_dspsignal_create *create)
+{
+	int err = 0, cid = -1;
+	uint32_t signal_id = create->signal_id;
+	struct fastrpc_dspsignal *group, *sig;
+	unsigned long irq_flags = 0;
+
+	VERIFY(err, signal_id < DSPSIGNAL_NUM_SIGNALS);
+	if (err) {
+		err = -EINVAL;
+		goto bail;
+	}
+	cid = fl->cid;
+	VERIFY(err, VALID_FASTRPC_CID(cid) && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
+
+	// Use a separate mutex for creating signals. This avoids holding on
+	// to a spinlock if we need to allocate a whole group of signals. The
+	// mutex ensures nobody else will allocate the same group.
+	mutex_lock(&fl->signal_create_mutex);
+	spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+
+	group = fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE];
+	if (group == NULL) {
+		int i;
+		// Release the spinlock while we allocate a new group but take
+		// it back before taking the group into use. No other code
+		// allocates groups so the mutex is sufficient.
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		VERIFY(err, (group = kzalloc(DSPSIGNAL_GROUP_SIZE * sizeof(*group),
+					     GFP_KERNEL)) != NULL);
+		if (err) {
+			ADSPRPC_ERR("Unable to allocate signal group\n");
+			err = -ENOMEM;
+			mutex_unlock(&fl->signal_create_mutex);
+			goto bail;
+		}
+
+		for (i = 0; i < DSPSIGNAL_GROUP_SIZE; i++) {
+			sig = &group[i];
+			init_completion(&sig->comp);
+			sig->state = DSPSIGNAL_STATE_UNUSED;
+		}
+		spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+		fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE] = group;
+	}
+
+	sig = &group[signal_id % DSPSIGNAL_GROUP_SIZE];
+	if (sig->state != DSPSIGNAL_STATE_UNUSED) {
+		err = -EBUSY;
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		mutex_unlock(&fl->signal_create_mutex);
+		ADSPRPC_ERR("Attempting to create signal %u already in use (state %u)\n",
+			    signal_id, sig->state);
+		goto bail;
+	}
+
+	sig->state = DSPSIGNAL_STATE_PENDING;
+	reinit_completion(&sig->comp);
+
+	spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+	mutex_unlock(&fl->signal_create_mutex);
+
+	DSPSIGNAL_VERBOSE("Signal %u created\n", signal_id);
+
+bail:
+	return err;
+}
+
+
+int fastrpc_dspsignal_destroy(struct fastrpc_file *fl,
+			      struct fastrpc_ioctl_dspsignal_destroy *destroy)
+{
+	int err = 0, cid = -1;
+	uint32_t signal_id = destroy->signal_id;
+	struct fastrpc_dspsignal *s = NULL;
+	unsigned long irq_flags = 0;
+
+	DSPSIGNAL_VERBOSE("Destroy signal %u\n", signal_id);
+
+	VERIFY(err, signal_id < DSPSIGNAL_NUM_SIGNALS);
+	if (err) {
+		err = -EINVAL;
+		goto bail;
+	}
+	cid = fl->cid;
+	VERIFY(err, VALID_FASTRPC_CID(cid) && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
+
+	spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+
+	if (fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE] != NULL) {
+		struct fastrpc_dspsignal *group =
+			fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE];
+
+		s = &group[signal_id % DSPSIGNAL_GROUP_SIZE];
+	}
+	if ((s == NULL) || (s->state == DSPSIGNAL_STATE_UNUSED)) {
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		ADSPRPC_ERR("Attempting to destroy unused signal %u\n", signal_id);
+		err = -ENOENT;
+		goto bail;
+	}
+
+	s->state = DSPSIGNAL_STATE_UNUSED;
+	complete_all(&s->comp);
+
+	spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+	DSPSIGNAL_VERBOSE("Signal %u destroyed\n", signal_id);
+
+bail:
+	return err;
+}
+
+
+int fastrpc_dspsignal_cancel_wait(struct fastrpc_file *fl,
+				  struct fastrpc_ioctl_dspsignal_cancel_wait *cancel)
+{
+	int err = 0, cid = -1;
+	uint32_t signal_id = cancel->signal_id;
+	struct fastrpc_dspsignal *s = NULL;
+	unsigned long irq_flags = 0;
+
+	DSPSIGNAL_VERBOSE("Cancel wait for signal %u\n", signal_id);
+
+	VERIFY(err, signal_id < DSPSIGNAL_NUM_SIGNALS);
+	if (err) {
+		err = -EINVAL;
+		goto bail;
+	}
+	cid = fl->cid;
+	VERIFY(err, VALID_FASTRPC_CID(cid) && fl->sctx != NULL);
+	if (err) {
+		err = -EBADR;
+		goto bail;
+	}
+
+	spin_lock_irqsave(&fl->dspsignals_lock, irq_flags);
+
+	if (fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE] != NULL) {
+		struct fastrpc_dspsignal *group =
+			fl->signal_groups[signal_id / DSPSIGNAL_GROUP_SIZE];
+
+		s = &group[signal_id % DSPSIGNAL_GROUP_SIZE];
+	}
+	if ((s == NULL) || (s->state == DSPSIGNAL_STATE_UNUSED)) {
+		spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+		ADSPRPC_ERR("Attempting to cancel unused signal %u\n", signal_id);
+		err = -ENOENT;
+		goto bail;
+	}
+
+	if (s->state != DSPSIGNAL_STATE_CANCELED) {
+		s->state = DSPSIGNAL_STATE_CANCELED;
+		complete_all(&s->comp);
+	}
+
+	spin_unlock_irqrestore(&fl->dspsignals_lock, irq_flags);
+
+	DSPSIGNAL_VERBOSE("Signal %u cancelled\n", signal_id);
+
+bail:
+	return err;
+}
+
+
 static inline int fastrpc_mmap_device_ioctl(struct fastrpc_file *fl,
 		unsigned int ioctl_num,	union fastrpc_ioctl_param *p,
 		void *param)
@@ -6329,6 +6705,62 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		fallthrough;
 	case FASTRPC_IOCTL_MUNMAP_FD:
 		err = fastrpc_mmap_device_ioctl(fl, ioctl_num, &p, param);
+		break;
+
+	case FASTRPC_IOCTL_DSPSIGNAL_SIGNAL:
+		K_COPY_FROM_USER(err, 0, &p.sig, param,
+					sizeof(struct fastrpc_ioctl_dspsignal_signal));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		VERIFY(err, 0 == (err = fastrpc_dspsignal_signal(fl, &p.sig)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_DSPSIGNAL_WAIT:
+		K_COPY_FROM_USER(err, 0, &p.wait, param,
+					sizeof(struct fastrpc_ioctl_dspsignal_wait));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		VERIFY(err, 0 == (err = fastrpc_dspsignal_wait(fl, &p.wait)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_DSPSIGNAL_CREATE:
+		K_COPY_FROM_USER(err, 0, &p.cre, param,
+					sizeof(struct fastrpc_ioctl_dspsignal_create));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		VERIFY(err, 0 == (err = fastrpc_dspsignal_create(fl, &p.cre)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_DSPSIGNAL_DESTROY:
+		K_COPY_FROM_USER(err, 0, &p.des, param,
+					sizeof(struct fastrpc_ioctl_dspsignal_destroy));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		VERIFY(err, 0 == (err = fastrpc_dspsignal_destroy(fl, &p.des)));
+		if (err)
+			goto bail;
+		break;
+	case FASTRPC_IOCTL_DSPSIGNAL_CANCEL_WAIT:
+		K_COPY_FROM_USER(err, 0, &p.canc, param,
+					sizeof(struct fastrpc_ioctl_dspsignal_cancel_wait));
+		if (err) {
+			err = -EFAULT;
+			goto bail;
+		}
+		VERIFY(err, 0 == (err = fastrpc_dspsignal_cancel_wait(fl, &p.canc)));
+		if (err)
+			goto bail;
 		break;
 	default:
 		err = -ENOTTY;
