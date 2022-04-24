@@ -62,6 +62,11 @@
 #define DWC3_GUCTL1_L1_SUSP_THRLD_EN_FOR_HOST	BIT(8)
 #define DWC3_GUCTL3_USB20_RETRY_DISABLE	BIT(16)
 #define DWC3_GUSB3PIPECTL_DISRXDETU3	BIT(22)
+
+#define DWC3_LLUCTL	0xd024
+/* Force Gen1 speed on Gen2 link */
+#define DWC3_LLUCTL_FORCE_GEN1	BIT(10)
+
 #define DWC31_LINK_GDBGLTSSM	0xd050
 #define DWC3_GDBGLTSSM_LINKSTATE_MASK	(0xF << 22)
 
@@ -557,6 +562,7 @@ struct dwc3_msm {
 	struct dwc3_hw_ep	hw_eps[DWC3_ENDPOINTS_NUM];
 	bool			dis_sending_cm_l1_quirk;
 	bool			use_eusb2_phy;
+	bool			force_gen1;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -3178,6 +3184,16 @@ static void dwc3_dis_sleep_mode(struct dwc3_msm *mdwc)
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL1, reg);
 }
 
+
+/* Force Gen1 speed on Gen2 controller if required */
+static void dwc3_force_gen1(struct dwc3_msm *mdwc)
+{
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	if (mdwc->force_gen1 && DWC3_IP_IS(DWC31))
+		dwc3_msm_write_reg_field(mdwc->base, DWC3_LLUCTL, DWC3_LLUCTL_FORCE_GEN1, 1);
+}
+
 static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = NULL;
@@ -3211,6 +3227,8 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 		if (mdwc->dis_sending_cm_l1_quirk)
 			mdwc3_dis_sending_cm_l1(mdwc);
 	}
+
+	dwc3_force_gen1(mdwc);
 }
 
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
@@ -5080,6 +5098,8 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 	val = dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID);
 	mdwc->ip = DWC3_GSNPS_ID(val);
 
+	dwc3_force_gen1(mdwc);
+
 	dwc3_msm_notify_event(dwc, DWC3_GSI_EVT_BUF_ALLOC, 0);
 	pm_runtime_set_autosuspend_delay(dwc->dev, 0);
 	pm_runtime_allow(dwc->dev);
@@ -5392,6 +5412,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		of_node_put(mdwc->ss_redriver_node);
 		mdwc->ss_redriver_node = NULL;
 	}
+
+	mdwc->force_gen1 = of_property_read_bool(node, "qcom,force-gen1");
 
 	if (of_property_read_bool(node, "usb-role-switch")) {
 		struct usb_role_switch_desc role_desc = {
