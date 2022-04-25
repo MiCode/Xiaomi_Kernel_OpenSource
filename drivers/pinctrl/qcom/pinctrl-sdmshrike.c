@@ -2237,6 +2237,25 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[194] = UFS_RESET(ufs0_reset, 0xdc7004),
 };
 
+static const struct msm_gpio_wakeirq_map sdmshrike_pdc_map[] = {
+	{ 3, 31 }, { 5, 32 }, { 8, 33 }, { 9, 34 }, { 10, 100 },
+	{ 12, 104 }, { 24, 37 }, { 26, 38 }, { 27, 41 }, { 28, 42 },
+	{ 30, 39 }, { 36, 43 }, { 37, 44 }, { 38, 45 }, { 39, 118 },
+	{ 41, 47 }, { 42, 48 }, { 46, 50 }, { 47, 49 }, { 48, 51 },
+	{ 49, 53 }, { 50, 52 }, { 51, 116 }, { 53, 54 }, { 54, 55 },
+	{ 55, 56 }, { 56, 57 }, { 58, 58 }, { 60, 60 }, { 61, 61 },
+	{ 68, 62 }, { 70, 63 }, { 76, 86 }, { 77, 66 }, { 81, 64 },
+	{ 83, 65 }, { 86, 67 }, { 87, 84 }, { 88, 117 }, { 90, 69 },
+	{ 91, 70 }, {93, 75 }, { 95, 72 }, { 96, 73 }, { 97, 74 },
+	{ 101, 76 }, { 103, 77 }, { 104, 78 }, { 108, 79 }, { 112, 80 },
+	{ 113, 81 }, { 114, 82 }, { 117, 85 }, { 118, 101 }, { 119, 87 },
+	{ 120, 88 }, { 121, 89 }, { 122, 90 }, { 123, 91 }, { 124, 92 },
+	{ 125, 93 }, { 129, 94 }, { 132, 105 }, { 133, 35 }, { 134, 36 },
+	{ 136, 97 }, { 142, 103 }, { 144, 115 }, { 147, 106 }, { 150, 107 },
+	{ 152, 108 }, { 153, 109 }, { 177, 111 }, { 180, 112 }, { 184, 113 },
+	{ 189, 114 },
+};
+
 static struct msm_pinctrl_soc_data sdmshrike_pinctrl = {
 	.pins = sdmshrike_pins,
 	.npins = ARRAY_SIZE(sdmshrike_pins),
@@ -2245,6 +2264,9 @@ static struct msm_pinctrl_soc_data sdmshrike_pinctrl = {
 	.groups = sdmshrike_groups,
 	.ngroups = ARRAY_SIZE(sdmshrike_groups),
 	.ngpios = 190,
+	.wakeirq_map = sdmshrike_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(sdmshrike_pdc_map),
+	.wakeirq_dual_edge_errata = true,
 };
 
 static int sdmshrike_pinctrl_probe(struct platform_device *pdev)
