@@ -4987,8 +4987,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	sdhci_msm_set_caps(msm_host);
 
-	msm_host->pltfm_init_done = true;
-
 	sdhci_msm_setup_pm(pdev, msm_host);
 
 	host->mmc_host_ops.start_signal_voltage_switch =
