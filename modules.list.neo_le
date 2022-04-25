@@ -74,3 +74,4 @@ regmap-spmi.ko
 proxy-consumer.ko
 clk-spmi-pmic-div.ko
 bq256xx_charger.ko
+minidump.ko
