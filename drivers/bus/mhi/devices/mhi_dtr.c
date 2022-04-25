@@ -202,6 +202,21 @@ static void mhi_dtr_ul_xfer_cb(struct mhi_device *mhi_dev,
 		complete(&dtr_info->completion);
 }
 
+static void mhi_dtr_status_cb(struct mhi_device *mhi_dev, enum mhi_callback cb)
+{
+	struct device *dev = &mhi_dev->dev;
+	int ret;
+
+	if (cb != MHI_CB_DTR_START_CHANNELS)
+		return;
+
+	ret = mhi_prepare_for_transfer(mhi_dev);
+	if (!ret)
+		dtr_info->mhi_dev = mhi_dev;
+
+	DTR_LOG("DTR channels start attempt returns: %d\n", ret);
+}
+
 static void mhi_dtr_remove(struct mhi_device *mhi_dev)
 {
 	dtr_info->mhi_dev = NULL;
@@ -211,18 +226,13 @@ static int mhi_dtr_probe(struct mhi_device *mhi_dev,
 			 const struct mhi_device_id *id)
 {
 	struct device *dev = &mhi_dev->dev;
-	int ret;
-
-	ret = mhi_prepare_for_transfer(mhi_dev);
-	if (!ret)
-		dtr_info->mhi_dev = mhi_dev;
 
 	dtr_info->ipc_log = ipc_log_context_create(MHI_DTR_IPC_LOG_PAGES,
 						   dev_name(&mhi_dev->dev), 0);
 
-	DTR_LOG("%s setup complete, ret: %d\n", dev_name(&mhi_dev->dev), ret);
+	DTR_LOG("Probe complete\n");
 
-	return ret;
+	return 0;
 }
 
 static const struct mhi_device_id mhi_dtr_table[] = {
@@ -236,6 +246,7 @@ static struct mhi_driver mhi_dtr_driver = {
 	.probe = mhi_dtr_probe,
 	.ul_xfer_cb = mhi_dtr_ul_xfer_cb,
 	.dl_xfer_cb = mhi_dtr_dl_xfer_cb,
+	.status_cb = mhi_dtr_status_cb,
 	.driver = {
 		.name = "MHI_DTR",
 		.owner = THIS_MODULE,
