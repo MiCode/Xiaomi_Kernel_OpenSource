@@ -802,7 +802,8 @@ static int msm_eusb2_phy_set_suspend(struct usb_phy *uphy, int suspend)
 			 * suspend case. As this vote is suppressible, this will allow XO
 			 * shutdown.
 			 */
-			if (phy->ref_clk && !phy->ref_clk_enable) {
+			if (phy->ref_clk && !phy->ref_clk_enable &&
+					!(phy->ur->flags & UR_AUTO_RESUME_SUPPORTED)) {
 				phy->ref_clk_enable = true;
 				clk_prepare_enable(phy->ref_clk);
 			}
@@ -821,7 +822,8 @@ static int msm_eusb2_phy_set_suspend(struct usb_phy *uphy, int suspend)
 		if (phy->phy.flags & EUD_SPOOF_DISCONNECT)
 			goto suspend_exit;
 
-		if (phy->ref_clk && phy->ref_clk_enable) {
+		if (phy->ref_clk && phy->ref_clk_enable &&
+					!(phy->ur->flags & UR_AUTO_RESUME_SUPPORTED)) {
 			clk_disable_unprepare(phy->ref_clk);
 			phy->ref_clk_enable = false;
 		}
