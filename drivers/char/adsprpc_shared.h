@@ -878,6 +878,8 @@ struct fastrpc_apps {
 	struct hlist_head drivers;
 	spinlock_t hlock;
 	struct device *dev;
+	/* Indicates fastrpc device node info */
+	struct device *dev_fastrpc;
 	unsigned int latency;
 	int rpmsg_register;
 	/* Flag to determine fastrpc bus registration */
@@ -898,6 +900,8 @@ struct fastrpc_apps {
 	struct hlist_head frpc_devices;
 	struct hlist_head frpc_drivers;
 	struct mutex mut_uid;
+	/* Indicates cdsp device status */
+	int remote_cdsp_status;
 };
 
 struct fastrpc_mmap {
