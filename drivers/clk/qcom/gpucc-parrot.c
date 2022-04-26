@@ -171,7 +171,7 @@ static const struct clk_parent_data gpu_cc_parent_data_3[] = {
 };
 
 static const struct freq_tbl ftbl_gpu_cc_ff_clk_src[] = {
-	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN_DIV, 1.5, 0, 0),
 	{ }
 };
 
