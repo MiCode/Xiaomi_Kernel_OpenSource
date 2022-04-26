@@ -181,6 +181,7 @@
   __tracepoint_android_vh_gic_resume
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
+  __tracepoint_android_vh_kswapd_per_node
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_logbuf_pr_cont
   __tracepoint_android_vh_printk_hotplug
@@ -1044,6 +1045,7 @@
   kstrtoul_from_user
   kstrtoull
   kstrtoull_from_user
+  kswapd
   kthread_bind
   kthread_bind_mask
   kthread_cancel_work_sync
