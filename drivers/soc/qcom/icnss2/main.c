@@ -910,10 +910,12 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 		if (!priv->fw_soc_wake_ack_irq)
 			register_soc_wake_notif(&priv->pdev->dev);
 
-		icnss_get_smp2p_info(priv, ICNSS_SMP2P_OUT_POWER_SAVE);
 		icnss_get_smp2p_info(priv, ICNSS_SMP2P_OUT_SOC_WAKE);
 		icnss_get_smp2p_info(priv, ICNSS_SMP2P_OUT_EP_POWER_SAVE);
 	}
+
+	if (priv->wpss_supported)
+		icnss_get_smp2p_info(priv, ICNSS_SMP2P_OUT_POWER_SAVE);
 
 	if (priv->device_id == ADRASTEA_DEVICE_ID) {
 		if (priv->bdf_download_support) {
@@ -1530,12 +1532,14 @@ static int icnss_driver_event_pd_service_down(struct icnss_priv *priv,
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
 		icnss_send_smp2p(priv, ICNSS_RESET_MSG,
-				 ICNSS_SMP2P_OUT_POWER_SAVE);
-		icnss_send_smp2p(priv, ICNSS_RESET_MSG,
 				 ICNSS_SMP2P_OUT_SOC_WAKE);
 		icnss_send_smp2p(priv, ICNSS_RESET_MSG,
 				 ICNSS_SMP2P_OUT_EP_POWER_SAVE);
 	}
+
+	if (priv->wpss_supported)
+		icnss_send_smp2p(priv, ICNSS_RESET_MSG,
+				 ICNSS_SMP2P_OUT_POWER_SAVE);
 
 	icnss_send_hang_event_data(priv);
 
@@ -3444,7 +3448,7 @@ int icnss_trigger_recovery(struct device *dev)
 		goto out;
 	}
 
-	if (priv->device_id == WCN6750_DEVICE_ID) {
+	if (priv->wpss_supported) {
 		icnss_pr_vdbg("Initiate Root PD restart");
 		ret = icnss_send_smp2p(priv, ICNSS_TRIGGER_SSR,
 				       ICNSS_SMP2P_OUT_POWER_SAVE);
