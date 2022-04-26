@@ -2980,7 +2980,7 @@ static inline bool _verify_ib(struct kgsl_device_private *dev_priv,
 
 	/* The maximum allowable size for an IB in the CP is 0xFFFFF dwords */
 	if (ib->size == 0 || ((ib->size >> 2) > 0xFFFFF)) {
-		pr_context(device, context, "ctxt %d invalid ib size %lld\n",
+		pr_context(device, context, "ctxt %u invalid ib size %lld\n",
 			context->id, ib->size);
 		return false;
 	}
@@ -2988,7 +2988,7 @@ static inline bool _verify_ib(struct kgsl_device_private *dev_priv,
 	/* Make sure that the address is in range and dword aligned */
 	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, ib->gpuaddr,
 		ib->size) || !IS_ALIGNED(ib->gpuaddr, 4)) {
-		pr_context(device, context, "ctxt %d invalid ib gpuaddr %llX\n",
+		pr_context(device, context, "ctxt %u invalid ib gpuaddr %llX\n",
 			context->id, ib->gpuaddr);
 		return false;
 	}

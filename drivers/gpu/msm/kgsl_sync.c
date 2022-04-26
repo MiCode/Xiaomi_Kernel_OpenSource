@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2019, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/file.h>
@@ -324,7 +325,7 @@ int kgsl_sync_timeline_create(struct kgsl_context *context)
 
 	kref_init(&ktimeline->kref);
 	snprintf(ktimeline->name, sizeof(ktimeline->name),
-		"%s_%d-%.15s(%d)-%.15s(%d)",
+		"%s_%u-%.15s(%d)-%.15s(%d)",
 		context->device->name, context->id,
 		current->group_leader->comm, current->group_leader->pid,
 		current->comm, current->pid);
