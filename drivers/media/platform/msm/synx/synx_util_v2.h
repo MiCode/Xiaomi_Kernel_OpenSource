@@ -176,5 +176,6 @@ void synx_util_map_import_params_to_create(
 			struct synx_create_params *c_params);
 
 struct bind_operations *synx_util_get_bind_ops(u32 type);
+u32 synx_util_map_client_id_to_core(enum synx_client_id id);
 
 #endif /* __SYNX_UTIL_V2_H__ */

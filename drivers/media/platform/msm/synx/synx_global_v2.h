@@ -49,6 +49,7 @@ enum synx_core_id {
 #define SYNX_STATE_ACTIVE              1
 #define SYNX_STATE_SIGNALED_ERROR      3
 #define SYNX_STATE_SIGNALED_EXTERNAL   5
+#define SYNX_STATE_SIGNALED_SSR        6
 
 /**
  * struct synx_global_coredata - Synx global object, used for book keeping
@@ -253,5 +254,14 @@ int synx_global_get_parents(u32 idx, u32 *parents);
  * @return SYNX_SUCCESS on success. Negative error on failure.
  */
 int synx_global_merge(u32 *idx_list, u32 num_list, u32 p_idx);
+
+/**
+ * synx_global_recover - Recover handles subscribed by specific core
+ *
+ * @param id : Core ID to clean up
+ *
+ * @return SYNX_SUCCESS on success. Negative error on failure.
+ */
+int synx_global_recover(enum synx_core_id id);
 
 #endif /* __SYNX_SHARED_MEM_H__ */

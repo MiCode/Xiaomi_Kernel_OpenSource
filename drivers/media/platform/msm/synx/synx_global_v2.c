@@ -671,6 +671,64 @@ fail:
 	return rc;
 }
 
+int synx_global_recover(enum synx_core_id core_id)
+{
+	int rc;
+	u32 idx = 0;
+	const u32 size = SYNX_GLOBAL_MAX_OBJS;
+	unsigned long flags;
+	struct synx_global_coredata *synx_g_obj;
+	bool clear_idx[SYNX_GLOBAL_MAX_OBJS] = {false};
+	bool update;
+
+	if (!synx_gmem.table)
+		return -SYNX_NOMEM;
+
+	idx = find_next_bit((unsigned long *)synx_gmem.bitmap,
+			size, idx + 1);
+	while (idx < size) {
+		update = false;
+		rc = synx_gmem_lock(idx, &flags);
+		if (rc)
+			return rc;
+		synx_g_obj = &synx_gmem.table[idx];
+		if (synx_g_obj->refcount &&
+			 synx_g_obj->subscribers & (1UL << core_id)) {
+			synx_g_obj->subscribers &= ~(1UL << core_id);
+			synx_g_obj->refcount--;
+			if (synx_g_obj->refcount == 0) {
+				memset(synx_g_obj, 0, sizeof(*synx_g_obj));
+				clear_idx[idx] = true;
+			} else if (synx_g_obj->status == SYNX_STATE_ACTIVE) {
+				update = true;
+			}
+		}
+		synx_gmem_unlock(idx, &flags);
+		if (update)
+			synx_global_update_status(idx,
+				SYNX_STATE_SIGNALED_SSR);
+		idx = find_next_bit((unsigned long *)synx_gmem.bitmap,
+				size, idx + 1);
+	}
+
+	rc = synx_gmem_lock(SYNX_HWSPIN_BITMAP, &flags);
+	if (rc)
+		return rc;
+	idx = find_next_bit((unsigned long *)synx_gmem.bitmap,
+			SYNX_GLOBAL_MAX_OBJS, 1);
+	while (idx < size) {
+		if (clear_idx[idx]) {
+			clear_bit(idx, (unsigned long *)synx_gmem.bitmap);
+			dprintk(SYNX_MEM, "released global idx %u\n", idx);
+		}
+		idx = find_next_bit((unsigned long *)synx_gmem.bitmap,
+			SYNX_GLOBAL_MAX_OBJS, idx + 1);
+	}
+	synx_gmem_unlock(SYNX_HWSPIN_BITMAP, &flags);
+
+	return SYNX_SUCCESS;
+}
+
 int synx_global_mem_init(void)
 {
 	int rc;

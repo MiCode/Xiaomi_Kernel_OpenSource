@@ -1502,3 +1502,23 @@ void synx_util_map_import_params_to_create(
 		c_params->flags |= SYNX_CREATE_DMA_FENCE;
 }
 
+u32 synx_util_map_client_id_to_core(
+	enum synx_client_id id)
+{
+	u32 core_id;
+
+	switch (id) {
+	case SYNX_CLIENT_NATIVE:
+		core_id = SYNX_CORE_APSS; break;
+	case SYNX_CLIENT_EVA_CTX0:
+		core_id = SYNX_CORE_EVA; break;
+	case SYNX_CLIENT_VID_CTX0:
+		core_id = SYNX_CORE_IRIS; break;
+	case SYNX_CLIENT_NSP_CTX0:
+		core_id = SYNX_CORE_NSP; break;
+	default:
+		core_id = SYNX_CORE_MAX;
+	}
+
+	return core_id;
+}
