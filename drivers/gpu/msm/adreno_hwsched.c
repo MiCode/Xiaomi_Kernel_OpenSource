@@ -1492,11 +1492,13 @@ void adreno_hwsched_reset_and_snapshot_legacy(struct adreno_device *adreno_dev, 
 	if (!obj && (fault & ADRENO_IOMMU_PAGE_FAULT))
 		obj = get_active_cmdobj(adreno_dev);
 
-	if (obj)
+	if (obj) {
 		drawobj = DRAWOBJ(obj->cmdobj);
-	else if (hwsched->recurring_cmdobj &&
+		trace_adreno_cmdbatch_fault(obj->cmdobj, fault);
+	} else if (hwsched->recurring_cmdobj &&
 		hwsched->recurring_cmdobj->base.context->id == cmd->ctxt_id) {
 		drawobj = DRAWOBJ(hwsched->recurring_cmdobj);
+		trace_adreno_cmdbatch_fault(hwsched->recurring_cmdobj, fault);
 		if (!kref_get_unless_zero(&drawobj->refcount))
 			drawobj = NULL;
 	}
