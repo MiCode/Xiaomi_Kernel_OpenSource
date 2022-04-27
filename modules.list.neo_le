@@ -55,6 +55,7 @@ qcom-cpufreq-hw.ko
 llcc-qcom.ko
 msm_dma_iommu_mapping.ko
 socinfo.ko
+qcom-dload-mode.ko
 gh_virt_wdt.ko
 tcsrcc.ko
 rpmh-regulator.ko
@@ -65,6 +66,7 @@ qcom-spmi-pmic.ko
 spmi-pmic-arb.ko
 nvmem_qcom-spmi-sdam.ko
 pinctrl-spmi-gpio.ko
+qcom-reboot-reason.ko
 qcom-spmi-adc5.ko
 qcom-spmi-temp-alarm.ko
 qcom-vadc-common.ko
