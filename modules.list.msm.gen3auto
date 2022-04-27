@@ -43,6 +43,8 @@ clk-qcom.ko
 clk-dummy.ko
 gdsc-regulator.ko
 gcc-sm8150.ko
+gcc-sc8180x.ko
+camcc-sc8180x.ko
 camcc-sm8150.ko
 dispcc-sm8250.ko
 icc-bcm-voter.ko
