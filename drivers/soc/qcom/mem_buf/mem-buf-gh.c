@@ -252,10 +252,20 @@ struct mem_buf_xfer_mem *mem_buf_prep_xfer_mem(void *req_msg)
 {
 	int ret;
 	struct mem_buf_xfer_mem *xfer_mem;
-	u32 nr_acl_entries = get_alloc_req_nr_acl_entries(req_msg);
-	void *arb_payload = get_alloc_req_arb_payload(req_msg);
-	enum mem_buf_mem_type mem_type = get_alloc_req_src_mem_type(req_msg);
+	u32 nr_acl_entries;
+	void *arb_payload;
+	enum mem_buf_mem_type mem_type;
 	void *mem_type_data;
+
+	nr_acl_entries = get_alloc_req_nr_acl_entries(req_msg);
+	if (nr_acl_entries != 1)
+		return ERR_PTR(-EINVAL);
+
+	arb_payload = get_alloc_req_arb_payload(req_msg);
+	if (!arb_payload)
+		return ERR_PTR(-EINVAL);
+
+	mem_type = get_alloc_req_src_mem_type(req_msg);
 
 	xfer_mem = kzalloc(sizeof(*xfer_mem), GFP_KERNEL);
 	if (!xfer_mem)
