@@ -775,6 +775,7 @@
   get_governor_parent_kobj
   get_option
   get_page_owner_handle
+  get_pfnblock_flags_mask
   get_pid_task
   get_random_bytes
   get_slabinfo
@@ -985,6 +986,8 @@
   irq_work_sync
   is_dma_buf_file
   is_vmalloc_addr
+  isolate_and_split_free_page
+  isolate_anon_lru_page
   iterate_fd
   jiffies
   jiffies_to_msecs
@@ -1102,6 +1105,7 @@
   memset64
   memstart_addr
   memunmap
+  migrate_pages
   migrate_swap
   misc_deregister
   misc_register
@@ -1361,6 +1365,7 @@
   put_device
   put_iova_domain
   put_user_ifreq
+  putback_movable_pages
   pwm_apply_state
   pwmchip_add
   pwmchip_remove
