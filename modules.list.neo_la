@@ -32,6 +32,7 @@ qcom_sync_file.ko
 gh_msgq.ko
 gh_rm_drv.ko
 socinfo.ko
+qcom-dload-mode.ko
 llcc_perfmon.ko
 deferred-free-helper.ko
 mem-offline.ko
@@ -73,6 +74,7 @@ qcom-spmi-pmic.ko
 spmi-pmic-arb.ko
 nvmem_qcom-spmi-sdam.ko
 pinctrl-spmi-gpio.ko
+qcom-reboot-reason.ko
 qcom-spmi-adc5.ko
 qcom-spmi-temp-alarm.ko
 qcom-vadc-common.ko
