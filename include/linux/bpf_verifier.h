@@ -19,6 +19,8 @@
  * that converting umax_value to int cannot overflow.
  */
 #define BPF_MAX_VAR_SIZ	(1 << 29)
+/* size of type_str_buf in bpf_verifier. */
+#define TYPE_STR_BUF_LEN 64
 
 /* Liveness marks, used for registers and spilled-regs (in stack slots).
  * Read marks propagate upwards until they find a write mark; they record that
@@ -477,6 +479,8 @@ struct bpf_verifier_env {
 	/* longest register parentage chain walked for liveness marking */
 	u32 longest_mark_read_walk;
 	bpfptr_t fd_array;
+	/* buffer used in reg_type_str() to generate reg_type string */
+	char type_str_buf[TYPE_STR_BUF_LEN];
 
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
