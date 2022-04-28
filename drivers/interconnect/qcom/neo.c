@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -2118,6 +2119,8 @@ static struct qcom_icc_desc neo_system_noc = {
 
 static int qnoc_probe(struct platform_device *pdev)
 {
+	const char *compat = NULL;
+	int compatlen = 0;
 	const struct qcom_icc_desc *desc;
 	struct qcom_icc_node **qnodes;
 	size_t num_nodes, i;
@@ -2138,7 +2141,36 @@ static int qnoc_probe(struct platform_device *pdev)
 			qnodes[i]->qosbox = NULL;
 	}
 
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,neo_la-gem_noc")) {
+		bcm_sh0_disp.voter_idx = 0;
+		bcm_sh1_disp.voter_idx = 0;
+		gem_noc_nodes[MASTER_MNOC_HF_MEM_NOC_DISP] = NULL;
+		gem_noc_nodes[MASTER_ANOC_PCIE_GEM_NOC_DISP] = NULL;
+		gem_noc_nodes[SLAVE_LLCC_DISP] = NULL;
+		neo_gem_noc.num_voters = 1;
+		neo_gem_noc.num_bcms = 2;
+	} else if (!strcmp(compat, "qcom,neo_la-mc_virt")) {
+		bcm_acv_disp.voter_idx = 0;
+		bcm_mc0_disp.voter_idx = 0;
+		mc_virt_nodes[SLAVE_EBI1_DISP] = NULL;
+		mc_virt_nodes[MASTER_LLCC_DISP] = NULL;
+		neo_mc_virt.num_voters = 1;
+		neo_mc_virt.num_bcms = 2;
+	} else if (!strcmp(compat, "qcom,neo_la-mmss_noc")) {
+		bcm_mm0_disp.voter_idx = 0;
+		bcm_mm1_disp.voter_idx = 0;
+		mmss_noc_nodes[MASTER_MDP_DISP] = NULL;
+		mmss_noc_nodes[SLAVE_MNOC_HF_MEM_NOC_DISP] = NULL;
+		neo_mmss_noc.num_voters = 1;
+		neo_mmss_noc.num_bcms = 2;
+	}
+
 	ret = qcom_icc_rpmh_probe(pdev);
+
 	if (ret)
 		dev_err(&pdev->dev, "failed to register ICC provider\n");
 	else
@@ -2154,11 +2186,17 @@ static const struct of_device_id qnoc_of_match[] = {
 	  .data = &neo_config_noc},
 	{ .compatible = "qcom,neo-gem_noc",
 	  .data = &neo_gem_noc},
+	{ .compatible = "qcom,neo_la-gem_noc",
+	  .data = &neo_gem_noc},
 	{ .compatible = "qcom,neo-lpass_ag_noc",
 	  .data = &neo_lpass_ag_noc},
 	{ .compatible = "qcom,neo-mc_virt",
 	  .data = &neo_mc_virt},
+	{ .compatible = "qcom,neo_la-mc_virt",
+	  .data = &neo_mc_virt},
 	{ .compatible = "qcom,neo-mmss_noc",
+	  .data = &neo_mmss_noc},
+	{ .compatible = "qcom,neo_la-mmss_noc",
 	  .data = &neo_mmss_noc},
 	{ .compatible = "qcom,neo-nsp_noc",
 	  .data = &neo_nsp_noc},
