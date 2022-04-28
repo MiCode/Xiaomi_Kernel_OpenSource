@@ -833,6 +833,10 @@ void pkvm_reset_vcpu(struct kvm_vcpu *vcpu)
 		*vcpu_pc(vcpu) = entry;
 
 		vm->pvmfw_entry_vcpu = NULL;
+
+		/* Auto enroll MMIO guard */
+		set_bit(KVM_ARCH_FLAG_MMIO_GUARD,
+			&vcpu->arch.pkvm.shadow_vm->arch.flags);
 	} else {
 		*vcpu_pc(vcpu) = reset_state->pc;
 		vcpu_set_reg(vcpu, 0, reset_state->r0);

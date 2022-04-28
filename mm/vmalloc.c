@@ -804,6 +804,7 @@ unsigned long vmalloc_nr_pages(void)
 {
 	return atomic_long_read(&nr_vmalloc_pages);
 }
+EXPORT_SYMBOL_GPL(vmalloc_nr_pages);
 
 static struct vmap_area *find_vmap_area_exceed_addr(unsigned long addr)
 {
