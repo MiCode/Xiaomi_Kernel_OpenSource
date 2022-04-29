@@ -238,6 +238,7 @@ config ARCH_WAIPIO
 	help
 	  This enables support for the Qualcomm Technologies, Inc.'s
 	  WAIPIO chipset. If you do not wish to build a kernel that
+	  runs on this chipset or if you are unsure, say 'N' here.
 
 config ARCH_KHAJE
 	bool "Enable Support for Qualcomm Technologies, Inc. KHAJE"
