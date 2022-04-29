@@ -455,6 +455,7 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 	void *resp_msg;
 	struct mem_buf_xfer_mem *xfer_mem;
 	gh_memparcel_handle_t hdl = 0;
+	int trans_type = 0;
 	int ret;
 
 	trace_receive_alloc_req(req_msg);
@@ -463,12 +464,14 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 		ret = PTR_ERR(xfer_mem);
 		pr_err("%s: failed to process rmt memory alloc request: %d\n",
 		       __func__, ret);
+		xfer_mem = NULL;
 	} else {
 		ret = 0;
 		hdl = xfer_mem->hdl;
+		trans_type = xfer_mem->gh_rm_trans_type;
 	}
 
-	resp_msg = mem_buf_construct_alloc_resp(req_msg, ret, hdl, xfer_mem->gh_rm_trans_type);
+	resp_msg = mem_buf_construct_alloc_resp(req_msg, ret, hdl, trans_type);
 	kfree(rmt_msg->msg);
 	kfree(rmt_msg);
 	if (IS_ERR(resp_msg))
@@ -490,10 +493,12 @@ static void mem_buf_alloc_req_work(struct work_struct *work)
 	return;
 
 out_err:
-	mutex_lock(&mem_buf_xfer_mem_list_lock);
-	list_del(&xfer_mem->entry);
-	mutex_unlock(&mem_buf_xfer_mem_list_lock);
-	mem_buf_cleanup_alloc_req(xfer_mem, xfer_mem->hdl);
+	if (xfer_mem) {
+		mutex_lock(&mem_buf_xfer_mem_list_lock);
+		list_del(&xfer_mem->entry);
+		mutex_unlock(&mem_buf_xfer_mem_list_lock);
+		mem_buf_cleanup_alloc_req(xfer_mem, xfer_mem->hdl);
+	}
 }
 
 static void mem_buf_relinquish_work(struct work_struct *work)
