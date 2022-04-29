@@ -169,6 +169,8 @@
   __tracepoint_android_vh_binder_restore_priority
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_wakeup_ilocked
+  __tracepoint_android_vh_check_uninterruptible_tasks
+  __tracepoint_android_vh_check_uninterruptible_tasks_dn
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_cpuidle_psci_enter
@@ -252,6 +254,7 @@
   _raw_write_unlock_bh
   _raw_write_unlock_irq
   _raw_write_unlock_irqrestore
+  _snd_pcm_hw_params_any
   _totalram_pages
   access_process_vm
   activate_task
@@ -705,6 +708,7 @@
   extcon_register_notifier
   extcon_set_property
   extcon_set_property_capability
+  extcon_set_state
   extcon_set_state_sync
   fd_install
   fget
@@ -771,6 +775,7 @@
   get_governor_parent_kobj
   get_option
   get_page_owner_handle
+  get_pfnblock_flags_mask
   get_pid_task
   get_random_bytes
   get_slabinfo
@@ -981,6 +986,8 @@
   irq_work_sync
   is_dma_buf_file
   is_vmalloc_addr
+  isolate_and_split_free_page
+  isolate_anon_lru_page
   iterate_fd
   jiffies
   jiffies_to_msecs
@@ -1013,6 +1020,10 @@
   kmem_cache_destroy
   kmem_cache_free
   kmemdup
+  kmsg_dump_get_buffer
+  kmsg_dump_register
+  kmsg_dump_rewind
+  kmsg_dump_unregister
   kobj_sysfs_ops
   kobject_add
   kobject_create_and_add
@@ -1094,6 +1105,7 @@
   memset64
   memstart_addr
   memunmap
+  migrate_pages
   migrate_swap
   misc_deregister
   misc_register
@@ -1269,7 +1281,6 @@
   perf_pmu_unregister
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
-  pfn_valid
   phy_calibrate
   phy_exit
   phy_init
@@ -1354,6 +1365,7 @@
   put_device
   put_iova_domain
   put_user_ifreq
+  putback_movable_pages
   pwm_apply_state
   pwmchip_add
   pwmchip_remove
@@ -1588,7 +1600,6 @@
   smp_call_function_single
   smp_call_function_single_async
   snd_interval_refine
-  _snd_pcm_hw_params_any
   snd_usb_autoresume
   snd_usb_autosuspend
   snd_usb_endpoint_close
@@ -1691,6 +1702,7 @@
   sysfs_remove_link_from_group
   sysfs_streq
   sysrq_mask
+  system_32bit_el0_cpumask
   system_freezable_wq
   system_highpri_wq
   system_unbound_wq
