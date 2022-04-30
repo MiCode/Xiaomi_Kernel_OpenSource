@@ -893,7 +893,7 @@ static inline void apply_adaptive_freq(struct memlat_group *memlat_grp,
 static void calculate_mon_sampling_freq(struct memlat_mon *mon)
 {
 	struct cpu_stats *stats;
-	int cpu, max_cpu = 0;
+	int cpu, max_cpu = cpumask_first(&mon->cpus);
 	u32 max_memfreq, max_cpufreq = 0, max_max_spm_cpufreq = 0, max_spm_cpufreq = 0;
 	u32 max_cpufreq_scaled = 0, ipm_diff, base_vote = 0;
 	u32 hw = mon->memlat_grp->hw_type;
