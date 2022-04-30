@@ -44,7 +44,7 @@ static int apss_cc_debug_mux_sels[] = {
 };
 
 static int apss_cc_debug_mux_pre_divs[] = {
-	0x4,		/* measure_only_apcs_gold_post_acd_clk */
+	0x8,		/* measure_only_apcs_gold_post_acd_clk */
 	0x10,		/* measure_only_apcs_gold_pre_acd_clk */
 	0x4,		/* measure_only_apcs_l3_post_acd_clk */
 	0x10,		/* measure_only_apcs_l3_pre_acd_clk */
