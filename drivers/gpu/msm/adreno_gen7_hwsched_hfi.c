@@ -237,7 +237,7 @@ static void log_gpu_fault(struct adreno_device *adreno_dev)
 		dev_crit_ratelimited(dev, "MISC: GPU hang detected\n");
 		break;
 	case GMU_GPU_SW_HANG:
-		dev_crit_ratelimited(dev, "gpu timeout ctx %d ts %d\n",
+		dev_crit_ratelimited(dev, "gpu timeout ctx %d ts %u\n",
 			cmd->ctxt_id, cmd->ts);
 		break;
 	case GMU_CP_OPCODE_ERROR:

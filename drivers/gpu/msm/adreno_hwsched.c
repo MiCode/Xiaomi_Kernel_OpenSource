@@ -1271,7 +1271,7 @@ static void do_fault_header(struct adreno_device *adreno_dev,
 	drawobj->context->total_fault_count++;
 
 	pr_context(device, drawobj->context,
-		"ctx %d ctx_type %s ts %d status %8.8X dispatch_queue=%d rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
+		"ctx %d ctx_type %s ts %u status %8.8X dispatch_queue=%d rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
 		drawobj->context->id, kgsl_context_type(drawctxt->type),
 		drawobj->timestamp, status,
 		drawobj->context->gmu_dispatch_queue, rptr, wptr,
