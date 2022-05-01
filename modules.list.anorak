@@ -3,6 +3,7 @@ clk-dummy.ko
 clk-qcom.ko
 deferred-free-helper.ko
 iommu-logger.ko
+debug-regulator.ko
 stub-regulator.ko
 msm_geni_serial.ko
 qcom_iommu_debug.ko
