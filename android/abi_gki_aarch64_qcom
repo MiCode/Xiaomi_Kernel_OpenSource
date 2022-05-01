@@ -716,6 +716,7 @@
   eventfd_signal
   extcon_get_edev_by_phandle
   extcon_get_edev_name
+  extcon_get_extcon_dev
   extcon_get_property
   extcon_get_state
   extcon_register_notifier
@@ -1280,6 +1281,7 @@
   param_ops_charp
   param_ops_int
   param_ops_uint
+  param_ops_ullong
   param_set_bool
   pci_aer_clear_nonfatal_status
   pci_bus_type
@@ -1818,6 +1820,7 @@
   thermal_zone_of_sensor_unregister
   tick_nohz_get_sleep_length
   time64_to_tm
+  timer_unstable_counter_workaround
   topology_clear_scale_freq_source
   topology_set_thermal_pressure
   topology_update_done
