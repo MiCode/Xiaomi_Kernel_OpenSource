@@ -18,19 +18,15 @@
  * returned, 0 otherwise and also provides a generic reason for exit
  * which can be used by drivers.
  */
-int gh_arch_validate_vm_exited_notif(size_t buff_size, size_t hdr_size,
+int gh_arch_validate_vm_exited_notif(size_t payload_size,
 	struct gh_rm_notif_vm_exited_payload *vm_exited_payload)
 {
-	size_t min_buf_sz = hdr_size | sizeof(*vm_exited_payload);
-
 	switch (vm_exited_payload->exit_type) {
 	case GH_RM_VM_EXIT_TYPE_PSCI_SYSTEM_RESET2:
-		if ((vm_exited_payload->exit_reason_size !=
-				MAX_EXIT_REASON_SIZE) ||
-				(buff_size != min_buf_sz +
-			sizeof(struct gh_vm_exit_reason_psci_sys_reset2))) {
+		if (payload_size !=
+		    sizeof(*vm_exited_payload) + sizeof(struct gh_vm_exit_reason_psci_sys_reset2)) {
 			pr_err("%s: Invalid size for type PSCI_SYSTEM_RESET2: %u\n",
-			__func__, buff_size - hdr_size);
+			__func__, payload_size);
 			return -EINVAL;
 		}
 		vm_exited_payload->exit_type = GH_RM_VM_EXIT_TYPE_SYSTEM_RESET;
