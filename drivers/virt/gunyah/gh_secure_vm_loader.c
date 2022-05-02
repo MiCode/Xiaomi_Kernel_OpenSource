@@ -85,8 +85,10 @@ static u64 gh_sec_load_metadata(struct gh_sec_vm_dev *vm_dev,
 	const struct elf32_phdr *phdrs;
 	const struct elf32_phdr *phdr;
 	const struct elf32_hdr *ehdr;
-	void *image_end_addr;
+	bool relocatable = false;
 	void *metadata_start;
+	u64 image_start_addr = 0;
+	u64 image_end_addr;
 	u64 image_size = 0;
 	u32 max_paddr = 0;
 	u64 moffset = 0;
@@ -95,19 +97,21 @@ static u64 gh_sec_load_metadata(struct gh_sec_vm_dev *vm_dev,
 	ehdr = (struct elf32_hdr *)mdata;
 	phdrs = (struct elf32_phdr *)(ehdr + 1);
 
-	image_end_addr = vm_dev->fw_virt;
 	mdata_size = PAGE_ROUND_UP(mdata_size);
 
 	/* Calculate total image size */
 	for (i = 0; i < ehdr->e_phnum; i++) {
 		phdr = &phdrs[i];
+		if (phdr->p_flags & QCOM_MDT_RELOCATABLE)
+			relocatable = true;
+
 		if (phdr->p_paddr > max_paddr) {
-			if (((u64) vm_dev->fw_virt > (U64_MAX - phdr->p_paddr - phdr->p_memsz))) {
+			if (phdr->p_memsz > (U64_MAX - phdr->p_paddr)) {
 				dev_err(dev, "Overflow detected while calculating metadata offset\"%s\"\n",
-							vm_dev->vm_name);
+					vm_dev->vm_name);
 				return 0;
 			}
-			image_end_addr = vm_dev->fw_virt + phdr->p_paddr +  phdr->p_memsz;
+			image_end_addr = phdr->p_paddr + phdr->p_memsz;
 			max_paddr = phdr->p_paddr;
 		}
 		image_size += phdr->p_memsz;
@@ -120,25 +124,28 @@ static u64 gh_sec_load_metadata(struct gh_sec_vm_dev *vm_dev,
 		return 0;
 	}
 
+	if (!relocatable)
+		image_start_addr = vm_dev->fw_phys;
+
 	/* Calculate suitable metadata offset */
 	moffset = vm_dev->fw_size - mdata_size;
 
 	if (moffset > vm_dev->fw_size ||
+		(image_start_addr > (U64_MAX - moffset)) ||
 		((u64) vm_dev->fw_virt > (U64_MAX - moffset))) {
 		dev_err(dev, "Overflow detected while calculating metadata offset\"%s\"\n",
 						vm_dev->vm_name);
 		return 0;
 	}
 
-	if (moffset + mdata_size <= vm_dev->fw_size &&
-		image_end_addr <= (vm_dev->fw_virt + moffset)) {
+	if (image_end_addr <= (image_start_addr + moffset)) {
 		metadata_start = vm_dev->fw_virt + moffset;
 		memcpy(metadata_start, mdata, mdata_size);
 		return moffset;
 	}
 
-	dev_err(dev, "Metadata cannot fit in mem_region  \"%s\"\n",
-							vm_dev->vm_name);
+	dev_err(dev, "Metadata cannot fit in mem_region %s\n",
+						vm_dev->vm_name);
 	return 0;
 }
 
