@@ -179,6 +179,13 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 		para.u8, &len);
 	mode->fine_intg_line = val;
 
+	val = 0;
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_ESD_RESET_BY_USER,
+		para.u8, &len);
+
+	mode->esd_reset_by_user = val;
+
 
 	if (!mode->mipi_pixel_rate || !mode->max_framerate || !mode->pclk)
 		return;

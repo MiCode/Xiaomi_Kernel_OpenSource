@@ -2075,6 +2075,7 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id)
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 	struct v4l2_ctrl *ctrl;
 	int val = 0;
+	int reset_by_user = 0;
 
 	if (ctx->dbg_last_dump_req != 0 &&
 		ctx->dbg_last_dump_req == seq_id) {
@@ -2102,16 +2103,21 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id)
 	if (ctx->streaming) {
 		ret = g_seninf_ops->_debug(sd_to_ctx(sd));
 #if ESD_RESET_SUPPORT
-		if (ret != 0)
-#else
-		if (0)
+		if (ret != 0) {
+			reset_by_user = is_reset_by_user(sd_to_ctx(sd));
+			if (!reset_by_user)
+				reset_sensor(sd_to_ctx(sd));
+		}
 #endif
-			reset_sensor(sd_to_ctx(sd));
 	} else
 		dev_info(ctx->dev, "%s should not dump during stream off\n", __func__);
 
 	pm_runtime_put_sync(ctx->dev);
-	return ret;
+
+	dev_info(ctx->dev, "%s ret(%d), reset_by_user(%d)\n",
+		 __func__, ret, reset_by_user);
+
+	return (ret && reset_by_user);
 }
 
 void mtk_cam_seninf_set_secure(struct v4l2_subdev *sd, int enable, unsigned int SecInfo_addr)

@@ -2,6 +2,7 @@
 // Copyright (c) 2020 MediaTek Inc.
 
 #include <linux/pm_runtime.h>
+#include <linux/thermal.h>
 
 #include "kd_imgsensor_define_v4l2.h"
 #include "adaptor.h"
@@ -238,18 +239,46 @@ static int s_ae_ctrl(struct v4l2_ctrl *ctrl)
 	return do_set_ae_ctrl(ctx, ae_ctrl);
 }
 
+static int _sensor_reset_s_stream(struct v4l2_ctrl *ctrl)
+{
+	struct adaptor_ctx *ctx = ctrl_to_ctx(ctrl);
+	u64 data[4];
+	u32 len;
+
+	//dev_info(ctx->dev, "%s val: %d, stream_off_state: %d\n",
+	//	 __func__, ctrl->val,
+	//	 ctx->is_sensor_reset_stream_off);
+
+	if (ctrl->val && ctx->is_sensor_reset_stream_off) {
+		subdrv_call(ctx, feature_control,
+			    SENSOR_FEATURE_SET_STREAMING_RESUME,
+			    (u8 *)data, &len);
+		ctx->is_sensor_reset_stream_off = 0;
+	} else if (!ctrl->val) {
+		ctx->is_sensor_reset_stream_off = 1;
+		subdrv_call(ctx, feature_control,
+			    SENSOR_FEATURE_SET_STREAMING_SUSPEND,
+			    (u8 *)data, &len);
+	}
+
+	return 0;
+}
+
 static int g_volatile_temperature(struct adaptor_ctx *ctx,
 		struct v4l2_ctrl *ctrl)
 {
 	union feature_para para;
 	u32 len = 0;
 
-	subdrv_call(ctx, feature_control,
-		SENSOR_FEATURE_GET_TEMPERATURE_VALUE,
-		para.u8, &len);
+	if (ctx->is_streaming) {
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_GET_TEMPERATURE_VALUE,
+			para.u8, &len);
 
-	if (len)
-		*ctrl->p_new.p_s32 = para.u32[0];
+		if (len)
+			*ctrl->p_new.p_s32 = para.u32[0];
+	} else
+		*ctrl->p_new.p_s32 = THERMAL_TEMP_INVALID;
 
 	return 0;
 }
@@ -383,6 +412,9 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 		}
 	}
 		break;
+	case V4L2_CID_MTK_SENSOR_RESET_BY_USER:
+		ctrl->val = mode->esd_reset_by_user;
+		break;
 	default:
 		break;
 	}
@@ -506,6 +538,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	union feature_para para;
 	int ret = 0;
 	u32 len;
+	int i;
 
 	/*
 	 * Applying V4L2 control value only happens
@@ -740,6 +773,10 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			struct mtk_seamless_target_scenarios *info = ctrl->p_new.p;
 			unsigned int ret_for_copy_from_user = 0;
 
+			/* reset seamless_scenarios */
+			for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++)
+				ctx->seamless_scenarios[i] = SENSOR_SCENARIO_ID_NONE;
+
 			ret_for_copy_from_user =
 				copy_from_user(&ctx->seamless_scenarios, info->target_scenario_ids,
 						min(sizeof(ctx->seamless_scenarios),
@@ -804,6 +841,12 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			memset(&ctx->ae_memento, 0, sizeof(ctx->ae_memento));
 			memcpy(&ctx->ae_memento, &info->ae_ctrl[0],  sizeof(ctx->ae_memento));
 
+			/* update timeout value upon seamless switch*/
+			ctx->exposure->val = info->ae_ctrl[0].exposure.arr[0];
+			ctx->shutter_for_timeout = info->ae_ctrl[0].exposure.arr[0];
+			if (ctx->cur_mode->fine_intg_line)
+				ctx->shutter_for_timeout /= 1000;
+
 			if (info->target_scenario_id < MODE_MAXCNT)
 				ctx->cur_mode = &ctx->mode[info->target_scenario_id];
 			else {
@@ -854,8 +897,6 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MTK_SENSOR_RESET:
 		{
-			u64 data[4];
-			u32 len;
 			MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT image_window;
 			MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
 
@@ -863,6 +904,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			if (adaptor_hw_sensor_reset(ctx) < 0)
 				break;
 
+			ctx->is_sensor_reset_stream_off = 1;
 			subdrv_call(ctx, open);
 			subdrv_call(ctx, control,
 					ctx->cur_mode->id,
@@ -870,11 +912,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 					&sensor_config_data);
 
 			restore_ae_ctrl(ctx);
-
-			data[0] = 0; // shutter
-			subdrv_call(ctx, feature_control,
-				SENSOR_FEATURE_SET_STREAMING_RESUME,
-				(u8 *)data, &len);
+			_sensor_reset_s_stream(ctrl);
 			//dev_info(dev, "exit V4L2_CID_MTK_SENSOR_RESET\n");
 		}
 		break;
@@ -882,6 +920,9 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		//dev_info(dev, "V4L2_CID_MTK_SENSOR_INIT val = %d\n", ctrl->val);
 		if (ctrl->val)
 			adaptor_sensor_init(ctx);
+		break;
+	case V4L2_CID_MTK_SENSOR_RESET_S_STREAM:
+		_sensor_reset_s_stream(ctrl);
 		break;
 	}
 
@@ -1308,6 +1349,26 @@ static const struct v4l2_ctrl_config cfg_sensor_init = {
 	.step = 1,
 };
 
+static const struct v4l2_ctrl_config cfg_sensor_reset_s_stream = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_SENSOR_RESET_S_STREAM,
+	.name = "sensor_reset_s_stream",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 1,
+	.step = 1,
+};
+
+static const struct v4l2_ctrl_config cfg_sensor_reset_by_user = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_SENSOR_RESET_BY_USER,
+	.name = "sensor_reset_by_user",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.flags = V4L2_CTRL_FLAG_VOLATILE,
+	.max = 1,
+	.step = 1,
+};
+
 void adaptor_sensor_init(struct adaptor_ctx *ctx)
 {
 	if (ctx && !ctx->is_sensor_inited) {
@@ -1554,6 +1615,8 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_n_1_mode, NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_reset, NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_init, NULL);
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_reset_s_stream, NULL);
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_reset_by_user, NULL);
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;

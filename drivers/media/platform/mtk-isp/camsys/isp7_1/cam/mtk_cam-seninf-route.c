@@ -1044,6 +1044,18 @@ mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 		}
 	}
 }
+
+u8 is_reset_by_user(struct seninf_ctx *ctx)
+{
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
+			V4L2_CID_MTK_SENSOR_RESET_BY_USER);
+
+	return (ctrl) ? v4l2_ctrl_g_ctrl(ctrl) : 0;
+}
+
 int reset_sensor(struct seninf_ctx *ctx)
 {
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
