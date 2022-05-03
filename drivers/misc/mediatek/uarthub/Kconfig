@@ -1,0 +1,7 @@
+config MTK_UARTHUB
+	tristate "MediaTek UARTHUB Driver"
+	help
+	  MTK UARTHUB driver for 3 pin reduction
+	  the first is apmcu bt host interface
+	  the second is md mcu coexistence sw message
+	  the third is adsp bt audio message

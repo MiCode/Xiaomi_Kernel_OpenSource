@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ */
+#include <linux/kernel.h>
+
+#include "uarthub_drv_export.h"
+#include "uarthub_drv_core.h"
+
+#include <linux/string.h>
+#include <linux/printk.h>
+#include <linux/module.h>
+#include <linux/device.h>
+#include <linux/ctype.h>
+#include <linux/cdev.h>
+
+#include <linux/interrupt.h>
+#include <linux/ratelimit.h>
+
+
+UARTHUB_IRQ_CB g_irq_callback;
+
+static void UARTHUB_irq_error_register_cb(int err_type)
+{
+	if (g_irq_callback)
+		(*g_irq_callback)((enum UARTHUB_irq_err_type)err_type);
+}
+
+int UARTHUB_open(void)
+{
+	return uarthub_core_open();
+}
+EXPORT_SYMBOL(UARTHUB_open);
+
+int UARTHUB_close(void)
+{
+	return uarthub_core_close();
+}
+EXPORT_SYMBOL(UARTHUB_close);
+
+int UARTHUB_dev0_is_uarthub_ready(void)
+{
+	return uarthub_core_dev0_is_uarthub_ready();
+}
+EXPORT_SYMBOL(UARTHUB_dev0_is_uarthub_ready);
+
+int UARTHUB_dev0_is_txrx_idle(int rx)
+{
+	return uarthub_core_dev0_is_txrx_idle(rx);
+}
+EXPORT_SYMBOL(UARTHUB_dev0_is_txrx_idle);
+
+int UARTHUB_dev0_set_txrx_request(void)
+{
+	return uarthub_core_dev0_set_txrx_request();
+}
+EXPORT_SYMBOL(UARTHUB_dev0_set_txrx_request);
+
+int UARTHUB_dev0_clear_txrx_request(void)
+{
+	return uarthub_core_dev0_clear_txrx_request();
+}
+EXPORT_SYMBOL(UARTHUB_dev0_clear_txrx_request);
+
+int UARTHUB_is_assert_state(void)
+{
+	return uarthub_core_is_assert_state();
+}
+EXPORT_SYMBOL(UARTHUB_is_assert_state);
+
+int UARTHUB_irq_register_cb(UARTHUB_IRQ_CB irq_callback)
+{
+	g_irq_callback = irq_callback;
+	uarthub_core_irq_register_cb(UARTHUB_irq_error_register_cb);
+	return 0;
+}
+EXPORT_SYMBOL(UARTHUB_irq_register_cb);
+
+int UARTHUB_bypass_mode_ctrl(int enable)
+{
+	return uarthub_core_bypass_mode_ctrl(enable);
+}
+EXPORT_SYMBOL(UARTHUB_bypass_mode_ctrl);
+
+int UARTHUB_is_bypass_mode(void)
+{
+	return uarthub_core_is_bypass_mode();
+}
+EXPORT_SYMBOL(UARTHUB_is_bypass_mode);
+
+int UARTHUB_config_internal_baud_rate(int dev_index, enum UARTHUB_baud_rate rate)
+{
+	return uarthub_core_config_internal_baud_rate(dev_index, (int)rate);
+}
+EXPORT_SYMBOL(UARTHUB_config_internal_baud_rate);
+
+int UARTHUB_config_external_baud_rate(enum UARTHUB_baud_rate rate)
+{
+	return uarthub_core_config_external_baud_rate((int)rate);
+}
+EXPORT_SYMBOL(UARTHUB_config_external_baud_rate);
+
+int UARTHUB_assert_state_ctrl(int assert_ctrl)
+{
+	return uarthub_core_assert_state_ctrl(assert_ctrl);
+}
+EXPORT_SYMBOL(UARTHUB_assert_state_ctrl);
+
+int UARTHUB_sw_reset(void)
+{
+	uarthub_core_reset();
+	return 0;
+}
+EXPORT_SYMBOL(UARTHUB_sw_reset);
+
+int UARTHUB_md_adsp_fifo_ctrl(int enable)
+{
+	return uarthub_core_md_adsp_fifo_ctrl(enable);
+}
+EXPORT_SYMBOL(UARTHUB_md_adsp_fifo_ctrl);
+
+int UARTHUB_dump_debug_info(void)
+{
+	return uarthub_core_debug_info();
+}
+EXPORT_SYMBOL(UARTHUB_dump_debug_info);
+
+MODULE_LICENSE("GPL");
