@@ -643,7 +643,7 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 		} else if ((event >= IMGSYS_CMDQ_SW_EVENT2_BEGIN) &&
 			(event <= IMGSYS_CMDQ_SW_EVENT2_END)) {
 			event_sft = event - IMGSYS_CMDQ_SW_EVENT2_BEGIN +
-				(IMGSYS_CMDQ_SW_EVENT_END - IMGSYS_CMDQ_SW_EVENT_BEGIN);
+				(IMGSYS_CMDQ_SW_EVENT_END - IMGSYS_CMDQ_SW_EVENT_BEGIN + 1);
 			event_diff = event_hist[event_sft].set.ts >
 						event_hist[event_sft].wait.ts ?
 						(event_hist[event_sft].set.ts -
@@ -1211,12 +1211,17 @@ void imgsys_cmdq_setevent(u64 u_id)
 
 void imgsys_cmdq_clearevent(int event_id)
 {
+	u32 event = 0;
+
 	if ((event_id >= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START) &&
 		(event_id <= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_END)) {
 		cmdq_mbox_enable(imgsys_clt[0]->chan);
 		cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[event_id].event);
 		pr_debug("%s: cmdq_clear_event with (%d/%d)!\n",
-				__func__, event_id, imgsys_event[event_id].event);
+			__func__, event_id, imgsys_event[event_id].event);
+		event = event_id - IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START;
+		memset((void *)&event_hist[event], 0x0,
+			sizeof(struct imgsys_event_history));
 		cmdq_mbox_disable(imgsys_clt[0]->chan);
 	} else {
 		pr_info("%s: [ERROR]unexpected event_id=(%d)!\n",
