@@ -834,7 +834,7 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 		}
 
 		mml_core_calc_tput(task_pipe_cur->task, max_pixel, pipe,
-			&task->end_time, &curr_time);
+			&task_pipe_cur->task->end_time, &curr_time);
 
 		throughput = 0;
 		list_for_each_entry(task_pipe_tmp, &path_clt->tasks, entry_clt) {
