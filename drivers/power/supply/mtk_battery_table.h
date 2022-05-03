@@ -17,8 +17,13 @@
 #define DIFFERENCE_FULLOCV_ITH	200	/* mA */
 #define MTK_CHR_EXIST			1
 #define KEEP_100_PERCENT		1
+
+/* Rsense setting */
+/* UNIT_MULTIPLE/CURR_MEASURE_20A MT6375 only */
 #define R_FG_VALUE				5	/* mOhm */
-#define UNIT_MULTIPLE			1
+#define UNIT_MULTIPLE			2
+#define CURR_MEASURE_20A	1
+
 #define EMBEDDED_SEL			0
 #define PMIC_SHUTDOWN_CURRENT	20	/* 0.01 mA */
 #define FG_METER_RESISTANCE		100
@@ -458,7 +463,7 @@ int g_temperature[MAX_TABLE] = {
 #define RBAT_PULL_UP_R             61900
 #endif
 
-#define RBAT_PULL_UP_VOLT          2800
+#define RBAT_PULL_UP_VOLT          1840
 
 #define BIF_NTC_R 16000
 
