@@ -25,6 +25,7 @@ static u8 mmdvfs_pwr_opp[MAX_PWR_NUM];
 static struct mtk_ipi_device *vcp_ipi_dev;
 static u32 mmdvfs_vcp_ipi_data;
 static DEFINE_MUTEX(mmdvfs_vcp_ipi_mutex);
+static struct clk *vote_clk[POWER_NUM];
 
 static inline struct mtk_mmdvfs_clk *to_mtk_mmdvfs_clk(struct clk_hw *hw)
 {
@@ -241,7 +242,7 @@ static struct kernel_param_ops mmdvfs_set_force_step_ops = {
 module_param_cb(force_step, &mmdvfs_set_force_step_ops, NULL, 0644);
 MODULE_PARM_DESC(force_step, "force mmdvfs to specified step");
 
-int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
+int mmdvfs_set_vote_step_ipi(const char *val, const struct kernel_param *kp)
 {
 	struct mmdvfs_ipi_data slot;
 	u16 idx = 0, opp = 0;
@@ -258,6 +259,46 @@ int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
 	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
 	MMDVFS_DBG("ipi:%d slot:%#x idx:%hhu opp:%hhu",
 		ret, slot, slot.idx, slot.ack);
+
+	return 0;
+}
+
+static struct kernel_param_ops mmdvfs_set_vote_step_ipi_ops = {
+	.set = mmdvfs_set_vote_step_ipi,
+};
+module_param_cb(vote_step_ipi, &mmdvfs_set_vote_step_ipi_ops, NULL, 0644);
+MODULE_PARM_DESC(vote_step_ipi, "vote mmdvfs to specified step by ipi");
+
+int mmdvfs_set_vote_step(const char *val, const struct kernel_param *kp)
+{
+	u16 pwr_id = 0, freq_num = 0;
+	s16 opp = 0, freq;
+	int ret, i;
+
+	ret = sscanf(val, "%u %d", &pwr_id, &opp);
+	if (ret != 2 || pwr_id >= POWER_NUM || opp >= MAX_OPP) {
+		MMDVFS_ERR("failed:%d pwr_id:%hu opp:%hd", ret, pwr_id, opp);
+		return ret;
+	}
+
+	for (i = 0; i < max_mmdvfs_num; i++) {
+		if (i == mtk_mmdvfs_clks[i].pwr_id) {
+			freq_num = mtk_mmdvfs_clks[i].freq_num;
+			break;
+		}
+	}
+
+	if (vote_clk[pwr_id]) {
+		if (freq_num == 0) {
+			MMDVFS_ERR("pwr_id:%hu has invalid freq_num=0", pwr_id);
+			return 0;
+		}
+		freq = (opp < 0) ? 0 : (freq_num - opp);
+		clk_set_rate(vote_clk[pwr_id], freq);
+		MMDVFS_DBG("set pwr:%hu opp=%hd freq:%hd", pwr_id, opp, freq);
+	} else {
+		MMDVFS_ERR("vote_clk[%hu] is NULL", pwr_id);
+	}
 
 	return 0;
 }
@@ -492,12 +533,20 @@ static int mmdvfs_v3_probe(struct platform_device *pdev)
 
 	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	kthr = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
-
-	MMDVFS_DBG("probe done\n");
-
 	if (ret)
 		MMDVFS_DBG("could not register clock provider: %d\n", ret);
+
+	kthr = kthread_run(mmdvfs_vcp_init_thread, NULL, "mmdvfs-vcp");
+
+	for (i = 0; i < POWER_NUM; i++) {
+		vote_clk[i] = of_clk_get(node, i);
+		if (IS_ERR_OR_NULL(vote_clk[i])) {
+			MMDVFS_DBG("pwr(%u) could not get vote clk:%d\n", i, ret);
+			vote_clk[i] = NULL;
+		}
+	}
+
+	MMDVFS_DBG("probe done\n");
 
 	return ret;
 }
