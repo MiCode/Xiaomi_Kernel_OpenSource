@@ -584,6 +584,18 @@ out:
 }
 EXPORT_SYMBOL(lbat_user_modify_thd);
 
+int lbat_user_modify_thd_locked(struct lbat_user *user, unsigned int hv_thd_volt,
+				unsigned int lv1_thd_volt, unsigned int lv2_thd_volt)
+{
+	int ret;
+
+	mutex_lock(&lbat_mutex);
+	ret = lbat_user_modify_thd(user, hv_thd_volt, lv1_thd_volt, lv2_thd_volt);
+	mutex_unlock(&lbat_mutex);
+	return ret;
+}
+EXPORT_SYMBOL(lbat_user_modify_thd_locked);
+
 int lbat_user_set_debounce(struct lbat_user *user,
 			   unsigned int hv_deb_prd, unsigned int hv_deb_times,
 			   unsigned int lv_deb_prd, unsigned int lv_deb_times)
