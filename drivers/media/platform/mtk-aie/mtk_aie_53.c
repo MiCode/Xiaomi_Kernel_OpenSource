@@ -33,6 +33,8 @@
 #include "cmdq-sec.h"
 #include "mtk_aie.h"
 #include "mtk_imgsys-cmdq.h"
+#include "mtk_dma_contig.h"
+#include "mem/aie_videobuf2-dma-contig.h"
 
 #define FLD
 #define AIE_QOS_MAX 4
@@ -1426,7 +1428,7 @@ static int mtk_aie_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->supports_requests = true;
 	src_vq->drv_priv = ctx;
 	src_vq->ops = &mtk_aie_vb2_ops;
-	src_vq->mem_ops = &vb2_dma_contig_memops;
+	src_vq->mem_ops = &aie_vb2_dma_contig_memops;
 	src_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	src_vq->lock = &ctx->fd_dev->vfd_lock;
@@ -1440,7 +1442,7 @@ static int mtk_aie_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->io_modes = VB2_MMAP | VB2_DMABUF;
 	dst_vq->drv_priv = ctx;
 	dst_vq->ops = &mtk_aie_vb2_ops;
-	dst_vq->mem_ops = &vb2_dma_contig_memops;
+	dst_vq->mem_ops = &aie_vb2_dma_contig_memops;
 	dst_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock = &ctx->fd_dev->vfd_lock;
