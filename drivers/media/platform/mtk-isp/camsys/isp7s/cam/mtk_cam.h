@@ -17,7 +17,7 @@
 #include "imgsensor-user.h"
 
 #include "mtk_cam-hsf-def.h"
-#include "mtk_cam-ipi.h"
+#include "mtk_cam-ipi_7_1.h"
 #include "mtk_cam-larb.h"
 #include "mtk_cam-pool.h"
 #include "mtk_cam-raw.h"

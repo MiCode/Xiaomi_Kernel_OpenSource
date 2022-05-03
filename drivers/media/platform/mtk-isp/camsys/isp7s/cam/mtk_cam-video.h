@@ -14,7 +14,7 @@
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-v4l2.h>
 
-#include "mtk_cam-ipi.h"
+#include "mtk_cam-ipi_7_1.h"
 #include "mtk_camera-videodev2.h"
 
 struct mtk_cam_device;
