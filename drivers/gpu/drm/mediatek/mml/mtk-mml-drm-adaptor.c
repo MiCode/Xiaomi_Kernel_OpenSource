@@ -826,10 +826,10 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 		}
 		task->config = cfg;
 		if (submit->info.mode == MML_MODE_RACING) {
-			cfg->layer_w = submit->layer_width;
+			cfg->layer_w = submit->layer.width;
 			if (unlikely(!cfg->layer_w))
 				cfg->layer_w = submit->info.dest[0].compose.width;
-			cfg->layer_h = submit->layer_height;
+			cfg->layer_h = submit->layer.height;
 			if (unlikely(!cfg->layer_h))
 				cfg->layer_h = submit->info.dest[0].compose.height;
 			cfg->disp_hrt = frame_calc_layer_hrt(ctx, &submit->info,
@@ -1317,8 +1317,10 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 	u32 i;
 
 	/* display layer pixel */
-	submit->layer_width = dest->compose.width;
-	submit->layer_height = dest->compose.height;
+	if (!submit->layer.width || !submit->layer.height) {
+		submit->layer.width = dest->compose.width;
+		submit->layer.height = dest->compose.height;
+	}
 
 	submit_pq->info = submit->info;
 	submit_pq->buffer = submit->buffer;

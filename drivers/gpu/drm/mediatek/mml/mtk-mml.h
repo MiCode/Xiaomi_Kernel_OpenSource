@@ -203,6 +203,7 @@ struct mml_frame_buffer {
  * @info:	Frame configs which not change between frame-to-frame.
  *		MML try to match same info in cache and reuse same commands.
  * @buffer:	Buffer fd and related parameters.
+ * @layer:	Rect on display screen for mml detect layout (left/right pipe).
  * @sec:	End-Time for time value second
  * @usec:	End-Time for time value usecond
  * @pq_param:	PQ parameters pointer. Leave empty also disable PQ.
@@ -214,8 +215,7 @@ struct mml_submit {
 	struct mml_job *job;
 	struct mml_frame_info info;
 	struct mml_frame_buffer buffer;
-	u16 layer_width;
-	u16 layer_height;
+	struct mml_rect layer;
 	struct timeval_t {
 		uint64_t sec;
 		uint64_t nsec;
