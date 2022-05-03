@@ -379,7 +379,7 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 	struct device_node *np;
 	int ret = 0;
 	const int r_fg_val[] = { 50, 20, 10, 5 };
-	u32 regval;
+	u32 regval = 0;
 
 	/* Get R_FG_VALUE/CAR_TUNE_VALUE from gauge dts node */
 	np = of_find_node_by_name(pdev->dev.parent->of_node,
