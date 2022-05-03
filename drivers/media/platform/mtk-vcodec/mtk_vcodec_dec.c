@@ -2900,6 +2900,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 			mtk_v4l2_err("[%d]: vdec_if_init() fail ret=%d",
 						 ctx->id, ret);
 			ctx->state = MTK_STATE_ABORT;
+			mtk_vdec_queue_error_event(ctx);
 			return;
 		}
 		ctx->state = MTK_STATE_INIT;

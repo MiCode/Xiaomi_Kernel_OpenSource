@@ -139,8 +139,9 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len, bool is
 #if IS_ENABLED(CONFIG_MTK_EMI)
 			mtk_emidbg_dump();
 #endif
+			inst->vcu.abort = 1;
 			//BUG_ON(1);
-			break;
+			return -EIO;
 		}
 	}
 
