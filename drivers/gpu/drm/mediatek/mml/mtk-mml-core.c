@@ -223,12 +223,13 @@ static s32 topology_select_path(struct mml_frame_config *cfg)
 	((_comp->debug_ops && _comp->debug_ops->op) ? \
 		_comp->debug_ops->op(_comp, ##__VA_ARGS__) : 0)
 
-static void core_prepare(struct mml_task *task, u32 pipe)
+static s32 core_prepare(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
 	struct mml_comp *comp;
 	u32 i;
+	int ret = 0;
 
 	mml_msg("%s task %p pipe %u", __func__, task, pipe);
 	mml_trace_ex_begin("%s_%u", __func__, pipe);
@@ -243,23 +244,32 @@ static void core_prepare(struct mml_task *task, u32 pipe)
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = path->nodes[i].comp;
 		call_cfg_op(comp, prepare, task, &cache->cfg[i]);
-		call_cfg_op(comp, buf_prepare, task, &cache->cfg[i]);
+		ret = call_cfg_op(comp, buf_prepare, task, &cache->cfg[i]);
+		if (ret < 0)
+			break;
 	}
 
 	mml_trace_ex_end();
+
+	return ret;
 }
 
-static void core_reuse(struct mml_task *task, u32 pipe)
+static s32 core_reuse(struct mml_task *task, u32 pipe)
 {
 	const struct mml_topology_path *path = task->config->path[pipe];
 	struct mml_pipe_cache *cache = &task->config->cache[pipe];
 	struct mml_comp *comp;
 	u32 i;
+	int ret;
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = path->nodes[i].comp;
-		call_cfg_op(comp, buf_prepare, task, &cache->cfg[i]);
+		ret = call_cfg_op(comp, buf_prepare, task, &cache->cfg[i]);
+		if (ret < 0)
+			return ret;
 	}
+
+	return 0;
 }
 
 static s32 command_make(struct mml_task *task, u32 pipe)
@@ -1106,7 +1116,11 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 			task->config->task_ops->get_tile_cache(task, pipe);
 
 		/* prepare data in each component for later tile use */
-		core_prepare(task, pipe);
+		ret = core_prepare(task, pipe);
+		if (ret < 0) {
+			mml_err("core prepare fail");
+			return ret;
+		}
 
 		/* call to tile to calculate */
 		mml_trace_ex_begin("%s_%s_%u", __func__, "tile", pipe);
@@ -1134,8 +1148,12 @@ static s32 core_config(struct mml_task *task, u32 pipe)
 
 		/* pkt exists, reuse it directly */
 		mml_trace_ex_begin("%s_%s_%u", __func__, "reuse", pipe);
-		core_reuse(task, pipe);
+		ret = core_reuse(task, pipe);
 		mml_trace_ex_end();
+		if (ret < 0) {
+			mml_err("core reuse fail");
+			return ret;
+		}
 	}
 
 	return 0;

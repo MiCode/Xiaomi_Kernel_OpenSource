@@ -576,6 +576,10 @@ static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 		for (i = 0; i < dest_buf->cnt; i++)
 			wrot_frm->iova[i] = dest_buf->dma[i].iova;
 	}
+
+	if (!wrot_frm->iova[0])
+		return -EINVAL;
+
 	return 0;
 }
 

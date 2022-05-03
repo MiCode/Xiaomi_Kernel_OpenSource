@@ -578,6 +578,15 @@ static s32 rdma_buf_map(struct mml_comp *comp, struct mml_task *task,
 	return ret;
 }
 
+static s32 rdma_buf_prepare(struct mml_comp *comp, struct mml_task *task,
+			    struct mml_comp_config *ccfg)
+{
+	if (!task->buf.src.dma[0].iova)
+		return -EINVAL;
+
+	return 0;
+}
+
 static void rdma_buf_unmap(struct mml_comp *comp, struct mml_task *task,
 			   const struct mml_path_node *node)
 {
@@ -1599,6 +1608,7 @@ static s32 rdma_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 static const struct mml_comp_config_ops rdma_cfg_ops = {
 	.prepare = rdma_config_read,
 	.buf_map = rdma_buf_map,
+	.buf_prepare = rdma_buf_prepare,
 	.buf_unmap = rdma_buf_unmap,
 	.get_label_count = rdma_get_label_count,
 	.frame = rdma_config_frame,
