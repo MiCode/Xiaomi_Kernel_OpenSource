@@ -21,6 +21,7 @@ config MTK_FSCMD_TRACER
 
 config MTK_BLOCK_IO_PM_DEBUG
 	bool "Enable Blocktag BLK PM Tracer"
+	depends on BLK_PM
 	help
 	  If it is enabled, there are some pm-related trace
 	  events will be created in block layer.
