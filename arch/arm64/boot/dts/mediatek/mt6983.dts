@@ -7144,9 +7144,13 @@
 					<0 4 0 0 &opp_table_mminfra>,
 					<0 4 0 0 &opp_table_mminfra>,
 					<0 8 0 0 &opp_table_vdec>,
-					<0 6 0 0 &opp_table_venc>;
+					<0 6 0 0 &opp_table_venc>,
+					<0 6 0 0 &opp_table_venc>,
+					<0 7 0 0 &opp_table_vdec>,
+					<0 5 0 0 &opp_table_venc>;
 		mediatek,mmdvfs_clk_names = "disp", "mdp", "mml", "cam", "senif",
-			"img", "smi_comm0", "smi_comm1", "vfmt", "jpegenc";
+			"img", "smi_comm0", "smi_comm1", "vfmt", "jpegenc", "jpegenc2",
+			"vdec", "venc";
 	};
 
 	mminfra-debug@0x1e827000 {
