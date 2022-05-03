@@ -9994,7 +9994,7 @@
 				"path_jpegenc_q_table",
 				"path_jpegenc_bsdma";
 		operating-points-v2 = <&opp_table_venc>;
-		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 
 	jpgdec0@17040000 {
@@ -10068,7 +10068,7 @@
 				"path_jpegenc_q_table",
 				"path_jpegenc_bsdma";
 		operating-points-v2 = <&opp_table_venc>;
-		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 
 	mbist@17860000 {
