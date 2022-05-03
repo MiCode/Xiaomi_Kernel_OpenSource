@@ -32,6 +32,9 @@
 #define MT6363_TMA_UNLOCK_VALUE		0x9c9c
 #define MT6363_BUCK_TOP_UNLOCK_VALUE	0x5543
 
+#define MT6363_RG_BUCK_EFUSE_RSV1	0x1447
+#define MT6363_RG_BUCK_EFUSE_RSV1_MASK	0xf0
+
 /*
  * MT6363 regulators' information
  *
@@ -479,6 +482,27 @@ static int mt6363_vemc_get_voltage_sel(struct regulator_dev *rdev)
 	return sel;
 }
 
+static int mt6363_va15_set_voltage_sel(struct regulator_dev *rdev, unsigned int sel)
+{
+	int ret;
+
+	ret = mt6363_buck_unlock(rdev->regmap, true);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(rdev->regmap, rdev->desc->vsel_reg, rdev->desc->vsel_mask, sel);
+	if (ret)
+		goto va15_unlock;
+	ret = regmap_update_bits(rdev->regmap, MT6363_RG_BUCK_EFUSE_RSV1,
+				 MT6363_RG_BUCK_EFUSE_RSV1_MASK, sel);
+	if (ret)
+		goto va15_unlock;
+
+va15_unlock:
+	ret |= mt6363_buck_unlock(rdev->regmap, false);
+	return ret;
+}
+
 static const struct regulator_ops mt6363_buck_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
 	.map_voltage = regulator_map_voltage_linear_range,
@@ -525,6 +549,20 @@ static const struct regulator_ops mt6363_vemc_ops = {
 	.map_voltage = regulator_map_voltage_iterate,
 	.set_voltage_sel = mt6363_vemc_set_voltage_sel,
 	.get_voltage_sel = mt6363_vemc_get_voltage_sel,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
+	.enable = regulator_enable_regmap,
+	.disable = regulator_disable_regmap,
+	.is_enabled = regulator_is_enabled_regmap,
+	.set_mode = mt6363_regulator_set_mode,
+	.get_mode = mt6363_regulator_get_mode,
+	.set_load = mt6363_regulator_set_load,
+};
+
+static const struct regulator_ops mt6363_va15_ops = {
+	.list_voltage = regulator_list_voltage_table,
+	.map_voltage = regulator_map_voltage_iterate,
+	.set_voltage_sel = mt6363_va15_set_voltage_sel,
+	.get_voltage_sel = regulator_get_voltage_sel_regmap,
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
 	.enable = regulator_enable_regmap,
 	.disable = regulator_disable_regmap,
@@ -810,14 +848,14 @@ static struct mt6363_regulator_info mt6363_regulators[] = {
 		   MT6363_RG_VM18_VOCAL_MASK,
 		   MT6363_RG_LDO_VM18_LP_ADDR,
 		   MT6363_RG_LDO_VM18_LP_SHIFT),
-	MT6363_LDO(VA15, ldo_volt_table3,
-		   MT6363_RG_LDO_VA15_EN_ADDR, MT6363_RG_LDO_VA15_EN_SHIFT,
-		   MT6363_RG_VA15_VOSEL_ADDR,
-		   MT6363_RG_VA15_VOSEL_MASK,
-		   MT6363_RG_VA15_VOCAL_ADDR,
-		   MT6363_RG_VA15_VOCAL_MASK,
-		   MT6363_RG_LDO_VA15_LP_ADDR,
-		   MT6363_RG_LDO_VA15_LP_SHIFT),
+	MT6363_LDO_OPS(VA15, mt6363_va15_ops, ldo_volt_table3,
+		       MT6363_RG_LDO_VA15_EN_ADDR, MT6363_RG_LDO_VA15_EN_SHIFT,
+		       MT6363_RG_VA15_VOSEL_ADDR,
+		       MT6363_RG_VA15_VOSEL_MASK,
+		       MT6363_RG_VA15_VOCAL_ADDR,
+		       MT6363_RG_VA15_VOCAL_MASK,
+		       MT6363_RG_LDO_VA15_LP_ADDR,
+		       MT6363_RG_LDO_VA15_LP_SHIFT),
 	MT6363_LDO(VRF18, ldo_volt_table3,
 		   MT6363_RG_LDO_VRF18_EN_ADDR, MT6363_RG_LDO_VRF18_EN_SHIFT,
 		   MT6363_RG_VRF18_VOSEL_ADDR,
