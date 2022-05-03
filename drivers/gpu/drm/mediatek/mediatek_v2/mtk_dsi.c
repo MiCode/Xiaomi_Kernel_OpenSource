@@ -778,6 +778,7 @@ static void mtk_dsi_cphy_timconfig(struct mtk_dsi *dsi, void *handle)
 CONFIG_REG:
 	//MIPI_TX_MT6983
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
+		priv->data->mmsys_id == MMSYS_MT6985 ||
 		priv->data->mmsys_id == MMSYS_MT6895) {
 		lpx = (lpx % 2) ? lpx + 1 : lpx; //lpx must be even
 		hs_prpr = (hs_prpr % 2) ? hs_prpr + 1 : hs_prpr; //hs_prpr must be even
@@ -883,6 +884,7 @@ static unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi)
 		priv = mtk_crtc->base.dev->dev_private;
 
 	if ((priv->data->mmsys_id == MMSYS_MT6983 ||
+		priv->data->mmsys_id == MMSYS_MT6985 ||
 		priv->data->mmsys_id == MMSYS_MT6895 ||
 		priv->data->mmsys_id == MMSYS_MT6879 ||
 		priv->data->mmsys_id == MMSYS_MT6855) &&
@@ -1112,6 +1114,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 		if (dsi->ext) {
 			if (dsi->ext->params->is_cphy)
 				if (priv->data->mmsys_id == MMSYS_MT6983 ||
+					priv->data->mmsys_id == MMSYS_MT6985 ||
 					priv->data->mmsys_id == MMSYS_MT6895) {
 					mtk_mipi_tx_cphy_lane_config_mt6983(dsi->phy, dsi->ext,
 								     !!dsi->slave_dsi);
@@ -1121,6 +1124,7 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 				}
 			else
 				if (priv->data->mmsys_id == MMSYS_MT6983 ||
+					priv->data->mmsys_id == MMSYS_MT6985 ||
 					priv->data->mmsys_id == MMSYS_MT6895) {
 					mtk_mipi_tx_dphy_lane_config_mt6983(dsi->phy, dsi->ext,
 								     !!dsi->slave_dsi);
@@ -1192,6 +1196,7 @@ static void mtk_dsi_clk_hs_mode(struct mtk_dsi *dsi, bool enter)
 
 	//MIPI_TX_MT6983
 	if (priv->data->mmsys_id == MMSYS_MT6983 ||
+		priv->data->mmsys_id == MMSYS_MT6985 ||
 		priv->data->mmsys_id == MMSYS_MT6895) {
 		if (dsi->ext && dsi->ext->params->is_cphy)
 			writel(0xAA, dsi->regs + DSI_PHY_LCPAT);
@@ -1788,6 +1793,7 @@ static u16 mtk_get_gpr(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 
 	switch (mmsys_id) {
 	case MMSYS_MT6983:
+	case MMSYS_MT6985:
 	case MMSYS_MT6879:
 	case MMSYS_MT6895:
 	case MMSYS_MT6855:
@@ -3583,32 +3589,37 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 		priv = mtk_crtc->base.dev->dev_private;
 	switch (flag) {
 	case MTK_TRIG_FLAG_TRIGGER:
+		mtk_dsi_poll_for_idle(dsi, handle);
 		/* TODO: avoid hardcode: 0xF0 register offset  */
 		if (!ext->params->lp_perline_en &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 			if (priv->data->mmsys_id == MMSYS_MT6855 ||
-			    priv->data->mmsys_id == MMSYS_MT6886)
-				cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x10,
+				priv->data->mmsys_id == MMSYS_MT6985)
+				cmdq_pkt_write(handle, comp->cmdq_base,
+						comp->regs_pa + DSI_CON_CTRL,
 						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
 						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
 			else {
-				cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x10,
+				cmdq_pkt_write(handle, comp->cmdq_base,
+						comp->regs_pa + DSI_CON_CTRL,
 						0, DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN);
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + DSI_CMD_TYPE1_HS,
 					CMD_HS_HFP_BLANKING_HS_EN, CMD_HS_HFP_BLANKING_HS_EN);
 			}
 		}
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->mtk_crtc->config_regs_pa + 0xF0, 0x1, 0x1);
+
+		if (priv->data->mmsys_id != MMSYS_MT6985)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->mtk_crtc->config_regs_pa + 0xF0, 0x1, 0x1);
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + dsi->driver_data->reg_cmdq0_ofs,
 			       0x002c3909, ~0);
-		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x60, 1,
-			       CMDQ_SIZE);
-		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + 0x60, CMDQ_SIZE_SEL,
-			       CMDQ_SIZE_SEL);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
+				1, CMDQ_SIZE);
+		cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
+				CMDQ_SIZE_SEL, CMDQ_SIZE_SEL);
 
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DSI_START, 0, ~0);
@@ -8026,6 +8037,25 @@ static const struct mtk_dsi_driver_data mt6983_dsi_driver_data = {
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
+static const struct mtk_dsi_driver_data mt6985_dsi_driver_data = {
+	.reg_cmdq0_ofs = 0xd00,
+	.reg_cmdq1_ofs = 0xd04,
+	.reg_vm_cmd_con_ofs = 0x200,
+	.reg_vm_cmd_data0_ofs = 0x208,
+	.reg_vm_cmd_data10_ofs = 0x218,
+	.reg_vm_cmd_data20_ofs = 0x228,
+	.reg_vm_cmd_data30_ofs = 0x238,
+	.poll_for_idle = mtk_dsi_poll_for_idle,
+	.irq_handler = mtk_dsi_irq_status,
+	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.need_wait_fifo = false,
+	.dsi_buffer = true,
+	.max_vfp = 0xffe,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
+};
+
 static const struct mtk_dsi_driver_data mt6895_dsi_driver_data = {
 	.reg_cmdq0_ofs = 0xd00,
 	.reg_cmdq1_ofs = 0xd04,
@@ -8161,6 +8191,7 @@ static const struct of_device_id mtk_dsi_of_match[] = {
 	{.compatible = "mediatek,mt8173-dsi", .data = &mt8173_dsi_driver_data},
 	{.compatible = "mediatek,mt6885-dsi", .data = &mt6885_dsi_driver_data},
 	{.compatible = "mediatek,mt6983-dsi", .data = &mt6983_dsi_driver_data},
+	{.compatible = "mediatek,mt6985-dsi", .data = &mt6985_dsi_driver_data},
 	{.compatible = "mediatek,mt6895-dsi", .data = &mt6895_dsi_driver_data},
 	{.compatible = "mediatek,mt6873-dsi", .data = &mt6873_dsi_driver_data},
 	{.compatible = "mediatek,mt6853-dsi", .data = &mt6853_dsi_driver_data},
@@ -8234,7 +8265,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 			}
 		}
 	}
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	dsi->engine_clk = devm_clk_get(dev, "engine");
 	if (IS_ERR(dsi->engine_clk)) {
 		ret = PTR_ERR(dsi->engine_clk);
@@ -8258,7 +8289,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
 			goto error;
 	}
-
+#endif
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	dsi->regs = devm_ioremap_resource(dev, regs);
 	if (IS_ERR(dsi->regs)) {
@@ -8267,7 +8298,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
 			goto error;
 	}
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	dsi->phy = devm_phy_get(dev, "dphy");
 	if (IS_ERR(dsi->phy)) {
 		ret = PTR_ERR(dsi->phy);
@@ -8275,7 +8306,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
 			goto error;
 	}
-
+#endif
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DSI);
 	if (comp_id < 0) {
 		dev_err(dev, "Failed to identify by alias: %d\n", comp_id);

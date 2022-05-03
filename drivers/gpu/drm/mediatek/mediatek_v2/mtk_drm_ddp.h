@@ -41,6 +41,7 @@ struct mtk_disp_mutex {
 
 struct mtk_disp_ddp_data {
 	const unsigned int *mutex_mod;
+	const unsigned int *mutex_ovlsys_mod;
 	const unsigned int *mutex_sof;
 	unsigned int mutex_mod_reg;
 	unsigned int mutex_sof_reg;
@@ -54,9 +55,16 @@ struct mtk_ddp {
 	resource_size_t regs_pa;
 
 	unsigned int dispsys_num;
+	unsigned int ovlsys_num;
 	struct clk *side_clk;
+	struct clk *ovlsys0_clk;
+	struct clk *ovlsys1_clk;
 	void __iomem *side_regs;
+	void __iomem *ovlsys0_regs;
+	void __iomem *ovlsys1_regs;
 	resource_size_t side_regs_pa;
+	resource_size_t ovlsys0_regs_pa;
+	resource_size_t ovlsys1_regs_pa;
 	struct mtk_disp_mutex mutex[10];
 	const struct mtk_disp_ddp_data *data;
 	struct cmdq_base *cmdq_base;
@@ -94,6 +102,8 @@ struct mtk_disp_mutex *mtk_disp_mutex_get(struct device *dev, unsigned int id);
 int mtk_disp_mutex_prepare(struct mtk_disp_mutex *mutex);
 void mtk_disp_mutex_add_comp(struct mtk_disp_mutex *mutex,
 			     enum mtk_ddp_comp_id id);
+void mtk_ovlsys_mutex_add_comp(struct mtk_disp_mutex *mutex,
+			     enum mtk_ddp_comp_id id);
 void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 				       enum mtk_ddp_comp_id id, bool is_cmd_mod,
 				       struct cmdq_pkt *handle,
@@ -123,18 +133,23 @@ void mtk_disp_mutex_inten_disable_cmdq(struct mtk_disp_mutex *mutex,
 
 void mutex_dump_reg_mt6885(struct mtk_disp_mutex *mutex);
 void mutex_dump_reg_mt6983(struct mtk_disp_mutex *mutex);
+void mutex_dump_reg_mt6985(struct mtk_disp_mutex *mutex);
+void mutex_ovlsys_dump_reg_mt6985(struct mtk_disp_mutex *mutex);
 void mutex_dump_reg_mt6895(struct mtk_disp_mutex *mutex);
 void mutex_dump_reg_mt6879(struct mtk_disp_mutex *mutex);
 void mutex_dump_reg_mt6855(struct mtk_disp_mutex *mutex);
 void mutex_dump_analysis_mt6885(struct mtk_disp_mutex *mutex);
 void mutex_dump_analysis_mt6983(struct mtk_disp_mutex *mutex);
+void mutex_dump_analysis_mt6985(struct mtk_disp_mutex *mutex);
 void mutex_dump_analysis_mt6895(struct mtk_disp_mutex *mutex);
 void mmsys_config_dump_reg_mt6885(void __iomem *config_regs);
 void mmsys_config_dump_reg_mt6879(void __iomem *config_regs);
 void mmsys_config_dump_reg_mt6855(void __iomem *config_regs);
 void mmsys_config_dump_reg_mt6983(void __iomem *config_regs);
+void mmsys_config_dump_reg_mt6985(void __iomem *config_regs);
 void mmsys_config_dump_reg_mt6895(void __iomem *config_regs);
 void mmsys_config_dump_analysis_mt6983(void __iomem *config_regs);
+void mmsys_config_dump_analysis_mt6985(void __iomem *config_regs);
 void mmsys_config_dump_analysis_mt6895(void __iomem *config_regs);
 void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs);
 void mtk_ddp_insert_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
@@ -144,6 +159,10 @@ void mtk_ddp_remove_dsc_prim_MT6885(struct mtk_drm_crtc *mtk_crtc,
 void mtk_ddp_insert_dsc_prim_MT6983(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);
 void mtk_ddp_remove_dsc_prim_MT6983(struct mtk_drm_crtc *mtk_crtc,
+	struct cmdq_pkt *handle);
+void mtk_ddp_insert_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
+	struct cmdq_pkt *handle);
+void mtk_ddp_remove_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);
 void mtk_ddp_insert_dsc_prim_MT6895(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle);

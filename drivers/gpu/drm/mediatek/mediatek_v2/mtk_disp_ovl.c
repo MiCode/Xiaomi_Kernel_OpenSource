@@ -1711,8 +1711,8 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	if (!pending->addr)
 		con |= BIT(28);
 
-	DDPINFO("%s+ id %d, idx:%d, ext_idx:%d, enable:%d, fmt:0x%x, ",
-		__func__, comp->id, idx, ext_lye_idx, pending->enable, pending->format);
+	DDPINFO("%s+ id %d, idx:%d, lye_idx:%d, ext_idx:%d, enable:%d, fmt:0x%x, ",
+		__func__, comp->id, idx, lye_idx, ext_lye_idx, pending->enable, pending->format);
 	DDPINFO("addr 0x%lx, compr %d, con 0x%x, mml_mode %d\n",
 		(unsigned long)pending->addr,
 		(unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con,
@@ -3866,6 +3866,35 @@ static const struct mtk_disp_ovl_data mt6983_ovl_driver_data = {
 	.source_bpc = 10,
 };
 
+static const struct compress_info compr_info_mt6985  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+static const struct mtk_disp_ovl_data mt6985_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_BASE,
+	.el_addr_offset = 0x10,
+	.el_hdr_addr = 0xfb4,
+	.el_hdr_addr_offset = 0x10,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6985,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.preultra_th_dc = 0x15e,
+	.fifo_size = 384,
+	.issue_req_th_dl = 255,
+	.issue_req_th_dc = 15,
+	.issue_req_th_urg_dl = 127,
+	.issue_req_th_urg_dc = 15,
+	.greq_num_dl = 0x7777,
+	.is_support_34bits = true,
+	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6983,
+	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6983,
+	.source_bpc = 10,
+};
+
 static const struct compress_info compr_info_mt6895  = {
 	.name = "AFBC_V1_2_MTK_1",
 	.l_config = &compr_l_config_AFBC_V1_2,
@@ -4056,6 +4085,8 @@ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	 .data = &mt6885_ovl_driver_data},
 	{.compatible = "mediatek,mt6983-disp-ovl",
 	 .data = &mt6983_ovl_driver_data},
+	{.compatible = "mediatek,mt6985-disp-ovl",
+	 .data = &mt6985_ovl_driver_data},
 	{.compatible = "mediatek,mt6895-disp-ovl",
 	 .data = &mt6895_ovl_driver_data},
 	{.compatible = "mediatek,mt6873-disp-ovl",

@@ -221,6 +221,7 @@ static void mtk_dsc_prepare(struct mtk_ddp_comp *comp)
 	/* Bypass shadow register and read shadow register */
 	if (dsc->data->need_bypass_shadow) {
 		if (priv->data->mmsys_id == MMSYS_MT6983 ||
+			priv->data->mmsys_id == MMSYS_MT6985 ||
 			priv->data->mmsys_id == MMSYS_MT6895)
 			mtk_ddp_write_mask_cpu(comp, DSC_BYPASS_SHADOW,
 				MT6983_DISP_REG_SHADOW_CTRL, DSC_BYPASS_SHADOW);
