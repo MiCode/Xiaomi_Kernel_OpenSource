@@ -299,6 +299,8 @@ static void mini_dump_register(void)
 			idx+2, pmic_read(idx+2),
 			idx+3, pmic_read(idx+3));
 	}
+	if (log_size < 0)
+		pr_notice("sprintf failed\n");
 	pr_notice("\naccdet %s %d", accdet_log_buf, log_size);
 }
 
@@ -361,12 +363,15 @@ static void cat_register(char *buf)
 	ret = sprintf(accdet_log_buf, "[Accdet EINTx support][MODE_%d]regs:\n",
 		accdet_dts.mic_mode);
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
-
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	dump_reg = true;
 	dump_register();
 	dump_reg = false;
 	ret = sprintf(accdet_log_buf, "ACCDET_RG\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	st_addr = MT6338_ACCDET_AUXADC_SEL_ADDR;
 	end_addr = MT6338_ACCDET_MON_FLAG_EN_ADDR;
 	for (addr = st_addr; addr <= end_addr; addr += 4) {
@@ -378,9 +383,13 @@ static void cat_register(char *buf)
 			idx+2, pmic_read(idx+2),
 			idx+3, pmic_read(idx+3));
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+		if (ret < 0)
+			pr_notice("sprintf failed\n");
 	}
 	ret = sprintf(accdet_log_buf, "AUDDEC_ANA_RG\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	st_addr = MT6338_RG_AUDPREAMPLON_ADDR;
 	end_addr = MT6338_RG_ADCL_CLKMODE_ADDR;
 	for (addr = st_addr; addr <= end_addr; addr += 4) {
@@ -398,11 +407,15 @@ static void cat_register(char *buf)
 		      MT6338_RG_SCK32K_CK_PDN_ADDR,
 		      pmic_read(MT6338_RG_SCK32K_CK_PDN_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		      MT6338_RG_ACCDET_RST_ADDR,
 		      pmic_read(MT6338_RG_ACCDET_RST_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x, [0x%x]=0x%x\n",
 		      MT6338_RG_INT_EN_ACCDET_ADDR,
@@ -412,6 +425,8 @@ static void cat_register(char *buf)
 		      MT6338_RG_INT_STATUS_ACCDET_ADDR,
 		      pmic_read(MT6338_RG_INT_STATUS_ACCDET_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x,[0x%x]=0x%x\n",
 		      MT6338_RG_AUDPWDBMICBIAS1_ADDR,
@@ -419,6 +434,8 @@ static void cat_register(char *buf)
 		      MT6338_RG_AUDACCDETMICBIAS0PULLLOW_ADDR,
 		      pmic_read(MT6338_RG_AUDACCDETMICBIAS0PULLLOW_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x\n",
 		      MT6338_AUXADC_RQST_CH5_ADDR,
@@ -426,6 +443,8 @@ static void cat_register(char *buf)
 		      MT6338_AUXADC_ACCDET_AUTO_SPL_ADDR,
 		      pmic_read(MT6338_AUXADC_ACCDET_AUTO_SPL_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 
 	ret = sprintf(accdet_log_buf,
 		"dtsInfo:deb0=0x%x,deb1=0x%x,deb3=0x%x,deb4=0x%x\n",
@@ -496,7 +515,7 @@ static ssize_t set_reg_store(struct device_driver *ddri,
 
 	pr_info("%s() set addr[0x%x]=0x%x\n", __func__, addr_tmp, value_tmp);
 
-	if (addr_tmp < 0)
+	if (addr_tmp > MT6338_ACCDET_MON_FLAG_EN_ADDR)
 		pr_notice("%s() Illegal addr[0x%x]!!\n", __func__, addr_tmp);
 	else
 		pmic_write(addr_tmp, value_tmp);
