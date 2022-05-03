@@ -146,17 +146,20 @@ def get_gki_denyfile():
     cmd = options.tool_chain + "llvm-dwarfdump --debug-info "+ options.google_vmlinux + " | grep -m 1 \"DW_AT_comp_dir\" | awk 'BEGIN {FS=\"\\\"\"} {print $2}'"
     #print(cmd)
     output = os.popen(cmd)
-    restr = output.read().splitlines()[0]
-    #print(restr)
-    if key_str in restr:
-        restr = restr.replace("out_krn/kernel-5.15", "common")
-    restr = restr.replace("/","\/")
-    #print(restr)
+    restr1 = output.read().splitlines()[0]
+    restr2 = restr1
+    if key_str in restr1:
+        restr2 = restr1.replace("out_krn/kernel-5.15", "common")
+    restr1 = restr1.replace("/","\/")
+    restr2 = restr2.replace("/","\/")
+    #print(restr1)
+    #print(restr2)
     output.close()
     # get denyfile
     cmd = options.tool_chain + "llvm-dwarfdump --debug-info "+ options.google_vmlinux \
     + " | grep \"DW_AT_decl_file\" | awk 'BEGIN {FS=\"\\\"\"} {print $2}' | sed 's/" \
-    + restr + "\///' | sort | uniq > " + options.checker_out + "file/tmp/gki_denyfiles.txt"
+    + restr1 + "\///'"+" | sed 's/"+ restr2 + "\///' | sort | uniq > " \
+    + options.checker_out + "file/tmp/gki_denyfiles.txt"
     #print(cmd)
     os.system(cmd)
 
@@ -548,13 +551,16 @@ def update_white_list(filename):
             for line in f.readlines():
                 if line.split()[0] not in cfg:
                     cfg.append(line.split()[0])
-    with open(filename, "w") as w:
+    with open("tmp.txt", "w") as w:
+        for c in cfg:
+            w.write("c " + c + '\n')
         for f in fil:
             w.write("f " + f)
         for s in sbl:
             w.write("s " + s + '\n')
-        for c in cfg:
-            w.write("c " + c + '\n')
+        
+    os.system("sort -u  tmp.txt > " + filename)
+    os.system("rm tmp.txt")
 
 def getExecuteOptions(self, args=[]):
     parser = OptionParser()

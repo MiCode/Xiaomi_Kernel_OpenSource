@@ -2611,7 +2611,7 @@ out:
 		if (!apudev) {
 			of_node_put(apunode);
 			dev_warn(dev, "Find apudev fail!\n");
-			return -EPROBE_DEFER;
+			return -ENODEV;
 		}
 
 		link = device_link_add(&apudev->dev, dev, DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);

@@ -15,15 +15,24 @@ struct pkvm_iommu_ops {
 	 * Driver-specific arguments are passed in a buffer shared by the host.
 	 * The buffer memory has been pinned in EL2 but host retains R/W access.
 	 * Extra care must be taken when reading from it to avoid TOCTOU bugs.
+	 * If the driver maintains its own page tables, it is expected to
+	 * initialize them to all memory owned by the host.
 	 * Driver initialization lock held during callback.
 	 */
 	int (*init)(void *data, size_t size);
 
 	/*
-	 * Driver-specific validation of device registration inputs.
-	 * This should be stateless. No locks are held at entry.
+	 * Driver-specific validation of a device that is being registered.
+	 * All fields of the device struct have been populated.
+	 * Called with the host lock held.
 	 */
-	int (*validate)(phys_addr_t base, size_t size);
+	int (*validate)(struct pkvm_iommu *dev);
+
+	/*
+	 * Validation of a new child device that is being register by
+	 * the parent device the child selected. Called with the host lock held.
+	 */
+	int (*validate_child)(struct pkvm_iommu *dev, struct pkvm_iommu *child);
 
 	/*
 	 * Callback to apply a host stage-2 mapping change at driver level.
@@ -56,7 +65,10 @@ struct pkvm_iommu_ops {
 };
 
 struct pkvm_iommu {
+	struct pkvm_iommu *parent;
 	struct list_head list;
+	struct list_head siblings;
+	struct list_head children;
 	unsigned long id;
 	const struct pkvm_iommu_ops *ops;
 	phys_addr_t pa;
@@ -70,9 +82,11 @@ int __pkvm_iommu_driver_init(enum pkvm_iommu_driver_id id, void *data, size_t si
 int __pkvm_iommu_register(unsigned long dev_id,
 			  enum pkvm_iommu_driver_id drv_id,
 			  phys_addr_t dev_pa, size_t dev_size,
+			  unsigned long parent_id,
 			  void *kern_mem_va, size_t mem_size);
 int __pkvm_iommu_pm_notify(unsigned long dev_id,
 			   enum pkvm_iommu_pm_event event);
+int __pkvm_iommu_finalize(void);
 int pkvm_iommu_host_stage2_adjust_range(phys_addr_t addr, phys_addr_t *start,
 					phys_addr_t *end);
 bool pkvm_iommu_host_dabt_handler(struct kvm_cpu_context *host_ctxt, u32 esr,
@@ -81,5 +95,6 @@ void pkvm_iommu_host_stage2_idmap(phys_addr_t start, phys_addr_t end,
 				  enum kvm_pgtable_prot prot);
 
 extern const struct pkvm_iommu_ops pkvm_s2mpu_ops;
+extern const struct pkvm_iommu_ops pkvm_sysmmu_sync_ops;
 
 #endif	/* __ARM64_KVM_NVHE_IOMMU_H__ */

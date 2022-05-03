@@ -57,7 +57,7 @@ void generic_fillattr(struct user_namespace *mnt_userns, struct inode *inode,
 	stat->blksize = i_blocksize(inode);
 	stat->blocks = inode->i_blocks;
 }
-EXPORT_SYMBOL(generic_fillattr);
+EXPORT_SYMBOL_NS(generic_fillattr, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /**
  * generic_fill_statx_attr - Fill in the statx attributes from the inode flags

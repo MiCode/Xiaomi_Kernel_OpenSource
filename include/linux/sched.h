@@ -914,6 +914,10 @@ struct task_struct {
 #ifdef CONFIG_MEMCG
 	unsigned			in_user_fault:1;
 #endif
+#ifdef CONFIG_LRU_GEN
+	/* whether the LRU algorithm may apply to this access */
+	unsigned			in_lru_fault:1;
+#endif
 #ifdef CONFIG_COMPAT_BRK
 	unsigned			brk_randomized:1;
 #endif
@@ -1353,9 +1357,7 @@ struct task_struct {
 #endif
 #endif
 
-#if IS_ENABLED(CONFIG_KUNIT)
 	struct kunit			*kunit_test;
-#endif
 
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 	/* Index of current stored address in ret_stack: */
@@ -1635,6 +1637,14 @@ static inline unsigned int task_state_index(struct task_struct *tsk)
 
 	if (tsk_state == TASK_IDLE)
 		state = TASK_REPORT_IDLE;
+
+	/*
+	 * We're lying here, but rather than expose a completely new task state
+	 * to userspace, we can make this appear as if the task has gone through
+	 * a regular rt_mutex_lock() call.
+	 */
+	if (tsk_state == TASK_RTLOCK_WAIT)
+		state = TASK_UNINTERRUPTIBLE;
 
 	return fls(state);
 }

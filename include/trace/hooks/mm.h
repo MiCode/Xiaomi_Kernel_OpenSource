@@ -11,7 +11,6 @@
 
 #include <linux/mm.h>
 #include <linux/oom.h>
-#include <linux/tracepoint.h>
 #include <trace/hooks/vendor_hooks.h>
 
 DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
