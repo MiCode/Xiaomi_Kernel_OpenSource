@@ -756,6 +756,8 @@ int init_mtk_adsp_dram_segment(void)
 		if (!dsp_dram_pool[i])
 			return -EFAULT;
 
+		gen_pool_set_algo(dsp_dram_pool[i], gen_pool_best_fit, NULL);
+
 		ret = gen_pool_add_virt(dsp_dram_pool[i],
 					dram->va_addr, dram->phy_addr, dram->size, -1);
 
