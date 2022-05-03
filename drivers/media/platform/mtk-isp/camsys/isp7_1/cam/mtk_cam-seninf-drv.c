@@ -1428,6 +1428,7 @@ static int seninf_notifier_bound(struct v4l2_async_notifier *notifier,
 
 	dev_info(ctx->dev, "%s bounded\n", sd->entity.name);
 
+	mutex_lock(&ctx->subdev.v4l2_dev->mdev->graph_mutex);
 	ret = media_create_pad_link(&sd->entity, 0,
 				    &ctx->subdev.entity, 0,
 				    MEDIA_LNK_FL_DYNAMIC);
@@ -1435,14 +1436,18 @@ static int seninf_notifier_bound(struct v4l2_async_notifier *notifier,
 		dev_info(ctx->dev,
 			"failed to create link for %s\n",
 			sd->entity.name);
+		mutex_unlock(&ctx->subdev.v4l2_dev->mdev->graph_mutex);
 		return ret;
 	}
 
 	ret = v4l2_device_register_subdev_nodes(ctx->subdev.v4l2_dev);
 	if (ret) {
 		dev_info(ctx->dev, "failed to create subdev nodes\n");
+		mutex_unlock(&ctx->subdev.v4l2_dev->mdev->graph_mutex);
 		return ret;
 	}
+	mutex_unlock(&ctx->subdev.v4l2_dev->mdev->graph_mutex);
+	dev_info(ctx->dev, "%s bounded exit\n", sd->entity.name);
 
 	return 0;
 }
