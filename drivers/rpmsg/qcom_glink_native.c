@@ -265,7 +265,7 @@ struct glink_channel {
 	unsigned int rsigs;
 };
 
-#define MAX_INTENT_TIMEOUTS		3
+#define MAX_INTENT_TIMEOUTS		2
 
 #define to_glink_channel(_ept) container_of(_ept, struct glink_channel, ept)
 
@@ -1643,9 +1643,10 @@ static int qcom_glink_request_intent(struct qcom_glink *glink,
 				 atomic_read(&channel->intent_req_acked) ||
 				 atomic_read(&glink->in_reset), 10 * HZ);
 	if (!ret) {
-		dev_err(glink->dev, "intent request ack timed out\n");
-		ret = -ETIMEDOUT;
 		channel->intent_timeout_count++;
+		dev_err(glink->dev, "%s: intent request ack timed out (%d)\n",
+			channel->name, channel->intent_timeout_count);
+		ret = -ETIMEDOUT;
 		if (channel->intent_timeout_count >= MAX_INTENT_TIMEOUTS)
 			GLINK_BUG(glink->ilc,
 				  "remoteproc:%s channel:%s unresponsive\n",
