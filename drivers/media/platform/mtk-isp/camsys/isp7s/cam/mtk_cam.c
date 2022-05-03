@@ -55,10 +55,6 @@ static unsigned int debug_ae;
 module_param(debug_ae, uint, 0644);
 MODULE_PARM_DESC(debug_ae, "activates debug ae info");
 
-/* FIXME for CIO pad id */
-#define MTK_CAM_CIO_PAD_SRC		PAD_SRC_RAW0
-#define MTK_CAM_CIO_PAD_SINK		MTK_RAW_SINK
-
 /* Zero out the end of the struct pointed to by p.  Everything after, but
  * not including, the specified field is cleared.
  */
@@ -154,7 +150,7 @@ struct device *mtk_cam_get_larb(struct device *dev, int larb_id)
 	return NULL;
 }
 
-void mtk_cam_dev_try_queue(struct mtk_cam_device *cam)
+void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 {
 	//TODO
 	// 1. get runnable requests
@@ -1037,7 +1033,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 
 	ret = ctx_stream_on_pipe_subdev(ctx, 1);
 
-	mtk_cam_dev_try_queue(ctx->cam);
+	mtk_cam_dev_req_try_queue(ctx->cam);
 
 	//ctx_stream_on_seninf_sensor
 
@@ -1066,97 +1062,89 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	return 0;
 }
 
+static int _dynamic_link_seninf_pipe(struct device *dev,
+				     struct media_entity *seninf, u16 src_pad,
+				     struct media_entity *pipe, u16 sink_pad)
+{
+	int ret;
+
+	dev_info(dev, "create pad link %s %s\n", seninf->name, pipe->name);
+	ret = media_create_pad_link(seninf, src_pad,
+				    pipe, sink_pad,
+				    MEDIA_LNK_FL_DYNAMIC);
+	if (ret) {
+		dev_info(dev, "failed to create pad link %s %s err:%d\n",
+			 seninf->name, pipe->name, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int config_bridge_pad_links(struct mtk_cam_device *cam,
 				   struct v4l2_subdev *seninf)
 {
-#ifdef NOT_READY
+	struct device *dev = cam->dev;
+	struct mtk_cam_v4l2_pipelines *ppl = &cam->pipelines;
 	struct media_entity *pipe_entity;
-	unsigned int i, j;
+	unsigned int i;//, j;
 	int ret;
 
-	for (i = 0; i < cam->max_stream_num; i++) {
-		if (i >= MTKCAM_SUBDEV_RAW_START &&
-			i < (MTKCAM_SUBDEV_RAW_START + cam->num_raw_devices)) {
-			pipe_entity = &cam->raw.pipelines[i].subdev.entity;
+	/* seninf <-> raw */
 
-			dev_info(cam->dev, "create pad link %s %s\n",
-				seninf->entity.name, pipe_entity->name);
+	for (i = 0; i < ppl->num_raw; i++) {
+		pipe_entity = &ppl->raw[i].subdev.entity;
 
-			ret = media_create_pad_link(&seninf->entity,
-					MTK_CAM_CIO_PAD_SRC,
-					pipe_entity,
-					MTK_CAM_CIO_PAD_SINK,
-					MEDIA_LNK_FL_DYNAMIC);
+		ret = _dynamic_link_seninf_pipe(dev,
+						&seninf->entity,
+						PAD_SRC_RAW0,
+						pipe_entity,
+						MTK_RAW_SINK);
+		if (ret)
+			return ret;
+	}
 
-			if (ret) {
-				dev_dbg(cam->dev,
-					"failed to create pad link %s %s err:%d\n",
-					seninf->entity.name, pipe_entity->name,
-					ret);
-				return ret;
-			}
-		} else if (i >= MTKCAM_SUBDEV_CAMSV_START && i < MTKCAM_SUBDEV_CAMSV_END) {
-			pipe_entity = &cam->sv.pipelines[i-MTKCAM_SUBDEV_CAMSV_START].subdev.entity;
+	/* seninf <-> camsv */
+#ifdef NOT_READY
+	for (i = 0; i < ppl->num_camsv; i++) {
+		pipe_entity = &ppl->camsv[i].subdev.entity;
 
-			dev_info(cam->dev, "create pad link %s %s\n",
-				seninf->entity.name, pipe_entity->name);
-
-			ret = media_create_pad_link(&seninf->entity,
-					PAD_SRC_RAW0,
-					pipe_entity,
-					MTK_CAMSV_SINK,
-					MEDIA_LNK_FL_DYNAMIC);
-
-			if (ret) {
-				dev_dbg(cam->dev,
-					"failed to create pad link %s %s err:%d\n",
-					seninf->entity.name, pipe_entity->name,
-					ret);
-				return ret;
-			}
+		ret = _dynamic_link_seninf_pipe(dev,
+						&seninf->entity,
+						PAD_SRC_RAW0,
+						pipe_entity,
+						MTK_CAMSV_SINK);
+		if (ret)
+			return ret;
 
 #if PDAF_READY
-			for (j = PAD_SRC_PDAF0; j <= PAD_SRC_PDAF5; j++) {
-				ret = media_create_pad_link(&seninf->entity,
-						j,
-						pipe_entity,
-						MTK_CAMSV_SINK,
-						MEDIA_LNK_FL_DYNAMIC);
-
-				if (ret) {
-					dev_dbg(cam->dev,
-						"failed to create pad link %s %s err:%d\n",
-						seninf->entity.name, pipe_entity->name,
-						ret);
-					return ret;
-				}
-			}
+		for (j = PAD_SRC_PDAF0; j <= PAD_SRC_PDAF5; j++) {
+			ret = _dynamic_link_seninf_pipe(dev,
+							&seninf->entity,
+							j,
+							pipe_entity,
+							MTK_CAMSV_SINK);
+			if (ret)
+				return ret;
+		}
 #endif
-		} else if (i >= MTKCAM_SUBDEV_MRAW_START && i < MTKCAM_SUBDEV_MRAW_END) {
-			pipe_entity =
-				&cam->mraw.pipelines[i - MTKCAM_SUBDEV_MRAW_START].subdev.entity;
+	}
 
-			dev_info(cam->dev, "create pad link %s %s\n",
-				seninf->entity.name, pipe_entity->name);
+	/* seninf <-> mraw */
 
-			for (j = PAD_SRC_PDAF0; j <= PAD_SRC_PDAF5; j++) {
-				ret = media_create_pad_link(&seninf->entity,
-						j,
-						pipe_entity,
-						MTK_MRAW_SINK,
-						MEDIA_LNK_FL_DYNAMIC);
-
-				if (ret) {
-					dev_dbg(cam->dev,
-						"failed to create pad link %s %s err:%d\n",
-						seninf->entity.name, pipe_entity->name,
-						ret);
-					return ret;
-				}
-			}
+	for (i = 0; i < ppl->num_mraw; i++) {
+		for (j = PAD_SRC_PDAF0; j <= PAD_SRC_PDAF5; j++) {
+			ret = _dynamic_link_seninf_pipe(dev,
+							&seninf->entity,
+							j,
+							pipe_entity,
+							MTK_MRAW_SINK);
+			if (ret)
+				return ret;
 		}
 	}
 #endif
+
 	return 0;
 }
 
@@ -1902,236 +1890,6 @@ static void clear_reserved_fmt_fields_hook(void *data, struct v4l2_format *p,
 	*ret = 1;
 }
 
-static void fill_ext_fmtdesc_hook(void *data, struct v4l2_fmtdesc *p, const char **descr)
-{
-	switch (p->pixelformat) {
-	case V4L2_PIX_FMT_YUYV10:
-		*descr = "YUYV 4:2:2 10 bits";
-		break;
-	case V4L2_PIX_FMT_YVYU10:
-		*descr = "YVYU 4:2:2 10 bits";
-		break;
-	case V4L2_PIX_FMT_UYVY10:
-		*descr = "UYVY 4:2:2 10 bits";
-		break;
-	case V4L2_PIX_FMT_VYUY10:
-		*descr = "VYUY 4:2:2 10 bits";
-		break;
-	case V4L2_PIX_FMT_NV12_10:
-		*descr = "Y/CbCr 4:2:0 10 bits";
-		break;
-	case V4L2_PIX_FMT_NV21_10:
-		*descr = "Y/CrCb 4:2:0 10 bits";
-		break;
-	case V4L2_PIX_FMT_NV16_10:
-		*descr = "Y/CbCr 4:2:2 10 bits";
-		break;
-	case V4L2_PIX_FMT_NV61_10:
-		*descr = "Y/CrCb 4:2:2 10 bits";
-		break;
-	case V4L2_PIX_FMT_NV12_12:
-		*descr = "Y/CbCr 4:2:0 12 bits";
-		break;
-	case V4L2_PIX_FMT_NV21_12:
-		*descr = "Y/CrCb 4:2:0 12 bits";
-		break;
-	case V4L2_PIX_FMT_NV16_12:
-		*descr = "Y/CbCr 4:2:2 12 bits";
-		break;
-	case V4L2_PIX_FMT_NV61_12:
-		*descr = "Y/CrCb 4:2:2 12 bits";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR10:
-		*descr = "10-bit Bayer BGGR MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG10:
-		*descr = "10-bit Bayer GBRG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG10:
-		*descr = "10-bit Bayer GRBG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB10:
-		*descr = "10-bit Bayer RGGB MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR12:
-		*descr = "12-bit Bayer BGGR MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG12:
-		*descr = "12-bit Bayer GBRG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG12:
-		*descr = "12-bit Bayer GRBG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB12:
-		*descr = "12-bit Bayer RGGB MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR14:
-		*descr = "14-bit Bayer BGGR MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG14:
-		*descr = "14-bit Bayer GBRG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG14:
-		*descr = "14-bit Bayer GRBG MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB14:
-		*descr = "14-bit Bayer RGGB MTISP Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR8F:
-		*descr = "8-bit Enhanced BGGR Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG8F:
-		*descr = "8-bit Enhanced GBRG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG8F:
-		*descr = "8-bit Enhanced GRBG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB8F:
-		*descr = "8-bit Enhanced RGGB Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR10F:
-		*descr = "10-bit Enhanced BGGR Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG10F:
-		*descr = "10-bit Enhanced GBRG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG10F:
-		*descr = "10-bit Enhanced GRBG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB10F:
-		*descr = "10-bit Enhanced RGGB Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR12F:
-		*descr = "12-bit Enhanced BGGR Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG12F:
-		*descr = "12-bit Enhanced GBRG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG12F:
-		*descr = "12-bit Enhanced GRBG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB12F:
-		*descr = "12-bit Enhanced RGGB Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SBGGR14F:
-		*descr = "14-bit Enhanced BGGR Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGBRG14F:
-		*descr = "14-bit Enhanced GBRG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRBG14F:
-		*descr = "14-bit Enhanced GRBG Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SRGGB14F:
-		*descr = "14-bit Enhanced RGGB Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV12_10P:
-		*descr = "Y/CbCr 4:2:0 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV21_10P:
-		*descr = "Y/CrCb 4:2:0 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV16_10P:
-		*descr = "Y/CbCr 4:2:2 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV61_10P:
-		*descr = "Y/CrCb 4:2:2 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_YUYV10P:
-		*descr = "YUYV 4:2:2 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_YVYU10P:
-		*descr = "YVYU 4:2:2 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_UYVY10P:
-		*descr = "UYVY 4:2:2 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_VYUY10P:
-		*descr = "VYUY 4:2:2 10 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV12_12P:
-		*descr = "Y/CbCr 4:2:0 12 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV21_12P:
-		*descr = "Y/CrCb 4:2:0 12 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV16_12P:
-		*descr = "Y/CbCr 4:2:2 12 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV61_12P:
-		*descr = "Y/CrCb 4:2:2 12 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_YUYV12P:
-		*descr = "YUYV 4:2:2 12 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_YVYU12P:
-		*descr = "YVYU 4:2:2 12 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_UYVY12P:
-		*descr = "UYVY 4:2:2 12 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_VYUY12P:
-		*descr = "VYUY 4:2:2 12 bits packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV12_UFBC:
-		*descr = "YCbCr 420 8 bits compress";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV21_UFBC:
-		*descr = "YCrCb 420 8 bits compress";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV12_10_UFBC:
-		*descr = "YCbCr 420 10 bits compress";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
-		*descr = "YCrCb 420 10 bits compress";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
-		*descr = "YCbCr 420 12 bits compress";
-		break;
-	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
-		*descr = "YCrCb 420 12 bits compress";
-		break;
-	case V4L2_PIX_FMT_MTISP_BAYER8_UFBC:
-		*descr = "RAW 8 bits compress";
-		break;
-	case V4L2_PIX_FMT_MTISP_BAYER10_UFBC:
-		*descr = "RAW 10 bits compress";
-		break;
-	case V4L2_PIX_FMT_MTISP_BAYER12_UFBC:
-		*descr = "RAW 12 bits compress";
-		break;
-	case V4L2_PIX_FMT_MTISP_BAYER14_UFBC:
-		*descr = "RAW 14 bits compress";
-		break;
-	case V4L2_META_FMT_MTISP_3A:
-		*descr = "AE/AWB Histogram";
-		break;
-	case V4L2_META_FMT_MTISP_AF:
-		*descr = "AF Histogram";
-		break;
-	case V4L2_META_FMT_MTISP_LCS:
-		*descr = "Local Contrast Enhancement Stat";
-		break;
-	case V4L2_META_FMT_MTISP_LMV:
-		*descr = "Local Motion Vector Histogram";
-		break;
-	case V4L2_META_FMT_MTISP_PARAMS:
-		*descr = "MTK ISP Tuning Metadata";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRB8F:
-		*descr = "8-bit 3 plane GRB Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRB10F:
-		*descr = "10-bit 3 plane GRB Packed";
-		break;
-	case V4L2_PIX_FMT_MTISP_SGRB12F:
-		*descr = "12-bit 3 plane GRB Packed";
-		break;
-	default:
-		break;
-	}
-}
-
 static void clear_mask_adjust_hook(void *data, unsigned int ctrl, int *n)
 {
 	if (ctrl == VIDIOC_S_SELECTION)
@@ -2185,10 +1943,10 @@ static void mtk_cam_trace_init(void)
 			clear_reserved_fmt_fields_hook, NULL);
 	if (ret)
 		pr_info("register android_vh_clear_reserved_fmt_fields failed!\n");
-	ret = register_trace_android_vh_fill_ext_fmtdesc(
-			fill_ext_fmtdesc_hook, NULL);
-	if (ret)
-		pr_info("register android_vh_v4l_fill_fmtdesc failed!\n");
+	//ret = register_trace_android_vh_fill_ext_fmtdesc(
+	//		fill_ext_fmtdesc_hook, NULL);
+	//if (ret)
+	//	pr_info("register android_vh_v4l_fill_fmtdesc failed!\n");
 	ret = register_trace_android_vh_clear_mask_adjust(
 			clear_mask_adjust_hook, NULL);
 	if (ret)
@@ -2210,7 +1968,7 @@ static void mtk_cam_trace_init(void)
 static void mtk_cam_trace_exit(void)
 {
 	unregister_trace_android_vh_clear_reserved_fmt_fields(clear_reserved_fmt_fields_hook, NULL);
-	unregister_trace_android_vh_fill_ext_fmtdesc(fill_ext_fmtdesc_hook, NULL);
+	//unregister_trace_android_vh_fill_ext_fmtdesc(fill_ext_fmtdesc_hook, NULL);
 	unregister_trace_android_vh_clear_mask_adjust(clear_mask_adjust_hook, NULL);
 }
 

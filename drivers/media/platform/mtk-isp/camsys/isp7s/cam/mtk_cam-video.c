@@ -12,11 +12,14 @@
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 #include "mtk_cam-ufbc-def.h"
-
+#include "mtk_cam-plat.h"
 #include "mtk_cam_vb2-dma-contig.h"
 #include "mtk_cam-trace.h"
 
 #define MAX_SUBSAMPLE_PLANE_NUM VB2_MAX_PLANES /* 8 */
+
+static int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node,
+				 struct v4l2_format *f);
 
 static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 				   unsigned int *num_buffers,
@@ -24,7 +27,43 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 				   unsigned int sizes[],
 				   struct device *alloc_devs[])
 {
-	// TODO
+	struct mtk_cam_device *cam = vb2_get_drv_priv(vq);
+	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vq);
+	unsigned int max_buffer_count = node->desc.max_buf_count;
+	const struct v4l2_format *fmt = &node->active_fmt;
+	unsigned int size;
+	int i;
+	int min_buf_sz;
+
+	min_buf_sz = ALIGN(IMG_MIN_WIDTH, IMG_PIX_ALIGN) * IMG_MIN_HEIGHT;
+
+	/* Check the limitation of buffer size */
+	if (max_buffer_count)
+		*num_buffers = clamp_val(*num_buffers, 1, max_buffer_count);
+
+	if (node->desc.smem_alloc)
+		vq->dma_attrs |= DMA_ATTR_NO_KERNEL_MAPPING;
+
+	if (vq->type == V4L2_BUF_TYPE_META_OUTPUT ||
+	    vq->type == V4L2_BUF_TYPE_META_CAPTURE)
+		size = fmt->fmt.meta.buffersize;
+	else
+		size = min_buf_sz;
+
+	/* Add for q.create_bufs with fmt.g_sizeimage(p) / 2 test */
+	if (*num_planes) {
+		if (sizes[0] < size || *num_planes != 1)
+			return -EINVAL;
+	} else {
+		*num_planes = 1;
+		sizes[0] = size;
+
+		for (i = 0; i < *num_planes; i++)
+			dev_dbg(cam->dev, "[%s] id:%d, name:%s, np:%d, i:%d, size:%d\n",
+				__func__,
+				node->desc.id, node->desc.name,
+				*num_planes, i, sizes[i]);
+	}
 	return 0;
 }
 
@@ -824,6 +863,7 @@ static int mtk_video_init_format(struct mtk_cam_video_device *video)
 	active->fmt.pix_mp.height = default_fmt->fmt.pix_mp.height;
 	active->fmt.pix_mp.num_planes = default_fmt->fmt.pix_mp.num_planes;
 
+	/* TODO: may have wrong stride */
 	cal_image_pix_mp(desc->id, &active->fmt.pix_mp, 0);
 
 	/**
@@ -1061,8 +1101,8 @@ int mtk_cam_vidioc_enum_fmt(struct file *file, void *fh,
 	if (f->index >= node->desc.num_fmts)
 		return -EINVAL;
 
-	/* f->description is filled in v4l_fill_fmtdesc function */
 	f->pixelformat = node->desc.fmts[f->index].vfmt.fmt.pix_mp.pixelformat;
+	fill_ext_mtkcam_fmtdesc(f);
 	f->flags = 0;
 	return 0;
 }
@@ -1080,13 +1120,72 @@ int mtk_cam_vidioc_g_fmt(struct file *file, void *fh,
 int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 			 struct v4l2_format *f)
 {
-	// TODO
-	return 0;
+	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+	int ret;
+
+	ret = mtk_cam_video_set_fmt(node, f);
+	if (!ret)
+		node->active_fmt = *f;
+
+	return ret;
 }
 
-int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, int raw_feature)
+int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node,
+			  struct v4l2_format *f)
 {
-	// TODO
+	struct mtk_cam_device *cam = video_get_drvdata(&node->vdev);
+	const struct v4l2_format *dev_fmt;
+	struct v4l2_format try_fmt;
+	int i;
+
+	/* Validate pixelformat */
+	dev_fmt = mtk_cam_dev_find_fmt(&node->desc, f->fmt.pix_mp.pixelformat);
+	if (!dev_fmt) {
+		dev_info(cam->dev, "unknown fmt:%d\n",
+			 f->fmt.pix_mp.pixelformat);
+		return -EINVAL;
+	}
+
+	try_fmt.fmt.pix_mp.pixelformat = dev_fmt->fmt.pix_mp.pixelformat;
+
+	/* TODO: move limitation rules to each pipeline */
+	/* Validate image width & height range */
+	try_fmt.fmt.pix_mp.width = clamp_val(f->fmt.pix_mp.width,
+					     IMG_MIN_WIDTH, IMG_MAX_WIDTH);
+	try_fmt.fmt.pix_mp.height = clamp_val(f->fmt.pix_mp.height,
+					      IMG_MIN_HEIGHT, IMG_MAX_HEIGHT);
+
+	try_fmt.fmt.pix_mp.width = ALIGN(try_fmt.fmt.pix_mp.width, IMG_PIX_ALIGN);
+	try_fmt.fmt.pix_mp.num_planes = 1;
+
+	for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++)
+		try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
+				f->fmt.pix_mp.plane_fmt[i].bytesperline;
+
+	/* bytesperline & sizeimage calculation */
+	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT)
+		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 3);
+	else
+		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 0);
+
+#ifdef NOT_READY
+#if PDAF_READY
+	/* add header size for vc channel */
+	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT &&
+		node->desc.id == MTK_CAMSV_MAIN_STREAM_OUT)
+		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage +=
+			GET_PLAT_V4L2(meta_sv_ext_size);
+#endif
+#endif
+
+	/* Constant format fields */
+	try_fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
+	try_fmt.fmt.pix_mp.field = V4L2_FIELD_NONE;
+	try_fmt.fmt.pix_mp.ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
+	try_fmt.fmt.pix_mp.quantization = V4L2_QUANTIZATION_DEFAULT;
+	try_fmt.fmt.pix_mp.xfer_func = V4L2_XFER_FUNC_SRGB;
+
+	*f = try_fmt;
 	return 0;
 }
 
@@ -1094,11 +1193,8 @@ int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
 			   struct v4l2_format *f)
 {
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
-	int raw_feature = 0;
 
-	mtk_cam_video_set_fmt(node, f, raw_feature);
-
-	return 0;
+	return mtk_cam_video_set_fmt(node, f);
 }
 
 int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
@@ -1109,6 +1205,7 @@ int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
 	if (f->index)
 		return -EINVAL;
 
+	/* TODO: fill this to avoid vendor hook */
 	/* f->description is filled in v4l_fill_fmtdesc function */
 	f->pixelformat = node->active_fmt.fmt.meta.dataformat;
 	f->flags = 0;
@@ -1119,13 +1216,86 @@ int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
 int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 			      struct v4l2_format *f)
 {
-	// TODO
+	struct mtk_cam_device *cam = video_drvdata(file);
+	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+#ifdef NOT_READY
+	struct mtk_cam_dev_node_desc *desc = &node->desc;
+	const struct v4l2_format *default_fmt =
+		&desc->fmts[desc->default_fmt_idx].vfmt;
+	struct mtk_raw_pde_config *pde_cfg;
+	struct mtk_cam_pde_info *pde_info;
+	u32 extmeta_size = 0;
+#endif
+
+#ifdef NOT_READY
+	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
+		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
+		pde_info = &pde_cfg->pde_info;
+		if (pde_info->pd_table_offset) {
+			node->active_fmt.fmt.meta.buffersize =
+				default_fmt->fmt.meta.buffersize
+				+ pde_info->pdi_max_size;
+			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
+				node->desc.dma_port,
+				node->active_fmt.fmt.meta.buffersize);
+		}
+	}
+	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
+		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
+		pde_info = &pde_cfg->pde_info;
+		if (pde_info->pd_table_offset) {
+			node->active_fmt.fmt.meta.buffersize =
+				default_fmt->fmt.meta.buffersize
+				+ pde_info->pdo_max_size;
+			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
+				node->desc.dma_port,
+				node->active_fmt.fmt.meta.buffersize);
+		}
+	}
+#endif
+
+#ifdef NOT_READY
+	switch (node->desc.id) {
+	case MTK_RAW_MAIN_STREAM_SV_1_OUT:
+	case MTK_RAW_MAIN_STREAM_SV_2_OUT:
+		break;
+	case MTK_RAW_META_SV_OUT_0:
+	case MTK_RAW_META_SV_OUT_1:
+	case MTK_RAW_META_SV_OUT_2:
+		if (node->enabled && node->ctx)
+			extmeta_size = cam->raw.pipelines[node->uid.pipe_id]
+				.cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.width *
+				cam->raw.pipelines[node->uid.pipe_id]
+				.cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.height;
+		if (extmeta_size)
+			node->active_fmt.fmt.meta.buffersize = extmeta_size;
+		else
+			node->active_fmt.fmt.meta.buffersize =
+				CAMSV_EXT_META_0_WIDTH * CAMSV_EXT_META_0_HEIGHT;
+		dev_dbg(cam->dev,
+			"%s:extmeta name:%s buffersize:%d\n",
+			__func__, node->desc.name, node->active_fmt.fmt.meta.buffersize);
+		break;
+	default:
+		break;
+	}
+#endif
+
+	f->fmt.meta.dataformat = node->active_fmt.fmt.meta.dataformat;
+	f->fmt.meta.buffersize = node->active_fmt.fmt.meta.buffersize;
+	dev_dbg(cam->dev,
+		"%s: node:%d dataformat:%d buffersize:%d\n",
+		__func__, node->desc.id, f->fmt.meta.dataformat, f->fmt.meta.buffersize);
+
 	return 0;
+
 }
 
 int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
 				struct v4l2_selection *s)
 {
-	// TODO
+	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+
+	node->active_crop = *s;
 	return 0;
 }

@@ -118,13 +118,13 @@ struct mtk_cam_video_device {
 	struct video_device vdev;
 	struct media_pad pad;
 	struct v4l2_format active_fmt;
-	/* use first 4 elements of reserved field of v4l2_pix_format_mplane as request fd */
-	struct v4l2_format pending_fmt;
-	/* use first elements of reserved field of v4l2_selection as request fd*/
-	struct v4l2_format sink_fmt_for_dc_rawi;
-	struct v4l2_selection pending_crop;
+	struct v4l2_selection active_crop;
 	/* Serializes vb2 queue and video device operations */
 	struct mutex q_lock;
+
+	/* TODO: debug only */
+	struct v4l2_format prev_fmt;
+	struct v4l2_selection prev_crop;
 };
 
 #define media_entity_to_mtk_vdev(ent)	\
@@ -148,13 +148,6 @@ struct mtk_format_info {
 	u8 bit_r_den;
 };
 
-int mtk_cam_dmao_xsize(int w, unsigned int ipi_fmt, int pixel_mode_shift);
-int mtk_cam_fmt_get_raw_feature(struct v4l2_pix_format_mplane *fmt_mp);
-void mtk_cam_fmt_set_raw_feature(struct v4l2_pix_format_mplane *fmt_mp, int raw_feature);
-int mtk_cam_fmt_get_request(struct v4l2_pix_format_mplane *fmt_mp);
-void mtk_cam_fmt_set_request(struct v4l2_pix_format_mplane *fmt_mp, int request_fd);
-int mtk_cam_selection_get_request(struct v4l2_selection *crop);
-void mtk_cam_selection_set_request(struct v4l2_selection *crop, s32 request_fd);
 int mtk_cam_video_register(struct mtk_cam_video_device *video,
 			   struct v4l2_device *v4l2_dev);
 void mtk_cam_video_unregister(struct mtk_cam_video_device *video);
@@ -214,10 +207,6 @@ unsigned int mtk_cam_get_sensor_pixel_id(unsigned int fmt);
 unsigned int mtk_cam_get_sensor_fmt(unsigned int fmt);
 
 int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt);
-
-unsigned int mtk_cam_get_img_fmt(unsigned int fourcc);
-
-int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, int feature);
 
 const struct mtk_format_info *mtk_format_info(u32 format);
 

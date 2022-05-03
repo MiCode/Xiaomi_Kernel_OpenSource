@@ -220,8 +220,6 @@ void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 //void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id,
 //				   int buf_state);
 
-void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam);
-
 int mtk_cam_link_validate(struct v4l2_subdev *sd,
 			  struct media_link *link,
 			  struct v4l2_subdev_format *source_fmt,

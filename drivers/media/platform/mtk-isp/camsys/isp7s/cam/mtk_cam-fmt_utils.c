@@ -9,6 +9,169 @@
 #include "mtk_cam-fmt_utils.h"
 #include "mtk_camera-videodev2.h"
 
+void fill_ext_mtkcam_fmtdesc(struct v4l2_fmtdesc *f)
+{
+	const char *descr = NULL;
+	const unsigned int sz = sizeof(f->description);
+
+	switch (f->pixelformat) {
+	case V4L2_PIX_FMT_YUYV10:
+		descr = "YUYV 4:2:2 10 bits"; break;
+	case V4L2_PIX_FMT_YVYU10:
+		descr = "YVYU 4:2:2 10 bits"; break;
+	case V4L2_PIX_FMT_UYVY10:
+		descr = "UYVY 4:2:2 10 bits"; break;
+	case V4L2_PIX_FMT_VYUY10:
+		descr = "VYUY 4:2:2 10 bits"; break;
+	case V4L2_PIX_FMT_NV12_10:
+		descr = "Y/CbCr 4:2:0 10 bits"; break;
+	case V4L2_PIX_FMT_NV21_10:
+		descr = "Y/CrCb 4:2:0 10 bits"; break;
+	case V4L2_PIX_FMT_NV16_10:
+		descr = "Y/CbCr 4:2:2 10 bits"; break;
+	case V4L2_PIX_FMT_NV61_10:
+		descr = "Y/CrCb 4:2:2 10 bits"; break;
+	case V4L2_PIX_FMT_NV12_12:
+		descr = "Y/CbCr 4:2:0 12 bits"; break;
+	case V4L2_PIX_FMT_NV21_12:
+		descr = "Y/CrCb 4:2:0 12 bits"; break;
+	case V4L2_PIX_FMT_NV16_12:
+		descr = "Y/CbCr 4:2:2 12 bits"; break;
+	case V4L2_PIX_FMT_NV61_12:
+		descr = "Y/CrCb 4:2:2 12 bits"; break;
+	case V4L2_PIX_FMT_MTISP_SBGGR10:
+		descr = "10-bit Bayer BGGR MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGBRG10:
+		descr = "10-bit Bayer GBRG MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGRBG10:
+		descr = "10-bit Bayer GRBG MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SRGGB10:
+		descr = "10-bit Bayer RGGB MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SBGGR12:
+		descr = "12-bit Bayer BGGR MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGBRG12:
+		descr = "12-bit Bayer GBRG MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGRBG12:
+		descr = "12-bit Bayer GRBG MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SRGGB12:
+		descr = "12-bit Bayer RGGB MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SBGGR14:
+		descr = "14-bit Bayer BGGR MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGBRG14:
+		descr = "14-bit Bayer GBRG MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGRBG14:
+		descr = "14-bit Bayer GRBG MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SRGGB14:
+		descr = "14-bit Bayer RGGB MTISP Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SBGGR8F:
+		descr = "8-bit Enhanced BGGR Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGBRG8F:
+		descr = "8-bit Enhanced GBRG Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGRBG8F:
+		descr = "8-bit Enhanced GRBG Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SRGGB8F:
+		descr = "8-bit Enhanced RGGB Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SBGGR10F:
+		descr = "10-bit Enhanced BGGR Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGBRG10F:
+		descr = "10-bit Enhanced GBRG Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGRBG10F:
+		descr = "10-bit Enhanced GRBG Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SRGGB10F:
+		descr = "10-bit Enhanced RGGB Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SBGGR12F:
+		descr = "12-bit Enhanced BGGR Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGBRG12F:
+		descr = "12-bit Enhanced GBRG Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGRBG12F:
+		descr = "12-bit Enhanced GRBG Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SRGGB12F:
+		descr = "12-bit Enhanced RGGB Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SBGGR14F:
+		descr = "14-bit Enhanced BGGR Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGBRG14F:
+		descr = "14-bit Enhanced GBRG Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGRBG14F:
+		descr = "14-bit Enhanced GRBG Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SRGGB14F:
+		descr = "14-bit Enhanced RGGB Packed"; break;
+	case V4L2_PIX_FMT_MTISP_NV12_10P:
+		descr = "Y/CbCr 4:2:0 10 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_NV21_10P:
+		descr = "Y/CrCb 4:2:0 10 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_NV16_10P:
+		descr = "Y/CbCr 4:2:2 10 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_NV61_10P:
+		descr = "Y/CrCb 4:2:2 10 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_YUYV10P:
+		descr = "YUYV 4:2:2 10 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_YVYU10P:
+		descr = "YVYU 4:2:2 10 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_UYVY10P:
+		descr = "UYVY 4:2:2 10 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_VYUY10P:
+		descr = "VYUY 4:2:2 10 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_NV12_12P:
+		descr = "Y/CbCr 4:2:0 12 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_NV21_12P:
+		descr = "Y/CrCb 4:2:0 12 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_NV16_12P:
+		descr = "Y/CbCr 4:2:2 12 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_NV61_12P:
+		descr = "Y/CrCb 4:2:2 12 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_YUYV12P:
+		descr = "YUYV 4:2:2 12 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_YVYU12P:
+		descr = "YVYU 4:2:2 12 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_UYVY12P:
+		descr = "UYVY 4:2:2 12 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_VYUY12P:
+		descr = "VYUY 4:2:2 12 bits packed"; break;
+	case V4L2_PIX_FMT_MTISP_NV12_UFBC:
+		descr = "YCbCr 420 8 bits compress"; break;
+	case V4L2_PIX_FMT_MTISP_NV21_UFBC:
+		descr = "YCrCb 420 8 bits compress"; break;
+	case V4L2_PIX_FMT_MTISP_NV12_10_UFBC:
+		descr = "YCbCr 420 10 bits compress"; break;
+	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
+		descr = "YCrCb 420 10 bits compress"; break;
+	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
+		descr = "YCbCr 420 12 bits compress"; break;
+	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
+		descr = "YCrCb 420 12 bits compress"; break;
+	case V4L2_PIX_FMT_MTISP_BAYER8_UFBC:
+		descr = "RAW 8 bits compress"; break;
+	case V4L2_PIX_FMT_MTISP_BAYER10_UFBC:
+		descr = "RAW 10 bits compress"; break;
+	case V4L2_PIX_FMT_MTISP_BAYER12_UFBC:
+		descr = "RAW 12 bits compress"; break;
+	case V4L2_PIX_FMT_MTISP_BAYER14_UFBC:
+		descr = "RAW 14 bits compress"; break;
+	case V4L2_META_FMT_MTISP_3A:
+		descr = "AE/AWB Histogram"; break;
+	case V4L2_META_FMT_MTISP_AF:
+		descr = "AF Histogram"; break;
+	case V4L2_META_FMT_MTISP_LCS:
+		descr = "Local Contrast Enhancement Stat"; break;
+	case V4L2_META_FMT_MTISP_LMV:
+		descr = "Local Motion Vector Histogram"; break;
+	case V4L2_META_FMT_MTISP_PARAMS:
+		descr = "MTK ISP Tuning Metadata"; break;
+	case V4L2_PIX_FMT_MTISP_SGRB8F:
+		descr = "8-bit 3 plane GRB Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGRB10F:
+		descr = "10-bit 3 plane GRB Packed"; break;
+	case V4L2_PIX_FMT_MTISP_SGRB12F:
+		descr = "12-bit 3 plane GRB Packed"; break;
+	default:
+		pr_info("%f: Unknown pixelformat 0x%08x\n", f->pixelformat);
+		break;
+	}
+
+	if (descr)
+		WARN_ON(strscpy(f->description, descr, sz) < 0);
+}
+
 /*
  * Note
  *	differt dma(fmt) would have different bus_size
