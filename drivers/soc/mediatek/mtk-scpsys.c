@@ -578,6 +578,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_pwr_ack;
 
+	udelay(100);
 	val &= ~PWR_CLK_DIS_BIT;
 	writel(val, ctl_addr);
 
