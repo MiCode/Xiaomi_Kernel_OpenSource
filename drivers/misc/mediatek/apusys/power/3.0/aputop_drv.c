@@ -204,6 +204,7 @@ static int apu_top_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 static int apu_top_suspend(struct device *dev)
 {
 	if (check_pwr_data())
@@ -229,6 +230,7 @@ static int apu_top_resume(struct device *dev)
 
 	return pwr_data->plat_aputop_resume(dev);
 }
+#endif // CONFIG_PM_SLEEP
 
 #ifndef MT6983_PLAT_DATA
 const struct apupwr_plat_data mt6983_plat_data;
