@@ -9,6 +9,7 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_drv.h"
 #include "mtk_dump.h"
+#include <linux/clk.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 
@@ -19,8 +20,9 @@
 #define CRTC_NUM		3
 static struct drm_crtc *dev_crtc;
 /* add for mm qos */
+static struct clk *mm_clk;
 static struct regulator *mm_freq_request;
-static u32 *g_freq_steps;
+static unsigned long *g_freq_steps;
 static int g_freq_level[CRTC_NUM] = {-1};
 static long g_freq;
 static int step_size = 1;
@@ -264,7 +266,7 @@ static void mtk_drm_mmdvfs_get_avail_freq(struct device *dev)
 	unsigned long freq;
 
 	step_size = dev_pm_opp_get_opp_count(dev);
-	g_freq_steps = kcalloc(step_size, sizeof(u32), GFP_KERNEL);
+	g_freq_steps = kcalloc(step_size, sizeof(unsigned long), GFP_KERNEL);
 	freq = 0;
 	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(dev, &freq))) {
 		g_freq_steps[i] = freq;
@@ -276,10 +278,27 @@ static void mtk_drm_mmdvfs_get_avail_freq(struct device *dev)
 
 void mtk_drm_mmdvfs_init(struct device *dev)
 {
-	dev_pm_opp_of_add_table(dev);
-	mm_freq_request = devm_regulator_get(dev, "dvfsrc-vcore");
+	struct device_node *node = dev->of_node;
+	unsigned int index;
+	int ret = 0;
 
+	dev_pm_opp_of_add_table(dev);
 	mtk_drm_mmdvfs_get_avail_freq(dev);
+
+	/* MMDVFS V3 */
+	ret = of_property_read_u32(node, "dvfs_clk_idx", &index);
+	if (ret == 0) {
+		mm_clk = of_clk_get(node, index);
+		if (IS_ERR_OR_NULL(mm_clk))
+			DDPPR_ERR("%s get dvfs clk failed\n", __func__);
+		return;
+	}
+
+	/* MMDVFS V2 */
+	DDPINFO("%s, try to use MMDVFS V2\n", __func__);
+	mm_freq_request = devm_regulator_get_optional(dev, "mmdvfs-dvfsrc-vcore");
+	if (IS_ERR_OR_NULL(mm_freq_request))
+		DDPPR_ERR("%s, get mmdvfs-dvfsrc-vcore failed\n", __func__);
 }
 
 void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
@@ -322,6 +341,13 @@ void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 	DDPINFO("%s[%d] g_freq_level[idx=%d](freq=%d)\n",
 		__func__, __LINE__, idx, g_freq_level[idx], freq);
 
+	if (!IS_ERR_OR_NULL(mm_clk)) {
+		ret = clk_set_rate(mm_clk, freq);
+		if (ret)
+			DDPPR_ERR("%s:clk_set_rate fail\n", __func__);
+		return;
+	}
+
 	opp = dev_pm_opp_find_freq_ceil(crtc->dev->dev, &freq);
 	volt = dev_pm_opp_get_voltage(opp);
 	dev_pm_opp_put(opp);
@@ -341,7 +367,7 @@ void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc,
 	g_freq = freq;
 
 	if (freq > g_freq_steps[step_size - 1]) {
-		DDPMSG("%s:error:pixleclk (%d) is to big for mmclk (%llu)\n",
+		DDPPR_ERR("%s:pixleclk (%d) is to big for mmclk (%llu)\n",
 			caller, freq, g_freq_steps[step_size - 1]);
 		mtk_drm_set_mmclk(crtc, step_size - 1, caller);
 		return;
