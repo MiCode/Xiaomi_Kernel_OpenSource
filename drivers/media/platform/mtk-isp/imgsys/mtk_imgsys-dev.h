@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
+#include <linux/remoteproc.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
@@ -298,6 +299,8 @@ struct mtk_imgsys_dev {
 	/* larb control */
 	struct device **larbs;
 	unsigned int larbs_num;
+	/* CCU control flow */
+	struct rproc *rproc_ccu_handle;
 	struct work_pool gwork_pool;
 	atomic_t num_composing;	/* increase after ipi */
 	/*MDP/GCE callback workqueue */
