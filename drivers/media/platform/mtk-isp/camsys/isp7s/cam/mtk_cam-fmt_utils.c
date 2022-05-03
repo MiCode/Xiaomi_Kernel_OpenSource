@@ -3,10 +3,12 @@
 // Copyright (c) 2019 MediaTek Inc.
 
 #include <linux/align.h>
+#include <uapi/linux/media-bus-format.h>
 
 #include <camsys/common/mtk_cam-fmt.h>
 
 #include "mtk_cam-fmt_utils.h"
+#include "mtk_cam-ipi_7_1.h"
 #include "mtk_camera-videodev2.h"
 
 void fill_ext_mtkcam_fmtdesc(struct v4l2_fmtdesc *f)
@@ -565,5 +567,75 @@ int is_fullg_rb(unsigned int pixelformat)
 	default:
 		return 0;
 	}
+}
+
+unsigned int sensor_mbus_to_ipi_fmt(unsigned int mbus_code)
+{
+	unsigned int fmt = MTKCAM_IPI_IMG_FMT_UNKNOWN;
+
+	switch (mbus_code) {
+	case MEDIA_BUS_FMT_SBGGR8_1X8:
+	case MEDIA_BUS_FMT_SGBRG8_1X8:
+	case MEDIA_BUS_FMT_SGRBG8_1X8:
+	case MEDIA_BUS_FMT_SRGGB8_1X8:
+		return MTKCAM_IPI_IMG_FMT_BAYER8;
+	case MEDIA_BUS_FMT_SBGGR10_1X10:
+	case MEDIA_BUS_FMT_SGBRG10_1X10:
+	case MEDIA_BUS_FMT_SGRBG10_1X10:
+	case MEDIA_BUS_FMT_SRGGB10_1X10:
+		return MTKCAM_IPI_IMG_FMT_BAYER10;
+	case MEDIA_BUS_FMT_SBGGR12_1X12:
+	case MEDIA_BUS_FMT_SGBRG12_1X12:
+	case MEDIA_BUS_FMT_SGRBG12_1X12:
+	case MEDIA_BUS_FMT_SRGGB12_1X12:
+		return MTKCAM_IPI_IMG_FMT_BAYER12;
+	case MEDIA_BUS_FMT_SBGGR14_1X14:
+	case MEDIA_BUS_FMT_SGBRG14_1X14:
+	case MEDIA_BUS_FMT_SGRBG14_1X14:
+	case MEDIA_BUS_FMT_SRGGB14_1X14:
+		return MTKCAM_IPI_IMG_FMT_BAYER14;
+	default:
+		break;
+	}
+
+	if (WARN_ON(fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN))
+		pr_info("Unsupported fmt 0x%08x\n", mbus_code);
+
+	return fmt;
+}
+
+unsigned int sensor_mbus_to_ipi_pixel_id(unsigned int mbus_code)
+{
+	unsigned int pxl_id = MTKCAM_IPI_BAYER_PXL_ID_UNKNOWN;
+
+	switch (mbus_code) {
+	case MEDIA_BUS_FMT_SBGGR8_1X8:
+	case MEDIA_BUS_FMT_SBGGR10_1X10:
+	case MEDIA_BUS_FMT_SBGGR12_1X12:
+	case MEDIA_BUS_FMT_SBGGR14_1X14:
+		return MTKCAM_IPI_BAYER_PXL_ID_B;
+	case MEDIA_BUS_FMT_SGBRG8_1X8:
+	case MEDIA_BUS_FMT_SGBRG10_1X10:
+	case MEDIA_BUS_FMT_SGBRG12_1X12:
+	case MEDIA_BUS_FMT_SGBRG14_1X14:
+		return MTKCAM_IPI_BAYER_PXL_ID_GB;
+	case MEDIA_BUS_FMT_SGRBG8_1X8:
+	case MEDIA_BUS_FMT_SGRBG10_1X10:
+	case MEDIA_BUS_FMT_SGRBG12_1X12:
+	case MEDIA_BUS_FMT_SGRBG14_1X14:
+		return MTKCAM_IPI_BAYER_PXL_ID_GR;
+	case MEDIA_BUS_FMT_SRGGB8_1X8:
+	case MEDIA_BUS_FMT_SRGGB10_1X10:
+	case MEDIA_BUS_FMT_SRGGB12_1X12:
+	case MEDIA_BUS_FMT_SRGGB14_1X14:
+		return MTKCAM_IPI_BAYER_PXL_ID_R;
+	default:
+		break;
+	}
+
+	if (WARN_ON(pxl_id == MTKCAM_IPI_BAYER_PXL_ID_UNKNOWN))
+		pr_info("Unsupported fmt 0x%08x\n", mbus_code);
+
+	return pxl_id;
 }
 

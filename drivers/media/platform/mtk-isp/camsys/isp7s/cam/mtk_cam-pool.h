@@ -74,6 +74,7 @@ struct mtk_cam_pool_buffer {
 
 	dma_addr_t daddr;
 	void *vaddr;
+	int size;
 };
 
 /* with built-in config func */

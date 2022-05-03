@@ -33,6 +33,20 @@ typedef int (*set_pad_selection_func_t)(struct v4l2_subdev *sd,
 					  struct mtk_cam_resource *res,
 					  int pad, int which);
 
+struct mtk_cam_cached_image_info {
+	unsigned int v4l2_pixelformat;
+	unsigned int width;
+	unsigned int height;
+	unsigned int bytesperline[4];
+	//unsigned int buffersize[4]; /* TODO */
+	struct v4l2_rect crop;
+};
+
+struct mtk_cam_cached_meta_info {
+	unsigned int v4l2_pixelformat;
+	unsigned int buffersize;
+};
+
 /*
  * struct mtk_cam_buffer - MTK camera device buffer.
  *
@@ -50,10 +64,10 @@ struct mtk_cam_buffer {
 	dma_addr_t daddr;
 	dma_addr_t scp_addr;
 
-	unsigned int v4l2_pixelformat;
-	unsigned int width;
-	unsigned int height;
-	struct v4l2_rect crop;
+	union {
+		struct mtk_cam_cached_image_info image_info;
+		struct mtk_cam_cached_meta_info meta_info;
+	};
 };
 
 struct mtk_cam_format_desc {
@@ -207,10 +221,6 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 			      struct v4l2_format *f);
 
 /* Utility functions to convert format enum */
-unsigned int mtk_cam_get_sensor_pixel_id(unsigned int fmt);
-
-unsigned int mtk_cam_get_sensor_fmt(unsigned int fmt);
-
 int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt);
 
 const struct mtk_format_info *mtk_format_info(u32 format);

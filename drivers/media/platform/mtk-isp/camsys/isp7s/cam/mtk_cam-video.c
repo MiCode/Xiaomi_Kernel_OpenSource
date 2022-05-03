@@ -100,13 +100,18 @@ static void mtk_cam_vb2_buf_collect_image_info(struct vb2_buffer *vb)
 {
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 	struct mtk_cam_buffer *buf = mtk_cam_vb2_buf_to_dev_buf(vb);
+	struct mtk_cam_cached_image_info *cached = &buf->image_info;
 	const struct v4l2_pix_format_mplane *mpfmt =
 		&node->active_fmt.fmt.pix_mp;
+	int i;
 
-	buf->v4l2_pixelformat = mpfmt->pixelformat;
-	buf->width = mpfmt->width;
-	buf->height = mpfmt->height;
-	buf->crop = node->active_crop.r;
+	cached->v4l2_pixelformat = mpfmt->pixelformat;
+	cached->width = mpfmt->width;
+	cached->height = mpfmt->height;
+	for (i = 0; i < ARRAY_SIZE(cached->bytesperline); i++)
+		cached->bytesperline[i] = i >= mpfmt->num_planes ? 0 :
+			mpfmt->plane_fmt[i].bytesperline;
+	cached->crop = node->active_crop.r;
 }
 
 static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
@@ -495,62 +500,6 @@ static const struct v4l2_file_operations mtk_cam_v4l2_fops = {
 	.compat_ioctl32 = v4l2_compat_ioctl32,
 #endif
 };
-
-unsigned int mtk_cam_get_sensor_pixel_id(unsigned int fmt)
-{
-	switch (fmt & SENSOR_FMT_MASK) {
-	case MEDIA_BUS_FMT_SBGGR8_1X8:
-	case MEDIA_BUS_FMT_SBGGR10_1X10:
-	case MEDIA_BUS_FMT_SBGGR12_1X12:
-	case MEDIA_BUS_FMT_SBGGR14_1X14:
-		return MTKCAM_IPI_BAYER_PXL_ID_B;
-	case MEDIA_BUS_FMT_SGBRG8_1X8:
-	case MEDIA_BUS_FMT_SGBRG10_1X10:
-	case MEDIA_BUS_FMT_SGBRG12_1X12:
-	case MEDIA_BUS_FMT_SGBRG14_1X14:
-		return MTKCAM_IPI_BAYER_PXL_ID_GB;
-	case MEDIA_BUS_FMT_SGRBG8_1X8:
-	case MEDIA_BUS_FMT_SGRBG10_1X10:
-	case MEDIA_BUS_FMT_SGRBG12_1X12:
-	case MEDIA_BUS_FMT_SGRBG14_1X14:
-		return MTKCAM_IPI_BAYER_PXL_ID_GR;
-	case MEDIA_BUS_FMT_SRGGB8_1X8:
-	case MEDIA_BUS_FMT_SRGGB10_1X10:
-	case MEDIA_BUS_FMT_SRGGB12_1X12:
-	case MEDIA_BUS_FMT_SRGGB14_1X14:
-		return MTKCAM_IPI_BAYER_PXL_ID_R;
-	default:
-		return MTKCAM_IPI_BAYER_PXL_ID_UNKNOWN;
-	}
-}
-
-unsigned int mtk_cam_get_sensor_fmt(unsigned int fmt)
-{
-	switch (fmt & SENSOR_FMT_MASK) {
-	case MEDIA_BUS_FMT_SBGGR8_1X8:
-	case MEDIA_BUS_FMT_SGBRG8_1X8:
-	case MEDIA_BUS_FMT_SGRBG8_1X8:
-	case MEDIA_BUS_FMT_SRGGB8_1X8:
-		return MTKCAM_IPI_IMG_FMT_BAYER8;
-	case MEDIA_BUS_FMT_SBGGR10_1X10:
-	case MEDIA_BUS_FMT_SGBRG10_1X10:
-	case MEDIA_BUS_FMT_SGRBG10_1X10:
-	case MEDIA_BUS_FMT_SRGGB10_1X10:
-		return MTKCAM_IPI_IMG_FMT_BAYER10;
-	case MEDIA_BUS_FMT_SBGGR12_1X12:
-	case MEDIA_BUS_FMT_SGBRG12_1X12:
-	case MEDIA_BUS_FMT_SGRBG12_1X12:
-	case MEDIA_BUS_FMT_SRGGB12_1X12:
-		return MTKCAM_IPI_IMG_FMT_BAYER12;
-	case MEDIA_BUS_FMT_SBGGR14_1X14:
-	case MEDIA_BUS_FMT_SGBRG14_1X14:
-	case MEDIA_BUS_FMT_SGRBG14_1X14:
-	case MEDIA_BUS_FMT_SRGGB14_1X14:
-		return MTKCAM_IPI_IMG_FMT_BAYER14;
-	default:
-		return MTKCAM_IPI_IMG_FMT_UNKNOWN;
-	}
-}
 
 /* for mmqos and base is 100 */
 int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt)
@@ -1227,9 +1176,8 @@ int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
 	if (f->index)
 		return -EINVAL;
 
-	/* TODO: fill this to avoid vendor hook */
-	/* f->description is filled in v4l_fill_fmtdesc function */
 	f->pixelformat = node->active_fmt.fmt.meta.dataformat;
+	fill_ext_mtkcam_fmtdesc(f);
 	f->flags = 0;
 
 	return 0;

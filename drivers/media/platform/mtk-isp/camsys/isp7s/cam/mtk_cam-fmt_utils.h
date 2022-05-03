@@ -23,4 +23,7 @@ int is_yuv_ufo(unsigned int pixelformat);
 int is_raw_ufo(unsigned int pixelformat);
 int is_fullg_rb(unsigned int pixelformat);
 
+unsigned int sensor_mbus_to_ipi_fmt(unsigned int mbus_code);
+unsigned int sensor_mbus_to_ipi_pixel_id(unsigned int mbus_code);
+
 #endif //__MTKCAM_FMT_UTILS_H

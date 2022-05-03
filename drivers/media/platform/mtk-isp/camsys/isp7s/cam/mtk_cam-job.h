@@ -20,16 +20,20 @@ struct mtk_cam_request;
 struct mtk_cam_ctx;
 struct mtk_cam_job {
 	struct mtk_cam_request *req;
-	struct list_head list; /* entry in running_list */
+	struct list_head list; /* entry in state_list */
 
 	/* Note:
 	 * it's dangerous to fetch info from src_ctx
-	 * src_ctx is just kept to accessing worker/workqueue.
+	 * src_ctx is just kept to access worker/workqueue.
 	 */
 	struct mtk_cam_ctx *src_ctx;
 
 	struct mtk_cam_pool_buffer cq;
 	struct mtk_cam_pool_buffer ipi;
+
+	int used_engine;
+	bool do_config;
+	struct mtkcam_ipi_config_param ipi_config;
 
 	struct {
 		/* job control */
@@ -75,10 +79,15 @@ struct mtk_cam_job_data {
 	};
 };
 
+static inline struct mtk_cam_job_data *
+mtk_cam_job_to_data(struct mtk_cam_job *job)
+{
+	return container_of(job, struct mtk_cam_job_data, job);
+}
+
 static inline void mtk_cam_job_return(struct mtk_cam_job *job)
 {
-	struct mtk_cam_job_data *data =
-		container_of(job, struct mtk_cam_job_data, job);
+	struct mtk_cam_job_data *data = mtk_cam_job_to_data(job);
 
 	mtk_cam_pool_return(&data->pool_job, sizeof(data->pool_job));
 }

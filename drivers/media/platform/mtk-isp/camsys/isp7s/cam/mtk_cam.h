@@ -90,6 +90,10 @@ struct mtk_cam_ctx {
 
 	atomic_t streaming;
 	int used_pipe;
+	int used_engine;
+
+	bool configured;
+	struct mtkcam_ipi_config_param ipi_config;
 
 	//struct mtk_raw_pipeline *pipe;
 	//struct mtk_camsv_pipeline *sv_pipe[MAX_SV_PIPES_PER_STREAM];
@@ -130,6 +134,8 @@ struct mtk_cam_engines {
 
 	/* larb */
 	struct device **larb_devs;
+
+	int occupied_engine;
 };
 
 struct mtk_cam_device {
@@ -191,6 +197,19 @@ int mtk_cam_mark_streaming(struct mtk_cam_device *cam, int stream_id);
 int mtk_cam_unmark_streaming(struct mtk_cam_device *cam, int stream_id);
 bool mtk_cam_is_any_streaming(struct mtk_cam_device *cam);
 bool mtk_cam_are_all_streaming(struct mtk_cam_device *cam, int stream_mask);
+
+int mtk_cam_get_available_engine(struct mtk_cam_device *cam);
+int mtk_cam_update_engine_status(struct mtk_cam_device *cam, int engine_mask,
+				  bool available);
+static inline int mtk_cam_release_engine(struct mtk_cam_device *cam, int engines)
+{
+	return mtk_cam_update_engine_status(cam, engines, true);
+}
+
+static inline int mtk_cam_occupy_engine(struct mtk_cam_device *cam, int engines)
+{
+	return mtk_cam_update_engine_status(cam, engines, false);
+}
 
 static inline void
 mtk_cam_pad_fmt_enable(struct v4l2_mbus_framefmt *framefmt, bool enable)

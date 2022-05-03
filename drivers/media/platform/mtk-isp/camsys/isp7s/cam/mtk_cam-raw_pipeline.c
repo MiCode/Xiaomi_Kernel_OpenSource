@@ -714,6 +714,9 @@ static int mtk_raw_sd_subscribe_event(struct v4l2_subdev *subdev,
 
 static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 {
+	struct device *dev = sd->v4l2_dev->dev;
+
+	dev_info(dev, "%s: %d\n", __func__, enable);
 	return 0;
 }
 
@@ -875,10 +878,10 @@ int mtk_raw_set_sink_pad_fmt(struct v4l2_subdev *sd,
 	struct device *dev;
 	struct mtk_cam_video_device *node;
 	const char *node_str;
-	const struct mtk_cam_format_desc *fmt_desc;
+	//const struct mtk_cam_format_desc *fmt_desc;
 	struct mtk_raw_pipeline *pipe;
 	int i;
-	int ipi_fmt;
+	//int ipi_fmt;
 	struct v4l2_mbus_framefmt *framefmt, *source_fmt = NULL, *tmp_fmt;
 
 	/* Do nothing for pad to meta video device */
@@ -900,6 +903,7 @@ int mtk_raw_set_sink_pad_fmt(struct v4l2_subdev *sd,
 		node_str = node->desc.name;
 	}
 
+#ifdef NOT_READY
 	ipi_fmt = mtk_cam_get_sensor_fmt(framefmt->code);
 	if (ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
 		/**
@@ -913,6 +917,7 @@ int mtk_raw_set_sink_pad_fmt(struct v4l2_subdev *sd,
 			"%s(%d): Adjust unaccept fmt code on sink pad:%d, 0x%x->0x%x\n",
 			__func__, fmt->which, fmt->pad, fmt->format.code, framefmt->code);
 	}
+#endif
 
 	/* Reset pads' enable state*/
 	for (i = MTK_RAW_SINK; i < MTK_RAW_META_OUT_BEGIN; i++) {

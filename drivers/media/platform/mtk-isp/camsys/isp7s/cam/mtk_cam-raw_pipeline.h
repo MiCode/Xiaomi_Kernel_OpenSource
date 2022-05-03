@@ -138,7 +138,7 @@ struct mtk_raw_stagger_select {
 	int enabled_raw;
 };
 
-struct mtk_raw_request_ctrl_data {
+struct mtk_raw_ctrl_data {
 	s64 feature;
 
 	struct mtk_cam_resource user_res;
@@ -149,6 +149,18 @@ struct mtk_raw_request_ctrl_data {
 	bool sensor_mode_update;
 	s64 sync_id;
 	struct mtk_cam_mstream_exposure mstream_exp;
+};
+
+struct mtk_raw_sink_data {
+	unsigned int width;
+	unsigned int height;
+	unsigned int mbus_code;
+	struct v4l2_rect crop;
+};
+
+struct mtk_raw_request_data {
+	struct mtk_raw_sink_data sink;
+	struct mtk_raw_ctrl_data ctrl;
 };
 
 /*
@@ -165,7 +177,7 @@ struct mtk_raw_pipeline {
 
 	/*** v4l2 ctrl related data ***/
 	/* changed with request */
-	struct mtk_raw_request_ctrl_data ctrl_data;
+	struct mtk_raw_ctrl_data ctrl_data;
 	/* pde module */
 	struct mtk_raw_pde_config pde_config;
 };

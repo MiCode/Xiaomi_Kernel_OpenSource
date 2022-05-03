@@ -19,6 +19,8 @@ struct plat_v4l2_data {
 	int meta_stats1_size;
 	int meta_stats2_size;
 	int meta_sv_ext_size;
+
+	int (*set_meta_stats_info)(int ipi_id, void *addr);
 };
 
 struct plat_data_hw {
@@ -35,7 +37,7 @@ void set_platform_data(const struct camsys_platform_data *platform_data);
 
 #define CALL_PLAT_V4L2(ops, ...) \
 	((cur_platform && cur_platform->v4l2 && cur_platform->v4l2->ops) ? \
-	 cur_platform->v4l2->ops(cur_platform->v4l2, ##__VA_ARGS__) : -EINVAL)
+	 cur_platform->v4l2->ops(__VA_ARGS__) : -EINVAL)
 
 #define GET_PLAT_V4L2(member) (cur_platform->v4l2->member)
 

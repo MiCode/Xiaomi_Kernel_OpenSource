@@ -304,11 +304,12 @@ static void pool_config_device_buf(void *data, int index, void *element)
 {
 	struct buffer_pool_data *bf_data = data;
 	struct mtk_cam_device_buf *buf = bf_data->buf;
-	size_t ofst = bf_data->offset;
+	size_t ofst = index * bf_data->offset;
 	struct mtk_cam_pool_buffer *ele_buf = element;
 
 	ele_buf->daddr = buf->daddr + ofst;
 	ele_buf->vaddr = buf->vaddr ? (buf->vaddr + ofst) : 0;
+	ele_buf->size = bf_data->offset;
 }
 
 int mtk_cam_buffer_pool_alloc(struct mtk_cam_pool *pool,

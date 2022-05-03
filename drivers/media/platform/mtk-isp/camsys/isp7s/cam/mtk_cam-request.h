@@ -44,10 +44,15 @@ static inline bool _used_mask_has(int *m, int idx, int ofst, int num)
 	return *m & (1 << (idx + ofst));
 }
 
+static inline int _used_mask_get_submask(int *m, int ofst, int num)
+{
+	return (*m) >> ofst & ((1 << num) - 1);
+}
+
 #define _RANGE_POS_raw			0
 #define _RANGE_NUM_raw			8
 #define _RANGE_POS_camsv		8
-#define _RANGE_NUM_camsv		24
+#define _RANGE_NUM_camsv		16
 #define _RANGE_POS_mraw			24
 #define _RANGE_NUM_mraw			8
 #define _RANGE_POS_stream		0
@@ -58,6 +63,8 @@ static inline bool _used_mask_has(int *m, int idx, int ofst, int num)
 	_used_mask_set((m), idx, _RANGE_POS_ ## type, _RANGE_NUM_ ## type)
 #define USED_MASK_UNSET(m, type, idx)	\
 	_used_mask_unset((m), idx, _RANGE_POS_ ## type, _RANGE_NUM_ ## type)
+#define USED_MASK_GET_SUBMASK(m, type)	\
+	_used_mask_get_submask((m), _RANGE_POS_ ## type, _RANGE_NUM_ ## type)
 #define USED_MASK_CONTAINS(ma, mb)	\
 ({					\
 	typeof(*(ma)) _a = *(ma);	\
@@ -81,10 +88,10 @@ struct mtk_cam_request {
 	struct list_head buf_list;
 	struct mtk_cam_frame_sync fs;
 
-	struct v4l2_ctrl_handler *ctrl_hdls[8];
+	struct v4l2_ctrl_handler *ctrl_hdls[8]; /* TODO: count */
 	int ctrl_hdl_nr;
 
-	struct mtk_raw_request_ctrl_data raw_ctrl_data[3]; /* TODO: count */
+	struct mtk_raw_request_data raw_data[3]; /* TODO: count */
 };
 
 static inline struct mtk_cam_request *

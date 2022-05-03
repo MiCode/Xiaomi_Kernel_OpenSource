@@ -249,7 +249,7 @@ static int mtk_cam_get_reqs_to_enque(struct mtk_cam_device *cam,
 			continue;
 
 		if (!mtk_cam_test_available_jobs(cam,
-						mtk_cam_req_used_ctx(&req->req)))
+						 mtk_cam_req_used_ctx(&req->req)))
 			continue;
 
 		cnt++;
@@ -406,7 +406,7 @@ static int mtk_cam_req_get_ctrl_handlers(struct media_request *req)
 	return 0;
 }
 
-static int mtk_cam_setup_pipeline_ctrl(struct media_request *req)
+static int mtk_cam_setup_pipe_ctrl(struct media_request *req)
 {
 	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
 	struct mtk_cam_device *cam =
@@ -439,7 +439,7 @@ static int mtk_cam_setup_pipeline_ctrl(struct media_request *req)
 	return ret;
 }
 
-static void mtk_cam_clone_ctrl_data_to_req(struct media_request *req)
+static void mtk_cam_clone_pipe_data_to_req(struct media_request *req)
 {
 	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
 	struct mtk_cam_device *cam =
@@ -449,10 +449,30 @@ static void mtk_cam_clone_ctrl_data_to_req(struct media_request *req)
 
 
 	for (i = 0; i < ppls->num_raw; i++) {
+		struct mtk_raw_request_data *data;
+		struct mtk_raw_pipeline *raw;
+		struct mtk_raw_pad_config *pad;
+
 		if (!USED_MASK_HAS(&cam_req->used_pipe, raw, i))
 			continue;
 
-		cam_req->raw_ctrl_data[i] = ppls->raw[i].ctrl_data;
+		data = &cam_req->raw_data[i];
+		raw = &ppls->raw[i];
+		pad = &raw->pad_cfg[MTK_RAW_SINK];
+
+		data->ctrl = raw->ctrl_data;
+		data->sink.width = pad->mbus_fmt.width;
+		data->sink.height = pad->mbus_fmt.height;
+		data->sink.mbus_code = pad->mbus_fmt.code & SENSOR_FMT_MASK;
+
+		/* todo: support tg crop */
+		//data->sink.crop = pad->crop;
+		data->sink.crop = (struct v4l2_rect) {
+			.left = 0,
+			.top = 0,
+			.width = pad->mbus_fmt.width,
+			.height = pad->mbus_fmt.height,
+		};
 	}
 }
 
@@ -481,9 +501,9 @@ static void mtk_cam_req_queue(struct media_request *req)
 	mtk_cam_req_get_ctrl_handlers(req);
 
 	/* setup ctrl handler */
-	WARN_ON(mtk_cam_setup_pipeline_ctrl(req));
+	WARN_ON(mtk_cam_setup_pipe_ctrl(req));
 
-	mtk_cam_clone_ctrl_data_to_req(req);
+	mtk_cam_clone_pipe_data_to_req(req);
 
 	spin_lock(&cam->pending_job_lock);
 	list_add_tail(&cam_req->list, &cam->pending_job_list);
@@ -1071,7 +1091,8 @@ static int _alloc_pool(const char *name,
 
 	mtk_dma_buf_set_name(dbuf, name);
 
-	ret = mtk_cam_device_buf_init(buf, dbuf, dev, total_size);
+	ret = mtk_cam_device_buf_init(buf, dbuf, dev, total_size)
+		|| mtk_cam_device_buf_vmap(buf);
 
 	/* since mtk_cam_device_buf already increase refcnt */
 	dma_heap_buffer_free(dbuf);
@@ -1425,6 +1446,8 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	/* if already stream off */
 	if (!atomic_cmpxchg(&ctx->streaming, 1, 0))
 		return 0;
+
+	/* TODO */
 
 	// seninf
 	//ctx_stream_on_seninf_sensor
@@ -2049,6 +2072,63 @@ bool mtk_cam_are_all_streaming(struct mtk_cam_device *cam, int stream_mask)
 	spin_unlock(&cam->streaming_lock);
 
 	return res;
+}
+
+static int get_engine_full_set(struct mtk_cam_engines *engines)
+{
+	int set, i;
+
+	for (i = 0; i < engines->num_raw_devices; i++)
+		USED_MASK_SET(&set, raw, i);
+	for (i = 0; i < engines->num_camsv_devices; i++)
+		USED_MASK_SET(&set, camsv, i);
+	for (i = 0; i < engines->num_mraw_devices; i++)
+		USED_MASK_SET(&set, mraw, i);
+	return set;
+}
+
+int mtk_cam_get_available_engine(struct mtk_cam_device *cam)
+{
+	int full_set, occupied;
+
+	spin_lock(&cam->streaming_lock);
+	occupied = cam->engines.occupied_engine;
+	spin_unlock(&cam->streaming_lock);
+
+	full_set = get_engine_full_set(&cam->engines);
+	return full_set & ~occupied;
+}
+
+int mtk_cam_update_engine_status(struct mtk_cam_device *cam, int engine_mask,
+				 bool available)
+{
+	int err_mask, occupied;
+
+	spin_lock(&cam->streaming_lock);
+
+	occupied = cam->engines.occupied_engine;
+	if (available) {
+		err_mask = (occupied & engine_mask) ^ engine_mask;
+		occupied &= ~engine_mask;
+	} else {
+		err_mask = occupied & engine_mask;
+		occupied |= engine_mask;
+	}
+
+	if (!err_mask)
+		cam->engines.occupied_engine = occupied;
+
+	spin_unlock(&cam->streaming_lock);
+
+	if (WARN_ON(err_mask)) {
+		dev_info(cam->dev, "%s: set %d, engine 0x%08x err 0x%08x\n",
+			 __func__, available, engine_mask);
+		return -1;
+	}
+
+	dev_info(cam->dev, "%s: mark engine 0x%08x available %d\n",
+		 __func__, engine_mask, available);
+	return 0;
 }
 
 static int register_sub_drivers(struct device *dev)
