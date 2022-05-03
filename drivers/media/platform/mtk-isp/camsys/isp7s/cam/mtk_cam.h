@@ -18,6 +18,7 @@
 
 #include "mtk_cam-hsf-def.h"
 #include "mtk_cam-ipi_7_1.h"
+#include "mtk_cam-job.h"
 #include "mtk_cam-larb.h"
 #include "mtk_cam-pool.h"
 #include "mtk_cam-raw.h"
@@ -40,6 +41,7 @@ struct mtk_mraw_pipeline;
 struct mtk_cam_device;
 struct mtk_rpmsg_device;
 
+#define JOB_NUM_PER_STREAM 5
 #define MAX_PIPES_PER_STREAM 5
 
 struct mtk_cam_ctx {
@@ -57,6 +59,11 @@ struct mtk_cam_ctx {
 	struct v4l2_subdev *seninf;
 	//struct v4l2_subdev *prev_seninf;
 	struct v4l2_subdev *pipe_subdevs[MAX_PIPES_PER_STREAM];
+
+	/* job pool */
+	struct mtk_cam_job_data jobs[JOB_NUM_PER_STREAM];
+	struct mtk_cam_pool job_pool;
+	int available_jobs; /* cached value for enque */
 
 	/* rpmsg related */
 	struct rpmsg_channel_info rpmsg_channel;
@@ -84,7 +91,7 @@ struct mtk_cam_ctx {
 	atomic_t streaming;
 	int used_pipe;
 
-	struct mtk_raw_pipeline *pipe;
+	//struct mtk_raw_pipeline *pipe;
 	//struct mtk_camsv_pipeline *sv_pipe[MAX_SV_PIPES_PER_STREAM];
 	//struct mtk_mraw_pipeline *mraw_pipe[MAX_MRAW_PIPES_PER_STREAM];
 
@@ -147,16 +154,19 @@ struct mtk_cam_device {
 	struct mtk_cam_v4l2_pipelines	pipelines;
 	struct mtk_cam_engines		engines;
 
-	struct mutex queue_lock;
+	atomic_t is_queuing;
 
 	unsigned int max_stream_num;
-	unsigned int streaming_ctx;
-	unsigned int streaming_pipe;
 	struct mtk_cam_ctx *ctxs;
+
+	spinlock_t streaming_lock;
+	int streaming_ctx;
+	//int streaming_pipe;
 
 	/* request related */
 	struct list_head pending_job_list;
 	spinlock_t pending_job_lock;
+
 	struct list_head running_job_list;
 	unsigned int running_job_count;
 	spinlock_t running_job_lock;
@@ -177,11 +187,10 @@ int mtk_cam_set_dev_mraw(struct device *dev, int idx, struct device *mraw);
 int mtk_cam_set_dev_larb(struct device *dev, struct device *larb);
 struct device *mtk_cam_get_larb(struct device *dev, int larb_id);
 
-static inline struct mtk_cam_request *
-to_mtk_cam_req(struct media_request *__req)
-{
-	return container_of(__req, struct mtk_cam_request, req);
-}
+int mtk_cam_mark_streaming(struct mtk_cam_device *cam, int stream_id);
+int mtk_cam_unmark_streaming(struct mtk_cam_device *cam, int stream_id);
+bool mtk_cam_is_any_streaming(struct mtk_cam_device *cam);
+bool mtk_cam_are_all_streaming(struct mtk_cam_device *cam, int stream_mask);
 
 static inline void
 mtk_cam_pad_fmt_enable(struct v4l2_mbus_framefmt *framefmt, bool enable)
@@ -214,8 +223,8 @@ int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 				      struct v4l2_subdev *sd,
 				      int pad_id, int pixel_mode);
 
-void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
-			     struct mtk_cam_request *req);
+int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
+			    struct mtk_cam_request *req);
 //void mtk_cam_dev_req_cleanup(struct mtk_cam_ctx *ctx, int pipe_id, int buf_state);
 //void mtk_cam_dev_req_clean_pending(struct mtk_cam_device *cam, int pipe_id,
 //				   int buf_state);

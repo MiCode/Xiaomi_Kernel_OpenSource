@@ -10,6 +10,12 @@
 
 #include "mtk_cam-pool.h"
 
+struct mtk_cam_job;
+struct mtk_cam_pool_job {
+	struct mtk_cam_pool_priv priv;
+	struct mtk_cam_job_data *job_data;
+};
+
 struct mtk_cam_request;
 struct mtk_cam_ctx;
 struct mtk_cam_job {
@@ -56,9 +62,28 @@ struct mtk_cam_job {
 
 
 struct mtk_cam_normal_job {
-	struct mtk_cam_job job;
+	// TODO
 };
 
-//int mtk_cam_job_config_normal(struct mtk_cam_job *job,
+struct mtk_cam_job_data {
+	struct mtk_cam_pool_job pool_job;
+	struct mtk_cam_job job;
+
+	int job_type;
+	union {
+		struct mtk_cam_normal_job n;
+	};
+};
+
+static inline void mtk_cam_job_return(struct mtk_cam_job *job)
+{
+	struct mtk_cam_job_data *data =
+		container_of(job, struct mtk_cam_job_data, job);
+
+	mtk_cam_pool_return(&data->pool_job, sizeof(data->pool_job));
+}
+
+int mtk_cam_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
+		     struct mtk_cam_request *req);
 
 #endif //__MTK_CAM_JOB_H

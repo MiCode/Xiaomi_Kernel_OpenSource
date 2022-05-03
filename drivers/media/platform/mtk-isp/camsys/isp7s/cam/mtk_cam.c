@@ -76,6 +76,8 @@ struct device *mtk_cam_root_dev(void)
 	return camsys_root_dev;
 }
 
+static int mtk_cam_req_try_update_used_ctx(struct media_request *req);
+
 static int set_dev_to_arr(struct device **arr, int num,
 			     int idx, struct device *dev)
 {
@@ -150,11 +152,150 @@ struct device *mtk_cam_get_larb(struct device *dev, int larb_id)
 	return NULL;
 }
 
+static bool _get_permit_to_queue(struct mtk_cam_device *cam)
+{
+	return !atomic_cmpxchg(&cam->is_queuing, 0, 1);
+}
+
+static void _put_permit_to_queue(struct mtk_cam_device *cam)
+{
+	atomic_set(&cam->is_queuing, 0);
+}
+
+static void append_to_running_list(struct mtk_cam_device *cam,
+				   struct mtk_cam_request *req)
+{
+	spin_lock(&cam->running_job_lock);
+	cam->running_job_count++;
+	list_add_tail(&req->list, &cam->running_job_list);
+	spin_unlock(&cam->running_job_lock);
+}
+
+static void update_ctxs_available_jobs(struct mtk_cam_device *cam)
+{
+	struct mtk_cam_ctx *ctx;
+	int streaming_ctx;
+	int i;
+
+	spin_lock(&cam->streaming_lock);
+	streaming_ctx = cam->streaming_ctx;
+	spin_unlock(&cam->streaming_lock);
+
+	for (i = 0; i < cam->max_stream_num; i++) {
+		ctx = &cam->ctxs[i];
+
+		if (!USED_MASK_HAS(&streaming_ctx, stream, i)) {
+			ctx->available_jobs = 0;
+			continue;
+		}
+
+		ctx->available_jobs = mtk_cam_pool_available_cnt(&ctx->job_pool);
+	}
+}
+
+static bool mtk_cam_test_available_jobs(struct mtk_cam_device *cam,
+				       int stream_mask)
+{
+	struct mtk_cam_ctx *ctx;
+	int i;
+
+	for (i = 0; i < cam->max_stream_num; i++) {
+		ctx = &cam->ctxs[i];
+
+		if (!USED_MASK_HAS(&stream_mask, stream, i))
+			continue;
+
+		if (!ctx->available_jobs)
+			goto fail_to_fetch_job;
+
+		--ctx->available_jobs;
+	}
+
+	return true;
+
+fail_to_fetch_job:
+	for (i = i - 1; i >= 0; i--) {
+		if (!USED_MASK_HAS(&stream_mask, stream, i))
+			continue;
+		++ctx->available_jobs;
+	}
+	return false;
+}
+
+static int mtk_cam_get_reqs_to_enque(struct mtk_cam_device *cam,
+				     struct list_head *enqueue_list)
+{
+	struct mtk_cam_request *req, *req_prev;
+	int cnt;
+
+	/*
+	 * for each req in pending_list
+	 *    try update req's ctx
+	 *    if all required ctxs are streaming
+	 *    if all required ctxs have available job
+	 *    => ready to enque
+	 */
+	update_ctxs_available_jobs(cam);
+
+	cnt = 0;
+	spin_lock(&cam->pending_job_lock);
+	list_for_each_entry_safe(req, req_prev, &cam->pending_job_list, list) {
+
+		if (mtk_cam_req_try_update_used_ctx(&req->req))
+			continue;
+
+		if (!mtk_cam_are_all_streaming(cam,
+					       mtk_cam_req_used_ctx(&req->req)))
+			continue;
+
+		if (!mtk_cam_test_available_jobs(cam,
+						mtk_cam_req_used_ctx(&req->req)))
+			continue;
+
+		cnt++;
+		list_del(&req->list);
+		list_add_tail(&req->list, enqueue_list);
+	}
+	spin_unlock(&cam->pending_job_lock);
+
+	return cnt;
+}
+
+static int mtk_cam_enque_list(struct mtk_cam_device *cam,
+			      struct list_head *enqueue_list)
+{
+	struct mtk_cam_request *req, *req_prev;
+
+	list_for_each_entry_safe(req, req_prev, enqueue_list, list) {
+
+		append_to_running_list(cam, req);
+		mtk_cam_dev_req_enqueue(cam, req);
+	}
+
+	return 0;
+}
+
+/* Note:
+ * this funciton will be called from userspace's context & workqueue
+ */
 void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 {
-	//TODO
-	// 1. get runnable requests
-	// 2. call mtk_cam_dev_req_enqueue
+	struct list_head enqueue_list;
+
+	if (!_get_permit_to_queue(cam))
+		return;
+
+	if (!mtk_cam_is_any_streaming(cam))
+		goto put_permit;
+
+	INIT_LIST_HEAD(&enqueue_list);
+	if (!mtk_cam_get_reqs_to_enque(cam, &enqueue_list))
+		goto put_permit;
+
+	mtk_cam_enque_list(cam, &enqueue_list);
+
+put_permit:
+	_put_permit_to_queue(cam);
 }
 
 static struct media_request *mtk_cam_req_alloc(struct media_device *mdev)
@@ -175,6 +316,146 @@ static void mtk_cam_req_free(struct media_request *req)
 	vfree(cam_req);
 }
 
+static void mtk_cam_req_reset(struct media_request *req)
+{
+	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
+
+	cam_req->used_ctx = 0;
+	cam_req->used_pipe = 0;
+
+	INIT_LIST_HEAD(&cam_req->buf_list);
+	/* todo: init fs */
+}
+
+/* may fail to get contexts if not stream-on yet */
+static int mtk_cam_req_try_update_used_ctx(struct media_request *req)
+{
+	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
+	struct mtk_cam_device *cam =
+		container_of(req->mdev, struct mtk_cam_device, media_dev);
+	struct mtk_cam_v4l2_pipelines *ppls = &cam->pipelines;
+	int pipe_used = cam_req->used_pipe;
+	int used_ctx = 0;
+	bool not_streamon_yet = false;
+	struct mtk_cam_ctx *ctx;
+	int i;
+
+	if (cam_req->used_ctx)
+		return 0;
+
+	for (i = 0; i < ppls->num_raw; i++)
+		if (USED_MASK_HAS(&pipe_used, raw, i)) {
+			ctx = mtk_cam_find_ctx(cam,
+					       &ppls->raw[i].subdev.entity);
+
+			if (!ctx) {
+				/* not all pipes are stream-on */
+				not_streamon_yet = true;
+				break;
+			}
+
+			USED_MASK_SET(&used_ctx, stream, ctx->stream_id);
+		}
+
+	/* todo: camsv */
+	/* todo: mraw */
+
+	cam_req->used_ctx = !not_streamon_yet ? used_ctx : 0;
+	return !not_streamon_yet ? 0 : -1;
+}
+
+static int _req_list_ctrl_handlers(struct media_request *req,
+				   struct v4l2_ctrl_handler **arr_hdl,
+				   int arr_size)
+{
+	struct media_request_object *obj;
+	int n = 0;
+
+	list_for_each_entry(obj, &req->objects, list) {
+		if (vb2_request_object_is_buffer(obj))
+			continue;
+
+		if (WARN_ON(n == arr_size))
+			return -1;
+
+		arr_hdl[n] = (struct v4l2_ctrl_handler *)obj->priv;
+		++n;
+	}
+	return n;
+}
+
+static bool _req_has_ctrl_hdl(struct mtk_cam_request *req,
+			      struct v4l2_ctrl_handler *hdl)
+{
+	int i;
+
+	for (i = 0; i < req->ctrl_hdl_nr; i++)
+		if (req->ctrl_hdls[i] == hdl)
+			return true;
+	return false;
+}
+
+static int mtk_cam_req_get_ctrl_handlers(struct media_request *req)
+{
+	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
+
+	cam_req->ctrl_hdl_nr =
+		_req_list_ctrl_handlers(req,
+					cam_req->ctrl_hdls,
+					ARRAY_SIZE(cam_req->ctrl_hdls));
+	return 0;
+}
+
+static int mtk_cam_setup_pipeline_ctrl(struct media_request *req)
+{
+	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
+	struct mtk_cam_device *cam =
+		container_of(req->mdev, struct mtk_cam_device, media_dev);
+	struct mtk_cam_v4l2_pipelines *ppls = &cam->pipelines;
+	struct v4l2_ctrl_handler *hdl;
+	int i, ret;
+
+	if (!cam_req->ctrl_hdl_nr)
+		return 0;
+
+	ret = 0;
+	for (i = 0; i < ppls->num_raw; i++) {
+		if (!USED_MASK_HAS(&cam_req->used_pipe, raw, i))
+			continue;
+
+		hdl = &ppls->raw[i].ctrl_handler;
+
+		if (!_req_has_ctrl_hdl(cam_req, hdl))
+			continue;
+
+		ret = v4l2_ctrl_request_setup(req, hdl);
+		if (!ret) {
+			dev_info(cam->dev, "failed to setup ctrl of %s\n",
+				ppls->raw[i].subdev.entity.name);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static void mtk_cam_clone_ctrl_data_to_req(struct media_request *req)
+{
+	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
+	struct mtk_cam_device *cam =
+		container_of(req->mdev, struct mtk_cam_device, media_dev);
+	struct mtk_cam_v4l2_pipelines *ppls = &cam->pipelines;
+	int i;
+
+
+	for (i = 0; i < ppls->num_raw; i++) {
+		if (!USED_MASK_HAS(&cam_req->used_pipe, raw, i))
+			continue;
+
+		cam_req->raw_ctrl_data[i] = ppls->raw[i].ctrl_data;
+	}
+}
+
 static void mtk_cam_req_queue(struct media_request *req)
 {
 	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
@@ -182,22 +463,39 @@ static void mtk_cam_req_queue(struct media_request *req)
 		container_of(req->mdev, struct mtk_cam_device, media_dev);
 
 	// reset req
+	mtk_cam_req_reset(req);
 
-	/* update frame_params's dma_bufs in mtk_cam_vb2_buf_queue */
+	/* update following in mtk_cam_vb2_buf_queue (.buf_queue)
+	 *   add mtk_cam_buffer to req->buf_list
+	 *   req->used_pipe
+	 */
 	vb2_request_queue(req);
+	WARN_ON(!cam_req->used_pipe);
+
+	if (mtk_cam_req_try_update_used_ctx(req)) {
+		dev_info(cam->dev,
+			 "req %s enqueued before stream-on\n", req->debug_str);
+	}
+
+	/* parse ctrl handlers via used_pipe */
+	mtk_cam_req_get_ctrl_handlers(req);
+
+	/* setup ctrl handler */
+	WARN_ON(mtk_cam_setup_pipeline_ctrl(req));
+
+	mtk_cam_clone_ctrl_data_to_req(req);
 
 	spin_lock(&cam->pending_job_lock);
 	list_add_tail(&cam_req->list, &cam->pending_job_list);
 	spin_unlock(&cam->pending_job_lock);
 
-	mtk_cam_dev_req_enqueue(cam, cam_req);
+	mtk_cam_dev_req_try_queue(cam);
 }
 
 static int mtk_cam_link_notify(struct media_link *link, u32 flags,
 			      unsigned int notification)
 {
-	//TODO
-	return 0;
+	return v4l2_pipeline_link_notify(link, flags, notification);
 }
 
 static const struct media_device_ops mtk_cam_dev_ops = {
@@ -255,13 +553,63 @@ static void isp_tx_frame_worker(struct work_struct *work)
 }
 #endif
 
-void mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
-			     struct mtk_cam_request *req)
+static struct mtk_cam_job *mtk_cam_ctx_fetch_job(struct mtk_cam_ctx *ctx)
 {
-	//TODO
-	// collect info
-	// packing into job
-	// add to job list
+	struct mtk_cam_pool_job pool_job;
+
+	if (WARN_ON(mtk_cam_pool_fetch(&ctx->job_pool,
+				       &pool_job, sizeof(pool_job))))
+		return NULL;
+
+	pool_job.job_data->pool_job = pool_job;
+	return &pool_job.job_data->job;
+}
+
+int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
+			    struct mtk_cam_request *req)
+{
+	int used_ctx = req->used_ctx;
+	struct mtk_cam_ctx *ctx;
+	struct mtk_cam_job *job;
+	int i;
+
+	WARN_ON(!used_ctx);
+
+	/*
+	 * for each context involved:
+	 *   pack into job
+	 *     fetch ipi/cq buffer
+	 *   select hw resources
+	 *   ipi - config
+	 *   ipi - frame
+	 */
+	for (i = 0; i < cam->max_stream_num && used_ctx; ++i) {
+
+		if (!USED_MASK_HAS(&used_ctx, stream, i))
+			continue;
+
+		USED_MASK_UNSET(&used_ctx, stream, i);
+
+		ctx = &cam->ctxs[i];
+
+		job = mtk_cam_ctx_fetch_job(ctx);
+		if (!job) {
+			dev_info(cam->dev, "failed to get job from ctx %d\n",
+				 ctx->stream_id);
+			return -1;
+		}
+
+		// pack job
+		if (!mtk_cam_job_pack(job, ctx, req)) {
+			mtk_cam_job_return(job);
+			return -1;
+		}
+
+		// enque to ctrl
+		// ctrl->enque(job);
+	}
+
+	return 0;
 }
 
 #ifdef NOT_READY
@@ -418,6 +766,7 @@ __maybe_unused static void isp_composer_uninit(struct mtk_cam_ctx *ctx)
 __maybe_unused static int isp_composer_handle_ack(struct mtk_cam_device *cam,
 				   struct mtkcam_ipi_event *ipi_msg)
 {
+	/* TODO */
 	return 0;
 }
 
@@ -530,6 +879,7 @@ static int mtk_cam_uninitialize(struct mtk_cam_device *cam)
 static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 				int len, void *priv, u32 src)
 {
+	/* TODO */
 	return 0;
 }
 
@@ -728,7 +1078,7 @@ static int _alloc_pool(const char *name,
 	if (ret)
 		return ret;
 
-	ret = mtk_cam_pool_alloc(pool, buf, num);
+	ret = mtk_cam_buffer_pool_alloc(pool, buf, num);
 	if (ret)
 		goto fail_device_buf_uninit;
 
@@ -748,7 +1098,7 @@ static void _destroy_pool(struct mtk_cam_device_buf *buf,
 
 /* for cq working buffers */
 #define CQ_BUF_SIZE  0x10000
-#define CAM_CQ_BUF_NUM 16
+#define CAM_CQ_BUF_NUM JOB_NUM_PER_STREAM
 #define IPI_FRAME_BUF_SIZE ALIGN(sizeof(struct mtkcam_ipi_frame_param), SZ_1K)
 static int mtk_cam_ctx_alloc_pool(struct mtk_cam_ctx *ctx)
 {
@@ -871,6 +1221,30 @@ static void mtk_cam_ctx_reset(struct mtk_cam_ctx *ctx)
 	ctx->stream_id = stream_id;
 }
 
+static void config_pool_job(void *data, int index, void *element)
+{
+	struct mtk_cam_job_data *job_data = data;
+	struct mtk_cam_pool_job *job_element = element;
+
+	job_element->job_data = job_data + index;
+}
+
+static int mtk_cam_ctx_init_job_pool(struct mtk_cam_ctx *ctx)
+{
+	int ret;
+
+	ret = mtk_cam_pool_alloc(&ctx->job_pool,
+				 sizeof(struct mtk_cam_pool_job),
+				 JOB_NUM_PER_STREAM);
+	if (!ret) {
+		dev_info(ctx->cam->dev, "failed to alloc job pool of ctx %d\n",
+			 ctx->stream_id);
+		return ret;
+	}
+
+	return mtk_cam_pool_config(&ctx->job_pool, config_pool_job, ctx->jobs);
+}
+
 struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 				      struct mtk_cam_video_device *node)
 {
@@ -907,7 +1281,10 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 			goto fail_destroy_pools;
 	}
 
+	mtk_cam_ctx_init_job_pool(ctx);
 	mtk_cam_update_pipe_used(ctx, &cam->pipelines);
+
+	WARN_ON(!mtk_cam_mark_streaming(cam, ctx->stream_id));
 
 	return ctx;
 
@@ -933,10 +1310,13 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 	dev_info(cam->dev, "%s: by node %s\n", __func__, entity->name);
 
+	WARN_ON(!mtk_cam_unmark_streaming(cam, ctx->stream_id));
+
 	mtk_cam_ctx_unprepare_session(ctx);
 	mtk_cam_ctx_destroy_pool(ctx);
 	mtk_cam_ctx_destroy_workers(ctx);
 	mtk_cam_ctx_pipeline_stop(ctx, entity);
+	mtk_cam_pool_destroy(&ctx->job_pool);
 
 	ctx->used_pipe = 0;
 
@@ -967,14 +1347,6 @@ int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 
 	return ret;
 }
-
-#ifdef NOT_READY
-static struct mtk_cam_request *
-fetch_request_from_pending(struct mtk_cam_device *cam, struct mtk_cam_ctx *ctx)
-{
-	return NULL;
-}
-#endif
 
 static int ctx_stream_on_pipe_subdev(struct mtk_cam_ctx *ctx, int enable)
 {
@@ -1035,7 +1407,7 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 
 	mtk_cam_dev_req_try_queue(ctx->cam);
 
-	//ctx_stream_on_seninf_sensor
+	//ctx_stream_on_seninf_sensor later
 
 	/* note
 	 * 1. collect 1st request info
@@ -1624,6 +1996,61 @@ static void mtk_cam_debug_fs_deinit(struct mtk_cam_device *cam)
 #endif
 }
 
+int mtk_cam_mark_streaming(struct mtk_cam_device *cam, int stream_id)
+{
+	int stream_mask = 1 << stream_id;
+	int err_stream;
+
+	spin_lock(&cam->streaming_lock);
+	err_stream = cam->streaming_ctx & stream_mask;
+	if (!err_stream)
+		cam->streaming_ctx |= stream_mask;
+	spin_unlock(&cam->streaming_lock);
+
+	if (err_stream)
+		dev_info(cam->dev, "%s: streams 0x%x are already streaming\n",
+			 __func__, err_stream);
+	return err_stream ? -1 : 0;
+}
+
+int mtk_cam_unmark_streaming(struct mtk_cam_device *cam, int stream_id)
+{
+	int stream_mask = 1 << stream_id;
+	int err_stream;
+
+	spin_lock(&cam->streaming_lock);
+	err_stream = (cam->streaming_ctx & stream_mask) ^ stream_mask;
+	cam->streaming_ctx &= ~stream_mask;
+	spin_unlock(&cam->streaming_lock);
+
+	if (err_stream)
+		dev_info(cam->dev, "%s: streams 0x%x are not streaming\n",
+			 __func__, err_stream);
+	return err_stream ? -1 : 0;
+}
+
+bool mtk_cam_is_any_streaming(struct mtk_cam_device *cam)
+{
+	bool res;
+
+	spin_lock(&cam->streaming_lock);
+	res = !!cam->streaming_ctx;
+	spin_unlock(&cam->streaming_lock);
+
+	return res;
+}
+
+bool mtk_cam_are_all_streaming(struct mtk_cam_device *cam, int stream_mask)
+{
+	bool res;
+
+	spin_lock(&cam->streaming_lock);
+	res = USED_MASK_CONTAINS(&cam->streaming_ctx, &stream_mask);
+	spin_unlock(&cam->streaming_lock);
+
+	return res;
+}
+
 static int register_sub_drivers(struct device *dev)
 {
 	struct component_match *match = NULL;
@@ -1779,23 +2206,22 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	for (i = 0; i < cam_dev->max_stream_num; i++)
 		mtk_cam_ctx_init(cam_dev->ctxs + i, cam_dev, i);
 
+	spin_lock_init(&cam_dev->streaming_lock);
 	spin_lock_init(&cam_dev->pending_job_lock);
 	spin_lock_init(&cam_dev->running_job_lock);
 	INIT_LIST_HEAD(&cam_dev->pending_job_list);
 	INIT_LIST_HEAD(&cam_dev->running_job_list);
 
-	mutex_init(&cam_dev->queue_lock);
-
 	pm_runtime_enable(dev);
 
 	ret = mtk_cam_of_rproc(cam_dev);
 	if (ret)
-		goto fail_destroy_mutex;
+		goto fail_return;
 
 	ret = register_sub_drivers(dev);
 	if (ret) {
 		dev_info(dev, "fail to register_sub_drivers\n");
-		goto fail_destroy_mutex;
+		goto fail_return;
 	}
 
 	ret = mtk_cam_debug_fs_init(cam_dev);
@@ -1807,8 +2233,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 fail_match_remove:
 	mtk_cam_match_remove(dev);
 
-fail_destroy_mutex:
-	mutex_destroy(&cam_dev->queue_lock);
+fail_return:
 
 	return ret;
 }
@@ -1823,7 +2248,6 @@ static int mtk_cam_remove(struct platform_device *pdev)
 	component_master_del(dev, &mtk_cam_master_ops);
 	mtk_cam_match_remove(dev);
 
-	mutex_destroy(&cam_dev->queue_lock);
 	mtk_cam_debug_fs_deinit(cam_dev);
 
 #ifdef NOT_READY

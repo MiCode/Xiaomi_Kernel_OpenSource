@@ -151,104 +151,191 @@ int mtk_cam_device_buf_vmap(struct mtk_cam_device_buf *buf)
 	return 0;
 }
 
-#define IS_AVAILABLE(priv)	(priv & 0x80)
-#define INDEX(priv)		(priv & 0x7f)
-#define MARK_AVAILABLE(index)	(index)
-#define MARK_UNAVAILABLE(index)	(0x80 | (index))
-
-static void _pool_init_elements(struct mtk_cam_pool *pool,
-				dma_addr_t da, void *va, size_t per_size)
+static inline void *
+element_at(struct mtk_cam_pool *pool, int index)
 {
-	struct mtk_cam_pool_buffer *buf = pool->buffers;
-	int i;
+	return pool->elements + index * pool->element_size;
+}
 
-	for (i = 0; i < pool->n_buffers; i++, buf++) {
-		buf->daddr = da;
-		buf->vaddr = va;
-		buf->pool = pool;
-		buf->_priv = i;
-
-		da += per_size;
-		va += per_size;
-	}
+static inline struct mtk_cam_pool_priv *
+element_priv(void *element)
+{
+	return element;
 }
 
 int mtk_cam_pool_alloc(struct mtk_cam_pool *pool,
-		       struct mtk_cam_device_buf *buf, int n_buffers)
+		       size_t element_size, int n_element)
 {
-	WARN_ON(!pool || !buf || !n_buffers);
-	WARN_ON(n_buffers >= (1 << 7)); /* max 2^7 */
+	WARN_ON(!pool || !n_element || !element_size);
+	WARN_ON(n_element >= (1 << 7)); /* max 2^7 */
 
-	if (!buf->daddr) {
-		pr_info("buf is not mapped yet\n");
-		return -1;
-	}
-
-	pool->n_buffers = n_buffers;
-	pool->buffers = kcalloc(n_buffers, sizeof(*pool->buffers), GFP_KERNEL);
-	if (!pool->buffers)
+	pool->n_element = n_element;
+	pool->element_size = element_size;
+	pool->elements = kvcalloc(n_element, sizeof(pool->element_size),
+				  GFP_KERNEL);
+	if (!pool->elements)
 		return -ENOMEM;
-
-	_pool_init_elements(pool, buf->daddr, buf->vaddr,
-			    buf->size / n_buffers);
 
 	spin_lock_init(&pool->lock);
 	pool->fetch_idx = 0;
+	pool->available_cnt = pool->n_element;
 
 	return 0;
 }
 
 void mtk_cam_pool_destroy(struct mtk_cam_pool *pool)
 {
+	struct mtk_cam_pool_priv *priv;
 	int i;
 
-	if (pool->buffers) {
-		// check buf status
-		spin_lock(&pool->lock);
-		for (i = 0; i < pool->n_buffers; i++)
-			if (!IS_AVAILABLE(pool->buffers[i]._priv))
-				pr_info("buf idx %d is not returned yet\n", i);
-		spin_unlock(&pool->lock);
+	if (pool->elements) {
 
-		kfree(pool->buffers);
+		// check buf status
+		if (pool->available_cnt != pool->n_element)
+			for (i = 0; i < pool->n_element; i++) {
+				priv = element_priv(element_at(pool, i));
+
+				if (!priv->available)
+					pr_info("buf idx %d is not returned yet\n",
+						i);
+			}
+
+		kvfree(pool->elements);
 	}
 
 	memset(pool, 0, sizeof(*pool));
 }
 
-int mtk_cam_pool_buffer_fetch(struct mtk_cam_pool *pool,
-			      struct mtk_cam_pool_buffer *buf)
+int mtk_cam_pool_config(struct mtk_cam_pool *pool,
+			fn_config_element fn, void *data)
 {
-	int n = pool->n_buffers;
+	void *ele;
+	struct mtk_cam_pool_priv *priv;
+	int i;
+
+	if (!pool->elements || !pool->n_element)
+		return -EINVAL;
+
+	for (i = 0; i < pool->n_element; i++) {
+		ele = element_at(pool, i);
+		priv = element_priv(ele);
+
+		priv->pool = pool;
+		priv->index = i;
+		priv->available = true;
+
+		fn(data, i, ele);
+	}
+
+	return 0;
+}
+
+int mtk_cam_pool_fetch(struct mtk_cam_pool *pool,
+		       void *buf, size_t size)
+{
+	int n = pool->n_element;
+	void *ele;
+	struct mtk_cam_pool_priv *priv;
 	int i, c;
 
-	spin_lock(&pool->lock);
-	for (i = pool->fetch_idx, c = 0; c < n; i = (i + 1) % n)
-		if (IS_AVAILABLE(pool->buffers[i]._priv)) {
-			*buf = pool->buffers[i];
-			pool->buffers[i]._priv = MARK_UNAVAILABLE(i);
+	if (WARN_ON(size != pool->element_size))
+		return -EINVAL;
 
+	spin_lock(&pool->lock);
+	for (i = pool->fetch_idx, c = 0; c < n; i = (i + 1) % n) {
+		ele = element_at(pool, i);
+		priv = element_priv(ele);
+
+		if (priv->available) {
+			memcpy(buf, ele, pool->element_size);
+			priv->available = false;
 			pool->fetch_idx = (i + 1) % n;
+			--pool->available_cnt;
 			break;
 		}
+	}
 	spin_unlock(&pool->lock);
 
 	return (c == n) ? -1 : 0;
 }
 
-void mtk_cam_pool_buffer_return(struct mtk_cam_pool_buffer *buf)
+void mtk_cam_pool_return(void *buf, size_t size)
 {
-	struct mtk_cam_pool *pool = buf->pool;
-	struct mtk_cam_pool_buffer *dst;
-	int i = INDEX(buf->_priv);
+	struct mtk_cam_pool *pool;
+	struct mtk_cam_pool_priv *priv;
+	void *ele;
+	int i;
 
-	dst = &pool->buffers[i];
+	priv = buf;
+	pool = priv->pool;
+	i = priv->index;
+
+	if (WARN_ON(size != pool->element_size))
+		return;
+
+	ele = element_at(pool, i);
+	priv = element_priv(ele);
 
 	/* already return */
-	WARN_ON(IS_AVAILABLE(dst->_priv));
+	WARN_ON(priv->available);
 
 	spin_lock(&pool->lock);
-	dst->_priv = MARK_AVAILABLE(i);
+	priv->available = true;
+	++pool->available_cnt;
 	spin_unlock(&pool->lock);
 }
 
+int mtk_cam_pool_available_cnt(struct mtk_cam_pool *pool)
+{
+	int cnt;
+
+	spin_lock(&pool->lock);
+	cnt = pool->available_cnt;
+	spin_unlock(&pool->lock);
+	return cnt;
+}
+
+struct buffer_pool_data {
+	struct mtk_cam_device_buf *buf;
+	int offset;
+};
+
+static void pool_config_device_buf(void *data, int index, void *element)
+{
+	struct buffer_pool_data *bf_data = data;
+	struct mtk_cam_device_buf *buf = bf_data->buf;
+	size_t ofst = bf_data->offset;
+	struct mtk_cam_pool_buffer *ele_buf = element;
+
+	ele_buf->daddr = buf->daddr + ofst;
+	ele_buf->vaddr = buf->vaddr ? (buf->vaddr + ofst) : 0;
+}
+
+int mtk_cam_buffer_pool_alloc(struct mtk_cam_pool *pool,
+			      struct mtk_cam_device_buf *buf, int n_buffers)
+{
+	struct buffer_pool_data data;
+	int ret;
+
+	if (WARN_ON(!buf || !buf->daddr)) {
+		pr_info("buf is not mapped yet\n");
+		return -EINVAL;
+	}
+
+	if (n_buffers <= 0)
+		return -EINVAL;
+
+	data.buf = buf;
+	data.offset = buf->size / n_buffers;
+
+	ret = mtk_cam_pool_alloc(pool,
+				 sizeof(struct mtk_cam_pool_buffer), n_buffers);
+	if (ret)
+		return ret;
+
+	ret = mtk_cam_pool_config(pool, pool_config_device_buf, &data);
+	if (ret)
+		mtk_cam_pool_destroy(pool);
+
+	return ret;
+}

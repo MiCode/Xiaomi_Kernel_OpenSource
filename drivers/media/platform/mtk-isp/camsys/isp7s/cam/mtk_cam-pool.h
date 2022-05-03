@@ -6,6 +6,8 @@
 #ifndef __MTK_CAM_POOL_H
 #define __MTK_CAM_POOL_H
 
+#include <linux/dma-buf.h>
+
 struct dma_buf;
 struct dma_buf *mtk_cam_cached_buffer_alloc(size_t size);
 struct dma_buf *mtk_cam_noncached_buffer_alloc(size_t size);
@@ -34,29 +36,59 @@ static inline int mtk_cam_device_buf_fd(struct mtk_cam_device_buf *buf)
 	return dma_buf_fd(buf->dbuf, O_RDWR | O_CLOEXEC);
 }
 
-/* a wrapper to divide buffer into chunks as buffer pool */
-struct mtk_cam_pool_buffer {
-	dma_addr_t daddr;
-	void *vaddr;
-
+struct mtk_cam_pool_priv {
 	struct mtk_cam_pool *pool;
-	char _priv;
+	int index : 7;
+	int available : 1;
 };
 
 struct mtk_cam_pool {
-	size_t n_buffers;
-	struct mtk_cam_pool_buffer *buffers;
+	size_t element_size;
+	size_t n_element;
+	void *elements;
 
 	spinlock_t lock;
 	int fetch_idx;
+	int available_cnt;
 };
 
+/* alloc/destroy */
 int mtk_cam_pool_alloc(struct mtk_cam_pool *pool,
-		      struct mtk_cam_device_buf *buf, int n_buffers);
+		       size_t element_size, int n_element);
 void mtk_cam_pool_destroy(struct mtk_cam_pool *pool);
 
-int mtk_cam_pool_buffer_fetch(struct mtk_cam_pool *pool,
-			      struct mtk_cam_pool_buffer *buf);
-void mtk_cam_pool_buffer_return(struct mtk_cam_pool_buffer *buf);
+/* config each element */
+typedef void (*fn_config_element)(void *data, int index, void *element);
+int mtk_cam_pool_config(struct mtk_cam_pool *pool,
+			fn_config_element fn, void *data);
+
+int mtk_cam_pool_fetch(struct mtk_cam_pool *pool,
+		       void *buf, size_t size);
+void mtk_cam_pool_return(void *buf, size_t size);
+
+int mtk_cam_pool_available_cnt(struct mtk_cam_pool *pool);
+
+/* a wrapper to divide buffer into chunks as buffer pool */
+struct mtk_cam_pool_buffer {
+	struct mtk_cam_pool_priv priv;
+
+	dma_addr_t daddr;
+	void *vaddr;
+};
+
+/* with built-in config func */
+int mtk_cam_buffer_pool_alloc(struct mtk_cam_pool *pool,
+			      struct mtk_cam_device_buf *buf, int n_buffers);
+
+static inline int mtk_cam_buffer_pool_fetch(struct mtk_cam_pool *pool,
+					    struct mtk_cam_pool_buffer *buf)
+{
+	return mtk_cam_pool_fetch(pool, buf, sizeof(*buf));
+}
+
+static inline void mtk_cam_buffer_pool_return(struct mtk_cam_pool_buffer *buf)
+{
+	mtk_cam_pool_return(buf, sizeof(*buf));
+}
 
 #endif //__MTK_CAM_POOL_H

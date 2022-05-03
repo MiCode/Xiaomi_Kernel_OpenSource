@@ -49,6 +49,11 @@ struct mtk_cam_buffer {
 
 	dma_addr_t daddr;
 	dma_addr_t scp_addr;
+
+	unsigned int v4l2_pixelformat;
+	unsigned int width;
+	unsigned int height;
+	struct v4l2_rect crop;
 };
 
 struct mtk_cam_format_desc {
@@ -209,5 +214,7 @@ unsigned int mtk_cam_get_sensor_fmt(unsigned int fmt);
 int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt);
 
 const struct mtk_format_info *mtk_format_info(u32 format);
+
+void mtk_cam_mark_pipe_used(int *used_mask, int ipi_pipe_id);
 
 #endif /*__MTK_CAM_VIDEO_H*/

@@ -96,6 +96,19 @@ static int mtk_cam_vb2_buf_init(struct vb2_buffer *vb)
 	return 0;
 }
 
+static void mtk_cam_vb2_buf_collect_image_info(struct vb2_buffer *vb)
+{
+	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+	struct mtk_cam_buffer *buf = mtk_cam_vb2_buf_to_dev_buf(vb);
+	const struct v4l2_pix_format_mplane *mpfmt =
+		&node->active_fmt.fmt.pix_mp;
+
+	buf->v4l2_pixelformat = mpfmt->pixelformat;
+	buf->width = mpfmt->width;
+	buf->height = mpfmt->height;
+	buf->crop = node->active_crop.r;
+}
+
 static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 {
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
@@ -135,6 +148,9 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 
 	v4l2_buf->field = V4L2_FIELD_NONE;
 	vb2_set_plane_payload(vb, 0, size);
+
+	if (node->desc.image)
+		mtk_cam_vb2_buf_collect_image_info(vb);
 
 	return 0;
 }
@@ -380,27 +396,33 @@ static int _temp_ipi_pipe_id_to_idx(int pipe_id)
 	return -1;
 }
 
+void mtk_cam_mark_pipe_used(int *used_mask, int ipi_pipe_id)
+{
+	int pipe_idx;
+
+	pipe_idx = _temp_ipi_pipe_id_to_idx(ipi_pipe_id);
+
+	if (is_raw_subdev(ipi_pipe_id))
+		USED_MASK_SET(used_mask, raw, pipe_idx);
+	else if (is_camsv_subdev(ipi_pipe_id))
+		USED_MASK_SET(used_mask, camsv, pipe_idx);
+	else if (is_mraw_subdev(ipi_pipe_id))
+		USED_MASK_SET(used_mask, mraw, pipe_idx);
+	else
+		pr_info("%s: wrong pipe id 0x%x\n", __func__, ipi_pipe_id);
+}
+
 static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 {
 	struct mtk_cam_buffer *buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 	struct mtk_cam_request *req = to_mtk_cam_req(vb->request);
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 	int ipi_pipe_id = node->uid.pipe_id;
-	int pipe_idx;
 
 	if (WARN_ON(!req))
 		return;
 
-	pipe_idx = _temp_ipi_pipe_id_to_idx(ipi_pipe_id);
-	if (is_raw_subdev(ipi_pipe_id))
-		USED_MASK_SET(&req->used_pipe, raw, pipe_idx);
-	else if (is_camsv_subdev(ipi_pipe_id))
-		USED_MASK_SET(&req->used_pipe, camsv, pipe_idx);
-	else if (is_mraw_subdev(ipi_pipe_id))
-		USED_MASK_SET(&req->used_pipe, mraw, pipe_idx);
-	else
-		pr_info("%s: wrong pipe id 0x%x\n", __func__, ipi_pipe_id);
-
+	mtk_cam_mark_pipe_used(&req->used_pipe, ipi_pipe_id);
 	list_add_tail(&buf->list, &req->buf_list);
 }
 
