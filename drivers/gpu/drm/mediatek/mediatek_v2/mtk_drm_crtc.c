@@ -103,6 +103,27 @@ static const char * const crtc_gce_client_str[] = {
 
 struct drm_mtk_ccorr_caps drm_ccorr_caps;
 
+/* Overlay bw monitor define */
+struct layer_compress_ratio_data
+display_compress_ratio_table[MAX_LAYER_RATIO_NUMBER];
+struct layer_compress_ratio_data
+display_fbt_compress_ratio_table;
+
+struct layer_compress_ratio_item
+normal_layer_compress_ratio_tb[MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER];
+struct layer_compress_ratio_item
+fbt_layer_compress_ratio_tb[MAX_FRAME_RATIO_NUMBER];
+
+struct layer_compress_ratio_item
+unchanged_compress_ratio_table[MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER];
+struct layer_compress_ratio_item
+fbt_compress_ratio_table[MAX_FRAME_RATIO_NUMBER];
+
+/* frame number index for ring buffer to record ratio */
+static unsigned int fn;
+/* overlay bandwidth monitor BURST ACC Window size */
+unsigned int ovl_win_size;
+
 #define ALIGN_TO_32(x) ALIGN_TO(x, 32)
 
 #define DISP_REG_CONFIG_MMSYS_GCE_EVENT_SEL 0x308
@@ -112,6 +133,12 @@ struct drm_mtk_ccorr_caps drm_ccorr_caps;
 #define DISP_MUTEX0_CTL 0xAc
 #define DISP_MUTEX0_MOD0 0xB0
 #define DISP_MUTEX0_MOD1 0xB4
+
+/* OVL Bandwidth monitor */
+#define DISP_REG_OVL_LX_BURST_ACC(n) (0x940UL + 0x4 * (n))
+#define DISP_REG_OVL_ELX_BURST_ACC(n) (0x950UL + 0x4 * (n))
+#define DISP_REG_OVL_LX_BURST_ACC_WIN_MAX(n) (0x960UL + 0x4 * (n))
+#define DISP_REG_OVL_ELX_BURST_ACC_WIN_MAX(n) (0x970UL + 0x4 * (n))
 
 struct drm_crtc *_get_context(void)
 {
@@ -3030,11 +3057,23 @@ unsigned int mtk_drm_primary_frame_bw(struct drm_crtc *i_crtc)
 }
 
 static unsigned int overlap_to_bw(struct drm_crtc *crtc,
-	unsigned int overlap_num)
+	unsigned int overlap_num, struct mtk_drm_lyeblob_ids *lyeblob_ids)
 {
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
+	int crtc_idx = drm_crtc_index(crtc);
 	unsigned int bw_base = mtk_drm_primary_frame_bw(crtc);
 	unsigned int bw = bw_base * overlap_num / 400;
+	DDPINFO("%s:%d bw_base:%u overlap:%u bw:%u\n", __func__, __LINE__,
+		bw_base, overlap_num, bw);
 
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
+		(crtc_idx == 0) && lyeblob_ids &&
+		(lyeblob_ids->frame_weight_of_bwm != 0)) {
+		bw = bw_base * lyeblob_ids->frame_weight_of_bwm / 400;
+		DDPINFO("%s:%d BWM bw_base:%u overlap:%u bw:%u\n", __func__, __LINE__,
+				bw_base, lyeblob_ids->frame_weight_of_bwm, bw);
+	}
 	return bw;
 }
 
@@ -3045,7 +3084,7 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
-	unsigned int bw = overlap_to_bw(crtc, frame_weight);
+	unsigned int bw = overlap_to_bw(crtc, frame_weight, lyeblob_ids);
 	int crtc_idx = drm_crtc_index(crtc);
 	unsigned int ovl0_2l_no_compress_num;
 	struct mtk_ddp_comp *output_comp;
@@ -4198,6 +4237,327 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 				NO_PENDING_HRT;
 	}
 }
+
+static void mtk_drm_ovl_bw_monitor_ratio_prework(struct drm_crtc *crtc,
+		struct drm_atomic_state *atomic_state)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct drm_crtc_state *old_crtc_state =
+		drm_atomic_get_old_crtc_state(atomic_state, crtc);
+	struct mtk_crtc_state *old_mtk_state =
+		to_mtk_crtc_state(old_crtc_state);
+	int frame_idx = old_mtk_state->prop_val[CRTC_PROP_OVL_DSI_SEQ];
+	unsigned int plane_mask = old_crtc_state->plane_mask;
+	struct drm_plane *plane = NULL;
+	int i = 0;
+
+	for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
+		display_compress_ratio_table[i].key_value = 0;
+		display_compress_ratio_table[i].valid = 0;
+		display_compress_ratio_table[i].average_ratio = NULL;
+		display_compress_ratio_table[i].peak_ratio = NULL;
+	}
+
+	display_fbt_compress_ratio_table.key_value = 0;
+	display_fbt_compress_ratio_table.valid = 0;
+	display_fbt_compress_ratio_table.average_ratio = NULL;
+	display_fbt_compress_ratio_table.peak_ratio = NULL;
+
+	drm_for_each_plane_mask(plane, crtc->dev, plane_mask) {
+		unsigned int plane_index = to_crtc_plane_index(plane->index);
+		struct mtk_plane_state *plane_state =
+			to_mtk_plane_state(plane->state);
+		int index = plane_index;
+
+		if ((fbt_gles_head != -1) && (fbt_gles_tail != -1)) {
+
+			if ((plane_index == fbt_layer_id) &&
+					(plane_index == fbt_gles_head) &&
+					(fbt_layer_id != -1) &&
+					(plane_state->pending.enable)) {
+				display_fbt_compress_ratio_table.key_value = frame_idx;
+				display_fbt_compress_ratio_table.valid = 0;
+				display_fbt_compress_ratio_table.average_ratio =
+					(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
+					DISP_SLOT_LAYER_AVG_RATIO(index)));
+				display_fbt_compress_ratio_table.peak_ratio =
+					(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
+					DISP_SLOT_LAYER_PEAK_RATIO(index)));
+			}
+
+			if ((plane_index > fbt_gles_head) &&
+				(plane_index <= fbt_gles_tail)) {
+				DDPDBG("Fbt layer continue\n");
+			} else if ((plane_index < MAX_LAYER_RATIO_NUMBER) &&
+					(plane_state->pending.enable)) {
+				display_compress_ratio_table[index].key_value = frame_idx +
+					plane_state->prop_val[PLANE_PROP_BUFFER_ALLOC_ID];
+				display_compress_ratio_table[index].valid = 0;
+				display_compress_ratio_table[index].average_ratio =
+					(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
+					DISP_SLOT_LAYER_AVG_RATIO(index)));
+				display_compress_ratio_table[index].peak_ratio =
+					(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
+					DISP_SLOT_LAYER_PEAK_RATIO(index)));
+			}
+		} else if ((plane_index < MAX_LAYER_RATIO_NUMBER) &&
+				(plane_state->pending.enable)) {
+			display_compress_ratio_table[index].key_value = frame_idx +
+				plane_state->prop_val[PLANE_PROP_BUFFER_ALLOC_ID];
+			display_compress_ratio_table[index].valid = 0;
+			display_compress_ratio_table[index].average_ratio =
+				(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
+				DISP_SLOT_LAYER_AVG_RATIO(index)));
+			display_compress_ratio_table[index].peak_ratio =
+				(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
+				DISP_SLOT_LAYER_PEAK_RATIO(index)));
+		}
+
+		DDPDBG("BWM: frame idx:%d alloc_id:%lu plane_index:%u enable:%u\n",
+				frame_idx, plane_state->prop_val[PLANE_PROP_BUFFER_ALLOC_ID],
+				plane_index, plane_state->pending.enable);
+		DDPDBG("BWM: fn:%u index:%d fbt_layer_id:%d fbt_head:%d fbt_tail:%d\n",
+				fn, index, fbt_layer_id, fbt_gles_head, fbt_gles_tail);
+	}
+}
+
+static void mtk_drm_ovl_bw_monitor_ratio_get(struct drm_crtc *crtc,
+		struct drm_atomic_state *atomic_state)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *mtk_crtc_state = to_mtk_crtc_state(crtc->state);
+	struct drm_crtc_state *old_crtc_state =
+		drm_atomic_get_old_crtc_state(atomic_state, crtc);
+	struct drm_plane *plane = NULL;
+	unsigned int plane_mask = 0;
+	struct mtk_crtc_state *state = mtk_crtc_state;
+
+	plane_mask = old_crtc_state->plane_mask;
+
+	drm_for_each_plane_mask(plane, crtc->dev, plane_mask) {
+		unsigned int plane_index = to_crtc_plane_index(plane->index);
+		struct mtk_plane_state *plane_state =
+			to_mtk_plane_state(plane->state);
+		int index = plane_index;
+		struct mtk_ddp_comp *comp =
+			mtk_crtc_get_plane_comp(crtc, plane_state);
+		int lye_id = plane_state->comp_state.lye_id;
+		int ext_lye_id = plane_state->comp_state.ext_lye_id;
+		unsigned int src_w = plane_state->pending.width/2;
+		unsigned int src_h = plane_state->pending.height;
+		unsigned int bpp =
+			mtk_get_format_bpp(plane_state->pending.format);
+		unsigned int is_compress =
+			plane_state->pending.prop_val[PLANE_PROP_COMPRESS];
+		dma_addr_t avg_slot = mtk_get_gce_backup_slot_pa(mtk_crtc,
+			DISP_SLOT_LAYER_AVG_RATIO(index));
+		dma_addr_t peak_slot = mtk_get_gce_backup_slot_pa(mtk_crtc,
+			DISP_SLOT_LAYER_PEAK_RATIO(index));
+		unsigned int expand = 1 << 24;
+		unsigned int narrow = 14;
+		unsigned int avg_inter_value = 0;
+		unsigned int peak_inter_value = 0;
+		struct cmdq_operand lop;
+		struct cmdq_operand rop;
+
+		/*
+		 * Layer SRT compress ratio =
+		 * ((BURST_ACC*16*2^24)/(src_w*src_h*bpp))/2^14
+		 * Layer HRT compress ratio =
+		 * ((BURST_ACC_WIN_MAX*16*2^24)/(src_w*win_h*bpp))/2^14
+		 * Attention: win_h = (reg_BURST_ACC_WIN_SIZE+1)*(fbdc_en?4:1)
+		 */
+		avg_inter_value = (16 * expand)/(src_w * src_h * bpp);
+		peak_inter_value = (16 * expand)/
+			(src_w * ovl_win_size * (is_compress?4:1) * bpp);
+
+		DDPDBG("BWM: plane_index:%u fn:%u index:%d lye_id:%d ext_lye_id:%d\n",
+			plane_index, fn, index, lye_id, ext_lye_id);
+		DDPDBG("BWM: win_size:%d compress:%d bpp:%d src_w:%d src_h:%d\n",
+			ovl_win_size, is_compress, bpp, src_w, src_h);
+		DDPDBG("BWM: avg_inter_value:%u peak_inter_value:%u\n",
+			avg_inter_value, peak_inter_value);
+
+		if ((ext_lye_id) &&
+			(plane_state->pending.enable)) {
+			cmdq_pkt_read(state->cmdq_handle, NULL,
+				comp->regs_pa + DISP_REG_OVL_ELX_BURST_ACC(ext_lye_id-1),
+				CMDQ_THR_SPR_IDX1);
+
+			lop.reg = true;
+			lop.idx = CMDQ_THR_SPR_IDX1;
+			rop.reg = false;
+			rop.value = avg_inter_value;
+			cmdq_pkt_logic_command(state->cmdq_handle,
+				CMDQ_LOGIC_MULTIPLY, CMDQ_THR_SPR_IDX1, &lop, &rop);
+
+			lop.reg = true;
+			lop.idx = CMDQ_THR_SPR_IDX1;
+			rop.reg = false;
+			rop.value = narrow;
+			cmdq_pkt_logic_command(state->cmdq_handle,
+				CMDQ_LOGIC_RIGHT_SHIFT, CMDQ_THR_SPR_IDX1, &lop, &rop);
+
+			cmdq_pkt_write_indriect(state->cmdq_handle, comp->cmdq_base,
+				avg_slot, CMDQ_THR_SPR_IDX1, ~0);
+
+			cmdq_pkt_read(state->cmdq_handle, NULL,
+				comp->regs_pa + DISP_REG_OVL_ELX_BURST_ACC_WIN_MAX(ext_lye_id-1),
+				CMDQ_THR_SPR_IDX1);
+
+			lop.reg = true;
+			lop.idx = CMDQ_THR_SPR_IDX1;
+			rop.reg = false;
+			rop.value = peak_inter_value;
+			cmdq_pkt_logic_command(state->cmdq_handle,
+				CMDQ_LOGIC_MULTIPLY, CMDQ_THR_SPR_IDX1, &lop, &rop);
+
+			lop.reg = true;
+			lop.idx = CMDQ_THR_SPR_IDX1;
+			rop.reg = false;
+			rop.value = narrow;
+			cmdq_pkt_logic_command(state->cmdq_handle,
+				CMDQ_LOGIC_RIGHT_SHIFT, CMDQ_THR_SPR_IDX1, &lop, &rop);
+
+			cmdq_pkt_write_indriect(state->cmdq_handle, comp->cmdq_base,
+				peak_slot, CMDQ_THR_SPR_IDX1, ~0);
+
+		} else if (plane_state->pending.enable) {
+			cmdq_pkt_read(state->cmdq_handle, NULL,
+				comp->regs_pa + DISP_REG_OVL_LX_BURST_ACC(lye_id),
+				CMDQ_THR_SPR_IDX1);
+
+			lop.reg = true;
+			lop.idx = CMDQ_THR_SPR_IDX1;
+			rop.reg = false;
+			rop.value = avg_inter_value;
+			cmdq_pkt_logic_command(state->cmdq_handle,
+				CMDQ_LOGIC_MULTIPLY, CMDQ_THR_SPR_IDX1, &lop, &rop);
+
+			lop.reg = true;
+			lop.idx = CMDQ_THR_SPR_IDX1;
+			rop.reg = false;
+			rop.value = narrow;
+			cmdq_pkt_logic_command(state->cmdq_handle,
+				CMDQ_LOGIC_RIGHT_SHIFT, CMDQ_THR_SPR_IDX1, &lop, &rop);
+
+			cmdq_pkt_write_indriect(state->cmdq_handle, comp->cmdq_base,
+				avg_slot, CMDQ_THR_SPR_IDX1, ~0);
+
+			cmdq_pkt_read(state->cmdq_handle, NULL,
+				comp->regs_pa + DISP_REG_OVL_LX_BURST_ACC_WIN_MAX(lye_id),
+				CMDQ_THR_SPR_IDX1);
+
+			lop.reg = true;
+			lop.idx = CMDQ_THR_SPR_IDX1;
+			rop.reg = false;
+			rop.value = peak_inter_value;
+			cmdq_pkt_logic_command(state->cmdq_handle,
+				CMDQ_LOGIC_MULTIPLY, CMDQ_THR_SPR_IDX1, &lop, &rop);
+
+			lop.reg = true;
+			lop.idx = CMDQ_THR_SPR_IDX1;
+			rop.reg = false;
+			rop.value = narrow;
+			cmdq_pkt_logic_command(state->cmdq_handle,
+				CMDQ_LOGIC_RIGHT_SHIFT, CMDQ_THR_SPR_IDX1, &lop, &rop);
+
+			cmdq_pkt_write_indriect(state->cmdq_handle, comp->cmdq_base,
+				peak_slot, CMDQ_THR_SPR_IDX1, ~0);
+		}
+	}
+}
+
+static void mtk_drm_ovl_bw_monitor_ratio_save(void)
+{
+	int i = 0;
+
+	for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
+		if (display_compress_ratio_table[i].key_value)
+			display_compress_ratio_table[i].valid = 1;
+	}
+
+	if (display_fbt_compress_ratio_table.key_value)
+		display_fbt_compress_ratio_table.valid = 1;
+
+	/* Clear fn frame record for recording next frame */
+	for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
+		int index = fn*MAX_LAYER_RATIO_NUMBER + i;
+
+		normal_layer_compress_ratio_tb[index].key_value = 0;
+		normal_layer_compress_ratio_tb[index].average_ratio = 0;
+		normal_layer_compress_ratio_tb[index].peak_ratio = 0;
+		normal_layer_compress_ratio_tb[index].valid = 0;
+	}
+	fbt_layer_compress_ratio_tb[fn].key_value = 0;
+	fbt_layer_compress_ratio_tb[fn].average_ratio = 0;
+	fbt_layer_compress_ratio_tb[fn].peak_ratio = 0;
+	fbt_layer_compress_ratio_tb[fn].valid = 0;
+
+	/* Copy one frame ratio to table */
+	for (i = 0; i < MAX_LAYER_RATIO_NUMBER; i++) {
+		int index = fn * MAX_LAYER_RATIO_NUMBER + i;
+
+		if ((display_compress_ratio_table[i].key_value) &&
+			(display_compress_ratio_table[i].average_ratio != NULL) &&
+			(display_compress_ratio_table[i].peak_ratio != NULL)) {
+
+			normal_layer_compress_ratio_tb[index].key_value =
+				display_compress_ratio_table[i].key_value;
+			normal_layer_compress_ratio_tb[index].average_ratio =
+				*(display_compress_ratio_table[i].average_ratio);
+			normal_layer_compress_ratio_tb[index].peak_ratio =
+				*(display_compress_ratio_table[i].peak_ratio);
+			normal_layer_compress_ratio_tb[index].valid =
+				display_compress_ratio_table[i].valid;
+		}
+	}
+
+	if ((display_fbt_compress_ratio_table.key_value) &&
+		(display_fbt_compress_ratio_table.average_ratio != NULL) &&
+		(display_fbt_compress_ratio_table.peak_ratio != NULL)) {
+
+		fbt_layer_compress_ratio_tb[fn].key_value =
+			display_fbt_compress_ratio_table.key_value;
+		fbt_layer_compress_ratio_tb[fn].average_ratio =
+			*(display_fbt_compress_ratio_table.average_ratio);
+		fbt_layer_compress_ratio_tb[fn].peak_ratio =
+			*(display_fbt_compress_ratio_table.peak_ratio);
+		fbt_layer_compress_ratio_tb[fn].valid =
+			display_fbt_compress_ratio_table.valid;
+	}
+
+	DDPINFO("BWM: fn:%u\n", fn);
+
+	DDPDBG("BWMT===== normal_layer_compress_ratio_tb =====\n");
+	DDPDBG("BWMT===== Item     Key     avg    peak     valid =====\n");
+	for (i = 0; i < 60; i++) {
+		if (normal_layer_compress_ratio_tb[i].key_value)
+			DDPDBG("BWMT===== %4d     %lu     %u    %u     %u =====\n", i,
+				normal_layer_compress_ratio_tb[i].key_value,
+				normal_layer_compress_ratio_tb[i].average_ratio,
+				normal_layer_compress_ratio_tb[i].peak_ratio,
+				normal_layer_compress_ratio_tb[i].valid);
+	}
+
+	DDPDBG("BWMT===== fbt_layer_compress_ratio_tb =====\n");
+	DDPDBG("BWMT===== Item     Key     avg    peak     valid =====\n");
+	for (i = 0; i < 5; i++) {
+		if (fbt_layer_compress_ratio_tb[i].key_value)
+			DDPDBG("BWMT===== %4d     %lu     %u    %u     %u =====\n", i,
+				fbt_layer_compress_ratio_tb[i].key_value,
+				fbt_layer_compress_ratio_tb[i].average_ratio,
+				fbt_layer_compress_ratio_tb[i].peak_ratio,
+				fbt_layer_compress_ratio_tb[i].valid);
+	}
+
+	fn++;
+	/* Ring buffer config */
+	if (fn >= MAX_FRAME_RATIO_NUMBER)
+		fn = 0;
+}
+
+
 #endif
 
 int mtk_crtc_fill_fb_para(struct mtk_drm_crtc *mtk_crtc)
@@ -4438,6 +4798,10 @@ static void ddp_cmdq_cb(struct cmdq_cb_data data)
 	if ((id == 0) && (priv->power_state)) {
 		ovl_status = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc,
 				DISP_SLOT_OVL_STATUS);
+
+		/* BW monitor: Set valid to 1 */
+		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR))
+			mtk_drm_ovl_bw_monitor_ratio_save();
 
 		if (ovl_status & 1) {
 			DDPPR_ERR("ovl status error:0x%x\n", ovl_status);
@@ -7777,9 +8141,21 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 				mtk_crtc_state->prop_val[CRTC_PROP_MSYNC2_0_ENABLE],
 				mtk_crtc->msync2.msync_disabled);
 
+	/* BW monitor: Record Key, Clear valid, Set pointer */
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
+		(crtc_idx == 0)) {
+		mtk_drm_ovl_bw_monitor_ratio_prework(crtc, atomic_state);
+	}
+
 	mtk_crtc_state->cmdq_handle =
 		mtk_crtc_gce_commit_begin(crtc, old_crtc_state, mtk_crtc_state, true);
 	CRTC_MMP_MARK(index, atomic_begin, (unsigned long)mtk_crtc_state->cmdq_handle, 0);
+
+	/* BW monitor: Read and Save BW info */
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
+		(crtc_idx == 0)) {
+		mtk_drm_ovl_bw_monitor_ratio_get(crtc, atomic_state);
+	}
 
 	/*Msync 2.0: add cmds to cfg thread*/
 	if (!mtk_crtc_is_frame_trigger_mode(crtc) &&

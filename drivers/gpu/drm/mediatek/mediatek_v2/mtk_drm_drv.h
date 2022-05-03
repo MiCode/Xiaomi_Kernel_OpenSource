@@ -78,6 +78,7 @@ struct mtk_mmsys_driver_data {
 struct mtk_drm_lyeblob_ids {
 	uint32_t lye_idx;
 	uint32_t frame_weight;
+	uint32_t frame_weight_of_bwm;
 	uint32_t hrt_num;
 	int32_t ddp_blob_id;
 	int32_t ref_cnt;
@@ -238,6 +239,20 @@ enum DISP_SEC_SIGNAL {
 	DISP_SEC_CHECK,
 };
 
+struct layer_compress_ratio_data {
+	__u64 key_value;
+	__u32 *average_ratio;
+	__u32 *peak_ratio;
+	__u32 valid;
+};
+
+struct layer_compress_ratio_item {
+	__u64 key_value;
+	__u32 average_ratio;
+	__u32 peak_ratio;
+	__u32 valid;
+};
+
 struct disp_iommu_device *disp_get_iommu_dev(void);
 
 extern struct platform_driver mtk_ddp_driver;
@@ -273,6 +288,25 @@ extern struct platform_driver mtk_disp_dli_async_driver;
 extern struct platform_driver mtk_disp_inlinerotate_driver;
 extern struct platform_driver mtk_mmlsys_bypass_driver;
 extern struct mtk_drm_disp_sec_cb disp_sec_cb;
+
+/* For overlay bandwidth monitor */
+extern struct layer_compress_ratio_data
+display_compress_ratio_table[MAX_LAYER_RATIO_NUMBER];
+extern struct layer_compress_ratio_data
+display_fbt_compress_ratio_table;
+extern struct layer_compress_ratio_item
+normal_layer_compress_ratio_tb[MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER];
+extern struct layer_compress_ratio_item
+fbt_layer_compress_ratio_tb[MAX_FRAME_RATIO_NUMBER];
+extern struct layer_compress_ratio_item
+unchanged_compress_ratio_table[MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER];
+extern struct layer_compress_ratio_item
+fbt_compress_ratio_table[MAX_FRAME_RATIO_NUMBER];
+extern int fbt_layer_id;
+extern int fbt_gles_head;
+extern int fbt_gles_tail;
+extern unsigned int ovl_win_size;
+
 
 int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);

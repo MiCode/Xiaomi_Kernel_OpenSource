@@ -247,6 +247,12 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define DISP_REG_OVL_ADDR_MT8173 0x0f40
 #define DISP_REG_OVL_ADDR(module, n) ((module)->data->addr + 0x20 * (n))
 
+/* OVL Bandwidth monitor */
+#define DISP_REG_OVL_BURST_MON_CFG (0x97CUL)
+#define FLD_OVL_BURST_ACC_EN REG_FLD_MSB_LSB(0, 0)
+#define FLD_OVL_BURST_ACC_FBDC REG_FLD_MSB_LSB(4, 4)
+#define FLD_OVL_BURST_ACC_WIN_SIZE REG_FLD_MSB_LSB(12, 8)
+
 #define DISP_REG_OVL_ADDR_MSB(n) (0x0f4c + 0x20 * (n))
 #define DISP_REG_OVL_EL_ADDR_MSB(n) (0x0fbc + 0x10 * (n))
 
@@ -934,6 +940,11 @@ static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 			   struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
 	unsigned int width;
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	unsigned long crtc_idx = (unsigned long)drm_crtc_index(crtc);
+	int fps = drm_mode_vrefresh(&crtc->state->adjusted_mode);
 
 	if (comp->mtk_crtc->is_dual_pipe)
 		width = cfg->w / 2;
@@ -949,6 +960,43 @@ static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_ROI_BGCLR, OVL_ROI_BGCLR,
 		       ~0);
+
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
+		(crtc_idx == 0)) {
+		unsigned int bw_monitor_config;
+
+		/****************************************************************/
+		/*BURST_ACC_FBDC: 1/0:fbdc size/actual BW(fbdc+sBCH)            */
+		/*BURST_ACC_EN: 1: enable bw monitor 0: disable                 */
+		/*BURST_ACC_WIN_SIZE: check below table                         */
+		/*Scenario | 4AFBC line times(us) | Best fit to 200us MD window */
+		/*FHD+@60  | 22.0                 | 198(9w)                     */
+		/*FHD+@120 | 11.0                 | 198(18w)                    */
+		/*WQHD+@60 | 16.5                 | 198(12w)                    */
+		/*WQHD+@120| 8.26                 | 198(24w)                    */
+		/****************************************************************/
+		bw_monitor_config = REG_FLD_VAL(FLD_OVL_BURST_ACC_EN, 1);
+		bw_monitor_config |= REG_FLD_VAL(FLD_OVL_BURST_ACC_FBDC, 0);
+		if (cfg->w <= 1080) {
+			if (fps <= 60) {
+				bw_monitor_config |= REG_FLD_VAL(FLD_OVL_BURST_ACC_WIN_SIZE, 8);
+				ovl_win_size = 9;
+			} else {
+				bw_monitor_config |= REG_FLD_VAL(FLD_OVL_BURST_ACC_WIN_SIZE, 17);
+				ovl_win_size = 18;
+			}
+		} else {
+			if (fps <= 60) {
+				bw_monitor_config |= REG_FLD_VAL(FLD_OVL_BURST_ACC_WIN_SIZE, 11);
+				ovl_win_size = 12;
+			} else {
+				bw_monitor_config |= REG_FLD_VAL(FLD_OVL_BURST_ACC_WIN_SIZE, 23);
+				ovl_win_size = 24;
+			}
+		}
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_BURST_MON_CFG, bw_monitor_config, ~0);
+	}
 
 	mtk_ovl_golden_setting(comp, cfg, handle);
 }
@@ -1646,6 +1694,14 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int value = 0, mask = 0, fmt_ex = 0;
 	unsigned long long temp_bw;
 	unsigned int dim_color;
+	struct drm_crtc *crtc = &comp->mtk_crtc->base;
+	struct mtk_crtc_state *mtk_crtc_state = to_mtk_crtc_state(crtc->state);
+	unsigned int frame_idx = mtk_crtc_state->prop_val[CRTC_PROP_OVL_DSI_SEQ];
+	unsigned long alloc_id = state->prop_val[PLANE_PROP_BUFFER_ALLOC_ID];
+	unsigned int avg_ratio = 0;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	unsigned long crtc_idx = (unsigned long)drm_crtc_index(crtc);
+	int i = 0;
 
 	/* handle dim layer for compression flag & color dim*/
 	if (fmt == DRM_FORMAT_C8) {
@@ -1835,6 +1891,40 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		do_div(temp_bw, 100);
 		temp_bw = temp_bw * vrefresh;
 		do_div(temp_bw, 1000);
+
+		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR) &&
+			(crtc_idx == 0)) {
+			uint64_t key = 0;
+
+			/* if layer is fbt layer need find fbt layer ratio to cal bw */
+			if (idx == fbt_layer_id) {
+				key = frame_idx - MAX_FRAME_RATIO_NUMBER;
+				for (i = 0; i < MAX_FRAME_RATIO_NUMBER; i++) {
+					if (key == fbt_layer_compress_ratio_tb[i].key_value) {
+						avg_ratio =
+						fbt_layer_compress_ratio_tb[i].average_ratio;
+						temp_bw = temp_bw * avg_ratio;
+						do_div(temp_bw, 1000);
+						break;
+					}
+				}
+			} else {
+				key = frame_idx + alloc_id - MAX_FRAME_RATIO_NUMBER;
+				for (i = 0; i < MAX_FRAME_RATIO_NUMBER*MAX_LAYER_RATIO_NUMBER;
+					i++) {
+					if (key == normal_layer_compress_ratio_tb[i].key_value) {
+						avg_ratio =
+						normal_layer_compress_ratio_tb[i].average_ratio;
+						temp_bw = temp_bw * avg_ratio;
+						do_div(temp_bw, 1000);
+						break;
+					}
+				}
+			}
+
+			DDPINFO("BWM: ovl frame idx:%u alloc id:%lu key:%lu layer idx:%u bw:%llu\n",
+					frame_idx, alloc_id, key, idx, temp_bw);
+		}
 
 		DDPDBG("comp %d bw %llu vtotal:%d vact:%d\n",
 			comp->id, temp_bw, vtotal, vact);
@@ -3234,6 +3324,12 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 		mtk_serial_dump_reg(baddr, 0x890, 4);
 		mtk_serial_dump_reg(baddr, 0x8a0, 4);
 		mtk_serial_dump_reg(baddr, 0x8b0, 4);
+
+		/* BW Monitor */
+		mtk_serial_dump_reg(baddr, 0x940, 4);
+		mtk_serial_dump_reg(baddr, 0x950, 4);
+		mtk_serial_dump_reg(baddr, 0x960, 4);
+		mtk_serial_dump_reg(baddr, 0x970, 4);
 
 		for (i = 0; i < 4; i++)
 			mtk_serial_dump_reg(baddr, 0xF44 + i * 0x20, 2);

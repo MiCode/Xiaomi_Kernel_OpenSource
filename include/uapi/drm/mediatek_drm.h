@@ -548,6 +548,9 @@ enum MTK_DRM_SESSION_MODE {
 	MTK_DRM_SESSION_NUM,
 };
 
+#define MAX_FRAME_RATIO_NUMBER (5)
+#define MAX_LAYER_RATIO_NUMBER (12)
+
 enum MTK_LAYERING_CAPS {
 	MTK_LAYERING_OVL_ONLY = 0x00000001,
 	MTK_MDP_RSZ_LAYER =		0x00000002,
@@ -564,6 +567,17 @@ enum MTK_LAYERING_CAPS {
 	MTK_MML_DISP_DECOUPLE_LAYER =	0x00001000,
 	MTK_MML_DISP_MDP_LAYER =	0x00002000,
 	MTK_MML_DISP_NOT_SUPPORT =	0x00004000,
+	MTK_HWC_UNCHANGED_LAYER = 0x00008000,
+	MTK_HWC_INACTIVE_LAYER = 0x00010000,
+	MTK_HWC_UNCHANGED_FBT_LAYER = 0x00020000,
+	MTK_DISP_UNCHANGED_RATIO_VALID = 0x00040000,
+	MTK_DISP_FBT_RATIO_VALID = 0x00080000,
+	MTK_DISP_CLIENT_LAYER = 0x00100000,
+};
+
+enum MTK_DISP_CAPS {
+	MTK_GLES_FBT_GET_RATIO = 0x00000001,
+	MTK_GLES_FBT_UNCHANGED = 0x00000002,
 };
 
 struct drm_mtk_layer_config {
@@ -577,6 +591,7 @@ struct drm_mtk_layer_config {
 	__u32 src_width, src_height;
 	__u32 layer_caps;
 	__u32 clip; /* drv internal use */
+	__u64 buffer_alloc_id;
 	__u8 compress;
 	__u8 secure;
 };
@@ -595,6 +610,8 @@ struct drm_mtk_layering_info {
 	int layer_num[3];
 	int gles_head[3];
 	int gles_tail[3];
+	uint32_t disp_caps[3];
+	uint32_t frame_idx[3];
 	int hrt_num;
 	/* res_idx: SF/HWC selects which resolution to use */
 	int res_idx;
@@ -645,6 +662,8 @@ enum MTK_DRM_DISP_FEATURE {
 	DRM_DISP_FEATURE_MML_PRIMARY = 0x00000400,
 	DRM_DISP_FEATURE_VIRUTAL_DISPLAY = 0x00000800,
 	DRM_DISP_FEATURE_IOMMU = 0x00001000,
+	DRM_DISP_FEATURE_OVL_BW_MONITOR = 0x00002000,
+	DRM_DISP_FEATURE_GPU_CACHE = 0x00004000,
 };
 
 enum MTK_DRM_DUMP_POINT {

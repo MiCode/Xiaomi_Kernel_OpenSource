@@ -3889,6 +3889,14 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 		caps_info->disp_feature_flag |=
 				DRM_DISP_FEATURE_IOMMU;
 
+	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_OVL_BW_MONITOR))
+		caps_info->disp_feature_flag |=
+				DRM_DISP_FEATURE_OVL_BW_MONITOR;
+
+	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_GPU_CACHE))
+		caps_info->disp_feature_flag |=
+				DRM_DISP_FEATURE_GPU_CACHE;
+
 	ddp_comp = private->ddp_comp[DDP_COMPONENT_CHIST0];
 	if (ddp_comp) {
 		struct mtk_disp_chist *chist_data = comp_to_chist(ddp_comp);
@@ -4632,6 +4640,11 @@ static void mtk_drm_init_dummy_table(struct mtk_drm_private *priv)
 				table[i].pa_addr = priv->config_regs_pa;
 				table[i].addr = priv->config_regs;
 			}
+		} else if (table[i].comp_id == (DDP_COMPONENT_ID_MAX | BIT(30))) {
+			struct mtk_ddp *ddp = dev_get_drvdata(priv->mutex_dev);
+
+			table[i].pa_addr = ddp->regs_pa;
+			table[i].addr = ddp->regs;
 		} else if (table[i].comp_id == (DDP_COMPONENT_ID_MAX | BIT(31))) {
 			table[i].pa_addr = priv->side_config_regs_pa;
 			table[i].addr = priv->side_config_regs;
