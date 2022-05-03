@@ -250,7 +250,7 @@ int scp_resource_req(unsigned int req_type)
 {
 	struct arm_smccc_res res;
 
-	if (req_type < 0 || req_type >= SCP_REQ_MAX)
+	if (req_type >= SCP_REQ_MAX)
 		return 0;
 
 	arm_smccc_smc(MTK_SIP_SCP_DVFS_CONTROL, RESOURCE_REQ,
@@ -1039,8 +1039,7 @@ static int mt_scp_dvfs_sleep_proc_show(struct seq_file *m, void *v)
 		pr_notice("[%s] ipi send failed with error: %d\n",
 			__func__, ret);
 	} else {
-		if (*scp_ack_data >= SCP_SLEEP_OFF &&
-				*scp_ack_data <= SCP_SLEEP_ON)
+		if (*scp_ack_data <= SCP_SLEEP_ON)
 			seq_printf(m, "scp sleep flag: %d\n",
 				*scp_ack_data);
 		else
@@ -1113,7 +1112,7 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 			return -ESCP_DVFS_IPI_FAILED;
 		}
 	} else if (!strcmp(cmd, "dbg_core")) {
-		dbg_core = slp_cmd;
+		dbg_core = (enum scp_core_enum) slp_cmd;
 		if (dbg_core < SCP_MAX_CORE_NUM)
 			dvfs.cur_dbg_core = dbg_core;
 	} else {
@@ -1949,7 +1948,7 @@ static int __init mt_scp_dts_get_cali_target(struct device_node *node,
 {
 	int ret = 0;
 	unsigned int i;
-	unsigned int tmp;
+	unsigned int tmp = 0;
 
 	/* find number of ulposc need to do calibration */
 	ret = of_property_read_u32(node, "ulposc-cali-num",
@@ -2155,7 +2154,7 @@ static int __init mt_scp_dts_init_cali_regmap(struct device_node *node,
 		cali_hw->fmeter_regmap = syscon_regmap_lookup_by_phandle(node,
 								FM_CLK_PHANDLE_NAME);
 		if (IS_ERR(cali_hw->fmeter_regmap)) {
-			pr_notice("fmeter regmap init failed: %d\n",
+			pr_notice("fmeter regmap init failed: %ld\n",
 				PTR_ERR(cali_hw->fmeter_regmap));
 			return PTR_ERR(cali_hw->fmeter_regmap);
 		}
@@ -2164,7 +2163,7 @@ static int __init mt_scp_dts_init_cali_regmap(struct device_node *node,
 	cali_hw->ulposc_regmap = syscon_regmap_lookup_by_phandle(node,
 							ULPOSC_CLK_PHANDLE_NAME);
 	if (IS_ERR(cali_hw->ulposc_regmap)) {
-		pr_notice("ulposc regmap init failed: %d\n",
+		pr_notice("ulposc regmap init failed: %ld\n",
 			PTR_ERR(cali_hw->ulposc_regmap));
 		return PTR_ERR(cali_hw->ulposc_regmap);
 	}
