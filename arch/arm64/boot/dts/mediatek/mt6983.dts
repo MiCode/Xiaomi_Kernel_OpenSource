@@ -11057,7 +11057,7 @@
 		clock-names = "apb_bus", "dli0", "dli1",
 			"dlo0", "dlo1", "rdma0", "rdma1";
 		operating-points-v2 = <&opp_table_mdp1>;
-		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		/* as mml device */
 		comp-count = <MML_ENGINE_TOTAL>;
 		topology = "mt6983";
