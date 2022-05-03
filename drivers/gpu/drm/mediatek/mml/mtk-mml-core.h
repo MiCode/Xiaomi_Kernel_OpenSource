@@ -61,6 +61,37 @@ do { \
 		pr_notice("[mml]" fmt "\n", ##args); \
 } while (0)
 
+#define DB_OPT_MML	(DB_OPT_DEFAULT | DB_OPT_PROC_CMDQ_INFO | \
+	DB_OPT_MMPROFILE_BUFFER | DB_OPT_FTRACE | DB_OPT_DUMP_DISPLAY)
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#define mml_aee(key, fmt, args...) \
+	do { \
+		char tag[LINK_MAX]; \
+		int len = snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		if (len >= LINK_MAX) \
+			pr_debug("len:%d over max:%d\n", \
+				__func__, __LINE__, len, LINK_MAX); \
+		cmdq_aee(fmt, ##args); \
+		cmdq_util_error_save("[mml][aee] "fmt"\n", ##args); \
+		aee_kernel_warning_api(__FILE__, __LINE__, \
+			DB_OPT_CMDQ, tag, fmt, ##args); \
+	} while (0)
+#else
+#define mml_aee(key, fmt, args...) \
+	do { \
+		char tag[LINK_MAX]; \
+		int len = snprintf(tag, LINK_MAX, "CRDISPATCH_KEY:%s", key); \
+		if (len >= LINK_MAX) \
+			pr_debug("len:%d over max:%d\n", \
+				__func__, __LINE__, len, LINK_MAX); \
+		cmdq_aee(fmt" (aee not ready)", ##args); \
+		cmdq_util_error_save("[mml][aee] "fmt"\n", ##args); \
+	} while (0)
+
+#endif
+
+
 /* mml ftrace */
 extern int mml_trace;
 

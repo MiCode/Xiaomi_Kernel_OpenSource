@@ -106,8 +106,10 @@ int mml_buf_iova_get(struct device *dev, struct mml_file_buf *buf)
 			continue;
 		}
 		ret = dmabuf_to_iova(dev, &buf->dma[i]);
-		if (ret < 0)
+		if (ret < 0) {
+			mml_aee("mml", "get iova from dma_buf failed");
 			return ret;
+		}
 	}
 	buf->map_time = sched_clock();
 
