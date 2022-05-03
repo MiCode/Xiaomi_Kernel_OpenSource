@@ -9530,6 +9530,7 @@
 		clocks = <&vdec_soc_gcon_base_clk CLK_VDEC_SOC_GCON_BASE_VDEC_CKEN>,
 			<&vdec_soc_gcon_base_clk CLK_VDEC_SOC_GCON_BASE_MINI_MDP_CKEN>;
 		clock-names = "MT_CG_VDEC","MT_CG_MINI_MDP";
+		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		mediatek,fmt_gce_th_num = <2>; /* FMT GCE HW THREAD NUM */
 		mediatek,fmt_rdma_swwa = <1>; /* FMT RDMA need SW workaround */
 		mboxes = <&gce_m 6 0 CMDQ_THR_PRIO_1>,
