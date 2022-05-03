@@ -717,7 +717,7 @@ static int srclken_rc_dts_base_init(struct platform_device *pdev)
 	rc_cfg.hw.base.addr = devm_ioremap(&pdev->dev,
 			cfg_res->start, resource_size(cfg_res));
 	if (IS_ERR(rc_cfg.hw.base.addr)) {
-		pr_notice("get rc_cfg base failed: %d\n",
+		pr_notice("get rc_cfg base failed: %l\n",
 			PTR_ERR(rc_cfg.hw.base.addr));
 		goto RC_BASE_INIT_FAILED;
 	}
