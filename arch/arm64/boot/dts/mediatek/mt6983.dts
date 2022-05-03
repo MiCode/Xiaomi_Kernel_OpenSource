@@ -2653,23 +2653,6 @@
 		clock-names = "apb", "smi", "gals0", "gals1";
 	};
 
-	smi_pd_isp_main: smi_pd_isp_main {
-			compatible = "mediatek,smi-pd";
-			mediatek,smi = <&smi_img_subcommon0 &smi_img_subcommon1>;
-			mediatek,comm-port-range = <0xe 0x7>;
-			main-power;
-			power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_MAIN>;
-	};
-
-	smi_pd_cam_main: smi_pd_cam_main {
-			compatible = "mediatek,smi-pd";
-			mediatek,smi = <&smi_cam_mm_subcommon0 &smi_cam_sys_subcommon1
-							&smi_cam_mdp_subcommon1>;
-			mediatek,comm-port-range = <0x1e 0x1c 0x1e>;
-			main-power;
-			power-domains = <&scpsys MT6983_POWER_DOMAIN_CAM_MAIN>;
-	};
-
 	smi_pd_dip1: smi_pd_dip1 {
 			compatible = "mediatek,smi-pd";
 			mediatek,smi = <&smi_img_subcommon0 &smi_img_subcommon1>;
