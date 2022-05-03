@@ -54,7 +54,7 @@ GED_ERROR ged_gpufreq_init(void)
 						sizeof(struct gpufreq_opp_info), GFP_KERNEL);
 
 	if (!g_working_table || !opp_table) {
-		GED_LOGI("%s: Failed to init opp table");
+		GED_LOGI("%s: Failed to init opp table", __func__);
 		return GED_ERROR_FAIL;
 	}
 
@@ -79,7 +79,7 @@ GED_ERROR ged_gpufreq_init(void)
 		*(g_mask_table + i) = *(core_mask_table + i);
 
 	if (!core_mask_table || !g_mask_table) {
-		GED_LOGI("%s: Failed to init core mask table");
+		GED_LOGI("%s: Failed to init core mask table", __func__);
 		return GED_OK;
 	}
 
@@ -96,7 +96,7 @@ GED_ERROR ged_gpufreq_init(void)
 						sizeof(struct gpufreq_opp_info), GFP_KERNEL);
 
 	if (!g_mask_table || !g_virtual_table) {
-		GED_LOGE("%s: Failed to init virtual opp table");
+		GED_LOGE("%s: Failed to init virtual opp table", __func__);
 		return GED_ERROR_FAIL;
 	}
 	for (i = 0; i < g_working_oppnum; i++)
