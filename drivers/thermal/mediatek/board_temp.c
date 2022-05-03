@@ -111,19 +111,7 @@ static struct pmic_auxadc_data mt6685_pmic_auxadc_data = {
 
 static const struct of_device_id board_ntc_of_match[] = {
 	{
-		.compatible = "mediatek,mt6983-board-ntc",
-		.data = (void *)&mt6685_pmic_auxadc_data,
-	},
-	{
-		.compatible = "mediatek,mt6879-board-ntc",
-		.data = (void *)&mt6685_pmic_auxadc_data,
-	},
-	{
-		.compatible = "mediatek,mt6895-board-ntc",
-		.data = (void *)&mt6685_pmic_auxadc_data,
-	},
-	{
-		.compatible = "mediatek,mt6855-board-ntc",
+		.compatible = "mediatek,mt6685-tia-ntc",
 		.data = (void *)&mt6685_pmic_auxadc_data,
 	},
 	{},
