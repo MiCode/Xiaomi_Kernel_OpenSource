@@ -161,6 +161,19 @@ int mcupm_plt_module_init(void)
 			mcupm_logger_init_done();
 #endif
 		return 0;
+	} else {
+		struct mcupm_ipi_data_s ipi_data;
+		int ret = 0;
+
+		ipi_data.cmd = 0xDEAD;
+		mcupm_plt_ackdata = 0;
+		ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM, IPI_SEND_WAIT,
+			&ipi_data,
+			sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
+			2000);
+		pr_info("MCUPM: %s RES_MEM(%d) SKIP_LOG(%d) ret(%d)\n",
+			mcupm_plt_ackdata ? "Alive" : "Dead",
+			has_reserved_memory, skip_logger, ret);
 	}
 	return 0;
  error:
