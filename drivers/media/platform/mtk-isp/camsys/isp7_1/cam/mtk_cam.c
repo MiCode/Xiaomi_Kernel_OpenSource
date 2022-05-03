@@ -6705,6 +6705,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	if (ctx->pipe) {
 		ctx->pipe->enabled_raw = 0;
 		ctx->pipe->enabled_dmas = 0;
+		memset(&ctx->pipe->pde_config, 0, sizeof(ctx->pipe->pde_config));
 	}
 
 	INIT_LIST_HEAD(&ctx->using_buffer_list.list);

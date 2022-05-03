@@ -184,7 +184,7 @@ struct mtk_cam_ctx;
  */
 
 struct mtk_raw_pde_config {
-	struct mtk_cam_pde_info pde_info;
+	struct mtk_cam_pde_info pde_info[CAM_CTRL_NUM];
 };
 
 struct mtk_cam_resource_config {

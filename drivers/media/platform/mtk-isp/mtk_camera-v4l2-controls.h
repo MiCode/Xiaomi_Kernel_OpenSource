@@ -219,17 +219,27 @@ struct mtk_cam_resource {
 	__u8 status;
 };
 
+enum mtk_cam_ctrl_type {
+	CAM_SET_CTRL = 0,
+	CAM_TRY_CTRL,
+	CAM_CTRL_NUM,
+};
+
 /**
  * struct mtk_cam_pde_info - PDE module information for raw
  *
  * @pdo_max_size: the max pdo size of pde sensor.
  * @pdi_max_size: the max pdi size of pde sensor or max pd table size.
  * @pd_table_offset: the offest of meta config for pd table content.
+ * @meta_cfg_size: the enlarged meta config size.
+ * @meta_0_size: the enlarged meta 0 size.
  */
 struct mtk_cam_pde_info {
 	__u32 pdo_max_size;
 	__u32 pdi_max_size;
 	__u32 pd_table_offset;
+	__u32 meta_cfg_size;
+	__u32 meta_0_size;
 };
 
 /* I M G S Y S */
