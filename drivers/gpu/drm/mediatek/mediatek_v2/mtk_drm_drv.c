@@ -1868,7 +1868,7 @@ static const enum mtk_ddp_comp_id mt6886_mtk_ddp_main[] = {
 	DDP_COMPONENT_OVL1_2L,
 	DDP_COMPONENT_OVL0, DDP_COMPONENT_OVL0_VIRTUAL0,
 	DDP_COMPONENT_OVL0_VIRTUAL1, DDP_COMPONENT_RDMA0,
-#ifndef DRM_BYPASS_PQ
+#ifdef IF_ZERO
 	DDP_COMPONENT_COLOR0,
 	DDP_COMPONENT_CCORR0,	 DDP_COMPONENT_CCORR1,
 	DDP_COMPONENT_C3D0,
@@ -1880,7 +1880,7 @@ static const enum mtk_ddp_comp_id mt6886_mtk_ddp_main[] = {
 	DDP_COMPONENT_RDMA0_OUT_RELAY,
 #endif
 	DDP_COMPONENT_DSI0,	 DDP_COMPONENT_PWM0,
-#ifndef DRM_BYPASS_PQ
+#ifdef IF_ZERO
 	/* the chist connect by customer config*/
 	DDP_COMPONENT_CHIST0,
 #endif
