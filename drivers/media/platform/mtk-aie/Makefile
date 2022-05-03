@@ -4,6 +4,12 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
 ccflags-y += -I$(srctree)/drivers/dma-buf/heaps/
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/imgsys/
+ccflags-y += -I$(srctree)/drivers/iommu
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/iommu
+
+ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6983-larb-port.h),)
+	subdir-ccflags-y += -DFDVT_TF_DUMP
+endif
 
 mtk_aie-objs := \
 mtk_aie_53.o\

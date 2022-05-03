@@ -725,7 +725,7 @@ void FDVT_DumpDRAMOut(struct mtk_aie_dev *fd, unsigned int *hw, unsigned int siz
 	dev_info(fd->dev, "Dump End");
 }
 
-static signed int fdvt_dump_reg(struct mtk_aie_dev *fd)
+signed int fdvt_dump_reg(struct mtk_aie_dev *fd)
 {
 	signed int ret = 0;
 	int fld_face_num = fd->aie_cfg->fld_face_num;

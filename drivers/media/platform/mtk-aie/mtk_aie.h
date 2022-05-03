@@ -1297,5 +1297,5 @@ struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd, u32 size, bool IsSecu
 unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf,
 					struct imem_buf_info *bufinfo);
 void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf, struct imem_buf_info *bufinfo);
-
+extern signed int fdvt_dump_reg(struct mtk_aie_dev *fd);
 #endif /*__MTK_AIE_H__*/

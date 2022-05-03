@@ -20,7 +20,10 @@
 #include <aie_mp_fw/all_header.h>
 #include "cmdq-sec.h"
 #include "cmdq-sec-iwc-common.h"
-
+#include "iommu_debug.h"
+#ifdef FDVT_TF_DUMP
+#include <dt-bindings/memory/mt6983-larb-port.h>
+#endif
 
 #define FDVT_USE_GCE 1
 #define FLD
@@ -30,7 +33,6 @@
 //#include <mtkcam-hwcore/imgsys/inc/drv/gce/mt6983/gce_module.h>
 
 struct cmdq_pkt *g_sec_pkt;
-
 static const unsigned int fd_wdma_en[fd_loop_num][output_WDMA_WRA_num] = {
 	{1, 0, 0, 0}, {1, 0, 1, 0}, {1, 0, 1, 0}, {1, 0, 0, 0}, {1, 1, 1, 1},
 	{1, 1, 1, 1}, {1, 0, 0, 0}, {1, 0, 1, 0}, {1, 1, 0, 0}, {1, 0, 0, 0},
@@ -341,7 +343,8 @@ static const unsigned int attr_wdma_size[attr_loop_num][output_WDMA_WRA_num] = {
 #define fld_cur_landmark 11
 #define CHECK_SERVICE_IF_0 0
 
-#if CHECK_SERVICE_IF_0
+
+#ifdef FDVT_TF_DUMP
 int FDVT_M4U_TranslationFault_callback(int port,
 							   unsigned int mva,
 							   void *data)
@@ -356,22 +359,9 @@ int FDVT_M4U_TranslationFault_callback(int port,
 	case M4U_PORT_FDVT_WRB:
 #endif
 	default: //ISP_FDVT_BASE = 0x1b001000
-		pr_info("FDVT_IN_BASE_ADR_0:0x%08x, FDVT_IN_BASE_ADR_1:0x%08x, FDVT_IN_BASE_ADR_2:0x%08x, FDVT_IN_BASE_ADR_3:0x%08x\n",
-			FDVT_RD32(FDVT_IN_BASE_ADR_0_REG),
-			FDVT_RD32(FDVT_IN_BASE_ADR_1_REG),
-			FDVT_RD32(FDVT_IN_BASE_ADR_2_REG),
-			FDVT_RD32(FDVT_IN_BASE_ADR_3_REG));
-		pr_info("FDVT_OUT_BASE_ADR_0:0x%08x, FDVT_OUT_BASE_ADR_1:0x%08x, FDVT_OUT_BASE_ADR_2:0x%08x, FDVT_OUT_BASE_ADR_3:0x%08x\n",
-			FDVT_RD32(FDVT_OUT_BASE_ADR_0_REG),
-			FDVT_RD32(FDVT_OUT_BASE_ADR_1_REG),
-			FDVT_RD32(FDVT_OUT_BASE_ADR_2_REG),
-			FDVT_RD32(FDVT_OUT_BASE_ADR_3_REG));
-		pr_info("FDVT_KERNEL_BASE_ADR_0:0x%08x, FDVT_KERNEL_BASE_ADR_1:0x%08x\n",
-			FDVT_RD32(FDVT_KERNEL_BASE_ADR_0_REG),
-			FDVT_RD32(FDVT_KERNEL_BASE_ADR_1_REG));
+		fdvt_dump_reg(data);
 	break;
 	}
-
 	return 1;
 }
 #endif
@@ -4159,19 +4149,19 @@ int aie_init(struct mtk_aie_dev *fd)
 	writel(0x00400020, fd->fd_base + FDVT_WRB_0_CON3_REG);
 	writel(0x00400020, fd->fd_base + FDVT_WRB_0_CON3_REG);
 
-#if CHECK_SERVICE_IF_0
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_2ND_RDA0,
+#ifdef FDVT_TF_DUMP
+	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_RDA0,
 		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
-		NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_2ND_RDB0,
+		fd, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_RDB0,
 		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
-		NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_2ND_WRA0,
+		fd, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_WRA0,
 		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
-		NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_2ND_WRB0,
+		fd, false);
+	mtk_iommu_register_fault_callback(M4U_PORT_L12_IPE_FDVT_WR0B,
 		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
-		NULL, false);
+		fd, false);
 #endif
 	fd->base_para = kmalloc(sizeof(struct aie_para), GFP_KERNEL);
 	if (fd->base_para == NULL)
