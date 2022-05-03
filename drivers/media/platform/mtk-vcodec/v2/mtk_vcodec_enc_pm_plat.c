@@ -345,7 +345,7 @@ void mtk_prepare_venc_emi_bw(struct mtk_vcodec_dev *dev)
 
 	for (i = 0; i < port_num; i++) {
 		dev->venc_qos_req[i] = of_mtk_icc_get(&pdev->dev, path_strs[i]);
-		mtk_v4l2_debug(10, "[VENC] %d %p %s", i, dev->venc_qos_req[i], path_strs[i]);
+		mtk_v4l2_debug(16, "[VENC] %d %p %s", i, dev->venc_qos_req[i], path_strs[i]);
 	}
 #endif
 }
