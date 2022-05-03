@@ -1192,6 +1192,8 @@ static void dmabuf_rbtree_dump_buf(struct dump_fd_data *fddata, unsigned long fl
 
 	dump_param.file = s;
 	dump_param.flag = flag | HEAP_DUMP_DEC_1_REF;
+	if (flag & HEAP_DUMP_OOM)
+		dump_param.flag |= HEAP_DUMP_SKIP_ATTACH;
 
 	for (tmp_rb = rb_first(rbroot); tmp_rb; tmp_rb = rb_next(tmp_rb)) {
 		struct list_head *pidnode = NULL;
@@ -1250,7 +1252,9 @@ static void dmabuf_rbtree_dump_buf(struct dump_fd_data *fddata, unsigned long fl
 					    dmabuf->size, path_p);
 			}
 		}
-		dmabuf_dump(s, "\n");
+
+		if (s)
+			dmabuf_dump(s, "\n");
 	}
 }
 
