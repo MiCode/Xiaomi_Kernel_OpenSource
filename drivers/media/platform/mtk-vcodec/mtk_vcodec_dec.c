@@ -575,8 +575,8 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 					ctx->id, free_frame_buffer->status,
 					dstbuf->vb.vb2_buf.index,
 					dstbuf->queued_in_vb2);
-				v4l2_m2m_buf_queue_check(
-					ctx->m2m_ctx, &dstbuf->vb);
+				if (v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &dstbuf->vb) < 0)
+					goto err_in_rdyq;
 			} else {
 				mtk_v4l2_debug(4, "[%d]status=%x reference free queue id=%d %d %d",
 					ctx->id, free_frame_buffer->status,
@@ -601,7 +601,8 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 				ctx->id, free_frame_buffer->status,
 				dstbuf->vb.vb2_buf.index);
 			dstbuf->queued_in_vb2 = true;
-			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &dstbuf->vb);
+			if (v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &dstbuf->vb) < 0)
+				goto err_in_rdyq;
 		} else {
 			/*
 			 * Codec driver do not need to reference this capture
@@ -617,6 +618,15 @@ static struct vb2_v4l2_buffer *get_free_buffer(struct mtk_vcodec_ctx *ctx)
 				dstbuf->queued_in_vb2,
 				dstbuf->queued_in_v4l2);
 		}
+	}
+	mutex_unlock(&ctx->buf_lock);
+
+	return &dstbuf->vb;
+err_in_rdyq:
+	for (i = 0; i < free_frame_buffer->num_planes; i++) {
+		get_file(free_frame_buffer->fb_base[i].dmabuf->file);
+		mtk_v4l2_debug(4, "[Ref cnt] id=%d Ref get dma %p",
+			free_frame_buffer->index, free_frame_buffer->fb_base[i].dmabuf);
 	}
 	mutex_unlock(&ctx->buf_lock);
 
