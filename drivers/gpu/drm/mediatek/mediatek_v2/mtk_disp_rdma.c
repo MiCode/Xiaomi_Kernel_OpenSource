@@ -1165,6 +1165,11 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return 0;
+	}
+
 	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
@@ -1288,12 +1293,19 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
-
 	unsigned int global_ctrl;
-	unsigned int bg0 = readl(baddr + DISP_REG_RDMA_BG_CON_0);
-	unsigned int bg1 = readl(baddr + DISP_REG_RDMA_BG_CON_1);
-	unsigned int fifo = readl(baddr + DISP_REG_RDMA_FIFO_CON);
+	unsigned int bg0;
+	unsigned int bg1;
+	unsigned int fifo;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return 0;
+	}
+
+	bg0 = readl(baddr + DISP_REG_RDMA_BG_CON_0);
+	bg1 = readl(baddr + DISP_REG_RDMA_BG_CON_1);
+	fifo = readl(baddr + DISP_REG_RDMA_FIFO_CON);
 	global_ctrl = readl(DISP_REG_RDMA_GLOBAL_CON + baddr);
 	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("en=%d,mode:%s,smi_busy:%d,10bit:%d\n",

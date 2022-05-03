@@ -828,6 +828,11 @@ void mtk_spr_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return;
+	}
+
 	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("-- Start dump spr registers --\n");
 	DDPDUMP("en=%d, spr_bypass=%d\n",
@@ -846,12 +851,17 @@ int mtk_spr_analysis(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return 0;
+	}
+
 	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("en=%d, spr_bypass=%d\n",
-		 DISP_REG_GET_FIELD(CON_FLD_SPR_EN,
-				baddr + DISP_REG_SPR_EN),
-		 DISP_REG_GET_FIELD(CON_FLD_DISP_SPR_RELAY_MODE,
-				baddr + DISP_REG_SPR_EN));
+	DISP_REG_GET_FIELD(CON_FLD_SPR_EN,
+		baddr + DISP_REG_SPR_EN),
+	DISP_REG_GET_FIELD(CON_FLD_DISP_SPR_RELAY_MODE,
+		baddr + DISP_REG_SPR_EN));
 
 	return 0;
 }

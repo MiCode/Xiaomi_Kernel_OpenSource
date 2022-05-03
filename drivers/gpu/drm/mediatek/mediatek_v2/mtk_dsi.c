@@ -3263,6 +3263,11 @@ int mtk_dsi_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	unsigned int reg_val;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return 0;
+	}
+
 	if (DISP_REG_GET_FIELD(MODE_FLD_REG_MODE_CON,
 				   baddr + DSI_MODE_CTRL)) {
 		/* VDO mode */
@@ -3494,6 +3499,11 @@ int mtk_dsi_analysis(struct mtk_ddp_comp *comp)
 #endif
 	void __iomem *baddr = comp->regs;
 	unsigned int reg_val;
+
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return 0;
+	}
 
 	DDPDUMP("== %s ANALYSIS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 

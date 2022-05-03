@@ -243,6 +243,11 @@ void mtk_cm_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return;
+	}
+
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 
 	DDPDUMP("en=%d, cm_bypass=%d\n",
@@ -262,12 +267,17 @@ int mtk_cm_analysis(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return 0;
+	}
+
 	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
 	DDPDUMP("en=%d, cm_bypass=%d\n",
-		 DISP_REG_GET_FIELD(CON_FLD_DISP_CM_EN,
-				baddr + DISP_REG_CM_EN),
-		 DISP_REG_GET_FIELD(CON_FLD_DISP_CM_RELAY_MODE,
-				baddr + DISP_REG_CM_CFG));
+	DISP_REG_GET_FIELD(CON_FLD_DISP_CM_EN,
+		baddr + DISP_REG_CM_EN),
+	DISP_REG_GET_FIELD(CON_FLD_DISP_CM_RELAY_MODE,
+		baddr + DISP_REG_CM_CFG));
 
 	return 0;
 }

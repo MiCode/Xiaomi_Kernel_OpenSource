@@ -666,6 +666,11 @@ int mtk_dp_intf_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return 0;
+	}
+
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 	DDPDUMP("(0x0000) DP_EN                 =0x%x\n",
 			readl(baddr + DP_EN));
@@ -753,18 +758,18 @@ int mtk_dp_intf_analysis(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return 0;
+	}
+
 	DDPDUMP("== %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
 	DDPDUMP("en=%d, rst_sel=%d, rst=%d, bg_en=%d, intl_en=%d\n",
-		 DISP_REG_GET_FIELD(CON_FLD_DP_EN,
-				baddr + DP_EN),
-		 DISP_REG_GET_FIELD(CON_FLD_DP_RST_SEL,
-				baddr + DP_RST),
-		 DISP_REG_GET_FIELD(CON_FLD_DP_RST,
-				baddr + DP_RST),
-		 DISP_REG_GET_FIELD(CON_FLD_DP_BG_EN,
-				baddr + DP_CON),
-		 DISP_REG_GET_FIELD(CON_FLD_DP_INTL_EN,
-				baddr + DP_CON));
+	DISP_REG_GET_FIELD(CON_FLD_DP_EN, baddr + DP_EN),
+	DISP_REG_GET_FIELD(CON_FLD_DP_RST_SEL, baddr + DP_RST),
+	DISP_REG_GET_FIELD(CON_FLD_DP_RST, baddr + DP_RST),
+	DISP_REG_GET_FIELD(CON_FLD_DP_BG_EN, baddr + DP_CON),
+	DISP_REG_GET_FIELD(CON_FLD_DP_INTL_EN, baddr + DP_CON));
 	DDPDUMP("== End %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
 
 	return 0;

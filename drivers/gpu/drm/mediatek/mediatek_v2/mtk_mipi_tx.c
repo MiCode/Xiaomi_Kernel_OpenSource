@@ -988,6 +988,7 @@ int mtk_mipi_tx_ssc_en(struct phy *phy, struct mtk_panel_ext *mtk_panel)
 
 void mtk_mipi_tx_sw_control_en(struct phy *phy, bool en)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 
 	DDPINFO("%s, en=%d\n", __func__, en);
@@ -1014,10 +1015,12 @@ void mtk_mipi_tx_sw_control_en(struct phy *phy, bool en)
 		mtk_mipi_tx_clear_bits(mipi_tx, mipi_tx->driver_data->ck_sw_ctl_en,
 			DSI_CK_SW_CTL_EN);
 	}
+#endif
 }
 
 void mtk_mipi_tx_pre_oe_config(struct phy *phy, bool en)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 
 	if (en) {
@@ -1043,6 +1046,7 @@ void mtk_mipi_tx_pre_oe_config(struct phy *phy, bool en)
 		mtk_mipi_tx_clear_bits(mipi_tx, mipi_tx->driver_data->d3_sw_lptx_pre_oe, 1);
 		mtk_mipi_tx_clear_bits(mipi_tx, mipi_tx->driver_data->d3c_sw_lptx_pre_oe, 1);
 	}
+#endif
 }
 
 static int mtk_mipi_tx_pll_prepare(struct clk_hw *hw)

@@ -95,6 +95,10 @@ static void mtk_mmlsys_bypass_addon_config(struct mtk_ddp_comp *comp,
 
 void mtk_mmlsys_bypass_dump(struct mtk_ddp_comp *comp)
 {
+	if (!(comp->regs)) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return;
+	}
 	DDPINFO("%s\n", __func__);
 	DDPDUMP("== DISP %s REGS ==\n", mtk_dump_comp_str(comp));
 	DDPDUMP("MDP_DLI0_SEL_IN 0x%08x: 0x%08x\n",

@@ -289,6 +289,11 @@ void mtk_chist_dump_impl(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i = 0;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return;
+	}
+
 	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 
 	mtk_cust_dump_reg(baddr, DISP_CHIST_EN, DISP_CHIST_CFG,

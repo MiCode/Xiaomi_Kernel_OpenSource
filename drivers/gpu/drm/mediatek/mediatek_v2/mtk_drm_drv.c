@@ -5657,7 +5657,7 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct device_node *node;
 	struct component_match *match = NULL;
-	unsigned int dispsys_num = 0;
+	unsigned int dispsys_num = 0, ovlsys_num = 0;
 	int ret, len;
 	int i;
 	struct platform_device *side_pdev;
@@ -5709,6 +5709,11 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	}
 
 	private->dispsys_num = dispsys_num;
+
+	ret = of_property_read_u32(dev->of_node,
+				"ovlsys_num", &ovlsys_num);
+	private->ovlsys_num = ovlsys_num;
+
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	private->config_regs = devm_ioremap_resource(dev, mem);
 	if (IS_ERR(private->config_regs)) {
@@ -5749,6 +5754,41 @@ static int mtk_drm_probe(struct platform_device *pdev)
 	private->side_mmsys_dev = side_dev;
 
 SKIP_SIDE_DISP:
+
+	if (private->ovlsys_num == 0)
+		goto SKIP_OVLSYS_CONFIG;
+
+	/* ovlsys config */
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	if (!mem)
+		goto SKIP_OVLSYS_CONFIG;
+
+	private->ovlsys0_regs_pa = mem->start;
+	private->ovlsys0_regs = devm_ioremap_resource(dev, mem);
+	if (IS_ERR(private->ovlsys0_regs)) {
+		ret = PTR_ERR(private->ovlsys0_regs);
+		dev_err(dev, "Failed to ioremap ovlsys0-config resource: %d\n",
+			ret);
+		return ret;
+	}
+
+	if (private->ovlsys_num == 1)
+		goto SKIP_OVLSYS_CONFIG;
+
+	mem = platform_get_resource(pdev, IORESOURCE_MEM, 3);
+	if (!mem)
+		goto SKIP_OVLSYS_CONFIG;
+
+	private->ovlsys1_regs_pa = mem->start;
+	private->ovlsys1_regs = devm_ioremap_resource(dev, mem);
+	if (IS_ERR(private->ovlsys1_regs)) {
+		ret = PTR_ERR(private->ovlsys1_regs);
+		dev_err(dev, "Failed to ioremap ovlsys1-config resource: %d\n",
+			ret);
+		return ret;
+	}
+SKIP_OVLSYS_CONFIG:
+
 	private->mmsys_dev = dev;
 
 	if (private->data->bypass_infra_ddr_control) {

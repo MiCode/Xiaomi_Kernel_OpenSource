@@ -69,6 +69,10 @@ void mtk_inlinerotate_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return;
+	}
 	DDPDUMP("== DISP %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	DDPDUMP("DISP_REG_DISPSYS_SHADOW_CTRL  0x%08x: 0x%08x\n",
 		DISP_REG_DISPSYS_SHADOW_CTRL,

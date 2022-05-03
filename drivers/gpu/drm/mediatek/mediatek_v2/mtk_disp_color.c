@@ -3405,6 +3405,11 @@ void mtk_color_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return;
+	}
+
 	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	mtk_serial_dump_reg(baddr, 0x400, 3);
 	mtk_serial_dump_reg(baddr, 0xC50, 2);

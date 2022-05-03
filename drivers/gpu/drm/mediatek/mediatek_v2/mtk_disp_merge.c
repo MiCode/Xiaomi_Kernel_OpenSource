@@ -125,6 +125,11 @@ void mtk_merge_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i = 0;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return;
+	}
+
 	DDPDUMP("== DISP %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs);
 	for (i = 0; i < 1; i++) {
 		DDPDUMP("0x%03X: 0x%08x 0x%08x 0x%08x 0x%08x\n", i * 0x10,
@@ -145,9 +150,13 @@ int mtk_merge_analysis(struct mtk_ddp_comp *comp)
 	u32 enable = 0;
 	u32 dbg0 = 0;
 	u32 dbg1 = 0;
-
 	int ret;
 	char msg[LEN];
+
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return 0;
+	}
 
 	enable = readl(baddr + DISP_REG_MERGE_CTRL);
 	width = readl(baddr + DISP_REG_MERGE_WIDTH);

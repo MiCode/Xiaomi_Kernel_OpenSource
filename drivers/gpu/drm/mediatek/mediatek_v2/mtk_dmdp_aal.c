@@ -385,6 +385,11 @@ void mtk_dmdp_aal_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return;
+	}
+
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 	mtk_cust_dump_reg(baddr, 0x0, 0x20, 0x30, 0x4D8);
 	mtk_cust_dump_reg(baddr, 0x200, 0xf4, 0xf8, 0x468);

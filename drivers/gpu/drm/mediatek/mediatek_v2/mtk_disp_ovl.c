@@ -3229,6 +3229,11 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 	int i;
 
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return 0;
+	}
+
 	if (comp->blank_mode)
 		return 0;
 
@@ -3512,6 +3517,11 @@ int mtk_ovl_analysis(struct mtk_ddp_comp *comp)
 	unsigned int src_con;
 	unsigned int ext_con;
 	unsigned int addcon;
+
+	if (!baddr) {
+		DDPDUMP("%s, %s is NULL!\n", __func__, mtk_dump_comp_str(comp));
+		return 0;
+	}
 
 	if (comp->blank_mode)
 		return 0;
