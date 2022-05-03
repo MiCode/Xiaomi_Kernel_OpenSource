@@ -2819,7 +2819,7 @@ void fs_update_shutter(struct fs_perframe_st (*frameCtrl))
 }
 
 
-void fs_notify_vsync(unsigned int ident)
+void fs_notify_vsync(const unsigned int ident, const unsigned int sof_cnt)
 {
 #if !defined(FS_UT)
 	unsigned int listen_vsync_usr = fs_con_get_usr_listen_ext_vsync();
@@ -2850,6 +2850,10 @@ void fs_notify_vsync(unsigned int ident)
 	frec_notify_vsync(idx);
 	fs_alg_sa_notify_vsync(idx);
 #endif // QUERY_CCU_TS_AT_SOF
+
+
+	/* update debug info */
+	fs_alg_set_debug_info_sof_cnt(idx, sof_cnt);
 
 
 #endif // FS_UT

@@ -58,6 +58,9 @@ void fs_alg_set_streaming_st_data(
 void fs_alg_set_perframe_st_data(
 	unsigned int idx, struct fs_perframe_st *pData);
 
+void fs_alg_set_debug_info_sof_cnt(const unsigned int idx,
+	const unsigned int sof_cnt);
+
 void fs_alg_reset_vsync_data(const unsigned int idx);
 
 void fs_alg_reset_fs_inst(unsigned int idx);

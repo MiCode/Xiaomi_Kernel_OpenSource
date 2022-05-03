@@ -553,6 +553,8 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 		return;
 	}
 
+	pf_ctrl.req_id = ctx->req_id;
+
 	pf_ctrl.sensor_id = ctx->subdrv->id;
 	pf_ctrl.sensor_idx = ctx->idx;
 
@@ -640,7 +642,7 @@ void notify_fsync_mgr_vsync(struct adaptor_ctx *ctx)
 		return;
 	}
 
-	ctx->fsync_mgr->fs_notify_vsync(ctx->idx);
+	ctx->fsync_mgr->fs_notify_vsync(ctx->idx, ctx->sof_cnt);
 }
 
 

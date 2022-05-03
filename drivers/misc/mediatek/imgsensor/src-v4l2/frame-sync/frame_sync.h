@@ -164,6 +164,9 @@ struct fs_perframe_st {
 
 	/* callback function using */
 	unsigned int cmd_id;
+
+	/* debug variables */
+	int req_id;                      // from mtk hdr ae structure
 };
 
 
@@ -249,7 +252,8 @@ struct FrameSync {
 	void (*fs_mstream_en)(unsigned int ident, unsigned int en);
 
 
-	void (*fs_notify_vsync)(unsigned int ident);
+	void (*fs_notify_vsync)(const unsigned int ident,
+		const unsigned int sof_cnt);
 
 
 	/**********************************************************************/

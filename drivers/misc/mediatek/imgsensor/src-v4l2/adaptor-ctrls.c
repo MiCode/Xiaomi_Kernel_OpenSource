@@ -66,30 +66,31 @@ static int g_pd_pixel_region(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl)
 static void dump_perframe_info(struct adaptor_ctx *ctx, struct mtk_hdr_ae *ae_ctrl)
 {
 	dev_info(ctx->dev,
-			"sensor_idx %d, req id %d, exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d, sub_tag:%u, fl:%u, min_fl:%u, flick_en:%u, mode:(line_time:%u, margin:%u, scen:%u; STG:(readout_l:%u, read_margin:%u, ext_fl:%u, fast_mode:%u))\n",
-			ctx->idx,
-			ae_ctrl->req_id,
-			ae_ctrl->exposure.le_exposure,
-			ae_ctrl->exposure.me_exposure,
-			ae_ctrl->exposure.se_exposure,
-			ae_ctrl->exposure.sse_exposure,
-			ae_ctrl->exposure.ssse_exposure,
-			ae_ctrl->gain.le_gain,
-			ae_ctrl->gain.me_gain,
-			ae_ctrl->gain.se_gain,
-			ae_ctrl->gain.sse_gain,
-			ae_ctrl->gain.ssse_gain,
-			ae_ctrl->subsample_tags,
-			ctx->subctx.frame_length,
-			ctx->subctx.min_frame_length,
-			ctx->subctx.autoflicker_en,
-			CALC_LINE_TIME_IN_NS(ctx->subctx.pclk, ctx->subctx.line_length),
-			ctx->subctx.margin,
-			ctx->subctx.current_scenario_id,
-			ctx->subctx.readout_length,
-			ctx->subctx.read_margin,
-			ctx->subctx.extend_frame_length_en,
-			ctx->subctx.fast_mode_on);
+		"sensor_idx %d, req id %d, sof_cnt:%u, exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d, sub_tag:%u, fl:%u, min_fl:%u, flick_en:%u, mode:(line_time:%u, margin:%u, scen:%u; STG:(readout_l:%u, read_margin:%u, ext_fl:%u, fast_mode:%u))\n",
+		ctx->idx,
+		ae_ctrl->req_id,
+		ctx->sof_cnt,
+		ae_ctrl->exposure.le_exposure,
+		ae_ctrl->exposure.me_exposure,
+		ae_ctrl->exposure.se_exposure,
+		ae_ctrl->exposure.sse_exposure,
+		ae_ctrl->exposure.ssse_exposure,
+		ae_ctrl->gain.le_gain,
+		ae_ctrl->gain.me_gain,
+		ae_ctrl->gain.se_gain,
+		ae_ctrl->gain.sse_gain,
+		ae_ctrl->gain.ssse_gain,
+		ae_ctrl->subsample_tags,
+		ctx->subctx.frame_length,
+		ctx->subctx.min_frame_length,
+		ctx->subctx.autoflicker_en,
+		CALC_LINE_TIME_IN_NS(ctx->subctx.pclk, ctx->subctx.line_length),
+		ctx->subctx.margin,
+		ctx->subctx.current_scenario_id,
+		ctx->subctx.readout_length,
+		ctx->subctx.read_margin,
+		ctx->subctx.extend_frame_length_en,
+		ctx->subctx.fast_mode_on);
 }
 
 static int set_hdr_exposure_tri(struct adaptor_ctx *ctx, struct mtk_hdr_exposure *info)
@@ -169,6 +170,9 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 {
 	union feature_para para;
 	u32 len = 0, exp_count = 0;
+
+	/* update ctx req id */
+	ctx->req_id = ae_ctrl->req_id;
 
 	ctx->subctx.ae_ctrl_gph_en = 1;
 	while (exp_count < IMGSENSOR_STAGGER_EXPOSURE_CNT &&
@@ -562,6 +566,9 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_VSYNC_NOTIFY:
+		/* update ctx sof cnt */
+		ctx->sof_cnt = ctrl->val;
+
 		subdrv_call(ctx, vsync_notify, (u64)ctrl->val);
 		notify_fsync_mgr_vsync(ctx);
 

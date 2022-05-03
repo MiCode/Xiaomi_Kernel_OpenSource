@@ -133,10 +133,13 @@ struct adaptor_ctx {
 
 	int open_refcnt;
 	int power_refcnt;
-	/*debug var*/
+
+	/* debug var */
 	MSDK_SENSOR_REG_INFO_STRUCT sensorReg;
 
 	unsigned int *sensor_debug_flag;
+	unsigned int sof_cnt; /* from seninf vsync notify */
+	int req_id; /* from mtk hdr ae ctrl */
 	u32 shutter_for_timeout;
 	struct wakeup_source *sensor_ws;
 };

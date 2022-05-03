@@ -202,6 +202,12 @@ struct FrameSyncInst {
 	unsigned int vdiff;
 
 	unsigned int is_nonvalid_ts:1;
+
+//----------------------------------------------------------------------------//
+
+	/* debug variables */
+	unsigned int sof_cnt;            // from seninf vsync notify
+	int req_id;                      // from mtk hdr ae structure
 };
 static struct FrameSyncInst fs_inst[SENSOR_MAX_NUM];
 
@@ -961,11 +967,13 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u), #%u, out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, tg:%u, ts(%u/+%u(%u)/%u), [frec(0:%u/%u)(fl_lc/shut_lc), fmeas:%u(pr:%u(%u)/act:%u), fmeas_ts(%u/%u/%u/%u), fs_inst_ts(%u/%u/%u/%u, %u/+%u(%u)/%u)]\n",
+		"[%u] ID:%#x(sidx:%u), #%u, (%u/%u), out_fl:%u(%u), (%u/%u/%u/%u(%u/%u), %u, %u(%u)), pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), m_idx:%u(ref:%d)/chg:%u(%u), adj_diff(s:%lld(%u)/m:%lld), flk_en:%u, tg:%u, ts(%u/+%u(%u)/%u), [frec(0:%u/%u)(fl_lc/shut_lc), fmeas:%u(pr:%u(%u)/act:%u), fmeas_ts(%u/%u/%u/%u), fs_inst_ts(%u/%u/%u/%u, %u/+%u(%u)/%u)]\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
 		fs_sa_inst.dynamic_paras[idx].magic_num,
+		fs_inst[idx].req_id,
+		fs_inst[idx].sof_cnt,
 		fs_sa_inst.dynamic_paras[idx].stable_fl_us,
 		convert2LineCount(
 			fs_inst[idx].lineTimeInNs,
@@ -2325,6 +2333,7 @@ void fs_alg_set_perframe_st_data(
 	fs_inst[idx].prev_readout_min_fl_lc = fs_inst[idx].readout_min_fl_lc;
 	fs_inst[idx].readout_min_fl_lc = 0;
 
+	fs_inst[idx].req_id = pData->req_id;
 
 	/* hdr exp settings, overwrite shutter_lc value (equivalent shutter) */
 	fs_alg_set_hdr_exp_st_data(idx, &pData->shutter_lc, &pData->hdr_exp);
@@ -2342,6 +2351,13 @@ void fs_alg_set_perframe_st_data(
 #ifndef REDUCE_FS_ALGO_LOG
 	fs_alg_dump_perframe_data(idx);
 #endif // REDUCE_FS_ALGO_LOG
+}
+
+
+void fs_alg_set_debug_info_sof_cnt(const unsigned int idx,
+	const unsigned int sof_cnt)
+{
+	fs_inst[idx].sof_cnt = sof_cnt;
 }
 
 
