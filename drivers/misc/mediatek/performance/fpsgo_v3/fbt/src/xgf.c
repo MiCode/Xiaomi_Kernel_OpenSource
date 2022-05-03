@@ -2105,7 +2105,7 @@ static int xgff_new_frame(pid_t tID, unsigned long long bufID,
 		xriter->curr_index = 0;
 		xriter->curr_ts = 0;
 		xriter->event_count = 0;
-		xriter->prev_queue_end_ts = 0;
+		xriter->prev_queue_end_ts = ts;
 		xriter->frame_count = 0;
 		xriter->u_wake_r = 0;
 		xriter->u_wake_r_count = 0;
