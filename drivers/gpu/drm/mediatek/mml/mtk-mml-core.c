@@ -447,6 +447,16 @@ static void dump_inout(struct mml_task *task)
 		task->buf.src.flush ? " flush" : "",
 		task->job.jobid,
 		cfg->info.mode);
+	if (cfg->info.dest[0].pq_config.en_region_pq) {
+		get_frame_str(frame, sizeof(frame), &cfg->info.seg_map);
+		mml_log("region pq in:%s plane:%hhu%s%s job:%u mode:%hhu",
+			frame,
+			task->buf.seg_map.cnt,
+			task->buf.seg_map.fence ? " fence" : "",
+			task->buf.seg_map.flush ? " flush" : "",
+			task->job.jobid,
+			cfg->info.mode);
+	}
 	for (i = 0; i < cfg->info.dest_cnt; i++) {
 		dest = &cfg->info.dest[i];
 		get_frame_str(frame, sizeof(frame), &dest->data);
@@ -1310,8 +1320,12 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 
 	/* before flush, wait buffer fence being signaled */
 	wait_dma_fence("src", task->buf.src.fence, task->job.jobid);
+	if (task->config->info.dest[0].pq_config.en_region_pq)
+		wait_dma_fence("src", task->buf.seg_map.fence,
+			       task->job.jobid);
 	for (i = 0; i < task->buf.dest_cnt; i++)
-		wait_dma_fence("dest", task->buf.dest[i].fence, task->job.jobid);
+		wait_dma_fence("dest", task->buf.dest[i].fence,
+			       task->job.jobid);
 
 	/* flush only once for both pipe */
 	mutex_lock(&task->config->pipe_mutex);
@@ -1321,6 +1335,14 @@ static s32 core_flush(struct mml_task *task, u32 pipe)
 			mml_msg("%s flush source", __func__);
 			mml_trace_ex_begin("%s_flush_src", __func__);
 			mml_buf_flush(&task->buf.src);
+			mml_trace_ex_end();
+		}
+
+		if (task->config->info.dest[0].pq_config.en_region_pq &&
+		    task->buf.seg_map.flush) {
+			mml_msg("%s flush region pq source", __func__);
+			mml_trace_ex_begin("%s_flush_seg_map", __func__);
+			mml_buf_flush(&task->buf.seg_map);
 			mml_trace_ex_end();
 		}
 

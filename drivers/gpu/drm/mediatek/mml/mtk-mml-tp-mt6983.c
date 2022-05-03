@@ -294,9 +294,9 @@ static void tp_dump_path(const struct mml_topology_path *path)
 
 	for (i = 0; i < path->node_cnt; i++) {
 		mml_log(
-			"[topology]engine %hhu (%p) prev %p next %p %p comp %p tile idx %hhu out %hhu",
+			"[topology]engine %hhu (%p) prev %p %p next %p %p comp %p tile idx %hhu out %hhu",
 			path->nodes[i].id, &path->nodes[i],
-			path->nodes[i].prev,
+			path->nodes[i].prev[0], path->nodes[i].prev[1],
 			path->nodes[i].next[0], path->nodes[i].next[1],
 			path->nodes[i].comp,
 			path->nodes[i].tile_eng_idx,
@@ -369,7 +369,7 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 			/* connect out 0 */
 			prev[0]->next[0] = &path->nodes[i];
 			/* replace current out 0 to this engine */
-			path->nodes[i].prev = prev[0];
+			path->nodes[i].prev[0] = prev[0];
 			prev[0] = &path->nodes[i];
 			connect_eng[0] = next0;
 			path->nodes[i].out_idx = 0;
@@ -388,7 +388,7 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 			else
 				prev[1]->next[1] = &path->nodes[i];
 			/* replace current out 1 to this engine */
-			path->nodes[i].prev = prev[1];
+			path->nodes[i].prev[0] = prev[1];
 			prev[1] = &path->nodes[i];
 			connect_eng[1] = next0;
 			path->nodes[i].out_idx = 1;
@@ -417,7 +417,7 @@ static void tp_parse_path(struct mml_dev *mml, struct mml_topology_path *path,
 	/* collect tile engines */
 	tile_idx = 0;
 	for (i = 0; i < path->node_cnt; i++) {
-		if (!path->nodes[i].prev && !path->nodes[i].next[0]) {
+		if (!path->nodes[i].prev[0] && !path->nodes[i].next[0]) {
 			path->nodes[i].tile_eng_idx = ~0;
 			continue;
 		}
@@ -653,7 +653,7 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 		info->dest[0].pq_config.en_hdr ||
 		info->dest[0].pq_config.en_ccorr ||
 		info->dest[0].pq_config.en_dre ||
-		info->dest[0].pq_config.hfg_en)
+		info->dest[0].pq_config.en_region_pq)
 		goto decouple;
 
 	/* racing only support 1 out */

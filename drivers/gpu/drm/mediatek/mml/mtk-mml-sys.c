@@ -274,6 +274,12 @@ static void sys_config_aid_sel(struct mml_comp *comp, struct mml_task *task,
 	if (cfg->info.src.secure)
 		aid_sel |= 1 << sys->aid_sel[in_engine_id];
 	mask |= 1 << sys->aid_sel[in_engine_id];
+
+	if (cfg->info.dest[0].pq_config.en_region_pq &&
+	    cfg->info.seg_map.secure)
+		aid_sel |= 1 << sys->aid_sel[path->pq_rdma_id];
+	mask |= 1 << sys->aid_sel[path->pq_rdma_id];
+
 	for (i = 0; i < cfg->info.dest_cnt; i++) {
 		if (!path->out_engine_ids[i])
 			continue;
@@ -946,7 +952,9 @@ static void sys_mml_calc_cfg(struct mtk_ddp_comp *ddp_comp,
 
 	mml_mmp(addon_mml_calc_cfg, MMPROFILE_FLAG_PULSE, 0, 0);
 
-	if (!cfg->submit.info.src.width) {
+	if (!cfg->submit.info.src.width ||
+	    (cfg->submit.info.dest[0].pq_config.en_region_pq &&
+	    !cfg->submit.info.seg_map.width)) {
 		/* set test submit */
 		cfg->submit = bypass_submit;
 	}

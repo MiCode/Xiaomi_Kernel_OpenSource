@@ -11,6 +11,7 @@
 #include <linux/types.h>
 #include <linux/ktime.h>
 
+#define MML_MAX_INPUTS		2
 #define MML_MAX_OUTPUTS		2
 #define MML_MAX_PLANES		3
 
@@ -66,7 +67,7 @@ struct mml_pq_config {
 	bool en_hdr:1;
 	bool en_ccorr:1;
 	bool en_dre:1;
-	bool hfg_en:1;
+	bool en_region_pq:1;
 };
 
 enum mml_pq_enable_flag {
@@ -164,6 +165,7 @@ struct mml_frame_dest {
 
 struct mml_frame_info {
 	struct mml_frame_data src;
+	struct mml_frame_data seg_map;
 	struct mml_frame_dest dest[MML_MAX_OUTPUTS];
 	uint32_t act_time;	/* ns time for mml frame */
 	uint8_t dest_cnt;	/* should be < MML_MAX_OUTPUTS */
@@ -190,6 +192,7 @@ struct mml_buffer {
 
 struct mml_frame_buffer {
 	struct mml_buffer src;
+	struct mml_buffer seg_map;
 	struct mml_buffer dest[MML_MAX_OUTPUTS];
 	uint8_t dest_cnt;
 };

@@ -72,30 +72,59 @@ static void set_tile_engine(const struct mml_path_node *engine,
 	set_tile_chroma(&tile_eng->chroma, func);
 }
 
-static void set_tile_config(const struct mml_topology_path *path,
+#define has_tile_op(_comp, op) \
+	(_comp->tile_ops && _comp->tile_ops->op)
+#define call_tile_op(_comp, op, ...) \
+	(has_tile_op(_comp, op) ? \
+		_comp->tile_ops->op(_comp, ##__VA_ARGS__) : 0)
+
+static void set_tile_config(struct mml_task *task,
+			    u32 pipe,
+			    const struct mml_topology_path *path,
 			    struct mml_tile_config *tile,
 			    u32 tile_idx,
 			    struct func_description *tile_func)
 {
 	u32 eng_cnt = path->tile_engine_cnt;
 	u32 i;
+	s32 ret;
 
 	for (i = 0; i < eng_cnt; i++) {
 		const struct mml_path_node *e = get_tile_node(path, i);
 		struct tile_func_block *func = tile_func->func_list[i];
 
 		set_tile_engine(e, &tile->tile_engines[i], func);
+
+		if (task->config->info.dest[0].pq_config.en_region_pq &&
+		    e->prev[1]) {
+			struct mml_path_node *pq_birsz = e->prev[1];
+			struct mml_path_node *pq_rdma = pq_birsz->prev[0];
+			struct mml_comp *pq_birsz_comp = pq_birsz->comp;
+			struct mml_comp *pq_rdma_comp = pq_rdma->comp;
+			struct mml_pipe_cache *cache = &task->config->cache[pipe];
+
+			ret = call_tile_op(pq_birsz_comp, region_pq_bw, task,
+					   &cache->cfg[path->tile_engines[pq_birsz->tile_eng_idx]],
+					   &tile->tile_engines[i],
+					   &tile->tile_engines[pq_birsz->tile_eng_idx]);
+
+			if (ret)
+				mml_err("[tile]comp(%d) region pq backward fail %d",
+					pq_birsz_comp->id, ret);
+
+			ret = call_tile_op(pq_rdma_comp, region_pq_bw, task,
+					   &cache->cfg[path->tile_engines[pq_rdma->tile_eng_idx]],
+					   &tile->tile_engines[pq_birsz->tile_eng_idx],
+					   &tile->tile_engines[pq_rdma->tile_eng_idx]);
+			if (ret)
+				mml_err("[tile]comp(%d) region pq backward fail %d",
+					pq_rdma_comp->id, ret);
+		}
 	}
 
 	tile->tile_no = tile_idx;
 	tile->engine_cnt = eng_cnt;
 }
-
-#define has_tile_op(_comp, op) \
-	(_comp->tile_ops && _comp->tile_ops->op)
-#define call_tile_op(_comp, op, ...) \
-	(has_tile_op(_comp, op) ? \
-		_comp->tile_ops->op(_comp, ##__VA_ARGS__) : 0)
 
 static s32 prepare_tile(struct mml_task *task,
 			const struct mml_topology_path *path, u32 pipe,
@@ -348,7 +377,9 @@ err_exit:
 	return ret;
 }
 
-static s32 calc_tile_loop(const struct mml_topology_path *path,
+static s32 calc_tile_loop(struct mml_task *task,
+	u32 pipe,
+	const struct mml_topology_path *path,
 	struct tile_ctx *ctx)
 {
 	struct tile_reg_map *tile_reg_map = ctx->tile_reg_map;
@@ -376,7 +407,7 @@ static s32 calc_tile_loop(const struct mml_topology_path *path,
 			goto err_tile;
 
 		/* tile result from param */
-		set_tile_config(path, &tiles[tile_cnt], tile_cnt, tile_func);
+		set_tile_config(task, pipe, path, &tiles[tile_cnt], tile_cnt, tile_func);
 		tile_cnt++;
 	}
 
@@ -395,7 +426,9 @@ err_tile:
 	return ret;
 }
 
-static s32 calc_frame_mode(const struct mml_topology_path *path,
+static s32 calc_frame_mode(struct mml_task *task,
+	u32 pipe,
+	const struct mml_topology_path *path,
 	struct tile_ctx *ctx)
 {
 	struct mml_tile_output *output = ctx->output;
@@ -403,7 +436,7 @@ static s32 calc_frame_mode(const struct mml_topology_path *path,
 	struct tile_func_block *func = ctx->tile_func->func_list[0];
 
 	/* tile result from param once */
-	set_tile_config(path, &tiles[0], 0, ctx->tile_func);
+	set_tile_config(task, pipe, path, &tiles[0], 0, ctx->tile_func);
 
 	output->tile_cnt = 1;
 	output->h_tile_cnt = 1;
@@ -452,9 +485,9 @@ s32 calc_tile(struct mml_task *task, u32 pipe, struct mml_tile_cache *tile_cache
 		goto err_tile;
 
 	if (task->config->framemode)
-		ret = calc_frame_mode(path, &ctx);
+		ret = calc_frame_mode(task, pipe, path, &ctx);
 	else
-		ret = calc_tile_loop(path, &ctx);
+		ret = calc_tile_loop(task, pipe, path, &ctx);
 	if (ret)
 		goto err_tile;
 

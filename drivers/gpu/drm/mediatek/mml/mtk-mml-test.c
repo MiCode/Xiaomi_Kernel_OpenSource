@@ -36,6 +36,9 @@ struct mml_test_case {
 	uint32_t cfg_src_format;
 	uint32_t cfg_src_w;
 	uint32_t cfg_src_h;
+	uint32_t cfg_src1_format;
+	uint32_t cfg_src1_w;
+	uint32_t cfg_src1_h;
 	uint32_t cfg_dest_format;
 	uint32_t cfg_dest_w;
 	uint32_t cfg_dest_h;
@@ -46,6 +49,8 @@ struct mml_test_case {
 	/* [in] */
 	int32_t fd_in;
 	uint32_t size_in;
+	int32_t fd_in1;
+	uint32_t size_in1;
 	int32_t fd_out;
 	uint32_t size_out;
 	int32_t fd_out1;
@@ -58,6 +63,9 @@ struct mml_ut {
 	uint32_t cfg_src_format;
 	uint32_t cfg_src_w;
 	uint32_t cfg_src_h;
+	uint32_t cfg_src1_format;
+	uint32_t cfg_src1_w;
+	uint32_t cfg_src1_h;
 	uint32_t cfg_dest_format;
 	uint32_t cfg_dest_w;
 	uint32_t cfg_dest_h;
@@ -70,6 +78,8 @@ struct mml_ut {
 			/* [in] */
 			int32_t fd_in;
 			uint32_t size_in;
+			int32_t fd_in1;
+			uint32_t size_in1;
 			int32_t fd_out;
 			uint32_t size_out;
 			int32_t fd_out1;
@@ -77,8 +87,8 @@ struct mml_ut {
 		};
 		struct {
 			/* [in] */
-			void *buf_src;
-			uint32_t dma_size_in;
+			void *buf_src[2];
+			uint32_t dma_size_in[2];
 			void *buf_dest[2];
 			uint32_t dma_size_out[2];
 			bool use_dma;
@@ -98,7 +108,6 @@ module_param(mml_test_round, int, 0644);
 /* interval for each test run, in ms */
 int mml_test_interval = 16;
 module_param(mml_test_interval, int, 0644);
-
 
 int mml_test_w = 1920;
 module_param(mml_test_w, int, 0644);
@@ -265,7 +274,8 @@ static void case_general_submit(struct mml_test *test,
 	fillin_info_data(cur->cfg_src_format, cur->cfg_src_w, cur->cfg_src_h,
 		&task.info.src);
 	if (cur->use_dma)
-		fillin_buf_dma(&task.info.src, cur->buf_src, cur->dma_size_in, &task.buffer.src);
+		fillin_buf_dma(&task.info.src, cur->buf_src[0],
+			       cur->dma_size_in[0], &task.buffer.src);
 	else
 		fillin_buf(&task.info.src, cur->fd_in, cur->size_in, &task.buffer.src);
 
@@ -731,6 +741,64 @@ static void case_run_2out(struct mml_test *test, struct mml_ut *cur)
 	case_general_submit(test, cur, setup_2out);
 }
 
+/* case_config_2in_2out
+ * 2 in 2 out + resize
+ *
+ * format in0: RGB888
+ * format in1: Y8
+ * format out0: NV12
+ * format out1: RGB resize 256x256
+ */
+static void case_config_2in_2out(void)
+{
+	the_case.cfg_src_format = mml_test_in_fmt;
+	the_case.cfg_src_w = mml_test_w;
+	the_case.cfg_src_h = mml_test_h;
+	the_case.cfg_src1_format = MML_FMT_GREY;
+	the_case.cfg_src1_w = 256;
+	the_case.cfg_src1_h = 256;
+	the_case.cfg_dest_format = mml_test_out_fmt;
+	the_case.cfg_dest_w = mml_test_out_w;
+	the_case.cfg_dest_h = mml_test_out_h;
+	the_case.cfg_dest1_format = MML_FMT_RGB888;
+	the_case.cfg_dest1_w = 256;
+	the_case.cfg_dest1_h = 256;
+}
+
+static void setup_2in_2out(struct mml_submit *task, struct mml_ut *cur)
+{
+	task->info.dest[0].crop.r.left = mml_test_crop_left;
+	task->info.dest[0].crop.r.top = mml_test_crop_top;
+	task->info.dest[0].crop.r.width = mml_test_crop_width;
+	task->info.dest[0].crop.r.height = mml_test_crop_height;
+	task->info.dest[0].rotate = mml_test_rot;
+	task->info.dest[0].flip = mml_test_flip;
+
+	fillin_info_data(the_case.cfg_src1_format,
+		the_case.cfg_src1_w, the_case.cfg_src1_h,
+		&task->info.seg_map);
+	fillin_buf(&task->info.seg_map, cur->fd_in1, cur->size_in1,
+		&task->buffer.seg_map);
+	/* config dest[1] info data and buf */
+	task->info.dest_cnt = 2;
+	task->buffer.dest_cnt = 2;
+	task->info.dest[0].pq_config.en_region_pq = true;
+	fillin_info_data(the_case.cfg_dest1_format,
+		the_case.cfg_dest1_w, the_case.cfg_dest1_h,
+		&task->info.dest[1].data);
+	if (cur->use_dma)
+		fillin_buf_dma(&task->info.dest[1].data, cur->buf_dest[1], cur->dma_size_out[1],
+			&task->buffer.dest[1]);
+	else
+		fillin_buf(&task->info.dest[1].data, cur->fd_out1, cur->size_out1,
+			&task->buffer.dest[1]);
+}
+
+static void case_run_2in_2out(struct mml_test *test, struct mml_ut *cur)
+{
+	case_general_submit(test, cur, setup_2in_2out);
+}
+
 /* case_config_2out_crop
  * 1 in 2 out + resize
  *
@@ -1157,6 +1225,7 @@ enum mml_ut_case {
 	MML_UT_BLK_MANUAL,		/* 20 */
 	MML_UT_YUV_AFBC_TO_RGB,		/* 21 */
 	MML_UT_YUV_AFBC_10_TO_RGB,	/* 22 */
+	MML_UT_2IN_2OUT,		/* 23 */
 	MML_UT_TOTAL
 };
 
@@ -1252,6 +1321,10 @@ static struct test_case_op cases[MML_UT_TOTAL] = {
 	[MML_UT_YUV_AFBC_10_TO_RGB] = {
 		.config = case_config_yuv_afbc_10_to_rgb,
 		.run = case_run_yuv_afbc_to_rgb,
+	},
+	[MML_UT_2IN_2OUT] = {
+		.config = case_config_2in_2out,
+		.run = case_run_2in_2out,
 	},
 };
 
@@ -1531,8 +1604,8 @@ static void mml_test_krun(u32 case_num)
 	cur.cfg_dest_format = mml_test_out_fmt;
 	cur.cfg_dest_w = mml_test_out_w;
 	cur.cfg_dest_h = mml_test_out_h;
-	cur.buf_src = src_buf.dmabuf[0];
-	cur.dma_size_in = src_buf.size[0];
+	cur.buf_src[0] = src_buf.dmabuf[0];
+	cur.dma_size_in[0] = src_buf.size[0];
 	cur.buf_dest[0] = dest_buf.dmabuf[0];
 	cur.dma_size_out[0] = dest_buf.size[0];
 	cur.use_dma = true;
@@ -1549,8 +1622,10 @@ static void mml_test_krun(u32 case_num)
 	if (mml_test_create_dest(heap, &cur, &dest_buf) < 0)
 		goto free_heap;
 
-	cur.buf_src = src_buf.dmabuf[0];
-	cur.dma_size_in = src_buf.size[0];
+	cur.buf_src[0] = src_buf.dmabuf[0];
+	cur.dma_size_in[0] = src_buf.size[0];
+	cur.buf_src[1] = src_buf.dmabuf[1];
+	cur.dma_size_in[1] = src_buf.size[1];
 	cur.buf_dest[0] = dest_buf.dmabuf[0];
 	cur.dma_size_out[0] = dest_buf.size[0];
 	cur.buf_dest[1] = dest_buf.dmabuf[1];

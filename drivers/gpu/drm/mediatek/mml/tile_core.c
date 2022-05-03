@@ -136,8 +136,8 @@ ISP_TILE_MESSAGE_ENUM tile_convert_func(TILE_REG_MAP_STRUCT *ptr_tile_reg_map,
 		ptr_func->enable_flag = true;
 
 		ptr_func->tot_prev_num = 1;
-		if (node->prev)
-			ptr_func->last_func_num[0] = node->prev->id;
+		if (node->prev[0])
+			ptr_func->last_func_num[0] = node->prev[0]->id;
 		else
 			ptr_func->last_func_num[0] = LAST_MODULE_ID_OF_START;
 

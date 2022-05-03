@@ -215,6 +215,9 @@ void mml_drm_try_frame(struct mml_drm_ctx *ctx, struct mml_frame_info *info)
 
 	mml_adjust_src(&info->src);
 
+	if (info->dest[0].pq_config.en_region_pq)
+		mml_adjust_src(&info->seg_map);
+
 	for (i = 0; i < info->dest_cnt; i++) {
 		/* adjust info data directly for user */
 		mml_adjust_dest(&info->src, &info->dest[i]);
@@ -565,6 +568,13 @@ static void task_buf_put(struct mml_task *task)
 	mml_buf_put(&task->buf.src);
 	if (task->buf.src.fence)
 		dma_fence_put(task->buf.src.fence);
+	if (task->config->info.dest[0].pq_config.en_region_pq) {
+		mml_msg("[drm]release seg_map iova %#011llx",
+			task->buf.seg_map.dma[0].iova);
+		mml_buf_put(&task->buf.seg_map);
+		if (task->buf.seg_map.fence)
+			dma_fence_put(task->buf.seg_map.fence);
+	}
 	mml_trace_ex_end();
 }
 
@@ -865,7 +875,13 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	task->end_time.tv_nsec = submit->end.nsec;
 	/* give default time if empty */
 	frame_check_end_time(&task->end_time);
-	frame_buf_to_task_buf(&task->buf.src, &submit->buffer.src, "mml_rdma");
+	frame_buf_to_task_buf(&task->buf.src,
+			      &submit->buffer.src,
+			      "mml_rdma");
+	if (submit->info.dest[0].pq_config.en_region_pq)
+		frame_buf_to_task_buf(&task->buf.seg_map,
+				      &submit->buffer.seg_map,
+				      "mml_rdma");
 	task->buf.dest_cnt = submit->buffer.dest_cnt;
 	for (i = 0; i < submit->buffer.dest_cnt; i++)
 		frame_buf_to_task_buf(&task->buf.dest[i],

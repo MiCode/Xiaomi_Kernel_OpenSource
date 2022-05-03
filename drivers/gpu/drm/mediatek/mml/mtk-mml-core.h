@@ -137,7 +137,7 @@ extern int mml_racing_urgent;
 extern int mml_racing_wdone_eoc;
 
 #define MML_PIPE_CNT		2
-#define MML_MAX_PATH_NODES	16 /* must align MAX_TILE_FUNC_NO in tile_driver.h */
+#define MML_MAX_PATH_NODES	18 /* must align MAX_TILE_FUNC_NO in tile_driver.h */
 #define MML_MAX_PATH_CACHES	16
 #define MML_MAX_CMDQ_CLTS	4
 #define MML_MAX_OPPS		5
@@ -173,7 +173,7 @@ struct mml_cap {
 
 struct mml_path_node {
 	u8 id;
-	struct mml_path_node *prev;
+	struct mml_path_node *prev[MML_MAX_INPUTS];
 	struct mml_path_node *next[MML_MAX_OUTPUTS];
 	struct mml_comp *comp;
 	u8 out_idx;
@@ -215,6 +215,9 @@ struct mml_topology_path {
 	 */
 	u8 tile_engines[MML_MAX_PATH_NODES];
 	u8 tile_engine_cnt;
+
+	/* Describe which engine is region pq in */
+	u32 pq_rdma_id;
 
 	/* Describe which engine is out0 and which is out1 */
 	u32 out_engine_ids[MML_MAX_OUTPUTS];
@@ -377,6 +380,7 @@ struct mml_file_buf {
 
 struct mml_task_buffer {
 	struct mml_file_buf src;
+	struct mml_file_buf seg_map;
 	struct mml_file_buf dest[MML_MAX_OUTPUTS];
 	u8 dest_cnt;
 	bool flushed;
@@ -454,11 +458,41 @@ struct mml_task {
 struct tile_func_block;
 union mml_tile_data;
 
+struct mml_tile_region {
+	u16 xs;
+	u16 xe;
+	u16 ys;
+	u16 ye;
+};
+
+struct mml_tile_offset {
+	u32 x;
+	u32 y;
+	u32 x_sub;
+	u32 y_sub;
+};
+
+struct mml_tile_engine {
+	/* component id for dump */
+	u8 comp_id;
+
+	/* tile input/output region */
+	struct mml_tile_region in;
+	struct mml_tile_region out;
+
+	struct mml_tile_offset luma;
+	struct mml_tile_offset chroma;
+};
+
 struct mml_comp_tile_ops {
 	s32 (*prepare)(struct mml_comp *comp, struct mml_task *task,
 		       struct mml_comp_config *ccfg,
 		       struct tile_func_block *func,
 		       union mml_tile_data *data);
+	s32 (*region_pq_bw)(struct mml_comp *comp, struct mml_task *task,
+		    struct mml_comp_config *ccfg,
+		    struct mml_tile_engine *ref_tile,
+		    struct mml_tile_engine *tile);
 };
 
 struct mml_comp_config_ops {
@@ -535,32 +569,6 @@ struct mml_comp {
 	bool bound;
 };
 
-struct mml_tile_region {
-	u16 xs;
-	u16 xe;
-	u16 ys;
-	u16 ye;
-};
-
-struct mml_tile_offset {
-	u16 x;
-	u16 y;
-	u32 x_sub;
-	u32 y_sub;
-};
-
-struct mml_tile_engine {
-	/* component id for dump */
-	u8 comp_id;
-
-	/* tile input/output region */
-	struct mml_tile_region in;
-	struct mml_tile_region out;
-
-	struct mml_tile_offset luma;
-	struct mml_tile_offset chroma;
-};
-
 struct mml_tile_config {
 	/* index of the tile */
 	u16 tile_no;
@@ -621,6 +629,24 @@ static inline struct mml_tile_engine *config_get_tile(
 		cfg->tile_output[ccfg->pipe]->tiles[idx].tile_engines;
 
 	return &engines[ccfg->tile_eng_idx];
+}
+
+/* config_get_next_node_tile - helper inline func which uses tile index to get
+ * next node mml_tile_engine instance inside config.
+ *
+ * @cfg:	The mml_frame_config contains tile output.
+ * @ccfg:	The mml_comp_config of which tile engine.
+ * @idx:	Tile index to mml_tile_output->tiles array.
+ *
+ * Return:	mml_tile_engine struct pointer to related tile and engine.
+ */
+static inline struct mml_tile_engine *config_get_next_node_tile(
+	struct mml_frame_config *cfg, struct mml_comp_config *ccfg, u32 idx)
+{
+	struct mml_tile_engine *engines =
+		cfg->tile_output[ccfg->pipe]->tiles[idx].tile_engines;
+
+	return &engines[ccfg->node->next[0]->tile_eng_idx];
 }
 
 /*

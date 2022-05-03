@@ -1218,6 +1218,8 @@ static struct platform_driver *mml_drivers[] = {
 	&mml_mutex_driver,
 	&mml_rdma_driver,
 	&mml_rsz_driver,
+	&mml_pq_rdma_driver,
+	&mml_pq_birsz_driver,
 	&mml_tcc_driver,
 	&mml_tdshp_driver,
 	&mml_wrot_driver,

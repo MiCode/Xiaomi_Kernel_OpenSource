@@ -209,6 +209,8 @@ extern struct platform_driver mml_hdr_driver;
 extern struct platform_driver mml_mutex_driver;
 extern struct platform_driver mml_rdma_driver;
 extern struct platform_driver mml_rsz_driver;
+extern struct platform_driver mml_pq_rdma_driver;
+extern struct platform_driver mml_pq_birsz_driver;
 extern struct platform_driver mml_tcc_driver;
 extern struct platform_driver mml_tdshp_driver;
 extern struct platform_driver mml_wrot_driver;
