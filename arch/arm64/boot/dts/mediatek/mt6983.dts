@@ -7126,6 +7126,30 @@
 		};
 	};
 
+	opp_table_mmdvfs_vote: opp-table-mmdvfs-vote {
+		compatible = "operating-points-v2";
+		opp-0 {
+			opp-hz = /bits/ 64 <1>;
+			opp-microvolt = <1>;
+		};
+		opp-1 {
+			opp-hz = /bits/ 64 <2>;
+			opp-microvolt = <2>;
+		};
+		opp-2 {
+			opp-hz = /bits/ 64 <3>;
+			opp-microvolt = <3>;
+		};
+		opp-3 {
+			opp-hz = /bits/ 64 <4>;
+			opp-microvolt = <4>;
+		};
+		opp-4 {
+			opp-hz = /bits/ 64 <5>;
+			opp-microvolt = <5>;
+		};
+	};
+
 	disp_sec {
 		compatible = "mediatek,disp_sec";
 		sw_sync_token_tzmp_disp_wait = <CMDQ_SYNC_TOKEN_TZMP_DISP_WAIT>;
@@ -7175,10 +7199,15 @@
 					<0 6 0 0 &opp_table_venc>,
 					<0 6 0 0 &opp_table_venc>,
 					<0 7 0 0 &opp_table_vdec>,
-					<0 5 0 0 &opp_table_venc>;
+					<0 5 0 0 &opp_table_venc>,
+					<0 6 0 0 &opp_table_venc>,
+					<0 6 0 0 &opp_table_venc>,
+					<0 1 0 0 &opp_table_mmdvfs_vote>;
 		mediatek,mmdvfs_clk_names = "disp", "mdp", "mml", "cam", "senif",
 			"img", "smi_comm0", "smi_comm1", "vfmt", "jpegenc", "jpegenc2",
-			"vdec", "venc";
+			"vdec", "venc", "jpegdec", "jpegdec2", "vcore_vote";
+		clocks = <&mmdvfs_clk CLK_MMDVFS_VCORE_VOTE>;
+		clock-names = "vcore_vote";
 	};
 
 	mminfra-debug@0x1e827000 {
