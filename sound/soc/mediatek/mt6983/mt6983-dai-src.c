@@ -175,15 +175,21 @@ const unsigned int *get_iir_coeff(unsigned int rate_in,
 static int mtk_set_src_1_param(struct mtk_base_afe *afe, int id)
 {
 	struct mt6983_afe_private *afe_priv = afe->platform_priv;
-	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
+	struct mtk_afe_src_priv *src_priv = 0;
 	unsigned int iir_coeff_num;
 	unsigned int iir_stage;
-	int rate_in = src_priv->dl_rate;
-	int rate_out = src_priv->ul_rate;
+	int rate_in = 0;
+	int rate_out = 0;
 	unsigned int out_freq_mode = mtk_get_src_freq_mode(afe,
 							   rate_out);
 	unsigned int in_freq_mode = mtk_get_src_freq_mode(afe,
 							  rate_in);
+	if (id < 0)
+		return -EINVAL;
+
+	src_priv = afe_priv->dai_priv[id];
+	rate_in = src_priv->dl_rate;
+	rate_out = src_priv->ul_rate;
 
 	/* set out freq mode */
 	regmap_update_bits(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON3,
@@ -269,15 +275,21 @@ static int mtk_set_src_1_param(struct mtk_base_afe *afe, int id)
 static int mtk_set_src_2_param(struct mtk_base_afe *afe, int id)
 {
 	struct mt6983_afe_private *afe_priv = afe->platform_priv;
-	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
+	struct mtk_afe_src_priv *src_priv = 0;
 	unsigned int iir_coeff_num;
 	unsigned int iir_stage;
-	int rate_in = src_priv->dl_rate;
-	int rate_out = src_priv->ul_rate;
+	int rate_in = 0;
+	int rate_out = 0;
 	unsigned int out_freq_mode = mtk_get_src_freq_mode(afe,
 							   rate_out);
 	unsigned int in_freq_mode = mtk_get_src_freq_mode(afe,
 							  rate_in);
+	if (id < 0)
+		return -EINVAL;
+
+	src_priv = afe_priv->dai_priv[id];
+	rate_in = src_priv->dl_rate;
+	rate_out = src_priv->ul_rate;
 
 	/* set out freq mode */
 	regmap_update_bits(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON3,
@@ -362,15 +374,21 @@ static int mtk_set_src_2_param(struct mtk_base_afe *afe, int id)
 static int mtk_set_src_3_param(struct mtk_base_afe *afe, int id)
 {
 	struct mt6983_afe_private *afe_priv = afe->platform_priv;
-	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
+	struct mtk_afe_src_priv *src_priv = 0;
 	unsigned int iir_coeff_num;
 	unsigned int iir_stage;
-	int rate_in = src_priv->dl_rate;
-	int rate_out = src_priv->ul_rate;
+	int rate_in = 0;
+	int rate_out = 0;
 	unsigned int out_freq_mode = mtk_get_src_freq_mode(afe,
 							   rate_out);
 	unsigned int in_freq_mode = mtk_get_src_freq_mode(afe,
 							  rate_in);
+	if (id < 0)
+		return -EINVAL;
+
+	src_priv = afe_priv->dai_priv[id];
+	rate_in = src_priv->dl_rate;
+	rate_out = src_priv->ul_rate;
 
 	/* set out freq mode */
 	regmap_update_bits(afe->regmap, AFE_GENERAL3_ASRC_2CH_CON3,
@@ -773,7 +791,7 @@ static int mtk_dai_src_hw_params(struct snd_pcm_substream *substream,
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
 	struct mt6983_afe_private *afe_priv = afe->platform_priv;
 	int id = dai->id;
-	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
+	struct mtk_afe_src_priv *src_priv = 0;
 	unsigned int sft, mask;
 	unsigned int rate = params_rate(params);
 	unsigned int rate_reg = mt6983_rate_transform(afe->dev, rate, id);
@@ -783,6 +801,10 @@ static int mtk_dai_src_hw_params(struct snd_pcm_substream *substream,
 		 id,
 		 substream->stream,
 		 rate);
+	if (id < 0)
+		return -EINVAL;
+
+	src_priv = afe_priv->dai_priv[id];
 
 	/* rate */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -825,12 +847,17 @@ static int mtk_dai_src_hw_free(struct snd_pcm_substream *substream,
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
 	struct mt6983_afe_private *afe_priv = afe->platform_priv;
 	int id = dai->id;
-	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
+	struct mtk_afe_src_priv *src_priv = 0;
 
 	dev_info(afe->dev, "%s(), id %d, stream %d\n",
 		 __func__,
 		 id,
 		 substream->stream);
+
+	if (id < 0)
+		return -EINVAL;
+
+	src_priv = afe_priv->dai_priv[id];
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		src_priv->dl_rate = 0;
