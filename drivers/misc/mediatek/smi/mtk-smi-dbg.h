@@ -8,13 +8,20 @@
 
 #define MAX_MON_REQ	(4)
 
+enum smi_mon_id {
+	SMI_BW_MET,
+	SMI_BW_BUS,
+	SMI_BW_IMGSYS,
+};
+
 #if IS_ENABLED(CONFIG_MTK_SMI)
 
 int mtk_smi_dbg_register_notifier(struct notifier_block *nb);
 int mtk_smi_dbg_unregister_notifier(struct notifier_block *nb);
 s32 smi_monitor_start(struct device *dev, u32 common_id, u32 commonlarb_id[MAX_MON_REQ],
-			u32 flag[MAX_MON_REQ]);
-s32 smi_monitor_stop(struct device *dev, u32 common_id, u32 *bw);
+			u32 flag[MAX_MON_REQ], enum smi_mon_id mon_id);
+s32 smi_monitor_stop(struct device *dev, u32 common_id,
+			u32 *bw, enum smi_mon_id mon_id);
 #else
 
 static inline int mtk_smi_dbg_register_notifier(struct notifier_block *nb)
@@ -28,12 +35,13 @@ static inline int mtk_smi_dbg_unregister_notifier(struct notifier_block *nb)
 }
 
 static inline s32 smi_monitor_start(struct device *dev, u32 common_id,
-				u32 commonlarb_id[MAX_MON_REQ], u32 flag[MAX_MON_REQ])
+		u32 commonlarb_id[MAX_MON_REQ], u32 flag[MAX_MON_REQ], enum smi_mon_id mon_id)
 {
 	return 0;
 }
 
-static inline s32 smi_monitor_stop(struct device *dev, u32 common_id, u32 *bw)
+static inline s32 smi_monitor_stop(struct device *dev, u32 common_id,
+				u32 *bw, enum smi_mon_id mon_id)
 {
 	return 0;
 }

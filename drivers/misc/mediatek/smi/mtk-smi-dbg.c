@@ -17,6 +17,7 @@
 #include <linux/sched/clock.h>
 #include <linux/slab.h>
 #include <soc/mediatek/smi.h>
+#include "mtk-smi-dbg.h"
 #if IS_ENABLED(CONFIG_MTK_EMI)
 #include <soc/mediatek/emi.h>
 #endif
@@ -80,15 +81,6 @@
 #define INT_SMI_LARB_CMD_THRT_CON	(0x500 + (SMI_LARB_CMD_THRT_CON))
 #define INT_SMI_LARB_DBG_CON		(0x500 + (SMI_LARB_DBG_CON))
 #define INT_SMI_LARB_OSTD_MON_PORT(p)	(0x500 + SMI_LARB_OSTD_MON_PORT(p))
-
-#define	SMI_MON_AXI_ENA_MON2		(0x650)
-#define	SMI_MON_AXI_CLR_MON2		(0x654)
-#define SMI_MON_AXI_TYPE_MON2		(0x65c)
-#define SMI_MON_AXI_CON_MON2		(0x660)
-#define SMI_MON_AXI_BYT_CNT_MON2	(0x680)
-#define SMI_MON_AXI_ACT_CNT_MON2	(0x670)
-#define SMI_MON_AXI_REQ_CNT_MON2	(0x674)
-#define SMI_MON_AXI_BEA_CNT_MON2	(0x67c)
 
 #define SMI_LARB_REGS_NR		(194)
 static u32	smi_larb_regs[SMI_LARB_REGS_NR] = {
@@ -1157,12 +1149,13 @@ MODULE_LICENSE("GPL v2");
  * @common_id: the common id
  * @commonlarb_id: the common larb which would be monitored
  * @falg:  read 0x1/write 0x2
+ * @mon_id: smi monitor id (0 for MET、1 for SMI、2 for IMGsys)
  *
  * Returns 0 on success, -EAGAIN means fail to get smi monitor or an
  * appropriate error code otherwise.
  */
 s32 smi_monitor_start(struct device *dev, u32 common_id, u32 commonlarb_id[MAX_MON_REQ],
-			u32 flag[MAX_MON_REQ])
+			u32 flag[MAX_MON_REQ], enum smi_mon_id mon_id)
 {
 	u32 i, ret;
 	bool is_write;
@@ -1187,12 +1180,12 @@ s32 smi_monitor_start(struct device *dev, u32 common_id, u32 commonlarb_id[MAX_M
 		is_write = (flag[i] == 0x2);
 
 		if (is_write)
-			writel_relaxed(readl(comm_base + SMI_MON_AXI_TYPE_MON2) | (0x1 << i),
-				comm_base + SMI_MON_AXI_TYPE_MON2);
-		writel_relaxed(readl(comm_base + SMI_MON_AXI_CON_MON2) |
-			(commonlarb_id[i] << (4 + i * 4)), comm_base + SMI_MON_AXI_CON_MON2);
+			writel_relaxed(readl(comm_base + SMI_MON_TYPE(mon_id)) | (0x1 << i),
+				comm_base + SMI_MON_TYPE(mon_id));
+		writel_relaxed(readl(comm_base + SMI_MON_CON(mon_id)) |
+			(commonlarb_id[i] << (4 + i * 4)), comm_base + SMI_MON_CON(mon_id));
 	}
-	writel_relaxed(0x3, comm_base + SMI_MON_AXI_ENA_MON2);
+	writel_relaxed(0x3, comm_base + SMI_MON_ENA(mon_id));
 
 	pm_runtime_put(smi->comm[common_id].dev);
 
@@ -1205,10 +1198,11 @@ EXPORT_SYMBOL_GPL(smi_monitor_start);
   * @dev: reference to the user device node
   * @common_id: the common id which would be monitored
   * @bw: byte count from start to stop
+  * @mon_id: smi monitor id (0 for MET、1 for SMI、2 for IMGsys)
   *
   * Returns 0 on success, or an appropriate error code otherwise.
   */
-s32 smi_monitor_stop(struct device *dev, u32 common_id, u32 *bw)
+s32 smi_monitor_stop(struct device *dev, u32 common_id, u32 *bw, enum smi_mon_id mon_id)
 {
 	u32 i, ret;
 	u32 byte_cnt[MAX_MON_REQ] = { 0 };
@@ -1227,20 +1221,20 @@ s32 smi_monitor_stop(struct device *dev, u32 common_id, u32 *bw)
 		return ret;
 	}
 
-	writel_relaxed(0x0, comm_base + SMI_MON_AXI_ENA_MON2);
+	writel_relaxed(0x0, comm_base + SMI_MON_ENA(mon_id));
 
-	byte_cnt[0] = readl(comm_base + SMI_MON_AXI_BYT_CNT_MON2);
-	byte_cnt[1] = readl(comm_base + SMI_MON_AXI_ACT_CNT_MON2);
-	byte_cnt[2] = readl(comm_base + SMI_MON_AXI_REQ_CNT_MON2);
-	byte_cnt[3] = readl(comm_base + SMI_MON_AXI_BEA_CNT_MON2);
+	byte_cnt[0] = readl(comm_base + SMI_MON_BYT_CNT(mon_id));
+	byte_cnt[1] = readl(comm_base + SMI_MON_ACT_CNT(mon_id));
+	byte_cnt[2] = readl(comm_base + SMI_MON_REQ_CNT(mon_id));
+	byte_cnt[3] = readl(comm_base + SMI_MON_BEA_CNT(mon_id));
 
 	for (i = 0; i < MAX_MON_REQ; i++)
 		bw[i] = byte_cnt[i];
 
-	writel_relaxed(0x0, comm_base + SMI_MON_AXI_TYPE_MON2);
-	writel_relaxed(0x0, comm_base + SMI_MON_AXI_CON_MON2);
-	writel_relaxed(0x1, comm_base + SMI_MON_AXI_CLR_MON2);
-	writel_relaxed(0x0, comm_base + SMI_MON_AXI_CLR_MON2);
+	writel_relaxed(0x0, comm_base + SMI_MON_TYPE(mon_id));
+	writel_relaxed(0x0, comm_base + SMI_MON_CON(mon_id));
+	writel_relaxed(0x1, comm_base + SMI_MON_CLR(mon_id));
+	writel_relaxed(0x0, comm_base + SMI_MON_CLR(mon_id));
 
 	pm_runtime_put(smi->comm[common_id].dev);
 
@@ -1261,9 +1255,9 @@ static void smi_hang_detect_bw_monitor(bool is_start)
 			!(smi->comm[i].smi_type == SMI_COMMON))
 			continue;
 		if (is_start)
-			smi_monitor_start(NULL, i, commonlarb_id, flags);
+			smi_monitor_start(NULL, i, commonlarb_id, flags, SMI_BW_BUS);
 		else
-			smi_monitor_stop(NULL, i, smi->comm[i].bw);
+			smi_monitor_stop(NULL, i, smi->comm[i].bw, SMI_BW_BUS);
 	}
 }
 */
@@ -1388,9 +1382,9 @@ int smi_bw_monitor_ut(const char *val, const struct kernel_param *kp)
 	}
 
 	for (i = 0; i < 1000; i++) {
-		smi_monitor_start(NULL, common_id, commonlarb_id, flag);
+		smi_monitor_start(NULL, common_id, commonlarb_id, flag, SMI_BW_BUS);
 		msleep(1);
-		smi_monitor_stop(NULL, common_id, bw);
+		smi_monitor_stop(NULL, common_id, bw, SMI_BW_BUS);
 		for (j = 0; j < MAX_MON_REQ; j++)
 			pr_notice("%s: common_id(%d) bw[%u]=%u\n", __func__, common_id, j, bw[j]);
 	}
