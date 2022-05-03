@@ -31,102 +31,6 @@ static inline struct mtk_mmdvfs_clk *to_mtk_mmdvfs_clk(struct clk_hw *hw)
 	return container_of(hw, struct mtk_mmdvfs_clk, clk_hw);
 }
 
-static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
-		unsigned long parent_rate)
-{
-	struct mtk_mmdvfs_clk *mmdvfs_clk = to_mtk_mmdvfs_clk(hw);
-	u8 i, opp, level, pwr_opp = MAX_OPP;
-
-	for (i = 0; i < mmdvfs_clk->freq_num; i++)
-		if (rate <= mmdvfs_clk->freqs[i])
-			break;
-
-	level = (i == mmdvfs_clk->freq_num) ? (i-1) : i;
-	opp = (mmdvfs_clk->freq_num - level - 1);
-	MMDVFS_DBG("%s: rate=%lu parent_rate=%lu freq=%lu old_opp=%d new_opp=%d\n",
-		__func__, rate, parent_rate, mmdvfs_clk->freqs[level], mmdvfs_clk->opp, opp);
-	if (mmdvfs_clk->opp == opp)
-		return 0;
-	mmdvfs_clk->opp = opp;
-
-	for (i = 0; i < max_mmdvfs_num; i++) {
-		if (mmdvfs_clk->pwr_id == mtk_mmdvfs_clks[i].pwr_id
-			&& mtk_mmdvfs_clks[i].opp < pwr_opp)
-			pwr_opp = mtk_mmdvfs_clks[i].opp;
-	}
-
-	if (mmdvfs_clk->special_type != SPECIAL_INDEPENDENCE
-		&& pwr_opp ==  mmdvfs_clk->opp)
-		return 0;
-
-	mmdvfs_pwr_opp[mmdvfs_clk->pwr_id] = pwr_opp;
-
-	/* Do IPI to MMuP */
-	return 0;
-}
-
-static long mtk_mmdvfs_round_rate(struct clk_hw *hw, unsigned long rate,
-			       unsigned long *parent_rate)
-{
-	MMDVFS_DBG("%s: rate=%lu parent_rate=%lu\n", __func__, rate, *parent_rate);
-
-	return rate;
-}
-
-static unsigned long mtk_mmdvfs_recalc_rate(struct clk_hw *hw,
-					 unsigned long parent_rate)
-{
-	MMDVFS_DBG("%s: parent_rate=%lu\n", __func__, parent_rate);
-	return parent_rate;
-}
-
-static const struct clk_ops mtk_mmdvfs_req_ops = {
-	.set_rate = mtk_mmdvfs_set_rate,
-	.round_rate	= mtk_mmdvfs_round_rate,
-	.recalc_rate	= mtk_mmdvfs_recalc_rate,
-};
-
-static struct clk *mtk_mmdvfs_register_clk(u8 id, struct mtk_mmdvfs_clk *mmdvfs_clk)
-{
-	struct clk_init_data init = {};
-	struct clk *clk;
-
-	init.name = mmdvfs_clk->name;
-	//init.flags = mux->flags | CLK_SET_RATE_PARENT;
-	//init.parent_names = mux->parent_names;
-	//init.num_parents = mux->num_parents;
-	init.ops = &mtk_mmdvfs_req_ops;
-	mmdvfs_clk->clk_hw.init = &init;
-	//mmdvfs_clk->clk_id = id;
-
-	clk = clk_register(NULL, &mmdvfs_clk->clk_hw);
-
-	return clk;
-}
-//EXPORT_SYMBOL(mtk_clk_register_mux);
-
-static int mtk_mmdvfs_register_clks(int num_clks,
-			   struct clk_onecell_data *clk_data)
-{
-	struct clk *clk;
-	int i;
-
-	for (i = 0; i < num_clks; i++) {
-		if (IS_ERR_OR_NULL(clk_data->clks[i])) {
-			clk = mtk_mmdvfs_register_clk(i, &mtk_mmdvfs_clks[i]);
-			if (IS_ERR(clk)) {
-				MMDVFS_DBG("%s: failed to register clk %s: %ld\n",
-				       __func__, mtk_mmdvfs_clks[i].name, PTR_ERR(clk));
-				continue;
-			}
-
-			clk_data->clks[i] = clk;
-		}
-	}
-	return 0;
-}
-//EXPORT_SYMBOL(mtk_clk_register_mmdvfs);
-
 static int mmdvfs_vcp_is_ready(void)
 {
 	int ret = 0;
@@ -188,6 +92,114 @@ static int mmdvfs_vcp_ipi_cb(unsigned int ipi_id, void *prdata, void *data,
 
 	return 0;
 }
+
+static int mtk_mmdvfs_set_rate(struct clk_hw *hw, unsigned long rate,
+		unsigned long parent_rate)
+{
+	struct mtk_mmdvfs_clk *mmdvfs_clk = to_mtk_mmdvfs_clk(hw);
+	u8 i, opp, level, pwr_opp = MAX_OPP;
+	struct mmdvfs_ipi_data slot;
+	int ret;
+
+	for (i = 0; i < mmdvfs_clk->freq_num; i++)
+		if (rate <= mmdvfs_clk->freqs[i])
+			break;
+
+	level = (i == mmdvfs_clk->freq_num) ? (i-1) : i;
+	opp = (mmdvfs_clk->freq_num - level - 1);
+	MMDVFS_DBG("%s: rate=%lu parent_rate=%lu freq=%lu old_opp=%d new_opp=%d\n",
+		__func__, rate, parent_rate, mmdvfs_clk->freqs[level], mmdvfs_clk->opp, opp);
+	if (mmdvfs_clk->opp == opp)
+		return 0;
+	mmdvfs_clk->opp = opp;
+
+	for (i = 0; i < max_mmdvfs_num; i++) {
+		if (mmdvfs_clk->pwr_id == mtk_mmdvfs_clks[i].pwr_id
+			&& mtk_mmdvfs_clks[i].opp < pwr_opp)
+			pwr_opp = mtk_mmdvfs_clks[i].opp;
+	}
+
+	if (pwr_opp == mmdvfs_pwr_opp[mmdvfs_clk->pwr_id]
+		&& mmdvfs_clk->special_type != SPECIAL_INDEPENDENCE)
+		return 0;
+
+	mmdvfs_pwr_opp[mmdvfs_clk->pwr_id] = pwr_opp;
+
+	ret = mmdvfs_vcp_ipi_send(FUNC_SET_OPP, mmdvfs_clk->user_id, pwr_opp, MAX_OPP);
+
+	slot = *(struct mmdvfs_ipi_data *)(u32 *)&ret;
+	MMDVFS_DBG("%s ipi:%d slot:%#x idx:%hhu opp:%hhu",
+		__func__, ret, slot, slot.idx, slot.ack);
+	return 0;
+}
+
+static long mtk_mmdvfs_round_rate(struct clk_hw *hw, unsigned long rate,
+			       unsigned long *parent_rate)
+{
+	MMDVFS_DBG("%s: rate=%lu parent_rate=%lu\n", __func__, rate, *parent_rate);
+
+	return rate;
+}
+
+static unsigned long mtk_mmdvfs_recalc_rate(struct clk_hw *hw,
+					 unsigned long parent_rate)
+{
+	struct mtk_mmdvfs_clk *mmdvfs_clk = to_mtk_mmdvfs_clk(hw);
+	unsigned long ret;
+	u8 level;
+
+	level = (mmdvfs_clk->opp == MAX_OPP) ? 0 : (mmdvfs_clk->freq_num - mmdvfs_clk->opp - 1);
+	ret = mmdvfs_clk->freqs[level];
+	MMDVFS_DBG("%s: parent_rate=%lu freq=%lu\n", __func__, parent_rate, ret);
+	return ret;
+}
+
+static const struct clk_ops mtk_mmdvfs_req_ops = {
+	.set_rate = mtk_mmdvfs_set_rate,
+	.round_rate	= mtk_mmdvfs_round_rate,
+	.recalc_rate	= mtk_mmdvfs_recalc_rate,
+};
+
+static struct clk *mtk_mmdvfs_register_clk(u8 id, struct mtk_mmdvfs_clk *mmdvfs_clk)
+{
+	struct clk_init_data init = {};
+	struct clk *clk;
+
+	init.name = mmdvfs_clk->name;
+	//init.flags = mux->flags | CLK_SET_RATE_PARENT;
+	//init.parent_names = mux->parent_names;
+	//init.num_parents = mux->num_parents;
+	init.ops = &mtk_mmdvfs_req_ops;
+	mmdvfs_clk->clk_hw.init = &init;
+	//mmdvfs_clk->clk_id = id;
+
+	clk = clk_register(NULL, &mmdvfs_clk->clk_hw);
+
+	return clk;
+}
+//EXPORT_SYMBOL(mtk_clk_register_mux);
+
+static int mtk_mmdvfs_register_clks(int num_clks,
+			   struct clk_onecell_data *clk_data)
+{
+	struct clk *clk;
+	int i;
+
+	for (i = 0; i < num_clks; i++) {
+		if (IS_ERR_OR_NULL(clk_data->clks[i])) {
+			clk = mtk_mmdvfs_register_clk(i, &mtk_mmdvfs_clks[i]);
+			if (IS_ERR(clk)) {
+				MMDVFS_DBG("%s: failed to register clk %s: %ld\n",
+				       __func__, mtk_mmdvfs_clks[i].name, PTR_ERR(clk));
+				continue;
+			}
+
+			clk_data->clks[i] = clk;
+		}
+	}
+	return 0;
+}
+//EXPORT_SYMBOL(mtk_clk_register_mmdvfs);
 
 int mmdvfs_camera_notify(const bool enable)
 {
