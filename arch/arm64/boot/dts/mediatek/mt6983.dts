@@ -6560,7 +6560,7 @@
 			 <&dispsys1_config_clk CLK_DISPSYS1_CONFIG_DISP_DLO_ASYNC3>;
 		clock-num = <22>;
 		operating-points-v2 = <&opp_table_disp0>;
-		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		mmdvfs-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		interconnects = <&mmqos SLAVE_LARB(31) &mmqos SLAVE_COMMON(0)>;
 		interconnect-names = "disp_hrt_qos";
 
