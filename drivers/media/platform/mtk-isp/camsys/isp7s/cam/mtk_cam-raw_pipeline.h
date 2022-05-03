@@ -115,35 +115,6 @@ struct mtk_raw_pde_config {
 	struct mtk_cam_pde_info pde_info;
 };
 
-struct mtk_cam_resource_config {
-	struct v4l2_subdev *seninf;
-	struct mutex resource_lock;
-	struct v4l2_fract interval;
-	s64 pixel_rate;
-	u32 bin_limit;
-	u32 frz_limit;
-	u32 hwn_limit_max;
-	u32 hwn_limit_min;
-	s64 hblank;
-	s64 vblank;
-	s64 sensor_pixel_rate;
-	u32 res_plan;
-	u32 raw_feature;
-	u32 res_strategy[MTK_CAMSYS_RES_STEP_NUM];
-	u32 clk_target;
-	u32 raw_num_used;
-	u32 bin_enable;
-	u32 frz_enable;
-	u32 frz_ratio;
-	u32 tgo_pxl_mode;
-	u32 tgo_pxl_mode_before_raw;
-	u32 raw_path;
-	/* sink fmt adjusted according resource used*/
-	struct v4l2_mbus_framefmt sink_fmt;
-	u32 enable_hsf_raw;
-	u32 hw_mode;
-};
-
 /* exposure for m-stream */
 struct mtk_cam_shutter_gain {
 	__u32 shutter;
@@ -167,19 +138,21 @@ struct mtk_raw_stagger_select {
 	int enabled_raw;
 };
 
+struct mtk_raw_request_ctrl_data {
+	s64 feature;
+
+	struct mtk_cam_resource user_res;
+
+	bool enqueued_tg_flash_req; /* need a better way to collect the request */
+	struct mtk_cam_tg_flash_config tg_flash_config;
+
+	bool sensor_mode_update;
+	s64 sync_id;
+	struct mtk_cam_mstream_exposure mstream_exp;
+};
+
 /*
  * struct mtk_raw_pipeline - sub dev to use raws.
- *
- * @feature_pending: keep the user value of S_CTRL V4L2_CID_MTK_CAM_FEATURE.
- *		     It it safe save to be used in mtk_cam_vidioc_s_fmt,
- *		     mtk_cam_vb2_queue_setup and mtk_cam_vb2_buf_queue
- *		     But considering that we can't when the user calls S_CTRL,
- *		     please use mtk_cam_request_stream_data's
- *		     feature.raw_feature field
- *		     to avoid the CTRL value change tming issue.
- * @feature_active: The active feature during streaming. It can't be changed
- *		    during streaming and can only be used after streaming on.
- *
  */
 struct mtk_raw_pipeline {
 	unsigned int id;
@@ -189,23 +162,12 @@ struct mtk_raw_pipeline {
 	struct mtk_raw_pad_config pad_cfg[MTK_RAW_PIPELINE_PADS_NUM];
 	struct v4l2_ctrl_handler ctrl_handler;
 
-	/* v4l2 ctrl related data */
-	s64 feature_pending;
-	s64 feature_active;
-	int dynamic_exposure_num_max;
-	bool enqueued_tg_flash_req; /* need a better way to collect the request */
-	struct mtk_cam_tg_flash_config tg_flash_config;
-	/* TODO: merge or integrate with mtk_cam_resource_config */
-	struct mtk_cam_resource user_res;
-	struct mtk_cam_resource_config res_config;
-	int sensor_mode_update;
-	s64 sync_id;
-	/* mstream */
-	struct mtk_cam_mstream_exposure mstream_exposure;
+
+	/*** v4l2 ctrl related data ***/
+	/* changed with request */
+	struct mtk_raw_request_ctrl_data ctrl_data;
 	/* pde module */
 	struct mtk_raw_pde_config pde_config;
-	s64 hw_mode;
-	s64 hw_mode_pending;
 };
 
 static inline struct mtk_raw_pipeline*
@@ -247,36 +209,9 @@ mtk_raw_fmt_get_res(struct v4l2_subdev *sd, struct v4l2_subdev_format *fmt,
 
 unsigned int mtk_raw_get_hdr_scen_id(struct mtk_cam_ctx *ctx);
 
-struct mtk_raw_pipeline*
-mtk_cam_get_link_enabled_raw(struct v4l2_subdev *seninf);
-
-struct v4l2_mbus_framefmt*
-mtk_raw_pipeline_get_fmt(struct mtk_raw_pipeline *pipe,
-			 struct v4l2_subdev_state *state,
-			 int padid, int which);
 struct v4l2_rect*
 mtk_raw_pipeline_get_selection(struct mtk_raw_pipeline *pipe,
 			       struct v4l2_subdev_state *state,
 			       int pad, int which);
-int
-mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
-			 struct mtk_cam_resource *res_user,
-			 struct mtk_cam_resource_config *res_cfg,
-			 struct v4l2_mbus_framefmt *sink_fmt,
-			 char *dbg_str, bool log);
-int
-mtk_cam_res_copy_fmt_from_user(struct mtk_raw_pipeline *pipeline,
-			       struct mtk_cam_resource *res_user,
-			       struct v4l2_mbus_framefmt *dest);
-
-int
-mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
-			     struct mtk_cam_resource *res_user,
-			     struct v4l2_mbus_framefmt *src);
-
-bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
-			   struct mtk_cam_resource_config *res,
-			   s64 pixel_rate, int res_plan,
-			   int in_w, int in_h, int *out_w, int *out_h);
 
 #endif /*__MTK_CAM_RAW_PIPELINE_H*/

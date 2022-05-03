@@ -216,69 +216,16 @@ static inline int mtk_pixelmode_val(int pxl_mode)
 	return val;
 }
 
-static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
+__maybe_unused static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 {
 	//TODO
 	return 0;
 }
 
-static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
+__maybe_unused static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 {
 	//TODO
 	return 0;
-}
-
-static int mtk_raw_set_res_ctrl(struct v4l2_ctrl *ctrl,
-				struct mtk_cam_resource_config *res_cfg,
-				int pipe_id)
-{
-	struct device *dev = mtk_cam_root_dev();
-	struct mtk_raw_pipeline *pipeline;
-	int ret = 0;
-
-	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
-
-	if (ctrl->type == V4L2_CTRL_TYPE_INTEGER64)
-		dev_dbg(dev, "%s:pipe(%d):(name:%s, val:%ld)\n", __func__,
-			pipe_id, ctrl->name, *ctrl->p_new.p_s64);
-	else
-		dev_dbg(dev, "%s:pipe(%d):(name:%s, val:%d)\n", __func__,
-			pipe_id, ctrl->name, ctrl->val);
-
-	mutex_lock(&res_cfg->resource_lock);
-	switch (ctrl->id) {
-	case V4L2_CID_MTK_CAM_USED_ENGINE_LIMIT:
-		res_cfg->hwn_limit_max = ctrl->val;
-		break;
-	case V4L2_CID_MTK_CAM_BIN_LIMIT:
-		res_cfg->bin_limit = ctrl->val;
-		break;
-	case V4L2_CID_MTK_CAM_FRZ_LIMIT:
-		res_cfg->frz_limit = ctrl->val;
-		break;
-	case V4L2_CID_MTK_CAM_RAW_PATH_SELECT:
-		res_cfg->raw_path = ctrl->val;
-		break;
-	case V4L2_CID_MTK_CAM_SYNC_ID:
-		pipeline->sync_id = *ctrl->p_new.p_s64;
-		break;
-	case V4L2_CID_MTK_CAM_MSTREAM_EXPOSURE:
-		pipeline->mstream_exposure = *(struct mtk_cam_mstream_exposure *)ctrl->p_new.p;
-		pipeline->mstream_exposure.valid = 1;
-		break;
-	case V4L2_CID_MTK_CAM_HSF_EN:
-		res_cfg->enable_hsf_raw = ctrl->val;
-		break;
-	default:
-		dev_info(dev,
-			 "%s:pipe(%d):ctrl(id:0x%x,val:%d) not handled\n",
-			 __func__, pipe_id, ctrl->id, ctrl->val);
-		ret = -EINVAL;
-		break;
-	}
-	mutex_unlock(&res_cfg->resource_lock);
-
-	return ret;
 }
 
 static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
@@ -286,7 +233,6 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	struct device *dev = mtk_cam_root_dev();
 	struct mtk_raw_pipeline *pipeline;
 	//struct mtk_cam_resource *res_user;
-	//struct mtk_cam_resource_config res_cfg;
 	int ret = 0;
 
 	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
@@ -325,6 +271,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 
 static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 {
+#ifdef NOT_READY
 	struct device *dev = mtk_cam_root_dev();
 	struct mtk_raw_pipeline *pipeline;
 	int ret = 0;
@@ -378,8 +325,10 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 					   pipeline->id);
 		break;
 	}
-
 	return ret;
+#else
+	return 0;
+#endif
 }
 
 static const struct v4l2_ctrl_ops cam_ctrl_ops = {
@@ -487,17 +436,6 @@ static const struct v4l2_ctrl_config bin_limit = {
 	.def = 0,
 };
 
-static const struct v4l2_ctrl_config frz_limit = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_FRZ_LIMIT,
-	.name = "Resizer limitation",
-	.type = V4L2_CTRL_TYPE_INTEGER,
-	.min = 70,
-	.max = 100,
-	.step = 1,
-	.def = 100,
-};
-
 static const struct v4l2_ctrl_config hwn = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_USED_ENGINE,
@@ -531,17 +469,6 @@ static const struct v4l2_ctrl_config hsf = {
 	.def = 1,
 };
 
-static const struct v4l2_ctrl_config frz = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_FRZ,
-	.name = "Resizer",
-	.type = V4L2_CTRL_TYPE_INTEGER,
-	.min = 70,
-	.max = 100,
-	.step = 1,
-	.def = 100,
-};
-
 static const struct v4l2_ctrl_config raw_path = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_RAW_PATH_SELECT,
@@ -551,39 +478,6 @@ static const struct v4l2_ctrl_config raw_path = {
 	.max = 7,
 	.step = 1,
 	.def = 1,
-};
-
-static const struct v4l2_ctrl_config hwn_try = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_USED_ENGINE_TRY,
-	.name = "Engine resource",
-	.type = V4L2_CTRL_TYPE_INTEGER,
-	.min = 1,
-	.max = 2,
-	.step = 1,
-	.def = 2,
-};
-
-static const struct v4l2_ctrl_config bin_try = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_BIN_TRY,
-	.name = "Binning",
-	.type = V4L2_CTRL_TYPE_BOOLEAN,
-	.min = 0,
-	.max = 1,
-	.step = 1,
-	.def = 1,
-};
-
-static const struct v4l2_ctrl_config frz_try = {
-	.ops = &cam_ctrl_ops,
-	.id = V4L2_CID_MTK_CAM_FRZ_TRY,
-	.name = "Resizer",
-	.type = V4L2_CTRL_TYPE_INTEGER,
-	.min = 70,
-	.max = 100,
-	.step = 1,
-	.def = 100,
 };
 
 static const struct v4l2_ctrl_config frame_sync_id = {
@@ -612,7 +506,7 @@ static struct v4l2_ctrl_config cfg_res_ctrl = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC,
 	.name = "resource ctrl",
-	.type = V4L2_CTRL_COMPOUND_TYPES, /* V4L2_CTRL_TYPE_U32,*/
+	.type = V4L2_CTRL_COMPOUND_TYPES,
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 	.max = 0xffffffff,
 	.step = 1,
@@ -656,7 +550,7 @@ static const struct v4l2_ctrl_config cfg_pde_info = {
 	.ops = &cam_pde_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_PDE_INFO,
 	.name = "pde information",
-	.type = V4L2_CTRL_TYPE_INTEGER,
+	.type = V4L2_CTRL_COMPOUND_TYPES,
 	.flags = V4L2_CTRL_FLAG_VOLATILE,
 	.min = 0,
 	.max = 0x1fffffff,
@@ -769,22 +663,7 @@ bool mtk_raw_fmt_get_res(struct v4l2_subdev *sd,
 	return res;
 }
 
-struct mtk_raw_pipeline*
-mtk_cam_get_link_enabled_raw(struct v4l2_subdev *seninf)
-{
-	struct mtk_cam_device *cam;
-	int i;
-
-	cam = container_of(seninf->v4l2_dev->mdev, struct mtk_cam_device, media_dev);
-	for (i = 0; i <= cam->pipelines.num_raw; i++) {
-		if (cam->pipelines.raw[i].res_config.seninf == seninf)
-			return &cam->pipelines.raw[i];
-	}
-
-	return NULL;
-}
-
-struct v4l2_mbus_framefmt*
+static struct v4l2_mbus_framefmt*
 mtk_raw_pipeline_get_fmt(struct mtk_raw_pipeline *pipe,
 			 struct v4l2_subdev_state *state,
 			 int padid, int which)
@@ -812,64 +691,6 @@ mtk_raw_pipeline_get_selection(struct mtk_raw_pipeline *pipe,
 		return &pipe->pad_cfg[0].crop;
 
 	return &pipe->pad_cfg[pad].crop;
-}
-
-int
-mtk_cam_res_copy_fmt_from_user(struct mtk_raw_pipeline *pipeline,
-			       struct mtk_cam_resource *res_user,
-			       struct v4l2_mbus_framefmt *dest)
-{
-	long bytes;
-	struct device *dev = mtk_cam_root_dev();
-
-	if (!res_user->sink_fmt) {
-		dev_info(dev,
-			 "%s:pipe(%d): sink_fmt can't be NULL for res ctrl\n",
-			 __func__, pipeline->id);
-
-		return -EINVAL;
-	}
-
-	bytes = copy_from_user(dest, (void *)res_user->sink_fmt,
-			       sizeof(*dest));
-	if (bytes) {
-		dev_info(dev,
-			 "%s:pipe(%d): copy_from_user on sink_fmt failed (%ld)\n",
-			 __func__, pipeline->id, bytes);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-int
-mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
-			     struct mtk_cam_resource *res_user,
-			     struct v4l2_mbus_framefmt *src)
-{
-	long bytes;
-	struct device *dev = mtk_cam_root_dev();
-
-	/* return the fmt to the users */
-	bytes = copy_to_user((void *)res_user->sink_fmt, src, sizeof(*src));
-	if (bytes) {
-		dev_info(dev,
-			 "%s:pipe(%d): copy_to_user on sink_fmt failed (%ld)\n",
-			 __func__, pipeline->id, bytes);
-
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
-			   struct mtk_cam_resource_config *res,
-			   s64 pixel_rate, int res_plan,
-			   int in_w, int in_h, int *out_w, int *out_h)
-{
-	//TODO
-	return 0;
 }
 
 static int mtk_raw_sd_subscribe_event(struct v4l2_subdev *subdev,
@@ -3135,12 +2956,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 		pr_info("%s: v4l2_ctrl_handler init failed\n", __func__);
 		return;
 	}
-	mutex_init(&pipe->res_config.resource_lock);
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &hwn_limit, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
-			       V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
-	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &frz_limit, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
 			       V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
@@ -3151,24 +2967,12 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &hwn, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
-	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &frz, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &bin, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &hsf, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
-	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &hwn_try, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
-	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &frz_try, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
-	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &bin_try, NULL);
-	if (ctrl)
-		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &frame_sync_id, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
@@ -3207,19 +3011,12 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 		ctrl->flags |= V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
 
 	v4l2_ctrl_new_custom(ctrl_hdlr, &mstream_exposure, NULL);
-	pipe->res_config.hwn_limit_max = hwn_limit.def;
-	pipe->res_config.frz_limit = frz_limit.def;
-	pipe->res_config.bin_limit = bin_limit.def;
-	pipe->res_config.res_plan = 1;
-	pipe->feature_pending = mtk_feature.def;
-	pipe->sync_id = frame_sync_id.def;
-	pipe->sensor_mode_update = cfg_res_update.def;
-	pipe->pde_config.pde_info.pdo_max_size = cfg_pde_info.def;
-	pipe->pde_config.pde_info.pdi_max_size = cfg_pde_info.def;
-	pipe->pde_config.pde_info.pd_table_offset = cfg_pde_info.def;
+
 	pipe->subdev.ctrl_handler = ctrl_hdlr;
-	pipe->hw_mode = mtk_camsys_hw_mode.def;
-	pipe->hw_mode_pending = mtk_camsys_hw_mode.def;
+
+	/* TODO: properly set default values */
+	memset(&pipe->ctrl_data, 0, sizeof(pipe->ctrl_data));
+	memset(&pipe->pde_config, 0, sizeof(pipe->pde_config));
 }
 
 static int mtk_raw_pipeline_register(const char *str, unsigned int id,
@@ -3232,7 +3029,6 @@ static int mtk_raw_pipeline_register(const char *str, unsigned int id,
 	int ret;
 
 	pipe->id = id;
-	pipe->dynamic_exposure_num_max = 3;
 
 	/* Initialize subdev */
 	v4l2_subdev_init(sd, &mtk_raw_subdev_ops);
@@ -3302,7 +3098,7 @@ static void mtk_raw_pipeline_unregister(struct mtk_raw_pipeline *pipe)
 	for (i = 0; i < ARRAY_SIZE(pipe->vdev_nodes); i++)
 		mtk_cam_video_unregister(pipe->vdev_nodes + i);
 	v4l2_ctrl_handler_free(&pipe->ctrl_handler);
-	mutex_destroy(&pipe->res_config.resource_lock);
+
 	v4l2_device_unregister_subdev(&pipe->subdev);
 	media_entity_cleanup(&pipe->subdev.entity);
 }
