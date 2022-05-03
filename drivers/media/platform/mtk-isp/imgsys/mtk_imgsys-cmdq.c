@@ -1404,8 +1404,8 @@ void mtk_imgsys_mmqos_monitor(struct mtk_imgsys_dev *imgsys_dev, u32 state)
 	if (state == SMI_MONITOR_STOP_STATE ||
 	    state == SMI_MONITOR_ACQUIRE_STATE) {
 #ifndef CONFIG_FPGA_EARLY_PORTING
-		smi_monitor_stop(NULL, 0, bw0);
-		smi_monitor_stop(NULL, 1, bw1);
+		smi_monitor_stop(NULL, 0, bw0, SMI_BW_IMGSYS);
+		smi_monitor_stop(NULL, 1, bw1, SMI_BW_IMGSYS);
 #endif
 	}
 
@@ -1431,8 +1431,8 @@ void mtk_imgsys_mmqos_monitor(struct mtk_imgsys_dev *imgsys_dev, u32 state)
 	if (state == SMI_MONITOR_START_STATE ||
 	    state == SMI_MONITOR_ACQUIRE_STATE) {
 #ifndef CONFIG_FPGA_EARLY_PORTING
-		smi_monitor_start(qos_info->dev, 0, common_port, flag);
-		smi_monitor_start(qos_info->dev, 1, common_port, flag);
+		smi_monitor_start(qos_info->dev, 0, common_port, flag, SMI_BW_IMGSYS);
+		smi_monitor_start(qos_info->dev, 1, common_port, flag, SMI_BW_IMGSYS);
 #endif
 	}
 
