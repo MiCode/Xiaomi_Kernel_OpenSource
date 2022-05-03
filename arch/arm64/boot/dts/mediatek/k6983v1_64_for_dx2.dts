@@ -175,6 +175,19 @@
 };
 /* GPS GPIO standardization end */
 
+&btcvsd_snd {
+		compatible = "mediatek,mtk-btcvsd-snd";
+		reg=<0 0x18830000 0 0x2000>, /*PKV_PHYSICAL_BASE*/
+			<0 0x18840000 0 0x20000>; /*SRAM_BANK2*/
+		interrupts = <GIC_SPI 552 IRQ_TYPE_LEVEL_HIGH 0>;
+		mediatek,infracfg = <&infracfg_ao_clk>;
+		/*INFRA MISC, conn_bt_cvsd_mask*/
+		/*cvsd_mcu_read, write, packet_indicator*/
+		mediatek,offset =<0xf00 0x800 0x140 0x144 0x148>;
+		disable_write_silence = <1>;
+		enable_secure_write = <1>;
+};
+
 &snd_audio_dsp {
 		mtk_dsp_voip = <0x1F 0xffffffff 0xffffffff 0xffffffff 0x30000>;
 		mtk_dsp_primary = <0x5 0xffffffff 0xffffffff \
