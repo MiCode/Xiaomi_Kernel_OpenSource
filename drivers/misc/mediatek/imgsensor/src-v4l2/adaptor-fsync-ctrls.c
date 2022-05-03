@@ -67,8 +67,12 @@ static void fsync_mgr_s_multi_shutter_frame_length(
 	u32 len = 0;
 	int i;
 
-	for (i = 0; (i < ae_exp_cnt) && (i < IMGSENSOR_STAGGER_EXPOSURE_CNT); i++)
-		fsync_exp[i] = (u32)(*(ae_exp_arr + i));
+	if (likely(ae_exp_arr != NULL)) {
+		for (i = 0;
+			(i < ae_exp_cnt) && (i < IMGSENSOR_STAGGER_EXPOSURE_CNT);
+			++i)
+			fsync_exp[i] = (u32)(*(ae_exp_arr + i));
+	}
 
 	para.u64[0] = (u64)fsync_exp;
 	para.u64[1] = min_t(u32, ae_exp_cnt, (u32)IMGSENSOR_STAGGER_EXPOSURE_CNT);
@@ -93,18 +97,28 @@ static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 	unsigned int i = 0;
 	int ret = 0;
 
-	if (ae_exp_cnt == 0
+	/* error handle */
+	if (unlikely(ae_exp_cnt == 0
 		/*|| ae_exp_cnt > MAX_NUM_OF_EXPOSURE*/
-		|| ae_exp_arr == NULL) {
+		|| ae_exp_arr == NULL)) {
 
 		dev_info(ctx->dev,
-			"%s: sidx:%d, NOTICE: get ae_exp_cnt:%u (min:1, max:), *ae_exp_arr:%p, return\n",
+			"%s: sidx:%d, ERROR: get ae_exp_cnt:%u (min:1, max:), *ae_exp_arr:%p, return\n",
 			__func__, ctx->idx,
 			ae_exp_cnt/*, MAX_NUM_OF_EXPOSURE*/,
 			ae_exp_arr);
 
 		return;
 	}
+
+	if (unlikely(p_hdr_exp == NULL)) {
+		dev_info(ctx->dev,
+			"%s: sidx:%d, ERROR: get p_hdr_exp is NULL, return\n",
+			__func__, ctx->idx);
+
+		return;
+	}
+
 
 	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
 
@@ -137,14 +151,24 @@ static void fsync_mgr_set_exp_data(struct adaptor_ctx *ctx,
 {
 	u32 fine_integ_line = 0;
 
-	if (ae_exp_arr == NULL || ae_exp_cnt == 0) {
+	/* error handle */
+	if (unlikely(ae_exp_arr == NULL || ae_exp_cnt == 0)) {
 		dev_info(ctx->dev,
-			"%s: sidx:%d, NOTICE: get ae_exp_arr is NULL, ae_exp_cnt:%u, return\n",
+			"%s: sidx:%d, ERROR: get ae_exp_arr is NULL, ae_exp_cnt:%u, return\n",
 			__func__, ctx->idx,
 			ae_exp_cnt);
 
 		return;
 	}
+
+	if (unlikely(p_pf_ctrl == NULL)) {
+		dev_info(ctx->dev,
+			"%s: sidx:%d, ERROR: get p_pf_ctrl is NULL, return\n",
+			__func__, ctx->idx);
+
+		return;
+	}
+
 
 	fine_integ_line = g_sensor_fine_integ_line(ctx);
 	p_pf_ctrl->shutter_lc = (ae_exp_cnt == 1) ? *(ae_exp_arr + 0) : 0;
@@ -172,21 +196,24 @@ int cb_fsync_mgr_set_framelength(void *p_ctx,
 	enum ACDK_SENSOR_FEATURE_ENUM cmd = 0;
 	int ret = 0;
 
-	if (p_ctx == NULL) {
+	/* error handle */
+	if (unlikely(p_ctx == NULL)) {
 		ret = 1;
 		pr_info(
-			"%s: NOTICE: p_ctx is NULL (cmd_id:%u, fl:%u), return:%d\n",
+			"%s: ERROR: p_ctx is NULL (cmd_id:%u, fl:%u), return:%d\n",
 			__func__,
 			cmd_id, framelength, ret);
 
 		return ret;
 	}
 
+
 	ctx = (struct adaptor_ctx *)p_ctx;
 	cmd = (enum ACDK_SENSOR_FEATURE_ENUM)cmd_id;
 
 
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 		ret = 2;
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
@@ -254,7 +281,8 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag)
 	struct fs_streaming_st s_info = {0};
 	unsigned int ret = 0;
 
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -294,7 +322,7 @@ void notify_fsync_mgr_streaming(struct adaptor_ctx *ctx, unsigned int flag)
 
 	/* call frame-sync streaming ON/OFF */
 	ret = ctx->fsync_mgr->fs_streaming(flag, &s_info);
-	if (ret != 0) {
+	if (unlikely(ret != 0)) {
 		dev_info(ctx->dev,
 			"%s: sidx:%d, NOTICE: frame-sync streaming ERROR!\n",
 			__func__, ctx->idx);
@@ -325,7 +353,8 @@ int chk_s_exp_with_fl_by_fsync_mgr(struct adaptor_ctx *ctx)
 
 #if defined(TWO_STAGE_FS)
 
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -357,7 +386,8 @@ int chk_s_exp_with_fl_by_fsync_mgr(struct adaptor_ctx *ctx)
 
 void notify_fsync_mgr_update_tg(struct adaptor_ctx *ctx, u64 val)
 {
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -374,7 +404,8 @@ void notify_fsync_mgr_update_tg(struct adaptor_ctx *ctx, u64 val)
 
 void notify_fsync_mgr_set_sync(struct adaptor_ctx *ctx, u64 en)
 {
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -394,7 +425,8 @@ void notify_fsync_mgr_set_sync(struct adaptor_ctx *ctx, u64 en)
 
 void notify_fsync_mgr_update_auto_flicker_mode(struct adaptor_ctx *ctx, u64 en)
 {
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -411,7 +443,8 @@ void notify_fsync_mgr_update_auto_flicker_mode(struct adaptor_ctx *ctx, u64 en)
 
 void notify_fsync_mgr_update_min_fl(struct adaptor_ctx *ctx)
 {
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -432,7 +465,8 @@ void notify_fsync_mgr_set_extend_framelength(
 {
 	unsigned int ext_fl_us = 0;
 
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -453,7 +487,8 @@ void notify_fsync_mgr_set_extend_framelength(
 
 void notify_fsync_mgr_seamless_switch(struct adaptor_ctx *ctx)
 {
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -469,7 +504,8 @@ void notify_fsync_mgr_seamless_switch(struct adaptor_ctx *ctx)
 
 void notify_fsync_mgr_n_1_en(struct adaptor_ctx *ctx, u64 n, u64 en)
 {
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -486,7 +522,8 @@ void notify_fsync_mgr_n_1_en(struct adaptor_ctx *ctx, u64 n, u64 en)
 
 void notify_fsync_mgr_mstream_en(struct adaptor_ctx *ctx, u64 en)
 {
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -503,7 +540,8 @@ void notify_fsync_mgr_mstream_en(struct adaptor_ctx *ctx, u64 en)
 
 void notify_fsync_mgr_subsample_tag(struct adaptor_ctx *ctx, u64 sub_tag)
 {
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -515,7 +553,7 @@ void notify_fsync_mgr_subsample_tag(struct adaptor_ctx *ctx, u64 sub_tag)
 		return;
 	}
 
-	if (sub_tag < 1) {
+	if (unlikely(sub_tag < 1)) {
 		dev_info(ctx->dev,
 			"%s: sidx:%d, NOTICE: sub_tag:%llu should larger than 1, return\n",
 			__func__, ctx->idx,
@@ -542,7 +580,8 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 {
 	struct fs_perframe_st pf_ctrl = {0};
 
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 		dev_info(ctx->dev,
@@ -631,7 +670,8 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
  ******************************************************************************/
 void notify_fsync_mgr_vsync(struct adaptor_ctx *ctx)
 {
-	if (ctx->fsync_mgr == NULL) {
+	/* not expected case */
+	if (unlikely(ctx->fsync_mgr == NULL)) {
 
 #if !defined(FORCE_DISABLE_FSYNC_MGR) && !defined(REDUCE_FSYNC_CTRLS_LOG)
 		dev_info(ctx->dev,

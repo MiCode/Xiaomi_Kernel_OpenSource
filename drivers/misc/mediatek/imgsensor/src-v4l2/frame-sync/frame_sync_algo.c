@@ -1046,7 +1046,7 @@ static inline void fs_alg_sa_dump_dynamic_para(unsigned int idx)
 /******************************************************************************/
 #ifdef SUPPORT_FS_NEW_METHOD
 static inline void fs_alg_sa_init_new_ctrl(
-	int idx, int m_idx, struct FrameSyncDynamicPara *p_para)
+	unsigned int idx, int m_idx, struct FrameSyncDynamicPara *p_para)
 {
 	/* generate new ctrl serial number */
 	p_para->magic_num = ++fs_sa_inst.magic_num[idx];
@@ -1406,7 +1406,7 @@ static inline long long fs_alg_sa_calc_adjust_diff_master(
 	f_cell_m = get_valid_frame_cell_size(m_idx);
 
 
-	return ((p_para_m->stable_fl_us * f_cell_m) - adjust_diff_s);
+	return ((long long)(p_para_m->stable_fl_us * f_cell_m) - adjust_diff_s);
 }
 
 
@@ -1430,7 +1430,7 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 	if ((fs_inst[s_idx].fl_active_delay != fs_inst[m_idx].fl_active_delay)
 		&& (adjust_diff_s > 0)) {
 		/* if there are the pair, N+2 pred_fl will bigger than N+1 sensor */
-		adjust_diff_s -= p_para_s->stable_fl_us * f_cell_s;
+		adjust_diff_s -= (long long)(p_para_s->stable_fl_us * f_cell_s);
 	}
 
 
@@ -1452,7 +1452,7 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 			return 0;
 		}
 
-		adjust_diff_s += (p_para_m->stable_fl_us * f_cell_m);
+		adjust_diff_s += (long long)(p_para_m->stable_fl_us * f_cell_m);
 	}
 
 
@@ -1565,7 +1565,7 @@ static unsigned int fs_alg_sa_adjust_slave_diff_resolver(
 
 
 	/* check if adjust diff is reasonable */
-	if (adjust_diff_s > (p_para_m->stable_fl_us * f_cell_m)) {
+	if (adjust_diff_s > (long long)(p_para_m->stable_fl_us * f_cell_m)) {
 		adjust_or_not = 0;
 
 		LOG_MUST(
@@ -2450,7 +2450,7 @@ void fs_alg_set_frame_record_st_data(
 
 void fs_alg_sa_notify_setup_all_frame_info(unsigned int idx)
 {
-	int m_idx = FS_ATOMIC_READ(&fs_sa_inst.master_idx);
+	unsigned int m_idx = FS_ATOMIC_READ(&fs_sa_inst.master_idx);
 
 
 	// fs_alg_sa_dump_dynamic_para(idx);
