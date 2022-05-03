@@ -1912,8 +1912,10 @@ static int _btif_vfifo_init(struct _mtk_btif_dma_ *p_dma)
 	}
 
 	dev = (struct device *)p_btif->private_data;
-	if (dev == NULL)
+	if (dev == NULL) {
 		BTIF_WARN_FUNC("Null dev pointer!!!!\n");
+		return E_BTIF_BAD_POINTER;
+	}
 
 	p_vfifo = p_dma->p_dma_info->p_vfifo;
 	if (p_vfifo->p_vir_addr != NULL) {
@@ -1959,8 +1961,10 @@ static int _btif_vfifo_deinit(struct _mtk_btif_dma_ *p_dma)
 	}
 
 	dev = (struct device *)p_btif->private_data;
-	if (dev == NULL)
+	if (dev == NULL) {
 		BTIF_WARN_FUNC("Null dev pointer!!!!\n");
+		return E_BTIF_BAD_POINTER;
+	}
 
 	p_vfifo = p_dma->p_dma_info->p_vfifo;
 
