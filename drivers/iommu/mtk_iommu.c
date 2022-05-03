@@ -1672,6 +1672,7 @@ static int mtk_iommu_map(struct iommu_domain *domain, unsigned long iova,
 {
 	int ret;
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
+	int retry_count = 0;
 
 	/* The "4GB mode" M4U physically can not use the lower remap of Dram. */
 	if (dom->data->enable_4GB)
@@ -1679,6 +1680,28 @@ static int mtk_iommu_map(struct iommu_domain *domain, unsigned long iova,
 
 	/* Synchronize with the tlb_lock */
 	ret = dom->iop->map(dom->iop, iova, paddr, size, prot, gfp);
+
+	/* retry if atomic alloc memory fail, most wait 4ms at atomic or 64ms at normal. */
+	while (ret == -ENOMEM && (gfp & GFP_ATOMIC) != 0 && retry_count < 8) {
+		pr_info("%s, retry map alloc memory %d\n", __func__, retry_count + 1);
+		if (in_atomic() || irqs_disabled() || in_interrupt()) {
+			ret = dom->iop->map(dom->iop, iova, paddr, size, prot, gfp);
+		} else {
+			/* if not in atomic ctx, wait memory reclaim. */
+			gfp_t ignore_atomic = (gfp & ~GFP_ATOMIC) | GFP_KERNEL;
+
+			ret = dom->iop->map(dom->iop, iova, paddr, size, prot, ignore_atomic);
+		}
+		if (ret == -ENOMEM) {
+			retry_count++;
+			if (in_atomic() || irqs_disabled() || in_interrupt()) {
+				udelay(500);
+			} else {
+				usleep_range(8000, 10*1000);
+			}
+		}
+	}
+
 	if (ret) {
 		pr_info("%s fail:%d, iommu:(%d,%d) tab_id:%d, iova:0x%lx end:0x%lx pa:%pa size:0x%zx prot:0x%x gfp:0x%x\n",
 			__func__, ret, dom->data->plat_data->iommu_type,
