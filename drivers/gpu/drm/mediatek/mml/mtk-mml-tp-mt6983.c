@@ -16,8 +16,8 @@
 #define MML_DUAL_FRAME		(2500 * 1400)
 #define AAL_MIN_WIDTH		50	/* TODO: define in tile? */
 /* 2k size and pixel as upper bound */
-#define MML_IR_WIDTH_2K		(2560 + 30)
-#define MML_IR_HEIGHT_2K	(1440 + 30)
+#define MML_IR_WIDTH_2K		2560
+#define MML_IR_HEIGHT_2K	1440
 #define MML_IR_2K		(MML_IR_WIDTH_2K * MML_IR_HEIGHT_2K)
 /* hd size and pixel as lower bound */
 #define MML_IR_WIDTH		1080
@@ -648,7 +648,12 @@ static enum mml_mode tp_query_mode(struct mml_dev *mml, struct mml_frame_info *i
 		goto decouple;
 
 	/* no pq support for racing mode */
-	if (info->dest[0].pq_config.en)
+	if (info->dest[0].pq_config.en_dc ||
+		info->dest[0].pq_config.en_color ||
+		info->dest[0].pq_config.en_hdr ||
+		info->dest[0].pq_config.en_ccorr ||
+		info->dest[0].pq_config.en_dre ||
+		info->dest[0].pq_config.hfg_en)
 		goto decouple;
 
 	/* racing only support 1 out */
