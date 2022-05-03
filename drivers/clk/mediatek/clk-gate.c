@@ -147,7 +147,7 @@ static int mtk_cg_is_done_hwv(struct clk_hw *hw)
 	return val != 0;
 }
 
-static int mtk_cg_enable_hwv(struct clk_hw *hw)
+static int __cg_enable_hwv(struct clk_hw *hw, bool inv)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 	u32 val, val2;
@@ -155,6 +155,10 @@ static int mtk_cg_enable_hwv(struct clk_hw *hw)
 
 	profile_time[2] = 0;
 	profile_time[3] = 0;
+
+	/* dummy read to clr idle signal of hw voter bus */
+	regmap_read(cg->hwv_regmap, cg->hwv_set_ofs, &val);
+
 	regmap_write(cg->hwv_regmap, cg->hwv_set_ofs,
 			BIT(cg->bit));
 	profile_time[0] = sched_clock();
@@ -176,7 +180,9 @@ static int mtk_cg_enable_hwv(struct clk_hw *hw)
 		if ((profile_time[2] == 0) && (val & BIT(cg->bit)) != 0)
 			profile_time[2] = sched_clock();
 		else {
-			if (clk_hw_is_enabled(hw)) {
+			regmap_read(cg->regmap, cg->sta_ofs, &val);
+			if ((inv && (val & BIT(cg->bit)) != 0) ||
+					(!inv && (val & BIT(cg->bit)) == 0)) {
 				profile_time[3] = sched_clock();
 				break;
 			} else if (j  > MTK_WAIT_HWV_STA_CNT)
@@ -206,10 +212,10 @@ hwv_sta_fail:
 hwv_done_fail:
 	regmap_read(cg->regmap, cg->sta_ofs, &val);
 	regmap_read(cg->hwv_regmap, cg->hwv_sta_ofs, &val2);
-	pr_err("%s cg enable timeout(%x %x %x %x)\n", clk_hw_get_name(hw), val, val2);
+	pr_err("%s cg enable timeout(%x %x)\n", clk_hw_get_name(hw), val, val2);
 hwv_prepare_fail:
 	regmap_read(cg->regmap, cg->hwv_sta_ofs, &val);
-	pr_err("%s cg prepare timeout(%dus)\n", clk_hw_get_name(hw), val);
+	pr_err("%s cg prepare timeout(%x)\n", clk_hw_get_name(hw), val);
 
 	for (i = 0; i < 4; i++)
 		pr_err("[%d]%lld us", i, profile_time[i]);
@@ -221,11 +227,24 @@ hwv_prepare_fail:
 	return -EBUSY;
 }
 
+static int mtk_cg_enable_hwv(struct clk_hw *hw)
+{
+	return __cg_enable_hwv(hw, false);
+}
+
+static int mtk_cg_enable_hwv_inv(struct clk_hw *hw)
+{
+	return __cg_enable_hwv(hw, true);
+}
+
 static void mtk_cg_disable_hwv(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
 	u32 val;
 	int i = 0;
+
+	/* dummy read to clr idle signal of hw voter bus */
+	regmap_read(cg->hwv_regmap, cg->hwv_clr_ofs, &val);
 
 	regmap_write(cg->hwv_regmap, cg->hwv_clr_ofs, BIT(cg->bit));
 
@@ -366,6 +385,14 @@ const struct clk_ops mtk_clk_gate_ops_hwv = {
 	.disable_unused = mtk_cg_disable_unused_hwv,
 };
 EXPORT_SYMBOL_GPL(mtk_clk_gate_ops_hwv);
+
+const struct clk_ops mtk_clk_gate_ops_hwv_inv = {
+	.is_enabled	= mtk_cg_is_set_hwv,
+	.enable		= mtk_cg_enable_hwv_inv,
+	.disable	= mtk_cg_disable_hwv,
+	.disable_unused = mtk_cg_disable_unused_hwv,
+};
+EXPORT_SYMBOL_GPL(mtk_clk_gate_ops_hwv_inv);
 
 const struct clk_ops mtk_clk_gate_ops_no_setclr = {
 	.is_enabled	= mtk_cg_bit_is_cleared,

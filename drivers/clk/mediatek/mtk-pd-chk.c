@@ -17,7 +17,7 @@
 #include "mt-plat/aee.h"
 
 #define TAG			"[pdchk] "
-#define MAX_PD_NUM		64
+#define MAX_PD_NUM		128
 #define MAX_BUF_LEN		512
 #define POWER_ON_STA		1
 #define POWER_OFF_STA		0
@@ -27,7 +27,7 @@
 static struct platform_device *pd_pdev[MAX_PD_NUM];
 static struct generic_pm_domain *pds[MAX_PD_NUM];
 static struct notifier_block mtk_pd_notifier[MAX_PD_NUM];
-static bool pd_sta[MAX_PD_NUM];
+static bool pd_evt[MAX_PD_NUM];
 
 static const struct pdchk_ops *pdchk_ops;
 static bool bug_on_stat;
@@ -78,7 +78,7 @@ static int pdchk_pd_is_on(int pd_id)
 
 	ps = pdchk_ops->get_pd_pwr_msk(pd_id);
 
-	return pwr_hw_is_on(ps->sta_type, ps->pwr_mask);
+	return pwr_hw_is_on(ps->sta_type, ps->pwr_val);
 }
 
 static const char * const prm_status_name[] = {
@@ -298,7 +298,7 @@ static int mtk_pd_dbg_dump(struct notifier_block *nb,
 {
 	switch (flags) {
 	case GENPD_NOTIFY_PRE_ON:
-		pd_sta[nb->priority] = POWER_ON_STA;
+		pd_evt[nb->priority] = POWER_ON_STA;
 		if (atomic_read(&check_enabled)
 				&& pdchk_suspend_is_in_usage(pds[nb->priority])) {
 			dump_stack();
@@ -306,7 +306,7 @@ static int mtk_pd_dbg_dump(struct notifier_block *nb,
 		}
 		break;
 	case GENPD_NOTIFY_PRE_OFF:
-		pd_sta[nb->priority] = POWER_OFF_STA;
+		pd_evt[nb->priority] = POWER_OFF_STA;
 #if ENABLE_PD_CHK_CG
 		mtk_check_subsys_swcg(nb->priority);
 #endif
@@ -317,22 +317,22 @@ static int mtk_pd_dbg_dump(struct notifier_block *nb,
 		}
 		break;
 	case GENPD_NOTIFY_ON:
-		if (pd_sta[nb->priority] == POWER_OFF_STA) {
+		if (pd_evt[nb->priority] == POWER_OFF_STA) {
 			/* dump devicelist belongs to current power domain */
 			pdchk_dump_enabled_power_domain(pds[nb->priority]);
 			pd_debug_dump(nb->priority, PD_PWR_ON);
 		}
-		if (pd_sta[nb->priority] == POWER_ON_STA)
+		if (pd_evt[nb->priority] == POWER_ON_STA)
 			pd_log_dump(nb->priority, PD_PWR_ON);
 
 		break;
 	case GENPD_NOTIFY_OFF:
-		if (pd_sta[nb->priority] == POWER_ON_STA) {
+		if (pd_evt[nb->priority] == POWER_ON_STA) {
 			/* dump devicelist belongs to current power domain */
 			pdchk_dump_enabled_power_domain(pds[nb->priority]);
 			pd_debug_dump(nb->priority, PD_PWR_OFF);
 		}
-		if (pd_sta[nb->priority] == POWER_OFF_STA)
+		if (pd_evt[nb->priority] == POWER_OFF_STA)
 			pd_log_dump(nb->priority, PD_PWR_OFF);
 
 		break;
@@ -363,64 +363,77 @@ static bool pdchk_suspend_allow(unsigned int id)
 static int set_genpd_notify(void)
 {
 	struct device_node *node;
+	unsigned int node_cnt = 0;
 	int r = 0;
-	int i;
+	int i = 0;
 
-	node = of_find_node_with_property(NULL, "#power-domain-cells");
+	do {
+		unsigned int pd_idx = 0;
 
-	if (node == NULL) {
+		node = of_find_node_with_property(NULL, "#power-domain-cells");
+
+		do {
+			struct of_phandle_args pa;
+			char pd_dev_name[DEVN_LEN];
+
+			if (!is_in_pd_list(i)) {
+				pd_idx++;
+				i++;
+				continue;
+			}
+
+			pa.np = node;
+			pa.args[0] = pd_idx;
+			pa.args_count = 1;
+
+			if (pdchk_suspend_allow(i)) {
+				snprintf(pd_dev_name, DEVN_LEN, "power-domain-chk-%d", i);
+				pd_pdev[i] = platform_device_register_simple(pd_dev_name,
+						-1, NULL, 0);
+			} else
+				pd_pdev[i] = platform_device_alloc("power-domain-chk", 0);
+
+			if (!pd_pdev[i]) {
+				pr_notice("create pd-%d device fail\n", i);
+				return -ENOMEM;
+			}
+
+			r = of_genpd_add_device(&pa, &pd_pdev[i]->dev);
+			if (r == -EINVAL) {
+				pr_notice("add pd device fail\n");
+				break;
+			} else if (r != 0)
+				pr_notice("%s(): of_genpd_add_device(%d)\n", __func__, r);
+
+			pds[i] = pd_to_genpd(pd_pdev[i]->dev.pm_domain);
+			if (IS_ERR(pds[i])) {
+				pr_notice("pd-%d is err\n", i);
+				break;
+			}
+
+			mtk_pd_notifier[i].notifier_call = mtk_pd_dbg_dump;
+			mtk_pd_notifier[i].priority = i;
+			r = dev_pm_genpd_add_notifier(&pd_pdev[i]->dev, &mtk_pd_notifier[i]);
+			if (r) {
+				pr_notice("pd-%s notifier err\n", pds[i]->name);
+				break;
+			}
+
+			pr_notice("pd-%s add to notifier\n", pds[i]->name);
+
+			pm_runtime_enable(&pd_pdev[i]->dev);
+			pm_runtime_get_noresume(&pd_pdev[i]->dev);
+			pm_runtime_put_noidle(&pd_pdev[i]->dev);
+			pd_idx++;
+			i++;
+		} while (!r && i < MAX_PD_NUM);
+		node_cnt++;
+		pr_notice("%d\n", node);
+	} while (node && i < MAX_PD_NUM);
+
+	if (!node_cnt) {
 		pr_notice("no power domain defined at dts node\n");
 		return -ENODEV;
-	}
-
-	for (i = 0; i < MAX_PD_NUM; i++) {
-		struct of_phandle_args pa;
-		char pd_dev_name[DEVN_LEN];
-
-		if (!is_in_pd_list(i))
-			continue;
-
-		pa.np = node;
-		pa.args[0] = i;
-		pa.args_count = 1;
-
-		if (pdchk_suspend_allow(i)) {
-			snprintf(pd_dev_name, DEVN_LEN, "power-domain-chk-%d", i);
-			pd_pdev[i] = platform_device_register_simple(pd_dev_name, -1, NULL, 0);
-		} else
-			pd_pdev[i] = platform_device_alloc("power-domain-chk", 0);
-
-		if (!pd_pdev[i]) {
-			pr_notice("create pd-%d device fail\n", i);
-			return -ENOMEM;
-		}
-
-		r = of_genpd_add_device(&pa, &pd_pdev[i]->dev);
-		if (r == -EINVAL) {
-			pr_notice("add pd device fail\n");
-			continue;
-		} else if (r != 0)
-			pr_notice("%s(): of_genpd_add_device(%d)\n", __func__, r);
-
-		pds[i] = pd_to_genpd(pd_pdev[i]->dev.pm_domain);
-		if (IS_ERR(pds[i])) {
-			pr_notice("pd-%d is err\n", i);
-			break;
-		}
-
-		mtk_pd_notifier[i].notifier_call = mtk_pd_dbg_dump;
-		mtk_pd_notifier[i].priority = i;
-		r = dev_pm_genpd_add_notifier(&pd_pdev[i]->dev, &mtk_pd_notifier[i]);
-		if (r) {
-			pr_notice("pd-%s notifier err\n", pds[i]->name);
-			break;
-		}
-
-		pr_notice("pd-%s add to notifier\n", pds[i]->name);
-
-		pm_runtime_enable(&pd_pdev[i]->dev);
-		pm_runtime_get_noresume(&pd_pdev[i]->dev);
-		pm_runtime_put_noidle(&pd_pdev[i]->dev);
 	}
 
 	return r;

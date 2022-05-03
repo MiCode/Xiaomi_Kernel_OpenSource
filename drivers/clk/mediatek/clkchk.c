@@ -30,6 +30,8 @@
 #define MAX_CLK_NUM			1024
 #define PLL_LEN				20
 #define INV_MSK				0xFFFFFFFF
+#define PWR_STA_BIT			BIT(30)
+#define PWR_STA_2ND_BIT			BIT(31)
 
 void __attribute__((weak)) clkchk_set_cfg(void)
 {
@@ -219,23 +221,37 @@ static s32 *read_spm_pwr_status_array(void)
 	return clkchk_ops->get_spm_pwr_status_array();
 }
 
-int pwr_hw_is_on(enum PWR_STA_TYPE type, u32 mask)
+int pwr_hw_is_on(enum PWR_STA_TYPE type, u32 val)
 {
 	u32 *pval = read_spm_pwr_status_array();
+	u32 sta;
 
 	if (type == PWR_STA) {
-		if ((pval[PWR_STA] & mask) != mask &&
-				(pval[PWR_STA2] & mask) != mask)
+		if ((pval[PWR_STA] & val) != val &&
+				(pval[PWR_STA2] & val) != val)
 			return 0;
-		else if ((pval[PWR_STA] & mask) == mask &&
-				(pval[PWR_STA2] & mask) == mask)
+		else if ((pval[PWR_STA] & val) == val &&
+				(pval[PWR_STA2] & val) == val)
 			return 1;
 		else
 			return -1;
-	}  else {
-		if ((pval[type] & mask) == mask)
+	} else if (type == PWR_CON_STA) {
+		if (clkchk_ops == NULL || clkchk_ops->get_spm_pwr_status == NULL)
+			return 0;
+
+		sta = clkchk_ops->get_spm_pwr_status(val);
+		if ((sta & PWR_STA_BIT) != PWR_STA_BIT &&
+				(sta & PWR_STA_2ND_BIT) != PWR_STA_2ND_BIT)
+			return 0;
+		else if ((sta & PWR_STA_BIT) == PWR_STA_BIT &&
+				(sta & PWR_STA_2ND_BIT) == PWR_STA_2ND_BIT)
 			return 1;
-		else if ((pval[type] & mask) != 0)
+		else
+			return -1;
+	} else {
+		if ((pval[type] & val) == val)
+			return 1;
+		else if ((pval[type] & val) != 0)
 			return -1;
 
 		else
@@ -246,15 +262,19 @@ EXPORT_SYMBOL(pwr_hw_is_on);
 
 int clkchk_pvdck_is_on(struct provider_clk *pvdck)
 {
+	struct pwr_data *pd;
+
 	if (!pvdck)
 		return -1;
 
 	if (clkchk_ops == NULL || clkchk_ops->is_pwr_on == NULL) {
-		if (clkchk_ops == NULL || clkchk_ops->get_pvd_pwr_mask == NULL)
-			return -1;
-
 		if (pvdck->pwr_mask == INV_MSK) {
-			return 0;
+			if (clkchk_ops == NULL || clkchk_ops->get_pvd_pwr_data == NULL)
+				return 0;
+
+			pd = clkchk_ops->get_pvd_pwr_data(pvdck->provider_name);
+
+			return pwr_hw_is_on(pd->type, pd->ofs);
 		}
 
 		if (!pvdck->pwr_mask) {
@@ -565,6 +585,14 @@ static void clkchk_dump_hwv_history(struct regmap *regmap, u32 id)
 	clkchk_ops->dump_hwv_history(regmap, id);
 }
 
+static void clkchk_get_bus_reg(void)
+{
+	if (clkchk_ops == NULL || clkchk_ops->get_bus_reg == NULL)
+		return;
+
+	clkchk_ops->get_bus_reg();
+}
+
 static void clkchk_dump_bus_reg(struct regmap *regmap, u32 ofs)
 {
 	if (clkchk_ops == NULL || clkchk_ops->dump_bus_reg == NULL)
@@ -613,9 +641,11 @@ static int clkchk_evt_handling(struct notifier_block *nb,
 			clkchk_cg_chk(clkd->name);
 		break;
 	case CLK_EVT_LONG_BUS_LATENCY:
-		clkchk_dump_hwv_history(clkd->hwv_regmap, clkd->id);
+		clkchk_get_bus_reg();
+		break;
 	case CLK_EVT_HWV_PLL_TIMEOUT:
 		clkchk_dump_hwv_pll_reg(clkd->hwv_regmap, clkd->shift);
+		break;
 	default:
 		pr_notice("cannot get flags identify\n");
 		break;

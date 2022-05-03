@@ -30,7 +30,7 @@
 #define CLKDBG_PM_DOMAIN	1
 
 #define MAX_CLK_NUM	1024
-#define MAX_PD_NUM	64
+#define MAX_PD_NUM	128
 #define PLL_LEN		20
 /* increase this number if encouter BRK issue in dump_genpd */
 #define MAX_DEV_NUM	512
@@ -981,46 +981,61 @@ static struct generic_pm_domain **get_all_genpd(void)
 {
 	static struct generic_pm_domain *pds[MAX_PD_NUM];
 	static unsigned int num_pds;
-	const size_t maxpd = ARRAY_SIZE(pds);
-	struct device_node *node;
+	struct device_node *node = NULL;
 	struct platform_device *pdev;
+	unsigned int node_cnt = 0;
 	int r;
 
 	if (num_pds != 0)
 		goto out;
 
-	node = of_find_node_with_property(NULL, "#power-domain-cells");
-
-	if (node == NULL)
-		return NULL;
-
 	pdev = platform_device_alloc("clk-dbg", 0);
 	if (!pdev)
 		return NULL;
 
-	for (num_pds = 0; num_pds < maxpd; num_pds++) {
-		struct of_phandle_args pa;
+	do {
+		unsigned int pd_idx = 0;
 
-		pa.np = node;
-		pa.args[0] = num_pds;
-		pa.args_count = 1;
-
-		r = of_genpd_add_device(&pa, &pdev->dev);
-		if (r == -EINVAL)
-			continue;
-		else if (r != 0)
-			pr_warn("%s(): of_genpd_add_device(%d)\n", __func__, r);
-		pds[num_pds] = pd_to_genpd(pdev->dev.pm_domain);
-		r = pm_genpd_remove_device(&pdev->dev);
-		if (r != 0)
-			pr_warn("%s(): pm_genpd_remove_device(%d)\n",
-					__func__, r);
-
-		if (IS_ERR(pds[num_pds])) {
-			pds[num_pds] = NULL;
+		node = of_find_node_with_property(node, "#power-domain-cells");
+		if (node == NULL)
 			break;
-		}
-	}
+
+		do {
+			struct of_phandle_args pa;
+
+			pa.np = node;
+			pa.args[0] = pd_idx;
+			pa.args_count = 1;
+
+			pr_notice("pd id: %d, %d\n", node_cnt, pd_idx);
+
+			r = of_genpd_add_device(&pa, &pdev->dev);
+			if (r == -EINVAL)
+				continue;
+			else if (r != 0)
+				pr_warn("%s(): of_genpd_add_device(%d)\n", __func__, r);
+			pds[num_pds] = pd_to_genpd(pdev->dev.pm_domain);
+			r = pm_genpd_remove_device(&pdev->dev);
+			if (r != 0)
+				pr_warn("%s(): pm_genpd_remove_device(%d)\n",
+						__func__, r);
+
+			if (IS_ERR_OR_NULL(pds[num_pds])) {
+				pds[num_pds] = NULL;
+				break;
+			}
+
+			pr_notice("pd: %s\n", pds[num_pds]->name);
+
+			pd_idx++;
+			num_pds++;
+		} while (!r && num_pds < MAX_PD_NUM);
+
+		node_cnt++;
+	} while (node);
+
+	if (!node_cnt)
+		return NULL;
 
 	platform_device_put(pdev);
 
