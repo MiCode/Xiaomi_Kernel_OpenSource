@@ -201,7 +201,7 @@ static unsigned int g_aging_load;
 static unsigned int g_aging_margin;
 static unsigned int g_avs_enable;
 static unsigned int g_avs_margin;
-static unsigned int g_gpm1_enable;
+static unsigned int g_gpm1_mode;
 static unsigned int g_gpueb_support;
 static unsigned int g_dvfs_timing_park_volt;
 static unsigned int g_dvfs_timing_park_reg;
@@ -723,7 +723,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		__gpufreq_footprint_power_step(0x09);
 
 		/* control GPM 1.0 */
-		if (g_gpm1_enable)
+		if (g_gpm1_mode)
 			__gpufreq_gpm_control();
 		__gpufreq_footprint_power_step(0x0A);
 
@@ -1367,7 +1367,7 @@ void __gpufreq_set_margin_mode(unsigned int mode)
 void __gpufreq_set_gpm_mode(unsigned int version, unsigned int mode)
 {
 	if (version == 1)
-		g_gpm1_enable = mode;
+		g_gpm1_mode = mode;
 }
 
 /* API: get core_mask table */
@@ -4858,7 +4858,7 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev)
 	}
 
 	/* feature config */
-	g_gpm1_enable = true;
+	g_gpm1_mode = true;
 	g_asensor_enable = GPUFREQ_ASENSOR_ENABLE;
 	g_avs_enable = GPUFREQ_AVS_ENABLE;
 	/* ignore return error and use default value if property doesn't exist */

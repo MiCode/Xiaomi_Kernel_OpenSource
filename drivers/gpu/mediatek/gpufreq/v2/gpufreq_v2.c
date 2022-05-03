@@ -25,6 +25,7 @@
 
 #include <gpufreq_v2.h>
 #include <gpufreq_ipi.h>
+#include <gpufreq_mssv.h>
 #include <gpufreq_debug.h>
 #include <gpueb_ipi.h>
 #include <gpueb_reserved_mem.h>
@@ -1391,6 +1392,45 @@ int gpufreq_set_test_mode(unsigned int value)
 	}
 
 	return ret;
+}
+
+/***********************************************************************************
+ * Function Name      : gpufreq_mssv_commit
+ * Description        : Only for GPUFREQ MSSV test purpose
+ ***********************************************************************************/
+int gpufreq_mssv_commit(unsigned int target, unsigned int val)
+{
+#if GPUFREQ_MSSV_TEST_MODE
+	struct gpufreq_ipi_data send_msg = {};
+	int ret = GPUFREQ_SUCCESS;
+
+	/* implement only on EB */
+	if (g_gpueb_support) {
+		send_msg.cmd_id = CMD_MSSV_COMMIT;
+		send_msg.u.mssv.target = target;
+		send_msg.u.mssv.val = val;
+
+		if (!gpufreq_ipi_to_gpueb(send_msg))
+			ret = g_recv_msg.u.return_value;
+		else
+			ret = GPUFREQ_EINVAL;
+	/* implement on AP */
+	} else {
+		if (gpufreq_fp && gpufreq_fp->mssv_commit)
+			ret = gpufreq_fp->mssv_commit(target, val);
+		else {
+			ret = GPUFREQ_ENOENT;
+			GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+		}
+	}
+
+	return ret;
+#else
+	GPUFREQ_UNREFERENCED(target);
+	GPUFREQ_UNREFERENCED(val);
+
+	return GPUFREQ_EINVAL;
+#endif /* GPUFREQ_MSSV_TEST_MODE */
 }
 
 /***********************************************************************************

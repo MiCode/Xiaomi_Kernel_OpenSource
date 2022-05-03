@@ -21,6 +21,7 @@
 #include <linux/uaccess.h>
 
 #include <gpufreq_v2.h>
+#include <gpufreq_mssv.h>
 #include <gpufreq_debug.h>
 #include <gpufreq_history_debug.h>
 
@@ -137,8 +138,8 @@ static int gpufreq_status_proc_show(struct seq_file *m, void *v)
 		"[Common-Status]",
 		g_shared_status->aging_margin ? "On" : "Off",
 		g_shared_status->avs_margin ? "On" : "Off",
-		g_shared_status->gpm1_enable ? "On" : "Off",
-		g_shared_status->gpm3_enable ? "On" : "Off");
+		g_shared_status->gpm1_mode ? "On" : "Off",
+		g_shared_status->gpm3_mode ? "On" : "Off");
 	seq_printf(m,
 		"%-15s GPU_SB_Ver: 0x%04x, GPU_PTP_Ver: 0x%04x, TempCompensate: %s (%d'C)\n",
 		"[Common-Status]",
@@ -693,8 +694,8 @@ static int mfgsys_config_proc_show(struct seq_file *m, void *v)
 		g_shared_status->avs_margin ? "On" : "Off");
 	seq_printf(m, "%-7s GPM1.0: %s, GPM3.0: %s\n",
 		"[GPM]",
-		g_shared_status->gpm1_enable ? "On" : "Off",
-		g_shared_status->gpm3_enable ? "On" : "Off");
+		g_shared_status->gpm1_mode ? "On" : "Off",
+		g_shared_status->gpm3_mode ? "On" : "Off");
 
 	if (aging_table_gpu && avs_table_gpu) {
 		seq_puts(m, "\n[##*] [TOP Vaging] [##*] [TOP Vavs]\n");
@@ -765,6 +766,86 @@ done:
 	return (ret < 0) ? ret : count;
 }
 
+#if GPUFREQ_MSSV_TEST_MODE
+static int mssv_test_proc_show(struct seq_file *m, void *v)
+{
+	mutex_lock(&gpufreq_debug_lock);
+
+	seq_printf(m, "%-8s DVFSState: 0x%04x\n",
+		"[Common]",
+		g_shared_status->dvfs_state);
+	seq_printf(m, "%-8s Freq: %7d, Volt: %7d, Vsram: %7d\n",
+		"[GPU]",
+		g_shared_status->cur_fgpu,
+		g_shared_status->cur_vgpu,
+		g_shared_status->cur_vsram_gpu);
+	seq_printf(m, "%-8s Freq: %7d, Volt: %7d, Vsram: %7d\n",
+		"[STACK]",
+		g_shared_status->cur_fstack,
+		g_shared_status->cur_vstack,
+		g_shared_status->cur_vsram_stack);
+	seq_printf(m, "%-8s STACK_SEL(0x%08x): 0x%08x, DEL_SEL(0x%08x): 0x%08x\n",
+		"[SEL]",
+		g_shared_status->reg_stack_sel.addr,
+		g_shared_status->reg_stack_sel.val,
+		g_shared_status->reg_del_sel.addr,
+		g_shared_status->reg_del_sel.val);
+
+	mutex_unlock(&gpufreq_debug_lock);
+
+	return GPUFREQ_SUCCESS;
+}
+
+static ssize_t mssv_test_proc_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *data)
+{
+	int ret = GPUFREQ_SUCCESS;
+	char buf[64], cmd[32];
+	unsigned int len = 0, val = 0;
+	unsigned int target = TARGET_MSSV_INVALID;
+
+	len = (count < (sizeof(buf) - 1)) ? count : (sizeof(buf) - 1);
+	if (copy_from_user(buf, buffer, len)) {
+		ret = GPUFREQ_EINVAL;
+		goto done;
+	}
+	buf[len] = '\0';
+
+	mutex_lock(&gpufreq_debug_lock);
+
+	if (sscanf(buf, "%8s %7d", cmd, val) == 2) {
+		if (sysfs_streq(cmd, "fgpu"))
+			target = TARGET_MSSV_FGPU;
+		else if (sysfs_streq(cmd, "vgpu"))
+			target = TARGET_MSSV_VGPU;
+		else if (sysfs_streq(cmd, "fstack"))
+			target = TARGET_MSSV_FSTACK;
+		else if (sysfs_streq(cmd, "vstack"))
+			target = TARGET_MSSV_VSTACK;
+		else if (sysfs_streq(cmd, "vsram"))
+			target = TARGET_MSSV_VSRAM;
+		else if (sysfs_streq(cmd, "stacksel"))
+			target = TARGET_MSSV_STACK_SEL;
+		else if (sysfs_streq(cmd, "delsel"))
+			target = TARGET_MSSV_DEL_SEL;
+		else {
+			GPUFREQ_LOGE("invalid MSSV cmd: %s", cmd);
+			ret = GPUFREQ_EINVAL;
+			goto done_unlock;
+		}
+		ret = gpufreq_mssv_commit(target, val);
+		if (ret)
+			GPUFREQ_LOGE("fail to commit: %s, val: %d (%d)",
+				cmd, val, ret);
+	}
+
+done_unlock:
+	mutex_unlock(&gpufreq_debug_lock);
+done:
+	return (ret < 0) ? ret : count;
+}
+#endif /* GPUFREQ_MSSV_TEST_MODE */
+
 /* PROCFS : initialization */
 PROC_FOPS_RW(gpufreq_status);
 PROC_FOPS_RO(gpu_working_opp_table);
@@ -778,6 +859,9 @@ PROC_FOPS_RW(fix_custom_freq_volt);
 PROC_FOPS_RW(mfgsys_power_control);
 PROC_FOPS_RW(mfgsys_config);
 PROC_FOPS_RW(opp_stress_test);
+#if GPUFREQ_MSSV_TEST_MODE
+PROC_FOPS_RW(mssv_test);
+#endif /* GPUFREQ_MSSV_TEST_MODE */
 
 static int gpufreq_create_procfs(void)
 {
@@ -800,13 +884,15 @@ static int gpufreq_create_procfs(void)
 		PROC_ENTRY(mfgsys_power_control),
 		PROC_ENTRY(opp_stress_test),
 		PROC_ENTRY(mfgsys_config),
+#if GPUFREQ_MSSV_TEST_MODE
+		PROC_ENTRY(mssv_test),
+#endif /* GPUFREQ_MSSV_TEST_MODE */
 	};
 
 	const struct pentry dualbuck_entries[] = {
 		PROC_ENTRY(stack_working_opp_table),
 		PROC_ENTRY(stack_signed_opp_table),
 	};
-
 
 	dir = proc_mkdir("gpufreqv2", NULL);
 	if (!dir) {

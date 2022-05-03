@@ -76,6 +76,7 @@ enum gpufreq_dvfs_state {
 	DVFS_AVS_KEEP   = BIT(3), /* 0000 1000 */
 	DVFS_AGING_KEEP = BIT(4), /* 0001 0000 */
 	DVFS_IDLE       = BIT(5), /* 0010 0000 */
+	DVFS_MSSV_TEST  = BIT(6), /* 0100 0000 */
 };
 
 enum gpufreq_target {
@@ -191,6 +192,11 @@ struct gpufreq_asensor_info {
 	unsigned int lvts5_0_y_temperature;
 };
 
+struct gpufreq_reg_info {
+	unsigned int addr;
+	unsigned int val;
+};
+
 /**************************************************
  * Shared Status
  **************************************************/
@@ -246,12 +252,14 @@ struct gpufreq_shared_status {
 	unsigned int avs_margin;
 	unsigned int sb_version;
 	unsigned int ptp_version;
-	unsigned int gpm1_enable;
-	unsigned int gpm3_enable;
+	unsigned int gpm1_mode;
+	unsigned int gpm3_mode;
 	unsigned int dual_buck;
 	unsigned int segment_id;
 	unsigned int power_time_h;
 	unsigned int power_time_l;
+	struct gpufreq_reg_info reg_stack_sel;
+	struct gpufreq_reg_info reg_del_sel;
 	struct gpufreq_asensor_info asensor_info;
 	struct gpufreq_opp_info working_table_gpu[GPUFREQ_MAX_OPP_NUM];
 	struct gpufreq_opp_info working_table_stack[GPUFREQ_MAX_OPP_NUM];
@@ -290,6 +298,7 @@ struct gpufreq_platform_fp {
 	void (*pdca_config)(enum gpufreq_power_state power);
 	void (*fake_mtcmos_control)(enum gpufreq_power_state power);
 	void (*set_shared_status)(struct gpufreq_shared_status *shared_status);
+	int (*mssv_commit)(unsigned int target, unsigned int val);
 	/* GPU */
 	unsigned int (*get_cur_fgpu)(void);
 	unsigned int (*get_cur_vgpu)(void);
@@ -408,5 +417,6 @@ int gpufreq_set_margin_mode(enum gpufreq_feat_mode mode);
 int gpufreq_set_gpm_mode(unsigned int version, enum gpufreq_feat_mode mode);
 int gpufreq_set_dfd_mode(enum gpufreq_feat_mode mode);
 int gpufreq_set_test_mode(unsigned int value);
+int gpufreq_mssv_commit(unsigned int target, unsigned int val);
 
 #endif /* __GPUFREQ_V2_H__ */

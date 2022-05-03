@@ -86,6 +86,7 @@ void __gpufreq_pdca_config(enum gpufreq_power_state power);
 void __gpufreq_fake_mtcmos_control(enum gpufreq_power_state power);
 void __gpufreq_update_debug_opp_info(void);
 void __gpufreq_set_shared_status(struct gpufreq_shared_status *shared_status);
+int __gpufreq_mssv_commit(unsigned int target, unsigned int val);
 /* GPU */
 unsigned int __gpufreq_get_cur_fgpu(void);
 unsigned int __gpufreq_get_cur_vgpu(void);

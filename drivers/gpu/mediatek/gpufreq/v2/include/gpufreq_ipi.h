@@ -40,7 +40,8 @@ static char *gpufreq_ipi_cmd_name[] = {
 	"CMD_SET_GPM_MODE",           // 15
 	"CMD_SET_DFD_MODE",           // 16
 	"CMD_SET_TEST_MODE",          // 17
-	"CMD_NUM",                    // 18
+	"CMD_MSSV_COMMIT",            // 18
+	"CMD_NUM",                    // 19
 };
 
 enum gpufreq_ipi_cmd {
@@ -64,7 +65,8 @@ enum gpufreq_ipi_cmd {
 	CMD_SET_GPM_MODE              = 15,
 	CMD_SET_DFD_MODE              = 16,
 	CMD_SET_TEST_MODE             = 17,
-	CMD_NUM                       = 18,
+	CMD_MSSV_COMMIT               = 18,
+	CMD_NUM                       = 19,
 };
 
 /**************************************************
@@ -99,6 +101,10 @@ struct gpufreq_ipi_data {
 			unsigned int version;
 			unsigned int mode;
 		} gpm;
+		struct {
+			unsigned int target;
+			unsigned int val;
+		} mssv;
 	} u;
 };
 
