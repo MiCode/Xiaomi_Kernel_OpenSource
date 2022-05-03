@@ -183,6 +183,7 @@ struct mtk_vdec_fmt {
 	int fmt_freq_cnt;
 	unsigned long fmt_freqs[MAX_FREQ_STEP];
 	struct regulator *fmt_reg;
+	struct clk *dvfs_clk;
 	struct icc_path *fmt_qos_req[FMT_PORT_NUM];
 	struct dts_info dtsInfo;
 	int fmt_m4u_ports[FMT_PORT_NUM];

@@ -90,11 +90,15 @@ void fmt_prepare_dvfs_emi_bw(struct mtk_vdec_fmt *fmt)
 		return;
 	}
 
-	fmt->fmt_reg = devm_regulator_get(fmt->dev,
-						"dvfsrc-vcore");
-	if (fmt->fmt_reg == 0) {
+	fmt->fmt_reg = devm_regulator_get_optional(fmt->dev,
+						"mmdvfs-dvfsrc-vcore");
+	if (IS_ERR_OR_NULL(fmt->fmt_reg)) {
 		fmt_debug(0, "Failed to get regulator\n");
-		return;
+		fmt->dvfs_clk = devm_clk_get(fmt->dev, "mmdvfs_clk");
+		if (IS_ERR_OR_NULL(fmt->dvfs_clk)) {
+			fmt_debug(0, "Failed to get mmdvfs clk\n");
+			return;
+		}
 	}
 
 	fmt->fmt_freq_cnt = dev_pm_opp_get_opp_count(fmt->dev);
@@ -156,7 +160,7 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 					request_freq, fmt->fmt_freqs[fmt->fmt_freq_cnt-1]);
 	}
 
-	if (fmt->fmt_reg != 0) {
+	if (!IS_ERR_OR_NULL(fmt->fmt_reg)) {
 		opp = dev_pm_opp_find_freq_ceil(fmt->dev,
 					&request_freq);
 		fmt_debug(1, "actual request freq %lu", request_freq);
@@ -164,10 +168,14 @@ void fmt_start_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, struct fmt_pmqos pmqos_para
 		dev_pm_opp_put(opp);
 
 		ret = regulator_set_voltage(fmt->fmt_reg, volt, INT_MAX);
-		if (ret) {
+		if (ret)
 			fmt_debug(0, "Failed to set regulator voltage %d\n",
 			volt);
-		}
+	} else if (!IS_ERR_OR_NULL(fmt->dvfs_clk)) {
+		fmt_debug(1, "actual request freq %lu", request_freq);
+		ret = clk_set_rate(fmt->dvfs_clk, request_freq);
+		if (ret)
+			fmt_debug(0, "Failed to set mmdvfs rate %d\n", request_freq);
 	}
 	fmt_debug(1, "rdma cal MMqos (%d, %d, %d)",
 			pmqos_param.rdma_datasize,
@@ -198,8 +206,9 @@ void fmt_end_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, int id)
 	int volt = 0;
 	int ret = 0;
 
-	if (fmt->fmt_reg != 0) {
+	if (!IS_ERR_OR_NULL(fmt->fmt_reg)) {
 		fmt_debug(1, "request freq %d", fmt->fmt_freqs[0]);
+
 		opp = dev_pm_opp_find_freq_ceil(fmt->dev,
 					&fmt->fmt_freqs[0]);
 		volt = dev_pm_opp_get_voltage(opp);
@@ -210,6 +219,11 @@ void fmt_end_dvfs_emi_bw(struct mtk_vdec_fmt *fmt, int id)
 			fmt_debug(0, "Failed to set regulator voltage %d\n",
 			volt);
 		}
+	} else if (!IS_ERR_OR_NULL(fmt->dvfs_clk)) {
+		fmt_debug(1, "request freq 0\n");
+		ret = clk_set_rate(fmt->dvfs_clk, 0);
+		if (ret)
+			fmt_debug(0, "Failed to set mmdvfs rate 0\n");
 	}
 
 	if (fmt->fmt_qos_req[id] != 0) {
