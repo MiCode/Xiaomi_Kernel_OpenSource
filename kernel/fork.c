@@ -707,14 +707,27 @@ static void check_mm(struct mm_struct *mm)
 		long x = atomic_long_read(&mm->rss_stat.count[i]);
 
 		if (unlikely(x))
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+		{
+#endif
 			pr_alert("BUG: Bad rss-counter state mm:%p type:%s val:%ld\n",
 				 mm, resident_page_types[i], x);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+			BUG();
+		}
+#endif
 	}
 
 	if (mm_pgtables_bytes(mm))
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	{
+#endif
 		pr_alert("BUG: non-zero pgtables_bytes on freeing mm: %ld\n",
 				mm_pgtables_bytes(mm));
-
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+		BUG();
+	}
+#endif
 #if defined(CONFIG_TRANSPARENT_HUGEPAGE) && !USE_SPLIT_PMD_PTLOCKS
 	VM_BUG_ON_MM(mm->pmd_huge_pte, mm);
 #endif

@@ -342,6 +342,10 @@ s asix_mdio_bus_read
 s asix_mdio_bus_write
 s asix_mdio_read
 s asix_mdio_read_nopm
+f kernel/fork.c
+f kernel/sched/core.c
+f kernel/workqueue.c
+f mm/mempool.c
 s __asix_mdio_write
 s asix_mdio_write
 s asix_mdio_write_nopm

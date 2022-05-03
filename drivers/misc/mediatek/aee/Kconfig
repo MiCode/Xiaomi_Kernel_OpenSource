@@ -44,3 +44,9 @@ config MTK_AVOID_TRUNCATE_COREDUMP
 	  coredump after receiving signal 9. And ensure coredump file is complete
 	  when occurring suspend issue. Beyond that, it will avoid task race condition
 	  issue after NE task early exit, which will cause aed KE issue.
+
+config MTK_PANIC_ON_WARN
+	tristate "Enable warning as panic"
+	help
+	  MTK_PANIC_ON_WARN is the kernel config of warning as panic.
+	  help us catch more exception.

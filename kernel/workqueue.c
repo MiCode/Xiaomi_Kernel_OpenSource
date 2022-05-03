@@ -2326,6 +2326,9 @@ __acquires(&pool->lock)
 		       worker->current_func);
 		debug_show_held_locks(current);
 		dump_stack();
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+		BUG();
+#endif
 	}
 
 	/*
@@ -5887,6 +5890,9 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
 			pr_cont(" stuck for %us!\n",
 				jiffies_to_msecs(now - pool_ts) / 1000);
 			trace_android_vh_wq_lockup_pool(pool->cpu, pool_ts);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+			BUG();
+#endif
 		}
 	}
 

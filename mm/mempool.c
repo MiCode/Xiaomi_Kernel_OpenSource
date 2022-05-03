@@ -37,6 +37,9 @@ static void poison_error(mempool_t *pool, void *element, size_t size,
 		pr_cont("%x ", *(u8 *)(element + i));
 	pr_cont("%s\n", end < size ? "..." : "");
 	dump_stack();
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	BUG();
+#endif
 }
 
 static void __check_element(mempool_t *pool, void *element, size_t size)
