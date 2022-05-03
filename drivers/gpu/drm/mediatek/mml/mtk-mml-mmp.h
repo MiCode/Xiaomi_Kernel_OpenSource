@@ -24,8 +24,10 @@
 
 struct mml_mmp_events_t {
 	mmp_event mml;
+	mmp_event query_mode;
 	mmp_event submit;
 	mmp_event config;
+	mmp_event task_create;
 	mmp_event buf_map;
 	mmp_event fence;
 	mmp_event fence_timeout;
@@ -45,6 +47,12 @@ struct mml_mmp_events_t {
 	mmp_event addon_addon_config;
 	mmp_event addon_start;
 	mmp_event addon_unprepare;
+	mmp_event addon_dle_config;
+
+	/* events for dle adaptor */
+	mmp_event dle;
+	mmp_event dle_config_create;
+	mmp_event dle_buf;
 };
 
 void mml_mmp_init(void);

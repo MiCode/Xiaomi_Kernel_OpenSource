@@ -159,9 +159,11 @@ enum mml_mode mml_drm_query_cap(struct mml_drm_ctx *ctx,
 		mode = MML_MODE_MDP_DECOUPLE;
 	}
 
+	mml_mmp(query_mode, MMPROFILE_FLAG_PULSE, mode, info->mode);
 	return mode;
 
 not_support:
+	mml_mmp(query_mode, MMPROFILE_FLAG_PULSE, MML_MODE_NOT_SUPPORT, info->mode);
 	return MML_MODE_NOT_SUPPORT;
 }
 EXPORT_SYMBOL_GPL(mml_drm_query_cap);
@@ -780,7 +782,7 @@ s32 mml_drm_submit(struct mml_drm_ctx *ctx, struct mml_submit *submit,
 	 */
 	mml_drm_try_frame(ctx, &submit->info);
 
-	mml_mmp(submit, MMPROFILE_FLAG_PULSE, atomic_read(&ctx->job_serial), 0);
+	mml_mmp(submit, MMPROFILE_FLAG_PULSE, atomic_read(&ctx->job_serial), submit->info.mode);
 
 	mutex_lock(&ctx->config_mutex);
 

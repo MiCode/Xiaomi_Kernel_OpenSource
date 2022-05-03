@@ -1500,9 +1500,12 @@ static void core_config_task_work(struct work_struct *work)
 
 struct mml_task *mml_core_create_task(void)
 {
-	struct mml_task *task = kzalloc(sizeof(*task), GFP_KERNEL);
+	struct mml_task *task;
 	s32 ret;
 
+	mml_mmp(task_create, MMPROFILE_FLAG_PULSE, 0, 0);
+
+	task = kzalloc(sizeof(*task), GFP_KERNEL);
 	if (unlikely(!task)) {
 		mml_err("failed to create mml task");
 		return ERR_PTR(-ENOMEM);

@@ -207,6 +207,8 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 {
 	u8 i;
 
+	mml_mmp(dle_buf, MMPROFILE_FLAG_START, user_buf->use_dma, user_buf->cnt);
+
 	if (user_buf->use_dma)
 		mml_buf_get(fbuf, user_buf->dmabuf, user_buf->cnt, name);
 	else
@@ -218,6 +220,8 @@ static void frame_buf_to_task_buf(struct mml_file_buf *fbuf,
 	fbuf->cnt = user_buf->cnt;
 	fbuf->flush = user_buf->flush;
 	fbuf->invalid = user_buf->invalid;
+
+	mml_mmp(dle_buf, MMPROFILE_FLAG_END, 0, 0);
 }
 
 static void task_move_to_running(struct mml_task *task)
@@ -535,6 +539,8 @@ s32 mml_dle_config(struct mml_dle_ctx *ctx, struct mml_submit *submit,
 	/* mml_mmp(submit, MMPROFILE_FLAG_PULSE, atomic_read(&ctx->job_serial), 0); */
 
 	mutex_lock(&ctx->config_mutex);
+
+	mml_mmp(dle_config_create, MMPROFILE_FLAG_PULSE, 0, 0);
 
 	cfg = frame_config_find_reuse(ctx, submit, dle_info);
 	if (cfg) {

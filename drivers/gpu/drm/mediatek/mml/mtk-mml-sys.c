@@ -964,7 +964,9 @@ static void sys_mml_calc_cfg(struct mtk_ddp_comp *ddp_comp,
 		info.dl_out[i].width = cfg->mml_dst_roi[i].width;
 		info.dl_out[i].height = cfg->mml_dst_roi[i].height;
 	}
+	mml_mmp(addon_dle_config, MMPROFILE_FLAG_START, 0, 0);
 	ret = mml_dle_config(ctx, &cfg->submit, &info, cfg);
+	mml_mmp(addon_dle_config, MMPROFILE_FLAG_END, 0, 0);
 	if (ret) {
 		mml_err("%s config fail", __func__);
 		return;
