@@ -123,6 +123,7 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 				mdw_drv_err("sc(0x%llx-%u) cb#%u(%llu) get fail\n",
 					c->kid, i, j,
 					ksubcmd->cmdbufs[j].handle);
+				ret = -EINVAL;
 				goto free_cmdbufs;
 			}
 			/* check mem boundary */
@@ -132,6 +133,7 @@ static int mdw_cmd_get_cmdbufs(struct mdw_fpriv *mpriv, struct mdw_cmd *c)
 					c->kid, i, j, m->vaddr,
 					ksubcmd->cmdbufs[j].size,
 					m->size);
+				ret = -EINVAL;
 				goto free_cmdbufs;
 			}
 
