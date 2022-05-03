@@ -105,11 +105,8 @@ static int history_debug_show(struct seq_file *sfile, void *v)
 	int i = 0;
 	unsigned int val;
 
-	start_log_offs = gpufreq_history_of_ioremap("mediatek,gpufreq",
-		"sysram_mfg_history");
-	GPUFREQ_LOGI("gpufreq start_log_offs: %x", start_log_offs);
 	if (unlikely(!start_log_offs)) {
-		GPUFREQ_LOGE("Fail to ioremap sysram_base");
+		GPUFREQ_LOGE("strange start_log_offs");
 		return GPUFREQ_ENOMEM;
 	}
 
@@ -118,11 +115,23 @@ static int history_debug_show(struct seq_file *sfile, void *v)
 		seq_printf(sfile, "%08x", gpufreq_bit_reverse(val));
 	}
 
-	iounmap(start_log_offs);
-
 	return GPUFREQ_SUCCESS;
 }
 
+
+static int gpufreq_history_mem_init(void)
+{
+
+	start_log_offs = gpufreq_history_of_ioremap("mediatek,gpufreq",
+		"sysram_mfg_history");
+	GPUFREQ_LOGI("gpufreq start_log_offs: %x", start_log_offs);
+	if (unlikely(!start_log_offs)) {
+		GPUFREQ_LOGE("Fail to ioremap sysram_base");
+		return GPUFREQ_ENOMEM;
+	}
+
+	return GPUFREQ_SUCCESS;
+}
 
 /* DEBUGFS : initialization */
 DEBUG_FOPS_RO(history);
@@ -130,6 +139,7 @@ DEBUG_FOPS_RO(history);
 
 int gpufreq_create_debugfs(void)
 {
+	int ret = GPUFREQ_SUCCESS;
 	int i = 0;
 
 	struct pentry {
@@ -140,6 +150,12 @@ int gpufreq_create_debugfs(void)
 	const struct pentry default_entries[] = {
 		DEBUG_ENTRY(history),
 	};
+
+	ret = gpufreq_history_mem_init();
+	if (ret < 0) {
+		GPUFREQ_LOGE("Fail to ioremap sysram_base");
+		return GPUFREQ_ENOMEM;
+	}
 
 	DebugFSEntryDir = debugfs_create_dir(GPUFREQ_DEBUGFS_DIR_NAME, NULL);
 	if (!DebugFSEntryDir) {
@@ -165,4 +181,5 @@ void gpufreq_debugFS_exit(struct dentry *psDir)
 {
 	debugfs_remove_recursive(psDir);
 	DebugFSEntryDir = NULL;
+	iounmap(start_log_offs);
 }
