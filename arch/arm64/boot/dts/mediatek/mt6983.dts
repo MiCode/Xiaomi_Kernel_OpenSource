@@ -2733,6 +2733,7 @@
 		reg = <0 0x15001000 0 0x1000>;
 		mediatek,smi = <&smi_img_subcommon0>;
 		mediatek,larb-id = <9>;
+		mediatek,comm-port-id = <0>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_MAIN>;
 		clocks = <&imgsys_main_clk CLK_IMGSYS_MAIN_LARB9>,
 				 <&imgsys_main_clk CLK_IMGSYS_MAIN_LARB9>;
@@ -2745,6 +2746,7 @@
 		reg = <0 0x15004000 0 0x1000>;
 		mediatek,smi = <&smi_img_subcommon1>;
 		mediatek,larb-id = <18>;
+		mediatek,comm-port-id = <3>;
 		power-domains = <&scpsys MT6983_POWER_DOMAIN_ISP_MAIN>;
 		clocks = <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_LARB>,
 				 <&imgsys_main_clk CLK_IMGSYS_MAIN_ADL_LARB>;
