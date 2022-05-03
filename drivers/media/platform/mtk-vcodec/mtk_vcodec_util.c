@@ -371,7 +371,7 @@ int mtk_dma_sync_sg_range(const struct sg_table *sgt,
 		if (contig_size >= size)
 			break;
 		memcpy(d_sgl, s_sgl, sizeof(*s_sgl));
-		contig_size += sg_dma_len(s_sgl);
+		contig_size += s_sgl->length;
 		d_sgl = sg_next(d_sgl);
 		sgt_tmp->nents++;
 	}
