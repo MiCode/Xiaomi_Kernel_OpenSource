@@ -7,8 +7,8 @@
 #include <media/videobuf2-dma-contig.h>
 
 #include "mtk_cam.h"
-#include "mtk_cam-feature.h"
 #include "mtk_cam-video.h"
+#include "mtk_cam-fmt_utils.h"
 #include "mtk_camera-v4l2-controls.h"
 #include "mtk_camera-videodev2.h"
 #include "mtk_cam-ufbc-def.h"
@@ -16,46 +16,7 @@
 #include "mtk_cam_vb2-dma-contig.h"
 #include "mtk_cam-trace.h"
 
-/*
- * Note
- *	differt dma(fmt) would have different bus_size
- *	align xsize(bytes per line) with [bus_size * pixel_mode]
- */
-int mtk_cam_is_fullg(unsigned int ipi_fmt)
-{
-	return (ipi_fmt == MTKCAM_IPI_IMG_FMT_FG_BAYER8)
-		|| (ipi_fmt == MTKCAM_IPI_IMG_FMT_FG_BAYER10)
-		|| (ipi_fmt == MTKCAM_IPI_IMG_FMT_FG_BAYER12);
-}
-
-static inline
-int mtk_cam_dma_bus_size(int bpp, int pixel_mode_shift, int is_fg)
-{
-	unsigned int bus_size = ALIGN(bpp, 16) << pixel_mode_shift;
-
-	if (is_fg)
-		bus_size <<= 1;
-	return bus_size / 8; /* in bytes */
-}
-
-static inline
-int mtk_cam_yuv_dma_bus_size(int bpp, int pixel_mode_shift)
-{
-	unsigned int bus_size = ALIGN(bpp, 32);
-
-	return bus_size / 8; /* in bytes */
-}
-
-int mtk_cam_dmao_xsize(int w, unsigned int ipi_fmt, int pixel_mode_shift)
-{
-	const int is_fg		= mtk_cam_is_fullg(ipi_fmt);
-	const int bpp		= mtk_cam_get_pixel_bits(ipi_fmt);
-	const int bytes		= is_fg ?
-		DIV_ROUND_UP(w * bpp * 3 / 2, 8) : DIV_ROUND_UP(w * bpp, 8);
-	const int bus_size	= mtk_cam_dma_bus_size(bpp, pixel_mode_shift, is_fg);
-
-	return ALIGN(bytes, bus_size);
-}
+#define MAX_SUBSAMPLE_PLANE_NUM VB2_MAX_PLANES /* 8 */
 
 static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 				   unsigned int *num_buffers,
@@ -63,78 +24,7 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 				   unsigned int sizes[],
 				   struct device *alloc_devs[])
 {
-	struct mtk_cam_device *cam = vb2_get_drv_priv(vq);
-	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vq);
-	struct mtk_raw_pipeline *raw_pipeline;
-	unsigned int max_buffer_count = node->desc.max_buf_count;
-	const struct v4l2_format *fmt = &node->active_fmt;
-	unsigned int size;
-	int i;
-	int min_buf_sz;
-
-	min_buf_sz = ALIGN(IMG_MIN_WIDTH, IMG_PIX_ALIGN) * IMG_MIN_HEIGHT;
-
-	/* Check the limitation of buffer size */
-	if (max_buffer_count)
-		*num_buffers = clamp_val(*num_buffers, 1, max_buffer_count);
-
-	if (node->desc.smem_alloc)
-		vq->dma_attrs |= DMA_ATTR_NO_KERNEL_MAPPING;
-
-	if (vq->type == V4L2_BUF_TYPE_META_OUTPUT ||
-	    vq->type == V4L2_BUF_TYPE_META_CAPTURE)
-		size = fmt->fmt.meta.buffersize;
-	else
-		size = min_buf_sz;
-
-	/* Add for q.create_bufs with fmt.g_sizeimage(p) / 2 test */
-	if (*num_planes) {
-		if (sizes[0] < size || *num_planes != 1)
-			return -EINVAL;
-	} else {
-		/* TBC: subsampling configuration */
-		if (is_raw_subdev(node->uid.pipe_id)) {
-			raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
-			if (raw_pipeline && node->desc.id == MTK_RAW_MAIN_STREAM_OUT) {
-				if (raw_pipeline->dynamic_exposure_num_max >
-				    fmt->fmt.pix_mp.num_planes) {
-					*num_planes = raw_pipeline->dynamic_exposure_num_max;
-					for (i = 0; i < *num_planes; i++)
-						sizes[i] = size;
-				} else if (raw_pipeline && raw_pipeline->user_res.raw_res.feature &&
-					fmt->fmt.pix_mp.num_planes > 1) {
-					*num_planes = fmt->fmt.pix_mp.num_planes;
-
-					for (i = 0; i < *num_planes; i++)
-						sizes[i] = size;
-				} else {
-					*num_planes = 1;
-					sizes[0] = size;
-				}
-			} else if (raw_pipeline && raw_pipeline->user_res.raw_res.feature
-				&& fmt->fmt.pix_mp.num_planes > 1) {
-				*num_planes = fmt->fmt.pix_mp.num_planes;
-				for (i = 0; i < *num_planes; i++)
-					sizes[i] = size;
-			} else {
-				*num_planes = 1;
-				sizes[0] = size;
-			}
-		} else if (is_camsv_subdev(node->uid.pipe_id)) {
-			*num_planes = 1;
-			sizes[0] = size;
-		} else if (is_mraw_subdev(node->uid.pipe_id)) {
-			*num_planes = 1;
-			sizes[0] = size;
-		} else {
-			*num_planes = 1;
-			sizes[0] = size;
-		}
-		for (i = 0; i < *num_planes; i++)
-			dev_dbg(cam->dev, "[%s] id:%d, name:%s, np:%d, i:%d, size:%d\n", __func__,
-				node->desc.id, node->desc.name, *num_planes, i, sizes[i]);
-	}
-
+	// TODO
 	return 0;
 }
 
@@ -223,219 +113,65 @@ static void mtk_cam_vb2_buf_finish(struct vb2_buffer *vb)
 	}
 }
 
-static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
-				       unsigned int count)
+static int check_node_linked(struct vb2_queue *vq)
 {
 	struct mtk_cam_device *cam = vb2_get_drv_priv(vq);
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vq);
-	struct media_entity *entity = &node->vdev.entity;
-	struct mtk_cam_ctx *ctx = NULL;
-	struct device *dev = cam->dev;
-	int ret;
+	int ret = 0;
 
-	/* check entity is linked */
 	if (!node->enabled) {
 		dev_info(cam->dev,
 			"%s: stream on failed, node is not enabled\n",
 			node->desc.name);
 		ret = -ENOLINK;
-		goto fail_return_buffer;
 	}
 
-	if (!entity->pipe) {
-		ctx = mtk_cam_start_ctx(cam, node);
-		if (!ctx) {
-			ret = -ENOLINK;
-			goto fail_return_buffer;
-		}
-	} else {
-		ctx = mtk_cam_find_ctx(cam, entity);
-		if (WARN_ON(!ctx)) {
-			ret = -ENOLINK;
-			goto fail_return_buffer;
-		}
-	}
+	return ret;
+}
 
-	cam->streaming_pipe |= (1 << node->uid.pipe_id);
-	ctx->streaming_pipe |= (1 << node->uid.pipe_id);
-	ctx->streaming_node_cnt++;
+static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
+				       unsigned int count)
+{
+	struct mtk_cam_device *cam = vb2_get_drv_priv(vq);
+	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vq);
+	struct mtk_cam_ctx *ctx;
+	int ret;
 
-#if CCD_READY
-	if (ctx->streaming_node_cnt == 1)
-		if (is_raw_subdev(node->uid.pipe_id)) {
-			if (!isp_composer_create_session(ctx)) {
-				ctx->session_created = 1;
-			} else {
-				complete(&ctx->session_complete);
-				ret = -EBUSY;
-				goto fail_stop_ctx;
-			}
-		}
-#endif
-
-	dev_dbg(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
-		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
-
-	if (ctx->streaming_node_cnt < ctx->enabled_node_cnt)
-		return 0;
-
-	/* all enabled nodes are streaming, enable all subdevs */
-	MTK_CAM_TRACE_BEGIN(BASIC, "ctx_stream_on");
-	ret = mtk_cam_ctx_stream_on(ctx);
-	MTK_CAM_TRACE_END(BASIC);
-
+	ret = check_node_linked(vq);
 	if (ret)
-		goto fail_destroy_session;
+		return ret;
+
+	ctx = mtk_cam_start_ctx(cam, node);
+	if (!ctx)
+		return -EPIPE;
+
+	if (mtk_cam_ctx_all_nodes_streaming(ctx))
+		mtk_cam_ctx_stream_on(ctx);
 
 	return 0;
-
-fail_destroy_session:
-	if (ctx->session_created)
-		isp_composer_destroy_session(ctx);
-fail_stop_ctx:
-	ctx->streaming_node_cnt--;
-	ctx->streaming_pipe &= ~(1 << node->uid.pipe_id);
-	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
-	mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id, VB2_BUF_STATE_QUEUED);
-	mtk_cam_stop_ctx(ctx, entity);
-fail_return_buffer:
-	/* relese bufs by request */
-	return ret;
 }
 
 static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 {
 	struct mtk_cam_device *cam = vb2_get_drv_priv(vq);
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vq);
-	struct device *dev = cam->dev;
 	struct mtk_cam_ctx *ctx;
 
 	ctx = mtk_cam_find_ctx(cam, &node->vdev.entity);
 	if (WARN_ON(!ctx)) {
-		/* the ctx is stop, media_pipeline_stop is called */
-		mtk_cam_dev_req_clean_pending(cam, node->uid.pipe_id,
-					      VB2_BUF_STATE_ERROR);
+		// TODO: clean pending?
 		return;
 	}
 
-	dev_dbg(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
-		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
-
-	if (ctx->streaming_node_cnt == ctx->enabled_node_cnt) {
-		MTK_CAM_TRACE_BEGIN(BASIC, "ctx_stream_off");
+	if (mtk_cam_ctx_all_nodes_streaming(ctx))
 		mtk_cam_ctx_stream_off(ctx);
-		MTK_CAM_TRACE_END(BASIC);
-	}
 
-	if (cam->streaming_pipe & (1 << node->uid.pipe_id)) {
-		/* NOTE: take multi-pipelines case into consideration     */
-		/* Moreover, must clean bit mask before req cleanup       */
-		/* Otherwise, would cause req not removed in pending list */
-		cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
-		mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id, VB2_BUF_STATE_ERROR);
-	}
+	// TODO: clean pending req?
 
-	/* all bufs of node should be return by per requests */
-
-	/* NOTE: take multi-pipelines case into consideration */
-	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
-	ctx->streaming_node_cnt--;
-	if (ctx->streaming_node_cnt)
+	if (!mtk_cam_ctx_all_nodes_idle(ctx))
 		return;
 
 	mtk_cam_stop_ctx(ctx, &node->vdev.entity);
-}
-
-int is_mtk_format(u32 pixelformat)
-{
-	switch (pixelformat) {
-	case V4L2_PIX_FMT_YUYV10:
-	case V4L2_PIX_FMT_YVYU10:
-	case V4L2_PIX_FMT_UYVY10:
-	case V4L2_PIX_FMT_VYUY10:
-	case V4L2_PIX_FMT_YUYV12:
-	case V4L2_PIX_FMT_YVYU12:
-	case V4L2_PIX_FMT_UYVY12:
-	case V4L2_PIX_FMT_VYUY12:
-	case V4L2_PIX_FMT_MTISP_YUYV10P:
-	case V4L2_PIX_FMT_MTISP_YVYU10P:
-	case V4L2_PIX_FMT_MTISP_UYVY10P:
-	case V4L2_PIX_FMT_MTISP_VYUY10P:
-	case V4L2_PIX_FMT_MTISP_YUYV12P:
-	case V4L2_PIX_FMT_MTISP_YVYU12P:
-	case V4L2_PIX_FMT_MTISP_UYVY12P:
-	case V4L2_PIX_FMT_MTISP_VYUY12P:
-	case V4L2_PIX_FMT_NV12_10:
-	case V4L2_PIX_FMT_NV21_10:
-	case V4L2_PIX_FMT_NV16_10:
-	case V4L2_PIX_FMT_NV61_10:
-	case V4L2_PIX_FMT_NV12_12:
-	case V4L2_PIX_FMT_NV21_12:
-	case V4L2_PIX_FMT_NV16_12:
-	case V4L2_PIX_FMT_NV61_12:
-	case V4L2_PIX_FMT_MTISP_NV12_10P:
-	case V4L2_PIX_FMT_MTISP_NV21_10P:
-	case V4L2_PIX_FMT_MTISP_NV16_10P:
-	case V4L2_PIX_FMT_MTISP_NV61_10P:
-	case V4L2_PIX_FMT_MTISP_NV12_12P:
-	case V4L2_PIX_FMT_MTISP_NV21_12P:
-	case V4L2_PIX_FMT_MTISP_NV16_12P:
-	case V4L2_PIX_FMT_MTISP_NV61_12P:
-	case V4L2_PIX_FMT_MTISP_NV12_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV21_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV12_10_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
-	case V4L2_PIX_FMT_MTISP_SGRB8F:
-	case V4L2_PIX_FMT_MTISP_SGRB10F:
-	case V4L2_PIX_FMT_MTISP_SGRB12F:
-		return 1;
-	break;
-	default:
-		return 0;
-	break;
-	}
-}
-
-int is_yuv_ufo(u32 pixelformat)
-{
-	switch (pixelformat) {
-	case V4L2_PIX_FMT_MTISP_NV12_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV21_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV12_10_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
-	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
-		return 1;
-	default:
-		return 0;
-	}
-}
-
-int is_raw_ufo(u32 pixelformat)
-{
-	switch (pixelformat) {
-	case V4L2_PIX_FMT_MTISP_BAYER8_UFBC:
-	case V4L2_PIX_FMT_MTISP_BAYER10_UFBC:
-	case V4L2_PIX_FMT_MTISP_BAYER12_UFBC:
-	case V4L2_PIX_FMT_MTISP_BAYER14_UFBC:
-		return 1;
-	default:
-		return 0;
-	}
-}
-
-int is_fullg_rb(u32 pixelformat)
-{
-	switch (pixelformat) {
-	case V4L2_PIX_FMT_MTISP_SGRB8F:
-	case V4L2_PIX_FMT_MTISP_SGRB10F:
-	case V4L2_PIX_FMT_MTISP_SGRB12F:
-		return 1;
-	default:
-		return 0;
-	}
 }
 
 const struct mtk_format_info *mtk_format_info(u32 format)
@@ -589,123 +325,44 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 	return NULL;
 }
 
+static int _temp_ipi_pipe_id_to_idx(int pipe_id)
+{
+	pr_info("%s: update for 7s\n", __func__);
+
+	if (is_raw_subdev(pipe_id))
+		return pipe_id;
+
+	if (is_mraw_subdev(pipe_id))
+		return pipe_id - MTKCAM_SUBDEV_MRAW_START;
+
+	if (is_camsv_subdev(pipe_id))
+		return pipe_id - MTKCAM_SUBDEV_CAMSV_START;
+
+	return -1;
+}
+
 static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 {
-	struct mtk_cam_device *cam = vb2_get_drv_priv(vb->vb2_queue);
-	unsigned int pipe_id;
 	struct mtk_cam_buffer *buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 	struct mtk_cam_request *req = to_mtk_cam_req(vb->request);
-	struct mtk_cam_request_stream_data *req_stream_data;
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
-	struct mtk_raw_pde_config *pde_cfg;
-	struct device *dev = cam->dev;
-	unsigned int desc_id;
-	unsigned int dma_port;
-	unsigned int width, height, stride;
-	void *vaddr;
-	struct mtkcam_ipi_frame_param *frame_param;
-	struct mtkcam_ipi_meta_input *meta_in;
-	struct mtkcam_ipi_meta_output *meta_out;
-	struct mtk_camsv_frame_params *sv_frame_params;
-	struct mtk_raw_pipeline *raw_pipline;
+	int ipi_pipe_id = node->uid.pipe_id;
+	int pipe_idx;
 
+	if (WARN_ON(!req))
+		return;
 
-	dma_port = node->desc.dma_port;
-	pipe_id = node->uid.pipe_id;
-	req_stream_data = mtk_cam_req_get_s_data(req, pipe_id, 0);
-	frame_param = &req_stream_data->frame_params;
-	sv_frame_params = &req_stream_data->sv_frame_params;
-	raw_pipline = mtk_cam_dev_get_raw_pipeline(cam, pipe_id);
-	mtk_cam_s_data_set_vbuf(req_stream_data, buf, node->desc.id);
+	pipe_idx = _temp_ipi_pipe_id_to_idx(ipi_pipe_id);
+	if (is_raw_subdev(ipi_pipe_id))
+		USED_MASK_SET(&req->used_pipe, raw, pipe_idx);
+	else if (is_camsv_subdev(ipi_pipe_id))
+		USED_MASK_SET(&req->used_pipe, camsv, pipe_idx);
+	else if (is_mraw_subdev(ipi_pipe_id))
+		USED_MASK_SET(&req->used_pipe, mraw, pipe_idx);
+	else
+		pr_info("%s: wrong pipe id 0x%x\n", __func__, ipi_pipe_id);
 
-	/* update buffer internal address */
-	switch (dma_port) {
-	case MTKCAM_IPI_RAW_META_STATS_CFG:
-		desc_id = node->desc.id-MTK_RAW_SINK_NUM;
-		meta_in = &frame_param->meta_inputs[desc_id];
-		meta_in->buf.ccd_fd = vb->planes[0].m.fd;
-		/* vb->planes[0].bytesused; todo: vb2_q byteused is zero before stream on */
-		meta_in->buf.size = node->active_fmt.fmt.meta.buffersize;
-		meta_in->buf.iova = buf->daddr;
-		meta_in->uid.id = dma_port;
-		vaddr = vb2_plane_vaddr(vb, 0);
-		break;
-	case MTKCAM_IPI_RAW_META_STATS_0:
-	case MTKCAM_IPI_RAW_META_STATS_1:
-	case MTKCAM_IPI_RAW_META_STATS_2:
-		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
-		desc_id = node->desc.id-MTK_RAW_META_OUT_BEGIN;
-		meta_out = &frame_param->meta_outputs[desc_id];
-		meta_out->buf.ccd_fd = vb->planes[0].m.fd;
-		meta_out->buf.size = node->active_fmt.fmt.meta.buffersize;
-		meta_out->buf.iova = buf->daddr;
-		meta_out->uid.id = dma_port;
-		vaddr = vb2_plane_vaddr(vb, 0);
-		mtk_cam_set_meta_stats_info(dma_port, vaddr, pde_cfg);
-		break;
-	case MTKCAM_IPI_CAMSV_MAIN_OUT:
-		if (mtk_cam_is_with_w_channel(node->ctx) &&
-			node->desc.id == MTK_RAW_MAIN_STREAM_SV_1_OUT) {
-			sv_frame_params->img_out.buf[0][0].iova = buf->daddr;
-		} else if (node->desc.id == MTK_RAW_MAIN_STREAM_SV_1_OUT ||
-			node->desc.id == MTK_RAW_MAIN_STREAM_SV_2_OUT) {
-			struct mtkcam_ipi_img_output *img_out;
-			int svimg_i = node->desc.id - MTK_RAW_MAIN_STREAM_SV_1_OUT;
-
-			img_out = &sv_frame_params->sensor_svimg_out;
-			img_out->buf[0][svimg_i].iova = buf->daddr;
-			img_out->fmt.s.w = node->active_fmt.fmt.pix_mp.width;
-			img_out->fmt.s.h = node->active_fmt.fmt.pix_mp.height;
-			img_out->fmt.stride[svimg_i] =
-				node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
-			dev_dbg(dev, "%s:MTK_RAW_MAIN_STREAM_SV(%d) iova(0x%x)w/h/stride=%d/%d/%d\n",
-			__func__, svimg_i, sv_frame_params->sensor_svimg_out.buf[0][svimg_i].iova,
-			img_out->fmt.s.w, img_out->fmt.s.h, img_out->fmt.stride[svimg_i]);
-		} else if (node->desc.id == MTK_RAW_META_SV_OUT_0 ||
-			node->desc.id == MTK_RAW_META_SV_OUT_1 ||
-			node->desc.id == MTK_RAW_META_SV_OUT_2) {
-			struct mtkcam_ipi_img_output *img_out;
-			int svmeta_i = node->desc.id - MTK_RAW_META_SV_OUT_0;
-
-			img_out = &sv_frame_params->sensor_svmeta_out;
-			img_out->buf[0][svmeta_i].iova = buf->daddr;
-			img_out->fmt.s.w = node->active_fmt.fmt.pix_mp.width;
-			img_out->fmt.s.h = node->active_fmt.fmt.pix_mp.height;
-			img_out->fmt.stride[svmeta_i] =
-				node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
-			dev_dbg(dev, "%s:MTK_RAW_META_SV(%d) iova(0x%x) w/h/stride=%d/%d/%d\n",
-			__func__, svmeta_i,
-			sv_frame_params->sensor_svmeta_out.buf[0][svmeta_i].iova,
-			img_out->fmt.s.w, img_out->fmt.s.h, img_out->fmt.stride[svmeta_i]);
-		} else {
-#if PDAF_READY
-			sv_frame_params->img_out.buf[0][0].iova = buf->daddr +
-				mtk_cam_get_meta_size(dma_port);
-#else
-			sv_frame_params->img_out.buf[0][0].iova = buf->daddr;
-#endif
-			width = node->active_fmt.fmt.pix_mp.width;
-			height = node->active_fmt.fmt.pix_mp.height;
-			stride = node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
-#if PDAF_READY
-			vaddr = vb2_plane_vaddr(vb, 0);
-			mtk_cam_set_sv_meta_stats_info(
-				node->desc.dma_port, vaddr, width, height, stride);
-#endif
-		}
-		break;
-#if MRAW_READY
-	case MTKCAM_IPI_MRAW_META_STATS_CFG:
-	case MTKCAM_IPI_MRAW_META_STATS_0:
-		mtk_cam_mraw_handle_enque(vb);
-		break;
-#endif
-	default:
-		dev_dbg(dev, "%s:pipe(%d):buffer with invalid port(%d)\n",
-			__func__, pipe_id, dma_port);
-		break;
-	}
-
+	list_add_tail(&buf->list, &req->buf_list);
 }
 
 static void mtk_cam_vb2_buf_cleanup(struct vb2_buffer *vb)
@@ -834,268 +491,6 @@ unsigned int mtk_cam_get_sensor_fmt(unsigned int fmt)
 	}
 }
 
-unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt)
-{
-	switch (ipi_fmt) {
-	case MTKCAM_IPI_IMG_FMT_BAYER8:
-	case MTKCAM_IPI_IMG_FMT_FG_BAYER8:
-		return 8;
-	case MTKCAM_IPI_IMG_FMT_BAYER10:
-	case MTKCAM_IPI_IMG_FMT_FG_BAYER10:
-	case MTKCAM_IPI_IMG_FMT_BAYER10_MIPI:
-		return 10;
-	case MTKCAM_IPI_IMG_FMT_BAYER12:
-	case MTKCAM_IPI_IMG_FMT_FG_BAYER12:
-		return 12;
-	case MTKCAM_IPI_IMG_FMT_BAYER14:
-	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER14:
-		return 14;
-	case MTKCAM_IPI_IMG_FMT_BAYER10_UNPACKED:
-	case MTKCAM_IPI_IMG_FMT_BAYER12_UNPACKED:
-	case MTKCAM_IPI_IMG_FMT_BAYER14_UNPACKED:
-	case MTKCAM_IPI_IMG_FMT_BAYER16:
-	case MTKCAM_IPI_IMG_FMT_YUYV:
-	case MTKCAM_IPI_IMG_FMT_YVYU:
-	case MTKCAM_IPI_IMG_FMT_UYVY:
-	case MTKCAM_IPI_IMG_FMT_VYUY:
-		return 16;
-	case MTKCAM_IPI_IMG_FMT_Y8:
-	case MTKCAM_IPI_IMG_FMT_YUV_422_2P:
-	case MTKCAM_IPI_IMG_FMT_YVU_422_2P:
-	case MTKCAM_IPI_IMG_FMT_YUV_422_3P:
-	case MTKCAM_IPI_IMG_FMT_YVU_422_3P:
-	case MTKCAM_IPI_IMG_FMT_YUV_420_2P:
-	case MTKCAM_IPI_IMG_FMT_YVU_420_2P:
-	case MTKCAM_IPI_IMG_FMT_YUV_420_3P:
-	case MTKCAM_IPI_IMG_FMT_YVU_420_3P:
-		return 8;
-	case MTKCAM_IPI_IMG_FMT_YUYV_Y210:
-	case MTKCAM_IPI_IMG_FMT_YVYU_Y210:
-	case MTKCAM_IPI_IMG_FMT_UYVY_Y210:
-	case MTKCAM_IPI_IMG_FMT_VYUY_Y210:
-		return 32;
-	case MTKCAM_IPI_IMG_FMT_YUV_P210:
-	case MTKCAM_IPI_IMG_FMT_YVU_P210:
-	case MTKCAM_IPI_IMG_FMT_YUV_P010:
-	case MTKCAM_IPI_IMG_FMT_YVU_P010:
-	case MTKCAM_IPI_IMG_FMT_YUV_P212:
-	case MTKCAM_IPI_IMG_FMT_YVU_P212:
-	case MTKCAM_IPI_IMG_FMT_YUV_P012:
-	case MTKCAM_IPI_IMG_FMT_YVU_P012:
-		return 16;
-	case MTKCAM_IPI_IMG_FMT_YUYV_Y210_PACKED:
-	case MTKCAM_IPI_IMG_FMT_YVYU_Y210_PACKED:
-	case MTKCAM_IPI_IMG_FMT_UYVY_Y210_PACKED:
-	case MTKCAM_IPI_IMG_FMT_VYUY_Y210_PACKED:
-		return 20;
-	case MTKCAM_IPI_IMG_FMT_YUV_P210_PACKED:
-	case MTKCAM_IPI_IMG_FMT_YVU_P210_PACKED:
-	case MTKCAM_IPI_IMG_FMT_YUV_P010_PACKED:
-	case MTKCAM_IPI_IMG_FMT_YVU_P010_PACKED:
-		return 10;
-	case MTKCAM_IPI_IMG_FMT_YUV_P212_PACKED:
-	case MTKCAM_IPI_IMG_FMT_YVU_P212_PACKED:
-	case MTKCAM_IPI_IMG_FMT_YUV_P012_PACKED:
-	case MTKCAM_IPI_IMG_FMT_YVU_P012_PACKED:
-		return 12;
-	case MTKCAM_IPI_IMG_FMT_RGB_8B_3P:
-	case MTKCAM_IPI_IMG_FMT_FG_BAYER8_3P:
-	case MTKCAM_IPI_IMG_FMT_UFBC_NV12:
-	case MTKCAM_IPI_IMG_FMT_UFBC_NV21:
-	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER8:
-		return 8;
-	case MTKCAM_IPI_IMG_FMT_RGB_10B_3P_PACKED:
-	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P_PACKED:
-	case MTKCAM_IPI_IMG_FMT_UFBC_YUV_P010:
-	case MTKCAM_IPI_IMG_FMT_UFBC_YVU_P010:
-	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER10:
-		return 10;
-	case MTKCAM_IPI_IMG_FMT_RGB_12B_3P_PACKED:
-	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P_PACKED:
-	case MTKCAM_IPI_IMG_FMT_UFBC_YUV_P012:
-	case MTKCAM_IPI_IMG_FMT_UFBC_YVU_P012:
-	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER12:
-		return 12;
-	case MTKCAM_IPI_IMG_FMT_RGB_10B_3P:
-	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P:
-	case MTKCAM_IPI_IMG_FMT_RGB_12B_3P:
-	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P:
-		return 16;
-
-	default:
-		break;
-	}
-	pr_debug("not supported ipi-fmt 0x%08x", ipi_fmt);
-
-	return -1;
-}
-
-unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
-{
-	switch (fourcc) {
-	case V4L2_PIX_FMT_GREY:
-		return MTKCAM_IPI_IMG_FMT_Y8;
-	case V4L2_PIX_FMT_YUYV:
-		return MTKCAM_IPI_IMG_FMT_YUYV;
-	case V4L2_PIX_FMT_YVYU:
-		return MTKCAM_IPI_IMG_FMT_YVYU;
-	case V4L2_PIX_FMT_NV16:
-		return MTKCAM_IPI_IMG_FMT_YUV_422_2P;
-	case V4L2_PIX_FMT_NV61:
-		return MTKCAM_IPI_IMG_FMT_YVU_422_2P;
-	case V4L2_PIX_FMT_NV12:
-		return MTKCAM_IPI_IMG_FMT_YUV_420_2P;
-	case V4L2_PIX_FMT_NV21:
-		return MTKCAM_IPI_IMG_FMT_YVU_420_2P;
-	case V4L2_PIX_FMT_YUV422P:
-		return MTKCAM_IPI_IMG_FMT_YUV_422_3P;
-	case V4L2_PIX_FMT_YUV420:
-		return MTKCAM_IPI_IMG_FMT_YUV_420_3P;
-	case V4L2_PIX_FMT_YVU420:
-		return MTKCAM_IPI_IMG_FMT_YVU_420_3P;
-	case V4L2_PIX_FMT_NV12_10:
-		return MTKCAM_IPI_IMG_FMT_YUV_P010;
-	case V4L2_PIX_FMT_NV21_10:
-		return MTKCAM_IPI_IMG_FMT_YVU_P010;
-	case V4L2_PIX_FMT_NV16_10:
-		return MTKCAM_IPI_IMG_FMT_YUV_P210;
-	case V4L2_PIX_FMT_NV61_10:
-		return MTKCAM_IPI_IMG_FMT_YVU_P210;
-	case V4L2_PIX_FMT_MTISP_NV12_10P:
-		return MTKCAM_IPI_IMG_FMT_YUV_P010_PACKED;
-	case V4L2_PIX_FMT_MTISP_NV21_10P:
-		return MTKCAM_IPI_IMG_FMT_YVU_P010_PACKED;
-	case V4L2_PIX_FMT_MTISP_NV16_10P:
-		return MTKCAM_IPI_IMG_FMT_YUV_P210_PACKED;
-	case V4L2_PIX_FMT_MTISP_NV61_10P:
-		return MTKCAM_IPI_IMG_FMT_YVU_P210_PACKED;
-	case V4L2_PIX_FMT_YUYV10:
-		return MTKCAM_IPI_IMG_FMT_YUYV_Y210;
-	case V4L2_PIX_FMT_YVYU10:
-		return MTKCAM_IPI_IMG_FMT_YVYU_Y210;
-	case V4L2_PIX_FMT_UYVY10:
-		return MTKCAM_IPI_IMG_FMT_UYVY_Y210;
-	case V4L2_PIX_FMT_VYUY10:
-		return MTKCAM_IPI_IMG_FMT_VYUY_Y210;
-	case V4L2_PIX_FMT_MTISP_YUYV10P:
-		return MTKCAM_IPI_IMG_FMT_YUYV_Y210_PACKED;
-	case V4L2_PIX_FMT_MTISP_YVYU10P:
-		return MTKCAM_IPI_IMG_FMT_YVYU_Y210_PACKED;
-	case V4L2_PIX_FMT_MTISP_UYVY10P:
-		return MTKCAM_IPI_IMG_FMT_UYVY_Y210_PACKED;
-	case V4L2_PIX_FMT_MTISP_VYUY10P:
-		return MTKCAM_IPI_IMG_FMT_VYUY_Y210_PACKED;
-	case V4L2_PIX_FMT_NV12_12:
-		return MTKCAM_IPI_IMG_FMT_YUV_P012;
-	case V4L2_PIX_FMT_NV21_12:
-		return MTKCAM_IPI_IMG_FMT_YVU_P012;
-	case V4L2_PIX_FMT_NV16_12:
-		return MTKCAM_IPI_IMG_FMT_YUV_P212;
-	case V4L2_PIX_FMT_NV61_12:
-		return MTKCAM_IPI_IMG_FMT_YVU_P212;
-	case V4L2_PIX_FMT_MTISP_NV12_12P:
-		return MTKCAM_IPI_IMG_FMT_YUV_P012_PACKED;
-	case V4L2_PIX_FMT_MTISP_NV21_12P:
-		return MTKCAM_IPI_IMG_FMT_YVU_P012_PACKED;
-	case V4L2_PIX_FMT_MTISP_NV16_12P:
-		return MTKCAM_IPI_IMG_FMT_YUV_P212_PACKED;
-	case V4L2_PIX_FMT_MTISP_NV61_12P:
-		return MTKCAM_IPI_IMG_FMT_YVU_P212_PACKED;
-	case V4L2_PIX_FMT_SBGGR8:
-	case V4L2_PIX_FMT_SGBRG8:
-	case V4L2_PIX_FMT_SGRBG8:
-	case V4L2_PIX_FMT_SRGGB8:
-		return MTKCAM_IPI_IMG_FMT_BAYER8;
-	case V4L2_PIX_FMT_MTISP_SBGGR8F:
-	case V4L2_PIX_FMT_MTISP_SGBRG8F:
-	case V4L2_PIX_FMT_MTISP_SGRBG8F:
-	case V4L2_PIX_FMT_MTISP_SRGGB8F:
-		return MTKCAM_IPI_IMG_FMT_FG_BAYER8;
-	case V4L2_PIX_FMT_SBGGR10:
-	case V4L2_PIX_FMT_SGBRG10:
-	case V4L2_PIX_FMT_SGRBG10:
-	case V4L2_PIX_FMT_SRGGB10:
-		return MTKCAM_IPI_IMG_FMT_BAYER10_UNPACKED;
-	case V4L2_PIX_FMT_SBGGR10P:
-	case V4L2_PIX_FMT_SGBRG10P:
-	case V4L2_PIX_FMT_SGRBG10P:
-	case V4L2_PIX_FMT_SRGGB10P:
-		return MTKCAM_IPI_IMG_FMT_BAYER10_MIPI;
-	case V4L2_PIX_FMT_MTISP_SBGGR10:
-	case V4L2_PIX_FMT_MTISP_SGBRG10:
-	case V4L2_PIX_FMT_MTISP_SGRBG10:
-	case V4L2_PIX_FMT_MTISP_SRGGB10:
-		return MTKCAM_IPI_IMG_FMT_BAYER10;
-	case V4L2_PIX_FMT_MTISP_SBGGR10F:
-	case V4L2_PIX_FMT_MTISP_SGBRG10F:
-	case V4L2_PIX_FMT_MTISP_SGRBG10F:
-	case V4L2_PIX_FMT_MTISP_SRGGB10F:
-		return MTKCAM_IPI_IMG_FMT_FG_BAYER10;
-	case V4L2_PIX_FMT_SBGGR12:
-	case V4L2_PIX_FMT_SGBRG12:
-	case V4L2_PIX_FMT_SGRBG12:
-	case V4L2_PIX_FMT_SRGGB12:
-		return MTKCAM_IPI_IMG_FMT_BAYER12_UNPACKED;
-	case V4L2_PIX_FMT_MTISP_SBGGR12:
-	case V4L2_PIX_FMT_MTISP_SGBRG12:
-	case V4L2_PIX_FMT_MTISP_SGRBG12:
-	case V4L2_PIX_FMT_MTISP_SRGGB12:
-		return MTKCAM_IPI_IMG_FMT_BAYER12;
-	case V4L2_PIX_FMT_MTISP_SBGGR12F:
-	case V4L2_PIX_FMT_MTISP_SGBRG12F:
-	case V4L2_PIX_FMT_MTISP_SGRBG12F:
-	case V4L2_PIX_FMT_MTISP_SRGGB12F:
-		return MTKCAM_IPI_IMG_FMT_FG_BAYER12;
-	case V4L2_PIX_FMT_SBGGR14:
-	case V4L2_PIX_FMT_SGBRG14:
-	case V4L2_PIX_FMT_SGRBG14:
-	case V4L2_PIX_FMT_SRGGB14:
-		return MTKCAM_IPI_IMG_FMT_BAYER14_UNPACKED;
-	case V4L2_PIX_FMT_MTISP_SBGGR14:
-	case V4L2_PIX_FMT_MTISP_SGBRG14:
-	case V4L2_PIX_FMT_MTISP_SGRBG14:
-	case V4L2_PIX_FMT_MTISP_SRGGB14:
-		return MTKCAM_IPI_IMG_FMT_BAYER14;
-	case V4L2_PIX_FMT_MTISP_SBGGR14F:
-	case V4L2_PIX_FMT_MTISP_SGBRG14F:
-	case V4L2_PIX_FMT_MTISP_SGRBG14F:
-	case V4L2_PIX_FMT_MTISP_SRGGB14F:
-		return MTKCAM_IPI_IMG_FMT_FG_BAYER14;
-	case V4L2_PIX_FMT_SBGGR16:
-	case V4L2_PIX_FMT_SGBRG16:
-	case V4L2_PIX_FMT_SGRBG16:
-	case V4L2_PIX_FMT_SRGGB16:
-		return MTKCAM_IPI_IMG_FMT_BAYER16;
-	case V4L2_PIX_FMT_MTISP_NV12_UFBC:
-		return MTKCAM_IPI_IMG_FMT_UFBC_NV12;
-	case V4L2_PIX_FMT_MTISP_NV21_UFBC:
-		return MTKCAM_IPI_IMG_FMT_UFBC_NV21;
-	case V4L2_PIX_FMT_MTISP_NV12_10_UFBC:
-		return MTKCAM_IPI_IMG_FMT_UFBC_YUV_P010;
-	case V4L2_PIX_FMT_MTISP_NV21_10_UFBC:
-		return MTKCAM_IPI_IMG_FMT_UFBC_YVU_P010;
-	case V4L2_PIX_FMT_MTISP_NV12_12_UFBC:
-		return MTKCAM_IPI_IMG_FMT_UFBC_YUV_P012;
-	case V4L2_PIX_FMT_MTISP_NV21_12_UFBC:
-		return MTKCAM_IPI_IMG_FMT_UFBC_YVU_P012;
-	case V4L2_PIX_FMT_MTISP_BAYER8_UFBC:
-		return MTKCAM_IPI_IMG_FMT_UFBC_BAYER8;
-	case V4L2_PIX_FMT_MTISP_BAYER10_UFBC:
-		return MTKCAM_IPI_IMG_FMT_UFBC_BAYER10;
-	case V4L2_PIX_FMT_MTISP_BAYER12_UFBC:
-		return MTKCAM_IPI_IMG_FMT_UFBC_BAYER12;
-	case V4L2_PIX_FMT_MTISP_BAYER14_UFBC:
-		return MTKCAM_IPI_IMG_FMT_UFBC_BAYER14;
-	case V4L2_PIX_FMT_MTISP_SGRB8F:
-		return MTKCAM_IPI_IMG_FMT_FG_BAYER8_3P;
-	case V4L2_PIX_FMT_MTISP_SGRB10F:
-		return MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P_PACKED;
-	case V4L2_PIX_FMT_MTISP_SGRB12F:
-		return MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P_PACKED;
-	default:
-		return MTKCAM_IPI_IMG_FMT_UNKNOWN;
-	}
-}
 /* for mmqos and base is 100 */
 int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt)
 {
@@ -1181,6 +576,85 @@ int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt)
 	return 100;
 }
 
+static int mtk_cam_format_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
+					 struct v4l2_plane_pix_format *plane,
+					 u32 bus_size, /* TODO: need this? */
+					 u32 pixelformat, u32 width, u32 height)
+{
+	const struct mtk_format_info *info;
+	u32 aligned_width;
+	u32 stride;
+	u8 i;
+
+	info = mtk_format_info(pixelformat);
+	pixfmt->num_planes = info->mem_planes;
+
+	if (!info)
+		return -EINVAL;
+
+	if (info->mem_planes != 1) {
+		pr_info("do not support non contiguous mplane\n");
+		return 0; /* TODO: return error? */
+	}
+
+	if (is_yuv_ufo(pixelformat)) {
+		/* UFO format width should align 64 pixel */
+		aligned_width = ALIGN(width, 64);
+		stride = aligned_width * info->bit_r_num / info->bit_r_den;
+
+		if (stride > plane->bytesperline)
+			plane->bytesperline = stride;
+		plane->sizeimage = stride * height;
+		plane->sizeimage += stride * height / 2;
+		plane->sizeimage += ALIGN((aligned_width / 64), 8) * height;
+		plane->sizeimage += ALIGN((aligned_width / 64), 8) * height / 2;
+		plane->sizeimage += sizeof(struct UfbcBufferHeader);
+	} else if (is_raw_ufo(pixelformat)) {
+		/* UFO format width should align 64 pixel */
+		aligned_width = ALIGN(width, 64);
+		stride = aligned_width * info->bit_r_num / info->bit_r_den;
+
+		if (stride > plane->bytesperline)
+			plane->bytesperline = stride;
+		plane->sizeimage = stride * height;
+		plane->sizeimage += ALIGN((aligned_width / 64), 8) * height;
+		plane->sizeimage += sizeof(struct UfbcBufferHeader);
+	} else {
+		/* width should be bus_size align */
+		aligned_width = ALIGN(DIV_ROUND_UP(width * info->bit_r_num,
+						   info->bit_r_den), bus_size);
+		stride = aligned_width * info->bpp[0];
+
+		if (stride > plane->bytesperline)
+			plane->bytesperline = stride;
+
+		for (i = 0; i < info->comp_planes; i++) {
+			unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
+			unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
+
+			if (plane->bytesperline > stride) {
+				if (is_fullg_rb(pixelformat)) {
+					plane->sizeimage +=
+						DIV_ROUND_UP(plane->bytesperline, hdiv)
+						* DIV_ROUND_UP(height, vdiv);
+				} else {
+					plane->sizeimage += plane->bytesperline
+						* DIV_ROUND_UP(height, vdiv);
+				}
+			} else {
+				plane->sizeimage += info->bpp[i]
+					* DIV_ROUND_UP(aligned_width, hdiv)
+					* DIV_ROUND_UP(height, vdiv);
+			}
+
+		}
+	}
+	pr_debug("%s stride %d sizeimage %d\n", __func__,
+		 plane->bytesperline, plane->sizeimage);
+
+	return 0;
+}
+
 int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 			u32 pixelformat, u32 width, u32 height)
 {
@@ -1189,7 +663,7 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 	u8 pixel_bits = mtk_cam_get_pixel_bits(ipi_fmt);
 	u32 stride;
 	u32 aligned_width;
-	u8 pixel_mode_shift = 0; /* todo: should set by resMgr */
+	u8 pixel_mode_shift = 0;
 	u8 bus_size;
 	u8 i;
 
@@ -1200,79 +674,15 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 	bus_size = mtk_cam_yuv_dma_bus_size(pixel_bits, pixel_mode_shift);
 	plane->sizeimage = 0;
 
-	if (is_mtk_format(pixelformat)) {
-		const struct mtk_format_info *info;
-
-		info = mtk_format_info(pixelformat);
-		pixfmt->num_planes = info->mem_planes;
-
-		if (!info)
-			return -EINVAL;
-
-		if (info->mem_planes == 1) {
-			if (is_yuv_ufo(pixelformat)) {
-				/* UFO format width should align 64 pixel */
-				aligned_width = ALIGN(width, 64);
-				stride = aligned_width * info->bit_r_num / info->bit_r_den;
-
-				if (stride > plane->bytesperline)
-					plane->bytesperline = stride;
-				plane->sizeimage = stride * height;
-				plane->sizeimage += stride * height / 2;
-				plane->sizeimage += ALIGN((aligned_width / 64), 8) * height;
-				plane->sizeimage += ALIGN((aligned_width / 64), 8) * height / 2;
-				plane->sizeimage += sizeof(struct UfbcBufferHeader);
-			} else if (is_raw_ufo(pixelformat)) {
-				/* UFO format width should align 64 pixel */
-				aligned_width = ALIGN(width, 64);
-				stride = aligned_width * info->bit_r_num / info->bit_r_den;
-
-				if (stride > plane->bytesperline)
-					plane->bytesperline = stride;
-				plane->sizeimage = stride * height;
-				plane->sizeimage += ALIGN((aligned_width / 64), 8) * height;
-				plane->sizeimage += sizeof(struct UfbcBufferHeader);
-			} else {
-				/* width should be bus_size align */
-				aligned_width = ALIGN(DIV_ROUND_UP(width
-					* info->bit_r_num, info->bit_r_den), bus_size);
-				stride = aligned_width * info->bpp[0];
-
-				if (stride > plane->bytesperline)
-					plane->bytesperline = stride;
-
-#ifdef FIXME_LATER //WARNING:DEEP_INDENTATION
-				for (i = 0; i < info->comp_planes; i++) {
-					unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
-					unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
-	/*
-		if (plane->bytesperline > stride) {
-			if (is_fullg_rb(pixelformat)) {
-				plane->sizeimage +=
-				DIV_ROUND_UP(plane->bytesperline, hdiv)
-				* DIV_ROUND_UP(height, vdiv);
-			} else {
-				plane->sizeimage += plane->bytesperline
-				* DIV_ROUND_UP(height, vdiv);
-			}
-		} else {
-			plane->sizeimage += info->bpp[i]
-			* DIV_ROUND_UP(aligned_width, hdiv)
-			* DIV_ROUND_UP(height, vdiv);
-		}
-	 */
-				}
-#endif
-			}
-			pr_debug("%s stride %d sizeimage %d\n", __func__,
-				plane->bytesperline, plane->sizeimage);
-		} else {
-			pr_debug("do not support non contiguous mplane\n");
-		}
-	} else {
+	if (is_mtk_format(pixelformat))
+		mtk_cam_format_fill_pixfmt_mp(pixfmt, plane, bus_size,
+					      pixelformat, width, height);
+	else {
 		const struct v4l2_format_info *info;
 
-		pr_debug("pixelformat:0x%x sizeimage:%d\n", pixelformat, plane->sizeimage);
+		pr_debug("pixelformat:0x%x sizeimage:%d\n",
+			 pixelformat, plane->sizeimage);
+
 		info = v4l2_format_info(pixelformat);
 		pixfmt->num_planes = info->mem_planes;
 
@@ -1400,6 +810,9 @@ static int mtk_video_init_format(struct mtk_cam_video_device *video)
 
 	active->type = desc->buf_type;
 
+	if (!default_fmt)
+		return -1;
+
 	if (!desc->image) {
 		active->fmt.meta.dataformat = default_fmt->fmt.meta.dataformat;
 		active->fmt.meta.buffersize = default_fmt->fmt.meta.buffersize;
@@ -1476,10 +889,10 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 			case MTKCAM_SUBDEV_CAMSV_9:
 			case MTKCAM_SUBDEV_CAMSV_12:
 			case MTKCAM_SUBDEV_CAMSV_13:
-				q->dev = find_larb(&cam->larb, 13);
+				q->dev = mtk_cam_get_larb(cam->dev, 13);
 				break;
 			default:
-				q->dev = find_larb(&cam->larb, 14);
+				q->dev = mtk_cam_get_larb(cam->dev, 14);
 				break;
 			}
 		} else if (video->uid.pipe_id >= MTKCAM_SUBDEV_MRAW_START &&
@@ -1487,10 +900,10 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 			switch (video->uid.pipe_id) {
 			case MTKCAM_SUBDEV_MRAW_0:
 			case MTKCAM_SUBDEV_MRAW_2:
-				q->dev = find_larb(&cam->larb, 25);
+				q->dev = mtk_cam_get_larb(cam->dev, 25);
 				break;
 			default:
-				q->dev = find_larb(&cam->larb, 26);
+				q->dev = mtk_cam_get_larb(cam->dev, 26);
 				break;
 			}
 		} else {
@@ -1507,10 +920,10 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 			case MTK_RAW_RZH1N2TO_2_OUT:
 			case MTK_RAW_RZH1N2TO_3_OUT:
 				/* should have a better implementation here */
-				q->dev = cam->raw.yuvs[0];
+				q->dev = cam->engines.yuv_devs[0];
 				break;
 			default:
-				q->dev = cam->raw.devs[0];
+				q->dev = cam->engines.raw_devs[0];
 				break;
 			}
 		}
@@ -1667,201 +1080,13 @@ int mtk_cam_vidioc_g_fmt(struct file *file, void *fh,
 int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 			 struct v4l2_format *f)
 {
-	struct mtk_cam_device *cam = video_drvdata(file);
-	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
-	struct mtk_cam_request *cam_req;
-	struct media_request *req;
-	struct v4l2_format *vfmt;
-	struct mtk_cam_request_stream_data *stream_data;
-	s32 fd;
-	struct mtk_raw_pipeline *raw_pipeline;
-	int raw_feature = 0;
-
-	if (!vb2_is_busy(node->vdev.queue)) {
-		/* Get the valid format */
-		raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
-		if (raw_pipeline)
-			raw_feature = raw_pipeline->user_res.raw_res.feature;
-
-		mtk_cam_video_set_fmt(node, f, raw_feature);
-
-		/* Configure to video device */
-		node->active_fmt = *f;
-		return 0;
-	}
-
-	fd = mtk_cam_fmt_get_request(&f->fmt.pix_mp);
-	if (fd < 0)
-		return -EINVAL;
-
-	req = media_request_get_by_fd(&cam->media_dev, fd);
-	if (IS_ERR(req)) {
-		dev_info(cam->dev,
-			"%s:pipe(%d):%s:invalid request_fd:%d\n",
-			__func__, node->uid.pipe_id, node->desc.name, fd);
-
-		return -EINVAL;
-	}
-
-	cam_req = to_mtk_cam_req(req);
-	dev_dbg(cam->dev,
-		"%s:%s:pipe(%d):%s:pending s_fmt: pixelfmt(0x%x), w(%d), h(%d)\n",
-		__func__, cam_req->req.debug_str, node->uid.pipe_id, node->desc.name,
-		f->fmt.pix_mp.pixelformat,  f->fmt.pix_mp.width, f->fmt.pix_mp.height);
-
-	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, node->uid.pipe_id, 0);
-	stream_data->vdev_fmt_update |= (1 << node->desc.id);
-	vfmt = mtk_cam_s_data_get_vfmt(stream_data, node->desc.id);
-	*vfmt = *f;
-	media_request_put(req);
-
+	// TODO
 	return 0;
 }
 
 int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, int raw_feature)
 {
-	struct mtk_cam_device *cam = video_get_drvdata(&node->vdev);
-	const struct v4l2_format *dev_fmt;
-	struct v4l2_format try_fmt;
-	s32 request_fd, i;
-	u32 bytesperline, sizeimage;
-	u32 is_hdr = 0, is_hdr_m2m = 0;
-
-	dev_dbg(cam->dev,
-			"%s:pipe(%d):%s:feature(0x%x)\n",
-			__func__, node->uid.pipe_id, node->desc.name, raw_feature);
-
-	request_fd = mtk_cam_fmt_get_request(&f->fmt.pix_mp);
-	memset(&try_fmt, 0, sizeof(try_fmt));
-	try_fmt.type = f->type;
-
-	/* Validate pixelformat */
-	dev_fmt = mtk_cam_dev_find_fmt(&node->desc, f->fmt.pix_mp.pixelformat);
-	if (!dev_fmt) {
-		dev_dbg(cam->dev, "unknown fmt:%d\n",
-			f->fmt.pix_mp.pixelformat);
-		dev_fmt = &node->desc.fmts[node->desc.default_fmt_idx].vfmt;
-	}
-	try_fmt.fmt.pix_mp.pixelformat = dev_fmt->fmt.pix_mp.pixelformat;
-
-	/* Validate image width & height range */
-	try_fmt.fmt.pix_mp.width = clamp_val(f->fmt.pix_mp.width,
-					     IMG_MIN_WIDTH, IMG_MAX_WIDTH);
-	try_fmt.fmt.pix_mp.height = clamp_val(f->fmt.pix_mp.height,
-					      IMG_MIN_HEIGHT, IMG_MAX_HEIGHT);
-	/* 4 bytes alignment for width */
-	/* Todo: width and stride should align bus_size */
-	try_fmt.fmt.pix_mp.width = ALIGN(try_fmt.fmt.pix_mp.width, IMG_PIX_ALIGN);
-	try_fmt.fmt.pix_mp.num_planes = 1;
-
-	if (raw_feature & MTK_CAM_FEATURE_HDR_MASK) {
-		if (raw_feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK)
-			is_hdr_m2m = 1;
-		else
-			is_hdr = 1;
-	}
-
-	/* support 1/2/3 plane */
-	/* Note: vhdr m2m main stream is implicitly multiple plane */
-	/* but not nego through try format */
-	if ((node->desc.id == MTK_RAW_MAIN_STREAM_OUT && is_hdr) ||
-		(node->desc.id == MTK_RAW_RAWI_2_IN && is_hdr_m2m)) {
-
-		switch (raw_feature & MTK_CAM_FEATURE_HDR_MASK) {
-		case STAGGER_2_EXPOSURE_LE_SE:
-		case STAGGER_2_EXPOSURE_SE_LE:
-		case MSTREAM_NE_SE:
-		case MSTREAM_SE_NE:
-			try_fmt.fmt.pix_mp.num_planes = 2;
-			break;
-		case STAGGER_3_EXPOSURE_LE_NE_SE:
-		case STAGGER_3_EXPOSURE_SE_NE_LE:
-			try_fmt.fmt.pix_mp.num_planes = 3;
-			break;
-		default:
-			try_fmt.fmt.pix_mp.num_planes = 1;
-		}
-	}
-
-	for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++)
-		try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
-				f->fmt.pix_mp.plane_fmt[i].bytesperline;
-
-	/* bytesperline & sizeimage calculation */
-	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT)
-		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 3);
-	else
-		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 0);
-
-	/* subsample */
-	if (node->desc.id >= MTK_RAW_MAIN_STREAM_OUT &&
-		node->desc.id < MTK_RAW_RZH1N2TO_1_OUT &&
-		(raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK)) {
-		switch (raw_feature) {
-		case HIGHFPS_2_SUBSAMPLE:
-			try_fmt.fmt.pix_mp.num_planes = 2;
-			break;
-		case HIGHFPS_4_SUBSAMPLE:
-			try_fmt.fmt.pix_mp.num_planes = 4;
-			break;
-		case HIGHFPS_8_SUBSAMPLE:
-			try_fmt.fmt.pix_mp.num_planes = 8;
-			break;
-		case HIGHFPS_16_SUBSAMPLE:
-			try_fmt.fmt.pix_mp.num_planes =
-				MAX_SUBSAMPLE_PLANE_NUM;
-			break;
-		default:
-			try_fmt.fmt.pix_mp.num_planes = 1;
-		}
-		bytesperline = try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
-		sizeimage = try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
-		for (i = 0 ; i < try_fmt.fmt.pix_mp.num_planes ; i++) {
-			try_fmt.fmt.pix_mp.plane_fmt[i].bytesperline =
-				bytesperline;
-			try_fmt.fmt.pix_mp.plane_fmt[i].sizeimage =
-				sizeimage;
-		}
-		dev_info(cam->dev, "%s id:%d raw_feature:0x%x stride:%d size:%d\n",
-			 __func__, node->desc.id, raw_feature,
-			 bytesperline, sizeimage);
-	}
-	/* TODO: support camsv meta header */
-#if PDAF_READY
-	/* add header size for vc channel */
-	if (node->desc.dma_port == MTKCAM_IPI_CAMSV_MAIN_OUT &&
-		node->desc.id == MTK_CAMSV_MAIN_STREAM_OUT)
-		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage +=
-		mtk_cam_get_meta_size(MTKCAM_IPI_CAMSV_MAIN_OUT);
-#endif
-	/*extisp may use mainstream for yuvformat*/
-	if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT &&
-		raw_feature & EXT_ISP_CUS_2) {
-		int stride;
-
-		stride = mtk_cam_dmao_xsize(try_fmt.fmt.pix_mp.width,
-			mtk_cam_get_img_fmt(try_fmt.fmt.pix_mp.pixelformat),
-			0);
-		try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline =
-			stride * 2;
-		try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage =
-			try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline *
-			try_fmt.fmt.pix_mp.height;
-		dev_info(cam->dev, "%s id:%d raw_feature:0x%x stride:%d size:%d\n",
-			 __func__, node->desc.id, raw_feature,
-			 try_fmt.fmt.pix_mp.plane_fmt[0].bytesperline,
-			 try_fmt.fmt.pix_mp.plane_fmt[0].sizeimage);
-	}
-	/* Constant format fields */
-	try_fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
-	try_fmt.fmt.pix_mp.field = V4L2_FIELD_NONE;
-	try_fmt.fmt.pix_mp.ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
-	try_fmt.fmt.pix_mp.quantization = V4L2_QUANTIZATION_DEFAULT;
-	try_fmt.fmt.pix_mp.xfer_func = V4L2_XFER_FUNC_SRGB;
-
-	*f = try_fmt;
-	mtk_cam_fmt_set_request(&f->fmt.pix_mp, request_fd);
-
+	// TODO
 	return 0;
 }
 
@@ -1870,9 +1095,6 @@ int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
 {
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
 	int raw_feature = 0;
-
-	if (is_raw_subdev(node->uid.pipe_id))
-		raw_feature = mtk_cam_fmt_get_raw_feature(&f->fmt.pix_mp);
 
 	mtk_cam_video_set_fmt(node, f, raw_feature);
 
@@ -1897,185 +1119,13 @@ int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
 int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 			      struct v4l2_format *f)
 {
-	struct mtk_cam_device *cam = video_drvdata(file);
-	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
-	struct mtk_cam_dev_node_desc *desc = &node->desc;
-	const struct v4l2_format *default_fmt =
-		&desc->fmts[desc->default_fmt_idx].vfmt;
-	struct mtk_raw_pde_config *pde_cfg;
-	struct mtk_cam_pde_info *pde_info;
-	u32 extmeta_size = 0;
-
-	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
-		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
-		pde_info = &pde_cfg->pde_info;
-		if (pde_info->pd_table_offset) {
-			node->active_fmt.fmt.meta.buffersize =
-				default_fmt->fmt.meta.buffersize
-				+ pde_info->pdi_max_size;
-			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
-				node->desc.dma_port,
-				node->active_fmt.fmt.meta.buffersize);
-		}
-	}
-	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
-		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
-		pde_info = &pde_cfg->pde_info;
-		if (pde_info->pd_table_offset) {
-			node->active_fmt.fmt.meta.buffersize =
-				default_fmt->fmt.meta.buffersize
-				+ pde_info->pdo_max_size;
-			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
-				node->desc.dma_port,
-				node->active_fmt.fmt.meta.buffersize);
-		}
-	}
-
-	switch (node->desc.id) {
-	case MTK_RAW_MAIN_STREAM_SV_1_OUT:
-	case MTK_RAW_MAIN_STREAM_SV_2_OUT:
-		break;
-	case MTK_RAW_META_SV_OUT_0:
-	case MTK_RAW_META_SV_OUT_1:
-	case MTK_RAW_META_SV_OUT_2:
-		if (node->enabled && node->ctx)
-			extmeta_size = cam->raw.pipelines[node->uid.pipe_id]
-				.cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.width *
-				cam->raw.pipelines[node->uid.pipe_id]
-				.cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.height;
-		if (extmeta_size)
-			node->active_fmt.fmt.meta.buffersize = extmeta_size;
-		else
-			node->active_fmt.fmt.meta.buffersize =
-				CAMSV_EXT_META_0_WIDTH * CAMSV_EXT_META_0_HEIGHT;
-		dev_dbg(cam->dev,
-			"%s:extmeta name:%s buffersize:%d\n",
-			__func__, node->desc.name, node->active_fmt.fmt.meta.buffersize);
-		break;
-	default:
-		break;
-	}
-
-	f->fmt.meta.dataformat = node->active_fmt.fmt.meta.dataformat;
-	f->fmt.meta.buffersize = node->active_fmt.fmt.meta.buffersize;
-	dev_dbg(cam->dev,
-		"%s: node:%d dataformat:%d buffersize:%d\n",
-		__func__, node->desc.id, f->fmt.meta.dataformat, f->fmt.meta.buffersize);
-
+	// TODO
 	return 0;
 }
 
 int mtk_cam_vidioc_s_selection(struct file *file, void *fh,
 				struct v4l2_selection *s)
 {
-	struct mtk_cam_device *cam = video_drvdata(file);
-	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
-	struct mtk_cam_request_stream_data *stream_data;
-	struct mtk_cam_request *cam_req;
-	struct media_request *req;
-	struct v4l2_selection *vsel;
-	s32 fd;
-
-	fd = mtk_cam_selection_get_request(s);
-	if (fd < 0)
-		return -EINVAL;
-
-	req = media_request_get_by_fd(&cam->media_dev, fd);
-	if (IS_ERR(req)) {
-		if (!vb2_is_busy(node->vdev.queue)) {
-			dev_info(cam->dev,
-				"%s:pipe(%d):%s: apply setting without fd\n",
-				__func__, node->uid.pipe_id, node->desc.name);
-			node->pending_crop = *s;
-			return 0;
-		}
-
-		dev_info(cam->dev,
-			"%s:pipe(%d):%s:invalid request_fd:%d\n",
-			__func__, node->uid.pipe_id, node->desc.name, fd);
-
-		return -EINVAL;
-	}
-
-	cam_req = to_mtk_cam_req(req);
-	stream_data = mtk_cam_req_get_s_data_no_chk(cam_req, node->uid.pipe_id, 0);
-	stream_data->vdev_selection_update |= (1 << node->desc.id);
-	vsel = mtk_cam_s_data_get_vsel(stream_data, node->desc.id);
-	*vsel = *s;
-	dev_dbg(cam->dev,
-		"%s:%s:pipe(%d):%s:pending vidioc_s_selection (%d,%d,%d,%d)\n",
-		__func__, cam_req->req.debug_str, node->uid.pipe_id, node->desc.name,
-		s->r.left, s->r.top, s->r.width, s->r.height);
-
-	media_request_put(req);
-
+	// TODO
 	return 0;
 }
-
-void mtk_cam_fmt_set_raw_feature(struct v4l2_pix_format_mplane *fmt_mp, int raw_feature)
-{
-	u8 *reserved = fmt_mp->reserved;
-
-	fmt_mp->flags = raw_feature & 0x000000FF;
-	reserved[4] = (raw_feature & 0x0000FF00) >> 8;
-	reserved[5] = (raw_feature & 0x00FF0000) >> 16;
-	reserved[6] = (raw_feature & 0xFF000000) >> 24;
-}
-
-int mtk_cam_fmt_get_raw_feature(struct v4l2_pix_format_mplane *fmt_mp)
-{
-	int raw_feature = fmt_mp->flags;
-
-	/**
-	 * Current 8 bits flag is not enough so we also use the reserved[4-6] to
-	 * save the feature flags.
-	 */
-	raw_feature |= ((unsigned int)fmt_mp->reserved[4]) << 8 & 0x0000FF00;
-	raw_feature |= ((unsigned int)fmt_mp->reserved[5]) << 16 & 0x00FF0000;
-	raw_feature |= ((unsigned int)fmt_mp->reserved[6]) << 24 & 0xFF000000;
-
-	return raw_feature;
-}
-
-int mtk_cam_fmt_get_request(struct v4l2_pix_format_mplane *fmt_mp)
-{
-	int field;
-	int reserved_fields = 4;
-	s32 request_fd = 0;
-
-	for (field = 0; field < reserved_fields; field++) {
-		request_fd +=
-			fmt_mp->reserved[field] << BITS_PER_BYTE * field;
-		fmt_mp->reserved[field] = 0;
-	}
-
-	return request_fd;
-}
-
-void mtk_cam_fmt_set_request(struct v4l2_pix_format_mplane *fmt_mp, int request_fd)
-{
-	u8 *reserved = fmt_mp->reserved;
-
-	reserved[0] = request_fd & 0x000000FF;
-	reserved[1] = (request_fd & 0x0000FF00) >> 8;
-	reserved[2] = (request_fd & 0x00FF0000) >> 16;
-	reserved[3] = (request_fd & 0xFF000000) >> 24;
-}
-
-int mtk_cam_selection_get_request(struct v4l2_selection *crop)
-{
-	s32 request_fd = 0;
-
-	request_fd = crop->reserved[0];
-	crop->reserved[0] = 0;
-
-	return request_fd;
-}
-
-void mtk_cam_selection_set_request(struct v4l2_selection *crop, int request_fd)
-{
-	u32 *reserved = crop->reserved;
-
-	reserved[0] = request_fd;
-}
-

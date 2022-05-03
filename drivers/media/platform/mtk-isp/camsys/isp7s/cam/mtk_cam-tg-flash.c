@@ -5,6 +5,7 @@
 #include "mtk_cam-tg-flash.h"
 #include "mtk_cam-regs.h"
 
+#ifdef NOT_READY
 static void
 mtk_cam_tg_flash_common_config(struct mtk_raw_device *raw,
 			       struct mtk_cam_tg_flash_config *tg_config)
@@ -73,6 +74,7 @@ mtk_cam_tg_flash_trigger_continuous(struct mtk_raw_device *raw,
 	val = 0x1 | 0x1 << 3;
 	writel_relaxed(val, raw->base + REG_TG_IR_FLASH_CTL);
 }
+#endif
 
 void
 mtk_cam_tg_flash_stop(struct mtk_raw_device *raw,
@@ -84,6 +86,7 @@ mtk_cam_tg_flash_stop(struct mtk_raw_device *raw,
 void mtk_cam_tg_flash_setup(struct mtk_raw_device *raw,
 			    struct mtk_cam_tg_flash_config *tg_config)
 {
+#ifdef NOT_READY
 	switch (tg_config->flash_mode) {
 	case V4L2_MTK_CAM_TG_FLASH_MODE_SINGLE:
 			mtk_cam_tg_flash_trigger_single(raw, tg_config);
@@ -119,10 +122,12 @@ void mtk_cam_tg_flash_setup(struct mtk_raw_device *raw,
 		 readl_relaxed(raw->base + REG_TG_IR_FLASH_HIGH_WIDTH),
 		 raw->base + REG_TG_IR_FLASH_LOW_WIDTH,
 		 readl_relaxed(raw->base + REG_TG_IR_FLASH_LOW_WIDTH));
+#endif
 }
 
 int mtk_cam_tg_flash_try_ctrl(struct v4l2_ctrl *ctrl)
 {
+#ifdef NOT_READY
 	struct mtk_raw_pipeline *pipeline;
 	struct mtk_cam_tg_flash_config *flash_config;
 	struct device *dev;
@@ -157,12 +162,13 @@ int mtk_cam_tg_flash_try_ctrl(struct v4l2_ctrl *ctrl)
 			 flash_config->flash_mode, flash_config->flash_enable);
 		return -EINVAL;
 	}
-
+#endif
 	return 0;
 }
 
 int mtk_cam_tg_flash_s_ctrl(struct v4l2_ctrl *ctrl)
 {
+#ifdef NOT_READY
 	struct mtk_raw_pipeline *pipeline;
 	struct mtk_cam_tg_flash_config *flash_config;
 	struct device *dev;
@@ -178,7 +184,7 @@ int mtk_cam_tg_flash_s_ctrl(struct v4l2_ctrl *ctrl)
 	flash_config = (struct mtk_cam_tg_flash_config *)ctrl->p_new.p;
 	pipeline->tg_flash_config = *flash_config;
 	pipeline->enqueued_tg_flash_req = true;
-
+#endif
 	return 0;
 }
 
@@ -186,6 +192,7 @@ void
 mtk_cam_tg_flash_req_update(struct mtk_raw_pipeline *pipe,
 			    struct mtk_cam_request_stream_data *s_data)
 {
+#ifdef NOT_READY
 	if (pipe->enqueued_tg_flash_req) {
 		s_data->tg_flash_config = pipe->tg_flash_config;
 		s_data->flags |= MTK_CAM_REQ_S_DATA_FLAG_TG_FLASH;
@@ -196,12 +203,14 @@ mtk_cam_tg_flash_req_update(struct mtk_raw_pipeline *pipe,
 	}
 
 	pipe->enqueued_tg_flash_req = false;
+#endif
 }
 
 void
 mtk_cam_tg_flash_req_setup(struct mtk_cam_ctx *ctx,
 			   struct mtk_cam_request_stream_data *req_stream_data)
 {
+#ifdef NOT_READY
 	struct mtk_cam_tg_flash_config *tg_config;
 	struct mtk_raw_device *raw;
 
@@ -219,11 +228,13 @@ mtk_cam_tg_flash_req_setup(struct mtk_cam_ctx *ctx,
 		 tg_config->flash_light_id);
 
 	mtk_cam_tg_flash_setup(raw, tg_config);
+#endif
 }
 
 void
 mtk_cam_tg_flash_req_done(struct mtk_cam_request_stream_data *req_stream_data)
 {
+#ifdef NOT_READY
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_tg_flash_config *tg_config;
 	struct mtk_raw_device *raw;
@@ -250,4 +261,5 @@ mtk_cam_tg_flash_req_done(struct mtk_cam_request_stream_data *req_stream_data)
 		 tg_config->flash_pluse_num, tg_config->flash_offset,
 		 tg_config->flash_high_width, tg_config->flash_low_width,
 		 tg_config->flash_light_id);
+#endif
 }

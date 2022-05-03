@@ -6,34 +6,57 @@
 #ifndef __MTK_CAM_POOL_H
 #define __MTK_CAM_POOL_H
 
-struct mtk_cam_ctx;
+struct dma_buf;
+struct dma_buf *mtk_cam_cached_buffer_alloc(size_t size);
+struct dma_buf *mtk_cam_noncached_buffer_alloc(size_t size);
 
-int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx);
-void mtk_cam_working_buf_pool_release(struct mtk_cam_ctx *ctx);
-void
-mtk_cam_working_buf_put(struct mtk_cam_working_buf_entry *buf_entry);
-struct mtk_cam_working_buf_entry*
-mtk_cam_working_buf_get(struct mtk_cam_ctx *ctx);
+struct mtk_cam_device_buf {
+	struct dma_buf *dbuf;
+	size_t size;
+	struct dma_buf_attachment *db_attach;
+	struct sg_table *dma_sgt;
 
-int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num,
-	int working_buf_size);
-void mtk_cam_img_working_buf_pool_release(struct mtk_cam_ctx *ctx);
-void
-mtk_cam_img_working_buf_put(struct mtk_cam_img_working_buf_entry *buf_entry);
-struct mtk_cam_img_working_buf_entry*
-mtk_cam_img_working_buf_get(struct mtk_cam_ctx *ctx);
+	dma_addr_t daddr;
+	void *vaddr;
+};
 
-int mtk_cam_sv_working_buf_pool_init(struct mtk_cam_ctx *ctx);
-void
-mtk_cam_sv_working_buf_put(struct mtk_camsv_working_buf_entry *buf_entry);
+/* attach + map_attachment + get_dma_buf */
+int mtk_cam_device_buf_init(struct mtk_cam_device_buf *buf,
+			    struct dma_buf *dbuf,
+			    struct device *dev,
+			    size_t expected_size);
 
-struct mtk_camsv_working_buf_entry*
-mtk_cam_sv_working_buf_get(struct mtk_cam_ctx *ctx);
+/* detach + unmap_attachment + dma_buf_put */
+void mtk_cam_device_buf_uninit(struct mtk_cam_device_buf *buf);
+int mtk_cam_device_buf_vmap(struct mtk_cam_device_buf *buf);
+static inline int mtk_cam_device_buf_fd(struct mtk_cam_device_buf *buf)
+{
+	return dma_buf_fd(buf->dbuf, O_RDWR | O_CLOEXEC);
+}
 
-int mtk_cam_mraw_working_buf_pool_init(struct mtk_cam_ctx *ctx);
-void mtk_cam_mraw_working_buf_put(struct mtk_cam_ctx *ctx,
-				struct mtk_mraw_working_buf_entry *buf_entry);
-struct mtk_mraw_working_buf_entry*
-mtk_cam_mraw_working_buf_get(struct mtk_cam_ctx *ctx);
+/* a wrapper to divide buffer into chunks as buffer pool */
+struct mtk_cam_pool_buffer {
+	dma_addr_t daddr;
+	void *vaddr;
 
-#endif
+	struct mtk_cam_pool *pool;
+	char _priv;
+};
+
+struct mtk_cam_pool {
+	size_t n_buffers;
+	struct mtk_cam_pool_buffer *buffers;
+
+	spinlock_t lock;
+	int fetch_idx;
+};
+
+int mtk_cam_pool_alloc(struct mtk_cam_pool *pool,
+		      struct mtk_cam_device_buf *buf, int n_buffers);
+void mtk_cam_pool_destroy(struct mtk_cam_pool *pool);
+
+int mtk_cam_pool_buffer_fetch(struct mtk_cam_pool *pool,
+			      struct mtk_cam_pool_buffer *buf);
+void mtk_cam_pool_buffer_return(struct mtk_cam_pool_buffer *buf);
+
+#endif //__MTK_CAM_POOL_H

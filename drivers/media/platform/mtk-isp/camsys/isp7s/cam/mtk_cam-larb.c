@@ -14,73 +14,35 @@
 #include <linux/of_device.h>
 #include <linux/of.h>
 #include <linux/component.h>
+
 #include "mtk_cam.h"
-
 #include "mtk_cam-larb.h"
-
-#define LARB_ID_13  13
-#define LARB_ID_14  14
-#define LARB_ID_25  25
-#define LARB_ID_26  26
 
 struct mtk_cam_larb_device {
 	unsigned int	larb_id;
 	struct device	*dev;
-	struct mtk_cam_device *cam;
 };
+
+int mtk_cam_larb_id(struct device *dev)
+{
+	struct mtk_cam_larb_device *larb_dev = dev_get_drvdata(dev);
+
+	return larb_dev->larb_id;
+}
 
 static int mtk_cam_pm_component_bind(struct device *dev, struct device *master,
 				  void *data)
 {
 	struct mtk_cam_larb_device *larb_dev = dev_get_drvdata(dev);
 	struct mtk_cam_device *cam_dev = data;
-	struct mtk_larb *larb = &cam_dev->larb;
 
 	dev_info(dev, "%s: dev:0x%x, id=%d\n", __func__, dev, larb_dev->larb_id);
-
-	larb_dev->cam = cam_dev;
-	switch (larb_dev->larb_id) {
-	case LARB_ID_13:
-		larb->devs[CAMSYS_LARB_13] = dev;
-		break;
-	case LARB_ID_14:
-		larb->devs[CAMSYS_LARB_14] = dev;
-		break;
-	case LARB_ID_25:
-		larb->devs[CAMSYS_LARB_25] = dev;
-		break;
-	case LARB_ID_26:
-		larb->devs[CAMSYS_LARB_26] = dev;
-		break;
-	}
-
-	larb->cam_dev = cam_dev->dev;
-	return 0;
+	return mtk_cam_set_dev_larb(cam_dev->dev, dev);
 }
 
 static void mtk_cam_pm_component_unbind(struct device *dev, struct device *master,
 				     void *data)
 {
-	struct mtk_cam_larb_device *larb_dev = dev_get_drvdata(dev);
-	struct mtk_cam_device *cam_dev = data;
-	struct mtk_larb *larb = &cam_dev->larb;
-
-	dev_info(dev, "%s id=%d\n", __func__, larb_dev->larb_id);
-
-	switch (larb_dev->larb_id) {
-	case LARB_ID_13:
-		larb->devs[CAMSYS_LARB_13] = NULL;
-		break;
-	case LARB_ID_14:
-		larb->devs[CAMSYS_LARB_14] = NULL;
-		break;
-	case LARB_ID_25:
-		larb->devs[CAMSYS_LARB_25] = NULL;
-		break;
-	case LARB_ID_26:
-		larb->devs[CAMSYS_LARB_26] = NULL;
-		break;
-	}
 }
 
 static const struct component_ops mtk_cam_pm_component_ops = {
@@ -94,7 +56,6 @@ static int mtk_cam_larb_probe(struct platform_device *pdev)
 	struct mtk_cam_larb_device   *larb_dev;
 	int ret;
 
-	//dev_info(dev, "%s\n", __func__);
 	larb_dev = devm_kzalloc(dev, sizeof(*dev), GFP_KERNEL);
 	if (!larb_dev)
 		return -ENOMEM;

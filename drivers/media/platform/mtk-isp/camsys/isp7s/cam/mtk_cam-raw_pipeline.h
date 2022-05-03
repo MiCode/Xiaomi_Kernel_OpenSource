@@ -10,6 +10,7 @@
 #include "mtk_cam-video.h"
 #include "mtk_cam-tg-flash.h"
 #include "mtk_camera-v4l2-controls.h"
+#include "mtk_cam-raw_nodes.h"
 
 
 #define MTK_CAMSYS_RES_STEP_NUM	8 //TODO: remove
@@ -103,40 +104,6 @@ enum hardware_mode_id {
 	HW_MODE_DIRECT_COUPLED	= 2,
 	HW_MODE_OFFLINE			= 3,
 	HW_MODE_M2M				= 4,
-};
-
-/* enum for pads of raw pipeline */
-enum {
-	MTK_RAW_SINK_BEGIN = 0,
-	MTK_RAW_SINK = MTK_RAW_SINK_BEGIN,
-	MTK_RAW_SINK_NUM,
-	MTK_RAW_META_IN = MTK_RAW_SINK_NUM,
-	MTK_RAW_RAWI_2_IN,
-	MTK_RAW_RAWI_3_IN,
-	MTK_RAW_RAWI_4_IN,
-	MTK_RAW_SOURCE_BEGIN,
-	MTK_RAW_MAIN_STREAM_OUT = MTK_RAW_SOURCE_BEGIN,
-	MTK_RAW_YUVO_1_OUT,
-	MTK_RAW_YUVO_2_OUT,
-	MTK_RAW_YUVO_3_OUT,
-	MTK_RAW_YUVO_4_OUT,
-	MTK_RAW_YUVO_5_OUT,
-	MTK_RAW_DRZS4NO_1_OUT,
-	MTK_RAW_DRZS4NO_2_OUT,
-	MTK_RAW_DRZS4NO_3_OUT,
-	MTK_RAW_RZH1N2TO_1_OUT,
-	MTK_RAW_RZH1N2TO_2_OUT,
-	MTK_RAW_RZH1N2TO_3_OUT,
-	MTK_RAW_MAIN_STREAM_SV_1_OUT,
-	MTK_RAW_MAIN_STREAM_SV_2_OUT,
-	MTK_RAW_META_OUT_BEGIN,
-	MTK_RAW_META_OUT_0 = MTK_RAW_META_OUT_BEGIN,
-	MTK_RAW_META_OUT_1,
-	MTK_RAW_META_OUT_2,
-	MTK_RAW_META_SV_OUT_0,
-	MTK_RAW_META_SV_OUT_1,
-	MTK_RAW_META_SV_OUT_2,
-	MTK_RAW_PIPELINE_PADS_NUM,
 };
 
 /* max(pdi_table1, pdi_table2, ...) */
@@ -250,12 +217,16 @@ mtk_cam_ctrl_handler_to_raw_pipeline(struct v4l2_ctrl_handler *handler)
 	return container_of(handler, struct mtk_raw_pipeline, ctrl_handler);
 };
 
-int mtk_raw_setup_dependencies(struct mtk_raw *raw);
+struct mtk_raw_pipeline *mtk_raw_pipeline_create(struct device *dev, int n);
 
-int mtk_raw_register_entities(struct mtk_raw *raw,
+struct mtk_cam_engines;
+int mtk_raw_setup_dependencies(struct mtk_cam_engines *eng);
+
+int mtk_raw_register_entities(struct mtk_raw_pipeline *arr_pipe, int num,
 			      struct v4l2_device *v4l2_dev);
-void mtk_raw_unregister_entities(struct mtk_raw *raw);
+void mtk_raw_unregister_entities(struct mtk_raw_pipeline *arr_pipe, int num);
 
+struct mtk_cam_ctx;
 int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 		       struct mtkcam_ipi_input_param *cfg_in_param);
 

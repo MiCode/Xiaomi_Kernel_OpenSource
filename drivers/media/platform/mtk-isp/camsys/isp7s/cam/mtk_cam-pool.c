@@ -9,477 +9,246 @@
 #include <linux/dma-iommu.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
+#include <linux/dma-heap.h>
 #include <linux/mm.h>
-#include <linux/remoteproc.h>
+#include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <uapi/linux/dma-heap.h>
 
-#include "mtk_cam.h"
-#include "mtk_cam-smem.h"
+#include <mtk_heap.h>
 #include "mtk_cam-pool.h"
-#include "mtk_heap.h"
 
-#ifndef CONFIG_MTK_SCP
-#include <linux/platform_data/mtk_ccd.h>
-#include <linux/rpmsg/mtk_ccd_rpmsg.h>
-#include <linux/remoteproc/mtk_ccd_mem.h>
-#include <uapi/linux/mtk_ccd_controls.h>
-#endif
-
-int mtk_cam_working_buf_pool_init(struct mtk_cam_ctx *ctx)
+static struct dma_buf *mtk_cam_buffer_alloc_from_heap(const char *heap_name,
+					       size_t size)
 {
-	int i;
-	struct mem_obj smem;
-	struct mtk_ccd *ccd;
-	void *mem_priv;
-	int dmabuf_fd;
-	struct dma_buf *dbuf;
-	const int working_buf_size = round_up(CQ_BUF_SIZE, PAGE_SIZE);
-	const int msg_buf_size = round_up(IPI_FRAME_BUF_SIZE, PAGE_SIZE);
+	struct dma_heap *dma_heap;
+	struct dma_buf *dmabuf;
 
-	INIT_LIST_HEAD(&ctx->buf_pool.cam_freelist.list);
-	spin_lock_init(&ctx->buf_pool.cam_freelist.lock);
-	ctx->buf_pool.cam_freelist.cnt = 0;
-	ctx->buf_pool.working_buf_size = CAM_CQ_BUF_NUM * working_buf_size;
-	ctx->buf_pool.msg_buf_size = CAM_CQ_BUF_NUM * msg_buf_size;
-	ccd = (struct mtk_ccd *)ctx->cam->rproc_handle->priv;
-
-	/* working buffer */
-	smem.len = ctx->buf_pool.working_buf_size;
-	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
-	if (IS_ERR(mem_priv))
-		return PTR_ERR(mem_priv);
-	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
-	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
-	if (dbuf)
-		mtk_dma_buf_set_name(dbuf, "CAM_MEM_CQ_ID");
-	ctx->buf_pool.working_buf_va = smem.va;
-	ctx->buf_pool.working_buf_iova = smem.iova;
-	ctx->buf_pool.working_buf_fd = dmabuf_fd;
-
-	/* msg buffer */
-	smem.len = ctx->buf_pool.msg_buf_size;
-	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
-	if (IS_ERR(mem_priv))
-		return PTR_ERR(mem_priv);
-	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
-	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
-	if (dbuf)
-		mtk_dma_buf_set_name(dbuf, "CAM_MEM_MSG_ID");
-	ctx->buf_pool.msg_buf_va = smem.va;
-	ctx->buf_pool.msg_buf_fd = dmabuf_fd;
-
-	for (i = 0; i < CAM_CQ_BUF_NUM; i++) {
-		struct mtk_cam_working_buf_entry *buf = &ctx->buf_pool.working_buf[i];
-		int offset, offset_msg;
-
-		buf->ctx = ctx;
-		offset = i * working_buf_size;
-		offset_msg = i * msg_buf_size;
-
-		buf->buffer.va = ctx->buf_pool.working_buf_va + offset;
-		buf->buffer.iova = ctx->buf_pool.working_buf_iova + offset;
-		buf->buffer.size = working_buf_size;
-		buf->msg_buffer.va = ctx->buf_pool.msg_buf_va + offset_msg;
-		buf->msg_buffer.size = msg_buf_size;
-		buf->s_data = NULL;
-
-		dev_dbg(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(%pad)\n",
-			__func__, ctx->stream_id, i, &buf->buffer.iova);
-
-		/* meta buffer */
-		smem.len = mtk_cam_get_meta_size(MTKCAM_IPI_RAW_META_STATS_1);
-		mem_priv = mtk_ccd_get_buffer(ccd, &smem);
-		if (IS_ERR(mem_priv))
-			return PTR_ERR(mem_priv);
-		buf->meta_buffer.fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
-		dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
-		if (dbuf)
-			mtk_dma_buf_set_name(dbuf, "CAM_MEM_META_ID");
-		buf->meta_buffer.va = smem.va;
-		buf->meta_buffer.iova = smem.iova;
-		buf->meta_buffer.size = smem.len;
-
-		dev_dbg(ctx->cam->dev,
-			 "%s:meta_buf[%d]:va(%d),iova(%pad),fd(%d),size(%d)\n",
-			 __func__, i, buf->meta_buffer.va, &buf->meta_buffer.iova,
-			 buf->meta_buffer.fd, buf->meta_buffer.size);
-
-		list_add_tail(&buf->list_entry, &ctx->buf_pool.cam_freelist.list);
-		ctx->buf_pool.cam_freelist.cnt++;
+	dma_heap = dma_heap_find(heap_name);
+	if (!dma_heap) {
+		pr_info("failed to find dma heap: %s\n", heap_name);
+		return ERR_PTR(-ENOMEM);
 	}
 
-	dev_info(ctx->cam->dev,
-		"%s: ctx(%d): cq buffers init, freebuf cnt(%d),fd(%d)\n",
-		__func__, ctx->stream_id, ctx->buf_pool.cam_freelist.cnt,
-		dmabuf_fd);
+	dmabuf = dma_heap_buffer_alloc(dma_heap, size,
+				       O_RDWR | O_CLOEXEC,
+				       DMA_HEAP_VALID_HEAP_FLAGS);
+	if (IS_ERR(dmabuf))  {
+		pr_info("dma_heap_buffer_alloc failed\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	return dmabuf;
+}
+
+struct dma_buf *mtk_cam_cached_buffer_alloc(size_t size)
+{
+	return mtk_cam_buffer_alloc_from_heap("mtk_mm", size);
+}
+
+struct dma_buf *mtk_cam_noncached_buffer_alloc(size_t size)
+{
+	return mtk_cam_buffer_alloc_from_heap("mtk_mm-uncached", size);
+}
+
+static unsigned long _get_contiguous_size(struct sg_table *sgt)
+{
+	struct scatterlist *s;
+	dma_addr_t expected = sg_dma_address(sgt->sgl);
+	unsigned int i;
+	unsigned long size = 0;
+
+	for_each_sgtable_dma_sg(sgt, s, i) {
+		if (sg_dma_address(s) != expected)
+			break;
+		expected += sg_dma_len(s);
+		size += sg_dma_len(s);
+	}
+	return size;
+}
+
+int mtk_cam_device_buf_init(struct mtk_cam_device_buf *buf,
+			    struct dma_buf *dbuf,
+			    struct device *dev,
+			    size_t expected_size)
+{
+	unsigned long size;
+
+	memset(buf, 0, sizeof(*buf));
+
+	buf->db_attach = dma_buf_attach(dbuf, dev);
+	if (IS_ERR(buf->db_attach)) {
+		dev_info(dev, "failed to attach dbuf: %s\n", dev_name(dev));
+		return -1;
+	}
+
+	buf->dma_sgt = dma_buf_map_attachment(buf->db_attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(buf->dma_sgt)) {
+		dev_info(dev, "failed to map attachment\n");
+		goto fail_detach;
+	}
+
+	/* check size */
+	size = _get_contiguous_size(buf->dma_sgt);
+	if (expected_size < size) {
+		dev_info(dev, "%s: dma_sgt size(%zu) smaller than expected(%zu)\n",
+			 __func__, size, expected_size);
+		goto fail_attach_unmap;
+	}
+
+	buf->dbuf = dbuf;
+	buf->size = expected_size;
+	buf->daddr = sg_dma_address(buf->dma_sgt->sgl);
+
+	get_dma_buf(dbuf);
+
+	return 0;
+
+fail_attach_unmap:
+	dma_buf_unmap_attachment(buf->db_attach, buf->dma_sgt, DMA_BIDIRECTIONAL);
+	buf->dma_sgt = NULL;
+fail_detach:
+	dma_buf_detach(buf->dbuf, buf->db_attach);
+	buf->db_attach = NULL;
+	return -1;
+}
+
+void mtk_cam_device_buf_uninit(struct mtk_cam_device_buf *buf)
+{
+	struct dma_buf_map map = DMA_BUF_MAP_INIT_VADDR(buf->vaddr);
+
+	WARN_ON(!buf->dbuf || !buf->size);
+
+	if (buf->dma_sgt) {
+		dma_buf_unmap_attachment(buf->db_attach, buf->dma_sgt,
+					 DMA_BIDIRECTIONAL);
+		buf->dma_sgt = NULL;
+		buf->daddr = 0;
+	}
+
+	if (buf->vaddr) {
+		dma_buf_vunmap(buf->dbuf, &map);
+		buf->vaddr = NULL;
+	}
+
+	if (buf->db_attach) {
+		dma_buf_detach(buf->dbuf, buf->db_attach);
+		buf->db_attach = NULL;
+	}
+
+	dma_heap_buffer_free(buf->dbuf);
+}
+
+int mtk_cam_device_buf_vmap(struct mtk_cam_device_buf *buf)
+{
+	struct dma_buf_map map;
+
+	WARN_ON(buf->vaddr);
+
+	if (!dma_buf_vmap(buf->dbuf, &map))
+		buf->vaddr = map.vaddr;
 
 	return 0;
 }
 
-void mtk_cam_working_buf_pool_release(struct mtk_cam_ctx *ctx)
+#define IS_AVAILABLE(priv)	(priv & 0x80)
+#define INDEX(priv)		(priv & 0x7f)
+#define MARK_AVAILABLE(index)	(index)
+#define MARK_UNAVAILABLE(index)	(0x80 | (index))
+
+static void _pool_init_elements(struct mtk_cam_pool *pool,
+				dma_addr_t da, void *va, size_t per_size)
 {
-	struct mtk_cam_working_buf_entry *buf;
-	struct mtk_ccd *ccd = ctx->cam->rproc_handle->priv;
-	struct mem_obj smem;
-	int fd, i;
-
-	/* meta buffer */
-	for (i = 0; i < CAM_CQ_BUF_NUM; i++) {
-		buf = &ctx->buf_pool.working_buf[i];
-
-		smem.va = buf->meta_buffer.va;
-		smem.iova = buf->meta_buffer.iova;
-		smem.len = buf->meta_buffer.size;
-		fd = buf->meta_buffer.fd;
-
-		mtk_ccd_put_buffer_fd(ccd, &smem, fd);
-		mtk_ccd_put_buffer(ccd, &smem);
-		dev_dbg(ctx->cam->dev,
-			"%s:ctx(%d):meta buffers[%d] release, mem iova(%pad), sz(%d)\n",
-			__func__, ctx->stream_id, i, &smem.iova, smem.len);
-
-		buf->meta_buffer.size = 0;
-	}
-
-	/* msg buffer */
-	smem.va = ctx->buf_pool.working_buf_va;
-	smem.iova = ctx->buf_pool.working_buf_iova;
-	smem.len = ctx->buf_pool.working_buf_size;
-	fd = ctx->buf_pool.working_buf_fd;
-
-	mtk_ccd_put_buffer_fd(ccd, &smem, fd);
-	mtk_ccd_put_buffer(ccd, &smem);
-
-	dev_dbg(ctx->cam->dev,
-		"%s:ctx(%d):cq buffers release, mem iova(%pad), sz(%d)\n",
-		__func__, ctx->stream_id, &smem.iova, smem.len);
-
-	/* working buffer */
-	smem.va = ctx->buf_pool.msg_buf_va;
-	smem.iova = 0;
-	smem.len = ctx->buf_pool.msg_buf_size;
-	fd = ctx->buf_pool.msg_buf_fd;
-	mtk_ccd_put_buffer_fd(ccd, &smem, fd);
-	mtk_ccd_put_buffer(ccd, &smem);
-
-	dev_dbg(ctx->cam->dev,
-		"%s:ctx(%d):msg buffers release, mem(%p), sz(%d)\n",
-		__func__, ctx->stream_id, smem.va, smem.len);
-
-}
-
-void
-mtk_cam_working_buf_put(struct mtk_cam_working_buf_entry *buf_entry)
-{
-	struct mtk_cam_ctx *ctx = buf_entry->ctx;
-	int cnt;
-
-	spin_lock(&ctx->buf_pool.cam_freelist.lock);
-
-	list_add_tail(&buf_entry->list_entry,
-		      &ctx->buf_pool.cam_freelist.list);
-	cnt = ++ctx->buf_pool.cam_freelist.cnt;
-
-	spin_unlock(&ctx->buf_pool.cam_freelist.lock);
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(%pad), free cnt(%d)\n",
-		__func__, ctx->stream_id, &buf_entry->buffer.iova, cnt);
-}
-
-struct mtk_cam_working_buf_entry*
-mtk_cam_working_buf_get(struct mtk_cam_ctx *ctx)
-{
-	struct mtk_cam_working_buf_entry *buf_entry;
-	int cnt;
-
-	/* get from free list */
-	spin_lock(&ctx->buf_pool.cam_freelist.lock);
-	if (list_empty(&ctx->buf_pool.cam_freelist.list)) {
-		spin_unlock(&ctx->buf_pool.cam_freelist.lock);
-
-		dev_info(ctx->cam->dev, "%s:ctx(%d):no free buf\n",
-			 __func__, ctx->stream_id);
-		return NULL;
-	}
-
-	buf_entry = list_first_entry(&ctx->buf_pool.cam_freelist.list,
-				     struct mtk_cam_working_buf_entry,
-				     list_entry);
-	list_del(&buf_entry->list_entry);
-	cnt = --ctx->buf_pool.cam_freelist.cnt;
-	buf_entry->ctx = ctx;
-
-	spin_unlock(&ctx->buf_pool.cam_freelist.lock);
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(%pad), free cnt(%d)\n",
-		__func__, ctx->stream_id, &buf_entry->buffer.iova, cnt);
-
-	return buf_entry;
-}
-
-int mtk_cam_img_working_buf_pool_init(struct mtk_cam_ctx *ctx, int buf_num,
-									  int working_buf_size)
-{
+	struct mtk_cam_pool_buffer *buf = pool->buffers;
 	int i;
-	struct mem_obj smem;
-	struct mtk_ccd *ccd;
-	void *mem_priv;
-	int dmabuf_fd;
-	struct dma_buf *dbuf;
 
-	if (buf_num > CAM_IMG_BUF_NUM) {
-		dev_info(ctx->cam->dev,
-		"%s: ctx(%d): image buffers number too large(%d)\n",
-		__func__, ctx->stream_id, buf_num);
-		WARN_ON(1);
-		return 0;
+	for (i = 0; i < pool->n_buffers; i++, buf++) {
+		buf->daddr = da;
+		buf->vaddr = va;
+		buf->pool = pool;
+		buf->_priv = i;
+
+		da += per_size;
+		va += per_size;
+	}
+}
+
+int mtk_cam_pool_alloc(struct mtk_cam_pool *pool,
+		       struct mtk_cam_device_buf *buf, int n_buffers)
+{
+	WARN_ON(!pool || !buf || !n_buffers);
+	WARN_ON(n_buffers >= (1 << 7)); /* max 2^7 */
+
+	if (!buf->daddr) {
+		pr_info("buf is not mapped yet\n");
+		return -1;
 	}
 
-	INIT_LIST_HEAD(&ctx->img_buf_pool.cam_freeimglist.list);
-	spin_lock_init(&ctx->img_buf_pool.cam_freeimglist.lock);
-	ctx->img_buf_pool.cam_freeimglist.cnt = 0;
-	ctx->img_buf_pool.working_img_buf_size = buf_num * working_buf_size;
-	smem.len = ctx->img_buf_pool.working_img_buf_size;
-	dev_info(ctx->cam->dev, "%s:ctx(%d) smem.len(%d)\n",
-			__func__, ctx->stream_id, smem.len);
-	ccd = (struct mtk_ccd *)ctx->cam->rproc_handle->priv;
-	mem_priv = mtk_ccd_get_buffer(ccd, &smem);
-	if (IS_ERR(mem_priv))
-		return PTR_ERR(mem_priv);
-	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
-	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
-	if (dbuf)
-		mtk_dma_buf_set_name(dbuf, "CAM_MEM_IMG_ID");
-	ctx->img_buf_pool.working_img_buf_va = smem.va;
-	ctx->img_buf_pool.working_img_buf_iova = smem.iova;
-	ctx->img_buf_pool.working_img_buf_fd = dmabuf_fd;
+	pool->n_buffers = n_buffers;
+	pool->buffers = kcalloc(n_buffers, sizeof(*pool->buffers), GFP_KERNEL);
+	if (!pool->buffers)
+		return -ENOMEM;
 
-	for (i = 0; i < buf_num; i++) {
-		struct mtk_cam_img_working_buf_entry *buf = &ctx->img_buf_pool.img_working_buf[i];
-		int offset;
+	_pool_init_elements(pool, buf->daddr, buf->vaddr,
+			    buf->size / n_buffers);
 
-		offset = i * working_buf_size;
-
-		buf->ctx = ctx;
-		buf->img_buffer.va = ctx->img_buf_pool.working_img_buf_va + offset;
-		buf->img_buffer.iova = ctx->img_buf_pool.working_img_buf_iova + offset;
-		buf->img_buffer.size = working_buf_size;
-		dev_info(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(0x%x)\n",
-			__func__, ctx->stream_id, i, buf->img_buffer.iova);
-
-		list_add_tail(&buf->list_entry, &ctx->img_buf_pool.cam_freeimglist.list);
-		ctx->img_buf_pool.cam_freeimglist.cnt++;
-	}
-
-	dev_info(ctx->cam->dev,
-		 "%s: ctx(%d): image buffers init, freebuf cnt(%d)\n",
-		 __func__, ctx->stream_id, ctx->img_buf_pool.cam_freeimglist.cnt);
+	spin_lock_init(&pool->lock);
+	pool->fetch_idx = 0;
 
 	return 0;
 }
 
-void mtk_cam_img_working_buf_pool_release(struct mtk_cam_ctx *ctx)
-{
-	int fd;
-	struct mtk_ccd *ccd = ctx->cam->rproc_handle->priv;
-	struct mem_obj smem;
-
-	smem.va = ctx->img_buf_pool.working_img_buf_va;
-	smem.iova = ctx->img_buf_pool.working_img_buf_iova;
-	smem.len = ctx->img_buf_pool.working_img_buf_size;
-	fd = ctx->img_buf_pool.working_img_buf_fd;
-	mtk_ccd_put_buffer_fd(ccd, &smem, fd);
-	mtk_ccd_put_buffer(ccd, &smem);
-	ctx->img_buf_pool.working_img_buf_size = 0;
-
-	dev_info(ctx->cam->dev,
-		"%s:ctx(%d):cq buffers release, mem iova(0x%x), sz(%d)\n",
-		__func__, ctx->stream_id, smem.iova, smem.len);
-}
-
-void mtk_cam_img_working_buf_put(struct mtk_cam_img_working_buf_entry *buf_entry)
-{
-	struct mtk_cam_ctx *ctx = buf_entry->ctx;
-	int cnt;
-
-	spin_lock(&ctx->img_buf_pool.cam_freeimglist.lock);
-
-	list_add_tail(&buf_entry->list_entry,
-		      &ctx->img_buf_pool.cam_freeimglist.list);
-	cnt = ++ctx->img_buf_pool.cam_freeimglist.cnt;
-
-	spin_unlock(&ctx->img_buf_pool.cam_freeimglist.lock);
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(0x%x), free cnt(%d)\n",
-		__func__, ctx->stream_id, buf_entry->img_buffer.iova, cnt);
-}
-
-struct mtk_cam_img_working_buf_entry*
-mtk_cam_img_working_buf_get(struct mtk_cam_ctx *ctx)
-{
-	struct mtk_cam_img_working_buf_entry *buf_entry;
-	int cnt;
-
-	/* get from free list */
-	spin_lock(&ctx->img_buf_pool.cam_freeimglist.lock);
-	if (list_empty(&ctx->img_buf_pool.cam_freeimglist.list)) {
-		spin_unlock(&ctx->img_buf_pool.cam_freeimglist.lock);
-
-		dev_info(ctx->cam->dev, "%s:ctx(%d):no free buf\n",
-			 __func__, ctx->stream_id);
-		return NULL;
-	}
-
-	buf_entry = list_first_entry(&ctx->img_buf_pool.cam_freeimglist.list,
-				     struct mtk_cam_img_working_buf_entry,
-				     list_entry);
-	list_del(&buf_entry->list_entry);
-	cnt = --ctx->img_buf_pool.cam_freeimglist.cnt;
-
-	spin_unlock(&ctx->img_buf_pool.cam_freeimglist.lock);
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):iova(0x%x), free cnt(%d)\n",
-		__func__, ctx->stream_id, buf_entry->img_buffer.iova, cnt);
-
-	return buf_entry;
-}
-
-int mtk_cam_sv_working_buf_pool_init(struct mtk_cam_ctx *ctx)
+void mtk_cam_pool_destroy(struct mtk_cam_pool *pool)
 {
 	int i;
 
-	INIT_LIST_HEAD(&ctx->buf_pool.sv_freelist.list);
-	spin_lock_init(&ctx->buf_pool.sv_freelist.lock);
-	ctx->buf_pool.sv_freelist.cnt = 0;
+	if (pool->buffers) {
+		// check buf status
+		spin_lock(&pool->lock);
+		for (i = 0; i < pool->n_buffers; i++)
+			if (!IS_AVAILABLE(pool->buffers[i]._priv))
+				pr_info("buf idx %d is not returned yet\n", i);
+		spin_unlock(&pool->lock);
 
-	for (i = 0; i < CAMSV_WORKING_BUF_NUM; i++) {
-		struct mtk_camsv_working_buf_entry *buf = &ctx->buf_pool.sv_working_buf[i];
-		buf->ctx = ctx;
-
-		list_add_tail(&buf->list_entry,
-			      &ctx->buf_pool.sv_freelist.list);
-		ctx->buf_pool.sv_freelist.cnt++;
-	}
-	dev_info(ctx->cam->dev, "%s:ctx(%d):freebuf cnt(%d)\n", __func__,
-		 ctx->stream_id, ctx->buf_pool.sv_freelist.cnt);
-
-	return 0;
-}
-
-void
-mtk_cam_sv_working_buf_put(struct mtk_camsv_working_buf_entry *buf_entry)
-{
-	struct mtk_cam_ctx *ctx = buf_entry->ctx;
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
-
-	if (!buf_entry)
-		return;
-
-	spin_lock(&ctx->buf_pool.sv_freelist.lock);
-	list_add_tail(&buf_entry->list_entry,
-		      &ctx->buf_pool.sv_freelist.list);
-	ctx->buf_pool.sv_freelist.cnt++;
-	spin_unlock(&ctx->buf_pool.sv_freelist.lock);
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
-}
-
-struct mtk_camsv_working_buf_entry*
-mtk_cam_sv_working_buf_get(struct mtk_cam_ctx *ctx)
-{
-	struct mtk_camsv_working_buf_entry *buf_entry;
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
-
-	spin_lock(&ctx->buf_pool.sv_freelist.lock);
-	if (list_empty(&ctx->buf_pool.sv_freelist.list)) {
-		spin_unlock(&ctx->buf_pool.sv_freelist.lock);
-		return NULL;
+		kfree(pool->buffers);
 	}
 
-	buf_entry = list_first_entry(&ctx->buf_pool.sv_freelist.list,
-				     struct mtk_camsv_working_buf_entry,
-				     list_entry);
-	list_del(&buf_entry->list_entry);
-	ctx->buf_pool.sv_freelist.cnt--;
-	spin_unlock(&ctx->buf_pool.sv_freelist.lock);
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
-	return buf_entry;
+	memset(pool, 0, sizeof(*pool));
 }
 
-int mtk_cam_mraw_working_buf_pool_init(struct mtk_cam_ctx *ctx)
+int mtk_cam_pool_buffer_fetch(struct mtk_cam_pool *pool,
+			      struct mtk_cam_pool_buffer *buf)
 {
-	int i;
-	const int working_buf_size = round_up(CQ_BUF_SIZE, PAGE_SIZE);
+	int n = pool->n_buffers;
+	int i, c;
 
-	INIT_LIST_HEAD(&ctx->buf_pool.mraw_freelist.list);
-	spin_lock_init(&ctx->buf_pool.mraw_freelist.lock);
-	ctx->buf_pool.mraw_freelist.cnt = 0;
+	spin_lock(&pool->lock);
+	for (i = pool->fetch_idx, c = 0; c < n; i = (i + 1) % n)
+		if (IS_AVAILABLE(pool->buffers[i]._priv)) {
+			*buf = pool->buffers[i];
+			pool->buffers[i]._priv = MARK_UNAVAILABLE(i);
 
-	for (i = 0; i < MRAW_WORKING_BUF_NUM; i++) {
-		struct mtk_mraw_working_buf_entry *buf
-				= &ctx->buf_pool.mraw_working_buf[i];
-		int offset;
+			pool->fetch_idx = (i + 1) % n;
+			break;
+		}
+	spin_unlock(&pool->lock);
 
-		offset = i * working_buf_size;
-
-		buf->buffer.va = ctx->buf_pool.working_buf_va + offset;
-		buf->buffer.iova = ctx->buf_pool.working_buf_iova + offset;
-		buf->buffer.size = working_buf_size;
-		buf->s_data = NULL;
-		dev_dbg(ctx->cam->dev, "%s:ctx(%d):buf(%d), iova(%pad)\n",
-			__func__, ctx->stream_id, i, &buf->buffer.iova);
-
-		list_add_tail(&buf->list_entry,
-			      &ctx->buf_pool.mraw_freelist.list);
-		ctx->buf_pool.mraw_freelist.cnt++;
-	}
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):freebuf cnt(%d)\n", __func__,
-		 ctx->stream_id, ctx->buf_pool.mraw_freelist.cnt);
-
-	return 0;
+	return (c == n) ? -1 : 0;
 }
 
-void mtk_cam_mraw_working_buf_put(struct mtk_cam_ctx *ctx,
-			     struct mtk_mraw_working_buf_entry *buf_entry)
+void mtk_cam_pool_buffer_return(struct mtk_cam_pool_buffer *buf)
 {
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
+	struct mtk_cam_pool *pool = buf->pool;
+	struct mtk_cam_pool_buffer *dst;
+	int i = INDEX(buf->_priv);
 
-	if (!buf_entry)
-		return;
+	dst = &pool->buffers[i];
 
-	spin_lock(&ctx->buf_pool.mraw_freelist.lock);
-	list_add_tail(&buf_entry->list_entry,
-		      &ctx->buf_pool.mraw_freelist.list);
-	ctx->buf_pool.mraw_freelist.cnt++;
-	spin_unlock(&ctx->buf_pool.mraw_freelist.lock);
+	/* already return */
+	WARN_ON(IS_AVAILABLE(dst->_priv));
 
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
+	spin_lock(&pool->lock);
+	dst->_priv = MARK_AVAILABLE(i);
+	spin_unlock(&pool->lock);
 }
 
-struct mtk_mraw_working_buf_entry*
-mtk_cam_mraw_working_buf_get(struct mtk_cam_ctx *ctx)
-{
-	struct mtk_mraw_working_buf_entry *buf_entry;
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):s\n", __func__, ctx->stream_id);
-
-	spin_lock(&ctx->buf_pool.mraw_freelist.lock);
-	if (list_empty(&ctx->buf_pool.mraw_freelist.list)) {
-		spin_unlock(&ctx->buf_pool.mraw_freelist.lock);
-		return NULL;
-	}
-
-	buf_entry = list_first_entry(&ctx->buf_pool.mraw_freelist.list,
-				     struct mtk_mraw_working_buf_entry,
-				     list_entry);
-	list_del(&buf_entry->list_entry);
-	ctx->buf_pool.mraw_freelist.cnt--;
-	spin_unlock(&ctx->buf_pool.mraw_freelist.lock);
-
-	dev_dbg(ctx->cam->dev, "%s:ctx(%d):e\n", __func__, ctx->stream_id);
-	return buf_entry;
-}

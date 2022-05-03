@@ -19,11 +19,11 @@
 #include <soc/mediatek/smi.h>
 
 #include "mtk_cam.h"
+#include "mtk_cam-ctrl.h"
 #include "mtk_cam-feature.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-regs.h"
 #include "mtk_cam-seninf-if.h"
-
 #include "mtk_cam-dmadbg.h"
 #include "mtk_cam-raw_debug.h"
 
@@ -119,7 +119,9 @@ void apply_cq(struct mtk_raw_device *dev,
 
 		wmb(); /* make sure committed */
 	} else {
-		ccu_apply_cq(dev, cq_addr, cq_size, initial, cq_offset, sub_cq_size, sub_cq_offset);
+		//TODO
+		//ccu_apply_cq(dev, cq_addr, cq_size, initial,
+		//	     cq_offset, sub_cq_size, sub_cq_offset);
 	}
 
 	MTK_CAM_TRACE_END(BASIC);
@@ -287,11 +289,12 @@ static void reset_reg(struct mtk_raw_device *dev)
 void dump_aa_info(struct mtk_cam_ctx *ctx,
 					struct mtk_ae_debug_data *ae_info)
 {
+#ifdef NOT_READY
 	struct mtk_raw_device *raw_dev = NULL;
 	struct mtk_raw_pipeline *pipe = ctx->pipe;
 	int i;
 
-	for (i = 0; i < ctx->cam->num_raw_drivers; i++) {
+	for (i = 0; i < ctx->cam->num_raw_devices; i++) {
 		if (pipe->enabled_raw & (1 << i)) {
 			struct device *dev = ctx->cam->raw.devs[i];
 
@@ -361,6 +364,7 @@ void dump_aa_info(struct mtk_cam_ctx *ctx,
 				readl(raw_dev->base + REG_AA_GB_SUM_L);
 		}
 	}
+#endif
 }
 
 static int reset_msgfifo(struct mtk_raw_device *dev)
@@ -458,8 +462,8 @@ void enable_tg_db(struct mtk_raw_device *dev, int en)
 static void init_dma_threshold(struct mtk_raw_device *dev)
 {
 	struct mtk_cam_device *cam_dev;
-	struct mtk_yuv_device *yuv_dev = get_yuv_dev(dev);
-	bool is_srt = mtk_cam_is_srt(dev->pipeline->hw_mode);
+	struct mtk_yuv_device *yuv_dev = NULL; //get_yuv_dev(dev);
+	bool is_srt = 0; //TODO: mtk_cam_is_srt(dev->pipeline->hw_mode);
 	unsigned int raw_urgent, yuv_urgent;
 
 	cam_dev = dev->cam;
@@ -861,7 +865,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 				wmb(); /* TBC */
 			}
 		} else {
-			ccu_stream_on(dev);
+			//TODO: ccu_stream_on(dev);
 		}
 		atomic_set(&dev->vf_en, 1);
 		dev_dbg(dev->dev,
@@ -1153,9 +1157,9 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		/* normal case */
 
 		/* inform interrupt information to camsys controller */
-		mtk_camsys_isr_event(raw_dev->cam,
-				     CAMSYS_ENGINE_RAW, raw_dev->id,
-				     &irq_info);
+		//mtk_camsys_isr_event(raw_dev->cam,
+		//		     CAMSYS_ENGINE_RAW, raw_dev->id,
+		//		     &irq_info);
 	}
 
 	return IRQ_HANDLED;
@@ -1164,6 +1168,7 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 				int dequeued_frame_seq_no)
 {
+#ifdef NOT_READY
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *s_data;
 	int val, val2;
@@ -1220,7 +1225,7 @@ void raw_irq_handle_tg_grab_err(struct mtk_raw_device *raw_dev,
 			 "%s: req(%d) can't be found for seninf dump\n",
 			 __func__, dequeued_frame_seq_no);
 	}
-
+#endif
 }
 
 void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev, int dequeued_frame_seq_no)
@@ -1263,6 +1268,7 @@ void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev, int dequeued_frame_s
 static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 					  int dequeued_frame_seq_no)
 {
+#ifdef NOT_READY
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_request_stream_data *s_data;
 	int val, val2;
@@ -1357,6 +1363,7 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 		if (0 && raw_dev->sof_count > 3 && ctx->seninf)
 			mtk_cam_seninf_dump(ctx->seninf, (u32)dequeued_frame_seq_no);
 	}
+#endif
 }
 
 static int mtk_raw_pm_suspend_prepare(struct mtk_raw_device *dev)
@@ -1582,29 +1589,14 @@ static int mtk_raw_component_bind(struct device *dev, struct device *master,
 {
 	struct mtk_raw_device *raw_dev = dev_get_drvdata(dev);
 	struct mtk_cam_device *cam_dev = data;
-	struct mtk_raw *raw = &cam_dev->raw;
-
-	dev_info(dev, "%s: id=%d\n", __func__, raw_dev->id);
 
 	raw_dev->cam = cam_dev;
-	raw->devs[raw_dev->id] = dev;
-	raw->cam_dev = cam_dev->dev;
-
-	return 0;
+	return mtk_cam_set_dev_raw(cam_dev->dev, raw_dev->id, dev, NULL);
 }
 
 static void mtk_raw_component_unbind(struct device *dev, struct device *master,
 				     void *data)
 {
-	struct mtk_raw_device *raw_dev = dev_get_drvdata(dev);
-	struct mtk_cam_device *cam_dev = data;
-	struct mtk_raw *raw = &cam_dev->raw;
-
-	//dev_info(dev, "%s\n", __func__);
-
-	raw_dev->cam = NULL;
-	raw_dev->pipeline = NULL;
-	raw->devs[raw_dev->id] = NULL;
 }
 
 static const struct component_ops mtk_raw_component_ops = {
@@ -1752,23 +1744,14 @@ static int mtk_yuv_component_bind(struct device *dev, struct device *master,
 {
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
 	struct mtk_cam_device *cam_dev = data;
-	struct mtk_raw *raw = &cam_dev->raw;
 
 	dev_info(dev, "%s: id=%d\n", __func__, drvdata->id);
-	raw->yuvs[drvdata->id] = dev;
-
-	return 0;
+	return mtk_cam_set_dev_raw(cam_dev->dev, drvdata->id, NULL, dev);
 }
 
 static void mtk_yuv_component_unbind(struct device *dev, struct device *master,
 				     void *data)
 {
-	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
-	struct mtk_cam_device *cam_dev = data;
-	struct mtk_raw *raw = &cam_dev->raw;
-
-	//dev_info(dev, "%s\n", __func__);
-	raw->yuvs[drvdata->id] = NULL;
 }
 
 static const struct component_ops mtk_yuv_component_ops = {
@@ -2087,6 +2070,7 @@ static int mtk_yuv_runtime_resume(struct device *dev)
 #ifdef CAMSYS_TF_DUMP_71_1
 int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 {
+#ifdef NOT_READY
 #define REG_YSIZE_OFFSET	0x14
 #define REG_STRIDE_OFFSET	0x18
 
@@ -2728,7 +2712,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 		mtk_cam_req_dump(s_data, MTK_CAM_REQ_DUMP_DEQUEUE_FAILED, "M4U TF", false);
 	else
 		dev_info(raw_dev->dev, "s_data is null\n");
-
+#endif
 	return 0;
 }
 #endif

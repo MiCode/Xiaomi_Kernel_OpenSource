@@ -37,26 +37,28 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/tee_gp/include
 
 $(CAM_MODULE)-objs := \
     mtk_cam.o \
-    mtk_cam-raw.o \
-    mtk_cam-raw_pipeline.o \
+    mtk_cam-larb.o \
     mtk_cam-pool.o \
-    mtk_cam_pm.o \
     mtk_cam-video.o \
-    mtk_cam-smem.o \
+    mtk_cam-fmt_utils.o \
     mtk_cam_vb2-dma-contig.o \
-    mtk_cam-ctrl.o \
     mtk_cam-seninf-route.o \
     mtk_cam-seninf-drv.o \
-    mtk_cam-dvfs_qos.o \
-    mtk_cam-debug.o \
-    mtk_cam-sv.o \
-    mtk_cam-raw_debug.o \
-    mtk_cam-tg-flash.o \
-    mtk_cam-feature.o \
-    mtk_cam-mraw.o\
     mtk_cam-seninf-ca.o \
     mtk_cam-timesync.o \
-    mtk_cam-plat.o
+    mtk_cam-plat.o \
+    mtk_cam-raw.o \
+    mtk_cam-raw_pipeline.o \
+    mtk_cam-raw_debug.o \
+    mtk_cam-tg-flash.o
+
+    #mtk_cam-ctrl.o
+    #mtk_cam-smem.o \
+    #mtk_cam-dvfs_qos.o \
+    #mtk_cam-debug.o \
+    #mtk_cam-sv.o \
+    #mtk_cam-feature.o \
+    #mtk_cam-mraw.o\
 
 # platform data
 $(CAM_MODULE)-objs += \
@@ -67,7 +69,7 @@ ifeq ($(CAMSYS_TRACE_ENABLE), y)
     ccflags-y += -DMTK_CAM_TRACE_SUPPORT
 endif
 
-$(CAM_MODULE)-objs +=  mtk_cam-hsf.o
+#$(CAM_MODULE)-objs +=  mtk_cam-hsf.o
 #$(CAM_MODULE)-objs += mtk_cam-procdbg.o
 
 include $(src)/mtk_csi_phy_2_0/sub_drv.mk

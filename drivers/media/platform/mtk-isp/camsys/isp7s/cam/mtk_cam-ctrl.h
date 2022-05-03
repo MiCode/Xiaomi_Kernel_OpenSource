@@ -14,6 +14,7 @@
 
 struct mtk_cam_device;
 struct mtk_raw_device;
+struct mtk_camsv_device;
 
 enum MTK_CAMSYS_ENGINE_TYPE {
 	CAMSYS_ENGINE_RAW,

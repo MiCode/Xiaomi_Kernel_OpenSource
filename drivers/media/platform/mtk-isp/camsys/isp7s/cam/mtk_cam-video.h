@@ -17,9 +17,6 @@
 #include "mtk_cam-ipi.h"
 #include "mtk_camera-videodev2.h"
 
-#define MAX_PLANE_NUM 3
-#define MAX_SUBSAMPLE_PLANE_NUM 8
-
 struct mtk_cam_device;
 struct mtk_cam_resource;
 struct mtk_raw_pde_config;
@@ -49,7 +46,6 @@ typedef int (*set_pad_selection_func_t)(struct v4l2_subdev *sd,
 struct mtk_cam_buffer {
 	struct vb2_v4l2_buffer vbb;
 	struct list_head list;
-	struct list_head stream_data_list;
 
 	dma_addr_t daddr;
 	dma_addr_t scp_addr;
@@ -129,11 +125,15 @@ struct mtk_cam_video_device {
 	struct v4l2_selection pending_crop;
 	/* Serializes vb2 queue and video device operations */
 	struct mutex q_lock;
-	int streaming_id;
-
-	/* cached ctx info */
-	struct mtk_cam_ctx *ctx;
 };
+
+#define media_entity_to_mtk_vdev(ent)	\
+({					\
+	typeof(ent) _ent = (ent);	\
+	_ent ? container_of(_ent, struct mtk_cam_video_device, vdev.entity) : \
+		NULL; \
+})
+
 
 struct mtk_format_info {
 	u32 format;
@@ -215,19 +215,9 @@ unsigned int mtk_cam_get_sensor_fmt(unsigned int fmt);
 
 int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt);
 
-unsigned int mtk_cam_get_pixel_bits(unsigned int pix_fmt);
-
 unsigned int mtk_cam_get_img_fmt(unsigned int fourcc);
 
 int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, int feature);
-
-int is_mtk_format(u32 pixelformat);
-
-int is_yuv_ufo(u32 pixelformat);
-
-int is_raw_ufo(u32 pixelformat);
-
-int is_fullg_rb(u32 pixelformat);
 
 const struct mtk_format_info *mtk_format_info(u32 format);
 

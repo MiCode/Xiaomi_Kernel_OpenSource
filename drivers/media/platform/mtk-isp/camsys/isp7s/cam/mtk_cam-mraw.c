@@ -21,7 +21,7 @@
 #include <soc/mediatek/smi.h>
 
 #include "mtk_cam.h"
-#include "mtk_cam_pm.h"
+#include "mtk_cam-larb.h"
 #include "mtk_cam-pool.h"
 #include "mtk_cam-mraw-regs.h"
 #include "mtk_cam-mraw.h"

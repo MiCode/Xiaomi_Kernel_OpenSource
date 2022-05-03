@@ -22,7 +22,7 @@
 
 #include "mtk_cam.h"
 #include "mtk_cam-feature.h"
-#include "mtk_cam_pm.h"
+#include "mtk_cam-larb.h"
 #include "mtk_cam-pool.h"
 #include "mtk_cam-sv-regs.h"
 #include "mtk_cam-sv.h"

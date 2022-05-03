@@ -91,6 +91,7 @@ struct mtk_ae_debug_data {
 	u64 LTM_Sum[4];
 };
 
+#ifdef NOT_READY
 /*
  * struct mtk_raw - the raw information
  *
@@ -103,6 +104,7 @@ struct mtk_raw {
 	struct device *yuvs[RAW_PIPELINE_NUM];
 	struct mtk_raw_pipeline pipelines[RAW_PIPELINE_NUM];
 };
+#endif
 
 void subsample_enable(struct mtk_raw_device *dev);
 
