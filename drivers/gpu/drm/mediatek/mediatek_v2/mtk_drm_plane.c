@@ -183,10 +183,23 @@ mtk_plane_duplicate_state(struct drm_plane *plane)
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &state->base);
 
-	if (state->base.plane != plane)
-		DDPAEE("%s:%d, invalid plane:(%p,%p)\n",
+	if (state->base.plane != plane) {
+		struct mtk_drm_plane *mtk_plane = to_mtk_plane(plane);
+		int i;
+
+		DDPAEE("%s:%d, invalid plane:(%p,%p), plane->base.id %d, plane->name %s\n",
 			__func__, __LINE__,
-			state->base.plane, plane);
+			state->base.plane, plane, plane->base.id, plane->name);
+		for (i = 0; i < PLANE_PROP_MAX; i++) {
+			DDPMSG("%s:%d,%d,name[%s],property->base.id",
+				__func__, __LINE__, i,
+				mtk_plane->plane_property[i]->name,
+				mtk_plane->plane_property[i]->base.id);
+		}
+
+		if (!state->base.plane)
+			return NULL;
+	}
 
 	state->prop_val[PLANE_PROP_ALPHA_CON] =
 		old_state->prop_val[PLANE_PROP_ALPHA_CON];
