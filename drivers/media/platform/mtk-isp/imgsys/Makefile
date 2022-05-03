@@ -12,6 +12,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(srctree)/drivers/iommu
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/iommu
+ccflags-y += -I$(srctree)/include/soc/mediatek
 
 ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6983-larb-port.h),)
   subdir-ccflags-y += -DWPE_TF_DUMP_71_1

@@ -295,7 +295,9 @@ struct mtk_imgsys_dev {
 	struct workqueue_struct *mdp_wq[RUNNER_WQ_NR];
 	struct imgsys_queue runnerque;
 	wait_queue_head_t flushing_waitq;
-
+	/* larb control */
+	struct device **larbs;
+	unsigned int larbs_num;
 	struct work_pool gwork_pool;
 	atomic_t num_composing;	/* increase after ipi */
 	/*MDP/GCE callback workqueue */

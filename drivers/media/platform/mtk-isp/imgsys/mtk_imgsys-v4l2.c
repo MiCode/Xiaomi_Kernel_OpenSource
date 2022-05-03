@@ -2629,6 +2629,7 @@ static struct notifier_block imgsys_notifier_block = {
 int mtk_imgsys_probe(struct platform_device *pdev)
 {
 	struct mtk_imgsys_dev *imgsys_dev;
+	struct device **larb_devs;
 	const struct cust_data *data;
 #if MTK_CM4_SUPPORT
 	phandle rproc_phandle;
@@ -2715,6 +2716,11 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 	larbs_num = of_count_phandle_with_args(pdev->dev.of_node,
 						"mediatek,larbs", NULL);
 	dev_info(imgsys_dev->dev, "%d larbs to be added", larbs_num);
+
+	larb_devs = devm_kzalloc(&pdev->dev, sizeof(larb_devs) * larbs_num, GFP_KERNEL);
+	if (!larb_devs)
+		return -ENOMEM;
+
 	for (i = 0; i < larbs_num; i++) {
 		struct device_node *larb_node;
 		struct platform_device *larb_pdev;
@@ -2740,7 +2746,10 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 		if (!link)
 			dev_info(imgsys_dev->dev, "unable to link SMI LARB idx %d\n", i);
 
+		larb_devs[i] = &larb_pdev->dev;
 	}
+	imgsys_dev->larbs = larb_devs;
+	imgsys_dev->larbs_num = larbs_num;
 
 	atomic_set(&imgsys_dev->imgsys_enqueue_cnt, 0);
 	atomic_set(&imgsys_dev->imgsys_user_cnt, 0);
