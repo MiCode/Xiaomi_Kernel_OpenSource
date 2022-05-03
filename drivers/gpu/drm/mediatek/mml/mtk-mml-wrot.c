@@ -566,12 +566,16 @@ static s32 wrot_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 
 	if (task->config->info.mode == MML_MODE_RACING) {
 		/* assign sram pa directly */
+		mml_mmp(buf_map, MMPROFILE_FLAG_START,
+			((u64)task->job.jobid << 16) | comp->id, 0);
 		mutex_lock(&wrot->sram_mutex);
 		if (!wrot->sram_cnt)
 			wrot->sram_pa = (u64)mml_sram_get(task->config->mml);
 		wrot->sram_cnt++;
 		mutex_unlock(&wrot->sram_mutex);
 		wrot_frm->iova[0] = wrot->sram_pa;
+		mml_mmp(buf_map, MMPROFILE_FLAG_END,
+			((u64)task->job.jobid << 16) | comp->id, wrot_frm->iova[0]);
 	} else {
 		for (i = 0; i < dest_buf->cnt; i++)
 			wrot_frm->iova[i] = dest_buf->dma[i].iova;

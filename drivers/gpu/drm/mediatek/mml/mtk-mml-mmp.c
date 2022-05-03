@@ -29,6 +29,10 @@ void mml_mmp_init(void)
 	mml_mmp_events.config = mmprofile_register_event(mml, "config");
 	mml_mmp_events.task_create = mmprofile_register_event(mml, "task_create");
 	mml_mmp_events.buf_map = mmprofile_register_event(mml, "buf_map");
+	mml_mmp_events.comp_prepare = mmprofile_register_event(mml, "comp_prepare");
+	mml_mmp_events.tile_alloc = mmprofile_register_event(mml, "tile_alloc");
+	mml_mmp_events.tile_calc = mmprofile_register_event(mml, "tile_calc");
+	mml_mmp_events.command = mmprofile_register_event(mml, "command");
 	mml_mmp_events.fence = mmprofile_register_event(mml, "fence");
 	mml_mmp_events.fence_timeout = mmprofile_register_event(mml, "fence_timeout");
 	mml_mmp_events.flush = mmprofile_register_event(mml, "flush");

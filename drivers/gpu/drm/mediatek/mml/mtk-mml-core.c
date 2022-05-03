@@ -243,6 +243,7 @@ static s32 core_prepare(struct mml_task *task, u32 pipe)
 
 	for (i = 0; i < path->node_cnt; i++) {
 		comp = path->nodes[i].comp;
+		mml_mmp(comp_prepare, MMPROFILE_FLAG_PULSE, comp->id, 0);
 		call_cfg_op(comp, prepare, task, &cache->cfg[i]);
 		ret = call_cfg_op(comp, buf_prepare, task, &cache->cfg[i]);
 		if (ret < 0)
@@ -1164,6 +1165,7 @@ static s32 core_command(struct mml_task *task, u32 pipe)
 	s32 ret;
 
 	mml_trace_ex_begin("%s_%s_%u", __func__, "cmd", pipe);
+	mml_mmp(command, MMPROFILE_FLAG_START, task->job.jobid, pipe);
 	if (task->state == MML_TASK_INITIAL) {
 		/* make commands into pkt for later flush */
 		ret = command_make(task, pipe);
@@ -1171,6 +1173,7 @@ static s32 core_command(struct mml_task *task, u32 pipe)
 		ret = command_reuse(task, pipe);
 	}
 
+	mml_mmp(command, MMPROFILE_FLAG_END, task->job.jobid, pipe);
 	mml_trace_ex_end();
 	return ret;
 }

@@ -29,6 +29,10 @@ struct mml_mmp_events_t {
 	mmp_event config;
 	mmp_event task_create;
 	mmp_event buf_map;
+	mmp_event comp_prepare;
+	mmp_event tile_alloc;
+	mmp_event tile_calc;
+	mmp_event command;
 	mmp_event fence;
 	mmp_event fence_timeout;
 	mmp_event flush;

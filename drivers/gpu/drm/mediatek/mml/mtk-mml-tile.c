@@ -9,6 +9,7 @@
 #include <linux/vmalloc.h>
 
 #include "mtk-mml-core.h"
+#include "mtk-mml-mmp.h"
 #include "mtk-mml-tile.h"
 #include "tile_driver.h"
 
@@ -259,6 +260,7 @@ static s32 create_tile_ctx(struct tile_ctx *ctx, u32 eng_cnt, size_t tile_max,
 				__func__,
 				(u32)ARRAY_SIZE(tile_cache->func_list),
 				(u32)ARRAY_SIZE(ctx->tile_func->func_list));
+		mml_mmp(tile_alloc, MMPROFILE_FLAG_START, 0, sizeof(struct tile_func_block));
 		for (i = 0; i < ARRAY_SIZE(tile_cache->func_list); i++) {
 			if (tile_cache->func_list[i])
 				continue;
@@ -267,10 +269,14 @@ static s32 create_tile_ctx(struct tile_ctx *ctx, u32 eng_cnt, size_t tile_max,
 			if (!tile_cache->func_list[i])
 				return -ENOMEM;
 		}
+		mml_mmp(tile_alloc, MMPROFILE_FLAG_END, 0, ARRAY_SIZE(tile_cache->func_list));
 
 		if (!tile_cache->tiles) {
+			mml_mmp(tile_alloc, MMPROFILE_FLAG_START, 1,
+				sizeof(*ctx->output->tiles));
 			tile_cache->tiles = vmalloc(
 				MAX_TILE_NUM * sizeof(*ctx->output->tiles));
+			mml_mmp(tile_alloc, MMPROFILE_FLAG_END, 1, MAX_TILE_NUM);
 			if (!tile_cache->tiles)
 				return -ENOMEM;
 		}
@@ -440,6 +446,7 @@ s32 calc_tile(struct mml_task *task, u32 pipe, struct mml_tile_cache *tile_cache
 		goto free_output;
 	}
 
+	mml_mmp(tile_calc, MMPROFILE_FLAG_START, pipe, 0);
 	ret = calc_frame(task, pipe, path, &ctx);
 	if (ret)
 		goto err_tile;
@@ -463,6 +470,7 @@ free_output:
 	destroy_tile_output(ctx.output);
 free_working:
 	destroy_tile_working(&ctx);
+	mml_mmp(tile_calc, MMPROFILE_FLAG_END, pipe, 0);
 	return ret;
 }
 
