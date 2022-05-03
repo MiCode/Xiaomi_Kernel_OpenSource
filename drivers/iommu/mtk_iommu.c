@@ -1684,7 +1684,8 @@ static int mtk_iommu_map(struct iommu_domain *domain, unsigned long iova,
 			__func__, ret, dom->data->plat_data->iommu_type,
 			dom->data->plat_data->iommu_id, dom->tab_id, iova,
 			(iova + size - 1), &paddr, size, prot, gfp);
-		mtk_iommu_dump_iova(dom->data, IOMMU_BK0, iova);
+		if (ret != -ENOMEM)
+			mtk_iommu_dump_iova(dom->data, IOMMU_BK0, iova);
 	}
 	return ret;
 }
