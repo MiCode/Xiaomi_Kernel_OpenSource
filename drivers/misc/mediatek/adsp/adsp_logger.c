@@ -23,12 +23,13 @@
 
 unsigned int adsp_log_poll(struct log_ctrl_s *ctrl)
 {
-	struct log_info_s *log_info = (struct log_info_s *)ctrl->priv;
+	struct log_info_s *log_info;
 	struct buffer_info_s *buf_info;
 
 	if (!ctrl || !ctrl->inited)
 		return 0;
 
+	log_info = (struct log_info_s *)ctrl->priv;
 	buf_info = (struct buffer_info_s *)(ctrl->priv + log_info->info_ofs);
 
 	if (buf_info->r_pos != buf_info->w_pos)
@@ -41,14 +42,16 @@ ssize_t adsp_log_read(struct log_ctrl_s *ctrl, char __user *userbuf, size_t len)
 {
 	unsigned int w_pos, r_pos, datalen = 0;
 	unsigned int data_len[2];
-	void *addr = ctrl->priv;
+	void *addr;
 	void *tmp_area;
-	struct log_info_s *log_info = (struct log_info_s *)ctrl->priv;
+	struct log_info_s *log_info;
 	struct buffer_info_s *buf_info;
 
 	if (!ctrl || !ctrl->inited)
 		return 0;
 
+	addr = ctrl->priv;
+	log_info = (struct log_info_s *)ctrl->priv;
 	buf_info = (struct buffer_info_s *)(ctrl->priv + log_info->info_ofs);
 
 	mutex_lock(&ctrl->lock);

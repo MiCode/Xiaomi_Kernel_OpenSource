@@ -106,7 +106,7 @@ int adsp_core0_suspend(void)
 		adsp_timesync_suspend(APTIME_UNFREEZE);
 
 		if (adsp_push_message(ADSP_IPI_DVFS_SUSPEND, &status,
-				      sizeof(status), 2000, pdata->id)) {
+				      sizeof(status), 2000, pdata->id) != ADSP_IPI_DONE) {
 			ret = -EPIPE;
 			goto ERROR;
 		}
@@ -190,7 +190,7 @@ int adsp_core1_suspend(void)
 	if (get_adsp_state(pdata) == ADSP_RUNNING) {
 		reinit_completion(&pdata->done);
 		if (adsp_push_message(ADSP_IPI_DVFS_SUSPEND, &status,
-				      sizeof(status), 2000, pdata->id)) {
+				      sizeof(status), 2000, pdata->id) != ADSP_IPI_DONE) {
 			ret = -EPIPE;
 			goto ERROR;
 		}
