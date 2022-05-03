@@ -305,7 +305,7 @@ static void kwdt_time_sync(void)
 	ktime_get_real_ts64(&tv);
 	tv_android = tv;
 	rtc_time64_to_tm(tv.tv_sec, &tm);
-	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
+	tv_android.tv_sec -= (uint64_t)sys_tz.tz_minuteswest * 60;
 	rtc_time64_to_tm(tv_android.tv_sec, &tm_android);
 	pr_info("[thread:%d] %d-%02d-%02d %02d:%02d:%02d.%u UTC;"
 		"android time %d-%02d-%02d %02d:%02d:%02d.%03d\n",
@@ -507,15 +507,9 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		//sysrq_sched_debug_show_at_AEE();
 
 		if (systimer_base)
-#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
-			pr_info("SYST0 CON%x VAL%x affin time %lld\n",
-				ioread32(systimer_base + SYST0_CON),
-				ioread32(systimer_base + SYST0_VAL));
-#else
 			pr_info("SYST0 CON%x VAL%x\n",
 				ioread32(systimer_base + SYST0_CON),
 				ioread32(systimer_base + SYST0_VAL));
-#endif
 #if CHG_TMO_EN
 		if (toprgu_base) {
 			spin_lock_bh(&lock);
